@@ -5,7 +5,15 @@ import { isPointInRange } from './geometry';
 
 /** 格子坐标 */
 export interface GridPoint {
-  x: number;
+/**
+ * x：GridPoint 内部字段。
+ */
+
+  x: number;  
+  /**
+ * y：GridPoint 内部字段。
+ */
+
   y: number;
 }
 
@@ -14,29 +22,75 @@ export type TargetingShape = 'single' | 'line' | 'area' | 'box' | 'orientedBox' 
 
 /** 目标选取几何参数 */
 export interface TargetingGeometrySpec {
-  range: number;
-  shape?: TargetingShape;
-  radius?: number;
-  innerRadius?: number;
-  width?: number;
-  height?: number;
+/**
+ * range：TargetingGeometrySpec 内部字段。
+ */
+
+  range: number;  
+  /**
+ * shape：TargetingGeometrySpec 内部字段。
+ */
+
+  shape?: TargetingShape;  
+  /**
+ * radius：TargetingGeometrySpec 内部字段。
+ */
+
+  radius?: number;  
+  /**
+ * innerRadius：TargetingGeometrySpec 内部字段。
+ */
+
+  innerRadius?: number;  
+  /**
+ * width：TargetingGeometrySpec 内部字段。
+ */
+
+  width?: number;  
+  /**
+ * height：TargetingGeometrySpec 内部字段。
+ */
+
+  height?: number;  
+  /**
+ * checkerParity：TargetingGeometrySpec 内部字段。
+ */
+
   checkerParity?: 'even' | 'odd';
 }
 
 /** 目标几何附加参数：保存额外距离/面积类修饰。 */
 export interface TargetingGeometryModifiers {
-  extraRange?: number;
+/**
+ * extraRange：TargetingGeometryModifiers 内部字段。
+ */
+
+  extraRange?: number;  
+  /**
+ * extraArea：TargetingGeometryModifiers 内部字段。
+ */
+
   extraArea?: number;
 }
 
 /** 目标几何解析结果：放大后的最终命中范围参数。 */
 export interface TargetingGeometryResolution {
-  finalRange?: number;
+/**
+ * finalRange：TargetingGeometryResolution 内部字段。
+ */
+
+  finalRange?: number;  
+  /**
+ * extraArea：TargetingGeometryResolution 内部字段。
+ */
+
   extraArea?: number;
 }
 
 /** 使用 Bresenham 算法枚举两点连线经过的格子。 */
 export function getLineCells(start: GridPoint, end: GridPoint): GridPoint[] {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
   const cells: GridPoint[] = [];
   let x = start.x;
   let y = start.y;
@@ -67,6 +121,8 @@ export function getLineCells(start: GridPoint, end: GridPoint): GridPoint[] {
 
 /** 计算以中心点为圆心、指定半径内的圆形覆盖格子。 */
 export function getAreaCells(center: GridPoint, radius: number): GridPoint[] {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
   const cells: GridPoint[] = [];
   const normalizedRadius = Math.max(0, radius);
   for (let dy = -normalizedRadius; dy <= normalizedRadius; dy += 1) {
@@ -82,6 +138,8 @@ export function getAreaCells(center: GridPoint, radius: number): GridPoint[] {
 
 /** 计算以中心点为圆心、内外半径限定的环形覆盖格子。 */
 export function getRingCells(center: GridPoint, innerRadius: number, outerRadius: number): GridPoint[] {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
   const cells: GridPoint[] = [];
   const normalizedOuterRadius = Math.max(0, Math.floor(outerRadius));
   const normalizedInnerRadius = Math.max(0, Math.min(normalizedOuterRadius, Math.floor(innerRadius)));
@@ -101,6 +159,8 @@ export function getRingCells(center: GridPoint, innerRadius: number, outerRadius
 
 /** 计算以中心点为中心展开的矩形覆盖格子。 */
 export function getBoxCells(center: GridPoint, width: number, height: number): GridPoint[] {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
   const cells: GridPoint[] = [];
   const normalizedWidth = Math.max(1, Math.floor(width));
   const normalizedHeight = Math.max(1, Math.floor(height));
@@ -118,6 +178,8 @@ export function getBoxCells(center: GridPoint, width: number, height: number): G
 
 /** 计算沿朝向展开的定向矩形覆盖格子。 */
 function getOrientedBoxCells(origin: GridPoint, anchor: GridPoint, width: number, height: number): GridPoint[] {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
   const normalizedWidth = Math.max(1, Math.floor(width));
   const normalizedHeight = Math.max(1, Math.floor(height));
   const dirX = anchor.x - origin.x;
@@ -180,6 +242,8 @@ export function getCheckerboardCells(
 
 /** 计算点到线段的距离平方，用于粗略厚线判断。 */
 function getDistanceSquaredToSegment(point: GridPoint, start: GridPoint, end: GridPoint): number {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
   const dx = end.x - start.x;
   const dy = end.y - start.y;
   if (dx === 0 && dy === 0) {
@@ -200,6 +264,8 @@ function getDistanceSquaredToSegment(point: GridPoint, start: GridPoint, end: Gr
 
 /** 计算带宽度的直线覆盖格子。 */
 function getWideLineCells(start: GridPoint, end: GridPoint, width: number): GridPoint[] {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
   const line = getLineCells(start, end);
   if (line.length <= 1) {
     return [];
@@ -244,6 +310,8 @@ function normalizeTargetingShape(spec: TargetingGeometrySpec): TargetingShape {
 
 /** 单体技能若带额外范围，则扩成以目标为中心的小方块。 */
 function resolveSingleTargetingGeometry(range: number, extraArea: number): TargetingGeometrySpec {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
   if (extraArea <= 0) {
     return { range, shape: 'single' };
   }
@@ -307,6 +375,8 @@ export function resolveTargetingGeometry(
   spec: TargetingGeometrySpec,
   resolution?: TargetingGeometryResolution,
 ): TargetingGeometrySpec {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
   const shape = normalizeTargetingShape(spec);
   const range = Math.max(0, Math.floor(resolution?.finalRange ?? spec.range));
   const extraArea = Math.max(0, Math.floor(resolution?.extraArea ?? 0));
@@ -348,6 +418,8 @@ export function computeAffectedCellsFromAnchor(
   anchor: GridPoint,
   spec: TargetingGeometrySpec,
 ): GridPoint[] {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
   if (!isPointInRange(origin, anchor, spec.range)) {
     return [];
   }

@@ -3,7 +3,15 @@
  */
 /** 观察信息行 */
 export interface ObservationLine {
-  label: string;
+/**
+ * label：ObservationLine 内部字段。
+ */
+
+  label: string;  
+  /**
+ * value：ObservationLine 内部字段。
+ */
+
   value: string;
 }
 
@@ -12,7 +20,19 @@ export type ObservationClarity = 'veiled' | 'blurred' | 'partial' | 'clear' | 'c
 
 /** 观察洞察结果 */
 export interface ObservationInsight {
-  clarity: ObservationClarity;
-  verdict: string;
+/**
+ * clarity：ObservationInsight 内部字段。
+ */
+
+  clarity: ObservationClarity;  
+  /**
+ * verdict：ObservationInsight 内部字段。
+ */
+
+  verdict: string;  
+  /**
+ * lines：ObservationInsight 内部字段。
+ */
+
   lines: ObservationLine[];
 }

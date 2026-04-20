@@ -8,12 +8,40 @@ import { getCellSize } from '../display';
 
 /** 鼠标命中结果，包含坐标、实体和可交互状态。 */
 interface ClickTarget {
-  x: number;
-  y: number;
-  clientX?: number;
-  clientY?: number;
-  entityId?: string;
-  entityKind?: string;
+/**
+ * x：ClickTarget 内部字段。
+ */
+
+  x: number;  
+  /**
+ * y：ClickTarget 内部字段。
+ */
+
+  y: number;  
+  /**
+ * clientX：ClickTarget 内部字段。
+ */
+
+  clientX?: number;  
+  /**
+ * clientY：ClickTarget 内部字段。
+ */
+
+  clientY?: number;  
+  /**
+ * entityId：ClickTarget 内部字段。
+ */
+
+  entityId?: string;  
+  /**
+ * entityKind：ClickTarget 内部字段。
+ */
+
+  entityKind?: string;  
+  /**
+ * walkable：ClickTarget 内部字段。
+ */
+
   walkable?: boolean;
 }
 
@@ -25,8 +53,28 @@ export class MouseInput {
   /** 懒加载获取当前相机。 */
   private getCamera: (() => Camera) | null = null;
   /** 懒加载获取指定世界坐标的地块。 */
-  private getTileAt: ((x: number, y: number) => Tile | null) | null = null;
-  private getEntities: (() => { id: string; wx: number; wy: number; kind?: string }[]) | null = null;
+  private getTileAt: ((x: number, y: number) => Tile | null) | null = null;  
+  /**
+ * getEntities：MouseInput 内部字段。
+ */
+
+  private getEntities: (() => {  
+  /**
+ * id：MouseInput 内部字段。
+ */
+ id: string;  
+ /**
+ * wx：MouseInput 内部字段。
+ */
+ wx: number;  
+ /**
+ * wy：MouseInput 内部字段。
+ */
+ wy: number;  
+ /**
+ * kind：MouseInput 内部字段。
+ */
+ kind?: string }[]) | null = null;
   /** 懒加载获取当前地图元信息。 */
   private getMapMeta: (() => MapMeta | null) | null = null;
   /** 点击目标回调。 */
@@ -41,7 +89,23 @@ export class MouseInput {
     canvas: HTMLCanvasElement,
     getCamera: () => Camera,
     getTileAt: (x: number, y: number) => Tile | null,
-    getEntities: () => { id: string; wx: number; wy: number; kind?: string }[],
+    getEntities: () => {    
+    /**
+ * id：MouseInput 内部字段。
+ */
+ id: string;    
+ /**
+ * wx：MouseInput 内部字段。
+ */
+ wx: number;    
+ /**
+ * wy：MouseInput 内部字段。
+ */
+ wy: number;    
+ /**
+ * kind：MouseInput 内部字段。
+ */
+ kind?: string }[],
     getMapMeta: () => MapMeta | null,
     onTarget: (target: ClickTarget) => void,
     onHover?: (target: ClickTarget | null) => void,
@@ -60,6 +124,8 @@ export class MouseInput {
 
   /** 把点击位置解析为目标并触发回调。 */
   private onClick(e: MouseEvent) {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
     const target = this.resolveTargetFromMouse(e);
     if (!target) return;
     this.onTarget?.(target);
@@ -72,6 +138,8 @@ export class MouseInput {
 
   /** 将鼠标事件的屏幕坐标转换为世界格子坐标，并查找该格上的实体 */
   private resolveTargetFromMouse(e: MouseEvent): ClickTarget | null {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
     if (!this.canvas || !this.getCamera || !this.getTileAt || !this.getEntities || !this.getMapMeta || !this.onTarget) return null;
 
     const cam = this.getCamera();
@@ -101,7 +169,18 @@ export class MouseInput {
       return null;
     }
     return this.buildTarget(worldGX, worldGY, tile?.walkable ?? false, e.clientX, e.clientY, entity);
-  }
+  }  
+  /**
+ * buildTarget：构建并返回目标对象。
+ * @param x number X 坐标。
+ * @param y number Y 坐标。
+ * @param walkable boolean 参数说明。
+ * @param clientX number 参数说明。
+ * @param clientY number 参数说明。
+ * @param entity { id: string; wx: number; wy: number; kind?: string } 参数说明。
+ * @returns ClickTarget。
+ */
+
 
   private buildTarget(
     x: number,
@@ -109,8 +188,26 @@ export class MouseInput {
     walkable: boolean,
     clientX?: number,
     clientY?: number,
-    entity?: { id: string; wx: number; wy: number; kind?: string },
+    entity?: {    
+    /**
+ * id：MouseInput 内部字段。
+ */
+ id: string;    
+ /**
+ * wx：MouseInput 内部字段。
+ */
+ wx: number;    
+ /**
+ * wy：MouseInput 内部字段。
+ */
+ wy: number;    
+ /**
+ * kind：MouseInput 内部字段。
+ */
+ kind?: string },
   ): ClickTarget {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
     if (!this.getEntities) {
       return { x, y, clientX, clientY, walkable };
     }

@@ -12,20 +12,60 @@ export type MailCampaignStatus = 'active' | 'cancelled';
 
 /** 邮件模板令牌：文本片段或参数占位符。 */
 export type MailTemplateToken =
-  | { kind: 'text'; value: string }
-  | { kind: 'arg'; index: number };
+  | {  
+  /**
+ * kind：对象字段。
+ */
+ kind: 'text';  
+ /**
+ * value：对象字段。
+ */
+ value: string }
+  | {  
+  /**
+ * kind：对象字段。
+ */
+ kind: 'arg';  
+ /**
+ * index：对象字段。
+ */
+ index: number };
 
 /** 邮件模板定义，保存标题和正文的可渲染骨架。 */
 export interface MailTemplateDef {
-  id: string;
-  title: MailTemplateToken[];
+/**
+ * id：MailTemplateDef 内部字段。
+ */
+
+  id: string;  
+  /**
+ * title：MailTemplateDef 内部字段。
+ */
+
+  title: MailTemplateToken[];  
+  /**
+ * body：MailTemplateDef 内部字段。
+ */
+
   body: MailTemplateToken[];
 }
 
 /** GM 端邮件模板下拉项。 */
 export interface GmMailTemplateOption {
-  templateId: string;
-  label: string;
+/**
+ * templateId：GmMailTemplateOption 内部字段。
+ */
+
+  templateId: string;  
+  /**
+ * label：GmMailTemplateOption 内部字段。
+ */
+
+  label: string;  
+  /**
+ * description：GmMailTemplateOption 内部字段。
+ */
+
   description: string;
 }
 
@@ -123,6 +163,8 @@ export const GM_MAIL_TEMPLATE_OPTIONS: GmMailTemplateOption[] = [
 
 /** 根据模板 ID 取回邮件模板定义。 */
 export function getMailTemplateDef(templateId: string | null | undefined): MailTemplateDef | null {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
   if (!templateId) {
     return null;
   }
@@ -145,6 +187,8 @@ function stringifyMailArg(arg: MailTemplateArg): string {
 
 /** 按参数替换渲染邮件模板 token。 */
 function renderTokensPlain(tokens: MailTemplateToken[], args: MailTemplateArg[]): string {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
   let output = '';
   for (const token of tokens) {
     if (token.kind === 'text') {
@@ -166,6 +210,8 @@ export function renderMailTitlePlain(
   args: MailTemplateArg[] | undefined,
   fallbackTitle?: string | null,
 ): string {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
   const template = getMailTemplateDef(templateId);
   if (!template) {
     return fallbackTitle?.trim() || '未命名邮件';
@@ -180,6 +226,8 @@ export function renderMailBodyPlain(
   args: MailTemplateArg[] | undefined,
   fallbackBody?: string | null,
 ): string {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
   const template = getMailTemplateDef(templateId);
   if (!template) {
     return fallbackBody?.trim() || '';
@@ -190,6 +238,8 @@ export function renderMailBodyPlain(
 
 /** 从正文生成适合列表展示的预览摘要。 */
 export function buildMailPreviewSnippet(body: string, maxLength = 72): string {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
   const normalized = body.replace(/\s+/g, ' ').trim();
   if (normalized.length <= maxLength) {
     return normalized;
@@ -212,6 +262,8 @@ export function normalizeMailPageSize(value: unknown): number {
 
 /** 清洗邮件批量操作 ID 列表，并限制最大数量。 */
 export function normalizeMailBatchIds(ids: unknown): string[] {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
   if (!Array.isArray(ids)) {
     return [];
   }

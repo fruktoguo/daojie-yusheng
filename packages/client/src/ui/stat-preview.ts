@@ -15,6 +15,8 @@ function formatSignedNumber(value: number): string {
 
 /** formatSignedStatValue：格式化Signed Stat值。 */
 function formatSignedStatValue(key: string, value: number): string {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
   const sign = value >= 0 ? '+' : '-';
   const absValue = Math.abs(value);
   if (key === 'critDamage') {
@@ -40,6 +42,8 @@ export function describePreviewBonuses(
   stats?: PartialNumericStats,
   valueStats?: PartialNumericStats,
 ): string[] {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
   const lines: string[] = [];
   if (attrs) {
     for (const [key, value] of Object.entries(attrs)) {

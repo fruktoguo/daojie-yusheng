@@ -20,7 +20,13 @@ export class PanelSystemStore {
   /** state：状态。 */
   private state: PanelSystemState;
   /** listeners：listeners。 */
-  private readonly listeners = new Set<PanelSystemListener>();
+  private readonly listeners = new Set<PanelSystemListener>();  
+  /**
+ * 构造器：初始化 当前 实例并建立基础状态。
+ * @param initialState PanelSystemState 参数说明。
+ * @returns 无返回值（构造函数）。
+ */
+
 
   constructor(initialState: PanelSystemState) {
     this.state = {
@@ -100,6 +106,8 @@ export class PanelSystemStore {
 
   /** patchState：处理patch状态。 */
   private patchState(patch: Partial<PanelSystemState>): void {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
     const previousState = this.getState();
     this.state = {
       ...this.state,

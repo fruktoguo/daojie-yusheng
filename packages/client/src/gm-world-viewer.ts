@@ -57,6 +57,8 @@ function formatDebugNumber(value: number, digits = 2): string {
 
 /** createViewerId：创建Viewer ID。 */
 function createViewerId(): string {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
   if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') {
     return crypto.randomUUID();
   }
@@ -84,17 +86,37 @@ export class GmWorldViewer {
   /** maps：maps。 */
   private maps: GmMapSummary[] = [];
   /** runtimeData：运行时数据。 */
-  private runtimeData: GmMapRuntimeRes | null = null;
+  private runtimeData: GmMapRuntimeRes | null = null;  
+  /**
+ * viewX：GmWorldViewer 内部字段。
+ */
+
 
   // 视口中心（世界坐标）
   private viewX = 0;
   /** viewY：视图Y。 */
-  private viewY = 0;
+  private viewY = 0;  
+  /**
+ * selectedCell：GmWorldViewer 内部字段。
+ */
+
 
   // 选中状态
-  private selectedCell: { x: number; y: number } | null = null;
+  private selectedCell: {  
+  /**
+ * x：GmWorldViewer 内部字段。
+ */
+ x: number;  
+ /**
+ * y：GmWorldViewer 内部字段。
+ */
+ y: number } | null = null;
   /** selectedEntity：selected实体。 */
-  private selectedEntity: GmRuntimeEntity | null = null;
+  private selectedEntity: GmRuntimeEntity | null = null;  
+  /**
+ * isDragging：GmWorldViewer 内部字段。
+ */
+
 
   // 拖动状态
   private isDragging = false;
@@ -122,7 +144,14 @@ export class GmWorldViewer {
   /** observationRegistered：observation Registered。 */
   private observationRegistered = false;
   /** timeControlBound：时间控制事件是否已绑定。 */
-  private timeControlBound = false;
+  private timeControlBound = false;  
+  /**
+ * 构造器：初始化 当前 实例并建立基础状态。
+ * @param request RequestFn 请求参数。
+ * @param setStatus StatusFn 参数说明。
+ * @returns 无返回值（构造函数）。
+ */
+
 
   constructor(
     private readonly request: RequestFn,
@@ -139,6 +168,8 @@ export class GmWorldViewer {
 
   /** mount：处理mount。 */
   mount(): void {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
     if (this.mounted) return;
     this.mounted = true;
     this.renderer.init(this.canvas);
@@ -158,6 +189,8 @@ export class GmWorldViewer {
 
   /** updateMapIds：更新地图ID 列表。 */
   async updateMapIds(_mapIds: string[]): Promise<void> {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
     try {
       const res = await this.request<GmMapListRes>(`${GM_API_BASE_PATH}/maps`);
       this.maps = res.maps;
@@ -169,6 +202,8 @@ export class GmWorldViewer {
 
   /** selectMap：选择地图。 */
   async selectMap(mapId: string): Promise<void> {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
     this.currentMapId = mapId;
     this.selectedCell = null;
     this.selectedEntity = null;
@@ -197,17 +232,26 @@ export class GmWorldViewer {
 
   /** stopPolling：停止Polling。 */
   stopPolling(): void {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
     if (this.pollTimer !== null) {
       clearInterval(this.pollTimer);
       this.pollTimer = null;
     }
     this.stopRaf();
     this.clearObservation();
-  }
+  }  
+  /**
+ * startRaf：执行核心业务逻辑。
+ * @returns void。
+ */
+
 
   // ===== RAF 循环（平滑摄像机） =====
 
   private startRaf(): void {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
     if (this.rafId !== null) return;
     let lastTime = performance.now();
     /** loop：处理loop。 */
@@ -227,11 +271,18 @@ export class GmWorldViewer {
       cancelAnimationFrame(this.rafId);
       this.rafId = null;
     }
-  }
+  }  
+  /**
+ * loadRuntime：按给定条件读取/查询数据。
+ * @returns Promise<void>。
+ */
+
 
   // ===== 数据加载 =====
 
   private async loadRuntime(): Promise<void> {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
     if (!this.currentMapId) return;
     const { startX, startY, w, h } = this.getViewport();
     try {
@@ -256,6 +307,8 @@ export class GmWorldViewer {
 
   /** 将服务端运行时数据转换为 TextRenderer 需要的格式 */
   private syncToRenderer(): void {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
     if (!this.runtimeData) return;
     const d = this.runtimeData;
     const { startX, startY } = this.getViewport();
@@ -304,7 +357,23 @@ export class GmWorldViewer {
   private currentTileRevision = 0;
 
   /** getViewport：读取视口。 */
-  private getViewport(): { startX: number; startY: number; w: number; h: number } {
+  private getViewport(): {  
+  /**
+ * startX：GmWorldViewer 内部字段。
+ */
+ startX: number;  
+ /**
+ * startY：GmWorldViewer 内部字段。
+ */
+ startY: number;  
+ /**
+ * w：GmWorldViewer 内部字段。
+ */
+ w: number;  
+ /**
+ * h：GmWorldViewer 内部字段。
+ */
+ h: number } {
     const cellSize = getCellSize();
     const tilesX = Math.min(GM_WORLD_VIEW_MAX, Math.ceil(this.canvas.width / cellSize) + 2);
     const tilesY = Math.min(GM_WORLD_VIEW_MAX, Math.ceil(this.canvas.height / cellSize) + 2);
@@ -332,7 +401,12 @@ export class GmWorldViewer {
       autoIdleCultivation: true, idleTicks: 0,
     } as any;
     this.camera.snap(fakePlayer);
-  }
+  }  
+  /**
+ * renderAll：执行核心业务逻辑。
+ * @returns void。
+ */
+
 
   // ===== 渲染 =====
 
@@ -343,6 +417,8 @@ export class GmWorldViewer {
 
   /** renderCanvas：渲染Canvas。 */
   private renderCanvas(): void {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
     if (!this.runtimeData || !this.mounted) return;
 
     const cellSize = getCellSize();
@@ -383,7 +459,12 @@ export class GmWorldViewer {
       ctx.strokeRect(sx, sy, cellSize, cellSize);
       ctx.lineWidth = 1;
     }
-  }
+  }  
+  /**
+ * bindEvents：执行核心业务逻辑。
+ * @returns void。
+ */
+
 
   // ===== 交互 =====
 
@@ -393,7 +474,11 @@ export class GmWorldViewer {
     this.canvas.addEventListener('pointerup', this.handlePointerUp);
     this.canvas.addEventListener('wheel', this.handleWheel, { passive: false });
     this.canvas.addEventListener('contextmenu', (e) => e.preventDefault());
-  }
+  }  
+  /**
+ * handlePointerDown：GmWorldViewer 内部字段。
+ */
+
 
   private handlePointerDown = (e: PointerEvent): void => {
     if (e.button === 2 || e.button === 1) {
@@ -412,7 +497,11 @@ export class GmWorldViewer {
       this.selectedEntity = this.findEntityAt(cell.x, cell.y);
       this.renderInfo();
     }
-  };
+  };  
+  /**
+ * handlePointerMove：GmWorldViewer 内部字段。
+ */
+
 
   private handlePointerMove = (e: PointerEvent): void => {
     if (!this.isDragging) return;
@@ -423,7 +512,11 @@ export class GmWorldViewer {
     this.viewY = Math.round(this.dragStartViewY + deltaY);
     this.snapCamera();
     // 拖动中只移动摄像机，不发请求
-  };
+  };  
+  /**
+ * handlePointerUp：GmWorldViewer 内部字段。
+ */
+
 
   private handlePointerUp = (e: PointerEvent): void => {
     if (this.isDragging) {
@@ -432,7 +525,11 @@ export class GmWorldViewer {
       // 松手后重新加载当前视口数据
       this.loadRuntime().then(() => this.renderAll()).catch(() => {});
     }
-  };
+  };  
+  /**
+ * handleWheel：GmWorldViewer 内部字段。
+ */
+
 
   private handleWheel = (e: WheelEvent): void => {
     e.preventDefault();
@@ -443,7 +540,11 @@ export class GmWorldViewer {
     updateDisplayMetrics(this.canvas.width, this.canvas.height, GM_WORLD_VIEW_MAX);
     this.snapCamera();
     this.loadRuntime().then(() => this.renderAll()).catch(() => {});
-  };
+  };  
+  /**
+ * handleResize：GmWorldViewer 内部字段。
+ */
+
 
   private handleResize = (): void => {
     this.resizeCanvas();
@@ -451,7 +552,17 @@ export class GmWorldViewer {
   };
 
   /** screenToWorld：处理屏幕To世界。 */
-  private screenToWorld(sx: number, sy: number): { x: number; y: number } | null {
+  private screenToWorld(sx: number, sy: number): {  
+  /**
+ * x：GmWorldViewer 内部字段。
+ */
+ x: number;  
+ /**
+ * y：GmWorldViewer 内部字段。
+ */
+ y: number } | null {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
     if (!this.runtimeData) return null;
     const cellSize = getCellSize();
     const { sx: camSx, sy: camSy } = this.camera.worldToScreen(0, 0, this.canvas.width, this.canvas.height);
@@ -463,6 +574,8 @@ export class GmWorldViewer {
 
   /** findEntityAt：查找实体At。 */
   private findEntityAt(x: number, y: number): GmRuntimeEntity | null {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
     if (!this.runtimeData) return null;
     const sorted = [...this.runtimeData.entities]
       .filter((e) => e.x === x && e.y === y)
@@ -475,17 +588,26 @@ export class GmWorldViewer {
 
   /** resizeCanvas：处理resize Canvas。 */
   private resizeCanvas(): void {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
     const parent = this.canvas.parentElement;
     if (!parent) return;
     const rect = parent.getBoundingClientRect();
     this.canvas.width = rect.width;
     this.canvas.height = rect.height;
     updateDisplayMetrics(rect.width, rect.height, GM_WORLD_VIEW_MAX);
-  }
+  }  
+  /**
+ * renderMapList：执行核心业务逻辑。
+ * @returns void。
+ */
+
 
   // ===== 地图列表 =====
 
   private renderMapList(): void {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
     const fragment = document.createDocumentFragment();
     const existingButtons = new Map<string, HTMLButtonElement>();
     this.mapListEl.querySelectorAll<HTMLButtonElement>('.world-map-btn').forEach((button) => {
@@ -518,15 +640,38 @@ export class GmWorldViewer {
     }
 
     this.mapListEl.replaceChildren(fragment);
-  }
-
-  // ===== 时间操控 =====
-
-  private captureTimeControlDraftState(): {
+  }  
+  /**
+ * captureTimeControlDraftState：执行核心业务逻辑。
+ * @returns {
     focusedField: 'speed' | 'offset' | null;
     selectionStart: number | null;
     selectionEnd: number | null;
+  }。
+ */
+
+
+  // ===== 时间操控 =====
+
+  private captureTimeControlDraftState(): {  
+  /**
+ * focusedField：GmWorldViewer 内部字段。
+ */
+
+    focusedField: 'speed' | 'offset' | null;    
+    /**
+ * selectionStart：GmWorldViewer 内部字段。
+ */
+
+    selectionStart: number | null;    
+    /**
+ * selectionEnd：GmWorldViewer 内部字段。
+ */
+
+    selectionEnd: number | null;
   } {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
     const speedInput = this.timeControlEl.querySelector<HTMLInputElement>('[data-world-speed-input]');
     const offsetInput = this.timeControlEl.querySelector<HTMLInputElement>('[data-world-offset-input]');
     const active = document.activeElement;
@@ -547,13 +692,37 @@ export class GmWorldViewer {
       selectionStart: focusedInput?.selectionStart ?? null,
       selectionEnd: focusedInput?.selectionEnd ?? null,
     };
-  }
-
-  private restoreTimeControlFocus(state: {
+  }  
+  /**
+ * restoreTimeControlFocus：执行核心业务逻辑。
+ * @param state {
     focusedField: 'speed' | 'offset' | null;
     selectionStart: number | null;
     selectionEnd: number | null;
+  } 状态对象。
+ * @returns void。
+ */
+
+
+  private restoreTimeControlFocus(state: {  
+  /**
+ * focusedField：GmWorldViewer 内部字段。
+ */
+
+    focusedField: 'speed' | 'offset' | null;    
+    /**
+ * selectionStart：GmWorldViewer 内部字段。
+ */
+
+    selectionStart: number | null;    
+    /**
+ * selectionEnd：GmWorldViewer 内部字段。
+ */
+
+    selectionEnd: number | null;
   }): void {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
     if (!state.focusedField) {
       return;
     }
@@ -570,6 +739,8 @@ export class GmWorldViewer {
 
   /** renderTimeControl：渲染时间Control。 */
   private renderTimeControl(): void {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
     if (!this.runtimeData) {
       this.timeControlEl.replaceChildren(createFragmentFromHtml('<div class="empty-hint">未选择地图</div>'));
       return;
@@ -616,9 +787,17 @@ export class GmWorldViewer {
     });
 
     this.restoreTimeControlFocus(previousControlState);
-  }
+  }  
+  /**
+ * ensureTimeControlShell：执行核心业务逻辑。
+ * @param speeds number[] 参数说明。
+ * @returns void。
+ */
+
 
   private ensureTimeControlShell(speeds: number[]): void {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
     if (this.timeControlEl.querySelector('[data-world-time-shell]')) {
       return;
     }
@@ -680,9 +859,16 @@ export class GmWorldViewer {
       `));
     }
     this.bindTimeControlEvents();
-  }
+  }  
+  /**
+ * bindTimeControlEvents：执行核心业务逻辑。
+ * @returns void。
+ */
+
 
   private bindTimeControlEvents(): void {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
     if (this.timeControlBound) {
       return;
     }
@@ -725,9 +911,18 @@ export class GmWorldViewer {
         this.reloadTickConfig().catch(() => {});
       }
     });
-  }
+  }  
+  /**
+ * syncTimeControlMetric：执行核心业务逻辑。
+ * @param key string 参数说明。
+ * @param value string 参数说明。
+ * @returns void。
+ */
+
 
   private syncTimeControlMetric(key: string, value: string): void {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
     const element = this.timeControlEl.querySelector<HTMLElement>(`[data-world-metric="${key}"]`);
     if (element) {
       element.textContent = value;
@@ -736,10 +931,16 @@ export class GmWorldViewer {
 
   /** setWorldSpeed：处理set世界速度。 */
   private async setWorldSpeed(speed: number): Promise<void> {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
     if (!this.currentMapId) return;
     const clamped = Math.max(0, Math.min(100, speed));
     try {
-      await this.request<{ ok: true }>(`${GM_API_BASE_PATH}/maps/${this.currentMapId}/tick`, {
+      await this.request<{      
+      /**
+ * ok：GmWorldViewer 内部字段。
+ */
+ ok: true }>(`${GM_API_BASE_PATH}/maps/${this.currentMapId}/tick`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ speed: clamped } satisfies GmUpdateMapTickReq),
@@ -755,9 +956,15 @@ export class GmWorldViewer {
 
   /** updateTime：更新时间。 */
   private async updateTime(req: GmUpdateMapTimeReq): Promise<void> {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
     if (!this.currentMapId) return;
     try {
-      await this.request<{ ok: true }>(`${GM_API_BASE_PATH}/maps/${this.currentMapId}/time`, {
+      await this.request<{      
+      /**
+ * ok：GmWorldViewer 内部字段。
+ */
+ ok: true }>(`${GM_API_BASE_PATH}/maps/${this.currentMapId}/time`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(req),
@@ -776,7 +983,11 @@ export class GmWorldViewer {
   /** reloadTickConfig：重载Tick配置。 */
   private async reloadTickConfig(): Promise<void> {
     try {
-      await this.request<{ ok: true }>(`${GM_API_BASE_PATH}/tick-config/reload`, {
+      await this.request<{      
+      /**
+ * ok：GmWorldViewer 内部字段。
+ */
+ ok: true }>(`${GM_API_BASE_PATH}/tick-config/reload`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({}),
@@ -791,18 +1002,31 @@ export class GmWorldViewer {
 
   /** clearObservation：清理Observation。 */
   private clearObservation(): void {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
     if (!this.observationRegistered) {
       return;
     }
     this.observationRegistered = false;
-    void this.request<{ ok: true }>(`${GM_API_BASE_PATH}/world-observers/${encodeURIComponent(this.viewerId)}`, {
+    void this.request<{    
+    /**
+ * ok：GmWorldViewer 内部字段。
+ */
+ ok: true }>(`${GM_API_BASE_PATH}/world-observers/${encodeURIComponent(this.viewerId)}`, {
       method: 'DELETE',
     }).catch(() => {});
-  }
+  }  
+  /**
+ * renderInfo：执行核心业务逻辑。
+ * @returns void。
+ */
+
 
   // ===== 信息面板 =====
 
   private renderInfo(): void {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
     if (!this.runtimeData) {
       this.infoEl.replaceChildren(createFragmentFromHtml('<div class="empty-hint">未选择地图</div>'));
       return;
@@ -878,9 +1102,16 @@ export class GmWorldViewer {
     } else {
       this.syncInfoSection('entity', '');
     }
-  }
+  }  
+  /**
+ * ensureInfoShell：执行核心业务逻辑。
+ * @returns void。
+ */
+
 
   private ensureInfoShell(): void {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
     if (this.infoEl.querySelector('[data-world-info-shell]')) {
       return;
     }
@@ -891,9 +1122,18 @@ export class GmWorldViewer {
         <div class="panel-section" data-world-info-section="entity"></div>
       </div>
     `));
-  }
+  }  
+  /**
+ * syncInfoSection：执行核心业务逻辑。
+ * @param section 'map' | 'cell' | 'entity' 参数说明。
+ * @param html string 参数说明。
+ * @returns void。
+ */
+
 
   private syncInfoSection(section: 'map' | 'cell' | 'entity', html: string): void {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
     const root = this.infoEl.querySelector<HTMLElement>(`[data-world-info-section="${section}"]`);
     if (!root) {
       return;

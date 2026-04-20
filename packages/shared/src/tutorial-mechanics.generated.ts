@@ -4,15 +4,47 @@
  */
 
 export interface SharedTutorialTopicSection {
-  title: string;
+/**
+ * title：SharedTutorialTopicSection 内部字段。
+ */
+
+  title: string;  
+  /**
+ * items：SharedTutorialTopicSection 内部字段。
+ */
+
   items: string[];
 }
+/**
+ * SharedTutorialTopic：定义接口结构约束，明确可交付字段含义。
+ */
+
 
 export interface SharedTutorialTopic {
-  id: string;
-  label: string;
-  summary: string;
-  sections: SharedTutorialTopicSection[];
+/**
+ * id：SharedTutorialTopic 内部字段。
+ */
+
+  id: string;  
+  /**
+ * label：SharedTutorialTopic 内部字段。
+ */
+
+  label: string;  
+  /**
+ * summary：SharedTutorialTopic 内部字段。
+ */
+
+  summary: string;  
+  /**
+ * sections：SharedTutorialTopic 内部字段。
+ */
+
+  sections: SharedTutorialTopicSection[];  
+  /**
+ * tips：SharedTutorialTopic 内部字段。
+ */
+
   tips?: string[];
 }
 

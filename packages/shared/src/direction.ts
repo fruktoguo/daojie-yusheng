@@ -5,8 +5,20 @@ import { Direction } from './world-core-types';
 
 /** 方向及其对应的坐标偏移 */
 export interface DirectionStep {
-  direction: Direction;
-  dx: number;
+/**
+ * direction：DirectionStep 内部字段。
+ */
+
+  direction: Direction;  
+  /**
+ * dx：DirectionStep 内部字段。
+ */
+
+  dx: number;  
+  /**
+ * dy：DirectionStep 内部字段。
+ */
+
   dy: number;
 }
 
@@ -32,6 +44,8 @@ export function deltaToDirection(dx: number, dy: number): Direction | null {
 
 /** 根据两点坐标推断主方向 */
 export function directionFromTo(fromX: number, fromY: number, toX: number, toY: number): Direction {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
   if (toX > fromX) return Direction.East;
   if (toX < fromX) return Direction.West;
   if (toY > fromY) return Direction.South;

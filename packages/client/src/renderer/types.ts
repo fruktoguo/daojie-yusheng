@@ -8,21 +8,69 @@ export type FloatingActionTextStyle = 'default' | 'divine' | 'chant';
 
 /** 技能瞄准叠加层状态。 */
 export interface TargetingOverlayState {
-  originX: number;
-  originY: number;
-  range: number;
-  visibleOnly?: boolean;
-  shape?: TargetingShape;
-  radius?: number;
-  affectedCells?: GridPoint[];
-  hoverX?: number;
+/**
+ * originX：TargetingOverlayState 内部字段。
+ */
+
+  originX: number;  
+  /**
+ * originY：TargetingOverlayState 内部字段。
+ */
+
+  originY: number;  
+  /**
+ * range：TargetingOverlayState 内部字段。
+ */
+
+  range: number;  
+  /**
+ * visibleOnly：TargetingOverlayState 内部字段。
+ */
+
+  visibleOnly?: boolean;  
+  /**
+ * shape：TargetingOverlayState 内部字段。
+ */
+
+  shape?: TargetingShape;  
+  /**
+ * radius：TargetingOverlayState 内部字段。
+ */
+
+  radius?: number;  
+  /**
+ * affectedCells：TargetingOverlayState 内部字段。
+ */
+
+  affectedCells?: GridPoint[];  
+  /**
+ * hoverX：TargetingOverlayState 内部字段。
+ */
+
+  hoverX?: number;  
+  /**
+ * hoverY：TargetingOverlayState 内部字段。
+ */
+
   hoverY?: number;
 }
 
 /** 感气视角叠加层状态。 */
 export interface SenseQiOverlayState {
-  hoverX?: number;
-  hoverY?: number;
+/**
+ * hoverX：SenseQiOverlayState 内部字段。
+ */
+
+  hoverX?: number;  
+  /**
+ * hoverY：SenseQiOverlayState 内部字段。
+ */
+
+  hoverY?: number;  
+  /**
+ * levelBaseValue：SenseQiOverlayState 内部字段。
+ */
+
   levelBaseValue?: number;
 }
 
@@ -31,7 +79,15 @@ export interface IRenderer {
   init(canvas: HTMLCanvasElement): void;
   clear(): void;
   resetScene(): void;
-  setThreatArrows(arrows: Array<{ ownerId: string; targetId: string }>): void;
+  setThreatArrows(arrows: Array<{  
+  /**
+ * ownerId：IRenderer 内部字段。
+ */
+ ownerId: string;  
+ /**
+ * targetId：IRenderer 内部字段。
+ */
+ targetId: string }>): void;
   setPathHighlight(cells: GridPoint[], fadeDurationMs?: number): void;
   setTargetingOverlay(state: TargetingOverlayState | null): void;
   setSenseQiOverlay(state: SenseQiOverlayState | null): void;
@@ -47,16 +103,56 @@ export interface IRenderer {
     time: GameTimeState | null,
   ): void;
   updateEntities(
-    list: readonly {
-      id: string;
-      wx: number;
-      wy: number;
-      char: string;
-      color: string;
-      name?: string;
-      kind?: string;
-      hp?: number;
-      maxHp?: number;
+    list: readonly {    
+    /**
+ * id：IRenderer 内部字段。
+ */
+
+      id: string;      
+      /**
+ * wx：IRenderer 内部字段。
+ */
+
+      wx: number;      
+      /**
+ * wy：IRenderer 内部字段。
+ */
+
+      wy: number;      
+      /**
+ * char：IRenderer 内部字段。
+ */
+
+      char: string;      
+      /**
+ * color：IRenderer 内部字段。
+ */
+
+      color: string;      
+      /**
+ * name：IRenderer 内部字段。
+ */
+
+      name?: string;      
+      /**
+ * kind：IRenderer 内部字段。
+ */
+
+      kind?: string;      
+      /**
+ * hp：IRenderer 内部字段。
+ */
+
+      hp?: number;      
+      /**
+ * maxHp：IRenderer 内部字段。
+ */
+
+      maxHp?: number;      
+      /**
+ * npcQuestMarker：IRenderer 内部字段。
+ */
+
       npcQuestMarker?: NpcQuestMarker;
     }[],
     movedId?: string,

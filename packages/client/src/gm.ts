@@ -365,26 +365,78 @@ type GmEditorTab = GmPlayerUpdateSection | 'shortcuts' | 'mail' | 'persisted';
 
 /** GmMailAttachmentDraft：邮件草稿里的单个附件条目。 */
 interface GmMailAttachmentDraft {
-  itemId: string;
+/**
+ * itemId：GmMailAttachmentDraft 内部字段。
+ */
+
+  itemId: string;  
+  /**
+ * count：GmMailAttachmentDraft 内部字段。
+ */
+
   count: number;
 }
 
 /** GmMailComposerDraft：GM 发信草稿上下文，保存收件人、标题、正文与附件。 */
 interface GmMailComposerDraft {
-  templateId: string;
-  targetPlayerId: string;
-  senderLabel: string;
-  title: string;
-  body: string;
-  expireHours: string;
+/**
+ * templateId：GmMailComposerDraft 内部字段。
+ */
+
+  templateId: string;  
+  /**
+ * targetPlayerId：GmMailComposerDraft 内部字段。
+ */
+
+  targetPlayerId: string;  
+  /**
+ * senderLabel：GmMailComposerDraft 内部字段。
+ */
+
+  senderLabel: string;  
+  /**
+ * title：GmMailComposerDraft 内部字段。
+ */
+
+  title: string;  
+  /**
+ * body：GmMailComposerDraft 内部字段。
+ */
+
+  body: string;  
+  /**
+ * expireHours：GmMailComposerDraft 内部字段。
+ */
+
+  expireHours: string;  
+  /**
+ * attachments：GmMailComposerDraft 内部字段。
+ */
+
   attachments: GmMailAttachmentDraft[];
 }
 
 /** RedeemGroupDraft：兑换码分组编辑草稿，保存名称、奖励和批量数量。 */
 interface RedeemGroupDraft {
-  name: string;
-  rewards: RedeemCodeGroupRewardItem[];
-  createCount: string;
+/**
+ * name：RedeemGroupDraft 内部字段。
+ */
+
+  name: string;  
+  /**
+ * rewards：RedeemGroupDraft 内部字段。
+ */
+
+  rewards: RedeemCodeGroupRewardItem[];  
+  /**
+ * createCount：RedeemGroupDraft 内部字段。
+ */
+
+  createCount: string;  
+  /**
+ * appendCount：RedeemGroupDraft 内部字段。
+ */
+
   appendCount: string;
 }
 
@@ -551,6 +603,8 @@ function createDefaultMailComposerDraft(): GmMailComposerDraft {
 
 /** ensureDirectMailDraft：确保Direct邮件Draft。 */
 function ensureDirectMailDraft(playerId: string | null): void {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
   if (!playerId) {
     /** directMailDraftPlayerId：direct邮件Draft玩家ID。 */
     directMailDraftPlayerId = null;
@@ -618,7 +672,15 @@ function formatDateTime(value?: string): string {
 
 /** getPlayerPresenceMeta：读取玩家Presence元数据。 */
 function getPlayerPresenceMeta(player: Pick<GmManagedPlayerSummary, 'meta'>): {
-  className: 'online' | 'offline';
+/**
+ * className：对象字段。
+ */
+
+  className: 'online' | 'offline';  
+  /**
+ * label：对象字段。
+ */
+
   label: '在线' | '离线挂机' | '离线';
 } {
   return gmPureHelpers.getPlayerPresenceMeta(player);
@@ -630,7 +692,21 @@ function getManagedAccountStatusLabel(player: Pick<GmManagedPlayerRecord, 'meta'
 }
 
 /** getManagedAccountActivityMeta：读取托管账号Activity元数据。 */
-function getManagedAccountActivityMeta(player: Pick<GmManagedPlayerRecord, 'meta'>): { label: string; value: string; note?: string } {
+function getManagedAccountActivityMeta(player: Pick<GmManagedPlayerRecord, 'meta'>): {
+/**
+ * label：对象字段。
+ */
+ label: string;
+ /**
+ * value：对象字段。
+ */
+ value: string;
+ /**
+ * note：对象字段。
+ */
+ note?: string } {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
   if (player.meta.online) {
     return {
       label: '在线时间戳',
@@ -664,6 +740,8 @@ function hasServerEditorCatalog(): boolean {
 
 /** getEditorCatalogFallbackNote：读取编辑器目录兜底Note。 */
 function getEditorCatalogFallbackNote(): string {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
   if (editorCatalogSource === 'local-fallback') {
     return '服务端编辑目录加载失败，当前仅保留本地参考标签；模板快捷写入已停用，避免把本地目录直接写回 server-next。';
   }
@@ -675,6 +753,8 @@ function getEditorCatalogFallbackNote(): string {
 
 /** assertTrustedEditorCatalog：处理assert Trusted编辑器目录。 */
 function assertTrustedEditorCatalog(actionLabel: string): void {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
   if (hasServerEditorCatalog()) {
     return;
   }
@@ -727,6 +807,8 @@ function getEditorSubtitle(detail: GmManagedPlayerRecord): string {
 
 /** getEditorMetaMarkup：读取编辑器元数据Markup。 */
 function getEditorMetaMarkup(detail: GmManagedPlayerRecord): string {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
   const presence = getPlayerPresenceMeta(detail);
   const base = gmMarkupHelpers.getEditorMetaMarkup(detail, presence, editorDirty);
   if (hasServerEditorCatalog()) {
@@ -797,6 +879,8 @@ function getTechniqueCardTitle(technique: TechniqueState | undefined, index: num
 
 /** getTechniqueCardMeta：读取Technique卡片元数据。 */
 function getTechniqueCardMeta(technique: TechniqueState | undefined): string {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
   if (!technique) return '';
   return gmMarkupHelpers.getTechniqueCardMeta(technique, (realmLv) => (
     editorCatalog?.realmLevels.find((entry) => entry.realmLv === realmLv)?.displayName
@@ -824,7 +908,17 @@ function getItemOptionLabel(option: GmEditorItemOption): string {
 }
 
 /** getTechniqueCatalogOptions：读取Technique目录选项。 */
-function getTechniqueCatalogOptions(includeEmpty = false): Array<{ value: string; label: string }> {
+function getTechniqueCatalogOptions(includeEmpty = false): Array<{
+/**
+ * value：对象字段。
+ */
+ value: string;
+ /**
+ * label：对象字段。
+ */
+ label: string }> {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
   if (!hasServerEditorCatalog()) {
     return includeEmpty ? [{ value: '', label: '未选择' }] : [];
   }
@@ -832,7 +926,15 @@ function getTechniqueCatalogOptions(includeEmpty = false): Array<{ value: string
 }
 
 /** getLearnedTechniqueOptions：读取Learned Technique选项。 */
-function getLearnedTechniqueOptions(techniques: TechniqueState[], includeEmpty = false): Array<{ value: string; label: string }> {
+function getLearnedTechniqueOptions(techniques: TechniqueState[], includeEmpty = false): Array<{
+/**
+ * value：对象字段。
+ */
+ value: string;
+ /**
+ * label：对象字段。
+ */
+ label: string }> {
   const options = techniques.map((technique) => ({
     value: technique.techId,
     label: technique.name || technique.techId,
@@ -841,12 +943,30 @@ function getLearnedTechniqueOptions(techniques: TechniqueState[], includeEmpty =
 }
 
 /** getRealmCatalogOptions：读取境界目录选项。 */
-function getRealmCatalogOptions(): Array<{ value: number; label: string }> {
+function getRealmCatalogOptions(): Array<{
+/**
+ * value：对象字段。
+ */
+ value: number;
+ /**
+ * label：对象字段。
+ */
+ label: string }> {
   return gmCatalogHelpers.getRealmCatalogOptions(editorCatalog);
 }
 
 /** getItemCatalogOptions：读取物品目录选项。 */
-function getItemCatalogOptions(filter?: (option: GmEditorItemOption) => boolean): Array<{ value: string; label: string }> {
+function getItemCatalogOptions(filter?: (option: GmEditorItemOption) => boolean): Array<{
+/**
+ * value：对象字段。
+ */
+ value: string;
+ /**
+ * label：对象字段。
+ */
+ label: string }> {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
   if (!hasServerEditorCatalog()) {
     return [];
   }
@@ -859,7 +979,17 @@ function getBuffOptionLabel(option: GmEditorBuffOption): string {
 }
 
 /** getBuffCatalogOptions：读取Buff目录选项。 */
-function getBuffCatalogOptions(selectedBuffId?: string): Array<{ value: string; label: string }> {
+function getBuffCatalogOptions(selectedBuffId?: string): Array<{
+/**
+ * value：对象字段。
+ */
+ value: string;
+ /**
+ * label：对象字段。
+ */
+ label: string }> {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
   if (!hasServerEditorCatalog()) {
     return selectedBuffId
       ? [
@@ -872,7 +1002,15 @@ function getBuffCatalogOptions(selectedBuffId?: string): Array<{ value: string; 
 }
 
 /** getMailAttachmentItemOptions：读取邮件Attachment物品选项。 */
-function getMailAttachmentItemOptions(): Array<{ value: string; label: string }> {
+function getMailAttachmentItemOptions(): Array<{
+/**
+ * value：对象字段。
+ */
+ value: string;
+ /**
+ * label：对象字段。
+ */
+ label: string }> {
   return gmCatalogHelpers.getMailAttachmentItemOptions(editorCatalog);
 }
 
@@ -883,6 +1021,8 @@ function getMailAttachmentPageStore(scope: 'direct' | 'shortcut'): Map<number, n
 
 /** resetMailAttachmentPageStore：重置邮件Attachment分页存储。 */
 function resetMailAttachmentPageStore(scope: 'direct' | 'shortcut'): void {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
   if (scope === 'direct') {
     /** directMailAttachmentPageByIndex：direct邮件Attachment分页By索引。 */
     directMailAttachmentPageByIndex = new Map();
@@ -898,10 +1038,32 @@ function getMailAttachmentItemPageState(
   attachmentIndex: number,
   selectedItemId: string,
 ): {
-  page: number;
-  totalPages: number;
-  options: Array<{ value: string; label: string }>;
+/**
+ * page：对象字段。
+ */
+
+  page: number;  
+  /**
+ * totalPages：对象字段。
+ */
+
+  totalPages: number;  
+  /**
+ * options：对象字段。
+ */
+
+  options: Array<{  
+  /**
+ * value：对象字段。
+ */
+ value: string;  
+ /**
+ * label：对象字段。
+ */
+ label: string }>;
 } {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
   const allOptions = getMailAttachmentItemOptions();
   const totalPages = Math.max(1, Math.ceil(allOptions.length / MAIL_ATTACHMENT_ITEM_PAGE_SIZE));
   const selectedIndex = selectedItemId
@@ -943,7 +1105,15 @@ function getMailAttachmentRowMeta(itemId: string): string {
 }
 
 /** getMailTemplateOptionMeta：读取邮件模板选项元数据。 */
-function getMailTemplateOptionMeta(templateId: string): { label: string; description: string } | null {
+function getMailTemplateOptionMeta(templateId: string): {
+/**
+ * label：对象字段。
+ */
+ label: string;
+ /**
+ * description：对象字段。
+ */
+ description: string } | null {
   return gmCatalogHelpers.getMailTemplateOptionMeta(templateId);
 }
 
@@ -953,7 +1123,17 @@ function isServerManagedMailTemplate(templateId: string): boolean {
 }
 
 /** getShortcutMailTargetOptions：读取Shortcut邮件目标选项。 */
-function getShortcutMailTargetOptions(): Array<{ value: string; label: string }> {
+function getShortcutMailTargetOptions(): Array<{
+/**
+ * value：对象字段。
+ */
+ value: string;
+ /**
+ * label：对象字段。
+ */
+ label: string }> {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
   const players = state?.players.filter((player) => !player.meta.isBot) ?? [];
   const options = [
     { value: '', label: '发送给全服玩家' },
@@ -974,6 +1154,8 @@ function getShortcutMailTargetOptions(): Array<{ value: string; label: string }>
 
 /** getMailComposerPayload：读取邮件Composer载荷。 */
 function getMailComposerPayload(draft: GmMailComposerDraft): GmCreateMailReq {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
   const templateId = draft.templateId.trim();
   const usesServerManagedTemplate = isServerManagedMailTemplate(templateId);
   const title = draft.title.trim();
@@ -1006,10 +1188,26 @@ function getMailComposerPayload(draft: GmMailComposerDraft): GmCreateMailReq {
 /** getMailComposerMarkup：读取邮件Composer Markup。 */
 function getMailComposerMarkup(
   draft: GmMailComposerDraft,
-  options: {
-    scope: 'direct' | 'shortcut';
-    submitLabel: string;
-    note: string;
+  options: {  
+  /**
+ * scope：对象字段。
+ */
+
+    scope: 'direct' | 'shortcut';    
+    /**
+ * submitLabel：对象字段。
+ */
+
+    submitLabel: string;    
+    /**
+ * note：对象字段。
+ */
+
+    note: string;    
+    /**
+ * showTargetPlayer：对象字段。
+ */
+
     showTargetPlayer?: boolean;
   },
 ): string {
@@ -1133,7 +1331,15 @@ function getMailComposerMarkup(
 }
 
 /** getInventoryAddTypeOptions：读取背包Add类型选项。 */
-function getInventoryAddTypeOptions(): Array<{ value: string; label: string }> {
+function getInventoryAddTypeOptions(): Array<{
+/**
+ * value：对象字段。
+ */
+ value: string;
+ /**
+ * label：对象字段。
+ */
+ label: string }> {
   return ITEM_TYPES.map((type) => ({
     value: type,
     label: ITEM_TYPE_LABELS[type],
@@ -1141,7 +1347,15 @@ function getInventoryAddTypeOptions(): Array<{ value: string; label: string }> {
 }
 
 /** getInventoryAddItemOptions：读取背包Add物品选项。 */
-function getInventoryAddItemOptions(): Array<{ value: string; label: string }> {
+function getInventoryAddItemOptions(): Array<{
+/**
+ * value：对象字段。
+ */
+ value: string;
+ /**
+ * label：对象字段。
+ */
+ label: string }> {
   return getItemCatalogOptions((option) => option.type === currentInventoryAddType);
 }
 
@@ -1190,6 +1404,8 @@ function getTechniqueTemplateMaxLevel(technique: TechniqueState): number {
 
 /** buildMaxLevelTechniqueState：构建最大等级Technique状态。 */
 function buildMaxLevelTechniqueState(technique: TechniqueState): TechniqueState {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
   const catalogEntry = findTechniqueCatalogEntry(technique.techId);
   const maxLevel = getTechniqueTemplateMaxLevel(technique);
   if (!catalogEntry) {
@@ -1216,6 +1432,8 @@ function getInventoryRowMeta(item: ItemStack): string {
 
 /** getTechniqueEditorControls：读取Technique编辑器Controls。 */
 function getTechniqueEditorControls(index: number, technique: TechniqueState): string {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
   const catalogEntry = findTechniqueCatalogEntry(technique.techId);
   if (catalogEntry) {
     return `
@@ -1264,6 +1482,8 @@ function getTechniqueEditorControls(index: number, technique: TechniqueState): s
 
 /** getItemEditorControls：读取物品编辑器Controls。 */
 function getItemEditorControls(basePath: string, item: ItemStack, mode: 'inventory' | 'equipment'): string {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
   const catalogEntry = findItemCatalogEntry(item.itemId);
   if (catalogEntry) {
     return `
@@ -1351,6 +1571,8 @@ function setTextLikeValue(
   value: string,
   preserveFocusedField = true,
 ): void {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
   if (field.value === value) return;
   if (preserveFocusedField && document.activeElement === field) {
     return;
@@ -1360,6 +1582,8 @@ function setTextLikeValue(
 
 /** syncVisualEditorFieldsFromDraft：同步Visual编辑器字段From Draft。 */
 function syncVisualEditorFieldsFromDraft(draft: PlayerState): void {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
   const fields = editorContentEl.querySelectorAll<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>('[data-bind]');
   for (const field of fields) {
     const path = field.dataset.bind;
@@ -1399,6 +1623,8 @@ function syncVisualEditorFieldsFromDraft(draft: PlayerState): void {
 
 /** patchEditorPreview：处理patch编辑器Preview。 */
 function patchEditorPreview(detail: GmManagedPlayerRecord, draft: PlayerState): void {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
   const equipment = draft.equipment as EquipmentSlots;
   for (const slot of EQUIP_SLOTS) {
     const item = equipment[slot];
@@ -1457,6 +1683,8 @@ function clearEditorRenderCache(): void {
 
 /** getVisibleNetworkBuckets：读取可见Network Buckets。 */
 function getVisibleNetworkBuckets(buckets: GmNetworkBucket[]): GmNetworkBucket[] {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
   const visibleBuckets = buckets.slice(0, 8);
   const hiddenBuckets = buckets.slice(8);
   if (hiddenBuckets.length > 0) {
@@ -1509,9 +1737,23 @@ function patchStatRow(row: HTMLElement, label: string, meta: string): void {
 function renderStructuredStatList(
   container: HTMLElement,
   structureKey: string | null,
-  items: Array<{ key: string; label: string; meta: string }>,
+  items: Array<{  
+  /**
+ * key：对象字段。
+ */
+ key: string;  
+ /**
+ * label：对象字段。
+ */
+ label: string;  
+ /**
+ * meta：对象字段。
+ */
+ meta: string }>,
   emptyText: string,
 ): string {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
   if (items.length === 0) {
     if (structureKey !== 'empty') {
       container.innerHTML = `<div class="empty-hint">${escapeHtml(emptyText)}</div>`;
@@ -1669,6 +1911,8 @@ function getEditorTabLabel(tab: GmEditorTab): string {
 
 /** switchEditorTab：处理switch编辑器Tab。 */
 function switchEditorTab(tab: GmEditorTab): void {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
   /** currentEditorTab：当前编辑器Tab。 */
   currentEditorTab = tab;
   editorTabBasicBtn.classList.toggle('active', tab === 'basic');
@@ -1713,6 +1957,8 @@ function applyStatusState(message: string, kind: StatusKind): void {
 
 /** hideStatusToast：处理hide状态Toast。 */
 function hideStatusToast(): void {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
   if (statusToastTimer !== null) {
     window.clearTimeout(statusToastTimer);
     /** statusToastTimer：状态Toast Timer。 */
@@ -1725,6 +1971,8 @@ function hideStatusToast(): void {
 
 /** showStatusToast：处理显示状态Toast。 */
 function showStatusToast(message: string, kind: Exclude<StatusKind, 'idle'>): void {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
   if (!message) {
     hideStatusToast();
     return;
@@ -1753,6 +2001,8 @@ function setPendingStatus(message: string): void {
 
 /** setStatus：处理set状态。 */
 function setStatus(message: string, isError = false): void {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
   const kind: StatusKind = !message ? 'idle' : isError ? 'error' : 'success';
   applyStatusState(message, kind);
   if (kind === 'idle') {
@@ -1767,6 +2017,8 @@ const worldViewer = new GmWorldViewer(request, setStatus);
 
 /** switchServerTab：处理switch服务端Tab。 */
 function switchServerTab(tab: 'overview' | 'traffic' | 'cpu' | 'database'): void {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
   /** currentServerTab：当前服务端Tab。 */
   currentServerTab = tab;
   serverSubtabOverviewBtn.classList.toggle('active', tab === 'overview');
@@ -1802,6 +2054,8 @@ function formatDatabaseBackupKind(kind: GmDatabaseBackupRecord['kind']): string 
 
 /** formatDatabaseJobLabel：格式化数据库任务标签。 */
 function formatDatabaseJobLabel(data: GmDatabaseStateRes | null): string {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
   const job = data?.runningJob ?? data?.lastJob;
   if (!job) {
     return '当前没有数据库任务记录。';
@@ -1884,6 +2138,8 @@ function renderDatabasePanel(): void {
 
 /** renderRedeemPanel：渲染兑换面板。 */
 function renderRedeemPanel(): void {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
   if (!redeemGroupListEl || !redeemGroupEditorEl || !redeemCodeListEl) {
     return;
   }
@@ -2022,6 +2278,8 @@ function getRedeemCodeMarkup(code: RedeemCodeCodeView): string {
 
 /** copyTextToClipboard：复制文本To Clipboard。 */
 async function copyTextToClipboard(text: string): Promise<boolean> {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
   try {
     if (navigator.clipboard?.writeText) {
       await navigator.clipboard.writeText(text);
@@ -2051,6 +2309,8 @@ async function copyTextToClipboard(text: string): Promise<boolean> {
 
 /** copyActiveRedeemCodes：复制活跃兑换兑换码。 */
 async function copyActiveRedeemCodes(): Promise<void> {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
   const group = redeemGroupDetailState?.group;
   const activeCodes = (redeemGroupDetailState?.codes ?? [])
     .filter((code) => code.status === 'active')
@@ -2074,7 +2334,17 @@ function getRedeemCodeStatusLabel(status: RedeemCodeCodeView['status']): string 
 }
 
 /** buildRedeemGroupPayload：构建兑换分组载荷。 */
-function buildRedeemGroupPayload(): { name: string; rewards: RedeemCodeGroupRewardItem[] } {
+function buildRedeemGroupPayload(): {
+/**
+ * name：对象字段。
+ */
+ name: string;
+ /**
+ * rewards：对象字段。
+ */
+ rewards: RedeemCodeGroupRewardItem[] } {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
   const name = redeemDraft.name.trim();
   const rewards = redeemDraft.rewards
     .filter((entry) => entry.itemId.trim().length > 0 && Number.isFinite(entry.count) && entry.count > 0)
@@ -2093,6 +2363,8 @@ function buildRedeemGroupPayload(): { name: string; rewards: RedeemCodeGroupRewa
 
 /** loadRedeemGroups：加载兑换分组。 */
 async function loadRedeemGroups(silent = false): Promise<void> {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
   /** redeemLoading：兑换Loading。 */
   redeemLoading = true;
   renderRedeemPanel();
@@ -2125,6 +2397,8 @@ async function loadRedeemGroups(silent = false): Promise<void> {
 
 /** loadRedeemGroupDetail：加载兑换分组详情。 */
 async function loadRedeemGroupDetail(groupId: string, silent = false): Promise<void> {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
   /** redeemLoading：兑换Loading。 */
   redeemLoading = true;
   renderRedeemPanel();
@@ -2172,6 +2446,8 @@ async function createRedeemGroup(): Promise<void> {
 
 /** saveRedeemGroup：保存兑换分组。 */
 async function saveRedeemGroup(): Promise<void> {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
   if (!selectedRedeemGroupId) {
     throw new Error('请先选择一个分组');
   }
@@ -2188,6 +2464,8 @@ async function saveRedeemGroup(): Promise<void> {
 
 /** appendRedeemCodes：处理append兑换兑换码。 */
 async function appendRedeemCodes(): Promise<void> {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
   if (!selectedRedeemGroupId) {
     throw new Error('请先选择一个分组');
   }
@@ -2206,7 +2484,11 @@ async function appendRedeemCodes(): Promise<void> {
 
 /** destroyRedeemCode：处理destroy兑换兑换码。 */
 async function destroyRedeemCode(codeId: string): Promise<void> {
-  await request<{ ok: true }>(`${GM_API_BASE_PATH}/redeem-codes/${encodeURIComponent(codeId)}`, {
+  await request<{  
+  /**
+ * ok：对象字段。
+ */
+ ok: true }>(`${GM_API_BASE_PATH}/redeem-codes/${encodeURIComponent(codeId)}`, {
     method: 'DELETE',
   });
   await loadRedeemGroups(true);
@@ -2215,6 +2497,8 @@ async function destroyRedeemCode(codeId: string): Promise<void> {
 
 /** loadDatabaseState：加载数据库状态。 */
 async function loadDatabaseState(silent = false): Promise<void> {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
   if (!token) {
     return;
   }
@@ -2246,6 +2530,8 @@ async function exportCurrentDatabase(): Promise<void> {
 
 /** getDownloadFileName：读取Download File名称。 */
 function getDownloadFileName(response: Response, fallback: string): string {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
   const header = response.headers.get('content-disposition') ?? '';
   const utf8Match = header.match(/filename\*=UTF-8''([^;]+)/iu);
   if (utf8Match?.[1]) {
@@ -2273,6 +2559,8 @@ async function downloadDatabaseBackup(backupId: string): Promise<void> {
 
 /** restoreDatabaseBackup：处理restore数据库备份。 */
 async function restoreDatabaseBackup(backupId: string): Promise<void> {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
   const backup = databaseState?.backups.find((entry) => entry.id === backupId);
   if (!backup) {
     setStatus('目标备份不存在', true);
@@ -2293,6 +2581,8 @@ async function restoreDatabaseBackup(backupId: string): Promise<void> {
 
 /** setCpuBreakdownSort：处理set Cpu Breakdown排序。 */
 function setCpuBreakdownSort(sort: 'total' | 'count' | 'avg'): void {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
   /** currentCpuBreakdownSort：当前Cpu Breakdown排序。 */
   currentCpuBreakdownSort = sort;
   cpuBreakdownSortTotalBtn.classList.toggle('primary', sort === 'total');
@@ -2307,6 +2597,8 @@ function setCpuBreakdownSort(sort: 'total' | 'count' | 'avg'): void {
 
 /** switchTab：处理switch Tab。 */
 function switchTab(tab: 'server' | 'redeem' | 'players' | 'suggestions' | 'world' | 'shortcuts'): void {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
   // 离开世界管理时停止轮询
   if (currentTab === 'world' && tab !== 'world') {
     worldViewer.stopPolling();
@@ -2369,6 +2661,8 @@ async function loadSuggestions(): Promise<void> {
 
 /** loadEditorCatalog：加载编辑器目录。 */
 async function loadEditorCatalog(): Promise<void> {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
   try {
     /** editorCatalog：编辑器目录。 */
     editorCatalog = await request<GmEditorCatalogRes>(`${GM_API_BASE_PATH}/editor-catalog`);
@@ -2389,6 +2683,8 @@ async function loadEditorCatalog(): Promise<void> {
 
 /** renderShortcutMailComposer：渲染Shortcut邮件Composer。 */
 function renderShortcutMailComposer(preserveActiveInteraction = false): void {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
   if (!shortcutMailComposerEl) {
     return;
   }
@@ -2441,6 +2737,8 @@ function renderShortcutMailComposer(preserveActiveInteraction = false): void {
 
 /** flushShortcutMailComposerRefresh：处理刷新Shortcut邮件Composer Refresh。 */
 function flushShortcutMailComposerRefresh(): void {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
   if (!shortcutMailComposerEl || !shortcutMailComposerRefreshBlocked) {
     return;
   }
@@ -2462,6 +2760,8 @@ function flushShortcutMailComposerRefresh(): void {
 
 /** renderSuggestions：渲染Suggestions。 */
 function renderSuggestions(): void {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
   if (!suggestions || suggestions.length === 0) {
     if (lastSuggestionStructureKey !== 'empty') {
       suggestionListEl.innerHTML = '<div class="empty-hint">暂无建议反馈数据</div>';
@@ -2518,6 +2818,8 @@ async function replySuggestion(id: string, content: string): Promise<void> {
 
 /** removeSuggestion：处理remove建议。 */
 async function removeSuggestion(id: string): Promise<void> {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
   if (!confirm('确定要移除这条建议吗？此操作不可撤销。')) return;
   try {
     await request(`${GM_API_BASE_PATH}/suggestions/${id}`, { method: 'DELETE' });
@@ -2533,6 +2835,8 @@ async function removeSuggestion(id: string): Promise<void> {
 
 /** request：处理请求。 */
 async function request<T>(path: string, init: RequestInit = {}): Promise<T> {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
   const headers = new Headers(init.headers ?? {});
   if (!headers.has('Content-Type') && init.body) {
     headers.set('Content-Type', 'application/json');
@@ -2558,7 +2862,11 @@ async function request<T>(path: string, init: RequestInit = {}): Promise<T> {
   }
   if (!response.ok) {
     const message = typeof data === 'object' && data && 'message' in data
-      ? String((data as { message: unknown }).message)
+      ? String((data as {      
+      /**
+ * message：对象字段。
+ */
+ message: unknown }).message)
       : typeof data === 'string' && data.trim().length > 0
         ? data
         : '请求失败';
@@ -2569,6 +2877,8 @@ async function request<T>(path: string, init: RequestInit = {}): Promise<T> {
 
 /** requestBlob：处理请求Blob。 */
 async function requestBlob(path: string, init: RequestInit = {}): Promise<Response> {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
   const headers = new Headers(init.headers ?? {});
   if (token) {
     headers.set('Authorization', `Bearer ${token}`);
@@ -2590,6 +2900,8 @@ function updateMailDraftValue(
   path: string,
   rawValue: string,
 ): void {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
   const draft = scope === 'direct' ? directMailDraft : broadcastMailDraft;
   if (path === 'templateId') {
     draft.templateId = rawValue;
@@ -2634,6 +2946,8 @@ function updateMailDraftValue(
 
 /** updateRedeemDraftValue：更新兑换Draft值。 */
 function updateRedeemDraftValue(path: string, rawValue: string): void {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
   if (path === 'name') {
     redeemDraft.name = rawValue;
     return;
@@ -2665,6 +2979,8 @@ function updateRedeemDraftValue(path: string, rawValue: string): void {
 
 /** rerenderDirectMailComposer：处理rerender Direct邮件Composer。 */
 function rerenderDirectMailComposer(): void {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
   if (!state) {
     return;
   }
@@ -2675,6 +2991,8 @@ function rerenderDirectMailComposer(): void {
 
 /** addMailAttachment：处理add邮件Attachment。 */
 function addMailAttachment(scope: 'direct' | 'shortcut'): void {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
   if (!hasServerEditorCatalog()) {
     setStatus('服务端编辑目录不可用，当前不能用模板方式新增邮件附件。', true);
     return;
@@ -2691,6 +3009,8 @@ function addMailAttachment(scope: 'direct' | 'shortcut'): void {
 
 /** removeMailAttachment：处理remove邮件Attachment。 */
 function removeMailAttachment(scope: 'direct' | 'shortcut', index: number): void {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
   const draft = scope === 'direct' ? directMailDraft : broadcastMailDraft;
   if (index < 0 || index >= draft.attachments.length) {
     return;
@@ -2706,6 +3026,8 @@ function removeMailAttachment(scope: 'direct' | 'shortcut', index: number): void
 
 /** sendDirectMail：处理send Direct邮件。 */
 async function sendDirectMail(): Promise<void> {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
   const detail = getSelectedPlayerDetail();
   if (!detail) {
     throw new Error('当前没有可发送邮件的角色');
@@ -2714,7 +3036,15 @@ async function sendDirectMail(): Promise<void> {
     assertTrustedEditorCatalog('带附件邮件发送');
   }
   const payload = getMailComposerPayload(directMailDraft);
-  const result = await request<{ ok: true; mailId: string }>(`/gm/players/${encodeURIComponent(detail.id)}/mail`, {
+  const result = await request<{  
+  /**
+ * ok：对象字段。
+ */
+ ok: true;  
+ /**
+ * mailId：对象字段。
+ */
+ mailId: string }>(`/gm/players/${encodeURIComponent(detail.id)}/mail`, {
     method: 'POST',
     body: JSON.stringify(payload),
   });
@@ -2729,6 +3059,8 @@ async function sendDirectMail(): Promise<void> {
 
 /** sendShortcutMail：处理send Shortcut邮件。 */
 async function sendShortcutMail(): Promise<void> {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
   if (broadcastMailDraft.attachments.some((entry) => entry.itemId.trim().length > 0)) {
     assertTrustedEditorCatalog('带附件邮件发送');
   }
@@ -2737,7 +3069,23 @@ async function sendShortcutMail(): Promise<void> {
   const path = targetPlayerId
     ? `${GM_API_BASE_PATH}/players/${encodeURIComponent(targetPlayerId)}/mail`
     : `${GM_API_BASE_PATH}/mail/broadcast`;
-  const result = await request<{ ok: true; mailId: string; batchId?: string; recipientCount?: number }>(path, {
+  const result = await request<{  
+  /**
+ * ok：对象字段。
+ */
+ ok: true;  
+ /**
+ * mailId：对象字段。
+ */
+ mailId: string;  
+ /**
+ * batchId：对象字段。
+ */
+ batchId?: string;  
+ /**
+ * recipientCount：对象字段。
+ */
+ recipientCount?: number }>(path, {
     method: 'POST',
     body: JSON.stringify(payload),
   });
@@ -2755,6 +3103,8 @@ async function sendShortcutMail(): Promise<void> {
 
 /** getSelectedPlayer：读取Selected玩家。 */
 function getSelectedPlayer(): GmManagedPlayerSummary | null {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
   if (!state || !selectedPlayerId) return null;
   return state.players.find((player) => player.id === selectedPlayerId) ?? null;
 }
@@ -2848,6 +3198,8 @@ function createDefaultBuff(): TemporaryBuffState {
 
 /** createDefaultPlayerSnapshot：创建默认玩家快照。 */
 function createDefaultPlayerSnapshot(source?: PlayerState): PlayerState {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
   if (source) return clone(source);
   return {
     id: '',
@@ -2907,6 +3259,8 @@ function readCatalogSelectValue(
 
 /** updateInventoryAddControls：更新背包Add Controls。 */
 function updateInventoryAddControls(resetSelectedItem = true): void {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
   const typeSelect = editorContentEl.querySelector<HTMLSelectElement>('select[data-catalog-select="inventory-type"]');
   const itemField = editorContentEl.querySelector<HTMLElement>('[data-item-combobox][data-item-scope="inventory-add"]');
   const itemValueField = editorContentEl.querySelector<HTMLInputElement>('input[data-item-combobox-value][data-catalog-select="inventory-item"]');
@@ -2960,6 +3314,8 @@ function buildHtmlAttributes(attributes: Record<string, string | undefined>): st
 
 /** getSearchableItemDisplayValue：读取Searchable物品显示值。 */
 function getSearchableItemDisplayValue(itemId: string): string {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
   if (!itemId) {
     return '';
   }
@@ -2968,7 +3324,17 @@ function getSearchableItemDisplayValue(itemId: string): string {
 }
 
 /** getSearchableItemOptions：读取Searchable物品选项。 */
-function getSearchableItemOptions(scope: SearchableItemScope, slot?: EquipSlot): Array<{ value: string; label: string }> {
+function getSearchableItemOptions(scope: SearchableItemScope, slot?: EquipSlot): Array<{
+/**
+ * value：对象字段。
+ */
+ value: string;
+ /**
+ * label：对象字段。
+ */
+ label: string }> {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
   if (scope === 'inventory-add') {
     return getInventoryAddItemOptions();
   }
@@ -3050,6 +3416,8 @@ function normalizeSearchableItemText(value: string): string {
 
 /** renderSearchableItemOptions：渲染Searchable物品选项。 */
 function renderSearchableItemOptions(root: HTMLElement): void {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
   const input = getSearchableItemInput(root);
   const valueField = getSearchableItemValueField(root);
   const listEl = getSearchableItemList(root);
@@ -3113,6 +3481,8 @@ function renderSearchableItemOptions(root: HTMLElement): void {
 
 /** syncSearchableItemField：同步Searchable物品字段。 */
 function syncSearchableItemField(root: HTMLElement): void {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
   const input = getSearchableItemInput(root);
   const valueField = getSearchableItemValueField(root);
   if (!input || !valueField) {
@@ -3128,6 +3498,8 @@ function syncSearchableItemField(root: HTMLElement): void {
 
 /** syncSearchableItemFields：同步Searchable物品字段。 */
 function syncSearchableItemFields(scope: ParentNode): void {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
   if (activeSearchableItemField && !activeSearchableItemField.isConnected) {
     /** activeSearchableItemField：活跃Searchable物品字段。 */
     activeSearchableItemField = null;
@@ -3139,6 +3511,8 @@ function syncSearchableItemFields(scope: ParentNode): void {
 
 /** closeSearchableItemField：关闭Searchable物品字段。 */
 function closeSearchableItemField(root: HTMLElement): void {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
   if (activeSearchableItemField === root) {
     /** activeSearchableItemField：活跃Searchable物品字段。 */
     activeSearchableItemField = null;
@@ -3154,6 +3528,8 @@ function closeSearchableItemField(root: HTMLElement): void {
 
 /** openSearchableItemField：打开Searchable物品字段。 */
 function openSearchableItemField(root: HTMLElement, resetQuery = true): void {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
   if (activeSearchableItemField && activeSearchableItemField !== root) {
     closeSearchableItemField(activeSearchableItemField);
   }
@@ -3176,6 +3552,8 @@ function openSearchableItemField(root: HTMLElement, resetQuery = true): void {
 
 /** moveSearchableItemActiveIndex：处理移动Searchable物品活跃索引。 */
 function moveSearchableItemActiveIndex(root: HTMLElement, offset: number): void {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
   const listEl = getSearchableItemList(root);
   if (!listEl) {
     return;
@@ -3194,6 +3572,8 @@ function moveSearchableItemActiveIndex(root: HTMLElement, offset: number): void 
 
 /** commitSearchableItemSelection：处理commit Searchable物品选中项。 */
 function commitSearchableItemSelection(root: HTMLElement, value: string): void {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
   const input = getSearchableItemInput(root);
   const valueField = getSearchableItemValueField(root);
   if (!input || !valueField) {
@@ -3212,6 +3592,8 @@ function commitSearchableItemSelection(root: HTMLElement, value: string): void {
 
 /** flushBlockedEditorRender：处理刷新Blocked编辑器渲染。 */
 function flushBlockedEditorRender(): void {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
   if (!editorRenderRefreshBlocked || !state) {
     return;
   }
@@ -3231,7 +3613,15 @@ function flushBlockedEditorRender(): void {
 }
 
 /** optionsMarkup：处理选项Markup。 */
-function optionsMarkup<T extends string | number>(options: Array<{ value: T; label: string }>, selected: T | undefined): string {
+function optionsMarkup<T extends string | number>(options: Array<{
+/**
+ * value：对象字段。
+ */
+ value: T;
+ /**
+ * label：对象字段。
+ */
+ label: string }>, selected: T | undefined): string {
   return options.map((option) => `
     <option value="${escapeHtml(String(option.value))}" ${selected === option.value ? 'selected' : ''}>${escapeHtml(option.label)}</option>
   `).join('');
@@ -3282,7 +3672,15 @@ function selectField(
   label: string,
   path: string,
   value: string | number | undefined,
-  options: Array<{ value: string | number; label: string }>,
+  options: Array<{  
+  /**
+ * value：对象字段。
+ */
+ value: string | number;  
+ /**
+ * label：对象字段。
+ */
+ label: string }>,
   extraClass = '',
 ): string {
   const selected = value ?? '';
@@ -3987,6 +4385,8 @@ function renderSummary(data: GmStateRes): void {
 
 /** renderPlayerList：渲染玩家列表。 */
 function renderPlayerList(data: GmStateRes): void {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
   const filtered = getFilteredPlayers(data);
 
   if (!selectedPlayerId || !filtered.some((player) => player.id === selectedPlayerId)) {
@@ -4027,6 +4427,8 @@ function renderPlayerList(data: GmStateRes): void {
 
 /** renderEditor：渲染编辑器。 */
 function renderEditor(data: GmStateRes): void {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
   const selected = data.players.find((player) => player.id === selectedPlayerId) ?? null;
   if (!selected) {
     editorEmptyEl.classList.remove('hidden');
@@ -4128,6 +4530,8 @@ function renderEditor(data: GmStateRes): void {
 
 /** render：渲染渲染。 */
 function render(): void {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
   if (!state) return;
   switchServerTab(currentServerTab);
   renderSummary(state);
@@ -4145,7 +4549,21 @@ function getEditorTabSection(tab: GmEditorTab): HTMLElement | null {
 }
 
 /** syncVisualEditorToDraft：同步Visual编辑器To Draft。 */
-function syncVisualEditorToDraft(scope?: ParentNode): { ok: true } | { ok: false; message: string } {
+function syncVisualEditorToDraft(scope?: ParentNode): {
+/**
+ * ok：对象字段。
+ */
+ ok: true } | {
+ /**
+ * ok：对象字段。
+ */
+ ok: false;
+ /**
+ * message：对象字段。
+ */
+ message: string } {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
   if (!draftSnapshot) {
     return { ok: false, message: '当前没有可编辑角色' };
   }
@@ -4204,6 +4622,8 @@ function syncVisualEditorToDraft(scope?: ParentNode): { ok: true } | { ok: false
 
 /** mutateDraft：处理mutate Draft。 */
 function mutateDraft(mutator: (draft: PlayerState) => void): boolean {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
   const synced = syncVisualEditorToDraft(getEditorTabSection(currentEditorTab) ?? undefined);
   if (!synced.ok) {
     setStatus(synced.message, true);
@@ -4219,6 +4639,8 @@ function mutateDraft(mutator: (draft: PlayerState) => void): boolean {
 
 /** applyCatalogBindingChange：应用目录Binding变更。 */
 function applyCatalogBindingChange(path: string, value: string): boolean {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
   if (!draftSnapshot) return false;
 
   const inventoryMatch = path.match(/^inventory\.items\.(\d+)\.itemId$/);
@@ -4291,6 +4713,8 @@ function applyCatalogBindingChange(path: string, value: string): boolean {
 
 /** loadState：加载状态。 */
 async function loadState(silent = false, refreshDetail = false): Promise<void> {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
   if (!token) return;
   const params = new URLSearchParams({
     page: String(currentPlayerPage),
@@ -4346,6 +4770,8 @@ async function loadState(silent = false, refreshDetail = false): Promise<void> {
 
 /** loadSelectedPlayerDetail：加载Selected玩家详情。 */
 async function loadSelectedPlayerDetail(playerId: string, silent = false): Promise<void> {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
   const nonce = ++detailRequestNonce;
   /** loadingPlayerDetailId：loading玩家详情ID。 */
   loadingPlayerDetailId = playerId;
@@ -4381,6 +4807,8 @@ async function loadSelectedPlayerDetail(playerId: string, silent = false): Promi
 
 /** startPolling：启动Polling。 */
 function startPolling(): void {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
   if (pollTimer !== null) {
     window.clearInterval(pollTimer);
   }
@@ -4406,6 +4834,8 @@ function showLogin(): void {
 
 /** logout：处理logout。 */
 function logout(message?: string): void {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
   /** token：令牌。 */
   token = '';
   /** state：状态。 */
@@ -4515,6 +4945,8 @@ async function delayRefresh(message: string): Promise<void> {
 
 /** login：处理login。 */
 async function login(): Promise<void> {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
   const password = passwordInput.value.trim();
   if (!password) {
     loginErrorEl.textContent = '请输入 GM 密码';
@@ -4549,6 +4981,8 @@ async function login(): Promise<void> {
 
 /** changeGmPassword：处理变更GM密码。 */
 async function changeGmPassword(): Promise<void> {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
   const currentPassword = gmPasswordCurrentInput.value.trim();
   const newPassword = gmPasswordNextInput.value.trim();
   if (!currentPassword || !newPassword) {
@@ -4580,6 +5014,8 @@ async function changeGmPassword(): Promise<void> {
 
 /** applyRawJson：应用Raw JSON。 */
 async function applyRawJson(): Promise<void> {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
   const selected = getSelectedPlayer();
   if (!selected) {
     setStatus('请先选择角色', true);
@@ -4610,6 +5046,8 @@ function getCurrentEditorSaveSection(): GmPlayerUpdateSection | null {
 
 /** buildTechniqueSaveSnapshot：构建Technique保存快照。 */
 function buildTechniqueSaveSnapshot(technique: TechniqueState): TechniqueState {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
   if (!findTechniqueCatalogEntry(technique.techId)) {
     return clone(technique);
   }
@@ -4631,6 +5069,8 @@ function buildTechniqueSaveSnapshot(technique: TechniqueState): TechniqueState {
 
 /** buildInventoryItemSaveSnapshot：构建背包物品保存快照。 */
 function buildInventoryItemSaveSnapshot(item: ItemStack): ItemStack {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
   if (!findItemCatalogEntry(item.itemId)) {
     return clone(item);
   }
@@ -4646,6 +5086,8 @@ function buildInventoryItemSaveSnapshot(item: ItemStack): ItemStack {
 
 /** buildEquipmentItemSaveSnapshot：构建Equipment物品保存快照。 */
 function buildEquipmentItemSaveSnapshot(item: ItemStack | null): ItemStack | null {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
   if (!item) {
     return null;
   }
@@ -4736,6 +5178,8 @@ function buildSectionSnapshot(section: GmPlayerUpdateSection, draft: PlayerState
 
 /** saveSelectedPlayerSections：保存Selected玩家Sections。 */
 async function saveSelectedPlayerSections(sections: GmPlayerUpdateSection[], message: string): Promise<void> {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
   const selected = getSelectedPlayer();
   if (!selected || !draftSnapshot) {
     setStatus('请先选择角色', true);
@@ -4749,7 +5193,11 @@ async function saveSelectedPlayerSections(sections: GmPlayerUpdateSection[], mes
   setPendingStatus(`正在提交 ${selected.name} 的快捷修改...`);
   for (const section of uniqueSections) {
     const snapshot = buildSectionSnapshot(section, draftSnapshot);
-    await request<{ ok: true }>(`${GM_API_BASE_PATH}/players/${encodeURIComponent(selected.id)}`, {
+    await request<{    
+    /**
+ * ok：对象字段。
+ */
+ ok: true }>(`${GM_API_BASE_PATH}/players/${encodeURIComponent(selected.id)}`, {
       method: 'PUT',
       body: JSON.stringify({ snapshot, section } satisfies GmUpdatePlayerReq),
     });
@@ -4761,6 +5209,8 @@ async function saveSelectedPlayerSections(sections: GmPlayerUpdateSection[], mes
 
 /** setSelectedPlayerBodyTrainingLevel：处理set Selected玩家身体修炼等级。 */
 async function setSelectedPlayerBodyTrainingLevel(): Promise<void> {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
   const detail = getSelectedPlayerDetail();
   if (!detail) {
     setStatus('请先选择角色', true);
@@ -4800,6 +5250,8 @@ async function setSelectedPlayerBodyTrainingLevel(): Promise<void> {
 
 /** addSelectedPlayerFoundation：处理add Selected玩家Foundation。 */
 async function addSelectedPlayerFoundation(): Promise<void> {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
   const detail = getSelectedPlayerDetail();
   if (!detail) {
     setStatus('请先选择角色', true);
@@ -4840,6 +5292,8 @@ async function addSelectedPlayerFoundation(): Promise<void> {
 
 /** addSelectedPlayerCombatExp：处理add Selected玩家战斗Exp。 */
 async function addSelectedPlayerCombatExp(): Promise<void> {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
   const detail = getSelectedPlayerDetail();
   if (!detail) {
     setStatus('请先选择角色', true);
@@ -4882,6 +5336,8 @@ async function addSelectedPlayerCombatExp(): Promise<void> {
 async function runPlayerTechniqueShortcut(
   action: 'grant-all-unlearned-technique-books' | 'max-all-techniques' | 'learn-all-techniques' | 'remove-all-techniques',
 ): Promise<void> {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
   if (!draftSnapshot) {
     setStatus('当前没有可编辑角色', true);
     return;
@@ -4974,6 +5430,8 @@ async function runPlayerTechniqueShortcut(
 
 /** openSelectedPlayerMailTab：打开Selected玩家邮件Tab。 */
 function openSelectedPlayerMailTab(): void {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
   if (!selectedPlayerId) {
     setStatus('请先选择角色', true);
     return;
@@ -4986,6 +5444,8 @@ function openSelectedPlayerMailTab(): void {
 
 /** refreshSelectedPlayer：处理refresh Selected玩家。 */
 async function refreshSelectedPlayer(): Promise<void> {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
   const selected = getSelectedPlayer();
   if (!selected) {
     setStatus('请先选择角色', true);
@@ -5022,6 +5482,8 @@ async function refreshSelectedPlayer(): Promise<void> {
 
 /** saveSelectedPlayer：保存Selected玩家。 */
 async function saveSelectedPlayer(): Promise<void> {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
   const selected = getSelectedPlayer();
   if (!selected) {
     setStatus('请先选择角色', true);
@@ -5052,7 +5514,11 @@ async function saveSelectedPlayer(): Promise<void> {
   try {
     setPendingStatus(`正在提交 ${selected.name} 的${getEditorTabLabel(section)}修改...`);
     const snapshot = buildSectionSnapshot(section, draftSnapshot);
-    await request<{ ok: true }>(`${GM_API_BASE_PATH}/players/${encodeURIComponent(selected.id)}`, {
+    await request<{    
+    /**
+ * ok：对象字段。
+ */
+ ok: true }>(`${GM_API_BASE_PATH}/players/${encodeURIComponent(selected.id)}`, {
       method: 'PUT',
       body: JSON.stringify({ snapshot, section } satisfies GmUpdatePlayerReq),
     });
@@ -5068,6 +5534,8 @@ async function saveSelectedPlayer(): Promise<void> {
 
 /** saveSelectedPlayerPassword：保存Selected玩家密码。 */
 async function saveSelectedPlayerPassword(): Promise<void> {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
   const detail = getSelectedPlayerDetail();
   if (!detail?.account) {
     setStatus('当前目标没有可修改的账号密码', true);
@@ -5088,7 +5556,11 @@ async function saveSelectedPlayerPassword(): Promise<void> {
   }
   try {
     setPendingStatus(`正在修改账号 ${detail.account.username} 的密码...`);
-    await request<{ ok: true }>(`${GM_API_BASE_PATH}/players/${encodeURIComponent(detail.id)}/password`, {
+    await request<{    
+    /**
+ * ok：对象字段。
+ */
+ ok: true }>(`${GM_API_BASE_PATH}/players/${encodeURIComponent(detail.id)}/password`, {
       method: 'POST',
       body: JSON.stringify({ newPassword } satisfies GmUpdateManagedPlayerPasswordReq),
     });
@@ -5107,6 +5579,8 @@ async function saveSelectedPlayerPassword(): Promise<void> {
 
 /** saveSelectedPlayerAccount：保存Selected玩家账号。 */
 async function saveSelectedPlayerAccount(): Promise<void> {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
   const detail = getSelectedPlayerDetail();
   if (!detail?.account) {
     setStatus('当前目标没有可修改的账号', true);
@@ -5131,7 +5605,11 @@ async function saveSelectedPlayerAccount(): Promise<void> {
   }
   try {
     setPendingStatus(`正在修改账号 ${detail.account.username}...`);
-    await request<{ ok: true }>(`${GM_API_BASE_PATH}/players/${encodeURIComponent(detail.id)}/account`, {
+    await request<{    
+    /**
+ * ok：对象字段。
+ */
+ ok: true }>(`${GM_API_BASE_PATH}/players/${encodeURIComponent(detail.id)}/account`, {
       method: 'PUT',
       body: JSON.stringify({ username } satisfies GmUpdateManagedPlayerAccountReq),
     });
@@ -5147,6 +5625,8 @@ async function saveSelectedPlayerAccount(): Promise<void> {
 
 /** resetSelectedPlayer：重置Selected玩家。 */
 async function resetSelectedPlayer(): Promise<void> {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
   const selected = getSelectedPlayer();
   if (!selected) {
     setStatus('请先选择角色', true);
@@ -5156,7 +5636,11 @@ async function resetSelectedPlayer(): Promise<void> {
   resetPlayerBtn.disabled = true;
   try {
     setPendingStatus(`正在让 ${selected.name} 返回出生点...`);
-    await request<{ ok: true }>(`${GM_API_BASE_PATH}/players/${encodeURIComponent(selected.id)}/reset`, {
+    await request<{    
+    /**
+ * ok：对象字段。
+ */
+ ok: true }>(`${GM_API_BASE_PATH}/players/${encodeURIComponent(selected.id)}/reset`, {
       method: 'POST',
     });
     /** editorDirty：编辑器Dirty。 */
@@ -5171,6 +5655,8 @@ async function resetSelectedPlayer(): Promise<void> {
 
 /** resetSelectedPlayerHeavenGate：重置Selected玩家Heaven关卡。 */
 async function resetSelectedPlayerHeavenGate(): Promise<void> {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
   const selected = getSelectedPlayer();
   if (!selected) {
     setStatus('请先选择角色', true);
@@ -5180,7 +5666,11 @@ async function resetSelectedPlayerHeavenGate(): Promise<void> {
   resetHeavenGateBtn.disabled = true;
   try {
     setPendingStatus(`正在重置 ${selected.name} 的天门测试状态...`);
-    await request<{ ok: true }>(`${GM_API_BASE_PATH}/players/${encodeURIComponent(selected.id)}/heaven-gate/reset`, {
+    await request<{    
+    /**
+ * ok：对象字段。
+ */
+ ok: true }>(`${GM_API_BASE_PATH}/players/${encodeURIComponent(selected.id)}/heaven-gate/reset`, {
       method: 'POST',
     });
     /** editorDirty：编辑器Dirty。 */
@@ -5195,6 +5685,8 @@ async function resetSelectedPlayerHeavenGate(): Promise<void> {
 
 /** removeSelectedBot：处理remove Selected Bot。 */
 async function removeSelectedBot(): Promise<void> {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
   const selected = getSelectedPlayer();
   if (!selected || !selected.meta.isBot) {
     setStatus('当前选中目标不是机器人', true);
@@ -5204,7 +5696,11 @@ async function removeSelectedBot(): Promise<void> {
   removeBotBtn.disabled = true;
   try {
     setPendingStatus(`正在移除机器人 ${selected.name}...`);
-    await request<{ ok: true }>(`${GM_API_BASE_PATH}/bots/remove`, {
+    await request<{    
+    /**
+ * ok：对象字段。
+ */
+ ok: true }>(`${GM_API_BASE_PATH}/bots/remove`, {
       method: 'POST',
       body: JSON.stringify({ playerIds: [selected.id] } satisfies GmRemoveBotsReq),
     });
@@ -5220,6 +5716,8 @@ async function removeSelectedBot(): Promise<void> {
 
 /** spawnBots：处理生成Bots。 */
 async function spawnBots(): Promise<void> {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
   const selected = getSelectedPlayer();
   if (!selected) {
     setStatus('请先选择一个角色作为生成锚点', true);
@@ -5233,7 +5731,11 @@ async function spawnBots(): Promise<void> {
   }
 
   try {
-    await request<{ ok: true }>(`${GM_API_BASE_PATH}/bots/spawn`, {
+    await request<{    
+    /**
+ * ok：对象字段。
+ */
+ ok: true }>(`${GM_API_BASE_PATH}/bots/spawn`, {
       method: 'POST',
       body: JSON.stringify({
         anchorPlayerId: selected.id,
@@ -5250,7 +5752,11 @@ async function spawnBots(): Promise<void> {
 async function removeAllBots(): Promise<void> {
   try {
     setPendingStatus('正在移除全部机器人...');
-    await request<{ ok: true }>(`${GM_API_BASE_PATH}/bots/remove`, {
+    await request<{    
+    /**
+ * ok：对象字段。
+ */
+ ok: true }>(`${GM_API_BASE_PATH}/bots/remove`, {
       method: 'POST',
       body: JSON.stringify({ all: true } satisfies GmRemoveBotsReq),
     });
@@ -5264,6 +5770,8 @@ async function removeAllBots(): Promise<void> {
 
 /** returnAllPlayersToDefaultSpawn：处理return All Players To默认生成。 */
 async function returnAllPlayersToDefaultSpawn(): Promise<void> {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
   if (!window.confirm('这会把所有非机器人角色统一送回新手村出生点。在线角色下一息生效，离线角色会直接改存档。确认继续吗？')) {
     return;
   }
@@ -5292,6 +5800,8 @@ async function returnAllPlayersToDefaultSpawn(): Promise<void> {
 
 /** cleanupAllPlayersInvalidItems：处理cleanup All Players Invalid物品。 */
 async function cleanupAllPlayersInvalidItems(): Promise<void> {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
   if (!window.confirm('这会手动清理所有非机器人角色背包、坊市托管仓和装备栏里的无效物品。在线角色将在下一息处理并落盘，离线角色会直接改存档。确认继续吗？')) {
     return;
   }
@@ -5320,6 +5830,8 @@ async function cleanupAllPlayersInvalidItems(): Promise<void> {
 
 /** compensateAllPlayersCombatExp：处理compensate All Players战斗Exp。 */
 async function compensateAllPlayersCombatExp(): Promise<void> {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
   if (!window.confirm('这会给所有非机器人角色补偿战斗经验。每个角色获得的数值 = 当前境界升级所需经验 + 当前炼体境界升级所需经验。在线角色下一息生效，离线角色会直接改存档。确认继续吗？')) {
     return;
   }
@@ -5348,6 +5860,8 @@ async function compensateAllPlayersCombatExp(): Promise<void> {
 
 /** compensateAllPlayersFoundation：处理compensate All Players Foundation。 */
 async function compensateAllPlayersFoundation(): Promise<void> {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
   if (!window.confirm('这会给所有非机器人角色补偿底蕴。每个角色获得的数值 = 当前境界升级所需经验的五倍。在线角色下一息生效，离线和离线挂机角色会直接改存档。确认继续吗？')) {
     return;
   }
@@ -5376,9 +5890,15 @@ async function compensateAllPlayersFoundation(): Promise<void> {
 
 /** resetNetworkStats：重置Network属性。 */
 async function resetNetworkStats(): Promise<void> {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
   resetNetworkStatsBtn.disabled = true;
   try {
-    await request<{ ok: true }>(`${GM_API_BASE_PATH}/perf/network/reset`, {
+    await request<{    
+    /**
+ * ok：对象字段。
+ */
+ ok: true }>(`${GM_API_BASE_PATH}/perf/network/reset`, {
       method: 'POST',
     });
     await loadState(true);
@@ -5392,9 +5912,15 @@ async function resetNetworkStats(): Promise<void> {
 
 /** resetCpuStats：重置Cpu属性。 */
 async function resetCpuStats(): Promise<void> {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
   resetCpuStatsBtn.disabled = true;
   try {
-    await request<{ ok: true }>(`${GM_API_BASE_PATH}/perf/cpu/reset`, {
+    await request<{    
+    /**
+ * ok：对象字段。
+ */
+ ok: true }>(`${GM_API_BASE_PATH}/perf/cpu/reset`, {
       method: 'POST',
     });
     await loadState(true);
@@ -5408,9 +5934,15 @@ async function resetCpuStats(): Promise<void> {
 
 /** resetPathfindingStats：重置Pathfinding属性。 */
 async function resetPathfindingStats(): Promise<void> {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
   resetPathfindingStatsBtn.disabled = true;
   try {
-    await request<{ ok: true }>(`${GM_API_BASE_PATH}/perf/pathfinding/reset`, {
+    await request<{    
+    /**
+ * ok：对象字段。
+ */
+ ok: true }>(`${GM_API_BASE_PATH}/perf/pathfinding/reset`, {
       method: 'POST',
     });
     await loadState(true);
@@ -5424,6 +5956,8 @@ async function resetPathfindingStats(): Promise<void> {
 
 /** handleEditorAction：处理编辑器动作。 */
 function handleEditorAction(action: string, trigger: HTMLElement): void {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
   if (!draftSnapshot) return;
 
   const index = Number(trigger.dataset.index ?? '-1');

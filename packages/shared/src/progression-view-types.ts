@@ -3,7 +3,15 @@
  */
 /** 突破材料需求 */
 export interface BreakthroughItemRequirement {
-  itemId: string;
+/**
+ * itemId：BreakthroughItemRequirement 内部字段。
+ */
+
+  itemId: string;  
+  /**
+ * count：BreakthroughItemRequirement 内部字段。
+ */
+
   count: number;
 }
 
@@ -12,27 +20,103 @@ export type BreakthroughRequirementType = 'item' | 'technique' | 'attribute' | '
 
 /** 突破需求视图条目 */
 export interface BreakthroughRequirementView {
-  id: string;
-  type: BreakthroughRequirementType;
-  label: string;
-  completed: boolean;
-  hidden: boolean;
-  optional?: boolean;
-  blocksBreakthrough?: boolean;
-  increasePct?: number;
+/**
+ * id：BreakthroughRequirementView 内部字段。
+ */
+
+  id: string;  
+  /**
+ * type：BreakthroughRequirementView 内部字段。
+ */
+
+  type: BreakthroughRequirementType;  
+  /**
+ * label：BreakthroughRequirementView 内部字段。
+ */
+
+  label: string;  
+  /**
+ * completed：BreakthroughRequirementView 内部字段。
+ */
+
+  completed: boolean;  
+  /**
+ * hidden：BreakthroughRequirementView 内部字段。
+ */
+
+  hidden: boolean;  
+  /**
+ * optional：BreakthroughRequirementView 内部字段。
+ */
+
+  optional?: boolean;  
+  /**
+ * blocksBreakthrough：BreakthroughRequirementView 内部字段。
+ */
+
+  blocksBreakthrough?: boolean;  
+  /**
+ * increasePct：BreakthroughRequirementView 内部字段。
+ */
+
+  increasePct?: number;  
+  /**
+ * detail：BreakthroughRequirementView 内部字段。
+ */
+
   detail?: string;
 }
 
 /** 突破预览状态 */
 export interface BreakthroughPreviewState {
-  targetRealmLv: number;
-  targetDisplayName: string;
-  totalRequirements: number;
-  completedRequirements: number;
-  allCompleted: boolean;
-  canBreakthrough: boolean;
-  blockingRequirements: number;
-  completedBlockingRequirements: number;
-  requirements: BreakthroughRequirementView[];
+/**
+ * targetRealmLv：BreakthroughPreviewState 内部字段。
+ */
+
+  targetRealmLv: number;  
+  /**
+ * targetDisplayName：BreakthroughPreviewState 内部字段。
+ */
+
+  targetDisplayName: string;  
+  /**
+ * totalRequirements：BreakthroughPreviewState 内部字段。
+ */
+
+  totalRequirements: number;  
+  /**
+ * completedRequirements：BreakthroughPreviewState 内部字段。
+ */
+
+  completedRequirements: number;  
+  /**
+ * allCompleted：BreakthroughPreviewState 内部字段。
+ */
+
+  allCompleted: boolean;  
+  /**
+ * canBreakthrough：BreakthroughPreviewState 内部字段。
+ */
+
+  canBreakthrough: boolean;  
+  /**
+ * blockingRequirements：BreakthroughPreviewState 内部字段。
+ */
+
+  blockingRequirements: number;  
+  /**
+ * completedBlockingRequirements：BreakthroughPreviewState 内部字段。
+ */
+
+  completedBlockingRequirements: number;  
+  /**
+ * requirements：BreakthroughPreviewState 内部字段。
+ */
+
+  requirements: BreakthroughRequirementView[];  
+  /**
+ * blockedReason：BreakthroughPreviewState 内部字段。
+ */
+
   blockedReason?: string;
 }

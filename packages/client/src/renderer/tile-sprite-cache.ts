@@ -8,19 +8,43 @@ import { buildCanvasFont } from '../constants/ui/text';
 
 /** 地块精灵对象，用于命中率高的像素绘制缓存。 */
 export interface TileSprite {
-  key: string;
-  tileType: TileType;
-  cellSize: number;
+/**
+ * key：TileSprite 内部字段。
+ */
+
+  key: string;  
+  /**
+ * tileType：TileSprite 内部字段。
+ */
+
+  tileType: TileType;  
+  /**
+ * cellSize：TileSprite 内部字段。
+ */
+
+  cellSize: number;  
+  /**
+ * canvas：TileSprite 内部字段。
+ */
+
   canvas: HTMLCanvasElement;
 }
 
 /** 精灵缓存条目，记录最近使用序号用于 LRU 淘汰。 */
 interface TileSpriteCacheEntry extends TileSprite {
+/**
+ * lastAccess：TileSpriteCacheEntry 内部字段。
+ */
+
   lastAccess: number;
 }
 
 /** 可配置的地块精灵缓存参数。 */
 interface TileSpriteCacheOptions {
+/**
+ * maxEntries：TileSpriteCacheOptions 内部字段。
+ */
+
   maxEntries?: number;
 }
 
@@ -29,6 +53,8 @@ const DEFAULT_MAX_ENTRIES = 512;
 
 /** 统一格子像素尺寸，保证同一尺寸下复用缓存。 */
 function normalizeCellSize(cellSize: number): number {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
   if (!Number.isFinite(cellSize)) {
     return 1;
   }
@@ -50,6 +76,8 @@ function createSpriteCanvas(size: number): HTMLCanvasElement {
 
 /** 按格子类型和尺寸绘制单张地块贴图。 */
 function renderTileSprite(canvas: HTMLCanvasElement, tileType: TileType, cellSize: number): void {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
   const ctx = canvas.getContext('2d');
   if (!ctx) {
     return;
@@ -97,6 +125,8 @@ export class TileSpriteCache {
 
   /** 按类型与尺寸取回缓存；未命中时创建并写缓存。 */
   getSprite(tileType: TileType, cellSize: number): TileSprite {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
     const normalizedSize = normalizeCellSize(cellSize);
     const key = buildSpriteKey(tileType, normalizedSize);
     const hit = this.cache.get(key);
@@ -117,7 +147,17 @@ export class TileSpriteCache {
     this.cache.set(key, created);
     this.evictIfNeeded();
     return created;
-  }
+  }  
+  /**
+ * drawSprite：执行核心业务逻辑。
+ * @param ctx CanvasRenderingContext2D 上下文信息。
+ * @param tileType TileType 参数说明。
+ * @param cellSize number 参数说明。
+ * @param sx number 参数说明。
+ * @param sy number 参数说明。
+ * @returns TileSprite。
+ */
+
 
   drawSprite(
     ctx: CanvasRenderingContext2D,
@@ -138,6 +178,8 @@ export class TileSpriteCache {
 
   /** 按当前格子尺寸清理对应版本的精灵缓存。 */
   deleteByCellSize(cellSize: number): void {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
     const normalizedSize = normalizeCellSize(cellSize);
     const suffix = `:${normalizedSize}`;
     for (const key of this.cache.keys()) {
@@ -161,6 +203,8 @@ export class TileSpriteCache {
 
   /** 超量后清理最旧访问条目。 */
   private evictIfNeeded(): void {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
     if (this.cache.size <= this.maxEntries) {
       return;
     }

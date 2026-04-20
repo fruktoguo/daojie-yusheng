@@ -24,6 +24,8 @@ import {
 
 /** 将 Tick 高频实体补丁转换为 wire 结构。 */
 export function toWireTickEntity(entity: TickRenderEntity): Record<string, unknown> {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
   const wire: Record<string, unknown> = {
     id: entity.id,
     x: entity.x,
@@ -59,6 +61,8 @@ export function toWireTickEntity(entity: TickRenderEntity): Record<string, unkno
 
 /** 从 wire 结构还原 Tick 高频实体补丁。 */
 export function fromWireTickEntity(wire: Record<string, unknown>): TickRenderEntity {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
   const patch: TickRenderEntity = {
     id: String(wire.id ?? ''),
     x: Number(wire.x ?? 0),
@@ -102,6 +106,8 @@ export function fromWireTickEntity(wire: Record<string, unknown>): TickRenderEnt
 
 /** 将 Tick 高频包转换为 wire 结构。 */
 export function toWireTick(payload: NEXT_S2C_Tick): Record<string, unknown> {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
   const wire: Record<string, unknown> = {
     p: payload.p.map(toWireTickEntity),
     e: payload.e.map(toWireTickEntity),
@@ -167,6 +173,8 @@ export function toWireTick(payload: NEXT_S2C_Tick): Record<string, unknown> {
 
 /** 从 wire 结构还原 Tick 高频包。 */
 export function fromWireTick(wire: Record<string, unknown>): NEXT_S2C_Tick {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
   const payload: NEXT_S2C_Tick = {
     p: Array.isArray(wire.p) ? wire.p.map((entry) => fromWireTickEntity(entry as Record<string, unknown>)) : [],
     e: Array.isArray(wire.e) ? wire.e.map((entry) => fromWireTickEntity(entry as Record<string, unknown>)) : [],

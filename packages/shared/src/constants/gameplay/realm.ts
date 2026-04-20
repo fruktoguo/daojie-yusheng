@@ -22,14 +22,50 @@ import { VIEW_RADIUS } from './world';
  */
 
 type RealmConfig = {
-  name: string;
-  shortName: string;
-  path: 'martial' | 'immortal';
-  narrative: string;
-  progressToNext: number;
-  attrBonus: Partial<Attributes>;
-  breakthroughItems: BreakthroughItemRequirement[];
-  minTechniqueLevel: number;
+/**
+ * name：对象字段。
+ */
+
+  name: string;  
+  /**
+ * shortName：对象字段。
+ */
+
+  shortName: string;  
+  /**
+ * path：对象字段。
+ */
+
+  path: 'martial' | 'immortal';  
+  /**
+ * narrative：对象字段。
+ */
+
+  narrative: string;  
+  /**
+ * progressToNext：对象字段。
+ */
+
+  progressToNext: number;  
+  /**
+ * attrBonus：对象字段。
+ */
+
+  attrBonus: Partial<Attributes>;  
+  /**
+ * breakthroughItems：对象字段。
+ */
+
+  breakthroughItems: BreakthroughItemRequirement[];  
+  /**
+ * minTechniqueLevel：对象字段。
+ */
+
+  minTechniqueLevel: number;  
+  /**
+ * minTechniqueRealm：对象字段。
+ */
+
   minTechniqueRealm?: TechniqueRealm;
 };
 
@@ -59,7 +95,15 @@ export const PLAYER_REALM_ORDER: PlayerRealmStage[] = [
 ];
 
 /** 玩家大境界对应的等级区间。 */
-export const PLAYER_REALM_STAGE_LEVEL_RANGES: Record<PlayerRealmStage, { levelFrom: number; levelTo: number }> = {
+export const PLAYER_REALM_STAGE_LEVEL_RANGES: Record<PlayerRealmStage, {
+/**
+ * levelFrom：对象字段。
+ */
+ levelFrom: number;
+ /**
+ * levelTo：对象字段。
+ */
+ levelTo: number }> = {
   [PlayerRealmStage.Mortal]: { levelFrom: 1, levelTo: 5 },
   [PlayerRealmStage.BodyTempering]: { levelFrom: 6, levelTo: 8 },
   [PlayerRealmStage.BoneForging]: { levelFrom: 9, levelTo: 12 },

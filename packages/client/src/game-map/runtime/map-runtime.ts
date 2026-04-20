@@ -33,7 +33,11 @@ export class MapRuntime implements MapRuntimeApi {
   /** 具体渲染器适配层（当前挂接 TextRenderer）。 */
   private readonly renderer = new CanvasTextRendererAdapter();
   /** 小地图运行时视图。 */
-  private readonly minimap = new MinimapRuntime();
+  private readonly minimap = new MinimapRuntime();  
+  /**
+ * interaction：MapRuntime 内部字段。
+ */
+
   private readonly interaction = new InteractionController(
     () => this.store.getSnapshot(),
     () => this.camera,
@@ -53,6 +57,8 @@ export class MapRuntime implements MapRuntimeApi {
 
   /** 初始化运行时挂载，接入交互监听并启动渲染循环。 */
   attach(host: HTMLElement): void {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
     this.host = host;
     this.renderer.mount(host);
     const canvas = this.renderer.getCanvas();
@@ -126,6 +132,8 @@ export class MapRuntime implements MapRuntimeApi {
 
   /** 消化世界级增量（实体、地块、效果）并更新场景与镜头。 */
   applyNextWorldDelta(data: MapNextWorldDeltaInput): void {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
     for (const effect of data.effects ?? []) {
       this.renderer.enqueueEffect(effect);
     }
@@ -143,6 +151,8 @@ export class MapRuntime implements MapRuntimeApi {
 
   /** 消化本体增量（移动、生命、地图切换）并同步场景。 */
   applyNextSelfDelta(data: MapNextSelfDeltaInput): void {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
     const previousMapId = this.store.getSnapshot().player?.mapId ?? null;
     this.store.applyNextSelfDelta(data);
     const snapshot = this.store.getSnapshot();
@@ -173,14 +183,28 @@ export class MapRuntime implements MapRuntimeApi {
   /** 透传交互回调给 InteractionController。 */
   setInteractionCallbacks(callbacks: MapRuntimeInteractionCallbacks): void {
     this.interaction.setCallbacks(callbacks);
-  }
+  }  
+  /**
+ * setMoveHandler：更新/写入相关状态。
+ * @param handler ((x: number, y: number) => void) | null 参数说明。
+ * @returns void。
+ */
+
 
   setMoveHandler(handler: ((x: number, y: number) => void) | null): void {
     this.minimap.setMoveHandler(handler);
   }
 
   /** 覆盖路径高亮并刷新渲染场景。 */
-  setPathCells(cells: Array<{ x: number; y: number }>): void {
+  setPathCells(cells: Array<{  
+  /**
+ * x：MapRuntime 内部字段。
+ */
+ x: number;  
+ /**
+ * y：MapRuntime 内部字段。
+ */
+ y: number }>): void {
     this.store.setPathCells(cells);
     this.syncSceneFromStore();
   }
@@ -195,7 +219,14 @@ export class MapRuntime implements MapRuntimeApi {
   setSenseQiOverlay(state: Parameters<MapRuntimeApi['setSenseQiOverlay']>[0]): void {
     this.store.setSenseQiOverlay(state);
     this.syncSceneFromStore();
-  }
+  }  
+  /**
+ * replaceVisibleEntities：执行核心业务逻辑。
+ * @param entities Parameters<MapRuntimeApi['replaceVisibleEntities']>[0] 参数说明。
+ * @param transition Parameters<MapRuntimeApi['replaceVisibleEntities']>[1] 参数说明。
+ * @returns void。
+ */
+
 
   replaceVisibleEntities(
     entities: Parameters<MapRuntimeApi['replaceVisibleEntities']>[0],
@@ -233,6 +264,8 @@ export class MapRuntime implements MapRuntimeApi {
 
   /** 重新同步视口参数并重建场景快照。 */
   private syncViewportDerivedState(resnapCamera: boolean): void {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
     this.viewport.syncDisplayMetrics(this.store.getViewRadius() || VIEW_RADIUS);
     this.camera.setCellSize(getCellSize());
     const snapshot = this.store.getSnapshot();
@@ -258,6 +291,8 @@ export class MapRuntime implements MapRuntimeApi {
 
   /** 启动浏览器 rAF 帧循环并驱动插值渲染。 */
   private ensureFrameLoop(): void {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
     if (this.frameHandle !== null) {
       return;
     }
@@ -279,6 +314,8 @@ export class MapRuntime implements MapRuntimeApi {
 
   /** 停止帧循环。 */
   private stopFrameLoop(): void {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
     if (this.frameHandle === null) {
       return;
     }

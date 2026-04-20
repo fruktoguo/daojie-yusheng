@@ -11,75 +11,243 @@ import { assessMapDanger } from '../../utils/map-danger';
 
 /** 世界面板可见实体来源。 */
 interface VisibleEntity {
-  id: string;
-  wx: number;
-  wy: number;
-  name?: string;
-  kind?: string;
-  monsterTier?: MonsterTier;
-  hp?: number;
+/**
+ * id：VisibleEntity 内部字段。
+ */
+
+  id: string;  
+  /**
+ * wx：VisibleEntity 内部字段。
+ */
+
+  wx: number;  
+  /**
+ * wy：VisibleEntity 内部字段。
+ */
+
+  wy: number;  
+  /**
+ * name：VisibleEntity 内部字段。
+ */
+
+  name?: string;  
+  /**
+ * kind：VisibleEntity 内部字段。
+ */
+
+  kind?: string;  
+  /**
+ * monsterTier：VisibleEntity 内部字段。
+ */
+
+  monsterTier?: MonsterTier;  
+  /**
+ * hp：VisibleEntity 内部字段。
+ */
+
+  hp?: number;  
+  /**
+ * maxHp：VisibleEntity 内部字段。
+ */
+
   maxHp?: number;
 }
 
 /** 附近妖兽显示项。 */
 interface NearbyMonsterView {
-  id: string;
-  name: string;
-  tier?: MonsterTier;
-  distance: number;
-  hp: number;
+/**
+ * id：NearbyMonsterView 内部字段。
+ */
+
+  id: string;  
+  /**
+ * name：NearbyMonsterView 内部字段。
+ */
+
+  name: string;  
+  /**
+ * tier：NearbyMonsterView 内部字段。
+ */
+
+  tier?: MonsterTier;  
+  /**
+ * distance：NearbyMonsterView 内部字段。
+ */
+
+  distance: number;  
+  /**
+ * hp：NearbyMonsterView 内部字段。
+ */
+
+  hp: number;  
+  /**
+ * maxHp：NearbyMonsterView 内部字段。
+ */
+
   maxHp: number;
 }
 
 /** 附近人物显示项。 */
 interface NearbyNpcView {
-  id: string;
+/**
+ * id：NearbyNpcView 内部字段。
+ */
+
+  id: string;  
+  /**
+ * name：NearbyNpcView 内部字段。
+ */
+
   name: string;
 }
 
 /** 可立即执行的快捷行动项。 */
 interface QuickActionView {
-  id: string;
-  name: string;
+/**
+ * id：QuickActionView 内部字段。
+ */
+
+  id: string;  
+  /**
+ * name：QuickActionView 内部字段。
+ */
+
+  name: string;  
+  /**
+ * desc：QuickActionView 内部字段。
+ */
+
   desc: string;
 }
 
 /** 世界面板汇总快照。 */
 interface WorldPanelSnapshot {
-  mapName: string;
-  mapMood: string;
-  mapDesc: string;
-  dangerLabel: string;
-  dangerTone: number;
-  recommend: string;
-  realmLabel: string;
-  route: string;
-  resourcesLabel: string;
-  threatsLabel: string;
-  cultivatingName: string;
-  currentQuestTitle: string;
-  currentQuestProgress: string;
-  nearbyMonsters: NearbyMonsterView[];
-  nearbyNpcs: NearbyNpcView[];
+/**
+ * mapName：WorldPanelSnapshot 内部字段。
+ */
+
+  mapName: string;  
+  /**
+ * mapMood：WorldPanelSnapshot 内部字段。
+ */
+
+  mapMood: string;  
+  /**
+ * mapDesc：WorldPanelSnapshot 内部字段。
+ */
+
+  mapDesc: string;  
+  /**
+ * dangerLabel：WorldPanelSnapshot 内部字段。
+ */
+
+  dangerLabel: string;  
+  /**
+ * dangerTone：WorldPanelSnapshot 内部字段。
+ */
+
+  dangerTone: number;  
+  /**
+ * recommend：WorldPanelSnapshot 内部字段。
+ */
+
+  recommend: string;  
+  /**
+ * realmLabel：WorldPanelSnapshot 内部字段。
+ */
+
+  realmLabel: string;  
+  /**
+ * route：WorldPanelSnapshot 内部字段。
+ */
+
+  route: string;  
+  /**
+ * resourcesLabel：WorldPanelSnapshot 内部字段。
+ */
+
+  resourcesLabel: string;  
+  /**
+ * threatsLabel：WorldPanelSnapshot 内部字段。
+ */
+
+  threatsLabel: string;  
+  /**
+ * cultivatingName：WorldPanelSnapshot 内部字段。
+ */
+
+  cultivatingName: string;  
+  /**
+ * currentQuestTitle：WorldPanelSnapshot 内部字段。
+ */
+
+  currentQuestTitle: string;  
+  /**
+ * currentQuestProgress：WorldPanelSnapshot 内部字段。
+ */
+
+  currentQuestProgress: string;  
+  /**
+ * nearbyMonsters：WorldPanelSnapshot 内部字段。
+ */
+
+  nearbyMonsters: NearbyMonsterView[];  
+  /**
+ * nearbyNpcs：WorldPanelSnapshot 内部字段。
+ */
+
+  nearbyNpcs: NearbyNpcView[];  
+  /**
+ * quickActions：WorldPanelSnapshot 内部字段。
+ */
+
   quickActions: QuickActionView[];
 }
 
 /** 世界面板外部回调集合。 */
 interface WorldPanelCallbacks {
-  onOpenLeaderboard?: () => void;
+/**
+ * onOpenLeaderboard：WorldPanelCallbacks 内部字段。
+ */
+
+  onOpenLeaderboard?: () => void;  
+  /**
+ * onOpenWorldSummary：WorldPanelCallbacks 内部字段。
+ */
+
   onOpenWorldSummary?: () => void;
 }
 
 /** 附近妖兽条目的 DOM 引用。 */
 interface NearbyMonsterRefs {
-  nameNode: HTMLElement;
-  metaNode: HTMLElement;
+/**
+ * nameNode：NearbyMonsterRefs 内部字段。
+ */
+
+  nameNode: HTMLElement;  
+  /**
+ * metaNode：NearbyMonsterRefs 内部字段。
+ */
+
+  metaNode: HTMLElement;  
+  /**
+ * statusNode：NearbyMonsterRefs 内部字段。
+ */
+
   statusNode: HTMLElement;
 }
 
 /** 建议动作条目的 DOM 引用。 */
 interface SuggestionActionRefs {
-  titleNode: HTMLElement;
+/**
+ * titleNode：SuggestionActionRefs 内部字段。
+ */
+
+  titleNode: HTMLElement;  
+  /**
+ * descNode：SuggestionActionRefs 内部字段。
+ */
+
   descNode: HTMLElement;
 }
 
@@ -102,6 +270,8 @@ function createFragmentFromHtml(html: string): DocumentFragment {
 
 /** inferRealm：处理infer境界。 */
 function inferRealm(player: PlayerState): string {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
   if (player.realmName) {
     return player.realmStage ? `${player.realmName} · ${player.realmStage}` : player.realmName;
   }
@@ -112,6 +282,8 @@ function inferRealm(player: PlayerState): string {
 
 /** resolveRecommendedRealmLabel：解析Recommended境界标签。 */
 function resolveRecommendedRealmLabel(raw: string | undefined, fallback: string): string {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
   if (!raw) return fallback;
   if (/[^\x00-\x7F]/.test(raw)) return raw;
   const parts = raw.split('-').map((part) => part.trim()).filter(Boolean);
@@ -130,6 +302,8 @@ function buildMonsterStatus(distance: number): string {
 
 /** isSameStringSequence：判断是否Same String Sequence。 */
 function isSameStringSequence(previous: string[] | null, next: string[]): boolean {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
   if (!previous || previous.length !== next.length) {
     return false;
   }
@@ -162,7 +336,12 @@ export class WorldPanel {
   /** suggestionActionRefs：建议动作Refs。 */
   private suggestionActionRefs = new Map<string, SuggestionActionRefs>();
   /** callbacks：callbacks。 */
-  private callbacks: WorldPanelCallbacks = {};
+  private callbacks: WorldPanelCallbacks = {};  
+  /**
+ * 构造器：初始化 当前 实例并建立基础状态。
+ * @returns 无返回值（构造函数）。
+ */
+
 
   constructor() {
     this.bindSuggestionPaneEvents();
@@ -174,11 +353,31 @@ export class WorldPanel {
   }
 
   /** 根据玩家、地图、实体、行动、任务数据刷新三个子面板 */
-  update(input: {
-    player: PlayerState;
-    mapMeta: MapMeta | null;
-    entities: VisibleEntity[];
-    actions: ActionDef[];
+  update(input: {  
+  /**
+ * player：WorldPanel 内部字段。
+ */
+
+    player: PlayerState;    
+    /**
+ * mapMeta：WorldPanel 内部字段。
+ */
+
+    mapMeta: MapMeta | null;    
+    /**
+ * entities：WorldPanel 内部字段。
+ */
+
+    entities: VisibleEntity[];    
+    /**
+ * actions：WorldPanel 内部字段。
+ */
+
+    actions: ActionDef[];    
+    /**
+ * quests：WorldPanel 内部字段。
+ */
+
     quests: QuestState[];
   }): void {
     const snapshot = this.buildSnapshot(input);
@@ -198,13 +397,45 @@ export class WorldPanel {
     this.nearbyMonsterRefs.clear();
     this.nearbyNpcNameRefs.clear();
     this.suggestionActionRefs.clear();
-  }
-
-  private buildSnapshot(input: {
+  }  
+  /**
+ * buildSnapshot：构建并返回目标对象。
+ * @param input {
     player: PlayerState;
     mapMeta: MapMeta | null;
     entities: VisibleEntity[];
     actions: ActionDef[];
+    quests: QuestState[];
+  } 输入参数。
+ * @returns WorldPanelSnapshot。
+ */
+
+
+  private buildSnapshot(input: {  
+  /**
+ * player：WorldPanel 内部字段。
+ */
+
+    player: PlayerState;    
+    /**
+ * mapMeta：WorldPanel 内部字段。
+ */
+
+    mapMeta: MapMeta | null;    
+    /**
+ * entities：WorldPanel 内部字段。
+ */
+
+    entities: VisibleEntity[];    
+    /**
+ * actions：WorldPanel 内部字段。
+ */
+
+    actions: ActionDef[];    
+    /**
+ * quests：WorldPanel 内部字段。
+ */
+
     quests: QuestState[];
   }): WorldPanelSnapshot {
     const guide = WORLD_GUIDE[input.player.mapId] ?? {
@@ -284,6 +515,8 @@ export class WorldPanel {
 
   /** syncNearbyPane：同步Nearby Pane。 */
   private syncNearbyPane(snapshot: WorldPanelSnapshot): void {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
     const monsterIds = snapshot.nearbyMonsters.map((monster) => monster.id);
     const npcIds = snapshot.nearbyNpcs.map((npc) => npc.id);
     if (
@@ -298,6 +531,8 @@ export class WorldPanel {
 
   /** syncSuggestionPane：同步建议Pane。 */
   private syncSuggestionPane(snapshot: WorldPanelSnapshot): void {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
     const actionIds = snapshot.quickActions.map((action) => action.id);
     if (!isSameStringSequence(this.lastSuggestionActionIds, actionIds) || !this.patchSuggestionPane(snapshot)) {
       this.renderSuggestionPane(snapshot);
@@ -411,6 +646,8 @@ export class WorldPanel {
 
   /** patchMapPane：处理patch地图Pane。 */
   private patchMapPane(snapshot: WorldPanelSnapshot): boolean {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
     const moodNode = this.mapPane.querySelector<HTMLElement>('[data-world-map-mood="true"]');
     const titleNode = this.mapPane.querySelector<HTMLElement>('[data-world-map-title="true"]');
     const descNode = this.mapPane.querySelector<HTMLElement>('[data-world-map-desc="true"]');
@@ -452,6 +689,8 @@ export class WorldPanel {
 
   /** patchNearbyPane：处理patch Nearby Pane。 */
   private patchNearbyPane(snapshot: WorldPanelSnapshot): boolean {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
     if (snapshot.nearbyMonsters.length === 0 && snapshot.nearbyNpcs.length === 0) {
       this.lastNearbyMonsterIds = [];
       this.lastNearbyNpcIds = [];
@@ -485,6 +724,8 @@ export class WorldPanel {
 
   /** patchSuggestionPane：处理patch建议Pane。 */
   private patchSuggestionPane(snapshot: WorldPanelSnapshot): boolean {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
     const priorityNode = this.suggestionPane.querySelector<HTMLElement>('[data-world-suggestion-priority="true"]');
     const progressNode = this.suggestionPane.querySelector<HTMLElement>('[data-world-suggestion-progress="true"]');
     if (!priorityNode || !progressNode) {
@@ -515,6 +756,8 @@ export class WorldPanel {
 
   /** captureNearbyRefs：处理capture Nearby Refs。 */
   private captureNearbyRefs(snapshot: WorldPanelSnapshot): void {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
     this.nearbyMonsterRefs.clear();
     this.nearbyNpcNameRefs.clear();
     for (const monster of snapshot.nearbyMonsters) {
@@ -539,6 +782,8 @@ export class WorldPanel {
 
   /** captureSuggestionRefs：处理capture建议Refs。 */
   private captureSuggestionRefs(snapshot: WorldPanelSnapshot): void {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
     this.suggestionActionRefs.clear();
     for (const action of snapshot.quickActions) {
       const card = this.suggestionPane.querySelector<HTMLElement>(`[data-world-quick-action="${CSS.escape(action.id)}"]`);

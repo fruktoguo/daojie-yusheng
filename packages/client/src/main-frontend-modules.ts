@@ -21,6 +21,12 @@ import { CraftWorkbenchModal } from './ui/craft-workbench-modal';
 import { createClientPanelSystem } from './ui/panel-system/bootstrap';
 import { createMapRuntime } from './game-map/runtime/map-runtime';
 import { initializeMapPerformanceConfig } from './ui/performance-config';
+/**
+ * createMainFrontendModules：构建并返回目标对象。
+ * @param windowRef Window 参数说明。
+ * @returns 函数返回值。
+ */
+
 
 export function createMainFrontendModules(windowRef: Window) {
   const socket = new SocketManager();
@@ -55,5 +61,9 @@ export function createMainFrontendModules(windowRef: Window) {
     initialMapPerformanceConfig: initializeMapPerformanceConfig(),
   };
 }
+/**
+ * MainFrontendModules：统一结构类型，保证协议与运行时一致性。
+ */
+
 
 export type MainFrontendModules = ReturnType<typeof createMainFrontendModules>;

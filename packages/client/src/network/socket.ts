@@ -108,6 +108,8 @@ export class SocketManager {
 
   /** 使用已有 token 重新发起连接。 */
   reconnect(token?: string): boolean {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
     const nextToken = token ?? this.accessToken;
     if (!nextToken) {
       return false;
@@ -117,7 +119,13 @@ export class SocketManager {
   }
 
   /** 释放 Socket 实例并按需清除 token。 */
-  private disposeSocket(options: { clearToken: boolean }): void {
+  private disposeSocket(options: {  
+  /**
+ * clearToken：SocketManager 内部字段。
+ */
+ clearToken: boolean }): void {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
     if (options.clearToken) {
       this.accessToken = null;
     }
@@ -134,15 +142,33 @@ export class SocketManager {
   /** 发送握手消息，完成客户端就绪声明。 */
   private sendHello(): void {
     this.sendEvent(NEXT_C2S.Hello, {});
-  }
+  }  
+  /**
+ * onKick：执行核心业务逻辑。
+ * @param cb () => void 参数说明。
+ * @returns void。
+ */
+
 
   onKick(cb: () => void): void {
     this.lifecycle.onKick(cb);
-  }
+  }  
+  /**
+ * onDisconnect：执行核心业务逻辑。
+ * @param cb (reason: string) => void 参数说明。
+ * @returns void。
+ */
+
 
   onDisconnect(cb: (reason: string) => void): void {
     this.lifecycle.onDisconnect(cb);
-  }
+  }  
+  /**
+ * onConnectError：执行核心业务逻辑。
+ * @param cb (message: string) => void 参数说明。
+ * @returns void。
+ */
+
 
   onConnectError(cb: (message: string) => void): void {
     this.lifecycle.onConnectError(cb);
@@ -159,19 +185,39 @@ export class SocketManager {
   /** 当前连接是否处于已连接状态。 */
   get connected(): boolean {
     return this.socket?.connected ?? false;
-  }
+  }  
+  /**
+ * runtime：执行核心业务逻辑。
+ * @returns SocketRuntimeSender。
+ */
+
 
   get runtime(): SocketRuntimeSender {
     return this.runtimeSender;
-  }
+  }  
+  /**
+ * panel：执行核心业务逻辑。
+ * @returns SocketPanelSender。
+ */
+
 
   get panel(): SocketPanelSender {
     return this.panelSender;
-  }
+  }  
+  /**
+ * socialEconomy：执行核心业务逻辑。
+ * @returns SocketSocialEconomySender。
+ */
+
 
   get socialEconomy(): SocketSocialEconomySender {
     return this.socialEconomySender;
-  }
+  }  
+  /**
+ * admin：执行核心业务逻辑。
+ * @returns SocketAdminSender。
+ */
+
 
   get admin(): SocketAdminSender {
     return this.adminSender;

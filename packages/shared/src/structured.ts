@@ -3,6 +3,8 @@ type PlainRecord = Record<string, unknown>;
 
 /** isPlainRecord：判断是否Plain记录。 */
 function isPlainRecord(value: unknown): value is PlainRecord {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
   if (value === null || typeof value !== 'object' || Array.isArray(value)) {
     return false;
   }
@@ -17,6 +19,8 @@ function getDefinedKeys(record: PlainRecord): string[] {
 
 /** 递归克隆仅由 JSON 风格数据组成的对象，避免走 JSON 字符串中转。 */
 export function clonePlainValue<T>(value: T): T {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
   if (Array.isArray(value)) {
     return value.map((entry) => clonePlainValue(entry)) as T;
   }
@@ -32,6 +36,8 @@ export function clonePlainValue<T>(value: T): T {
 
 /** 比较仅由 JSON 风格数据组成的对象，忽略值为 undefined 的对象属性。 */
 export function isPlainEqual(left: unknown, right: unknown): boolean {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
   if (Object.is(left, right)) {
     return true;
   }

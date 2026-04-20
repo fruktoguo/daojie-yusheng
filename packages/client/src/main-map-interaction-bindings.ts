@@ -1,63 +1,357 @@
 import { encodeTileTargetRef, isPointInRange, type ActionDef, type TargetingShape, type Tile } from '@mud/shared-next';
 import type { MainNavigationObservedEntity } from './main-navigation-state-source';
+/**
+ * PendingTargetedAction：统一结构类型，保证协议与运行时一致性。
+ */
+
 
 type PendingTargetedAction = {
-  actionId: string;
-  actionName: string;
-  targetMode?: string;
-  range: number;
-  shape?: TargetingShape;
-  radius?: number;
-  width?: number;
-  height?: number;
-  maxTargets?: number;
-  hoverX?: number;
+/**
+ * actionId：对象字段。
+ */
+
+  actionId: string;  
+  /**
+ * actionName：对象字段。
+ */
+
+  actionName: string;  
+  /**
+ * targetMode：对象字段。
+ */
+
+  targetMode?: string;  
+  /**
+ * range：对象字段。
+ */
+
+  range: number;  
+  /**
+ * shape：对象字段。
+ */
+
+  shape?: TargetingShape;  
+  /**
+ * radius：对象字段。
+ */
+
+  radius?: number;  
+  /**
+ * width：对象字段。
+ */
+
+  width?: number;  
+  /**
+ * height：对象字段。
+ */
+
+  height?: number;  
+  /**
+ * maxTargets：对象字段。
+ */
+
+  maxTargets?: number;  
+  /**
+ * hoverX：对象字段。
+ */
+
+  hoverX?: number;  
+  /**
+ * hoverY：对象字段。
+ */
+
   hoverY?: number;
 } | null;
+/**
+ * HoveredMapTile：统一结构类型，保证协议与运行时一致性。
+ */
+
 
 type HoveredMapTile = {
-  x: number;
-  y: number;
-  clientX: number;
+/**
+ * x：对象字段。
+ */
+
+  x: number;  
+  /**
+ * y：对象字段。
+ */
+
+  y: number;  
+  /**
+ * clientX：对象字段。
+ */
+
+  clientX: number;  
+  /**
+ * clientY：对象字段。
+ */
+
   clientY: number;
 } | null;
+/**
+ * MainMapInteractionBindingsOptions：统一结构类型，保证协议与运行时一致性。
+ */
+
 
 type MainMapInteractionBindingsOptions = {
-  mapRuntime: {
-    setMoveHandler: (handler: (x: number, y: number) => void) => void;
-    setInteractionCallbacks: (callbacks: {
-      onTarget: (target: { x: number; y: number; clientX?: number; clientY?: number; entityId?: string; entityKind?: string }) => void;
-      onHover: (target: { x: number; y: number; clientX?: number; clientY?: number } | null) => void;
+/**
+ * mapRuntime：对象字段。
+ */
+
+  mapRuntime: {  
+  /**
+ * setMoveHandler：对象字段。
+ */
+
+    setMoveHandler: (handler: (x: number, y: number) => void) => void;    
+    /**
+ * setInteractionCallbacks：对象字段。
+ */
+
+    setInteractionCallbacks: (callbacks: {    
+    /**
+ * onTarget：对象字段。
+ */
+
+      onTarget: (target: {      
+      /**
+ * x：对象字段。
+ */
+ x: number;      
+ /**
+ * y：对象字段。
+ */
+ y: number;      
+ /**
+ * clientX：对象字段。
+ */
+ clientX?: number;      
+ /**
+ * clientY：对象字段。
+ */
+ clientY?: number;      
+ /**
+ * entityId：对象字段。
+ */
+ entityId?: string;      
+ /**
+ * entityKind：对象字段。
+ */
+ entityKind?: string }) => void;      
+ /**
+ * onHover：对象字段。
+ */
+
+      onHover: (target: {      
+      /**
+ * x：对象字段。
+ */
+ x: number;      
+ /**
+ * y：对象字段。
+ */
+ y: number;      
+ /**
+ * clientX：对象字段。
+ */
+ clientX?: number;      
+ /**
+ * clientY：对象字段。
+ */
+ clientY?: number } | null) => void;
     }) => void;
-  };
-  planPathTo: (target: { x: number; y: number }, options?: { ignoreVisibilityLimit?: boolean; allowNearestReachable?: boolean; preserveAutoInteraction?: boolean }) => void;
-  findObservedEntityAt: (x: number, y: number, kind?: string) => MainNavigationObservedEntity | null;
-  getPendingTargetedAction: () => PendingTargetedAction;
-  setPendingTargetedActionHover: (target: { x?: number; y?: number } | null) => void;
-  resolveCurrentTargetingRange: (action: NonNullable<PendingTargetedAction>) => number;
-  isPointInsideCurrentMap: (x: number, y: number) => boolean;
-  getVisibleTileAt: (x: number, y: number) => Tile | null;
-  showToast: (message: string) => void;
-  showObserveModal: (x: number, y: number) => void;
-  cancelTargeting: () => void;
-  getPlayer: () => { x: number; y: number } | null;
-  sendAction: (actionId: string, target?: string) => void;
-  sendCastSkill: (actionId: string, target?: string) => void;
-  hasAffectableTargetInArea: (action: NonNullable<PendingTargetedAction>, anchorX: number, anchorY: number) => boolean;
+  };  
+  /**
+ * planPathTo：对象字段。
+ */
+
+  planPathTo: (target: {  
+  /**
+ * x：对象字段。
+ */
+ x: number;  
+ /**
+ * y：对象字段。
+ */
+ y: number }, options?: {  
+ /**
+ * ignoreVisibilityLimit：对象字段。
+ */
+ ignoreVisibilityLimit?: boolean;  
+ /**
+ * allowNearestReachable：对象字段。
+ */
+ allowNearestReachable?: boolean;  
+ /**
+ * preserveAutoInteraction：对象字段。
+ */
+ preserveAutoInteraction?: boolean }) => void;  
+ /**
+ * findObservedEntityAt：对象字段。
+ */
+
+  findObservedEntityAt: (x: number, y: number, kind?: string) => MainNavigationObservedEntity | null;  
+  /**
+ * getPendingTargetedAction：对象字段。
+ */
+
+  getPendingTargetedAction: () => PendingTargetedAction;  
+  /**
+ * setPendingTargetedActionHover：对象字段。
+ */
+
+  setPendingTargetedActionHover: (target: {  
+  /**
+ * x：对象字段。
+ */
+ x?: number;  
+ /**
+ * y：对象字段。
+ */
+ y?: number } | null) => void;  
+ /**
+ * resolveCurrentTargetingRange：对象字段。
+ */
+
+  resolveCurrentTargetingRange: (action: NonNullable<PendingTargetedAction>) => number;  
+  /**
+ * isPointInsideCurrentMap：对象字段。
+ */
+
+  isPointInsideCurrentMap: (x: number, y: number) => boolean;  
+  /**
+ * getVisibleTileAt：对象字段。
+ */
+
+  getVisibleTileAt: (x: number, y: number) => Tile | null;  
+  /**
+ * showToast：对象字段。
+ */
+
+  showToast: (message: string) => void;  
+  /**
+ * showObserveModal：对象字段。
+ */
+
+  showObserveModal: (x: number, y: number) => void;  
+  /**
+ * cancelTargeting：对象字段。
+ */
+
+  cancelTargeting: () => void;  
+  /**
+ * getPlayer：对象字段。
+ */
+
+  getPlayer: () => {  
+  /**
+ * x：对象字段。
+ */
+ x: number;  
+ /**
+ * y：对象字段。
+ */
+ y: number } | null;  
+ /**
+ * sendAction：对象字段。
+ */
+
+  sendAction: (actionId: string, target?: string) => void;  
+  /**
+ * sendCastSkill：对象字段。
+ */
+
+  sendCastSkill: (actionId: string, target?: string) => void;  
+  /**
+ * hasAffectableTargetInArea：对象字段。
+ */
+
+  hasAffectableTargetInArea: (action: NonNullable<PendingTargetedAction>, anchorX: number, anchorY: number) => boolean;  
+  /**
+ * resolveTargetRefForAction：对象字段。
+ */
+
   resolveTargetRefForAction: (
     action: NonNullable<PendingTargetedAction>,
-    target: { x: number; y: number; entityId?: string; entityKind?: string },
-  ) => string | null;
-  getCurrentActionDef: (actionId: string) => ActionDef | null;
-  isWithinDisplayedMemoryBounds: (x: number, y: number) => boolean;
-  getKnownTileAt: (x: number, y: number) => Tile | null;
-  handleNpcClickTarget: (npc: MainNavigationObservedEntity) => boolean;
-  handlePortalClickTarget: (target: { x: number; y: number }, tile: Tile) => boolean;
-  clearCurrentPath: () => void;
-  syncTargetingOverlay: () => void;
-  syncSenseQiOverlay: () => void;
+    target: {    
+    /**
+ * x：对象字段。
+ */
+ x: number;    
+ /**
+ * y：对象字段。
+ */
+ y: number;    
+ /**
+ * entityId：对象字段。
+ */
+ entityId?: string;    
+ /**
+ * entityKind：对象字段。
+ */
+ entityKind?: string },
+  ) => string | null;  
+  /**
+ * getCurrentActionDef：对象字段。
+ */
+
+  getCurrentActionDef: (actionId: string) => ActionDef | null;  
+  /**
+ * isWithinDisplayedMemoryBounds：对象字段。
+ */
+
+  isWithinDisplayedMemoryBounds: (x: number, y: number) => boolean;  
+  /**
+ * getKnownTileAt：对象字段。
+ */
+
+  getKnownTileAt: (x: number, y: number) => Tile | null;  
+  /**
+ * handleNpcClickTarget：对象字段。
+ */
+
+  handleNpcClickTarget: (npc: MainNavigationObservedEntity) => boolean;  
+  /**
+ * handlePortalClickTarget：对象字段。
+ */
+
+  handlePortalClickTarget: (target: {  
+  /**
+ * x：对象字段。
+ */
+ x: number;  
+ /**
+ * y：对象字段。
+ */
+ y: number }, tile: Tile) => boolean;  
+ /**
+ * clearCurrentPath：对象字段。
+ */
+
+  clearCurrentPath: () => void;  
+  /**
+ * syncTargetingOverlay：对象字段。
+ */
+
+  syncTargetingOverlay: () => void;  
+  /**
+ * syncSenseQiOverlay：对象字段。
+ */
+
+  syncSenseQiOverlay: () => void;  
+  /**
+ * setHoveredMapTile：对象字段。
+ */
+
   setHoveredMapTile: (value: HoveredMapTile) => void;
 };
+/**
+ * bindMainMapInteractions：执行核心业务逻辑。
+ * @param options MainMapInteractionBindingsOptions 选项参数。
+ * @returns void。
+ */
+
 
 export function bindMainMapInteractions(options: MainMapInteractionBindingsOptions): void {
   options.mapRuntime.setMoveHandler((x, y) => {

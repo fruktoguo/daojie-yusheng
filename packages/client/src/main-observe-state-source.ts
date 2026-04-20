@@ -16,62 +16,252 @@ import { FloatingTooltip, prefersPinnedTooltipInteraction } from './ui/floating-
 import { createObserveModalController, type ObserveAsideCard } from './main-ui-helpers';
 import { describePreviewBonuses } from './ui/stat-preview';
 import { formatDisplayCountBadge, formatDisplayCurrentMax, formatDisplayInteger } from './utils/number';
+/**
+ * MainToastKind：统一结构类型，保证协议与运行时一致性。
+ */
+
 
 type MainToastKind = 'system' | 'chat' | 'quest' | 'combat' | 'loot' | 'grudge' | 'success' | 'warn' | 'travel';
+/**
+ * ObserveEntity：统一结构类型，保证协议与运行时一致性。
+ */
+
 
 type ObserveEntity = {
-  id: string;
-  wx: number;
-  wy: number;
-  char: string;
-  color: string;
-  name?: string;
-  kind?: string;
-  monsterTier?: MonsterTier;
-  hp?: number;
-  maxHp?: number;
-  qi?: number;
-  maxQi?: number;
-  npcQuestMarker?: RenderEntity['npcQuestMarker'];
-  observation?: RenderEntity['observation'];
+/**
+ * id：对象字段。
+ */
+
+  id: string;  
+  /**
+ * wx：对象字段。
+ */
+
+  wx: number;  
+  /**
+ * wy：对象字段。
+ */
+
+  wy: number;  
+  /**
+ * char：对象字段。
+ */
+
+  char: string;  
+  /**
+ * color：对象字段。
+ */
+
+  color: string;  
+  /**
+ * name：对象字段。
+ */
+
+  name?: string;  
+  /**
+ * kind：对象字段。
+ */
+
+  kind?: string;  
+  /**
+ * monsterTier：对象字段。
+ */
+
+  monsterTier?: MonsterTier;  
+  /**
+ * hp：对象字段。
+ */
+
+  hp?: number;  
+  /**
+ * maxHp：对象字段。
+ */
+
+  maxHp?: number;  
+  /**
+ * qi：对象字段。
+ */
+
+  qi?: number;  
+  /**
+ * maxQi：对象字段。
+ */
+
+  maxQi?: number;  
+  /**
+ * npcQuestMarker：对象字段。
+ */
+
+  npcQuestMarker?: RenderEntity['npcQuestMarker'];  
+  /**
+ * observation：对象字段。
+ */
+
+  observation?: RenderEntity['observation'];  
+  /**
+ * buffs：对象字段。
+ */
+
   buffs?: VisibleBuffState[];
 };
+/**
+ * ObserveEntityCardData：统一结构类型，保证协议与运行时一致性。
+ */
+
 
 type ObserveEntityCardData = Pick<
   ObserveEntity,
   'id' | 'name' | 'kind' | 'monsterTier' | 'hp' | 'maxHp' | 'qi' | 'maxQi' | 'npcQuestMarker' | 'observation' | 'buffs'
 >;
+/**
+ * ActiveObservedTile：统一结构类型，保证协议与运行时一致性。
+ */
+
 
 type ActiveObservedTile = {
-  mapId: string;
-  x: number;
+/**
+ * mapId：对象字段。
+ */
+
+  mapId: string;  
+  /**
+ * x：对象字段。
+ */
+
+  x: number;  
+  /**
+ * y：对象字段。
+ */
+
   y: number;
 } | null;
+/**
+ * MainObserveStateSourceOptions：统一结构类型，保证协议与运行时一致性。
+ */
+
 
 type MainObserveStateSourceOptions = {
-  observeModalEl: HTMLElement | null;
-  observeModalBodyEl: HTMLElement | null;
-  observeModalSubtitleEl: HTMLElement | null;
-  observeModalAsideEl: HTMLElement | null;
-  observeModalShellEl: HTMLElement | null;
-  getPlayer: () => { id: string; mapId: string; senseQiActive?: boolean } | null;
-  getVisibleTileAt: (x: number, y: number) => Tile | null;
-  getVisibleGroundPileAt: (x: number, y: number) => GroundItemPileView | null;
-  getLatestEntities: () => ObserveEntity[];
-  showToast: (message: string, kind?: MainToastKind) => void;
-  sendInspectTileRuntime: (x: number, y: number) => void;
-  openEntityDetailPending: (kind: NEXT_S2C_Detail['kind'], id: string, title: string) => void;
+/**
+ * observeModalEl：对象字段。
+ */
+
+  observeModalEl: HTMLElement | null;  
+  /**
+ * observeModalBodyEl：对象字段。
+ */
+
+  observeModalBodyEl: HTMLElement | null;  
+  /**
+ * observeModalSubtitleEl：对象字段。
+ */
+
+  observeModalSubtitleEl: HTMLElement | null;  
+  /**
+ * observeModalAsideEl：对象字段。
+ */
+
+  observeModalAsideEl: HTMLElement | null;  
+  /**
+ * observeModalShellEl：对象字段。
+ */
+
+  observeModalShellEl: HTMLElement | null;  
+  /**
+ * getPlayer：对象字段。
+ */
+
+  getPlayer: () => {  
+  /**
+ * id：对象字段。
+ */
+ id: string;  
+ /**
+ * mapId：对象字段。
+ */
+ mapId: string;  
+ /**
+ * senseQiActive：对象字段。
+ */
+ senseQiActive?: boolean } | null;  
+ /**
+ * getVisibleTileAt：对象字段。
+ */
+
+  getVisibleTileAt: (x: number, y: number) => Tile | null;  
+  /**
+ * getVisibleGroundPileAt：对象字段。
+ */
+
+  getVisibleGroundPileAt: (x: number, y: number) => GroundItemPileView | null;  
+  /**
+ * getLatestEntities：对象字段。
+ */
+
+  getLatestEntities: () => ObserveEntity[];  
+  /**
+ * showToast：对象字段。
+ */
+
+  showToast: (message: string, kind?: MainToastKind) => void;  
+  /**
+ * sendInspectTileRuntime：对象字段。
+ */
+
+  sendInspectTileRuntime: (x: number, y: number) => void;  
+  /**
+ * openEntityDetailPending：对象字段。
+ */
+
+  openEntityDetailPending: (kind: NEXT_S2C_Detail['kind'], id: string, title: string) => void;  
+  /**
+ * sendRequestDetail：对象字段。
+ */
+
   sendRequestDetail: (kind: NEXT_S2C_Detail['kind'], id: string) => void;
 };
+/**
+ * TileRuntimeResourceDetail：统一结构类型，保证协议与运行时一致性。
+ */
+
 
 type TileRuntimeResourceDetail = {
-  key: string;
-  label: string;
-  value: number;
-  effectiveValue?: number;
-  level?: number;
+/**
+ * key：对象字段。
+ */
+
+  key: string;  
+  /**
+ * label：对象字段。
+ */
+
+  label: string;  
+  /**
+ * value：对象字段。
+ */
+
+  value: number;  
+  /**
+ * effectiveValue：对象字段。
+ */
+
+  effectiveValue?: number;  
+  /**
+ * level：对象字段。
+ */
+
+  level?: number;  
+  /**
+ * sourceValue：对象字段。
+ */
+
   sourceValue?: number;
 };
+/**
+ * escapeHtml：执行核心业务逻辑。
+ * @param input string 输入参数。
+ * @returns string。
+ */
+
 
 function escapeHtml(input: string): string {
   return input
@@ -81,44 +271,111 @@ function escapeHtml(input: string): string {
     .replaceAll('"', '&quot;')
     .replaceAll("'", '&#39;');
 }
+/**
+ * isCrowdEntityKind：执行状态校验并返回判断结果。
+ * @param kind string | null | undefined 参数说明。
+ * @returns boolean。
+ */
+
 
 function isCrowdEntityKind(kind: string | null | undefined): boolean {
   return kind === 'crowd';
 }
+/**
+ * getTileTypeName：按给定条件读取/查询数据。
+ * @param type TileType 参数说明。
+ * @returns string。
+ */
+
 
 function getTileTypeName(type: TileType): string {
   return getTileTypeLabel(type, '未知地貌');
 }
+/**
+ * formatTraversalCost：执行核心业务逻辑。
+ * @param tile Tile 参数说明。
+ * @returns string。
+ */
+
 
 function formatTraversalCost(tile: Tile): string {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
   if (!tile.walkable) {
     return '无法通行';
   }
   return `${getTileTraversalCost(tile.type)} 点/格`;
 }
+/**
+ * formatCurrentMax：执行核心业务逻辑。
+ * @param current number 参数说明。
+ * @param max number 参数说明。
+ * @returns string。
+ */
+
 
 function formatCurrentMax(current?: number, max?: number): string {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
   if (typeof current !== 'number' || typeof max !== 'number') {
     return '未明';
   }
   return formatDisplayCurrentMax(Math.max(0, Math.round(current)), Math.max(0, Math.round(max)));
 }
+/**
+ * buildObservationRows：构建并返回目标对象。
+ * @param rows Array<{ label: string; value?: string; valueHtml?: string }> 参数说明。
+ * @returns string。
+ */
 
-function buildObservationRows(rows: Array<{ label: string; value?: string; valueHtml?: string }>): string {
+
+function buildObservationRows(rows: Array<{
+/**
+ * label：对象字段。
+ */
+ label: string;
+ /**
+ * value：对象字段。
+ */
+ value?: string;
+ /**
+ * valueHtml：对象字段。
+ */
+ valueHtml?: string }>): string {
   return rows
     .map((row) => `<div class="observe-modal-row"><span class="observe-modal-label">${escapeHtml(row.label)}</span><span class="observe-modal-value">${row.valueHtml ?? escapeHtml(row.value ?? '')}</span></div>`)
     .join('');
 }
+/**
+ * formatBuffDuration：执行核心业务逻辑。
+ * @param buff VisibleBuffState 参数说明。
+ * @returns string。
+ */
+
 
 function formatBuffDuration(buff: VisibleBuffState): string {
   return `${formatDisplayInteger(Math.max(0, Math.round(buff.remainingTicks)))} / ${formatDisplayInteger(Math.max(1, Math.round(buff.duration)))} 息`;
 }
+/**
+ * buildBuffEffectLines：构建并返回目标对象。
+ * @param buff VisibleBuffState 参数说明。
+ * @returns string[]。
+ */
+
 
 function buildBuffEffectLines(buff: VisibleBuffState): string[] {
   return describePreviewBonuses(buff.attrs, buff.stats);
 }
+/**
+ * buildBuffTooltipLines：构建并返回目标对象。
+ * @param buff VisibleBuffState 参数说明。
+ * @returns string[]。
+ */
+
 
 function buildBuffTooltipLines(buff: VisibleBuffState): string[] {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
   const lines = [
     `类别：${buff.category === 'debuff' ? '减益' : '增益'}`,
     `剩余：${formatBuffDuration(buff)}`,
@@ -139,6 +396,12 @@ function buildBuffTooltipLines(buff: VisibleBuffState): string[] {
   }
   return lines;
 }
+/**
+ * buildBuffBadgeHtml：构建并返回目标对象。
+ * @param buff VisibleBuffState 参数说明。
+ * @returns string。
+ */
+
 
 function buildBuffBadgeHtml(buff: VisibleBuffState): string {
   const title = escapeHtml(buff.name);
@@ -152,6 +415,14 @@ function buildBuffBadgeHtml(buff: VisibleBuffState): string {
     ${stackText}
   </button>`;
 }
+/**
+ * buildBuffSectionHtml：构建并返回目标对象。
+ * @param title string 参数说明。
+ * @param buffs VisibleBuffState[] 参数说明。
+ * @param emptyText string 参数说明。
+ * @returns string。
+ */
+
 
 function buildBuffSectionHtml(title: string, buffs: VisibleBuffState[], emptyText: string): string {
   return `<section class="observe-buff-section">
@@ -161,8 +432,18 @@ function buildBuffSectionHtml(title: string, buffs: VisibleBuffState[], emptyTex
       : `<div class="observe-entity-empty">${escapeHtml(emptyText)}</div>`}
   </section>`;
 }
+/**
+ * MainObserveStateSource：统一结构类型，保证协议与运行时一致性。
+ */
+
 
 export type MainObserveStateSource = ReturnType<typeof createMainObserveStateSource>;
+/**
+ * createMainObserveStateSource：构建并返回目标对象。
+ * @param options MainObserveStateSourceOptions 选项参数。
+ * @returns 函数返回值。
+ */
+
 
 export function createMainObserveStateSource(options: MainObserveStateSourceOptions) {
   const observeBuffTooltip = new FloatingTooltip();
@@ -177,7 +458,14 @@ export function createMainObserveStateSource(options: MainObserveStateSourceOpti
 
   let activeObservedTile: ActiveObservedTile = null;
   let activeObservedTileDetail: NEXT_S2C_TileDetail | null = null;
-  let activeObservedTileError: string | null = null;
+  let activeObservedTileError: string | null = null;  
+  /**
+ * isMatchingObservedTile：执行状态校验并返回判断结果。
+ * @param targetX number 参数说明。
+ * @param targetY number 参数说明。
+ * @returns boolean。
+ */
+
 
   function isMatchingObservedTile(targetX: number, targetY: number): boolean {
     const player = options.getPlayer();
@@ -188,9 +476,18 @@ export function createMainObserveStateSource(options: MainObserveStateSourceOpti
       && activeObservedTile.x === targetX
       && activeObservedTile.y === targetY,
     );
-  }
+  }  
+  /**
+ * getObservedTileRuntimeResources：按给定条件读取/查询数据。
+ * @param targetX number 参数说明。
+ * @param targetY number 参数说明。
+ * @returns TileRuntimeResourceDetail[]。
+ */
+
 
   function getObservedTileRuntimeResources(targetX: number, targetY: number): TileRuntimeResourceDetail[] {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
     const player = options.getPlayer();
     if (
       !player
@@ -211,9 +508,18 @@ export function createMainObserveStateSource(options: MainObserveStateSourceOpti
       }];
     }
     return [];
-  }
+  }  
+  /**
+ * formatObservedResourceOverview：执行核心业务逻辑。
+ * @param resource TileRuntimeResourceDetail 参数说明。
+ * @param fallbackLevel number 参数说明。
+ * @returns string。
+ */
+
 
   function formatObservedResourceOverview(resource: TileRuntimeResourceDetail, fallbackLevel?: number): string {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
     if (typeof resource.level === 'number') {
       return formatDisplayInteger(Math.max(0, Math.round(resource.level)));
     }
@@ -221,9 +527,17 @@ export function createMainObserveStateSource(options: MainObserveStateSourceOpti
       return formatDisplayInteger(Math.max(0, Math.round(fallbackLevel)));
     }
     return formatDisplayInteger(Math.max(0, Math.round(resource.value)));
-  }
+  }  
+  /**
+ * buildObservedResourceAsideLines：构建并返回目标对象。
+ * @param resource TileRuntimeResourceDetail 参数说明。
+ * @returns string[]。
+ */
+
 
   function buildObservedResourceAsideLines(resource: TileRuntimeResourceDetail): string[] {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
     const effectiveValue = typeof resource.effectiveValue === 'number' && Number.isFinite(resource.effectiveValue)
       ? resource.effectiveValue
       : undefined;
@@ -236,9 +550,19 @@ export function createMainObserveStateSource(options: MainObserveStateSourceOpti
       lines.unshift(`当前等级：${formatDisplayInteger(Math.max(0, Math.round(resource.level)))}`);
     }
     return lines;
-  }
+  }  
+  /**
+ * buildObservedResourceAsideCards：构建并返回目标对象。
+ * @param targetX number 参数说明。
+ * @param targetY number 参数说明。
+ * @param tile Tile 参数说明。
+ * @returns ObserveAsideCard[]。
+ */
+
 
   function buildObservedResourceAsideCards(targetX: number, targetY: number, tile: Tile): ObserveAsideCard[] {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
     const player = options.getPlayer();
     if (!player?.senseQiActive || !isMatchingObservedTile(targetX, targetY)) {
       return [];
@@ -273,9 +597,17 @@ export function createMainObserveStateSource(options: MainObserveStateSourceOpti
         tone: 'buff',
       };
     });
-  }
+  }  
+  /**
+ * toObserveEntityCardData：执行核心业务逻辑。
+ * @param entity ObserveEntity 参数说明。
+ * @returns ObserveEntityCardData。
+ */
+
 
   function toObserveEntityCardData(entity: ObserveEntity): ObserveEntityCardData {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
     if (isCrowdEntityKind(entity.kind)) {
       return {
         id: entity.id,
@@ -297,9 +629,17 @@ export function createMainObserveStateSource(options: MainObserveStateSourceOpti
       observation: entity.observation,
       buffs: entity.buffs,
     };
-  }
+  }  
+  /**
+ * normalizeObserveEntityCardData：执行核心业务逻辑。
+ * @param entity NonNullable<NEXT_S2C_TileDetail['entities']>[number] 参数说明。
+ * @returns ObserveEntityCardData。
+ */
+
 
   function normalizeObserveEntityCardData(entity: NonNullable<NEXT_S2C_TileDetail['entities']>[number]): ObserveEntityCardData {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
     if (isCrowdEntityKind(entity.kind)) {
       return {
         id: entity.id,
@@ -321,9 +661,18 @@ export function createMainObserveStateSource(options: MainObserveStateSourceOpti
       observation: entity.observation ?? undefined,
       buffs: entity.buffs ?? undefined,
     };
-  }
+  }  
+  /**
+ * resolveObserveEntities：执行核心业务逻辑。
+ * @param targetX number 参数说明。
+ * @param targetY number 参数说明。
+ * @returns ObserveEntityCardData[]。
+ */
+
 
   function resolveObserveEntities(targetX: number, targetY: number): ObserveEntityCardData[] {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
     if (
       activeObservedTile
       && activeObservedTile.mapId === options.getPlayer()?.mapId
@@ -339,16 +688,32 @@ export function createMainObserveStateSource(options: MainObserveStateSourceOpti
     return localEntities
       .filter((entity) => !hasCrowdEntity || entity.kind !== 'player')
       .map((entity) => toObserveEntityCardData(entity));
-  }
+  }  
+  /**
+ * resolveObserveDetailKind：执行核心业务逻辑。
+ * @param kind ObserveEntityCardData['kind'] 参数说明。
+ * @returns NEXT_S2C_Detail['kind'] | null。
+ */
+
 
   function resolveObserveDetailKind(kind: ObserveEntityCardData['kind']): NEXT_S2C_Detail['kind'] | null {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
     if (kind === 'npc' || kind === 'monster' || kind === 'player' || kind === 'portal' || kind === 'ground' || kind === 'container') {
       return kind;
     }
     return null;
-  }
+  }  
+  /**
+ * buildObservedEntityCardHtml：构建并返回目标对象。
+ * @param entity ObserveEntityCardData 参数说明。
+ * @returns string。
+ */
+
 
   function buildObservedEntityCardHtml(entity: ObserveEntityCardData): string {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
     if (isCrowdEntityKind(entity.kind)) {
       return `<div class="observe-entity-card">
         <div class="observe-entity-head">
@@ -401,7 +766,13 @@ export function createMainObserveStateSource(options: MainObserveStateSourceOpti
         : '<div class="observe-entity-empty">此身气机尽藏，暂未看出更多端倪。</div>'}
       ${buffSection}
     </${tag}>`;
-  }
+  }  
+  /**
+ * buildObservedEntitySectionHtml：构建并返回目标对象。
+ * @param entities ObserveEntityCardData[] 参数说明。
+ * @returns string。
+ */
+
 
   function buildObservedEntitySectionHtml(entities: ObserveEntityCardData[]): string {
     return `<section class="observe-modal-section">
@@ -410,7 +781,13 @@ export function createMainObserveStateSource(options: MainObserveStateSourceOpti
         ? `<div class="observe-entity-list">${entities.map((entity) => buildObservedEntityCardHtml(entity)).join('')}</div>`
         : '<div class="observe-entity-empty">该地块当前没有可观察的角色、怪物、NPC、传送点或地面物。</div>'}
     </section>`;
-  }
+  }  
+  /**
+ * bindObserveEntityDetailActions：执行核心业务逻辑。
+ * @param root ParentNode 参数说明。
+ * @returns void。
+ */
+
 
   function bindObserveEntityDetailActions(root: ParentNode): void {
     root.querySelectorAll<HTMLElement>('[data-observe-detail-id][data-observe-detail-kind]').forEach((node) => {
@@ -427,7 +804,13 @@ export function createMainObserveStateSource(options: MainObserveStateSourceOpti
         event.stopPropagation();
       }, true);
     });
-  }
+  }  
+  /**
+ * bindObserveBuffTooltips：执行核心业务逻辑。
+ * @param root ParentNode 参数说明。
+ * @returns void。
+ */
+
 
   function bindObserveBuffTooltips(root: ParentNode): void {
     root.querySelectorAll<HTMLElement>('[data-buff-tooltip-title]').forEach((node) => {
@@ -457,9 +840,18 @@ export function createMainObserveStateSource(options: MainObserveStateSourceOpti
         observeBuffTooltip.hide();
       });
     });
-  }
+  }  
+  /**
+ * render：执行核心业务逻辑。
+ * @param targetX number 参数说明。
+ * @param targetY number 参数说明。
+ * @returns void。
+ */
+
 
   function render(targetX: number, targetY: number): void {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
     const tile = options.getVisibleTileAt(targetX, targetY);
     if (!tile) {
       options.showToast('只能观察当前视野内的格子');
@@ -616,17 +1008,36 @@ export function createMainObserveStateSource(options: MainObserveStateSourceOpti
     observeModalController.show();
   }
 
-  return {
+  return {  
+  /**
+ * clear：执行核心业务逻辑。
+ * @returns void。
+ */
+
     clear(): void {
       activeObservedTile = null;
       activeObservedTileDetail = null;
       activeObservedTileError = null;
-    },
+    },    
+    /**
+ * hide：执行核心业务逻辑。
+ * @returns void。
+ */
+
     hide(): void {
       observeModalController.hide();
       this.clear();
-    },
+    },    
+    /**
+ * show：执行核心业务逻辑。
+ * @param targetX number 参数说明。
+ * @param targetY number 参数说明。
+ * @returns void。
+ */
+
     show(targetX: number, targetY: number): void {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
       const player = options.getPlayer();
       if (!player) {
         return;
@@ -636,11 +1047,26 @@ export function createMainObserveStateSource(options: MainObserveStateSourceOpti
       activeObservedTileError = null;
       render(targetX, targetY);
       options.sendInspectTileRuntime(targetX, targetY);
-    },
+    },    
+    /**
+ * render：执行核心业务逻辑。
+ * @param targetX number 参数说明。
+ * @param targetY number 参数说明。
+ * @returns void。
+ */
+
     render(targetX: number, targetY: number): void {
       render(targetX, targetY);
-    },
+    },    
+    /**
+ * handleTileDetail：处理事件并驱动执行路径。
+ * @param data NEXT_S2C_TileDetail 原始数据。
+ * @returns void。
+ */
+
     handleTileDetail(data: NEXT_S2C_TileDetail): void {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
       const player = options.getPlayer();
       if (
         !player
@@ -657,7 +1083,12 @@ export function createMainObserveStateSource(options: MainObserveStateSourceOpti
         options.showToast(data.error);
       }
       render(data.x, data.y);
-    },
+    },    
+    /**
+ * isOpen：执行状态校验并返回判断结果。
+ * @returns boolean。
+ */
+
     isOpen(): boolean {
       return !(options.observeModalEl?.classList.contains('hidden') ?? true);
     },

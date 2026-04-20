@@ -16,7 +16,15 @@ import { escapeHtml, formatJson } from './pure';
 
 /** PresenceMeta：玩家在线状态徽标的渲染元数据。 */
 export interface PresenceMeta {
-  className: 'online' | 'offline';
+/**
+ * className：PresenceMeta 内部字段。
+ */
+
+  className: 'online' | 'offline';  
+  /**
+ * label：PresenceMeta 内部字段。
+ */
+
   label: '在线' | '离线挂机' | '离线';
 }
 
@@ -51,6 +59,8 @@ export function getEditorMetaMarkup(
   presence: PresenceMeta,
   editorDirty: boolean,
 ): string {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
   const pills: string[] = [
     `<span class="pill ${presence.className}">${presence.label}</span>`,
     `<span class="pill ${detail.meta.isBot ? 'bot' : ''}">${detail.meta.isBot ? '机器人' : '玩家'}</span>`,
@@ -104,6 +114,8 @@ export function getBuffCardTitle(buff: TemporaryBuffState | undefined, index: nu
 
 /** getBuffCardMeta：读取Buff卡片元数据。 */
 export function getBuffCardMeta(buff: TemporaryBuffState | undefined): string {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
   if (!buff) return '';
   return `${buff.buffId || '未填写 buffId'} · ${buff.category} · ${buff.visibility}`;
 }
@@ -115,6 +127,8 @@ export function getInventoryCardTitle(item: ItemStack | undefined, index: number
 
 /** getInventoryCardMeta：读取背包卡片元数据。 */
 export function getInventoryCardMeta(item: ItemStack | undefined): string {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
   if (!item) return '';
   return getInventoryRowMeta(item);
 }
@@ -136,6 +150,8 @@ export function getTechniqueCardTitle(technique: TechniqueState | undefined, ind
 
 /** getTechniqueCardMeta：读取Technique卡片元数据。 */
 export function getTechniqueCardMeta(technique: TechniqueState | undefined, getRealmLevelLabel: (realmLv: number) => string | undefined): string {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
   if (!technique) return '';
   const realmLevelLabel = getRealmLevelLabel(technique.realmLv);
   return `${technique.techId || '未填写功法 ID'} · ${realmLevelLabel ?? `Lv.${technique.realmLv}`} · 等级 ${technique.level} · ${TECHNIQUE_REALM_LABELS[technique.realm] ?? technique.realm}`;
@@ -148,6 +164,8 @@ export function getQuestCardTitle(quest: QuestState | undefined, index: number):
 
 /** getQuestCardMeta：读取任务卡片元数据。 */
 export function getQuestCardMeta(quest: QuestState | undefined): string {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
   if (!quest) return '';
   return `${quest.id || '未填写任务 ID'} · ${QUEST_LINE_LABELS[quest.line] ?? quest.line} · ${QUEST_STATUS_LABELS[quest.status] ?? quest.status}`;
 }

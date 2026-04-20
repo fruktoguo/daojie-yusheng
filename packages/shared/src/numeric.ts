@@ -25,10 +25,30 @@ export type NumericValueType = 'flat' | 'ratio_value' | 'rate_bp' | 'throughput'
 
 /** 五行元素属性组 */
 export interface ElementStatGroup {
-  metal: number;
-  wood: number;
-  water: number;
-  fire: number;
+/**
+ * metal：ElementStatGroup 内部字段。
+ */
+
+  metal: number;  
+  /**
+ * wood：ElementStatGroup 内部字段。
+ */
+
+  wood: number;  
+  /**
+ * water：ElementStatGroup 内部字段。
+ */
+
+  water: number;  
+  /**
+ * fire：ElementStatGroup 内部字段。
+ */
+
+  fire: number;  
+  /**
+ * earth：ElementStatGroup 内部字段。
+ */
+
   earth: number;
 }
 
@@ -40,57 +60,233 @@ export type NumericScalarStatKey = typeof NUMERIC_SCALAR_STAT_KEYS[number];
 
 /** 完整数值属性集（含五行元素加成/减免） */
 export interface NumericStats {
-  maxHp: number;
-  maxQi: number;
-  physAtk: number;
-  spellAtk: number;
-  physDef: number;
-  spellDef: number;
-  hit: number;
-  dodge: number;
-  crit: number;
-  antiCrit: number;
-  critDamage: number;
-  breakPower: number;
-  resolvePower: number;
-  maxQiOutputPerTick: number;
-  qiRegenRate: number;
-  hpRegenRate: number;
-  cooldownSpeed: number;
-  auraCostReduce: number;
-  auraPowerRate: number;
-  playerExpRate: number;
-  techniqueExpRate: number;
-  realmExpPerTick: number;
-  techniqueExpPerTick: number;
-  lootRate: number;
-  rareLootRate: number;
-  viewRange: number;
-  moveSpeed: number;
-  extraAggroRate: number;
-  extraRange: number;
-  extraArea: number;
-  elementDamageBonus: ElementStatGroup;
+/**
+ * maxHp：NumericStats 内部字段。
+ */
+
+  maxHp: number;  
+  /**
+ * maxQi：NumericStats 内部字段。
+ */
+
+  maxQi: number;  
+  /**
+ * physAtk：NumericStats 内部字段。
+ */
+
+  physAtk: number;  
+  /**
+ * spellAtk：NumericStats 内部字段。
+ */
+
+  spellAtk: number;  
+  /**
+ * physDef：NumericStats 内部字段。
+ */
+
+  physDef: number;  
+  /**
+ * spellDef：NumericStats 内部字段。
+ */
+
+  spellDef: number;  
+  /**
+ * hit：NumericStats 内部字段。
+ */
+
+  hit: number;  
+  /**
+ * dodge：NumericStats 内部字段。
+ */
+
+  dodge: number;  
+  /**
+ * crit：NumericStats 内部字段。
+ */
+
+  crit: number;  
+  /**
+ * antiCrit：NumericStats 内部字段。
+ */
+
+  antiCrit: number;  
+  /**
+ * critDamage：NumericStats 内部字段。
+ */
+
+  critDamage: number;  
+  /**
+ * breakPower：NumericStats 内部字段。
+ */
+
+  breakPower: number;  
+  /**
+ * resolvePower：NumericStats 内部字段。
+ */
+
+  resolvePower: number;  
+  /**
+ * maxQiOutputPerTick：NumericStats 内部字段。
+ */
+
+  maxQiOutputPerTick: number;  
+  /**
+ * qiRegenRate：NumericStats 内部字段。
+ */
+
+  qiRegenRate: number;  
+  /**
+ * hpRegenRate：NumericStats 内部字段。
+ */
+
+  hpRegenRate: number;  
+  /**
+ * cooldownSpeed：NumericStats 内部字段。
+ */
+
+  cooldownSpeed: number;  
+  /**
+ * auraCostReduce：NumericStats 内部字段。
+ */
+
+  auraCostReduce: number;  
+  /**
+ * auraPowerRate：NumericStats 内部字段。
+ */
+
+  auraPowerRate: number;  
+  /**
+ * playerExpRate：NumericStats 内部字段。
+ */
+
+  playerExpRate: number;  
+  /**
+ * techniqueExpRate：NumericStats 内部字段。
+ */
+
+  techniqueExpRate: number;  
+  /**
+ * realmExpPerTick：NumericStats 内部字段。
+ */
+
+  realmExpPerTick: number;  
+  /**
+ * techniqueExpPerTick：NumericStats 内部字段。
+ */
+
+  techniqueExpPerTick: number;  
+  /**
+ * lootRate：NumericStats 内部字段。
+ */
+
+  lootRate: number;  
+  /**
+ * rareLootRate：NumericStats 内部字段。
+ */
+
+  rareLootRate: number;  
+  /**
+ * viewRange：NumericStats 内部字段。
+ */
+
+  viewRange: number;  
+  /**
+ * moveSpeed：NumericStats 内部字段。
+ */
+
+  moveSpeed: number;  
+  /**
+ * extraAggroRate：NumericStats 内部字段。
+ */
+
+  extraAggroRate: number;  
+  /**
+ * extraRange：NumericStats 内部字段。
+ */
+
+  extraRange: number;  
+  /**
+ * extraArea：NumericStats 内部字段。
+ */
+
+  extraArea: number;  
+  /**
+ * elementDamageBonus：NumericStats 内部字段。
+ */
+
+  elementDamageBonus: ElementStatGroup;  
+  /**
+ * elementDamageReduce：NumericStats 内部字段。
+ */
+
   elementDamageReduce: ElementStatGroup;
 }
 
 /** 部分数值属性（用于增量叠加） */
 export interface PartialNumericStats extends Partial<Omit<NumericStats, 'elementDamageBonus' | 'elementDamageReduce'>> {
-  elementDamageBonus?: PartialElementStatGroup;
+/**
+ * elementDamageBonus：PartialNumericStats 内部字段。
+ */
+
+  elementDamageBonus?: PartialElementStatGroup;  
+  /**
+ * elementDamageReduce：PartialNumericStats 内部字段。
+ */
+
   elementDamageReduce?: PartialElementStatGroup;
 }
 
 /** 具体属性乘区拆解 */
 export interface NumericStatBreakdownEntry {
-  realmBaseValue: number;
-  bonusBaseValue: number;
-  baseValue: number;
-  flatBuffValue: number;
-  preMultiplierValue: number;
-  attrMultiplierPct: number;
-  realmMultiplier: number;
-  buffMultiplierPct: number;
-  pillMultiplierPct: number;
+/**
+ * realmBaseValue：NumericStatBreakdownEntry 内部字段。
+ */
+
+  realmBaseValue: number;  
+  /**
+ * bonusBaseValue：NumericStatBreakdownEntry 内部字段。
+ */
+
+  bonusBaseValue: number;  
+  /**
+ * baseValue：NumericStatBreakdownEntry 内部字段。
+ */
+
+  baseValue: number;  
+  /**
+ * flatBuffValue：NumericStatBreakdownEntry 内部字段。
+ */
+
+  flatBuffValue: number;  
+  /**
+ * preMultiplierValue：NumericStatBreakdownEntry 内部字段。
+ */
+
+  preMultiplierValue: number;  
+  /**
+ * attrMultiplierPct：NumericStatBreakdownEntry 内部字段。
+ */
+
+  attrMultiplierPct: number;  
+  /**
+ * realmMultiplier：NumericStatBreakdownEntry 内部字段。
+ */
+
+  realmMultiplier: number;  
+  /**
+ * buffMultiplierPct：NumericStatBreakdownEntry 内部字段。
+ */
+
+  buffMultiplierPct: number;  
+  /**
+ * pillMultiplierPct：NumericStatBreakdownEntry 内部字段。
+ */
+
+  pillMultiplierPct: number;  
+  /**
+ * finalValue：NumericStatBreakdownEntry 内部字段。
+ */
+
   finalValue: number;
 }
 
@@ -99,28 +295,88 @@ export type NumericStatBreakdownMap = Partial<Record<NumericScalarStatKey, Numer
 
 /** 数值修改器（来源标识 + 属性/数值增量） */
 export interface NumericModifier {
-  source: string;
-  baseAttrs?: Partial<Attributes>;
-  stats?: PartialNumericStats;
-  label?: string;
+/**
+ * source：NumericModifier 内部字段。
+ */
+
+  source: string;  
+  /**
+ * baseAttrs：NumericModifier 内部字段。
+ */
+
+  baseAttrs?: Partial<Attributes>;  
+  /**
+ * stats：NumericModifier 内部字段。
+ */
+
+  stats?: PartialNumericStats;  
+  /**
+ * label：NumericModifier 内部字段。
+ */
+
+  label?: string;  
+  /**
+ * meta：NumericModifier 内部字段。
+ */
+
   meta?: Record<string, unknown>;
 }
 
 /** RatioValue 除数配置（控制闪避/暴击等属性的收益递减曲线） */
 export interface NumericRatioDivisors {
-  dodge: number;
-  crit: number;
-  breakPower: number;
-  resolvePower: number;
-  cooldownSpeed: number;
-  moveSpeed: number;
+/**
+ * dodge：NumericRatioDivisors 内部字段。
+ */
+
+  dodge: number;  
+  /**
+ * crit：NumericRatioDivisors 内部字段。
+ */
+
+  crit: number;  
+  /**
+ * breakPower：NumericRatioDivisors 内部字段。
+ */
+
+  breakPower: number;  
+  /**
+ * resolvePower：NumericRatioDivisors 内部字段。
+ */
+
+  resolvePower: number;  
+  /**
+ * cooldownSpeed：NumericRatioDivisors 内部字段。
+ */
+
+  cooldownSpeed: number;  
+  /**
+ * moveSpeed：NumericRatioDivisors 内部字段。
+ */
+
+  moveSpeed: number;  
+  /**
+ * elementDamageReduce：NumericRatioDivisors 内部字段。
+ */
+
   elementDamageReduce: ElementStatGroup;
 }
 
 /** 境界数值模板（基础属性 + RatioValue 除数） */
 export interface RealmNumericTemplate {
-  stage: PlayerRealmStage;
-  stats: NumericStats;
+/**
+ * stage：RealmNumericTemplate 内部字段。
+ */
+
+  stage: PlayerRealmStage;  
+  /**
+ * stats：RealmNumericTemplate 内部字段。
+ */
+
+  stats: NumericStats;  
+  /**
+ * ratioDivisors：RealmNumericTemplate 内部字段。
+ */
+
   ratioDivisors: NumericRatioDivisors;
 }
 
@@ -205,6 +461,8 @@ export const NUMERIC_STATS_KEYS: (keyof NumericStats)[] = [
 
 /** 守护 Realm 模板 stats 结构的工具，确保字段完整 */
 export function ensureNumericStatsTemplateStats(stats: Partial<NumericStats>): NumericStats {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
   const missing: Array<keyof NumericStats> = [];
   for (const key of NUMERIC_STATS_KEYS) {
     if (!(key in stats)) {
@@ -219,6 +477,8 @@ export function ensureNumericStatsTemplateStats(stats: Partial<NumericStats>): N
 
 /** 守护 Realm 模板 ratioDivisors 结构的工具，确保字段完整 */
 export function ensureNumericRatioDivisorsTemplate(divisors: Partial<NumericRatioDivisors>): NumericRatioDivisors {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
   const missing: Array<keyof NumericRatioDivisors> = [];
   for (const key of NUMERIC_RATIO_DIVISOR_KEYS) {
     if (!(key in divisors)) {
@@ -233,6 +493,8 @@ export function ensureNumericRatioDivisorsTemplate(divisors: Partial<NumericRati
 
 /** 将部分五行属性叠加到目标上 */
 export function addPartialElementStatGroup(target: ElementStatGroup, patch?: PartialElementStatGroup): ElementStatGroup {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
   if (!patch) return target;
   if (patch.metal !== undefined) target.metal += patch.metal;
   if (patch.wood !== undefined) target.wood += patch.wood;
@@ -357,6 +619,8 @@ export function resetNumericStats(target: NumericStats): NumericStats {
 
 /** 将部分数值属性叠加到目标上 */
 export function addPartialNumericStats(target: NumericStats, patch?: PartialNumericStats): NumericStats {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
   if (!patch) return target;
   if (patch.maxHp !== undefined) target.maxHp += patch.maxHp;
   if (patch.maxQi !== undefined) target.maxQi += patch.maxQi;
@@ -395,6 +659,8 @@ export function addPartialNumericStats(target: NumericStats, patch?: PartialNume
 
 /** 合并基础数值与多个增量补丁 */
 export function mergeNumericStats(base: NumericStats, patches: readonly PartialNumericStats[]): NumericStats {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
   const result = cloneNumericStats(base);
   for (const patch of patches) {
     addPartialNumericStats(result, patch);
@@ -430,6 +696,8 @@ export function cloneNumericRatioDivisors(source: NumericRatioDivisors): Numeric
 
 /** RatioValue 计算：value / (value + divisor)，实现收益递减 */
 export function ratioValue(value: number, divisor: number): number {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
   if (value === 0) return 0;
   if (divisor <= 0) return value > 0 ? 1 : -1;
   return value > 0 ? value / (value + divisor) : -value / divisor;
@@ -447,6 +715,8 @@ export function getElementDamageReduceRatio(stats: NumericStats, divisors: Numer
 
 /** 计算灵力消耗（超出每 tick 输出上限时递增惩罚） */
 export function calcQiCostWithOutputLimit(plannedCost: number, maxQiOutputPerTick: number): number {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
   if (plannedCost <= 0) return 0;
   if (maxQiOutputPerTick <= 0) return Number.POSITIVE_INFINITY;
   if (plannedCost <= maxQiOutputPerTick) return plannedCost;

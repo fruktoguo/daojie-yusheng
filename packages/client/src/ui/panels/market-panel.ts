@@ -68,13 +68,45 @@ function renderPlainTooltipLine(label: string, value: string): string {
 
 /** 市场面板对外的请求/提交回调。 */
 interface MarketPanelCallbacks {
-  onRequestMarket: () => void;
-  onRequestListings: (payload: NEXT_C2S_RequestMarketListings) => void;
-  onRequestItemBook: (itemKey: string) => void;
-  onRequestTradeHistory: (page: number) => void;
-  onCreateSellOrder: (slotIndex: number, quantity: number, unitPrice: number) => void;
-  onCreateBuyOrder: (itemKey: string, quantity: number, unitPrice: number) => void;
-  onCancelOrder: (orderId: string) => void;
+/**
+ * onRequestMarket：MarketPanelCallbacks 内部字段。
+ */
+
+  onRequestMarket: () => void;  
+  /**
+ * onRequestListings：MarketPanelCallbacks 内部字段。
+ */
+
+  onRequestListings: (payload: NEXT_C2S_RequestMarketListings) => void;  
+  /**
+ * onRequestItemBook：MarketPanelCallbacks 内部字段。
+ */
+
+  onRequestItemBook: (itemKey: string) => void;  
+  /**
+ * onRequestTradeHistory：MarketPanelCallbacks 内部字段。
+ */
+
+  onRequestTradeHistory: (page: number) => void;  
+  /**
+ * onCreateSellOrder：MarketPanelCallbacks 内部字段。
+ */
+
+  onCreateSellOrder: (slotIndex: number, quantity: number, unitPrice: number) => void;  
+  /**
+ * onCreateBuyOrder：MarketPanelCallbacks 内部字段。
+ */
+
+  onCreateBuyOrder: (itemKey: string, quantity: number, unitPrice: number) => void;  
+  /**
+ * onCancelOrder：MarketPanelCallbacks 内部字段。
+ */
+
+  onCancelOrder: (orderId: string) => void;  
+  /**
+ * onClaimStorage：MarketPanelCallbacks 内部字段。
+ */
+
   onClaimStorage: () => void;
 }
 
@@ -91,19 +123,59 @@ type MarketPriceAction = 'decrease' | 'increase' | 'double' | 'half' | 'preset';
 
 /** 交易弹窗当前的可编辑状态。 */
 interface MarketTradeDialogState {
-  kind: MarketTradeDialogKind;
-  quantity: number;
+/**
+ * kind：MarketTradeDialogState 内部字段。
+ */
+
+  kind: MarketTradeDialogKind;  
+  /**
+ * quantity：MarketTradeDialogState 内部字段。
+ */
+
+  quantity: number;  
+  /**
+ * unitPrice：MarketTradeDialogState 内部字段。
+ */
+
   unitPrice: number;
 }
 
 /** 强化预估结果在界面里的展示结构。 */
 interface MarketEnhancementEstimateView {
-  strategy: EnhancementExpectedCostStrategy;
-  costLine: string;
-  attemptsLine: string;
-  timeLine: string;
-  baseUnitPrice?: number;
-  usesMarketBasePrice: boolean;
+/**
+ * strategy：MarketEnhancementEstimateView 内部字段。
+ */
+
+  strategy: EnhancementExpectedCostStrategy;  
+  /**
+ * costLine：MarketEnhancementEstimateView 内部字段。
+ */
+
+  costLine: string;  
+  /**
+ * attemptsLine：MarketEnhancementEstimateView 内部字段。
+ */
+
+  attemptsLine: string;  
+  /**
+ * timeLine：MarketEnhancementEstimateView 内部字段。
+ */
+
+  timeLine: string;  
+  /**
+ * baseUnitPrice：MarketEnhancementEstimateView 内部字段。
+ */
+
+  baseUnitPrice?: number;  
+  /**
+ * usesMarketBasePrice：MarketEnhancementEstimateView 内部字段。
+ */
+
+  usesMarketBasePrice: boolean;  
+  /**
+ * basePricePending：MarketEnhancementEstimateView 内部字段。
+ */
+
   basePricePending: boolean;
 }
 
@@ -122,7 +194,15 @@ const MARKET_DIALOG_MAX_PRICE = MARKET_MAX_UNIT_PRICE;
 /** 交易弹窗允许输入的最大数量。 */
 const MARKET_DIALOG_MAX_QUANTITY = 999_900_000_000;
 /** 功法书筛选按钮的静态配置。 */
-const MARKET_TECHNIQUE_FILTERS: Array<{ id: MarketTechniqueFilter; label: string }> = [
+const MARKET_TECHNIQUE_FILTERS: Array<{
+/**
+ * id：对象字段。
+ */
+ id: MarketTechniqueFilter;
+ /**
+ * label：对象字段。
+ */
+ label: string }> = [
   { id: 'all', label: '全部功法' },
   { id: 'arts', label: getTechniqueCategoryLabel('arts') },
   { id: 'internal', label: getTechniqueCategoryLabel('internal') },
@@ -181,7 +261,12 @@ export class MarketPanel {
   /** 市场物品提示浮层，列表和详情共用。 */
   private tooltip = new FloatingTooltip('floating-tooltip market-item-tooltip');
   /** 当前正在显示提示的节点。 */
-  private tooltipNode: HTMLElement | null = null;
+  private tooltipNode: HTMLElement | null = null;  
+  /**
+ * 构造器：初始化 当前 实例并建立基础状态。
+ * @returns 无返回值（构造函数）。
+ */
+
 
   constructor() {
     this.bindPaneEvents();
@@ -201,6 +286,8 @@ export class MarketPanel {
 
   /** 同步背包快照，并刷新依赖弹窗。 */
   syncInventory(inventory: Inventory): void {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
     this.inventory = inventory;
     if (detailModalHost.isOpenFor(MarketPanel.MODAL_OWNER)) {
       this.syncVisibleMarketInventoryState();
@@ -210,6 +297,8 @@ export class MarketPanel {
 
   /** 更新市场主视图。 */
   updateMarket(data: NEXT_S2C_MarketUpdate): void {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
     this.marketUpdate = data;
     if (!this.selectedItemKey && data.listedItems.length > 0) {
       this.selectedItemKey = data.listedItems[0].itemKey;
@@ -234,6 +323,8 @@ export class MarketPanel {
 
   /** 更新列表分页数据。 */
   updateListings(data: NEXT_S2C_MarketListings): void {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
     this.marketListings = data;
     this.currentPage = Math.max(1, Math.floor(Number.isFinite(data.page) ? data.page : 1));
     this.activeCategory = data.category;
@@ -249,6 +340,8 @@ export class MarketPanel {
 
   /** 更新我的订单数据。 */
   updateOrders(data: NEXT_S2C_MarketOrders): void {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
     if (!this.marketUpdate) {
       return;
     }
@@ -277,6 +370,8 @@ export class MarketPanel {
 
   /** 同步坊市托管仓快照。 */
   updateStorage(data: NEXT_S2C_MarketStorage): void {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
     if (!this.marketUpdate) {
       return;
     }
@@ -294,6 +389,8 @@ export class MarketPanel {
 
   /** 同步物品书籍缓存，并尽量只刷新当前选中的详情。 */
   updateItemBook(data: NEXT_S2C_MarketItemBook): void {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
     if (data.book) {
       this.itemBookCache.set(data.itemKey, data.book);
     } else {
@@ -317,6 +414,8 @@ export class MarketPanel {
 
   /** 同步交易历史分页。 */
   updateTradeHistory(data: NEXT_S2C_MarketTradeHistory): void {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
     this.tradeHistoryLoading = false;
     this.tradeHistory = data;
     this.tradeHistoryPage = data.page;
@@ -386,6 +485,8 @@ export class MarketPanel {
 
   /** 打开市场详情弹层，并按当前标签请求需要的数据。 */
   private openModal(): void {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
     if (!this.selectedItemKey && this.marketUpdate?.listedItems.length) {
       this.selectedItemKey = this.marketUpdate.listedItems[0].itemKey;
     }
@@ -559,6 +660,8 @@ export class MarketPanel {
 
   /** 渲染市场列表页和右侧书籍面板。 */
   private renderMarketTab(update: NEXT_S2C_MarketUpdate): string {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
     const listedItems = this.getVisibleListedItems(update);
     if (listedItems.length === 0) {
       return '<div class="empty-hint">当前分类下暂时没有物品。</div>';
@@ -659,12 +762,26 @@ export class MarketPanel {
     levels: MarketOrderBookView['sells'],
     currencyName: string,
     emptyText: string,
-    quickAction?: {
-      kind: MarketTradeDialogKind;
-      label: string;
+    quickAction?: {    
+    /**
+ * kind：MarketPanel 内部字段。
+ */
+
+      kind: MarketTradeDialogKind;      
+      /**
+ * label：MarketPanel 内部字段。
+ */
+
+      label: string;      
+      /**
+ * disabled：MarketPanel 内部字段。
+ */
+
       disabled?: boolean;
     },
   ): string {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
     if (levels.length === 0) {
       return `<div class="empty-hint">${escapeHtml(emptyText)}</div>`;
     }
@@ -722,6 +839,8 @@ export class MarketPanel {
 
   /** 渲染交易历史分页。 */
   private renderTradeHistoryTab(currencyName: string): string {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
     const history = this.tradeHistory;
     if (this.tradeHistoryLoading && !history) {
       return '<div class="empty-hint">交易记录同步中……</div>';
@@ -774,6 +893,8 @@ export class MarketPanel {
 
   /** 渲染坊市托管仓列表。 */
   private renderStorage(storage: MarketStorage): string {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
     if (storage.items.length === 0) {
       return '<div class="empty-hint">托管仓空空如也。</div>';
     }
@@ -804,6 +925,8 @@ export class MarketPanel {
 
   /** 渲染交易弹窗，只保存临时输入状态。 */
   private renderTradeDialog(entry: MarketListedItemView, currencyItemId: string, currencyName: string): string {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
     if (!this.tradeDialog) {
       return '';
     }
@@ -929,6 +1052,8 @@ export class MarketPanel {
 
   /** 给会显示物品提示的节点绑定悬浮逻辑。 */
   private bindItemTooltipEvents(body: HTMLElement): void {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
     const nodes = body.querySelectorAll<HTMLElement>('[data-market-item-tooltip]');
     if (nodes.length === 0) {
       return;
@@ -994,6 +1119,8 @@ export class MarketPanel {
 
   /** 读取当前已打开的市场弹层 body。 */
   private getOpenModalBody(): HTMLElement | null {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
     if (!detailModalHost.isOpenFor(MarketPanel.MODAL_OWNER)) {
       return null;
     }
@@ -1002,6 +1129,8 @@ export class MarketPanel {
 
   /** 只同步当前可见区域里的背包相关状态。 */
   private syncVisibleMarketInventoryState(): void {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
     if (this.modalTab !== 'market') {
       return;
     }
@@ -1024,6 +1153,8 @@ export class MarketPanel {
 
   /** 同步列表卡片右侧的已持有数量徽记。 */
   private syncOwnedBadge(button: HTMLElement, ownedCount: number): void {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
     const nameContainer = button.querySelector<HTMLElement>('.market-item-cell-name');
     if (!nameContainer) {
       return;
@@ -1043,6 +1174,8 @@ export class MarketPanel {
 
   /** 同步选中物品的挂售/求购按钮可用性。 */
   private syncSelectedBookActionButtons(body: HTMLElement): void {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
     const selected = this.getSelectedListedItem(this.marketUpdate);
     if (!selected) {
       return;
@@ -1064,6 +1197,8 @@ export class MarketPanel {
 
   /** 只重绘右侧书籍面板，不动列表主体。 */
   private patchSelectedBookPanel(): void {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
     if (this.modalTab !== 'market') {
       return;
     }
@@ -1085,6 +1220,8 @@ export class MarketPanel {
 
   /** 读取当前选中的列表物品。 */
   private getSelectedListedItem(update: NEXT_S2C_MarketUpdate | null): MarketListedItemView | null {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
     const visibleItems = this.getVisibleListedItems(update);
     if (visibleItems.length === 0) {
       return null;
@@ -1095,7 +1232,19 @@ export class MarketPanel {
 
   /** 渲染主分类标签。 */
   private renderCategoryTabs(update: NEXT_S2C_MarketUpdate): string {
-    const categories: Array<{ id: MarketCategoryFilter; label: string; count: number }> = [
+    const categories: Array<{    
+    /**
+ * id：MarketPanel 内部字段。
+ */
+ id: MarketCategoryFilter;    
+ /**
+ * label：MarketPanel 内部字段。
+ */
+ label: string;    
+ /**
+ * count：MarketPanel 内部字段。
+ */
+ count: number }> = [
       { id: 'all', label: '全部', count: update.listedItems.length },
       ...ITEM_TYPES.map((type) => ({
         id: type,
@@ -1116,7 +1265,19 @@ export class MarketPanel {
 
   /** 渲染装备子分类标签。 */
   private renderEquipmentTabs(update: NEXT_S2C_MarketUpdate): string {
-    const categories: Array<{ id: MarketEquipmentFilter; label: string; count: number }> = [
+    const categories: Array<{    
+    /**
+ * id：MarketPanel 内部字段。
+ */
+ id: MarketEquipmentFilter;    
+ /**
+ * label：MarketPanel 内部字段。
+ */
+ label: string;    
+ /**
+ * count：MarketPanel 内部字段。
+ */
+ count: number }> = [
       {
         id: 'all',
         label: '全部装备',
@@ -1161,6 +1322,8 @@ export class MarketPanel {
 
   /** 按当前分类筛选出可见列表物品。 */
   private getVisibleListedItems(update: NEXT_S2C_MarketUpdate | null): MarketListedItemView[] {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
     if (!update) {
       return [];
     }
@@ -1178,9 +1341,21 @@ export class MarketPanel {
   }
 
   /** 计算当前列表分页状态。 */
-  private getPaginationState(items: MarketListedItemView[]): {
-    page: number;
-    totalPages: number;
+  private getPaginationState(items: MarketListedItemView[]): {  
+  /**
+ * page：MarketPanel 内部字段。
+ */
+
+    page: number;    
+    /**
+ * totalPages：MarketPanel 内部字段。
+ */
+
+    totalPages: number;    
+    /**
+ * items：MarketPanel 内部字段。
+ */
+
     items: MarketListedItemView[];
   } {
     const pageSize = this.getMarketPageSize();
@@ -1197,6 +1372,8 @@ export class MarketPanel {
 
   /** 把页码夹到合法范围内。 */
   private clampPage(page: number, totalItems: number): number {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
     const totalPages = Math.max(1, Math.ceil(totalItems / this.getMarketPageSize()));
     if (!Number.isFinite(page)) {
       return 1;
@@ -1206,6 +1383,8 @@ export class MarketPanel {
 
   /** 根据视口和布局模式选择分页大小。 */
   private getMarketPageSize(): number {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
     if (typeof window === 'undefined') {
       return this.hasCompactCategoryLayout() ? MARKET_DESKTOP_COMPACT_PAGE_SIZE : MARKET_DESKTOP_PAGE_SIZE;
     }
@@ -1225,6 +1404,8 @@ export class MarketPanel {
 
   /** 把技能书物品映射到具体功法分类。 */
   private resolveTechniqueCategoryForItem(item: ItemStack): TechniqueCategory | null {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
     if (item.type !== 'skill_book') {
       return null;
     }
@@ -1233,6 +1414,8 @@ export class MarketPanel {
 
   /** 保证当前页里总有一个可见物品处于选中状态。 */
   private syncPageSelection(): void {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
     const visibleItems = this.getVisibleListedItems(this.marketUpdate);
     const pagination = this.getPaginationState(visibleItems);
     const currentItems = pagination.items;
@@ -1273,6 +1456,8 @@ export class MarketPanel {
 
   /** 把列表分页回填进市场主快照。 */
   private mergeListingsIntoMarketUpdate(update: NEXT_S2C_MarketUpdate | null, data: NEXT_S2C_MarketListings): NEXT_S2C_MarketUpdate | null {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
     const entries = data.items.flatMap((entry) => entry.variants.map((variant) => ({
       itemKey: variant.itemKey,
       item: { ...variant.item },
@@ -1317,6 +1502,8 @@ export class MarketPanel {
 
   /** 根据当前临时态同步交易弹窗浮层。 */
   private syncTradeDialogOverlay(): void {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
     const root = this.getTradeDialogOverlayRoot();
     const update = this.marketUpdate;
     const selected = this.getSelectedListedItem(update);
@@ -1426,6 +1613,8 @@ export class MarketPanel {
 
   /** 读取交易弹窗的挂载根节点，没有就现建一个。 */
   private getTradeDialogOverlayRoot(): HTMLElement {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
     let root = document.getElementById(MarketPanel.TRADE_MODAL_ID);
     if (root) {
       return root;
@@ -1463,6 +1652,8 @@ export class MarketPanel {
     kind: MarketTradeDialogKind,
     unitPrice = this.tradeDialog?.unitPrice ?? MARKET_DIALOG_MIN_PRICE,
   ): number {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
     const parsed = typeof value === 'number' ? value : Number.parseInt(value, 10);
     const quantityStep = this.getTradeDialogQuantityStep(unitPrice);
     const max = this.getTradeDialogQuantityMax(entry, kind, unitPrice);
@@ -1487,6 +1678,8 @@ export class MarketPanel {
     kind: MarketTradeDialogKind,
     unitPrice: number,
   ): number {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
     const quantityStep = this.getTradeDialogQuantityStep(unitPrice);
     const cap = kind === 'sell'
       ? this.findMatchingInventoryCount(entry.item)
@@ -1503,6 +1696,8 @@ export class MarketPanel {
     currencyItemId: string,
     dialog: MarketTradeDialogState,
   ): number {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
     if (dialog.kind === 'sell') {
       return this.getTradeDialogQuantityMax(entry, dialog.kind, dialog.unitPrice);
     }
@@ -1511,6 +1706,8 @@ export class MarketPanel {
 
   /** 计算当前持币量在该单价下最多能买多少。 */
   private getAffordableBuyQuantity(unitPrice: number, currencyItemId: string): number {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
     if (unitPrice <= 0) {
       return 0;
     }
@@ -1526,6 +1723,8 @@ export class MarketPanel {
 
   /** 按按钮动作算出下一个单价，并保持在合法范围内。 */
   private getNextTradeDialogPrice(currentPrice: number, action: MarketPriceAction, preset?: number | null): number {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
     if (action === 'preset') {
       return this.normalizeTradeDialogPrice(preset ?? MARKET_DIALOG_MIN_PRICE, 'up');
     }
@@ -1547,6 +1746,8 @@ export class MarketPanel {
 
   /** 按买卖方向把单价夹回合法区间并对齐价格档位。 */
   private normalizeTradeDialogPrice(value: number, direction: 'up' | 'down'): number {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
     const bounded = Math.max(MARKET_DIALOG_MIN_PRICE, Math.min(MARKET_DIALOG_MAX_PRICE, value));
     if (direction === 'up') {
       return Math.min(MARKET_DIALOG_MAX_PRICE, normalizeMarketPriceUp(bounded));
@@ -1556,6 +1757,8 @@ export class MarketPanel {
 
   /** 把价格预设值格式化成按钮上更容易读的文案。 */
   private formatPricePresetLabel(value: number): string {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
     if (value < 1) {
       return this.formatMarketUnitPrice(value);
     }
@@ -1606,6 +1809,8 @@ export class MarketPanel {
 
   /** 把耗时 ticks 转成更像人工可读的时间。 */
   private formatEnhancementDurationFromTicks(value: number): string {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
     const totalSeconds = Math.max(0, Math.round(value));
     if (totalSeconds < 60) {
       return `${formatDisplayInteger(totalSeconds)}息`;
@@ -1641,6 +1846,8 @@ export class MarketPanel {
 
   /** 把基础物品提示补上强化预估内容。 */
   private buildMarketItemTooltipPayload(item: ItemStack) {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
     const tooltip = buildItemTooltipPayload(item);
     const estimate = this.buildEnhancementEstimate(item);
     if (!estimate) {
@@ -1659,6 +1866,8 @@ export class MarketPanel {
 
   /** 根据节点上的 data-* 标记找到对应的提示内容。 */
   private resolveMarketTooltipPayload(node: HTMLElement) {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
     const key = node.dataset.marketItemTooltip;
     if (!key) {
       return null;
@@ -1673,6 +1882,8 @@ export class MarketPanel {
 
   /** 根据市场盘面和当前物品推一版强化预估。 */
   private buildEnhancementEstimate(item: ItemStack): MarketEnhancementEstimateView | null {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
     if (item.type !== 'equipment') {
       return null;
     }
@@ -1739,6 +1950,8 @@ export class MarketPanel {
 
   /** 确保某个物品书籍已进入缓存请求流程。 */
   private ensureItemBookCached(itemKey: string): void {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
     if (this.itemBookCache.has(itemKey) || this.pendingItemBookKeys.has(itemKey)) {
       return;
     }
@@ -1748,6 +1961,8 @@ export class MarketPanel {
 
   /** 在背包里找一格能对应当前物品的槽位。 */
   private findMatchingInventorySlot(item: ItemStack): number | null {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
     const targetKey = createItemStackSignature({ ...item, count: 1 });
     const exactSlotIndex = this.inventory.items.findIndex((entry) => createItemStackSignature({ ...entry, count: 1 }) === targetKey);
     if (exactSlotIndex >= 0) {
@@ -1759,6 +1974,8 @@ export class MarketPanel {
 
   /** 统计背包里与当前物品匹配的总数量。 */
   private findMatchingInventoryCount(item: ItemStack): number {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
     const targetKey = createItemStackSignature({ ...item, count: 1 });
     const exactMatches = this.inventory.items.filter((entry) => createItemStackSignature({ ...entry, count: 1 }) === targetKey);
     if (exactMatches.length > 0) {

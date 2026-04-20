@@ -5,13 +5,24 @@ export class DebugPanel {
   /** resetBtn：reset按钮。 */
   private resetBtn = document.getElementById('debug-reset-spawn') as HTMLButtonElement;
   /** onReset：on Reset。 */
-  private onReset: (() => void) | null = null;
+  private onReset: (() => void) | null = null;  
+  /**
+ * 构造器：初始化 当前 实例并建立基础状态。
+ * @returns 无返回值（构造函数）。
+ */
+
 
   constructor() {
     this.resetBtn.addEventListener('click', () => {
       this.onReset?.();
     });
-  }
+  }  
+  /**
+ * setCallbacks：更新/写入相关状态。
+ * @param onReset () => void 参数说明。
+ * @returns void。
+ */
+
 
   setCallbacks(onReset: () => void): void {
     this.onReset = onReset;

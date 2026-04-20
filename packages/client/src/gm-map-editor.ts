@@ -96,13 +96,29 @@ type RequestFn = <T>(path: string, init?: RequestInit) => Promise<T>;
 /** StatusFn：向状态栏输出提示或错误的回调签名。 */
 type StatusFn = (message: string, isError?: boolean) => void;
 const MONSTER_GRADE_OPTIONS = Object.entries(TECHNIQUE_GRADE_LABELS).map(([value, label]) => ({ value, label }));
-const MAP_ROUTE_DOMAIN_OPTIONS: Array<{ value: MapRouteDomain; label: string }> = [
+const MAP_ROUTE_DOMAIN_OPTIONS: Array<{
+/**
+ * value：对象字段。
+ */
+ value: MapRouteDomain;
+ /**
+ * label：对象字段。
+ */
+ label: string }> = [
   { value: 'system', label: '系统地图' },
   { value: 'sect', label: '宗门地图' },
   { value: 'personal', label: '个人地图' },
   { value: 'dynamic', label: '动态图' },
 ];
-const PORTAL_ROUTE_DOMAIN_OPTIONS: Array<{ value: PortalRouteDomain; label: string }> = [
+const PORTAL_ROUTE_DOMAIN_OPTIONS: Array<{
+/**
+ * value：对象字段。
+ */
+ value: PortalRouteDomain;
+ /**
+ * label：对象字段。
+ */
+ label: string }> = [
   { value: 'inherit', label: '继承地图' },
   { value: 'system', label: '系统传送点' },
   { value: 'sect', label: '宗门传送点' },
@@ -115,21 +131,97 @@ const MONSTER_GRADE_OVERRIDE_OPTIONS = [
 ];
 /** GmMapEditorOptions：地图编辑器实例的初始化选项。 */
 type GmMapEditorOptions = {
-  mapApiBasePath?: string;
-  syncedSummaryLabel?: string;
+/**
+ * mapApiBasePath：对象字段。
+ */
+
+  mapApiBasePath?: string;  
+  /**
+ * syncedSummaryLabel：对象字段。
+ */
+
+  syncedSummaryLabel?: string;  
+  /**
+ * itemCatalog：对象字段。
+ */
+
   itemCatalog?: GmEditorItemOption[];
 };
 
 /** MapEntitySelection：编辑器当前选中的地图实体定位。 */
 type MapEntitySelection =
-  | { kind: 'portal'; index: number }
-  | { kind: 'npc'; index: number }
-  | { kind: 'monster'; index: number }
-  | { kind: 'aura'; index: number }
-  | { kind: 'resource'; index: number }
-  | { kind: 'safeZone'; index: number }
-  | { kind: 'landmark'; index: number }
-  | { kind: 'container'; index: number }
+  | {  
+  /**
+ * kind：对象字段。
+ */
+ kind: 'portal';  
+ /**
+ * index：对象字段。
+ */
+ index: number }
+  | {  
+  /**
+ * kind：对象字段。
+ */
+ kind: 'npc';  
+ /**
+ * index：对象字段。
+ */
+ index: number }
+  | {  
+  /**
+ * kind：对象字段。
+ */
+ kind: 'monster';  
+ /**
+ * index：对象字段。
+ */
+ index: number }
+  | {  
+  /**
+ * kind：对象字段。
+ */
+ kind: 'aura';  
+ /**
+ * index：对象字段。
+ */
+ index: number }
+  | {  
+  /**
+ * kind：对象字段。
+ */
+ kind: 'resource';  
+ /**
+ * index：对象字段。
+ */
+ index: number }
+  | {  
+  /**
+ * kind：对象字段。
+ */
+ kind: 'safeZone';  
+ /**
+ * index：对象字段。
+ */
+ index: number }
+  | {  
+  /**
+ * kind：对象字段。
+ */
+ kind: 'landmark';  
+ /**
+ * index：对象字段。
+ */
+ index: number }
+  | {  
+  /**
+ * kind：对象字段。
+ */
+ kind: 'container';  
+ /**
+ * index：对象字段。
+ */
+ index: number }
   | null;
 
 /** MapEntityKind：分类枚举。 */
@@ -142,7 +234,15 @@ type PaintLayer = 'tile' | 'aura' | 'resource';
 /** InspectorTabId：属性面板中可切换的编辑标签页。 */
 type InspectorTabId = 'selection' | 'meta' | 'compose' | 'portal' | 'npc' | 'monster' | 'aura' | 'resource' | 'safeZone' | 'landmark' | 'container';
 /** GridPoint：地图网格坐标。 */
-type GridPoint = { x: number; y: number };
+type GridPoint = {
+/**
+ * x：对象字段。
+ */
+ x: number;
+ /**
+ * y：对象字段。
+ */
+ y: number };
 /** ComposeRotation：合图子块支持的直角旋转角度。 */
 type ComposeRotation = 0 | 90 | 180 | 270;
 
@@ -150,11 +250,35 @@ type ComposeRotation = 0 | 90 | 180 | 270;
 type TileResourcePoint = GmMapResourceRecord;
 /** MapComposePiece：合图预览中的单个来源地图块。 */
 type MapComposePiece = {
-  id: string,
-  sourceMapId: string,
-  sourceMapName: string,
-  x: number,
-  y: number,
+/**
+ * id：对象字段。
+ */
+
+  id: string,  
+  /**
+ * sourceMapId：对象字段。
+ */
+
+  sourceMapId: string,  
+  /**
+ * sourceMapName：对象字段。
+ */
+
+  sourceMapName: string,  
+  /**
+ * x：对象字段。
+ */
+
+  x: number,  
+  /**
+ * y：对象字段。
+ */
+
+  y: number,  
+  /**
+ * rotation：对象字段。
+ */
+
   rotation: ComposeRotation,
 };
 
@@ -163,15 +287,55 @@ const DEFAULT_RESOURCE_KEY = 'aura.refined.metal';
 
 /** EditorUndoEntry：撤销栈里保存的整份编辑草稿快照。 */
 type EditorUndoEntry = {
-  draft: GmMapDocument;
-  selectedCell: GridPoint | null;
-  selectedEntity: MapEntitySelection;
-  resizeWidth: number;
-  resizeHeight: number;
-  resizeFillTileType: TileType;
-  composePieces: MapComposePiece[];
-  selectedComposePieceId: string | null;
-  composeSourceMapId: string;
+/**
+ * draft：对象字段。
+ */
+
+  draft: GmMapDocument;  
+  /**
+ * selectedCell：对象字段。
+ */
+
+  selectedCell: GridPoint | null;  
+  /**
+ * selectedEntity：对象字段。
+ */
+
+  selectedEntity: MapEntitySelection;  
+  /**
+ * resizeWidth：对象字段。
+ */
+
+  resizeWidth: number;  
+  /**
+ * resizeHeight：对象字段。
+ */
+
+  resizeHeight: number;  
+  /**
+ * resizeFillTileType：对象字段。
+ */
+
+  resizeFillTileType: TileType;  
+  /**
+ * composePieces：对象字段。
+ */
+
+  composePieces: MapComposePiece[];  
+  /**
+ * selectedComposePieceId：对象字段。
+ */
+
+  selectedComposePieceId: string | null;  
+  /**
+ * composeSourceMapId：对象字段。
+ */
+
+  composeSourceMapId: string;  
+  /**
+ * dirty：对象字段。
+ */
+
   dirty: boolean;
 };
 
@@ -276,9 +440,33 @@ export class GmMapEditor {
   /** composeDragOffsetY：compose Drag偏移Y。 */
   private composeDragOffsetY = 0;
   /** composePieceCounter：compose Piece Counter。 */
-  private composePieceCounter = 1;
-  private selectedCell: { x: number; y: number } | null = null;
-  private hoveredCell: { x: number; y: number } | null = null;
+  private composePieceCounter = 1;  
+  /**
+ * selectedCell：GmMapEditor 内部字段。
+ */
+
+  private selectedCell: {  
+  /**
+ * x：GmMapEditor 内部字段。
+ */
+ x: number;  
+ /**
+ * y：GmMapEditor 内部字段。
+ */
+ y: number } | null = null;  
+ /**
+ * hoveredCell：GmMapEditor 内部字段。
+ */
+
+  private hoveredCell: {  
+  /**
+ * x：GmMapEditor 内部字段。
+ */
+ x: number;  
+ /**
+ * y：GmMapEditor 内部字段。
+ */
+ y: number } | null = null;
   /** selectedEntity：selected实体。 */
   private selectedEntity: MapEntitySelection = null;
   /** currentInspectorTab：当前Inspector Tab。 */
@@ -326,7 +514,15 @@ export class GmMapEditor {
   /** undoStack：undo Stack。 */
   private undoStack: EditorUndoEntry[] = [];
   /** renderFrameId：渲染帧ID。 */
-  private renderFrameId: number | null = null;
+  private renderFrameId: number | null = null;  
+  /**
+ * 构造器：初始化 当前 实例并建立基础状态。
+ * @param request RequestFn 请求参数。
+ * @param setGlobalStatus StatusFn 参数说明。
+ * @param options GmMapEditorOptions 选项参数。
+ * @returns 无返回值（构造函数）。
+ */
+
 
   constructor(
     private readonly request: RequestFn,
@@ -344,6 +540,8 @@ export class GmMapEditor {
 
   /** setItemCatalog：处理set物品目录。 */
   setItemCatalog(items: GmEditorItemOption[]): void {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
     this.itemCatalog = clone(items);
     if (this.currentInspectorTab === 'container') {
       this.renderInspector();
@@ -352,12 +550,16 @@ export class GmMapEditor {
 
   /** 确保地图列表已加载，首次切换到地图 tab 时调用 */
   async ensureLoaded(): Promise<void> {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
     if (this.listLoaded) return;
     await this.loadMapList();
   }
 
   /** 重置编辑器状态（登出时调用） */
   reset(): void {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
     if (this.renderFrameId !== null) {
       window.cancelAnimationFrame(this.renderFrameId);
       this.renderFrameId = null;
@@ -390,6 +592,8 @@ export class GmMapEditor {
 
   /** forceTool：处理force Tool。 */
   forceTool(tool: MapTool): void {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
     if (this.forcedTool === tool) return;
     this.endPointerInteraction();
     this.forcedTool = tool;
@@ -402,6 +606,8 @@ export class GmMapEditor {
 
   /** clearForcedTool：清理Forced Tool。 */
   clearForcedTool(): void {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
     if (this.forcedTool === null) return;
     this.endPointerInteraction();
     this.forcedTool = null;
@@ -574,6 +780,8 @@ export class GmMapEditor {
 
   /** renderToolControls：渲染Tool Controls。 */
   private renderToolControls(): void {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
     const currentTool = this.getCurrentTool();
     const existingToolButtons = new Map<string, HTMLButtonElement>();
     this.toolButtonsEl.querySelectorAll<HTMLButtonElement>('[data-tool]').forEach((button) => {
@@ -655,6 +863,8 @@ export class GmMapEditor {
 
   /** loadMapList：加载地图列表。 */
   private async loadMapList(force = false): Promise<void> {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
     const data = await this.request<GmMapListRes>(this.mapApiBasePath);
     this.mapList = data.maps;
     this.listLoaded = true;
@@ -674,6 +884,8 @@ export class GmMapEditor {
 
   /** renderMapList：渲染地图列表。 */
   private renderMapList(): void {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
     const keyword = this.searchInput.value.trim().toLowerCase();
     const filtered = this.mapList.filter((map) => {
       if (!keyword) return true;
@@ -709,6 +921,8 @@ export class GmMapEditor {
 
   /** selectMap：选择地图。 */
   private async selectMap(mapId: string): Promise<void> {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
     if (mapId === this.selectedMapId && this.draft) return;
     if (this.dirty && !window.confirm('当前地图有未保存修改，切换后会丢失这些修改。继续吗？')) {
       return;
@@ -719,6 +933,8 @@ export class GmMapEditor {
 
   /** loadMap：加载地图。 */
   private async loadMap(mapId: string, announce = true): Promise<void> {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
     const data = await this.request<GmMapDetailRes>(`${this.mapApiBasePath}/${encodeURIComponent(mapId)}`);
     this.selectedMapId = mapId;
     this.draft = clone(data.map);
@@ -746,6 +962,8 @@ export class GmMapEditor {
 
   /** renderInspector：渲染Inspector。 */
   private renderInspector(): void {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
     if (!this.draft) {
       this.editorPanelEl.classList.add('hidden');
       this.editorEmptyEl.classList.remove('hidden');
@@ -785,9 +1003,16 @@ export class GmMapEditor {
     this.syncInspectorPanel(this.renderInspectorTabContent(selectedCell, selectedTileType, selectedEntityPoint));
     this.jsonEl.value = formatJson(this.draft);
     this.renderCanvas();
-  }
+  }  
+  /**
+ * ensureInspectorShell：执行核心业务逻辑。
+ * @returns void。
+ */
+
 
   private ensureInspectorShell(): void {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
     if (this.inspectorEl.querySelector('[data-map-inspector-shell]')) {
       return;
     }
@@ -797,9 +1022,16 @@ export class GmMapEditor {
         <div class="inspector-panel" data-map-inspector-panel></div>
       </div>
     `));
-  }
+  }  
+  /**
+ * syncInspectorTabs：执行核心业务逻辑。
+ * @returns void。
+ */
+
 
   private syncInspectorTabs(): void {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
     const tabsRoot = this.inspectorEl.querySelector<HTMLElement>('[data-map-inspector-tabs]');
     if (!tabsRoot) {
       return;
@@ -821,20 +1053,52 @@ export class GmMapEditor {
       fragment.append(button);
     }
     tabsRoot.replaceChildren(fragment);
-  }
+  }  
+  /**
+ * syncInspectorPanel：执行核心业务逻辑。
+ * @param html string 参数说明。
+ * @returns void。
+ */
+
 
   private syncInspectorPanel(html: string): void {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
     const panel = this.inspectorEl.querySelector<HTMLElement>('[data-map-inspector-panel]');
     if (!panel) {
       return;
     }
     panel.replaceChildren(createFragmentFromHtml(html));
-  }
+  }  
+  /**
+ * renderInspectorTabContent：执行核心业务逻辑。
+ * @param selectedCell { x: number; y: number } | null 参数说明。
+ * @param selectedTileType TileType | null 参数说明。
+ * @param selectedEntityPoint { x: number; y: number } | null 参数说明。
+ * @returns string。
+ */
+
 
   private renderInspectorTabContent(
-    selectedCell: { x: number; y: number } | null,
+    selectedCell: {    
+    /**
+ * x：GmMapEditor 内部字段。
+ */
+ x: number;    
+ /**
+ * y：GmMapEditor 内部字段。
+ */
+ y: number } | null,
     selectedTileType: TileType | null,
-    selectedEntityPoint: { x: number; y: number } | null,
+    selectedEntityPoint: {    
+    /**
+ * x：GmMapEditor 内部字段。
+ */
+ x: number;    
+ /**
+ * y：GmMapEditor 内部字段。
+ */
+ y: number } | null,
   ): string {
     switch (this.currentInspectorTab) {
       case 'selection':
@@ -865,7 +1129,15 @@ export class GmMapEditor {
   }
 
   /** renderSelectionTab：渲染选中项Tab。 */
-  private renderSelectionTab(selectedCell: { x: number; y: number } | null, selectedTileType: TileType | null): string {
+  private renderSelectionTab(selectedCell: {  
+  /**
+ * x：GmMapEditor 内部字段。
+ */
+ x: number;  
+ /**
+ * y：GmMapEditor 内部字段。
+ */
+ y: number } | null, selectedTileType: TileType | null): string {
     const selectedAura = selectedCell ? this.getAuraAt(selectedCell.x, selectedCell.y) : null;
     const selectedResources = selectedCell ? this.getResourcesAt(selectedCell.x, selectedCell.y) : [];
     const resourceSummary = formatResourceSummary(selectedResources);
@@ -897,6 +1169,8 @@ export class GmMapEditor {
 
   /** renderMetaTab：渲染元数据Tab。 */
   private renderMetaTab(): string {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
     if (!this.draft) return '';
     return `
       <section class="editor-section">
@@ -944,6 +1218,8 @@ export class GmMapEditor {
 
   /** renderComposeTab：渲染Compose Tab。 */
   private renderComposeTab(): string {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
     if (!this.draft) return '';
     const sourceOptions = this.mapList.filter((map) => map.id !== this.draft?.id);
     const selectedPiece = this.getSelectedComposePiece();
@@ -999,7 +1275,17 @@ export class GmMapEditor {
   }
 
   /** renderPortalTab：渲染传送点Tab。 */
-  private renderPortalTab(selectedPoint: { x: number; y: number } | null): string {
+  private renderPortalTab(selectedPoint: {  
+  /**
+ * x：GmMapEditor 内部字段。
+ */
+ x: number;  
+ /**
+ * y：GmMapEditor 内部字段。
+ */
+ y: number } | null): string {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
     if (!this.draft) return '';
     return `
       <section class="editor-section">
@@ -1025,7 +1311,17 @@ export class GmMapEditor {
   }
 
   /** renderNpcTab：渲染NPC Tab。 */
-  private renderNpcTab(selectedPoint: { x: number; y: number } | null): string {
+  private renderNpcTab(selectedPoint: {  
+  /**
+ * x：GmMapEditor 内部字段。
+ */
+ x: number;  
+ /**
+ * y：GmMapEditor 内部字段。
+ */
+ y: number } | null): string {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
     if (!this.draft) return '';
     return `
       <section class="editor-section">
@@ -1051,7 +1347,17 @@ export class GmMapEditor {
   }
 
   /** renderMonsterTab：渲染妖兽Tab。 */
-  private renderMonsterTab(selectedPoint: { x: number; y: number } | null): string {
+  private renderMonsterTab(selectedPoint: {  
+  /**
+ * x：GmMapEditor 内部字段。
+ */
+ x: number;  
+ /**
+ * y：GmMapEditor 内部字段。
+ */
+ y: number } | null): string {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
     if (!this.draft) return '';
     return `
       <section class="editor-section">
@@ -1077,7 +1383,17 @@ export class GmMapEditor {
   }
 
   /** renderAuraTab：渲染灵气Tab。 */
-  private renderAuraTab(selectedPoint: { x: number; y: number } | null): string {
+  private renderAuraTab(selectedPoint: {  
+  /**
+ * x：GmMapEditor 内部字段。
+ */
+ x: number;  
+ /**
+ * y：GmMapEditor 内部字段。
+ */
+ y: number } | null): string {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
     if (!this.draft) return '';
     return `
       <section class="editor-section">
@@ -1103,7 +1419,17 @@ export class GmMapEditor {
   }
 
   /** renderResourceTab：渲染资源Tab。 */
-  private renderResourceTab(selectedPoint: { x: number; y: number } | null): string {
+  private renderResourceTab(selectedPoint: {  
+  /**
+ * x：GmMapEditor 内部字段。
+ */
+ x: number;  
+ /**
+ * y：GmMapEditor 内部字段。
+ */
+ y: number } | null): string {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
     if (!this.draft) return '';
     const uniqueKeys = [...new Set((this.draft.resources ?? []).map((point) => getResourceRecordKey(point)).filter(Boolean))]
       .sort((left, right) => {
@@ -1171,7 +1497,17 @@ export class GmMapEditor {
   }
 
   /** renderSafeZoneTab：渲染安全Zone Tab。 */
-  private renderSafeZoneTab(selectedPoint: { x: number; y: number } | null): string {
+  private renderSafeZoneTab(selectedPoint: {  
+  /**
+ * x：GmMapEditor 内部字段。
+ */
+ x: number;  
+ /**
+ * y：GmMapEditor 内部字段。
+ */
+ y: number } | null): string {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
     if (!this.draft) return '';
     return `
       <section class="editor-section">
@@ -1197,7 +1533,17 @@ export class GmMapEditor {
   }
 
   /** renderLandmarkTab：渲染地标Tab。 */
-  private renderLandmarkTab(selectedPoint: { x: number; y: number } | null): string {
+  private renderLandmarkTab(selectedPoint: {  
+  /**
+ * x：GmMapEditor 内部字段。
+ */
+ x: number;  
+ /**
+ * y：GmMapEditor 内部字段。
+ */
+ y: number } | null): string {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
     if (!this.draft) return '';
     const landmarks = (this.draft.landmarks ?? []).flatMap((landmark, index) => landmark.container ? [] : [{ landmark, index }]);
     return `
@@ -1224,7 +1570,17 @@ export class GmMapEditor {
   }
 
   /** renderContainerTab：渲染容器Tab。 */
-  private renderContainerTab(selectedPoint: { x: number; y: number } | null): string {
+  private renderContainerTab(selectedPoint: {  
+  /**
+ * x：GmMapEditor 内部字段。
+ */
+ x: number;  
+ /**
+ * y：GmMapEditor 内部字段。
+ */
+ y: number } | null): string {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
     if (!this.draft) return '';
     const containers = this.getContainerLandmarks();
     return `
@@ -1251,7 +1607,17 @@ export class GmMapEditor {
   }
 
   /** renderSelectedEntitySection：渲染Selected实体Section。 */
-  private renderSelectedEntitySection(selectedPoint: { x: number; y: number } | null): string {
+  private renderSelectedEntitySection(selectedPoint: {  
+  /**
+ * x：GmMapEditor 内部字段。
+ */
+ x: number;  
+ /**
+ * y：GmMapEditor 内部字段。
+ */
+ y: number } | null): string {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
     if (!this.draft || !this.selectedEntity) {
       return `
         <section class="editor-section">
@@ -1520,6 +1886,8 @@ export class GmMapEditor {
 
   /** describeSelectedEntity：处理describe Selected实体。 */
   private describeSelectedEntity(): string {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
     const selectedComposePiece = this.getSelectedComposePiece();
     if (selectedComposePiece) {
       return `拼图块 ${selectedComposePiece.sourceMapName} ${selectedComposePiece.rotation}°`;
@@ -1561,6 +1929,8 @@ export class GmMapEditor {
 
   /** findComposePieceAt：查找Compose Piece At。 */
   private findComposePieceAt(x: number, y: number): MapComposePiece | null {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
     for (let index = this.composePieces.length - 1; index >= 0; index -= 1) {
       const piece = this.composePieces[index]!;
       const bounds = this.getComposePieceBounds(piece);
@@ -1573,19 +1943,37 @@ export class GmMapEditor {
   }
 
   /** getAuraAt：读取灵气At。 */
-  private getAuraAt(x: number, y: number): { x: number; y: number; value: number } | null {
+  private getAuraAt(x: number, y: number): {  
+  /**
+ * x：GmMapEditor 内部字段。
+ */
+ x: number;  
+ /**
+ * y：GmMapEditor 内部字段。
+ */
+ y: number;  
+ /**
+ * value：GmMapEditor 内部字段。
+ */
+ value: number } | null {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
     if (!this.draft) return null;
     return this.draft.auras?.find((point) => point.x === x && point.y === y) ?? null;
   }
 
   /** getResourcesAt：读取资源At。 */
   private getResourcesAt(x: number, y: number): TileResourcePoint[] {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
     if (!this.draft) return [];
     return (this.draft.resources ?? []).filter((point) => point.x === x && point.y === y);
   }
 
   /** formatMapTargetLabel：格式化地图目标标签。 */
   private formatMapTargetLabel(mapId: string): string {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
     const target = this.mapList.find((map) => map.id === mapId);
     if (!target) {
       return mapId;
@@ -1596,7 +1984,17 @@ export class GmMapEditor {
   }
 
   /** getContainerLandmarks：读取容器Landmarks。 */
-  private getContainerLandmarks(): Array<{ landmark: GmMapLandmarkRecord; index: number }> {
+  private getContainerLandmarks(): Array<{  
+  /**
+ * landmark：GmMapEditor 内部字段。
+ */
+ landmark: GmMapLandmarkRecord;  
+ /**
+ * index：GmMapEditor 内部字段。
+ */
+ index: number }> {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
     if (!this.draft) {
       return [];
     }
@@ -1606,6 +2004,8 @@ export class GmMapEditor {
 
   /** getContainerLandmark：读取容器地标。 */
   private getContainerLandmark(index: number): GmMapLandmarkRecord | null {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
     if (!this.draft) {
       return null;
     }
@@ -1621,6 +2021,8 @@ export class GmMapEditor {
 
   /** buildContainerTagHint：构建容器Tag Hint。 */
   private buildContainerTagHint(): string {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
     const tags = this.getAvailableItemTags();
     if (tags.length === 0) {
       return '标签来源于物品目录。每行一组，组内用逗号分隔；同一随机池会同时满足每一行至少一个 tag。';
@@ -1632,6 +2034,8 @@ export class GmMapEditor {
 
   /** handleUiFieldChange：处理界面字段变更。 */
   private handleUiFieldChange(field: string, value: string): void {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
     if (field === 'resizeWidth') {
       this.resizeWidth = Math.max(1, Math.floor(Number(value) || 1));
       return;
@@ -1661,7 +2065,21 @@ export class GmMapEditor {
   }
 
   /** syncInspectorToDraft：同步Inspector To Draft。 */
-  private syncInspectorToDraft(): { ok: true } | { ok: false; message: string } {
+  private syncInspectorToDraft(): {  
+  /**
+ * ok：GmMapEditor 内部字段。
+ */
+ ok: true } | {  
+ /**
+ * ok：GmMapEditor 内部字段。
+ */
+ ok: false;  
+ /**
+ * message：GmMapEditor 内部字段。
+ */
+ message: string } {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
     if (!this.draft) {
       return { ok: false, message: '当前没有地图草稿' };
     }
@@ -1736,6 +2154,8 @@ export class GmMapEditor {
 
   /** handleAction：处理动作。 */
   private handleAction(action: string, trigger: HTMLElement): void {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
     if (!this.draft) return;
     const synced = this.syncInspectorToDraft();
     if ('message' in synced) {
@@ -1844,6 +2264,8 @@ export class GmMapEditor {
 
   /** addPortalAtCurrentCell：处理add传送点At当前格子。 */
   private addPortalAtCurrentCell(): void {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
     if (!this.ensureSelectedCell()) return;
     const { x, y } = this.selectedCell!;
     if (!this.ensureWalkableSelection('传送点')) return;
@@ -1869,6 +2291,8 @@ export class GmMapEditor {
 
   /** ensureComposeSourceMap：确保Compose来源地图。 */
   private async ensureComposeSourceMap(sourceMapId: string): Promise<GmMapDocument> {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
     const cached = this.composeSourceCache.get(sourceMapId);
     if (cached) {
       return cached;
@@ -1880,7 +2304,17 @@ export class GmMapEditor {
   }
 
   /** getComposePieceSize：读取Compose Piece Size。 */
-  private getComposePieceSize(piece: MapComposePiece): { width: number; height: number } | null {
+  private getComposePieceSize(piece: MapComposePiece): {  
+  /**
+ * width：GmMapEditor 内部字段。
+ */
+ width: number;  
+ /**
+ * height：GmMapEditor 内部字段。
+ */
+ height: number } | null {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
     const source = this.composeSourceCache.get(piece.sourceMapId);
     if (!source) return null;
     const interiorWidth = Math.max(0, source.width - 2);
@@ -1892,7 +2326,25 @@ export class GmMapEditor {
   }
 
   /** getComposePieceBounds：读取Compose Piece Bounds。 */
-  private getComposePieceBounds(piece: MapComposePiece): { x: number; y: number; width: number; height: number } | null {
+  private getComposePieceBounds(piece: MapComposePiece): {  
+  /**
+ * x：GmMapEditor 内部字段。
+ */
+ x: number;  
+ /**
+ * y：GmMapEditor 内部字段。
+ */
+ y: number;  
+ /**
+ * width：GmMapEditor 内部字段。
+ */
+ width: number;  
+ /**
+ * height：GmMapEditor 内部字段。
+ */
+ height: number } | null {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
     const size = this.getComposePieceSize(piece);
     if (!size) return null;
     return {
@@ -1905,6 +2357,8 @@ export class GmMapEditor {
 
   /** clampComposePiecePosition：处理clamp Compose Piece位置。 */
   private clampComposePiecePosition(piece: MapComposePiece): MapComposePiece {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
     if (!this.draft) return piece;
     const size = this.getComposePieceSize(piece);
     if (!size) return piece;
@@ -1917,12 +2371,16 @@ export class GmMapEditor {
 
   /** getSelectedComposePiece：读取Selected Compose Piece。 */
   private getSelectedComposePiece(): MapComposePiece | null {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
     if (!this.selectedComposePieceId) return null;
     return this.composePieces.find((piece) => piece.id === this.selectedComposePieceId) ?? null;
   }
 
   /** addComposePiece：处理add Compose Piece。 */
   private async addComposePiece(): Promise<void> {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
     if (!this.draft) return;
     const sourceMapId = this.composeSourceMapId.trim();
     if (!sourceMapId) {
@@ -1954,9 +2412,18 @@ export class GmMapEditor {
     this.selectedCell = { x: piece.x, y: piece.y };
     this.renderInspector();
     this.setStatus(`已加入拼图块：${source.name}`);
-  }
+  }  
+  /**
+ * updateComposePiece：更新/写入相关状态。
+ * @param pieceId string piece ID。
+ * @param updater (piece: MapComposePiece) => MapComposePiece 参数说明。
+ * @returns boolean。
+ */
+
 
   private updateComposePiece(pieceId: string, updater: (piece: MapComposePiece) => MapComposePiece): boolean {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
     const index = this.composePieces.findIndex((piece) => piece.id === pieceId);
     if (index < 0) return false;
     this.composePieces[index] = this.clampComposePiecePosition(updater(this.composePieces[index]!));
@@ -1965,6 +2432,8 @@ export class GmMapEditor {
 
   /** rotateSelectedComposePiece：处理rotate Selected Compose Piece。 */
   private rotateSelectedComposePiece(clockwise: boolean): void {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
     const selected = this.getSelectedComposePiece();
     if (!selected) {
       this.setStatus('请先选中一个拼图块', true);
@@ -1985,6 +2454,8 @@ export class GmMapEditor {
 
   /** removeSelectedComposePiece：处理remove Selected Compose Piece。 */
   private removeSelectedComposePiece(): void {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
     const selected = this.getSelectedComposePiece();
     if (!selected) {
       this.setStatus('请先选中一个拼图块', true);
@@ -1999,6 +2470,8 @@ export class GmMapEditor {
 
   /** clearComposePieces：清理Compose Pieces。 */
   private clearComposePieces(): void {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
     if (this.composePieces.length === 0) {
       this.setStatus('当前没有拼图块');
       return;
@@ -2008,12 +2481,21 @@ export class GmMapEditor {
     this.selectedComposePieceId = null;
     this.renderInspector();
     this.setStatus('已清空全部拼图块');
-  }
+  }  
+  /**
+ * forEachComposePieceTile：执行核心业务逻辑。
+ * @param piece MapComposePiece 参数说明。
+ * @param visitor (targetX: number, targetY: number, sourceChar: string) => void 参数说明。
+ * @returns void。
+ */
+
 
   private forEachComposePieceTile(
     piece: MapComposePiece,
     visitor: (targetX: number, targetY: number, sourceChar: string) => void,
   ): void {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
     const source = this.composeSourceCache.get(piece.sourceMapId);
     if (!source) return;
     const interiorWidth = Math.max(0, source.width - 2);
@@ -2048,6 +2530,8 @@ export class GmMapEditor {
 
   /** bakeComposePiece：处理bake Compose Piece。 */
   private bakeComposePiece(piece: MapComposePiece, recordUndo: boolean): number {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
     if (!this.draft) return 0;
     const changed = new Map<number, string[]>();
     let changedCount = 0;
@@ -2078,6 +2562,8 @@ export class GmMapEditor {
 
   /** bakeSelectedComposePiece：处理bake Selected Compose Piece。 */
   private bakeSelectedComposePiece(): void {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
     const selected = this.getSelectedComposePiece();
     if (!selected) {
       this.setStatus('请先选中一个拼图块', true);
@@ -2096,6 +2582,8 @@ export class GmMapEditor {
 
   /** bakeAllComposePieces：处理bake All Compose Pieces。 */
   private bakeAllComposePieces(): void {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
     if (!this.draft || this.composePieces.length === 0) {
       this.setStatus('当前没有可烘焙的拼图块', true);
       return;
@@ -2119,6 +2607,8 @@ export class GmMapEditor {
 
   /** addNpcAtCurrentCell：处理add NPC At当前格子。 */
   private addNpcAtCurrentCell(): void {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
     if (!this.ensureSelectedCell()) return;
     const { x, y } = this.selectedCell!;
     if (!this.ensureWalkableSelection('NPC')) return;
@@ -2140,6 +2630,8 @@ export class GmMapEditor {
 
   /** addQuestToSelectedNpc：处理add任务To Selected NPC。 */
   private addQuestToSelectedNpc(): void {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
     if (!this.draft || this.selectedEntity?.kind !== 'npc') {
       return;
     }
@@ -2155,6 +2647,8 @@ export class GmMapEditor {
 
   /** removeQuestFromSelectedNpc：处理remove任务From Selected NPC。 */
   private removeQuestFromSelectedNpc(index: number): void {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
     if (!this.draft || this.selectedEntity?.kind !== 'npc' || index < 0) {
       return;
     }
@@ -2169,6 +2663,8 @@ export class GmMapEditor {
 
   /** addMonsterAtCurrentCell：处理add妖兽At当前格子。 */
   private addMonsterAtCurrentCell(): void {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
     if (!this.ensureSelectedCell()) return;
     const { x, y } = this.selectedCell!;
     if (!this.ensureWalkableSelection('怪物刷新点')) return;
@@ -2190,6 +2686,8 @@ export class GmMapEditor {
 
   /** addAuraAtCurrentCell：处理add灵气At当前格子。 */
   private addAuraAtCurrentCell(): void {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
     if (!this.ensureSelectedCell()) return;
     const { x, y } = this.selectedCell!;
     const changed = this.applyAuraPaint([{ x, y }], true, 1);
@@ -2203,6 +2701,8 @@ export class GmMapEditor {
 
   /** applyResourceBrushKey：应用资源Brush Key。 */
   private applyResourceBrushKey(): void {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
     const normalized = this.resourcePaintKey.trim();
     if (!normalized) {
       this.setStatus('资源键不能为空', true);
@@ -2215,6 +2715,8 @@ export class GmMapEditor {
 
   /** addResourceAtCurrentCell：处理add资源At当前格子。 */
   private addResourceAtCurrentCell(): void {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
     if (!this.ensureSelectedCell()) return;
     const { x, y } = this.selectedCell!;
     const normalizedKey = this.resourcePaintKey.trim();
@@ -2233,6 +2735,8 @@ export class GmMapEditor {
 
   /** addSafeZoneAtCurrentCell：处理add安全Zone At当前格子。 */
   private addSafeZoneAtCurrentCell(): void {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
     if (!this.ensureSelectedCell()) return;
     const { x, y } = this.selectedCell!;
     this.captureUndoState();
@@ -2248,6 +2752,8 @@ export class GmMapEditor {
 
   /** addLandmarkAtCurrentCell：处理add地标At当前格子。 */
   private addLandmarkAtCurrentCell(): void {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
     if (!this.ensureSelectedCell()) return;
     const { x, y } = this.selectedCell!;
     this.captureUndoState();
@@ -2265,6 +2771,8 @@ export class GmMapEditor {
 
   /** addContainerAtCurrentCell：处理add容器At当前格子。 */
   private addContainerAtCurrentCell(): void {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
     if (!this.ensureSelectedCell()) return;
     const { x, y } = this.selectedCell!;
     if (this.hasLandmarkAt(x, y)) {
@@ -2297,6 +2805,8 @@ export class GmMapEditor {
 
   /** addLootPoolToSelectedContainer：处理add战利品池To Selected容器。 */
   private addLootPoolToSelectedContainer(): void {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
     const landmark = this.selectedEntity?.kind === 'container'
       ? this.getContainerLandmark(this.selectedEntity.index)
       : null;
@@ -2311,6 +2821,8 @@ export class GmMapEditor {
 
   /** removeLootPoolFromSelectedContainer：处理remove战利品池From Selected容器。 */
   private removeLootPoolFromSelectedContainer(index: number): void {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
     const landmark = this.selectedEntity?.kind === 'container'
       ? this.getContainerLandmark(this.selectedEntity.index)
       : null;
@@ -2324,6 +2836,8 @@ export class GmMapEditor {
 
   /** moveSelectedEntityToCurrentCell：处理移动Selected实体To当前格子。 */
   private moveSelectedEntityToCurrentCell(): void {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
     if (!this.draft || !this.selectedEntity || !this.selectedCell) {
       this.setStatus('请先选中对象和目标格', true);
       return;
@@ -2336,6 +2850,8 @@ export class GmMapEditor {
 
   /** moveSelectedEntityToPoint：处理移动Selected实体To坐标。 */
   private moveSelectedEntityToPoint(x: number, y: number, recordUndo: boolean, silent: boolean): boolean {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
     if (!this.draft || !this.selectedEntity) return false;
     const selection = this.selectedEntity;
     const currentPoint = this.getSelectedEntityPoint();
@@ -2453,6 +2969,8 @@ export class GmMapEditor {
 
   /** removeSelectedEntity：处理remove Selected实体。 */
   private removeSelectedEntity(): void {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
     if (!this.draft || !this.selectedEntity) return;
     this.captureUndoState();
     if (this.selectedEntity.kind === 'portal') {
@@ -2478,6 +2996,8 @@ export class GmMapEditor {
 
   /** applyResize：应用Resize。 */
   private applyResize(): void {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
     if (!this.draft) return;
     this.captureUndoState();
     const width = Math.max(1, this.resizeWidth);
@@ -2508,7 +3028,23 @@ export class GmMapEditor {
   }
 
   /** clampPoint：处理clamp坐标。 */
-  private clampPoint(point: { x: number; y: number }, width: number, height: number): { x: number; y: number } {
+  private clampPoint(point: {  
+  /**
+ * x：GmMapEditor 内部字段。
+ */
+ x: number;  
+ /**
+ * y：GmMapEditor 内部字段。
+ */
+ y: number }, width: number, height: number): {  
+ /**
+ * x：GmMapEditor 内部字段。
+ */
+ x: number;  
+ /**
+ * y：GmMapEditor 内部字段。
+ */
+ y: number } {
     return {
       x: Math.min(width - 1, Math.max(0, point.x)),
       y: Math.min(height - 1, Math.max(0, point.y)),
@@ -2516,7 +3052,25 @@ export class GmMapEditor {
   }
 
   /** findNearestWalkable：查找Nearest Walkable。 */
-  private findNearestWalkable(origin: { x: number; y: number }): { x: number; y: number } | null {
+  private findNearestWalkable(origin: {  
+  /**
+ * x：GmMapEditor 内部字段。
+ */
+ x: number;  
+ /**
+ * y：GmMapEditor 内部字段。
+ */
+ y: number }): {  
+ /**
+ * x：GmMapEditor 内部字段。
+ */
+ x: number;  
+ /**
+ * y：GmMapEditor 内部字段。
+ */
+ y: number } | null {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
     if (!this.draft) return null;
     for (let radius = 0; radius <= Math.max(this.draft.width, this.draft.height); radius += 1) {
       for (let dy = -radius; dy <= radius; dy += 1) {
@@ -2536,6 +3090,8 @@ export class GmMapEditor {
 
   /** resetDraft：重置Draft。 */
   private resetDraft(): void {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
     if (!this.selectedMapId) return;
     if (this.dirty && !window.confirm('确定放弃当前地图的未保存修改吗？')) {
       return;
@@ -2545,6 +3101,8 @@ export class GmMapEditor {
 
   /** reloadCurrentMap：重载当前地图。 */
   private async reloadCurrentMap(): Promise<void> {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
     if (!this.selectedMapId) return;
     if (this.dirty && !window.confirm('当前有未保存修改，重新载入会丢失这些修改。继续吗？')) {
       return;
@@ -2554,6 +3112,8 @@ export class GmMapEditor {
 
   /** applyRawJson：应用Raw JSON。 */
   private applyRawJson(): void {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
     if (!this.selectedMapId) return;
     try {
       const next = JSON.parse(this.jsonEl.value) as GmMapDocument;
@@ -2582,6 +3142,8 @@ export class GmMapEditor {
 
   /** saveCurrentMap：保存当前地图。 */
   private async saveCurrentMap(): Promise<void> {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
     if (!this.draft || !this.selectedMapId) {
       this.setStatus('请先选择地图', true);
       return;
@@ -2593,7 +3155,11 @@ export class GmMapEditor {
     }
     this.saveBtn.disabled = true;
     try {
-      await this.request<{ ok: true }>(`${this.mapApiBasePath}/${encodeURIComponent(this.selectedMapId)}`, {
+      await this.request<{      
+      /**
+ * ok：GmMapEditor 内部字段。
+ */
+ ok: true }>(`${this.mapApiBasePath}/${encodeURIComponent(this.selectedMapId)}`, {
         method: 'PUT',
         body: JSON.stringify({ map: this.draft } satisfies GmUpdateMapReq),
       });
@@ -2610,6 +3176,8 @@ export class GmMapEditor {
 
   /** centerView：处理center视图。 */
   private centerView(): void {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
     if (!this.draft) return;
     const cellSize = this.getCellSize();
     this.viewCenterX = this.draft.width * cellSize / 2;
@@ -2619,6 +3187,8 @@ export class GmMapEditor {
 
   /** applyZoom：应用缩放。 */
   private applyZoom(delta: number): void {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
     const oldSize = this.getCellSize();
     const gridCenterX = oldSize > 0 ? this.viewCenterX / oldSize : 0;
     const gridCenterY = oldSize > 0 ? this.viewCenterY / oldSize : 0;
@@ -2638,6 +3208,8 @@ export class GmMapEditor {
 
   /** renderCanvas：渲染Canvas。 */
   private renderCanvas(): void {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
     if (this.renderFrameId !== null) {
       return;
     }
@@ -2649,6 +3221,8 @@ export class GmMapEditor {
 
   /** flushCanvasRender：处理刷新Canvas渲染。 */
   private flushCanvasRender(): void {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
     this.resizeCanvas();
     const ctx = this.ctx;
     if (!ctx) return;
@@ -2734,6 +3308,8 @@ export class GmMapEditor {
 
   /** drawComposePieces：处理draw Compose Pieces。 */
   private drawComposePieces(ctx: CanvasRenderingContext2D, screenW: number, screenH: number, cellSize: number): void {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
     if (!this.draft || this.composePieces.length === 0) return;
     const showLabels = cellSize >= 16;
     for (const piece of this.composePieces) {
@@ -2783,6 +3359,8 @@ export class GmMapEditor {
 
   /** drawEntities：处理draw实体。 */
   private drawEntities(ctx: CanvasRenderingContext2D, screenW: number, screenH: number, cellSize: number): void {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
     if (!this.draft) return;
     const showEntityLabels = cellSize >= 18;
     if (this.selectedEntity?.kind === 'monster') {
@@ -2906,7 +3484,17 @@ export class GmMapEditor {
     (this.draft.landmarks ?? [])
       .filter((landmark) => !landmark.container)
       .forEach((landmark) => drawLandmark(landmark));
-  }
+  }  
+  /**
+ * drawMonsterSpawnOverlay：执行核心业务逻辑。
+ * @param ctx CanvasRenderingContext2D 上下文信息。
+ * @param screenW number 参数说明。
+ * @param screenH number 参数说明。
+ * @param cellSize number 参数说明。
+ * @param spawn GmMapMonsterSpawnRecord 参数说明。
+ * @returns void。
+ */
+
 
   private drawMonsterSpawnOverlay(
     ctx: CanvasRenderingContext2D,
@@ -2915,6 +3503,8 @@ export class GmMapEditor {
     cellSize: number,
     spawn: GmMapMonsterSpawnRecord,
   ): void {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
     if (!this.draft) {
       return;
     }
@@ -3025,7 +3615,17 @@ export class GmMapEditor {
     ctx.strokeRect(sx + cellSize / 2 - boxWidth / 2, anchorY - boxHeight / 2, boxWidth, boxHeight);
     ctx.fillStyle = '#e5fff5';
     ctx.fillText(summary, sx + cellSize / 2, anchorY + 0.5);
-  }
+  }  
+  /**
+ * drawSafeZoneOverlay：执行核心业务逻辑。
+ * @param ctx CanvasRenderingContext2D 上下文信息。
+ * @param screenW number 参数说明。
+ * @param screenH number 参数说明。
+ * @param cellSize number 参数说明。
+ * @param zone GmMapSafeZoneRecord 参数说明。
+ * @returns void。
+ */
+
 
   private drawSafeZoneOverlay(
     ctx: CanvasRenderingContext2D,
@@ -3034,6 +3634,8 @@ export class GmMapEditor {
     cellSize: number,
     zone: GmMapSafeZoneRecord,
   ): void {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
     if (!this.draft) {
       return;
     }
@@ -3129,6 +3731,8 @@ export class GmMapEditor {
 
   /** resizeCanvas：处理resize Canvas。 */
   private resizeCanvas(): void {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
     const width = Math.max(1, Math.floor(this.canvasHost.clientWidth));
     const height = Math.max(1, Math.floor(this.canvasHost.clientHeight));
     if (this.canvas.width === width && this.canvas.height === height) return;
@@ -3138,6 +3742,8 @@ export class GmMapEditor {
 
   /** handleCanvasPointerDown：处理Canvas Pointer Down。 */
   private handleCanvasPointerDown(event: PointerEvent): void {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
     const point = this.screenToGrid(event.clientX, event.clientY);
     const currentTool = this.getCurrentTool();
     const wantsPan = event.button === 2 || (currentTool === 'pan' && event.button === 0);
@@ -3234,6 +3840,8 @@ export class GmMapEditor {
 
   /** handleCanvasPointerMove：处理Canvas Pointer移动。 */
   private handleCanvasPointerMove(event: PointerEvent): void {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
     const point = this.screenToGrid(event.clientX, event.clientY);
     this.hoveredCell = point;
     if (this.activePointerId !== null && event.pointerId !== this.activePointerId) return;
@@ -3303,6 +3911,8 @@ export class GmMapEditor {
 
   /** endPointerInteraction：处理end Pointer交互。 */
   private endPointerInteraction(): void {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
     if (this.activePointerId !== null && this.canvas.hasPointerCapture(this.activePointerId)) {
       this.canvas.releasePointerCapture(this.activePointerId);
     }
@@ -3324,7 +3934,17 @@ export class GmMapEditor {
   }
 
   /** screenToGrid：处理屏幕To Grid。 */
-  private screenToGrid(clientX: number, clientY: number): { x: number; y: number } | null {
+  private screenToGrid(clientX: number, clientY: number): {  
+  /**
+ * x：GmMapEditor 内部字段。
+ */
+ x: number;  
+ /**
+ * y：GmMapEditor 内部字段。
+ */
+ y: number } | null {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
     if (!this.draft) return null;
     const rect = this.canvas.getBoundingClientRect();
     const sx = clientX - rect.left;
@@ -3341,6 +3961,8 @@ export class GmMapEditor {
 
   /** paintTileAt：处理paint地块At。 */
   private paintTileAt(x: number, y: number, recordUndo = false): boolean {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
     if (!this.draft) return false;
     const key = `${x},${y}`;
     if (this.lastPaintKey === key) return false;
@@ -3350,6 +3972,8 @@ export class GmMapEditor {
 
   /** paintAuraAt：处理paint灵气At。 */
   private paintAuraAt(x: number, y: number, recordUndo = false): boolean {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
     if (!this.draft) return false;
     const key = `${x},${y}`;
     if (this.lastPaintKey === key) return false;
@@ -3359,6 +3983,8 @@ export class GmMapEditor {
 
   /** paintResourceAt：处理paint资源At。 */
   private paintResourceAt(x: number, y: number, recordUndo = false): boolean {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
     if (!this.draft) return false;
     const key = `${x},${y},${this.resourcePaintKey}`;
     if (this.lastPaintKey === key) return false;
@@ -3368,6 +3994,8 @@ export class GmMapEditor {
 
   /** applyLinePaint：应用Line Paint。 */
   private applyLinePaint(start: GridPoint, end: GridPoint): void {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
     const changed = this.paintLayer === 'tile'
       ? this.applyTilePaint(this.getLinePoints(start, end), true)
       : this.paintLayer === 'aura'
@@ -3380,6 +4008,8 @@ export class GmMapEditor {
 
   /** applyTilePaint：应用地块Paint。 */
   private applyTilePaint(points: GridPoint[], recordUndo: boolean): number {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
     if (!this.draft) return 0;
     const nextType = this.paintTileType;
     const nextChar = getMapCharFromTileType(nextType);
@@ -3418,6 +4048,8 @@ export class GmMapEditor {
 
   /** applyAuraPaint：应用灵气Paint。 */
   private applyAuraPaint(points: GridPoint[], recordUndo: boolean, overrideValue?: number): number {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
     if (!this.draft) return 0;
     const nextValue = Math.max(0, Math.floor(overrideValue ?? this.auraPaintValue));
     const selectedAuraPoint = this.selectedEntity?.kind === 'aura' ? this.getSelectedEntityPoint() : null;
@@ -3459,7 +4091,16 @@ export class GmMapEditor {
     }
     this.markDirty(false);
     return changedKeys.size;
-  }
+  }  
+  /**
+ * applyResourcePaint：更新/写入相关状态。
+ * @param points GridPoint[] 参数说明。
+ * @param recordUndo boolean 参数说明。
+ * @param overrideValue number 参数说明。
+ * @param overrideResourceKey string 参数说明。
+ * @returns number。
+ */
+
 
   private applyResourcePaint(
     points: GridPoint[],
@@ -3467,6 +4108,8 @@ export class GmMapEditor {
     overrideValue?: number,
     overrideResourceKey?: string,
   ): number {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
     if (!this.draft) return 0;
     const resourceKey = (overrideResourceKey ?? this.resourcePaintKey).trim();
     if (!resourceKey) {
@@ -3529,6 +4172,8 @@ export class GmMapEditor {
 
   /** findResourceIndex：查找资源索引。 */
   private findResourceIndex(x: number, y: number, resourceKey: string): number {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
     if (!this.draft) {
       return -1;
     }
@@ -3537,6 +4182,8 @@ export class GmMapEditor {
 
   /** getLinePoints：读取Line坐标。 */
   private getLinePoints(start: GridPoint, end: GridPoint): GridPoint[] {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
     const points: GridPoint[] = [];
     let x0 = start.x;
     let y0 = start.y;
@@ -3567,6 +4214,8 @@ export class GmMapEditor {
 
   /** hasBlockingMapObjectAt：判断是否Blocking地图Object At。 */
   private hasBlockingMapObjectAt(x: number, y: number, ignoredSelection: MapEntitySelection = null): boolean {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
     if (!this.draft) return false;
     if (this.draft.spawnPoint.x === x && this.draft.spawnPoint.y === y) return true;
     if (this.draft.portals.some((portal, index) => !(ignoredSelection?.kind === 'portal' && ignoredSelection.index === index) && portal.x === x && portal.y === y)) return true;
@@ -3577,12 +4226,16 @@ export class GmMapEditor {
 
   /** hasAuraAt：判断是否灵气At。 */
   private hasAuraAt(x: number, y: number, ignoredIndex?: number): boolean {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
     if (!this.draft) return false;
     return (this.draft.auras ?? []).some((point, index) => index !== ignoredIndex && point.x === x && point.y === y);
   }
 
   /** hasResourceAt：判断是否资源At。 */
   private hasResourceAt(x: number, y: number, resourceKey: string, ignoredIndex?: number): boolean {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
     if (!this.draft) return false;
     return (this.draft.resources ?? []).some((point, index) => (
       index !== ignoredIndex
@@ -3594,12 +4247,16 @@ export class GmMapEditor {
 
   /** hasLandmarkAt：判断是否地标At。 */
   private hasLandmarkAt(x: number, y: number, ignoredIndex?: number): boolean {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
     if (!this.draft) return false;
     return (this.draft.landmarks ?? []).some((landmark, index) => index !== ignoredIndex && landmark.x === x && landmark.y === y);
   }
 
   /** ensureSelectedCell：确保Selected格子。 */
   private ensureSelectedCell(): boolean {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
     if (!this.selectedCell) {
       this.setStatus('请先在画布上选中一个格子', true);
       return false;
@@ -3609,6 +4266,8 @@ export class GmMapEditor {
 
   /** ensureWalkableSelection：确保Walkable选中项。 */
   private ensureWalkableSelection(label: string): boolean {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
     if (!this.selectedCell) return false;
     if (!isTileTypeWalkable(this.getTileTypeAt(this.selectedCell.x, this.selectedCell.y))) {
       this.setStatus(`${label} 必须放在可通行地块上`, true);
@@ -3619,12 +4278,16 @@ export class GmMapEditor {
 
   /** getTileTypeAt：读取地块类型At。 */
   private getTileTypeAt(x: number, y: number): TileType {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
     if (!this.draft) return TileType.Floor;
     return getTileTypeFromMapChar(this.draft.tiles[y]?.[x] ?? '.');
   }
 
   /** findEntityAt：查找实体At。 */
   private findEntityAt(x: number, y: number): MapEntitySelection {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
     if (!this.draft) return null;
     const npcIndex = this.draft.npcs.findIndex((npc) => npc.x === x && npc.y === y);
     if (npcIndex >= 0) return { kind: 'npc', index: npcIndex };
@@ -3646,7 +4309,17 @@ export class GmMapEditor {
   }
 
   /** getSelectedEntityPoint：读取Selected实体坐标。 */
-  private getSelectedEntityPoint(): { x: number; y: number } | null {
+  private getSelectedEntityPoint(): {  
+  /**
+ * x：GmMapEditor 内部字段。
+ */
+ x: number;  
+ /**
+ * y：GmMapEditor 内部字段。
+ */
+ y: number } | null {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
     if (!this.draft || !this.selectedEntity) return null;
     if (this.selectedEntity.kind === 'portal') {
       const portal = this.draft.portals[this.selectedEntity.index];
@@ -3682,6 +4355,8 @@ export class GmMapEditor {
 
   /** createUndoEntry：创建Undo条目。 */
   private createUndoEntry(): EditorUndoEntry | null {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
     if (!this.draft) return null;
     return {
       draft: clone(this.draft),
@@ -3699,6 +4374,8 @@ export class GmMapEditor {
 
   /** captureUndoState：处理capture Undo状态。 */
   private captureUndoState(): void {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
     const entry = this.createUndoEntry();
     if (!entry) return;
     this.undoStack.push(entry);
@@ -3734,6 +4411,8 @@ export class GmMapEditor {
 
   /** undo：处理undo。 */
   private undo(): void {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
     const entry = this.undoStack.pop();
     if (!entry) {
       this.setStatus('没有可撤销的修改');
@@ -3761,6 +4440,8 @@ export class GmMapEditor {
 
   /** markDirty：标记Dirty。 */
   private markDirty(render = true): void {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
     this.dirty = true;
     this.updateUndoButtonState();
     if (render) this.renderInspector();

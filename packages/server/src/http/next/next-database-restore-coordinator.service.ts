@@ -10,50 +10,113 @@ import { PlayerRuntimeService } from '../../runtime/player/player-runtime.servic
 import { SuggestionRuntimeService } from '../../runtime/suggestion/suggestion-runtime.service';
 import { WorldRuntimeService } from '../../runtime/world/world-runtime.service';
 import { NEXT_GM_RESTORE_CONTRACT } from './next-gm-contract';
+/**
+ * PlayerSnapshotLike：定义接口结构约束，明确可交付字段含义。
+ */
+
 
 interface PlayerSnapshotLike {
+/**
+ * playerId：PlayerSnapshotLike 内部字段。
+ */
+
   playerId: string;
 }
+/**
+ * WorldSessionServiceLike：定义接口结构约束，明确可交付字段含义。
+ */
+
 
 interface WorldSessionServiceLike {
   purgeAllSessions(reason: string): void;
 }
+/**
+ * WorldRuntimeServiceLike：定义接口结构约束，明确可交付字段含义。
+ */
+
 
 interface WorldRuntimeServiceLike {
   removePlayer(playerId: string): void;
   rebuildPersistentRuntimeAfterRestore(): Promise<void>;
 }
+/**
+ * WorldSyncServiceLike：定义接口结构约束，明确可交付字段含义。
+ */
+
 
 interface WorldSyncServiceLike {
   clearDetachedPlayerCaches(playerId: string): void;
 }
+/**
+ * FlushServiceLike：定义接口结构约束，明确可交付字段含义。
+ */
+
 
 interface FlushServiceLike {
   flushAllNow(): Promise<void>;
 }
+/**
+ * PlayerRuntimeServiceLike：定义接口结构约束，明确可交付字段含义。
+ */
+
 
 interface PlayerRuntimeServiceLike {
   listPlayerSnapshots(): PlayerSnapshotLike[];
 }
+/**
+ * MailRuntimeServiceLike：定义接口结构约束，明确可交付字段含义。
+ */
+
 
 interface MailRuntimeServiceLike {
   clearRuntimeCache(): void;
 }
+/**
+ * MarketRuntimeServiceLike：定义接口结构约束，明确可交付字段含义。
+ */
+
 
 interface MarketRuntimeServiceLike {
   reloadFromPersistence(): Promise<void>;
 }
+/**
+ * SuggestionRuntimeServiceLike：定义接口结构约束，明确可交付字段含义。
+ */
+
 
 interface SuggestionRuntimeServiceLike {
   reloadFromPersistence(): Promise<void>;
 }
+/**
+ * RuntimeGmAuthServiceLike：定义接口结构约束，明确可交付字段含义。
+ */
+
 
 interface RuntimeGmAuthServiceLike {
   reloadPasswordRecordFromPersistence(): Promise<void>;
 }
+/**
+ * NextDatabaseRestoreCoordinatorService：封装该能力的入口与生命周期，承载运行时核心协作。
+ */
+
 
 @Injectable()
 export class NextDatabaseRestoreCoordinatorService {
+/**
+ * 构造器：初始化 当前 实例并建立基础状态。
+ * @param worldSessionService WorldSessionServiceLike 参数说明。
+ * @param worldRuntimeService WorldRuntimeServiceLike 参数说明。
+ * @param worldSyncService WorldSyncServiceLike 参数说明。
+ * @param playerPersistenceFlushService FlushServiceLike 参数说明。
+ * @param mapPersistenceFlushService FlushServiceLike 参数说明。
+ * @param playerRuntimeService PlayerRuntimeServiceLike 参数说明。
+ * @param mailRuntimeService MailRuntimeServiceLike 参数说明。
+ * @param marketRuntimeService MarketRuntimeServiceLike 参数说明。
+ * @param suggestionRuntimeService SuggestionRuntimeServiceLike 参数说明。
+ * @param runtimeGmAuthService RuntimeGmAuthServiceLike 参数说明。
+ * @returns 无返回值（构造函数）。
+ */
+
   constructor(
     @Inject(WorldSessionService) private readonly worldSessionService: WorldSessionServiceLike,
     @Inject(WorldRuntimeService) private readonly worldRuntimeService: WorldRuntimeServiceLike,
@@ -65,9 +128,16 @@ export class NextDatabaseRestoreCoordinatorService {
     @Inject(MarketRuntimeService) private readonly marketRuntimeService: MarketRuntimeServiceLike,
     @Inject(SuggestionRuntimeService) private readonly suggestionRuntimeService: SuggestionRuntimeServiceLike,
     @Inject(RuntimeGmAuthService) private readonly runtimeGmAuthService: RuntimeGmAuthServiceLike,
-  ) {}
+  ) {}  
+  /**
+ * prepareForRestore：执行核心业务逻辑。
+ * @returns Promise<void>。
+ */
+
 
   async prepareForRestore(): Promise<void> {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
     if (NEXT_GM_RESTORE_CONTRACT.flushPlayersBeforeRestore) {
       await this.playerPersistenceFlushService.flushAllNow();
     }
@@ -88,9 +158,16 @@ export class NextDatabaseRestoreCoordinatorService {
     }
 
     this.mailRuntimeService.clearRuntimeCache();
-  }
+  }  
+  /**
+ * reloadAfterRestore：执行核心业务逻辑。
+ * @returns Promise<void>。
+ */
+
 
   async reloadAfterRestore(): Promise<void> {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
     if (NEXT_GM_RESTORE_CONTRACT.reloadWorldRuntimeAfterRestore) {
       await this.worldRuntimeService.rebuildPersistentRuntimeAfterRestore();
     }

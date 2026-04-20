@@ -60,6 +60,8 @@ function formatSimplePercent(value: number): string {
 
 /** getCraftProgressRatio：读取制作进度Ratio。 */
 function getCraftProgressRatio(exp: number, expToNext: number): number {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
   if (expToNext <= 0) {
     return 1;
   }
@@ -79,6 +81,8 @@ function formatCritDamageBonus(value: number): string {
 
 /** colorWithAlpha：处理颜色With Alpha。 */
 function colorWithAlpha(color: string, alpha: number): string {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
   const hex = color.startsWith('#') ? color.slice(1) : color;
   const normalized = hex.length === 3 ? hex.split('').map((char) => char + char).join('') : hex;
   if (normalized.length !== 6) return color;
@@ -95,6 +99,8 @@ function formatRatioPercent(raw: number, divisor: number): string {
 
 /** formatNumericTooltipValue：格式化Numeric提示值。 */
 function formatNumericTooltipValue(key: NumericCardKey, value: number): string {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
   if (key === 'critDamage') {
     return formatCritDamageBonus(value);
   }
@@ -224,6 +230,8 @@ function buildCombatFormulaLines(key: NumericCardKey): string[] {
 
 /** buildNumericTooltip：构建Numeric提示。 */
 function buildNumericTooltip(label: string, key: NumericCardKey, numericValue: number, ratioValueText?: string): string {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
   const lines = [
     NUMERIC_TOOLTIP_DESCRIPTIONS[key] ?? '该属性影响角色的实际战斗表现。',
     `当前数值：${key === 'critDamage' ? formatCritDamageDisplay(numericValue) : key === 'moveSpeed' ? formatMoveSpeedDisplay(numericValue) : RATE_BP_KEYS.has(key) ? formatRateBp(numericValue) : formatDisplayInteger(numericValue)}`,
@@ -256,77 +264,265 @@ function createFragmentFromHtml(html: string): DocumentFragment {
 
 /** 属性雷达图中的单个节点，包含标签、数值、颜色和提示文案。 */
 interface RadarEntry {
-  label: string;
-  value: number;
-  color: string;
-  valueLabel?: string;
-  tooltipTitle: string;
+/**
+ * label：RadarEntry 内部字段。
+ */
+
+  label: string;  
+  /**
+ * value：RadarEntry 内部字段。
+ */
+
+  value: number;  
+  /**
+ * color：RadarEntry 内部字段。
+ */
+
+  color: string;  
+  /**
+ * valueLabel：RadarEntry 内部字段。
+ */
+
+  valueLabel?: string;  
+  /**
+ * tooltipTitle：RadarEntry 内部字段。
+ */
+
+  tooltipTitle: string;  
+  /**
+ * tooltipDetail：RadarEntry 内部字段。
+ */
+
   tooltipDetail: string;
 }
 
 /** 单个雷达节点的渲染快照，记录坐标、标签和值提示。 */
 interface AttrRadarNodeSnapshot {
-  label: string;
-  valueLabel: string;
-  color: string;
-  dotX: string;
-  dotY: string;
-  labelX: string;
-  labelY: string;
-  valueX: string;
-  valueY: string;
-  tooltipTitle: string;
+/**
+ * label：AttrRadarNodeSnapshot 内部字段。
+ */
+
+  label: string;  
+  /**
+ * valueLabel：AttrRadarNodeSnapshot 内部字段。
+ */
+
+  valueLabel: string;  
+  /**
+ * color：AttrRadarNodeSnapshot 内部字段。
+ */
+
+  color: string;  
+  /**
+ * dotX：AttrRadarNodeSnapshot 内部字段。
+ */
+
+  dotX: string;  
+  /**
+ * dotY：AttrRadarNodeSnapshot 内部字段。
+ */
+
+  dotY: string;  
+  /**
+ * labelX：AttrRadarNodeSnapshot 内部字段。
+ */
+
+  labelX: string;  
+  /**
+ * labelY：AttrRadarNodeSnapshot 内部字段。
+ */
+
+  labelY: string;  
+  /**
+ * valueX：AttrRadarNodeSnapshot 内部字段。
+ */
+
+  valueX: string;  
+  /**
+ * valueY：AttrRadarNodeSnapshot 内部字段。
+ */
+
+  valueY: string;  
+  /**
+ * tooltipTitle：AttrRadarNodeSnapshot 内部字段。
+ */
+
+  tooltipTitle: string;  
+  /**
+ * tooltipDetail：AttrRadarNodeSnapshot 内部字段。
+ */
+
   tooltipDetail: string;
 }
 
 /** 雷达属性页的渲染快照，包含标题、网格、轴线和节点。 */
 interface AttrRadarPaneSnapshot {
-  kind: 'radar';
-  title: string;
-  scale: number;
-  paneId: string;
-  areaPoints: string;
-  rings: string[];
-  axes: Array<{ x: string; y: string; stroke: string }>;
+/**
+ * kind：AttrRadarPaneSnapshot 内部字段。
+ */
+
+  kind: 'radar';  
+  /**
+ * title：AttrRadarPaneSnapshot 内部字段。
+ */
+
+  title: string;  
+  /**
+ * scale：AttrRadarPaneSnapshot 内部字段。
+ */
+
+  scale: number;  
+  /**
+ * paneId：AttrRadarPaneSnapshot 内部字段。
+ */
+
+  paneId: string;  
+  /**
+ * areaPoints：AttrRadarPaneSnapshot 内部字段。
+ */
+
+  areaPoints: string;  
+  /**
+ * rings：AttrRadarPaneSnapshot 内部字段。
+ */
+
+  rings: string[];  
+  /**
+ * axes：AttrRadarPaneSnapshot 内部字段。
+ */
+
+  axes: Array<{  
+  /**
+ * x：AttrRadarPaneSnapshot 内部字段。
+ */
+ x: string;  
+ /**
+ * y：AttrRadarPaneSnapshot 内部字段。
+ */
+ y: string;  
+ /**
+ * stroke：AttrRadarPaneSnapshot 内部字段。
+ */
+ stroke: string }>;  
+ /**
+ * nodes：AttrRadarPaneSnapshot 内部字段。
+ */
+
   nodes: AttrRadarNodeSnapshot[];
 }
 
 /** 数值卡片的渲染快照，包含展示值、附加说明和提示内容。 */
 interface AttrNumericCardSnapshot {
-  key: string;
-  label: string;
-  value: string;
-  sub?: string;
-  tooltipTitle: string;
+/**
+ * key：AttrNumericCardSnapshot 内部字段。
+ */
+
+  key: string;  
+  /**
+ * label：AttrNumericCardSnapshot 内部字段。
+ */
+
+  label: string;  
+  /**
+ * value：AttrNumericCardSnapshot 内部字段。
+ */
+
+  value: string;  
+  /**
+ * sub：AttrNumericCardSnapshot 内部字段。
+ */
+
+  sub?: string;  
+  /**
+ * tooltipTitle：AttrNumericCardSnapshot 内部字段。
+ */
+
+  tooltipTitle: string;  
+  /**
+ * tooltipDetail：AttrNumericCardSnapshot 内部字段。
+ */
+
   tooltipDetail: string;
 }
 
 /** 数值属性页的渲染快照，按卡片列表组织。 */
 interface AttrNumericPaneSnapshot {
-  kind: 'numeric';
-  title: string;
+/**
+ * kind：AttrNumericPaneSnapshot 内部字段。
+ */
+
+  kind: 'numeric';  
+  /**
+ * title：AttrNumericPaneSnapshot 内部字段。
+ */
+
+  title: string;  
+  /**
+ * cards：AttrNumericPaneSnapshot 内部字段。
+ */
+
   cards: AttrNumericCardSnapshot[];
 }
 
 /** 属性页占位快照，用于尚未同步到数据时的提示。 */
 interface AttrPlaceholderPaneSnapshot {
-  kind: 'placeholder';
+/**
+ * kind：AttrPlaceholderPaneSnapshot 内部字段。
+ */
+
+  kind: 'placeholder';  
+  /**
+ * message：AttrPlaceholderPaneSnapshot 内部字段。
+ */
+
   message: string;
 }
 
 /** 采集 / 炼器 / 强化技能的渲染快照，包含等级和进度信息。 */
 interface AttrCraftSkillSnapshot {
-  key: string;
-  label: string;
-  level: string;
-  progress: string;
-  remain: string;
+/**
+ * key：AttrCraftSkillSnapshot 内部字段。
+ */
+
+  key: string;  
+  /**
+ * label：AttrCraftSkillSnapshot 内部字段。
+ */
+
+  label: string;  
+  /**
+ * level：AttrCraftSkillSnapshot 内部字段。
+ */
+
+  level: string;  
+  /**
+ * progress：AttrCraftSkillSnapshot 内部字段。
+ */
+
+  progress: string;  
+  /**
+ * remain：AttrCraftSkillSnapshot 内部字段。
+ */
+
+  remain: string;  
+  /**
+ * progressPercent：AttrCraftSkillSnapshot 内部字段。
+ */
+
   progressPercent: string;
 }
 
 /** 生活技能页的渲染快照，按技能列表展示。 */
 interface AttrCraftPaneSnapshot {
-  kind: 'craft';
+/**
+ * kind：AttrCraftPaneSnapshot 内部字段。
+ */
+
+  kind: 'craft';  
+  /**
+ * skills：AttrCraftPaneSnapshot 内部字段。
+ */
+
   skills: AttrCraftSkillSnapshot[];
 }
 
@@ -335,6 +531,10 @@ type AttrPaneSnapshot = AttrRadarPaneSnapshot | AttrNumericPaneSnapshot | AttrPl
 
 /** 整个属性面板的渲染快照，按分页保存各页内容。 */
 interface AttrPanelSnapshot {
+/**
+ * panes：AttrPanelSnapshot 内部字段。
+ */
+
   panes: Record<AttrTab, AttrPaneSnapshot>;
 }
 
@@ -351,7 +551,12 @@ export class AttrPanel {
   /** lastStructureKey：last Structure Key。 */
   private lastStructureKey: string | null = null;
   /** tooltipTarget：提示目标。 */
-  private tooltipTarget: Element | null = null;
+  private tooltipTarget: Element | null = null;  
+  /**
+ * 构造器：初始化 当前 实例并建立基础状态。
+ * @returns 无返回值（构造函数）。
+ */
+
 
   constructor() {
     this.ensureTooltipStyle();
@@ -370,6 +575,8 @@ export class AttrPanel {
 
   /** 接收属性更新事件并重新渲染 */
   update(data: NEXT_S2C_AttrUpdate): void {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
     if (!data.baseAttrs || !data.bonuses) {
       this.clear();
       return;
@@ -416,6 +623,8 @@ export class AttrPanel {
 
   /** mergeAttrs：合并属性。 */
   private mergeAttrs(base: Attributes, bonuses: AttrBonus[]): Attributes {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
     const result = { ...base };
     for (const bonus of bonuses) {
       for (const key of ATTR_KEYS) {
@@ -425,7 +634,21 @@ export class AttrPanel {
       }
     }
     return result;
-  }
+  }  
+  /**
+ * buildSnapshot：构建并返回目标对象。
+ * @param base Attributes 参数说明。
+ * @param bonuses AttrBonus[] 参数说明。
+ * @param final Attributes 参数说明。
+ * @param stats NumericStats 参数说明。
+ * @param ratioDivisors NumericRatioDivisors 参数说明。
+ * @param specialStats PlayerSpecialStats 参数说明。
+ * @param alchemySkill PlayerState['alchemySkill'] 参数说明。
+ * @param gatherSkill PlayerState['gatherSkill'] 参数说明。
+ * @param enhancementSkill PlayerState['enhancementSkill'] 参数说明。
+ * @returns AttrPanelSnapshot。
+ */
+
 
   private buildSnapshot(
     base: Attributes,
@@ -438,6 +661,8 @@ export class AttrPanel {
     gatherSkill?: PlayerState['gatherSkill'],
     enhancementSkill?: PlayerState['enhancementSkill'],
   ): AttrPanelSnapshot {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
     const totalBonus: Partial<Attributes> = {};
     for (const bonus of bonuses) {
       for (const key of ATTR_KEYS) {
@@ -519,7 +744,15 @@ export class AttrPanel {
     });
 
     return this.buildRadarPaneSnapshot('六维轮图', radarMax, entries, 'base');
-  }
+  }  
+  /**
+ * buildRootRadarSnapshot：构建并返回目标对象。
+ * @param stats NumericStats 参数说明。
+ * @param ratioDivisors NumericRatioDivisors 参数说明。
+ * @param bonuses AttrBonus[] 参数说明。
+ * @returns AttrRadarPaneSnapshot。
+ */
+
 
   private buildRootRadarSnapshot(
     stats: NumericStats,
@@ -548,12 +781,21 @@ export class AttrPanel {
     const radarMax = Math.max(100, ...entries.map((entry) => entry.value)) || 100;
     const rootTitle = describeSpiritualRoots(roots).name;
     return this.buildRadarPaneSnapshot(rootTitle, radarMax, entries, 'root');
-  }
+  }  
+  /**
+ * buildVeinPaneSnapshot：构建并返回目标对象。
+ * @param stats NumericStats 参数说明。
+ * @param bonuses AttrBonus[] 参数说明。
+ * @returns AttrNumericPaneSnapshot。
+ */
+
 
   private buildVeinPaneSnapshot(
     stats: NumericStats,
     bonuses: AttrBonus[],
   ): AttrNumericPaneSnapshot {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
     const roots = this.resolveDisplaySpiritualRoots(stats, bonuses);
     const cards: AttrNumericCardSnapshot[] = [{
       key: 'neutral-aura',
@@ -679,14 +921,37 @@ export class AttrPanel {
       axes,
       nodes,
     };
-  }
+  }  
+  /**
+ * buildNumericPaneSnapshot：构建并返回目标对象。
+ * @param title string 参数说明。
+ * @param stats NumericStats 参数说明。
+ * @param ratios NumericRatioDivisors 参数说明。
+ * @param meta { keys: NumericCardKey[]; ratioKeys: (keyof NumericRatioDivisors)[]; legends?: Record<string, string> } 参数说明。
+ * @returns AttrPaneSnapshot。
+ */
+
 
   private buildNumericPaneSnapshot(
     title: string,
     stats?: NumericStats,
     ratios?: NumericRatioDivisors,
-    meta?: { keys: NumericCardKey[]; ratioKeys: (keyof NumericRatioDivisors)[]; legends?: Record<string, string> },
+    meta?: {    
+    /**
+ * keys：AttrPanel 内部字段。
+ */
+ keys: NumericCardKey[];    
+ /**
+ * ratioKeys：AttrPanel 内部字段。
+ */
+ ratioKeys: (keyof NumericRatioDivisors)[];    
+ /**
+ * legends：AttrPanel 内部字段。
+ */
+ legends?: Record<string, string> },
   ): AttrPaneSnapshot {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
     if (!stats || !ratios || !meta) {
       return { kind: 'placeholder', message: `${title}尚未同步` };
     }
@@ -727,13 +992,23 @@ export class AttrPanel {
         };
       }),
     };
-  }
+  }  
+  /**
+ * buildSpecialPaneSnapshot：构建并返回目标对象。
+ * @param stats NumericStats 参数说明。
+ * @param ratios NumericRatioDivisors 参数说明。
+ * @param specialStats PlayerSpecialStats 参数说明。
+ * @returns AttrPaneSnapshot。
+ */
+
 
   private buildSpecialPaneSnapshot(
     stats?: NumericStats,
     ratios?: NumericRatioDivisors,
     specialStats?: PlayerSpecialStats,
   ): AttrPaneSnapshot {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
     if (!stats || !ratios) {
       return { kind: 'placeholder', message: '特殊属性尚未同步' };
     }
@@ -777,13 +1052,23 @@ export class AttrPanel {
       title: numericPane.title,
       cards: [...specialCards, ...numericPane.cards],
     };
-  }
+  }  
+  /**
+ * buildCraftSkillSnapshot：构建并返回目标对象。
+ * @param key string 参数说明。
+ * @param label string 参数说明。
+ * @param skill PlayerState['alchemySkill'] | PlayerState['gatherSkill'] | PlayerState['enhancementSkill'] 参数说明。
+ * @returns AttrCraftSkillSnapshot | null。
+ */
+
 
   private buildCraftSkillSnapshot(
     key: string,
     label: string,
     skill?: PlayerState['alchemySkill'] | PlayerState['gatherSkill'] | PlayerState['enhancementSkill'],
   ): AttrCraftSkillSnapshot | null {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
     if (!skill) {
       return null;
     }
@@ -796,13 +1081,23 @@ export class AttrPanel {
       remain: `距下一级还需 ${formatDisplayInteger(remain)} ${label}经验`,
       progressPercent: `${(getCraftProgressRatio(skill.exp, skill.expToNext) * 100).toFixed(2)}%`,
     };
-  }
+  }  
+  /**
+ * buildCraftPaneSnapshot：构建并返回目标对象。
+ * @param alchemySkill PlayerState['alchemySkill'] 参数说明。
+ * @param gatherSkill PlayerState['gatherSkill'] 参数说明。
+ * @param enhancementSkill PlayerState['enhancementSkill'] 参数说明。
+ * @returns AttrPaneSnapshot。
+ */
+
 
   private buildCraftPaneSnapshot(
     alchemySkill?: PlayerState['alchemySkill'],
     gatherSkill?: PlayerState['gatherSkill'],
     enhancementSkill?: PlayerState['enhancementSkill'],
   ): AttrPaneSnapshot {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
     const skills = [
       this.buildCraftSkillSnapshot('alchemy', '炼丹', alchemySkill),
       this.buildCraftSkillSnapshot('gather', '采集', gatherSkill),
@@ -844,6 +1139,8 @@ export class AttrPanel {
 
   /** renderPane：渲染Pane。 */
   private renderPane(snapshot: AttrPaneSnapshot): string {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
     if (snapshot.kind === 'placeholder') {
       return `<div class="panel-section ui-surface-pane ui-surface-pane--stack" data-pane-kind="placeholder"><div class="empty-hint ui-empty-hint" data-placeholder-text="true">${snapshot.message}</div></div>`;
     }
@@ -924,6 +1221,8 @@ export class AttrPanel {
 
   /** patchPane：处理patch Pane。 */
   private patchPane(tab: AttrTab, snapshot: AttrPaneSnapshot): boolean {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
     const pane = this.pane.querySelector<HTMLElement>(`[data-attr-pane="${tab}"]`);
     if (!pane) {
       return false;
@@ -1079,6 +1378,8 @@ export class AttrPanel {
 
   /** ensureTooltipStyle：确保提示样式。 */
   private ensureTooltipStyle(): void {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
     if (document.getElementById(TOOLTIP_STYLE_ID)) return;
     const style = document.createElement('style');
     style.id = TOOLTIP_STYLE_ID;

@@ -1,30 +1,124 @@
 import type { SidePanel } from './ui/side-panel';
 import type { ChatUI } from './ui/chat';
 import type { MainAttrDetailStateSource } from './main-attr-detail-state-source';
+/**
+ * MainShellBindingsOptions：统一结构类型，保证协议与运行时一致性。
+ */
+
 
 type MainShellBindingsOptions = {
-  sidePanel: Pick<SidePanel, 'setVisibilityChangeCallback' | 'setLayoutChangeCallback' | 'setTabChangeCallback' | 'isVisible'>;
-  chatUI: Pick<ChatUI, 'setLogbookVisible'>;
-  attrDetailStateSource: Pick<MainAttrDetailStateSource, 'requestDetail'>;
-  sendRequestLeaderboard: () => void;
-  sendRequestWorldSummary: () => void;
-  setPanelRuntimeShellVisible: (visible: boolean) => void;
-  scheduleLayoutViewportSync: () => void;
-  resizeCanvas: () => void;
-  responsiveViewportChangeEvent: string;
-  scheduleConnectionRecovery: (delayMs?: number, forceRefresh?: boolean) => void;
-  restartPingLoop: () => void;
-  stopPingLoop: () => void;
-  clearPendingSocketPing: () => void;
-  renderPingLatency: (latencyMs: number | null, status?: string) => void;
-  hasPendingTargetedAction: () => boolean;
-  cancelTargeting: (showMessage?: boolean) => void;
-  isObserveOpen: () => boolean;
-  hideObserveModal: () => void;
-  documentRef: Document;
-  getObserveModalEl: () => HTMLElement | null;
+/**
+ * sidePanel：对象字段。
+ */
+
+  sidePanel: Pick<SidePanel, 'setVisibilityChangeCallback' | 'setLayoutChangeCallback' | 'setTabChangeCallback' | 'isVisible'>;  
+  /**
+ * chatUI：对象字段。
+ */
+
+  chatUI: Pick<ChatUI, 'setLogbookVisible'>;  
+  /**
+ * attrDetailStateSource：对象字段。
+ */
+
+  attrDetailStateSource: Pick<MainAttrDetailStateSource, 'requestDetail'>;  
+  /**
+ * sendRequestLeaderboard：对象字段。
+ */
+
+  sendRequestLeaderboard: () => void;  
+  /**
+ * sendRequestWorldSummary：对象字段。
+ */
+
+  sendRequestWorldSummary: () => void;  
+  /**
+ * setPanelRuntimeShellVisible：对象字段。
+ */
+
+  setPanelRuntimeShellVisible: (visible: boolean) => void;  
+  /**
+ * scheduleLayoutViewportSync：对象字段。
+ */
+
+  scheduleLayoutViewportSync: () => void;  
+  /**
+ * resizeCanvas：对象字段。
+ */
+
+  resizeCanvas: () => void;  
+  /**
+ * responsiveViewportChangeEvent：对象字段。
+ */
+
+  responsiveViewportChangeEvent: string;  
+  /**
+ * scheduleConnectionRecovery：对象字段。
+ */
+
+  scheduleConnectionRecovery: (delayMs?: number, forceRefresh?: boolean) => void;  
+  /**
+ * restartPingLoop：对象字段。
+ */
+
+  restartPingLoop: () => void;  
+  /**
+ * stopPingLoop：对象字段。
+ */
+
+  stopPingLoop: () => void;  
+  /**
+ * clearPendingSocketPing：对象字段。
+ */
+
+  clearPendingSocketPing: () => void;  
+  /**
+ * renderPingLatency：对象字段。
+ */
+
+  renderPingLatency: (latencyMs: number | null, status?: string) => void;  
+  /**
+ * hasPendingTargetedAction：对象字段。
+ */
+
+  hasPendingTargetedAction: () => boolean;  
+  /**
+ * cancelTargeting：对象字段。
+ */
+
+  cancelTargeting: (showMessage?: boolean) => void;  
+  /**
+ * isObserveOpen：对象字段。
+ */
+
+  isObserveOpen: () => boolean;  
+  /**
+ * hideObserveModal：对象字段。
+ */
+
+  hideObserveModal: () => void;  
+  /**
+ * documentRef：对象字段。
+ */
+
+  documentRef: Document;  
+  /**
+ * getObserveModalEl：对象字段。
+ */
+
+  getObserveModalEl: () => HTMLElement | null;  
+  /**
+ * getObserveModalShellEl：对象字段。
+ */
+
   getObserveModalShellEl: () => HTMLElement | null;
 };
+/**
+ * bindMainShellInteractions：执行核心业务逻辑。
+ * @param options MainShellBindingsOptions 选项参数。
+ * @returns void。
+ */
+
 
 export function bindMainShellInteractions(options: MainShellBindingsOptions): void {
   const syncChatLogbookVisibility = (): void => {

@@ -1,7 +1,19 @@
 import { NEXT_S2C, type NEXT_S2C_EventName, type NEXT_S2C_EventPayload } from '@mud/shared-next';
+/**
+ * BoundServerEventName：统一结构类型，保证协议与运行时一致性。
+ */
+
 
 export type BoundServerEventName = Exclude<NEXT_S2C_EventName, typeof NEXT_S2C.Kick>;
+/**
+ * ServerEventCallback：统一结构类型，保证协议与运行时一致性。
+ */
+
 export type ServerEventCallback<TEvent extends BoundServerEventName> = (data: NEXT_S2C_EventPayload<TEvent>) => void;
+/**
+ * ServerEventCallbackBuckets：统一结构类型，保证协议与运行时一致性。
+ */
+
 export type ServerEventCallbackBuckets = {
   [TEvent in BoundServerEventName]?: Array<ServerEventCallback<TEvent>>;
 };

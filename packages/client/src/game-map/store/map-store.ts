@@ -60,6 +60,8 @@ function cloneJson<T>(value: T): T {
 
 /** 按值优先级处理补丁：null 表示清空，undefined 表示不更新。 */
 function applyNullablePatch<T>(value: T | null | undefined, fallback: T | undefined): T | undefined {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
   if (value === null) {
     return undefined;
   }
@@ -140,6 +142,8 @@ function buildThreatArrowKey(ownerId: string, targetId: string): string {
 
 /** 判断 tick patch 是否包含位移信息。 */
 function hasSpatialTickEntityDelta(patch: TickRenderEntity | undefined | null): boolean {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
   if (!patch) {
     return false;
   }
@@ -148,6 +152,8 @@ function hasSpatialTickEntityDelta(patch: TickRenderEntity | undefined | null): 
 
 /** 全量比较两个小地图快照是否一致（元数据与标记）。 */
 function isSameMinimapSnapshot(left: MapMinimapSnapshot | null, right: MapMinimapSnapshot | null): boolean {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
   if (!left || !right) {
     return left === right;
   }
@@ -178,6 +184,8 @@ function isSameMinimapSnapshot(left: MapMinimapSnapshot | null, right: MapMinima
 
 /** 判断缓存小地图数据是否与最新快照不一致，需要清理。 */
 function shouldResetRememberedMap(mapId: string, nextMeta: MapMeta | null | undefined, nextSnapshot: MapMinimapSnapshot | null | undefined): boolean {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
   const cachedMeta = getCachedMapMeta(mapId);
   if (cachedMeta && nextMeta) {
     if (
@@ -220,17 +228,45 @@ export class MapStore {
   /** 实体 ID 到实体快照索引。 */
   private entityMap = new Map<string, ObservedMapEntity>();
   /** 地面物品堆叠索引，key 为 "x,y"。 */
-  private groundPiles = new Map<string, GroundItemPileView>();
-  private pathCells: Array<{ x: number; y: number }> = [];
+  private groundPiles = new Map<string, GroundItemPileView>();  
+  /**
+ * pathCells：MapStore 内部字段。
+ */
+
+  private pathCells: Array<{  
+  /**
+ * x：MapStore 内部字段。
+ */
+ x: number;  
+ /**
+ * y：MapStore 内部字段。
+ */
+ y: number }> = [];
   /** 当前寻路/施法叠加层状态。 */
   private targeting: MapTargetingOverlayState | null = null;
   /** 感气视角叠加层状态。 */
-  private senseQi: MapSenseQiOverlayState | null = null;
-  private threatArrows: Array<{ ownerId: string; targetId: string }> = [];
+  private senseQi: MapSenseQiOverlayState | null = null;  
+  /**
+ * threatArrows：MapStore 内部字段。
+ */
+
+  private threatArrows: Array<{  
+  /**
+ * ownerId：MapStore 内部字段。
+ */
+ ownerId: string;  
+ /**
+ * targetId：MapStore 内部字段。
+ */
+ targetId: string }> = [];
   /** 小地图增量版本，推动 minimap 列表与可见性更新。 */
   private minimapMemoryVersion = 0;
   /** 地图切换后等待首批完整可见块到达时的占位标记。 */
-  private awaitingFullVisibilityMapId: string | null = null;
+  private awaitingFullVisibilityMapId: string | null = null;  
+  /**
+ * tickTiming：MapStore 内部字段。
+ */
+
   private tickTiming = {
     startedAt: performance.now(),
     durationMs: 500,
@@ -240,6 +276,8 @@ export class MapStore {
 
   /** 首次接入/重连时初始化地图状态与基础缓存。 */
   applyBootstrap(data: MapBootstrapInput): void {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
     const player = cloneJson(data.self);
     this.player = player;
     this.time = data.time ?? null;
@@ -279,13 +317,31 @@ export class MapStore {
 
   /** 接收地图静态信息更新：元数据、可见块与小地图元数据。 */
   applyMapStatic(data: NEXT_S2C_MapStatic): void {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
     if (!this.player) {
       return;
     }
-    const dataWithTiles = data as NEXT_S2C_MapStatic & {
-      tiles?: VisibleTile[][];
-      tilesOriginX?: number;
-      tilesOriginY?: number;
+    const dataWithTiles = data as NEXT_S2C_MapStatic & {    
+    /**
+ * tiles：MapStore 内部字段。
+ */
+
+      tiles?: VisibleTile[][];      
+      /**
+ * tilesOriginX：MapStore 内部字段。
+ */
+
+      tilesOriginX?: number;      
+      /**
+ * tilesOriginY：MapStore 内部字段。
+ */
+
+      tilesOriginY?: number;      
+      /**
+ * tilePatches：MapStore 内部字段。
+ */
+
       tilePatches?: VisibleTilePatch[];
     };
     if (Array.isArray(dataWithTiles.tiles)
@@ -337,6 +393,8 @@ export class MapStore {
 
   /** 处理世界级增量：实体移动、威胁箭头、地块更新与时间推进。 */
   applyNextWorldDelta(data: MapNextWorldDeltaInput): void {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
     if (!this.player) {
       return;
     }
@@ -410,6 +468,8 @@ export class MapStore {
 
   /** 处理本体增量：坐标、生命/真元变化、地图切换。 */
   applyNextSelfDelta(data: MapNextSelfDeltaInput): void {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
     if (!this.player) {
       return;
     }
@@ -490,7 +550,15 @@ export class MapStore {
   }
 
   /** 写入寻路路径用于前端高亮渲染。 */
-  setPathCells(cells: Array<{ x: number; y: number }>): void {
+  setPathCells(cells: Array<{  
+  /**
+ * x：MapStore 内部字段。
+ */
+ x: number;  
+ /**
+ * y：MapStore 内部字段。
+ */
+ y: number }>): void {
     this.pathCells = cells.map((cell) => ({ x: cell.x, y: cell.y }));
   }
 
@@ -531,6 +599,8 @@ export class MapStore {
 
   /** 校验并更新本地 tick 插值时长。 */
   setTickDurationMs(durationMs: number): void {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
     if (!Number.isFinite(durationMs) || durationMs <= 0) {
       return;
     }
@@ -554,6 +624,8 @@ export class MapStore {
 
   /** 按坐标读取当前可见地块。 */
   getVisibleTileAt(x: number, y: number): Tile | null {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
     const key = `${x},${y}`;
     if (!this.visibleTiles.has(key)) {
       return null;
@@ -613,13 +685,23 @@ export class MapStore {
   /** 返回当前 tick 计时器。 */
   getTickTiming(): MapStoreSnapshot['tickTiming'] {
     return this.tickTiming;
-  }
+  }  
+  /**
+ * mergeTickEntities：执行核心业务逻辑。
+ * @param playerPatches TickRenderEntity[] 参数说明。
+ * @param entityPatches TickRenderEntity[] 参数说明。
+ * @param removedEntityIds string[] removedEntity ID 集合。
+ * @returns ObservedMapEntity[]。
+ */
+
 
   private mergeTickEntities(
     playerPatches: TickRenderEntity[],
     entityPatches: TickRenderEntity[],
     removedEntityIds: string[] = [],
   ): ObservedMapEntity[] {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
     const removedIdSet = new Set(removedEntityIds);
     const merged = this.entities
       .filter((entity) => !removedIdSet.has(entity.id))
@@ -651,6 +733,8 @@ export class MapStore {
 
   /** 合并地面物品增量，返回新 map 用于下发。 */
   private mergeGroundItemPatches(patches: GroundItemPilePatch[]): Map<string, GroundItemPileView> {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
     const nextMap = new Map(this.groundPiles);
     for (const patch of patches) {
       const key = `${patch.x},${patch.y}`;
@@ -669,12 +753,21 @@ export class MapStore {
       });
     }
     return nextMap;
-  }
+  }  
+  /**
+ * mergeVisibleMinimapMarkerPatches：执行核心业务逻辑。
+ * @param adds MapMinimapMarker[] 参数说明。
+ * @param removes string[] 参数说明。
+ * @returns MapMinimapMarker[]。
+ */
+
 
   private mergeVisibleMinimapMarkerPatches(
     adds: MapMinimapMarker[],
     removes: string[],
   ): MapMinimapMarker[] {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
     const nextMap = new Map(this.visibleMinimapMarkers.map((marker) => [marker.id, cloneJson(marker)]));
     for (const markerId of removes) {
       nextMap.delete(markerId);
@@ -683,12 +776,29 @@ export class MapStore {
       nextMap.set(marker.id, cloneJson(marker));
     }
     return [...nextMap.values()];
-  }
+  }  
+  /**
+ * mergeThreatArrowPatches：执行核心业务逻辑。
+ * @param adds Array<[string, string]> 参数说明。
+ * @param removes Array<[string, string]> 参数说明。
+ * @returns Array<{ ownerId: string; targetId: string }>。
+ */
+
 
   private mergeThreatArrowPatches(
     adds: Array<[string, string]>,
     removes: Array<[string, string]>,
-  ): Array<{ ownerId: string; targetId: string }> {
+  ): Array<{  
+  /**
+ * ownerId：MapStore 内部字段。
+ */
+ ownerId: string;  
+ /**
+ * targetId：MapStore 内部字段。
+ */
+ targetId: string }> {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
     const nextMap = new Map(
       this.threatArrows.map((entry) => [buildThreatArrowKey(entry.ownerId, entry.targetId), { ...entry }]),
     );
@@ -706,6 +816,8 @@ export class MapStore {
 
   /** 按补丁方式更新可见块并提高 minimap 版本号。 */
   private applyVisibleTilePatches(mapId: string, patches: VisibleTilePatch[]): void {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
     rememberVisibleTilePatches(mapId, patches);
     for (const patch of patches) {
       const key = `${patch.x},${patch.y}`;
@@ -722,6 +834,8 @@ export class MapStore {
 
   /** 重新缓存整块可见地块并重建可见集合。 */
   private cacheVisibleTiles(mapId: string, tiles: VisibleTile[][], originX: number, originY: number): void {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
     this.visibleTiles.clear();
     rememberVisibleTiles(mapId, tiles, originX, originY);
     for (let rowIndex = 0; rowIndex < tiles.length; rowIndex += 1) {

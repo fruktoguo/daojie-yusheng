@@ -2,15 +2,47 @@ import { Body, Controller, Get, Post, Query, Req } from '@nestjs/common';
 
 import { NextAuthRateLimitService } from './next-auth-rate-limit.service';
 import { NextPlayerAuthService } from './next-player-auth.service';
+/**
+ * AuthBody：定义接口结构约束，明确可交付字段含义。
+ */
+
 
 interface AuthBody {
-  accountName?: unknown;
-  password?: unknown;
-  displayName?: unknown;
-  roleName?: unknown;
-  loginName?: unknown;
+/**
+ * accountName：AuthBody 内部字段。
+ */
+
+  accountName?: unknown;  
+  /**
+ * password：AuthBody 内部字段。
+ */
+
+  password?: unknown;  
+  /**
+ * displayName：AuthBody 内部字段。
+ */
+
+  displayName?: unknown;  
+  /**
+ * roleName：AuthBody 内部字段。
+ */
+
+  roleName?: unknown;  
+  /**
+ * loginName：AuthBody 内部字段。
+ */
+
+  loginName?: unknown;  
+  /**
+ * refreshToken：AuthBody 内部字段。
+ */
+
   refreshToken?: unknown;
 }
+/**
+ * RequestLike：定义接口结构约束，明确可交付字段含义。
+ */
+
 
 interface RequestLike {
   [key: string]: unknown;
@@ -29,6 +61,8 @@ export class NextAuthController {
   /** 处理注册请求，固定走 next accountName/displayName/roleName 合同。 */
   @Post('register')
   async register(@Body() body: AuthBody, @Req() request: RequestLike) {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
     const accountName = pickString(body?.accountName);
     this.rateLimitService.assertAllowed('register', request, accountName);
     try {
@@ -49,6 +83,8 @@ export class NextAuthController {
   /** 处理登录请求，固定走 next loginName/password 合同。 */
   @Post('login')
   async login(@Body() body: AuthBody, @Req() request: RequestLike) {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
     const loginName = pickString(body?.loginName);
     this.rateLimitService.assertAllowed('login', request, loginName);
     try {
@@ -64,6 +100,8 @@ export class NextAuthController {
   /** 用刷新令牌换取新的访问令牌。 */
   @Post('refresh')
   async refresh(@Body() body: AuthBody, @Req() request: RequestLike) {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
     const refreshToken = pickString(body?.refreshToken);
     this.rateLimitService.assertAllowed('refresh', request, refreshToken);
     try {

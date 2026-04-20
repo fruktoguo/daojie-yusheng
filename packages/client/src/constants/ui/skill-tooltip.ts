@@ -7,9 +7,25 @@ import { getAttrKeyLabel, getNumericScalarStatKeyLabel } from '../../domain-labe
 
 /** 技能缩放徽章的展示元数据。 */
 export type SkillScalingMeta = {
-  badgeClassName: string;
-  icon: string;
-  label: string;
+/**
+ * badgeClassName：对象字段。
+ */
+
+  badgeClassName: string;  
+  /**
+ * icon：对象字段。
+ */
+
+  icon: string;  
+  /**
+ * label：对象字段。
+ */
+
+  label: string;  
+  /**
+ * termClassName：对象字段。
+ */
+
   termClassName: string;
 };
 

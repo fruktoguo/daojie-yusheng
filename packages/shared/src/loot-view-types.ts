@@ -9,53 +9,169 @@ export type LootSourceKind = 'ground' | 'container';
 
 /** 地面物品条目视图 */
 export interface GroundItemEntryView {
-  itemKey: string;
-  itemId: string;
-  name: string;
-  type: ItemType;
-  count: number;
-  grade?: TechniqueGrade;
+/**
+ * itemKey：GroundItemEntryView 内部字段。
+ */
+
+  itemKey: string;  
+  /**
+ * itemId：GroundItemEntryView 内部字段。
+ */
+
+  itemId: string;  
+  /**
+ * name：GroundItemEntryView 内部字段。
+ */
+
+  name: string;  
+  /**
+ * type：GroundItemEntryView 内部字段。
+ */
+
+  type: ItemType;  
+  /**
+ * count：GroundItemEntryView 内部字段。
+ */
+
+  count: number;  
+  /**
+ * grade：GroundItemEntryView 内部字段。
+ */
+
+  grade?: TechniqueGrade;  
+  /**
+ * groundLabel：GroundItemEntryView 内部字段。
+ */
+
   groundLabel?: string;
 }
 
 /** 地面物品堆视图 */
 export interface GroundItemPileView {
-  sourceId: string;
-  x: number;
-  y: number;
+/**
+ * sourceId：GroundItemPileView 内部字段。
+ */
+
+  sourceId: string;  
+  /**
+ * x：GroundItemPileView 内部字段。
+ */
+
+  x: number;  
+  /**
+ * y：GroundItemPileView 内部字段。
+ */
+
+  y: number;  
+  /**
+ * items：GroundItemPileView 内部字段。
+ */
+
   items: GroundItemEntryView[];
 }
 
 /** 搜索进度视图 */
 export interface LootSearchProgressView {
-  totalTicks: number;
-  remainingTicks: number;
+/**
+ * totalTicks：LootSearchProgressView 内部字段。
+ */
+
+  totalTicks: number;  
+  /**
+ * remainingTicks：LootSearchProgressView 内部字段。
+ */
+
+  remainingTicks: number;  
+  /**
+ * elapsedTicks：LootSearchProgressView 内部字段。
+ */
+
   elapsedTicks: number;
 }
 
 /** 拾取窗口物品视图 */
 export interface LootWindowItemView {
-  itemKey: string;
+/**
+ * itemKey：LootWindowItemView 内部字段。
+ */
+
+  itemKey: string;  
+  /**
+ * item：LootWindowItemView 内部字段。
+ */
+
   item: ItemStack;
 }
 
 /** 拾取窗口来源视图 */
 export interface LootWindowSourceView {
-  sourceId: string;
-  kind: LootSourceKind;
-  title: string;
-  desc?: string;
-  grade?: TechniqueGrade;
-  searchable: boolean;
-  search?: LootSearchProgressView;
-  items: LootWindowItemView[];
+/**
+ * sourceId：LootWindowSourceView 内部字段。
+ */
+
+  sourceId: string;  
+  /**
+ * kind：LootWindowSourceView 内部字段。
+ */
+
+  kind: LootSourceKind;  
+  /**
+ * title：LootWindowSourceView 内部字段。
+ */
+
+  title: string;  
+  /**
+ * desc：LootWindowSourceView 内部字段。
+ */
+
+  desc?: string;  
+  /**
+ * grade：LootWindowSourceView 内部字段。
+ */
+
+  grade?: TechniqueGrade;  
+  /**
+ * searchable：LootWindowSourceView 内部字段。
+ */
+
+  searchable: boolean;  
+  /**
+ * search：LootWindowSourceView 内部字段。
+ */
+
+  search?: LootSearchProgressView;  
+  /**
+ * items：LootWindowSourceView 内部字段。
+ */
+
+  items: LootWindowItemView[];  
+  /**
+ * emptyText：LootWindowSourceView 内部字段。
+ */
+
   emptyText?: string;
 }
 
 /** 拾取窗口状态 */
 export interface LootWindowState {
-  tileX: number;
-  tileY: number;
-  title: string;
+/**
+ * tileX：LootWindowState 内部字段。
+ */
+
+  tileX: number;  
+  /**
+ * tileY：LootWindowState 内部字段。
+ */
+
+  tileY: number;  
+  /**
+ * title：LootWindowState 内部字段。
+ */
+
+  title: string;  
+  /**
+ * sources：LootWindowState 内部字段。
+ */
+
   sources: LootWindowSourceView[];
 }

@@ -11,11 +11,35 @@ export const TIME_FILTER_LERP = 0.12;
 
 /** TimeAtmosphereProfile：时间氛围配置。 */
 export interface TimeAtmosphereProfile {
-  overlayBoost: number;
-  skyTint: string;
-  skyAlpha: number;
-  horizonTint: string;
-  horizonAlpha: number;
+/**
+ * overlayBoost：TimeAtmosphereProfile 内部字段。
+ */
+
+  overlayBoost: number;  
+  /**
+ * skyTint：TimeAtmosphereProfile 内部字段。
+ */
+
+  skyTint: string;  
+  /**
+ * skyAlpha：TimeAtmosphereProfile 内部字段。
+ */
+
+  skyAlpha: number;  
+  /**
+ * horizonTint：TimeAtmosphereProfile 内部字段。
+ */
+
+  horizonTint: string;  
+  /**
+ * horizonAlpha：TimeAtmosphereProfile 内部字段。
+ */
+
+  horizonAlpha: number;  
+  /**
+ * vignetteAlpha：TimeAtmosphereProfile 内部字段。
+ */
+
   vignetteAlpha: number;
 }
 

@@ -15,38 +15,94 @@ import { WorldRuntimeService } from '../../runtime/world/world-runtime.service';
 import { NextManagedAccountService } from './next-managed-account.service';
 import { NEXT_GM_PLAYER_MUTATION_CONTRACT } from './next-gm-contract';
 import { isNextGmBotPlayerId } from './next-gm.constants';
+/**
+ * ManagedAccountEntryLike：定义接口结构约束，明确可交付字段含义。
+ */
+
 
 interface ManagedAccountEntryLike {
-  userId?: string;
-  username?: string;
-  createdAt?: string;
-  totalOnlineSeconds?: number;
+/**
+ * userId：ManagedAccountEntryLike 内部字段。
+ */
+
+  userId?: string;  
+  /**
+ * username：ManagedAccountEntryLike 内部字段。
+ */
+
+  username?: string;  
+  /**
+ * createdAt：ManagedAccountEntryLike 内部字段。
+ */
+
+  createdAt?: string;  
+  /**
+ * totalOnlineSeconds：ManagedAccountEntryLike 内部字段。
+ */
+
+  totalOnlineSeconds?: number;  
+  /**
+ * currentOnlineStartedAt：ManagedAccountEntryLike 内部字段。
+ */
+
   currentOnlineStartedAt?: string;
 }
+/**
+ * ContentTemplateRepositoryLike：定义接口结构约束，明确可交付字段含义。
+ */
+
 
 interface ContentTemplateRepositoryLike {
   normalizeItem(input: unknown): unknown;
 }
+/**
+ * MapTemplateRepositoryLike：定义接口结构约束，明确可交付字段含义。
+ */
+
 
 interface MapTemplateRepositoryLike {
   getOrThrow(mapId: string): any;
 }
+/**
+ * PersistedPlayerEntryLike：定义接口结构约束，明确可交付字段含义。
+ */
+
 
 interface PersistedPlayerEntryLike {
-  playerId: string;
+/**
+ * playerId：PersistedPlayerEntryLike 内部字段。
+ */
+
+  playerId: string;  
+  /**
+ * snapshot：PersistedPlayerEntryLike 内部字段。
+ */
+
   snapshot: any;
 }
+/**
+ * PlayerPersistenceServiceLike：定义接口结构约束，明确可交付字段含义。
+ */
+
 
 interface PlayerPersistenceServiceLike {
   loadPlayerSnapshot(playerId: string): Promise<any | null>;
   savePlayerSnapshot(playerId: string, snapshot: any): Promise<void>;
   listPlayerSnapshots(): Promise<PersistedPlayerEntryLike[]>;
 }
+/**
+ * PlayerProgressionServiceLike：定义接口结构约束，明确可交付字段含义。
+ */
+
 
 interface PlayerProgressionServiceLike {
   createRealmStateFromLevel(realmLv: number, progress: number): any;
   initializePlayer(snapshot: any): void;
 }
+/**
+ * PlayerRuntimeServiceLike：定义接口结构约束，明确可交付字段含义。
+ */
+
 
 interface PlayerRuntimeServiceLike {
   snapshot(playerId: string): any;
@@ -55,6 +111,10 @@ interface PlayerRuntimeServiceLike {
   listPlayerSnapshots(): any[];
   rebuildActionState(snapshot: any, tick: number): void;
 }
+/**
+ * WorldRuntimeServiceLike：定义接口结构约束，明确可交付字段含义。
+ */
+
 
 interface WorldRuntimeServiceLike {
   enqueueGmUpdatePlayer(input: unknown): void;
@@ -62,13 +122,33 @@ interface WorldRuntimeServiceLike {
   enqueueGmSpawnBots(anchorPlayerId: string, count: number): void;
   enqueueGmRemoveBots(playerIds: string[], all: boolean): void;
 }
+/**
+ * NextManagedAccountServiceLike：定义接口结构约束，明确可交付字段含义。
+ */
+
 
 interface NextManagedAccountServiceLike {
   getManagedAccountIndex(playerIds: string[]): Promise<Map<string, ManagedAccountEntryLike>>;
 }
+/**
+ * NextGmPlayerService：封装该能力的入口与生命周期，承载运行时核心协作。
+ */
+
 
 @Injectable()
 export class NextGmPlayerService {
+/**
+ * 构造器：初始化 当前 实例并建立基础状态。
+ * @param contentTemplateRepository ContentTemplateRepositoryLike 参数说明。
+ * @param mapTemplateRepository MapTemplateRepositoryLike 参数说明。
+ * @param playerPersistenceService PlayerPersistenceServiceLike 参数说明。
+ * @param playerProgressionService PlayerProgressionServiceLike 参数说明。
+ * @param playerRuntimeService PlayerRuntimeServiceLike 参数说明。
+ * @param worldRuntimeService WorldRuntimeServiceLike 参数说明。
+ * @param nextManagedAccountService NextManagedAccountServiceLike 参数说明。
+ * @returns 无返回值（构造函数）。
+ */
+
   constructor(
     @Inject(ContentTemplateRepository)
     private readonly contentTemplateRepository: ContentTemplateRepositoryLike,
@@ -84,13 +164,27 @@ export class NextGmPlayerService {
     private readonly worldRuntimeService: WorldRuntimeServiceLike,
     @Inject(NextManagedAccountService)
     private readonly nextManagedAccountService: NextManagedAccountServiceLike,
-  ) {}
+  ) {}  
+  /**
+ * hasRuntimePlayer：执行状态校验并返回判断结果。
+ * @param playerId string 玩家 ID。
+ * @returns 函数返回值。
+ */
+
 
   hasRuntimePlayer(playerId: string) {
     return Boolean(this.playerRuntimeService.snapshot(playerId));
-  }
+  }  
+  /**
+ * getPlayerDetail：按给定条件读取/查询数据。
+ * @param playerId string 玩家 ID。
+ * @returns 函数返回值。
+ */
+
 
   async getPlayerDetail(playerId: string) {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
     const account = (await this.nextManagedAccountService.getManagedAccountIndex([playerId])).get(playerId);
 
     const runtime = this.playerRuntimeService.snapshot(playerId);
@@ -108,9 +202,18 @@ export class NextGmPlayerService {
     return {
       player: this.toManagedPlayerRecordFromPersistence(playerId, persisted, account),
     };
-  }
+  }  
+  /**
+ * updatePlayer：更新/写入相关状态。
+ * @param playerId string 玩家 ID。
+ * @param body 参数说明。
+ * @returns 函数返回值。
+ */
+
 
   async updatePlayer(playerId: string, body) {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
     const section = body?.section ?? null;
     const snapshot = body?.snapshot ?? {};
 
@@ -157,13 +260,27 @@ export class NextGmPlayerService {
     refreshedRuntime.selfRevision += 1;
     refreshedRuntime.persistentRevision += 1;
     this.playerRuntimeService.restoreSnapshot(refreshedRuntime);
-  }
+  }  
+  /**
+ * resetPlayer：执行核心业务逻辑。
+ * @param playerId string 玩家 ID。
+ * @returns 函数返回值。
+ */
+
 
   resetPlayer(playerId: string) {
     this.worldRuntimeService.enqueueGmResetPlayer(playerId);
-  }
+  }  
+  /**
+ * resetPersistedPlayer：执行核心业务逻辑。
+ * @param playerId string 玩家 ID。
+ * @returns 函数返回值。
+ */
+
 
   async resetPersistedPlayer(playerId: string) {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
     const persisted = await this.playerPersistenceService.loadPlayerSnapshot(playerId);
     if (!persisted) {
       throw new NotFoundException('目标玩家不存在');
@@ -182,9 +299,17 @@ export class NextGmPlayerService {
     persisted.combat.combatTargetId = null;
     persisted.combat.combatTargetLocked = false;
     await this.playerPersistenceService.savePlayerSnapshot(playerId, persisted);
-  }
+  }  
+  /**
+ * resetHeavenGate：执行核心业务逻辑。
+ * @param playerId string 玩家 ID。
+ * @returns 函数返回值。
+ */
+
 
   async resetHeavenGate(playerId: string) {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
     const runtime = this.playerRuntimeService.snapshot(playerId);
     const persisted = runtime
       ? this.playerRuntimeService.buildPersistenceSnapshot(playerId)
@@ -214,17 +339,38 @@ export class NextGmPlayerService {
     refreshedRuntime.selfRevision += 1;
     refreshedRuntime.persistentRevision += 1;
     this.playerRuntimeService.restoreSnapshot(refreshedRuntime);
-  }
+  }  
+  /**
+ * spawnBots：执行核心业务逻辑。
+ * @param anchorPlayerId string anchorPlayer ID。
+ * @param count number 数量。
+ * @returns 函数返回值。
+ */
+
 
   spawnBots(anchorPlayerId: string, count: number) {
     this.worldRuntimeService.enqueueGmSpawnBots(anchorPlayerId, count);
-  }
+  }  
+  /**
+ * removeBots：执行核心业务逻辑。
+ * @param playerIds string[] player ID 集合。
+ * @param all boolean 参数说明。
+ * @returns 函数返回值。
+ */
+
 
   removeBots(playerIds: string[], all: boolean) {
     this.worldRuntimeService.enqueueGmRemoveBots(playerIds, all);
-  }
+  }  
+  /**
+ * returnAllPlayersToDefaultSpawn：执行核心业务逻辑。
+ * @returns 函数返回值。
+ */
+
 
   async returnAllPlayersToDefaultSpawn() {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
     const template = this.mapTemplateRepository.getOrThrow('yunlai_town');
 
     const runtimePlayers = this.playerRuntimeService
@@ -268,9 +414,19 @@ export class NextGmPlayerService {
       targetX: template.spawnX,
       targetY: template.spawnY,
     };
-  }
+  }  
+  /**
+ * applyPlayerSnapshotMutation：更新/写入相关状态。
+ * @param next 参数说明。
+ * @param snapshot 参数说明。
+ * @param section 参数说明。
+ * @returns 函数返回值。
+ */
+
 
   private applyPlayerSnapshotMutation(next, snapshot, section) {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
     if (section === null || section === 'basic') {
       if (typeof snapshot.name === 'string' && snapshot.name.trim()) {
         next.name = snapshot.name.trim();
@@ -430,9 +586,18 @@ export class NextGmPlayerService {
       }));
       next.quests.revision += 1;
     }
-  }
+  }  
+  /**
+ * applyPositionToPersistenceSnapshot：更新/写入相关状态。
+ * @param persisted 参数说明。
+ * @param snapshot 参数说明。
+ * @returns 函数返回值。
+ */
+
 
   private applyPositionToPersistenceSnapshot(persisted, snapshot) {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
     if (typeof snapshot.mapId === 'string' && snapshot.mapId.trim()) {
       this.mapTemplateRepository.getOrThrow(snapshot.mapId.trim());
       persisted.placement.templateId = snapshot.mapId.trim();
@@ -454,9 +619,19 @@ export class NextGmPlayerService {
     if (typeof snapshot.autoBattle === 'boolean') {
       persisted.combat.autoBattle = snapshot.autoBattle;
     }
-  }
+  }  
+  /**
+ * applyPlayerSnapshotMutationToPersistence：更新/写入相关状态。
+ * @param persisted 参数说明。
+ * @param snapshot 参数说明。
+ * @param section 参数说明。
+ * @returns 函数返回值。
+ */
+
 
   private applyPlayerSnapshotMutationToPersistence(persisted, snapshot, section) {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
     if (section === null || section === 'basic') {
       if (Number.isFinite(snapshot.maxHp)) {
         persisted.vitals.maxHp = Math.max(1, Math.trunc(snapshot.maxHp));
@@ -610,9 +785,17 @@ export class NextGmPlayerService {
       }));
       persisted.quests.revision = Math.max(1, (persisted.quests.revision ?? 1) + 1);
     }
-  }
+  }  
+  /**
+ * repairRuntimeSnapshot：执行核心业务逻辑。
+ * @param snapshot 参数说明。
+ * @returns 函数返回值。
+ */
+
 
   private repairRuntimeSnapshot(snapshot) {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
     if (snapshot.maxHp < 1) {
       snapshot.maxHp = 1;
     }
@@ -626,7 +809,14 @@ export class NextGmPlayerService {
     }
     this.playerProgressionService.initializePlayer(snapshot);
     this.playerRuntimeService.rebuildActionState(snapshot, 0);
-  }
+  }  
+  /**
+ * toManagedPlayerSummary：执行核心业务逻辑。
+ * @param snapshot 参数说明。
+ * @param account 参数说明。
+ * @returns 函数返回值。
+ */
+
 
   private toManagedPlayerSummary(snapshot, account = null) {
     const player = this.toLegacyPlayerState(snapshot);
@@ -658,7 +848,15 @@ export class NextGmPlayerService {
         dirtyFlags: snapshot.persistentRevision > snapshot.persistedRevision ? ['persistence'] : [],
       },
     };
-  }
+  }  
+  /**
+ * toManagedPlayerRecord：执行核心业务逻辑。
+ * @param snapshot 参数说明。
+ * @param persistedSnapshot 参数说明。
+ * @param account 参数说明。
+ * @returns 函数返回值。
+ */
+
 
   private toManagedPlayerRecord(snapshot, persistedSnapshot, account = null) {
     const summary = this.toManagedPlayerSummary(snapshot, account);
@@ -669,7 +867,15 @@ export class NextGmPlayerService {
       snapshot: this.toLegacyPlayerState(snapshot),
       persistedSnapshot: persistedSnapshot ?? null,
     };
-  }
+  }  
+  /**
+ * toManagedPlayerRecordFromPersistence：执行核心业务逻辑。
+ * @param playerId 玩家 ID。
+ * @param persistedSnapshot 参数说明。
+ * @param account 参数说明。
+ * @returns 函数返回值。
+ */
+
 
   private toManagedPlayerRecordFromPersistence(playerId, persistedSnapshot, account = null) {
     const player = this.toLegacyPlayerStateFromPersistence(playerId, persistedSnapshot);
@@ -704,7 +910,13 @@ export class NextGmPlayerService {
       snapshot: player,
       persistedSnapshot,
     };
-  }
+  }  
+  /**
+ * toLegacyPlayerState：执行核心业务逻辑。
+ * @param snapshot 参数说明。
+ * @returns any。
+ */
+
 
   private toLegacyPlayerState(snapshot): any {
     return {
@@ -783,7 +995,14 @@ export class NextGmPlayerService {
           }
         : undefined,
     };
-  }
+  }  
+  /**
+ * toLegacyPlayerStateFromPersistence：执行核心业务逻辑。
+ * @param playerId 玩家 ID。
+ * @param snapshot 参数说明。
+ * @returns any。
+ */
+
 
   private toLegacyPlayerStateFromPersistence(playerId, snapshot): any {
     const realm = this.playerProgressionService.createRealmStateFromLevel(
@@ -848,7 +1067,13 @@ export class NextGmPlayerService {
         : [],
       realm,
     };
-  }
+  }  
+  /**
+ * resolveMapName：执行核心业务逻辑。
+ * @param mapId string 地图 ID。
+ * @returns 函数返回值。
+ */
+
 
   private resolveMapName(mapId: string) {
     try {
@@ -858,8 +1083,17 @@ export class NextGmPlayerService {
     }
   }
 }
+/**
+ * buildManagedAccountView：构建并返回目标对象。
+ * @param account 参数说明。
+ * @param online 参数说明。
+ * @returns 函数返回值。
+ */
+
 
 function buildManagedAccountView(account, online) {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
   if (!account?.userId || !account.username) {
     return undefined;
   }
@@ -881,10 +1115,24 @@ function buildManagedAccountView(account, online) {
     totalOnlineSeconds,
   };
 }
+/**
+ * clamp：执行核心业务逻辑。
+ * @param value 参数说明。
+ * @param min 参数说明。
+ * @param max 参数说明。
+ * @returns 函数返回值。
+ */
+
 
 function clamp(value, min, max) {
   return Math.max(min, Math.min(max, value));
 }
+/**
+ * toLegacyEquipmentSlots：执行核心业务逻辑。
+ * @param slots 参数说明。
+ * @returns 函数返回值。
+ */
+
 
 function toLegacyEquipmentSlots(slots) {
   const bySlot = new Map(slots.map((entry) => [entry.slot, entry.item ? { ...entry.item } : null]));
@@ -897,6 +1145,12 @@ function toLegacyEquipmentSlots(slots) {
     accessory: bySlot.get('accessory') ?? null,
   };
 }
+/**
+ * cloneTemporaryBuff：执行核心业务逻辑。
+ * @param entry 参数说明。
+ * @returns 函数返回值。
+ */
+
 
 function cloneTemporaryBuff(entry) {
   return {
@@ -908,6 +1162,12 @@ function cloneTemporaryBuff(entry) {
       : undefined,
   };
 }
+/**
+ * cloneRatioDivisors：执行核心业务逻辑。
+ * @param source 来源对象。
+ * @returns 函数返回值。
+ */
+
 
 function cloneRatioDivisors(source) {
   return {

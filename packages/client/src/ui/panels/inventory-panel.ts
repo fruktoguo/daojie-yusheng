@@ -48,32 +48,100 @@ type InventoryActionKind = 'use' | 'drop' | 'destroy';
 
 /** InventoryActionDialogState：背包物品操作对话框状态。 */
 interface InventoryActionDialogState {
-  kind: InventoryActionKind;
-  slotIndex: number;
-  defaultCount: number;
+/**
+ * kind：InventoryActionDialogState 内部字段。
+ */
+
+  kind: InventoryActionKind;  
+  /**
+ * slotIndex：InventoryActionDialogState 内部字段。
+ */
+
+  slotIndex: number;  
+  /**
+ * defaultCount：InventoryActionDialogState 内部字段。
+ */
+
+  defaultCount: number;  
+  /**
+ * confirmDestroy：InventoryActionDialogState 内部字段。
+ */
+
   confirmDestroy: boolean;
 }
 
 /** InventoryStructureState：背包筛选结果与条目骨架状态。 */
 interface InventoryStructureState {
-  filter: InventoryFilter;
-  items: Array<{ slotIndex: number; identity: string }>;
+/**
+ * filter：InventoryStructureState 内部字段。
+ */
+
+  filter: InventoryFilter;  
+  /**
+ * items：InventoryStructureState 内部字段。
+ */
+
+  items: Array<{  
+  /**
+ * slotIndex：InventoryStructureState 内部字段。
+ */
+ slotIndex: number;  
+ /**
+ * identity：InventoryStructureState 内部字段。
+ */
+ identity: string }>;
 }
 
 /** InventoryPrimaryAction：背包条目的主操作定义。 */
 interface InventoryPrimaryAction {
-  label: string;
-  kind: 'use' | 'equip' | 'status';
+/**
+ * label：InventoryPrimaryAction 内部字段。
+ */
+
+  label: string;  
+  /**
+ * kind：InventoryPrimaryAction 内部字段。
+ */
+
+  kind: 'use' | 'equip' | 'status';  
+  /**
+ * disabled：InventoryPrimaryAction 内部字段。
+ */
+
   disabled?: boolean;
 }
 
 /** InventoryShellRefs：背包面板壳层节点引用集合。 */
 interface InventoryShellRefs {
-  section: HTMLDivElement;
-  title: HTMLDivElement;
-  filters: HTMLDivElement;
-  grid: HTMLDivElement;
-  empty: HTMLDivElement;
+/**
+ * section：InventoryShellRefs 内部字段。
+ */
+
+  section: HTMLDivElement;  
+  /**
+ * title：InventoryShellRefs 内部字段。
+ */
+
+  title: HTMLDivElement;  
+  /**
+ * filters：InventoryShellRefs 内部字段。
+ */
+
+  filters: HTMLDivElement;  
+  /**
+ * grid：InventoryShellRefs 内部字段。
+ */
+
+  grid: HTMLDivElement;  
+  /**
+ * empty：InventoryShellRefs 内部字段。
+ */
+
+  empty: HTMLDivElement;  
+  /**
+ * loadHint：InventoryShellRefs 内部字段。
+ */
+
   loadHint: HTMLDivElement;
 }
 
@@ -174,7 +242,12 @@ export class InventoryPanel {
       return;
     }
     this.maybeLoadMoreVisibleItems(target);
-  };
+  };  
+  /**
+ * 构造器：初始化 当前 实例并建立基础状态。
+ * @returns 无返回值（构造函数）。
+ */
+
 
   constructor() {
     this.ensureTooltipStyle();
@@ -185,6 +258,8 @@ export class InventoryPanel {
 
   /** clear：清理clear。 */
   clear(): void {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
     this.activeFilter = 'all';
     this.lastInventory = null;
     this.lastStructureState = null;
@@ -214,7 +289,17 @@ export class InventoryPanel {
     this.shellRefs = null;
     this.pane.replaceChildren(this.createInventoryEmptyState());
     detailModalHost.close(InventoryPanel.MODAL_OWNER);
-  }
+  }  
+  /**
+ * setCallbacks：更新/写入相关状态。
+ * @param onUse (slotIndex: number, count?: number) => void 参数说明。
+ * @param onDrop (slotIndex: number, count: number) => void 参数说明。
+ * @param onDestroy (slotIndex: number, count: number) => void 参数说明。
+ * @param onEquip (slotIndex: number) => void 参数说明。
+ * @param onSort () => void 参数说明。
+ * @returns void。
+ */
+
 
   setCallbacks(
     onUse: (slotIndex: number, count?: number) => void,
@@ -232,6 +317,8 @@ export class InventoryPanel {
 
   /** 更新背包数据并刷新列表与弹层 */
   update(inventory: Inventory): void {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
     this.lastInventory = inventory;
     this.syncRenderedVisibleCount(this.getVisibleItems(inventory).length);
     const structureState = this.buildStructureState(inventory);
@@ -249,11 +336,19 @@ export class InventoryPanel {
   initFromPlayer(player: PlayerState): void {
     this.syncPlayerContext(player);
     this.update(player.inventory);
-  }
+  }  
+  /**
+ * syncPlayerContext：执行核心业务逻辑。
+ * @param player Pick<PlayerState, 'techniques' | 'equipment' | 'unlockedMinimapIds' | 'realm' | 'heavenGate' | 'foundation'> 玩家对象。
+ * @returns void。
+ */
+
 
   syncPlayerContext(
     player?: Pick<PlayerState, 'techniques' | 'equipment' | 'unlockedMinimapIds' | 'realm' | 'heavenGate' | 'foundation'>,
   ): void {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
     if (!player) {
       this.learnedTechniqueIds.clear();
       this.unlockedMinimapIds.clear();
@@ -479,6 +574,8 @@ export class InventoryPanel {
 
   /** ensureTooltipStyle：确保提示样式。 */
   private ensureTooltipStyle(): void {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
     if (document.getElementById(INVENTORY_PANEL_TOOLTIP_STYLE_ID)) return;
     const style = document.createElement('style');
     style.id = INVENTORY_PANEL_TOOLTIP_STYLE_ID;
@@ -530,6 +627,8 @@ export class InventoryPanel {
 
   /** ensureShell：确保Shell。 */
   private ensureShell(): InventoryShellRefs {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
     if (this.shellRefs?.section.isConnected) {
       return this.shellRefs;
     }
@@ -634,6 +733,8 @@ export class InventoryPanel {
 
   /** syncGridChildren：同步Grid Children。 */
   private syncGridChildren(grid: HTMLElement, orderedCells: HTMLElement[]): void {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
     const allowed = new Set(orderedCells);
     for (const child of Array.from(grid.children)) {
       if (!(child instanceof HTMLElement) || !allowed.has(child)) {
@@ -647,7 +748,16 @@ export class InventoryPanel {
       }
       reference = cell.nextSibling;
     }
-  }
+  }  
+  /**
+ * patchInventoryCell：执行核心业务逻辑。
+ * @param cell HTMLElement 参数说明。
+ * @param item ItemStack 道具。
+ * @param slotIndex number 参数说明。
+ * @param cooldownState InventoryItemCooldownState | null 参数说明。
+ * @returns boolean。
+ */
+
 
   private patchInventoryCell(
     cell: HTMLElement,
@@ -655,6 +765,8 @@ export class InventoryPanel {
     slotIndex: number,
     cooldownState: InventoryItemCooldownState | null,
   ): boolean {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
     const typeNode = cell.querySelector<HTMLElement>('[data-item-type="true"]');
     const countNode = cell.querySelector<HTMLElement>('[data-item-count="true"]');
     const nameNode = cell.querySelector<HTMLElement>('[data-item-name="true"]');
@@ -746,6 +858,8 @@ export class InventoryPanel {
 
   /** renderModal：渲染弹窗。 */
   private renderModal(): void {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
     if (!this.lastInventory || !this.selectedItemKey) {
       detailModalHost.close(InventoryPanel.MODAL_OWNER);
       return;
@@ -842,6 +956,8 @@ export class InventoryPanel {
 
   /** renderActionDialog：渲染动作对话。 */
   private renderActionDialog(item: ItemStack, slotIndex: number, dialog: InventoryActionDialogState): void {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
     const labels = this.resolveActionLabels(dialog.kind);
     const maxCount = item.count;
     const halfCount = Math.max(1, Math.ceil(maxCount / 2));
@@ -1054,7 +1170,23 @@ export class InventoryPanel {
   /** renderSpecialUseConfirmBody：渲染特殊使用确认主体。 */
   private renderSpecialUseConfirmBody(
     body: HTMLElement,
-    summary: { title: string; lines: string[]; confirmLabel?: string; cancelLabel?: string },
+    summary: {    
+    /**
+ * title：InventoryPanel 内部字段。
+ */
+ title: string;    
+ /**
+ * lines：InventoryPanel 内部字段。
+ */
+ lines: string[];    
+ /**
+ * confirmLabel：InventoryPanel 内部字段。
+ */
+ confirmLabel?: string;    
+ /**
+ * cancelLabel：InventoryPanel 内部字段。
+ */
+ cancelLabel?: string },
   ): void {
     body.replaceChildren(createFragmentFromHtml(`
       <div class="ui-detail-field ui-detail-field--section">
@@ -1073,7 +1205,19 @@ export class InventoryPanel {
   /** renderActionDialogBody：渲染动作对话主体。 */
   private renderActionDialogBody(
     body: HTMLElement,
-    labels: { title: string; confirm: string; danger: boolean },
+    labels: {    
+    /**
+ * title：InventoryPanel 内部字段。
+ */
+ title: string;    
+ /**
+ * confirm：InventoryPanel 内部字段。
+ */
+ confirm: string;    
+ /**
+ * danger：InventoryPanel 内部字段。
+ */
+ danger: boolean },
     selectedCount: number,
     halfCount: number,
     maxCount: number,
@@ -1108,6 +1252,8 @@ export class InventoryPanel {
 
   /** patchList：处理patch列表。 */
   private patchList(inventory: Inventory): boolean {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
     const refs = this.ensureShell();
     refs.title.textContent = `背包 (${formatDisplayInteger(inventory.items.length)}/${formatDisplayInteger(inventory.capacity)})`;
 
@@ -1176,6 +1322,8 @@ export class InventoryPanel {
 
   /** patchModal：处理patch弹窗。 */
   private patchModal(): boolean {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
     if (!this.lastInventory || !this.selectedItemKey) {
       this.lastModalRenderKey = null;
       detailModalHost.close(InventoryPanel.MODAL_OWNER);
@@ -1195,7 +1343,17 @@ export class InventoryPanel {
   }
 
   /** resolveSelectedItem：解析Selected物品。 */
-  private resolveSelectedItem(inventory: Inventory): { item: ItemStack; slotIndex: number } | null {
+  private resolveSelectedItem(inventory: Inventory): {  
+  /**
+ * item：InventoryPanel 内部字段。
+ */
+ item: ItemStack;  
+ /**
+ * slotIndex：InventoryPanel 内部字段。
+ */
+ slotIndex: number } | null {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
     if (!this.selectedItemKey) {
       return null;
     }
@@ -1227,6 +1385,8 @@ export class InventoryPanel {
 
   /** getUseCountFromInput：读取使用数量From输入。 */
   private getUseCountFromInput(input: HTMLInputElement | null, maxCount: number): number {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
     const rawValue = input?.value ?? '1';
     const parsed = Number.parseInt(rawValue, 10);
     if (!Number.isFinite(parsed)) {
@@ -1237,6 +1397,8 @@ export class InventoryPanel {
 
   /** syncActionCountInputWidth：同步动作数量输入Width。 */
   private syncActionCountInputWidth(input: HTMLInputElement | null, maxCount: number): void {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
     if (!input) {
       return;
     }
@@ -1253,6 +1415,8 @@ export class InventoryPanel {
 
   /** getSpiritualRootSeedTier：读取Spiritual Root种子Tier。 */
   private getSpiritualRootSeedTier(item: ItemStack): 'heaven' | 'divine' | null {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
     if (item.itemId === HEAVEN_SPIRITUAL_ROOT_SEED_ITEM_ID) {
       return 'heaven';
     }
@@ -1285,12 +1449,30 @@ export class InventoryPanel {
   }
 
   /** getSpecialUseConfirmSummary：读取Special使用Confirm摘要。 */
-  private getSpecialUseConfirmSummary(item: ItemStack): {
-    title: string;
-    lines: string[];
-    confirmLabel?: string;
+  private getSpecialUseConfirmSummary(item: ItemStack): {  
+  /**
+ * title：InventoryPanel 内部字段。
+ */
+
+    title: string;    
+    /**
+ * lines：InventoryPanel 内部字段。
+ */
+
+    lines: string[];    
+    /**
+ * confirmLabel：InventoryPanel 内部字段。
+ */
+
+    confirmLabel?: string;    
+    /**
+ * cancelLabel：InventoryPanel 内部字段。
+ */
+
     cancelLabel?: string;
   } | null {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
     const techniqueWarningSummary = this.getTechniqueLearningWarningSummary(item);
     if (techniqueWarningSummary) {
       return techniqueWarningSummary;
@@ -1338,12 +1520,30 @@ export class InventoryPanel {
   }
 
   /** getTechniqueLearningWarningSummary：读取Technique Learning Warning摘要。 */
-  private getTechniqueLearningWarningSummary(item: ItemStack): {
-    title: string;
-    lines: string[];
-    confirmLabel?: string;
+  private getTechniqueLearningWarningSummary(item: ItemStack): {  
+  /**
+ * title：InventoryPanel 内部字段。
+ */
+
+    title: string;    
+    /**
+ * lines：InventoryPanel 内部字段。
+ */
+
+    lines: string[];    
+    /**
+ * confirmLabel：InventoryPanel 内部字段。
+ */
+
+    confirmLabel?: string;    
+    /**
+ * cancelLabel：InventoryPanel 内部字段。
+ */
+
     cancelLabel?: string;
   } | null {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
     if (item.type !== 'skill_book') {
       return null;
     }
@@ -1390,9 +1590,21 @@ export class InventoryPanel {
   }
 
   /** resolveActionLabels：解析动作标签。 */
-  private resolveActionLabels(kind: InventoryActionKind): {
-    title: string;
-    confirm: string;
+  private resolveActionLabels(kind: InventoryActionKind): {  
+  /**
+ * title：InventoryPanel 内部字段。
+ */
+
+    title: string;    
+    /**
+ * confirm：InventoryPanel 内部字段。
+ */
+
+    confirm: string;    
+    /**
+ * danger：InventoryPanel 内部字段。
+ */
+
     danger: boolean;
   } {
     switch (kind) {
@@ -1409,6 +1621,8 @@ export class InventoryPanel {
 
   /** getPrimaryAction：读取Primary动作。 */
   private getPrimaryAction(item: ItemStack): InventoryPrimaryAction | null {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
     const statusLabel = this.getItemStatusLabel(item);
     if (statusLabel) {
       return { label: statusLabel, kind: 'status', disabled: true };
@@ -1427,6 +1641,8 @@ export class InventoryPanel {
 
   /** getItemStatusLabel：读取物品状态标签。 */
   private getItemStatusLabel(item: ItemStack): string | null {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
     const cooldownState = this.getItemCooldownState(item);
     const cooldownLeft = this.getItemCooldownRemainingTicks(cooldownState);
     if (cooldownLeft > 0) {
@@ -1451,6 +1667,8 @@ export class InventoryPanel {
 
   /** getEquippedItemForCompare：读取Equipped物品For Compare。 */
   private getEquippedItemForCompare(item: ItemStack): ItemStack | null {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
     if (item.type !== 'equipment' || !item.equipSlot) {
       return null;
     }
@@ -1474,6 +1692,8 @@ export class InventoryPanel {
 
   /** getItemCooldownRemainingTicks：读取物品冷却Remaining Ticks。 */
   private getItemCooldownRemainingTicks(cooldownState: InventoryItemCooldownState | null): number {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
     if (!cooldownState) {
       return 0;
     }
@@ -1482,6 +1702,8 @@ export class InventoryPanel {
 
   /** getItemTooltipCooldownState：读取物品提示冷却状态。 */
   private getItemTooltipCooldownState(item: ItemStack): ItemTooltipCooldownState | null {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
     const cooldownState = this.getItemCooldownState(item);
     if (!cooldownState) {
       return null;
@@ -1494,6 +1716,8 @@ export class InventoryPanel {
 
   /** getItemCooldownRatio：读取物品冷却Ratio。 */
   private getItemCooldownRatio(cooldownState: InventoryItemCooldownState | null): number {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
     if (!cooldownState) {
       return 0;
     }
@@ -1508,6 +1732,8 @@ export class InventoryPanel {
 
   /** getNameClass：读取名称Class。 */
   private getNameClass(name: string): string {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
     const length = [...name].length;
     if (length >= 7) {
       return 'inventory-cell-name--tiny';
@@ -1524,7 +1750,15 @@ export class InventoryPanel {
   }
 
   /** getVisibleItems：读取可见物品。 */
-  private getVisibleItems(inventory: Inventory): Array<{ item: ItemStack; slotIndex: number }> {
+  private getVisibleItems(inventory: Inventory): Array<{  
+  /**
+ * item：InventoryPanel 内部字段。
+ */
+ item: ItemStack;  
+ /**
+ * slotIndex：InventoryPanel 内部字段。
+ */
+ slotIndex: number }> {
     return inventory.items
       .map((item, slotIndex) => ({ item, slotIndex }))
       .filter(({ item }) => this.activeFilter === 'all' || item.type === this.activeFilter);
@@ -1532,6 +1766,8 @@ export class InventoryPanel {
 
   /** syncRenderedVisibleCount：同步Rendered可见数量。 */
   private syncRenderedVisibleCount(totalVisibleItems: number): void {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
     if (totalVisibleItems <= 0) {
       this.renderedVisibleCount = INVENTORY_INITIAL_RENDER_COUNT;
       return;
@@ -1545,6 +1781,8 @@ export class InventoryPanel {
 
   /** maybeLoadMoreVisibleItems：处理maybe Load More可见物品。 */
   private maybeLoadMoreVisibleItems(scrollTarget?: HTMLElement): void {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
     if (!this.lastInventory || !this.isPaneVisible()) {
       return;
     }
@@ -1573,6 +1811,8 @@ export class InventoryPanel {
 
   /** scheduleLoadMoreCheck：调度Load More检查。 */
   private scheduleLoadMoreCheck(scrollTarget?: HTMLElement): void {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
     if (this.pendingLoadMoreFrame !== null) {
       cancelAnimationFrame(this.pendingLoadMoreFrame);
     }
@@ -1584,6 +1824,8 @@ export class InventoryPanel {
 
   /** resolveScrollContainer：解析Scroll容器。 */
   private resolveScrollContainer(preferredTarget?: HTMLElement): HTMLElement | null {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
     if (preferredTarget && preferredTarget.contains(this.pane) && this.isScrollableContainer(preferredTarget)) {
       return preferredTarget;
     }
@@ -1611,6 +1853,8 @@ export class InventoryPanel {
 
   /** scrollToTop：处理scroll To Top。 */
   private scrollToTop(): void {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
     const scrollContainer = this.resolveScrollContainer();
     if (scrollContainer) {
       scrollContainer.scrollTop = 0;
@@ -1620,10 +1864,24 @@ export class InventoryPanel {
   /** buildStructureState：构建Structure状态。 */
   private buildStructureState(inventory: Inventory): InventoryStructureState {
     return this.buildStructureStateFromVisibleItems(this.getVisibleItems(inventory).slice(0, this.renderedVisibleCount));
-  }
+  }  
+  /**
+ * buildStructureStateFromVisibleItems：构建并返回目标对象。
+ * @param visibleItems Array<{ item: ItemStack; slotIndex: number }> 参数说明。
+ * @returns InventoryStructureState。
+ */
+
 
   private buildStructureStateFromVisibleItems(
-    visibleItems: Array<{ item: ItemStack; slotIndex: number }>,
+    visibleItems: Array<{    
+    /**
+ * item：InventoryPanel 内部字段。
+ */
+ item: ItemStack;    
+ /**
+ * slotIndex：InventoryPanel 内部字段。
+ */
+ slotIndex: number }>,
   ): InventoryStructureState {
     return {
       filter: this.activeFilter,
@@ -1632,12 +1890,21 @@ export class InventoryPanel {
         identity: this.getItemIdentity(item),
       })),
     };
-  }
+  }  
+  /**
+ * isSameStructureState：执行状态校验并返回判断结果。
+ * @param previous InventoryStructureState | null 参数说明。
+ * @param next InventoryStructureState 参数说明。
+ * @returns boolean。
+ */
+
 
   private isSameStructureState(
     previous: InventoryStructureState | null,
     next: InventoryStructureState,
   ): boolean {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
     if (!previous || previous.filter !== next.filter || previous.items.length !== next.items.length) {
       return false;
     }
@@ -1671,6 +1938,8 @@ export class InventoryPanel {
 
   /** refreshTooltipContent：处理refresh提示Content。 */
   private refreshTooltipContent(): void {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
     if (!this.tooltipCell || !this.lastInventory) {
       return;
     }
@@ -1691,6 +1960,8 @@ export class InventoryPanel {
 
   /** syncCooldownRefresh：同步冷却Refresh。 */
   private syncCooldownRefresh(): void {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
     if (this.cooldownRefreshTimer !== null) {
       window.clearTimeout(this.cooldownRefreshTimer);
       this.cooldownRefreshTimer = null;
@@ -1733,6 +2004,8 @@ export class InventoryPanel {
 
   /** buildModalRenderKey：构建弹窗渲染Key。 */
   private buildModalRenderKey(item: ItemStack): string {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
     if (this.actionDialog) {
       return [
         'action',

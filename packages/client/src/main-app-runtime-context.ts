@@ -8,6 +8,12 @@ import { createMainRuntimeMonitorSource } from './main-runtime-monitor-source';
 import { createMainPanelContext } from './main-app-panel-context';
 import { createMainRuntimeOwnerContext } from './main-app-runtime-owner-context';
 import type { InitializeMainAppOptions, ToastKind } from './main-app-assembly-types';
+/**
+ * createMainAppRuntimeContext：构建并返回目标对象。
+ * @param options InitializeMainAppOptions 选项参数。
+ * @returns 函数返回值。
+ */
+
 
 export function createMainAppRuntimeContext(options: InitializeMainAppOptions) {
   const {
@@ -22,7 +28,14 @@ export function createMainAppRuntimeContext(options: InitializeMainAppOptions) {
     getLatestObservedEntitiesSnapshot,
   });
 
-  let panelContext!: ReturnType<typeof createMainPanelContext>;
+  let panelContext!: ReturnType<typeof createMainPanelContext>;  
+  /**
+ * showToast：执行核心业务逻辑。
+ * @param message string 参数说明。
+ * @param kind ToastKind 参数说明。
+ * @returns 函数返回值。
+ */
+
 
   function showToast(message: string, kind: ToastKind = 'system') {
     panelContext.uiStateSource.showToast(message, kind);

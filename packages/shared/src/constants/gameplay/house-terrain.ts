@@ -9,15 +9,55 @@ import { TileType } from '../../types';
  */
 
 export type HouseDecorTileDefinition = {
-  type: TileType;
-  mapChar: string;
-  label: string;
-  walkable: boolean;
-  blocksSight: boolean;
-  traversalCost: number;
-  bgColor: string;
-  glyph: string;
-  glyphColor: string;
+/**
+ * type：对象字段。
+ */
+
+  type: TileType;  
+  /**
+ * mapChar：对象字段。
+ */
+
+  mapChar: string;  
+  /**
+ * label：对象字段。
+ */
+
+  label: string;  
+  /**
+ * walkable：对象字段。
+ */
+
+  walkable: boolean;  
+  /**
+ * blocksSight：对象字段。
+ */
+
+  blocksSight: boolean;  
+  /**
+ * traversalCost：对象字段。
+ */
+
+  traversalCost: number;  
+  /**
+ * bgColor：对象字段。
+ */
+
+  bgColor: string;  
+  /**
+ * glyph：对象字段。
+ */
+
+  glyph: string;  
+  /**
+ * glyphColor：对象字段。
+ */
+
+  glyphColor: string;  
+  /**
+ * minimapColor：对象字段。
+ */
+
   minimapColor: string;
 };
 

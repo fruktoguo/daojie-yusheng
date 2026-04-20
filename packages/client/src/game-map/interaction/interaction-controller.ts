@@ -15,7 +15,15 @@ export class InteractionController {
   /** 已绑定事件监听的画布引用。 */
   private canvas: HTMLCanvasElement | null = null;
   /** 交互回调集合。 */
-  private callbacks: MapRuntimeInteractionCallbacks = {};
+  private callbacks: MapRuntimeInteractionCallbacks = {};  
+  /**
+ * 构造器：初始化 当前 实例并建立基础状态。
+ * @param getSnapshot SnapshotProvider 参数说明。
+ * @param getCamera () => CameraController 参数说明。
+ * @param projection TopdownProjection 参数说明。
+ * @returns 无返回值（构造函数）。
+ */
+
 
   constructor(
     private readonly getSnapshot: SnapshotProvider,
@@ -25,6 +33,8 @@ export class InteractionController {
 
   /** 绑定鼠标事件到画布。 */
   attach(canvas: HTMLCanvasElement): void {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
     if (this.canvas === canvas) {
       return;
     }
@@ -37,6 +47,8 @@ export class InteractionController {
 
   /** 解绑鼠标事件，避免内存泄漏。 */
   detach(): void {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
     if (!this.canvas) {
       return;
     }
@@ -54,18 +66,30 @@ export class InteractionController {
   /** 销毁时清理监听。 */
   destroy(): void {
     this.detach();
-  }
+  }  
+  /**
+ * handleClick：InteractionController 内部字段。
+ */
+
 
   private readonly handleClick = (event: MouseEvent): void => {
     const target = this.resolveTarget(event);
     if (target) {
       this.callbacks.onTarget?.(target);
     }
-  };
+  };  
+  /**
+ * handleMove：InteractionController 内部字段。
+ */
+
 
   private readonly handleMove = (event: MouseEvent): void => {
     this.callbacks.onHover?.(this.resolveTarget(event));
-  };
+  };  
+  /**
+ * handleLeave：InteractionController 内部字段。
+ */
+
 
   private readonly handleLeave = (): void => {
     this.callbacks.onHover?.(null);
@@ -73,6 +97,8 @@ export class InteractionController {
 
   /** 根据鼠标事件反查地图坐标与命中实体/地块。 */
   private resolveTarget(event: MouseEvent): MapInteractionTarget | null {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
     if (!this.canvas) {
       return null;
     }

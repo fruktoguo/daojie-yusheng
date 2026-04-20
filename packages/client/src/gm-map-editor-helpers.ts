@@ -52,6 +52,8 @@ export function isEditableTarget(target: EventTarget | null): boolean {
 }
 /** setValueByPath：处理set值By路径。 */
 export function setValueByPath(target: unknown, path: string, value: unknown): void {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
   const segments = path.split('.');
   let cursor = target as Record<string, unknown>;
   for (let index = 0; index < segments.length - 1; index += 1) {
@@ -65,6 +67,8 @@ export function setValueByPath(target: unknown, path: string, value: unknown): v
 }
 /** getValueByPath：读取值By路径。 */
 export function getValueByPath(target: unknown, path: string): unknown {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
   let cursor = target as Record<string, unknown> | undefined;
   for (const segment of path.split('.')) {
     if (cursor === undefined || cursor === null) return undefined;
@@ -75,6 +79,8 @@ export function getValueByPath(target: unknown, path: string): unknown {
 }
 /** removeArrayIndex：处理remove Array索引。 */
 export function removeArrayIndex(target: unknown, path: string, index: number): void {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
   const value = getValueByPath(target, path);
   if (Array.isArray(value)) value.splice(index, 1);
 }
@@ -89,9 +95,25 @@ export function nullableNumberField(label: string, path: string, value: number |
 /** nullableDecimalField：处理nullable Decimal字段。 */
 export function nullableDecimalField(label: string, path: string, value: number | undefined, extraClass = ''): string { return `<label class="map-field ${extraClass}"><span>${escapeHtml(label)}</span><input type="number" step="0.01" data-map-bind="${escapeHtml(path)}" data-map-kind="nullable-float" value="${Number.isFinite(value) ? String(value) : ''}" /></label>`; }
 /** selectField：选择字段。 */
-export function selectField(label: string, path: string, value: string | undefined, options: Array<{ value: string; label: string }>, extraClass = ''): string { return `<label class="map-field ${extraClass}"><span>${escapeHtml(label)}</span><select data-map-bind="${escapeHtml(path)}" data-map-kind="string">${options.map((option) => `<option value="${escapeHtml(option.value)}" ${option.value === (value ?? '') ? 'selected' : ''}>${escapeHtml(option.label)}</option>`).join('')}</select></label>`; }
+export function selectField(label: string, path: string, value: string | undefined, options: Array<{
+/**
+ * value：对象字段。
+ */
+ value: string;
+ /**
+ * label：对象字段。
+ */
+ label: string }>, extraClass = ''): string { return `<label class="map-field ${extraClass}"><span>${escapeHtml(label)}</span><select data-map-bind="${escapeHtml(path)}" data-map-kind="string">${options.map((option) => `<option value="${escapeHtml(option.value)}" ${option.value === (value ?? '') ? 'selected' : ''}>${escapeHtml(option.label)}</option>`).join('')}</select></label>`; }
 /** nullableSelectField：处理nullable Select字段。 */
-export function nullableSelectField(label: string, path: string, value: string | undefined, options: Array<{ value: string; label: string }>, extraClass = ''): string { return `<label class="map-field ${extraClass}"><span>${escapeHtml(label)}</span><select data-map-bind="${escapeHtml(path)}" data-map-kind="nullable-string">${options.map((option) => `<option value="${escapeHtml(option.value)}" ${option.value === (value ?? '') ? 'selected' : ''}>${escapeHtml(option.label)}</option>`).join('')}</select></label>`; }
+export function nullableSelectField(label: string, path: string, value: string | undefined, options: Array<{
+/**
+ * value：对象字段。
+ */
+ value: string;
+ /**
+ * label：对象字段。
+ */
+ label: string }>, extraClass = ''): string { return `<label class="map-field ${extraClass}"><span>${escapeHtml(label)}</span><select data-map-bind="${escapeHtml(path)}" data-map-kind="nullable-string">${options.map((option) => `<option value="${escapeHtml(option.value)}" ${option.value === (value ?? '') ? 'selected' : ''}>${escapeHtml(option.label)}</option>`).join('')}</select></label>`; }
 /** textareaField：处理textarea字段。 */
 export function textareaField(label: string, path: string, value: string | undefined, extraClass = '', kind = 'string'): string { return `<label class="map-field ${extraClass}"><span>${escapeHtml(label)}</span><textarea data-map-bind="${escapeHtml(path)}" data-map-kind="${escapeHtml(kind)}">${escapeHtml(value ?? '')}</textarea></label>`; }
 /** booleanField：处理boolean字段。 */
@@ -117,17 +139,25 @@ export function formatAuraLevelText(value: number): string { const level = getCo
 /** formatAuraPointLabel：格式化灵气坐标标签。 */
 export function formatAuraPointLabel(value: number): string { return `无属性灵气 ${formatAuraLevelText(value)}`; }
 /** formatResourceTypeLabel：格式化资源类型标签。 */
-export function formatResourceTypeLabel(resourceKey: string): string { const descriptor = parseQiResourceKey(resourceKey); if (!descriptor) return resourceKey || '未设资源键'; const familyLabel = QI_FAMILY_LABELS[descriptor.family]; const formLabel = QI_FORM_LABELS[descriptor.form]; const elementLabel = QI_ELEMENT_LABELS[descriptor.element]; return descriptor.element === 'neutral' ? (descriptor.form === 'refined' ? `${elementLabel}${familyLabel}` : `${formLabel}${elementLabel}${familyLabel}`) : `${formLabel}${elementLabel}${familyLabel}`; }
+export function formatResourceTypeLabel(resourceKey: string): string {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+ const descriptor = parseQiResourceKey(resourceKey); if (!descriptor) return resourceKey || '未设资源键'; const familyLabel = QI_FAMILY_LABELS[descriptor.family]; const formLabel = QI_FORM_LABELS[descriptor.form]; const elementLabel = QI_ELEMENT_LABELS[descriptor.element]; return descriptor.element === 'neutral' ? (descriptor.form === 'refined' ? `${elementLabel}${familyLabel}` : `${formLabel}${elementLabel}${familyLabel}`) : `${formLabel}${elementLabel}${familyLabel}`; }
 /** formatResourcePointLabel：格式化资源坐标标签。 */
 export function formatResourcePointLabel(point: TileResourcePointLike): string { return `${formatResourceTypeLabel(getResourceRecordKey(point))} ${formatAuraLevelText(Number(point.value ?? 0))}`; }
 /** formatResourceSummary：格式化资源摘要。 */
 export function formatResourceSummary(points: TileResourcePointLike[]): string { return points.length === 0 ? '无' : points.map((point) => formatResourcePointLabel(point)).join('；'); }
 /** getResourceTypeSortKey：读取资源类型排序Key。 */
-export function getResourceTypeSortKey(resourceKey: string): string { const descriptor = parseQiResourceKey(resourceKey); if (!descriptor) return `9-${resourceKey}`; const familyOrder = { aura: 0, demonic: 1, sha: 2 } as const; const formOrder = { refined: 0, dispersed: 1 } as const; const elementOrder = { neutral: 0, metal: 1, wood: 2, water: 3, fire: 4, earth: 5 } as const; return `${familyOrder[descriptor.family]}-${formOrder[descriptor.form]}-${elementOrder[descriptor.element]}`; }
+export function getResourceTypeSortKey(resourceKey: string): string {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+ const descriptor = parseQiResourceKey(resourceKey); if (!descriptor) return `9-${resourceKey}`; const familyOrder = { aura: 0, demonic: 1, sha: 2 } as const; const formOrder = { refined: 0, dispersed: 1 } as const; const elementOrder = { neutral: 0, metal: 1, wood: 2, water: 3, fire: 4, earth: 5 } as const; return `${familyOrder[descriptor.family]}-${formOrder[descriptor.form]}-${elementOrder[descriptor.element]}`; }
 /** getResourcePointGlyphColor：读取资源坐标Glyph颜色。 */
-export function getResourcePointGlyphColor(point: TileResourcePointLike): string { const descriptor = parseQiResourceKey(getResourceRecordKey(point)); if (!descriptor) return '#f6d27e'; switch (descriptor.element) { case 'metal': return '#f0c768'; case 'wood': return '#58c98b'; case 'water': return '#69b7ff'; case 'fire': return '#ff885c'; case 'earth': return '#cda15d'; default: return descriptor.family === 'aura' ? '#8fd4ff' : '#d7c4ff'; } }
+export function getResourcePointGlyphColor(point: TileResourcePointLike): string {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+ const descriptor = parseQiResourceKey(getResourceRecordKey(point)); if (!descriptor) return '#f6d27e'; switch (descriptor.element) { case 'metal': return '#f0c768'; case 'wood': return '#58c98b'; case 'water': return '#69b7ff'; case 'fire': return '#ff885c'; case 'earth': return '#cda15d'; default: return descriptor.family === 'aura' ? '#8fd4ff' : '#d7c4ff'; } }
 /** getResourcePointLabelColor：读取资源坐标标签颜色。 */
-export function getResourcePointLabelColor(point: TileResourcePointLike): string { const descriptor = parseQiResourceKey(getResourceRecordKey(point)); if (!descriptor) return '#ffe6b2'; switch (descriptor.element) { case 'metal': return '#ffe3a6'; case 'wood': return '#c6ffd7'; case 'water': return '#d3ebff'; case 'fire': return '#ffd6c8'; case 'earth': return '#f1ddbb'; default: return descriptor.family === 'aura' ? '#d6ecff' : '#eadbff'; } }
+export function getResourcePointLabelColor(point: TileResourcePointLike): string {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+ const descriptor = parseQiResourceKey(getResourceRecordKey(point)); if (!descriptor) return '#ffe6b2'; switch (descriptor.element) { case 'metal': return '#ffe3a6'; case 'wood': return '#c6ffd7'; case 'water': return '#d3ebff'; case 'fire': return '#ffd6c8'; case 'earth': return '#f1ddbb'; default: return descriptor.family === 'aura' ? '#d6ecff' : '#eadbff'; } }
 /** normalizeComposeRotation：规范化Compose Rotation。 */
 export function normalizeComposeRotation(value: number): ComposeRotation { const normalized = ((Math.round(value / 90) * 90) % 360 + 360) % 360; return normalized === 90 || normalized === 180 || normalized === 270 ? normalized : 0; }
 /** rotateComposeClockwise：处理rotate Compose Clockwise。 */

@@ -7,6 +7,8 @@ function getNextAuraLevelThreshold(currentThreshold: number): number {
 
 /** 将灵气等级基准值归一化为正整数，兼容空值和非法输入。 */
 export function normalizeAuraLevelBaseValue(value: unknown, fallback = DEFAULT_AURA_LEVEL_BASE_VALUE): number {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
   const normalizedFallback = Number.isFinite(fallback) && Number(fallback) > 0
     ? Math.max(1, Math.round(Number(fallback)))
     : DEFAULT_AURA_LEVEL_BASE_VALUE;
@@ -18,6 +20,8 @@ export function normalizeAuraLevelBaseValue(value: unknown, fallback = DEFAULT_A
 
 /** 将灵气值归一化为非负整数，供等级换算和持久化使用。 */
 export function normalizeAuraValue(value: unknown): number {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
   if (!Number.isFinite(value)) {
     return 0;
   }
@@ -26,6 +30,8 @@ export function normalizeAuraValue(value: unknown): number {
 
 /** 计算指定灵气等级所需的最低灵气值。 */
 export function getAuraLevelThreshold(level: number, baseValue = DEFAULT_AURA_LEVEL_BASE_VALUE): number {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
   const normalizedLevel = Math.max(0, Math.floor(level));
   if (normalizedLevel <= 0) {
     return 0;
@@ -40,6 +46,8 @@ export function getAuraLevelThreshold(level: number, baseValue = DEFAULT_AURA_LE
 
 /** 根据灵气值反推当前可达到的灵气等级。 */
 export function getAuraLevel(auraValue: number, baseValue = DEFAULT_AURA_LEVEL_BASE_VALUE): number {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
   const normalizedValue = normalizeAuraValue(auraValue);
   const base = normalizeAuraLevelBaseValue(baseValue);
   if (normalizedValue < base) {

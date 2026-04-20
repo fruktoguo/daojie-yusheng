@@ -10,8 +10,20 @@ import { FloatingTooltip, prefersPinnedTooltipInteraction } from './floating-too
 
 /** TutorialOperationHint：教程操作提示。 */
 interface TutorialOperationHint {
-  label: string;
-  path: string;
+/**
+ * label：TutorialOperationHint 内部字段。
+ */
+
+  label: string;  
+  /**
+ * path：TutorialOperationHint 内部字段。
+ */
+
+  path: string;  
+  /**
+ * title：TutorialOperationHint 内部字段。
+ */
+
   title?: string;
 }
 
@@ -61,7 +73,15 @@ type TutorialMainTabId = 'operations' | 'mechanics' | 'flow';
 /** TutorialFlowTopicId：流程指导主题 ID。 */
 type TutorialFlowTopicId = string;
 
-const TUTORIAL_MAIN_TABS: Array<{ id: TutorialMainTabId; label: string }> = [
+const TUTORIAL_MAIN_TABS: Array<{
+/**
+ * id：对象字段。
+ */
+ id: TutorialMainTabId;
+ /**
+ * label：对象字段。
+ */
+ label: string }> = [
   { id: 'operations', label: '基础操作' },
   { id: 'mechanics', label: '机制' },
   { id: 'flow', label: '流程指导' },
@@ -93,6 +113,8 @@ function renderOperationHint(hint: TutorialOperationHint): string {
 
 /** renderTutorialRichText：渲染Tutorial Rich文本。 */
 function renderTutorialRichText(value: string): string {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
   if (!value) {
     return '';
   }
@@ -145,7 +167,12 @@ export class TutorialPanel {
   /** activeFlowTopicId：活跃流转Topic ID。 */
   private activeFlowTopicId: TutorialFlowTopicId = TUTORIAL_FLOW_TOPICS[0]?.id ?? 'how-to-play';
   /** tooltip：提示。 */
-  private readonly tooltip = new FloatingTooltip();
+  private readonly tooltip = new FloatingTooltip();  
+  /**
+ * 构造器：初始化 当前 实例并建立基础状态。
+ * @returns 无返回值（构造函数）。
+ */
+
 
   constructor() {
     document.getElementById('hud-open-tutorial')?.addEventListener('click', () => this.open());
@@ -420,6 +447,8 @@ export class TutorialPanel {
 
   /** bind：绑定bind。 */
   private bind(body: HTMLElement): void {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
     if (body.dataset.tutorialBound !== '1') {
       body.dataset.tutorialBound = '1';
       body.addEventListener('click', (event) => {

@@ -1,18 +1,66 @@
 import type { GmManagedPlayerSummary, GmStateRes } from '@mud/shared-next';
+/**
+ * PlayerListElements：统一结构类型，保证协议与运行时一致性。
+ */
+
 
 type PlayerListElements = {
-  playerListEl: HTMLDivElement;
-  playerPageMetaEl: HTMLDivElement;
-  playerPrevPageBtn: HTMLButtonElement;
+/**
+ * playerListEl：对象字段。
+ */
+
+  playerListEl: HTMLDivElement;  
+  /**
+ * playerPageMetaEl：对象字段。
+ */
+
+  playerPageMetaEl: HTMLDivElement;  
+  /**
+ * playerPrevPageBtn：对象字段。
+ */
+
+  playerPrevPageBtn: HTMLButtonElement;  
+  /**
+ * playerNextPageBtn：对象字段。
+ */
+
   playerNextPageBtn: HTMLButtonElement;
 };
+/**
+ * RenderPlayerListOptions：统一结构类型，保证协议与运行时一致性。
+ */
+
 
 type RenderPlayerListOptions = {
-  data: GmStateRes;
-  filtered: GmManagedPlayerSummary[];
-  selectedPlayerId: string | null;
-  lastStructureKey: string | null;
-  getPlayerRowMarkup: (player: GmManagedPlayerSummary) => string;
+/**
+ * data：对象字段。
+ */
+
+  data: GmStateRes;  
+  /**
+ * filtered：对象字段。
+ */
+
+  filtered: GmManagedPlayerSummary[];  
+  /**
+ * selectedPlayerId：对象字段。
+ */
+
+  selectedPlayerId: string | null;  
+  /**
+ * lastStructureKey：对象字段。
+ */
+
+  lastStructureKey: string | null;  
+  /**
+ * getPlayerRowMarkup：对象字段。
+ */
+
+  getPlayerRowMarkup: (player: GmManagedPlayerSummary) => string;  
+  /**
+ * patchPlayerRow：对象字段。
+ */
+
   patchPlayerRow: (button: HTMLButtonElement, player: GmManagedPlayerSummary, isActive: boolean) => void;
 };
 
@@ -35,6 +83,8 @@ export function renderGmPlayerListSection(
   elements: PlayerListElements,
   options: RenderPlayerListOptions,
 ): string {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
   const {
     data,
     filtered,

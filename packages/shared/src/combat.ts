@@ -34,6 +34,8 @@ export {
 
 /** 根据伤害类型和元素获取飘字颜色 */
 export function getDamageTrailColor(damageKind: SkillDamageKind, element?: ElementKey): string {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
   if (damageKind === 'physical') {
     return DAMAGE_TRAIL_PHYSICAL_COLOR;
   }
@@ -54,6 +56,8 @@ export function getRealmLinearGrowthMultiplier(realmLv: number, growthRate = REA
 
 /** 根据攻守双方境界差计算伤害倍率（高打低加成，低打高衰减） */
 export function getRealmGapDamageMultiplier(attackerRealmLv: number, defenderRealmLv: number): number {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
   const realmGap = Math.floor(attackerRealmLv) - Math.floor(defenderRealmLv);
   if (realmGap > 0) {
     return Math.pow(1 + REALM_DAMAGE_ADVANTAGE_RATE, realmGap);

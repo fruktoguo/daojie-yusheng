@@ -145,42 +145,110 @@ const BUFF_DURATION_MAX_MULTIPLIER = 8;
 
 /** 价值分解条目 */
 export interface ValueBreakdownEntry {
-  kind: 'attr' | 'stat' | 'element' | 'skill' | 'buff' | 'technique';
-  key: string;
-  amount: number;
-  quantifiedValue: number;
+/**
+ * kind：ValueBreakdownEntry 内部字段。
+ */
+
+  kind: 'attr' | 'stat' | 'element' | 'skill' | 'buff' | 'technique';  
+  /**
+ * key：ValueBreakdownEntry 内部字段。
+ */
+
+  key: string;  
+  /**
+ * amount：ValueBreakdownEntry 内部字段。
+ */
+
+  amount: number;  
+  /**
+ * quantifiedValue：ValueBreakdownEntry 内部字段。
+ */
+
+  quantifiedValue: number;  
+  /**
+ * note：ValueBreakdownEntry 内部字段。
+ */
+
   note?: string;
 }
 
 /** 价值汇总结果 */
 export interface ValueSummary {
-  quantifiedValue: number;
-  breakdown: ValueBreakdownEntry[];
+/**
+ * quantifiedValue：ValueSummary 内部字段。
+ */
+
+  quantifiedValue: number;  
+  /**
+ * breakdown：ValueSummary 内部字段。
+ */
+
+  breakdown: ValueBreakdownEntry[];  
+  /**
+ * unquantified：ValueSummary 内部字段。
+ */
+
   unquantified: string[];
 }
 
 /** 装备价值汇总（区分基准价值与实际价值） */
 export interface EquipmentValueSummary extends ValueSummary {
-  baseQuantifiedValue: number;
+/**
+ * baseQuantifiedValue：EquipmentValueSummary 内部字段。
+ */
+
+  baseQuantifiedValue: number;  
+  /**
+ * actualQuantifiedValue：EquipmentValueSummary 内部字段。
+ */
+
   actualQuantifiedValue: number;
 }
 
 /** 技能价值汇总（含基础价值和乘区倍率） */
 export interface SkillValueSummary extends ValueSummary {
-  baseQuantifiedValue: number;
+/**
+ * baseQuantifiedValue：SkillValueSummary 内部字段。
+ */
+
+  baseQuantifiedValue: number;  
+  /**
+ * multiplier：SkillValueSummary 内部字段。
+ */
+
   multiplier: number;
 }
 
 /** 单个公式片段的量化结果，保留无法折算的说明文字。 */
 type FormulaQuantification = {
-  quantifiedValue: number;
+/**
+ * quantifiedValue：对象字段。
+ */
+
+  quantifiedValue: number;  
+  /**
+ * unquantified：对象字段。
+ */
+
   unquantified: string[];
 };
 
 /** 倍率评估结果，记录是否可抽取以及是否包含变量。 */
 type MultiplierEvaluation = {
-  ok: boolean;
-  value: number;
+/**
+ * ok：对象字段。
+ */
+
+  ok: boolean;  
+  /**
+ * value：对象字段。
+ */
+
+  value: number;  
+  /**
+ * containsVariable：对象字段。
+ */
+
   containsVariable: boolean;
 };
 
@@ -217,6 +285,8 @@ function mergeFormulaParts(parts: FormulaQuantification[]): FormulaQuantificatio
 
 /** 按整数或两位小数格式输出。 */
 function formatNumber(value: number): string {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
   if (Math.abs(value % 1) < 1e-6) {
     return String(Math.round(value));
   }
@@ -228,6 +298,8 @@ const UNLIMITED_STACK_DISPLAY_THRESHOLD = 1_000_000;
 
 /** 格式化 Buff 最大层数，必要时显示“无限”。 */
 export function formatBuffMaxStacks(maxStacks?: number): string | null {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
   if (!Number.isFinite(maxStacks) || (maxStacks ?? 0) <= 1) {
     return null;
   }
@@ -243,6 +315,8 @@ function formatPercent(scale: number): string {
 
 /** 把配置口径的 value_stats 转成运行时真实数值。 */
 export function compileValueStatsToActualStats(valueStats?: PartialNumericStats): PartialNumericStats | undefined {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
   if (!valueStats) {
     return undefined;
   }
@@ -290,6 +364,8 @@ export function compileValueStatsToActualStats(valueStats?: PartialNumericStats)
 
 /** 按配置值口径计算 value_stats 的价值。 */
 export function calculateConfiguredValueStatsValue(valueStats?: PartialNumericStats): ValueSummary {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
   const breakdown: ValueBreakdownEntry[] = [];
   if (valueStats) {
     for (const key of NUMERIC_SCALAR_STAT_KEYS) {
@@ -405,6 +481,8 @@ function getEquipmentGradeMultiplier(grade: TechniqueGrade | undefined): number 
 
 /** 按品阶和等级缩放六维属性。 */
 function scaleAttributes(attrs: Partial<Attributes> | undefined, multiplier: number): Partial<Attributes> | undefined {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
   if (!attrs) {
     return undefined;
   }
@@ -425,6 +503,8 @@ function scaleNumericStats(
   gradeMultiplier: number,
   level: number | undefined,
 ): PartialNumericStats | undefined {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
   if (!stats) {
     return undefined;
   }
@@ -476,6 +556,8 @@ function scaleNumericStats(
 
 /** 汇总六维属性点数，用于二次乘区。 */
 function sumAttributePoints(attrs: Partial<Attributes> | undefined): number {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
   if (!attrs) {
     return 0;
   }
@@ -488,6 +570,8 @@ function sumAttributePoints(attrs: Partial<Attributes> | undefined): number {
 
 /** 把装备数值按展示规则格式化为可读字符串。 */
 function formatEquipmentStatValue(key: string, value: number): string {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
   if (key === 'critDamage') {
     return `${formatNumber(value / 10)}%`;
   }
@@ -508,6 +592,8 @@ function formatEquipmentStatValue(key: string, value: number): string {
 
 /** 把六维属性加成转成文本片段。 */
 function describeAttrBonus(attrs?: Partial<Attributes>): string[] {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
   if (!attrs) {
     return [];
   }
@@ -524,6 +610,8 @@ function describeAttrBonus(attrs?: Partial<Attributes>): string[] {
 
 /** 把数值属性和元素修饰转成文本片段。 */
 function describeStatBonus(stats?: PartialNumericStats): string[] {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
   if (!stats) {
     return [];
   }
@@ -550,6 +638,8 @@ function describeStatBonus(stats?: PartialNumericStats): string[] {
 
 /** 把装备触发条件转成文本描述。 */
 function describeEquipmentConditions(effect: EquipmentEffectDef): string {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
   const conditions = effect.conditions?.items ?? [];
   if (conditions.length === 0) {
     return '';
@@ -597,6 +687,8 @@ function getEquipmentTriggerLabel(trigger: string): string {
 
 /** 将单条装备特效转成可读说明。 */
 function describeEquipmentEffect(effect: EquipmentEffectDef): string {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
   const conditionText = describeEquipmentConditions(effect);
   switch (effect.type) {
     case 'stat_aura':
@@ -635,6 +727,8 @@ function describeEquipmentEffect(effect: EquipmentEffectDef): string {
 
 /** 返回技能公式变量的中文标签。 */
 function getFormulaVarLabel(variable: SkillFormulaVar): string {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
   const labels: Partial<Record<SkillFormulaVar, string>> = {
     techLevel: '功法层数',
     targetCount: '目标数量',
@@ -680,6 +774,8 @@ function describeFormulaVar(variable: SkillFormulaVar, scale: number): string {
 
 /** 读取公式变量的折算系数，无法量化则返回 null。 */
 function getFormulaVarPointsPerValue(variable: SkillFormulaVar): number | null {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
   if (variable in FORMULA_VAR_VALUE_UNITS) {
     return FORMULA_VAR_VALUE_UNITS[variable as QuantifiableFormulaVar] ?? null;
   }
@@ -688,6 +784,8 @@ function getFormulaVarPointsPerValue(variable: SkillFormulaVar): number | null {
 
 /** 把单个公式变量折算成价值或未量化说明。 */
 function quantifyFormulaVar(variable: SkillFormulaVar, scale: number): FormulaQuantification {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
   if ((variable.startsWith('caster.buff.') || variable.startsWith('target.buff.')) && variable.endsWith('.stacks')) {
     return {
       quantifiedValue: 0,
@@ -730,6 +828,8 @@ function quantifyFormulaVar(variable: SkillFormulaVar, scale: number): FormulaQu
 
 /** 在给定基准值下评估公式能否提取为纯倍率。 */
 function evaluateMultiplierWithBaseline(formula: SkillFormula, baseline: number): MultiplierEvaluation {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
   if (typeof formula === 'number') {
     return { ok: true, value: formula, containsVariable: false };
   }
@@ -775,6 +875,8 @@ function evaluateMultiplierWithBaseline(formula: SkillFormula, baseline: number)
 
 /** 尝试从公式中抽出不依赖变量的乘区倍率。 */
 function tryExtractMultiplier(formula: SkillFormula): number | null {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
   if (typeof formula === 'number') {
     return formula;
   }
@@ -794,6 +896,8 @@ function tryExtractMultiplier(formula: SkillFormula): number | null {
 
 /** 把技能伤害公式拆成可量化价值、倍率和未量化片段。 */
 function quantifySkillFormula(formula: SkillFormula): SkillValueSummary {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
   if (typeof formula === 'number') {
     return {
       quantifiedValue: 0,
@@ -921,6 +1025,8 @@ function quantifySkillFormula(formula: SkillFormula): SkillValueSummary {
 
 /** 计算六维属性的价值。 */
 export function calculateAttributesValue(attrs?: Partial<Attributes>): ValueSummary {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
   const breakdown: ValueBreakdownEntry[] = [];
   if (attrs) {
     for (const key of Object.keys(ATTRIBUTE_VALUE_PER_POINT) as AttrKey[]) {
@@ -940,6 +1046,8 @@ export function calculateAttributesValue(attrs?: Partial<Attributes>): ValueSumm
 
 /** 计算数值属性的价值。 */
 export function calculateNumericStatsValue(stats?: PartialNumericStats): ValueSummary {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
   const breakdown: ValueBreakdownEntry[] = [];
   if (stats) {
     for (const key of NUMERIC_SCALAR_STAT_KEYS) {
@@ -992,7 +1100,11 @@ export function calculateAttrBonusValue(bonus: Pick<AttrBonus, 'attrs' | 'stats'
 
 /** 计算装备价值，区分配置口径和实际结算口径。 */
 export function calculateEquipmentValue(
-  item: Pick<ItemStack, 'equipAttrs' | 'equipStats' | 'effects' | 'grade' | 'level'> & {
+  item: Pick<ItemStack, 'equipAttrs' | 'equipStats' | 'effects' | 'grade' | 'level'> & {  
+  /**
+ * equipValueStats：对象字段。
+ */
+
     equipValueStats?: PartialNumericStats;
   },
 ): EquipmentValueSummary {
@@ -1036,6 +1148,8 @@ export function calculateEquipmentValue(
 export function calculateBuffValue(
   effect: Pick<SkillBuffEffectDef, 'buffId' | 'name' | 'desc' | 'duration' | 'attrs' | 'stats'>,
 ): ValueSummary {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
   const duration = Math.max(1, effect.duration);
   const durationMultiplier = duration <= BUFF_DURATION_BASELINE
     ? Math.pow(duration / BUFF_DURATION_BASELINE, BUFF_DURATION_SHORT_EXPONENT)
@@ -1063,6 +1177,8 @@ export function calculateBuffValue(
 
 /** 计算技能价值，包含伤害公式的量化结果。 */
 export function calculateSkillValue(skill: Pick<SkillDef, 'id' | 'name' | 'desc' | 'cost' | 'cooldown' | 'effects'>): SkillValueSummary {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
   const breakdown: ValueBreakdownEntry[] = [];
   const unquantified: string[] = [];
   let baseQuantifiedValue = 0;

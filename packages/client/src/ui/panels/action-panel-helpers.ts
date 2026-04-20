@@ -3,6 +3,8 @@ import { getElementKeyLabel } from '../../domain-labels';
 
 /** normalizeShortcutKey：规范化Shortcut Key。 */
 export function normalizeShortcutKey(key: string): string | null {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
   if (key.length !== 1) return null;
   const lower = key.toLowerCase();
   if ((lower >= 'a' && lower <= 'z') || (lower >= '0' && lower <= '9')) {
@@ -35,6 +37,8 @@ export function isRecord(value: unknown): value is Record<string, unknown> {
 
 /** readBoolean：处理read Boolean。 */
 export function readBoolean(...values: unknown[]): boolean {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
   for (const value of values) {
     if (typeof value === 'boolean') {
       return value;
@@ -53,7 +57,17 @@ export function decodePresetTextValue(value: string): string {
 }
 
 /** resolveSkillDamageProfile：解析技能Damage Profile。 */
-function resolveSkillDamageProfile(skill: SkillDef): { kinds: SkillDamageKind[]; elements: ElementKey[] } {
+function resolveSkillDamageProfile(skill: SkillDef): {
+/**
+ * kinds：对象字段。
+ */
+ kinds: SkillDamageKind[];
+ /**
+ * elements：对象字段。
+ */
+ elements: ElementKey[] } {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
   const kinds: SkillDamageKind[] = [];
   const elements: ElementKey[] = [];
   for (const effect of skill.effects) {
@@ -72,7 +86,17 @@ function resolveSkillDamageProfile(skill: SkillDef): { kinds: SkillDamageKind[];
 function formatSkillAffinityLabel(
   kind: 'physical' | 'spell' | 'mixed' | 'utility',
   element: ElementKey | 'multi' | 'neutral',
-): { label: string; title: string } {
+): {
+/**
+ * label：对象字段。
+ */
+ label: string;
+ /**
+ * title：对象字段。
+ */
+ title: string } {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
   const shortKindLabel = kind === 'physical'
     ? '物'
     : kind === 'spell'
@@ -106,11 +130,29 @@ function formatSkillAffinityLabel(
 
 /** getSkillAffinityBadge：读取技能Affinity Badge。 */
 export function getSkillAffinityBadge(skill: SkillDef): {
-  label: string;
-  title: string;
-  tone: 'physical' | 'spell' | 'mixed' | 'utility';
+/**
+ * label：对象字段。
+ */
+
+  label: string;  
+  /**
+ * title：对象字段。
+ */
+
+  title: string;  
+  /**
+ * tone：对象字段。
+ */
+
+  tone: 'physical' | 'spell' | 'mixed' | 'utility';  
+  /**
+ * element：对象字段。
+ */
+
   element: ElementKey | 'multi' | 'neutral';
 } {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
   const { kinds, elements } = resolveSkillDamageProfile(skill);
   if (kinds.length === 0) {
     return {

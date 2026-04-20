@@ -4,35 +4,83 @@ import { RuntimeGmAuthService } from '../../runtime/gm/runtime-gm-auth.service';
 import { NextAuthRateLimitService } from './next-auth-rate-limit.service';
 import { NEXT_GM_HTTP_CONTRACT } from './next-gm-contract';
 import { NextGmAuthGuard } from './next-gm-auth.guard';
+/**
+ * GmLoginBody：定义接口结构约束，明确可交付字段含义。
+ */
+
 
 interface GmLoginBody {
+/**
+ * password：GmLoginBody 内部字段。
+ */
+
   password?: string;
 }
+/**
+ * GmChangePasswordBody：定义接口结构约束，明确可交付字段含义。
+ */
+
 
 interface GmChangePasswordBody {
-  currentPassword?: string;
+/**
+ * currentPassword：GmChangePasswordBody 内部字段。
+ */
+
+  currentPassword?: string;  
+  /**
+ * newPassword：GmChangePasswordBody 内部字段。
+ */
+
   newPassword?: string;
 }
+/**
+ * RequestLike：定义接口结构约束，明确可交付字段含义。
+ */
+
 
 interface RequestLike {
   [key: string]: unknown;
 }
+/**
+ * RuntimeGmAuthServicePort：定义接口结构约束，明确可交付字段含义。
+ */
+
 
 interface RuntimeGmAuthServicePort {
   login(password: string): Promise<unknown>;
   changePassword(currentPassword: string, newPassword: string): Promise<unknown>;
 }
+/**
+ * NextGmAuthController：封装该能力的入口与生命周期，承载运行时核心协作。
+ */
+
 
 @Controller(NEXT_GM_HTTP_CONTRACT.authBasePath)
 @Reflect.metadata('design:paramtypes', [RuntimeGmAuthService, NextAuthRateLimitService])
 export class NextGmAuthController {
+/**
+ * 构造器：初始化 当前 实例并建立基础状态。
+ * @param authService RuntimeGmAuthServicePort 参数说明。
+ * @param rateLimitService NextAuthRateLimitService 参数说明。
+ * @returns 无返回值（构造函数）。
+ */
+
   constructor(
     @Inject(RuntimeGmAuthService) private readonly authService: RuntimeGmAuthServicePort,
     private readonly rateLimitService: NextAuthRateLimitService,
-  ) {}
+  ) {}  
+  /**
+ * login：执行核心业务逻辑。
+ * @param body GmLoginBody 参数说明。
+ * @param request RequestLike 请求参数。
+ * @returns 函数返回值。
+ */
+
 
   @Post('gm/login')
   async login(@Body() body: GmLoginBody, @Req() request: RequestLike) {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
     this.rateLimitService.assertAllowed('gmLogin', request, 'gm');
     try {
       const result = await this.authService.login(body?.password ?? '');
@@ -42,7 +90,13 @@ export class NextGmAuthController {
       this.rateLimitService.recordFailure('gmLogin', request, 'gm');
       throw error;
     }
-  }
+  }  
+  /**
+ * changePassword：执行核心业务逻辑。
+ * @param body GmChangePasswordBody 参数说明。
+ * @returns 函数返回值。
+ */
+
 
   @Post('gm/password')
   @UseGuards(NextGmAuthGuard)

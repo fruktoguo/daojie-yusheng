@@ -1,11 +1,42 @@
 import type { CSSProperties, ReactNode } from 'react';
+/**
+ * UiSplitPaneProps：定义接口结构约束，明确可交付字段含义。
+ */
+
 
 export interface UiSplitPaneProps {
-  primary: ReactNode;
-  secondary: ReactNode;
-  secondarySize?: number | string;
+/**
+ * primary：UiSplitPaneProps 内部字段。
+ */
+
+  primary: ReactNode;  
+  /**
+ * secondary：UiSplitPaneProps 内部字段。
+ */
+
+  secondary: ReactNode;  
+  /**
+ * secondarySize：UiSplitPaneProps 内部字段。
+ */
+
+  secondarySize?: number | string;  
+  /**
+ * className：UiSplitPaneProps 内部字段。
+ */
+
   className?: string;
 }
+/**
+ * UiSplitPane：执行核心业务逻辑。
+ * @param {
+  primary,
+  secondary,
+  secondarySize = 300,
+  className,
+} UiSplitPaneProps 参数说明。
+ * @returns 函数返回值。
+ */
+
 
 export function UiSplitPane({
   primary,
@@ -13,6 +44,8 @@ export function UiSplitPane({
   secondarySize = 300,
   className,
 }: UiSplitPaneProps) {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
   const classes = ['next-ui-split-pane'];
   if (className) {
     classes.push(className);

@@ -50,6 +50,8 @@ export {
 
 /** 服务端发送前把支持的 payload 编码为 Protobuf 二进制。 */
 export function encodeServerEventPayload<T>(event: string, payload: T): T | Uint8Array {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
   if (PROTOBUF_NEXT_S2C_EVENTS.has(event)) {
     return payload;
   }
@@ -58,6 +60,8 @@ export function encodeServerEventPayload<T>(event: string, payload: T): T | Uint
 
 /** 客户端收到后将 Protobuf 二进制还原为业务对象。 */
 export function decodeServerEventPayload<T>(event: string, payload: unknown): T {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
   const binary = normalizeBinaryPayload(payload);
   if (!binary || !PROTOBUF_NEXT_S2C_EVENTS.has(event)) {
     return payload as T;
@@ -67,6 +71,8 @@ export function decodeServerEventPayload<T>(event: string, payload: unknown): T 
 
 /** 客户端发送前的编码入口，当前仅对称保留。 */
 export function encodeClientEventPayload<T>(event: string, payload: T): T {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
   if (PROTOBUF_NEXT_C2S_EVENTS.has(event)) {
     return payload;
   }

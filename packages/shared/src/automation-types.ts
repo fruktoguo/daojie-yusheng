@@ -4,8 +4,20 @@
 
 /** 自动战斗技能配置。 */
 export interface AutoBattleSkillConfig {
-  skillId: string;
-  enabled: boolean;
+/**
+ * skillId：AutoBattleSkillConfig 内部字段。
+ */
+
+  skillId: string;  
+  /**
+ * enabled：AutoBattleSkillConfig 内部字段。
+ */
+
+  enabled: boolean;  
+  /**
+ * skillEnabled：AutoBattleSkillConfig 内部字段。
+ */
+
   skillEnabled?: boolean;
 }
 
@@ -17,14 +29,34 @@ export type AutoUsePillConditionOperator = 'lt' | 'gt';
 
 /** 自动丹药资源阈值条件。 */
 export interface AutoUsePillResourceCondition {
-  type: 'resource_ratio';
-  resource: AutoUsePillResource;
-  op: AutoUsePillConditionOperator;
+/**
+ * type：AutoUsePillResourceCondition 内部字段。
+ */
+
+  type: 'resource_ratio';  
+  /**
+ * resource：AutoUsePillResourceCondition 内部字段。
+ */
+
+  resource: AutoUsePillResource;  
+  /**
+ * op：AutoUsePillResourceCondition 内部字段。
+ */
+
+  op: AutoUsePillConditionOperator;  
+  /**
+ * thresholdPct：AutoUsePillResourceCondition 内部字段。
+ */
+
   thresholdPct: number;
 }
 
 /** 自动丹药缺 Buff 条件。 */
 export interface AutoUsePillBuffMissingCondition {
+/**
+ * type：AutoUsePillBuffMissingCondition 内部字段。
+ */
+
   type: 'buff_missing';
 }
 
@@ -33,15 +65,39 @@ export type AutoUsePillCondition = AutoUsePillResourceCondition | AutoUsePillBuf
 
 /** 自动使用丹药配置。 */
 export interface AutoUsePillConfig {
-  itemId: string;
+/**
+ * itemId：AutoUsePillConfig 内部字段。
+ */
+
+  itemId: string;  
+  /**
+ * conditions：AutoUsePillConfig 内部字段。
+ */
+
   conditions: AutoUsePillCondition[];
 }
 
 /** 战斗目标筛选规则。 */
 export interface CombatTargetingRules {
-  includeNormalMonsters?: boolean;
-  includeEliteMonsters?: boolean;
-  includeBosses?: boolean;
+/**
+ * includeNormalMonsters：CombatTargetingRules 内部字段。
+ */
+
+  includeNormalMonsters?: boolean;  
+  /**
+ * includeEliteMonsters：CombatTargetingRules 内部字段。
+ */
+
+  includeEliteMonsters?: boolean;  
+  /**
+ * includeBosses：CombatTargetingRules 内部字段。
+ */
+
+  includeBosses?: boolean;  
+  /**
+ * includePlayers：CombatTargetingRules 内部字段。
+ */
+
   includePlayers?: boolean;
 }
 

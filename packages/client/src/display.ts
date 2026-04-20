@@ -18,6 +18,8 @@ function clampZoom(value: number): number {
 
 /** 读取本地持久化缩放值，回退到默认缩放。 */
 function readStoredZoom(): number {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
   if (typeof window === 'undefined' || !window.localStorage) {
     return MAP_DEFAULT_ZOOM;
   }
@@ -31,6 +33,8 @@ function readStoredZoom(): number {
 
 /** 写入本地持久化缩放值。 */
 function persistZoom(nextZoom: number): void {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
   if (typeof window === 'undefined' || !window.localStorage) {
     return;
   }

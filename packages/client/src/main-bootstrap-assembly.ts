@@ -48,6 +48,10 @@ import type { SocketAdminSender } from './network/socket-send-admin';
 import type { SocketPanelSender } from './network/socket-send-panel';
 import type { SocketRuntimeSender } from './network/socket-send-runtime';
 import type { SocketSocialEconomySender } from './network/socket-send-social-economy';
+/**
+ * ToastKind：统一结构类型，保证协议与运行时一致性。
+ */
+
 
 type ToastKind =
   | 'system'
@@ -58,21 +62,73 @@ type ToastKind =
   | 'grudge'
   | 'success'
   | 'warn'
-  | 'travel';
+  | 'travel';  
+  /**
+ * MainBootstrapAssemblyOptions：统一结构类型，保证协议与运行时一致性。
+ */
+
 
 type MainBootstrapAssemblyOptions = {
-  windowRef: Window;
-  documentRef: Document;
-  canvasHost: HTMLElement;
-  joinQqGroupBtns: Iterable<HTMLAnchorElement>;
-  observeModalEl: HTMLElement | null;
-  observeModalShellEl: HTMLElement | null;
-  qqGroupNumber: string;
-  qqGroupMobileDeepLink: string;
-  qqGroupDesktopDeepLink: string;
-  initialMapPerformanceConfig: {
+/**
+ * windowRef：对象字段。
+ */
+
+  windowRef: Window;  
+  /**
+ * documentRef：对象字段。
+ */
+
+  documentRef: Document;  
+  /**
+ * canvasHost：对象字段。
+ */
+
+  canvasHost: HTMLElement;  
+  /**
+ * joinQqGroupBtns：对象字段。
+ */
+
+  joinQqGroupBtns: Iterable<HTMLAnchorElement>;  
+  /**
+ * observeModalEl：对象字段。
+ */
+
+  observeModalEl: HTMLElement | null;  
+  /**
+ * observeModalShellEl：对象字段。
+ */
+
+  observeModalShellEl: HTMLElement | null;  
+  /**
+ * qqGroupNumber：对象字段。
+ */
+
+  qqGroupNumber: string;  
+  /**
+ * qqGroupMobileDeepLink：对象字段。
+ */
+
+  qqGroupMobileDeepLink: string;  
+  /**
+ * qqGroupDesktopDeepLink：对象字段。
+ */
+
+  qqGroupDesktopDeepLink: string;  
+  /**
+ * initialMapPerformanceConfig：对象字段。
+ */
+
+  initialMapPerformanceConfig: {  
+  /**
+ * showFpsMonitor：对象字段。
+ */
+
     showFpsMonitor: boolean;
-  };
+  };  
+  /**
+ * runtimeMonitorSource：对象字段。
+ */
+
   runtimeMonitorSource: Pick<
     MainRuntimeMonitorSource,
     | 'initialize'
@@ -83,13 +139,21 @@ type MainBootstrapAssemblyOptions = {
     | 'stopPingLoop'
     | 'clearPendingSocketPing'
     | 'renderPingLatency'
-  >;
+  >;  
+  /**
+ * panelRuntimeSource：对象字段。
+ */
+
   panelRuntimeSource: Pick<
     MainPanelRuntimeSource,
     | 'syncInitialBridgeState'
     | 'subscribeBridgeState'
     | 'setRuntimeShellVisible'
-  >;
+  >;  
+  /**
+ * mapRuntimeBridgeSource：对象字段。
+ */
+
   mapRuntimeBridgeSource: Pick<
     MainMapRuntimeBridgeSource,
     | 'resizeCanvas'
@@ -115,18 +179,42 @@ type MainBootstrapAssemblyOptions = {
     | 'syncSenseQiOverlay'
     | 'setHoveredMapTile'
     | 'bindKeyboardInput'
-  >;
-  breakthroughStateSource: Pick<MainBreakthroughStateSource, 'openBreakthroughModal'>;
+  >;  
+  /**
+ * breakthroughStateSource：对象字段。
+ */
+
+  breakthroughStateSource: Pick<MainBreakthroughStateSource, 'openBreakthroughModal'>;  
+  /**
+ * uiStateSource：对象字段。
+ */
+
   uiStateSource: Pick<
     MainUiStateSource,
     | 'showToast'
     | 'refreshZoomChrome'
     | 'applyZoomChange'
     | 'scheduleLayoutViewportSync'
-  >;
-  attrDetailStateSource: Pick<MainAttrDetailStateSource, 'requestDetail'>;
-  targetingStateSource: Pick<MainTargetingStateSource, 'hasPendingTargetedAction'>;
-  getPlayer: () => PlayerState | null;
+  >;  
+  /**
+ * attrDetailStateSource：对象字段。
+ */
+
+  attrDetailStateSource: Pick<MainAttrDetailStateSource, 'requestDetail'>;  
+  /**
+ * targetingStateSource：对象字段。
+ */
+
+  targetingStateSource: Pick<MainTargetingStateSource, 'hasPendingTargetedAction'>;  
+  /**
+ * getPlayer：对象字段。
+ */
+
+  getPlayer: () => PlayerState | null;  
+  /**
+ * runtimeStateSource：对象字段。
+ */
+
   runtimeStateSource: Pick<
     MainRuntimeStateSource,
     | 'handleBootstrap'
@@ -137,7 +225,11 @@ type MainBootstrapAssemblyOptions = {
     | 'handleSelfDelta'
     | 'handlePanelDelta'
     | 'handleMapStatic'
-  >;
+  >;  
+  /**
+ * detailStateSource：对象字段。
+ */
+
   detailStateSource: Pick<
     MainDetailStateSource,
     | 'handleLootWindowUpdate'
@@ -152,16 +244,32 @@ type MainBootstrapAssemblyOptions = {
     | 'handleQuests'
     | 'handleQuestNavigateResult'
     | 'handleNpcShop'
-  >;
-  suggestionStateSource: Pick<MainSuggestionStateSource, 'handleSuggestionUpdate'>;
+  >;  
+  /**
+ * suggestionStateSource：对象字段。
+ */
+
+  suggestionStateSource: Pick<MainSuggestionStateSource, 'handleSuggestionUpdate'>;  
+  /**
+ * mailStateSource：对象字段。
+ */
+
   mailStateSource: Pick<
     MainMailStateSource,
     | 'handleMailSummary'
     | 'handleMailPage'
     | 'handleMailDetail'
     | 'handleMailOpResult'
-  >;
-  settingsStateSource: Pick<MainSettingsStateSource, 'handleRedeemCodesResult'>;
+  >;  
+  /**
+ * settingsStateSource：对象字段。
+ */
+
+  settingsStateSource: Pick<MainSettingsStateSource, 'handleRedeemCodesResult'>;  
+  /**
+ * marketStateSource：对象字段。
+ */
+
   marketStateSource: Pick<
     MainMarketStateSource,
     | 'handleMarketUpdate'
@@ -170,8 +278,16 @@ type MainBootstrapAssemblyOptions = {
     | 'handleMarketStorage'
     | 'handleMarketItemBook'
     | 'handleMarketTradeHistory'
-  >;
-  noticeStateSource: Pick<MainNoticeStateSource, 'handleNotice'>;
+  >;  
+  /**
+ * noticeStateSource：对象字段。
+ */
+
+  noticeStateSource: Pick<MainNoticeStateSource, 'handleNotice'>;  
+  /**
+ * connectionStateSource：对象字段。
+ */
+
   connectionStateSource: Pick<
     MainConnectionStateSource,
     | 'handleError'
@@ -179,32 +295,144 @@ type MainBootstrapAssemblyOptions = {
     | 'handleConnectError'
     | 'handleDisconnect'
     | 'handlePong'
-  >;
+  >;  
+  /**
+ * sidePanel：对象字段。
+ */
+
   sidePanel: Pick<
     SidePanel,
     | 'setVisibilityChangeCallback'
     | 'setLayoutChangeCallback'
     | 'setTabChangeCallback'
     | 'isVisible'
-  >;
-  chatUI: Pick<ChatUI, 'setLogbookVisible' | 'setCallback'>;
-  bodyTrainingPanel: Pick<BodyTrainingPanel, 'setInfusionHandler'>;
-  hud: Pick<HUD, 'setCallbacks'>;
-  lootPanel: Pick<LootPanel, 'setCallbacks' | 'clear'>;
-  equipmentPanel: Pick<EquipmentPanel, 'setCallbacks'>;
-  npcShopModal: Pick<NpcShopModal, 'setCallbacks' | 'open'>;
-  craftWorkbenchModal: Pick<CraftWorkbenchModal, 'setCallbacks' | 'openAlchemy' | 'openEnhancement'>;
-  debugPanel: Pick<DebugPanel, 'setCallbacks'>;
-  mapRuntime: {
-    attach: (host: HTMLElement) => void;
-    setMoveHandler: (handler: (x: number, y: number) => void) => void;
-    setInteractionCallbacks: (callbacks: {
-      onTarget: (target: { x: number; y: number; clientX?: number; clientY?: number; entityId?: string; entityKind?: string }) => void;
-      onHover: (target: { x: number; y: number; clientX?: number; clientY?: number } | null) => void;
+  >;  
+  /**
+ * chatUI：对象字段。
+ */
+
+  chatUI: Pick<ChatUI, 'setLogbookVisible' | 'setCallback'>;  
+  /**
+ * bodyTrainingPanel：对象字段。
+ */
+
+  bodyTrainingPanel: Pick<BodyTrainingPanel, 'setInfusionHandler'>;  
+  /**
+ * hud：对象字段。
+ */
+
+  hud: Pick<HUD, 'setCallbacks'>;  
+  /**
+ * lootPanel：对象字段。
+ */
+
+  lootPanel: Pick<LootPanel, 'setCallbacks' | 'clear'>;  
+  /**
+ * equipmentPanel：对象字段。
+ */
+
+  equipmentPanel: Pick<EquipmentPanel, 'setCallbacks'>;  
+  /**
+ * npcShopModal：对象字段。
+ */
+
+  npcShopModal: Pick<NpcShopModal, 'setCallbacks' | 'open'>;  
+  /**
+ * craftWorkbenchModal：对象字段。
+ */
+
+  craftWorkbenchModal: Pick<CraftWorkbenchModal, 'setCallbacks' | 'openAlchemy' | 'openEnhancement'>;  
+  /**
+ * debugPanel：对象字段。
+ */
+
+  debugPanel: Pick<DebugPanel, 'setCallbacks'>;  
+  /**
+ * mapRuntime：对象字段。
+ */
+
+  mapRuntime: {  
+  /**
+ * attach：对象字段。
+ */
+
+    attach: (host: HTMLElement) => void;    
+    /**
+ * setMoveHandler：对象字段。
+ */
+
+    setMoveHandler: (handler: (x: number, y: number) => void) => void;    
+    /**
+ * setInteractionCallbacks：对象字段。
+ */
+
+    setInteractionCallbacks: (callbacks: {    
+    /**
+ * onTarget：对象字段。
+ */
+
+      onTarget: (target: {      
+      /**
+ * x：对象字段。
+ */
+ x: number;      
+ /**
+ * y：对象字段。
+ */
+ y: number;      
+ /**
+ * clientX：对象字段。
+ */
+ clientX?: number;      
+ /**
+ * clientY：对象字段。
+ */
+ clientY?: number;      
+ /**
+ * entityId：对象字段。
+ */
+ entityId?: string;      
+ /**
+ * entityKind：对象字段。
+ */
+ entityKind?: string }) => void;      
+ /**
+ * onHover：对象字段。
+ */
+
+      onHover: (target: {      
+      /**
+ * x：对象字段。
+ */
+ x: number;      
+ /**
+ * y：对象字段。
+ */
+ y: number;      
+ /**
+ * clientX：对象字段。
+ */
+ clientX?: number;      
+ /**
+ * clientY：对象字段。
+ */
+ clientY?: number } | null) => void;
     }) => void;
-  };
-  socket: Pick<SocketManager, 'on' | 'onKick' | 'onConnectError' | 'onDisconnect'>;
-  runtimeSender: Pick<SocketRuntimeSender, 'sendAction' | 'sendCastSkill'>;
+  };  
+  /**
+ * socket：对象字段。
+ */
+
+  socket: Pick<SocketManager, 'on' | 'onKick' | 'onConnectError' | 'onDisconnect'>;  
+  /**
+ * runtimeSender：对象字段。
+ */
+
+  runtimeSender: Pick<SocketRuntimeSender, 'sendAction' | 'sendCastSkill'>;  
+  /**
+ * panelSender：对象字段。
+ */
+
   panelSender: Pick<
     SocketPanelSender,
     | 'sendTakeLoot'
@@ -219,13 +447,39 @@ type MainBootstrapAssemblyOptions = {
     | 'sendCancelEnhancement'
     | 'sendRequestLeaderboard'
     | 'sendRequestWorldSummary'
-  >;
-  socialEconomySender: Pick<SocketSocialEconomySender, 'sendChat'>;
-  adminSender: Pick<SocketAdminSender, 'sendDebugResetSpawn'>;
-  loginUI: Pick<LoginUI, 'restoreSession'>;
-  showToast: (message: string, kind?: ToastKind) => void;
+  >;  
+  /**
+ * socialEconomySender：对象字段。
+ */
+
+  socialEconomySender: Pick<SocketSocialEconomySender, 'sendChat'>;  
+  /**
+ * adminSender：对象字段。
+ */
+
+  adminSender: Pick<SocketAdminSender, 'sendDebugResetSpawn'>;  
+  /**
+ * loginUI：对象字段。
+ */
+
+  loginUI: Pick<LoginUI, 'restoreSession'>;  
+  /**
+ * showToast：对象字段。
+ */
+
+  showToast: (message: string, kind?: ToastKind) => void;  
+  /**
+ * syncTargetingOverlay：对象字段。
+ */
+
   syncTargetingOverlay: () => void;
 };
+/**
+ * bootstrapMainApp：执行核心业务逻辑。
+ * @param options MainBootstrapAssemblyOptions 选项参数。
+ * @returns void。
+ */
+
 
 export function bootstrapMainApp(options: MainBootstrapAssemblyOptions): void {
   options.mapRuntimeBridgeSource.resizeCanvas();

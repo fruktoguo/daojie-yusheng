@@ -24,93 +24,373 @@ type MinimapDisplayMode = 'memory' | 'unlock';
 
 /** 目录来源在当前环境中的可用性。 */
 interface DisplaySourceAvailability {
-  hasMemory: boolean;
+/**
+ * hasMemory：DisplaySourceAvailability 内部字段。
+ */
+
+  hasMemory: boolean;  
+  /**
+ * hasUnlock：DisplaySourceAvailability 内部字段。
+ */
+
   hasUnlock: boolean;
 }
 
 /** 小地图主场景渲染数据。 */
 interface MinimapScene {
-  mapMeta: MapMeta | null;
-  snapshot: MapMinimapSnapshot | null;
-  rememberedMarkers: MapMinimapMarker[];
-  visibleMarkers: MapMinimapMarker[];
-  tileCache: ReadonlyMap<string, Tile>;
-  visibleTiles: ReadonlySet<string>;
-  visibleEntities: ReadonlyArray<{
-    id: string;
-    wx: number;
-    wy: number;
-    name?: string;
+/**
+ * mapMeta：MinimapScene 内部字段。
+ */
+
+  mapMeta: MapMeta | null;  
+  /**
+ * snapshot：MinimapScene 内部字段。
+ */
+
+  snapshot: MapMinimapSnapshot | null;  
+  /**
+ * rememberedMarkers：MinimapScene 内部字段。
+ */
+
+  rememberedMarkers: MapMinimapMarker[];  
+  /**
+ * visibleMarkers：MinimapScene 内部字段。
+ */
+
+  visibleMarkers: MapMinimapMarker[];  
+  /**
+ * tileCache：MinimapScene 内部字段。
+ */
+
+  tileCache: ReadonlyMap<string, Tile>;  
+  /**
+ * visibleTiles：MinimapScene 内部字段。
+ */
+
+  visibleTiles: ReadonlySet<string>;  
+  /**
+ * visibleEntities：MinimapScene 内部字段。
+ */
+
+  visibleEntities: ReadonlyArray<{  
+  /**
+ * id：MinimapScene 内部字段。
+ */
+
+    id: string;    
+    /**
+ * wx：MinimapScene 内部字段。
+ */
+
+    wx: number;    
+    /**
+ * wy：MinimapScene 内部字段。
+ */
+
+    wy: number;    
+    /**
+ * name：MinimapScene 内部字段。
+ */
+
+    name?: string;    
+    /**
+ * kind：MinimapScene 内部字段。
+ */
+
     kind?: string;
-  }>;
-  groundPiles: ReadonlyMap<string, GroundItemPileView>;
-  player: { x: number; y: number } | null;
-  viewRadius: number;
+  }>;  
+  /**
+ * groundPiles：MinimapScene 内部字段。
+ */
+
+  groundPiles: ReadonlyMap<string, GroundItemPileView>;  
+  /**
+ * player：MinimapScene 内部字段。
+ */
+
+  player: {  
+  /**
+ * x：MinimapScene 内部字段。
+ */
+ x: number;  
+ /**
+ * y：MinimapScene 内部字段。
+ */
+ y: number } | null;  
+ /**
+ * viewRadius：MinimapScene 内部字段。
+ */
+
+  viewRadius: number;  
+  /**
+ * memoryVersion：MinimapScene 内部字段。
+ */
+
   memoryVersion: number;
 }
 
 /** 小地图目录条目。 */
 interface CatalogEntry {
-  mapId: string;
-  mapMeta: MapMeta | null;
-  hasMemory: boolean;
+/**
+ * mapId：CatalogEntry 内部字段。
+ */
+
+  mapId: string;  
+  /**
+ * mapMeta：CatalogEntry 内部字段。
+ */
+
+  mapMeta: MapMeta | null;  
+  /**
+ * hasMemory：CatalogEntry 内部字段。
+ */
+
+  hasMemory: boolean;  
+  /**
+ * hasUnlock：CatalogEntry 内部字段。
+ */
+
   hasUnlock: boolean;
 }
 
 /** 弹窗中正在绘制的地图场景。 */
 interface DisplayMapScene {
-  mapId: string;
-  mapMeta: MapMeta;
-  snapshot: MapMinimapSnapshot | null;
-  rememberedMarkers: MapMinimapMarker[];
-  visibleMarkers: MapMinimapMarker[];
-  tileCache: ReadonlyMap<string, Tile>;
-  visibleTiles: ReadonlySet<string>;
-  visibleEntities: ReadonlyArray<{
-    id: string;
-    wx: number;
-    wy: number;
-    name?: string;
+/**
+ * mapId：DisplayMapScene 内部字段。
+ */
+
+  mapId: string;  
+  /**
+ * mapMeta：DisplayMapScene 内部字段。
+ */
+
+  mapMeta: MapMeta;  
+  /**
+ * snapshot：DisplayMapScene 内部字段。
+ */
+
+  snapshot: MapMinimapSnapshot | null;  
+  /**
+ * rememberedMarkers：DisplayMapScene 内部字段。
+ */
+
+  rememberedMarkers: MapMinimapMarker[];  
+  /**
+ * visibleMarkers：DisplayMapScene 内部字段。
+ */
+
+  visibleMarkers: MapMinimapMarker[];  
+  /**
+ * tileCache：DisplayMapScene 内部字段。
+ */
+
+  tileCache: ReadonlyMap<string, Tile>;  
+  /**
+ * visibleTiles：DisplayMapScene 内部字段。
+ */
+
+  visibleTiles: ReadonlySet<string>;  
+  /**
+ * visibleEntities：DisplayMapScene 内部字段。
+ */
+
+  visibleEntities: ReadonlyArray<{  
+  /**
+ * id：DisplayMapScene 内部字段。
+ */
+
+    id: string;    
+    /**
+ * wx：DisplayMapScene 内部字段。
+ */
+
+    wx: number;    
+    /**
+ * wy：DisplayMapScene 内部字段。
+ */
+
+    wy: number;    
+    /**
+ * name：DisplayMapScene 内部字段。
+ */
+
+    name?: string;    
+    /**
+ * kind：DisplayMapScene 内部字段。
+ */
+
     kind?: string;
-  }>;
-  groundPiles: ReadonlyMap<string, GroundItemPileView>;
-  player: { x: number; y: number } | null;
-  viewRadius: number;
-  isCurrent: boolean;
-  memoryVersion: number;
-  displayMode: MinimapDisplayMode;
-  hasMemory: boolean;
+  }>;  
+  /**
+ * groundPiles：DisplayMapScene 内部字段。
+ */
+
+  groundPiles: ReadonlyMap<string, GroundItemPileView>;  
+  /**
+ * player：DisplayMapScene 内部字段。
+ */
+
+  player: {  
+  /**
+ * x：DisplayMapScene 内部字段。
+ */
+ x: number;  
+ /**
+ * y：DisplayMapScene 内部字段。
+ */
+ y: number } | null;  
+ /**
+ * viewRadius：DisplayMapScene 内部字段。
+ */
+
+  viewRadius: number;  
+  /**
+ * isCurrent：DisplayMapScene 内部字段。
+ */
+
+  isCurrent: boolean;  
+  /**
+ * memoryVersion：DisplayMapScene 内部字段。
+ */
+
+  memoryVersion: number;  
+  /**
+ * displayMode：DisplayMapScene 内部字段。
+ */
+
+  displayMode: MinimapDisplayMode;  
+  /**
+ * hasMemory：DisplayMapScene 内部字段。
+ */
+
+  hasMemory: boolean;  
+  /**
+ * hasUnlock：DisplayMapScene 内部字段。
+ */
+
   hasUnlock: boolean;
 }
 
 /** 小地图弹窗视口换算指标。 */
 interface ViewportMetrics {
-  width: number;
-  height: number;
-  innerWidth: number;
-  innerHeight: number;
-  mapWidth: number;
-  mapHeight: number;
-  padding: number;
-  scale: number;
-  drawWidth: number;
-  drawHeight: number;
-  baseOffsetX: number;
-  baseOffsetY: number;
-  offsetX: number;
-  offsetY: number;
-  panX: number;
-  panY: number;
-  maxPanX: number;
+/**
+ * width：ViewportMetrics 内部字段。
+ */
+
+  width: number;  
+  /**
+ * height：ViewportMetrics 内部字段。
+ */
+
+  height: number;  
+  /**
+ * innerWidth：ViewportMetrics 内部字段。
+ */
+
+  innerWidth: number;  
+  /**
+ * innerHeight：ViewportMetrics 内部字段。
+ */
+
+  innerHeight: number;  
+  /**
+ * mapWidth：ViewportMetrics 内部字段。
+ */
+
+  mapWidth: number;  
+  /**
+ * mapHeight：ViewportMetrics 内部字段。
+ */
+
+  mapHeight: number;  
+  /**
+ * padding：ViewportMetrics 内部字段。
+ */
+
+  padding: number;  
+  /**
+ * scale：ViewportMetrics 内部字段。
+ */
+
+  scale: number;  
+  /**
+ * drawWidth：ViewportMetrics 内部字段。
+ */
+
+  drawWidth: number;  
+  /**
+ * drawHeight：ViewportMetrics 内部字段。
+ */
+
+  drawHeight: number;  
+  /**
+ * baseOffsetX：ViewportMetrics 内部字段。
+ */
+
+  baseOffsetX: number;  
+  /**
+ * baseOffsetY：ViewportMetrics 内部字段。
+ */
+
+  baseOffsetY: number;  
+  /**
+ * offsetX：ViewportMetrics 内部字段。
+ */
+
+  offsetX: number;  
+  /**
+ * offsetY：ViewportMetrics 内部字段。
+ */
+
+  offsetY: number;  
+  /**
+ * panX：ViewportMetrics 内部字段。
+ */
+
+  panX: number;  
+  /**
+ * panY：ViewportMetrics 内部字段。
+ */
+
+  panY: number;  
+  /**
+ * maxPanX：ViewportMetrics 内部字段。
+ */
+
+  maxPanX: number;  
+  /**
+ * maxPanY：ViewportMetrics 内部字段。
+ */
+
   maxPanY: number;
 }
 
 /** 弹窗平移拖拽状态。 */
 interface ModalPanState {
-  pointerId: number;
-  startClientX: number;
-  startClientY: number;
-  startPanX: number;
+/**
+ * pointerId：ModalPanState 内部字段。
+ */
+
+  pointerId: number;  
+  /**
+ * startClientX：ModalPanState 内部字段。
+ */
+
+  startClientX: number;  
+  /**
+ * startClientY：ModalPanState 内部字段。
+ */
+
+  startClientY: number;  
+  /**
+ * startPanX：ModalPanState 内部字段。
+ */
+
+  startPanX: number;  
+  /**
+ * startPanY：ModalPanState 内部字段。
+ */
+
   startPanY: number;
 }
 
@@ -120,7 +400,17 @@ function clamp(value: number, min: number, max: number): number {
 }
 
 /** parseTileKey：解析地块Key。 */
-function parseTileKey(key: string): { x: number; y: number } | null {
+function parseTileKey(key: string): {
+/**
+ * x：对象字段。
+ */
+ x: number;
+ /**
+ * y：对象字段。
+ */
+ y: number } | null {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
   const [rawX, rawY] = key.split(',');
   const x = Number(rawX);
   const y = Number(rawY);
@@ -135,6 +425,8 @@ function parseTileKey(key: string): { x: number; y: number } | null {
 
 /** ensureCanvasSize：确保Canvas Size。 */
 function ensureCanvasSize(canvas: HTMLCanvasElement): boolean {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
   const rect = canvas.getBoundingClientRect();
   const dpr = window.devicePixelRatio || 1;
   const width = Math.max(1, Math.floor(rect.width * dpr));
@@ -149,6 +441,8 @@ function ensureCanvasSize(canvas: HTMLCanvasElement): boolean {
 
 /** buildFallbackMapMeta：构建兜底地图元数据。 */
 function buildFallbackMapMeta(mapId: string, snapshot: MapMinimapSnapshot | null, tileCache: Map<string, Tile>): MapMeta {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
   let width = snapshot?.width ?? 1;
   let height = snapshot?.height ?? 1;
   if (!snapshot) {
@@ -170,7 +464,17 @@ function buildFallbackMapMeta(mapId: string, snapshot: MapMinimapSnapshot | null
 }
 
 /** getCanvasPixels：读取Canvas Pixels。 */
-function getCanvasPixels(canvas: HTMLCanvasElement, clientX: number, clientY: number): { x: number; y: number } | null {
+function getCanvasPixels(canvas: HTMLCanvasElement, clientX: number, clientY: number): {
+/**
+ * x：对象字段。
+ */
+ x: number;
+ /**
+ * y：对象字段。
+ */
+ y: number } | null {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
   const rect = canvas.getBoundingClientRect();
   if (rect.width <= 0 || rect.height <= 0) {
     return null;
@@ -254,8 +558,20 @@ export class Minimap {
   /** catalogFilter：目录筛选。 */
   private catalogFilter: CatalogFilter = 'all';
   /** moveHandler：移动Handler。 */
-  private moveHandler: ((x: number, y: number) => void) | null = null;
-  private pendingMovePoint: { x: number; y: number } | null = null;
+  private moveHandler: ((x: number, y: number) => void) | null = null;  
+  /**
+ * pendingMovePoint：Minimap 内部字段。
+ */
+
+  private pendingMovePoint: {  
+  /**
+ * x：Minimap 内部字段。
+ */
+ x: number;  
+ /**
+ * y：Minimap 内部字段。
+ */
+ y: number } | null = null;
   /** modalZoom：弹窗缩放。 */
   private modalZoom = 1;
   /** modalPanX：弹窗Pan X。 */
@@ -263,14 +579,31 @@ export class Minimap {
   /** modalPanY：弹窗Pan Y。 */
   private modalPanY = 0;
   /** modalPanState：弹窗Pan状态。 */
-  private modalPanState: ModalPanState | null = null;
-  private hoveredModalPoint: { x: number; y: number } | null = null;
+  private modalPanState: ModalPanState | null = null;  
+  /**
+ * hoveredModalPoint：Minimap 内部字段。
+ */
+
+  private hoveredModalPoint: {  
+  /**
+ * x：Minimap 内部字段。
+ */
+ x: number;  
+ /**
+ * y：Minimap 内部字段。
+ */
+ y: number } | null = null;
   /** mobileCatalogOpen：mobile目录Open。 */
   private mobileCatalogOpen = false;
   /** catalogEntryNodes：目录条目Nodes。 */
   private readonly catalogEntryNodes = new Map<string, HTMLButtonElement>();
   /** catalogEmptyNode：目录Empty节点。 */
-  private catalogEmptyNode: HTMLElement | null = null;
+  private catalogEmptyNode: HTMLElement | null = null;  
+  /**
+ * 构造器：初始化 当前 实例并建立基础状态。
+ * @returns 无返回值（构造函数）。
+ */
+
 
   constructor() {
     this.mountModalToBody();
@@ -550,6 +883,8 @@ export class Minimap {
 
   /** mountModalToBody：处理mount弹窗To身体。 */
   private mountModalToBody(): void {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
     if (!this.modal) {
       return;
     }
@@ -567,6 +902,8 @@ export class Minimap {
 
   /** syncResponsiveModalChrome：同步Responsive弹窗Chrome。 */
   private syncResponsiveModalChrome(): void {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
     const catalogVisible = this.isCompactViewport() ? this.mobileCatalogOpen : true;
     if (this.modal) {
       this.modal.dataset.mobileCatalogOpen = catalogVisible ? 'true' : 'false';
@@ -586,6 +923,8 @@ export class Minimap {
 
   /** 更新当前地图场景数据并触发重绘 */
   updateScene(scene: MinimapScene | null): void {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
     const previousCurrentMapId = this.scene?.mapMeta?.id ?? null;
     this.scene = scene;
     if (!scene) {
@@ -612,6 +951,8 @@ export class Minimap {
 
   /** clear：清理clear。 */
   clear(): void {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
     this.scene = null;
     this.selectedMapId = null;
     this.baseKey = null;
@@ -636,6 +977,8 @@ export class Minimap {
 
   /** resize：处理resize。 */
   resize(): void {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
     if (this.overlayCanvas) {
       ensureCanvasSize(this.overlayCanvas);
     }
@@ -647,6 +990,8 @@ export class Minimap {
 
   /** render：渲染渲染。 */
   render(): void {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
     this.refreshChrome();
     if (this.modalOpen) {
       this.renderCatalog();
@@ -656,6 +1001,8 @@ export class Minimap {
 
   /** scheduleRender：调度渲染。 */
   private scheduleRender(): void {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
     if (this.renderQueued) {
       return;
     }
@@ -669,6 +1016,8 @@ export class Minimap {
 
   /** refreshChrome：处理refresh Chrome。 */
   private refreshChrome(): void {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
     const hasScene = !!(this.scene?.mapMeta && this.scene.player);
     this.shell?.classList.toggle('hidden', !hasScene);
     this.overlayRoot?.classList.toggle('hidden', !hasScene || !this.overlayVisible);
@@ -685,6 +1034,8 @@ export class Minimap {
 
   /** openModal：打开弹窗。 */
   private openModal(): void {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
     if (!this.modal) {
       return;
     }
@@ -726,6 +1077,8 @@ export class Minimap {
 
   /** cancelModalPan：取消弹窗Pan。 */
   private cancelModalPan(): void {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
     if (this.modalPanState && this.modalCanvas?.hasPointerCapture(this.modalPanState.pointerId)) {
       this.modalCanvas.releasePointerCapture(this.modalPanState.pointerId);
     }
@@ -734,6 +1087,8 @@ export class Minimap {
 
   /** buildCatalogEntries：构建目录Entries。 */
   private buildCatalogEntries(): CatalogEntry[] {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
     const entries = new Map<string, CatalogEntry>();
     const currentMapMeta = this.scene?.mapMeta ?? null;
     const currentMapId = currentMapMeta?.id ?? null;
@@ -783,6 +1138,8 @@ export class Minimap {
 
   /** renderCatalog：渲染目录。 */
   private renderCatalog(): void {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
     if (!this.modalList) {
       return;
     }
@@ -883,6 +1240,8 @@ export class Minimap {
 
   /** updateCatalogItemNode：更新目录物品节点。 */
   private updateCatalogItemNode(entry: CatalogEntry, node: HTMLButtonElement): void {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
     const nameNode = node.querySelector<HTMLSpanElement>('.map-minimap-modal-item-name');
     if (nameNode) {
       nameNode.textContent = entry.mapMeta?.name ?? '无名地域';
@@ -901,13 +1260,23 @@ export class Minimap {
 
     node.dataset.mapId = entry.mapId;
     node.classList.toggle('active', entry.mapId === this.selectedMapId);
-  }
+  }  
+  /**
+ * insertCatalogItemNodeInOrder：执行核心业务逻辑。
+ * @param node HTMLButtonElement 参数说明。
+ * @param previousNode HTMLButtonElement | null 参数说明。
+ * @param container HTMLElement 参数说明。
+ * @returns void。
+ */
+
 
   private insertCatalogItemNodeInOrder(
     node: HTMLButtonElement,
     previousNode: HTMLButtonElement | null,
     container: HTMLElement,
   ): void {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
     const anchor = previousNode ? previousNode.nextElementSibling : container.firstElementChild;
     if (anchor === node) {
       return;
@@ -917,6 +1286,8 @@ export class Minimap {
 
   /** getCatalogEmptyNode：读取目录Empty节点。 */
   private getCatalogEmptyNode(): HTMLElement {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
     if (!this.catalogEmptyNode) {
       this.catalogEmptyNode = document.createElement('div');
       this.catalogEmptyNode.className = 'map-minimap-modal-empty';
@@ -943,6 +1314,8 @@ export class Minimap {
 
   /** getCatalogDescription：读取目录Description。 */
   private getCatalogDescription(entry: CatalogEntry): string {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
     const description = entry.mapMeta?.description?.trim();
     if (description) {
       return description;
@@ -958,6 +1331,8 @@ export class Minimap {
 
   /** getCurrentDisplayAvailability：读取当前显示Availability。 */
   private getCurrentDisplayAvailability(): DisplaySourceAvailability {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
     if (!this.scene) {
       return { hasMemory: false, hasUnlock: false };
     }
@@ -972,6 +1347,8 @@ export class Minimap {
 
   /** getDisplayAvailability：读取显示Availability。 */
   private getDisplayAvailability(selectedMapId: string | null, current: DisplayMapScene | null): DisplaySourceAvailability {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
     if (!selectedMapId) {
       return { hasMemory: false, hasUnlock: false };
     }
@@ -992,6 +1369,8 @@ export class Minimap {
 
   /** resolveModalDisplayMode：解析弹窗显示模式。 */
   private resolveModalDisplayMode(availability: DisplaySourceAvailability): MinimapDisplayMode {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
     if (this.modalDisplayMode === 'unlock' && availability.hasUnlock) {
       return 'unlock';
     }
@@ -1003,6 +1382,8 @@ export class Minimap {
 
   /** syncModalDisplaySwitch：同步弹窗显示Switch。 */
   private syncModalDisplaySwitch(): void {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
     const current = this.getCurrentDisplayScene();
     const selectedMapId = this.selectedMapId ?? current?.mapId ?? null;
     const availability = this.getDisplayAvailability(selectedMapId, current);
@@ -1028,6 +1409,8 @@ export class Minimap {
 
   /** setModalDisplayMode：处理set弹窗显示模式。 */
   private setModalDisplayMode(mode: MinimapDisplayMode): void {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
     const current = this.getCurrentDisplayScene();
     const selectedMapId = this.selectedMapId ?? current?.mapId ?? null;
     const availability = this.getDisplayAvailability(selectedMapId, current);
@@ -1047,6 +1430,8 @@ export class Minimap {
 
   /** getCurrentDisplayScene：读取当前显示场景。 */
   private getCurrentDisplayScene(): DisplayMapScene | null {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
     if (!this.scene?.mapMeta) {
       return null;
     }
@@ -1073,6 +1458,8 @@ export class Minimap {
 
   /** getModalDisplayScene：读取弹窗显示场景。 */
   private getModalDisplayScene(): DisplayMapScene | null {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
     const current = this.getCurrentDisplayScene();
     if (!this.modalOpen) {
       return null;
@@ -1128,6 +1515,8 @@ export class Minimap {
 
   /** buildTileCacheHash：构建地块缓存Hash。 */
   private buildTileCacheHash(tileCache: ReadonlyMap<string, Tile>): string {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
     let hash = 0;
     for (const [key, tile] of tileCache.entries()) {
       for (let index = 0; index < key.length; index += 1) {
@@ -1142,6 +1531,8 @@ export class Minimap {
 
   /** buildBaseKey：构建基础Key。 */
   private buildBaseKey(display: DisplayMapScene): string {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
     if (display.snapshot) {
       return `snapshot:${display.mapId}:${display.snapshot.width}:${display.snapshot.height}:${display.snapshot.terrainRows.length}:${display.snapshot.markers.length}`;
     }
@@ -1153,6 +1544,8 @@ export class Minimap {
 
   /** ensureBaseCanvas：确保基础Canvas。 */
   private ensureBaseCanvas(display: DisplayMapScene): void {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
     if (!this.baseCtx) {
       return;
     }
@@ -1200,6 +1593,8 @@ export class Minimap {
 
   /** renderOverlay：渲染Overlay。 */
   private renderOverlay(): void {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
     const ctx = this.overlayCanvas?.getContext('2d');
     const display = this.getCurrentDisplayScene();
     if (!ctx || !this.overlayCanvas) {
@@ -1220,6 +1615,8 @@ export class Minimap {
 
   /** renderModal：渲染弹窗。 */
   private renderModal(): void {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
     const ctx = this.modalCanvas?.getContext('2d');
     const display = this.getModalDisplayScene();
     if (!ctx || !this.modalCanvas || !this.modalOpen) {
@@ -1271,6 +1668,8 @@ export class Minimap {
 
   /** openDeleteMemoryConfirm：打开Delete Memory Confirm。 */
   private openDeleteMemoryConfirm(): void {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
     const selectedMapId = this.selectedMapId;
     if (!selectedMapId) {
       return;
@@ -1365,6 +1764,8 @@ export class Minimap {
 
   /** deleteSelectedMemory：处理delete Selected Memory。 */
   private deleteSelectedMemory(mapId: string): void {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
     deleteRememberedMap(mapId);
     this.baseKey = null;
     this.closeMoveConfirm();
@@ -1388,7 +1789,18 @@ export class Minimap {
     }
     this.renderCatalog();
     this.scheduleRender();
-  }
+  }  
+  /**
+ * getViewportMetrics：按给定条件读取/查询数据。
+ * @param canvas HTMLCanvasElement 参数说明。
+ * @param display DisplayMapScene 参数说明。
+ * @param isModal boolean 参数说明。
+ * @param zoom 参数说明。
+ * @param panX 参数说明。
+ * @param panY 参数说明。
+ * @returns ViewportMetrics。
+ */
+
 
   private getViewportMetrics(
     canvas: HTMLCanvasElement,
@@ -1440,7 +1852,17 @@ export class Minimap {
   }
 
   /** resolveWorldPoint：解析世界坐标。 */
-  private resolveWorldPoint(metrics: ViewportMetrics, px: number, py: number): { x: number; y: number } | null {
+  private resolveWorldPoint(metrics: ViewportMetrics, px: number, py: number): {  
+  /**
+ * x：Minimap 内部字段。
+ */
+ x: number;  
+ /**
+ * y：Minimap 内部字段。
+ */
+ y: number } | null {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
     if (
       px < metrics.offsetX
       || py < metrics.offsetY
@@ -1453,7 +1875,17 @@ export class Minimap {
       x: (px - metrics.offsetX) / metrics.scale,
       y: (py - metrics.offsetY) / metrics.scale,
     };
-  }
+  }  
+  /**
+ * resolveCanvasPoint：执行核心业务逻辑。
+ * @param canvas HTMLCanvasElement 参数说明。
+ * @param clientX number 参数说明。
+ * @param clientY number 参数说明。
+ * @param display DisplayMapScene 参数说明。
+ * @param isModal boolean 参数说明。
+ * @returns { x: number; y: number } | null。
+ */
+
 
   private resolveCanvasPoint(
     canvas: HTMLCanvasElement,
@@ -1461,7 +1893,17 @@ export class Minimap {
     clientY: number,
     display: DisplayMapScene,
     isModal: boolean,
-  ): { x: number; y: number } | null {
+  ): {  
+  /**
+ * x：Minimap 内部字段。
+ */
+ x: number;  
+ /**
+ * y：Minimap 内部字段。
+ */
+ y: number } | null {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
     const pixels = getCanvasPixels(canvas, clientX, clientY);
     if (!pixels) {
       return null;
@@ -1475,7 +1917,17 @@ export class Minimap {
       x: clamp(Math.floor(world.x), 0, metrics.mapWidth - 1),
       y: clamp(Math.floor(world.y), 0, metrics.mapHeight - 1),
     };
-  }
+  }  
+  /**
+ * resolveCurrentMoveTarget：执行核心业务逻辑。
+ * @param display DisplayMapScene | null 参数说明。
+ * @param canvas HTMLCanvasElement | null 参数说明。
+ * @param clientX number 参数说明。
+ * @param clientY number 参数说明。
+ * @param isModal boolean 参数说明。
+ * @returns { x: number; y: number } | null。
+ */
+
 
   private resolveCurrentMoveTarget(
     display: DisplayMapScene | null,
@@ -1483,7 +1935,17 @@ export class Minimap {
     clientX: number,
     clientY: number,
     isModal: boolean,
-  ): { x: number; y: number } | null {
+  ): {  
+  /**
+ * x：Minimap 内部字段。
+ */
+ x: number;  
+ /**
+ * y：Minimap 内部字段。
+ */
+ y: number } | null {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
     if (!display || !display.isCurrent || !display.player || !canvas) {
       return null;
     }
@@ -1501,6 +1963,8 @@ export class Minimap {
 
   /** getTileAt：读取地块At。 */
   private getTileAt(display: DisplayMapScene, x: number, y: number): Tile | null {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
     const key = `${x},${y}`;
     const current = display.tileCache.get(key);
     if (current) {
@@ -1528,6 +1992,8 @@ export class Minimap {
 
   /** getDisplayMarkers：读取显示标记。 */
   private getDisplayMarkers(display: DisplayMapScene): MapMinimapMarker[] {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
     const markers: MapMinimapMarker[] = [];
     const markerIndexByKey = new Map<string, number>();
     const occupiedPointKeys = new Set<string>();
@@ -1636,7 +2102,16 @@ export class Minimap {
     }
 
     return markers;
-  }
+  }  
+  /**
+ * drawScene：执行核心业务逻辑。
+ * @param ctx CanvasRenderingContext2D 上下文信息。
+ * @param display DisplayMapScene 参数说明。
+ * @param metrics ViewportMetrics 参数说明。
+ * @param isModal boolean 参数说明。
+ * @returns void。
+ */
+
 
   private drawScene(
     ctx: CanvasRenderingContext2D,
@@ -1644,6 +2119,8 @@ export class Minimap {
     metrics: ViewportMetrics,
     isModal: boolean,
   ): void {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
     this.ensureBaseCanvas(display);
 
     ctx.clearRect(0, 0, metrics.width, metrics.height);
@@ -1742,7 +2219,16 @@ export class Minimap {
     ctx.strokeStyle = 'rgba(255, 255, 255, 0.14)';
     ctx.lineWidth = 1;
     ctx.strokeRect(metrics.offsetX + 0.5, metrics.offsetY + 0.5, metrics.drawWidth, metrics.drawHeight);
-  }
+  }  
+  /**
+ * drawMarker：执行核心业务逻辑。
+ * @param ctx CanvasRenderingContext2D 上下文信息。
+ * @param marker MapMinimapMarker 参数说明。
+ * @param metrics ViewportMetrics 参数说明。
+ * @param markerSize number 参数说明。
+ * @returns void。
+ */
+
 
   private drawMarker(
     ctx: CanvasRenderingContext2D,
@@ -1750,6 +2236,8 @@ export class Minimap {
     metrics: ViewportMetrics,
     markerSize: number,
   ): void {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
     const centerX = metrics.offsetX + (marker.x + 0.5) * metrics.scale;
     const centerY = metrics.offsetY + (marker.y + 0.5) * metrics.scale;
     const half = markerSize / 2;
@@ -1824,13 +2312,23 @@ export class Minimap {
     ctx.fill();
     ctx.stroke();
     ctx.restore();
-  }
+  }  
+  /**
+ * drawMarkerLabel：执行核心业务逻辑。
+ * @param ctx CanvasRenderingContext2D 上下文信息。
+ * @param marker MapMinimapMarker 参数说明。
+ * @param metrics ViewportMetrics 参数说明。
+ * @returns void。
+ */
+
 
   private drawMarkerLabel(
     ctx: CanvasRenderingContext2D,
     marker: MapMinimapMarker,
     metrics: ViewportMetrics,
   ): void {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
     const centerX = metrics.offsetX + (marker.x + 0.5) * metrics.scale;
     const centerY = metrics.offsetY + (marker.y + 0.5) * metrics.scale;
     const label = marker.label.trim();
@@ -1890,7 +2388,16 @@ export class Minimap {
     ctx.strokeText(label, centerX, textY);
     ctx.fillText(label, centerX, textY);
     ctx.restore();
-  }
+  }  
+  /**
+ * drawGroundPile：执行核心业务逻辑。
+ * @param ctx CanvasRenderingContext2D 上下文信息。
+ * @param pile GroundItemPileView 参数说明。
+ * @param metrics ViewportMetrics 参数说明。
+ * @param pileSize number 参数说明。
+ * @returns void。
+ */
+
 
   private drawGroundPile(
     ctx: CanvasRenderingContext2D,
@@ -1914,7 +2421,16 @@ export class Minimap {
     ctx.fill();
     ctx.stroke();
     ctx.restore();
-  }
+  }  
+  /**
+ * drawModalHud：执行核心业务逻辑。
+ * @param ctx CanvasRenderingContext2D 上下文信息。
+ * @param display DisplayMapScene 参数说明。
+ * @param metrics ViewportMetrics 参数说明。
+ * @param markers MapMinimapMarker[] 参数说明。
+ * @returns void。
+ */
+
 
   private drawModalHud(
     ctx: CanvasRenderingContext2D,
@@ -1922,6 +2438,8 @@ export class Minimap {
     metrics: ViewportMetrics,
     markers: MapMinimapMarker[],
   ): void {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
     const guide = display.isCurrent
       ? '滚轮缩放 · 右键拖拽 · 左键前往'
       : '滚轮缩放 · 右键拖拽';
@@ -1969,6 +2487,8 @@ export class Minimap {
 
   /** buildHoverLines：构建Hover Lines。 */
   private buildHoverLines(display: DisplayMapScene, markers: MapMinimapMarker[], x: number, y: number): string[] {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
     const lines: string[] = [];
     lines.push(`坐标 (${x}, ${y})`);
 

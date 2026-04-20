@@ -53,13 +53,29 @@ import {
   type PrototypeModuleId,
 } from './mock-data';
 import './prototype.css';
+/**
+ * PrototypeTheme：统一结构类型，保证协议与运行时一致性。
+ */
+
 
 type PrototypeTheme = 'light' | 'dark';
+/**
+ * PreviewDeviceMode：统一结构类型，保证协议与运行时一致性。
+ */
+
 type PreviewDeviceMode = 'pc' | 'mobile';
 
 const SCALE_PRESETS = [75, 90, 100, 110, 125] as const;
 const MODULE_GROUPS: ReadonlyArray<{
-  title: string;
+/**
+ * title：对象字段。
+ */
+
+  title: string;  
+  /**
+ * ids：对象字段。
+ */
+
   ids: PrototypeModuleId[];
 }> = [
   {
@@ -75,19 +91,42 @@ const MODULE_GROUPS: ReadonlyArray<{
     ids: ['debug', 'gm', 'heaven-gate', 'entity-detail'],
   },
 ];
+/**
+ * formatNumber：执行核心业务逻辑。
+ * @param value number 参数说明。
+ * @returns string。
+ */
+
 
 function formatNumber(value: number): string {
   return new Intl.NumberFormat('zh-CN').format(value);
 }
+/**
+ * ratioPercent：执行核心业务逻辑。
+ * @param current number 参数说明。
+ * @param max number 参数说明。
+ * @returns string。
+ */
+
 
 function ratioPercent(current: number, max: number): string {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
   if (max <= 0) {
     return '0%';
   }
   return `${Math.max(0, Math.min(100, (current / max) * 100))}%`;
 }
+/**
+ * resolvePrototypeGradeTone：执行核心业务逻辑。
+ * @param label string 参数说明。
+ * @returns UiGameItemGradeTone | null。
+ */
+
 
 function resolvePrototypeGradeTone(label: string): UiGameItemGradeTone | null {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
   if (label.includes('凡')) return 'mortal';
   if (label.includes('黄')) return 'yellow';
   if (label.includes('玄')) return 'mystic';
@@ -98,6 +137,12 @@ function resolvePrototypeGradeTone(label: string): UiGameItemGradeTone | null {
   if (label.includes('帝')) return 'emperor';
   return null;
 }
+/**
+ * getPrototypeItemTypeLabel：按给定条件读取/查询数据。
+ * @param category string 参数说明。
+ * @returns string。
+ */
+
 
 function getPrototypeItemTypeLabel(category: string): string {
   switch (category) {
@@ -115,8 +160,16 @@ function getPrototypeItemTypeLabel(category: string): string {
       return '物品';
   }
 }
+/**
+ * getModuleStatusLabel：按给定条件读取/查询数据。
+ * @param status PrototypeModuleCardData['status'] 参数说明。
+ * @returns string。
+ */
+
 
 function getModuleStatusLabel(status: PrototypeModuleCardData['status']): string {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
   if (status === 'prototype-ready') {
     return '原型已覆盖';
   }
@@ -125,6 +178,12 @@ function getModuleStatusLabel(status: PrototypeModuleCardData['status']): string
   }
   return '待迁移';
 }
+/**
+ * openModulePreview：执行核心业务逻辑。
+ * @param module PrototypeModuleCardData 参数说明。
+ * @returns void。
+ */
+
 
 function openModulePreview(module: PrototypeModuleCardData): void {
   openNextDetailModal({
@@ -144,6 +203,13 @@ function openModulePreview(module: PrototypeModuleCardData): void {
     ),
   });
 }
+/**
+ * openInventoryDetail：执行核心业务逻辑。
+ * @param itemName string 参数说明。
+ * @param note string 参数说明。
+ * @returns void。
+ */
+
 
 function openInventoryDetail(itemName: string, note: string): void {
   openNextDetailModal({
@@ -161,14 +227,40 @@ function openInventoryDetail(itemName: string, note: string): void {
     ),
   });
 }
+/**
+ * TooltipItemCard：执行核心业务逻辑。
+ * @param {
+  name,
+  meta,
+  onClick,
+} {
+  name: string;
+  meta: string;
+  onClick: () => void;
+} 参数说明。
+ * @returns 函数返回值。
+ */
+
 
 function TooltipItemCard({
   name,
   meta,
   onClick,
 }: {
-  name: string;
-  meta: string;
+/**
+ * name：对象字段。
+ */
+
+  name: string;  
+  /**
+ * meta：对象字段。
+ */
+
+  meta: string;  
+  /**
+ * onClick：对象字段。
+ */
+
   onClick: () => void;
 }) {
   return (
@@ -185,6 +277,11 @@ function TooltipItemCard({
     </UiItemCard>
   );
 }
+/**
+ * LoginPanelPreview：执行核心业务逻辑。
+ * @returns 函数返回值。
+ */
+
 
 function LoginPanelPreview() {
   return (
@@ -210,6 +307,11 @@ function LoginPanelPreview() {
     </UiSection>
   );
 }
+/**
+ * FoundationPanelPreview：执行核心业务逻辑。
+ * @returns 函数返回值。
+ */
+
 
 function FoundationPanelPreview() {
   const [activeTab, setActiveTab] = useState<'primary' | 'danger'>('primary');
@@ -389,6 +491,11 @@ function FoundationPanelPreview() {
     </UiSection>
   );
 }
+/**
+ * HudPanelPreview：执行核心业务逻辑。
+ * @returns 函数返回值。
+ */
+
 
 function HudPanelPreview() {
   return (
@@ -450,6 +557,11 @@ function HudPanelPreview() {
     </div>
   );
 }
+/**
+ * AttrPanelPreview：执行核心业务逻辑。
+ * @returns 函数返回值。
+ */
+
 
 function AttrPanelPreview() {
   const [activeTab, setActiveTab] = useState<string>(PROTOTYPE_ATTR_TABS[0].id);
@@ -475,6 +587,11 @@ function AttrPanelPreview() {
     </UiSection>
   );
 }
+/**
+ * EquipmentPanelPreview：执行核心业务逻辑。
+ * @returns 函数返回值。
+ */
+
 
 function EquipmentPanelPreview() {
   return (
@@ -503,6 +620,11 @@ function EquipmentPanelPreview() {
     </UiSection>
   );
 }
+/**
+ * InventoryPanelPreview：执行核心业务逻辑。
+ * @returns 函数返回值。
+ */
+
 
 function InventoryPanelPreview() {
   const [filter, setFilter] = useState<string>('all');
@@ -577,6 +699,11 @@ function InventoryPanelPreview() {
     </UiSection>
   );
 }
+/**
+ * TechniquePanelPreview：执行核心业务逻辑。
+ * @returns 函数返回值。
+ */
+
 
 function TechniquePanelPreview() {
   const [selectedId, setSelectedId] = useState<string>(PROTOTYPE_TECHNIQUES[0]?.id ?? '');
@@ -622,6 +749,11 @@ function TechniquePanelPreview() {
     </UiSection>
   );
 }
+/**
+ * ActionPanelPreview：执行核心业务逻辑。
+ * @returns 函数返回值。
+ */
+
 
 function ActionPanelPreview() {
   const [autoBattleEnabled, setAutoBattleEnabled] = useState(true);
@@ -649,6 +781,11 @@ function ActionPanelPreview() {
     </UiSection>
   );
 }
+/**
+ * QuestPanelPreview：执行核心业务逻辑。
+ * @returns 函数返回值。
+ */
+
 
 function QuestPanelPreview() {
   const [selectedId, setSelectedId] = useState<string>(PROTOTYPE_QUESTS[0]?.id ?? '');
@@ -701,6 +838,11 @@ function QuestPanelPreview() {
     </UiSection>
   );
 }
+/**
+ * WorldPanelPreview：执行核心业务逻辑。
+ * @returns 函数返回值。
+ */
+
 
 function WorldPanelPreview() {
   return (
@@ -731,6 +873,11 @@ function WorldPanelPreview() {
     </UiSection>
   );
 }
+/**
+ * MarketPanelPreview：执行核心业务逻辑。
+ * @returns 函数返回值。
+ */
+
 
 function MarketPanelPreview() {
   const [category, setCategory] = useState<string>('all');
@@ -816,6 +963,11 @@ function MarketPanelPreview() {
     </UiSection>
   );
 }
+/**
+ * MailPanelPreview：执行核心业务逻辑。
+ * @returns 函数返回值。
+ */
+
 
 function MailPanelPreview() {
   const [selectedId, setSelectedId] = useState<string>(PROTOTYPE_MAILS[0]?.id ?? '');
@@ -850,14 +1002,40 @@ function MailPanelPreview() {
     </UiSection>
   );
 }
+/**
+ * SettingsPanelPreview：更新/写入相关状态。
+ * @param {
+  theme,
+  deviceMode,
+  scalePercent,
+} {
+  theme: PrototypeTheme;
+  deviceMode: PreviewDeviceMode;
+  scalePercent: number;
+} 参数说明。
+ * @returns 函数返回值。
+ */
+
 
 function SettingsPanelPreview({
   theme,
   deviceMode,
   scalePercent,
 }: {
-  theme: PrototypeTheme;
-  deviceMode: PreviewDeviceMode;
+/**
+ * theme：对象字段。
+ */
+
+  theme: PrototypeTheme;  
+  /**
+ * deviceMode：对象字段。
+ */
+
+  deviceMode: PreviewDeviceMode;  
+  /**
+ * scalePercent：对象字段。
+ */
+
   scalePercent: number;
 }) {
   const [uiScale, setUiScale] = useState(scalePercent);
@@ -884,14 +1062,36 @@ function SettingsPanelPreview({
     </UiSection>
   );
 }
+/**
+ * GenericModulePreview：执行核心业务逻辑。
+ * @param {
+  module,
+  deviceMode,
+} {
+  module: PrototypeModuleCardData;
+  deviceMode: PreviewDeviceMode;
+} 参数说明。
+ * @returns 函数返回值。
+ */
+
 
 function GenericModulePreview({
   module,
   deviceMode,
 }: {
-  module: PrototypeModuleCardData;
+/**
+ * module：对象字段。
+ */
+
+  module: PrototypeModuleCardData;  
+  /**
+ * deviceMode：对象字段。
+ */
+
   deviceMode: PreviewDeviceMode;
 }) {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
   if (module.id === 'heaven-gate') {
     return (
       <UiSection title={module.title}>
@@ -937,6 +1137,15 @@ function GenericModulePreview({
     </UiSection>
   );
 }
+/**
+ * renderModulePreview：执行核心业务逻辑。
+ * @param module PrototypeModuleCardData 参数说明。
+ * @param deviceMode PreviewDeviceMode 参数说明。
+ * @param theme PrototypeTheme 参数说明。
+ * @param scalePercent number 参数说明。
+ * @returns ReactNode。
+ */
+
 
 function renderModulePreview(
   module: PrototypeModuleCardData,
@@ -975,14 +1184,48 @@ function renderModulePreview(
       return <GenericModulePreview module={module} deviceMode={deviceMode} />;
   }
 }
+/**
+ * ModuleNavigator：执行核心业务逻辑。
+ * @param {
+  groupedModules,
+  selectedModuleId,
+  onSelect,
+} {
+  groupedModules: { title: string; items: PrototypeModuleCardData[] }[];
+  selectedModuleId: PrototypeModuleId;
+  onSelect: (moduleId: PrototypeModuleId) => void;
+} 参数说明。
+ * @returns 函数返回值。
+ */
+
 
 function ModuleNavigator({
   groupedModules,
   selectedModuleId,
   onSelect,
 }: {
-  groupedModules: { title: string; items: PrototypeModuleCardData[] }[];
-  selectedModuleId: PrototypeModuleId;
+/**
+ * groupedModules：对象字段。
+ */
+
+  groupedModules: {  
+  /**
+ * title：对象字段。
+ */
+ title: string;  
+ /**
+ * items：对象字段。
+ */
+ items: PrototypeModuleCardData[] }[];  
+ /**
+ * selectedModuleId：对象字段。
+ */
+
+  selectedModuleId: PrototypeModuleId;  
+  /**
+ * onSelect：对象字段。
+ */
+
   onSelect: (moduleId: PrototypeModuleId) => void;
 }) {
   return (
@@ -1005,6 +1248,22 @@ function ModuleNavigator({
     </UiSection>
   );
 }
+/**
+ * PrototypeDesktopShell：执行核心业务逻辑。
+ * @param {
+  groupedModules,
+  selectedModuleId,
+  onSelectModule,
+  renderSelectedModule,
+} {
+  groupedModules: { title: string; items: PrototypeModuleCardData[] }[];
+  selectedModuleId: PrototypeModuleId;
+  onSelectModule: (moduleId: PrototypeModuleId) => void;
+  renderSelectedModule: ReactNode;
+} 参数说明。
+ * @returns 函数返回值。
+ */
+
 
 function PrototypeDesktopShell({
   groupedModules,
@@ -1012,9 +1271,33 @@ function PrototypeDesktopShell({
   onSelectModule,
   renderSelectedModule,
 }: {
-  groupedModules: { title: string; items: PrototypeModuleCardData[] }[];
-  selectedModuleId: PrototypeModuleId;
-  onSelectModule: (moduleId: PrototypeModuleId) => void;
+/**
+ * groupedModules：对象字段。
+ */
+
+  groupedModules: {  
+  /**
+ * title：对象字段。
+ */
+ title: string;  
+ /**
+ * items：对象字段。
+ */
+ items: PrototypeModuleCardData[] }[];  
+ /**
+ * selectedModuleId：对象字段。
+ */
+
+  selectedModuleId: PrototypeModuleId;  
+  /**
+ * onSelectModule：对象字段。
+ */
+
+  onSelectModule: (moduleId: PrototypeModuleId) => void;  
+  /**
+ * renderSelectedModule：对象字段。
+ */
+
   renderSelectedModule: ReactNode;
 }) {
   return (
@@ -1028,6 +1311,22 @@ function PrototypeDesktopShell({
     </div>
   );
 }
+/**
+ * PrototypeMobileShell：执行核心业务逻辑。
+ * @param {
+  groupedModules,
+  selectedModuleId,
+  onSelectModule,
+  renderSelectedModule,
+} {
+  groupedModules: { title: string; items: PrototypeModuleCardData[] }[];
+  selectedModuleId: PrototypeModuleId;
+  onSelectModule: (moduleId: PrototypeModuleId) => void;
+  renderSelectedModule: ReactNode;
+} 参数说明。
+ * @returns 函数返回值。
+ */
+
 
 function PrototypeMobileShell({
   groupedModules,
@@ -1035,9 +1334,33 @@ function PrototypeMobileShell({
   onSelectModule,
   renderSelectedModule,
 }: {
-  groupedModules: { title: string; items: PrototypeModuleCardData[] }[];
-  selectedModuleId: PrototypeModuleId;
-  onSelectModule: (moduleId: PrototypeModuleId) => void;
+/**
+ * groupedModules：对象字段。
+ */
+
+  groupedModules: {  
+  /**
+ * title：对象字段。
+ */
+ title: string;  
+ /**
+ * items：对象字段。
+ */
+ items: PrototypeModuleCardData[] }[];  
+ /**
+ * selectedModuleId：对象字段。
+ */
+
+  selectedModuleId: PrototypeModuleId;  
+  /**
+ * onSelectModule：对象字段。
+ */
+
+  onSelectModule: (moduleId: PrototypeModuleId) => void;  
+  /**
+ * renderSelectedModule：对象字段。
+ */
+
   renderSelectedModule: ReactNode;
 }) {
   return (
@@ -1051,6 +1374,11 @@ function PrototypeMobileShell({
     </div>
   );
 }
+/**
+ * PrototypeApp：执行核心业务逻辑。
+ * @returns 函数返回值。
+ */
+
 
 export function PrototypeApp() {
   const [theme, setTheme] = useState<PrototypeTheme>('light');

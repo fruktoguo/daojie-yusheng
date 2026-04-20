@@ -3,69 +3,277 @@ import type { SocketPanelSender } from './network/socket-send-panel';
 import type { SocketRuntimeSender } from './network/socket-send-runtime';
 import type { SocketSocialEconomySender } from './network/socket-send-social-economy';
 import { bindZoomControls } from './main-ui-helpers';
+/**
+ * MainStartupBindingsOptions：统一结构类型，保证协议与运行时一致性。
+ */
+
 
 type MainStartupBindingsOptions = {
-  initializeUiStyleConfig: () => void;
-  mountNextUi: () => void;
-  startClientVersionReload: (options: { onBeforeReload: () => void }) => void;
-  onBeforeVersionReload: () => void;
-  createChangelogPanel: () => void;
-  createTutorialPanel: () => void;
-  syncInitialPanelRuntime: () => void;
-  subscribePanelStore: () => void;
-  attachMapRuntime: () => void;
-  bodyTrainingPanel: {
+/**
+ * initializeUiStyleConfig：对象字段。
+ */
+
+  initializeUiStyleConfig: () => void;  
+  /**
+ * mountNextUi：对象字段。
+ */
+
+  mountNextUi: () => void;  
+  /**
+ * startClientVersionReload：对象字段。
+ */
+
+  startClientVersionReload: (options: {  
+  /**
+ * onBeforeReload：对象字段。
+ */
+ onBeforeReload: () => void }) => void;  
+ /**
+ * onBeforeVersionReload：对象字段。
+ */
+
+  onBeforeVersionReload: () => void;  
+  /**
+ * createChangelogPanel：对象字段。
+ */
+
+  createChangelogPanel: () => void;  
+  /**
+ * createTutorialPanel：对象字段。
+ */
+
+  createTutorialPanel: () => void;  
+  /**
+ * syncInitialPanelRuntime：对象字段。
+ */
+
+  syncInitialPanelRuntime: () => void;  
+  /**
+ * subscribePanelStore：对象字段。
+ */
+
+  subscribePanelStore: () => void;  
+  /**
+ * attachMapRuntime：对象字段。
+ */
+
+  attachMapRuntime: () => void;  
+  /**
+ * bodyTrainingPanel：对象字段。
+ */
+
+  bodyTrainingPanel: {  
+  /**
+ * setInfusionHandler：对象字段。
+ */
+
     setInfusionHandler: (handler: (foundationSpent: number) => void) => void;
-  };
-  hud: {
+  };  
+  /**
+ * hud：对象字段。
+ */
+
+  hud: {  
+  /**
+ * setCallbacks：对象字段。
+ */
+
     setCallbacks: (callback: () => void) => void;
-  };
-  lootPanel: {
+  };  
+  /**
+ * lootPanel：对象字段。
+ */
+
+  lootPanel: {  
+  /**
+ * setCallbacks：对象字段。
+ */
+
     setCallbacks: (
       onTakeOne: (sourceId: string, itemKey: string) => void,
       onTakeAll: (sourceId: string) => void,
     ) => void;
-  };
-  equipmentPanel: {
+  };  
+  /**
+ * equipmentPanel：对象字段。
+ */
+
+  equipmentPanel: {  
+  /**
+ * setCallbacks：对象字段。
+ */
+
     setCallbacks: (onUnequip: Parameters<SocketPanelSender['sendUnequip']>[0] extends infer T ? (slot: T) => void : never) => void;
-  };
-  npcShopModal: {
-    setCallbacks: (callbacks: {
-      onRequestShop: (npcId: string) => void;
+  };  
+  /**
+ * npcShopModal：对象字段。
+ */
+
+  npcShopModal: {  
+  /**
+ * setCallbacks：对象字段。
+ */
+
+    setCallbacks: (callbacks: {    
+    /**
+ * onRequestShop：对象字段。
+ */
+
+      onRequestShop: (npcId: string) => void;      
+      /**
+ * onBuyItem：对象字段。
+ */
+
       onBuyItem: (npcId: string, itemId: string, quantity: number) => void;
     }) => void;
-  };
-  craftWorkbenchModal: {
-    setCallbacks: (callbacks: {
-      onRequestAlchemy: (knownCatalogVersion?: number) => void;
-      onRequestEnhancement: () => void;
-      onStartAlchemy: (recipeId: string, ingredients: Array<{ itemId: string; count: number }>, quantity: number) => void;
-      onCancelAlchemy: () => void;
-      onStartEnhancement: (payload: Parameters<SocketPanelSender['sendStartEnhancement']>[0]) => void;
+  };  
+  /**
+ * craftWorkbenchModal：对象字段。
+ */
+
+  craftWorkbenchModal: {  
+  /**
+ * setCallbacks：对象字段。
+ */
+
+    setCallbacks: (callbacks: {    
+    /**
+ * onRequestAlchemy：对象字段。
+ */
+
+      onRequestAlchemy: (knownCatalogVersion?: number) => void;      
+      /**
+ * onRequestEnhancement：对象字段。
+ */
+
+      onRequestEnhancement: () => void;      
+      /**
+ * onStartAlchemy：对象字段。
+ */
+
+      onStartAlchemy: (recipeId: string, ingredients: Array<{      
+      /**
+ * itemId：对象字段。
+ */
+ itemId: string;      
+ /**
+ * count：对象字段。
+ */
+ count: number }>, quantity: number) => void;      
+ /**
+ * onCancelAlchemy：对象字段。
+ */
+
+      onCancelAlchemy: () => void;      
+      /**
+ * onStartEnhancement：对象字段。
+ */
+
+      onStartEnhancement: (payload: Parameters<SocketPanelSender['sendStartEnhancement']>[0]) => void;      
+      /**
+ * onCancelEnhancement：对象字段。
+ */
+
       onCancelEnhancement: () => void;
     }) => void;
-  };
-  debugPanel: {
+  };  
+  /**
+ * debugPanel：对象字段。
+ */
+
+  debugPanel: {  
+  /**
+ * setCallbacks：对象字段。
+ */
+
     setCallbacks: (onResetSpawn: () => void) => void;
-  };
-  chatUI: {
+  };  
+  /**
+ * chatUI：对象字段。
+ */
+
+  chatUI: {  
+  /**
+ * setCallback：对象字段。
+ */
+
     setCallback: (handler: (message: string) => void) => void;
-  };
-  zoom: {
-    zoomSlider: HTMLInputElement | null;
-    zoomResetBtn: HTMLButtonElement | null;
-    minZoom: number;
-    maxZoom: number;
+  };  
+  /**
+ * zoom：对象字段。
+ */
+
+  zoom: {  
+  /**
+ * zoomSlider：对象字段。
+ */
+
+    zoomSlider: HTMLInputElement | null;    
+    /**
+ * zoomResetBtn：对象字段。
+ */
+
+    zoomResetBtn: HTMLButtonElement | null;    
+    /**
+ * minZoom：对象字段。
+ */
+
+    minZoom: number;    
+    /**
+ * maxZoom：对象字段。
+ */
+
+    maxZoom: number;    
+    /**
+ * applyZoomChange：对象字段。
+ */
+
     applyZoomChange: (nextZoom: number) => number;
-  };
-  showToast: (message: string) => void;
-  joinQqGroupBtns: Iterable<HTMLAnchorElement>;
-  qqGroupNumber: string;
-  qqGroupMobileDeepLink: string;
-  qqGroupDesktopDeepLink: string;
-  registerAutoBattleButtons: () => void;
-  onOpenRealmAction: () => void;
-  runtimeSender: Pick<SocketRuntimeSender, 'sendAction'>;
+  };  
+  /**
+ * showToast：对象字段。
+ */
+
+  showToast: (message: string) => void;  
+  /**
+ * joinQqGroupBtns：对象字段。
+ */
+
+  joinQqGroupBtns: Iterable<HTMLAnchorElement>;  
+  /**
+ * qqGroupNumber：对象字段。
+ */
+
+  qqGroupNumber: string;  
+  /**
+ * qqGroupMobileDeepLink：对象字段。
+ */
+
+  qqGroupMobileDeepLink: string;  
+  /**
+ * qqGroupDesktopDeepLink：对象字段。
+ */
+
+  qqGroupDesktopDeepLink: string;  
+  /**
+ * registerAutoBattleButtons：对象字段。
+ */
+
+  registerAutoBattleButtons: () => void;  
+  /**
+ * onOpenRealmAction：对象字段。
+ */
+
+  onOpenRealmAction: () => void;  
+  /**
+ * runtimeSender：对象字段。
+ */
+
+  runtimeSender: Pick<SocketRuntimeSender, 'sendAction'>;  
+  /**
+ * panelSender：对象字段。
+ */
+
   panelSender: Pick<
     SocketPanelSender,
     | 'sendTakeLoot'
@@ -78,12 +286,28 @@ type MainStartupBindingsOptions = {
     | 'sendCancelAlchemy'
     | 'sendStartEnhancement'
     | 'sendCancelEnhancement'
-  >;
-  socialEconomySender: Pick<SocketSocialEconomySender, 'sendChat'>;
+  >;  
+  /**
+ * socialEconomySender：对象字段。
+ */
+
+  socialEconomySender: Pick<SocketSocialEconomySender, 'sendChat'>;  
+  /**
+ * adminSender：对象字段。
+ */
+
   adminSender: Pick<SocketAdminSender, 'sendDebugResetSpawn'>;
 };
+/**
+ * copyTextToClipboard：执行核心业务逻辑。
+ * @param text string 参数说明。
+ * @returns Promise<boolean>。
+ */
+
 
 async function copyTextToClipboard(text: string): Promise<boolean> {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
   try {
     if (navigator.clipboard?.writeText) {
       await navigator.clipboard.writeText(text);
@@ -110,14 +334,29 @@ async function copyTextToClipboard(text: string): Promise<boolean> {
     document.body.removeChild(textarea);
   }
 }
+/**
+ * resolveQqGroupLink：执行核心业务逻辑。
+ * @param mobile string 参数说明。
+ * @param desktop string 参数说明。
+ * @returns string。
+ */
+
 
 function resolveQqGroupLink(mobile: string, desktop: string): string {
   const ua = navigator.userAgent.toLowerCase();
   const isMobile = /android|iphone|ipad|ipod|mobile/.test(ua);
   return isMobile ? mobile : desktop;
 }
+/**
+ * bindMainStartup：执行核心业务逻辑。
+ * @param options MainStartupBindingsOptions 选项参数。
+ * @returns void。
+ */
+
 
 export function bindMainStartup(options: MainStartupBindingsOptions): void {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
   options.initializeUiStyleConfig();
   options.mountNextUi();
   options.startClientVersionReload({

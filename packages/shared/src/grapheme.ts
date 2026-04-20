@@ -1,5 +1,9 @@
 /** Grapheme 分段项：保存单段可见字符。 */
 type GraphemeSegment = {
+/**
+ * segment：对象字段。
+ */
+
   segment: string;
 };
 
@@ -10,9 +14,17 @@ type GraphemeSegmenter = {
 
 /** 仅含可选 Segmenter 的 Intl 扩展声明。 */
 type IntlWithSegmenter = typeof Intl & {
+/**
+ * Segmenter：对象字段。
+ */
+
   Segmenter?: new (
     locales?: string | string[],
-    options?: { granularity: 'grapheme' },
+    options?: {    
+    /**
+ * granularity：对象字段。
+ */
+ granularity: 'grapheme' },
   ) => GraphemeSegmenter;
 };
 
@@ -25,6 +37,8 @@ const graphemeSegmenter = typeof intlWithSegmenter.Segmenter === 'function'
 
 /** splitGraphemes：处理split Graphemes。 */
 export function splitGraphemes(value: string): string[] {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
   if (!value) {
     return [];
   }

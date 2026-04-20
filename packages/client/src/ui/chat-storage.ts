@@ -8,7 +8,15 @@ import {
 
 /** ChatMessageRecord：聊天持久化记录。 */
 type ChatMessageRecord = ChatStoredMessage & {
-  scopeId: string;
+/**
+ * scopeId：对象字段。
+ */
+
+  scopeId: string;  
+  /**
+ * channel：对象字段。
+ */
+
   channel: ChatChannel;
 };
 
@@ -31,6 +39,8 @@ let indexedDbUnavailableWarned = false;
 
 /** warnIndexedDbUnavailable：处理警告Indexed Db Unavailable。 */
 function warnIndexedDbUnavailable(error: unknown): void {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
   if (indexedDbUnavailableWarned) {
     return;
   }
@@ -58,6 +68,8 @@ function withTransactionComplete(transaction: IDBTransaction): Promise<void> {
 
 /** openDatabase：打开数据库。 */
 async function openDatabase(): Promise<IDBDatabase | null> {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
   if (typeof window === 'undefined' || !('indexedDB' in window)) {
     return null;
   }
@@ -129,6 +141,8 @@ async function readMessagesByRange(
   limit: number,
   range: IDBKeyRange,
 ): Promise<ChatStoredMessage[]> {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
   const database = await openDatabase();
   if (!database) {
     return [];
@@ -162,6 +176,8 @@ async function readMessagesByRange(
 
 /** pruneChannel：处理prune Channel。 */
 async function pruneChannel(scopeId: string, channel: ChatChannel): Promise<void> {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
   const database = await openDatabase();
   if (!database) {
     return;
@@ -242,6 +258,8 @@ export async function appendChannelMessages(
   entry: ChatStoredMessage,
   channels: ChatChannel[],
 ): Promise<boolean> {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
   const database = await openDatabase();
   if (!database || channels.length === 0) {
     return false;

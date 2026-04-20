@@ -17,9 +17,25 @@ type BodyTrainingPlayerSnapshot = Pick<PlayerState, 'bodyTraining' | 'foundation
 
 /** BodyTrainingInfusionPlan：炼体灌注的预览方案。 */
 type BodyTrainingInfusionPlan = {
-  levelGain: number;
-  expNeeded: number;
-  foundationCost: number;
+/**
+ * levelGain：对象字段。
+ */
+
+  levelGain: number;  
+  /**
+ * expNeeded：对象字段。
+ */
+
+  expNeeded: number;  
+  /**
+ * foundationCost：对象字段。
+ */
+
+  foundationCost: number;  
+  /**
+ * previewState：对象字段。
+ */
+
   previewState: BodyTrainingState;
 };
 
@@ -38,6 +54,8 @@ function escapeHtml(value: string): string {
 
 /** getProgressRatio：读取进度Ratio。 */
 function getProgressRatio(state: BodyTrainingState): number {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
   if (state.expToNext <= 0) {
     return 1;
   }
@@ -46,6 +64,8 @@ function getProgressRatio(state: BodyTrainingState): number {
 
 /** formatBonusSummary：格式化Bonus摘要。 */
 function formatBonusSummary(state: BodyTrainingState): string {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
   const attrs = calcBodyTrainingAttrBonus(state.level);
   if (state.level <= 0) {
     return '四维暂未提升';
@@ -62,6 +82,8 @@ function normalizeFoundation(value: number | null | undefined): number {
 
 /** applyFoundationInfusion：应用Foundation Infusion。 */
 function applyFoundationInfusion(state: BodyTrainingState, foundationSpent: number): BodyTrainingState {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
   if (foundationSpent <= 0) {
     return state;
   }
@@ -74,6 +96,8 @@ function applyFoundationInfusion(state: BodyTrainingState, foundationSpent: numb
 
 /** getExpNeededForLevelGain：读取Exp Needed For等级Gain。 */
 function getExpNeededForLevelGain(state: BodyTrainingState, levelGain: number): number {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
   const normalizedGain = Math.max(0, Math.floor(levelGain));
   if (normalizedGain <= 0) {
     return 0;
@@ -95,6 +119,8 @@ function getExpNeededForLevelGain(state: BodyTrainingState, levelGain: number): 
 
 /** getMaxAffordableLevelGain：读取最大Affordable等级Gain。 */
 function getMaxAffordableLevelGain(state: BodyTrainingState, foundation: number): number {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
   const normalizedFoundation = normalizeFoundation(foundation);
   if (normalizedFoundation <= 0) {
     return 0;
@@ -191,9 +217,17 @@ export class BodyTrainingPanel {
   /** detailNode：详情节点。 */
   private detailNode: HTMLElement | null = null;
   /** buttonNode：按钮节点。 */
-  private buttonNode: HTMLButtonElement | null = null;
+  private buttonNode: HTMLButtonElement | null = null;  
+  /**
+ * setInfusionHandler：更新/写入相关状态。
+ * @param handler ((foundationSpent: number) => void) | null 参数说明。
+ * @returns void。
+ */
+
 
   setInfusionHandler(handler: ((foundationSpent: number) => void) | null): void {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
     this.onInfuse = handler;
     if (!this.onInfuse) {
       this.closeInfusionModal();
@@ -259,6 +293,8 @@ export class BodyTrainingPanel {
 
   /** bindEvents：绑定事件。 */
   private bindEvents(): void {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
     if (this.eventsBound) {
       return;
     }
@@ -276,6 +312,8 @@ export class BodyTrainingPanel {
 
   /** ensureStructure：确保Structure。 */
   private ensureStructure(): void {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
     if (this.levelNode
       && this.progressNode
       && this.fillNode
@@ -388,6 +426,8 @@ export class BodyTrainingPanel {
 
   /** patch：处理patch。 */
   private patch(state: BodyTrainingState, foundation: number): boolean {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
     const levelNode = this.levelNode;
     const progressNode = this.progressNode;
     const fillNode = this.fillNode;
@@ -433,6 +473,8 @@ export class BodyTrainingPanel {
 
   /** openInfusionModal：打开Infusion弹窗。 */
   private openInfusionModal(): void {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
     if (this.isInfusionButtonDisabled()) {
       return;
     }
@@ -444,6 +486,8 @@ export class BodyTrainingPanel {
 
   /** closeInfusionModal：关闭Infusion弹窗。 */
   private closeInfusionModal(): void {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
     if (!this.infusionModalOpen && !detailModalHost.isOpenFor(BodyTrainingPanel.MODAL_OWNER)) {
       return;
     }
@@ -453,6 +497,8 @@ export class BodyTrainingPanel {
 
   /** refreshInfusionModal：处理refresh Infusion弹窗。 */
   private refreshInfusionModal(): void {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
     if (!this.infusionModalOpen) {
       return;
     }
@@ -470,6 +516,8 @@ export class BodyTrainingPanel {
 
   /** renderInfusionModal：渲染Infusion弹窗。 */
   private renderInfusionModal(): void {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
     const maxLevelGain = this.getMaxLevelGain();
     if (!this.infusionModalOpen || this.baseFoundation <= 0 || !this.onInfuse) {
       this.closeInfusionModal();
@@ -503,6 +551,8 @@ export class BodyTrainingPanel {
 
   /** patchInfusionModalBody：局部刷新 Infusion 弹层。 */
   private patchInfusionModalBody(body: HTMLElement, plan: BodyTrainingInfusionPlan, maxLevelGain: number): boolean {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
     const root = body.querySelector<HTMLElement>('.body-training-infuse-modal');
     if (!root) {
       return false;
@@ -613,6 +663,8 @@ export class BodyTrainingPanel {
 
   /** bindInfusionModalEvents：绑定Infusion弹窗事件。 */
   private bindInfusionModalEvents(body: HTMLElement): void {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
     if (body.dataset.bodyInfuseBound === 'true') {
       return;
     }
@@ -664,6 +716,8 @@ export class BodyTrainingPanel {
 
   /** clampLevelGain：处理clamp等级Gain。 */
   private clampLevelGain(levelGain: number): number {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
     const maxLevelGain = this.getMaxLevelGain();
     if (maxLevelGain <= 0) {
       return 1;
@@ -678,6 +732,8 @@ export class BodyTrainingPanel {
 
   /** getInfusionButtonLabel：读取Infusion按钮标签。 */
   private getInfusionButtonLabel(): string {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
     if (!this.onInfuse) {
       return '暂不可用';
     }
@@ -689,6 +745,8 @@ export class BodyTrainingPanel {
 
   /** getInfusionPreviewHeadline：读取Infusion Preview Headline。 */
   private getInfusionPreviewHeadline(): string {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
     const maxLevelGain = this.getMaxLevelGain();
     if (maxLevelGain <= 0) {
       return '可先灌注底蕴积累经验';
@@ -698,6 +756,8 @@ export class BodyTrainingPanel {
 
   /** getInfusionPreviewDetail：读取Infusion Preview详情。 */
   private getInfusionPreviewDetail(): string {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
     if (this.baseFoundation <= 0) {
       return '当前没有可用于灌注的底蕴。';
     }
@@ -709,6 +769,8 @@ export class BodyTrainingPanel {
 
   /** getFoundationNote：读取Foundation Note。 */
   private getFoundationNote(): string {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
     const maxLevelGain = this.getMaxLevelGain();
     if (this.baseFoundation <= 0) {
       return '当前没有可用于灌注的底蕴。';
@@ -721,6 +783,8 @@ export class BodyTrainingPanel {
 
   /** getSelectedPlan：读取Selected规划。 */
   private getSelectedPlan(): BodyTrainingInfusionPlan {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
     if (this.selectedInfusionMode === 'all') {
       return buildAllInfusionPlan(this.baseState, this.baseFoundation);
     }
@@ -730,6 +794,8 @@ export class BodyTrainingPanel {
 
 /** setTextContent：设置文本内容。 */
 function setTextContent(root: ParentNode, selector: string, value: string): void {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
   const element = root.querySelector<HTMLElement>(selector);
   if (element) {
     element.textContent = value;
@@ -738,6 +804,8 @@ function setTextContent(root: ParentNode, selector: string, value: string): void
 
 /** patchInfusionAdjustButton：更新灌注调整按钮。 */
 function patchInfusionAdjustButton(root: ParentNode, delta: string, active: boolean, disabled: boolean): void {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
   const button = root.querySelector<HTMLButtonElement>(`[data-body-infuse-adjust="${delta}"]`);
   if (!button) {
     return;

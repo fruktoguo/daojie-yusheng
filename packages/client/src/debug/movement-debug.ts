@@ -5,11 +5,17 @@ const MOVEMENT_DEBUG_QUERY_KEY = 'debugMovement';
 
 /** NextMovementDebugWindow：挂载 next 移动调试开关的 window 扩展。 */
 type NextMovementDebugWindow = Window & {
+/**
+ * __NEXT_DEBUG_MOVEMENT__：对象字段。
+ */
+
   __NEXT_DEBUG_MOVEMENT__?: unknown;
 };
 
 /** normalizeDebugFlag：规范化调试Flag。 */
 function normalizeDebugFlag(value: unknown): boolean {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
   if (value === true || value === 1) {
     return true;
   }
@@ -22,6 +28,8 @@ function normalizeDebugFlag(value: unknown): boolean {
 
 /** isNextMovementDebugEnabled：判断是否新版移动调试启用。 */
 export function isNextMovementDebugEnabled(): boolean {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
   if (typeof window === 'undefined') {
     return false;
   }
@@ -49,6 +57,8 @@ export function isNextMovementDebugEnabled(): boolean {
 
 /** logNextMovement：处理日志新版移动。 */
 export function logNextMovement(scope: string, payload?: unknown): void {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
   if (!isNextMovementDebugEnabled()) {
     return;
   }

@@ -1,54 +1,160 @@
 import { Inject, Injectable } from '@nestjs/common';
 import { ContentTemplateRepository } from '../../content/content-template.repository';
 import { PlayerProgressionService } from '../../runtime/player/player-progression.service';
+/**
+ * LooseRecord：统一结构类型，保证协议与运行时一致性。
+ */
+
 
 type LooseRecord = Record<string, unknown>;
+/**
+ * EditorEffect：定义接口结构约束，明确可交付字段含义。
+ */
+
 
 interface EditorEffect extends LooseRecord {
-  type?: unknown;
-  target?: unknown;
-  category?: unknown;
-  effectId?: unknown;
+/**
+ * type：EditorEffect 内部字段。
+ */
+
+  type?: unknown;  
+  /**
+ * target：EditorEffect 内部字段。
+ */
+
+  target?: unknown;  
+  /**
+ * category：EditorEffect 内部字段。
+ */
+
+  category?: unknown;  
+  /**
+ * effectId：EditorEffect 内部字段。
+ */
+
+  effectId?: unknown;  
+  /**
+ * buff：EditorEffect 内部字段。
+ */
+
   buff?: LooseRecord | null;
 }
+/**
+ * EditorSkill：定义接口结构约束，明确可交付字段含义。
+ */
+
 
 interface EditorSkill {
-  id: string;
-  name: string;
+/**
+ * id：EditorSkill 内部字段。
+ */
+
+  id: string;  
+  /**
+ * name：EditorSkill 内部字段。
+ */
+
+  name: string;  
+  /**
+ * effects：EditorSkill 内部字段。
+ */
+
   effects?: EditorEffect[];
 }
+/**
+ * EditorTechniqueTemplate：定义接口结构约束，明确可交付字段含义。
+ */
+
 
 interface EditorTechniqueTemplate {
-  skills?: EditorSkill[];
+/**
+ * skills：EditorTechniqueTemplate 内部字段。
+ */
+
+  skills?: EditorSkill[];  
+  /**
+ * realmLv：EditorTechniqueTemplate 内部字段。
+ */
+
   realmLv?: unknown;
 }
+/**
+ * EditorItemTemplate：定义接口结构约束，明确可交付字段含义。
+ */
+
 
 interface EditorItemTemplate {
-  itemId: string;
-  name: string;
-  consumeBuffs?: LooseRecord[];
+/**
+ * itemId：EditorItemTemplate 内部字段。
+ */
+
+  itemId: string;  
+  /**
+ * name：EditorItemTemplate 内部字段。
+ */
+
+  name: string;  
+  /**
+ * consumeBuffs：EditorItemTemplate 内部字段。
+ */
+
+  consumeBuffs?: LooseRecord[];  
+  /**
+ * effects：EditorItemTemplate 内部字段。
+ */
+
   effects?: EditorEffect[];
 }
+/**
+ * ContentTemplateRepositoryLike：定义接口结构约束，明确可交付字段含义。
+ */
+
 
 interface ContentTemplateRepositoryLike {
   listItemTemplates(): EditorItemTemplate[];
   listTechniqueTemplates(): EditorTechniqueTemplate[];
 }
+/**
+ * PlayerProgressionServiceLike：定义接口结构约束，明确可交付字段含义。
+ */
+
 
 interface PlayerProgressionServiceLike {
   listRealmLevels(): unknown;
 }
+/**
+ * isRecord：执行状态校验并返回判断结果。
+ * @param value unknown 参数说明。
+ * @returns value is LooseRecord。
+ */
+
 
 function isRecord(value: unknown): value is LooseRecord {
   return typeof value === 'object' && value !== null;
 }
+/**
+ * NextGmEditorQueryService：封装该能力的入口与生命周期，承载运行时核心协作。
+ */
+
 
 @Injectable()
 export class NextGmEditorQueryService {
+/**
+ * 构造器：初始化 当前 实例并建立基础状态。
+ * @param contentTemplateRepository ContentTemplateRepositoryLike 参数说明。
+ * @param playerProgressionService PlayerProgressionServiceLike 参数说明。
+ * @returns 无返回值（构造函数）。
+ */
+
   constructor(
     @Inject(ContentTemplateRepository) private readonly contentTemplateRepository: ContentTemplateRepositoryLike,
     @Inject(PlayerProgressionService) private readonly playerProgressionService: PlayerProgressionServiceLike,
-  ) {}
+  ) {}  
+  /**
+ * getEditorCatalog：按给定条件读取/查询数据。
+ * @returns 函数返回值。
+ */
+
 
   getEditorCatalog() {
     return {
@@ -57,9 +163,16 @@ export class NextGmEditorQueryService {
       realmLevels: this.playerProgressionService.listRealmLevels(),
       buffs: this.buildEditorBuffCatalog(),
     };
-  }
+  }  
+  /**
+ * buildEditorBuffCatalog：构建并返回目标对象。
+ * @returns 函数返回值。
+ */
+
 
   private buildEditorBuffCatalog() {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
     const catalog = new Map<string, LooseRecord>();
     const register = (input: LooseRecord | null | undefined) => {
       const buffId = typeof input?.buffId === 'string' ? input.buffId.trim() : '';

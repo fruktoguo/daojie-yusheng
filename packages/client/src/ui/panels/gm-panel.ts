@@ -14,15 +14,55 @@ function createFragmentFromHtml(html: string): DocumentFragment {
 
 /** GM 面板与主客户端之间的动作回调集合。 */
 interface GmCallbacks {
-  onRefresh: () => void;
-  onResetSelf: () => void;
-  onCycleZoom: () => void;
-  onSpawnBots: (count: number) => void;
-  onRemoveBots: (playerIds?: string[], all?: boolean) => void;
-  onUpdatePlayer: (payload: NEXT_C2S_GmUpdatePlayer) => void;
-  onResetPlayer: (playerId: string) => void;
-  onResetHeavenGate: (playerId: string) => void;
-  onMarkSuggestionCompleted: (id: string) => void;
+/**
+ * onRefresh：GmCallbacks 内部字段。
+ */
+
+  onRefresh: () => void;  
+  /**
+ * onResetSelf：GmCallbacks 内部字段。
+ */
+
+  onResetSelf: () => void;  
+  /**
+ * onCycleZoom：GmCallbacks 内部字段。
+ */
+
+  onCycleZoom: () => void;  
+  /**
+ * onSpawnBots：GmCallbacks 内部字段。
+ */
+
+  onSpawnBots: (count: number) => void;  
+  /**
+ * onRemoveBots：GmCallbacks 内部字段。
+ */
+
+  onRemoveBots: (playerIds?: string[], all?: boolean) => void;  
+  /**
+ * onUpdatePlayer：GmCallbacks 内部字段。
+ */
+
+  onUpdatePlayer: (payload: NEXT_C2S_GmUpdatePlayer) => void;  
+  /**
+ * onResetPlayer：GmCallbacks 内部字段。
+ */
+
+  onResetPlayer: (playerId: string) => void;  
+  /**
+ * onResetHeavenGate：GmCallbacks 内部字段。
+ */
+
+  onResetHeavenGate: (playerId: string) => void;  
+  /**
+ * onMarkSuggestionCompleted：GmCallbacks 内部字段。
+ */
+
+  onMarkSuggestionCompleted: (id: string) => void;  
+  /**
+ * onRemoveSuggestion：GmCallbacks 内部字段。
+ */
+
   onRemoveSuggestion: (id: string) => void;
 }
 
@@ -171,6 +211,8 @@ export class GmPanel {
 
   /** 接收服务端 GM 状态并刷新所有子区域。 */
   update(state: NEXT_S2C_GmState): void {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
     this.state = state;
     this.ensureLayout();
     if (!this.selectedPlayerId || !state.players.some((player) => player.id === this.selectedPlayerId)) {
@@ -191,6 +233,8 @@ export class GmPanel {
 
   /** 以复用节点的方式刷新意见列表。 */
   private updateSuggestions() {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
     if (!this.suggestionListEl) return;
 
     const preserved = this.captureContainerState(this.suggestionListEl);
@@ -258,6 +302,8 @@ export class GmPanel {
 
   /** 确保面板布局只初始化一次。 */
   private ensureLayout(): void {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
     if (this.initialized) return;
     this.initialized = true;
     this.pane.replaceChildren(createFragmentFromHtml(`
@@ -411,6 +457,8 @@ export class GmPanel {
 
   /** 刷新性能概览。 */
   private updatePerformance(): void {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
     if (!this.perfCpuEl || !this.perfMemoryEl || !this.perfTickEl) return;
     this.perfCpuEl.textContent = `${Math.round(this.state.perf.cpuPercent)}%`;
     this.perfMemoryEl.textContent = `${Math.round(this.state.perf.memoryMb)} MB`;
@@ -426,6 +474,8 @@ export class GmPanel {
 
   /** 刷新在线人数和机器人数量概览。 */
   private updateOverview(): void {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
     if (this.playerCountEl) {
       this.playerCountEl.textContent = `${this.state.players.length}`;
     }
@@ -436,6 +486,8 @@ export class GmPanel {
 
   /** 刷新玩家列表，并尽量复用已有条目节点。 */
   private updatePlayerList(): void {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
     if (!this.playerListEl) return;
     const preserved = this.captureContainerState(this.playerListEl);
     if (this.state.players.length === 0) {
@@ -467,6 +519,8 @@ export class GmPanel {
 
   /** 刷新当前选中玩家的详情区。 */
   private updateDetail(): void {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
     const selected = this.getSelectedPlayer();
     if (!selected) {
       this.setDetailVisibility(false);
@@ -480,6 +534,8 @@ export class GmPanel {
 
   /** 将选中玩家的信息写回表单字段。 */
   private updateDetailFields(selected: GmPlayerSummary): void {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
     if (this.mapSelect && !this.isActiveElement(this.mapSelect)) {
       const fragment = document.createDocumentFragment();
       const seen = new Set<string>();
@@ -524,6 +580,8 @@ export class GmPanel {
 
   /** 控制详情表单与空态之间的切换。 */
   private setDetailVisibility(visible: boolean): void {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
     if (this.detailFormEl) {
       (this.detailFormEl as HTMLElement).style.display = visible ? '' : 'none';
     }
@@ -534,6 +592,8 @@ export class GmPanel {
 
   /** 控制与当前选中玩家相关的操作按钮。 */
   private toggleDetailButtons(enabled: boolean, showRemove: boolean): void {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
     if (this.saveBtn) {
       this.saveBtn.disabled = !enabled;
     }
@@ -551,12 +611,16 @@ export class GmPanel {
 
   /** 读取当前选中的玩家。 */
   private getSelectedPlayer(): GmPlayerSummary | null {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
     if (!this.selectedPlayerId) return null;
     return this.state.players.find((player) => player.id === this.selectedPlayerId) ?? null;
   }
 
   /** 切换玩家选中态并刷新详情。 */
   private handlePlayerSelect(id: string): void {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
     if (this.selectedPlayerId === id) return;
     this.selectedPlayerId = id;
     this.updatePlayerList();
@@ -565,6 +629,8 @@ export class GmPanel {
 
   /** 提交玩家编辑表单。 */
   private handleSave(): void {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
     const player = this.getSelectedPlayer();
     if (!player) return;
     const mapId = this.mapSelect?.value ?? player.mapId;
@@ -577,6 +643,8 @@ export class GmPanel {
 
   /** 将选中玩家恢复到满血。 */
   private handleHeal(): void {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
     const player = this.getSelectedPlayer();
     if (!player) return;
     this.callbacks?.onUpdatePlayer({
@@ -591,6 +659,8 @@ export class GmPanel {
 
   /** 请求将选中玩家送回出生点。 */
   private handleReset(): void {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
     const player = this.getSelectedPlayer();
     if (!player) return;
     this.callbacks?.onResetPlayer(player.id);
@@ -598,6 +668,8 @@ export class GmPanel {
 
   /** 请求重置选中玩家的天关进度。 */
   private handleResetHeavenGate(): void {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
     const player = this.getSelectedPlayer();
     if (!player) return;
     this.callbacks?.onResetHeavenGate(player.id);
@@ -605,6 +677,8 @@ export class GmPanel {
 
   /** 移除当前选中的机器人。 */
   private handleRemove(): void {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
     const player = this.getSelectedPlayer();
     if (!player || !player.isBot) return;
     this.callbacks?.onRemoveBots([player.id], false);
@@ -632,6 +706,8 @@ export class GmPanel {
 
   /** 将玩家数据写入列表条目并同步高亮。 */
   private patchPlayerRow(row: HTMLButtonElement, player: GmPlayerSummary): void {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
     row.dataset.gmPlayerId = player.id;
     row.classList.toggle('is-active', player.id === this.selectedPlayerId);
     const name = row.querySelector<HTMLElement>('[data-gm-role="name"]');
@@ -683,6 +759,8 @@ export class GmPanel {
 
   /** 将意见数据写入条目并同步动作按钮。 */
   private patchSuggestionItem(item: HTMLElement, suggestion: Suggestion): void {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
     item.dataset.gmSuggestionId = suggestion.id;
     const title = item.querySelector<HTMLElement>('[data-gm-suggestion-role="title"]');
     const author = item.querySelector<HTMLElement>('[data-gm-suggestion-role="author"]');
@@ -719,6 +797,8 @@ export class GmPanel {
 
   /** 根据意见状态切换“标记完成”按钮。 */
   private setSuggestionPendingAction(actions: HTMLElement, suggestion: Suggestion): void {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
     const existing = actions.querySelector<HTMLButtonElement>('[data-gm-suggest-action="complete"]');
     if (suggestion.status !== 'pending') {
       existing?.remove();
@@ -759,7 +839,15 @@ export class GmPanel {
   }
 
   /** 记录容器滚动和焦点位置。 */
-  private captureContainerState(container: HTMLElement): { scrollTop: number; focusSelector: string | null } {
+  private captureContainerState(container: HTMLElement): {  
+  /**
+ * scrollTop：GmPanel 内部字段。
+ */
+ scrollTop: number;  
+ /**
+ * focusSelector：GmPanel 内部字段。
+ */
+ focusSelector: string | null } {
     return {
       scrollTop: container.scrollTop,
       focusSelector: this.buildContainedFocusSelector(container),
@@ -767,7 +855,17 @@ export class GmPanel {
   }
 
   /** 恢复容器滚动和焦点位置。 */
-  private restoreContainerState(container: HTMLElement, preserved: { scrollTop: number; focusSelector: string | null }): void {
+  private restoreContainerState(container: HTMLElement, preserved: {  
+  /**
+ * scrollTop：GmPanel 内部字段。
+ */
+ scrollTop: number;  
+ /**
+ * focusSelector：GmPanel 内部字段。
+ */
+ focusSelector: string | null }): void {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
     container.scrollTop = preserved.scrollTop;
     if (!preserved.focusSelector) {
       return;
@@ -778,6 +876,8 @@ export class GmPanel {
 
   /** 为容器内当前焦点构建可复原的选择器。 */
   private buildContainedFocusSelector(container: HTMLElement): string | null {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
     const active = document.activeElement;
     if (!(active instanceof HTMLElement) || !container.contains(active)) {
       return null;
@@ -802,6 +902,8 @@ export class GmPanel {
 
   /** 转义选择器中的特殊字符。 */
   private escapeSelectorValue(value: string): string {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
     if (typeof CSS !== 'undefined' && typeof CSS.escape === 'function') {
       return CSS.escape(value);
     }

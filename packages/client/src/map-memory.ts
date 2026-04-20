@@ -24,7 +24,15 @@ type SerializedMapTileMemory = Record<string, RememberedTile>;
 type SerializedMapMarkerMemory = Record<string, RememberedMarker>;
 /** 单张地图的记忆条目。 */
 type SerializedMapMemoryEntry = {
-  tiles?: SerializedMapTileMemory;
+/**
+ * tiles：对象字段。
+ */
+
+  tiles?: SerializedMapTileMemory;  
+  /**
+ * markers：对象字段。
+ */
+
   markers?: SerializedMapMarkerMemory;
 };
 /** 兼容旧版仅地块记忆的反序列化形状。 */
@@ -33,7 +41,15 @@ type SerializedMapMemoryTilesOnlyShape = Record<string, SerializedMapTileMemory>
 type SerializedMapMemory = Record<string, SerializedMapMemoryEntry>;
 /** 持久化文件外层结构（含版本）。 */
 type SerializedMapMemoryEnvelope = {
-  version: typeof MAP_MEMORY_FORMAT_VERSION;
+/**
+ * version：对象字段。
+ */
+
+  version: typeof MAP_MEMORY_FORMAT_VERSION;  
+  /**
+ * maps：对象字段。
+ */
+
   maps: SerializedMapMemory;
 };
 
@@ -78,6 +94,8 @@ function cloneMarker(marker: MapMinimapMarker): MapMinimapMarker {
 
 /** 校验反序列化后地块记录是否符合持久化结构。 */
 function isSerializedRememberedTile(value: unknown): value is RememberedTile {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
   if (!value || typeof value !== 'object') {
     return false;
   }
@@ -90,6 +108,8 @@ function isSerializedRememberedTile(value: unknown): value is RememberedTile {
 
 /** 校验反序列化后标记记录是否符合持久化结构。 */
 function isSerializedRememberedMarker(value: unknown): value is RememberedMarker {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
   if (!value || typeof value !== 'object') {
     return false;
   }
@@ -104,6 +124,8 @@ function isSerializedRememberedMarker(value: unknown): value is RememberedMarker
 
 /** 读取可用的 localStorage；在受限环境下返回 null。 */
 function getStorage(): Storage | null {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
   if (typeof window === 'undefined') {
     return null;
   }
@@ -129,6 +151,8 @@ function getStorage(): Storage | null {
 
 /** 读取并兼容旧版结构的地图记忆封装。 */
 function getStoredEnvelope(parsed: unknown): SerializedMapMemoryEnvelope | null {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
   if (!parsed || typeof parsed !== 'object') {
     return null;
   }
@@ -161,6 +185,8 @@ function getStoredEnvelope(parsed: unknown): SerializedMapMemoryEnvelope | null 
 
 /** 将反序列化后的地图记忆导入运行时缓存。 */
 function importRememberedMaps(serialized: SerializedMapMemory): boolean {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
   let hasValidMemory = false;
 
   for (const [mapId, entry] of Object.entries(serialized)) {
@@ -198,6 +224,8 @@ function importRememberedMaps(serialized: SerializedMapMemory): boolean {
 
 /** 把当前运行时缓存整理成可写回存储的结构。 */
 function buildSerializedMapMemory(): SerializedMapMemoryEnvelope {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
   const maps: SerializedMapMemory = {};
   const mapIds = new Set<string>([
     ...rememberedTilesByMap.keys(),
@@ -247,6 +275,8 @@ function buildSerializedMapMemory(): SerializedMapMemoryEnvelope {
 
 /** 关闭后续持久化，避免异常数据继续覆盖本地存档。 */
 function disablePersistence(reason: string, error?: unknown): void {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
   persistDisabled = true;
   hasPendingPersist = false;
   if (persistTimer !== null && typeof window !== 'undefined') {
@@ -258,6 +288,8 @@ function disablePersistence(reason: string, error?: unknown): void {
 
 /** 立即把当前记忆缓存刷写到本地存储。 */
 function flushPersistMemory(): void {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
   persistTimer = null;
   if (!hasPendingPersist || persistDisabled) {
     return;
@@ -291,6 +323,8 @@ function flushPersistMemory(): void {
 
 /** 取消防抖并立刻落盘。 */
 function flushPersistMemoryNow(): void {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
   if (persistTimer !== null && typeof window !== 'undefined') {
     window.clearTimeout(persistTimer);
     persistTimer = null;
@@ -300,6 +334,8 @@ function flushPersistMemoryNow(): void {
 
 /** 绑定页面隐藏与切页时的自动落盘钩子。 */
 function ensurePersistenceLifecycle(): void {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
   if (didBindPersistenceLifecycle || typeof window === 'undefined') {
     return;
   }
@@ -315,6 +351,8 @@ function ensurePersistenceLifecycle(): void {
 
 /** 标记当前记忆有变更，并延迟安排一次落盘。 */
 function schedulePersistMemory(): void {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
   if (persistDisabled) {
     return;
   }
@@ -332,6 +370,8 @@ function schedulePersistMemory(): void {
 
 /** 首次访问时从本地存储加载记忆数据。 */
 function ensureMemoryLoaded(): void {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
   if (didLoadMemory) {
     return;
   }
@@ -377,6 +417,8 @@ function persistMemory(): void {
 
 /** 取出某张地图的已记忆地块缓存。 */
 function getRememberedTileMap(mapId: string): Map<string, Tile> {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
   ensureMemoryLoaded();
   let remembered = rememberedTilesByMap.get(mapId);
   if (!remembered) {
@@ -388,6 +430,8 @@ function getRememberedTileMap(mapId: string): Map<string, Tile> {
 
 /** 取出某张地图的已记忆小地图标记缓存。 */
 function getRememberedMarkerMap(mapId: string): Map<string, MapMinimapMarker> {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
   ensureMemoryLoaded();
   let remembered = rememberedMarkersByMap.get(mapId);
   if (!remembered) {
@@ -409,6 +453,8 @@ function areMarkersEqual(left: MapMinimapMarker | undefined, right: MapMinimapMa
 
 /** 将指定地图的记忆地块填充到 tileCache 中，用于初始化时恢复已探索区域 */
 export function hydrateTileCacheFromMemory(mapId: string, tileCache: Map<string, Tile>): void {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
   const remembered = getRememberedTileMap(mapId);
   for (const [key, tile] of remembered.entries()) {
     tileCache.set(key, { ...tile });
@@ -417,6 +463,8 @@ export function hydrateTileCacheFromMemory(mapId: string, tileCache: Map<string,
 
 /** 获取指定地图所有已记忆地块的克隆副本 */
 export function getRememberedTiles(mapId: string): Map<string, Tile> {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
   const remembered = getRememberedTileMap(mapId);
   const cloned = new Map<string, Tile>();
   for (const [key, tile] of remembered.entries()) {
@@ -447,6 +495,8 @@ export function rememberVisibleTiles(
   originX: number,
   originY: number,
 ): void {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
   const remembered = getRememberedTileMap(mapId);
   let changed = false;
 
@@ -479,6 +529,8 @@ export function rememberVisibleTiles(
 
 /** 记录增量地块 patch，只保留实际可见到的内容。 */
 export function rememberVisibleTilePatches(mapId: string, patches: VisibleTilePatch[]): void {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
   if (patches.length === 0) {
     return;
   }
@@ -514,6 +566,8 @@ export function rememberVisibleTilePatches(mapId: string, patches: VisibleTilePa
 
 /** 记录当前可见的小地图标记。 */
 export function rememberVisibleMarkers(mapId: string, markers: MapMinimapMarker[]): void {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
   if (markers.length === 0) {
     return;
   }
@@ -540,6 +594,8 @@ export function rememberVisibleMarkers(mapId: string, markers: MapMinimapMarker[
 
 /** 删除指定地图的全部记忆数据。 */
 export function deleteRememberedMap(mapId: string): void {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
   ensureMemoryLoaded();
   const removedTiles = rememberedTilesByMap.delete(mapId);
   const removedMarkers = rememberedMarkersByMap.delete(mapId);

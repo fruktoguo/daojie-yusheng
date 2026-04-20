@@ -20,6 +20,8 @@ import {
 
 /** 将功法增量条目转换为 wire 结构。 */
 export function toWireTechniqueEntry(entry: TechniqueUpdateEntry): Record<string, unknown> {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
   const wire: Record<string, unknown> = {
     techId: entry.techId,
   };
@@ -51,6 +53,8 @@ export function toWireTechniqueEntry(entry: TechniqueUpdateEntry): Record<string
 
 /** 从 wire 结构还原功法增量条目。 */
 export function fromWireTechniqueEntry(wire: Record<string, unknown>): TechniqueUpdateEntry {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
   const patch: TechniqueUpdateEntry = {
     techId: String(wire.techId ?? ''),
   };
@@ -85,6 +89,8 @@ export function fromWireTechniqueEntry(wire: Record<string, unknown>): Technique
 
 /** 将行动增量条目转换为 wire 结构。 */
 export function toWireActionEntry(entry: ActionUpdateEntry): Record<string, unknown> {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
   const wire: Record<string, unknown> = {
     id: entry.id,
   };
@@ -105,6 +111,8 @@ export function toWireActionEntry(entry: ActionUpdateEntry): Record<string, unkn
 
 /** 从 wire 结构还原行动增量条目。 */
 export function fromWireActionEntry(wire: Record<string, unknown>): ActionUpdateEntry {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
   const patch: ActionUpdateEntry = {
     id: String(wire.id ?? ''),
   };
@@ -132,6 +140,8 @@ export function fromWireActionEntry(wire: Record<string, unknown>): ActionUpdate
 
 /** 将功法更新包转换为 wire 结构。 */
 export function toWireTechniqueUpdate(payload: NEXT_S2C_TechniqueUpdate): Record<string, unknown> {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
   const wire: Record<string, unknown> = {
     techniques: payload.techniques.map(toWireTechniqueEntry),
   };
@@ -153,6 +163,8 @@ export function toWireTechniqueUpdate(payload: NEXT_S2C_TechniqueUpdate): Record
 
 /** 从 wire 结构还原功法更新包。 */
 export function fromWireTechniqueUpdate(wire: Record<string, unknown>): NEXT_S2C_TechniqueUpdate {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
   const payload: NEXT_S2C_TechniqueUpdate = {
     techniques: Array.isArray(wire.techniques)
       ? wire.techniques.map((entry) => fromWireTechniqueEntry(entry as Record<string, unknown>))
@@ -178,6 +190,8 @@ export function fromWireTechniqueUpdate(wire: Record<string, unknown>): NEXT_S2C
 
 /** 将行动更新包转换为 wire 结构。 */
 export function toWireActionsUpdate(payload: NEXT_S2C_ActionsUpdate): Record<string, unknown> {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
   const wire: Record<string, unknown> = {
     actions: payload.actions.map(toWireActionEntry),
   };
@@ -196,6 +210,8 @@ export function toWireActionsUpdate(payload: NEXT_S2C_ActionsUpdate): Record<str
 
 /** 从 wire 结构还原行动更新包。 */
 export function fromWireActionsUpdate(wire: Record<string, unknown>): NEXT_S2C_ActionsUpdate {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
   const payload: NEXT_S2C_ActionsUpdate = {
     actions: Array.isArray(wire.actions)
       ? wire.actions.map((entry) => fromWireActionEntry(entry as Record<string, unknown>))
@@ -224,6 +240,8 @@ export function fromWireActionsUpdate(wire: Record<string, unknown>): NEXT_S2C_A
 
 /** 将属性更新包转换为 wire 结构。 */
 export function toWireAttrUpdate(payload: NEXT_S2C_AttrUpdate): Record<string, unknown> {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
   const wire: Record<string, unknown> = {};
   if (payload.baseAttrs) wire.baseAttrs = toWireAttributes(payload.baseAttrs);
   if (payload.bonuses !== undefined) wire.bonusesJson = JSON.stringify(payload.bonuses);
@@ -248,6 +266,8 @@ export function toWireAttrUpdate(payload: NEXT_S2C_AttrUpdate): Record<string, u
 
 /** 从 wire 结构还原属性更新包。 */
 export function fromWireAttrUpdate(wire: Record<string, unknown>): NEXT_S2C_AttrUpdate {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
   const payload: NEXT_S2C_AttrUpdate = {};
   if (hasOwn(wire, 'baseAttrs')) payload.baseAttrs = fromWireAttributes(wire.baseAttrs as Record<string, unknown>);
   if (typeof wire.bonusesJson === 'string') payload.bonuses = parseJson<AttrBonus[]>(wire.bonusesJson);

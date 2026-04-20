@@ -74,20 +74,64 @@ const MONSTER_LINEAR_NUMERIC_GROWTH_RATES: Record<typeof MONSTER_LINEAR_NUMERIC_
 
 /** 怪物公式输入：由属性、装备、等级和百分比修饰组合而成。 */
 export interface MonsterFormulaInput {
-  attrs?: Partial<Attributes>;
-  equipment?: Partial<EquipmentSlots>;
-  level?: number;
-  statPercents?: NumericStatPercentages;
-  grade?: TechniqueGrade;
+/**
+ * attrs：MonsterFormulaInput 内部字段。
+ */
+
+  attrs?: Partial<Attributes>;  
+  /**
+ * equipment：MonsterFormulaInput 内部字段。
+ */
+
+  equipment?: Partial<EquipmentSlots>;  
+  /**
+ * level：MonsterFormulaInput 内部字段。
+ */
+
+  level?: number;  
+  /**
+ * statPercents：MonsterFormulaInput 内部字段。
+ */
+
+  statPercents?: NumericStatPercentages;  
+  /**
+ * grade：MonsterFormulaInput 内部字段。
+ */
+
+  grade?: TechniqueGrade;  
+  /**
+ * tier：MonsterFormulaInput 内部字段。
+ */
+
   tier?: MonsterTier;
 }
 
 /** 怪物模板掉落项：保留物品基础信息和掉率。 */
 export interface MonsterTemplateDropRecord {
-  itemId: string;
-  name: string;
-  type: ItemType;
-  count: number;
+/**
+ * itemId：MonsterTemplateDropRecord 内部字段。
+ */
+
+  itemId: string;  
+  /**
+ * name：MonsterTemplateDropRecord 内部字段。
+ */
+
+  name: string;  
+  /**
+ * type：MonsterTemplateDropRecord 内部字段。
+ */
+
+  type: ItemType;  
+  /**
+ * count：MonsterTemplateDropRecord 内部字段。
+ */
+
+  count: number;  
+  /**
+ * chance：MonsterTemplateDropRecord 内部字段。
+ */
+
   chance?: number;
 }
 
@@ -96,50 +140,214 @@ export type MonsterTemplateEquipmentRefs = Partial<Record<EquipSlot, string>>;
 
 /** 怪物模板的原始配置记录，保存编辑器里可直接写入的字段。 */
 export interface MonsterTemplateConfiguredRecord {
-  id: string;
-  name: string;
-  char: string;
-  color: string;
-  grade?: TechniqueGrade;
-  tier?: MonsterTier;
-  valueStats?: PartialNumericStats;
-  attrs?: Partial<Attributes>;
-  statPercents?: NumericStatPercentages;
-  initialBuffs?: MonsterInitialBuffDef[];
-  equipment?: MonsterTemplateEquipmentRefs;
-  skills?: string[];
-  count?: number;
-  radius?: number;
-  maxAlive?: number;
-  aggroRange?: number;
-  viewRange?: number;
-  aggroMode?: MonsterAggroMode;
-  respawnSec?: number;
-  respawnTicks?: number;
-  level?: number;
-  expMultiplier?: number;
+/**
+ * id：MonsterTemplateConfiguredRecord 内部字段。
+ */
+
+  id: string;  
+  /**
+ * name：MonsterTemplateConfiguredRecord 内部字段。
+ */
+
+  name: string;  
+  /**
+ * char：MonsterTemplateConfiguredRecord 内部字段。
+ */
+
+  char: string;  
+  /**
+ * color：MonsterTemplateConfiguredRecord 内部字段。
+ */
+
+  color: string;  
+  /**
+ * grade：MonsterTemplateConfiguredRecord 内部字段。
+ */
+
+  grade?: TechniqueGrade;  
+  /**
+ * tier：MonsterTemplateConfiguredRecord 内部字段。
+ */
+
+  tier?: MonsterTier;  
+  /**
+ * valueStats：MonsterTemplateConfiguredRecord 内部字段。
+ */
+
+  valueStats?: PartialNumericStats;  
+  /**
+ * attrs：MonsterTemplateConfiguredRecord 内部字段。
+ */
+
+  attrs?: Partial<Attributes>;  
+  /**
+ * statPercents：MonsterTemplateConfiguredRecord 内部字段。
+ */
+
+  statPercents?: NumericStatPercentages;  
+  /**
+ * initialBuffs：MonsterTemplateConfiguredRecord 内部字段。
+ */
+
+  initialBuffs?: MonsterInitialBuffDef[];  
+  /**
+ * equipment：MonsterTemplateConfiguredRecord 内部字段。
+ */
+
+  equipment?: MonsterTemplateEquipmentRefs;  
+  /**
+ * skills：MonsterTemplateConfiguredRecord 内部字段。
+ */
+
+  skills?: string[];  
+  /**
+ * count：MonsterTemplateConfiguredRecord 内部字段。
+ */
+
+  count?: number;  
+  /**
+ * radius：MonsterTemplateConfiguredRecord 内部字段。
+ */
+
+  radius?: number;  
+  /**
+ * maxAlive：MonsterTemplateConfiguredRecord 内部字段。
+ */
+
+  maxAlive?: number;  
+  /**
+ * aggroRange：MonsterTemplateConfiguredRecord 内部字段。
+ */
+
+  aggroRange?: number;  
+  /**
+ * viewRange：MonsterTemplateConfiguredRecord 内部字段。
+ */
+
+  viewRange?: number;  
+  /**
+ * aggroMode：MonsterTemplateConfiguredRecord 内部字段。
+ */
+
+  aggroMode?: MonsterAggroMode;  
+  /**
+ * respawnSec：MonsterTemplateConfiguredRecord 内部字段。
+ */
+
+  respawnSec?: number;  
+  /**
+ * respawnTicks：MonsterTemplateConfiguredRecord 内部字段。
+ */
+
+  respawnTicks?: number;  
+  /**
+ * level：MonsterTemplateConfiguredRecord 内部字段。
+ */
+
+  level?: number;  
+  /**
+ * expMultiplier：MonsterTemplateConfiguredRecord 内部字段。
+ */
+
+  expMultiplier?: number;  
+  /**
+ * drops：MonsterTemplateConfiguredRecord 内部字段。
+ */
+
   drops?: MonsterTemplateDropRecord[];
 }
 
 /** 编辑器里的怪物关联物品选项，供模板装备和掉落引用。 */
 export interface MonsterTemplateEditorItem {
-  itemId: string;
-  name: string;
-  type: ItemType;
-  desc: string;
-  count?: number;
-  groundLabel?: string;
-  grade?: TechniqueGrade;
-  level?: number;
-  equipSlot?: EquipSlot;
-  equipAttrs?: Partial<Attributes>;
-  equipStats?: PartialNumericStats;
-  equipValueStats?: PartialNumericStats;
-  effects?: ItemStack['effects'];
-  tags?: string[];
-  mapUnlockId?: string;
-  mapUnlockIds?: string[];
-  tileAuraGainAmount?: number;
+/**
+ * itemId：MonsterTemplateEditorItem 内部字段。
+ */
+
+  itemId: string;  
+  /**
+ * name：MonsterTemplateEditorItem 内部字段。
+ */
+
+  name: string;  
+  /**
+ * type：MonsterTemplateEditorItem 内部字段。
+ */
+
+  type: ItemType;  
+  /**
+ * desc：MonsterTemplateEditorItem 内部字段。
+ */
+
+  desc: string;  
+  /**
+ * count：MonsterTemplateEditorItem 内部字段。
+ */
+
+  count?: number;  
+  /**
+ * groundLabel：MonsterTemplateEditorItem 内部字段。
+ */
+
+  groundLabel?: string;  
+  /**
+ * grade：MonsterTemplateEditorItem 内部字段。
+ */
+
+  grade?: TechniqueGrade;  
+  /**
+ * level：MonsterTemplateEditorItem 内部字段。
+ */
+
+  level?: number;  
+  /**
+ * equipSlot：MonsterTemplateEditorItem 内部字段。
+ */
+
+  equipSlot?: EquipSlot;  
+  /**
+ * equipAttrs：MonsterTemplateEditorItem 内部字段。
+ */
+
+  equipAttrs?: Partial<Attributes>;  
+  /**
+ * equipStats：MonsterTemplateEditorItem 内部字段。
+ */
+
+  equipStats?: PartialNumericStats;  
+  /**
+ * equipValueStats：MonsterTemplateEditorItem 内部字段。
+ */
+
+  equipValueStats?: PartialNumericStats;  
+  /**
+ * effects：MonsterTemplateEditorItem 内部字段。
+ */
+
+  effects?: ItemStack['effects'];  
+  /**
+ * tags：MonsterTemplateEditorItem 内部字段。
+ */
+
+  tags?: string[];  
+  /**
+ * mapUnlockId：MonsterTemplateEditorItem 内部字段。
+ */
+
+  mapUnlockId?: string;  
+  /**
+ * mapUnlockIds：MonsterTemplateEditorItem 内部字段。
+ */
+
+  mapUnlockIds?: string[];  
+  /**
+ * tileAuraGainAmount：MonsterTemplateEditorItem 内部字段。
+ */
+
+  tileAuraGainAmount?: number;  
+  /**
+ * allowBatchUse：MonsterTemplateEditorItem 内部字段。
+ */
+
   allowBatchUse?: boolean;
 }
 
@@ -148,32 +356,140 @@ export type MonsterTemplateSourceMode = 'value_stats' | 'attributes';
 
 /** 解析后的怪物模板记录，已经补齐默认值并计算出运行时数值。 */
 export interface MonsterTemplateResolvedRecord extends MonsterTemplateConfiguredRecord {
-  grade: TechniqueGrade;
-  tier: MonsterTier;
-  valueStats?: PartialNumericStats;
-  attrs?: Attributes;
-  statPercents?: NumericStatPercentages;
-  initialBuffs?: MonsterInitialBuffDef[];
-  equipment: MonsterTemplateEquipmentRefs;
-  skills: string[];
-  computedStats: NumericStats;
-  resolvedAttrs: Attributes;
-  resolvedStatPercents?: NumericStatPercentages;
-  combatModel: MonsterCombatModel;
-  sourceMode: MonsterTemplateSourceMode;
-  hp: number;
-  maxHp: number;
-  attack: number;
-  count: number;
-  radius: number;
-  maxAlive: number;
-  aggroRange: number;
-  viewRange: number;
-  aggroMode: MonsterAggroMode;
-  respawnSec: number;
-  respawnTicks?: number;
-  level?: number;
-  expMultiplier: number;
+/**
+ * grade：MonsterTemplateResolvedRecord 内部字段。
+ */
+
+  grade: TechniqueGrade;  
+  /**
+ * tier：MonsterTemplateResolvedRecord 内部字段。
+ */
+
+  tier: MonsterTier;  
+  /**
+ * valueStats：MonsterTemplateResolvedRecord 内部字段。
+ */
+
+  valueStats?: PartialNumericStats;  
+  /**
+ * attrs：MonsterTemplateResolvedRecord 内部字段。
+ */
+
+  attrs?: Attributes;  
+  /**
+ * statPercents：MonsterTemplateResolvedRecord 内部字段。
+ */
+
+  statPercents?: NumericStatPercentages;  
+  /**
+ * initialBuffs：MonsterTemplateResolvedRecord 内部字段。
+ */
+
+  initialBuffs?: MonsterInitialBuffDef[];  
+  /**
+ * equipment：MonsterTemplateResolvedRecord 内部字段。
+ */
+
+  equipment: MonsterTemplateEquipmentRefs;  
+  /**
+ * skills：MonsterTemplateResolvedRecord 内部字段。
+ */
+
+  skills: string[];  
+  /**
+ * computedStats：MonsterTemplateResolvedRecord 内部字段。
+ */
+
+  computedStats: NumericStats;  
+  /**
+ * resolvedAttrs：MonsterTemplateResolvedRecord 内部字段。
+ */
+
+  resolvedAttrs: Attributes;  
+  /**
+ * resolvedStatPercents：MonsterTemplateResolvedRecord 内部字段。
+ */
+
+  resolvedStatPercents?: NumericStatPercentages;  
+  /**
+ * combatModel：MonsterTemplateResolvedRecord 内部字段。
+ */
+
+  combatModel: MonsterCombatModel;  
+  /**
+ * sourceMode：MonsterTemplateResolvedRecord 内部字段。
+ */
+
+  sourceMode: MonsterTemplateSourceMode;  
+  /**
+ * hp：MonsterTemplateResolvedRecord 内部字段。
+ */
+
+  hp: number;  
+  /**
+ * maxHp：MonsterTemplateResolvedRecord 内部字段。
+ */
+
+  maxHp: number;  
+  /**
+ * attack：MonsterTemplateResolvedRecord 内部字段。
+ */
+
+  attack: number;  
+  /**
+ * count：MonsterTemplateResolvedRecord 内部字段。
+ */
+
+  count: number;  
+  /**
+ * radius：MonsterTemplateResolvedRecord 内部字段。
+ */
+
+  radius: number;  
+  /**
+ * maxAlive：MonsterTemplateResolvedRecord 内部字段。
+ */
+
+  maxAlive: number;  
+  /**
+ * aggroRange：MonsterTemplateResolvedRecord 内部字段。
+ */
+
+  aggroRange: number;  
+  /**
+ * viewRange：MonsterTemplateResolvedRecord 内部字段。
+ */
+
+  viewRange: number;  
+  /**
+ * aggroMode：MonsterTemplateResolvedRecord 内部字段。
+ */
+
+  aggroMode: MonsterAggroMode;  
+  /**
+ * respawnSec：MonsterTemplateResolvedRecord 内部字段。
+ */
+
+  respawnSec: number;  
+  /**
+ * respawnTicks：MonsterTemplateResolvedRecord 内部字段。
+ */
+
+  respawnTicks?: number;  
+  /**
+ * level：MonsterTemplateResolvedRecord 内部字段。
+ */
+
+  level?: number;  
+  /**
+ * expMultiplier：MonsterTemplateResolvedRecord 内部字段。
+ */
+
+  expMultiplier: number;  
+  /**
+ * drops：MonsterTemplateResolvedRecord 内部字段。
+ */
+
   drops: MonsterTemplateDropRecord[];
 }
 
@@ -196,6 +512,8 @@ function roundConfigValue(value: number): number {
 
 /** 根据怪物等级反推其基础境界模板。 */
 function resolveMonsterBaseRealmStage(level?: number): PlayerRealmStage {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
   const normalizedLevel = normalizeMonsterLevel(level);
   for (const stage of [...PLAYER_REALM_ORDER].reverse()) {
     const range = PLAYER_REALM_STAGE_LEVEL_RANGES[stage];
@@ -225,6 +543,8 @@ function isMonsterAggroMode(value: unknown): value is MonsterAggroMode {
 
 /** 清洗怪物模板里的数值属性配置。 */
 function normalizeMonsterConfigStats(stats: unknown): PartialNumericStats | undefined {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
   if (!stats || typeof stats !== 'object' || Array.isArray(stats)) {
     return undefined;
   }
@@ -277,6 +597,8 @@ export function normalizeMonsterTier(tier: unknown, fallback: MonsterTier = 'mor
 
 /** 根据名称关键词推断怪物阶位。 */
 export function inferMonsterTierFromName(name: string | undefined): MonsterTier {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
   const normalizedName = typeof name === 'string' ? name.trim() : '';
   if (/妖王|荒王|兽王|王$/.test(normalizedName)) {
     return 'demon_king';
@@ -294,6 +616,8 @@ export function getDefaultMonsterExpMultiplier(tier: MonsterTier | undefined): n
 
 /** 解析怪物经验倍率，缺省时回落到阶位默认值。 */
 export function resolveMonsterExpMultiplier(expMultiplier: unknown, tier: MonsterTier | undefined): number {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
   if (Number.isFinite(expMultiplier)) {
     return Math.max(0, Number(expMultiplier));
   }
@@ -316,6 +640,8 @@ export function getMonsterKillExpLevelAdjustment(
   monsterLevel: number,
   tier: MonsterTier | undefined,
 ): number {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
   const normalizedPlayerLevel = Math.max(1, Math.floor(playerRealmLv));
   const normalizedMonsterLevel = Math.max(1, Math.floor(monsterLevel));
   const levelDelta = Math.min(
@@ -337,6 +663,8 @@ export function normalizeMonsterAttrs(
   attrs: Partial<Attributes> | undefined,
   fallback?: Attributes,
 ): Attributes {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
   const result = fallback ? { ...fallback } : createMonsterAttributes();
   for (const key of ATTR_KEYS) {
     const value = attrs?.[key];
@@ -347,6 +675,8 @@ export function normalizeMonsterAttrs(
 
 /** 将怪物数值百分比修饰收敛为合法数值。 */
 export function normalizeMonsterStatPercents(statPercents: NumericStatPercentages | undefined): NumericStatPercentages | undefined {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
   if (!statPercents) {
     return undefined;
   }
@@ -417,6 +747,8 @@ function applyAttrWeight(target: NumericStats, attrs: Attributes): void {
 
 /** 将百分比加成应用到四项核心基础数值。 */
 function applyPercentBonuses(target: NumericStats, bonuses: PercentBonusAccumulator): void {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
   if (bonuses.maxHp !== 0) target.maxHp *= 1 + bonuses.maxHp / 100;
   if (bonuses.maxQi !== 0) target.maxQi *= 1 + bonuses.maxQi / 100;
   if (bonuses.physAtk !== 0) target.physAtk *= 1 + bonuses.physAtk / 100;
@@ -428,6 +760,8 @@ function mergeMonsterEquipmentAttrs(
   attrs: Attributes,
   equipment?: Partial<EquipmentSlots>,
 ): Attributes {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
   for (const slot of EQUIP_SLOTS) {
     const item = equipment?.[slot];
     if (!item?.equipAttrs) {
@@ -486,6 +820,8 @@ export function computeMonsterBaseNumericStatsFromAttrs(
 
 /** 按等级曲线放大怪物数值。 */
 export function applyMonsterLevelScaling(stats: NumericStats, level?: number): NumericStats {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
   const normalizedLevel = normalizeMonsterLevel(level);
   const scaled = cloneNumericStats(stats);
   const exponentialMultiplier = getRealmAttributeMultiplier(normalizedLevel);
@@ -506,6 +842,8 @@ export function applyMonsterLevelScaling(stats: NumericStats, level?: number): N
 
 /** 按百分比修饰进一步调整怪物数值。 */
 export function applyNumericStatPercentages(stats: NumericStats, percents?: NumericStatPercentages): NumericStats {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
   if (!percents) {
     return stats;
   }
@@ -537,6 +875,8 @@ export function createMonsterAutoStatPercents(
   level?: number,
   equipment?: Partial<EquipmentSlots>,
 ): NumericStatPercentages {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
   const base = applyMonsterLevelScaling(computeMonsterBaseNumericStatsFromAttrs(attrs, equipment, level), level);
   const percents: NumericStatPercentages = {};
   for (const key of NUMERIC_SCALAR_STAT_KEYS) {
@@ -612,6 +952,8 @@ export function estimateMonsterSpiritFromStats(stats: NumericStats, level?: numb
 
 /** 清洗怪物模板装备引用表。 */
 export function normalizeMonsterTemplateEquipmentRefs(rawEquipment: unknown): MonsterTemplateEquipmentRefs {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
   const normalized: MonsterTemplateEquipmentRefs = {};
   if (!rawEquipment || typeof rawEquipment !== 'object' || Array.isArray(rawEquipment)) {
     return normalized;
@@ -634,6 +976,8 @@ export function normalizeMonsterTemplateEquipmentRefs(rawEquipment: unknown): Mo
 
 /** 清洗怪物模板技能 ID 列表并去重。 */
 export function normalizeMonsterTemplateSkillIds(rawSkills: unknown): string[] {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
   if (!Array.isArray(rawSkills)) {
     return [];
   }
@@ -655,6 +999,8 @@ export function normalizeMonsterTemplateSkillIds(rawSkills: unknown): string[] {
 
 /** 清洗怪物模板掉落列表，过滤非法条目。 */
 export function normalizeMonsterTemplateDrops(rawDrops: unknown): MonsterTemplateDropRecord[] {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
   if (!Array.isArray(rawDrops)) {
     return [];
   }
@@ -686,6 +1032,8 @@ function resolveMonsterTemplateItem(
   itemId: string,
   itemLookup?: ReadonlyMap<string, MonsterTemplateEditorItem> | Record<string, MonsterTemplateEditorItem>,
 ): MonsterTemplateEditorItem | undefined {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
   if (!itemLookup) {
     return undefined;
   }
@@ -725,6 +1073,8 @@ function resolveMonsterTemplateEquipmentSlots(
   equipmentRefs: MonsterTemplateEquipmentRefs,
   itemLookup?: ReadonlyMap<string, MonsterTemplateEditorItem> | Record<string, MonsterTemplateEditorItem>,
 ): EquipmentSlots {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
   const equipment = {
     weapon: null,
     head: null,

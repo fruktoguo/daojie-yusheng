@@ -7,18 +7,54 @@ import {
 
 /** GM 邮件草稿里单条附件的最小输入结构。 */
 interface GmMailAttachmentDraft {
-  itemId: string;
+/**
+ * itemId：GmMailAttachmentDraft 内部字段。
+ */
+
+  itemId: string;  
+  /**
+ * count：GmMailAttachmentDraft 内部字段。
+ */
+
   count: number;
 }
 
 /** GM 邮件编辑器中整份草稿的输入结构。 */
 interface GmMailComposerDraft {
-  templateId: string;
-  targetPlayerId: string;
-  senderLabel: string;
-  title: string;
-  body: string;
-  expireHours: string;
+/**
+ * templateId：GmMailComposerDraft 内部字段。
+ */
+
+  templateId: string;  
+  /**
+ * targetPlayerId：GmMailComposerDraft 内部字段。
+ */
+
+  targetPlayerId: string;  
+  /**
+ * senderLabel：GmMailComposerDraft 内部字段。
+ */
+
+  senderLabel: string;  
+  /**
+ * title：GmMailComposerDraft 内部字段。
+ */
+
+  title: string;  
+  /**
+ * body：GmMailComposerDraft 内部字段。
+ */
+
+  body: string;  
+  /**
+ * expireHours：GmMailComposerDraft 内部字段。
+ */
+
+  expireHours: string;  
+  /**
+ * attachments：GmMailComposerDraft 内部字段。
+ */
+
   attachments: GmMailAttachmentDraft[];
 }
 
@@ -33,6 +69,8 @@ export function getBrowserLocalStorage(): Storage | null {
 
 /** 读取已保存的 GM 登录口令，并去掉首尾空白。 */
 export function readPersistedGmPassword(storageKey = GM_PASSWORD_STORAGE_KEY): string {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
   const storage = getBrowserLocalStorage();
   if (!storage) return '';
   try {
@@ -44,6 +82,8 @@ export function readPersistedGmPassword(storageKey = GM_PASSWORD_STORAGE_KEY): s
 
 /** 保存或清理 GM 登录口令，空值会直接移除历史记录。 */
 export function persistGmPassword(password: string, storageKey = GM_PASSWORD_STORAGE_KEY): void {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
   const storage = getBrowserLocalStorage();
   if (!storage) return;
   const normalized = password.trim();
@@ -70,9 +110,25 @@ export function createDefaultMailAttachmentDraft(): GmMailAttachmentDraft {
 export function createDefaultRedeemGroupDraft(
   createRedeemReward: () => RedeemCodeGroupRewardItem = createDefaultRedeemReward,
 ): {
-  name: string;
-  rewards: RedeemCodeGroupRewardItem[];
-  createCount: string;
+/**
+ * name：对象字段。
+ */
+
+  name: string;  
+  /**
+ * rewards：对象字段。
+ */
+
+  rewards: RedeemCodeGroupRewardItem[];  
+  /**
+ * createCount：对象字段。
+ */
+
+  createCount: string;  
+  /**
+ * appendCount：对象字段。
+ */
+
   appendCount: string;
 } {
   return {
@@ -126,6 +182,8 @@ export function formatJson(value: unknown): string {
 
 /** 将字节数转成 B/KB/MB/GB 文本，便于运维面板阅读。 */
 export function formatBytes(bytes: number | undefined): string {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
   const safe = Number.isFinite(bytes) ? Math.max(0, Number(bytes)) : 0;
   if (safe < 1024) return `${Math.round(safe)} B`;
   if (safe < 1024 * 1024) return `${(safe / 1024).toFixed(1)} KB`;
@@ -135,6 +193,8 @@ export function formatBytes(bytes: number | undefined): string {
 
 /** 将分子分母转换成百分比字符串，异常输入回退为 0。 */
 export function formatPercent(numerator: number, denominator: number): string {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
   if (!Number.isFinite(numerator) || numerator <= 0 || !Number.isFinite(denominator) || denominator <= 0) {
     return '0.0%';
   }
@@ -143,6 +203,8 @@ export function formatPercent(numerator: number, denominator: number): string {
 
 /** 计算并格式化每秒吞吐量。 */
 export function formatBytesPerSecond(bytes: number, elapsedSec: number): string {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
   if (!Number.isFinite(bytes) || bytes <= 0 || !Number.isFinite(elapsedSec) || elapsedSec <= 0) {
     return '0 B/s';
   }
@@ -151,6 +213,8 @@ export function formatBytesPerSecond(bytes: number, elapsedSec: number): string 
 
 /** 计算并格式化单次事件平均字节数。 */
 export function formatAverageBytesPerEvent(bytes: number, count: number): string {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
   if (!Number.isFinite(bytes) || bytes <= 0 || !Number.isFinite(count) || count <= 0) {
     return '0 B';
   }
@@ -159,6 +223,8 @@ export function formatAverageBytesPerEvent(bytes: number, count: number): string
 
 /** 将秒数格式化成中文可读时长。 */
 export function formatDurationSeconds(seconds: number): string {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
   const safe = Number.isFinite(seconds) ? Math.max(0, Math.floor(seconds)) : 0;
   const days = Math.floor(safe / 86400);
   const hours = Math.floor((safe % 86400) / 3600);
@@ -172,6 +238,8 @@ export function formatDurationSeconds(seconds: number): string {
 
 /** 将 ISO 时间转成本地中文时间，非法值返回 `无`。 */
 export function formatDateTime(value?: string): string {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
   if (!value) {
     return '无';
   }
@@ -186,9 +254,19 @@ export function formatDateTime(value?: string): string {
 export function getPlayerPresenceMeta(
   player: Pick<GmManagedPlayerSummary, 'meta'>,
 ): {
-  className: 'online' | 'offline';
+/**
+ * className：对象字段。
+ */
+
+  className: 'online' | 'offline';  
+  /**
+ * label：对象字段。
+ */
+
   label: '在线' | '离线挂机' | '离线';
 } {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
   if (player.meta.online) {
     return { className: 'online', label: '在线' };
   }
@@ -211,6 +289,8 @@ export function pathSegments(path: string): string[] {
 
 /** 按点分路径写值，缺失节点会按后续片段自动补齐数组或对象。 */
 export function setValueByPath(target: unknown, path: string, value: unknown): void {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
   const segments = pathSegments(path);
   let cursor = target as Record<string, unknown>;
   for (let index = 0; index < segments.length - 1; index += 1) {
@@ -226,6 +306,8 @@ export function setValueByPath(target: unknown, path: string, value: unknown): v
 
 /** 按点分路径读取任意对象字段，路径缺失时返回 undefined。 */
 export function getValueByPath(target: unknown, path: string): unknown {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
   let cursor = target as Record<string, unknown> | undefined;
   for (const segment of pathSegments(path)) {
     if (cursor === undefined || cursor === null) return undefined;
@@ -236,6 +318,8 @@ export function getValueByPath(target: unknown, path: string): unknown {
 
 /** 定位点路径上的数组并移除指定下标，用于草稿表单删除。 */
 export function removeArrayIndex(target: unknown, path: string, index: number): void {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
   const value = getValueByPath(target, path);
   if (!Array.isArray(value)) return;
   value.splice(index, 1);

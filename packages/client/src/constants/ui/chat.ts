@@ -26,11 +26,35 @@ export type ChatMessageScope = typeof CHAT_MESSAGE_SCOPES[number];
 
 /** ChatStoredMessage：聊天持久化消息。 */
 export interface ChatStoredMessage {
-  id: string;
-  at: number;
-  text: string;
-  from?: string;
-  kind: ChatMessageKind;
+/**
+ * id：ChatStoredMessage 内部字段。
+ */
+
+  id: string;  
+  /**
+ * at：ChatStoredMessage 内部字段。
+ */
+
+  at: number;  
+  /**
+ * text：ChatStoredMessage 内部字段。
+ */
+
+  text: string;  
+  /**
+ * from：ChatStoredMessage 内部字段。
+ */
+
+  from?: string;  
+  /**
+ * kind：ChatStoredMessage 内部字段。
+ */
+
+  kind: ChatMessageKind;  
+  /**
+ * scope：ChatStoredMessage 内部字段。
+ */
+
   scope?: ChatMessageScope;
 }
 

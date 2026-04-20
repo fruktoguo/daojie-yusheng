@@ -1,3 +1,6 @@
+/**
+ * PrototypeModuleId：统一结构类型，保证协议与运行时一致性。
+ */
 export type PrototypeModuleId =
   | 'foundation'
   | 'login'
@@ -23,14 +26,42 @@ export type PrototypeModuleId =
   | 'debug'
   | 'gm'
   | 'heaven-gate'
-  | 'entity-detail';
+  | 'entity-detail';  
+  /**
+ * PrototypeModuleCardData：定义接口结构约束，明确可交付字段含义。
+ */
+
 
 export interface PrototypeModuleCardData {
-  id: PrototypeModuleId;
-  title: string;
-  domain: '入口' | 'HUD' | '面板' | '浮层' | 'GM';
-  summary: string;
-  interactions: string[];
+/**
+ * id：PrototypeModuleCardData 内部字段。
+ */
+
+  id: PrototypeModuleId;  
+  /**
+ * title：PrototypeModuleCardData 内部字段。
+ */
+
+  title: string;  
+  /**
+ * domain：PrototypeModuleCardData 内部字段。
+ */
+
+  domain: '入口' | 'HUD' | '面板' | '浮层' | 'GM';  
+  /**
+ * summary：PrototypeModuleCardData 内部字段。
+ */
+
+  summary: string;  
+  /**
+ * interactions：PrototypeModuleCardData 内部字段。
+ */
+
+  interactions: string[];  
+  /**
+ * status：PrototypeModuleCardData 内部字段。
+ */
+
   status: 'planned' | 'in-progress' | 'prototype-ready';
 }
 

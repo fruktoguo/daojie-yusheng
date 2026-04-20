@@ -3,28 +3,70 @@ import { GAME_DAY_TICKS } from './constants/gameplay/world';
 
 /** 角色寿命信息：记录角色当前年龄换算所需的基础输入。 */
 export interface CharacterChronologyState {
-  boneAgeBaseYears?: number;
+/**
+ * boneAgeBaseYears：CharacterChronologyState 内部字段。
+ */
+
+  boneAgeBaseYears?: number;  
+  /**
+ * lifeElapsedTicks：CharacterChronologyState 内部字段。
+ */
+
   lifeElapsedTicks?: number;
 }
 
 /** 角色年龄快照：把骨龄和生存时长换算成年龄展示。 */
 export interface CharacterAgeSnapshot {
-  totalDays: number;
-  years: number;
-  days: number;
+/**
+ * totalDays：CharacterAgeSnapshot 内部字段。
+ */
+
+  totalDays: number;  
+  /**
+ * years：CharacterAgeSnapshot 内部字段。
+ */
+
+  years: number;  
+  /**
+ * days：CharacterAgeSnapshot 内部字段。
+ */
+
+  days: number;  
+  /**
+ * totalYears：CharacterAgeSnapshot 内部字段。
+ */
+
   totalYears: number;
 }
 
 /** 角色剩余寿命快照：换算为剩余天数和是否逝世。 */
 export interface CharacterRemainingLifespanSnapshot {
-  totalDays: number;
-  years: number;
-  days: number;
+/**
+ * totalDays：CharacterRemainingLifespanSnapshot 内部字段。
+ */
+
+  totalDays: number;  
+  /**
+ * years：CharacterRemainingLifespanSnapshot 内部字段。
+ */
+
+  years: number;  
+  /**
+ * days：CharacterRemainingLifespanSnapshot 内部字段。
+ */
+
+  days: number;  
+  /**
+ * expired：CharacterRemainingLifespanSnapshot 内部字段。
+ */
+
   expired: boolean;
 }
 
 /** normalizeBoneAgeBaseYears：规范化Bone Age基础Years。 */
 export function normalizeBoneAgeBaseYears(value: unknown): number {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
   if (!Number.isFinite(value)) {
     return DEFAULT_BONE_AGE_YEARS;
   }
@@ -33,6 +75,8 @@ export function normalizeBoneAgeBaseYears(value: unknown): number {
 
 /** normalizeLifeElapsedTicks：规范化Life Elapsed Ticks。 */
 export function normalizeLifeElapsedTicks(value: unknown): number {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
   if (!Number.isFinite(value)) {
     return 0;
   }
@@ -41,6 +85,8 @@ export function normalizeLifeElapsedTicks(value: unknown): number {
 
 /** normalizeLifespanYears：规范化Lifespan Years。 */
 export function normalizeLifespanYears(value: unknown): number | null {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
   if (!Number.isFinite(value)) {
     return null;
   }
@@ -71,6 +117,8 @@ export function resolveRemainingLifespan(
   state: CharacterChronologyState,
   lifespanYears: unknown,
 ): CharacterRemainingLifespanSnapshot | null {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
   const normalizedLifespanYears = normalizeLifespanYears(lifespanYears);
   if (normalizedLifespanYears == null) {
     return null;

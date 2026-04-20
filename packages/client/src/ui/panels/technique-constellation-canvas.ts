@@ -5,44 +5,152 @@ type TechniqueConstellationMilestone = '小成' | '大成' | '圆满';
 
 /** TechniqueConstellationNode：功法星图节点的展示数据。 */
 type TechniqueConstellationNode = {
-  level: number;
-  milestone?: TechniqueConstellationMilestone;
-  hoverTitle: string;
+/**
+ * level：对象字段。
+ */
+
+  level: number;  
+  /**
+ * milestone：对象字段。
+ */
+
+  milestone?: TechniqueConstellationMilestone;  
+  /**
+ * hoverTitle：对象字段。
+ */
+
+  hoverTitle: string;  
+  /**
+ * hoverLines：对象字段。
+ */
+
   hoverLines: string[];
 };
 
 /** TechniqueConstellationCanvasData：功法星图画布的输入状态。 */
 export type TechniqueConstellationCanvasData = {
-  techniqueName: string;
-  maxLevels: number;
-  currentLevel: number;
-  expPercent: number;
-  selectedLevel: number;
+/**
+ * techniqueName：对象字段。
+ */
+
+  techniqueName: string;  
+  /**
+ * maxLevels：对象字段。
+ */
+
+  maxLevels: number;  
+  /**
+ * currentLevel：对象字段。
+ */
+
+  currentLevel: number;  
+  /**
+ * expPercent：对象字段。
+ */
+
+  expPercent: number;  
+  /**
+ * selectedLevel：对象字段。
+ */
+
+  selectedLevel: number;  
+  /**
+ * nodes：对象字段。
+ */
+
   nodes: TechniqueConstellationNode[];
 };
 
 /** TechniqueConstellationHoverPayload：星图节点悬浮提示载荷。 */
 export type TechniqueConstellationHoverPayload = {
-  level: number;
-  title: string;
+/**
+ * level：对象字段。
+ */
+
+  level: number;  
+  /**
+ * title：对象字段。
+ */
+
+  title: string;  
+  /**
+ * lines：对象字段。
+ */
+
   lines: string[];
 };
 
 /** InternalNode：星图节点的内部布局与动效数据。 */
 type InternalNode = TechniqueConstellationNode & {
-  index: number;
-  name: string;
-  x: number;
-  y: number;
-  displayX: number;
-  displayY: number;
-  baseRadius: number;
-  phase: number;
-  speed: number;
-  floatPhaseX: number;
-  floatPhaseY: number;
-  floatSpeed: number;
-  anchorDirX: number;
+/**
+ * index：对象字段。
+ */
+
+  index: number;  
+  /**
+ * name：对象字段。
+ */
+
+  name: string;  
+  /**
+ * x：对象字段。
+ */
+
+  x: number;  
+  /**
+ * y：对象字段。
+ */
+
+  y: number;  
+  /**
+ * displayX：对象字段。
+ */
+
+  displayX: number;  
+  /**
+ * displayY：对象字段。
+ */
+
+  displayY: number;  
+  /**
+ * baseRadius：对象字段。
+ */
+
+  baseRadius: number;  
+  /**
+ * phase：对象字段。
+ */
+
+  phase: number;  
+  /**
+ * speed：对象字段。
+ */
+
+  speed: number;  
+  /**
+ * floatPhaseX：对象字段。
+ */
+
+  floatPhaseX: number;  
+  /**
+ * floatPhaseY：对象字段。
+ */
+
+  floatPhaseY: number;  
+  /**
+ * floatSpeed：对象字段。
+ */
+
+  floatSpeed: number;  
+  /**
+ * anchorDirX：对象字段。
+ */
+
+  anchorDirX: number;  
+  /**
+ * anchorDirY：对象字段。
+ */
+
   anchorDirY: number;
 };
 
@@ -51,12 +159,40 @@ type RawNode = InternalNode;
 
 /** Particle：星图背景粒子的动画状态。 */
 type Particle = {
-  x: number;
-  y: number;
-  size: number;
-  speedX: number;
-  speedY: number;
-  baseAlpha: number;
+/**
+ * x：对象字段。
+ */
+
+  x: number;  
+  /**
+ * y：对象字段。
+ */
+
+  y: number;  
+  /**
+ * size：对象字段。
+ */
+
+  size: number;  
+  /**
+ * speedX：对象字段。
+ */
+
+  speedX: number;  
+  /**
+ * speedY：对象字段。
+ */
+
+  speedY: number;  
+  /**
+ * baseAlpha：对象字段。
+ */
+
+  baseAlpha: number;  
+  /**
+ * phase：对象字段。
+ */
+
   phase: number;
 };
 
@@ -79,6 +215,12 @@ const cyrb53 = (str: string, seed = 0): number => {
 
 /** PRNG：PRNG实现。 */
 class PRNG {
+/**
+ * 构造器：初始化 当前 实例并建立基础状态。
+ * @param seed number 参数说明。
+ * @returns 无返回值（构造函数）。
+ */
+
   constructor(private seed: number) {}
 
   /** next：处理新版。 */
@@ -110,11 +252,31 @@ export class TechniqueConstellationCanvas {
   /** ctx：ctx。 */
   private ctx: CanvasRenderingContext2D;
   /** skillLines：技能Lines。 */
-  private skillLines: SVGSVGElement | null;
-  private skillAnchors: Array<{
-    level: number;
-    index: number;
-    labelEl: HTMLElement;
+  private skillLines: SVGSVGElement | null;  
+  /**
+ * skillAnchors：TechniqueConstellationCanvas 内部字段。
+ */
+
+  private skillAnchors: Array<{  
+  /**
+ * level：TechniqueConstellationCanvas 内部字段。
+ */
+
+    level: number;    
+    /**
+ * index：TechniqueConstellationCanvas 内部字段。
+ */
+
+    index: number;    
+    /**
+ * labelEl：TechniqueConstellationCanvas 内部字段。
+ */
+
+    labelEl: HTMLElement;    
+    /**
+ * lineEl：TechniqueConstellationCanvas 内部字段。
+ */
+
     lineEl: SVGPolylineElement | null;
   }> = [];
   /** resizeObserver：resize观察。 */
@@ -136,7 +298,18 @@ export class TechniqueConstellationCanvas {
   /** openedAt：opened At。 */
   private openedAt = 0;
   /** state：状态。 */
-  private state: TechniqueConstellationCanvasData;
+  private state: TechniqueConstellationCanvasData;  
+  /**
+ * 构造器：初始化 当前 实例并建立基础状态。
+ * @param root HTMLElement 参数说明。
+ * @param initialState TechniqueConstellationCanvasData 参数说明。
+ * @param onSelectLevel (level: number) => void 参数说明。
+ * @param onNodeHover (payload: TechniqueConstellationHoverPayload, clientX: number, clientY: number) => void 参数说明。
+ * @param onNodeMove (clientX: number, clientY: number) => void 参数说明。
+ * @param onNodeLeave () => void 参数说明。
+ * @returns 无返回值（构造函数）。
+ */
+
 
   constructor(
     private root: HTMLElement,
@@ -146,6 +319,8 @@ export class TechniqueConstellationCanvas {
     private readonly onNodeMove: (clientX: number, clientY: number) => void,
     private readonly onNodeLeave: () => void,
   ) {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
     const canvas = root.querySelector<HTMLCanvasElement>('[data-tech-starfield-canvas="true"]');
     if (!canvas) {
       throw new Error('Technique constellation canvas root is incomplete.');
@@ -163,6 +338,8 @@ export class TechniqueConstellationCanvas {
 
   /** update：更新更新。 */
   update(nextState: TechniqueConstellationCanvasData): void {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
     const shouldRebuildNodes = this.state.techniqueName !== nextState.techniqueName || this.state.maxLevels !== nextState.maxLevels;
     this.state = nextState;
     if (shouldRebuildNodes) {
@@ -175,6 +352,8 @@ export class TechniqueConstellationCanvas {
 
   /** destroy：处理destroy。 */
   destroy(): void {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
     if (!this.mounted) {
       return;
     }
@@ -209,6 +388,8 @@ export class TechniqueConstellationCanvas {
 
   /** resizeAndRebuild：处理resize And Rebuild。 */
   private resizeAndRebuild(): void {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
     const cssWidth = Math.max(1, Math.floor(this.root.clientWidth));
     const cssHeight = Math.max(1, Math.floor(this.root.clientHeight));
     const bounds = this.root.getBoundingClientRect();
@@ -232,7 +413,15 @@ export class TechniqueConstellationCanvas {
   }
 
   /** resolvePointer：解析Pointer。 */
-  private resolvePointer(event: MouseEvent): { x: number; y: number } {
+  private resolvePointer(event: MouseEvent): {  
+  /**
+ * x：TechniqueConstellationCanvas 内部字段。
+ */
+ x: number;  
+ /**
+ * y：TechniqueConstellationCanvas 内部字段。
+ */
+ y: number } {
     const rect = this.canvas.getBoundingClientRect();
     const logicalWidth = Math.max(1, this.root.clientWidth);
     const logicalHeight = Math.max(1, this.root.clientHeight);
@@ -274,6 +463,8 @@ export class TechniqueConstellationCanvas {
 
   /** generateConstellation：处理generate星图。 */
   private generateConstellation(): InternalNode[] {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
     const pathSeed = cyrb53(this.state.techniqueName);
     const pathRng = new PRNG(pathSeed);
     const rawNodes: RawNode[] = [];
@@ -350,6 +541,8 @@ export class TechniqueConstellationCanvas {
 
   /** initParticles：初始化Particles。 */
   private initParticles(): void {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
     const width = Math.max(1, this.root.clientWidth);
     const height = Math.max(1, this.root.clientHeight);
     this.particles = [];
@@ -364,7 +557,11 @@ export class TechniqueConstellationCanvas {
         phase: Math.random() * Math.PI * 2,
       });
     }
-  }
+  }  
+  /**
+ * render：TechniqueConstellationCanvas 内部字段。
+ */
+
 
   private render = (time: number): void => {
     if (!this.mounted) {
@@ -397,9 +594,37 @@ export class TechniqueConstellationCanvas {
     });
     this.positionSkillAnchors();
 
-    const unlockedPath: Array<{
-      displayStart: { x: number; y: number };
-      displayEnd: { x: number; y: number };
+    const unlockedPath: Array<{    
+    /**
+ * displayStart：TechniqueConstellationCanvas 内部字段。
+ */
+
+      displayStart: {      
+      /**
+ * x：TechniqueConstellationCanvas 内部字段。
+ */
+ x: number;      
+ /**
+ * y：TechniqueConstellationCanvas 内部字段。
+ */
+ y: number };      
+ /**
+ * displayEnd：TechniqueConstellationCanvas 内部字段。
+ */
+
+      displayEnd: {      
+      /**
+ * x：TechniqueConstellationCanvas 内部字段。
+ */
+ x: number;      
+ /**
+ * y：TechniqueConstellationCanvas 内部字段。
+ */
+ y: number };      
+ /**
+ * stableLength：TechniqueConstellationCanvas 内部字段。
+ */
+
       stableLength: number;
     }> = [];
     let totalUnlockedLength = 0;
@@ -640,6 +865,8 @@ export class TechniqueConstellationCanvas {
 
   /** drawMagicCircle：处理draw Magic Circle。 */
   private drawMagicCircle(cx: number, cy: number, radius: number, time: number): void {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
     const ctx = this.ctx;
     ctx.save();
     ctx.translate(cx, cy);
@@ -678,7 +905,11 @@ export class TechniqueConstellationCanvas {
     ctx.closePath();
     ctx.stroke();
     ctx.restore();
-  }
+  }  
+  /**
+ * handleMouseMove：TechniqueConstellationCanvas 内部字段。
+ */
+
 
   private handleMouseMove = (event: MouseEvent): void => {
     const pointer = this.resolvePointer(event);
@@ -703,7 +934,11 @@ export class TechniqueConstellationCanvas {
       return;
     }
     this.onNodeMove(event.clientX, event.clientY);
-  };
+  };  
+  /**
+ * handleMouseLeave：TechniqueConstellationCanvas 内部字段。
+ */
+
 
   private handleMouseLeave = (): void => {
     const hadHover = this.hoveredLevel !== null;
@@ -712,7 +947,11 @@ export class TechniqueConstellationCanvas {
     if (hadHover) {
       this.onNodeLeave();
     }
-  };
+  };  
+  /**
+ * handleClick：TechniqueConstellationCanvas 内部字段。
+ */
+
 
   private handleClick = (event: MouseEvent): void => {
     const pointer = this.resolvePointer(event);
@@ -727,6 +966,8 @@ export class TechniqueConstellationCanvas {
 
   /** findNodeAt：查找节点At。 */
   private findNodeAt(mouseX: number, mouseY: number): InternalNode | null {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
     for (const node of this.currentNodes) {
       const dx = mouseX - node.displayX;
       const dy = mouseY - node.displayY;
@@ -776,6 +1017,8 @@ export class TechniqueConstellationCanvas {
 
   /** positionSkillAnchors：处理位置技能Anchors。 */
   private positionSkillAnchors(): void {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
     if (this.skillAnchors.length === 0) {
       return;
     }
@@ -874,7 +1117,25 @@ export class TechniqueConstellationCanvas {
   }
 
   /** resolveAnchorDirection：解析Anchor方向。 */
-  private resolveAnchorDirection(node: InternalNode, center: { x: number; y: number }): { x: number; y: number } {
+  private resolveAnchorDirection(node: InternalNode, center: {  
+  /**
+ * x：TechniqueConstellationCanvas 内部字段。
+ */
+ x: number;  
+ /**
+ * y：TechniqueConstellationCanvas 内部字段。
+ */
+ y: number }): {  
+ /**
+ * x：TechniqueConstellationCanvas 内部字段。
+ */
+ x: number;  
+ /**
+ * y：TechniqueConstellationCanvas 内部字段。
+ */
+ y: number } {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
     const prev = this.currentNodes[node.index - 1] ?? null;
     const next = this.currentNodes[node.index + 1] ?? null;
     const neighborVectors = [prev, next]
@@ -938,6 +1199,8 @@ export class TechniqueConstellationCanvas {
 
   /** updateSkillReveal：更新技能Reveal。 */
   private updateSkillReveal(time: number): void {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
     const totalLevels = Math.max(1, this.state.maxLevels);
     const progress = Math.max(0, Math.min(1, (time - this.openedAt) / 1100));
     const revealWindow = 0.16;
@@ -955,12 +1218,38 @@ export class TechniqueConstellationCanvas {
   }
 
   /** length：处理length。 */
-  private length(vector: { x: number; y: number }): number {
+  private length(vector: {  
+  /**
+ * x：TechniqueConstellationCanvas 内部字段。
+ */
+ x: number;  
+ /**
+ * y：TechniqueConstellationCanvas 内部字段。
+ */
+ y: number }): number {
     return Math.hypot(vector.x, vector.y);
   }
 
   /** normalize：规范化normalize。 */
-  private normalize(vector: { x: number; y: number }): { x: number; y: number } {
+  private normalize(vector: {  
+  /**
+ * x：TechniqueConstellationCanvas 内部字段。
+ */
+ x: number;  
+ /**
+ * y：TechniqueConstellationCanvas 内部字段。
+ */
+ y: number }): {  
+ /**
+ * x：TechniqueConstellationCanvas 内部字段。
+ */
+ x: number;  
+ /**
+ * y：TechniqueConstellationCanvas 内部字段。
+ */
+ y: number } {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
     const size = this.length(vector);
     if (size <= 1e-6) {
       return { x: 0, y: 0 };
@@ -972,7 +1261,23 @@ export class TechniqueConstellationCanvas {
   }
 
   /** dot：处理dot。 */
-  private dot(left: { x: number; y: number }, right: { x: number; y: number }): number {
+  private dot(left: {  
+  /**
+ * x：TechniqueConstellationCanvas 内部字段。
+ */
+ x: number;  
+ /**
+ * y：TechniqueConstellationCanvas 内部字段。
+ */
+ y: number }, right: {  
+ /**
+ * x：TechniqueConstellationCanvas 内部字段。
+ */
+ x: number;  
+ /**
+ * y：TechniqueConstellationCanvas 内部字段。
+ */
+ y: number }): number {
     return left.x * right.x + left.y * right.y;
   }
 

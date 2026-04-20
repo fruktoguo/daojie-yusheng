@@ -1,10 +1,34 @@
 /** 怪物出现场所的目录条目。 */
 export interface MonsterLocationEntry {
-  monsterId: string;
-  monsterName: string;
-  mapId: string;
-  mapName: string;
-  dangerLevel?: number;
+/**
+ * monsterId：MonsterLocationEntry 内部字段。
+ */
+
+  monsterId: string;  
+  /**
+ * monsterName：MonsterLocationEntry 内部字段。
+ */
+
+  monsterName: string;  
+  /**
+ * mapId：MonsterLocationEntry 内部字段。
+ */
+
+  mapId: string;  
+  /**
+ * mapName：MonsterLocationEntry 内部字段。
+ */
+
+  mapName: string;  
+  /**
+ * dangerLevel：MonsterLocationEntry 内部字段。
+ */
+
+  dangerLevel?: number;  
+  /**
+ * totalMaps：MonsterLocationEntry 内部字段。
+ */
+
   totalMaps: number;
 }
 
@@ -17,6 +41,8 @@ let monsterLocationCatalogPromise: Promise<MonsterLocationCatalog> | null = null
 
 /** 按需加载怪物出现场所目录。该 generated JSON 仍被客户端参考文本和地图说明链路直接消费。 */
 function loadMonsterLocationCatalog(): Promise<MonsterLocationCatalog> {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
   if (monsterLocationCatalog) {
     return Promise.resolve(monsterLocationCatalog);
   }
@@ -42,6 +68,8 @@ export async function preloadMonsterLocationCatalog(): Promise<void> {
 
 /** 读取某个怪物的出现场所条目。 */
 export function getMonsterLocationEntry(monsterId: string): MonsterLocationEntry | null {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
   if (!monsterLocationCatalog) {
     void loadMonsterLocationCatalog();
     return null;

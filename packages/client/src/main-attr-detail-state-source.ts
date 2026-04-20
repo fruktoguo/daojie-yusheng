@@ -1,30 +1,90 @@
 import { NEXT_S2C_AttrDetail, NEXT_S2C_AttrUpdate, PlayerState } from '@mud/shared-next';
 import type { SocketPanelSender } from './network/socket-send-panel';
 import { AttrPanel } from './ui/panels/attr-panel';
+/**
+ * MainAttrDetailStateSourceOptions：统一结构类型，保证协议与运行时一致性。
+ */
+
 
 type MainAttrDetailStateSourceOptions = {
-  attrPanel: Pick<AttrPanel, 'update'>;
-  socket: Pick<SocketPanelSender, 'sendRequestAttrDetail'>;
-  getPlayer: () => PlayerState | null;
-  getLatestAttrUpdate: () => NEXT_S2C_AttrUpdate | null;
-  setLatestAttrUpdate: (value: NEXT_S2C_AttrUpdate | null) => void;
-  mergeAttrUpdatePatch: (current: NEXT_S2C_AttrUpdate | null, data: NEXT_S2C_AttrUpdate) => NEXT_S2C_AttrUpdate;
+/**
+ * attrPanel：对象字段。
+ */
+
+  attrPanel: Pick<AttrPanel, 'update'>;  
+  /**
+ * socket：对象字段。
+ */
+
+  socket: Pick<SocketPanelSender, 'sendRequestAttrDetail'>;  
+  /**
+ * getPlayer：对象字段。
+ */
+
+  getPlayer: () => PlayerState | null;  
+  /**
+ * getLatestAttrUpdate：对象字段。
+ */
+
+  getLatestAttrUpdate: () => NEXT_S2C_AttrUpdate | null;  
+  /**
+ * setLatestAttrUpdate：对象字段。
+ */
+
+  setLatestAttrUpdate: (value: NEXT_S2C_AttrUpdate | null) => void;  
+  /**
+ * mergeAttrUpdatePatch：对象字段。
+ */
+
+  mergeAttrUpdatePatch: (current: NEXT_S2C_AttrUpdate | null, data: NEXT_S2C_AttrUpdate) => NEXT_S2C_AttrUpdate;  
+  /**
+ * cloneJson：对象字段。
+ */
+
   cloneJson: <T>(value: T) => T;
 };
+/**
+ * MainAttrDetailStateSource：统一结构类型，保证协议与运行时一致性。
+ */
+
 
 export type MainAttrDetailStateSource = ReturnType<typeof createMainAttrDetailStateSource>;
+/**
+ * createMainAttrDetailStateSource：构建并返回目标对象。
+ * @param options MainAttrDetailStateSourceOptions 选项参数。
+ * @returns 函数返回值。
+ */
+
 
 export function createMainAttrDetailStateSource(options: MainAttrDetailStateSourceOptions) {
-  return {
+  return {  
+  /**
+ * requestDetail：执行核心业务逻辑。
+ * @returns void。
+ */
+
     requestDetail(): void {
       options.socket.sendRequestAttrDetail();
-    },
+    },    
+    /**
+ * init：初始化并准备运行时基础状态。
+ * @returns void。
+ */
+
 
     init(): void {
       options.socket.sendRequestAttrDetail();
-    },
+    },    
+    /**
+ * handleAttrDetail：处理事件并驱动执行路径。
+ * @param data NEXT_S2C_AttrDetail 原始数据。
+ * @returns void。
+ */
+
 
     handleAttrDetail(data: NEXT_S2C_AttrDetail): void {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
       const player = options.getPlayer();
       if (!player) {
         return;

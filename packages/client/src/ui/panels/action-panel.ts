@@ -46,54 +46,150 @@ type SkillPresetStatusTone = 'success' | 'error' | 'info';
 
 /** 动作列表行里需要缓存的节点引用，供局部 patch 直接改 DOM。 */
 interface ActionRowRefs {
-  row: HTMLElement;
-  cdNode: HTMLElement;
-  execNode: HTMLButtonElement;
-  stateNode?: HTMLElement;
-  orderNode?: HTMLElement;
+/**
+ * row：ActionRowRefs 内部字段。
+ */
+
+  row: HTMLElement;  
+  /**
+ * cdNode：ActionRowRefs 内部字段。
+ */
+
+  cdNode: HTMLElement;  
+  /**
+ * execNode：ActionRowRefs 内部字段。
+ */
+
+  execNode: HTMLButtonElement;  
+  /**
+ * stateNode：ActionRowRefs 内部字段。
+ */
+
+  stateNode?: HTMLElement;  
+  /**
+ * orderNode：ActionRowRefs 内部字段。
+ */
+
+  orderNode?: HTMLElement;  
+  /**
+ * toggleNode：ActionRowRefs 内部字段。
+ */
+
   toggleNode?: HTMLButtonElement;
 }
 
 /** 技能管理列表里的单条条目，包含动作本体和预览指标。 */
 interface SkillManagementEntry {
-  action: ActionDef;
+/**
+ * action：SkillManagementEntry 内部字段。
+ */
+
+  action: ActionDef;  
+  /**
+ * metrics：SkillManagementEntry 内部字段。
+ */
+
   metrics: SkillPreviewMetrics;
 }
 
 /** 动作对应技能的倾向标签，用来在卡片上补充元素倾向说明。 */
 interface ActionSkillAffinityBadge {
-  label: string;
-  title: string;
-  tone: 'physical' | 'spell' | 'mixed' | 'utility';
+/**
+ * label：ActionSkillAffinityBadge 内部字段。
+ */
+
+  label: string;  
+  /**
+ * title：ActionSkillAffinityBadge 内部字段。
+ */
+
+  title: string;  
+  /**
+ * tone：ActionSkillAffinityBadge 内部字段。
+ */
+
+  tone: 'physical' | 'spell' | 'mixed' | 'utility';  
+  /**
+ * element：ActionSkillAffinityBadge 内部字段。
+ */
+
   element: ElementKey | 'multi' | 'neutral';
 }
 
 /** 技能预设里单个技能的启用状态，同时保留自动/手动标记。 */
 interface SkillPresetSkillState {
-  skillId: string;
-  enabled: boolean;
+/**
+ * skillId：SkillPresetSkillState 内部字段。
+ */
+
+  skillId: string;  
+  /**
+ * enabled：SkillPresetSkillState 内部字段。
+ */
+
+  enabled: boolean;  
+  /**
+ * skillEnabled：SkillPresetSkillState 内部字段。
+ */
+
   skillEnabled: boolean;
 }
 
 /** 单个技能预设的持久化记录。 */
 interface SkillPresetRecord {
-  id: string;
-  name: string;
+/**
+ * id：SkillPresetRecord 内部字段。
+ */
+
+  id: string;  
+  /**
+ * name：SkillPresetRecord 内部字段。
+ */
+
+  name: string;  
+  /**
+ * skills：SkillPresetRecord 内部字段。
+ */
+
   skills: SkillPresetSkillState[];
 }
 
 /** 技能预设导入导出的库结构。 */
 interface SkillPresetLibrary {
-  v: number;
-  p: Array<{
-    n: string;
+/**
+ * v：SkillPresetLibrary 内部字段。
+ */
+
+  v: number;  
+  /**
+ * p：SkillPresetLibrary 内部字段。
+ */
+
+  p: Array<{  
+  /**
+ * n：SkillPresetLibrary 内部字段。
+ */
+
+    n: string;    
+    /**
+ * s：SkillPresetLibrary 内部字段。
+ */
+
     s: Array<[string, 0 | 1]>;
   }>;
 }
 
 /** 技能预设当前的状态提示。 */
 interface SkillPresetStatus {
-  tone: SkillPresetStatusTone;
+/**
+ * tone：SkillPresetStatus 内部字段。
+ */
+
+  tone: SkillPresetStatusTone;  
+  /**
+ * text：SkillPresetStatus 内部字段。
+ */
+
   text: string;
 }
 
@@ -177,11 +273,28 @@ export class ActionPanel {
   /** 预览角色快照，用来算技能说明和管理指标。 */
   private previewPlayer?: PlayerState;
   /** 技能查询缓存，保存技能定义、等级和已知技能列表。 */
-  private skillLookup = new Map<string, { skill: SkillDef; techLevel: number; knownSkills: SkillDef[] }>();
+  private skillLookup = new Map<string, {  
+  /**
+ * skill：ActionPanel 内部字段。
+ */
+ skill: SkillDef;  
+ /**
+ * techLevel：ActionPanel 内部字段。
+ */
+ techLevel: number;  
+ /**
+ * knownSkills：ActionPanel 内部字段。
+ */
+ knownSkills: SkillDef[] }>();
   /** 面板内统一复用的悬浮提示。 */
   private tooltip = new FloatingTooltip();
   /** 动作行节点缓存，供冷却、顺位和开关状态局部更新。 */
-  private actionRowRefs = new Map<string, ActionRowRefs>();
+  private actionRowRefs = new Map<string, ActionRowRefs>();  
+  /**
+ * 构造器：初始化 当前 实例并建立基础状态。
+ * @returns 无返回值（构造函数）。
+ */
+
 
   constructor() {
     this.shortcutBindings = this.loadShortcutBindings();
@@ -201,7 +314,14 @@ export class ActionPanel {
     detailModalHost.close(ActionPanel.SKILL_MANAGEMENT_MODAL_OWNER);
     detailModalHost.close(ActionPanel.SKILL_PRESET_MODAL_OWNER);
     this.pane.replaceChildren(createFragmentFromHtml('<div class="empty-hint ui-empty-hint">暂无可用行动</div>'));
-  }
+  }  
+  /**
+ * setCallbacks：更新/写入相关状态。
+ * @param onAction (actionId: string, requiresTarget?: boolean, targetMode?: string, range?: number, actionName?: string) => void 参数说明。
+ * @param onUpdateAutoBattleSkills (skills: AutoBattleSkillConfig[]) => void 参数说明。
+ * @returns void。
+ */
+
 
   setCallbacks(
     onAction: (actionId: string, requiresTarget?: boolean, targetMode?: string, range?: number, actionName?: string) => void,
@@ -213,6 +333,8 @@ export class ActionPanel {
 
   /** 用新的动作快照覆盖当前状态，并重绘面板和已开的弹层。 */
   update(actions: ActionDef[], _autoBattle?: boolean, _autoRetaliate?: boolean, player?: PlayerState): void {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
     if (player) {
       this.previewPlayer = player;
       this.syncPlayerContext(player);
@@ -232,6 +354,8 @@ export class ActionPanel {
 
   /** 只同步会变的动作状态，优先走局部 patch，避免整块重绘。 */
   syncDynamic(actions: ActionDef[], _autoBattle?: boolean, _autoRetaliate?: boolean, player?: PlayerState): void {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
     if (player) {
       this.previewPlayer = player;
       this.syncPlayerContext(player);
@@ -282,14 +406,28 @@ export class ActionPanel {
 
   /** 渲染动作面板主体。 */
   private render(actions: ActionDef[]): void {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
     if (actions.length === 0) {
       this.clear();
       return;
     }
 
-    const tabGroups: Array<{
-      id: ActionMainTab;
-      label: string;
+    const tabGroups: Array<{    
+    /**
+ * id：ActionPanel 内部字段。
+ */
+
+      id: ActionMainTab;      
+      /**
+ * label：ActionPanel 内部字段。
+ */
+
+      label: string;      
+      /**
+ * types：ActionPanel 内部字段。
+ */
+
       types: string[];
     }> = [
       { id: 'dialogue', label: '对话', types: ['quest', 'interact', 'travel'] },
@@ -494,6 +632,8 @@ export class ActionPanel {
 
   /** 处理全局按键：一边支持绑键，一边支持直接触发动作。 */
   private handleGlobalKeydown(event: KeyboardEvent): void {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
     if (event.target instanceof HTMLInputElement || event.target instanceof HTMLTextAreaElement) return;
     if (event.target instanceof HTMLElement && event.target.isContentEditable) return;
     if (event.ctrlKey || event.altKey || event.metaKey) return;
@@ -595,7 +735,15 @@ export class ActionPanel {
   }
 
   /** 读取开关卡片当前状态，顺便决定按钮上的开/关文案。 */
-  private getSwitchCardState(action: ActionDef): { active: boolean; label: string } {
+  private getSwitchCardState(action: ActionDef): {  
+  /**
+ * active：ActionPanel 内部字段。
+ */
+ active: boolean;  
+ /**
+ * label：ActionPanel 内部字段。
+ */
+ label: string } {
     switch (action.id) {
       case 'toggle:auto_battle':
         return { active: this.autoBattle, label: this.autoBattle ? '开' : '关' };
@@ -640,6 +788,8 @@ export class ActionPanel {
 
   /** 根据当前绑键状态返回按钮文案。 */
   private getBindButtonLabel(actionId: string): string {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
     if (this.bindingActionId === actionId) {
       return '按键中';
     }
@@ -694,8 +844,18 @@ export class ActionPanel {
   /** 把不同来源的导入数据统一整理成技能方案列表。 */
   private parseSkillPresetCollection(
     payload: unknown,
-    options?: { preserveIds?: boolean; existingNames?: Set<string> },
+    options?: {    
+    /**
+ * preserveIds：ActionPanel 内部字段。
+ */
+ preserveIds?: boolean;    
+ /**
+ * existingNames：ActionPanel 内部字段。
+ */
+ existingNames?: Set<string> },
   ): SkillPresetRecord[] {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
     const preserveIds = options?.preserveIds === true;
     const existingNames = options?.existingNames ?? new Set<string>();
     const source = Array.isArray(payload)
@@ -729,8 +889,14 @@ export class ActionPanel {
   private parseSkillPresetRecord(
     value: unknown,
     index: number,
-    options?: { preserveIds?: boolean },
+    options?: {    
+    /**
+ * preserveIds：ActionPanel 内部字段。
+ */
+ preserveIds?: boolean },
   ): SkillPresetRecord | null {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
     if (!isRecord(value)) {
       return null;
     }
@@ -809,6 +975,8 @@ export class ActionPanel {
 
   /** 在本地方案列表里找到一个不重复的名称。 */
   private resolveUniqueSkillPresetName(name: string, usedNames: Set<string>): string {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
     const base = this.sanitizeSkillPresetName(name) || '技能方案';
     if (!usedNames.has(base)) {
       return base;
@@ -851,6 +1019,8 @@ export class ActionPanel {
 
   /** 把技能方案拼成可复制、可文件导出的键值文本。 */
   private buildSkillPresetExportText(presets: SkillPresetRecord[]): string {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
     const lines = [`v=${SKILL_PRESET_EXPORT_VERSION + 1}`];
     for (const preset of presets) {
       lines.push(`p=${encodeURIComponent(preset.name)}`);
@@ -867,10 +1037,36 @@ export class ActionPanel {
   /** 解析技能方案文本，兼容当前键值格式和旧 JSON 格式。 */
   private parseSkillPresetText(
     text: string,
-    options?: { preserveIds?: boolean; existingNames?: Set<string> },
+    options?: {    
+    /**
+ * preserveIds：ActionPanel 内部字段。
+ */
+ preserveIds?: boolean;    
+ /**
+ * existingNames：ActionPanel 内部字段。
+ */
+ existingNames?: Set<string> },
   ): SkillPresetRecord[] {
-    const parsedPresets: Array<{ n: string; s: Array<[string, 0 | 1]> }> = [];
-    let current: { n: string; s: Array<[string, 0 | 1]> } | null = null;
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
+    const parsedPresets: Array<{    
+    /**
+ * n：ActionPanel 内部字段。
+ */
+ n: string;    
+ /**
+ * s：ActionPanel 内部字段。
+ */
+ s: Array<[string, 0 | 1]> }> = [];
+    let current: {    
+    /**
+ * n：ActionPanel 内部字段。
+ */
+ n: string;    
+ /**
+ * s：ActionPanel 内部字段。
+ */
+ s: Array<[string, 0 | 1]> } | null = null;
     for (const rawLine of text.split(/\r?\n/)) {
       const line = rawLine.trim();
       if (!line || line.startsWith('#')) {
@@ -942,6 +1138,8 @@ export class ActionPanel {
 
   /** 生成技能方案弹层的外部变更摘要。 */
   private buildSkillPresetExternalRevision(): string {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
     const parts: string[] = [];
     for (const action of this.getSkillActions(this.currentActions)) {
       parts.push(action.id);
@@ -953,6 +1151,8 @@ export class ActionPanel {
 
   /** 给动作列表补上客户端工具动作和兜底技能。 */
   private withUtilityActions(actions: ActionDef[]): ActionDef[] {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
     const result = [...actions];
     const knownSkillActions = this.previewPlayer ? this.buildTechniqueFallbackActions(this.previewPlayer, result) : [];
     for (const action of knownSkillActions) {
@@ -988,6 +1188,8 @@ export class ActionPanel {
 
   /** 从角色已学功法里补出当前列表缺失的技能动作。 */
   private buildTechniqueFallbackActions(player: PlayerState, currentActions: ActionDef[]): ActionDef[] {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
     const existingSkillIds = new Set(currentActions.filter((action) => action.type === 'skill').map((action) => action.id));
     const autoBattleSkillMap = new Map((player.autoBattleSkills ?? []).map((entry, index) => [entry.skillId, { entry, index }] as const));
     const fallback: ActionDef[] = [];
@@ -1023,8 +1225,16 @@ export class ActionPanel {
   /** 渲染单条动作或技能卡片。 */
   private renderActionItem(
     action: ActionDef,
-    options?: {
-      showDragHandle?: boolean;
+    options?: {    
+    /**
+ * showDragHandle：ActionPanel 内部字段。
+ */
+
+      showDragHandle?: boolean;      
+      /**
+ * autoBattleDisplayOrder：ActionPanel 内部字段。
+ */
+
       autoBattleDisplayOrder?: number | null;
     },
   ): string {
@@ -1121,6 +1331,8 @@ export class ActionPanel {
 
   /** 在自动战斗列表里调整技能顺位。 */
   private moveAutoBattleSkill(actionId: string, targetId: string, position: 'before' | 'after'): void {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
     if (actionId === targetId) return;
     this.applyAutoBattleSkillMutation((skills) => {
       const sourceIndex = skills.findIndex((action) => action.id === actionId);
@@ -1139,6 +1351,8 @@ export class ActionPanel {
 
   /** 在技能管理草稿里调整技能顺位。 */
   private moveSkillManagementSkill(actionId: string, targetId: string, position: 'before' | 'after'): void {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
     if (actionId === targetId) return;
     this.applySkillManagementDraftMutation((skills) => {
       const sourceIndex = skills.findIndex((action) => action.id === actionId);
@@ -1157,6 +1371,8 @@ export class ActionPanel {
 
   /** 把自动战斗技能改动写回 currentActions 和预览角色。 */
   private applyAutoBattleSkillMutation(mutator: (skills: ActionDef[]) => ActionDef[]): void {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
     const skillActions = this.currentActions
       .filter((action) => action.type === 'skill')
       .map((action) => ({
@@ -1253,6 +1469,8 @@ export class ActionPanel {
 
   /** 只更新动作行里会变的部分，保住冷却、顺位和按钮状态。 */
   private patchActionRows(): boolean {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
     const autoBattleDisplayOrders = this.buildAutoBattleDisplayOrderMap(this.currentActions);
     for (const action of this.currentActions) {
       if (
@@ -1308,6 +1526,8 @@ export class ActionPanel {
 
   /** 渲染技能区主体，并按自动/手动给出不同说明。 */
   private renderSkillSection(actions: ActionDef[], autoBattleDisplayOrders: Map<string, number>): string {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
     const enabledSkills = actions.filter((action) => action.skillEnabled !== false);
     const autoSkills = enabledSkills.filter((action) => action.autoBattleEnabled !== false);
     const manualSkills = enabledSkills.filter((action) => action.autoBattleEnabled === false);
@@ -1357,6 +1577,8 @@ export class ActionPanel {
 
   /** 为可自动施放的技能生成展示顺位。 */
   private buildAutoBattleDisplayOrderMap(actions: ActionDef[]): Map<string, number> {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
     const displayOrder = new Map<string, number>();
     let nextOrder = 0;
     for (const action of actions) {
@@ -1583,6 +1805,8 @@ export class ActionPanel {
 
   /** 打开技能方案弹层。 */
   private openSkillPresetModal(): void {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
     if (!this.skillPresetNameDraft) {
       this.skillPresetNameDraft = this.buildDefaultSkillPresetName();
     }
@@ -1595,6 +1819,8 @@ export class ActionPanel {
 
   /** 关闭方案弹层后，把输入草稿和状态提示清空。 */
   private resetSkillPresetModalState(): void {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
     this.skillPresetNameDraft = '';
     this.skillPresetImportText = '';
     this.skillPresetStatus = null;
@@ -1605,6 +1831,8 @@ export class ActionPanel {
 
   /** 返回当前选中的技能方案。 */
   private getSelectedSkillPreset(): SkillPresetRecord | null {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
     if (!this.selectedSkillPresetId) {
       return null;
     }
@@ -1620,6 +1848,8 @@ export class ActionPanel {
 
   /** 对比方案与当前技能列表，给出命中和缺失的摘要。 */
   private getSkillPresetCompatibilitySummary(preset: SkillPresetRecord): string {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
     const currentSkillIds = new Set(this.getSkillActions(this.currentActions).map((action) => action.id));
     const presetSkillIds = new Set(preset.skills.map((skill) => skill.skillId));
     let matched = 0;
@@ -1639,6 +1869,8 @@ export class ActionPanel {
 
   /** 把方案弹层里的结果提示渲染成状态条。 */
   private renderSkillPresetStatus(): string {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
     if (!this.skillPresetStatus) {
       return '';
     }
@@ -1856,6 +2088,8 @@ export class ActionPanel {
 
   /** 把当前技能快照保存成新方案，或覆盖选中的方案。 */
   private saveCurrentSkillPreset(overwriteSelected: boolean): void {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
     const snapshot = this.getCurrentSkillPresetSnapshot();
     if (snapshot.length === 0) {
       this.skillPresetStatus = {
@@ -1916,6 +2150,8 @@ export class ActionPanel {
 
   /** 把方案内容转换成可直接应用的自动战斗配置。 */
   private resolveAppliedSkillPresetConfigs(preset: SkillPresetRecord): AutoBattleSkillConfig[] {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
     const currentSkillActions = this.getSkillActions(this.currentActions);
     const currentMap = new Map(currentSkillActions.map((action) => [action.id, action] as const));
     const next: AutoBattleSkillConfig[] = [];
@@ -1950,6 +2186,8 @@ export class ActionPanel {
 
   /** 提交套用后的技能配置，并同步回预览角色和面板。 */
   private commitSkillPresetActions(nextActions: ActionDef[]): void {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
     const nextAutoBattleSkills = this.getAutoBattleSkillConfigs(nextActions);
     this.currentActions = nextActions;
     if (this.previewPlayer) {
@@ -1968,6 +2206,8 @@ export class ActionPanel {
 
   /** 套用当前选中的技能方案。 */
   private applySelectedSkillPreset(): void {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
     const preset = this.getSelectedSkillPreset();
     if (!preset) {
       this.skillPresetStatus = {
@@ -1991,6 +2231,8 @@ export class ActionPanel {
 
   /** 把选中方案的导出文本复制到剪贴板。 */
   private async copySelectedSkillPreset(): Promise<void> {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
     const preset = this.getSelectedSkillPreset();
     if (!preset) {
       this.skillPresetStatus = {
@@ -2026,6 +2268,8 @@ export class ActionPanel {
 
   /** 导出当前选中的技能方案。 */
   private exportSelectedSkillPreset(): void {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
     const preset = this.getSelectedSkillPreset();
     if (!preset) {
       return;
@@ -2040,6 +2284,8 @@ export class ActionPanel {
 
   /** 导出全部本地技能方案。 */
   private exportAllSkillPresets(): void {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
     if (this.skillPresets.length === 0) {
       return;
     }
@@ -2053,6 +2299,8 @@ export class ActionPanel {
 
   /** 删除当前选中的技能方案。 */
   private deleteSelectedSkillPreset(): void {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
     const preset = this.getSelectedSkillPreset();
     if (!preset) {
       return;
@@ -2073,6 +2321,8 @@ export class ActionPanel {
 
   /** 从键值文本或旧 JSON 中导入技能方案。 */
   private importSkillPresetsFromText(rawText: string): void {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
     const text = rawText.trim();
     if (!text) {
       this.skillPresetStatus = {
@@ -2145,6 +2395,8 @@ export class ActionPanel {
 
   /** 把草稿和当前技能列表对齐，补齐缺失项并去重。 */
   private syncSkillManagementDraft(): AutoBattleSkillConfig[] {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
     const currentSkillActions = this.getSkillActions(this.currentActions);
     const availableIds = new Set(currentSkillActions.map((action) => action.id));
     const source = this.skillManagementDraft ?? this.getAutoBattleSkillConfigs(this.currentActions);
@@ -2206,6 +2458,8 @@ export class ActionPanel {
 
   /** 生成技能管理弹层的外部变更摘要。 */
   private buildSkillManagementExternalRevision(): string {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
     const parts = [
       this.skillManagementSortField,
       this.skillManagementSortDirection,
@@ -2263,6 +2517,8 @@ export class ActionPanel {
 
   /** 记录技能管理列表当前的滚动位置。 */
   private captureSkillManagementListScroll(): void {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
     const list = document.querySelector<HTMLElement>('.skill-manage-list');
     if (!list) {
       return;
@@ -2272,6 +2528,8 @@ export class ActionPanel {
 
   /** 在弹层重绘后恢复技能管理列表的滚动位置。 */
   private restoreSkillManagementListScroll(root: HTMLElement): void {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
     const list = root.querySelector<HTMLElement>('.skill-manage-list');
     if (!list) {
       return;
@@ -2281,6 +2539,8 @@ export class ActionPanel {
 
   /** 仅在技能管理弹层已打开且内容变化时重绘。 */
   private renderSkillManagementModalIfOpen(): void {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
     if (!detailModalHost.isOpenFor(ActionPanel.SKILL_MANAGEMENT_MODAL_OWNER)) {
       return;
     }
@@ -2293,6 +2553,8 @@ export class ActionPanel {
 
   /** 仅在技能方案弹层已打开且内容变化时重绘。 */
   private renderSkillPresetModalIfOpen(): void {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
     if (!detailModalHost.isOpenFor(ActionPanel.SKILL_PRESET_MODAL_OWNER)) {
       return;
     }
@@ -2305,6 +2567,8 @@ export class ActionPanel {
 
   /** 渲染技能管理弹层，包含分组、筛选、排序和批量操作。 */
   private renderSkillManagementModal(): void {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
     if (detailModalHost.isOpenFor(ActionPanel.SKILL_MANAGEMENT_MODAL_OWNER)) {
       this.captureSkillManagementListScroll();
     }
@@ -2507,6 +2771,8 @@ export class ActionPanel {
 
   /** 把当前过滤结果批量切成自动、手动、启用或禁用。 */
   private applySkillManagementBulkMode(mode: SkillManagementBulkMode): void {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
     const filteredSkillIds = new Set(
       this.getFilteredSkillManagementEntries(this.getSkillManagementEntries(this.getSkillManagementPreviewActions()))
         .map((entry) => entry.action.id),
@@ -2535,6 +2801,8 @@ export class ActionPanel {
 
   /** 计算技能管理里要用的预览指标；没有上下文时走保底值。 */
   private buildSkillManagementMetrics(action: ActionDef): SkillPreviewMetrics {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
     const context = this.skillLookup.get(action.id);
     if (!context) {
       const range = Number.isFinite(action.range) ? Number(action.range) : 0;
@@ -2581,6 +2849,8 @@ export class ActionPanel {
     entry: SkillManagementEntry,
     group: SkillManagementFilterToggle[],
   ): boolean {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
     const active = group.filter((value) => this.skillManagementFilterToggles.has(value));
     if (active.length === 0) {
       return true;
@@ -2610,6 +2880,8 @@ export class ActionPanel {
 
   /** 按当前排序字段和方向排列技能管理条目。 */
   private sortSkillManagementEntries(entries: SkillManagementEntry[]): SkillManagementEntry[] {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
     if (this.skillManagementSortField === 'custom') {
       return entries;
     }
@@ -2627,6 +2899,8 @@ export class ActionPanel {
 
   /** 比较两个技能管理条目的排序值，空值会排到后面。 */
   private compareSkillManagementEntry(left: SkillManagementEntry, right: SkillManagementEntry): number {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
     const leftValue = this.getSkillManagementSortValue(left.metrics);
     const rightValue = this.getSkillManagementSortValue(right.metrics);
     const leftMissing = leftValue === null || !Number.isFinite(leftValue);
@@ -2704,6 +2978,8 @@ export class ActionPanel {
 
   /** 生成技能管理列表上方的操作提示。 */
   private buildSkillManagementHint(dragSortEnabled: boolean): string {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
     if (this.skillManagementTab === 'disabled') {
       return '这里是未启用的技能，重新打开“启用”后，技能会按当前自动状态回到自动或手动列表。';
     }
@@ -2740,6 +3016,8 @@ export class ActionPanel {
 
   /** 把管理弹层里的草稿正式写回当前状态并关闭弹层。 */
   private applySkillManagementChanges(): void {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
     const nextActions = this.getSkillManagementPreviewActions();
     const nextAutoBattleSkills = this.getAutoBattleSkillConfigs(nextActions);
     this.currentActions = nextActions;
@@ -2774,6 +3052,8 @@ export class ActionPanel {
 
   /** 把当前排序结果写回技能管理草稿顺位。 */
   private applySkillManagementSortOrder(): void {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
     if (this.skillManagementTab === 'disabled' || this.skillManagementSortField === 'custom') {
       return;
     }
@@ -2806,8 +3086,16 @@ export class ActionPanel {
   /** 渲染技能管理弹层里的单条技能。 */
   private renderSkillManagementItem(
     action: ActionDef,
-    options?: {
-      showDragHandle?: boolean;
+    options?: {    
+    /**
+ * showDragHandle：ActionPanel 内部字段。
+ */
+
+      showDragHandle?: boolean;      
+      /**
+ * autoBattleDisplayOrder：ActionPanel 内部字段。
+ */
+
       autoBattleDisplayOrder?: number | null;
     },
   ): string {

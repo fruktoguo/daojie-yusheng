@@ -20,12 +20,36 @@ import { createMainWorldSummaryStateSource } from './main-world-summary-state-so
 import type { MainDomElements } from './main-dom-elements';
 import type { MainFrontendModules } from './main-frontend-modules';
 import type { ToastKind } from './main-app-assembly-types';
+/**
+ * CreateMainPanelContextOptions：统一结构类型，保证协议与运行时一致性。
+ */
+
 
 type CreateMainPanelContextOptions = {
-  documentRef: Document;
-  dom: Pick<MainDomElements, 'zoomSlider' | 'zoomLevelEl'>;
-  modules: MainFrontendModules;
-  rootRuntimeSource: ReturnType<typeof import('./main-root-runtime-source').createMainRootRuntimeSource>;
+/**
+ * documentRef：对象字段。
+ */
+
+  documentRef: Document;  
+  /**
+ * dom：对象字段。
+ */
+
+  dom: Pick<MainDomElements, 'zoomSlider' | 'zoomLevelEl'>;  
+  /**
+ * modules：对象字段。
+ */
+
+  modules: MainFrontendModules;  
+  /**
+ * rootRuntimeSource：对象字段。
+ */
+
+  rootRuntimeSource: ReturnType<typeof import('./main-root-runtime-source').createMainRootRuntimeSource>;  
+  /**
+ * callbacks：对象字段。
+ */
+
   callbacks: {
     showToast(message: string, kind?: ToastKind): void;
     beginTargeting(actionId: string, actionName: string, targetMode?: string, range?: number): void;
@@ -41,6 +65,12 @@ type CreateMainPanelContextOptions = {
     hydrateSyncedItemStack(item: SyncedItemStack, previous?: Inventory['items'][number]): Inventory['items'][number];
   };
 };
+/**
+ * createMainPanelContext：构建并返回目标对象。
+ * @param options CreateMainPanelContextOptions 选项参数。
+ * @returns 函数返回值。
+ */
+
 
 export function createMainPanelContext(options: CreateMainPanelContextOptions) {
   const {
@@ -243,7 +273,13 @@ export function createMainPanelContext(options: CreateMainPanelContextOptions) {
       attrPanel,
       worldPanel,
       entityDetailModal,
-    },
+    },    
+    /**
+ * setPanelDeltaStateSource：更新/写入相关状态。
+ * @param value typeof panelDeltaStateSource 参数说明。
+ * @returns 函数返回值。
+ */
+
     setPanelDeltaStateSource(value: typeof panelDeltaStateSource) {
       panelDeltaStateSource = value;
     },

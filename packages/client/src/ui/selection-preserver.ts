@@ -4,12 +4,22 @@
  */
 
 interface SelectionSnapshot {
-  start: number;
+/**
+ * start：SelectionSnapshot 内部字段。
+ */
+
+  start: number;  
+  /**
+ * end：SelectionSnapshot 内部字段。
+ */
+
   end: number;
 }
 
 /** containsSelection：判断是否选中项。 */
 function containsSelection(root: HTMLElement): boolean {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
   const selection = window.getSelection();
   if (!selection || selection.rangeCount === 0) {
     return false;
@@ -28,6 +38,8 @@ function pointToOffset(root: HTMLElement, node: Node, offset: number): number {
 
 /** captureSelection：处理capture选中项。 */
 function captureSelection(root: HTMLElement): SelectionSnapshot | null {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
   if (!containsSelection(root)) {
     return null;
   }
@@ -43,7 +55,17 @@ function captureSelection(root: HTMLElement): SelectionSnapshot | null {
 }
 
 /** resolveOffset：解析偏移。 */
-function resolveOffset(root: HTMLElement, offset: number): { node: Node; offset: number } | null {
+function resolveOffset(root: HTMLElement, offset: number): {
+/**
+ * node：对象字段。
+ */
+ node: Node;
+ /**
+ * offset：对象字段。
+ */
+ offset: number } | null {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
   const walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT);
   let current: Node | null = walker.nextNode();
   let consumed = 0;
@@ -68,6 +90,8 @@ function resolveOffset(root: HTMLElement, offset: number): { node: Node; offset:
 
 /** restoreSelection：处理restore选中项。 */
 function restoreSelection(root: HTMLElement, snapshot: SelectionSnapshot | null): void {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
   if (!snapshot) {
     return;
   }

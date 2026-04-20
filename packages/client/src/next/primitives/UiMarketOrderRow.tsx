@@ -1,11 +1,42 @@
 import type { ReactNode } from 'react';
+/**
+ * UiMarketOrderRowProps：定义接口结构约束，明确可交付字段含义。
+ */
+
 
 export interface UiMarketOrderRowProps {
-  side: 'buy' | 'sell';
-  price: ReactNode;
-  quantity: ReactNode;
+/**
+ * side：UiMarketOrderRowProps 内部字段。
+ */
+
+  side: 'buy' | 'sell';  
+  /**
+ * price：UiMarketOrderRowProps 内部字段。
+ */
+
+  price: ReactNode;  
+  /**
+ * quantity：UiMarketOrderRowProps 内部字段。
+ */
+
+  quantity: ReactNode;  
+  /**
+ * owner：UiMarketOrderRowProps 内部字段。
+ */
+
   owner?: ReactNode;
 }
+/**
+ * UiMarketOrderRow：执行核心业务逻辑。
+ * @param {
+  side,
+  price,
+  quantity,
+  owner,
+} UiMarketOrderRowProps 参数说明。
+ * @returns 函数返回值。
+ */
+
 
 export function UiMarketOrderRow({
   side,

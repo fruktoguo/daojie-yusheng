@@ -16,6 +16,8 @@ export function syncEstimatedServerTick(serverTick: number | null | undefined): 
 
 /** 同步服务端 tick 间隔（服务端可变 tick 周期时用于本地估算）。 */
 export function syncEstimatedServerTickInterval(dtMs: number | null | undefined): void {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
   if (typeof dtMs !== 'number' || !Number.isFinite(dtMs) || dtMs <= 0) {
     return;
   }
@@ -25,6 +27,8 @@ export function syncEstimatedServerTickInterval(dtMs: number | null | undefined)
 
 /** 根据本地耗时估算当前服务端 tick。 */
 export function getEstimatedServerTick(now = performance.now()): number | null {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
   if (currentServerTick === null) {
     return null;
   }
@@ -35,6 +39,8 @@ export function getEstimatedServerTick(now = performance.now()): number | null {
 
 /** 根据冷却开始 tick 与当前估算 tick 计算剩余可用秒/时序 tick。 */
 export function resolveInventoryCooldownLeft(cooldown: number, startedAtTick: number, now = performance.now()): number {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
   const normalizedCooldown = Math.max(0, Math.floor(cooldown));
   if (normalizedCooldown <= 0) {
     return 0;

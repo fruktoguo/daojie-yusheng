@@ -1,12 +1,28 @@
 /** 文本宽度缓存条目。 */
 type CacheEntry = {
-  width: number;
+/**
+ * width：对象字段。
+ */
+
+  width: number;  
+  /**
+ * lastAccess：对象字段。
+ */
+
   lastAccess: number;
 };
 
 /** 文本宽度缓存配置。 */
 export interface TextMeasureCacheOptions {
-  maxEntries?: number;
+/**
+ * maxEntries：TextMeasureCacheOptions 内部字段。
+ */
+
+  maxEntries?: number;  
+  /**
+ * pruneBatchSize：TextMeasureCacheOptions 内部字段。
+ */
+
   pruneBatchSize?: number;
 }
 
@@ -37,6 +53,8 @@ export class TextMeasureCache {
 
   /** 返回文本宽度并写入缓存，避免重复 measureText。 */
   measureWidth(ctx: CanvasRenderingContext2D, font: string, text: string): number {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
     const key = this.buildKey(font, text);
     const cached = this.entries.get(key);
     if (cached) {
@@ -80,6 +98,8 @@ export class TextMeasureCache {
 
   /** 按 LRU 近似策略批量清理过期文本宽度记录。 */
   private prune(): void {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
     if (this.entries.size <= this.maxEntries) {
       return;
     }

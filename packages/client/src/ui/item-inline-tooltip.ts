@@ -10,14 +10,34 @@ type InlineItemChipTone = 'reward' | 'required' | 'material' | 'monster' | 'defa
 
 /** InlineItemMention：内嵌物品提及项。 */
 interface InlineItemMention {
-  itemId: string;
+/**
+ * itemId：InlineItemMention 内部字段。
+ */
+
+  itemId: string;  
+  /**
+ * name：InlineItemMention 内部字段。
+ */
+
   name: string;
 }
 
 /** 渲染内嵌物品标签时可覆盖的显示参数。 */
 interface RenderInlineItemChipOptions {
-  count?: number;
-  label?: string;
+/**
+ * count：RenderInlineItemChipOptions 内部字段。
+ */
+
+  count?: number;  
+  /**
+ * label：RenderInlineItemChipOptions 内部字段。
+ */
+
+  label?: string;  
+  /**
+ * tone：RenderInlineItemChipOptions 内部字段。
+ */
+
   tone?: InlineItemChipTone;
 }
 
@@ -65,6 +85,8 @@ function escapeHtmlAttr(value: string): string {
 
 /** normalizeCount：规范化数量。 */
 function normalizeCount(count: number | undefined): number {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
   if (!Number.isFinite(count)) {
     return 1;
   }
@@ -73,6 +95,8 @@ function normalizeCount(count: number | undefined): number {
 
 /** buildLocalItemStack：构建本地物品Stack。 */
 function buildLocalItemStack(itemId: string, count = 1): ItemStack | null {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
   const template = getLocalItemTemplate(itemId);
   if (!template) {
     return null;
@@ -97,6 +121,8 @@ function buildLocalItemStack(itemId: string, count = 1): ItemStack | null {
 
 /** resolveTooltipPayload：解析提示载荷。 */
 async function resolveTooltipPayload(node: HTMLElement) {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
   const itemId = node.dataset.inlineItemId;
   if (itemId) {
     const itemCount = normalizeCount(Number.parseInt(node.dataset.inlineItemCount ?? '1', 10));
@@ -140,6 +166,8 @@ async function resolveTooltipPayload(node: HTMLElement) {
 
 /** showTooltip：处理显示提示。 */
 async function showTooltip(node: HTMLElement, clientX: number, clientY: number): Promise<void> {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
   const requestToken = ++tooltipRequestToken;
   /** activeTooltipNode：活跃提示节点。 */
   activeTooltipNode = node;
@@ -167,7 +195,11 @@ export function renderInlineItemChip(itemId: string, options?: RenderInlineItemC
 }
 
 /** renderInlineMonsterChip：渲染Inline妖兽Chip。 */
-export function renderInlineMonsterChip(monsterId: string, options?: { label?: string }): string {
+export function renderInlineMonsterChip(monsterId: string, options?: {
+/**
+ * label：对象字段。
+ */
+ label?: string }): string {
   const location = getMonsterLocationEntry(monsterId);
   const label = options?.label?.trim() || location?.monsterName || monsterId;
   return `<span class="inline-item-chip inline-item-chip--monster" data-inline-monster-id="${escapeHtmlAttr(monsterId)}" data-inline-monster-name="${escapeHtmlAttr(label)}">${escapeHtml(label)}</span>`;
@@ -175,6 +207,8 @@ export function renderInlineMonsterChip(monsterId: string, options?: { label?: s
 
 /** renderTextWithInlineItemHighlights：渲染文本With Inline物品Highlights。 */
 export function renderTextWithInlineItemHighlights(text: string): string {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
   if (!text.trim()) {
     return '';
   }
@@ -198,6 +232,8 @@ export function renderTextWithInlineItemHighlights(text: string): string {
 
 /** bindInlineItemTooltips：绑定Inline物品Tooltips。 */
 export function bindInlineItemTooltips(root: HTMLElement): void {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
   if (boundRoots.has(root)) {
     return;
   }

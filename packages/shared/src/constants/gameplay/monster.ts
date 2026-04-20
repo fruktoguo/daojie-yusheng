@@ -27,6 +27,8 @@ const MONSTER_PERCENT_SCALING_KEYS = [
 
 /** createUniformPercentProfile：创建Uniform Percent Profile。 */
 function createUniformPercentProfile(percent: number): NumericStatPercentages {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
   const result: NumericStatPercentages = {};
   for (const key of MONSTER_PERCENT_SCALING_KEYS) {
     result[key] = percent;

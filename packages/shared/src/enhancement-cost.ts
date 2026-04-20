@@ -25,21 +25,69 @@ const ENHANCEMENT_TARGET_SUCCESS_RATE_BY_LEVEL = [
 
 /** 强化期望策略：描述某个保护起点下的期望消耗。 */
 export interface EnhancementExpectedCostStrategy {
-  targetLevel: number;
-  protectionStartLevel: number | null;
-  spiritStonePerSuccess: number;
-  expectedAttempts: number;
-  expectedSpiritStones: number;
-  expectedProtectionCount: number;
-  expectedTargetCopies: number;
-  expectedProtectionCost?: number;
-  expectedTotalCostWithoutBase?: number;
+/**
+ * targetLevel：EnhancementExpectedCostStrategy 内部字段。
+ */
+
+  targetLevel: number;  
+  /**
+ * protectionStartLevel：EnhancementExpectedCostStrategy 内部字段。
+ */
+
+  protectionStartLevel: number | null;  
+  /**
+ * spiritStonePerSuccess：EnhancementExpectedCostStrategy 内部字段。
+ */
+
+  spiritStonePerSuccess: number;  
+  /**
+ * expectedAttempts：EnhancementExpectedCostStrategy 内部字段。
+ */
+
+  expectedAttempts: number;  
+  /**
+ * expectedSpiritStones：EnhancementExpectedCostStrategy 内部字段。
+ */
+
+  expectedSpiritStones: number;  
+  /**
+ * expectedProtectionCount：EnhancementExpectedCostStrategy 内部字段。
+ */
+
+  expectedProtectionCount: number;  
+  /**
+ * expectedTargetCopies：EnhancementExpectedCostStrategy 内部字段。
+ */
+
+  expectedTargetCopies: number;  
+  /**
+ * expectedProtectionCost：EnhancementExpectedCostStrategy 内部字段。
+ */
+
+  expectedProtectionCost?: number;  
+  /**
+ * expectedTotalCostWithoutBase：EnhancementExpectedCostStrategy 内部字段。
+ */
+
+  expectedTotalCostWithoutBase?: number;  
+  /**
+ * expectedTotalCostWithBase：EnhancementExpectedCostStrategy 内部字段。
+ */
+
   expectedTotalCostWithBase?: number;
 }
 
 /** 强化期望集合：包含所有策略与最优策略。 */
 export interface EnhancementExpectedCostAnalysis {
-  strategies: EnhancementExpectedCostStrategy[];
+/**
+ * strategies：EnhancementExpectedCostAnalysis 内部字段。
+ */
+
+  strategies: EnhancementExpectedCostStrategy[];  
+  /**
+ * bestStrategy：EnhancementExpectedCostAnalysis 内部字段。
+ */
+
   bestStrategy: EnhancementExpectedCostStrategy | null;
 }
 
@@ -50,6 +98,8 @@ function clampUnitRate(value: number | undefined): number {
 
 /** applyEnhancementSuccessModifier：应用强化Success Modifier。 */
 function applyEnhancementSuccessModifier(rate: number | undefined, modifier: number | undefined): number {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
   const normalizedRate = clampUnitRate(rate);
   if (normalizedRate <= 0 || normalizedRate >= 1) {
     return normalizedRate;
@@ -87,14 +137,44 @@ function getEnhancementSpiritStoneCost(itemLevel: number | undefined): number {
 
 /** computeEnhancementExpectedCostStrategy：计算强化Expected Cost Strategy。 */
 export function computeEnhancementExpectedCostStrategy(input: {
-  targetLevel: number;
-  itemLevel: number;
-  extraSuccessRate?: number;
-  protectionStartLevel: number | null;
-  protectionUnitPrice?: number;
-  targetItemUnitPrice?: number;
+/**
+ * targetLevel：对象字段。
+ */
+
+  targetLevel: number;  
+  /**
+ * itemLevel：对象字段。
+ */
+
+  itemLevel: number;  
+  /**
+ * extraSuccessRate：对象字段。
+ */
+
+  extraSuccessRate?: number;  
+  /**
+ * protectionStartLevel：对象字段。
+ */
+
+  protectionStartLevel: number | null;  
+  /**
+ * protectionUnitPrice：对象字段。
+ */
+
+  protectionUnitPrice?: number;  
+  /**
+ * targetItemUnitPrice：对象字段。
+ */
+
+  targetItemUnitPrice?: number;  
+  /**
+ * selfProtection：对象字段。
+ */
+
   selfProtection?: boolean;
 }): EnhancementExpectedCostStrategy {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
   const targetLevel = Math.max(0, Math.floor(Number(input.targetLevel) || 0));
   const spiritStonePerSuccess = getEnhancementSpiritStoneCost(input.itemLevel);
 
@@ -157,13 +237,39 @@ export function computeEnhancementExpectedCostStrategy(input: {
 
 /** computeBestEnhancementExpectedCost：计算Best强化Expected Cost。 */
 export function computeBestEnhancementExpectedCost(input: {
-  targetLevel: number;
-  itemLevel: number;
-  extraSuccessRate?: number;
-  protectionUnitPrice?: number;
-  targetItemUnitPrice?: number;
+/**
+ * targetLevel：对象字段。
+ */
+
+  targetLevel: number;  
+  /**
+ * itemLevel：对象字段。
+ */
+
+  itemLevel: number;  
+  /**
+ * extraSuccessRate：对象字段。
+ */
+
+  extraSuccessRate?: number;  
+  /**
+ * protectionUnitPrice：对象字段。
+ */
+
+  protectionUnitPrice?: number;  
+  /**
+ * targetItemUnitPrice：对象字段。
+ */
+
+  targetItemUnitPrice?: number;  
+  /**
+ * selfProtection：对象字段。
+ */
+
   selfProtection?: boolean;
 }): EnhancementExpectedCostAnalysis {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
   const targetLevel = Math.max(0, Math.floor(Number(input.targetLevel) || 0));
   const strategies: EnhancementExpectedCostStrategy[] = [
     computeEnhancementExpectedCostStrategy({
@@ -204,6 +310,8 @@ function buildCoefficientMatrix(
   protectionStartLevel: number | null,
   successRates: number[],
 ): number[][] {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
   const matrix = Array.from({ length: targetLevel }, () => Array(targetLevel).fill(0));
   for (let currentLevel = 0; currentLevel < targetLevel; currentLevel += 1) {
     const nextLevel = currentLevel + 1;
@@ -228,8 +336,22 @@ function buildRewardVector(
   targetLevel: number,
   protectionStartLevel: number | null,
   successRates: number[],
-  reward: (input: { successRate: number; failureRate: number; protectionActive: boolean }) => number,
+  reward: (input: {  
+  /**
+ * successRate：对象字段。
+ */
+ successRate: number;  
+ /**
+ * failureRate：对象字段。
+ */
+ failureRate: number;  
+ /**
+ * protectionActive：对象字段。
+ */
+ protectionActive: boolean }) => number,
 ): number[] {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
   const vector = Array(targetLevel).fill(0);
   for (let currentLevel = 0; currentLevel < targetLevel; currentLevel += 1) {
     const nextLevel = currentLevel + 1;
@@ -247,6 +369,8 @@ function buildRewardVector(
 
 /** solveLinearSystem：处理solve Linear系统。 */
 function solveLinearSystem(matrix: number[][], vector: number[]): number[] {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
   const size = vector.length;
   const a = matrix.map((row) => [...row]);
   const b = [...vector];

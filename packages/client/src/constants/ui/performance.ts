@@ -3,6 +3,10 @@
  */
 
 export type MapPerformanceConfig = {
+/**
+ * showFpsMonitor：对象字段。
+ */
+
   showFpsMonitor: boolean;
 };
 

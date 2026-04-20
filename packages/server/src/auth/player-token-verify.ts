@@ -1,17 +1,43 @@
 import { createHmac, timingSafeEqual } from 'node:crypto';
+/**
+ * JwtHeader：定义接口结构约束，明确可交付字段含义。
+ */
+
 
 interface JwtHeader extends Record<string, unknown> {
-  alg?: unknown;
+/**
+ * alg：JwtHeader 内部字段。
+ */
+
+  alg?: unknown;  
+  /**
+ * typ：JwtHeader 内部字段。
+ */
+
   typ?: unknown;
 }
+/**
+ * PlayerTokenPayloadVerificationResult：定义接口结构约束，明确可交付字段含义。
+ */
+
 
 export interface PlayerTokenPayloadVerificationResult {
-  payload: Record<string, unknown> | null;
+/**
+ * payload：PlayerTokenPayloadVerificationResult 内部字段。
+ */
+
+  payload: Record<string, unknown> | null;  
+  /**
+ * reason：PlayerTokenPayloadVerificationResult 内部字段。
+ */
+
   reason: string | null;
 }
 
 /** 校验 JWT 载荷与签名，并输出失败原因，供鉴权栈判定拒绝原因。 */
 export function verifyPlayerTokenPayloadDetailed(token: string, secret: string): PlayerTokenPayloadVerificationResult {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
   const segments = token.split('.');
   if (segments.length !== 3) {
     return { payload: null, reason: 'malformed_segments' };

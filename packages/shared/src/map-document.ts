@@ -49,6 +49,8 @@ function normalizePortalKind(kind: unknown): PortalKind {
 
 /** 传送触发方式非法时回退到与传送点类型匹配的默认值。 */
 function normalizePortalTrigger(trigger: unknown, kind?: unknown): PortalTrigger {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
   if (trigger === 'manual' || trigger === 'auto') {
     return trigger;
   }
@@ -57,6 +59,8 @@ function normalizePortalTrigger(trigger: unknown, kind?: unknown): PortalTrigger
 
 /** 只有配置了父图时才允许使用父图叠加视野。 */
 function normalizeMapSpaceVisionMode(mode: unknown, parentMapId?: unknown): MapSpaceVisionMode {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
   if (mode === 'parent_overlay' && typeof parentMapId === 'string' && parentMapId.trim()) {
     return 'parent_overlay';
   }
@@ -65,6 +69,8 @@ function normalizeMapSpaceVisionMode(mode: unknown, parentMapId?: unknown): MapS
 
 /** 将容器品质限制在合法枚举内，未知值回落到最低档。 */
 function normalizeContainerGrade(grade: unknown): TechniqueGrade {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
   if (
     grade === 'mortal'
     || grade === 'yellow'
@@ -82,6 +88,8 @@ function normalizeContainerGrade(grade: unknown): TechniqueGrade {
 
 /** 清洗 NPC 商店商品记录，补齐可落库的最小字段。 */
 function normalizeEditableNpcShopItemRecord(raw: unknown): GmMapNpcShopItemRecord | null {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
   const item = raw as Partial<GmMapNpcShopItemRecord>;
   if (typeof item.itemId !== 'string') {
     return null;
@@ -104,6 +112,8 @@ function normalizeEditableNpcShopItemRecord(raw: unknown): GmMapNpcShopItemRecor
 
 /** 去掉空白字符串，空内容统一转成 undefined。 */
 function normalizeOptionalTrimmedString(value: unknown): string | undefined {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
   if (typeof value !== 'string') {
     return undefined;
   }
@@ -194,6 +204,8 @@ function normalizeMapTimeConfig(raw: unknown): MapTimeConfig {
 
 /** 清洗容器记录，连同嵌套掉落和随机池一起归一化。 */
 function normalizeEditableContainerRecord(input: unknown): GmMapContainerRecord | undefined {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
   if (!input || typeof input !== 'object') {
     return undefined;
   }
@@ -222,6 +234,8 @@ function normalizeEditableContainerRecord(input: unknown): GmMapContainerRecord 
 
 /** 清洗容器随机池参数，并去掉空标签组。 */
 function normalizeEditableContainerLootPoolRecord(input: unknown): GmMapContainerLootPoolRecord | undefined {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
   if (!input || typeof input !== 'object') {
     return undefined;
   }
@@ -251,6 +265,8 @@ function normalizeEditableContainerLootPoolRecord(input: unknown): GmMapContaine
 
 /** 清洗地图掉落项，统一最小可落库字段。 */
 function normalizeEditableDropRecord(input: unknown): GmMapDropRecord | undefined {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
   if (!input || typeof input !== 'object') {
     return undefined;
   }
@@ -266,6 +282,8 @@ function normalizeEditableDropRecord(input: unknown): GmMapDropRecord | undefine
 
 /** 清洗任务记录，统一奖励、目标和提交字段的类型。 */
 function normalizeEditableQuestRecord(input: unknown): GmMapQuestRecord | undefined {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
   if (!input || typeof input !== 'object') {
     return undefined;
   }
@@ -321,6 +339,8 @@ function normalizeEditableQuestRecord(input: unknown): GmMapQuestRecord | undefi
 
 /** 根据传送点数据重建地图字符层，保持图块与对象同步。 */
 function syncPortalTiles(document: GmMapDocument): GmMapDocument {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
   const rows = document.tiles.map((row) => [...row].map((char) => (char === 'P' || char === 'S') ? '.' : char));
   for (const portal of document.portals) {
     if (portal.hidden) continue;
@@ -336,8 +356,26 @@ function syncPortalTiles(document: GmMapDocument): GmMapDocument {
 /** 在出生点落在不可通行格时，向外搜索最近可走坐标作为兜底。 */
 function resolveNearestWalkablePointInDocument(
   document: GmMapDocument,
-  origin: { x: number; y: number },
-): { x: number; y: number } | null {
+  origin: {  
+  /**
+ * x：对象字段。
+ */
+ x: number;  
+ /**
+ * y：对象字段。
+ */
+ y: number },
+): {
+/**
+ * x：对象字段。
+ */
+ x: number;
+ /**
+ * y：对象字段。
+ */
+ y: number } | null {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
   if (document.width <= 0 || document.height <= 0) {
     return null;
   }
@@ -347,7 +385,15 @@ function resolveNearestWalkablePointInDocument(
     y: Math.min(document.height - 1, Math.max(0, Math.floor(origin.y))),
   };
 
-  let portalFallback: { x: number; y: number } | null = null;
+  let portalFallback: {  
+  /**
+ * x：对象字段。
+ */
+ x: number;  
+ /**
+ * y：对象字段。
+ */
+ y: number } | null = null;
   for (let radius = 0; radius <= Math.max(document.width, document.height); radius += 1) {
     for (let dy = -radius; dy <= radius; dy += 1) {
       for (let dx = -radius; dx <= radius; dx += 1) {
@@ -390,14 +436,38 @@ export function normalizeEditableMapDocument(raw: unknown): GmMapDocument {
     ? source.tiles.map((row) => typeof row === 'string' ? row : '')
     : [];
   const auras = Array.isArray(source.auras) ? source.auras : [];
-  const resources = Array.isArray((source as { resources?: unknown[] }).resources)
-    ? (source as { resources: unknown[] }).resources
+  const resources = Array.isArray((source as {  
+  /**
+ * resources：对象字段。
+ */
+ resources?: unknown[] }).resources)
+    ? (source as {    
+    /**
+ * resources：对象字段。
+ */
+ resources: unknown[] }).resources
     : [];
-  const safeZones = Array.isArray((source as { safeZones?: unknown[] }).safeZones)
-    ? (source as { safeZones: unknown[] }).safeZones
+  const safeZones = Array.isArray((source as {  
+  /**
+ * safeZones：对象字段。
+ */
+ safeZones?: unknown[] }).safeZones)
+    ? (source as {    
+    /**
+ * safeZones：对象字段。
+ */
+ safeZones: unknown[] }).safeZones
     : [];
-  const landmarks = Array.isArray((source as { landmarks?: unknown[] }).landmarks)
-    ? (source as { landmarks: unknown[] }).landmarks
+  const landmarks = Array.isArray((source as {  
+  /**
+ * landmarks：对象字段。
+ */
+ landmarks?: unknown[] }).landmarks)
+    ? (source as {    
+    /**
+ * landmarks：对象字段。
+ */
+ landmarks: unknown[] }).landmarks
     : [];
   const portals = Array.isArray(source.portals) ? source.portals : [];
   const npcs = Array.isArray(source.npcs) ? source.npcs : [];
@@ -408,12 +478,32 @@ export function normalizeEditableMapDocument(raw: unknown): GmMapDocument {
     name: typeof source.name === 'string' ? source.name : '',
     width: Number.isInteger(source.width) ? Number(source.width) : 0,
     height: Number.isInteger(source.height) ? Number(source.height) : 0,
-    routeDomain: normalizeMapRouteDomain((source as { routeDomain?: unknown }).routeDomain) ?? 'system',
-    terrainProfileId: typeof (source as { terrainProfileId?: unknown }).terrainProfileId === 'string'
-      ? (source as { terrainProfileId: string }).terrainProfileId
+    routeDomain: normalizeMapRouteDomain((source as {    
+    /**
+ * routeDomain：对象字段。
+ */
+ routeDomain?: unknown }).routeDomain) ?? 'system',
+    terrainProfileId: typeof (source as {    
+    /**
+ * terrainProfileId：对象字段。
+ */
+ terrainProfileId?: unknown }).terrainProfileId === 'string'
+      ? (source as {      
+      /**
+ * terrainProfileId：对象字段。
+ */
+ terrainProfileId: string }).terrainProfileId
       : undefined,
-    terrainRealmLv: Number.isFinite((source as { terrainRealmLv?: unknown }).terrainRealmLv)
-      ? Math.max(1, Math.floor(Number((source as { terrainRealmLv?: number }).terrainRealmLv)))
+    terrainRealmLv: Number.isFinite((source as {    
+    /**
+ * terrainRealmLv：对象字段。
+ */
+ terrainRealmLv?: unknown }).terrainRealmLv)
+      ? Math.max(1, Math.floor(Number((source as {      
+      /**
+ * terrainRealmLv：对象字段。
+ */
+ terrainRealmLv?: number }).terrainRealmLv)))
       : undefined,
     parentMapId: typeof source.parentMapId === 'string' ? source.parentMapId : undefined,
     parentOriginX: Number.isInteger(source.parentOriginX) ? Number(source.parentOriginX) : undefined,
@@ -444,10 +534,22 @@ export function normalizeEditableMapDocument(raw: unknown): GmMapDocument {
         : undefined,
     })),
     spawnPoint: {
-      x: Number((source.spawnPoint as { x?: number } | undefined)?.x ?? 0),
-      y: Number((source.spawnPoint as { y?: number } | undefined)?.y ?? 0),
+      x: Number((source.spawnPoint as {      
+      /**
+ * x：对象字段。
+ */
+ x?: number } | undefined)?.x ?? 0),
+      y: Number((source.spawnPoint as {      
+      /**
+ * y：对象字段。
+ */
+ y?: number } | undefined)?.y ?? 0),
     },
-    time: normalizeMapTimeConfig((source as { time?: unknown }).time),
+    time: normalizeMapTimeConfig((source as {    
+    /**
+ * time：对象字段。
+ */
+ time?: unknown }).time),
     auras: auras.map((point) => ({
       x: Number((point as GmMapAuraRecord).x ?? 0),
       y: Number((point as GmMapAuraRecord).y ?? 0),
@@ -597,6 +699,8 @@ export function normalizeEditableMapDocument(raw: unknown): GmMapDocument {
 
 /** 保存前执行格式与业务完整性检查，返回第一条错误。 */
 export function validateEditableMapDocument(document: GmMapDocument): string | null {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
   if (!document.id.trim()) return '地图 ID 不能为空';
   if (!document.name.trim()) return '地图名称不能为空';
   if (!document.routeDomain) return '地图路网域不能为空';

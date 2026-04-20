@@ -23,44 +23,120 @@ export type QiVisibilityLevel = typeof QI_VISIBILITY_LEVELS[number];
 
 /** 灵力资源描述符：由族、形态、元素三元信息唯一确定。 */
 export interface QiResourceDescriptor {
-  family: QiFamilyKey;
-  form: QiFormKey;
+/**
+ * family：QiResourceDescriptor 内部字段。
+ */
+
+  family: QiFamilyKey;  
+  /**
+ * form：QiResourceDescriptor 内部字段。
+ */
+
+  form: QiFormKey;  
+  /**
+ * element：QiResourceDescriptor 内部字段。
+ */
+
   element: QiElementKey;
 }
 
 /** 灵力投影筛选条件：按资源键、族、形态或元素筛选命中项。 */
 export interface QiProjectionSelector {
-  resourceKeys?: string[];
-  families?: QiFamilyKey[];
-  forms?: QiFormKey[];
+/**
+ * resourceKeys：QiProjectionSelector 内部字段。
+ */
+
+  resourceKeys?: string[];  
+  /**
+ * families：QiProjectionSelector 内部字段。
+ */
+
+  families?: QiFamilyKey[];  
+  /**
+ * forms：QiProjectionSelector 内部字段。
+ */
+
+  forms?: QiFormKey[];  
+  /**
+ * elements：QiProjectionSelector 内部字段。
+ */
+
   elements?: QiElementKey[];
 }
 
 /** 单条灵力投影规则：控制资源可见性和效率倍率。 */
 export interface QiProjectionModifier {
-  selector?: QiProjectionSelector;
-  visibility?: Exclude<QiVisibilityLevel, 'hidden'>;
+/**
+ * selector：QiProjectionModifier 内部字段。
+ */
+
+  selector?: QiProjectionSelector;  
+  /**
+ * visibility：QiProjectionModifier 内部字段。
+ */
+
+  visibility?: Exclude<QiVisibilityLevel, 'hidden'>;  
+  /**
+ * efficiencyBpMultiplier：QiProjectionModifier 内部字段。
+ */
+
   efficiencyBpMultiplier?: number;
 }
 
 /** 编译后的单条灵力投影结果，供运行时直接查表使用。 */
 export interface CompiledQiResourceProjection {
-  visibility: QiVisibilityLevel;
-  efficiencyBp: number;
+/**
+ * visibility：CompiledQiResourceProjection 内部字段。
+ */
+
+  visibility: QiVisibilityLevel;  
+  /**
+ * efficiencyBp：CompiledQiResourceProjection 内部字段。
+ */
+
+  efficiencyBp: number;  
+  /**
+ * descriptor：CompiledQiResourceProjection 内部字段。
+ */
+
   descriptor: QiResourceDescriptor;
 }
 
 /** 当前角色的灵力投影快照，便于缓存和增量对比。 */
 export interface CompiledQiProjectionProfile {
-  revision: number;
-  resourceProfiles: Record<string, CompiledQiResourceProjection>;
+/**
+ * revision：CompiledQiProjectionProfile 内部字段。
+ */
+
+  revision: number;  
+  /**
+ * resourceProfiles：CompiledQiProjectionProfile 内部字段。
+ */
+
+  resourceProfiles: Record<string, CompiledQiResourceProjection>;  
+  /**
+ * familyVisibility：CompiledQiProjectionProfile 内部字段。
+ */
+
   familyVisibility: Partial<Record<QiFamilyKey, QiVisibilityLevel>>;
 }
 
 /** 灵力流衰减参数，决定资源随时间的递减速度。 */
 export interface QiRuntimeFlowConfig {
-  halfLifeRateScale: number;
-  halfLifeRateScaled: number;
+/**
+ * halfLifeRateScale：QiRuntimeFlowConfig 内部字段。
+ */
+
+  halfLifeRateScale: number;  
+  /**
+ * halfLifeRateScaled：QiRuntimeFlowConfig 内部字段。
+ */
+
+  halfLifeRateScaled: number;  
+  /**
+ * minimumDecayPerTick：QiRuntimeFlowConfig 内部字段。
+ */
+
   minimumDecayPerTick: number;
 }
 
@@ -115,6 +191,8 @@ export function buildQiResourceKey(descriptor: QiResourceDescriptor): string {
 
 /** 拆解灵力资源键并校验三段枚举是否合法。 */
 export function parseQiResourceKey(resourceKey: string): QiResourceDescriptor | null {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
   const [family, form, element] = resourceKey.split('.');
   if (!QI_FAMILY_KEYS.includes(family as QiFamilyKey)) {
     return null;
@@ -144,6 +222,8 @@ export function isAuraQiResourceKey(resourceKey: string): boolean {
 
 /** 将灵力效率倍率归一化为 basis point 口径。 */
 export function normalizeQiEfficiencyBp(value: unknown, fallback = DEFAULT_QI_EFFICIENCY_BP): number {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
   if (!Number.isFinite(value)) {
     return fallback;
   }
@@ -166,6 +246,8 @@ export function matchesQiProjectionSelector(
   resourceKey: string,
   selector?: QiProjectionSelector,
 ): boolean {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
   if (!selector) {
     return true;
   }
@@ -193,6 +275,8 @@ export function applyQiEfficiencyBp(baseBp: number, multiplierBp: number): numbe
 
 /** 按效率折算原始灵力数值。 */
 export function projectQiValue(rawValue: number, efficiencyBp: number): number {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
   if (!Number.isFinite(rawValue) || rawValue <= 0) {
     return 0;
   }

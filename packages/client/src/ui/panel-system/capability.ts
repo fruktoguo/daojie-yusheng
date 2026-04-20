@@ -69,7 +69,14 @@ export class PanelCapabilityMonitor {
   /** boundRefresh：bound Refresh。 */
   private readonly boundRefresh: () => void;
   /** started：started。 */
-  private started = false;
+  private started = false;  
+  /**
+ * 构造器：初始化 当前 实例并建立基础状态。
+ * @param win Window 参数说明。
+ * @param listener (capabilities: PanelCapabilities) => void 参数说明。
+ * @returns 无返回值（构造函数）。
+ */
+
 
   constructor(win: Window, listener: (capabilities: PanelCapabilities) => void) {
     this.win = win;
@@ -81,6 +88,8 @@ export class PanelCapabilityMonitor {
 
   /** start：启动start。 */
   start(): void {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
     if (this.started) {
       return;
     }
@@ -93,6 +102,8 @@ export class PanelCapabilityMonitor {
 
   /** stop：停止stop。 */
   stop(): void {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
     if (!this.started) {
       return;
     }

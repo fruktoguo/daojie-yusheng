@@ -1,10 +1,36 @@
 import type { ReactNode } from 'react';
+/**
+ * UiWorldEntityRowProps：定义接口结构约束，明确可交付字段含义。
+ */
+
 
 export interface UiWorldEntityRowProps {
-  name: string;
-  kind: ReactNode;
+/**
+ * name：UiWorldEntityRowProps 内部字段。
+ */
+
+  name: string;  
+  /**
+ * kind：UiWorldEntityRowProps 内部字段。
+ */
+
+  kind: ReactNode;  
+  /**
+ * note：UiWorldEntityRowProps 内部字段。
+ */
+
   note?: ReactNode;
 }
+/**
+ * UiWorldEntityRow：执行核心业务逻辑。
+ * @param {
+  name,
+  kind,
+  note,
+} UiWorldEntityRowProps 参数说明。
+ * @returns 函数返回值。
+ */
+
 
 export function UiWorldEntityRow({
   name,

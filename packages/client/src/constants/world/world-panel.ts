@@ -5,12 +5,40 @@ import { TechniqueRealm } from '@mud/shared-next';
 
 /** WorldGuide：世界指南条目。 */
 export interface WorldGuide {
-  title: string;
-  recommendedRealm: string;
-  route: string;
-  mood: string;
-  desc: string;
-  resources: string[];
+/**
+ * title：WorldGuide 内部字段。
+ */
+
+  title: string;  
+  /**
+ * recommendedRealm：WorldGuide 内部字段。
+ */
+
+  recommendedRealm: string;  
+  /**
+ * route：WorldGuide 内部字段。
+ */
+
+  route: string;  
+  /**
+ * mood：WorldGuide 内部字段。
+ */
+
+  mood: string;  
+  /**
+ * desc：WorldGuide 内部字段。
+ */
+
+  desc: string;  
+  /**
+ * resources：WorldGuide 内部字段。
+ */
+
+  resources: string[];  
+  /**
+ * threats：WorldGuide 内部字段。
+ */
+
   threats: string[];
 }
 
@@ -116,7 +144,11 @@ export const WORLD_GUIDE: Record<string, WorldGuide> = {
 };
 
 /** 主界面兜底使用的地图推荐境界。 */
-export const MAP_FALLBACK: Record<string, { recommendedRealm: string }> = {
+export const MAP_FALLBACK: Record<string, {
+/**
+ * recommendedRealm：对象字段。
+ */
+ recommendedRealm: string }> = {
   yunlai_town: { recommendedRealm: '凡胎-锻骨' },
   qizhen_crossing: { recommendedRealm: '练气一层-半步筑基' },
   bamboo_forest: { recommendedRealm: '易筋-养气' },

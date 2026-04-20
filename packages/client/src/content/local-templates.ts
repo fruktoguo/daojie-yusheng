@@ -24,9 +24,25 @@ const skillTemplateMap = new Map(
 );
 /** 本地 Buff 模板的最小字段集合。 */
 type LocalBuffTemplate = {
-  buffId: string;
-  name: string;
-  shortMark?: string;
+/**
+ * buffId：对象字段。
+ */
+
+  buffId: string;  
+  /**
+ * name：对象字段。
+ */
+
+  name: string;  
+  /**
+ * shortMark：对象字段。
+ */
+
+  shortMark?: string;  
+  /**
+ * category：对象字段。
+ */
+
   category?: 'buff' | 'debuff';
 };
 
@@ -77,6 +93,8 @@ function clone<T>(value: T): T {
 
 /** 从模板推断功法类别。 */
 function resolveTechniqueCategoryFromTemplate(template: GmEditorTechniqueOption | undefined): TechniqueCategory | null {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
   if (!template) {
     return null;
   }
@@ -85,6 +103,8 @@ function resolveTechniqueCategoryFromTemplate(template: GmEditorTechniqueOption 
 
 /** 从书籍物品 ID 里拆出对应的功法 ID。 */
 export function resolveTechniqueIdFromBookItemId(itemId: string): string | null {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
   if (itemId.startsWith('book.')) {
     return itemId.slice(5);
   }
@@ -126,6 +146,8 @@ export function getLocalTechniqueCategoryForBookItem(itemId: string): TechniqueC
 
 /** 读取本地境界等级配置。 */
 export function getLocalRealmLevelEntry(realmLv: number | undefined): GmEditorRealmOption | null {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
   if (!Number.isFinite(realmLv)) {
     return null;
   }
@@ -153,6 +175,8 @@ export function isLocalDivineSkillName(skillName: string): boolean {
 
 /** 计算功法预览时应使用的境界等级。 */
 function resolveTechniqueRealmLevel(realmLv: number | undefined, grade: TechniqueGrade | undefined): number {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
   if (Number.isFinite(realmLv)) {
     return Math.max(1, Math.floor(Number(realmLv)));
   }
@@ -164,6 +188,8 @@ function resolveTechniqueRealmLevel(realmLv: number | undefined, grade: Techniqu
 
 /** 用本地模板补齐物品预览字段。 */
 export function resolvePreviewItem(item: ItemStack): ItemStack {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
   const template = getLocalItemTemplate(item.itemId);
   if (!template) {
     return item;
@@ -196,6 +222,8 @@ export function resolvePreviewItem(item: ItemStack): ItemStack {
 
 /** 用本地模板补齐技能预览字段。 */
 export function resolvePreviewSkill(skill: SkillDef): SkillDef {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
   const template = getLocalSkillTemplate(skill.id);
   if (!template) {
     return skill;
@@ -230,6 +258,8 @@ function resolvePreviewTechniqueSkill(
   techniqueRealmLv: number,
   templateSkill?: SkillDef,
 ): SkillDef {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
   const merged = resolvePreviewSkill({
     ...(templateSkill ?? {}),
     ...skill,
@@ -251,6 +281,8 @@ function resolvePreviewTechniqueSkill(
 
 /** 用模板与当前状态合并出功法预览数据。 */
 export function resolvePreviewTechnique(technique: TechniqueState): TechniqueState {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
   const template = getLocalTechniqueTemplate(technique.techId);
   if (!template) {
     return {

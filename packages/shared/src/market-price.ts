@@ -10,13 +10,27 @@ const MARKET_PRICE_EPSILON = 1e-9;
 
 /** MarketPriceBand：价格档位。 */
 type MarketPriceBand = {
-  start: number;
-  end: number;
+/**
+ * start：对象字段。
+ */
+
+  start: number;  
+  /**
+ * end：对象字段。
+ */
+
+  end: number;  
+  /**
+ * step：对象字段。
+ */
+
   step: number;
 };
 
 /** greatestCommonDivisor：处理greatest Common Divisor。 */
 function greatestCommonDivisor(left: number, right: number): number {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
   let a = Math.abs(Math.trunc(left));
   let b = Math.abs(Math.trunc(right));
   while (b !== 0) {
@@ -31,6 +45,8 @@ function greatestCommonDivisor(left: number, right: number): number {
 
 /** normalizeFractionalPriceUnits：规范化Fractional价格Units。 */
 function normalizeFractionalPriceUnits(value: number): number | null {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
   if (!Number.isFinite(value) || value < MARKET_MIN_UNIT_PRICE || value >= 1) {
     return null;
   }
@@ -46,6 +62,8 @@ function normalizeFractionalPriceUnits(value: number): number | null {
 
 /** normalizeBasePrice：规范化基础价格。 */
 function normalizeBasePrice(value: number): number {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
   if (!Number.isFinite(value) || value <= 1) {
     return 1;
   }
@@ -54,6 +72,8 @@ function normalizeBasePrice(value: number): number {
 
 /** getMarketPriceBand：读取市场价格Band。 */
 function getMarketPriceBand(value: number): MarketPriceBand {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
   const price = Math.max(1, Math.floor(value));
   const base = normalizeBasePrice(price);
   const normalized = price / base;
@@ -80,6 +100,8 @@ function getMarketPriceBand(value: number): MarketPriceBand {
 
 /** getMarketPriceStep：读取市场价格Step。 */
 export function getMarketPriceStep(value: number): number {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
   if (value < 1) {
     return MARKET_MIN_UNIT_PRICE;
   }
@@ -88,6 +110,8 @@ export function getMarketPriceStep(value: number): number {
 
 /** isValidMarketPrice：判断是否Valid市场价格。 */
 export function isValidMarketPrice(value: number): boolean {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
   if (!Number.isFinite(value) || value <= 0 || value > MARKET_MAX_UNIT_PRICE) {
     return false;
   }
@@ -103,6 +127,8 @@ export function isValidMarketPrice(value: number): boolean {
 
 /** normalizeMarketPriceUp：规范化市场价格Up。 */
 export function normalizeMarketPriceUp(value: number): number {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
   if (!Number.isFinite(value)) {
     return MARKET_MIN_UNIT_PRICE;
   }
@@ -133,6 +159,8 @@ export function normalizeMarketPriceUp(value: number): number {
 
 /** normalizeMarketPriceDown：规范化市场价格Down。 */
 export function normalizeMarketPriceDown(value: number): number {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
   if (!Number.isFinite(value)) {
     return MARKET_MIN_UNIT_PRICE;
   }
@@ -160,6 +188,8 @@ export function normalizeMarketPriceDown(value: number): number {
 
 /** getMarketMinimumTradeQuantity：读取市场Minimum交易Quantity。 */
 export function getMarketMinimumTradeQuantity(unitPrice: number): number {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
   const scaled = normalizeFractionalPriceUnits(unitPrice);
   if (scaled === null) {
     return 1;
@@ -169,6 +199,8 @@ export function getMarketMinimumTradeQuantity(unitPrice: number): number {
 
 /** isValidMarketTradeQuantity：判断是否Valid市场交易Quantity。 */
 export function isValidMarketTradeQuantity(unitPrice: number, quantity: number): boolean {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
   if (!Number.isFinite(quantity) || !Number.isInteger(quantity) || quantity <= 0) {
     return false;
   }
@@ -177,6 +209,8 @@ export function isValidMarketTradeQuantity(unitPrice: number, quantity: number):
 
 /** calculateMarketTradeTotalCost：计算市场交易总量Cost。 */
 export function calculateMarketTradeTotalCost(quantity: number, unitPrice: number): number | null {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
   if (!Number.isFinite(quantity) || !Number.isInteger(quantity) || quantity <= 0 || !isValidMarketPrice(unitPrice)) {
     return null;
   }

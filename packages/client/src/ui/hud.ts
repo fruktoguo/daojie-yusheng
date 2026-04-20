@@ -8,17 +8,65 @@ import { formatDisplayCurrentMax, formatDisplayInteger } from '../utils/number';
 
 /** HUDMeta：HUD 附加显示元数据。 */
 interface HUDMeta {
-  mapName?: string;
-  mapDanger?: string;
-  realmLabel?: string;
-  realmReviewLabel?: string;
-  realmActionLabel?: string;
-  showRealmAction?: boolean;
-  realmProgressLabel?: string;
-  objectiveLabel?: string;
-  threatLabel?: string;
-  boneAgeLabel?: string;
-  lifespanLabel?: string;
+/**
+ * mapName：HUDMeta 内部字段。
+ */
+
+  mapName?: string;  
+  /**
+ * mapDanger：HUDMeta 内部字段。
+ */
+
+  mapDanger?: string;  
+  /**
+ * realmLabel：HUDMeta 内部字段。
+ */
+
+  realmLabel?: string;  
+  /**
+ * realmReviewLabel：HUDMeta 内部字段。
+ */
+
+  realmReviewLabel?: string;  
+  /**
+ * realmActionLabel：HUDMeta 内部字段。
+ */
+
+  realmActionLabel?: string;  
+  /**
+ * showRealmAction：HUDMeta 内部字段。
+ */
+
+  showRealmAction?: boolean;  
+  /**
+ * realmProgressLabel：HUDMeta 内部字段。
+ */
+
+  realmProgressLabel?: string;  
+  /**
+ * objectiveLabel：HUDMeta 内部字段。
+ */
+
+  objectiveLabel?: string;  
+  /**
+ * threatLabel：HUDMeta 内部字段。
+ */
+
+  threatLabel?: string;  
+  /**
+ * boneAgeLabel：HUDMeta 内部字段。
+ */
+
+  boneAgeLabel?: string;  
+  /**
+ * lifespanLabel：HUDMeta 内部字段。
+ */
+
+  lifespanLabel?: string;  
+  /**
+ * titleLabel：HUDMeta 内部字段。
+ */
+
   titleLabel?: string;
 }
 
@@ -55,13 +103,24 @@ export class HUD {
   /** cultivateBar：cultivate Bar。 */
   private cultivateBar = document.getElementById('hud-cultivate-bar')!;
   /** onBreakthrough：on Breakthrough。 */
-  private onBreakthrough: (() => void) | null = null;
+  private onBreakthrough: (() => void) | null = null;  
+  /**
+ * 构造器：初始化 当前 实例并建立基础状态。
+ * @returns 无返回值（构造函数）。
+ */
+
 
   constructor() {
     this.breakthroughButton?.addEventListener('click', () => {
       this.onBreakthrough?.();
     });
-  }
+  }  
+  /**
+ * setCallbacks：更新/写入相关状态。
+ * @param onBreakthrough () => void 参数说明。
+ * @returns void。
+ */
+
 
   setCallbacks(onBreakthrough: () => void): void {
     this.onBreakthrough = onBreakthrough;
@@ -69,6 +128,8 @@ export class HUD {
 
   /** 根据玩家状态刷新所有 HUD 元素 */
   update(player: PlayerState, meta?: HUDMeta) {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
     this.nameDiv.textContent = player.displayName ?? player.name;
     this.titleDiv.textContent = meta?.titleLabel ?? '无号散修';
     this.posDiv.textContent = `(${player.x}, ${player.y})`;
@@ -121,6 +182,8 @@ export class HUD {
 
   /** buildLifespanLabel：构建Lifespan标签。 */
   private buildLifespanLabel(player: PlayerState): string {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
     const lifespanYears = player.lifespanYears ?? player.realm?.lifespanYears ?? null;
     if (lifespanYears == null || lifespanYears <= 0) {
       return '???';

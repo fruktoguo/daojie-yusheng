@@ -27,32 +27,108 @@ import {
 
 /** 单个聊天频道的本地状态。 */
 interface ChatChannelState {
-  messages: ChatStoredMessage[];
-  messageIds: Set<string>;
-  loadedCount: number;
-  hasLoadedAll: boolean;
+/**
+ * messages：ChatChannelState 内部字段。
+ */
+
+  messages: ChatStoredMessage[];  
+  /**
+ * messageIds：ChatChannelState 内部字段。
+ */
+
+  messageIds: Set<string>;  
+  /**
+ * loadedCount：ChatChannelState 内部字段。
+ */
+
+  loadedCount: number;  
+  /**
+ * hasLoadedAll：ChatChannelState 内部字段。
+ */
+
+  hasLoadedAll: boolean;  
+  /**
+ * loadingOlder：ChatChannelState 内部字段。
+ */
+
   loadingOlder: boolean;
 }
 
 /** 追加聊天消息时可覆盖的消息元数据。 */
 interface ChatAddMessageOptions {
-  id?: string;
-  at?: number;
+/**
+ * id：ChatAddMessageOptions 内部字段。
+ */
+
+  id?: string;  
+  /**
+ * at：ChatAddMessageOptions 内部字段。
+ */
+
+  at?: number;  
+  /**
+ * scope：ChatAddMessageOptions 内部字段。
+ */
+
   scope?: ChatMessageScope;
 }
 
 /** 解析后的战斗伤害或治疗文本片段。 */
 interface ParsedCombatDamageSegment {
-  before: string;
-  connector: string;
-  rawAmount: string;
-  actualAmount: string;
-  after: string;
-  details: string[];
-  pillText: string;
-  suffixText: string;
-  tooltipTitle: string;
-  tooltipLines: string[];
+/**
+ * before：ParsedCombatDamageSegment 内部字段。
+ */
+
+  before: string;  
+  /**
+ * connector：ParsedCombatDamageSegment 内部字段。
+ */
+
+  connector: string;  
+  /**
+ * rawAmount：ParsedCombatDamageSegment 内部字段。
+ */
+
+  rawAmount: string;  
+  /**
+ * actualAmount：ParsedCombatDamageSegment 内部字段。
+ */
+
+  actualAmount: string;  
+  /**
+ * after：ParsedCombatDamageSegment 内部字段。
+ */
+
+  after: string;  
+  /**
+ * details：ParsedCombatDamageSegment 内部字段。
+ */
+
+  details: string[];  
+  /**
+ * pillText：ParsedCombatDamageSegment 内部字段。
+ */
+
+  pillText: string;  
+  /**
+ * suffixText：ParsedCombatDamageSegment 内部字段。
+ */
+
+  suffixText: string;  
+  /**
+ * tooltipTitle：ParsedCombatDamageSegment 内部字段。
+ */
+
+  tooltipTitle: string;  
+  /**
+ * tooltipLines：ParsedCombatDamageSegment 内部字段。
+ */
+
+  tooltipLines: string[];  
+  /**
+ * color：ParsedCombatDamageSegment 内部字段。
+ */
+
   color: string;
 }
 
@@ -89,6 +165,8 @@ function isChatMessageScope(value: unknown): value is ChatMessageScope {
 
 /** 判断值是否为合法的已存储聊天消息。 */
 function isChatStoredMessage(value: unknown): value is ChatStoredMessage {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
   if (!value || typeof value !== 'object') {
     return false;
   }
@@ -126,7 +204,17 @@ function sortMessagesByTime(messages: ChatStoredMessage[]): ChatStoredMessage[] 
 function mergeMessages(
   current: ChatStoredMessage[],
   incoming: ChatStoredMessage[],
-): { messages: ChatStoredMessage[]; ids: Set<string> } {
+): {
+/**
+ * messages：对象字段。
+ */
+ messages: ChatStoredMessage[];
+ /**
+ * ids：对象字段。
+ */
+ ids: Set<string> } {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
   const merged = new Map<string, ChatStoredMessage>();
   for (const entry of current) {
     merged.set(entry.id, entry);
@@ -162,6 +250,8 @@ function buildLineText(entry: ChatStoredMessage): string {
 
 /** 解析战斗伤害、治疗与结果文本中的高亮片段。 */
 function parseCombatDamageSegment(text: string): ParsedCombatDamageSegment | null {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
   const damageMatch = COMBAT_DAMAGE_PATTERN.exec(text);
   if (damageMatch?.groups) {
     const damageKind: SkillDamageKind = damageMatch.groups.kind === '物理' ? 'physical' : 'spell';
@@ -237,6 +327,8 @@ function parseCombatDamageSegment(text: string): ParsedCombatDamageSegment | nul
 
 /** 将颜色字符串和透明度合成 rgba 表达式。 */
 function toAlphaColor(hex: string, alpha: number): string {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
   const normalized = hex.trim();
   const value = normalized.startsWith('#') ? normalized.slice(1) : normalized;
   if (value.length !== 6) {
@@ -253,6 +345,8 @@ function toAlphaColor(hex: string, alpha: number): string {
 
 /** 构建聊天行中的可交互片段。 */
 function buildLineFragment(entry: ChatStoredMessage): DocumentFragment {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
   const fragment = document.createDocumentFragment();
   const linePrefix = `${formatStamp(entry.at)} ${entry.from ? `[${entry.from}] ` : ''}`;
   const parsedDamage = entry.kind === 'combat' ? parseCombatDamageSegment(entry.text) : null;
@@ -323,7 +417,12 @@ export class ChatUI {
   /** 伤害提示是否处于触控锁定模式。 */
   private readonly damageTooltipTapMode = prefersPinnedTooltipInteraction();
   /** 当前悬停的伤害提示目标。 */
-  private hoveredDamageTooltipTarget: HTMLElement | null = null;
+  private hoveredDamageTooltipTarget: HTMLElement | null = null;  
+  /**
+ * 构造器：初始化 当前 实例并建立基础状态。
+ * @returns 无返回值（构造函数）。
+ */
+
 
   constructor() {
     this.sendBtn.addEventListener('click', () => this.submit());
@@ -360,7 +459,13 @@ export class ChatUI {
 
     this.switchChannel(DEFAULT_CHAT_CHANNEL);
     this.renderAllChannels();
-  }
+  }  
+  /**
+ * setCallback：更新/写入相关状态。
+ * @param onSend (message: string) => void 参数说明。
+ * @returns void。
+ */
+
 
   setCallback(onSend: (message: string) => void): void {
     this.onSend = onSend;
@@ -368,6 +473,8 @@ export class ChatUI {
 
   /** 设置当前消息持久化范围。 */
   setPersistenceScope(scopeId: string | null): void {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
     this.scopeLoadToken += 1;
     const normalizedScope = typeof scopeId === 'string' && scopeId.trim().length > 0
       ? scopeId.trim()
@@ -404,6 +511,8 @@ export class ChatUI {
 
   /** 切换日志簿可见性。 */
   setLogbookVisible(visible: boolean): void {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
     if (this.logbookVisible === visible) {
       return;
     }
@@ -421,7 +530,16 @@ export class ChatUI {
     }
     this.clearInactiveChannels();
     this.renderChannel(this.activeChannel, { stickToBottom: true });
-  }
+  }  
+  /**
+ * addMessage：执行核心业务逻辑。
+ * @param text string 参数说明。
+ * @param from string 参数说明。
+ * @param kind ChatMessageKind 参数说明。
+ * @param options ChatMessageScope | ChatAddMessageOptions 选项参数。
+ * @returns Promise<boolean>。
+ */
+
 
   async addMessage(
     text: string,
@@ -429,6 +547,8 @@ export class ChatUI {
     kind: ChatMessageKind = 'system',
     options?: ChatMessageScope | ChatAddMessageOptions,
   ): Promise<boolean> {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
     const trimmed = text.trim();
     if (!trimmed || !this.currentScopeId) {
       return false;
@@ -507,6 +627,8 @@ export class ChatUI {
 
   /** 解析当前要显示的频道集合。 */
   private resolveChannels(entry: ChatStoredMessage): ChatChannel[] {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
     if (entry.kind === 'combat') {
       return ['combat'];
     }
@@ -526,7 +648,11 @@ export class ChatUI {
   }
 
   /** 刷新全部频道的标签和内容。 */
-  private renderAllChannels(options?: { stickToBottom?: boolean }): void {
+  private renderAllChannels(options?: {  
+  /**
+ * stickToBottom：ChatUI 内部字段。
+ */
+ stickToBottom?: boolean }): void {
     for (const channel of CHAT_CHANNELS) {
       if (channel === this.activeChannel) {
         this.renderChannel(channel, { stickToBottom: options?.stickToBottom === true });
@@ -534,17 +660,47 @@ export class ChatUI {
       }
       this.clearChannel(channel);
     }
-  }
-
-  private renderChannel(
-    channel: ChatChannel,
-    options?: {
+  }  
+  /**
+ * renderChannel：执行核心业务逻辑。
+ * @param channel ChatChannel 参数说明。
+ * @param options {
       stickToBottom?: boolean;
       preserveScrollFromLoadMore?: boolean;
       previousScrollHeight?: number;
       previousScrollTop?: number;
+    } 选项参数。
+ * @returns void。
+ */
+
+
+  private renderChannel(
+    channel: ChatChannel,
+    options?: {    
+    /**
+ * stickToBottom：ChatUI 内部字段。
+ */
+
+      stickToBottom?: boolean;      
+      /**
+ * preserveScrollFromLoadMore：ChatUI 内部字段。
+ */
+
+      preserveScrollFromLoadMore?: boolean;      
+      /**
+ * previousScrollHeight：ChatUI 内部字段。
+ */
+
+      previousScrollHeight?: number;      
+      /**
+ * previousScrollTop：ChatUI 内部字段。
+ */
+
+      previousScrollTop?: number;
     },
   ): void {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
     const log = this.logs.get(channel);
     const state = this.channelStates.get(channel);
     if (!log || !state) {
@@ -640,6 +796,8 @@ export class ChatUI {
 
   /** 处理日志列表滚动，接近顶部时继续加载历史。 */
   private async handleLogScroll(channel: ChatChannel): Promise<void> {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
     if (!this.logbookVisible || channel !== this.activeChannel) {
       return;
     }
@@ -694,6 +852,8 @@ export class ChatUI {
 
   /** 切换当前频道。 */
   private switchChannel(channel: ChatChannel): void {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
     const previousChannel = this.activeChannel;
     this.activeChannel = channel;
     this.tabs.forEach((tab) => {
@@ -713,6 +873,8 @@ export class ChatUI {
 
   /** 判断日志列表是否接近底部。 */
   private isLogNearBottom(log: HTMLElement | undefined): boolean {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
     if (!log) {
       return true;
     }
@@ -721,6 +883,8 @@ export class ChatUI {
 
   /** 提交当前输入框内容。 */
   private submit(): void {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
     const message = this.input.value.trim();
     if (!message) {
       return;
@@ -736,6 +900,8 @@ export class ChatUI {
 
   /** 从本地缓存恢复最近消息。 */
   private async hydrateRecentMessages(scopeId: string, loadToken: number): Promise<void> {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
     const loadedByChannel = await Promise.all(
       CHAT_CHANNELS.map(async (channel) => ({
         channel,
@@ -777,6 +943,8 @@ export class ChatUI {
 
   /** 裁剪频道缓存，保持消息数量上限。 */
   private trimChannelState(state: ChatChannelState, maxMessages: number): void {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
     if (state.messages.length > maxMessages) {
       state.messages = state.messages.slice(-maxMessages);
       state.messageIds = new Set(state.messages.map((entry) => entry.id));

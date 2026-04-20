@@ -20,6 +20,8 @@ function formatPortalTrigger(trigger: 'manual' | 'auto' | undefined): string {
 
 /** formatRespawnTicks：格式化Respawn Ticks。 */
 function formatRespawnTicks(respawnTicks: number | undefined): string {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
   if (typeof respawnTicks !== 'number' || !Number.isFinite(respawnTicks) || respawnTicks <= 0) {
     return '即将重生';
   }
@@ -28,6 +30,8 @@ function formatRespawnTicks(respawnTicks: number | undefined): string {
 
 /** formatNpcQuestMarker：格式化NPC任务标记。 */
 function formatNpcQuestMarker(marker: NpcQuestMarker | null | undefined): string {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
   if (!marker) {
     return '暂无可追踪任务';
   }
@@ -42,8 +46,24 @@ function formatNpcQuestMarker(marker: NpcQuestMarker | null | undefined): string
 /** EntityDetailModal：实体详情弹窗实现。 */
 export class EntityDetailModal {
   /** MODAL_OWNER：弹窗OWNER。 */
-  private static readonly MODAL_OWNER = 'entity-detail-modal';
-  private pending: { kind: NEXT_S2C_Detail['kind']; id: string; title: string } | null = null;
+  private static readonly MODAL_OWNER = 'entity-detail-modal';  
+  /**
+ * pending：EntityDetailModal 内部字段。
+ */
+
+  private pending: {  
+  /**
+ * kind：EntityDetailModal 内部字段。
+ */
+ kind: NEXT_S2C_Detail['kind'];  
+ /**
+ * id：EntityDetailModal 内部字段。
+ */
+ id: string;  
+ /**
+ * title：EntityDetailModal 内部字段。
+ */
+ title: string } | null = null;
   /** detail：详情。 */
   private detail: NEXT_S2C_Detail | null = null;
   /** loading：loading。 */
@@ -59,6 +79,8 @@ export class EntityDetailModal {
 
   /** updateDetail：更新详情。 */
   updateDetail(detail: NEXT_S2C_Detail): void {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
     if (this.pending && (this.pending.kind !== detail.kind || this.pending.id !== detail.id)) {
       return;
     }
@@ -78,6 +100,8 @@ export class EntityDetailModal {
 
   /** render：渲染渲染。 */
   private render(): void {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
     const title = this.detail ? this.resolveTitle(this.detail, this.pending?.title) : (this.pending?.title ?? '详情');
     const subtitle = this.detail ? `目标类型：${escapeHtml(getEntityKindLabel(this.detail.kind, this.detail.kind))}` : '详情同步中';
     const existingBody = detailModalHost.isOpenFor(EntityDetailModal.MODAL_OWNER)
@@ -107,6 +131,8 @@ export class EntityDetailModal {
 
   /** patchBody：局部刷新详情弹层。 */
   private patchBody(body: HTMLElement, title: string, subtitle: string): boolean {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
     const shell = body.querySelector<HTMLElement>('[data-entity-detail-body="true"]');
     const titleNode = document.getElementById('detail-modal-title');
     const subtitleNode = document.getElementById('detail-modal-subtitle');
@@ -122,6 +148,8 @@ export class EntityDetailModal {
 
   /** renderBody：渲染身体。 */
   private renderBody(): string {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
     if (this.loading && !this.detail) {
       return '<div class="empty-hint ui-empty-hint">正在读取目标详情……</div>';
     }
@@ -151,6 +179,8 @@ export class EntityDetailModal {
 
   /** resolveTitle：解析标题。 */
   private resolveTitle(detail: NEXT_S2C_Detail, fallbackTitle?: string): string {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
     if (detail.player && fallbackTitle && fallbackTitle.trim() && fallbackTitle !== detail.player.id) {
       return fallbackTitle;
     }
@@ -166,6 +196,8 @@ export class EntityDetailModal {
 
   /** renderNpc：渲染NPC。 */
   private renderNpc(npc: NEXT_S2C_NpcDetail | null): string {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
     if (!npc) {
       return '<div class="empty-hint ui-empty-hint">未读取到 NPC 详情。</div>';
     }
@@ -188,6 +220,8 @@ export class EntityDetailModal {
 
   /** renderMonster：渲染妖兽。 */
   private renderMonster(monster: NEXT_S2C_MonsterDetail | null): string {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
     if (!monster) {
       return '<div class="empty-hint ui-empty-hint">未读取到怪物详情。</div>';
     }
@@ -211,6 +245,8 @@ export class EntityDetailModal {
 
   /** renderPlayer：渲染玩家。 */
   private renderPlayer(player: NEXT_S2C_PlayerDetail | null): string {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
     if (!player) {
       return '<div class="empty-hint ui-empty-hint">未读取到玩家详情。</div>';
     }
@@ -237,6 +273,8 @@ export class EntityDetailModal {
 
   /** renderPortal：渲染传送点。 */
   private renderPortal(): string {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
     const portal = this.detail?.portal;
     if (!portal) {
       return '<div class="empty-hint ui-empty-hint">未读取到传送点详情。</div>';
@@ -262,6 +300,8 @@ export class EntityDetailModal {
 
   /** renderGround：渲染地面。 */
   private renderGround(): string {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
     const ground = this.detail?.ground;
     if (!ground) {
       return '<div class="empty-hint ui-empty-hint">未读取到地面物详情。</div>';
@@ -284,6 +324,8 @@ export class EntityDetailModal {
 
   /** renderContainer：渲染容器。 */
   private renderContainer(container: NEXT_S2C_ContainerDetail | null): string {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
     if (!container) {
       return '<div class="empty-hint ui-empty-hint">未读取到容器详情。</div>';
     }
@@ -300,12 +342,37 @@ export class EntityDetailModal {
       </div>
       <div class="ui-detail-field ui-detail-field--section"><strong>说明</strong><div>${escapeHtml(container.desc ?? `这处${container.name}可以搜索，翻找后或许会有收获。`)}</div></div>
     `;
-  }
+  }  
+  /**
+ * renderObservation：执行核心业务逻辑。
+ * @param observation { verdict?: string; lines?: Array<{ label: string; value: string }> } | null | undefined 参数说明。
+ * @param hideVitals 参数说明。
+ * @returns string。
+ */
+
 
   private renderObservation(
-    observation: { verdict?: string; lines?: Array<{ label: string; value: string }> } | null | undefined,
+    observation: {    
+    /**
+ * verdict：EntityDetailModal 内部字段。
+ */
+ verdict?: string;    
+ /**
+ * lines：EntityDetailModal 内部字段。
+ */
+ lines?: Array<{    
+ /**
+ * label：EntityDetailModal 内部字段。
+ */
+ label: string;    
+ /**
+ * value：EntityDetailModal 内部字段。
+ */
+ value: string }> } | null | undefined,
     hideVitals = false,
   ): string {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
     if (!observation) {
       return '<div class="ui-detail-field ui-detail-field--section"><strong>观测</strong><div>未得更多回响。</div></div>';
     }
@@ -323,6 +390,8 @@ export class EntityDetailModal {
 
   /** renderBuffs：渲染Buff。 */
   private renderBuffs(buffs: VisibleBuffState[]): string {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
     if (buffs.length === 0) {
       return '<div class="ui-detail-field ui-detail-field--section"><strong>状态</strong><div>当前未见明显状态变化。</div></div>';
     }

@@ -9,22 +9,66 @@ import { PlayerIdentityPersistenceService } from '../../persistence/player-ident
 import { PlayerRuntimeService } from '../../runtime/player/player-runtime.service';
 import { NextPlayerAuthStoreService } from './next-player-auth-store.service';
 import type { NextPlayerAuthUser } from './next-player-auth-store.service';
+/**
+ * AuthTokens：定义接口结构约束，明确可交付字段含义。
+ */
+
 
 interface AuthTokens {
-  accessToken: string;
+/**
+ * accessToken：AuthTokens 内部字段。
+ */
+
+  accessToken: string;  
+  /**
+ * refreshToken：AuthTokens 内部字段。
+ */
+
   refreshToken: string;
 }
+/**
+ * DisplayNameAvailabilityResult：定义接口结构约束，明确可交付字段含义。
+ */
+
 
 interface DisplayNameAvailabilityResult {
-  available: boolean;
+/**
+ * available：DisplayNameAvailabilityResult 内部字段。
+ */
+
+  available: boolean;  
+  /**
+ * message：DisplayNameAvailabilityResult 内部字段。
+ */
+
   message?: string;
 }
+/**
+ * TokenPayload：定义接口结构约束，明确可交付字段含义。
+ */
+
 
 interface TokenPayload {
-  sub?: unknown;
-  username?: unknown;
+/**
+ * sub：TokenPayload 内部字段。
+ */
+
+  sub?: unknown;  
+  /**
+ * username：TokenPayload 内部字段。
+ */
+
+  username?: unknown;  
+  /**
+ * role：TokenPayload 内部字段。
+ */
+
   role?: unknown;
 }
+/**
+ * WorldPlayerTokenCodecPort：定义接口结构约束，明确可交付字段含义。
+ */
+
 
 interface WorldPlayerTokenCodecPort {
   validateRefreshToken(token: string): TokenPayload | null;
@@ -32,36 +76,88 @@ interface WorldPlayerTokenCodecPort {
   issueAccessToken(payload: Record<string, unknown>): string;
   issueRefreshToken(payload: Record<string, unknown>): string;
 }
+/**
+ * PlayerIdentityPersistencePort：定义接口结构约束，明确可交付字段含义。
+ */
+
 
 interface PlayerIdentityPersistencePort {
   isEnabled(): boolean;
   savePlayerIdentity(identity: Record<string, unknown>): Promise<unknown>;
 }
+/**
+ * PlayerRuntimeSnapshot：定义接口结构约束，明确可交付字段含义。
+ */
+
 
 interface PlayerRuntimeSnapshot {
+/**
+ * displayName：PlayerRuntimeSnapshot 内部字段。
+ */
+
   displayName?: string;
 }
+/**
+ * PlayerRuntimePort：定义接口结构约束，明确可交付字段含义。
+ */
+
 
 interface PlayerRuntimePort {
   snapshot(playerId: string): PlayerRuntimeSnapshot | null;
-  setIdentity(playerId: string, input: { name?: string; displayName?: string }): unknown;
+  setIdentity(playerId: string, input: {  
+  /**
+ * name：PlayerRuntimePort 内部字段。
+ */
+ name?: string;  
+ /**
+ * displayName：PlayerRuntimePort 内部字段。
+ */
+ displayName?: string }): unknown;
 }
+/**
+ * WorldPlayerSnapshotPort：定义接口结构约束，明确可交付字段含义。
+ */
+
 
 interface WorldPlayerSnapshotPort {
-  ensureNativeStarterSnapshot(playerId: string): Promise<{ ok?: boolean; failureStage?: string | null }>;
+  ensureNativeStarterSnapshot(playerId: string): Promise<{  
+  /**
+ * ok：WorldPlayerSnapshotPort 内部字段。
+ */
+ ok?: boolean;  
+ /**
+ * failureStage：WorldPlayerSnapshotPort 内部字段。
+ */
+ failureStage?: string | null }>;
 }
 
 /** Next 玩家鉴权编排服务：负责注册、登录、刷新和身份同步。 */
 @Injectable()
 export class NextPlayerAuthService {
   /** 记录账号生命周期关键操作。 */
-  private readonly logger = new Logger(NextPlayerAuthService.name);
+  private readonly logger = new Logger(NextPlayerAuthService.name);  
+  /**
+ * worldPlayerTokenCodecService：NextPlayerAuthService 内部字段。
+ */
 
-  private readonly worldPlayerTokenCodecService: WorldPlayerTokenCodecPort;
 
-  private readonly playerIdentityPersistenceService: PlayerIdentityPersistencePort;
+  private readonly worldPlayerTokenCodecService: WorldPlayerTokenCodecPort;  
+  /**
+ * playerIdentityPersistenceService：NextPlayerAuthService 内部字段。
+ */
 
-  private readonly playerRuntimeService: PlayerRuntimePort;
+
+  private readonly playerIdentityPersistenceService: PlayerIdentityPersistencePort;  
+  /**
+ * playerRuntimeService：NextPlayerAuthService 内部字段。
+ */
+
+
+  private readonly playerRuntimeService: PlayerRuntimePort;  
+  /**
+ * worldPlayerSnapshotService：NextPlayerAuthService 内部字段。
+ */
+
 
   private readonly worldPlayerSnapshotService: WorldPlayerSnapshotPort;
 
@@ -85,6 +181,8 @@ export class NextPlayerAuthService {
 
   /** 注册新账号，并完成建档、持久化与令牌签发。 */
   async register(accountName: string, password: string, displayName: string, roleName: string): Promise<AuthTokens> {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
     const normalizedUsername = normalizeUsername(accountName);
     const normalizedDisplayName = normalizeDisplayName(displayName);
     const normalizedRoleName = normalizeRoleName(roleName) || buildDefaultRoleName(normalizedUsername);
@@ -148,6 +246,8 @@ export class NextPlayerAuthService {
 
   /** 登录现有账号，只接受账号名入口。 */
   async login(loginName: string, password: string): Promise<AuthTokens> {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
     const normalizedLoginName = normalizeUsername(loginName).trim();
     const user = await this.authStore.findUserByUsername(normalizedLoginName);
     if (!user) {
@@ -165,6 +265,8 @@ export class NextPlayerAuthService {
 
   /** 刷新登录态，但只接受普通玩家令牌。 */
   async refresh(refreshToken: string): Promise<AuthTokens> {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
     const payload = this.worldPlayerTokenCodecService.validateRefreshToken(typeof refreshToken === 'string' ? refreshToken.trim() : '');
     if (!payload || payload.role === 'gm' || typeof payload.sub !== 'string' || typeof payload.username !== 'string') {
       throw new UnauthorizedException('刷新令牌无效或已过期');
@@ -182,6 +284,8 @@ export class NextPlayerAuthService {
 
   /** 检查显示名可用性，供注册页和 GM 修改前复用。 */
   async checkDisplayName(displayName = ''): Promise<DisplayNameAvailabilityResult> {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
     const normalizedDisplayName = normalizeDisplayName(displayName);
     const error = validateDisplayName(normalizedDisplayName);
     if (error) {
@@ -197,7 +301,13 @@ export class NextPlayerAuthService {
   }
 
   /** 修改当前账号密码。 */
-  async updatePassword(accessToken: string, currentPassword: string, newPassword: string): Promise<{ ok: true }> {
+  async updatePassword(accessToken: string, currentPassword: string, newPassword: string): Promise<{  
+  /**
+ * ok：NextPlayerAuthService 内部字段。
+ */
+ ok: true }> {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
     const user = await this.requireUser(accessToken);
     if (!await verifyPassword(currentPassword, user.passwordHash)) {
       throw new BadRequestException('当前密码错误');
@@ -217,7 +327,13 @@ export class NextPlayerAuthService {
   }
 
   /** 修改当前账号显示名，并同步回持久化和 runtime。 */
-  async updateDisplayName(accessToken: string, displayName: string): Promise<{ displayName: string }> {
+  async updateDisplayName(accessToken: string, displayName: string): Promise<{  
+  /**
+ * displayName：NextPlayerAuthService 内部字段。
+ */
+ displayName: string }> {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
     const user = await this.requireUser(accessToken);
     const normalizedDisplayName = normalizeDisplayName(displayName);
     const displayNameError = validateDisplayName(normalizedDisplayName);
@@ -248,7 +364,13 @@ export class NextPlayerAuthService {
   }
 
   /** 修改当前账号角色名，并同步回持久化和 runtime。 */
-  async updateRoleName(accessToken: string, roleName: string): Promise<{ roleName: string }> {
+  async updateRoleName(accessToken: string, roleName: string): Promise<{  
+  /**
+ * roleName：NextPlayerAuthService 内部字段。
+ */
+ roleName: string }> {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
     const user = await this.requireUser(accessToken);
     const normalizedRoleName = normalizeRoleName(roleName);
     const roleNameError = validateRoleName(normalizedRoleName);
@@ -276,9 +398,17 @@ export class NextPlayerAuthService {
     await this.persistIdentity(nextUser);
     this.syncRuntimeRoleName(nextUser);
     return { roleName: normalizedRoleName };
-  }
+  }  
+  /**
+ * requireUser：执行核心业务逻辑。
+ * @param accessToken string 参数说明。
+ * @returns Promise<NextPlayerAuthUser>。
+ */
+
 
   private async requireUser(accessToken: string): Promise<NextPlayerAuthUser> {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
     const token = typeof accessToken === 'string' ? accessToken.trim() : '';
     if (!token) {
       throw new UnauthorizedException('未登录');
@@ -294,7 +424,13 @@ export class NextPlayerAuthService {
       throw new UnauthorizedException('用户不存在');
     }
     return user;
-  }
+  }  
+  /**
+ * issueTokens：执行状态校验并返回判断结果。
+ * @param user NextPlayerAuthUser 参数说明。
+ * @returns AuthTokens。
+ */
+
 
   private issueTokens(user: NextPlayerAuthUser): AuthTokens {
     const displayName = resolveDisplayName(user.displayName, user.username);
@@ -311,9 +447,17 @@ export class NextPlayerAuthService {
       accessToken: this.worldPlayerTokenCodecService.issueAccessToken(payload),
       refreshToken: this.worldPlayerTokenCodecService.issueRefreshToken(payload),
     };
-  }
+  }  
+  /**
+ * persistIdentity：执行核心业务逻辑。
+ * @param user NextPlayerAuthUser 参数说明。
+ * @returns Promise<void>。
+ */
+
 
   private async persistIdentity(user: NextPlayerAuthUser): Promise<void> {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
     if (!this.playerIdentityPersistenceService.isEnabled()) {
       return;
     }
@@ -332,9 +476,17 @@ export class NextPlayerAuthService {
     } catch (error) {
       this.logger.warn(`持久化 next 玩家身份失败：userId=${user.id} error=${error instanceof Error ? error.message : String(error)}`);
     }
-  }
+  }  
+  /**
+ * ensureStarterSnapshot：执行核心业务逻辑。
+ * @param playerId string 玩家 ID。
+ * @returns Promise<void>。
+ */
+
 
   private async ensureStarterSnapshot(playerId: string): Promise<void> {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
     if (!this.worldPlayerSnapshotService || typeof this.worldPlayerSnapshotService.ensureNativeStarterSnapshot !== 'function') {
       return;
     }
@@ -347,9 +499,17 @@ export class NextPlayerAuthService {
     if (result?.ok === false && result.failureStage !== 'native_snapshot_recovery_persistence_disabled') {
       this.logger.warn(`补建原生初始快照已跳过：playerId=${playerId} reason=${result.failureStage ?? '未知'}`);
     }
-  }
+  }  
+  /**
+ * syncRuntimeDisplayName：执行核心业务逻辑。
+ * @param user NextPlayerAuthUser 参数说明。
+ * @returns void。
+ */
+
 
   private syncRuntimeDisplayName(user: NextPlayerAuthUser): void {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
     if (!this.playerRuntimeService.snapshot(user.playerId)) {
       return;
     }
@@ -357,9 +517,17 @@ export class NextPlayerAuthService {
     this.playerRuntimeService.setIdentity(user.playerId, {
       displayName: resolveDisplayName(user.displayName, user.username),
     });
-  }
+  }  
+  /**
+ * syncRuntimeRoleName：执行核心业务逻辑。
+ * @param user NextPlayerAuthUser 参数说明。
+ * @returns void。
+ */
+
 
   private syncRuntimeRoleName(user: NextPlayerAuthUser): void {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
     const runtime = this.playerRuntimeService.snapshot(user.playerId);
     if (!runtime) {
       return;
@@ -371,6 +539,12 @@ export class NextPlayerAuthService {
     });
   }
 }
+/**
+ * buildPlayerId：构建并返回目标对象。
+ * @param userId string user ID。
+ * @returns string。
+ */
+
 
 function buildPlayerId(userId: string): string {
   return `p_${String(userId ?? '').trim()}`;

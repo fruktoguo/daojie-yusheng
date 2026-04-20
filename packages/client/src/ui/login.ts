@@ -65,7 +65,13 @@ export class LoginUI {
   /** mode：模式。 */
   private mode: AuthMode | null = null;
   /** restoreSessionPromise：restore会话异步结果。 */
-  private restoreSessionPromise: Promise<boolean> | null = null;
+  private restoreSessionPromise: Promise<boolean> | null = null;  
+  /**
+ * 构造器：初始化 当前 实例并建立基础状态。
+ * @param socket SocketManager 参数说明。
+ * @returns 无返回值（构造函数）。
+ */
+
 
   constructor(private socket: SocketManager) {
     this.loginTab.addEventListener('click', () => this.setMode('login'));
@@ -81,6 +87,8 @@ export class LoginUI {
 
   /** 尝试用当前会话里的 refreshToken 恢复登录态 */
   async restoreSession(): Promise<boolean> {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
     if (this.restoreSessionPromise) {
       return this.restoreSessionPromise;
     }
@@ -92,6 +100,8 @@ export class LoginUI {
 
   /** performRestoreSession：处理perform Restore会话。 */
   private async performRestoreSession(): Promise<boolean> {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
     const refreshToken = getRefreshToken();
     if (!refreshToken) return false;
 
@@ -113,6 +123,8 @@ export class LoginUI {
 
   /** show：处理显示。 */
   show(message = ''): void {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
     this.setMode('login');
     this.overlay.classList.remove('hidden');
     if (message) {
@@ -143,6 +155,8 @@ export class LoginUI {
 
   /** handleSubmit：处理Submit。 */
   private async handleSubmit(): Promise<void> {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
     if (this.mode === 'register') {
       await this.handleRegister();
       return;
@@ -152,6 +166,8 @@ export class LoginUI {
 
   /** handleLogin：处理Login。 */
   private async handleLogin(): Promise<void> {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
     const body: AuthLoginReq = {
       loginName: this.loginNameInput.value.normalize('NFC'),
       password: this.passwordInput.value,
@@ -169,6 +185,8 @@ export class LoginUI {
 
   /** handleRegister：处理Register。 */
   private async handleRegister(): Promise<void> {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
     const accountName = this.accountNameInput.value.normalize('NFC');
     const password = this.passwordInput.value;
     const roleName = this.roleNameInput.value.normalize('NFC').trim();
@@ -230,6 +248,8 @@ export class LoginUI {
 
   /** scheduleDisplayNameCheck：调度显示名称检查。 */
   private async scheduleDisplayNameCheck(): Promise<void> {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
     if (this.mode !== 'register') {
       return;
     }
@@ -253,12 +273,25 @@ export class LoginUI {
     this.displayNameCheckTimer = setTimeout(() => {
       void this.checkDisplayName(displayName, { immediate: false });
     }, 250);
-  }
+  }  
+  /**
+ * checkDisplayName：执行状态校验并返回判断结果。
+ * @param displayName string 参数说明。
+ * @param options { immediate: boolean } 选项参数。
+ * @returns Promise<void>。
+ */
+
 
   private async checkDisplayName(
     displayName: string,
-    options: { immediate: boolean },
+    options: {    
+    /**
+ * immediate：LoginUI 内部字段。
+ */
+ immediate: boolean },
   ): Promise<void> {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
     if (this.displayNameAbortController) {
       this.displayNameAbortController.abort();
     }
@@ -289,6 +322,8 @@ export class LoginUI {
 
   /** setDisplayNameStatus：处理set显示名称状态。 */
   private setDisplayNameStatus(message: string, tone: '' | 'success' | 'error'): void {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
     this.displayNameStatus.textContent = message;
     this.displayNameStatus.classList.remove('success', 'error');
     if (tone) {
@@ -303,6 +338,8 @@ export class LoginUI {
 
   /** setMode：处理set模式。 */
   private setMode(mode: AuthMode): void {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
     if (this.mode === mode) {
       return;
     }
@@ -329,6 +366,8 @@ export class LoginUI {
 
   /** resetDisplayNameState：重置显示名称状态。 */
   private resetDisplayNameState(): void {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
     if (this.displayNameCheckTimer) {
       clearTimeout(this.displayNameCheckTimer);
       this.displayNameCheckTimer = null;

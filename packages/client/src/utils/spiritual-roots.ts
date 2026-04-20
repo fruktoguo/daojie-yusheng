@@ -7,8 +7,20 @@ const HEAVEN_GATE_ROOTS_SOURCE = 'heaven_gate:roots';
 
 /** 灵根描述结果。 */
 export interface SpiritualRootDescription {
-  name: string;
-  meta: string;
+/**
+ * name：SpiritualRootDescription 内部字段。
+ */
+
+  name: string;  
+  /**
+ * meta：SpiritualRootDescription 内部字段。
+ */
+
+  meta: string;  
+  /**
+ * desc：SpiritualRootDescription 内部字段。
+ */
+
   desc: string;
 }
 
@@ -25,6 +37,8 @@ function joinElements(elements: ElementKey[]): string {
 
 /** 规范化灵根数值到 0-100 区间。 */
 export function normalizeSpiritualRoots(roots: HeavenGateRootValues | null | undefined): HeavenGateRootValues | null {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
   if (!roots) {
     return null;
   }
@@ -43,6 +57,8 @@ export function resolveSpiritualRootsFromBonuses(bonuses: AttrBonus[]): HeavenGa
 
 /** 根据灵根分布生成玩家可读的资质描述。 */
 export function describeSpiritualRoots(roots: HeavenGateRootValues | null | undefined): SpiritualRootDescription {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
   const normalized = normalizeSpiritualRoots(roots);
   if (!normalized) {
     return {

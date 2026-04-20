@@ -6,9 +6,25 @@ import { INITIAL_RUNTIME_STATE } from '../../constants/ui/panel-system';
 
 /** 客户端面板系统实例。 */
 export interface ClientPanelSystem {
-  registry: PanelRegistry;
-  store: PanelSystemStore;
-  capabilityMonitor: PanelCapabilityMonitor;
+/**
+ * registry：ClientPanelSystem 内部字段。
+ */
+
+  registry: PanelRegistry;  
+  /**
+ * store：ClientPanelSystem 内部字段。
+ */
+
+  store: PanelSystemStore;  
+  /**
+ * capabilityMonitor：ClientPanelSystem 内部字段。
+ */
+
+  capabilityMonitor: PanelCapabilityMonitor;  
+  /**
+ * destroy：ClientPanelSystem 内部字段。
+ */
+
   destroy: () => void;
 }
 

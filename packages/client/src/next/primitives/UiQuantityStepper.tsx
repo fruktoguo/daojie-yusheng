@@ -1,19 +1,68 @@
 import type { ChangeEvent } from 'react';
 
 import { UiButton } from './UiButton';
+/**
+ * clamp：执行核心业务逻辑。
+ * @param value number 参数说明。
+ * @param min number 参数说明。
+ * @param max number 参数说明。
+ * @returns number。
+ */
+
 
 function clamp(value: number, min: number, max: number): number {
   return Math.min(max, Math.max(min, value));
 }
+/**
+ * UiQuantityStepperProps：定义接口结构约束，明确可交付字段含义。
+ */
+
 
 export interface UiQuantityStepperProps {
-  value: number;
-  min?: number;
-  max?: number;
-  step?: number;
-  label?: string;
+/**
+ * value：UiQuantityStepperProps 内部字段。
+ */
+
+  value: number;  
+  /**
+ * min：UiQuantityStepperProps 内部字段。
+ */
+
+  min?: number;  
+  /**
+ * max：UiQuantityStepperProps 内部字段。
+ */
+
+  max?: number;  
+  /**
+ * step：UiQuantityStepperProps 内部字段。
+ */
+
+  step?: number;  
+  /**
+ * label：UiQuantityStepperProps 内部字段。
+ */
+
+  label?: string;  
+  /**
+ * onChange：UiQuantityStepperProps 内部字段。
+ */
+
   onChange: (value: number) => void;
 }
+/**
+ * UiQuantityStepper：执行核心业务逻辑。
+ * @param {
+  value,
+  min = 1,
+  max = Number.MAX_SAFE_INTEGER,
+  step = 1,
+  label = '数量',
+  onChange,
+} UiQuantityStepperProps 参数说明。
+ * @returns 函数返回值。
+ */
+
 
 export function UiQuantityStepper({
   value,

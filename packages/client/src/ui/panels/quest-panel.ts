@@ -37,6 +37,8 @@ function createFragmentFromHtml(html: string): DocumentFragment {
 
 /** replaceRichContent：以片段替换富文本节点内容。 */
 function replaceRichContent(node: HTMLElement, html: string): void {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
   if (!html.trim()) {
     node.replaceChildren();
     return;
@@ -46,6 +48,8 @@ function replaceRichContent(node: HTMLElement, html: string): void {
 
 /** isSameQuestIdSequence：判断是否Same任务ID Sequence。 */
 function isSameQuestIdSequence(previous: string[] | null, next: string[]): boolean {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
   if (!previous || previous.length !== next.length) {
     return false;
   }
@@ -64,7 +68,11 @@ export class QuestPanel {
   /** pane：pane。 */
   private pane = document.getElementById('pane-quest')!;
   /** activeLine：活跃Line。 */
-  private activeLine: QuestState['line'] = 'main';
+  private activeLine: QuestState['line'] = 'main';  
+  /**
+ * selectedQuestId：QuestPanel 内部字段。
+ */
+
   private selectedQuestId?: string;
   /** hasUserSelectedLine：has用户Selected Line标记。 */
   private hasUserSelectedLine = false;
@@ -73,22 +81,53 @@ export class QuestPanel {
   /** lastVisibleQuestIds：last可见任务ID 列表。 */
   private lastVisibleQuestIds: string[] | null = null;
   /** lastStructureLine：last Structure Line。 */
-  private lastStructureLine: QuestState['line'] | null = null;
+  private lastStructureLine: QuestState['line'] | null = null;  
+  /**
+ * currentMapId：QuestPanel 内部字段。
+ */
+
   private currentMapId?: string;
   /** inventory：背包。 */
   private inventory: Inventory | null = null;
   /** onNavigateQuest：on Navigate任务。 */
-  private onNavigateQuest: ((questId: string) => void) | null = null;
-  private shellRefs: {
-    section: HTMLDivElement;
-    title: HTMLDivElement;
+  private onNavigateQuest: ((questId: string) => void) | null = null;  
+  /**
+ * shellRefs：QuestPanel 内部字段。
+ */
+
+  private shellRefs: {  
+  /**
+ * section：QuestPanel 内部字段。
+ */
+
+    section: HTMLDivElement;    
+    /**
+ * title：QuestPanel 内部字段。
+ */
+
+    title: HTMLDivElement;    
+    /**
+ * subtabs：QuestPanel 内部字段。
+ */
+
     subtabs: HTMLDivElement;
-  } | null = null;
+  } | null = null;  
+  /**
+ * 构造器：初始化 当前 实例并建立基础状态。
+ * @returns 无返回值（构造函数）。
+ */
+
 
   constructor() {
     this.bindPaneEvents();
     bindInlineItemTooltips(this.pane);
-  }
+  }  
+  /**
+ * setCallbacks：更新/写入相关状态。
+ * @param onNavigateQuest (questId: string) => void 参数说明。
+ * @returns void。
+ */
+
 
   setCallbacks(onNavigateQuest: (questId: string) => void): void {
     this.onNavigateQuest = onNavigateQuest;
@@ -96,6 +135,8 @@ export class QuestPanel {
 
   /** setCurrentMapId：处理set当前地图ID。 */
   setCurrentMapId(mapId?: string): void {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
     this.currentMapId = mapId;
     if (!this.patchModal()) {
       this.renderModal();
@@ -104,6 +145,8 @@ export class QuestPanel {
 
   /** syncInventory：同步背包。 */
   syncInventory(inventory: Inventory): void {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
     this.inventory = inventory;
     if (this.lastQuests.length === 0) {
       return;
@@ -118,6 +161,8 @@ export class QuestPanel {
 
   /** 更新任务列表并刷新列表与弹层 */
   update(quests: QuestState[]): void {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
     this.lastQuests = quests;
     this.normalizeState(quests);
     if (!this.patchList()) {
@@ -158,6 +203,8 @@ export class QuestPanel {
 
   /** renderList：渲染列表。 */
   private renderList(): void {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
     const quests = this.lastQuests;
     if (quests.length === 0) {
       this.selectedQuestId = undefined;
@@ -174,7 +221,21 @@ export class QuestPanel {
   }
 
   /** ensureShell：确保Shell。 */
-  private ensureShell(): { section: HTMLDivElement; title: HTMLDivElement; subtabs: HTMLDivElement } {
+  private ensureShell(): {  
+  /**
+ * section：QuestPanel 内部字段。
+ */
+ section: HTMLDivElement;  
+ /**
+ * title：QuestPanel 内部字段。
+ */
+ title: HTMLDivElement;  
+ /**
+ * subtabs：QuestPanel 内部字段。
+ */
+ subtabs: HTMLDivElement } {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
     if (this.shellRefs?.section.isConnected) {
       return this.shellRefs;
     }
@@ -239,6 +300,8 @@ export class QuestPanel {
 
   /** patchList：处理patch列表。 */
   private patchList(): boolean {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
     const quests = this.lastQuests;
     if (quests.length === 0) {
       return false;
@@ -366,6 +429,8 @@ export class QuestPanel {
 
   /** patchQuestCard：处理patch任务卡片。 */
   private patchQuestCard(card: HTMLElement, quest: QuestState): boolean {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
     const titleNode = card.querySelector<HTMLElement>('[data-quest-title="true"]');
     const statusNode = card.querySelector<HTMLElement>('[data-quest-status="true"]');
     const chapterNode = card.querySelector<HTMLElement>('[data-quest-chapter="true"]');
@@ -393,6 +458,8 @@ export class QuestPanel {
 
   /** syncSectionContent：同步Section Content。 */
   private syncSectionContent(section: HTMLElement, subtabs: HTMLElement, orderedNodes: HTMLElement[]): void {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
     const titleNode = section.querySelector<HTMLElement>('.panel-section-title');
     if (!titleNode) {
       return;
@@ -417,6 +484,8 @@ export class QuestPanel {
 
   /** renderModal：渲染弹窗。 */
   private renderModal(): void {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
     if (!this.selectedQuestId) {
       detailModalHost.close(QuestPanel.MODAL_OWNER);
       return;
@@ -513,6 +582,8 @@ export class QuestPanel {
 
   /** patchModal：处理patch弹窗。 */
   private patchModal(): boolean {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
     if (!this.selectedQuestId) {
       detailModalHost.close(QuestPanel.MODAL_OWNER);
       return true;
@@ -615,6 +686,8 @@ export class QuestPanel {
 
   /** normalizeState：规范化状态。 */
   private normalizeState(quests: QuestState[]): void {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
     const counts = this.buildCounts(quests);
     if (!this.hasUserSelectedLine && counts[this.activeLine] === 0) {
       this.activeLine = LINE_ORDER.find((line) => counts[line] > 0) ?? 'main';
@@ -648,6 +721,8 @@ export class QuestPanel {
 
   /** resolveProgressText：解析进度文本。 */
   private resolveProgressText(quest: QuestState): string {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
     if (quest.objectiveType === 'talk') {
       return quest.progress >= quest.required ? '口信已传达' : '尚未传达';
     }
@@ -666,6 +741,8 @@ export class QuestPanel {
 
   /** resolveNextStep：解析新版Step。 */
   private resolveNextStep(quest: QuestState): string {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
     if (quest.status === 'ready') {
       const submitLabel = quest.submitNpcName ?? quest.giverName;
       const submitLocation = this.formatQuestLocation(quest.submitMapName ?? quest.giverMapName, quest.submitX ?? quest.giverX, quest.submitY ?? quest.giverY);
@@ -721,7 +798,21 @@ export class QuestPanel {
   }
 
   /** resolveRequiredItemProgress：解析Required物品进度。 */
-  private resolveRequiredItemProgress(quest: QuestState): { itemName: string; current: number; required: number } | null {
+  private resolveRequiredItemProgress(quest: QuestState): {  
+  /**
+ * itemName：QuestPanel 内部字段。
+ */
+ itemName: string;  
+ /**
+ * current：QuestPanel 内部字段。
+ */
+ current: number;  
+ /**
+ * required：QuestPanel 内部字段。
+ */
+ required: number } | null {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
     if (!quest.requiredItemId) {
       return null;
     }
@@ -736,6 +827,8 @@ export class QuestPanel {
 
   /** getInventoryItemCount：读取背包物品数量。 */
   private getInventoryItemCount(itemId: string): number {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
     if (!this.inventory) {
       return 0;
     }
@@ -746,6 +839,8 @@ export class QuestPanel {
 
   /** formatQuestLocation：格式化任务Location。 */
   private formatQuestLocation(mapName?: string, x?: number, y?: number): string {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
     if (mapName && x !== undefined && y !== undefined) {
       return `${mapName} (${x}, ${y})`;
     }
@@ -754,6 +849,8 @@ export class QuestPanel {
 
   /** canNavigateQuest：判断是否Navigate任务。 */
   private canNavigateQuest(quest: QuestState): boolean {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
     if (quest.status === 'ready') {
       return Boolean(quest.submitMapId ?? quest.giverMapId);
     }
@@ -773,6 +870,8 @@ export class QuestPanel {
 
   /** renderQuestText：渲染任务文本。 */
   private renderQuestText(text: string, quest: QuestState): string {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
     if (!text.trim()) {
       return '';
     }
@@ -788,6 +887,8 @@ export class QuestPanel {
 
   /** renderRewardContent：渲染Reward Content。 */
   private renderRewardContent(quest: QuestState): string {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
     const rewardChips = quest.rewards
       .map((reward) => renderInlineItemChip(reward.itemId, {
         count: reward.count,
@@ -816,6 +917,8 @@ export class QuestPanel {
 
   /** renderRequiredItemContent：渲染Required物品Content。 */
   private renderRequiredItemContent(quest: QuestState): string {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
     const requiredItemProgress = this.resolveRequiredItemProgress(quest);
     if (!requiredItemProgress || !quest.requiredItemId) {
       return '<div class="inline-rich-text">当前任务无额外提交材料。</div>';

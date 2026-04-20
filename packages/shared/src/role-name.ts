@@ -8,6 +8,8 @@ export function isHalfWidthRoleNameChar(char: string): boolean {
 
 /** getRoleNameLengthUnits：读取角色名称Length Units。 */
 export function getRoleNameLengthUnits(roleName: string): number {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
   let units = 0;
   for (const char of roleName) {
     units += isHalfWidthRoleNameChar(char) ? 1 : 2;
@@ -22,6 +24,8 @@ export function isRoleNameWithinLimit(roleName: string): boolean {
 
 /** truncateRoleName：处理truncate角色名称。 */
 export function truncateRoleName(roleName: string): string {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
   let units = 0;
   let result = '';
 

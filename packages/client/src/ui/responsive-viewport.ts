@@ -6,14 +6,50 @@ export type EffectiveLayoutBreakpoint = 'mobile' | 'compact' | 'wide';
 
 /** 响应式视口换算指标。 */
 export interface ResponsiveViewportMetrics {
-  locked: boolean;
-  rawWidth: number;
-  rawHeight: number;
-  viewportWidth: number;
-  viewportHeight: number;
-  scale: number;
-  offsetX: number;
-  offsetY: number;
+/**
+ * locked：ResponsiveViewportMetrics 内部字段。
+ */
+
+  locked: boolean;  
+  /**
+ * rawWidth：ResponsiveViewportMetrics 内部字段。
+ */
+
+  rawWidth: number;  
+  /**
+ * rawHeight：ResponsiveViewportMetrics 内部字段。
+ */
+
+  rawHeight: number;  
+  /**
+ * viewportWidth：ResponsiveViewportMetrics 内部字段。
+ */
+
+  viewportWidth: number;  
+  /**
+ * viewportHeight：ResponsiveViewportMetrics 内部字段。
+ */
+
+  viewportHeight: number;  
+  /**
+ * scale：ResponsiveViewportMetrics 内部字段。
+ */
+
+  scale: number;  
+  /**
+ * offsetX：ResponsiveViewportMetrics 内部字段。
+ */
+
+  offsetX: number;  
+  /**
+ * offsetY：ResponsiveViewportMetrics 内部字段。
+ */
+
+  offsetY: number;  
+  /**
+ * dpr：ResponsiveViewportMetrics 内部字段。
+ */
+
   dpr: number;
 }
 
@@ -36,6 +72,8 @@ function isWindowsDesktop(win: Window): boolean {
 
 /** shouldCompensateDesktopScaling：判断是否Compensate Desktop Scaling。 */
 function shouldCompensateDesktopScaling(win: Window): boolean {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
   if (!isWindowsDesktop(win)) {
     return false;
   }
@@ -67,6 +105,8 @@ function getDesktopAdjustedViewportHeight(win: Window): number {
 
 /** shouldLockDesktopViewport：判断是否Lock Desktop视口。 */
 function shouldLockDesktopViewport(win: Window): boolean {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
   const adjustedWidth = getDesktopAdjustedViewportWidth(win);
   if (adjustedWidth <= UI_RESPONSIVE_BREAKPOINTS.layoutForceMobile) {
     return false;
@@ -78,6 +118,8 @@ function shouldLockDesktopViewport(win: Window): boolean {
 
 /** getResponsiveViewportMetrics：读取Responsive视口指标。 */
 export function getResponsiveViewportMetrics(win: Window = window): ResponsiveViewportMetrics {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
   const rawWidth = getRawViewportWidth(win);
   const rawHeight = getRawViewportHeight(win);
   const dpr = Number.isFinite(win.devicePixelRatio) ? win.devicePixelRatio : 1;
@@ -132,7 +174,17 @@ export function clientToViewportPoint(
   win: Window,
   clientX: number,
   clientY: number,
-): { x: number; y: number } {
+): {
+/**
+ * x：对象字段。
+ */
+ x: number;
+ /**
+ * y：对象字段。
+ */
+ y: number } {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
   const metrics = getResponsiveViewportMetrics(win);
   if (!metrics.locked || metrics.scale === 1) {
     return {
@@ -148,6 +200,8 @@ export function clientToViewportPoint(
 
 /** getDesktopScaleFactor：读取Desktop缩放Factor。 */
 export function getDesktopScaleFactor(win: Window): number {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
   if (!shouldCompensateDesktopScaling(win)) {
     return 1;
   }
@@ -174,6 +228,8 @@ export function getEffectiveViewportHeight(win: Window): number {
 
 /** getEffectiveLayoutBreakpoint：读取Effective布局Breakpoint。 */
 export function getEffectiveLayoutBreakpoint(win: Window): EffectiveLayoutBreakpoint {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
   const viewportWidth = getEffectiveViewportWidth(win);
   if (viewportWidth <= UI_RESPONSIVE_BREAKPOINTS.layoutForceMobile) {
     return 'mobile';
@@ -196,6 +252,8 @@ export function shouldUseMobileUi(win: Window): boolean {
 
 /** syncViewportRootStyles：同步视口Root Styles。 */
 function syncViewportRootStyles(win: Window, metrics: ResponsiveViewportMetrics): void {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
   const root = getViewportRoot(win.document);
   if (!root) {
     return;

@@ -40,6 +40,8 @@ function renderPlainLine(label: string, value: string): string {
 
 /** resolveMedicineCategoryLabel：解析Medicine Category标签。 */
 function resolveMedicineCategoryLabel(item: ItemStack): string | null {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
   const tags = item.tags ?? [];
   if (tags.includes('生命回复')) {
     return '生命回复';
@@ -58,6 +60,8 @@ function resolveMedicineCategoryLabel(item: ItemStack): string | null {
 
 /** normalizeBuffMark：规范化Buff Mark。 */
 function normalizeBuffMark(name: string, shortMark?: string): string {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
   const value = shortMark?.trim();
   if (value) return [...value][0] ?? value;
   return [...name.trim()][0] ?? '气';
@@ -123,7 +127,11 @@ function formatTriggerLabel(trigger: EquipmentEffectDef extends infer _T ? strin
 }
 
 /** buildTimedBuffAsideCard：构建Timed Buff Aside卡片。 */
-function buildTimedBuffAsideCard(effect: Extract<EquipmentEffectDef, { type: 'timed_buff' }>): SkillTooltipAsideCard {
+function buildTimedBuffAsideCard(effect: Extract<EquipmentEffectDef, {
+/**
+ * type：对象字段。
+ */
+ type: 'timed_buff' }>): SkillTooltipAsideCard {
   const stackLimit = formatBuffMaxStacks(effect.buff.maxStacks);
   const stackText = stackLimit ? ` · 最多 ${stackLimit} 层` : '';
   const conditionLines = formatConditionText(effect);
@@ -145,7 +153,17 @@ function buildTimedBuffAsideCard(effect: Extract<EquipmentEffectDef, { type: 'ti
 }
 
 /** buildEffectSummary：构建效果摘要。 */
-function buildEffectSummary(effect: EquipmentEffectDef): { lines: string[]; asideCard?: SkillTooltipAsideCard } {
+function buildEffectSummary(effect: EquipmentEffectDef): {
+/**
+ * lines：对象字段。
+ */
+ lines: string[];
+ /**
+ * asideCard：对象字段。
+ */
+ asideCard?: SkillTooltipAsideCard } {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
   const conditionLines = formatConditionText(effect);
   switch (effect.type) {
     case 'stat_aura': {
@@ -205,28 +223,70 @@ function buildEffectSummary(effect: EquipmentEffectDef): { lines: string[]; asid
 
 /** ItemTooltipPayload：物品提示框载荷。 */
 export interface ItemTooltipPayload {
-  title: string;
-  lines: string[];
-  asideCards: SkillTooltipAsideCard[];
+/**
+ * title：ItemTooltipPayload 内部字段。
+ */
+
+  title: string;  
+  /**
+ * lines：ItemTooltipPayload 内部字段。
+ */
+
+  lines: string[];  
+  /**
+ * asideCards：ItemTooltipPayload 内部字段。
+ */
+
+  asideCards: SkillTooltipAsideCard[];  
+  /**
+ * allowHtml：ItemTooltipPayload 内部字段。
+ */
+
   allowHtml: boolean;
 }
 
 /** ItemTooltipCooldownState：物品冷却显示状态。 */
 export interface ItemTooltipCooldownState {
-  cooldown: number;
+/**
+ * cooldown：ItemTooltipCooldownState 内部字段。
+ */
+
+  cooldown: number;  
+  /**
+ * cooldownLeft：ItemTooltipCooldownState 内部字段。
+ */
+
   cooldownLeft: number;
 }
 
 /** ItemTooltipContext：物品提示预览上下文。 */
 export interface ItemTooltipContext {
-  learnedTechniqueIds?: ReadonlySet<string>;
-  unlockedMinimapIds?: ReadonlySet<string>;
-  equippedItem?: ItemStack | null;
+/**
+ * learnedTechniqueIds：ItemTooltipContext 内部字段。
+ */
+
+  learnedTechniqueIds?: ReadonlySet<string>;  
+  /**
+ * unlockedMinimapIds：ItemTooltipContext 内部字段。
+ */
+
+  unlockedMinimapIds?: ReadonlySet<string>;  
+  /**
+ * equippedItem：ItemTooltipContext 内部字段。
+ */
+
+  equippedItem?: ItemStack | null;  
+  /**
+ * itemCooldown：ItemTooltipContext 内部字段。
+ */
+
   itemCooldown?: ItemTooltipCooldownState | null;
 }
 
 /** isMapUnlockItemRead：判断是否地图解锁物品Read。 */
 function isMapUnlockItemRead(item: Pick<ItemStack, 'mapUnlockId' | 'mapUnlockIds'>, unlockedMinimapIds?: ReadonlySet<string>): boolean {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
   if (!unlockedMinimapIds) {
     return false;
   }
@@ -240,6 +300,8 @@ function isMapUnlockItemRead(item: Pick<ItemStack, 'mapUnlockId' | 'mapUnlockIds
 
 /** resolveItemStatusLabel：解析物品状态标签。 */
 function resolveItemStatusLabel(item: ItemStack, context?: ItemTooltipContext): string | null {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
   const itemCooldown = context?.itemCooldown;
   const activeCooldown: ItemTooltipCooldownState | null = itemCooldown !== null && itemCooldown !== undefined && itemCooldown.cooldownLeft > 0
     ? itemCooldown
@@ -261,6 +323,8 @@ function resolveItemStatusLabel(item: ItemStack, context?: ItemTooltipContext): 
 
 /** buildPlainEffectSummary：构建Plain效果摘要。 */
 function buildPlainEffectSummary(effect: EquipmentEffectDef): string[] {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
   const conditionLines = formatConditionText(effect);
   switch (effect.type) {
     case 'stat_aura': {
@@ -307,6 +371,8 @@ function buildPlainEffectSummary(effect: EquipmentEffectDef): string[] {
 
 /** buildConsumableEffectDetails：构建Consumable效果详情。 */
 function buildConsumableEffectDetails(item: ItemStack, itemCooldown?: ItemTooltipCooldownState | null): string[] {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
   const previewItem = resolvePreviewItem(item);
   if (previewItem.type !== 'consumable') {
     return [];
@@ -363,6 +429,8 @@ function buildConsumableEffectDetails(item: ItemStack, itemCooldown?: ItemToolti
 
 /** describeItemEffectDetails：处理describe物品效果详情。 */
 export function describeItemEffectDetails(item: ItemStack): string[] {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
   const previewItem = resolvePreviewItem(item);
   if (previewItem.effects?.length) {
     return previewItem.effects.flatMap((effect) => buildPlainEffectSummary(effect));
@@ -390,6 +458,8 @@ function buildEquipmentComparisonAsideCard(item: ItemStack): SkillTooltipAsideCa
 
 /** buildItemTooltipPayload：构建物品提示载荷。 */
 export function buildItemTooltipPayload(item: ItemStack, context?: ItemTooltipContext): ItemTooltipPayload {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
   const previewItem = resolvePreviewItem(item);
   const sourceListHtml = renderItemSourceListHtml(previewItem.itemId, { maxEntries: 3, compact: true });
   const statusLabel = resolveItemStatusLabel(previewItem, context);

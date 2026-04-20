@@ -17,12 +17,24 @@ import {
 
 /** ClientBuildVersionResponse：版本检查响应。 */
 type ClientBuildVersionResponse = {
-  buildId?: string;
+/**
+ * buildId：对象字段。
+ */
+
+  buildId?: string;  
+  /**
+ * builtAt：对象字段。
+ */
+
   builtAt?: string;
 };
 
 /** StartClientVersionReloadOptions：版本检查启动时的回调选项。 */
 type StartClientVersionReloadOptions = {
+/**
+ * onBeforeReload：对象字段。
+ */
+
   onBeforeReload?: (nextBuildId: string) => void;
 };
 
@@ -71,6 +83,8 @@ function writeSessionStorage(key: string, value: string): void {
 
 /** hasRecentForcedReload：判断是否Recent Forced重载。 */
 function hasRecentForcedReload(nextBuildId: string): boolean {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
   const lastBuildId = readSessionStorage(CLIENT_BUILD_LAST_FORCED_RELOAD_ID_STORAGE_KEY);
   if (lastBuildId !== nextBuildId) {
     return false;
@@ -99,6 +113,8 @@ function buildForcedReloadUrl(nextBuildId: string): string {
 
 /** fetchLatestBuildId：处理fetch Latest Build ID。 */
 async function fetchLatestBuildId(): Promise<string | null> {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
   const controller = new AbortController();
   const timeoutId = window.setTimeout(() => {
     controller.abort();
@@ -129,6 +145,8 @@ async function fetchLatestBuildId(): Promise<string | null> {
 
 /** runClientBuildCheck：处理run客户端Build检查。 */
 async function runClientBuildCheck(options?: StartClientVersionReloadOptions): Promise<void> {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
   if (import.meta.env.DEV || checkInFlight) {
     return;
   }
@@ -161,6 +179,8 @@ async function runClientBuildCheck(options?: StartClientVersionReloadOptions): P
 
 /** startClientVersionReload：启动客户端版本重载。 */
 export function startClientVersionReload(options: StartClientVersionReloadOptions = {}): void {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
   if (pollStarted || import.meta.env.DEV) {
     return;
   }

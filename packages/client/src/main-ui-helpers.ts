@@ -1,9 +1,29 @@
 import { FloatingTooltip } from './ui/floating-tooltip';
+/**
+ * ObserveAsideCard：统一结构类型，保证协议与运行时一致性。
+ */
+
 
 export type ObserveAsideCard = {
-  mark?: string;
-  title: string;
-  lines: string[];
+/**
+ * mark：对象字段。
+ */
+
+  mark?: string;  
+  /**
+ * title：对象字段。
+ */
+
+  title: string;  
+  /**
+ * lines：对象字段。
+ */
+
+  lines: string[];  
+  /**
+ * tone：对象字段。
+ */
+
   tone?: 'buff' | 'debuff';
 };
 
@@ -16,11 +36,35 @@ function createFragmentFromHtml(html: string): DocumentFragment {
 
 /** createObserveModalController：创建观察弹层控制器。 */
 export function createObserveModalController(options: {
-  observeModalEl: HTMLElement | null;
-  observeModalBodyEl: HTMLElement | null;
-  observeModalSubtitleEl: HTMLElement | null;
-  observeModalAsideEl: HTMLElement | null;
-  observeBuffTooltip: FloatingTooltip;
+/**
+ * observeModalEl：对象字段。
+ */
+
+  observeModalEl: HTMLElement | null;  
+  /**
+ * observeModalBodyEl：对象字段。
+ */
+
+  observeModalBodyEl: HTMLElement | null;  
+  /**
+ * observeModalSubtitleEl：对象字段。
+ */
+
+  observeModalSubtitleEl: HTMLElement | null;  
+  /**
+ * observeModalAsideEl：对象字段。
+ */
+
+  observeModalAsideEl: HTMLElement | null;  
+  /**
+ * observeBuffTooltip：对象字段。
+ */
+
+  observeBuffTooltip: FloatingTooltip;  
+  /**
+ * escapeHtml：对象字段。
+ */
+
   escapeHtml: (value: string) => string;
 }) {
   const {
@@ -32,8 +76,15 @@ export function createObserveModalController(options: {
     escapeHtml,
   } = options;
 
-  return {
+  return {  
+  /**
+ * hide：执行核心业务逻辑。
+ * @returns void。
+ */
+
     hide(): void {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
       observeBuffTooltip.hide(true);
       observeModalEl?.classList.add('hidden');
       observeModalEl?.setAttribute('aria-hidden', 'true');
@@ -42,19 +93,42 @@ export function createObserveModalController(options: {
       if (observeModalAsideEl) {
         observeModalAsideEl.replaceChildren();
       }
-    },
+    },    
+    /**
+ * setSubtitle：更新/写入相关状态。
+ * @param targetX number 参数说明。
+ * @param targetY number 参数说明。
+ * @returns void。
+ */
+
     setSubtitle(targetX: number, targetY: number): void {
       if (observeModalSubtitleEl) {
         observeModalSubtitleEl.textContent = `坐标 (${targetX}, ${targetY})`;
       }
-    },
+    },    
+    /**
+ * renderBody：执行核心业务逻辑。
+ * @param html string 参数说明。
+ * @returns void。
+ */
+
     renderBody(html: string): void {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
       if (!observeModalBodyEl) {
         return;
       }
       observeModalBodyEl.replaceChildren(createFragmentFromHtml(html));
-    },
+    },    
+    /**
+ * renderAsideCards：执行核心业务逻辑。
+ * @param cards ObserveAsideCard[] 参数说明。
+ * @returns void。
+ */
+
     renderAsideCards(cards: ObserveAsideCard[]): void {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
       if (!observeModalAsideEl) {
         return;
       }
@@ -78,7 +152,12 @@ export function createObserveModalController(options: {
       }).join('')));
       observeModalAsideEl.classList.remove('hidden');
       observeModalAsideEl.setAttribute('aria-hidden', 'false');
-    },
+    },    
+    /**
+ * show：执行核心业务逻辑。
+ * @returns void。
+ */
+
     show(): void {
       observeModalEl?.classList.remove('hidden');
       observeModalEl?.setAttribute('aria-hidden', 'false');
@@ -97,6 +176,8 @@ export function refreshZoomChrome(
   zoomSlider: HTMLInputElement | null,
   zoomLevelEl: HTMLElement | null,
 ): void {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
   if (zoomSlider) {
     zoomSlider.value = zoom.toFixed(2);
   }
@@ -107,11 +188,35 @@ export function refreshZoomChrome(
 
 /** bindZoomControls：绑定缩放控件。 */
 export function bindZoomControls(options: {
-  zoomSlider: HTMLInputElement | null;
-  zoomResetBtn: HTMLButtonElement | null;
-  minZoom: number;
-  maxZoom: number;
-  applyZoomChange: (nextZoom: number) => number;
+/**
+ * zoomSlider：对象字段。
+ */
+
+  zoomSlider: HTMLInputElement | null;  
+  /**
+ * zoomResetBtn：对象字段。
+ */
+
+  zoomResetBtn: HTMLButtonElement | null;  
+  /**
+ * minZoom：对象字段。
+ */
+
+  minZoom: number;  
+  /**
+ * maxZoom：对象字段。
+ */
+
+  maxZoom: number;  
+  /**
+ * applyZoomChange：对象字段。
+ */
+
+  applyZoomChange: (nextZoom: number) => number;  
+  /**
+ * showToast：对象字段。
+ */
+
   showToast: (message: string) => void;
 }): void {
   const {

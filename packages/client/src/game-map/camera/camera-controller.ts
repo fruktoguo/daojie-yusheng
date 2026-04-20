@@ -3,16 +3,44 @@ import type { MapSafeAreaInsets } from '../types';
 
 /** 摄像机状态快照。 */
 export interface CameraState {
-  x: number;
-  y: number;
-  targetX: number;
-  targetY: number;
-  offsetX: number;
+/**
+ * x：CameraState 内部字段。
+ */
+
+  x: number;  
+  /**
+ * y：CameraState 内部字段。
+ */
+
+  y: number;  
+  /**
+ * targetX：CameraState 内部字段。
+ */
+
+  targetX: number;  
+  /**
+ * targetY：CameraState 内部字段。
+ */
+
+  targetY: number;  
+  /**
+ * offsetX：CameraState 内部字段。
+ */
+
+  offsetX: number;  
+  /**
+ * offsetY：CameraState 内部字段。
+ */
+
   offsetY: number;
 }
 
 /** 摄像机控制器，负责平滑跟随与偏移。 */
 export class CameraController {
+/**
+ * state：CameraController 内部字段。
+ */
+
   private state: CameraState = {
     x: 0,
     y: 0,
@@ -54,6 +82,8 @@ export class CameraController {
 
   /** 逐帧推进摄像机位置。 */
   update(dt: number): void {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
     const dx = this.state.targetX - this.state.x;
     const dy = this.state.targetY - this.state.y;
     const dist = Math.sqrt(dx * dx + dy * dy);

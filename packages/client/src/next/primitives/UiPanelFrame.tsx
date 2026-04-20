@@ -1,11 +1,43 @@
 import type { PropsWithChildren, ReactNode } from 'react';
+/**
+ * UiPanelFrameProps：定义接口结构约束，明确可交付字段含义。
+ */
+
 
 export interface UiPanelFrameProps {
-  title: string;
-  subtitle?: ReactNode;
-  actions?: ReactNode;
+/**
+ * title：UiPanelFrameProps 内部字段。
+ */
+
+  title: string;  
+  /**
+ * subtitle：UiPanelFrameProps 内部字段。
+ */
+
+  subtitle?: ReactNode;  
+  /**
+ * actions：UiPanelFrameProps 内部字段。
+ */
+
+  actions?: ReactNode;  
+  /**
+ * className：UiPanelFrameProps 内部字段。
+ */
+
   className?: string;
 }
+/**
+ * UiPanelFrame：执行核心业务逻辑。
+ * @param {
+  title,
+  subtitle,
+  actions,
+  className,
+  children,
+} PropsWithChildren<UiPanelFrameProps> 参数说明。
+ * @returns 函数返回值。
+ */
+
 
 export function UiPanelFrame({
   title,
@@ -14,6 +46,8 @@ export function UiPanelFrame({
   className,
   children,
 }: PropsWithChildren<UiPanelFrameProps>) {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
   const classes = ['next-ui-surface-pane', 'next-ui-surface-pane--stack', 'next-ui-panel-frame'];
   if (className) {
     classes.push(className);

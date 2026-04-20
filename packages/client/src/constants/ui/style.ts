@@ -11,25 +11,81 @@ export type UiFontLevelKey = (typeof UI_TEXT_SETTINGS.fontLevels)[number]['key']
 
 /** UiFontLevelDefinition：字号级别定义。 */
 export type UiFontLevelDefinition = {
-  key: UiFontLevelKey;
-  label: string;
-  description: string;
-  min: number;
-  max: number;
-  defaultSize: number;
-  previewText: string;
+/**
+ * key：对象字段。
+ */
+
+  key: UiFontLevelKey;  
+  /**
+ * label：对象字段。
+ */
+
+  label: string;  
+  /**
+ * description：对象字段。
+ */
+
+  description: string;  
+  /**
+ * min：对象字段。
+ */
+
+  min: number;  
+  /**
+ * max：对象字段。
+ */
+
+  max: number;  
+  /**
+ * defaultSize：对象字段。
+ */
+
+  defaultSize: number;  
+  /**
+ * previewText：对象字段。
+ */
+
+  previewText: string;  
+  /**
+ * previewClassName：对象字段。
+ */
+
   previewClassName: string;
 };
 
 /** UiStyleConfig：界面样式配置。 */
 export type UiStyleConfig = {
-  colorMode: UiColorMode;
-  globalFontOffset: number;
+/**
+ * colorMode：对象字段。
+ */
+
+  colorMode: UiColorMode;  
+  /**
+ * globalFontOffset：对象字段。
+ */
+
+  globalFontOffset: number;  
+  /**
+ * uiScale：对象字段。
+ */
+
   uiScale: number;
 };
 
 /** 颜色模式切换选项。 */
-export const UI_COLOR_MODE_OPTIONS: Array<{ value: UiColorMode; label: string; description: string }> = [
+export const UI_COLOR_MODE_OPTIONS: Array<{
+/**
+ * value：对象字段。
+ */
+ value: UiColorMode;
+ /**
+ * label：对象字段。
+ */
+ label: string;
+ /**
+ * description：对象字段。
+ */
+ description: string }> = [
   { value: 'light', label: '浅色', description: '保持当前纸卷风格的亮面配色。' },
   { value: 'dark', label: '深色', description: '切换为更适合夜间游玩的暗面配色。' },
 ];

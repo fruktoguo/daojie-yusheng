@@ -1,13 +1,31 @@
 import { shellStore } from '../stores/shell-store';
 
 declare global {
-  interface Window {
-    __MUD_ENABLE_REACT_UI_NEXT__?: boolean;
+/**
+ * Window：定义接口结构约束，明确可交付字段含义。
+ */
+
+  interface Window {  
+  /**
+ * __MUD_ENABLE_REACT_UI_NEXT__：Window 内部字段。
+ */
+
+    __MUD_ENABLE_REACT_UI_NEXT__?: boolean;    
+    /**
+ * __toggleMudReactUiNext__：Window 内部字段。
+ */
+
     __toggleMudReactUiNext__?: (enabled: boolean) => void;
   }
 }
 
 const REACT_UI_NEXT_STORAGE_KEY = 'mud:react-ui-next:enabled';
+/**
+ * readStoredFlag：执行核心业务逻辑。
+ * @param win Window 参数说明。
+ * @returns boolean。
+ */
+
 
 function readStoredFlag(win: Window): boolean {
   try {
@@ -16,8 +34,16 @@ function readStoredFlag(win: Window): boolean {
     return false;
   }
 }
+/**
+ * readQueryFlag：执行核心业务逻辑。
+ * @param win Window 参数说明。
+ * @returns boolean | null。
+ */
+
 
 function readQueryFlag(win: Window): boolean | null {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
   const params = new URLSearchParams(win.location.search);
   const raw = params.get('react-ui-next');
   if (raw === '1') {
@@ -28,8 +54,16 @@ function readQueryFlag(win: Window): boolean | null {
   }
   return null;
 }
+/**
+ * isReactUiNextEnabled：执行状态校验并返回判断结果。
+ * @param win Window 参数说明。
+ * @returns boolean。
+ */
+
 
 export function isReactUiNextEnabled(win: Window = window): boolean {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
   if (typeof win.__MUD_ENABLE_REACT_UI_NEXT__ === 'boolean') {
     return win.__MUD_ENABLE_REACT_UI_NEXT__;
   }
@@ -39,8 +73,17 @@ export function isReactUiNextEnabled(win: Window = window): boolean {
   }
   return readStoredFlag(win);
 }
+/**
+ * setReactUiNextEnabled：更新/写入相关状态。
+ * @param enabled boolean 参数说明。
+ * @param win Window 参数说明。
+ * @returns void。
+ */
+
 
 export function setReactUiNextEnabled(enabled: boolean, win: Window = window): void {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
   try {
     win.localStorage.setItem(REACT_UI_NEXT_STORAGE_KEY, enabled ? '1' : '0');
   } catch {
@@ -49,6 +92,12 @@ export function setReactUiNextEnabled(enabled: boolean, win: Window = window): v
   win.__MUD_ENABLE_REACT_UI_NEXT__ = enabled;
   shellStore.patchState({ enabled });
 }
+/**
+ * registerReactUiNextToggleApi：执行核心业务逻辑。
+ * @param win Window 参数说明。
+ * @returns void。
+ */
+
 
 export function registerReactUiNextToggleApi(win: Window = window): void {
   win.__toggleMudReactUiNext__ = (enabled: boolean) => {

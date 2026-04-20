@@ -1,16 +1,46 @@
 import { randomBytes, scryptSync, timingSafeEqual } from 'node:crypto';
+/**
+ * ParsedScryptHash：定义接口结构约束，明确可交付字段含义。
+ */
+
 
 interface ParsedScryptHash {
-  cost: number;
-  blockSize: number;
-  parallelization: number;
-  keyLength: number;
-  salt: Buffer;
+/**
+ * cost：ParsedScryptHash 内部字段。
+ */
+
+  cost: number;  
+  /**
+ * blockSize：ParsedScryptHash 内部字段。
+ */
+
+  blockSize: number;  
+  /**
+ * parallelization：ParsedScryptHash 内部字段。
+ */
+
+  parallelization: number;  
+  /**
+ * keyLength：ParsedScryptHash 内部字段。
+ */
+
+  keyLength: number;  
+  /**
+ * salt：ParsedScryptHash 内部字段。
+ */
+
+  salt: Buffer;  
+  /**
+ * hash：ParsedScryptHash 内部字段。
+ */
+
   hash: string;
 }
 
 /** 对接收密码进行验证：统一验证 next 自定义 scrypt 格式。 */
 export async function verifyPassword(password: unknown, storedHash: unknown): Promise<boolean> {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
   const normalizedPassword = typeof password === 'string' ? password : '';
   const normalizedHash = typeof storedHash === 'string' ? storedHash : '';
 
@@ -52,6 +82,8 @@ export async function hashPassword(password: unknown): Promise<string> {
 
 /** 解析自定义 scrypt 存储串（sn1$cost$...），失败返回 null。 */
 function parseScryptHash(value: string): ParsedScryptHash | null {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
   const parts = value.split('$');
   if (parts.length !== 7 || parts[0] !== 'sn1') {
     return null;

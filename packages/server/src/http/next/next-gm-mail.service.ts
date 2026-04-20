@@ -4,36 +4,82 @@ import { MailRuntimeService } from '../../runtime/mail/mail-runtime.service';
 import { PlayerRuntimeService } from '../../runtime/player/player-runtime.service';
 import { NEXT_GM_MAIL_RECIPIENT_CONTRACT } from './next-gm-contract';
 import { isNextGmBotPlayerId } from './next-gm.constants';
+/**
+ * PlayerSnapshotLike：定义接口结构约束，明确可交付字段含义。
+ */
+
 
 interface PlayerSnapshotLike {
+/**
+ * playerId：PlayerSnapshotLike 内部字段。
+ */
+
   playerId: string;
 }
+/**
+ * MailRuntimeServiceLike：定义接口结构约束，明确可交付字段含义。
+ */
+
 
 interface MailRuntimeServiceLike {
   createDirectMail(playerId: string, input: unknown): Promise<string>;
 }
+/**
+ * PlayerPersistenceServiceLike：定义接口结构约束，明确可交付字段含义。
+ */
+
 
 interface PlayerPersistenceServiceLike {
   listPlayerSnapshots(): Promise<PlayerSnapshotLike[]>;
 }
+/**
+ * PlayerRuntimeServiceLike：定义接口结构约束，明确可交付字段含义。
+ */
+
 
 interface PlayerRuntimeServiceLike {
   listPlayerSnapshots(): PlayerSnapshotLike[];
 }
+/**
+ * NextGmMailService：封装该能力的入口与生命周期，承载运行时核心协作。
+ */
+
 
 @Injectable()
 export class NextGmMailService {
+/**
+ * 构造器：初始化 当前 实例并建立基础状态。
+ * @param mailRuntimeService MailRuntimeServiceLike 参数说明。
+ * @param playerPersistenceService PlayerPersistenceServiceLike 参数说明。
+ * @param playerRuntimeService PlayerRuntimeServiceLike 参数说明。
+ * @returns 无返回值（构造函数）。
+ */
+
   constructor(
     @Inject(MailRuntimeService) private readonly mailRuntimeService: MailRuntimeServiceLike,
     @Inject(PlayerPersistenceService) private readonly playerPersistenceService: PlayerPersistenceServiceLike,
     @Inject(PlayerRuntimeService) private readonly playerRuntimeService: PlayerRuntimeServiceLike,
-  ) {}
+  ) {}  
+  /**
+ * createDirectMail：构建并返回目标对象。
+ * @param playerId string 玩家 ID。
+ * @param input unknown 输入参数。
+ * @returns 函数返回值。
+ */
+
 
   async createDirectMail(playerId: string, input?: unknown) {
     return this.mailRuntimeService.createDirectMail(playerId, input ?? {});
-  }
+  }  
+  /**
+ * collectBroadcastRecipientPlayerIds：执行核心业务逻辑。
+ * @returns Promise<string[]>。
+ */
+
 
   async collectBroadcastRecipientPlayerIds(): Promise<string[]> {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
     const runtimePlayerIds: string[] = this.playerRuntimeService
       .listPlayerSnapshots()
       .filter((entry) => !isNextGmBotPlayerId(entry.playerId))
@@ -53,9 +99,17 @@ export class NextGmMailService {
     }
 
     return Array.from(deliveredPlayerIds);
-  }
+  }  
+  /**
+ * createBroadcastMail：构建并返回目标对象。
+ * @param input unknown 输入参数。
+ * @returns 函数返回值。
+ */
+
 
   async createBroadcastMail(input?: unknown) {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
     const deliveredMailIds: string[] = [];
     const batchId = `broadcast:${Date.now().toString(36)}`;
 

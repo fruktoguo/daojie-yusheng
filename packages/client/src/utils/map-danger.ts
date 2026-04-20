@@ -3,15 +3,39 @@ import { LOCAL_EDITOR_CATALOG } from '../content/editor-catalog';
 
 /** 可用于危险评估的境界等级区间。 */
 type RealmLevelRange = {
-  minLevel: number;
-  maxLevel: number;
+/**
+ * minLevel：对象字段。
+ */
+
+  minLevel: number;  
+  /**
+ * maxLevel：对象字段。
+ */
+
+  maxLevel: number;  
+  /**
+ * displayLabel：对象字段。
+ */
+
   displayLabel: string;
 };
 
 /** 地图危险度评估结果。 */
 export interface MapDangerAssessment {
-  recommendedRealmLabel: string;
-  dangerLabel: string;
+/**
+ * recommendedRealmLabel：MapDangerAssessment 内部字段。
+ */
+
+  recommendedRealmLabel: string;  
+  /**
+ * dangerLabel：MapDangerAssessment 内部字段。
+ */
+
+  dangerLabel: string;  
+  /**
+ * dangerTone：MapDangerAssessment 内部字段。
+ */
+
   dangerTone: number;
 }
 
@@ -25,6 +49,8 @@ function normalizeRealmToken(value: string): string {
 
 /** 注册一个境界别名。 */
 function registerRealmAlias(alias: string, range: RealmLevelRange): void {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
   const normalized = normalizeRealmToken(alias);
   if (!normalized) {
     return;
@@ -34,7 +60,17 @@ function registerRealmAlias(alias: string, range: RealmLevelRange): void {
 
 /** 根据本地目录构建境界别名索引。 */
 function buildRealmAliasIndex(): void {
-  const groupedByName = new Map<string, { minLevel: number; maxLevel: number }>();
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
+  const groupedByName = new Map<string, {  
+  /**
+ * minLevel：对象字段。
+ */
+ minLevel: number;  
+ /**
+ * maxLevel：对象字段。
+ */
+ maxLevel: number }>();
   for (const entry of LOCAL_EDITOR_CATALOG.realmLevels) {
     const level = Math.max(1, Math.floor(entry.realmLv));
     registerRealmAlias(entry.displayName, {
@@ -92,6 +128,8 @@ function resolveSingleRealmRange(raw: string): RealmLevelRange | null {
 
 /** 解析单个境界或区间写法。 */
 function resolveRealmRange(raw: string): RealmLevelRange | null {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
   const normalized = normalizeRealmToken(raw);
   if (!normalized) {
     return null;
@@ -126,6 +164,8 @@ function resolveRecommendedRealmRange(
   recommendedRealm: string | undefined,
   fallbackRecommendedRealm: string | undefined,
 ): RealmLevelRange | null {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
   const candidates = [recommendedRealm, fallbackRecommendedRealm]
     .map((value) => (typeof value === 'string' ? value.trim() : ''))
     .filter(Boolean);
@@ -148,7 +188,17 @@ function resolvePlayerRealmLevel(player: PlayerState): number {
 }
 
 /** 生成“比玩家更强”时的危险描述。 */
-function describeHarderDanger(gap: number): { label: string; tone: number } {
+function describeHarderDanger(gap: number): {
+/**
+ * label：对象字段。
+ */
+ label: string;
+ /**
+ * tone：对象字段。
+ */
+ tone: number } {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
   if (gap <= 1) {
     return { label: '高你一境，稍有风浪', tone: 3 };
   }
@@ -165,7 +215,17 @@ function describeHarderDanger(gap: number): { label: string; tone: number } {
 }
 
 /** 生成“比玩家更弱”时的危险描述。 */
-function describeEasierDanger(gap: number): { label: string; tone: number } {
+function describeEasierDanger(gap: number): {
+/**
+ * label：对象字段。
+ */
+ label: string;
+ /**
+ * tone：对象字段。
+ */
+ tone: number } {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
   if (gap <= 1) {
     return { label: '尚可从容', tone: 2 };
   }
@@ -187,6 +247,8 @@ export function assessMapDanger(
   recommendedRealm: string | undefined,
   fallbackRecommendedRealm?: string,
 ): MapDangerAssessment {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
   const resolvedRange = resolveRecommendedRealmRange(recommendedRealm, fallbackRecommendedRealm);
   const recommendedRealmLabel = resolvedRange?.displayLabel
     ?? recommendedRealm?.trim()

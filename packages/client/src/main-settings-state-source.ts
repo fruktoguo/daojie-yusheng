@@ -4,33 +4,119 @@ import {
   PlayerState,
 } from '@mud/shared-next';
 import { SettingsPanel } from './ui/panels/settings-panel';
+/**
+ * PendingRedeemCodesRequest：统一结构类型，保证协议与运行时一致性。
+ */
+
 
 type PendingRedeemCodesRequest = {
-  resolve: (value: AccountRedeemCodesRes) => void;
-  reject: (reason?: unknown) => void;
+/**
+ * resolve：对象字段。
+ */
+
+  resolve: (value: AccountRedeemCodesRes) => void;  
+  /**
+ * reject：对象字段。
+ */
+
+  reject: (reason?: unknown) => void;  
+  /**
+ * timeoutId：对象字段。
+ */
+
   timeoutId: ReturnType<typeof setTimeout>;
 };
+/**
+ * MainSettingsStateSourceOptions：统一结构类型，保证协议与运行时一致性。
+ */
+
 
 type MainSettingsStateSourceOptions = {
-  settingsPanel: SettingsPanel;
-  getCurrentAccountName: () => string;
-  getPlayer: () => PlayerState | null;
-  applyVisibleDisplayName: (playerId: string, displayName: string) => void;
-  applyVisibleRoleName: (playerId: string, roleName: string) => void;
-  syncPlayerBridgeState: (player: PlayerState | null) => void;
-  refreshHudChrome: () => void;
-  showToast: (message: string) => void;
-  isSocketConnected: () => boolean;
-  sendRedeemCodes: (codes: string[]) => void;
-  closeSettingsPanel: () => void;
-  disconnectSocket: () => void;
-  resetGameState: () => void;
+/**
+ * settingsPanel：对象字段。
+ */
+
+  settingsPanel: SettingsPanel;  
+  /**
+ * getCurrentAccountName：对象字段。
+ */
+
+  getCurrentAccountName: () => string;  
+  /**
+ * getPlayer：对象字段。
+ */
+
+  getPlayer: () => PlayerState | null;  
+  /**
+ * applyVisibleDisplayName：对象字段。
+ */
+
+  applyVisibleDisplayName: (playerId: string, displayName: string) => void;  
+  /**
+ * applyVisibleRoleName：对象字段。
+ */
+
+  applyVisibleRoleName: (playerId: string, roleName: string) => void;  
+  /**
+ * syncPlayerBridgeState：对象字段。
+ */
+
+  syncPlayerBridgeState: (player: PlayerState | null) => void;  
+  /**
+ * refreshHudChrome：对象字段。
+ */
+
+  refreshHudChrome: () => void;  
+  /**
+ * showToast：对象字段。
+ */
+
+  showToast: (message: string) => void;  
+  /**
+ * isSocketConnected：对象字段。
+ */
+
+  isSocketConnected: () => boolean;  
+  /**
+ * sendRedeemCodes：对象字段。
+ */
+
+  sendRedeemCodes: (codes: string[]) => void;  
+  /**
+ * closeSettingsPanel：对象字段。
+ */
+
+  closeSettingsPanel: () => void;  
+  /**
+ * disconnectSocket：对象字段。
+ */
+
+  disconnectSocket: () => void;  
+  /**
+ * resetGameState：对象字段。
+ */
+
+  resetGameState: () => void;  
+  /**
+ * logout：对象字段。
+ */
+
   logout: (message: string) => void;
 };
 
 const REDEEM_RESULT_TIMEOUT_MS = 12000;
+/**
+ * MainSettingsStateSource：统一结构类型，保证协议与运行时一致性。
+ */
+
 
 export type MainSettingsStateSource = ReturnType<typeof createMainSettingsStateSource>;
+/**
+ * createMainSettingsStateSource：构建并返回目标对象。
+ * @param options MainSettingsStateSourceOptions 选项参数。
+ * @returns 函数返回值。
+ */
+
 
 export function createMainSettingsStateSource(options: MainSettingsStateSourceOptions) {
   let pendingRedeemCodesRequest: PendingRedeemCodesRequest | null = null;
@@ -98,8 +184,16 @@ export function createMainSettingsStateSource(options: MainSettingsStateSourceOp
     },
   });
 
-  return {
+  return {  
+  /**
+ * handleRedeemCodesResult：处理事件并驱动执行路径。
+ * @param data NEXT_S2C_RedeemCodesResult 原始数据。
+ * @returns void。
+ */
+
     handleRedeemCodesResult(data: NEXT_S2C_RedeemCodesResult): void {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
       if (!pendingRedeemCodesRequest) {
         return;
       }
@@ -107,9 +201,17 @@ export function createMainSettingsStateSource(options: MainSettingsStateSourceOp
       pendingRedeemCodesRequest = null;
       window.clearTimeout(pending.timeoutId);
       pending.resolve(data.result);
-    },
+    },    
+    /**
+ * rejectPendingRedeemCodes：执行核心业务逻辑。
+ * @param message string 参数说明。
+ * @returns void。
+ */
+
 
     rejectPendingRedeemCodes(message: string): void {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
       if (!pendingRedeemCodesRequest) {
         return;
       }

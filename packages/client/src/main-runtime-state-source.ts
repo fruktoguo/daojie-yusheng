@@ -11,58 +11,276 @@ import {
   TechniqueState,
   ActionDef,
 } from '@mud/shared-next';
+/**
+ * MainRuntimeStateSourceOptions：统一结构类型，保证协议与运行时一致性。
+ */
+
 
 type MainRuntimeStateSourceOptions = {
-  getPlayer: () => PlayerState | null;
-  setPlayer: (player: PlayerState | null) => void;
-  getLatestAttrUpdate: () => ReturnType<MainRuntimeStateSourceOptions['buildAttrStateFromPlayer']> | null;
-  setLatestAttrUpdate: (value: ReturnType<MainRuntimeStateSourceOptions['buildAttrStateFromPlayer']> | null) => void;
-  syncAuraLevelBaseValue: (value?: number) => void;
-  syncCurrentTimeState: (state: NEXT_S2C_Bootstrap['time'] | null | undefined) => void;
-  resolvePreviewTechniques: (techniques: TechniqueState[]) => TechniqueState[];
-  buildAttrStateFromPlayer: (player: PlayerState) => NEXT_S2C_Bootstrap['self'] extends infer _T ? any : never;
-  syncPlayerBridgeState: (player: PlayerState | null) => void;
-  syncAttrBridgeState: (value: ReturnType<MainRuntimeStateSourceOptions['buildAttrStateFromPlayer']> | null) => void;
-  syncInventoryBridgeState: (inventory: PlayerState['inventory'] | null) => void;
-  syncEquipmentBridgeState: (equipment: PlayerState['equipment'] | null) => void;
-  syncTechniquesBridgeState: (techniques: PlayerState['techniques'], cultivatingTechId?: string) => void;
-  syncActionsBridgeState: (actions: PlayerState['actions'], autoBattle: boolean, autoRetaliate: boolean) => void;
-  syncBootstrapQuestState: (player: PlayerState) => void;
-  syncTargetingOverlay: () => void;
-  syncSenseQiOverlay: () => void;
-  applyBootstrapToMapRuntime: (data: NEXT_S2C_Bootstrap) => void;
-  applyMapStaticToRuntime: (data: NEXT_S2C_MapStatic) => void;
-  setRuntimePathCells: () => void;
-  resetObservedBaselinesFromPlayer: (player: PlayerState) => void;
-  clearCurrentPath: () => void;
-  showSidePanel: () => void;
-  setChatPersistenceScope: (scope: string | null) => void;
-  showChat: () => void;
-  showHud: () => void;
-  resizeCanvas: () => void;
-  refreshZoomChrome: () => void;
-  setPanelRuntime: (state: { connected?: boolean; playerId?: string | null; mapId?: string | null; shellVisible?: boolean }) => void;
-  initAttrPanel: (player: PlayerState) => void;
-  initAttrDetail: () => void;
-  initInventoryState: (player: PlayerState) => void;
-  initEquipmentPanel: (player: PlayerState) => void;
-  initTechniqueState: (player: PlayerState) => void;
-  initBodyTrainingPanel: (player: PlayerState) => void;
-  initQuestState: (player: PlayerState) => void;
-  initActionState: (player: PlayerState) => void;
-  initWorldSummaryState: () => void;
-  refreshUiChrome: () => void;
-  initMailState: (playerId: string) => void;
-  initSuggestionState: (playerId: string) => void;
-  hideObserveModal: () => void;
-  applyWorldDelta: (data: NEXT_S2C_WorldDelta) => void;
-  applySelfDelta: (data: NEXT_S2C_SelfDelta) => void;
-  applyPanelDelta: (data: NEXT_S2C_PanelDelta) => void;
-  inventorySyncPlayerContext: (player?: PlayerState) => void;
+/**
+ * getPlayer：对象字段。
+ */
+
+  getPlayer: () => PlayerState | null;  
+  /**
+ * setPlayer：对象字段。
+ */
+
+  setPlayer: (player: PlayerState | null) => void;  
+  /**
+ * getLatestAttrUpdate：对象字段。
+ */
+
+  getLatestAttrUpdate: () => ReturnType<MainRuntimeStateSourceOptions['buildAttrStateFromPlayer']> | null;  
+  /**
+ * setLatestAttrUpdate：对象字段。
+ */
+
+  setLatestAttrUpdate: (value: ReturnType<MainRuntimeStateSourceOptions['buildAttrStateFromPlayer']> | null) => void;  
+  /**
+ * syncAuraLevelBaseValue：对象字段。
+ */
+
+  syncAuraLevelBaseValue: (value?: number) => void;  
+  /**
+ * syncCurrentTimeState：对象字段。
+ */
+
+  syncCurrentTimeState: (state: NEXT_S2C_Bootstrap['time'] | null | undefined) => void;  
+  /**
+ * resolvePreviewTechniques：对象字段。
+ */
+
+  resolvePreviewTechniques: (techniques: TechniqueState[]) => TechniqueState[];  
+  /**
+ * buildAttrStateFromPlayer：对象字段。
+ */
+
+  buildAttrStateFromPlayer: (player: PlayerState) => NEXT_S2C_Bootstrap['self'] extends infer _T ? any : never;  
+  /**
+ * syncPlayerBridgeState：对象字段。
+ */
+
+  syncPlayerBridgeState: (player: PlayerState | null) => void;  
+  /**
+ * syncAttrBridgeState：对象字段。
+ */
+
+  syncAttrBridgeState: (value: ReturnType<MainRuntimeStateSourceOptions['buildAttrStateFromPlayer']> | null) => void;  
+  /**
+ * syncInventoryBridgeState：对象字段。
+ */
+
+  syncInventoryBridgeState: (inventory: PlayerState['inventory'] | null) => void;  
+  /**
+ * syncEquipmentBridgeState：对象字段。
+ */
+
+  syncEquipmentBridgeState: (equipment: PlayerState['equipment'] | null) => void;  
+  /**
+ * syncTechniquesBridgeState：对象字段。
+ */
+
+  syncTechniquesBridgeState: (techniques: PlayerState['techniques'], cultivatingTechId?: string) => void;  
+  /**
+ * syncActionsBridgeState：对象字段。
+ */
+
+  syncActionsBridgeState: (actions: PlayerState['actions'], autoBattle: boolean, autoRetaliate: boolean) => void;  
+  /**
+ * syncBootstrapQuestState：对象字段。
+ */
+
+  syncBootstrapQuestState: (player: PlayerState) => void;  
+  /**
+ * syncTargetingOverlay：对象字段。
+ */
+
+  syncTargetingOverlay: () => void;  
+  /**
+ * syncSenseQiOverlay：对象字段。
+ */
+
+  syncSenseQiOverlay: () => void;  
+  /**
+ * applyBootstrapToMapRuntime：对象字段。
+ */
+
+  applyBootstrapToMapRuntime: (data: NEXT_S2C_Bootstrap) => void;  
+  /**
+ * applyMapStaticToRuntime：对象字段。
+ */
+
+  applyMapStaticToRuntime: (data: NEXT_S2C_MapStatic) => void;  
+  /**
+ * setRuntimePathCells：对象字段。
+ */
+
+  setRuntimePathCells: () => void;  
+  /**
+ * resetObservedBaselinesFromPlayer：对象字段。
+ */
+
+  resetObservedBaselinesFromPlayer: (player: PlayerState) => void;  
+  /**
+ * clearCurrentPath：对象字段。
+ */
+
+  clearCurrentPath: () => void;  
+  /**
+ * showSidePanel：对象字段。
+ */
+
+  showSidePanel: () => void;  
+  /**
+ * setChatPersistenceScope：对象字段。
+ */
+
+  setChatPersistenceScope: (scope: string | null) => void;  
+  /**
+ * showChat：对象字段。
+ */
+
+  showChat: () => void;  
+  /**
+ * showHud：对象字段。
+ */
+
+  showHud: () => void;  
+  /**
+ * resizeCanvas：对象字段。
+ */
+
+  resizeCanvas: () => void;  
+  /**
+ * refreshZoomChrome：对象字段。
+ */
+
+  refreshZoomChrome: () => void;  
+  /**
+ * setPanelRuntime：对象字段。
+ */
+
+  setPanelRuntime: (state: {  
+  /**
+ * connected：对象字段。
+ */
+ connected?: boolean;  
+ /**
+ * playerId：对象字段。
+ */
+ playerId?: string | null;  
+ /**
+ * mapId：对象字段。
+ */
+ mapId?: string | null;  
+ /**
+ * shellVisible：对象字段。
+ */
+ shellVisible?: boolean }) => void;  
+ /**
+ * initAttrPanel：对象字段。
+ */
+
+  initAttrPanel: (player: PlayerState) => void;  
+  /**
+ * initAttrDetail：对象字段。
+ */
+
+  initAttrDetail: () => void;  
+  /**
+ * initInventoryState：对象字段。
+ */
+
+  initInventoryState: (player: PlayerState) => void;  
+  /**
+ * initEquipmentPanel：对象字段。
+ */
+
+  initEquipmentPanel: (player: PlayerState) => void;  
+  /**
+ * initTechniqueState：对象字段。
+ */
+
+  initTechniqueState: (player: PlayerState) => void;  
+  /**
+ * initBodyTrainingPanel：对象字段。
+ */
+
+  initBodyTrainingPanel: (player: PlayerState) => void;  
+  /**
+ * initQuestState：对象字段。
+ */
+
+  initQuestState: (player: PlayerState) => void;  
+  /**
+ * initActionState：对象字段。
+ */
+
+  initActionState: (player: PlayerState) => void;  
+  /**
+ * initWorldSummaryState：对象字段。
+ */
+
+  initWorldSummaryState: () => void;  
+  /**
+ * refreshUiChrome：对象字段。
+ */
+
+  refreshUiChrome: () => void;  
+  /**
+ * initMailState：对象字段。
+ */
+
+  initMailState: (playerId: string) => void;  
+  /**
+ * initSuggestionState：对象字段。
+ */
+
+  initSuggestionState: (playerId: string) => void;  
+  /**
+ * hideObserveModal：对象字段。
+ */
+
+  hideObserveModal: () => void;  
+  /**
+ * applyWorldDelta：对象字段。
+ */
+
+  applyWorldDelta: (data: NEXT_S2C_WorldDelta) => void;  
+  /**
+ * applySelfDelta：对象字段。
+ */
+
+  applySelfDelta: (data: NEXT_S2C_SelfDelta) => void;  
+  /**
+ * applyPanelDelta：对象字段。
+ */
+
+  applyPanelDelta: (data: NEXT_S2C_PanelDelta) => void;  
+  /**
+ * inventorySyncPlayerContext：对象字段。
+ */
+
+  inventorySyncPlayerContext: (player?: PlayerState) => void;  
+  /**
+ * refreshHeavenGateModal：对象字段。
+ */
+
   refreshHeavenGateModal: (player: PlayerState | null) => void;
 };
+/**
+ * MainRuntimeStateSource：统一结构类型，保证协议与运行时一致性。
+ */
+
 
 export type MainRuntimeStateSource = ReturnType<typeof createMainRuntimeStateSource>;
+/**
+ * createMainRuntimeStateSource：构建并返回目标对象。
+ * @param options MainRuntimeStateSourceOptions 选项参数。
+ * @returns 函数返回值。
+ */
+
 
 export function createMainRuntimeStateSource(options: MainRuntimeStateSourceOptions) {
   let latestNextInitSession: NEXT_S2C_InitSession | null = null;
@@ -92,48 +310,97 @@ export function createMainRuntimeStateSource(options: MainRuntimeStateSourceOpti
     }
   };
 
-  return {
+  return {  
+  /**
+ * clear：执行核心业务逻辑。
+ * @returns void。
+ */
+
     clear(): void {
       latestNextInitSession = null;
       latestNextMapEnter = null;
       pendingNextWorldDelta = null;
       pendingNextSelfDelta = null;
       pendingNextPanelDelta = null;
-    },
+    },    
+    /**
+ * handleInitSession：处理事件并驱动执行路径。
+ * @param data NEXT_S2C_InitSession 原始数据。
+ * @returns void。
+ */
+
 
     handleInitSession(data: NEXT_S2C_InitSession): void {
       latestNextInitSession = data;
-    },
+    },    
+    /**
+ * handleMapEnter：处理事件并驱动执行路径。
+ * @param data NEXT_S2C_MapEnter 原始数据。
+ * @returns void。
+ */
+
 
     handleMapEnter(data: NEXT_S2C_MapEnter): void {
       latestNextMapEnter = data;
-    },
+    },    
+    /**
+ * handleWorldDelta：处理事件并驱动执行路径。
+ * @param data NEXT_S2C_WorldDelta 原始数据。
+ * @returns void。
+ */
+
 
     handleWorldDelta(data: NEXT_S2C_WorldDelta): void {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
       if (!options.getPlayer()) {
         pendingNextWorldDelta = data;
         return;
       }
       options.applyWorldDelta(data);
-    },
+    },    
+    /**
+ * handleSelfDelta：处理事件并驱动执行路径。
+ * @param data NEXT_S2C_SelfDelta 原始数据。
+ * @returns void。
+ */
+
 
     handleSelfDelta(data: NEXT_S2C_SelfDelta): void {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
       if (!options.getPlayer()) {
         pendingNextSelfDelta = data;
         return;
       }
       options.applySelfDelta(data);
-    },
+    },    
+    /**
+ * handlePanelDelta：处理事件并驱动执行路径。
+ * @param data NEXT_S2C_PanelDelta 原始数据。
+ * @returns void。
+ */
+
 
     handlePanelDelta(data: NEXT_S2C_PanelDelta): void {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
       if (!options.getPlayer()) {
         pendingNextPanelDelta = data;
         return;
       }
       options.applyPanelDelta(data);
-    },
+    },    
+    /**
+ * handleRealm：处理事件并驱动执行路径。
+ * @param data NEXT_S2C_Realm 原始数据。
+ * @returns void。
+ */
+
 
     handleRealm(data: NEXT_S2C_Realm): void {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
       const player = options.getPlayer();
       if (!player) {
         return;
@@ -158,9 +425,17 @@ export function createMainRuntimeStateSource(options: MainRuntimeStateSourceOpti
       options.refreshHeavenGateModal(player);
       options.inventorySyncPlayerContext(player ?? undefined);
       options.refreshUiChrome();
-    },
+    },    
+    /**
+ * handleMapStatic：处理事件并驱动执行路径。
+ * @param data NEXT_S2C_MapStatic 原始数据。
+ * @returns void。
+ */
+
 
     handleMapStatic(data: NEXT_S2C_MapStatic): void {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
       options.applyMapStaticToRuntime(data);
       const player = options.getPlayer();
       if (player && data.minimapLibrary) {
@@ -170,7 +445,13 @@ export function createMainRuntimeStateSource(options: MainRuntimeStateSourceOpti
       if (player && data.mapId === player.mapId) {
         options.refreshUiChrome();
       }
-    },
+    },    
+    /**
+ * handleBootstrap：处理事件并驱动执行路径。
+ * @param data NEXT_S2C_Bootstrap 原始数据。
+ * @returns void。
+ */
+
 
     handleBootstrap(data: NEXT_S2C_Bootstrap): void {
       options.hideObserveModal();

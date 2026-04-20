@@ -27,6 +27,13 @@ export {
 
 /** HTTP 请求失败时抛出，携带状态码 */
 export class RequestError extends Error {
+/**
+ * 构造器：初始化 当前 实例并建立基础状态。
+ * @param message string 参数说明。
+ * @param status number 参数说明。
+ * @returns 无返回值（构造函数）。
+ */
+
   constructor(message: string, readonly status: number) {
     super(message);
   }
@@ -34,9 +41,25 @@ export class RequestError extends Error {
 
 /** 请求 JSON 接口时使用的配置项，支持方法、请求体、访问令牌和中断信号。 */
 type RequestOptions = {
-  method?: 'GET' | 'POST';
-  body?: unknown;
-  accessToken?: string | null;
+/**
+ * method：对象字段。
+ */
+
+  method?: 'GET' | 'POST';  
+  /**
+ * body：对象字段。
+ */
+
+  body?: unknown;  
+  /**
+ * accessToken：对象字段。
+ */
+
+  accessToken?: string | null;  
+  /**
+ * signal：对象字段。
+ */
+
   signal?: AbortSignal;
 };
 
@@ -45,6 +68,8 @@ let memoryRefreshToken: string | null = null;
 
 /** 读取当前可用的 sessionStorage；受限环境下回退到内存态。 */
 function getSessionStorage(): Storage | null {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
   if (typeof window === 'undefined') {
     return null;
   }
@@ -63,6 +88,8 @@ export function getAccessToken(): string | null {
 
 /** 从当前 accessToken 读取账号名 */
 export function getCurrentAccountName(): string | null {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
   const accessToken = getAccessToken();
   if (!accessToken) {
     return null;
@@ -78,6 +105,8 @@ export function getRefreshToken(): string | null {
 
 /** 将 token 对写入 sessionStorage，不再跨浏览器重启长期驻留。 */
 export function storeTokens(data: AuthTokenRes): void {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
   memoryAccessToken = data.accessToken;
   memoryRefreshToken = data.refreshToken;
   const storage = getSessionStorage();
@@ -99,6 +128,8 @@ export function clearStoredTokens(): void {
 
 /** 通用 JSON 请求，自动处理 body 序列化与 Bearer 鉴权 */
 export async function requestJson<TResponse>(url: string, options: RequestOptions = {}): Promise<TResponse> {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
   const headers: Record<string, string> = {};
   if (options.body !== undefined) {
     headers['Content-Type'] = 'application/json';
@@ -145,8 +176,16 @@ export function checkDisplayNameAvailability(
 export function updatePassword(
   accessToken: string,
   body: AccountUpdatePasswordReq,
-): Promise<{ ok: true }> {
-  return requestJson<{ ok: true }>(`${ACCOUNT_API_BASE_PATH}/password`, {
+): Promise<{
+/**
+ * ok：对象字段。
+ */
+ ok: true }> {
+  return requestJson<{  
+  /**
+ * ok：对象字段。
+ */
+ ok: true }>(`${ACCOUNT_API_BASE_PATH}/password`, {
     method: 'POST',
     body,
     accessToken,
@@ -179,8 +218,14 @@ export function updateRoleName(
 
 /** readError：处理read错误。 */
 async function readError(res: Response): Promise<string> {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
   try {
-    const data = await res.json() as { message?: string | string[] };
+    const data = await res.json() as {    
+    /**
+ * message：对象字段。
+ */
+ message?: string | string[] };
     if (Array.isArray(data.message)) {
       return data.message.join('，');
     }
@@ -195,15 +240,37 @@ async function readError(res: Response): Promise<string> {
 
 /** JWT 里用于提取账号名的负载字段。 */
 type AuthTokenPayload = {
-  username?: string;
-  preferred_username?: string;
-  upn?: string;
-  name?: string;
+/**
+ * username：对象字段。
+ */
+
+  username?: string;  
+  /**
+ * preferred_username：对象字段。
+ */
+
+  preferred_username?: string;  
+  /**
+ * upn：对象字段。
+ */
+
+  upn?: string;  
+  /**
+ * name：对象字段。
+ */
+
+  name?: string;  
+  /**
+ * sub：对象字段。
+ */
+
   sub?: string;
 };
 
 /** extractAccountName：处理extract账号名称。 */
 function extractAccountName(payload: AuthTokenPayload | null): string | null {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
   if (!payload) {
     return null;
   }
@@ -217,6 +284,8 @@ function extractAccountName(payload: AuthTokenPayload | null): string | null {
 
 /** parseJwtPayload：解析Jwt载荷。 */
 function parseJwtPayload(token: string): AuthTokenPayload | null {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
   const parts = token.split('.');
   if (parts.length < 2) {
     return null;
@@ -227,7 +296,11 @@ function parseJwtPayload(token: string): AuthTokenPayload | null {
     const binary = window.atob(padded);
     const bytes = Uint8Array.from(binary, (char) => char.charCodeAt(0));
     const json = new TextDecoder().decode(bytes);
-    return JSON.parse(json) as { username?: string };
+    return JSON.parse(json) as {    
+    /**
+ * username：对象字段。
+ */
+ username?: string };
   } catch {
     return null;
   }

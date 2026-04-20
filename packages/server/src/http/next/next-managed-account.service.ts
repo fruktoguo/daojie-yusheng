@@ -7,45 +7,125 @@ import { PlayerRuntimeService } from '../../runtime/player/player-runtime.servic
 import { NEXT_GM_AUTH_CONTRACT } from './next-gm-contract';
 import { NextPlayerAuthStoreService } from './next-player-auth-store.service';
 import type { NextPlayerAuthUser } from './next-player-auth-store.service';
+/**
+ * ManagedAccountRecord：定义接口结构约束，明确可交付字段含义。
+ */
+
 
 interface ManagedAccountRecord {
-  playerId: string;
-  playerName: string;
-  userId: string;
-  username: string;
-  displayName: string | null;
-  createdAt: string;
-  totalOnlineSeconds: number;
+/**
+ * playerId：ManagedAccountRecord 内部字段。
+ */
+
+  playerId: string;  
+  /**
+ * playerName：ManagedAccountRecord 内部字段。
+ */
+
+  playerName: string;  
+  /**
+ * userId：ManagedAccountRecord 内部字段。
+ */
+
+  userId: string;  
+  /**
+ * username：ManagedAccountRecord 内部字段。
+ */
+
+  username: string;  
+  /**
+ * displayName：ManagedAccountRecord 内部字段。
+ */
+
+  displayName: string | null;  
+  /**
+ * createdAt：ManagedAccountRecord 内部字段。
+ */
+
+  createdAt: string;  
+  /**
+ * totalOnlineSeconds：ManagedAccountRecord 内部字段。
+ */
+
+  totalOnlineSeconds: number;  
+  /**
+ * currentOnlineStartedAt：ManagedAccountRecord 内部字段。
+ */
+
   currentOnlineStartedAt: string | null;
 }
+/**
+ * ManagedAccountUpdateResult：定义接口结构约束，明确可交付字段含义。
+ */
+
 
 interface ManagedAccountUpdateResult {
-  username: string;
-  displayNameChanged: boolean;
+/**
+ * username：ManagedAccountUpdateResult 内部字段。
+ */
+
+  username: string;  
+  /**
+ * displayNameChanged：ManagedAccountUpdateResult 内部字段。
+ */
+
+  displayNameChanged: boolean;  
+  /**
+ * nextDisplayName：ManagedAccountUpdateResult 内部字段。
+ */
+
   nextDisplayName: string;
 }
+/**
+ * PlayerIdentityPersistencePort：定义接口结构约束，明确可交付字段含义。
+ */
+
 
 interface PlayerIdentityPersistencePort {
   isEnabled(): boolean;
   savePlayerIdentity(identity: Record<string, unknown>): Promise<unknown>;
 }
+/**
+ * PlayerRuntimeSnapshot：定义接口结构约束，明确可交付字段含义。
+ */
+
 
 interface PlayerRuntimeSnapshot {
+/**
+ * displayName：PlayerRuntimeSnapshot 内部字段。
+ */
+
   displayName?: string;
 }
+/**
+ * PlayerRuntimePort：定义接口结构约束，明确可交付字段含义。
+ */
+
 
 interface PlayerRuntimePort {
   snapshot(playerId: string): PlayerRuntimeSnapshot | null;
-  setIdentity(playerId: string, input: { displayName?: string }): unknown;
+  setIdentity(playerId: string, input: {  
+  /**
+ * displayName：PlayerRuntimePort 内部字段。
+ */
+ displayName?: string }): unknown;
 }
 
 /** Next 托管账号服务：为 GM/管理入口提供账号查询、重命名和密码更新。 */
 @Injectable()
 export class NextManagedAccountService {
   /** 记录便于追踪管理操作的服务日志。 */
-  private readonly logger = new Logger(NextManagedAccountService.name);
+  private readonly logger = new Logger(NextManagedAccountService.name);  
+  /**
+ * playerIdentityPersistenceService：NextManagedAccountService 内部字段。
+ */
 
-  private readonly playerIdentityPersistenceService: PlayerIdentityPersistencePort;
+
+  private readonly playerIdentityPersistenceService: PlayerIdentityPersistencePort;  
+  /**
+ * playerRuntimeService：NextManagedAccountService 内部字段。
+ */
+
 
   private readonly playerRuntimeService: PlayerRuntimePort;
 
@@ -63,6 +143,8 @@ export class NextManagedAccountService {
 
   /** 将多个 playerId 归一为托管账号索引结果，供 GM 面板使用。 */
   async getManagedAccountIndex(playerIds: Iterable<string> | null | undefined): Promise<Map<string, ManagedAccountRecord>> {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
     const normalizedPlayerIds = Array.from(new Set(Array.from(playerIds ?? [])
       .filter((playerId): playerId is string => typeof playerId === 'string')
       .map((playerId) => playerId.trim())
@@ -91,6 +173,8 @@ export class NextManagedAccountService {
 
   /** 更新托管账号密码，修改前仍沿用统一密码规则。 */
   async updateManagedPlayerPassword(playerId: string, newPassword: string): Promise<void> {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
     const user = await this.requireManagedUser(playerId);
     const passwordError = validatePassword(newPassword);
     if (passwordError) {
@@ -106,6 +190,8 @@ export class NextManagedAccountService {
 
   /** 更新托管账号用户名，并同步修正显示名与持久化身份。 */
   async updateManagedPlayerAccount(playerId: string, username: string): Promise<ManagedAccountUpdateResult> {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
     const user = await this.requireManagedUser(playerId);
     const normalizedUsername = normalizeUsername(username);
     const usernameError = validateUsername(normalizedUsername);
@@ -158,6 +244,8 @@ export class NextManagedAccountService {
 
   /** 确认托管目标存在，否则直接返回可读错误。 */
   private async requireManagedUser(playerId: string): Promise<NextPlayerAuthUser> {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
     const user = await this.authStore.findUserByPlayerId(playerId);
     if (!user) {
       throw new BadRequestException('目标玩家没有可管理的账号');
@@ -167,6 +255,8 @@ export class NextManagedAccountService {
 
   /** 把账号变化持久化到身份层，便于下次启动后继续保留。 */
   private async persistIdentity(user: NextPlayerAuthUser): Promise<void> {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
     if (!this.playerIdentityPersistenceService.isEnabled()) {
       return;
     }
@@ -189,6 +279,8 @@ export class NextManagedAccountService {
 
   /** 将显示名变化同步回在线 runtime，避免面板与在线态脱节。 */
   private syncRuntimeDisplayName(user: NextPlayerAuthUser): void {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
     if (!this.playerRuntimeService.snapshot(user.playerId)) {
       return;
     }

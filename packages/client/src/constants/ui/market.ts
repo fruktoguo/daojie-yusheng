@@ -1,7 +1,15 @@
 /** MarketModalTab：坊市弹窗分页标签。 */
 export type MarketModalTab = 'market' | 'my-orders' | 'trade-history';
 
-export const MARKET_MODAL_TABS: Array<{ id: MarketModalTab; label: string }> = [
+export const MARKET_MODAL_TABS: Array<{
+/**
+ * id：对象字段。
+ */
+ id: MarketModalTab;
+ /**
+ * label：对象字段。
+ */
+ label: string }> = [
   { id: 'market', label: '市场' },
   { id: 'my-orders', label: '我的交易' },
   { id: 'trade-history', label: '交易记录' },

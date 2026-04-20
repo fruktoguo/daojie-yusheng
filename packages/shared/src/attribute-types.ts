@@ -12,10 +12,34 @@ export type NumericStatPercentages = Partial<Record<NumericScalarStatKey, number
 
 /** 属性加成来源。 */
 export interface AttrBonus {
-  source: string;
-  attrs: Partial<Attributes>;
-  stats?: PartialNumericStats;
-  qiProjection?: QiProjectionModifier[];
-  label?: string;
+/**
+ * source：AttrBonus 内部字段。
+ */
+
+  source: string;  
+  /**
+ * attrs：AttrBonus 内部字段。
+ */
+
+  attrs: Partial<Attributes>;  
+  /**
+ * stats：AttrBonus 内部字段。
+ */
+
+  stats?: PartialNumericStats;  
+  /**
+ * qiProjection：AttrBonus 内部字段。
+ */
+
+  qiProjection?: QiProjectionModifier[];  
+  /**
+ * label：AttrBonus 内部字段。
+ */
+
+  label?: string;  
+  /**
+ * meta：AttrBonus 内部字段。
+ */
+
   meta?: Record<string, unknown>;
 }

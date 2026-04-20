@@ -7,7 +7,13 @@ type MinimapSceneInput = Parameters<Minimap['updateScene']>[0];
 /** 小地图运行时，负责从快照组装并推送增量给 UI 小地图。 */
 export class MinimapRuntime {
   /** 底层小地图实例。 */
-  private readonly minimap = new Minimap();
+  private readonly minimap = new Minimap();  
+  /**
+ * setMoveHandler：更新/写入相关状态。
+ * @param handler ((x: number, y: number) => void) | null 参数说明。
+ * @returns void。
+ */
+
 
   setMoveHandler(handler: ((x: number, y: number) => void) | null): void {
     this.minimap.setMoveHandler(handler);

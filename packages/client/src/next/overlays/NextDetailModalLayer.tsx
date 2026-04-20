@@ -1,7 +1,14 @@
 import { useExternalStoreSnapshot } from '../hooks/use-external-store-snapshot';
 import { closeNextDetailModal, overlayStore } from './overlay-store';
+/**
+ * NextDetailModalLayer：执行核心业务逻辑。
+ * @returns 函数返回值。
+ */
+
 
 export function NextDetailModalLayer() {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
   const { detailModal } = useExternalStoreSnapshot(overlayStore);
 
   if (!detailModal.open) {

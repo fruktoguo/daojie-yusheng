@@ -25,7 +25,14 @@ export class LootPanel {
   /** onTake：on Take。 */
   private onTake: ((sourceId: string, itemKey: string) => void) | null = null;
   /** onTakeAll：on Take All。 */
-  private onTakeAll: ((sourceId: string) => void) | null = null;
+  private onTakeAll: ((sourceId: string) => void) | null = null;  
+  /**
+ * setCallbacks：更新/写入相关状态。
+ * @param onTake (sourceId: string, itemKey: string) => void 参数说明。
+ * @param onTakeAll (sourceId: string) => void 参数说明。
+ * @returns void。
+ */
+
 
   setCallbacks(
     onTake: (sourceId: string, itemKey: string) => void,
@@ -43,6 +50,8 @@ export class LootPanel {
 
   /** 更新拾取窗口状态，null 时关闭弹层 */
   update(windowState: LootWindowState | null): void {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
     this.windowState = windowState;
     if (!windowState) {
       detailModalHost.close(LootPanel.MODAL_OWNER);
@@ -53,6 +62,8 @@ export class LootPanel {
 
   /** render：渲染渲染。 */
   private render(): void {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
     if (!this.windowState) {
       return;
     }
@@ -81,6 +92,8 @@ export class LootPanel {
 
   /** renderBody：渲染身体。 */
   private renderBody(body: HTMLElement, sources: LootWindowState['sources']): void {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
     const shell = createElement('div', 'loot-shell');
     for (const source of sources) {
       shell.append(this.createSourceSection(source));
@@ -90,6 +103,8 @@ export class LootPanel {
 
   /** patchBody：按 source section 粒度刷新拾取弹层。 */
   private patchBody(body: HTMLElement, sources: LootWindowState['sources']): boolean {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
     let shell = body.querySelector<HTMLElement>('.loot-shell');
     if (!shell) {
       shell = createElement('div', 'loot-shell');
@@ -118,6 +133,8 @@ export class LootPanel {
 
   /** bindEvents：绑定事件。 */
   private bindEvents(body: HTMLElement): void {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
     if (body.dataset.lootBound === 'true') {
       return;
     }
@@ -148,6 +165,8 @@ export class LootPanel {
 
   /** createSourceSection：创建 source section。 */
   private createSourceSection(source: LootWindowState['sources'][number]): HTMLElement {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
     const section = createElement('section', 'loot-source-section');
     section.dataset.lootSourceSection = source.sourceId;
     const head = createElement('div', 'loot-source-head');
@@ -179,6 +198,8 @@ export class LootPanel {
 
   /** createSearchState：创建搜索状态。 */
   private createSearchState(source: LootWindowState['sources'][number]): HTMLElement | null {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
     if (!source.search || source.search.remainingTicks <= 0) {
       return null;
     }
@@ -198,6 +219,8 @@ export class LootPanel {
 
   /** createItemsContent：创建物品区域。 */
   private createItemsContent(source: LootWindowState['sources'][number]): HTMLElement {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
     if (source.items.length <= 0) {
       return createElement('div', 'loot-source-empty', source.emptyText ?? '这里什么都没有。');
     }
@@ -227,6 +250,8 @@ export class LootPanel {
 
 /** createElement：创建基础元素。 */
 function createElement<K extends keyof HTMLElementTagNameMap>(tagName: K, className: string, text?: string): HTMLElementTagNameMap[K] {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
   const element = document.createElement(tagName);
   if (className) {
     element.className = className;

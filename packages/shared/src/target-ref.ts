@@ -15,6 +15,8 @@ export function isTileTargetRef(targetRef: string): boolean {
 
 /** 从目标引用字符串解析出格子坐标，格式不合法返回 null */
 export function parseTileTargetRef(targetRef: string): GridPoint | null {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
   if (!isTileTargetRef(targetRef)) {
     return null;
   }

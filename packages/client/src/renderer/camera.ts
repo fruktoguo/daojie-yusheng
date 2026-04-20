@@ -25,6 +25,8 @@ export class Camera {
 
   /** 每帧推进插值，避免摄像机抖动。 */
   update(dt: number) {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
     const dx = this.targetX - this.x;
     const dy = this.targetY - this.y;
     const dist = Math.sqrt(dx * dx + dy * dy);
@@ -61,7 +63,15 @@ export class Camera {
   }
 
   /** 将世界坐标转换为屏幕像素坐标。 */
-  worldToScreen(wx: number, wy: number, screenW: number, screenH: number): { sx: number; sy: number } {
+  worldToScreen(wx: number, wy: number, screenW: number, screenH: number): {  
+  /**
+ * sx：Camera 内部字段。
+ */
+ sx: number;  
+ /**
+ * sy：Camera 内部字段。
+ */
+ sy: number } {
     return {
       sx: wx - this.x + screenW / 2,
       sy: wy - this.y + screenH / 2,

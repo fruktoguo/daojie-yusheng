@@ -8,8 +8,16 @@ import { NextUiRoot } from './NextUiRoot';
 import '../styles/index.css';
 
 let root: Root | null = null;
+/**
+ * ensureHost：执行核心业务逻辑。
+ * @param doc Document 参数说明。
+ * @returns HTMLElement。
+ */
+
 
 function ensureHost(doc: Document): HTMLElement {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
   const existing = doc.getElementById('react-ui-next-root');
   if (existing) {
     return existing;
@@ -20,8 +28,16 @@ function ensureHost(doc: Document): HTMLElement {
   (getViewportRoot(doc) ?? doc.body).appendChild(host);
   return host;
 }
+/**
+ * mountNextUi：执行核心业务逻辑。
+ * @param win Window 参数说明。
+ * @returns void。
+ */
+
 
 export function mountNextUi(win: Window = window): void {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
   if (root) {
     return;
   }

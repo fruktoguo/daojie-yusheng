@@ -26,24 +26,68 @@ const SUGGESTION_EDITABLE_FIELD_IDS = new Set<SuggestionEditableFieldId>([
 
 /** SuggestionRenderState：建议面板滚动与选区状态。 */
 type SuggestionRenderState = {
-  focusedFieldId: SuggestionEditableFieldId | null;
-  selectionStart: number | null;
-  selectionEnd: number | null;
-  fieldScrollTop: number;
-  listScrollTop: number;
+/**
+ * focusedFieldId：对象字段。
+ */
+
+  focusedFieldId: SuggestionEditableFieldId | null;  
+  /**
+ * selectionStart：对象字段。
+ */
+
+  selectionStart: number | null;  
+  /**
+ * selectionEnd：对象字段。
+ */
+
+  selectionEnd: number | null;  
+  /**
+ * fieldScrollTop：对象字段。
+ */
+
+  fieldScrollTop: number;  
+  /**
+ * listScrollTop：对象字段。
+ */
+
+  listScrollTop: number;  
+  /**
+ * threadScrollTop：对象字段。
+ */
+
   threadScrollTop: number;
 };
 
 /** SuggestionPageData：建议分页视图数据。 */
 type SuggestionPageData = {
-  items: Suggestion[];
-  total: number;
-  page: number;
+/**
+ * items：对象字段。
+ */
+
+  items: Suggestion[];  
+  /**
+ * total：对象字段。
+ */
+
+  total: number;  
+  /**
+ * page：对象字段。
+ */
+
+  page: number;  
+  /**
+ * totalPages：对象字段。
+ */
+
   totalPages: number;
 };
 
 /** SuggestionModalMeta：建议弹窗标题元数据。 */
 type SuggestionModalMeta = {
+/**
+ * subtitle：对象字段。
+ */
+
   subtitle: string;
 };
 
@@ -74,7 +118,21 @@ export class SuggestionPanel {
   /** lastRefreshRequestAt：last Refresh请求At。 */
   private lastRefreshRequestAt = 0;
   /** delegatedEventsBound：delegated事件Bound。 */
-  private delegatedEventsBound = false;
+  private delegatedEventsBound = false;  
+  /**
+ * 构造器：初始化 当前 实例并建立基础状态。
+ * @param socket Pick<
+      SocketSocialEconomySender,
+      | 'sendRequestSuggestions'
+      | 'sendCreateSuggestion'
+      | 'sendReplySuggestion'
+      | 'sendVoteSuggestion'
+      | 'sendMarkSuggestionRepliesRead'
+    > 参数说明。
+ * @param isConnected () => boolean 参数说明。
+ * @returns 无返回值（构造函数）。
+ */
+
 
   constructor(
     private readonly socket: Pick<
@@ -98,6 +156,8 @@ export class SuggestionPanel {
 
   /** updateSuggestions：更新Suggestions。 */
   updateSuggestions(suggestions: Suggestion[]): void {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
     this.suggestions = suggestions;
     this.lastSuggestionSyncAt = Date.now();
 
@@ -155,6 +215,8 @@ export class SuggestionPanel {
 
   /** requestSuggestionsIfNeeded：处理请求Suggestions If Needed。 */
   private requestSuggestionsIfNeeded(): void {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
     if (!this.isConnected()) {
       return;
     }
@@ -390,6 +452,8 @@ export class SuggestionPanel {
 
   /** bindEvents：绑定事件。 */
   private bindEvents(el: HTMLElement): void {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
     if (this.delegatedEventsBound) {
       return;
     }
@@ -401,6 +465,8 @@ export class SuggestionPanel {
 
   /** render：渲染渲染。 */
   private render(): void {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
     if (!detailModalHost.isOpenFor(SuggestionPanel.MODAL_OWNER)) {
       return;
     }
@@ -433,6 +499,8 @@ export class SuggestionPanel {
 
   /** captureRenderState：处理capture渲染状态。 */
   private captureRenderState(body: HTMLElement): SuggestionRenderState {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
     const activeElement = document.activeElement;
     const listScrollTop = body.querySelector<HTMLElement>(`[data-list-kind="${this.activeTab}"]`)?.scrollTop ?? 0;
     const threadScrollTop = body.querySelector<HTMLElement>('[data-thread-kind="detail"]')?.scrollTop ?? 0;
@@ -462,6 +530,8 @@ export class SuggestionPanel {
 
   /** restoreRenderState：处理restore渲染状态。 */
   private restoreRenderState(body: HTMLElement, state: SuggestionRenderState): void {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
     const list = body.querySelector<HTMLElement>(`[data-list-kind="${this.activeTab}"]`);
     const thread = body.querySelector<HTMLElement>('[data-thread-kind="detail"]');
     if (list) {
@@ -522,6 +592,8 @@ export class SuggestionPanel {
 
   /** patchBody：处理patch身体。 */
   private patchBody(body: HTMLElement): boolean {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
     if (!body.querySelector('.suggestion-shell')) {
       return false;
     }
@@ -575,6 +647,8 @@ export class SuggestionPanel {
 
   /** patchModalMeta：处理patch弹窗元数据。 */
   private patchModalMeta(meta: SuggestionModalMeta): void {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
     const subtitle = document.getElementById('detail-modal-subtitle');
     if (subtitle) {
       subtitle.textContent = meta.subtitle;
@@ -584,6 +658,8 @@ export class SuggestionPanel {
 
   /** handleInput：处理输入。 */
   private handleInput(event: Event): void {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
     const target = event.target;
     if (!(target instanceof HTMLInputElement || target instanceof HTMLTextAreaElement)) {
       return;
@@ -610,6 +686,8 @@ export class SuggestionPanel {
 
   /** handleClick：处理Click。 */
   private handleClick(event: Event): void {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
     const target = event.target;
     if (!(target instanceof HTMLElement)) {
       return;
@@ -719,6 +797,8 @@ export class SuggestionPanel {
 
   /** handleKeyDown：处理Key Down。 */
   private handleKeyDown(event: Event): void {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
     if (!(event instanceof KeyboardEvent)) {
       return;
     }
@@ -748,6 +828,8 @@ export class SuggestionPanel {
 
   /** getMySuggestions：读取My Suggestions。 */
   private getMySuggestions(): Suggestion[] {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
     if (!this.playerId) {
       return [];
     }
@@ -764,10 +846,26 @@ export class SuggestionPanel {
   }
 
   /** getPagedSuggestions：读取Paged Suggestions。 */
-  private getPagedSuggestions(tab: SuggestionListTab): {
-    items: Suggestion[];
-    total: number;
-    page: number;
+  private getPagedSuggestions(tab: SuggestionListTab): {  
+  /**
+ * items：SuggestionPanel 内部字段。
+ */
+
+    items: Suggestion[];    
+    /**
+ * total：SuggestionPanel 内部字段。
+ */
+
+    total: number;    
+    /**
+ * page：SuggestionPanel 内部字段。
+ */
+
+    page: number;    
+    /**
+ * totalPages：SuggestionPanel 内部字段。
+ */
+
     totalPages: number;
   } {
     const items = this.getVisibleSuggestions(tab);
@@ -786,6 +884,8 @@ export class SuggestionPanel {
 
   /** compareSuggestions：比较Suggestions。 */
   private compareSuggestions(left: Suggestion, right: Suggestion, tab: SuggestionListTab): number {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
     if (tab === 'mine') {
       const leftUnread = this.hasUnreadGmReply(left);
       const rightUnread = this.hasUnreadGmReply(right);
@@ -815,6 +915,8 @@ export class SuggestionPanel {
 
   /** matchesSuggestionKeyword：判断是否建议Keyword。 */
   private matchesSuggestionKeyword(suggestion: Suggestion, keyword: string): boolean {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
     if (!keyword) {
       return true;
     }
@@ -829,6 +931,8 @@ export class SuggestionPanel {
 
   /** ensureSelection：确保选中项。 */
   private ensureSelection(): void {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
     const visibleSuggestions = this.getVisibleSuggestions(this.activeTab);
     if (visibleSuggestions.length === 0) {
       this.selectedSuggestionId = null;
@@ -857,6 +961,8 @@ export class SuggestionPanel {
 
   /** canCurrentPlayerReply：判断是否当前玩家回复。 */
   private canCurrentPlayerReply(suggestion: Suggestion): boolean {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
     if (!this.playerId || suggestion.authorId !== this.playerId) {
       return false;
     }
@@ -866,6 +972,8 @@ export class SuggestionPanel {
 
   /** hasUnreadGmReply：判断是否Unread GM回复。 */
   private hasUnreadGmReply(suggestion: Suggestion): boolean {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
     if (!this.playerId || suggestion.authorId !== this.playerId) {
       return false;
     }
@@ -875,6 +983,8 @@ export class SuggestionPanel {
 
   /** getLastGmReplyAt：读取Last GM回复At。 */
   private getLastGmReplyAt(suggestion: Suggestion): number {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
     for (let index = suggestion.replies.length - 1; index >= 0; index -= 1) {
       const reply = suggestion.replies[index];
       if (reply?.authorType === 'gm') {
@@ -886,6 +996,8 @@ export class SuggestionPanel {
 
   /** markSuggestionReadIfNeeded：标记建议Read If Needed。 */
   private markSuggestionReadIfNeeded(suggestionId: string): void {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
     const suggestion = this.suggestions.find((entry) => entry.id === suggestionId);
     if (!suggestion || !this.hasUnreadGmReply(suggestion)) {
       return;
@@ -897,6 +1009,8 @@ export class SuggestionPanel {
 
   /** updateHudUnreadState：更新HUD Unread状态。 */
   private updateHudUnreadState(): void {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
     const button = document.getElementById('hud-open-suggestions');
     if (!button) {
       return;

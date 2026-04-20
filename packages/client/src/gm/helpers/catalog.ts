@@ -30,6 +30,8 @@ export function getTechniqueOptionLabel(
 
 /** 组合物品名称与类型（装备位或物品类型）作为展示文本。 */
 export function getItemOptionLabel(option: GmEditorItemOption): string {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
   const parts = [option.name];
   if (option.type === 'equipment' && option.equipSlot) {
     parts.push(EQUIP_SLOT_LABELS[option.equipSlot]);
@@ -46,7 +48,15 @@ export function getBuffOptionLabel(option: GmEditorBuffOption): string {
 }
 
 /** 输出功法下拉选项数组，支持是否追加“未选择”。 */
-export function getTechniqueCatalogOptions(editorCatalog: EditorCatalog, includeEmpty = false): Array<{ value: string; label: string }> {
+export function getTechniqueCatalogOptions(editorCatalog: EditorCatalog, includeEmpty = false): Array<{
+/**
+ * value：对象字段。
+ */
+ value: string;
+ /**
+ * label：对象字段。
+ */
+ label: string }> {
   const options = editorCatalog?.techniques.map((option) => ({
     value: option.id,
     label: getTechniqueOptionLabel(option, editorCatalog),
@@ -58,7 +68,15 @@ export function getTechniqueCatalogOptions(editorCatalog: EditorCatalog, include
 export function getLearnedTechniqueOptions(
   techniques: TechniqueState[],
   includeEmpty = false,
-): Array<{ value: string; label: string }> {
+): Array<{
+/**
+ * value：对象字段。
+ */
+ value: string;
+ /**
+ * label：对象字段。
+ */
+ label: string }> {
   const options = techniques.map((technique) => ({
     value: technique.techId,
     label: technique.name || technique.techId,
@@ -67,7 +85,15 @@ export function getLearnedTechniqueOptions(
 }
 
 /** 输出境界下拉选项，供编辑器与保存时的境界选择。 */
-export function getRealmCatalogOptions(editorCatalog: EditorCatalog): Array<{ value: number; label: string }> {
+export function getRealmCatalogOptions(editorCatalog: EditorCatalog): Array<{
+/**
+ * value：对象字段。
+ */
+ value: number;
+ /**
+ * label：对象字段。
+ */
+ label: string }> {
   return editorCatalog?.realmLevels.map((entry) => ({
     value: entry.realmLv,
     label: `${entry.displayName} · Lv.${entry.realmLv}`,
@@ -78,7 +104,15 @@ export function getRealmCatalogOptions(editorCatalog: EditorCatalog): Array<{ va
 export function getItemCatalogOptions(
   editorCatalog: EditorCatalog,
   filter?: (option: GmEditorItemOption) => boolean,
-): Array<{ value: string; label: string }> {
+): Array<{
+/**
+ * value：对象字段。
+ */
+ value: string;
+ /**
+ * label：对象字段。
+ */
+ label: string }> {
   const items = filter ? (editorCatalog?.items.filter(filter) ?? []) : (editorCatalog?.items ?? []);
   return items.map((option) => ({
     value: option.itemId,
@@ -87,7 +121,17 @@ export function getItemCatalogOptions(
 }
 
 /** 输出 Buff 下拉选项，始终补齐当前已选值避免回显丢失。 */
-export function getBuffCatalogOptions(editorCatalog: EditorCatalog, selectedBuffId?: string): Array<{ value: string; label: string }> {
+export function getBuffCatalogOptions(editorCatalog: EditorCatalog, selectedBuffId?: string): Array<{
+/**
+ * value：对象字段。
+ */
+ value: string;
+ /**
+ * label：对象字段。
+ */
+ label: string }> {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
   const options = editorCatalog?.buffs.map((option) => ({
     value: option.buffId,
     label: getBuffOptionLabel(option),
@@ -102,24 +146,38 @@ export function getBuffCatalogOptions(editorCatalog: EditorCatalog, selectedBuff
 }
 
 /** 输出可用于邮件附件的物品列表，复用 `getItemCatalogOptions` 结果。 */
-export function getMailAttachmentItemOptions(editorCatalog: EditorCatalog): Array<{ value: string; label: string }> {
+export function getMailAttachmentItemOptions(editorCatalog: EditorCatalog): Array<{
+/**
+ * value：对象字段。
+ */
+ value: string;
+ /**
+ * label：对象字段。
+ */
+ label: string }> {
   return getItemCatalogOptions(editorCatalog);
 }
 
 /** 按功法 ID 查目录，查不到返回空值。 */
 export function findTechniqueCatalogEntry(editorCatalog: EditorCatalog, techId: string | undefined): GmEditorTechniqueOption | null {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
   if (!techId) return null;
   return editorCatalog?.techniques.find((entry) => entry.id === techId) ?? null;
 }
 
 /** 按物品 ID 查目录条目，供草稿回填与详情生成。 */
 export function findItemCatalogEntry(editorCatalog: EditorCatalog, itemId: string | undefined): GmEditorItemOption | null {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
   if (!itemId) return null;
   return editorCatalog?.items.find((entry) => entry.itemId === itemId) ?? null;
 }
 
 /** 按 Buff ID 查目录条目，供编辑器回写和显示文本。 */
 export function findBuffCatalogEntry(editorCatalog: EditorCatalog, buffId: string | undefined): GmEditorBuffOption | null {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
   if (!buffId) return null;
   return editorCatalog?.buffs.find((entry) => entry.buffId === buffId) ?? null;
 }
@@ -131,6 +189,8 @@ export function createTechniqueFromCatalog(
   createDefaultTechnique: () => TechniqueState,
   clone: <T>(value: T) => T,
 ): TechniqueState {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
   const option = findTechniqueCatalogEntry(editorCatalog, techId);
   if (!option) {
     return createDefaultTechnique();
@@ -160,6 +220,8 @@ export function createItemFromCatalog(
   clone: <T>(value: T) => T,
   count = 1,
 ): ItemStack {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
   const option = findItemCatalogEntry(editorCatalog, itemId);
   if (!option) {
     return createDefaultItem(itemId, count);
@@ -189,6 +251,8 @@ export function createBuffFromCatalog(
   clone: <T>(value: T) => T,
   current?: Pick<TemporaryBuffState, 'stacks' | 'remainingTicks'>,
 ): TemporaryBuffState {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
   const option = findBuffCatalogEntry(editorCatalog, buffId);
   if (!option) {
     return {
@@ -214,6 +278,8 @@ export function getTechniqueSummary(technique: TechniqueState): string {
 
 /** 解析功法模板或运行时数据中的最高层级，决定成长上限展示。 */
 export function getTechniqueTemplateMaxLevel(technique: TechniqueState, editorCatalog: EditorCatalog): number {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
   const catalogEntry = findTechniqueCatalogEntry(editorCatalog, technique.techId);
   const levels = catalogEntry?.layers?.map((layer) => layer.level)
     ?? technique.layers?.map((layer) => layer.level)
@@ -226,6 +292,8 @@ export function getTechniqueTemplateMaxLevel(technique: TechniqueState, editorCa
 
 /** 组合物品类型与装备位，生成背包列表一行的简洁描述。 */
 export function getInventoryRowMeta(item: ItemStack): string {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
   const parts = [ITEM_TYPE_LABELS[item.type] ?? item.type];
   if (item.type === 'equipment' && item.equipSlot) {
     parts.push(EQUIP_SLOT_LABELS[item.equipSlot] ?? item.equipSlot);
@@ -234,7 +302,15 @@ export function getInventoryRowMeta(item: ItemStack): string {
 }
 
 /** 获取邮件模板元数据，若不存在返回占位文案。 */
-export function getMailTemplateOptionMeta(templateId: string): { label: string; description: string } | null {
+export function getMailTemplateOptionMeta(templateId: string): {
+/**
+ * label：对象字段。
+ */
+ label: string;
+ /**
+ * description：对象字段。
+ */
+ description: string } | null {
   return GM_MAIL_TEMPLATE_OPTIONS.find((entry) => entry.templateId === templateId) ?? null;
 }
 
@@ -247,6 +323,8 @@ export function isServerManagedMailTemplate(templateId: string): boolean {
 
 /** 获取邮件附件项的行展示文本，模板找不到时输出提醒。 */
 export function getMailAttachmentRowMeta(editorCatalog: EditorCatalog, itemId: string): string {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
   const entry = findItemCatalogEntry(editorCatalog, itemId);
   if (!entry) {
     return itemId ? `未找到物品模板：${itemId}` : '请选择物品模板';

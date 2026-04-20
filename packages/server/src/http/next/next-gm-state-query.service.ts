@@ -7,56 +7,151 @@ import { PlayerRuntimeService } from '../../runtime/player/player-runtime.servic
 import { RuntimeGmStateService } from '../../runtime/gm/runtime-gm-state.service';
 import { isNextGmBotPlayerId } from './next-gm.constants';
 import { NextManagedAccountService } from './next-managed-account.service';
+/**
+ * ManagedAccountEntryLike：定义接口结构约束，明确可交付字段含义。
+ */
+
 
 interface ManagedAccountEntryLike {
-  userId?: string;
+/**
+ * userId：ManagedAccountEntryLike 内部字段。
+ */
+
+  userId?: string;  
+  /**
+ * username：ManagedAccountEntryLike 内部字段。
+ */
+
   username?: string;
 }
+/**
+ * NextManagedAccountServiceLike：定义接口结构约束，明确可交付字段含义。
+ */
+
 
 interface NextManagedAccountServiceLike {
   getManagedAccountIndex(playerIds: string[]): Promise<Map<string, ManagedAccountEntryLike>>;
 }
+/**
+ * RuntimeGmStateServiceLike：定义接口结构约束，明确可交付字段含义。
+ */
+
 
 interface RuntimeGmStateServiceLike {
   buildPerformanceSnapshot(): any;
   buildSharedGmStatePerf(): any;
 }
+/**
+ * MapTemplateSummaryLike：定义接口结构约束，明确可交付字段含义。
+ */
+
 
 interface MapTemplateSummaryLike {
+/**
+ * id：MapTemplateSummaryLike 内部字段。
+ */
+
   id: string;
 }
+/**
+ * MapTemplateRepositoryLike：定义接口结构约束，明确可交付字段含义。
+ */
+
 
 interface MapTemplateRepositoryLike {
   listSummaries(): MapTemplateSummaryLike[];
-  getOrThrow(mapId: string): { name: string };
+  getOrThrow(mapId: string): {  
+  /**
+ * name：MapTemplateRepositoryLike 内部字段。
+ */
+ name: string };
 }
+/**
+ * PersistedPlayerEntryLike：定义接口结构约束，明确可交付字段含义。
+ */
+
 
 interface PersistedPlayerEntryLike {
-  playerId: string;
-  snapshot: any;
+/**
+ * playerId：PersistedPlayerEntryLike 内部字段。
+ */
+
+  playerId: string;  
+  /**
+ * snapshot：PersistedPlayerEntryLike 内部字段。
+ */
+
+  snapshot: any;  
+  /**
+ * updatedAt：PersistedPlayerEntryLike 内部字段。
+ */
+
   updatedAt: number;
 }
+/**
+ * PlayerPersistenceServiceLike：定义接口结构约束，明确可交付字段含义。
+ */
+
 
 interface PlayerPersistenceServiceLike {
   listPlayerSnapshots(): Promise<PersistedPlayerEntryLike[]>;
 }
+/**
+ * PlayerProgressionServiceLike：定义接口结构约束，明确可交付字段含义。
+ */
+
 
 interface PlayerProgressionServiceLike {
   createRealmStateFromLevel(realmLv: number, progress: number): any;
 }
+/**
+ * PlayerRuntimeServiceLike：定义接口结构约束，明确可交付字段含义。
+ */
+
 
 interface PlayerRuntimeServiceLike {
   listPlayerSnapshots(): any[];
 }
+/**
+ * PerformanceTimerState：定义接口结构约束，明确可交付字段含义。
+ */
+
 
 interface PerformanceTimerState {
-  networkPerfStartedAt: number;
-  cpuPerfStartedAt: number;
+/**
+ * networkPerfStartedAt：PerformanceTimerState 内部字段。
+ */
+
+  networkPerfStartedAt: number;  
+  /**
+ * cpuPerfStartedAt：PerformanceTimerState 内部字段。
+ */
+
+  cpuPerfStartedAt: number;  
+  /**
+ * pathfindingPerfStartedAt：PerformanceTimerState 内部字段。
+ */
+
   pathfindingPerfStartedAt: number;
 }
+/**
+ * NextGmStateQueryService：封装该能力的入口与生命周期，承载运行时核心协作。
+ */
+
 
 @Injectable()
 export class NextGmStateQueryService {
+/**
+ * 构造器：初始化 当前 实例并建立基础状态。
+ * @param nextManagedAccountService NextManagedAccountServiceLike 参数说明。
+ * @param runtimeGmStateService RuntimeGmStateServiceLike 参数说明。
+ * @param mapTemplateRepository MapTemplateRepositoryLike 参数说明。
+ * @param playerPersistenceService PlayerPersistenceServiceLike 参数说明。
+ * @param playerProgressionService PlayerProgressionServiceLike 参数说明。
+ * @param playerRuntimeService PlayerRuntimeServiceLike 参数说明。
+ * @returns 无返回值（构造函数）。
+ */
+
   constructor(
     @Inject(NextManagedAccountService)
     private readonly nextManagedAccountService: NextManagedAccountServiceLike,
@@ -70,7 +165,13 @@ export class NextGmStateQueryService {
     private readonly playerProgressionService: PlayerProgressionServiceLike,
     @Inject(PlayerRuntimeService)
     private readonly playerRuntimeService: PlayerRuntimeServiceLike,
-  ) {}
+  ) {}  
+  /**
+ * getState：按给定条件读取/查询数据。
+ * @param timers PerformanceTimerState 参数说明。
+ * @returns 函数返回值。
+ */
+
 
   async getState(timers: PerformanceTimerState) {
     const perf = this.buildPerformanceSnapshot(timers);
@@ -90,13 +191,30 @@ export class NextGmStateQueryService {
       botCount: players.reduce((count, snapshot) => count + (snapshot.meta.isBot ? 1 : 0), 0),
       perf,
     };
-  }
+  }  
+  /**
+ * collectManagedPlayerIds：执行核心业务逻辑。
+ * @param runtimePlayers 参数说明。
+ * @param persistedEntries 参数说明。
+ * @returns 函数返回值。
+ */
+
 
   private collectManagedPlayerIds(runtimePlayers, persistedEntries) {
     return [...runtimePlayers.map((entry) => entry.playerId), ...persistedEntries.map((entry) => entry.playerId)];
-  }
+  }  
+  /**
+ * buildManagedPlayers：构建并返回目标对象。
+ * @param runtimePlayers 参数说明。
+ * @param persistedEntries 参数说明。
+ * @param accountIndex 参数说明。
+ * @returns 函数返回值。
+ */
+
 
   private buildManagedPlayers(runtimePlayers, persistedEntries, accountIndex) {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
     const players = runtimePlayers
       .map((snapshot) => this.toManagedPlayerSummary(snapshot, accountIndex.get(snapshot.playerId)))
       .sort(compareManagedPlayerSummary);
@@ -119,7 +237,13 @@ export class NextGmStateQueryService {
 
     players.sort(compareManagedPlayerSummary);
     return players;
-  }
+  }  
+  /**
+ * buildPerformanceSnapshot：构建并返回目标对象。
+ * @param timers PerformanceTimerState 参数说明。
+ * @returns 函数返回值。
+ */
+
 
   private buildPerformanceSnapshot(timers: PerformanceTimerState) {
     const perf: any = this.runtimeGmStateService.buildPerformanceSnapshot();
@@ -142,7 +266,14 @@ export class NextGmStateQueryService {
       networkStatsStartedAt: timers.networkPerfStartedAt,
       networkStatsElapsedSec: roundMetric(Math.max(0, (now - timers.networkPerfStartedAt) / 1000)),
     };
-  }
+  }  
+  /**
+ * toManagedPlayerSummary：执行核心业务逻辑。
+ * @param snapshot 参数说明。
+ * @param account 参数说明。
+ * @returns 函数返回值。
+ */
+
 
   private toManagedPlayerSummary(snapshot, account = null) {
     const player = this.toLegacyPlayerState(snapshot);
@@ -174,7 +305,16 @@ export class NextGmStateQueryService {
         dirtyFlags: snapshot.persistentRevision > snapshot.persistedRevision ? ['persistence'] : [],
       },
     };
-  }
+  }  
+  /**
+ * toManagedPlayerSummaryFromPersistence：执行核心业务逻辑。
+ * @param playerId 玩家 ID。
+ * @param snapshot 参数说明。
+ * @param updatedAt 参数说明。
+ * @param account 参数说明。
+ * @returns 函数返回值。
+ */
+
 
   private toManagedPlayerSummaryFromPersistence(playerId, snapshot, updatedAt, account = null) {
     const player = this.toLegacyPlayerStateFromPersistence(playerId, snapshot);
@@ -207,7 +347,13 @@ export class NextGmStateQueryService {
         dirtyFlags: [],
       },
     };
-  }
+  }  
+  /**
+ * toLegacyPlayerState：执行核心业务逻辑。
+ * @param snapshot 参数说明。
+ * @returns any。
+ */
+
 
   private toLegacyPlayerState(snapshot): any {
     return {
@@ -286,7 +432,14 @@ export class NextGmStateQueryService {
           }
         : undefined,
     };
-  }
+  }  
+  /**
+ * toLegacyPlayerStateFromPersistence：执行核心业务逻辑。
+ * @param playerId 玩家 ID。
+ * @param snapshot 参数说明。
+ * @returns any。
+ */
+
 
   private toLegacyPlayerStateFromPersistence(playerId, snapshot): any {
     const realm = this.playerProgressionService.createRealmStateFromLevel(
@@ -351,7 +504,13 @@ export class NextGmStateQueryService {
         : [],
       realm,
     };
-  }
+  }  
+  /**
+ * resolveMapName：执行核心业务逻辑。
+ * @param mapId string 地图 ID。
+ * @returns 函数返回值。
+ */
+
 
   private resolveMapName(mapId: string) {
     try {
@@ -361,8 +520,17 @@ export class NextGmStateQueryService {
     }
   }
 }
+/**
+ * compareManagedPlayerSummary：执行核心业务逻辑。
+ * @param left 参数说明。
+ * @param right 参数说明。
+ * @returns 函数返回值。
+ */
+
 
 function compareManagedPlayerSummary(left, right) {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
   if (left.meta.isBot !== right.meta.isBot) {
     return left.meta.isBot ? 1 : -1;
   }
@@ -377,10 +545,22 @@ function compareManagedPlayerSummary(left, right) {
 
   return left.roleName.localeCompare(right.roleName, 'zh-Hans-CN');
 }
+/**
+ * roundMetric：执行核心业务逻辑。
+ * @param value 参数说明。
+ * @returns 函数返回值。
+ */
+
 
 function roundMetric(value) {
   return Math.round(value * 100) / 100;
 }
+/**
+ * toLegacyEquipmentSlots：执行核心业务逻辑。
+ * @param slots 参数说明。
+ * @returns 函数返回值。
+ */
+
 
 function toLegacyEquipmentSlots(slots) {
   const bySlot = new Map(slots.map((entry) => [entry.slot, entry.item ? { ...entry.item } : null]));
@@ -393,6 +573,12 @@ function toLegacyEquipmentSlots(slots) {
     accessory: bySlot.get('accessory') ?? null,
   };
 }
+/**
+ * cloneTemporaryBuff：执行核心业务逻辑。
+ * @param entry 参数说明。
+ * @returns 函数返回值。
+ */
+
 
 function cloneTemporaryBuff(entry) {
   return {
@@ -404,6 +590,12 @@ function cloneTemporaryBuff(entry) {
       : undefined,
   };
 }
+/**
+ * cloneRatioDivisors：执行核心业务逻辑。
+ * @param source 来源对象。
+ * @returns 函数返回值。
+ */
+
 
 function cloneRatioDivisors(source) {
   return {

@@ -16,41 +16,121 @@ export type PathResultFailureReason =
 
 /** 网格点：寻路使用的整点坐标。 */
 export interface PathPoint {
-  x: number;
+/**
+ * x：PathPoint 内部字段。
+ */
+
+  x: number;  
+  /**
+ * y：PathPoint 内部字段。
+ */
+
   y: number;
 }
 
 /** 寻路静态地图片段：记录可行走性与代价网格。 */
 export interface PathfindingStaticGrid {
-  mapId: string;
-  mapRevision: number;
-  width: number;
-  height: number;
-  walkable: Uint8Array;
+/**
+ * mapId：PathfindingStaticGrid 内部字段。
+ */
+
+  mapId: string;  
+  /**
+ * mapRevision：PathfindingStaticGrid 内部字段。
+ */
+
+  mapRevision: number;  
+  /**
+ * width：PathfindingStaticGrid 内部字段。
+ */
+
+  width: number;  
+  /**
+ * height：PathfindingStaticGrid 内部字段。
+ */
+
+  height: number;  
+  /**
+ * walkable：PathfindingStaticGrid 内部字段。
+ */
+
+  walkable: Uint8Array;  
+  /**
+ * traversalCost：PathfindingStaticGrid 内部字段。
+ */
+
   traversalCost: Uint16Array;
 }
 
 /** 寻路输入约束：限制路径长度、展开节点数和是否允许到达最近点。 */
 export interface PathfindingSearchLimits {
-  maxExpandedNodes: number;
-  maxPathLength: number;
-  maxGoalDistance?: number;
+/**
+ * maxExpandedNodes：PathfindingSearchLimits 内部字段。
+ */
+
+  maxExpandedNodes: number;  
+  /**
+ * maxPathLength：PathfindingSearchLimits 内部字段。
+ */
+
+  maxPathLength: number;  
+  /**
+ * maxGoalDistance：PathfindingSearchLimits 内部字段。
+ */
+
+  maxGoalDistance?: number;  
+  /**
+ * allowPartialPath：PathfindingSearchLimits 内部字段。
+ */
+
   allowPartialPath?: boolean;
 }
 
 /** 寻路成功结果：携带完整/截断路径与遍历统计。 */
 export interface PathfindingSearchSuccess {
-  status: 'success';
-  path: PathPoint[];
-  expandedNodes: number;
-  reachedGoal: PathPoint;
+/**
+ * status：PathfindingSearchSuccess 内部字段。
+ */
+
+  status: 'success';  
+  /**
+ * path：PathfindingSearchSuccess 内部字段。
+ */
+
+  path: PathPoint[];  
+  /**
+ * expandedNodes：PathfindingSearchSuccess 内部字段。
+ */
+
+  expandedNodes: number;  
+  /**
+ * reachedGoal：PathfindingSearchSuccess 内部字段。
+ */
+
+  reachedGoal: PathPoint;  
+  /**
+ * complete：PathfindingSearchSuccess 内部字段。
+ */
+
   complete: boolean;
 }
 
 /** 寻路失败结果：用于提示目标不可达或提前终止。 */
 export interface PathfindingSearchFailure {
-  status: 'failed';
-  reason: PathResultFailureReason;
+/**
+ * status：PathfindingSearchFailure 内部字段。
+ */
+
+  status: 'failed';  
+  /**
+ * reason：PathfindingSearchFailure 内部字段。
+ */
+
+  reason: PathResultFailureReason;  
+  /**
+ * expandedNodes：PathfindingSearchFailure 内部字段。
+ */
+
   expandedNodes: number;
 }
 
@@ -59,13 +139,29 @@ export type PathfindingSearchResult = PathfindingSearchSuccess | PathfindingSear
 
 /** A* open set 的堆节点，保存索引和优先级分值。 */
 interface HeapNode {
-  index: number;
+/**
+ * index：HeapNode 内部字段。
+ */
+
+  index: number;  
+  /**
+ * score：HeapNode 内部字段。
+ */
+
   score: number;
 }
 
 /** 寻路运行期附加选项。 */
 interface PathfindingRunOptions {
-  cancelFlag?: Int32Array;
+/**
+ * cancelFlag：PathfindingRunOptions 内部字段。
+ */
+
+  cancelFlag?: Int32Array;  
+  /**
+ * cancelCheckInterval：PathfindingRunOptions 内部字段。
+ */
+
   cancelCheckInterval?: number;
 }
 
@@ -87,6 +183,8 @@ class MinHeap {
 
   /** 取出分值最小的节点；堆为空则返回 undefined。 */
   pop(): HeapNode | undefined {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
     if (this.items.length === 0) {
       return undefined;
     }
@@ -113,6 +211,8 @@ class MinHeap {
 
   /** 根节点下沉，恢复最小堆顺序。 */
   private bubbleDown(index: number): void {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
     const last = this.items.length - 1;
     while (true) {
       const left = index * 2 + 1;
@@ -141,6 +241,8 @@ function toIndex(x: number, y: number, width: number): number {
 
 /** 根据父节点链回溯，重建起点到目标的路径。 */
 function reconstructPath(parent: Int32Array, goalIndex: number, startIndex: number, width: number): PathPoint[] {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
   const path: PathPoint[] = [];
   let current = goalIndex;
   while (current !== startIndex && current !== -1) {
@@ -165,6 +267,8 @@ function failed(reason: PathfindingSearchFailure['reason'], expandedNodes: numbe
 
 /** 计算当前点到目标集合的曼哈顿距离下界。 */
 function nearestGoalHeuristic(x: number, y: number, goals: PathPoint[]): number {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
   let best = Number.POSITIVE_INFINITY;
   for (const goal of goals) {
     const distance = manhattanDistance({ x, y }, goal);
@@ -180,6 +284,8 @@ function nearestGoalHeuristic(x: number, y: number, goals: PathPoint[]): number 
 
 /** 检查外部原子标记是否要求取消寻路。 */
 function isCancelled(cancelFlag?: Int32Array): boolean {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
   if (!cancelFlag || cancelFlag.length === 0) {
     return false;
   }
@@ -191,7 +297,17 @@ function validateGoals(
   grid: PathfindingStaticGrid,
   blocked: Uint8Array,
   goals: PathPoint[],
-): { indices: Set<number>; goalByIndex: Map<number, PathPoint> } | PathfindingSearchFailure {
+): {
+/**
+ * indices：对象字段。
+ */
+ indices: Set<number>;
+ /**
+ * goalByIndex：对象字段。
+ */
+ goalByIndex: Map<number, PathPoint> } | PathfindingSearchFailure {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
   const goalIndices = new Set<number>();
   const goalByIndex = new Map<number, PathPoint>();
 
@@ -250,6 +366,8 @@ export function findBoundedPath(
   limits: PathfindingSearchLimits,
   options?: PathfindingRunOptions,
 ): PathfindingSearchResult {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
   if (
     startX < 0
     || startX >= grid.width

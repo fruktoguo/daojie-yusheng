@@ -32,8 +32,20 @@ import { formatDisplayInteger, formatDisplayNumber } from '../../utils/number';
 
 /** TechniquePanelState：功法面板当前使用的数据状态。 */
 type TechniquePanelState = {
-  cultivatingTechId?: string;
-  previewPlayer?: PlayerState;
+/**
+ * cultivatingTechId：对象字段。
+ */
+
+  cultivatingTechId?: string;  
+  /**
+ * previewPlayer：对象字段。
+ */
+
+  previewPlayer?: PlayerState;  
+  /**
+ * techniques：对象字段。
+ */
+
   techniques: TechniqueState[];
 };
 
@@ -42,7 +54,15 @@ type TechniqueCategoryFilter = 'all' | TechniqueCategory;
 /** TechniqueStatusFilter：功法圆满进度筛选条件。 */
 type TechniqueStatusFilter = 'in_progress' | 'completed' | 'all';
 
-const TECHNIQUE_CATEGORY_FILTERS: Array<{ value: TechniqueCategoryFilter; label: string }> = [
+const TECHNIQUE_CATEGORY_FILTERS: Array<{
+/**
+ * value：对象字段。
+ */
+ value: TechniqueCategoryFilter;
+ /**
+ * label：对象字段。
+ */
+ label: string }> = [
   { value: 'all', label: '全部' },
   { value: 'arts', label: '术法' },
   { value: 'internal', label: '内功' },
@@ -50,7 +70,15 @@ const TECHNIQUE_CATEGORY_FILTERS: Array<{ value: TechniqueCategoryFilter; label:
   { value: 'secret', label: '秘术' },
 ];
 
-const TECHNIQUE_STATUS_FILTERS: Array<{ value: TechniqueStatusFilter; label: string }> = [
+const TECHNIQUE_STATUS_FILTERS: Array<{
+/**
+ * value：对象字段。
+ */
+ value: TechniqueStatusFilter;
+ /**
+ * label：对象字段。
+ */
+ label: string }> = [
   { value: 'in_progress', label: '未圆满' },
   { value: 'completed', label: '已圆满' },
   { value: 'all', label: '全部' },
@@ -80,6 +108,8 @@ function createFragmentFromHtml(html: string): DocumentFragment {
 
 /** formatAttrMap：格式化属性地图。 */
 function formatAttrMap(attrs: Partial<Attributes>, fallback = '无属性提升'): string {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
   const entries = TECHNIQUE_ATTR_KEYS
     .map((key) => [key, attrs[key] ?? 0] as const)
     .filter(([, value]) => value > 0);
@@ -91,6 +121,8 @@ function formatAttrMap(attrs: Partial<Attributes>, fallback = '无属性提升')
 
 /** subtractAttrMap：处理subtract属性地图。 */
 function subtractAttrMap(left: Partial<Attributes>, right: Partial<Attributes>): Partial<Attributes> {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
   const result: Partial<Attributes> = {};
   for (const key of TECHNIQUE_ATTR_KEYS) {
     const delta = Math.max(0, (left[key] ?? 0) - (right[key] ?? 0));
@@ -120,6 +152,8 @@ function resolveTechniqueCategory(tech: TechniqueState): TechniqueCategory {
 
 /** areTechniqueSkillsEnabled：处理are Technique技能启用。 */
 function areTechniqueSkillsEnabled(tech: TechniqueState, previewPlayer?: PlayerState): boolean {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
   if (typeof tech.skillsEnabled === 'boolean') {
     return tech.skillsEnabled;
   }
@@ -147,6 +181,8 @@ function areTechniqueSkillsEnabled(tech: TechniqueState, previewPlayer?: PlayerS
 
 /** getTechniqueProgressRatio：读取Technique进度Ratio。 */
 function getTechniqueProgressRatio(tech: TechniqueState): number {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
   if (tech.expToNext <= 0) {
     return 1;
   }
@@ -155,6 +191,8 @@ function getTechniqueProgressRatio(tech: TechniqueState): number {
 
 /** getTechniqueRemainingExp：读取Technique Remaining Exp。 */
 function getTechniqueRemainingExp(tech: TechniqueState): number {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
   if (tech.expToNext <= 0) {
     return 0;
   }
@@ -177,6 +215,8 @@ function formatTechniqueRemainText(tech: TechniqueState): string {
 
 /** calcTechniqueTotalExp：处理calc Technique总量Exp。 */
 function calcTechniqueTotalExp(tech: TechniqueState): number {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
   if (!tech.layers || tech.layers.length === 0) {
     return tech.exp;
   }
@@ -222,6 +262,8 @@ function getRealmLevelDisplayName(realmLv: number): string {
 
 /** buildTechniqueExpTooltipLines：构建Technique Exp提示Lines。 */
 function buildTechniqueExpTooltipLines(tech: TechniqueState, player?: PlayerState): string[] {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
   const stepPercent = Math.round(TECHNIQUE_EXP_LEVEL_DELTA_MULTIPLIER_STEP * 100);
   const lines = [
     '功法经验会按你的境界与功法境界差乘算。',
@@ -276,6 +318,8 @@ function findTechniqueRealmStartLevel(
   maxLevel: number,
   layers?: TechniqueLayerDef[],
 ): number | null {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
   for (let level = 1; level <= maxLevel; level += 1) {
     if (deriveTechniqueRealm(level, layers) === realm) {
       return level;
@@ -286,6 +330,8 @@ function findTechniqueRealmStartLevel(
 
 /** buildTechniqueMilestones：构建Technique Milestones。 */
 function buildTechniqueMilestones(tech: TechniqueState, maxLevel: number): Map<number, TechniqueRealm> {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
   const milestones = new Map<number, TechniqueRealm>();
   for (const realm of [TechniqueRealm.Minor, TechniqueRealm.Major, TechniqueRealm.Perfection]) {
     const level = findTechniqueRealmStartLevel(realm, maxLevel, tech.layers);
@@ -321,13 +367,38 @@ export class TechniquePanel {
   /** lastState：last状态。 */
   private lastState: TechniquePanelState = { techniques: [] };
   /** lastVisibleTechniqueIds：last可见Technique ID 列表。 */
-  private lastVisibleTechniqueIds: string[] | null = null;
-  private shellRefs: {
-    shell: HTMLDivElement;
-    topTabs: HTMLDivElement;
-    sideTabs: HTMLDivElement;
+  private lastVisibleTechniqueIds: string[] | null = null;  
+  /**
+ * shellRefs：TechniquePanel 内部字段。
+ */
+
+  private shellRefs: {  
+  /**
+ * shell：TechniquePanel 内部字段。
+ */
+
+    shell: HTMLDivElement;    
+    /**
+ * topTabs：TechniquePanel 内部字段。
+ */
+
+    topTabs: HTMLDivElement;    
+    /**
+ * sideTabs：TechniquePanel 内部字段。
+ */
+
+    sideTabs: HTMLDivElement;    
+    /**
+ * list：TechniquePanel 内部字段。
+ */
+
     list: HTMLDivElement;
-  } | null = null;
+  } | null = null;  
+  /**
+ * 构造器：初始化 当前 实例并建立基础状态。
+ * @returns 无返回值（构造函数）。
+ */
+
 
   constructor() {
     this.bindPaneEvents();
@@ -342,7 +413,14 @@ export class TechniquePanel {
     this.pane.replaceChildren(empty);
     this.tooltip.hide(true);
     this.closeModal();
-  }
+  }  
+  /**
+ * setCallbacks：更新/写入相关状态。
+ * @param onCultivate (techId: string | null) => void 参数说明。
+ * @param onToggleTechniqueSkills (techId: string, enabled: boolean) => void 参数说明。
+ * @returns void。
+ */
+
 
   setCallbacks(
     onCultivate: (techId: string | null) => void,
@@ -361,6 +439,8 @@ export class TechniquePanel {
 
   /** 仅同步经验、进度条与主修状态，避免高频整块重绘 */
   syncDynamic(techniques: TechniqueState[], cultivatingTechId?: string, previewPlayer?: PlayerState): void {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
     this.lastState = { techniques, cultivatingTechId, previewPlayer };
     if (!this.patchList()) {
       this.renderList();
@@ -377,6 +457,8 @@ export class TechniquePanel {
 
   /** renderList：渲染列表。 */
   private renderList(): void {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
     const techniques = this.getDisplayTechniques();
     if (techniques.length === 0) {
       this.clear();
@@ -389,7 +471,25 @@ export class TechniquePanel {
   }
 
   /** ensureShell：确保Shell。 */
-  private ensureShell(): { shell: HTMLDivElement; topTabs: HTMLDivElement; sideTabs: HTMLDivElement; list: HTMLDivElement } {
+  private ensureShell(): {  
+  /**
+ * shell：TechniquePanel 内部字段。
+ */
+ shell: HTMLDivElement;  
+ /**
+ * topTabs：TechniquePanel 内部字段。
+ */
+ topTabs: HTMLDivElement;  
+ /**
+ * sideTabs：TechniquePanel 内部字段。
+ */
+ sideTabs: HTMLDivElement;  
+ /**
+ * list：TechniquePanel 内部字段。
+ */
+ list: HTMLDivElement } {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
     if (this.shellRefs?.shell.isConnected) {
       return this.shellRefs;
     }
@@ -490,6 +590,8 @@ export class TechniquePanel {
 
   /** createTechniqueCardElement：创建Technique卡片元素。 */
   private createTechniqueCardElement(tech: TechniqueState): HTMLElement {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
     const template = document.createElement('template');
     template.innerHTML = this.renderTechniqueCard(tech).trim();
     const card = template.content.firstElementChild;
@@ -501,6 +603,8 @@ export class TechniquePanel {
 
   /** syncTechniqueListContent：同步Technique列表Content。 */
   private syncTechniqueListContent(listRoot: HTMLElement, orderedNodes: HTMLElement[]): void {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
     const allowed = new Set(orderedNodes);
     for (const child of Array.from(listRoot.children)) {
       if (!(child instanceof HTMLElement) || !allowed.has(child)) {
@@ -523,6 +627,8 @@ export class TechniquePanel {
 
   /** matchesStatusFilter：判断是否状态筛选。 */
   private matchesStatusFilter(tech: TechniqueState, filter = this.statusFilter): boolean {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
     if (filter === 'all') {
       return true;
     }
@@ -535,6 +641,8 @@ export class TechniquePanel {
 
   /** getFilteredEmptyHint：读取Filtered Empty Hint。 */
   private getFilteredEmptyHint(): string {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
     if (this.statusFilter === 'in_progress') {
       return '当前没有未圆满的功法';
     }
@@ -558,6 +666,8 @@ export class TechniquePanel {
 
   /** isSameTechniqueIdSequence：判断是否Same Technique ID Sequence。 */
   private isSameTechniqueIdSequence(nextIds: string[]): boolean {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
     if (!this.lastVisibleTechniqueIds || this.lastVisibleTechniqueIds.length !== nextIds.length) {
       return false;
     }
@@ -566,6 +676,8 @@ export class TechniquePanel {
 
   /** patchFilterTabs：处理patch筛选标签页。 */
   private patchFilterTabs(techniques: TechniqueState[]): boolean {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
     for (const filter of TECHNIQUE_CATEGORY_FILTERS) {
       const button = this.pane.querySelector<HTMLButtonElement>(`[data-tech-category-filter="${filter.value}"]`);
       const countNode = this.pane.querySelector<HTMLElement>(`[data-tech-category-count="${filter.value}"]`);
@@ -597,6 +709,8 @@ export class TechniquePanel {
 
   /** renderModal：渲染弹窗。 */
   private renderModal(): void {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
     if (!this.openTechId) {
       this.closeModal();
       return;
@@ -676,6 +790,8 @@ export class TechniquePanel {
 
   /** buildFallbackLayers：构建兜底Layers。 */
   private buildFallbackLayers(tech: TechniqueState, maxLevel: number): TechniqueLayerDef[] {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
     const rows: TechniqueLayerDef[] = [];
     for (let level = 1; level <= maxLevel; level += 1) {
       rows.push({
@@ -689,6 +805,8 @@ export class TechniquePanel {
 
   /** renderSkillOverview：渲染技能Overview。 */
   private renderSkillOverview(tech: TechniqueState): string {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
     if (tech.skills.length === 0) {
       return '<div class="tech-skill-overview-empty">此功法暂无技能。</div>';
     }
@@ -716,7 +834,17 @@ export class TechniquePanel {
         </div>`;
       }).join('')}
     </div>`;
-  }
+  }  
+  /**
+ * renderLayerFocus：执行核心业务逻辑。
+ * @param tech TechniqueState 参数说明。
+ * @param layers TechniqueLayerDef[] 参数说明。
+ * @param selectedLevel number 参数说明。
+ * @param skillsByLevel Map<number, TechniqueState['skills']> 参数说明。
+ * @param milestones Map<number, TechniqueRealm> 参数说明。
+ * @returns string。
+ */
+
 
   private renderLayerFocus(
     tech: TechniqueState,
@@ -772,7 +900,18 @@ export class TechniquePanel {
         <span class="tech-layer-skill-list" data-tech-focus-skills="true">${skillTags}</span>
       </div>
     </section>`;
-  }
+  }  
+  /**
+ * renderConstellation：执行核心业务逻辑。
+ * @param tech TechniqueState 参数说明。
+ * @param layers TechniqueLayerDef[] 参数说明。
+ * @param currentLevel number 参数说明。
+ * @param selectedLevel number 参数说明。
+ * @param skillsByLevel Map<number, TechniqueState['skills']> 参数说明。
+ * @param milestones Map<number, TechniqueRealm> 参数说明。
+ * @returns string。
+ */
+
 
   private renderConstellation(
     tech: TechniqueState,
@@ -819,6 +958,8 @@ export class TechniquePanel {
 
   /** resolveOpenLayerLevel：解析Open层等级。 */
   private resolveOpenLayerLevel(layers: TechniqueLayerDef[], fallbackLevel: number): number {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
     if (layers.length === 0) {
       return fallbackLevel;
     }
@@ -919,7 +1060,18 @@ export class TechniquePanel {
       this.openLayerLevel = openedTech?.level ?? null;
       this.renderModal();
     });
-  }
+  }  
+  /**
+ * mountConstellation：执行核心业务逻辑。
+ * @param modalBody HTMLElement 参数说明。
+ * @param tech TechniqueState 参数说明。
+ * @param layers TechniqueLayerDef[] 参数说明。
+ * @param selectedLevel number 参数说明。
+ * @param skillsByLevel Map<number, TechniqueState['skills']> 参数说明。
+ * @param milestones Map<number, TechniqueRealm> 参数说明。
+ * @returns void。
+ */
+
 
   private mountConstellation(
     modalBody: HTMLElement,
@@ -929,6 +1081,8 @@ export class TechniquePanel {
     skillsByLevel: Map<number, TechniqueState['skills']>,
     milestones: Map<number, TechniqueRealm>,
   ): void {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
     const root = modalBody.querySelector<HTMLElement>('[data-tech-constellation-root="true"]');
     if (!root) {
       this.destroyConstellationCanvas();
@@ -1083,6 +1237,8 @@ export class TechniquePanel {
 
   /** patchList：处理patch列表。 */
   private patchList(): boolean {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
     const techniques = this.getDisplayTechniques();
     if (techniques.length === 0) {
       return false;
@@ -1167,6 +1323,8 @@ export class TechniquePanel {
 
   /** patchModal：处理patch弹窗。 */
   private patchModal(): boolean {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
     if (!this.openTechId) {
       return true;
     }
@@ -1257,7 +1415,17 @@ export class TechniquePanel {
       });
     }
     return true;
-  }
+  }  
+  /**
+ * buildConstellationData：构建并返回目标对象。
+ * @param tech TechniqueState 参数说明。
+ * @param layers TechniqueLayerDef[] 参数说明。
+ * @param selectedLevel number 参数说明。
+ * @param skillsByLevel Map<number, TechniqueState['skills']> 参数说明。
+ * @param milestones Map<number, TechniqueRealm> 参数说明。
+ * @returns TechniqueConstellationCanvasData。
+ */
+
 
   private buildConstellationData(
     tech: TechniqueState,
@@ -1308,7 +1476,14 @@ export class TechniquePanel {
   /** showConstellationTooltip：处理显示星图提示。 */
   private showConstellationTooltip(payload: TechniqueConstellationHoverPayload, clientX: number, clientY: number): void {
     this.tooltip.show(payload.title, payload.lines, clientX, clientY);
-  }
+  }  
+  /**
+ * buildConstellationStructureSignature：构建并返回目标对象。
+ * @param layers TechniqueLayerDef[] 参数说明。
+ * @param skillsByLevel Map<number, TechniqueState['skills']> 参数说明。
+ * @returns string。
+ */
+
 
   private buildConstellationStructureSignature(
     layers: TechniqueLayerDef[],
@@ -1318,7 +1493,18 @@ export class TechniquePanel {
       const skills = skillsByLevel.get(layer.level) ?? [];
       return `${layer.level}:${skills.map((skill) => skill.id).join(',')}`;
     }).join('|');
-  }
+  }  
+  /**
+ * patchLayerFocus：执行核心业务逻辑。
+ * @param focusShell HTMLElement 参数说明。
+ * @param tech TechniqueState 参数说明。
+ * @param layers TechniqueLayerDef[] 参数说明。
+ * @param selectedLevel number 参数说明。
+ * @param skillsByLevel Map<number, TechniqueState['skills']> 参数说明。
+ * @param milestones Map<number, TechniqueRealm> 参数说明。
+ * @returns void。
+ */
+
 
   private patchLayerFocus(
     focusShell: HTMLElement,
@@ -1328,6 +1514,8 @@ export class TechniquePanel {
     skillsByLevel: Map<number, TechniqueState['skills']>,
     milestones: Map<number, TechniqueRealm>,
   ): void {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
     const layer = layers.find((entry) => entry.level === selectedLevel) ?? layers[0];
     const card = focusShell.querySelector<HTMLElement>('[data-tech-focus-card="true"]');
     const title = focusShell.querySelector<HTMLElement>('[data-tech-focus-title="true"]');

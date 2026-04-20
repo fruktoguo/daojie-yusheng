@@ -21,153 +21,645 @@ const AUTH_TRACE_ENABLE_ENV_KEYS = [
 ] as const;
 const AUTH_TRACE_TRUE_VALUES = new Set(['1', 'true', 'yes', 'on', 'enable', 'enabled']);
 const AUTH_TRACE_PURPOSE = 'debug_and_audit_summary';
+/**
+ * AuthTraceCountMap：统一结构类型，保证协议与运行时一致性。
+ */
+
 
 type AuthTraceCountMap = Record<string, number>;
+/**
+ * TokenKind：统一结构类型，保证协议与运行时一致性。
+ */
+
 type TokenKind = 'access' | 'refresh';
+/**
+ * AuthTraceEntry：定义接口结构约束，明确可交付字段含义。
+ */
+
 
 interface AuthTraceEntry {
-  type: string;
-  outcome?: string | null;
-  reason?: string | null;
-  userId?: string | null;
-  playerId?: string | null;
-  username?: string | null;
-  role?: string | null;
-  tokenKind?: string | null;
-  tokenIdentityReady?: boolean | null;
-  source?: string | null;
-  persistedSource?: string | null;
-  persistenceEnabled?: boolean | null;
-  nextLoadHit?: boolean | null;
-  compatTried?: boolean | null;
-  persistAttempted?: boolean | null;
-  persistSucceeded?: boolean | null;
-  persistFailureStage?: string | null;
-  fallbackHit?: boolean | null;
-  allowLegacyFallback?: boolean | null;
-  fallbackReason?: string | null;
-  seedPersisted?: boolean | null;
-  identityPersistedSource?: string | null;
-  failureStage?: string | null;
-  protocol?: string | null;
-  entryPath?: string | null;
-  identitySource?: string | null;
-  snapshotSource?: string | null;
-  snapshotPersistedSource?: string | null;
-  recoveryOutcome?: string | null;
-  recoveryReason?: string | null;
-  recoveryIdentityPersistedSource?: string | null;
-  recoverySnapshotPersistedSource?: string | null;
-  requestedSessionId?: string | null;
-  gm?: boolean | null;
-  linkedIdentitySource?: string | null;
-  linkedSnapshotSource?: string | null;
+/**
+ * type：AuthTraceEntry 内部字段。
+ */
+
+  type: string;  
+  /**
+ * outcome：AuthTraceEntry 内部字段。
+ */
+
+  outcome?: string | null;  
+  /**
+ * reason：AuthTraceEntry 内部字段。
+ */
+
+  reason?: string | null;  
+  /**
+ * userId：AuthTraceEntry 内部字段。
+ */
+
+  userId?: string | null;  
+  /**
+ * playerId：AuthTraceEntry 内部字段。
+ */
+
+  playerId?: string | null;  
+  /**
+ * username：AuthTraceEntry 内部字段。
+ */
+
+  username?: string | null;  
+  /**
+ * role：AuthTraceEntry 内部字段。
+ */
+
+  role?: string | null;  
+  /**
+ * tokenKind：AuthTraceEntry 内部字段。
+ */
+
+  tokenKind?: string | null;  
+  /**
+ * tokenIdentityReady：AuthTraceEntry 内部字段。
+ */
+
+  tokenIdentityReady?: boolean | null;  
+  /**
+ * source：AuthTraceEntry 内部字段。
+ */
+
+  source?: string | null;  
+  /**
+ * persistedSource：AuthTraceEntry 内部字段。
+ */
+
+  persistedSource?: string | null;  
+  /**
+ * persistenceEnabled：AuthTraceEntry 内部字段。
+ */
+
+  persistenceEnabled?: boolean | null;  
+  /**
+ * nextLoadHit：AuthTraceEntry 内部字段。
+ */
+
+  nextLoadHit?: boolean | null;  
+  /**
+ * compatTried：AuthTraceEntry 内部字段。
+ */
+
+  compatTried?: boolean | null;  
+  /**
+ * persistAttempted：AuthTraceEntry 内部字段。
+ */
+
+  persistAttempted?: boolean | null;  
+  /**
+ * persistSucceeded：AuthTraceEntry 内部字段。
+ */
+
+  persistSucceeded?: boolean | null;  
+  /**
+ * persistFailureStage：AuthTraceEntry 内部字段。
+ */
+
+  persistFailureStage?: string | null;  
+  /**
+ * fallbackHit：AuthTraceEntry 内部字段。
+ */
+
+  fallbackHit?: boolean | null;  
+  /**
+ * allowLegacyFallback：AuthTraceEntry 内部字段。
+ */
+
+  allowLegacyFallback?: boolean | null;  
+  /**
+ * fallbackReason：AuthTraceEntry 内部字段。
+ */
+
+  fallbackReason?: string | null;  
+  /**
+ * seedPersisted：AuthTraceEntry 内部字段。
+ */
+
+  seedPersisted?: boolean | null;  
+  /**
+ * identityPersistedSource：AuthTraceEntry 内部字段。
+ */
+
+  identityPersistedSource?: string | null;  
+  /**
+ * failureStage：AuthTraceEntry 内部字段。
+ */
+
+  failureStage?: string | null;  
+  /**
+ * protocol：AuthTraceEntry 内部字段。
+ */
+
+  protocol?: string | null;  
+  /**
+ * entryPath：AuthTraceEntry 内部字段。
+ */
+
+  entryPath?: string | null;  
+  /**
+ * identitySource：AuthTraceEntry 内部字段。
+ */
+
+  identitySource?: string | null;  
+  /**
+ * snapshotSource：AuthTraceEntry 内部字段。
+ */
+
+  snapshotSource?: string | null;  
+  /**
+ * snapshotPersistedSource：AuthTraceEntry 内部字段。
+ */
+
+  snapshotPersistedSource?: string | null;  
+  /**
+ * recoveryOutcome：AuthTraceEntry 内部字段。
+ */
+
+  recoveryOutcome?: string | null;  
+  /**
+ * recoveryReason：AuthTraceEntry 内部字段。
+ */
+
+  recoveryReason?: string | null;  
+  /**
+ * recoveryIdentityPersistedSource：AuthTraceEntry 内部字段。
+ */
+
+  recoveryIdentityPersistedSource?: string | null;  
+  /**
+ * recoverySnapshotPersistedSource：AuthTraceEntry 内部字段。
+ */
+
+  recoverySnapshotPersistedSource?: string | null;  
+  /**
+ * requestedSessionId：AuthTraceEntry 内部字段。
+ */
+
+  requestedSessionId?: string | null;  
+  /**
+ * gm：AuthTraceEntry 内部字段。
+ */
+
+  gm?: boolean | null;  
+  /**
+ * linkedIdentitySource：AuthTraceEntry 内部字段。
+ */
+
+  linkedIdentitySource?: string | null;  
+  /**
+ * linkedSnapshotSource：AuthTraceEntry 内部字段。
+ */
+
+  linkedSnapshotSource?: string | null;  
+  /**
+ * linkedSnapshotPersistedSource：AuthTraceEntry 内部字段。
+ */
+
   linkedSnapshotPersistedSource?: string | null;
   [key: string]: unknown;
 }
+/**
+ * AuthTraceRecord：定义接口结构约束，明确可交付字段含义。
+ */
+
 
 interface AuthTraceRecord extends AuthTraceEntry {
+/**
+ * timestamp：AuthTraceRecord 内部字段。
+ */
+
   timestamp: number;
 }
+/**
+ * AuthTraceState：定义接口结构约束，明确可交付字段含义。
+ */
+
 
 interface AuthTraceState {
-  enabled: boolean;
-  records: AuthTraceRecord[];
-  filePath: string | null;
-  filePrepared: boolean;
+/**
+ * enabled：AuthTraceState 内部字段。
+ */
+
+  enabled: boolean;  
+  /**
+ * records：AuthTraceState 内部字段。
+ */
+
+  records: AuthTraceRecord[];  
+  /**
+ * filePath：AuthTraceState 内部字段。
+ */
+
+  filePath: string | null;  
+  /**
+ * filePrepared：AuthTraceState 内部字段。
+ */
+
+  filePrepared: boolean;  
+  /**
+ * fileErrored：AuthTraceState 内部字段。
+ */
+
   fileErrored: boolean;
 }
+/**
+ * AuthTraceTokenSummary：定义接口结构约束，明确可交付字段含义。
+ */
+
 
 interface AuthTraceTokenSummary {
-  acceptCount: number;
-  rejectCount: number;
-  rejectReasonCounts: AuthTraceCountMap;
+/**
+ * acceptCount：AuthTraceTokenSummary 内部字段。
+ */
+
+  acceptCount: number;  
+  /**
+ * rejectCount：AuthTraceTokenSummary 内部字段。
+ */
+
+  rejectCount: number;  
+  /**
+ * rejectReasonCounts：AuthTraceTokenSummary 内部字段。
+ */
+
+  rejectReasonCounts: AuthTraceCountMap;  
+  /**
+ * tokenKindCounts：AuthTraceTokenSummary 内部字段。
+ */
+
   tokenKindCounts: AuthTraceCountMap;
 }
+/**
+ * AuthTraceIdentitySummary：定义接口结构约束，明确可交付字段含义。
+ */
+
 
 interface AuthTraceIdentitySummary {
-  sourceCounts: AuthTraceCountMap;
-  persistedSourceCounts: AuthTraceCountMap;
-  persistenceEnabledCount: number;
-  nextLoadHitCount: number;
-  compatTriedCount: number;
-  persistAttemptedCount: number;
-  persistSucceededCount: number;
-  persistFailedCount: number;
+/**
+ * sourceCounts：AuthTraceIdentitySummary 内部字段。
+ */
+
+  sourceCounts: AuthTraceCountMap;  
+  /**
+ * persistedSourceCounts：AuthTraceIdentitySummary 内部字段。
+ */
+
+  persistedSourceCounts: AuthTraceCountMap;  
+  /**
+ * persistenceEnabledCount：AuthTraceIdentitySummary 内部字段。
+ */
+
+  persistenceEnabledCount: number;  
+  /**
+ * nextLoadHitCount：AuthTraceIdentitySummary 内部字段。
+ */
+
+  nextLoadHitCount: number;  
+  /**
+ * compatTriedCount：AuthTraceIdentitySummary 内部字段。
+ */
+
+  compatTriedCount: number;  
+  /**
+ * persistAttemptedCount：AuthTraceIdentitySummary 内部字段。
+ */
+
+  persistAttemptedCount: number;  
+  /**
+ * persistSucceededCount：AuthTraceIdentitySummary 内部字段。
+ */
+
+  persistSucceededCount: number;  
+  /**
+ * persistFailedCount：AuthTraceIdentitySummary 内部字段。
+ */
+
+  persistFailedCount: number;  
+  /**
+ * persistFailureStageCounts：AuthTraceIdentitySummary 内部字段。
+ */
+
   persistFailureStageCounts: AuthTraceCountMap;
 }
+/**
+ * AuthTraceSnapshotSummary：定义接口结构约束，明确可交付字段含义。
+ */
+
 
 interface AuthTraceSnapshotSummary {
-  sourceCounts: AuthTraceCountMap;
-  persistedSourceCounts: AuthTraceCountMap;
-  fallbackHitCount: number;
-  allowLegacyFallbackCount: number;
-  fallbackReasonCounts: AuthTraceCountMap;
+/**
+ * sourceCounts：AuthTraceSnapshotSummary 内部字段。
+ */
+
+  sourceCounts: AuthTraceCountMap;  
+  /**
+ * persistedSourceCounts：AuthTraceSnapshotSummary 内部字段。
+ */
+
+  persistedSourceCounts: AuthTraceCountMap;  
+  /**
+ * fallbackHitCount：AuthTraceSnapshotSummary 内部字段。
+ */
+
+  fallbackHitCount: number;  
+  /**
+ * allowLegacyFallbackCount：AuthTraceSnapshotSummary 内部字段。
+ */
+
+  allowLegacyFallbackCount: number;  
+  /**
+ * fallbackReasonCounts：AuthTraceSnapshotSummary 内部字段。
+ */
+
+  fallbackReasonCounts: AuthTraceCountMap;  
+  /**
+ * seedPersistedCount：AuthTraceSnapshotSummary 内部字段。
+ */
+
   seedPersistedCount: number;
 }
+/**
+ * AuthTraceSnapshotRecoverySummary：定义接口结构约束，明确可交付字段含义。
+ */
+
 
 interface AuthTraceSnapshotRecoverySummary {
-  count: number;
-  successCount: number;
-  blockedCount: number;
-  failedCount: number;
-  reasonCounts: AuthTraceCountMap;
-  persistedSourceCounts: AuthTraceCountMap;
-  identityPersistedSourceCounts: AuthTraceCountMap;
+/**
+ * count：AuthTraceSnapshotRecoverySummary 内部字段。
+ */
+
+  count: number;  
+  /**
+ * successCount：AuthTraceSnapshotRecoverySummary 内部字段。
+ */
+
+  successCount: number;  
+  /**
+ * blockedCount：AuthTraceSnapshotRecoverySummary 内部字段。
+ */
+
+  blockedCount: number;  
+  /**
+ * failedCount：AuthTraceSnapshotRecoverySummary 内部字段。
+ */
+
+  failedCount: number;  
+  /**
+ * reasonCounts：AuthTraceSnapshotRecoverySummary 内部字段。
+ */
+
+  reasonCounts: AuthTraceCountMap;  
+  /**
+ * persistedSourceCounts：AuthTraceSnapshotRecoverySummary 内部字段。
+ */
+
+  persistedSourceCounts: AuthTraceCountMap;  
+  /**
+ * identityPersistedSourceCounts：AuthTraceSnapshotRecoverySummary 内部字段。
+ */
+
+  identityPersistedSourceCounts: AuthTraceCountMap;  
+  /**
+ * failureStageCounts：AuthTraceSnapshotRecoverySummary 内部字段。
+ */
+
   failureStageCounts: AuthTraceCountMap;
 }
+/**
+ * AuthTraceBootstrapSummary：定义接口结构约束，明确可交付字段含义。
+ */
+
 
 interface AuthTraceBootstrapSummary {
-  count: number;
-  protocolCounts: AuthTraceCountMap;
-  gmCount: number;
-  requestedSessionCount: number;
-  entryPathCounts: AuthTraceCountMap;
-  identitySourceCounts: AuthTraceCountMap;
-  identityPersistedSourceCounts: AuthTraceCountMap;
-  snapshotSourceCounts: AuthTraceCountMap;
-  snapshotPersistedSourceCounts: AuthTraceCountMap;
-  recoveryOutcomeCounts: AuthTraceCountMap;
-  recoveryReasonCounts: AuthTraceCountMap;
-  recoveryIdentityPersistedSourceCounts: AuthTraceCountMap;
-  recoverySnapshotPersistedSourceCounts: AuthTraceCountMap;
-  linkedSourceCounts: AuthTraceCountMap;
+/**
+ * count：AuthTraceBootstrapSummary 内部字段。
+ */
+
+  count: number;  
+  /**
+ * protocolCounts：AuthTraceBootstrapSummary 内部字段。
+ */
+
+  protocolCounts: AuthTraceCountMap;  
+  /**
+ * gmCount：AuthTraceBootstrapSummary 内部字段。
+ */
+
+  gmCount: number;  
+  /**
+ * requestedSessionCount：AuthTraceBootstrapSummary 内部字段。
+ */
+
+  requestedSessionCount: number;  
+  /**
+ * entryPathCounts：AuthTraceBootstrapSummary 内部字段。
+ */
+
+  entryPathCounts: AuthTraceCountMap;  
+  /**
+ * identitySourceCounts：AuthTraceBootstrapSummary 内部字段。
+ */
+
+  identitySourceCounts: AuthTraceCountMap;  
+  /**
+ * identityPersistedSourceCounts：AuthTraceBootstrapSummary 内部字段。
+ */
+
+  identityPersistedSourceCounts: AuthTraceCountMap;  
+  /**
+ * snapshotSourceCounts：AuthTraceBootstrapSummary 内部字段。
+ */
+
+  snapshotSourceCounts: AuthTraceCountMap;  
+  /**
+ * snapshotPersistedSourceCounts：AuthTraceBootstrapSummary 内部字段。
+ */
+
+  snapshotPersistedSourceCounts: AuthTraceCountMap;  
+  /**
+ * recoveryOutcomeCounts：AuthTraceBootstrapSummary 内部字段。
+ */
+
+  recoveryOutcomeCounts: AuthTraceCountMap;  
+  /**
+ * recoveryReasonCounts：AuthTraceBootstrapSummary 内部字段。
+ */
+
+  recoveryReasonCounts: AuthTraceCountMap;  
+  /**
+ * recoveryIdentityPersistedSourceCounts：AuthTraceBootstrapSummary 内部字段。
+ */
+
+  recoveryIdentityPersistedSourceCounts: AuthTraceCountMap;  
+  /**
+ * recoverySnapshotPersistedSourceCounts：AuthTraceBootstrapSummary 内部字段。
+ */
+
+  recoverySnapshotPersistedSourceCounts: AuthTraceCountMap;  
+  /**
+ * linkedSourceCounts：AuthTraceBootstrapSummary 内部字段。
+ */
+
+  linkedSourceCounts: AuthTraceCountMap;  
+  /**
+ * linkedPersistedSourceCounts：AuthTraceBootstrapSummary 内部字段。
+ */
+
   linkedPersistedSourceCounts: AuthTraceCountMap;
 }
+/**
+ * AuthTraceSummary：定义接口结构约束，明确可交付字段含义。
+ */
+
 
 interface AuthTraceSummary {
-  recordCount: number;
-  typeCounts: AuthTraceCountMap;
-  token: AuthTraceTokenSummary;
-  identity: AuthTraceIdentitySummary;
-  snapshot: AuthTraceSnapshotSummary;
-  snapshotRecovery: AuthTraceSnapshotRecoverySummary;
+/**
+ * recordCount：AuthTraceSummary 内部字段。
+ */
+
+  recordCount: number;  
+  /**
+ * typeCounts：AuthTraceSummary 内部字段。
+ */
+
+  typeCounts: AuthTraceCountMap;  
+  /**
+ * token：AuthTraceSummary 内部字段。
+ */
+
+  token: AuthTraceTokenSummary;  
+  /**
+ * identity：AuthTraceSummary 内部字段。
+ */
+
+  identity: AuthTraceIdentitySummary;  
+  /**
+ * snapshot：AuthTraceSummary 内部字段。
+ */
+
+  snapshot: AuthTraceSnapshotSummary;  
+  /**
+ * snapshotRecovery：AuthTraceSummary 内部字段。
+ */
+
+  snapshotRecovery: AuthTraceSnapshotRecoverySummary;  
+  /**
+ * bootstrap：AuthTraceSummary 内部字段。
+ */
+
   bootstrap: AuthTraceBootstrapSummary;
 }
+/**
+ * AuthTraceSnapshotResult：定义接口结构约束，明确可交付字段含义。
+ */
+
 
 interface AuthTraceSnapshotResult {
-  purpose: string;
-  completionDefinition: boolean;
-  boundedRecords: boolean;
-  enabled: boolean;
-  limit: number;
-  records: AuthTraceRecord[];
-  filePath: string | null;
-  fileErrored: boolean;
+/**
+ * purpose：AuthTraceSnapshotResult 内部字段。
+ */
+
+  purpose: string;  
+  /**
+ * completionDefinition：AuthTraceSnapshotResult 内部字段。
+ */
+
+  completionDefinition: boolean;  
+  /**
+ * boundedRecords：AuthTraceSnapshotResult 内部字段。
+ */
+
+  boundedRecords: boolean;  
+  /**
+ * enabled：AuthTraceSnapshotResult 内部字段。
+ */
+
+  enabled: boolean;  
+  /**
+ * limit：AuthTraceSnapshotResult 内部字段。
+ */
+
+  limit: number;  
+  /**
+ * records：AuthTraceSnapshotResult 内部字段。
+ */
+
+  records: AuthTraceRecord[];  
+  /**
+ * filePath：AuthTraceSnapshotResult 内部字段。
+ */
+
+  filePath: string | null;  
+  /**
+ * fileErrored：AuthTraceSnapshotResult 内部字段。
+ */
+
+  fileErrored: boolean;  
+  /**
+ * summary：AuthTraceSnapshotResult 内部字段。
+ */
+
   summary: AuthTraceSummary;
 }
+/**
+ * AuthTraceClearResult：定义接口结构约束，明确可交付字段含义。
+ */
+
 
 interface AuthTraceClearResult {
-  ok: true;
-  enabled: boolean;
+/**
+ * ok：AuthTraceClearResult 内部字段。
+ */
+
+  ok: true;  
+  /**
+ * enabled：AuthTraceClearResult 内部字段。
+ */
+
+  enabled: boolean;  
+  /**
+ * filePath：AuthTraceClearResult 内部字段。
+ */
+
   filePath: string | null;
 }
+/**
+ * PlayerIdentityFromPayload：定义接口结构约束，明确可交付字段含义。
+ */
+
 
 interface PlayerIdentityFromPayload {
-  userId: string;
-  username: string;
-  displayName: string;
-  playerId: string;
+/**
+ * userId：PlayerIdentityFromPayload 内部字段。
+ */
+
+  userId: string;  
+  /**
+ * username：PlayerIdentityFromPayload 内部字段。
+ */
+
+  username: string;  
+  /**
+ * displayName：PlayerIdentityFromPayload 内部字段。
+ */
+
+  displayName: string;  
+  /**
+ * playerId：PlayerIdentityFromPayload 内部字段。
+ */
+
+  playerId: string;  
+  /**
+ * playerName：PlayerIdentityFromPayload 内部字段。
+ */
+
   playerName: string;
 }
 
@@ -177,6 +669,8 @@ declare global {
 
 /** 玩家认证 trace 服务：记录鉴权、回填和 bootstrap 的调试轨迹。 */
 function resolveTraceFilePath(): string | null {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
   const configured = typeof process.env[TRACE_FILE_ENV_VAR] === 'string'
     ? process.env[TRACE_FILE_ENV_VAR].trim()
     : '';
@@ -189,6 +683,8 @@ function resolveTraceFilePath(): string | null {
 
 /** 读取 trace 开关。 */
 function isAuthTraceEnabled(): boolean {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
   for (const key of AUTH_TRACE_ENABLE_ENV_KEYS) {
     const configured = typeof process.env[key] === 'string' ? process.env[key].trim().toLowerCase() : '';
     if (AUTH_TRACE_TRUE_VALUES.has(configured)) {
@@ -201,6 +697,8 @@ function isAuthTraceEnabled(): boolean {
 
 /** 初始化或读取全局 trace 状态。 */
 export function ensureAuthTraceState(): AuthTraceState {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
   if (!globalThis.__NEXT_AUTH_TRACE) {
     globalThis.__NEXT_AUTH_TRACE = {
       enabled: isAuthTraceEnabled(),
@@ -216,6 +714,8 @@ export function ensureAuthTraceState(): AuthTraceState {
 
 /** 追加一条认证 trace 记录。 */
 export function recordAuthTrace(entry: AuthTraceEntry): void {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
   const trace = ensureAuthTraceState();
   if (!trace.enabled) {
     return;
@@ -252,6 +752,8 @@ export function readAuthTrace(): AuthTraceSnapshotResult {
 
 /** 清空认证 trace。 */
 export function clearAuthTrace(): AuthTraceClearResult {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
   const trace = ensureAuthTraceState();
   trace.records.length = 0;
   if (trace.filePath) {
@@ -271,6 +773,8 @@ export function clearAuthTrace(): AuthTraceClearResult {
 
 /** 将单条 trace 同步写入文件。 */
 function appendTraceFile(trace: AuthTraceState, entry: AuthTraceRecord): void {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
   if (trace.fileErrored || !trace.filePath) {
     return;
   }
@@ -295,6 +799,8 @@ function appendTraceFile(trace: AuthTraceState, entry: AuthTraceRecord): void {
 
 /** 汇总认证 trace 为可读统计。 */
 function buildAuthTraceSummary(records: readonly AuthTraceRecord[]): AuthTraceSummary {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
   const typeCounts: AuthTraceCountMap = {};
   const token: AuthTraceTokenSummary = {
     acceptCount: 0,
@@ -503,21 +1009,50 @@ function buildAuthTraceSummary(records: readonly AuthTraceRecord[]): AuthTraceSu
     bootstrap,
   };
 }
+/**
+ * incrementSummaryCount：执行核心业务逻辑。
+ * @param target AuthTraceCountMap 目标对象。
+ * @param key unknown 参数说明。
+ * @returns void。
+ */
+
 
 function incrementSummaryCount(target: AuthTraceCountMap, key: unknown): void {
   const normalizedKey = typeof key === 'string' && key ? key : 'unknown';
   target[normalizedKey] = (target[normalizedKey] ?? 0) + 1;
 }
+/**
+ * WorldPlayerTokenService：封装该能力的入口与生命周期，承载运行时核心协作。
+ */
+
 
 @Injectable()
 export class WorldPlayerTokenService {
-  private readonly logger = new Logger(WorldPlayerTokenService.name);
+/**
+ * logger：WorldPlayerTokenService 内部字段。
+ */
+
+  private readonly logger = new Logger(WorldPlayerTokenService.name);  
+  /**
+ * 构造器：初始化 当前 实例并建立基础状态。
+ * @param worldPlayerTokenCodecService WorldPlayerTokenCodecService 参数说明。
+ * @returns 无返回值（构造函数）。
+ */
+
 
   constructor(
     private readonly worldPlayerTokenCodecService: WorldPlayerTokenCodecService,
-  ) {}
+  ) {}  
+  /**
+ * validatePlayerToken：执行核心业务逻辑。
+ * @param token string 参数说明。
+ * @returns ValidatedPlayerTokenPayload | null。
+ */
+
 
   validatePlayerToken(token: string): ValidatedPlayerTokenPayload | null {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
     const payload = this.worldPlayerTokenCodecService.validateAccessToken(token);
     if (!payload) {
       this.logger.debug('拒绝玩家令牌：access token 无效');
@@ -553,11 +1088,19 @@ export class WorldPlayerTokenService {
       tokenIdentityReady: this.resolvePlayerIdentityFromPayload(payload) !== null,
     });
     return payload;
-  }
+  }  
+  /**
+ * resolvePlayerIdentityFromPayload：执行核心业务逻辑。
+ * @param payload ValidatedPlayerTokenPayload | null | undefined 载荷参数。
+ * @returns PlayerIdentityFromPayload | null。
+ */
+
 
   resolvePlayerIdentityFromPayload(
     payload: ValidatedPlayerTokenPayload | null | undefined,
   ): PlayerIdentityFromPayload | null {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
     const userId = typeof payload?.sub === 'string' ? payload.sub.trim() : '';
     const username = typeof payload?.username === 'string' ? payload.username.trim() : '';
     const playerId = typeof payload?.playerId === 'string' && payload.playerId.trim()
@@ -578,8 +1121,16 @@ export class WorldPlayerTokenService {
     };
   }
 }
+/**
+ * resolvePlayerTokenKind：执行核心业务逻辑。
+ * @param payload ValidatedPlayerTokenPayload 载荷参数。
+ * @returns TokenKind。
+ */
+
 
 function resolvePlayerTokenKind(payload: ValidatedPlayerTokenPayload): TokenKind {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
   const kind = typeof payload.kind === 'string' ? payload.kind.trim().toLowerCase() : '';
   if (kind === 'access' || kind === 'refresh') {
     return kind;
@@ -592,8 +1143,17 @@ function resolvePlayerTokenKind(payload: ValidatedPlayerTokenPayload): TokenKind
 
   return 'access';
 }
+/**
+ * normalizeDisplayName：执行核心业务逻辑。
+ * @param displayName unknown 参数说明。
+ * @param username string 参数说明。
+ * @returns string。
+ */
+
 
 function normalizeDisplayName(displayName: unknown, username: string): string {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
   const normalized = typeof displayName === 'string' ? displayName.trim().normalize('NFC') : '';
   if (isValidVisibleDisplayName(normalized)) {
     return normalized;
@@ -602,8 +1162,18 @@ function normalizeDisplayName(displayName: unknown, username: string): string {
   const normalizedUsername = typeof username === 'string' ? username.trim().normalize('NFC') : '';
   return resolveDefaultVisibleDisplayName(normalizedUsername);
 }
+/**
+ * normalizePlayerName：执行核心业务逻辑。
+ * @param playerName unknown 参数说明。
+ * @param displayName string 参数说明。
+ * @param username string 参数说明。
+ * @returns string。
+ */
+
 
 function normalizePlayerName(playerName: unknown, displayName: string, username: string): string {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
   const normalized = typeof playerName === 'string' ? playerName.trim().normalize('NFC') : '';
   if (normalized) {
     return normalized;
@@ -614,6 +1184,12 @@ function normalizePlayerName(playerName: unknown, displayName: string, username:
 
   return typeof username === 'string' ? username.trim().normalize('NFC') : '';
 }
+/**
+ * isValidVisibleDisplayName：执行状态校验并返回判断结果。
+ * @param value string 参数说明。
+ * @returns boolean。
+ */
+
 
 function isValidVisibleDisplayName(value: string): boolean {
   return value.length > 0

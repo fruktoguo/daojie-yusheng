@@ -88,24 +88,89 @@ const RESTORE_JOB_PHASE = {
     RELOADING_RUNTIME: 'reloading_runtime',
     COMPLETED: 'completed',
 };
+/**
+ * NextGmAdminService：封装该能力的入口与生命周期，承载运行时核心协作。
+ */
+
 
 @Injectable()
 export class NextGmAdminService {
-    logger = new Logger(NextGmAdminService.name);
-    pool = null;
-    persistenceEnabled = false;
-    backupDirectory = resolveBackupDirectory();
-    currentDatabaseJob = null;
-    lastDatabaseJob = null;
-    initialAfdianPersistentConfigFromEnv = hasEnvBackedAfdianPersistentConfig();
-    initialAfdianPersistentConfig = readPersistentConfigFromEnv();
-    initialAfdianRuntimeToken = readRuntimeTokenFromEnv();
-    afdianPersistentConfig = cloneAfdianPersistentConfig(this.initialAfdianPersistentConfig);
-    afdianRuntimeToken = this.initialAfdianRuntimeToken;
-    memoryOrdersByTradeNo = new Map();
+/**
+ * logger：NextGmAdminService 内部字段。
+ */
+
+    logger = new Logger(NextGmAdminService.name);    
+    /**
+ * pool：NextGmAdminService 内部字段。
+ */
+
+    pool = null;    
+    /**
+ * persistenceEnabled：NextGmAdminService 内部字段。
+ */
+
+    persistenceEnabled = false;    
+    /**
+ * backupDirectory：NextGmAdminService 内部字段。
+ */
+
+    backupDirectory = resolveBackupDirectory();    
+    /**
+ * currentDatabaseJob：NextGmAdminService 内部字段。
+ */
+
+    currentDatabaseJob = null;    
+    /**
+ * lastDatabaseJob：NextGmAdminService 内部字段。
+ */
+
+    lastDatabaseJob = null;    
+    /**
+ * initialAfdianPersistentConfigFromEnv：NextGmAdminService 内部字段。
+ */
+
+    initialAfdianPersistentConfigFromEnv = hasEnvBackedAfdianPersistentConfig();    
+    /**
+ * initialAfdianPersistentConfig：NextGmAdminService 内部字段。
+ */
+
+    initialAfdianPersistentConfig = readPersistentConfigFromEnv();    
+    /**
+ * initialAfdianRuntimeToken：NextGmAdminService 内部字段。
+ */
+
+    initialAfdianRuntimeToken = readRuntimeTokenFromEnv();    
+    /**
+ * afdianPersistentConfig：NextGmAdminService 内部字段。
+ */
+
+    afdianPersistentConfig = cloneAfdianPersistentConfig(this.initialAfdianPersistentConfig);    
+    /**
+ * afdianRuntimeToken：NextGmAdminService 内部字段。
+ */
+
+    afdianRuntimeToken = this.initialAfdianRuntimeToken;    
+    /**
+ * memoryOrdersByTradeNo：NextGmAdminService 内部字段。
+ */
+
+    memoryOrdersByTradeNo = new Map();    
+    /**
+ * 构造器：初始化 当前 实例并建立基础状态。
+ * @param databaseRestoreCoordinator 参数说明。
+ * @returns 无返回值（构造函数）。
+ */
+
     constructor(@Inject(NextDatabaseRestoreCoordinatorService) private readonly databaseRestoreCoordinator) {
-    }
+    }    
+    /**
+ * onModuleInit：执行核心业务逻辑。
+ * @returns 函数返回值。
+ */
+
     async onModuleInit() {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
         await fsPromises.mkdir(this.backupDirectory, { recursive: true });
 
         const databaseUrl = resolveServerNextDatabaseUrl();
@@ -126,10 +191,20 @@ export class NextGmAdminService {
             this.logger.error('旧 GM 管理兼容持久化初始化失败', error instanceof Error ? error.stack : String(error));
             await this.closePool();
         }
-    }
+    }    
+    /**
+ * onModuleDestroy：执行核心业务逻辑。
+ * @returns 函数返回值。
+ */
+
     async onModuleDestroy() {
         await this.closePool();
-    }
+    }    
+    /**
+ * getDatabaseState：按给定条件读取/查询数据。
+ * @returns 函数返回值。
+ */
+
     async getDatabaseState() {
 
         const backups = await this.listDatabaseBackups();
@@ -150,13 +225,25 @@ export class NextGmAdminService {
             restoreMode: NEXT_GM_RESTORE_CONTRACT.restoreMode,
             note: '仅作用于 server-next persistent_documents，不会恢复旧后端 users/players 等正式业务表；当前 backup/restore 仍为手工触发，不存在自动定时备份或自动保留清理',
         };
-    }
+    }    
+    /**
+ * isRuntimeMaintenanceActive：执行状态校验并返回判断结果。
+ * @returns 函数返回值。
+ */
+
     isRuntimeMaintenanceActive() {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
         if (readBooleanEnv('SERVER_NEXT_RUNTIME_MAINTENANCE') || readBooleanEnv('RUNTIME_MAINTENANCE')) {
             return true;
         }
         return this.currentDatabaseJob?.status === 'running' && this.currentDatabaseJob?.type === 'restore';
-    }
+    }    
+    /**
+ * triggerDatabaseBackup：执行核心业务逻辑。
+ * @returns 函数返回值。
+ */
+
     triggerDatabaseBackup() {
 
         const backupId = buildBackupId();
@@ -184,8 +271,16 @@ export class NextGmAdminService {
             job,
             scope: BACKUP_SCOPE_LABEL,
         };
-    }
+    }    
+    /**
+ * getBackupDownloadRecord：按给定条件读取/查询数据。
+ * @param backupId backup ID。
+ * @returns 函数返回值。
+ */
+
     async getBackupDownloadRecord(backupId) {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
 
         const record = await this.findBackupRecord(backupId);
         if (!record) {
@@ -198,8 +293,16 @@ export class NextGmAdminService {
             filePath: record.filePath,
             fileName: record.fileName,
         };
-    }
+    }    
+    /**
+ * triggerDatabaseRestore：执行核心业务逻辑。
+ * @param backupId backup ID。
+ * @returns 函数返回值。
+ */
+
     async triggerDatabaseRestore(backupId) {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
         this.assertRestoreMaintenanceEnabled();
 
         const record = await this.findBackupRecord(backupId);
@@ -278,13 +381,24 @@ export class NextGmAdminService {
             job,
             scope: BACKUP_SCOPE_LABEL,
         };
-    }
+    }    
+    /**
+ * getAfdianConfig：按给定条件读取/查询数据。
+ * @returns 函数返回值。
+ */
+
     getAfdianConfig() {
         return {
             config: this.getAfdianConfigForm(),
             status: this.getAfdianConfigStatus(),
         };
-    }
+    }    
+    /**
+ * saveAfdianConfig：执行核心业务逻辑。
+ * @param input 输入参数。
+ * @returns 函数返回值。
+ */
+
     async saveAfdianConfig(input) {
 
         const normalized = normalizePersistentConfig(input ?? {});
@@ -294,7 +408,13 @@ export class NextGmAdminService {
         this.applyAfdianRuntimeToken(runtimeToken);
         await this.persistAfdianPersistentConfig(normalized);
         return this.getAfdianConfig();
-    }
+    }    
+    /**
+ * listAfdianOrders：执行核心业务逻辑。
+ * @param query 参数说明。
+ * @returns 函数返回值。
+ */
+
     async listAfdianOrders(query) {
 
         const limit = clampInteger(query?.limit, 20, 1, 100);
@@ -332,7 +452,13 @@ export class NextGmAdminService {
             offset,
             items: filtered.slice(offset, offset + limit),
         };
-    }
+    }    
+    /**
+ * pingAfdianApi：执行核心业务逻辑。
+ * @param input 输入参数。
+ * @returns 函数返回值。
+ */
+
     async pingAfdianApi(input) {
 
         const config = this.getRequiredAfdianApiConfig(input?.token);
@@ -341,8 +467,16 @@ export class NextGmAdminService {
             ...this.getAfdianConfigStatus(),
             reachable: true,
         };
-    }
+    }    
+    /**
+ * syncAfdianOrders：执行核心业务逻辑。
+ * @param input 输入参数。
+ * @returns 函数返回值。
+ */
+
     async syncAfdianOrders(input) {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
 
         const config = this.getRequiredAfdianApiConfig(input?.token);
 
@@ -405,8 +539,17 @@ export class NextGmAdminService {
             totalCount,
             totalPage,
         };
-    }
+    }    
+    /**
+ * handleAfdianWebhook：处理事件并驱动执行路径。
+ * @param body 参数说明。
+ * @param headers 参数说明。
+ * @returns 函数返回值。
+ */
+
     async handleAfdianWebhook(body, headers = {}) {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
 
         const envelope = asRecord(body);
         if (!envelope) {
@@ -431,12 +574,24 @@ export class NextGmAdminService {
             throw new BadRequestException('爱发电订单 user_id 与当前配置不匹配');
         }
         await this.upsertAfdianOrders([order], 'webhook');
-    }
+    }    
+    /**
+ * reloadPersistentCompatibilityState：执行核心业务逻辑。
+ * @returns 函数返回值。
+ */
+
     async reloadPersistentCompatibilityState() {
         this.memoryOrdersByTradeNo.clear();
         await this.loadAfdianPersistentConfig();
-    }
+    }    
+    /**
+ * loadPersistedDatabaseJobState：按给定条件读取/查询数据。
+ * @returns 函数返回值。
+ */
+
     async loadPersistedDatabaseJobState() {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
         if (!this.pool || !this.persistenceEnabled) {
             this.currentDatabaseJob = null;
             this.lastDatabaseJob = null;
@@ -474,8 +629,15 @@ export class NextGmAdminService {
             this.currentDatabaseJob = null;
             await this.persistDatabaseJobState();
         }
-    }
+    }    
+    /**
+ * persistDatabaseJobState：执行核心业务逻辑。
+ * @returns 函数返回值。
+ */
+
     async persistDatabaseJobState() {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
         if (!this.pool || !this.persistenceEnabled) {
             return;
         }
@@ -490,8 +652,16 @@ export class NextGmAdminService {
         ON CONFLICT (scope, key)
         DO UPDATE SET payload = EXCLUDED.payload, "updatedAt" = now()
       `, [DATABASE_JOB_STATE_SCOPE, DATABASE_JOB_STATE_KEY, JSON.stringify(payload)]);
-    }
+    }    
+    /**
+ * persistBackupMetadata：执行核心业务逻辑。
+ * @param record 参数说明。
+ * @returns 函数返回值。
+ */
+
     async persistBackupMetadata(record) {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
         if (!this.pool || !this.persistenceEnabled) {
             return;
         }
@@ -506,7 +676,13 @@ export class NextGmAdminService {
         ON CONFLICT (scope, key)
         DO UPDATE SET payload = EXCLUDED.payload, "updatedAt" = now()
       `, [DATABASE_BACKUP_METADATA_SCOPE, normalized.id, JSON.stringify(normalized)]);
-    }
+    }    
+    /**
+ * createDatabaseBackupSnapshot：构建并返回目标对象。
+ * @param input 输入参数。
+ * @returns 函数返回值。
+ */
+
     async createDatabaseBackupSnapshot(input) {
         input.job && this.updateDatabaseJobPhase(input.job, BACKUP_JOB_PHASE.VALIDATING);
 
@@ -552,8 +728,15 @@ export class NextGmAdminService {
             documentsCount: docs.length,
             checksumSha256,
         };
-    }
+    }    
+    /**
+ * loadPersistedBackupMetadataRecords：按给定条件读取/查询数据。
+ * @returns 函数返回值。
+ */
+
     async loadPersistedBackupMetadataRecords() {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
         if (!this.pool || !this.persistenceEnabled) {
             return [];
         }
@@ -573,7 +756,12 @@ export class NextGmAdminService {
             }
         }
         return Array.from(records.values());
-    }
+    }    
+    /**
+ * backfillBackupMetadataFromFilesystem：执行核心业务逻辑。
+ * @returns 函数返回值。
+ */
+
     async backfillBackupMetadataFromFilesystem() {
 
         const records = await this.listFilesystemBackups();
@@ -585,8 +773,15 @@ export class NextGmAdminService {
             sizeBytes: record.sizeBytes,
             scope: BACKUP_SCOPE_LABEL,
         })));
-    }
+    }    
+    /**
+ * loadAfdianPersistentConfig：按给定条件读取/查询数据。
+ * @returns 函数返回值。
+ */
+
     async loadAfdianPersistentConfig() {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
         if (!this.pool || !this.persistenceEnabled) {
             return;
         }
@@ -601,8 +796,16 @@ export class NextGmAdminService {
             return;
         }
         this.applyAfdianPersistentConfig(normalizeStoredPersistentConfig(payload));
-    }
+    }    
+    /**
+ * persistAfdianPersistentConfig：执行核心业务逻辑。
+ * @param config 参数说明。
+ * @returns 函数返回值。
+ */
+
     async persistAfdianPersistentConfig(config) {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
         if (!this.pool || !this.persistenceEnabled) {
             return;
         }
@@ -613,7 +816,12 @@ export class NextGmAdminService {
         DO UPDATE SET payload = EXCLUDED.payload, "updatedAt" = now()
         WHERE persistent_documents.payload IS DISTINCT FROM EXCLUDED.payload
       `, [AFDIAN_CONFIG_SCOPE, AFDIAN_CONFIG_KEY, JSON.stringify(config)]);
-    }
+    }    
+    /**
+ * getAfdianConfigForm：按给定条件读取/查询数据。
+ * @returns 函数返回值。
+ */
+
     getAfdianConfigForm() {
         return {
             userId: this.afdianPersistentConfig.userId,
@@ -621,7 +829,12 @@ export class NextGmAdminService {
             apiBaseUrl: this.afdianPersistentConfig.apiBaseUrl,
             publicBaseUrl: this.afdianPersistentConfig.publicBaseUrl,
         };
-    }
+    }    
+    /**
+ * getAfdianConfigStatus：按给定条件读取/查询数据。
+ * @returns 函数返回值。
+ */
+
     getAfdianConfigStatus() {
 
         const userId = normalizeEnvValue(this.afdianPersistentConfig.userId);
@@ -647,8 +860,16 @@ export class NextGmAdminService {
 
             webhookAuthMode: webhookSecret !== null ? 'shared_token' : 'none',
         };
-    }
+    }    
+    /**
+ * getRequiredAfdianApiConfig：按给定条件读取/查询数据。
+ * @param requestToken 参数说明。
+ * @returns 函数返回值。
+ */
+
     getRequiredAfdianApiConfig(requestToken) {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
 
         const userId = normalizeEnvValue(this.afdianPersistentConfig.userId);
 
@@ -657,11 +878,30 @@ export class NextGmAdminService {
             throw new ServiceUnavailableException('AFDIAN_USER_ID 或 AFDIAN_TOKEN 未配置');
         }
         return { userId, token };
-    }
+    }    
+    /**
+ * queryAfdianOrders：按给定条件读取/查询数据。
+ * @param userId user ID。
+ * @param token 参数说明。
+ * @param params 参数说明。
+ * @returns 函数返回值。
+ */
+
     async queryAfdianOrders(userId, token, params) {
         return this.requestAfdianApi(userId, token, AFDIAN_QUERY_ORDER_PATH, params);
-    }
+    }    
+    /**
+ * requestAfdianApi：执行核心业务逻辑。
+ * @param userId user ID。
+ * @param token 参数说明。
+ * @param apiPath 参数说明。
+ * @param params 参数说明。
+ * @returns 函数返回值。
+ */
+
     async requestAfdianApi(userId, token, apiPath, params) {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
 
         const ts = Math.floor(Date.now() / 1000);
 
@@ -709,8 +949,17 @@ export class NextGmAdminService {
             throw new InternalServerErrorException('爱发电 API 返回结构不合法');
         }
         return record;
-    }
+    }    
+    /**
+ * upsertAfdianOrders：执行核心业务逻辑。
+ * @param orders 参数说明。
+ * @param source 来源对象。
+ * @returns 函数返回值。
+ */
+
     async upsertAfdianOrders(orders, source) {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
 
         let upserted = 0;
         for (const order of orders) {
@@ -734,8 +983,17 @@ export class NextGmAdminService {
             upserted += 1;
         }
         return upserted;
-    }
+    }    
+    /**
+ * buildStoredAfdianOrderChange：构建并返回目标对象。
+ * @param order 参数说明。
+ * @param source 来源对象。
+ * @returns 函数返回值。
+ */
+
     async buildStoredAfdianOrderChange(order, source) {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
 
         const now = new Date().toISOString();
 
@@ -773,8 +1031,16 @@ export class NextGmAdminService {
             changed: true,
             stored,
         };
-    }
+    }    
+    /**
+ * loadAfdianOrder：按给定条件读取/查询数据。
+ * @param outTradeNo 参数说明。
+ * @returns 函数返回值。
+ */
+
     async loadAfdianOrder(outTradeNo) {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
 
         const normalized = typeof outTradeNo === 'string' ? outTradeNo.trim() : '';
         if (!normalized) {
@@ -789,8 +1055,15 @@ export class NextGmAdminService {
             return normalizeStoredAfdianOrder(payload);
         }
         return this.memoryOrdersByTradeNo.get(normalized) ?? null;
-    }
+    }    
+    /**
+ * loadAllAfdianOrders：按给定条件读取/查询数据。
+ * @returns 函数返回值。
+ */
+
     async loadAllAfdianOrders() {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
         if (this.pool && this.persistenceEnabled) {
             const records = new Map();
             for (const scope of AFDIAN_ORDER_SCOPES) {
@@ -806,8 +1079,15 @@ export class NextGmAdminService {
             return Array.from(records.values());
         }
         return Array.from(this.memoryOrdersByTradeNo.values());
-    }
+    }    
+    /**
+ * readAllPersistentDocuments：执行核心业务逻辑。
+ * @returns 函数返回值。
+ */
+
     async readAllPersistentDocuments() {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
         if (!this.pool || !this.persistenceEnabled) {
             return [];
         }
@@ -823,8 +1103,15 @@ export class NextGmAdminService {
                 ? row.updatedAt.toISOString()
                 : normalizeTimestamp(row?.updatedAt) ?? new Date(0).toISOString(),
         })).filter((entry) => entry.scope && entry.key && !BACKUP_EXCLUDED_SCOPES.has(entry.scope));
-    }
+    }    
+    /**
+ * listFilesystemBackups：执行核心业务逻辑。
+ * @returns 函数返回值。
+ */
+
     async listFilesystemBackups() {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
 
         const entries = await fsPromises.readdir(this.backupDirectory, { withFileTypes: true }).catch(() => []);
 
@@ -852,8 +1139,15 @@ export class NextGmAdminService {
             });
         }
         return records;
-    }
+    }    
+    /**
+ * listDatabaseBackups：执行核心业务逻辑。
+ * @returns 函数返回值。
+ */
+
     async listDatabaseBackups() {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
 
         const records = new Map();
 
@@ -881,8 +1175,16 @@ export class NextGmAdminService {
         const merged = Array.from(records.values());
         merged.sort((left, right) => right.createdAt.localeCompare(left.createdAt));
         return merged;
-    }
+    }    
+    /**
+ * findBackupRecord：执行核心业务逻辑。
+ * @param backupId backup ID。
+ * @returns 函数返回值。
+ */
+
     async findBackupRecord(backupId) {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
 
         const normalized = typeof backupId === 'string' ? backupId.trim() : '';
         if (!normalized) {
@@ -891,8 +1193,16 @@ export class NextGmAdminService {
 
         const records = await this.listDatabaseBackups();
         return records.find((entry) => entry.id === normalized) ?? null;
-    }
+    }    
+    /**
+ * readBackupPayload：执行核心业务逻辑。
+ * @param filePath 参数说明。
+ * @returns 函数返回值。
+ */
+
     async readBackupPayload(filePath) {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
 
         const raw = await fsPromises.readFile(filePath, 'utf8');
         try {
@@ -901,8 +1211,15 @@ export class NextGmAdminService {
         catch {
             throw new BadRequestException('备份文件损坏，无法解析');
         }
-    }
+    }    
+    /**
+ * closePool：执行核心业务逻辑。
+ * @returns 函数返回值。
+ */
+
     async closePool() {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
 
         const pool = this.pool;
         this.pool = null;
@@ -911,8 +1228,17 @@ export class NextGmAdminService {
         if (pool) {
             await pool.end().catch(() => undefined);
         }
-    }
+    }    
+    /**
+ * loadPersistentPayloadByScopes：按给定条件读取/查询数据。
+ * @param scopes 参数说明。
+ * @param key 参数说明。
+ * @returns 函数返回值。
+ */
+
     async loadPersistentPayloadByScopes(scopes, key) {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
         if (!this.pool || !this.persistenceEnabled) {
             return null;
         }
@@ -923,14 +1249,29 @@ export class NextGmAdminService {
             }
         }
         return null;
-    }
+    }    
+    /**
+ * startDatabaseJob：执行核心业务逻辑。
+ * @param input 输入参数。
+ * @returns 函数返回值。
+ */
+
     startDatabaseJob(input) {
         this.assertNoRunningDatabaseJob();
         this.currentDatabaseJob = input;
         void this.persistDatabaseJobState();
         return input;
-    }
+    }    
+    /**
+ * updateDatabaseJobPhase：更新/写入相关状态。
+ * @param job 参数说明。
+ * @param phase 参数说明。
+ * @returns 函数返回值。
+ */
+
     updateDatabaseJobPhase(job, phase) {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
         if (!job || typeof phase !== 'string' || !phase.trim()) {
             return;
         }
@@ -944,7 +1285,14 @@ export class NextGmAdminService {
         void this.persistDatabaseJobState().catch((error) => {
             this.logger.error('兼容数据库任务阶段持久化失败', error instanceof Error ? error.stack : String(error));
         });
-    }
+    }    
+    /**
+ * runDatabaseJob：执行核心业务逻辑。
+ * @param job 参数说明。
+ * @param work 参数说明。
+ * @returns 函数返回值。
+ */
+
     async runDatabaseJob(job, work) {
         try {
             await work();
@@ -971,19 +1319,39 @@ export class NextGmAdminService {
                 this.logger.error('兼容数据库任务状态持久化失败', error instanceof Error ? error.stack : String(error));
             });
         }
-    }
+    }    
+    /**
+ * assertNoRunningDatabaseJob：执行核心业务逻辑。
+ * @returns 函数返回值。
+ */
+
     assertNoRunningDatabaseJob() {
         if (this.currentDatabaseJob?.status === 'running') {
             throw new BadRequestException('当前已有数据库任务执行中');
         }
-    }
+    }    
+    /**
+ * assertRestoreMaintenanceEnabled：执行核心业务逻辑。
+ * @returns 函数返回值。
+ */
+
     assertRestoreMaintenanceEnabled() {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
         if (readBooleanEnv('SERVER_NEXT_RUNTIME_MAINTENANCE') || readBooleanEnv('RUNTIME_MAINTENANCE')) {
             return;
         }
         throw new BadRequestException('执行兼容 restore 前必须先开启维护态（SERVER_NEXT_RUNTIME_MAINTENANCE=1 或 RUNTIME_MAINTENANCE=1）');
-    }
+    }    
+    /**
+ * applyAfdianPersistentConfig：更新/写入相关状态。
+ * @param config 参数说明。
+ * @returns 函数返回值。
+ */
+
     applyAfdianPersistentConfig(config) {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
         this.afdianPersistentConfig = config;
         if (config.userId) {
             process.env.AFDIAN_USER_ID = config.userId;
@@ -1003,8 +1371,16 @@ export class NextGmAdminService {
         else {
             delete process.env.AFDIAN_PUBLIC_BASE_URL;
         }
-    }
+    }    
+    /**
+ * applyAfdianRuntimeToken：更新/写入相关状态。
+ * @param token 参数说明。
+ * @returns 函数返回值。
+ */
+
     applyAfdianRuntimeToken(token) {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
         this.afdianRuntimeToken = token;
         if (token) {
             process.env.AFDIAN_TOKEN = token;
@@ -1014,7 +1390,14 @@ export class NextGmAdminService {
         }
     }
 }
+/**
+ * resolveBackupDirectory：执行核心业务逻辑。
+ * @returns 函数返回值。
+ */
+
 function resolveBackupDirectory() {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
 
     const configured = process.env.SERVER_NEXT_GM_DATABASE_BACKUP_DIR?.trim()
         || process.env.GM_DATABASE_BACKUP_DIR?.trim()
@@ -1024,10 +1407,23 @@ function resolveBackupDirectory() {
     }
     return resolve(__dirname, '../../../../.runtime/gm-database-backups');
 }
+/**
+ * buildBackupId：构建并返回目标对象。
+ * @returns 函数返回值。
+ */
+
 function buildBackupId() {
     return `${Date.now().toString(36)}-${randomUUID().slice(0, 8)}`;
 }
+/**
+ * cloneDatabaseJob：执行核心业务逻辑。
+ * @param value 参数说明。
+ * @returns 函数返回值。
+ */
+
 function cloneDatabaseJob(value) {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
     if (!value || typeof value !== 'object') {
         return null;
     }
@@ -1035,14 +1431,33 @@ function cloneDatabaseJob(value) {
     const normalized = normalizeDatabaseJobSnapshot(value);
     return normalized ? { ...normalized } : null;
 }
+/**
+ * buildBackupFilePath：构建并返回目标对象。
+ * @param backupDirectory 参数说明。
+ * @param fileName 参数说明。
+ * @returns 函数返回值。
+ */
+
 function buildBackupFilePath(backupDirectory, fileName) {
     return join(backupDirectory, fileName);
 }
+/**
+ * resolveExistingBackupFilePath：执行核心业务逻辑。
+ * @param filePath 参数说明。
+ * @returns 函数返回值。
+ */
+
 async function resolveExistingBackupFilePath(filePath) {
 
     const stats = await fsPromises.stat(filePath).catch(() => null);
     return stats?.isFile() ? filePath : null;
 }
+/**
+ * normalizeStoredDatabaseJobState：执行核心业务逻辑。
+ * @param value 参数说明。
+ * @returns 函数返回值。
+ */
+
 function normalizeStoredDatabaseJobState(value) {
 
     const record = asRecord(value);
@@ -1051,7 +1466,15 @@ function normalizeStoredDatabaseJobState(value) {
         lastJob: normalizeDatabaseJobSnapshot(record?.lastJob),
     };
 }
+/**
+ * shouldRecoverCompletedDatabaseJob：执行核心业务逻辑。
+ * @param job 参数说明。
+ * @returns 函数返回值。
+ */
+
 function shouldRecoverCompletedDatabaseJob(job) {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
     if (!job || job.status !== 'running') {
         return false;
     }
@@ -1060,7 +1483,15 @@ function shouldRecoverCompletedDatabaseJob(job) {
     }
     return typeof job.finishedAt === 'string' && job.finishedAt.trim().length > 0;
 }
+/**
+ * normalizeDatabaseJobSnapshot：执行核心业务逻辑。
+ * @param value 参数说明。
+ * @returns 函数返回值。
+ */
+
 function normalizeDatabaseJobSnapshot(value) {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
 
     const record = asRecord(value);
 
@@ -1111,7 +1542,15 @@ function normalizeDatabaseJobSnapshot(value) {
         error,
     };
 }
+/**
+ * normalizeStoredBackupMetadata：执行核心业务逻辑。
+ * @param value 参数说明。
+ * @returns 函数返回值。
+ */
+
 function normalizeStoredBackupMetadata(value) {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
 
     const record = asRecord(value);
 
@@ -1149,7 +1588,15 @@ function normalizeStoredBackupMetadata(value) {
         checksumSha256,
     };
 }
+/**
+ * assertCompatibleBackupPayload：执行核心业务逻辑。
+ * @param value 参数说明。
+ * @returns 函数返回值。
+ */
+
 function assertCompatibleBackupPayload(value) {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
 
     const record = asRecord(value);
     if (!record) {
@@ -1205,12 +1652,27 @@ function assertCompatibleBackupPayload(value) {
         docs,
     };
 }
+/**
+ * summarizeText：执行核心业务逻辑。
+ * @param value 参数说明。
+ * @returns 函数返回值。
+ */
+
 function summarizeText(value) {
 
     const normalized = String(value ?? '').replace(/\s+/gu, ' ').trim();
     return normalized.length > 160 ? `${normalized.slice(0, 160)}...` : normalized;
 }
+/**
+ * assertAfdianWebhookAuthorized：执行核心业务逻辑。
+ * @param envelope 参数说明。
+ * @param headers 参数说明。
+ * @returns 函数返回值。
+ */
+
 function assertAfdianWebhookAuthorized(envelope, headers) {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
 
     const secret = readAfdianWebhookSecret();
     if (secret === null) {
@@ -1242,7 +1704,16 @@ function assertAfdianWebhookAuthorized(envelope, headers) {
     }
     throw new UnauthorizedException('爱发电 webhook 鉴权失败');
 }
+/**
+ * normalizePersistentDocumentBackupEntry：执行核心业务逻辑。
+ * @param value 参数说明。
+ * @param index 参数说明。
+ * @returns 函数返回值。
+ */
+
 function normalizePersistentDocumentBackupEntry(value, index = -1) {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
 
     const record = asRecord(value);
 
@@ -1268,10 +1739,24 @@ function normalizePersistentDocumentBackupEntry(value, index = -1) {
         updatedAt,
     };
 }
+/**
+ * computeBackupChecksum：执行核心业务逻辑。
+ * @param docs 参数说明。
+ * @returns 函数返回值。
+ */
+
 function computeBackupChecksum(docs) {
     return createHash('sha256').update(JSON.stringify(docs)).digest('hex');
 }
+/**
+ * readBooleanEnv：执行核心业务逻辑。
+ * @param key 参数说明。
+ * @returns 函数返回值。
+ */
+
 function readBooleanEnv(key) {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
 
     const raw = process.env[key];
     if (typeof raw !== 'string') {
@@ -1281,7 +1766,15 @@ function readBooleanEnv(key) {
     const normalized = raw.trim().toLowerCase();
     return normalized === '1' || normalized === 'true' || normalized === 'yes' || normalized === 'on';
 }
+/**
+ * extractAfdianOrderList：执行核心业务逻辑。
+ * @param response 参数说明。
+ * @returns 函数返回值。
+ */
+
 function extractAfdianOrderList(response) {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
     if (response?.ec !== 200) {
         throw new BadRequestException(typeof response?.em === 'string' && response.em.trim() ? response.em : '爱发电 API 返回失败');
     }
@@ -1291,7 +1784,15 @@ function extractAfdianOrderList(response) {
     const list = Array.isArray(data?.list) ? data.list : [];
     return list.map((entry) => normalizeAfdianOrderPayload(entry)).filter((item) => item !== null);
 }
+/**
+ * normalizeAfdianOrderPayload：执行核心业务逻辑。
+ * @param value 参数说明。
+ * @returns 函数返回值。
+ */
+
 function normalizeAfdianOrderPayload(value) {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
 
     const record = asRecord(value);
 
@@ -1307,7 +1808,15 @@ function normalizeAfdianOrderPayload(value) {
         user_id: userId,
     };
 }
+/**
+ * normalizeStoredAfdianOrder：执行核心业务逻辑。
+ * @param value 参数说明。
+ * @returns 函数返回值。
+ */
+
 function normalizeStoredAfdianOrder(value) {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
 
     const record = asRecord(value);
 
@@ -1341,6 +1850,13 @@ function normalizeStoredAfdianOrder(value) {
         updatedAt: normalizeTimestamp(record.updatedAt) ?? new Date(0).toISOString(),
     };
 }
+/**
+ * isSameStoredAfdianOrder：执行状态校验并返回判断结果。
+ * @param left 参数说明。
+ * @param right 参数说明。
+ * @returns 函数返回值。
+ */
+
 function isSameStoredAfdianOrder(left, right) {
     return left.outTradeNo === right.outTradeNo
         && left.userId === right.userId
@@ -1361,7 +1877,16 @@ function isSameStoredAfdianOrder(left, right) {
         && left.createdAt === right.createdAt
         && isSameSkuDetail(left.skuDetail, right.skuDetail);
 }
+/**
+ * isSameSkuDetail：执行状态校验并返回判断结果。
+ * @param left 参数说明。
+ * @param right 参数说明。
+ * @returns 函数返回值。
+ */
+
 function isSameSkuDetail(left, right) {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
     if (left === right) {
         return true;
     }
@@ -1375,7 +1900,16 @@ function isSameSkuDetail(left, right) {
     }
     return true;
 }
+/**
+ * isSameJsonValue：执行状态校验并返回判断结果。
+ * @param left 参数说明。
+ * @param right 参数说明。
+ * @returns 函数返回值。
+ */
+
 function isSameJsonValue(left, right) {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
     if (left === right) {
         return true;
     }
@@ -1423,13 +1957,29 @@ function isSameJsonValue(left, right) {
     }
     return false;
 }
+/**
+ * asRecord：执行核心业务逻辑。
+ * @param value 参数说明。
+ * @returns 函数返回值。
+ */
+
 function asRecord(value) {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
     if (!value || typeof value !== 'object' || Array.isArray(value)) {
         return null;
     }
     return value;
 }
+/**
+ * normalizeEnvValue：执行核心业务逻辑。
+ * @param value 参数说明。
+ * @returns 函数返回值。
+ */
+
 function normalizeEnvValue(value) {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
     if (typeof value !== 'string') {
         return null;
     }
@@ -1437,12 +1987,25 @@ function normalizeEnvValue(value) {
     const trimmed = value.trim();
     return trimmed ? trimmed : null;
 }
+/**
+ * readAfdianWebhookSecret：执行核心业务逻辑。
+ * @returns 函数返回值。
+ */
+
 function readAfdianWebhookSecret() {
     return normalizeEnvValue(process.env.SERVER_NEXT_AFDIAN_WEBHOOK_SECRET)
         ?? normalizeEnvValue(process.env.AFDIAN_WEBHOOK_SECRET)
         ?? null;
 }
+/**
+ * extractBearerToken：执行核心业务逻辑。
+ * @param value 参数说明。
+ * @returns 函数返回值。
+ */
+
 function extractBearerToken(value) {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
     if (typeof value !== 'string') {
         return null;
     }
@@ -1455,7 +2018,16 @@ function extractBearerToken(value) {
     const token = trimmed.slice(7).trim();
     return token || null;
 }
+/**
+ * safeEqualText：执行核心业务逻辑。
+ * @param left 参数说明。
+ * @param right 参数说明。
+ * @returns 函数返回值。
+ */
+
 function safeEqualText(left, right) {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
 
     const leftBuffer = Buffer.from(left, 'utf8');
 
@@ -1465,7 +2037,15 @@ function safeEqualText(left, right) {
     }
     return leftBuffer.length > 0 && timingSafeEqual(leftBuffer, rightBuffer);
 }
+/**
+ * normalizeTimestamp：执行核心业务逻辑。
+ * @param value 参数说明。
+ * @returns 函数返回值。
+ */
+
 function normalizeTimestamp(value) {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
     if (typeof value === 'string' && value.trim()) {
         return value;
     }
@@ -1474,12 +2054,30 @@ function normalizeTimestamp(value) {
     }
     return null;
 }
+/**
+ * readInteger：执行核心业务逻辑。
+ * @param value 参数说明。
+ * @param fallback 参数说明。
+ * @returns 函数返回值。
+ */
+
 function readInteger(value, fallback = 0) {
 
     const parsed = Number(value);
     return Number.isFinite(parsed) ? Math.trunc(parsed) : fallback;
 }
+/**
+ * clampInteger：执行核心业务逻辑。
+ * @param value 参数说明。
+ * @param fallback 参数说明。
+ * @param min 参数说明。
+ * @param max 参数说明。
+ * @returns 函数返回值。
+ */
+
 function clampInteger(value, fallback, min, max) {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
 
     const parsed = readInteger(value, fallback);
     if (parsed < min) {
@@ -1490,7 +2088,15 @@ function clampInteger(value, fallback, min, max) {
     }
     return parsed;
 }
+/**
+ * readOptionalString：执行核心业务逻辑。
+ * @param value 参数说明。
+ * @returns 函数返回值。
+ */
+
 function readOptionalString(value) {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
     if (typeof value !== 'string') {
         return null;
     }
@@ -1498,6 +2104,11 @@ function readOptionalString(value) {
     const trimmed = value.trim();
     return trimmed ? trimmed : null;
 }
+/**
+ * readPersistentConfigFromEnv：执行核心业务逻辑。
+ * @returns 函数返回值。
+ */
+
 function readPersistentConfigFromEnv() {
     return normalizeStoredPersistentConfig({
         userId: process.env.AFDIAN_USER_ID ?? '',
@@ -1505,11 +2116,22 @@ function readPersistentConfigFromEnv() {
         publicBaseUrl: process.env.AFDIAN_PUBLIC_BASE_URL ?? '',
     });
 }
+/**
+ * hasEnvBackedAfdianPersistentConfig：执行状态校验并返回判断结果。
+ * @returns 函数返回值。
+ */
+
 function hasEnvBackedAfdianPersistentConfig() {
     return normalizeEnvValue(process.env.AFDIAN_USER_ID) !== null
         || normalizeEnvValue(process.env.AFDIAN_API_BASE_URL) !== null
         || normalizeEnvValue(process.env.AFDIAN_PUBLIC_BASE_URL) !== null;
 }
+/**
+ * cloneAfdianPersistentConfig：执行核心业务逻辑。
+ * @param config 参数说明。
+ * @returns 函数返回值。
+ */
+
 function cloneAfdianPersistentConfig(config) {
     return {
 
@@ -1522,9 +2144,20 @@ function cloneAfdianPersistentConfig(config) {
         publicBaseUrl: typeof config?.publicBaseUrl === 'string' ? config.publicBaseUrl : '',
     };
 }
+/**
+ * readRuntimeTokenFromEnv：执行核心业务逻辑。
+ * @returns 函数返回值。
+ */
+
 function readRuntimeTokenFromEnv() {
     return normalizeEnvValue(process.env.AFDIAN_TOKEN) ?? '';
 }
+/**
+ * normalizePersistentConfig：执行核心业务逻辑。
+ * @param input 输入参数。
+ * @returns 函数返回值。
+ */
+
 function normalizePersistentConfig(input) {
     return {
         userId: normalizeEnvValue(input?.userId) ?? '',
@@ -1532,6 +2165,12 @@ function normalizePersistentConfig(input) {
         publicBaseUrl: normalizePublicBaseUrl(input?.publicBaseUrl ?? ''),
     };
 }
+/**
+ * normalizeStoredPersistentConfig：执行核心业务逻辑。
+ * @param input 输入参数。
+ * @returns 函数返回值。
+ */
+
 function normalizeStoredPersistentConfig(input) {
     return {
         userId: normalizeEnvValue(input?.userId) ?? '',
@@ -1539,6 +2178,12 @@ function normalizeStoredPersistentConfig(input) {
         publicBaseUrl: normalizePublicBaseUrl(input?.publicBaseUrl ?? ''),
     };
 }
+/**
+ * normalizeApiBaseUrl：执行核心业务逻辑。
+ * @param value 参数说明。
+ * @returns 函数返回值。
+ */
+
 function normalizeApiBaseUrl(value) {
     return normalizeBaseUrl(value, {
         fieldLabel: '爱发电 API 地址',
@@ -1547,6 +2192,12 @@ function normalizeApiBaseUrl(value) {
         canonicalizeAfdianHost: true,
     });
 }
+/**
+ * normalizePublicBaseUrl：执行核心业务逻辑。
+ * @param value 参数说明。
+ * @returns 函数返回值。
+ */
+
 function normalizePublicBaseUrl(value) {
     return normalizeBaseUrl(value, {
         fieldLabel: '公网地址',
@@ -1555,7 +2206,16 @@ function normalizePublicBaseUrl(value) {
         canonicalizeAfdianHost: false,
     });
 }
+/**
+ * normalizeBaseUrl：执行核心业务逻辑。
+ * @param value 参数说明。
+ * @param options 选项参数。
+ * @returns 函数返回值。
+ */
+
 function normalizeBaseUrl(value, options) {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
 
     const trimmed = typeof value === 'string' ? value.trim() : '';
     if (!trimmed) {
@@ -1581,7 +2241,16 @@ function normalizeBaseUrl(value, options) {
         : '';
     return `${parsed.protocol}//${parsed.host}${normalizedPath}`;
 }
+/**
+ * buildWebhookUrl：构建并返回目标对象。
+ * @param publicBaseUrl 参数说明。
+ * @param webhookPath 参数说明。
+ * @returns 函数返回值。
+ */
+
 function buildWebhookUrl(publicBaseUrl, webhookPath) {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
 
     const baseUrl = normalizeEnvValue(publicBaseUrl);
     if (!baseUrl) {

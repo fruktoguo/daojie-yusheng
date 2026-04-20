@@ -9,49 +9,177 @@ export type ActionType = 'skill' | 'gather' | 'interact' | 'quest' | 'toggle' | 
 
 /** 行动定义。 */
 export interface ActionDef {
-  id: string;
-  name: string;
-  type: ActionType;
-  desc: string;
-  cooldownLeft: number;
-  range?: number;
-  requiresTarget?: boolean;
-  targetMode?: 'any' | 'entity' | 'tile';
-  autoBattleEnabled?: boolean;
-  autoBattleOrder?: number;
+/**
+ * id：ActionDef 内部字段。
+ */
+
+  id: string;  
+  /**
+ * name：ActionDef 内部字段。
+ */
+
+  name: string;  
+  /**
+ * type：ActionDef 内部字段。
+ */
+
+  type: ActionType;  
+  /**
+ * desc：ActionDef 内部字段。
+ */
+
+  desc: string;  
+  /**
+ * cooldownLeft：ActionDef 内部字段。
+ */
+
+  cooldownLeft: number;  
+  /**
+ * range：ActionDef 内部字段。
+ */
+
+  range?: number;  
+  /**
+ * requiresTarget：ActionDef 内部字段。
+ */
+
+  requiresTarget?: boolean;  
+  /**
+ * targetMode：ActionDef 内部字段。
+ */
+
+  targetMode?: 'any' | 'entity' | 'tile';  
+  /**
+ * autoBattleEnabled：ActionDef 内部字段。
+ */
+
+  autoBattleEnabled?: boolean;  
+  /**
+ * autoBattleOrder：ActionDef 内部字段。
+ */
+
+  autoBattleOrder?: number;  
+  /**
+ * skillEnabled：ActionDef 内部字段。
+ */
+
   skillEnabled?: boolean;
 }
 
 /** 战斗攻击特效。 */
 export interface CombatEffectAttack {
-  type: 'attack';
-  fromX: number;
-  fromY: number;
-  toX: number;
-  toY: number;
+/**
+ * type：CombatEffectAttack 内部字段。
+ */
+
+  type: 'attack';  
+  /**
+ * fromX：CombatEffectAttack 内部字段。
+ */
+
+  fromX: number;  
+  /**
+ * fromY：CombatEffectAttack 内部字段。
+ */
+
+  fromY: number;  
+  /**
+ * toX：CombatEffectAttack 内部字段。
+ */
+
+  toX: number;  
+  /**
+ * toY：CombatEffectAttack 内部字段。
+ */
+
+  toY: number;  
+  /**
+ * color：CombatEffectAttack 内部字段。
+ */
+
   color?: string;
 }
 
 /** 战斗飘字特效。 */
 export interface CombatEffectFloat {
-  type: 'float';
-  x: number;
-  y: number;
-  text: string;
-  color?: string;
-  variant?: 'damage' | 'action';
-  actionStyle?: 'default' | 'divine' | 'chant';
+/**
+ * type：CombatEffectFloat 内部字段。
+ */
+
+  type: 'float';  
+  /**
+ * x：CombatEffectFloat 内部字段。
+ */
+
+  x: number;  
+  /**
+ * y：CombatEffectFloat 内部字段。
+ */
+
+  y: number;  
+  /**
+ * text：CombatEffectFloat 内部字段。
+ */
+
+  text: string;  
+  /**
+ * color：CombatEffectFloat 内部字段。
+ */
+
+  color?: string;  
+  /**
+ * variant：CombatEffectFloat 内部字段。
+ */
+
+  variant?: 'damage' | 'action';  
+  /**
+ * actionStyle：CombatEffectFloat 内部字段。
+ */
+
+  actionStyle?: 'default' | 'divine' | 'chant';  
+  /**
+ * durationMs：CombatEffectFloat 内部字段。
+ */
+
   durationMs?: number;
 }
 
 /** 战斗地块警戒特效。 */
 export interface CombatEffectWarningZone {
-  type: 'warning_zone';
-  cells: GridPoint[];
-  color?: string;
-  baseColor?: string;
-  originX?: number;
-  originY?: number;
+/**
+ * type：CombatEffectWarningZone 内部字段。
+ */
+
+  type: 'warning_zone';  
+  /**
+ * cells：CombatEffectWarningZone 内部字段。
+ */
+
+  cells: GridPoint[];  
+  /**
+ * color：CombatEffectWarningZone 内部字段。
+ */
+
+  color?: string;  
+  /**
+ * baseColor：CombatEffectWarningZone 内部字段。
+ */
+
+  baseColor?: string;  
+  /**
+ * originX：CombatEffectWarningZone 内部字段。
+ */
+
+  originX?: number;  
+  /**
+ * originY：CombatEffectWarningZone 内部字段。
+ */
+
+  originY?: number;  
+  /**
+ * durationMs：CombatEffectWarningZone 内部字段。
+ */
+
   durationMs?: number;
 }
 

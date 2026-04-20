@@ -19,6 +19,8 @@ export class CanvasTextRendererAdapter {
 
   /** 绑定宿主并初始化画布渲染器。 */
   mount(host: HTMLElement): void {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
     const canvas = host.querySelector<HTMLCanvasElement>('#game-canvas') ?? host.querySelector<HTMLCanvasElement>('canvas');
     if (!canvas) {
       throw new Error('地图宿主节点缺少 canvas');
@@ -40,6 +42,8 @@ export class CanvasTextRendererAdapter {
 
   /** 同步样式尺寸与实际像素尺寸。 */
   resize(width: number, height: number, backbufferWidth: number, backbufferHeight: number): void {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
     if (!this.canvas) {
       return;
     }
@@ -47,7 +51,16 @@ export class CanvasTextRendererAdapter {
     this.canvas.style.height = `${Math.max(1, height)}px`;
     this.canvas.width = Math.max(1, Math.floor(backbufferWidth));
     this.canvas.height = Math.max(1, Math.floor(backbufferHeight));
-  }
+  }  
+  /**
+ * syncScene：执行核心业务逻辑。
+ * @param scene MapSceneSnapshot 参数说明。
+ * @param transition MapEntityTransition | null 参数说明。
+ * @param motionSyncToken number 参数说明。
+ * @param pathFadeDurationMs number 参数说明。
+ * @returns void。
+ */
+
 
   syncScene(
     scene: MapSceneSnapshot,
@@ -74,6 +87,8 @@ export class CanvasTextRendererAdapter {
 
   /** 将服务端特效映射为具体渲染器调用。 */
   enqueueEffect(effect: CombatEffect): void {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
     if (effect.type === 'attack') {
       this.renderer.addAttackTrail(effect.fromX, effect.fromY, effect.toX, effect.toY, effect.color);
       return;
@@ -106,7 +121,16 @@ export class CanvasTextRendererAdapter {
     this.renderer.setPathHighlight([]);
     this.renderer.setTargetingOverlay(null);
     this.renderer.setSenseQiOverlay(null);
-  }
+  }  
+  /**
+ * render：执行核心业务逻辑。
+ * @param scene MapSceneSnapshot 参数说明。
+ * @param camera CameraState 参数说明。
+ * @param projection TopdownProjection 参数说明。
+ * @param progress number 参数说明。
+ * @returns void。
+ */
+
 
   render(
     scene: MapSceneSnapshot,
@@ -114,6 +138,8 @@ export class CanvasTextRendererAdapter {
     projection: TopdownProjection,
     progress: number,
   ): void {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
     if (!this.canvas) {
       return;
     }
@@ -155,7 +181,13 @@ export class CanvasTextRendererAdapter {
   }
 
   /** 从动作特效推断浮动文字样式。 */
-  private resolveActionTextStyle(effect: Extract<CombatEffect, { type: 'float' }>): FloatingActionTextStyle | undefined {
+  private resolveActionTextStyle(effect: Extract<CombatEffect, {  
+  /**
+ * type：CanvasTextRendererAdapter 内部字段。
+ */
+ type: 'float' }>): FloatingActionTextStyle | undefined {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
     if (effect.variant !== 'action') {
       return undefined;
     }

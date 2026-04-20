@@ -8,12 +8,34 @@ function applyUiButtonVariants(button: HTMLButtonElement, variants: UiButtonVari
 
 /** createUiButton：创建界面按钮。 */
 export function createUiButton(options: {
-  label: string;
-  type?: 'button' | 'submit' | 'reset';
-  variants?: UiButtonVariant[];
-  className?: string;
+/**
+ * label：对象字段。
+ */
+
+  label: string;  
+  /**
+ * type：对象字段。
+ */
+
+  type?: 'button' | 'submit' | 'reset';  
+  /**
+ * variants：对象字段。
+ */
+
+  variants?: UiButtonVariant[];  
+  /**
+ * className：对象字段。
+ */
+
+  className?: string;  
+  /**
+ * dataset：对象字段。
+ */
+
   dataset?: Record<string, string>;
 }): HTMLButtonElement {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
   const button = document.createElement('button');
   button.type = options.type ?? 'button';
   applyUiButtonVariants(button, options.variants);
@@ -32,11 +54,31 @@ export function createUiButton(options: {
 /** createSmallBtn：创建Small Btn。 */
 export function createSmallBtn(
   label: string,
-  options: {
-    type?: 'button' | 'submit' | 'reset';
-    variants?: UiButtonVariant[];
-    className?: string;
-    disabled?: boolean;
+  options: {  
+  /**
+ * type：对象字段。
+ */
+
+    type?: 'button' | 'submit' | 'reset';    
+    /**
+ * variants：对象字段。
+ */
+
+    variants?: UiButtonVariant[];    
+    /**
+ * className：对象字段。
+ */
+
+    className?: string;    
+    /**
+ * disabled：对象字段。
+ */
+
+    disabled?: boolean;    
+    /**
+ * dataset：对象字段。
+ */
+
     dataset?: Record<string, string>;
   } = {},
 ): HTMLButtonElement {
@@ -53,6 +95,8 @@ export function createSmallBtn(
 
 /** createUiEmptyHint：创建界面Empty Hint。 */
 export function createUiEmptyHint(text: string, className?: string): HTMLDivElement {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
   const node = document.createElement('div');
   node.className = 'empty-hint ui-empty-hint';
   if (className) {
@@ -69,7 +113,15 @@ export function createEmptyHint(text: string, className?: string): HTMLDivElemen
 
 /** createUiPanelSection：创建界面面板Section。 */
 export function createUiPanelSection(title: string): {
-  section: HTMLDivElement;
+/**
+ * section：对象字段。
+ */
+
+  section: HTMLDivElement;  
+  /**
+ * title：对象字段。
+ */
+
   title: HTMLDivElement;
 } {
   const section = document.createElement('div');
@@ -85,7 +137,15 @@ export function createUiPanelSection(title: string): {
 
 /** createPanelSectionWithTitle：创建面板Section With标题。 */
 export function createPanelSectionWithTitle(title: string): {
-  sectionEl: HTMLDivElement;
+/**
+ * sectionEl：对象字段。
+ */
+
+  sectionEl: HTMLDivElement;  
+  /**
+ * titleEl：对象字段。
+ */
+
   titleEl: HTMLDivElement;
 } {
   const result = createUiPanelSection(title);
@@ -101,6 +161,8 @@ export function ensureChild<T extends Element>(
   selector: string,
   factory: () => T,
 ): T {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
   const existing = parent.querySelector<T>(selector);
   if (existing) {
     return existing;

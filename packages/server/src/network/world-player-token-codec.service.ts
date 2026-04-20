@@ -15,27 +15,99 @@ const PLAYER_TOKEN_SECRET_ENV_KEYS = [
 ] as const;
 const DEFAULT_DEV_PLAYER_TOKEN_SECRET = 'daojie-yusheng-dev-secret';
 const DEVELOPMENT_LIKE_ENVS = new Set(['', 'development', 'dev', 'local', 'test']);
+/**
+ * TokenKind：统一结构类型，保证协议与运行时一致性。
+ */
+
 
 type TokenKind = typeof ACCESS_KIND | typeof REFRESH_KIND;
+/**
+ * TokenPayloadInput：定义接口结构约束，明确可交付字段含义。
+ */
+
 
 interface TokenPayloadInput {
-  sub?: unknown;
-  username?: unknown;
-  displayName?: unknown;
-  playerId?: unknown;
+/**
+ * sub：TokenPayloadInput 内部字段。
+ */
+
+  sub?: unknown;  
+  /**
+ * username：TokenPayloadInput 内部字段。
+ */
+
+  username?: unknown;  
+  /**
+ * displayName：TokenPayloadInput 内部字段。
+ */
+
+  displayName?: unknown;  
+  /**
+ * playerId：TokenPayloadInput 内部字段。
+ */
+
+  playerId?: unknown;  
+  /**
+ * playerName：TokenPayloadInput 内部字段。
+ */
+
   playerName?: unknown;
 }
+/**
+ * ValidatedPlayerTokenPayload：定义接口结构约束，明确可交付字段含义。
+ */
+
 
 export interface ValidatedPlayerTokenPayload extends Record<string, unknown> {
-  sub: string;
-  username: string;
-  iss?: string;
-  ver?: unknown;
-  kind?: unknown;
-  scope?: unknown;
-  role?: unknown;
-  displayName?: string;
-  playerId?: string;
+/**
+ * sub：ValidatedPlayerTokenPayload 内部字段。
+ */
+
+  sub: string;  
+  /**
+ * username：ValidatedPlayerTokenPayload 内部字段。
+ */
+
+  username: string;  
+  /**
+ * iss：ValidatedPlayerTokenPayload 内部字段。
+ */
+
+  iss?: string;  
+  /**
+ * ver：ValidatedPlayerTokenPayload 内部字段。
+ */
+
+  ver?: unknown;  
+  /**
+ * kind：ValidatedPlayerTokenPayload 内部字段。
+ */
+
+  kind?: unknown;  
+  /**
+ * scope：ValidatedPlayerTokenPayload 内部字段。
+ */
+
+  scope?: unknown;  
+  /**
+ * role：ValidatedPlayerTokenPayload 内部字段。
+ */
+
+  role?: unknown;  
+  /**
+ * displayName：ValidatedPlayerTokenPayload 内部字段。
+ */
+
+  displayName?: string;  
+  /**
+ * playerId：ValidatedPlayerTokenPayload 内部字段。
+ */
+
+  playerId?: string;  
+  /**
+ * playerName：ValidatedPlayerTokenPayload 内部字段。
+ */
+
   playerName?: string;
 }
 
@@ -46,7 +118,12 @@ export class WorldPlayerTokenCodecService {
   private readonly secrets: string[];
 
   /** 当前签名主密钥。 */
-  private readonly signingSecret: string;
+  private readonly signingSecret: string;  
+  /**
+ * 构造器：初始化 当前 实例并建立基础状态。
+ * @returns 无返回值（构造函数）。
+ */
+
 
   constructor() {
     this.secrets = resolvePlayerTokenSecrets();
@@ -75,6 +152,8 @@ export class WorldPlayerTokenCodecService {
 
   /** 验证令牌签名和载荷类型。 */
   private validateToken(token: string, expectedKind: TokenKind): ValidatedPlayerTokenPayload | null {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
     const normalizedToken = typeof token === 'string' ? token.trim() : '';
     if (!normalizedToken) {
       return null;
@@ -93,6 +172,8 @@ export class WorldPlayerTokenCodecService {
 
   /** 生成带签名的 JWT 字符串。 */
   private issueToken(payload: TokenPayloadInput, kind: TokenKind, expiresInSeconds: number): string {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
     const normalizedSub = String(payload?.sub ?? '').trim();
     const normalizedUsername = String(payload?.username ?? '').trim();
     if (!normalizedSub || !normalizedUsername) {
@@ -134,8 +215,15 @@ export class WorldPlayerTokenCodecService {
     return `${header}.${body}.${signature}`;
   }
 }
+/**
+ * resolvePlayerTokenSecrets：执行核心业务逻辑。
+ * @returns string[]。
+ */
+
 
 function resolvePlayerTokenSecrets(): string[] {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
   const secrets: string[] = [];
 
   for (const key of PLAYER_TOKEN_SECRET_ENV_KEYS) {
@@ -156,13 +244,27 @@ function resolvePlayerTokenSecrets(): string[] {
   secrets.push(DEFAULT_DEV_PLAYER_TOKEN_SECRET);
   return secrets;
 }
+/**
+ * isDevelopmentLikeEnv：执行状态校验并返回判断结果。
+ * @returns boolean。
+ */
+
 
 function isDevelopmentLikeEnv(): boolean {
   const runtimeEnv = String(process.env.SERVER_NEXT_RUNTIME_ENV ?? process.env.APP_ENV ?? process.env.NODE_ENV ?? '').trim().toLowerCase();
   return DEVELOPMENT_LIKE_ENVS.has(runtimeEnv);
 }
+/**
+ * normalizeValidatedPayload：执行核心业务逻辑。
+ * @param payload Record<string, unknown> | null 载荷参数。
+ * @param expectedKind TokenKind 参数说明。
+ * @returns ValidatedPlayerTokenPayload | null。
+ */
+
 
 function normalizeValidatedPayload(payload: Record<string, unknown> | null, expectedKind: TokenKind): ValidatedPlayerTokenPayload | null {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
   if (!payload || typeof payload !== 'object') {
     return null;
   }
@@ -198,8 +300,17 @@ function normalizeValidatedPayload(payload: Record<string, unknown> | null, expe
 
   return payload as ValidatedPlayerTokenPayload;
 }
+/**
+ * normalizeTokenKind：执行核心业务逻辑。
+ * @param kindValue unknown 参数说明。
+ * @param scopeValue unknown 参数说明。
+ * @returns TokenKind。
+ */
+
 
 function normalizeTokenKind(kindValue: unknown, scopeValue: unknown): TokenKind {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
   const kind = typeof kindValue === 'string' ? kindValue.trim().toLowerCase() : '';
   if (kind === ACCESS_KIND || kind === REFRESH_KIND) {
     return kind;
@@ -212,15 +323,34 @@ function normalizeTokenKind(kindValue: unknown, scopeValue: unknown): TokenKind 
 
   return ACCESS_KIND;
 }
+/**
+ * normalizeOptionalString：执行核心业务逻辑。
+ * @param value unknown 参数说明。
+ * @returns string。
+ */
+
 
 function normalizeOptionalString(value: unknown): string {
   return typeof value === 'string' && value.trim().length > 0 ? value.trim() : '';
 }
+/**
+ * readPositiveIntEnv：执行核心业务逻辑。
+ * @param name string 参数说明。
+ * @param fallback number 参数说明。
+ * @returns number。
+ */
+
 
 function readPositiveIntEnv(name: string, fallback: number): number {
   const raw = Number(process.env[name] ?? Number.NaN);
   return Number.isFinite(raw) && raw > 0 ? Math.trunc(raw) : fallback;
 }
+/**
+ * base64UrlEncode：执行核心业务逻辑。
+ * @param value Buffer 参数说明。
+ * @returns string。
+ */
+
 
 function base64UrlEncode(value: Buffer): string {
   return value

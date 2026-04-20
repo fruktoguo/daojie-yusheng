@@ -13,6 +13,8 @@ import { formatDisplayInteger, formatDisplayPercent } from '../../utils/number';
 
 /** formatEffectCondition：格式化效果条件。 */
 function formatEffectCondition(effect: EquipmentEffectDef): string {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
   const conditions = effect?.conditions?.items ?? [];
   if (conditions.length === 0) {
     return '';
@@ -42,6 +44,8 @@ function formatEffectCondition(effect: EquipmentEffectDef): string {
 
 /** formatItemEffects：格式化物品效果。 */
 function formatItemEffects(item: EquipmentSlots[EquipSlot]): string[] {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
   const previewItem = item ? resolvePreviewItem(item) : null;
   if (!previewItem?.effects?.length) {
     return [];
@@ -88,6 +92,8 @@ function formatItemEffects(item: EquipmentSlots[EquipSlot]): string[] {
 
 /** formatItemBonuses：格式化物品Bonuses。 */
 function formatItemBonuses(item: EquipmentSlots[EquipSlot]): string {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
   if (!item) return '暂无词条';
   const previewItem = resolvePreviewItem(item);
   const bonusParts = describePreviewBonuses(previewItem.equipAttrs, previewItem.equipStats, previewItem.equipValueStats);
@@ -105,11 +111,35 @@ function createFragmentFromHtml(html: string): DocumentFragment {
 
 /** EquipmentSlotView：装备槽位的渲染引用集合。 */
 type EquipmentSlotView = {
-  root: HTMLDivElement;
-  name: HTMLSpanElement;
-  item: HTMLSpanElement;
-  empty: HTMLSpanElement;
-  meta: HTMLSpanElement;
+/**
+ * root：对象字段。
+ */
+
+  root: HTMLDivElement;  
+  /**
+ * name：对象字段。
+ */
+
+  name: HTMLSpanElement;  
+  /**
+ * item：对象字段。
+ */
+
+  item: HTMLSpanElement;  
+  /**
+ * empty：对象字段。
+ */
+
+  empty: HTMLSpanElement;  
+  /**
+ * meta：对象字段。
+ */
+
+  meta: HTMLSpanElement;  
+  /**
+ * action：对象字段。
+ */
+
   action: HTMLButtonElement;
 };
 
@@ -130,7 +160,12 @@ export class EquipmentPanel {
   /** emptyStateEl：empty状态元素。 */
   private emptyStateEl: HTMLDivElement | null = null;
   /** sectionEl：section元素。 */
-  private sectionEl: HTMLDivElement | null = null;
+  private sectionEl: HTMLDivElement | null = null;  
+  /**
+ * 构造器：初始化 当前 实例并建立基础状态。
+ * @returns 无返回值（构造函数）。
+ */
+
 
   constructor() {
     this.ensureTooltipStyle();
@@ -147,7 +182,13 @@ export class EquipmentPanel {
     this.sectionEl = null;
     this.emptyStateEl = null;
     this.pane.replaceChildren(createFragmentFromHtml('<div class="empty-hint ui-empty-hint">尚未装备任何物品</div>'));
-  }
+  }  
+  /**
+ * setCallbacks：更新/写入相关状态。
+ * @param onUnequip (slot: EquipSlot) => void 参数说明。
+ * @returns void。
+ */
+
 
   setCallbacks(onUnequip: (slot: EquipSlot) => void): void {
     this.onUnequip = onUnequip;
@@ -167,6 +208,8 @@ export class EquipmentPanel {
 
   /** render：渲染渲染。 */
   private render(equipment: EquipmentSlots): void {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
     this.ensureStructure();
     if (!this.sectionEl || !this.emptyStateEl) {
       return;
@@ -202,6 +245,8 @@ export class EquipmentPanel {
 
   /** ensureStructure：确保Structure。 */
   private ensureStructure(): void {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
     if (this.sectionEl && this.emptyStateEl && this.slotViews.size === EQUIP_SLOTS.length) {
       return;
     }
@@ -385,6 +430,8 @@ export class EquipmentPanel {
 
   /** ensureTooltipStyle：确保提示样式。 */
   private ensureTooltipStyle(): void {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
     if (document.getElementById('equipment-panel-tooltip-style')) return;
     const style = document.createElement('style');
     style.id = 'equipment-panel-tooltip-style';

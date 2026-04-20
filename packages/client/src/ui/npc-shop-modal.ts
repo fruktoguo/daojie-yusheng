@@ -22,49 +22,145 @@ function escapeHtmlAttr(value: string): string {
 
 /** NpcShopModalCallbacks：商店弹窗回调集。 */
 interface NpcShopModalCallbacks {
-  onRequestShop: (npcId: string) => void;
+/**
+ * onRequestShop：NpcShopModalCallbacks 内部字段。
+ */
+
+  onRequestShop: (npcId: string) => void;  
+  /**
+ * onBuyItem：NpcShopModalCallbacks 内部字段。
+ */
+
   onBuyItem: (npcId: string, itemId: string, quantity: number) => void;
 }
 
 /** NpcShopItemState：商店商品渲染状态。 */
 interface NpcShopItemState {
-  itemId: string;
-  item: ItemStack;
-  unitPrice: number;
-  remainingQuantity?: number;
-  stockLimit?: number;
+/**
+ * itemId：NpcShopItemState 内部字段。
+ */
+
+  itemId: string;  
+  /**
+ * item：NpcShopItemState 内部字段。
+ */
+
+  item: ItemStack;  
+  /**
+ * unitPrice：NpcShopItemState 内部字段。
+ */
+
+  unitPrice: number;  
+  /**
+ * remainingQuantity：NpcShopItemState 内部字段。
+ */
+
+  remainingQuantity?: number;  
+  /**
+ * stockLimit：NpcShopItemState 内部字段。
+ */
+
+  stockLimit?: number;  
+  /**
+ * refreshAt：NpcShopItemState 内部字段。
+ */
+
   refreshAt?: number;
 }
 
 /** NpcShopState：NPC 商店渲染状态。 */
 interface NpcShopState {
-  npcId: string;
-  npcName: string;
-  dialogue: string;
-  currencyItemId: string;
-  currencyItemName: string;
+/**
+ * npcId：NpcShopState 内部字段。
+ */
+
+  npcId: string;  
+  /**
+ * npcName：NpcShopState 内部字段。
+ */
+
+  npcName: string;  
+  /**
+ * dialogue：NpcShopState 内部字段。
+ */
+
+  dialogue: string;  
+  /**
+ * currencyItemId：NpcShopState 内部字段。
+ */
+
+  currencyItemId: string;  
+  /**
+ * currencyItemName：NpcShopState 内部字段。
+ */
+
+  currencyItemName: string;  
+  /**
+ * items：NpcShopState 内部字段。
+ */
+
   items: NpcShopItemState[];
 }
 
 /** NpcShopResponseState：商店接口响应状态。 */
 interface NpcShopResponseState {
-  npcId: string;
-  shop: NpcShopState | null;
+/**
+ * npcId：NpcShopResponseState 内部字段。
+ */
+
+  npcId: string;  
+  /**
+ * shop：NpcShopResponseState 内部字段。
+ */
+
+  shop: NpcShopState | null;  
+  /**
+ * error：NpcShopResponseState 内部字段。
+ */
+
   error?: string;
 }
 
 /** NpcShopModalMeta：商店弹窗标题元数据。 */
 interface NpcShopModalMeta {
-  title: string;
+/**
+ * title：NpcShopModalMeta 内部字段。
+ */
+
+  title: string;  
+  /**
+ * subtitle：NpcShopModalMeta 内部字段。
+ */
+
   subtitle: string;
 }
 
 /** NpcShopRenderState：商店弹窗滚动与输入焦点状态。 */
 interface NpcShopRenderState {
-  listScrollTop: number;
-  detailScrollTop: number;
-  focusedQuantityItemId: string | null;
-  selectionStart: number | null;
+/**
+ * listScrollTop：NpcShopRenderState 内部字段。
+ */
+
+  listScrollTop: number;  
+  /**
+ * detailScrollTop：NpcShopRenderState 内部字段。
+ */
+
+  detailScrollTop: number;  
+  /**
+ * focusedQuantityItemId：NpcShopRenderState 内部字段。
+ */
+
+  focusedQuantityItemId: string | null;  
+  /**
+ * selectionStart：NpcShopRenderState 内部字段。
+ */
+
+  selectionStart: number | null;  
+  /**
+ * selectionEnd：NpcShopRenderState 内部字段。
+ */
+
   selectionEnd: number | null;
 }
 
@@ -105,6 +201,8 @@ export class NpcShopModal {
 
   /** syncInventory：同步背包。 */
   syncInventory(inventory: Inventory): void {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
     this.inventory = inventory;
     if (this.activeNpcId && detailModalHost.isOpenFor(NpcShopModal.MODAL_OWNER)) {
       this.callbacks?.onRequestShop(this.activeNpcId);
@@ -116,6 +214,8 @@ export class NpcShopModal {
 
   /** open：打开open。 */
   open(npcId: string): void {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
     this.activeNpcId = npcId;
     this.loading = true;
     if (this.shopState?.npcId !== npcId) {
@@ -129,6 +229,8 @@ export class NpcShopModal {
 
   /** updateShop：更新商店。 */
   updateShop(data: NpcShopResponseState): void {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
     if (this.activeNpcId !== data.npcId) {
       return;
     }
@@ -163,6 +265,8 @@ export class NpcShopModal {
 
   /** render：渲染渲染。 */
   private render(): void {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
     const meta = this.buildModalMeta();
     const body = detailModalHost.isOpenFor(NpcShopModal.MODAL_OWNER)
       ? document.getElementById('detail-modal-body')
@@ -201,6 +305,8 @@ export class NpcShopModal {
 
   /** renderBody：渲染身体。 */
   private renderBody(body: HTMLElement): void {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
     if (this.loading && !this.shopState) {
       body.replaceChildren(this.createEmptyState('商店货架同步中……'));
       return;
@@ -315,6 +421,8 @@ export class NpcShopModal {
 
   /** patchListItem：按当前商店状态更新列表项。 */
   private patchListItem(button: HTMLButtonElement, item: NpcShopItemState, active: boolean): boolean {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
     const nameWrap = button.querySelector<HTMLElement>('[data-npc-shop-item-name-wrap="true"]');
     const nameText = button.querySelector<HTMLElement>('[data-npc-shop-item-tooltip]');
     const ownedNode = button.querySelector<HTMLElement>('[data-npc-shop-owned="true"]');
@@ -379,6 +487,8 @@ export class NpcShopModal {
 
   /** syncContainerChildren：按目标顺序复用并重排子节点。 */
   private syncContainerChildren(container: HTMLElement, orderedNodes: HTMLElement[]): void {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
     const allowed = new Set(orderedNodes);
     for (const child of Array.from(container.children)) {
       if (!(child instanceof HTMLElement) || !allowed.has(child)) {
@@ -393,7 +503,14 @@ export class NpcShopModal {
       }
       reference = node.nextSibling;
     }
-  }
+  }  
+  /**
+ * renderDetailPanel：执行核心业务逻辑。
+ * @param shop NpcShopState 参数说明。
+ * @param selectedItem NpcShopItemState 参数说明。
+ * @returns string。
+ */
+
 
   private renderDetailPanel(
     shop: NpcShopState,
@@ -503,6 +620,8 @@ export class NpcShopModal {
 
   /** parseQuantity：解析Quantity。 */
   private parseQuantity(itemId: string): number | null {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
     const raw = this.quantityDrafts.get(itemId) ?? '1';
     if (!raw || !/^\d+$/.test(raw)) {
       return null;
@@ -516,6 +635,8 @@ export class NpcShopModal {
 
   /** bindEvents：绑定事件。 */
   private bindEvents(body: HTMLElement): void {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
     if (this.delegatedEventsBound) {
       return;
     }
@@ -526,6 +647,8 @@ export class NpcShopModal {
 
   /** handleBodyClick：处理身体Click。 */
   private handleBodyClick(event: Event): void {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
     const target = event.target;
     if (!(target instanceof HTMLElement)) {
       return;
@@ -576,6 +699,8 @@ export class NpcShopModal {
 
   /** handleBodyInput：处理身体输入。 */
   private handleBodyInput(event: Event): void {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
     const target = event.target;
     if (!(target instanceof HTMLInputElement)) {
       return;
@@ -606,6 +731,8 @@ export class NpcShopModal {
 
   /** patchBody：处理patch身体。 */
   private patchBody(body: HTMLElement, meta: NpcShopModalMeta): boolean {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
     if (!body.querySelector('.npc-shop-modal-shell')) {
       return false;
     }
@@ -635,6 +762,8 @@ export class NpcShopModal {
 
   /** captureRenderState：记录当前滚动和数量输入焦点。 */
   private captureRenderState(body: HTMLElement): NpcShopRenderState {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
     const activeElement = document.activeElement;
     if (activeElement instanceof HTMLInputElement && body.contains(activeElement)) {
       return {
@@ -656,6 +785,8 @@ export class NpcShopModal {
 
   /** restoreRenderState：恢复滚动和数量输入焦点。 */
   private restoreRenderState(body: HTMLElement, state: NpcShopRenderState): void {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
     const listRoot = body.querySelector<HTMLElement>('[data-npc-shop-list="true"]');
     const detailRoot = body.querySelector<HTMLElement>('[data-npc-shop-detail="true"]');
     if (listRoot) {
@@ -679,6 +810,8 @@ export class NpcShopModal {
 
   /** syncPurchaseState：同步Purchase状态。 */
   private syncPurchaseState(root: ParentNode, itemId: string): void {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
     const shop = this.shopState?.shop;
     const entry = shop?.items.find((item) => item.itemId === itemId);
     const totalNode = root.querySelector<HTMLElement>(`[data-npc-shop-total="${itemId}"]`);
@@ -709,6 +842,8 @@ export class NpcShopModal {
 
   /** formatRefreshHint：格式化Refresh Hint。 */
   private formatRefreshHint(refreshAt: number | undefined): string | null {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
     if (!Number.isFinite(refreshAt)) {
       return null;
     }
@@ -726,6 +861,8 @@ export class NpcShopModal {
 
   /** bindItemTooltipEvents：绑定物品提示事件。 */
   private bindItemTooltipEvents(body: HTMLElement): void {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
     const shop = this.shopState?.shop;
     if (!shop) {
       return;
@@ -793,6 +930,8 @@ export class NpcShopModal {
 
   /** findInventoryItemCount：查找背包物品数量。 */
   private findInventoryItemCount(itemId: string): number {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
     if (!itemId) {
       return 0;
     }

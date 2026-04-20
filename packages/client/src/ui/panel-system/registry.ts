@@ -23,6 +23,8 @@ export class PanelRegistry {
 
 /** buildDefaultPanelRegistry：构建默认面板注册表。 */
 export function buildDefaultPanelRegistry(): PanelRegistry {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
   const registry = new PanelRegistry();
   const definitions: PanelDefinition[] = [
     {

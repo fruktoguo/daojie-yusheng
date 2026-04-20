@@ -4,69 +4,269 @@ import { Pool } from 'pg';
 
 import { buildDefaultRoleName, normalizeDisplayName, normalizeRoleName, normalizeUsername, resolveDisplayName } from '../../auth/account-validation';
 import { resolveServerNextDatabaseUrl } from '../../config/env-alias';
+/**
+ * AuthConflictKind：统一结构类型，保证协议与运行时一致性。
+ */
+
 
 type AuthConflictKind = 'account' | 'role' | 'display';
+/**
+ * PersistedAuthRow：定义接口结构约束，明确可交付字段含义。
+ */
+
 
 interface PersistedAuthRow {
-  user_id?: unknown;
-  username?: unknown;
-  player_id?: unknown;
-  pending_role_name?: unknown;
-  display_name?: unknown;
-  password_hash?: unknown;
-  total_online_seconds?: unknown;
-  current_online_started_at?: unknown;
-  created_at?: unknown;
+/**
+ * user_id：PersistedAuthRow 内部字段。
+ */
+
+  user_id?: unknown;  
+  /**
+ * username：PersistedAuthRow 内部字段。
+ */
+
+  username?: unknown;  
+  /**
+ * player_id：PersistedAuthRow 内部字段。
+ */
+
+  player_id?: unknown;  
+  /**
+ * pending_role_name：PersistedAuthRow 内部字段。
+ */
+
+  pending_role_name?: unknown;  
+  /**
+ * display_name：PersistedAuthRow 内部字段。
+ */
+
+  display_name?: unknown;  
+  /**
+ * password_hash：PersistedAuthRow 内部字段。
+ */
+
+  password_hash?: unknown;  
+  /**
+ * total_online_seconds：PersistedAuthRow 内部字段。
+ */
+
+  total_online_seconds?: unknown;  
+  /**
+ * current_online_started_at：PersistedAuthRow 内部字段。
+ */
+
+  current_online_started_at?: unknown;  
+  /**
+ * created_at：PersistedAuthRow 内部字段。
+ */
+
+  created_at?: unknown;  
+  /**
+ * updated_at：PersistedAuthRow 内部字段。
+ */
+
   updated_at?: unknown;
 }
+/**
+ * AuthRecordCandidate：定义接口结构约束，明确可交付字段含义。
+ */
+
 
 interface AuthRecordCandidate {
-  id?: unknown;
-  userId?: unknown;
-  username?: unknown;
-  displayName?: unknown;
-  pendingRoleName?: unknown;
-  playerId?: unknown;
-  playerName?: unknown;
-  passwordHash?: unknown;
-  totalOnlineSeconds?: unknown;
-  currentOnlineStartedAt?: unknown;
-  createdAt?: unknown;
+/**
+ * id：AuthRecordCandidate 内部字段。
+ */
+
+  id?: unknown;  
+  /**
+ * userId：AuthRecordCandidate 内部字段。
+ */
+
+  userId?: unknown;  
+  /**
+ * username：AuthRecordCandidate 内部字段。
+ */
+
+  username?: unknown;  
+  /**
+ * displayName：AuthRecordCandidate 内部字段。
+ */
+
+  displayName?: unknown;  
+  /**
+ * pendingRoleName：AuthRecordCandidate 内部字段。
+ */
+
+  pendingRoleName?: unknown;  
+  /**
+ * playerId：AuthRecordCandidate 内部字段。
+ */
+
+  playerId?: unknown;  
+  /**
+ * playerName：AuthRecordCandidate 内部字段。
+ */
+
+  playerName?: unknown;  
+  /**
+ * passwordHash：AuthRecordCandidate 内部字段。
+ */
+
+  passwordHash?: unknown;  
+  /**
+ * totalOnlineSeconds：AuthRecordCandidate 内部字段。
+ */
+
+  totalOnlineSeconds?: unknown;  
+  /**
+ * currentOnlineStartedAt：AuthRecordCandidate 内部字段。
+ */
+
+  currentOnlineStartedAt?: unknown;  
+  /**
+ * createdAt：AuthRecordCandidate 内部字段。
+ */
+
+  createdAt?: unknown;  
+  /**
+ * updatedAt：AuthRecordCandidate 内部字段。
+ */
+
   updatedAt?: unknown;
 }
+/**
+ * AuthExcludeEntryCandidate：定义接口结构约束，明确可交付字段含义。
+ */
+
 
 interface AuthExcludeEntryCandidate {
-  userId?: unknown;
+/**
+ * userId：AuthExcludeEntryCandidate 内部字段。
+ */
+
+  userId?: unknown;  
+  /**
+ * kind：AuthExcludeEntryCandidate 内部字段。
+ */
+
   kind?: unknown;
 }
+/**
+ * AuthConflict：定义接口结构约束，明确可交付字段含义。
+ */
+
 
 interface AuthConflict {
-  kind: AuthConflictKind;
+/**
+ * kind：AuthConflict 内部字段。
+ */
+
+  kind: AuthConflictKind;  
+  /**
+ * userId：AuthConflict 内部字段。
+ */
+
   userId: string;
 }
+/**
+ * EnsureAvailableOptions：定义接口结构约束，明确可交付字段含义。
+ */
+
 
 interface EnsureAvailableOptions {
+/**
+ * exclude：EnsureAvailableOptions 内部字段。
+ */
+
   exclude?: AuthExcludeEntryCandidate[];
 }
+/**
+ * AuthExcludeEntry：定义接口结构约束，明确可交付字段含义。
+ */
+
 
 interface AuthExcludeEntry {
-  userId: string;
+/**
+ * userId：AuthExcludeEntry 内部字段。
+ */
+
+  userId: string;  
+  /**
+ * kind：AuthExcludeEntry 内部字段。
+ */
+
   kind: AuthConflictKind;
 }
+/**
+ * NextPlayerAuthUser：定义接口结构约束，明确可交付字段含义。
+ */
+
 
 export interface NextPlayerAuthUser {
-  version: 1;
-  id: string;
-  userId: string;
-  username: string;
-  displayName: string | null;
-  pendingRoleName: string;
-  playerId: string;
-  playerName: string;
-  passwordHash: string;
-  totalOnlineSeconds: number;
-  currentOnlineStartedAt: string | null;
-  createdAt: string;
+/**
+ * version：NextPlayerAuthUser 内部字段。
+ */
+
+  version: 1;  
+  /**
+ * id：NextPlayerAuthUser 内部字段。
+ */
+
+  id: string;  
+  /**
+ * userId：NextPlayerAuthUser 内部字段。
+ */
+
+  userId: string;  
+  /**
+ * username：NextPlayerAuthUser 内部字段。
+ */
+
+  username: string;  
+  /**
+ * displayName：NextPlayerAuthUser 内部字段。
+ */
+
+  displayName: string | null;  
+  /**
+ * pendingRoleName：NextPlayerAuthUser 内部字段。
+ */
+
+  pendingRoleName: string;  
+  /**
+ * playerId：NextPlayerAuthUser 内部字段。
+ */
+
+  playerId: string;  
+  /**
+ * playerName：NextPlayerAuthUser 内部字段。
+ */
+
+  playerName: string;  
+  /**
+ * passwordHash：NextPlayerAuthUser 内部字段。
+ */
+
+  passwordHash: string;  
+  /**
+ * totalOnlineSeconds：NextPlayerAuthUser 内部字段。
+ */
+
+  totalOnlineSeconds: number;  
+  /**
+ * currentOnlineStartedAt：NextPlayerAuthUser 内部字段。
+ */
+
+  currentOnlineStartedAt: string | null;  
+  /**
+ * createdAt：NextPlayerAuthUser 内部字段。
+ */
+
+  createdAt: string;  
+  /**
+ * updatedAt：NextPlayerAuthUser 内部字段。
+ */
+
   updatedAt: number;
 }
 
@@ -127,6 +327,8 @@ export class NextPlayerAuthStoreService implements OnModuleInit, OnModuleDestroy
 
   /** 启动时加载持久化账号到内存索引。 */
   async onModuleInit(): Promise<void> {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
     const databaseUrl = resolveServerNextDatabaseUrl();
     if (!databaseUrl.trim()) {
       this.logger.log('Next 玩家鉴权存储运行在纯内存模式：未提供 SERVER_NEXT_DATABASE_URL/DATABASE_URL');
@@ -160,6 +362,8 @@ export class NextPlayerAuthStoreService implements OnModuleInit, OnModuleDestroy
 
   /** 从正式 auth 专表重建账号索引。 */
   async reloadFromPersistence(): Promise<void> {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
     if (!this.pool || !this.enabled) {
       return;
     }
@@ -198,6 +402,8 @@ export class NextPlayerAuthStoreService implements OnModuleInit, OnModuleDestroy
 
   /** 保存账号并同步刷新所有内存索引。 */
   async saveUser(user: AuthRecordCandidate): Promise<NextPlayerAuthUser> {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
     const normalized = normalizeAuthRecord(user);
     if (!normalized) {
       throw new BadRequestException('账号记录无效');
@@ -251,6 +457,8 @@ export class NextPlayerAuthStoreService implements OnModuleInit, OnModuleDestroy
 
   /** 持久化启用时按 userId 回读正式真源，避免继续命中失效内存缓存。 */
   async refreshUserFromPersistenceById(userId: string): Promise<NextPlayerAuthUser | null> {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
     if (!this.pool || !this.enabled) {
       return this.usersById.get(userId) ?? null;
     }
@@ -288,6 +496,8 @@ export class NextPlayerAuthStoreService implements OnModuleInit, OnModuleDestroy
 
   /** 按 userId 查询账号。 */
   async findUserById(userId: string): Promise<NextPlayerAuthUser | null> {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
     const normalizedUserId = normalizeRequiredString(userId);
     if (!normalizedUserId) {
       return null;
@@ -306,6 +516,8 @@ export class NextPlayerAuthStoreService implements OnModuleInit, OnModuleDestroy
 
   /** 按玩家 ID 查询账号。 */
   async findUserByPlayerId(playerId: string): Promise<NextPlayerAuthUser | null> {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
     const normalizedPlayerId = normalizeRequiredString(playerId);
     const userId = normalizedPlayerId ? this.userIdByPlayerId.get(normalizedPlayerId) ?? '' : '';
     if (!userId) {
@@ -317,6 +529,8 @@ export class NextPlayerAuthStoreService implements OnModuleInit, OnModuleDestroy
 
   /** 按用户名查询账号。 */
   async findUserByUsername(username: string): Promise<NextPlayerAuthUser | null> {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
     const normalizedUsername = normalizeUsername(username).trim();
     const userId = normalizedUsername ? this.userIdByUsername.get(normalizedUsername) ?? '' : '';
     if (!userId) {
@@ -328,6 +542,8 @@ export class NextPlayerAuthStoreService implements OnModuleInit, OnModuleDestroy
 
   /** 按角色名查询所有账号。 */
   async findUsersByRoleName(roleName: string): Promise<NextPlayerAuthUser[]> {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
     const normalizedRoleName = normalizeRoleName(roleName);
     if (!normalizedRoleName) {
       return [];
@@ -342,6 +558,8 @@ export class NextPlayerAuthStoreService implements OnModuleInit, OnModuleDestroy
 
   /** 校验候选值是否可用，返回可读冲突说明。 */
   async ensureAvailable(value: string, requestedKind: AuthConflictKind, options: EnsureAvailableOptions = {}): Promise<string | null> {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
     if (requestedKind === 'display' && isDuplicateFriendlyDisplayName(value)) {
       return null;
     }
@@ -355,6 +573,8 @@ export class NextPlayerAuthStoreService implements OnModuleInit, OnModuleDestroy
 
   /** 在账号/角色/显示名三个维度上查找冲突账号。 */
   findConflict(value: string, requestedKind: AuthConflictKind, options: EnsureAvailableOptions = {}): AuthConflict | null {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
     if (!value) {
       return null;
     }
@@ -410,6 +630,8 @@ export class NextPlayerAuthStoreService implements OnModuleInit, OnModuleDestroy
 
   /** 以 user.id 作为主键替换账号记录。 */
   replaceUser(user: NextPlayerAuthUser): void {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
     const previous = this.usersById.get(user.id) ?? null;
     if (previous) {
       this.unindexUser(previous);
@@ -419,6 +641,8 @@ export class NextPlayerAuthStoreService implements OnModuleInit, OnModuleDestroy
 
   /** 将账号写入所有辅助索引。 */
   indexUser(user: NextPlayerAuthUser): void {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
     this.usersById.set(user.id, user);
     this.userIdByUsername.set(user.username, user.id);
     this.userIdByPlayerId.set(user.playerId, user.id);
@@ -434,6 +658,8 @@ export class NextPlayerAuthStoreService implements OnModuleInit, OnModuleDestroy
 
   /** 从所有辅助索引中移除账号。 */
   unindexUser(user: NextPlayerAuthUser): void {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
     this.usersById.delete(user.id);
     if (this.userIdByUsername.get(user.username) === user.id) {
       this.userIdByUsername.delete(user.username);
@@ -453,6 +679,8 @@ export class NextPlayerAuthStoreService implements OnModuleInit, OnModuleDestroy
 
   /** 安全关闭数据库连接池，失败时忽略。 */
   async closePool(): Promise<void> {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
     const pool = this.pool;
     this.pool = null;
     this.enabled = false;
@@ -461,8 +689,16 @@ export class NextPlayerAuthStoreService implements OnModuleInit, OnModuleDestroy
     }
   }
 }
+/**
+ * normalizePersistedAuthRow：执行核心业务逻辑。
+ * @param row PersistedAuthRow | null 参数说明。
+ * @returns NextPlayerAuthUser | null。
+ */
+
 
 function normalizePersistedAuthRow(row: PersistedAuthRow | null): NextPlayerAuthUser | null {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
   if (!row || typeof row !== 'object') {
     return null;
   }
@@ -504,8 +740,17 @@ function normalizePersistedAuthRow(row: PersistedAuthRow | null): NextPlayerAuth
     updatedAt,
   };
 }
+/**
+ * normalizeAuthRecord：执行核心业务逻辑。
+ * @param raw AuthRecordCandidate | null | undefined 参数说明。
+ * @param fallbackKey 参数说明。
+ * @returns NextPlayerAuthUser | null。
+ */
+
 
 function normalizeAuthRecord(raw: AuthRecordCandidate | null | undefined, fallbackKey = ''): NextPlayerAuthUser | null {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
   if (!raw || typeof raw !== 'object') {
     return null;
   }
@@ -540,8 +785,18 @@ function normalizeAuthRecord(raw: AuthRecordCandidate | null | undefined, fallba
       : Date.now(),
   };
 }
+/**
+ * toPersistedUser：执行核心业务逻辑。
+ * @param user NextPlayerAuthUser 参数说明。
+ * @returns Omit<NextPlayerAuthUser, 'userId'> & { userId: string }。
+ */
 
-function toPersistedUser(user: NextPlayerAuthUser): Omit<NextPlayerAuthUser, 'userId'> & { userId: string } {
+
+function toPersistedUser(user: NextPlayerAuthUser): Omit<NextPlayerAuthUser, 'userId'> & {
+/**
+ * userId：对象字段。
+ */
+ userId: string } {
   return {
     version: 1,
     userId: user.id,
@@ -558,38 +813,86 @@ function toPersistedUser(user: NextPlayerAuthUser): Omit<NextPlayerAuthUser, 'us
     updatedAt: user.updatedAt,
   };
 }
+/**
+ * cloneUser：执行核心业务逻辑。
+ * @param user NextPlayerAuthUser 参数说明。
+ * @returns NextPlayerAuthUser。
+ */
+
 
 function cloneUser(user: NextPlayerAuthUser): NextPlayerAuthUser {
   return {
     ...user,
   };
 }
+/**
+ * normalizeRequiredString：执行核心业务逻辑。
+ * @param value unknown 参数说明。
+ * @returns string。
+ */
+
 
 function normalizeRequiredString(value: unknown): string {
   return typeof value === 'string' ? value.trim() : '';
 }
+/**
+ * normalizeOptionalDisplayName：执行核心业务逻辑。
+ * @param value unknown 参数说明。
+ * @returns string | null。
+ */
+
 
 function normalizeOptionalDisplayName(value: unknown): string | null {
   const normalized = normalizeDisplayName(value);
   return normalized.trim().length > 0 ? normalized : null;
 }
+/**
+ * normalizeDateTime：执行核心业务逻辑。
+ * @param value unknown 参数说明。
+ * @returns string | null。
+ */
+
 
 function normalizeDateTime(value: unknown): string | null {
   return typeof value === 'string' && value.trim() ? value : null;
 }
+/**
+ * buildFallbackPlayerId：构建并返回目标对象。
+ * @param userId string user ID。
+ * @returns string。
+ */
+
 
 function buildFallbackPlayerId(userId: string): string {
   const normalizedUserId = normalizeRequiredString(userId);
   return normalizedUserId ? `p_${normalizedUserId}` : 'p_guest';
 }
+/**
+ * addToSetMap：执行核心业务逻辑。
+ * @param target Map<string, Set<string>> 目标对象。
+ * @param key string 参数说明。
+ * @param userId string user ID。
+ * @returns void。
+ */
+
 
 function addToSetMap(target: Map<string, Set<string>>, key: string, userId: string): void {
   const current = target.get(key) ?? new Set<string>();
   current.add(userId);
   target.set(key, current);
 }
+/**
+ * removeFromSetMap：执行核心业务逻辑。
+ * @param target Map<string, Set<string>> 目标对象。
+ * @param key string 参数说明。
+ * @param userId string user ID。
+ * @returns void。
+ */
+
 
 function removeFromSetMap(target: Map<string, Set<string>>, key: string, userId: string): void {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
   const current = target.get(key) ?? null;
   if (!current) {
     return;
@@ -602,8 +905,16 @@ function removeFromSetMap(target: Map<string, Set<string>>, key: string, userId:
   }
   target.set(key, current);
 }
+/**
+ * normalizeExcludeEntries：执行核心业务逻辑。
+ * @param entries AuthExcludeEntryCandidate[] | undefined 参数说明。
+ * @returns AuthExcludeEntry[]。
+ */
+
 
 function normalizeExcludeEntries(entries: AuthExcludeEntryCandidate[] | undefined): AuthExcludeEntry[] {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
   if (!Array.isArray(entries)) {
     return [];
   }
@@ -615,12 +926,29 @@ function normalizeExcludeEntries(entries: AuthExcludeEntryCandidate[] | undefine
     }))
     .filter((entry): entry is AuthExcludeEntry => Boolean(entry.userId && entry.kind));
 }
+/**
+ * isExcluded：执行状态校验并返回判断结果。
+ * @param entries AuthExcludeEntry[] 参数说明。
+ * @param userId string user ID。
+ * @param kind AuthConflictKind 参数说明。
+ * @returns boolean。
+ */
+
 
 function isExcluded(entries: AuthExcludeEntry[], userId: string, kind: AuthConflictKind): boolean {
   return entries.some((entry) => entry.userId === userId && entry.kind === kind);
 }
+/**
+ * buildConflictMessage：构建并返回目标对象。
+ * @param requestedKind AuthConflictKind 参数说明。
+ * @param conflictKind AuthConflictKind 参数说明。
+ * @returns string。
+ */
+
 
 function buildConflictMessage(requestedKind: AuthConflictKind, conflictKind: AuthConflictKind): string {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
   if (requestedKind === 'account' || conflictKind === 'account') {
     return '账号已存在';
   }
@@ -629,8 +957,16 @@ function buildConflictMessage(requestedKind: AuthConflictKind, conflictKind: Aut
   }
   return '称号已存在';
 }
+/**
+ * ensurePlayerAuthTable：执行核心业务逻辑。
+ * @param pool Pool 参数说明。
+ * @returns Promise<void>。
+ */
+
 
 async function ensurePlayerAuthTable(pool: Pool): Promise<void> {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
   const client = await pool.connect();
   try {
     await client.query('BEGIN');

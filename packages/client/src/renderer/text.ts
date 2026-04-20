@@ -52,26 +52,78 @@ import { TileSpriteCache } from './tile-sprite-cache';
 
 /** 时间氛围过渡状态。 */
 interface TimeAtmosphereState {
-  initialized: boolean;
-  overlay: [number, number, number, number];
-  sky: [number, number, number, number];
-  horizon: [number, number, number, number];
+/**
+ * initialized：TimeAtmosphereState 内部字段。
+ */
+
+  initialized: boolean;  
+  /**
+ * overlay：TimeAtmosphereState 内部字段。
+ */
+
+  overlay: [number, number, number, number];  
+  /**
+ * sky：TimeAtmosphereState 内部字段。
+ */
+
+  sky: [number, number, number, number];  
+  /**
+ * horizon：TimeAtmosphereState 内部字段。
+ */
+
+  horizon: [number, number, number, number];  
+  /**
+ * vignetteAlpha：TimeAtmosphereState 内部字段。
+ */
+
   vignetteAlpha: number;
 }
 
 /** 地面物品类型配色。 */
 type GroundItemTypePalette = {
-  fill: string;
-  stroke: string;
-  accent: string;
+/**
+ * fill：对象字段。
+ */
+
+  fill: string;  
+  /**
+ * stroke：对象字段。
+ */
+
+  stroke: string;  
+  /**
+ * accent：对象字段。
+ */
+
+  accent: string;  
+  /**
+ * text：对象字段。
+ */
+
   text: string;
 };
 
 /** 地面物品评级配色。 */
 type GroundItemGradePalette = {
-  border: string;
-  glow: string;
-  badgeFill: string;
+/**
+ * border：对象字段。
+ */
+
+  border: string;  
+  /**
+ * glow：对象字段。
+ */
+
+  glow: string;  
+  /**
+ * badgeFill：对象字段。
+ */
+
+  badgeFill: string;  
+  /**
+ * badgeStroke：对象字段。
+ */
+
   badgeStroke: string;
 };
 
@@ -177,6 +229,8 @@ const GROUND_ITEM_ICON_POSITIONS = [
 
 /** 提取并规范化地面物品显示标签。 */
 function resolveGroundItemLabel(entry: GroundItemEntryView): string {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
   const explicit = [...(entry.groundLabel?.trim() ?? '')].filter((char) => char.trim().length > 0).join('');
   if (explicit) {
     return explicit.slice(0, 2);
@@ -205,6 +259,8 @@ function easeOutCubic(t: number): number {
 
 /** 对称入场/离场的 easeInOut 缓动。 */
 function easeInOutCubic(t: number): number {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
   if (t < 0.5) {
     return 4 * t * t * t;
   }
@@ -224,90 +280,354 @@ function getSenseQiOverlayStyle(aura: number, levelBaseValue = DEFAULT_AURA_LEVE
 
 /** 渲染中实体的动画状态。 */
 interface AnimEntity {
-  id: string;
-  gridX: number;
-  gridY: number;
-  oldWX: number;
-  oldWY: number;
-  targetWX: number;
-  targetWY: number;
-  char: string;
-  color: string;
-  name?: string;
-  kind?: string;
-  monsterTier?: MonsterTier;
-  monsterScale?: number;
-  hp?: number;
-  maxHp?: number;
-  npcQuestMarker?: NpcQuestMarker;
+/**
+ * id：AnimEntity 内部字段。
+ */
+
+  id: string;  
+  /**
+ * gridX：AnimEntity 内部字段。
+ */
+
+  gridX: number;  
+  /**
+ * gridY：AnimEntity 内部字段。
+ */
+
+  gridY: number;  
+  /**
+ * oldWX：AnimEntity 内部字段。
+ */
+
+  oldWX: number;  
+  /**
+ * oldWY：AnimEntity 内部字段。
+ */
+
+  oldWY: number;  
+  /**
+ * targetWX：AnimEntity 内部字段。
+ */
+
+  targetWX: number;  
+  /**
+ * targetWY：AnimEntity 内部字段。
+ */
+
+  targetWY: number;  
+  /**
+ * char：AnimEntity 内部字段。
+ */
+
+  char: string;  
+  /**
+ * color：AnimEntity 内部字段。
+ */
+
+  color: string;  
+  /**
+ * name：AnimEntity 内部字段。
+ */
+
+  name?: string;  
+  /**
+ * kind：AnimEntity 内部字段。
+ */
+
+  kind?: string;  
+  /**
+ * monsterTier：AnimEntity 内部字段。
+ */
+
+  monsterTier?: MonsterTier;  
+  /**
+ * monsterScale：AnimEntity 内部字段。
+ */
+
+  monsterScale?: number;  
+  /**
+ * hp：AnimEntity 内部字段。
+ */
+
+  hp?: number;  
+  /**
+ * maxHp：AnimEntity 内部字段。
+ */
+
+  maxHp?: number;  
+  /**
+ * npcQuestMarker：AnimEntity 内部字段。
+ */
+
+  npcQuestMarker?: NpcQuestMarker;  
+  /**
+ * buffs：AnimEntity 内部字段。
+ */
+
   buffs?: VisibleBuffState[];
 }
 
 /** 渲染输出实体快照，包含屏幕坐标。 */
 interface RenderedAnimEntity {
-  anim: AnimEntity;
-  presentation: ReturnType<typeof getMonsterPresentation> | null;
-  sx: number;
-  sy: number;
-  centerX: number;
-  centerY: number;
-  cellSize: number;
-  visualSx: number;
-  visualSy: number;
+/**
+ * anim：RenderedAnimEntity 内部字段。
+ */
+
+  anim: AnimEntity;  
+  /**
+ * presentation：RenderedAnimEntity 内部字段。
+ */
+
+  presentation: ReturnType<typeof getMonsterPresentation> | null;  
+  /**
+ * sx：RenderedAnimEntity 内部字段。
+ */
+
+  sx: number;  
+  /**
+ * sy：RenderedAnimEntity 内部字段。
+ */
+
+  sy: number;  
+  /**
+ * centerX：RenderedAnimEntity 内部字段。
+ */
+
+  centerX: number;  
+  /**
+ * centerY：RenderedAnimEntity 内部字段。
+ */
+
+  centerY: number;  
+  /**
+ * cellSize：RenderedAnimEntity 内部字段。
+ */
+
+  cellSize: number;  
+  /**
+ * visualSx：RenderedAnimEntity 内部字段。
+ */
+
+  visualSx: number;  
+  /**
+ * visualSy：RenderedAnimEntity 内部字段。
+ */
+
+  visualSy: number;  
+  /**
+ * visualCellSize：RenderedAnimEntity 内部字段。
+ */
+
   visualCellSize: number;
 }
 
 /** 浮动文字实例。 */
 interface FloatingText {
-  id: number;
-  x: number;
-  y: number;
-  text: string;
-  color: string;
-  variant: 'damage' | 'action';
-  actionStyle?: FloatingActionTextStyle;
-  createdAt: number;
+/**
+ * id：FloatingText 内部字段。
+ */
+
+  id: number;  
+  /**
+ * x：FloatingText 内部字段。
+ */
+
+  x: number;  
+  /**
+ * y：FloatingText 内部字段。
+ */
+
+  y: number;  
+  /**
+ * text：FloatingText 内部字段。
+ */
+
+  text: string;  
+  /**
+ * color：FloatingText 内部字段。
+ */
+
+  color: string;  
+  /**
+ * variant：FloatingText 内部字段。
+ */
+
+  variant: 'damage' | 'action';  
+  /**
+ * actionStyle：FloatingText 内部字段。
+ */
+
+  actionStyle?: FloatingActionTextStyle;  
+  /**
+ * createdAt：FloatingText 内部字段。
+ */
+
+  createdAt: number;  
+  /**
+ * duration：FloatingText 内部字段。
+ */
+
   duration: number;
 }
 
 /** 攻击拖尾实例。 */
 interface AttackTrail {
-  id: number;
-  fromX: number;
-  fromY: number;
-  toX: number;
-  toY: number;
-  color: string;
-  createdAt: number;
+/**
+ * id：AttackTrail 内部字段。
+ */
+
+  id: number;  
+  /**
+ * fromX：AttackTrail 内部字段。
+ */
+
+  fromX: number;  
+  /**
+ * fromY：AttackTrail 内部字段。
+ */
+
+  fromY: number;  
+  /**
+ * toX：AttackTrail 内部字段。
+ */
+
+  toX: number;  
+  /**
+ * toY：AttackTrail 内部字段。
+ */
+
+  toY: number;  
+  /**
+ * color：AttackTrail 内部字段。
+ */
+
+  color: string;  
+  /**
+ * createdAt：AttackTrail 内部字段。
+ */
+
+  createdAt: number;  
+  /**
+ * duration：AttackTrail 内部字段。
+ */
+
   duration: number;
 }
 
 /** 预警区域实例。 */
 interface WarningZone {
-  id: number;
-  cells: Array<{ x: number; y: number; expandDistance: number }>;
-  color: string;
-  baseColor: string;
-  originX: number;
-  originY: number;
-  maxExpandDistance: number;
-  createdAt: number;
+/**
+ * id：WarningZone 内部字段。
+ */
+
+  id: number;  
+  /**
+ * cells：WarningZone 内部字段。
+ */
+
+  cells: Array<{  
+  /**
+ * x：WarningZone 内部字段。
+ */
+ x: number;  
+ /**
+ * y：WarningZone 内部字段。
+ */
+ y: number;  
+ /**
+ * expandDistance：WarningZone 内部字段。
+ */
+ expandDistance: number }>;  
+ /**
+ * color：WarningZone 内部字段。
+ */
+
+  color: string;  
+  /**
+ * baseColor：WarningZone 内部字段。
+ */
+
+  baseColor: string;  
+  /**
+ * originX：WarningZone 内部字段。
+ */
+
+  originX: number;  
+  /**
+ * originY：WarningZone 内部字段。
+ */
+
+  originY: number;  
+  /**
+ * maxExpandDistance：WarningZone 内部字段。
+ */
+
+  maxExpandDistance: number;  
+  /**
+ * createdAt：WarningZone 内部字段。
+ */
+
+  createdAt: number;  
+  /**
+ * duration：WarningZone 内部字段。
+ */
+
   duration: number;
 }
 
 /** 浮动文字在同点堆叠时的偏移。 */
 interface FloatingTextBurstOffset {
-  offsetX: number;
+/**
+ * offsetX：FloatingTextBurstOffset 内部字段。
+ */
+
+  offsetX: number;  
+  /**
+ * offsetY：FloatingTextBurstOffset 内部字段。
+ */
+
   offsetY: number;
 }
 
 /** 旧路径淡出过渡状态。 */
 interface FadingPathState {
-  cells: { x: number; y: number }[];
-  keys: Set<string>;
-  indexByKey: Map<string, number>;
-  targetKey: string | null;
-  startedAt: number;
+/**
+ * cells：FadingPathState 内部字段。
+ */
+
+  cells: {  
+  /**
+ * x：FadingPathState 内部字段。
+ */
+ x: number;  
+ /**
+ * y：FadingPathState 内部字段。
+ */
+ y: number }[];  
+ /**
+ * keys：FadingPathState 内部字段。
+ */
+
+  keys: Set<string>;  
+  /**
+ * indexByKey：FadingPathState 内部字段。
+ */
+
+  indexByKey: Map<string, number>;  
+  /**
+ * targetKey：FadingPathState 内部字段。
+ */
+
+  targetKey: string | null;  
+  /**
+ * startedAt：FadingPathState 内部字段。
+ */
+
+  startedAt: number;  
+  /**
+ * durationMs：FadingPathState 内部字段。
+ */
+
   durationMs: number;
 }
 
@@ -329,13 +649,37 @@ export class TextRenderer implements IRenderer {
   /** 当前 2D 上下文。 */
   private ctx: CanvasRenderingContext2D | null = null;
   /** 实体动画状态表。 */
-  private entities: Map<string, AnimEntity> = new Map();
-  private threatArrows: Array<{ ownerId: string; targetId: string }> = [];
+  private entities: Map<string, AnimEntity> = new Map();  
+  /**
+ * threatArrows：TextRenderer 内部字段。
+ */
+
+  private threatArrows: Array<{  
+  /**
+ * ownerId：TextRenderer 内部字段。
+ */
+ ownerId: string;  
+ /**
+ * targetId：TextRenderer 内部字段。
+ */
+ targetId: string }> = [];
   /** 地面物品堆映射。 */
   private groundPiles = new Map<string, GroundItemPileView>();
   /** 容器地块键集合。 */
-  private containerTileKeys = new Set<string>();
-  private pathCells: { x: number; y: number }[] = [];
+  private containerTileKeys = new Set<string>();  
+  /**
+ * pathCells：TextRenderer 内部字段。
+ */
+
+  private pathCells: {  
+  /**
+ * x：TextRenderer 内部字段。
+ */
+ x: number;  
+ /**
+ * y：TextRenderer 内部字段。
+ */
+ y: number }[] = [];
   /** 当前路径键集合。 */
   private pathKeys = new Set<string>();
   /** 路径索引映射（用于路径箭头方向）。 */
@@ -361,7 +705,11 @@ export class TextRenderer implements IRenderer {
   /** 攻击拖尾 ID 自增。 */
   private nextAttackTrailId = 1;
   /** 预警区域 ID 自增。 */
-  private nextWarningZoneId = 1;
+  private nextWarningZoneId = 1;  
+  /**
+ * lastMotionSyncToken：TextRenderer 内部字段。
+ */
+
   private lastMotionSyncToken?: number;
   /** 上一帧可见地块键集合。 */
   private previousVisibleTileKeys = new Set<string>();
@@ -374,7 +722,11 @@ export class TextRenderer implements IRenderer {
   /** 文本测量缓存。 */
   private readonly textMeasureCache = new TextMeasureCache();
   /** 地块 sprite 缓存。 */
-  private readonly tileSpriteCache = new TileSpriteCache();
+  private readonly tileSpriteCache = new TileSpriteCache();  
+  /**
+ * timeAtmosphere：TextRenderer 内部字段。
+ */
+
   private timeAtmosphere: TimeAtmosphereState = {
     initialized: false,
     overlay: [0, 0, 0, 0],
@@ -390,6 +742,8 @@ export class TextRenderer implements IRenderer {
 
   /** 先清空背景，再绘制下一帧。 */
   clear() {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
     if (!this.ctx) return;
     const { width, height } = this.ctx.canvas;
     this.ctx.fillStyle = '#1a1816';
@@ -416,7 +770,17 @@ export class TextRenderer implements IRenderer {
   }
 
   /** 更新路径高亮状态并构建旧路径过渡。 */
-  setPathHighlight(cells: { x: number; y: number }[], fadeDurationMs = DEFAULT_PATH_TRAIL_FADE_MS) {
+  setPathHighlight(cells: {  
+  /**
+ * x：TextRenderer 内部字段。
+ */
+ x: number;  
+ /**
+ * y：TextRenderer 内部字段。
+ */
+ y: number }[], fadeDurationMs = DEFAULT_PATH_TRAIL_FADE_MS) {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
     if (this.pathCells.length > 0 && !this.arePathCellsEqual(this.pathCells, cells)) {
       this.fadingPath = {
         cells: this.pathCells.map((cell) => ({ x: cell.x, y: cell.y })),
@@ -434,7 +798,15 @@ export class TextRenderer implements IRenderer {
   }
 
   /** 记录当前帧需要渲染的威胁箭头。 */
-  setThreatArrows(arrows: Array<{ ownerId: string; targetId: string }>) {
+  setThreatArrows(arrows: Array<{  
+  /**
+ * ownerId：TextRenderer 内部字段。
+ */
+ ownerId: string;  
+ /**
+ * targetId：TextRenderer 内部字段。
+ */
+ targetId: string }>) {
     this.threatArrows = arrows.map((entry) => ({ ownerId: entry.ownerId, targetId: entry.targetId }));
   }
 
@@ -451,6 +823,8 @@ export class TextRenderer implements IRenderer {
 
   /** 设置地面物品堆缓存，支持 Map 与可迭代输入。 */
   setGroundPiles(piles: ReadonlyMap<string, GroundItemPileView> | Iterable<GroundItemPileView>) {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
     if (piles instanceof Map) {
       this.groundPiles = piles;
       return;
@@ -474,6 +848,8 @@ export class TextRenderer implements IRenderer {
     displayRangeY: number,
     time: GameTimeState | null,
   ) {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
     if (!this.ctx) return;
     const ctx = this.ctx;
     const sw = ctx.canvas.width;
@@ -597,6 +973,8 @@ export class TextRenderer implements IRenderer {
 
   /** 根据可见性变化更新地块淡入淡出状态。 */
   private syncTileVisibilityTransitions(visibleTiles: ReadonlySet<string>, tileCache: ReadonlyMap<string, Tile>, now: number): void {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
     const shouldAnimateVisibleEnter = this.previousVisibleTileKeys.size > 0;
     for (const key of this.previousVisibleTileKeys) {
       if (!visibleTiles.has(key) && tileCache.has(key) && !this.hiddenTileFadeStartedAt.has(key)) {
@@ -629,6 +1007,8 @@ export class TextRenderer implements IRenderer {
 
   /** 计算已记忆但当前不可见地块的淡出进度。 */
   private getHiddenTileFade(key: string, now: number): number {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
     const startedAt = this.hiddenTileFadeStartedAt.get(key);
     if (startedAt === undefined) {
       return 1;
@@ -638,6 +1018,8 @@ export class TextRenderer implements IRenderer {
 
   /** 计算刚变为可见的地块淡入进度。 */
   private getVisibleTileFade(key: string, now: number): number {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
     const startedAt = this.visibleTileFadeStartedAt.get(key);
     if (startedAt === undefined) {
       return 0;
@@ -648,7 +1030,59 @@ export class TextRenderer implements IRenderer {
 
   /** 更新实体列表，记录旧位置用于插值动画 */
   updateEntities(
-    list: readonly { id: string; wx: number; wy: number; char: string; color: string; name?: string; kind?: string; monsterTier?: MonsterTier; monsterScale?: number; hp?: number; maxHp?: number; npcQuestMarker?: NpcQuestMarker | null; buffs?: VisibleBuffState[] }[],
+    list: readonly {    
+    /**
+ * id：TextRenderer 内部字段。
+ */
+ id: string;    
+ /**
+ * wx：TextRenderer 内部字段。
+ */
+ wx: number;    
+ /**
+ * wy：TextRenderer 内部字段。
+ */
+ wy: number;    
+ /**
+ * char：TextRenderer 内部字段。
+ */
+ char: string;    
+ /**
+ * color：TextRenderer 内部字段。
+ */
+ color: string;    
+ /**
+ * name：TextRenderer 内部字段。
+ */
+ name?: string;    
+ /**
+ * kind：TextRenderer 内部字段。
+ */
+ kind?: string;    
+ /**
+ * monsterTier：TextRenderer 内部字段。
+ */
+ monsterTier?: MonsterTier;    
+ /**
+ * monsterScale：TextRenderer 内部字段。
+ */
+ monsterScale?: number;    
+ /**
+ * hp：TextRenderer 内部字段。
+ */
+ hp?: number;    
+ /**
+ * maxHp：TextRenderer 内部字段。
+ */
+ maxHp?: number;    
+ /**
+ * npcQuestMarker：TextRenderer 内部字段。
+ */
+ npcQuestMarker?: NpcQuestMarker | null;    
+ /**
+ * buffs：TextRenderer 内部字段。
+ */
+ buffs?: VisibleBuffState[] }[],
     movedId?: string,
     shiftX = 0,
     shiftY = 0,
@@ -656,6 +1090,8 @@ export class TextRenderer implements IRenderer {
     settleEntityId?: string,
     motionSyncToken?: number,
   ) {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
     const seen = new Set<string>();
     const cellSize = getCellSize();
     const sameMotionSync = motionSyncToken !== undefined && motionSyncToken === this.lastMotionSyncToken;
@@ -744,6 +1180,8 @@ export class TextRenderer implements IRenderer {
 
   /** 绘制所有实体（角色/怪物/NPC），含位置插值动画 */
   renderEntities(camera: Camera, progress = 1, localPlayerId?: string, localPlayerX?: number, localPlayerY?: number) {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
     if (!this.ctx) return;
     const ctx = this.ctx;
     const sw = ctx.canvas.width;
@@ -892,6 +1330,8 @@ export class TextRenderer implements IRenderer {
 
   /** 绘制威胁关系箭头。 */
   private renderThreatTargetArrows(renderedEntities: RenderedAnimEntity[], localPlayerId?: string, localPlayerRendered?: RenderedAnimEntity): void {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
     if (!this.ctx || renderedEntities.length === 0) {
       return;
     }
@@ -919,6 +1359,8 @@ export class TextRenderer implements IRenderer {
 
   /** 绘制单条威胁箭头的曲线路径与箭头头部。 */
   private drawThreatTargetArrow(from: RenderedAnimEntity, to: RenderedAnimEntity, isSelfArrow: boolean): void {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
     if (!this.ctx) {
       return;
     }
@@ -985,7 +1427,19 @@ export class TextRenderer implements IRenderer {
   private getQuadraticPoint(start: number, control: number, end: number, t: number): number {
     const invT = 1 - t;
     return invT * invT * start + 2 * invT * t * control + t * t * end;
-  }
+  }  
+  /**
+ * drawMonsterBadgeLabel：执行核心业务逻辑。
+ * @param label string 参数说明。
+ * @param badgeText string 参数说明。
+ * @param badgeClassName string 参数说明。
+ * @param centerX number 参数说明。
+ * @param baselineY number 参数说明。
+ * @param cellSize number 参数说明。
+ * @param labelColor string 参数说明。
+ * @returns void。
+ */
+
 
   private drawMonsterBadgeLabel(
     label: string,
@@ -996,6 +1450,8 @@ export class TextRenderer implements IRenderer {
     cellSize: number,
     labelColor: string,
   ): void {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
     if (!this.ctx) {
       return;
     }
@@ -1044,6 +1500,8 @@ export class TextRenderer implements IRenderer {
 
   /** 绘制实体头顶的 Buff 与 Debuff 图标行。 */
   private drawBuffRows(sx: number, sy: number, cellSize: number, buffs?: VisibleBuffState[]) {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
     if (!this.ctx || !buffs || buffs.length === 0) return;
     const visible = buffs.filter((buff) => buff.visibility === 'public');
     if (visible.length === 0) return;
@@ -1053,7 +1511,19 @@ export class TextRenderer implements IRenderer {
     const gap = 2;
     this.drawBuffRow(sx, sy + 1, cellSize, buffsByCategory, badgeSize, gap, '#7fd69a');
     this.drawBuffRow(sx, sy + badgeSize + 4, cellSize, debuffsByCategory, badgeSize, gap, '#ff9072');
-  }
+  }  
+  /**
+ * drawBuffRow：执行核心业务逻辑。
+ * @param sx number 参数说明。
+ * @param y number Y 坐标。
+ * @param cellSize number 参数说明。
+ * @param buffs VisibleBuffState[] 参数说明。
+ * @param badgeSize number 参数说明。
+ * @param gap number 参数说明。
+ * @param fallbackColor string 参数说明。
+ * @returns 函数返回值。
+ */
+
 
   private drawBuffRow(
     sx: number,
@@ -1064,6 +1534,8 @@ export class TextRenderer implements IRenderer {
     gap: number,
     fallbackColor: string,
   ) {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
     if (!this.ctx || buffs.length === 0) return;
     const ctx = this.ctx;
     const visibleLimit = 4;
@@ -1133,6 +1605,8 @@ export class TextRenderer implements IRenderer {
 
   /** 绘制 NPC 头顶的任务状态标记。 */
   private drawNpcQuestMarker(sx: number, sy: number, cellSize: number, marker: NpcQuestMarker) {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
     if (!this.ctx) return;
     const ctx = this.ctx;
     const centerX = sx + cellSize + Math.max(8, cellSize * 0.18);
@@ -1191,10 +1665,26 @@ export class TextRenderer implements IRenderer {
   }
 
   /** 根据任务线与状态挑选 NPC 标记配色。 */
-  private getNpcQuestMarkerPalette(marker: NpcQuestMarker): {
-    fill: string;
-    stroke: string;
-    text: string;
+  private getNpcQuestMarkerPalette(marker: NpcQuestMarker): {  
+  /**
+ * fill：TextRenderer 内部字段。
+ */
+
+    fill: string;    
+    /**
+ * stroke：TextRenderer 内部字段。
+ */
+
+    stroke: string;    
+    /**
+ * text：TextRenderer 内部字段。
+ */
+
+    text: string;    
+    /**
+ * shape：TextRenderer 内部字段。
+ */
+
     shape: 'circle' | 'square' | 'diamond' | 'shield';
   } {
     switch (marker.line) {
@@ -1259,16 +1749,37 @@ export class TextRenderer implements IRenderer {
       duration: 260,
     });
     this.trimAttackTrails();
-  }
+  }  
+  /**
+ * addWarningZone：执行核心业务逻辑。
+ * @param cells Array<{ x: number; y: number }> 参数说明。
+ * @param color 参数说明。
+ * @param durationMs 参数说明。
+ * @param baseColor string 参数说明。
+ * @param originX number 参数说明。
+ * @param originY number 参数说明。
+ * @returns 函数返回值。
+ */
+
 
   addWarningZone(
-    cells: Array<{ x: number; y: number }>,
+    cells: Array<{    
+    /**
+ * x：TextRenderer 内部字段。
+ */
+ x: number;    
+ /**
+ * y：TextRenderer 内部字段。
+ */
+ y: number }>,
     color = '#ff2a2a',
     durationMs = DEFAULT_WARNING_ZONE_DURATION_MS,
     baseColor?: string,
     originX?: number,
     originY?: number,
   ) {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
     if (cells.length === 0) {
       return;
     }
@@ -1305,6 +1816,8 @@ export class TextRenderer implements IRenderer {
 
   /** 绘制所有浮动文字，自动清理过期条目 */
   renderFloatingTexts(camera: Camera) {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
     if (!this.ctx || this.floatingTexts.length === 0) return;
     const ctx = this.ctx;
     const now = performance.now();
@@ -1436,6 +1949,8 @@ export class TextRenderer implements IRenderer {
 
   /** 绘制所有攻击拖尾，自动清理过期条目 */
   renderAttackTrails(camera: Camera) {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
     if (!this.ctx || this.attackTrails.length === 0) return;
     const ctx = this.ctx;
     const now = performance.now();
@@ -1475,6 +1990,8 @@ export class TextRenderer implements IRenderer {
 
   /** 绘制会逐步扩散并淡出的警示区域。 */
   renderWarningZones(camera: Camera) {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
     if (!this.ctx || this.warningZones.length === 0) return;
     const ctx = this.ctx;
     const now = performance.now();
@@ -1557,6 +2074,8 @@ export class TextRenderer implements IRenderer {
 
   /** 为一组浮动文字计算爆散位移。 */
   private getFloatingTextBurstOffset(index: number, count: number, cellSize: number): FloatingTextBurstOffset {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
     if (count <= 1 || index < 0) {
       return { offsetX: 0, offsetY: 0 };
     }
@@ -1567,7 +2086,20 @@ export class TextRenderer implements IRenderer {
       offsetX: centeredIndex * horizontalStep,
       offsetY: Math.abs(centeredIndex) * verticalStep,
     };
-  }
+  }  
+  /**
+ * drawChantText：执行核心业务逻辑。
+ * @param text string 参数说明。
+ * @param progress number 参数说明。
+ * @param x number X 坐标。
+ * @param y number Y 坐标。
+ * @param fill string 参数说明。
+ * @param stroke string 参数说明。
+ * @param lineHeight number 参数说明。
+ * @param fontSize number 参数说明。
+ * @returns void。
+ */
+
 
   private drawChantText(
     text: string,
@@ -1579,6 +2111,8 @@ export class TextRenderer implements IRenderer {
     lineHeight: number,
     fontSize: number,
   ): void {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
     if (!this.ctx) {
       return;
     }
@@ -1625,13 +2159,39 @@ export class TextRenderer implements IRenderer {
       ctx.fillText(char, 0, 0);
       ctx.restore();
     });
-  }
+  }  
+  /**
+ * resolveWarningZoneOrigin：执行核心业务逻辑。
+ * @param cells Array<{ x: number; y: number }> 参数说明。
+ * @param originX number 参数说明。
+ * @param originY number 参数说明。
+ * @returns { x: number; y: number }。
+ */
+
 
   private resolveWarningZoneOrigin(
-    cells: Array<{ x: number; y: number }>,
+    cells: Array<{    
+    /**
+ * x：TextRenderer 内部字段。
+ */
+ x: number;    
+ /**
+ * y：TextRenderer 内部字段。
+ */
+ y: number }>,
     originX?: number,
     originY?: number,
-  ): { x: number; y: number } {
+  ): {  
+  /**
+ * x：TextRenderer 内部字段。
+ */
+ x: number;  
+ /**
+ * y：TextRenderer 内部字段。
+ */
+ y: number } {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
     if (Number.isFinite(originX) && Number.isFinite(originY)) {
       return {
         x: Math.round(originX ?? 0),
@@ -1671,6 +2231,8 @@ export class TextRenderer implements IRenderer {
 
   /** 控制浮动文字缓存上限。 */
   private trimFloatingTexts(): void {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
     const overflow = this.floatingTexts.length - MAX_FLOATING_TEXTS;
     if (overflow > 0) {
       this.floatingTexts.splice(0, overflow);
@@ -1679,6 +2241,8 @@ export class TextRenderer implements IRenderer {
 
   /** 控制攻击拖尾缓存上限。 */
   private trimAttackTrails(): void {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
     const overflow = this.attackTrails.length - MAX_ATTACK_TRAILS;
     if (overflow > 0) {
       this.attackTrails.splice(0, overflow);
@@ -1687,11 +2251,24 @@ export class TextRenderer implements IRenderer {
 
   /** 控制警示区域缓存上限。 */
   private trimWarningZones(): void {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
     const overflow = this.warningZones.length - MAX_WARNING_ZONES;
     if (overflow > 0) {
       this.warningZones.splice(0, overflow);
     }
-  }
+  }  
+  /**
+ * renderPathArrows：执行核心业务逻辑。
+ * @param camera Camera 参数说明。
+ * @param visibleTiles ReadonlySet<string> 参数说明。
+ * @param playerX number 参数说明。
+ * @param playerY number 参数说明。
+ * @param displayRangeX number 参数说明。
+ * @param displayRangeY number 参数说明。
+ * @returns 函数返回值。
+ */
+
 
   private renderPathArrows(
     camera: Camera,
@@ -1701,6 +2278,8 @@ export class TextRenderer implements IRenderer {
     displayRangeX: number,
     displayRangeY: number,
   ) {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
     if (!this.ctx) return;
     const ctx = this.ctx;
     const sw = ctx.canvas.width;
@@ -1742,7 +2321,25 @@ export class TextRenderer implements IRenderer {
         1,
       );
     }
-  }
+  }  
+  /**
+ * renderPathArrowLayer：执行核心业务逻辑。
+ * @param ctx CanvasRenderingContext2D 上下文信息。
+ * @param camera Camera 参数说明。
+ * @param sw number 参数说明。
+ * @param sh number 参数说明。
+ * @param visibleTiles ReadonlySet<string> 参数说明。
+ * @param playerX number 参数说明。
+ * @param playerY number 参数说明。
+ * @param displayRangeX number 参数说明。
+ * @param displayRangeY number 参数说明。
+ * @param cells { x: number; y: number }[] 参数说明。
+ * @param indexByKey Map<string, number> 参数说明。
+ * @param targetKey string | null 参数说明。
+ * @param alpha number 参数说明。
+ * @returns 函数返回值。
+ */
+
 
   private renderPathArrowLayer(
     ctx: CanvasRenderingContext2D,
@@ -1754,11 +2351,21 @@ export class TextRenderer implements IRenderer {
     playerY: number,
     displayRangeX: number,
     displayRangeY: number,
-    cells: { x: number; y: number }[],
+    cells: {    
+    /**
+ * x：TextRenderer 内部字段。
+ */
+ x: number;    
+ /**
+ * y：TextRenderer 内部字段。
+ */
+ y: number }[],
     indexByKey: Map<string, number>,
     targetKey: string | null,
     alpha: number,
   ) {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
     if (cells.length === 0 || alpha <= 0.001) {
       return;
     }
@@ -1836,7 +2443,18 @@ export class TextRenderer implements IRenderer {
     }
 
     ctx.restore();
-  }
+  }  
+  /**
+ * drawPathCellHighlight：执行核心业务逻辑。
+ * @param ctx CanvasRenderingContext2D 上下文信息。
+ * @param sx number 参数说明。
+ * @param sy number 参数说明。
+ * @param cellSize number 参数说明。
+ * @param isTargetCell boolean 参数说明。
+ * @param alpha number 参数说明。
+ * @returns 函数返回值。
+ */
+
 
   private drawPathCellHighlight(
     ctx: CanvasRenderingContext2D,
@@ -1846,6 +2464,8 @@ export class TextRenderer implements IRenderer {
     isTargetCell: boolean,
     alpha: number,
   ) {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
     ctx.save();
     ctx.globalAlpha *= alpha;
     ctx.fillStyle = isTargetCell ? PATH_TARGET_FILL_COLOR : PATH_FILL_COLOR;
@@ -1864,6 +2484,8 @@ export class TextRenderer implements IRenderer {
 
   /** 计算正在淡出的路径高亮透明度。 */
   private getFadingPathAlpha(now: number): number {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
     if (!this.fadingPath) {
       return 0;
     }
@@ -1876,7 +2498,25 @@ export class TextRenderer implements IRenderer {
   }
 
   /** 比较两条路径格子序列是否完全一致。 */
-  private arePathCellsEqual(a: { x: number; y: number }[], b: { x: number; y: number }[]): boolean {
+  private arePathCellsEqual(a: {  
+  /**
+ * x：TextRenderer 内部字段。
+ */
+ x: number;  
+ /**
+ * y：TextRenderer 内部字段。
+ */
+ y: number }[], b: {  
+ /**
+ * x：TextRenderer 内部字段。
+ */
+ x: number;  
+ /**
+ * y：TextRenderer 内部字段。
+ */
+ y: number }[]): boolean {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
     if (a.length !== b.length) {
       return false;
     }
@@ -1886,7 +2526,19 @@ export class TextRenderer implements IRenderer {
       }
     }
     return true;
-  }
+  }  
+  /**
+ * isPathCellRenderable：执行状态校验并返回判断结果。
+ * @param x number X 坐标。
+ * @param y number Y 坐标。
+ * @param visibleTiles ReadonlySet<string> 参数说明。
+ * @param playerX number 参数说明。
+ * @param playerY number 参数说明。
+ * @param displayRangeX number 参数说明。
+ * @param displayRangeY number 参数说明。
+ * @returns boolean。
+ */
+
 
   private isPathCellRenderable(
     x: number,
@@ -1903,6 +2555,8 @@ export class TextRenderer implements IRenderer {
 
   /** 绘制昼夜与气氛叠加层。 */
   private renderTimeOverlay(time: GameTimeState | null): void {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
     if (!this.ctx || !time) {
       return;
     }
@@ -1960,6 +2614,8 @@ export class TextRenderer implements IRenderer {
 
   /** 根据时间状态解析目标氛围参数。 */
   private resolveTimeAtmosphere(time: GameTimeState): TimeAtmosphereState {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
     const profile = TIME_ATMOSPHERE_PROFILES[time.phase];
     const target: TimeAtmosphereState = {
       initialized: true,
@@ -1994,7 +2650,15 @@ export class TextRenderer implements IRenderer {
     const blue = Number.parseInt(normalized.slice(4, 6), 16) || 0;
     const safeAlpha = Math.max(0, Math.min(1, alpha));
     return [red, green, blue, safeAlpha];
-  }
+  }  
+  /**
+ * lerpColorVector：执行核心业务逻辑。
+ * @param current [number, number, number, number] 参数说明。
+ * @param target [number, number, number, number] 目标对象。
+ * @param factor number 参数说明。
+ * @returns [number, number, number, number]。
+ */
+
 
   private lerpColorVector(
     current: [number, number, number, number],
@@ -2022,6 +2686,8 @@ export class TextRenderer implements IRenderer {
 
   /** 绘制地面物品堆的 3x3 图标缩略块。 */
   private drawGroundPileIndicator(sx: number, sy: number, cellSize: number, pile: GroundItemPileView) {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
     if (!this.ctx) {
       return;
     }
@@ -2053,6 +2719,8 @@ export class TextRenderer implements IRenderer {
 
   /** 绘制单个地面物品的图标与数量角标。 */
   private drawGroundItemEntryIcon(x: number, y: number, slotSize: number, entry: GroundItemEntryView): void {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
     if (!this.ctx) {
       return;
     }
@@ -2088,7 +2756,18 @@ export class TextRenderer implements IRenderer {
     ctx.restore();
 
     this.drawGroundItemCountBadge(x, y, slotSize, entry.count, gradePalette);
-  }
+  }  
+  /**
+ * drawGroundItemBasePlate：执行核心业务逻辑。
+ * @param ctx CanvasRenderingContext2D 上下文信息。
+ * @param type ItemType 参数说明。
+ * @param x number X 坐标。
+ * @param y number Y 坐标。
+ * @param size number 参数说明。
+ * @param accentColor string 参数说明。
+ * @returns void。
+ */
+
 
   private drawGroundItemBasePlate(
     ctx: CanvasRenderingContext2D,
@@ -2098,6 +2777,8 @@ export class TextRenderer implements IRenderer {
     size: number,
     accentColor: string,
   ): void {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
     const radius = Math.max(2, size * 0.18);
 
     ctx.beginPath();
@@ -2147,7 +2828,17 @@ export class TextRenderer implements IRenderer {
       ctx.fill();
     }
     ctx.restore();
-  }
+  }  
+  /**
+ * drawGroundItemCountBadge：执行核心业务逻辑。
+ * @param x number X 坐标。
+ * @param y number Y 坐标。
+ * @param slotSize number 参数说明。
+ * @param count number 数量。
+ * @param palette GroundItemGradePalette 参数说明。
+ * @returns void。
+ */
+
 
   private drawGroundItemCountBadge(
     x: number,
@@ -2156,6 +2847,8 @@ export class TextRenderer implements IRenderer {
     count: number,
     palette: GroundItemGradePalette,
   ): void {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
     if (!this.ctx || count <= 1) {
       return;
     }
@@ -2189,6 +2882,8 @@ export class TextRenderer implements IRenderer {
 
   /** 根据标签长度估算地面物品文字字号。 */
   private resolveGroundItemLabelFontSize(slotSize: number, label: string): number {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
     const textLength = [...label].length;
     if (textLength >= 2) {
       return Math.max(5.25, slotSize * 0.28);
@@ -2198,6 +2893,8 @@ export class TextRenderer implements IRenderer {
 
   /** 绘制带描边的普通文本。 */
   private drawOutlinedText(text: string, x: number, y: number, fill: string, stroke: string) {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
     if (!this.ctx) return;
     this.ctx.lineJoin = 'round';
     this.ctx.lineWidth = 3;
@@ -2209,6 +2906,8 @@ export class TextRenderer implements IRenderer {
 
   /** 绘制带描边的竖排文本。 */
   private drawOutlinedVerticalText(text: string, x: number, y: number, fill: string, stroke: string, lineHeight: number) {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
     if (!this.ctx) return;
     const ctx = this.ctx;
     const chars = [...text.trim()].filter((char) => char.trim().length > 0);

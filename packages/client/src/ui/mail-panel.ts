@@ -27,7 +27,15 @@ function escapeHtmlAttr(value: string): string {
   return escapeHtml(value);
 }
 
-const MAIL_FILTER_OPTIONS: Array<{ id: MailFilter; label: string }> = [
+const MAIL_FILTER_OPTIONS: Array<{
+/**
+ * id：对象字段。
+ */
+ id: MailFilter;
+ /**
+ * label：对象字段。
+ */
+ label: string }> = [
   { id: 'all', label: '全部' },
   { id: 'unread', label: '未读' },
   { id: 'claimable', label: '可领取' },
@@ -53,32 +61,108 @@ const MAIL_ATTACHMENT_PAGE_SIZE = 10;
 
 /** 邮件面板渲染时需要保留的本地状态。 */
 type MailRenderState = {
-  listScrollTop: number;
-  detailScrollTop: number;
+/**
+ * listScrollTop：对象字段。
+ */
+
+  listScrollTop: number;  
+  /**
+ * detailScrollTop：对象字段。
+ */
+
+  detailScrollTop: number;  
+  /**
+ * focusSelector：对象字段。
+ */
+
   focusSelector: string | null;
 };
 
 /** 邮件弹窗标题区所需的附加信息。 */
 type MailModalMeta = {
-  subtitle: string;
+/**
+ * subtitle：对象字段。
+ */
+
+  subtitle: string;  
+  /**
+ * hint：对象字段。
+ */
+
   hint: string;
 };
 
 /** 邮件详情区已缓存的 DOM 节点。 */
 type MailDetailRefs = {
-  titleNode: HTMLElement;
-  senderNode: HTMLElement;
-  createdAtNode: HTMLElement;
-  expireNode: HTMLElement;
-  markReadButton: HTMLButtonElement;
-  claimButton: HTMLButtonElement;
-  deleteButton: HTMLButtonElement;
-  bodyNode: HTMLElement;
-  attachmentPagination: HTMLElement;
-  attachmentPageMeta: HTMLElement;
-  attachmentPrevButton: HTMLButtonElement;
-  attachmentNextButton: HTMLButtonElement;
-  attachmentList: HTMLElement;
+/**
+ * titleNode：对象字段。
+ */
+
+  titleNode: HTMLElement;  
+  /**
+ * senderNode：对象字段。
+ */
+
+  senderNode: HTMLElement;  
+  /**
+ * createdAtNode：对象字段。
+ */
+
+  createdAtNode: HTMLElement;  
+  /**
+ * expireNode：对象字段。
+ */
+
+  expireNode: HTMLElement;  
+  /**
+ * markReadButton：对象字段。
+ */
+
+  markReadButton: HTMLButtonElement;  
+  /**
+ * claimButton：对象字段。
+ */
+
+  claimButton: HTMLButtonElement;  
+  /**
+ * deleteButton：对象字段。
+ */
+
+  deleteButton: HTMLButtonElement;  
+  /**
+ * bodyNode：对象字段。
+ */
+
+  bodyNode: HTMLElement;  
+  /**
+ * attachmentPagination：对象字段。
+ */
+
+  attachmentPagination: HTMLElement;  
+  /**
+ * attachmentPageMeta：对象字段。
+ */
+
+  attachmentPageMeta: HTMLElement;  
+  /**
+ * attachmentPrevButton：对象字段。
+ */
+
+  attachmentPrevButton: HTMLButtonElement;  
+  /**
+ * attachmentNextButton：对象字段。
+ */
+
+  attachmentNextButton: HTMLButtonElement;  
+  /**
+ * attachmentList：对象字段。
+ */
+
+  attachmentList: HTMLElement;  
+  /**
+ * attachmentEmpty：对象字段。
+ */
+
   attachmentEmpty: HTMLElement;
 };
 
@@ -107,7 +191,21 @@ export class MailPanel {
   /** 是否已绑定事件代理。 */
   private delegatedEventsBound = false;
   /** 邮件详情区缓存的节点引用。 */
-  private detailRefs: MailDetailRefs | null = null;
+  private detailRefs: MailDetailRefs | null = null;  
+  /**
+ * 构造器：初始化 当前 实例并建立基础状态。
+ * @param socket Pick<
+    SocketSocialEconomySender,
+    | 'sendRequestMailSummary'
+    | 'sendRequestMailPage'
+    | 'sendRequestMailDetail'
+    | 'sendMarkMailRead'
+    | 'sendClaimMailAttachments'
+    | 'sendDeleteMail'
+  > 参数说明。
+ * @returns 无返回值（构造函数）。
+ */
+
 
   constructor(private readonly socket: Pick<
     SocketSocialEconomySender,
@@ -150,6 +248,8 @@ export class MailPanel {
 
   /** 更新邮件列表分页。 */
   updatePage(page: MailPageView): void {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
     this.pageData = page;
     this.activeFilter = page.filter;
     const visibleIds = new Set(page.items.map((item) => item.mailId));
@@ -172,6 +272,8 @@ export class MailPanel {
 
   /** 更新当前邮件详情。 */
   updateDetail(detail: MailDetailView | null, error?: string): void {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
     if (!detail) {
       this.detail = null;
       if (error) {
@@ -191,7 +293,25 @@ export class MailPanel {
   }
 
   /** 处理标记已读、领取和删除的回包。 */
-  handleOpResult(result: { operation: 'markRead' | 'claim' | 'delete'; ok: boolean; mailIds: string[]; message?: string }): void {
+  handleOpResult(result: {  
+  /**
+ * operation：MailPanel 内部字段。
+ */
+ operation: 'markRead' | 'claim' | 'delete';  
+ /**
+ * ok：MailPanel 内部字段。
+ */
+ ok: boolean;  
+ /**
+ * mailIds：MailPanel 内部字段。
+ */
+ mailIds: string[];  
+ /**
+ * message：MailPanel 内部字段。
+ */
+ message?: string }): void {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
     this.statusMessage = result.message ?? (result.ok ? '操作已提交。' : '操作失败。');
     if (result.ok) {
       if (result.operation === 'delete' && this.selectedMailId && result.mailIds.includes(this.selectedMailId)) {
@@ -237,6 +357,8 @@ export class MailPanel {
 
   /** 在邮件未读时主动补一次已读标记。 */
   private markReadIfNeeded(mailId: string): void {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
     const item = this.pageData.items.find((entry) => entry.mailId === mailId);
     if (!item || item.read) {
       return;
@@ -246,6 +368,8 @@ export class MailPanel {
 
   /** 刷新邮件详情弹窗。 */
   private render(): void {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
     if (!detailModalHost.isOpenFor(MailPanel.MODAL_OWNER)) {
       return;
     }
@@ -397,6 +521,8 @@ export class MailPanel {
 
   /** 将邮件分页数据写回条目节点。 */
   private patchMailEntryNode(node: HTMLElement, item: MailPageView['items'][number]): boolean {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
     const checkbox = node.querySelector<HTMLInputElement>('[data-mail-check]');
     const title = node.querySelector<HTMLElement>('[data-mail-entry-title="true"]');
     const unreadDot = node.querySelector<HTMLElement>('[data-mail-entry-unread-dot="true"]');
@@ -436,6 +562,8 @@ export class MailPanel {
 
   /** 确保详情区结构已就位并缓存节点引用。 */
   private ensureDetailStructure(detailRoot: HTMLElement): MailDetailRefs {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
     if (this.detailRefs && detailRoot.contains(this.detailRefs.titleNode)) {
       return this.detailRefs;
     }
@@ -522,6 +650,8 @@ export class MailPanel {
 
   /** 复用现有详情结构刷新详情内容。 */
   private patchDetailRoot(detailRoot: HTMLElement, detail: MailDetailView | null): boolean {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
     if (!detail) {
       this.detailRefs = null;
       detailRoot.replaceChildren(createEmptyHint('请选择一封邮件查看详情'));
@@ -580,6 +710,8 @@ export class MailPanel {
 
   /** 复用现有列表结构刷新列表内容。 */
   private patchListRoot(listRoot: HTMLElement): boolean {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
     const existing = new Map<string, HTMLElement>();
     listRoot.querySelectorAll<HTMLElement>('[data-mail-select]').forEach((node) => {
       const mailId = node.dataset.mailSelect;
@@ -687,6 +819,8 @@ export class MailPanel {
 
   /** 为弹窗内容绑定一次性事件代理。 */
   private bindEvents(root: HTMLElement): void {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
     if (this.delegatedEventsBound) {
       return;
     }
@@ -697,6 +831,8 @@ export class MailPanel {
 
   /** 处理弹窗根节点的点击事件。 */
   private handleRootClick(event: Event): void {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
     const target = event.target;
     if (!(target instanceof HTMLElement)) {
       return;
@@ -816,6 +952,8 @@ export class MailPanel {
 
   /** 处理弹窗根节点的勾选变更。 */
   private handleRootChange(event: Event): void {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
     const target = event.target;
     if (!(target instanceof HTMLInputElement)) {
       return;
@@ -834,6 +972,8 @@ export class MailPanel {
 
   /** 复用邮件壳结构时同步主体内容。 */
   private patchBody(body: HTMLElement, meta: MailModalMeta): boolean {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
     if (!body.querySelector('.mail-shell')) {
       return false;
     }
@@ -897,6 +1037,8 @@ export class MailPanel {
 
   /** 直接更新弹窗标题栏的摘要和提示。 */
   private patchModalMeta(meta: MailModalMeta): void {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
     const subtitleNode = document.getElementById('detail-modal-subtitle');
     const hintNode = document.getElementById('detail-modal-hint');
     if (subtitleNode) {
@@ -922,6 +1064,8 @@ export class MailPanel {
 
   /** 恢复列表滚动、详情滚动和焦点。 */
   private restoreRenderState(body: HTMLElement, state: MailRenderState): void {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
     const list = body.querySelector<HTMLElement>('.mail-list');
     const detail = body.querySelector<HTMLElement>('.mail-detail');
     if (list) {
@@ -939,6 +1083,8 @@ export class MailPanel {
 
   /** 为当前焦点节点生成可复原的选择器。 */
   private resolveFocusSelector(element: HTMLElement): string | null {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
     const datasetEntries: Array<[string, string | undefined, (value: string) => string]> = [
       ['mailFilter', element.dataset.mailFilter, (value) => `[data-mail-filter="${escapeHtmlAttr(value)}"]`],
       ['mailPageAction', element.dataset.mailPageAction, (value) => `[data-mail-page-action="${escapeHtmlAttr(value)}"]`],
@@ -971,6 +1117,8 @@ export class MailPanel {
 
   /** 同步 HUD 上的邮件未读角标。 */
   private updateHudUnreadState(): void {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
     const button = document.getElementById('hud-open-mail');
     if (!(button instanceof HTMLButtonElement)) {
       return;

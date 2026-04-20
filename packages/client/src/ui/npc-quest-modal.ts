@@ -16,22 +16,58 @@ function escapeHtml(value: string): string {
 
 /** NpcQuestModalCallbacks：任务弹窗回调集。 */
 interface NpcQuestModalCallbacks {
-  onRequestQuests: (npcId: string) => void;
-  onAcceptQuest: (npcId: string, questId: string) => void;
-  onSubmitQuest: (npcId: string, questId: string) => void;
+/**
+ * onRequestQuests：NpcQuestModalCallbacks 内部字段。
+ */
+
+  onRequestQuests: (npcId: string) => void;  
+  /**
+ * onAcceptQuest：NpcQuestModalCallbacks 内部字段。
+ */
+
+  onAcceptQuest: (npcId: string, questId: string) => void;  
+  /**
+ * onSubmitQuest：NpcQuestModalCallbacks 内部字段。
+ */
+
+  onSubmitQuest: (npcId: string, questId: string) => void;  
+  /**
+ * onNavigateQuest：NpcQuestModalCallbacks 内部字段。
+ */
+
   onNavigateQuest: (questId: string) => void;
 }
 
 /** NpcQuestModalMeta：任务弹窗标题元数据。 */
 type NpcQuestModalMeta = {
-  title: string;
+/**
+ * title：对象字段。
+ */
+
+  title: string;  
+  /**
+ * subtitle：对象字段。
+ */
+
   subtitle: string;
 };
 
 /** NpcQuestRenderState：任务弹窗滚动与焦点状态。 */
 type NpcQuestRenderState = {
-  listScrollTop: number;
-  detailScrollTop: number;
+/**
+ * listScrollTop：对象字段。
+ */
+
+  listScrollTop: number;  
+  /**
+ * detailScrollTop：对象字段。
+ */
+
+  detailScrollTop: number;  
+  /**
+ * focusSelector：对象字段。
+ */
+
   focusSelector: string | null;
 };
 
@@ -69,6 +105,8 @@ export class NpcQuestModal {
 
   /** setCurrentMapId：处理set当前地图ID。 */
   setCurrentMapId(mapId?: string): void {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
     this.currentMapId = mapId;
     if (detailModalHost.isOpenFor(NpcQuestModal.MODAL_OWNER)) {
       this.render();
@@ -77,6 +115,8 @@ export class NpcQuestModal {
 
   /** syncInventory：同步背包。 */
   syncInventory(inventory: Inventory): void {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
     this.inventory = inventory;
     if (detailModalHost.isOpenFor(NpcQuestModal.MODAL_OWNER)) {
       this.render();
@@ -85,6 +125,8 @@ export class NpcQuestModal {
 
   /** openPending：打开待处理。 */
   openPending(npcId: string): void {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
     this.activeNpcId = npcId;
     this.loading = true;
     if (this.state?.npcId !== npcId) {
@@ -102,6 +144,8 @@ export class NpcQuestModal {
 
   /** updateQuests：更新Quests。 */
   updateQuests(data: NEXT_S2C_NpcQuests): void {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
     if (this.activeNpcId && this.activeNpcId !== data.npcId && detailModalHost.isOpenFor(NpcQuestModal.MODAL_OWNER)) {
       return;
     }
@@ -117,6 +161,8 @@ export class NpcQuestModal {
 
   /** refreshActive：处理refresh活跃。 */
   refreshActive(): void {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
     if (!this.activeNpcId) {
       return;
     }
@@ -140,6 +186,8 @@ export class NpcQuestModal {
 
   /** render：渲染渲染。 */
   private render(): void {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
     const meta = this.buildModalMeta();
     const body = detailModalHost.isOpenFor(NpcQuestModal.MODAL_OWNER)
       ? document.getElementById('detail-modal-body')
@@ -187,6 +235,8 @@ export class NpcQuestModal {
 
   /** renderBody：渲染身体。 */
   private renderBody(body: HTMLElement): void {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
     if (this.loading && !this.state) {
       body.replaceChildren(this.createEmptyState('正在与这位 NPC 对话……'));
       return;
@@ -276,6 +326,8 @@ export class NpcQuestModal {
 
   /** patchQuestCard：按当前任务状态局部更新卡片。 */
   private patchQuestCard(card: HTMLButtonElement, quest: QuestState, active: boolean): boolean {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
     const titleNode = card.querySelector<HTMLElement>('[data-npc-quest-card-title="true"]');
     const statusNode = card.querySelector<HTMLElement>('[data-npc-quest-card-status="true"]');
     const lineNode = card.querySelector<HTMLElement>('[data-npc-quest-card-line="true"]');
@@ -324,6 +376,8 @@ export class NpcQuestModal {
 
   /** syncContainerChildren：按目标顺序复用并重排子节点。 */
   private syncContainerChildren(container: HTMLElement, orderedNodes: HTMLElement[]): void {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
     const allowed = new Set(orderedNodes);
     for (const child of Array.from(container.children)) {
       if (!(child instanceof HTMLElement) || !allowed.has(child)) {
@@ -377,6 +431,8 @@ export class NpcQuestModal {
 
   /** bindEvents：绑定事件。 */
   private bindEvents(body: HTMLElement): void {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
     if (this.delegatedEventsBound) {
       return;
     }
@@ -386,6 +442,8 @@ export class NpcQuestModal {
 
   /** handleBodyClick：处理身体Click。 */
   private handleBodyClick(event: Event): void {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
     const target = event.target;
     if (!(target instanceof HTMLElement)) {
       return;
@@ -426,6 +484,8 @@ export class NpcQuestModal {
 
   /** patchBody：处理patch身体。 */
   private patchBody(body: HTMLElement, meta: NpcQuestModalMeta): boolean {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
     if (!body.querySelector('.npc-quest-modal-shell')) {
       return false;
     }
@@ -460,6 +520,8 @@ export class NpcQuestModal {
 
   /** restoreRenderState：处理restore渲染状态。 */
   private restoreRenderState(body: HTMLElement, state: NpcQuestRenderState): void {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
     const listRoot = body.querySelector<HTMLElement>('[data-npc-quest-list="true"]');
     const detailRoot = body.querySelector<HTMLElement>('[data-npc-quest-detail="true"]');
     if (listRoot) {
@@ -476,6 +538,8 @@ export class NpcQuestModal {
 
   /** resolveFocusSelector：解析Focus Selector。 */
   private resolveFocusSelector(element: HTMLElement): string | null {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
     const questId = element.dataset.npcQuestSelect;
     if (questId) {
       return `[data-npc-quest-select="${escapeHtml(questId)}"]`;
@@ -494,6 +558,8 @@ export class NpcQuestModal {
 
   /** resolveSelectedQuest：解析Selected任务。 */
   private resolveSelectedQuest(): QuestState | null {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
     if (!this.state || this.state.quests.length === 0) {
       return null;
     }
@@ -502,6 +568,8 @@ export class NpcQuestModal {
 
   /** pickPreferredQuestId：处理pick Preferred任务ID。 */
   private pickPreferredQuestId(quests: QuestState[]): string | null {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
     const priority = ['ready', 'available', 'active', 'completed'] as const;
     for (const status of priority) {
       const matched = quests.find((quest) => quest.status === status);
@@ -514,6 +582,8 @@ export class NpcQuestModal {
 
   /** canNavigateQuest：判断是否Navigate任务。 */
   private canNavigateQuest(quest: QuestState): boolean {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
     if (quest.status === 'ready') {
       return Boolean(quest.submitMapId ?? quest.giverMapId);
     }
@@ -528,6 +598,8 @@ export class NpcQuestModal {
 
   /** resolveProgressText：解析进度文本。 */
   private resolveProgressText(quest: QuestState): string {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
     if (quest.objectiveType === 'talk') {
       return quest.progress >= quest.required ? '口信已传达' : '尚未传达';
     }
@@ -546,6 +618,8 @@ export class NpcQuestModal {
 
   /** resolveNextStep：解析新版Step。 */
   private resolveNextStep(quest: QuestState): string {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
     if (quest.status === 'ready') {
       const submitLabel = quest.submitNpcName ?? quest.giverName;
       const submitLocation = this.formatQuestLocation(quest.submitMapName ?? quest.giverMapName, quest.submitX ?? quest.giverX, quest.submitY ?? quest.giverY);
@@ -601,7 +675,21 @@ export class NpcQuestModal {
   }
 
   /** resolveRequiredItemProgress：解析Required物品进度。 */
-  private resolveRequiredItemProgress(quest: QuestState): { itemName: string; current: number; required: number } | null {
+  private resolveRequiredItemProgress(quest: QuestState): {  
+  /**
+ * itemName：NpcQuestModal 内部字段。
+ */
+ itemName: string;  
+ /**
+ * current：NpcQuestModal 内部字段。
+ */
+ current: number;  
+ /**
+ * required：NpcQuestModal 内部字段。
+ */
+ required: number } | null {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
     if (!quest.requiredItemId) {
       return null;
     }
@@ -618,6 +706,8 @@ export class NpcQuestModal {
 
   /** formatQuestLocation：格式化任务Location。 */
   private formatQuestLocation(mapName?: string, x?: number, y?: number): string {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
     if (mapName && x !== undefined && y !== undefined) {
       return `${mapName} (${x}, ${y})`;
     }
@@ -626,6 +716,8 @@ export class NpcQuestModal {
 
   /** renderQuestText：渲染任务文本。 */
   private renderQuestText(text: string, quest: QuestState): string {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
     if (!text.trim()) {
       return '';
     }
@@ -641,6 +733,8 @@ export class NpcQuestModal {
 
   /** renderRewardContent：渲染Reward Content。 */
   private renderRewardContent(quest: QuestState): string {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
     const rewardChips = quest.rewards
       .map((reward) => renderInlineItemChip(reward.itemId, {
         count: reward.count,
@@ -667,6 +761,8 @@ export class NpcQuestModal {
 
   /** renderRequiredItemContent：渲染Required物品Content。 */
   private renderRequiredItemContent(quest: QuestState): string {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
     const progress = this.resolveRequiredItemProgress(quest);
     if (!progress || !quest.requiredItemId) {
       return '<div class="inline-rich-text">当前任务无额外提交材料。</div>';

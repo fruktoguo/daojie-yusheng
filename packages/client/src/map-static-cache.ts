@@ -12,8 +12,20 @@ type CachedMapMeta = Pick<
 
 /** 地图静态缓存按 ID 维护的一条记录。 */
 interface CachedMapEntry {
-  meta?: CachedMapMeta;
-  snapshot?: MapMinimapSnapshot;
+/**
+ * meta：CachedMapEntry 内部字段。
+ */
+
+  meta?: CachedMapMeta;  
+  /**
+ * snapshot：CachedMapEntry 内部字段。
+ */
+
+  snapshot?: MapMinimapSnapshot;  
+  /**
+ * unlocked：CachedMapEntry 内部字段。
+ */
+
   unlocked?: boolean;
 }
 
@@ -27,6 +39,8 @@ const cachedEntries = new Map<string, CachedMapEntry>();
 
 /** 读取 localStorage 存储对象，不支持环境时返回 null。 */
 function getStorage(): Storage | null {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
   if (typeof window === 'undefined') {
     return null;
   }
@@ -39,6 +53,8 @@ function getStorage(): Storage | null {
 
 /** 判断本地缓存值是否能还原成完整的小地图快照。 */
 function isSnapshot(value: unknown): value is MapMinimapSnapshot {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
   if (!value || typeof value !== 'object') {
     return false;
   }
@@ -60,12 +76,36 @@ function isSnapshot(value: unknown): value is MapMinimapSnapshot {
       if (!marker || typeof marker !== 'object') {
         return false;
       }
-      const typedMarker = marker as {
-        id?: unknown;
-        kind?: unknown;
-        x?: unknown;
-        y?: unknown;
-        label?: unknown;
+      const typedMarker = marker as {      
+      /**
+ * id：对象字段。
+ */
+
+        id?: unknown;        
+        /**
+ * kind：对象字段。
+ */
+
+        kind?: unknown;        
+        /**
+ * x：对象字段。
+ */
+
+        x?: unknown;        
+        /**
+ * y：对象字段。
+ */
+
+        y?: unknown;        
+        /**
+ * label：对象字段。
+ */
+
+        label?: unknown;        
+        /**
+ * detail：对象字段。
+ */
+
         detail?: unknown;
       };
       return typeof typedMarker.id === 'string'
@@ -79,6 +119,8 @@ function isSnapshot(value: unknown): value is MapMinimapSnapshot {
 
 /** 判断对象是否为可持久化的地图元信息。 */
 function isCachedMapMeta(value: unknown): value is CachedMapMeta {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
   if (!value || typeof value !== 'object') {
     return false;
   }
@@ -94,8 +136,16 @@ function isCachedMapMeta(value: unknown): value is CachedMapMeta {
         && candidate.playerOverlapPoints.every((point) => (
           point
           && typeof point === 'object'
-          && Number.isInteger((point as { x?: unknown }).x)
-          && Number.isInteger((point as { y?: unknown }).y)
+          && Number.isInteger((point as {          
+          /**
+ * x：对象字段。
+ */
+ x?: unknown }).x)
+          && Number.isInteger((point as {          
+          /**
+ * y：对象字段。
+ */
+ y?: unknown }).y)
         ))
       )
     );
@@ -129,6 +179,8 @@ function toCachedMeta(meta: MapMeta): CachedMapMeta {
 
 /** 规范化并过滤无效反序列化条目。 */
 function normalizeEntry(value: unknown): CachedMapEntry | null {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
   if (isSnapshot(value)) {
     return {
       snapshot: cloneSnapshot(value),
@@ -157,6 +209,8 @@ function normalizeEntry(value: unknown): CachedMapEntry | null {
 
 /** 首次按需加载 localStorage 缓存到内存。 */
 function ensureLoaded(): void {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
   if (loaded) {
     return;
   }
@@ -192,6 +246,8 @@ function ensureLoaded(): void {
 
 /** 将内存缓存持久化回 localStorage。 */
 function persist(): void {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
   const storage = getStorage();
   if (!storage) {
     return;
@@ -215,6 +271,8 @@ function persist(): void {
 
 /** 获取或创建某地图的缓存记录。 */
 function getOrCreateEntry(mapId: string): CachedMapEntry {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
   ensureLoaded();
   const existing = cachedEntries.get(mapId);
   if (existing) {
@@ -250,8 +308,18 @@ export function getCachedMapSnapshot(mapId: string): MapMinimapSnapshot | null {
 export function cacheMapSnapshot(
   mapId: string,
   snapshot: MapMinimapSnapshot,
-  options?: { meta?: MapMeta | null; unlocked?: boolean },
+  options?: {  
+  /**
+ * meta：对象字段。
+ */
+ meta?: MapMeta | null;  
+ /**
+ * unlocked：对象字段。
+ */
+ unlocked?: boolean },
 ): void {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
   const entry = getOrCreateEntry(mapId);
   entry.snapshot = cloneSnapshot(snapshot);
   if (options?.meta) {
@@ -265,6 +333,8 @@ export function cacheMapSnapshot(
 
 /** 批量写入已解锁地图快照（用于首次登录的地图目录恢复）。 */
 export function cacheUnlockedMinimapLibrary(entries: MapMinimapArchiveEntry[]): void {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
   ensureLoaded();
   for (const entry of entries) {
     const cached = getOrCreateEntry(entry.mapId);
@@ -276,9 +346,35 @@ export function cacheUnlockedMinimapLibrary(entries: MapMinimapArchiveEntry[]): 
 }
 
 /** 列出可直接展示摘要和小地图的已解锁地图。 */
-export function listCachedUnlockedMaps(): Array<{ mapId: string; mapMeta: MapMeta | null; snapshot: MapMinimapSnapshot }> {
+export function listCachedUnlockedMaps(): Array<{
+/**
+ * mapId：对象字段。
+ */
+ mapId: string;
+ /**
+ * mapMeta：对象字段。
+ */
+ mapMeta: MapMeta | null;
+ /**
+ * snapshot：对象字段。
+ */
+ snapshot: MapMinimapSnapshot }> {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
   ensureLoaded();
-  const result: Array<{ mapId: string; mapMeta: MapMeta | null; snapshot: MapMinimapSnapshot }> = [];
+  const result: Array<{  
+  /**
+ * mapId：对象字段。
+ */
+ mapId: string;  
+ /**
+ * mapMeta：对象字段。
+ */
+ mapMeta: MapMeta | null;  
+ /**
+ * snapshot：对象字段。
+ */
+ snapshot: MapMinimapSnapshot }> = [];
   for (const [mapId, entry] of cachedEntries.entries()) {
     if (entry.unlocked !== true || !entry.snapshot) {
       continue;
@@ -298,9 +394,27 @@ export function listCachedUnlockedMaps(): Array<{ mapId: string; mapMeta: MapMet
 }
 
 /** 列出已解锁地图的元信息摘要，不包含大体积快照。 */
-export function listCachedUnlockedMapSummaries(): Array<{ mapId: string; mapMeta: MapMeta | null }> {
+export function listCachedUnlockedMapSummaries(): Array<{
+/**
+ * mapId：对象字段。
+ */
+ mapId: string;
+ /**
+ * mapMeta：对象字段。
+ */
+ mapMeta: MapMeta | null }> {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
   ensureLoaded();
-  const result: Array<{ mapId: string; mapMeta: MapMeta | null }> = [];
+  const result: Array<{  
+  /**
+ * mapId：对象字段。
+ */
+ mapId: string;  
+ /**
+ * mapMeta：对象字段。
+ */
+ mapMeta: MapMeta | null }> = [];
   for (const [mapId, entry] of cachedEntries.entries()) {
     if (entry.unlocked !== true) {
       continue;

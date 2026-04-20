@@ -46,6 +46,8 @@ function codeToDirection(code: number): Direction | null {
 
 /** packDirections：处理pack方向。 */
 export function packDirections(directions: Direction[]): string {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
   if (directions.length === 0) {
     return '';
   }
@@ -62,6 +64,8 @@ export function packDirections(directions: Direction[]): string {
 
 /** unpackDirections：处理unpack方向。 */
 export function unpackDirections(packed: string, stepCount: number): Direction[] | null {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
   if (!Number.isInteger(stepCount) || stepCount < 0) {
     return null;
   }

@@ -17,17 +17,43 @@ function escapeHtml(value: string): string {
 
 /** 浮动提示的展示参数，控制 HTML 渲染和右侧辅助卡片。 */
 interface FloatingTooltipShowOptions {
-  allowHtml?: boolean;
-  asideCards?: Array<{
-    mark?: string;
-    title: string;
-    lines: string[];
+/**
+ * allowHtml：FloatingTooltipShowOptions 内部字段。
+ */
+
+  allowHtml?: boolean;  
+  /**
+ * asideCards：FloatingTooltipShowOptions 内部字段。
+ */
+
+  asideCards?: Array<{  
+  /**
+ * mark：FloatingTooltipShowOptions 内部字段。
+ */
+
+    mark?: string;    
+    /**
+ * title：FloatingTooltipShowOptions 内部字段。
+ */
+
+    title: string;    
+    /**
+ * lines：FloatingTooltipShowOptions 内部字段。
+ */
+
+    lines: string[];    
+    /**
+ * tone：FloatingTooltipShowOptions 内部字段。
+ */
+
     tone?: 'buff' | 'debuff';
   }>;
 }
 
 /** prefersPinnedTooltipInteraction：处理prefers Pinned提示交互。 */
 export function prefersPinnedTooltipInteraction(win: Window = window): boolean {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
   if (typeof win.matchMedia !== 'function') {
     return false;
   }
@@ -43,7 +69,13 @@ export class FloatingTooltip {
   /** pinned：pinned。 */
   private pinned = false;
   /** pinnedAnchor：pinned Anchor。 */
-  private pinnedAnchor: Element | null = null;
+  private pinnedAnchor: Element | null = null;  
+  /**
+ * 构造器：初始化 当前 实例并建立基础状态。
+ * @param className 参数说明。
+ * @returns 无返回值（构造函数）。
+ */
+
 
   constructor(className = 'floating-tooltip') {
     this.el = document.createElement('div');
@@ -63,6 +95,8 @@ export class FloatingTooltip {
 
   /** 显示提示框并定位到鼠标附近 */
   show(title: string, lines: string[], clientX: number, clientY: number, options?: FloatingTooltipShowOptions): void {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
     if (this.pinned) {
       return;
     }
@@ -78,6 +112,8 @@ export class FloatingTooltip {
 
   /** updateContent：更新Content。 */
   updateContent(title: string, lines: string[], options?: FloatingTooltipShowOptions): void {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
     if (!this.el.classList.contains('visible')) {
       return;
     }
@@ -145,6 +181,8 @@ export class FloatingTooltip {
 
   /** hide：处理hide。 */
   hide(force = false): void {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
     if (this.pinned && !force) {
       return;
     }
@@ -155,6 +193,8 @@ export class FloatingTooltip {
 
   /** 使用上次记录的坐标重新定位（窗口 resize 后调用） */
   refresh(): void {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
     if (!this.el.classList.contains('visible')) return;
     this.move(this.lastPoint.x, this.lastPoint.y);
   }

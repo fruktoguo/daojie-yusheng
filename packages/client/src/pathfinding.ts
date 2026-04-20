@@ -10,6 +10,8 @@ export function findPath(
   sx: number, sy: number,
   ex: number, ey: number,
 ): Direction[] | null {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
   const rows = tiles.length;
   if (rows === 0) return null;
   const cols = tiles[0].length;

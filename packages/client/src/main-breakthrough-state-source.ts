@@ -4,22 +4,60 @@ import { bindInlineItemTooltips, renderTextWithInlineItemHighlights } from './ui
 import { detailModalHost } from './ui/detail-modal-host';
 import { openHeavenGateModal } from './ui/heaven-gate-modal';
 import { formatDisplayInteger } from './utils/number';
+/**
+ * MainBreakthroughStateSourceOptions：统一结构类型，保证协议与运行时一致性。
+ */
+
 
 type MainBreakthroughStateSourceOptions = {
-  getPlayer: () => PlayerState | null;
-  showToast: (message: string) => void;
-  sendHeavenGateAction: SocketRuntimeSender['sendHeavenGateAction'];
-  sendAction: SocketRuntimeSender['sendAction'];
+/**
+ * getPlayer：对象字段。
+ */
+
+  getPlayer: () => PlayerState | null;  
+  /**
+ * showToast：对象字段。
+ */
+
+  showToast: (message: string) => void;  
+  /**
+ * sendHeavenGateAction：对象字段。
+ */
+
+  sendHeavenGateAction: SocketRuntimeSender['sendHeavenGateAction'];  
+  /**
+ * sendAction：对象字段。
+ */
+
+  sendAction: SocketRuntimeSender['sendAction'];  
+  /**
+ * defaultAuraLevelBaseValue：对象字段。
+ */
+
   defaultAuraLevelBaseValue: number;
 };
+/**
+ * getBreakthroughRequirementStatusLabel：按给定条件读取/查询数据。
+ * @param requirement BreakthroughRequirementView 参数说明。
+ * @returns string。
+ */
+
 
 function getBreakthroughRequirementStatusLabel(requirement: BreakthroughRequirementView): string {
   return requirement.blocksBreakthrough === false
     ? (requirement.completed ? '已生效' : '未生效')
     : (requirement.completed ? '已达成' : '未达成');
 }
+/**
+ * getBreakthroughRequirementStatusDetail：按给定条件读取/查询数据。
+ * @param requirement BreakthroughRequirementView 参数说明。
+ * @returns string。
+ */
+
 
 function getBreakthroughRequirementStatusDetail(requirement: BreakthroughRequirementView): string {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
   if (requirement.hidden) {
     return '该要求尚未解锁，只能通过主线或支线任务逐步获知。';
   }
@@ -31,14 +69,31 @@ function getBreakthroughRequirementStatusDetail(requirement: BreakthroughRequire
   }
   return requirement.detail ?? (requirement.completed ? '当前已满足。' : '当前尚未满足。');
 }
+/**
+ * MainBreakthroughStateSource：统一结构类型，保证协议与运行时一致性。
+ */
+
 
 export type MainBreakthroughStateSource = ReturnType<typeof createMainBreakthroughStateSource>;
+/**
+ * createMainBreakthroughStateSource：构建并返回目标对象。
+ * @param options MainBreakthroughStateSourceOptions 选项参数。
+ * @returns 函数返回值。
+ */
+
 
 export function createMainBreakthroughStateSource(options: MainBreakthroughStateSourceOptions) {
   let auraLevelBaseValue = options.defaultAuraLevelBaseValue;
 
-  return {
+  return {  
+  /**
+ * openBreakthroughModal：执行核心业务逻辑。
+ * @returns void。
+ */
+
     openBreakthroughModal(): void {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
       const player = options.getPlayer();
       if (openHeavenGateModal(player, {
         showToast: options.showToast,
@@ -108,18 +163,37 @@ export function createMainBreakthroughStateSource(options: MainBreakthroughState
           });
         },
       });
-    },
+    },    
+    /**
+ * syncAuraLevelBaseValue：执行核心业务逻辑。
+ * @param nextValue number 参数说明。
+ * @returns void。
+ */
+
 
     syncAuraLevelBaseValue(nextValue?: number): void {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
       if (typeof nextValue !== 'number' || !Number.isFinite(nextValue) || nextValue <= 0) {
         return;
       }
       auraLevelBaseValue = Math.max(1, Math.round(nextValue));
-    },
+    },    
+    /**
+ * formatAuraLevelText：执行核心业务逻辑。
+ * @param auraValue number 参数说明。
+ * @returns string。
+ */
+
 
     formatAuraLevelText(auraValue: number): string {
       return `灵气 ${formatDisplayInteger(Math.max(0, Math.round(auraValue / auraLevelBaseValue * auraLevelBaseValue)))}`;
-    },
+    },    
+    /**
+ * getAuraLevelBaseValue：按给定条件读取/查询数据。
+ * @returns number。
+ */
+
 
     getAuraLevelBaseValue(): number {
       return auraLevelBaseValue;

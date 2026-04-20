@@ -35,12 +35,40 @@ import {
 
 /** 设置面板初始化依赖，提供账号信息读取、保存回调、兑换提交和登出回调。 */
 type SettingsPanelOptions = {
-  getCurrentAccountName: () => string;
-  getCurrentDisplayName: () => string;
-  getCurrentRoleName: () => string;
-  onDisplayNameUpdated: (displayName: string) => void;
-  onRoleNameUpdated: (roleName: string) => void;
-  redeemCodes: (codes: string[]) => Promise<AccountRedeemCodesRes>;
+/**
+ * getCurrentAccountName：对象字段。
+ */
+
+  getCurrentAccountName: () => string;  
+  /**
+ * getCurrentDisplayName：对象字段。
+ */
+
+  getCurrentDisplayName: () => string;  
+  /**
+ * getCurrentRoleName：对象字段。
+ */
+
+  getCurrentRoleName: () => string;  
+  /**
+ * onDisplayNameUpdated：对象字段。
+ */
+
+  onDisplayNameUpdated: (displayName: string) => void;  
+  /**
+ * onRoleNameUpdated：对象字段。
+ */
+
+  onRoleNameUpdated: (roleName: string) => void;  
+  /**
+ * redeemCodes：对象字段。
+ */
+
+  redeemCodes: (codes: string[]) => Promise<AccountRedeemCodesRes>;  
+  /**
+ * onLogout：对象字段。
+ */
+
   onLogout: () => void;
 };
 
@@ -61,7 +89,12 @@ export class SettingsPanel {
   /** displayNameAvailable：显示名称Available。 */
   private displayNameAvailable = false;
   /** 当前设置面板实例持有的读取函数、提交回调和登出回调。 */
-  private options: SettingsPanelOptions | null = null;
+  private options: SettingsPanelOptions | null = null;  
+  /**
+ * 构造器：初始化 当前 实例并建立基础状态。
+ * @returns 无返回值（构造函数）。
+ */
+
 
   constructor() {
     document.getElementById('hud-open-settings')?.addEventListener('click', () => this.open());
@@ -77,6 +110,8 @@ export class SettingsPanel {
 
   /** 打开设置弹层 */
   open(): void {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
     if (!this.options) {
       return;
     }
@@ -181,6 +216,8 @@ export class SettingsPanel {
 
   /** bindAccountSettings：绑定账号设置。 */
   private bindAccountSettings(body: HTMLElement): void {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
     const displayNameInput = body.querySelector<HTMLInputElement>('#settings-display-name');
     const displayNameStatus = body.querySelector<HTMLElement>('#settings-display-name-status');
     const displayNameSubmit = body.querySelector<HTMLButtonElement>('#settings-display-name-submit');
@@ -211,6 +248,8 @@ export class SettingsPanel {
 
   /** bindUiSettings：绑定界面设置。 */
   private bindUiSettings(body: HTMLElement): void {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
     const config = getUiStyleConfig();
     const styleStatus = body.querySelector<HTMLElement>('#settings-ui-style-status');
     const resetButton = body.querySelector<HTMLButtonElement>('#settings-ui-reset');
@@ -293,6 +332,8 @@ export class SettingsPanel {
 
   /** bindRedeemSettings：绑定兑换设置。 */
   private bindRedeemSettings(body: HTMLElement): void {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
     const textarea = body.querySelector<HTMLTextAreaElement>('#settings-redeem-codes');
     const statusEl = body.querySelector<HTMLElement>('#settings-redeem-status');
     const button = body.querySelector<HTMLButtonElement>('#settings-redeem-submit');
@@ -343,6 +384,8 @@ export class SettingsPanel {
 
   /** syncUiGlobalFontOffsetRow：同步界面Global Font偏移Row。 */
   private syncUiGlobalFontOffsetRow(body: HTMLElement, globalFontOffset: number): void {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
     const rangeInput = body.querySelector<HTMLInputElement>('[data-ui-global-font-range]');
     const numberInput = body.querySelector<HTMLInputElement>('[data-ui-global-font-number]');
     const valueEl = body.querySelector<HTMLElement>('[data-ui-global-font-value]');
@@ -359,6 +402,8 @@ export class SettingsPanel {
 
   /** syncUiScaleRow：同步界面缩放Row。 */
   private syncUiScaleRow(body: HTMLElement, uiScale: number): void {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
     const rangeInput = body.querySelector<HTMLInputElement>('[data-ui-scale-range]');
     const numberInput = body.querySelector<HTMLInputElement>('[data-ui-scale-number]');
     const valueEl = body.querySelector<HTMLElement>('[data-ui-scale-value]');
@@ -582,7 +627,16 @@ export class SettingsPanel {
         <div id="settings-performance-status" class="account-settings-status ui-status-text">当前配置已自动保存到本机</div>
       </div>
     `;
-  }
+  }  
+  /**
+ * handleRedeemSubmit：处理事件并驱动执行路径。
+ * @param textarea HTMLTextAreaElement 参数说明。
+ * @param statusEl HTMLElement 参数说明。
+ * @param resultEl HTMLElement 参数说明。
+ * @param button HTMLButtonElement 参数说明。
+ * @returns Promise<void>。
+ */
+
 
   private async handleRedeemSubmit(
     textarea: HTMLTextAreaElement,
@@ -590,6 +644,8 @@ export class SettingsPanel {
     resultEl: HTMLElement,
     button: HTMLButtonElement,
   ): Promise<void> {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
     if (!this.options) {
       return;
     }
@@ -640,12 +696,21 @@ export class SettingsPanel {
     body.textContent = entry.groupName ? `${entry.groupName} · ${entry.message}` : entry.message;
     card.append(head, body);
     return card;
-  }
+  }  
+  /**
+ * scheduleDisplayNameCheck：执行核心业务逻辑。
+ * @param input HTMLInputElement 输入参数。
+ * @param statusEl HTMLElement 参数说明。
+ * @returns Promise<void>。
+ */
+
 
   private async scheduleDisplayNameCheck(
     input: HTMLInputElement,
     statusEl: HTMLElement,
   ): Promise<void> {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
     if (this.displayNameCheckTimer) {
       clearTimeout(this.displayNameCheckTimer);
     }
@@ -671,6 +736,8 @@ export class SettingsPanel {
 
   /** checkDisplayName：处理检查显示名称。 */
   private async checkDisplayName(displayName: string, statusEl: HTMLElement): Promise<void> {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
     if (displayName === this.currentDisplayName) {
       this.displayNameAvailable = true;
       setStatus(statusEl, '当前名称可继续使用', '');
@@ -700,13 +767,23 @@ export class SettingsPanel {
       this.displayNameAvailable = false;
       setStatus(statusEl, error instanceof Error ? error.message : '检测失败', 'error');
     }
-  }
+  }  
+  /**
+ * handleDisplayNameSubmit：处理事件并驱动执行路径。
+ * @param input HTMLInputElement 输入参数。
+ * @param statusEl HTMLElement 参数说明。
+ * @param button HTMLButtonElement 参数说明。
+ * @returns Promise<void>。
+ */
+
 
   private async handleDisplayNameSubmit(
     input: HTMLInputElement,
     statusEl: HTMLElement,
     button: HTMLButtonElement,
   ): Promise<void> {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
     const accessToken = getAccessToken();
     if (!accessToken) {
       setStatus(statusEl, '登录已失效，请重新登录', 'error');
@@ -740,7 +817,16 @@ export class SettingsPanel {
     } finally {
       button.disabled = false;
     }
-  }
+  }  
+  /**
+ * handlePasswordSubmit：处理事件并驱动执行路径。
+ * @param currentPasswordInput HTMLInputElement 参数说明。
+ * @param newPasswordInput HTMLInputElement 参数说明。
+ * @param statusEl HTMLElement 参数说明。
+ * @param button HTMLButtonElement 参数说明。
+ * @returns Promise<void>。
+ */
+
 
   private async handlePasswordSubmit(
     currentPasswordInput: HTMLInputElement,
@@ -748,6 +834,8 @@ export class SettingsPanel {
     statusEl: HTMLElement,
     button: HTMLButtonElement,
   ): Promise<void> {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
     const accessToken = getAccessToken();
     if (!accessToken) {
       setStatus(statusEl, '登录已失效，请重新登录', 'error');
@@ -779,13 +867,23 @@ export class SettingsPanel {
     } finally {
       button.disabled = false;
     }
-  }
+  }  
+  /**
+ * handleRoleNameSubmit：处理事件并驱动执行路径。
+ * @param input HTMLInputElement 输入参数。
+ * @param statusEl HTMLElement 参数说明。
+ * @param button HTMLButtonElement 参数说明。
+ * @returns Promise<void>。
+ */
+
 
   private async handleRoleNameSubmit(
     input: HTMLInputElement,
     statusEl: HTMLElement,
     button: HTMLButtonElement,
   ): Promise<void> {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
     const accessToken = getAccessToken();
     if (!accessToken) {
       setStatus(statusEl, '登录已失效，请重新登录', 'error');
@@ -826,6 +924,8 @@ function formatGlobalFontOffset(value: number): string {
 
 /** setStatus：处理set状态。 */
 function setStatus(target: HTMLElement | null, message: string, tone: '' | 'success' | 'error'): void {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
   if (!target) {
     return;
   }

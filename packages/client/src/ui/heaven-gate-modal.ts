@@ -22,23 +22,71 @@ const HEAVEN_GATE_SEVER_COST_PERCENT = Math.round(HEAVEN_GATE_SEVER_COST_RATIO *
 
 /** PendingAction：天门弹层待确认操作。 */
 type PendingAction =
-  | { kind: 'sever' | 'restore'; element: ElementKey }
-  | { kind: 'open' | 'reroll' | 'enter' };
+  | {  
+  /**
+ * kind：对象字段。
+ */
+ kind: 'sever' | 'restore';  
+ /**
+ * element：对象字段。
+ */
+ element: ElementKey }
+  | {  
+  /**
+ * kind：对象字段。
+ */
+ kind: 'open' | 'reroll' | 'enter' };
 
 /** HeavenGateSession：天门弹层会话状态。 */
 interface HeavenGateSession {
-  realmName: string;
-  currentExp: number;
-  maxExp: number;
-  severed: Set<ElementKey>;
-  roots: HeavenGateRootValues | null;
-  unlocked: boolean;
+/**
+ * realmName：HeavenGateSession 内部字段。
+ */
+
+  realmName: string;  
+  /**
+ * currentExp：HeavenGateSession 内部字段。
+ */
+
+  currentExp: number;  
+  /**
+ * maxExp：HeavenGateSession 内部字段。
+ */
+
+  maxExp: number;  
+  /**
+ * severed：HeavenGateSession 内部字段。
+ */
+
+  severed: Set<ElementKey>;  
+  /**
+ * roots：HeavenGateSession 内部字段。
+ */
+
+  roots: HeavenGateRootValues | null;  
+  /**
+ * unlocked：HeavenGateSession 内部字段。
+ */
+
+  unlocked: boolean;  
+  /**
+ * entered：HeavenGateSession 内部字段。
+ */
+
   entered: boolean;
 }
 
 /** 打开天门弹窗时注入的交互回调。 */
 interface HeavenGateModalOptions {
-  showToast: (message: string, kind?: 'system' | 'chat' | 'quest' | 'combat' | 'loot' | 'grudge') => void;
+/**
+ * showToast：HeavenGateModalOptions 内部字段。
+ */
+
+  showToast: (message: string, kind?: 'system' | 'chat' | 'quest' | 'combat' | 'loot' | 'grudge') => void;  
+  /**
+ * sendAction：HeavenGateModalOptions 内部字段。
+ */
+
   sendAction: (action: 'sever' | 'restore' | 'open' | 'reroll' | 'enter', element?: ElementKey) => void;
 }
 
@@ -72,6 +120,8 @@ function cloneRoots(roots: HeavenGateRootValues | null | undefined): HeavenGateR
 
 /** getHeavenGateState：读取Heaven关卡状态。 */
 function getHeavenGateState(player: PlayerState | null | undefined): HeavenGateState | null {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
   const realm = player?.realm;
   if (!realm || realm.realmLv < HEAVEN_GATE_MIN_REALM_LEVEL) {
     return null;
@@ -81,6 +131,8 @@ function getHeavenGateState(player: PlayerState | null | undefined): HeavenGateS
 
 /** buildSession：构建会话。 */
 function buildSession(player: PlayerState): HeavenGateSession | null {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
   const realm = player.realm;
   const heavenGate = getHeavenGateState(player);
   if (!realm || realm.realmLv < HEAVEN_GATE_MIN_REALM_LEVEL || !heavenGate?.unlocked) {
@@ -136,7 +188,19 @@ function getSessionRenderKey(session: HeavenGateSession): string {
 }
 
 /** describeRoots：处理describe Roots。 */
-function describeRoots(roots: HeavenGateRootValues): { name: string; meta: string; desc: string } {
+function describeRoots(roots: HeavenGateRootValues): {
+/**
+ * name：对象字段。
+ */
+ name: string;
+ /**
+ * meta：对象字段。
+ */
+ meta: string;
+ /**
+ * desc：对象字段。
+ */
+ desc: string } {
   return describeSpiritualRoots(roots);
 }
 
@@ -235,6 +299,8 @@ function renderBoardActions(session: HeavenGateSession): string {
 
 /** renderPendingPopup：渲染待处理Popup。 */
 function renderPendingPopup(session: HeavenGateSession): string {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
   if (!pendingAction) {
     return '';
   }
@@ -301,6 +367,8 @@ function renderPendingPopup(session: HeavenGateSession): string {
 
 /** stopValueAnimation：停止值Animation。 */
 function stopValueAnimation(): void {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
   if (animationFrame) {
     cancelAnimationFrame(animationFrame);
     /** animationFrame：animation帧。 */
@@ -311,6 +379,8 @@ function stopValueAnimation(): void {
 
 /** animateValues：处理animate值。 */
 function animateValues(body: HTMLElement, session: HeavenGateSession, rootsKey: string): void {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
   if (!session.roots) {
     return;
   }
@@ -362,6 +432,8 @@ function animateValues(body: HTMLElement, session: HeavenGateSession, rootsKey: 
 
 /** bindCursor：绑定Cursor。 */
 function bindCursor(body: HTMLElement): void {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
   const board = body.querySelector<HTMLElement>('[data-heaven-gate-board]');
   const cursor = body.querySelector<HTMLElement>('[data-heaven-gate-cursor]');
   if (!board || !cursor) {
@@ -399,6 +471,8 @@ function clearPendingAction(): void {
 
 /** renderHeavenGateModal：渲染Heaven关卡弹窗。 */
 function renderHeavenGateModal(player: PlayerState, session: HeavenGateSession, options: HeavenGateModalOptions): void {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
   cursorCleanup?.();
   /** cursorCleanup：cursor Cleanup。 */
   cursorCleanup = null;
@@ -452,10 +526,29 @@ function renderHeavenGateModal(player: PlayerState, session: HeavenGateSession, 
     },
   });
 }
+/**
+ * renderHeavenGateShell：执行核心业务逻辑。
+ * @param session HeavenGateSession 参数说明。
+ * @param judgement { name: string; meta: string; desc: string } | null 参数说明。
+ * @returns string。
+ */
+
 
 function renderHeavenGateShell(
   session: HeavenGateSession,
-  judgement: { name: string; meta: string; desc: string } | null,
+  judgement: {  
+  /**
+ * name：对象字段。
+ */
+ name: string;  
+ /**
+ * meta：对象字段。
+ */
+ meta: string;  
+ /**
+ * desc：对象字段。
+ */
+ desc: string } | null,
 ): string {
   return `
     <div class="heaven-gate-shell">
@@ -470,12 +563,34 @@ function renderHeavenGateShell(
     </div>
   `;
 }
+/**
+ * patchHeavenGateModalBody：执行核心业务逻辑。
+ * @param body HTMLElement 参数说明。
+ * @param session HeavenGateSession 参数说明。
+ * @param judgement { name: string; meta: string; desc: string } | null 参数说明。
+ * @returns boolean。
+ */
+
 
 function patchHeavenGateModalBody(
   body: HTMLElement,
   session: HeavenGateSession,
-  judgement: { name: string; meta: string; desc: string } | null,
+  judgement: {  
+  /**
+ * name：对象字段。
+ */
+ name: string;  
+ /**
+ * meta：对象字段。
+ */
+ meta: string;  
+ /**
+ * desc：对象字段。
+ */
+ desc: string } | null,
 ): boolean {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
   const shell = body.querySelector<HTMLElement>('.heaven-gate-shell');
   const judgementSection = body.querySelector<HTMLElement>('[data-heaven-gate-judgement="true"]');
   const boardShell = body.querySelector<HTMLElement>('[data-heaven-gate-board-shell="true"]');
@@ -493,6 +608,17 @@ function patchHeavenGateModalBody(
   popupShell.innerHTML = renderPendingPopup(session);
   return true;
 }
+/**
+ * bindHeavenGateEvents：执行核心业务逻辑。
+ * @param body HTMLElement 参数说明。
+ * @param player PlayerState 玩家对象。
+ * @param session HeavenGateSession 参数说明。
+ * @param options HeavenGateModalOptions 选项参数。
+ * @param shouldAnimate boolean 参数说明。
+ * @param rootsKey string | null 参数说明。
+ * @returns void。
+ */
+
 
 function bindHeavenGateEvents(
   body: HTMLElement,
@@ -502,6 +628,8 @@ function bindHeavenGateEvents(
   shouldAnimate: boolean,
   rootsKey: string | null,
 ): void {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
   bindCursor(body);
   if (body.dataset.heavenGateBound !== 'true') {
     body.dataset.heavenGateBound = 'true';
@@ -568,6 +696,13 @@ function bindHeavenGateEvents(
     lastAnimatedRootsKey = null;
   }
 }
+/**
+ * setInnerHtml：更新/写入相关状态。
+ * @param node Element | null 参数说明。
+ * @param value string 参数说明。
+ * @returns void。
+ */
+
 
 function setInnerHtml(node: Element | null, value: string): void {
   if (node) {
@@ -577,6 +712,8 @@ function setInnerHtml(node: Element | null, value: string): void {
 
 /** refreshHeavenGateModal：处理refresh Heaven关卡弹窗。 */
 export function refreshHeavenGateModal(player: PlayerState | null | undefined, options: HeavenGateModalOptions): void {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
   if (!detailModalHost.isOpenFor(HEAVEN_GATE_OWNER)) {
     return;
   }
@@ -597,7 +734,17 @@ export function refreshHeavenGateModal(player: PlayerState | null | undefined, o
 }
 
 /** getHeavenGateHudAction：读取Heaven关卡HUD动作。 */
-export function getHeavenGateHudAction(player: PlayerState | null | undefined): { visible: boolean; label: string } | null {
+export function getHeavenGateHudAction(player: PlayerState | null | undefined): {
+/**
+ * visible：对象字段。
+ */
+ visible: boolean;
+ /**
+ * label：对象字段。
+ */
+ label: string } | null {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
   const session = player ? buildSession(player) : null;
   if (!session?.unlocked) {
     return null;
@@ -610,6 +757,8 @@ export function getHeavenGateHudAction(player: PlayerState | null | undefined): 
 
 /** openHeavenGateModal：打开Heaven关卡弹窗。 */
 export function openHeavenGateModal(player: PlayerState | null | undefined, options: HeavenGateModalOptions): boolean {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
   if (!player) {
     options.showToast('当前未获取到角色状态。');
     return false;

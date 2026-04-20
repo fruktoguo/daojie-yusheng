@@ -17,18 +17,54 @@ import { formatDisplayInteger } from '../utils/number';
 
 /** ItemAffinityBadge：物品展示徽记。 */
 export interface ItemAffinityBadge {
-  label: string;
-  title: string;
-  tone: 'physical' | 'spell' | 'mixed' | 'utility';
+/**
+ * label：ItemAffinityBadge 内部字段。
+ */
+
+  label: string;  
+  /**
+ * title：ItemAffinityBadge 内部字段。
+ */
+
+  title: string;  
+  /**
+ * tone：ItemAffinityBadge 内部字段。
+ */
+
+  tone: 'physical' | 'spell' | 'mixed' | 'utility';  
+  /**
+ * element：ItemAffinityBadge 内部字段。
+ */
+
   element: ElementKey | 'multi' | 'neutral';
 }
 
 /** ItemDisplayMeta：物品展示元数据。 */
 export interface ItemDisplayMeta {
-  displayItem: ItemStack;
-  grade: TechniqueGrade | null;
-  gradeLabel: string | null;
-  levelLabel: string | null;
+/**
+ * displayItem：ItemDisplayMeta 内部字段。
+ */
+
+  displayItem: ItemStack;  
+  /**
+ * grade：ItemDisplayMeta 内部字段。
+ */
+
+  grade: TechniqueGrade | null;  
+  /**
+ * gradeLabel：ItemDisplayMeta 内部字段。
+ */
+
+  gradeLabel: string | null;  
+  /**
+ * levelLabel：ItemDisplayMeta 内部字段。
+ */
+
+  levelLabel: string | null;  
+  /**
+ * affinityBadge：ItemDisplayMeta 内部字段。
+ */
+
   affinityBadge: ItemAffinityBadge | null;
 }
 
@@ -41,9 +77,19 @@ function appendUnique<T>(list: T[], value: T): void {
 
 /** resolveTechniqueDamageProfile：解析Technique Damage Profile。 */
 function resolveTechniqueDamageProfile(skills: SkillDef[]): {
-  kinds: SkillDamageKind[];
+/**
+ * kinds：对象字段。
+ */
+
+  kinds: SkillDamageKind[];  
+  /**
+ * elements：对象字段。
+ */
+
   elements: ElementKey[];
 } {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
   const kinds: SkillDamageKind[] = [];
   const elements: ElementKey[] = [];
   for (const skill of skills) {
@@ -64,7 +110,17 @@ function resolveTechniqueDamageProfile(skills: SkillDef[]): {
 function formatAffinityLabel(
   kind: ItemAffinityBadge['tone'],
   element: ItemAffinityBadge['element'],
-): { label: string; title: string } {
+): {
+/**
+ * label：对象字段。
+ */
+ label: string;
+ /**
+ * title：对象字段。
+ */
+ title: string } {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
   const shortKindLabel = kind === 'physical'
     ? '物'
     : kind === 'spell'
@@ -98,6 +154,8 @@ function formatAffinityLabel(
 
 /** getTechniqueBookTemplate：读取Technique书籍模板。 */
 function getTechniqueBookTemplate(item: ItemStack) {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
   if (item.type !== 'skill_book') {
     return null;
   }
@@ -148,6 +206,8 @@ export function getItemAffixTypeLabel(item: ItemStack, typeLabel: string): strin
 
 /** getItemAffinityBadge：读取物品Affinity Badge。 */
 export function getItemAffinityBadge(item: ItemStack): ItemAffinityBadge | null {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
   const technique = getTechniqueBookTemplate(item);
   if (!technique) {
     return null;

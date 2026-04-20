@@ -9,56 +9,179 @@ const LEGACY_DATABASE_ENV_KEYS = [
   'SERVER_NEXT_DATABASE_URL',
   'DATABASE_URL',
 ] as const;
+/**
+ * PersistedSource：统一结构类型，保证协议与运行时一致性。
+ */
+
 
 type PersistedSource = 'native' | 'legacy_sync' | 'legacy_backfill' | 'token_seed';
+/**
+ * AuthSource：统一结构类型，保证协议与运行时一致性。
+ */
+
 type AuthSource = 'next' | 'token' | 'token_runtime';
+/**
+ * AuthenticatePlayerTokenOptions：定义接口结构约束，明确可交付字段含义。
+ */
+
 
 interface AuthenticatePlayerTokenOptions {
+/**
+ * protocol：AuthenticatePlayerTokenOptions 内部字段。
+ */
+
   protocol?: unknown;
 }
+/**
+ * TokenIdentity：定义接口结构约束，明确可交付字段含义。
+ */
+
 
 interface TokenIdentity {
-  userId: string;
-  username: string;
-  displayName: string;
-  playerId: string;
+/**
+ * userId：TokenIdentity 内部字段。
+ */
+
+  userId: string;  
+  /**
+ * username：TokenIdentity 内部字段。
+ */
+
+  username: string;  
+  /**
+ * displayName：TokenIdentity 内部字段。
+ */
+
+  displayName: string;  
+  /**
+ * playerId：TokenIdentity 内部字段。
+ */
+
+  playerId: string;  
+  /**
+ * playerName：TokenIdentity 内部字段。
+ */
+
   playerName: string;
 }
+/**
+ * PlayerIdentityLike：定义接口结构约束，明确可交付字段含义。
+ */
+
 
 interface PlayerIdentityLike extends TokenIdentity {
-  persistedSource?: unknown;
-  authSource?: unknown;
-  nextLoadHit?: unknown;
-  updatedAt?: unknown;
+/**
+ * persistedSource：PlayerIdentityLike 内部字段。
+ */
+
+  persistedSource?: unknown;  
+  /**
+ * authSource：PlayerIdentityLike 内部字段。
+ */
+
+  authSource?: unknown;  
+  /**
+ * nextLoadHit：PlayerIdentityLike 内部字段。
+ */
+
+  nextLoadHit?: unknown;  
+  /**
+ * updatedAt：PlayerIdentityLike 内部字段。
+ */
+
+  updatedAt?: unknown;  
+  /**
+ * version：PlayerIdentityLike 内部字段。
+ */
+
   version?: unknown;
   [key: string]: unknown;
 }
+/**
+ * AuthenticatedPlayerIdentity：定义接口结构约束，明确可交付字段含义。
+ */
+
 
 interface AuthenticatedPlayerIdentity extends PlayerIdentityLike {
-  authSource: AuthSource;
-  nextLoadHit: boolean;
+/**
+ * authSource：AuthenticatedPlayerIdentity 内部字段。
+ */
+
+  authSource: AuthSource;  
+  /**
+ * nextLoadHit：AuthenticatedPlayerIdentity 内部字段。
+ */
+
+  nextLoadHit: boolean;  
+  /**
+ * persistedSource：AuthenticatedPlayerIdentity 内部字段。
+ */
+
   persistedSource?: PersistedSource | null;
 }
+/**
+ * PlayerIdentityPersistencePort：定义接口结构约束，明确可交付字段含义。
+ */
+
 
 interface PlayerIdentityPersistencePort {
   isEnabled(): boolean;
   loadPlayerIdentity(userId: string): Promise<PlayerIdentityLike | null>;
-  savePlayerIdentity(identity: {
-    userId: string;
-    username: string;
-    displayName: string;
-    playerId: string;
-    playerName: string;
-    persistedSource: 'token_seed';
+  savePlayerIdentity(identity: {  
+  /**
+ * userId：PlayerIdentityPersistencePort 内部字段。
+ */
+
+    userId: string;    
+    /**
+ * username：PlayerIdentityPersistencePort 内部字段。
+ */
+
+    username: string;    
+    /**
+ * displayName：PlayerIdentityPersistencePort 内部字段。
+ */
+
+    displayName: string;    
+    /**
+ * playerId：PlayerIdentityPersistencePort 内部字段。
+ */
+
+    playerId: string;    
+    /**
+ * playerName：PlayerIdentityPersistencePort 内部字段。
+ */
+
+    playerName: string;    
+    /**
+ * persistedSource：PlayerIdentityPersistencePort 内部字段。
+ */
+
+    persistedSource: 'token_seed';    
+    /**
+ * updatedAt：PlayerIdentityPersistencePort 内部字段。
+ */
+
     updatedAt: number;
   }): Promise<PlayerIdentityLike | null>;
 }
+/**
+ * WorldPlayerSourcePort：定义接口结构约束，明确可交付字段含义。
+ */
+
 
 interface WorldPlayerSourcePort {
   loadNextPlayerIdentity?(userId: string): Promise<PlayerIdentityLike | null>;
 }
+/**
+ * hasLegacyDatabaseConfigured：执行状态校验并返回判断结果。
+ * @returns boolean。
+ */
+
 
 function hasLegacyDatabaseConfigured(): boolean {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
   for (const key of LEGACY_DATABASE_ENV_KEYS) {
     const value = typeof process.env[key] === 'string' ? process.env[key].trim() : '';
     if (value) {
@@ -68,6 +191,12 @@ function hasLegacyDatabaseConfigured(): boolean {
 
   return false;
 }
+/**
+ * hasExplicitTokenPlayerIdentityClaims：执行状态校验并返回判断结果。
+ * @param payload ValidatedPlayerTokenPayload | null | undefined 载荷参数。
+ * @returns boolean。
+ */
+
 
 function hasExplicitTokenPlayerIdentityClaims(
   payload: ValidatedPlayerTokenPayload | null | undefined,
@@ -76,18 +205,38 @@ function hasExplicitTokenPlayerIdentityClaims(
   const playerName = typeof payload?.playerName === 'string' ? payload.playerName.trim() : '';
   return Boolean(playerId && playerName);
 }
+/**
+ * normalizeProtocol：执行核心业务逻辑。
+ * @param protocol unknown 参数说明。
+ * @returns string。
+ */
+
 
 function normalizeProtocol(protocol: unknown): string {
   return typeof protocol === 'string' ? protocol.trim().toLowerCase() : '';
 }
+/**
+ * isExplicitMigrationProtocol：执行状态校验并返回判断结果。
+ * @param protocol string 参数说明。
+ * @returns boolean。
+ */
+
 
 function isExplicitMigrationProtocol(protocol: string): boolean {
   return protocol === 'migration';
 }
+/**
+ * normalizePersistedSource：执行核心业务逻辑。
+ * @param identity Pick<PlayerIdentityLike, 'persistedSource'> | null | undefined 参数说明。
+ * @returns PersistedSource | null。
+ */
+
 
 function normalizePersistedSource(
   identity: Pick<PlayerIdentityLike, 'persistedSource'> | null | undefined,
 ): PersistedSource | null {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
   const persistedSource = typeof identity?.persistedSource === 'string'
     ? identity.persistedSource.trim()
     : '';
@@ -106,6 +255,12 @@ function normalizePersistedSource(
 
   return null;
 }
+/**
+ * resolvePersistedNextIdentityAuthSource：执行核心业务逻辑。
+ * @param persistedSource PersistedSource 参数说明。
+ * @returns Extract<AuthSource, 'next' | 'token'>。
+ */
+
 
 function resolvePersistedNextIdentityAuthSource(
   persistedSource: PersistedSource,
@@ -117,7 +272,15 @@ function resolvePersistedNextIdentityAuthSource(
 @Injectable()
 export class WorldPlayerAuthService {
   /** 鉴权日志，便于追踪 token、回填和持久化失败。 */
-  private readonly logger = new Logger(WorldPlayerAuthService.name);
+  private readonly logger = new Logger(WorldPlayerAuthService.name);  
+  /**
+ * 构造器：初始化 当前 实例并建立基础状态。
+ * @param worldPlayerTokenService WorldPlayerTokenService 参数说明。
+ * @param playerIdentityPersistenceService PlayerIdentityPersistencePort 参数说明。
+ * @param worldPlayerSourceService WorldPlayerSourcePort 参数说明。
+ * @returns 无返回值（构造函数）。
+ */
+
 
   constructor(
     /** 生成和校验 next 玩家令牌。 */
@@ -132,17 +295,28 @@ export class WorldPlayerAuthService {
 
   /** 加载 next 玩家身份，优先走 next 持久化来源。 */
   async loadNextPlayerIdentity(userId: string): Promise<PlayerIdentityLike | null> {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
     if (typeof this.worldPlayerSourceService?.loadNextPlayerIdentity === 'function') {
       return this.worldPlayerSourceService.loadNextPlayerIdentity(userId);
     }
 
     return this.playerIdentityPersistenceService.loadPlayerIdentity(userId);
-  }
+  }  
+  /**
+ * authenticatePlayerToken：执行核心业务逻辑。
+ * @param token string 参数说明。
+ * @param options AuthenticatePlayerTokenOptions | undefined 选项参数。
+ * @returns Promise<AuthenticatedPlayerIdentity | null>。
+ */
+
 
   async authenticatePlayerToken(
     token: string,
     options: AuthenticatePlayerTokenOptions | undefined = undefined,
   ): Promise<AuthenticatedPlayerIdentity | null> {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
     const payload = this.worldPlayerTokenService.validatePlayerToken(token);
     if (!payload) {
       return null;

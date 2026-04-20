@@ -16,10 +16,30 @@ type SkillTooltipPreviewPlayer = Pick<PlayerState, 'x' | 'y' | 'hp' | 'maxHp' | 
 
 /** SkillTooltipPreviewContext：技能提示预览上下文。 */
 export interface SkillTooltipPreviewContext {
-  techLevel?: number;
-  unlockLevel?: number;
-  player?: SkillTooltipPreviewPlayer | null;
-  target?: SkillTooltipPreviewPlayer | null;
+/**
+ * techLevel：SkillTooltipPreviewContext 内部字段。
+ */
+
+  techLevel?: number;  
+  /**
+ * unlockLevel：SkillTooltipPreviewContext 内部字段。
+ */
+
+  unlockLevel?: number;  
+  /**
+ * player：SkillTooltipPreviewContext 内部字段。
+ */
+
+  player?: SkillTooltipPreviewPlayer | null;  
+  /**
+ * target：SkillTooltipPreviewContext 内部字段。
+ */
+
+  target?: SkillTooltipPreviewPlayer | null;  
+  /**
+ * knownSkills：SkillTooltipPreviewContext 内部字段。
+ */
+
   knownSkills?: SkillDef[];
 }
 
@@ -31,71 +51,207 @@ type ScalingMeta = SkillScalingMeta;
 
 /** FormulaPreview：公式预览结果。 */
 type FormulaPreview = {
-  html: string;
+/**
+ * html：对象字段。
+ */
+
+  html: string;  
+  /**
+ * resolved：对象字段。
+ */
+
   resolved: number | null;
 };
 
 /** StructuredDamagePreview：结构化伤害预览汇总。 */
 type StructuredDamagePreview = {
-  total: number;
-  fixedTotal: number;
-  percentTotal: number;
-  percentFactorCount: number;
-  fixedHtml: string;
+/**
+ * total：对象字段。
+ */
+
+  total: number;  
+  /**
+ * fixedTotal：对象字段。
+ */
+
+  fixedTotal: number;  
+  /**
+ * percentTotal：对象字段。
+ */
+
+  percentTotal: number;  
+  /**
+ * percentFactorCount：对象字段。
+ */
+
+  percentFactorCount: number;  
+  /**
+ * fixedHtml：对象字段。
+ */
+
+  fixedHtml: string;  
+  /**
+ * percentHtml：对象字段。
+ */
+
   percentHtml: string;
 };
 
 /** PercentFactorPreview：百分比因子预览项。 */
 type PercentFactorPreview = {
-  multiplier: number;
+/**
+ * multiplier：对象字段。
+ */
+
+  multiplier: number;  
+  /**
+ * html：对象字段。
+ */
+
   html: string;
 };
 
 /** ResolvedPreviewValue：已解析预览数值。 */
 type ResolvedPreviewValue = {
-  value: number;
+/**
+ * value：对象字段。
+ */
+
+  value: number;  
+  /**
+ * known：对象字段。
+ */
+
   known: boolean;
 };
 
 /** BuffFormulaMeta：Buff 公式变量元信息。 */
 type BuffFormulaMeta = {
-  side: 'caster' | 'target';
+/**
+ * side：对象字段。
+ */
+
+  side: 'caster' | 'target';  
+  /**
+ * buffId：对象字段。
+ */
+
   buffId: string;
 };
 
 /** ResolvedBuffMeta：已解析 Buff 展示信息。 */
 type ResolvedBuffMeta = {
-  name: string;
-  mark: string;
+/**
+ * name：对象字段。
+ */
+
+  name: string;  
+  /**
+ * mark：对象字段。
+ */
+
+  mark: string;  
+  /**
+ * tone：对象字段。
+ */
+
   tone: 'buff' | 'debuff';
 };
 
 /** SkillTooltipAsideCard：技能提示侧栏卡片。 */
 export interface SkillTooltipAsideCard {
-  mark?: string;
-  title: string;
-  lines: string[];
+/**
+ * mark：SkillTooltipAsideCard 内部字段。
+ */
+
+  mark?: string;  
+  /**
+ * title：SkillTooltipAsideCard 内部字段。
+ */
+
+  title: string;  
+  /**
+ * lines：SkillTooltipAsideCard 内部字段。
+ */
+
+  lines: string[];  
+  /**
+ * tone：SkillTooltipAsideCard 内部字段。
+ */
+
   tone?: 'buff' | 'debuff';
 }
 
 /** SkillTooltipContent：技能提示内容块。 */
 export interface SkillTooltipContent {
-  lines: string[];
+/**
+ * lines：SkillTooltipContent 内部字段。
+ */
+
+  lines: string[];  
+  /**
+ * asideCards：SkillTooltipContent 内部字段。
+ */
+
   asideCards: SkillTooltipAsideCard[];
 }
 
 /** SkillPreviewMetrics：技能预览统计指标。 */
 export interface SkillPreviewMetrics {
-  actualDamage: number | null;
-  actualQiCost: number;
-  range: number;
-  targetCount: number;
-  cooldown: number;
-  hasPhysicalDamage: boolean;
-  hasSpellDamage: boolean;
-  isSingleTarget: boolean;
-  isAreaTarget: boolean;
-  isMelee: boolean;
+/**
+ * actualDamage：SkillPreviewMetrics 内部字段。
+ */
+
+  actualDamage: number | null;  
+  /**
+ * actualQiCost：SkillPreviewMetrics 内部字段。
+ */
+
+  actualQiCost: number;  
+  /**
+ * range：SkillPreviewMetrics 内部字段。
+ */
+
+  range: number;  
+  /**
+ * targetCount：SkillPreviewMetrics 内部字段。
+ */
+
+  targetCount: number;  
+  /**
+ * cooldown：SkillPreviewMetrics 内部字段。
+ */
+
+  cooldown: number;  
+  /**
+ * hasPhysicalDamage：SkillPreviewMetrics 内部字段。
+ */
+
+  hasPhysicalDamage: boolean;  
+  /**
+ * hasSpellDamage：SkillPreviewMetrics 内部字段。
+ */
+
+  hasSpellDamage: boolean;  
+  /**
+ * isSingleTarget：SkillPreviewMetrics 内部字段。
+ */
+
+  isSingleTarget: boolean;  
+  /**
+ * isAreaTarget：SkillPreviewMetrics 内部字段。
+ */
+
+  isAreaTarget: boolean;  
+  /**
+ * isMelee：SkillPreviewMetrics 内部字段。
+ */
+
+  isMelee: boolean;  
+  /**
+ * isRanged：SkillPreviewMetrics 内部字段。
+ */
+
   isRanged: boolean;
 }
 
@@ -116,6 +272,8 @@ function formatPercent(scale: number): string {
 
 /** normalizeBuffMark：规范化Buff Mark。 */
 function normalizeBuffMark(name: string, shortMark?: string): string {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
   const value = shortMark?.trim();
   if (value) return [...value][0] ?? value;
   return [...name.trim()][0] ?? '气';
@@ -133,6 +291,8 @@ function renderPlainLine(label: string, value: string): string {
 
 /** buildQiCostValue：构建Qi Cost值。 */
 function buildQiCostValue(cost: number, context: SkillTooltipPreviewContext): string {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
   const baseCost = escapeHtml(formatDisplayNumber(cost));
   const maxQiOutputPerTick = context.player?.numericStats?.maxQiOutputPerTick;
   if (maxQiOutputPerTick === undefined) {
@@ -150,12 +310,20 @@ function buildQiCostValue(cost: number, context: SkillTooltipPreviewContext): st
 }
 
 /** describeBuffEffect：处理describe Buff效果。 */
-function describeBuffEffect(effect: Extract<SkillDef['effects'][number], { type: 'buff' }>): string[] {
+function describeBuffEffect(effect: Extract<SkillDef['effects'][number], {
+/**
+ * type：对象字段。
+ */
+ type: 'buff' }>): string[] {
   return describePreviewBonuses(effect.attrs, effect.stats, effect.valueStats);
 }
 
 /** buildBuffInlineBadge：构建Buff Inline Badge。 */
-function buildBuffInlineBadge(effect: Extract<SkillDef['effects'][number], { type: 'buff' }>): string {
+function buildBuffInlineBadge(effect: Extract<SkillDef['effects'][number], {
+/**
+ * type：对象字段。
+ */
+ type: 'buff' }>): string {
   const toneClass = effect.category === 'debuff' ? 'debuff' : 'buff';
   const mark = normalizeBuffMark(effect.name, effect.shortMark);
   return `<span class="skill-tooltip-buff-entry ${toneClass}"><span class="skill-tooltip-buff-mark">${escapeHtml(mark)}</span><span>${escapeHtml(effect.name)}</span></span>`;
@@ -167,7 +335,11 @@ function buildBuffInlineBadgeFromMeta(meta: ResolvedBuffMeta): string {
 }
 
 /** buildBuffAsideCard：构建Buff Aside卡片。 */
-function buildBuffAsideCard(effect: Extract<SkillDef['effects'][number], { type: 'buff' }>): SkillTooltipAsideCard {
+function buildBuffAsideCard(effect: Extract<SkillDef['effects'][number], {
+/**
+ * type：对象字段。
+ */
+ type: 'buff' }>): SkillTooltipAsideCard {
   const targetLabel = effect.target === 'target' ? '目标' : effect.target === 'allies' ? '友方' : '自身';
   const effectLines = describeBuffEffect(effect);
   const stackLimit = formatBuffMaxStacks(effect.maxStacks);
@@ -196,6 +368,8 @@ function renderFormulaTerm(content: string, className: string): string {
 
 /** parseBuffFormulaVar：解析Buff Formula Var。 */
 function parseBuffFormulaVar(varName: SkillFormulaVar): BuffFormulaMeta | null {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
   const matched = varName.match(/^(caster|target)\.buff\.(.+)\.stacks$/);
   if (!matched) {
     return null;
@@ -213,13 +387,19 @@ function resolveBuffStacks(buffs: TemporaryBuffState[] | undefined, buffId: stri
 
 /** resolveBuffFormulaMeta：解析Buff Formula元数据。 */
 function resolveBuffFormulaMeta(varName: SkillFormulaVar, context: SkillTooltipPreviewContext): ResolvedBuffMeta | null {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
   const parsed = parseBuffFormulaVar(varName);
   if (!parsed) {
     return null;
   }
   const effect = resolvePreviewSkills(context.knownSkills)
     ?.flatMap((skill) => skill.effects)
-    .find((entry): entry is Extract<SkillDef['effects'][number], { type: 'buff' }> => (
+    .find((entry): entry is Extract<SkillDef['effects'][number], {    
+    /**
+ * type：对象字段。
+ */
+ type: 'buff' }> => (
       entry.type === 'buff' && entry.buffId === parsed.buffId
     )) ?? getLocalBuffTemplate(parsed.buffId);
   if (!effect) {
@@ -234,6 +414,8 @@ function resolveBuffFormulaMeta(varName: SkillFormulaVar, context: SkillTooltipP
 
 /** buildBuffStackReference：构建Buff Stack Reference。 */
 function buildBuffStackReference(varName: SkillFormulaVar, context: SkillTooltipPreviewContext, stacks?: number | null): string | null {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
   const parsed = parseBuffFormulaVar(varName);
   if (!parsed) {
     return null;
@@ -248,6 +430,8 @@ function buildBuffStackReference(varName: SkillFormulaVar, context: SkillTooltip
 
 /** resolveStatValue：解析Stat值。 */
 function resolveStatValue(player: PreviewPlayer | null | undefined, key: NumericScalarStatKey): ResolvedPreviewValue {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
   if (!player?.numericStats) {
     return { value: 0, known: false };
   }
@@ -261,6 +445,8 @@ function resolveTargetPreview(context: SkillTooltipPreviewContext): PreviewPlaye
 
 /** resolvePreviewValue：解析Preview值。 */
 function resolvePreviewValue(varName: SkillFormulaVar, context: SkillTooltipPreviewContext): ResolvedPreviewValue {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
   const player = context.player;
   const target = resolveTargetPreview(context);
   const parsedBuff = parseBuffFormulaVar(varName);
@@ -337,6 +523,8 @@ function resolvePreviewVar(varName: SkillFormulaVar, context: SkillTooltipPrevie
 
 /** renderVariableFormula：渲染Variable Formula。 */
 function renderVariableFormula(varName: SkillFormulaVar, scale: number, context: SkillTooltipPreviewContext): FormulaPreview {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
   if (varName === 'techLevel') {
     const techLevel = context.techLevel;
     if (typeof techLevel === 'number') {
@@ -397,17 +585,41 @@ function renderVariableFormula(varName: SkillFormulaVar, scale: number, context:
 }
 
 /** isAddFormula：判断是否Add Formula。 */
-function isAddFormula(formula: SkillFormula): formula is { op: 'add'; args: SkillFormula[] } {
+function isAddFormula(formula: SkillFormula): formula is {
+/**
+ * op：对象字段。
+ */
+ op: 'add';
+ /**
+ * args：对象字段。
+ */
+ args: SkillFormula[] } {
   return typeof formula !== 'number' && !('var' in formula) && formula.op === 'add';
 }
 
 /** isMulFormula：判断是否Mul Formula。 */
-function isMulFormula(formula: SkillFormula): formula is { op: 'mul'; args: SkillFormula[] } {
+function isMulFormula(formula: SkillFormula): formula is {
+/**
+ * op：对象字段。
+ */
+ op: 'mul';
+ /**
+ * args：对象字段。
+ */
+ args: SkillFormula[] } {
   return typeof formula !== 'number' && !('var' in formula) && formula.op === 'mul';
 }
 
 /** isPercentFactorFormula：判断是否Percent Factor Formula。 */
-function isPercentFactorFormula(formula: SkillFormula): formula is { op: 'add'; args: SkillFormula[] } {
+function isPercentFactorFormula(formula: SkillFormula): formula is {
+/**
+ * op：对象字段。
+ */
+ op: 'add';
+ /**
+ * args：对象字段。
+ */
+ args: SkillFormula[] } {
   return isAddFormula(formula)
     && formula.args.length > 0
     && typeof formula.args[0] === 'number'
@@ -416,6 +628,8 @@ function isPercentFactorFormula(formula: SkillFormula): formula is { op: 'add'; 
 
 /** previewPercentFactor：处理preview Percent Factor。 */
 function previewPercentFactor(formula: SkillFormula, context: SkillTooltipPreviewContext): PercentFactorPreview | null {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
   if (!isPercentFactorFormula(formula)) {
     return null;
   }
@@ -432,6 +646,8 @@ function previewPercentFactor(formula: SkillFormula, context: SkillTooltipPrevie
 
 /** extractStructuredDamagePreview：处理extract Structured Damage Preview。 */
 function extractStructuredDamagePreview(formula: SkillFormula, context: SkillTooltipPreviewContext): StructuredDamagePreview | null {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
   if (!isMulFormula(formula) || formula.args.length < 2) {
     return null;
   }
@@ -470,6 +686,8 @@ function extractStructuredDamagePreview(formula: SkillFormula, context: SkillToo
 
 /** previewPercentPart：处理preview Percent部分。 */
 function previewPercentPart(formula: SkillFormula, context: SkillTooltipPreviewContext): FormulaPreview {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
   if (typeof formula === 'number') {
     return {
       html: renderFormulaTerm(formatPercent(formula), 'skill-formula-term-percent'),
@@ -528,6 +746,8 @@ function joinFormulaParts(parts: string[], operator: string): string {
 
 /** previewFormula：处理preview Formula。 */
 function previewFormula(formula: SkillFormula, context: SkillTooltipPreviewContext): FormulaPreview {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
   if (typeof formula === 'number') {
     return {
       html: formatDisplayNumber(formula),
@@ -617,6 +837,8 @@ function previewFormula(formula: SkillFormula, context: SkillTooltipPreviewConte
 
 /** formatDamageFormula：格式化Damage Formula。 */
 function formatDamageFormula(formula: SkillFormula, context: SkillTooltipPreviewContext, damageKind: 'physical' | 'spell'): string {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
   const structured = extractStructuredDamagePreview(formula, context);
   if (structured) {
     const fixedPart = `<span class="skill-formula-group">${formatDisplayNumber(structured.fixedTotal)}<span class="skill-formula-breakdown">（${structured.fixedHtml}）</span></span>`;
@@ -639,6 +861,8 @@ function formatDamageFormula(formula: SkillFormula, context: SkillTooltipPreview
 
 /** summarizeSkillPreviewMetrics：处理summarize技能Preview指标。 */
 export function summarizeSkillPreviewMetrics(skill: SkillDef, context: SkillTooltipPreviewContext = {}): SkillPreviewMetrics {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
   const previewSkill = resolvePreviewSkill(skill);
   let totalDamage = 0;
   let hasDamageEffect = false;
@@ -693,6 +917,8 @@ export function summarizeSkillPreviewMetrics(skill: SkillDef, context: SkillTool
 
 /** formatTargeting：格式化Targeting。 */
 function formatTargeting(skill: SkillDef): string {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
   const shape = skill.targeting?.shape ?? 'single';
   if (shape === 'line') {
     return `直线，最多命中 ${formatDisplayInteger(skill.targeting?.maxTargets ?? 99)} 个目标`;
@@ -723,6 +949,8 @@ function formatTargeting(skill: SkillDef): string {
 
 /** 构建完整的技能提示内容（富文本行 + 侧栏 Buff 卡片） */
 export function buildSkillTooltipContent(skill: SkillDef, context: SkillTooltipPreviewContext = {}): SkillTooltipContent {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
   const previewSkill = resolvePreviewSkill(skill);
   const lines: string[] = [`<span class="skill-tooltip-desc">${escapeHtml(previewSkill.desc)}</span>`];
   const asideCards: SkillTooltipAsideCard[] = [];

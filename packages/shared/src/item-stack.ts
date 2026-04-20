@@ -14,6 +14,8 @@ type ComparableValue =
 
 /** normalizeComparableValue：规范化Comparable值。 */
 function normalizeComparableValue(value: unknown): ComparableValue | undefined {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
   if (value === undefined) {
     return undefined;
   }

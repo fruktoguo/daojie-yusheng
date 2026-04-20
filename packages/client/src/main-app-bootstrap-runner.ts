@@ -1,4 +1,10 @@
 import { bootstrapMainApp } from './main-bootstrap-assembly';
+/**
+ * runMainAppBootstrap：执行核心业务逻辑。
+ * @param context ReturnType<typeof import('./main-app-runtime-context').createMainAppRuntimeContext> 上下文信息。
+ * @returns void。
+ */
+
 
 export function runMainAppBootstrap(context: ReturnType<typeof import('./main-app-runtime-context').createMainAppRuntimeContext>): void {
   bootstrapMainApp({

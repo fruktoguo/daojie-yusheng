@@ -5,59 +5,195 @@ const SPIRIT_STONE_ITEM_ID = 'spirit_stone';
 
 /** 物品来源条目的通用字段。 */
 interface ItemSourceBaseEntry {
-  kind: ItemSourceKind;
-  mapId: string;
+/**
+ * kind：ItemSourceBaseEntry 内部字段。
+ */
+
+  kind: ItemSourceKind;  
+  /**
+ * mapId：ItemSourceBaseEntry 内部字段。
+ */
+
+  mapId: string;  
+  /**
+ * mapName：ItemSourceBaseEntry 内部字段。
+ */
+
   mapName: string;
 }
 
 /** 击杀掉落类来源条目。 */
 export interface MonsterItemSourceEntry extends ItemSourceBaseEntry {
-  kind: 'monster_drop';
-  monsterId: string;
-  monsterName: string;
-  chance?: number;
+/**
+ * kind：MonsterItemSourceEntry 内部字段。
+ */
+
+  kind: 'monster_drop';  
+  /**
+ * monsterId：MonsterItemSourceEntry 内部字段。
+ */
+
+  monsterId: string;  
+  /**
+ * monsterName：MonsterItemSourceEntry 内部字段。
+ */
+
+  monsterName: string;  
+  /**
+ * chance：MonsterItemSourceEntry 内部字段。
+ */
+
+  chance?: number;  
+  /**
+ * count：MonsterItemSourceEntry 内部字段。
+ */
+
   count: number;
 }
 
 /** 采矿或搜索的直接掉落条目。 */
 export interface DirectItemNodeSourceEntry extends ItemSourceBaseEntry {
-  kind: 'mining' | 'search';
-  landmarkId: string;
-  landmarkName: string;
-  mode: 'direct';
-  chance?: number;
+/**
+ * kind：DirectItemNodeSourceEntry 内部字段。
+ */
+
+  kind: 'mining' | 'search';  
+  /**
+ * landmarkId：DirectItemNodeSourceEntry 内部字段。
+ */
+
+  landmarkId: string;  
+  /**
+ * landmarkName：DirectItemNodeSourceEntry 内部字段。
+ */
+
+  landmarkName: string;  
+  /**
+ * mode：DirectItemNodeSourceEntry 内部字段。
+ */
+
+  mode: 'direct';  
+  /**
+ * chance：DirectItemNodeSourceEntry 内部字段。
+ */
+
+  chance?: number;  
+  /**
+ * count：DirectItemNodeSourceEntry 内部字段。
+ */
+
   count: number;
 }
 
 /** 采矿或搜索的池子掉落条目。 */
 export interface PoolItemNodeSourceEntry extends ItemSourceBaseEntry {
-  kind: 'mining' | 'search';
-  landmarkId: string;
-  landmarkName: string;
-  mode: 'pool';
-  poolIndex: number;
-  poolChance?: number;
-  countMin?: number;
-  countMax?: number;
-  minLevel?: number;
-  maxLevel?: number;
-  maxGrade?: string;
+/**
+ * kind：PoolItemNodeSourceEntry 内部字段。
+ */
+
+  kind: 'mining' | 'search';  
+  /**
+ * landmarkId：PoolItemNodeSourceEntry 内部字段。
+ */
+
+  landmarkId: string;  
+  /**
+ * landmarkName：PoolItemNodeSourceEntry 内部字段。
+ */
+
+  landmarkName: string;  
+  /**
+ * mode：PoolItemNodeSourceEntry 内部字段。
+ */
+
+  mode: 'pool';  
+  /**
+ * poolIndex：PoolItemNodeSourceEntry 内部字段。
+ */
+
+  poolIndex: number;  
+  /**
+ * poolChance：PoolItemNodeSourceEntry 内部字段。
+ */
+
+  poolChance?: number;  
+  /**
+ * countMin：PoolItemNodeSourceEntry 内部字段。
+ */
+
+  countMin?: number;  
+  /**
+ * countMax：PoolItemNodeSourceEntry 内部字段。
+ */
+
+  countMax?: number;  
+  /**
+ * minLevel：PoolItemNodeSourceEntry 内部字段。
+ */
+
+  minLevel?: number;  
+  /**
+ * maxLevel：PoolItemNodeSourceEntry 内部字段。
+ */
+
+  maxLevel?: number;  
+  /**
+ * maxGrade：PoolItemNodeSourceEntry 内部字段。
+ */
+
+  maxGrade?: string;  
+  /**
+ * tagGroups：PoolItemNodeSourceEntry 内部字段。
+ */
+
   tagGroups?: string[][];
 }
 
 /** 任务奖励来源条目。 */
 export interface QuestItemSourceEntry extends ItemSourceBaseEntry {
-  kind: 'quest';
-  questId: string;
-  questTitle: string;
-  line?: string;
+/**
+ * kind：QuestItemSourceEntry 内部字段。
+ */
+
+  kind: 'quest';  
+  /**
+ * questId：QuestItemSourceEntry 内部字段。
+ */
+
+  questId: string;  
+  /**
+ * questTitle：QuestItemSourceEntry 内部字段。
+ */
+
+  questTitle: string;  
+  /**
+ * line：QuestItemSourceEntry 内部字段。
+ */
+
+  line?: string;  
+  /**
+ * chapter：QuestItemSourceEntry 内部字段。
+ */
+
   chapter?: string;
 }
 
 /** 商店购买来源条目。 */
 export interface ShopItemSourceEntry extends ItemSourceBaseEntry {
-  kind: 'shop';
-  npcId: string;
+/**
+ * kind：ShopItemSourceEntry 内部字段。
+ */
+
+  kind: 'shop';  
+  /**
+ * npcId：ShopItemSourceEntry 内部字段。
+ */
+
+  npcId: string;  
+  /**
+ * npcName：ShopItemSourceEntry 内部字段。
+ */
+
   npcName: string;
 }
 
@@ -78,6 +214,8 @@ let itemSourceCatalogPromise: Promise<ItemSourceCatalog> | null = null;
 
 /** 按需加载物品来源目录。该 generated JSON 仍是运行时 tooltip/背包来源说明链路的一部分。 */
 function loadItemSourceCatalog(): Promise<ItemSourceCatalog> {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
   if (itemSourceCatalog) {
     return Promise.resolve(itemSourceCatalog);
   }
@@ -133,7 +271,17 @@ function getSourceLinkLabel(kind: ItemSourceKind): string {
 }
 
 /** 把来源条目拆成若干个展示标签。 */
-function formatSourceDetails(entry: ItemSourceEntry): Array<{ tone: string; text: string }> {
+function formatSourceDetails(entry: ItemSourceEntry): Array<{
+/**
+ * tone：对象字段。
+ */
+ tone: string;
+ /**
+ * text：对象字段。
+ */
+ text: string }> {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
   if (entry.kind === 'monster_drop') {
     return [
       { tone: 'map', text: entry.mapName },
@@ -163,6 +311,8 @@ function formatSourceDetails(entry: ItemSourceEntry): Array<{ tone: string; text
 
 /** 读取某个物品的静态来源条目。 */
 export function getItemSourceEntries(itemId: string): ItemSourceEntry[] {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
   const catalog = getLoadedItemSourceCatalog();
   if (!catalog) {
     void loadItemSourceCatalog();
@@ -183,6 +333,8 @@ export function isSpecialSourceSummaryItem(itemId: string): boolean {
 
 /** 为特殊物品生成简短来源摘要。 */
 function renderSpecialSourceSummaryHtml(itemId: string): string | null {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
   if (itemId !== SPIRIT_STONE_ITEM_ID) {
     return null;
   }
@@ -192,11 +344,21 @@ function renderSpecialSourceSummaryHtml(itemId: string): string | null {
 /** 把物品来源目录渲染成可直接插入的 HTML。 */
 export function renderItemSourceListHtml(
   itemId: string,
-  options: {
-    maxEntries?: number;
+  options: {  
+  /**
+ * maxEntries：对象字段。
+ */
+
+    maxEntries?: number;    
+    /**
+ * compact：对象字段。
+ */
+
     compact?: boolean;
   } = {},
 ): string {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
   const specialSummaryHtml = renderSpecialSourceSummaryHtml(itemId);
   if (specialSummaryHtml) {
     return specialSummaryHtml;

@@ -33,14 +33,49 @@ export const PAINT_TILE_TYPES: TileType[] = [
 ];
 
 /** 左侧工具栏按钮与提示。 */
-export const TOOL_OPTIONS: Array<{ value: 'select' | 'paint' | 'pan'; label: string; note: string }> = [
+export const TOOL_OPTIONS: Array<{
+/**
+ * value：对象字段。
+ */
+/**
+ * value：对象字段。
+ */
+ value: 'select' | 'paint' | 'pan'; 
+ /**
+ * label：对象字段。
+ */
+/**
+ * label：对象字段。
+ */
+ label: string; 
+ /**
+ * note：对象字段。
+ */
+/**
+ * note：对象字段。
+ */
+ note: string }> = [
   { value: 'select', label: '选取', note: '检查当前格与对象' },
   { value: 'paint', label: '绘制', note: '左键拖拽刷地块' },
   { value: 'pan', label: '平移', note: '左键拖动画布' },
 ];
 
 /** 可绘制图层配置，支持地块、无属性灵气与通用气机。 */
-export const PAINT_LAYER_OPTIONS: Array<{ value: 'tile' | 'aura' | 'resource'; label: string }> = [
+export const PAINT_LAYER_OPTIONS: Array<{
+/**
+ * value：对象字段。
+ */
+/**
+ * value：对象字段。
+ */
+ value: 'tile' | 'aura' | 'resource'; 
+ /**
+ * label：对象字段。
+ */
+/**
+ * label：对象字段。
+ */
+ label: string }> = [
   { value: 'tile', label: '地块' },
   { value: 'aura', label: '无属性灵气' },
   { value: 'resource', label: '气机' },
@@ -50,7 +85,21 @@ export const PAINT_LAYER_OPTIONS: Array<{ value: 'tile' | 'aura' | 'resource'; l
 export const AURA_BRUSH_LEVELS = [0, 1, 2, 3, 4, 5, 6] as const;
 
 /** 右侧检查器的标签页顺序与文字。 */
-export const INSPECTOR_TABS: Array<{ value: 'selection' | 'meta' | 'compose' | 'portal' | 'npc' | 'monster' | 'aura' | 'resource' | 'safeZone' | 'landmark' | 'container'; label: string }> = [
+export const INSPECTOR_TABS: Array<{
+/**
+ * value：对象字段。
+ */
+/**
+ * value：对象字段。
+ */
+ value: 'selection' | 'meta' | 'compose' | 'portal' | 'npc' | 'monster' | 'aura' | 'resource' | 'safeZone' | 'landmark' | 'container'; 
+ /**
+ * label：对象字段。
+ */
+/**
+ * label：对象字段。
+ */
+ label: string }> = [
   { value: 'selection', label: '选区' },
   { value: 'meta', label: '地图' },
   { value: 'compose', label: '拼图' },

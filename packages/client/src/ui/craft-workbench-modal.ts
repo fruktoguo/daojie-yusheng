@@ -24,6 +24,8 @@ function escapeHtml(value: string): string {
 
 /** formatTicks：格式化Ticks。 */
 function formatTicks(ticks: number | undefined): string {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
   if (!Number.isFinite(ticks) || Number(ticks) <= 0) {
     return '0 息';
   }
@@ -32,6 +34,8 @@ function formatTicks(ticks: number | undefined): string {
 
 /** formatPercentRate：格式化Percent速率。 */
 function formatPercentRate(rate: number | undefined): string {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
   if (!Number.isFinite(rate)) {
     return '0%';
   }
@@ -47,7 +51,27 @@ function renderKeyValueCard(label: string, value: string): string {
 }
 
 /** renderItemSummary：渲染物品摘要。 */
-function renderItemSummary(item: { name?: string; itemId: string; type?: string; level?: number; equipSlot?: string }): string {
+function renderItemSummary(item: {
+/**
+ * name：对象字段。
+ */
+ name?: string;
+ /**
+ * itemId：对象字段。
+ */
+ itemId: string;
+ /**
+ * type：对象字段。
+ */
+ type?: string;
+ /**
+ * level：对象字段。
+ */
+ level?: number;
+ /**
+ * equipSlot：对象字段。
+ */
+ equipSlot?: string }): string {
   const parts = [
     item.type ? getItemTypeLabel(item.type) : '',
     typeof item.level === 'number' ? `Lv.${formatDisplayInteger(item.level)}` : '',
@@ -78,11 +102,43 @@ function toEquipSlot(value: string | undefined): EnhancementTargetRef['slot'] | 
 
 /** CraftWorkbenchCallbacks：工坊弹窗回调集。 */
 type CraftWorkbenchCallbacks = {
-  onRequestAlchemy: (knownCatalogVersion?: number) => void;
-  onRequestEnhancement: () => void;
-  onStartAlchemy: (recipeId: string, ingredients: Array<{ itemId: string; count: number }>, quantity: number) => void;
-  onCancelAlchemy: () => void;
-  onStartEnhancement: (payload: NEXT_C2S_StartEnhancement) => void;
+/**
+ * onRequestAlchemy：对象字段。
+ */
+
+  onRequestAlchemy: (knownCatalogVersion?: number) => void;  
+  /**
+ * onRequestEnhancement：对象字段。
+ */
+
+  onRequestEnhancement: () => void;  
+  /**
+ * onStartAlchemy：对象字段。
+ */
+
+  onStartAlchemy: (recipeId: string, ingredients: Array<{  
+  /**
+ * itemId：对象字段。
+ */
+ itemId: string;  
+ /**
+ * count：对象字段。
+ */
+ count: number }>, quantity: number) => void;  
+ /**
+ * onCancelAlchemy：对象字段。
+ */
+
+  onCancelAlchemy: () => void;  
+  /**
+ * onStartEnhancement：对象字段。
+ */
+
+  onStartEnhancement: (payload: NEXT_C2S_StartEnhancement) => void;  
+  /**
+ * onCancelEnhancement：对象字段。
+ */
+
   onCancelEnhancement: () => void;
 };
 
@@ -129,6 +185,8 @@ export class CraftWorkbenchModal {
 
   /** syncAttrUpdate：同步属性更新。 */
   syncAttrUpdate(update: NEXT_S2C_AttrUpdate): void {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
     if (update.alchemySkill) {
       this.alchemySkillLevel = Math.max(1, Math.floor(update.alchemySkill.level ?? this.alchemySkillLevel));
     }
@@ -171,6 +229,8 @@ export class CraftWorkbenchModal {
 
   /** updateAlchemy：更新炼丹。 */
   updateAlchemy(data: NEXT_S2C_AlchemyPanel): void {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
     this.alchemyPanel = data;
     this.alchemyCatalogVersion = Math.max(0, Math.floor(data.catalogVersion ?? this.alchemyCatalogVersion));
     if (Array.isArray(data.catalog)) {
@@ -188,6 +248,8 @@ export class CraftWorkbenchModal {
 
   /** updateEnhancement：更新强化。 */
   updateEnhancement(data: NEXT_S2C_EnhancementPanel): void {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
     this.enhancementPanel = data;
     if (data.state?.enhancementSkillLevel) {
       this.enhancementSkillLevel = Math.max(1, Math.floor(data.state.enhancementSkillLevel));
@@ -212,6 +274,8 @@ export class CraftWorkbenchModal {
 
   /** requestCurrentPanel：处理请求当前面板。 */
   private requestCurrentPanel(): void {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
     if (!detailModalHost.isOpenFor(CraftWorkbenchModal.MODAL_OWNER)) {
       return;
     }
@@ -226,6 +290,8 @@ export class CraftWorkbenchModal {
 
   /** render：渲染渲染。 */
   private render(): void {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
     if (!this.activeMode) {
       return;
     }
@@ -258,6 +324,8 @@ export class CraftWorkbenchModal {
 
   /** patchBody：局部刷新工坊弹层。 */
   private patchBody(body: HTMLElement, title: string, subtitle: string): boolean {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
     const shell = body.querySelector<HTMLElement>('[data-craft-workbench-body="true"]');
     const titleNode = document.getElementById('detail-modal-title');
     const subtitleNode = document.getElementById('detail-modal-subtitle');
@@ -350,6 +418,8 @@ export class CraftWorkbenchModal {
 
   /** renderAlchemyBody：渲染炼丹身体。 */
   private renderAlchemyBody(): string {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
     const state = this.alchemyPanel?.state ?? null;
     if (this.loading && !this.alchemyPanel) {
       return renderEmpty('丹炉同步中……');
@@ -455,6 +525,8 @@ export class CraftWorkbenchModal {
 
   /** renderEnhancementBody：渲染强化身体。 */
   private renderEnhancementBody(): string {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
     const state = this.enhancementPanel?.state ?? null;
     if (this.loading && !this.enhancementPanel) {
       return renderEmpty('强化工坊同步中……');

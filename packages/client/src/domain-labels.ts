@@ -66,6 +66,8 @@ export function getTileTypeLabel(type: TileType, fallback = '未知地貌'): str
 
 /** 读取实体种类的本地化标签。 */
 export function getEntityKindLabel(kind: string | null | undefined, fallback = '未知'): string {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
   if (!kind) {
     return fallback;
   }
@@ -104,6 +106,8 @@ export function getEquipSlotLabel(slot: EquipSlot | string, fallback?: string): 
 
 /** 读取方向的本地化标签。 */
 export function getDirectionLabel(direction: Direction | string | null | undefined, fallback = '未知方向'): string {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
   if (direction === null || direction === undefined) {
     return fallback;
   }
@@ -112,6 +116,8 @@ export function getDirectionLabel(direction: Direction | string | null | undefin
 
 /** 读取动作类型的本地化标签。 */
 export function getActionTypeLabel(type: ActionType | string | null | undefined, fallback = '未知行动'): string {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
   if (!type) {
     return fallback;
   }
@@ -120,6 +126,8 @@ export function getActionTypeLabel(type: ActionType | string | null | undefined,
 
 /** 读取任务状态的本地化标签。 */
 export function getQuestStatusLabel(status: QuestStatus | string | null | undefined, fallback = '未知状态'): string {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
   if (!status) {
     return fallback;
   }
@@ -128,6 +136,8 @@ export function getQuestStatusLabel(status: QuestStatus | string | null | undefi
 
 /** 读取任务线的本地化标签。 */
 export function getQuestLineLabel(line: QuestLine | string | null | undefined, fallback = '未知任务线'): string {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
   if (!line) {
     return fallback;
   }
@@ -136,6 +146,8 @@ export function getQuestLineLabel(line: QuestLine | string | null | undefined, f
 
 /** 读取任务目标类型的本地化标签。 */
 export function getQuestObjectiveTypeLabel(type: QuestObjectiveType | string | null | undefined, fallback = '未知目标'): string {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
   if (!type) {
     return fallback;
   }
@@ -144,6 +156,8 @@ export function getQuestObjectiveTypeLabel(type: QuestObjectiveType | string | n
 
 /** 读取功法品阶的本地化标签。 */
 export function getTechniqueGradeLabel(grade: TechniqueGrade | string | null | undefined, fallback = '无品'): string {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
   if (!grade) {
     return fallback;
   }
@@ -152,6 +166,8 @@ export function getTechniqueGradeLabel(grade: TechniqueGrade | string | null | u
 
 /** 读取功法类别的本地化标签。 */
 export function getTechniqueCategoryLabel(category: TechniqueCategory | string | null | undefined, fallback = '未分类'): string {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
   if (!category) {
     return fallback;
   }
@@ -160,6 +176,8 @@ export function getTechniqueCategoryLabel(category: TechniqueCategory | string |
 
 /** 读取功法境界的本地化标签。 */
 export function getTechniqueRealmLabel(realm: TechniqueRealm | string | null | undefined, fallback = '未知'): string {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
   if (realm === null || realm === undefined) {
     return fallback;
   }

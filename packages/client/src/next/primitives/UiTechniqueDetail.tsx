@@ -1,13 +1,44 @@
 import type { ReactNode } from 'react';
 import { UiPanelFrame } from './UiPanelFrame';
 import { UiPill } from './UiPill';
+/**
+ * UiTechniqueDetailProps：定义接口结构约束，明确可交付字段含义。
+ */
+
 
 export interface UiTechniqueDetailProps {
-  title: string;
-  subtitle?: ReactNode;
-  badges?: ReactNode[];
+/**
+ * title：UiTechniqueDetailProps 内部字段。
+ */
+
+  title: string;  
+  /**
+ * subtitle：UiTechniqueDetailProps 内部字段。
+ */
+
+  subtitle?: ReactNode;  
+  /**
+ * badges：UiTechniqueDetailProps 内部字段。
+ */
+
+  badges?: ReactNode[];  
+  /**
+ * footer：UiTechniqueDetailProps 内部字段。
+ */
+
   footer?: ReactNode;
 }
+/**
+ * UiTechniqueDetail：执行核心业务逻辑。
+ * @param {
+  title,
+  subtitle,
+  badges = [],
+  footer,
+} UiTechniqueDetailProps 参数说明。
+ * @returns 函数返回值。
+ */
+
 
 export function UiTechniqueDetail({
   title,

@@ -16,9 +16,21 @@ import { createMainTargetingStateSource } from './main-targeting-state-source';
 import type { MainDomElements } from './main-dom-elements';
 import type { MainFrontendModules } from './main-frontend-modules';
 import type { ToastKind } from './main-app-assembly-types';
+/**
+ * CreateMainRuntimeOwnerContextOptions：统一结构类型，保证协议与运行时一致性。
+ */
+
 
 type CreateMainRuntimeOwnerContextOptions = {
-  documentRef: Document;
+/**
+ * documentRef：对象字段。
+ */
+
+  documentRef: Document;  
+  /**
+ * dom：对象字段。
+ */
+
   dom: Pick<
     MainDomElements,
     | 'canvasHost'
@@ -28,15 +40,41 @@ type CreateMainRuntimeOwnerContextOptions = {
     | 'observeModalShellEl'
     | 'observeModalAsideEl'
     | 'targetingBadgeEl'
-  >;
-  modules: MainFrontendModules;
-  rootRuntimeSource: ReturnType<typeof import('./main-root-runtime-source').createMainRootRuntimeSource>;
-  runtimeMonitorSource: ReturnType<typeof import('./main-runtime-monitor-source').createMainRuntimeMonitorSource>;
-  panelContext: ReturnType<typeof import('./main-app-panel-context').createMainPanelContext>;
+  >;  
+  /**
+ * modules：对象字段。
+ */
+
+  modules: MainFrontendModules;  
+  /**
+ * rootRuntimeSource：对象字段。
+ */
+
+  rootRuntimeSource: ReturnType<typeof import('./main-root-runtime-source').createMainRootRuntimeSource>;  
+  /**
+ * runtimeMonitorSource：对象字段。
+ */
+
+  runtimeMonitorSource: ReturnType<typeof import('./main-runtime-monitor-source').createMainRuntimeMonitorSource>;  
+  /**
+ * panelContext：对象字段。
+ */
+
+  panelContext: ReturnType<typeof import('./main-app-panel-context').createMainPanelContext>;  
+  /**
+ * helpers：对象字段。
+ */
+
   helpers: {
     showToast(message: string, kind?: ToastKind): void;
   };
 };
+/**
+ * createMainRuntimeOwnerContext：构建并返回目标对象。
+ * @param options CreateMainRuntimeOwnerContextOptions 选项参数。
+ * @returns 函数返回值。
+ */
+
 
 export function createMainRuntimeOwnerContext(options: CreateMainRuntimeOwnerContextOptions) {
   const {
@@ -71,7 +109,12 @@ export function createMainRuntimeOwnerContext(options: CreateMainRuntimeOwnerCon
   let navigationStateSource!: ReturnType<typeof createMainNavigationStateSource>;
   let targetingStateSource!: ReturnType<typeof createMainTargetingStateSource>;
   let panelDeltaStateSource!: ReturnType<typeof createMainPanelDeltaStateSource>;
-  let resetStateSource!: ReturnType<typeof createMainResetStateSource>;
+  let resetStateSource!: ReturnType<typeof createMainResetStateSource>;  
+  /**
+ * getInfoRadius：按给定条件读取/查询数据。
+ * @returns 函数返回值。
+ */
+
 
   function getInfoRadius() {
     return panelContext.uiStateSource.getInfoRadius(runtimeMonitorSource.getCurrentTimeState());
@@ -111,11 +154,21 @@ export function createMainRuntimeOwnerContext(options: CreateMainRuntimeOwnerCon
       show: (x, y) => observeStateSource.show(x, y),
       isOpen: () => observeStateSource.isOpen(),
     },
-  });
+  });  
+  /**
+ * resizeCanvas：执行核心业务逻辑。
+ * @returns 函数返回值。
+ */
+
 
   function resizeCanvas() {
     mapRuntimeBridgeSource.resizeCanvas();
-  }
+  }  
+  /**
+ * syncTargetingOverlay：执行核心业务逻辑。
+ * @returns 函数返回值。
+ */
+
 
   function syncTargetingOverlay() {
     mapRuntimeBridgeSource.syncTargetingOverlay();

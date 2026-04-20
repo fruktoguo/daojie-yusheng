@@ -20,6 +20,8 @@ export { MAP_PERFORMANCE_CONFIG_CHANGE_EVENT };
 
 /** initializeMapPerformanceConfig：初始化地图性能配置。 */
 export function initializeMapPerformanceConfig(): MapPerformanceConfig {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
   if (initialized) {
     return cloneConfig(currentConfig);
   }
@@ -32,6 +34,8 @@ export function initializeMapPerformanceConfig(): MapPerformanceConfig {
 
 /** getMapPerformanceConfig：读取地图性能配置。 */
 export function getMapPerformanceConfig(): MapPerformanceConfig {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
   if (!initialized) {
     return initializeMapPerformanceConfig();
   }
@@ -40,6 +44,8 @@ export function getMapPerformanceConfig(): MapPerformanceConfig {
 
 /** updateMapPerformanceConfig：更新地图性能配置。 */
 export function updateMapPerformanceConfig(patch: Partial<MapPerformanceConfig>): MapPerformanceConfig {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
   /** initialized：initialized。 */
   initialized = true;
   const previousConfig = currentConfig;

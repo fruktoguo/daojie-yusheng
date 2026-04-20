@@ -1,40 +1,173 @@
+/**
+ * MainDomElements：统一结构类型，保证协议与运行时一致性。
+ */
 export type MainDomElements = {
-  canvasHost: HTMLElement;
-  zoomSlider: HTMLInputElement | null;
-  zoomLevelEl: HTMLElement | null;
-  tickRateEl: HTMLElement | null;
-  currentTimeEl: HTMLElement | null;
-  currentTimePhaseEl: HTMLElement | null;
-  currentTimeHourAEl: HTMLElement | null;
-  currentTimeHourBEl: HTMLElement | null;
-  currentTimeDotEl: HTMLElement | null;
-  currentTimeMinAEl: HTMLElement | null;
-  currentTimeMinBEl: HTMLElement | null;
-  tickRateIntEl: HTMLElement | null;
-  tickRateDotEl: HTMLElement | null;
-  tickRateFracAEl: HTMLElement | null;
-  tickRateFracBEl: HTMLElement | null;
-  fpsRateEl: HTMLElement | null;
-  fpsValueEl: HTMLElement | null;
-  fpsLowValueEl: HTMLElement | null;
-  fpsOnePercentValueEl: HTMLElement | null;
-  pingLatencyEl: HTMLElement | null;
-  pingUnitEl: HTMLElement | null;
-  pingHundredsEl: HTMLElement | null;
-  pingTensEl: HTMLElement | null;
-  pingOnesEl: HTMLElement | null;
-  joinQqGroupBtns: NodeListOf<HTMLAnchorElement>;
-  targetingBadgeEl: HTMLElement | null;
-  observeModalEl: HTMLElement | null;
-  observeModalBodyEl: HTMLElement | null;
-  observeModalSubtitleEl: HTMLElement | null;
-  observeModalShellEl: HTMLElement | null;
+/**
+ * canvasHost：对象字段。
+ */
+
+  canvasHost: HTMLElement;  
+  /**
+ * zoomSlider：对象字段。
+ */
+
+  zoomSlider: HTMLInputElement | null;  
+  /**
+ * zoomLevelEl：对象字段。
+ */
+
+  zoomLevelEl: HTMLElement | null;  
+  /**
+ * tickRateEl：对象字段。
+ */
+
+  tickRateEl: HTMLElement | null;  
+  /**
+ * currentTimeEl：对象字段。
+ */
+
+  currentTimeEl: HTMLElement | null;  
+  /**
+ * currentTimePhaseEl：对象字段。
+ */
+
+  currentTimePhaseEl: HTMLElement | null;  
+  /**
+ * currentTimeHourAEl：对象字段。
+ */
+
+  currentTimeHourAEl: HTMLElement | null;  
+  /**
+ * currentTimeHourBEl：对象字段。
+ */
+
+  currentTimeHourBEl: HTMLElement | null;  
+  /**
+ * currentTimeDotEl：对象字段。
+ */
+
+  currentTimeDotEl: HTMLElement | null;  
+  /**
+ * currentTimeMinAEl：对象字段。
+ */
+
+  currentTimeMinAEl: HTMLElement | null;  
+  /**
+ * currentTimeMinBEl：对象字段。
+ */
+
+  currentTimeMinBEl: HTMLElement | null;  
+  /**
+ * tickRateIntEl：对象字段。
+ */
+
+  tickRateIntEl: HTMLElement | null;  
+  /**
+ * tickRateDotEl：对象字段。
+ */
+
+  tickRateDotEl: HTMLElement | null;  
+  /**
+ * tickRateFracAEl：对象字段。
+ */
+
+  tickRateFracAEl: HTMLElement | null;  
+  /**
+ * tickRateFracBEl：对象字段。
+ */
+
+  tickRateFracBEl: HTMLElement | null;  
+  /**
+ * fpsRateEl：对象字段。
+ */
+
+  fpsRateEl: HTMLElement | null;  
+  /**
+ * fpsValueEl：对象字段。
+ */
+
+  fpsValueEl: HTMLElement | null;  
+  /**
+ * fpsLowValueEl：对象字段。
+ */
+
+  fpsLowValueEl: HTMLElement | null;  
+  /**
+ * fpsOnePercentValueEl：对象字段。
+ */
+
+  fpsOnePercentValueEl: HTMLElement | null;  
+  /**
+ * pingLatencyEl：对象字段。
+ */
+
+  pingLatencyEl: HTMLElement | null;  
+  /**
+ * pingUnitEl：对象字段。
+ */
+
+  pingUnitEl: HTMLElement | null;  
+  /**
+ * pingHundredsEl：对象字段。
+ */
+
+  pingHundredsEl: HTMLElement | null;  
+  /**
+ * pingTensEl：对象字段。
+ */
+
+  pingTensEl: HTMLElement | null;  
+  /**
+ * pingOnesEl：对象字段。
+ */
+
+  pingOnesEl: HTMLElement | null;  
+  /**
+ * joinQqGroupBtns：对象字段。
+ */
+
+  joinQqGroupBtns: NodeListOf<HTMLAnchorElement>;  
+  /**
+ * targetingBadgeEl：对象字段。
+ */
+
+  targetingBadgeEl: HTMLElement | null;  
+  /**
+ * observeModalEl：对象字段。
+ */
+
+  observeModalEl: HTMLElement | null;  
+  /**
+ * observeModalBodyEl：对象字段。
+ */
+
+  observeModalBodyEl: HTMLElement | null;  
+  /**
+ * observeModalSubtitleEl：对象字段。
+ */
+
+  observeModalSubtitleEl: HTMLElement | null;  
+  /**
+ * observeModalShellEl：对象字段。
+ */
+
+  observeModalShellEl: HTMLElement | null;  
+  /**
+ * observeModalAsideEl：对象字段。
+ */
+
   observeModalAsideEl: HTMLElement | null;
 };
 
 export const QQ_GROUP_NUMBER = '940886387';
 export const QQ_GROUP_MOBILE_DEEP_LINK = `mqqapi://card/show_pslcard?src_type=internal&version=1&uin=${QQ_GROUP_NUMBER}&card_type=group&source=qrcode`;
 export const QQ_GROUP_DESKTOP_DEEP_LINK = `tencent://AddContact/?fromId=45&fromSubId=1&subcmd=all&uin=${QQ_GROUP_NUMBER}`;
+/**
+ * collectMainDomElements：执行核心业务逻辑。
+ * @param documentRef Document 参数说明。
+ * @returns MainDomElements。
+ */
+
 
 export function collectMainDomElements(documentRef: Document): MainDomElements {
   const currentTimeValueEl = documentRef.getElementById('map-current-time-value');

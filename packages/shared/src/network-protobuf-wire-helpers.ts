@@ -7,7 +7,19 @@ import type { NpcQuestMarker } from './world-view-types';
 import { clonePlainValue } from './structured';
 
 /** 支持的二进制载荷输入类型。 */
-export type BinaryPayload = ArrayBuffer | Uint8Array | { buffer: ArrayBufferLike; byteLength: number; byteOffset?: number };
+export type BinaryPayload = ArrayBuffer | Uint8Array | {
+/**
+ * buffer：对象字段。
+ */
+ buffer: ArrayBufferLike;
+ /**
+ * byteLength：对象字段。
+ */
+ byteLength: number;
+ /**
+ * byteOffset：对象字段。
+ */
+ byteOffset?: number };
 
 /** 判断对象是否持有指定自有属性。 */
 export function hasOwn<T extends object>(value: T, key: string): boolean {
@@ -26,6 +38,8 @@ export function parseJson<T>(value: string): T {
 
 /** 将多种二进制视图统一转成 Uint8Array。 */
 export function normalizeBinaryPayload(payload: unknown): Uint8Array | null {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
   if (payload instanceof Uint8Array) {
     return new Uint8Array(payload.buffer, payload.byteOffset, payload.byteLength);
   }
@@ -33,7 +47,19 @@ export function normalizeBinaryPayload(payload: unknown): Uint8Array | null {
     return new Uint8Array(payload);
   }
   if (typeof payload === 'object' && payload !== null && 'buffer' in payload && 'byteLength' in payload) {
-    const view = payload as { buffer: ArrayBufferLike; byteLength: number; byteOffset?: number };
+    const view = payload as {    
+    /**
+ * buffer：对象字段。
+ */
+ buffer: ArrayBufferLike;    
+ /**
+ * byteLength：对象字段。
+ */
+ byteLength: number;    
+ /**
+ * byteOffset：对象字段。
+ */
+ byteOffset?: number };
     return new Uint8Array(view.buffer, view.byteOffset ?? 0, view.byteLength);
   }
   return null;
@@ -41,6 +67,8 @@ export function normalizeBinaryPayload(payload: unknown): Uint8Array | null {
 
 /** 按 protobuf clear 语义写入可空字段。 */
 export function setNullableWireValue<T>(wire: Record<string, unknown>, valueKey: string, clearKey: string, value: T | null | undefined): void {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
   if (value === null) {
     wire[clearKey] = true;
     return;
@@ -52,6 +80,8 @@ export function setNullableWireValue<T>(wire: Record<string, unknown>, valueKey:
 
 /** 按 protobuf clear 语义读取可空字段。 */
 export function readNullableWireValue<T>(wire: Record<string, unknown>, valueKey: string, clearKey: string): T | null | undefined {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
   if (wire[clearKey] === true) {
     return null;
   }
@@ -63,6 +93,8 @@ export function readNullableWireValue<T>(wire: Record<string, unknown>, valueKey
 
 /** 将属性对象转换为 protobuf 兼容的纯对象。 */
 export function toWireAttributes(attrs: Attributes | undefined): Record<string, number> | undefined {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
   if (!attrs) {
     return undefined;
   }
@@ -78,6 +110,8 @@ export function toWireAttributes(attrs: Attributes | undefined): Record<string, 
 
 /** 从 protobuf 兼容对象还原属性结构。 */
 export function fromWireAttributes(wire: Record<string, unknown> | undefined): Attributes | undefined {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
   if (!wire) {
     return undefined;
   }
@@ -93,6 +127,8 @@ export function fromWireAttributes(wire: Record<string, unknown> | undefined): A
 
 /** 将数值属性按原样克隆为 wire 结构。 */
 export function toWireNumericStats(stats: NumericStats | undefined): Record<string, unknown> | undefined {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
   if (!stats) {
     return undefined;
   }
@@ -101,6 +137,8 @@ export function toWireNumericStats(stats: NumericStats | undefined): Record<stri
 
 /** 从 wire 结构还原数值属性。 */
 export function fromWireNumericStats(wire: Record<string, unknown> | undefined): NumericStats | undefined {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
   if (!wire) {
     return undefined;
   }
@@ -109,6 +147,8 @@ export function fromWireNumericStats(wire: Record<string, unknown> | undefined):
 
 /** 将比率除数结构克隆为 wire 结构。 */
 export function toWireRatioDivisors(divisors: NumericRatioDivisors | undefined): Record<string, unknown> | undefined {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
   if (!divisors) {
     return undefined;
   }
@@ -117,6 +157,8 @@ export function toWireRatioDivisors(divisors: NumericRatioDivisors | undefined):
 
 /** 从 wire 结构还原比率除数。 */
 export function fromWireRatioDivisors(wire: Record<string, unknown> | undefined): NumericRatioDivisors | undefined {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
   if (!wire) {
     return undefined;
   }
@@ -125,6 +167,8 @@ export function fromWireRatioDivisors(wire: Record<string, unknown> | undefined)
 
 /** 将 NPC 任务标记转换为 wire 结构。 */
 export function toWireNpcQuestMarker(marker: NpcQuestMarker | undefined): Record<string, unknown> | undefined {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
   if (!marker) {
     return undefined;
   }
@@ -136,6 +180,8 @@ export function toWireNpcQuestMarker(marker: NpcQuestMarker | undefined): Record
 
 /** 从 wire 结构还原 NPC 任务标记。 */
 export function fromWireNpcQuestMarker(wire: Record<string, unknown> | undefined): NpcQuestMarker | undefined {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
   if (!wire) {
     return undefined;
   }
@@ -147,6 +193,8 @@ export function fromWireNpcQuestMarker(wire: Record<string, unknown> | undefined
 
 /** 将可见地块转换为 wire 结构。 */
 export function toWireVisibleTile(tile: VisibleTile): Record<string, unknown> {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
   if (!tile) {
     return { hidden: true };
   }
@@ -168,6 +216,8 @@ export function toWireVisibleTile(tile: VisibleTile): Record<string, unknown> {
 
 /** 从 wire 结构还原可见地块。 */
 export function fromWireVisibleTile(wire: Record<string, unknown>): VisibleTile {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
   if (wire.hidden === true) {
     return null;
   }
@@ -192,6 +242,8 @@ export function fromWireVisibleTile(wire: Record<string, unknown>): VisibleTile 
 
 /** 将游戏时间状态转换为 wire 结构。 */
 export function toWireGameTimeState(time: GameTimeState | undefined): Record<string, unknown> | undefined {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
   if (!time) {
     return undefined;
   }
@@ -200,6 +252,8 @@ export function toWireGameTimeState(time: GameTimeState | undefined): Record<str
 
 /** 从 wire 结构还原游戏时间状态。 */
 export function fromWireGameTimeState(wire: Record<string, unknown> | undefined): GameTimeState | undefined {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
   if (!wire) {
     return undefined;
   }

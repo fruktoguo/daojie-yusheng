@@ -2,25 +2,73 @@ import { TUTORIAL_MECHANIC_TOPICS as SHARED_TUTORIAL_MECHANIC_TOPICS } from '@mu
 
 /** TutorialTopicSection：教程章节分段。 */
 export interface TutorialTopicSection {
-  title: string;
+/**
+ * title：TutorialTopicSection 内部字段。
+ */
+
+  title: string;  
+  /**
+ * items：TutorialTopicSection 内部字段。
+ */
+
   items: string[];
 }
 
 /** TutorialTopic：基础教程章节条目。 */
 export interface TutorialTopic {
-  id: string;
-  label: string;
-  summary: string;
-  sections: TutorialTopicSection[];
+/**
+ * id：TutorialTopic 内部字段。
+ */
+
+  id: string;  
+  /**
+ * label：TutorialTopic 内部字段。
+ */
+
+  label: string;  
+  /**
+ * summary：TutorialTopic 内部字段。
+ */
+
+  summary: string;  
+  /**
+ * sections：TutorialTopic 内部字段。
+ */
+
+  sections: TutorialTopicSection[];  
+  /**
+ * tips：TutorialTopic 内部字段。
+ */
+
   tips?: string[];
 }
 
 /** TutorialFlowTopic：流程型教程章节条目。 */
 export interface TutorialFlowTopic {
-  id: string;
-  label: string;
-  summary: string;
-  sections: TutorialTopicSection[];
+/**
+ * id：TutorialFlowTopic 内部字段。
+ */
+
+  id: string;  
+  /**
+ * label：TutorialFlowTopic 内部字段。
+ */
+
+  label: string;  
+  /**
+ * summary：TutorialFlowTopic 内部字段。
+ */
+
+  summary: string;  
+  /**
+ * sections：TutorialFlowTopic 内部字段。
+ */
+
+  sections: TutorialTopicSection[];  
+  /**
+ * tips：TutorialFlowTopic 内部字段。
+ */
+
   tips?: string[];
 }
 

@@ -16,67 +16,327 @@ import { logNextMovement } from './debug/movement-debug';
 import { getLatestObservedEntitiesSnapshot } from './game-map/store/map-store';
 import { getMonsterPresentation } from './monster-presentation';
 import type { MainRuntimeObservedEntity as ObservedEntity } from './main-runtime-view-types';
+/**
+ * MainRuntimeDeltaStateSourceOptions：统一结构类型，保证协议与运行时一致性。
+ */
+
 
 type MainRuntimeDeltaStateSourceOptions = {
-  getPlayer: () => PlayerState | null;
-  getLatestEntityById: (id: string) => ObservedEntity | undefined;
-  setLatestObservedEntities: (entities: ObservedEntity[]) => void;
-  setLatestObservedEntityMap: (map: Map<string, ObservedEntity>) => void;
-  getLatestAttrUpdate: () => NEXT_S2C_AttrUpdate | null;
-  setLatestAttrUpdate: (value: NEXT_S2C_AttrUpdate | null) => void;
-  mergeAttrUpdatePatch: (previous: NEXT_S2C_AttrUpdate | null, patch: NEXT_S2C_AttrUpdate) => NEXT_S2C_AttrUpdate;
-  syncAuraLevelBaseValue: (value?: number) => void;
-  syncCurrentTimeState: (state: NEXT_S2C_WorldDelta['time'] | null | undefined) => void;
-  applyWorldDeltaToRuntime: (input: {
-    playerPatches: TickRenderEntity[];
-    entityPatches: TickRenderEntity[];
-    removedEntityIds: string[];
-    groundPatches: GroundItemPilePatch[];
-    effects?: NEXT_S2C_WorldDelta['fx'];
-    threatArrows?: Array<{ ownerId: string; targetId: string }>;
-    threatArrowAdds?: Array<[string, string]>;
-    threatArrowRemoves?: Array<[string, string]>;
-    pathCells?: Array<{ x: number; y: number }>;
-    tickDurationMs?: number;
-    time?: NEXT_S2C_WorldDelta['time'];
-    visibleTiles?: NEXT_S2C_WorldDelta['v'];
-    visibleTilePatches?: NEXT_S2C_WorldDelta['tp'];
+/**
+ * getPlayer：对象字段。
+ */
+
+  getPlayer: () => PlayerState | null;  
+  /**
+ * getLatestEntityById：对象字段。
+ */
+
+  getLatestEntityById: (id: string) => ObservedEntity | undefined;  
+  /**
+ * setLatestObservedEntities：对象字段。
+ */
+
+  setLatestObservedEntities: (entities: ObservedEntity[]) => void;  
+  /**
+ * setLatestObservedEntityMap：对象字段。
+ */
+
+  setLatestObservedEntityMap: (map: Map<string, ObservedEntity>) => void;  
+  /**
+ * getLatestAttrUpdate：对象字段。
+ */
+
+  getLatestAttrUpdate: () => NEXT_S2C_AttrUpdate | null;  
+  /**
+ * setLatestAttrUpdate：对象字段。
+ */
+
+  setLatestAttrUpdate: (value: NEXT_S2C_AttrUpdate | null) => void;  
+  /**
+ * mergeAttrUpdatePatch：对象字段。
+ */
+
+  mergeAttrUpdatePatch: (previous: NEXT_S2C_AttrUpdate | null, patch: NEXT_S2C_AttrUpdate) => NEXT_S2C_AttrUpdate;  
+  /**
+ * syncAuraLevelBaseValue：对象字段。
+ */
+
+  syncAuraLevelBaseValue: (value?: number) => void;  
+  /**
+ * syncCurrentTimeState：对象字段。
+ */
+
+  syncCurrentTimeState: (state: NEXT_S2C_WorldDelta['time'] | null | undefined) => void;  
+  /**
+ * applyWorldDeltaToRuntime：对象字段。
+ */
+
+  applyWorldDeltaToRuntime: (input: {  
+  /**
+ * playerPatches：对象字段。
+ */
+
+    playerPatches: TickRenderEntity[];    
+    /**
+ * entityPatches：对象字段。
+ */
+
+    entityPatches: TickRenderEntity[];    
+    /**
+ * removedEntityIds：对象字段。
+ */
+
+    removedEntityIds: string[];    
+    /**
+ * groundPatches：对象字段。
+ */
+
+    groundPatches: GroundItemPilePatch[];    
+    /**
+ * effects：对象字段。
+ */
+
+    effects?: NEXT_S2C_WorldDelta['fx'];    
+    /**
+ * threatArrows：对象字段。
+ */
+
+    threatArrows?: Array<{    
+    /**
+ * ownerId：对象字段。
+ */
+ ownerId: string;    
+ /**
+ * targetId：对象字段。
+ */
+ targetId: string }>;    
+ /**
+ * threatArrowAdds：对象字段。
+ */
+
+    threatArrowAdds?: Array<[string, string]>;    
+    /**
+ * threatArrowRemoves：对象字段。
+ */
+
+    threatArrowRemoves?: Array<[string, string]>;    
+    /**
+ * pathCells：对象字段。
+ */
+
+    pathCells?: Array<{    
+    /**
+ * x：对象字段。
+ */
+ x: number;    
+ /**
+ * y：对象字段。
+ */
+ y: number }>;    
+ /**
+ * tickDurationMs：对象字段。
+ */
+
+    tickDurationMs?: number;    
+    /**
+ * time：对象字段。
+ */
+
+    time?: NEXT_S2C_WorldDelta['time'];    
+    /**
+ * visibleTiles：对象字段。
+ */
+
+    visibleTiles?: NEXT_S2C_WorldDelta['v'];    
+    /**
+ * visibleTilePatches：对象字段。
+ */
+
+    visibleTilePatches?: NEXT_S2C_WorldDelta['tp'];    
+    /**
+ * mapId：对象字段。
+ */
+
     mapId?: string;
-  }) => void;
-  applySelfDeltaToRuntime: (input: {
-    mapId?: string;
-    x?: number;
-    y?: number;
-    facing?: PlayerState['facing'];
-    hp?: number;
-    qi?: number;
+  }) => void;  
+  /**
+ * applySelfDeltaToRuntime：对象字段。
+ */
+
+  applySelfDeltaToRuntime: (input: {  
+  /**
+ * mapId：对象字段。
+ */
+
+    mapId?: string;    
+    /**
+ * x：对象字段。
+ */
+
+    x?: number;    
+    /**
+ * y：对象字段。
+ */
+
+    y?: number;    
+    /**
+ * facing：对象字段。
+ */
+
+    facing?: PlayerState['facing'];    
+    /**
+ * hp：对象字段。
+ */
+
+    hp?: number;    
+    /**
+ * qi：对象字段。
+ */
+
+    qi?: number;    
+    /**
+ * playerPatch：对象字段。
+ */
+
     playerPatch: TickRenderEntity | null;
-  }) => void;
-  navigation: {
-    trimCurrentPathProgress: () => void;
-    triggerAutoInteractionIfReady: () => boolean;
-    getPathTarget: () => { x: number; y: number } | null;
-    getPathCells: () => Array<{ x: number; y: number }>;
-    clearCurrentPath: () => void;
+  }) => void;  
+  /**
+ * navigation：对象字段。
+ */
+
+  navigation: {  
+  /**
+ * trimCurrentPathProgress：对象字段。
+ */
+
+    trimCurrentPathProgress: () => void;    
+    /**
+ * triggerAutoInteractionIfReady：对象字段。
+ */
+
+    triggerAutoInteractionIfReady: () => boolean;    
+    /**
+ * getPathTarget：对象字段。
+ */
+
+    getPathTarget: () => {    
+    /**
+ * x：对象字段。
+ */
+ x: number;    
+ /**
+ * y：对象字段。
+ */
+ y: number } | null;    
+ /**
+ * getPathCells：对象字段。
+ */
+
+    getPathCells: () => Array<{    
+    /**
+ * x：对象字段。
+ */
+ x: number;    
+ /**
+ * y：对象字段。
+ */
+ y: number }>;    
+ /**
+ * clearCurrentPath：对象字段。
+ */
+
+    clearCurrentPath: () => void;    
+    /**
+ * syncPathCellsToRuntime：对象字段。
+ */
+
     syncPathCellsToRuntime: () => void;
-  };
-  targeting: {
-    syncSenseQiOverlay: () => void;
-    syncTargetingOverlay: () => void;
-    setHoveredMapTile: (value: null) => void;
+  };  
+  /**
+ * targeting：对象字段。
+ */
+
+  targeting: {  
+  /**
+ * syncSenseQiOverlay：对象字段。
+ */
+
+    syncSenseQiOverlay: () => void;    
+    /**
+ * syncTargetingOverlay：对象字段。
+ */
+
+    syncTargetingOverlay: () => void;    
+    /**
+ * setHoveredMapTile：对象字段。
+ */
+
+    setHoveredMapTile: (value: null) => void;    
+    /**
+ * cancelTargeting：对象字段。
+ */
+
     cancelTargeting: () => void;
-  };
-  refreshHudChrome: () => void;
-  hideObserveModal: () => void;
-  clearLootPanel: () => void;
-  setPanelRuntimeMapId: (mapId: string) => void;
-  syncQuestMapId: (mapId: string) => void;
-  updateAttrPanel: (value: NEXT_S2C_AttrUpdate) => void;
-  refreshUiChrome: () => void;
-  handleAttrUpdate: (data: NEXT_S2C_AttrUpdate) => void;
-  handleInventoryUpdate: (data: NonNullable<NEXT_S2C_PanelDelta['inv']>) => void;
-  handleEquipmentUpdate: (data: NonNullable<NEXT_S2C_PanelDelta['eq']>) => void;
-  handleTechniqueUpdate: (data: NonNullable<NEXT_S2C_PanelDelta['tech']>) => void;
+  };  
+  /**
+ * refreshHudChrome：对象字段。
+ */
+
+  refreshHudChrome: () => void;  
+  /**
+ * hideObserveModal：对象字段。
+ */
+
+  hideObserveModal: () => void;  
+  /**
+ * clearLootPanel：对象字段。
+ */
+
+  clearLootPanel: () => void;  
+  /**
+ * setPanelRuntimeMapId：对象字段。
+ */
+
+  setPanelRuntimeMapId: (mapId: string) => void;  
+  /**
+ * syncQuestMapId：对象字段。
+ */
+
+  syncQuestMapId: (mapId: string) => void;  
+  /**
+ * updateAttrPanel：对象字段。
+ */
+
+  updateAttrPanel: (value: NEXT_S2C_AttrUpdate) => void;  
+  /**
+ * refreshUiChrome：对象字段。
+ */
+
+  refreshUiChrome: () => void;  
+  /**
+ * handleAttrUpdate：对象字段。
+ */
+
+  handleAttrUpdate: (data: NEXT_S2C_AttrUpdate) => void;  
+  /**
+ * handleInventoryUpdate：对象字段。
+ */
+
+  handleInventoryUpdate: (data: NonNullable<NEXT_S2C_PanelDelta['inv']>) => void;  
+  /**
+ * handleEquipmentUpdate：对象字段。
+ */
+
+  handleEquipmentUpdate: (data: NonNullable<NEXT_S2C_PanelDelta['eq']>) => void;  
+  /**
+ * handleTechniqueUpdate：对象字段。
+ */
+
+  handleTechniqueUpdate: (data: NonNullable<NEXT_S2C_PanelDelta['tech']>) => void;  
+  /**
+ * handleActionsUpdate：对象字段。
+ */
+
   handleActionsUpdate: (data: NonNullable<NEXT_S2C_PanelDelta['act']>) => void;
 };
 
@@ -85,18 +345,43 @@ const NEXT_MONSTER_ENTITY_COLOR = '#ff9b73';
 const NEXT_NPC_ENTITY_COLOR = '#f3d27a';
 const NEXT_PORTAL_ENTITY_COLOR = '#b9a7ff';
 const NEXT_CONTAINER_ENTITY_COLOR = '#c18b46';
+/**
+ * getFirstGrapheme：按给定条件读取/查询数据。
+ * @param input string | undefined 输入参数。
+ * @param fallback string 参数说明。
+ * @returns string。
+ */
+
 
 function getFirstGrapheme(input: string | undefined, fallback: string): string {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
   const normalized = input?.trim();
   if (!normalized) {
     return fallback;
   }
   return [...normalized][0] ?? fallback;
 }
+/**
+ * MainRuntimeDeltaStateSource：统一结构类型，保证协议与运行时一致性。
+ */
+
 
 export type MainRuntimeDeltaStateSource = ReturnType<typeof createMainRuntimeDeltaStateSource>;
+/**
+ * createMainRuntimeDeltaStateSource：构建并返回目标对象。
+ * @param options MainRuntimeDeltaStateSourceOptions 选项参数。
+ * @returns 函数返回值。
+ */
+
 
 export function createMainRuntimeDeltaStateSource(options: MainRuntimeDeltaStateSourceOptions) {
+/**
+ * buildNextPlayerTickEntity：构建并返回目标对象。
+ * @param patch NonNullable<NEXT_S2C_WorldDelta['p']>[number] 参数说明。
+ * @returns TickRenderEntity。
+ */
+
   function buildNextPlayerTickEntity(patch: NonNullable<NEXT_S2C_WorldDelta['p']>[number]): TickRenderEntity {
     const previous = options.getLatestEntityById(patch.id);
     const player = options.getPlayer();
@@ -118,7 +403,13 @@ export function createMainRuntimeDeltaStateSource(options: MainRuntimeDeltaState
       observation: previous?.observation,
       buffs: previous?.buffs,
     };
-  }
+  }  
+  /**
+ * buildNextMonsterTickEntity：构建并返回目标对象。
+ * @param patch NonNullable<NEXT_S2C_WorldDelta['m']>[number] 参数说明。
+ * @returns TickRenderEntity。
+ */
+
 
   function buildNextMonsterTickEntity(patch: NonNullable<NEXT_S2C_WorldDelta['m']>[number]): TickRenderEntity {
     const previous = options.getLatestEntityById(patch.id);
@@ -140,7 +431,13 @@ export function createMainRuntimeDeltaStateSource(options: MainRuntimeDeltaState
       observation: previous?.observation,
       buffs: previous?.buffs,
     };
-  }
+  }  
+  /**
+ * buildNextNpcTickEntity：构建并返回目标对象。
+ * @param patch NonNullable<NEXT_S2C_WorldDelta['n']>[number] 参数说明。
+ * @returns TickRenderEntity。
+ */
+
 
   function buildNextNpcTickEntity(patch: NonNullable<NEXT_S2C_WorldDelta['n']>[number]): TickRenderEntity {
     const previous = options.getLatestEntityById(patch.id);
@@ -160,7 +457,13 @@ export function createMainRuntimeDeltaStateSource(options: MainRuntimeDeltaState
       observation: previous?.observation,
       buffs: previous?.buffs,
     };
-  }
+  }  
+  /**
+ * buildNextPortalTickEntity：构建并返回目标对象。
+ * @param patch NonNullable<NEXT_S2C_WorldDelta['o']>[number] 参数说明。
+ * @returns TickRenderEntity。
+ */
+
 
   function buildNextPortalTickEntity(patch: NonNullable<NEXT_S2C_WorldDelta['o']>[number]): TickRenderEntity {
     const previous = options.getLatestEntityById(patch.id);
@@ -180,7 +483,13 @@ export function createMainRuntimeDeltaStateSource(options: MainRuntimeDeltaState
       observation: previous?.observation,
       buffs: previous?.buffs,
     };
-  }
+  }  
+  /**
+ * buildNextContainerTickEntity：构建并返回目标对象。
+ * @param patch NonNullable<NEXT_S2C_WorldDelta['c']>[number] 参数说明。
+ * @returns TickRenderEntity。
+ */
+
 
   function buildNextContainerTickEntity(patch: NonNullable<NEXT_S2C_WorldDelta['c']>[number]): TickRenderEntity {
     const previous = options.getLatestEntityById(patch.id);
@@ -200,9 +509,17 @@ export function createMainRuntimeDeltaStateSource(options: MainRuntimeDeltaState
       observation: previous?.observation,
       buffs: previous?.buffs,
     };
-  }
+  }  
+  /**
+ * buildNextWorldDeltaRuntimeInput：构建并返回目标对象。
+ * @param data NEXT_S2C_WorldDelta 原始数据。
+ * @returns 函数返回值。
+ */
+
 
   function buildNextWorldDeltaRuntimeInput(data: NEXT_S2C_WorldDelta) {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
     const playerPatches: TickRenderEntity[] = [];
     const entityPatches: TickRenderEntity[] = [];
     const removedEntityIds: string[] = [];
@@ -277,9 +594,17 @@ export function createMainRuntimeDeltaStateSource(options: MainRuntimeDeltaState
       visibleTilePatches: data.tp,
       mapId: data.mid,
     };
-  }
+  }  
+  /**
+ * buildNextSelfRuntimePlayerPatch：构建并返回目标对象。
+ * @param data NEXT_S2C_SelfDelta 原始数据。
+ * @returns TickRenderEntity | null。
+ */
+
 
   function buildNextSelfRuntimePlayerPatch(data: NEXT_S2C_SelfDelta): TickRenderEntity | null {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
     const player = options.getPlayer();
     if (!player) {
       return null;
@@ -304,15 +629,27 @@ export function createMainRuntimeDeltaStateSource(options: MainRuntimeDeltaState
       observation: previous?.observation,
       buffs: previous?.buffs,
     };
-  }
+  }  
+  /**
+ * syncLatestObservedEntitiesFromRuntime：执行核心业务逻辑。
+ * @returns void。
+ */
+
 
   function syncLatestObservedEntitiesFromRuntime(): void {
     const entities = getLatestObservedEntitiesSnapshot() as ObservedEntity[];
     options.setLatestObservedEntities(entities);
     options.setLatestObservedEntityMap(new Map(entities.map((entity) => [entity.id, entity])));
-  }
+  }  
+  /**
+ * finalizeNextMovementFrame：执行核心业务逻辑。
+ * @returns void。
+ */
+
 
   function finalizeNextMovementFrame(): void {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
     syncLatestObservedEntitiesFromRuntime();
     options.targeting.syncSenseQiOverlay();
     options.targeting.syncTargetingOverlay();
@@ -326,9 +663,17 @@ export function createMainRuntimeDeltaStateSource(options: MainRuntimeDeltaState
       options.navigation.clearCurrentPath();
     }
     options.navigation.syncPathCellsToRuntime();
-  }
+  }  
+  /**
+ * applyNextSelfVitalsMetadata：更新/写入相关状态。
+ * @param data NEXT_S2C_SelfDelta 原始数据。
+ * @returns void。
+ */
+
 
   function applyNextSelfVitalsMetadata(data: NEXT_S2C_SelfDelta): void {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
     const player = options.getPlayer();
     if (!player) {
       return;
@@ -368,12 +713,21 @@ export function createMainRuntimeDeltaStateSource(options: MainRuntimeDeltaState
     options.setLatestAttrUpdate(nextAttrUpdate);
     options.updateAttrPanel(nextAttrUpdate);
     options.refreshUiChrome();
-  }
+  }  
+  /**
+ * mergeVisibleBuffStates：执行核心业务逻辑。
+ * @param previous TemporaryBuffState[] | undefined 参数说明。
+ * @param data NonNullable<NEXT_S2C_PanelDelta['buff']> 原始数据。
+ * @returns TemporaryBuffState[]。
+ */
+
 
   function mergeVisibleBuffStates(
     previous: TemporaryBuffState[] | undefined,
     data: NonNullable<NEXT_S2C_PanelDelta['buff']>,
   ): TemporaryBuffState[] {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
     const next = new Map((previous ?? []).map((entry) => [entry.buffId, cloneJson(entry)] as const));
     if (data.full) {
       next.clear();
@@ -387,8 +741,16 @@ export function createMainRuntimeDeltaStateSource(options: MainRuntimeDeltaState
     return Array.from(next.values()).sort((left, right) => left.buffId.localeCompare(right.buffId, 'zh-Hans-CN'));
   }
 
-  return {
+  return {  
+  /**
+ * handleWorldDelta：处理事件并驱动执行路径。
+ * @param data NEXT_S2C_WorldDelta 原始数据。
+ * @returns void。
+ */
+
     handleWorldDelta(data: NEXT_S2C_WorldDelta): void {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
       const player = options.getPlayer();
       if (!player) {
         return;
@@ -432,9 +794,17 @@ export function createMainRuntimeDeltaStateSource(options: MainRuntimeDeltaState
         });
       }
       finalizeNextMovementFrame();
-    },
+    },    
+    /**
+ * handleSelfDelta：处理事件并驱动执行路径。
+ * @param data NEXT_S2C_SelfDelta 原始数据。
+ * @returns void。
+ */
+
 
     handleSelfDelta(data: NEXT_S2C_SelfDelta): void {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
       const player = options.getPlayer();
       if (!player) {
         return;
@@ -506,9 +876,17 @@ export function createMainRuntimeDeltaStateSource(options: MainRuntimeDeltaState
         });
       }
       finalizeNextMovementFrame();
-    },
+    },    
+    /**
+ * handlePanelDelta：处理事件并驱动执行路径。
+ * @param data NEXT_S2C_PanelDelta 原始数据。
+ * @returns void。
+ */
+
 
     handlePanelDelta(data: NEXT_S2C_PanelDelta): void {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
       if (data.attr) {
         options.handleAttrUpdate(data.attr);
       }

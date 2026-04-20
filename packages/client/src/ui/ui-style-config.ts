@@ -30,6 +30,8 @@ let responsiveSyncBound = false;
 
 /** initializeUiStyleConfig：初始化界面样式配置。 */
 export function initializeUiStyleConfig(): UiStyleConfig {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
   if (initialized) {
     applyUiStyleConfig(currentConfig);
     return cloneConfig(currentConfig);
@@ -46,6 +48,8 @@ export function initializeUiStyleConfig(): UiStyleConfig {
 
 /** getUiStyleConfig：读取界面样式配置。 */
 export function getUiStyleConfig(): UiStyleConfig {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
   if (!initialized) {
     return initializeUiStyleConfig();
   }
@@ -95,6 +99,8 @@ export function getEffectiveUiFontSize(
   key: UiFontLevelKey,
   config: UiStyleConfig = currentConfig,
 ): number {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
   const definition = UI_FONT_LEVEL_DEFINITIONS.find((entry) => entry.key === key);
   if (!definition) {
     return 0;
@@ -110,6 +116,8 @@ function commitConfig(): void {
 
 /** applyUiStyleConfig：应用界面样式配置。 */
 function applyUiStyleConfig(config: UiStyleConfig): void {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
   const root = document.documentElement;
   root.dataset.colorMode = config.colorMode;
   root.style.colorScheme = config.colorMode;
@@ -133,7 +141,11 @@ function normalizeConfig(
     if (!bodyDefinition) {
       return undefined;
     }
-    const bodyCandidate = (raw as { fontSizes?: Partial<Record<UiFontLevelKey, number>> } | null | undefined)?.fontSizes?.body;
+    const bodyCandidate = (raw as {    
+    /**
+ * fontSizes：对象字段。
+ */
+ fontSizes?: Partial<Record<UiFontLevelKey, number>> } | null | undefined)?.fontSizes?.body;
     if (typeof bodyCandidate !== 'number' || !Number.isFinite(bodyCandidate)) {
       return undefined;
     }
@@ -149,6 +161,8 @@ function normalizeConfig(
 
 /** clampGlobalFontOffset：处理clamp Global Font偏移。 */
 function clampGlobalFontOffset(value: unknown, fallbackValue: number): number {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
   if (typeof value !== 'number' || !Number.isFinite(value)) {
     return fallbackValue;
   }
@@ -158,6 +172,8 @@ function clampGlobalFontOffset(value: unknown, fallbackValue: number): number {
 
 /** clampUiScale：处理clamp界面缩放。 */
 function clampUiScale(value: unknown, fallbackValue: number): number {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
   if (typeof value !== 'number' || !Number.isFinite(value)) {
     return fallbackValue;
   }
@@ -217,6 +233,8 @@ function resolveAppliedFontSize(
 
 /** bindResponsiveSync：绑定Responsive同步。 */
 function bindResponsiveSync(): void {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
   if (responsiveSyncBound) {
     return;
   }

@@ -23,6 +23,8 @@ export function chebyshevDistance(from: GridPoint, to: GridPoint): number {
 
 /** 偏移量对应的格距。 */
 export function offsetDistance(dx: number, dy: number, metric: GridDistanceMetric = GAME_RANGE_DISTANCE_METRIC): number {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
   const absX = Math.abs(dx);
   const absY = Math.abs(dy);
   switch (metric) {
@@ -52,6 +54,8 @@ export function isOffsetInRange(
   range: number,
   metric: GridDistanceMetric = GAME_RANGE_DISTANCE_METRIC,
 ): boolean {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
   // 1 格射程统一允许斜向相邻，避免欧氏口径下对角线需要额外特判。
   const effectiveMetric = metric === 'euclidean' && range === 1 ? 'chebyshev' : metric;
   switch (metric) {

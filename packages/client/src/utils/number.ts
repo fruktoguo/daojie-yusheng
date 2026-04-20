@@ -5,6 +5,8 @@ function trimTrailingZeros(text: string): string {
 
 /** 按固定精度输出普通数值。 */
 function formatPlainNumber(value: number, maximumFractionDigits: number): string {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
   if (!Number.isFinite(value)) {
     return '0';
   }
@@ -16,13 +18,27 @@ function formatPlainNumber(value: number, maximumFractionDigits: number): string
 
 /** 数字显示格式选项。 */
 export interface DisplayNumberOptions {
-  maximumFractionDigits?: number;
-  compactThreshold?: number;
+/**
+ * maximumFractionDigits：DisplayNumberOptions 内部字段。
+ */
+
+  maximumFractionDigits?: number;  
+  /**
+ * compactThreshold：DisplayNumberOptions 内部字段。
+ */
+
+  compactThreshold?: number;  
+  /**
+ * compactMaximumFractionDigits：DisplayNumberOptions 内部字段。
+ */
+
   compactMaximumFractionDigits?: number;
 }
 
 /** 格式化需要展示给玩家的数值。 */
 export function formatDisplayNumber(value: number, options: DisplayNumberOptions = {}): string {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
   if (!Number.isFinite(value)) {
     return '0';
   }

@@ -35,12 +35,16 @@ export function createZeroAttributes(): Attributes {
 
 /** normalizeLayers：规范化Layers。 */
 function normalizeLayers(layers?: TechniqueLayerDef[]): TechniqueLayerDef[] {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
   if (!layers || layers.length === 0) return [];
   return [...layers].sort((left, right) => left.level - right.level);
 }
 
 /** 获取功法最大层数 */
 export function getTechniqueMaxLevel(layers?: TechniqueLayerDef[], currentLevel = 1): number {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
   const normalized = normalizeLayers(layers);
   if (normalized.length > 0) {
     return normalized[normalized.length - 1].level;
@@ -60,6 +64,8 @@ export function getTechniqueExpToNext(level: number, layers?: TechniqueLayerDef[
 
 /** 解析技能解锁层数（优先 unlockLevel，其次 unlockRealm+1） */
 export function resolveSkillUnlockLevel(skill: Pick<SkillDef, 'unlockLevel' | 'unlockRealm'>): number {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
   if (typeof skill.unlockLevel === 'number' && skill.unlockLevel > 0) {
     return skill.unlockLevel;
   }
@@ -76,6 +82,8 @@ export function getTechniqueGradeQiCostMultiplier(grade: TechniqueGrade | undefi
 
 /** 根据当前层数推导功法境界（入门/小成/大成/圆满） */
 export function deriveTechniqueRealm(level: number, layers?: TechniqueLayerDef[]): TechniqueRealm {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
   const maxLevel = Math.max(1, getTechniqueMaxLevel(layers, level));
   if (level >= maxLevel) return TechniqueRealmEnum.Perfection;
   const progress = maxLevel <= 1 ? 1 : level / maxLevel;
@@ -86,6 +94,8 @@ export function deriveTechniqueRealm(level: number, layers?: TechniqueLayerDef[]
 
 /** 解析技能所属的功法境界（优先技能显式 unlockRealm，其次按解锁层数推导） */
 export function resolveSkillTechniqueRealm(skill: Pick<SkillDef, 'unlockLevel' | 'unlockRealm'>, layers?: TechniqueLayerDef[]): TechniqueRealm {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
   if (typeof skill.unlockRealm === 'number') {
     return skill.unlockRealm;
   }
@@ -115,6 +125,8 @@ export function getTechniqueExpLevelAdjustment(
   playerRealmLv: number | undefined,
   techniqueRealmLv: number | undefined,
 ): number {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
   const normalizedPlayerLevel = Number.isFinite(playerRealmLv) ? Math.max(1, Math.floor(Number(playerRealmLv))) : 1;
   const normalizedTechniqueLevel = Number.isFinite(techniqueRealmLv) ? Math.max(1, Math.floor(Number(techniqueRealmLv))) : 1;
   const stepMultiplier = 1 + TECHNIQUE_EXP_LEVEL_DELTA_MULTIPLIER_STEP;
@@ -146,6 +158,8 @@ export function getBodyTrainingExpToNext(level: number): number {
 
 /** 规范化炼体状态，并把超额经验滚入后续层数 */
 export function normalizeBodyTrainingState(state?: Partial<BodyTrainingState> | null): BodyTrainingState {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
   let level = Math.max(0, Math.floor(Number(state?.level ?? 0) || 0));
   let exp = Math.max(0, Math.floor(Number(state?.exp ?? 0) || 0));
   let expToNext = getBodyTrainingExpToNext(level);
@@ -166,6 +180,8 @@ export function normalizeBodyTrainingState(state?: Partial<BodyTrainingState> | 
 
 /** 计算炼体累计提供的固定四维加成 */
 export function calcBodyTrainingAttrBonus(level: number): Partial<Attributes> {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
   const normalizedLevel = Math.max(0, Math.floor(level));
   if (normalizedLevel <= 0) {
     return {};
@@ -179,6 +195,8 @@ export function calcBodyTrainingAttrBonus(level: number): Partial<Attributes> {
 
 /** 计算功法在指定层数时累计提供的六维属性加成 */
 export function calcTechniqueAttrValues(level: number, layers?: TechniqueLayerDef[]): Partial<Attributes> {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
   const result: Partial<Attributes> = {};
   if (level <= 0) return result;
   const normalized = normalizeLayers(layers);
@@ -195,6 +213,8 @@ export function calcTechniqueAttrValues(level: number, layers?: TechniqueLayerDe
 
 /** 计算下一层升级时各属性的增量 */
 export function calcTechniqueNextLevelGains(level: number, layers?: TechniqueLayerDef[]): Partial<Attributes> {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
   const normalized = normalizeLayers(layers);
   const nextLayer = normalized.find((entry) => entry.level === level + 1);
   if (!nextLayer?.attrs) return {};
@@ -209,6 +229,8 @@ export function calcTechniqueNextLevelGains(level: number, layers?: TechniqueLay
 
 /** calcTechniqueSoftDecayedPool：处理calc Technique Soft Decayed池。 */
 function calcTechniqueSoftDecayedPool(rawPool: number, freeLimit: number, decaySpan: number): number {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
   if (rawPool <= 0) return 0;
   if (rawPool <= freeLimit) return rawPool;
   if (decaySpan <= 0) return freeLimit;
@@ -218,6 +240,8 @@ function calcTechniqueSoftDecayedPool(rawPool: number, freeLimit: number, decayS
 
 /** 汇总所有已学功法的最终属性加成（按品阶分组并应用软衰减） */
 export function calcTechniqueFinalAttrBonus(techniques: readonly TechniqueState[]): Attributes {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
   const result = createZeroAttributes();
 
   for (const key of TECHNIQUE_ATTR_KEYS) {

@@ -12,29 +12,109 @@ import {
 
 /** 弹层配置项 */
 type DetailModalOptions = {
-  ownerId: string;
-  variantClass?: string;
-  title: string;
-  size?: UiModalSize;
-  subtitle?: string;
-  hint?: string;
-  bodyHtml?: string;
-  renderBody?: (body: HTMLElement) => void;
-  onClose?: () => void;
+/**
+ * ownerId：对象字段。
+ */
+
+  ownerId: string;  
+  /**
+ * variantClass：对象字段。
+ */
+
+  variantClass?: string;  
+  /**
+ * title：对象字段。
+ */
+
+  title: string;  
+  /**
+ * size：对象字段。
+ */
+
+  size?: UiModalSize;  
+  /**
+ * subtitle：对象字段。
+ */
+
+  subtitle?: string;  
+  /**
+ * hint：对象字段。
+ */
+
+  hint?: string;  
+  /**
+ * bodyHtml：对象字段。
+ */
+
+  bodyHtml?: string;  
+  /**
+ * renderBody：对象字段。
+ */
+
+  renderBody?: (body: HTMLElement) => void;  
+  /**
+ * onClose：对象字段。
+ */
+
+  onClose?: () => void;  
+  /**
+ * onAfterRender：对象字段。
+ */
+
   onAfterRender?: (body: HTMLElement) => void;
 };
 
 /** 弹层局部 patch 配置项。 */
 type DetailModalPatchOptions = {
-  ownerId: string;
-  variantClass?: string;
-  title?: string;
-  size?: UiModalSize;
-  subtitle?: string;
-  hint?: string;
-  bodyHtml?: string;
-  renderBody?: (body: HTMLElement) => void;
-  onClose?: (() => void) | null;
+/**
+ * ownerId：对象字段。
+ */
+
+  ownerId: string;  
+  /**
+ * variantClass：对象字段。
+ */
+
+  variantClass?: string;  
+  /**
+ * title：对象字段。
+ */
+
+  title?: string;  
+  /**
+ * size：对象字段。
+ */
+
+  size?: UiModalSize;  
+  /**
+ * subtitle：对象字段。
+ */
+
+  subtitle?: string;  
+  /**
+ * hint：对象字段。
+ */
+
+  hint?: string;  
+  /**
+ * bodyHtml：对象字段。
+ */
+
+  bodyHtml?: string;  
+  /**
+ * renderBody：对象字段。
+ */
+
+  renderBody?: (body: HTMLElement) => void;  
+  /**
+ * onClose：对象字段。
+ */
+
+  onClose?: (() => void) | null;  
+  /**
+ * onAfterRender：对象字段。
+ */
+
   onAfterRender?: (body: HTMLElement) => void;
 };
 
@@ -63,6 +143,8 @@ class DetailModalHost {
 
   /** 打开弹层，若已有其他 owner 的弹层则先关闭 */
   open(options: DetailModalOptions): void {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
     this.ensureInitialized();
     if (this.ownerId && this.ownerId !== options.ownerId) {
       this.dismiss(true);
@@ -90,6 +172,8 @@ class DetailModalHost {
 
   /** 仅当 ownerId 匹配时关闭弹层 */
   close(ownerId: string): void {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
     if (this.ownerId !== ownerId) return;
     this.dismiss(false);
   }
@@ -101,6 +185,8 @@ class DetailModalHost {
 
   /** 对已打开的同 owner 弹层做局部更新，避免调用方重复操作宿主节点。 */
   patch(options: DetailModalPatchOptions): boolean {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
     if (!this.isOpenFor(options.ownerId)) {
       return false;
     }
@@ -136,6 +222,8 @@ class DetailModalHost {
 
   /** ensureInitialized：确保Initialized。 */
   private ensureInitialized(): void {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
     if (this.initialized) return;
     this.initialized = true;
     this.modal.addEventListener('click', () => {
@@ -153,6 +241,8 @@ class DetailModalHost {
 
   /** dismiss：处理dismiss。 */
   private dismiss(notify: boolean): void {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
     if (!this.ownerId && this.modal.classList.contains('hidden')) return;
     const onClose = this.onClose;
     this.ownerId = null;

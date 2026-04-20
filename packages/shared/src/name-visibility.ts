@@ -33,6 +33,8 @@ export function containsInvisibleOnlyNameGrapheme(value: string): boolean {
 
 /** resolveDefaultVisibleDisplayName：解析默认可见显示名称。 */
 export function resolveDefaultVisibleDisplayName(username: string): string {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
   for (const grapheme of splitGraphemes(username)) {
     const trimmed = trimNameGrapheme(grapheme);
     if (trimmed.length === 0 || isInvisibleOnlyNameGrapheme(trimmed)) {

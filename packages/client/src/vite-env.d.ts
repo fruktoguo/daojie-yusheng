@@ -4,6 +4,10 @@ declare const __APP_BUILD_ID__: string;
 
 /** Vite 注入到 `import.meta.env` 的客户端环境变量。 */
 interface ImportMetaEnv {
+/**
+ * VITE_NEXT_DEBUG_MOVEMENT：ImportMetaEnv 内部字段。
+ */
+
   readonly VITE_NEXT_DEBUG_MOVEMENT?: string;
 }
 
