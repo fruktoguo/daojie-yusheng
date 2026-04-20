@@ -4,8 +4,8 @@ const assert = require("node:assert/strict");
 
 const { WorldRuntimeQuestRuntimeFacadeService } = require("../runtime/world/world-runtime-quest-runtime-facade.service");
 /**
- * testQuestRuntimeFacade：执行核心业务逻辑。
- * @returns 函数返回值。
+ * testQuestRuntimeFacade：执行test任务运行态Facade相关逻辑。
+ * @returns 无返回值，直接更新test任务运行态Facade相关状态。
  */
 
 
@@ -15,10 +15,10 @@ function testQuestRuntimeFacade() {
     const deps = {
         worldRuntimeNpcAccessService: {        
         /**
- * resolveAdjacentNpc：执行核心业务逻辑。
+ * resolveAdjacentNpc：规范化或转换AdjacentNPC。
  * @param playerId 玩家 ID。
  * @param npcId npc ID。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新AdjacentNPC相关状态。
  */
 
             resolveAdjacentNpc(playerId, npcId) {
@@ -26,10 +26,10 @@ function testQuestRuntimeFacade() {
                 return { id: npcId };
             },            
             /**
- * getNpcForPlayerMap：按给定条件读取/查询数据。
+ * getNpcForPlayerMap：读取NPCFor玩家地图。
  * @param playerId 玩家 ID。
  * @param npcId npc ID。
- * @returns 函数返回值。
+ * @returns 无返回值，完成NPCFor玩家地图的读取/组装。
  */
 
             getNpcForPlayerMap(playerId, npcId) {
@@ -39,43 +39,43 @@ function testQuestRuntimeFacade() {
         },
         worldRuntimeQuestStateService: {        
         /**
- * refreshQuestStates：执行核心业务逻辑。
+ * refreshQuestStates：执行refresh任务状态相关逻辑。
  * @param playerId 玩家 ID。
  * @param forceDirty 参数说明。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新refresh任务状态相关状态。
  */
 
             refreshQuestStates(playerId, forceDirty) { log.push(['refreshQuestStates', playerId, forceDirty]); },            
             /**
- * tryAcceptNextQuest：执行核心业务逻辑。
+ * tryAcceptNextQuest：执行tryAcceptNext任务相关逻辑。
  * @param playerId 玩家 ID。
  * @param nextQuestId nextQuest ID。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新tryAcceptNext任务相关状态。
  */
 
             tryAcceptNextQuest(playerId, nextQuestId) { log.push(['tryAcceptNextQuest', playerId, nextQuestId]); return true; },            
             /**
- * advanceKillQuestProgress：执行核心业务逻辑。
+ * advanceKillQuestProgress：执行advanceKill任务进度相关逻辑。
  * @param playerId 玩家 ID。
  * @param monsterId monster ID。
  * @param monsterName 参数说明。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新advanceKill任务进度相关状态。
  */
 
             advanceKillQuestProgress(playerId, monsterId, monsterName) { log.push(['advanceKillQuestProgress', playerId, monsterId, monsterName]); },            
             /**
- * advanceLearnTechniqueQuest：执行核心业务逻辑。
+ * advanceLearnTechniqueQuest：执行advanceLearn功法任务相关逻辑。
  * @param playerId 玩家 ID。
  * @param techniqueId technique ID。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新advanceLearn功法任务相关状态。
  */
 
             advanceLearnTechniqueQuest(playerId, techniqueId) { log.push(['advanceLearnTechniqueQuest', playerId, techniqueId]); },            
             /**
- * canReceiveRewardItems：执行状态校验并返回判断结果。
+ * canReceiveRewardItems：判断ReceiveReward道具是否满足条件。
  * @param playerId 玩家 ID。
  * @param rewards 参数说明。
- * @returns 函数返回值。
+ * @returns 无返回值，完成ReceiveReward道具的条件判断。
  */
 
             canReceiveRewardItems(playerId, rewards) { log.push(['canReceiveRewardItems', playerId, rewards.length]); return true; },

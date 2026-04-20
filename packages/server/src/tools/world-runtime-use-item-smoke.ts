@@ -6,55 +6,55 @@ const { WorldRuntimeUseItemService } = require("../runtime/world/world-runtime-u
 /**
  * createDeps：构建并返回目标对象。
  * @param log 参数说明。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新Dep相关状态。
  */
 
 
 function createDeps(log) {
     return {    
     /**
- * refreshQuestStates：执行核心业务逻辑。
+ * refreshQuestStates：执行refresh任务状态相关逻辑。
  * @param playerId 玩家 ID。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新refresh任务状态相关状态。
  */
 
         refreshQuestStates(playerId) { log.push(['refreshQuestStates', playerId]); },        
         /**
- * queuePlayerNotice：执行核心业务逻辑。
+ * queuePlayerNotice：执行queue玩家Notice相关逻辑。
  * @param playerId 玩家 ID。
  * @param message 参数说明。
  * @param tone 参数说明。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新queue玩家Notice相关状态。
  */
 
         queuePlayerNotice(playerId, message, tone) { log.push(['queuePlayerNotice', playerId, message, tone]); },        
         /**
- * advanceLearnTechniqueQuest：执行核心业务逻辑。
+ * advanceLearnTechniqueQuest：执行advanceLearn功法任务相关逻辑。
  * @param playerId 玩家 ID。
  * @param techniqueId technique ID。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新advanceLearn功法任务相关状态。
  */
 
         advanceLearnTechniqueQuest(playerId, techniqueId) { log.push(['advanceLearnTechniqueQuest', playerId, techniqueId]); },        
         /**
- * getPlayerLocationOrThrow：按给定条件读取/查询数据。
- * @returns 函数返回值。
+ * getPlayerLocationOrThrow：读取玩家位置OrThrow。
+ * @returns 无返回值，完成玩家位置OrThrow的读取/组装。
  */
 
         getPlayerLocationOrThrow() { return { instanceId: 'instance:1' }; },        
         /**
- * getInstanceRuntimeOrThrow：按给定条件读取/查询数据。
- * @returns 函数返回值。
+ * getInstanceRuntimeOrThrow：读取Instance运行态OrThrow。
+ * @returns 无返回值，完成Instance运行态OrThrow的读取/组装。
  */
 
         getInstanceRuntimeOrThrow() {
             return {            
             /**
- * addTileAura：执行核心业务逻辑。
+ * addTileAura：处理TileAura并更新相关状态。
  * @param x X 坐标。
  * @param y Y 坐标。
  * @param amount 参数说明。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新TileAura相关状态。
  */
 
                 addTileAura(x, y, amount) {
@@ -68,61 +68,61 @@ function createDeps(log) {
 /**
  * createService：构建并返回目标对象。
  * @param overrides 参数说明。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新服务相关状态。
  */
 
 
 function createService(overrides = {}) {
     const playerRuntimeService = {    
     /**
- * peekInventoryItem：执行核心业务逻辑。
- * @returns 函数返回值。
+ * peekInventoryItem：执行peek背包道具相关逻辑。
+ * @returns 无返回值，直接更新peek背包道具相关状态。
  */
 
         peekInventoryItem() { return null; },        
         /**
- * hasUnlockedMap：执行状态校验并返回判断结果。
- * @returns 函数返回值。
+ * hasUnlockedMap：判断Unlocked地图是否满足条件。
+ * @returns 无返回值，完成Unlocked地图的条件判断。
  */
 
         hasUnlockedMap() { return false; },        
         /**
- * unlockMap：执行核心业务逻辑。
+ * unlockMap：执行unlock地图相关逻辑。
  * @param playerId 玩家 ID。
  * @param mapId 地图 ID。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新unlock地图相关状态。
  */
 
         unlockMap(playerId, mapId) { overrides.log.push(['unlockMap', playerId, mapId]); },        
         /**
- * consumeInventoryItem：执行核心业务逻辑。
+ * consumeInventoryItem：执行consume背包道具相关逻辑。
  * @param playerId 玩家 ID。
  * @param slotIndex 参数说明。
  * @param count 数量。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新consume背包道具相关状态。
  */
 
         consumeInventoryItem(playerId, slotIndex, count) { overrides.log.push(['consumeInventoryItem', playerId, slotIndex, count]); },        
         /**
- * useItem：执行核心业务逻辑。
+ * useItem：执行use道具相关逻辑。
  * @param playerId 玩家 ID。
  * @param slotIndex 参数说明。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新use道具相关状态。
  */
 
         useItem(playerId, slotIndex) { overrides.log.push(['useItem', playerId, slotIndex]); },        
         /**
- * getPlayerOrThrow：按给定条件读取/查询数据。
- * @returns 函数返回值。
+ * getPlayerOrThrow：读取玩家OrThrow。
+ * @returns 无返回值，完成玩家OrThrow的读取/组装。
  */
 
         getPlayerOrThrow() { return { x: 3, y: 4 }; },
     };
     const contentTemplateRepository = {    
     /**
- * getLearnTechniqueId：按给定条件读取/查询数据。
+ * getLearnTechniqueId：读取Learn功法ID。
  * @param itemId 道具 ID。
- * @returns 函数返回值。
+ * @returns 无返回值，完成Learn功法ID的读取/组装。
  */
 
         getLearnTechniqueId(itemId) {
@@ -131,15 +131,15 @@ function createService(overrides = {}) {
     };
     const templateRepository = {    
     /**
- * has：执行状态校验并返回判断结果。
+ * has：判断ha是否满足条件。
  * @param mapId 地图 ID。
- * @returns 函数返回值。
+ * @returns 无返回值，完成地图、标识的条件判断。
  */
 
         has(mapId) { return mapId === 'wildlands'; },        
         /**
- * getOrThrow：按给定条件读取/查询数据。
- * @returns 函数返回值。
+ * getOrThrow：读取OrThrow。
+ * @returns 无返回值，完成OrThrow的读取/组装。
  */
 
         getOrThrow() { return { name: '荒原' }; },
@@ -147,8 +147,8 @@ function createService(overrides = {}) {
     return new WorldRuntimeUseItemService(contentTemplateRepository, templateRepository, playerRuntimeService);
 }
 /**
- * testMapUnlockBranch：执行核心业务逻辑。
- * @returns 函数返回值。
+ * testMapUnlockBranch：执行test地图UnlockBranch相关逻辑。
+ * @returns 无返回值，直接更新test地图UnlockBranch相关状态。
  */
 
 
@@ -165,8 +165,8 @@ function testMapUnlockBranch() {
     ]);
 }
 /**
- * testTileAuraBranch：执行核心业务逻辑。
- * @returns 函数返回值。
+ * testTileAuraBranch：执行testTileAuraBranch相关逻辑。
+ * @returns 无返回值，直接更新testTileAuraBranch相关状态。
  */
 
 
@@ -183,8 +183,8 @@ function testTileAuraBranch() {
     ]);
 }
 /**
- * testNormalUseBranch：执行核心业务逻辑。
- * @returns 函数返回值。
+ * testNormalUseBranch：执行testNormalUseBranch相关逻辑。
+ * @returns 无返回值，直接更新testNormalUseBranch相关状态。
  */
 
 

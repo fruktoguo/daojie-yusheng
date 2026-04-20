@@ -13,27 +13,27 @@ type RateLimitScope = 'register' | 'login' | 'refresh' | 'gmLogin';
 
 interface RateLimitConfig {
 /**
- * windowMs：RateLimitConfig 内部字段。
+ * windowMs：窗口M相关字段。
  */
 
   windowMs: number;  
   /**
- * blockMs：RateLimitConfig 内部字段。
+ * blockMs：blockM相关字段。
  */
 
   blockMs: number;  
   /**
- * maxIpFailures：RateLimitConfig 内部字段。
+ * maxIpFailures：maxIpFailure相关字段。
  */
 
   maxIpFailures: number;  
   /**
- * maxSubjectFailures：RateLimitConfig 内部字段。
+ * maxSubjectFailures：maxSubjectFailure相关字段。
  */
 
   maxSubjectFailures: number;  
   /**
- * message：RateLimitConfig 内部字段。
+ * message：message相关字段。
  */
 
   message: string;
@@ -45,17 +45,17 @@ interface RateLimitConfig {
 
 interface RateLimitBucket {
 /**
- * failures：RateLimitBucket 内部字段。
+ * failures：failure相关字段。
  */
 
   failures: number;  
   /**
- * blockedUntil：RateLimitBucket 内部字段。
+ * blockedUntil：blockedUntil相关字段。
  */
 
   blockedUntil: number;  
   /**
- * lastTouchedAt：RateLimitBucket 内部字段。
+ * lastTouchedAt：lastTouchedAt相关字段。
  */
 
   lastTouchedAt: number;
@@ -75,7 +75,7 @@ const RATE_LIMIT_CONFIG: Record<RateLimitScope, RateLimitConfig> = {
 @Injectable()
 export class NextAuthRateLimitService {
 /**
- * buckets：NextAuthRateLimitService 内部字段。
+ * buckets：bucket相关字段。
  */
 
   private readonly buckets = new Map<string, RateLimitBucket>();
@@ -121,10 +121,10 @@ export class NextAuthRateLimitService {
     return 'unknown';
   }  
   /**
- * assertBucketAllowed：执行核心业务逻辑。
+ * assertBucketAllowed：执行assertBucketAllowed相关逻辑。
  * @param key string 参数说明。
  * @param config RateLimitConfig 参数说明。
- * @returns void。
+ * @returns 无返回值，直接更新assertBucketAllowed相关状态。
  */
 
 
@@ -135,11 +135,11 @@ export class NextAuthRateLimitService {
     if (bucket.blockedUntil > Date.now()) throw new HttpException(config.message, HttpStatus.TOO_MANY_REQUESTS);
   }  
   /**
- * registerFailure：执行核心业务逻辑。
+ * registerFailure：判断registerFailure是否满足条件。
  * @param key string 参数说明。
  * @param maxFailures number 参数说明。
  * @param config RateLimitConfig 参数说明。
- * @returns void。
+ * @returns 无返回值，直接更新registerFailure相关状态。
  */
 
 
@@ -154,9 +154,9 @@ export class NextAuthRateLimitService {
     this.buckets.set(key, bucket);
   }  
   /**
- * clearBucket：执行核心业务逻辑。
+ * clearBucket：执行clearBucket相关逻辑。
  * @param key string 参数说明。
- * @returns void。
+ * @returns 无返回值，直接更新clearBucket相关状态。
  */
 
 
@@ -164,10 +164,10 @@ export class NextAuthRateLimitService {
     this.buckets.delete(key);
   }  
   /**
- * readBucket：执行核心业务逻辑。
+ * readBucket：读取Bucket并返回结果。
  * @param key string 参数说明。
  * @param windowMs number 参数说明。
- * @returns RateLimitBucket。
+ * @returns 返回Bucket。
  */
 
 
@@ -189,7 +189,7 @@ export class NextAuthRateLimitService {
  * @param scope RateLimitScope 参数说明。
  * @param dimension 'ip' | 'subject' 参数说明。
  * @param value string 参数说明。
- * @returns string。
+ * @returns 返回Key。
  */
 
 
@@ -197,9 +197,9 @@ export class NextAuthRateLimitService {
     return `${scope}:${dimension}:${value}`;
   }  
   /**
- * normalizeSubject：执行核心业务逻辑。
+ * normalizeSubject：规范化或转换Subject。
  * @param subject string 参数说明。
- * @returns string。
+ * @returns 返回Subject。
  */
 
 

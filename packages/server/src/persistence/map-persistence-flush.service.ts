@@ -31,27 +31,27 @@ const MAP_PERSISTENCE_FLUSH_RETRY_COUNT = 1;
 /** 地图快照脏实例定时刷盘服务：按周期落库并支持进程关闭前强刷。 */
 let MapPersistenceFlushService = MapPersistenceFlushService_1 = class MapPersistenceFlushService {
 /**
- * worldRuntimeService：对象字段。
+ * worldRuntimeService：世界运行态服务引用。
  */
 
     worldRuntimeService;    
     /**
- * mapPersistenceService：对象字段。
+ * mapPersistenceService：地图Persistence服务引用。
  */
 
     mapPersistenceService;    
     /**
- * logger：对象字段。
+ * logger：日志器引用。
  */
 
     logger = new common_1.Logger(MapPersistenceFlushService_1.name);    
     /**
- * timer：对象字段。
+ * timer：timer相关字段。
  */
 
     timer = null;    
     /**
- * flushPromise：对象字段。
+ * flushPromise：flushPromise相关字段。
  */
 
     flushPromise = null;    
@@ -59,7 +59,7 @@ let MapPersistenceFlushService = MapPersistenceFlushService_1 = class MapPersist
  * 构造器：初始化 当前 实例并建立基础状态。
  * @param worldRuntimeService 参数说明。
  * @param mapPersistenceService 参数说明。
- * @returns 无返回值（构造函数）。
+ * @returns 无返回值，完成实例初始化。
  */
 
     constructor(worldRuntimeService, mapPersistenceService) {
@@ -67,8 +67,8 @@ let MapPersistenceFlushService = MapPersistenceFlushService_1 = class MapPersist
         this.mapPersistenceService = mapPersistenceService;
     }    
     /**
- * onModuleInit：执行核心业务逻辑。
- * @returns 函数返回值。
+ * onModuleInit：执行on模块Init相关逻辑。
+ * @returns 无返回值，直接更新on模块Init相关状态。
  */
 
     onModuleInit() {
@@ -79,8 +79,8 @@ let MapPersistenceFlushService = MapPersistenceFlushService_1 = class MapPersist
         this.logger.log(`地图持久化刷新已启动，间隔 ${MAP_PERSISTENCE_FLUSH_INTERVAL_MS}ms`);
     }    
     /**
- * onModuleDestroy：执行核心业务逻辑。
- * @returns 函数返回值。
+ * onModuleDestroy：执行on模块Destroy相关逻辑。
+ * @returns 无返回值，直接更新on模块Destroy相关状态。
  */
 
     onModuleDestroy() {
@@ -108,8 +108,8 @@ let MapPersistenceFlushService = MapPersistenceFlushService_1 = class MapPersist
         await this.runFlushCycle('shutdown');
     }    
     /**
- * flushDirtyInstances：执行核心业务逻辑。
- * @returns 函数返回值。
+ * flushDirtyInstances：执行刷新DirtyInstance相关逻辑。
+ * @returns 无返回值，直接更新flushDirtyInstance相关状态。
  */
 
     async flushDirtyInstances() {
@@ -172,8 +172,8 @@ exports.MapPersistenceFlushService = MapPersistenceFlushService = MapPersistence
         map_persistence_service_1.MapPersistenceService])
 ], MapPersistenceFlushService);
 /**
- * isRestoreFreezeActive：执行状态校验并返回判断结果。
- * @returns 函数返回值。
+ * isRestoreFreezeActive：判断RestoreFreeze激活是否满足条件。
+ * @returns 无返回值，完成RestoreFreeze激活的条件判断。
  */
 
 function isRestoreFreezeActive() {
@@ -183,9 +183,9 @@ function isRestoreFreezeActive() {
 }
 export { MapPersistenceFlushService };
 /**
- * prioritizeMapFlushTargets：执行核心业务逻辑。
+ * prioritizeMapFlushTargets：读取prioritize地图刷新目标并返回结果。
  * @param instanceIds instance ID 集合。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新prioritize地图Flush目标相关状态。
  */
 
 function prioritizeMapFlushTargets(instanceIds) {
@@ -196,10 +196,10 @@ function prioritizeMapFlushTargets(instanceIds) {
     });
 }
 /**
- * chunkValues：执行核心业务逻辑。
+ * chunkValues：执行chunk值相关逻辑。
  * @param values 参数说明。
  * @param chunkSize 参数说明。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新chunk值相关状态。
  */
 
 function chunkValues(values, chunkSize) {
@@ -216,12 +216,12 @@ function chunkValues(values, chunkSize) {
     return chunks;
 }
 /**
- * runConcurrent：执行核心业务逻辑。
+ * runConcurrent：执行runConcurrent相关逻辑。
  * @param values 参数说明。
  * @param parallelism 参数说明。
  * @param worker 参数说明。
  * @param onError 参数说明。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新runConcurrent相关状态。
  */
 
 async function runConcurrent(values, parallelism, worker, onError) {
@@ -239,10 +239,10 @@ async function runConcurrent(values, parallelism, worker, onError) {
     }
 }
 /**
- * retryFlush：执行核心业务逻辑。
+ * retryFlush：执行retry刷新相关逻辑。
  * @param retryCount 参数说明。
  * @param work 参数说明。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新retryFlush相关状态。
  */
 
 async function retryFlush(retryCount, work) {

@@ -9,27 +9,27 @@ export interface RequestMarketView {}
 /** 请求坊市分页列表。 */
 export interface RequestMarketListingsView {
 /**
- * page：RequestMarketListingsView 内部字段。
+ * page：page相关字段。
  */
 
   page: number;  
   /**
- * pageSize：RequestMarketListingsView 内部字段。
+ * pageSize：数量或计量字段。
  */
 
   pageSize?: number;  
   /**
- * category：RequestMarketListingsView 内部字段。
+ * category：category相关字段。
  */
 
   category?: ItemType | 'all';  
   /**
- * equipmentSlot：RequestMarketListingsView 内部字段。
+ * equipmentSlot：装备Slot相关字段。
  */
 
   equipmentSlot?: EquipSlot | 'all';  
   /**
- * techniqueCategory：RequestMarketListingsView 内部字段。
+ * techniqueCategory：功法Category相关字段。
  */
 
   techniqueCategory?: TechniqueCategory | 'all';
@@ -38,17 +38,17 @@ export interface RequestMarketListingsView {
 /** 请求邮件分页。 */
 export interface RequestMailPageView {
 /**
- * page：RequestMailPageView 内部字段。
+ * page：page相关字段。
  */
 
   page: number;  
   /**
- * pageSize：RequestMailPageView 内部字段。
+ * pageSize：数量或计量字段。
  */
 
   pageSize?: number;  
   /**
- * filter：RequestMailPageView 内部字段。
+ * filter：filter相关字段。
  */
 
   filter?: MailFilter;
@@ -60,7 +60,7 @@ export interface RequestMailSummaryView {}
 /** 请求邮件详情。 */
 export interface RequestMailDetailView {
 /**
- * mailId：RequestMailDetailView 内部字段。
+ * mailId：邮件ID标识。
  */
 
   mailId: string;
@@ -69,7 +69,7 @@ export interface RequestMailDetailView {
 /** 请求 NPC 任务。 */
 export interface RequestNpcQuestsView {
 /**
- * npcId：RequestNpcQuestsView 内部字段。
+ * npcId：NPCID标识。
  */
 
   npcId: string;
@@ -78,12 +78,12 @@ export interface RequestNpcQuestsView {
 /** 接受 NPC 任务。 */
 export interface AcceptNpcQuestView {
 /**
- * npcId：AcceptNpcQuestView 内部字段。
+ * npcId：NPCID标识。
  */
 
   npcId: string;  
   /**
- * questId：AcceptNpcQuestView 内部字段。
+ * questId：任务ID标识。
  */
 
   questId: string;
@@ -92,12 +92,12 @@ export interface AcceptNpcQuestView {
 /** 提交 NPC 任务。 */
 export interface SubmitNpcQuestView {
 /**
- * npcId：SubmitNpcQuestView 内部字段。
+ * npcId：NPCID标识。
  */
 
   npcId: string;  
   /**
- * questId：SubmitNpcQuestView 内部字段。
+ * questId：任务ID标识。
  */
 
   questId: string;
@@ -106,12 +106,12 @@ export interface SubmitNpcQuestView {
 /** 请求详情面板。 */
 export interface RequestDetailView {
 /**
- * kind：RequestDetailView 内部字段。
+ * kind：kind相关字段。
  */
 
   kind: 'npc' | 'monster' | 'ground' | 'player' | 'portal' | 'container';  
   /**
- * id：RequestDetailView 内部字段。
+ * id：ID标识。
  */
 
   id: string;
@@ -120,7 +120,7 @@ export interface RequestDetailView {
 /** 邮件已读。 */
 export interface MarkMailReadView {
 /**
- * mailIds：MarkMailReadView 内部字段。
+ * mailIds：邮件ID相关字段。
  */
 
   mailIds: string[];
@@ -129,7 +129,7 @@ export interface MarkMailReadView {
 /** 领取邮件附件。 */
 export interface ClaimMailAttachmentsView {
 /**
- * mailIds：ClaimMailAttachmentsView 内部字段。
+ * mailIds：邮件ID相关字段。
  */
 
   mailIds: string[];
@@ -138,7 +138,7 @@ export interface ClaimMailAttachmentsView {
 /** 删除邮件。 */
 export interface DeleteMailView {
 /**
- * mailIds：DeleteMailView 内部字段。
+ * mailIds：邮件ID相关字段。
  */
 
   mailIds: string[];
@@ -147,7 +147,7 @@ export interface DeleteMailView {
 /** 请求订单簿。 */
 export interface RequestMarketItemBookView {
 /**
- * itemKey：RequestMarketItemBookView 内部字段。
+ * itemKey：道具Key标识。
  */
 
   itemKey: string;
@@ -156,7 +156,7 @@ export interface RequestMarketItemBookView {
 /** 请求成交历史。 */
 export interface RequestMarketTradeHistoryView {
 /**
- * page：RequestMarketTradeHistoryView 内部字段。
+ * page：page相关字段。
  */
 
   page: number;
@@ -168,7 +168,7 @@ export interface RequestAttrDetailView {}
 /** 请求排行榜。 */
 export interface RequestLeaderboardView {
 /**
- * limit：RequestLeaderboardView 内部字段。
+ * limit：limit相关字段。
  */
 
   limit?: number;
@@ -180,17 +180,17 @@ export interface RequestWorldSummaryView {}
 /** 创建卖单。 */
 export interface CreateMarketSellOrderView {
 /**
- * slotIndex：CreateMarketSellOrderView 内部字段。
+ * slotIndex：slotIndex相关字段。
  */
 
   slotIndex: number;  
   /**
- * quantity：CreateMarketSellOrderView 内部字段。
+ * quantity：quantity相关字段。
  */
 
   quantity: number;  
   /**
- * unitPrice：CreateMarketSellOrderView 内部字段。
+ * unitPrice：unit价格数值。
  */
 
   unitPrice: number;
@@ -199,17 +199,17 @@ export interface CreateMarketSellOrderView {
 /** 创建买单。 */
 export interface CreateMarketBuyOrderView {
 /**
- * itemKey：CreateMarketBuyOrderView 内部字段。
+ * itemKey：道具Key标识。
  */
 
   itemKey: string;  
   /**
- * quantity：CreateMarketBuyOrderView 内部字段。
+ * quantity：quantity相关字段。
  */
 
   quantity: number;  
   /**
- * unitPrice：CreateMarketBuyOrderView 内部字段。
+ * unitPrice：unit价格数值。
  */
 
   unitPrice: number;
@@ -218,12 +218,12 @@ export interface CreateMarketBuyOrderView {
 /** 购买挂单。 */
 export interface BuyMarketItemView {
 /**
- * itemKey：BuyMarketItemView 内部字段。
+ * itemKey：道具Key标识。
  */
 
   itemKey: string;  
   /**
- * quantity：BuyMarketItemView 内部字段。
+ * quantity：quantity相关字段。
  */
 
   quantity: number;
@@ -232,12 +232,12 @@ export interface BuyMarketItemView {
 /** 出售背包物品。 */
 export interface SellMarketItemView {
 /**
- * slotIndex：SellMarketItemView 内部字段。
+ * slotIndex：slotIndex相关字段。
  */
 
   slotIndex: number;  
   /**
- * quantity：SellMarketItemView 内部字段。
+ * quantity：quantity相关字段。
  */
 
   quantity: number;
@@ -246,7 +246,7 @@ export interface SellMarketItemView {
 /** 取消订单。 */
 export interface CancelMarketOrderView {
 /**
- * orderId：CancelMarketOrderView 内部字段。
+ * orderId：订单ID标识。
  */
 
   orderId: string;
@@ -258,7 +258,7 @@ export interface ClaimMarketStorageView {}
 /** 请求 NPC 商店。 */
 export interface RequestNpcShopView {
 /**
- * npcId：RequestNpcShopView 内部字段。
+ * npcId：NPCID标识。
  */
 
   npcId: string;
@@ -267,17 +267,17 @@ export interface RequestNpcShopView {
 /** 购买 NPC 商店商品。 */
 export interface BuyNpcShopItemView {
 /**
- * npcId：BuyNpcShopItemView 内部字段。
+ * npcId：NPCID标识。
  */
 
   npcId: string;  
   /**
- * itemId：BuyNpcShopItemView 内部字段。
+ * itemId：道具ID标识。
  */
 
   itemId: string;  
   /**
- * quantity：BuyNpcShopItemView 内部字段。
+ * quantity：quantity相关字段。
  */
 
   quantity: number;
@@ -286,7 +286,7 @@ export interface BuyNpcShopItemView {
 /** 请求炼制面板。 */
 export interface RequestAlchemyPanelView {
 /**
- * knownCatalogVersion：RequestAlchemyPanelView 内部字段。
+ * knownCatalogVersion：known目录Version相关字段。
  */
 
   knownCatalogVersion?: number;
@@ -295,22 +295,22 @@ export interface RequestAlchemyPanelView {
 /** 保存炼制预设。 */
 export interface SaveAlchemyPresetView {
 /**
- * presetId：SaveAlchemyPresetView 内部字段。
+ * presetId：presetID标识。
  */
 
   presetId?: string;  
   /**
- * recipeId：SaveAlchemyPresetView 内部字段。
+ * recipeId：recipeID标识。
  */
 
   recipeId: string;  
   /**
- * name：SaveAlchemyPresetView 内部字段。
+ * name：名称名称或显示文本。
  */
 
   name: string;  
   /**
- * ingredients：SaveAlchemyPresetView 内部字段。
+ * ingredients：ingredient相关字段。
  */
 
   ingredients: AlchemyIngredientSelection[];
@@ -319,7 +319,7 @@ export interface SaveAlchemyPresetView {
 /** 删除炼制预设。 */
 export interface DeleteAlchemyPresetView {
 /**
- * presetId：DeleteAlchemyPresetView 内部字段。
+ * presetId：presetID标识。
  */
 
   presetId: string;
@@ -328,17 +328,17 @@ export interface DeleteAlchemyPresetView {
 /** 开始炼制。 */
 export interface StartAlchemyView {
 /**
- * recipeId：StartAlchemyView 内部字段。
+ * recipeId：recipeID标识。
  */
 
   recipeId: string;  
   /**
- * ingredients：StartAlchemyView 内部字段。
+ * ingredients：ingredient相关字段。
  */
 
   ingredients: AlchemyIngredientSelection[];  
   /**
- * quantity：StartAlchemyView 内部字段。
+ * quantity：quantity相关字段。
  */
 
   quantity: number;
@@ -353,22 +353,22 @@ export interface RequestEnhancementPanelView {}
 /** 开始强化。 */
 export interface StartEnhancementView {
 /**
- * target：StartEnhancementView 内部字段。
+ * target：目标相关字段。
  */
 
   target: EnhancementTargetRef;  
   /**
- * protection：StartEnhancementView 内部字段。
+ * protection：protection相关字段。
  */
 
   protection?: EnhancementTargetRef | null;  
   /**
- * targetLevel：StartEnhancementView 内部字段。
+ * targetLevel：目标等级数值。
  */
 
   targetLevel?: number;  
   /**
- * protectionStartLevel：StartEnhancementView 内部字段。
+ * protectionStartLevel：protectionStart等级数值。
  */
 
   protectionStartLevel?: number | null;
@@ -380,12 +380,12 @@ export interface CancelEnhancementView {}
 /** 使用背包物品。 */
 export interface UseItemView {
 /**
- * slotIndex：UseItemView 内部字段。
+ * slotIndex：slotIndex相关字段。
  */
 
   slotIndex: number;  
   /**
- * count：UseItemView 内部字段。
+ * count：数量或计量字段。
  */
 
   count?: number;
@@ -394,12 +394,12 @@ export interface UseItemView {
 /** 丢弃背包物品。 */
 export interface DropItemView {
 /**
- * slotIndex：DropItemView 内部字段。
+ * slotIndex：slotIndex相关字段。
  */
 
   slotIndex: number;  
   /**
- * count：DropItemView 内部字段。
+ * count：数量或计量字段。
  */
 
   count: number;
@@ -408,12 +408,12 @@ export interface DropItemView {
 /** 摧毁背包物品。 */
 export interface DestroyItemView {
 /**
- * slotIndex：DestroyItemView 内部字段。
+ * slotIndex：slotIndex相关字段。
  */
 
   slotIndex: number;  
   /**
- * count：DestroyItemView 内部字段。
+ * count：数量或计量字段。
  */
 
   count: number;
@@ -422,17 +422,17 @@ export interface DestroyItemView {
 /** 拿取地面掉落或容器战利品。 */
 export interface TakeLootView {
 /**
- * sourceId：TakeLootView 内部字段。
+ * sourceId：来源ID标识。
  */
 
   sourceId: string;  
   /**
- * itemKey：TakeLootView 内部字段。
+ * itemKey：道具Key标识。
  */
 
   itemKey?: string;  
   /**
- * takeAll：TakeLootView 内部字段。
+ * takeAll：takeAll相关字段。
  */
 
   takeAll?: boolean;
@@ -444,7 +444,7 @@ export interface SortInventoryView {}
 /** 装备背包物品。 */
 export interface EquipView {
 /**
- * slotIndex：EquipView 内部字段。
+ * slotIndex：slotIndex相关字段。
  */
 
   slotIndex: number;
@@ -453,7 +453,7 @@ export interface EquipView {
 /** 卸下装备。 */
 export interface UnequipView {
 /**
- * slot：UnequipView 内部字段。
+ * slot：slot相关字段。
  */
 
   slot: EquipSlot;
@@ -462,7 +462,7 @@ export interface UnequipView {
 /** 开始或停止修炼。 */
 export interface CultivateView {
 /**
- * techId：CultivateView 内部字段。
+ * techId：techID标识。
  */
 
   techId: string | null;
@@ -471,22 +471,22 @@ export interface CultivateView {
 /** 释放技能。 */
 export interface CastSkillView {
 /**
- * skillId：CastSkillView 内部字段。
+ * skillId：技能ID标识。
  */
 
   skillId: string;  
   /**
- * targetPlayerId：CastSkillView 内部字段。
+ * targetPlayerId：目标玩家ID标识。
  */
 
   targetPlayerId?: string | null;  
   /**
- * targetMonsterId：CastSkillView 内部字段。
+ * targetMonsterId：目标怪物ID标识。
  */
 
   targetMonsterId?: string | null;  
   /**
- * targetRef：CastSkillView 内部字段。
+ * targetRef：目标Ref相关字段。
  */
 
   targetRef?: string | null;
@@ -495,7 +495,7 @@ export interface CastSkillView {
 /** 兑换码提交。 */
 export interface RedeemCodesView {
 /**
- * codes：RedeemCodesView 内部字段。
+ * codes：code相关字段。
  */
 
   codes: string[];

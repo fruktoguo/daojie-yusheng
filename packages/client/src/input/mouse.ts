@@ -9,37 +9,37 @@ import { getCellSize } from '../display';
 /** 鼠标命中结果，包含坐标、实体和可交互状态。 */
 interface ClickTarget {
 /**
- * x：ClickTarget 内部字段。
+ * x：x相关字段。
  */
 
   x: number;  
   /**
- * y：ClickTarget 内部字段。
+ * y：y相关字段。
  */
 
   y: number;  
   /**
- * clientX：ClickTarget 内部字段。
+ * clientX：clientX相关字段。
  */
 
   clientX?: number;  
   /**
- * clientY：ClickTarget 内部字段。
+ * clientY：clientY相关字段。
  */
 
   clientY?: number;  
   /**
- * entityId：ClickTarget 内部字段。
+ * entityId：entityID标识。
  */
 
   entityId?: string;  
   /**
- * entityKind：ClickTarget 内部字段。
+ * entityKind：entityKind相关字段。
  */
 
   entityKind?: string;  
   /**
- * walkable：ClickTarget 内部字段。
+ * walkable：walkable相关字段。
  */
 
   walkable?: boolean;
@@ -55,24 +55,24 @@ export class MouseInput {
   /** 懒加载获取指定世界坐标的地块。 */
   private getTileAt: ((x: number, y: number) => Tile | null) | null = null;  
   /**
- * getEntities：MouseInput 内部字段。
+ * getEntities：getEntity相关字段。
  */
 
   private getEntities: (() => {  
   /**
- * id：MouseInput 内部字段。
+ * id：ID标识。
  */
  id: string;  
  /**
- * wx：MouseInput 内部字段。
+ * wx：wx相关字段。
  */
  wx: number;  
  /**
- * wy：MouseInput 内部字段。
+ * wy：wy相关字段。
  */
  wy: number;  
  /**
- * kind：MouseInput 内部字段。
+ * kind：kind相关字段。
  */
  kind?: string }[]) | null = null;
   /** 懒加载获取当前地图元信息。 */
@@ -91,19 +91,19 @@ export class MouseInput {
     getTileAt: (x: number, y: number) => Tile | null,
     getEntities: () => {    
     /**
- * id：MouseInput 内部字段。
+ * id：ID标识。
  */
  id: string;    
  /**
- * wx：MouseInput 内部字段。
+ * wx：wx相关字段。
  */
  wx: number;    
  /**
- * wy：MouseInput 内部字段。
+ * wy：wy相关字段。
  */
  wy: number;    
  /**
- * kind：MouseInput 内部字段。
+ * kind：kind相关字段。
  */
  kind?: string }[],
     getMapMeta: () => MapMeta | null,
@@ -178,7 +178,7 @@ export class MouseInput {
  * @param clientX number 参数说明。
  * @param clientY number 参数说明。
  * @param entity { id: string; wx: number; wy: number; kind?: string } 参数说明。
- * @returns ClickTarget。
+ * @returns 返回目标。
  */
 
 
@@ -190,19 +190,19 @@ export class MouseInput {
     clientY?: number,
     entity?: {    
     /**
- * id：MouseInput 内部字段。
+ * id：ID标识。
  */
  id: string;    
  /**
- * wx：MouseInput 内部字段。
+ * wx：wx相关字段。
  */
  wx: number;    
  /**
- * wy：MouseInput 内部字段。
+ * wy：wy相关字段。
  */
  wy: number;    
  /**
- * kind：MouseInput 内部字段。
+ * kind：kind相关字段。
  */
  kind?: string },
   ): ClickTarget {

@@ -6,30 +6,30 @@ import type { PropsWithChildren, ReactNode } from 'react';
 
 export interface UiFieldRowProps {
 /**
- * label：UiFieldRowProps 内部字段。
+ * label：label名称或显示文本。
  */
 
   label: ReactNode;  
   /**
- * value：UiFieldRowProps 内部字段。
+ * value：值数值。
  */
 
   value?: ReactNode;  
   /**
- * className：UiFieldRowProps 内部字段。
+ * className：class名称名称或显示文本。
  */
 
   className?: string;
 }
 /**
- * UiFieldRow：执行核心业务逻辑。
+ * UiFieldRow：渲染UiFieldRow组件。
  * @param {
   label,
   value,
   className,
   children,
 } PropsWithChildren<UiFieldRowProps> 参数说明。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新UiFieldRow相关状态。
  */
 
 

@@ -4,8 +4,8 @@ const assert = require("node:assert/strict");
 
 const { WorldRuntimeStateFacadeService } = require("../runtime/world/world-runtime-state-facade.service");
 /**
- * testStateFacade：执行核心业务逻辑。
- * @returns 函数返回值。
+ * testStateFacade：执行test状态Facade相关逻辑。
+ * @returns 无返回值，直接更新test状态Facade相关状态。
  */
 
 
@@ -15,172 +15,172 @@ async function testStateFacade() {
     const deps = {
         worldRuntimePendingCommandService: {        
         /**
- * enqueuePendingCommand：执行核心业务逻辑。
+ * enqueuePendingCommand：处理待处理Command并更新相关状态。
  * @param playerId 玩家 ID。
  * @param command 输入指令。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新PendingCommand相关状态。
  */
 
             enqueuePendingCommand(playerId, command) { log.push(['enqueuePendingCommand', playerId, command.kind]); },            
             /**
- * getPendingCommand：按给定条件读取/查询数据。
+ * getPendingCommand：读取待处理Command。
  * @param playerId 玩家 ID。
- * @returns 函数返回值。
+ * @returns 无返回值，完成PendingCommand的读取/组装。
  */
 
             getPendingCommand(playerId) { return playerId === 'player:1' ? { kind: 'move' } : null; },            
             /**
- * hasPendingCommand：执行状态校验并返回判断结果。
+ * hasPendingCommand：判断待处理Command是否满足条件。
  * @param playerId 玩家 ID。
- * @returns 函数返回值。
+ * @returns 无返回值，完成PendingCommand的条件判断。
  */
 
             hasPendingCommand(playerId) { return playerId === 'player:1'; },            
             /**
- * clearPendingCommand：执行核心业务逻辑。
+ * clearPendingCommand：执行clear待处理Command相关逻辑。
  * @param playerId 玩家 ID。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新clearPendingCommand相关状态。
  */
 
             clearPendingCommand(playerId) { log.push(['clearPendingCommand', playerId]); },            
             /**
- * getPendingCommandCount：按给定条件读取/查询数据。
- * @returns 函数返回值。
+ * getPendingCommandCount：读取待处理Command数量。
+ * @returns 无返回值，完成PendingCommand数量的读取/组装。
  */
 
             getPendingCommandCount() { return 2; },
         },
         worldRuntimePlayerLocationService: {        
         /**
- * getPlayerLocation：按给定条件读取/查询数据。
+ * getPlayerLocation：读取玩家位置。
  * @param playerId 玩家 ID。
- * @returns 函数返回值。
+ * @returns 无返回值，完成玩家位置的读取/组装。
  */
 
             getPlayerLocation(playerId) { return playerId === 'player:1' ? { instanceId: 'public:yunlai_town' } : null; },            
             /**
- * setPlayerLocation：更新/写入相关状态。
+ * setPlayerLocation：写入玩家位置。
  * @param playerId 玩家 ID。
  * @param location 参数说明。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新玩家位置相关状态。
  */
 
             setPlayerLocation(playerId, location) { log.push(['setPlayerLocation', playerId, location.instanceId]); },            
             /**
- * clearPlayerLocation：执行核心业务逻辑。
+ * clearPlayerLocation：执行clear玩家位置相关逻辑。
  * @param playerId 玩家 ID。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新clear玩家位置相关状态。
  */
 
             clearPlayerLocation(playerId) { log.push(['clearPlayerLocation', playerId]); },            
             /**
- * getPlayerLocationCount：按给定条件读取/查询数据。
- * @returns 函数返回值。
+ * getPlayerLocationCount：读取玩家位置数量。
+ * @returns 无返回值，完成玩家位置数量的读取/组装。
  */
 
             getPlayerLocationCount() { return 3; },            
             /**
- * listConnectedPlayerIds：执行核心业务逻辑。
- * @returns 函数返回值。
+ * listConnectedPlayerIds：读取Connected玩家ID并返回结果。
+ * @returns 无返回值，完成Connected玩家ID的读取/组装。
  */
 
             listConnectedPlayerIds() { return ['player:1', 'player:2']; },
         },
         worldRuntimeInstanceStateService: {        
         /**
- * getInstanceRuntime：按给定条件读取/查询数据。
+ * getInstanceRuntime：读取Instance运行态。
  * @param instanceId instance ID。
- * @returns 函数返回值。
+ * @returns 无返回值，完成Instance运行态的读取/组装。
  */
 
             getInstanceRuntime(instanceId) { return instanceId === 'public:yunlai_town' ? { meta: { instanceId } } : null; },            
             /**
- * setInstanceRuntime：更新/写入相关状态。
+ * setInstanceRuntime：写入Instance运行态。
  * @param instanceId instance ID。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新Instance运行态相关状态。
  */
 
             setInstanceRuntime(instanceId) { log.push(['setInstanceRuntime', instanceId]); },            
             /**
- * listInstanceRuntimes：执行核心业务逻辑。
- * @returns 函数返回值。
+ * listInstanceRuntimes：读取Instance运行态并返回结果。
+ * @returns 无返回值，完成Instance运行态的读取/组装。
  */
 
             listInstanceRuntimes() { return [{ meta: { instanceId: 'public:yunlai_town' } }]; },            
             /**
- * listInstanceEntries：执行核心业务逻辑。
- * @returns 函数返回值。
+ * listInstanceEntries：读取Instance条目并返回结果。
+ * @returns 无返回值，完成Instance条目的读取/组装。
  */
 
             listInstanceEntries() { return [['public:yunlai_town', { meta: { instanceId: 'public:yunlai_town' } }]]; },            
             /**
- * getInstanceCount：按给定条件读取/查询数据。
- * @returns 函数返回值。
+ * getInstanceCount：读取Instance数量。
+ * @returns 无返回值，完成Instance数量的读取/组装。
  */
 
             getInstanceCount() { return 1; },
         },
         worldRuntimePersistenceStateService: {        
         /**
- * listDirtyPersistentInstances：执行核心业务逻辑。
- * @returns 函数返回值。
+ * listDirtyPersistentInstances：读取DirtyPersistentInstance并返回结果。
+ * @returns 无返回值，完成DirtyPersistentInstance的读取/组装。
  */
 
             listDirtyPersistentInstances() { return ['public:yunlai_town']; },            
             /**
  * buildMapPersistenceSnapshot：构建并返回目标对象。
  * @param instanceId instance ID。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新地图Persistence快照相关状态。
  */
 
             buildMapPersistenceSnapshot(instanceId) { return { instanceId }; },            
             /**
- * markMapPersisted：执行核心业务逻辑。
+ * markMapPersisted：判断地图Persisted是否满足条件。
  * @param instanceId instance ID。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新地图Persisted相关状态。
  */
 
             markMapPersisted(instanceId) { log.push(['markMapPersisted', instanceId]); },
         },
         worldRuntimeFrameService: {        
         /**
- * tickAll：执行核心业务逻辑。
- * @returns 函数返回值。
+ * tickAll：执行tickAll相关逻辑。
+ * @returns 无返回值，直接更新tickAll相关状态。
  */
 
             tickAll() { log.push(['tickAll']); return 1; },            
             /**
- * advanceFrame：执行核心业务逻辑。
+ * advanceFrame：执行advance帧相关逻辑。
  * @param _deps 参数说明。
  * @param frameDurationMs 参数说明。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新advance帧相关状态。
  */
 
             advanceFrame(_deps, frameDurationMs) { log.push(['advanceFrame', frameDurationMs]); return { frameDurationMs }; },            
             /**
- * recordSyncFlushDuration：执行核心业务逻辑。
+ * recordSyncFlushDuration：处理record同步刷新耗时并更新相关状态。
  * @param durationMs 参数说明。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新recordSyncFlushDuration相关状态。
  */
 
             recordSyncFlushDuration(durationMs) { log.push(['recordSyncFlushDuration', durationMs]); },
         },
         worldRuntimeLifecycleService: {        
         /**
- * bootstrapPublicInstances：执行核心业务逻辑。
- * @returns 函数返回值。
+ * bootstrapPublicInstances：执行引导PublicInstance相关逻辑。
+ * @returns 无返回值，直接更新bootstrapPublicInstance相关状态。
  */
 
             bootstrapPublicInstances() { log.push(['bootstrapPublicInstances']); },            
             /**
- * restorePublicInstancePersistence：执行核心业务逻辑。
- * @returns 函数返回值。
+ * restorePublicInstancePersistence：判断restorePublicInstancePersistence是否满足条件。
+ * @returns 无返回值，直接更新restorePublicInstancePersistence相关状态。
  */
 
             async restorePublicInstancePersistence() { log.push(['restorePublicInstancePersistence']); },            
             /**
- * rebuildPersistentRuntimeAfterRestore：执行核心业务逻辑。
- * @returns 函数返回值。
+ * rebuildPersistentRuntimeAfterRestore：判断rebuildPersistent运行态AfterRestore是否满足条件。
+ * @returns 无返回值，直接更新rebuildPersistent运行态AfterRestore相关状态。
  */
 
             async rebuildPersistentRuntimeAfterRestore() { log.push(['rebuildPersistentRuntimeAfterRestore']); },

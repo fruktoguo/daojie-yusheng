@@ -51,22 +51,22 @@ const CONTAINER_SEARCH_TICKS_BY_GRADE = {
 /** loot/container 状态域服务：承接容器状态、翻找推进、持久化与容器拿取。 */
 let WorldRuntimeLootContainerService = class WorldRuntimeLootContainerService {
 /**
- * contentTemplateRepository：对象字段。
+ * contentTemplateRepository：内容Template仓储引用。
  */
 
     contentTemplateRepository;    
     /**
- * playerRuntimeService：对象字段。
+ * playerRuntimeService：玩家运行态服务引用。
  */
 
     playerRuntimeService;    
     /**
- * containerStatesByInstanceId：对象字段。
+ * containerStatesByInstanceId：container状态ByInstanceID标识。
  */
 
     containerStatesByInstanceId = new Map();    
     /**
- * dirtyContainerPersistenceInstanceIds：对象字段。
+ * dirtyContainerPersistenceInstanceIds：dirtyContainerPersistenceInstanceID相关字段。
  */
 
     dirtyContainerPersistenceInstanceIds = new Set();    
@@ -74,7 +74,7 @@ let WorldRuntimeLootContainerService = class WorldRuntimeLootContainerService {
  * 构造器：初始化 当前 实例并建立基础状态。
  * @param contentTemplateRepository 参数说明。
  * @param playerRuntimeService 参数说明。
- * @returns 无返回值（构造函数）。
+ * @returns 无返回值，完成实例初始化。
  */
 
     constructor(contentTemplateRepository, playerRuntimeService) {
@@ -82,25 +82,25 @@ let WorldRuntimeLootContainerService = class WorldRuntimeLootContainerService {
         this.playerRuntimeService = playerRuntimeService;
     }    
     /**
- * getDirtyInstanceIds：按给定条件读取/查询数据。
- * @returns 函数返回值。
+ * getDirtyInstanceIds：读取DirtyInstanceID。
+ * @returns 无返回值，完成DirtyInstanceID的读取/组装。
  */
 
     getDirtyInstanceIds() {
         return this.dirtyContainerPersistenceInstanceIds;
     }    
     /**
- * clearPersisted：执行核心业务逻辑。
+ * clearPersisted：判断clearPersisted是否满足条件。
  * @param instanceId instance ID。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新clearPersisted相关状态。
  */
 
     clearPersisted(instanceId) {
         this.dirtyContainerPersistenceInstanceIds.delete(instanceId);
     }    
     /**
- * reset：执行核心业务逻辑。
- * @returns 函数返回值。
+ * reset：执行reset相关逻辑。
+ * @returns 无返回值，直接更新reset相关状态。
  */
 
     reset() {
@@ -110,7 +110,7 @@ let WorldRuntimeLootContainerService = class WorldRuntimeLootContainerService {
     /**
  * buildContainerPersistenceStates：构建并返回目标对象。
  * @param instanceId instance ID。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新ContainerPersistence状态相关状态。
  */
 
     buildContainerPersistenceStates(instanceId) {
@@ -140,10 +140,10 @@ let WorldRuntimeLootContainerService = class WorldRuntimeLootContainerService {
         })).sort((left, right) => compareStableStrings(left.sourceId, right.sourceId));
     }    
     /**
- * hydrateContainerStates：执行核心业务逻辑。
+ * hydrateContainerStates：执行hydrateContainer状态相关逻辑。
  * @param instanceId instance ID。
  * @param entries 参数说明。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新hydrateContainer状态相关状态。
  */
 
     hydrateContainerStates(instanceId, entries) {
@@ -179,11 +179,11 @@ let WorldRuntimeLootContainerService = class WorldRuntimeLootContainerService {
         this.dirtyContainerPersistenceInstanceIds.delete(instanceId);
     }    
     /**
- * prepareContainerLootSource：执行核心业务逻辑。
+ * prepareContainerLootSource：执行prepareContainer掉落来源相关逻辑。
  * @param instanceId instance ID。
  * @param container 参数说明。
  * @param currentTick 参数说明。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新prepareContainer掉落来源相关状态。
  */
 
     prepareContainerLootSource(instanceId, container, currentTick) {
@@ -197,10 +197,10 @@ let WorldRuntimeLootContainerService = class WorldRuntimeLootContainerService {
         return containerState;
     }    
     /**
- * getPreparedContainerLootSource：按给定条件读取/查询数据。
+ * getPreparedContainerLootSource：读取PreparedContainer掉落来源。
  * @param instanceId instance ID。
  * @param container 参数说明。
- * @returns 函数返回值。
+ * @returns 无返回值，完成PreparedContainer掉落来源的读取/组装。
  */
 
     getPreparedContainerLootSource(instanceId, container) {
@@ -231,11 +231,11 @@ let WorldRuntimeLootContainerService = class WorldRuntimeLootContainerService {
         };
     }    
     /**
- * ensureContainerState：执行核心业务逻辑。
+ * ensureContainerState：执行ensureContainer状态相关逻辑。
  * @param instanceId instance ID。
  * @param container 参数说明。
  * @param currentTick 参数说明。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新ensureContainer状态相关状态。
  */
 
     ensureContainerState(instanceId, container, currentTick) {
@@ -270,10 +270,10 @@ let WorldRuntimeLootContainerService = class WorldRuntimeLootContainerService {
         return created;
     }    
     /**
- * generateContainerEntries：执行核心业务逻辑。
+ * generateContainerEntries：执行generateContainer条目相关逻辑。
  * @param container 参数说明。
  * @param currentTick 参数说明。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新generateContainer条目相关状态。
  */
 
     generateContainerEntries(container, currentTick) {
@@ -316,10 +316,10 @@ let WorldRuntimeLootContainerService = class WorldRuntimeLootContainerService {
         return entries;
     }    
     /**
- * beginContainerSearch：执行核心业务逻辑。
+ * beginContainerSearch：执行开始ContainerSearch相关逻辑。
  * @param state 状态对象。
  * @param grade 参数说明。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新beginContainerSearch相关状态。
  */
 
     beginContainerSearch(state, grade) {
@@ -340,11 +340,11 @@ let WorldRuntimeLootContainerService = class WorldRuntimeLootContainerService {
         };
     }    
     /**
- * advanceContainerSearches：执行核心业务逻辑。
+ * advanceContainerSearches：执行advanceContainerSearche相关逻辑。
  * @param instanceAccess 参数说明。
  * @param playerLocationIndex 参数说明。
  * @param currentTick 参数说明。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新advanceContainerSearche相关状态。
  */
 
     advanceContainerSearches(instanceAccess, playerLocationIndex, currentTick) {
@@ -386,12 +386,12 @@ let WorldRuntimeLootContainerService = class WorldRuntimeLootContainerService {
         }
     }    
     /**
- * hasActiveContainerViewer：执行状态校验并返回判断结果。
+ * hasActiveContainerViewer：判断激活ContainerViewer是否满足条件。
  * @param instanceId instance ID。
  * @param tileX 参数说明。
  * @param tileY 参数说明。
  * @param playerLocationIndex 参数说明。
- * @returns 函数返回值。
+ * @returns 无返回值，完成激活ContainerViewer的条件判断。
  */
 
     hasActiveContainerViewer(instanceId, tileX, tileY, playerLocationIndex) {
@@ -420,21 +420,21 @@ let WorldRuntimeLootContainerService = class WorldRuntimeLootContainerService {
         return false;
     }    
     /**
- * markContainerPersistenceDirty：执行核心业务逻辑。
+ * markContainerPersistenceDirty：判断ContainerPersistenceDirty是否满足条件。
  * @param instanceId instance ID。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新ContainerPersistenceDirty相关状态。
  */
 
     markContainerPersistenceDirty(instanceId) {
         this.dirtyContainerPersistenceInstanceIds.add(instanceId);
     }    
     /**
- * dispatchTakeGround：处理事件并驱动执行路径。
+ * dispatchTakeGround：判断Take地面是否满足条件。
  * @param playerId 玩家 ID。
  * @param sourceId source ID。
  * @param itemKey 参数说明。
  * @param deps 运行时依赖。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新TakeGround相关状态。
  */
 
     dispatchTakeGround(playerId, sourceId, itemKey, deps) {
@@ -459,11 +459,11 @@ let WorldRuntimeLootContainerService = class WorldRuntimeLootContainerService {
         deps.queuePlayerNotice(playerId, `获得 ${formatItemStackLabel(item)}`, 'loot');
     }    
     /**
- * dispatchTakeGroundAll：处理事件并驱动执行路径。
+ * dispatchTakeGroundAll：判断Take地面All是否满足条件。
  * @param playerId 玩家 ID。
  * @param sourceId source ID。
  * @param deps 运行时依赖。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新TakeGroundAll相关状态。
  */
 
     dispatchTakeGroundAll(playerId, sourceId, deps) {
@@ -513,14 +513,14 @@ let WorldRuntimeLootContainerService = class WorldRuntimeLootContainerService {
         }
     }    
     /**
- * takeContainerItem：执行核心业务逻辑。
+ * takeContainerItem：执行takeContainer道具相关逻辑。
  * @param instanceId instance ID。
  * @param playerId 玩家 ID。
  * @param player 玩家对象。
  * @param sourceId source ID。
  * @param itemKey 参数说明。
  * @param deps 运行时依赖。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新takeContainer道具相关状态。
  */
 
     takeContainerItem(instanceId, playerId, player, sourceId, itemKey, deps) {
@@ -542,13 +542,13 @@ let WorldRuntimeLootContainerService = class WorldRuntimeLootContainerService {
         return { ...row.item };
     }    
     /**
- * takeAllContainerItems：执行核心业务逻辑。
+ * takeAllContainerItems：执行takeAllContainer道具相关逻辑。
  * @param instanceId instance ID。
  * @param playerId 玩家 ID。
  * @param player 玩家对象。
  * @param sourceId source ID。
  * @param deps 运行时依赖。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新takeAllContainer道具相关状态。
  */
 
     takeAllContainerItems(instanceId, playerId, player, sourceId, deps) {
@@ -578,13 +578,13 @@ let WorldRuntimeLootContainerService = class WorldRuntimeLootContainerService {
         return takenItems;
     }    
     /**
- * resolveContainerStateForPlayer：执行核心业务逻辑。
+ * resolveContainerStateForPlayer：规范化或转换Container状态For玩家。
  * @param instanceId instance ID。
  * @param playerId 玩家 ID。
  * @param player 玩家对象。
  * @param sourceId source ID。
  * @param deps 运行时依赖。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新Container状态For玩家相关状态。
  */
 
     resolveContainerStateForPlayer(instanceId, playerId, player, sourceId, deps) {
@@ -630,7 +630,7 @@ exports.WorldRuntimeLootContainerService = WorldRuntimeLootContainerService = __
 /**
  * buildIsContainerSourceId：构建并返回目标对象。
  * @param sourceId source ID。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新IContainer来源ID相关状态。
  */
 
 

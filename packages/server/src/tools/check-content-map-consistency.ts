@@ -6,10 +6,10 @@ const path = require("node:path");
 const packageRoot = path.resolve(__dirname, "..", "..");
 const mapsRoot = path.join(packageRoot, "data", "maps");
 /**
- * walkJsonFiles：执行核心业务逻辑。
+ * walkJsonFiles：执行walkJsonFile相关逻辑。
  * @param dirPath 参数说明。
  * @param result 返回结果。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新walkJsonFile相关状态。
  */
 
 
@@ -29,8 +29,8 @@ function walkJsonFiles(dirPath, result = []) {
   return result;
 }
 /**
- * loadMapFiles：按给定条件读取/查询数据。
- * @returns 函数返回值。
+ * loadMapFiles：读取地图File并返回结果。
+ * @returns 无返回值，完成地图File的读取/组装。
  */
 
 
@@ -50,10 +50,10 @@ function loadMapFiles() {
   });
 }
 /**
- * isIntegerInBounds：执行状态校验并返回判断结果。
+ * isIntegerInBounds：判断IntegerInBound是否满足条件。
  * @param value 参数说明。
  * @param maxExclusive 参数说明。
- * @returns 函数返回值。
+ * @returns 无返回值，完成IntegerInBound的条件判断。
  */
 
 
@@ -61,7 +61,7 @@ function isIntegerInBounds(value, maxExclusive) {
   return Number.isInteger(value) && value >= 0 && value < maxExclusive;
 }
 /**
- * validatePoint：执行核心业务逻辑。
+ * validatePoint：判断Point是否满足条件。
  * @param errors 参数说明。
  * @param mapInfo 参数说明。
  * @param label 参数说明。
@@ -69,7 +69,7 @@ function isIntegerInBounds(value, maxExclusive) {
  * @param y Y 坐标。
  * @param width 参数说明。
  * @param height 参数说明。
- * @returns 函数返回值。
+ * @returns 无返回值，完成Point的条件判断。
  */
 
 
@@ -79,12 +79,12 @@ function validatePoint(errors, mapInfo, label, x, y, width, height) {
   }
 }
 /**
- * validateTileShape：执行核心业务逻辑。
+ * validateTileShape：判断TileShape是否满足条件。
  * @param errors 参数说明。
  * @param mapInfo 参数说明。
  * @param width 参数说明。
  * @param height 参数说明。
- * @returns 函数返回值。
+ * @returns 无返回值，完成TileShape的条件判断。
  */
 
 
@@ -106,10 +106,10 @@ function validateTileShape(errors, mapInfo, width, height) {
   });
 }
 /**
- * validateMapFileIdentity：执行核心业务逻辑。
+ * validateMapFileIdentity：判断地图FileIdentity是否满足条件。
  * @param errors 参数说明。
  * @param mapInfo 参数说明。
- * @returns 函数返回值。
+ * @returns 无返回值，完成地图FileIdentity的条件判断。
  */
 
 
@@ -119,10 +119,10 @@ function validateMapFileIdentity(errors, mapInfo) {
   }
 }
 /**
- * validateComposeRules：执行核心业务逻辑。
+ * validateComposeRules：判断ComposeRule是否满足条件。
  * @param errors 参数说明。
  * @param mapInfo 参数说明。
- * @returns 函数返回值。
+ * @returns 无返回值，完成ComposeRule的条件判断。
  */
 
 
@@ -140,13 +140,13 @@ function validateComposeRules(errors, mapInfo) {
   }
 }
 /**
- * validatePortals：执行核心业务逻辑。
+ * validatePortals：判断传送门是否满足条件。
  * @param errors 参数说明。
  * @param mapInfo 参数说明。
  * @param mapById mapBy ID。
  * @param width 参数说明。
  * @param height 参数说明。
- * @returns 函数返回值。
+ * @returns 无返回值，完成Portal的条件判断。
  */
 
 
@@ -174,11 +174,11 @@ function validatePortals(errors, mapInfo, mapById, width, height) {
   }
 }
 /**
- * validateParentMapRules：执行核心业务逻辑。
+ * validateParentMapRules：判断Parent地图Rule是否满足条件。
  * @param errors 参数说明。
  * @param mapInfo 参数说明。
  * @param mapById mapBy ID。
- * @returns 函数返回值。
+ * @returns 无返回值，完成Parent地图Rule的条件判断。
  */
 
 
@@ -230,13 +230,13 @@ function validateParentMapRules(errors, mapInfo, mapById) {
   }
 }
 /**
- * validateAnchors：执行核心业务逻辑。
+ * validateAnchors：判断Anchor是否满足条件。
  * @param errors 参数说明。
  * @param mapInfo 参数说明。
  * @param key 参数说明。
  * @param width 参数说明。
  * @param height 参数说明。
- * @returns 函数返回值。
+ * @returns 无返回值，完成Anchor的条件判断。
  */
 
 
@@ -247,8 +247,8 @@ function validateAnchors(errors, mapInfo, key, width, height) {
   }
 }
 /**
- * main：执行核心业务逻辑。
- * @returns 函数返回值。
+ * main：执行main相关逻辑。
+ * @returns 无返回值，直接更新main相关状态。
  */
 
 

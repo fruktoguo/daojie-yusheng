@@ -90,17 +90,17 @@ const STATIC_TOGGLE_CONTEXT_ACTIONS = [{
 /** 世界运行时上下文动作查询服务：承接 contextActions 的只读组装。 */
 let WorldRuntimeContextActionQueryService = class WorldRuntimeContextActionQueryService {
 /**
- * templateRepository：对象字段。
+ * templateRepository：template仓储引用。
  */
 
     templateRepository;    
     /**
- * playerRuntimeService：对象字段。
+ * playerRuntimeService：玩家运行态服务引用。
  */
 
     playerRuntimeService;    
     /**
- * worldRuntimeNpcQuestInteractionQueryService：对象字段。
+ * worldRuntimeNpcQuestInteractionQueryService：世界运行态NPC任务InteractionQuery服务引用。
  */
 
     worldRuntimeNpcQuestInteractionQueryService;    
@@ -109,7 +109,7 @@ let WorldRuntimeContextActionQueryService = class WorldRuntimeContextActionQuery
  * @param templateRepository 参数说明。
  * @param playerRuntimeService 参数说明。
  * @param worldRuntimeNpcQuestInteractionQueryService 参数说明。
- * @returns 无返回值（构造函数）。
+ * @returns 无返回值，完成实例初始化。
  */
 
     constructor(templateRepository, playerRuntimeService, worldRuntimeNpcQuestInteractionQueryService) {
@@ -120,7 +120,7 @@ let WorldRuntimeContextActionQueryService = class WorldRuntimeContextActionQuery
     /**
  * buildContextActions：构建并返回目标对象。
  * @param view 参数说明。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新上下文Action相关状态。
  */
 
     buildContextActions(view) {

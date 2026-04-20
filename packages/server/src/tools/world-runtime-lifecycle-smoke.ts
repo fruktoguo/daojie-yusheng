@@ -4,8 +4,8 @@ const assert = require("node:assert/strict");
 
 const { WorldRuntimeLifecycleService } = require("../runtime/world/world-runtime-lifecycle.service");
 /**
- * testBootstrapPublicInstances：执行核心业务逻辑。
- * @returns 函数返回值。
+ * testBootstrapPublicInstances：执行test引导PublicInstance相关逻辑。
+ * @returns 无返回值，直接更新testBootstrapPublicInstance相关状态。
  */
 
 
@@ -15,8 +15,8 @@ function testBootstrapPublicInstances() {
     service.bootstrapPublicInstances({
         templateRepository: {        
         /**
- * list：执行核心业务逻辑。
- * @returns 函数返回值。
+ * list：读取列表并返回结果。
+ * @returns 无返回值，完成结果的读取/组装。
  */
 
             list() {
@@ -26,15 +26,15 @@ function testBootstrapPublicInstances() {
         /**
  * createInstance：构建并返回目标对象。
  * @param input 输入参数。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新Instance相关状态。
  */
 
         createInstance(input) {
             log.push(['createInstance', input]);
         },        
         /**
- * getInstanceCount：按给定条件读取/查询数据。
- * @returns 函数返回值。
+ * getInstanceCount：读取Instance数量。
+ * @returns 无返回值，完成Instance数量的读取/组装。
  */
 
         getInstanceCount() {
@@ -42,9 +42,9 @@ function testBootstrapPublicInstances() {
         },
         logger: {        
         /**
- * log：执行核心业务逻辑。
+ * log：执行log相关逻辑。
  * @param message 参数说明。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新log相关状态。
  */
 
             log(message) {
@@ -69,8 +69,8 @@ function testBootstrapPublicInstances() {
     ]);
 }
 /**
- * testRestoreAndRebuild：执行核心业务逻辑。
- * @returns 函数返回值。
+ * testRestoreAndRebuild：构建testRestoreAndRebuild。
+ * @returns 无返回值，直接更新testRestoreAndRebuild相关状态。
  */
 
 
@@ -81,18 +81,18 @@ async function testRestoreAndRebuild() {
         meta: { persistent: true },
         template: { id: 'yunlai_town' },        
         /**
- * hydrateAura：执行核心业务逻辑。
+ * hydrateAura：执行hydrateAura相关逻辑。
  * @param entries 参数说明。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新hydrateAura相关状态。
  */
 
         hydrateAura(entries) {
             log.push(['hydrateAura', entries]);
         },        
         /**
- * hydrateGroundPiles：执行核心业务逻辑。
+ * hydrateGroundPiles：执行hydrate地面Pile相关逻辑。
  * @param entries 参数说明。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新hydrateGroundPile相关状态。
  */
 
         hydrateGroundPiles(entries) {
@@ -103,16 +103,16 @@ async function testRestoreAndRebuild() {
         meta: { persistent: false },
         template: { id: 'forest_1' },        
         /**
- * hydrateAura：执行核心业务逻辑。
- * @returns 函数返回值。
+ * hydrateAura：执行hydrateAura相关逻辑。
+ * @returns 无返回值，直接更新hydrateAura相关状态。
  */
 
         hydrateAura() {
             log.push(['volatileHydrateAura']);
         },        
         /**
- * hydrateGroundPiles：执行核心业务逻辑。
- * @returns 函数返回值。
+ * hydrateGroundPiles：执行hydrate地面Pile相关逻辑。
+ * @returns 无返回值，直接更新hydrateGroundPile相关状态。
  */
 
         hydrateGroundPiles() {
@@ -122,17 +122,17 @@ async function testRestoreAndRebuild() {
     await service.restorePublicInstancePersistence({
         mapPersistenceService: {        
         /**
- * isEnabled：执行状态校验并返回判断结果。
- * @returns 函数返回值。
+ * isEnabled：判断启用是否满足条件。
+ * @returns 无返回值，完成启用的条件判断。
  */
 
             isEnabled() {
                 return true;
             },            
             /**
- * loadMapSnapshot：按给定条件读取/查询数据。
+ * loadMapSnapshot：读取地图快照并返回结果。
  * @param instanceId instance ID。
- * @returns 函数返回值。
+ * @returns 无返回值，完成地图快照的读取/组装。
  */
 
             async loadMapSnapshot(instanceId) {
@@ -151,8 +151,8 @@ async function testRestoreAndRebuild() {
             },
         },        
         /**
- * listInstanceEntries：执行核心业务逻辑。
- * @returns 函数返回值。
+ * listInstanceEntries：读取Instance条目并返回结果。
+ * @returns 无返回值，完成Instance条目的读取/组装。
  */
 
         listInstanceEntries() {
@@ -163,10 +163,10 @@ async function testRestoreAndRebuild() {
         },
         worldRuntimeLootContainerService: {        
         /**
- * hydrateContainerStates：执行核心业务逻辑。
+ * hydrateContainerStates：执行hydrateContainer状态相关逻辑。
  * @param instanceId instance ID。
  * @param states 参数说明。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新hydrateContainer状态相关状态。
  */
 
             hydrateContainerStates(instanceId, states) {
@@ -185,66 +185,66 @@ async function testRestoreAndRebuild() {
     await service.rebuildPersistentRuntimeAfterRestore({
         worldRuntimeInstanceStateService: {        
         /**
- * resetState：执行核心业务逻辑。
- * @returns 函数返回值。
+ * resetState：执行reset状态相关逻辑。
+ * @returns 无返回值，直接更新reset状态相关状态。
  */
  resetState() { resetLog.push('instance'); } },
         worldRuntimePlayerLocationService: {        
         /**
- * resetState：执行核心业务逻辑。
- * @returns 函数返回值。
+ * resetState：执行reset状态相关逻辑。
+ * @returns 无返回值，直接更新reset状态相关状态。
  */
  resetState() { resetLog.push('playerLocation'); } },
         worldRuntimePendingCommandService: {        
         /**
- * resetState：执行核心业务逻辑。
- * @returns 函数返回值。
+ * resetState：执行reset状态相关逻辑。
+ * @returns 无返回值，直接更新reset状态相关状态。
  */
  resetState() { resetLog.push('pending'); } },
         worldRuntimeGmQueueService: {        
         /**
- * resetState：执行核心业务逻辑。
- * @returns 函数返回值。
+ * resetState：执行reset状态相关逻辑。
+ * @returns 无返回值，直接更新reset状态相关状态。
  */
  resetState() { resetLog.push('gmQueue'); } },
         worldRuntimeNavigationService: {        
         /**
- * reset：执行核心业务逻辑。
- * @returns 函数返回值。
+ * reset：执行reset相关逻辑。
+ * @returns 无返回值，直接更新reset相关状态。
  */
  reset() { resetLog.push('navigation'); } },
         worldRuntimeTickProgressService: {        
         /**
- * resetState：执行核心业务逻辑。
- * @returns 函数返回值。
+ * resetState：执行reset状态相关逻辑。
+ * @returns 无返回值，直接更新reset状态相关状态。
  */
  resetState() { resetLog.push('tickProgress'); } },
         worldRuntimeLootContainerService: {        
         /**
- * reset：执行核心业务逻辑。
- * @returns 函数返回值。
+ * reset：执行reset相关逻辑。
+ * @returns 无返回值，直接更新reset相关状态。
  */
 
             reset() { resetLog.push('lootContainer'); },            
             /**
- * hydrateContainerStates：执行核心业务逻辑。
+ * hydrateContainerStates：执行hydrateContainer状态相关逻辑。
  * @param instanceId instance ID。
  * @param states 参数说明。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新hydrateContainer状态相关状态。
  */
 
             hydrateContainerStates(instanceId, states) { resetLog.push(['hydrateContainerStates', instanceId, states]); },
         },
         worldRuntimeCombatEffectsService: {        
         /**
- * resetAll：执行核心业务逻辑。
- * @returns 函数返回值。
+ * resetAll：执行resetAll相关逻辑。
+ * @returns 无返回值，直接更新resetAll相关状态。
  */
  resetAll() { resetLog.push('combatEffects'); } },
         templateRepository: {        
         /**
- * list：执行核心业务逻辑。
- * @returns 函数返回值。
+ * list：读取列表并返回结果。
+ * @returns 无返回值，完成结果的读取/组装。
  */
 
             list() {
@@ -254,15 +254,15 @@ async function testRestoreAndRebuild() {
         /**
  * createInstance：构建并返回目标对象。
  * @param input 输入参数。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新Instance相关状态。
  */
 
         createInstance(input) {
             resetLog.push(['createInstance', input.instanceId]);
         },        
         /**
- * getInstanceCount：按给定条件读取/查询数据。
- * @returns 函数返回值。
+ * getInstanceCount：读取Instance数量。
+ * @returns 无返回值，完成Instance数量的读取/组装。
  */
 
         getInstanceCount() {
@@ -270,9 +270,9 @@ async function testRestoreAndRebuild() {
         },
         logger: {        
         /**
- * log：执行核心业务逻辑。
+ * log：执行log相关逻辑。
  * @param message 参数说明。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新log相关状态。
  */
 
             log(message) {
@@ -281,16 +281,16 @@ async function testRestoreAndRebuild() {
         },
         mapPersistenceService: {        
         /**
- * isEnabled：执行状态校验并返回判断结果。
- * @returns 函数返回值。
+ * isEnabled：判断启用是否满足条件。
+ * @returns 无返回值，完成启用的条件判断。
  */
 
             isEnabled() {
                 return false;
             },            
             /**
- * loadMapSnapshot：按给定条件读取/查询数据。
- * @returns 函数返回值。
+ * loadMapSnapshot：读取地图快照并返回结果。
+ * @returns 无返回值，完成地图快照的读取/组装。
  */
 
             async loadMapSnapshot() {
@@ -298,8 +298,8 @@ async function testRestoreAndRebuild() {
             },
         },        
         /**
- * listInstanceEntries：执行核心业务逻辑。
- * @returns 函数返回值。
+ * listInstanceEntries：读取Instance条目并返回结果。
+ * @returns 无返回值，完成Instance条目的读取/组装。
  */
 
         listInstanceEntries() {
@@ -320,8 +320,8 @@ async function testRestoreAndRebuild() {
     ]);
 }
 /**
- * main：执行核心业务逻辑。
- * @returns 函数返回值。
+ * main：执行main相关逻辑。
+ * @returns 无返回值，直接更新main相关状态。
  */
 
 

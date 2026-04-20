@@ -7,22 +7,22 @@ import type { PanelCapabilities, PanelRuntimeState } from '../../ui/panel-system
 
 export interface NextUiShellState {
 /**
- * enabled：NextUiShellState 内部字段。
+ * enabled：启用开关或状态标识。
  */
 
   enabled: boolean;  
   /**
- * mounted：NextUiShellState 内部字段。
+ * mounted：mounted相关字段。
  */
 
   mounted: boolean;  
   /**
- * runtime：NextUiShellState 内部字段。
+ * runtime：运行态引用。
  */
 
   runtime: PanelRuntimeState;  
   /**
- * capabilities：NextUiShellState 内部字段。
+ * capabilities：capability相关字段。
  */
 
   capabilities: PanelCapabilities | null;

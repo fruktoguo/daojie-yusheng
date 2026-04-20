@@ -24,7 +24,7 @@ let WorldRuntimeReadFacadeService = class WorldRuntimeReadFacadeService {
  * @param playerId 玩家 ID。
  * @param npcIdInput 参数说明。
  * @param deps 运行时依赖。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新NPCShop视图相关状态。
  */
 
     buildNpcShopView(playerId, npcIdInput, deps) {
@@ -42,7 +42,7 @@ let WorldRuntimeReadFacadeService = class WorldRuntimeReadFacadeService {
  * @param playerId 玩家 ID。
  * @param _input 参数说明。
  * @param deps 运行时依赖。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新任务列表视图相关状态。
  */
 
     buildQuestListView(playerId, _input, deps) {
@@ -55,7 +55,7 @@ let WorldRuntimeReadFacadeService = class WorldRuntimeReadFacadeService {
  * @param playerId 玩家 ID。
  * @param npcIdInput 参数说明。
  * @param deps 运行时依赖。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新NPC任务视图相关状态。
  */
 
     buildNpcQuestsView(playerId, npcIdInput, deps) {
@@ -74,7 +74,7 @@ let WorldRuntimeReadFacadeService = class WorldRuntimeReadFacadeService {
  * @param playerId 玩家 ID。
  * @param input 输入参数。
  * @param deps 运行时依赖。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新详情相关状态。
  */
 
     buildDetail(playerId, input, deps) {
@@ -99,7 +99,7 @@ let WorldRuntimeReadFacadeService = class WorldRuntimeReadFacadeService {
  * @param playerId 玩家 ID。
  * @param input 输入参数。
  * @param deps 运行时依赖。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新Tile详情相关状态。
  */
 
     buildTileDetail(playerId, input, deps) {
@@ -117,7 +117,7 @@ let WorldRuntimeReadFacadeService = class WorldRuntimeReadFacadeService {
  * @param tileX 参数说明。
  * @param tileY 参数说明。
  * @param deps 运行时依赖。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新掉落窗口Sync状态相关状态。
  */
 
     buildLootWindowSyncState(playerId, tileX, tileY, deps) {
@@ -142,11 +142,11 @@ let WorldRuntimeReadFacadeService = class WorldRuntimeReadFacadeService {
         return deps.worldRuntimePlayerViewQueryService.buildLootWindowSyncState(deps, playerId, tileX, tileY);
     }    
     /**
- * refreshPlayerContextActions：执行核心业务逻辑。
+ * refreshPlayerContextActions：执行refresh玩家上下文Action相关逻辑。
  * @param playerId 玩家 ID。
  * @param view 参数说明。
  * @param deps 运行时依赖。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新refresh玩家上下文Action相关状态。
  */
 
     refreshPlayerContextActions(playerId, view, deps) {
@@ -160,11 +160,11 @@ let WorldRuntimeReadFacadeService = class WorldRuntimeReadFacadeService {
         return resolvedView;
     }    
     /**
- * getPlayerView：按给定条件读取/查询数据。
+ * getPlayerView：读取玩家视图。
  * @param playerId 玩家 ID。
  * @param radius 影响半径。
  * @param deps 运行时依赖。
- * @returns 函数返回值。
+ * @returns 无返回值，完成玩家视图的读取/组装。
  */
 
     getPlayerView(playerId, radius, deps) {
@@ -175,7 +175,7 @@ let WorldRuntimeReadFacadeService = class WorldRuntimeReadFacadeService {
  * @param playerId 玩家 ID。
  * @param npcId npc ID。
  * @param deps 运行时依赖。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新NPC任务Envelope相关状态。
  */
 
     createNpcQuestsEnvelope(playerId, npcId, deps) {
@@ -183,22 +183,22 @@ let WorldRuntimeReadFacadeService = class WorldRuntimeReadFacadeService {
         return deps.worldRuntimeQuestQueryService.createNpcQuestsEnvelope(playerId, npc);
     }    
     /**
- * resolveQuestProgress：执行核心业务逻辑。
+ * resolveQuestProgress：规范化或转换任务进度。
  * @param playerId 玩家 ID。
  * @param quest 参数说明。
  * @param deps 运行时依赖。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新任务进度相关状态。
  */
 
     resolveQuestProgress(playerId, quest, deps) {
         return deps.worldRuntimeQuestQueryService.resolveQuestProgress(playerId, quest);
     }    
     /**
- * canQuestBecomeReady：执行状态校验并返回判断结果。
+ * canQuestBecomeReady：读取任务BecomeReady并返回结果。
  * @param playerId 玩家 ID。
  * @param quest 参数说明。
  * @param deps 运行时依赖。
- * @returns 函数返回值。
+ * @returns 无返回值，完成任务BecomeReady的条件判断。
  */
 
     canQuestBecomeReady(playerId, quest, deps) {
@@ -210,7 +210,7 @@ let WorldRuntimeReadFacadeService = class WorldRuntimeReadFacadeService {
  * @param questId quest ID。
  * @param status 参数说明。
  * @param deps 运行时依赖。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新任务状态From来源相关状态。
  */
 
     createQuestStateFromSource(playerId, questId, status, deps) {
@@ -220,7 +220,7 @@ let WorldRuntimeReadFacadeService = class WorldRuntimeReadFacadeService {
  * buildQuestRewardItems：构建并返回目标对象。
  * @param quest 参数说明。
  * @param deps 运行时依赖。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新任务Reward道具相关状态。
  */
 
     buildQuestRewardItems(quest, deps) {
@@ -230,30 +230,30 @@ let WorldRuntimeReadFacadeService = class WorldRuntimeReadFacadeService {
  * buildQuestRewardItemsFromRecord：构建并返回目标对象。
  * @param quest 参数说明。
  * @param deps 运行时依赖。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新任务Reward道具FromRecord相关状态。
  */
 
     buildQuestRewardItemsFromRecord(quest, deps) {
         return deps.worldRuntimeQuestQueryService.buildQuestRewardItemsFromRecord(quest);
     }    
     /**
- * resolveQuestNavigationTarget：执行核心业务逻辑。
+ * resolveQuestNavigationTarget：读取任务导航目标并返回结果。
  * @param quest 参数说明。
  * @param deps 运行时依赖。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新任务导航目标相关状态。
  */
 
     resolveQuestNavigationTarget(quest, deps) {
         return deps.worldRuntimeQuestQueryService.resolveQuestNavigationTarget(quest);
     }    
     /**
- * validateNpcShopPurchase：执行核心业务逻辑。
+ * validateNpcShopPurchase：判断NPCShopPurchase是否满足条件。
  * @param playerId 玩家 ID。
  * @param npcId npc ID。
  * @param itemId 道具 ID。
  * @param quantity 参数说明。
  * @param deps 运行时依赖。
- * @returns 函数返回值。
+ * @returns 无返回值，完成NPCShopPurchase的条件判断。
  */
 
     validateNpcShopPurchase(playerId, npcId, itemId, quantity, deps) {
@@ -263,7 +263,7 @@ let WorldRuntimeReadFacadeService = class WorldRuntimeReadFacadeService {
  * buildContextActions：构建并返回目标对象。
  * @param view 参数说明。
  * @param deps 运行时依赖。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新上下文Action相关状态。
  */
 
     buildContextActions(view, deps) {

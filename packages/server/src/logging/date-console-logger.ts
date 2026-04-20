@@ -5,9 +5,9 @@ function padDatePart(value: number): string {
   return String(value).padStart(2, '0');
 }
 /**
- * formatDateTime：执行核心业务逻辑。
+ * formatDateTime：规范化或转换Date时间。
  * @param date Date 参数说明。
- * @returns string。
+ * @returns 返回Date时间。
  */
 
 

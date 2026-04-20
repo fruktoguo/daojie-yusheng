@@ -7,16 +7,16 @@ const { WorldRuntimePlayerCommandService } = require("../runtime/world/world-run
  * createService：构建并返回目标对象。
  * @param log 参数说明。
  * @param player 玩家对象。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新服务相关状态。
  */
 
 
 function createService(log = [], player = { hp: 10 }) {
     return new WorldRuntimePlayerCommandService({    
     /**
- * getPlayer：按给定条件读取/查询数据。
+ * getPlayer：读取玩家。
  * @param playerId 玩家 ID。
- * @returns 函数返回值。
+ * @returns 无返回值，完成玩家的读取/组装。
  */
 
         getPlayer(playerId) {
@@ -25,10 +25,10 @@ function createService(log = [], player = { hp: 10 }) {
         },
     }, {    
     /**
- * dispatchUseItem：处理事件并驱动执行路径。
+ * dispatchUseItem：判断Use道具是否满足条件。
  * @param playerId 玩家 ID。
  * @param slotIndex 参数说明。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新Use道具相关状态。
  */
 
         dispatchUseItem(playerId, slotIndex) {
@@ -36,20 +36,20 @@ function createService(log = [], player = { hp: 10 }) {
         },
     }, {    
     /**
- * dispatchEquipItem：处理事件并驱动执行路径。
+ * dispatchEquipItem：判断Equip道具是否满足条件。
  * @param playerId 玩家 ID。
  * @param slotIndex 参数说明。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新Equip道具相关状态。
  */
 
         dispatchEquipItem(playerId, slotIndex) {
             log.push(['dispatchEquipItem', playerId, slotIndex]);
         },        
         /**
- * dispatchUnequipItem：处理事件并驱动执行路径。
+ * dispatchUnequipItem：判断Unequip道具是否满足条件。
  * @param playerId 玩家 ID。
  * @param slot 参数说明。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新Unequip道具相关状态。
  */
 
         dispatchUnequipItem(playerId, slot) {
@@ -57,32 +57,32 @@ function createService(log = [], player = { hp: 10 }) {
         },
     }, {    
     /**
- * dispatchDropItem：处理事件并驱动执行路径。
+ * dispatchDropItem：判断Drop道具是否满足条件。
  * @param playerId 玩家 ID。
  * @param slotIndex 参数说明。
  * @param count 数量。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新Drop道具相关状态。
  */
 
         dispatchDropItem(playerId, slotIndex, count) {
             log.push(['dispatchDropItem', playerId, slotIndex, count]);
         },        
         /**
- * dispatchTakeGround：处理事件并驱动执行路径。
+ * dispatchTakeGround：判断Take地面是否满足条件。
  * @param playerId 玩家 ID。
  * @param sourceId source ID。
  * @param itemKey 参数说明。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新TakeGround相关状态。
  */
 
         dispatchTakeGround(playerId, sourceId, itemKey) {
             log.push(['dispatchTakeGround', playerId, sourceId, itemKey]);
         },        
         /**
- * dispatchTakeGroundAll：处理事件并驱动执行路径。
+ * dispatchTakeGroundAll：判断Take地面All是否满足条件。
  * @param playerId 玩家 ID。
  * @param sourceId source ID。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新TakeGroundAll相关状态。
  */
 
         dispatchTakeGroundAll(playerId, sourceId) {
@@ -90,13 +90,13 @@ function createService(log = [], player = { hp: 10 }) {
         },
     }, {    
     /**
- * dispatchMoveTo：处理事件并驱动执行路径。
+ * dispatchMoveTo：判断MoveTo是否满足条件。
  * @param playerId 玩家 ID。
  * @param x X 坐标。
  * @param y Y 坐标。
  * @param allowNearestReachable 参数说明。
  * @param clientPathHint 参数说明。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新MoveTo相关状态。
  */
 
         dispatchMoveTo(playerId, x, y, allowNearestReachable, clientPathHint) {
@@ -104,40 +104,40 @@ function createService(log = [], player = { hp: 10 }) {
         },
     }, {    
     /**
- * dispatchBasicAttack：处理事件并驱动执行路径。
+ * dispatchBasicAttack：判断BasicAttack是否满足条件。
  * @param playerId 玩家 ID。
  * @param targetPlayerId targetPlayer ID。
  * @param targetMonsterId targetMonster ID。
  * @param targetX 参数说明。
  * @param targetY 参数说明。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新BasicAttack相关状态。
  */
 
         dispatchBasicAttack(playerId, targetPlayerId, targetMonsterId, targetX, targetY) {
             log.push(['dispatchBasicAttack', playerId, targetPlayerId, targetMonsterId, targetX, targetY]);
         },        
         /**
- * dispatchCastSkill：处理事件并驱动执行路径。
+ * dispatchCastSkill：判断Cast技能是否满足条件。
  * @param playerId 玩家 ID。
  * @param skillId skill ID。
  * @param targetPlayerId targetPlayer ID。
  * @param targetMonsterId targetMonster ID。
  * @param targetRef 参数说明。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新Cast技能相关状态。
  */
 
         dispatchCastSkill(playerId, skillId, targetPlayerId, targetMonsterId, targetRef) {
             log.push(['dispatchCastSkill', playerId, skillId, targetPlayerId, targetMonsterId, targetRef]);
         },        
         /**
- * dispatchEngageBattle：处理事件并驱动执行路径。
+ * dispatchEngageBattle：判断EngageBattle是否满足条件。
  * @param playerId 玩家 ID。
  * @param targetPlayerId targetPlayer ID。
  * @param targetMonsterId targetMonster ID。
  * @param targetX 参数说明。
  * @param targetY 参数说明。
  * @param locked 参数说明。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新EngageBattle相关状态。
  */
 
         dispatchEngageBattle(playerId, targetPlayerId, targetMonsterId, targetX, targetY, locked) {
@@ -145,10 +145,10 @@ function createService(log = [], player = { hp: 10 }) {
         },
     }, {    
     /**
- * dispatchCultivateTechnique：处理事件并驱动执行路径。
+ * dispatchCultivateTechnique：判断Cultivate功法是否满足条件。
  * @param playerId 玩家 ID。
  * @param techniqueId technique ID。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新Cultivate功法相关状态。
  */
 
         dispatchCultivateTechnique(playerId, techniqueId) {
@@ -156,39 +156,39 @@ function createService(log = [], player = { hp: 10 }) {
         },
     }, {    
     /**
- * dispatchStartAlchemy：处理事件并驱动执行路径。
+ * dispatchStartAlchemy：判断开始炼丹是否满足条件。
  * @param playerId 玩家 ID。
  * @param payload 载荷参数。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新Start炼丹相关状态。
  */
 
         dispatchStartAlchemy(playerId, payload) {
             log.push(['dispatchStartAlchemy', playerId, payload]);
         },        
         /**
- * dispatchCancelAlchemy：处理事件并驱动执行路径。
+ * dispatchCancelAlchemy：判断Cancel炼丹是否满足条件。
  * @param playerId 玩家 ID。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新Cancel炼丹相关状态。
  */
 
         dispatchCancelAlchemy(playerId) {
             log.push(['dispatchCancelAlchemy', playerId]);
         },        
         /**
- * dispatchSaveAlchemyPreset：处理事件并驱动执行路径。
+ * dispatchSaveAlchemyPreset：判断Save炼丹Preset是否满足条件。
  * @param playerId 玩家 ID。
  * @param payload 载荷参数。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新Save炼丹Preset相关状态。
  */
 
         dispatchSaveAlchemyPreset(playerId, payload) {
             log.push(['dispatchSaveAlchemyPreset', playerId, payload]);
         },        
         /**
- * dispatchDeleteAlchemyPreset：处理事件并驱动执行路径。
+ * dispatchDeleteAlchemyPreset：判断Delete炼丹Preset是否满足条件。
  * @param playerId 玩家 ID。
  * @param presetId preset ID。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新Delete炼丹Preset相关状态。
  */
 
         dispatchDeleteAlchemyPreset(playerId, presetId) {
@@ -196,19 +196,19 @@ function createService(log = [], player = { hp: 10 }) {
         },
     }, {    
     /**
- * dispatchStartEnhancement：处理事件并驱动执行路径。
+ * dispatchStartEnhancement：判断开始强化是否满足条件。
  * @param playerId 玩家 ID。
  * @param payload 载荷参数。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新Start强化相关状态。
  */
 
         dispatchStartEnhancement(playerId, payload) {
             log.push(['dispatchStartEnhancement', playerId, payload]);
         },        
         /**
- * dispatchCancelEnhancement：处理事件并驱动执行路径。
+ * dispatchCancelEnhancement：判断Cancel强化是否满足条件。
  * @param playerId 玩家 ID。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新Cancel强化相关状态。
  */
 
         dispatchCancelEnhancement(playerId) {
@@ -216,10 +216,10 @@ function createService(log = [], player = { hp: 10 }) {
         },
     }, {    
     /**
- * dispatchRedeemCodes：处理事件并驱动执行路径。
+ * dispatchRedeemCodes：判断RedeemCode是否满足条件。
  * @param playerId 玩家 ID。
  * @param codes 参数说明。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新RedeemCode相关状态。
  */
 
         dispatchRedeemCodes(playerId, codes) {
@@ -227,20 +227,20 @@ function createService(log = [], player = { hp: 10 }) {
         },
     }, {    
     /**
- * dispatchBreakthrough：处理事件并驱动执行路径。
+ * dispatchBreakthrough：判断Breakthrough是否满足条件。
  * @param playerId 玩家 ID。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新Breakthrough相关状态。
  */
 
         dispatchBreakthrough(playerId) {
             log.push(['dispatchBreakthrough', playerId]);
         },        
         /**
- * dispatchHeavenGateAction：处理事件并驱动执行路径。
+ * dispatchHeavenGateAction：判断HeavenGateAction是否满足条件。
  * @param playerId 玩家 ID。
  * @param action 参数说明。
  * @param element 参数说明。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新HeavenGateAction相关状态。
  */
 
         dispatchHeavenGateAction(playerId, action, element) {
@@ -248,12 +248,12 @@ function createService(log = [], player = { hp: 10 }) {
         },
     }, {    
     /**
- * dispatchBuyNpcShopItem：处理事件并驱动执行路径。
+ * dispatchBuyNpcShopItem：判断BuyNPCShop道具是否满足条件。
  * @param playerId 玩家 ID。
  * @param npcId npc ID。
  * @param itemId 道具 ID。
  * @param quantity 参数说明。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新BuyNPCShop道具相关状态。
  */
 
         dispatchBuyNpcShopItem(playerId, npcId, itemId, quantity) {
@@ -261,42 +261,42 @@ function createService(log = [], player = { hp: 10 }) {
         },
     }, {    
     /**
- * dispatchNpcInteraction：处理事件并驱动执行路径。
+ * dispatchNpcInteraction：判断NPCInteraction是否满足条件。
  * @param playerId 玩家 ID。
  * @param npcId npc ID。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新NPCInteraction相关状态。
  */
 
         dispatchNpcInteraction(playerId, npcId) {
             log.push(['dispatchNpcInteraction', playerId, npcId]);
         },        
         /**
- * dispatchInteractNpcQuest：处理事件并驱动执行路径。
+ * dispatchInteractNpcQuest：判断InteractNPC任务是否满足条件。
  * @param playerId 玩家 ID。
  * @param npcId npc ID。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新InteractNPC任务相关状态。
  */
 
         dispatchInteractNpcQuest(playerId, npcId) {
             log.push(['dispatchInteractNpcQuest', playerId, npcId]);
         },        
         /**
- * dispatchAcceptNpcQuest：处理事件并驱动执行路径。
+ * dispatchAcceptNpcQuest：判断AcceptNPC任务是否满足条件。
  * @param playerId 玩家 ID。
  * @param npcId npc ID。
  * @param questId quest ID。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新AcceptNPC任务相关状态。
  */
 
         dispatchAcceptNpcQuest(playerId, npcId, questId) {
             log.push(['dispatchAcceptNpcQuest', playerId, npcId, questId]);
         },        
         /**
- * dispatchSubmitNpcQuest：处理事件并驱动执行路径。
+ * dispatchSubmitNpcQuest：判断SubmitNPC任务是否满足条件。
  * @param playerId 玩家 ID。
  * @param npcId npc ID。
  * @param questId quest ID。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新SubmitNPC任务相关状态。
  */
 
         dispatchSubmitNpcQuest(playerId, npcId, questId) {
@@ -305,8 +305,8 @@ function createService(log = [], player = { hp: 10 }) {
     });
 }
 /**
- * testUseItemDelegates：执行核心业务逻辑。
- * @returns 函数返回值。
+ * testUseItemDelegates：执行testUse道具Delegate相关逻辑。
+ * @returns 无返回值，直接更新testUse道具Delegate相关状态。
  */
 
 
@@ -320,8 +320,8 @@ function testUseItemDelegates() {
     ]);
 }
 /**
- * testCastSkillDelegates：执行核心业务逻辑。
- * @returns 函数返回值。
+ * testCastSkillDelegates：执行testCast技能Delegate相关逻辑。
+ * @returns 无返回值，直接更新testCast技能Delegate相关状态。
  */
 
 
@@ -341,8 +341,8 @@ function testCastSkillDelegates() {
     ]);
 }
 /**
- * testDeadPlayerOnlyAllowsRedeemCodes：执行核心业务逻辑。
- * @returns 函数返回值。
+ * testDeadPlayerOnlyAllowsRedeemCodes：执行testDead玩家OnlyAllowRedeemCode相关逻辑。
+ * @returns 无返回值，直接更新testDead玩家OnlyAllowRedeemCode相关状态。
  */
 
 
@@ -358,8 +358,8 @@ function testDeadPlayerOnlyAllowsRedeemCodes() {
     ]);
 }
 /**
- * testNpcQuestRoutes：执行核心业务逻辑。
- * @returns 函数返回值。
+ * testNpcQuestRoutes：执行testNPC任务路线相关逻辑。
+ * @returns 无返回值，直接更新testNPC任务路线相关状态。
  */
 
 

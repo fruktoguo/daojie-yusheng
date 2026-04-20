@@ -6,7 +6,7 @@ const { WorldRuntimeInstanceTickOrchestrationService } = require("../runtime/wor
 /**
  * createDeps：构建并返回目标对象。
  * @param log 参数说明。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新Dep相关状态。
  */
 
 
@@ -17,8 +17,8 @@ function createDeps(log) {
         template: { id: 'yunlai_town' },
         tick: 3,        
         /**
- * tickOnce：执行核心业务逻辑。
- * @returns 函数返回值。
+ * tickOnce：执行tick一次性相关逻辑。
+ * @returns 无返回值，直接更新tickOnce相关状态。
  */
 
         tickOnce() {
@@ -26,8 +26,8 @@ function createDeps(log) {
             return { transfers: [{ id: 'transfer:1' }], monsterActions: [{ id: 'action:1' }] };
         },        
         /**
- * listPlayerIds：执行核心业务逻辑。
- * @returns 函数返回值。
+ * listPlayerIds：读取玩家ID并返回结果。
+ * @returns 无返回值，完成玩家ID的读取/组装。
  */
 
         listPlayerIds() {
@@ -38,28 +38,28 @@ function createDeps(log) {
     return {
         tick: 0,        
         /**
- * listInstanceRuntimes：执行核心业务逻辑。
- * @returns 函数返回值。
+ * listInstanceRuntimes：读取Instance运行态并返回结果。
+ * @returns 无返回值，完成Instance运行态的读取/组装。
  */
 
         listInstanceRuntimes() { return instanceRuntimes.values(); },        
         /**
- * getInstanceRuntime：按给定条件读取/查询数据。
+ * getInstanceRuntime：读取Instance运行态。
  * @param instanceId instance ID。
- * @returns 函数返回值。
+ * @returns 无返回值，完成Instance运行态的读取/组装。
  */
 
         getInstanceRuntime(instanceId) { return instanceRuntimes.get(instanceId) ?? null; },        
         /**
- * listConnectedPlayerIds：执行核心业务逻辑。
- * @returns 函数返回值。
+ * listConnectedPlayerIds：读取Connected玩家ID并返回结果。
+ * @returns 无返回值，完成Connected玩家ID的读取/组装。
  */
 
         listConnectedPlayerIds() { return ['player:1'].values(); },        
         /**
- * getPlayerLocation：按给定条件读取/查询数据。
+ * getPlayerLocation：读取玩家位置。
  * @param playerId 玩家 ID。
- * @returns 函数返回值。
+ * @returns 无返回值，完成玩家位置的读取/组装。
  */
 
         getPlayerLocation(playerId) {
@@ -72,23 +72,23 @@ function createDeps(log) {
         },
         worldRuntimeCombatEffectsService: {        
         /**
- * resetFrameEffects：执行核心业务逻辑。
- * @returns 函数返回值。
+ * resetFrameEffects：执行reset帧Effect相关逻辑。
+ * @returns 无返回值，直接更新reset帧Effect相关状态。
  */
  resetFrameEffects() { log.push('resetFrameEffects'); } },
         worldRuntimeTickProgressService: {        
         /**
- * getProgress：按给定条件读取/查询数据。
+ * getProgress：读取进度。
  * @param instanceId instance ID。
- * @returns 函数返回值。
+ * @returns 无返回值，完成进度的读取/组装。
  */
 
             getProgress(instanceId) { log.push(`getProgress:${instanceId}`); return progress.get(instanceId) ?? 0; },            
             /**
- * setProgress：更新/写入相关状态。
+ * setProgress：写入进度。
  * @param instanceId instance ID。
  * @param value 参数说明。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新进度相关状态。
  */
 
             setProgress(instanceId, value) { log.push(`setProgress:${instanceId}`); progress.set(instanceId, value); },
@@ -97,86 +97,86 @@ function createDeps(log) {
             idleCalled: false,
             frameCalled: false,            
             /**
- * recordIdleFrame：执行核心业务逻辑。
- * @returns 函数返回值。
+ * recordIdleFrame：执行recordIdle帧相关逻辑。
+ * @returns 无返回值，直接更新recordIdle帧相关状态。
  */
 
             recordIdleFrame() { log.push('recordIdleFrame'); this.idleCalled = true; },            
             /**
- * recordFrameResult：执行核心业务逻辑。
+ * recordFrameResult：执行record帧结果相关逻辑。
  * @param _startedAt 参数说明。
  * @param durations 参数说明。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新record帧结果相关状态。
  */
 
             recordFrameResult(_startedAt, durations) { log.push('recordFrameResult'); this.frameCalled = true; this.durations = durations; },
         },        
         /**
- * processPendingRespawns：处理事件并驱动执行路径。
- * @returns 函数返回值。
+ * processPendingRespawns：处理待处理重生并更新相关状态。
+ * @returns 无返回值，直接更新Pending重生相关状态。
  */
 
         processPendingRespawns() { log.push('processPendingRespawns'); },        
         /**
- * materializeNavigationCommands：执行核心业务逻辑。
- * @returns 函数返回值。
+ * materializeNavigationCommands：执行materialize导航Command相关逻辑。
+ * @returns 无返回值，直接更新materialize导航Command相关状态。
  */
 
         materializeNavigationCommands() { log.push('materializeNavigationCommands'); },        
         /**
- * materializeAutoCombatCommands：执行核心业务逻辑。
- * @returns 函数返回值。
+ * materializeAutoCombatCommands：执行materializeAuto战斗Command相关逻辑。
+ * @returns 无返回值，直接更新materializeAuto战斗Command相关状态。
  */
 
         materializeAutoCombatCommands() { log.push('materializeAutoCombatCommands'); },        
         /**
- * dispatchPendingCommands：处理事件并驱动执行路径。
- * @returns 函数返回值。
+ * dispatchPendingCommands：判断待处理Command是否满足条件。
+ * @returns 无返回值，直接更新PendingCommand相关状态。
  */
 
         dispatchPendingCommands() { log.push('dispatchPendingCommands'); },        
         /**
- * dispatchPendingSystemCommands：处理事件并驱动执行路径。
- * @returns 函数返回值。
+ * dispatchPendingSystemCommands：判断待处理SystemCommand是否满足条件。
+ * @returns 无返回值，直接更新PendingSystemCommand相关状态。
  */
 
         dispatchPendingSystemCommands() { log.push('dispatchPendingSystemCommands'); },
         worldRuntimeNavigationService: {        
         /**
- * getBlockedPlayerIds：按给定条件读取/查询数据。
- * @returns 函数返回值。
+ * getBlockedPlayerIds：读取Blocked玩家ID。
+ * @returns 无返回值，完成Blocked玩家ID的读取/组装。
  */
  getBlockedPlayerIds() { log.push('getBlockedPlayerIds'); return new Set(['player:block']); } },        
  /**
- * applyTransfer：更新/写入相关状态。
- * @returns 函数返回值。
+ * applyTransfer：处理Transfer并更新相关状态。
+ * @returns 无返回值，直接更新Transfer相关状态。
  */
 
         applyTransfer() { log.push('applyTransfer'); },        
         /**
- * applyMonsterAction：更新/写入相关状态。
- * @returns 函数返回值。
+ * applyMonsterAction：处理怪物Action并更新相关状态。
+ * @returns 无返回值，直接更新怪物Action相关状态。
  */
 
         applyMonsterAction() { log.push('applyMonsterAction'); },
         playerRuntimeService: {        
         /**
- * advanceTickForPlayerIds：执行核心业务逻辑。
- * @returns 函数返回值。
+ * advanceTickForPlayerIds：执行advancetickFor玩家ID相关逻辑。
+ * @returns 无返回值，直接更新advancetickFor玩家ID相关状态。
  */
  advanceTickForPlayerIds() { log.push('advanceTickForPlayerIds'); } },
         worldRuntimeCraftTickService: {        
         /**
- * advanceCraftJobs：执行核心业务逻辑。
- * @returns 函数返回值。
+ * advanceCraftJobs：执行advance炼制Job相关逻辑。
+ * @returns 无返回值，直接更新advance炼制Job相关状态。
  */
  advanceCraftJobs() { log.push('advanceCraftJobs'); } },
         worldRuntimeLootContainerService: {        
         /**
- * advanceContainerSearches：执行核心业务逻辑。
+ * advanceContainerSearches：执行advanceContainerSearche相关逻辑。
  * @param instanceAccess 参数说明。
  * @param playerLocationIndex 参数说明。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新advanceContainerSearche相关状态。
  */
 
             advanceContainerSearches(instanceAccess, playerLocationIndex) {
@@ -190,17 +190,17 @@ function createDeps(log) {
             },
         },        
         /**
- * refreshQuestStates：执行核心业务逻辑。
+ * refreshQuestStates：执行refresh任务状态相关逻辑。
  * @param playerId 玩家 ID。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新refresh任务状态相关状态。
  */
 
         refreshQuestStates(playerId) { log.push(`refreshQuestStates:${playerId}`); },
     };
 }
 /**
- * verifyNormalPath：执行核心业务逻辑。
- * @returns 函数返回值。
+ * verifyNormalPath：执行verifyNormal路径相关逻辑。
+ * @returns 无返回值，直接更新verifyNormal路径相关状态。
  */
 
 
@@ -235,8 +235,8 @@ function verifyNormalPath() {
     ]);
 }
 /**
- * verifyZeroTickPath：执行核心业务逻辑。
- * @returns 函数返回值。
+ * verifyZeroTickPath：执行verifyZerotick路径相关逻辑。
+ * @returns 无返回值，直接更新verifyZerotick路径相关状态。
  */
 
 

@@ -11,17 +11,17 @@ const MARKET_PRICE_EPSILON = 1e-9;
 /** MarketPriceBand：价格档位。 */
 type MarketPriceBand = {
 /**
- * start：对象字段。
+ * start：start相关字段。
  */
 
   start: number;  
   /**
- * end：对象字段。
+ * end：end相关字段。
  */
 
   end: number;  
   /**
- * step：对象字段。
+ * step：step相关字段。
  */
 
   step: number;

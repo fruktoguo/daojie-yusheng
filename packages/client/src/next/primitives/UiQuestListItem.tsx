@@ -6,28 +6,28 @@ import type { ButtonHTMLAttributes, ReactNode } from 'react';
 
 export interface UiQuestListItemProps extends ButtonHTMLAttributes<HTMLButtonElement> {
 /**
- * title：UiQuestListItemProps 内部字段。
+ * title：title名称或显示文本。
  */
 
   title: string;  
   /**
- * status：UiQuestListItemProps 内部字段。
+ * status：statu状态或数据块。
  */
 
   status: ReactNode;  
   /**
- * note：UiQuestListItemProps 内部字段。
+ * note：note相关字段。
  */
 
   note?: ReactNode;  
   /**
- * active：UiQuestListItemProps 内部字段。
+ * active：启用开关或状态标识。
  */
 
   active?: boolean;
 }
 /**
- * UiQuestListItem：执行核心业务逻辑。
+ * UiQuestListItem：读取Ui任务列表道具并返回结果。
  * @param {
   title,
   status,
@@ -36,7 +36,7 @@ export interface UiQuestListItemProps extends ButtonHTMLAttributes<HTMLButtonEle
   className,
   ...props
 } UiQuestListItemProps 参数说明。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新Ui任务列表道具相关状态。
  */
 
 

@@ -23,17 +23,17 @@ const world_runtime_craft_mutation_service_1 = require("./world-runtime-craft-mu
 /** world-runtime alchemy orchestration：承接炼丹写路径、preset 和面板刷新。 */
 let WorldRuntimeAlchemyService = class WorldRuntimeAlchemyService {
 /**
- * playerRuntimeService：对象字段。
+ * playerRuntimeService：玩家运行态服务引用。
  */
 
     playerRuntimeService;    
     /**
- * craftPanelRuntimeService：对象字段。
+ * craftPanelRuntimeService：炼制面板运行态服务引用。
  */
 
     craftPanelRuntimeService;    
     /**
- * worldRuntimeCraftMutationService：对象字段。
+ * worldRuntimeCraftMutationService：世界运行态炼制Mutation服务引用。
  */
 
     worldRuntimeCraftMutationService;    
@@ -42,7 +42,7 @@ let WorldRuntimeAlchemyService = class WorldRuntimeAlchemyService {
  * @param playerRuntimeService 参数说明。
  * @param craftPanelRuntimeService 参数说明。
  * @param worldRuntimeCraftMutationService 参数说明。
- * @returns 无返回值（构造函数）。
+ * @returns 无返回值，完成实例初始化。
  */
 
     constructor(playerRuntimeService, craftPanelRuntimeService, worldRuntimeCraftMutationService) {
@@ -51,23 +51,23 @@ let WorldRuntimeAlchemyService = class WorldRuntimeAlchemyService {
         this.worldRuntimeCraftMutationService = worldRuntimeCraftMutationService;
     }    
     /**
- * interruptAlchemyForReason：执行核心业务逻辑。
+ * interruptAlchemyForReason：执行interrupt炼丹ForReason相关逻辑。
  * @param playerId 玩家 ID。
  * @param player 玩家对象。
  * @param reason 参数说明。
  * @param deps 运行时依赖。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新interrupt炼丹ForReason相关状态。
  */
 
     interruptAlchemyForReason(playerId, player, reason, deps) {
         this.worldRuntimeCraftMutationService.flushCraftMutation(playerId, this.craftPanelRuntimeService.interruptAlchemy(player, reason), 'alchemy', deps);
     }    
     /**
- * dispatchStartAlchemy：处理事件并驱动执行路径。
+ * dispatchStartAlchemy：判断开始炼丹是否满足条件。
  * @param playerId 玩家 ID。
  * @param payload 载荷参数。
  * @param deps 运行时依赖。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新Start炼丹相关状态。
  */
 
     dispatchStartAlchemy(playerId, payload, deps) {
@@ -81,10 +81,10 @@ let WorldRuntimeAlchemyService = class WorldRuntimeAlchemyService {
         this.worldRuntimeCraftMutationService.flushCraftMutation(playerId, result, 'alchemy', deps);
     }    
     /**
- * dispatchCancelAlchemy：处理事件并驱动执行路径。
+ * dispatchCancelAlchemy：判断Cancel炼丹是否满足条件。
  * @param playerId 玩家 ID。
  * @param deps 运行时依赖。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新Cancel炼丹相关状态。
  */
 
     dispatchCancelAlchemy(playerId, deps) {
@@ -98,11 +98,11 @@ let WorldRuntimeAlchemyService = class WorldRuntimeAlchemyService {
         this.worldRuntimeCraftMutationService.flushCraftMutation(playerId, result, 'alchemy', deps);
     }    
     /**
- * dispatchSaveAlchemyPreset：处理事件并驱动执行路径。
+ * dispatchSaveAlchemyPreset：判断Save炼丹Preset是否满足条件。
  * @param playerId 玩家 ID。
  * @param payload 载荷参数。
  * @param deps 运行时依赖。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新Save炼丹Preset相关状态。
  */
 
     dispatchSaveAlchemyPreset(playerId, payload, deps) {
@@ -116,11 +116,11 @@ let WorldRuntimeAlchemyService = class WorldRuntimeAlchemyService {
         this.worldRuntimeCraftMutationService.flushCraftMutation(playerId, result, 'alchemy', deps);
     }    
     /**
- * dispatchDeleteAlchemyPreset：处理事件并驱动执行路径。
+ * dispatchDeleteAlchemyPreset：判断Delete炼丹Preset是否满足条件。
  * @param playerId 玩家 ID。
  * @param presetId preset ID。
  * @param deps 运行时依赖。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新Delete炼丹Preset相关状态。
  */
 
     dispatchDeleteAlchemyPreset(playerId, presetId, deps) {
@@ -134,11 +134,11 @@ let WorldRuntimeAlchemyService = class WorldRuntimeAlchemyService {
         this.worldRuntimeCraftMutationService.flushCraftMutation(playerId, result, 'alchemy', deps);
     }    
     /**
- * tickAlchemy：执行核心业务逻辑。
+ * tickAlchemy：执行tick炼丹相关逻辑。
  * @param playerId 玩家 ID。
  * @param player 玩家对象。
  * @param deps 运行时依赖。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新tick炼丹相关状态。
  */
 
     tickAlchemy(playerId, player, deps) {

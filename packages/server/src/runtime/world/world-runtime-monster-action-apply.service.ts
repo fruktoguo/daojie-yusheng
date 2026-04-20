@@ -28,22 +28,22 @@ const { chebyshevDistance } = world_runtime_path_planning_helpers_1;
 /** 妖兽动作落地服务：承接 monster action apply 与 monster skill apply。 */
 let WorldRuntimeMonsterActionApplyService = class WorldRuntimeMonsterActionApplyService {
 /**
- * playerRuntimeService：对象字段。
+ * playerRuntimeService：玩家运行态服务引用。
  */
 
     playerRuntimeService;    
     /**
- * playerCombatService：对象字段。
+ * playerCombatService：玩家战斗服务引用。
  */
 
     playerCombatService;    
     /**
- * worldRuntimeCombatEffectsService：对象字段。
+ * worldRuntimeCombatEffectsService：世界运行态战斗Effect服务引用。
  */
 
     worldRuntimeCombatEffectsService;    
     /**
- * logger：对象字段。
+ * logger：日志器引用。
  */
 
     logger = new common_1.Logger(WorldRuntimeMonsterActionApplyService.name);    
@@ -52,7 +52,7 @@ let WorldRuntimeMonsterActionApplyService = class WorldRuntimeMonsterActionApply
  * @param playerRuntimeService 参数说明。
  * @param playerCombatService 参数说明。
  * @param worldRuntimeCombatEffectsService 参数说明。
- * @returns 无返回值（构造函数）。
+ * @returns 无返回值，完成实例初始化。
  */
 
     constructor(playerRuntimeService, playerCombatService, worldRuntimeCombatEffectsService) {
@@ -61,10 +61,10 @@ let WorldRuntimeMonsterActionApplyService = class WorldRuntimeMonsterActionApply
         this.worldRuntimeCombatEffectsService = worldRuntimeCombatEffectsService;
     }    
     /**
- * applyMonsterAction：更新/写入相关状态。
+ * applyMonsterAction：处理怪物Action并更新相关状态。
  * @param action 参数说明。
  * @param deps 运行时依赖。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新怪物Action相关状态。
  */
 
     applyMonsterAction(action, deps) {
@@ -77,10 +77,10 @@ let WorldRuntimeMonsterActionApplyService = class WorldRuntimeMonsterActionApply
         this.applyMonsterBasicAttack(action, deps);
     }    
     /**
- * applyMonsterBasicAttack：更新/写入相关状态。
+ * applyMonsterBasicAttack：处理怪物BasicAttack并更新相关状态。
  * @param action 参数说明。
  * @param deps 运行时依赖。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新怪物BasicAttack相关状态。
  */
 
     applyMonsterBasicAttack(action, deps) {
@@ -127,10 +127,10 @@ let WorldRuntimeMonsterActionApplyService = class WorldRuntimeMonsterActionApply
         }
     }    
     /**
- * applyMonsterSkill：更新/写入相关状态。
+ * applyMonsterSkill：处理怪物技能并更新相关状态。
  * @param action 参数说明。
  * @param deps 运行时依赖。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新怪物技能相关状态。
  */
 
     applyMonsterSkill(action, deps) {

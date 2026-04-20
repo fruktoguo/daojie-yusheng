@@ -13,52 +13,52 @@ import {
 /** 弹层配置项 */
 type DetailModalOptions = {
 /**
- * ownerId：对象字段。
+ * ownerId：ownerID标识。
  */
 
   ownerId: string;  
   /**
- * variantClass：对象字段。
+ * variantClass：variantClass相关字段。
  */
 
   variantClass?: string;  
   /**
- * title：对象字段。
+ * title：title名称或显示文本。
  */
 
   title: string;  
   /**
- * size：对象字段。
+ * size：数量或计量字段。
  */
 
   size?: UiModalSize;  
   /**
- * subtitle：对象字段。
+ * subtitle：subtitle名称或显示文本。
  */
 
   subtitle?: string;  
   /**
- * hint：对象字段。
+ * hint：hint相关字段。
  */
 
   hint?: string;  
   /**
- * bodyHtml：对象字段。
+ * bodyHtml：bodyHtml相关字段。
  */
 
   bodyHtml?: string;  
   /**
- * renderBody：对象字段。
+ * renderBody：Body相关字段。
  */
 
   renderBody?: (body: HTMLElement) => void;  
   /**
- * onClose：对象字段。
+ * onClose：onClose相关字段。
  */
 
   onClose?: () => void;  
   /**
- * onAfterRender：对象字段。
+ * onAfterRender：onAfterRender相关字段。
  */
 
   onAfterRender?: (body: HTMLElement) => void;
@@ -67,52 +67,52 @@ type DetailModalOptions = {
 /** 弹层局部 patch 配置项。 */
 type DetailModalPatchOptions = {
 /**
- * ownerId：对象字段。
+ * ownerId：ownerID标识。
  */
 
   ownerId: string;  
   /**
- * variantClass：对象字段。
+ * variantClass：variantClass相关字段。
  */
 
   variantClass?: string;  
   /**
- * title：对象字段。
+ * title：title名称或显示文本。
  */
 
   title?: string;  
   /**
- * size：对象字段。
+ * size：数量或计量字段。
  */
 
   size?: UiModalSize;  
   /**
- * subtitle：对象字段。
+ * subtitle：subtitle名称或显示文本。
  */
 
   subtitle?: string;  
   /**
- * hint：对象字段。
+ * hint：hint相关字段。
  */
 
   hint?: string;  
   /**
- * bodyHtml：对象字段。
+ * bodyHtml：bodyHtml相关字段。
  */
 
   bodyHtml?: string;  
   /**
- * renderBody：对象字段。
+ * renderBody：Body相关字段。
  */
 
   renderBody?: (body: HTMLElement) => void;  
   /**
- * onClose：对象字段。
+ * onClose：onClose相关字段。
  */
 
   onClose?: (() => void) | null;  
   /**
- * onAfterRender：对象字段。
+ * onAfterRender：onAfterRender相关字段。
  */
 
   onAfterRender?: (body: HTMLElement) => void;

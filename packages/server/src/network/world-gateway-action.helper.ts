@@ -9,34 +9,34 @@ const shared_1 = require("@mud/shared-next");
 /** 世界 socket 小型 action helper：收敛 redeem / portal / cultivate / cast skill 入口。 */
 class WorldGatewayActionHelper {
 /**
- * gateway：WorldGatewayActionHelper 内部字段。
+ * gateway：gateway相关字段。
  */
 
     gateway;    
     /**
  * 构造器：初始化 当前 实例并建立基础状态。
  * @param gateway 参数说明。
- * @returns 无返回值（构造函数）。
+ * @returns 无返回值，完成实例初始化。
  */
 
     constructor(gateway) {
         this.gateway = gateway;
     }    
     /**
- * handleNextRedeemCodes：处理事件并驱动执行路径。
+ * handleNextRedeemCodes：处理NextRedeemCode并更新相关状态。
  * @param client 参数说明。
  * @param payload 载荷参数。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新NextRedeemCode相关状态。
  */
 
     handleNextRedeemCodes(client, payload) {
         this.executeRedeemCodes(client, payload);
     }    
     /**
- * handleUseAction：处理事件并驱动执行路径。
+ * handleUseAction：处理UseAction并更新相关状态。
  * @param client 参数说明。
  * @param payload 载荷参数。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新UseAction相关状态。
  */
 
     handleUseAction(client, payload) {
@@ -55,11 +55,11 @@ class WorldGatewayActionHelper {
         }
     }    
     /**
- * handleProtocolAction：处理事件并驱动执行路径。
+ * handleProtocolAction：处理ProtocolAction并更新相关状态。
  * @param client 参数说明。
  * @param playerId 玩家 ID。
  * @param payload 载荷参数。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新ProtocolAction相关状态。
  */
 
     handleProtocolAction(client, playerId, payload) {
@@ -110,9 +110,9 @@ class WorldGatewayActionHelper {
         this.emitProtocolActionResult(client, playerId, this.gateway.worldRuntimeService.executeAction(playerId, actionId));
     }    
     /**
- * resolveActionId：执行核心业务逻辑。
+ * resolveActionId：规范化或转换ActionID。
  * @param payload 载荷参数。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新ActionID相关状态。
  */
 
     resolveActionId(payload) {
@@ -127,11 +127,11 @@ class WorldGatewayActionHelper {
         return actionId;
     }    
     /**
- * emitProtocolActionResult：执行核心业务逻辑。
+ * emitProtocolActionResult：处理ProtocolAction结果并更新相关状态。
  * @param client 参数说明。
  * @param playerId 玩家 ID。
  * @param result 返回结果。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新ProtocolAction结果相关状态。
  */
 
     emitProtocolActionResult(client, playerId, result) {
@@ -150,10 +150,10 @@ class WorldGatewayActionHelper {
         this.gateway.gatewayClientEmitHelper.emitNextQuests(client, this.gateway.worldRuntimeService.buildQuestListView(playerId));
     }    
     /**
- * executeRedeemCodes：执行核心业务逻辑。
+ * executeRedeemCodes：执行executeRedeemCode相关逻辑。
  * @param client 参数说明。
  * @param payload 载荷参数。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新executeRedeemCode相关状态。
  */
 
     executeRedeemCodes(client, payload) {
@@ -171,9 +171,9 @@ class WorldGatewayActionHelper {
         }
     }    
     /**
- * handleUsePortal：处理事件并驱动执行路径。
+ * handleUsePortal：处理Use传送门并更新相关状态。
  * @param client 参数说明。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新UsePortal相关状态。
  */
 
     handleUsePortal(client) {
@@ -191,10 +191,10 @@ class WorldGatewayActionHelper {
         }
     }    
     /**
- * executeCultivate：执行核心业务逻辑。
+ * executeCultivate：执行executeCultivate相关逻辑。
  * @param client 参数说明。
  * @param payload 载荷参数。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新executeCultivate相关状态。
  */
 
     executeCultivate(client, payload) {
@@ -212,20 +212,20 @@ class WorldGatewayActionHelper {
         }
     }    
     /**
- * handleNextCultivate：处理事件并驱动执行路径。
+ * handleNextCultivate：处理NextCultivate并更新相关状态。
  * @param client 参数说明。
  * @param payload 载荷参数。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新NextCultivate相关状态。
  */
 
     handleNextCultivate(client, payload) {
         this.executeCultivate(client, payload);
     }    
     /**
- * handleCastSkill：处理事件并驱动执行路径。
+ * handleCastSkill：处理Cast技能并更新相关状态。
  * @param client 参数说明。
  * @param payload 载荷参数。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新Cast技能相关状态。
  */
 
     handleCastSkill(client, payload) {

@@ -33,17 +33,17 @@ import { formatDisplayInteger, formatDisplayNumber } from '../../utils/number';
 /** TechniquePanelState：功法面板当前使用的数据状态。 */
 type TechniquePanelState = {
 /**
- * cultivatingTechId：对象字段。
+ * cultivatingTechId：cultivatingTechID标识。
  */
 
   cultivatingTechId?: string;  
   /**
- * previewPlayer：对象字段。
+ * previewPlayer：preview玩家引用。
  */
 
   previewPlayer?: PlayerState;  
   /**
- * techniques：对象字段。
+ * techniques：功法相关字段。
  */
 
   techniques: TechniqueState[];
@@ -56,11 +56,11 @@ type TechniqueStatusFilter = 'in_progress' | 'completed' | 'all';
 
 const TECHNIQUE_CATEGORY_FILTERS: Array<{
 /**
- * value：对象字段。
+ * value：值数值。
  */
  value: TechniqueCategoryFilter;
  /**
- * label：对象字段。
+ * label：label名称或显示文本。
  */
  label: string }> = [
   { value: 'all', label: '全部' },
@@ -72,11 +72,11 @@ const TECHNIQUE_CATEGORY_FILTERS: Array<{
 
 const TECHNIQUE_STATUS_FILTERS: Array<{
 /**
- * value：对象字段。
+ * value：值数值。
  */
  value: TechniqueStatusFilter;
  /**
- * label：对象字段。
+ * label：label名称或显示文本。
  */
  label: string }> = [
   { value: 'in_progress', label: '未圆满' },
@@ -369,34 +369,34 @@ export class TechniquePanel {
   /** lastVisibleTechniqueIds：last可见Technique ID 列表。 */
   private lastVisibleTechniqueIds: string[] | null = null;  
   /**
- * shellRefs：TechniquePanel 内部字段。
+ * shellRefs：shellRef相关字段。
  */
 
   private shellRefs: {  
   /**
- * shell：TechniquePanel 内部字段。
+ * shell：shell相关字段。
  */
 
     shell: HTMLDivElement;    
     /**
- * topTabs：TechniquePanel 内部字段。
+ * topTabs：topTab相关字段。
  */
 
     topTabs: HTMLDivElement;    
     /**
- * sideTabs：TechniquePanel 内部字段。
+ * sideTabs：sideTab相关字段。
  */
 
     sideTabs: HTMLDivElement;    
     /**
- * list：TechniquePanel 内部字段。
+ * list：集合字段。
  */
 
     list: HTMLDivElement;
   } | null = null;  
   /**
  * 构造器：初始化 当前 实例并建立基础状态。
- * @returns 无返回值（构造函数）。
+ * @returns 无返回值，完成实例初始化。
  */
 
 
@@ -415,10 +415,10 @@ export class TechniquePanel {
     this.closeModal();
   }  
   /**
- * setCallbacks：更新/写入相关状态。
+ * setCallbacks：写入Callback。
  * @param onCultivate (techId: string | null) => void 参数说明。
  * @param onToggleTechniqueSkills (techId: string, enabled: boolean) => void 参数说明。
- * @returns void。
+ * @returns 无返回值，直接更新Callback相关状态。
  */
 
 
@@ -473,19 +473,19 @@ export class TechniquePanel {
   /** ensureShell：确保Shell。 */
   private ensureShell(): {  
   /**
- * shell：TechniquePanel 内部字段。
+ * shell：shell相关字段。
  */
  shell: HTMLDivElement;  
  /**
- * topTabs：TechniquePanel 内部字段。
+ * topTabs：topTab相关字段。
  */
  topTabs: HTMLDivElement;  
  /**
- * sideTabs：TechniquePanel 内部字段。
+ * sideTabs：sideTab相关字段。
  */
  sideTabs: HTMLDivElement;  
  /**
- * list：TechniquePanel 内部字段。
+ * list：集合字段。
  */
  list: HTMLDivElement } {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
@@ -836,13 +836,13 @@ export class TechniquePanel {
     </div>`;
   }  
   /**
- * renderLayerFocus：执行核心业务逻辑。
+ * renderLayerFocus：执行层Focu相关逻辑。
  * @param tech TechniqueState 参数说明。
  * @param layers TechniqueLayerDef[] 参数说明。
  * @param selectedLevel number 参数说明。
  * @param skillsByLevel Map<number, TechniqueState['skills']> 参数说明。
  * @param milestones Map<number, TechniqueRealm> 参数说明。
- * @returns string。
+ * @returns 返回层Focu。
  */
 
 
@@ -902,14 +902,14 @@ export class TechniquePanel {
     </section>`;
   }  
   /**
- * renderConstellation：执行核心业务逻辑。
+ * renderConstellation：执行Constellation相关逻辑。
  * @param tech TechniqueState 参数说明。
  * @param layers TechniqueLayerDef[] 参数说明。
  * @param currentLevel number 参数说明。
  * @param selectedLevel number 参数说明。
  * @param skillsByLevel Map<number, TechniqueState['skills']> 参数说明。
  * @param milestones Map<number, TechniqueRealm> 参数说明。
- * @returns string。
+ * @returns 返回Constellation。
  */
 
 
@@ -1062,14 +1062,14 @@ export class TechniquePanel {
     });
   }  
   /**
- * mountConstellation：执行核心业务逻辑。
+ * mountConstellation：执行mountConstellation相关逻辑。
  * @param modalBody HTMLElement 参数说明。
  * @param tech TechniqueState 参数说明。
  * @param layers TechniqueLayerDef[] 参数说明。
  * @param selectedLevel number 参数说明。
  * @param skillsByLevel Map<number, TechniqueState['skills']> 参数说明。
  * @param milestones Map<number, TechniqueRealm> 参数说明。
- * @returns void。
+ * @returns 无返回值，直接更新mountConstellation相关状态。
  */
 
 
@@ -1423,7 +1423,7 @@ export class TechniquePanel {
  * @param selectedLevel number 参数说明。
  * @param skillsByLevel Map<number, TechniqueState['skills']> 参数说明。
  * @param milestones Map<number, TechniqueRealm> 参数说明。
- * @returns TechniqueConstellationCanvasData。
+ * @returns 返回ConstellationData。
  */
 
 
@@ -1481,7 +1481,7 @@ export class TechniquePanel {
  * buildConstellationStructureSignature：构建并返回目标对象。
  * @param layers TechniqueLayerDef[] 参数说明。
  * @param skillsByLevel Map<number, TechniqueState['skills']> 参数说明。
- * @returns string。
+ * @returns 返回ConstellationStructureSignature。
  */
 
 
@@ -1495,14 +1495,14 @@ export class TechniquePanel {
     }).join('|');
   }  
   /**
- * patchLayerFocus：执行核心业务逻辑。
+ * patchLayerFocus：执行patch层Focu相关逻辑。
  * @param focusShell HTMLElement 参数说明。
  * @param tech TechniqueState 参数说明。
  * @param layers TechniqueLayerDef[] 参数说明。
  * @param selectedLevel number 参数说明。
  * @param skillsByLevel Map<number, TechniqueState['skills']> 参数说明。
  * @param milestones Map<number, TechniqueRealm> 参数说明。
- * @returns void。
+ * @returns 无返回值，直接更新patch层Focu相关状态。
  */
 
 

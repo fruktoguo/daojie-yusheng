@@ -8,7 +8,7 @@ const shared_1 = require("@mud/shared-next");
 /**
  * buildAttrDetailBonuses：构建并返回目标对象。
  * @param player 玩家对象。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新Attr详情Bonuse相关状态。
  */
 
 
@@ -82,7 +82,7 @@ exports.buildAttrDetailBonuses = buildAttrDetailBonuses;
 /**
  * buildAttrDetailNumericStatBreakdowns：构建并返回目标对象。
  * @param player 玩家对象。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新Attr详情NumericStatBreakdown相关状态。
  */
 
 
@@ -152,10 +152,10 @@ function buildAttrDetailNumericStatBreakdowns(player) {
 }
 exports.buildAttrDetailNumericStatBreakdowns = buildAttrDetailNumericStatBreakdowns;
 /**
- * getNumericStatValue：按给定条件读取/查询数据。
+ * getNumericStatValue：读取NumericStat值。
  * @param stats 参数说明。
  * @param key 参数说明。
- * @returns 函数返回值。
+ * @returns 无返回值，完成NumericStat值的读取/组装。
  */
 
 
@@ -164,10 +164,10 @@ function getNumericStatValue(stats, key) {
     return typeof value === 'number' ? value : 0;
 }
 /**
- * scalePartialNumericStats：执行核心业务逻辑。
+ * scalePartialNumericStats：执行scalePartialNumericStat相关逻辑。
  * @param stats 参数说明。
  * @param factor 参数说明。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新scalePartialNumericStat相关状态。
  */
 
 function scalePartialNumericStats(stats, factor) {
@@ -202,9 +202,9 @@ function scalePartialNumericStats(stats, factor) {
     return Object.keys(result).length > 0 ? result : undefined;
 }
 /**
- * collectProjectedRuntimeBonuses：执行核心业务逻辑。
+ * collectProjectedRuntimeBonuses：执行Projected运行态Bonuse相关逻辑。
  * @param runtimeBonuses 参数说明。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新Projected运行态Bonuse相关状态。
  */
 
 function collectProjectedRuntimeBonuses(runtimeBonuses) {
@@ -219,9 +219,9 @@ function collectProjectedRuntimeBonuses(runtimeBonuses) {
     });
 }
 /**
- * resolveVitalBaselineBonus：执行核心业务逻辑。
+ * resolveVitalBaselineBonus：规范化或转换VitalBaselineBonu。
  * @param runtimeBonuses 参数说明。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新VitalBaselineBonu相关状态。
  */
 
 function resolveVitalBaselineBonus(runtimeBonuses) {
@@ -230,9 +230,9 @@ function resolveVitalBaselineBonus(runtimeBonuses) {
         : null;
 }
 /**
- * isDerivedRuntimeBonusSource：执行状态校验并返回判断结果。
+ * isDerivedRuntimeBonusSource：判断Derived运行态Bonu来源是否满足条件。
  * @param source 来源对象。
- * @returns 函数返回值。
+ * @returns 无返回值，完成Derived运行态Bonu来源的条件判断。
  */
 
 function isDerivedRuntimeBonusSource(source) {
@@ -251,18 +251,18 @@ function isDerivedRuntimeBonusSource(source) {
         || source.startsWith('buff:');
 }
 /**
- * resolveItemNumericStats：执行核心业务逻辑。
+ * resolveItemNumericStats：规范化或转换道具NumericStat。
  * @param item 道具。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新道具NumericStat相关状态。
  */
 
 function resolveItemNumericStats(item) {
     return item?.equipValueStats ? (0, shared_1.compileValueStatsToActualStats)(item.equipValueStats) : item?.equipStats;
 }
 /**
- * hasNonZeroAttributes：执行状态校验并返回判断结果。
+ * hasNonZeroAttributes：判断NonZeroAttribute是否满足条件。
  * @param attrs 参数说明。
- * @returns 函数返回值。
+ * @returns 无返回值，完成NonZeroAttribute的条件判断。
  */
 
 function hasNonZeroAttributes(attrs) {
@@ -274,9 +274,9 @@ function hasNonZeroAttributes(attrs) {
     return shared_1.ATTR_KEYS.some((key) => Number(attrs[key] ?? 0) !== 0);
 }
 /**
- * hasNonZeroPartialNumericStats：执行状态校验并返回判断结果。
+ * hasNonZeroPartialNumericStats：判断NonZeroPartialNumericStat是否满足条件。
  * @param stats 参数说明。
- * @returns 函数返回值。
+ * @returns 无返回值，完成NonZeroPartialNumericStat的条件判断。
  */
 
 function hasNonZeroPartialNumericStats(stats) {
@@ -296,9 +296,9 @@ function hasNonZeroPartialNumericStats(stats) {
     });
 }
 /**
- * clonePartialAttributes：执行核心业务逻辑。
+ * clonePartialAttributes：构建PartialAttribute。
  * @param attrs 参数说明。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新PartialAttribute相关状态。
  */
 
 function clonePartialAttributes(attrs) {
@@ -314,9 +314,9 @@ function clonePartialAttributes(attrs) {
     return result;
 }
 /**
- * clonePartialNumericStats：执行核心业务逻辑。
+ * clonePartialNumericStats：构建PartialNumericStat。
  * @param stats 参数说明。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新PartialNumericStat相关状态。
  */
 
 function clonePartialNumericStats(stats) {
@@ -340,9 +340,9 @@ function clonePartialNumericStats(stats) {
     return Object.keys(clone).length > 0 ? clone : undefined;
 }
 /**
- * cloneQiProjectionModifiers：执行核心业务逻辑。
+ * cloneQiProjectionModifiers：构建QiProjectionModifier。
  * @param source 来源对象。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新QiProjectionModifier相关状态。
  */
 
 function cloneQiProjectionModifiers(source) {
@@ -365,9 +365,9 @@ function cloneQiProjectionModifiers(source) {
     }));
 }
 /**
- * toTechniqueState：执行核心业务逻辑。
+ * toTechniqueState：执行to功法状态相关逻辑。
  * @param entry 参数说明。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新to功法状态相关状态。
  */
 
 function toTechniqueState(entry) {
@@ -393,9 +393,9 @@ function toTechniqueState(entry) {
     };
 }
 /**
- * cloneTechniqueSkill：执行核心业务逻辑。
+ * cloneTechniqueSkill：构建功法技能。
  * @param source 来源对象。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新功法技能相关状态。
  */
 
 function cloneTechniqueSkill(source) {
@@ -406,9 +406,9 @@ function cloneTechniqueSkill(source) {
     };
 }
 /**
- * isPlainObject：执行状态校验并返回判断结果。
+ * isPlainObject：判断PlainObject是否满足条件。
  * @param value 参数说明。
- * @returns 函数返回值。
+ * @returns 无返回值，完成PlainObject的条件判断。
  */
 
 function isPlainObject(value) {

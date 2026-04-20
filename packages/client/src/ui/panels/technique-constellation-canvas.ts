@@ -6,22 +6,22 @@ type TechniqueConstellationMilestone = '小成' | '大成' | '圆满';
 /** TechniqueConstellationNode：功法星图节点的展示数据。 */
 type TechniqueConstellationNode = {
 /**
- * level：对象字段。
+ * level：等级数值。
  */
 
   level: number;  
   /**
- * milestone：对象字段。
+ * milestone：milestone相关字段。
  */
 
   milestone?: TechniqueConstellationMilestone;  
   /**
- * hoverTitle：对象字段。
+ * hoverTitle：hoverTitle名称或显示文本。
  */
 
   hoverTitle: string;  
   /**
- * hoverLines：对象字段。
+ * hoverLines：hoverLine相关字段。
  */
 
   hoverLines: string[];
@@ -30,32 +30,32 @@ type TechniqueConstellationNode = {
 /** TechniqueConstellationCanvasData：功法星图画布的输入状态。 */
 export type TechniqueConstellationCanvasData = {
 /**
- * techniqueName：对象字段。
+ * techniqueName：功法名称名称或显示文本。
  */
 
   techniqueName: string;  
   /**
- * maxLevels：对象字段。
+ * maxLevels：max等级相关字段。
  */
 
   maxLevels: number;  
   /**
- * currentLevel：对象字段。
+ * currentLevel：current等级数值。
  */
 
   currentLevel: number;  
   /**
- * expPercent：对象字段。
+ * expPercent：expPercent相关字段。
  */
 
   expPercent: number;  
   /**
- * selectedLevel：对象字段。
+ * selectedLevel：selected等级数值。
  */
 
   selectedLevel: number;  
   /**
- * nodes：对象字段。
+ * nodes：node相关字段。
  */
 
   nodes: TechniqueConstellationNode[];
@@ -64,17 +64,17 @@ export type TechniqueConstellationCanvasData = {
 /** TechniqueConstellationHoverPayload：星图节点悬浮提示载荷。 */
 export type TechniqueConstellationHoverPayload = {
 /**
- * level：对象字段。
+ * level：等级数值。
  */
 
   level: number;  
   /**
- * title：对象字段。
+ * title：title名称或显示文本。
  */
 
   title: string;  
   /**
- * lines：对象字段。
+ * lines：line相关字段。
  */
 
   lines: string[];
@@ -83,72 +83,72 @@ export type TechniqueConstellationHoverPayload = {
 /** InternalNode：星图节点的内部布局与动效数据。 */
 type InternalNode = TechniqueConstellationNode & {
 /**
- * index：对象字段。
+ * index：index相关字段。
  */
 
   index: number;  
   /**
- * name：对象字段。
+ * name：名称名称或显示文本。
  */
 
   name: string;  
   /**
- * x：对象字段。
+ * x：x相关字段。
  */
 
   x: number;  
   /**
- * y：对象字段。
+ * y：y相关字段。
  */
 
   y: number;  
   /**
- * displayX：对象字段。
+ * displayX：显示X相关字段。
  */
 
   displayX: number;  
   /**
- * displayY：对象字段。
+ * displayY：显示Y相关字段。
  */
 
   displayY: number;  
   /**
- * baseRadius：对象字段。
+ * baseRadius：baseRadiu相关字段。
  */
 
   baseRadius: number;  
   /**
- * phase：对象字段。
+ * phase：phase相关字段。
  */
 
   phase: number;  
   /**
- * speed：对象字段。
+ * speed：speed数值。
  */
 
   speed: number;  
   /**
- * floatPhaseX：对象字段。
+ * floatPhaseX：floatPhaseX相关字段。
  */
 
   floatPhaseX: number;  
   /**
- * floatPhaseY：对象字段。
+ * floatPhaseY：floatPhaseY相关字段。
  */
 
   floatPhaseY: number;  
   /**
- * floatSpeed：对象字段。
+ * floatSpeed：floatSpeed数值。
  */
 
   floatSpeed: number;  
   /**
- * anchorDirX：对象字段。
+ * anchorDirX：anchorDirX相关字段。
  */
 
   anchorDirX: number;  
   /**
- * anchorDirY：对象字段。
+ * anchorDirY：anchorDirY相关字段。
  */
 
   anchorDirY: number;
@@ -160,37 +160,37 @@ type RawNode = InternalNode;
 /** Particle：星图背景粒子的动画状态。 */
 type Particle = {
 /**
- * x：对象字段。
+ * x：x相关字段。
  */
 
   x: number;  
   /**
- * y：对象字段。
+ * y：y相关字段。
  */
 
   y: number;  
   /**
- * size：对象字段。
+ * size：数量或计量字段。
  */
 
   size: number;  
   /**
- * speedX：对象字段。
+ * speedX：speedX相关字段。
  */
 
   speedX: number;  
   /**
- * speedY：对象字段。
+ * speedY：speedY相关字段。
  */
 
   speedY: number;  
   /**
- * baseAlpha：对象字段。
+ * baseAlpha：baseAlpha相关字段。
  */
 
   baseAlpha: number;  
   /**
- * phase：对象字段。
+ * phase：phase相关字段。
  */
 
   phase: number;
@@ -218,7 +218,7 @@ class PRNG {
 /**
  * 构造器：初始化 当前 实例并建立基础状态。
  * @param seed number 参数说明。
- * @returns 无返回值（构造函数）。
+ * @returns 无返回值，完成实例初始化。
  */
 
   constructor(private seed: number) {}
@@ -254,27 +254,27 @@ export class TechniqueConstellationCanvas {
   /** skillLines：技能Lines。 */
   private skillLines: SVGSVGElement | null;  
   /**
- * skillAnchors：TechniqueConstellationCanvas 内部字段。
+ * skillAnchors：技能Anchor相关字段。
  */
 
   private skillAnchors: Array<{  
   /**
- * level：TechniqueConstellationCanvas 内部字段。
+ * level：等级数值。
  */
 
     level: number;    
     /**
- * index：TechniqueConstellationCanvas 内部字段。
+ * index：index相关字段。
  */
 
     index: number;    
     /**
- * labelEl：TechniqueConstellationCanvas 内部字段。
+ * labelEl：labelEl相关字段。
  */
 
     labelEl: HTMLElement;    
     /**
- * lineEl：TechniqueConstellationCanvas 内部字段。
+ * lineEl：lineEl相关字段。
  */
 
     lineEl: SVGPolylineElement | null;
@@ -307,7 +307,7 @@ export class TechniqueConstellationCanvas {
  * @param onNodeHover (payload: TechniqueConstellationHoverPayload, clientX: number, clientY: number) => void 参数说明。
  * @param onNodeMove (clientX: number, clientY: number) => void 参数说明。
  * @param onNodeLeave () => void 参数说明。
- * @returns 无返回值（构造函数）。
+ * @returns 无返回值，完成实例初始化。
  */
 
 
@@ -415,11 +415,11 @@ export class TechniqueConstellationCanvas {
   /** resolvePointer：解析Pointer。 */
   private resolvePointer(event: MouseEvent): {  
   /**
- * x：TechniqueConstellationCanvas 内部字段。
+ * x：x相关字段。
  */
  x: number;  
  /**
- * y：TechniqueConstellationCanvas 内部字段。
+ * y：y相关字段。
  */
  y: number } {
     const rect = this.canvas.getBoundingClientRect();
@@ -559,7 +559,7 @@ export class TechniqueConstellationCanvas {
     }
   }  
   /**
- * render：TechniqueConstellationCanvas 内部字段。
+ * render：render相关字段。
  */
 
 
@@ -596,33 +596,33 @@ export class TechniqueConstellationCanvas {
 
     const unlockedPath: Array<{    
     /**
- * displayStart：TechniqueConstellationCanvas 内部字段。
+ * displayStart：显示Start相关字段。
  */
 
       displayStart: {      
       /**
- * x：TechniqueConstellationCanvas 内部字段。
+ * x：x相关字段。
  */
  x: number;      
  /**
- * y：TechniqueConstellationCanvas 内部字段。
+ * y：y相关字段。
  */
  y: number };      
  /**
- * displayEnd：TechniqueConstellationCanvas 内部字段。
+ * displayEnd：显示End相关字段。
  */
 
       displayEnd: {      
       /**
- * x：TechniqueConstellationCanvas 内部字段。
+ * x：x相关字段。
  */
  x: number;      
  /**
- * y：TechniqueConstellationCanvas 内部字段。
+ * y：y相关字段。
  */
  y: number };      
  /**
- * stableLength：TechniqueConstellationCanvas 内部字段。
+ * stableLength：数量或计量字段。
  */
 
       stableLength: number;
@@ -907,7 +907,7 @@ export class TechniqueConstellationCanvas {
     ctx.restore();
   }  
   /**
- * handleMouseMove：TechniqueConstellationCanvas 内部字段。
+ * handleMouseMove：handleMouseMove相关字段。
  */
 
 
@@ -936,7 +936,7 @@ export class TechniqueConstellationCanvas {
     this.onNodeMove(event.clientX, event.clientY);
   };  
   /**
- * handleMouseLeave：TechniqueConstellationCanvas 内部字段。
+ * handleMouseLeave：handleMouseLeave相关字段。
  */
 
 
@@ -949,7 +949,7 @@ export class TechniqueConstellationCanvas {
     }
   };  
   /**
- * handleClick：TechniqueConstellationCanvas 内部字段。
+ * handleClick：handleClick相关字段。
  */
 
 
@@ -1119,19 +1119,19 @@ export class TechniqueConstellationCanvas {
   /** resolveAnchorDirection：解析Anchor方向。 */
   private resolveAnchorDirection(node: InternalNode, center: {  
   /**
- * x：TechniqueConstellationCanvas 内部字段。
+ * x：x相关字段。
  */
  x: number;  
  /**
- * y：TechniqueConstellationCanvas 内部字段。
+ * y：y相关字段。
  */
  y: number }): {  
  /**
- * x：TechniqueConstellationCanvas 内部字段。
+ * x：x相关字段。
  */
  x: number;  
  /**
- * y：TechniqueConstellationCanvas 内部字段。
+ * y：y相关字段。
  */
  y: number } {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
@@ -1220,11 +1220,11 @@ export class TechniqueConstellationCanvas {
   /** length：处理length。 */
   private length(vector: {  
   /**
- * x：TechniqueConstellationCanvas 内部字段。
+ * x：x相关字段。
  */
  x: number;  
  /**
- * y：TechniqueConstellationCanvas 内部字段。
+ * y：y相关字段。
  */
  y: number }): number {
     return Math.hypot(vector.x, vector.y);
@@ -1233,19 +1233,19 @@ export class TechniqueConstellationCanvas {
   /** normalize：规范化normalize。 */
   private normalize(vector: {  
   /**
- * x：TechniqueConstellationCanvas 内部字段。
+ * x：x相关字段。
  */
  x: number;  
  /**
- * y：TechniqueConstellationCanvas 内部字段。
+ * y：y相关字段。
  */
  y: number }): {  
  /**
- * x：TechniqueConstellationCanvas 内部字段。
+ * x：x相关字段。
  */
  x: number;  
  /**
- * y：TechniqueConstellationCanvas 内部字段。
+ * y：y相关字段。
  */
  y: number } {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
@@ -1263,19 +1263,19 @@ export class TechniqueConstellationCanvas {
   /** dot：处理dot。 */
   private dot(left: {  
   /**
- * x：TechniqueConstellationCanvas 内部字段。
+ * x：x相关字段。
  */
  x: number;  
  /**
- * y：TechniqueConstellationCanvas 内部字段。
+ * y：y相关字段。
  */
  y: number }, right: {  
  /**
- * x：TechniqueConstellationCanvas 内部字段。
+ * x：x相关字段。
  */
  x: number;  
  /**
- * y：TechniqueConstellationCanvas 内部字段。
+ * y：y相关字段。
  */
  y: number }): number {
     return left.x * right.x + left.y * right.y;

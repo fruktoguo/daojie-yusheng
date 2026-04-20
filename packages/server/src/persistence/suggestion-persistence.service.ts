@@ -28,23 +28,23 @@ const SUGGESTION_KEY = 'global';
 /** 建议持久化服务：保存/恢复全服建议与回复投票状态。 */
 let SuggestionPersistenceService = SuggestionPersistenceService_1 = class SuggestionPersistenceService {
 /**
- * logger：对象字段。
+ * logger：日志器引用。
  */
 
     logger = new common_1.Logger(SuggestionPersistenceService_1.name);    
     /**
- * pool：对象字段。
+ * pool：缓存或索引容器。
  */
 
     pool = null;    
     /**
- * enabled：对象字段。
+ * enabled：启用开关或状态标识。
  */
 
     enabled = false;    
     /**
- * onModuleInit：执行核心业务逻辑。
- * @returns 函数返回值。
+ * onModuleInit：执行on模块Init相关逻辑。
+ * @returns 无返回值，直接更新on模块Init相关状态。
  */
 
     async onModuleInit() {
@@ -70,16 +70,16 @@ let SuggestionPersistenceService = SuggestionPersistenceService_1 = class Sugges
         }
     }    
     /**
- * onModuleDestroy：执行核心业务逻辑。
- * @returns 函数返回值。
+ * onModuleDestroy：执行on模块Destroy相关逻辑。
+ * @returns 无返回值，直接更新on模块Destroy相关状态。
  */
 
     async onModuleDestroy() {
         await this.safeClosePool();
     }    
     /**
- * loadSuggestions：按给定条件读取/查询数据。
- * @returns 函数返回值。
+ * loadSuggestions：读取Suggestion并返回结果。
+ * @returns 无返回值，完成Suggestion的读取/组装。
  */
 
     async loadSuggestions() {
@@ -96,9 +96,9 @@ let SuggestionPersistenceService = SuggestionPersistenceService_1 = class Sugges
         return normalizeSuggestionDocument(result.rows[0]?.payload);
     }    
     /**
- * saveSuggestions：执行核心业务逻辑。
+ * saveSuggestions：执行saveSuggestion相关逻辑。
  * @param document 参数说明。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新saveSuggestion相关状态。
  */
 
     async saveSuggestions(document) {
@@ -115,8 +115,8 @@ let SuggestionPersistenceService = SuggestionPersistenceService_1 = class Sugges
       `, [SUGGESTION_SCOPE, SUGGESTION_KEY, JSON.stringify(document)]);
     }    
     /**
- * safeClosePool：执行核心业务逻辑。
- * @returns 函数返回值。
+ * safeClosePool：执行safeClosePool相关逻辑。
+ * @returns 无返回值，直接更新safeClosePool相关状态。
  */
 
     async safeClosePool() {

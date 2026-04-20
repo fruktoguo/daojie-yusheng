@@ -34,32 +34,32 @@ export type PrototypeModuleId =
 
 export interface PrototypeModuleCardData {
 /**
- * id：PrototypeModuleCardData 内部字段。
+ * id：ID标识。
  */
 
   id: PrototypeModuleId;  
   /**
- * title：PrototypeModuleCardData 内部字段。
+ * title：title名称或显示文本。
  */
 
   title: string;  
   /**
- * domain：PrototypeModuleCardData 内部字段。
+ * domain：domain相关字段。
  */
 
   domain: '入口' | 'HUD' | '面板' | '浮层' | 'GM';  
   /**
- * summary：PrototypeModuleCardData 内部字段。
+ * summary：摘要状态或数据块。
  */
 
   summary: string;  
   /**
- * interactions：PrototypeModuleCardData 内部字段。
+ * interactions：interaction相关字段。
  */
 
   interactions: string[];  
   /**
- * status：PrototypeModuleCardData 内部字段。
+ * status：statu状态或数据块。
  */
 
   status: 'planned' | 'in-progress' | 'prototype-ready';

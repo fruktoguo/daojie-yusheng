@@ -86,22 +86,22 @@ const ENHANCEMENT_INTERRUPT_PAUSE_TICKS = 10;
 /** 制作运行时服务：负责炼丹与强化的任务创建、进度推进与结果落库。 */
 let CraftPanelRuntimeService = class CraftPanelRuntimeService {
 /**
- * contentTemplateRepository：对象字段。
+ * contentTemplateRepository：内容Template仓储引用。
  */
 
     contentTemplateRepository;    
     /**
- * playerRuntimeService：对象字段。
+ * playerRuntimeService：玩家运行态服务引用。
  */
 
     playerRuntimeService;    
     /**
- * craftPanelAlchemyQueryService：对象字段。
+ * craftPanelAlchemyQueryService：炼制面板炼丹Query服务引用。
  */
 
     craftPanelAlchemyQueryService;    
     /**
- * craftPanelEnhancementQueryService：对象字段。
+ * craftPanelEnhancementQueryService：炼制面板强化Query服务引用。
  */
 
     craftPanelEnhancementQueryService;
@@ -215,9 +215,9 @@ let CraftPanelRuntimeService = class CraftPanelRuntimeService {
         };
     }    
     /**
- * cancelAlchemy：执行状态校验并返回判断结果。
+ * cancelAlchemy：判断cancel炼丹是否满足条件。
  * @param player 玩家对象。
- * @returns 函数返回值。
+ * @returns 无返回值，完成cancel炼丹的条件判断。
  */
 
     cancelAlchemy(player) {
@@ -279,10 +279,10 @@ let CraftPanelRuntimeService = class CraftPanelRuntimeService {
         };
     }    
     /**
- * saveAlchemyPreset：执行核心业务逻辑。
+ * saveAlchemyPreset：执行save炼丹Preset相关逻辑。
  * @param player 玩家对象。
  * @param payload 载荷参数。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新save炼丹Preset相关状态。
  */
 
     saveAlchemyPreset(player, payload) {
@@ -326,10 +326,10 @@ let CraftPanelRuntimeService = class CraftPanelRuntimeService {
         };
     }    
     /**
- * deleteAlchemyPreset：执行核心业务逻辑。
+ * deleteAlchemyPreset：处理炼丹Preset并更新相关状态。
  * @param player 玩家对象。
  * @param presetIdInput 参数说明。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新炼丹Preset相关状态。
  */
 
     deleteAlchemyPreset(player, presetIdInput) {
@@ -356,10 +356,10 @@ let CraftPanelRuntimeService = class CraftPanelRuntimeService {
         };
     }    
     /**
- * interruptAlchemy：执行核心业务逻辑。
+ * interruptAlchemy：执行interrupt炼丹相关逻辑。
  * @param player 玩家对象。
  * @param reason 参数说明。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新interrupt炼丹相关状态。
  */
 
     interruptAlchemy(player, reason) {
@@ -388,9 +388,9 @@ let CraftPanelRuntimeService = class CraftPanelRuntimeService {
             }]);
     }    
     /**
- * tickAlchemy：执行核心业务逻辑。
+ * tickAlchemy：执行tick炼丹相关逻辑。
  * @param player 玩家对象。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新tick炼丹相关状态。
  */
 
     tickAlchemy(player) {
@@ -475,10 +475,10 @@ let CraftPanelRuntimeService = class CraftPanelRuntimeService {
             }], inventoryChanged, false, skillChanged, groundDrops);
     }    
     /**
- * startEnhancement：执行核心业务逻辑。
+ * startEnhancement：执行开始强化相关逻辑。
  * @param player 玩家对象。
  * @param payload 载荷参数。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新start强化相关状态。
  */
 
     startEnhancement(player, payload) {
@@ -594,9 +594,9 @@ let CraftPanelRuntimeService = class CraftPanelRuntimeService {
         };
     }    
     /**
- * cancelEnhancement：执行状态校验并返回判断结果。
+ * cancelEnhancement：判断cancel强化是否满足条件。
  * @param player 玩家对象。
- * @returns 函数返回值。
+ * @returns 无返回值，完成cancel强化的条件判断。
  */
 
     cancelEnhancement(player) {
@@ -622,10 +622,10 @@ let CraftPanelRuntimeService = class CraftPanelRuntimeService {
         };
     }    
     /**
- * interruptEnhancement：执行核心业务逻辑。
+ * interruptEnhancement：执行interrupt强化相关逻辑。
  * @param player 玩家对象。
  * @param reason 参数说明。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新interrupt强化相关状态。
  */
 
     interruptEnhancement(player, reason) {
@@ -654,9 +654,9 @@ let CraftPanelRuntimeService = class CraftPanelRuntimeService {
             }]);
     }    
     /**
- * tickEnhancement：执行核心业务逻辑。
+ * tickEnhancement：执行tick强化相关逻辑。
  * @param player 玩家对象。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新tick强化相关状态。
  */
 
     tickEnhancement(player) {
@@ -728,10 +728,10 @@ let CraftPanelRuntimeService = class CraftPanelRuntimeService {
             }], finishResult.inventoryChanged, finishResult.equipmentChanged, finishResult.attrChanged || skillChanged, finishResult.groundDrops);
     }    
     /**
- * blocksEquipSlotChange：执行核心业务逻辑。
+ * blocksEquipSlotChange：执行blockEquipSlotChange相关逻辑。
  * @param player 玩家对象。
  * @param slot 参数说明。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新blockEquipSlotChange相关状态。
  */
 
     blocksEquipSlotChange(player, slot) {
@@ -749,10 +749,10 @@ let CraftPanelRuntimeService = class CraftPanelRuntimeService {
         return false;
     }    
     /**
- * getLockedSlotReason：按给定条件读取/查询数据。
+ * getLockedSlotReason：读取LockedSlotReason。
  * @param player 玩家对象。
  * @param slot 参数说明。
- * @returns 函数返回值。
+ * @returns 无返回值，完成LockedSlotReason的读取/组装。
  */
 
     getLockedSlotReason(player, slot) {
@@ -773,9 +773,9 @@ let CraftPanelRuntimeService = class CraftPanelRuntimeService {
         return null;
     }    
     /**
- * getCultivationBlockReason：按给定条件读取/查询数据。
+ * getCultivationBlockReason：读取CultivationBlockReason。
  * @param player 玩家对象。
- * @returns 函数返回值。
+ * @returns 无返回值，完成CultivationBlockReason的读取/组装。
  */
 
     getCultivationBlockReason(player) {
@@ -790,27 +790,27 @@ let CraftPanelRuntimeService = class CraftPanelRuntimeService {
         return null;
     }    
     /**
- * hasEquippedFurnace：执行状态校验并返回判断结果。
+ * hasEquippedFurnace：判断EquippedFurnace是否满足条件。
  * @param player 玩家对象。
- * @returns 函数返回值。
+ * @returns 无返回值，完成EquippedFurnace的条件判断。
  */
 
     hasEquippedFurnace(player) {
         return Boolean(this.getWeapon(player)?.tags?.includes(craft_panel_alchemy_query_helpers_1.ALCHEMY_FURNACE_TAG));
     }    
     /**
- * hasEquippedHammer：执行状态校验并返回判断结果。
+ * hasEquippedHammer：判断EquippedHammer是否满足条件。
  * @param player 玩家对象。
- * @returns 函数返回值。
+ * @returns 无返回值，完成EquippedHammer的条件判断。
  */
 
     hasEquippedHammer(player) {
         return Boolean(this.getWeapon(player)?.tags?.includes(ENHANCEMENT_HAMMER_TAG));
     }    
     /**
- * ensureCraftSkills：执行核心业务逻辑。
+ * ensureCraftSkills：执行ensure炼制技能相关逻辑。
  * @param player 玩家对象。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新ensure炼制技能相关状态。
  */
 
     ensureCraftSkills(player) {
@@ -836,7 +836,7 @@ let CraftPanelRuntimeService = class CraftPanelRuntimeService {
     /**
  * buildAlchemyPanelState：构建并返回目标对象。
  * @param player 玩家对象。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新炼丹面板状态相关状态。
  */
 
     buildAlchemyPanelState(player) {
@@ -845,16 +845,16 @@ let CraftPanelRuntimeService = class CraftPanelRuntimeService {
     /**
  * buildEnhancementPanelState：构建并返回目标对象。
  * @param player 玩家对象。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新强化面板状态相关状态。
  */
 
     buildEnhancementPanelState(player) {
         return this.craftPanelEnhancementQueryService.buildEnhancementPanelState(player, this.enhancementConfigs);
     }    
     /**
- * collectEnhancementCandidates：执行核心业务逻辑。
+ * collectEnhancementCandidates：判断强化Candidate是否满足条件。
  * @param player 玩家对象。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新强化Candidate相关状态。
  */
 
     collectEnhancementCandidates(player) {
@@ -893,7 +893,7 @@ let CraftPanelRuntimeService = class CraftPanelRuntimeService {
  * @param player 玩家对象。
  * @param ref 参数说明。
  * @param item 道具。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新强化Candidate相关状态。
  */
 
     buildEnhancementCandidate(player, ref, item) {
@@ -940,7 +940,7 @@ let CraftPanelRuntimeService = class CraftPanelRuntimeService {
  * @param ref 参数说明。
  * @param item 道具。
  * @param config 参数说明。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新ProtectionCandidate相关状态。
  */
 
     buildProtectionCandidates(player, ref, item, config) {
@@ -961,10 +961,10 @@ let CraftPanelRuntimeService = class CraftPanelRuntimeService {
         return candidates;
     }    
     /**
- * getEnhancementRequirements：按给定条件读取/查询数据。
+ * getEnhancementRequirements：读取强化Requirement。
  * @param config 参数说明。
  * @param targetLevel 参数说明。
- * @returns 函数返回值。
+ * @returns 无返回值，完成强化Requirement的读取/组装。
  */
 
     getEnhancementRequirements(config, targetLevel) {
@@ -972,29 +972,29 @@ let CraftPanelRuntimeService = class CraftPanelRuntimeService {
         return (step?.materials ?? []).map((entry) => ({ ...entry }));
     }    
     /**
- * getWeapon：按给定条件读取/查询数据。
+ * getWeapon：读取Weapon。
  * @param player 玩家对象。
- * @returns 函数返回值。
+ * @returns 无返回值，完成Weapon的读取/组装。
  */
 
     getWeapon(player) {
         return this.getEquippedItem(player, 'weapon');
     }    
     /**
- * getEquippedItem：按给定条件读取/查询数据。
+ * getEquippedItem：读取Equipped道具。
  * @param player 玩家对象。
  * @param slot 参数说明。
- * @returns 函数返回值。
+ * @returns 无返回值，完成Equipped道具的读取/组装。
  */
 
     getEquippedItem(player, slot) {
         return player.equipment?.slots?.find((entry) => entry.slot === slot)?.item ?? null;
     }    
     /**
- * resolveRequestedTargetLevel：执行核心业务逻辑。
+ * resolveRequestedTargetLevel：读取Requested目标等级并返回结果。
  * @param currentLevel 参数说明。
  * @param requestedTargetLevel 参数说明。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新Requested目标等级相关状态。
  */
 
     resolveRequestedTargetLevel(currentLevel, requestedTargetLevel) {
@@ -1002,10 +1002,10 @@ let CraftPanelRuntimeService = class CraftPanelRuntimeService {
         return Math.min(MAX_ENHANCE_LEVEL, Math.max(currentLevel + 1, normalized || (currentLevel + 1)));
     }    
     /**
- * resolveProtectionStartLevel：执行核心业务逻辑。
+ * resolveProtectionStartLevel：规范化或转换Protection开始等级。
  * @param desiredTargetLevel 参数说明。
  * @param requestedProtectionStartLevel 参数说明。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新ProtectionStart等级相关状态。
  */
 
     resolveProtectionStartLevel(desiredTargetLevel, requestedProtectionStartLevel) {
@@ -1013,20 +1013,20 @@ let CraftPanelRuntimeService = class CraftPanelRuntimeService {
         return Math.max(2, Math.min(desiredTargetLevel, normalized || 2));
     }    
     /**
- * shouldUseProtectionForStep：执行核心业务逻辑。
+ * shouldUseProtectionForStep：判断UseProtectionForStep是否满足条件。
  * @param targetLevel 参数说明。
  * @param protectionStartLevel 参数说明。
- * @returns 函数返回值。
+ * @returns 无返回值，完成UseProtectionForStep的条件判断。
  */
 
     shouldUseProtectionForStep(targetLevel, protectionStartLevel) {
         return typeof protectionStartLevel === 'number' && targetLevel >= protectionStartLevel;
     }    
     /**
- * resolveEnhancementTarget：执行核心业务逻辑。
+ * resolveEnhancementTarget：读取强化目标并返回结果。
  * @param player 玩家对象。
  * @param ref 参数说明。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新强化目标相关状态。
  */
 
     resolveEnhancementTarget(player, ref) {
@@ -1051,12 +1051,12 @@ let CraftPanelRuntimeService = class CraftPanelRuntimeService {
         return null;
     }    
     /**
- * resolveEnhancementProtection：执行核心业务逻辑。
+ * resolveEnhancementProtection：规范化或转换强化Protection。
  * @param player 玩家对象。
  * @param ref 参数说明。
  * @param target 目标对象。
  * @param config 参数说明。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新强化Protection相关状态。
  */
 
     resolveEnhancementProtection(player, ref, target, config) {
@@ -1081,10 +1081,10 @@ let CraftPanelRuntimeService = class CraftPanelRuntimeService {
         return protection;
     }    
     /**
- * touchEnhancementRecord：执行核心业务逻辑。
+ * touchEnhancementRecord：执行touch强化Record相关逻辑。
  * @param player 玩家对象。
  * @param input 输入参数。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新touch强化Record相关状态。
  */
 
     touchEnhancementRecord(player, input) {
@@ -1119,13 +1119,13 @@ let CraftPanelRuntimeService = class CraftPanelRuntimeService {
         return created;
     }    
     /**
- * touchEnhancementLevelRecord：执行核心业务逻辑。
+ * touchEnhancementLevelRecord：执行touch强化等级Record相关逻辑。
  * @param player 玩家对象。
  * @param itemId 道具 ID。
  * @param targetLevel 参数说明。
  * @param success 参数说明。
  * @param resultingLevel 参数说明。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新touch强化等级Record相关状态。
  */
 
     touchEnhancementLevelRecord(player, itemId, targetLevel, success, resultingLevel) {
@@ -1160,10 +1160,10 @@ let CraftPanelRuntimeService = class CraftPanelRuntimeService {
         record.highestLevel = Math.max(record.highestLevel, resultingLevel);
     }    
     /**
- * advanceEnhancementJob：执行核心业务逻辑。
+ * advanceEnhancementJob：执行advance强化Job相关逻辑。
  * @param player 玩家对象。
  * @param currentLevel 参数说明。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新advance强化Job相关状态。
  */
 
     advanceEnhancementJob(player, currentLevel) {
@@ -1233,11 +1233,11 @@ let CraftPanelRuntimeService = class CraftPanelRuntimeService {
         };
     }    
     /**
- * finishEnhancementJob：执行核心业务逻辑。
+ * finishEnhancementJob：判断完成强化Job是否满足条件。
  * @param player 玩家对象。
  * @param resultingLevel 参数说明。
  * @param status 参数说明。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新finish强化Job相关状态。
  */
 
     finishEnhancementJob(player, resultingLevel, status) {
@@ -1294,14 +1294,14 @@ let CraftPanelRuntimeService = class CraftPanelRuntimeService {
         };
     }    
     /**
- * hasEnoughEnhancementResources：执行状态校验并返回判断结果。
+ * hasEnoughEnhancementResources：判断Enough强化Resource是否满足条件。
  * @param player 玩家对象。
  * @param target 目标对象。
  * @param protection 参数说明。
  * @param spiritStoneCost 参数说明。
  * @param materials 参数说明。
  * @param protectionRequired 参数说明。
- * @returns 函数返回值。
+ * @returns 无返回值，完成Enough强化Resource的条件判断。
  */
 
     hasEnoughEnhancementResources(player, target, protection, spiritStoneCost, materials, protectionRequired) {
@@ -1323,13 +1323,13 @@ let CraftPanelRuntimeService = class CraftPanelRuntimeService {
         return materials.every((entry) => (counts.get(entry.itemId) ?? 0) >= entry.count);
     }    
     /**
- * hasEnoughQueuedEnhancementResources：执行状态校验并返回判断结果。
+ * hasEnoughQueuedEnhancementResources：判断EnoughQueued强化Resource是否满足条件。
  * @param player 玩家对象。
  * @param protectionItemId protectionItem ID。
  * @param targetItemId targetItem ID。
  * @param spiritStoneCost 参数说明。
  * @param materials 参数说明。
- * @returns 函数返回值。
+ * @returns 无返回值，完成EnoughQueued强化Resource的条件判断。
  */
 
     hasEnoughQueuedEnhancementResources(player, protectionItemId, targetItemId, spiritStoneCost, materials) {
@@ -1348,10 +1348,10 @@ let CraftPanelRuntimeService = class CraftPanelRuntimeService {
         return materials.every((entry) => (counts.get(entry.itemId) ?? 0) >= entry.count);
     }    
     /**
- * consumeProtectionItemForFailure：执行核心业务逻辑。
+ * consumeProtectionItemForFailure：执行consumeProtection道具ForFailure相关逻辑。
  * @param player 玩家对象。
  * @param job 参数说明。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新consumeProtection道具ForFailure相关状态。
  */
 
     consumeProtectionItemForFailure(player, job) {
@@ -1365,11 +1365,11 @@ let CraftPanelRuntimeService = class CraftPanelRuntimeService {
         return this.consumeInventoryItemByPredicate(player, (item) => this.isEligibleProtectionItem(item, protectionItemId, job.targetItemId), 1);
     }    
     /**
- * consumeInventoryItemByPredicate：执行核心业务逻辑。
+ * consumeInventoryItemByPredicate：执行consume背包道具ByPredicate相关逻辑。
  * @param player 玩家对象。
  * @param predicate 参数说明。
  * @param count 数量。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新consume背包道具ByPredicate相关状态。
  */
 
     consumeInventoryItemByPredicate(player, predicate, count) {
@@ -1394,21 +1394,21 @@ let CraftPanelRuntimeService = class CraftPanelRuntimeService {
         return remaining <= 0;
     }    
     /**
- * isSelfProtectionItem：执行状态校验并返回判断结果。
+ * isSelfProtectionItem：判断SelfProtection道具是否满足条件。
  * @param protectionItemId protectionItem ID。
  * @param targetItemId targetItem ID。
- * @returns 函数返回值。
+ * @returns 无返回值，完成SelfProtection道具的条件判断。
  */
 
     isSelfProtectionItem(protectionItemId, targetItemId) {
         return protectionItemId === targetItemId;
     }    
     /**
- * isEligibleProtectionItem：执行状态校验并返回判断结果。
+ * isEligibleProtectionItem：判断EligibleProtection道具是否满足条件。
  * @param item 道具。
  * @param protectionItemId protectionItem ID。
  * @param targetItemId targetItem ID。
- * @returns 函数返回值。
+ * @returns 无返回值，完成EligibleProtection道具的条件判断。
  */
 
     isEligibleProtectionItem(item, protectionItemId, targetItemId) {
@@ -1423,11 +1423,11 @@ let CraftPanelRuntimeService = class CraftPanelRuntimeService {
         return item.type === 'equipment' && normalizeEnhanceLevel(item.enhanceLevel) === 0;
     }    
     /**
- * getEligibleProtectionCount：按给定条件读取/查询数据。
+ * getEligibleProtectionCount：读取EligibleProtection数量。
  * @param player 玩家对象。
  * @param protectionItemId protectionItem ID。
  * @param targetItemId targetItem ID。
- * @returns 函数返回值。
+ * @returns 无返回值，完成EligibleProtection数量的读取/组装。
  */
 
     getEligibleProtectionCount(player, protectionItemId, targetItemId) {
@@ -1443,10 +1443,10 @@ let CraftPanelRuntimeService = class CraftPanelRuntimeService {
         return total;
     }    
     /**
- * finalizeMutation：执行核心业务逻辑。
+ * finalizeMutation：执行finalizeMutation相关逻辑。
  * @param player 玩家对象。
  * @param options 选项参数。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新finalizeMutation相关状态。
  */
 
     finalizeMutation(player, options = {}) {
@@ -1472,8 +1472,8 @@ let CraftPanelRuntimeService = class CraftPanelRuntimeService {
         }
     }    
     /**
- * loadAlchemyCatalog：按给定条件读取/查询数据。
- * @returns 函数返回值。
+ * loadAlchemyCatalog：读取炼丹目录并返回结果。
+ * @returns 无返回值，完成炼丹目录的读取/组装。
  */
 
     loadAlchemyCatalog() {
@@ -1497,8 +1497,8 @@ let CraftPanelRuntimeService = class CraftPanelRuntimeService {
         });
     }    
     /**
- * loadEnhancementConfigs：按给定条件读取/查询数据。
- * @returns 函数返回值。
+ * loadEnhancementConfigs：读取强化配置并返回结果。
+ * @returns 无返回值，完成强化配置的读取/组装。
  */
 
     loadEnhancementConfigs() {
@@ -1524,9 +1524,9 @@ let CraftPanelRuntimeService = class CraftPanelRuntimeService {
         }
     }    
     /**
- * toAlchemyCatalogEntry：执行核心业务逻辑。
+ * toAlchemyCatalogEntry：执行to炼丹目录条目相关逻辑。
  * @param entry 参数说明。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新to炼丹目录条目相关状态。
  */
 
     toAlchemyCatalogEntry(entry) {
@@ -1568,18 +1568,18 @@ exports.CraftPanelRuntimeService = CraftPanelRuntimeService = __decorate([
 ], CraftPanelRuntimeService);
 export { CraftPanelRuntimeService };
 /**
- * resolveContentPath：执行核心业务逻辑。
+ * resolveContentPath：规范化或转换内容路径。
  * @param segments 参数说明。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新内容路径相关状态。
  */
 
 function resolveContentPath(...segments) {
     return path.resolve(__dirname, '../../../../../packages/server/data/content', ...segments);
 }
 /**
- * walkJsonFiles：执行核心业务逻辑。
+ * walkJsonFiles：执行walkJsonFile相关逻辑。
  * @param root 参数说明。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新walkJsonFile相关状态。
  */
 
 function walkJsonFiles(root) {
@@ -1602,19 +1602,19 @@ function walkJsonFiles(root) {
     return result;
 }
 /**
- * normalizePositiveInt：执行核心业务逻辑。
+ * normalizePositiveInt：规范化或转换PositiveInt。
  * @param value 参数说明。
  * @param fallback 参数说明。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新PositiveInt相关状态。
  */
 
 function normalizePositiveInt(value, fallback = 1) {
     return Math.max(1, Math.floor(Number(value) || fallback));
 }
 /**
- * normalizeCraftSkill：执行核心业务逻辑。
+ * normalizeCraftSkill：规范化或转换炼制技能。
  * @param value 参数说明。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新炼制技能相关状态。
  */
 
 function normalizeCraftSkill(value) {
@@ -1626,9 +1626,9 @@ function normalizeCraftSkill(value) {
     };
 }
 /**
- * normalizeEnhancementConfig：执行核心业务逻辑。
+ * normalizeEnhancementConfig：规范化或转换强化配置。
  * @param value 参数说明。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新强化配置相关状态。
  */
 
 function normalizeEnhancementConfig(value) {
@@ -1656,9 +1656,9 @@ function normalizeEnhancementConfig(value) {
     };
 }
 /**
- * normalizeEnhancementRequirement：执行核心业务逻辑。
+ * normalizeEnhancementRequirement：规范化或转换强化Requirement。
  * @param value 参数说明。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新强化Requirement相关状态。
  */
 
 function normalizeEnhancementRequirement(value) {
@@ -1672,10 +1672,10 @@ function normalizeEnhancementRequirement(value) {
     return { itemId, count };
 }
 /**
- * toAlchemyIngredientDef：执行核心业务逻辑。
+ * toAlchemyIngredientDef：执行to炼丹IngredientDef相关逻辑。
  * @param contentTemplateRepository 参数说明。
  * @param ingredient 参数说明。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新to炼丹IngredientDef相关状态。
  */
 
 function toAlchemyIngredientDef(contentTemplateRepository, ingredient) {
@@ -1697,10 +1697,10 @@ function toAlchemyIngredientDef(contentTemplateRepository, ingredient) {
     };
 }
 /**
- * resolveAlchemyRecipeCategory：执行核心业务逻辑。
+ * resolveAlchemyRecipeCategory：规范化或转换炼丹RecipeCategory。
  * @param outputItem 参数说明。
  * @param recipeId recipe ID。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新炼丹RecipeCategory相关状态。
  */
 
 function resolveAlchemyRecipeCategory(outputItem, recipeId) {
@@ -1717,11 +1717,11 @@ function resolveAlchemyRecipeCategory(outputItem, recipeId) {
     throw new Error(`炼丹配方 ${recipeId} 的产出物 ${outputItem.itemId} 既不是瞬回药，也不是增益药`);
 }
 /**
- * computeAlchemyMaterialPower：执行核心业务逻辑。
+ * computeAlchemyMaterialPower：执行炼丹MaterialPower相关逻辑。
  * @param level 参数说明。
  * @param grade 参数说明。
  * @param count 数量。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新炼丹MaterialPower相关状态。
  */
 
 function computeAlchemyMaterialPower(level, grade, count = 1) {
@@ -1730,9 +1730,9 @@ function computeAlchemyMaterialPower(level, grade, count = 1) {
     return normalizedLevel * (resolveAlchemyGradeValue(grade) ** 2) * normalizedCount;
 }
 /**
- * resolveAlchemyGradeValue：执行核心业务逻辑。
+ * resolveAlchemyGradeValue：规范化或转换炼丹Grade值。
  * @param grade 参数说明。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新炼丹Grade值相关状态。
  */
 
 function resolveAlchemyGradeValue(grade) {
@@ -1740,9 +1740,9 @@ function resolveAlchemyGradeValue(grade) {
     return Math.max(1, index + 1);
 }
 /**
- * cloneItem：执行核心业务逻辑。
+ * cloneItem：构建道具。
  * @param item 道具。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新道具相关状态。
  */
 
 function cloneItem(item) {
@@ -1757,9 +1757,9 @@ function cloneItem(item) {
     };
 }
 /**
- * clonePartialNumericStats：执行核心业务逻辑。
+ * clonePartialNumericStats：构建PartialNumericStat。
  * @param stats 参数说明。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新PartialNumericStat相关状态。
  */
 
 function clonePartialNumericStats(stats) {
@@ -1778,9 +1778,9 @@ function clonePartialNumericStats(stats) {
     return clone;
 }
 /**
- * cloneEnhancementRecord：执行核心业务逻辑。
+ * cloneEnhancementRecord：构建强化Record。
  * @param entry 参数说明。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新强化Record相关状态。
  */
 
 function cloneEnhancementRecord(entry) {
@@ -1790,9 +1790,9 @@ function cloneEnhancementRecord(entry) {
     };
 }
 /**
- * cloneEnhancementJob：执行核心业务逻辑。
+ * cloneEnhancementJob：构建强化Job。
  * @param entry 参数说明。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新强化Job相关状态。
  */
 
 function cloneEnhancementJob(entry) {
@@ -1804,21 +1804,21 @@ function cloneEnhancementJob(entry) {
     };
 }
 /**
- * countInventoryItem：执行核心业务逻辑。
+ * countInventoryItem：执行数量背包道具相关逻辑。
  * @param player 玩家对象。
  * @param itemId 道具 ID。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新数量背包道具相关状态。
  */
 
 function countInventoryItem(player, itemId) {
     return player.inventory.items.reduce((total, entry) => entry.itemId === itemId ? total + entry.count : total, 0);
 }
 /**
- * receiveInventoryItem：执行核心业务逻辑。
+ * receiveInventoryItem：执行receive背包道具相关逻辑。
  * @param player 玩家对象。
  * @param contentTemplateRepository 参数说明。
  * @param item 道具。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新receive背包道具相关状态。
  */
 
 function receiveInventoryItem(player, contentTemplateRepository, item) {
@@ -1834,10 +1834,10 @@ function receiveInventoryItem(player, contentTemplateRepository, item) {
     return normalized;
 }
 /**
- * canReceiveCraftItem：执行状态校验并返回判断结果。
+ * canReceiveCraftItem：判断Receive炼制道具是否满足条件。
  * @param player 玩家对象。
  * @param item 道具。
- * @returns 函数返回值。
+ * @returns 无返回值，完成Receive炼制道具的条件判断。
  */
 
 function canReceiveCraftItem(player, item) {
@@ -1845,11 +1845,11 @@ function canReceiveCraftItem(player, item) {
         || player.inventory.items.length < player.inventory.capacity;
 }
 /**
- * consumeInventoryItemByItemId：执行核心业务逻辑。
+ * consumeInventoryItemByItemId：执行consume背包道具By道具ID相关逻辑。
  * @param player 玩家对象。
  * @param itemId 道具 ID。
  * @param count 数量。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新consume背包道具By道具ID相关状态。
  */
 
 function consumeInventoryItemByItemId(player, itemId, count) {
@@ -1873,10 +1873,10 @@ function consumeInventoryItemByItemId(player, itemId, count) {
     }
 }
 /**
- * extractInventoryItemAt：执行核心业务逻辑。
+ * extractInventoryItemAt：执行extract背包道具At相关逻辑。
  * @param player 玩家对象。
  * @param slotIndex 参数说明。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新extract背包道具At相关状态。
  */
 
 function extractInventoryItemAt(player, slotIndex) {
@@ -1888,11 +1888,11 @@ function extractInventoryItemAt(player, slotIndex) {
     return player.inventory.items.splice(slotIndex, 1)[0] ?? null;
 }
 /**
- * setEquippedItem：更新/写入相关状态。
+ * setEquippedItem：写入Equipped道具。
  * @param player 玩家对象。
  * @param slot 参数说明。
  * @param item 道具。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新Equipped道具相关状态。
  */
 
 function setEquippedItem(player, slot, item) {
@@ -1905,19 +1905,19 @@ function setEquippedItem(player, slot, item) {
     entry.item = item ? cloneItem(item) : null;
 }
 /**
- * normalizeText：执行核心业务逻辑。
+ * normalizeText：规范化或转换Text。
  * @param value 参数说明。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新Text相关状态。
  */
 
 function normalizeText(value) {
     return typeof value === 'string' ? value.trim() : '';
 }
 /**
- * normalizeAlchemyPresetName：执行核心业务逻辑。
+ * normalizeAlchemyPresetName：规范化或转换炼丹Preset名称。
  * @param value 参数说明。
  * @param fallback 参数说明。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新炼丹Preset名称相关状态。
  */
 
 function normalizeAlchemyPresetName(value, fallback) {
@@ -1927,7 +1927,7 @@ function normalizeAlchemyPresetName(value, fallback) {
 /**
  * createAlchemyPresetId：构建并返回目标对象。
  * @param recipeId recipe ID。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新炼丹PresetID相关状态。
  */
 
 function createAlchemyPresetId(recipeId) {
@@ -1935,20 +1935,20 @@ function createAlchemyPresetId(recipeId) {
     return `alchemy:${base}:${Date.now().toString(36)}:${Math.random().toString(36).slice(2, 8)}`;
 }
 /**
- * normalizeQuantity：执行核心业务逻辑。
+ * normalizeQuantity：规范化或转换Quantity。
  * @param value 参数说明。
  * @param fallback 参数说明。
  * @param max 参数说明。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新Quantity相关状态。
  */
 
 function normalizeQuantity(value, fallback = 1, max = 99) {
     return Math.max(1, Math.min(max, Math.floor(Number(value) || fallback)));
 }
 /**
- * normalizeIngredientSelections：执行核心业务逻辑。
+ * normalizeIngredientSelections：规范化或转换IngredientSelection。
  * @param value 参数说明。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新IngredientSelection相关状态。
  */
 
 function normalizeIngredientSelections(value) {
@@ -1971,10 +1971,10 @@ function normalizeIngredientSelections(value) {
         .sort((left, right) => left.itemId.localeCompare(right.itemId, 'zh-Hans-CN'));
 }
 /**
- * isExactSubmittedIngredients：执行状态校验并返回判断结果。
+ * isExactSubmittedIngredients：判断ExactSubmittedIngredient是否满足条件。
  * @param recipeIngredients 参数说明。
  * @param submitted 参数说明。
- * @returns 函数返回值。
+ * @returns 无返回值，完成ExactSubmittedIngredient的条件判断。
  */
 
 function isExactSubmittedIngredients(recipeIngredients, submitted) {
@@ -1996,10 +1996,10 @@ function isExactSubmittedIngredients(recipeIngredients, submitted) {
     return true;
 }
 /**
- * applyCraftSkillExp：更新/写入相关状态。
+ * applyCraftSkillExp：处理炼制技能Exp并更新相关状态。
  * @param skill 参数说明。
  * @param amount 参数说明。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新炼制技能Exp相关状态。
  */
 
 function applyCraftSkillExp(skill, amount) {
@@ -2019,10 +2019,10 @@ function applyCraftSkillExp(skill, amount) {
     return changed || amount > 0;
 }
 /**
- * resolveAlchemyBatchSuccess：执行核心业务逻辑。
+ * resolveAlchemyBatchSuccess：规范化或转换炼丹BatchSuccess。
  * @param outputCount 参数说明。
  * @param successRate 参数说明。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新炼丹BatchSuccess相关状态。
  */
 
 function resolveAlchemyBatchSuccess(outputCount, successRate) {
@@ -2039,18 +2039,18 @@ function resolveAlchemyBatchSuccess(outputCount, successRate) {
     return successCount;
 }
 /**
- * normalizeEquipSlot：执行核心业务逻辑。
+ * normalizeEquipSlot：规范化或转换EquipSlot。
  * @param value 参数说明。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新EquipSlot相关状态。
  */
 
 function normalizeEquipSlot(value) {
     return shared_1.EQUIP_SLOTS.includes(value) ? value : null;
 }
 /**
- * cloneTargetRef：执行核心业务逻辑。
+ * cloneTargetRef：读取目标Ref并返回结果。
  * @param ref 参数说明。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新目标Ref相关状态。
  */
 
 function cloneTargetRef(ref) {
@@ -2061,7 +2061,7 @@ function cloneTargetRef(ref) {
 /**
  * buildCraftMutationResult：构建并返回目标对象。
  * @param error 参数说明。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新炼制Mutation结果相关状态。
  */
 
 function buildCraftMutationResult(error) {
@@ -2080,7 +2080,7 @@ function buildCraftMutationResult(error) {
  * @param equipmentChanged 参数说明。
  * @param attrChanged 参数说明。
  * @param groundDrops 参数说明。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新炼制tick结果相关状态。
  */
 
 function buildCraftTickResult(panelChanged = false, messages = [], inventoryChanged = false, equipmentChanged = false, attrChanged = false, groundDrops = []) {
@@ -2095,18 +2095,18 @@ function buildCraftTickResult(panelChanged = false, messages = [], inventoryChan
     };
 }
 /**
- * normalizeEnhanceLevel：执行核心业务逻辑。
+ * normalizeEnhanceLevel：规范化或转换Enhance等级。
  * @param level 参数说明。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新Enhance等级相关状态。
  */
 
 function normalizeEnhanceLevel(level) {
     return Math.max(0, Math.min(MAX_ENHANCE_LEVEL, Math.floor(Number(level) || 0)));
 }
 /**
- * getEnhancementTargetSuccessRate：按给定条件读取/查询数据。
+ * getEnhancementTargetSuccessRate：读取强化目标SuccessRate。
  * @param targetEnhanceLevel 参数说明。
- * @returns 函数返回值。
+ * @returns 无返回值，完成强化目标SuccessRate的读取/组装。
  */
 
 function getEnhancementTargetSuccessRate(targetEnhanceLevel) {
@@ -2115,10 +2115,10 @@ function getEnhancementTargetSuccessRate(targetEnhanceLevel) {
     return Math.max(0, ENHANCEMENT_TARGET_SUCCESS_RATE_BY_LEVEL[index] ?? 0);
 }
 /**
- * getEnhancementSpiritStoneCost：按给定条件读取/查询数据。
+ * getEnhancementSpiritStoneCost：读取强化SpiritStone消耗。
  * @param itemLevel 参数说明。
  * @param hasMaterialCost 参数说明。
- * @returns 函数返回值。
+ * @returns 无返回值，完成强化SpiritStone消耗的读取/组装。
  */
 
 function getEnhancementSpiritStoneCost(itemLevel, hasMaterialCost = false) {
@@ -2126,11 +2126,11 @@ function getEnhancementSpiritStoneCost(itemLevel, hasMaterialCost = false) {
     return Math.max(1, hasMaterialCost ? Math.floor(level / 10) : Math.ceil(level / 10));
 }
 /**
- * computeEnhancementToolSpeedRate：执行核心业务逻辑。
+ * computeEnhancementToolSpeedRate：执行强化ToolSpeedRate相关逻辑。
  * @param toolBaseSpeedRate 参数说明。
  * @param roleEnhancementLevel 参数说明。
  * @param targetItemLevel 参数说明。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新强化ToolSpeedRate相关状态。
  */
 
 function computeEnhancementToolSpeedRate(toolBaseSpeedRate, roleEnhancementLevel, targetItemLevel) {
@@ -2140,19 +2140,19 @@ function computeEnhancementToolSpeedRate(toolBaseSpeedRate, roleEnhancementLevel
     return baseSpeedRate + levelBonus;
 }
 /**
- * computeEnhancementJobTicks：执行核心业务逻辑。
+ * computeEnhancementJobTicks：执行强化Jobtick相关逻辑。
  * @param itemLevel 参数说明。
  * @param speedRate 参数说明。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新强化Jobtick相关状态。
  */
 
 function computeEnhancementJobTicks(itemLevel, speedRate) {
     return computeAdjustedCraftTicks(computeEnhancementJobBaseTicks(itemLevel), speedRate);
 }
 /**
- * computeEnhancementJobBaseTicks：执行核心业务逻辑。
+ * computeEnhancementJobBaseTicks：执行强化JobBasetick相关逻辑。
  * @param itemLevel 参数说明。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新强化JobBasetick相关状态。
  */
 
 function computeEnhancementJobBaseTicks(itemLevel) {
@@ -2160,10 +2160,10 @@ function computeEnhancementJobBaseTicks(itemLevel) {
     return ENHANCEMENT_BASE_JOB_TICKS + Math.max(0, normalizedLevel - 1) * ENHANCEMENT_JOB_TICKS_PER_ITEM_LEVEL;
 }
 /**
- * computeAdjustedCraftTicks：执行核心业务逻辑。
+ * computeAdjustedCraftTicks：执行Adjusted炼制tick相关逻辑。
  * @param baseTicks 参数说明。
  * @param speedRate 参数说明。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新Adjusted炼制tick相关状态。
  */
 
 function computeAdjustedCraftTicks(baseTicks, speedRate) {
@@ -2180,10 +2180,10 @@ function computeAdjustedCraftTicks(baseTicks, speedRate) {
     return Math.max(1, Math.ceil(normalizedBaseTicks * (1 + Math.abs(normalizedSpeedRate))));
 }
 /**
- * applyEnhancementSuccessModifier：更新/写入相关状态。
+ * applyEnhancementSuccessModifier：处理强化SuccessModifier并更新相关状态。
  * @param baseRate 参数说明。
  * @param modifier 参数说明。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新强化SuccessModifier相关状态。
  */
 
 function applyEnhancementSuccessModifier(baseRate, modifier) {
@@ -2211,12 +2211,12 @@ function applyEnhancementSuccessModifier(baseRate, modifier) {
     return 1 - ((1 - normalizedBaseRate) / factor);
 }
 /**
- * computeEnhancementAdjustedSuccessRate：执行核心业务逻辑。
+ * computeEnhancementAdjustedSuccessRate：执行强化AdjustedSuccessRate相关逻辑。
  * @param targetEnhanceLevel 参数说明。
  * @param roleEnhancementLevel 参数说明。
  * @param targetItemLevel 参数说明。
  * @param toolSuccessRateModifier 参数说明。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新强化AdjustedSuccessRate相关状态。
  */
 
 function computeEnhancementAdjustedSuccessRate(targetEnhanceLevel, roleEnhancementLevel, targetItemLevel, toolSuccessRateModifier = 0) {

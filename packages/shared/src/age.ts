@@ -4,12 +4,12 @@ import { GAME_DAY_TICKS } from './constants/gameplay/world';
 /** 角色寿命信息：记录角色当前年龄换算所需的基础输入。 */
 export interface CharacterChronologyState {
 /**
- * boneAgeBaseYears：CharacterChronologyState 内部字段。
+ * boneAgeBaseYears：boneAgeBaseYear相关字段。
  */
 
   boneAgeBaseYears?: number;  
   /**
- * lifeElapsedTicks：CharacterChronologyState 内部字段。
+ * lifeElapsedTicks：lifeElapsedtick相关字段。
  */
 
   lifeElapsedTicks?: number;
@@ -18,22 +18,22 @@ export interface CharacterChronologyState {
 /** 角色年龄快照：把骨龄和生存时长换算成年龄展示。 */
 export interface CharacterAgeSnapshot {
 /**
- * totalDays：CharacterAgeSnapshot 内部字段。
+ * totalDays：totalDay相关字段。
  */
 
   totalDays: number;  
   /**
- * years：CharacterAgeSnapshot 内部字段。
+ * years：year相关字段。
  */
 
   years: number;  
   /**
- * days：CharacterAgeSnapshot 内部字段。
+ * days：day相关字段。
  */
 
   days: number;  
   /**
- * totalYears：CharacterAgeSnapshot 内部字段。
+ * totalYears：totalYear相关字段。
  */
 
   totalYears: number;
@@ -42,22 +42,22 @@ export interface CharacterAgeSnapshot {
 /** 角色剩余寿命快照：换算为剩余天数和是否逝世。 */
 export interface CharacterRemainingLifespanSnapshot {
 /**
- * totalDays：CharacterRemainingLifespanSnapshot 内部字段。
+ * totalDays：totalDay相关字段。
  */
 
   totalDays: number;  
   /**
- * years：CharacterRemainingLifespanSnapshot 内部字段。
+ * years：year相关字段。
  */
 
   years: number;  
   /**
- * days：CharacterRemainingLifespanSnapshot 内部字段。
+ * days：day相关字段。
  */
 
   days: number;  
   /**
- * expired：CharacterRemainingLifespanSnapshot 内部字段。
+ * expired：expired相关字段。
  */
 
   expired: boolean;

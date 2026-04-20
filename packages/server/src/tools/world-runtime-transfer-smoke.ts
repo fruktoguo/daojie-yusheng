@@ -4,8 +4,8 @@ const assert = require("node:assert/strict");
 
 const { WorldRuntimeTransferService } = require("../runtime/world/world-runtime-transfer.service");
 /**
- * testMissingSourceIsNoop：执行核心业务逻辑。
- * @returns 函数返回值。
+ * testMissingSourceIsNoop：判断testMissing来源INoop是否满足条件。
+ * @returns 无返回值，直接更新testMissing来源INoop相关状态。
  */
 
 
@@ -23,18 +23,18 @@ function testMissingSourceIsNoop() {
         reason: 'portal',
     }, {    
     /**
- * getInstanceRuntime：按给定条件读取/查询数据。
- * @returns 函数返回值。
+ * getInstanceRuntime：读取Instance运行态。
+ * @returns 无返回值，完成Instance运行态的读取/组装。
  */
 
         getInstanceRuntime() {
             return null;
         },        
         /**
- * setPlayerLocation：更新/写入相关状态。
+ * setPlayerLocation：写入玩家位置。
  * @param playerId 玩家 ID。
  * @param location 参数说明。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新玩家位置相关状态。
  */
 
         setPlayerLocation(playerId, location) {
@@ -42,8 +42,8 @@ function testMissingSourceIsNoop() {
         },
         playerRuntimeService: {        
         /**
- * getPlayer：按给定条件读取/查询数据。
- * @returns 函数返回值。
+ * getPlayer：读取玩家。
+ * @returns 无返回值，完成玩家的读取/组装。
  */
 
             getPlayer() {
@@ -52,8 +52,8 @@ function testMissingSourceIsNoop() {
             },
         },        
         /**
- * getOrCreatePublicInstance：按给定条件读取/查询数据。
- * @returns 函数返回值。
+ * getOrCreatePublicInstance：读取OrCreatePublicInstance。
+ * @returns 无返回值，完成OrCreatePublicInstance的读取/组装。
  */
 
         getOrCreatePublicInstance() {
@@ -62,8 +62,8 @@ function testMissingSourceIsNoop() {
         },
         worldRuntimeNavigationService: {        
         /**
- * handleTransfer：处理事件并驱动执行路径。
- * @returns 函数返回值。
+ * handleTransfer：处理Transfer并更新相关状态。
+ * @returns 无返回值，直接更新Transfer相关状态。
  */
 
             handleTransfer() {
@@ -75,8 +75,8 @@ function testMissingSourceIsNoop() {
     assert.equal(playerLocations.size, 0);
 }
 /**
- * testApplyTransfer：执行核心业务逻辑。
- * @returns 函数返回值。
+ * testApplyTransfer：处理testApplyTransfer并更新相关状态。
+ * @returns 无返回值，直接更新testApplyTransfer相关状态。
  */
 
 
@@ -86,9 +86,9 @@ function testApplyTransfer() {
     const playerLocations = new Map();
     const source = {    
     /**
- * disconnectPlayer：执行核心业务逻辑。
+ * disconnectPlayer：判断disconnect玩家是否满足条件。
  * @param playerId 玩家 ID。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新disconnect玩家相关状态。
  */
 
         disconnectPlayer(playerId) {
@@ -98,19 +98,19 @@ function testApplyTransfer() {
     const target = {
         meta: { instanceId: 'public:yunlai_town' },        
         /**
- * connectPlayer：执行核心业务逻辑。
+ * connectPlayer：执行connect玩家相关逻辑。
  * @param payload 载荷参数。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新connect玩家相关状态。
  */
 
         connectPlayer(payload) {
             log.push(['connectPlayer', payload]);
         },        
         /**
- * setPlayerMoveSpeed：更新/写入相关状态。
+ * setPlayerMoveSpeed：写入玩家MoveSpeed。
  * @param playerId 玩家 ID。
  * @param speed 参数说明。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新玩家MoveSpeed相关状态。
  */
 
         setPlayerMoveSpeed(playerId, speed) {
@@ -129,19 +129,19 @@ function testApplyTransfer() {
     const instanceRuntimes = new Map([['instance:old', source]]);
     service.applyTransfer(transfer, {    
     /**
- * getInstanceRuntime：按给定条件读取/查询数据。
+ * getInstanceRuntime：读取Instance运行态。
  * @param instanceId instance ID。
- * @returns 函数返回值。
+ * @returns 无返回值，完成Instance运行态的读取/组装。
  */
 
         getInstanceRuntime(instanceId) {
             return instanceRuntimes.get(instanceId) ?? null;
         },        
         /**
- * setPlayerLocation：更新/写入相关状态。
+ * setPlayerLocation：写入玩家位置。
  * @param playerId 玩家 ID。
  * @param location 参数说明。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新玩家位置相关状态。
  */
 
         setPlayerLocation(playerId, location) {
@@ -149,9 +149,9 @@ function testApplyTransfer() {
         },
         playerRuntimeService: {        
         /**
- * getPlayer：按给定条件读取/查询数据。
+ * getPlayer：读取玩家。
  * @param playerId 玩家 ID。
- * @returns 函数返回值。
+ * @returns 无返回值，完成玩家的读取/组装。
  */
 
             getPlayer(playerId) {
@@ -160,9 +160,9 @@ function testApplyTransfer() {
             },
         },        
         /**
- * getOrCreatePublicInstance：按给定条件读取/查询数据。
+ * getOrCreatePublicInstance：读取OrCreatePublicInstance。
  * @param mapId 地图 ID。
- * @returns 函数返回值。
+ * @returns 无返回值，完成OrCreatePublicInstance的读取/组装。
  */
 
         getOrCreatePublicInstance(mapId) {
@@ -171,9 +171,9 @@ function testApplyTransfer() {
         },
         worldRuntimeNavigationService: {        
         /**
- * handleTransfer：处理事件并驱动执行路径。
+ * handleTransfer：处理Transfer并更新相关状态。
  * @param entry 参数说明。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新Transfer相关状态。
  */
 
             handleTransfer(entry) {

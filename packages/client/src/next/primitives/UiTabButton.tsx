@@ -6,20 +6,20 @@ import type { ButtonHTMLAttributes, PropsWithChildren } from 'react';
 
 export interface UiTabButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {
 /**
- * active：UiTabButtonProps 内部字段。
+ * active：启用开关或状态标识。
  */
 
   active?: boolean;
 }
 /**
- * UiTabButton：执行核心业务逻辑。
+ * UiTabButton：渲染UiTabButton组件。
  * @param {
   active = false,
   className,
   children,
   ...props
 } PropsWithChildren<UiTabButtonProps> 参数说明。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新UiTabButton相关状态。
  */
 
 

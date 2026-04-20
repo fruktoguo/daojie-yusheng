@@ -7,24 +7,24 @@ exports.WorldGatewaySuggestionHelper = void 0;
 /** 世界 socket suggestion helper：只收敛玩家建议写路径。 */
 class WorldGatewaySuggestionHelper {
 /**
- * gateway：WorldGatewaySuggestionHelper 内部字段。
+ * gateway：gateway相关字段。
  */
 
     gateway;    
     /**
  * 构造器：初始化 当前 实例并建立基础状态。
  * @param gateway 参数说明。
- * @returns 无返回值（构造函数）。
+ * @returns 无返回值，完成实例初始化。
  */
 
     constructor(gateway) {
         this.gateway = gateway;
     }    
     /**
- * handleNextRequestSuggestions：处理事件并驱动执行路径。
+ * handleNextRequestSuggestions：处理NextRequestSuggestion并更新相关状态。
  * @param client 参数说明。
  * @param payload 载荷参数。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新NextRequestSuggestion相关状态。
  */
 
     handleNextRequestSuggestions(client, payload) {
@@ -37,10 +37,10 @@ class WorldGatewaySuggestionHelper {
         this.gateway.gatewayClientEmitHelper.emitNextSuggestionUpdate(client, this.gateway.suggestionRuntimeService.getAll());
     }    
     /**
- * handleNextCreateSuggestion：处理事件并驱动执行路径。
+ * handleNextCreateSuggestion：构建NextCreateSuggestion。
  * @param client 参数说明。
  * @param payload 载荷参数。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新NextCreateSuggestion相关状态。
  */
 
     async handleNextCreateSuggestion(client, payload) {
@@ -59,10 +59,10 @@ class WorldGatewaySuggestionHelper {
         }
     }    
     /**
- * handleNextVoteSuggestion：处理事件并驱动执行路径。
+ * handleNextVoteSuggestion：处理NextVoteSuggestion并更新相关状态。
  * @param client 参数说明。
  * @param payload 载荷参数。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新NextVoteSuggestion相关状态。
  */
 
     async handleNextVoteSuggestion(client, payload) {
@@ -81,10 +81,10 @@ class WorldGatewaySuggestionHelper {
         }
     }    
     /**
- * handleNextReplySuggestion：处理事件并驱动执行路径。
+ * handleNextReplySuggestion：处理NextReplySuggestion并更新相关状态。
  * @param client 参数说明。
  * @param payload 载荷参数。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新NextReplySuggestion相关状态。
  */
 
     async handleNextReplySuggestion(client, payload) {
@@ -103,10 +103,10 @@ class WorldGatewaySuggestionHelper {
         }
     }    
     /**
- * handleNextMarkSuggestionRepliesRead：处理事件并驱动执行路径。
+ * handleNextMarkSuggestionRepliesRead：读取NextMarkSuggestionReplyRead并返回结果。
  * @param client 参数说明。
  * @param payload 载荷参数。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新NextMarkSuggestionReplyRead相关状态。
  */
 
     async handleNextMarkSuggestionRepliesRead(client, payload) {

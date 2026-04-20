@@ -8,7 +8,7 @@ export class DebugPanel {
   private onReset: (() => void) | null = null;  
   /**
  * 构造器：初始化 当前 实例并建立基础状态。
- * @returns 无返回值（构造函数）。
+ * @returns 无返回值，完成实例初始化。
  */
 
 
@@ -18,9 +18,9 @@ export class DebugPanel {
     });
   }  
   /**
- * setCallbacks：更新/写入相关状态。
+ * setCallbacks：写入Callback。
  * @param onReset () => void 参数说明。
- * @returns void。
+ * @returns 无返回值，直接更新Callback相关状态。
  */
 
 

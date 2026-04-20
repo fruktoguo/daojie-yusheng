@@ -28,12 +28,12 @@ const { chebyshevDistance } = world_runtime_path_planning_helpers_1;
 /** NPC 任务交互查询服务：承接 quest marker 与 npc_quests 动作构造。 */
 let WorldRuntimeNpcQuestInteractionQueryService = class WorldRuntimeNpcQuestInteractionQueryService {
 /**
- * worldRuntimeQuestQueryService：对象字段。
+ * worldRuntimeQuestQueryService：世界运行态任务Query服务引用。
  */
 
     worldRuntimeQuestQueryService;    
     /**
- * playerRuntimeService：对象字段。
+ * playerRuntimeService：玩家运行态服务引用。
  */
 
     playerRuntimeService;    
@@ -41,7 +41,7 @@ let WorldRuntimeNpcQuestInteractionQueryService = class WorldRuntimeNpcQuestInte
  * 构造器：初始化 当前 实例并建立基础状态。
  * @param worldRuntimeQuestQueryService 参数说明。
  * @param playerRuntimeService 参数说明。
- * @returns 无返回值（构造函数）。
+ * @returns 无返回值，完成实例初始化。
  */
 
     constructor(worldRuntimeQuestQueryService, playerRuntimeService) {
@@ -49,11 +49,11 @@ let WorldRuntimeNpcQuestInteractionQueryService = class WorldRuntimeNpcQuestInte
         this.playerRuntimeService = playerRuntimeService;
     }    
     /**
- * resolveNpcQuestMarker：执行核心业务逻辑。
+ * resolveNpcQuestMarker：规范化或转换NPC任务Marker。
  * @param playerId 玩家 ID。
  * @param npcId npc ID。
  * @param deps 运行时依赖。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新NPC任务Marker相关状态。
  */
 
     resolveNpcQuestMarker(playerId, npcId, deps) {
@@ -90,7 +90,7 @@ let WorldRuntimeNpcQuestInteractionQueryService = class WorldRuntimeNpcQuestInte
  * buildNpcQuestContextAction：构建并返回目标对象。
  * @param view 参数说明。
  * @param npc 参数说明。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新NPC任务上下文Action相关状态。
  */
 
     buildNpcQuestContextAction(view, npc) {

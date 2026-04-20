@@ -6,28 +6,28 @@ import type { PropsWithChildren, ReactNode } from 'react';
 
 export interface UiSectionProps {
 /**
- * title：UiSectionProps 内部字段。
+ * title：title名称或显示文本。
  */
 
   title: string;  
   /**
- * subtitle：UiSectionProps 内部字段。
+ * subtitle：subtitle名称或显示文本。
  */
 
   subtitle?: ReactNode;  
   /**
- * actions：UiSectionProps 内部字段。
+ * actions：action相关字段。
  */
 
   actions?: ReactNode;  
   /**
- * className：UiSectionProps 内部字段。
+ * className：class名称名称或显示文本。
  */
 
   className?: string;
 }
 /**
- * UiSection：执行核心业务逻辑。
+ * UiSection：判断UiSection是否满足条件。
  * @param {
   title,
   subtitle,
@@ -35,7 +35,7 @@ export interface UiSectionProps {
   className,
   children,
 } PropsWithChildren<UiSectionProps> 参数说明。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新UiSection相关状态。
  */
 
 

@@ -4,12 +4,12 @@
 /** 观察信息行 */
 export interface ObservationLine {
 /**
- * label：ObservationLine 内部字段。
+ * label：label名称或显示文本。
  */
 
   label: string;  
   /**
- * value：ObservationLine 内部字段。
+ * value：值数值。
  */
 
   value: string;
@@ -21,17 +21,17 @@ export type ObservationClarity = 'veiled' | 'blurred' | 'partial' | 'clear' | 'c
 /** 观察洞察结果 */
 export interface ObservationInsight {
 /**
- * clarity：ObservationInsight 内部字段。
+ * clarity：clarity相关字段。
  */
 
   clarity: ObservationClarity;  
   /**
- * verdict：ObservationInsight 内部字段。
+ * verdict：verdict相关字段。
  */
 
   verdict: string;  
   /**
- * lines：ObservationInsight 内部字段。
+ * lines：line相关字段。
  */
 
   lines: ObservationLine[];

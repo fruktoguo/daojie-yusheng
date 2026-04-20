@@ -35,32 +35,32 @@ exports.WORLD_SESSION_REAPER_CONTRACT = WORLD_SESSION_REAPER_CONTRACT;
 
 let WorldSessionReaperService = WorldSessionReaperService_1 = class WorldSessionReaperService {
 /**
- * worldSessionService：对象字段。
+ * worldSessionService：世界Session服务引用。
  */
 
     worldSessionService;    
     /**
- * worldSyncService：对象字段。
+ * worldSyncService：世界Sync服务引用。
  */
 
     worldSyncService;    
     /**
- * playerPersistenceFlushService：对象字段。
+ * playerPersistenceFlushService：玩家PersistenceFlush服务引用。
  */
 
     playerPersistenceFlushService;    
     /**
- * logger：对象字段。
+ * logger：日志器引用。
  */
 
     logger = new common_1.Logger(WorldSessionReaperService_1.name);    
     /**
- * timer：对象字段。
+ * timer：timer相关字段。
  */
 
     timer = null;    
     /**
- * running：对象字段。
+ * running：running相关字段。
  */
 
     running = false;    
@@ -69,7 +69,7 @@ let WorldSessionReaperService = WorldSessionReaperService_1 = class WorldSession
  * @param worldSessionService 参数说明。
  * @param worldSyncService 参数说明。
  * @param playerPersistenceFlushService 参数说明。
- * @returns 无返回值（构造函数）。
+ * @returns 无返回值，完成实例初始化。
  */
 
     constructor(worldSessionService, worldSyncService, playerPersistenceFlushService) {
@@ -78,8 +78,8 @@ let WorldSessionReaperService = WorldSessionReaperService_1 = class WorldSession
         this.playerPersistenceFlushService = playerPersistenceFlushService;
     }    
     /**
- * onModuleInit：执行核心业务逻辑。
- * @returns 函数返回值。
+ * onModuleInit：执行on模块Init相关逻辑。
+ * @returns 无返回值，直接更新on模块Init相关状态。
  */
 
     onModuleInit() {
@@ -90,8 +90,8 @@ let WorldSessionReaperService = WorldSessionReaperService_1 = class WorldSession
         this.logger.log(`会话回收器已启动，间隔 ${SESSION_REAPER_INTERVAL_MS}ms`);
     }    
     /**
- * onModuleDestroy：执行核心业务逻辑。
- * @returns 函数返回值。
+ * onModuleDestroy：执行on模块Destroy相关逻辑。
+ * @returns 无返回值，直接更新on模块Destroy相关状态。
  */
 
     onModuleDestroy() {
@@ -101,8 +101,8 @@ let WorldSessionReaperService = WorldSessionReaperService_1 = class WorldSession
         }
     }    
     /**
- * reapExpiredSessions：执行核心业务逻辑。
- * @returns 函数返回值。
+ * reapExpiredSessions：执行reapExpiredSession相关逻辑。
+ * @returns 无返回值，直接更新reapExpiredSession相关状态。
  */
 
     async reapExpiredSessions() {

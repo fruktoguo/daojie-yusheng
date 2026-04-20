@@ -21,25 +21,25 @@ const player_runtime_service_1 = require("../player/player-runtime.service");
 /** world-runtime equipment orchestration：承接装备穿戴/卸下结算。 */
 let WorldRuntimeEquipmentService = class WorldRuntimeEquipmentService {
 /**
- * playerRuntimeService：对象字段。
+ * playerRuntimeService：玩家运行态服务引用。
  */
 
     playerRuntimeService;    
     /**
  * 构造器：初始化 当前 实例并建立基础状态。
  * @param playerRuntimeService 参数说明。
- * @returns 无返回值（构造函数）。
+ * @returns 无返回值，完成实例初始化。
  */
 
     constructor(playerRuntimeService) {
         this.playerRuntimeService = playerRuntimeService;
     }    
     /**
- * dispatchEquipItem：处理事件并驱动执行路径。
+ * dispatchEquipItem：判断Equip道具是否满足条件。
  * @param playerId 玩家 ID。
  * @param slotIndex 参数说明。
  * @param deps 运行时依赖。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新Equip道具相关状态。
  */
 
     dispatchEquipItem(playerId, slotIndex, deps) {
@@ -62,11 +62,11 @@ let WorldRuntimeEquipmentService = class WorldRuntimeEquipmentService {
         deps.worldRuntimeCraftMutationService.emitCraftPanelUpdate(playerId, 'enhancement', deps);
     }    
     /**
- * dispatchUnequipItem：处理事件并驱动执行路径。
+ * dispatchUnequipItem：判断Unequip道具是否满足条件。
  * @param playerId 玩家 ID。
  * @param slot 参数说明。
  * @param deps 运行时依赖。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新Unequip道具相关状态。
  */
 
     dispatchUnequipItem(playerId, slot, deps) {

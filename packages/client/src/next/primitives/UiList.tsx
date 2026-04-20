@@ -6,33 +6,33 @@ import type { CSSProperties, PropsWithChildren } from 'react';
 
 export interface UiListProps {
 /**
- * orientation：UiListProps 内部字段。
+ * orientation：orientation相关字段。
  */
 
   orientation?: 'vertical' | 'horizontal' | 'grid';  
   /**
- * scrollable：UiListProps 内部字段。
+ * scrollable：scrollable相关字段。
  */
 
   scrollable?: boolean;  
   /**
- * columns：UiListProps 内部字段。
+ * columns：column相关字段。
  */
 
   columns?: number;  
   /**
- * gap：UiListProps 内部字段。
+ * gap：gap相关字段。
  */
 
   gap?: 'sm' | 'md';  
   /**
- * className：UiListProps 内部字段。
+ * className：class名称名称或显示文本。
  */
 
   className?: string;
 }
 /**
- * UiList：执行核心业务逻辑。
+ * UiList：读取Ui列表并返回结果。
  * @param {
   orientation = 'vertical',
   scrollable = false,
@@ -41,7 +41,7 @@ export interface UiListProps {
   className,
   children,
 } PropsWithChildren<UiListProps> 参数说明。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新Ui列表相关状态。
  */
 
 

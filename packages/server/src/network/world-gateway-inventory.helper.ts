@@ -7,24 +7,24 @@ exports.WorldGatewayInventoryHelper = void 0;
 /** 世界 socket 背包/装备 helper：只收敛 inventory/equipment 相关入口。 */
 class WorldGatewayInventoryHelper {
 /**
- * gateway：WorldGatewayInventoryHelper 内部字段。
+ * gateway：gateway相关字段。
  */
 
     gateway;    
     /**
  * 构造器：初始化 当前 实例并建立基础状态。
  * @param gateway 参数说明。
- * @returns 无返回值（构造函数）。
+ * @returns 无返回值，完成实例初始化。
  */
 
     constructor(gateway) {
         this.gateway = gateway;
     }    
     /**
- * handleNextDestroyItem：处理事件并驱动执行路径。
+ * handleNextDestroyItem：处理NextDestroy道具并更新相关状态。
  * @param client 参数说明。
  * @param payload 载荷参数。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新NextDestroy道具相关状态。
  */
 
     handleNextDestroyItem(client, payload) {
@@ -46,10 +46,10 @@ class WorldGatewayInventoryHelper {
         }
     }    
     /**
- * handleNextSortInventory：处理事件并驱动执行路径。
+ * handleNextSortInventory：处理NextSort背包并更新相关状态。
  * @param client 参数说明。
  * @param _payload 参数说明。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新NextSort背包相关状态。
  */
 
     handleNextSortInventory(client, _payload) {
@@ -71,10 +71,10 @@ class WorldGatewayInventoryHelper {
         }
     }    
     /**
- * executeUseItem：执行核心业务逻辑。
+ * executeUseItem：执行executeUse道具相关逻辑。
  * @param client 参数说明。
  * @param payload 载荷参数。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新executeUse道具相关状态。
  */
 
     executeUseItem(client, payload) {
@@ -92,20 +92,20 @@ class WorldGatewayInventoryHelper {
         }
     }    
     /**
- * handleNextUseItem：处理事件并驱动执行路径。
+ * handleNextUseItem：处理NextUse道具并更新相关状态。
  * @param client 参数说明。
  * @param payload 载荷参数。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新NextUse道具相关状态。
  */
 
     handleNextUseItem(client, payload) {
         this.executeUseItem(client, payload);
     }    
     /**
- * executeDropItem：执行核心业务逻辑。
+ * executeDropItem：执行executeDrop道具相关逻辑。
  * @param client 参数说明。
  * @param payload 载荷参数。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新executeDrop道具相关状态。
  */
 
     executeDropItem(client, payload) {
@@ -123,20 +123,20 @@ class WorldGatewayInventoryHelper {
         }
     }    
     /**
- * handleNextDropItem：处理事件并驱动执行路径。
+ * handleNextDropItem：处理NextDrop道具并更新相关状态。
  * @param client 参数说明。
  * @param payload 载荷参数。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新NextDrop道具相关状态。
  */
 
     handleNextDropItem(client, payload) {
         this.executeDropItem(client, payload);
     }    
     /**
- * handleTakeGround：处理事件并驱动执行路径。
+ * handleTakeGround：处理Take地面并更新相关状态。
  * @param client 参数说明。
  * @param payload 载荷参数。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新TakeGround相关状态。
  */
 
     handleTakeGround(client, payload) {
@@ -158,10 +158,10 @@ class WorldGatewayInventoryHelper {
         }
     }    
     /**
- * executeEquip：执行核心业务逻辑。
+ * executeEquip：执行executeEquip相关逻辑。
  * @param client 参数说明。
  * @param payload 载荷参数。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新executeEquip相关状态。
  */
 
     executeEquip(client, payload) {
@@ -179,20 +179,20 @@ class WorldGatewayInventoryHelper {
         }
     }    
     /**
- * handleNextEquip：处理事件并驱动执行路径。
+ * handleNextEquip：处理NextEquip并更新相关状态。
  * @param client 参数说明。
  * @param payload 载荷参数。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新NextEquip相关状态。
  */
 
     handleNextEquip(client, payload) {
         this.executeEquip(client, payload);
     }    
     /**
- * executeUnequip：执行核心业务逻辑。
+ * executeUnequip：执行executeUnequip相关逻辑。
  * @param client 参数说明。
  * @param payload 载荷参数。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新executeUnequip相关状态。
  */
 
     executeUnequip(client, payload) {
@@ -210,10 +210,10 @@ class WorldGatewayInventoryHelper {
         }
     }    
     /**
- * handleNextUnequip：处理事件并驱动执行路径。
+ * handleNextUnequip：处理NextUnequip并更新相关状态。
  * @param client 参数说明。
  * @param payload 载荷参数。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新NextUnequip相关状态。
  */
 
     handleNextUnequip(client, payload) {

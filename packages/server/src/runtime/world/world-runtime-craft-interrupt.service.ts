@@ -23,17 +23,17 @@ const world_runtime_alchemy_service_1 = require("./world-runtime-alchemy.service
 /** world-runtime craft interrupt orchestration：承接跨 craft 面板的中断写路径。 */
 let WorldRuntimeCraftInterruptService = class WorldRuntimeCraftInterruptService {
 /**
- * craftPanelRuntimeService：对象字段。
+ * craftPanelRuntimeService：炼制面板运行态服务引用。
  */
 
     craftPanelRuntimeService;    
     /**
- * worldRuntimeCraftMutationService：对象字段。
+ * worldRuntimeCraftMutationService：世界运行态炼制Mutation服务引用。
  */
 
     worldRuntimeCraftMutationService;    
     /**
- * worldRuntimeAlchemyService：对象字段。
+ * worldRuntimeAlchemyService：世界运行态炼丹服务引用。
  */
 
     worldRuntimeAlchemyService;    
@@ -42,7 +42,7 @@ let WorldRuntimeCraftInterruptService = class WorldRuntimeCraftInterruptService 
  * @param craftPanelRuntimeService 参数说明。
  * @param worldRuntimeCraftMutationService 参数说明。
  * @param worldRuntimeAlchemyService 参数说明。
- * @returns 无返回值（构造函数）。
+ * @returns 无返回值，完成实例初始化。
  */
 
     constructor(craftPanelRuntimeService, worldRuntimeCraftMutationService, worldRuntimeAlchemyService) {
@@ -51,12 +51,12 @@ let WorldRuntimeCraftInterruptService = class WorldRuntimeCraftInterruptService 
         this.worldRuntimeAlchemyService = worldRuntimeAlchemyService;
     }    
     /**
- * interruptCraftForReason：执行核心业务逻辑。
+ * interruptCraftForReason：执行interrupt炼制ForReason相关逻辑。
  * @param playerId 玩家 ID。
  * @param player 玩家对象。
  * @param reason 参数说明。
  * @param deps 运行时依赖。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新interrupt炼制ForReason相关状态。
  */
 
     interruptCraftForReason(playerId, player, reason, deps) {

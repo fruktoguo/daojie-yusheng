@@ -28,9 +28,9 @@ const FORBIDDEN_PATTERNS = [
   /path\.(resolve|join)\([^\n]*legacy/,
 ];
 /**
- * listJsFiles：执行核心业务逻辑。
+ * listJsFiles：读取JFile并返回结果。
  * @param relativeDir 参数说明。
- * @returns 函数返回值。
+ * @returns 无返回值，完成JFile的读取/组装。
  */
 
 
@@ -57,9 +57,9 @@ function listJsFiles(relativeDir) {
   return files.sort((left, right) => left.localeCompare(right, "en"));
 }
 /**
- * scanFile：执行核心业务逻辑。
+ * scanFile：判断scanFile是否满足条件。
  * @param absolutePath 参数说明。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新scanFile相关状态。
  */
 
 
@@ -83,8 +83,8 @@ function scanFile(absolutePath) {
   return hits;
 }
 /**
- * main：执行核心业务逻辑。
- * @returns 函数返回值。
+ * main：执行main相关逻辑。
+ * @returns 无返回值，直接更新main相关状态。
  */
 
 

@@ -119,9 +119,9 @@ const REGISTER_ACCOUNT_NAME_MAX_LENGTH = 20;
  */
 const suffix = `${Date.now().toString(36)}${Math.random().toString(36).slice(2, 6)}`;
 /**
- * isEnvEnabled：执行状态校验并返回判断结果。
+ * isEnvEnabled：判断Env启用是否满足条件。
  * @param key 参数说明。
- * @returns 函数返回值。
+ * @returns 无返回值，完成Env启用的条件判断。
  */
 
 function isEnvEnabled(key) {
@@ -131,7 +131,7 @@ function isEnvEnabled(key) {
 /**
  * buildStrictNativeSkippedProof：构建并返回目标对象。
  * @param reason 参数说明。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新StrictNativeSkippedProof相关状态。
  */
 
 function buildStrictNativeSkippedProof(reason) {
@@ -143,7 +143,7 @@ function buildStrictNativeSkippedProof(reason) {
 /**
  * buildProfileSkippedProof：构建并返回目标对象。
  * @param reason 参数说明。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新ProfileSkippedProof相关状态。
  */
 
 function buildProfileSkippedProof(reason) {
@@ -157,7 +157,7 @@ function buildProfileSkippedProof(reason) {
  * buildRegisterAccountName：构建并返回目标对象。
  * @param accountSuffix 参数说明。
  * @param retryAttempt 参数说明。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新RegisterAccount名称相关状态。
  */
 
 function buildRegisterAccountName(accountSuffix, retryAttempt = null) {
@@ -167,10 +167,10 @@ function buildRegisterAccountName(accountSuffix, retryAttempt = null) {
     return `${REGISTER_ACCOUNT_NAME_PREFIX}${normalizedSuffix}${retrySuffix}`;
 }
 /**
- * withEnvOverrides：执行核心业务逻辑。
+ * withEnvOverrides：执行withEnvOverride相关逻辑。
  * @param overrides 参数说明。
  * @param run 参数说明。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新withEnvOverride相关状态。
  */
 
 async function withEnvOverrides(overrides, run) {
@@ -201,8 +201,8 @@ async function withEnvOverrides(overrides, run) {
     }
 }
 /**
- * readBootstrapProfile：执行核心业务逻辑。
- * @returns 函数返回值。
+ * readBootstrapProfile：读取引导Profile并返回结果。
+ * @returns 无返回值，完成BootstrapProfile的读取/组装。
  */
 
 function readBootstrapProfile() {
@@ -664,8 +664,8 @@ function createNextSocket(token, options = undefined) {
         }
     });    
     /**
- * clearBootstrapDisconnectFatalIfRecovered：执行核心业务逻辑。
- * @returns 函数返回值。
+ * clearBootstrapDisconnectFatalIfRecovered：判断clear引导DisconnectFatalIfRecovered是否满足条件。
+ * @returns 无返回值，直接更新clearBootstrapDisconnectFatalIfRecovered相关状态。
  */
 
     function clearBootstrapDisconnectFatalIfRecovered() {
@@ -744,64 +744,64 @@ function createNextSocket(token, options = undefined) {
         socket,
         legacyEvents,        
         /**
- * mapEnterCount：执行核心业务逻辑。
- * @returns 函数返回值。
+ * mapEnterCount：读取地图Enter数量。
+ * @returns 返回地图Enter数量。
  */
 
         get mapEnterCount() {
             return mapEnterCount;
         },        
         /**
- * bootstrapCount：执行核心业务逻辑。
- * @returns 函数返回值。
+ * bootstrapCount：读取bootstrap数量。
+ * @returns 返回bootstrap数量。
  */
 
         get bootstrapCount() {
             return bootstrapCount;
         },        
         /**
- * mapStaticCount：执行核心业务逻辑。
- * @returns 函数返回值。
+ * mapStaticCount：读取地图Static数量。
+ * @returns 返回地图Static数量。
  */
 
         get mapStaticCount() {
             return mapStaticCount;
         },        
         /**
- * realmCount：执行核心业务逻辑。
- * @returns 函数返回值。
+ * realmCount：读取realm数量。
+ * @returns 返回realm数量。
  */
 
         get realmCount() {
             return realmCount;
         },        
         /**
- * worldDeltaCount：执行核心业务逻辑。
- * @returns 函数返回值。
+ * worldDeltaCount：读取世界Delta数量。
+ * @returns 返回世界Delta数量。
  */
 
         get worldDeltaCount() {
             return worldDeltaCount;
         },        
         /**
- * selfDeltaCount：执行核心业务逻辑。
- * @returns 函数返回值。
+ * selfDeltaCount：读取selfDelta数量。
+ * @returns 返回selfDelta数量。
  */
 
         get selfDeltaCount() {
             return selfDeltaCount;
         },        
         /**
- * panelDeltaCount：执行核心业务逻辑。
- * @returns 函数返回值。
+ * panelDeltaCount：读取面板Delta数量。
+ * @returns 返回面板Delta数量。
  */
 
         get panelDeltaCount() {
             return panelDeltaCount;
         },        
         /**
- * onceConnected：执行核心业务逻辑。
- * @returns 函数返回值。
+ * onceConnected：执行一次性Connected相关逻辑。
+ * @returns 无返回值，直接更新onceConnected相关状态。
  */
 
         async onceConnected() {
@@ -826,10 +826,10 @@ function createNextSocket(token, options = undefined) {
             });
         },        
         /**
- * emit：执行核心业务逻辑。
+ * emit：处理emit并更新相关状态。
  * @param event 参数说明。
  * @param payload 载荷参数。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新结果相关状态。
  */
 
         emit(event, payload) {
@@ -837,29 +837,29 @@ function createNextSocket(token, options = undefined) {
             socket.emit(event, payload);
         },        
         /**
- * getEventCount：按给定条件读取/查询数据。
+ * getEventCount：读取事件数量。
  * @param event 参数说明。
- * @returns 函数返回值。
+ * @returns 无返回值，完成事件数量的读取/组装。
  */
 
         getEventCount(event) {
             return (byEvent.get(event) ?? []).length;
         },        
         /**
- * listEventPayloads：执行核心业务逻辑。
+ * listEventPayloads：读取事件载荷并返回结果。
  * @param event 参数说明。
- * @returns 函数返回值。
+ * @returns 无返回值，完成事件载荷的读取/组装。
  */
 
         listEventPayloads(event) {
             return (byEvent.get(event) ?? []).slice();
         },        
         /**
- * waitForEvent：执行核心业务逻辑。
+ * waitForEvent：执行waitFor事件相关逻辑。
  * @param event 参数说明。
  * @param predicate 参数说明。
  * @param timeoutMs 参数说明。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新waitFor事件相关状态。
  */
 
         async waitForEvent(event, predicate = () => true, timeoutMs = 5000) {
@@ -882,8 +882,8 @@ function createNextSocket(token, options = undefined) {
             }, timeoutMs, `next:${event}`);
         },        
         /**
- * close：执行核心业务逻辑。
- * @returns 函数返回值。
+ * close：执行close相关逻辑。
+ * @returns 无返回值，直接更新close相关状态。
  */
 
         close() {
@@ -901,9 +901,9 @@ function assertNoLegacyEvents(target, label) {
     }
 }
 /**
- * flattenNoticeItems：执行核心业务逻辑。
+ * flattenNoticeItems：执行flattenNotice道具相关逻辑。
  * @param payloads 参数说明。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新flattenNotice道具相关状态。
  */
 
 function flattenNoticeItems(payloads) {
@@ -921,10 +921,10 @@ function flattenNoticeItems(payloads) {
     return items;
 }
 /**
- * hasPendingLogbookMessage：执行状态校验并返回判断结果。
+ * hasPendingLogbookMessage：判断待处理LogbookMessage是否满足条件。
  * @param playerState 参数说明。
  * @param messageId message ID。
- * @returns 函数返回值。
+ * @returns 无返回值，完成PendingLogbookMessage的条件判断。
  */
 
 function hasPendingLogbookMessage(playerState, messageId) {
@@ -935,7 +935,7 @@ function hasPendingLogbookMessage(playerState, messageId) {
 }
 /**
  * createAuthStarterSnapshotDeps：构建并返回目标对象。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新认证Starter快照Dep相关状态。
  */
 
 function createAuthStarterSnapshotDeps() {
@@ -1208,8 +1208,8 @@ async function verifyNextSocketRejectsLegacyEventContract(token, expectedPlayerI
     }
 }
 /**
- * verifyHelloAuthBootstrapForbiddenContract：执行核心业务逻辑。
- * @returns 函数返回值。
+ * verifyHelloAuthBootstrapForbiddenContract：执行verifyHello认证引导ForbiddenContract相关逻辑。
+ * @returns 无返回值，直接更新verifyHello认证BootstrapForbiddenContract相关状态。
  */
 
 async function verifyHelloAuthBootstrapForbiddenContract() {
@@ -1256,9 +1256,9 @@ async function verifyHelloAuthBootstrapForbiddenContract() {
             protocol: 'next',
         },        
         /**
- * disconnect：执行核心业务逻辑。
+ * disconnect：判断disconnect是否满足条件。
  * @param force 参数说明。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新disconnect相关状态。
  */
 
         disconnect(force) {
@@ -1289,8 +1289,8 @@ async function verifyHelloAuthBootstrapForbiddenContract() {
     };
 }
 /**
- * verifyImplicitLegacyProtocolEntryContract：执行核心业务逻辑。
- * @returns 函数返回值。
+ * verifyImplicitLegacyProtocolEntryContract：执行verifyImplicitLegacyProtocol条目Contract相关逻辑。
+ * @returns 无返回值，直接更新verifyImplicitLegacyProtocol条目Contract相关状态。
  */
 
 async function verifyImplicitLegacyProtocolEntryContract() {
@@ -1331,9 +1331,9 @@ async function verifyImplicitLegacyProtocolEntryContract() {
             protocol: 'legacy',
         },        
         /**
- * disconnect：执行核心业务逻辑。
+ * disconnect：判断disconnect是否满足条件。
  * @param force 参数说明。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新disconnect相关状态。
  */
 
         disconnect(force) {
@@ -1375,9 +1375,9 @@ async function verifyImplicitLegacyProtocolEntryContract() {
             protocol: 'legacy',
         },        
         /**
- * disconnect：执行核心业务逻辑。
+ * disconnect：判断disconnect是否满足条件。
  * @param force 参数说明。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新disconnect相关状态。
  */
 
         disconnect(force) {
@@ -1431,10 +1431,10 @@ async function verifyImplicitLegacyProtocolEntryContract() {
         data: {},
         emitted: [],        
         /**
- * emit：执行核心业务逻辑。
+ * emit：处理emit并更新相关状态。
  * @param event 参数说明。
  * @param payload 载荷参数。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新结果相关状态。
  */
 
         emit(event, payload) {
@@ -1461,10 +1461,10 @@ async function verifyImplicitLegacyProtocolEntryContract() {
         },
         emitted: [],        
         /**
- * emit：执行核心业务逻辑。
+ * emit：处理emit并更新相关状态。
  * @param event 参数说明。
  * @param payload 载荷参数。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新结果相关状态。
  */
 
         emit(event, payload) {
@@ -1484,10 +1484,10 @@ async function verifyImplicitLegacyProtocolEntryContract() {
         },
         emitted: [],        
         /**
- * emit：执行核心业务逻辑。
+ * emit：处理emit并更新相关状态。
  * @param event 参数说明。
  * @param payload 载荷参数。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新结果相关状态。
  */
 
         emit(event, payload) {
@@ -1533,10 +1533,10 @@ async function verifyImplicitLegacyProtocolEntryContract() {
             },
             emitted: [],            
             /**
- * emit：执行核心业务逻辑。
+ * emit：处理emit并更新相关状态。
  * @param event 参数说明。
  * @param payload 载荷参数。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新结果相关状态。
  */
 
             emit(event, payload) {
@@ -1583,8 +1583,8 @@ async function verifyImplicitLegacyProtocolEntryContract() {
     };
 }
 /**
- * verifyGmBootstrapSessionPolicyContract：执行核心业务逻辑。
- * @returns 函数返回值。
+ * verifyGmBootstrapSessionPolicyContract：执行verifyGM引导SessionPolicyContract相关逻辑。
+ * @returns 无返回值，直接更新verifyGMBootstrapSessionPolicyContract相关状态。
  */
 
 async function verifyGmBootstrapSessionPolicyContract() {
@@ -2248,8 +2248,8 @@ async function verifyAuthenticatedSessionContract(token, expectedIdentity, expec
     }
 }
 /**
- * verifyAuthenticatedMissingSnapshotRecoveryContract：执行核心业务逻辑。
- * @returns 函数返回值。
+ * verifyAuthenticatedMissingSnapshotRecoveryContract：判断verifyAuthenticatedMissing快照RecoveryContract是否满足条件。
+ * @returns 无返回值，直接更新verifyAuthenticatedMissing快照RecoveryContract相关状态。
  */
 
 async function verifyAuthenticatedMissingSnapshotRecoveryContract() {
@@ -2676,10 +2676,10 @@ async function verifyAuthenticatedSnapshotRecoveryNoticeContract() {
         },
     });    
     /**
- * runNoticeCase：执行核心业务逻辑。
+ * runNoticeCase：执行runNoticeCase相关逻辑。
  * @param persistedSource 参数说明。
  * @param expectedText 参数说明。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新runNoticeCase相关状态。
  */
 
     async function runNoticeCase(persistedSource, expectedText) {
@@ -2754,9 +2754,9 @@ async function verifyAuthenticatedSnapshotRecoveryNoticeContract() {
     };
 }
 /**
- * withLocalAuthTraceEnabled：执行核心业务逻辑。
+ * withLocalAuthTraceEnabled：执行withLocal认证Trace启用相关逻辑。
  * @param run 参数说明。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新withLocal认证Trace启用相关状态。
  */
 
 async function withLocalAuthTraceEnabled(run) {
@@ -2794,9 +2794,9 @@ async function withLocalAuthTraceEnabled(run) {
     }
 }
 /**
- * findLatestSnapshotRecoveryTrace：执行核心业务逻辑。
+ * findLatestSnapshotRecoveryTrace：读取最新快照RecoveryTrace并返回结果。
  * @param playerId 玩家 ID。
- * @returns 函数返回值。
+ * @returns 无返回值，完成Latest快照RecoveryTrace的读取/组装。
  */
 
 function findLatestSnapshotRecoveryTrace(playerId) {
@@ -3557,12 +3557,12 @@ async function verifyTokenSeedIdentityContract() {
     };
 }
 /**
- * verifySnapshotSequence：执行核心业务逻辑。
+ * verifySnapshotSequence：执行verify快照Sequence相关逻辑。
  * @param _token 参数说明。
  * @param _playerId _player ID。
  * @param authTrace 参数说明。
  * @param options 选项参数。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新verify快照Sequence相关状态。
  */
 
 
@@ -5261,10 +5261,10 @@ async function readPersistedPlayerSnapshotPayload(playerId, errorContext) {
     }
 }
 /**
- * readPersistedIdentityPayload：执行核心业务逻辑。
+ * readPersistedIdentityPayload：读取PersistedIdentity载荷并返回结果。
  * @param userId user ID。
  * @param errorContext 参数说明。
- * @returns 函数返回值。
+ * @returns 无返回值，完成PersistedIdentity载荷的读取/组装。
  */
 
 async function readPersistedIdentityPayload(userId, errorContext) {
@@ -6052,7 +6052,7 @@ function buildUniqueDisplayName(seed) {
  * @param base 参数说明。
  * @param suffixSeed 参数说明。
  * @param offset 参数说明。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新Retry显示名称相关状态。
  */
 
 function buildRetryDisplayName(base, suffixSeed, offset = 0) {
@@ -6063,7 +6063,7 @@ function buildRetryDisplayName(base, suffixSeed, offset = 0) {
  * buildRetryRoleName：构建并返回目标对象。
  * @param base 参数说明。
  * @param suffixSeed 参数说明。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新RetryRole名称相关状态。
  */
 
 function buildRetryRoleName(base, suffixSeed) {
@@ -6074,7 +6074,7 @@ function buildRetryRoleName(base, suffixSeed) {
  * buildSingleDisplayNameChar：构建并返回目标对象。
  * @param seed 参数说明。
  * @param offset 参数说明。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新Single显示名称Char相关状态。
  */
 
 function buildSingleDisplayNameChar(seed, offset = 0) {
@@ -6087,16 +6087,16 @@ function buildSingleDisplayNameChar(seed, offset = 0) {
  * buildCompactSeed：构建并返回目标对象。
  * @param seed 参数说明。
  * @param width 参数说明。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新CompactSeed相关状态。
  */
 
 function buildCompactSeed(seed, width) {
     return computeSeedHash(seed).toString(36).padStart(width, '0').slice(-width);
 }
 /**
- * computeSeedHash：执行核心业务逻辑。
+ * computeSeedHash：判断SeedHash是否满足条件。
  * @param seed 参数说明。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新SeedHash相关状态。
  */
 
 function computeSeedHash(seed) {
@@ -6153,9 +6153,9 @@ const declaredFunctionNames = Array.from(coreSource.matchAll(/^\s*(?:async\s+)?f
 const fixtureFunctionNames = buildFixtureFunctionNames(declaredFunctionNames);
 const helperFunctionNames = buildHelperFunctionNames(declaredFunctionNames, fixtureFunctionNames);
 /**
- * collectExports：执行核心业务逻辑。
+ * collectExports：执行Export相关逻辑。
  * @param names 参数说明。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新Export相关状态。
  */
 
 function collectExports(names) {

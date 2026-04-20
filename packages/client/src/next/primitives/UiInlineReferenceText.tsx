@@ -18,22 +18,22 @@ export type UiInlineReferenceTone = 'default' | 'reward' | 'required' | 'materia
 
 export interface UiInlineReference {
 /**
- * kind：UiInlineReference 内部字段。
+ * kind：kind相关字段。
  */
 
   kind: 'item' | 'monster';  
   /**
- * id：UiInlineReference 内部字段。
+ * id：ID标识。
  */
 
   id: string;  
   /**
- * label：UiInlineReference 内部字段。
+ * label：label名称或显示文本。
  */
 
   label: string;  
   /**
- * tone：UiInlineReference 内部字段。
+ * tone：tone相关字段。
  */
 
   tone?: UiInlineReferenceTone;
@@ -45,12 +45,12 @@ export interface UiInlineReference {
 
 interface TooltipPayload {
 /**
- * title：TooltipPayload 内部字段。
+ * title：title名称或显示文本。
  */
 
   title: string;  
   /**
- * lines：TooltipPayload 内部字段。
+ * lines：line相关字段。
  */
 
   lines: string[];
@@ -63,7 +63,7 @@ let tooltipRequestToken = 0;
  * buildItemTooltipPayload：构建并返回目标对象。
  * @param itemId string 道具 ID。
  * @param fallbackLabel string 参数说明。
- * @returns TooltipPayload。
+ * @returns 返回道具提示载荷。
  */
 
 
@@ -92,10 +92,10 @@ function buildItemTooltipPayload(itemId: string, fallbackLabel: string): Tooltip
   };
 }
 /**
- * loadMonsterTooltipPayload：按给定条件读取/查询数据。
+ * loadMonsterTooltipPayload：读取怪物提示载荷并返回结果。
  * @param monsterId string monster ID。
  * @param fallbackLabel string 参数说明。
- * @returns Promise<TooltipPayload>。
+ * @returns 返回 Promise，完成后得到怪物提示载荷。
  */
 
 
@@ -118,9 +118,9 @@ async function loadMonsterTooltipPayload(monsterId: string, fallbackLabel: strin
   };
 }
 /**
- * resolveReferenceTooltip：执行核心业务逻辑。
+ * resolveReferenceTooltip：规范化或转换Reference提示。
  * @param reference UiInlineReference 参数说明。
- * @returns Promise<TooltipPayload>。
+ * @returns 返回 Promise，完成后得到Reference提示。
  */
 
 
@@ -149,13 +149,13 @@ async function resolveReferenceTooltip(reference: UiInlineReference): Promise<To
   return resolved;
 }
 /**
- * UiInlineReferenceChip：执行核心业务逻辑。
+ * UiInlineReferenceChip：渲染UiInlineReferenceChip组件。
  * @param {
   reference,
 } {
   reference: UiInlineReference;
 } 参数说明。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新UiInlineReferenceChip相关状态。
  */
 
 
@@ -163,7 +163,7 @@ function UiInlineReferenceChip({
   reference,
 }: {
 /**
- * reference：对象字段。
+ * reference：reference相关字段。
  */
 
   reference: UiInlineReference;
@@ -203,29 +203,29 @@ function UiInlineReferenceChip({
 
 export interface UiInlineReferenceTextProps {
 /**
- * text：UiInlineReferenceTextProps 内部字段。
+ * text：text名称或显示文本。
  */
 
   text: string;  
   /**
- * references：UiInlineReferenceTextProps 内部字段。
+ * references：reference相关字段。
  */
 
   references: UiInlineReference[];  
   /**
- * className：UiInlineReferenceTextProps 内部字段。
+ * className：class名称名称或显示文本。
  */
 
   className?: string;
 }
 /**
- * UiInlineReferenceText：执行核心业务逻辑。
+ * UiInlineReferenceText：渲染UiInlineReferenceText组件。
  * @param {
   text,
   references,
   className,
 } UiInlineReferenceTextProps 参数说明。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新UiInlineReferenceText相关状态。
  */
 
 

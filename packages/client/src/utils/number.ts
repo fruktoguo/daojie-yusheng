@@ -19,17 +19,17 @@ function formatPlainNumber(value: number, maximumFractionDigits: number): string
 /** 数字显示格式选项。 */
 export interface DisplayNumberOptions {
 /**
- * maximumFractionDigits：DisplayNumberOptions 内部字段。
+ * maximumFractionDigits：maximumFractionDigit相关字段。
  */
 
   maximumFractionDigits?: number;  
   /**
- * compactThreshold：DisplayNumberOptions 内部字段。
+ * compactThreshold：compact阈值相关字段。
  */
 
   compactThreshold?: number;  
   /**
- * compactMaximumFractionDigits：DisplayNumberOptions 内部字段。
+ * compactMaximumFractionDigits：compactMaximumFractionDigit相关字段。
  */
 
   compactMaximumFractionDigits?: number;

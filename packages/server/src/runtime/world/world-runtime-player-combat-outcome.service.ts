@@ -22,12 +22,12 @@ const world_runtime_respawn_service_1 = require("./world-runtime-respawn.service
 /** world-runtime player-combat outcome orchestration：统一承接伤害结果、击杀奖励与复生入口 facade。 */
 let WorldRuntimePlayerCombatOutcomeService = class WorldRuntimePlayerCombatOutcomeService {
 /**
- * worldRuntimePlayerCombatService：对象字段。
+ * worldRuntimePlayerCombatService：世界运行态玩家战斗服务引用。
  */
 
     worldRuntimePlayerCombatService;    
     /**
- * worldRuntimeRespawnService：对象字段。
+ * worldRuntimeRespawnService：世界运行态重生服务引用。
  */
 
     worldRuntimeRespawnService;    
@@ -35,7 +35,7 @@ let WorldRuntimePlayerCombatOutcomeService = class WorldRuntimePlayerCombatOutco
  * 构造器：初始化 当前 实例并建立基础状态。
  * @param worldRuntimePlayerCombatService 参数说明。
  * @param worldRuntimeRespawnService 参数说明。
- * @returns 无返回值（构造函数）。
+ * @returns 无返回值，完成实例初始化。
  */
 
     constructor(worldRuntimePlayerCombatService, worldRuntimeRespawnService) {
@@ -43,52 +43,52 @@ let WorldRuntimePlayerCombatOutcomeService = class WorldRuntimePlayerCombatOutco
         this.worldRuntimeRespawnService = worldRuntimeRespawnService;
     }    
     /**
- * dispatchDamagePlayer：处理事件并驱动执行路径。
+ * dispatchDamagePlayer：判断Damage玩家是否满足条件。
  * @param playerId 玩家 ID。
  * @param amount 参数说明。
  * @param deps 运行时依赖。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新Damage玩家相关状态。
  */
 
     dispatchDamagePlayer(playerId, amount, deps) {
         this.worldRuntimePlayerCombatService.dispatchDamagePlayer(playerId, amount, deps);
     }    
     /**
- * handlePlayerMonsterKill：处理事件并驱动执行路径。
+ * handlePlayerMonsterKill：处理玩家怪物Kill并更新相关状态。
  * @param instance 地图实例。
  * @param monster 参数说明。
  * @param killerPlayerId killerPlayer ID。
  * @param deps 运行时依赖。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新玩家怪物Kill相关状态。
  */
 
     handlePlayerMonsterKill(instance, monster, killerPlayerId, deps) {
         this.worldRuntimePlayerCombatService.handlePlayerMonsterKill(instance, monster, killerPlayerId, deps);
     }    
     /**
- * handlePlayerDefeat：处理事件并驱动执行路径。
+ * handlePlayerDefeat：处理玩家Defeat并更新相关状态。
  * @param playerId 玩家 ID。
  * @param deps 运行时依赖。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新玩家Defeat相关状态。
  */
 
     handlePlayerDefeat(playerId, deps) {
         this.worldRuntimePlayerCombatService.handlePlayerDefeat(playerId, deps);
     }    
     /**
- * processPendingRespawns：处理事件并驱动执行路径。
+ * processPendingRespawns：处理待处理重生并更新相关状态。
  * @param deps 运行时依赖。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新Pending重生相关状态。
  */
 
     processPendingRespawns(deps) {
         this.worldRuntimeRespawnService.processPendingRespawns(deps);
     }    
     /**
- * respawnPlayer：执行核心业务逻辑。
+ * respawnPlayer：执行重生玩家相关逻辑。
  * @param playerId 玩家 ID。
  * @param deps 运行时依赖。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新重生玩家相关状态。
  */
 
     respawnPlayer(playerId, deps) {

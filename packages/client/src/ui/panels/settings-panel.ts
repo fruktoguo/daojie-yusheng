@@ -36,37 +36,37 @@ import {
 /** 设置面板初始化依赖，提供账号信息读取、保存回调、兑换提交和登出回调。 */
 type SettingsPanelOptions = {
 /**
- * getCurrentAccountName：对象字段。
+ * getCurrentAccountName：CurrentAccount名称名称或显示文本。
  */
 
   getCurrentAccountName: () => string;  
   /**
- * getCurrentDisplayName：对象字段。
+ * getCurrentDisplayName：Current显示名称名称或显示文本。
  */
 
   getCurrentDisplayName: () => string;  
   /**
- * getCurrentRoleName：对象字段。
+ * getCurrentRoleName：CurrentRole名称名称或显示文本。
  */
 
   getCurrentRoleName: () => string;  
   /**
- * onDisplayNameUpdated：对象字段。
+ * onDisplayNameUpdated：on显示名称Updated相关字段。
  */
 
   onDisplayNameUpdated: (displayName: string) => void;  
   /**
- * onRoleNameUpdated：对象字段。
+ * onRoleNameUpdated：onRole名称Updated相关字段。
  */
 
   onRoleNameUpdated: (roleName: string) => void;  
   /**
- * redeemCodes：对象字段。
+ * redeemCodes：redeemCode相关字段。
  */
 
   redeemCodes: (codes: string[]) => Promise<AccountRedeemCodesRes>;  
   /**
- * onLogout：对象字段。
+ * onLogout：onLogout相关字段。
  */
 
   onLogout: () => void;
@@ -92,7 +92,7 @@ export class SettingsPanel {
   private options: SettingsPanelOptions | null = null;  
   /**
  * 构造器：初始化 当前 实例并建立基础状态。
- * @returns 无返回值（构造函数）。
+ * @returns 无返回值，完成实例初始化。
  */
 
 
@@ -629,12 +629,12 @@ export class SettingsPanel {
     `;
   }  
   /**
- * handleRedeemSubmit：处理事件并驱动执行路径。
+ * handleRedeemSubmit：处理RedeemSubmit并更新相关状态。
  * @param textarea HTMLTextAreaElement 参数说明。
  * @param statusEl HTMLElement 参数说明。
  * @param resultEl HTMLElement 参数说明。
  * @param button HTMLButtonElement 参数说明。
- * @returns Promise<void>。
+ * @returns 返回 Promise，完成后得到RedeemSubmit。
  */
 
 
@@ -698,10 +698,10 @@ export class SettingsPanel {
     return card;
   }  
   /**
- * scheduleDisplayNameCheck：执行核心业务逻辑。
+ * scheduleDisplayNameCheck：判断schedule显示名称Check是否满足条件。
  * @param input HTMLInputElement 输入参数。
  * @param statusEl HTMLElement 参数说明。
- * @returns Promise<void>。
+ * @returns 返回 Promise，完成后得到schedule显示名称Check。
  */
 
 
@@ -769,11 +769,11 @@ export class SettingsPanel {
     }
   }  
   /**
- * handleDisplayNameSubmit：处理事件并驱动执行路径。
+ * handleDisplayNameSubmit：判断显示名称Submit是否满足条件。
  * @param input HTMLInputElement 输入参数。
  * @param statusEl HTMLElement 参数说明。
  * @param button HTMLButtonElement 参数说明。
- * @returns Promise<void>。
+ * @returns 返回 Promise，完成后得到显示名称Submit。
  */
 
 
@@ -819,12 +819,12 @@ export class SettingsPanel {
     }
   }  
   /**
- * handlePasswordSubmit：处理事件并驱动执行路径。
+ * handlePasswordSubmit：处理PasswordSubmit并更新相关状态。
  * @param currentPasswordInput HTMLInputElement 参数说明。
  * @param newPasswordInput HTMLInputElement 参数说明。
  * @param statusEl HTMLElement 参数说明。
  * @param button HTMLButtonElement 参数说明。
- * @returns Promise<void>。
+ * @returns 返回 Promise，完成后得到PasswordSubmit。
  */
 
 
@@ -869,11 +869,11 @@ export class SettingsPanel {
     }
   }  
   /**
- * handleRoleNameSubmit：处理事件并驱动执行路径。
+ * handleRoleNameSubmit：处理Role名称Submit并更新相关状态。
  * @param input HTMLInputElement 输入参数。
  * @param statusEl HTMLElement 参数说明。
  * @param button HTMLButtonElement 参数说明。
- * @returns Promise<void>。
+ * @returns 返回 Promise，完成后得到Role名称Submit。
  */
 
 

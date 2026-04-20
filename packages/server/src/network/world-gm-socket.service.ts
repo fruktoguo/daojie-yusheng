@@ -21,14 +21,14 @@ const runtime_gm_state_service_1 = require("../runtime/gm/runtime-gm-state.servi
 /** GM Socket 下发服务：将 GM 操作转换为 runtime gm state 队列。 */
 let WorldGmSocketService = class WorldGmSocketService {
 /**
- * runtimeGmStateService：对象字段。
+ * runtimeGmStateService：运行态GM状态服务引用。
  */
 
     runtimeGmStateService;    
     /**
  * 构造器：初始化 当前 实例并建立基础状态。
  * @param runtimeGmStateService 参数说明。
- * @returns 无返回值（构造函数）。
+ * @returns 无返回值，完成实例初始化。
  */
 
     constructor(runtimeGmStateService) {

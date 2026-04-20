@@ -59,11 +59,11 @@ export function decodePresetTextValue(value: string): string {
 /** resolveSkillDamageProfile：解析技能Damage Profile。 */
 function resolveSkillDamageProfile(skill: SkillDef): {
 /**
- * kinds：对象字段。
+ * kinds：kind相关字段。
  */
  kinds: SkillDamageKind[];
  /**
- * elements：对象字段。
+ * elements：element相关字段。
  */
  elements: ElementKey[] } {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
@@ -88,11 +88,11 @@ function formatSkillAffinityLabel(
   element: ElementKey | 'multi' | 'neutral',
 ): {
 /**
- * label：对象字段。
+ * label：label名称或显示文本。
  */
  label: string;
  /**
- * title：对象字段。
+ * title：title名称或显示文本。
  */
  title: string } {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
@@ -131,22 +131,22 @@ function formatSkillAffinityLabel(
 /** getSkillAffinityBadge：读取技能Affinity Badge。 */
 export function getSkillAffinityBadge(skill: SkillDef): {
 /**
- * label：对象字段。
+ * label：label名称或显示文本。
  */
 
   label: string;  
   /**
- * title：对象字段。
+ * title：title名称或显示文本。
  */
 
   title: string;  
   /**
- * tone：对象字段。
+ * tone：tone相关字段。
  */
 
   tone: 'physical' | 'spell' | 'mixed' | 'utility';  
   /**
- * element：对象字段。
+ * element：element相关字段。
  */
 
   element: ElementKey | 'multi' | 'neutral';

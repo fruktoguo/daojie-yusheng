@@ -1,32 +1,32 @@
 /** 怪物出现场所的目录条目。 */
 export interface MonsterLocationEntry {
 /**
- * monsterId：MonsterLocationEntry 内部字段。
+ * monsterId：怪物ID标识。
  */
 
   monsterId: string;  
   /**
- * monsterName：MonsterLocationEntry 内部字段。
+ * monsterName：怪物名称名称或显示文本。
  */
 
   monsterName: string;  
   /**
- * mapId：MonsterLocationEntry 内部字段。
+ * mapId：地图ID标识。
  */
 
   mapId: string;  
   /**
- * mapName：MonsterLocationEntry 内部字段。
+ * mapName：地图名称名称或显示文本。
  */
 
   mapName: string;  
   /**
- * dangerLevel：MonsterLocationEntry 内部字段。
+ * dangerLevel：danger等级数值。
  */
 
   dangerLevel?: number;  
   /**
- * totalMaps：MonsterLocationEntry 内部字段。
+ * totalMaps：total地图相关字段。
  */
 
   totalMaps: number;

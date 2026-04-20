@@ -35,7 +35,7 @@ export class MapRuntime implements MapRuntimeApi {
   /** 小地图运行时视图。 */
   private readonly minimap = new MinimapRuntime();  
   /**
- * interaction：MapRuntime 内部字段。
+ * interaction：interaction相关字段。
  */
 
   private readonly interaction = new InteractionController(
@@ -185,9 +185,9 @@ export class MapRuntime implements MapRuntimeApi {
     this.interaction.setCallbacks(callbacks);
   }  
   /**
- * setMoveHandler：更新/写入相关状态。
+ * setMoveHandler：写入MoveHandler。
  * @param handler ((x: number, y: number) => void) | null 参数说明。
- * @returns void。
+ * @returns 无返回值，直接更新MoveHandler相关状态。
  */
 
 
@@ -198,11 +198,11 @@ export class MapRuntime implements MapRuntimeApi {
   /** 覆盖路径高亮并刷新渲染场景。 */
   setPathCells(cells: Array<{  
   /**
- * x：MapRuntime 内部字段。
+ * x：x相关字段。
  */
  x: number;  
  /**
- * y：MapRuntime 内部字段。
+ * y：y相关字段。
  */
  y: number }>): void {
     this.store.setPathCells(cells);
@@ -221,10 +221,10 @@ export class MapRuntime implements MapRuntimeApi {
     this.syncSceneFromStore();
   }  
   /**
- * replaceVisibleEntities：执行核心业务逻辑。
+ * replaceVisibleEntities：判断可见Entity是否满足条件。
  * @param entities Parameters<MapRuntimeApi['replaceVisibleEntities']>[0] 参数说明。
  * @param transition Parameters<MapRuntimeApi['replaceVisibleEntities']>[1] 参数说明。
- * @returns void。
+ * @returns 无返回值，直接更新可见Entity相关状态。
  */
 
 

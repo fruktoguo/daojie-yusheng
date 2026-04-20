@@ -23,17 +23,17 @@ const world_runtime_battle_engage_service_1 = require("./world-runtime-battle-en
 /** world-runtime combat-command orchestration：统一承接普攻、施法与接敌入口 facade。 */
 let WorldRuntimeCombatCommandService = class WorldRuntimeCombatCommandService {
 /**
- * worldRuntimeBasicAttackService：对象字段。
+ * worldRuntimeBasicAttackService：世界运行态BasicAttack服务引用。
  */
 
     worldRuntimeBasicAttackService;    
     /**
- * worldRuntimePlayerSkillDispatchService：对象字段。
+ * worldRuntimePlayerSkillDispatchService：世界运行态玩家技能Dispatch服务引用。
  */
 
     worldRuntimePlayerSkillDispatchService;    
     /**
- * worldRuntimeBattleEngageService：对象字段。
+ * worldRuntimeBattleEngageService：世界运行态BattleEngage服务引用。
  */
 
     worldRuntimeBattleEngageService;    
@@ -42,7 +42,7 @@ let WorldRuntimeCombatCommandService = class WorldRuntimeCombatCommandService {
  * @param worldRuntimeBasicAttackService 参数说明。
  * @param worldRuntimePlayerSkillDispatchService 参数说明。
  * @param worldRuntimeBattleEngageService 参数说明。
- * @returns 无返回值（构造函数）。
+ * @returns 无返回值，完成实例初始化。
  */
 
     constructor(worldRuntimeBasicAttackService, worldRuntimePlayerSkillDispatchService, worldRuntimeBattleEngageService) {
@@ -51,72 +51,72 @@ let WorldRuntimeCombatCommandService = class WorldRuntimeCombatCommandService {
         this.worldRuntimeBattleEngageService = worldRuntimeBattleEngageService;
     }    
     /**
- * dispatchBasicAttack：处理事件并驱动执行路径。
+ * dispatchBasicAttack：判断BasicAttack是否满足条件。
  * @param playerId 玩家 ID。
  * @param targetPlayerId targetPlayer ID。
  * @param targetMonsterId targetMonster ID。
  * @param targetX 参数说明。
  * @param targetY 参数说明。
  * @param deps 运行时依赖。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新BasicAttack相关状态。
  */
 
     dispatchBasicAttack(playerId, targetPlayerId, targetMonsterId, targetX, targetY, deps) {
         this.worldRuntimeBasicAttackService.dispatchBasicAttack(playerId, targetPlayerId, targetMonsterId, targetX, targetY, deps);
     }    
     /**
- * dispatchCastSkill：处理事件并驱动执行路径。
+ * dispatchCastSkill：判断Cast技能是否满足条件。
  * @param playerId 玩家 ID。
  * @param skillId skill ID。
  * @param targetPlayerId targetPlayer ID。
  * @param targetMonsterId targetMonster ID。
  * @param targetRef 参数说明。
  * @param deps 运行时依赖。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新Cast技能相关状态。
  */
 
     dispatchCastSkill(playerId, skillId, targetPlayerId, targetMonsterId, targetRef, deps) {
         this.worldRuntimePlayerSkillDispatchService.dispatchCastSkill(playerId, skillId, targetPlayerId, targetMonsterId, targetRef, deps);
     }    
     /**
- * resolveLegacySkillTargetRef：执行核心业务逻辑。
+ * resolveLegacySkillTargetRef：读取Legacy技能目标Ref并返回结果。
  * @param attacker 参数说明。
  * @param skill 参数说明。
  * @param targetRef 参数说明。
  * @param deps 运行时依赖。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新Legacy技能目标Ref相关状态。
  */
 
     resolveLegacySkillTargetRef(attacker, skill, targetRef, deps) {
         return this.worldRuntimePlayerSkillDispatchService.resolveLegacySkillTargetRef(attacker, skill, targetRef, deps);
     }    
     /**
- * dispatchCastSkillToMonster：处理事件并驱动执行路径。
+ * dispatchCastSkillToMonster：判断Cast技能To怪物是否满足条件。
  * @param attacker 参数说明。
  * @param skillId skill ID。
  * @param targetMonsterId targetMonster ID。
  * @param deps 运行时依赖。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新Cast技能To怪物相关状态。
  */
 
     dispatchCastSkillToMonster(attacker, skillId, targetMonsterId, deps) {
         this.worldRuntimePlayerSkillDispatchService.dispatchCastSkillToMonster(attacker, skillId, targetMonsterId, deps);
     }    
     /**
- * dispatchCastSkillToTile：处理事件并驱动执行路径。
+ * dispatchCastSkillToTile：判断Cast技能ToTile是否满足条件。
  * @param attacker 参数说明。
  * @param skillId skill ID。
  * @param targetX 参数说明。
  * @param targetY 参数说明。
  * @param deps 运行时依赖。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新Cast技能ToTile相关状态。
  */
 
     dispatchCastSkillToTile(attacker, skillId, targetX, targetY, deps) {
         this.worldRuntimePlayerSkillDispatchService.dispatchCastSkillToTile(attacker, skillId, targetX, targetY, deps);
     }    
     /**
- * dispatchEngageBattle：处理事件并驱动执行路径。
+ * dispatchEngageBattle：判断EngageBattle是否满足条件。
  * @param playerId 玩家 ID。
  * @param targetPlayerId targetPlayer ID。
  * @param targetMonsterId targetMonster ID。
@@ -124,7 +124,7 @@ let WorldRuntimeCombatCommandService = class WorldRuntimeCombatCommandService {
  * @param targetY 参数说明。
  * @param locked 参数说明。
  * @param deps 运行时依赖。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新EngageBattle相关状态。
  */
 
     dispatchEngageBattle(playerId, targetPlayerId, targetMonsterId, targetX, targetY, locked, deps) {

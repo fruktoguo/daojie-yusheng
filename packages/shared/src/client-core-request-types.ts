@@ -5,22 +5,22 @@ import type { Direction } from './world-core-types';
 /** 握手就绪声明。 */
 export interface HelloRequestView {
 /**
- * sessionId：HelloRequestView 内部字段。
+ * sessionId：sessionID标识。
  */
 
   sessionId?: string;  
   /**
- * mapId：HelloRequestView 内部字段。
+ * mapId：地图ID标识。
  */
 
   mapId?: string;  
   /**
- * preferredX：HelloRequestView 内部字段。
+ * preferredX：preferredX相关字段。
  */
 
   preferredX?: number;  
   /**
- * preferredY：HelloRequestView 内部字段。
+ * preferredY：preferredY相关字段。
  */
 
   preferredY?: number;
@@ -29,7 +29,7 @@ export interface HelloRequestView {
 /** 移动指令。 */
 export interface MoveRequestView {
 /**
- * d：MoveRequestView 内部字段。
+ * d：d相关字段。
  */
 
   d: Direction;
@@ -38,42 +38,42 @@ export interface MoveRequestView {
 /** 点击目标点移动。 */
 export interface MoveToRequestView {
 /**
- * x：MoveToRequestView 内部字段。
+ * x：x相关字段。
  */
 
   x: number;  
   /**
- * y：MoveToRequestView 内部字段。
+ * y：y相关字段。
  */
 
   y: number;  
   /**
- * ignoreVisibilityLimit：MoveToRequestView 内部字段。
+ * ignoreVisibilityLimit：ignore可见性Limit相关字段。
  */
 
   ignoreVisibilityLimit?: boolean;  
   /**
- * allowNearestReachable：MoveToRequestView 内部字段。
+ * allowNearestReachable：allowNearestReachable相关字段。
  */
 
   allowNearestReachable?: boolean;  
   /**
- * packedPath：MoveToRequestView 内部字段。
+ * packedPath：packed路径相关字段。
  */
 
   packedPath?: string;  
   /**
- * packedPathSteps：MoveToRequestView 内部字段。
+ * packedPathSteps：packed路径Step相关字段。
  */
 
   packedPathSteps?: number;  
   /**
- * pathStartX：MoveToRequestView 内部字段。
+ * pathStartX：路径StartX相关字段。
  */
 
   pathStartX?: number;  
   /**
- * pathStartY：MoveToRequestView 内部字段。
+ * pathStartY：路径StartY相关字段。
  */
 
   pathStartY?: number;
@@ -82,7 +82,7 @@ export interface MoveToRequestView {
 /** 任务自动导航请求。 */
 export interface NavigateQuestRequestView {
 /**
- * questId：NavigateQuestRequestView 内部字段。
+ * questId：任务ID标识。
  */
 
   questId: string;
@@ -91,7 +91,7 @@ export interface NavigateQuestRequestView {
 /** 在线心跳。 */
 export interface HeartbeatRequestView {
 /**
- * clientAt：HeartbeatRequestView 内部字段。
+ * clientAt：clientAt相关字段。
  */
 
   clientAt?: number;
@@ -100,7 +100,7 @@ export interface HeartbeatRequestView {
 /** 主动延迟探测。 */
 export interface PingRequestView {
 /**
- * clientAt：PingRequestView 内部字段。
+ * clientAt：clientAt相关字段。
  */
 
   clientAt: number;
@@ -109,12 +109,12 @@ export interface PingRequestView {
 /** 地图格子运行时详情查询。 */
 export interface InspectTileRuntimeRequestView {
 /**
- * x：InspectTileRuntimeRequestView 内部字段。
+ * x：x相关字段。
  */
 
   x: number;  
   /**
- * y：InspectTileRuntimeRequestView 内部字段。
+ * y：y相关字段。
  */
 
   y: number;
@@ -123,17 +123,17 @@ export interface InspectTileRuntimeRequestView {
 /** 动作指令。 */
 export interface ActionRequestView {
 /**
- * type：ActionRequestView 内部字段。
+ * type：type相关字段。
  */
 
   type?: string;  
   /**
- * actionId：ActionRequestView 内部字段。
+ * actionId：actionID标识。
  */
 
   actionId?: string;  
   /**
- * target：ActionRequestView 内部字段。
+ * target：目标相关字段。
  */
 
   target?: string;
@@ -142,7 +142,7 @@ export interface ActionRequestView {
 /** 自动战斗技能配置更新。 */
 export interface UpdateAutoBattleSkillsRequestView {
 /**
- * skills：UpdateAutoBattleSkillsRequestView 内部字段。
+ * skills：技能相关字段。
  */
 
   skills: AutoBattleSkillConfig[];
@@ -151,7 +151,7 @@ export interface UpdateAutoBattleSkillsRequestView {
 /** 自动用药配置更新。 */
 export interface UpdateAutoUsePillsRequestView {
 /**
- * pills：UpdateAutoUsePillsRequestView 内部字段。
+ * pills：pill相关字段。
  */
 
   pills: AutoUsePillConfig[];
@@ -160,7 +160,7 @@ export interface UpdateAutoUsePillsRequestView {
 /** 自动战斗目标规则更新。 */
 export interface UpdateCombatTargetingRulesRequestView {
 /**
- * combatTargetingRules：UpdateCombatTargetingRulesRequestView 内部字段。
+ * combatTargetingRules：战斗TargetingRule相关字段。
  */
 
   combatTargetingRules: CombatTargetingRules;
@@ -169,7 +169,7 @@ export interface UpdateCombatTargetingRulesRequestView {
 /** 自动战斗目标模式更新。 */
 export interface UpdateAutoBattleTargetingModeRequestView {
 /**
- * mode：UpdateAutoBattleTargetingModeRequestView 内部字段。
+ * mode：mode相关字段。
  */
 
   mode: AutoBattleTargetingMode;
@@ -178,12 +178,12 @@ export interface UpdateAutoBattleTargetingModeRequestView {
 /** 功法技能开关更新。 */
 export interface UpdateTechniqueSkillAvailabilityRequestView {
 /**
- * techId：UpdateTechniqueSkillAvailabilityRequestView 内部字段。
+ * techId：techID标识。
  */
 
   techId: string;  
   /**
- * enabled：UpdateTechniqueSkillAvailabilityRequestView 内部字段。
+ * enabled：启用开关或状态标识。
  */
 
   enabled: boolean;
@@ -192,7 +192,7 @@ export interface UpdateTechniqueSkillAvailabilityRequestView {
 /** 调试回出生点。 */
 export interface DebugResetSpawnRequestView {
 /**
- * force：DebugResetSpawnRequestView 内部字段。
+ * force：force相关字段。
  */
 
   force?: boolean;
@@ -201,7 +201,7 @@ export interface DebugResetSpawnRequestView {
 /** 聊天消息。 */
 export interface ChatRequestView {
 /**
- * message：ChatRequestView 内部字段。
+ * message：message相关字段。
  */
 
   message: string;
@@ -210,7 +210,7 @@ export interface ChatRequestView {
 /** 系统消息已读回执。 */
 export interface AckSystemMessagesRequestView {
 /**
- * ids：AckSystemMessagesRequestView 内部字段。
+ * ids：ID相关字段。
  */
 
   ids: string[];
@@ -222,12 +222,12 @@ export interface UsePortalRequestView {}
 /** 天门功能操作。 */
 export interface HeavenGateActionRequestView {
 /**
- * action：HeavenGateActionRequestView 内部字段。
+ * action：action相关字段。
  */
 
   action: 'sever' | 'restore' | 'open' | 'reroll' | 'enter';  
   /**
- * element：HeavenGateActionRequestView 内部字段。
+ * element：element相关字段。
  */
 
   element?: ElementKey;

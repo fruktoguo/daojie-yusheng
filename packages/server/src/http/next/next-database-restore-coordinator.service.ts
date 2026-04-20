@@ -17,7 +17,7 @@ import { NEXT_GM_RESTORE_CONTRACT } from './next-gm-contract';
 
 interface PlayerSnapshotLike {
 /**
- * playerId：PlayerSnapshotLike 内部字段。
+ * playerId：玩家ID标识。
  */
 
   playerId: string;
@@ -114,7 +114,7 @@ export class NextDatabaseRestoreCoordinatorService {
  * @param marketRuntimeService MarketRuntimeServiceLike 参数说明。
  * @param suggestionRuntimeService SuggestionRuntimeServiceLike 参数说明。
  * @param runtimeGmAuthService RuntimeGmAuthServiceLike 参数说明。
- * @returns 无返回值（构造函数）。
+ * @returns 无返回值，完成实例初始化。
  */
 
   constructor(
@@ -130,8 +130,8 @@ export class NextDatabaseRestoreCoordinatorService {
     @Inject(RuntimeGmAuthService) private readonly runtimeGmAuthService: RuntimeGmAuthServiceLike,
   ) {}  
   /**
- * prepareForRestore：执行核心业务逻辑。
- * @returns Promise<void>。
+ * prepareForRestore：执行prepareForRestore相关逻辑。
+ * @returns 返回 Promise，完成后得到prepareForRestore。
  */
 
 
@@ -160,8 +160,8 @@ export class NextDatabaseRestoreCoordinatorService {
     this.mailRuntimeService.clearRuntimeCache();
   }  
   /**
- * reloadAfterRestore：执行核心业务逻辑。
- * @returns Promise<void>。
+ * reloadAfterRestore：读取reloadAfterRestore并返回结果。
+ * @returns 返回 Promise，完成后得到reloadAfterRestore。
  */
 
 

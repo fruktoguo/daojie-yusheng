@@ -7,58 +7,58 @@ import { MapTemplateRepository } from '../../runtime/map/map-template.repository
 
 interface MapTemplateSummaryLike {
 /**
- * id：MapTemplateSummaryLike 内部字段。
+ * id：ID标识。
  */
 
   id: string;  
   /**
- * name：MapTemplateSummaryLike 内部字段。
+ * name：名称名称或显示文本。
  */
 
   name: string;  
   /**
- * width：MapTemplateSummaryLike 内部字段。
+ * width：width相关字段。
  */
 
   width: number;  
   /**
- * height：MapTemplateSummaryLike 内部字段。
+ * height：height相关字段。
  */
 
   height: number;  
   /**
- * source：MapTemplateSummaryLike 内部字段。
+ * source：来源相关字段。
  */
 
   source: {  
   /**
- * description：MapTemplateSummaryLike 内部字段。
+ * description：description相关字段。
  */
 
     description?: string;    
     /**
- * dangerLevel：MapTemplateSummaryLike 内部字段。
+ * dangerLevel：danger等级数值。
  */
 
     dangerLevel?: unknown;    
     /**
- * recommendedRealm：MapTemplateSummaryLike 内部字段。
+ * recommendedRealm：recommendedRealm相关字段。
  */
 
     recommendedRealm?: unknown;    
     /**
- * monsterSpawns：MapTemplateSummaryLike 内部字段。
+ * monsterSpawns：怪物Spawn相关字段。
  */
 
     monsterSpawns?: unknown[];
   };  
   /**
- * portals：MapTemplateSummaryLike 内部字段。
+ * portals：portal相关字段。
  */
 
   portals: unknown[];  
   /**
- * npcs：MapTemplateSummaryLike 内部字段。
+ * npcs：NPC相关字段。
  */
 
   npcs: unknown[];
@@ -81,13 +81,13 @@ export class NextGmMapQueryService {
 /**
  * 构造器：初始化 当前 实例并建立基础状态。
  * @param mapTemplateRepository MapTemplateRepositoryLike 参数说明。
- * @returns 无返回值（构造函数）。
+ * @returns 无返回值，完成实例初始化。
  */
 
   constructor(@Inject(MapTemplateRepository) private readonly mapTemplateRepository: MapTemplateRepositoryLike) {}  
   /**
- * getMaps：按给定条件读取/查询数据。
- * @returns 函数返回值。
+ * getMaps：读取地图。
+ * @returns 无返回值，完成地图的读取/组装。
  */
 
 

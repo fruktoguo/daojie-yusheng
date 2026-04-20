@@ -11,35 +11,35 @@ import { formatDisplayInteger } from './utils/number';
 
 type MainBreakthroughStateSourceOptions = {
 /**
- * getPlayer：对象字段。
+ * getPlayer：玩家引用。
  */
 
   getPlayer: () => PlayerState | null;  
   /**
- * showToast：对象字段。
+ * showToast：showToast相关字段。
  */
 
   showToast: (message: string) => void;  
   /**
- * sendHeavenGateAction：对象字段。
+ * sendHeavenGateAction：sendHeavenGateAction相关字段。
  */
 
   sendHeavenGateAction: SocketRuntimeSender['sendHeavenGateAction'];  
   /**
- * sendAction：对象字段。
+ * sendAction：sendAction相关字段。
  */
 
   sendAction: SocketRuntimeSender['sendAction'];  
   /**
- * defaultAuraLevelBaseValue：对象字段。
+ * defaultAuraLevelBaseValue：defaultAura等级Base值数值。
  */
 
   defaultAuraLevelBaseValue: number;
 };
 /**
- * getBreakthroughRequirementStatusLabel：按给定条件读取/查询数据。
+ * getBreakthroughRequirementStatusLabel：读取BreakthroughRequirementStatuLabel。
  * @param requirement BreakthroughRequirementView 参数说明。
- * @returns string。
+ * @returns 返回BreakthroughRequirementStatuLabel。
  */
 
 
@@ -49,9 +49,9 @@ function getBreakthroughRequirementStatusLabel(requirement: BreakthroughRequirem
     : (requirement.completed ? '已达成' : '未达成');
 }
 /**
- * getBreakthroughRequirementStatusDetail：按给定条件读取/查询数据。
+ * getBreakthroughRequirementStatusDetail：读取BreakthroughRequirementStatu详情。
  * @param requirement BreakthroughRequirementView 参数说明。
- * @returns string。
+ * @returns 返回BreakthroughRequirementStatu详情。
  */
 
 
@@ -78,7 +78,7 @@ export type MainBreakthroughStateSource = ReturnType<typeof createMainBreakthrou
 /**
  * createMainBreakthroughStateSource：构建并返回目标对象。
  * @param options MainBreakthroughStateSourceOptions 选项参数。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新MainBreakthrough状态来源相关状态。
  */
 
 
@@ -87,8 +87,8 @@ export function createMainBreakthroughStateSource(options: MainBreakthroughState
 
   return {  
   /**
- * openBreakthroughModal：执行核心业务逻辑。
- * @returns void。
+ * openBreakthroughModal：执行openBreakthrough弹层相关逻辑。
+ * @returns 无返回值，直接更新openBreakthrough弹层相关状态。
  */
 
     openBreakthroughModal(): void {
@@ -165,9 +165,9 @@ export function createMainBreakthroughStateSource(options: MainBreakthroughState
       });
     },    
     /**
- * syncAuraLevelBaseValue：执行核心业务逻辑。
+ * syncAuraLevelBaseValue：处理Aura等级Base值并更新相关状态。
  * @param nextValue number 参数说明。
- * @returns void。
+ * @returns 无返回值，直接更新Aura等级Base值相关状态。
  */
 
 
@@ -180,9 +180,9 @@ export function createMainBreakthroughStateSource(options: MainBreakthroughState
       auraLevelBaseValue = Math.max(1, Math.round(nextValue));
     },    
     /**
- * formatAuraLevelText：执行核心业务逻辑。
+ * formatAuraLevelText：规范化或转换Aura等级Text。
  * @param auraValue number 参数说明。
- * @returns string。
+ * @returns 返回Aura等级Text。
  */
 
 
@@ -190,8 +190,8 @@ export function createMainBreakthroughStateSource(options: MainBreakthroughState
       return `灵气 ${formatDisplayInteger(Math.max(0, Math.round(auraValue / auraLevelBaseValue * auraLevelBaseValue)))}`;
     },    
     /**
- * getAuraLevelBaseValue：按给定条件读取/查询数据。
- * @returns number。
+ * getAuraLevelBaseValue：读取Aura等级Base值。
+ * @returns 返回Aura等级Base值数值。
  */
 
 

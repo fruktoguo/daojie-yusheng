@@ -25,47 +25,47 @@ const world_sync_player_state_service_1 = require("./world-sync-player-state.ser
 /** next 首包/增量附加状态服务：承接 aux cache、bootstrap/map-static/realm/loot/threat 编排。 */
 let WorldSyncAuxStateService = class WorldSyncAuxStateService {
 /**
- * templateRepository：对象字段。
+ * templateRepository：template仓储引用。
  */
 
     templateRepository;    
     /**
- * worldSyncMapSnapshotService：对象字段。
+ * worldSyncMapSnapshotService：世界Sync地图快照服务引用。
  */
 
     worldSyncMapSnapshotService;    
     /**
- * worldSyncMapStaticAuxService：对象字段。
+ * worldSyncMapStaticAuxService：世界Sync地图StaticAux服务引用。
  */
 
     worldSyncMapStaticAuxService;    
     /**
- * worldSyncMinimapService：对象字段。
+ * worldSyncMinimapService：世界SyncMinimap服务引用。
  */
 
     worldSyncMinimapService;    
     /**
- * worldSyncProtocolService：对象字段。
+ * worldSyncProtocolService：世界SyncProtocol服务引用。
  */
 
     worldSyncProtocolService;    
     /**
- * worldSyncQuestLootService：对象字段。
+ * worldSyncQuestLootService：世界Sync任务掉落服务引用。
  */
 
     worldSyncQuestLootService;    
     /**
- * worldSyncThreatService：对象字段。
+ * worldSyncThreatService：世界SyncThreat服务引用。
  */
 
     worldSyncThreatService;    
     /**
- * worldSyncPlayerStateService：对象字段。
+ * worldSyncPlayerStateService：世界Sync玩家状态服务引用。
  */
 
     worldSyncPlayerStateService;    
     /**
- * nextAuxStateByPlayerId：对象字段。
+ * nextAuxStateByPlayerId：nextAux状态By玩家ID标识。
  */
 
     nextAuxStateByPlayerId = new Map();    
@@ -79,7 +79,7 @@ let WorldSyncAuxStateService = class WorldSyncAuxStateService {
  * @param worldSyncQuestLootService 参数说明。
  * @param worldSyncThreatService 参数说明。
  * @param worldSyncPlayerStateService 参数说明。
- * @returns 无返回值（构造函数）。
+ * @returns 无返回值，完成实例初始化。
  */
 
     constructor(templateRepository, worldSyncMapSnapshotService, worldSyncMapStaticAuxService, worldSyncMinimapService, worldSyncProtocolService, worldSyncQuestLootService, worldSyncThreatService, worldSyncPlayerStateService) {
@@ -93,9 +93,9 @@ let WorldSyncAuxStateService = class WorldSyncAuxStateService {
         this.worldSyncPlayerStateService = worldSyncPlayerStateService;
     }    
     /**
- * clearPlayerCache：执行核心业务逻辑。
+ * clearPlayerCache：执行clear玩家缓存相关逻辑。
  * @param playerId 玩家 ID。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新clear玩家缓存相关状态。
  */
 
     clearPlayerCache(playerId) {
@@ -103,12 +103,12 @@ let WorldSyncAuxStateService = class WorldSyncAuxStateService {
         this.nextAuxStateByPlayerId.delete(playerId);
     }    
     /**
- * emitNextInitialSync：执行核心业务逻辑。
+ * emitNextInitialSync：处理NextInitial同步并更新相关状态。
  * @param playerId 玩家 ID。
  * @param socket 参数说明。
  * @param view 参数说明。
  * @param player 玩家对象。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新NextInitialSync相关状态。
  */
 
     emitNextInitialSync(playerId, socket, view, player) {
@@ -139,12 +139,12 @@ let WorldSyncAuxStateService = class WorldSyncAuxStateService {
         });
     }    
     /**
- * emitNextDeltaSync：执行核心业务逻辑。
+ * emitNextDeltaSync：处理Next增量同步并更新相关状态。
  * @param playerId 玩家 ID。
  * @param socket 参数说明。
  * @param view 参数说明。
  * @param player 玩家对象。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新NextDeltaSync相关状态。
  */
 
     emitNextDeltaSync(playerId, socket, view, player) {
@@ -204,7 +204,7 @@ let WorldSyncAuxStateService = class WorldSyncAuxStateService {
  * @param visibleMinimapMarkers 参数说明。
  * @param minimapLibrary 参数说明。
  * @param timeState 参数说明。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新BootstrapSync载荷相关状态。
  */
 
     buildBootstrapSyncPayload(self, template, visibleTiles, renderEntities, visibleMinimapMarkers, minimapLibrary, timeState) {
@@ -224,7 +224,7 @@ let WorldSyncAuxStateService = class WorldSyncAuxStateService {
  * buildMapStaticSyncPayload：构建并返回目标对象。
  * @param template 参数说明。
  * @param options 选项参数。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新地图StaticSync载荷相关状态。
  */
 
     buildMapStaticSyncPayload(template, options = {}) {
@@ -246,7 +246,7 @@ let WorldSyncAuxStateService = class WorldSyncAuxStateService {
  * buildRealmSyncPayload：构建并返回目标对象。
  * @param player 玩家对象。
  * @param realm 参数说明。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新RealmSync载荷相关状态。
  */
 
     buildRealmSyncPayload(player, realm = cloneRealmState(player.realm)) {
@@ -266,18 +266,18 @@ exports.WorldSyncAuxStateService = WorldSyncAuxStateService = __decorate([
         world_sync_player_state_service_1.WorldSyncPlayerStateService])
 ], WorldSyncAuxStateService);
 /**
- * cloneGameTimeState：执行核心业务逻辑。
+ * cloneGameTimeState：构建Game时间状态。
  * @param source 来源对象。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新Game时间状态相关状态。
  */
 
 function cloneGameTimeState(source) {
     return { ...source };
 }
 /**
- * cloneRenderEntity：执行核心业务逻辑。
+ * cloneRenderEntity：构建RenderEntity。
  * @param source 来源对象。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新RenderEntity相关状态。
  */
 
 function cloneRenderEntity(source) {
@@ -287,18 +287,18 @@ function cloneRenderEntity(source) {
     };
 }
 /**
- * cloneThreatArrows：执行核心业务逻辑。
+ * cloneThreatArrows：构建ThreatArrow。
  * @param source 来源对象。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新ThreatArrow相关状态。
  */
 
 function cloneThreatArrows(source) {
     return source.map(([ownerId, targetId]) => [ownerId, targetId]);
 }
 /**
- * cloneLootWindow：执行核心业务逻辑。
+ * cloneLootWindow：构建掉落窗口。
  * @param source 来源对象。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新掉落窗口相关状态。
  */
 
 function cloneLootWindow(source) {
@@ -328,9 +328,9 @@ function cloneLootWindow(source) {
     };
 }
 /**
- * cloneRealmState：执行核心业务逻辑。
+ * cloneRealmState：构建Realm状态。
  * @param source 来源对象。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新Realm状态相关状态。
  */
 
 function cloneRealmState(source) {
@@ -352,10 +352,10 @@ function cloneRealmState(source) {
     };
 }
 /**
- * isSameRealmState：执行状态校验并返回判断结果。
+ * isSameRealmState：判断SameRealm状态是否满足条件。
  * @param left 参数说明。
  * @param right 参数说明。
- * @returns 函数返回值。
+ * @returns 无返回值，完成SameRealm状态的条件判断。
  */
 
 function isSameRealmState(left, right) {
@@ -384,10 +384,10 @@ function isSameRealmState(left, right) {
         && isSameHeavenGateState(left.heavenGate, right.heavenGate);
 }
 /**
- * isSameBreakthroughItemList：执行状态校验并返回判断结果。
+ * isSameBreakthroughItemList：读取SameBreakthrough道具列表并返回结果。
  * @param left 参数说明。
  * @param right 参数说明。
- * @returns 函数返回值。
+ * @returns 无返回值，完成SameBreakthrough道具列表的条件判断。
  */
 
 function isSameBreakthroughItemList(left, right) {
@@ -404,10 +404,10 @@ function isSameBreakthroughItemList(left, right) {
     return true;
 }
 /**
- * isSameBreakthroughPreview：执行状态校验并返回判断结果。
+ * isSameBreakthroughPreview：判断SameBreakthroughPreview是否满足条件。
  * @param left 参数说明。
  * @param right 参数说明。
- * @returns 函数返回值。
+ * @returns 无返回值，完成SameBreakthroughPreview的条件判断。
  */
 
 function isSameBreakthroughPreview(left, right) {
@@ -446,10 +446,10 @@ function isSameBreakthroughPreview(left, right) {
     return true;
 }
 /**
- * isSameHeavenGateState：执行状态校验并返回判断结果。
+ * isSameHeavenGateState：判断SameHeavenGate状态是否满足条件。
  * @param left 参数说明。
  * @param right 参数说明。
- * @returns 函数返回值。
+ * @returns 无返回值，完成SameHeavenGate状态的条件判断。
  */
 
 function isSameHeavenGateState(left, right) {
@@ -465,10 +465,10 @@ function isSameHeavenGateState(left, right) {
         && isSameHeavenGateRoots(left.roots, right.roots);
 }
 /**
- * isSameHeavenGateRoots：执行状态校验并返回判断结果。
+ * isSameHeavenGateRoots：判断SameHeavenGate根容器是否满足条件。
  * @param left 参数说明。
  * @param right 参数说明。
- * @returns 函数返回值。
+ * @returns 无返回值，完成SameHeavenGate根容器的条件判断。
  */
 
 function isSameHeavenGateRoots(left, right) {
@@ -484,10 +484,10 @@ function isSameHeavenGateRoots(left, right) {
         && left.earth === right.earth;
 }
 /**
- * isSameStringArray：执行状态校验并返回判断结果。
+ * isSameStringArray：判断SameStringArray是否满足条件。
  * @param left 参数说明。
  * @param right 参数说明。
- * @returns 函数返回值。
+ * @returns 无返回值，完成SameStringArray的条件判断。
  */
 
 function isSameStringArray(left, right) {
@@ -504,9 +504,9 @@ function isSameStringArray(left, right) {
     return true;
 }
 /**
- * cloneHeavenGateState：执行核心业务逻辑。
+ * cloneHeavenGateState：构建HeavenGate状态。
  * @param source 来源对象。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新HeavenGate状态相关状态。
  */
 
 function cloneHeavenGateState(source) {
@@ -524,9 +524,9 @@ function cloneHeavenGateState(source) {
     };
 }
 /**
- * cloneHeavenGateRoots：执行核心业务逻辑。
+ * cloneHeavenGateRoots：构建HeavenGate根容器。
  * @param source 来源对象。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新HeavenGate根容器相关状态。
  */
 
 function cloneHeavenGateRoots(source) {
@@ -544,10 +544,10 @@ function cloneHeavenGateRoots(source) {
     };
 }
 /**
- * isSameLootWindow：执行状态校验并返回判断结果。
+ * isSameLootWindow：判断Same掉落窗口是否满足条件。
  * @param left 参数说明。
  * @param right 参数说明。
- * @returns 函数返回值。
+ * @returns 无返回值，完成Same掉落窗口的条件判断。
  */
 
 function isSameLootWindow(left, right) {
@@ -598,10 +598,10 @@ function isSameLootWindow(left, right) {
     return true;
 }
 /**
- * isSameSyncedItem：执行状态校验并返回判断结果。
+ * isSameSyncedItem：判断SameSynced道具是否满足条件。
  * @param left 参数说明。
  * @param right 参数说明。
- * @returns 函数返回值。
+ * @returns 无返回值，完成SameSynced道具的条件判断。
  */
 
 function isSameSyncedItem(left, right) {
@@ -637,10 +637,10 @@ function isSameSyncedItem(left, right) {
         && left.allowBatchUse === right.allowBatchUse;
 }
 /**
- * shallowEqualArray：执行核心业务逻辑。
+ * shallowEqualArray：执行shallowEqualArray相关逻辑。
  * @param left 参数说明。
  * @param right 参数说明。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新shallowEqualArray相关状态。
  */
 
 function shallowEqualArray(left, right) {
@@ -660,10 +660,10 @@ function shallowEqualArray(left, right) {
     return true;
 }
 /**
- * shallowEqualRecord：执行核心业务逻辑。
+ * shallowEqualRecord：执行shallowEqualRecord相关逻辑。
  * @param left 参数说明。
  * @param right 参数说明。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新shallowEqualRecord相关状态。
  */
 
 function shallowEqualRecord(left, right) {
@@ -688,10 +688,10 @@ function shallowEqualRecord(left, right) {
     return true;
 }
 /**
- * isPlainEqual：执行状态校验并返回判断结果。
+ * isPlainEqual：判断PlainEqual是否满足条件。
  * @param left 参数说明。
  * @param right 参数说明。
- * @returns 函数返回值。
+ * @returns 无返回值，完成PlainEqual的条件判断。
  */
 
 function isPlainEqual(left, right) {

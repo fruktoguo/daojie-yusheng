@@ -9,24 +9,24 @@ const movement_debug_1 = require("../debug/movement-debug");
 /** 世界 socket 移动/导航 helper：只收敛移动相关入口。 */
 class WorldGatewayMovementHelper {
 /**
- * gateway：WorldGatewayMovementHelper 内部字段。
+ * gateway：gateway相关字段。
  */
 
     gateway;    
     /**
  * 构造器：初始化 当前 实例并建立基础状态。
  * @param gateway 参数说明。
- * @returns 无返回值（构造函数）。
+ * @returns 无返回值，完成实例初始化。
  */
 
     constructor(gateway) {
         this.gateway = gateway;
     }    
     /**
- * handleNextMoveTo：处理事件并驱动执行路径。
+ * handleNextMoveTo：处理NextMoveTo并更新相关状态。
  * @param client 参数说明。
  * @param payload 载荷参数。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新NextMoveTo相关状态。
  */
 
     handleNextMoveTo(client, payload) {
@@ -59,10 +59,10 @@ class WorldGatewayMovementHelper {
         }
     }    
     /**
- * handleNextNavigateQuest：处理事件并驱动执行路径。
+ * handleNextNavigateQuest：处理NextNavigate任务并更新相关状态。
  * @param client 参数说明。
  * @param payload 载荷参数。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新NextNavigate任务相关状态。
  */
 
     handleNextNavigateQuest(client, payload) {
@@ -92,10 +92,10 @@ class WorldGatewayMovementHelper {
         }
     }    
     /**
- * handleMove：处理事件并驱动执行路径。
+ * handleMove：处理Move并更新相关状态。
  * @param client 参数说明。
  * @param payload 载荷参数。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新Move相关状态。
  */
 
     handleMove(client, payload) {

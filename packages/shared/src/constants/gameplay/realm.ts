@@ -23,47 +23,47 @@ import { VIEW_RADIUS } from './world';
 
 type RealmConfig = {
 /**
- * name：对象字段。
+ * name：名称名称或显示文本。
  */
 
   name: string;  
   /**
- * shortName：对象字段。
+ * shortName：short名称名称或显示文本。
  */
 
   shortName: string;  
   /**
- * path：对象字段。
+ * path：路径相关字段。
  */
 
   path: 'martial' | 'immortal';  
   /**
- * narrative：对象字段。
+ * narrative：narrative相关字段。
  */
 
   narrative: string;  
   /**
- * progressToNext：对象字段。
+ * progressToNext：进度ToNext相关字段。
  */
 
   progressToNext: number;  
   /**
- * attrBonus：对象字段。
+ * attrBonus：attrBonu相关字段。
  */
 
   attrBonus: Partial<Attributes>;  
   /**
- * breakthroughItems：对象字段。
+ * breakthroughItems：集合字段。
  */
 
   breakthroughItems: BreakthroughItemRequirement[];  
   /**
- * minTechniqueLevel：对象字段。
+ * minTechniqueLevel：min功法等级数值。
  */
 
   minTechniqueLevel: number;  
   /**
- * minTechniqueRealm：对象字段。
+ * minTechniqueRealm：min功法Realm相关字段。
  */
 
   minTechniqueRealm?: TechniqueRealm;
@@ -97,11 +97,11 @@ export const PLAYER_REALM_ORDER: PlayerRealmStage[] = [
 /** 玩家大境界对应的等级区间。 */
 export const PLAYER_REALM_STAGE_LEVEL_RANGES: Record<PlayerRealmStage, {
 /**
- * levelFrom：对象字段。
+ * levelFrom：等级From相关字段。
  */
  levelFrom: number;
  /**
- * levelTo：对象字段。
+ * levelTo：等级To相关字段。
  */
  levelTo: number }> = {
   [PlayerRealmStage.Mortal]: { levelFrom: 1, levelTo: 5 },

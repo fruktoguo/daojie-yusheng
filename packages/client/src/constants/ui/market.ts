@@ -3,11 +3,11 @@ export type MarketModalTab = 'market' | 'my-orders' | 'trade-history';
 
 export const MARKET_MODAL_TABS: Array<{
 /**
- * id：对象字段。
+ * id：ID标识。
  */
  id: MarketModalTab;
  /**
- * label：对象字段。
+ * label：label名称或显示文本。
  */
  label: string }> = [
   { id: 'market', label: '市场' },

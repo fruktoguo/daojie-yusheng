@@ -7,47 +7,47 @@ import type { VisibleTilePatchView } from './world-patch-types';
 /** 首次连接引导包视图。 */
 export interface BootstrapView {
 /**
- * self：BootstrapView 内部字段。
+ * self：self相关字段。
  */
 
   self: PlayerState;  
   /**
- * mapMeta：BootstrapView 内部字段。
+ * mapMeta：地图Meta相关字段。
  */
 
   mapMeta: MapMeta;  
   /**
- * minimap：BootstrapView 内部字段。
+ * minimap：缓存或索引容器。
  */
 
   minimap?: MapMinimapSnapshot;  
   /**
- * visibleMinimapMarkers：BootstrapView 内部字段。
+ * visibleMinimapMarkers：可见MinimapMarker相关字段。
  */
 
   visibleMinimapMarkers?: MapMinimapMarker[];  
   /**
- * minimapLibrary：BootstrapView 内部字段。
+ * minimapLibrary：minimapLibrary相关字段。
  */
 
   minimapLibrary: MapMinimapArchiveEntry[];  
   /**
- * tiles：BootstrapView 内部字段。
+ * tiles：tile相关字段。
  */
 
   tiles: VisibleTile[][];  
   /**
- * players：BootstrapView 内部字段。
+ * players：集合字段。
  */
 
   players: RenderEntity[];  
   /**
- * time：BootstrapView 内部字段。
+ * time：时间相关字段。
  */
 
   time?: GameTimeState;  
   /**
- * auraLevelBaseValue：BootstrapView 内部字段。
+ * auraLevelBaseValue：aura等级Base值数值。
  */
 
   auraLevelBaseValue?: number;
@@ -56,22 +56,22 @@ export interface BootstrapView {
 /** 会话初始化包视图。 */
 export interface InitSessionView {
 /**
- * sid：InitSessionView 内部字段。
+ * sid：sid标识。
  */
 
   sid: string;  
   /**
- * pid：InitSessionView 内部字段。
+ * pid：pid标识。
  */
 
   pid: string;  
   /**
- * t：InitSessionView 内部字段。
+ * t：t相关字段。
  */
 
   t: number;  
   /**
- * resumed：InitSessionView 内部字段。
+ * resumed：resumed相关字段。
  */
 
   resumed?: boolean;
@@ -80,42 +80,42 @@ export interface InitSessionView {
 /** 地图进入包视图。 */
 export interface MapEnterView {
 /**
- * iid：MapEnterView 内部字段。
+ * iid：iid标识。
  */
 
   iid: string;  
   /**
- * mid：MapEnterView 内部字段。
+ * mid：mid标识。
  */
 
   mid: string;  
   /**
- * n：MapEnterView 内部字段。
+ * n：n相关字段。
  */
 
   n: string;  
   /**
- * k：MapEnterView 内部字段。
+ * k：k相关字段。
  */
 
   k: string;  
   /**
- * w：MapEnterView 内部字段。
+ * w：w相关字段。
  */
 
   w: number;  
   /**
- * h：MapEnterView 内部字段。
+ * h：h相关字段。
  */
 
   h: number;  
   /**
- * x：MapEnterView 内部字段。
+ * x：x相关字段。
  */
 
   x: number;  
   /**
- * y：MapEnterView 内部字段。
+ * y：y相关字段。
  */
 
   y: number;
@@ -124,57 +124,57 @@ export interface MapEnterView {
 /** 地图静态快照视图。 */
 export interface MapStaticView {
 /**
- * mapId：MapStaticView 内部字段。
+ * mapId：地图ID标识。
  */
 
   mapId: string;  
   /**
- * mapMeta：MapStaticView 内部字段。
+ * mapMeta：地图Meta相关字段。
  */
 
   mapMeta?: MapMeta;  
   /**
- * minimap：MapStaticView 内部字段。
+ * minimap：缓存或索引容器。
  */
 
   minimap?: MapMinimapSnapshot;  
   /**
- * minimapLibrary：MapStaticView 内部字段。
+ * minimapLibrary：minimapLibrary相关字段。
  */
 
   minimapLibrary?: MapMinimapArchiveEntry[];  
   /**
- * tiles：MapStaticView 内部字段。
+ * tiles：tile相关字段。
  */
 
   tiles?: VisibleTile[][];  
   /**
- * tilesOriginX：MapStaticView 内部字段。
+ * tilesOriginX：tileOriginX相关字段。
  */
 
   tilesOriginX?: number;  
   /**
- * tilesOriginY：MapStaticView 内部字段。
+ * tilesOriginY：tileOriginY相关字段。
  */
 
   tilesOriginY?: number;  
   /**
- * tilePatches：MapStaticView 内部字段。
+ * tilePatches：tilePatche相关字段。
  */
 
   tilePatches?: VisibleTilePatchView[];  
   /**
- * visibleMinimapMarkers：MapStaticView 内部字段。
+ * visibleMinimapMarkers：可见MinimapMarker相关字段。
  */
 
   visibleMinimapMarkers?: MapMinimapMarker[];  
   /**
- * visibleMinimapMarkerAdds：MapStaticView 内部字段。
+ * visibleMinimapMarkerAdds：可见MinimapMarkerAdd相关字段。
  */
 
   visibleMinimapMarkerAdds?: MapMinimapMarker[];  
   /**
- * visibleMinimapMarkerRemoves：MapStaticView 内部字段。
+ * visibleMinimapMarkerRemoves：可见MinimapMarkerRemove相关字段。
  */
 
   visibleMinimapMarkerRemoves?: string[];
@@ -183,7 +183,7 @@ export interface MapStaticView {
 /** 境界面板快照视图。 */
 export interface RealmView {
 /**
- * realm：RealmView 内部字段。
+ * realm：realm相关字段。
  */
 
   realm: PlayerRealmState | null;
@@ -192,12 +192,12 @@ export interface RealmView {
 /** 延迟探测回包视图。 */
 export interface PongView {
 /**
- * clientAt：PongView 内部字段。
+ * clientAt：clientAt相关字段。
  */
 
   clientAt: number;  
   /**
- * serverAt：PongView 内部字段。
+ * serverAt：serverAt相关字段。
  */
 
   serverAt: number;
@@ -206,17 +206,17 @@ export interface PongView {
 /** 任务自动导航回执视图。 */
 export interface QuestNavigateResultView {
 /**
- * questId：QuestNavigateResultView 内部字段。
+ * questId：任务ID标识。
  */
 
   questId: string;  
   /**
- * ok：QuestNavigateResultView 内部字段。
+ * ok：ok相关字段。
  */
 
   ok: boolean;  
   /**
- * error：QuestNavigateResultView 内部字段。
+ * error：error相关字段。
  */
 
   error?: string;
@@ -231,7 +231,7 @@ export interface InitView extends BootstrapView {}
 /** 实体进入视野视图。 */
 export interface EnterView {
 /**
- * entity：EnterView 内部字段。
+ * entity：entity相关字段。
  */
 
   entity: RenderEntity;
@@ -240,7 +240,7 @@ export interface EnterView {
 /** 实体离开视野视图。 */
 export interface LeaveView {
 /**
- * entityId：LeaveView 内部字段。
+ * entityId：entityID标识。
  */
 
   entityId: string;
@@ -249,12 +249,12 @@ export interface LeaveView {
 /** 通用错误回包视图。 */
 export interface ErrorView {
 /**
- * code：ErrorView 内部字段。
+ * code：code相关字段。
  */
 
   code: string;  
   /**
- * message：ErrorView 内部字段。
+ * message：message相关字段。
  */
 
   message: string;

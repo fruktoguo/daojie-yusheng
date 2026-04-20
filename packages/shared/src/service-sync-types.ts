@@ -12,7 +12,7 @@ import type { InventorySlotUpdateEntry, EquipmentSlotUpdateEntry, MarketListingP
 /** 战利品窗口更新视图。 */
 export interface LootWindowUpdateView {
 /**
- * window：LootWindowUpdateView 内部字段。
+ * window：窗口相关字段。
  */
 
   window: SyncedLootWindowState | null;
@@ -21,7 +21,7 @@ export interface LootWindowUpdateView {
 /** 兑换码结果视图。 */
 export interface RedeemCodesResultView {
 /**
- * result：RedeemCodesResultView 内部字段。
+ * result：结果相关字段。
  */
 
   result: AccountRedeemCodesRes;
@@ -30,32 +30,32 @@ export interface RedeemCodesResultView {
 /** 背包面板更新视图。 */
 export interface InventoryUpdateView {
 /**
- * inventory：InventoryUpdateView 内部字段。
+ * inventory：背包相关字段。
  */
 
   inventory?: SyncedInventorySnapshot;  
   /**
- * capacity：InventoryUpdateView 内部字段。
+ * capacity：capacity相关字段。
  */
 
   capacity?: number;  
   /**
- * size：InventoryUpdateView 内部字段。
+ * size：数量或计量字段。
  */
 
   size?: number;  
   /**
- * slots：InventoryUpdateView 内部字段。
+ * slots：slot相关字段。
  */
 
   slots?: InventorySlotUpdateEntry[];  
   /**
- * cooldowns：InventoryUpdateView 内部字段。
+ * cooldowns：冷却相关字段。
  */
 
   cooldowns?: SyncedInventoryCooldownState[];  
   /**
- * serverTick：InventoryUpdateView 内部字段。
+ * serverTick：servertick相关字段。
  */
 
   serverTick?: number;
@@ -64,7 +64,7 @@ export interface InventoryUpdateView {
 /** 装备面板更新视图。 */
 export interface EquipmentUpdateView {
 /**
- * slots：EquipmentUpdateView 内部字段。
+ * slots：slot相关字段。
  */
 
   slots: EquipmentSlotUpdateEntry[];
@@ -73,27 +73,27 @@ export interface EquipmentUpdateView {
 /** 坊市首页同步视图。 */
 export interface MarketUpdateView {
 /**
- * currencyItemId：MarketUpdateView 内部字段。
+ * currencyItemId：currency道具ID标识。
  */
 
   currencyItemId: string;  
   /**
- * currencyItemName：MarketUpdateView 内部字段。
+ * currencyItemName：currency道具名称名称或显示文本。
  */
 
   currencyItemName: string;  
   /**
- * listedItems：MarketUpdateView 内部字段。
+ * listedItems：集合字段。
  */
 
   listedItems: MarketListedItemView[];  
   /**
- * myOrders：MarketUpdateView 内部字段。
+ * myOrders：my订单相关字段。
  */
 
   myOrders: MarketOwnOrderView[];  
   /**
- * storage：MarketUpdateView 内部字段。
+ * storage：storage相关字段。
  */
 
   storage: MarketStorage;
@@ -102,47 +102,47 @@ export interface MarketUpdateView {
 /** 坊市分页列表视图。 */
 export interface MarketListingsView {
 /**
- * currencyItemId：MarketListingsView 内部字段。
+ * currencyItemId：currency道具ID标识。
  */
 
   currencyItemId: string;  
   /**
- * currencyItemName：MarketListingsView 内部字段。
+ * currencyItemName：currency道具名称名称或显示文本。
  */
 
   currencyItemName: string;  
   /**
- * page：MarketListingsView 内部字段。
+ * page：page相关字段。
  */
 
   page: number;  
   /**
- * pageSize：MarketListingsView 内部字段。
+ * pageSize：数量或计量字段。
  */
 
   pageSize: number;  
   /**
- * total：MarketListingsView 内部字段。
+ * total：数量或计量字段。
  */
 
   total: number;  
   /**
- * category：MarketListingsView 内部字段。
+ * category：category相关字段。
  */
 
   category: ItemType | 'all';  
   /**
- * equipmentSlot：MarketListingsView 内部字段。
+ * equipmentSlot：装备Slot相关字段。
  */
 
   equipmentSlot: EquipSlot | 'all';  
   /**
- * techniqueCategory：MarketListingsView 内部字段。
+ * techniqueCategory：功法Category相关字段。
  */
 
   techniqueCategory: TechniqueCategory | 'all';  
   /**
- * items：MarketListingsView 内部字段。
+ * items：集合字段。
  */
 
   items: MarketListingPageEntry[];
@@ -151,17 +151,17 @@ export interface MarketListingsView {
 /** 坊市订单列表视图。 */
 export interface MarketOrdersView {
 /**
- * currencyItemId：MarketOrdersView 内部字段。
+ * currencyItemId：currency道具ID标识。
  */
 
   currencyItemId: string;  
   /**
- * currencyItemName：MarketOrdersView 内部字段。
+ * currencyItemName：currency道具名称名称或显示文本。
  */
 
   currencyItemName: string;  
   /**
- * orders：MarketOrdersView 内部字段。
+ * orders：订单相关字段。
  */
 
   orders: MarketOwnOrderSyncEntry[];
@@ -170,7 +170,7 @@ export interface MarketOrdersView {
 /** 坊市寄存仓库视图。 */
 export interface MarketStorageView {
 /**
- * items：MarketStorageView 内部字段。
+ * items：集合字段。
  */
 
   items: MarketStorageSyncEntry[];
@@ -179,22 +179,22 @@ export interface MarketStorageView {
 /** 坊市订单簿视图。 */
 export interface MarketItemBookView {
 /**
- * currencyItemId：MarketItemBookView 内部字段。
+ * currencyItemId：currency道具ID标识。
  */
 
   currencyItemId: string;  
   /**
- * currencyItemName：MarketItemBookView 内部字段。
+ * currencyItemName：currency道具名称名称或显示文本。
  */
 
   currencyItemName: string;  
   /**
- * itemKey：MarketItemBookView 内部字段。
+ * itemKey：道具Key标识。
  */
 
   itemKey: string;  
   /**
- * book：MarketItemBookView 内部字段。
+ * book：book相关字段。
  */
 
   book: MarketOrderBookView | null;
@@ -203,22 +203,22 @@ export interface MarketItemBookView {
 /** 坊市成交历史视图。 */
 export interface MarketTradeHistoryView {
 /**
- * page：MarketTradeHistoryView 内部字段。
+ * page：page相关字段。
  */
 
   page: number;  
   /**
- * pageSize：MarketTradeHistoryView 内部字段。
+ * pageSize：数量或计量字段。
  */
 
   pageSize: number;  
   /**
- * totalVisible：MarketTradeHistoryView 内部字段。
+ * totalVisible：total可见相关字段。
  */
 
   totalVisible: number;  
   /**
- * records：MarketTradeHistoryView 内部字段。
+ * records：record相关字段。
  */
 
   records: MarketTradeHistoryEntryView[];
@@ -227,17 +227,17 @@ export interface MarketTradeHistoryView {
 /** NPC 商店同步视图。 */
 export interface NpcShopSyncView {
 /**
- * npcId：NpcShopSyncView 内部字段。
+ * npcId：NPCID标识。
  */
 
   npcId: string;  
   /**
- * shop：NpcShopSyncView 内部字段。
+ * shop：shop相关字段。
  */
 
   shop: SyncedNpcShopView | null;  
   /**
- * error：NpcShopSyncView 内部字段。
+ * error：error相关字段。
  */
 
   error?: string;
@@ -246,22 +246,22 @@ export interface NpcShopSyncView {
 /** 炼制面板同步视图。 */
 export interface AlchemyPanelSyncView {
 /**
- * state：AlchemyPanelSyncView 内部字段。
+ * state：状态状态或数据块。
  */
 
   state: SyncedAlchemyPanelState | null;  
   /**
- * catalogVersion：AlchemyPanelSyncView 内部字段。
+ * catalogVersion：目录Version相关字段。
  */
 
   catalogVersion: number;  
   /**
- * catalog：AlchemyPanelSyncView 内部字段。
+ * catalog：目录相关字段。
  */
 
   catalog?: AlchemyRecipeCatalogEntry[];  
   /**
- * error：AlchemyPanelSyncView 内部字段。
+ * error：error相关字段。
  */
 
   error?: string;
@@ -270,12 +270,12 @@ export interface AlchemyPanelSyncView {
 /** 强化面板同步视图。 */
 export interface EnhancementPanelSyncView {
 /**
- * state：EnhancementPanelSyncView 内部字段。
+ * state：状态状态或数据块。
  */
 
   state: SyncedEnhancementPanelState | null;  
   /**
- * error：EnhancementPanelSyncView 内部字段。
+ * error：error相关字段。
  */
 
   error?: string;
@@ -284,17 +284,17 @@ export interface EnhancementPanelSyncView {
 /** NPC 可接任务列表视图。 */
 export interface NpcQuestsView {
 /**
- * npcId：NpcQuestsView 内部字段。
+ * npcId：NPCID标识。
  */
 
   npcId: string;  
   /**
- * npcName：NpcQuestsView 内部字段。
+ * npcName：NPC名称名称或显示文本。
  */
 
   npcName: string;  
   /**
- * quests：NpcQuestsView 内部字段。
+ * quests：集合字段。
  */
 
   quests: QuestState[];
@@ -303,32 +303,32 @@ export interface NpcQuestsView {
 /** 地块运行时资源项视图。 */
 export interface TileRuntimeResourceView {
 /**
- * key：TileRuntimeResourceView 内部字段。
+ * key：key标识。
  */
 
   key: string;  
   /**
- * label：TileRuntimeResourceView 内部字段。
+ * label：label名称或显示文本。
  */
 
   label: string;  
   /**
- * value：TileRuntimeResourceView 内部字段。
+ * value：值数值。
  */
 
   value: number;  
   /**
- * effectiveValue：TileRuntimeResourceView 内部字段。
+ * effectiveValue：effective值数值。
  */
 
   effectiveValue?: number;  
   /**
- * level：TileRuntimeResourceView 内部字段。
+ * level：等级数值。
  */
 
   level?: number;  
   /**
- * sourceValue：TileRuntimeResourceView 内部字段。
+ * sourceValue：来源值数值。
  */
 
   sourceValue?: number;
@@ -337,47 +337,47 @@ export interface TileRuntimeResourceView {
 /** 地块运行时详情视图。 */
 export interface TileRuntimeDetailView {
 /**
- * mapId：TileRuntimeDetailView 内部字段。
+ * mapId：地图ID标识。
  */
 
   mapId: string;  
   /**
- * x：TileRuntimeDetailView 内部字段。
+ * x：x相关字段。
  */
 
   x: number;  
   /**
- * y：TileRuntimeDetailView 内部字段。
+ * y：y相关字段。
  */
 
   y: number;  
   /**
- * hp：TileRuntimeDetailView 内部字段。
+ * hp：hp相关字段。
  */
 
   hp?: number;  
   /**
- * maxHp：TileRuntimeDetailView 内部字段。
+ * maxHp：maxHp相关字段。
  */
 
   maxHp?: number;  
   /**
- * destroyed：TileRuntimeDetailView 内部字段。
+ * destroyed：destroyed相关字段。
  */
 
   destroyed?: boolean;  
   /**
- * restoreTicksLeft：TileRuntimeDetailView 内部字段。
+ * restoreTicksLeft：restoretickLeft相关字段。
  */
 
   restoreTicksLeft?: number;  
   /**
- * resources：TileRuntimeDetailView 内部字段。
+ * resources：resource相关字段。
  */
 
   resources: TileRuntimeResourceView[];  
   /**
- * entities：TileRuntimeDetailView 内部字段。
+ * entities：entity相关字段。
  */
 
   entities?: ObservedTileEntityDetail[];
@@ -386,7 +386,7 @@ export interface TileRuntimeDetailView {
 /** 任务列表更新视图。 */
 export interface QuestUpdateView {
 /**
- * quests：QuestUpdateView 内部字段。
+ * quests：集合字段。
  */
 
   quests: QuestState[];
@@ -395,7 +395,7 @@ export interface QuestUpdateView {
 /** 邮件摘要同步视图。 */
 export interface MailSummarySyncView {
 /**
- * summary：MailSummarySyncView 内部字段。
+ * summary：摘要状态或数据块。
  */
 
   summary: MailSummaryView;
@@ -404,7 +404,7 @@ export interface MailSummarySyncView {
 /** 邮件分页同步视图。 */
 export interface MailPageSyncView {
 /**
- * page：MailPageSyncView 内部字段。
+ * page：page相关字段。
  */
 
   page: MailPageView;
@@ -413,12 +413,12 @@ export interface MailPageSyncView {
 /** 邮件详情同步视图。 */
 export interface MailDetailSyncView {
 /**
- * detail：MailDetailSyncView 内部字段。
+ * detail：详情状态或数据块。
  */
 
   detail: MailDetailView | null;  
   /**
- * error：MailDetailSyncView 内部字段。
+ * error：error相关字段。
  */
 
   error?: string;
@@ -427,22 +427,22 @@ export interface MailDetailSyncView {
 /** 邮件操作结果视图。 */
 export interface MailOpResultView {
 /**
- * operation：MailOpResultView 内部字段。
+ * operation：operation相关字段。
  */
 
   operation: 'markRead' | 'claim' | 'delete';  
   /**
- * ok：MailOpResultView 内部字段。
+ * ok：ok相关字段。
  */
 
   ok: boolean;  
   /**
- * mailIds：MailOpResultView 内部字段。
+ * mailIds：邮件ID相关字段。
  */
 
   mailIds: string[];  
   /**
- * message：MailOpResultView 内部字段。
+ * message：message相关字段。
  */
 
   message?: string;
@@ -451,7 +451,7 @@ export interface MailOpResultView {
 /** 建议面板同步视图。 */
 export interface SuggestionUpdateView {
 /**
- * suggestions：SuggestionUpdateView 内部字段。
+ * suggestions：suggestion相关字段。
  */
 
   suggestions: Suggestion[];

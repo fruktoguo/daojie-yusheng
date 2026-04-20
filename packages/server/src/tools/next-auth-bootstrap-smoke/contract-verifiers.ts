@@ -6,7 +6,7 @@ Object.defineProperty(exports, "__esModule", { value: true });
  * @param declaredFunctionNames 参数说明。
  * @param helperFunctions 参数说明。
  * @param fixtureFunctions 参数说明。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新VerifyFunction名称相关状态。
  */
 
 function buildVerifyFunctionNames(declaredFunctionNames, helperFunctions, fixtureFunctions) {

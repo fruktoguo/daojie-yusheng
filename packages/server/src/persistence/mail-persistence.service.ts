@@ -26,23 +26,23 @@ const MAILBOX_SCOPE = 'server_next_mailboxes_v1';
 /** 邮件持久化服务：负责玩家邮件箱的读取与保存。 */
 let MailPersistenceService = MailPersistenceService_1 = class MailPersistenceService {
 /**
- * logger：对象字段。
+ * logger：日志器引用。
  */
 
     logger = new common_1.Logger(MailPersistenceService_1.name);    
     /**
- * pool：对象字段。
+ * pool：缓存或索引容器。
  */
 
     pool = null;    
     /**
- * enabled：对象字段。
+ * enabled：启用开关或状态标识。
  */
 
     enabled = false;    
     /**
- * onModuleInit：执行核心业务逻辑。
- * @returns 函数返回值。
+ * onModuleInit：执行on模块Init相关逻辑。
+ * @returns 无返回值，直接更新on模块Init相关状态。
  */
 
     async onModuleInit() {
@@ -68,17 +68,17 @@ let MailPersistenceService = MailPersistenceService_1 = class MailPersistenceSer
         }
     }    
     /**
- * onModuleDestroy：执行核心业务逻辑。
- * @returns 函数返回值。
+ * onModuleDestroy：执行on模块Destroy相关逻辑。
+ * @returns 无返回值，直接更新on模块Destroy相关状态。
  */
 
     async onModuleDestroy() {
         await this.safeClosePool();
     }    
     /**
- * loadMailbox：按给定条件读取/查询数据。
+ * loadMailbox：读取邮件箱并返回结果。
  * @param playerId 玩家 ID。
- * @returns 函数返回值。
+ * @returns 无返回值，完成邮件箱的读取/组装。
  */
 
     async loadMailbox(playerId) {
@@ -95,10 +95,10 @@ let MailPersistenceService = MailPersistenceService_1 = class MailPersistenceSer
         return normalizeMailbox(result.rows[0]?.payload);
     }    
     /**
- * saveMailbox：执行核心业务逻辑。
+ * saveMailbox：执行save邮件箱相关逻辑。
  * @param playerId 玩家 ID。
  * @param mailbox 参数说明。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新save邮件箱相关状态。
  */
 
     async saveMailbox(playerId, mailbox) {
@@ -115,8 +115,8 @@ let MailPersistenceService = MailPersistenceService_1 = class MailPersistenceSer
       `, [MAILBOX_SCOPE, playerId, JSON.stringify(mailbox)]);
     }    
     /**
- * safeClosePool：执行核心业务逻辑。
- * @returns 函数返回值。
+ * safeClosePool：执行safeClosePool相关逻辑。
+ * @returns 无返回值，直接更新safeClosePool相关状态。
  */
 
     async safeClosePool() {
@@ -161,9 +161,9 @@ function normalizeMailbox(raw) {
 }
 export { MailPersistenceService };
 /**
- * normalizeMailEntry：执行核心业务逻辑。
+ * normalizeMailEntry：规范化或转换邮件条目。
  * @param raw 参数说明。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新邮件条目相关状态。
  */
 
 function normalizeMailEntry(raw) {

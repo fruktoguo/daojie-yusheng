@@ -40,8 +40,8 @@ const state = (id: string) => fetchJson(`/runtime/players/${id}/state`);
 const tile = (instanceId: string, x: number, y: number) =>
   fetchJson(`/runtime/instances/${instanceId}/tiles/${x}/${y}`);  
   /**
- * main：执行核心业务逻辑。
- * @returns 函数返回值。
+ * main：执行main相关逻辑。
+ * @returns 无返回值，直接更新main相关状态。
  */
 
 

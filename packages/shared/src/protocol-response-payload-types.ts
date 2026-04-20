@@ -106,37 +106,37 @@ export interface NEXT_S2C_WorldContainerPatch extends WorldContainerPatchView {}
 /** 世界增量包：同步可见实体、战斗特效、路径、时间和地图局部补丁。 */
 export interface NEXT_S2C_WorldDelta extends WorldDeltaView {
 /**
- * p：NEXT_S2C_WorldDelta 内部字段。
+ * p：p相关字段。
  */
 
   p?: NEXT_S2C_WorldPlayerPatch[];  
   /**
- * m：NEXT_S2C_WorldDelta 内部字段。
+ * m：m相关字段。
  */
 
   m?: NEXT_S2C_WorldMonsterPatch[];  
   /**
- * n：NEXT_S2C_WorldDelta 内部字段。
+ * n：n相关字段。
  */
 
   n?: NEXT_S2C_WorldNpcPatch[];  
   /**
- * o：NEXT_S2C_WorldDelta 内部字段。
+ * o：o相关字段。
  */
 
   o?: NEXT_S2C_WorldPortalPatch[];  
   /**
- * g：NEXT_S2C_WorldDelta 内部字段。
+ * g：g相关字段。
  */
 
   g?: NEXT_S2C_WorldGroundPatch[];  
   /**
- * c：NEXT_S2C_WorldDelta 内部字段。
+ * c：c相关字段。
  */
 
   c?: NEXT_S2C_WorldContainerPatch[];  
   /**
- * tp：NEXT_S2C_WorldDelta 内部字段。
+ * tp：tp相关字段。
  */
 
   tp?: VisibleTilePatch[];
@@ -150,7 +150,7 @@ export interface NEXT_S2C_PanelEquipmentDelta extends PanelEquipmentDeltaView {}
 /** 功法面板增量。 */
 export interface NEXT_S2C_PanelTechniqueDelta extends PanelTechniqueDeltaView {
 /**
- * techniques：NEXT_S2C_PanelTechniqueDelta 内部字段。
+ * techniques：功法相关字段。
  */
 
   techniques?: TechniqueUpdateEntry[];
@@ -160,7 +160,7 @@ export interface NEXT_S2C_PanelAttrDelta extends PanelAttrDeltaView {}
 /** 行动面板增量。 */
 export interface NEXT_S2C_PanelActionDelta extends PanelActionDeltaView {
 /**
- * actions：NEXT_S2C_PanelActionDelta 内部字段。
+ * actions：action相关字段。
  */
 
   actions?: ActionUpdateEntry[];
@@ -178,22 +178,22 @@ export interface VisibleTilePatch extends VisibleTilePatchView {}
 /** 高频 tick 增量：同步可见实体、地面物品、战斗特效和剩余路径。 */
 export interface NEXT_S2C_Tick extends TickView {
 /**
- * p：NEXT_S2C_Tick 内部字段。
+ * p：p相关字段。
  */
 
   p: TickRenderEntity[];  
   /**
- * t：NEXT_S2C_Tick 内部字段。
+ * t：t相关字段。
  */
 
   t?: VisibleTilePatch[];  
   /**
- * e：NEXT_S2C_Tick 内部字段。
+ * e：e相关字段。
  */
 
   e: TickRenderEntity[];  
   /**
- * g：NEXT_S2C_Tick 内部字段。
+ * g：g相关字段。
  */
 
   g?: GroundItemPilePatch[];
@@ -201,7 +201,7 @@ export interface NEXT_S2C_Tick extends TickView {
 /** 地图静态同步：低频重同步地图元数据、小地图与静态标记。 */
 export interface NEXT_S2C_MapStaticSync extends MapStaticSyncView {
 /**
- * tilePatches：NEXT_S2C_MapStaticSync 内部字段。
+ * tilePatches：tilePatche相关字段。
  */
 
   tilePatches?: VisibleTilePatch[];
@@ -227,7 +227,7 @@ export interface TechniqueUpdateEntry extends TechniqueUpdateEntryView {}
 /** 功法面板更新。 */
 export interface NEXT_S2C_TechniqueUpdate extends TechniqueUpdateView {
 /**
- * techniques：NEXT_S2C_TechniqueUpdate 内部字段。
+ * techniques：功法相关字段。
  */
 
   techniques: TechniqueUpdateEntry[];
@@ -237,7 +237,7 @@ export interface ActionUpdateEntry extends ActionUpdateEntryView {}
 /** 行动面板更新。 */
 export interface NEXT_S2C_ActionsUpdate extends ActionsUpdateView {
 /**
- * actions：NEXT_S2C_ActionsUpdate 内部字段。
+ * actions：action相关字段。
  */
 
   actions: ActionUpdateEntry[];
@@ -273,12 +273,12 @@ export interface NEXT_S2C_PlayerDetail extends PlayerDetailView {}
 /** 地块详情包。 */
 export interface NEXT_S2C_TileDetail extends TileDetailView {
 /**
- * portal：NEXT_S2C_TileDetail 内部字段。
+ * portal：portal相关字段。
  */
 
   portal?: NEXT_S2C_PortalDetail;  
   /**
- * ground：NEXT_S2C_TileDetail 内部字段。
+ * ground：ground相关字段。
  */
 
   ground?: NEXT_S2C_GroundDetail;

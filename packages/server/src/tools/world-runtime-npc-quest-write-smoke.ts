@@ -7,15 +7,15 @@ const { WorldRuntimeNpcQuestWriteService } = require("../runtime/world/world-run
  * createService：构建并返回目标对象。
  * @param player 玩家对象。
  * @param log 参数说明。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新服务相关状态。
  */
 
 
 function createService(player, log = []) {
     return new WorldRuntimeNpcQuestWriteService({    
     /**
- * getPlayerOrThrow：按给定条件读取/查询数据。
- * @returns 函数返回值。
+ * getPlayerOrThrow：读取玩家OrThrow。
+ * @returns 无返回值，完成玩家OrThrow的读取/组装。
  */
 
         getPlayerOrThrow() {
@@ -27,30 +27,30 @@ function createService(player, log = []) {
             return player;
         },        
         /**
- * markQuestStateDirty：执行核心业务逻辑。
+ * markQuestStateDirty：处理任务状态Dirty并更新相关状态。
  * @param playerId 玩家 ID。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新任务状态Dirty相关状态。
  */
 
         markQuestStateDirty(playerId) {
             log.push(['markQuestStateDirty', playerId]);
         },        
         /**
- * consumeInventoryItemByItemId：执行核心业务逻辑。
+ * consumeInventoryItemByItemId：执行consume背包道具By道具ID相关逻辑。
  * @param playerId 玩家 ID。
  * @param itemId 道具 ID。
  * @param count 数量。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新consume背包道具By道具ID相关状态。
  */
 
         consumeInventoryItemByItemId(playerId, itemId, count) {
             log.push(['consumeInventoryItemByItemId', playerId, itemId, count]);
         },        
         /**
- * receiveInventoryItem：执行核心业务逻辑。
+ * receiveInventoryItem：执行receive背包道具相关逻辑。
  * @param playerId 玩家 ID。
  * @param item 道具。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新receive背包道具相关状态。
  */
 
         receiveInventoryItem(playerId, item) {
@@ -59,8 +59,8 @@ function createService(player, log = []) {
     });
 }
 /**
- * testExecuteNpcQuestActionQueuesSubmit：执行核心业务逻辑。
- * @returns 函数返回值。
+ * testExecuteNpcQuestActionQueuesSubmit：执行testExecuteNPC任务ActionQueueSubmit相关逻辑。
+ * @returns 无返回值，直接更新testExecuteNPC任务ActionQueueSubmit相关状态。
  */
 
 
@@ -70,16 +70,16 @@ function testExecuteNpcQuestActionQueuesSubmit() {
     const queued = new Map();
     const deps = {    
     /**
- * enqueuePendingCommand：执行核心业务逻辑。
+ * enqueuePendingCommand：处理待处理Command并更新相关状态。
  * @param playerId 玩家 ID。
  * @param command 输入指令。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新PendingCommand相关状态。
  */
 
         enqueuePendingCommand(playerId, command) { queued.set(playerId, command); },        
         /**
  * buildNpcQuestsView：构建并返回目标对象。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新NPC任务视图相关状态。
  */
 
         buildNpcQuestsView() {
@@ -97,8 +97,8 @@ function testExecuteNpcQuestActionQueuesSubmit() {
     assert.equal(result.kind, 'npcQuests');
 }
 /**
- * testEnqueueNpcInteraction：执行核心业务逻辑。
- * @returns 函数返回值。
+ * testEnqueueNpcInteraction：处理testEnqueueNPCInteraction并更新相关状态。
+ * @returns 无返回值，直接更新testEnqueueNPCInteraction相关状态。
  */
 
 
@@ -107,24 +107,24 @@ function testEnqueueNpcInteraction() {
     const queued = new Map();
     const deps = {    
     /**
- * enqueuePendingCommand：执行核心业务逻辑。
+ * enqueuePendingCommand：处理待处理Command并更新相关状态。
  * @param playerId 玩家 ID。
  * @param command 输入指令。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新PendingCommand相关状态。
  */
 
         enqueuePendingCommand(playerId, command) { queued.set(playerId, command); },        
         /**
- * getPlayerLocationOrThrow：按给定条件读取/查询数据。
- * @returns 函数返回值。
+ * getPlayerLocationOrThrow：读取玩家位置OrThrow。
+ * @returns 无返回值，完成玩家位置OrThrow的读取/组装。
  */
 
         getPlayerLocationOrThrow() {
             return { instanceId: 'public:yunlai_town' };
         },        
         /**
- * getPlayerViewOrThrow：按给定条件读取/查询数据。
- * @returns 函数返回值。
+ * getPlayerViewOrThrow：读取玩家视图OrThrow。
+ * @returns 无返回值，完成玩家视图OrThrow的读取/组装。
  */
 
         getPlayerViewOrThrow() {
@@ -139,8 +139,8 @@ function testEnqueueNpcInteraction() {
     assert.deepEqual(result, { tick: 1 });
 }
 /**
- * testEnqueueAcceptAndSubmitNpcQuest：执行核心业务逻辑。
- * @returns 函数返回值。
+ * testEnqueueAcceptAndSubmitNpcQuest：处理testEnqueueAcceptAndSubmitNPC任务并更新相关状态。
+ * @returns 无返回值，直接更新testEnqueueAcceptAndSubmitNPC任务相关状态。
  */
 
 
@@ -149,24 +149,24 @@ function testEnqueueAcceptAndSubmitNpcQuest() {
     const queued = new Map();
     const deps = {    
     /**
- * enqueuePendingCommand：执行核心业务逻辑。
+ * enqueuePendingCommand：处理待处理Command并更新相关状态。
  * @param playerId 玩家 ID。
  * @param command 输入指令。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新PendingCommand相关状态。
  */
 
         enqueuePendingCommand(playerId, command) { queued.set(playerId, command); },        
         /**
- * getPlayerLocationOrThrow：按给定条件读取/查询数据。
- * @returns 函数返回值。
+ * getPlayerLocationOrThrow：读取玩家位置OrThrow。
+ * @returns 无返回值，完成玩家位置OrThrow的读取/组装。
  */
 
         getPlayerLocationOrThrow() {
             return { instanceId: 'public:yunlai_town' };
         },        
         /**
- * getPlayerViewOrThrow：按给定条件读取/查询数据。
- * @returns 函数返回值。
+ * getPlayerViewOrThrow：读取玩家视图OrThrow。
+ * @returns 无返回值，完成玩家视图OrThrow的读取/组装。
  */
 
         getPlayerViewOrThrow() {
@@ -189,8 +189,8 @@ function testEnqueueAcceptAndSubmitNpcQuest() {
     assert.deepEqual(submitView, { tick: 2 });
 }
 /**
- * testEnqueueLegacyNpcInteractionDelegates：执行核心业务逻辑。
- * @returns 函数返回值。
+ * testEnqueueLegacyNpcInteractionDelegates：处理testEnqueueLegacyNPCInteractionDelegate并更新相关状态。
+ * @returns 无返回值，直接更新testEnqueueLegacyNPCInteractionDelegate相关状态。
  */
 
 
@@ -199,24 +199,24 @@ function testEnqueueLegacyNpcInteractionDelegates() {
     const queued = new Map();
     const deps = {    
     /**
- * enqueuePendingCommand：执行核心业务逻辑。
+ * enqueuePendingCommand：处理待处理Command并更新相关状态。
  * @param playerId 玩家 ID。
  * @param command 输入指令。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新PendingCommand相关状态。
  */
 
         enqueuePendingCommand(playerId, command) { queued.set(playerId, command); },        
         /**
- * getPlayerLocationOrThrow：按给定条件读取/查询数据。
- * @returns 函数返回值。
+ * getPlayerLocationOrThrow：读取玩家位置OrThrow。
+ * @returns 无返回值，完成玩家位置OrThrow的读取/组装。
  */
 
         getPlayerLocationOrThrow() {
             return { instanceId: 'public:yunlai_town' };
         },        
         /**
- * getPlayerViewOrThrow：按给定条件读取/查询数据。
- * @returns 函数返回值。
+ * getPlayerViewOrThrow：读取玩家视图OrThrow。
+ * @returns 无返回值，完成玩家视图OrThrow的读取/组装。
  */
 
         getPlayerViewOrThrow() {
@@ -230,8 +230,8 @@ function testEnqueueLegacyNpcInteractionDelegates() {
     });
 }
 /**
- * testExecuteNpcQuestActionQueuesAccept：执行核心业务逻辑。
- * @returns 函数返回值。
+ * testExecuteNpcQuestActionQueuesAccept：执行testExecuteNPC任务ActionQueueAccept相关逻辑。
+ * @returns 无返回值，直接更新testExecuteNPC任务ActionQueueAccept相关状态。
  */
 
 
@@ -241,16 +241,16 @@ function testExecuteNpcQuestActionQueuesAccept() {
     const queued = new Map();
     const deps = {    
     /**
- * enqueuePendingCommand：执行核心业务逻辑。
+ * enqueuePendingCommand：处理待处理Command并更新相关状态。
  * @param playerId 玩家 ID。
  * @param command 输入指令。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新PendingCommand相关状态。
  */
 
         enqueuePendingCommand(playerId, command) { queued.set(playerId, command); },        
         /**
  * buildNpcQuestsView：构建并返回目标对象。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新NPC任务视图相关状态。
  */
 
         buildNpcQuestsView() {
@@ -267,8 +267,8 @@ function testExecuteNpcQuestActionQueuesAccept() {
     });
 }
 /**
- * testExecuteNpcQuestActionQueuesTalkInteract：执行核心业务逻辑。
- * @returns 函数返回值。
+ * testExecuteNpcQuestActionQueuesTalkInteract：执行testExecuteNPC任务ActionQueueTalkInteract相关逻辑。
+ * @returns 无返回值，直接更新testExecuteNPC任务ActionQueueTalkInteract相关状态。
  */
 
 
@@ -278,16 +278,16 @@ function testExecuteNpcQuestActionQueuesTalkInteract() {
     const queued = new Map();
     const deps = {    
     /**
- * enqueuePendingCommand：执行核心业务逻辑。
+ * enqueuePendingCommand：处理待处理Command并更新相关状态。
  * @param playerId 玩家 ID。
  * @param command 输入指令。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新PendingCommand相关状态。
  */
 
         enqueuePendingCommand(playerId, command) { queued.set(playerId, command); },        
         /**
  * buildNpcQuestsView：构建并返回目标对象。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新NPC任务视图相关状态。
  */
 
         buildNpcQuestsView() {
@@ -309,8 +309,8 @@ function testExecuteNpcQuestActionQueuesTalkInteract() {
     });
 }
 /**
- * testDispatchNpcInteractionPrioritizesSubmit：执行核心业务逻辑。
- * @returns 函数返回值。
+ * testDispatchNpcInteractionPrioritizesSubmit：判断testDispatchNPCInteractionPrioritizeSubmit是否满足条件。
+ * @returns 无返回值，直接更新testDispatchNPCInteractionPrioritizeSubmit相关状态。
  */
 
 
@@ -337,17 +337,17 @@ function testDispatchNpcInteractionPrioritizesSubmit() {
     };
     service.dispatchNpcInteraction('player:1', 'npc_a', {    
     /**
- * resolveAdjacentNpc：执行核心业务逻辑。
- * @returns 函数返回值。
+ * resolveAdjacentNpc：规范化或转换AdjacentNPC。
+ * @returns 无返回值，直接更新AdjacentNPC相关状态。
  */
 
         resolveAdjacentNpc() {
             return { npcId: 'npc_a', name: '阿青', dialogue: '你好' };
         },        
         /**
- * refreshQuestStates：执行核心业务逻辑。
+ * refreshQuestStates：执行refresh任务状态相关逻辑。
  * @param playerId 玩家 ID。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新refresh任务状态相关状态。
  */
 
         refreshQuestStates(playerId) {
@@ -355,18 +355,18 @@ function testDispatchNpcInteractionPrioritizesSubmit() {
         },        
         /**
  * createNpcQuestsEnvelope：构建并返回目标对象。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新NPC任务Envelope相关状态。
  */
 
         createNpcQuestsEnvelope() {
             return { quests: [] };
         },        
         /**
- * queuePlayerNotice：执行核心业务逻辑。
+ * queuePlayerNotice：执行queue玩家Notice相关逻辑。
  * @param playerId 玩家 ID。
  * @param message 参数说明。
  * @param tone 参数说明。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新queue玩家Notice相关状态。
  */
 
         queuePlayerNotice(playerId, message, tone) {
@@ -379,8 +379,8 @@ function testDispatchNpcInteractionPrioritizesSubmit() {
     ]);
 }
 /**
- * testDispatchNpcInteractionFallsBackToDialogueNotice：执行核心业务逻辑。
- * @returns 函数返回值。
+ * testDispatchNpcInteractionFallsBackToDialogueNotice：判断testDispatchNPCInteractionFallBackToDialogueNotice是否满足条件。
+ * @returns 无返回值，直接更新testDispatchNPCInteractionFallBackToDialogueNotice相关状态。
  */
 
 
@@ -395,17 +395,17 @@ function testDispatchNpcInteractionFallsBackToDialogueNotice() {
     const service = createService(player, log);
     service.dispatchNpcInteraction('player:1', 'npc_a', {    
     /**
- * resolveAdjacentNpc：执行核心业务逻辑。
- * @returns 函数返回值。
+ * resolveAdjacentNpc：规范化或转换AdjacentNPC。
+ * @returns 无返回值，直接更新AdjacentNPC相关状态。
  */
 
         resolveAdjacentNpc() {
             return { npcId: 'npc_a', name: '阿青', dialogue: '先去历练吧。' };
         },        
         /**
- * refreshQuestStates：执行核心业务逻辑。
+ * refreshQuestStates：执行refresh任务状态相关逻辑。
  * @param playerId 玩家 ID。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新refresh任务状态相关状态。
  */
 
         refreshQuestStates(playerId) {
@@ -413,18 +413,18 @@ function testDispatchNpcInteractionFallsBackToDialogueNotice() {
         },        
         /**
  * createNpcQuestsEnvelope：构建并返回目标对象。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新NPC任务Envelope相关状态。
  */
 
         createNpcQuestsEnvelope() {
             return { quests: [] };
         },        
         /**
- * queuePlayerNotice：执行核心业务逻辑。
+ * queuePlayerNotice：执行queue玩家Notice相关逻辑。
  * @param playerId 玩家 ID。
  * @param message 参数说明。
  * @param tone 参数说明。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新queue玩家Notice相关状态。
  */
 
         queuePlayerNotice(playerId, message, tone) {

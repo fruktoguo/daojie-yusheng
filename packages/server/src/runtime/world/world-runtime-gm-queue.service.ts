@@ -17,24 +17,24 @@ const next_gm_constants_1 = require("../../http/next/next-gm.constants");
 /** GM runtime queue 服务：承接 GM 命令归一、入队与执行。 */
 let WorldRuntimeGmQueueService = class WorldRuntimeGmQueueService {
 /**
- * nextGmBotSequence：对象字段。
+ * nextGmBotSequence：nextGMBotSequence相关字段。
  */
 
     nextGmBotSequence = 1;    
     /**
- * pendingSystemCommands：对象字段。
+ * pendingSystemCommands：pendingSystemCommand相关字段。
  */
 
     pendingSystemCommands = [];    
     /**
- * pendingRespawnPlayerIds：对象字段。
+ * pendingRespawnPlayerIds：pending重生玩家ID相关字段。
  */
 
     pendingRespawnPlayerIds = new Set();    
     /**
- * enqueueSystemCommand：执行核心业务逻辑。
+ * enqueueSystemCommand：处理SystemCommand并更新相关状态。
  * @param command 输入指令。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新SystemCommand相关状态。
  */
 
     enqueueSystemCommand(command) {
@@ -42,9 +42,9 @@ let WorldRuntimeGmQueueService = class WorldRuntimeGmQueueService {
         return { queued: true };
     }    
     /**
- * enqueueGmUpdatePlayer：执行核心业务逻辑。
+ * enqueueGmUpdatePlayer：处理GMUpdate玩家并更新相关状态。
  * @param input 输入参数。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新GMUpdate玩家相关状态。
  */
 
     enqueueGmUpdatePlayer(input) {
@@ -66,9 +66,9 @@ let WorldRuntimeGmQueueService = class WorldRuntimeGmQueueService {
         return { queued: true };
     }    
     /**
- * enqueueGmResetPlayer：执行核心业务逻辑。
+ * enqueueGmResetPlayer：处理GMReset玩家并更新相关状态。
  * @param playerIdInput 参数说明。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新GMReset玩家相关状态。
  */
 
     enqueueGmResetPlayer(playerIdInput) {
@@ -82,10 +82,10 @@ let WorldRuntimeGmQueueService = class WorldRuntimeGmQueueService {
         return { queued: true };
     }    
     /**
- * enqueueGmSpawnBots：执行核心业务逻辑。
+ * enqueueGmSpawnBots：处理GMSpawnBot并更新相关状态。
  * @param anchorPlayerIdInput 参数说明。
  * @param countInput 参数说明。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新GMSpawnBot相关状态。
  */
 
     enqueueGmSpawnBots(anchorPlayerIdInput, countInput) {
@@ -103,10 +103,10 @@ let WorldRuntimeGmQueueService = class WorldRuntimeGmQueueService {
         return { queued: true };
     }    
     /**
- * enqueueGmRemoveBots：执行核心业务逻辑。
+ * enqueueGmRemoveBots：处理GMRemoveBot并更新相关状态。
  * @param playerIdsInput 参数说明。
  * @param allInput 参数说明。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新GMRemoveBot相关状态。
  */
 
     enqueueGmRemoveBots(playerIdsInput, allInput) {
@@ -117,34 +117,34 @@ let WorldRuntimeGmQueueService = class WorldRuntimeGmQueueService {
         return { queued: true };
     }    
     /**
- * markPendingRespawn：执行核心业务逻辑。
+ * markPendingRespawn：处理待处理重生并更新相关状态。
  * @param playerId 玩家 ID。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新Pending重生相关状态。
  */
 
     markPendingRespawn(playerId) {
         this.pendingRespawnPlayerIds.add(playerId);
     }    
     /**
- * clearPendingRespawn：执行核心业务逻辑。
+ * clearPendingRespawn：执行clear待处理重生相关逻辑。
  * @param playerId 玩家 ID。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新clearPending重生相关状态。
  */
 
     clearPendingRespawn(playerId) {
         this.pendingRespawnPlayerIds.delete(playerId);
     }    
     /**
- * getPendingSystemCommandCount：按给定条件读取/查询数据。
- * @returns 函数返回值。
+ * getPendingSystemCommandCount：读取待处理SystemCommand数量。
+ * @returns 无返回值，完成PendingSystemCommand数量的读取/组装。
  */
 
     getPendingSystemCommandCount() {
         return this.pendingSystemCommands.length;
     }    
     /**
- * drainPendingSystemCommands：执行核心业务逻辑。
- * @returns 函数返回值。
+ * drainPendingSystemCommands：执行drain待处理SystemCommand相关逻辑。
+ * @returns 无返回值，直接更新drainPendingSystemCommand相关状态。
  */
 
     drainPendingSystemCommands() {
@@ -156,8 +156,8 @@ let WorldRuntimeGmQueueService = class WorldRuntimeGmQueueService {
         return this.pendingSystemCommands.splice(0, this.pendingSystemCommands.length);
     }    
     /**
- * drainPendingRespawnPlayerIds：执行核心业务逻辑。
- * @returns 函数返回值。
+ * drainPendingRespawnPlayerIds：执行drain待处理重生玩家ID相关逻辑。
+ * @returns 无返回值，直接更新drainPending重生玩家ID相关状态。
  */
 
     drainPendingRespawnPlayerIds() {
@@ -171,16 +171,16 @@ let WorldRuntimeGmQueueService = class WorldRuntimeGmQueueService {
         return pending;
     }    
     /**
- * hasPendingRespawns：执行状态校验并返回判断结果。
- * @returns 函数返回值。
+ * hasPendingRespawns：判断待处理重生是否满足条件。
+ * @returns 无返回值，完成Pending重生的条件判断。
  */
 
     hasPendingRespawns() {
         return this.pendingRespawnPlayerIds.size > 0;
     }    
     /**
- * resetState：执行核心业务逻辑。
- * @returns 函数返回值。
+ * resetState：执行reset状态相关逻辑。
+ * @returns 无返回值，直接更新reset状态相关状态。
  */
 
     resetState() {
@@ -188,10 +188,10 @@ let WorldRuntimeGmQueueService = class WorldRuntimeGmQueueService {
         this.pendingRespawnPlayerIds.clear();
     }    
     /**
- * dispatchGmUpdatePlayer：处理事件并驱动执行路径。
+ * dispatchGmUpdatePlayer：判断GMUpdate玩家是否满足条件。
  * @param command 输入指令。
  * @param deps 运行时依赖。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新GMUpdate玩家相关状态。
  */
 
     dispatchGmUpdatePlayer(command, deps) {
@@ -230,11 +230,11 @@ let WorldRuntimeGmQueueService = class WorldRuntimeGmQueueService {
         }
     }    
     /**
- * dispatchGmSpawnBots：处理事件并驱动执行路径。
+ * dispatchGmSpawnBots：判断GMSpawnBot是否满足条件。
  * @param anchorPlayerId anchorPlayer ID。
  * @param count 数量。
  * @param deps 运行时依赖。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新GMSpawnBot相关状态。
  */
 
     dispatchGmSpawnBots(anchorPlayerId, count, deps) {
@@ -264,11 +264,11 @@ let WorldRuntimeGmQueueService = class WorldRuntimeGmQueueService {
         }
     }    
     /**
- * dispatchGmRemoveBots：处理事件并驱动执行路径。
+ * dispatchGmRemoveBots：判断GMRemoveBot是否满足条件。
  * @param playerIds player ID 集合。
  * @param removeAll 参数说明。
  * @param deps 运行时依赖。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新GMRemoveBot相关状态。
  */
 
     dispatchGmRemoveBots(playerIds, removeAll, deps) {

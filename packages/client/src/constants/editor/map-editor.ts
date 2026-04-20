@@ -35,24 +35,24 @@ export const PAINT_TILE_TYPES: TileType[] = [
 /** 左侧工具栏按钮与提示。 */
 export const TOOL_OPTIONS: Array<{
 /**
- * value：对象字段。
+ * value：值数值。
  */
 /**
- * value：对象字段。
+ * value：值数值。
  */
  value: 'select' | 'paint' | 'pan'; 
  /**
- * label：对象字段。
+ * label：label名称或显示文本。
  */
 /**
- * label：对象字段。
+ * label：label名称或显示文本。
  */
  label: string; 
  /**
- * note：对象字段。
+ * note：note相关字段。
  */
 /**
- * note：对象字段。
+ * note：note相关字段。
  */
  note: string }> = [
   { value: 'select', label: '选取', note: '检查当前格与对象' },
@@ -63,17 +63,17 @@ export const TOOL_OPTIONS: Array<{
 /** 可绘制图层配置，支持地块、无属性灵气与通用气机。 */
 export const PAINT_LAYER_OPTIONS: Array<{
 /**
- * value：对象字段。
+ * value：值数值。
  */
 /**
- * value：对象字段。
+ * value：值数值。
  */
  value: 'tile' | 'aura' | 'resource'; 
  /**
- * label：对象字段。
+ * label：label名称或显示文本。
  */
 /**
- * label：对象字段。
+ * label：label名称或显示文本。
  */
  label: string }> = [
   { value: 'tile', label: '地块' },
@@ -87,17 +87,17 @@ export const AURA_BRUSH_LEVELS = [0, 1, 2, 3, 4, 5, 6] as const;
 /** 右侧检查器的标签页顺序与文字。 */
 export const INSPECTOR_TABS: Array<{
 /**
- * value：对象字段。
+ * value：值数值。
  */
 /**
- * value：对象字段。
+ * value：值数值。
  */
  value: 'selection' | 'meta' | 'compose' | 'portal' | 'npc' | 'monster' | 'aura' | 'resource' | 'safeZone' | 'landmark' | 'container'; 
  /**
- * label：对象字段。
+ * label：label名称或显示文本。
  */
 /**
- * label：对象字段。
+ * label：label名称或显示文本。
  */
  label: string }> = [
   { value: 'selection', label: '选区' },

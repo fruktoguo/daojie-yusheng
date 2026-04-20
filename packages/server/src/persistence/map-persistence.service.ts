@@ -26,23 +26,23 @@ const MAP_SNAPSHOT_SCOPE = 'server_next_map_aura_v1';
 /** 地图快照持久化服务：保存/读取地图环境快照并进行脏数据规整。 */
 let MapPersistenceService = MapPersistenceService_1 = class MapPersistenceService {
 /**
- * logger：对象字段。
+ * logger：日志器引用。
  */
 
     logger = new common_1.Logger(MapPersistenceService_1.name);    
     /**
- * pool：对象字段。
+ * pool：缓存或索引容器。
  */
 
     pool = null;    
     /**
- * enabled：对象字段。
+ * enabled：启用开关或状态标识。
  */
 
     enabled = false;    
     /**
- * onModuleInit：执行核心业务逻辑。
- * @returns 函数返回值。
+ * onModuleInit：执行on模块Init相关逻辑。
+ * @returns 无返回值，直接更新on模块Init相关状态。
  */
 
     async onModuleInit() {
@@ -67,8 +67,8 @@ let MapPersistenceService = MapPersistenceService_1 = class MapPersistenceServic
         }
     }    
     /**
- * onModuleDestroy：执行核心业务逻辑。
- * @returns 函数返回值。
+ * onModuleDestroy：执行on模块Destroy相关逻辑。
+ * @returns 无返回值，直接更新on模块Destroy相关状态。
  */
 
     async onModuleDestroy() {
@@ -94,10 +94,10 @@ let MapPersistenceService = MapPersistenceService_1 = class MapPersistenceServic
         return normalizeMapSnapshot(result.rows[0]?.payload);
     }    
     /**
- * saveMapSnapshot：执行核心业务逻辑。
+ * saveMapSnapshot：执行save地图快照相关逻辑。
  * @param instanceId instance ID。
  * @param snapshot 参数说明。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新save地图快照相关状态。
  */
 
     async saveMapSnapshot(instanceId, snapshot) {
@@ -183,9 +183,9 @@ function normalizeMapSnapshot(raw) {
 }
 export { MapPersistenceService };
 /**
- * normalizeContainerState：执行核心业务逻辑。
+ * normalizeContainerState：规范化或转换Container状态。
  * @param raw 参数说明。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新Container状态相关状态。
  */
 
 function normalizeContainerState(raw) {
@@ -225,9 +225,9 @@ function normalizeContainerState(raw) {
     };
 }
 /**
- * normalizeContainerItemEntry：执行核心业务逻辑。
+ * normalizeContainerItemEntry：规范化或转换Container道具条目。
  * @param raw 参数说明。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新Container道具条目相关状态。
  */
 
 function normalizeContainerItemEntry(raw) {
@@ -254,9 +254,9 @@ function normalizeContainerItemEntry(raw) {
     };
 }
 /**
- * normalizeContainerSearchState：执行核心业务逻辑。
+ * normalizeContainerSearchState：规范化或转换ContainerSearch状态。
  * @param raw 参数说明。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新ContainerSearch状态相关状态。
  */
 
 function normalizeContainerSearchState(raw) {
@@ -290,9 +290,9 @@ function normalizeContainerSearchState(raw) {
     };
 }
 /**
- * normalizePersistedGroundItem：执行核心业务逻辑。
+ * normalizePersistedGroundItem：判断Persisted地面道具是否满足条件。
  * @param raw 参数说明。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新PersistedGround道具相关状态。
  */
 
 function normalizePersistedGroundItem(raw) {

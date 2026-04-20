@@ -41,37 +41,37 @@ const world_runtime_service_1 = require("./world-runtime.service");
 
 let WorldRuntimeController = class WorldRuntimeController {
 /**
- * worldRuntimeService：对象字段。
+ * worldRuntimeService：世界运行态服务引用。
  */
 
     worldRuntimeService;    
     /**
- * mailRuntimeService：对象字段。
+ * mailRuntimeService：邮件运行态服务引用。
  */
 
     mailRuntimeService;    
     /**
- * marketRuntimeService：对象字段。
+ * marketRuntimeService：坊市运行态服务引用。
  */
 
     marketRuntimeService;    
     /**
- * playerRuntimeService：对象字段。
+ * playerRuntimeService：玩家运行态服务引用。
  */
 
     playerRuntimeService;    
     /**
- * suggestionRuntimeService：对象字段。
+ * suggestionRuntimeService：suggestion运行态服务引用。
  */
 
     suggestionRuntimeService;    
     /**
- * playerPersistenceFlushService：对象字段。
+ * playerPersistenceFlushService：玩家PersistenceFlush服务引用。
  */
 
     playerPersistenceFlushService;    
     /**
- * mapPersistenceFlushService：对象字段。
+ * mapPersistenceFlushService：地图PersistenceFlush服务引用。
  */
 
     mapPersistenceFlushService;    
@@ -84,7 +84,7 @@ let WorldRuntimeController = class WorldRuntimeController {
  * @param suggestionRuntimeService 参数说明。
  * @param playerPersistenceFlushService 参数说明。
  * @param mapPersistenceFlushService 参数说明。
- * @returns 无返回值（构造函数）。
+ * @returns 无返回值，完成实例初始化。
  */
 
     constructor(worldRuntimeService, mailRuntimeService, marketRuntimeService, playerRuntimeService, suggestionRuntimeService, playerPersistenceFlushService, mapPersistenceFlushService) {

@@ -266,8 +266,8 @@ let RuntimeGmAuthService = class RuntimeGmAuthService {
         return null;
     }    
     /**
- * getInitialPassword：按给定条件读取/查询数据。
- * @returns 函数返回值。
+ * getInitialPassword：读取InitialPassword。
+ * @returns 无返回值，完成InitialPassword的读取/组装。
  */
 
     getInitialPassword() {
@@ -275,8 +275,8 @@ let RuntimeGmAuthService = class RuntimeGmAuthService {
         return (0, env_alias_1.resolveServerNextGmPassword)(DEFAULT_GM_PASSWORD);
     }    
     /**
- * closePool：执行核心业务逻辑。
- * @returns 函数返回值。
+ * closePool：执行closePool相关逻辑。
+ * @returns 无返回值，直接更新closePool相关状态。
  */
 
     async closePool() {
@@ -297,9 +297,9 @@ exports.RuntimeGmAuthService = RuntimeGmAuthService = __decorate([
 ], RuntimeGmAuthService);
 export { RuntimeGmAuthService };
 /**
- * normalizePasswordRecord：执行核心业务逻辑。
+ * normalizePasswordRecord：规范化或转换PasswordRecord。
  * @param raw 参数说明。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新PasswordRecord相关状态。
  */
 
 function normalizePasswordRecord(raw) {
@@ -332,7 +332,7 @@ function normalizePasswordRecord(raw) {
 /**
  * buildPasswordRecord：构建并返回目标对象。
  * @param password 参数说明。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新PasswordRecord相关状态。
  */
 
 function buildPasswordRecord(password) {
@@ -345,20 +345,20 @@ function buildPasswordRecord(password) {
     };
 }
 /**
- * hashPassword：执行状态校验并返回判断结果。
+ * hashPassword：判断hashPassword是否满足条件。
  * @param password 参数说明。
  * @param salt 参数说明。
- * @returns 函数返回值。
+ * @returns 无返回值，完成hashPassword的条件判断。
  */
 
 function hashPassword(password, salt) {
     return crypto.scryptSync(password, salt, 64).toString('hex');
 }
 /**
- * verifyPassword：执行核心业务逻辑。
+ * verifyPassword：执行verifyPassword相关逻辑。
  * @param password 参数说明。
  * @param record 参数说明。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新verifyPassword相关状态。
  */
 
 async function verifyPassword(password, record) {
@@ -375,19 +375,19 @@ async function verifyPassword(password, record) {
     return safeEqual(hashPassword(password, record.salt), record.hash);
 }
 /**
- * signTokenPayload：执行核心业务逻辑。
+ * signTokenPayload：读取signToken载荷并返回结果。
  * @param payloadBase64 参数说明。
  * @param secret 参数说明。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新signToken载荷相关状态。
  */
 
 function signTokenPayload(payloadBase64, secret) {
     return encodeBase64Url(crypto.createHmac('sha256', secret).update(payloadBase64).digest());
 }
 /**
- * encodeBase64Url：执行核心业务逻辑。
+ * encodeBase64Url：执行encodeBase64Url相关逻辑。
  * @param input 输入参数。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新encodeBase64Url相关状态。
  */
 
 function encodeBase64Url(input) {
@@ -399,9 +399,9 @@ function encodeBase64Url(input) {
         .replace(/=+$/g, '');
 }
 /**
- * decodeBase64Url：执行核心业务逻辑。
+ * decodeBase64Url：执行decodeBase64Url相关逻辑。
  * @param input 输入参数。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新decodeBase64Url相关状态。
  */
 
 function decodeBase64Url(input) {
@@ -422,10 +422,10 @@ function decodeBase64Url(input) {
     }
 }
 /**
- * safeEqual：执行核心业务逻辑。
+ * safeEqual：执行safeEqual相关逻辑。
  * @param left 参数说明。
  * @param right 参数说明。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新safeEqual相关状态。
  */
 
 function safeEqual(left, right) {
@@ -441,8 +441,8 @@ function safeEqual(left, right) {
     return crypto.timingSafeEqual(leftBuffer, rightBuffer);
 }
 /**
- * assertConfiguredGmPassword：执行核心业务逻辑。
- * @returns 函数返回值。
+ * assertConfiguredGmPassword：执行assertConfiguredGMPassword相关逻辑。
+ * @returns 无返回值，直接更新assertConfiguredGMPassword相关状态。
  */
 
 function assertConfiguredGmPassword() {
@@ -461,8 +461,8 @@ function assertConfiguredGmPassword() {
     }
 }
 /**
- * isDevelopmentLikeEnv：执行状态校验并返回判断结果。
- * @returns 函数返回值。
+ * isDevelopmentLikeEnv：判断DevelopmentLikeEnv是否满足条件。
+ * @returns 无返回值，完成DevelopmentLikeEnv的条件判断。
  */
 
 function isDevelopmentLikeEnv() {

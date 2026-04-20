@@ -4,9 +4,9 @@
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.WorldGatewayGuardHelper = void 0;
 /**
- * readBooleanEnv：执行核心业务逻辑。
+ * readBooleanEnv：读取BooleanEnv并返回结果。
  * @param key 参数说明。
- * @returns 函数返回值。
+ * @returns 无返回值，完成BooleanEnv的读取/组装。
  */
 
 
@@ -22,23 +22,23 @@ function readBooleanEnv(key) {
 /** 世界 socket 守卫 helper：收敛 readiness、玩家身份和 GM 身份检查。 */
 class WorldGatewayGuardHelper {
 /**
- * gateway：WorldGatewayGuardHelper 内部字段。
+ * gateway：gateway相关字段。
  */
 
     gateway;    
     /**
  * 构造器：初始化 当前 实例并建立基础状态。
  * @param gateway 参数说明。
- * @returns 无返回值（构造函数）。
+ * @returns 无返回值，完成实例初始化。
  */
 
     constructor(gateway) {
         this.gateway = gateway;
     }    
     /**
- * rejectWhenNotReady：执行核心业务逻辑。
+ * rejectWhenNotReady：读取rejectWhenNotReady并返回结果。
  * @param client 参数说明。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新rejectWhenNotReady相关状态。
  */
 
     rejectWhenNotReady(client) {
@@ -57,9 +57,9 @@ class WorldGatewayGuardHelper {
         return true;
     }    
     /**
- * requirePlayerId：执行核心业务逻辑。
+ * requirePlayerId：执行require玩家ID相关逻辑。
  * @param client 参数说明。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新require玩家ID相关状态。
  */
 
     requirePlayerId(client) {
@@ -73,9 +73,9 @@ class WorldGatewayGuardHelper {
         return null;
     }    
     /**
- * requireGm：执行核心业务逻辑。
+ * requireGm：执行requireGM相关逻辑。
  * @param client 参数说明。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新requireGM相关状态。
  */
 
     requireGm(client) {

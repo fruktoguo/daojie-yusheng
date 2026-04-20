@@ -25,12 +25,12 @@ type SerializedMapMarkerMemory = Record<string, RememberedMarker>;
 /** 单张地图的记忆条目。 */
 type SerializedMapMemoryEntry = {
 /**
- * tiles：对象字段。
+ * tiles：tile相关字段。
  */
 
   tiles?: SerializedMapTileMemory;  
   /**
- * markers：对象字段。
+ * markers：marker相关字段。
  */
 
   markers?: SerializedMapMarkerMemory;
@@ -42,12 +42,12 @@ type SerializedMapMemory = Record<string, SerializedMapMemoryEntry>;
 /** 持久化文件外层结构（含版本）。 */
 type SerializedMapMemoryEnvelope = {
 /**
- * version：对象字段。
+ * version：version相关字段。
  */
 
   version: typeof MAP_MEMORY_FORMAT_VERSION;  
   /**
- * maps：对象字段。
+ * maps：地图相关字段。
  */
 
   maps: SerializedMapMemory;

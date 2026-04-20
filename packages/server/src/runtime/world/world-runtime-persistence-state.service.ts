@@ -16,9 +16,9 @@ const common_1 = require("@nestjs/common");
 /** world-runtime persistence-state seam：承接 dirty map 检测、快照构造与持久化落盘回标。 */
 let WorldRuntimePersistenceStateService = class WorldRuntimePersistenceStateService {
 /**
- * listDirtyPersistentInstances：执行核心业务逻辑。
+ * listDirtyPersistentInstances：读取DirtyPersistentInstance并返回结果。
  * @param deps 运行时依赖。
- * @returns 函数返回值。
+ * @returns 无返回值，完成DirtyPersistentInstance的读取/组装。
  */
 
     listDirtyPersistentInstances(deps) {
@@ -36,7 +36,7 @@ let WorldRuntimePersistenceStateService = class WorldRuntimePersistenceStateServ
  * buildMapPersistenceSnapshot：构建并返回目标对象。
  * @param instanceId instance ID。
  * @param deps 运行时依赖。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新地图Persistence快照相关状态。
  */
 
     buildMapPersistenceSnapshot(instanceId, deps) {
@@ -56,10 +56,10 @@ let WorldRuntimePersistenceStateService = class WorldRuntimePersistenceStateServ
         };
     }    
     /**
- * markMapPersisted：执行核心业务逻辑。
+ * markMapPersisted：判断地图Persisted是否满足条件。
  * @param instanceId instance ID。
  * @param deps 运行时依赖。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新地图Persisted相关状态。
  */
 
     markMapPersisted(instanceId, deps) {

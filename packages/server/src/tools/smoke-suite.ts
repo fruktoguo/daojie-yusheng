@@ -134,16 +134,16 @@ const SMOKE_GATE_PROFILES = {
     },
 };
 /**
- * resolveSmokeGateLabel：执行核心业务逻辑。
- * @returns 函数返回值。
+ * resolveSmokeGateLabel：规范化或转换SmokeGateLabel。
+ * @returns 无返回值，直接更新SmokeGateLabel相关状态。
  */
 
 function resolveSmokeGateLabel() {
     return hasDatabaseUrl() ? 'with-db' : 'local';
 }
 /**
- * resolveSmokeGateProfile：执行核心业务逻辑。
- * @returns 函数返回值。
+ * resolveSmokeGateProfile：规范化或转换SmokeGateProfile。
+ * @returns 无返回值，直接更新SmokeGateProfile相关状态。
  */
 
 function resolveSmokeGateProfile() {

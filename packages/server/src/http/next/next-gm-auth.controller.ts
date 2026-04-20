@@ -11,7 +11,7 @@ import { NextGmAuthGuard } from './next-gm-auth.guard';
 
 interface GmLoginBody {
 /**
- * password：GmLoginBody 内部字段。
+ * password：password相关字段。
  */
 
   password?: string;
@@ -23,12 +23,12 @@ interface GmLoginBody {
 
 interface GmChangePasswordBody {
 /**
- * currentPassword：GmChangePasswordBody 内部字段。
+ * currentPassword：currentPassword相关字段。
  */
 
   currentPassword?: string;  
   /**
- * newPassword：GmChangePasswordBody 内部字段。
+ * newPassword：newPassword相关字段。
  */
 
   newPassword?: string;
@@ -62,7 +62,7 @@ export class NextGmAuthController {
  * 构造器：初始化 当前 实例并建立基础状态。
  * @param authService RuntimeGmAuthServicePort 参数说明。
  * @param rateLimitService NextAuthRateLimitService 参数说明。
- * @returns 无返回值（构造函数）。
+ * @returns 无返回值，完成实例初始化。
  */
 
   constructor(
@@ -70,10 +70,10 @@ export class NextGmAuthController {
     private readonly rateLimitService: NextAuthRateLimitService,
   ) {}  
   /**
- * login：执行核心业务逻辑。
+ * login：执行login相关逻辑。
  * @param body GmLoginBody 参数说明。
  * @param request RequestLike 请求参数。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新login相关状态。
  */
 
 
@@ -92,9 +92,9 @@ export class NextGmAuthController {
     }
   }  
   /**
- * changePassword：执行核心业务逻辑。
+ * changePassword：执行changePassword相关逻辑。
  * @param body GmChangePasswordBody 参数说明。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新changePassword相关状态。
  */
 
 

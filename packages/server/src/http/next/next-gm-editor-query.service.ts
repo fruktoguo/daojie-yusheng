@@ -14,27 +14,27 @@ type LooseRecord = Record<string, unknown>;
 
 interface EditorEffect extends LooseRecord {
 /**
- * type：EditorEffect 内部字段。
+ * type：type相关字段。
  */
 
   type?: unknown;  
   /**
- * target：EditorEffect 内部字段。
+ * target：目标相关字段。
  */
 
   target?: unknown;  
   /**
- * category：EditorEffect 内部字段。
+ * category：category相关字段。
  */
 
   category?: unknown;  
   /**
- * effectId：EditorEffect 内部字段。
+ * effectId：effectID标识。
  */
 
   effectId?: unknown;  
   /**
- * buff：EditorEffect 内部字段。
+ * buff：buff相关字段。
  */
 
   buff?: LooseRecord | null;
@@ -46,17 +46,17 @@ interface EditorEffect extends LooseRecord {
 
 interface EditorSkill {
 /**
- * id：EditorSkill 内部字段。
+ * id：ID标识。
  */
 
   id: string;  
   /**
- * name：EditorSkill 内部字段。
+ * name：名称名称或显示文本。
  */
 
   name: string;  
   /**
- * effects：EditorSkill 内部字段。
+ * effects：effect相关字段。
  */
 
   effects?: EditorEffect[];
@@ -68,12 +68,12 @@ interface EditorSkill {
 
 interface EditorTechniqueTemplate {
 /**
- * skills：EditorTechniqueTemplate 内部字段。
+ * skills：技能相关字段。
  */
 
   skills?: EditorSkill[];  
   /**
- * realmLv：EditorTechniqueTemplate 内部字段。
+ * realmLv：realmLv相关字段。
  */
 
   realmLv?: unknown;
@@ -85,22 +85,22 @@ interface EditorTechniqueTemplate {
 
 interface EditorItemTemplate {
 /**
- * itemId：EditorItemTemplate 内部字段。
+ * itemId：道具ID标识。
  */
 
   itemId: string;  
   /**
- * name：EditorItemTemplate 内部字段。
+ * name：名称名称或显示文本。
  */
 
   name: string;  
   /**
- * consumeBuffs：EditorItemTemplate 内部字段。
+ * consumeBuffs：consumeBuff相关字段。
  */
 
   consumeBuffs?: LooseRecord[];  
   /**
- * effects：EditorItemTemplate 内部字段。
+ * effects：effect相关字段。
  */
 
   effects?: EditorEffect[];
@@ -123,9 +123,9 @@ interface PlayerProgressionServiceLike {
   listRealmLevels(): unknown;
 }
 /**
- * isRecord：执行状态校验并返回判断结果。
+ * isRecord：判断Record是否满足条件。
  * @param value unknown 参数说明。
- * @returns value is LooseRecord。
+ * @returns 返回Record。
  */
 
 
@@ -143,7 +143,7 @@ export class NextGmEditorQueryService {
  * 构造器：初始化 当前 实例并建立基础状态。
  * @param contentTemplateRepository ContentTemplateRepositoryLike 参数说明。
  * @param playerProgressionService PlayerProgressionServiceLike 参数说明。
- * @returns 无返回值（构造函数）。
+ * @returns 无返回值，完成实例初始化。
  */
 
   constructor(
@@ -151,8 +151,8 @@ export class NextGmEditorQueryService {
     @Inject(PlayerProgressionService) private readonly playerProgressionService: PlayerProgressionServiceLike,
   ) {}  
   /**
- * getEditorCatalog：按给定条件读取/查询数据。
- * @returns 函数返回值。
+ * getEditorCatalog：读取Editor目录。
+ * @returns 无返回值，完成Editor目录的读取/组装。
  */
 
 
@@ -166,7 +166,7 @@ export class NextGmEditorQueryService {
   }  
   /**
  * buildEditorBuffCatalog：构建并返回目标对象。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新EditorBuff目录相关状态。
  */
 
 

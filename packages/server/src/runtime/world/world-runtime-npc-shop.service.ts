@@ -25,12 +25,12 @@ const { normalizeShopQuantity, formatItemStackLabel } = world_runtime_normalizat
 /** NPC 商店写路径服务：承接购买入队与结算。 */
 let WorldRuntimeNpcShopService = class WorldRuntimeNpcShopService {
 /**
- * playerRuntimeService：对象字段。
+ * playerRuntimeService：玩家运行态服务引用。
  */
 
     playerRuntimeService;    
     /**
- * worldRuntimeNpcShopQueryService：对象字段。
+ * worldRuntimeNpcShopQueryService：世界运行态NPCShopQuery服务引用。
  */
 
     worldRuntimeNpcShopQueryService;    
@@ -38,7 +38,7 @@ let WorldRuntimeNpcShopService = class WorldRuntimeNpcShopService {
  * 构造器：初始化 当前 实例并建立基础状态。
  * @param playerRuntimeService 参数说明。
  * @param worldRuntimeNpcShopQueryService 参数说明。
- * @returns 无返回值（构造函数）。
+ * @returns 无返回值，完成实例初始化。
  */
 
     constructor(playerRuntimeService, worldRuntimeNpcShopQueryService) {
@@ -46,13 +46,13 @@ let WorldRuntimeNpcShopService = class WorldRuntimeNpcShopService {
         this.worldRuntimeNpcShopQueryService = worldRuntimeNpcShopQueryService;
     }    
     /**
- * enqueueBuyNpcShopItem：执行核心业务逻辑。
+ * enqueueBuyNpcShopItem：处理BuyNPCShop道具并更新相关状态。
  * @param playerId 玩家 ID。
  * @param npcIdInput 参数说明。
  * @param itemIdInput 参数说明。
  * @param quantityInput 参数说明。
  * @param deps 运行时依赖。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新BuyNPCShop道具相关状态。
  */
 
     enqueueBuyNpcShopItem(playerId, npcIdInput, itemIdInput, quantityInput, deps) {
@@ -73,13 +73,13 @@ let WorldRuntimeNpcShopService = class WorldRuntimeNpcShopService {
         return deps.getPlayerViewOrThrow(playerId);
     }    
     /**
- * dispatchBuyNpcShopItem：处理事件并驱动执行路径。
+ * dispatchBuyNpcShopItem：判断BuyNPCShop道具是否满足条件。
  * @param playerId 玩家 ID。
  * @param npcId npc ID。
  * @param itemId 道具 ID。
  * @param quantity 参数说明。
  * @param deps 运行时依赖。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新BuyNPCShop道具相关状态。
  */
 
     dispatchBuyNpcShopItem(playerId, npcId, itemId, quantity, deps) {

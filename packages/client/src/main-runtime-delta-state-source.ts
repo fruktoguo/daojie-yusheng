@@ -23,318 +23,318 @@ import type { MainRuntimeObservedEntity as ObservedEntity } from './main-runtime
 
 type MainRuntimeDeltaStateSourceOptions = {
 /**
- * getPlayer：对象字段。
+ * getPlayer：玩家引用。
  */
 
   getPlayer: () => PlayerState | null;  
   /**
- * getLatestEntityById：对象字段。
+ * getLatestEntityById：LatestEntityByID标识。
  */
 
   getLatestEntityById: (id: string) => ObservedEntity | undefined;  
   /**
- * setLatestObservedEntities：对象字段。
+ * setLatestObservedEntities：LatestObservedEntity相关字段。
  */
 
   setLatestObservedEntities: (entities: ObservedEntity[]) => void;  
   /**
- * setLatestObservedEntityMap：对象字段。
+ * setLatestObservedEntityMap：缓存或索引容器。
  */
 
   setLatestObservedEntityMap: (map: Map<string, ObservedEntity>) => void;  
   /**
- * getLatestAttrUpdate：对象字段。
+ * getLatestAttrUpdate：LatestAttrUpdate相关字段。
  */
 
   getLatestAttrUpdate: () => NEXT_S2C_AttrUpdate | null;  
   /**
- * setLatestAttrUpdate：对象字段。
+ * setLatestAttrUpdate：LatestAttrUpdate相关字段。
  */
 
   setLatestAttrUpdate: (value: NEXT_S2C_AttrUpdate | null) => void;  
   /**
- * mergeAttrUpdatePatch：对象字段。
+ * mergeAttrUpdatePatch：AttrUpdatePatch相关字段。
  */
 
   mergeAttrUpdatePatch: (previous: NEXT_S2C_AttrUpdate | null, patch: NEXT_S2C_AttrUpdate) => NEXT_S2C_AttrUpdate;  
   /**
- * syncAuraLevelBaseValue：对象字段。
+ * syncAuraLevelBaseValue：Aura等级Base值数值。
  */
 
   syncAuraLevelBaseValue: (value?: number) => void;  
   /**
- * syncCurrentTimeState：对象字段。
+ * syncCurrentTimeState：Current时间状态状态或数据块。
  */
 
   syncCurrentTimeState: (state: NEXT_S2C_WorldDelta['time'] | null | undefined) => void;  
   /**
- * applyWorldDeltaToRuntime：对象字段。
+ * applyWorldDeltaToRuntime：世界DeltaTo运行态引用。
  */
 
   applyWorldDeltaToRuntime: (input: {  
   /**
- * playerPatches：对象字段。
+ * playerPatches：玩家Patche相关字段。
  */
 
     playerPatches: TickRenderEntity[];    
     /**
- * entityPatches：对象字段。
+ * entityPatches：entityPatche相关字段。
  */
 
     entityPatches: TickRenderEntity[];    
     /**
- * removedEntityIds：对象字段。
+ * removedEntityIds：removedEntityID相关字段。
  */
 
     removedEntityIds: string[];    
     /**
- * groundPatches：对象字段。
+ * groundPatches：groundPatche相关字段。
  */
 
     groundPatches: GroundItemPilePatch[];    
     /**
- * effects：对象字段。
+ * effects：effect相关字段。
  */
 
     effects?: NEXT_S2C_WorldDelta['fx'];    
     /**
- * threatArrows：对象字段。
+ * threatArrows：集合字段。
  */
 
     threatArrows?: Array<{    
     /**
- * ownerId：对象字段。
+ * ownerId：ownerID标识。
  */
  ownerId: string;    
  /**
- * targetId：对象字段。
+ * targetId：目标ID标识。
  */
  targetId: string }>;    
  /**
- * threatArrowAdds：对象字段。
+ * threatArrowAdds：threatArrowAdd相关字段。
  */
 
     threatArrowAdds?: Array<[string, string]>;    
     /**
- * threatArrowRemoves：对象字段。
+ * threatArrowRemoves：threatArrowRemove相关字段。
  */
 
     threatArrowRemoves?: Array<[string, string]>;    
     /**
- * pathCells：对象字段。
+ * pathCells：路径Cell相关字段。
  */
 
     pathCells?: Array<{    
     /**
- * x：对象字段。
+ * x：x相关字段。
  */
  x: number;    
  /**
- * y：对象字段。
+ * y：y相关字段。
  */
  y: number }>;    
  /**
- * tickDurationMs：对象字段。
+ * tickDurationMs：tickDurationM相关字段。
  */
 
     tickDurationMs?: number;    
     /**
- * time：对象字段。
+ * time：时间相关字段。
  */
 
     time?: NEXT_S2C_WorldDelta['time'];    
     /**
- * visibleTiles：对象字段。
+ * visibleTiles：可见Tile相关字段。
  */
 
     visibleTiles?: NEXT_S2C_WorldDelta['v'];    
     /**
- * visibleTilePatches：对象字段。
+ * visibleTilePatches：可见TilePatche相关字段。
  */
 
     visibleTilePatches?: NEXT_S2C_WorldDelta['tp'];    
     /**
- * mapId：对象字段。
+ * mapId：地图ID标识。
  */
 
     mapId?: string;
   }) => void;  
   /**
- * applySelfDeltaToRuntime：对象字段。
+ * applySelfDeltaToRuntime：SelfDeltaTo运行态引用。
  */
 
   applySelfDeltaToRuntime: (input: {  
   /**
- * mapId：对象字段。
+ * mapId：地图ID标识。
  */
 
     mapId?: string;    
     /**
- * x：对象字段。
+ * x：x相关字段。
  */
 
     x?: number;    
     /**
- * y：对象字段。
+ * y：y相关字段。
  */
 
     y?: number;    
     /**
- * facing：对象字段。
+ * facing：facing相关字段。
  */
 
     facing?: PlayerState['facing'];    
     /**
- * hp：对象字段。
+ * hp：hp相关字段。
  */
 
     hp?: number;    
     /**
- * qi：对象字段。
+ * qi：qi相关字段。
  */
 
     qi?: number;    
     /**
- * playerPatch：对象字段。
+ * playerPatch：玩家Patch相关字段。
  */
 
     playerPatch: TickRenderEntity | null;
   }) => void;  
   /**
- * navigation：对象字段。
+ * navigation：导航相关字段。
  */
 
   navigation: {  
   /**
- * trimCurrentPathProgress：对象字段。
+ * trimCurrentPathProgress：trimCurrent路径进度状态或数据块。
  */
 
     trimCurrentPathProgress: () => void;    
     /**
- * triggerAutoInteractionIfReady：对象字段。
+ * triggerAutoInteractionIfReady：triggerAutoInteractionIfReady相关字段。
  */
 
     triggerAutoInteractionIfReady: () => boolean;    
     /**
- * getPathTarget：对象字段。
+ * getPathTarget：路径目标相关字段。
  */
 
     getPathTarget: () => {    
     /**
- * x：对象字段。
+ * x：x相关字段。
  */
  x: number;    
  /**
- * y：对象字段。
+ * y：y相关字段。
  */
  y: number } | null;    
  /**
- * getPathCells：对象字段。
+ * getPathCells：路径Cell相关字段。
  */
 
     getPathCells: () => Array<{    
     /**
- * x：对象字段。
+ * x：x相关字段。
  */
  x: number;    
  /**
- * y：对象字段。
+ * y：y相关字段。
  */
  y: number }>;    
  /**
- * clearCurrentPath：对象字段。
+ * clearCurrentPath：clearCurrent路径相关字段。
  */
 
     clearCurrentPath: () => void;    
     /**
- * syncPathCellsToRuntime：对象字段。
+ * syncPathCellsToRuntime：路径CellTo运行态引用。
  */
 
     syncPathCellsToRuntime: () => void;
   };  
   /**
- * targeting：对象字段。
+ * targeting：targeting相关字段。
  */
 
   targeting: {  
   /**
- * syncSenseQiOverlay：对象字段。
+ * syncSenseQiOverlay：SenseQiOverlay相关字段。
  */
 
     syncSenseQiOverlay: () => void;    
     /**
- * syncTargetingOverlay：对象字段。
+ * syncTargetingOverlay：TargetingOverlay相关字段。
  */
 
     syncTargetingOverlay: () => void;    
     /**
- * setHoveredMapTile：对象字段。
+ * setHoveredMapTile：Hovered地图Tile相关字段。
  */
 
     setHoveredMapTile: (value: null) => void;    
     /**
- * cancelTargeting：对象字段。
+ * cancelTargeting：cancelTargeting相关字段。
  */
 
     cancelTargeting: () => void;
   };  
   /**
- * refreshHudChrome：对象字段。
+ * refreshHudChrome：refreshHudChrome相关字段。
  */
 
   refreshHudChrome: () => void;  
   /**
- * hideObserveModal：对象字段。
+ * hideObserveModal：hideObserve弹层相关字段。
  */
 
   hideObserveModal: () => void;  
   /**
- * clearLootPanel：对象字段。
+ * clearLootPanel：clear掉落面板相关字段。
  */
 
   clearLootPanel: () => void;  
   /**
- * setPanelRuntimeMapId：对象字段。
+ * setPanelRuntimeMapId：面板运行态地图ID标识。
  */
 
   setPanelRuntimeMapId: (mapId: string) => void;  
   /**
- * syncQuestMapId：对象字段。
+ * syncQuestMapId：任务地图ID标识。
  */
 
   syncQuestMapId: (mapId: string) => void;  
   /**
- * updateAttrPanel：对象字段。
+ * updateAttrPanel：Attr面板相关字段。
  */
 
   updateAttrPanel: (value: NEXT_S2C_AttrUpdate) => void;  
   /**
- * refreshUiChrome：对象字段。
+ * refreshUiChrome：refreshUiChrome相关字段。
  */
 
   refreshUiChrome: () => void;  
   /**
- * handleAttrUpdate：对象字段。
+ * handleAttrUpdate：AttrUpdate相关字段。
  */
 
   handleAttrUpdate: (data: NEXT_S2C_AttrUpdate) => void;  
   /**
- * handleInventoryUpdate：对象字段。
+ * handleInventoryUpdate：背包Update相关字段。
  */
 
   handleInventoryUpdate: (data: NonNullable<NEXT_S2C_PanelDelta['inv']>) => void;  
   /**
- * handleEquipmentUpdate：对象字段。
+ * handleEquipmentUpdate：装备Update相关字段。
  */
 
   handleEquipmentUpdate: (data: NonNullable<NEXT_S2C_PanelDelta['eq']>) => void;  
   /**
- * handleTechniqueUpdate：对象字段。
+ * handleTechniqueUpdate：功法Update相关字段。
  */
 
   handleTechniqueUpdate: (data: NonNullable<NEXT_S2C_PanelDelta['tech']>) => void;  
   /**
- * handleActionsUpdate：对象字段。
+ * handleActionsUpdate：ActionUpdate相关字段。
  */
 
   handleActionsUpdate: (data: NonNullable<NEXT_S2C_PanelDelta['act']>) => void;
@@ -346,10 +346,10 @@ const NEXT_NPC_ENTITY_COLOR = '#f3d27a';
 const NEXT_PORTAL_ENTITY_COLOR = '#b9a7ff';
 const NEXT_CONTAINER_ENTITY_COLOR = '#c18b46';
 /**
- * getFirstGrapheme：按给定条件读取/查询数据。
+ * getFirstGrapheme：读取首个Grapheme。
  * @param input string | undefined 输入参数。
  * @param fallback string 参数说明。
- * @returns string。
+ * @returns 返回FirstGrapheme。
  */
 
 
@@ -371,7 +371,7 @@ export type MainRuntimeDeltaStateSource = ReturnType<typeof createMainRuntimeDel
 /**
  * createMainRuntimeDeltaStateSource：构建并返回目标对象。
  * @param options MainRuntimeDeltaStateSourceOptions 选项参数。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新Main运行态Delta状态来源相关状态。
  */
 
 
@@ -379,7 +379,7 @@ export function createMainRuntimeDeltaStateSource(options: MainRuntimeDeltaState
 /**
  * buildNextPlayerTickEntity：构建并返回目标对象。
  * @param patch NonNullable<NEXT_S2C_WorldDelta['p']>[number] 参数说明。
- * @returns TickRenderEntity。
+ * @returns 返回Next玩家tickEntity。
  */
 
   function buildNextPlayerTickEntity(patch: NonNullable<NEXT_S2C_WorldDelta['p']>[number]): TickRenderEntity {
@@ -407,7 +407,7 @@ export function createMainRuntimeDeltaStateSource(options: MainRuntimeDeltaState
   /**
  * buildNextMonsterTickEntity：构建并返回目标对象。
  * @param patch NonNullable<NEXT_S2C_WorldDelta['m']>[number] 参数说明。
- * @returns TickRenderEntity。
+ * @returns 返回Next怪物tickEntity。
  */
 
 
@@ -435,7 +435,7 @@ export function createMainRuntimeDeltaStateSource(options: MainRuntimeDeltaState
   /**
  * buildNextNpcTickEntity：构建并返回目标对象。
  * @param patch NonNullable<NEXT_S2C_WorldDelta['n']>[number] 参数说明。
- * @returns TickRenderEntity。
+ * @returns 返回NextNPCtickEntity。
  */
 
 
@@ -461,7 +461,7 @@ export function createMainRuntimeDeltaStateSource(options: MainRuntimeDeltaState
   /**
  * buildNextPortalTickEntity：构建并返回目标对象。
  * @param patch NonNullable<NEXT_S2C_WorldDelta['o']>[number] 参数说明。
- * @returns TickRenderEntity。
+ * @returns 返回NextPortaltickEntity。
  */
 
 
@@ -487,7 +487,7 @@ export function createMainRuntimeDeltaStateSource(options: MainRuntimeDeltaState
   /**
  * buildNextContainerTickEntity：构建并返回目标对象。
  * @param patch NonNullable<NEXT_S2C_WorldDelta['c']>[number] 参数说明。
- * @returns TickRenderEntity。
+ * @returns 返回NextContainertickEntity。
  */
 
 
@@ -513,7 +513,7 @@ export function createMainRuntimeDeltaStateSource(options: MainRuntimeDeltaState
   /**
  * buildNextWorldDeltaRuntimeInput：构建并返回目标对象。
  * @param data NEXT_S2C_WorldDelta 原始数据。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新Next世界Delta运行态输入相关状态。
  */
 
 
@@ -598,7 +598,7 @@ export function createMainRuntimeDeltaStateSource(options: MainRuntimeDeltaState
   /**
  * buildNextSelfRuntimePlayerPatch：构建并返回目标对象。
  * @param data NEXT_S2C_SelfDelta 原始数据。
- * @returns TickRenderEntity | null。
+ * @returns 返回NextSelf运行态玩家Patch。
  */
 
 
@@ -631,8 +631,8 @@ export function createMainRuntimeDeltaStateSource(options: MainRuntimeDeltaState
     };
   }  
   /**
- * syncLatestObservedEntitiesFromRuntime：执行核心业务逻辑。
- * @returns void。
+ * syncLatestObservedEntitiesFromRuntime：处理最新ObservedEntityFrom运行态并更新相关状态。
+ * @returns 无返回值，直接更新LatestObservedEntityFrom运行态相关状态。
  */
 
 
@@ -642,8 +642,8 @@ export function createMainRuntimeDeltaStateSource(options: MainRuntimeDeltaState
     options.setLatestObservedEntityMap(new Map(entities.map((entity) => [entity.id, entity])));
   }  
   /**
- * finalizeNextMovementFrame：执行核心业务逻辑。
- * @returns void。
+ * finalizeNextMovementFrame：执行finalizeNextMovement帧相关逻辑。
+ * @returns 无返回值，直接更新finalizeNextMovement帧相关状态。
  */
 
 
@@ -665,9 +665,9 @@ export function createMainRuntimeDeltaStateSource(options: MainRuntimeDeltaState
     options.navigation.syncPathCellsToRuntime();
   }  
   /**
- * applyNextSelfVitalsMetadata：更新/写入相关状态。
+ * applyNextSelfVitalsMetadata：处理NextSelfVitalMetadata并更新相关状态。
  * @param data NEXT_S2C_SelfDelta 原始数据。
- * @returns void。
+ * @returns 无返回值，直接更新NextSelfVitalMetadata相关状态。
  */
 
 
@@ -715,10 +715,10 @@ export function createMainRuntimeDeltaStateSource(options: MainRuntimeDeltaState
     options.refreshUiChrome();
   }  
   /**
- * mergeVisibleBuffStates：执行核心业务逻辑。
+ * mergeVisibleBuffStates：判断可见Buff状态是否满足条件。
  * @param previous TemporaryBuffState[] | undefined 参数说明。
  * @param data NonNullable<NEXT_S2C_PanelDelta['buff']> 原始数据。
- * @returns TemporaryBuffState[]。
+ * @returns 返回可见Buff状态列表。
  */
 
 
@@ -743,9 +743,9 @@ export function createMainRuntimeDeltaStateSource(options: MainRuntimeDeltaState
 
   return {  
   /**
- * handleWorldDelta：处理事件并驱动执行路径。
+ * handleWorldDelta：处理世界增量并更新相关状态。
  * @param data NEXT_S2C_WorldDelta 原始数据。
- * @returns void。
+ * @returns 无返回值，直接更新世界Delta相关状态。
  */
 
     handleWorldDelta(data: NEXT_S2C_WorldDelta): void {
@@ -796,9 +796,9 @@ export function createMainRuntimeDeltaStateSource(options: MainRuntimeDeltaState
       finalizeNextMovementFrame();
     },    
     /**
- * handleSelfDelta：处理事件并驱动执行路径。
+ * handleSelfDelta：处理Self增量并更新相关状态。
  * @param data NEXT_S2C_SelfDelta 原始数据。
- * @returns void。
+ * @returns 无返回值，直接更新SelfDelta相关状态。
  */
 
 
@@ -878,9 +878,9 @@ export function createMainRuntimeDeltaStateSource(options: MainRuntimeDeltaState
       finalizeNextMovementFrame();
     },    
     /**
- * handlePanelDelta：处理事件并驱动执行路径。
+ * handlePanelDelta：处理面板增量并更新相关状态。
  * @param data NEXT_S2C_PanelDelta 原始数据。
- * @returns void。
+ * @returns 无返回值，直接更新面板Delta相关状态。
  */
 
 

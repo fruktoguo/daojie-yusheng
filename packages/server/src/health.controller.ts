@@ -8,7 +8,7 @@ import { HealthReadinessService } from './health/health-readiness.service';
 
 interface ResponseLike {
 /**
- * status：ResponseLike 内部字段。
+ * status：statu状态或数据块。
  */
 
   status: (code: number) => unknown;
@@ -20,7 +20,7 @@ export class HealthController {
 /**
  * 构造器：初始化 当前 实例并建立基础状态。
  * @param healthReadinessService HealthReadinessService 参数说明。
- * @returns 无返回值（构造函数）。
+ * @returns 无返回值，完成实例初始化。
  */
 
   constructor(

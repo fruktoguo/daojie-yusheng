@@ -17,27 +17,27 @@ type SkillTooltipPreviewPlayer = Pick<PlayerState, 'x' | 'y' | 'hp' | 'maxHp' | 
 /** SkillTooltipPreviewContext：技能提示预览上下文。 */
 export interface SkillTooltipPreviewContext {
 /**
- * techLevel：SkillTooltipPreviewContext 内部字段。
+ * techLevel：tech等级数值。
  */
 
   techLevel?: number;  
   /**
- * unlockLevel：SkillTooltipPreviewContext 内部字段。
+ * unlockLevel：unlock等级数值。
  */
 
   unlockLevel?: number;  
   /**
- * player：SkillTooltipPreviewContext 内部字段。
+ * player：玩家引用。
  */
 
   player?: SkillTooltipPreviewPlayer | null;  
   /**
- * target：SkillTooltipPreviewContext 内部字段。
+ * target：目标相关字段。
  */
 
   target?: SkillTooltipPreviewPlayer | null;  
   /**
- * knownSkills：SkillTooltipPreviewContext 内部字段。
+ * knownSkills：known技能相关字段。
  */
 
   knownSkills?: SkillDef[];
@@ -52,12 +52,12 @@ type ScalingMeta = SkillScalingMeta;
 /** FormulaPreview：公式预览结果。 */
 type FormulaPreview = {
 /**
- * html：对象字段。
+ * html：html相关字段。
  */
 
   html: string;  
   /**
- * resolved：对象字段。
+ * resolved：resolved相关字段。
  */
 
   resolved: number | null;
@@ -66,32 +66,32 @@ type FormulaPreview = {
 /** StructuredDamagePreview：结构化伤害预览汇总。 */
 type StructuredDamagePreview = {
 /**
- * total：对象字段。
+ * total：数量或计量字段。
  */
 
   total: number;  
   /**
- * fixedTotal：对象字段。
+ * fixedTotal：数量或计量字段。
  */
 
   fixedTotal: number;  
   /**
- * percentTotal：对象字段。
+ * percentTotal：数量或计量字段。
  */
 
   percentTotal: number;  
   /**
- * percentFactorCount：对象字段。
+ * percentFactorCount：数量或计量字段。
  */
 
   percentFactorCount: number;  
   /**
- * fixedHtml：对象字段。
+ * fixedHtml：fixedHtml相关字段。
  */
 
   fixedHtml: string;  
   /**
- * percentHtml：对象字段。
+ * percentHtml：percentHtml相关字段。
  */
 
   percentHtml: string;
@@ -100,12 +100,12 @@ type StructuredDamagePreview = {
 /** PercentFactorPreview：百分比因子预览项。 */
 type PercentFactorPreview = {
 /**
- * multiplier：对象字段。
+ * multiplier：multiplier相关字段。
  */
 
   multiplier: number;  
   /**
- * html：对象字段。
+ * html：html相关字段。
  */
 
   html: string;
@@ -114,12 +114,12 @@ type PercentFactorPreview = {
 /** ResolvedPreviewValue：已解析预览数值。 */
 type ResolvedPreviewValue = {
 /**
- * value：对象字段。
+ * value：值数值。
  */
 
   value: number;  
   /**
- * known：对象字段。
+ * known：known相关字段。
  */
 
   known: boolean;
@@ -128,12 +128,12 @@ type ResolvedPreviewValue = {
 /** BuffFormulaMeta：Buff 公式变量元信息。 */
 type BuffFormulaMeta = {
 /**
- * side：对象字段。
+ * side：side相关字段。
  */
 
   side: 'caster' | 'target';  
   /**
- * buffId：对象字段。
+ * buffId：buffID标识。
  */
 
   buffId: string;
@@ -142,17 +142,17 @@ type BuffFormulaMeta = {
 /** ResolvedBuffMeta：已解析 Buff 展示信息。 */
 type ResolvedBuffMeta = {
 /**
- * name：对象字段。
+ * name：名称名称或显示文本。
  */
 
   name: string;  
   /**
- * mark：对象字段。
+ * mark：mark相关字段。
  */
 
   mark: string;  
   /**
- * tone：对象字段。
+ * tone：tone相关字段。
  */
 
   tone: 'buff' | 'debuff';
@@ -161,22 +161,22 @@ type ResolvedBuffMeta = {
 /** SkillTooltipAsideCard：技能提示侧栏卡片。 */
 export interface SkillTooltipAsideCard {
 /**
- * mark：SkillTooltipAsideCard 内部字段。
+ * mark：mark相关字段。
  */
 
   mark?: string;  
   /**
- * title：SkillTooltipAsideCard 内部字段。
+ * title：title名称或显示文本。
  */
 
   title: string;  
   /**
- * lines：SkillTooltipAsideCard 内部字段。
+ * lines：line相关字段。
  */
 
   lines: string[];  
   /**
- * tone：SkillTooltipAsideCard 内部字段。
+ * tone：tone相关字段。
  */
 
   tone?: 'buff' | 'debuff';
@@ -185,12 +185,12 @@ export interface SkillTooltipAsideCard {
 /** SkillTooltipContent：技能提示内容块。 */
 export interface SkillTooltipContent {
 /**
- * lines：SkillTooltipContent 内部字段。
+ * lines：line相关字段。
  */
 
   lines: string[];  
   /**
- * asideCards：SkillTooltipContent 内部字段。
+ * asideCards：asideCard相关字段。
  */
 
   asideCards: SkillTooltipAsideCard[];
@@ -199,57 +199,57 @@ export interface SkillTooltipContent {
 /** SkillPreviewMetrics：技能预览统计指标。 */
 export interface SkillPreviewMetrics {
 /**
- * actualDamage：SkillPreviewMetrics 内部字段。
+ * actualDamage：actualDamage相关字段。
  */
 
   actualDamage: number | null;  
   /**
- * actualQiCost：SkillPreviewMetrics 内部字段。
+ * actualQiCost：actualQi消耗数值。
  */
 
   actualQiCost: number;  
   /**
- * range：SkillPreviewMetrics 内部字段。
+ * range：范围相关字段。
  */
 
   range: number;  
   /**
- * targetCount：SkillPreviewMetrics 内部字段。
+ * targetCount：数量或计量字段。
  */
 
   targetCount: number;  
   /**
- * cooldown：SkillPreviewMetrics 内部字段。
+ * cooldown：冷却相关字段。
  */
 
   cooldown: number;  
   /**
- * hasPhysicalDamage：SkillPreviewMetrics 内部字段。
+ * hasPhysicalDamage：启用开关或状态标识。
  */
 
   hasPhysicalDamage: boolean;  
   /**
- * hasSpellDamage：SkillPreviewMetrics 内部字段。
+ * hasSpellDamage：启用开关或状态标识。
  */
 
   hasSpellDamage: boolean;  
   /**
- * isSingleTarget：SkillPreviewMetrics 内部字段。
+ * isSingleTarget：启用开关或状态标识。
  */
 
   isSingleTarget: boolean;  
   /**
- * isAreaTarget：SkillPreviewMetrics 内部字段。
+ * isAreaTarget：启用开关或状态标识。
  */
 
   isAreaTarget: boolean;  
   /**
- * isMelee：SkillPreviewMetrics 内部字段。
+ * isMelee：启用开关或状态标识。
  */
 
   isMelee: boolean;  
   /**
- * isRanged：SkillPreviewMetrics 内部字段。
+ * isRanged：启用开关或状态标识。
  */
 
   isRanged: boolean;
@@ -312,7 +312,7 @@ function buildQiCostValue(cost: number, context: SkillTooltipPreviewContext): st
 /** describeBuffEffect：处理describe Buff效果。 */
 function describeBuffEffect(effect: Extract<SkillDef['effects'][number], {
 /**
- * type：对象字段。
+ * type：type相关字段。
  */
  type: 'buff' }>): string[] {
   return describePreviewBonuses(effect.attrs, effect.stats, effect.valueStats);
@@ -321,7 +321,7 @@ function describeBuffEffect(effect: Extract<SkillDef['effects'][number], {
 /** buildBuffInlineBadge：构建Buff Inline Badge。 */
 function buildBuffInlineBadge(effect: Extract<SkillDef['effects'][number], {
 /**
- * type：对象字段。
+ * type：type相关字段。
  */
  type: 'buff' }>): string {
   const toneClass = effect.category === 'debuff' ? 'debuff' : 'buff';
@@ -337,7 +337,7 @@ function buildBuffInlineBadgeFromMeta(meta: ResolvedBuffMeta): string {
 /** buildBuffAsideCard：构建Buff Aside卡片。 */
 function buildBuffAsideCard(effect: Extract<SkillDef['effects'][number], {
 /**
- * type：对象字段。
+ * type：type相关字段。
  */
  type: 'buff' }>): SkillTooltipAsideCard {
   const targetLabel = effect.target === 'target' ? '目标' : effect.target === 'allies' ? '友方' : '自身';
@@ -397,7 +397,7 @@ function resolveBuffFormulaMeta(varName: SkillFormulaVar, context: SkillTooltipP
     ?.flatMap((skill) => skill.effects)
     .find((entry): entry is Extract<SkillDef['effects'][number], {    
     /**
- * type：对象字段。
+ * type：type相关字段。
  */
  type: 'buff' }> => (
       entry.type === 'buff' && entry.buffId === parsed.buffId
@@ -587,11 +587,11 @@ function renderVariableFormula(varName: SkillFormulaVar, scale: number, context:
 /** isAddFormula：判断是否Add Formula。 */
 function isAddFormula(formula: SkillFormula): formula is {
 /**
- * op：对象字段。
+ * op：op相关字段。
  */
  op: 'add';
  /**
- * args：对象字段。
+ * args：arg相关字段。
  */
  args: SkillFormula[] } {
   return typeof formula !== 'number' && !('var' in formula) && formula.op === 'add';
@@ -600,11 +600,11 @@ function isAddFormula(formula: SkillFormula): formula is {
 /** isMulFormula：判断是否Mul Formula。 */
 function isMulFormula(formula: SkillFormula): formula is {
 /**
- * op：对象字段。
+ * op：op相关字段。
  */
  op: 'mul';
  /**
- * args：对象字段。
+ * args：arg相关字段。
  */
  args: SkillFormula[] } {
   return typeof formula !== 'number' && !('var' in formula) && formula.op === 'mul';
@@ -613,11 +613,11 @@ function isMulFormula(formula: SkillFormula): formula is {
 /** isPercentFactorFormula：判断是否Percent Factor Formula。 */
 function isPercentFactorFormula(formula: SkillFormula): formula is {
 /**
- * op：对象字段。
+ * op：op相关字段。
  */
  op: 'add';
  /**
- * args：对象字段。
+ * args：arg相关字段。
  */
  args: SkillFormula[] } {
   return isAddFormula(formula)

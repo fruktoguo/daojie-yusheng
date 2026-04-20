@@ -7,47 +7,47 @@ import type { PlayerState } from './player-runtime-types';
  */
 export interface AttrDetailView {
 /**
- * baseAttrs：AttrDetailView 内部字段。
+ * baseAttrs：baseAttr相关字段。
  */
 
   baseAttrs: Attributes;  
   /**
- * bonuses：AttrDetailView 内部字段。
+ * bonuses：bonuse相关字段。
  */
 
   bonuses: AttrBonus[];  
   /**
- * finalAttrs：AttrDetailView 内部字段。
+ * finalAttrs：finalAttr相关字段。
  */
 
   finalAttrs: Attributes;  
   /**
- * numericStats：AttrDetailView 内部字段。
+ * numericStats：numericStat相关字段。
  */
 
   numericStats: NumericStats;  
   /**
- * ratioDivisors：AttrDetailView 内部字段。
+ * ratioDivisors：ratioDivisor相关字段。
  */
 
   ratioDivisors: NumericRatioDivisors;  
   /**
- * numericStatBreakdowns：AttrDetailView 内部字段。
+ * numericStatBreakdowns：numericStatBreakdown相关字段。
  */
 
   numericStatBreakdowns: NumericStatBreakdownMap;  
   /**
- * alchemySkill：AttrDetailView 内部字段。
+ * alchemySkill：炼丹技能相关字段。
  */
 
   alchemySkill?: PlayerState['alchemySkill'];  
   /**
- * gatherSkill：AttrDetailView 内部字段。
+ * gatherSkill：gather技能相关字段。
  */
 
   gatherSkill?: PlayerState['gatherSkill'];  
   /**
- * enhancementSkill：AttrDetailView 内部字段。
+ * enhancementSkill：强化技能相关字段。
  */
 
   enhancementSkill?: PlayerState['enhancementSkill'];

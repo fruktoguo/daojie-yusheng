@@ -17,32 +17,32 @@ export type MapMinimapMarkerKind =
 /** 小地图标记 */
 export interface MapMinimapMarker {
 /**
- * id：MapMinimapMarker 内部字段。
+ * id：ID标识。
  */
 
   id: string;  
   /**
- * kind：MapMinimapMarker 内部字段。
+ * kind：kind相关字段。
  */
 
   kind: MapMinimapMarkerKind;  
   /**
- * x：MapMinimapMarker 内部字段。
+ * x：x相关字段。
  */
 
   x: number;  
   /**
- * y：MapMinimapMarker 内部字段。
+ * y：y相关字段。
  */
 
   y: number;  
   /**
- * label：MapMinimapMarker 内部字段。
+ * label：label名称或显示文本。
  */
 
   label: string;  
   /**
- * detail：MapMinimapMarker 内部字段。
+ * detail：详情状态或数据块。
  */
 
   detail?: string;
@@ -51,22 +51,22 @@ export interface MapMinimapMarker {
 /** 小地图快照 */
 export interface MapMinimapSnapshot {
 /**
- * width：MapMinimapSnapshot 内部字段。
+ * width：width相关字段。
  */
 
   width: number;  
   /**
- * height：MapMinimapSnapshot 内部字段。
+ * height：height相关字段。
  */
 
   height: number;  
   /**
- * terrainRows：MapMinimapSnapshot 内部字段。
+ * terrainRows：集合字段。
  */
 
   terrainRows: string[];  
   /**
- * markers：MapMinimapSnapshot 内部字段。
+ * markers：marker相关字段。
  */
 
   markers: MapMinimapMarker[];
@@ -75,17 +75,17 @@ export interface MapMinimapSnapshot {
 /** 已解锁地图图鉴条目 */
 export interface MapMinimapArchiveEntry {
 /**
- * mapId：MapMinimapArchiveEntry 内部字段。
+ * mapId：地图ID标识。
  */
 
   mapId: string;  
   /**
- * mapMeta：MapMinimapArchiveEntry 内部字段。
+ * mapMeta：地图Meta相关字段。
  */
 
   mapMeta: MapMeta;  
   /**
- * snapshot：MapMinimapArchiveEntry 内部字段。
+ * snapshot：快照状态或数据块。
  */
 
   snapshot: MapMinimapSnapshot;
@@ -97,12 +97,12 @@ export type NpcQuestMarkerState = 'available' | 'ready' | 'active';
 /** NPC 任务标记 */
 export interface NpcQuestMarker {
 /**
- * line：NpcQuestMarker 内部字段。
+ * line：line相关字段。
  */
 
   line: QuestLine;  
   /**
- * state：NpcQuestMarker 内部字段。
+ * state：状态状态或数据块。
  */
 
   state: NpcQuestMarkerState;
@@ -111,32 +111,32 @@ export interface NpcQuestMarker {
 /** NPC 商店中的单件商品视图 */
 export interface NpcShopItemView {
 /**
- * itemId：NpcShopItemView 内部字段。
+ * itemId：道具ID标识。
  */
 
   itemId: string;  
   /**
- * item：NpcShopItemView 内部字段。
+ * item：道具相关字段。
  */
 
   item: ItemStack;  
   /**
- * unitPrice：NpcShopItemView 内部字段。
+ * unitPrice：unit价格数值。
  */
 
   unitPrice: number;  
   /**
- * remainingQuantity：NpcShopItemView 内部字段。
+ * remainingQuantity：remainingQuantity相关字段。
  */
 
   remainingQuantity?: number;  
   /**
- * stockLimit：NpcShopItemView 内部字段。
+ * stockLimit：stockLimit相关字段。
  */
 
   stockLimit?: number;  
   /**
- * refreshAt：NpcShopItemView 内部字段。
+ * refreshAt：refreshAt相关字段。
  */
 
   refreshAt?: number;
@@ -145,32 +145,32 @@ export interface NpcShopItemView {
 /** NPC 商店视图 */
 export interface NpcShopView {
 /**
- * npcId：NpcShopView 内部字段。
+ * npcId：NPCID标识。
  */
 
   npcId: string;  
   /**
- * npcName：NpcShopView 内部字段。
+ * npcName：NPC名称名称或显示文本。
  */
 
   npcName: string;  
   /**
- * dialogue：NpcShopView 内部字段。
+ * dialogue：dialogue相关字段。
  */
 
   dialogue: string;  
   /**
- * currencyItemId：NpcShopView 内部字段。
+ * currencyItemId：currency道具ID标识。
  */
 
   currencyItemId: string;  
   /**
- * currencyItemName：NpcShopView 内部字段。
+ * currencyItemName：currency道具名称名称或显示文本。
  */
 
   currencyItemName: string;  
   /**
- * items：NpcShopView 内部字段。
+ * items：集合字段。
  */
 
   items: NpcShopItemView[];
@@ -185,32 +185,32 @@ export type SuggestionReplyAuthorType = 'author' | 'gm';
 /** 意见回复数据结构 */
 export interface SuggestionReply {
 /**
- * id：SuggestionReply 内部字段。
+ * id：ID标识。
  */
 
   id: string;  
   /**
- * authorType：SuggestionReply 内部字段。
+ * authorType：authorType相关字段。
  */
 
   authorType: SuggestionReplyAuthorType;  
   /**
- * authorId：SuggestionReply 内部字段。
+ * authorId：authorID标识。
  */
 
   authorId: string;  
   /**
- * authorName：SuggestionReply 内部字段。
+ * authorName：author名称名称或显示文本。
  */
 
   authorName: string;  
   /**
- * content：SuggestionReply 内部字段。
+ * content：内容相关字段。
  */
 
   content: string;  
   /**
- * createdAt：SuggestionReply 内部字段。
+ * createdAt：createdAt相关字段。
  */
 
   createdAt: number;
@@ -219,57 +219,57 @@ export interface SuggestionReply {
 /** 意见数据结构 */
 export interface Suggestion {
 /**
- * id：Suggestion 内部字段。
+ * id：ID标识。
  */
 
   id: string;  
   /**
- * authorId：Suggestion 内部字段。
+ * authorId：authorID标识。
  */
 
   authorId: string;  
   /**
- * authorName：Suggestion 内部字段。
+ * authorName：author名称名称或显示文本。
  */
 
   authorName: string;  
   /**
- * title：Suggestion 内部字段。
+ * title：title名称或显示文本。
  */
 
   title: string;  
   /**
- * description：Suggestion 内部字段。
+ * description：description相关字段。
  */
 
   description: string;  
   /**
- * status：Suggestion 内部字段。
+ * status：statu状态或数据块。
  */
 
   status: SuggestionStatus;  
   /**
- * upvotes：Suggestion 内部字段。
+ * upvotes：upvote相关字段。
  */
 
   upvotes: string[];  
   /**
- * downvotes：Suggestion 内部字段。
+ * downvotes：downvote相关字段。
  */
 
   downvotes: string[];  
   /**
- * replies：Suggestion 内部字段。
+ * replies：reply相关字段。
  */
 
   replies: SuggestionReply[];  
   /**
- * authorLastReadGmReplyAt：Suggestion 内部字段。
+ * authorLastReadGmReplyAt：authorLastReadGMReplyAt相关字段。
  */
 
   authorLastReadGmReplyAt: number;  
   /**
- * createdAt：Suggestion 内部字段。
+ * createdAt：createdAt相关字段。
  */
 
   createdAt: number;
@@ -278,32 +278,32 @@ export interface Suggestion {
 /** 意见分页结果 */
 export interface SuggestionPage {
 /**
- * items：SuggestionPage 内部字段。
+ * items：集合字段。
  */
 
   items: Suggestion[];  
   /**
- * total：SuggestionPage 内部字段。
+ * total：数量或计量字段。
  */
 
   total: number;  
   /**
- * page：SuggestionPage 内部字段。
+ * page：page相关字段。
  */
 
   page: number;  
   /**
- * pageSize：SuggestionPage 内部字段。
+ * pageSize：数量或计量字段。
  */
 
   pageSize: number;  
   /**
- * totalPages：SuggestionPage 内部字段。
+ * totalPages：totalPage相关字段。
  */
 
   totalPages: number;  
   /**
- * keyword：SuggestionPage 内部字段。
+ * keyword：keyword相关字段。
  */
 
   keyword: string;

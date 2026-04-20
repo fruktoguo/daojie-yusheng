@@ -28,37 +28,37 @@ export const WORLD_DARKNESS_BUFF_DURATION = 2;
 /** 时间段定义（昼夜循环中的一个阶段） */
 export interface TimePhaseDefinition {
 /**
- * id：TimePhaseDefinition 内部字段。
+ * id：ID标识。
  */
 
   id: TimePhaseId;  
   /**
- * label：TimePhaseDefinition 内部字段。
+ * label：label名称或显示文本。
  */
 
   label: string;  
   /**
- * startTick：TimePhaseDefinition 内部字段。
+ * startTick：starttick相关字段。
  */
 
   startTick: number;  
   /**
- * endTick：TimePhaseDefinition 内部字段。
+ * endTick：endtick相关字段。
  */
 
   endTick: number;  
   /**
- * skyLightPercent：TimePhaseDefinition 内部字段。
+ * skyLightPercent：skyLightPercent相关字段。
  */
 
   skyLightPercent: number;  
   /**
- * tint：TimePhaseDefinition 内部字段。
+ * tint：tint相关字段。
  */
 
   tint: string;  
   /**
- * overlayAlpha：TimePhaseDefinition 内部字段。
+ * overlayAlpha：overlayAlpha相关字段。
  */
 
   overlayAlpha: number;

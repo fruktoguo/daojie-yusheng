@@ -13,17 +13,17 @@ type CachedMapMeta = Pick<
 /** 地图静态缓存按 ID 维护的一条记录。 */
 interface CachedMapEntry {
 /**
- * meta：CachedMapEntry 内部字段。
+ * meta：meta相关字段。
  */
 
   meta?: CachedMapMeta;  
   /**
- * snapshot：CachedMapEntry 内部字段。
+ * snapshot：快照状态或数据块。
  */
 
   snapshot?: MapMinimapSnapshot;  
   /**
- * unlocked：CachedMapEntry 内部字段。
+ * unlocked：unlocked相关字段。
  */
 
   unlocked?: boolean;
@@ -78,32 +78,32 @@ function isSnapshot(value: unknown): value is MapMinimapSnapshot {
       }
       const typedMarker = marker as {      
       /**
- * id：对象字段。
+ * id：ID标识。
  */
 
         id?: unknown;        
         /**
- * kind：对象字段。
+ * kind：kind相关字段。
  */
 
         kind?: unknown;        
         /**
- * x：对象字段。
+ * x：x相关字段。
  */
 
         x?: unknown;        
         /**
- * y：对象字段。
+ * y：y相关字段。
  */
 
         y?: unknown;        
         /**
- * label：对象字段。
+ * label：label名称或显示文本。
  */
 
         label?: unknown;        
         /**
- * detail：对象字段。
+ * detail：详情状态或数据块。
  */
 
         detail?: unknown;
@@ -138,12 +138,12 @@ function isCachedMapMeta(value: unknown): value is CachedMapMeta {
           && typeof point === 'object'
           && Number.isInteger((point as {          
           /**
- * x：对象字段。
+ * x：x相关字段。
  */
  x?: unknown }).x)
           && Number.isInteger((point as {          
           /**
- * y：对象字段。
+ * y：y相关字段。
  */
  y?: unknown }).y)
         ))
@@ -310,11 +310,11 @@ export function cacheMapSnapshot(
   snapshot: MapMinimapSnapshot,
   options?: {  
   /**
- * meta：对象字段。
+ * meta：meta相关字段。
  */
  meta?: MapMeta | null;  
  /**
- * unlocked：对象字段。
+ * unlocked：unlocked相关字段。
  */
  unlocked?: boolean },
 ): void {
@@ -348,15 +348,15 @@ export function cacheUnlockedMinimapLibrary(entries: MapMinimapArchiveEntry[]): 
 /** 列出可直接展示摘要和小地图的已解锁地图。 */
 export function listCachedUnlockedMaps(): Array<{
 /**
- * mapId：对象字段。
+ * mapId：地图ID标识。
  */
  mapId: string;
  /**
- * mapMeta：对象字段。
+ * mapMeta：地图Meta相关字段。
  */
  mapMeta: MapMeta | null;
  /**
- * snapshot：对象字段。
+ * snapshot：快照状态或数据块。
  */
  snapshot: MapMinimapSnapshot }> {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
@@ -364,15 +364,15 @@ export function listCachedUnlockedMaps(): Array<{
   ensureLoaded();
   const result: Array<{  
   /**
- * mapId：对象字段。
+ * mapId：地图ID标识。
  */
  mapId: string;  
  /**
- * mapMeta：对象字段。
+ * mapMeta：地图Meta相关字段。
  */
  mapMeta: MapMeta | null;  
  /**
- * snapshot：对象字段。
+ * snapshot：快照状态或数据块。
  */
  snapshot: MapMinimapSnapshot }> = [];
   for (const [mapId, entry] of cachedEntries.entries()) {
@@ -396,11 +396,11 @@ export function listCachedUnlockedMaps(): Array<{
 /** 列出已解锁地图的元信息摘要，不包含大体积快照。 */
 export function listCachedUnlockedMapSummaries(): Array<{
 /**
- * mapId：对象字段。
+ * mapId：地图ID标识。
  */
  mapId: string;
  /**
- * mapMeta：对象字段。
+ * mapMeta：地图Meta相关字段。
  */
  mapMeta: MapMeta | null }> {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
@@ -408,11 +408,11 @@ export function listCachedUnlockedMapSummaries(): Array<{
   ensureLoaded();
   const result: Array<{  
   /**
- * mapId：对象字段。
+ * mapId：地图ID标识。
  */
  mapId: string;  
  /**
- * mapMeta：对象字段。
+ * mapMeta：地图Meta相关字段。
  */
  mapMeta: MapMeta | null }> = [];
   for (const [mapId, entry] of cachedEntries.entries()) {

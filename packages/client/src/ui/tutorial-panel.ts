@@ -11,17 +11,17 @@ import { FloatingTooltip, prefersPinnedTooltipInteraction } from './floating-too
 /** TutorialOperationHint：教程操作提示。 */
 interface TutorialOperationHint {
 /**
- * label：TutorialOperationHint 内部字段。
+ * label：label名称或显示文本。
  */
 
   label: string;  
   /**
- * path：TutorialOperationHint 内部字段。
+ * path：路径相关字段。
  */
 
   path: string;  
   /**
- * title：TutorialOperationHint 内部字段。
+ * title：title名称或显示文本。
  */
 
   title?: string;
@@ -75,11 +75,11 @@ type TutorialFlowTopicId = string;
 
 const TUTORIAL_MAIN_TABS: Array<{
 /**
- * id：对象字段。
+ * id：ID标识。
  */
  id: TutorialMainTabId;
  /**
- * label：对象字段。
+ * label：label名称或显示文本。
  */
  label: string }> = [
   { id: 'operations', label: '基础操作' },
@@ -170,7 +170,7 @@ export class TutorialPanel {
   private readonly tooltip = new FloatingTooltip();  
   /**
  * 构造器：初始化 当前 实例并建立基础状态。
- * @returns 无返回值（构造函数）。
+ * @returns 无返回值，完成实例初始化。
  */
 
 

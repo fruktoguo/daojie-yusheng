@@ -28,12 +28,12 @@ const { cloneQuestState } = world_runtime_normalization_helpers_1;
 /** world-runtime quest-state helpers：承接任务状态刷新、自动接续与奖励背包校验。 */
 let WorldRuntimeQuestStateService = class WorldRuntimeQuestStateService {
 /**
- * playerRuntimeService：对象字段。
+ * playerRuntimeService：玩家运行态服务引用。
  */
 
     playerRuntimeService;    
     /**
- * worldRuntimeQuestQueryService：对象字段。
+ * worldRuntimeQuestQueryService：世界运行态任务Query服务引用。
  */
 
     worldRuntimeQuestQueryService;    
@@ -41,7 +41,7 @@ let WorldRuntimeQuestStateService = class WorldRuntimeQuestStateService {
  * 构造器：初始化 当前 实例并建立基础状态。
  * @param playerRuntimeService 参数说明。
  * @param worldRuntimeQuestQueryService 参数说明。
- * @returns 无返回值（构造函数）。
+ * @returns 无返回值，完成实例初始化。
  */
 
     constructor(playerRuntimeService, worldRuntimeQuestQueryService) {
@@ -49,10 +49,10 @@ let WorldRuntimeQuestStateService = class WorldRuntimeQuestStateService {
         this.worldRuntimeQuestQueryService = worldRuntimeQuestQueryService;
     }    
     /**
- * refreshQuestStates：执行核心业务逻辑。
+ * refreshQuestStates：执行refresh任务状态相关逻辑。
  * @param playerId 玩家 ID。
  * @param forceDirty 参数说明。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新refresh任务状态相关状态。
  */
 
     refreshQuestStates(playerId, forceDirty = false) {
@@ -84,10 +84,10 @@ let WorldRuntimeQuestStateService = class WorldRuntimeQuestStateService {
         }
     }    
     /**
- * tryAcceptNextQuest：执行核心业务逻辑。
+ * tryAcceptNextQuest：执行tryAcceptNext任务相关逻辑。
  * @param playerId 玩家 ID。
  * @param nextQuestId nextQuest ID。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新tryAcceptNext任务相关状态。
  */
 
     tryAcceptNextQuest(playerId, nextQuestId) {
@@ -106,11 +106,11 @@ let WorldRuntimeQuestStateService = class WorldRuntimeQuestStateService {
         return cloneQuestState(nextQuest);
     }    
     /**
- * advanceKillQuestProgress：执行核心业务逻辑。
+ * advanceKillQuestProgress：执行advanceKill任务进度相关逻辑。
  * @param playerId 玩家 ID。
  * @param monsterId monster ID。
  * @param monsterName 参数说明。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新advanceKill任务进度相关状态。
  */
 
     advanceKillQuestProgress(playerId, monsterId, monsterName) {
@@ -139,10 +139,10 @@ let WorldRuntimeQuestStateService = class WorldRuntimeQuestStateService {
         }
     }    
     /**
- * advanceLearnTechniqueQuest：执行核心业务逻辑。
+ * advanceLearnTechniqueQuest：执行advanceLearn功法任务相关逻辑。
  * @param playerId 玩家 ID。
  * @param techniqueId technique ID。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新advanceLearn功法任务相关状态。
  */
 
     advanceLearnTechniqueQuest(playerId, techniqueId) {
@@ -169,10 +169,10 @@ let WorldRuntimeQuestStateService = class WorldRuntimeQuestStateService {
         this.refreshQuestStates(playerId);
     }    
     /**
- * canReceiveRewardItems：执行状态校验并返回判断结果。
+ * canReceiveRewardItems：判断ReceiveReward道具是否满足条件。
  * @param playerId 玩家 ID。
  * @param rewards 参数说明。
- * @returns 函数返回值。
+ * @returns 无返回值，完成ReceiveReward道具的条件判断。
  */
 
     canReceiveRewardItems(playerId, rewards) {

@@ -4,9 +4,9 @@
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.normalizePersistedCombatTargetingRules = exports.isSameCombatTargetingRules = exports.cloneCombatTargetingRules = exports.normalizePersistedAutoUsePills = exports.isSameAutoUsePillList = exports.cloneAutoUsePillList = void 0;
 /**
- * cloneAutoUsePillCondition：执行核心业务逻辑。
+ * cloneAutoUsePillCondition：构建AutoUsePillCondition。
  * @param input 输入参数。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新AutoUsePillCondition相关状态。
  */
 
 
@@ -16,9 +16,9 @@ function cloneAutoUsePillCondition(input) {
     };
 }
 /**
- * cloneAutoUsePillEntry：执行核心业务逻辑。
+ * cloneAutoUsePillEntry：构建AutoUsePill条目。
  * @param input 输入参数。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新AutoUsePill条目相关状态。
  */
 
 function cloneAutoUsePillEntry(input) {
@@ -30,9 +30,9 @@ function cloneAutoUsePillEntry(input) {
     };
 }
 /**
- * cloneAutoUsePillList：执行核心业务逻辑。
+ * cloneAutoUsePillList：读取AutoUsePill列表并返回结果。
  * @param input 输入参数。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新AutoUsePill列表相关状态。
  */
 
 function cloneAutoUsePillList(input) {
@@ -40,10 +40,10 @@ function cloneAutoUsePillList(input) {
 }
 exports.cloneAutoUsePillList = cloneAutoUsePillList;
 /**
- * isSameAutoUsePillCondition：执行状态校验并返回判断结果。
+ * isSameAutoUsePillCondition：判断SameAutoUsePillCondition是否满足条件。
  * @param left 参数说明。
  * @param right 参数说明。
- * @returns 函数返回值。
+ * @returns 无返回值，完成SameAutoUsePillCondition的条件判断。
  */
 
 function isSameAutoUsePillCondition(left, right) {
@@ -68,10 +68,10 @@ function isSameAutoUsePillCondition(left, right) {
     return true;
 }
 /**
- * isSameAutoUsePillEntry：执行状态校验并返回判断结果。
+ * isSameAutoUsePillEntry：判断SameAutoUsePill条目是否满足条件。
  * @param left 参数说明。
  * @param right 参数说明。
- * @returns 函数返回值。
+ * @returns 无返回值，完成SameAutoUsePill条目的条件判断。
  */
 
 function isSameAutoUsePillEntry(left, right) {
@@ -99,10 +99,10 @@ function isSameAutoUsePillEntry(left, right) {
     return true;
 }
 /**
- * isSameAutoUsePillList：执行状态校验并返回判断结果。
+ * isSameAutoUsePillList：读取SameAutoUsePill列表并返回结果。
  * @param previous 参数说明。
  * @param current 参数说明。
- * @returns 函数返回值。
+ * @returns 无返回值，完成SameAutoUsePill列表的条件判断。
  */
 
 function isSameAutoUsePillList(previous, current) {
@@ -125,9 +125,9 @@ function isSameAutoUsePillList(previous, current) {
 }
 exports.isSameAutoUsePillList = isSameAutoUsePillList;
 /**
- * normalizePersistedAutoUsePills：执行核心业务逻辑。
+ * normalizePersistedAutoUsePills：判断PersistedAutoUsePill是否满足条件。
  * @param input 输入参数。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新PersistedAutoUsePill相关状态。
  */
 
 function normalizePersistedAutoUsePills(input) {
@@ -149,9 +149,9 @@ function normalizePersistedAutoUsePills(input) {
 }
 exports.normalizePersistedAutoUsePills = normalizePersistedAutoUsePills;
 /**
- * cloneCombatTargetingRules：执行核心业务逻辑。
+ * cloneCombatTargetingRules：读取战斗TargetingRule并返回结果。
  * @param input 输入参数。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新战斗TargetingRule相关状态。
  */
 
 function cloneCombatTargetingRules(input) {
@@ -166,10 +166,10 @@ function cloneCombatTargetingRules(input) {
 }
 exports.cloneCombatTargetingRules = cloneCombatTargetingRules;
 /**
- * isSameCombatTargetingRules：执行状态校验并返回判断结果。
+ * isSameCombatTargetingRules：读取Same战斗TargetingRule并返回结果。
  * @param left 参数说明。
  * @param right 参数说明。
- * @returns 函数返回值。
+ * @returns 无返回值，完成Same战斗TargetingRule的条件判断。
  */
 
 function isSameCombatTargetingRules(left, right) {
@@ -188,9 +188,9 @@ function isSameCombatTargetingRules(left, right) {
 }
 exports.isSameCombatTargetingRules = isSameCombatTargetingRules;
 /**
- * normalizePersistedCombatTargetingRules：执行核心业务逻辑。
+ * normalizePersistedCombatTargetingRules：读取Persisted战斗TargetingRule并返回结果。
  * @param input 输入参数。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新Persisted战斗TargetingRule相关状态。
  */
 
 function normalizePersistedCombatTargetingRules(input) {

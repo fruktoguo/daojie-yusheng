@@ -21,27 +21,27 @@ const world_sync_map_snapshot_service_1 = require("./world-sync-map-snapshot.ser
 /** world envelope 服务：承接 envelope 生成、战斗特效附加与移动调试日志。 */
 let WorldSyncEnvelopeService = class WorldSyncEnvelopeService {
 /**
- * worldProjectorService：对象字段。
+ * worldProjectorService：世界Projector服务引用。
  */
 
     worldProjectorService;    
     /**
- * worldRuntimeService：对象字段。
+ * worldRuntimeService：世界运行态服务引用。
  */
 
     worldRuntimeService;    
     /**
- * templateRepository：对象字段。
+ * templateRepository：template仓储引用。
  */
 
     templateRepository;    
     /**
- * worldSyncMapSnapshotService：对象字段。
+ * worldSyncMapSnapshotService：世界Sync地图快照服务引用。
  */
 
     worldSyncMapSnapshotService;    
     /**
- * logger：对象字段。
+ * logger：日志器引用。
  */
 
     logger = new common_1.Logger(WorldSyncEnvelopeService.name);    
@@ -51,7 +51,7 @@ let WorldSyncEnvelopeService = class WorldSyncEnvelopeService {
  * @param worldRuntimeService 参数说明。
  * @param templateRepository 参数说明。
  * @param worldSyncMapSnapshotService 参数说明。
- * @returns 无返回值（构造函数）。
+ * @returns 无返回值，完成实例初始化。
  */
 
     constructor(worldProjectorService, worldRuntimeService, templateRepository, worldSyncMapSnapshotService) {
@@ -66,7 +66,7 @@ let WorldSyncEnvelopeService = class WorldSyncEnvelopeService {
  * @param binding 参数说明。
  * @param view 参数说明。
  * @param player 玩家对象。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新InitialEnvelope相关状态。
  */
 
     createInitialEnvelope(playerId, binding, view, player) {
@@ -79,7 +79,7 @@ let WorldSyncEnvelopeService = class WorldSyncEnvelopeService {
  * @param playerId 玩家 ID。
  * @param view 参数说明。
  * @param player 玩家对象。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新DeltaEnvelope相关状态。
  */
 
     createDeltaEnvelope(playerId, view, player) {
@@ -88,20 +88,20 @@ let WorldSyncEnvelopeService = class WorldSyncEnvelopeService {
         return envelope;
     }    
     /**
- * clearPlayerCache：执行核心业务逻辑。
+ * clearPlayerCache：执行clear玩家缓存相关逻辑。
  * @param playerId 玩家 ID。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新clear玩家缓存相关状态。
  */
 
     clearPlayerCache(playerId) {
         this.worldProjectorService.clear(playerId);
     }    
     /**
- * appendNextCombatEffects：执行核心业务逻辑。
+ * appendNextCombatEffects：执行appendNext战斗Effect相关逻辑。
  * @param envelope 参数说明。
  * @param view 参数说明。
  * @param player 玩家对象。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新appendNext战斗Effect相关状态。
  */
 
     appendNextCombatEffects(envelope, view, player) {
@@ -122,10 +122,10 @@ let WorldSyncEnvelopeService = class WorldSyncEnvelopeService {
         return nextEnvelope;
     }    
     /**
- * collectNextCombatEffects：执行核心业务逻辑。
+ * collectNextCombatEffects：执行Next战斗Effect相关逻辑。
  * @param view 参数说明。
  * @param player 玩家对象。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新Next战斗Effect相关状态。
  */
 
     collectNextCombatEffects(view, player) {
@@ -134,11 +134,11 @@ let WorldSyncEnvelopeService = class WorldSyncEnvelopeService {
         return filterCombatEffects(this.worldRuntimeService.getCombatEffects(view.instance.instanceId), visibleTileKeys);
     }    
     /**
- * logMovementEnvelope：执行核心业务逻辑。
+ * logMovementEnvelope：执行logMovementEnvelope相关逻辑。
  * @param playerId 玩家 ID。
  * @param phase 参数说明。
  * @param envelope 参数说明。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新logMovementEnvelope相关状态。
  */
 
     logMovementEnvelope(playerId, phase, envelope) {
@@ -202,26 +202,26 @@ exports.WorldSyncEnvelopeService = WorldSyncEnvelopeService = __decorate([
  * buildCoordKey：构建并返回目标对象。
  * @param x X 坐标。
  * @param y Y 坐标。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新CoordKey相关状态。
  */
 
 function buildCoordKey(x, y) {
     return `${x},${y}`;
 }
 /**
- * cloneCombatEffect：执行核心业务逻辑。
+ * cloneCombatEffect：构建战斗Effect。
  * @param source 来源对象。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新战斗Effect相关状态。
  */
 
 function cloneCombatEffect(source) {
     return { ...source };
 }
 /**
- * filterCombatEffects：执行核心业务逻辑。
+ * filterCombatEffects：执行filter战斗Effect相关逻辑。
  * @param effects 参数说明。
  * @param visibleTiles 参数说明。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新filter战斗Effect相关状态。
  */
 
 function filterCombatEffects(effects, visibleTiles) {

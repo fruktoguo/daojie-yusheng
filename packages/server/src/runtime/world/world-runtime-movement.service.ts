@@ -16,11 +16,11 @@ const common_1 = require("@nestjs/common");
 /** world-runtime movement orchestration：承接实例侧移动/传送执行编排。 */
 let WorldRuntimeMovementService = class WorldRuntimeMovementService {
 /**
- * dispatchInstanceCommand：处理事件并驱动执行路径。
+ * dispatchInstanceCommand：判断InstanceCommand是否满足条件。
  * @param playerId 玩家 ID。
  * @param command 输入指令。
  * @param deps 运行时依赖。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新InstanceCommand相关状态。
  */
 
     dispatchInstanceCommand(playerId, command, deps) {
@@ -45,13 +45,13 @@ let WorldRuntimeMovementService = class WorldRuntimeMovementService {
         this.dispatchPortalCommand(playerId, player, instance, deps);
     }    
     /**
- * dispatchMoveCommand：处理事件并驱动执行路径。
+ * dispatchMoveCommand：判断MoveCommand是否满足条件。
  * @param playerId 玩家 ID。
  * @param command 输入指令。
  * @param player 玩家对象。
  * @param instance 地图实例。
  * @param deps 运行时依赖。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新MoveCommand相关状态。
  */
 
     dispatchMoveCommand(playerId, command, player, instance, deps) {
@@ -72,12 +72,12 @@ let WorldRuntimeMovementService = class WorldRuntimeMovementService {
         });
     }    
     /**
- * dispatchPortalCommand：处理事件并驱动执行路径。
+ * dispatchPortalCommand：判断传送门Command是否满足条件。
  * @param playerId 玩家 ID。
  * @param player 玩家对象。
  * @param instance 地图实例。
  * @param deps 运行时依赖。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新PortalCommand相关状态。
  */
 
     dispatchPortalCommand(playerId, player, instance, deps) {

@@ -8,53 +8,53 @@ import { UiGameItem, type UiGameItemGradeTone } from './UiGameItem';
 
 export interface UiInventoryCellProps extends ButtonHTMLAttributes<HTMLButtonElement> {
 /**
- * name：UiInventoryCellProps 内部字段。
+ * name：名称名称或显示文本。
  */
 
   name: string;  
   /**
- * note：UiInventoryCellProps 内部字段。
+ * note：note相关字段。
  */
 
   note?: ReactNode;  
   /**
- * quantity：UiInventoryCellProps 内部字段。
+ * quantity：quantity相关字段。
  */
 
   quantity?: ReactNode;  
   /**
- * grade：UiInventoryCellProps 内部字段。
+ * grade：grade相关字段。
  */
 
   grade?: ReactNode;  
   /**
- * gradeTone：UiInventoryCellProps 内部字段。
+ * gradeTone：gradeTone相关字段。
  */
 
   gradeTone?: UiGameItemGradeTone | null;  
   /**
- * typeLabel：UiInventoryCellProps 内部字段。
+ * typeLabel：typeLabel名称或显示文本。
  */
 
   typeLabel?: ReactNode;  
   /**
- * chips：UiInventoryCellProps 内部字段。
+ * chips：chip相关字段。
  */
 
   chips?: ReactNode[];  
   /**
- * actions：UiInventoryCellProps 内部字段。
+ * actions：action相关字段。
  */
 
   actions?: ReactNode;  
   /**
- * active：UiInventoryCellProps 内部字段。
+ * active：启用开关或状态标识。
  */
 
   active?: boolean;
 }
 /**
- * UiInventoryCell：执行核心业务逻辑。
+ * UiInventoryCell：渲染Ui背包Cell组件。
  * @param {
   name,
   note,
@@ -68,7 +68,7 @@ export interface UiInventoryCellProps extends ButtonHTMLAttributes<HTMLButtonEle
   className,
   ...props
 } UiInventoryCellProps 参数说明。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新Ui背包Cell相关状态。
  */
 
 

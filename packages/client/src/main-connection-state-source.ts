@@ -6,82 +6,82 @@ import type { SocketManager } from './network/socket';
 
 type MainConnectionStateSourceOptions = {
 /**
- * socket：对象字段。
+ * socket：socket相关字段。
  */
 
   socket: Pick<SocketManager, 'connected'>;  
   /**
- * restoreSession：对象字段。
+ * restoreSession：restoreSession相关字段。
  */
 
   restoreSession: () => Promise<boolean>;  
   /**
- * hasRefreshToken：对象字段。
+ * hasRefreshToken：启用开关或状态标识。
  */
 
   hasRefreshToken: () => boolean;  
   /**
- * resetGameState：对象字段。
+ * resetGameState：resetGame状态状态或数据块。
  */
 
   resetGameState: () => void;  
   /**
- * showLogin：对象字段。
+ * showLogin：showLogin相关字段。
  */
 
   showLogin: (message: string) => void;  
   /**
- * showToast：对象字段。
+ * showToast：showToast相关字段。
  */
 
   showToast: (message: string) => void;  
   /**
- * logout：对象字段。
+ * logout：logout相关字段。
  */
 
   logout: (message: string) => void;  
   /**
- * rejectPendingRedeemCodes：对象字段。
+ * rejectPendingRedeemCodes：rejectPendingRedeemCode相关字段。
  */
 
   rejectPendingRedeemCodes: (message: string) => void;  
   /**
- * clearPendingSocketPing：对象字段。
+ * clearPendingSocketPing：clearPendingSocketPing相关字段。
  */
 
   clearPendingSocketPing: () => void;  
   /**
- * renderPingLatency：对象字段。
+ * renderPingLatency：PingLatency相关字段。
  */
 
   renderPingLatency: (latencyMs: number | null, status?: string) => void;  
   /**
- * setPanelRuntimeDisconnected：对象字段。
+ * setPanelRuntimeDisconnected：面板运行态Disconnected相关字段。
  */
 
   setPanelRuntimeDisconnected: () => void;  
   /**
- * hasPlayer：对象字段。
+ * hasPlayer：启用开关或状态标识。
  */
 
   hasPlayer: () => boolean;  
   /**
- * scheduleConnectionRecovery：对象字段。
+ * scheduleConnectionRecovery：scheduleConnectionRecovery相关字段。
  */
 
   scheduleConnectionRecovery: (delayMs?: number, forceRefresh?: boolean) => void;  
   /**
- * getDocumentVisibilityState：对象字段。
+ * getDocumentVisibilityState：Document可见性状态状态或数据块。
  */
 
   getDocumentVisibilityState: () => DocumentVisibilityState;  
   /**
- * handlePong：对象字段。
+ * handlePong：Pong相关字段。
  */
 
   handlePong: (data: {  
   /**
- * clientAt：对象字段。
+ * clientAt：clientAt相关字段。
  */
  clientAt: number }) => void;
 };
@@ -94,25 +94,25 @@ export type MainConnectionStateSource = ReturnType<typeof createMainConnectionSt
 /**
  * createMainConnectionStateSource：构建并返回目标对象。
  * @param options MainConnectionStateSourceOptions 选项参数。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新MainConnection状态来源相关状态。
  */
 
 
 export function createMainConnectionStateSource(options: MainConnectionStateSourceOptions) {
   return {  
   /**
- * handleError：处理事件并驱动执行路径。
+ * handleError：处理Error并更新相关状态。
  * @param data { code?: string; message: string } 原始数据。
- * @returns Promise<void>。
+ * @returns 返回 Promise，完成后得到Error。
  */
 
     async handleError(data: {    
     /**
- * code：对象字段。
+ * code：code相关字段。
  */
  code?: string;    
  /**
- * message：对象字段。
+ * message：message相关字段。
  */
  message: string }): Promise<void> {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
@@ -129,8 +129,8 @@ export function createMainConnectionStateSource(options: MainConnectionStateSour
       options.showToast(data.message);
     },    
     /**
- * handleKick：处理事件并驱动执行路径。
- * @returns void。
+ * handleKick：处理Kick并更新相关状态。
+ * @returns 无返回值，直接更新Kick相关状态。
  */
 
 
@@ -139,9 +139,9 @@ export function createMainConnectionStateSource(options: MainConnectionStateSour
       options.logout('账号已在其他位置登录');
     },    
     /**
- * handleConnectError：处理事件并驱动执行路径。
+ * handleConnectError：处理ConnectError并更新相关状态。
  * @param message string 参数说明。
- * @returns void。
+ * @returns 无返回值，直接更新ConnectError相关状态。
  */
 
 
@@ -159,9 +159,9 @@ export function createMainConnectionStateSource(options: MainConnectionStateSour
       options.showToast(`连接失败: ${message}`);
     },    
     /**
- * handleDisconnect：处理事件并驱动执行路径。
+ * handleDisconnect：判断Disconnect是否满足条件。
  * @param reason string 参数说明。
- * @returns void。
+ * @returns 无返回值，直接更新Disconnect相关状态。
  */
 
 
@@ -181,15 +181,15 @@ export function createMainConnectionStateSource(options: MainConnectionStateSour
       options.scheduleConnectionRecovery(options.getDocumentVisibilityState() === 'visible' ? 300 : 0);
     },    
     /**
- * handlePong：处理事件并驱动执行路径。
+ * handlePong：处理Pong并更新相关状态。
  * @param data { clientAt: number } 原始数据。
- * @returns void。
+ * @returns 无返回值，直接更新Pong相关状态。
  */
 
 
     handlePong(data: {    
     /**
- * clientAt：对象字段。
+ * clientAt：clientAt相关字段。
  */
  clientAt: number }): void {
       options.handlePong(data);

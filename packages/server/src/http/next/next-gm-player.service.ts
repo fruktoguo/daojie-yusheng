@@ -22,27 +22,27 @@ import { isNextGmBotPlayerId } from './next-gm.constants';
 
 interface ManagedAccountEntryLike {
 /**
- * userId：ManagedAccountEntryLike 内部字段。
+ * userId：userID标识。
  */
 
   userId?: string;  
   /**
- * username：ManagedAccountEntryLike 内部字段。
+ * username：username名称或显示文本。
  */
 
   username?: string;  
   /**
- * createdAt：ManagedAccountEntryLike 内部字段。
+ * createdAt：createdAt相关字段。
  */
 
   createdAt?: string;  
   /**
- * totalOnlineSeconds：ManagedAccountEntryLike 内部字段。
+ * totalOnlineSeconds：totalOnlineSecond相关字段。
  */
 
   totalOnlineSeconds?: number;  
   /**
- * currentOnlineStartedAt：ManagedAccountEntryLike 内部字段。
+ * currentOnlineStartedAt：currentOnlineStartedAt相关字段。
  */
 
   currentOnlineStartedAt?: string;
@@ -70,12 +70,12 @@ interface MapTemplateRepositoryLike {
 
 interface PersistedPlayerEntryLike {
 /**
- * playerId：PersistedPlayerEntryLike 内部字段。
+ * playerId：玩家ID标识。
  */
 
   playerId: string;  
   /**
- * snapshot：PersistedPlayerEntryLike 内部字段。
+ * snapshot：快照状态或数据块。
  */
 
   snapshot: any;
@@ -146,7 +146,7 @@ export class NextGmPlayerService {
  * @param playerRuntimeService PlayerRuntimeServiceLike 参数说明。
  * @param worldRuntimeService WorldRuntimeServiceLike 参数说明。
  * @param nextManagedAccountService NextManagedAccountServiceLike 参数说明。
- * @returns 无返回值（构造函数）。
+ * @returns 无返回值，完成实例初始化。
  */
 
   constructor(
@@ -166,9 +166,9 @@ export class NextGmPlayerService {
     private readonly nextManagedAccountService: NextManagedAccountServiceLike,
   ) {}  
   /**
- * hasRuntimePlayer：执行状态校验并返回判断结果。
+ * hasRuntimePlayer：判断运行态玩家是否满足条件。
  * @param playerId string 玩家 ID。
- * @returns 函数返回值。
+ * @returns 无返回值，完成运行态玩家的条件判断。
  */
 
 
@@ -176,9 +176,9 @@ export class NextGmPlayerService {
     return Boolean(this.playerRuntimeService.snapshot(playerId));
   }  
   /**
- * getPlayerDetail：按给定条件读取/查询数据。
+ * getPlayerDetail：读取玩家详情。
  * @param playerId string 玩家 ID。
- * @returns 函数返回值。
+ * @returns 无返回值，完成玩家详情的读取/组装。
  */
 
 
@@ -204,10 +204,10 @@ export class NextGmPlayerService {
     };
   }  
   /**
- * updatePlayer：更新/写入相关状态。
+ * updatePlayer：处理玩家并更新相关状态。
  * @param playerId string 玩家 ID。
  * @param body 参数说明。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新玩家相关状态。
  */
 
 
@@ -262,9 +262,9 @@ export class NextGmPlayerService {
     this.playerRuntimeService.restoreSnapshot(refreshedRuntime);
   }  
   /**
- * resetPlayer：执行核心业务逻辑。
+ * resetPlayer：执行reset玩家相关逻辑。
  * @param playerId string 玩家 ID。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新reset玩家相关状态。
  */
 
 
@@ -272,9 +272,9 @@ export class NextGmPlayerService {
     this.worldRuntimeService.enqueueGmResetPlayer(playerId);
   }  
   /**
- * resetPersistedPlayer：执行核心业务逻辑。
+ * resetPersistedPlayer：判断resetPersisted玩家是否满足条件。
  * @param playerId string 玩家 ID。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新resetPersisted玩家相关状态。
  */
 
 
@@ -301,9 +301,9 @@ export class NextGmPlayerService {
     await this.playerPersistenceService.savePlayerSnapshot(playerId, persisted);
   }  
   /**
- * resetHeavenGate：执行核心业务逻辑。
+ * resetHeavenGate：执行resetHeavenGate相关逻辑。
  * @param playerId string 玩家 ID。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新resetHeavenGate相关状态。
  */
 
 
@@ -341,10 +341,10 @@ export class NextGmPlayerService {
     this.playerRuntimeService.restoreSnapshot(refreshedRuntime);
   }  
   /**
- * spawnBots：执行核心业务逻辑。
+ * spawnBots：执行spawnBot相关逻辑。
  * @param anchorPlayerId string anchorPlayer ID。
  * @param count number 数量。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新spawnBot相关状态。
  */
 
 
@@ -352,10 +352,10 @@ export class NextGmPlayerService {
     this.worldRuntimeService.enqueueGmSpawnBots(anchorPlayerId, count);
   }  
   /**
- * removeBots：执行核心业务逻辑。
+ * removeBots：处理Bot并更新相关状态。
  * @param playerIds string[] player ID 集合。
  * @param all boolean 参数说明。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新Bot相关状态。
  */
 
 
@@ -363,8 +363,8 @@ export class NextGmPlayerService {
     this.worldRuntimeService.enqueueGmRemoveBots(playerIds, all);
   }  
   /**
- * returnAllPlayersToDefaultSpawn：执行核心业务逻辑。
- * @returns 函数返回值。
+ * returnAllPlayersToDefaultSpawn：执行returnAll玩家To默认Spawn相关逻辑。
+ * @returns 无返回值，直接更新returnAll玩家ToDefaultSpawn相关状态。
  */
 
 
@@ -416,11 +416,11 @@ export class NextGmPlayerService {
     };
   }  
   /**
- * applyPlayerSnapshotMutation：更新/写入相关状态。
+ * applyPlayerSnapshotMutation：处理玩家快照Mutation并更新相关状态。
  * @param next 参数说明。
  * @param snapshot 参数说明。
  * @param section 参数说明。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新玩家快照Mutation相关状态。
  */
 
 
@@ -588,10 +588,10 @@ export class NextGmPlayerService {
     }
   }  
   /**
- * applyPositionToPersistenceSnapshot：更新/写入相关状态。
+ * applyPositionToPersistenceSnapshot：判断位置ToPersistence快照是否满足条件。
  * @param persisted 参数说明。
  * @param snapshot 参数说明。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新位置ToPersistence快照相关状态。
  */
 
 
@@ -621,11 +621,11 @@ export class NextGmPlayerService {
     }
   }  
   /**
- * applyPlayerSnapshotMutationToPersistence：更新/写入相关状态。
+ * applyPlayerSnapshotMutationToPersistence：判断玩家快照MutationToPersistence是否满足条件。
  * @param persisted 参数说明。
  * @param snapshot 参数说明。
  * @param section 参数说明。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新玩家快照MutationToPersistence相关状态。
  */
 
 
@@ -787,9 +787,9 @@ export class NextGmPlayerService {
     }
   }  
   /**
- * repairRuntimeSnapshot：执行核心业务逻辑。
+ * repairRuntimeSnapshot：执行repair运行态快照相关逻辑。
  * @param snapshot 参数说明。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新repair运行态快照相关状态。
  */
 
 
@@ -811,10 +811,10 @@ export class NextGmPlayerService {
     this.playerRuntimeService.rebuildActionState(snapshot, 0);
   }  
   /**
- * toManagedPlayerSummary：执行核心业务逻辑。
+ * toManagedPlayerSummary：执行toManaged玩家摘要相关逻辑。
  * @param snapshot 参数说明。
  * @param account 参数说明。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新toManaged玩家摘要相关状态。
  */
 
 
@@ -850,11 +850,11 @@ export class NextGmPlayerService {
     };
   }  
   /**
- * toManagedPlayerRecord：执行核心业务逻辑。
+ * toManagedPlayerRecord：执行toManaged玩家Record相关逻辑。
  * @param snapshot 参数说明。
  * @param persistedSnapshot 参数说明。
  * @param account 参数说明。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新toManaged玩家Record相关状态。
  */
 
 
@@ -869,11 +869,11 @@ export class NextGmPlayerService {
     };
   }  
   /**
- * toManagedPlayerRecordFromPersistence：执行核心业务逻辑。
+ * toManagedPlayerRecordFromPersistence：判断toManaged玩家RecordFromPersistence是否满足条件。
  * @param playerId 玩家 ID。
  * @param persistedSnapshot 参数说明。
  * @param account 参数说明。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新toManaged玩家RecordFromPersistence相关状态。
  */
 
 
@@ -912,9 +912,9 @@ export class NextGmPlayerService {
     };
   }  
   /**
- * toLegacyPlayerState：执行核心业务逻辑。
+ * toLegacyPlayerState：执行toLegacy玩家状态相关逻辑。
  * @param snapshot 参数说明。
- * @returns any。
+ * @returns 返回toLegacy玩家状态。
  */
 
 
@@ -997,10 +997,10 @@ export class NextGmPlayerService {
     };
   }  
   /**
- * toLegacyPlayerStateFromPersistence：执行核心业务逻辑。
+ * toLegacyPlayerStateFromPersistence：判断toLegacy玩家状态FromPersistence是否满足条件。
  * @param playerId 玩家 ID。
  * @param snapshot 参数说明。
- * @returns any。
+ * @returns 返回toLegacy玩家状态FromPersistence。
  */
 
 
@@ -1069,9 +1069,9 @@ export class NextGmPlayerService {
     };
   }  
   /**
- * resolveMapName：执行核心业务逻辑。
+ * resolveMapName：规范化或转换地图名称。
  * @param mapId string 地图 ID。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新地图名称相关状态。
  */
 
 
@@ -1087,7 +1087,7 @@ export class NextGmPlayerService {
  * buildManagedAccountView：构建并返回目标对象。
  * @param account 参数说明。
  * @param online 参数说明。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新ManagedAccount视图相关状态。
  */
 
 
@@ -1116,11 +1116,11 @@ function buildManagedAccountView(account, online) {
   };
 }
 /**
- * clamp：执行核心业务逻辑。
+ * clamp：执行clamp相关逻辑。
  * @param value 参数说明。
  * @param min 参数说明。
  * @param max 参数说明。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新clamp相关状态。
  */
 
 
@@ -1128,9 +1128,9 @@ function clamp(value, min, max) {
   return Math.max(min, Math.min(max, value));
 }
 /**
- * toLegacyEquipmentSlots：执行核心业务逻辑。
+ * toLegacyEquipmentSlots：执行toLegacy装备Slot相关逻辑。
  * @param slots 参数说明。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新toLegacy装备Slot相关状态。
  */
 
 
@@ -1146,9 +1146,9 @@ function toLegacyEquipmentSlots(slots) {
   };
 }
 /**
- * cloneTemporaryBuff：执行核心业务逻辑。
+ * cloneTemporaryBuff：构建TemporaryBuff。
  * @param entry 参数说明。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新TemporaryBuff相关状态。
  */
 
 
@@ -1163,9 +1163,9 @@ function cloneTemporaryBuff(entry) {
   };
 }
 /**
- * cloneRatioDivisors：执行核心业务逻辑。
+ * cloneRatioDivisors：判断RatioDivisor是否满足条件。
  * @param source 来源对象。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新RatioDivisor相关状态。
  */
 
 

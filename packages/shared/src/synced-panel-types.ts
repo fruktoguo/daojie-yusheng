@@ -10,132 +10,132 @@ import type { MarketListedItemView, MarketOrderBookView, MarketOwnOrderView, Mar
 /** 轻量物品实例态：只保留实例字段和少量兜底展示信息。 */
 export interface SyncedItemStack {
 /**
- * itemId：SyncedItemStack 内部字段。
+ * itemId：道具ID标识。
  */
 
   itemId: string;  
   /**
- * count：SyncedItemStack 内部字段。
+ * count：数量或计量字段。
  */
 
   count: number;  
   /**
- * name：SyncedItemStack 内部字段。
+ * name：名称名称或显示文本。
  */
 
   name?: string;  
   /**
- * type：SyncedItemStack 内部字段。
+ * type：type相关字段。
  */
 
   type?: ItemType;  
   /**
- * desc：SyncedItemStack 内部字段。
+ * desc：desc相关字段。
  */
 
   desc?: string;  
   /**
- * groundLabel：SyncedItemStack 内部字段。
+ * groundLabel：groundLabel名称或显示文本。
  */
 
   groundLabel?: string;  
   /**
- * grade：SyncedItemStack 内部字段。
+ * grade：grade相关字段。
  */
 
   grade?: TechniqueGrade;  
   /**
- * level：SyncedItemStack 内部字段。
+ * level：等级数值。
  */
 
   level?: number;  
   /**
- * equipSlot：SyncedItemStack 内部字段。
+ * equipSlot：equipSlot相关字段。
  */
 
   equipSlot?: EquipSlot;  
   /**
- * equipAttrs：SyncedItemStack 内部字段。
+ * equipAttrs：equipAttr相关字段。
  */
 
   equipAttrs?: ItemStack['equipAttrs'];  
   /**
- * equipStats：SyncedItemStack 内部字段。
+ * equipStats：equipStat相关字段。
  */
 
   equipStats?: ItemStack['equipStats'];  
   /**
- * equipValueStats：SyncedItemStack 内部字段。
+ * equipValueStats：equip值Stat相关字段。
  */
 
   equipValueStats?: ItemStack['equipValueStats'];  
   /**
- * effects：SyncedItemStack 内部字段。
+ * effects：effect相关字段。
  */
 
   effects?: EquipmentEffectDef[];  
   /**
- * healAmount：SyncedItemStack 内部字段。
+ * healAmount：数量或计量字段。
  */
 
   healAmount?: number;  
   /**
- * healPercent：SyncedItemStack 内部字段。
+ * healPercent：healPercent相关字段。
  */
 
   healPercent?: number;  
   /**
- * qiPercent：SyncedItemStack 内部字段。
+ * qiPercent：qiPercent相关字段。
  */
 
   qiPercent?: number;  
   /**
- * cooldown：SyncedItemStack 内部字段。
+ * cooldown：冷却相关字段。
  */
 
   cooldown?: number;  
   /**
- * consumeBuffs：SyncedItemStack 内部字段。
+ * consumeBuffs：consumeBuff相关字段。
  */
 
   consumeBuffs?: ConsumableBuffDef[];  
   /**
- * tags：SyncedItemStack 内部字段。
+ * tags：tag相关字段。
  */
 
   tags?: string[];  
   /**
- * enhanceLevel：SyncedItemStack 内部字段。
+ * enhanceLevel：enhance等级数值。
  */
 
   enhanceLevel?: number;  
   /**
- * alchemySuccessRate：SyncedItemStack 内部字段。
+ * alchemySuccessRate：炼丹SuccessRate数值。
  */
 
   alchemySuccessRate?: number;  
   /**
- * alchemySpeedRate：SyncedItemStack 内部字段。
+ * alchemySpeedRate：炼丹SpeedRate数值。
  */
 
   alchemySpeedRate?: number;  
   /**
- * mapUnlockId：SyncedItemStack 内部字段。
+ * mapUnlockId：地图UnlockID标识。
  */
 
   mapUnlockId?: string;  
   /**
- * mapUnlockIds：SyncedItemStack 内部字段。
+ * mapUnlockIds：地图UnlockID相关字段。
  */
 
   mapUnlockIds?: string[];  
   /**
- * tileAuraGainAmount：SyncedItemStack 内部字段。
+ * tileAuraGainAmount：数量或计量字段。
  */
 
   tileAuraGainAmount?: number;  
   /**
- * allowBatchUse：SyncedItemStack 内部字段。
+ * allowBatchUse：allowBatchUse相关字段。
  */
 
   allowBatchUse?: boolean;
@@ -144,22 +144,22 @@ export interface SyncedItemStack {
 /** 背包完整快照。 */
 export interface SyncedInventorySnapshot {
 /**
- * items：SyncedInventorySnapshot 内部字段。
+ * items：集合字段。
  */
 
   items: SyncedItemStack[];  
   /**
- * capacity：SyncedInventorySnapshot 内部字段。
+ * capacity：capacity相关字段。
  */
 
   capacity: number;  
   /**
- * cooldowns：SyncedInventorySnapshot 内部字段。
+ * cooldowns：冷却相关字段。
  */
 
   cooldowns?: SyncedInventoryCooldownState[];  
   /**
- * serverTick：SyncedInventorySnapshot 内部字段。
+ * serverTick：servertick相关字段。
  */
 
   serverTick?: number;
@@ -168,17 +168,17 @@ export interface SyncedInventorySnapshot {
 /** 背包物品冷却状态。 */
 export interface SyncedInventoryCooldownState {
 /**
- * itemId：SyncedInventoryCooldownState 内部字段。
+ * itemId：道具ID标识。
  */
 
   itemId: string;  
   /**
- * cooldown：SyncedInventoryCooldownState 内部字段。
+ * cooldown：冷却相关字段。
  */
 
   cooldown: number;  
   /**
- * startedAtTick：SyncedInventoryCooldownState 内部字段。
+ * startedAtTick：startedAttick相关字段。
  */
 
   startedAtTick: number;
@@ -187,12 +187,12 @@ export interface SyncedInventoryCooldownState {
 /** 背包面板局部更新项。 */
 export interface InventorySlotUpdateEntry {
 /**
- * slotIndex：InventorySlotUpdateEntry 内部字段。
+ * slotIndex：slotIndex相关字段。
  */
 
   slotIndex: number;  
   /**
- * item：InventorySlotUpdateEntry 内部字段。
+ * item：道具相关字段。
  */
 
   item: SyncedItemStack | null;
@@ -201,12 +201,12 @@ export interface InventorySlotUpdateEntry {
 /** 装备槽位局部更新项。 */
 export interface EquipmentSlotUpdateEntry {
 /**
- * slot：EquipmentSlotUpdateEntry 内部字段。
+ * slot：slot相关字段。
  */
 
   slot: EquipSlot;  
   /**
- * item：EquipmentSlotUpdateEntry 内部字段。
+ * item：道具相关字段。
  */
 
   item: SyncedItemStack | null;
@@ -215,27 +215,27 @@ export interface EquipmentSlotUpdateEntry {
 /** 背包面板增量视图。 */
 export interface PanelInventoryDeltaView {
 /**
- * r：PanelInventoryDeltaView 内部字段。
+ * r：r相关字段。
  */
 
   r: number;  
   /**
- * full：PanelInventoryDeltaView 内部字段。
+ * full：full相关字段。
  */
 
   full?: 1;  
   /**
- * capacity：PanelInventoryDeltaView 内部字段。
+ * capacity：capacity相关字段。
  */
 
   capacity?: number;  
   /**
- * size：PanelInventoryDeltaView 内部字段。
+ * size：数量或计量字段。
  */
 
   size?: number;  
   /**
- * slots：PanelInventoryDeltaView 内部字段。
+ * slots：slot相关字段。
  */
 
   slots?: InventorySlotUpdateEntry[];
@@ -244,17 +244,17 @@ export interface PanelInventoryDeltaView {
 /** 装备面板增量视图。 */
 export interface PanelEquipmentDeltaView {
 /**
- * r：PanelEquipmentDeltaView 内部字段。
+ * r：r相关字段。
  */
 
   r: number;  
   /**
- * full：PanelEquipmentDeltaView 内部字段。
+ * full：full相关字段。
  */
 
   full?: 1;  
   /**
- * slots：PanelEquipmentDeltaView 内部字段。
+ * slots：slot相关字段。
  */
 
   slots: EquipmentSlotUpdateEntry[];
@@ -263,12 +263,12 @@ export interface PanelEquipmentDeltaView {
 /** 战利品窗口里的单条来源视图。 */
 export interface SyncedLootWindowItemView {
 /**
- * itemKey：SyncedLootWindowItemView 内部字段。
+ * itemKey：道具Key标识。
  */
 
   itemKey: string;  
   /**
- * item：SyncedLootWindowItemView 内部字段。
+ * item：道具相关字段。
  */
 
   item: SyncedItemStack;
@@ -277,47 +277,47 @@ export interface SyncedLootWindowItemView {
 /** 战利品窗口来源视图。 */
 export interface SyncedLootWindowSourceView {
 /**
- * sourceId：SyncedLootWindowSourceView 内部字段。
+ * sourceId：来源ID标识。
  */
 
   sourceId: string;  
   /**
- * kind：SyncedLootWindowSourceView 内部字段。
+ * kind：kind相关字段。
  */
 
   kind: LootSourceKind;  
   /**
- * title：SyncedLootWindowSourceView 内部字段。
+ * title：title名称或显示文本。
  */
 
   title: string;  
   /**
- * desc：SyncedLootWindowSourceView 内部字段。
+ * desc：desc相关字段。
  */
 
   desc?: string;  
   /**
- * grade：SyncedLootWindowSourceView 内部字段。
+ * grade：grade相关字段。
  */
 
   grade?: TechniqueGrade;  
   /**
- * searchable：SyncedLootWindowSourceView 内部字段。
+ * searchable：searchable相关字段。
  */
 
   searchable: boolean;  
   /**
- * search：SyncedLootWindowSourceView 内部字段。
+ * search：search相关字段。
  */
 
   search?: LootSearchProgressView;  
   /**
- * items：SyncedLootWindowSourceView 内部字段。
+ * items：集合字段。
  */
 
   items: SyncedLootWindowItemView[];  
   /**
- * emptyText：SyncedLootWindowSourceView 内部字段。
+ * emptyText：emptyText名称或显示文本。
  */
 
   emptyText?: string;
@@ -326,22 +326,22 @@ export interface SyncedLootWindowSourceView {
 /** 战利品窗口完整状态。 */
 export interface SyncedLootWindowState {
 /**
- * tileX：SyncedLootWindowState 内部字段。
+ * tileX：tileX相关字段。
  */
 
   tileX: number;  
   /**
- * tileY：SyncedLootWindowState 内部字段。
+ * tileY：tileY相关字段。
  */
 
   tileY: number;  
   /**
- * title：SyncedLootWindowState 内部字段。
+ * title：title名称或显示文本。
  */
 
   title: string;  
   /**
- * sources：SyncedLootWindowState 内部字段。
+ * sources：来源相关字段。
  */
 
   sources: SyncedLootWindowSourceView[];
@@ -350,42 +350,42 @@ export interface SyncedLootWindowState {
 /** 坊市分页里某个物品的变体统计。 */
 export interface MarketListingVariantEntry {
 /**
- * itemKey：MarketListingVariantEntry 内部字段。
+ * itemKey：道具Key标识。
  */
 
   itemKey: string;  
   /**
- * item：MarketListingVariantEntry 内部字段。
+ * item：道具相关字段。
  */
 
   item: ItemStack;  
   /**
- * lowestSellPrice：MarketListingVariantEntry 内部字段。
+ * lowestSellPrice：lowestSell价格数值。
  */
 
   lowestSellPrice?: number;  
   /**
- * highestBuyPrice：MarketListingVariantEntry 内部字段。
+ * highestBuyPrice：highestBuy价格数值。
  */
 
   highestBuyPrice?: number;  
   /**
- * sellOrderCount：MarketListingVariantEntry 内部字段。
+ * sellOrderCount：数量或计量字段。
  */
 
   sellOrderCount: number;  
   /**
- * sellQuantity：MarketListingVariantEntry 内部字段。
+ * sellQuantity：sellQuantity相关字段。
  */
 
   sellQuantity: number;  
   /**
- * buyOrderCount：MarketListingVariantEntry 内部字段。
+ * buyOrderCount：数量或计量字段。
  */
 
   buyOrderCount: number;  
   /**
- * buyQuantity：MarketListingVariantEntry 内部字段。
+ * buyQuantity：buyQuantity相关字段。
  */
 
   buyQuantity: number;
@@ -394,32 +394,32 @@ export interface MarketListingVariantEntry {
 /** 坊市分页里的一条商品摘要。 */
 export interface MarketListingPageEntry {
 /**
- * itemId：MarketListingPageEntry 内部字段。
+ * itemId：道具ID标识。
  */
 
   itemId: string;  
   /**
- * item：MarketListingPageEntry 内部字段。
+ * item：道具相关字段。
  */
 
   item: ItemStack;  
   /**
- * lowestSellPrice：MarketListingPageEntry 内部字段。
+ * lowestSellPrice：lowestSell价格数值。
  */
 
   lowestSellPrice?: number;  
   /**
- * highestBuyPrice：MarketListingPageEntry 内部字段。
+ * highestBuyPrice：highestBuy价格数值。
  */
 
   highestBuyPrice?: number;  
   /**
- * canEnhance：MarketListingPageEntry 内部字段。
+ * canEnhance：canEnhance相关字段。
  */
 
   canEnhance: boolean;  
   /**
- * variants：MarketListingPageEntry 内部字段。
+ * variants：variant相关字段。
  */
 
   variants: MarketListingVariantEntry[];
@@ -428,42 +428,42 @@ export interface MarketListingPageEntry {
 /** 玩家自己的坊市订单条目。 */
 export interface MarketOwnOrderSyncEntry {
 /**
- * id：MarketOwnOrderSyncEntry 内部字段。
+ * id：ID标识。
  */
 
   id: string;  
   /**
- * side：MarketOwnOrderSyncEntry 内部字段。
+ * side：side相关字段。
  */
 
   side: 'buy' | 'sell';  
   /**
- * status：MarketOwnOrderSyncEntry 内部字段。
+ * status：statu状态或数据块。
  */
 
   status: 'open' | 'filled' | 'cancelled';  
   /**
- * itemKey：MarketOwnOrderSyncEntry 内部字段。
+ * itemKey：道具Key标识。
  */
 
   itemKey: string;  
   /**
- * item：MarketOwnOrderSyncEntry 内部字段。
+ * item：道具相关字段。
  */
 
   item: ItemStack;  
   /**
- * remainingQuantity：MarketOwnOrderSyncEntry 内部字段。
+ * remainingQuantity：remainingQuantity相关字段。
  */
 
   remainingQuantity: number;  
   /**
- * unitPrice：MarketOwnOrderSyncEntry 内部字段。
+ * unitPrice：unit价格数值。
  */
 
   unitPrice: number;  
   /**
- * createdAt：MarketOwnOrderSyncEntry 内部字段。
+ * createdAt：createdAt相关字段。
  */
 
   createdAt: number;
@@ -472,17 +472,17 @@ export interface MarketOwnOrderSyncEntry {
 /** 坊市寄存仓库里的单条物品。 */
 export interface MarketStorageSyncEntry {
 /**
- * itemKey：MarketStorageSyncEntry 内部字段。
+ * itemKey：道具Key标识。
  */
 
   itemKey: string;  
   /**
- * item：MarketStorageSyncEntry 内部字段。
+ * item：道具相关字段。
  */
 
   item: ItemStack;  
   /**
- * count：MarketStorageSyncEntry 内部字段。
+ * count：数量或计量字段。
  */
 
   count: number;
@@ -491,32 +491,32 @@ export interface MarketStorageSyncEntry {
 /** NPC 商店里的单条商品视图。 */
 export interface SyncedNpcShopItemView {
 /**
- * itemId：SyncedNpcShopItemView 内部字段。
+ * itemId：道具ID标识。
  */
 
   itemId: string;  
   /**
- * item：SyncedNpcShopItemView 内部字段。
+ * item：道具相关字段。
  */
 
   item: SyncedItemStack;  
   /**
- * unitPrice：SyncedNpcShopItemView 内部字段。
+ * unitPrice：unit价格数值。
  */
 
   unitPrice: number;  
   /**
- * remainingQuantity：SyncedNpcShopItemView 内部字段。
+ * remainingQuantity：remainingQuantity相关字段。
  */
 
   remainingQuantity?: number;  
   /**
- * stockLimit：SyncedNpcShopItemView 内部字段。
+ * stockLimit：stockLimit相关字段。
  */
 
   stockLimit?: number;  
   /**
- * refreshAt：SyncedNpcShopItemView 内部字段。
+ * refreshAt：refreshAt相关字段。
  */
 
   refreshAt?: number;
@@ -525,32 +525,32 @@ export interface SyncedNpcShopItemView {
 /** NPC 商店完整视图。 */
 export interface SyncedNpcShopView {
 /**
- * npcId：SyncedNpcShopView 内部字段。
+ * npcId：NPCID标识。
  */
 
   npcId: string;  
   /**
- * npcName：SyncedNpcShopView 内部字段。
+ * npcName：NPC名称名称或显示文本。
  */
 
   npcName: string;  
   /**
- * dialogue：SyncedNpcShopView 内部字段。
+ * dialogue：dialogue相关字段。
  */
 
   dialogue: string;  
   /**
- * currencyItemId：SyncedNpcShopView 内部字段。
+ * currencyItemId：currency道具ID标识。
  */
 
   currencyItemId: string;  
   /**
- * currencyItemName：SyncedNpcShopView 内部字段。
+ * currencyItemName：currency道具名称名称或显示文本。
  */
 
   currencyItemName: string;  
   /**
- * items：SyncedNpcShopView 内部字段。
+ * items：集合字段。
  */
 
   items: SyncedNpcShopItemView[];

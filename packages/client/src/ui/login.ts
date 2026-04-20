@@ -69,7 +69,7 @@ export class LoginUI {
   /**
  * 构造器：初始化 当前 实例并建立基础状态。
  * @param socket SocketManager 参数说明。
- * @returns 无返回值（构造函数）。
+ * @returns 无返回值，完成实例初始化。
  */
 
 
@@ -275,10 +275,10 @@ export class LoginUI {
     }, 250);
   }  
   /**
- * checkDisplayName：执行状态校验并返回判断结果。
+ * checkDisplayName：判断显示名称是否满足条件。
  * @param displayName string 参数说明。
  * @param options { immediate: boolean } 选项参数。
- * @returns Promise<void>。
+ * @returns 返回 Promise，完成后得到显示名称。
  */
 
 
@@ -286,7 +286,7 @@ export class LoginUI {
     displayName: string,
     options: {    
     /**
- * immediate：LoginUI 内部字段。
+ * immediate：immediate相关字段。
  */
  immediate: boolean },
   ): Promise<void> {

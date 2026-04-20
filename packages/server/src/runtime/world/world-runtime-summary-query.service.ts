@@ -25,7 +25,7 @@ let WorldRuntimeSummaryQueryService = class WorldRuntimeSummaryQueryService {
 /**
  * buildRuntimeSummary：构建并返回目标对象。
  * @param input 输入参数。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新运行态摘要相关状态。
  */
 
     buildRuntimeSummary(input) {

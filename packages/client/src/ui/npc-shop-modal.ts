@@ -23,12 +23,12 @@ function escapeHtmlAttr(value: string): string {
 /** NpcShopModalCallbacks：商店弹窗回调集。 */
 interface NpcShopModalCallbacks {
 /**
- * onRequestShop：NpcShopModalCallbacks 内部字段。
+ * onRequestShop：onRequestShop相关字段。
  */
 
   onRequestShop: (npcId: string) => void;  
   /**
- * onBuyItem：NpcShopModalCallbacks 内部字段。
+ * onBuyItem：onBuy道具相关字段。
  */
 
   onBuyItem: (npcId: string, itemId: string, quantity: number) => void;
@@ -37,32 +37,32 @@ interface NpcShopModalCallbacks {
 /** NpcShopItemState：商店商品渲染状态。 */
 interface NpcShopItemState {
 /**
- * itemId：NpcShopItemState 内部字段。
+ * itemId：道具ID标识。
  */
 
   itemId: string;  
   /**
- * item：NpcShopItemState 内部字段。
+ * item：道具相关字段。
  */
 
   item: ItemStack;  
   /**
- * unitPrice：NpcShopItemState 内部字段。
+ * unitPrice：unit价格数值。
  */
 
   unitPrice: number;  
   /**
- * remainingQuantity：NpcShopItemState 内部字段。
+ * remainingQuantity：remainingQuantity相关字段。
  */
 
   remainingQuantity?: number;  
   /**
- * stockLimit：NpcShopItemState 内部字段。
+ * stockLimit：stockLimit相关字段。
  */
 
   stockLimit?: number;  
   /**
- * refreshAt：NpcShopItemState 内部字段。
+ * refreshAt：refreshAt相关字段。
  */
 
   refreshAt?: number;
@@ -71,32 +71,32 @@ interface NpcShopItemState {
 /** NpcShopState：NPC 商店渲染状态。 */
 interface NpcShopState {
 /**
- * npcId：NpcShopState 内部字段。
+ * npcId：NPCID标识。
  */
 
   npcId: string;  
   /**
- * npcName：NpcShopState 内部字段。
+ * npcName：NPC名称名称或显示文本。
  */
 
   npcName: string;  
   /**
- * dialogue：NpcShopState 内部字段。
+ * dialogue：dialogue相关字段。
  */
 
   dialogue: string;  
   /**
- * currencyItemId：NpcShopState 内部字段。
+ * currencyItemId：currency道具ID标识。
  */
 
   currencyItemId: string;  
   /**
- * currencyItemName：NpcShopState 内部字段。
+ * currencyItemName：currency道具名称名称或显示文本。
  */
 
   currencyItemName: string;  
   /**
- * items：NpcShopState 内部字段。
+ * items：集合字段。
  */
 
   items: NpcShopItemState[];
@@ -105,17 +105,17 @@ interface NpcShopState {
 /** NpcShopResponseState：商店接口响应状态。 */
 interface NpcShopResponseState {
 /**
- * npcId：NpcShopResponseState 内部字段。
+ * npcId：NPCID标识。
  */
 
   npcId: string;  
   /**
- * shop：NpcShopResponseState 内部字段。
+ * shop：shop相关字段。
  */
 
   shop: NpcShopState | null;  
   /**
- * error：NpcShopResponseState 内部字段。
+ * error：error相关字段。
  */
 
   error?: string;
@@ -124,12 +124,12 @@ interface NpcShopResponseState {
 /** NpcShopModalMeta：商店弹窗标题元数据。 */
 interface NpcShopModalMeta {
 /**
- * title：NpcShopModalMeta 内部字段。
+ * title：title名称或显示文本。
  */
 
   title: string;  
   /**
- * subtitle：NpcShopModalMeta 内部字段。
+ * subtitle：subtitle名称或显示文本。
  */
 
   subtitle: string;
@@ -138,27 +138,27 @@ interface NpcShopModalMeta {
 /** NpcShopRenderState：商店弹窗滚动与输入焦点状态。 */
 interface NpcShopRenderState {
 /**
- * listScrollTop：NpcShopRenderState 内部字段。
+ * listScrollTop：列表ScrollTop相关字段。
  */
 
   listScrollTop: number;  
   /**
- * detailScrollTop：NpcShopRenderState 内部字段。
+ * detailScrollTop：详情ScrollTop相关字段。
  */
 
   detailScrollTop: number;  
   /**
- * focusedQuantityItemId：NpcShopRenderState 内部字段。
+ * focusedQuantityItemId：focusedQuantity道具ID标识。
  */
 
   focusedQuantityItemId: string | null;  
   /**
- * selectionStart：NpcShopRenderState 内部字段。
+ * selectionStart：selectionStart相关字段。
  */
 
   selectionStart: number | null;  
   /**
- * selectionEnd：NpcShopRenderState 内部字段。
+ * selectionEnd：selectionEnd相关字段。
  */
 
   selectionEnd: number | null;
@@ -505,10 +505,10 @@ export class NpcShopModal {
     }
   }  
   /**
- * renderDetailPanel：执行核心业务逻辑。
+ * renderDetailPanel：执行详情面板相关逻辑。
  * @param shop NpcShopState 参数说明。
  * @param selectedItem NpcShopItemState 参数说明。
- * @returns string。
+ * @returns 返回详情面板。
  */
 
 

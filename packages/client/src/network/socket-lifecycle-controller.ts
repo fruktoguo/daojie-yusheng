@@ -7,17 +7,17 @@ import { NEXT_S2C, PLAYER_HEARTBEAT_INTERVAL_MS } from '@mud/shared-next';
 
 type SocketLifecycleControllerDeps = {
 /**
- * sendHeartbeat：对象字段。
+ * sendHeartbeat：sendHeartbeat相关字段。
  */
 
   sendHeartbeat: () => void;  
   /**
- * sendHello：对象字段。
+ * sendHello：sendHello相关字段。
  */
 
   sendHello: () => void;  
   /**
- * disconnect：对象字段。
+ * disconnect：disconnect相关字段。
  */
 
   disconnect: () => void;
@@ -25,7 +25,7 @@ type SocketLifecycleControllerDeps = {
 /**
  * createSocketLifecycleController：构建并返回目标对象。
  * @param deps SocketLifecycleControllerDeps 运行时依赖。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新SocketLifecycle控制器相关状态。
  */
 
 
@@ -35,8 +35,8 @@ export function createSocketLifecycleController(deps: SocketLifecycleControllerD
   const onDisconnectCallbacks: Array<(reason: string) => void> = [];
   const onConnectErrorCallbacks: Array<(message: string) => void> = [];  
   /**
- * stopHeartbeat：执行核心业务逻辑。
- * @returns void。
+ * stopHeartbeat：执行stopHeartbeat相关逻辑。
+ * @returns 无返回值，直接更新stopHeartbeat相关状态。
  */
 
 
@@ -50,8 +50,8 @@ export function createSocketLifecycleController(deps: SocketLifecycleControllerD
     heartbeatTimer = null;
   }  
   /**
- * startHeartbeat：执行核心业务逻辑。
- * @returns void。
+ * startHeartbeat：执行开始Heartbeat相关逻辑。
+ * @returns 无返回值，直接更新startHeartbeat相关状态。
  */
 
 
@@ -64,9 +64,9 @@ export function createSocketLifecycleController(deps: SocketLifecycleControllerD
 
   return {  
   /**
- * bind：执行核心业务逻辑。
+ * bind：执行bind相关逻辑。
  * @param socket Socket 参数说明。
- * @returns void。
+ * @returns 无返回值，直接更新bind相关状态。
  */
 
     bind(socket: Socket): void {
@@ -91,8 +91,8 @@ export function createSocketLifecycleController(deps: SocketLifecycleControllerD
       });
     },    
     /**
- * dispose：执行核心业务逻辑。
- * @returns void。
+ * dispose：判断dispose是否满足条件。
+ * @returns 无返回值，直接更新dispose相关状态。
  */
 
 
@@ -100,9 +100,9 @@ export function createSocketLifecycleController(deps: SocketLifecycleControllerD
       stopHeartbeat();
     },    
     /**
- * onKick：执行核心业务逻辑。
+ * onKick：执行onKick相关逻辑。
  * @param cb () => void 参数说明。
- * @returns void。
+ * @returns 无返回值，直接更新onKick相关状态。
  */
 
 
@@ -110,9 +110,9 @@ export function createSocketLifecycleController(deps: SocketLifecycleControllerD
       onKickCallbacks.push(cb);
     },    
     /**
- * onDisconnect：执行核心业务逻辑。
+ * onDisconnect：判断onDisconnect是否满足条件。
  * @param cb (reason: string) => void 参数说明。
- * @returns void。
+ * @returns 无返回值，直接更新onDisconnect相关状态。
  */
 
 
@@ -120,9 +120,9 @@ export function createSocketLifecycleController(deps: SocketLifecycleControllerD
       onDisconnectCallbacks.push(cb);
     },    
     /**
- * onConnectError：执行核心业务逻辑。
+ * onConnectError：执行onConnectError相关逻辑。
  * @param cb (message: string) => void 参数说明。
- * @returns void。
+ * @returns 无返回值，直接更新onConnectError相关状态。
  */
 
 

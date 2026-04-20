@@ -14,12 +14,12 @@ import { ServerReadinessDependenciesService } from './server-readiness-dependenc
 
 interface PersistenceServiceLike {
 /**
- * enabled：PersistenceServiceLike 内部字段。
+ * enabled：启用开关或状态标识。
  */
 
   enabled?: boolean;  
   /**
- * pool：PersistenceServiceLike 内部字段。
+ * pool：缓存或索引容器。
  */
 
   pool?: unknown;
@@ -31,7 +31,7 @@ interface PersistenceServiceLike {
 
 interface WorldRuntimeServiceLike {
 /**
- * getRuntimeSummary：WorldRuntimeServiceLike 内部字段。
+ * getRuntimeSummary：get运行态摘要状态或数据块。
  */
 
   getRuntimeSummary?: () => unknown;
@@ -63,7 +63,7 @@ export class HealthReadinessService {
   ) {}  
   /**
  * build：构建并返回目标对象。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新结果相关状态。
  */
 
 

@@ -366,12 +366,12 @@ type GmEditorTab = GmPlayerUpdateSection | 'shortcuts' | 'mail' | 'persisted';
 /** GmMailAttachmentDraft：邮件草稿里的单个附件条目。 */
 interface GmMailAttachmentDraft {
 /**
- * itemId：GmMailAttachmentDraft 内部字段。
+ * itemId：道具ID标识。
  */
 
   itemId: string;  
   /**
- * count：GmMailAttachmentDraft 内部字段。
+ * count：数量或计量字段。
  */
 
   count: number;
@@ -380,37 +380,37 @@ interface GmMailAttachmentDraft {
 /** GmMailComposerDraft：GM 发信草稿上下文，保存收件人、标题、正文与附件。 */
 interface GmMailComposerDraft {
 /**
- * templateId：GmMailComposerDraft 内部字段。
+ * templateId：templateID标识。
  */
 
   templateId: string;  
   /**
- * targetPlayerId：GmMailComposerDraft 内部字段。
+ * targetPlayerId：目标玩家ID标识。
  */
 
   targetPlayerId: string;  
   /**
- * senderLabel：GmMailComposerDraft 内部字段。
+ * senderLabel：senderLabel名称或显示文本。
  */
 
   senderLabel: string;  
   /**
- * title：GmMailComposerDraft 内部字段。
+ * title：title名称或显示文本。
  */
 
   title: string;  
   /**
- * body：GmMailComposerDraft 内部字段。
+ * body：body相关字段。
  */
 
   body: string;  
   /**
- * expireHours：GmMailComposerDraft 内部字段。
+ * expireHours：expireHour相关字段。
  */
 
   expireHours: string;  
   /**
- * attachments：GmMailComposerDraft 内部字段。
+ * attachments：attachment相关字段。
  */
 
   attachments: GmMailAttachmentDraft[];
@@ -419,22 +419,22 @@ interface GmMailComposerDraft {
 /** RedeemGroupDraft：兑换码分组编辑草稿，保存名称、奖励和批量数量。 */
 interface RedeemGroupDraft {
 /**
- * name：RedeemGroupDraft 内部字段。
+ * name：名称名称或显示文本。
  */
 
   name: string;  
   /**
- * rewards：RedeemGroupDraft 内部字段。
+ * rewards：reward相关字段。
  */
 
   rewards: RedeemCodeGroupRewardItem[];  
   /**
- * createCount：RedeemGroupDraft 内部字段。
+ * createCount：数量或计量字段。
  */
 
   createCount: string;  
   /**
- * appendCount：RedeemGroupDraft 内部字段。
+ * appendCount：数量或计量字段。
  */
 
   appendCount: string;
@@ -673,12 +673,12 @@ function formatDateTime(value?: string): string {
 /** getPlayerPresenceMeta：读取玩家Presence元数据。 */
 function getPlayerPresenceMeta(player: Pick<GmManagedPlayerSummary, 'meta'>): {
 /**
- * className：对象字段。
+ * className：class名称名称或显示文本。
  */
 
   className: 'online' | 'offline';  
   /**
- * label：对象字段。
+ * label：label名称或显示文本。
  */
 
   label: '在线' | '离线挂机' | '离线';
@@ -694,15 +694,15 @@ function getManagedAccountStatusLabel(player: Pick<GmManagedPlayerRecord, 'meta'
 /** getManagedAccountActivityMeta：读取托管账号Activity元数据。 */
 function getManagedAccountActivityMeta(player: Pick<GmManagedPlayerRecord, 'meta'>): {
 /**
- * label：对象字段。
+ * label：label名称或显示文本。
  */
  label: string;
  /**
- * value：对象字段。
+ * value：值数值。
  */
  value: string;
  /**
- * note：对象字段。
+ * note：note相关字段。
  */
  note?: string } {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
@@ -910,11 +910,11 @@ function getItemOptionLabel(option: GmEditorItemOption): string {
 /** getTechniqueCatalogOptions：读取Technique目录选项。 */
 function getTechniqueCatalogOptions(includeEmpty = false): Array<{
 /**
- * value：对象字段。
+ * value：值数值。
  */
  value: string;
  /**
- * label：对象字段。
+ * label：label名称或显示文本。
  */
  label: string }> {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
@@ -928,11 +928,11 @@ function getTechniqueCatalogOptions(includeEmpty = false): Array<{
 /** getLearnedTechniqueOptions：读取Learned Technique选项。 */
 function getLearnedTechniqueOptions(techniques: TechniqueState[], includeEmpty = false): Array<{
 /**
- * value：对象字段。
+ * value：值数值。
  */
  value: string;
  /**
- * label：对象字段。
+ * label：label名称或显示文本。
  */
  label: string }> {
   const options = techniques.map((technique) => ({
@@ -945,11 +945,11 @@ function getLearnedTechniqueOptions(techniques: TechniqueState[], includeEmpty =
 /** getRealmCatalogOptions：读取境界目录选项。 */
 function getRealmCatalogOptions(): Array<{
 /**
- * value：对象字段。
+ * value：值数值。
  */
  value: number;
  /**
- * label：对象字段。
+ * label：label名称或显示文本。
  */
  label: string }> {
   return gmCatalogHelpers.getRealmCatalogOptions(editorCatalog);
@@ -958,11 +958,11 @@ function getRealmCatalogOptions(): Array<{
 /** getItemCatalogOptions：读取物品目录选项。 */
 function getItemCatalogOptions(filter?: (option: GmEditorItemOption) => boolean): Array<{
 /**
- * value：对象字段。
+ * value：值数值。
  */
  value: string;
  /**
- * label：对象字段。
+ * label：label名称或显示文本。
  */
  label: string }> {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
@@ -981,11 +981,11 @@ function getBuffOptionLabel(option: GmEditorBuffOption): string {
 /** getBuffCatalogOptions：读取Buff目录选项。 */
 function getBuffCatalogOptions(selectedBuffId?: string): Array<{
 /**
- * value：对象字段。
+ * value：值数值。
  */
  value: string;
  /**
- * label：对象字段。
+ * label：label名称或显示文本。
  */
  label: string }> {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
@@ -1004,11 +1004,11 @@ function getBuffCatalogOptions(selectedBuffId?: string): Array<{
 /** getMailAttachmentItemOptions：读取邮件Attachment物品选项。 */
 function getMailAttachmentItemOptions(): Array<{
 /**
- * value：对象字段。
+ * value：值数值。
  */
  value: string;
  /**
- * label：对象字段。
+ * label：label名称或显示文本。
  */
  label: string }> {
   return gmCatalogHelpers.getMailAttachmentItemOptions(editorCatalog);
@@ -1039,26 +1039,26 @@ function getMailAttachmentItemPageState(
   selectedItemId: string,
 ): {
 /**
- * page：对象字段。
+ * page：page相关字段。
  */
 
   page: number;  
   /**
- * totalPages：对象字段。
+ * totalPages：totalPage相关字段。
  */
 
   totalPages: number;  
   /**
- * options：对象字段。
+ * options：option相关字段。
  */
 
   options: Array<{  
   /**
- * value：对象字段。
+ * value：值数值。
  */
  value: string;  
  /**
- * label：对象字段。
+ * label：label名称或显示文本。
  */
  label: string }>;
 } {
@@ -1107,11 +1107,11 @@ function getMailAttachmentRowMeta(itemId: string): string {
 /** getMailTemplateOptionMeta：读取邮件模板选项元数据。 */
 function getMailTemplateOptionMeta(templateId: string): {
 /**
- * label：对象字段。
+ * label：label名称或显示文本。
  */
  label: string;
  /**
- * description：对象字段。
+ * description：description相关字段。
  */
  description: string } | null {
   return gmCatalogHelpers.getMailTemplateOptionMeta(templateId);
@@ -1125,11 +1125,11 @@ function isServerManagedMailTemplate(templateId: string): boolean {
 /** getShortcutMailTargetOptions：读取Shortcut邮件目标选项。 */
 function getShortcutMailTargetOptions(): Array<{
 /**
- * value：对象字段。
+ * value：值数值。
  */
  value: string;
  /**
- * label：对象字段。
+ * label：label名称或显示文本。
  */
  label: string }> {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
@@ -1190,22 +1190,22 @@ function getMailComposerMarkup(
   draft: GmMailComposerDraft,
   options: {  
   /**
- * scope：对象字段。
+ * scope：scope相关字段。
  */
 
     scope: 'direct' | 'shortcut';    
     /**
- * submitLabel：对象字段。
+ * submitLabel：submitLabel名称或显示文本。
  */
 
     submitLabel: string;    
     /**
- * note：对象字段。
+ * note：note相关字段。
  */
 
     note: string;    
     /**
- * showTargetPlayer：对象字段。
+ * showTargetPlayer：show目标玩家引用。
  */
 
     showTargetPlayer?: boolean;
@@ -1333,11 +1333,11 @@ function getMailComposerMarkup(
 /** getInventoryAddTypeOptions：读取背包Add类型选项。 */
 function getInventoryAddTypeOptions(): Array<{
 /**
- * value：对象字段。
+ * value：值数值。
  */
  value: string;
  /**
- * label：对象字段。
+ * label：label名称或显示文本。
  */
  label: string }> {
   return ITEM_TYPES.map((type) => ({
@@ -1349,11 +1349,11 @@ function getInventoryAddTypeOptions(): Array<{
 /** getInventoryAddItemOptions：读取背包Add物品选项。 */
 function getInventoryAddItemOptions(): Array<{
 /**
- * value：对象字段。
+ * value：值数值。
  */
  value: string;
  /**
- * label：对象字段。
+ * label：label名称或显示文本。
  */
  label: string }> {
   return getItemCatalogOptions((option) => option.type === currentInventoryAddType);
@@ -1739,15 +1739,15 @@ function renderStructuredStatList(
   structureKey: string | null,
   items: Array<{  
   /**
- * key：对象字段。
+ * key：key标识。
  */
  key: string;  
  /**
- * label：对象字段。
+ * label：label名称或显示文本。
  */
  label: string;  
  /**
- * meta：对象字段。
+ * meta：meta相关字段。
  */
  meta: string }>,
   emptyText: string,
@@ -2336,11 +2336,11 @@ function getRedeemCodeStatusLabel(status: RedeemCodeCodeView['status']): string 
 /** buildRedeemGroupPayload：构建兑换分组载荷。 */
 function buildRedeemGroupPayload(): {
 /**
- * name：对象字段。
+ * name：名称名称或显示文本。
  */
  name: string;
  /**
- * rewards：对象字段。
+ * rewards：reward相关字段。
  */
  rewards: RedeemCodeGroupRewardItem[] } {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
@@ -2486,7 +2486,7 @@ async function appendRedeemCodes(): Promise<void> {
 async function destroyRedeemCode(codeId: string): Promise<void> {
   await request<{  
   /**
- * ok：对象字段。
+ * ok：ok相关字段。
  */
  ok: true }>(`${GM_API_BASE_PATH}/redeem-codes/${encodeURIComponent(codeId)}`, {
     method: 'DELETE',
@@ -2864,7 +2864,7 @@ async function request<T>(path: string, init: RequestInit = {}): Promise<T> {
     const message = typeof data === 'object' && data && 'message' in data
       ? String((data as {      
       /**
- * message：对象字段。
+ * message：message相关字段。
  */
  message: unknown }).message)
       : typeof data === 'string' && data.trim().length > 0
@@ -3038,11 +3038,11 @@ async function sendDirectMail(): Promise<void> {
   const payload = getMailComposerPayload(directMailDraft);
   const result = await request<{  
   /**
- * ok：对象字段。
+ * ok：ok相关字段。
  */
  ok: true;  
  /**
- * mailId：对象字段。
+ * mailId：邮件ID标识。
  */
  mailId: string }>(`/gm/players/${encodeURIComponent(detail.id)}/mail`, {
     method: 'POST',
@@ -3071,19 +3071,19 @@ async function sendShortcutMail(): Promise<void> {
     : `${GM_API_BASE_PATH}/mail/broadcast`;
   const result = await request<{  
   /**
- * ok：对象字段。
+ * ok：ok相关字段。
  */
  ok: true;  
  /**
- * mailId：对象字段。
+ * mailId：邮件ID标识。
  */
  mailId: string;  
  /**
- * batchId：对象字段。
+ * batchId：batchID标识。
  */
  batchId?: string;  
  /**
- * recipientCount：对象字段。
+ * recipientCount：数量或计量字段。
  */
  recipientCount?: number }>(path, {
     method: 'POST',
@@ -3326,11 +3326,11 @@ function getSearchableItemDisplayValue(itemId: string): string {
 /** getSearchableItemOptions：读取Searchable物品选项。 */
 function getSearchableItemOptions(scope: SearchableItemScope, slot?: EquipSlot): Array<{
 /**
- * value：对象字段。
+ * value：值数值。
  */
  value: string;
  /**
- * label：对象字段。
+ * label：label名称或显示文本。
  */
  label: string }> {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
@@ -3615,11 +3615,11 @@ function flushBlockedEditorRender(): void {
 /** optionsMarkup：处理选项Markup。 */
 function optionsMarkup<T extends string | number>(options: Array<{
 /**
- * value：对象字段。
+ * value：值数值。
  */
  value: T;
  /**
- * label：对象字段。
+ * label：label名称或显示文本。
  */
  label: string }>, selected: T | undefined): string {
   return options.map((option) => `
@@ -3674,11 +3674,11 @@ function selectField(
   value: string | number | undefined,
   options: Array<{  
   /**
- * value：对象字段。
+ * value：值数值。
  */
  value: string | number;  
  /**
- * label：对象字段。
+ * label：label名称或显示文本。
  */
  label: string }>,
   extraClass = '',
@@ -4551,15 +4551,15 @@ function getEditorTabSection(tab: GmEditorTab): HTMLElement | null {
 /** syncVisualEditorToDraft：同步Visual编辑器To Draft。 */
 function syncVisualEditorToDraft(scope?: ParentNode): {
 /**
- * ok：对象字段。
+ * ok：ok相关字段。
  */
  ok: true } | {
  /**
- * ok：对象字段。
+ * ok：ok相关字段。
  */
  ok: false;
  /**
- * message：对象字段。
+ * message：message相关字段。
  */
  message: string } {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
@@ -5195,7 +5195,7 @@ async function saveSelectedPlayerSections(sections: GmPlayerUpdateSection[], mes
     const snapshot = buildSectionSnapshot(section, draftSnapshot);
     await request<{    
     /**
- * ok：对象字段。
+ * ok：ok相关字段。
  */
  ok: true }>(`${GM_API_BASE_PATH}/players/${encodeURIComponent(selected.id)}`, {
       method: 'PUT',
@@ -5516,7 +5516,7 @@ async function saveSelectedPlayer(): Promise<void> {
     const snapshot = buildSectionSnapshot(section, draftSnapshot);
     await request<{    
     /**
- * ok：对象字段。
+ * ok：ok相关字段。
  */
  ok: true }>(`${GM_API_BASE_PATH}/players/${encodeURIComponent(selected.id)}`, {
       method: 'PUT',
@@ -5558,7 +5558,7 @@ async function saveSelectedPlayerPassword(): Promise<void> {
     setPendingStatus(`正在修改账号 ${detail.account.username} 的密码...`);
     await request<{    
     /**
- * ok：对象字段。
+ * ok：ok相关字段。
  */
  ok: true }>(`${GM_API_BASE_PATH}/players/${encodeURIComponent(detail.id)}/password`, {
       method: 'POST',
@@ -5607,7 +5607,7 @@ async function saveSelectedPlayerAccount(): Promise<void> {
     setPendingStatus(`正在修改账号 ${detail.account.username}...`);
     await request<{    
     /**
- * ok：对象字段。
+ * ok：ok相关字段。
  */
  ok: true }>(`${GM_API_BASE_PATH}/players/${encodeURIComponent(detail.id)}/account`, {
       method: 'PUT',
@@ -5638,7 +5638,7 @@ async function resetSelectedPlayer(): Promise<void> {
     setPendingStatus(`正在让 ${selected.name} 返回出生点...`);
     await request<{    
     /**
- * ok：对象字段。
+ * ok：ok相关字段。
  */
  ok: true }>(`${GM_API_BASE_PATH}/players/${encodeURIComponent(selected.id)}/reset`, {
       method: 'POST',
@@ -5668,7 +5668,7 @@ async function resetSelectedPlayerHeavenGate(): Promise<void> {
     setPendingStatus(`正在重置 ${selected.name} 的天门测试状态...`);
     await request<{    
     /**
- * ok：对象字段。
+ * ok：ok相关字段。
  */
  ok: true }>(`${GM_API_BASE_PATH}/players/${encodeURIComponent(selected.id)}/heaven-gate/reset`, {
       method: 'POST',
@@ -5698,7 +5698,7 @@ async function removeSelectedBot(): Promise<void> {
     setPendingStatus(`正在移除机器人 ${selected.name}...`);
     await request<{    
     /**
- * ok：对象字段。
+ * ok：ok相关字段。
  */
  ok: true }>(`${GM_API_BASE_PATH}/bots/remove`, {
       method: 'POST',
@@ -5733,7 +5733,7 @@ async function spawnBots(): Promise<void> {
   try {
     await request<{    
     /**
- * ok：对象字段。
+ * ok：ok相关字段。
  */
  ok: true }>(`${GM_API_BASE_PATH}/bots/spawn`, {
       method: 'POST',
@@ -5754,7 +5754,7 @@ async function removeAllBots(): Promise<void> {
     setPendingStatus('正在移除全部机器人...');
     await request<{    
     /**
- * ok：对象字段。
+ * ok：ok相关字段。
  */
  ok: true }>(`${GM_API_BASE_PATH}/bots/remove`, {
       method: 'POST',
@@ -5896,7 +5896,7 @@ async function resetNetworkStats(): Promise<void> {
   try {
     await request<{    
     /**
- * ok：对象字段。
+ * ok：ok相关字段。
  */
  ok: true }>(`${GM_API_BASE_PATH}/perf/network/reset`, {
       method: 'POST',
@@ -5918,7 +5918,7 @@ async function resetCpuStats(): Promise<void> {
   try {
     await request<{    
     /**
- * ok：对象字段。
+ * ok：ok相关字段。
  */
  ok: true }>(`${GM_API_BASE_PATH}/perf/cpu/reset`, {
       method: 'POST',
@@ -5940,7 +5940,7 @@ async function resetPathfindingStats(): Promise<void> {
   try {
     await request<{    
     /**
- * ok：对象字段。
+ * ok：ok相关字段。
  */
  ok: true }>(`${GM_API_BASE_PATH}/perf/pathfinding/reset`, {
       method: 'POST',

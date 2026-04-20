@@ -7,16 +7,16 @@ const { WorldRuntimeActionExecutionService } = require("../runtime/world/world-r
  * createService：构建并返回目标对象。
  * @param player 玩家对象。
  * @param log 参数说明。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新服务相关状态。
  */
 
 
 function createService(player, log = []) {
     return new WorldRuntimeActionExecutionService({    
     /**
- * getPlayerOrThrow：按给定条件读取/查询数据。
+ * getPlayerOrThrow：读取玩家OrThrow。
  * @param playerId 玩家 ID。
- * @returns 函数返回值。
+ * @returns 无返回值，完成玩家OrThrow的读取/组装。
  */
 
         getPlayerOrThrow(playerId) {
@@ -29,31 +29,31 @@ function createService(player, log = []) {
             return player;
         },        
         /**
- * updateCombatSettings：更新/写入相关状态。
+ * updateCombatSettings：处理战斗Setting并更新相关状态。
  * @param playerId 玩家 ID。
  * @param patch 参数说明。
  * @param tick 当前 tick。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新战斗Setting相关状态。
  */
 
         updateCombatSettings(playerId, patch, tick) {
             log.push(['updateCombatSettings', playerId, patch, tick]);
         },        
         /**
- * cultivateTechnique：执行核心业务逻辑。
+ * cultivateTechnique：执行cultivate功法相关逻辑。
  * @param playerId 玩家 ID。
  * @param techniqueId technique ID。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新cultivate功法相关状态。
  */
 
         cultivateTechnique(playerId, techniqueId) {
             log.push(['cultivateTechnique', playerId, techniqueId]);
         },        
         /**
- * infuseBodyTraining：执行核心业务逻辑。
+ * infuseBodyTraining：执行infuseBodyTraining相关逻辑。
  * @param playerId 玩家 ID。
  * @param foundationAmount 参数说明。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新infuseBodyTraining相关状态。
  */
 
         infuseBodyTraining(playerId, foundationAmount) {
@@ -62,10 +62,10 @@ function createService(player, log = []) {
         },
     }, {    
     /**
- * executeNpcQuestAction：执行核心业务逻辑。
+ * executeNpcQuestAction：执行executeNPC任务Action相关逻辑。
  * @param playerId 玩家 ID。
  * @param npcId npc ID。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新executeNPC任务Action相关状态。
  */
 
         executeNpcQuestAction(playerId, npcId) {
@@ -77,16 +77,16 @@ function createService(player, log = []) {
 /**
  * createDeps：构建并返回目标对象。
  * @param log 参数说明。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新Dep相关状态。
  */
 
 
 function createDeps(log = []) {
     return {    
     /**
- * getPlayerLocationOrThrow：按给定条件读取/查询数据。
+ * getPlayerLocationOrThrow：读取玩家位置OrThrow。
  * @param playerId 玩家 ID。
- * @returns 函数返回值。
+ * @returns 无返回值，完成玩家位置OrThrow的读取/组装。
  */
 
         getPlayerLocationOrThrow(playerId) {
@@ -94,9 +94,9 @@ function createDeps(log = []) {
             return { instanceId: 'public:yunlai_town' };
         },        
         /**
- * resolveCurrentTickForPlayerId：执行核心业务逻辑。
+ * resolveCurrentTickForPlayerId：规范化或转换当前tickFor玩家ID。
  * @param playerId 玩家 ID。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新CurrenttickFor玩家ID相关状态。
  */
 
         resolveCurrentTickForPlayerId(playerId) {
@@ -104,9 +104,9 @@ function createDeps(log = []) {
             return 77;
         },        
         /**
- * usePortal：执行核心业务逻辑。
+ * usePortal：执行use传送门相关逻辑。
  * @param playerId 玩家 ID。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新usePortal相关状态。
  */
 
         usePortal(playerId) {
@@ -114,19 +114,19 @@ function createDeps(log = []) {
             return { tick: 1 };
         },        
         /**
- * enqueuePendingCommand：执行核心业务逻辑。
+ * enqueuePendingCommand：处理待处理Command并更新相关状态。
  * @param playerId 玩家 ID。
  * @param command 输入指令。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新PendingCommand相关状态。
  */
 
         enqueuePendingCommand(playerId, command) {
             log.push(['enqueuePendingCommand', playerId, command]);
         },        
         /**
- * getPlayerViewOrThrow：按给定条件读取/查询数据。
+ * getPlayerViewOrThrow：读取玩家视图OrThrow。
  * @param playerId 玩家 ID。
- * @returns 函数返回值。
+ * @returns 无返回值，完成玩家视图OrThrow的读取/组装。
  */
 
         getPlayerViewOrThrow(playerId) {
@@ -134,11 +134,11 @@ function createDeps(log = []) {
             return { tick: 2 };
         },        
         /**
- * queuePlayerNotice：执行核心业务逻辑。
+ * queuePlayerNotice：执行queue玩家Notice相关逻辑。
  * @param playerId 玩家 ID。
  * @param message 参数说明。
  * @param kind 参数说明。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新queue玩家Notice相关状态。
  */
 
         queuePlayerNotice(playerId, message, kind) {
@@ -148,7 +148,7 @@ function createDeps(log = []) {
  * buildNpcShopView：构建并返回目标对象。
  * @param playerId 玩家 ID。
  * @param npcId npc ID。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新NPCShop视图相关状态。
  */
 
         buildNpcShopView(playerId, npcId) {
@@ -158,8 +158,8 @@ function createDeps(log = []) {
     };
 }
 /**
- * testPortalTravel：执行核心业务逻辑。
- * @returns 函数返回值。
+ * testPortalTravel：执行test传送门Travel相关逻辑。
+ * @returns 无返回值，直接更新testPortalTravel相关状态。
  */
 
 
@@ -182,8 +182,8 @@ function testPortalTravel() {
     ]);
 }
 /**
- * testBreakthroughQueuesPendingCommand：执行核心业务逻辑。
- * @returns 函数返回值。
+ * testBreakthroughQueuesPendingCommand：执行testBreakthroughQueue待处理Command相关逻辑。
+ * @returns 无返回值，直接更新testBreakthroughQueuePendingCommand相关状态。
  */
 
 
@@ -207,8 +207,8 @@ function testBreakthroughQueuesPendingCommand() {
     ]);
 }
 /**
- * testBodyTrainingInfuse：执行核心业务逻辑。
- * @returns 函数返回值。
+ * testBodyTrainingInfuse：执行testBodyTrainingInfuse相关逻辑。
+ * @returns 无返回值，直接更新testBodyTrainingInfuse相关状态。
  */
 
 
@@ -233,8 +233,8 @@ function testBodyTrainingInfuse() {
     ]);
 }
 /**
- * testToggleAutoBattle：执行核心业务逻辑。
- * @returns 函数返回值。
+ * testToggleAutoBattle：执行testToggleAutoBattle相关逻辑。
+ * @returns 无返回值，直接更新testToggleAutoBattle相关状态。
  */
 
 
@@ -261,8 +261,8 @@ function testToggleAutoBattle() {
     ]);
 }
 /**
- * testCultivationToggle：执行核心业务逻辑。
- * @returns 函数返回值。
+ * testCultivationToggle：执行testCultivationToggle相关逻辑。
+ * @returns 无返回值，直接更新testCultivationToggle相关状态。
  */
 
 
@@ -292,8 +292,8 @@ function testCultivationToggle() {
     ]);
 }
 /**
- * testNpcShopView：执行核心业务逻辑。
- * @returns 函数返回值。
+ * testNpcShopView：执行testNPCShop视图相关逻辑。
+ * @returns 无返回值，直接更新testNPCShop视图相关状态。
  */
 
 
@@ -316,8 +316,8 @@ function testNpcShopView() {
     ]);
 }
 /**
- * testNpcQuestActionDelegates：执行核心业务逻辑。
- * @returns 函数返回值。
+ * testNpcQuestActionDelegates：执行testNPC任务ActionDelegate相关逻辑。
+ * @returns 无返回值，直接更新testNPC任务ActionDelegate相关状态。
  */
 
 
@@ -340,8 +340,8 @@ function testNpcQuestActionDelegates() {
     ]);
 }
 /**
- * testLegacyNpcActionDelegates：执行核心业务逻辑。
- * @returns 函数返回值。
+ * testLegacyNpcActionDelegates：执行testLegacyNPCActionDelegate相关逻辑。
+ * @returns 无返回值，直接更新testLegacyNPCActionDelegate相关状态。
  */
 
 

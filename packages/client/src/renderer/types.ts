@@ -9,47 +9,47 @@ export type FloatingActionTextStyle = 'default' | 'divine' | 'chant';
 /** 技能瞄准叠加层状态。 */
 export interface TargetingOverlayState {
 /**
- * originX：TargetingOverlayState 内部字段。
+ * originX：originX相关字段。
  */
 
   originX: number;  
   /**
- * originY：TargetingOverlayState 内部字段。
+ * originY：originY相关字段。
  */
 
   originY: number;  
   /**
- * range：TargetingOverlayState 内部字段。
+ * range：范围相关字段。
  */
 
   range: number;  
   /**
- * visibleOnly：TargetingOverlayState 内部字段。
+ * visibleOnly：可见Only相关字段。
  */
 
   visibleOnly?: boolean;  
   /**
- * shape：TargetingOverlayState 内部字段。
+ * shape：shape相关字段。
  */
 
   shape?: TargetingShape;  
   /**
- * radius：TargetingOverlayState 内部字段。
+ * radius：radiu相关字段。
  */
 
   radius?: number;  
   /**
- * affectedCells：TargetingOverlayState 内部字段。
+ * affectedCells：affectedCell相关字段。
  */
 
   affectedCells?: GridPoint[];  
   /**
- * hoverX：TargetingOverlayState 内部字段。
+ * hoverX：hoverX相关字段。
  */
 
   hoverX?: number;  
   /**
- * hoverY：TargetingOverlayState 内部字段。
+ * hoverY：hoverY相关字段。
  */
 
   hoverY?: number;
@@ -58,17 +58,17 @@ export interface TargetingOverlayState {
 /** 感气视角叠加层状态。 */
 export interface SenseQiOverlayState {
 /**
- * hoverX：SenseQiOverlayState 内部字段。
+ * hoverX：hoverX相关字段。
  */
 
   hoverX?: number;  
   /**
- * hoverY：SenseQiOverlayState 内部字段。
+ * hoverY：hoverY相关字段。
  */
 
   hoverY?: number;  
   /**
- * levelBaseValue：SenseQiOverlayState 内部字段。
+ * levelBaseValue：等级Base值数值。
  */
 
   levelBaseValue?: number;
@@ -81,11 +81,11 @@ export interface IRenderer {
   resetScene(): void;
   setThreatArrows(arrows: Array<{  
   /**
- * ownerId：IRenderer 内部字段。
+ * ownerId：ownerID标识。
  */
  ownerId: string;  
  /**
- * targetId：IRenderer 内部字段。
+ * targetId：目标ID标识。
  */
  targetId: string }>): void;
   setPathHighlight(cells: GridPoint[], fadeDurationMs?: number): void;
@@ -105,52 +105,52 @@ export interface IRenderer {
   updateEntities(
     list: readonly {    
     /**
- * id：IRenderer 内部字段。
+ * id：ID标识。
  */
 
       id: string;      
       /**
- * wx：IRenderer 内部字段。
+ * wx：wx相关字段。
  */
 
       wx: number;      
       /**
- * wy：IRenderer 内部字段。
+ * wy：wy相关字段。
  */
 
       wy: number;      
       /**
- * char：IRenderer 内部字段。
+ * char：char相关字段。
  */
 
       char: string;      
       /**
- * color：IRenderer 内部字段。
+ * color：color相关字段。
  */
 
       color: string;      
       /**
- * name：IRenderer 内部字段。
+ * name：名称名称或显示文本。
  */
 
       name?: string;      
       /**
- * kind：IRenderer 内部字段。
+ * kind：kind相关字段。
  */
 
       kind?: string;      
       /**
- * hp：IRenderer 内部字段。
+ * hp：hp相关字段。
  */
 
       hp?: number;      
       /**
- * maxHp：IRenderer 内部字段。
+ * maxHp：maxHp相关字段。
  */
 
       maxHp?: number;      
       /**
- * npcQuestMarker：IRenderer 内部字段。
+ * npcQuestMarker：NPC任务Marker相关字段。
  */
 
       npcQuestMarker?: NpcQuestMarker;

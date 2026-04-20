@@ -7,24 +7,24 @@ exports.WorldGatewayPlayerControlsHelper = void 0;
 /** 世界 socket 玩家控制 helper：只收敛 player-controls 相关入口。 */
 class WorldGatewayPlayerControlsHelper {
 /**
- * gateway：WorldGatewayPlayerControlsHelper 内部字段。
+ * gateway：gateway相关字段。
  */
 
     gateway;    
     /**
  * 构造器：初始化 当前 实例并建立基础状态。
  * @param gateway 参数说明。
- * @returns 无返回值（构造函数）。
+ * @returns 无返回值，完成实例初始化。
  */
 
     constructor(gateway) {
         this.gateway = gateway;
     }    
     /**
- * handleNextChat：处理事件并驱动执行路径。
+ * handleNextChat：处理NextChat并更新相关状态。
  * @param client 参数说明。
  * @param payload 载荷参数。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新NextChat相关状态。
  */
 
     handleNextChat(client, payload) {
@@ -37,10 +37,10 @@ class WorldGatewayPlayerControlsHelper {
         this.gateway.worldClientEventService.broadcastChat(playerId, payload);
     }    
     /**
- * handleNextAckSystemMessages：处理事件并驱动执行路径。
+ * handleNextAckSystemMessages：处理NextAckSystemMessage并更新相关状态。
  * @param client 参数说明。
  * @param payload 载荷参数。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新NextAckSystemMessage相关状态。
  */
 
     handleNextAckSystemMessages(client, payload) {
@@ -53,10 +53,10 @@ class WorldGatewayPlayerControlsHelper {
         this.gateway.worldClientEventService.acknowledgeSystemMessages(playerId, payload);
     }    
     /**
- * handleNextDebugResetSpawn：处理事件并驱动执行路径。
+ * handleNextDebugResetSpawn：处理NextDebugResetSpawn并更新相关状态。
  * @param client 参数说明。
  * @param _payload 参数说明。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新NextDebugResetSpawn相关状态。
  */
 
     handleNextDebugResetSpawn(client, _payload) {
@@ -69,10 +69,10 @@ class WorldGatewayPlayerControlsHelper {
         this.gateway.worldRuntimeService.enqueueResetPlayerSpawn(playerId);
     }    
     /**
- * handleNextUpdateAutoBattleSkills：处理事件并驱动执行路径。
+ * handleNextUpdateAutoBattleSkills：处理NextUpdateAutoBattle技能并更新相关状态。
  * @param client 参数说明。
  * @param payload 载荷参数。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新NextUpdateAutoBattle技能相关状态。
  */
 
     handleNextUpdateAutoBattleSkills(client, payload) {
@@ -90,10 +90,10 @@ class WorldGatewayPlayerControlsHelper {
         }
     }    
     /**
- * handleNextUpdateAutoUsePills：处理事件并驱动执行路径。
+ * handleNextUpdateAutoUsePills：处理NextUpdateAutoUsePill并更新相关状态。
  * @param client 参数说明。
  * @param payload 载荷参数。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新NextUpdateAutoUsePill相关状态。
  */
 
     handleNextUpdateAutoUsePills(client, payload) {
@@ -111,10 +111,10 @@ class WorldGatewayPlayerControlsHelper {
         }
     }    
     /**
- * handleNextUpdateCombatTargetingRules：处理事件并驱动执行路径。
+ * handleNextUpdateCombatTargetingRules：读取NextUpdate战斗TargetingRule并返回结果。
  * @param client 参数说明。
  * @param payload 载荷参数。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新NextUpdate战斗TargetingRule相关状态。
  */
 
     handleNextUpdateCombatTargetingRules(client, payload) {
@@ -132,10 +132,10 @@ class WorldGatewayPlayerControlsHelper {
         }
     }    
     /**
- * handleNextUpdateAutoBattleTargetingMode：处理事件并驱动执行路径。
+ * handleNextUpdateAutoBattleTargetingMode：读取NextUpdateAutoBattleTargetingMode并返回结果。
  * @param client 参数说明。
  * @param payload 载荷参数。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新NextUpdateAutoBattleTargetingMode相关状态。
  */
 
     handleNextUpdateAutoBattleTargetingMode(client, payload) {
@@ -153,10 +153,10 @@ class WorldGatewayPlayerControlsHelper {
         }
     }    
     /**
- * handleNextUpdateTechniqueSkillAvailability：处理事件并驱动执行路径。
+ * handleNextUpdateTechniqueSkillAvailability：处理NextUpdate功法技能Availability并更新相关状态。
  * @param client 参数说明。
  * @param payload 载荷参数。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新NextUpdate功法技能Availability相关状态。
  */
 
     handleNextUpdateTechniqueSkillAvailability(client, payload) {
@@ -174,10 +174,10 @@ class WorldGatewayPlayerControlsHelper {
         }
     }    
     /**
- * handleNextHeavenGateAction：处理事件并驱动执行路径。
+ * handleNextHeavenGateAction：处理NextHeavenGateAction并更新相关状态。
  * @param client 参数说明。
  * @param payload 载荷参数。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新NextHeavenGateAction相关状态。
  */
 
     handleNextHeavenGateAction(client, payload) {
@@ -195,10 +195,10 @@ class WorldGatewayPlayerControlsHelper {
         }
     }    
     /**
- * handleRequestQuests：处理事件并驱动执行路径。
+ * handleRequestQuests：处理Request任务并更新相关状态。
  * @param client 参数说明。
  * @param _payload 参数说明。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新Request任务相关状态。
  */
 
     handleRequestQuests(client, _payload) {

@@ -146,27 +146,27 @@ const BUFF_DURATION_MAX_MULTIPLIER = 8;
 /** 价值分解条目 */
 export interface ValueBreakdownEntry {
 /**
- * kind：ValueBreakdownEntry 内部字段。
+ * kind：kind相关字段。
  */
 
   kind: 'attr' | 'stat' | 'element' | 'skill' | 'buff' | 'technique';  
   /**
- * key：ValueBreakdownEntry 内部字段。
+ * key：key标识。
  */
 
   key: string;  
   /**
- * amount：ValueBreakdownEntry 内部字段。
+ * amount：数量或计量字段。
  */
 
   amount: number;  
   /**
- * quantifiedValue：ValueBreakdownEntry 内部字段。
+ * quantifiedValue：quantified值数值。
  */
 
   quantifiedValue: number;  
   /**
- * note：ValueBreakdownEntry 内部字段。
+ * note：note相关字段。
  */
 
   note?: string;
@@ -175,17 +175,17 @@ export interface ValueBreakdownEntry {
 /** 价值汇总结果 */
 export interface ValueSummary {
 /**
- * quantifiedValue：ValueSummary 内部字段。
+ * quantifiedValue：quantified值数值。
  */
 
   quantifiedValue: number;  
   /**
- * breakdown：ValueSummary 内部字段。
+ * breakdown：breakdown相关字段。
  */
 
   breakdown: ValueBreakdownEntry[];  
   /**
- * unquantified：ValueSummary 内部字段。
+ * unquantified：unquantified相关字段。
  */
 
   unquantified: string[];
@@ -194,12 +194,12 @@ export interface ValueSummary {
 /** 装备价值汇总（区分基准价值与实际价值） */
 export interface EquipmentValueSummary extends ValueSummary {
 /**
- * baseQuantifiedValue：EquipmentValueSummary 内部字段。
+ * baseQuantifiedValue：baseQuantified值数值。
  */
 
   baseQuantifiedValue: number;  
   /**
- * actualQuantifiedValue：EquipmentValueSummary 内部字段。
+ * actualQuantifiedValue：actualQuantified值数值。
  */
 
   actualQuantifiedValue: number;
@@ -208,12 +208,12 @@ export interface EquipmentValueSummary extends ValueSummary {
 /** 技能价值汇总（含基础价值和乘区倍率） */
 export interface SkillValueSummary extends ValueSummary {
 /**
- * baseQuantifiedValue：SkillValueSummary 内部字段。
+ * baseQuantifiedValue：baseQuantified值数值。
  */
 
   baseQuantifiedValue: number;  
   /**
- * multiplier：SkillValueSummary 内部字段。
+ * multiplier：multiplier相关字段。
  */
 
   multiplier: number;
@@ -222,12 +222,12 @@ export interface SkillValueSummary extends ValueSummary {
 /** 单个公式片段的量化结果，保留无法折算的说明文字。 */
 type FormulaQuantification = {
 /**
- * quantifiedValue：对象字段。
+ * quantifiedValue：quantified值数值。
  */
 
   quantifiedValue: number;  
   /**
- * unquantified：对象字段。
+ * unquantified：unquantified相关字段。
  */
 
   unquantified: string[];
@@ -236,17 +236,17 @@ type FormulaQuantification = {
 /** 倍率评估结果，记录是否可抽取以及是否包含变量。 */
 type MultiplierEvaluation = {
 /**
- * ok：对象字段。
+ * ok：ok相关字段。
  */
 
   ok: boolean;  
   /**
- * value：对象字段。
+ * value：值数值。
  */
 
   value: number;  
   /**
- * containsVariable：对象字段。
+ * containsVariable：containVariable相关字段。
  */
 
   containsVariable: boolean;
@@ -1102,7 +1102,7 @@ export function calculateAttrBonusValue(bonus: Pick<AttrBonus, 'attrs' | 'stats'
 export function calculateEquipmentValue(
   item: Pick<ItemStack, 'equipAttrs' | 'equipStats' | 'effects' | 'grade' | 'level'> & {  
   /**
- * equipValueStats：对象字段。
+ * equipValueStats：equip值Stat相关字段。
  */
 
     equipValueStats?: PartialNumericStats;

@@ -98,11 +98,11 @@ type StatusFn = (message: string, isError?: boolean) => void;
 const MONSTER_GRADE_OPTIONS = Object.entries(TECHNIQUE_GRADE_LABELS).map(([value, label]) => ({ value, label }));
 const MAP_ROUTE_DOMAIN_OPTIONS: Array<{
 /**
- * value：对象字段。
+ * value：值数值。
  */
  value: MapRouteDomain;
  /**
- * label：对象字段。
+ * label：label名称或显示文本。
  */
  label: string }> = [
   { value: 'system', label: '系统地图' },
@@ -112,11 +112,11 @@ const MAP_ROUTE_DOMAIN_OPTIONS: Array<{
 ];
 const PORTAL_ROUTE_DOMAIN_OPTIONS: Array<{
 /**
- * value：对象字段。
+ * value：值数值。
  */
  value: PortalRouteDomain;
  /**
- * label：对象字段。
+ * label：label名称或显示文本。
  */
  label: string }> = [
   { value: 'inherit', label: '继承地图' },
@@ -132,17 +132,17 @@ const MONSTER_GRADE_OVERRIDE_OPTIONS = [
 /** GmMapEditorOptions：地图编辑器实例的初始化选项。 */
 type GmMapEditorOptions = {
 /**
- * mapApiBasePath：对象字段。
+ * mapApiBasePath：地图ApiBase路径相关字段。
  */
 
   mapApiBasePath?: string;  
   /**
- * syncedSummaryLabel：对象字段。
+ * syncedSummaryLabel：synced摘要Label名称或显示文本。
  */
 
   syncedSummaryLabel?: string;  
   /**
- * itemCatalog：对象字段。
+ * itemCatalog：道具目录相关字段。
  */
 
   itemCatalog?: GmEditorItemOption[];
@@ -152,74 +152,74 @@ type GmMapEditorOptions = {
 type MapEntitySelection =
   | {  
   /**
- * kind：对象字段。
+ * kind：kind相关字段。
  */
  kind: 'portal';  
  /**
- * index：对象字段。
+ * index：index相关字段。
  */
  index: number }
   | {  
   /**
- * kind：对象字段。
+ * kind：kind相关字段。
  */
  kind: 'npc';  
  /**
- * index：对象字段。
+ * index：index相关字段。
  */
  index: number }
   | {  
   /**
- * kind：对象字段。
+ * kind：kind相关字段。
  */
  kind: 'monster';  
  /**
- * index：对象字段。
+ * index：index相关字段。
  */
  index: number }
   | {  
   /**
- * kind：对象字段。
+ * kind：kind相关字段。
  */
  kind: 'aura';  
  /**
- * index：对象字段。
+ * index：index相关字段。
  */
  index: number }
   | {  
   /**
- * kind：对象字段。
+ * kind：kind相关字段。
  */
  kind: 'resource';  
  /**
- * index：对象字段。
+ * index：index相关字段。
  */
  index: number }
   | {  
   /**
- * kind：对象字段。
+ * kind：kind相关字段。
  */
  kind: 'safeZone';  
  /**
- * index：对象字段。
+ * index：index相关字段。
  */
  index: number }
   | {  
   /**
- * kind：对象字段。
+ * kind：kind相关字段。
  */
  kind: 'landmark';  
  /**
- * index：对象字段。
+ * index：index相关字段。
  */
  index: number }
   | {  
   /**
- * kind：对象字段。
+ * kind：kind相关字段。
  */
  kind: 'container';  
  /**
- * index：对象字段。
+ * index：index相关字段。
  */
  index: number }
   | null;
@@ -236,11 +236,11 @@ type InspectorTabId = 'selection' | 'meta' | 'compose' | 'portal' | 'npc' | 'mon
 /** GridPoint：地图网格坐标。 */
 type GridPoint = {
 /**
- * x：对象字段。
+ * x：x相关字段。
  */
  x: number;
  /**
- * y：对象字段。
+ * y：y相关字段。
  */
  y: number };
 /** ComposeRotation：合图子块支持的直角旋转角度。 */
@@ -251,32 +251,32 @@ type TileResourcePoint = GmMapResourceRecord;
 /** MapComposePiece：合图预览中的单个来源地图块。 */
 type MapComposePiece = {
 /**
- * id：对象字段。
+ * id：ID标识。
  */
 
   id: string,  
   /**
- * sourceMapId：对象字段。
+ * sourceMapId：来源地图ID标识。
  */
 
   sourceMapId: string,  
   /**
- * sourceMapName：对象字段。
+ * sourceMapName：来源地图名称名称或显示文本。
  */
 
   sourceMapName: string,  
   /**
- * x：对象字段。
+ * x：x相关字段。
  */
 
   x: number,  
   /**
- * y：对象字段。
+ * y：y相关字段。
  */
 
   y: number,  
   /**
- * rotation：对象字段。
+ * rotation：rotation相关字段。
  */
 
   rotation: ComposeRotation,
@@ -288,52 +288,52 @@ const DEFAULT_RESOURCE_KEY = 'aura.refined.metal';
 /** EditorUndoEntry：撤销栈里保存的整份编辑草稿快照。 */
 type EditorUndoEntry = {
 /**
- * draft：对象字段。
+ * draft：draft相关字段。
  */
 
   draft: GmMapDocument;  
   /**
- * selectedCell：对象字段。
+ * selectedCell：selectedCell相关字段。
  */
 
   selectedCell: GridPoint | null;  
   /**
- * selectedEntity：对象字段。
+ * selectedEntity：selectedEntity相关字段。
  */
 
   selectedEntity: MapEntitySelection;  
   /**
- * resizeWidth：对象字段。
+ * resizeWidth：resizeWidth相关字段。
  */
 
   resizeWidth: number;  
   /**
- * resizeHeight：对象字段。
+ * resizeHeight：resizeHeight相关字段。
  */
 
   resizeHeight: number;  
   /**
- * resizeFillTileType：对象字段。
+ * resizeFillTileType：resizeFillTileType相关字段。
  */
 
   resizeFillTileType: TileType;  
   /**
- * composePieces：对象字段。
+ * composePieces：composePiece相关字段。
  */
 
   composePieces: MapComposePiece[];  
   /**
- * selectedComposePieceId：对象字段。
+ * selectedComposePieceId：selectedComposePieceID标识。
  */
 
   selectedComposePieceId: string | null;  
   /**
- * composeSourceMapId：对象字段。
+ * composeSourceMapId：compose来源地图ID标识。
  */
 
   composeSourceMapId: string;  
   /**
- * dirty：对象字段。
+ * dirty：dirty相关字段。
  */
 
   dirty: boolean;
@@ -442,29 +442,29 @@ export class GmMapEditor {
   /** composePieceCounter：compose Piece Counter。 */
   private composePieceCounter = 1;  
   /**
- * selectedCell：GmMapEditor 内部字段。
+ * selectedCell：selectedCell相关字段。
  */
 
   private selectedCell: {  
   /**
- * x：GmMapEditor 内部字段。
+ * x：x相关字段。
  */
  x: number;  
  /**
- * y：GmMapEditor 内部字段。
+ * y：y相关字段。
  */
  y: number } | null = null;  
  /**
- * hoveredCell：GmMapEditor 内部字段。
+ * hoveredCell：hoveredCell相关字段。
  */
 
   private hoveredCell: {  
   /**
- * x：GmMapEditor 内部字段。
+ * x：x相关字段。
  */
  x: number;  
  /**
- * y：GmMapEditor 内部字段。
+ * y：y相关字段。
  */
  y: number } | null = null;
   /** selectedEntity：selected实体。 */
@@ -520,7 +520,7 @@ export class GmMapEditor {
  * @param request RequestFn 请求参数。
  * @param setGlobalStatus StatusFn 参数说明。
  * @param options GmMapEditorOptions 选项参数。
- * @returns 无返回值（构造函数）。
+ * @returns 无返回值，完成实例初始化。
  */
 
 
@@ -1005,8 +1005,8 @@ export class GmMapEditor {
     this.renderCanvas();
   }  
   /**
- * ensureInspectorShell：执行核心业务逻辑。
- * @returns void。
+ * ensureInspectorShell：执行ensureInspectorShell相关逻辑。
+ * @returns 无返回值，直接更新ensureInspectorShell相关状态。
  */
 
 
@@ -1024,8 +1024,8 @@ export class GmMapEditor {
     `));
   }  
   /**
- * syncInspectorTabs：执行核心业务逻辑。
- * @returns void。
+ * syncInspectorTabs：处理InspectorTab并更新相关状态。
+ * @returns 无返回值，直接更新InspectorTab相关状态。
  */
 
 
@@ -1055,9 +1055,9 @@ export class GmMapEditor {
     tabsRoot.replaceChildren(fragment);
   }  
   /**
- * syncInspectorPanel：执行核心业务逻辑。
+ * syncInspectorPanel：处理Inspector面板并更新相关状态。
  * @param html string 参数说明。
- * @returns void。
+ * @returns 无返回值，直接更新Inspector面板相关状态。
  */
 
 
@@ -1071,32 +1071,32 @@ export class GmMapEditor {
     panel.replaceChildren(createFragmentFromHtml(html));
   }  
   /**
- * renderInspectorTabContent：执行核心业务逻辑。
+ * renderInspectorTabContent：执行InspectorTab内容相关逻辑。
  * @param selectedCell { x: number; y: number } | null 参数说明。
  * @param selectedTileType TileType | null 参数说明。
  * @param selectedEntityPoint { x: number; y: number } | null 参数说明。
- * @returns string。
+ * @returns 返回InspectorTab内容。
  */
 
 
   private renderInspectorTabContent(
     selectedCell: {    
     /**
- * x：GmMapEditor 内部字段。
+ * x：x相关字段。
  */
  x: number;    
  /**
- * y：GmMapEditor 内部字段。
+ * y：y相关字段。
  */
  y: number } | null,
     selectedTileType: TileType | null,
     selectedEntityPoint: {    
     /**
- * x：GmMapEditor 内部字段。
+ * x：x相关字段。
  */
  x: number;    
  /**
- * y：GmMapEditor 内部字段。
+ * y：y相关字段。
  */
  y: number } | null,
   ): string {
@@ -1131,11 +1131,11 @@ export class GmMapEditor {
   /** renderSelectionTab：渲染选中项Tab。 */
   private renderSelectionTab(selectedCell: {  
   /**
- * x：GmMapEditor 内部字段。
+ * x：x相关字段。
  */
  x: number;  
  /**
- * y：GmMapEditor 内部字段。
+ * y：y相关字段。
  */
  y: number } | null, selectedTileType: TileType | null): string {
     const selectedAura = selectedCell ? this.getAuraAt(selectedCell.x, selectedCell.y) : null;
@@ -1277,11 +1277,11 @@ export class GmMapEditor {
   /** renderPortalTab：渲染传送点Tab。 */
   private renderPortalTab(selectedPoint: {  
   /**
- * x：GmMapEditor 内部字段。
+ * x：x相关字段。
  */
  x: number;  
  /**
- * y：GmMapEditor 内部字段。
+ * y：y相关字段。
  */
  y: number } | null): string {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
@@ -1313,11 +1313,11 @@ export class GmMapEditor {
   /** renderNpcTab：渲染NPC Tab。 */
   private renderNpcTab(selectedPoint: {  
   /**
- * x：GmMapEditor 内部字段。
+ * x：x相关字段。
  */
  x: number;  
  /**
- * y：GmMapEditor 内部字段。
+ * y：y相关字段。
  */
  y: number } | null): string {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
@@ -1349,11 +1349,11 @@ export class GmMapEditor {
   /** renderMonsterTab：渲染妖兽Tab。 */
   private renderMonsterTab(selectedPoint: {  
   /**
- * x：GmMapEditor 内部字段。
+ * x：x相关字段。
  */
  x: number;  
  /**
- * y：GmMapEditor 内部字段。
+ * y：y相关字段。
  */
  y: number } | null): string {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
@@ -1385,11 +1385,11 @@ export class GmMapEditor {
   /** renderAuraTab：渲染灵气Tab。 */
   private renderAuraTab(selectedPoint: {  
   /**
- * x：GmMapEditor 内部字段。
+ * x：x相关字段。
  */
  x: number;  
  /**
- * y：GmMapEditor 内部字段。
+ * y：y相关字段。
  */
  y: number } | null): string {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
@@ -1421,11 +1421,11 @@ export class GmMapEditor {
   /** renderResourceTab：渲染资源Tab。 */
   private renderResourceTab(selectedPoint: {  
   /**
- * x：GmMapEditor 内部字段。
+ * x：x相关字段。
  */
  x: number;  
  /**
- * y：GmMapEditor 内部字段。
+ * y：y相关字段。
  */
  y: number } | null): string {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
@@ -1499,11 +1499,11 @@ export class GmMapEditor {
   /** renderSafeZoneTab：渲染安全Zone Tab。 */
   private renderSafeZoneTab(selectedPoint: {  
   /**
- * x：GmMapEditor 内部字段。
+ * x：x相关字段。
  */
  x: number;  
  /**
- * y：GmMapEditor 内部字段。
+ * y：y相关字段。
  */
  y: number } | null): string {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
@@ -1535,11 +1535,11 @@ export class GmMapEditor {
   /** renderLandmarkTab：渲染地标Tab。 */
   private renderLandmarkTab(selectedPoint: {  
   /**
- * x：GmMapEditor 内部字段。
+ * x：x相关字段。
  */
  x: number;  
  /**
- * y：GmMapEditor 内部字段。
+ * y：y相关字段。
  */
  y: number } | null): string {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
@@ -1572,11 +1572,11 @@ export class GmMapEditor {
   /** renderContainerTab：渲染容器Tab。 */
   private renderContainerTab(selectedPoint: {  
   /**
- * x：GmMapEditor 内部字段。
+ * x：x相关字段。
  */
  x: number;  
  /**
- * y：GmMapEditor 内部字段。
+ * y：y相关字段。
  */
  y: number } | null): string {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
@@ -1609,11 +1609,11 @@ export class GmMapEditor {
   /** renderSelectedEntitySection：渲染Selected实体Section。 */
   private renderSelectedEntitySection(selectedPoint: {  
   /**
- * x：GmMapEditor 内部字段。
+ * x：x相关字段。
  */
  x: number;  
  /**
- * y：GmMapEditor 内部字段。
+ * y：y相关字段。
  */
  y: number } | null): string {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
@@ -1945,15 +1945,15 @@ export class GmMapEditor {
   /** getAuraAt：读取灵气At。 */
   private getAuraAt(x: number, y: number): {  
   /**
- * x：GmMapEditor 内部字段。
+ * x：x相关字段。
  */
  x: number;  
  /**
- * y：GmMapEditor 内部字段。
+ * y：y相关字段。
  */
  y: number;  
  /**
- * value：GmMapEditor 内部字段。
+ * value：值数值。
  */
  value: number } | null {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
@@ -1986,11 +1986,11 @@ export class GmMapEditor {
   /** getContainerLandmarks：读取容器Landmarks。 */
   private getContainerLandmarks(): Array<{  
   /**
- * landmark：GmMapEditor 内部字段。
+ * landmark：landmark相关字段。
  */
  landmark: GmMapLandmarkRecord;  
  /**
- * index：GmMapEditor 内部字段。
+ * index：index相关字段。
  */
  index: number }> {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
@@ -2067,15 +2067,15 @@ export class GmMapEditor {
   /** syncInspectorToDraft：同步Inspector To Draft。 */
   private syncInspectorToDraft(): {  
   /**
- * ok：GmMapEditor 内部字段。
+ * ok：ok相关字段。
  */
  ok: true } | {  
  /**
- * ok：GmMapEditor 内部字段。
+ * ok：ok相关字段。
  */
  ok: false;  
  /**
- * message：GmMapEditor 内部字段。
+ * message：message相关字段。
  */
  message: string } {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
@@ -2306,11 +2306,11 @@ export class GmMapEditor {
   /** getComposePieceSize：读取Compose Piece Size。 */
   private getComposePieceSize(piece: MapComposePiece): {  
   /**
- * width：GmMapEditor 内部字段。
+ * width：width相关字段。
  */
  width: number;  
  /**
- * height：GmMapEditor 内部字段。
+ * height：height相关字段。
  */
  height: number } | null {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
@@ -2328,19 +2328,19 @@ export class GmMapEditor {
   /** getComposePieceBounds：读取Compose Piece Bounds。 */
   private getComposePieceBounds(piece: MapComposePiece): {  
   /**
- * x：GmMapEditor 内部字段。
+ * x：x相关字段。
  */
  x: number;  
  /**
- * y：GmMapEditor 内部字段。
+ * y：y相关字段。
  */
  y: number;  
  /**
- * width：GmMapEditor 内部字段。
+ * width：width相关字段。
  */
  width: number;  
  /**
- * height：GmMapEditor 内部字段。
+ * height：height相关字段。
  */
  height: number } | null {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
@@ -2414,10 +2414,10 @@ export class GmMapEditor {
     this.setStatus(`已加入拼图块：${source.name}`);
   }  
   /**
- * updateComposePiece：更新/写入相关状态。
+ * updateComposePiece：处理ComposePiece并更新相关状态。
  * @param pieceId string piece ID。
  * @param updater (piece: MapComposePiece) => MapComposePiece 参数说明。
- * @returns boolean。
+ * @returns 返回是否满足ComposePiece条件。
  */
 
 
@@ -2483,10 +2483,10 @@ export class GmMapEditor {
     this.setStatus('已清空全部拼图块');
   }  
   /**
- * forEachComposePieceTile：执行核心业务逻辑。
+ * forEachComposePieceTile：执行forEachComposePieceTile相关逻辑。
  * @param piece MapComposePiece 参数说明。
  * @param visitor (targetX: number, targetY: number, sourceChar: string) => void 参数说明。
- * @returns void。
+ * @returns 无返回值，直接更新forEachComposePieceTile相关状态。
  */
 
 
@@ -3030,19 +3030,19 @@ export class GmMapEditor {
   /** clampPoint：处理clamp坐标。 */
   private clampPoint(point: {  
   /**
- * x：GmMapEditor 内部字段。
+ * x：x相关字段。
  */
  x: number;  
  /**
- * y：GmMapEditor 内部字段。
+ * y：y相关字段。
  */
  y: number }, width: number, height: number): {  
  /**
- * x：GmMapEditor 内部字段。
+ * x：x相关字段。
  */
  x: number;  
  /**
- * y：GmMapEditor 内部字段。
+ * y：y相关字段。
  */
  y: number } {
     return {
@@ -3054,19 +3054,19 @@ export class GmMapEditor {
   /** findNearestWalkable：查找Nearest Walkable。 */
   private findNearestWalkable(origin: {  
   /**
- * x：GmMapEditor 内部字段。
+ * x：x相关字段。
  */
  x: number;  
  /**
- * y：GmMapEditor 内部字段。
+ * y：y相关字段。
  */
  y: number }): {  
  /**
- * x：GmMapEditor 内部字段。
+ * x：x相关字段。
  */
  x: number;  
  /**
- * y：GmMapEditor 内部字段。
+ * y：y相关字段。
  */
  y: number } | null {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
@@ -3157,7 +3157,7 @@ export class GmMapEditor {
     try {
       await this.request<{      
       /**
- * ok：GmMapEditor 内部字段。
+ * ok：ok相关字段。
  */
  ok: true }>(`${this.mapApiBasePath}/${encodeURIComponent(this.selectedMapId)}`, {
         method: 'PUT',
@@ -3486,13 +3486,13 @@ export class GmMapEditor {
       .forEach((landmark) => drawLandmark(landmark));
   }  
   /**
- * drawMonsterSpawnOverlay：执行核心业务逻辑。
+ * drawMonsterSpawnOverlay：执行draw怪物SpawnOverlay相关逻辑。
  * @param ctx CanvasRenderingContext2D 上下文信息。
  * @param screenW number 参数说明。
  * @param screenH number 参数说明。
  * @param cellSize number 参数说明。
  * @param spawn GmMapMonsterSpawnRecord 参数说明。
- * @returns void。
+ * @returns 无返回值，直接更新draw怪物SpawnOverlay相关状态。
  */
 
 
@@ -3617,13 +3617,13 @@ export class GmMapEditor {
     ctx.fillText(summary, sx + cellSize / 2, anchorY + 0.5);
   }  
   /**
- * drawSafeZoneOverlay：执行核心业务逻辑。
+ * drawSafeZoneOverlay：执行drawSafeZoneOverlay相关逻辑。
  * @param ctx CanvasRenderingContext2D 上下文信息。
  * @param screenW number 参数说明。
  * @param screenH number 参数说明。
  * @param cellSize number 参数说明。
  * @param zone GmMapSafeZoneRecord 参数说明。
- * @returns void。
+ * @returns 无返回值，直接更新drawSafeZoneOverlay相关状态。
  */
 
 
@@ -3936,11 +3936,11 @@ export class GmMapEditor {
   /** screenToGrid：处理屏幕To Grid。 */
   private screenToGrid(clientX: number, clientY: number): {  
   /**
- * x：GmMapEditor 内部字段。
+ * x：x相关字段。
  */
  x: number;  
  /**
- * y：GmMapEditor 内部字段。
+ * y：y相关字段。
  */
  y: number } | null {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
@@ -4093,12 +4093,12 @@ export class GmMapEditor {
     return changedKeys.size;
   }  
   /**
- * applyResourcePaint：更新/写入相关状态。
+ * applyResourcePaint：处理ResourcePaint并更新相关状态。
  * @param points GridPoint[] 参数说明。
  * @param recordUndo boolean 参数说明。
  * @param overrideValue number 参数说明。
  * @param overrideResourceKey string 参数说明。
- * @returns number。
+ * @returns 返回ResourcePaint。
  */
 
 
@@ -4311,11 +4311,11 @@ export class GmMapEditor {
   /** getSelectedEntityPoint：读取Selected实体坐标。 */
   private getSelectedEntityPoint(): {  
   /**
- * x：GmMapEditor 内部字段。
+ * x：x相关字段。
  */
  x: number;  
  /**
- * y：GmMapEditor 内部字段。
+ * y：y相关字段。
  */
  y: number } | null {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。

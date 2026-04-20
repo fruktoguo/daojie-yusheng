@@ -7,47 +7,47 @@ const { WorldRuntimeAlchemyService } = require("../runtime/world/world-runtime-a
 /**
  * createDeps：构建并返回目标对象。
  * @param log 参数说明。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新Dep相关状态。
  */
 
 
 function createDeps(log) {
     return {    
     /**
- * queuePlayerNotice：执行核心业务逻辑。
+ * queuePlayerNotice：执行queue玩家Notice相关逻辑。
  * @param playerId 玩家 ID。
  * @param message 参数说明。
  * @param kind 参数说明。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新queue玩家Notice相关状态。
  */
 
         queuePlayerNotice(playerId, message, kind) { log.push(['queuePlayerNotice', playerId, message, kind]); },        
         /**
- * getInstanceRuntimeOrThrow：按给定条件读取/查询数据。
- * @returns 函数返回值。
+ * getInstanceRuntimeOrThrow：读取Instance运行态OrThrow。
+ * @returns 无返回值，完成Instance运行态OrThrow的读取/组装。
  */
 
         getInstanceRuntimeOrThrow() {
             return {            
             /**
- * dropGroundItem：执行核心业务逻辑。
- * @returns 函数返回值。
+ * dropGroundItem：执行drop地面道具相关逻辑。
+ * @returns 无返回值，直接更新dropGround道具相关状态。
  */
 
                 dropGroundItem() { log.push(['dropGroundItem']); return { sourceId: 'ground:1' }; },
             };
         },        
         /**
- * spawnGroundItem：执行核心业务逻辑。
- * @returns 函数返回值。
+ * spawnGroundItem：执行spawn地面道具相关逻辑。
+ * @returns 无返回值，直接更新spawnGround道具相关状态。
  */
 
         spawnGroundItem() { log.push(['spawnGroundItem']); },
     };
 }
 /**
- * testStartAlchemy：执行核心业务逻辑。
- * @returns 函数返回值。
+ * testStartAlchemy：执行test开始炼丹相关逻辑。
+ * @returns 无返回值，直接更新testStart炼丹相关状态。
  */
 
 
@@ -55,56 +55,56 @@ function testStartAlchemy() {
     const log = [];
     const playerRuntimeService = {    
     /**
- * getPlayerOrThrow：按给定条件读取/查询数据。
- * @returns 函数返回值。
+ * getPlayerOrThrow：读取玩家OrThrow。
+ * @returns 无返回值，完成玩家OrThrow的读取/组装。
  */
 
         getPlayerOrThrow() { return { playerId: 'player:1', instanceId: 'instance:1', x: 1, y: 2 }; },        
         /**
- * getPlayer：按给定条件读取/查询数据。
- * @returns 函数返回值。
+ * getPlayer：读取玩家。
+ * @returns 无返回值，完成玩家的读取/组装。
  */
 
         getPlayer() { return { playerId: 'player:1' }; },        
         /**
- * receiveInventoryItem：执行核心业务逻辑。
- * @returns 函数返回值。
+ * receiveInventoryItem：执行receive背包道具相关逻辑。
+ * @returns 无返回值，直接更新receive背包道具相关状态。
  */
 
         receiveInventoryItem() { log.push(['receiveInventoryItem']); },
     };
     const craftPanelRuntimeService = {    
     /**
- * startAlchemy：执行核心业务逻辑。
- * @returns 函数返回值。
+ * startAlchemy：执行开始炼丹相关逻辑。
+ * @returns 无返回值，直接更新start炼丹相关状态。
  */
 
         startAlchemy() { return { ok: true, messages: [{ text: '炼丹开始', kind: 'success' }], panelChanged: true, groundDrops: [] }; },        
         /**
  * buildAlchemyPanelPayload：构建并返回目标对象。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新炼丹面板载荷相关状态。
  */
 
         buildAlchemyPanelPayload() { return { ok: true }; },
     };
     const craftMutationService = new WorldRuntimeCraftMutationService(playerRuntimeService, craftPanelRuntimeService, {    
     /**
- * getSocketByPlayerId：按给定条件读取/查询数据。
- * @returns 函数返回值。
+ * getSocketByPlayerId：读取SocketBy玩家ID。
+ * @returns 无返回值，完成SocketBy玩家ID的读取/组装。
  */
 
         getSocketByPlayerId() { return {        
         /**
- * emit：执行核心业务逻辑。
+ * emit：处理emit并更新相关状态。
  * @param event 参数说明。
  * @param payload 载荷参数。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新结果相关状态。
  */
  emit(event, payload) { log.push(['emit', event, payload.ok]); } }; },
     }, {    
     /**
- * prefersNext：执行核心业务逻辑。
- * @returns 函数返回值。
+ * prefersNext：执行preferNext相关逻辑。
+ * @returns 无返回值，直接更新preferNext相关状态。
  */
 
         prefersNext() { return true; },
@@ -117,8 +117,8 @@ function testStartAlchemy() {
     ]);
 }
 /**
- * testDeletePreset：执行核心业务逻辑。
- * @returns 函数返回值。
+ * testDeletePreset：处理testDeletePreset并更新相关状态。
+ * @returns 无返回值，直接更新testDeletePreset相关状态。
  */
 
 
@@ -126,54 +126,54 @@ function testDeletePreset() {
     const log = [];
     const playerRuntimeService = {    
     /**
- * getPlayerOrThrow：按给定条件读取/查询数据。
- * @returns 函数返回值。
+ * getPlayerOrThrow：读取玩家OrThrow。
+ * @returns 无返回值，完成玩家OrThrow的读取/组装。
  */
 
         getPlayerOrThrow() { return { playerId: 'player:1', instanceId: 'instance:1', x: 1, y: 2 }; },        
         /**
- * getPlayer：按给定条件读取/查询数据。
- * @returns 函数返回值。
+ * getPlayer：读取玩家。
+ * @returns 无返回值，完成玩家的读取/组装。
  */
 
         getPlayer() { return { playerId: 'player:1' }; },        
         /**
- * receiveInventoryItem：执行核心业务逻辑。
- * @returns 函数返回值。
+ * receiveInventoryItem：执行receive背包道具相关逻辑。
+ * @returns 无返回值，直接更新receive背包道具相关状态。
  */
 
         receiveInventoryItem() { log.push(['receiveInventoryItem']); },
     };
     const craftPanelRuntimeService = {    
     /**
- * deleteAlchemyPreset：执行核心业务逻辑。
- * @returns 函数返回值。
+ * deleteAlchemyPreset：处理炼丹Preset并更新相关状态。
+ * @returns 无返回值，直接更新炼丹Preset相关状态。
  */
 
         deleteAlchemyPreset() { return { ok: true, messages: [{ text: '预设删除成功', kind: 'info' }], panelChanged: false, groundDrops: [] }; },        
         /**
  * buildAlchemyPanelPayload：构建并返回目标对象。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新炼丹面板载荷相关状态。
  */
 
         buildAlchemyPanelPayload() { return { ok: true }; },
     };
     const craftMutationService = new WorldRuntimeCraftMutationService(playerRuntimeService, craftPanelRuntimeService, {    
     /**
- * getSocketByPlayerId：按给定条件读取/查询数据。
- * @returns 函数返回值。
+ * getSocketByPlayerId：读取SocketBy玩家ID。
+ * @returns 无返回值，完成SocketBy玩家ID的读取/组装。
  */
 
         getSocketByPlayerId() { return {        
         /**
- * emit：执行核心业务逻辑。
- * @returns 函数返回值。
+ * emit：处理emit并更新相关状态。
+ * @returns 无返回值，直接更新结果相关状态。
  */
  emit() { log.push(['emit']); } }; },
     }, {    
     /**
- * prefersNext：执行核心业务逻辑。
- * @returns 函数返回值。
+ * prefersNext：执行preferNext相关逻辑。
+ * @returns 无返回值，直接更新preferNext相关状态。
  */
 
         prefersNext() { return true; },
@@ -185,8 +185,8 @@ function testDeletePreset() {
     ]);
 }
 /**
- * testWorldRuntimeFacadeDispatchStartAlchemy：执行核心业务逻辑。
- * @returns 函数返回值。
+ * testWorldRuntimeFacadeDispatchStartAlchemy：判断test世界运行态FacadeDispatch开始炼丹是否满足条件。
+ * @returns 无返回值，直接更新test世界运行态FacadeDispatchStart炼丹相关状态。
  */
 
 
@@ -195,11 +195,11 @@ function testWorldRuntimeFacadeDispatchStartAlchemy() {
     const runtime = {
         worldRuntimeAlchemyService: {        
         /**
- * dispatchStartAlchemy：处理事件并驱动执行路径。
+ * dispatchStartAlchemy：判断开始炼丹是否满足条件。
  * @param playerId 玩家 ID。
  * @param payload 载荷参数。
  * @param deps 运行时依赖。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新Start炼丹相关状态。
  */
 
             dispatchStartAlchemy(playerId, payload, deps) {
@@ -213,8 +213,8 @@ function testWorldRuntimeFacadeDispatchStartAlchemy() {
     ]);
 }
 /**
- * testWorldRuntimeFacadeDispatchCancelAlchemy：执行核心业务逻辑。
- * @returns 函数返回值。
+ * testWorldRuntimeFacadeDispatchCancelAlchemy：判断test世界运行态FacadeDispatchCancel炼丹是否满足条件。
+ * @returns 无返回值，直接更新test世界运行态FacadeDispatchCancel炼丹相关状态。
  */
 
 
@@ -223,10 +223,10 @@ function testWorldRuntimeFacadeDispatchCancelAlchemy() {
     const runtime = {
         worldRuntimeAlchemyService: {        
         /**
- * dispatchCancelAlchemy：处理事件并驱动执行路径。
+ * dispatchCancelAlchemy：判断Cancel炼丹是否满足条件。
  * @param playerId 玩家 ID。
  * @param deps 运行时依赖。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新Cancel炼丹相关状态。
  */
 
             dispatchCancelAlchemy(playerId, deps) {
@@ -240,8 +240,8 @@ function testWorldRuntimeFacadeDispatchCancelAlchemy() {
     ]);
 }
 /**
- * testWorldRuntimeFacadeDispatchSaveAlchemyPreset：执行核心业务逻辑。
- * @returns 函数返回值。
+ * testWorldRuntimeFacadeDispatchSaveAlchemyPreset：判断test世界运行态FacadeDispatchSave炼丹Preset是否满足条件。
+ * @returns 无返回值，直接更新test世界运行态FacadeDispatchSave炼丹Preset相关状态。
  */
 
 
@@ -250,11 +250,11 @@ function testWorldRuntimeFacadeDispatchSaveAlchemyPreset() {
     const runtime = {
         worldRuntimeAlchemyService: {        
         /**
- * dispatchSaveAlchemyPreset：处理事件并驱动执行路径。
+ * dispatchSaveAlchemyPreset：判断Save炼丹Preset是否满足条件。
  * @param playerId 玩家 ID。
  * @param payload 载荷参数。
  * @param deps 运行时依赖。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新Save炼丹Preset相关状态。
  */
 
             dispatchSaveAlchemyPreset(playerId, payload, deps) {
@@ -268,8 +268,8 @@ function testWorldRuntimeFacadeDispatchSaveAlchemyPreset() {
     ]);
 }
 /**
- * testWorldRuntimeFacadeDispatchDeleteAlchemyPreset：执行核心业务逻辑。
- * @returns 函数返回值。
+ * testWorldRuntimeFacadeDispatchDeleteAlchemyPreset：判断test世界运行态FacadeDispatchDelete炼丹Preset是否满足条件。
+ * @returns 无返回值，直接更新test世界运行态FacadeDispatchDelete炼丹Preset相关状态。
  */
 
 
@@ -278,11 +278,11 @@ function testWorldRuntimeFacadeDispatchDeleteAlchemyPreset() {
     const runtime = {
         worldRuntimeAlchemyService: {        
         /**
- * dispatchDeleteAlchemyPreset：处理事件并驱动执行路径。
+ * dispatchDeleteAlchemyPreset：判断Delete炼丹Preset是否满足条件。
  * @param playerId 玩家 ID。
  * @param presetId preset ID。
  * @param deps 运行时依赖。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新Delete炼丹Preset相关状态。
  */
 
             dispatchDeleteAlchemyPreset(playerId, presetId, deps) {

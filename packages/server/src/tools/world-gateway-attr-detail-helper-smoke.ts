@@ -4,8 +4,8 @@ const assert = require("node:assert/strict");
 
 const { buildAttrDetailBonuses, buildAttrDetailNumericStatBreakdowns } = require("../network/world-gateway-attr-detail.helper");
 /**
- * testAttrDetailBuilders：执行核心业务逻辑。
- * @returns 函数返回值。
+ * testAttrDetailBuilders：构建testAttr详情Builder。
+ * @returns 无返回值，直接更新testAttr详情Builder相关状态。
  */
 
 

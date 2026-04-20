@@ -121,7 +121,7 @@ export class SocketManager {
   /** 释放 Socket 实例并按需清除 token。 */
   private disposeSocket(options: {  
   /**
- * clearToken：SocketManager 内部字段。
+ * clearToken：clearToken标识。
  */
  clearToken: boolean }): void {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
@@ -144,9 +144,9 @@ export class SocketManager {
     this.sendEvent(NEXT_C2S.Hello, {});
   }  
   /**
- * onKick：执行核心业务逻辑。
+ * onKick：执行onKick相关逻辑。
  * @param cb () => void 参数说明。
- * @returns void。
+ * @returns 无返回值，直接更新onKick相关状态。
  */
 
 
@@ -154,9 +154,9 @@ export class SocketManager {
     this.lifecycle.onKick(cb);
   }  
   /**
- * onDisconnect：执行核心业务逻辑。
+ * onDisconnect：判断onDisconnect是否满足条件。
  * @param cb (reason: string) => void 参数说明。
- * @returns void。
+ * @returns 无返回值，直接更新onDisconnect相关状态。
  */
 
 
@@ -164,9 +164,9 @@ export class SocketManager {
     this.lifecycle.onDisconnect(cb);
   }  
   /**
- * onConnectError：执行核心业务逻辑。
+ * onConnectError：执行onConnectError相关逻辑。
  * @param cb (message: string) => void 参数说明。
- * @returns void。
+ * @returns 无返回值，直接更新onConnectError相关状态。
  */
 
 
@@ -187,8 +187,8 @@ export class SocketManager {
     return this.socket?.connected ?? false;
   }  
   /**
- * runtime：执行核心业务逻辑。
- * @returns SocketRuntimeSender。
+ * runtime：读取运行态。
+ * @returns 返回运行态。
  */
 
 
@@ -196,8 +196,8 @@ export class SocketManager {
     return this.runtimeSender;
   }  
   /**
- * panel：执行核心业务逻辑。
- * @returns SocketPanelSender。
+ * panel：读取面板。
+ * @returns 返回面板。
  */
 
 
@@ -205,8 +205,8 @@ export class SocketManager {
     return this.panelSender;
   }  
   /**
- * socialEconomy：执行核心业务逻辑。
- * @returns SocketSocialEconomySender。
+ * socialEconomy：读取socialEconomy。
+ * @returns 返回socialEconomy。
  */
 
 
@@ -214,8 +214,8 @@ export class SocketManager {
     return this.socialEconomySender;
   }  
   /**
- * admin：执行核心业务逻辑。
- * @returns SocketAdminSender。
+ * admin：读取admin。
+ * @returns 返回admin。
  */
 
 

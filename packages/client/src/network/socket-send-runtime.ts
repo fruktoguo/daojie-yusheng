@@ -12,12 +12,12 @@ import type { SocketConnectedGetter, SocketEmitEvent } from './socket-send-types
 
 type RuntimeSenderDeps = {
 /**
- * emitEvent：对象字段。
+ * emitEvent：事件相关字段。
  */
 
   emitEvent: SocketEmitEvent;  
   /**
- * isConnected：对象字段。
+ * isConnected：启用开关或状态标识。
  */
 
   isConnected: SocketConnectedGetter;
@@ -25,16 +25,16 @@ type RuntimeSenderDeps = {
 /**
  * createSocketRuntimeSender：构建并返回目标对象。
  * @param deps RuntimeSenderDeps 运行时依赖。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新Socket运行态Sender相关状态。
  */
 
 
 export function createSocketRuntimeSender(deps: RuntimeSenderDeps) {
   return {  
   /**
- * sendPing：执行核心业务逻辑。
+ * sendPing：执行sendPing相关逻辑。
  * @param clientAt 参数说明。
- * @returns number。
+ * @returns 返回sendPing。
  */
 
     sendPing(clientAt = Date.now()): number {
@@ -42,9 +42,9 @@ export function createSocketRuntimeSender(deps: RuntimeSenderDeps) {
       return clientAt;
     },    
     /**
- * sendMove：执行核心业务逻辑。
+ * sendMove：执行sendMove相关逻辑。
  * @param direction Direction 方向参数。
- * @returns void。
+ * @returns 无返回值，直接更新sendMove相关状态。
  */
 
 
@@ -56,7 +56,7 @@ export function createSocketRuntimeSender(deps: RuntimeSenderDeps) {
       deps.emitEvent(NEXT_C2S.Move, { d: direction });
     },    
     /**
- * sendMoveTo：执行核心业务逻辑。
+ * sendMoveTo：执行sendMoveTo相关逻辑。
  * @param x number X 坐标。
  * @param y number Y 坐标。
  * @param options {
@@ -67,7 +67,7 @@ export function createSocketRuntimeSender(deps: RuntimeSenderDeps) {
         pathStartX?: number;
         pathStartY?: number;
       } 选项参数。
- * @returns void。
+ * @returns 无返回值，直接更新sendMoveTo相关状态。
  */
 
 
@@ -76,32 +76,32 @@ export function createSocketRuntimeSender(deps: RuntimeSenderDeps) {
       y: number,
       options?: {      
       /**
- * ignoreVisibilityLimit：对象字段。
+ * ignoreVisibilityLimit：ignore可见性Limit相关字段。
  */
 
         ignoreVisibilityLimit?: boolean;        
         /**
- * allowNearestReachable：对象字段。
+ * allowNearestReachable：allowNearestReachable相关字段。
  */
 
         allowNearestReachable?: boolean;        
         /**
- * packedPath：对象字段。
+ * packedPath：packed路径相关字段。
  */
 
         packedPath?: string;        
         /**
- * packedPathSteps：对象字段。
+ * packedPathSteps：packed路径Step相关字段。
  */
 
         packedPathSteps?: number;        
         /**
- * pathStartX：对象字段。
+ * pathStartX：路径StartX相关字段。
  */
 
         pathStartX?: number;        
         /**
- * pathStartY：对象字段。
+ * pathStartY：路径StartY相关字段。
  */
 
         pathStartY?: number;
@@ -130,9 +130,9 @@ export function createSocketRuntimeSender(deps: RuntimeSenderDeps) {
       });
     },    
     /**
- * sendNavigateQuest：执行核心业务逻辑。
+ * sendNavigateQuest：执行sendNavigate任务相关逻辑。
  * @param questId string quest ID。
- * @returns void。
+ * @returns 无返回值，直接更新sendNavigate任务相关状态。
  */
 
 
@@ -141,8 +141,8 @@ export function createSocketRuntimeSender(deps: RuntimeSenderDeps) {
       deps.emitEvent(NEXT_C2S.NavigateQuest, { questId });
     },    
     /**
- * sendRequestQuests：执行核心业务逻辑。
- * @returns void。
+ * sendRequestQuests：执行sendRequest任务相关逻辑。
+ * @returns 无返回值，直接更新sendRequest任务相关状态。
  */
 
 
@@ -150,9 +150,9 @@ export function createSocketRuntimeSender(deps: RuntimeSenderDeps) {
       deps.emitEvent(NEXT_C2S.RequestQuests, {});
     },    
     /**
- * sendRequestNpcQuests：执行核心业务逻辑。
+ * sendRequestNpcQuests：执行sendRequestNPC任务相关逻辑。
  * @param npcId string npc ID。
- * @returns void。
+ * @returns 无返回值，直接更新sendRequestNPC任务相关状态。
  */
 
 
@@ -160,10 +160,10 @@ export function createSocketRuntimeSender(deps: RuntimeSenderDeps) {
       deps.emitEvent(NEXT_C2S.RequestNpcQuests, { npcId });
     },    
     /**
- * sendAcceptNpcQuest：执行核心业务逻辑。
+ * sendAcceptNpcQuest：执行sendAcceptNPC任务相关逻辑。
  * @param npcId string npc ID。
  * @param questId string quest ID。
- * @returns void。
+ * @returns 无返回值，直接更新sendAcceptNPC任务相关状态。
  */
 
 
@@ -171,10 +171,10 @@ export function createSocketRuntimeSender(deps: RuntimeSenderDeps) {
       deps.emitEvent(NEXT_C2S.AcceptNpcQuest, { npcId, questId });
     },    
     /**
- * sendSubmitNpcQuest：执行核心业务逻辑。
+ * sendSubmitNpcQuest：执行sendSubmitNPC任务相关逻辑。
  * @param npcId string npc ID。
  * @param questId string quest ID。
- * @returns void。
+ * @returns 无返回值，直接更新sendSubmitNPC任务相关状态。
  */
 
 
@@ -182,10 +182,10 @@ export function createSocketRuntimeSender(deps: RuntimeSenderDeps) {
       deps.emitEvent(NEXT_C2S.SubmitNpcQuest, { npcId, questId });
     },    
     /**
- * sendRequestDetail：执行核心业务逻辑。
+ * sendRequestDetail：执行sendRequest详情相关逻辑。
  * @param kind NEXT_C2S_EventPayload<typeof NEXT_C2S.RequestDetail>['kind'] 参数说明。
  * @param id string 参数说明。
- * @returns void。
+ * @returns 无返回值，直接更新sendRequest详情相关状态。
  */
 
 
@@ -196,10 +196,10 @@ export function createSocketRuntimeSender(deps: RuntimeSenderDeps) {
       deps.emitEvent(NEXT_C2S.RequestDetail, { kind, id });
     },    
     /**
- * sendInspectTileRuntime：执行核心业务逻辑。
+ * sendInspectTileRuntime：执行sendInspectTile运行态相关逻辑。
  * @param x number X 坐标。
  * @param y number Y 坐标。
- * @returns void。
+ * @returns 无返回值，直接更新sendInspectTile运行态相关状态。
  */
 
 
@@ -207,9 +207,9 @@ export function createSocketRuntimeSender(deps: RuntimeSenderDeps) {
       deps.emitEvent(NEXT_C2S.RequestTileDetail, { x, y });
     },    
     /**
- * sendCultivate：执行核心业务逻辑。
+ * sendCultivate：执行sendCultivate相关逻辑。
  * @param techId string | null tech ID。
- * @returns void。
+ * @returns 无返回值，直接更新sendCultivate相关状态。
  */
 
 
@@ -217,10 +217,10 @@ export function createSocketRuntimeSender(deps: RuntimeSenderDeps) {
       deps.emitEvent(NEXT_C2S.Cultivate, { techId });
     },    
     /**
- * sendCastSkill：执行核心业务逻辑。
+ * sendCastSkill：执行sendCast技能相关逻辑。
  * @param skillId string skill ID。
  * @param target string 目标对象。
- * @returns void。
+ * @returns 无返回值，直接更新sendCast技能相关状态。
  */
 
 
@@ -240,10 +240,10 @@ export function createSocketRuntimeSender(deps: RuntimeSenderDeps) {
       deps.emitEvent(NEXT_C2S.CastSkill, payload);
     },    
     /**
- * sendHeavenGateAction：执行核心业务逻辑。
+ * sendHeavenGateAction：执行sendHeavenGateAction相关逻辑。
  * @param action NEXT_C2S_EventPayload<typeof NEXT_C2S.HeavenGateAction>['action'] 参数说明。
  * @param element NEXT_C2S_EventPayload<typeof NEXT_C2S.HeavenGateAction>['element'] 参数说明。
- * @returns void。
+ * @returns 无返回值，直接更新sendHeavenGateAction相关状态。
  */
 
 
@@ -254,10 +254,10 @@ export function createSocketRuntimeSender(deps: RuntimeSenderDeps) {
       deps.emitEvent(NEXT_C2S.HeavenGateAction, { action, element });
     },    
     /**
- * sendAction：执行核心业务逻辑。
+ * sendAction：执行sendAction相关逻辑。
  * @param actionId string action ID。
  * @param target string 目标对象。
- * @returns void。
+ * @returns 无返回值，直接更新sendAction相关状态。
  */
 
 
@@ -271,9 +271,9 @@ export function createSocketRuntimeSender(deps: RuntimeSenderDeps) {
       deps.emitEvent(NEXT_C2S.UseAction, { actionId, target });
     },    
     /**
- * sendUpdateAutoBattleSkills：执行核心业务逻辑。
+ * sendUpdateAutoBattleSkills：处理sendUpdateAutoBattle技能并更新相关状态。
  * @param skills NEXT_C2S_EventPayload<typeof NEXT_C2S.UpdateAutoBattleSkills>['skills'] 参数说明。
- * @returns void。
+ * @returns 无返回值，直接更新sendUpdateAutoBattle技能相关状态。
  */
 
 
@@ -281,9 +281,9 @@ export function createSocketRuntimeSender(deps: RuntimeSenderDeps) {
       deps.emitEvent(NEXT_C2S.UpdateAutoBattleSkills, { skills });
     },    
     /**
- * sendUpdateAutoUsePills：执行核心业务逻辑。
+ * sendUpdateAutoUsePills：处理sendUpdateAutoUsePill并更新相关状态。
  * @param pills NEXT_C2S_EventPayload<typeof NEXT_C2S.UpdateAutoUsePills>['pills'] 参数说明。
- * @returns void。
+ * @returns 无返回值，直接更新sendUpdateAutoUsePill相关状态。
  */
 
 
@@ -291,9 +291,9 @@ export function createSocketRuntimeSender(deps: RuntimeSenderDeps) {
       deps.emitEvent(NEXT_C2S.UpdateAutoUsePills, { pills });
     },    
     /**
- * sendUpdateCombatTargetingRules：执行核心业务逻辑。
+ * sendUpdateCombatTargetingRules：读取sendUpdate战斗TargetingRule并返回结果。
  * @param combatTargetingRules NEXT_C2S_EventPayload<typeof NEXT_C2S.UpdateCombatTargetingRules>['combatTargetingRules'] 参数说明。
- * @returns void。
+ * @returns 无返回值，直接更新sendUpdate战斗TargetingRule相关状态。
  */
 
 
@@ -303,9 +303,9 @@ export function createSocketRuntimeSender(deps: RuntimeSenderDeps) {
       deps.emitEvent(NEXT_C2S.UpdateCombatTargetingRules, { combatTargetingRules });
     },    
     /**
- * sendUpdateAutoBattleTargetingMode：执行核心业务逻辑。
+ * sendUpdateAutoBattleTargetingMode：读取sendUpdateAutoBattleTargetingMode并返回结果。
  * @param mode NEXT_C2S_EventPayload<typeof NEXT_C2S.UpdateAutoBattleTargetingMode>['mode'] 参数说明。
- * @returns void。
+ * @returns 无返回值，直接更新sendUpdateAutoBattleTargetingMode相关状态。
  */
 
 
@@ -313,10 +313,10 @@ export function createSocketRuntimeSender(deps: RuntimeSenderDeps) {
       deps.emitEvent(NEXT_C2S.UpdateAutoBattleTargetingMode, { mode });
     },    
     /**
- * sendUpdateTechniqueSkillAvailability：执行核心业务逻辑。
+ * sendUpdateTechniqueSkillAvailability：处理sendUpdate功法技能Availability并更新相关状态。
  * @param techId string tech ID。
  * @param enabled boolean 参数说明。
- * @returns void。
+ * @returns 无返回值，直接更新sendUpdate功法技能Availability相关状态。
  */
 
 

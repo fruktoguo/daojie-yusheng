@@ -6,12 +6,12 @@ import { createHmac, timingSafeEqual } from 'node:crypto';
 
 interface JwtHeader extends Record<string, unknown> {
 /**
- * alg：JwtHeader 内部字段。
+ * alg：alg相关字段。
  */
 
   alg?: unknown;  
   /**
- * typ：JwtHeader 内部字段。
+ * typ：typ相关字段。
  */
 
   typ?: unknown;
@@ -23,12 +23,12 @@ interface JwtHeader extends Record<string, unknown> {
 
 export interface PlayerTokenPayloadVerificationResult {
 /**
- * payload：PlayerTokenPayloadVerificationResult 内部字段。
+ * payload：载荷状态或数据块。
  */
 
   payload: Record<string, unknown> | null;  
   /**
- * reason：PlayerTokenPayloadVerificationResult 内部字段。
+ * reason：reason相关字段。
  */
 
   reason: string | null;

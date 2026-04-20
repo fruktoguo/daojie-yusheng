@@ -38,22 +38,22 @@ exports.WorldRuntimeNavigationService = void 0;
 /** movement/navigation 状态域服务：承接导航意图状态与路径物化。 */
 let WorldRuntimeNavigationService = class WorldRuntimeNavigationService {
 /**
- * templateRepository：对象字段。
+ * templateRepository：template仓储引用。
  */
 
     templateRepository;    
     /**
- * playerRuntimeService：对象字段。
+ * playerRuntimeService：玩家运行态服务引用。
  */
 
     playerRuntimeService;    
     /**
- * logger：对象字段。
+ * logger：日志器引用。
  */
 
     logger = new common_1.Logger(WorldRuntimeNavigationService.name);    
     /**
- * navigationIntents：对象字段。
+ * navigationIntents：导航Intent相关字段。
  */
 
     navigationIntents = new Map();    
@@ -61,7 +61,7 @@ let WorldRuntimeNavigationService = class WorldRuntimeNavigationService {
  * 构造器：初始化 当前 实例并建立基础状态。
  * @param templateRepository 参数说明。
  * @param playerRuntimeService 参数说明。
- * @returns 无返回值（构造函数）。
+ * @returns 无返回值，完成实例初始化。
  */
 
     constructor(templateRepository, playerRuntimeService) {
@@ -69,45 +69,45 @@ let WorldRuntimeNavigationService = class WorldRuntimeNavigationService {
         this.playerRuntimeService = playerRuntimeService;
     }    
     /**
- * clearNavigationIntent：执行核心业务逻辑。
+ * clearNavigationIntent：执行clear导航Intent相关逻辑。
  * @param playerId 玩家 ID。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新clear导航Intent相关状态。
  */
 
     clearNavigationIntent(playerId) {
         this.navigationIntents.delete(playerId);
     }    
     /**
- * hasNavigationIntent：执行状态校验并返回判断结果。
+ * hasNavigationIntent：判断导航Intent是否满足条件。
  * @param playerId 玩家 ID。
- * @returns 函数返回值。
+ * @returns 无返回值，完成导航Intent的条件判断。
  */
 
     hasNavigationIntent(playerId) {
         return this.navigationIntents.has(playerId);
     }    
     /**
- * getBlockedPlayerIds：按给定条件读取/查询数据。
- * @returns 函数返回值。
+ * getBlockedPlayerIds：读取Blocked玩家ID。
+ * @returns 无返回值，完成Blocked玩家ID的读取/组装。
  */
 
     getBlockedPlayerIds() {
         return this.navigationIntents.size > 0 ? new Set(this.navigationIntents.keys()) : undefined;
     }    
     /**
- * reset：执行核心业务逻辑。
- * @returns 函数返回值。
+ * reset：执行reset相关逻辑。
+ * @returns 无返回值，直接更新reset相关状态。
  */
 
     reset() {
         this.navigationIntents.clear();
     }    
     /**
- * enqueueMove：执行核心业务逻辑。
+ * enqueueMove：处理Move并更新相关状态。
  * @param playerId 玩家 ID。
  * @param directionInput 参数说明。
  * @param deps 运行时依赖。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新Move相关状态。
  */
 
     enqueueMove(playerId, directionInput, deps) {
@@ -130,7 +130,7 @@ let WorldRuntimeNavigationService = class WorldRuntimeNavigationService {
         return deps.getPlayerViewOrThrow(playerId);
     }    
     /**
- * enqueueMoveTo：执行核心业务逻辑。
+ * enqueueMoveTo：处理MoveTo并更新相关状态。
  * @param playerId 玩家 ID。
  * @param xInput 参数说明。
  * @param yInput 参数说明。
@@ -140,7 +140,7 @@ let WorldRuntimeNavigationService = class WorldRuntimeNavigationService {
  * @param pathStartXInput 参数说明。
  * @param pathStartYInput 参数说明。
  * @param deps 运行时依赖。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新MoveTo相关状态。
  */
 
     enqueueMoveTo(playerId, xInput, yInput, allowNearestReachableInput, packedPathInput, packedPathStepsInput, pathStartXInput, pathStartYInput, deps) {
@@ -177,10 +177,10 @@ let WorldRuntimeNavigationService = class WorldRuntimeNavigationService {
         return deps.getPlayerViewOrThrow(playerId);
     }    
     /**
- * usePortal：执行核心业务逻辑。
+ * usePortal：执行use传送门相关逻辑。
  * @param playerId 玩家 ID。
  * @param deps 运行时依赖。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新usePortal相关状态。
  */
 
     usePortal(playerId, deps) {
@@ -191,11 +191,11 @@ let WorldRuntimeNavigationService = class WorldRuntimeNavigationService {
         return deps.getPlayerViewOrThrow(playerId);
     }    
     /**
- * navigateQuest：执行核心业务逻辑。
+ * navigateQuest：执行navigate任务相关逻辑。
  * @param playerId 玩家 ID。
  * @param questIdInput 参数说明。
  * @param deps 运行时依赖。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新navigate任务相关状态。
  */
 
     navigateQuest(playerId, questIdInput, deps) {
@@ -211,10 +211,10 @@ let WorldRuntimeNavigationService = class WorldRuntimeNavigationService {
         return deps.getPlayerViewOrThrow(playerId);
     }    
     /**
- * interruptManualNavigation：执行核心业务逻辑。
+ * interruptManualNavigation：执行interruptManual导航相关逻辑。
  * @param playerId 玩家 ID。
  * @param deps 运行时依赖。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新interruptManual导航相关状态。
  */
 
     interruptManualNavigation(playerId, deps) {
@@ -223,10 +223,10 @@ let WorldRuntimeNavigationService = class WorldRuntimeNavigationService {
         deps.cancelPendingInstanceCommand(playerId);
     }    
     /**
- * getLegacyNavigationPath：按给定条件读取/查询数据。
+ * getLegacyNavigationPath：读取Legacy导航路径。
  * @param playerId 玩家 ID。
  * @param deps 运行时依赖。
- * @returns 函数返回值。
+ * @returns 无返回值，完成Legacy导航路径的读取/组装。
  */
 
     getLegacyNavigationPath(playerId, deps) {
@@ -265,10 +265,10 @@ let WorldRuntimeNavigationService = class WorldRuntimeNavigationService {
         }
     }    
     /**
- * handleTransfer：处理事件并驱动执行路径。
+ * handleTransfer：处理Transfer并更新相关状态。
  * @param transfer 参数说明。
  * @param deps 运行时依赖。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新Transfer相关状态。
  */
 
     handleTransfer(transfer, deps) {
@@ -281,9 +281,9 @@ let WorldRuntimeNavigationService = class WorldRuntimeNavigationService {
         deps.queuePlayerNotice(transfer.playerId, `${transfer.reason === 'manual_portal' ? '通过界门' : '穿过灵脉'}抵达 ${deps.getOrCreatePublicInstance(transfer.targetMapId).template.name}`, 'travel');
     }    
     /**
- * materializeNavigationCommands：执行核心业务逻辑。
+ * materializeNavigationCommands：执行materialize导航Command相关逻辑。
  * @param deps 运行时依赖。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新materialize导航Command相关状态。
  */
 
     materializeNavigationCommands(deps) {
@@ -330,14 +330,14 @@ let WorldRuntimeNavigationService = class WorldRuntimeNavigationService {
         }
     }    
     /**
- * dispatchMoveTo：处理事件并驱动执行路径。
+ * dispatchMoveTo：判断MoveTo是否满足条件。
  * @param playerId 玩家 ID。
  * @param x X 坐标。
  * @param y Y 坐标。
  * @param allowNearestReachable 参数说明。
  * @param clientPathHint 参数说明。
  * @param deps 运行时依赖。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新MoveTo相关状态。
  */
 
     dispatchMoveTo(playerId, x, y, allowNearestReachable, clientPathHint = null, deps) {
@@ -381,11 +381,11 @@ let WorldRuntimeNavigationService = class WorldRuntimeNavigationService {
         });
     }    
     /**
- * resolveNavigationStep：执行核心业务逻辑。
+ * resolveNavigationStep：规范化或转换导航Step。
  * @param playerId 玩家 ID。
  * @param intent 参数说明。
  * @param deps 运行时依赖。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新导航Step相关状态。
  */
 
     resolveNavigationStep(playerId, intent, deps) {
@@ -455,11 +455,11 @@ let WorldRuntimeNavigationService = class WorldRuntimeNavigationService {
         return { kind: 'move', direction, maxSteps: pathResult.points.length, path: pathResult.points.map((entry) => ({ x: entry.x, y: entry.y })) };
     }    
     /**
- * resolveNavigationDestination：执行核心业务逻辑。
+ * resolveNavigationDestination：规范化或转换导航Destination。
  * @param playerId 玩家 ID。
  * @param intent 参数说明。
  * @param deps 运行时依赖。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新导航Destination相关状态。
  */
 
     resolveNavigationDestination(playerId, intent, deps) {
@@ -493,10 +493,10 @@ let WorldRuntimeNavigationService = class WorldRuntimeNavigationService {
         return { mapId: resolved.mapId, goals };
     }    
     /**
- * findMapRoute：执行核心业务逻辑。
+ * findMapRoute：读取地图路线并返回结果。
  * @param fromMapId fromMap ID。
  * @param toMapId toMap ID。
- * @returns 函数返回值。
+ * @returns 无返回值，完成地图路线的读取/组装。
  */
 
     findMapRoute(fromMapId, toMapId) {
@@ -532,13 +532,13 @@ exports.WorldRuntimeNavigationService = WorldRuntimeNavigationService = __decora
         player_runtime_service_1.PlayerRuntimeService])
 ], WorldRuntimeNavigationService);
 /**
- * findPathPointsOnMap：执行核心业务逻辑。
+ * findPathPointsOnMap：读取路径PointOn地图并返回结果。
  * @param instance 地图实例。
  * @param playerId 玩家 ID。
  * @param startX 参数说明。
  * @param startY 参数说明。
  * @param goals 参数说明。
- * @returns 函数返回值。
+ * @returns 无返回值，完成路径PointOn地图的读取/组装。
  */
 
 

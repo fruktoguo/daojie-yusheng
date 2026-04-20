@@ -6,7 +6,7 @@ const { WorldSyncAuxStateService } = require("../network/world-sync-aux-state.se
 /**
  * createService：构建并返回目标对象。
  * @param log 参数说明。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新服务相关状态。
  */
 
 
@@ -19,9 +19,9 @@ function createService(log = []) {
     };
     const service = new WorldSyncAuxStateService({    
     /**
- * getOrThrow：按给定条件读取/查询数据。
+ * getOrThrow：读取OrThrow。
  * @param mapId 地图 ID。
- * @returns 函数返回值。
+ * @returns 无返回值，完成OrThrow的读取/组装。
  */
 
         getOrThrow(mapId) {
@@ -31,7 +31,7 @@ function createService(log = []) {
     }, {    
     /**
  * buildRenderEntitiesSnapshot：构建并返回目标对象。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新RenderEntity快照相关状态。
  */
 
         buildRenderEntitiesSnapshot() {
@@ -39,7 +39,7 @@ function createService(log = []) {
         },        
         /**
  * buildMinimapLibrarySync：构建并返回目标对象。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新MinimapLibrarySync相关状态。
  */
 
         buildMinimapLibrarySync() {
@@ -47,7 +47,7 @@ function createService(log = []) {
         },        
         /**
  * buildGameTimeState：构建并返回目标对象。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新Game时间状态相关状态。
  */
 
         buildGameTimeState() {
@@ -64,7 +64,7 @@ function createService(log = []) {
         /**
  * buildMapMetaSync：构建并返回目标对象。
  * @param template 参数说明。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新地图MetaSync相关状态。
  */
 
         buildMapMetaSync(template) {
@@ -73,7 +73,7 @@ function createService(log = []) {
     }, {    
     /**
  * buildInitialMapStaticState：构建并返回目标对象。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新Initial地图Static状态相关状态。
  */
 
         buildInitialMapStaticState() {
@@ -85,7 +85,7 @@ function createService(log = []) {
         },        
         /**
  * buildDeltaMapStaticPlan：构建并返回目标对象。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新Delta地图StaticPlan相关状态。
  */
 
         buildDeltaMapStaticPlan() {
@@ -100,19 +100,19 @@ function createService(log = []) {
             };
         },        
         /**
- * commitPlayerCache：执行核心业务逻辑。
+ * commitPlayerCache：执行commit玩家缓存相关逻辑。
  * @param playerId 玩家 ID。
  * @param cacheState 参数说明。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新commit玩家缓存相关状态。
  */
 
         commitPlayerCache(playerId, cacheState) {
             log.push(['commitPlayerCache', playerId, cacheState.phase]);
         },        
         /**
- * clearPlayerCache：执行核心业务逻辑。
+ * clearPlayerCache：执行clear玩家缓存相关逻辑。
  * @param playerId 玩家 ID。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新clear玩家缓存相关状态。
  */
 
         clearPlayerCache(playerId) {
@@ -122,7 +122,7 @@ function createService(log = []) {
     /**
  * buildMinimapSnapshotSync：构建并返回目标对象。
  * @param template 参数说明。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新Minimap快照Sync相关状态。
  */
 
         buildMinimapSnapshotSync(template) {
@@ -130,40 +130,40 @@ function createService(log = []) {
         },
     }, {    
     /**
- * sendBootstrap：执行核心业务逻辑。
+ * sendBootstrap：执行send引导相关逻辑。
  * @param socket 参数说明。
  * @param payload 载荷参数。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新sendBootstrap相关状态。
  */
 
         sendBootstrap(socket, payload) {
             log.push(['sendBootstrap', socket.id, payload.self.unlockedMinimapIds]);
         },        
         /**
- * sendMapStatic：执行核心业务逻辑。
+ * sendMapStatic：执行send地图Static相关逻辑。
  * @param socket 参数说明。
  * @param payload 载荷参数。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新send地图Static相关状态。
  */
 
         sendMapStatic(socket, payload) {
             log.push(['sendMapStatic', socket.id, Boolean(payload.tiles), Boolean(payload.tilePatches)]);
         },        
         /**
- * sendRealm：执行核心业务逻辑。
+ * sendRealm：执行sendRealm相关逻辑。
  * @param socket 参数说明。
  * @param payload 载荷参数。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新sendRealm相关状态。
  */
 
         sendRealm(socket, payload) {
             log.push(['sendRealm', socket.id, payload.realm?.stage ?? null]);
         },        
         /**
- * sendLootWindow：执行核心业务逻辑。
+ * sendLootWindow：执行send掉落窗口相关逻辑。
  * @param socket 参数说明。
  * @param payload 载荷参数。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新send掉落窗口相关状态。
  */
 
         sendLootWindow(socket, payload) {
@@ -172,7 +172,7 @@ function createService(log = []) {
     }, {    
     /**
  * buildLootWindowSyncState：构建并返回目标对象。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新掉落窗口Sync状态相关状态。
  */
 
         buildLootWindowSyncState() {
@@ -181,18 +181,18 @@ function createService(log = []) {
     }, {    
     /**
  * buildThreatArrows：构建并返回目标对象。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新ThreatArrow相关状态。
  */
 
         buildThreatArrows() {
             return [['monster:1', 'player:1']];
         },        
         /**
- * emitInitialThreatSync：执行核心业务逻辑。
+ * emitInitialThreatSync：处理InitialThreat同步并更新相关状态。
  * @param socket 参数说明。
  * @param view 参数说明。
  * @param threatArrows 参数说明。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新InitialThreatSync相关状态。
  */
 
         emitInitialThreatSync(socket, view, threatArrows) {
@@ -200,12 +200,12 @@ function createService(log = []) {
             return threatArrows;
         },        
         /**
- * emitDeltaThreatSync：执行核心业务逻辑。
+ * emitDeltaThreatSync：处理增量Threat同步并更新相关状态。
  * @param socket 参数说明。
  * @param view 参数说明。
  * @param previousThreatArrows 参数说明。
  * @param mapChanged 参数说明。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新DeltaThreatSync相关状态。
  */
 
         emitDeltaThreatSync(socket, view, previousThreatArrows, mapChanged) {
@@ -218,7 +218,7 @@ function createService(log = []) {
  * @param _player 参数说明。
  * @param _view 参数说明。
  * @param unlockedMinimapIds unlockedMinimap ID 集合。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新玩家Sync状态相关状态。
  */
 
         buildPlayerSyncState(_player, _view, unlockedMinimapIds) {
@@ -231,9 +231,9 @@ function createService(log = []) {
     return {
         service,        
         /**
- * setLootWindow：更新/写入相关状态。
+ * setLootWindow：写入掉落窗口。
  * @param nextLootWindow 参数说明。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新掉落窗口相关状态。
  */
 
         setLootWindow(nextLootWindow) {
@@ -245,7 +245,7 @@ function createService(log = []) {
  * createPlayer：构建并返回目标对象。
  * @param stage 参数说明。
  * @param progress 参数说明。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新玩家相关状态。
  */
 
 
@@ -276,7 +276,7 @@ function createPlayer(stage = '炼气', progress = 10) {
 /**
  * createView：构建并返回目标对象。
  * @param tick 当前 tick。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新视图相关状态。
  */
 
 
@@ -290,8 +290,8 @@ function createView(tick = 10) {
     };
 }
 /**
- * testAuxStateSync：执行核心业务逻辑。
- * @returns 函数返回值。
+ * testAuxStateSync：处理testAux状态同步并更新相关状态。
+ * @returns 无返回值，直接更新testAux状态Sync相关状态。
  */
 
 

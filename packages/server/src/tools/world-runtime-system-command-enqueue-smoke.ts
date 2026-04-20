@@ -6,16 +6,16 @@ const { WorldRuntimeSystemCommandEnqueueService } = require("../runtime/world/wo
 /**
  * createQueue：构建并返回目标对象。
  * @param log 参数说明。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新Queue相关状态。
  */
 
 
 function createQueue(log = []) {
     return {    
     /**
- * enqueueSystemCommand：执行核心业务逻辑。
+ * enqueueSystemCommand：处理SystemCommand并更新相关状态。
  * @param command 输入指令。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新SystemCommand相关状态。
  */
 
         enqueueSystemCommand(command) {
@@ -23,9 +23,9 @@ function createQueue(log = []) {
             return { queued: true };
         },        
         /**
- * enqueueGmUpdatePlayer：执行核心业务逻辑。
+ * enqueueGmUpdatePlayer：处理GMUpdate玩家并更新相关状态。
  * @param input 输入参数。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新GMUpdate玩家相关状态。
  */
 
         enqueueGmUpdatePlayer(input) {
@@ -33,9 +33,9 @@ function createQueue(log = []) {
             return { queued: true };
         },        
         /**
- * enqueueGmResetPlayer：执行核心业务逻辑。
+ * enqueueGmResetPlayer：处理GMReset玩家并更新相关状态。
  * @param playerId 玩家 ID。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新GMReset玩家相关状态。
  */
 
         enqueueGmResetPlayer(playerId) {
@@ -43,10 +43,10 @@ function createQueue(log = []) {
             return { queued: true };
         },        
         /**
- * enqueueGmSpawnBots：执行核心业务逻辑。
+ * enqueueGmSpawnBots：处理GMSpawnBot并更新相关状态。
  * @param anchorPlayerId anchorPlayer ID。
  * @param count 数量。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新GMSpawnBot相关状态。
  */
 
         enqueueGmSpawnBots(anchorPlayerId, count) {
@@ -54,10 +54,10 @@ function createQueue(log = []) {
             return { queued: true };
         },        
         /**
- * enqueueGmRemoveBots：执行核心业务逻辑。
+ * enqueueGmRemoveBots：处理GMRemoveBot并更新相关状态。
  * @param playerIds player ID 集合。
  * @param all 参数说明。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新GMRemoveBot相关状态。
  */
 
         enqueueGmRemoveBots(playerIds, all) {
@@ -69,16 +69,16 @@ function createQueue(log = []) {
 /**
  * createDeps：构建并返回目标对象。
  * @param log 参数说明。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新Dep相关状态。
  */
 
 
 function createDeps(log = []) {
     return {    
     /**
- * getInstanceRuntimeOrThrow：按给定条件读取/查询数据。
+ * getInstanceRuntimeOrThrow：读取Instance运行态OrThrow。
  * @param instanceId instance ID。
- * @returns 函数返回值。
+ * @returns 无返回值，完成Instance运行态OrThrow的读取/组装。
  */
 
         getInstanceRuntimeOrThrow(instanceId) {
@@ -86,9 +86,9 @@ function createDeps(log = []) {
             return { meta: { instanceId } };
         },        
         /**
- * getPlayerLocationOrThrow：按给定条件读取/查询数据。
+ * getPlayerLocationOrThrow：读取玩家位置OrThrow。
  * @param playerId 玩家 ID。
- * @returns 函数返回值。
+ * @returns 无返回值，完成玩家位置OrThrow的读取/组装。
  */
 
         getPlayerLocationOrThrow(playerId) {
@@ -98,8 +98,8 @@ function createDeps(log = []) {
     };
 }
 /**
- * testSpawnMonsterLootQueue：执行核心业务逻辑。
- * @returns 函数返回值。
+ * testSpawnMonsterLootQueue：执行testSpawn怪物掉落Queue相关逻辑。
+ * @returns 无返回值，直接更新testSpawn怪物掉落Queue相关状态。
  */
 
 
@@ -123,8 +123,8 @@ function testSpawnMonsterLootQueue() {
     ]);
 }
 /**
- * testDamagePlayerQueue：执行核心业务逻辑。
- * @returns 函数返回值。
+ * testDamagePlayerQueue：执行testDamage玩家Queue相关逻辑。
+ * @returns 无返回值，直接更新testDamage玩家Queue相关状态。
  */
 
 
@@ -144,8 +144,8 @@ function testDamagePlayerQueue() {
     ]);
 }
 /**
- * testGmDelegations：执行核心业务逻辑。
- * @returns 函数返回值。
+ * testGmDelegations：执行testGMDelegation相关逻辑。
+ * @returns 无返回值，直接更新testGMDelegation相关状态。
  */
 
 

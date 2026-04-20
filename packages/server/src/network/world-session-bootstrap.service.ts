@@ -144,7 +144,7 @@ let WorldSessionBootstrapService = class WorldSessionBootstrapService {
  * @param worldSessionService 参数说明。
  * @param worldSyncService 参数说明。
  * @param worldClientEventService 参数说明。
- * @returns 无返回值（构造函数）。
+ * @returns 无返回值，完成实例初始化。
  */
 
     constructor(worldPlayerAuthService, worldPlayerSnapshotService, worldGmAuthService, playerRuntimeService, mailRuntimeService, suggestionRuntimeService, worldRuntimeService, worldSessionService, worldSyncService, worldClientEventService) {

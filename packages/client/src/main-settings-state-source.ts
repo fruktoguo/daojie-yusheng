@@ -11,17 +11,17 @@ import { SettingsPanel } from './ui/panels/settings-panel';
 
 type PendingRedeemCodesRequest = {
 /**
- * resolve：对象字段。
+ * resolve：resolve相关字段。
  */
 
   resolve: (value: AccountRedeemCodesRes) => void;  
   /**
- * reject：对象字段。
+ * reject：reject相关字段。
  */
 
   reject: (reason?: unknown) => void;  
   /**
- * timeoutId：对象字段。
+ * timeoutId：超时ID标识。
  */
 
   timeoutId: ReturnType<typeof setTimeout>;
@@ -33,72 +33,72 @@ type PendingRedeemCodesRequest = {
 
 type MainSettingsStateSourceOptions = {
 /**
- * settingsPanel：对象字段。
+ * settingsPanel：setting面板相关字段。
  */
 
   settingsPanel: SettingsPanel;  
   /**
- * getCurrentAccountName：对象字段。
+ * getCurrentAccountName：CurrentAccount名称名称或显示文本。
  */
 
   getCurrentAccountName: () => string;  
   /**
- * getPlayer：对象字段。
+ * getPlayer：玩家引用。
  */
 
   getPlayer: () => PlayerState | null;  
   /**
- * applyVisibleDisplayName：对象字段。
+ * applyVisibleDisplayName：可见显示名称名称或显示文本。
  */
 
   applyVisibleDisplayName: (playerId: string, displayName: string) => void;  
   /**
- * applyVisibleRoleName：对象字段。
+ * applyVisibleRoleName：可见Role名称名称或显示文本。
  */
 
   applyVisibleRoleName: (playerId: string, roleName: string) => void;  
   /**
- * syncPlayerBridgeState：对象字段。
+ * syncPlayerBridgeState：玩家桥接状态状态或数据块。
  */
 
   syncPlayerBridgeState: (player: PlayerState | null) => void;  
   /**
- * refreshHudChrome：对象字段。
+ * refreshHudChrome：refreshHudChrome相关字段。
  */
 
   refreshHudChrome: () => void;  
   /**
- * showToast：对象字段。
+ * showToast：showToast相关字段。
  */
 
   showToast: (message: string) => void;  
   /**
- * isSocketConnected：对象字段。
+ * isSocketConnected：启用开关或状态标识。
  */
 
   isSocketConnected: () => boolean;  
   /**
- * sendRedeemCodes：对象字段。
+ * sendRedeemCodes：sendRedeemCode相关字段。
  */
 
   sendRedeemCodes: (codes: string[]) => void;  
   /**
- * closeSettingsPanel：对象字段。
+ * closeSettingsPanel：closeSetting面板相关字段。
  */
 
   closeSettingsPanel: () => void;  
   /**
- * disconnectSocket：对象字段。
+ * disconnectSocket：disconnectSocket相关字段。
  */
 
   disconnectSocket: () => void;  
   /**
- * resetGameState：对象字段。
+ * resetGameState：resetGame状态状态或数据块。
  */
 
   resetGameState: () => void;  
   /**
- * logout：对象字段。
+ * logout：logout相关字段。
  */
 
   logout: (message: string) => void;
@@ -114,7 +114,7 @@ export type MainSettingsStateSource = ReturnType<typeof createMainSettingsStateS
 /**
  * createMainSettingsStateSource：构建并返回目标对象。
  * @param options MainSettingsStateSourceOptions 选项参数。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新MainSetting状态来源相关状态。
  */
 
 
@@ -186,9 +186,9 @@ export function createMainSettingsStateSource(options: MainSettingsStateSourceOp
 
   return {  
   /**
- * handleRedeemCodesResult：处理事件并驱动执行路径。
+ * handleRedeemCodesResult：处理RedeemCode结果并更新相关状态。
  * @param data NEXT_S2C_RedeemCodesResult 原始数据。
- * @returns void。
+ * @returns 无返回值，直接更新RedeemCode结果相关状态。
  */
 
     handleRedeemCodesResult(data: NEXT_S2C_RedeemCodesResult): void {
@@ -203,9 +203,9 @@ export function createMainSettingsStateSource(options: MainSettingsStateSourceOp
       pending.resolve(data.result);
     },    
     /**
- * rejectPendingRedeemCodes：执行核心业务逻辑。
+ * rejectPendingRedeemCodes：执行reject待处理RedeemCode相关逻辑。
  * @param message string 参数说明。
- * @returns void。
+ * @returns 无返回值，直接更新rejectPendingRedeemCode相关状态。
  */
 
 

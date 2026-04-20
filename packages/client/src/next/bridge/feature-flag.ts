@@ -7,12 +7,12 @@ declare global {
 
   interface Window {  
   /**
- * __MUD_ENABLE_REACT_UI_NEXT__：Window 内部字段。
+ * __MUD_ENABLE_REACT_UI_NEXT__：MUDENABLEREACTUINEXT相关字段。
  */
 
     __MUD_ENABLE_REACT_UI_NEXT__?: boolean;    
     /**
- * __toggleMudReactUiNext__：Window 内部字段。
+ * __toggleMudReactUiNext__：toggleMudReactUiNext相关字段。
  */
 
     __toggleMudReactUiNext__?: (enabled: boolean) => void;
@@ -21,9 +21,9 @@ declare global {
 
 const REACT_UI_NEXT_STORAGE_KEY = 'mud:react-ui-next:enabled';
 /**
- * readStoredFlag：执行核心业务逻辑。
+ * readStoredFlag：读取StoredFlag并返回结果。
  * @param win Window 参数说明。
- * @returns boolean。
+ * @returns 返回是否满足StoredFlag条件。
  */
 
 
@@ -35,9 +35,9 @@ function readStoredFlag(win: Window): boolean {
   }
 }
 /**
- * readQueryFlag：执行核心业务逻辑。
+ * readQueryFlag：读取QueryFlag并返回结果。
  * @param win Window 参数说明。
- * @returns boolean | null。
+ * @returns 返回QueryFlag。
  */
 
 
@@ -55,9 +55,9 @@ function readQueryFlag(win: Window): boolean | null {
   return null;
 }
 /**
- * isReactUiNextEnabled：执行状态校验并返回判断结果。
+ * isReactUiNextEnabled：判断ReactUiNext启用是否满足条件。
  * @param win Window 参数说明。
- * @returns boolean。
+ * @returns 返回是否满足ReactUiNext启用条件。
  */
 
 
@@ -74,10 +74,10 @@ export function isReactUiNextEnabled(win: Window = window): boolean {
   return readStoredFlag(win);
 }
 /**
- * setReactUiNextEnabled：更新/写入相关状态。
+ * setReactUiNextEnabled：写入ReactUiNext启用。
  * @param enabled boolean 参数说明。
  * @param win Window 参数说明。
- * @returns void。
+ * @returns 无返回值，直接更新ReactUiNext启用相关状态。
  */
 
 
@@ -93,9 +93,9 @@ export function setReactUiNextEnabled(enabled: boolean, win: Window = window): v
   shellStore.patchState({ enabled });
 }
 /**
- * registerReactUiNextToggleApi：执行核心业务逻辑。
+ * registerReactUiNextToggleApi：判断registerReactUiNextToggleApi是否满足条件。
  * @param win Window 参数说明。
- * @returns void。
+ * @returns 无返回值，直接更新registerReactUiNextToggleApi相关状态。
  */
 
 

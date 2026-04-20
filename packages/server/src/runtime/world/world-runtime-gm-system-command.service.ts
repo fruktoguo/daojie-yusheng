@@ -23,12 +23,12 @@ const world_runtime_player_combat_outcome_service_1 = require("./world-runtime-p
 /** world-runtime gm-system-command seam：承接 GM system-command 分发与依赖收口。 */
 let WorldRuntimeGmSystemCommandService = class WorldRuntimeGmSystemCommandService {
 /**
- * worldRuntimeGmQueueService：对象字段。
+ * worldRuntimeGmQueueService：世界运行态GMQueue服务引用。
  */
 
     worldRuntimeGmQueueService;    
     /**
- * worldRuntimePlayerCombatOutcomeService：对象字段。
+ * worldRuntimePlayerCombatOutcomeService：世界运行态玩家战斗Outcome服务引用。
  */
 
     worldRuntimePlayerCombatOutcomeService;    
@@ -36,7 +36,7 @@ let WorldRuntimeGmSystemCommandService = class WorldRuntimeGmSystemCommandServic
  * 构造器：初始化 当前 实例并建立基础状态。
  * @param worldRuntimeGmQueueService 参数说明。
  * @param worldRuntimePlayerCombatOutcomeService 参数说明。
- * @returns 无返回值（构造函数）。
+ * @returns 无返回值，完成实例初始化。
  */
 
     constructor(worldRuntimeGmQueueService, worldRuntimePlayerCombatOutcomeService) {
@@ -44,10 +44,10 @@ let WorldRuntimeGmSystemCommandService = class WorldRuntimeGmSystemCommandServic
         this.worldRuntimePlayerCombatOutcomeService = worldRuntimePlayerCombatOutcomeService;
     }    
     /**
- * dispatchGmSystemCommand：处理事件并驱动执行路径。
+ * dispatchGmSystemCommand：判断GMSystemCommand是否满足条件。
  * @param command 输入指令。
  * @param deps 运行时依赖。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新GMSystemCommand相关状态。
  */
 
     dispatchGmSystemCommand(command, deps) {

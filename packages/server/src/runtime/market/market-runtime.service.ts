@@ -34,17 +34,17 @@ const player_runtime_service_1 = require("../player/player-runtime.service");
 /** 坊市运行时：维护挂单、成交、仓库与交易历史。 */
 let MarketRuntimeService = MarketRuntimeService_1 = class MarketRuntimeService {
 /**
- * contentTemplateRepository：对象字段。
+ * contentTemplateRepository：内容Template仓储引用。
  */
 
     contentTemplateRepository;    
     /**
- * playerRuntimeService：对象字段。
+ * playerRuntimeService：玩家运行态服务引用。
  */
 
     playerRuntimeService;    
     /**
- * marketPersistenceService：对象字段。
+ * marketPersistenceService：坊市Persistence服务引用。
  */
 
     marketPersistenceService;
@@ -559,7 +559,7 @@ let MarketRuntimeService = MarketRuntimeService_1 = class MarketRuntimeService {
     }    
     /**
  * buildListedItems：构建并返回目标对象。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新Listed道具相关状态。
  */
 
     buildListedItems() {
@@ -633,7 +633,7 @@ let MarketRuntimeService = MarketRuntimeService_1 = class MarketRuntimeService {
     }    
     /**
  * buildMarketListingEntries：构建并返回目标对象。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新坊市Listing条目相关状态。
  */
 
     buildMarketListingEntries() {
@@ -693,7 +693,7 @@ let MarketRuntimeService = MarketRuntimeService_1 = class MarketRuntimeService {
     /**
  * buildOwnOrders：构建并返回目标对象。
  * @param playerId 玩家 ID。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新Own订单相关状态。
  */
 
     buildOwnOrders(playerId) {
@@ -714,7 +714,7 @@ let MarketRuntimeService = MarketRuntimeService_1 = class MarketRuntimeService {
     /**
  * buildItemBookView：构建并返回目标对象。
  * @param itemKey 参数说明。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新道具Book视图相关状态。
  */
 
     buildItemBookView(itemKey) {
@@ -741,7 +741,7 @@ let MarketRuntimeService = MarketRuntimeService_1 = class MarketRuntimeService {
  * buildPriceLevels：构建并返回目标对象。
  * @param itemKey 参数说明。
  * @param side 参数说明。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新价格等级相关状态。
  */
 
     buildPriceLevels(itemKey, side) {
@@ -769,10 +769,10 @@ let MarketRuntimeService = MarketRuntimeService_1 = class MarketRuntimeService {
         return levels;
     }    
     /**
- * getSortedOrders：按给定条件读取/查询数据。
+ * getSortedOrders：读取Sorted订单。
  * @param itemKey 参数说明。
  * @param side 参数说明。
- * @returns 函数返回值。
+ * @returns 无返回值，完成Sorted订单的读取/组装。
  */
 
     getSortedOrders(itemKey, side) {
@@ -789,11 +789,11 @@ let MarketRuntimeService = MarketRuntimeService_1 = class MarketRuntimeService {
         });
     }    
     /**
- * hasConflictingOpenOrder：执行状态校验并返回判断结果。
+ * hasConflictingOpenOrder：判断ConflictingOpen订单是否满足条件。
  * @param ownerId owner ID。
  * @param itemKey 参数说明。
  * @param nextSide 参数说明。
- * @returns 函数返回值。
+ * @returns 无返回值，完成ConflictingOpen订单的条件判断。
  */
 
     hasConflictingOpenOrder(ownerId, itemKey, nextSide) {
@@ -806,11 +806,11 @@ let MarketRuntimeService = MarketRuntimeService_1 = class MarketRuntimeService {
             && order.remainingQuantity > 0);
     }    
     /**
- * planOrderMatches：执行核心业务逻辑。
+ * planOrderMatches：执行plan订单Matche相关逻辑。
  * @param orders 参数说明。
  * @param quantity 参数说明。
  * @param takerUnitPrice 参数说明。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新plan订单Matche相关状态。
  */
 
     planOrderMatches(orders, quantity, takerUnitPrice) {
@@ -854,10 +854,10 @@ let MarketRuntimeService = MarketRuntimeService_1 = class MarketRuntimeService {
         };
     }    
     /**
- * getCompatibleTradeQuantity：按给定条件读取/查询数据。
+ * getCompatibleTradeQuantity：读取CompatibleTradeQuantity。
  * @param maxQuantity 参数说明。
  * @param unitPrices 参数说明。
- * @returns 函数返回值。
+ * @returns 无返回值，完成CompatibleTradeQuantity的读取/组装。
  */
 
     getCompatibleTradeQuantity(maxQuantity, ...unitPrices) {
@@ -877,10 +877,10 @@ let MarketRuntimeService = MarketRuntimeService_1 = class MarketRuntimeService {
         return Math.floor(maxQuantity / quantityStep) * quantityStep;
     }    
     /**
- * leastCommonMultiple：执行核心业务逻辑。
+ * leastCommonMultiple：执行leastCommonMultiple相关逻辑。
  * @param left 参数说明。
  * @param right 参数说明。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新leastCommonMultiple相关状态。
  */
 
     leastCommonMultiple(left, right) {
@@ -892,10 +892,10 @@ let MarketRuntimeService = MarketRuntimeService_1 = class MarketRuntimeService {
         return (left / this.greatestCommonDivisor(left, right)) * right;
     }    
     /**
- * greatestCommonDivisor：执行核心业务逻辑。
+ * greatestCommonDivisor：判断greatestCommonDivisor是否满足条件。
  * @param left 参数说明。
  * @param right 参数说明。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新greatestCommonDivisor相关状态。
  */
 
     greatestCommonDivisor(left, right) {
@@ -916,7 +916,7 @@ let MarketRuntimeService = MarketRuntimeService_1 = class MarketRuntimeService {
     /**
  * buildItemKey：构建并返回目标对象。
  * @param item 道具。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新道具Key相关状态。
  */
 
     buildItemKey(item) {
@@ -926,9 +926,9 @@ let MarketRuntimeService = MarketRuntimeService_1 = class MarketRuntimeService {
         });
     }    
     /**
- * resolveMarketItemForBuy：执行核心业务逻辑。
+ * resolveMarketItemForBuy：规范化或转换坊市道具ForBuy。
  * @param payload 载荷参数。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新坊市道具ForBuy相关状态。
  */
 
     resolveMarketItemForBuy(payload) {
@@ -948,9 +948,9 @@ let MarketRuntimeService = MarketRuntimeService_1 = class MarketRuntimeService {
         return itemId ? this.contentTemplateRepository.createItem(itemId, 1) : null;
     }    
     /**
- * toOrderItem：执行核心业务逻辑。
+ * toOrderItem：执行to订单道具相关逻辑。
  * @param item 道具。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新to订单道具相关状态。
  */
 
     toOrderItem(item) {
@@ -964,7 +964,7 @@ let MarketRuntimeService = MarketRuntimeService_1 = class MarketRuntimeService {
     /**
  * createCurrencyItem：构建并返回目标对象。
  * @param count 数量。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新Currency道具相关状态。
  */
 
     createCurrencyItem(count) {
@@ -987,9 +987,9 @@ let MarketRuntimeService = MarketRuntimeService_1 = class MarketRuntimeService {
         };
     }    
     /**
- * toFullItem：执行核心业务逻辑。
+ * toFullItem：执行toFull道具相关逻辑。
  * @param item 道具。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新toFull道具相关状态。
  */
 
     toFullItem(item) {
@@ -1021,18 +1021,18 @@ let MarketRuntimeService = MarketRuntimeService_1 = class MarketRuntimeService {
         };
     }    
     /**
- * canTradeItemOnMarket：执行状态校验并返回判断结果。
+ * canTradeItemOnMarket：判断Trade道具On坊市是否满足条件。
  * @param item 道具。
- * @returns 函数返回值。
+ * @returns 无返回值，完成Trade道具On坊市的条件判断。
  */
 
     canTradeItemOnMarket(item) {
         return item.itemId !== market_1.MARKET_CURRENCY_ITEM_ID;
     }    
     /**
- * normalizeQuantity：执行核心业务逻辑。
+ * normalizeQuantity：规范化或转换Quantity。
  * @param value 参数说明。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新Quantity相关状态。
  */
 
     normalizeQuantity(value) {
@@ -1049,9 +1049,9 @@ let MarketRuntimeService = MarketRuntimeService_1 = class MarketRuntimeService {
         return quantity;
     }    
     /**
- * normalizeUnitPrice：执行核心业务逻辑。
+ * normalizeUnitPrice：规范化或转换Unit价格。
  * @param value 参数说明。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新Unit价格相关状态。
  */
 
     normalizeUnitPrice(value) {
@@ -1070,7 +1070,7 @@ let MarketRuntimeService = MarketRuntimeService_1 = class MarketRuntimeService {
     /**
  * buildTradeQuantityError：构建并返回目标对象。
  * @param unitPrice 参数说明。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新TradeQuantityError相关状态。
  */
 
     buildTradeQuantityError(unitPrice) {
@@ -1084,20 +1084,20 @@ let MarketRuntimeService = MarketRuntimeService_1 = class MarketRuntimeService {
         return `当前单价 ${this.formatUnitPrice(unitPrice)} ${this.getCurrencyItemName()} 时，数量必须是 ${minimumQuantity} 的倍数，才能按整灵石结算。`;
     }    
     /**
- * formatUnitPrice：执行核心业务逻辑。
+ * formatUnitPrice：规范化或转换Unit价格。
  * @param value 参数说明。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新Unit价格相关状态。
  */
 
     formatUnitPrice(value) {
         return Number.isInteger(value) ? String(value) : value.toFixed(2).replace(/\.0+$/, '');
     }    
     /**
- * deliverItemToPlayer：执行核心业务逻辑。
+ * deliverItemToPlayer：执行deliver道具To玩家相关逻辑。
  * @param playerId 玩家 ID。
  * @param item 道具。
  * @param context 上下文信息。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新deliver道具To玩家相关状态。
  */
 
     deliverItemToPlayer(playerId, item, context) {
@@ -1118,11 +1118,11 @@ let MarketRuntimeService = MarketRuntimeService_1 = class MarketRuntimeService {
         this.mergeStorageItem(playerId, item, context);
     }    
     /**
- * mergeStorageItem：执行核心业务逻辑。
+ * mergeStorageItem：处理Storage道具并更新相关状态。
  * @param playerId 玩家 ID。
  * @param item 道具。
  * @param context 上下文信息。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新Storage道具相关状态。
  */
 
     mergeStorageItem(playerId, item, context) {
@@ -1146,11 +1146,11 @@ let MarketRuntimeService = MarketRuntimeService_1 = class MarketRuntimeService {
         this.setStorage(playerId, next, context);
     }    
     /**
- * setStorage：更新/写入相关状态。
+ * setStorage：写入Storage。
  * @param playerId 玩家 ID。
  * @param storage 参数说明。
  * @param context 上下文信息。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新Storage相关状态。
  */
 
     setStorage(playerId, storage, context) {
@@ -1170,10 +1170,10 @@ let MarketRuntimeService = MarketRuntimeService_1 = class MarketRuntimeService {
         context.dirtyStoragePlayerIds.add(playerId);
     }    
     /**
- * recordTrade：执行核心业务逻辑。
+ * recordTrade：执行recordTrade相关逻辑。
  * @param payload 载荷参数。
  * @param context 上下文信息。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新recordTrade相关状态。
  */
 
     recordTrade(payload, context) {
@@ -1189,10 +1189,10 @@ let MarketRuntimeService = MarketRuntimeService_1 = class MarketRuntimeService {
         });
     }    
     /**
- * toTradeHistoryView：执行核心业务逻辑。
+ * toTradeHistoryView：判断toTrade历史视图是否满足条件。
  * @param playerId 玩家 ID。
  * @param record 参数说明。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新toTradeHistory视图相关状态。
  */
 
     toTradeHistoryView(playerId, record) {
@@ -1210,7 +1210,7 @@ let MarketRuntimeService = MarketRuntimeService_1 = class MarketRuntimeService {
     /**
  * createEmptyResult：构建并返回目标对象。
  * @param playerId 玩家 ID。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新Empty结果相关状态。
  */
 
     createEmptyResult(playerId) {
@@ -1220,11 +1220,11 @@ let MarketRuntimeService = MarketRuntimeService_1 = class MarketRuntimeService {
         };
     }    
     /**
- * singleMessage：执行核心业务逻辑。
+ * singleMessage：执行singleMessage相关逻辑。
  * @param playerId 玩家 ID。
  * @param text 参数说明。
  * @param kind 参数说明。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新singleMessage相关状态。
  */
 
     singleMessage(playerId, text, kind = 'info') {
@@ -1234,10 +1234,10 @@ let MarketRuntimeService = MarketRuntimeService_1 = class MarketRuntimeService {
         };
     }    
     /**
- * touchAffectedPlayer：执行核心业务逻辑。
+ * touchAffectedPlayer：执行touchAffected玩家相关逻辑。
  * @param result 返回结果。
  * @param playerId 玩家 ID。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新touchAffected玩家相关状态。
  */
 
     touchAffectedPlayer(result, playerId) {
@@ -1246,12 +1246,12 @@ let MarketRuntimeService = MarketRuntimeService_1 = class MarketRuntimeService {
         }
     }    
     /**
- * pushNotice：执行核心业务逻辑。
+ * pushNotice：处理Notice并更新相关状态。
  * @param result 返回结果。
  * @param playerId 玩家 ID。
  * @param text 参数说明。
  * @param kind 参数说明。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新Notice相关状态。
  */
 
     pushNotice(result, playerId, text, kind = 'info') {
@@ -1259,10 +1259,10 @@ let MarketRuntimeService = MarketRuntimeService_1 = class MarketRuntimeService {
         this.touchAffectedPlayer(result, playerId);
     }    
     /**
- * markOrderDirty：执行核心业务逻辑。
+ * markOrderDirty：处理订单Dirty并更新相关状态。
  * @param orderId order ID。
  * @param context 上下文信息。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新订单Dirty相关状态。
  */
 
     markOrderDirty(orderId, context) {
@@ -1270,10 +1270,10 @@ let MarketRuntimeService = MarketRuntimeService_1 = class MarketRuntimeService {
         context.deletedOrderIds.delete(orderId);
     }    
     /**
- * deleteOrder：执行核心业务逻辑。
+ * deleteOrder：处理订单并更新相关状态。
  * @param orderId order ID。
  * @param context 上下文信息。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新订单相关状态。
  */
 
     deleteOrder(orderId, context) {
@@ -1281,18 +1281,18 @@ let MarketRuntimeService = MarketRuntimeService_1 = class MarketRuntimeService {
         context.dirtyOrderIds.delete(orderId);
     }    
     /**
- * compactOpenOrders：执行核心业务逻辑。
- * @returns 函数返回值。
+ * compactOpenOrders：执行compactOpen订单相关逻辑。
+ * @returns 无返回值，直接更新compactOpen订单相关状态。
  */
 
     compactOpenOrders() {
         this.openOrders = this.openOrders.filter((order) => order.status === 'open' && order.remainingQuantity > 0);
     }    
     /**
- * captureOnlinePlayerState：执行核心业务逻辑。
+ * captureOnlinePlayerState：执行captureOnline玩家状态相关逻辑。
  * @param playerId 玩家 ID。
  * @param context 上下文信息。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新captureOnline玩家状态相关状态。
  */
 
     captureOnlinePlayerState(playerId, context) {
@@ -1309,17 +1309,17 @@ let MarketRuntimeService = MarketRuntimeService_1 = class MarketRuntimeService {
         context.onlinePlayerSnapshots.set(playerId, snapshot);
     }    
     /**
- * getStorage：按给定条件读取/查询数据。
+ * getStorage：读取Storage。
  * @param playerId 玩家 ID。
- * @returns 函数返回值。
+ * @returns 无返回值，完成Storage的读取/组装。
  */
 
     getStorage(playerId) {
         return cloneStorage(this.storageByPlayerId.get(playerId));
     }    
     /**
- * getCurrencyItemName：按给定条件读取/查询数据。
- * @returns 函数返回值。
+ * getCurrencyItemName：读取Currency道具名称。
+ * @returns 无返回值，完成Currency道具名称的读取/组装。
  */
 
     getCurrencyItemName() {
@@ -1327,7 +1327,7 @@ let MarketRuntimeService = MarketRuntimeService_1 = class MarketRuntimeService {
     }    
     /**
  * createMutationContext：构建并返回目标对象。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新Mutation上下文相关状态。
  */
 
     createMutationContext() {
@@ -1345,9 +1345,9 @@ let MarketRuntimeService = MarketRuntimeService_1 = class MarketRuntimeService {
         };
     }    
     /**
- * restoreMutationContext：执行核心业务逻辑。
+ * restoreMutationContext：执行restoreMutation上下文相关逻辑。
  * @param context 上下文信息。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新restoreMutation上下文相关状态。
  */
 
     restoreMutationContext(context) {
@@ -1370,10 +1370,10 @@ let MarketRuntimeService = MarketRuntimeService_1 = class MarketRuntimeService {
         }
     }    
     /**
- * runExclusiveMarketMutation：执行核心业务逻辑。
+ * runExclusiveMarketMutation：处理runExclusive坊市Mutation并更新相关状态。
  * @param playerId 玩家 ID。
  * @param action 参数说明。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新runExclusive坊市Mutation相关状态。
  */
 
     async runExclusiveMarketMutation(playerId, action) {
@@ -1420,9 +1420,9 @@ let MarketRuntimeService = MarketRuntimeService_1 = class MarketRuntimeService {
         });
     }    
     /**
- * runExclusive：执行核心业务逻辑。
+ * runExclusive：执行runExclusive相关逻辑。
  * @param action 参数说明。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新runExclusive相关状态。
  */
 
     async runExclusive(action) {
@@ -1453,9 +1453,9 @@ exports.MarketRuntimeService = MarketRuntimeService = MarketRuntimeService_1 = _
 ], MarketRuntimeService);
 export { MarketRuntimeService };
 /**
- * cloneStorage：执行核心业务逻辑。
+ * cloneStorage：构建Storage。
  * @param storage 参数说明。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新Storage相关状态。
  */
 
 function cloneStorage(storage) {

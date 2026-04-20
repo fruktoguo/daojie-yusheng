@@ -7,57 +7,57 @@ import type { MainNavigationObservedEntity } from './main-navigation-state-sourc
 
 type PendingTargetedAction = {
 /**
- * actionId：对象字段。
+ * actionId：actionID标识。
  */
 
   actionId: string;  
   /**
- * actionName：对象字段。
+ * actionName：action名称名称或显示文本。
  */
 
   actionName: string;  
   /**
- * targetMode：对象字段。
+ * targetMode：目标Mode相关字段。
  */
 
   targetMode?: string;  
   /**
- * range：对象字段。
+ * range：范围相关字段。
  */
 
   range: number;  
   /**
- * shape：对象字段。
+ * shape：shape相关字段。
  */
 
   shape?: TargetingShape;  
   /**
- * radius：对象字段。
+ * radius：radiu相关字段。
  */
 
   radius?: number;  
   /**
- * width：对象字段。
+ * width：width相关字段。
  */
 
   width?: number;  
   /**
- * height：对象字段。
+ * height：height相关字段。
  */
 
   height?: number;  
   /**
- * maxTargets：对象字段。
+ * maxTargets：max目标相关字段。
  */
 
   maxTargets?: number;  
   /**
- * hoverX：对象字段。
+ * hoverX：hoverX相关字段。
  */
 
   hoverX?: number;  
   /**
- * hoverY：对象字段。
+ * hoverY：hoverY相关字段。
  */
 
   hoverY?: number;
@@ -69,22 +69,22 @@ type PendingTargetedAction = {
 
 type HoveredMapTile = {
 /**
- * x：对象字段。
+ * x：x相关字段。
  */
 
   x: number;  
   /**
- * y：对象字段。
+ * y：y相关字段。
  */
 
   y: number;  
   /**
- * clientX：对象字段。
+ * clientX：clientX相关字段。
  */
 
   clientX: number;  
   /**
- * clientY：对象字段。
+ * clientY：clientY相关字段。
  */
 
   clientY: number;
@@ -96,260 +96,260 @@ type HoveredMapTile = {
 
 type MainMapInteractionBindingsOptions = {
 /**
- * mapRuntime：对象字段。
+ * mapRuntime：地图运行态引用。
  */
 
   mapRuntime: {  
   /**
- * setMoveHandler：对象字段。
+ * setMoveHandler：MoveHandler相关字段。
  */
 
     setMoveHandler: (handler: (x: number, y: number) => void) => void;    
     /**
- * setInteractionCallbacks：对象字段。
+ * setInteractionCallbacks：InteractionCallback相关字段。
  */
 
     setInteractionCallbacks: (callbacks: {    
     /**
- * onTarget：对象字段。
+ * onTarget：on目标相关字段。
  */
 
       onTarget: (target: {      
       /**
- * x：对象字段。
+ * x：x相关字段。
  */
  x: number;      
  /**
- * y：对象字段。
+ * y：y相关字段。
  */
  y: number;      
  /**
- * clientX：对象字段。
+ * clientX：clientX相关字段。
  */
  clientX?: number;      
  /**
- * clientY：对象字段。
+ * clientY：clientY相关字段。
  */
  clientY?: number;      
  /**
- * entityId：对象字段。
+ * entityId：entityID标识。
  */
  entityId?: string;      
  /**
- * entityKind：对象字段。
+ * entityKind：entityKind相关字段。
  */
  entityKind?: string }) => void;      
  /**
- * onHover：对象字段。
+ * onHover：onHover相关字段。
  */
 
       onHover: (target: {      
       /**
- * x：对象字段。
+ * x：x相关字段。
  */
  x: number;      
  /**
- * y：对象字段。
+ * y：y相关字段。
  */
  y: number;      
  /**
- * clientX：对象字段。
+ * clientX：clientX相关字段。
  */
  clientX?: number;      
  /**
- * clientY：对象字段。
+ * clientY：clientY相关字段。
  */
  clientY?: number } | null) => void;
     }) => void;
   };  
   /**
- * planPathTo：对象字段。
+ * planPathTo：plan路径To相关字段。
  */
 
   planPathTo: (target: {  
   /**
- * x：对象字段。
+ * x：x相关字段。
  */
  x: number;  
  /**
- * y：对象字段。
+ * y：y相关字段。
  */
  y: number }, options?: {  
  /**
- * ignoreVisibilityLimit：对象字段。
+ * ignoreVisibilityLimit：ignore可见性Limit相关字段。
  */
  ignoreVisibilityLimit?: boolean;  
  /**
- * allowNearestReachable：对象字段。
+ * allowNearestReachable：allowNearestReachable相关字段。
  */
  allowNearestReachable?: boolean;  
  /**
- * preserveAutoInteraction：对象字段。
+ * preserveAutoInteraction：preserveAutoInteraction相关字段。
  */
  preserveAutoInteraction?: boolean }) => void;  
  /**
- * findObservedEntityAt：对象字段。
+ * findObservedEntityAt：ObservedEntityAt相关字段。
  */
 
   findObservedEntityAt: (x: number, y: number, kind?: string) => MainNavigationObservedEntity | null;  
   /**
- * getPendingTargetedAction：对象字段。
+ * getPendingTargetedAction：PendingTargetedAction相关字段。
  */
 
   getPendingTargetedAction: () => PendingTargetedAction;  
   /**
- * setPendingTargetedActionHover：对象字段。
+ * setPendingTargetedActionHover：PendingTargetedActionHover相关字段。
  */
 
   setPendingTargetedActionHover: (target: {  
   /**
- * x：对象字段。
+ * x：x相关字段。
  */
  x?: number;  
  /**
- * y：对象字段。
+ * y：y相关字段。
  */
  y?: number } | null) => void;  
  /**
- * resolveCurrentTargetingRange：对象字段。
+ * resolveCurrentTargetingRange：CurrentTargeting范围相关字段。
  */
 
   resolveCurrentTargetingRange: (action: NonNullable<PendingTargetedAction>) => number;  
   /**
- * isPointInsideCurrentMap：对象字段。
+ * isPointInsideCurrentMap：启用开关或状态标识。
  */
 
   isPointInsideCurrentMap: (x: number, y: number) => boolean;  
   /**
- * getVisibleTileAt：对象字段。
+ * getVisibleTileAt：可见TileAt相关字段。
  */
 
   getVisibleTileAt: (x: number, y: number) => Tile | null;  
   /**
- * showToast：对象字段。
+ * showToast：showToast相关字段。
  */
 
   showToast: (message: string) => void;  
   /**
- * showObserveModal：对象字段。
+ * showObserveModal：showObserve弹层相关字段。
  */
 
   showObserveModal: (x: number, y: number) => void;  
   /**
- * cancelTargeting：对象字段。
+ * cancelTargeting：cancelTargeting相关字段。
  */
 
   cancelTargeting: () => void;  
   /**
- * getPlayer：对象字段。
+ * getPlayer：玩家引用。
  */
 
   getPlayer: () => {  
   /**
- * x：对象字段。
+ * x：x相关字段。
  */
  x: number;  
  /**
- * y：对象字段。
+ * y：y相关字段。
  */
  y: number } | null;  
  /**
- * sendAction：对象字段。
+ * sendAction：sendAction相关字段。
  */
 
   sendAction: (actionId: string, target?: string) => void;  
   /**
- * sendCastSkill：对象字段。
+ * sendCastSkill：sendCast技能相关字段。
  */
 
   sendCastSkill: (actionId: string, target?: string) => void;  
   /**
- * hasAffectableTargetInArea：对象字段。
+ * hasAffectableTargetInArea：启用开关或状态标识。
  */
 
   hasAffectableTargetInArea: (action: NonNullable<PendingTargetedAction>, anchorX: number, anchorY: number) => boolean;  
   /**
- * resolveTargetRefForAction：对象字段。
+ * resolveTargetRefForAction：目标RefForAction相关字段。
  */
 
   resolveTargetRefForAction: (
     action: NonNullable<PendingTargetedAction>,
     target: {    
     /**
- * x：对象字段。
+ * x：x相关字段。
  */
  x: number;    
  /**
- * y：对象字段。
+ * y：y相关字段。
  */
  y: number;    
  /**
- * entityId：对象字段。
+ * entityId：entityID标识。
  */
  entityId?: string;    
  /**
- * entityKind：对象字段。
+ * entityKind：entityKind相关字段。
  */
  entityKind?: string },
   ) => string | null;  
   /**
- * getCurrentActionDef：对象字段。
+ * getCurrentActionDef：CurrentActionDef相关字段。
  */
 
   getCurrentActionDef: (actionId: string) => ActionDef | null;  
   /**
- * isWithinDisplayedMemoryBounds：对象字段。
+ * isWithinDisplayedMemoryBounds：启用开关或状态标识。
  */
 
   isWithinDisplayedMemoryBounds: (x: number, y: number) => boolean;  
   /**
- * getKnownTileAt：对象字段。
+ * getKnownTileAt：KnownTileAt相关字段。
  */
 
   getKnownTileAt: (x: number, y: number) => Tile | null;  
   /**
- * handleNpcClickTarget：对象字段。
+ * handleNpcClickTarget：NPCClick目标相关字段。
  */
 
   handleNpcClickTarget: (npc: MainNavigationObservedEntity) => boolean;  
   /**
- * handlePortalClickTarget：对象字段。
+ * handlePortalClickTarget：PortalClick目标相关字段。
  */
 
   handlePortalClickTarget: (target: {  
   /**
- * x：对象字段。
+ * x：x相关字段。
  */
  x: number;  
  /**
- * y：对象字段。
+ * y：y相关字段。
  */
  y: number }, tile: Tile) => boolean;  
  /**
- * clearCurrentPath：对象字段。
+ * clearCurrentPath：clearCurrent路径相关字段。
  */
 
   clearCurrentPath: () => void;  
   /**
- * syncTargetingOverlay：对象字段。
+ * syncTargetingOverlay：TargetingOverlay相关字段。
  */
 
   syncTargetingOverlay: () => void;  
   /**
- * syncSenseQiOverlay：对象字段。
+ * syncSenseQiOverlay：SenseQiOverlay相关字段。
  */
 
   syncSenseQiOverlay: () => void;  
   /**
- * setHoveredMapTile：对象字段。
+ * setHoveredMapTile：Hovered地图Tile相关字段。
  */
 
   setHoveredMapTile: (value: HoveredMapTile) => void;
 };
 /**
- * bindMainMapInteractions：执行核心业务逻辑。
+ * bindMainMapInteractions：执行bindMain地图Interaction相关逻辑。
  * @param options MainMapInteractionBindingsOptions 选项参数。
- * @returns void。
+ * @returns 无返回值，直接更新bindMain地图Interaction相关状态。
  */
 
 

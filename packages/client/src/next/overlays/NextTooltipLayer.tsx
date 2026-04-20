@@ -1,8 +1,8 @@
 import { useExternalStoreSnapshot } from '../hooks/use-external-store-snapshot';
 import { overlayStore } from './overlay-store';
 /**
- * NextTooltipLayer：执行核心业务逻辑。
- * @returns 函数返回值。
+ * NextTooltipLayer：渲染Next提示层组件。
+ * @returns 无返回值，直接更新Next提示层相关状态。
  */
 
 

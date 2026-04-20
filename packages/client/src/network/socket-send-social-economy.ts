@@ -7,7 +7,7 @@ import type { SocketEmitEvent } from './socket-send-types';
 
 type SocialEconomySenderDeps = {
 /**
- * emitEvent：对象字段。
+ * emitEvent：事件相关字段。
  */
 
   emitEvent: SocketEmitEvent;
@@ -15,25 +15,25 @@ type SocialEconomySenderDeps = {
 /**
  * createSocketSocialEconomySender：构建并返回目标对象。
  * @param deps SocialEconomySenderDeps 运行时依赖。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新SocketSocialEconomySender相关状态。
  */
 
 
 export function createSocketSocialEconomySender(deps: SocialEconomySenderDeps) {
   return {  
   /**
- * sendRequestSuggestions：执行核心业务逻辑。
- * @returns void。
+ * sendRequestSuggestions：执行sendRequestSuggestion相关逻辑。
+ * @returns 无返回值，直接更新sendRequestSuggestion相关状态。
  */
 
     sendRequestSuggestions(): void {
       deps.emitEvent(NEXT_C2S.RequestSuggestions, {});
     },    
     /**
- * sendCreateSuggestion：执行核心业务逻辑。
+ * sendCreateSuggestion：构建sendCreateSuggestion。
  * @param title string 参数说明。
  * @param description string 参数说明。
- * @returns void。
+ * @returns 无返回值，直接更新sendCreateSuggestion相关状态。
  */
 
 
@@ -41,10 +41,10 @@ export function createSocketSocialEconomySender(deps: SocialEconomySenderDeps) {
       deps.emitEvent(NEXT_C2S.CreateSuggestion, { title, description });
     },    
     /**
- * sendReplySuggestion：执行核心业务逻辑。
+ * sendReplySuggestion：执行sendReplySuggestion相关逻辑。
  * @param suggestionId string suggestion ID。
  * @param content string 参数说明。
- * @returns void。
+ * @returns 无返回值，直接更新sendReplySuggestion相关状态。
  */
 
 
@@ -52,10 +52,10 @@ export function createSocketSocialEconomySender(deps: SocialEconomySenderDeps) {
       deps.emitEvent(NEXT_C2S.ReplySuggestion, { suggestionId, content });
     },    
     /**
- * sendVoteSuggestion：执行核心业务逻辑。
+ * sendVoteSuggestion：执行sendVoteSuggestion相关逻辑。
  * @param suggestionId string suggestion ID。
  * @param vote 'up' | 'down' 参数说明。
- * @returns void。
+ * @returns 无返回值，直接更新sendVoteSuggestion相关状态。
  */
 
 
@@ -63,9 +63,9 @@ export function createSocketSocialEconomySender(deps: SocialEconomySenderDeps) {
       deps.emitEvent(NEXT_C2S.VoteSuggestion, { suggestionId, vote });
     },    
     /**
- * sendMarkSuggestionRepliesRead：执行核心业务逻辑。
+ * sendMarkSuggestionRepliesRead：读取sendMarkSuggestionReplyRead并返回结果。
  * @param suggestionId string suggestion ID。
- * @returns void。
+ * @returns 无返回值，直接更新sendMarkSuggestionReplyRead相关状态。
  */
 
 
@@ -73,8 +73,8 @@ export function createSocketSocialEconomySender(deps: SocialEconomySenderDeps) {
       deps.emitEvent(NEXT_C2S.MarkSuggestionRepliesRead, { suggestionId });
     },    
     /**
- * sendRequestMailSummary：执行核心业务逻辑。
- * @returns void。
+ * sendRequestMailSummary：执行sendRequest邮件摘要相关逻辑。
+ * @returns 无返回值，直接更新sendRequest邮件摘要相关状态。
  */
 
 
@@ -82,11 +82,11 @@ export function createSocketSocialEconomySender(deps: SocialEconomySenderDeps) {
       deps.emitEvent(NEXT_C2S.RequestMailSummary, {});
     },    
     /**
- * sendRequestMailPage：执行核心业务逻辑。
+ * sendRequestMailPage：执行sendRequest邮件Page相关逻辑。
  * @param page number 参数说明。
  * @param pageSize number 参数说明。
  * @param filter NEXT_C2S_EventPayload<typeof NEXT_C2S.RequestMailPage>['filter'] 参数说明。
- * @returns void。
+ * @returns 无返回值，直接更新sendRequest邮件Page相关状态。
  */
 
 
@@ -98,9 +98,9 @@ export function createSocketSocialEconomySender(deps: SocialEconomySenderDeps) {
       deps.emitEvent(NEXT_C2S.RequestMailPage, { page, pageSize, filter });
     },    
     /**
- * sendRequestMailDetail：执行核心业务逻辑。
+ * sendRequestMailDetail：执行sendRequest邮件详情相关逻辑。
  * @param mailId string mail ID。
- * @returns void。
+ * @returns 无返回值，直接更新sendRequest邮件详情相关状态。
  */
 
 
@@ -108,9 +108,9 @@ export function createSocketSocialEconomySender(deps: SocialEconomySenderDeps) {
       deps.emitEvent(NEXT_C2S.RequestMailDetail, { mailId });
     },    
     /**
- * sendRedeemCodes：执行核心业务逻辑。
+ * sendRedeemCodes：执行sendRedeemCode相关逻辑。
  * @param codes string[] 参数说明。
- * @returns void。
+ * @returns 无返回值，直接更新sendRedeemCode相关状态。
  */
 
 
@@ -118,9 +118,9 @@ export function createSocketSocialEconomySender(deps: SocialEconomySenderDeps) {
       deps.emitEvent(NEXT_C2S.RedeemCodes, { codes });
     },    
     /**
- * sendMarkMailRead：执行核心业务逻辑。
+ * sendMarkMailRead：读取sendMark邮件Read并返回结果。
  * @param mailIds string[] mail ID 集合。
- * @returns void。
+ * @returns 无返回值，直接更新sendMark邮件Read相关状态。
  */
 
 
@@ -128,9 +128,9 @@ export function createSocketSocialEconomySender(deps: SocialEconomySenderDeps) {
       deps.emitEvent(NEXT_C2S.MarkMailRead, { mailIds });
     },    
     /**
- * sendClaimMailAttachments：执行核心业务逻辑。
+ * sendClaimMailAttachments：执行sendClaim邮件Attachment相关逻辑。
  * @param mailIds string[] mail ID 集合。
- * @returns void。
+ * @returns 无返回值，直接更新sendClaim邮件Attachment相关状态。
  */
 
 
@@ -138,9 +138,9 @@ export function createSocketSocialEconomySender(deps: SocialEconomySenderDeps) {
       deps.emitEvent(NEXT_C2S.ClaimMailAttachments, { mailIds });
     },    
     /**
- * sendDeleteMail：执行核心业务逻辑。
+ * sendDeleteMail：处理sendDelete邮件并更新相关状态。
  * @param mailIds string[] mail ID 集合。
- * @returns void。
+ * @returns 无返回值，直接更新sendDelete邮件相关状态。
  */
 
 
@@ -148,8 +148,8 @@ export function createSocketSocialEconomySender(deps: SocialEconomySenderDeps) {
       deps.emitEvent(NEXT_C2S.DeleteMail, { mailIds });
     },    
     /**
- * sendRequestMarket：执行核心业务逻辑。
- * @returns void。
+ * sendRequestMarket：处理sendRequest坊市并更新相关状态。
+ * @returns 无返回值，直接更新sendRequest坊市相关状态。
  */
 
 
@@ -157,9 +157,9 @@ export function createSocketSocialEconomySender(deps: SocialEconomySenderDeps) {
       deps.emitEvent(NEXT_C2S.RequestMarket, {});
     },    
     /**
- * sendRequestMarketListings：执行核心业务逻辑。
+ * sendRequestMarketListings：读取sendRequest坊市Listing并返回结果。
  * @param payload NEXT_C2S_EventPayload<typeof NEXT_C2S.RequestMarketListings> 载荷参数。
- * @returns void。
+ * @returns 无返回值，直接更新sendRequest坊市Listing相关状态。
  */
 
 
@@ -169,9 +169,9 @@ export function createSocketSocialEconomySender(deps: SocialEconomySenderDeps) {
       deps.emitEvent(NEXT_C2S.RequestMarketListings, payload);
     },    
     /**
- * sendRequestMarketItemBook：执行核心业务逻辑。
+ * sendRequestMarketItemBook：处理sendRequest坊市道具Book并更新相关状态。
  * @param itemKey string 参数说明。
- * @returns void。
+ * @returns 无返回值，直接更新sendRequest坊市道具Book相关状态。
  */
 
 
@@ -179,9 +179,9 @@ export function createSocketSocialEconomySender(deps: SocialEconomySenderDeps) {
       deps.emitEvent(NEXT_C2S.RequestMarketItemBook, { itemKey });
     },    
     /**
- * sendRequestMarketTradeHistory：执行核心业务逻辑。
+ * sendRequestMarketTradeHistory：判断sendRequest坊市Trade历史是否满足条件。
  * @param page number 参数说明。
- * @returns void。
+ * @returns 无返回值，直接更新sendRequest坊市TradeHistory相关状态。
  */
 
 
@@ -189,11 +189,11 @@ export function createSocketSocialEconomySender(deps: SocialEconomySenderDeps) {
       deps.emitEvent(NEXT_C2S.RequestMarketTradeHistory, { page });
     },    
     /**
- * sendCreateMarketSellOrder：执行核心业务逻辑。
+ * sendCreateMarketSellOrder：构建sendCreate坊市Sell订单。
  * @param slotIndex number 参数说明。
  * @param quantity number 参数说明。
  * @param unitPrice number 参数说明。
- * @returns void。
+ * @returns 无返回值，直接更新sendCreate坊市Sell订单相关状态。
  */
 
 
@@ -201,11 +201,11 @@ export function createSocketSocialEconomySender(deps: SocialEconomySenderDeps) {
       deps.emitEvent(NEXT_C2S.CreateMarketSellOrder, { slotIndex, quantity, unitPrice });
     },    
     /**
- * sendCreateMarketBuyOrder：执行核心业务逻辑。
+ * sendCreateMarketBuyOrder：构建sendCreate坊市Buy订单。
  * @param itemKey string 参数说明。
  * @param quantity number 参数说明。
  * @param unitPrice number 参数说明。
- * @returns void。
+ * @returns 无返回值，直接更新sendCreate坊市Buy订单相关状态。
  */
 
 
@@ -213,10 +213,10 @@ export function createSocketSocialEconomySender(deps: SocialEconomySenderDeps) {
       deps.emitEvent(NEXT_C2S.CreateMarketBuyOrder, { itemKey, quantity, unitPrice });
     },    
     /**
- * sendBuyMarketItem：执行核心业务逻辑。
+ * sendBuyMarketItem：处理sendBuy坊市道具并更新相关状态。
  * @param itemKey string 参数说明。
  * @param quantity number 参数说明。
- * @returns void。
+ * @returns 无返回值，直接更新sendBuy坊市道具相关状态。
  */
 
 
@@ -224,10 +224,10 @@ export function createSocketSocialEconomySender(deps: SocialEconomySenderDeps) {
       deps.emitEvent(NEXT_C2S.BuyMarketItem, { itemKey, quantity });
     },    
     /**
- * sendSellMarketItem：执行核心业务逻辑。
+ * sendSellMarketItem：处理sendSell坊市道具并更新相关状态。
  * @param slotIndex number 参数说明。
  * @param quantity number 参数说明。
- * @returns void。
+ * @returns 无返回值，直接更新sendSell坊市道具相关状态。
  */
 
 
@@ -235,9 +235,9 @@ export function createSocketSocialEconomySender(deps: SocialEconomySenderDeps) {
       deps.emitEvent(NEXT_C2S.SellMarketItem, { slotIndex, quantity });
     },    
     /**
- * sendCancelMarketOrder：执行核心业务逻辑。
+ * sendCancelMarketOrder：判断sendCancel坊市订单是否满足条件。
  * @param orderId string order ID。
- * @returns void。
+ * @returns 无返回值，直接更新sendCancel坊市订单相关状态。
  */
 
 
@@ -245,8 +245,8 @@ export function createSocketSocialEconomySender(deps: SocialEconomySenderDeps) {
       deps.emitEvent(NEXT_C2S.CancelMarketOrder, { orderId });
     },    
     /**
- * sendClaimMarketStorage：执行核心业务逻辑。
- * @returns void。
+ * sendClaimMarketStorage：处理sendClaim坊市Storage并更新相关状态。
+ * @returns 无返回值，直接更新sendClaim坊市Storage相关状态。
  */
 
 
@@ -254,9 +254,9 @@ export function createSocketSocialEconomySender(deps: SocialEconomySenderDeps) {
       deps.emitEvent(NEXT_C2S.ClaimMarketStorage, {});
     },    
     /**
- * sendChat：执行核心业务逻辑。
+ * sendChat：执行sendChat相关逻辑。
  * @param message string 参数说明。
- * @returns void。
+ * @returns 无返回值，直接更新sendChat相关状态。
  */
 
 
@@ -264,9 +264,9 @@ export function createSocketSocialEconomySender(deps: SocialEconomySenderDeps) {
       deps.emitEvent(NEXT_C2S.Chat, { message });
     },    
     /**
- * ackSystemMessages：执行核心业务逻辑。
+ * ackSystemMessages：执行ackSystemMessage相关逻辑。
  * @param ids string[] 参数说明。
- * @returns void。
+ * @returns 无返回值，直接更新ackSystemMessage相关状态。
  */
 
 

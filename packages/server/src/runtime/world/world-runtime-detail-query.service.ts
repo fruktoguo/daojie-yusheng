@@ -46,17 +46,17 @@ const {
 /** 世界运行时详情查询服务：承接只读 detail / tile-detail 组装。 */
 let WorldRuntimeDetailQueryService = class WorldRuntimeDetailQueryService {
 /**
- * contentTemplateRepository：对象字段。
+ * contentTemplateRepository：内容Template仓储引用。
  */
 
     contentTemplateRepository;    
     /**
- * templateRepository：对象字段。
+ * templateRepository：template仓储引用。
  */
 
     templateRepository;    
     /**
- * playerRuntimeService：对象字段。
+ * playerRuntimeService：玩家运行态服务引用。
  */
 
     playerRuntimeService;    
@@ -65,7 +65,7 @@ let WorldRuntimeDetailQueryService = class WorldRuntimeDetailQueryService {
  * @param contentTemplateRepository 参数说明。
  * @param templateRepository 参数说明。
  * @param playerRuntimeService 参数说明。
- * @returns 无返回值（构造函数）。
+ * @returns 无返回值，完成实例初始化。
  */
 
     constructor(contentTemplateRepository, templateRepository, playerRuntimeService) {
@@ -77,7 +77,7 @@ let WorldRuntimeDetailQueryService = class WorldRuntimeDetailQueryService {
  * buildDetail：构建并返回目标对象。
  * @param context 上下文信息。
  * @param input 输入参数。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新详情相关状态。
  */
 
     buildDetail(context, input) {
@@ -244,7 +244,7 @@ let WorldRuntimeDetailQueryService = class WorldRuntimeDetailQueryService {
  * buildTileDetail：构建并返回目标对象。
  * @param context 上下文信息。
  * @param input 输入参数。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新Tile详情相关状态。
  */
 
     buildTileDetail(context, input) {

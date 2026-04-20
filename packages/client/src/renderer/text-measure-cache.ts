@@ -1,12 +1,12 @@
 /** 文本宽度缓存条目。 */
 type CacheEntry = {
 /**
- * width：对象字段。
+ * width：width相关字段。
  */
 
   width: number;  
   /**
- * lastAccess：对象字段。
+ * lastAccess：lastAccess相关字段。
  */
 
   lastAccess: number;
@@ -15,12 +15,12 @@ type CacheEntry = {
 /** 文本宽度缓存配置。 */
 export interface TextMeasureCacheOptions {
 /**
- * maxEntries：TextMeasureCacheOptions 内部字段。
+ * maxEntries：集合字段。
  */
 
   maxEntries?: number;  
   /**
- * pruneBatchSize：TextMeasureCacheOptions 内部字段。
+ * pruneBatchSize：数量或计量字段。
  */
 
   pruneBatchSize?: number;

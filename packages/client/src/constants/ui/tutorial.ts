@@ -3,12 +3,12 @@ import { TUTORIAL_MECHANIC_TOPICS as SHARED_TUTORIAL_MECHANIC_TOPICS } from '@mu
 /** TutorialTopicSection：教程章节分段。 */
 export interface TutorialTopicSection {
 /**
- * title：TutorialTopicSection 内部字段。
+ * title：title名称或显示文本。
  */
 
   title: string;  
   /**
- * items：TutorialTopicSection 内部字段。
+ * items：集合字段。
  */
 
   items: string[];
@@ -17,27 +17,27 @@ export interface TutorialTopicSection {
 /** TutorialTopic：基础教程章节条目。 */
 export interface TutorialTopic {
 /**
- * id：TutorialTopic 内部字段。
+ * id：ID标识。
  */
 
   id: string;  
   /**
- * label：TutorialTopic 内部字段。
+ * label：label名称或显示文本。
  */
 
   label: string;  
   /**
- * summary：TutorialTopic 内部字段。
+ * summary：摘要状态或数据块。
  */
 
   summary: string;  
   /**
- * sections：TutorialTopic 内部字段。
+ * sections：section相关字段。
  */
 
   sections: TutorialTopicSection[];  
   /**
- * tips：TutorialTopic 内部字段。
+ * tips：tip相关字段。
  */
 
   tips?: string[];
@@ -46,27 +46,27 @@ export interface TutorialTopic {
 /** TutorialFlowTopic：流程型教程章节条目。 */
 export interface TutorialFlowTopic {
 /**
- * id：TutorialFlowTopic 内部字段。
+ * id：ID标识。
  */
 
   id: string;  
   /**
- * label：TutorialFlowTopic 内部字段。
+ * label：label名称或显示文本。
  */
 
   label: string;  
   /**
- * summary：TutorialFlowTopic 内部字段。
+ * summary：摘要状态或数据块。
  */
 
   summary: string;  
   /**
- * sections：TutorialFlowTopic 内部字段。
+ * sections：section相关字段。
  */
 
   sections: TutorialTopicSection[];  
   /**
- * tips：TutorialFlowTopic 内部字段。
+ * tips：tip相关字段。
  */
 
   tips?: string[];

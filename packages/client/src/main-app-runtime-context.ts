@@ -11,7 +11,7 @@ import type { InitializeMainAppOptions, ToastKind } from './main-app-assembly-ty
 /**
  * createMainAppRuntimeContext：构建并返回目标对象。
  * @param options InitializeMainAppOptions 选项参数。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新MainApp运行态上下文相关状态。
  */
 
 
@@ -30,10 +30,10 @@ export function createMainAppRuntimeContext(options: InitializeMainAppOptions) {
 
   let panelContext!: ReturnType<typeof createMainPanelContext>;  
   /**
- * showToast：执行核心业务逻辑。
+ * showToast：执行showToast相关逻辑。
  * @param message string 参数说明。
  * @param kind ToastKind 参数说明。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新showToast相关状态。
  */
 
 

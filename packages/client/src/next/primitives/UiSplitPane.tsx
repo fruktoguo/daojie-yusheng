@@ -6,35 +6,35 @@ import type { CSSProperties, ReactNode } from 'react';
 
 export interface UiSplitPaneProps {
 /**
- * primary：UiSplitPaneProps 内部字段。
+ * primary：primary相关字段。
  */
 
   primary: ReactNode;  
   /**
- * secondary：UiSplitPaneProps 内部字段。
+ * secondary：secondary相关字段。
  */
 
   secondary: ReactNode;  
   /**
- * secondarySize：UiSplitPaneProps 内部字段。
+ * secondarySize：数量或计量字段。
  */
 
   secondarySize?: number | string;  
   /**
- * className：UiSplitPaneProps 内部字段。
+ * className：class名称名称或显示文本。
  */
 
   className?: string;
 }
 /**
- * UiSplitPane：执行核心业务逻辑。
+ * UiSplitPane：判断UiSplitPane是否满足条件。
  * @param {
   primary,
   secondary,
   secondarySize = 300,
   className,
 } UiSplitPaneProps 参数说明。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新UiSplitPane相关状态。
  */
 
 

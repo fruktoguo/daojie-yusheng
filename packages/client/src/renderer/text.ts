@@ -53,27 +53,27 @@ import { TileSpriteCache } from './tile-sprite-cache';
 /** 时间氛围过渡状态。 */
 interface TimeAtmosphereState {
 /**
- * initialized：TimeAtmosphereState 内部字段。
+ * initialized：initialized相关字段。
  */
 
   initialized: boolean;  
   /**
- * overlay：TimeAtmosphereState 内部字段。
+ * overlay：overlay相关字段。
  */
 
   overlay: [number, number, number, number];  
   /**
- * sky：TimeAtmosphereState 内部字段。
+ * sky：sky相关字段。
  */
 
   sky: [number, number, number, number];  
   /**
- * horizon：TimeAtmosphereState 内部字段。
+ * horizon：horizon相关字段。
  */
 
   horizon: [number, number, number, number];  
   /**
- * vignetteAlpha：TimeAtmosphereState 内部字段。
+ * vignetteAlpha：vignetteAlpha相关字段。
  */
 
   vignetteAlpha: number;
@@ -82,22 +82,22 @@ interface TimeAtmosphereState {
 /** 地面物品类型配色。 */
 type GroundItemTypePalette = {
 /**
- * fill：对象字段。
+ * fill：fill相关字段。
  */
 
   fill: string;  
   /**
- * stroke：对象字段。
+ * stroke：stroke相关字段。
  */
 
   stroke: string;  
   /**
- * accent：对象字段。
+ * accent：accent相关字段。
  */
 
   accent: string;  
   /**
- * text：对象字段。
+ * text：text名称或显示文本。
  */
 
   text: string;
@@ -106,22 +106,22 @@ type GroundItemTypePalette = {
 /** 地面物品评级配色。 */
 type GroundItemGradePalette = {
 /**
- * border：对象字段。
+ * border：border相关字段。
  */
 
   border: string;  
   /**
- * glow：对象字段。
+ * glow：glow相关字段。
  */
 
   glow: string;  
   /**
- * badgeFill：对象字段。
+ * badgeFill：badgeFill相关字段。
  */
 
   badgeFill: string;  
   /**
- * badgeStroke：对象字段。
+ * badgeStroke：badgeStroke相关字段。
  */
 
   badgeStroke: string;
@@ -281,87 +281,87 @@ function getSenseQiOverlayStyle(aura: number, levelBaseValue = DEFAULT_AURA_LEVE
 /** 渲染中实体的动画状态。 */
 interface AnimEntity {
 /**
- * id：AnimEntity 内部字段。
+ * id：ID标识。
  */
 
   id: string;  
   /**
- * gridX：AnimEntity 内部字段。
+ * gridX：gridX相关字段。
  */
 
   gridX: number;  
   /**
- * gridY：AnimEntity 内部字段。
+ * gridY：gridY相关字段。
  */
 
   gridY: number;  
   /**
- * oldWX：AnimEntity 内部字段。
+ * oldWX：oldWX相关字段。
  */
 
   oldWX: number;  
   /**
- * oldWY：AnimEntity 内部字段。
+ * oldWY：oldWY相关字段。
  */
 
   oldWY: number;  
   /**
- * targetWX：AnimEntity 内部字段。
+ * targetWX：目标WX相关字段。
  */
 
   targetWX: number;  
   /**
- * targetWY：AnimEntity 内部字段。
+ * targetWY：目标WY相关字段。
  */
 
   targetWY: number;  
   /**
- * char：AnimEntity 内部字段。
+ * char：char相关字段。
  */
 
   char: string;  
   /**
- * color：AnimEntity 内部字段。
+ * color：color相关字段。
  */
 
   color: string;  
   /**
- * name：AnimEntity 内部字段。
+ * name：名称名称或显示文本。
  */
 
   name?: string;  
   /**
- * kind：AnimEntity 内部字段。
+ * kind：kind相关字段。
  */
 
   kind?: string;  
   /**
- * monsterTier：AnimEntity 内部字段。
+ * monsterTier：怪物Tier相关字段。
  */
 
   monsterTier?: MonsterTier;  
   /**
- * monsterScale：AnimEntity 内部字段。
+ * monsterScale：怪物Scale相关字段。
  */
 
   monsterScale?: number;  
   /**
- * hp：AnimEntity 内部字段。
+ * hp：hp相关字段。
  */
 
   hp?: number;  
   /**
- * maxHp：AnimEntity 内部字段。
+ * maxHp：maxHp相关字段。
  */
 
   maxHp?: number;  
   /**
- * npcQuestMarker：AnimEntity 内部字段。
+ * npcQuestMarker：NPC任务Marker相关字段。
  */
 
   npcQuestMarker?: NpcQuestMarker;  
   /**
- * buffs：AnimEntity 内部字段。
+ * buffs：buff相关字段。
  */
 
   buffs?: VisibleBuffState[];
@@ -370,52 +370,52 @@ interface AnimEntity {
 /** 渲染输出实体快照，包含屏幕坐标。 */
 interface RenderedAnimEntity {
 /**
- * anim：RenderedAnimEntity 内部字段。
+ * anim：anim相关字段。
  */
 
   anim: AnimEntity;  
   /**
- * presentation：RenderedAnimEntity 内部字段。
+ * presentation：presentation相关字段。
  */
 
   presentation: ReturnType<typeof getMonsterPresentation> | null;  
   /**
- * sx：RenderedAnimEntity 内部字段。
+ * sx：sx相关字段。
  */
 
   sx: number;  
   /**
- * sy：RenderedAnimEntity 内部字段。
+ * sy：sy相关字段。
  */
 
   sy: number;  
   /**
- * centerX：RenderedAnimEntity 内部字段。
+ * centerX：centerX相关字段。
  */
 
   centerX: number;  
   /**
- * centerY：RenderedAnimEntity 内部字段。
+ * centerY：centerY相关字段。
  */
 
   centerY: number;  
   /**
- * cellSize：RenderedAnimEntity 内部字段。
+ * cellSize：数量或计量字段。
  */
 
   cellSize: number;  
   /**
- * visualSx：RenderedAnimEntity 内部字段。
+ * visualSx：visualSx相关字段。
  */
 
   visualSx: number;  
   /**
- * visualSy：RenderedAnimEntity 内部字段。
+ * visualSy：visualSy相关字段。
  */
 
   visualSy: number;  
   /**
- * visualCellSize：RenderedAnimEntity 内部字段。
+ * visualCellSize：数量或计量字段。
  */
 
   visualCellSize: number;
@@ -424,47 +424,47 @@ interface RenderedAnimEntity {
 /** 浮动文字实例。 */
 interface FloatingText {
 /**
- * id：FloatingText 内部字段。
+ * id：ID标识。
  */
 
   id: number;  
   /**
- * x：FloatingText 内部字段。
+ * x：x相关字段。
  */
 
   x: number;  
   /**
- * y：FloatingText 内部字段。
+ * y：y相关字段。
  */
 
   y: number;  
   /**
- * text：FloatingText 内部字段。
+ * text：text名称或显示文本。
  */
 
   text: string;  
   /**
- * color：FloatingText 内部字段。
+ * color：color相关字段。
  */
 
   color: string;  
   /**
- * variant：FloatingText 内部字段。
+ * variant：variant相关字段。
  */
 
   variant: 'damage' | 'action';  
   /**
- * actionStyle：FloatingText 内部字段。
+ * actionStyle：actionStyle相关字段。
  */
 
   actionStyle?: FloatingActionTextStyle;  
   /**
- * createdAt：FloatingText 内部字段。
+ * createdAt：createdAt相关字段。
  */
 
   createdAt: number;  
   /**
- * duration：FloatingText 内部字段。
+ * duration：duration相关字段。
  */
 
   duration: number;
@@ -473,42 +473,42 @@ interface FloatingText {
 /** 攻击拖尾实例。 */
 interface AttackTrail {
 /**
- * id：AttackTrail 内部字段。
+ * id：ID标识。
  */
 
   id: number;  
   /**
- * fromX：AttackTrail 内部字段。
+ * fromX：fromX相关字段。
  */
 
   fromX: number;  
   /**
- * fromY：AttackTrail 内部字段。
+ * fromY：fromY相关字段。
  */
 
   fromY: number;  
   /**
- * toX：AttackTrail 内部字段。
+ * toX：toX相关字段。
  */
 
   toX: number;  
   /**
- * toY：AttackTrail 内部字段。
+ * toY：toY相关字段。
  */
 
   toY: number;  
   /**
- * color：AttackTrail 内部字段。
+ * color：color相关字段。
  */
 
   color: string;  
   /**
- * createdAt：AttackTrail 内部字段。
+ * createdAt：createdAt相关字段。
  */
 
   createdAt: number;  
   /**
- * duration：AttackTrail 内部字段。
+ * duration：duration相关字段。
  */
 
   duration: number;
@@ -517,59 +517,59 @@ interface AttackTrail {
 /** 预警区域实例。 */
 interface WarningZone {
 /**
- * id：WarningZone 内部字段。
+ * id：ID标识。
  */
 
   id: number;  
   /**
- * cells：WarningZone 内部字段。
+ * cells：cell相关字段。
  */
 
   cells: Array<{  
   /**
- * x：WarningZone 内部字段。
+ * x：x相关字段。
  */
  x: number;  
  /**
- * y：WarningZone 内部字段。
+ * y：y相关字段。
  */
  y: number;  
  /**
- * expandDistance：WarningZone 内部字段。
+ * expandDistance：expandDistance相关字段。
  */
  expandDistance: number }>;  
  /**
- * color：WarningZone 内部字段。
+ * color：color相关字段。
  */
 
   color: string;  
   /**
- * baseColor：WarningZone 内部字段。
+ * baseColor：baseColor相关字段。
  */
 
   baseColor: string;  
   /**
- * originX：WarningZone 内部字段。
+ * originX：originX相关字段。
  */
 
   originX: number;  
   /**
- * originY：WarningZone 内部字段。
+ * originY：originY相关字段。
  */
 
   originY: number;  
   /**
- * maxExpandDistance：WarningZone 内部字段。
+ * maxExpandDistance：maxExpandDistance相关字段。
  */
 
   maxExpandDistance: number;  
   /**
- * createdAt：WarningZone 内部字段。
+ * createdAt：createdAt相关字段。
  */
 
   createdAt: number;  
   /**
- * duration：WarningZone 内部字段。
+ * duration：duration相关字段。
  */
 
   duration: number;
@@ -578,12 +578,12 @@ interface WarningZone {
 /** 浮动文字在同点堆叠时的偏移。 */
 interface FloatingTextBurstOffset {
 /**
- * offsetX：FloatingTextBurstOffset 内部字段。
+ * offsetX：offsetX相关字段。
  */
 
   offsetX: number;  
   /**
- * offsetY：FloatingTextBurstOffset 内部字段。
+ * offsetY：offsetY相关字段。
  */
 
   offsetY: number;
@@ -592,40 +592,40 @@ interface FloatingTextBurstOffset {
 /** 旧路径淡出过渡状态。 */
 interface FadingPathState {
 /**
- * cells：FadingPathState 内部字段。
+ * cells：cell相关字段。
  */
 
   cells: {  
   /**
- * x：FadingPathState 内部字段。
+ * x：x相关字段。
  */
  x: number;  
  /**
- * y：FadingPathState 内部字段。
+ * y：y相关字段。
  */
  y: number }[];  
  /**
- * keys：FadingPathState 内部字段。
+ * keys：key相关字段。
  */
 
   keys: Set<string>;  
   /**
- * indexByKey：FadingPathState 内部字段。
+ * indexByKey：indexByKey标识。
  */
 
   indexByKey: Map<string, number>;  
   /**
- * targetKey：FadingPathState 内部字段。
+ * targetKey：目标Key标识。
  */
 
   targetKey: string | null;  
   /**
- * startedAt：FadingPathState 内部字段。
+ * startedAt：startedAt相关字段。
  */
 
   startedAt: number;  
   /**
- * durationMs：FadingPathState 内部字段。
+ * durationMs：durationM相关字段。
  */
 
   durationMs: number;
@@ -651,16 +651,16 @@ export class TextRenderer implements IRenderer {
   /** 实体动画状态表。 */
   private entities: Map<string, AnimEntity> = new Map();  
   /**
- * threatArrows：TextRenderer 内部字段。
+ * threatArrows：集合字段。
  */
 
   private threatArrows: Array<{  
   /**
- * ownerId：TextRenderer 内部字段。
+ * ownerId：ownerID标识。
  */
  ownerId: string;  
  /**
- * targetId：TextRenderer 内部字段。
+ * targetId：目标ID标识。
  */
  targetId: string }> = [];
   /** 地面物品堆映射。 */
@@ -668,16 +668,16 @@ export class TextRenderer implements IRenderer {
   /** 容器地块键集合。 */
   private containerTileKeys = new Set<string>();  
   /**
- * pathCells：TextRenderer 内部字段。
+ * pathCells：路径Cell相关字段。
  */
 
   private pathCells: {  
   /**
- * x：TextRenderer 内部字段。
+ * x：x相关字段。
  */
  x: number;  
  /**
- * y：TextRenderer 内部字段。
+ * y：y相关字段。
  */
  y: number }[] = [];
   /** 当前路径键集合。 */
@@ -707,7 +707,7 @@ export class TextRenderer implements IRenderer {
   /** 预警区域 ID 自增。 */
   private nextWarningZoneId = 1;  
   /**
- * lastMotionSyncToken：TextRenderer 内部字段。
+ * lastMotionSyncToken：lastMotionSyncToken标识。
  */
 
   private lastMotionSyncToken?: number;
@@ -724,7 +724,7 @@ export class TextRenderer implements IRenderer {
   /** 地块 sprite 缓存。 */
   private readonly tileSpriteCache = new TileSpriteCache();  
   /**
- * timeAtmosphere：TextRenderer 内部字段。
+ * timeAtmosphere：时间Atmosphere相关字段。
  */
 
   private timeAtmosphere: TimeAtmosphereState = {
@@ -772,11 +772,11 @@ export class TextRenderer implements IRenderer {
   /** 更新路径高亮状态并构建旧路径过渡。 */
   setPathHighlight(cells: {  
   /**
- * x：TextRenderer 内部字段。
+ * x：x相关字段。
  */
  x: number;  
  /**
- * y：TextRenderer 内部字段。
+ * y：y相关字段。
  */
  y: number }[], fadeDurationMs = DEFAULT_PATH_TRAIL_FADE_MS) {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
@@ -800,11 +800,11 @@ export class TextRenderer implements IRenderer {
   /** 记录当前帧需要渲染的威胁箭头。 */
   setThreatArrows(arrows: Array<{  
   /**
- * ownerId：TextRenderer 内部字段。
+ * ownerId：ownerID标识。
  */
  ownerId: string;  
  /**
- * targetId：TextRenderer 内部字段。
+ * targetId：目标ID标识。
  */
  targetId: string }>) {
     this.threatArrows = arrows.map((entry) => ({ ownerId: entry.ownerId, targetId: entry.targetId }));
@@ -1032,55 +1032,55 @@ export class TextRenderer implements IRenderer {
   updateEntities(
     list: readonly {    
     /**
- * id：TextRenderer 内部字段。
+ * id：ID标识。
  */
  id: string;    
  /**
- * wx：TextRenderer 内部字段。
+ * wx：wx相关字段。
  */
  wx: number;    
  /**
- * wy：TextRenderer 内部字段。
+ * wy：wy相关字段。
  */
  wy: number;    
  /**
- * char：TextRenderer 内部字段。
+ * char：char相关字段。
  */
  char: string;    
  /**
- * color：TextRenderer 内部字段。
+ * color：color相关字段。
  */
  color: string;    
  /**
- * name：TextRenderer 内部字段。
+ * name：名称名称或显示文本。
  */
  name?: string;    
  /**
- * kind：TextRenderer 内部字段。
+ * kind：kind相关字段。
  */
  kind?: string;    
  /**
- * monsterTier：TextRenderer 内部字段。
+ * monsterTier：怪物Tier相关字段。
  */
  monsterTier?: MonsterTier;    
  /**
- * monsterScale：TextRenderer 内部字段。
+ * monsterScale：怪物Scale相关字段。
  */
  monsterScale?: number;    
  /**
- * hp：TextRenderer 内部字段。
+ * hp：hp相关字段。
  */
  hp?: number;    
  /**
- * maxHp：TextRenderer 内部字段。
+ * maxHp：maxHp相关字段。
  */
  maxHp?: number;    
  /**
- * npcQuestMarker：TextRenderer 内部字段。
+ * npcQuestMarker：NPC任务Marker相关字段。
  */
  npcQuestMarker?: NpcQuestMarker | null;    
  /**
- * buffs：TextRenderer 内部字段。
+ * buffs：buff相关字段。
  */
  buffs?: VisibleBuffState[] }[],
     movedId?: string,
@@ -1429,7 +1429,7 @@ export class TextRenderer implements IRenderer {
     return invT * invT * start + 2 * invT * t * control + t * t * end;
   }  
   /**
- * drawMonsterBadgeLabel：执行核心业务逻辑。
+ * drawMonsterBadgeLabel：执行draw怪物BadgeLabel相关逻辑。
  * @param label string 参数说明。
  * @param badgeText string 参数说明。
  * @param badgeClassName string 参数说明。
@@ -1437,7 +1437,7 @@ export class TextRenderer implements IRenderer {
  * @param baselineY number 参数说明。
  * @param cellSize number 参数说明。
  * @param labelColor string 参数说明。
- * @returns void。
+ * @returns 无返回值，直接更新draw怪物BadgeLabel相关状态。
  */
 
 
@@ -1513,7 +1513,7 @@ export class TextRenderer implements IRenderer {
     this.drawBuffRow(sx, sy + badgeSize + 4, cellSize, debuffsByCategory, badgeSize, gap, '#ff9072');
   }  
   /**
- * drawBuffRow：执行核心业务逻辑。
+ * drawBuffRow：执行drawBuffRow相关逻辑。
  * @param sx number 参数说明。
  * @param y number Y 坐标。
  * @param cellSize number 参数说明。
@@ -1521,7 +1521,7 @@ export class TextRenderer implements IRenderer {
  * @param badgeSize number 参数说明。
  * @param gap number 参数说明。
  * @param fallbackColor string 参数说明。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新drawBuffRow相关状态。
  */
 
 
@@ -1667,22 +1667,22 @@ export class TextRenderer implements IRenderer {
   /** 根据任务线与状态挑选 NPC 标记配色。 */
   private getNpcQuestMarkerPalette(marker: NpcQuestMarker): {  
   /**
- * fill：TextRenderer 内部字段。
+ * fill：fill相关字段。
  */
 
     fill: string;    
     /**
- * stroke：TextRenderer 内部字段。
+ * stroke：stroke相关字段。
  */
 
     stroke: string;    
     /**
- * text：TextRenderer 内部字段。
+ * text：text名称或显示文本。
  */
 
     text: string;    
     /**
- * shape：TextRenderer 内部字段。
+ * shape：shape相关字段。
  */
 
     shape: 'circle' | 'square' | 'diamond' | 'shield';
@@ -1751,25 +1751,25 @@ export class TextRenderer implements IRenderer {
     this.trimAttackTrails();
   }  
   /**
- * addWarningZone：执行核心业务逻辑。
+ * addWarningZone：处理WarningZone并更新相关状态。
  * @param cells Array<{ x: number; y: number }> 参数说明。
  * @param color 参数说明。
  * @param durationMs 参数说明。
  * @param baseColor string 参数说明。
  * @param originX number 参数说明。
  * @param originY number 参数说明。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新WarningZone相关状态。
  */
 
 
   addWarningZone(
     cells: Array<{    
     /**
- * x：TextRenderer 内部字段。
+ * x：x相关字段。
  */
  x: number;    
  /**
- * y：TextRenderer 内部字段。
+ * y：y相关字段。
  */
  y: number }>,
     color = '#ff2a2a',
@@ -2088,7 +2088,7 @@ export class TextRenderer implements IRenderer {
     };
   }  
   /**
- * drawChantText：执行核心业务逻辑。
+ * drawChantText：执行drawChantText相关逻辑。
  * @param text string 参数说明。
  * @param progress number 参数说明。
  * @param x number X 坐标。
@@ -2097,7 +2097,7 @@ export class TextRenderer implements IRenderer {
  * @param stroke string 参数说明。
  * @param lineHeight number 参数说明。
  * @param fontSize number 参数说明。
- * @returns void。
+ * @returns 无返回值，直接更新drawChantText相关状态。
  */
 
 
@@ -2161,33 +2161,33 @@ export class TextRenderer implements IRenderer {
     });
   }  
   /**
- * resolveWarningZoneOrigin：执行核心业务逻辑。
+ * resolveWarningZoneOrigin：规范化或转换WarningZoneOrigin。
  * @param cells Array<{ x: number; y: number }> 参数说明。
  * @param originX number 参数说明。
  * @param originY number 参数说明。
- * @returns { x: number; y: number }。
+ * @returns 返回WarningZoneOrigin。
  */
 
 
   private resolveWarningZoneOrigin(
     cells: Array<{    
     /**
- * x：TextRenderer 内部字段。
+ * x：x相关字段。
  */
  x: number;    
  /**
- * y：TextRenderer 内部字段。
+ * y：y相关字段。
  */
  y: number }>,
     originX?: number,
     originY?: number,
   ): {  
   /**
- * x：TextRenderer 内部字段。
+ * x：x相关字段。
  */
  x: number;  
  /**
- * y：TextRenderer 内部字段。
+ * y：y相关字段。
  */
  y: number } {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
@@ -2259,14 +2259,14 @@ export class TextRenderer implements IRenderer {
     }
   }  
   /**
- * renderPathArrows：执行核心业务逻辑。
+ * renderPathArrows：执行路径Arrow相关逻辑。
  * @param camera Camera 参数说明。
  * @param visibleTiles ReadonlySet<string> 参数说明。
  * @param playerX number 参数说明。
  * @param playerY number 参数说明。
  * @param displayRangeX number 参数说明。
  * @param displayRangeY number 参数说明。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新路径Arrow相关状态。
  */
 
 
@@ -2323,7 +2323,7 @@ export class TextRenderer implements IRenderer {
     }
   }  
   /**
- * renderPathArrowLayer：执行核心业务逻辑。
+ * renderPathArrowLayer：执行路径Arrow层相关逻辑。
  * @param ctx CanvasRenderingContext2D 上下文信息。
  * @param camera Camera 参数说明。
  * @param sw number 参数说明。
@@ -2337,7 +2337,7 @@ export class TextRenderer implements IRenderer {
  * @param indexByKey Map<string, number> 参数说明。
  * @param targetKey string | null 参数说明。
  * @param alpha number 参数说明。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新路径Arrow层相关状态。
  */
 
 
@@ -2353,11 +2353,11 @@ export class TextRenderer implements IRenderer {
     displayRangeY: number,
     cells: {    
     /**
- * x：TextRenderer 内部字段。
+ * x：x相关字段。
  */
  x: number;    
  /**
- * y：TextRenderer 内部字段。
+ * y：y相关字段。
  */
  y: number }[],
     indexByKey: Map<string, number>,
@@ -2445,14 +2445,14 @@ export class TextRenderer implements IRenderer {
     ctx.restore();
   }  
   /**
- * drawPathCellHighlight：执行核心业务逻辑。
+ * drawPathCellHighlight：执行draw路径CellHighlight相关逻辑。
  * @param ctx CanvasRenderingContext2D 上下文信息。
  * @param sx number 参数说明。
  * @param sy number 参数说明。
  * @param cellSize number 参数说明。
  * @param isTargetCell boolean 参数说明。
  * @param alpha number 参数说明。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新draw路径CellHighlight相关状态。
  */
 
 
@@ -2500,19 +2500,19 @@ export class TextRenderer implements IRenderer {
   /** 比较两条路径格子序列是否完全一致。 */
   private arePathCellsEqual(a: {  
   /**
- * x：TextRenderer 内部字段。
+ * x：x相关字段。
  */
  x: number;  
  /**
- * y：TextRenderer 内部字段。
+ * y：y相关字段。
  */
  y: number }[], b: {  
  /**
- * x：TextRenderer 内部字段。
+ * x：x相关字段。
  */
  x: number;  
  /**
- * y：TextRenderer 内部字段。
+ * y：y相关字段。
  */
  y: number }[]): boolean {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
@@ -2528,7 +2528,7 @@ export class TextRenderer implements IRenderer {
     return true;
   }  
   /**
- * isPathCellRenderable：执行状态校验并返回判断结果。
+ * isPathCellRenderable：判断路径CellRenderable是否满足条件。
  * @param x number X 坐标。
  * @param y number Y 坐标。
  * @param visibleTiles ReadonlySet<string> 参数说明。
@@ -2536,7 +2536,7 @@ export class TextRenderer implements IRenderer {
  * @param playerY number 参数说明。
  * @param displayRangeX number 参数说明。
  * @param displayRangeY number 参数说明。
- * @returns boolean。
+ * @returns 返回是否满足路径CellRenderable条件。
  */
 
 
@@ -2652,11 +2652,11 @@ export class TextRenderer implements IRenderer {
     return [red, green, blue, safeAlpha];
   }  
   /**
- * lerpColorVector：执行核心业务逻辑。
+ * lerpColorVector：执行lerpColorVector相关逻辑。
  * @param current [number, number, number, number] 参数说明。
  * @param target [number, number, number, number] 目标对象。
  * @param factor number 参数说明。
- * @returns [number, number, number, number]。
+ * @returns 返回lerpColorVector。
  */
 
 
@@ -2758,14 +2758,14 @@ export class TextRenderer implements IRenderer {
     this.drawGroundItemCountBadge(x, y, slotSize, entry.count, gradePalette);
   }  
   /**
- * drawGroundItemBasePlate：执行核心业务逻辑。
+ * drawGroundItemBasePlate：执行draw地面道具BasePlate相关逻辑。
  * @param ctx CanvasRenderingContext2D 上下文信息。
  * @param type ItemType 参数说明。
  * @param x number X 坐标。
  * @param y number Y 坐标。
  * @param size number 参数说明。
  * @param accentColor string 参数说明。
- * @returns void。
+ * @returns 无返回值，直接更新drawGround道具BasePlate相关状态。
  */
 
 
@@ -2830,13 +2830,13 @@ export class TextRenderer implements IRenderer {
     ctx.restore();
   }  
   /**
- * drawGroundItemCountBadge：执行核心业务逻辑。
+ * drawGroundItemCountBadge：执行draw地面道具数量Badge相关逻辑。
  * @param x number X 坐标。
  * @param y number Y 坐标。
  * @param slotSize number 参数说明。
  * @param count number 数量。
  * @param palette GroundItemGradePalette 参数说明。
- * @returns void。
+ * @returns 无返回值，直接更新drawGround道具数量Badge相关状态。
  */
 
 

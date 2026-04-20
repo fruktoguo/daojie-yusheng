@@ -8,25 +8,25 @@ const { WorldRuntimeQuestQueryService } = require("../runtime/world/world-runtim
  * createQuestQueryService：构建并返回目标对象。
  * @param log 参数说明。
  * @param quests 参数说明。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新任务Query服务相关状态。
  */
 
 
 function createQuestQueryService(log, quests) {
     return new WorldRuntimeQuestQueryService({    
     /**
- * getItemName：按给定条件读取/查询数据。
+ * getItemName：读取道具名称。
  * @param itemId 道具 ID。
- * @returns 函数返回值。
+ * @returns 无返回值，完成道具名称的读取/组装。
  */
 
         getItemName(itemId) {
             return itemId;
         },        
         /**
- * getTechniqueName：按给定条件读取/查询数据。
+ * getTechniqueName：读取功法名称。
  * @param techniqueId technique ID。
- * @returns 函数返回值。
+ * @returns 无返回值，完成功法名称的读取/组装。
  */
 
         getTechniqueName(techniqueId) {
@@ -36,7 +36,7 @@ function createQuestQueryService(log, quests) {
  * createItem：构建并返回目标对象。
  * @param itemId 道具 ID。
  * @param count 数量。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新道具相关状态。
  */
 
         createItem(itemId, count) {
@@ -44,32 +44,32 @@ function createQuestQueryService(log, quests) {
         },
     }, {    
     /**
- * getQuestSource：按给定条件读取/查询数据。
- * @returns 函数返回值。
+ * getQuestSource：读取任务来源。
+ * @returns 无返回值，完成任务来源的读取/组装。
  */
 
         getQuestSource() {
             return null;
         },        
         /**
- * getNpcLocation：按给定条件读取/查询数据。
- * @returns 函数返回值。
+ * getNpcLocation：读取NPC位置。
+ * @returns 无返回值，完成NPC位置的读取/组装。
  */
 
         getNpcLocation() {
             return null;
         },        
         /**
- * has：执行状态校验并返回判断结果。
- * @returns 函数返回值。
+ * has：判断ha是否满足条件。
+ * @returns 无返回值，完成结果的条件判断。
  */
 
         has() {
             return false;
         },        
         /**
- * getOrThrow：按给定条件读取/查询数据。
- * @returns 函数返回值。
+ * getOrThrow：读取OrThrow。
+ * @returns 无返回值，完成OrThrow的读取/组装。
  */
 
         getOrThrow() {
@@ -77,9 +77,9 @@ function createQuestQueryService(log, quests) {
         },
     }, {    
     /**
- * listQuests：执行核心业务逻辑。
+ * listQuests：读取任务并返回结果。
  * @param playerId 玩家 ID。
- * @returns 函数返回值。
+ * @returns 无返回值，完成任务的读取/组装。
  */
 
         listQuests(playerId) {
@@ -90,9 +90,9 @@ function createQuestQueryService(log, quests) {
             }));
         },        
         /**
- * getPlayerOrThrow：按给定条件读取/查询数据。
+ * getPlayerOrThrow：读取玩家OrThrow。
  * @param playerId 玩家 ID。
- * @returns 函数返回值。
+ * @returns 无返回值，完成玩家OrThrow的读取/组装。
  */
 
         getPlayerOrThrow(playerId) {
@@ -106,8 +106,8 @@ function createQuestQueryService(log, quests) {
     });
 }
 /**
- * testQuestQueryServiceBuildQuestListView：执行核心业务逻辑。
- * @returns 函数返回值。
+ * testQuestQueryServiceBuildQuestListView：读取test任务Query服务Build任务列表视图并返回结果。
+ * @returns 无返回值，直接更新test任务Query服务Build任务列表视图相关状态。
  */
 
 
@@ -126,8 +126,8 @@ function testQuestQueryServiceBuildQuestListView() {
     assert.deepEqual(log, [['listQuests', 'player:1']]);
 }
 /**
- * testWorldRuntimeFacadeBuildQuestListView：执行核心业务逻辑。
- * @returns 函数返回值。
+ * testWorldRuntimeFacadeBuildQuestListView：读取test世界运行态FacadeBuild任务列表视图并返回结果。
+ * @returns 无返回值，直接更新test世界运行态FacadeBuild任务列表视图相关状态。
  */
 
 
@@ -135,9 +135,9 @@ function testWorldRuntimeFacadeBuildQuestListView() {
     const log = [];
     const runtime = {    
     /**
- * getPlayerLocationOrThrow：按给定条件读取/查询数据。
+ * getPlayerLocationOrThrow：读取玩家位置OrThrow。
  * @param playerId 玩家 ID。
- * @returns 函数返回值。
+ * @returns 无返回值，完成玩家位置OrThrow的读取/组装。
  */
 
         getPlayerLocationOrThrow(playerId) {
@@ -145,9 +145,9 @@ function testWorldRuntimeFacadeBuildQuestListView() {
             return { instanceId: 'instance:1' };
         },        
         /**
- * refreshQuestStates：执行核心业务逻辑。
+ * refreshQuestStates：执行refresh任务状态相关逻辑。
  * @param playerId 玩家 ID。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新refresh任务状态相关状态。
  */
 
         refreshQuestStates(playerId) {
@@ -157,7 +157,7 @@ function testWorldRuntimeFacadeBuildQuestListView() {
         /**
  * buildQuestListView：构建并返回目标对象。
  * @param playerId 玩家 ID。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新任务列表视图相关状态。
  */
 
             buildQuestListView(playerId) {
@@ -177,8 +177,8 @@ function testWorldRuntimeFacadeBuildQuestListView() {
     ]);
 }
 /**
- * testQuestQueryServiceBuildNpcQuestsView：执行核心业务逻辑。
- * @returns 函数返回值。
+ * testQuestQueryServiceBuildNpcQuestsView：读取test任务Query服务BuildNPC任务视图并返回结果。
+ * @returns 无返回值，直接更新test任务Query服务BuildNPC任务视图相关状态。
  */
 
 
@@ -187,10 +187,10 @@ function testQuestQueryServiceBuildNpcQuestsView() {
     const service = createQuestQueryService(log, []);
     const view = service.buildNpcQuestsView('player:3', 'npc_a', {    
     /**
- * resolveAdjacentNpc：执行核心业务逻辑。
+ * resolveAdjacentNpc：规范化或转换AdjacentNPC。
  * @param playerId 玩家 ID。
  * @param npcId npc ID。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新AdjacentNPC相关状态。
  */
 
         resolveAdjacentNpc(playerId, npcId) {
@@ -213,8 +213,8 @@ function testQuestQueryServiceBuildNpcQuestsView() {
     ]);
 }
 /**
- * testWorldRuntimeFacadeBuildNpcQuestsView：执行核心业务逻辑。
- * @returns 函数返回值。
+ * testWorldRuntimeFacadeBuildNpcQuestsView：构建test世界运行态FacadeBuildNPC任务视图。
+ * @returns 无返回值，直接更新test世界运行态FacadeBuildNPC任务视图相关状态。
  */
 
 
@@ -222,9 +222,9 @@ function testWorldRuntimeFacadeBuildNpcQuestsView() {
     const log = [];
     const runtime = {    
     /**
- * getPlayerLocationOrThrow：按给定条件读取/查询数据。
+ * getPlayerLocationOrThrow：读取玩家位置OrThrow。
  * @param playerId 玩家 ID。
- * @returns 函数返回值。
+ * @returns 无返回值，完成玩家位置OrThrow的读取/组装。
  */
 
         getPlayerLocationOrThrow(playerId) {
@@ -232,9 +232,9 @@ function testWorldRuntimeFacadeBuildNpcQuestsView() {
             return { instanceId: 'instance:2' };
         },        
         /**
- * refreshQuestStates：执行核心业务逻辑。
+ * refreshQuestStates：执行refresh任务状态相关逻辑。
  * @param playerId 玩家 ID。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新refresh任务状态相关状态。
  */
 
         refreshQuestStates(playerId) {
@@ -246,7 +246,7 @@ function testWorldRuntimeFacadeBuildNpcQuestsView() {
  * @param playerId 玩家 ID。
  * @param npcId npc ID。
  * @param deps 运行时依赖。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新NPC任务视图相关状态。
  */
 
             buildNpcQuestsView(playerId, npcId, deps) {

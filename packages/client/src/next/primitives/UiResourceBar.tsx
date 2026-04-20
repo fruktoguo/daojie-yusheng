@@ -3,46 +3,46 @@
  */
 export interface UiResourceBarProps {
 /**
- * label：UiResourceBarProps 内部字段。
+ * label：label名称或显示文本。
  */
 
   label: string;  
   /**
- * value：UiResourceBarProps 内部字段。
+ * value：值数值。
  */
 
   value: number;  
   /**
- * max：UiResourceBarProps 内部字段。
+ * max：max相关字段。
  */
 
   max: number;  
   /**
- * tone：UiResourceBarProps 内部字段。
+ * tone：tone相关字段。
  */
 
   tone?: 'health' | 'qi' | 'cultivate';  
   /**
- * variant：UiResourceBarProps 内部字段。
+ * variant：variant相关字段。
  */
 
   variant?: 'resource' | 'progress';  
   /**
- * valueText：UiResourceBarProps 内部字段。
+ * valueText：值Text名称或显示文本。
  */
 
   valueText?: string;  
   /**
- * className：UiResourceBarProps 内部字段。
+ * className：class名称名称或显示文本。
  */
 
   className?: string;
 }
 /**
- * ratioPercent：执行核心业务逻辑。
+ * ratioPercent：执行ratioPercent相关逻辑。
  * @param current number 参数说明。
  * @param max number 参数说明。
- * @returns string。
+ * @returns 返回ratioPercent。
  */
 
 
@@ -55,7 +55,7 @@ function ratioPercent(current: number, max: number): string {
   return `${Math.max(0, Math.min(100, (current / max) * 100))}%`;
 }
 /**
- * UiResourceBar：执行核心业务逻辑。
+ * UiResourceBar：渲染UiResourceBar组件。
  * @param {
   label,
   value,
@@ -65,7 +65,7 @@ function ratioPercent(current: number, max: number): string {
   valueText,
   className,
 } UiResourceBarProps 参数说明。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新UiResourceBar相关状态。
  */
 
 

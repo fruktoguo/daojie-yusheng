@@ -7,7 +7,7 @@ export interface RequestSuggestionsView {}
 /** GM 生成机器人。 */
 export interface GmSpawnBotsRequestView {
 /**
- * count：GmSpawnBotsRequestView 内部字段。
+ * count：数量或计量字段。
  */
 
   count: number;
@@ -16,12 +16,12 @@ export interface GmSpawnBotsRequestView {
 /** GM 移除机器人。 */
 export interface GmRemoveBotsRequestView {
 /**
- * playerIds：GmRemoveBotsRequestView 内部字段。
+ * playerIds：玩家ID相关字段。
  */
 
   playerIds?: string[];  
   /**
- * all：GmRemoveBotsRequestView 内部字段。
+ * all：all相关字段。
  */
 
   all?: boolean;
@@ -30,32 +30,32 @@ export interface GmRemoveBotsRequestView {
 /** GM 调整玩家。 */
 export interface GmUpdatePlayerRequestView {
 /**
- * playerId：GmUpdatePlayerRequestView 内部字段。
+ * playerId：玩家ID标识。
  */
 
   playerId: string;  
   /**
- * mapId：GmUpdatePlayerRequestView 内部字段。
+ * mapId：地图ID标识。
  */
 
   mapId: string;  
   /**
- * x：GmUpdatePlayerRequestView 内部字段。
+ * x：x相关字段。
  */
 
   x: number;  
   /**
- * y：GmUpdatePlayerRequestView 内部字段。
+ * y：y相关字段。
  */
 
   y: number;  
   /**
- * hp：GmUpdatePlayerRequestView 内部字段。
+ * hp：hp相关字段。
  */
 
   hp: number;  
   /**
- * autoBattle：GmUpdatePlayerRequestView 内部字段。
+ * autoBattle：autoBattle相关字段。
  */
 
   autoBattle: boolean;
@@ -64,7 +64,7 @@ export interface GmUpdatePlayerRequestView {
 /** GM 重置玩家。 */
 export interface GmResetPlayerRequestView {
 /**
- * playerId：GmResetPlayerRequestView 内部字段。
+ * playerId：玩家ID标识。
  */
 
   playerId: string;
@@ -73,12 +73,12 @@ export interface GmResetPlayerRequestView {
 /** 创建建议。 */
 export interface CreateSuggestionRequestView {
 /**
- * title：CreateSuggestionRequestView 内部字段。
+ * title：title名称或显示文本。
  */
 
   title: string;  
   /**
- * description：CreateSuggestionRequestView 内部字段。
+ * description：description相关字段。
  */
 
   description: string;
@@ -87,12 +87,12 @@ export interface CreateSuggestionRequestView {
 /** 建议投票。 */
 export interface VoteSuggestionRequestView {
 /**
- * suggestionId：VoteSuggestionRequestView 内部字段。
+ * suggestionId：suggestionID标识。
  */
 
   suggestionId: string;  
   /**
- * vote：VoteSuggestionRequestView 内部字段。
+ * vote：vote相关字段。
  */
 
   vote: 'up' | 'down';
@@ -101,12 +101,12 @@ export interface VoteSuggestionRequestView {
 /** 回复建议。 */
 export interface ReplySuggestionRequestView {
 /**
- * suggestionId：ReplySuggestionRequestView 内部字段。
+ * suggestionId：suggestionID标识。
  */
 
   suggestionId: string;  
   /**
- * content：ReplySuggestionRequestView 内部字段。
+ * content：内容相关字段。
  */
 
   content: string;
@@ -115,7 +115,7 @@ export interface ReplySuggestionRequestView {
 /** 标记建议回复已读。 */
 export interface MarkSuggestionRepliesReadRequestView {
 /**
- * suggestionId：MarkSuggestionRepliesReadRequestView 内部字段。
+ * suggestionId：suggestionID标识。
  */
 
   suggestionId: string;
@@ -124,7 +124,7 @@ export interface MarkSuggestionRepliesReadRequestView {
 /** GM 标记建议完成。 */
 export interface GmMarkSuggestionCompletedRequestView {
 /**
- * suggestionId：GmMarkSuggestionCompletedRequestView 内部字段。
+ * suggestionId：suggestionID标识。
  */
 
   suggestionId: string;
@@ -133,7 +133,7 @@ export interface GmMarkSuggestionCompletedRequestView {
 /** GM 删除建议。 */
 export interface GmRemoveSuggestionRequestView {
 /**
- * suggestionId：GmRemoveSuggestionRequestView 内部字段。
+ * suggestionId：suggestionID标识。
  */
 
   suggestionId: string;

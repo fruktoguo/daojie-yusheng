@@ -20,57 +20,57 @@ import {
 
 export type MainTargetingPendingAction = {
 /**
- * actionId：对象字段。
+ * actionId：actionID标识。
  */
 
   actionId: string;  
   /**
- * actionName：对象字段。
+ * actionName：action名称名称或显示文本。
  */
 
   actionName: string;  
   /**
- * targetMode：对象字段。
+ * targetMode：目标Mode相关字段。
  */
 
   targetMode?: string;  
   /**
- * range：对象字段。
+ * range：范围相关字段。
  */
 
   range: number;  
   /**
- * shape：对象字段。
+ * shape：shape相关字段。
  */
 
   shape?: TargetingShape;  
   /**
- * radius：对象字段。
+ * radius：radiu相关字段。
  */
 
   radius?: number;  
   /**
- * width：对象字段。
+ * width：width相关字段。
  */
 
   width?: number;  
   /**
- * height：对象字段。
+ * height：height相关字段。
  */
 
   height?: number;  
   /**
- * maxTargets：对象字段。
+ * maxTargets：max目标相关字段。
  */
 
   maxTargets?: number;  
   /**
- * hoverX：对象字段。
+ * hoverX：hoverX相关字段。
  */
 
   hoverX?: number;  
   /**
- * hoverY：对象字段。
+ * hoverY：hoverY相关字段。
  */
 
   hoverY?: number;
@@ -82,22 +82,22 @@ export type MainTargetingPendingAction = {
 
 export type MainTargetingHoveredTile = {
 /**
- * x：对象字段。
+ * x：x相关字段。
  */
 
   x: number;  
   /**
- * y：对象字段。
+ * y：y相关字段。
  */
 
   y: number;  
   /**
- * clientX：对象字段。
+ * clientX：clientX相关字段。
  */
 
   clientX: number;  
   /**
- * clientY：对象字段。
+ * clientY：clientY相关字段。
  */
 
   clientY: number;
@@ -115,108 +115,108 @@ type MainTargetingObservedEntity = Pick<MainRuntimeObservedEntity, 'id' | 'wx' |
 
 type MainTargetingStateSourceOptions = {
 /**
- * getPlayer：对象字段。
+ * getPlayer：玩家引用。
  */
 
   getPlayer: () => PlayerState | null;  
   /**
- * getInfoRadius：对象字段。
+ * getInfoRadius：InfoRadiu相关字段。
  */
 
   getInfoRadius: () => number;  
   /**
- * getLatestEntities：对象字段。
+ * getLatestEntities：LatestEntity相关字段。
  */
 
   getLatestEntities: () => MainTargetingObservedEntity[];  
   /**
- * getVisibleTileAt：对象字段。
+ * getVisibleTileAt：可见TileAt相关字段。
  */
 
   getVisibleTileAt: (x: number, y: number) => Tile | null;  
   /**
- * setTargetingOverlay：对象字段。
+ * setTargetingOverlay：TargetingOverlay相关字段。
  */
 
   setTargetingOverlay: (overlay: {  
   /**
- * originX：对象字段。
+ * originX：originX相关字段。
  */
 
     originX: number;    
     /**
- * originY：对象字段。
+ * originY：originY相关字段。
  */
 
     originY: number;    
     /**
- * range：对象字段。
+ * range：范围相关字段。
  */
 
     range: number;    
     /**
- * visibleOnly：对象字段。
+ * visibleOnly：可见Only相关字段。
  */
 
     visibleOnly: boolean;    
     /**
- * shape：对象字段。
+ * shape：shape相关字段。
  */
 
     shape?: TargetingShape;    
     /**
- * radius：对象字段。
+ * radius：radiu相关字段。
  */
 
     radius?: number;    
     /**
- * affectedCells：对象字段。
+ * affectedCells：affectedCell相关字段。
  */
 
     affectedCells: Array<{    
     /**
- * x：对象字段。
+ * x：x相关字段。
  */
  x: number;    
  /**
- * y：对象字段。
+ * y：y相关字段。
  */
  y: number }>;    
  /**
- * hoverX：对象字段。
+ * hoverX：hoverX相关字段。
  */
 
     hoverX?: number;    
     /**
- * hoverY：对象字段。
+ * hoverY：hoverY相关字段。
  */
 
     hoverY?: number;
   } | null) => void;  
   /**
- * setSenseQiOverlay：对象字段。
+ * setSenseQiOverlay：SenseQiOverlay相关字段。
  */
 
   setSenseQiOverlay: (overlay: {  
   /**
- * hoverX：对象字段。
+ * hoverX：hoverX相关字段。
  */
  hoverX?: number;  
  /**
- * hoverY：对象字段。
+ * hoverY：hoverY相关字段。
  */
  hoverY?: number;  
  /**
- * levelBaseValue：对象字段。
+ * levelBaseValue：等级Base值数值。
  */
  levelBaseValue: number } | null) => void;  
  /**
- * targetingBadgeEl：对象字段。
+ * targetingBadgeEl：targetingBadgeEl相关字段。
  */
 
   targetingBadgeEl: HTMLElement | null;  
   /**
- * senseQiTooltip：对象字段。
+ * senseQiTooltip：senseQi提示相关字段。
  */
 
   senseQiTooltip: Pick<
@@ -224,25 +224,25 @@ type MainTargetingStateSourceOptions = {
     'show' | 'hide'
   >;  
   /**
- * getAuraLevelBaseValue：对象字段。
+ * getAuraLevelBaseValue：Aura等级Base值数值。
  */
 
   getAuraLevelBaseValue: () => number;  
   /**
- * formatAuraLevelText：对象字段。
+ * formatAuraLevelText：Aura等级Text名称或显示文本。
  */
 
   formatAuraLevelText: (auraValue: number) => string;  
   /**
- * showToast：对象字段。
+ * showToast：showToast相关字段。
  */
 
   showToast: (message: string) => void;
 };
 /**
- * doesTargetingRequireVision：执行核心业务逻辑。
+ * doesTargetingRequireVision：读取doeTargetingRequireVision并返回结果。
  * @param actionId string action ID。
- * @returns boolean。
+ * @returns 返回是否满足doeTargetingRequireVision条件。
  */
 
 
@@ -258,7 +258,7 @@ export type MainTargetingStateSource = ReturnType<typeof createMainTargetingStat
 /**
  * createMainTargetingStateSource：构建并返回目标对象。
  * @param options MainTargetingStateSourceOptions 选项参数。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新MainTargeting状态来源相关状态。
  */
 
 
@@ -266,19 +266,19 @@ export function createMainTargetingStateSource(options: MainTargetingStateSource
   let pendingTargetedAction: MainTargetingPendingAction = null;
   let hoveredMapTile: MainTargetingHoveredTile = null;  
   /**
- * computeAffectedCells：执行核心业务逻辑。
+ * computeAffectedCells：执行AffectedCell相关逻辑。
  * @param action NonNullable<MainTargetingPendingAction> 参数说明。
- * @returns Array<{ x: number; y: number }>。
+ * @returns 返回AffectedCell。
  */
 
 
   function computeAffectedCells(action: NonNullable<MainTargetingPendingAction>): Array<{  
   /**
- * x：对象字段。
+ * x：x相关字段。
  */
  x: number;  
  /**
- * y：对象字段。
+ * y：y相关字段。
  */
  y: number }> {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
@@ -291,16 +291,16 @@ export function createMainTargetingStateSource(options: MainTargetingStateSource
 
   return {  
   /**
- * getPendingTargetedAction：按给定条件读取/查询数据。
- * @returns MainTargetingPendingAction。
+ * getPendingTargetedAction：读取待处理TargetedAction。
+ * @returns 返回PendingTargetedAction。
  */
 
     getPendingTargetedAction(): MainTargetingPendingAction {
       return pendingTargetedAction;
     },    
     /**
- * hasPendingTargetedAction：执行状态校验并返回判断结果。
- * @returns boolean。
+ * hasPendingTargetedAction：读取待处理TargetedAction并返回结果。
+ * @returns 返回是否满足PendingTargetedAction条件。
  */
 
 
@@ -308,8 +308,8 @@ export function createMainTargetingStateSource(options: MainTargetingStateSource
       return Boolean(pendingTargetedAction);
     },    
     /**
- * getHoveredMapTile：按给定条件读取/查询数据。
- * @returns MainTargetingHoveredTile。
+ * getHoveredMapTile：读取Hovered地图Tile。
+ * @returns 返回Hovered地图Tile。
  */
 
 
@@ -317,9 +317,9 @@ export function createMainTargetingStateSource(options: MainTargetingStateSource
       return hoveredMapTile;
     },    
     /**
- * setHoveredMapTile：更新/写入相关状态。
+ * setHoveredMapTile：写入Hovered地图Tile。
  * @param value MainTargetingHoveredTile 参数说明。
- * @returns void。
+ * @returns 无返回值，直接更新Hovered地图Tile相关状态。
  */
 
 
@@ -327,19 +327,19 @@ export function createMainTargetingStateSource(options: MainTargetingStateSource
       hoveredMapTile = value;
     },    
     /**
- * setPendingTargetedActionHover：更新/写入相关状态。
+ * setPendingTargetedActionHover：写入待处理TargetedActionHover。
  * @param target { x?: number; y?: number } | null 目标对象。
- * @returns void。
+ * @returns 无返回值，直接更新PendingTargetedActionHover相关状态。
  */
 
 
     setPendingTargetedActionHover(target: {    
     /**
- * x：对象字段。
+ * x：x相关字段。
  */
  x?: number;    
  /**
- * y：对象字段。
+ * y：y相关字段。
  */
  y?: number } | null): void {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
@@ -351,8 +351,8 @@ export function createMainTargetingStateSource(options: MainTargetingStateSource
       pendingTargetedAction.hoverY = target?.y;
     },    
     /**
- * clear：执行核心业务逻辑。
- * @returns void。
+ * clear：执行clear相关逻辑。
+ * @returns 无返回值，直接更新clear相关状态。
  */
 
 
@@ -361,9 +361,9 @@ export function createMainTargetingStateSource(options: MainTargetingStateSource
       hoveredMapTile = null;
     },    
     /**
- * getCurrentActionDef：按给定条件读取/查询数据。
+ * getCurrentActionDef：读取当前ActionDef。
  * @param actionId string action ID。
- * @returns ActionDef | null。
+ * @returns 返回CurrentActionDef。
  */
 
 
@@ -371,9 +371,9 @@ export function createMainTargetingStateSource(options: MainTargetingStateSource
       return options.getPlayer()?.actions.find((entry) => entry.id === actionId) ?? null;
     },    
     /**
- * resolveCurrentTargetingRange：执行核心业务逻辑。
+ * resolveCurrentTargetingRange：读取当前Targeting范围并返回结果。
  * @param action Pick<NonNullable<MainTargetingPendingAction>, 'actionId' | 'range'> 参数说明。
- * @returns number。
+ * @returns 返回CurrentTargeting范围。
  */
 
 
@@ -383,12 +383,12 @@ export function createMainTargetingStateSource(options: MainTargetingStateSource
       return resolveCurrentTargetingRangeHelper(action, options.getInfoRadius());
     },    
     /**
- * beginTargeting：执行核心业务逻辑。
+ * beginTargeting：读取开始Targeting并返回结果。
  * @param actionId string action ID。
  * @param actionName string 参数说明。
  * @param targetMode string 参数说明。
  * @param range 参数说明。
- * @returns void。
+ * @returns 无返回值，直接更新beginTargeting相关状态。
  */
 
 
@@ -420,9 +420,9 @@ export function createMainTargetingStateSource(options: MainTargetingStateSource
       options.showToast(`请选择 ${pendingTargetedAction.range} 格内目标，Esc 或右键取消`);
     },    
     /**
- * cancelTargeting：执行状态校验并返回判断结果。
+ * cancelTargeting：读取cancelTargeting并返回结果。
  * @param showMessage 参数说明。
- * @returns void。
+ * @returns 无返回值，完成cancelTargeting的条件判断。
  */
 
 
@@ -439,8 +439,8 @@ export function createMainTargetingStateSource(options: MainTargetingStateSource
       }
     },    
     /**
- * syncTargetingOverlay：执行核心业务逻辑。
- * @returns void。
+ * syncTargetingOverlay：读取TargetingOverlay并返回结果。
+ * @returns 无返回值，直接更新TargetingOverlay相关状态。
  */
 
 
@@ -484,8 +484,8 @@ export function createMainTargetingStateSource(options: MainTargetingStateSource
       this.syncSenseQiOverlay();
     },    
     /**
- * syncSenseQiOverlay：执行核心业务逻辑。
- * @returns void。
+ * syncSenseQiOverlay：处理SenseQiOverlay并更新相关状态。
+ * @returns 无返回值，直接更新SenseQiOverlay相关状态。
  */
 
 
@@ -527,10 +527,10 @@ export function createMainTargetingStateSource(options: MainTargetingStateSource
       );
     },    
     /**
- * computeAffectedCellsForAction：执行核心业务逻辑。
+ * computeAffectedCellsForAction：执行AffectedCellForAction相关逻辑。
  * @param action Pick<NonNullable<MainTargetingPendingAction>, 'actionId' | 'range' | 'shape' | 'radius' | 'width' | 'height'> 参数说明。
  * @param anchor GridPoint 参数说明。
- * @returns GridPoint[]。
+ * @returns 返回AffectedCellForAction列表。
  */
 
 
@@ -541,10 +541,10 @@ export function createMainTargetingStateSource(options: MainTargetingStateSource
       return computeAffectedCellsForActionHelper(action, anchor, options.getPlayer());
     },    
     /**
- * resolveTargetRefForAction：执行核心业务逻辑。
+ * resolveTargetRefForAction：读取目标RefForAction并返回结果。
  * @param action Pick<NonNullable<MainTargetingPendingAction>, 'actionId' | 'range' | 'shape' | 'radius' | 'width' | 'height' | 'targetMode'> 参数说明。
  * @param target { x: number; y: number; entityId?: string; entityKind?: string } 目标对象。
- * @returns string | null。
+ * @returns 返回目标RefForAction。
  */
 
 
@@ -552,30 +552,30 @@ export function createMainTargetingStateSource(options: MainTargetingStateSource
       action: Pick<NonNullable<MainTargetingPendingAction>, 'actionId' | 'range' | 'shape' | 'radius' | 'width' | 'height' | 'targetMode'>,
       target: {      
       /**
- * x：对象字段。
+ * x：x相关字段。
  */
  x: number;      
  /**
- * y：对象字段。
+ * y：y相关字段。
  */
  y: number;      
  /**
- * entityId：对象字段。
+ * entityId：entityID标识。
  */
  entityId?: string;      
  /**
- * entityKind：对象字段。
+ * entityKind：entityKind相关字段。
  */
  entityKind?: string },
     ): string | null {
       return resolveTargetRefForActionHelper(action, target, options.getPlayer());
     },    
     /**
- * hasAffectableTargetInArea：执行状态校验并返回判断结果。
+ * hasAffectableTargetInArea：读取Affectable目标InArea并返回结果。
  * @param action Pick<NonNullable<MainTargetingPendingAction>, 'actionId' | 'shape' | 'range' | 'radius' | 'width' | 'height'> 参数说明。
  * @param anchorX number 参数说明。
  * @param anchorY number 参数说明。
- * @returns boolean。
+ * @returns 返回是否满足Affectable目标InArea条件。
  */
 
 

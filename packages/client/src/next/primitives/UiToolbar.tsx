@@ -6,18 +6,18 @@ import type { PropsWithChildren } from 'react';
 
 export interface UiToolbarProps {
 /**
- * className：UiToolbarProps 内部字段。
+ * className：class名称名称或显示文本。
  */
 
   className?: string;
 }
 /**
- * UiToolbar：执行核心业务逻辑。
+ * UiToolbar：渲染UiToolbar组件。
  * @param {
   className,
   children,
 } PropsWithChildren<UiToolbarProps> 参数说明。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新UiToolbar相关状态。
  */
 
 

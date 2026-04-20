@@ -256,9 +256,9 @@ let PlayerRuntimeService = class PlayerRuntimeService {
         return player;
     }    
     /**
- * clearLootWindow：执行核心业务逻辑。
+ * clearLootWindow：执行clear掉落窗口相关逻辑。
  * @param playerId 玩家 ID。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新clear掉落窗口相关状态。
  */
 
     clearLootWindow(playerId) {
@@ -273,9 +273,9 @@ let PlayerRuntimeService = class PlayerRuntimeService {
         return player;
     }    
     /**
- * getLootWindowTarget：按给定条件读取/查询数据。
+ * getLootWindowTarget：读取掉落窗口目标。
  * @param playerId 玩家 ID。
- * @returns 函数返回值。
+ * @returns 无返回值，完成掉落窗口目标的读取/组装。
  */
 
     getLootWindowTarget(playerId) {
@@ -292,18 +292,18 @@ let PlayerRuntimeService = class PlayerRuntimeService {
         };
     }    
     /**
- * getPlayer：按给定条件读取/查询数据。
+ * getPlayer：读取玩家。
  * @param playerId 玩家 ID。
- * @returns 函数返回值。
+ * @returns 无返回值，完成玩家的读取/组装。
  */
 
     getPlayer(playerId) {
         return this.players.get(playerId) ?? null;
     }    
     /**
- * getPlayerOrThrow：按给定条件读取/查询数据。
+ * getPlayerOrThrow：读取玩家OrThrow。
  * @param playerId 玩家 ID。
- * @returns 函数返回值。
+ * @returns 无返回值，完成玩家OrThrow的读取/组装。
  */
 
     getPlayerOrThrow(playerId) {
@@ -317,9 +317,9 @@ let PlayerRuntimeService = class PlayerRuntimeService {
         return player;
     }    
     /**
- * getViewRadius：按给定条件读取/查询数据。
+ * getViewRadius：读取视图Radiu。
  * @param playerId 玩家 ID。
- * @returns 函数返回值。
+ * @returns 无返回值，完成视图Radiu的读取/组装。
  */
 
     getViewRadius(playerId) {
@@ -328,11 +328,11 @@ let PlayerRuntimeService = class PlayerRuntimeService {
         return Math.max(1, Math.round(player.attrs.numericStats.viewRange));
     }    
     /**
- * gainRealmProgress：执行核心业务逻辑。
+ * gainRealmProgress：执行gainRealm进度相关逻辑。
  * @param playerId 玩家 ID。
  * @param amount 参数说明。
  * @param options 选项参数。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新gainRealm进度相关状态。
  */
 
     gainRealmProgress(playerId, amount, options = {}) {
@@ -343,10 +343,10 @@ let PlayerRuntimeService = class PlayerRuntimeService {
         return this.applyProgressionResult(player, result);
     }    
     /**
- * gainFoundation：执行核心业务逻辑。
+ * gainFoundation：执行gainFoundation相关逻辑。
  * @param playerId 玩家 ID。
  * @param amount 参数说明。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新gainFoundation相关状态。
  */
 
     gainFoundation(playerId, amount) {
@@ -357,10 +357,10 @@ let PlayerRuntimeService = class PlayerRuntimeService {
         return this.applyProgressionResult(player, result);
     }    
     /**
- * gainCombatExp：执行核心业务逻辑。
+ * gainCombatExp：执行gain战斗Exp相关逻辑。
  * @param playerId 玩家 ID。
  * @param amount 参数说明。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新gain战斗Exp相关状态。
  */
 
     gainCombatExp(playerId, amount) {
@@ -371,11 +371,11 @@ let PlayerRuntimeService = class PlayerRuntimeService {
         return this.applyProgressionResult(player, result);
     }    
     /**
- * advanceProgressionTick：执行核心业务逻辑。
+ * advanceProgressionTick：执行advance修炼进度tick相关逻辑。
  * @param playerId 玩家 ID。
  * @param elapsedTicks 参数说明。
  * @param options 选项参数。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新advance修炼进度tick相关状态。
  */
 
     advanceProgressionTick(playerId, elapsedTicks = 1, options = {}) {
@@ -386,11 +386,11 @@ let PlayerRuntimeService = class PlayerRuntimeService {
         return this.applyProgressionResult(player, result);
     }    
     /**
- * advanceCultivation：执行核心业务逻辑。
+ * advanceCultivation：执行advanceCultivation相关逻辑。
  * @param playerId 玩家 ID。
  * @param elapsedTicks 参数说明。
  * @param currentTick 参数说明。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新advanceCultivation相关状态。
  */
 
     advanceCultivation(playerId, elapsedTicks = 1, currentTick = 0) {
@@ -401,11 +401,11 @@ let PlayerRuntimeService = class PlayerRuntimeService {
         return this.applyProgressionResult(player, result, currentTick);
     }    
     /**
- * grantMonsterKillProgress：执行核心业务逻辑。
+ * grantMonsterKillProgress：执行grant怪物Kill进度相关逻辑。
  * @param playerId 玩家 ID。
  * @param input 输入参数。
  * @param currentTick 参数说明。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新grant怪物Kill进度相关状态。
  */
 
     grantMonsterKillProgress(playerId, input, currentTick = 0) {
@@ -416,9 +416,9 @@ let PlayerRuntimeService = class PlayerRuntimeService {
         return this.applyProgressionResult(player, result, currentTick);
     }    
     /**
- * refreshProgressionPreview：执行核心业务逻辑。
+ * refreshProgressionPreview：执行refresh修炼进度Preview相关逻辑。
  * @param playerId 玩家 ID。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新refresh修炼进度Preview相关状态。
  */
 
     refreshProgressionPreview(playerId) {
@@ -428,12 +428,12 @@ let PlayerRuntimeService = class PlayerRuntimeService {
         return player;
     }    
     /**
- * handleHeavenGateAction：处理事件并驱动执行路径。
+ * handleHeavenGateAction：处理HeavenGateAction并更新相关状态。
  * @param playerId 玩家 ID。
  * @param action 参数说明。
  * @param element 参数说明。
  * @param currentTick 参数说明。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新HeavenGateAction相关状态。
  */
 
     handleHeavenGateAction(playerId, action, element, currentTick = 0) {
@@ -444,10 +444,10 @@ let PlayerRuntimeService = class PlayerRuntimeService {
         return this.applyProgressionResult(player, result, currentTick, true);
     }    
     /**
- * attemptBreakthrough：执行核心业务逻辑。
+ * attemptBreakthrough：执行attemptBreakthrough相关逻辑。
  * @param playerId 玩家 ID。
  * @param currentTick 参数说明。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新attemptBreakthrough相关状态。
  */
 
     attemptBreakthrough(playerId, currentTick = 0) {
@@ -458,11 +458,11 @@ let PlayerRuntimeService = class PlayerRuntimeService {
         return this.applyProgressionResult(player, result, currentTick, true);
     }    
     /**
- * syncFromWorldView：执行核心业务逻辑。
+ * syncFromWorldView：处理From世界视图并更新相关状态。
  * @param playerId 玩家 ID。
  * @param sessionId session ID。
  * @param view 参数说明。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新From世界视图相关状态。
  */
 
     syncFromWorldView(playerId, sessionId, view) {
@@ -499,11 +499,11 @@ let PlayerRuntimeService = class PlayerRuntimeService {
         return player;
     }    
     /**
- * setContextActions：更新/写入相关状态。
+ * setContextActions：写入上下文Action。
  * @param playerId 玩家 ID。
  * @param actions 参数说明。
  * @param currentTick 参数说明。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新上下文Action相关状态。
  */
 
     setContextActions(playerId, actions, currentTick) {
@@ -523,10 +523,10 @@ let PlayerRuntimeService = class PlayerRuntimeService {
         return player;
     }    
     /**
- * setVitals：更新/写入相关状态。
+ * setVitals：写入Vital。
  * @param playerId 玩家 ID。
  * @param input 输入参数。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新Vital相关状态。
  */
 
     setVitals(playerId, input) {
@@ -573,11 +573,11 @@ let PlayerRuntimeService = class PlayerRuntimeService {
         return player;
     }    
     /**
- * grantItem：执行核心业务逻辑。
+ * grantItem：执行grant道具相关逻辑。
  * @param playerId 玩家 ID。
  * @param itemId 道具 ID。
  * @param count 数量。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新grant道具相关状态。
  */
 
     grantItem(playerId, itemId, count = 1) {
@@ -604,10 +604,10 @@ let PlayerRuntimeService = class PlayerRuntimeService {
         return player;
     }    
     /**
- * getInventoryCountByItemId：按给定条件读取/查询数据。
+ * getInventoryCountByItemId：读取背包数量By道具ID。
  * @param playerId 玩家 ID。
  * @param itemId 道具 ID。
- * @returns 函数返回值。
+ * @returns 无返回值，完成背包数量By道具ID的读取/组装。
  */
 
     getInventoryCountByItemId(playerId, itemId) {
@@ -625,10 +625,10 @@ let PlayerRuntimeService = class PlayerRuntimeService {
         return total;
     }    
     /**
- * canReceiveInventoryItem：执行状态校验并返回判断结果。
+ * canReceiveInventoryItem：判断Receive背包道具是否满足条件。
  * @param playerId 玩家 ID。
  * @param itemId 道具 ID。
- * @returns 函数返回值。
+ * @returns 无返回值，完成Receive背包道具的条件判断。
  */
 
     canReceiveInventoryItem(playerId, itemId) {
@@ -642,10 +642,10 @@ let PlayerRuntimeService = class PlayerRuntimeService {
         return player.inventory.items.length < player.inventory.capacity;
     }    
     /**
- * peekInventoryItem：执行核心业务逻辑。
+ * peekInventoryItem：执行peek背包道具相关逻辑。
  * @param playerId 玩家 ID。
  * @param slotIndex 参数说明。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新peek背包道具相关状态。
  */
 
     peekInventoryItem(playerId, slotIndex) {
@@ -654,10 +654,10 @@ let PlayerRuntimeService = class PlayerRuntimeService {
         return player.inventory.items[slotIndex] ?? null;
     }    
     /**
- * peekEquippedItem：执行核心业务逻辑。
+ * peekEquippedItem：执行peekEquipped道具相关逻辑。
  * @param playerId 玩家 ID。
  * @param slot 参数说明。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新peekEquipped道具相关状态。
  */
 
     peekEquippedItem(playerId, slot) {
@@ -666,10 +666,10 @@ let PlayerRuntimeService = class PlayerRuntimeService {
         return player.equipment.slots.find((entry) => entry.slot === slot)?.item ?? null;
     }    
     /**
- * getTechniqueName：按给定条件读取/查询数据。
+ * getTechniqueName：读取功法名称。
  * @param playerId 玩家 ID。
  * @param techId tech ID。
- * @returns 函数返回值。
+ * @returns 无返回值，完成功法名称的读取/组装。
  */
 
     getTechniqueName(playerId, techId) {
@@ -678,9 +678,9 @@ let PlayerRuntimeService = class PlayerRuntimeService {
         return player.techniques.techniques.find((entry) => entry.techId === techId)?.name ?? null;
     }    
     /**
- * listQuests：执行核心业务逻辑。
+ * listQuests：读取任务并返回结果。
  * @param playerId 玩家 ID。
- * @returns 函数返回值。
+ * @returns 无返回值，完成任务的读取/组装。
  */
 
     listQuests(playerId) {
@@ -689,9 +689,9 @@ let PlayerRuntimeService = class PlayerRuntimeService {
         return player.quests.quests.map((entry) => ({ ...entry, rewards: entry.rewards.map((reward) => ({ ...reward })) }));
     }    
     /**
- * getPendingLogbookMessages：按给定条件读取/查询数据。
+ * getPendingLogbookMessages：读取待处理LogbookMessage。
  * @param playerId 玩家 ID。
- * @returns 函数返回值。
+ * @returns 无返回值，完成PendingLogbookMessage的读取/组装。
  */
 
     getPendingLogbookMessages(playerId) {
@@ -700,19 +700,19 @@ let PlayerRuntimeService = class PlayerRuntimeService {
         return player.pendingLogbookMessages.map((entry) => ({ ...entry }));
     }    
     /**
- * getLegacyPendingLogbookMessages：按给定条件读取/查询数据。
+ * getLegacyPendingLogbookMessages：读取Legacy待处理LogbookMessage。
  * @param playerId 玩家 ID。
- * @returns 函数返回值。
+ * @returns 无返回值，完成LegacyPendingLogbookMessage的读取/组装。
  */
 
     getLegacyPendingLogbookMessages(playerId) {
         return this.getPendingLogbookMessages(playerId);
     }    
     /**
- * queuePendingLogbookMessage：执行核心业务逻辑。
+ * queuePendingLogbookMessage：执行queue待处理LogbookMessage相关逻辑。
  * @param playerId 玩家 ID。
  * @param message 参数说明。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新queuePendingLogbookMessage相关状态。
  */
 
     queuePendingLogbookMessage(playerId, message) {
@@ -745,20 +745,20 @@ let PlayerRuntimeService = class PlayerRuntimeService {
         return player;
     }    
     /**
- * queueLegacyPendingLogbookMessage：执行核心业务逻辑。
+ * queueLegacyPendingLogbookMessage：执行queueLegacy待处理LogbookMessage相关逻辑。
  * @param playerId 玩家 ID。
  * @param message 参数说明。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新queueLegacyPendingLogbookMessage相关状态。
  */
 
     queueLegacyPendingLogbookMessage(playerId, message) {
         return this.queuePendingLogbookMessage(playerId, message);
     }    
     /**
- * deferVitalRecoveryUntilTick：执行核心业务逻辑。
+ * deferVitalRecoveryUntilTick：执行deferVitalRecoveryUntiltick相关逻辑。
  * @param playerId 玩家 ID。
  * @param currentTick 参数说明。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新deferVitalRecoveryUntiltick相关状态。
  */
 
     deferVitalRecoveryUntilTick(playerId, currentTick) {
@@ -775,20 +775,20 @@ let PlayerRuntimeService = class PlayerRuntimeService {
         return player;
     }    
     /**
- * suppressVitalRecoveryUntilTick：执行核心业务逻辑。
+ * suppressVitalRecoveryUntilTick：执行suppressVitalRecoveryUntiltick相关逻辑。
  * @param playerId 玩家 ID。
  * @param currentTick 参数说明。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新suppressVitalRecoveryUntiltick相关状态。
  */
 
     suppressVitalRecoveryUntilTick(playerId, currentTick) {
         return this.deferVitalRecoveryUntilTick(playerId, currentTick);
     }    
     /**
- * acknowledgePendingLogbookMessages：执行核心业务逻辑。
+ * acknowledgePendingLogbookMessages：执行acknowledge待处理LogbookMessage相关逻辑。
  * @param playerId 玩家 ID。
  * @param ids 参数说明。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新acknowledgePendingLogbookMessage相关状态。
  */
 
     acknowledgePendingLogbookMessages(playerId, ids) {
@@ -817,19 +817,19 @@ let PlayerRuntimeService = class PlayerRuntimeService {
         return player;
     }    
     /**
- * ackLegacyPendingLogbookMessages：执行核心业务逻辑。
+ * ackLegacyPendingLogbookMessages：执行ackLegacy待处理LogbookMessage相关逻辑。
  * @param playerId 玩家 ID。
  * @param ids 参数说明。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新ackLegacyPendingLogbookMessage相关状态。
  */
 
     ackLegacyPendingLogbookMessages(playerId, ids) {
         return this.acknowledgePendingLogbookMessages(playerId, ids);
     }    
     /**
- * markQuestStateDirty：执行核心业务逻辑。
+ * markQuestStateDirty：处理任务状态Dirty并更新相关状态。
  * @param playerId 玩家 ID。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新任务状态Dirty相关状态。
  */
 
     markQuestStateDirty(playerId) {
@@ -840,10 +840,10 @@ let PlayerRuntimeService = class PlayerRuntimeService {
         return player;
     }    
     /**
- * enqueueNotice：执行核心业务逻辑。
+ * enqueueNotice：处理Notice并更新相关状态。
  * @param playerId 玩家 ID。
  * @param input 输入参数。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新Notice相关状态。
  */
 
     enqueueNotice(playerId, input) {
@@ -865,10 +865,10 @@ let PlayerRuntimeService = class PlayerRuntimeService {
         return player;
     }    
     /**
- * enqueueCombatEffect：执行核心业务逻辑。
+ * enqueueCombatEffect：处理战斗Effect并更新相关状态。
  * @param playerId 玩家 ID。
  * @param effect 参数说明。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新战斗Effect相关状态。
  */
 
     enqueueCombatEffect(playerId, effect) {
@@ -888,10 +888,10 @@ let PlayerRuntimeService = class PlayerRuntimeService {
         this.pendingCombatEffectsByPlayerId.set(playerId, [cloneCombatEffect(effect)]);
     }    
     /**
- * enqueueCombatEffects：执行核心业务逻辑。
+ * enqueueCombatEffects：处理战斗Effect并更新相关状态。
  * @param playerId 玩家 ID。
  * @param effects 参数说明。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新战斗Effect相关状态。
  */
 
     enqueueCombatEffects(playerId, effects) {
@@ -900,9 +900,9 @@ let PlayerRuntimeService = class PlayerRuntimeService {
         }
     }    
     /**
- * drainCombatEffects：执行核心业务逻辑。
+ * drainCombatEffects：执行drain战斗Effect相关逻辑。
  * @param playerId 玩家 ID。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新drain战斗Effect相关状态。
  */
 
     drainCombatEffects(playerId) {
@@ -917,9 +917,9 @@ let PlayerRuntimeService = class PlayerRuntimeService {
         return queue.map((entry) => cloneCombatEffect(entry));
     }    
     /**
- * drainNotices：执行核心业务逻辑。
+ * drainNotices：执行drainNotice相关逻辑。
  * @param playerId 玩家 ID。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新drainNotice相关状态。
  */
 
     drainNotices(playerId) {
@@ -936,11 +936,11 @@ let PlayerRuntimeService = class PlayerRuntimeService {
         return queue;
     }    
     /**
- * splitInventoryItem：执行核心业务逻辑。
+ * splitInventoryItem：处理背包道具并更新相关状态。
  * @param playerId 玩家 ID。
  * @param slotIndex 参数说明。
  * @param count 数量。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新背包道具相关状态。
  */
 
     splitInventoryItem(playerId, slotIndex, count = 1) {
@@ -968,10 +968,10 @@ let PlayerRuntimeService = class PlayerRuntimeService {
         return extracted;
     }    
     /**
- * receiveInventoryItem：执行核心业务逻辑。
+ * receiveInventoryItem：执行receive背包道具相关逻辑。
  * @param playerId 玩家 ID。
  * @param item 道具。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新receive背包道具相关状态。
  */
 
     receiveInventoryItem(playerId, item) {
@@ -995,10 +995,10 @@ let PlayerRuntimeService = class PlayerRuntimeService {
         return player;
     }    
     /**
- * useItem：执行核心业务逻辑。
+ * useItem：执行use道具相关逻辑。
  * @param playerId 玩家 ID。
  * @param slotIndex 参数说明。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新use道具相关状态。
  */
 
     useItem(playerId, slotIndex) {
@@ -1048,11 +1048,11 @@ let PlayerRuntimeService = class PlayerRuntimeService {
         return player;
     }    
     /**
- * consumeInventoryItem：执行核心业务逻辑。
+ * consumeInventoryItem：执行consume背包道具相关逻辑。
  * @param playerId 玩家 ID。
  * @param slotIndex 参数说明。
  * @param count 数量。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新consume背包道具相关状态。
  */
 
     consumeInventoryItem(playerId, slotIndex, count = 1) {
@@ -1072,11 +1072,11 @@ let PlayerRuntimeService = class PlayerRuntimeService {
         return player;
     }    
     /**
- * consumeInventoryItemByItemId：执行核心业务逻辑。
+ * consumeInventoryItemByItemId：执行consume背包道具By道具ID相关逻辑。
  * @param playerId 玩家 ID。
  * @param itemId 道具 ID。
  * @param count 数量。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新consume背包道具By道具ID相关状态。
  */
 
     consumeInventoryItemByItemId(playerId, itemId, count = 1) {
@@ -1108,11 +1108,11 @@ let PlayerRuntimeService = class PlayerRuntimeService {
         return player;
     }    
     /**
- * destroyInventoryItem：执行核心业务逻辑。
+ * destroyInventoryItem：执行destroy背包道具相关逻辑。
  * @param playerId 玩家 ID。
  * @param slotIndex 参数说明。
  * @param count 数量。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新destroy背包道具相关状态。
  */
 
     destroyInventoryItem(playerId, slotIndex, count = 1) {
@@ -1139,9 +1139,9 @@ let PlayerRuntimeService = class PlayerRuntimeService {
         return destroyed;
     }    
     /**
- * sortInventory：执行核心业务逻辑。
+ * sortInventory：执行sort背包相关逻辑。
  * @param playerId 玩家 ID。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新sort背包相关状态。
  */
 
     sortInventory(playerId) {
@@ -1174,10 +1174,10 @@ let PlayerRuntimeService = class PlayerRuntimeService {
         return player;
     }    
     /**
- * unlockMap：执行核心业务逻辑。
+ * unlockMap：执行unlock地图相关逻辑。
  * @param playerId 玩家 ID。
  * @param mapId 地图 ID。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新unlock地图相关状态。
  */
 
     unlockMap(playerId, mapId) {
@@ -1194,20 +1194,20 @@ let PlayerRuntimeService = class PlayerRuntimeService {
         return player;
     }    
     /**
- * hasUnlockedMap：执行状态校验并返回判断结果。
+ * hasUnlockedMap：判断Unlocked地图是否满足条件。
  * @param playerId 玩家 ID。
  * @param mapId 地图 ID。
- * @returns 函数返回值。
+ * @returns 无返回值，完成Unlocked地图的条件判断。
  */
 
     hasUnlockedMap(playerId, mapId) {
         return this.getPlayerOrThrow(playerId).unlockedMapIds.includes(mapId);
     }    
     /**
- * equipItem：执行核心业务逻辑。
+ * equipItem：执行equip道具相关逻辑。
  * @param playerId 玩家 ID。
  * @param slotIndex 参数说明。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新equip道具相关状态。
  */
 
     equipItem(playerId, slotIndex) {
@@ -1245,10 +1245,10 @@ let PlayerRuntimeService = class PlayerRuntimeService {
         return player;
     }    
     /**
- * unequipItem：执行核心业务逻辑。
+ * unequipItem：执行unequip道具相关逻辑。
  * @param playerId 玩家 ID。
  * @param slot 参数说明。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新unequip道具相关状态。
  */
 
     unequipItem(playerId, slot) {
@@ -1270,10 +1270,10 @@ let PlayerRuntimeService = class PlayerRuntimeService {
         return player;
     }    
     /**
- * cultivateTechnique：执行核心业务逻辑。
+ * cultivateTechnique：执行cultivate功法相关逻辑。
  * @param playerId 玩家 ID。
  * @param techniqueId technique ID。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新cultivate功法相关状态。
  */
 
     cultivateTechnique(playerId, techniqueId) {
@@ -1296,10 +1296,10 @@ let PlayerRuntimeService = class PlayerRuntimeService {
         return player;
     }    
     /**
- * infuseBodyTraining：执行核心业务逻辑。
+ * infuseBodyTraining：执行infuseBodyTraining相关逻辑。
  * @param playerId 玩家 ID。
  * @param foundationAmount 参数说明。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新infuseBodyTraining相关状态。
  */
 
     infuseBodyTraining(playerId, foundationAmount) {
@@ -1343,11 +1343,11 @@ let PlayerRuntimeService = class PlayerRuntimeService {
         };
     }    
     /**
- * recordActivity：执行核心业务逻辑。
+ * recordActivity：执行recordActivity相关逻辑。
  * @param playerId 玩家 ID。
  * @param currentTick 参数说明。
  * @param input 输入参数。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新recordActivity相关状态。
  */
 
     recordActivity(playerId, currentTick, input = {}) {
@@ -1366,10 +1366,10 @@ let PlayerRuntimeService = class PlayerRuntimeService {
         return player;
     }    
     /**
- * spendQi：执行核心业务逻辑。
+ * spendQi：执行spendQi相关逻辑。
  * @param playerId 玩家 ID。
  * @param amount 参数说明。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新spendQi相关状态。
  */
 
     spendQi(playerId, amount) {
@@ -1391,10 +1391,10 @@ let PlayerRuntimeService = class PlayerRuntimeService {
         return player;
     }    
     /**
- * applyDamage：更新/写入相关状态。
+ * applyDamage：处理Damage并更新相关状态。
  * @param playerId 玩家 ID。
  * @param amount 参数说明。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新Damage相关状态。
  */
 
     applyDamage(playerId, amount) {
@@ -1413,12 +1413,12 @@ let PlayerRuntimeService = class PlayerRuntimeService {
         return player;
     }    
     /**
- * setSkillCooldownReadyTick：更新/写入相关状态。
+ * setSkillCooldownReadyTick：写入技能冷却Readytick。
  * @param playerId 玩家 ID。
  * @param skillId skill ID。
  * @param readyTick 参数说明。
  * @param currentTick 参数说明。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新技能冷却Readytick相关状态。
  */
 
     setSkillCooldownReadyTick(playerId, skillId, readyTick, currentTick) {
@@ -1429,10 +1429,10 @@ let PlayerRuntimeService = class PlayerRuntimeService {
         return player;
     }    
     /**
- * updateAutoBattleSkills：更新/写入相关状态。
+ * updateAutoBattleSkills：处理AutoBattle技能并更新相关状态。
  * @param playerId 玩家 ID。
  * @param input 输入参数。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新AutoBattle技能相关状态。
  */
 
     updateAutoBattleSkills(playerId, input) {
@@ -1451,10 +1451,10 @@ let PlayerRuntimeService = class PlayerRuntimeService {
         return player;
     }    
     /**
- * updateAutoUsePills：更新/写入相关状态。
+ * updateAutoUsePills：处理AutoUsePill并更新相关状态。
  * @param playerId 玩家 ID。
  * @param input 输入参数。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新AutoUsePill相关状态。
  */
 
     updateAutoUsePills(playerId, input) {
@@ -1472,10 +1472,10 @@ let PlayerRuntimeService = class PlayerRuntimeService {
         return player;
     }    
     /**
- * updateCombatTargetingRules：更新/写入相关状态。
+ * updateCombatTargetingRules：读取战斗TargetingRule并返回结果。
  * @param playerId 玩家 ID。
  * @param input 输入参数。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新战斗TargetingRule相关状态。
  */
 
     updateCombatTargetingRules(playerId, input) {
@@ -1493,10 +1493,10 @@ let PlayerRuntimeService = class PlayerRuntimeService {
         return player;
     }    
     /**
- * updateAutoBattleTargetingMode：更新/写入相关状态。
+ * updateAutoBattleTargetingMode：读取AutoBattleTargetingMode并返回结果。
  * @param playerId 玩家 ID。
  * @param input 输入参数。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新AutoBattleTargetingMode相关状态。
  */
 
     updateAutoBattleTargetingMode(playerId, input) {
@@ -1514,11 +1514,11 @@ let PlayerRuntimeService = class PlayerRuntimeService {
         return player;
     }    
     /**
- * updateTechniqueSkillAvailability：更新/写入相关状态。
+ * updateTechniqueSkillAvailability：处理功法技能Availability并更新相关状态。
  * @param playerId 玩家 ID。
  * @param techId tech ID。
  * @param enabled 参数说明。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新功法技能Availability相关状态。
  */
 
     updateTechniqueSkillAvailability(playerId, techId, enabled) {
@@ -1566,11 +1566,11 @@ let PlayerRuntimeService = class PlayerRuntimeService {
         return player;
     }    
     /**
- * updateCombatSettings：更新/写入相关状态。
+ * updateCombatSettings：处理战斗Setting并更新相关状态。
  * @param playerId 玩家 ID。
  * @param input 输入参数。
  * @param currentTick 参数说明。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新战斗Setting相关状态。
  */
 
     updateCombatSettings(playerId, input, currentTick = 0) {
@@ -1620,12 +1620,12 @@ let PlayerRuntimeService = class PlayerRuntimeService {
         return player;
     }    
     /**
- * setCombatTarget：更新/写入相关状态。
+ * setCombatTarget：写入战斗目标。
  * @param playerId 玩家 ID。
  * @param targetId target ID。
  * @param locked 参数说明。
  * @param currentTick 参数说明。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新战斗目标相关状态。
  */
 
     setCombatTarget(playerId, targetId, locked, currentTick = 0) {
@@ -1648,20 +1648,20 @@ let PlayerRuntimeService = class PlayerRuntimeService {
         return player;
     }    
     /**
- * clearCombatTarget：执行核心业务逻辑。
+ * clearCombatTarget：读取clear战斗目标并返回结果。
  * @param playerId 玩家 ID。
  * @param currentTick 参数说明。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新clear战斗目标相关状态。
  */
 
     clearCombatTarget(playerId, currentTick = 0) {
         return this.setCombatTarget(playerId, null, false, currentTick);
     }    
     /**
- * applyTemporaryBuff：更新/写入相关状态。
+ * applyTemporaryBuff：处理TemporaryBuff并更新相关状态。
  * @param playerId 玩家 ID。
  * @param buff 参数说明。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新TemporaryBuff相关状态。
  */
 
     applyTemporaryBuff(playerId, buff) {
@@ -1691,10 +1691,10 @@ let PlayerRuntimeService = class PlayerRuntimeService {
         return player;
     }    
     /**
- * advanceTick：执行核心业务逻辑。
+ * advanceTick：执行advancetick相关逻辑。
  * @param currentTick 参数说明。
  * @param options 选项参数。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新advancetick相关状态。
  */
 
     advanceTick(currentTick, options = {}) {
@@ -1703,11 +1703,11 @@ let PlayerRuntimeService = class PlayerRuntimeService {
         }
     }    
     /**
- * advanceTickForPlayerIds：执行核心业务逻辑。
+ * advanceTickForPlayerIds：执行advancetickFor玩家ID相关逻辑。
  * @param playerIds player ID 集合。
  * @param currentTick 参数说明。
  * @param options 选项参数。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新advancetickFor玩家ID相关状态。
  */
 
     advanceTickForPlayerIds(playerIds, currentTick, options = {}) {
@@ -1725,11 +1725,11 @@ let PlayerRuntimeService = class PlayerRuntimeService {
         }
     }    
     /**
- * advanceSinglePlayerTick：执行核心业务逻辑。
+ * advanceSinglePlayerTick：执行advanceSingle玩家tick相关逻辑。
  * @param player 玩家对象。
  * @param currentTick 参数说明。
  * @param options 选项参数。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新advanceSingle玩家tick相关状态。
  */
 
     advanceSinglePlayerTick(player, currentTick, options = {}) {
@@ -1756,10 +1756,10 @@ let PlayerRuntimeService = class PlayerRuntimeService {
             }
     }    
     /**
- * respawnPlayer：执行核心业务逻辑。
+ * respawnPlayer：执行重生玩家相关逻辑。
  * @param playerId 玩家 ID。
  * @param input 输入参数。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新重生玩家相关状态。
  */
 
     respawnPlayer(playerId, input) {
@@ -1822,8 +1822,8 @@ let PlayerRuntimeService = class PlayerRuntimeService {
         return player;
     }    
     /**
- * listDirtyPlayers：执行核心业务逻辑。
- * @returns 函数返回值。
+ * listDirtyPlayers：读取Dirty玩家并返回结果。
+ * @returns 无返回值，完成Dirty玩家的读取/组装。
  */
 
     listDirtyPlayers() {
@@ -1836,7 +1836,7 @@ let PlayerRuntimeService = class PlayerRuntimeService {
  * buildFreshPersistenceSnapshot：构建并返回目标对象。
  * @param playerId 玩家 ID。
  * @param placement 参数说明。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新FreshPersistence快照相关状态。
  */
 
     buildFreshPersistenceSnapshot(playerId, placement) {
@@ -1863,7 +1863,7 @@ let PlayerRuntimeService = class PlayerRuntimeService {
     /**
  * buildStarterPersistenceSnapshot：构建并返回目标对象。
  * @param playerId 玩家 ID。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新StarterPersistence快照相关状态。
  */
 
     buildStarterPersistenceSnapshot(playerId) {
@@ -1888,7 +1888,7 @@ let PlayerRuntimeService = class PlayerRuntimeService {
     /**
  * buildPersistenceSnapshot：构建并返回目标对象。
  * @param playerId 玩家 ID。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新Persistence快照相关状态。
  */
 
     buildPersistenceSnapshot(playerId) {
@@ -1902,9 +1902,9 @@ let PlayerRuntimeService = class PlayerRuntimeService {
         return buildRuntimePlayerPersistenceSnapshot(player);
     }    
     /**
- * markPersisted：执行核心业务逻辑。
+ * markPersisted：判断Persisted是否满足条件。
  * @param playerId 玩家 ID。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新Persisted相关状态。
  */
 
     markPersisted(playerId) {
@@ -1918,9 +1918,9 @@ let PlayerRuntimeService = class PlayerRuntimeService {
         player.persistedRevision = player.persistentRevision;
     }    
     /**
- * snapshot：执行核心业务逻辑。
+ * snapshot：执行快照相关逻辑。
  * @param playerId 玩家 ID。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新快照相关状态。
  */
 
     snapshot(playerId) {
@@ -1934,17 +1934,17 @@ let PlayerRuntimeService = class PlayerRuntimeService {
         return cloneRuntimePlayerState(player);
     }    
     /**
- * listPlayerSnapshots：执行核心业务逻辑。
- * @returns 函数返回值。
+ * listPlayerSnapshots：读取玩家快照并返回结果。
+ * @returns 无返回值，完成玩家快照的读取/组装。
  */
 
     listPlayerSnapshots() {
         return Array.from(this.players.values(), (player) => cloneRuntimePlayerState(player));
     }    
     /**
- * restoreSnapshot：执行核心业务逻辑。
+ * restoreSnapshot：执行restore快照相关逻辑。
  * @param snapshot 参数说明。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新restore快照相关状态。
  */
 
     restoreSnapshot(snapshot) {
@@ -1952,11 +1952,11 @@ let PlayerRuntimeService = class PlayerRuntimeService {
         this.pendingCombatEffectsByPlayerId.delete(snapshot.playerId);
     }    
     /**
- * hydrateFromSnapshot：执行核心业务逻辑。
+ * hydrateFromSnapshot：执行hydrateFrom快照相关逻辑。
  * @param playerId 玩家 ID。
  * @param sessionId session ID。
  * @param snapshot 参数说明。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新hydrateFrom快照相关状态。
  */
 
     hydrateFromSnapshot(playerId, sessionId, snapshot) {
@@ -2095,21 +2095,21 @@ let PlayerRuntimeService = class PlayerRuntimeService {
         return player;
     }    
     /**
- * bumpPersistentRevision：执行核心业务逻辑。
+ * bumpPersistentRevision：判断bumpPersistentRevision是否满足条件。
  * @param player 玩家对象。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新bumpPersistentRevision相关状态。
  */
 
     bumpPersistentRevision(player) {
         player.persistentRevision += 1;
     }    
     /**
- * applyProgressionResult：更新/写入相关状态。
+ * applyProgressionResult：处理修炼进度结果并更新相关状态。
  * @param player 玩家对象。
  * @param result 返回结果。
  * @param currentTick 参数说明。
  * @param rebuildActions 参数说明。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新修炼进度结果相关状态。
  */
 
     applyProgressionResult(player, result, currentTick = 0, rebuildActions = false) {
@@ -2135,10 +2135,10 @@ let PlayerRuntimeService = class PlayerRuntimeService {
         return player;
     }    
     /**
- * rebuildActionState：执行核心业务逻辑。
+ * rebuildActionState：构建rebuildAction状态。
  * @param player 玩家对象。
  * @param currentTick 参数说明。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新rebuildAction状态相关状态。
  */
 
     rebuildActionState(player, currentTick) {
@@ -2160,10 +2160,10 @@ let PlayerRuntimeService = class PlayerRuntimeService {
         }
     }    
     /**
- * applyConsumableItem：更新/写入相关状态。
+ * applyConsumableItem：处理Consumable道具并更新相关状态。
  * @param player 玩家对象。
  * @param item 道具。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新Consumable道具相关状态。
  */
 
     applyConsumableItem(player, item) {
@@ -2215,7 +2215,7 @@ export { PlayerRuntimeService };
 /**
  * buildEquipmentSnapshot：构建并返回目标对象。
  * @param equipment 参数说明。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新装备快照相关状态。
  */
 
 function buildEquipmentSnapshot(equipment) {
@@ -2225,9 +2225,9 @@ function buildEquipmentSnapshot(equipment) {
     }));
 }
 /**
- * cloneRuntimePlayerState：执行核心业务逻辑。
+ * cloneRuntimePlayerState：构建运行态玩家状态。
  * @param player 玩家对象。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新运行态玩家状态相关状态。
  */
 
 function cloneRuntimePlayerState(player) {
@@ -2313,7 +2313,7 @@ function cloneRuntimePlayerState(player) {
 }
 /**
  * createDefaultRealmState：构建并返回目标对象。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新DefaultRealm状态相关状态。
  */
 
 function createDefaultRealmState() {
@@ -2342,9 +2342,9 @@ function createDefaultRealmState() {
     };
 }
 /**
- * cloneRealmState：执行核心业务逻辑。
+ * cloneRealmState：构建Realm状态。
  * @param realm 参数说明。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新Realm状态相关状态。
  */
 
 function cloneRealmState(realm) {
@@ -2366,9 +2366,9 @@ function cloneRealmState(realm) {
     };
 }
 /**
- * cloneHeavenGateState：执行核心业务逻辑。
+ * cloneHeavenGateState：构建HeavenGate状态。
  * @param state 状态对象。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新HeavenGate状态相关状态。
  */
 
 function cloneHeavenGateState(state) {
@@ -2386,9 +2386,9 @@ function cloneHeavenGateState(state) {
     };
 }
 /**
- * cloneHeavenGateRoots：执行核心业务逻辑。
+ * cloneHeavenGateRoots：构建HeavenGate根容器。
  * @param roots 参数说明。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新HeavenGate根容器相关状态。
  */
 
 function cloneHeavenGateRoots(roots) {
@@ -2408,7 +2408,7 @@ function cloneHeavenGateRoots(roots) {
 /**
  * buildRuntimePlayerPersistenceSnapshot：构建并返回目标对象。
  * @param player 玩家对象。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新运行态玩家Persistence快照相关状态。
  */
 
 function buildRuntimePlayerPersistenceSnapshot(player) {
@@ -2497,7 +2497,7 @@ function buildRuntimePlayerPersistenceSnapshot(player) {
 }
 /**
  * createCraftSkillState：构建并返回目标对象。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新炼制技能状态相关状态。
  */
 
 function createCraftSkillState() {
@@ -2508,9 +2508,9 @@ function createCraftSkillState() {
     };
 }
 /**
- * normalizeCraftSkillState：执行核心业务逻辑。
+ * normalizeCraftSkillState：规范化或转换炼制技能状态。
  * @param value 参数说明。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新炼制技能状态相关状态。
  */
 
 function normalizeCraftSkillState(value) {
@@ -2521,18 +2521,18 @@ function normalizeCraftSkillState(value) {
     };
 }
 /**
- * cloneCraftSkillState：执行核心业务逻辑。
+ * cloneCraftSkillState：构建炼制技能状态。
  * @param value 参数说明。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新炼制技能状态相关状态。
  */
 
 function cloneCraftSkillState(value) {
     return value ? { ...normalizeCraftSkillState(value) } : undefined;
 }
 /**
- * normalizeAlchemyPresets：执行核心业务逻辑。
+ * normalizeAlchemyPresets：规范化或转换炼丹Preset。
  * @param value 参数说明。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新炼丹Preset相关状态。
  */
 
 function normalizeAlchemyPresets(value) {
@@ -2559,9 +2559,9 @@ function normalizeAlchemyPresets(value) {
     }));
 }
 /**
- * cloneAlchemyPreset：执行核心业务逻辑。
+ * cloneAlchemyPreset：构建炼丹Preset。
  * @param entry 参数说明。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新炼丹Preset相关状态。
  */
 
 function cloneAlchemyPreset(entry) {
@@ -2571,9 +2571,9 @@ function cloneAlchemyPreset(entry) {
     };
 }
 /**
- * normalizeAlchemyJob：执行核心业务逻辑。
+ * normalizeAlchemyJob：规范化或转换炼丹Job。
  * @param value 参数说明。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新炼丹Job相关状态。
  */
 
 function normalizeAlchemyJob(value) {
@@ -2613,9 +2613,9 @@ function normalizeAlchemyJob(value) {
     };
 }
 /**
- * cloneAlchemyJob：执行核心业务逻辑。
+ * cloneAlchemyJob：构建炼丹Job。
  * @param entry 参数说明。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新炼丹Job相关状态。
  */
 
 function cloneAlchemyJob(entry) {
@@ -2625,9 +2625,9 @@ function cloneAlchemyJob(entry) {
     };
 }
 /**
- * normalizeEnhancementJob：执行核心业务逻辑。
+ * normalizeEnhancementJob：规范化或转换强化Job。
  * @param value 参数说明。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新强化Job相关状态。
  */
 
 function normalizeEnhancementJob(value) {
@@ -2664,9 +2664,9 @@ function normalizeEnhancementJob(value) {
     };
 }
 /**
- * cloneEnhancementJob：执行核心业务逻辑。
+ * cloneEnhancementJob：构建强化Job。
  * @param entry 参数说明。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新强化Job相关状态。
  */
 
 function cloneEnhancementJob(entry) {
@@ -2678,9 +2678,9 @@ function cloneEnhancementJob(entry) {
     };
 }
 /**
- * normalizeEnhancementRecords：执行核心业务逻辑。
+ * normalizeEnhancementRecords：规范化或转换强化Record。
  * @param value 参数说明。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新强化Record相关状态。
  */
 
 function normalizeEnhancementRecords(value) {
@@ -2712,9 +2712,9 @@ function normalizeEnhancementRecords(value) {
     }));
 }
 /**
- * cloneEnhancementRecord：执行核心业务逻辑。
+ * cloneEnhancementRecord：构建强化Record。
  * @param entry 参数说明。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新强化Record相关状态。
  */
 
 function cloneEnhancementRecord(entry) {
@@ -2724,72 +2724,72 @@ function cloneEnhancementRecord(entry) {
     };
 }
 /**
- * normalizeRealmState：执行核心业务逻辑。
+ * normalizeRealmState：规范化或转换Realm状态。
  * @param realm 参数说明。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新Realm状态相关状态。
  */
 
 function normalizeRealmState(realm) {
     return realm ? cloneRealmState(realm) : createDefaultRealmState();
 }
 /**
- * normalizeHeavenGateState：执行核心业务逻辑。
+ * normalizeHeavenGateState：规范化或转换HeavenGate状态。
  * @param state 状态对象。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新HeavenGate状态相关状态。
  */
 
 function normalizeHeavenGateState(state) {
     return cloneHeavenGateState(state);
 }
 /**
- * normalizeHeavenGateRoots：执行核心业务逻辑。
+ * normalizeHeavenGateRoots：规范化或转换HeavenGate根容器。
  * @param roots 参数说明。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新HeavenGate根容器相关状态。
  */
 
 function normalizeHeavenGateRoots(roots) {
     return cloneHeavenGateRoots(roots);
 }
 /**
- * normalizeCounter：执行核心业务逻辑。
+ * normalizeCounter：规范化或转换Counter。
  * @param value 参数说明。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新Counter相关状态。
  */
 
 function normalizeCounter(value) {
     return Number.isFinite(value) ? Math.max(0, Math.trunc(value ?? 0)) : 0;
 }
 /**
- * normalizeBoneAgeBaseYears：执行核心业务逻辑。
+ * normalizeBoneAgeBaseYears：规范化或转换BoneAgeBaseYear。
  * @param value 参数说明。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新BoneAgeBaseYear相关状态。
  */
 
 function normalizeBoneAgeBaseYears(value) {
     return Number.isFinite(value) ? Math.max(1, Math.trunc(value ?? shared_1.DEFAULT_BONE_AGE_YEARS)) : shared_1.DEFAULT_BONE_AGE_YEARS;
 }
 /**
- * normalizeLifeElapsedTicks：执行核心业务逻辑。
+ * normalizeLifeElapsedTicks：规范化或转换LifeElapsedtick。
  * @param value 参数说明。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新LifeElapsedtick相关状态。
  */
 
 function normalizeLifeElapsedTicks(value) {
     return Number.isFinite(value) ? Math.max(0, Number(value)) : 0;
 }
 /**
- * normalizeLifespanYears：执行核心业务逻辑。
+ * normalizeLifespanYears：规范化或转换LifespanYear。
  * @param value 参数说明。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新LifespanYear相关状态。
  */
 
 function normalizeLifespanYears(value) {
     return Number.isFinite(value) ? Math.max(1, Math.trunc(value ?? 0)) : null;
 }
 /**
- * normalizePendingLogbookMessages：执行核心业务逻辑。
+ * normalizePendingLogbookMessages：规范化或转换待处理LogbookMessage。
  * @param input 输入参数。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新PendingLogbookMessage相关状态。
  */
 
 function normalizePendingLogbookMessages(input) {
@@ -2819,9 +2819,9 @@ function normalizePendingLogbookMessages(input) {
     return normalized.slice(-MAX_PENDING_LOGBOOK_MESSAGES);
 }
 /**
- * normalizePendingLogbookMessage：执行核心业务逻辑。
+ * normalizePendingLogbookMessage：规范化或转换待处理LogbookMessage。
  * @param input 输入参数。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新PendingLogbookMessage相关状态。
  */
 
 function normalizePendingLogbookMessage(input) {
@@ -2856,10 +2856,10 @@ function normalizePendingLogbookMessage(input) {
     };
 }
 /**
- * isSamePendingLogbookMessages：执行状态校验并返回判断结果。
+ * isSamePendingLogbookMessages：判断Same待处理LogbookMessage是否满足条件。
  * @param left 参数说明。
  * @param right 参数说明。
- * @returns 函数返回值。
+ * @returns 无返回值，完成SamePendingLogbookMessage的条件判断。
  */
 
 function isSamePendingLogbookMessages(left, right) {
@@ -2882,21 +2882,21 @@ function isSamePendingLogbookMessages(left, right) {
     return true;
 }
 /**
- * clamp：执行核心业务逻辑。
+ * clamp：执行clamp相关逻辑。
  * @param value 参数说明。
  * @param min 参数说明。
  * @param max 参数说明。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新clamp相关状态。
  */
 
 function clamp(value, min, max) {
     return Math.max(min, Math.min(max, value));
 }
 /**
- * compareInventoryItems：执行核心业务逻辑。
+ * compareInventoryItems：执行compare背包道具相关逻辑。
  * @param left 参数说明。
  * @param right 参数说明。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新compare背包道具相关状态。
  */
 
 function compareInventoryItems(left, right) {
@@ -2905,11 +2905,11 @@ function compareInventoryItems(left, right) {
         || right.count - left.count;
 }
 /**
- * consumeInventoryItemAt：执行核心业务逻辑。
+ * consumeInventoryItemAt：执行consume背包道具At相关逻辑。
  * @param items 道具列表。
  * @param slotIndex 参数说明。
  * @param count 数量。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新consume背包道具At相关状态。
  */
 
 function consumeInventoryItemAt(items, slotIndex, count) {
@@ -2927,9 +2927,9 @@ function consumeInventoryItemAt(items, slotIndex, count) {
     item.count -= count;
 }
 /**
- * toTechniqueUpdateEntry：执行核心业务逻辑。
+ * toTechniqueUpdateEntry：处理to功法Update条目并更新相关状态。
  * @param technique 参数说明。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新to功法Update条目相关状态。
  */
 
 function toTechniqueUpdateEntry(technique) {
@@ -2958,7 +2958,7 @@ function toTechniqueUpdateEntry(technique) {
  * buildActionEntries：构建并返回目标对象。
  * @param player 玩家对象。
  * @param currentTick 参数说明。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新Action条目相关状态。
  */
 
 function buildActionEntries(player, currentTick) {
@@ -3007,10 +3007,10 @@ function buildActionEntries(player, currentTick) {
     return actions;
 }
 /**
- * isSameActionList：执行状态校验并返回判断结果。
+ * isSameActionList：读取SameAction列表并返回结果。
  * @param previous 参数说明。
  * @param current 参数说明。
- * @returns 函数返回值。
+ * @returns 无返回值，完成SameAction列表的条件判断。
  */
 
 function isSameActionList(previous, current) {
@@ -3039,9 +3039,9 @@ function isSameActionList(previous, current) {
     return true;
 }
 /**
- * normalizePersistedAutoBattleSkills：执行核心业务逻辑。
+ * normalizePersistedAutoBattleSkills：判断PersistedAutoBattle技能是否满足条件。
  * @param input 输入参数。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新PersistedAutoBattle技能相关状态。
  */
 
 function normalizePersistedAutoBattleSkills(input) {
@@ -3065,10 +3065,10 @@ function normalizePersistedAutoBattleSkills(input) {
     return normalized;
 }
 /**
- * normalizeAutoBattleSkills：执行核心业务逻辑。
+ * normalizeAutoBattleSkills：规范化或转换AutoBattle技能。
  * @param skillIds skill ID 集合。
  * @param input 输入参数。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新AutoBattle技能相关状态。
  */
 
 function normalizeAutoBattleSkills(skillIds, input) {
@@ -3109,9 +3109,9 @@ function normalizeAutoBattleSkills(skillIds, input) {
     return normalized;
 }
 /**
- * normalizePersistedAutoBattleTargetingMode：执行核心业务逻辑。
+ * normalizePersistedAutoBattleTargetingMode：读取PersistedAutoBattleTargetingMode并返回结果。
  * @param input 输入参数。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新PersistedAutoBattleTargetingMode相关状态。
  */
 
 function normalizePersistedAutoBattleTargetingMode(input) {
@@ -3122,9 +3122,9 @@ function normalizePersistedAutoBattleTargetingMode(input) {
     return ['auto', 'nearest', 'low_hp', 'full_hp', 'boss', 'player'].includes(value) ? value : 'auto';
 }
 /**
- * collectUnlockedSkillIds：执行核心业务逻辑。
+ * collectUnlockedSkillIds：执行Unlocked技能ID相关逻辑。
  * @param player 玩家对象。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新Unlocked技能ID相关状态。
  */
 
 function collectUnlockedSkillIds(player) {
@@ -3144,9 +3144,9 @@ function collectUnlockedSkillIds(player) {
     return skillIds;
 }
 /**
- * syncTechniqueSkillAvailability：执行核心业务逻辑。
+ * syncTechniqueSkillAvailability：处理功法技能Availability并更新相关状态。
  * @param player 玩家对象。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新功法技能Availability相关状态。
  */
 
 function syncTechniqueSkillAvailability(player) {
@@ -3167,10 +3167,10 @@ function syncTechniqueSkillAvailability(player) {
     return changed;
 }
 /**
- * resolveTechniqueSkillAvailability：执行核心业务逻辑。
+ * resolveTechniqueSkillAvailability：规范化或转换功法技能Availability。
  * @param technique 参数说明。
  * @param skillEnabledMap 参数说明。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新功法技能Availability相关状态。
  */
 
 function resolveTechniqueSkillAvailability(technique, skillEnabledMap) {
@@ -3194,10 +3194,10 @@ function resolveTechniqueSkillAvailability(technique, skillEnabledMap) {
     return hasResolvedSkill ? false : true;
 }
 /**
- * isSameAutoBattleSkillList：执行状态校验并返回判断结果。
+ * isSameAutoBattleSkillList：读取SameAutoBattle技能列表并返回结果。
  * @param previous 参数说明。
  * @param current 参数说明。
- * @returns 函数返回值。
+ * @returns 无返回值，完成SameAutoBattle技能列表的条件判断。
  */
 
 function isSameAutoBattleSkillList(previous, current) {
@@ -3219,9 +3219,9 @@ function isSameAutoBattleSkillList(previous, current) {
     return true;
 }
 /**
- * tickTemporaryBuffs：执行核心业务逻辑。
+ * tickTemporaryBuffs：执行tickTemporaryBuff相关逻辑。
  * @param buffs 参数说明。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新tickTemporaryBuff相关状态。
  */
 
 function tickTemporaryBuffs(buffs) {
@@ -3254,10 +3254,10 @@ function tickTemporaryBuffs(buffs) {
     return changed;
 }
 /**
- * recoverPlayerVitals：执行核心业务逻辑。
+ * recoverPlayerVitals：执行recover玩家Vital相关逻辑。
  * @param player 玩家对象。
  * @param currentTick 参数说明。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新recover玩家Vital相关状态。
  */
 
 function recoverPlayerVitals(player, currentTick = -1) {
@@ -3301,10 +3301,10 @@ function recoverPlayerVitals(player, currentTick = -1) {
     return changed;
 }
 /**
- * hasActiveSkillCooldown：执行状态校验并返回判断结果。
+ * hasActiveSkillCooldown：判断激活技能冷却是否满足条件。
  * @param player 玩家对象。
  * @param currentTick 参数说明。
- * @returns 函数返回值。
+ * @returns 无返回值，完成激活技能冷却的条件判断。
  */
 
 function hasActiveSkillCooldown(player, currentTick) {
@@ -3321,11 +3321,11 @@ function hasActiveSkillCooldown(player, currentTick) {
     return false;
 }
 /**
- * shouldResumeIdleCultivation：执行核心业务逻辑。
+ * shouldResumeIdleCultivation：判断ResumeIdleCultivation是否满足条件。
  * @param player 玩家对象。
  * @param currentTick 参数说明。
  * @param blockedPlayerIds blockedPlayer ID 集合。
- * @returns 函数返回值。
+ * @returns 无返回值，完成ResumeIdleCultivation的条件判断。
  */
 
 function shouldResumeIdleCultivation(player, currentTick, blockedPlayerIds) {
@@ -3343,9 +3343,9 @@ function shouldResumeIdleCultivation(player, currentTick, blockedPlayerIds) {
     return currentTick - player.combat.lastActiveTick >= shared_1.AUTO_IDLE_CULTIVATION_DELAY_TICKS;
 }
 /**
- * cloneTemporaryBuff：执行核心业务逻辑。
+ * cloneTemporaryBuff：构建TemporaryBuff。
  * @param source 来源对象。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新TemporaryBuff相关状态。
  */
 
 function cloneTemporaryBuff(source) {
@@ -3357,10 +3357,10 @@ function cloneTemporaryBuff(source) {
     };
 }
 /**
- * toConsumableTemporaryBuff：执行核心业务逻辑。
+ * toConsumableTemporaryBuff：执行toConsumableTemporaryBuff相关逻辑。
  * @param item 道具。
  * @param buff 参数说明。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新toConsumableTemporaryBuff相关状态。
  */
 
 function toConsumableTemporaryBuff(item, buff) {
@@ -3386,9 +3386,9 @@ function toConsumableTemporaryBuff(item, buff) {
     };
 }
 /**
- * cloneRuntimeAttrState：执行核心业务逻辑。
+ * cloneRuntimeAttrState：构建运行态Attr状态。
  * @param source 来源对象。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新运行态Attr状态相关状态。
  */
 
 function cloneRuntimeAttrState(source) {
@@ -3402,9 +3402,9 @@ function cloneRuntimeAttrState(source) {
     };
 }
 /**
- * cloneAttributes：执行核心业务逻辑。
+ * cloneAttributes：构建Attribute。
  * @param source 来源对象。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新Attribute相关状态。
  */
 
 function cloneAttributes(source) {
@@ -3418,9 +3418,9 @@ function cloneAttributes(source) {
     };
 }
 /**
- * cloneNumericStats：执行核心业务逻辑。
+ * cloneNumericStats：构建NumericStat。
  * @param source 来源对象。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新NumericStat相关状态。
  */
 
 function cloneNumericStats(source) {
@@ -3469,9 +3469,9 @@ function cloneNumericStats(source) {
     };
 }
 /**
- * cloneNumericRatioDivisors：执行核心业务逻辑。
+ * cloneNumericRatioDivisors：判断NumericRatioDivisor是否满足条件。
  * @param source 来源对象。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新NumericRatioDivisor相关状态。
  */
 
 function cloneNumericRatioDivisors(source) {
@@ -3492,9 +3492,9 @@ function cloneNumericRatioDivisors(source) {
     };
 }
 /**
- * cloneRuntimeBonus：执行核心业务逻辑。
+ * cloneRuntimeBonus：构建运行态Bonu。
  * @param source 来源对象。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新运行态Bonu相关状态。
  */
 
 function cloneRuntimeBonus(source) {
@@ -3516,10 +3516,10 @@ function cloneRuntimeBonus(source) {
     };
 }
 /**
- * ensureVitalBaselineBonus：执行核心业务逻辑。
+ * ensureVitalBaselineBonus：执行ensureVitalBaselineBonu相关逻辑。
  * @param player 玩家对象。
  * @param vitals 参数说明。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新ensureVitalBaselineBonu相关状态。
  */
 
 function ensureVitalBaselineBonus(player, vitals) {
@@ -3583,9 +3583,9 @@ function ensureVitalBaselineBonus(player, vitals) {
     return true;
 }
 /**
- * canonicalizeRuntimeBonusSource：执行状态校验并返回判断结果。
+ * canonicalizeRuntimeBonusSource：判断canonicalize运行态Bonu来源是否满足条件。
  * @param source 来源对象。
- * @returns 函数返回值。
+ * @returns 无返回值，完成canonicalize运行态Bonu来源的条件判断。
  */
 
 function canonicalizeRuntimeBonusSource(source) {
@@ -3614,9 +3614,9 @@ function canonicalizeRuntimeBonusSource(source) {
     return normalized;
 }
 /**
- * cloneCombatEffect：执行核心业务逻辑。
+ * cloneCombatEffect：构建战斗Effect。
  * @param source 来源对象。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新战斗Effect相关状态。
  */
 
 function cloneCombatEffect(source) {

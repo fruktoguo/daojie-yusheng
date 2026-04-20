@@ -6,15 +6,15 @@ const { WorldRuntimePlayerSessionService } = require("../runtime/world/world-run
 /**
  * createService：构建并返回目标对象。
  * @param log 参数说明。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新服务相关状态。
  */
 
 
 function createService(log) {
     return new WorldRuntimePlayerSessionService({    
     /**
- * resolveDefaultRespawnMapId：执行核心业务逻辑。
- * @returns 函数返回值。
+ * resolveDefaultRespawnMapId：规范化或转换默认重生地图ID。
+ * @returns 无返回值，直接更新Default重生地图ID相关状态。
  */
 
         resolveDefaultRespawnMapId() {
@@ -22,9 +22,9 @@ function createService(log) {
             return 'yunlai_town';
         },        
         /**
- * getOrCreatePublicInstance：按给定条件读取/查询数据。
+ * getOrCreatePublicInstance：读取OrCreatePublicInstance。
  * @param mapId 地图 ID。
- * @returns 函数返回值。
+ * @returns 无返回值，完成OrCreatePublicInstance的读取/组装。
  */
 
         getOrCreatePublicInstance(mapId) {
@@ -32,9 +32,9 @@ function createService(log) {
             return {
                 meta: { instanceId: `public:${mapId}` },                
                 /**
- * connectPlayer：执行核心业务逻辑。
+ * connectPlayer：执行connect玩家相关逻辑。
  * @param payload 载荷参数。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新connect玩家相关状态。
  */
 
                 connectPlayer(payload) {
@@ -42,10 +42,10 @@ function createService(log) {
                     return { sessionId: payload.sessionId };
                 },                
                 /**
- * setPlayerMoveSpeed：更新/写入相关状态。
+ * setPlayerMoveSpeed：写入玩家MoveSpeed。
  * @param playerId 玩家 ID。
  * @param speed 参数说明。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新玩家MoveSpeed相关状态。
  */
 
                 setPlayerMoveSpeed(playerId, speed) {
@@ -54,9 +54,9 @@ function createService(log) {
             };
         },        
         /**
- * getPlayerViewOrThrow：按给定条件读取/查询数据。
+ * getPlayerViewOrThrow：读取玩家视图OrThrow。
  * @param playerId 玩家 ID。
- * @returns 函数返回值。
+ * @returns 无返回值，完成玩家视图OrThrow的读取/组装。
  */
 
         getPlayerViewOrThrow(playerId) {
@@ -66,8 +66,8 @@ function createService(log) {
     });
 }
 /**
- * testConnectPlayer：执行核心业务逻辑。
- * @returns 函数返回值。
+ * testConnectPlayer：执行testConnect玩家相关逻辑。
+ * @returns 无返回值，直接更新testConnect玩家相关状态。
  */
 
 
@@ -76,38 +76,38 @@ function testConnectPlayer() {
     const service = createService(log);
     const deps = {    
     /**
- * getPlayerLocation：按给定条件读取/查询数据。
- * @returns 函数返回值。
+ * getPlayerLocation：读取玩家位置。
+ * @returns 无返回值，完成玩家位置的读取/组装。
  */
 
         getPlayerLocation() { return null; },        
         /**
- * getInstanceRuntime：按给定条件读取/查询数据。
- * @returns 函数返回值。
+ * getInstanceRuntime：读取Instance运行态。
+ * @returns 无返回值，完成Instance运行态的读取/组装。
  */
 
         getInstanceRuntime() { return null; },        
         /**
- * setPlayerLocation：更新/写入相关状态。
+ * setPlayerLocation：写入玩家位置。
  * @param playerId 玩家 ID。
  * @param location 参数说明。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新玩家位置相关状态。
  */
 
         setPlayerLocation(playerId, location) { log.push(['setPlayerLocation', playerId, location]); },
         worldRuntimeGmQueueService: {        
         /**
- * clearPendingRespawn：执行核心业务逻辑。
+ * clearPendingRespawn：执行clear待处理重生相关逻辑。
  * @param playerId 玩家 ID。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新clearPending重生相关状态。
  */
  clearPendingRespawn(playerId) { log.push(['clearPendingRespawn', playerId]); } },
         playerRuntimeService: {        
         /**
- * ensurePlayer：执行核心业务逻辑。
+ * ensurePlayer：执行ensure玩家相关逻辑。
  * @param playerId 玩家 ID。
  * @param sessionId session ID。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新ensure玩家相关状态。
  */
 
             ensurePlayer(playerId, sessionId) {
@@ -117,9 +117,9 @@ function testConnectPlayer() {
         },
         logger: {        
         /**
- * debug：执行核心业务逻辑。
+ * debug：执行debug相关逻辑。
  * @param message 参数说明。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新debug相关状态。
  */
  debug(message) { log.push(['debug', message]); } },
     };
@@ -138,8 +138,8 @@ function testConnectPlayer() {
     ]);
 }
 /**
- * testDisconnectAndRemovePlayer：执行核心业务逻辑。
- * @returns 函数返回值。
+ * testDisconnectAndRemovePlayer：判断testDisconnectAndRemove玩家是否满足条件。
+ * @returns 无返回值，直接更新testDisconnectAndRemove玩家相关状态。
  */
 
 
@@ -148,26 +148,26 @@ function testDisconnectAndRemovePlayer() {
     const service = createService(log);
     const deps = {    
     /**
- * getPlayerLocation：按给定条件读取/查询数据。
+ * getPlayerLocation：读取玩家位置。
  * @param playerId 玩家 ID。
- * @returns 函数返回值。
+ * @returns 无返回值，完成玩家位置的读取/组装。
  */
 
         getPlayerLocation(playerId) {
             return playerId === 'player:1' ? { instanceId: 'public:yunlai_town' } : null;
         },        
         /**
- * getInstanceRuntime：按给定条件读取/查询数据。
+ * getInstanceRuntime：读取Instance运行态。
  * @param instanceId instance ID。
- * @returns 函数返回值。
+ * @returns 无返回值，完成Instance运行态的读取/组装。
  */
 
         getInstanceRuntime(instanceId) {
             return instanceId === 'public:yunlai_town' ? {            
             /**
- * disconnectPlayer：执行核心业务逻辑。
+ * disconnectPlayer：判断disconnect玩家是否满足条件。
  * @param playerId 玩家 ID。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新disconnect玩家相关状态。
  */
 
                 disconnectPlayer(playerId) {
@@ -177,53 +177,53 @@ function testDisconnectAndRemovePlayer() {
             } : null;
         },        
         /**
- * clearPlayerLocation：执行核心业务逻辑。
+ * clearPlayerLocation：执行clear玩家位置相关逻辑。
  * @param playerId 玩家 ID。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新clear玩家位置相关状态。
  */
 
         clearPlayerLocation(playerId) { log.push(['clearPlayerLocation', playerId]); },
         worldRuntimeNavigationService: {        
         /**
- * clearNavigationIntent：执行核心业务逻辑。
+ * clearNavigationIntent：执行clear导航Intent相关逻辑。
  * @param playerId 玩家 ID。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新clear导航Intent相关状态。
  */
  clearNavigationIntent(playerId) { log.push(['clearNavigationIntent', playerId]); } },        
  /**
- * clearPendingCommand：执行核心业务逻辑。
+ * clearPendingCommand：执行clear待处理Command相关逻辑。
  * @param playerId 玩家 ID。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新clearPendingCommand相关状态。
  */
 
         clearPendingCommand(playerId) { log.push(['clearPendingCommand', playerId]); },
         worldRuntimeGmQueueService: {        
         /**
- * clearPendingRespawn：执行核心业务逻辑。
+ * clearPendingRespawn：执行clear待处理重生相关逻辑。
  * @param playerId 玩家 ID。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新clearPending重生相关状态。
  */
  clearPendingRespawn(playerId) { log.push(['clearPendingRespawn', playerId]); } },
         worldSessionService: {        
         /**
- * purgePlayerSession：执行核心业务逻辑。
+ * purgePlayerSession：执行purge玩家Session相关逻辑。
  * @param playerId 玩家 ID。
  * @param reason 参数说明。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新purge玩家Session相关状态。
  */
  purgePlayerSession(playerId, reason) { log.push(['purgePlayerSession', playerId, reason]); } },
         playerRuntimeService: {        
         /**
- * getPlayer：按给定条件读取/查询数据。
+ * getPlayer：读取玩家。
  * @param playerId 玩家 ID。
- * @returns 函数返回值。
+ * @returns 无返回值，完成玩家的读取/组装。
  */
 
             getPlayer(playerId) { return playerId === 'player:1' ? { playerId } : null; },            
             /**
- * removePlayerRuntime：执行核心业务逻辑。
+ * removePlayerRuntime：处理玩家运行态并更新相关状态。
  * @param playerId 玩家 ID。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新玩家运行态相关状态。
  */
 
             removePlayerRuntime(playerId) { log.push(['removePlayerRuntime', playerId]); },

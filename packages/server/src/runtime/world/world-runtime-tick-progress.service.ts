@@ -16,41 +16,41 @@ const common_1 = require("@nestjs/common");
 /** world-runtime tick progress state：承接实例级 tick progress 所有权。 */
 let WorldRuntimeTickProgressService = class WorldRuntimeTickProgressService {
 /**
- * instanceTickProgressById：对象字段。
+ * instanceTickProgressById：instancetick进度ByID标识。
  */
 
     instanceTickProgressById = new Map();    
     /**
- * getProgress：按给定条件读取/查询数据。
+ * getProgress：读取进度。
  * @param instanceId instance ID。
- * @returns 函数返回值。
+ * @returns 无返回值，完成进度的读取/组装。
  */
 
     getProgress(instanceId) {
         return this.instanceTickProgressById.get(instanceId) ?? 0;
     }    
     /**
- * setProgress：更新/写入相关状态。
+ * setProgress：写入进度。
  * @param instanceId instance ID。
  * @param progress 参数说明。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新进度相关状态。
  */
 
     setProgress(instanceId, progress) {
         this.instanceTickProgressById.set(instanceId, progress);
     }    
     /**
- * initializeInstance：初始化并准备运行时基础状态。
+ * initializeInstance：执行initializeInstance相关逻辑。
  * @param instanceId instance ID。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新initializeInstance相关状态。
  */
 
     initializeInstance(instanceId) {
         this.instanceTickProgressById.set(instanceId, 0);
     }    
     /**
- * resetState：执行核心业务逻辑。
- * @returns 函数返回值。
+ * resetState：执行reset状态相关逻辑。
+ * @returns 无返回值，直接更新reset状态相关状态。
  */
 
     resetState() {

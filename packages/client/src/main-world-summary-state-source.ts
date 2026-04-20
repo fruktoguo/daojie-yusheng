@@ -10,12 +10,12 @@ import { formatDisplayInteger } from './utils/number';
 
 type MainWorldSummaryStateSourceOptions = {
 /**
- * socket：对象字段。
+ * socket：socket相关字段。
  */
 
   socket: Pick<SocketPanelSender, 'sendRequestLeaderboard' | 'sendRequestWorldSummary'>;  
   /**
- * worldPanel：对象字段。
+ * worldPanel：世界面板相关字段。
  */
 
   worldPanel: Pick<WorldPanel, 'setCallbacks'>;
@@ -24,9 +24,9 @@ type MainWorldSummaryStateSourceOptions = {
 const LEADERBOARD_MODAL_OWNER = 'world:leaderboard';
 const WORLD_SUMMARY_MODAL_OWNER = 'world:summary';
 /**
- * cloneJson：执行核心业务逻辑。
+ * cloneJson：构建Json。
  * @param value T 参数说明。
- * @returns T。
+ * @returns 返回Json。
  */
 
 
@@ -34,9 +34,9 @@ function cloneJson<T>(value: T): T {
   return value === undefined ? value : JSON.parse(JSON.stringify(value));
 }
 /**
- * escapeHtml：执行核心业务逻辑。
+ * escapeHtml：执行escapeHtml相关逻辑。
  * @param value string 参数说明。
- * @returns string。
+ * @returns 返回escapeHtml。
  */
 
 
@@ -49,9 +49,9 @@ function escapeHtml(value: string): string {
     .replaceAll("'", '&#39;');
 }
 /**
- * formatLeaderboardGeneratedAt：执行核心业务逻辑。
+ * formatLeaderboardGeneratedAt：规范化或转换LeaderboardGeneratedAt。
  * @param timestamp number 参数说明。
- * @returns string。
+ * @returns 返回LeaderboardGeneratedAt。
  */
 
 
@@ -64,9 +64,9 @@ function formatLeaderboardGeneratedAt(timestamp: number): string {
   return new Date(timestamp).toLocaleString('zh-CN', { hour12: false });
 }
 /**
- * renderLeaderboardRows：执行核心业务逻辑。
+ * renderLeaderboardRows：执行LeaderboardRow相关逻辑。
  * @param rows string[] 参数说明。
- * @returns string。
+ * @returns 返回LeaderboardRow。
  */
 
 
@@ -87,7 +87,7 @@ export type MainWorldSummaryStateSource = ReturnType<typeof createMainWorldSumma
 /**
  * createMainWorldSummaryStateSource：构建并返回目标对象。
  * @param options MainWorldSummaryStateSourceOptions 选项参数。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新Main世界摘要状态来源相关状态。
  */
 
 
@@ -95,8 +95,8 @@ export function createMainWorldSummaryStateSource(options: MainWorldSummaryState
   let latestLeaderboard: NEXT_S2C_Leaderboard | null = null;
   let latestWorldSummary: NEXT_S2C_WorldSummary | null = null;  
   /**
- * renderLeaderboardModal：执行核心业务逻辑。
- * @returns void。
+ * renderLeaderboardModal：执行Leaderboard弹层相关逻辑。
+ * @returns 无返回值，直接更新Leaderboard弹层相关状态。
  */
 
 
@@ -151,8 +151,8 @@ export function createMainWorldSummaryStateSource(options: MainWorldSummaryState
     });
   }  
   /**
- * renderWorldSummaryModal：执行核心业务逻辑。
- * @returns void。
+ * renderWorldSummaryModal：执行世界摘要弹层相关逻辑。
+ * @returns 无返回值，直接更新世界摘要弹层相关状态。
  */
 
 
@@ -217,8 +217,8 @@ export function createMainWorldSummaryStateSource(options: MainWorldSummaryState
 
   return {  
   /**
- * init：初始化并准备运行时基础状态。
- * @returns void。
+ * init：执行init相关逻辑。
+ * @returns 无返回值，直接更新init相关状态。
  */
 
     init(): void {
@@ -226,8 +226,8 @@ export function createMainWorldSummaryStateSource(options: MainWorldSummaryState
       options.socket.sendRequestWorldSummary();
     },    
     /**
- * clear：执行核心业务逻辑。
- * @returns void。
+ * clear：执行clear相关逻辑。
+ * @returns 无返回值，直接更新clear相关状态。
  */
 
 
@@ -238,9 +238,9 @@ export function createMainWorldSummaryStateSource(options: MainWorldSummaryState
       detailModalHost.close(WORLD_SUMMARY_MODAL_OWNER);
     },    
     /**
- * handleLeaderboard：处理事件并驱动执行路径。
+ * handleLeaderboard：处理Leaderboard并更新相关状态。
  * @param data NEXT_S2C_Leaderboard 原始数据。
- * @returns void。
+ * @returns 无返回值，直接更新Leaderboard相关状态。
  */
 
 
@@ -253,9 +253,9 @@ export function createMainWorldSummaryStateSource(options: MainWorldSummaryState
       }
     },    
     /**
- * handleWorldSummary：处理事件并驱动执行路径。
+ * handleWorldSummary：处理世界摘要并更新相关状态。
  * @param data NEXT_S2C_WorldSummary 原始数据。
- * @returns void。
+ * @returns 无返回值，直接更新世界摘要相关状态。
  */
 
 

@@ -265,32 +265,32 @@ function createFragmentFromHtml(html: string): DocumentFragment {
 /** 属性雷达图中的单个节点，包含标签、数值、颜色和提示文案。 */
 interface RadarEntry {
 /**
- * label：RadarEntry 内部字段。
+ * label：label名称或显示文本。
  */
 
   label: string;  
   /**
- * value：RadarEntry 内部字段。
+ * value：值数值。
  */
 
   value: number;  
   /**
- * color：RadarEntry 内部字段。
+ * color：color相关字段。
  */
 
   color: string;  
   /**
- * valueLabel：RadarEntry 内部字段。
+ * valueLabel：值Label名称或显示文本。
  */
 
   valueLabel?: string;  
   /**
- * tooltipTitle：RadarEntry 内部字段。
+ * tooltipTitle：提示Title名称或显示文本。
  */
 
   tooltipTitle: string;  
   /**
- * tooltipDetail：RadarEntry 内部字段。
+ * tooltipDetail：提示详情状态或数据块。
  */
 
   tooltipDetail: string;
@@ -299,57 +299,57 @@ interface RadarEntry {
 /** 单个雷达节点的渲染快照，记录坐标、标签和值提示。 */
 interface AttrRadarNodeSnapshot {
 /**
- * label：AttrRadarNodeSnapshot 内部字段。
+ * label：label名称或显示文本。
  */
 
   label: string;  
   /**
- * valueLabel：AttrRadarNodeSnapshot 内部字段。
+ * valueLabel：值Label名称或显示文本。
  */
 
   valueLabel: string;  
   /**
- * color：AttrRadarNodeSnapshot 内部字段。
+ * color：color相关字段。
  */
 
   color: string;  
   /**
- * dotX：AttrRadarNodeSnapshot 内部字段。
+ * dotX：dotX相关字段。
  */
 
   dotX: string;  
   /**
- * dotY：AttrRadarNodeSnapshot 内部字段。
+ * dotY：dotY相关字段。
  */
 
   dotY: string;  
   /**
- * labelX：AttrRadarNodeSnapshot 内部字段。
+ * labelX：labelX相关字段。
  */
 
   labelX: string;  
   /**
- * labelY：AttrRadarNodeSnapshot 内部字段。
+ * labelY：labelY相关字段。
  */
 
   labelY: string;  
   /**
- * valueX：AttrRadarNodeSnapshot 内部字段。
+ * valueX：值X相关字段。
  */
 
   valueX: string;  
   /**
- * valueY：AttrRadarNodeSnapshot 内部字段。
+ * valueY：值Y相关字段。
  */
 
   valueY: string;  
   /**
- * tooltipTitle：AttrRadarNodeSnapshot 内部字段。
+ * tooltipTitle：提示Title名称或显示文本。
  */
 
   tooltipTitle: string;  
   /**
- * tooltipDetail：AttrRadarNodeSnapshot 内部字段。
+ * tooltipDetail：提示详情状态或数据块。
  */
 
   tooltipDetail: string;
@@ -358,54 +358,54 @@ interface AttrRadarNodeSnapshot {
 /** 雷达属性页的渲染快照，包含标题、网格、轴线和节点。 */
 interface AttrRadarPaneSnapshot {
 /**
- * kind：AttrRadarPaneSnapshot 内部字段。
+ * kind：kind相关字段。
  */
 
   kind: 'radar';  
   /**
- * title：AttrRadarPaneSnapshot 内部字段。
+ * title：title名称或显示文本。
  */
 
   title: string;  
   /**
- * scale：AttrRadarPaneSnapshot 内部字段。
+ * scale：scale相关字段。
  */
 
   scale: number;  
   /**
- * paneId：AttrRadarPaneSnapshot 内部字段。
+ * paneId：paneID标识。
  */
 
   paneId: string;  
   /**
- * areaPoints：AttrRadarPaneSnapshot 内部字段。
+ * areaPoints：areaPoint相关字段。
  */
 
   areaPoints: string;  
   /**
- * rings：AttrRadarPaneSnapshot 内部字段。
+ * rings：ring相关字段。
  */
 
   rings: string[];  
   /**
- * axes：AttrRadarPaneSnapshot 内部字段。
+ * axes：axe相关字段。
  */
 
   axes: Array<{  
   /**
- * x：AttrRadarPaneSnapshot 内部字段。
+ * x：x相关字段。
  */
  x: string;  
  /**
- * y：AttrRadarPaneSnapshot 内部字段。
+ * y：y相关字段。
  */
  y: string;  
  /**
- * stroke：AttrRadarPaneSnapshot 内部字段。
+ * stroke：stroke相关字段。
  */
  stroke: string }>;  
  /**
- * nodes：AttrRadarPaneSnapshot 内部字段。
+ * nodes：node相关字段。
  */
 
   nodes: AttrRadarNodeSnapshot[];
@@ -414,32 +414,32 @@ interface AttrRadarPaneSnapshot {
 /** 数值卡片的渲染快照，包含展示值、附加说明和提示内容。 */
 interface AttrNumericCardSnapshot {
 /**
- * key：AttrNumericCardSnapshot 内部字段。
+ * key：key标识。
  */
 
   key: string;  
   /**
- * label：AttrNumericCardSnapshot 内部字段。
+ * label：label名称或显示文本。
  */
 
   label: string;  
   /**
- * value：AttrNumericCardSnapshot 内部字段。
+ * value：值数值。
  */
 
   value: string;  
   /**
- * sub：AttrNumericCardSnapshot 内部字段。
+ * sub：sub相关字段。
  */
 
   sub?: string;  
   /**
- * tooltipTitle：AttrNumericCardSnapshot 内部字段。
+ * tooltipTitle：提示Title名称或显示文本。
  */
 
   tooltipTitle: string;  
   /**
- * tooltipDetail：AttrNumericCardSnapshot 内部字段。
+ * tooltipDetail：提示详情状态或数据块。
  */
 
   tooltipDetail: string;
@@ -448,17 +448,17 @@ interface AttrNumericCardSnapshot {
 /** 数值属性页的渲染快照，按卡片列表组织。 */
 interface AttrNumericPaneSnapshot {
 /**
- * kind：AttrNumericPaneSnapshot 内部字段。
+ * kind：kind相关字段。
  */
 
   kind: 'numeric';  
   /**
- * title：AttrNumericPaneSnapshot 内部字段。
+ * title：title名称或显示文本。
  */
 
   title: string;  
   /**
- * cards：AttrNumericPaneSnapshot 内部字段。
+ * cards：card相关字段。
  */
 
   cards: AttrNumericCardSnapshot[];
@@ -467,12 +467,12 @@ interface AttrNumericPaneSnapshot {
 /** 属性页占位快照，用于尚未同步到数据时的提示。 */
 interface AttrPlaceholderPaneSnapshot {
 /**
- * kind：AttrPlaceholderPaneSnapshot 内部字段。
+ * kind：kind相关字段。
  */
 
   kind: 'placeholder';  
   /**
- * message：AttrPlaceholderPaneSnapshot 内部字段。
+ * message：message相关字段。
  */
 
   message: string;
@@ -481,32 +481,32 @@ interface AttrPlaceholderPaneSnapshot {
 /** 采集 / 炼器 / 强化技能的渲染快照，包含等级和进度信息。 */
 interface AttrCraftSkillSnapshot {
 /**
- * key：AttrCraftSkillSnapshot 内部字段。
+ * key：key标识。
  */
 
   key: string;  
   /**
- * label：AttrCraftSkillSnapshot 内部字段。
+ * label：label名称或显示文本。
  */
 
   label: string;  
   /**
- * level：AttrCraftSkillSnapshot 内部字段。
+ * level：等级数值。
  */
 
   level: string;  
   /**
- * progress：AttrCraftSkillSnapshot 内部字段。
+ * progress：进度状态或数据块。
  */
 
   progress: string;  
   /**
- * remain：AttrCraftSkillSnapshot 内部字段。
+ * remain：remain相关字段。
  */
 
   remain: string;  
   /**
- * progressPercent：AttrCraftSkillSnapshot 内部字段。
+ * progressPercent：进度Percent相关字段。
  */
 
   progressPercent: string;
@@ -515,12 +515,12 @@ interface AttrCraftSkillSnapshot {
 /** 生活技能页的渲染快照，按技能列表展示。 */
 interface AttrCraftPaneSnapshot {
 /**
- * kind：AttrCraftPaneSnapshot 内部字段。
+ * kind：kind相关字段。
  */
 
   kind: 'craft';  
   /**
- * skills：AttrCraftPaneSnapshot 内部字段。
+ * skills：技能相关字段。
  */
 
   skills: AttrCraftSkillSnapshot[];
@@ -532,7 +532,7 @@ type AttrPaneSnapshot = AttrRadarPaneSnapshot | AttrNumericPaneSnapshot | AttrPl
 /** 整个属性面板的渲染快照，按分页保存各页内容。 */
 interface AttrPanelSnapshot {
 /**
- * panes：AttrPanelSnapshot 内部字段。
+ * panes：pane相关字段。
  */
 
   panes: Record<AttrTab, AttrPaneSnapshot>;
@@ -554,7 +554,7 @@ export class AttrPanel {
   private tooltipTarget: Element | null = null;  
   /**
  * 构造器：初始化 当前 实例并建立基础状态。
- * @returns 无返回值（构造函数）。
+ * @returns 无返回值，完成实例初始化。
  */
 
 
@@ -646,7 +646,7 @@ export class AttrPanel {
  * @param alchemySkill PlayerState['alchemySkill'] 参数说明。
  * @param gatherSkill PlayerState['gatherSkill'] 参数说明。
  * @param enhancementSkill PlayerState['enhancementSkill'] 参数说明。
- * @returns AttrPanelSnapshot。
+ * @returns 返回快照。
  */
 
 
@@ -750,7 +750,7 @@ export class AttrPanel {
  * @param stats NumericStats 参数说明。
  * @param ratioDivisors NumericRatioDivisors 参数说明。
  * @param bonuses AttrBonus[] 参数说明。
- * @returns AttrRadarPaneSnapshot。
+ * @returns 返回根容器Radar快照。
  */
 
 
@@ -786,7 +786,7 @@ export class AttrPanel {
  * buildVeinPaneSnapshot：构建并返回目标对象。
  * @param stats NumericStats 参数说明。
  * @param bonuses AttrBonus[] 参数说明。
- * @returns AttrNumericPaneSnapshot。
+ * @returns 返回VeinPane快照。
  */
 
 
@@ -928,7 +928,7 @@ export class AttrPanel {
  * @param stats NumericStats 参数说明。
  * @param ratios NumericRatioDivisors 参数说明。
  * @param meta { keys: NumericCardKey[]; ratioKeys: (keyof NumericRatioDivisors)[]; legends?: Record<string, string> } 参数说明。
- * @returns AttrPaneSnapshot。
+ * @returns 返回NumericPane快照。
  */
 
 
@@ -938,15 +938,15 @@ export class AttrPanel {
     ratios?: NumericRatioDivisors,
     meta?: {    
     /**
- * keys：AttrPanel 内部字段。
+ * keys：key相关字段。
  */
  keys: NumericCardKey[];    
  /**
- * ratioKeys：AttrPanel 内部字段。
+ * ratioKeys：ratioKey相关字段。
  */
  ratioKeys: (keyof NumericRatioDivisors)[];    
  /**
- * legends：AttrPanel 内部字段。
+ * legends：legend相关字段。
  */
  legends?: Record<string, string> },
   ): AttrPaneSnapshot {
@@ -998,7 +998,7 @@ export class AttrPanel {
  * @param stats NumericStats 参数说明。
  * @param ratios NumericRatioDivisors 参数说明。
  * @param specialStats PlayerSpecialStats 参数说明。
- * @returns AttrPaneSnapshot。
+ * @returns 返回SpecialPane快照。
  */
 
 
@@ -1058,7 +1058,7 @@ export class AttrPanel {
  * @param key string 参数说明。
  * @param label string 参数说明。
  * @param skill PlayerState['alchemySkill'] | PlayerState['gatherSkill'] | PlayerState['enhancementSkill'] 参数说明。
- * @returns AttrCraftSkillSnapshot | null。
+ * @returns 返回炼制技能快照。
  */
 
 
@@ -1087,7 +1087,7 @@ export class AttrPanel {
  * @param alchemySkill PlayerState['alchemySkill'] 参数说明。
  * @param gatherSkill PlayerState['gatherSkill'] 参数说明。
  * @param enhancementSkill PlayerState['enhancementSkill'] 参数说明。
- * @returns AttrPaneSnapshot。
+ * @returns 返回炼制Pane快照。
  */
 
 

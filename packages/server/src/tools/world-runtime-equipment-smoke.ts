@@ -5,7 +5,7 @@ const { WorldRuntimeEquipmentService } = require("../runtime/world/world-runtime
 /**
  * buildDeps：构建并返回目标对象。
  * @param log 参数说明。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新Dep相关状态。
  */
 
 
@@ -13,27 +13,27 @@ function buildDeps(log) {
     return {
         craftPanelRuntimeService: {        
         /**
- * getLockedSlotReason：按给定条件读取/查询数据。
- * @returns 函数返回值。
+ * getLockedSlotReason：读取LockedSlotReason。
+ * @returns 无返回值，完成LockedSlotReason的读取/组装。
  */
 
             getLockedSlotReason() { return null; },
         },        
         /**
- * queuePlayerNotice：执行核心业务逻辑。
+ * queuePlayerNotice：执行queue玩家Notice相关逻辑。
  * @param playerId 玩家 ID。
  * @param message 参数说明。
  * @param tone 参数说明。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新queue玩家Notice相关状态。
  */
 
         queuePlayerNotice(playerId, message, tone) { log.push(['queuePlayerNotice', playerId, message, tone]); },
         worldRuntimeCraftMutationService: {        
         /**
- * emitCraftPanelUpdate：执行核心业务逻辑。
+ * emitCraftPanelUpdate：处理炼制面板Update并更新相关状态。
  * @param playerId 玩家 ID。
  * @param panel 参数说明。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新炼制面板Update相关状态。
  */
 
             emitCraftPanelUpdate(playerId, panel) { log.push(['emitCraftPanelUpdate', playerId, panel]); },
@@ -41,8 +41,8 @@ function buildDeps(log) {
     };
 }
 /**
- * testEquip：执行核心业务逻辑。
- * @returns 函数返回值。
+ * testEquip：执行testEquip相关逻辑。
+ * @returns 无返回值，直接更新testEquip相关状态。
  */
 
 
@@ -50,22 +50,22 @@ function testEquip() {
     const log = [];
     const playerRuntimeService = {    
     /**
- * peekInventoryItem：执行核心业务逻辑。
- * @returns 函数返回值。
+ * peekInventoryItem：执行peek背包道具相关逻辑。
+ * @returns 无返回值，直接更新peek背包道具相关状态。
  */
 
         peekInventoryItem() { return { itemId: 'sword_1', name: '铁剑', equipSlot: 'weapon' }; },        
         /**
- * getPlayerOrThrow：按给定条件读取/查询数据。
- * @returns 函数返回值。
+ * getPlayerOrThrow：读取玩家OrThrow。
+ * @returns 无返回值，完成玩家OrThrow的读取/组装。
  */
 
         getPlayerOrThrow() { return { playerId: 'player:1' }; },        
         /**
- * equipItem：执行核心业务逻辑。
+ * equipItem：执行equip道具相关逻辑。
  * @param playerId 玩家 ID。
  * @param slotIndex 参数说明。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新equip道具相关状态。
  */
 
         equipItem(playerId, slotIndex) { log.push(['equipItem', playerId, slotIndex]); },
@@ -80,8 +80,8 @@ function testEquip() {
     ]);
 }
 /**
- * testUnequip：执行核心业务逻辑。
- * @returns 函数返回值。
+ * testUnequip：执行testUnequip相关逻辑。
+ * @returns 无返回值，直接更新testUnequip相关状态。
  */
 
 
@@ -89,22 +89,22 @@ function testUnequip() {
     const log = [];
     const playerRuntimeService = {    
     /**
- * peekEquippedItem：执行核心业务逻辑。
- * @returns 函数返回值。
+ * peekEquippedItem：执行peekEquipped道具相关逻辑。
+ * @returns 无返回值，直接更新peekEquipped道具相关状态。
  */
 
         peekEquippedItem() { return { itemId: 'sword_1', name: '铁剑' }; },        
         /**
- * getPlayerOrThrow：按给定条件读取/查询数据。
- * @returns 函数返回值。
+ * getPlayerOrThrow：读取玩家OrThrow。
+ * @returns 无返回值，完成玩家OrThrow的读取/组装。
  */
 
         getPlayerOrThrow() { return { playerId: 'player:1' }; },        
         /**
- * unequipItem：执行核心业务逻辑。
+ * unequipItem：执行unequip道具相关逻辑。
  * @param playerId 玩家 ID。
  * @param slot 参数说明。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新unequip道具相关状态。
  */
 
         unequipItem(playerId, slot) { log.push(['unequipItem', playerId, slot]); },

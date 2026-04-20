@@ -3,22 +3,22 @@ import type { MonsterTier } from '@mud/shared-next';
 /** 怪物在界面中的展示信息。 */
 export interface MonsterPresentation {
 /**
- * label：MonsterPresentation 内部字段。
+ * label：label名称或显示文本。
  */
 
   label: string;  
   /**
- * badgeText：MonsterPresentation 内部字段。
+ * badgeText：badgeText名称或显示文本。
  */
 
   badgeText?: string;  
   /**
- * badgeClassName：MonsterPresentation 内部字段。
+ * badgeClassName：badgeClass名称名称或显示文本。
  */
 
   badgeClassName?: string;  
   /**
- * scale：MonsterPresentation 内部字段。
+ * scale：scale相关字段。
  */
 
   scale: number;

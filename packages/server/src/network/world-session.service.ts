@@ -144,9 +144,9 @@ let WorldSessionService = class WorldSessionService {
         return binding;
     }    
     /**
- * unregisterSocket：执行核心业务逻辑。
+ * unregisterSocket：判断unregisterSocket是否满足条件。
  * @param socketId socket ID。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新unregisterSocket相关状态。
  */
 
     unregisterSocket(socketId) {
@@ -195,9 +195,9 @@ let WorldSessionService = class WorldSessionService {
         return this.bindingByPlayerId.get(playerId) ?? null;
     }    
     /**
- * getBindingBySessionId：按给定条件读取/查询数据。
+ * getBindingBySessionId：读取BindingBySessionID。
  * @param sessionId session ID。
- * @returns 函数返回值。
+ * @returns 无返回值，完成BindingBySessionID的读取/组装。
  */
 
     getBindingBySessionId(sessionId) {
@@ -267,9 +267,9 @@ let WorldSessionService = class WorldSessionService {
         return bindings;
     }    
     /**
- * requeueExpiredBinding：执行核心业务逻辑。
+ * requeueExpiredBinding：执行requeueExpiredBinding相关逻辑。
  * @param binding 参数说明。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新requeueExpiredBinding相关状态。
  */
 
     requeueExpiredBinding(binding) {
@@ -375,9 +375,9 @@ let WorldSessionService = class WorldSessionService {
         this.expiryTimerByPlayerId.set(binding.playerId, timer);
     }    
     /**
- * clearExpiry：执行核心业务逻辑。
+ * clearExpiry：执行clearExpiry相关逻辑。
  * @param playerId 玩家 ID。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新clearExpiry相关状态。
  */
 
     clearExpiry(playerId) {

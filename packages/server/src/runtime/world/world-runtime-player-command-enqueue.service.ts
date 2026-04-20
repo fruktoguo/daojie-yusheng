@@ -40,28 +40,28 @@ const {
 /** world-runtime player-command enqueue orchestration：承接玩家命令入队前的归一化、校验与排队。 */
 let WorldRuntimePlayerCommandEnqueueService = class WorldRuntimePlayerCommandEnqueueService {
 /**
- * playerRuntimeService：对象字段。
+ * playerRuntimeService：玩家运行态服务引用。
  */
 
     playerRuntimeService;    
     /**
  * 构造器：初始化 当前 实例并建立基础状态。
  * @param playerRuntimeService 参数说明。
- * @returns 无返回值（构造函数）。
+ * @returns 无返回值，完成实例初始化。
  */
 
     constructor(playerRuntimeService) {
         this.playerRuntimeService = playerRuntimeService;
     }    
     /**
- * enqueueBasicAttack：执行核心业务逻辑。
+ * enqueueBasicAttack：处理BasicAttack并更新相关状态。
  * @param playerId 玩家 ID。
  * @param targetPlayerIdInput 参数说明。
  * @param targetMonsterIdInput 参数说明。
  * @param targetXInput 参数说明。
  * @param targetYInput 参数说明。
  * @param deps 运行时依赖。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新BasicAttack相关状态。
  */
 
     enqueueBasicAttack(playerId, targetPlayerIdInput, targetMonsterIdInput, targetXInput, targetYInput, deps) {
@@ -73,7 +73,7 @@ let WorldRuntimePlayerCommandEnqueueService = class WorldRuntimePlayerCommandEnq
         }, deps);
     }    
     /**
- * enqueueBattleTarget：执行核心业务逻辑。
+ * enqueueBattleTarget：读取Battle目标并返回结果。
  * @param playerId 玩家 ID。
  * @param locked 参数说明。
  * @param targetPlayerIdInput 参数说明。
@@ -81,7 +81,7 @@ let WorldRuntimePlayerCommandEnqueueService = class WorldRuntimePlayerCommandEnq
  * @param targetXInput 参数说明。
  * @param targetYInput 参数说明。
  * @param deps 运行时依赖。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新Battle目标相关状态。
  */
 
     enqueueBattleTarget(playerId, locked, targetPlayerIdInput, targetMonsterIdInput, targetXInput, targetYInput, deps) {
@@ -94,11 +94,11 @@ let WorldRuntimePlayerCommandEnqueueService = class WorldRuntimePlayerCommandEnq
         }, deps);
     }    
     /**
- * enqueueUseItem：执行核心业务逻辑。
+ * enqueueUseItem：处理Use道具并更新相关状态。
  * @param playerId 玩家 ID。
  * @param slotIndexInput 参数说明。
  * @param deps 运行时依赖。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新Use道具相关状态。
  */
 
     enqueueUseItem(playerId, slotIndexInput, deps) {
@@ -108,12 +108,12 @@ let WorldRuntimePlayerCommandEnqueueService = class WorldRuntimePlayerCommandEnq
         }, deps);
     }    
     /**
- * enqueueDropItem：执行核心业务逻辑。
+ * enqueueDropItem：处理Drop道具并更新相关状态。
  * @param playerId 玩家 ID。
  * @param slotIndexInput 参数说明。
  * @param countInput 参数说明。
  * @param deps 运行时依赖。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新Drop道具相关状态。
  */
 
     enqueueDropItem(playerId, slotIndexInput, countInput, deps) {
@@ -124,12 +124,12 @@ let WorldRuntimePlayerCommandEnqueueService = class WorldRuntimePlayerCommandEnq
         }, deps);
     }    
     /**
- * enqueueTakeGround：执行核心业务逻辑。
+ * enqueueTakeGround：处理Take地面并更新相关状态。
  * @param playerId 玩家 ID。
  * @param sourceIdInput 参数说明。
  * @param itemKeyInput 参数说明。
  * @param deps 运行时依赖。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新TakeGround相关状态。
  */
 
     enqueueTakeGround(playerId, sourceIdInput, itemKeyInput, deps) {
@@ -153,11 +153,11 @@ let WorldRuntimePlayerCommandEnqueueService = class WorldRuntimePlayerCommandEnq
         return deps.getPlayerViewOrThrow(playerId);
     }    
     /**
- * enqueueTakeGroundAll：执行核心业务逻辑。
+ * enqueueTakeGroundAll：处理Take地面All并更新相关状态。
  * @param playerId 玩家 ID。
  * @param sourceIdInput 参数说明。
  * @param deps 运行时依赖。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新TakeGroundAll相关状态。
  */
 
     enqueueTakeGroundAll(playerId, sourceIdInput, deps) {
@@ -176,11 +176,11 @@ let WorldRuntimePlayerCommandEnqueueService = class WorldRuntimePlayerCommandEnq
         return deps.getPlayerViewOrThrow(playerId);
     }    
     /**
- * enqueueEquip：执行核心业务逻辑。
+ * enqueueEquip：处理Equip并更新相关状态。
  * @param playerId 玩家 ID。
  * @param slotIndexInput 参数说明。
  * @param deps 运行时依赖。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新Equip相关状态。
  */
 
     enqueueEquip(playerId, slotIndexInput, deps) {
@@ -190,11 +190,11 @@ let WorldRuntimePlayerCommandEnqueueService = class WorldRuntimePlayerCommandEnq
         }, deps);
     }    
     /**
- * enqueueUnequip：执行核心业务逻辑。
+ * enqueueUnequip：处理Unequip并更新相关状态。
  * @param playerId 玩家 ID。
  * @param slotInput 参数说明。
  * @param deps 运行时依赖。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新Unequip相关状态。
  */
 
     enqueueUnequip(playerId, slotInput, deps) {
@@ -204,11 +204,11 @@ let WorldRuntimePlayerCommandEnqueueService = class WorldRuntimePlayerCommandEnq
         }, deps);
     }    
     /**
- * enqueueCultivate：执行核心业务逻辑。
+ * enqueueCultivate：处理Cultivate并更新相关状态。
  * @param playerId 玩家 ID。
  * @param techniqueIdInput 参数说明。
  * @param deps 运行时依赖。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新Cultivate相关状态。
  */
 
     enqueueCultivate(playerId, techniqueIdInput, deps) {
@@ -218,11 +218,11 @@ let WorldRuntimePlayerCommandEnqueueService = class WorldRuntimePlayerCommandEnq
         }, deps);
     }    
     /**
- * enqueueStartAlchemy：执行核心业务逻辑。
+ * enqueueStartAlchemy：处理开始炼丹并更新相关状态。
  * @param playerId 玩家 ID。
  * @param payload 载荷参数。
  * @param deps 运行时依赖。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新Start炼丹相关状态。
  */
 
     enqueueStartAlchemy(playerId, payload, deps) {
@@ -232,21 +232,21 @@ let WorldRuntimePlayerCommandEnqueueService = class WorldRuntimePlayerCommandEnq
         }, deps);
     }    
     /**
- * enqueueCancelAlchemy：执行核心业务逻辑。
+ * enqueueCancelAlchemy：判断Cancel炼丹是否满足条件。
  * @param playerId 玩家 ID。
  * @param deps 运行时依赖。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新Cancel炼丹相关状态。
  */
 
     enqueueCancelAlchemy(playerId, deps) {
         return this.enqueueNormalizedPlayerCommand(playerId, { kind: 'cancelAlchemy' }, deps);
     }    
     /**
- * enqueueSaveAlchemyPreset：执行核心业务逻辑。
+ * enqueueSaveAlchemyPreset：处理Save炼丹Preset并更新相关状态。
  * @param playerId 玩家 ID。
  * @param payload 载荷参数。
  * @param deps 运行时依赖。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新Save炼丹Preset相关状态。
  */
 
     enqueueSaveAlchemyPreset(playerId, payload, deps) {
@@ -256,11 +256,11 @@ let WorldRuntimePlayerCommandEnqueueService = class WorldRuntimePlayerCommandEnq
         }, deps);
     }    
     /**
- * enqueueDeleteAlchemyPreset：执行核心业务逻辑。
+ * enqueueDeleteAlchemyPreset：处理Delete炼丹Preset并更新相关状态。
  * @param playerId 玩家 ID。
  * @param presetId preset ID。
  * @param deps 运行时依赖。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新Delete炼丹Preset相关状态。
  */
 
     enqueueDeleteAlchemyPreset(playerId, presetId, deps) {
@@ -270,11 +270,11 @@ let WorldRuntimePlayerCommandEnqueueService = class WorldRuntimePlayerCommandEnq
         }, deps);
     }    
     /**
- * enqueueStartEnhancement：执行核心业务逻辑。
+ * enqueueStartEnhancement：处理开始强化并更新相关状态。
  * @param playerId 玩家 ID。
  * @param payload 载荷参数。
  * @param deps 运行时依赖。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新Start强化相关状态。
  */
 
     enqueueStartEnhancement(playerId, payload, deps) {
@@ -284,21 +284,21 @@ let WorldRuntimePlayerCommandEnqueueService = class WorldRuntimePlayerCommandEnq
         }, deps);
     }    
     /**
- * enqueueCancelEnhancement：执行核心业务逻辑。
+ * enqueueCancelEnhancement：判断Cancel强化是否满足条件。
  * @param playerId 玩家 ID。
  * @param deps 运行时依赖。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新Cancel强化相关状态。
  */
 
     enqueueCancelEnhancement(playerId, deps) {
         return this.enqueueNormalizedPlayerCommand(playerId, { kind: 'cancelEnhancement' }, deps);
     }    
     /**
- * enqueueRedeemCodes：执行核心业务逻辑。
+ * enqueueRedeemCodes：处理RedeemCode并更新相关状态。
  * @param playerId 玩家 ID。
  * @param codesInput 参数说明。
  * @param deps 运行时依赖。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新RedeemCode相关状态。
  */
 
     enqueueRedeemCodes(playerId, codesInput, deps) {
@@ -308,12 +308,12 @@ let WorldRuntimePlayerCommandEnqueueService = class WorldRuntimePlayerCommandEnq
         }, deps);
     }    
     /**
- * enqueueHeavenGateAction：执行核心业务逻辑。
+ * enqueueHeavenGateAction：处理HeavenGateAction并更新相关状态。
  * @param playerId 玩家 ID。
  * @param actionInput 参数说明。
  * @param elementInput 参数说明。
  * @param deps 运行时依赖。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新HeavenGateAction相关状态。
  */
 
     enqueueHeavenGateAction(playerId, actionInput, elementInput, deps) {
@@ -337,14 +337,14 @@ let WorldRuntimePlayerCommandEnqueueService = class WorldRuntimePlayerCommandEnq
         return deps.getPlayerViewOrThrow(playerId);
     }    
     /**
- * enqueueCastSkill：执行核心业务逻辑。
+ * enqueueCastSkill：处理Cast技能并更新相关状态。
  * @param playerId 玩家 ID。
  * @param skillIdInput 参数说明。
  * @param targetPlayerIdInput 参数说明。
  * @param targetMonsterIdInput 参数说明。
  * @param targetRefInput 参数说明。
  * @param deps 运行时依赖。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新Cast技能相关状态。
  */
 
     enqueueCastSkill(playerId, skillIdInput, targetPlayerIdInput, targetMonsterIdInput, targetRefInput, deps) {
@@ -378,23 +378,23 @@ let WorldRuntimePlayerCommandEnqueueService = class WorldRuntimePlayerCommandEnq
         return deps.getPlayerViewOrThrow(playerId);
     }    
     /**
- * enqueueCastSkillTargetRef：执行核心业务逻辑。
+ * enqueueCastSkillTargetRef：读取Cast技能目标Ref并返回结果。
  * @param playerId 玩家 ID。
  * @param skillIdInput 参数说明。
  * @param targetRefInput 参数说明。
  * @param deps 运行时依赖。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新Cast技能目标Ref相关状态。
  */
 
     enqueueCastSkillTargetRef(playerId, skillIdInput, targetRefInput, deps) {
         return this.enqueueCastSkill(playerId, skillIdInput, null, null, targetRefInput, deps);
     }    
     /**
- * enqueueNormalizedPlayerCommand：执行核心业务逻辑。
+ * enqueueNormalizedPlayerCommand：规范化或转换Normalized玩家Command。
  * @param playerId 玩家 ID。
  * @param command 输入指令。
  * @param deps 运行时依赖。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新Normalized玩家Command相关状态。
  */
 
     enqueueNormalizedPlayerCommand(playerId, command, deps) {
@@ -403,12 +403,12 @@ let WorldRuntimePlayerCommandEnqueueService = class WorldRuntimePlayerCommandEnq
         return deps.getPlayerViewOrThrow(playerId);
     }    
     /**
- * enqueueCombatTargetCommand：执行核心业务逻辑。
+ * enqueueCombatTargetCommand：读取战斗目标Command并返回结果。
  * @param playerId 玩家 ID。
  * @param kind 参数说明。
  * @param target 目标对象。
  * @param deps 运行时依赖。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新战斗目标Command相关状态。
  */
 
     enqueueCombatTargetCommand(playerId, kind, target, deps) {
@@ -434,9 +434,9 @@ let WorldRuntimePlayerCommandEnqueueService = class WorldRuntimePlayerCommandEnq
         return deps.getPlayerViewOrThrow(playerId);
     }    
     /**
- * cloneAlchemyPayload：执行核心业务逻辑。
+ * cloneAlchemyPayload：读取炼丹载荷并返回结果。
  * @param payload 载荷参数。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新炼丹载荷相关状态。
  */
 
     cloneAlchemyPayload(payload) {
@@ -450,9 +450,9 @@ let WorldRuntimePlayerCommandEnqueueService = class WorldRuntimePlayerCommandEnq
             : {};
     }    
     /**
- * cloneEnhancementPayload：执行核心业务逻辑。
+ * cloneEnhancementPayload：读取强化载荷并返回结果。
  * @param payload 载荷参数。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新强化载荷相关状态。
  */
 
     cloneEnhancementPayload(payload) {

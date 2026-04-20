@@ -55,7 +55,7 @@ exports.WorldSyncMinimapService = WorldSyncMinimapService = __decorate([
 /**
  * buildMinimapMarkers：构建并返回目标对象。
  * @param template 参数说明。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新MinimapMarker相关状态。
  */
 
 function buildMinimapMarkers(template) {
@@ -112,7 +112,7 @@ function buildMinimapMarkers(template) {
  * buildVisibleMinimapMarkers：构建并返回目标对象。
  * @param markers 参数说明。
  * @param visibleTiles 参数说明。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新可见MinimapMarker相关状态。
  */
 
 function buildVisibleMinimapMarkers(markers, visibleTiles) {
@@ -132,10 +132,10 @@ function buildVisibleMinimapMarkers(markers, visibleTiles) {
     return visible;
 }
 /**
- * diffVisibleMinimapMarkers：执行核心业务逻辑。
+ * diffVisibleMinimapMarkers：判断diff可见MinimapMarker是否满足条件。
  * @param previous 参数说明。
  * @param current 参数说明。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新diff可见MinimapMarker相关状态。
  */
 
 function diffVisibleMinimapMarkers(previous, current) {
@@ -166,9 +166,9 @@ function diffVisibleMinimapMarkers(previous, current) {
     };
 }
 /**
- * cloneMinimapMarker：执行核心业务逻辑。
+ * cloneMinimapMarker：构建MinimapMarker。
  * @param source 来源对象。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新MinimapMarker相关状态。
  */
 
 function cloneMinimapMarker(source) {
@@ -182,10 +182,10 @@ function cloneMinimapMarker(source) {
     };
 }
 /**
- * isSameMinimapMarker：执行状态校验并返回判断结果。
+ * isSameMinimapMarker：判断SameMinimapMarker是否满足条件。
  * @param left 参数说明。
  * @param right 参数说明。
- * @returns 函数返回值。
+ * @returns 无返回值，完成SameMinimapMarker的条件判断。
  */
 
 function isSameMinimapMarker(left, right) {
@@ -200,17 +200,17 @@ function isSameMinimapMarker(left, right) {
  * buildCoordKey：构建并返回目标对象。
  * @param x X 坐标。
  * @param y Y 坐标。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新CoordKey相关状态。
  */
 
 function buildCoordKey(x, y) {
     return `${x},${y}`;
 }
 /**
- * compareStableStrings：执行核心业务逻辑。
+ * compareStableStrings：执行compareStableString相关逻辑。
  * @param left 参数说明。
  * @param right 参数说明。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新compareStableString相关状态。
  */
 
 function compareStableStrings(left, right) {

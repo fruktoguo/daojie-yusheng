@@ -143,7 +143,7 @@ function normalizeConfig(
     }
     const bodyCandidate = (raw as {    
     /**
- * fontSizes：对象字段。
+ * fontSizes：font规模相关字段。
  */
  fontSizes?: Partial<Record<UiFontLevelKey, number>> } | null | undefined)?.fontSizes?.body;
     if (typeof bodyCandidate !== 'number' || !Number.isFinite(bodyCandidate)) {

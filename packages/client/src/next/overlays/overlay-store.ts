@@ -13,17 +13,17 @@ export type NextToastKind = 'system' | 'quest' | 'combat' | 'loot' | 'grudge' | 
 
 export interface NextToastEntry {
 /**
- * id：NextToastEntry 内部字段。
+ * id：ID标识。
  */
 
   id: number;  
   /**
- * kind：NextToastEntry 内部字段。
+ * kind：kind相关字段。
  */
 
   kind: NextToastKind;  
   /**
- * message：NextToastEntry 内部字段。
+ * message：message相关字段。
  */
 
   message: string;
@@ -35,27 +35,27 @@ export interface NextToastEntry {
 
 export interface NextDetailModalState {
 /**
- * open：NextDetailModalState 内部字段。
+ * open：open相关字段。
  */
 
   open: boolean;  
   /**
- * title：NextDetailModalState 内部字段。
+ * title：title名称或显示文本。
  */
 
   title: string;  
   /**
- * subtitle：NextDetailModalState 内部字段。
+ * subtitle：subtitle名称或显示文本。
  */
 
   subtitle?: string;  
   /**
- * hint：NextDetailModalState 内部字段。
+ * hint：hint相关字段。
  */
 
   hint?: string;  
   /**
- * body：NextDetailModalState 内部字段。
+ * body：body相关字段。
  */
 
   body?: ReactNode;
@@ -67,27 +67,27 @@ export interface NextDetailModalState {
 
 export interface NextTooltipState {
 /**
- * visible：NextTooltipState 内部字段。
+ * visible：可见相关字段。
  */
 
   visible: boolean;  
   /**
- * title：NextTooltipState 内部字段。
+ * title：title名称或显示文本。
  */
 
   title: string;  
   /**
- * lines：NextTooltipState 内部字段。
+ * lines：line相关字段。
  */
 
   lines: string[];  
   /**
- * clientX：NextTooltipState 内部字段。
+ * clientX：clientX相关字段。
  */
 
   clientX: number;  
   /**
- * clientY：NextTooltipState 内部字段。
+ * clientY：clientY相关字段。
  */
 
   clientY: number;
@@ -99,17 +99,17 @@ export interface NextTooltipState {
 
 export interface NextOverlayState {
 /**
- * detailModal：NextOverlayState 内部字段。
+ * detailModal：详情弹层相关字段。
  */
 
   detailModal: NextDetailModalState;  
   /**
- * tooltip：NextOverlayState 内部字段。
+ * tooltip：提示相关字段。
  */
 
   tooltip: NextTooltipState;  
   /**
- * toasts：NextOverlayState 内部字段。
+ * toasts：toast相关字段。
  */
 
   toasts: NextToastEntry[];
@@ -134,9 +134,9 @@ let toastIdSeed = 1;
 
 export const overlayStore = createExternalStore<NextOverlayState>(INITIAL_OVERLAY_STATE);
 /**
- * openNextDetailModal：执行核心业务逻辑。
+ * openNextDetailModal：执行openNext详情弹层相关逻辑。
  * @param input Omit<NextDetailModalState, 'open'> 输入参数。
- * @returns void。
+ * @returns 无返回值，直接更新openNext详情弹层相关状态。
  */
 
 
@@ -149,8 +149,8 @@ export function openNextDetailModal(input: Omit<NextDetailModalState, 'open'>): 
   });
 }
 /**
- * closeNextDetailModal：执行核心业务逻辑。
- * @returns void。
+ * closeNextDetailModal：执行closeNext详情弹层相关逻辑。
+ * @returns 无返回值，直接更新closeNext详情弹层相关状态。
  */
 
 
@@ -163,12 +163,12 @@ export function closeNextDetailModal(): void {
   });
 }
 /**
- * showNextTooltip：执行核心业务逻辑。
+ * showNextTooltip：执行showNext提示相关逻辑。
  * @param title string 参数说明。
  * @param lines string[] 参数说明。
  * @param clientX number 参数说明。
  * @param clientY number 参数说明。
- * @returns void。
+ * @returns 无返回值，直接更新showNext提示相关状态。
  */
 
 
@@ -184,10 +184,10 @@ export function showNextTooltip(title: string, lines: string[], clientX: number,
   });
 }
 /**
- * moveNextTooltip：执行核心业务逻辑。
+ * moveNextTooltip：执行moveNext提示相关逻辑。
  * @param clientX number 参数说明。
  * @param clientY number 参数说明。
- * @returns void。
+ * @returns 无返回值，直接更新moveNext提示相关状态。
  */
 
 
@@ -207,8 +207,8 @@ export function moveNextTooltip(clientX: number, clientY: number): void {
   });
 }
 /**
- * hideNextTooltip：执行核心业务逻辑。
- * @returns void。
+ * hideNextTooltip：执行hideNext提示相关逻辑。
+ * @returns 无返回值，直接更新hideNext提示相关状态。
  */
 
 
@@ -224,11 +224,11 @@ export function hideNextTooltip(): void {
   });
 }
 /**
- * showNextToast：执行核心业务逻辑。
+ * showNextToast：执行showNextToast相关逻辑。
  * @param message string 参数说明。
  * @param kind NextToastKind 参数说明。
  * @param durationMs 参数说明。
- * @returns void。
+ * @returns 无返回值，直接更新showNextToast相关状态。
  */
 
 

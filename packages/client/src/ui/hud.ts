@@ -9,62 +9,62 @@ import { formatDisplayCurrentMax, formatDisplayInteger } from '../utils/number';
 /** HUDMeta：HUD 附加显示元数据。 */
 interface HUDMeta {
 /**
- * mapName：HUDMeta 内部字段。
+ * mapName：地图名称名称或显示文本。
  */
 
   mapName?: string;  
   /**
- * mapDanger：HUDMeta 内部字段。
+ * mapDanger：地图Danger相关字段。
  */
 
   mapDanger?: string;  
   /**
- * realmLabel：HUDMeta 内部字段。
+ * realmLabel：realmLabel名称或显示文本。
  */
 
   realmLabel?: string;  
   /**
- * realmReviewLabel：HUDMeta 内部字段。
+ * realmReviewLabel：realmReviewLabel名称或显示文本。
  */
 
   realmReviewLabel?: string;  
   /**
- * realmActionLabel：HUDMeta 内部字段。
+ * realmActionLabel：realmActionLabel名称或显示文本。
  */
 
   realmActionLabel?: string;  
   /**
- * showRealmAction：HUDMeta 内部字段。
+ * showRealmAction：showRealmAction相关字段。
  */
 
   showRealmAction?: boolean;  
   /**
- * realmProgressLabel：HUDMeta 内部字段。
+ * realmProgressLabel：realm进度Label名称或显示文本。
  */
 
   realmProgressLabel?: string;  
   /**
- * objectiveLabel：HUDMeta 内部字段。
+ * objectiveLabel：objectiveLabel名称或显示文本。
  */
 
   objectiveLabel?: string;  
   /**
- * threatLabel：HUDMeta 内部字段。
+ * threatLabel：threatLabel名称或显示文本。
  */
 
   threatLabel?: string;  
   /**
- * boneAgeLabel：HUDMeta 内部字段。
+ * boneAgeLabel：boneAgeLabel名称或显示文本。
  */
 
   boneAgeLabel?: string;  
   /**
- * lifespanLabel：HUDMeta 内部字段。
+ * lifespanLabel：lifespanLabel名称或显示文本。
  */
 
   lifespanLabel?: string;  
   /**
- * titleLabel：HUDMeta 内部字段。
+ * titleLabel：titleLabel名称或显示文本。
  */
 
   titleLabel?: string;
@@ -106,7 +106,7 @@ export class HUD {
   private onBreakthrough: (() => void) | null = null;  
   /**
  * 构造器：初始化 当前 实例并建立基础状态。
- * @returns 无返回值（构造函数）。
+ * @returns 无返回值，完成实例初始化。
  */
 
 
@@ -116,9 +116,9 @@ export class HUD {
     });
   }  
   /**
- * setCallbacks：更新/写入相关状态。
+ * setCallbacks：写入Callback。
  * @param onBreakthrough () => void 参数说明。
- * @returns void。
+ * @returns 无返回值，直接更新Callback相关状态。
  */
 
 

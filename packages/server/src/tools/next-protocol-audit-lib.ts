@@ -649,37 +649,37 @@ function createRuntimeApi(baseUrl) {
   return {
     request,    
     /**
- * get：按给定条件读取/查询数据。
+ * get：读取get。
  * @param pathname 参数说明。
- * @returns 函数返回值。
+ * @returns 无返回值，完成结果的读取/组装。
  */
 
     get(pathname) {
       return request(pathname);
     },    
     /**
- * post：执行核心业务逻辑。
+ * post：执行post相关逻辑。
  * @param pathname 参数说明。
  * @param body 参数说明。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新post相关状态。
  */
 
     post(pathname, body) {
       return request(pathname, { method: 'POST', body });
     },    
     /**
- * delete：执行核心业务逻辑。
+ * delete：处理delete并更新相关状态。
  * @param pathname 参数说明。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新结果相关状态。
  */
 
     delete(pathname) {
       return request(pathname, { method: 'DELETE' });
     },    
     /**
- * connectPlayer：执行核心业务逻辑。
+ * connectPlayer：执行connect玩家相关逻辑。
  * @param payload 载荷参数。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新connect玩家相关状态。
  */
 
     connectPlayer(payload) {
@@ -689,29 +689,29 @@ function createRuntimeApi(baseUrl) {
       });
     },    
     /**
- * fetchState：按给定条件读取/查询数据。
+ * fetchState：读取状态并返回结果。
  * @param playerId 玩家 ID。
- * @returns 函数返回值。
+ * @returns 无返回值，完成状态的读取/组装。
  */
 
     fetchState(playerId) {
       return request(`/runtime/players/${playerId}/state`);
     },    
     /**
- * fetchMarket：按给定条件读取/查询数据。
+ * fetchMarket：读取坊市并返回结果。
  * @param playerId 玩家 ID。
- * @returns 函数返回值。
+ * @returns 无返回值，完成坊市的读取/组装。
  */
 
     fetchMarket(playerId) {
       return request(`/runtime/players/${playerId}/market`);
     },    
     /**
- * grantItem：执行核心业务逻辑。
+ * grantItem：执行grant道具相关逻辑。
  * @param playerId 玩家 ID。
  * @param itemId 道具 ID。
  * @param count 数量。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新grant道具相关状态。
  */
 
     grantItem(playerId, itemId, count = 1) {
@@ -721,10 +721,10 @@ function createRuntimeApi(baseUrl) {
       });
     },    
     /**
- * setVitals：更新/写入相关状态。
+ * setVitals：写入Vital。
  * @param playerId 玩家 ID。
  * @param payload 载荷参数。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新Vital相关状态。
  */
 
     setVitals(playerId, payload) {
@@ -737,7 +737,7 @@ function createRuntimeApi(baseUrl) {
  * createDirectMail：构建并返回目标对象。
  * @param playerId 玩家 ID。
  * @param payload 载荷参数。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新Direct邮件相关状态。
  */
 
     createDirectMail(playerId, payload) {
@@ -747,10 +747,10 @@ function createRuntimeApi(baseUrl) {
       });
     },    
     /**
- * queuePendingLogbookMessage：执行核心业务逻辑。
+ * queuePendingLogbookMessage：执行queue待处理LogbookMessage相关逻辑。
  * @param playerId 玩家 ID。
  * @param payload 载荷参数。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新queuePendingLogbookMessage相关状态。
  */
 
     queuePendingLogbookMessage(playerId, payload) {
@@ -760,9 +760,9 @@ function createRuntimeApi(baseUrl) {
       });
     },    
     /**
- * deletePlayer：执行核心业务逻辑。
+ * deletePlayer：处理玩家并更新相关状态。
  * @param playerId 玩家 ID。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新玩家相关状态。
  */
 
     deletePlayer(playerId) {
@@ -791,9 +791,9 @@ function createCaseRuntime(options) {
     caseName: options.caseName,
     baseUrl: options.baseUrl,    
     /**
- * trackPlayer：执行核心业务逻辑。
+ * trackPlayer：执行track玩家相关逻辑。
  * @param playerId 玩家 ID。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新track玩家相关状态。
  */
 
     trackPlayer(playerId) {
@@ -804,7 +804,7 @@ function createCaseRuntime(options) {
  * createSocket：构建并返回目标对象。
  * @param label 参数说明。
  * @param auth 参数说明。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新Socket相关状态。
  */
 
     createSocket(label, auth) {
@@ -822,16 +822,16 @@ function createCaseRuntime(options) {
       return socket;
     },    
     /**
- * getSockets：按给定条件读取/查询数据。
- * @returns 函数返回值。
+ * getSockets：读取Socket。
+ * @returns 无返回值，完成Socket的读取/组装。
  */
 
     getSockets() {
       return [...sockets];
     },    
     /**
- * cleanup：执行核心业务逻辑。
- * @returns 函数返回值。
+ * cleanup：执行cleanup相关逻辑。
+ * @returns 无返回值，直接更新cleanup相关状态。
  */
 
     async cleanup() {
@@ -960,20 +960,20 @@ class AuditCollector {
     this.caseResults = [];
   }  
   /**
- * startCase：执行核心业务逻辑。
+ * startCase：执行开始Case相关逻辑。
  * @param name 参数说明。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新startCase相关状态。
  */
 
   startCase(name) {
     return { name, startedAt: Date.now() };
   }  
   /**
- * finishCase：执行核心业务逻辑。
+ * finishCase：判断完成Case是否满足条件。
  * @param token 参数说明。
  * @param status 参数说明。
  * @param notes 参数说明。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新finishCase相关状态。
  */
 
   finishCase(token, status, notes) {
@@ -985,13 +985,13 @@ class AuditCollector {
     });
   }  
   /**
- * record：执行核心业务逻辑。
+ * record：执行record相关逻辑。
  * @param direction 方向参数。
  * @param event 参数说明。
  * @param payload 载荷参数。
  * @param caseName 参数说明。
  * @param socketLabel 参数说明。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新record相关状态。
  */
 
   record(direction, event, payload, caseName, socketLabel) {
@@ -1024,10 +1024,10 @@ class AuditCollector {
     this.entries.set(key, entry);
   }  
   /**
- * getEntry：按给定条件读取/查询数据。
+ * getEntry：读取条目。
  * @param direction 方向参数。
  * @param event 参数说明。
- * @returns 函数返回值。
+ * @returns 无返回值，完成条目的读取/组装。
  */
 
   getEntry(direction, event) {
@@ -1037,7 +1037,7 @@ class AuditCollector {
  * buildCoverageRows：构建并返回目标对象。
  * @param direction 方向参数。
  * @param expectedEvents 参数说明。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新CoverageRow相关状态。
  */
 
   buildCoverageRows(direction, expectedEvents) {
@@ -1061,7 +1061,7 @@ class AuditCollector {
   }  
   /**
  * buildTrafficRows：构建并返回目标对象。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新TrafficRow相关状态。
  */
 
   buildTrafficRows() {

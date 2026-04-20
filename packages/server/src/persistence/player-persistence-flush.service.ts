@@ -31,27 +31,27 @@ const PLAYER_PERSISTENCE_FLUSH_RETRY_COUNT = 1;
 /** 玩家快照脏数据刷盘服务：定时/退出时持久化玩家运行时快照。 */
 let PlayerPersistenceFlushService = PlayerPersistenceFlushService_1 = class PlayerPersistenceFlushService {
 /**
- * playerRuntimeService：对象字段。
+ * playerRuntimeService：玩家运行态服务引用。
  */
 
     playerRuntimeService;    
     /**
- * playerPersistenceService：对象字段。
+ * playerPersistenceService：玩家Persistence服务引用。
  */
 
     playerPersistenceService;    
     /**
- * logger：对象字段。
+ * logger：日志器引用。
  */
 
     logger = new common_1.Logger(PlayerPersistenceFlushService_1.name);    
     /**
- * timer：对象字段。
+ * timer：timer相关字段。
  */
 
     timer = null;    
     /**
- * flushPromise：对象字段。
+ * flushPromise：flushPromise相关字段。
  */
 
     flushPromise = null;    
@@ -59,7 +59,7 @@ let PlayerPersistenceFlushService = PlayerPersistenceFlushService_1 = class Play
  * 构造器：初始化 当前 实例并建立基础状态。
  * @param playerRuntimeService 参数说明。
  * @param playerPersistenceService 参数说明。
- * @returns 无返回值（构造函数）。
+ * @returns 无返回值，完成实例初始化。
  */
 
     constructor(playerRuntimeService, playerPersistenceService) {
@@ -67,8 +67,8 @@ let PlayerPersistenceFlushService = PlayerPersistenceFlushService_1 = class Play
         this.playerPersistenceService = playerPersistenceService;
     }    
     /**
- * onModuleInit：执行核心业务逻辑。
- * @returns 函数返回值。
+ * onModuleInit：执行on模块Init相关逻辑。
+ * @returns 无返回值，直接更新on模块Init相关状态。
  */
 
     onModuleInit() {
@@ -79,8 +79,8 @@ let PlayerPersistenceFlushService = PlayerPersistenceFlushService_1 = class Play
         this.logger.log(`玩家持久化刷新已启动，间隔 ${PLAYER_PERSISTENCE_FLUSH_INTERVAL_MS}ms`);
     }    
     /**
- * onModuleDestroy：执行核心业务逻辑。
- * @returns 函数返回值。
+ * onModuleDestroy：执行on模块Destroy相关逻辑。
+ * @returns 无返回值，直接更新on模块Destroy相关状态。
  */
 
     onModuleDestroy() {
@@ -111,8 +111,8 @@ let PlayerPersistenceFlushService = PlayerPersistenceFlushService_1 = class Play
         this.playerRuntimeService.markPersisted(playerId);
     }    
     /**
- * flushAllNow：执行核心业务逻辑。
- * @returns 函数返回值。
+ * flushAllNow：执行刷新AllNow相关逻辑。
+ * @returns 无返回值，直接更新flushAllNow相关状态。
  */
 
     async flushAllNow() {
@@ -127,8 +127,8 @@ let PlayerPersistenceFlushService = PlayerPersistenceFlushService_1 = class Play
         await this.runFlushCycle('shutdown');
     }    
     /**
- * flushDirtyPlayers：执行核心业务逻辑。
- * @returns 函数返回值。
+ * flushDirtyPlayers：执行刷新Dirty玩家相关逻辑。
+ * @returns 无返回值，直接更新flushDirty玩家相关状态。
  */
 
     async flushDirtyPlayers() {
@@ -142,9 +142,9 @@ let PlayerPersistenceFlushService = PlayerPersistenceFlushService_1 = class Play
         await this.runFlushCycle('interval');
     }    
     /**
- * runFlushCycle：执行核心业务逻辑。
+ * runFlushCycle：执行run刷新Cycle相关逻辑。
  * @param reason 参数说明。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新runFlushCycle相关状态。
  */
 
     async runFlushCycle(reason) {
@@ -194,8 +194,8 @@ exports.PlayerPersistenceFlushService = PlayerPersistenceFlushService = PlayerPe
         player_persistence_service_1.PlayerPersistenceService])
 ], PlayerPersistenceFlushService);
 /**
- * isRestoreFreezeActive：执行状态校验并返回判断结果。
- * @returns 函数返回值。
+ * isRestoreFreezeActive：判断RestoreFreeze激活是否满足条件。
+ * @returns 无返回值，完成RestoreFreeze激活的条件判断。
  */
 
 function isRestoreFreezeActive() {
@@ -205,10 +205,10 @@ function isRestoreFreezeActive() {
 }
 export { PlayerPersistenceFlushService };
 /**
- * chunkValues：执行核心业务逻辑。
+ * chunkValues：执行chunk值相关逻辑。
  * @param values 参数说明。
  * @param chunkSize 参数说明。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新chunk值相关状态。
  */
 
 function chunkValues(values, chunkSize) {
@@ -225,12 +225,12 @@ function chunkValues(values, chunkSize) {
     return chunks;
 }
 /**
- * runConcurrent：执行核心业务逻辑。
+ * runConcurrent：执行runConcurrent相关逻辑。
  * @param values 参数说明。
  * @param parallelism 参数说明。
  * @param worker 参数说明。
  * @param onError 参数说明。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新runConcurrent相关状态。
  */
 
 async function runConcurrent(values, parallelism, worker, onError) {
@@ -248,10 +248,10 @@ async function runConcurrent(values, parallelism, worker, onError) {
     }
 }
 /**
- * retryFlush：执行核心业务逻辑。
+ * retryFlush：执行retry刷新相关逻辑。
  * @param retryCount 参数说明。
  * @param work 参数说明。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新retryFlush相关状态。
  */
 
 async function retryFlush(retryCount, work) {

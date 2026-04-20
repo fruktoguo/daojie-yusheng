@@ -4,8 +4,8 @@ const assert = require("node:assert/strict");
 
 const { WorldRuntimeInstanceStateService } = require("../runtime/world/world-runtime-instance-state.service");
 /**
- * testOwnershipMethods：执行核心业务逻辑。
- * @returns 函数返回值。
+ * testOwnershipMethods：执行testOwnershipMethod相关逻辑。
+ * @returns 无返回值，直接更新testOwnershipMethod相关状态。
  */
 
 
@@ -22,8 +22,8 @@ function testOwnershipMethods() {
     assert.deepEqual(Array.from(service.listInstanceEntries()), [['instance:1', runtimeA], ['instance:2', runtimeB]]);
 }
 /**
- * testResetState：执行核心业务逻辑。
- * @returns 函数返回值。
+ * testResetState：执行testReset状态相关逻辑。
+ * @returns 无返回值，直接更新testReset状态相关状态。
  */
 
 

@@ -17,207 +17,207 @@ export type QuestObjectiveType = 'kill' | 'talk' | 'submit_item' | 'learn_techni
 /** 任务进度。 */
 export interface QuestState {
 /**
- * id：QuestState 内部字段。
+ * id：ID标识。
  */
 
   id: string;  
   /**
- * title：QuestState 内部字段。
+ * title：title名称或显示文本。
  */
 
   title: string;  
   /**
- * desc：QuestState 内部字段。
+ * desc：desc相关字段。
  */
 
   desc: string;  
   /**
- * line：QuestState 内部字段。
+ * line：line相关字段。
  */
 
   line: QuestLine;  
   /**
- * chapter：QuestState 内部字段。
+ * chapter：chapter相关字段。
  */
 
   chapter?: string;  
   /**
- * story：QuestState 内部字段。
+ * story：story相关字段。
  */
 
   story?: string;  
   /**
- * status：QuestState 内部字段。
+ * status：statu状态或数据块。
  */
 
   status: QuestStatus;  
   /**
- * objectiveType：QuestState 内部字段。
+ * objectiveType：objectiveType相关字段。
  */
 
   objectiveType: QuestObjectiveType;  
   /**
- * objectiveText：QuestState 内部字段。
+ * objectiveText：objectiveText名称或显示文本。
  */
 
   objectiveText?: string;  
   /**
- * progress：QuestState 内部字段。
+ * progress：进度状态或数据块。
  */
 
   progress: number;  
   /**
- * required：QuestState 内部字段。
+ * required：required相关字段。
  */
 
   required: number;  
   /**
- * targetName：QuestState 内部字段。
+ * targetName：目标名称名称或显示文本。
  */
 
   targetName: string;  
   /**
- * targetTechniqueId：QuestState 内部字段。
+ * targetTechniqueId：目标功法ID标识。
  */
 
   targetTechniqueId?: string;  
   /**
- * targetRealmStage：QuestState 内部字段。
+ * targetRealmStage：目标RealmStage相关字段。
  */
 
   targetRealmStage?: PlayerRealmStage;  
   /**
- * rewardText：QuestState 内部字段。
+ * rewardText：rewardText名称或显示文本。
  */
 
   rewardText: string;  
   /**
- * targetMonsterId：QuestState 内部字段。
+ * targetMonsterId：目标怪物ID标识。
  */
 
   targetMonsterId: string;  
   /**
- * rewardItemId：QuestState 内部字段。
+ * rewardItemId：reward道具ID标识。
  */
 
   rewardItemId: string;  
   /**
- * rewardItemIds：QuestState 内部字段。
+ * rewardItemIds：reward道具ID相关字段。
  */
 
   rewardItemIds: string[];  
   /**
- * rewards：QuestState 内部字段。
+ * rewards：reward相关字段。
  */
 
   rewards: ItemStack[];  
   /**
- * nextQuestId：QuestState 内部字段。
+ * nextQuestId：next任务ID标识。
  */
 
   nextQuestId?: string;  
   /**
- * requiredItemId：QuestState 内部字段。
+ * requiredItemId：required道具ID标识。
  */
 
   requiredItemId?: string;  
   /**
- * requiredItemCount：QuestState 内部字段。
+ * requiredItemCount：数量或计量字段。
  */
 
   requiredItemCount?: number;  
   /**
- * giverId：QuestState 内部字段。
+ * giverId：giverID标识。
  */
 
   giverId: string;  
   /**
- * giverName：QuestState 内部字段。
+ * giverName：giver名称名称或显示文本。
  */
 
   giverName: string;  
   /**
- * giverMapId：QuestState 内部字段。
+ * giverMapId：giver地图ID标识。
  */
 
   giverMapId?: string;  
   /**
- * giverMapName：QuestState 内部字段。
+ * giverMapName：giver地图名称名称或显示文本。
  */
 
   giverMapName?: string;  
   /**
- * giverX：QuestState 内部字段。
+ * giverX：giverX相关字段。
  */
 
   giverX?: number;  
   /**
- * giverY：QuestState 内部字段。
+ * giverY：giverY相关字段。
  */
 
   giverY?: number;  
   /**
- * targetMapId：QuestState 内部字段。
+ * targetMapId：目标地图ID标识。
  */
 
   targetMapId?: string;  
   /**
- * targetMapName：QuestState 内部字段。
+ * targetMapName：目标地图名称名称或显示文本。
  */
 
   targetMapName?: string;  
   /**
- * targetX：QuestState 内部字段。
+ * targetX：目标X相关字段。
  */
 
   targetX?: number;  
   /**
- * targetY：QuestState 内部字段。
+ * targetY：目标Y相关字段。
  */
 
   targetY?: number;  
   /**
- * targetNpcId：QuestState 内部字段。
+ * targetNpcId：目标NPCID标识。
  */
 
   targetNpcId?: string;  
   /**
- * targetNpcName：QuestState 内部字段。
+ * targetNpcName：目标NPC名称名称或显示文本。
  */
 
   targetNpcName?: string;  
   /**
- * submitNpcId：QuestState 内部字段。
+ * submitNpcId：submitNPCID标识。
  */
 
   submitNpcId?: string;  
   /**
- * submitNpcName：QuestState 内部字段。
+ * submitNpcName：submitNPC名称名称或显示文本。
  */
 
   submitNpcName?: string;  
   /**
- * submitMapId：QuestState 内部字段。
+ * submitMapId：submit地图ID标识。
  */
 
   submitMapId?: string;  
   /**
- * submitMapName：QuestState 内部字段。
+ * submitMapName：submit地图名称名称或显示文本。
  */
 
   submitMapName?: string;  
   /**
- * submitX：QuestState 内部字段。
+ * submitX：submitX相关字段。
  */
 
   submitX?: number;  
   /**
- * submitY：QuestState 内部字段。
+ * submitY：submitY相关字段。
  */
 
   submitY?: number;  
   /**
- * relayMessage：QuestState 内部字段。
+ * relayMessage：relayMessage相关字段。
  */
 
   relayMessage?: string;
@@ -226,22 +226,22 @@ export interface QuestState {
 /** 任务自动导航的运行状态。 */
 export interface QuestNavigationState {
 /**
- * questId：QuestNavigationState 内部字段。
+ * questId：任务ID标识。
  */
 
   questId: string;  
   /**
- * pendingConfirmation：QuestNavigationState 内部字段。
+ * pendingConfirmation：pendingConfirmation相关字段。
  */
 
   pendingConfirmation?: boolean;  
   /**
- * pausedForCrossMapCooldown：QuestNavigationState 内部字段。
+ * pausedForCrossMapCooldown：pausedForCross地图冷却相关字段。
  */
 
   pausedForCrossMapCooldown?: boolean;  
   /**
- * lastBlockedRemainingTicks：QuestNavigationState 内部字段。
+ * lastBlockedRemainingTicks：lastBlockedRemainingtick相关字段。
  */
 
   lastBlockedRemainingTicks?: number;
@@ -250,27 +250,27 @@ export interface QuestNavigationState {
 /** 待入日志本的消息条目。 */
 export interface PendingLogbookMessage {
 /**
- * id：PendingLogbookMessage 内部字段。
+ * id：ID标识。
  */
 
   id: string;  
   /**
- * kind：PendingLogbookMessage 内部字段。
+ * kind：kind相关字段。
  */
 
   kind: 'system' | 'chat' | 'quest' | 'combat' | 'loot' | 'grudge';  
   /**
- * text：PendingLogbookMessage 内部字段。
+ * text：text名称或显示文本。
  */
 
   text: string;  
   /**
- * from：PendingLogbookMessage 内部字段。
+ * from：from相关字段。
  */
 
   from?: string;  
   /**
- * at：PendingLogbookMessage 内部字段。
+ * at：at相关字段。
  */
 
   at: number;

@@ -28,27 +28,27 @@ import {
 /** 单个聊天频道的本地状态。 */
 interface ChatChannelState {
 /**
- * messages：ChatChannelState 内部字段。
+ * messages：message相关字段。
  */
 
   messages: ChatStoredMessage[];  
   /**
- * messageIds：ChatChannelState 内部字段。
+ * messageIds：messageID相关字段。
  */
 
   messageIds: Set<string>;  
   /**
- * loadedCount：ChatChannelState 内部字段。
+ * loadedCount：数量或计量字段。
  */
 
   loadedCount: number;  
   /**
- * hasLoadedAll：ChatChannelState 内部字段。
+ * hasLoadedAll：启用开关或状态标识。
  */
 
   hasLoadedAll: boolean;  
   /**
- * loadingOlder：ChatChannelState 内部字段。
+ * loadingOlder：loadingOlder相关字段。
  */
 
   loadingOlder: boolean;
@@ -57,17 +57,17 @@ interface ChatChannelState {
 /** 追加聊天消息时可覆盖的消息元数据。 */
 interface ChatAddMessageOptions {
 /**
- * id：ChatAddMessageOptions 内部字段。
+ * id：ID标识。
  */
 
   id?: string;  
   /**
- * at：ChatAddMessageOptions 内部字段。
+ * at：at相关字段。
  */
 
   at?: number;  
   /**
- * scope：ChatAddMessageOptions 内部字段。
+ * scope：scope相关字段。
  */
 
   scope?: ChatMessageScope;
@@ -76,57 +76,57 @@ interface ChatAddMessageOptions {
 /** 解析后的战斗伤害或治疗文本片段。 */
 interface ParsedCombatDamageSegment {
 /**
- * before：ParsedCombatDamageSegment 内部字段。
+ * before：before相关字段。
  */
 
   before: string;  
   /**
- * connector：ParsedCombatDamageSegment 内部字段。
+ * connector：connector相关字段。
  */
 
   connector: string;  
   /**
- * rawAmount：ParsedCombatDamageSegment 内部字段。
+ * rawAmount：数量或计量字段。
  */
 
   rawAmount: string;  
   /**
- * actualAmount：ParsedCombatDamageSegment 内部字段。
+ * actualAmount：数量或计量字段。
  */
 
   actualAmount: string;  
   /**
- * after：ParsedCombatDamageSegment 内部字段。
+ * after：after相关字段。
  */
 
   after: string;  
   /**
- * details：ParsedCombatDamageSegment 内部字段。
+ * details：详情相关字段。
  */
 
   details: string[];  
   /**
- * pillText：ParsedCombatDamageSegment 内部字段。
+ * pillText：pillText名称或显示文本。
  */
 
   pillText: string;  
   /**
- * suffixText：ParsedCombatDamageSegment 内部字段。
+ * suffixText：suffixText名称或显示文本。
  */
 
   suffixText: string;  
   /**
- * tooltipTitle：ParsedCombatDamageSegment 内部字段。
+ * tooltipTitle：提示Title名称或显示文本。
  */
 
   tooltipTitle: string;  
   /**
- * tooltipLines：ParsedCombatDamageSegment 内部字段。
+ * tooltipLines：提示Line相关字段。
  */
 
   tooltipLines: string[];  
   /**
- * color：ParsedCombatDamageSegment 内部字段。
+ * color：color相关字段。
  */
 
   color: string;
@@ -206,11 +206,11 @@ function mergeMessages(
   incoming: ChatStoredMessage[],
 ): {
 /**
- * messages：对象字段。
+ * messages：message相关字段。
  */
  messages: ChatStoredMessage[];
  /**
- * ids：对象字段。
+ * ids：ID相关字段。
  */
  ids: Set<string> } {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
@@ -420,7 +420,7 @@ export class ChatUI {
   private hoveredDamageTooltipTarget: HTMLElement | null = null;  
   /**
  * 构造器：初始化 当前 实例并建立基础状态。
- * @returns 无返回值（构造函数）。
+ * @returns 无返回值，完成实例初始化。
  */
 
 
@@ -461,9 +461,9 @@ export class ChatUI {
     this.renderAllChannels();
   }  
   /**
- * setCallback：更新/写入相关状态。
+ * setCallback：写入Callback。
  * @param onSend (message: string) => void 参数说明。
- * @returns void。
+ * @returns 无返回值，直接更新Callback相关状态。
  */
 
 
@@ -532,12 +532,12 @@ export class ChatUI {
     this.renderChannel(this.activeChannel, { stickToBottom: true });
   }  
   /**
- * addMessage：执行核心业务逻辑。
+ * addMessage：处理Message并更新相关状态。
  * @param text string 参数说明。
  * @param from string 参数说明。
  * @param kind ChatMessageKind 参数说明。
  * @param options ChatMessageScope | ChatAddMessageOptions 选项参数。
- * @returns Promise<boolean>。
+ * @returns 返回 Promise，完成后得到Message。
  */
 
 
@@ -650,7 +650,7 @@ export class ChatUI {
   /** 刷新全部频道的标签和内容。 */
   private renderAllChannels(options?: {  
   /**
- * stickToBottom：ChatUI 内部字段。
+ * stickToBottom：stickToBottom相关字段。
  */
  stickToBottom?: boolean }): void {
     for (const channel of CHAT_CHANNELS) {
@@ -662,7 +662,7 @@ export class ChatUI {
     }
   }  
   /**
- * renderChannel：执行核心业务逻辑。
+ * renderChannel：执行Channel相关逻辑。
  * @param channel ChatChannel 参数说明。
  * @param options {
       stickToBottom?: boolean;
@@ -670,7 +670,7 @@ export class ChatUI {
       previousScrollHeight?: number;
       previousScrollTop?: number;
     } 选项参数。
- * @returns void。
+ * @returns 无返回值，直接更新Channel相关状态。
  */
 
 
@@ -678,22 +678,22 @@ export class ChatUI {
     channel: ChatChannel,
     options?: {    
     /**
- * stickToBottom：ChatUI 内部字段。
+ * stickToBottom：stickToBottom相关字段。
  */
 
       stickToBottom?: boolean;      
       /**
- * preserveScrollFromLoadMore：ChatUI 内部字段。
+ * preserveScrollFromLoadMore：preserveScrollFromLoadMore相关字段。
  */
 
       preserveScrollFromLoadMore?: boolean;      
       /**
- * previousScrollHeight：ChatUI 内部字段。
+ * previousScrollHeight：previouScrollHeight相关字段。
  */
 
       previousScrollHeight?: number;      
       /**
- * previousScrollTop：ChatUI 内部字段。
+ * previousScrollTop：previouScrollTop相关字段。
  */
 
       previousScrollTop?: number;

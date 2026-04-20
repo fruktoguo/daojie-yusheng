@@ -32,14 +32,14 @@ const ENHANCEMENT_TARGET_SUCCESS_RATE_BY_LEVEL = [
 /** 强化面板只读查询服务：负责强化面板状态与候选列表构造。 */
 let CraftPanelEnhancementQueryService = class CraftPanelEnhancementQueryService {
 /**
- * contentTemplateRepository：对象字段。
+ * contentTemplateRepository：内容Template仓储引用。
  */
 
     contentTemplateRepository;    
     /**
  * 构造器：初始化 当前 实例并建立基础状态。
  * @param contentTemplateRepository 参数说明。
- * @returns 无返回值（构造函数）。
+ * @returns 无返回值，完成实例初始化。
  */
 
     constructor(contentTemplateRepository) {
@@ -49,7 +49,7 @@ let CraftPanelEnhancementQueryService = class CraftPanelEnhancementQueryService 
  * buildEnhancementPanelPayload：构建并返回目标对象。
  * @param player 玩家对象。
  * @param enhancementConfigs 参数说明。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新强化面板载荷相关状态。
  */
 
     buildEnhancementPanelPayload(player, enhancementConfigs) {
@@ -63,7 +63,7 @@ let CraftPanelEnhancementQueryService = class CraftPanelEnhancementQueryService 
  * buildEnhancementPanelState：构建并返回目标对象。
  * @param player 玩家对象。
  * @param enhancementConfigs 参数说明。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新强化面板状态相关状态。
  */
 
     buildEnhancementPanelState(player, enhancementConfigs) {
@@ -83,10 +83,10 @@ let CraftPanelEnhancementQueryService = class CraftPanelEnhancementQueryService 
         };
     }    
     /**
- * collectEnhancementCandidates：执行核心业务逻辑。
+ * collectEnhancementCandidates：判断强化Candidate是否满足条件。
  * @param player 玩家对象。
  * @param enhancementConfigs 参数说明。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新强化Candidate相关状态。
  */
 
     collectEnhancementCandidates(player, enhancementConfigs) {
@@ -126,7 +126,7 @@ let CraftPanelEnhancementQueryService = class CraftPanelEnhancementQueryService 
  * @param ref 参数说明。
  * @param item 道具。
  * @param enhancementConfigs 参数说明。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新强化Candidate相关状态。
  */
 
     buildEnhancementCandidate(player, ref, item, enhancementConfigs) {
@@ -175,10 +175,10 @@ exports.CraftPanelEnhancementQueryService = CraftPanelEnhancementQueryService = 
 ], CraftPanelEnhancementQueryService);
 export { CraftPanelEnhancementQueryService };
 /**
- * getEnhancementRequirements：按给定条件读取/查询数据。
+ * getEnhancementRequirements：读取强化Requirement。
  * @param config 参数说明。
  * @param targetLevel 参数说明。
- * @returns 函数返回值。
+ * @returns 无返回值，完成强化Requirement的读取/组装。
  */
 
 
@@ -187,19 +187,19 @@ function getEnhancementRequirements(config, targetLevel) {
     return (step?.materials ?? []).map((entry) => ({ ...entry }));
 }
 /**
- * getWeapon：按给定条件读取/查询数据。
+ * getWeapon：读取Weapon。
  * @param player 玩家对象。
- * @returns 函数返回值。
+ * @returns 无返回值，完成Weapon的读取/组装。
  */
 
 function getWeapon(player) {
     return getEquippedItem(player, 'weapon');
 }
 /**
- * getEquippedItem：按给定条件读取/查询数据。
+ * getEquippedItem：读取Equipped道具。
  * @param player 玩家对象。
  * @param slot 参数说明。
- * @returns 函数返回值。
+ * @returns 无返回值，完成Equipped道具的读取/组装。
  */
 
 function getEquippedItem(player, slot) {
@@ -211,7 +211,7 @@ function getEquippedItem(player, slot) {
  * @param ref 参数说明。
  * @param item 道具。
  * @param config 参数说明。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新ProtectionCandidate相关状态。
  */
 
 function buildProtectionCandidates(player, ref, item, config) {
@@ -232,11 +232,11 @@ function buildProtectionCandidates(player, ref, item, config) {
     return candidates;
 }
 /**
- * isEligibleProtectionItem：执行状态校验并返回判断结果。
+ * isEligibleProtectionItem：判断EligibleProtection道具是否满足条件。
  * @param item 道具。
  * @param protectionItemId protectionItem ID。
  * @param targetItemId targetItem ID。
- * @returns 函数返回值。
+ * @returns 无返回值，完成EligibleProtection道具的条件判断。
  */
 
 function isEligibleProtectionItem(item, protectionItemId, targetItemId) {
@@ -251,9 +251,9 @@ function isEligibleProtectionItem(item, protectionItemId, targetItemId) {
     return item.type === 'equipment' && normalizeEnhanceLevel(item.enhanceLevel) === 0;
 }
 /**
- * cloneItem：执行核心业务逻辑。
+ * cloneItem：构建道具。
  * @param item 道具。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新道具相关状态。
  */
 
 function cloneItem(item) {
@@ -268,9 +268,9 @@ function cloneItem(item) {
     };
 }
 /**
- * clonePartialNumericStats：执行核心业务逻辑。
+ * clonePartialNumericStats：构建PartialNumericStat。
  * @param stats 参数说明。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新PartialNumericStat相关状态。
  */
 
 function clonePartialNumericStats(stats) {
@@ -289,9 +289,9 @@ function clonePartialNumericStats(stats) {
     return clone;
 }
 /**
- * cloneEnhancementRecord：执行核心业务逻辑。
+ * cloneEnhancementRecord：构建强化Record。
  * @param entry 参数说明。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新强化Record相关状态。
  */
 
 function cloneEnhancementRecord(entry) {
@@ -301,9 +301,9 @@ function cloneEnhancementRecord(entry) {
     };
 }
 /**
- * cloneEnhancementJob：执行核心业务逻辑。
+ * cloneEnhancementJob：构建强化Job。
  * @param entry 参数说明。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新强化Job相关状态。
  */
 
 function cloneEnhancementJob(entry) {
@@ -315,29 +315,29 @@ function cloneEnhancementJob(entry) {
     };
 }
 /**
- * countInventoryItem：执行核心业务逻辑。
+ * countInventoryItem：执行数量背包道具相关逻辑。
  * @param player 玩家对象。
  * @param itemId 道具 ID。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新数量背包道具相关状态。
  */
 
 function countInventoryItem(player, itemId) {
     return player.inventory.items.reduce((total, entry) => entry.itemId === itemId ? total + entry.count : total, 0);
 }
 /**
- * normalizeEnhanceLevel：执行核心业务逻辑。
+ * normalizeEnhanceLevel：规范化或转换Enhance等级。
  * @param level 参数说明。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新Enhance等级相关状态。
  */
 
 function normalizeEnhanceLevel(level) {
     return Math.min(MAX_ENHANCE_LEVEL, Math.max(0, Math.floor(Number(level) || 0)));
 }
 /**
- * getEnhancementSpiritStoneCost：按给定条件读取/查询数据。
+ * getEnhancementSpiritStoneCost：读取强化SpiritStone消耗。
  * @param itemLevel 参数说明。
  * @param hasMaterialCost 参数说明。
- * @returns 函数返回值。
+ * @returns 无返回值，完成强化SpiritStone消耗的读取/组装。
  */
 
 function getEnhancementSpiritStoneCost(itemLevel, hasMaterialCost = false) {
@@ -345,11 +345,11 @@ function getEnhancementSpiritStoneCost(itemLevel, hasMaterialCost = false) {
     return Math.max(1, hasMaterialCost ? Math.floor(level / 10) : Math.ceil(level / 10));
 }
 /**
- * computeEnhancementToolSpeedRate：执行核心业务逻辑。
+ * computeEnhancementToolSpeedRate：执行强化ToolSpeedRate相关逻辑。
  * @param toolBaseSpeedRate 参数说明。
  * @param roleEnhancementLevel 参数说明。
  * @param targetItemLevel 参数说明。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新强化ToolSpeedRate相关状态。
  */
 
 function computeEnhancementToolSpeedRate(toolBaseSpeedRate, roleEnhancementLevel, targetItemLevel) {
@@ -359,12 +359,12 @@ function computeEnhancementToolSpeedRate(toolBaseSpeedRate, roleEnhancementLevel
     return baseSpeedRate + levelBonus;
 }
 /**
- * computeEnhancementAdjustedSuccessRate：执行核心业务逻辑。
+ * computeEnhancementAdjustedSuccessRate：执行强化AdjustedSuccessRate相关逻辑。
  * @param targetEnhanceLevel 参数说明。
  * @param roleEnhancementLevel 参数说明。
  * @param targetItemLevel 参数说明。
  * @param toolSuccessRateModifier 参数说明。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新强化AdjustedSuccessRate相关状态。
  */
 
 function computeEnhancementAdjustedSuccessRate(targetEnhanceLevel, roleEnhancementLevel, targetItemLevel, toolSuccessRateModifier = 0) {
@@ -379,19 +379,19 @@ function computeEnhancementAdjustedSuccessRate(targetEnhanceLevel, roleEnhanceme
     return applyEnhancementSuccessModifier(adjustedBaseRate, totalSuccessModifier);
 }
 /**
- * computeEnhancementJobTicks：执行核心业务逻辑。
+ * computeEnhancementJobTicks：执行强化Jobtick相关逻辑。
  * @param itemLevel 参数说明。
  * @param totalSpeedRate 参数说明。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新强化Jobtick相关状态。
  */
 
 function computeEnhancementJobTicks(itemLevel, totalSpeedRate) {
     return computeAdjustedCraftTicks(computeEnhancementJobBaseTicks(itemLevel), totalSpeedRate);
 }
 /**
- * getEnhancementTargetSuccessRate：按给定条件读取/查询数据。
+ * getEnhancementTargetSuccessRate：读取强化目标SuccessRate。
  * @param targetEnhanceLevel 参数说明。
- * @returns 函数返回值。
+ * @returns 无返回值，完成强化目标SuccessRate的读取/组装。
  */
 
 function getEnhancementTargetSuccessRate(targetEnhanceLevel) {
@@ -400,9 +400,9 @@ function getEnhancementTargetSuccessRate(targetEnhanceLevel) {
     return Math.max(0, ENHANCEMENT_TARGET_SUCCESS_RATE_BY_LEVEL[index] ?? 0);
 }
 /**
- * computeEnhancementJobBaseTicks：执行核心业务逻辑。
+ * computeEnhancementJobBaseTicks：执行强化JobBasetick相关逻辑。
  * @param itemLevel 参数说明。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新强化JobBasetick相关状态。
  */
 
 function computeEnhancementJobBaseTicks(itemLevel) {
@@ -410,10 +410,10 @@ function computeEnhancementJobBaseTicks(itemLevel) {
     return 5 + Math.max(0, normalizedLevel - 1) * 1;
 }
 /**
- * computeAdjustedCraftTicks：执行核心业务逻辑。
+ * computeAdjustedCraftTicks：执行Adjusted炼制tick相关逻辑。
  * @param baseTicks 参数说明。
  * @param speedRate 参数说明。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新Adjusted炼制tick相关状态。
  */
 
 function computeAdjustedCraftTicks(baseTicks, speedRate) {
@@ -430,10 +430,10 @@ function computeAdjustedCraftTicks(baseTicks, speedRate) {
     return Math.max(1, Math.ceil(normalizedBaseTicks * (1 + Math.abs(normalizedSpeedRate))));
 }
 /**
- * applyEnhancementSuccessModifier：更新/写入相关状态。
+ * applyEnhancementSuccessModifier：处理强化SuccessModifier并更新相关状态。
  * @param baseRate 参数说明。
  * @param modifier 参数说明。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新强化SuccessModifier相关状态。
  */
 
 function applyEnhancementSuccessModifier(baseRate, modifier) {

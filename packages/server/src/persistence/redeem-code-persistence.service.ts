@@ -28,23 +28,23 @@ const REDEEM_CODE_KEY = 'global';
 /** 兑换码持久化服务：保存/读取兑换码组与兑换码实例状态。 */
 let RedeemCodePersistenceService = RedeemCodePersistenceService_1 = class RedeemCodePersistenceService {
 /**
- * logger：对象字段。
+ * logger：日志器引用。
  */
 
     logger = new common_1.Logger(RedeemCodePersistenceService_1.name);    
     /**
- * pool：对象字段。
+ * pool：缓存或索引容器。
  */
 
     pool = null;    
     /**
- * enabled：对象字段。
+ * enabled：启用开关或状态标识。
  */
 
     enabled = false;    
     /**
- * onModuleInit：执行核心业务逻辑。
- * @returns 函数返回值。
+ * onModuleInit：执行on模块Init相关逻辑。
+ * @returns 无返回值，直接更新on模块Init相关状态。
  */
 
     async onModuleInit() {
@@ -70,16 +70,16 @@ let RedeemCodePersistenceService = RedeemCodePersistenceService_1 = class Redeem
         }
     }    
     /**
- * onModuleDestroy：执行核心业务逻辑。
- * @returns 函数返回值。
+ * onModuleDestroy：执行on模块Destroy相关逻辑。
+ * @returns 无返回值，直接更新on模块Destroy相关状态。
  */
 
     async onModuleDestroy() {
         await this.safeClosePool();
     }    
     /**
- * loadDocument：按给定条件读取/查询数据。
- * @returns 函数返回值。
+ * loadDocument：读取Document并返回结果。
+ * @returns 无返回值，完成Document的读取/组装。
  */
 
     async loadDocument() {
@@ -96,9 +96,9 @@ let RedeemCodePersistenceService = RedeemCodePersistenceService_1 = class Redeem
         return normalizeRedeemCodeDocument(result.rows[0]?.payload);
     }    
     /**
- * saveDocument：执行核心业务逻辑。
+ * saveDocument：执行saveDocument相关逻辑。
  * @param document 参数说明。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新saveDocument相关状态。
  */
 
     async saveDocument(document) {
@@ -115,8 +115,8 @@ let RedeemCodePersistenceService = RedeemCodePersistenceService_1 = class Redeem
       `, [REDEEM_CODE_SCOPE, REDEEM_CODE_KEY, JSON.stringify(document)]);
     }    
     /**
- * safeClosePool：执行核心业务逻辑。
- * @returns 函数返回值。
+ * safeClosePool：执行safeClosePool相关逻辑。
+ * @returns 无返回值，直接更新safeClosePool相关状态。
  */
 
     async safeClosePool() {

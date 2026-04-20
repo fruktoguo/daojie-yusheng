@@ -258,352 +258,352 @@ const TICK_METRIC_WINDOW_SIZE = 60;
 
 let WorldRuntimeService = WorldRuntimeService_1 = class WorldRuntimeService {
 /**
- * contentTemplateRepository：对象字段。
+ * contentTemplateRepository：内容Template仓储引用。
  */
 
     contentTemplateRepository;    
     /**
- * templateRepository：对象字段。
+ * templateRepository：template仓储引用。
  */
 
     templateRepository;    
     /**
- * mapPersistenceService：对象字段。
+ * mapPersistenceService：地图Persistence服务引用。
  */
 
     mapPersistenceService;    
     /**
- * playerRuntimeService：对象字段。
+ * playerRuntimeService：玩家运行态服务引用。
  */
 
     playerRuntimeService;    
     /**
- * playerCombatService：对象字段。
+ * playerCombatService：玩家战斗服务引用。
  */
 
     playerCombatService;    
     /**
- * worldSessionService：对象字段。
+ * worldSessionService：世界Session服务引用。
  */
 
     worldSessionService;    
     /**
- * worldClientEventService：对象字段。
+ * worldClientEventService：世界Client事件服务引用。
  */
 
     worldClientEventService;    
     /**
- * redeemCodeRuntimeService：对象字段。
+ * redeemCodeRuntimeService：redeemCode运行态服务引用。
  */
 
     redeemCodeRuntimeService;    
     /**
- * craftPanelRuntimeService：对象字段。
+ * craftPanelRuntimeService：炼制面板运行态服务引用。
  */
 
     craftPanelRuntimeService;    
     /**
- * worldRuntimeNpcShopQueryService：对象字段。
+ * worldRuntimeNpcShopQueryService：世界运行态NPCShopQuery服务引用。
  */
 
     worldRuntimeNpcShopQueryService;    
     /**
- * worldRuntimeQuestQueryService：对象字段。
+ * worldRuntimeQuestQueryService：世界运行态任务Query服务引用。
  */
 
     worldRuntimeQuestQueryService;    
     /**
- * worldRuntimeQuestStateService：对象字段。
+ * worldRuntimeQuestStateService：世界运行态任务状态服务引用。
  */
 
     worldRuntimeQuestStateService;    
     /**
- * worldRuntimeDetailQueryService：对象字段。
+ * worldRuntimeDetailQueryService：世界运行态详情Query服务引用。
  */
 
     worldRuntimeDetailQueryService;    
     /**
- * worldRuntimeContextActionQueryService：对象字段。
+ * worldRuntimeContextActionQueryService：世界运行态上下文ActionQuery服务引用。
  */
 
     worldRuntimeContextActionQueryService;    
     /**
- * worldRuntimePlayerViewQueryService：对象字段。
+ * worldRuntimePlayerViewQueryService：世界运行态玩家视图Query服务引用。
  */
 
     worldRuntimePlayerViewQueryService;    
     /**
- * worldRuntimeMetricsService：对象字段。
+ * worldRuntimeMetricsService：世界运行态Metric服务引用。
  */
 
     worldRuntimeMetricsService;    
     /**
- * worldRuntimeFrameService：对象字段。
+ * worldRuntimeFrameService：世界运行态帧服务引用。
  */
 
     worldRuntimeFrameService;    
     /**
- * worldRuntimeLifecycleService：对象字段。
+ * worldRuntimeLifecycleService：世界运行态Lifecycle服务引用。
  */
 
     worldRuntimeLifecycleService;    
     /**
- * worldRuntimePersistenceStateService：对象字段。
+ * worldRuntimePersistenceStateService：世界运行态Persistence状态服务引用。
  */
 
     worldRuntimePersistenceStateService;    
     /**
- * worldRuntimePlayerSessionService：对象字段。
+ * worldRuntimePlayerSessionService：世界运行态玩家Session服务引用。
  */
 
     worldRuntimePlayerSessionService;    
     /**
- * worldRuntimeCommandIntakeFacadeService：对象字段。
+ * worldRuntimeCommandIntakeFacadeService：世界运行态CommandIntakeFacade服务引用。
  */
 
     worldRuntimeCommandIntakeFacadeService;    
     /**
- * worldRuntimeGameplayWriteFacadeService：对象字段。
+ * worldRuntimeGameplayWriteFacadeService：世界运行态GameplayWriteFacade服务引用。
  */
 
     worldRuntimeGameplayWriteFacadeService;    
     /**
- * worldRuntimeInstanceReadFacadeService：对象字段。
+ * worldRuntimeInstanceReadFacadeService：世界运行态InstanceReadFacade服务引用。
  */
 
     worldRuntimeInstanceReadFacadeService;    
     /**
- * worldRuntimeQuestRuntimeFacadeService：对象字段。
+ * worldRuntimeQuestRuntimeFacadeService：世界运行态任务运行态Facade服务引用。
  */
 
     worldRuntimeQuestRuntimeFacadeService;    
     /**
- * worldRuntimeReadFacadeService：对象字段。
+ * worldRuntimeReadFacadeService：世界运行态ReadFacade服务引用。
  */
 
     worldRuntimeReadFacadeService;    
     /**
- * worldRuntimeStateFacadeService：对象字段。
+ * worldRuntimeStateFacadeService：世界运行态状态Facade服务引用。
  */
 
     worldRuntimeStateFacadeService;    
     /**
- * worldRuntimeTickDispatchService：对象字段。
+ * worldRuntimeTickDispatchService：世界运行态tickDispatch服务引用。
  */
 
     worldRuntimeTickDispatchService;    
     /**
- * worldRuntimeWorldAccessService：对象字段。
+ * worldRuntimeWorldAccessService：世界运行态世界Access服务引用。
  */
 
     worldRuntimeWorldAccessService;    
     /**
- * worldRuntimeInstanceTickOrchestrationService：对象字段。
+ * worldRuntimeInstanceTickOrchestrationService：世界运行态InstancetickOrchestration服务引用。
  */
 
     worldRuntimeInstanceTickOrchestrationService;    
     /**
- * worldRuntimeMovementService：对象字段。
+ * worldRuntimeMovementService：世界运行态Movement服务引用。
  */
 
     worldRuntimeMovementService;    
     /**
- * worldRuntimeSummaryQueryService：对象字段。
+ * worldRuntimeSummaryQueryService：世界运行态摘要Query服务引用。
  */
 
     worldRuntimeSummaryQueryService;    
     /**
- * worldRuntimeInstanceStateService：对象字段。
+ * worldRuntimeInstanceStateService：世界运行态Instance状态服务引用。
  */
 
     worldRuntimeInstanceStateService;    
     /**
- * worldRuntimeInstanceQueryService：对象字段。
+ * worldRuntimeInstanceQueryService：世界运行态InstanceQuery服务引用。
  */
 
     worldRuntimeInstanceQueryService;    
     /**
- * worldRuntimePendingCommandService：对象字段。
+ * worldRuntimePendingCommandService：世界运行态PendingCommand服务引用。
  */
 
     worldRuntimePendingCommandService;    
     /**
- * worldRuntimePlayerLocationService：对象字段。
+ * worldRuntimePlayerLocationService：世界运行态玩家位置服务引用。
  */
 
     worldRuntimePlayerLocationService;    
     /**
- * worldRuntimeTickProgressService：对象字段。
+ * worldRuntimeTickProgressService：世界运行态tick进度服务引用。
  */
 
     worldRuntimeTickProgressService;    
     /**
- * worldRuntimeNpcQuestInteractionQueryService：对象字段。
+ * worldRuntimeNpcQuestInteractionQueryService：世界运行态NPC任务InteractionQuery服务引用。
  */
 
     worldRuntimeNpcQuestInteractionQueryService;    
     /**
- * worldRuntimeNpcShopService：对象字段。
+ * worldRuntimeNpcShopService：世界运行态NPCShop服务引用。
  */
 
     worldRuntimeNpcShopService;    
     /**
- * worldRuntimeGmQueueService：对象字段。
+ * worldRuntimeGmQueueService：世界运行态GMQueue服务引用。
  */
 
     worldRuntimeGmQueueService;    
     /**
- * worldRuntimeSystemCommandService：对象字段。
+ * worldRuntimeSystemCommandService：世界运行态SystemCommand服务引用。
  */
 
     worldRuntimeSystemCommandService;    
     /**
- * worldRuntimeCraftTickService：对象字段。
+ * worldRuntimeCraftTickService：世界运行态炼制tick服务引用。
  */
 
     worldRuntimeCraftTickService;    
     /**
- * worldRuntimeCraftMutationService：对象字段。
+ * worldRuntimeCraftMutationService：世界运行态炼制Mutation服务引用。
  */
 
     worldRuntimeCraftMutationService;    
     /**
- * worldRuntimeCraftInterruptService：对象字段。
+ * worldRuntimeCraftInterruptService：世界运行态炼制Interrupt服务引用。
  */
 
     worldRuntimeCraftInterruptService;    
     /**
- * worldRuntimeAlchemyService：对象字段。
+ * worldRuntimeAlchemyService：世界运行态炼丹服务引用。
  */
 
     worldRuntimeAlchemyService;    
     /**
- * worldRuntimeNpcQuestWriteService：对象字段。
+ * worldRuntimeNpcQuestWriteService：世界运行态NPC任务Write服务引用。
  */
 
     worldRuntimeNpcQuestWriteService;    
     /**
- * worldRuntimeLootContainerService：对象字段。
+ * worldRuntimeLootContainerService：世界运行态掉落Container服务引用。
  */
 
     worldRuntimeLootContainerService;    
     /**
- * worldRuntimeNavigationService：对象字段。
+ * worldRuntimeNavigationService：世界运行态导航服务引用。
  */
 
     worldRuntimeNavigationService;    
     /**
- * worldRuntimeCombatEffectsService：对象字段。
+ * worldRuntimeCombatEffectsService：世界运行态战斗Effect服务引用。
  */
 
     worldRuntimeCombatEffectsService;    
     /**
- * worldRuntimeMonsterActionApplyService：对象字段。
+ * worldRuntimeMonsterActionApplyService：世界运行态怪物ActionApply服务引用。
  */
 
     worldRuntimeMonsterActionApplyService;    
     /**
- * worldRuntimeBasicAttackService：对象字段。
+ * worldRuntimeBasicAttackService：世界运行态BasicAttack服务引用。
  */
 
     worldRuntimeBasicAttackService;    
     /**
- * worldRuntimeMonsterSystemCommandService：对象字段。
+ * worldRuntimeMonsterSystemCommandService：世界运行态怪物SystemCommand服务引用。
  */
 
     worldRuntimeMonsterSystemCommandService;    
     /**
- * worldRuntimePlayerCombatOutcomeService：对象字段。
+ * worldRuntimePlayerCombatOutcomeService：世界运行态玩家战斗Outcome服务引用。
  */
 
     worldRuntimePlayerCombatOutcomeService;    
     /**
- * worldRuntimePlayerCommandService：对象字段。
+ * worldRuntimePlayerCommandService：世界运行态玩家Command服务引用。
  */
 
     worldRuntimePlayerCommandService;    
     /**
- * worldRuntimePlayerCommandEnqueueService：对象字段。
+ * worldRuntimePlayerCommandEnqueueService：世界运行态玩家CommandEnqueue服务引用。
  */
 
     worldRuntimePlayerCommandEnqueueService;    
     /**
- * worldRuntimeItemGroundService：对象字段。
+ * worldRuntimeItemGroundService：世界运行态道具Ground服务引用。
  */
 
     worldRuntimeItemGroundService;    
     /**
- * worldRuntimeTransferService：对象字段。
+ * worldRuntimeTransferService：世界运行态Transfer服务引用。
  */
 
     worldRuntimeTransferService;    
     /**
- * worldRuntimeNpcAccessService：对象字段。
+ * worldRuntimeNpcAccessService：世界运行态NPCAccess服务引用。
  */
 
     worldRuntimeNpcAccessService;    
     /**
- * worldRuntimeEquipmentService：对象字段。
+ * worldRuntimeEquipmentService：世界运行态装备服务引用。
  */
 
     worldRuntimeEquipmentService;    
     /**
- * worldRuntimeCultivationService：对象字段。
+ * worldRuntimeCultivationService：世界运行态Cultivation服务引用。
  */
 
     worldRuntimeCultivationService;    
     /**
- * worldRuntimeProgressionService：对象字段。
+ * worldRuntimeProgressionService：世界运行态修炼进度服务引用。
  */
 
     worldRuntimeProgressionService;    
     /**
- * worldRuntimeUseItemService：对象字段。
+ * worldRuntimeUseItemService：世界运行态Use道具服务引用。
  */
 
     worldRuntimeUseItemService;    
     /**
- * worldRuntimeRedeemCodeService：对象字段。
+ * worldRuntimeRedeemCodeService：世界运行态RedeemCode服务引用。
  */
 
     worldRuntimeRedeemCodeService;    
     /**
- * worldRuntimePlayerSkillDispatchService：对象字段。
+ * worldRuntimePlayerSkillDispatchService：世界运行态玩家技能Dispatch服务引用。
  */
 
     worldRuntimePlayerSkillDispatchService;    
     /**
- * worldRuntimeBattleEngageService：对象字段。
+ * worldRuntimeBattleEngageService：世界运行态BattleEngage服务引用。
  */
 
     worldRuntimeBattleEngageService;    
     /**
- * worldRuntimeAutoCombatService：对象字段。
+ * worldRuntimeAutoCombatService：世界运行态Auto战斗服务引用。
  */
 
     worldRuntimeAutoCombatService;    
     /**
- * worldRuntimeCombatCommandService：对象字段。
+ * worldRuntimeCombatCommandService：世界运行态战斗Command服务引用。
  */
 
     worldRuntimeCombatCommandService;    
     /**
- * worldRuntimeActionExecutionService：对象字段。
+ * worldRuntimeActionExecutionService：世界运行态ActionExecution服务引用。
  */
 
     worldRuntimeActionExecutionService;    
     /**
- * worldRuntimeSystemCommandEnqueueService：对象字段。
+ * worldRuntimeSystemCommandEnqueueService：世界运行态SystemCommandEnqueue服务引用。
  */
 
     worldRuntimeSystemCommandEnqueueService;    
     /**
- * logger：对象字段。
+ * logger：日志器引用。
  */
 
     logger = new common_1.Logger(WorldRuntimeService_1.name);    
     /**
- * tick：对象字段。
+ * tick：tick相关字段。
  */
 
     tick = 0;    
@@ -678,7 +678,7 @@ let WorldRuntimeService = WorldRuntimeService_1 = class WorldRuntimeService {
  * @param worldRuntimeCombatCommandService 参数说明。
  * @param worldRuntimeActionExecutionService 参数说明。
  * @param worldRuntimeSystemCommandEnqueueService 参数说明。
- * @returns 无返回值（构造函数）。
+ * @returns 无返回值，完成实例初始化。
  */
 
     constructor(contentTemplateRepository, templateRepository, mapPersistenceService, playerRuntimeService, playerCombatService, worldSessionService, worldClientEventService, redeemCodeRuntimeService, craftPanelRuntimeService, worldRuntimeNpcShopQueryService, worldRuntimeQuestQueryService, worldRuntimeQuestStateService, worldRuntimeDetailQueryService, worldRuntimeContextActionQueryService, worldRuntimePlayerViewQueryService, worldRuntimeMetricsService, worldRuntimeFrameService, worldRuntimeLifecycleService, worldRuntimePersistenceStateService, worldRuntimePlayerSessionService, worldRuntimeCommandIntakeFacadeService, worldRuntimeGameplayWriteFacadeService, worldRuntimeInstanceReadFacadeService, worldRuntimeQuestRuntimeFacadeService, worldRuntimeReadFacadeService, worldRuntimeStateFacadeService, worldRuntimeTickDispatchService, worldRuntimeWorldAccessService, worldRuntimeInstanceTickOrchestrationService, worldRuntimeMovementService, worldRuntimeSummaryQueryService, worldRuntimeInstanceStateService, worldRuntimeInstanceQueryService, worldRuntimePendingCommandService, worldRuntimePlayerLocationService, worldRuntimeTickProgressService, worldRuntimeNpcQuestInteractionQueryService, worldRuntimeNpcShopService, worldRuntimeGmQueueService, worldRuntimeSystemCommandService, worldRuntimeCraftTickService, worldRuntimeCraftMutationService, worldRuntimeCraftInterruptService, worldRuntimeAlchemyService, worldRuntimeNpcQuestWriteService, worldRuntimeLootContainerService, worldRuntimeNavigationService, worldRuntimeCombatEffectsService, worldRuntimeMonsterActionApplyService, worldRuntimeBasicAttackService, worldRuntimeMonsterSystemCommandService, worldRuntimePlayerCombatOutcomeService, worldRuntimePlayerCommandService, worldRuntimePlayerCommandEnqueueService, worldRuntimeItemGroundService, worldRuntimeTransferService, worldRuntimeNpcAccessService, worldRuntimeEquipmentService, worldRuntimeCultivationService, worldRuntimeProgressionService, worldRuntimeEnhancementService, worldRuntimeUseItemService, worldRuntimeRedeemCodeService, worldRuntimePlayerSkillDispatchService, worldRuntimeBattleEngageService, worldRuntimeAutoCombatService, worldRuntimeCombatCommandService, worldRuntimeActionExecutionService, worldRuntimeSystemCommandEnqueueService) {
@@ -753,180 +753,180 @@ let WorldRuntimeService = WorldRuntimeService_1 = class WorldRuntimeService {
         this.worldRuntimeSystemCommandEnqueueService = worldRuntimeSystemCommandEnqueueService;
     }    
     /**
- * lastTickDurationMs：执行核心业务逻辑。
- * @returns 函数返回值。
+ * lastTickDurationMs：读取lasttickDurationM。
+ * @returns 返回lasttickDurationM。
  */
 
     get lastTickDurationMs() {
         return this.worldRuntimeMetricsService.lastTickDurationMs;
     }    
     /**
- * lastSyncFlushDurationMs：执行核心业务逻辑。
- * @returns 函数返回值。
+ * lastSyncFlushDurationMs：读取lastSyncFlushDurationM。
+ * @returns 返回lastSyncFlushDurationM。
  */
 
     get lastSyncFlushDurationMs() {
         return this.worldRuntimeMetricsService.lastSyncFlushDurationMs;
     }    
     /**
- * lastTickPhaseDurations：执行核心业务逻辑。
- * @returns 函数返回值。
+ * lastTickPhaseDurations：读取lasttickPhaseDuration。
+ * @returns 返回lasttickPhaseDuration。
  */
 
     get lastTickPhaseDurations() {
         return this.worldRuntimeMetricsService.lastTickPhaseDurations;
     }    
     /**
- * tickDurationHistoryMs：执行核心业务逻辑。
- * @returns 函数返回值。
+ * tickDurationHistoryMs：读取tickDurationHistoryM。
+ * @returns 返回tickDurationHistoryM。
  */
 
     get tickDurationHistoryMs() {
         return this.worldRuntimeMetricsService.tickDurationHistoryMs;
     }    
     /**
- * syncFlushDurationHistoryMs：执行核心业务逻辑。
- * @returns 函数返回值。
+ * syncFlushDurationHistoryMs：读取FlushDurationHistoryM。
+ * @returns 返回FlushDurationHistoryM。
  */
 
     get syncFlushDurationHistoryMs() {
         return this.worldRuntimeMetricsService.syncFlushDurationHistoryMs;
     }    
     /**
- * instanceTickProgressById：执行核心业务逻辑。
- * @returns 函数返回值。
+ * instanceTickProgressById：读取instancetick进度ByID。
+ * @returns 返回instancetick进度ByID。
  */
 
     get instanceTickProgressById() {
         return this.worldRuntimeTickProgressService.instanceTickProgressById;
     }    
     /**
- * enqueuePendingCommand：执行核心业务逻辑。
+ * enqueuePendingCommand：处理待处理Command并更新相关状态。
  * @param playerId 玩家 ID。
  * @param command 输入指令。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新PendingCommand相关状态。
  */
 
     enqueuePendingCommand(playerId, command) {
         this.worldRuntimeStateFacadeService.enqueuePendingCommand(playerId, command, this);
     }    
     /**
- * getPendingCommand：按给定条件读取/查询数据。
+ * getPendingCommand：读取待处理Command。
  * @param playerId 玩家 ID。
- * @returns 函数返回值。
+ * @returns 无返回值，完成PendingCommand的读取/组装。
  */
 
     getPendingCommand(playerId) {
         return this.worldRuntimeStateFacadeService.getPendingCommand(playerId, this);
     }    
     /**
- * hasPendingCommand：执行状态校验并返回判断结果。
+ * hasPendingCommand：判断待处理Command是否满足条件。
  * @param playerId 玩家 ID。
- * @returns 函数返回值。
+ * @returns 无返回值，完成PendingCommand的条件判断。
  */
 
     hasPendingCommand(playerId) {
         return this.worldRuntimeStateFacadeService.hasPendingCommand(playerId, this);
     }    
     /**
- * clearPendingCommand：执行核心业务逻辑。
+ * clearPendingCommand：执行clear待处理Command相关逻辑。
  * @param playerId 玩家 ID。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新clearPendingCommand相关状态。
  */
 
     clearPendingCommand(playerId) {
         this.worldRuntimeStateFacadeService.clearPendingCommand(playerId, this);
     }    
     /**
- * getPendingCommandCount：按给定条件读取/查询数据。
- * @returns 函数返回值。
+ * getPendingCommandCount：读取待处理Command数量。
+ * @returns 无返回值，完成PendingCommand数量的读取/组装。
  */
 
     getPendingCommandCount() {
         return this.worldRuntimeStateFacadeService.getPendingCommandCount(this);
     }    
     /**
- * getPlayerLocation：按给定条件读取/查询数据。
+ * getPlayerLocation：读取玩家位置。
  * @param playerId 玩家 ID。
- * @returns 函数返回值。
+ * @returns 无返回值，完成玩家位置的读取/组装。
  */
 
     getPlayerLocation(playerId) {
         return this.worldRuntimeStateFacadeService.getPlayerLocation(playerId, this);
     }    
     /**
- * setPlayerLocation：更新/写入相关状态。
+ * setPlayerLocation：写入玩家位置。
  * @param playerId 玩家 ID。
  * @param location 参数说明。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新玩家位置相关状态。
  */
 
     setPlayerLocation(playerId, location) {
         this.worldRuntimeStateFacadeService.setPlayerLocation(playerId, location, this);
     }    
     /**
- * clearPlayerLocation：执行核心业务逻辑。
+ * clearPlayerLocation：执行clear玩家位置相关逻辑。
  * @param playerId 玩家 ID。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新clear玩家位置相关状态。
  */
 
     clearPlayerLocation(playerId) {
         this.worldRuntimeStateFacadeService.clearPlayerLocation(playerId, this);
     }    
     /**
- * getPlayerLocationCount：按给定条件读取/查询数据。
- * @returns 函数返回值。
+ * getPlayerLocationCount：读取玩家位置数量。
+ * @returns 无返回值，完成玩家位置数量的读取/组装。
  */
 
     getPlayerLocationCount() {
         return this.worldRuntimeStateFacadeService.getPlayerLocationCount(this);
     }    
     /**
- * listConnectedPlayerIds：执行核心业务逻辑。
- * @returns 函数返回值。
+ * listConnectedPlayerIds：读取Connected玩家ID并返回结果。
+ * @returns 无返回值，完成Connected玩家ID的读取/组装。
  */
 
     listConnectedPlayerIds() {
         return this.worldRuntimeStateFacadeService.listConnectedPlayerIds(this);
     }    
     /**
- * getInstanceRuntime：按给定条件读取/查询数据。
+ * getInstanceRuntime：读取Instance运行态。
  * @param instanceId instance ID。
- * @returns 函数返回值。
+ * @returns 无返回值，完成Instance运行态的读取/组装。
  */
 
     getInstanceRuntime(instanceId) {
         return this.worldRuntimeStateFacadeService.getInstanceRuntime(instanceId, this);
     }    
     /**
- * setInstanceRuntime：更新/写入相关状态。
+ * setInstanceRuntime：写入Instance运行态。
  * @param instanceId instance ID。
  * @param instance 地图实例。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新Instance运行态相关状态。
  */
 
     setInstanceRuntime(instanceId, instance) {
         this.worldRuntimeStateFacadeService.setInstanceRuntime(instanceId, instance, this);
     }    
     /**
- * listInstanceRuntimes：执行核心业务逻辑。
- * @returns 函数返回值。
+ * listInstanceRuntimes：读取Instance运行态并返回结果。
+ * @returns 无返回值，完成Instance运行态的读取/组装。
  */
 
     listInstanceRuntimes() {
         return this.worldRuntimeStateFacadeService.listInstanceRuntimes(this);
     }    
     /**
- * listInstanceEntries：执行核心业务逻辑。
- * @returns 函数返回值。
+ * listInstanceEntries：读取Instance条目并返回结果。
+ * @returns 无返回值，完成Instance条目的读取/组装。
  */
 
     listInstanceEntries() {
         return this.worldRuntimeStateFacadeService.listInstanceEntries(this);
     }    
     /**
- * getInstanceCount：按给定条件读取/查询数据。
- * @returns 函数返回值。
+ * getInstanceCount：读取Instance数量。
+ * @returns 无返回值，完成Instance数量的读取/组装。
  */
 
     getInstanceCount() {

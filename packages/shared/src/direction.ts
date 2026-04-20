@@ -6,17 +6,17 @@ import { Direction } from './world-core-types';
 /** 方向及其对应的坐标偏移 */
 export interface DirectionStep {
 /**
- * direction：DirectionStep 内部字段。
+ * direction：direction相关字段。
  */
 
   direction: Direction;  
   /**
- * dx：DirectionStep 内部字段。
+ * dx：dx相关字段。
  */
 
   dx: number;  
   /**
- * dy：DirectionStep 内部字段。
+ * dy：dy相关字段。
  */
 
   dy: number;

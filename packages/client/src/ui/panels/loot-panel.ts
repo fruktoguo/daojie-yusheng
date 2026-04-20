@@ -27,10 +27,10 @@ export class LootPanel {
   /** onTakeAll：on Take All。 */
   private onTakeAll: ((sourceId: string) => void) | null = null;  
   /**
- * setCallbacks：更新/写入相关状态。
+ * setCallbacks：写入Callback。
  * @param onTake (sourceId: string, itemKey: string) => void 参数说明。
  * @param onTakeAll (sourceId: string) => void 参数说明。
- * @returns void。
+ * @returns 无返回值，直接更新Callback相关状态。
  */
 
 

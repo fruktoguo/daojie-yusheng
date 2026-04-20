@@ -27,27 +27,27 @@ import type { ToastKind } from './main-app-assembly-types';
 
 type CreateMainPanelContextOptions = {
 /**
- * documentRef：对象字段。
+ * documentRef：documentRef相关字段。
  */
 
   documentRef: Document;  
   /**
- * dom：对象字段。
+ * dom：dom相关字段。
  */
 
   dom: Pick<MainDomElements, 'zoomSlider' | 'zoomLevelEl'>;  
   /**
- * modules：对象字段。
+ * modules：模块相关字段。
  */
 
   modules: MainFrontendModules;  
   /**
- * rootRuntimeSource：对象字段。
+ * rootRuntimeSource：根容器运行态来源相关字段。
  */
 
   rootRuntimeSource: ReturnType<typeof import('./main-root-runtime-source').createMainRootRuntimeSource>;  
   /**
- * callbacks：对象字段。
+ * callbacks：callback相关字段。
  */
 
   callbacks: {
@@ -68,7 +68,7 @@ type CreateMainPanelContextOptions = {
 /**
  * createMainPanelContext：构建并返回目标对象。
  * @param options CreateMainPanelContextOptions 选项参数。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新Main面板上下文相关状态。
  */
 
 
@@ -275,9 +275,9 @@ export function createMainPanelContext(options: CreateMainPanelContextOptions) {
       entityDetailModal,
     },    
     /**
- * setPanelDeltaStateSource：更新/写入相关状态。
+ * setPanelDeltaStateSource：写入面板增量状态来源。
  * @param value typeof panelDeltaStateSource 参数说明。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新面板Delta状态来源相关状态。
  */
 
     setPanelDeltaStateSource(value: typeof panelDeltaStateSource) {

@@ -17,49 +17,49 @@ const common_1 = require("@nestjs/common");
 /** 世界运行时实例查询服务：承接 instance 维度的只读查询。 */
 let WorldRuntimeInstanceQueryService = class WorldRuntimeInstanceQueryService {
 /**
- * listInstances：执行核心业务逻辑。
+ * listInstances：读取Instance并返回结果。
  * @param runtime 参数说明。
- * @returns 函数返回值。
+ * @returns 无返回值，完成Instance的读取/组装。
  */
 
     listInstances(runtime) {
         return Array.from(runtime.listInstanceRuntimes(), (instance) => instance.snapshot());
     }    
     /**
- * getInstance：按给定条件读取/查询数据。
+ * getInstance：读取Instance。
  * @param runtime 参数说明。
  * @param instanceId instance ID。
- * @returns 函数返回值。
+ * @returns 无返回值，完成Instance的读取/组装。
  */
 
     getInstance(runtime, instanceId) {
         return runtime.getInstanceRuntime(instanceId)?.snapshot() ?? null;
     }    
     /**
- * listInstanceMonsters：执行核心业务逻辑。
+ * listInstanceMonsters：读取Instance怪物并返回结果。
  * @param instance 地图实例。
- * @returns 函数返回值。
+ * @returns 无返回值，完成Instance怪物的读取/组装。
  */
 
     listInstanceMonsters(instance) {
         return instance.listMonsters();
     }    
     /**
- * getInstanceMonster：按给定条件读取/查询数据。
+ * getInstanceMonster：读取Instance怪物。
  * @param instance 地图实例。
  * @param runtimeId runtime ID。
- * @returns 函数返回值。
+ * @returns 无返回值，完成Instance怪物的读取/组装。
  */
 
     getInstanceMonster(instance, runtimeId) {
         return instance.getMonster(runtimeId);
     }    
     /**
- * getInstanceTileState：按给定条件读取/查询数据。
+ * getInstanceTileState：读取InstanceTile状态。
  * @param instance 地图实例。
  * @param x X 坐标。
  * @param y Y 坐标。
- * @returns 函数返回值。
+ * @returns 无返回值，完成InstanceTile状态的读取/组装。
  */
 
     getInstanceTileState(instance, x, y) {

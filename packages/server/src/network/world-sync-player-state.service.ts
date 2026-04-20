@@ -18,7 +18,7 @@ let WorldSyncPlayerStateService = class WorldSyncPlayerStateService {
  * @param player 玩家对象。
  * @param view 参数说明。
  * @param unlockedMinimapIds unlockedMinimap ID 集合。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新玩家Sync状态相关状态。
  */
 
     buildPlayerSyncState(player, view, unlockedMinimapIds) {
@@ -34,7 +34,7 @@ exports.WorldSyncPlayerStateService = WorldSyncPlayerStateService = __decorate([
  * @param player 玩家对象。
  * @param view 参数说明。
  * @param unlockedMinimapIds unlockedMinimap ID 集合。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新玩家Sync状态相关状态。
  */
 
 function buildPlayerSyncState(player, view, unlockedMinimapIds) {
@@ -110,9 +110,9 @@ function buildPlayerSyncState(player, view, unlockedMinimapIds) {
     };
 }
 /**
- * normalizeActionEntry：执行核心业务逻辑。
+ * normalizeActionEntry：规范化或转换Action条目。
  * @param entry 参数说明。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新Action条目相关状态。
  */
 
 function normalizeActionEntry(entry) {
@@ -132,7 +132,7 @@ function normalizeActionEntry(entry) {
 /**
  * buildEquipmentRecord：构建并返回目标对象。
  * @param entries 参数说明。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新装备Record相关状态。
  */
 
 function buildEquipmentRecord(entries) {
@@ -152,9 +152,9 @@ function buildEquipmentRecord(entries) {
     return record;
 }
 /**
- * toTechniqueState：执行核心业务逻辑。
+ * toTechniqueState：执行to功法状态相关逻辑。
  * @param entry 参数说明。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新to功法状态相关状态。
  */
 
 function toTechniqueState(entry) {
@@ -180,9 +180,9 @@ function toTechniqueState(entry) {
     };
 }
 /**
- * toActionDefinition：执行核心业务逻辑。
+ * toActionDefinition：执行toActionDefinition相关逻辑。
  * @param entry 参数说明。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新toActionDefinition相关状态。
  */
 
 function toActionDefinition(entry) {
@@ -202,9 +202,9 @@ function toActionDefinition(entry) {
     };
 }
 /**
- * toItemStackState：执行核心业务逻辑。
+ * toItemStackState：执行to道具Stack状态相关逻辑。
  * @param entry 参数说明。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新to道具Stack状态相关状态。
  */
 
 function toItemStackState(entry) {
@@ -234,18 +234,18 @@ function toItemStackState(entry) {
     };
 }
 /**
- * cloneActionEntry：执行核心业务逻辑。
+ * cloneActionEntry：构建Action条目。
  * @param source 来源对象。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新Action条目相关状态。
  */
 
 function cloneActionEntry(source) {
     return { ...source };
 }
 /**
- * cloneTechniqueSkill：执行核心业务逻辑。
+ * cloneTechniqueSkill：构建功法技能。
  * @param source 来源对象。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新功法技能相关状态。
  */
 
 function cloneTechniqueSkill(source) {
@@ -258,7 +258,7 @@ function cloneTechniqueSkill(source) {
 /**
  * buildAttrBonuses：构建并返回目标对象。
  * @param player 玩家对象。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新AttrBonuse相关状态。
  */
 
 function buildAttrBonuses(player) {
@@ -328,9 +328,9 @@ function buildAttrBonuses(player) {
     return bonuses;
 }
 /**
- * hasNonZeroAttributes：执行状态校验并返回判断结果。
+ * hasNonZeroAttributes：判断NonZeroAttribute是否满足条件。
  * @param attrs 参数说明。
- * @returns 函数返回值。
+ * @returns 无返回值，完成NonZeroAttribute的条件判断。
  */
 
 function hasNonZeroAttributes(attrs) {
@@ -342,9 +342,9 @@ function hasNonZeroAttributes(attrs) {
     return Object.values(attrs).some((value) => Number(value ?? 0) !== 0);
 }
 /**
- * hasNonZeroPartialNumericStats：执行状态校验并返回判断结果。
+ * hasNonZeroPartialNumericStats：判断NonZeroPartialNumericStat是否满足条件。
  * @param stats 参数说明。
- * @returns 函数返回值。
+ * @returns 无返回值，完成NonZeroPartialNumericStat的条件判断。
  */
 
 function hasNonZeroPartialNumericStats(stats) {
@@ -356,9 +356,9 @@ function hasNonZeroPartialNumericStats(stats) {
     return Object.values(stats).some((value) => Number(value ?? 0) !== 0);
 }
 /**
- * clonePartialAttributes：执行核心业务逻辑。
+ * clonePartialAttributes：构建PartialAttribute。
  * @param attrs 参数说明。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新PartialAttribute相关状态。
  */
 
 function clonePartialAttributes(attrs) {
@@ -376,9 +376,9 @@ function clonePartialAttributes(attrs) {
     return Object.keys(clone).length > 0 ? clone : undefined;
 }
 /**
- * cloneTemporaryBuff：执行核心业务逻辑。
+ * cloneTemporaryBuff：构建TemporaryBuff。
  * @param source 来源对象。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新TemporaryBuff相关状态。
  */
 
 function cloneTemporaryBuff(source) {
@@ -390,9 +390,9 @@ function cloneTemporaryBuff(source) {
     };
 }
 /**
- * cloneQuestState：执行核心业务逻辑。
+ * cloneQuestState：构建任务状态。
  * @param source 来源对象。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新任务状态相关状态。
  */
 
 function cloneQuestState(source) {
@@ -403,9 +403,9 @@ function cloneQuestState(source) {
     };
 }
 /**
- * cloneRealmState：执行核心业务逻辑。
+ * cloneRealmState：构建Realm状态。
  * @param source 来源对象。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新Realm状态相关状态。
  */
 
 function cloneRealmState(source) {
@@ -427,9 +427,9 @@ function cloneRealmState(source) {
     };
 }
 /**
- * cloneHeavenGateState：执行核心业务逻辑。
+ * cloneHeavenGateState：构建HeavenGate状态。
  * @param source 来源对象。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新HeavenGate状态相关状态。
  */
 
 function cloneHeavenGateState(source) {
@@ -447,9 +447,9 @@ function cloneHeavenGateState(source) {
     };
 }
 /**
- * cloneHeavenGateRoots：执行核心业务逻辑。
+ * cloneHeavenGateRoots：构建HeavenGate根容器。
  * @param source 来源对象。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新HeavenGate根容器相关状态。
  */
 
 function cloneHeavenGateRoots(source) {
@@ -467,9 +467,9 @@ function cloneHeavenGateRoots(source) {
     };
 }
 /**
- * cloneAttributes：执行核心业务逻辑。
+ * cloneAttributes：构建Attribute。
  * @param source 来源对象。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新Attribute相关状态。
  */
 
 function cloneAttributes(source) {

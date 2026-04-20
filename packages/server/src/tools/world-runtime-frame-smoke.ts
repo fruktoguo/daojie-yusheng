@@ -4,8 +4,8 @@ const assert = require("node:assert/strict");
 
 const { WorldRuntimeFrameService } = require("../runtime/world/world-runtime-frame.service");
 /**
- * testFrameDelegations：执行核心业务逻辑。
- * @returns 函数返回值。
+ * testFrameDelegations：执行test帧Delegation相关逻辑。
+ * @returns 无返回值，直接更新test帧Delegation相关状态。
  */
 
 
@@ -13,11 +13,11 @@ function testFrameDelegations() {
     const log = [];
     const service = new WorldRuntimeFrameService({    
     /**
- * advanceFrame：执行核心业务逻辑。
+ * advanceFrame：执行advance帧相关逻辑。
  * @param deps 运行时依赖。
  * @param frameDurationMs 参数说明。
  * @param getInstanceTickSpeed 参数说明。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新advance帧相关状态。
  */
 
         advanceFrame(deps, frameDurationMs, getInstanceTickSpeed) {
@@ -26,9 +26,9 @@ function testFrameDelegations() {
         },
     }, {    
     /**
- * recordSyncFlushDuration：执行核心业务逻辑。
+ * recordSyncFlushDuration：处理record同步刷新耗时并更新相关状态。
  * @param durationMs 参数说明。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新recordSyncFlushDuration相关状态。
  */
 
         recordSyncFlushDuration(durationMs) {

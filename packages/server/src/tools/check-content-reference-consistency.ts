@@ -10,10 +10,10 @@ const mapsRoot = path.join(packageRoot, "data", "maps");
 const numericScalarStatKeys = new Set(NUMERIC_STATS_KEYS.filter((key) => key !== "elementDamageBonus" && key !== "elementDamageReduce"));
 const elementKeys = new Set(ELEMENT_KEYS);
 /**
- * walkJsonFiles：执行核心业务逻辑。
+ * walkJsonFiles：执行walkJsonFile相关逻辑。
  * @param dirPath 参数说明。
  * @param result 返回结果。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新walkJsonFile相关状态。
  */
 
 
@@ -33,9 +33,9 @@ function walkJsonFiles(dirPath, result = []) {
   return result;
 }
 /**
- * loadJson：按给定条件读取/查询数据。
+ * loadJson：读取Json并返回结果。
  * @param relativePath 参数说明。
- * @returns 函数返回值。
+ * @returns 无返回值，完成Json的读取/组装。
  */
 
 
@@ -43,9 +43,9 @@ function loadJson(relativePath) {
   return JSON.parse(fs.readFileSync(path.join(packageRoot, relativePath), "utf8"));
 }
 /**
- * loadArrayDirectory：按给定条件读取/查询数据。
+ * loadArrayDirectory：读取ArrayDirectory并返回结果。
  * @param relativeDir 参数说明。
- * @returns 函数返回值。
+ * @returns 无返回值，完成ArrayDirectory的读取/组装。
  */
 
 
@@ -57,8 +57,8 @@ function loadArrayDirectory(relativeDir) {
   });
 }
 /**
- * collectItemIds：执行核心业务逻辑。
- * @returns 函数返回值。
+ * collectItemIds：执行道具ID相关逻辑。
+ * @returns 无返回值，直接更新道具ID相关状态。
  */
 
 
@@ -81,8 +81,8 @@ function collectItemIds() {
   return { items, ids, duplicates };
 }
 /**
- * collectMonsterIds：执行核心业务逻辑。
- * @returns 函数返回值。
+ * collectMonsterIds：执行怪物ID相关逻辑。
+ * @returns 无返回值，直接更新怪物ID相关状态。
  */
 
 
@@ -105,8 +105,8 @@ function collectMonsterIds() {
   return { monsters, ids, duplicates };
 }
 /**
- * collectTechniqueSkillIds：执行核心业务逻辑。
- * @returns 函数返回值。
+ * collectTechniqueSkillIds：执行功法技能ID相关逻辑。
+ * @returns 无返回值，直接更新功法技能ID相关状态。
  */
 
 
@@ -138,8 +138,8 @@ function collectTechniqueSkillIds() {
   return { techniques, techniqueIds, skillIds, duplicates };
 }
 /**
- * collectTechniqueBuffIds：执行核心业务逻辑。
- * @returns 函数返回值。
+ * collectTechniqueBuffIds：执行功法BuffID相关逻辑。
+ * @returns 无返回值，直接更新功法BuffID相关状态。
  */
 
 
@@ -162,8 +162,8 @@ function collectTechniqueBuffIds() {
   return { buffs, buffRefs, duplicates };
 }
 /**
- * collectQuestIds：执行核心业务逻辑。
- * @returns 函数返回值。
+ * collectQuestIds：执行任务ID相关逻辑。
+ * @returns 无返回值，直接更新任务ID相关状态。
  */
 
 
@@ -192,8 +192,8 @@ function collectQuestIds() {
   return { questFiles, questIds, duplicates };
 }
 /**
- * collectMapIds：执行核心业务逻辑。
- * @returns 函数返回值。
+ * collectMapIds：执行地图ID相关逻辑。
+ * @returns 无返回值，直接更新地图ID相关状态。
  */
 
 
@@ -210,8 +210,8 @@ function collectMapIds() {
   return ids;
 }
 /**
- * collectMapRefs：执行核心业务逻辑。
- * @returns 函数返回值。
+ * collectMapRefs：执行地图Ref相关逻辑。
+ * @returns 无返回值，直接更新地图Ref相关状态。
  */
 
 
@@ -254,11 +254,11 @@ function collectMapRefs() {
   return { mapIds, npcIds, monsterIds, npcIdsByMap, monsterIdsByMap };
 }
 /**
- * validatePartialNumericStats：执行核心业务逻辑。
+ * validatePartialNumericStats：判断PartialNumericStat是否满足条件。
  * @param errors 参数说明。
  * @param label 参数说明。
  * @param stats 参数说明。
- * @returns 函数返回值。
+ * @returns 无返回值，完成PartialNumericStat的条件判断。
  */
 
 
@@ -295,12 +295,12 @@ function validatePartialNumericStats(errors, label, stats) {
   }
 }
 /**
- * validateMonsterRefs：执行核心业务逻辑。
+ * validateMonsterRefs：判断怪物Ref是否满足条件。
  * @param errors 参数说明。
  * @param monsters 参数说明。
  * @param itemIds item ID 集合。
  * @param skillIds skill ID 集合。
- * @returns 函数返回值。
+ * @returns 无返回值，完成怪物Ref的条件判断。
  */
 
 
@@ -325,11 +325,11 @@ function validateMonsterRefs(errors, monsters, itemIds, skillIds) {
   }
 }
 /**
- * validateItemRefs：执行核心业务逻辑。
+ * validateItemRefs：判断道具Ref是否满足条件。
  * @param errors 参数说明。
  * @param items 道具列表。
  * @param refs 参数说明。
- * @returns 函数返回值。
+ * @returns 无返回值，完成道具Ref的条件判断。
  */
 
 
@@ -368,10 +368,10 @@ function validateItemRefs(errors, items, refs) {
   }
 }
 /**
- * validateBreakthroughRefs：执行核心业务逻辑。
+ * validateBreakthroughRefs：判断BreakthroughRef是否满足条件。
  * @param errors 参数说明。
  * @param itemIds item ID 集合。
- * @returns 函数返回值。
+ * @returns 无返回值，完成BreakthroughRef的条件判断。
  */
 
 
@@ -388,10 +388,10 @@ function validateBreakthroughRefs(errors, itemIds) {
   }
 }
 /**
- * validateResourceNodeRefs：执行核心业务逻辑。
+ * validateResourceNodeRefs：判断ResourceNodeRef是否满足条件。
  * @param errors 参数说明。
  * @param itemIds item ID 集合。
- * @returns 函数返回值。
+ * @returns 无返回值，完成ResourceNodeRef的条件判断。
  */
 
 
@@ -412,10 +412,10 @@ function validateResourceNodeRefs(errors, itemIds) {
   }
 }
 /**
- * validateAlchemyRefs：执行核心业务逻辑。
+ * validateAlchemyRefs：判断炼丹Ref是否满足条件。
  * @param errors 参数说明。
  * @param itemIds item ID 集合。
- * @returns 函数返回值。
+ * @returns 无返回值，完成炼丹Ref的条件判断。
  */
 
 
@@ -436,10 +436,10 @@ function validateAlchemyRefs(errors, itemIds) {
   }
 }
 /**
- * validateEnhancementRefs：执行核心业务逻辑。
+ * validateEnhancementRefs：判断强化Ref是否满足条件。
  * @param errors 参数说明。
  * @param itemIds item ID 集合。
- * @returns 函数返回值。
+ * @returns 无返回值，完成强化Ref的条件判断。
  */
 
 
@@ -464,11 +464,11 @@ function validateEnhancementRefs(errors, itemIds) {
   }
 }
 /**
- * validateTechniqueRefs：执行核心业务逻辑。
+ * validateTechniqueRefs：判断功法Ref是否满足条件。
  * @param errors 参数说明。
  * @param techniques 参数说明。
  * @param buffRefs 参数说明。
- * @returns 函数返回值。
+ * @returns 无返回值，完成功法Ref的条件判断。
  */
 
 
@@ -492,10 +492,10 @@ function validateTechniqueRefs(errors, techniques, buffRefs) {
   }
 }
 /**
- * validateTechniqueBuffRefs：执行核心业务逻辑。
+ * validateTechniqueBuffRefs：判断功法BuffRef是否满足条件。
  * @param errors 参数说明。
  * @param buffs 参数说明。
- * @returns 函数返回值。
+ * @returns 无返回值，完成功法BuffRef的条件判断。
  */
 
 
@@ -508,11 +508,11 @@ function validateTechniqueBuffRefs(errors, buffs) {
   }
 }
 /**
- * validateMapMonsterRefs：执行核心业务逻辑。
+ * validateMapMonsterRefs：判断地图怪物Ref是否满足条件。
  * @param errors 参数说明。
  * @param mapRefs 参数说明。
  * @param monsterIds monster ID 集合。
- * @returns 函数返回值。
+ * @returns 无返回值，完成地图怪物Ref的条件判断。
  */
 
 
@@ -526,11 +526,11 @@ function validateMapMonsterRefs(errors, mapRefs, monsterIds) {
   }
 }
 /**
- * validateQuestRefs：执行核心业务逻辑。
+ * validateQuestRefs：判断任务Ref是否满足条件。
  * @param errors 参数说明。
  * @param questFiles 参数说明。
  * @param refs 参数说明。
- * @returns 函数返回值。
+ * @returns 无返回值，完成任务Ref的条件判断。
  */
 
 
@@ -606,8 +606,8 @@ function validateQuestRefs(errors, questFiles, refs) {
   }
 }
 /**
- * main：执行核心业务逻辑。
- * @returns 函数返回值。
+ * main：执行main相关逻辑。
+ * @returns 无返回值，直接更新main相关状态。
  */
 
 

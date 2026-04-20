@@ -36,27 +36,27 @@ const world_sync_minimap_service_1 = require("./world-sync-minimap.service");
 /** map/static snapshot 构造服务：承接 world-sync 的可见区域与静态展示构造。 */
 let WorldSyncMapSnapshotService = class WorldSyncMapSnapshotService {
 /**
- * worldRuntimeService：对象字段。
+ * worldRuntimeService：世界运行态服务引用。
  */
 
     worldRuntimeService;    
     /**
- * playerRuntimeService：对象字段。
+ * playerRuntimeService：玩家运行态服务引用。
  */
 
     playerRuntimeService;    
     /**
- * templateRepository：对象字段。
+ * templateRepository：template仓储引用。
  */
 
     templateRepository;    
     /**
- * mapRuntimeConfigService：对象字段。
+ * mapRuntimeConfigService：地图运行态配置服务引用。
  */
 
     mapRuntimeConfigService;    
     /**
- * worldSyncMinimapService：对象字段。
+ * worldSyncMinimapService：世界SyncMinimap服务引用。
  */
 
     worldSyncMinimapService;    
@@ -67,7 +67,7 @@ let WorldSyncMapSnapshotService = class WorldSyncMapSnapshotService {
  * @param templateRepository 参数说明。
  * @param mapRuntimeConfigService 参数说明。
  * @param worldSyncMinimapService 参数说明。
- * @returns 无返回值（构造函数）。
+ * @returns 无返回值，完成实例初始化。
  */
 
     constructor(worldRuntimeService, playerRuntimeService, templateRepository, mapRuntimeConfigService, worldSyncMinimapService) {
@@ -82,7 +82,7 @@ let WorldSyncMapSnapshotService = class WorldSyncMapSnapshotService {
  * @param view 参数说明。
  * @param player 玩家对象。
  * @param template 参数说明。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新可见Tile快照相关状态。
  */
 
     buildVisibleTilesSnapshot(view, player, template) {
@@ -129,7 +129,7 @@ let WorldSyncMapSnapshotService = class WorldSyncMapSnapshotService {
  * @param view 参数说明。
  * @param player 玩家对象。
  * @param template 参数说明。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新可见TileKeySet相关状态。
  */
 
     buildVisibleTileKeySet(view, player, template) {
@@ -169,7 +169,7 @@ let WorldSyncMapSnapshotService = class WorldSyncMapSnapshotService {
  * buildRenderEntitiesSnapshot：构建并返回目标对象。
  * @param view 参数说明。
  * @param player 玩家对象。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新RenderEntity快照相关状态。
  */
 
     buildRenderEntitiesSnapshot(view, player) {
@@ -229,7 +229,7 @@ let WorldSyncMapSnapshotService = class WorldSyncMapSnapshotService {
  * buildMinimapLibrarySync：构建并返回目标对象。
  * @param player 玩家对象。
  * @param currentMapId currentMap ID。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新MinimapLibrarySync相关状态。
  */
 
     buildMinimapLibrarySync(player, currentMapId) {
@@ -250,7 +250,7 @@ let WorldSyncMapSnapshotService = class WorldSyncMapSnapshotService {
     /**
  * buildMapMetaSync：构建并返回目标对象。
  * @param template 参数说明。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新地图MetaSync相关状态。
  */
 
     buildMapMetaSync(template) {
@@ -261,7 +261,7 @@ let WorldSyncMapSnapshotService = class WorldSyncMapSnapshotService {
  * @param template 参数说明。
  * @param view 参数说明。
  * @param player 玩家对象。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新Game时间状态相关状态。
  */
 
     buildGameTimeState(template, view, player) {
@@ -273,7 +273,7 @@ let WorldSyncMapSnapshotService = class WorldSyncMapSnapshotService {
  * @param instanceId instance ID。
  * @param x X 坐标。
  * @param y Y 坐标。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新TileSync状态相关状态。
  */
 
     buildTileSyncState(template, instanceId, x, y) {
@@ -315,16 +315,16 @@ exports.WorldSyncMapSnapshotService = WorldSyncMapSnapshotService = __decorate([
  * buildCoordKey：构建并返回目标对象。
  * @param x X 坐标。
  * @param y Y 坐标。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新CoordKey相关状态。
  */
 
 function buildCoordKey(x, y) {
     return `${x},${y}`;
 }
 /**
- * normalizeMapTimeConfig：执行核心业务逻辑。
+ * normalizeMapTimeConfig：规范化或转换地图时间配置。
  * @param input 输入参数。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新地图时间配置相关状态。
  */
 
 function normalizeMapTimeConfig(input) {
@@ -338,9 +338,9 @@ function normalizeMapTimeConfig(input) {
     };
 }
 /**
- * resolveDarknessStacks：执行核心业务逻辑。
+ * resolveDarknessStacks：规范化或转换DarknessStack。
  * @param lightPercent 参数说明。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新DarknessStack相关状态。
  */
 
 function resolveDarknessStacks(lightPercent) {
@@ -365,7 +365,7 @@ function resolveDarknessStacks(lightPercent) {
  * @param baseViewRange 参数说明。
  * @param overrideConfig 参数说明。
  * @param tickSpeed 参数说明。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新Game时间状态相关状态。
  */
 
 function buildGameTimeState(template, totalTicks, baseViewRange, overrideConfig, tickSpeed = 1) {
@@ -420,9 +420,9 @@ function buildGameTimeState(template, totalTicks, baseViewRange, overrideConfig,
     };
 }
 /**
- * getBuffPresentationScale：按给定条件读取/查询数据。
+ * getBuffPresentationScale：读取BuffPresentationScale。
  * @param buffs 参数说明。
- * @returns 函数返回值。
+ * @returns 无返回值，完成BuffPresentationScale的读取/组装。
  */
 
 function getBuffPresentationScale(buffs) {
@@ -444,7 +444,7 @@ function getBuffPresentationScale(buffs) {
  * buildPlayerRenderEntity：构建并返回目标对象。
  * @param player 玩家对象。
  * @param color 参数说明。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新玩家RenderEntity相关状态。
  */
 
 function buildPlayerRenderEntity(player, color) {
@@ -464,7 +464,7 @@ function buildPlayerRenderEntity(player, color) {
 /**
  * buildMapMetaSync：构建并返回目标对象。
  * @param template 参数说明。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新地图MetaSync相关状态。
  */
 
 function buildMapMetaSync(template) {
@@ -486,10 +486,10 @@ function buildMapMetaSync(template) {
     };
 }
 /**
- * compareStableStrings：执行核心业务逻辑。
+ * compareStableStrings：执行compareStableString相关逻辑。
  * @param left 参数说明。
  * @param right 参数说明。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新compareStableString相关状态。
  */
 
 function compareStableStrings(left, right) {

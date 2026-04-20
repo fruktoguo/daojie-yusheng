@@ -1,7 +1,7 @@
 /** Grapheme 分段项：保存单段可见字符。 */
 type GraphemeSegment = {
 /**
- * segment：对象字段。
+ * segment：segment相关字段。
  */
 
   segment: string;
@@ -15,14 +15,14 @@ type GraphemeSegmenter = {
 /** 仅含可选 Segmenter 的 Intl 扩展声明。 */
 type IntlWithSegmenter = typeof Intl & {
 /**
- * Segmenter：对象字段。
+ * Segmenter：Segmenter相关字段。
  */
 
   Segmenter?: new (
     locales?: string | string[],
     options?: {    
     /**
- * granularity：对象字段。
+ * granularity：granularity相关字段。
  */
  granularity: 'grapheme' },
   ) => GraphemeSegmenter;

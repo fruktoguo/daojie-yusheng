@@ -29,77 +29,77 @@ type MainToastKind = 'system' | 'chat' | 'quest' | 'combat' | 'loot' | 'grudge' 
 
 type ObserveEntity = {
 /**
- * id：对象字段。
+ * id：ID标识。
  */
 
   id: string;  
   /**
- * wx：对象字段。
+ * wx：wx相关字段。
  */
 
   wx: number;  
   /**
- * wy：对象字段。
+ * wy：wy相关字段。
  */
 
   wy: number;  
   /**
- * char：对象字段。
+ * char：char相关字段。
  */
 
   char: string;  
   /**
- * color：对象字段。
+ * color：color相关字段。
  */
 
   color: string;  
   /**
- * name：对象字段。
+ * name：名称名称或显示文本。
  */
 
   name?: string;  
   /**
- * kind：对象字段。
+ * kind：kind相关字段。
  */
 
   kind?: string;  
   /**
- * monsterTier：对象字段。
+ * monsterTier：怪物Tier相关字段。
  */
 
   monsterTier?: MonsterTier;  
   /**
- * hp：对象字段。
+ * hp：hp相关字段。
  */
 
   hp?: number;  
   /**
- * maxHp：对象字段。
+ * maxHp：maxHp相关字段。
  */
 
   maxHp?: number;  
   /**
- * qi：对象字段。
+ * qi：qi相关字段。
  */
 
   qi?: number;  
   /**
- * maxQi：对象字段。
+ * maxQi：maxQi相关字段。
  */
 
   maxQi?: number;  
   /**
- * npcQuestMarker：对象字段。
+ * npcQuestMarker：NPC任务Marker相关字段。
  */
 
   npcQuestMarker?: RenderEntity['npcQuestMarker'];  
   /**
- * observation：对象字段。
+ * observation：observation相关字段。
  */
 
   observation?: RenderEntity['observation'];  
   /**
- * buffs：对象字段。
+ * buffs：buff相关字段。
  */
 
   buffs?: VisibleBuffState[];
@@ -120,17 +120,17 @@ type ObserveEntityCardData = Pick<
 
 type ActiveObservedTile = {
 /**
- * mapId：对象字段。
+ * mapId：地图ID标识。
  */
 
   mapId: string;  
   /**
- * x：对象字段。
+ * x：x相关字段。
  */
 
   x: number;  
   /**
- * y：对象字段。
+ * y：y相关字段。
  */
 
   y: number;
@@ -142,79 +142,79 @@ type ActiveObservedTile = {
 
 type MainObserveStateSourceOptions = {
 /**
- * observeModalEl：对象字段。
+ * observeModalEl：observe弹层El相关字段。
  */
 
   observeModalEl: HTMLElement | null;  
   /**
- * observeModalBodyEl：对象字段。
+ * observeModalBodyEl：observe弹层BodyEl相关字段。
  */
 
   observeModalBodyEl: HTMLElement | null;  
   /**
- * observeModalSubtitleEl：对象字段。
+ * observeModalSubtitleEl：observe弹层SubtitleEl相关字段。
  */
 
   observeModalSubtitleEl: HTMLElement | null;  
   /**
- * observeModalAsideEl：对象字段。
+ * observeModalAsideEl：observe弹层AsideEl相关字段。
  */
 
   observeModalAsideEl: HTMLElement | null;  
   /**
- * observeModalShellEl：对象字段。
+ * observeModalShellEl：observe弹层ShellEl相关字段。
  */
 
   observeModalShellEl: HTMLElement | null;  
   /**
- * getPlayer：对象字段。
+ * getPlayer：玩家引用。
  */
 
   getPlayer: () => {  
   /**
- * id：对象字段。
+ * id：ID标识。
  */
  id: string;  
  /**
- * mapId：对象字段。
+ * mapId：地图ID标识。
  */
  mapId: string;  
  /**
- * senseQiActive：对象字段。
+ * senseQiActive：senseQi激活相关字段。
  */
  senseQiActive?: boolean } | null;  
  /**
- * getVisibleTileAt：对象字段。
+ * getVisibleTileAt：可见TileAt相关字段。
  */
 
   getVisibleTileAt: (x: number, y: number) => Tile | null;  
   /**
- * getVisibleGroundPileAt：对象字段。
+ * getVisibleGroundPileAt：可见GroundPileAt相关字段。
  */
 
   getVisibleGroundPileAt: (x: number, y: number) => GroundItemPileView | null;  
   /**
- * getLatestEntities：对象字段。
+ * getLatestEntities：LatestEntity相关字段。
  */
 
   getLatestEntities: () => ObserveEntity[];  
   /**
- * showToast：对象字段。
+ * showToast：showToast相关字段。
  */
 
   showToast: (message: string, kind?: MainToastKind) => void;  
   /**
- * sendInspectTileRuntime：对象字段。
+ * sendInspectTileRuntime：sendInspectTile运行态引用。
  */
 
   sendInspectTileRuntime: (x: number, y: number) => void;  
   /**
- * openEntityDetailPending：对象字段。
+ * openEntityDetailPending：openEntity详情Pending相关字段。
  */
 
   openEntityDetailPending: (kind: NEXT_S2C_Detail['kind'], id: string, title: string) => void;  
   /**
- * sendRequestDetail：对象字段。
+ * sendRequestDetail：sendRequest详情状态或数据块。
  */
 
   sendRequestDetail: (kind: NEXT_S2C_Detail['kind'], id: string) => void;
@@ -226,40 +226,40 @@ type MainObserveStateSourceOptions = {
 
 type TileRuntimeResourceDetail = {
 /**
- * key：对象字段。
+ * key：key标识。
  */
 
   key: string;  
   /**
- * label：对象字段。
+ * label：label名称或显示文本。
  */
 
   label: string;  
   /**
- * value：对象字段。
+ * value：值数值。
  */
 
   value: number;  
   /**
- * effectiveValue：对象字段。
+ * effectiveValue：effective值数值。
  */
 
   effectiveValue?: number;  
   /**
- * level：对象字段。
+ * level：等级数值。
  */
 
   level?: number;  
   /**
- * sourceValue：对象字段。
+ * sourceValue：来源值数值。
  */
 
   sourceValue?: number;
 };
 /**
- * escapeHtml：执行核心业务逻辑。
+ * escapeHtml：执行escapeHtml相关逻辑。
  * @param input string 输入参数。
- * @returns string。
+ * @returns 返回escapeHtml。
  */
 
 
@@ -272,9 +272,9 @@ function escapeHtml(input: string): string {
     .replaceAll("'", '&#39;');
 }
 /**
- * isCrowdEntityKind：执行状态校验并返回判断结果。
+ * isCrowdEntityKind：判断CrowdEntityKind是否满足条件。
  * @param kind string | null | undefined 参数说明。
- * @returns boolean。
+ * @returns 返回是否满足CrowdEntityKind条件。
  */
 
 
@@ -282,9 +282,9 @@ function isCrowdEntityKind(kind: string | null | undefined): boolean {
   return kind === 'crowd';
 }
 /**
- * getTileTypeName：按给定条件读取/查询数据。
+ * getTileTypeName：读取TileType名称。
  * @param type TileType 参数说明。
- * @returns string。
+ * @returns 返回TileType名称。
  */
 
 
@@ -292,9 +292,9 @@ function getTileTypeName(type: TileType): string {
   return getTileTypeLabel(type, '未知地貌');
 }
 /**
- * formatTraversalCost：执行核心业务逻辑。
+ * formatTraversalCost：规范化或转换Traversal消耗。
  * @param tile Tile 参数说明。
- * @returns string。
+ * @returns 返回Traversal消耗。
  */
 
 
@@ -307,10 +307,10 @@ function formatTraversalCost(tile: Tile): string {
   return `${getTileTraversalCost(tile.type)} 点/格`;
 }
 /**
- * formatCurrentMax：执行核心业务逻辑。
+ * formatCurrentMax：规范化或转换当前Max。
  * @param current number 参数说明。
  * @param max number 参数说明。
- * @returns string。
+ * @returns 返回CurrentMax。
  */
 
 
@@ -325,21 +325,21 @@ function formatCurrentMax(current?: number, max?: number): string {
 /**
  * buildObservationRows：构建并返回目标对象。
  * @param rows Array<{ label: string; value?: string; valueHtml?: string }> 参数说明。
- * @returns string。
+ * @returns 返回ObservationRow。
  */
 
 
 function buildObservationRows(rows: Array<{
 /**
- * label：对象字段。
+ * label：label名称或显示文本。
  */
  label: string;
  /**
- * value：对象字段。
+ * value：值数值。
  */
  value?: string;
  /**
- * valueHtml：对象字段。
+ * valueHtml：值Html相关字段。
  */
  valueHtml?: string }>): string {
   return rows
@@ -347,9 +347,9 @@ function buildObservationRows(rows: Array<{
     .join('');
 }
 /**
- * formatBuffDuration：执行核心业务逻辑。
+ * formatBuffDuration：规范化或转换Buff耗时。
  * @param buff VisibleBuffState 参数说明。
- * @returns string。
+ * @returns 返回BuffDuration。
  */
 
 
@@ -359,7 +359,7 @@ function formatBuffDuration(buff: VisibleBuffState): string {
 /**
  * buildBuffEffectLines：构建并返回目标对象。
  * @param buff VisibleBuffState 参数说明。
- * @returns string[]。
+ * @returns 返回BuffEffectLine列表。
  */
 
 
@@ -369,7 +369,7 @@ function buildBuffEffectLines(buff: VisibleBuffState): string[] {
 /**
  * buildBuffTooltipLines：构建并返回目标对象。
  * @param buff VisibleBuffState 参数说明。
- * @returns string[]。
+ * @returns 返回Buff提示Line列表。
  */
 
 
@@ -399,7 +399,7 @@ function buildBuffTooltipLines(buff: VisibleBuffState): string[] {
 /**
  * buildBuffBadgeHtml：构建并返回目标对象。
  * @param buff VisibleBuffState 参数说明。
- * @returns string。
+ * @returns 返回BuffBadgeHtml。
  */
 
 
@@ -420,7 +420,7 @@ function buildBuffBadgeHtml(buff: VisibleBuffState): string {
  * @param title string 参数说明。
  * @param buffs VisibleBuffState[] 参数说明。
  * @param emptyText string 参数说明。
- * @returns string。
+ * @returns 返回BuffSectionHtml。
  */
 
 
@@ -441,7 +441,7 @@ export type MainObserveStateSource = ReturnType<typeof createMainObserveStateSou
 /**
  * createMainObserveStateSource：构建并返回目标对象。
  * @param options MainObserveStateSourceOptions 选项参数。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新MainObserve状态来源相关状态。
  */
 
 
@@ -460,10 +460,10 @@ export function createMainObserveStateSource(options: MainObserveStateSourceOpti
   let activeObservedTileDetail: NEXT_S2C_TileDetail | null = null;
   let activeObservedTileError: string | null = null;  
   /**
- * isMatchingObservedTile：执行状态校验并返回判断结果。
+ * isMatchingObservedTile：判断MatchingObservedTile是否满足条件。
  * @param targetX number 参数说明。
  * @param targetY number 参数说明。
- * @returns boolean。
+ * @returns 返回是否满足MatchingObservedTile条件。
  */
 
 
@@ -478,10 +478,10 @@ export function createMainObserveStateSource(options: MainObserveStateSourceOpti
     );
   }  
   /**
- * getObservedTileRuntimeResources：按给定条件读取/查询数据。
+ * getObservedTileRuntimeResources：读取ObservedTile运行态Resource。
  * @param targetX number 参数说明。
  * @param targetY number 参数说明。
- * @returns TileRuntimeResourceDetail[]。
+ * @returns 返回ObservedTile运行态Resource列表。
  */
 
 
@@ -510,10 +510,10 @@ export function createMainObserveStateSource(options: MainObserveStateSourceOpti
     return [];
   }  
   /**
- * formatObservedResourceOverview：执行核心业务逻辑。
+ * formatObservedResourceOverview：规范化或转换ObservedResourceOverview。
  * @param resource TileRuntimeResourceDetail 参数说明。
  * @param fallbackLevel number 参数说明。
- * @returns string。
+ * @returns 返回ObservedResourceOverview。
  */
 
 
@@ -531,7 +531,7 @@ export function createMainObserveStateSource(options: MainObserveStateSourceOpti
   /**
  * buildObservedResourceAsideLines：构建并返回目标对象。
  * @param resource TileRuntimeResourceDetail 参数说明。
- * @returns string[]。
+ * @returns 返回ObservedResourceAsideLine列表。
  */
 
 
@@ -556,7 +556,7 @@ export function createMainObserveStateSource(options: MainObserveStateSourceOpti
  * @param targetX number 参数说明。
  * @param targetY number 参数说明。
  * @param tile Tile 参数说明。
- * @returns ObserveAsideCard[]。
+ * @returns 返回ObservedResourceAsideCard列表。
  */
 
 
@@ -599,9 +599,9 @@ export function createMainObserveStateSource(options: MainObserveStateSourceOpti
     });
   }  
   /**
- * toObserveEntityCardData：执行核心业务逻辑。
+ * toObserveEntityCardData：执行toObserveEntityCardData相关逻辑。
  * @param entity ObserveEntity 参数说明。
- * @returns ObserveEntityCardData。
+ * @returns 返回toObserveEntityCardData。
  */
 
 
@@ -631,9 +631,9 @@ export function createMainObserveStateSource(options: MainObserveStateSourceOpti
     };
   }  
   /**
- * normalizeObserveEntityCardData：执行核心业务逻辑。
+ * normalizeObserveEntityCardData：规范化或转换ObserveEntityCardData。
  * @param entity NonNullable<NEXT_S2C_TileDetail['entities']>[number] 参数说明。
- * @returns ObserveEntityCardData。
+ * @returns 返回ObserveEntityCardData。
  */
 
 
@@ -663,10 +663,10 @@ export function createMainObserveStateSource(options: MainObserveStateSourceOpti
     };
   }  
   /**
- * resolveObserveEntities：执行核心业务逻辑。
+ * resolveObserveEntities：规范化或转换ObserveEntity。
  * @param targetX number 参数说明。
  * @param targetY number 参数说明。
- * @returns ObserveEntityCardData[]。
+ * @returns 返回ObserveEntity列表。
  */
 
 
@@ -690,9 +690,9 @@ export function createMainObserveStateSource(options: MainObserveStateSourceOpti
       .map((entity) => toObserveEntityCardData(entity));
   }  
   /**
- * resolveObserveDetailKind：执行核心业务逻辑。
+ * resolveObserveDetailKind：规范化或转换Observe详情Kind。
  * @param kind ObserveEntityCardData['kind'] 参数说明。
- * @returns NEXT_S2C_Detail['kind'] | null。
+ * @returns 返回Observe详情Kind。
  */
 
 
@@ -707,7 +707,7 @@ export function createMainObserveStateSource(options: MainObserveStateSourceOpti
   /**
  * buildObservedEntityCardHtml：构建并返回目标对象。
  * @param entity ObserveEntityCardData 参数说明。
- * @returns string。
+ * @returns 返回ObservedEntityCardHtml。
  */
 
 
@@ -770,7 +770,7 @@ export function createMainObserveStateSource(options: MainObserveStateSourceOpti
   /**
  * buildObservedEntitySectionHtml：构建并返回目标对象。
  * @param entities ObserveEntityCardData[] 参数说明。
- * @returns string。
+ * @returns 返回ObservedEntitySectionHtml。
  */
 
 
@@ -783,9 +783,9 @@ export function createMainObserveStateSource(options: MainObserveStateSourceOpti
     </section>`;
   }  
   /**
- * bindObserveEntityDetailActions：执行核心业务逻辑。
+ * bindObserveEntityDetailActions：执行bindObserveEntity详情Action相关逻辑。
  * @param root ParentNode 参数说明。
- * @returns void。
+ * @returns 无返回值，直接更新bindObserveEntity详情Action相关状态。
  */
 
 
@@ -806,9 +806,9 @@ export function createMainObserveStateSource(options: MainObserveStateSourceOpti
     });
   }  
   /**
- * bindObserveBuffTooltips：执行核心业务逻辑。
+ * bindObserveBuffTooltips：执行bindObserveBuff提示相关逻辑。
  * @param root ParentNode 参数说明。
- * @returns void。
+ * @returns 无返回值，直接更新bindObserveBuff提示相关状态。
  */
 
 
@@ -842,10 +842,10 @@ export function createMainObserveStateSource(options: MainObserveStateSourceOpti
     });
   }  
   /**
- * render：执行核心业务逻辑。
+ * render：执行render相关逻辑。
  * @param targetX number 参数说明。
  * @param targetY number 参数说明。
- * @returns void。
+ * @returns 无返回值，直接更新目标相关状态。
  */
 
 
@@ -1010,8 +1010,8 @@ export function createMainObserveStateSource(options: MainObserveStateSourceOpti
 
   return {  
   /**
- * clear：执行核心业务逻辑。
- * @returns void。
+ * clear：执行clear相关逻辑。
+ * @returns 无返回值，直接更新clear相关状态。
  */
 
     clear(): void {
@@ -1020,8 +1020,8 @@ export function createMainObserveStateSource(options: MainObserveStateSourceOpti
       activeObservedTileError = null;
     },    
     /**
- * hide：执行核心业务逻辑。
- * @returns void。
+ * hide：执行hide相关逻辑。
+ * @returns 无返回值，直接更新hide相关状态。
  */
 
     hide(): void {
@@ -1029,10 +1029,10 @@ export function createMainObserveStateSource(options: MainObserveStateSourceOpti
       this.clear();
     },    
     /**
- * show：执行核心业务逻辑。
+ * show：执行show相关逻辑。
  * @param targetX number 参数说明。
  * @param targetY number 参数说明。
- * @returns void。
+ * @returns 无返回值，直接更新show相关状态。
  */
 
     show(targetX: number, targetY: number): void {
@@ -1049,19 +1049,19 @@ export function createMainObserveStateSource(options: MainObserveStateSourceOpti
       options.sendInspectTileRuntime(targetX, targetY);
     },    
     /**
- * render：执行核心业务逻辑。
+ * render：执行render相关逻辑。
  * @param targetX number 参数说明。
  * @param targetY number 参数说明。
- * @returns void。
+ * @returns 无返回值，直接更新目标相关状态。
  */
 
     render(targetX: number, targetY: number): void {
       render(targetX, targetY);
     },    
     /**
- * handleTileDetail：处理事件并驱动执行路径。
+ * handleTileDetail：处理Tile详情并更新相关状态。
  * @param data NEXT_S2C_TileDetail 原始数据。
- * @returns void。
+ * @returns 无返回值，直接更新Tile详情相关状态。
  */
 
     handleTileDetail(data: NEXT_S2C_TileDetail): void {
@@ -1085,8 +1085,8 @@ export function createMainObserveStateSource(options: MainObserveStateSourceOpti
       render(data.x, data.y);
     },    
     /**
- * isOpen：执行状态校验并返回判断结果。
- * @returns boolean。
+ * isOpen：判断Open是否满足条件。
+ * @returns 返回是否满足Open条件。
  */
 
     isOpen(): boolean {

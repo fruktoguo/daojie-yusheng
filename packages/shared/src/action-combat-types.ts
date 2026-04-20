@@ -10,57 +10,57 @@ export type ActionType = 'skill' | 'gather' | 'interact' | 'quest' | 'toggle' | 
 /** 行动定义。 */
 export interface ActionDef {
 /**
- * id：ActionDef 内部字段。
+ * id：ID标识。
  */
 
   id: string;  
   /**
- * name：ActionDef 内部字段。
+ * name：名称名称或显示文本。
  */
 
   name: string;  
   /**
- * type：ActionDef 内部字段。
+ * type：type相关字段。
  */
 
   type: ActionType;  
   /**
- * desc：ActionDef 内部字段。
+ * desc：desc相关字段。
  */
 
   desc: string;  
   /**
- * cooldownLeft：ActionDef 内部字段。
+ * cooldownLeft：冷却Left相关字段。
  */
 
   cooldownLeft: number;  
   /**
- * range：ActionDef 内部字段。
+ * range：范围相关字段。
  */
 
   range?: number;  
   /**
- * requiresTarget：ActionDef 内部字段。
+ * requiresTarget：require目标相关字段。
  */
 
   requiresTarget?: boolean;  
   /**
- * targetMode：ActionDef 内部字段。
+ * targetMode：目标Mode相关字段。
  */
 
   targetMode?: 'any' | 'entity' | 'tile';  
   /**
- * autoBattleEnabled：ActionDef 内部字段。
+ * autoBattleEnabled：启用开关或状态标识。
  */
 
   autoBattleEnabled?: boolean;  
   /**
- * autoBattleOrder：ActionDef 内部字段。
+ * autoBattleOrder：autoBattle订单相关字段。
  */
 
   autoBattleOrder?: number;  
   /**
- * skillEnabled：ActionDef 内部字段。
+ * skillEnabled：启用开关或状态标识。
  */
 
   skillEnabled?: boolean;
@@ -69,32 +69,32 @@ export interface ActionDef {
 /** 战斗攻击特效。 */
 export interface CombatEffectAttack {
 /**
- * type：CombatEffectAttack 内部字段。
+ * type：type相关字段。
  */
 
   type: 'attack';  
   /**
- * fromX：CombatEffectAttack 内部字段。
+ * fromX：fromX相关字段。
  */
 
   fromX: number;  
   /**
- * fromY：CombatEffectAttack 内部字段。
+ * fromY：fromY相关字段。
  */
 
   fromY: number;  
   /**
- * toX：CombatEffectAttack 内部字段。
+ * toX：toX相关字段。
  */
 
   toX: number;  
   /**
- * toY：CombatEffectAttack 内部字段。
+ * toY：toY相关字段。
  */
 
   toY: number;  
   /**
- * color：CombatEffectAttack 内部字段。
+ * color：color相关字段。
  */
 
   color?: string;
@@ -103,42 +103,42 @@ export interface CombatEffectAttack {
 /** 战斗飘字特效。 */
 export interface CombatEffectFloat {
 /**
- * type：CombatEffectFloat 内部字段。
+ * type：type相关字段。
  */
 
   type: 'float';  
   /**
- * x：CombatEffectFloat 内部字段。
+ * x：x相关字段。
  */
 
   x: number;  
   /**
- * y：CombatEffectFloat 内部字段。
+ * y：y相关字段。
  */
 
   y: number;  
   /**
- * text：CombatEffectFloat 内部字段。
+ * text：text名称或显示文本。
  */
 
   text: string;  
   /**
- * color：CombatEffectFloat 内部字段。
+ * color：color相关字段。
  */
 
   color?: string;  
   /**
- * variant：CombatEffectFloat 内部字段。
+ * variant：variant相关字段。
  */
 
   variant?: 'damage' | 'action';  
   /**
- * actionStyle：CombatEffectFloat 内部字段。
+ * actionStyle：actionStyle相关字段。
  */
 
   actionStyle?: 'default' | 'divine' | 'chant';  
   /**
- * durationMs：CombatEffectFloat 内部字段。
+ * durationMs：durationM相关字段。
  */
 
   durationMs?: number;
@@ -147,37 +147,37 @@ export interface CombatEffectFloat {
 /** 战斗地块警戒特效。 */
 export interface CombatEffectWarningZone {
 /**
- * type：CombatEffectWarningZone 内部字段。
+ * type：type相关字段。
  */
 
   type: 'warning_zone';  
   /**
- * cells：CombatEffectWarningZone 内部字段。
+ * cells：cell相关字段。
  */
 
   cells: GridPoint[];  
   /**
- * color：CombatEffectWarningZone 内部字段。
+ * color：color相关字段。
  */
 
   color?: string;  
   /**
- * baseColor：CombatEffectWarningZone 内部字段。
+ * baseColor：baseColor相关字段。
  */
 
   baseColor?: string;  
   /**
- * originX：CombatEffectWarningZone 内部字段。
+ * originX：originX相关字段。
  */
 
   originX?: number;  
   /**
- * originY：CombatEffectWarningZone 内部字段。
+ * originY：originY相关字段。
  */
 
   originY?: number;  
   /**
- * durationMs：CombatEffectWarningZone 内部字段。
+ * durationMs：durationM相关字段。
  */
 
   durationMs?: number;

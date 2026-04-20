@@ -4,8 +4,8 @@ const assert = require("node:assert/strict");
 
 const { WorldRuntimePendingCommandService } = require("../runtime/world/world-runtime-pending-command.service");
 /**
- * testQueueOwnershipMethods：执行核心业务逻辑。
- * @returns 函数返回值。
+ * testQueueOwnershipMethods：执行testQueueOwnershipMethod相关逻辑。
+ * @returns 无返回值，直接更新testQueueOwnershipMethod相关状态。
  */
 
 
@@ -22,8 +22,8 @@ function testQueueOwnershipMethods() {
     assert.equal(service.getPendingCommandCount(), 1);
 }
 /**
- * testDispatchRoutesAndClearsQueue：执行核心业务逻辑。
- * @returns 函数返回值。
+ * testDispatchRoutesAndClearsQueue：判断testDispatch路线AndClearQueue是否满足条件。
+ * @returns 无返回值，直接更新testDispatch路线AndClearQueue相关状态。
  */
 
 
@@ -35,20 +35,20 @@ function testDispatchRoutesAndClearsQueue() {
     service.enqueuePendingCommand('player:3', { kind: 'portal' });
     service.dispatchPendingCommands({    
     /**
- * dispatchInstanceCommand：处理事件并驱动执行路径。
+ * dispatchInstanceCommand：判断InstanceCommand是否满足条件。
  * @param playerId 玩家 ID。
  * @param command 输入指令。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新InstanceCommand相关状态。
  */
 
         dispatchInstanceCommand(playerId, command) {
             log.push(['dispatchInstanceCommand', playerId, command.kind]);
         },        
         /**
- * dispatchPlayerCommand：处理事件并驱动执行路径。
+ * dispatchPlayerCommand：判断玩家Command是否满足条件。
  * @param playerId 玩家 ID。
  * @param command 输入指令。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新玩家Command相关状态。
  */
 
         dispatchPlayerCommand(playerId, command) {
@@ -61,9 +61,9 @@ function testDispatchRoutesAndClearsQueue() {
         },
         logger: {        
         /**
- * warn：执行核心业务逻辑。
+ * warn：执行warn相关逻辑。
  * @param message 参数说明。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新warn相关状态。
  */
 
             warn(message) {
@@ -71,11 +71,11 @@ function testDispatchRoutesAndClearsQueue() {
             },
         },        
         /**
- * queuePlayerNotice：执行核心业务逻辑。
+ * queuePlayerNotice：执行queue玩家Notice相关逻辑。
  * @param playerId 玩家 ID。
  * @param message 参数说明。
  * @param tone 参数说明。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新queue玩家Notice相关状态。
  */
 
         queuePlayerNotice(playerId, message, tone) {

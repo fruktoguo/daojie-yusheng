@@ -23,12 +23,12 @@ import type { ToastKind } from './main-app-assembly-types';
 
 type CreateMainRuntimeOwnerContextOptions = {
 /**
- * documentRef：对象字段。
+ * documentRef：documentRef相关字段。
  */
 
   documentRef: Document;  
   /**
- * dom：对象字段。
+ * dom：dom相关字段。
  */
 
   dom: Pick<
@@ -42,27 +42,27 @@ type CreateMainRuntimeOwnerContextOptions = {
     | 'targetingBadgeEl'
   >;  
   /**
- * modules：对象字段。
+ * modules：模块相关字段。
  */
 
   modules: MainFrontendModules;  
   /**
- * rootRuntimeSource：对象字段。
+ * rootRuntimeSource：根容器运行态来源相关字段。
  */
 
   rootRuntimeSource: ReturnType<typeof import('./main-root-runtime-source').createMainRootRuntimeSource>;  
   /**
- * runtimeMonitorSource：对象字段。
+ * runtimeMonitorSource：运行态Monitor来源相关字段。
  */
 
   runtimeMonitorSource: ReturnType<typeof import('./main-runtime-monitor-source').createMainRuntimeMonitorSource>;  
   /**
- * panelContext：对象字段。
+ * panelContext：面板上下文状态或数据块。
  */
 
   panelContext: ReturnType<typeof import('./main-app-panel-context').createMainPanelContext>;  
   /**
- * helpers：对象字段。
+ * helpers：辅助函数相关字段。
  */
 
   helpers: {
@@ -72,7 +72,7 @@ type CreateMainRuntimeOwnerContextOptions = {
 /**
  * createMainRuntimeOwnerContext：构建并返回目标对象。
  * @param options CreateMainRuntimeOwnerContextOptions 选项参数。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新Main运行态Owner上下文相关状态。
  */
 
 
@@ -111,8 +111,8 @@ export function createMainRuntimeOwnerContext(options: CreateMainRuntimeOwnerCon
   let panelDeltaStateSource!: ReturnType<typeof createMainPanelDeltaStateSource>;
   let resetStateSource!: ReturnType<typeof createMainResetStateSource>;  
   /**
- * getInfoRadius：按给定条件读取/查询数据。
- * @returns 函数返回值。
+ * getInfoRadius：读取InfoRadiu。
+ * @returns 无返回值，完成InfoRadiu的读取/组装。
  */
 
 
@@ -156,8 +156,8 @@ export function createMainRuntimeOwnerContext(options: CreateMainRuntimeOwnerCon
     },
   });  
   /**
- * resizeCanvas：执行核心业务逻辑。
- * @returns 函数返回值。
+ * resizeCanvas：判断resizeCanva是否满足条件。
+ * @returns 无返回值，直接更新resizeCanva相关状态。
  */
 
 
@@ -165,8 +165,8 @@ export function createMainRuntimeOwnerContext(options: CreateMainRuntimeOwnerCon
     mapRuntimeBridgeSource.resizeCanvas();
   }  
   /**
- * syncTargetingOverlay：执行核心业务逻辑。
- * @returns 函数返回值。
+ * syncTargetingOverlay：读取TargetingOverlay并返回结果。
+ * @returns 无返回值，直接更新TargetingOverlay相关状态。
  */
 
 

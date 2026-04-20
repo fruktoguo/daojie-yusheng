@@ -8,17 +8,17 @@ const HEAVEN_GATE_ROOTS_SOURCE = 'heaven_gate:roots';
 /** 灵根描述结果。 */
 export interface SpiritualRootDescription {
 /**
- * name：SpiritualRootDescription 内部字段。
+ * name：名称名称或显示文本。
  */
 
   name: string;  
   /**
- * meta：SpiritualRootDescription 内部字段。
+ * meta：meta相关字段。
  */
 
   meta: string;  
   /**
- * desc：SpiritualRootDescription 内部字段。
+ * desc：desc相关字段。
  */
 
   desc: string;

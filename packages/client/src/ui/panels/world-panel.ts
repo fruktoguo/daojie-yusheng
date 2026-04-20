@@ -12,42 +12,42 @@ import { assessMapDanger } from '../../utils/map-danger';
 /** 世界面板可见实体来源。 */
 interface VisibleEntity {
 /**
- * id：VisibleEntity 内部字段。
+ * id：ID标识。
  */
 
   id: string;  
   /**
- * wx：VisibleEntity 内部字段。
+ * wx：wx相关字段。
  */
 
   wx: number;  
   /**
- * wy：VisibleEntity 内部字段。
+ * wy：wy相关字段。
  */
 
   wy: number;  
   /**
- * name：VisibleEntity 内部字段。
+ * name：名称名称或显示文本。
  */
 
   name?: string;  
   /**
- * kind：VisibleEntity 内部字段。
+ * kind：kind相关字段。
  */
 
   kind?: string;  
   /**
- * monsterTier：VisibleEntity 内部字段。
+ * monsterTier：怪物Tier相关字段。
  */
 
   monsterTier?: MonsterTier;  
   /**
- * hp：VisibleEntity 内部字段。
+ * hp：hp相关字段。
  */
 
   hp?: number;  
   /**
- * maxHp：VisibleEntity 内部字段。
+ * maxHp：maxHp相关字段。
  */
 
   maxHp?: number;
@@ -56,32 +56,32 @@ interface VisibleEntity {
 /** 附近妖兽显示项。 */
 interface NearbyMonsterView {
 /**
- * id：NearbyMonsterView 内部字段。
+ * id：ID标识。
  */
 
   id: string;  
   /**
- * name：NearbyMonsterView 内部字段。
+ * name：名称名称或显示文本。
  */
 
   name: string;  
   /**
- * tier：NearbyMonsterView 内部字段。
+ * tier：tier相关字段。
  */
 
   tier?: MonsterTier;  
   /**
- * distance：NearbyMonsterView 内部字段。
+ * distance：distance相关字段。
  */
 
   distance: number;  
   /**
- * hp：NearbyMonsterView 内部字段。
+ * hp：hp相关字段。
  */
 
   hp: number;  
   /**
- * maxHp：NearbyMonsterView 内部字段。
+ * maxHp：maxHp相关字段。
  */
 
   maxHp: number;
@@ -90,12 +90,12 @@ interface NearbyMonsterView {
 /** 附近人物显示项。 */
 interface NearbyNpcView {
 /**
- * id：NearbyNpcView 内部字段。
+ * id：ID标识。
  */
 
   id: string;  
   /**
- * name：NearbyNpcView 内部字段。
+ * name：名称名称或显示文本。
  */
 
   name: string;
@@ -104,17 +104,17 @@ interface NearbyNpcView {
 /** 可立即执行的快捷行动项。 */
 interface QuickActionView {
 /**
- * id：QuickActionView 内部字段。
+ * id：ID标识。
  */
 
   id: string;  
   /**
- * name：QuickActionView 内部字段。
+ * name：名称名称或显示文本。
  */
 
   name: string;  
   /**
- * desc：QuickActionView 内部字段。
+ * desc：desc相关字段。
  */
 
   desc: string;
@@ -123,82 +123,82 @@ interface QuickActionView {
 /** 世界面板汇总快照。 */
 interface WorldPanelSnapshot {
 /**
- * mapName：WorldPanelSnapshot 内部字段。
+ * mapName：地图名称名称或显示文本。
  */
 
   mapName: string;  
   /**
- * mapMood：WorldPanelSnapshot 内部字段。
+ * mapMood：地图Mood相关字段。
  */
 
   mapMood: string;  
   /**
- * mapDesc：WorldPanelSnapshot 内部字段。
+ * mapDesc：地图Desc相关字段。
  */
 
   mapDesc: string;  
   /**
- * dangerLabel：WorldPanelSnapshot 内部字段。
+ * dangerLabel：dangerLabel名称或显示文本。
  */
 
   dangerLabel: string;  
   /**
- * dangerTone：WorldPanelSnapshot 内部字段。
+ * dangerTone：dangerTone相关字段。
  */
 
   dangerTone: number;  
   /**
- * recommend：WorldPanelSnapshot 内部字段。
+ * recommend：recommend相关字段。
  */
 
   recommend: string;  
   /**
- * realmLabel：WorldPanelSnapshot 内部字段。
+ * realmLabel：realmLabel名称或显示文本。
  */
 
   realmLabel: string;  
   /**
- * route：WorldPanelSnapshot 内部字段。
+ * route：路线相关字段。
  */
 
   route: string;  
   /**
- * resourcesLabel：WorldPanelSnapshot 内部字段。
+ * resourcesLabel：resourceLabel名称或显示文本。
  */
 
   resourcesLabel: string;  
   /**
- * threatsLabel：WorldPanelSnapshot 内部字段。
+ * threatsLabel：threatLabel名称或显示文本。
  */
 
   threatsLabel: string;  
   /**
- * cultivatingName：WorldPanelSnapshot 内部字段。
+ * cultivatingName：cultivating名称名称或显示文本。
  */
 
   cultivatingName: string;  
   /**
- * currentQuestTitle：WorldPanelSnapshot 内部字段。
+ * currentQuestTitle：current任务Title名称或显示文本。
  */
 
   currentQuestTitle: string;  
   /**
- * currentQuestProgress：WorldPanelSnapshot 内部字段。
+ * currentQuestProgress：current任务进度状态或数据块。
  */
 
   currentQuestProgress: string;  
   /**
- * nearbyMonsters：WorldPanelSnapshot 内部字段。
+ * nearbyMonsters：集合字段。
  */
 
   nearbyMonsters: NearbyMonsterView[];  
   /**
- * nearbyNpcs：WorldPanelSnapshot 内部字段。
+ * nearbyNpcs：nearbyNPC相关字段。
  */
 
   nearbyNpcs: NearbyNpcView[];  
   /**
- * quickActions：WorldPanelSnapshot 内部字段。
+ * quickActions：quickAction相关字段。
  */
 
   quickActions: QuickActionView[];
@@ -207,12 +207,12 @@ interface WorldPanelSnapshot {
 /** 世界面板外部回调集合。 */
 interface WorldPanelCallbacks {
 /**
- * onOpenLeaderboard：WorldPanelCallbacks 内部字段。
+ * onOpenLeaderboard：onOpenLeaderboard相关字段。
  */
 
   onOpenLeaderboard?: () => void;  
   /**
- * onOpenWorldSummary：WorldPanelCallbacks 内部字段。
+ * onOpenWorldSummary：onOpen世界摘要状态或数据块。
  */
 
   onOpenWorldSummary?: () => void;
@@ -221,17 +221,17 @@ interface WorldPanelCallbacks {
 /** 附近妖兽条目的 DOM 引用。 */
 interface NearbyMonsterRefs {
 /**
- * nameNode：NearbyMonsterRefs 内部字段。
+ * nameNode：名称Node相关字段。
  */
 
   nameNode: HTMLElement;  
   /**
- * metaNode：NearbyMonsterRefs 内部字段。
+ * metaNode：metaNode相关字段。
  */
 
   metaNode: HTMLElement;  
   /**
- * statusNode：NearbyMonsterRefs 内部字段。
+ * statusNode：statuNode相关字段。
  */
 
   statusNode: HTMLElement;
@@ -240,12 +240,12 @@ interface NearbyMonsterRefs {
 /** 建议动作条目的 DOM 引用。 */
 interface SuggestionActionRefs {
 /**
- * titleNode：SuggestionActionRefs 内部字段。
+ * titleNode：titleNode相关字段。
  */
 
   titleNode: HTMLElement;  
   /**
- * descNode：SuggestionActionRefs 内部字段。
+ * descNode：descNode相关字段。
  */
 
   descNode: HTMLElement;
@@ -339,7 +339,7 @@ export class WorldPanel {
   private callbacks: WorldPanelCallbacks = {};  
   /**
  * 构造器：初始化 当前 实例并建立基础状态。
- * @returns 无返回值（构造函数）。
+ * @returns 无返回值，完成实例初始化。
  */
 
 
@@ -355,27 +355,27 @@ export class WorldPanel {
   /** 根据玩家、地图、实体、行动、任务数据刷新三个子面板 */
   update(input: {  
   /**
- * player：WorldPanel 内部字段。
+ * player：玩家引用。
  */
 
     player: PlayerState;    
     /**
- * mapMeta：WorldPanel 内部字段。
+ * mapMeta：地图Meta相关字段。
  */
 
     mapMeta: MapMeta | null;    
     /**
- * entities：WorldPanel 内部字段。
+ * entities：entity相关字段。
  */
 
     entities: VisibleEntity[];    
     /**
- * actions：WorldPanel 内部字段。
+ * actions：action相关字段。
  */
 
     actions: ActionDef[];    
     /**
- * quests：WorldPanel 内部字段。
+ * quests：集合字段。
  */
 
     quests: QuestState[];
@@ -407,33 +407,33 @@ export class WorldPanel {
     actions: ActionDef[];
     quests: QuestState[];
   } 输入参数。
- * @returns WorldPanelSnapshot。
+ * @returns 返回快照。
  */
 
 
   private buildSnapshot(input: {  
   /**
- * player：WorldPanel 内部字段。
+ * player：玩家引用。
  */
 
     player: PlayerState;    
     /**
- * mapMeta：WorldPanel 内部字段。
+ * mapMeta：地图Meta相关字段。
  */
 
     mapMeta: MapMeta | null;    
     /**
- * entities：WorldPanel 内部字段。
+ * entities：entity相关字段。
  */
 
     entities: VisibleEntity[];    
     /**
- * actions：WorldPanel 内部字段。
+ * actions：action相关字段。
  */
 
     actions: ActionDef[];    
     /**
- * quests：WorldPanel 内部字段。
+ * quests：集合字段。
  */
 
     quests: QuestState[];

@@ -10,11 +10,11 @@ export type InventoryFilter = 'all' | ItemType;
 /** 背包筛选页签定义。 */
 export const INVENTORY_FILTER_TABS: Array<{
 /**
- * id：对象字段。
+ * id：ID标识。
  */
  id: InventoryFilter;
  /**
- * label：对象字段。
+ * label：label名称或显示文本。
  */
  label: string }> = [
   { id: 'all', label: '全部' },

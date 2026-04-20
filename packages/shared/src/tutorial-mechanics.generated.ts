@@ -5,12 +5,12 @@
 
 export interface SharedTutorialTopicSection {
 /**
- * title：SharedTutorialTopicSection 内部字段。
+ * title：title名称或显示文本。
  */
 
   title: string;  
   /**
- * items：SharedTutorialTopicSection 内部字段。
+ * items：集合字段。
  */
 
   items: string[];
@@ -22,27 +22,27 @@ export interface SharedTutorialTopicSection {
 
 export interface SharedTutorialTopic {
 /**
- * id：SharedTutorialTopic 内部字段。
+ * id：ID标识。
  */
 
   id: string;  
   /**
- * label：SharedTutorialTopic 内部字段。
+ * label：label名称或显示文本。
  */
 
   label: string;  
   /**
- * summary：SharedTutorialTopic 内部字段。
+ * summary：摘要状态或数据块。
  */
 
   summary: string;  
   /**
- * sections：SharedTutorialTopic 内部字段。
+ * sections：section相关字段。
  */
 
   sections: SharedTutorialTopicSection[];  
   /**
- * tips：SharedTutorialTopic 内部字段。
+ * tips：tip相关字段。
  */
 
   tips?: string[];

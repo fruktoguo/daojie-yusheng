@@ -9,24 +9,24 @@ const shared_1 = require("@mud/shared-next");
 /** 世界 socket NPC/quest/shop helper：只收敛最小 NPC/quest/shop 入口。 */
 class WorldGatewayNpcHelper {
 /**
- * gateway：WorldGatewayNpcHelper 内部字段。
+ * gateway：gateway相关字段。
  */
 
     gateway;    
     /**
  * 构造器：初始化 当前 实例并建立基础状态。
  * @param gateway 参数说明。
- * @returns 无返回值（构造函数）。
+ * @returns 无返回值，完成实例初始化。
  */
 
     constructor(gateway) {
         this.gateway = gateway;
     }    
     /**
- * handleNextRequestNpcShop：处理事件并驱动执行路径。
+ * handleNextRequestNpcShop：处理NextRequestNPCShop并更新相关状态。
  * @param client 参数说明。
  * @param payload 载荷参数。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新NextRequestNPCShop相关状态。
  */
 
     handleNextRequestNpcShop(client, payload) {
@@ -44,10 +44,10 @@ class WorldGatewayNpcHelper {
         }
     }    
     /**
- * handleRequestNpcQuests：处理事件并驱动执行路径。
+ * handleRequestNpcQuests：处理RequestNPC任务并更新相关状态。
  * @param client 参数说明。
  * @param payload 载荷参数。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新RequestNPC任务相关状态。
  */
 
     handleRequestNpcQuests(client, payload) {
@@ -65,10 +65,10 @@ class WorldGatewayNpcHelper {
         }
     }    
     /**
- * handleAcceptNpcQuest：处理事件并驱动执行路径。
+ * handleAcceptNpcQuest：处理AcceptNPC任务并更新相关状态。
  * @param client 参数说明。
  * @param payload 载荷参数。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新AcceptNPC任务相关状态。
  */
 
     handleAcceptNpcQuest(client, payload) {
@@ -86,10 +86,10 @@ class WorldGatewayNpcHelper {
         }
     }    
     /**
- * handleSubmitNpcQuest：处理事件并驱动执行路径。
+ * handleSubmitNpcQuest：处理SubmitNPC任务并更新相关状态。
  * @param client 参数说明。
  * @param payload 载荷参数。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新SubmitNPC任务相关状态。
  */
 
     handleSubmitNpcQuest(client, payload) {
@@ -107,10 +107,10 @@ class WorldGatewayNpcHelper {
         }
     }    
     /**
- * executeBuyNpcShopItem：执行核心业务逻辑。
+ * executeBuyNpcShopItem：执行executeBuyNPCShop道具相关逻辑。
  * @param client 参数说明。
  * @param payload 载荷参数。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新executeBuyNPCShop道具相关状态。
  */
 
     executeBuyNpcShopItem(client, payload) {
@@ -128,10 +128,10 @@ class WorldGatewayNpcHelper {
         }
     }    
     /**
- * handleNextBuyNpcShopItem：处理事件并驱动执行路径。
+ * handleNextBuyNpcShopItem：处理NextBuyNPCShop道具并更新相关状态。
  * @param client 参数说明。
  * @param payload 载荷参数。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新NextBuyNPCShop道具相关状态。
  */
 
     handleNextBuyNpcShopItem(client, payload) {

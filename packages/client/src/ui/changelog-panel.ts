@@ -7,7 +7,7 @@ export class ChangelogPanel {
   private static readonly MODAL_OWNER = 'changelog-panel';  
   /**
  * 构造器：初始化 当前 实例并建立基础状态。
- * @returns 无返回值（构造函数）。
+ * @returns 无返回值，完成实例初始化。
  */
 
 
@@ -53,15 +53,15 @@ export class ChangelogPanel {
   /** renderEntry：渲染条目。 */
   private renderEntry(entry: {  
   /**
- * updatedAt：ChangelogPanel 内部字段。
+ * updatedAt：updatedAt相关字段。
  */
  updatedAt: string;  
  /**
- * summary：ChangelogPanel 内部字段。
+ * summary：摘要状态或数据块。
  */
  summary: string;  
  /**
- * items：ChangelogPanel 内部字段。
+ * items：集合字段。
  */
  items: string[] }): HTMLElement {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。

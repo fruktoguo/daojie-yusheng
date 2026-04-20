@@ -1,8 +1,8 @@
 export const NEXT_GM_BOT_ID_PREFIX = 'gm_bot_';
 /**
- * isNextGmBotPlayerId：执行状态校验并返回判断结果。
+ * isNextGmBotPlayerId：判断NextGMBot玩家ID是否满足条件。
  * @param playerId unknown 玩家 ID。
- * @returns boolean。
+ * @returns 返回是否满足NextGMBot玩家ID条件。
  */
 
 

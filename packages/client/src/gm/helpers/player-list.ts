@@ -6,22 +6,22 @@ import type { GmManagedPlayerSummary, GmStateRes } from '@mud/shared-next';
 
 type PlayerListElements = {
 /**
- * playerListEl：对象字段。
+ * playerListEl：玩家列表El相关字段。
  */
 
   playerListEl: HTMLDivElement;  
   /**
- * playerPageMetaEl：对象字段。
+ * playerPageMetaEl：玩家PageMetaEl相关字段。
  */
 
   playerPageMetaEl: HTMLDivElement;  
   /**
- * playerPrevPageBtn：对象字段。
+ * playerPrevPageBtn：玩家PrevPageBtn相关字段。
  */
 
   playerPrevPageBtn: HTMLButtonElement;  
   /**
- * playerNextPageBtn：对象字段。
+ * playerNextPageBtn：玩家NextPageBtn相关字段。
  */
 
   playerNextPageBtn: HTMLButtonElement;
@@ -33,32 +33,32 @@ type PlayerListElements = {
 
 type RenderPlayerListOptions = {
 /**
- * data：对象字段。
+ * data：data相关字段。
  */
 
   data: GmStateRes;  
   /**
- * filtered：对象字段。
+ * filtered：filtered相关字段。
  */
 
   filtered: GmManagedPlayerSummary[];  
   /**
- * selectedPlayerId：对象字段。
+ * selectedPlayerId：selected玩家ID标识。
  */
 
   selectedPlayerId: string | null;  
   /**
- * lastStructureKey：对象字段。
+ * lastStructureKey：lastStructureKey标识。
  */
 
   lastStructureKey: string | null;  
   /**
- * getPlayerRowMarkup：对象字段。
+ * getPlayerRowMarkup：玩家RowMarkup相关字段。
  */
 
   getPlayerRowMarkup: (player: GmManagedPlayerSummary) => string;  
   /**
- * patchPlayerRow：对象字段。
+ * patchPlayerRow：patch玩家Row相关字段。
  */
 
   patchPlayerRow: (button: HTMLButtonElement, player: GmManagedPlayerSummary, isActive: boolean) => void;

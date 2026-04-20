@@ -4,8 +4,8 @@ const assert = require("node:assert/strict");
 
 const { WorldRuntimeInstanceReadFacadeService } = require("../runtime/world/world-runtime-instance-read-facade.service");
 /**
- * testInstanceReadFacade：执行核心业务逻辑。
- * @returns 函数返回值。
+ * testInstanceReadFacade：读取testInstanceReadFacade并返回结果。
+ * @returns 无返回值，直接更新testInstanceReadFacade相关状态。
  */
 
 
@@ -19,15 +19,15 @@ function testInstanceReadFacade() {
     const deps = {
         templateRepository: {        
         /**
- * listSummaries：执行核心业务逻辑。
- * @returns 函数返回值。
+ * listSummaries：读取摘要并返回结果。
+ * @returns 无返回值，完成摘要的读取/组装。
  */
 
             listSummaries() { return [{ id: 'yunlai_town' }]; },            
             /**
- * getOrThrow：按给定条件读取/查询数据。
+ * getOrThrow：读取OrThrow。
  * @param templateId template ID。
- * @returns 函数返回值。
+ * @returns 无返回值，完成OrThrow的读取/组装。
  */
 
             getOrThrow(templateId) {
@@ -44,74 +44,74 @@ function testInstanceReadFacade() {
         },
         worldRuntimeInstanceQueryService: {        
         /**
- * listInstances：执行核心业务逻辑。
- * @returns 函数返回值。
+ * listInstances：读取Instance并返回结果。
+ * @returns 无返回值，完成Instance的读取/组装。
  */
 
             listInstances() { return [{ instanceId: 'public:yunlai_town' }]; },            
             /**
- * getInstance：按给定条件读取/查询数据。
+ * getInstance：读取Instance。
  * @param _deps 参数说明。
  * @param instanceId instance ID。
- * @returns 函数返回值。
+ * @returns 无返回值，完成Instance的读取/组装。
  */
 
             getInstance(_deps, instanceId) { return { instanceId }; },            
             /**
- * listInstanceMonsters：执行核心业务逻辑。
+ * listInstanceMonsters：读取Instance怪物并返回结果。
  * @param input 输入参数。
- * @returns 函数返回值。
+ * @returns 无返回值，完成Instance怪物的读取/组装。
  */
 
             listInstanceMonsters(input) { return input.monsters; },            
             /**
- * getInstanceMonster：按给定条件读取/查询数据。
+ * getInstanceMonster：读取Instance怪物。
  * @param _instance 参数说明。
  * @param runtimeId runtime ID。
- * @returns 函数返回值。
+ * @returns 无返回值，完成Instance怪物的读取/组装。
  */
 
             getInstanceMonster(_instance, runtimeId) { return { runtimeId }; },            
             /**
- * getInstanceTileState：按给定条件读取/查询数据。
+ * getInstanceTileState：读取InstanceTile状态。
  * @param _instance 参数说明。
  * @param x X 坐标。
  * @param y Y 坐标。
- * @returns 函数返回值。
+ * @returns 无返回值，完成InstanceTile状态的读取/组装。
  */
 
             getInstanceTileState(_instance, x, y) { return { x, y }; },
         },
         worldRuntimeCombatEffectsService: {        
         /**
- * getCombatEffects：按给定条件读取/查询数据。
- * @returns 函数返回值。
+ * getCombatEffects：读取战斗Effect。
+ * @returns 无返回值，完成战斗Effect的读取/组装。
  */
 
             getCombatEffects() { return [{ kind: 'flash' }]; },
         },        
         /**
- * cloneCombatEffect：执行核心业务逻辑。
+ * cloneCombatEffect：构建战斗Effect。
  * @param effect 参数说明。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新战斗Effect相关状态。
  */
 
         cloneCombatEffect(effect) {
             return { ...effect, cloned: true };
         },        
         /**
- * getInstanceRuntime：按给定条件读取/查询数据。
+ * getInstanceRuntime：读取Instance运行态。
  * @param instanceId instance ID。
- * @returns 函数返回值。
+ * @returns 无返回值，完成Instance运行态的读取/组装。
  */
 
         getInstanceRuntime(instanceId) {
             return instanceId === 'public:yunlai_town' ? instance : null;
         },        
         /**
- * getInstanceRuntimeOrThrow：按给定条件读取/查询数据。
+ * getInstanceRuntimeOrThrow：读取Instance运行态OrThrow。
  * @param instanceId instance ID。
- * @returns 函数返回值。
+ * @returns 无返回值，完成Instance运行态OrThrow的读取/组装。
  */
 
         getInstanceRuntimeOrThrow(instanceId) {
@@ -124,7 +124,7 @@ function testInstanceReadFacade() {
         /**
  * createRuntimeMonstersForMap：构建并返回目标对象。
  * @param templateId template ID。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新运行态怪物For地图相关状态。
  */
 
             createRuntimeMonstersForMap(templateId) {
@@ -133,10 +133,10 @@ function testInstanceReadFacade() {
             },
         },        
         /**
- * setInstanceRuntime：更新/写入相关状态。
+ * setInstanceRuntime：写入Instance运行态。
  * @param instanceId instance ID。
  * @param created 参数说明。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新Instance运行态相关状态。
  */
 
         setInstanceRuntime(instanceId, created) {
@@ -144,9 +144,9 @@ function testInstanceReadFacade() {
         },
         worldRuntimeTickProgressService: {        
         /**
- * initializeInstance：初始化并准备运行时基础状态。
+ * initializeInstance：执行initializeInstance相关逻辑。
  * @param instanceId instance ID。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新initializeInstance相关状态。
  */
 
             initializeInstance(instanceId) { log.push(['initializeInstance', instanceId]); },

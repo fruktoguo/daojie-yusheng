@@ -16,10 +16,10 @@ const shared_1 = require("@mud/shared-next");
 
 let WorldSyncProtocolService = class WorldSyncProtocolService {
 /**
- * sendNextEnvelope：执行核心业务逻辑。
+ * sendNextEnvelope：执行sendNextEnvelope相关逻辑。
  * @param socket 参数说明。
  * @param envelope 参数说明。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新sendNextEnvelope相关状态。
  */
 
     sendNextEnvelope(socket, envelope) {
@@ -42,19 +42,19 @@ let WorldSyncProtocolService = class WorldSyncProtocolService {
         }
     }    
     /**
- * sendBootstrap：执行核心业务逻辑。
+ * sendBootstrap：执行send引导相关逻辑。
  * @param socket 参数说明。
  * @param payload 载荷参数。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新sendBootstrap相关状态。
  */
 
     sendBootstrap(socket, payload) {
         socket.emit(shared_1.NEXT_S2C.Bootstrap, payload);
     }    
     /**
- * resolveEmission：执行核心业务逻辑。
+ * resolveEmission：判断Emission是否满足条件。
  * @param socket 参数说明。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新Emission相关状态。
  */
 
     resolveEmission(socket) {
@@ -65,68 +65,68 @@ let WorldSyncProtocolService = class WorldSyncProtocolService {
         };
     }    
     /**
- * getExplicitProtocol：按给定条件读取/查询数据。
+ * getExplicitProtocol：读取ExplicitProtocol。
  * @param socket 参数说明。
- * @returns 函数返回值。
+ * @returns 无返回值，完成ExplicitProtocol的读取/组装。
  */
 
     getExplicitProtocol(socket) {
         return 'next';
     }    
     /**
- * resolveEffectiveProtocol：执行核心业务逻辑。
+ * resolveEffectiveProtocol：规范化或转换EffectiveProtocol。
  * @param socket 参数说明。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新EffectiveProtocol相关状态。
  */
 
     resolveEffectiveProtocol(socket) {
         return 'next';
     }    
     /**
- * sendQuestSync：执行核心业务逻辑。
+ * sendQuestSync：处理send任务同步并更新相关状态。
  * @param socket 参数说明。
  * @param payload 载荷参数。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新send任务Sync相关状态。
  */
 
     sendQuestSync(socket, payload) {
         socket.emit(shared_1.NEXT_S2C.Quests, payload);
     }    
     /**
- * sendMapStatic：执行核心业务逻辑。
+ * sendMapStatic：执行send地图Static相关逻辑。
  * @param socket 参数说明。
  * @param payload 载荷参数。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新send地图Static相关状态。
  */
 
     sendMapStatic(socket, payload) {
         socket.emit(shared_1.NEXT_S2C.MapStatic, payload);
     }    
     /**
- * sendRealm：执行核心业务逻辑。
+ * sendRealm：执行sendRealm相关逻辑。
  * @param socket 参数说明。
  * @param payload 载荷参数。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新sendRealm相关状态。
  */
 
     sendRealm(socket, payload) {
         socket.emit(shared_1.NEXT_S2C.Realm, payload);
     }    
     /**
- * sendLootWindow：执行核心业务逻辑。
+ * sendLootWindow：执行send掉落窗口相关逻辑。
  * @param socket 参数说明。
  * @param payload 载荷参数。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新send掉落窗口相关状态。
  */
 
     sendLootWindow(socket, payload) {
         socket.emit(shared_1.NEXT_S2C.LootWindowUpdate, payload);
     }    
     /**
- * sendNotices：执行核心业务逻辑。
+ * sendNotices：执行sendNotice相关逻辑。
  * @param socket 参数说明。
  * @param items 道具列表。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新sendNotice相关状态。
  */
 
     sendNotices(socket, items) {

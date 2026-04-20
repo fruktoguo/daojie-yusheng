@@ -7,7 +7,7 @@ import type { SocketEmitEvent } from './socket-send-types';
 
 type PanelSenderDeps = {
 /**
- * emitEvent：对象字段。
+ * emitEvent：事件相关字段。
  */
 
   emitEvent: SocketEmitEvent;
@@ -15,27 +15,27 @@ type PanelSenderDeps = {
 /**
  * createSocketPanelSender：构建并返回目标对象。
  * @param deps PanelSenderDeps 运行时依赖。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新Socket面板Sender相关状态。
  */
 
 
 export function createSocketPanelSender(deps: PanelSenderDeps) {
   return {  
   /**
- * sendUseItem：执行核心业务逻辑。
+ * sendUseItem：执行sendUse道具相关逻辑。
  * @param slotIndex number 参数说明。
  * @param count number 数量。
- * @returns void。
+ * @returns 无返回值，直接更新sendUse道具相关状态。
  */
 
     sendUseItem(slotIndex: number, count?: number): void {
       deps.emitEvent(NEXT_C2S.UseItem, { slotIndex, count });
     },    
     /**
- * sendDropItem：执行核心业务逻辑。
+ * sendDropItem：执行sendDrop道具相关逻辑。
  * @param slotIndex number 参数说明。
  * @param count number 数量。
- * @returns void。
+ * @returns 无返回值，直接更新sendDrop道具相关状态。
  */
 
 
@@ -43,10 +43,10 @@ export function createSocketPanelSender(deps: PanelSenderDeps) {
       deps.emitEvent(NEXT_C2S.DropItem, { slotIndex, count });
     },    
     /**
- * sendDestroyItem：执行核心业务逻辑。
+ * sendDestroyItem：执行sendDestroy道具相关逻辑。
  * @param slotIndex number 参数说明。
  * @param count number 数量。
- * @returns void。
+ * @returns 无返回值，直接更新sendDestroy道具相关状态。
  */
 
 
@@ -54,11 +54,11 @@ export function createSocketPanelSender(deps: PanelSenderDeps) {
       deps.emitEvent(NEXT_C2S.DestroyItem, { slotIndex, count });
     },    
     /**
- * sendTakeLoot：执行核心业务逻辑。
+ * sendTakeLoot：执行sendTake掉落相关逻辑。
  * @param sourceId string source ID。
  * @param itemKey string 参数说明。
  * @param takeAll 参数说明。
- * @returns void。
+ * @returns 无返回值，直接更新sendTake掉落相关状态。
  */
 
 
@@ -66,8 +66,8 @@ export function createSocketPanelSender(deps: PanelSenderDeps) {
       deps.emitEvent(NEXT_C2S.TakeGround, { sourceId, itemKey, takeAll });
     },    
     /**
- * sendSortInventory：执行核心业务逻辑。
- * @returns void。
+ * sendSortInventory：执行sendSort背包相关逻辑。
+ * @returns 无返回值，直接更新sendSort背包相关状态。
  */
 
 
@@ -75,9 +75,9 @@ export function createSocketPanelSender(deps: PanelSenderDeps) {
       deps.emitEvent(NEXT_C2S.SortInventory, {});
     },    
     /**
- * sendEquip：执行核心业务逻辑。
+ * sendEquip：执行sendEquip相关逻辑。
  * @param slotIndex number 参数说明。
- * @returns void。
+ * @returns 无返回值，直接更新sendEquip相关状态。
  */
 
 
@@ -85,9 +85,9 @@ export function createSocketPanelSender(deps: PanelSenderDeps) {
       deps.emitEvent(NEXT_C2S.Equip, { slotIndex });
     },    
     /**
- * sendUnequip：执行核心业务逻辑。
+ * sendUnequip：执行sendUnequip相关逻辑。
  * @param slot NEXT_C2S_EventPayload<typeof NEXT_C2S.Unequip>['slot'] 参数说明。
- * @returns void。
+ * @returns 无返回值，直接更新sendUnequip相关状态。
  */
 
 
@@ -95,8 +95,8 @@ export function createSocketPanelSender(deps: PanelSenderDeps) {
       deps.emitEvent(NEXT_C2S.Unequip, { slot });
     },    
     /**
- * sendRequestAttrDetail：执行核心业务逻辑。
- * @returns void。
+ * sendRequestAttrDetail：执行sendRequestAttr详情相关逻辑。
+ * @returns 无返回值，直接更新sendRequestAttr详情相关状态。
  */
 
 
@@ -104,9 +104,9 @@ export function createSocketPanelSender(deps: PanelSenderDeps) {
       deps.emitEvent(NEXT_C2S.RequestAttrDetail, {});
     },    
     /**
- * sendRequestLeaderboard：执行核心业务逻辑。
+ * sendRequestLeaderboard：执行sendRequestLeaderboard相关逻辑。
  * @param limit NEXT_C2S_EventPayload<typeof NEXT_C2S.RequestLeaderboard>['limit'] 参数说明。
- * @returns void。
+ * @returns 无返回值，直接更新sendRequestLeaderboard相关状态。
  */
 
 
@@ -114,8 +114,8 @@ export function createSocketPanelSender(deps: PanelSenderDeps) {
       deps.emitEvent(NEXT_C2S.RequestLeaderboard, { limit });
     },    
     /**
- * sendRequestWorldSummary：执行核心业务逻辑。
- * @returns void。
+ * sendRequestWorldSummary：执行sendRequest世界摘要相关逻辑。
+ * @returns 无返回值，直接更新sendRequest世界摘要相关状态。
  */
 
 
@@ -123,9 +123,9 @@ export function createSocketPanelSender(deps: PanelSenderDeps) {
       deps.emitEvent(NEXT_C2S.RequestWorldSummary, {});
     },    
     /**
- * sendRequestNpcShop：执行核心业务逻辑。
+ * sendRequestNpcShop：执行sendRequestNPCShop相关逻辑。
  * @param npcId string npc ID。
- * @returns void。
+ * @returns 无返回值，直接更新sendRequestNPCShop相关状态。
  */
 
 
@@ -133,11 +133,11 @@ export function createSocketPanelSender(deps: PanelSenderDeps) {
       deps.emitEvent(NEXT_C2S.RequestNpcShop, { npcId });
     },    
     /**
- * sendBuyNpcShopItem：执行核心业务逻辑。
+ * sendBuyNpcShopItem：执行sendBuyNPCShop道具相关逻辑。
  * @param npcId string npc ID。
  * @param itemId string 道具 ID。
  * @param quantity number 参数说明。
- * @returns void。
+ * @returns 无返回值，直接更新sendBuyNPCShop道具相关状态。
  */
 
 
@@ -145,9 +145,9 @@ export function createSocketPanelSender(deps: PanelSenderDeps) {
       deps.emitEvent(NEXT_C2S.BuyNpcShopItem, { npcId, itemId, quantity });
     },    
     /**
- * sendRequestAlchemyPanel：执行核心业务逻辑。
+ * sendRequestAlchemyPanel：执行sendRequest炼丹面板相关逻辑。
  * @param knownCatalogVersion number 参数说明。
- * @returns void。
+ * @returns 无返回值，直接更新sendRequest炼丹面板相关状态。
  */
 
 
@@ -155,9 +155,9 @@ export function createSocketPanelSender(deps: PanelSenderDeps) {
       deps.emitEvent(NEXT_C2S.RequestAlchemyPanel, { knownCatalogVersion });
     },    
     /**
- * sendSaveAlchemyPreset：执行核心业务逻辑。
+ * sendSaveAlchemyPreset：执行sendSave炼丹Preset相关逻辑。
  * @param payload NEXT_C2S_EventPayload<typeof NEXT_C2S.SaveAlchemyPreset> 载荷参数。
- * @returns void。
+ * @returns 无返回值，直接更新sendSave炼丹Preset相关状态。
  */
 
 
@@ -167,9 +167,9 @@ export function createSocketPanelSender(deps: PanelSenderDeps) {
       deps.emitEvent(NEXT_C2S.SaveAlchemyPreset, payload);
     },    
     /**
- * sendDeleteAlchemyPreset：执行核心业务逻辑。
+ * sendDeleteAlchemyPreset：处理sendDelete炼丹Preset并更新相关状态。
  * @param presetId string preset ID。
- * @returns void。
+ * @returns 无返回值，直接更新sendDelete炼丹Preset相关状态。
  */
 
 
@@ -177,9 +177,9 @@ export function createSocketPanelSender(deps: PanelSenderDeps) {
       deps.emitEvent(NEXT_C2S.DeleteAlchemyPreset, { presetId });
     },    
     /**
- * sendStartAlchemy：执行核心业务逻辑。
+ * sendStartAlchemy：执行send开始炼丹相关逻辑。
  * @param payload NEXT_C2S_EventPayload<typeof NEXT_C2S.StartAlchemy> 载荷参数。
- * @returns void。
+ * @returns 无返回值，直接更新sendStart炼丹相关状态。
  */
 
 
@@ -189,8 +189,8 @@ export function createSocketPanelSender(deps: PanelSenderDeps) {
       deps.emitEvent(NEXT_C2S.StartAlchemy, payload);
     },    
     /**
- * sendCancelAlchemy：执行核心业务逻辑。
- * @returns void。
+ * sendCancelAlchemy：判断sendCancel炼丹是否满足条件。
+ * @returns 无返回值，直接更新sendCancel炼丹相关状态。
  */
 
 
@@ -198,8 +198,8 @@ export function createSocketPanelSender(deps: PanelSenderDeps) {
       deps.emitEvent(NEXT_C2S.CancelAlchemy, {});
     },    
     /**
- * sendRequestEnhancementPanel：执行核心业务逻辑。
- * @returns void。
+ * sendRequestEnhancementPanel：执行sendRequest强化面板相关逻辑。
+ * @returns 无返回值，直接更新sendRequest强化面板相关状态。
  */
 
 
@@ -207,9 +207,9 @@ export function createSocketPanelSender(deps: PanelSenderDeps) {
       deps.emitEvent(NEXT_C2S.RequestEnhancementPanel, {});
     },    
     /**
- * sendStartEnhancement：执行核心业务逻辑。
+ * sendStartEnhancement：执行send开始强化相关逻辑。
  * @param payload NEXT_C2S_EventPayload<typeof NEXT_C2S.StartEnhancement> 载荷参数。
- * @returns void。
+ * @returns 无返回值，直接更新sendStart强化相关状态。
  */
 
 
@@ -219,8 +219,8 @@ export function createSocketPanelSender(deps: PanelSenderDeps) {
       deps.emitEvent(NEXT_C2S.StartEnhancement, payload);
     },    
     /**
- * sendCancelEnhancement：执行核心业务逻辑。
- * @returns void。
+ * sendCancelEnhancement：判断sendCancel强化是否满足条件。
+ * @returns 无返回值，直接更新sendCancel强化相关状态。
  */
 
 

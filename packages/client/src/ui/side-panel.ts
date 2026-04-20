@@ -16,22 +16,22 @@ type LayoutTarget = 'left' | 'right' | 'bottom';
 /** 侧边栏布局持久化状态。 */
 type SidePanelPersistedState = {
 /**
- * version：对象字段。
+ * version：version相关字段。
  */
 
   version: 1;  
   /**
- * layoutState：对象字段。
+ * layoutState：layout状态状态或数据块。
  */
 
   layoutState?: Partial<Record<`${LayoutTarget}Collapsed`, boolean>>;  
   /**
- * layoutSizes：对象字段。
+ * layoutSizes：layout规模相关字段。
  */
 
   layoutSizes?: Partial<Record<LayoutTarget, number>>;  
   /**
- * activeTabs：对象字段。
+ * activeTabs：激活Tab相关字段。
  */
 
   activeTabs?: Record<string, string>;
@@ -43,22 +43,22 @@ const SIDE_PANEL_STORAGE_KEY = 'mud:side-panel-state:v1';
 /** 移动端重新挂载的面板节点记录。 */
 type MobileSectionMount = {
 /**
- * element：对象字段。
+ * element：element相关字段。
  */
 
   element: HTMLElement;  
   /**
- * paneId：对象字段。
+ * paneId：paneID标识。
  */
 
   paneId: MobilePaneId;  
   /**
- * originalParent：对象字段。
+ * originalParent：originalParent相关字段。
  */
 
   originalParent: HTMLElement;  
   /**
- * originalNextSibling：对象字段。
+ * originalNextSibling：originalNextSibling相关字段。
  */
 
   originalNextSibling: ChildNode | null;
@@ -87,53 +87,53 @@ export class SidePanel {
   /** onTabChange：on Tab变更。 */
   private onTabChange: ((tabName: string) => void) | null = null;  
   /**
- * dragState：SidePanel 内部字段。
+ * dragState：drag状态状态或数据块。
  */
 
   private dragState: {  
   /**
- * target：SidePanel 内部字段。
+ * target：目标相关字段。
  */
 
     target: 'left' | 'right' | 'bottom';    
     /**
- * pointerId：SidePanel 内部字段。
+ * pointerId：pointerID标识。
  */
 
     pointerId: number;    
     /**
- * startX：SidePanel 内部字段。
+ * startX：startX相关字段。
  */
 
     startX: number;    
     /**
- * startY：SidePanel 内部字段。
+ * startY：startY相关字段。
  */
 
     startY: number;    
     /**
- * startSize：SidePanel 内部字段。
+ * startSize：数量或计量字段。
  */
 
     startSize: number;    
     /**
- * shellWidth：SidePanel 内部字段。
+ * shellWidth：shellWidth相关字段。
  */
 
     shellWidth: number;    
     /**
- * shellHeight：SidePanel 内部字段。
+ * shellHeight：shellHeight相关字段。
  */
 
     shellHeight: number;    
     /**
- * dragged：SidePanel 内部字段。
+ * dragged：dragged相关字段。
  */
 
     dragged: boolean;
   } | null = null;  
   /**
- * layoutState：SidePanel 内部字段。
+ * layoutState：layout状态状态或数据块。
  */
 
   private layoutState = {
@@ -143,7 +143,7 @@ export class SidePanel {
   };  
   /**
  * 构造器：初始化 当前 实例并建立基础状态。
- * @returns 无返回值（构造函数）。
+ * @returns 无返回值，完成实例初始化。
  */
 
 
@@ -193,9 +193,9 @@ export class SidePanel {
     return this.visible;
   }  
   /**
- * setVisibilityChangeCallback：更新/写入相关状态。
+ * setVisibilityChangeCallback：写入可见性ChangeCallback。
  * @param callback (visible: boolean) => void 参数说明。
- * @returns void。
+ * @returns 无返回值，直接更新可见性ChangeCallback相关状态。
  */
 
 
@@ -203,9 +203,9 @@ export class SidePanel {
     this.onVisibilityChange = callback;
   }  
   /**
- * setLayoutChangeCallback：更新/写入相关状态。
+ * setLayoutChangeCallback：写入LayoutChangeCallback。
  * @param callback () => void 参数说明。
- * @returns void。
+ * @returns 无返回值，直接更新LayoutChangeCallback相关状态。
  */
 
 
@@ -213,9 +213,9 @@ export class SidePanel {
     this.onLayoutChange = callback;
   }  
   /**
- * setTabChangeCallback：更新/写入相关状态。
+ * setTabChangeCallback：写入TabChangeCallback。
  * @param callback (tabName: string) => void 参数说明。
- * @returns void。
+ * @returns 无返回值，直接更新TabChangeCallback相关状态。
  */
 
 
@@ -511,11 +511,11 @@ export class SidePanel {
   /** syncToggleButton：同步Toggle按钮。 */
   private syncToggleButton(target: 'left' | 'right' | 'bottom', state: {  
   /**
- * text：SidePanel 内部字段。
+ * text：text名称或显示文本。
  */
  text: string;  
  /**
- * title：SidePanel 内部字段。
+ * title：title名称或显示文本。
  */
  title: string }): void {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。

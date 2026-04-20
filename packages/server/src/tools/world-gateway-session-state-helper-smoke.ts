@@ -4,8 +4,8 @@ const assert = require("node:assert/strict");
 
 const { WorldGatewaySessionStateHelper } = require("../network/world-gateway-session-state.helper");
 /**
- * testSessionStateHelper：执行核心业务逻辑。
- * @returns 函数返回值。
+ * testSessionStateHelper：执行testSession状态辅助函数相关逻辑。
+ * @returns 无返回值，直接更新testSession状态辅助函数相关状态。
  */
 
 
@@ -14,9 +14,9 @@ function testSessionStateHelper() {
     const helper = new WorldGatewaySessionStateHelper({
         playerRuntimeService: {        
         /**
- * detachSession：执行核心业务逻辑。
+ * detachSession：执行detachSession相关逻辑。
  * @param playerId 玩家 ID。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新detachSession相关状态。
  */
 
             detachSession(playerId) {

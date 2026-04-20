@@ -7,24 +7,24 @@ exports.WorldGatewayMailHelper = void 0;
 /** 世界 socket 邮件 helper：只收敛 mail 相关入口。 */
 class WorldGatewayMailHelper {
 /**
- * gateway：WorldGatewayMailHelper 内部字段。
+ * gateway：gateway相关字段。
  */
 
     gateway;    
     /**
  * 构造器：初始化 当前 实例并建立基础状态。
  * @param gateway 参数说明。
- * @returns 无返回值（构造函数）。
+ * @returns 无返回值，完成实例初始化。
  */
 
     constructor(gateway) {
         this.gateway = gateway;
     }    
     /**
- * handleNextRequestMailSummary：处理事件并驱动执行路径。
+ * handleNextRequestMailSummary：处理NextRequest邮件摘要并更新相关状态。
  * @param client 参数说明。
  * @param _payload 参数说明。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新NextRequest邮件摘要相关状态。
  */
 
     async handleNextRequestMailSummary(client, _payload) {
@@ -42,10 +42,10 @@ class WorldGatewayMailHelper {
         }
     }    
     /**
- * handleNextRequestMailPage：处理事件并驱动执行路径。
+ * handleNextRequestMailPage：处理NextRequest邮件Page并更新相关状态。
  * @param client 参数说明。
  * @param payload 载荷参数。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新NextRequest邮件Page相关状态。
  */
 
     async handleNextRequestMailPage(client, payload) {
@@ -64,10 +64,10 @@ class WorldGatewayMailHelper {
         }
     }    
     /**
- * handleNextRequestMailDetail：处理事件并驱动执行路径。
+ * handleNextRequestMailDetail：处理NextRequest邮件详情并更新相关状态。
  * @param client 参数说明。
  * @param payload 载荷参数。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新NextRequest邮件详情相关状态。
  */
 
     async handleNextRequestMailDetail(client, payload) {
@@ -86,10 +86,10 @@ class WorldGatewayMailHelper {
         }
     }    
     /**
- * handleNextMarkMailRead：处理事件并驱动执行路径。
+ * handleNextMarkMailRead：读取NextMark邮件Read并返回结果。
  * @param client 参数说明。
  * @param payload 载荷参数。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新NextMark邮件Read相关状态。
  */
 
     async handleNextMarkMailRead(client, payload) {
@@ -109,10 +109,10 @@ class WorldGatewayMailHelper {
         }
     }    
     /**
- * handleNextClaimMailAttachments：处理事件并驱动执行路径。
+ * handleNextClaimMailAttachments：处理NextClaim邮件Attachment并更新相关状态。
  * @param client 参数说明。
  * @param payload 载荷参数。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新NextClaim邮件Attachment相关状态。
  */
 
     async handleNextClaimMailAttachments(client, payload) {
@@ -132,10 +132,10 @@ class WorldGatewayMailHelper {
         }
     }    
     /**
- * handleNextDeleteMail：处理事件并驱动执行路径。
+ * handleNextDeleteMail：处理NextDelete邮件并更新相关状态。
  * @param client 参数说明。
  * @param payload 载荷参数。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新NextDelete邮件相关状态。
  */
 
     async handleNextDeleteMail(client, payload) {

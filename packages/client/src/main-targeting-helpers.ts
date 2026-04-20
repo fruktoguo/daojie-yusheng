@@ -11,37 +11,37 @@ import {
 /** 记录当前待执行动作的目标参数，供落点、范围和目标解析复用。 */
 export type TargetingActionState = {
 /**
- * actionId：对象字段。
+ * actionId：actionID标识。
  */
 
   actionId: string;  
   /**
- * range：对象字段。
+ * range：范围相关字段。
  */
 
   range: number;  
   /**
- * shape：对象字段。
+ * shape：shape相关字段。
  */
 
   shape?: TargetingShape;  
   /**
- * radius：对象字段。
+ * radius：radiu相关字段。
  */
 
   radius?: number;  
   /**
- * width：对象字段。
+ * width：width相关字段。
  */
 
   width?: number;  
   /**
- * height：对象字段。
+ * height：height相关字段。
  */
 
   height?: number;  
   /**
- * targetMode：对象字段。
+ * targetMode：目标Mode相关字段。
  */
 
   targetMode?: string;
@@ -50,22 +50,22 @@ export type TargetingActionState = {
 /** 落点或候选实体的轻量快照，仅保留坐标和类型信息。 */
 export type TargetingTarget = {
 /**
- * x：对象字段。
+ * x：x相关字段。
  */
 
   x: number;  
   /**
- * y：对象字段。
+ * y：y相关字段。
  */
 
   y: number;  
   /**
- * entityId：对象字段。
+ * entityId：entityID标识。
  */
 
   entityId?: string;  
   /**
- * entityKind：对象字段。
+ * entityKind：entityKind相关字段。
  */
 
   entityKind?: string;
@@ -74,17 +74,17 @@ export type TargetingTarget = {
 /** 用于判定命中范围的实体轻量对象。 */
 export type TargetingEntityLike = {
 /**
- * kind：对象字段。
+ * kind：kind相关字段。
  */
 
   kind?: string;  
   /**
- * wx：对象字段。
+ * wx：wx相关字段。
  */
 
   wx: number;  
   /**
- * wy：对象字段。
+ * wy：wy相关字段。
  */
 
   wy: number;
@@ -93,12 +93,12 @@ export type TargetingEntityLike = {
 /** 用于判断格子上是否存在可作用地块的轻量对象。 */
 export type TargetTileLike = {
 /**
- * hp：对象字段。
+ * hp：hp相关字段。
  */
 
   hp?: number;  
   /**
- * maxHp：对象字段。
+ * maxHp：maxHp相关字段。
  */
 
   maxHp?: number;
@@ -202,17 +202,17 @@ export function hasAffectableTargetInArea(
   myPlayer: PlayerState | null,
   args: {  
   /**
- * entities：对象字段。
+ * entities：entity相关字段。
  */
 
     entities: ReadonlyArray<TargetingEntityLike>;    
     /**
- * getTile：对象字段。
+ * getTile：Tile相关字段。
  */
 
     getTile: (x: number, y: number) => TargetTileLike | null;    
     /**
- * isPlayerLikeEntityKind：对象字段。
+ * isPlayerLikeEntityKind：启用开关或状态标识。
  */
 
     isPlayerLikeEntityKind: (kind: string | null | undefined) => boolean;

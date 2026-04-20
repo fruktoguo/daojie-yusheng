@@ -7,12 +7,12 @@ export type MailFilter = 'all' | 'unread' | 'claimable';
 /** 邮件附件 */
 export interface MailAttachment {
 /**
- * itemId：MailAttachment 内部字段。
+ * itemId：道具ID标识。
  */
 
   itemId: string;  
   /**
- * count：MailAttachment 内部字段。
+ * count：数量或计量字段。
  */
 
   count: number;
@@ -22,54 +22,54 @@ export interface MailAttachment {
 export type MailTemplateArg =
   | {  
   /**
- * kind：对象字段。
+ * kind：kind相关字段。
  */
  kind: 'text';  
  /**
- * value：对象字段。
+ * value：值数值。
  */
  value: string }
   | {  
   /**
- * kind：对象字段。
+ * kind：kind相关字段。
  */
  kind: 'number';  
  /**
- * value：对象字段。
+ * value：值数值。
  */
  value: number }
   | {  
   /**
- * kind：对象字段。
+ * kind：kind相关字段。
  */
  kind: 'item';  
  /**
- * itemId：对象字段。
+ * itemId：道具ID标识。
  */
  itemId: string;  
  /**
- * label：对象字段。
+ * label：label名称或显示文本。
  */
  label?: string;  
  /**
- * count：对象字段。
+ * count：数量或计量字段。
  */
  count?: number };
 
 /** 邮件概览摘要 */
 export interface MailSummaryView {
 /**
- * unreadCount：MailSummaryView 内部字段。
+ * unreadCount：数量或计量字段。
  */
 
   unreadCount: number;  
   /**
- * claimableCount：MailSummaryView 内部字段。
+ * claimableCount：数量或计量字段。
  */
 
   claimableCount: number;  
   /**
- * revision：MailSummaryView 内部字段。
+ * revision：revision相关字段。
  */
 
   revision: number;
@@ -78,47 +78,47 @@ export interface MailSummaryView {
 /** 邮件列表条目 */
 export interface MailListEntryView {
 /**
- * mailId：MailListEntryView 内部字段。
+ * mailId：邮件ID标识。
  */
 
   mailId: string;  
   /**
- * title：MailListEntryView 内部字段。
+ * title：title名称或显示文本。
  */
 
   title: string;  
   /**
- * summary：MailListEntryView 内部字段。
+ * summary：摘要状态或数据块。
  */
 
   summary: string;  
   /**
- * senderLabel：MailListEntryView 内部字段。
+ * senderLabel：senderLabel名称或显示文本。
  */
 
   senderLabel: string;  
   /**
- * createdAt：MailListEntryView 内部字段。
+ * createdAt：createdAt相关字段。
  */
 
   createdAt: number;  
   /**
- * expireAt：MailListEntryView 内部字段。
+ * expireAt：expireAt相关字段。
  */
 
   expireAt?: number | null;  
   /**
- * hasAttachments：MailListEntryView 内部字段。
+ * hasAttachments：启用开关或状态标识。
  */
 
   hasAttachments: boolean;  
   /**
- * read：MailListEntryView 内部字段。
+ * read：read相关字段。
  */
 
   read: boolean;  
   /**
- * claimed：MailListEntryView 内部字段。
+ * claimed：claimed相关字段。
  */
 
   claimed: boolean;
@@ -127,32 +127,32 @@ export interface MailListEntryView {
 /** 邮件分页结果 */
 export interface MailPageView {
 /**
- * items：MailPageView 内部字段。
+ * items：集合字段。
  */
 
   items: MailListEntryView[];  
   /**
- * total：MailPageView 内部字段。
+ * total：数量或计量字段。
  */
 
   total: number;  
   /**
- * page：MailPageView 内部字段。
+ * page：page相关字段。
  */
 
   page: number;  
   /**
- * pageSize：MailPageView 内部字段。
+ * pageSize：数量或计量字段。
  */
 
   pageSize: number;  
   /**
- * totalPages：MailPageView 内部字段。
+ * totalPages：totalPage相关字段。
  */
 
   totalPages: number;  
   /**
- * filter：MailPageView 内部字段。
+ * filter：filter相关字段。
  */
 
   filter: MailFilter;
@@ -161,62 +161,62 @@ export interface MailPageView {
 /** 邮件详情 */
 export interface MailDetailView {
 /**
- * mailId：MailDetailView 内部字段。
+ * mailId：邮件ID标识。
  */
 
   mailId: string;  
   /**
- * senderLabel：MailDetailView 内部字段。
+ * senderLabel：senderLabel名称或显示文本。
  */
 
   senderLabel: string;  
   /**
- * createdAt：MailDetailView 内部字段。
+ * createdAt：createdAt相关字段。
  */
 
   createdAt: number;  
   /**
- * expireAt：MailDetailView 内部字段。
+ * expireAt：expireAt相关字段。
  */
 
   expireAt?: number | null;  
   /**
- * templateId：MailDetailView 内部字段。
+ * templateId：templateID标识。
  */
 
   templateId?: string | null;  
   /**
- * args：MailDetailView 内部字段。
+ * args：arg相关字段。
  */
 
   args: MailTemplateArg[];  
   /**
- * fallbackTitle：MailDetailView 内部字段。
+ * fallbackTitle：fallbackTitle名称或显示文本。
  */
 
   fallbackTitle?: string | null;  
   /**
- * fallbackBody：MailDetailView 内部字段。
+ * fallbackBody：fallbackBody相关字段。
  */
 
   fallbackBody?: string | null;  
   /**
- * attachments：MailDetailView 内部字段。
+ * attachments：attachment相关字段。
  */
 
   attachments: MailAttachment[];  
   /**
- * read：MailDetailView 内部字段。
+ * read：read相关字段。
  */
 
   read: boolean;  
   /**
- * claimed：MailDetailView 内部字段。
+ * claimed：claimed相关字段。
  */
 
   claimed: boolean;  
   /**
- * deletable：MailDetailView 内部字段。
+ * deletable：缓存或索引容器。
  */
 
   deletable: boolean;

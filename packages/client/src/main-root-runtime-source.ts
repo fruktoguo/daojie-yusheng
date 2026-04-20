@@ -8,12 +8,12 @@ import type { MainRuntimeObservedEntity } from './main-runtime-view-types';
 
 type MainRootRuntimeSourceOptions = {
 /**
- * replaceVisibleEntities：对象字段。
+ * replaceVisibleEntities：可见Entity相关字段。
  */
 
   replaceVisibleEntities: (entities: MainRuntimeObservedEntity[]) => void;  
   /**
- * getLatestObservedEntitiesSnapshot：对象字段。
+ * getLatestObservedEntitiesSnapshot：LatestObservedEntity快照状态或数据块。
  */
 
   getLatestObservedEntitiesSnapshot: () => readonly ObservedMapEntity[];
@@ -27,7 +27,7 @@ export type MainRootRuntimeSource = ReturnType<typeof createMainRootRuntimeSourc
 /**
  * createMainRootRuntimeSource：构建并返回目标对象。
  * @param options MainRootRuntimeSourceOptions 选项参数。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新Main根容器运行态来源相关状态。
  */
 
 
@@ -36,9 +36,9 @@ export function createMainRootRuntimeSource(options: MainRootRuntimeSourceOption
   let latestEntities: MainRuntimeObservedEntity[] = [];
   let latestEntityMap = new Map<string, MainRuntimeObservedEntity>();  
   /**
- * setLatestObservedEntities：更新/写入相关状态。
+ * setLatestObservedEntities：写入最新ObservedEntity。
  * @param entities MainRuntimeObservedEntity[] 参数说明。
- * @returns void。
+ * @returns 无返回值，直接更新LatestObservedEntity相关状态。
  */
 
 
@@ -46,9 +46,9 @@ export function createMainRootRuntimeSource(options: MainRootRuntimeSourceOption
     latestEntities = entities;
   }  
   /**
- * setLatestObservedEntityMap：更新/写入相关状态。
+ * setLatestObservedEntityMap：写入最新ObservedEntity地图。
  * @param map Map<string, MainRuntimeObservedEntity> 地图信息。
- * @returns void。
+ * @returns 无返回值，直接更新LatestObservedEntity地图相关状态。
  */
 
 
@@ -56,8 +56,8 @@ export function createMainRootRuntimeSource(options: MainRootRuntimeSourceOption
     latestEntityMap = map;
   }  
   /**
- * syncObservedSnapshot：执行核心业务逻辑。
- * @returns MainRuntimeObservedEntity[]。
+ * syncObservedSnapshot：处理Observed快照并更新相关状态。
+ * @returns 返回Observed快照列表。
  */
 
 
@@ -72,10 +72,10 @@ export function createMainRootRuntimeSource(options: MainRootRuntimeSourceOption
     return entities;
   }  
   /**
- * patchVisibleEntity：执行核心业务逻辑。
+ * patchVisibleEntity：判断patch可见Entity是否满足条件。
  * @param playerId string 玩家 ID。
  * @param patch Partial<Pick<MainRuntimeObservedEntity, 'char' | 'name'>> 参数说明。
- * @returns void。
+ * @returns 无返回值，直接更新patch可见Entity相关状态。
  */
 
 
@@ -99,17 +99,17 @@ export function createMainRootRuntimeSource(options: MainRootRuntimeSourceOption
 
   return {  
   /**
- * getPlayer：按给定条件读取/查询数据。
- * @returns PlayerState | null。
+ * getPlayer：读取玩家。
+ * @returns 返回玩家。
  */
 
     getPlayer(): PlayerState | null {
       return player;
     },    
     /**
- * setPlayer：更新/写入相关状态。
+ * setPlayer：写入玩家。
  * @param nextPlayer PlayerState | null 参数说明。
- * @returns void。
+ * @returns 无返回值，直接更新玩家相关状态。
  */
 
 
@@ -117,8 +117,8 @@ export function createMainRootRuntimeSource(options: MainRootRuntimeSourceOption
       player = nextPlayer;
     },    
     /**
- * hasPlayer：执行状态校验并返回判断结果。
- * @returns boolean。
+ * hasPlayer：判断玩家是否满足条件。
+ * @returns 返回是否满足玩家条件。
  */
 
 
@@ -126,8 +126,8 @@ export function createMainRootRuntimeSource(options: MainRootRuntimeSourceOption
       return Boolean(player);
     },    
     /**
- * clearPlayer：执行核心业务逻辑。
- * @returns void。
+ * clearPlayer：执行clear玩家相关逻辑。
+ * @returns 无返回值，直接更新clear玩家相关状态。
  */
 
 
@@ -135,9 +135,9 @@ export function createMainRootRuntimeSource(options: MainRootRuntimeSourceOption
       player = null;
     },    
     /**
- * setPlayerFacing：更新/写入相关状态。
+ * setPlayerFacing：写入玩家Facing。
  * @param direction Direction 方向参数。
- * @returns void。
+ * @returns 无返回值，直接更新玩家Facing相关状态。
  */
 
 
@@ -147,8 +147,8 @@ export function createMainRootRuntimeSource(options: MainRootRuntimeSourceOption
       }
     },    
     /**
- * getLatestEntities：按给定条件读取/查询数据。
- * @returns MainRuntimeObservedEntity[]。
+ * getLatestEntities：读取最新Entity。
+ * @returns 返回LatestEntity列表。
  */
 
 
@@ -156,9 +156,9 @@ export function createMainRootRuntimeSource(options: MainRootRuntimeSourceOption
       return latestEntities;
     },    
     /**
- * getLatestEntityById：按给定条件读取/查询数据。
+ * getLatestEntityById：读取最新EntityByID。
  * @param id string 参数说明。
- * @returns MainRuntimeObservedEntity | undefined。
+ * @returns 返回LatestEntityByID。
  */
 
 
@@ -170,8 +170,8 @@ export function createMainRootRuntimeSource(options: MainRootRuntimeSourceOption
     setLatestObservedEntityMap,
     syncObservedSnapshot,    
     /**
- * clearObservedEntities：执行核心业务逻辑。
- * @returns void。
+ * clearObservedEntities：执行clearObservedEntity相关逻辑。
+ * @returns 无返回值，直接更新clearObservedEntity相关状态。
  */
 
 
@@ -180,10 +180,10 @@ export function createMainRootRuntimeSource(options: MainRootRuntimeSourceOption
       latestEntityMap.clear();
     },    
     /**
- * applyVisibleDisplayName：更新/写入相关状态。
+ * applyVisibleDisplayName：判断可见显示名称是否满足条件。
  * @param playerId string 玩家 ID。
  * @param displayName string 参数说明。
- * @returns void。
+ * @returns 无返回值，直接更新可见显示名称相关状态。
  */
 
 
@@ -193,10 +193,10 @@ export function createMainRootRuntimeSource(options: MainRootRuntimeSourceOption
       });
     },    
     /**
- * applyVisibleRoleName：更新/写入相关状态。
+ * applyVisibleRoleName：判断可见Role名称是否满足条件。
  * @param playerId string 玩家 ID。
  * @param roleName string 参数说明。
- * @returns void。
+ * @returns 无返回值，直接更新可见Role名称相关状态。
  */
 
 

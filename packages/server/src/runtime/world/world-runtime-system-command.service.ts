@@ -27,27 +27,27 @@ const world_runtime_gm_system_command_service_1 = require("./world-runtime-gm-sy
 /** world-runtime system-command orchestration：承接系统命令队列消费与分发。 */
 let WorldRuntimeSystemCommandService = class WorldRuntimeSystemCommandService {
 /**
- * worldRuntimeGmQueueService：对象字段。
+ * worldRuntimeGmQueueService：世界运行态GMQueue服务引用。
  */
 
     worldRuntimeGmQueueService;    
     /**
- * worldRuntimeMonsterSystemCommandService：对象字段。
+ * worldRuntimeMonsterSystemCommandService：世界运行态怪物SystemCommand服务引用。
  */
 
     worldRuntimeMonsterSystemCommandService;    
     /**
- * worldRuntimePlayerCombatOutcomeService：对象字段。
+ * worldRuntimePlayerCombatOutcomeService：世界运行态玩家战斗Outcome服务引用。
  */
 
     worldRuntimePlayerCombatOutcomeService;    
     /**
- * worldRuntimeGmSystemCommandService：对象字段。
+ * worldRuntimeGmSystemCommandService：世界运行态GMSystemCommand服务引用。
  */
 
     worldRuntimeGmSystemCommandService;    
     /**
- * logger：对象字段。
+ * logger：日志器引用。
  */
 
     logger = new common_1.Logger(WorldRuntimeSystemCommandService.name);    
@@ -57,7 +57,7 @@ let WorldRuntimeSystemCommandService = class WorldRuntimeSystemCommandService {
  * @param worldRuntimeMonsterSystemCommandService 参数说明。
  * @param worldRuntimePlayerCombatOutcomeService 参数说明。
  * @param worldRuntimeGmSystemCommandService 参数说明。
- * @returns 无返回值（构造函数）。
+ * @returns 无返回值，完成实例初始化。
  */
 
     constructor(worldRuntimeGmQueueService, worldRuntimeMonsterSystemCommandService, worldRuntimePlayerCombatOutcomeService, worldRuntimeGmSystemCommandService) {
@@ -67,9 +67,9 @@ let WorldRuntimeSystemCommandService = class WorldRuntimeSystemCommandService {
         this.worldRuntimeGmSystemCommandService = worldRuntimeGmSystemCommandService;
     }    
     /**
- * dispatchPendingSystemCommands：处理事件并驱动执行路径。
+ * dispatchPendingSystemCommands：判断待处理SystemCommand是否满足条件。
  * @param deps 运行时依赖。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新PendingSystemCommand相关状态。
  */
 
     dispatchPendingSystemCommands(deps) {
@@ -90,10 +90,10 @@ let WorldRuntimeSystemCommandService = class WorldRuntimeSystemCommandService {
         }
     }    
     /**
- * dispatchSystemCommand：处理事件并驱动执行路径。
+ * dispatchSystemCommand：判断SystemCommand是否满足条件。
  * @param command 输入指令。
  * @param deps 运行时依赖。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新SystemCommand相关状态。
  */
 
     dispatchSystemCommand(command, deps) {

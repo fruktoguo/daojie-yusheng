@@ -4,8 +4,8 @@ const assert = require("node:assert/strict");
 
 const { WorldRuntimeNpcAccessService } = require("../runtime/world/world-runtime-npc-access.service");
 /**
- * testResolveAdjacentNpcSuccess：执行核心业务逻辑。
- * @returns 函数返回值。
+ * testResolveAdjacentNpcSuccess：规范化或转换testResolveAdjacentNPCSuccess。
+ * @returns 无返回值，直接更新testResolveAdjacentNPCSuccess相关状态。
  */
 
 
@@ -14,25 +14,25 @@ function testResolveAdjacentNpcSuccess() {
     const npc = { npcId: 'npc_a', name: '阿青' };
     const result = service.resolveAdjacentNpc('player:1', 'npc_a', {    
     /**
- * getPlayerLocationOrThrow：按给定条件读取/查询数据。
- * @returns 函数返回值。
+ * getPlayerLocationOrThrow：读取玩家位置OrThrow。
+ * @returns 无返回值，完成玩家位置OrThrow的读取/组装。
  */
 
         getPlayerLocationOrThrow() {
             return { instanceId: 'public:yunlai_town' };
         },        
         /**
- * getInstanceRuntimeOrThrow：按给定条件读取/查询数据。
- * @returns 函数返回值。
+ * getInstanceRuntimeOrThrow：读取Instance运行态OrThrow。
+ * @returns 无返回值，完成Instance运行态OrThrow的读取/组装。
  */
 
         getInstanceRuntimeOrThrow() {
             return {            
             /**
- * getAdjacentNpc：按给定条件读取/查询数据。
+ * getAdjacentNpc：读取AdjacentNPC。
  * @param playerId 玩家 ID。
  * @param npcId npc ID。
- * @returns 函数返回值。
+ * @returns 无返回值，完成AdjacentNPC的读取/组装。
  */
 
                 getAdjacentNpc(playerId, npcId) {
@@ -46,8 +46,8 @@ function testResolveAdjacentNpcSuccess() {
     assert.equal(result, npc);
 }
 /**
- * testResolveAdjacentNpcMissingLocationPassesThrough：执行核心业务逻辑。
- * @returns 函数返回值。
+ * testResolveAdjacentNpcMissingLocationPassesThrough：判断testResolveAdjacentNPCMissing位置PasseThrough是否满足条件。
+ * @returns 无返回值，直接更新testResolveAdjacentNPCMissing位置PasseThrough相关状态。
  */
 
 
@@ -55,16 +55,16 @@ function testResolveAdjacentNpcMissingLocationPassesThrough() {
     const service = new WorldRuntimeNpcAccessService();
     assert.throws(() => service.resolveAdjacentNpc('player:1', 'npc_a', {    
     /**
- * getPlayerLocationOrThrow：按给定条件读取/查询数据。
- * @returns 函数返回值。
+ * getPlayerLocationOrThrow：读取玩家位置OrThrow。
+ * @returns 无返回值，完成玩家位置OrThrow的读取/组装。
  */
 
         getPlayerLocationOrThrow() {
             throw new Error('location missing');
         },        
         /**
- * getInstanceRuntimeOrThrow：按给定条件读取/查询数据。
- * @returns 函数返回值。
+ * getInstanceRuntimeOrThrow：读取Instance运行态OrThrow。
+ * @returns 无返回值，完成Instance运行态OrThrow的读取/组装。
  */
 
         getInstanceRuntimeOrThrow() {
@@ -73,8 +73,8 @@ function testResolveAdjacentNpcMissingLocationPassesThrough() {
     }), /location missing/);
 }
 /**
- * testResolveAdjacentNpcMissingInstancePassesThrough：执行核心业务逻辑。
- * @returns 函数返回值。
+ * testResolveAdjacentNpcMissingInstancePassesThrough：判断testResolveAdjacentNPCMissingInstancePasseThrough是否满足条件。
+ * @returns 无返回值，直接更新testResolveAdjacentNPCMissingInstancePasseThrough相关状态。
  */
 
 
@@ -82,17 +82,17 @@ function testResolveAdjacentNpcMissingInstancePassesThrough() {
     const service = new WorldRuntimeNpcAccessService();
     assert.throws(() => service.resolveAdjacentNpc('player:1', 'npc_a', {    
     /**
- * getPlayerLocationOrThrow：按给定条件读取/查询数据。
- * @returns 函数返回值。
+ * getPlayerLocationOrThrow：读取玩家位置OrThrow。
+ * @returns 无返回值，完成玩家位置OrThrow的读取/组装。
  */
 
         getPlayerLocationOrThrow() {
             return { instanceId: 'missing' };
         },        
         /**
- * getInstanceRuntimeOrThrow：按给定条件读取/查询数据。
+ * getInstanceRuntimeOrThrow：读取Instance运行态OrThrow。
  * @param instanceId instance ID。
- * @returns 函数返回值。
+ * @returns 无返回值，完成Instance运行态OrThrow的读取/组装。
  */
 
         getInstanceRuntimeOrThrow(instanceId) {
@@ -102,8 +102,8 @@ function testResolveAdjacentNpcMissingInstancePassesThrough() {
     }), /instance missing/);
 }
 /**
- * testResolveAdjacentNpcThrowsWhenTooFar：执行核心业务逻辑。
- * @returns 函数返回值。
+ * testResolveAdjacentNpcThrowsWhenTooFar：规范化或转换testResolveAdjacentNPCThrowWhenTooFar。
+ * @returns 无返回值，直接更新testResolveAdjacentNPCThrowWhenTooFar相关状态。
  */
 
 
@@ -111,23 +111,23 @@ function testResolveAdjacentNpcThrowsWhenTooFar() {
     const service = new WorldRuntimeNpcAccessService();
     assert.throws(() => service.resolveAdjacentNpc('player:1', 'npc_a', {    
     /**
- * getPlayerLocationOrThrow：按给定条件读取/查询数据。
- * @returns 函数返回值。
+ * getPlayerLocationOrThrow：读取玩家位置OrThrow。
+ * @returns 无返回值，完成玩家位置OrThrow的读取/组装。
  */
 
         getPlayerLocationOrThrow() {
             return { instanceId: 'public:yunlai_town' };
         },        
         /**
- * getInstanceRuntimeOrThrow：按给定条件读取/查询数据。
- * @returns 函数返回值。
+ * getInstanceRuntimeOrThrow：读取Instance运行态OrThrow。
+ * @returns 无返回值，完成Instance运行态OrThrow的读取/组装。
  */
 
         getInstanceRuntimeOrThrow() {
             return {            
             /**
- * getAdjacentNpc：按给定条件读取/查询数据。
- * @returns 函数返回值。
+ * getAdjacentNpc：读取AdjacentNPC。
+ * @returns 无返回值，完成AdjacentNPC的读取/组装。
  */
 
                 getAdjacentNpc() {
@@ -138,8 +138,8 @@ function testResolveAdjacentNpcThrowsWhenTooFar() {
     }), (error) => error?.name === 'NotFoundException' && error?.message === '你离这位商人太远了');
 }
 /**
- * testGetNpcForPlayerMapSuccess：执行核心业务逻辑。
- * @returns 函数返回值。
+ * testGetNpcForPlayerMapSuccess：读取testGetNPCFor玩家地图Success并返回结果。
+ * @returns 无返回值，直接更新testGetNPCFor玩家地图Success相关状态。
  */
 
 
@@ -148,9 +148,9 @@ function testGetNpcForPlayerMapSuccess() {
     const npc = { npcId: 'npc_a', name: '阿青' };
     const instanceRuntimes = new Map([['public:yunlai_town', {    
     /**
- * getNpc：按给定条件读取/查询数据。
+ * getNpc：读取NPC。
  * @param npcId npc ID。
- * @returns 函数返回值。
+ * @returns 无返回值，完成NPC的读取/组装。
  */
 
         getNpc(npcId) {
@@ -160,9 +160,9 @@ function testGetNpcForPlayerMapSuccess() {
     }]]);
     const result = service.getNpcForPlayerMap('player:1', 'npc_a', {    
     /**
- * getPlayerLocation：按给定条件读取/查询数据。
+ * getPlayerLocation：读取玩家位置。
  * @param playerId 玩家 ID。
- * @returns 函数返回值。
+ * @returns 无返回值，完成玩家位置的读取/组装。
  */
 
         getPlayerLocation(playerId) {
@@ -170,9 +170,9 @@ function testGetNpcForPlayerMapSuccess() {
             return { instanceId: 'public:yunlai_town' };
         },        
         /**
- * getInstanceRuntime：按给定条件读取/查询数据。
+ * getInstanceRuntime：读取Instance运行态。
  * @param instanceId instance ID。
- * @returns 函数返回值。
+ * @returns 无返回值，完成Instance运行态的读取/组装。
  */
 
         getInstanceRuntime(instanceId) {
@@ -182,8 +182,8 @@ function testGetNpcForPlayerMapSuccess() {
     assert.equal(result, npc);
 }
 /**
- * testGetNpcForPlayerMapReturnsNullWithoutLocation：执行核心业务逻辑。
- * @returns 函数返回值。
+ * testGetNpcForPlayerMapReturnsNullWithoutLocation：读取testGetNPCFor玩家地图ReturnNullWithout位置并返回结果。
+ * @returns 无返回值，直接更新testGetNPCFor玩家地图ReturnNullWithout位置相关状态。
  */
 
 
@@ -191,16 +191,16 @@ function testGetNpcForPlayerMapReturnsNullWithoutLocation() {
     const service = new WorldRuntimeNpcAccessService();
     const result = service.getNpcForPlayerMap('player:1', 'npc_a', {    
     /**
- * getPlayerLocation：按给定条件读取/查询数据。
- * @returns 函数返回值。
+ * getPlayerLocation：读取玩家位置。
+ * @returns 无返回值，完成玩家位置的读取/组装。
  */
 
         getPlayerLocation() {
             return null;
         },        
         /**
- * getInstanceRuntime：按给定条件读取/查询数据。
- * @returns 函数返回值。
+ * getInstanceRuntime：读取Instance运行态。
+ * @returns 无返回值，完成Instance运行态的读取/组装。
  */
 
         getInstanceRuntime() {
@@ -210,8 +210,8 @@ function testGetNpcForPlayerMapReturnsNullWithoutLocation() {
     assert.equal(result, null);
 }
 /**
- * testGetNpcForPlayerMapReturnsNullWithoutInstance：执行核心业务逻辑。
- * @returns 函数返回值。
+ * testGetNpcForPlayerMapReturnsNullWithoutInstance：读取testGetNPCFor玩家地图ReturnNullWithoutInstance并返回结果。
+ * @returns 无返回值，直接更新testGetNPCFor玩家地图ReturnNullWithoutInstance相关状态。
  */
 
 
@@ -219,16 +219,16 @@ function testGetNpcForPlayerMapReturnsNullWithoutInstance() {
     const service = new WorldRuntimeNpcAccessService();
     const result = service.getNpcForPlayerMap('player:1', 'npc_a', {    
     /**
- * getPlayerLocation：按给定条件读取/查询数据。
- * @returns 函数返回值。
+ * getPlayerLocation：读取玩家位置。
+ * @returns 无返回值，完成玩家位置的读取/组装。
  */
 
         getPlayerLocation() {
             return { instanceId: 'missing' };
         },        
         /**
- * getInstanceRuntime：按给定条件读取/查询数据。
- * @returns 函数返回值。
+ * getInstanceRuntime：读取Instance运行态。
+ * @returns 无返回值，完成Instance运行态的读取/组装。
  */
 
         getInstanceRuntime() {

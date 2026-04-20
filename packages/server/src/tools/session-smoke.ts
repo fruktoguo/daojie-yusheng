@@ -697,9 +697,9 @@ async function runWorldSessionReaperSuccessProof() {
  */
     const reaper = new world_session_reaper_service_1.WorldSessionReaperService(service, {    
     /**
- * clearDetachedPlayerCaches：执行核心业务逻辑。
+ * clearDetachedPlayerCaches：执行clearDetached玩家缓存相关逻辑。
  * @param targetPlayerId targetPlayer ID。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新clearDetached玩家缓存相关状态。
  */
 
         clearDetachedPlayerCaches(targetPlayerId) {
@@ -707,9 +707,9 @@ async function runWorldSessionReaperSuccessProof() {
         },
     }, {    
     /**
- * flushPlayer：执行核心业务逻辑。
+ * flushPlayer：执行刷新玩家相关逻辑。
  * @param targetPlayerId targetPlayer ID。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新flush玩家相关状态。
  */
 
         async flushPlayer(targetPlayerId) {
@@ -774,9 +774,9 @@ async function runWorldSessionReaperRetryProof() {
  */
     const reaper = new world_session_reaper_service_1.WorldSessionReaperService(service, {    
     /**
- * clearDetachedPlayerCaches：执行核心业务逻辑。
+ * clearDetachedPlayerCaches：执行clearDetached玩家缓存相关逻辑。
  * @param targetPlayerId targetPlayer ID。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新clearDetached玩家缓存相关状态。
  */
 
         clearDetachedPlayerCaches(targetPlayerId) {
@@ -784,9 +784,9 @@ async function runWorldSessionReaperRetryProof() {
         },
     }, {    
     /**
- * flushPlayer：执行核心业务逻辑。
+ * flushPlayer：执行刷新玩家相关逻辑。
  * @param targetPlayerId targetPlayer ID。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新flush玩家相关状态。
  */
 
         async flushPlayer(targetPlayerId) {
@@ -832,15 +832,15 @@ function createMockSocket(id) {
     return {
         id,        
         /**
- * emit：执行核心业务逻辑。
- * @returns 函数返回值。
+ * emit：处理emit并更新相关状态。
+ * @returns 无返回值，直接更新结果相关状态。
  */
 
         emit() {
         },        
         /**
- * disconnect：执行核心业务逻辑。
- * @returns 函数返回值。
+ * disconnect：判断disconnect是否满足条件。
+ * @returns 无返回值，直接更新disconnect相关状态。
  */
 
         disconnect() {

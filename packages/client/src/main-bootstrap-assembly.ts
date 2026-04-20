@@ -70,63 +70,63 @@ type ToastKind =
 
 type MainBootstrapAssemblyOptions = {
 /**
- * windowRef：对象字段。
+ * windowRef：窗口Ref相关字段。
  */
 
   windowRef: Window;  
   /**
- * documentRef：对象字段。
+ * documentRef：documentRef相关字段。
  */
 
   documentRef: Document;  
   /**
- * canvasHost：对象字段。
+ * canvasHost：canvaHost相关字段。
  */
 
   canvasHost: HTMLElement;  
   /**
- * joinQqGroupBtns：对象字段。
+ * joinQqGroupBtns：joinQqGroupBtn相关字段。
  */
 
   joinQqGroupBtns: Iterable<HTMLAnchorElement>;  
   /**
- * observeModalEl：对象字段。
+ * observeModalEl：observe弹层El相关字段。
  */
 
   observeModalEl: HTMLElement | null;  
   /**
- * observeModalShellEl：对象字段。
+ * observeModalShellEl：observe弹层ShellEl相关字段。
  */
 
   observeModalShellEl: HTMLElement | null;  
   /**
- * qqGroupNumber：对象字段。
+ * qqGroupNumber：qqGroupNumber相关字段。
  */
 
   qqGroupNumber: string;  
   /**
- * qqGroupMobileDeepLink：对象字段。
+ * qqGroupMobileDeepLink：qqGroupMobileDeepLink相关字段。
  */
 
   qqGroupMobileDeepLink: string;  
   /**
- * qqGroupDesktopDeepLink：对象字段。
+ * qqGroupDesktopDeepLink：qqGroupDesktopDeepLink相关字段。
  */
 
   qqGroupDesktopDeepLink: string;  
   /**
- * initialMapPerformanceConfig：对象字段。
+ * initialMapPerformanceConfig：initial地图Performance配置状态或数据块。
  */
 
   initialMapPerformanceConfig: {  
   /**
- * showFpsMonitor：对象字段。
+ * showFpsMonitor：showFpMonitor相关字段。
  */
 
     showFpsMonitor: boolean;
   };  
   /**
- * runtimeMonitorSource：对象字段。
+ * runtimeMonitorSource：运行态Monitor来源相关字段。
  */
 
   runtimeMonitorSource: Pick<
@@ -141,7 +141,7 @@ type MainBootstrapAssemblyOptions = {
     | 'renderPingLatency'
   >;  
   /**
- * panelRuntimeSource：对象字段。
+ * panelRuntimeSource：面板运行态来源相关字段。
  */
 
   panelRuntimeSource: Pick<
@@ -151,7 +151,7 @@ type MainBootstrapAssemblyOptions = {
     | 'setRuntimeShellVisible'
   >;  
   /**
- * mapRuntimeBridgeSource：对象字段。
+ * mapRuntimeBridgeSource：地图运行态桥接来源相关字段。
  */
 
   mapRuntimeBridgeSource: Pick<
@@ -181,12 +181,12 @@ type MainBootstrapAssemblyOptions = {
     | 'bindKeyboardInput'
   >;  
   /**
- * breakthroughStateSource：对象字段。
+ * breakthroughStateSource：breakthrough状态来源相关字段。
  */
 
   breakthroughStateSource: Pick<MainBreakthroughStateSource, 'openBreakthroughModal'>;  
   /**
- * uiStateSource：对象字段。
+ * uiStateSource：ui状态来源相关字段。
  */
 
   uiStateSource: Pick<
@@ -197,22 +197,22 @@ type MainBootstrapAssemblyOptions = {
     | 'scheduleLayoutViewportSync'
   >;  
   /**
- * attrDetailStateSource：对象字段。
+ * attrDetailStateSource：attr详情状态来源相关字段。
  */
 
   attrDetailStateSource: Pick<MainAttrDetailStateSource, 'requestDetail'>;  
   /**
- * targetingStateSource：对象字段。
+ * targetingStateSource：targeting状态来源相关字段。
  */
 
   targetingStateSource: Pick<MainTargetingStateSource, 'hasPendingTargetedAction'>;  
   /**
- * getPlayer：对象字段。
+ * getPlayer：玩家引用。
  */
 
   getPlayer: () => PlayerState | null;  
   /**
- * runtimeStateSource：对象字段。
+ * runtimeStateSource：运行态状态来源相关字段。
  */
 
   runtimeStateSource: Pick<
@@ -227,7 +227,7 @@ type MainBootstrapAssemblyOptions = {
     | 'handleMapStatic'
   >;  
   /**
- * detailStateSource：对象字段。
+ * detailStateSource：详情状态来源相关字段。
  */
 
   detailStateSource: Pick<
@@ -246,12 +246,12 @@ type MainBootstrapAssemblyOptions = {
     | 'handleNpcShop'
   >;  
   /**
- * suggestionStateSource：对象字段。
+ * suggestionStateSource：suggestion状态来源相关字段。
  */
 
   suggestionStateSource: Pick<MainSuggestionStateSource, 'handleSuggestionUpdate'>;  
   /**
- * mailStateSource：对象字段。
+ * mailStateSource：邮件状态来源相关字段。
  */
 
   mailStateSource: Pick<
@@ -262,12 +262,12 @@ type MainBootstrapAssemblyOptions = {
     | 'handleMailOpResult'
   >;  
   /**
- * settingsStateSource：对象字段。
+ * settingsStateSource：setting状态来源相关字段。
  */
 
   settingsStateSource: Pick<MainSettingsStateSource, 'handleRedeemCodesResult'>;  
   /**
- * marketStateSource：对象字段。
+ * marketStateSource：坊市状态来源相关字段。
  */
 
   marketStateSource: Pick<
@@ -280,12 +280,12 @@ type MainBootstrapAssemblyOptions = {
     | 'handleMarketTradeHistory'
   >;  
   /**
- * noticeStateSource：对象字段。
+ * noticeStateSource：notice状态来源相关字段。
  */
 
   noticeStateSource: Pick<MainNoticeStateSource, 'handleNotice'>;  
   /**
- * connectionStateSource：对象字段。
+ * connectionStateSource：connection状态来源相关字段。
  */
 
   connectionStateSource: Pick<
@@ -297,7 +297,7 @@ type MainBootstrapAssemblyOptions = {
     | 'handlePong'
   >;  
   /**
- * sidePanel：对象字段。
+ * sidePanel：side面板相关字段。
  */
 
   sidePanel: Pick<
@@ -308,129 +308,129 @@ type MainBootstrapAssemblyOptions = {
     | 'isVisible'
   >;  
   /**
- * chatUI：对象字段。
+ * chatUI：chatUI相关字段。
  */
 
   chatUI: Pick<ChatUI, 'setLogbookVisible' | 'setCallback'>;  
   /**
- * bodyTrainingPanel：对象字段。
+ * bodyTrainingPanel：bodyTraining面板相关字段。
  */
 
   bodyTrainingPanel: Pick<BodyTrainingPanel, 'setInfusionHandler'>;  
   /**
- * hud：对象字段。
+ * hud：hud相关字段。
  */
 
   hud: Pick<HUD, 'setCallbacks'>;  
   /**
- * lootPanel：对象字段。
+ * lootPanel：掉落面板相关字段。
  */
 
   lootPanel: Pick<LootPanel, 'setCallbacks' | 'clear'>;  
   /**
- * equipmentPanel：对象字段。
+ * equipmentPanel：装备面板相关字段。
  */
 
   equipmentPanel: Pick<EquipmentPanel, 'setCallbacks'>;  
   /**
- * npcShopModal：对象字段。
+ * npcShopModal：NPCShop弹层相关字段。
  */
 
   npcShopModal: Pick<NpcShopModal, 'setCallbacks' | 'open'>;  
   /**
- * craftWorkbenchModal：对象字段。
+ * craftWorkbenchModal：炼制Workbench弹层相关字段。
  */
 
   craftWorkbenchModal: Pick<CraftWorkbenchModal, 'setCallbacks' | 'openAlchemy' | 'openEnhancement'>;  
   /**
- * debugPanel：对象字段。
+ * debugPanel：debug面板相关字段。
  */
 
   debugPanel: Pick<DebugPanel, 'setCallbacks'>;  
   /**
- * mapRuntime：对象字段。
+ * mapRuntime：地图运行态引用。
  */
 
   mapRuntime: {  
   /**
- * attach：对象字段。
+ * attach：attach相关字段。
  */
 
     attach: (host: HTMLElement) => void;    
     /**
- * setMoveHandler：对象字段。
+ * setMoveHandler：MoveHandler相关字段。
  */
 
     setMoveHandler: (handler: (x: number, y: number) => void) => void;    
     /**
- * setInteractionCallbacks：对象字段。
+ * setInteractionCallbacks：InteractionCallback相关字段。
  */
 
     setInteractionCallbacks: (callbacks: {    
     /**
- * onTarget：对象字段。
+ * onTarget：on目标相关字段。
  */
 
       onTarget: (target: {      
       /**
- * x：对象字段。
+ * x：x相关字段。
  */
  x: number;      
  /**
- * y：对象字段。
+ * y：y相关字段。
  */
  y: number;      
  /**
- * clientX：对象字段。
+ * clientX：clientX相关字段。
  */
  clientX?: number;      
  /**
- * clientY：对象字段。
+ * clientY：clientY相关字段。
  */
  clientY?: number;      
  /**
- * entityId：对象字段。
+ * entityId：entityID标识。
  */
  entityId?: string;      
  /**
- * entityKind：对象字段。
+ * entityKind：entityKind相关字段。
  */
  entityKind?: string }) => void;      
  /**
- * onHover：对象字段。
+ * onHover：onHover相关字段。
  */
 
       onHover: (target: {      
       /**
- * x：对象字段。
+ * x：x相关字段。
  */
  x: number;      
  /**
- * y：对象字段。
+ * y：y相关字段。
  */
  y: number;      
  /**
- * clientX：对象字段。
+ * clientX：clientX相关字段。
  */
  clientX?: number;      
  /**
- * clientY：对象字段。
+ * clientY：clientY相关字段。
  */
  clientY?: number } | null) => void;
     }) => void;
   };  
   /**
- * socket：对象字段。
+ * socket：socket相关字段。
  */
 
   socket: Pick<SocketManager, 'on' | 'onKick' | 'onConnectError' | 'onDisconnect'>;  
   /**
- * runtimeSender：对象字段。
+ * runtimeSender：运行态Sender相关字段。
  */
 
   runtimeSender: Pick<SocketRuntimeSender, 'sendAction' | 'sendCastSkill'>;  
   /**
- * panelSender：对象字段。
+ * panelSender：面板Sender相关字段。
  */
 
   panelSender: Pick<
@@ -449,35 +449,35 @@ type MainBootstrapAssemblyOptions = {
     | 'sendRequestWorldSummary'
   >;  
   /**
- * socialEconomySender：对象字段。
+ * socialEconomySender：socialEconomySender相关字段。
  */
 
   socialEconomySender: Pick<SocketSocialEconomySender, 'sendChat'>;  
   /**
- * adminSender：对象字段。
+ * adminSender：adminSender相关字段。
  */
 
   adminSender: Pick<SocketAdminSender, 'sendDebugResetSpawn'>;  
   /**
- * loginUI：对象字段。
+ * loginUI：loginUI相关字段。
  */
 
   loginUI: Pick<LoginUI, 'restoreSession'>;  
   /**
- * showToast：对象字段。
+ * showToast：showToast相关字段。
  */
 
   showToast: (message: string, kind?: ToastKind) => void;  
   /**
- * syncTargetingOverlay：对象字段。
+ * syncTargetingOverlay：TargetingOverlay相关字段。
  */
 
   syncTargetingOverlay: () => void;
 };
 /**
- * bootstrapMainApp：执行核心业务逻辑。
+ * bootstrapMainApp：执行引导MainApp相关逻辑。
  * @param options MainBootstrapAssemblyOptions 选项参数。
- * @returns void。
+ * @returns 无返回值，直接更新bootstrapMainApp相关状态。
  */
 
 

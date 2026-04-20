@@ -14,57 +14,57 @@ import { QuestPanel } from './ui/panels/quest-panel';
 
 type MainQuestStateSourceOptions = {
 /**
- * questPanel：对象字段。
+ * questPanel：任务面板相关字段。
  */
 
   questPanel: QuestPanel;  
   /**
- * npcQuestModal：对象字段。
+ * npcQuestModal：NPC任务弹层相关字段。
  */
 
   npcQuestModal: NpcQuestModal;  
   /**
- * clearCurrentPath：对象字段。
+ * clearCurrentPath：clearCurrent路径相关字段。
  */
 
   clearCurrentPath: () => void;  
   /**
- * sendNavigateQuest：对象字段。
+ * sendNavigateQuest：sendNavigate任务相关字段。
  */
 
   sendNavigateQuest: (questId: string) => void;  
   /**
- * sendRequestQuests：对象字段。
+ * sendRequestQuests：集合字段。
  */
 
   sendRequestQuests: () => void;  
   /**
- * sendRequestNpcQuests：对象字段。
+ * sendRequestNpcQuests：集合字段。
  */
 
   sendRequestNpcQuests: (npcId: string) => void;  
   /**
- * sendAcceptNpcQuest：对象字段。
+ * sendAcceptNpcQuest：sendAcceptNPC任务相关字段。
  */
 
   sendAcceptNpcQuest: (npcId: string, questId: string) => void;  
   /**
- * sendSubmitNpcQuest：对象字段。
+ * sendSubmitNpcQuest：sendSubmitNPC任务相关字段。
  */
 
   sendSubmitNpcQuest: (npcId: string, questId: string) => void;  
   /**
- * syncQuestBridgeState：对象字段。
+ * syncQuestBridgeState：任务桥接状态状态或数据块。
  */
 
   syncQuestBridgeState: (quests: PlayerState['quests'] | null) => void;  
   /**
- * syncPlayerBridgeState：对象字段。
+ * syncPlayerBridgeState：玩家桥接状态状态或数据块。
  */
 
   syncPlayerBridgeState: (player: PlayerState | null) => void;  
   /**
- * refreshUiChrome：对象字段。
+ * refreshUiChrome：refreshUiChrome相关字段。
  */
 
   refreshUiChrome: () => void;
@@ -78,7 +78,7 @@ export type MainQuestStateSource = ReturnType<typeof createMainQuestStateSource>
 /**
  * createMainQuestStateSource：构建并返回目标对象。
  * @param options MainQuestStateSourceOptions 选项参数。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新Main任务状态来源相关状态。
  */
 
 
@@ -106,18 +106,18 @@ export function createMainQuestStateSource(options: MainQuestStateSourceOptions)
 
   return {  
   /**
- * syncBootstrapQuestState：执行核心业务逻辑。
+ * syncBootstrapQuestState：处理引导任务状态并更新相关状态。
  * @param player PlayerState 玩家对象。
- * @returns void。
+ * @returns 无返回值，直接更新Bootstrap任务状态相关状态。
  */
 
     syncBootstrapQuestState(player: PlayerState): void {
       options.syncQuestBridgeState(player.quests ?? null);
     },    
     /**
- * initFromPlayer：初始化并准备运行时基础状态。
+ * initFromPlayer：执行initFrom玩家相关逻辑。
  * @param player PlayerState 玩家对象。
- * @returns void。
+ * @returns 无返回值，直接更新initFrom玩家相关状态。
  */
 
 
@@ -127,9 +127,9 @@ export function createMainQuestStateSource(options: MainQuestStateSourceOptions)
       options.npcQuestModal.initFromPlayer(player);
     },    
     /**
- * syncMapId：执行核心业务逻辑。
+ * syncMapId：处理地图ID并更新相关状态。
  * @param mapId string 地图 ID。
- * @returns void。
+ * @returns 无返回值，直接更新地图ID相关状态。
  */
 
 
@@ -137,9 +137,9 @@ export function createMainQuestStateSource(options: MainQuestStateSourceOptions)
       syncMapId(mapId);
     },    
     /**
- * syncInventory：执行核心业务逻辑。
+ * syncInventory：处理背包并更新相关状态。
  * @param inventory Inventory 参数说明。
- * @returns void。
+ * @returns 无返回值，直接更新背包相关状态。
  */
 
 
@@ -147,9 +147,9 @@ export function createMainQuestStateSource(options: MainQuestStateSourceOptions)
       options.questPanel.syncInventory(inventory);
     },    
     /**
- * handleNpcQuests：处理事件并驱动执行路径。
+ * handleNpcQuests：处理NPC任务并更新相关状态。
  * @param data NEXT_S2C_NpcQuests 原始数据。
- * @returns void。
+ * @returns 无返回值，直接更新NPC任务相关状态。
  */
 
 
@@ -157,10 +157,10 @@ export function createMainQuestStateSource(options: MainQuestStateSourceOptions)
       options.npcQuestModal.updateQuests(data);
     },    
     /**
- * handleQuestUpdate：处理事件并驱动执行路径。
+ * handleQuestUpdate：处理任务Update并更新相关状态。
  * @param data NEXT_S2C_QuestUpdate 原始数据。
  * @param player PlayerState | null 玩家对象。
- * @returns void。
+ * @returns 无返回值，直接更新任务Update相关状态。
  */
 
 
@@ -180,9 +180,9 @@ export function createMainQuestStateSource(options: MainQuestStateSourceOptions)
       options.refreshUiChrome();
     },    
     /**
- * handleQuestNavigateResult：处理事件并驱动执行路径。
+ * handleQuestNavigateResult：处理任务Navigate结果并更新相关状态。
  * @param data NEXT_S2C_QuestNavigateResult 原始数据。
- * @returns void。
+ * @returns 无返回值，直接更新任务Navigate结果相关状态。
  */
 
 
@@ -199,8 +199,8 @@ export function createMainQuestStateSource(options: MainQuestStateSourceOptions)
       options.questPanel.closeDetail();
     },    
     /**
- * clear：执行核心业务逻辑。
- * @returns void。
+ * clear：执行clear相关逻辑。
+ * @returns 无返回值，直接更新clear相关状态。
  */
 
 

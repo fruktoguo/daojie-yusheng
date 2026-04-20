@@ -67,23 +67,23 @@ const PLAYER_IDENTITY_PERSISTED_SOURCE_TOKEN_SEED = 'token_seed';
 /** 玩家身份持久化：维护 userId/username/playerId 映射及来源标签。 */
 let PlayerIdentityPersistenceService = PlayerIdentityPersistenceService_1 = class PlayerIdentityPersistenceService {
 /**
- * logger：对象字段。
+ * logger：日志器引用。
  */
 
     logger = new common_1.Logger(PlayerIdentityPersistenceService_1.name);    
     /**
- * pool：对象字段。
+ * pool：缓存或索引容器。
  */
 
     pool = null;    
     /**
- * enabled：对象字段。
+ * enabled：启用开关或状态标识。
  */
 
     enabled = false;    
     /**
- * onModuleInit：执行核心业务逻辑。
- * @returns 函数返回值。
+ * onModuleInit：执行on模块Init相关逻辑。
+ * @returns 无返回值，直接更新on模块Init相关状态。
  */
 
     async onModuleInit() {
@@ -109,8 +109,8 @@ let PlayerIdentityPersistenceService = PlayerIdentityPersistenceService_1 = clas
         }
     }    
     /**
- * onModuleDestroy：执行核心业务逻辑。
- * @returns 函数返回值。
+ * onModuleDestroy：执行on模块Destroy相关逻辑。
+ * @returns 无返回值，直接更新on模块Destroy相关状态。
  */
 
     async onModuleDestroy() {
@@ -157,9 +157,9 @@ let PlayerIdentityPersistenceService = PlayerIdentityPersistenceService_1 = clas
         return normalized;
     }    
     /**
- * savePlayerIdentity：执行核心业务逻辑。
+ * savePlayerIdentity：执行save玩家Identity相关逻辑。
  * @param identity 参数说明。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新save玩家Identity相关状态。
  */
 
     async savePlayerIdentity(identity) {
@@ -204,8 +204,8 @@ let PlayerIdentityPersistenceService = PlayerIdentityPersistenceService_1 = clas
         return normalized;
     }    
     /**
- * safeClosePool：执行核心业务逻辑。
- * @returns 函数返回值。
+ * safeClosePool：执行safeClosePool相关逻辑。
+ * @returns 无返回值，直接更新safeClosePool相关状态。
  */
 
     async safeClosePool() {
@@ -225,9 +225,9 @@ exports.PlayerIdentityPersistenceService = PlayerIdentityPersistenceService = Pl
     (0, common_1.Injectable)()
 ], PlayerIdentityPersistenceService);
 /**
- * ensurePlayerIdentityTable：执行核心业务逻辑。
+ * ensurePlayerIdentityTable：执行ensure玩家Identity表相关逻辑。
  * @param pool 参数说明。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新ensure玩家Identity表相关状态。
  */
 
 async function ensurePlayerIdentityTable(pool) {
@@ -252,9 +252,9 @@ async function ensurePlayerIdentityTable(pool) {
 }
 export { PlayerIdentityPersistenceService };
 /**
- * normalizePersistedPlayerIdentityRow：执行核心业务逻辑。
+ * normalizePersistedPlayerIdentityRow：判断Persisted玩家IdentityRow是否满足条件。
  * @param row 参数说明。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新Persisted玩家IdentityRow相关状态。
  */
 
 function normalizePersistedPlayerIdentityRow(row) {
@@ -324,9 +324,9 @@ function normalizePlayerIdentity(raw) {
     };
 }
 /**
- * normalizePlayerIdentityPersistedSource：执行核心业务逻辑。
+ * normalizePlayerIdentityPersistedSource：判断玩家IdentityPersisted来源是否满足条件。
  * @param value 参数说明。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新玩家IdentityPersisted来源相关状态。
  */
 
 function normalizePlayerIdentityPersistedSource(value) {
@@ -347,19 +347,19 @@ function normalizePlayerIdentityPersistedSource(value) {
     return null;
 }
 /**
- * normalizeRequiredString：执行核心业务逻辑。
+ * normalizeRequiredString：规范化或转换RequiredString。
  * @param value 参数说明。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新RequiredString相关状态。
  */
 
 function normalizeRequiredString(value) {
     return typeof value === 'string' ? value.trim() : '';
 }
 /**
- * normalizeDisplayName：执行核心业务逻辑。
+ * normalizeDisplayName：判断显示名称是否满足条件。
  * @param displayName 参数说明。
  * @param username 参数说明。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新显示名称相关状态。
  */
 
 function normalizeDisplayName(displayName, username) {
@@ -373,10 +373,10 @@ function normalizeDisplayName(displayName, username) {
     return (0, shared_1.resolveDefaultVisibleDisplayName)(username.normalize('NFC'));
 }
 /**
- * normalizePlayerName：执行核心业务逻辑。
+ * normalizePlayerName：规范化或转换玩家名称。
  * @param playerName 参数说明。
  * @param username 参数说明。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新玩家名称相关状态。
  */
 
 function normalizePlayerName(playerName, username) {
@@ -390,9 +390,9 @@ function normalizePlayerName(playerName, username) {
     return username.normalize('NFC');
 }
 /**
- * isValidVisibleDisplayName：执行状态校验并返回判断结果。
+ * isValidVisibleDisplayName：判断Valid可见显示名称是否满足条件。
  * @param value 参数说明。
- * @returns 函数返回值。
+ * @returns 无返回值，完成Valid可见显示名称的条件判断。
  */
 
 function isValidVisibleDisplayName(value) {

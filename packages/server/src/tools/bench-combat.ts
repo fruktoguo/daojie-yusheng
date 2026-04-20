@@ -472,10 +472,10 @@ function createRuntimeAdapter(...players) {
     const playersById = new Map(players.map((player) => [player.playerId, player]));
     return {    
     /**
- * spendQi：执行核心业务逻辑。
+ * spendQi：执行spendQi相关逻辑。
  * @param playerId 玩家 ID。
  * @param amount 参数说明。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新spendQi相关状态。
  */
 
         spendQi(playerId, amount) {
@@ -488,12 +488,12 @@ function createRuntimeAdapter(...players) {
             return player;
         },        
         /**
- * setSkillCooldownReadyTick：更新/写入相关状态。
+ * setSkillCooldownReadyTick：写入技能冷却Readytick。
  * @param playerId 玩家 ID。
  * @param skillId skill ID。
  * @param readyTick 参数说明。
  * @param currentTick 参数说明。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新技能冷却Readytick相关状态。
  */
 
         setSkillCooldownReadyTick(playerId, skillId, readyTick, currentTick) {
@@ -506,10 +506,10 @@ function createRuntimeAdapter(...players) {
             return player;
         },        
         /**
- * applyTemporaryBuff：更新/写入相关状态。
+ * applyTemporaryBuff：处理TemporaryBuff并更新相关状态。
  * @param playerId 玩家 ID。
  * @param buff 参数说明。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新TemporaryBuff相关状态。
  */
 
         applyTemporaryBuff(playerId, buff) {
@@ -540,10 +540,10 @@ function createRuntimeAdapter(...players) {
             return player;
         },        
         /**
- * applyDamage：更新/写入相关状态。
+ * applyDamage：处理Damage并更新相关状态。
  * @param playerId 玩家 ID。
  * @param amount 参数说明。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新Damage相关状态。
  */
 
         applyDamage(playerId, amount) {

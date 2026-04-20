@@ -1,10 +1,10 @@
 import { UiButton } from './UiButton';
 /**
- * clamp：执行核心业务逻辑。
+ * clamp：执行clamp相关逻辑。
  * @param value number 参数说明。
  * @param min number 参数说明。
  * @param max number 参数说明。
- * @returns number。
+ * @returns 返回clamp。
  */
 
 
@@ -18,43 +18,43 @@ function clamp(value: number, min: number, max: number): number {
 
 export interface UiPriceEditorProps {
 /**
- * label：UiPriceEditorProps 内部字段。
+ * label：label名称或显示文本。
  */
 
   label?: string;  
   /**
- * value：UiPriceEditorProps 内部字段。
+ * value：值数值。
  */
 
   value: number;  
   /**
- * min：UiPriceEditorProps 内部字段。
+ * min：min相关字段。
  */
 
   min?: number;  
   /**
- * max：UiPriceEditorProps 内部字段。
+ * max：max相关字段。
  */
 
   max?: number;  
   /**
- * step：UiPriceEditorProps 内部字段。
+ * step：step相关字段。
  */
 
   step?: number;  
   /**
- * presets：UiPriceEditorProps 内部字段。
+ * presets：preset相关字段。
  */
 
   presets?: number[];  
   /**
- * onChange：UiPriceEditorProps 内部字段。
+ * onChange：onChange相关字段。
  */
 
   onChange: (value: number) => void;
 }
 /**
- * UiPriceEditor：执行核心业务逻辑。
+ * UiPriceEditor：渲染Ui价格Editor组件。
  * @param {
   label = '价格',
   value,
@@ -64,7 +64,7 @@ export interface UiPriceEditorProps {
   presets = [],
   onChange,
 } UiPriceEditorProps 参数说明。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新Ui价格Editor相关状态。
  */
 
 

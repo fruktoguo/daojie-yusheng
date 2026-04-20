@@ -70,7 +70,7 @@ export class QuestPanel {
   /** activeLine：活跃Line。 */
   private activeLine: QuestState['line'] = 'main';  
   /**
- * selectedQuestId：QuestPanel 内部字段。
+ * selectedQuestId：selected任务ID标识。
  */
 
   private selectedQuestId?: string;
@@ -83,7 +83,7 @@ export class QuestPanel {
   /** lastStructureLine：last Structure Line。 */
   private lastStructureLine: QuestState['line'] | null = null;  
   /**
- * currentMapId：QuestPanel 内部字段。
+ * currentMapId：current地图ID标识。
  */
 
   private currentMapId?: string;
@@ -92,29 +92,29 @@ export class QuestPanel {
   /** onNavigateQuest：on Navigate任务。 */
   private onNavigateQuest: ((questId: string) => void) | null = null;  
   /**
- * shellRefs：QuestPanel 内部字段。
+ * shellRefs：shellRef相关字段。
  */
 
   private shellRefs: {  
   /**
- * section：QuestPanel 内部字段。
+ * section：section相关字段。
  */
 
     section: HTMLDivElement;    
     /**
- * title：QuestPanel 内部字段。
+ * title：title名称或显示文本。
  */
 
     title: HTMLDivElement;    
     /**
- * subtabs：QuestPanel 内部字段。
+ * subtabs：subtab相关字段。
  */
 
     subtabs: HTMLDivElement;
   } | null = null;  
   /**
  * 构造器：初始化 当前 实例并建立基础状态。
- * @returns 无返回值（构造函数）。
+ * @returns 无返回值，完成实例初始化。
  */
 
 
@@ -123,9 +123,9 @@ export class QuestPanel {
     bindInlineItemTooltips(this.pane);
   }  
   /**
- * setCallbacks：更新/写入相关状态。
+ * setCallbacks：写入Callback。
  * @param onNavigateQuest (questId: string) => void 参数说明。
- * @returns void。
+ * @returns 无返回值，直接更新Callback相关状态。
  */
 
 
@@ -223,15 +223,15 @@ export class QuestPanel {
   /** ensureShell：确保Shell。 */
   private ensureShell(): {  
   /**
- * section：QuestPanel 内部字段。
+ * section：section相关字段。
  */
  section: HTMLDivElement;  
  /**
- * title：QuestPanel 内部字段。
+ * title：title名称或显示文本。
  */
  title: HTMLDivElement;  
  /**
- * subtabs：QuestPanel 内部字段。
+ * subtabs：subtab相关字段。
  */
  subtabs: HTMLDivElement } {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
@@ -800,15 +800,15 @@ export class QuestPanel {
   /** resolveRequiredItemProgress：解析Required物品进度。 */
   private resolveRequiredItemProgress(quest: QuestState): {  
   /**
- * itemName：QuestPanel 内部字段。
+ * itemName：道具名称名称或显示文本。
  */
  itemName: string;  
  /**
- * current：QuestPanel 内部字段。
+ * current：current相关字段。
  */
  current: number;  
  /**
- * required：QuestPanel 内部字段。
+ * required：required相关字段。
  */
  required: number } | null {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。

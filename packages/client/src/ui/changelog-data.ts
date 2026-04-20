@@ -5,17 +5,17 @@ export { CHANGELOG_ENTRIES };
 /** 单条更新日志记录，包含更新时间、摘要和具体改动。 */
 export interface ChangelogEntry {
 /**
- * updatedAt：ChangelogEntry 内部字段。
+ * updatedAt：updatedAt相关字段。
  */
 
   updatedAt: string;  
   /**
- * summary：ChangelogEntry 内部字段。
+ * summary：摘要状态或数据块。
  */
 
   summary: string;  
   /**
- * items：ChangelogEntry 内部字段。
+ * items：集合字段。
  */
 
   items: string[];

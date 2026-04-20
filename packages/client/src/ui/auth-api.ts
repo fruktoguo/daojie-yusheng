@@ -31,7 +31,7 @@ export class RequestError extends Error {
  * 构造器：初始化 当前 实例并建立基础状态。
  * @param message string 参数说明。
  * @param status number 参数说明。
- * @returns 无返回值（构造函数）。
+ * @returns 无返回值，完成实例初始化。
  */
 
   constructor(message: string, readonly status: number) {
@@ -42,22 +42,22 @@ export class RequestError extends Error {
 /** 请求 JSON 接口时使用的配置项，支持方法、请求体、访问令牌和中断信号。 */
 type RequestOptions = {
 /**
- * method：对象字段。
+ * method：method相关字段。
  */
 
   method?: 'GET' | 'POST';  
   /**
- * body：对象字段。
+ * body：body相关字段。
  */
 
   body?: unknown;  
   /**
- * accessToken：对象字段。
+ * accessToken：accessToken标识。
  */
 
   accessToken?: string | null;  
   /**
- * signal：对象字段。
+ * signal：signal相关字段。
  */
 
   signal?: AbortSignal;
@@ -178,12 +178,12 @@ export function updatePassword(
   body: AccountUpdatePasswordReq,
 ): Promise<{
 /**
- * ok：对象字段。
+ * ok：ok相关字段。
  */
  ok: true }> {
   return requestJson<{  
   /**
- * ok：对象字段。
+ * ok：ok相关字段。
  */
  ok: true }>(`${ACCOUNT_API_BASE_PATH}/password`, {
     method: 'POST',
@@ -223,7 +223,7 @@ async function readError(res: Response): Promise<string> {
   try {
     const data = await res.json() as {    
     /**
- * message：对象字段。
+ * message：message相关字段。
  */
  message?: string | string[] };
     if (Array.isArray(data.message)) {
@@ -241,27 +241,27 @@ async function readError(res: Response): Promise<string> {
 /** JWT 里用于提取账号名的负载字段。 */
 type AuthTokenPayload = {
 /**
- * username：对象字段。
+ * username：username名称或显示文本。
  */
 
   username?: string;  
   /**
- * preferred_username：对象字段。
+ * preferred_username：preferredusername名称或显示文本。
  */
 
   preferred_username?: string;  
   /**
- * upn：对象字段。
+ * upn：upn相关字段。
  */
 
   upn?: string;  
   /**
- * name：对象字段。
+ * name：名称名称或显示文本。
  */
 
   name?: string;  
   /**
- * sub：对象字段。
+ * sub：sub相关字段。
  */
 
   sub?: string;
@@ -298,7 +298,7 @@ function parseJwtPayload(token: string): AuthTokenPayload | null {
     const json = new TextDecoder().decode(bytes);
     return JSON.parse(json) as {    
     /**
- * username：对象字段。
+ * username：username名称或显示文本。
  */
  username?: string };
   } catch {

@@ -40,7 +40,7 @@ let WorldPlayerSnapshotService = class WorldPlayerSnapshotService {
  * @param playerPersistenceService 参数说明。
  * @param playerRuntimeService 参数说明。
  * @param worldPlayerSourceService 参数说明。
- * @returns 无返回值（构造函数）。
+ * @returns 无返回值，完成实例初始化。
  */
 
     constructor(playerPersistenceService, playerRuntimeService, worldPlayerSourceService) {
@@ -205,7 +205,7 @@ exports.WorldPlayerSnapshotService = WorldPlayerSnapshotService = __decorate([
  * @param playerId 玩家 ID。
  * @param fallbackReason 参数说明。
  * @param logger 参数说明。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新NextOnly快照Miss结果相关状态。
  */
 
 function buildNextOnlySnapshotMissResult(playerId, fallbackReason, logger) {

@@ -39,17 +39,17 @@ const MAX_GROUP_CREATE_COUNT = 500;
 
 let RedeemCodeRuntimeService = class RedeemCodeRuntimeService {
 /**
- * contentTemplateRepository：对象字段。
+ * contentTemplateRepository：内容Template仓储引用。
  */
 
     contentTemplateRepository;    
     /**
- * playerRuntimeService：对象字段。
+ * playerRuntimeService：玩家运行态服务引用。
  */
 
     playerRuntimeService;    
     /**
- * redeemCodePersistenceService：对象字段。
+ * redeemCodePersistenceService：redeemCodePersistence服务引用。
  */
 
     redeemCodePersistenceService;
@@ -353,9 +353,9 @@ let RedeemCodeRuntimeService = class RedeemCodeRuntimeService {
         });
     }    
     /**
- * requireGroup：执行核心业务逻辑。
+ * requireGroup：执行requireGroup相关逻辑。
  * @param groupId group ID。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新requireGroup相关状态。
  */
 
     requireGroup(groupId) {
@@ -371,9 +371,9 @@ let RedeemCodeRuntimeService = class RedeemCodeRuntimeService {
         return group;
     }    
     /**
- * listCodesByGroupId：执行核心业务逻辑。
+ * listCodesByGroupId：读取CodeByGroupID并返回结果。
  * @param groupId group ID。
- * @returns 函数返回值。
+ * @returns 无返回值，完成CodeByGroupID的读取/组装。
  */
 
     listCodesByGroupId(groupId) {
@@ -382,9 +382,9 @@ let RedeemCodeRuntimeService = class RedeemCodeRuntimeService {
             .sort((left, right) => compareIsoDesc(left.createdAt, right.createdAt) || left.code.localeCompare(right.code, 'zh-Hans-CN'));
     }    
     /**
- * normalizeRewardsForMutation：执行核心业务逻辑。
+ * normalizeRewardsForMutation：规范化或转换RewardForMutation。
  * @param rewards 参数说明。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新RewardForMutation相关状态。
  */
 
     normalizeRewardsForMutation(rewards) {
@@ -421,7 +421,7 @@ let RedeemCodeRuntimeService = class RedeemCodeRuntimeService {
  * @param groupId group ID。
  * @param count 数量。
  * @param nowIso 参数说明。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新Code相关状态。
  */
 
     createCodes(groupId, count, nowIso) {
@@ -451,10 +451,10 @@ let RedeemCodeRuntimeService = class RedeemCodeRuntimeService {
         return created;
     }    
     /**
- * toGroupView：执行核心业务逻辑。
+ * toGroupView：执行toGroup视图相关逻辑。
  * @param group 参数说明。
  * @param codes 参数说明。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新toGroup视图相关状态。
  */
 
     toGroupView(group, codes) {
@@ -484,9 +484,9 @@ let RedeemCodeRuntimeService = class RedeemCodeRuntimeService {
         };
     }    
     /**
- * toCodeView：执行核心业务逻辑。
+ * toCodeView：执行toCode视图相关逻辑。
  * @param code 参数说明。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新toCode视图相关状态。
  */
 
     toCodeView(code) {
@@ -542,9 +542,9 @@ exports.RedeemCodeRuntimeService = RedeemCodeRuntimeService = __decorate([
 ], RedeemCodeRuntimeService);
 export { RedeemCodeRuntimeService };
 /**
- * normalizeGroupName：执行核心业务逻辑。
+ * normalizeGroupName：规范化或转换Group名称。
  * @param name 参数说明。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新Group名称相关状态。
  */
 
 function normalizeGroupName(name) {
@@ -561,9 +561,9 @@ function normalizeGroupName(name) {
     return normalized;
 }
 /**
- * normalizeCreateCount：执行核心业务逻辑。
+ * normalizeCreateCount：规范化或转换Create数量。
  * @param count 数量。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新Create数量相关状态。
  */
 
 function normalizeCreateCount(count) {
@@ -580,9 +580,9 @@ function normalizeCreateCount(count) {
     return normalized;
 }
 /**
- * normalizeSubmittedCodes：执行核心业务逻辑。
+ * normalizeSubmittedCodes：规范化或转换SubmittedCode。
  * @param codes 参数说明。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新SubmittedCode相关状态。
  */
 
 function normalizeSubmittedCodes(codes) {
@@ -613,9 +613,9 @@ function normalizeSubmittedCodes(codes) {
     return normalized;
 }
 /**
- * cloneGroup：执行核心业务逻辑。
+ * cloneGroup：构建Group。
  * @param group 参数说明。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新Group相关状态。
  */
 
 function cloneGroup(group) {
@@ -625,19 +625,19 @@ function cloneGroup(group) {
     };
 }
 /**
- * cloneCode：执行核心业务逻辑。
+ * cloneCode：构建Code。
  * @param code 参数说明。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新Code相关状态。
  */
 
 function cloneCode(code) {
     return { ...code };
 }
 /**
- * compareIsoDesc：执行核心业务逻辑。
+ * compareIsoDesc：判断compareIsoDesc是否满足条件。
  * @param left 参数说明。
  * @param right 参数说明。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新compareIsoDesc相关状态。
  */
 
 function compareIsoDesc(left, right) {
@@ -649,11 +649,11 @@ function compareIsoDesc(left, right) {
     return right.localeCompare(left, 'en');
 }
 /**
- * canReceiveAllRewards：执行状态校验并返回判断结果。
+ * canReceiveAllRewards：判断ReceiveAllReward是否满足条件。
  * @param currentItems 参数说明。
  * @param capacity 参数说明。
  * @param items 道具列表。
- * @returns 函数返回值。
+ * @returns 无返回值，完成ReceiveAllReward的条件判断。
  */
 
 function canReceiveAllRewards(currentItems, capacity, items) {
@@ -675,9 +675,9 @@ function canReceiveAllRewards(currentItems, capacity, items) {
     return true;
 }
 /**
- * generateRedeemCode：执行核心业务逻辑。
+ * generateRedeemCode：执行generateRedeemCode相关逻辑。
  * @param seenCodes 参数说明。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新generateRedeemCode相关状态。
  */
 
 function generateRedeemCode(seenCodes) {

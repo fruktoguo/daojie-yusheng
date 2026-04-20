@@ -27,7 +27,7 @@ let WorldProtocolProjectionService = class WorldProtocolProjectionService {
     /**
  * 构造器：初始化 当前 实例并建立基础状态。
  * @param worldClientEventService 参数说明。
- * @returns 无返回值（构造函数）。
+ * @returns 无返回值，完成实例初始化。
  */
 
     constructor(worldClientEventService) {

@@ -4,12 +4,12 @@ export type UiModalSize = 'sm' | 'md' | 'lg' | 'xl' | 'wide' | 'full';
 /** 用于拼装弹窗样式类名的状态。 */
 type ModalFrameClassState = {
 /**
- * layerClasses：对象字段。
+ * layerClasses：层Classe相关字段。
  */
 
   layerClasses: string[];  
   /**
- * cardClasses：对象字段。
+ * cardClasses：cardClasse相关字段。
  */
 
   cardClasses: string[];
@@ -18,12 +18,12 @@ type ModalFrameClassState = {
 /** 弹窗帧需要同步的 DOM 目标。 */
 type ModalFrameTargets = {
 /**
- * layer：对象字段。
+ * layer：层引用。
  */
 
   layer: HTMLElement;  
   /**
- * card：对象字段。
+ * card：card相关字段。
  */
 
   card: HTMLElement;

@@ -5,8 +5,8 @@ const assert = require("node:assert/strict");
 const { WorldRuntimeCraftInterruptService } = require("../runtime/world/world-runtime-craft-interrupt.service");
 const { WorldRuntimeCraftTickService } = require("../runtime/world/world-runtime-craft-tick.service");
 /**
- * testInterruptCraftForReason：执行核心业务逻辑。
- * @returns 函数返回值。
+ * testInterruptCraftForReason：执行testInterrupt炼制ForReason相关逻辑。
+ * @returns 无返回值，直接更新testInterrupt炼制ForReason相关状态。
  */
 
 
@@ -14,10 +14,10 @@ function testInterruptCraftForReason() {
     const log = [];
     const service = new WorldRuntimeCraftInterruptService({    
     /**
- * interruptEnhancement：执行核心业务逻辑。
+ * interruptEnhancement：执行interrupt强化相关逻辑。
  * @param player 玩家对象。
  * @param reason 参数说明。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新interrupt强化相关状态。
  */
 
         interruptEnhancement(player, reason) {
@@ -26,11 +26,11 @@ function testInterruptCraftForReason() {
         },
     }, {    
     /**
- * flushCraftMutation：执行核心业务逻辑。
+ * flushCraftMutation：执行刷新炼制Mutation相关逻辑。
  * @param playerId 玩家 ID。
  * @param result 返回结果。
  * @param panel 参数说明。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新flush炼制Mutation相关状态。
  */
 
         flushCraftMutation(playerId, result, panel) {
@@ -38,11 +38,11 @@ function testInterruptCraftForReason() {
         },
     }, {    
     /**
- * interruptAlchemyForReason：执行核心业务逻辑。
+ * interruptAlchemyForReason：执行interrupt炼丹ForReason相关逻辑。
  * @param playerId 玩家 ID。
  * @param player 玩家对象。
  * @param reason 参数说明。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新interrupt炼丹ForReason相关状态。
  */
 
         interruptAlchemyForReason(playerId, player, reason) {
@@ -51,22 +51,22 @@ function testInterruptCraftForReason() {
     });
     service.interruptCraftForReason('player:1', { playerId: 'player:1' }, 'move', {    
     /**
- * queuePlayerNotice：执行核心业务逻辑。
- * @returns 函数返回值。
+ * queuePlayerNotice：执行queue玩家Notice相关逻辑。
+ * @returns 无返回值，直接更新queue玩家Notice相关状态。
  */
 
         queuePlayerNotice() { },        
         /**
- * getInstanceRuntimeOrThrow：按给定条件读取/查询数据。
- * @returns 函数返回值。
+ * getInstanceRuntimeOrThrow：读取Instance运行态OrThrow。
+ * @returns 无返回值，完成Instance运行态OrThrow的读取/组装。
  */
 
         getInstanceRuntimeOrThrow() {
             return {};
         },        
         /**
- * spawnGroundItem：执行核心业务逻辑。
- * @returns 函数返回值。
+ * spawnGroundItem：执行spawn地面道具相关逻辑。
+ * @returns 无返回值，直接更新spawnGround道具相关状态。
  */
 
         spawnGroundItem() { },
@@ -78,8 +78,8 @@ function testInterruptCraftForReason() {
     ]);
 }
 /**
- * testAdvanceCraftJobs：执行核心业务逻辑。
- * @returns 函数返回值。
+ * testAdvanceCraftJobs：执行testAdvance炼制Job相关逻辑。
+ * @returns 无返回值，直接更新testAdvance炼制Job相关状态。
  */
 
 
@@ -92,9 +92,9 @@ function testAdvanceCraftJobs() {
     ]);
     const service = new WorldRuntimeCraftTickService({    
     /**
- * getPlayer：按给定条件读取/查询数据。
+ * getPlayer：读取玩家。
  * @param playerId 玩家 ID。
- * @returns 函数返回值。
+ * @returns 无返回值，完成玩家的读取/组装。
  */
 
         getPlayer(playerId) {
@@ -102,18 +102,18 @@ function testAdvanceCraftJobs() {
         },
     }, {    
     /**
- * hasActiveAlchemyJob：执行状态校验并返回判断结果。
+ * hasActiveAlchemyJob：判断激活炼丹Job是否满足条件。
  * @param player 玩家对象。
- * @returns 函数返回值。
+ * @returns 无返回值，完成激活炼丹Job的条件判断。
  */
 
         hasActiveAlchemyJob(player) {
             return player.playerId === 'alchemy' || player.playerId === 'both';
         },        
         /**
- * hasActiveEnhancementJob：执行状态校验并返回判断结果。
+ * hasActiveEnhancementJob：判断激活强化Job是否满足条件。
  * @param player 玩家对象。
- * @returns 函数返回值。
+ * @returns 无返回值，完成激活强化Job的条件判断。
  */
 
         hasActiveEnhancementJob(player) {
@@ -121,9 +121,9 @@ function testAdvanceCraftJobs() {
         },
     }, {    
     /**
- * tickEnhancement：执行核心业务逻辑。
+ * tickEnhancement：执行tick强化相关逻辑。
  * @param playerId 玩家 ID。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新tick强化相关状态。
  */
 
         tickEnhancement(playerId) {
@@ -131,17 +131,17 @@ function testAdvanceCraftJobs() {
         },
     }, {    
     /**
- * interruptAlchemyForReason：执行核心业务逻辑。
- * @returns 函数返回值。
+ * interruptAlchemyForReason：执行interrupt炼丹ForReason相关逻辑。
+ * @returns 无返回值，直接更新interrupt炼丹ForReason相关状态。
  */
 
         interruptAlchemyForReason() {
             log.push(['interruptAlchemyForReason']);
         },        
         /**
- * tickAlchemy：执行核心业务逻辑。
+ * tickAlchemy：执行tick炼丹相关逻辑。
  * @param playerId 玩家 ID。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新tick炼丹相关状态。
  */
 
         tickAlchemy(playerId) {

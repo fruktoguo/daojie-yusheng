@@ -16,11 +16,11 @@ const common_1 = require("@nestjs/common");
 /** world-runtime instance tick orchestration：承接实例级 tick 编排外壳。 */
 let WorldRuntimeInstanceTickOrchestrationService = class WorldRuntimeInstanceTickOrchestrationService {
 /**
- * advanceFrame：执行核心业务逻辑。
+ * advanceFrame：执行advance帧相关逻辑。
  * @param deps 运行时依赖。
  * @param frameDurationMs 参数说明。
  * @param getInstanceTickSpeed 参数说明。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新advance帧相关状态。
  */
 
     advanceFrame(deps, frameDurationMs = 1000, getInstanceTickSpeed = null) {

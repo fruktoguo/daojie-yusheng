@@ -10,37 +10,37 @@ export type LootSourceKind = 'ground' | 'container';
 /** 地面物品条目视图 */
 export interface GroundItemEntryView {
 /**
- * itemKey：GroundItemEntryView 内部字段。
+ * itemKey：道具Key标识。
  */
 
   itemKey: string;  
   /**
- * itemId：GroundItemEntryView 内部字段。
+ * itemId：道具ID标识。
  */
 
   itemId: string;  
   /**
- * name：GroundItemEntryView 内部字段。
+ * name：名称名称或显示文本。
  */
 
   name: string;  
   /**
- * type：GroundItemEntryView 内部字段。
+ * type：type相关字段。
  */
 
   type: ItemType;  
   /**
- * count：GroundItemEntryView 内部字段。
+ * count：数量或计量字段。
  */
 
   count: number;  
   /**
- * grade：GroundItemEntryView 内部字段。
+ * grade：grade相关字段。
  */
 
   grade?: TechniqueGrade;  
   /**
- * groundLabel：GroundItemEntryView 内部字段。
+ * groundLabel：groundLabel名称或显示文本。
  */
 
   groundLabel?: string;
@@ -49,22 +49,22 @@ export interface GroundItemEntryView {
 /** 地面物品堆视图 */
 export interface GroundItemPileView {
 /**
- * sourceId：GroundItemPileView 内部字段。
+ * sourceId：来源ID标识。
  */
 
   sourceId: string;  
   /**
- * x：GroundItemPileView 内部字段。
+ * x：x相关字段。
  */
 
   x: number;  
   /**
- * y：GroundItemPileView 内部字段。
+ * y：y相关字段。
  */
 
   y: number;  
   /**
- * items：GroundItemPileView 内部字段。
+ * items：集合字段。
  */
 
   items: GroundItemEntryView[];
@@ -73,17 +73,17 @@ export interface GroundItemPileView {
 /** 搜索进度视图 */
 export interface LootSearchProgressView {
 /**
- * totalTicks：LootSearchProgressView 内部字段。
+ * totalTicks：totaltick相关字段。
  */
 
   totalTicks: number;  
   /**
- * remainingTicks：LootSearchProgressView 内部字段。
+ * remainingTicks：remainingtick相关字段。
  */
 
   remainingTicks: number;  
   /**
- * elapsedTicks：LootSearchProgressView 内部字段。
+ * elapsedTicks：elapsedtick相关字段。
  */
 
   elapsedTicks: number;
@@ -92,12 +92,12 @@ export interface LootSearchProgressView {
 /** 拾取窗口物品视图 */
 export interface LootWindowItemView {
 /**
- * itemKey：LootWindowItemView 内部字段。
+ * itemKey：道具Key标识。
  */
 
   itemKey: string;  
   /**
- * item：LootWindowItemView 内部字段。
+ * item：道具相关字段。
  */
 
   item: ItemStack;
@@ -106,47 +106,47 @@ export interface LootWindowItemView {
 /** 拾取窗口来源视图 */
 export interface LootWindowSourceView {
 /**
- * sourceId：LootWindowSourceView 内部字段。
+ * sourceId：来源ID标识。
  */
 
   sourceId: string;  
   /**
- * kind：LootWindowSourceView 内部字段。
+ * kind：kind相关字段。
  */
 
   kind: LootSourceKind;  
   /**
- * title：LootWindowSourceView 内部字段。
+ * title：title名称或显示文本。
  */
 
   title: string;  
   /**
- * desc：LootWindowSourceView 内部字段。
+ * desc：desc相关字段。
  */
 
   desc?: string;  
   /**
- * grade：LootWindowSourceView 内部字段。
+ * grade：grade相关字段。
  */
 
   grade?: TechniqueGrade;  
   /**
- * searchable：LootWindowSourceView 内部字段。
+ * searchable：searchable相关字段。
  */
 
   searchable: boolean;  
   /**
- * search：LootWindowSourceView 内部字段。
+ * search：search相关字段。
  */
 
   search?: LootSearchProgressView;  
   /**
- * items：LootWindowSourceView 内部字段。
+ * items：集合字段。
  */
 
   items: LootWindowItemView[];  
   /**
- * emptyText：LootWindowSourceView 内部字段。
+ * emptyText：emptyText名称或显示文本。
  */
 
   emptyText?: string;
@@ -155,22 +155,22 @@ export interface LootWindowSourceView {
 /** 拾取窗口状态 */
 export interface LootWindowState {
 /**
- * tileX：LootWindowState 内部字段。
+ * tileX：tileX相关字段。
  */
 
   tileX: number;  
   /**
- * tileY：LootWindowState 内部字段。
+ * tileY：tileY相关字段。
  */
 
   tileY: number;  
   /**
- * title：LootWindowState 内部字段。
+ * title：title名称或显示文本。
  */
 
   title: string;  
   /**
- * sources：LootWindowState 内部字段。
+ * sources：来源相关字段。
  */
 
   sources: LootWindowSourceView[];

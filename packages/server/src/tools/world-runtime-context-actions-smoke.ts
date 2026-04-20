@@ -7,24 +7,24 @@ const { WorldRuntimeContextActionQueryService } = require("../runtime/world/worl
  * createService：构建并返回目标对象。
  * @param player 玩家对象。
  * @param log 参数说明。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新服务相关状态。
  */
 
 
 function createService(player, log) {
     return new WorldRuntimeContextActionQueryService({    
     /**
- * has：执行状态校验并返回判断结果。
+ * has：判断ha是否满足条件。
  * @param mapId 地图 ID。
- * @returns 函数返回值。
+ * @returns 无返回值，完成地图、标识的条件判断。
  */
 
         has(mapId) {
             return mapId === 'wildlands';
         },        
         /**
- * getOrThrow：按给定条件读取/查询数据。
- * @returns 函数返回值。
+ * getOrThrow：读取OrThrow。
+ * @returns 无返回值，完成OrThrow的读取/组装。
  */
 
         getOrThrow() {
@@ -32,9 +32,9 @@ function createService(player, log) {
         },
     }, {    
     /**
- * getPlayer：按给定条件读取/查询数据。
+ * getPlayer：读取玩家。
  * @param playerId 玩家 ID。
- * @returns 函数返回值。
+ * @returns 无返回值，完成玩家的读取/组装。
  */
 
         getPlayer(playerId) {
@@ -46,7 +46,7 @@ function createService(player, log) {
  * buildNpcQuestContextAction：构建并返回目标对象。
  * @param view 参数说明。
  * @param npc 参数说明。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新NPC任务上下文Action相关状态。
  */
 
         buildNpcQuestContextAction(view, npc) {
@@ -67,8 +67,8 @@ function createService(player, log) {
     });
 }
 /**
- * testBuildContextActions：执行核心业务逻辑。
- * @returns 函数返回值。
+ * testBuildContextActions：构建testBuild上下文Action。
+ * @returns 无返回值，直接更新testBuild上下文Action相关状态。
  */
 
 
@@ -140,8 +140,8 @@ function testBuildContextActions() {
     ]);
 }
 /**
- * testJobFallbackWithoutWeapon：执行核心业务逻辑。
- * @returns 函数返回值。
+ * testJobFallbackWithoutWeapon：执行testJobFallbackWithoutWeapon相关逻辑。
+ * @returns 无返回值，直接更新testJobFallbackWithoutWeapon相关状态。
  */
 
 

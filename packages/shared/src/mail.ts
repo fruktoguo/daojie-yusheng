@@ -14,37 +14,37 @@ export type MailCampaignStatus = 'active' | 'cancelled';
 export type MailTemplateToken =
   | {  
   /**
- * kind：对象字段。
+ * kind：kind相关字段。
  */
  kind: 'text';  
  /**
- * value：对象字段。
+ * value：值数值。
  */
  value: string }
   | {  
   /**
- * kind：对象字段。
+ * kind：kind相关字段。
  */
  kind: 'arg';  
  /**
- * index：对象字段。
+ * index：index相关字段。
  */
  index: number };
 
 /** 邮件模板定义，保存标题和正文的可渲染骨架。 */
 export interface MailTemplateDef {
 /**
- * id：MailTemplateDef 内部字段。
+ * id：ID标识。
  */
 
   id: string;  
   /**
- * title：MailTemplateDef 内部字段。
+ * title：title名称或显示文本。
  */
 
   title: MailTemplateToken[];  
   /**
- * body：MailTemplateDef 内部字段。
+ * body：body相关字段。
  */
 
   body: MailTemplateToken[];
@@ -53,17 +53,17 @@ export interface MailTemplateDef {
 /** GM 端邮件模板下拉项。 */
 export interface GmMailTemplateOption {
 /**
- * templateId：GmMailTemplateOption 内部字段。
+ * templateId：templateID标识。
  */
 
   templateId: string;  
   /**
- * label：GmMailTemplateOption 内部字段。
+ * label：label名称或显示文本。
  */
 
   label: string;  
   /**
- * description：GmMailTemplateOption 内部字段。
+ * description：description相关字段。
  */
 
   description: string;

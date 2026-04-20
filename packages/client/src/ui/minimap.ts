@@ -25,12 +25,12 @@ type MinimapDisplayMode = 'memory' | 'unlock';
 /** 目录来源在当前环境中的可用性。 */
 interface DisplaySourceAvailability {
 /**
- * hasMemory：DisplaySourceAvailability 内部字段。
+ * hasMemory：启用开关或状态标识。
  */
 
   hasMemory: boolean;  
   /**
- * hasUnlock：DisplaySourceAvailability 内部字段。
+ * hasUnlock：启用开关或状态标识。
  */
 
   hasUnlock: boolean;
@@ -39,91 +39,91 @@ interface DisplaySourceAvailability {
 /** 小地图主场景渲染数据。 */
 interface MinimapScene {
 /**
- * mapMeta：MinimapScene 内部字段。
+ * mapMeta：地图Meta相关字段。
  */
 
   mapMeta: MapMeta | null;  
   /**
- * snapshot：MinimapScene 内部字段。
+ * snapshot：快照状态或数据块。
  */
 
   snapshot: MapMinimapSnapshot | null;  
   /**
- * rememberedMarkers：MinimapScene 内部字段。
+ * rememberedMarkers：rememberedMarker相关字段。
  */
 
   rememberedMarkers: MapMinimapMarker[];  
   /**
- * visibleMarkers：MinimapScene 内部字段。
+ * visibleMarkers：可见Marker相关字段。
  */
 
   visibleMarkers: MapMinimapMarker[];  
   /**
- * tileCache：MinimapScene 内部字段。
+ * tileCache：缓存或索引容器。
  */
 
   tileCache: ReadonlyMap<string, Tile>;  
   /**
- * visibleTiles：MinimapScene 内部字段。
+ * visibleTiles：可见Tile相关字段。
  */
 
   visibleTiles: ReadonlySet<string>;  
   /**
- * visibleEntities：MinimapScene 内部字段。
+ * visibleEntities：可见Entity相关字段。
  */
 
   visibleEntities: ReadonlyArray<{  
   /**
- * id：MinimapScene 内部字段。
+ * id：ID标识。
  */
 
     id: string;    
     /**
- * wx：MinimapScene 内部字段。
+ * wx：wx相关字段。
  */
 
     wx: number;    
     /**
- * wy：MinimapScene 内部字段。
+ * wy：wy相关字段。
  */
 
     wy: number;    
     /**
- * name：MinimapScene 内部字段。
+ * name：名称名称或显示文本。
  */
 
     name?: string;    
     /**
- * kind：MinimapScene 内部字段。
+ * kind：kind相关字段。
  */
 
     kind?: string;
   }>;  
   /**
- * groundPiles：MinimapScene 内部字段。
+ * groundPiles：groundPile相关字段。
  */
 
   groundPiles: ReadonlyMap<string, GroundItemPileView>;  
   /**
- * player：MinimapScene 内部字段。
+ * player：玩家引用。
  */
 
   player: {  
   /**
- * x：MinimapScene 内部字段。
+ * x：x相关字段。
  */
  x: number;  
  /**
- * y：MinimapScene 内部字段。
+ * y：y相关字段。
  */
  y: number } | null;  
  /**
- * viewRadius：MinimapScene 内部字段。
+ * viewRadius：视图Radiu相关字段。
  */
 
   viewRadius: number;  
   /**
- * memoryVersion：MinimapScene 内部字段。
+ * memoryVersion：memoryVersion相关字段。
  */
 
   memoryVersion: number;
@@ -132,22 +132,22 @@ interface MinimapScene {
 /** 小地图目录条目。 */
 interface CatalogEntry {
 /**
- * mapId：CatalogEntry 内部字段。
+ * mapId：地图ID标识。
  */
 
   mapId: string;  
   /**
- * mapMeta：CatalogEntry 内部字段。
+ * mapMeta：地图Meta相关字段。
  */
 
   mapMeta: MapMeta | null;  
   /**
- * hasMemory：CatalogEntry 内部字段。
+ * hasMemory：启用开关或状态标识。
  */
 
   hasMemory: boolean;  
   /**
- * hasUnlock：CatalogEntry 内部字段。
+ * hasUnlock：启用开关或状态标识。
  */
 
   hasUnlock: boolean;
@@ -156,116 +156,116 @@ interface CatalogEntry {
 /** 弹窗中正在绘制的地图场景。 */
 interface DisplayMapScene {
 /**
- * mapId：DisplayMapScene 内部字段。
+ * mapId：地图ID标识。
  */
 
   mapId: string;  
   /**
- * mapMeta：DisplayMapScene 内部字段。
+ * mapMeta：地图Meta相关字段。
  */
 
   mapMeta: MapMeta;  
   /**
- * snapshot：DisplayMapScene 内部字段。
+ * snapshot：快照状态或数据块。
  */
 
   snapshot: MapMinimapSnapshot | null;  
   /**
- * rememberedMarkers：DisplayMapScene 内部字段。
+ * rememberedMarkers：rememberedMarker相关字段。
  */
 
   rememberedMarkers: MapMinimapMarker[];  
   /**
- * visibleMarkers：DisplayMapScene 内部字段。
+ * visibleMarkers：可见Marker相关字段。
  */
 
   visibleMarkers: MapMinimapMarker[];  
   /**
- * tileCache：DisplayMapScene 内部字段。
+ * tileCache：缓存或索引容器。
  */
 
   tileCache: ReadonlyMap<string, Tile>;  
   /**
- * visibleTiles：DisplayMapScene 内部字段。
+ * visibleTiles：可见Tile相关字段。
  */
 
   visibleTiles: ReadonlySet<string>;  
   /**
- * visibleEntities：DisplayMapScene 内部字段。
+ * visibleEntities：可见Entity相关字段。
  */
 
   visibleEntities: ReadonlyArray<{  
   /**
- * id：DisplayMapScene 内部字段。
+ * id：ID标识。
  */
 
     id: string;    
     /**
- * wx：DisplayMapScene 内部字段。
+ * wx：wx相关字段。
  */
 
     wx: number;    
     /**
- * wy：DisplayMapScene 内部字段。
+ * wy：wy相关字段。
  */
 
     wy: number;    
     /**
- * name：DisplayMapScene 内部字段。
+ * name：名称名称或显示文本。
  */
 
     name?: string;    
     /**
- * kind：DisplayMapScene 内部字段。
+ * kind：kind相关字段。
  */
 
     kind?: string;
   }>;  
   /**
- * groundPiles：DisplayMapScene 内部字段。
+ * groundPiles：groundPile相关字段。
  */
 
   groundPiles: ReadonlyMap<string, GroundItemPileView>;  
   /**
- * player：DisplayMapScene 内部字段。
+ * player：玩家引用。
  */
 
   player: {  
   /**
- * x：DisplayMapScene 内部字段。
+ * x：x相关字段。
  */
  x: number;  
  /**
- * y：DisplayMapScene 内部字段。
+ * y：y相关字段。
  */
  y: number } | null;  
  /**
- * viewRadius：DisplayMapScene 内部字段。
+ * viewRadius：视图Radiu相关字段。
  */
 
   viewRadius: number;  
   /**
- * isCurrent：DisplayMapScene 内部字段。
+ * isCurrent：启用开关或状态标识。
  */
 
   isCurrent: boolean;  
   /**
- * memoryVersion：DisplayMapScene 内部字段。
+ * memoryVersion：memoryVersion相关字段。
  */
 
   memoryVersion: number;  
   /**
- * displayMode：DisplayMapScene 内部字段。
+ * displayMode：显示Mode相关字段。
  */
 
   displayMode: MinimapDisplayMode;  
   /**
- * hasMemory：DisplayMapScene 内部字段。
+ * hasMemory：启用开关或状态标识。
  */
 
   hasMemory: boolean;  
   /**
- * hasUnlock：DisplayMapScene 内部字段。
+ * hasUnlock：启用开关或状态标识。
  */
 
   hasUnlock: boolean;
@@ -274,92 +274,92 @@ interface DisplayMapScene {
 /** 小地图弹窗视口换算指标。 */
 interface ViewportMetrics {
 /**
- * width：ViewportMetrics 内部字段。
+ * width：width相关字段。
  */
 
   width: number;  
   /**
- * height：ViewportMetrics 内部字段。
+ * height：height相关字段。
  */
 
   height: number;  
   /**
- * innerWidth：ViewportMetrics 内部字段。
+ * innerWidth：innerWidth相关字段。
  */
 
   innerWidth: number;  
   /**
- * innerHeight：ViewportMetrics 内部字段。
+ * innerHeight：innerHeight相关字段。
  */
 
   innerHeight: number;  
   /**
- * mapWidth：ViewportMetrics 内部字段。
+ * mapWidth：地图Width相关字段。
  */
 
   mapWidth: number;  
   /**
- * mapHeight：ViewportMetrics 内部字段。
+ * mapHeight：地图Height相关字段。
  */
 
   mapHeight: number;  
   /**
- * padding：ViewportMetrics 内部字段。
+ * padding：padding相关字段。
  */
 
   padding: number;  
   /**
- * scale：ViewportMetrics 内部字段。
+ * scale：scale相关字段。
  */
 
   scale: number;  
   /**
- * drawWidth：ViewportMetrics 内部字段。
+ * drawWidth：drawWidth相关字段。
  */
 
   drawWidth: number;  
   /**
- * drawHeight：ViewportMetrics 内部字段。
+ * drawHeight：drawHeight相关字段。
  */
 
   drawHeight: number;  
   /**
- * baseOffsetX：ViewportMetrics 内部字段。
+ * baseOffsetX：baseOffsetX相关字段。
  */
 
   baseOffsetX: number;  
   /**
- * baseOffsetY：ViewportMetrics 内部字段。
+ * baseOffsetY：baseOffsetY相关字段。
  */
 
   baseOffsetY: number;  
   /**
- * offsetX：ViewportMetrics 内部字段。
+ * offsetX：offsetX相关字段。
  */
 
   offsetX: number;  
   /**
- * offsetY：ViewportMetrics 内部字段。
+ * offsetY：offsetY相关字段。
  */
 
   offsetY: number;  
   /**
- * panX：ViewportMetrics 内部字段。
+ * panX：panX相关字段。
  */
 
   panX: number;  
   /**
- * panY：ViewportMetrics 内部字段。
+ * panY：panY相关字段。
  */
 
   panY: number;  
   /**
- * maxPanX：ViewportMetrics 内部字段。
+ * maxPanX：maxPanX相关字段。
  */
 
   maxPanX: number;  
   /**
- * maxPanY：ViewportMetrics 内部字段。
+ * maxPanY：maxPanY相关字段。
  */
 
   maxPanY: number;
@@ -368,27 +368,27 @@ interface ViewportMetrics {
 /** 弹窗平移拖拽状态。 */
 interface ModalPanState {
 /**
- * pointerId：ModalPanState 内部字段。
+ * pointerId：pointerID标识。
  */
 
   pointerId: number;  
   /**
- * startClientX：ModalPanState 内部字段。
+ * startClientX：startClientX相关字段。
  */
 
   startClientX: number;  
   /**
- * startClientY：ModalPanState 内部字段。
+ * startClientY：startClientY相关字段。
  */
 
   startClientY: number;  
   /**
- * startPanX：ModalPanState 内部字段。
+ * startPanX：startPanX相关字段。
  */
 
   startPanX: number;  
   /**
- * startPanY：ModalPanState 内部字段。
+ * startPanY：startPanY相关字段。
  */
 
   startPanY: number;
@@ -402,11 +402,11 @@ function clamp(value: number, min: number, max: number): number {
 /** parseTileKey：解析地块Key。 */
 function parseTileKey(key: string): {
 /**
- * x：对象字段。
+ * x：x相关字段。
  */
  x: number;
  /**
- * y：对象字段。
+ * y：y相关字段。
  */
  y: number } | null {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
@@ -466,11 +466,11 @@ function buildFallbackMapMeta(mapId: string, snapshot: MapMinimapSnapshot | null
 /** getCanvasPixels：读取Canvas Pixels。 */
 function getCanvasPixels(canvas: HTMLCanvasElement, clientX: number, clientY: number): {
 /**
- * x：对象字段。
+ * x：x相关字段。
  */
  x: number;
  /**
- * y：对象字段。
+ * y：y相关字段。
  */
  y: number } | null {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
@@ -560,16 +560,16 @@ export class Minimap {
   /** moveHandler：移动Handler。 */
   private moveHandler: ((x: number, y: number) => void) | null = null;  
   /**
- * pendingMovePoint：Minimap 内部字段。
+ * pendingMovePoint：pendingMovePoint相关字段。
  */
 
   private pendingMovePoint: {  
   /**
- * x：Minimap 内部字段。
+ * x：x相关字段。
  */
  x: number;  
  /**
- * y：Minimap 内部字段。
+ * y：y相关字段。
  */
  y: number } | null = null;
   /** modalZoom：弹窗缩放。 */
@@ -581,16 +581,16 @@ export class Minimap {
   /** modalPanState：弹窗Pan状态。 */
   private modalPanState: ModalPanState | null = null;  
   /**
- * hoveredModalPoint：Minimap 内部字段。
+ * hoveredModalPoint：hovered弹层Point相关字段。
  */
 
   private hoveredModalPoint: {  
   /**
- * x：Minimap 内部字段。
+ * x：x相关字段。
  */
  x: number;  
  /**
- * y：Minimap 内部字段。
+ * y：y相关字段。
  */
  y: number } | null = null;
   /** mobileCatalogOpen：mobile目录Open。 */
@@ -601,7 +601,7 @@ export class Minimap {
   private catalogEmptyNode: HTMLElement | null = null;  
   /**
  * 构造器：初始化 当前 实例并建立基础状态。
- * @returns 无返回值（构造函数）。
+ * @returns 无返回值，完成实例初始化。
  */
 
 
@@ -1262,11 +1262,11 @@ export class Minimap {
     node.classList.toggle('active', entry.mapId === this.selectedMapId);
   }  
   /**
- * insertCatalogItemNodeInOrder：执行核心业务逻辑。
+ * insertCatalogItemNodeInOrder：执行insert目录道具NodeIn订单相关逻辑。
  * @param node HTMLButtonElement 参数说明。
  * @param previousNode HTMLButtonElement | null 参数说明。
  * @param container HTMLElement 参数说明。
- * @returns void。
+ * @returns 无返回值，直接更新insert目录道具NodeIn订单相关状态。
  */
 
 
@@ -1791,14 +1791,14 @@ export class Minimap {
     this.scheduleRender();
   }  
   /**
- * getViewportMetrics：按给定条件读取/查询数据。
+ * getViewportMetrics：读取ViewportMetric。
  * @param canvas HTMLCanvasElement 参数说明。
  * @param display DisplayMapScene 参数说明。
  * @param isModal boolean 参数说明。
  * @param zoom 参数说明。
  * @param panX 参数说明。
  * @param panY 参数说明。
- * @returns ViewportMetrics。
+ * @returns 返回ViewportMetric。
  */
 
 
@@ -1854,11 +1854,11 @@ export class Minimap {
   /** resolveWorldPoint：解析世界坐标。 */
   private resolveWorldPoint(metrics: ViewportMetrics, px: number, py: number): {  
   /**
- * x：Minimap 内部字段。
+ * x：x相关字段。
  */
  x: number;  
  /**
- * y：Minimap 内部字段。
+ * y：y相关字段。
  */
  y: number } | null {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
@@ -1877,13 +1877,13 @@ export class Minimap {
     };
   }  
   /**
- * resolveCanvasPoint：执行核心业务逻辑。
+ * resolveCanvasPoint：判断CanvaPoint是否满足条件。
  * @param canvas HTMLCanvasElement 参数说明。
  * @param clientX number 参数说明。
  * @param clientY number 参数说明。
  * @param display DisplayMapScene 参数说明。
  * @param isModal boolean 参数说明。
- * @returns { x: number; y: number } | null。
+ * @returns 返回CanvaPoint。
  */
 
 
@@ -1895,11 +1895,11 @@ export class Minimap {
     isModal: boolean,
   ): {  
   /**
- * x：Minimap 内部字段。
+ * x：x相关字段。
  */
  x: number;  
  /**
- * y：Minimap 内部字段。
+ * y：y相关字段。
  */
  y: number } | null {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
@@ -1919,13 +1919,13 @@ export class Minimap {
     };
   }  
   /**
- * resolveCurrentMoveTarget：执行核心业务逻辑。
+ * resolveCurrentMoveTarget：读取当前Move目标并返回结果。
  * @param display DisplayMapScene | null 参数说明。
  * @param canvas HTMLCanvasElement | null 参数说明。
  * @param clientX number 参数说明。
  * @param clientY number 参数说明。
  * @param isModal boolean 参数说明。
- * @returns { x: number; y: number } | null。
+ * @returns 返回CurrentMove目标。
  */
 
 
@@ -1937,11 +1937,11 @@ export class Minimap {
     isModal: boolean,
   ): {  
   /**
- * x：Minimap 内部字段。
+ * x：x相关字段。
  */
  x: number;  
  /**
- * y：Minimap 内部字段。
+ * y：y相关字段。
  */
  y: number } | null {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
@@ -2104,12 +2104,12 @@ export class Minimap {
     return markers;
   }  
   /**
- * drawScene：执行核心业务逻辑。
+ * drawScene：执行drawScene相关逻辑。
  * @param ctx CanvasRenderingContext2D 上下文信息。
  * @param display DisplayMapScene 参数说明。
  * @param metrics ViewportMetrics 参数说明。
  * @param isModal boolean 参数说明。
- * @returns void。
+ * @returns 无返回值，直接更新drawScene相关状态。
  */
 
 
@@ -2221,12 +2221,12 @@ export class Minimap {
     ctx.strokeRect(metrics.offsetX + 0.5, metrics.offsetY + 0.5, metrics.drawWidth, metrics.drawHeight);
   }  
   /**
- * drawMarker：执行核心业务逻辑。
+ * drawMarker：处理drawMarker并更新相关状态。
  * @param ctx CanvasRenderingContext2D 上下文信息。
  * @param marker MapMinimapMarker 参数说明。
  * @param metrics ViewportMetrics 参数说明。
  * @param markerSize number 参数说明。
- * @returns void。
+ * @returns 无返回值，直接更新drawMarker相关状态。
  */
 
 
@@ -2314,11 +2314,11 @@ export class Minimap {
     ctx.restore();
   }  
   /**
- * drawMarkerLabel：执行核心业务逻辑。
+ * drawMarkerLabel：处理drawMarkerLabel并更新相关状态。
  * @param ctx CanvasRenderingContext2D 上下文信息。
  * @param marker MapMinimapMarker 参数说明。
  * @param metrics ViewportMetrics 参数说明。
- * @returns void。
+ * @returns 无返回值，直接更新drawMarkerLabel相关状态。
  */
 
 
@@ -2390,12 +2390,12 @@ export class Minimap {
     ctx.restore();
   }  
   /**
- * drawGroundPile：执行核心业务逻辑。
+ * drawGroundPile：执行draw地面Pile相关逻辑。
  * @param ctx CanvasRenderingContext2D 上下文信息。
  * @param pile GroundItemPileView 参数说明。
  * @param metrics ViewportMetrics 参数说明。
  * @param pileSize number 参数说明。
- * @returns void。
+ * @returns 无返回值，直接更新drawGroundPile相关状态。
  */
 
 
@@ -2423,12 +2423,12 @@ export class Minimap {
     ctx.restore();
   }  
   /**
- * drawModalHud：执行核心业务逻辑。
+ * drawModalHud：执行draw弹层Hud相关逻辑。
  * @param ctx CanvasRenderingContext2D 上下文信息。
  * @param display DisplayMapScene 参数说明。
  * @param metrics ViewportMetrics 参数说明。
  * @param markers MapMinimapMarker[] 参数说明。
- * @returns void。
+ * @returns 无返回值，直接更新draw弹层Hud相关状态。
  */
 
 

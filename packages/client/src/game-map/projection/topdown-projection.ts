@@ -3,13 +3,13 @@ import type { CameraState } from '../camera/camera-controller';
 /** 顶视角坐标转换实现。 */
 export class TopdownProjection {
 /**
- * worldToScreen：执行核心业务逻辑。
+ * worldToScreen：执行世界ToScreen相关逻辑。
  * @param worldX number 参数说明。
  * @param worldY number 参数说明。
  * @param camera CameraState 参数说明。
  * @param screenWidth number 参数说明。
  * @param screenHeight number 参数说明。
- * @returns { x: number; y: number }。
+ * @returns 返回世界ToScreen。
  */
 
   worldToScreen(
@@ -20,11 +20,11 @@ export class TopdownProjection {
     screenHeight: number,
   ): {  
   /**
- * x：TopdownProjection 内部字段。
+ * x：x相关字段。
  */
  x: number;  
  /**
- * y：TopdownProjection 内部字段。
+ * y：y相关字段。
  */
  y: number } {
     return {
@@ -33,13 +33,13 @@ export class TopdownProjection {
     };
   }  
   /**
- * screenToWorld：执行核心业务逻辑。
+ * screenToWorld：执行screenTo世界相关逻辑。
  * @param screenX number 参数说明。
  * @param screenY number 参数说明。
  * @param camera CameraState 参数说明。
  * @param screenWidth number 参数说明。
  * @param screenHeight number 参数说明。
- * @returns { x: number; y: number }。
+ * @returns 返回screenTo世界。
  */
 
 
@@ -51,11 +51,11 @@ export class TopdownProjection {
     screenHeight: number,
   ): {  
   /**
- * x：TopdownProjection 内部字段。
+ * x：x相关字段。
  */
  x: number;  
  /**
- * y：TopdownProjection 内部字段。
+ * y：y相关字段。
  */
  y: number } {
     return {

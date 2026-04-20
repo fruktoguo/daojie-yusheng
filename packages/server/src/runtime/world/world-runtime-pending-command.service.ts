@@ -16,59 +16,59 @@ const common_1 = require("@nestjs/common");
 /** world-runtime pending command state：承接玩家待执行命令队列所有权与消费。 */
 let WorldRuntimePendingCommandService = class WorldRuntimePendingCommandService {
 /**
- * pendingCommands：对象字段。
+ * pendingCommands：pendingCommand相关字段。
  */
 
     pendingCommands = new Map();    
     /**
- * enqueuePendingCommand：执行核心业务逻辑。
+ * enqueuePendingCommand：处理待处理Command并更新相关状态。
  * @param playerId 玩家 ID。
  * @param command 输入指令。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新PendingCommand相关状态。
  */
 
     enqueuePendingCommand(playerId, command) {
         this.pendingCommands.set(playerId, command);
     }    
     /**
- * getPendingCommand：按给定条件读取/查询数据。
+ * getPendingCommand：读取待处理Command。
  * @param playerId 玩家 ID。
- * @returns 函数返回值。
+ * @returns 无返回值，完成PendingCommand的读取/组装。
  */
 
     getPendingCommand(playerId) {
         return this.pendingCommands.get(playerId);
     }    
     /**
- * hasPendingCommand：执行状态校验并返回判断结果。
+ * hasPendingCommand：判断待处理Command是否满足条件。
  * @param playerId 玩家 ID。
- * @returns 函数返回值。
+ * @returns 无返回值，完成PendingCommand的条件判断。
  */
 
     hasPendingCommand(playerId) {
         return this.pendingCommands.has(playerId);
     }    
     /**
- * clearPendingCommand：执行核心业务逻辑。
+ * clearPendingCommand：执行clear待处理Command相关逻辑。
  * @param playerId 玩家 ID。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新clearPendingCommand相关状态。
  */
 
     clearPendingCommand(playerId) {
         this.pendingCommands.delete(playerId);
     }    
     /**
- * getPendingCommandCount：按给定条件读取/查询数据。
- * @returns 函数返回值。
+ * getPendingCommandCount：读取待处理Command数量。
+ * @returns 无返回值，完成PendingCommand数量的读取/组装。
  */
 
     getPendingCommandCount() {
         return this.pendingCommands.size;
     }    
     /**
- * dispatchPendingCommands：处理事件并驱动执行路径。
+ * dispatchPendingCommands：判断待处理Command是否满足条件。
  * @param deps 运行时依赖。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新PendingCommand相关状态。
  */
 
     dispatchPendingCommands(deps) {
@@ -92,8 +92,8 @@ let WorldRuntimePendingCommandService = class WorldRuntimePendingCommandService 
         this.pendingCommands.clear();
     }    
     /**
- * resetState：执行核心业务逻辑。
- * @returns 函数返回值。
+ * resetState：执行reset状态相关逻辑。
+ * @returns 无返回值，直接更新reset状态相关状态。
  */
 
     resetState() {

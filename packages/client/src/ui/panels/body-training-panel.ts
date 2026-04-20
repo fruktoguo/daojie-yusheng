@@ -18,22 +18,22 @@ type BodyTrainingPlayerSnapshot = Pick<PlayerState, 'bodyTraining' | 'foundation
 /** BodyTrainingInfusionPlan：炼体灌注的预览方案。 */
 type BodyTrainingInfusionPlan = {
 /**
- * levelGain：对象字段。
+ * levelGain：等级Gain相关字段。
  */
 
   levelGain: number;  
   /**
- * expNeeded：对象字段。
+ * expNeeded：expNeeded相关字段。
  */
 
   expNeeded: number;  
   /**
- * foundationCost：对象字段。
+ * foundationCost：foundation消耗数值。
  */
 
   foundationCost: number;  
   /**
- * previewState：对象字段。
+ * previewState：preview状态状态或数据块。
  */
 
   previewState: BodyTrainingState;
@@ -219,9 +219,9 @@ export class BodyTrainingPanel {
   /** buttonNode：按钮节点。 */
   private buttonNode: HTMLButtonElement | null = null;  
   /**
- * setInfusionHandler：更新/写入相关状态。
+ * setInfusionHandler：写入InfusionHandler。
  * @param handler ((foundationSpent: number) => void) | null 参数说明。
- * @returns void。
+ * @returns 无返回值，直接更新InfusionHandler相关状态。
  */
 
 

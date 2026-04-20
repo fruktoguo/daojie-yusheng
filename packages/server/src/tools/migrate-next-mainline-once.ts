@@ -159,8 +159,8 @@ const CREATE_PLAYER_SNAPSHOT_TABLE_SQL = `
   )
 `;
 /**
- * main：执行核心业务逻辑。
- * @returns 函数返回值。
+ * main：执行main相关逻辑。
+ * @returns 无返回值，直接更新main相关状态。
  */
 
 
@@ -228,9 +228,9 @@ async function main() {
     }
 }
 /**
- * parseArgs：执行核心业务逻辑。
+ * parseArgs：规范化或转换Arg。
  * @param argv 参数说明。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新Arg相关状态。
  */
 
 
@@ -274,11 +274,11 @@ function parseArgs(argv) {
     return options;
 }
 /**
- * printPreflight：执行核心业务逻辑。
+ * printPreflight：执行printPreflight相关逻辑。
  * @param options 选项参数。
  * @param fixture 参数说明。
  * @param databaseUrl 参数说明。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新printPreflight相关状态。
  */
 
 
@@ -302,8 +302,8 @@ function printPreflight(options, fixture, databaseUrl) {
     process.stdout.write(`${JSON.stringify(preflight, null, 2)}\n`);
 }
 /**
- * printHelp：执行核心业务逻辑。
- * @returns 函数返回值。
+ * printHelp：执行printHelp相关逻辑。
+ * @returns 无返回值，直接更新printHelp相关状态。
  */
 
 
@@ -327,9 +327,9 @@ function printHelp() {
     ].join('\n') + '\n');
 }
 /**
- * loadFixture：按给定条件读取/查询数据。
+ * loadFixture：读取Fixture并返回结果。
  * @param fixturePath 参数说明。
- * @returns 函数返回值。
+ * @returns 无返回值，完成Fixture的读取/组装。
  */
 
 
@@ -338,9 +338,9 @@ async function loadFixture(fixturePath) {
     return asRecord(JSON.parse(raw));
 }
 /**
- * ensurePersistentDocuments：执行核心业务逻辑。
+ * ensurePersistentDocuments：判断ensurePersistentDocument是否满足条件。
  * @param client 参数说明。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新ensurePersistentDocument相关状态。
  */
 
 
@@ -353,9 +353,9 @@ async function ensurePersistentDocuments(client) {
     }
 }
 /**
- * ensureTargetTables：执行核心业务逻辑。
+ * ensureTargetTables：读取ensure目标表并返回结果。
  * @param client 参数说明。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新ensure目标表相关状态。
  */
 
 
@@ -365,13 +365,13 @@ async function ensureTargetTables(client) {
     await client.query(CREATE_PLAYER_SNAPSHOT_TABLE_SQL);
 }
 /**
- * migrateDomain：执行核心业务逻辑。
+ * migrateDomain：执行migrateDomain相关逻辑。
  * @param client 参数说明。
  * @param fixture 参数说明。
  * @param domain 参数说明。
  * @param dryRun 参数说明。
  * @param failures 参数说明。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新migrateDomain相关状态。
  */
 
 
@@ -426,12 +426,12 @@ async function migrateDomain(client, fixture, domain, dryRun, failures) {
     }
 }
 /**
- * migrateGmDatabaseDomain：执行核心业务逻辑。
+ * migrateGmDatabaseDomain：执行migrateGMDatabaseDomain相关逻辑。
  * @param client 参数说明。
  * @param fixture 参数说明。
  * @param dryRun 参数说明。
  * @param failures 参数说明。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新migrateGMDatabaseDomain相关状态。
  */
 
 
@@ -459,13 +459,13 @@ async function migrateGmDatabaseDomain(client, fixture, dryRun, failures) {
     };
 }
 /**
- * migrateSnapshotSubdomain：执行核心业务逻辑。
+ * migrateSnapshotSubdomain：执行migrate快照Subdomain相关逻辑。
  * @param client 参数说明。
  * @param fixture 参数说明。
  * @param domain 参数说明。
  * @param dryRun 参数说明。
  * @param failures 参数说明。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新migrate快照Subdomain相关状态。
  */
 
 
@@ -480,12 +480,12 @@ async function migrateSnapshotSubdomain(client, fixture, domain, dryRun, failure
     });
 }
 /**
- * migrateGmAuthDomain：执行核心业务逻辑。
+ * migrateGmAuthDomain：执行migrateGM认证Domain相关逻辑。
  * @param client 参数说明。
  * @param fixture 参数说明。
  * @param dryRun 参数说明。
  * @param failures 参数说明。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新migrateGM认证Domain相关状态。
  */
 
 
@@ -511,12 +511,12 @@ async function migrateGmAuthDomain(client, fixture, dryRun, failures) {
     return { read: 1, migrated: 1, skipped: 0 };
 }
 /**
- * migrateRedeemDomain：执行核心业务逻辑。
+ * migrateRedeemDomain：执行migrateRedeemDomain相关逻辑。
  * @param client 参数说明。
  * @param fixture 参数说明。
  * @param dryRun 参数说明。
  * @param failures 参数说明。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新migrateRedeemDomain相关状态。
  */
 
 
@@ -554,12 +554,12 @@ async function migrateRedeemDomain(client, fixture, dryRun, failures) {
     };
 }
 /**
- * migrateMarketDomain：执行核心业务逻辑。
+ * migrateMarketDomain：处理migrate坊市Domain并更新相关状态。
  * @param client 参数说明。
  * @param fixture 参数说明。
  * @param dryRun 参数说明。
  * @param failures 参数说明。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新migrate坊市Domain相关状态。
  */
 
 
@@ -593,12 +593,12 @@ async function migrateMarketDomain(client, fixture, dryRun, failures) {
     };
 }
 /**
- * migrateMailDomain：执行核心业务逻辑。
+ * migrateMailDomain：执行migrate邮件Domain相关逻辑。
  * @param client 参数说明。
  * @param fixture 参数说明。
  * @param dryRun 参数说明。
  * @param failures 参数说明。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新migrate邮件Domain相关状态。
  */
 
 
@@ -671,12 +671,12 @@ async function migrateMailDomain(client, fixture, dryRun, failures) {
     };
 }
 /**
- * migrateSuggestionDomain：执行核心业务逻辑。
+ * migrateSuggestionDomain：执行migrateSuggestionDomain相关逻辑。
  * @param client 参数说明。
  * @param fixture 参数说明。
  * @param dryRun 参数说明。
  * @param failures 参数说明。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新migrateSuggestionDomain相关状态。
  */
 
 
@@ -708,11 +708,11 @@ async function migrateSuggestionDomain(client, fixture, dryRun, failures) {
     };
 }
 /**
- * migrateRows：执行核心业务逻辑。
+ * migrateRows：执行migrateRow相关逻辑。
  * @param client 参数说明。
  * @param fixture 参数说明。
  * @param options 选项参数。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新migrateRow相关状态。
  */
 
 
@@ -746,9 +746,9 @@ async function migrateRows(client, fixture, options) {
     return summary;
 }
 /**
- * normalizeAuthRecord：执行核心业务逻辑。
+ * normalizeAuthRecord：规范化或转换认证Record。
  * @param row 参数说明。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新认证Record相关状态。
  */
 
 
@@ -795,9 +795,9 @@ function normalizeAuthRecord(row) {
     };
 }
 /**
- * normalizeIdentityRecord：执行核心业务逻辑。
+ * normalizeIdentityRecord：规范化或转换IdentityRecord。
  * @param row 参数说明。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新IdentityRecord相关状态。
  */
 
 
@@ -831,9 +831,9 @@ function normalizeIdentityRecord(row) {
     };
 }
 /**
- * normalizeSnapshotRecord：执行核心业务逻辑。
+ * normalizeSnapshotRecord：规范化或转换快照Record。
  * @param row 参数说明。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新快照Record相关状态。
  */
 
 
@@ -861,10 +861,10 @@ function normalizeSnapshotRecord(row) {
     };
 }
 /**
- * upsertAuthRecord：执行核心业务逻辑。
+ * upsertAuthRecord：执行upsert认证Record相关逻辑。
  * @param client 参数说明。
  * @param record 参数说明。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新upsert认证Record相关状态。
  */
 
 
@@ -910,10 +910,10 @@ async function upsertAuthRecord(client, record) {
     ]);
 }
 /**
- * upsertIdentityRecord：执行核心业务逻辑。
+ * upsertIdentityRecord：执行upsertIdentityRecord相关逻辑。
  * @param client 参数说明。
  * @param record 参数说明。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新upsertIdentityRecord相关状态。
  */
 
 
@@ -950,10 +950,10 @@ async function upsertIdentityRecord(client, record) {
     ]);
 }
 /**
- * upsertSnapshotRecord：执行核心业务逻辑。
+ * upsertSnapshotRecord：执行upsert快照Record相关逻辑。
  * @param client 参数说明。
  * @param record 参数说明。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新upsert快照Record相关状态。
  */
 
 
@@ -987,11 +987,11 @@ async function upsertSnapshotRecord(client, record) {
     ]);
 }
 /**
- * loadLegacySuggestions：按给定条件读取/查询数据。
+ * loadLegacySuggestions：读取LegacySuggestion并返回结果。
  * @param client 参数说明。
  * @param fixture 参数说明。
  * @param failures 参数说明。
- * @returns 函数返回值。
+ * @returns 无返回值，完成LegacySuggestion的读取/组装。
  */
 
 
@@ -1039,10 +1039,10 @@ async function loadLegacySuggestions(client, fixture, failures) {
     }
 }
 /**
- * loadLegacyRedeemGroups：按给定条件读取/查询数据。
+ * loadLegacyRedeemGroups：读取LegacyRedeemGroup并返回结果。
  * @param client 参数说明。
  * @param fixture 参数说明。
- * @returns 函数返回值。
+ * @returns 无返回值，完成LegacyRedeemGroup的读取/组装。
  */
 
 
@@ -1068,10 +1068,10 @@ async function loadLegacyRedeemGroups(client, fixture) {
     return result.rows;
 }
 /**
- * loadLegacyMarketOrders：按给定条件读取/查询数据。
+ * loadLegacyMarketOrders：读取Legacy坊市订单并返回结果。
  * @param client 参数说明。
  * @param fixture 参数说明。
- * @returns 函数返回值。
+ * @returns 无返回值，完成Legacy坊市订单的读取/组装。
  */
 
 
@@ -1102,10 +1102,10 @@ async function loadLegacyMarketOrders(client, fixture) {
     return result.rows;
 }
 /**
- * loadLegacyMarketTrades：按给定条件读取/查询数据。
+ * loadLegacyMarketTrades：读取Legacy坊市Trade并返回结果。
  * @param client 参数说明。
  * @param fixture 参数说明。
- * @returns 函数返回值。
+ * @returns 无返回值，完成Legacy坊市Trade的读取/组装。
  */
 
 
@@ -1133,10 +1133,10 @@ async function loadLegacyMarketTrades(client, fixture) {
     return result.rows;
 }
 /**
- * loadLegacyMarketStorages：按给定条件读取/查询数据。
+ * loadLegacyMarketStorages：读取Legacy坊市Storage并返回结果。
  * @param client 参数说明。
  * @param fixture 参数说明。
- * @returns 函数返回值。
+ * @returns 无返回值，完成Legacy坊市Storage的读取/组装。
  */
 
 
@@ -1159,10 +1159,10 @@ async function loadLegacyMarketStorages(client, fixture) {
     return result.rows;
 }
 /**
- * loadLegacyMailCampaigns：按给定条件读取/查询数据。
+ * loadLegacyMailCampaigns：读取Legacy邮件Campaign并返回结果。
  * @param client 参数说明。
  * @param fixture 参数说明。
- * @returns 函数返回值。
+ * @returns 无返回值，完成Legacy邮件Campaign的读取/组装。
  */
 
 
@@ -1196,10 +1196,10 @@ async function loadLegacyMailCampaigns(client, fixture) {
     return result.rows;
 }
 /**
- * loadLegacyMailAudienceRows：按给定条件读取/查询数据。
+ * loadLegacyMailAudienceRows：读取Legacy邮件AudienceRow并返回结果。
  * @param client 参数说明。
  * @param fixture 参数说明。
- * @returns 函数返回值。
+ * @returns 无返回值，完成Legacy邮件AudienceRow的读取/组装。
  */
 
 
@@ -1222,10 +1222,10 @@ async function loadLegacyMailAudienceRows(client, fixture) {
     return result.rows;
 }
 /**
- * loadLegacyMailReceiptRows：按给定条件读取/查询数据。
+ * loadLegacyMailReceiptRows：读取Legacy邮件ReceiptRow并返回结果。
  * @param client 参数说明。
  * @param fixture 参数说明。
- * @returns 函数返回值。
+ * @returns 无返回值，完成Legacy邮件ReceiptRow的读取/组装。
  */
 
 
@@ -1253,10 +1253,10 @@ async function loadLegacyMailReceiptRows(client, fixture) {
     return result.rows;
 }
 /**
- * loadLegacyPlayers：按给定条件读取/查询数据。
+ * loadLegacyPlayers：读取Legacy玩家并返回结果。
  * @param client 参数说明。
  * @param fixture 参数说明。
- * @returns 函数返回值。
+ * @returns 无返回值，完成Legacy玩家的读取/组装。
  */
 
 
@@ -1285,10 +1285,10 @@ async function loadLegacyPlayers(client, fixture) {
     })).filter((row) => row.playerId);
 }
 /**
- * loadLegacyRedeemCodes：按给定条件读取/查询数据。
+ * loadLegacyRedeemCodes：读取LegacyRedeemCode并返回结果。
  * @param client 参数说明。
  * @param fixture 参数说明。
- * @returns 函数返回值。
+ * @returns 无返回值，完成LegacyRedeemCode的读取/组装。
  */
 
 
@@ -1319,10 +1319,10 @@ async function loadLegacyRedeemCodes(client, fixture) {
     return result.rows;
 }
 /**
- * loadLegacyGmAuthRecord：按给定条件读取/查询数据。
+ * loadLegacyGmAuthRecord：读取LegacyGM认证Record并返回结果。
  * @param client 参数说明。
  * @param fixture 参数说明。
- * @returns 函数返回值。
+ * @returns 无返回值，完成LegacyGM认证Record的读取/组装。
  */
 
 
@@ -1338,11 +1338,11 @@ async function loadLegacyGmAuthRecord(client, fixture) {
     return null;
 }
 /**
- * loadLegacyScopeRows：按给定条件读取/查询数据。
+ * loadLegacyScopeRows：读取LegacyScopeRow并返回结果。
  * @param client 参数说明。
  * @param fixture 参数说明。
  * @param scope 参数说明。
- * @returns 函数返回值。
+ * @returns 无返回值，完成LegacyScopeRow的读取/组装。
  */
 
 
@@ -1356,12 +1356,12 @@ async function loadLegacyScopeRows(client, fixture, scope) {
     return result.rows;
 }
 /**
- * loadPersistentPayload：按给定条件读取/查询数据。
+ * loadPersistentPayload：读取Persistent载荷并返回结果。
  * @param client 参数说明。
  * @param fixture 参数说明。
  * @param scope 参数说明。
  * @param key 参数说明。
- * @returns 函数返回值。
+ * @returns 无返回值，完成Persistent载荷的读取/组装。
  */
 
 
@@ -1378,9 +1378,9 @@ async function loadPersistentPayload(client, fixture, scope, key) {
     return null;
 }
 /**
- * normalizeSuggestionEntry：执行核心业务逻辑。
+ * normalizeSuggestionEntry：规范化或转换Suggestion条目。
  * @param raw 参数说明。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新Suggestion条目相关状态。
  */
 
 
@@ -1411,9 +1411,9 @@ function normalizeSuggestionEntry(raw) {
     };
 }
 /**
- * normalizeRedeemGroupRecord：执行核心业务逻辑。
+ * normalizeRedeemGroupRecord：规范化或转换RedeemGroupRecord。
  * @param raw 参数说明。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新RedeemGroupRecord相关状态。
  */
 
 
@@ -1435,9 +1435,9 @@ function normalizeRedeemGroupRecord(raw) {
     };
 }
 /**
- * normalizeMarketOrderRecord：执行核心业务逻辑。
+ * normalizeMarketOrderRecord：规范化或转换坊市订单Record。
  * @param raw 参数说明。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新坊市订单Record相关状态。
  */
 
 
@@ -1473,9 +1473,9 @@ function normalizeMarketOrderRecord(raw) {
     };
 }
 /**
- * normalizeMarketTradeRecord：执行核心业务逻辑。
+ * normalizeMarketTradeRecord：规范化或转换坊市TradeRecord。
  * @param raw 参数说明。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新坊市TradeRecord相关状态。
  */
 
 
@@ -1502,9 +1502,9 @@ function normalizeMarketTradeRecord(raw) {
     };
 }
 /**
- * normalizeMarketStorageRecord：执行核心业务逻辑。
+ * normalizeMarketStorageRecord：规范化或转换坊市StorageRecord。
  * @param raw 参数说明。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新坊市StorageRecord相关状态。
  */
 
 
@@ -1540,9 +1540,9 @@ function normalizeMarketStorageRecord(raw) {
     };
 }
 /**
- * normalizeMailCampaign：执行核心业务逻辑。
+ * normalizeMailCampaign：规范化或转换邮件Campaign。
  * @param raw 参数说明。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新邮件Campaign相关状态。
  */
 
 
@@ -1570,9 +1570,9 @@ function normalizeMailCampaign(raw) {
     };
 }
 /**
- * normalizeRedeemCodeRecord：执行核心业务逻辑。
+ * normalizeRedeemCodeRecord：规范化或转换RedeemCodeRecord。
  * @param raw 参数说明。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新RedeemCodeRecord相关状态。
  */
 
 
@@ -1601,9 +1601,9 @@ function normalizeRedeemCodeRecord(raw) {
     };
 }
 /**
- * normalizeGmAuthRecord：执行核心业务逻辑。
+ * normalizeGmAuthRecord：规范化或转换GM认证Record。
  * @param raw 参数说明。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新GM认证Record相关状态。
  */
 
 
@@ -1632,9 +1632,9 @@ function normalizeGmAuthRecord(raw) {
     return null;
 }
 /**
- * normalizeDatabaseBackupMetadataRecord：执行核心业务逻辑。
+ * normalizeDatabaseBackupMetadataRecord：规范化或转换DatabaseBackupMetadataRecord。
  * @param row 参数说明。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新DatabaseBackupMetadataRecord相关状态。
  */
 
 
@@ -1666,9 +1666,9 @@ function normalizeDatabaseBackupMetadataRecord(row) {
     };
 }
 /**
- * normalizeDatabaseJobStateRecord：执行核心业务逻辑。
+ * normalizeDatabaseJobStateRecord：规范化或转换DatabaseJob状态Record。
  * @param raw 参数说明。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新DatabaseJob状态Record相关状态。
  */
 
 
@@ -1687,9 +1687,9 @@ function normalizeDatabaseJobStateRecord(raw) {
     };
 }
 /**
- * normalizeDatabaseJobRecord：执行核心业务逻辑。
+ * normalizeDatabaseJobRecord：规范化或转换DatabaseJobRecord。
  * @param raw 参数说明。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新DatabaseJobRecord相关状态。
  */
 
 
@@ -1747,9 +1747,9 @@ function normalizeDatabaseJobRecord(raw) {
     return normalized;
 }
 /**
- * normalizeDatabaseJobKind：执行核心业务逻辑。
+ * normalizeDatabaseJobKind：规范化或转换DatabaseJobKind。
  * @param value 参数说明。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新DatabaseJobKind相关状态。
  */
 
 
@@ -1760,9 +1760,9 @@ function normalizeDatabaseJobKind(value) {
         : null;
 }
 /**
- * normalizeMarketOrderStatus：执行核心业务逻辑。
+ * normalizeMarketOrderStatus：规范化或转换坊市订单Statu。
  * @param value 参数说明。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新坊市订单Statu相关状态。
  */
 
 
@@ -1776,12 +1776,12 @@ function normalizeMarketOrderStatus(value) {
     return 'open';
 }
 /**
- * resolveMailRecipientIds：执行核心业务逻辑。
+ * resolveMailRecipientIds：规范化或转换邮件RecipientID。
  * @param campaign 参数说明。
  * @param audienceByMailId audienceByMail ID。
  * @param playerIds player ID 集合。
  * @param playerCreatedAtById playerCreatedAtBy ID。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新邮件RecipientID相关状态。
  */
 
 
@@ -1804,7 +1804,7 @@ function resolveMailRecipientIds(campaign, audienceByMailId, playerIds, playerCr
  * buildMailboxMailEntry：构建并返回目标对象。
  * @param campaign 参数说明。
  * @param receipt 参数说明。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新邮件箱邮件条目相关状态。
  */
 
 
@@ -1828,9 +1828,9 @@ function buildMailboxMailEntry(campaign, receipt) {
     };
 }
 /**
- * normalizeRewardList：执行核心业务逻辑。
+ * normalizeRewardList：读取Reward列表并返回结果。
  * @param value 参数说明。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新Reward列表相关状态。
  */
 
 
@@ -1855,9 +1855,9 @@ function normalizeRewardList(value) {
         .filter(Boolean);
 }
 /**
- * normalizeSuggestionReplies：执行核心业务逻辑。
+ * normalizeSuggestionReplies：规范化或转换SuggestionReply。
  * @param value 参数说明。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新SuggestionReply相关状态。
  */
 
 
@@ -1890,9 +1890,9 @@ function normalizeSuggestionReplies(value) {
         .filter(Boolean);
 }
 /**
- * normalizeSuggestionStatus：执行核心业务逻辑。
+ * normalizeSuggestionStatus：规范化或转换SuggestionStatu。
  * @param value 参数说明。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新SuggestionStatu相关状态。
  */
 
 
@@ -1900,9 +1900,9 @@ function normalizeSuggestionStatus(value) {
     return readString(value) === 'completed' ? 'completed' : 'pending';
 }
 /**
- * normalizeStringList：执行核心业务逻辑。
+ * normalizeStringList：读取String列表并返回结果。
  * @param value 参数说明。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新String列表相关状态。
  */
 
 
@@ -1917,10 +1917,10 @@ function normalizeStringList(value) {
         .filter(Boolean);
 }
 /**
- * upsertSuggestionDocument：执行核心业务逻辑。
+ * upsertSuggestionDocument：执行upsertSuggestionDocument相关逻辑。
  * @param client 参数说明。
  * @param document 参数说明。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新upsertSuggestionDocument相关状态。
  */
 
 
@@ -1933,10 +1933,10 @@ async function upsertSuggestionDocument(client, document) {
     `, [SUGGESTION_SCOPE, SUGGESTION_KEY, JSON.stringify(document)]);
 }
 /**
- * upsertRedeemDocument：执行核心业务逻辑。
+ * upsertRedeemDocument：执行upsertRedeemDocument相关逻辑。
  * @param client 参数说明。
  * @param document 参数说明。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新upsertRedeemDocument相关状态。
  */
 
 
@@ -1949,10 +1949,10 @@ async function upsertRedeemDocument(client, document) {
     `, [REDEEM_CODE_SCOPE, REDEEM_CODE_KEY, JSON.stringify(document)]);
 }
 /**
- * upsertGmAuthRecord：执行核心业务逻辑。
+ * upsertGmAuthRecord：执行upsertGM认证Record相关逻辑。
  * @param client 参数说明。
  * @param record 参数说明。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新upsertGM认证Record相关状态。
  */
 
 
@@ -1960,11 +1960,11 @@ async function upsertGmAuthRecord(client, record) {
     await upsertPersistentDocument(client, GM_AUTH_SCOPE, GM_AUTH_KEY, record);
 }
 /**
- * upsertMailboxDocument：执行核心业务逻辑。
+ * upsertMailboxDocument：执行upsert邮件箱Document相关逻辑。
  * @param client 参数说明。
  * @param playerId 玩家 ID。
  * @param mails 参数说明。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新upsert邮件箱Document相关状态。
  */
 
 
@@ -1977,10 +1977,10 @@ async function upsertMailboxDocument(client, playerId, mails) {
     await upsertPersistentDocument(client, MAILBOX_SCOPE, playerId, payload);
 }
 /**
- * upsertMarketOrder：执行核心业务逻辑。
+ * upsertMarketOrder：处理upsert坊市订单并更新相关状态。
  * @param client 参数说明。
  * @param order 参数说明。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新upsert坊市订单相关状态。
  */
 
 
@@ -1988,10 +1988,10 @@ async function upsertMarketOrder(client, order) {
     await upsertPersistentDocument(client, MARKET_ORDER_SCOPE, order.id, order);
 }
 /**
- * upsertMarketTrade：执行核心业务逻辑。
+ * upsertMarketTrade：处理upsert坊市Trade并更新相关状态。
  * @param client 参数说明。
  * @param trade 参数说明。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新upsert坊市Trade相关状态。
  */
 
 
@@ -1999,10 +1999,10 @@ async function upsertMarketTrade(client, trade) {
     await upsertPersistentDocument(client, MARKET_TRADE_SCOPE, trade.id, trade);
 }
 /**
- * upsertMarketStorage：执行核心业务逻辑。
+ * upsertMarketStorage：处理upsert坊市Storage并更新相关状态。
  * @param client 参数说明。
  * @param entry 参数说明。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新upsert坊市Storage相关状态。
  */
 
 
@@ -2010,12 +2010,12 @@ async function upsertMarketStorage(client, entry) {
     await upsertPersistentDocument(client, MARKET_STORAGE_SCOPE, entry.playerId, entry.storage);
 }
 /**
- * upsertPersistentDocument：执行核心业务逻辑。
+ * upsertPersistentDocument：判断upsertPersistentDocument是否满足条件。
  * @param client 参数说明。
  * @param scope 参数说明。
  * @param key 参数说明。
  * @param payload 载荷参数。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新upsertPersistentDocument相关状态。
  */
 
 
@@ -2028,10 +2028,10 @@ async function upsertPersistentDocument(client, scope, key, payload) {
     `, [scope, key, JSON.stringify(payload)]);
 }
 /**
- * getFixtureScopeRows：按给定条件读取/查询数据。
+ * getFixtureScopeRows：读取FixtureScopeRow。
  * @param fixture 参数说明。
  * @param scope 参数说明。
- * @returns 函数返回值。
+ * @returns 无返回值，完成FixtureScopeRow的读取/组装。
  */
 
 
@@ -2046,11 +2046,11 @@ function getFixtureScopeRows(fixture, scope) {
         : [];
 }
 /**
- * getFixturePersistentPayload：按给定条件读取/查询数据。
+ * getFixturePersistentPayload：读取FixturePersistent载荷。
  * @param fixture 参数说明。
  * @param scope 参数说明。
  * @param key 参数说明。
- * @returns 函数返回值。
+ * @returns 无返回值，完成FixturePersistent载荷的读取/组装。
  */
 
 
@@ -2060,10 +2060,10 @@ function getFixturePersistentPayload(fixture, scope, key) {
     return match?.payload ?? null;
 }
 /**
- * getFixtureTableRows：按给定条件读取/查询数据。
+ * getFixtureTableRows：读取Fixture表Row。
  * @param fixture 参数说明。
  * @param tableName 参数说明。
- * @returns 函数返回值。
+ * @returns 无返回值，完成Fixture表Row的读取/组装。
  */
 
 
@@ -2073,10 +2073,10 @@ function getFixtureTableRows(fixture, tableName) {
     return Array.isArray(rows) ? rows : [];
 }
 /**
- * hasTable：执行状态校验并返回判断结果。
+ * hasTable：判断表是否满足条件。
  * @param client 参数说明。
  * @param tableName 参数说明。
- * @returns 函数返回值。
+ * @returns 无返回值，完成表的条件判断。
  */
 
 
@@ -2085,9 +2085,9 @@ async function hasTable(client, tableName) {
     return Boolean(result.rows[0]?.relation_name);
 }
 /**
- * asRecord：执行核心业务逻辑。
+ * asRecord：执行aRecord相关逻辑。
  * @param value 参数说明。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新aRecord相关状态。
  */
 
 
@@ -2095,9 +2095,9 @@ function asRecord(value) {
     return value && typeof value === 'object' && !Array.isArray(value) ? value : {};
 }
 /**
- * readString：执行核心业务逻辑。
+ * readString：读取String并返回结果。
  * @param value 参数说明。
- * @returns 函数返回值。
+ * @returns 无返回值，完成String的读取/组装。
  */
 
 
@@ -2105,9 +2105,9 @@ function readString(value) {
     return typeof value === 'string' ? value.trim() : '';
 }
 /**
- * readNullableString：执行核心业务逻辑。
+ * readNullableString：读取NullableString并返回结果。
  * @param value 参数说明。
- * @returns 函数返回值。
+ * @returns 无返回值，完成NullableString的读取/组装。
  */
 
 
@@ -2116,9 +2116,9 @@ function readNullableString(value) {
     return normalized || null;
 }
 /**
- * normalizeInteger：执行核心业务逻辑。
+ * normalizeInteger：规范化或转换Integer。
  * @param value 参数说明。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新Integer相关状态。
  */
 
 
@@ -2126,9 +2126,9 @@ function normalizeInteger(value) {
     return Math.max(0, Math.trunc(Number(value) || 0));
 }
 /**
- * normalizeNullableInteger：执行核心业务逻辑。
+ * normalizeNullableInteger：规范化或转换NullableInteger。
  * @param value 参数说明。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新NullableInteger相关状态。
  */
 
 
@@ -2136,9 +2136,9 @@ function normalizeNullableInteger(value) {
     return Number.isFinite(Number(value)) ? Math.max(0, Math.trunc(Number(value))) : null;
 }
 /**
- * normalizeEpochMs：执行核心业务逻辑。
+ * normalizeEpochMs：规范化或转换EpochM。
  * @param value 参数说明。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新EpochM相关状态。
  */
 
 
@@ -2152,9 +2152,9 @@ function normalizeEpochMs(value) {
     return normalizeInteger(value);
 }
 /**
- * normalizeNullableEpochMs：执行核心业务逻辑。
+ * normalizeNullableEpochMs：规范化或转换NullableEpochM。
  * @param value 参数说明。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新NullableEpochM相关状态。
  */
 
 
@@ -2168,9 +2168,9 @@ function normalizeNullableEpochMs(value) {
     return normalizeNullableInteger(value);
 }
 /**
- * normalizeTimestamp：执行核心业务逻辑。
+ * normalizeTimestamp：规范化或转换Timestamp。
  * @param value 参数说明。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新Timestamp相关状态。
  */
 
 
@@ -2193,9 +2193,9 @@ function normalizeTimestamp(value) {
     return '';
 }
 /**
- * normalizeNullableTimestamp：执行核心业务逻辑。
+ * normalizeNullableTimestamp：规范化或转换NullableTimestamp。
  * @param value 参数说明。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新NullableTimestamp相关状态。
  */
 
 

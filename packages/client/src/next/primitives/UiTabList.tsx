@@ -8,17 +8,17 @@ import { UiTabButton } from './UiTabButton';
 
 export interface UiTabListItem<TKey extends string = string> {
 /**
- * key：UiTabListItem 内部字段。
+ * key：key标识。
  */
 
   key: TKey;  
   /**
- * label：UiTabListItem 内部字段。
+ * label：label名称或显示文本。
  */
 
   label: ReactNode;  
   /**
- * disabled：UiTabListItem 内部字段。
+ * disabled：disabled相关字段。
  */
 
   disabled?: boolean;
@@ -30,43 +30,43 @@ export interface UiTabListItem<TKey extends string = string> {
 
 export interface UiTabListProps<TKey extends string = string> {
 /**
- * items：UiTabListProps 内部字段。
+ * items：集合字段。
  */
 
   items: ReadonlyArray<UiTabListItem<TKey>>;  
   /**
- * activeKey：UiTabListProps 内部字段。
+ * activeKey：激活状态Key标识。
  */
 
   activeKey: TKey;  
   /**
- * onChange：UiTabListProps 内部字段。
+ * onChange：onChange相关字段。
  */
 
   onChange: (key: TKey) => void;  
   /**
- * orientation：UiTabListProps 内部字段。
+ * orientation：orientation相关字段。
  */
 
   orientation?: 'horizontal' | 'vertical';  
   /**
- * scrollable：UiTabListProps 内部字段。
+ * scrollable：scrollable相关字段。
  */
 
   scrollable?: boolean;  
   /**
- * className：UiTabListProps 内部字段。
+ * className：class名称名称或显示文本。
  */
 
   className?: string;  
   /**
- * itemClassName：UiTabListProps 内部字段。
+ * itemClassName：道具Class名称名称或显示文本。
  */
 
   itemClassName?: string;
 }
 /**
- * UiTabList：执行核心业务逻辑。
+ * UiTabList：读取UiTab列表并返回结果。
  * @param {
   items,
   activeKey,
@@ -76,7 +76,7 @@ export interface UiTabListProps<TKey extends string = string> {
   className,
   itemClassName,
 } UiTabListProps<TKey> 参数说明。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新UiTab列表相关状态。
  */
 
 

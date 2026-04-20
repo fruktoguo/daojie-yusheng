@@ -33,28 +33,28 @@ const {
 /** 普攻落地服务：承接 dispatchBasicAttack 的伤害与副作用编排。 */
 let WorldRuntimeBasicAttackService = class WorldRuntimeBasicAttackService {
 /**
- * playerRuntimeService：对象字段。
+ * playerRuntimeService：玩家运行态服务引用。
  */
 
     playerRuntimeService;    
     /**
  * 构造器：初始化 当前 实例并建立基础状态。
  * @param playerRuntimeService 参数说明。
- * @returns 无返回值（构造函数）。
+ * @returns 无返回值，完成实例初始化。
  */
 
     constructor(playerRuntimeService) {
         this.playerRuntimeService = playerRuntimeService;
     }    
     /**
- * dispatchBasicAttack：处理事件并驱动执行路径。
+ * dispatchBasicAttack：判断BasicAttack是否满足条件。
  * @param playerId 玩家 ID。
  * @param targetPlayerId targetPlayer ID。
  * @param targetMonsterId targetMonster ID。
  * @param targetX 参数说明。
  * @param targetY 参数说明。
  * @param deps 运行时依赖。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新BasicAttack相关状态。
  */
 
     dispatchBasicAttack(playerId, targetPlayerId, targetMonsterId, targetX, targetY, deps) {
@@ -86,13 +86,13 @@ let WorldRuntimeBasicAttackService = class WorldRuntimeBasicAttackService {
         throw new common_1.BadRequestException('target is required');
     }    
     /**
- * dispatchBasicAttackToMonster：处理事件并驱动执行路径。
+ * dispatchBasicAttackToMonster：判断BasicAttackTo怪物是否满足条件。
  * @param attacker 参数说明。
  * @param targetMonsterId targetMonster ID。
  * @param damageKind 参数说明。
  * @param baseDamage 参数说明。
  * @param deps 运行时依赖。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新BasicAttackTo怪物相关状态。
  */
 
     dispatchBasicAttackToMonster(attacker, targetMonsterId, damageKind, baseDamage, deps) {
@@ -118,14 +118,14 @@ let WorldRuntimeBasicAttackService = class WorldRuntimeBasicAttackService {
         deps.queuePlayerNotice(attacker.playerId, `${formatCombatActionClause('你', monster.name, '攻击')}，造成 ${formatCombatDamageBreakdown(resolvedDamage.rawDamage, resolvedDamage.damage, damageKind)} 伤害`, 'combat');
     }    
     /**
- * dispatchBasicAttackToPlayer：处理事件并驱动执行路径。
+ * dispatchBasicAttackToPlayer：判断BasicAttackTo玩家是否满足条件。
  * @param attacker 参数说明。
  * @param targetPlayerId targetPlayer ID。
  * @param damageKind 参数说明。
  * @param baseDamage 参数说明。
  * @param currentTick 参数说明。
  * @param deps 运行时依赖。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新BasicAttackTo玩家相关状态。
  */
 
     dispatchBasicAttackToPlayer(attacker, targetPlayerId, damageKind, baseDamage, currentTick, deps) {
@@ -154,14 +154,14 @@ let WorldRuntimeBasicAttackService = class WorldRuntimeBasicAttackService {
         deps.queuePlayerNotice(target.playerId, `${formatCombatActionClause(attacker.name ?? attacker.playerId, '你', '攻击')}，造成 ${formatCombatDamageBreakdown(resolvedDamage.rawDamage, resolvedDamage.damage, damageKind)} 伤害`, 'combat');
     }    
     /**
- * dispatchBasicAttackToTile：处理事件并驱动执行路径。
+ * dispatchBasicAttackToTile：判断BasicAttackToTile是否满足条件。
  * @param attacker 参数说明。
  * @param targetX 参数说明。
  * @param targetY 参数说明。
  * @param damageKind 参数说明。
  * @param baseDamage 参数说明。
  * @param deps 运行时依赖。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新BasicAttackToTile相关状态。
  */
 
     dispatchBasicAttackToTile(attacker, targetX, targetY, damageKind, baseDamage, deps) {

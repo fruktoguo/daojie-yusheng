@@ -68,12 +68,12 @@ type PreviewDeviceMode = 'pc' | 'mobile';
 const SCALE_PRESETS = [75, 90, 100, 110, 125] as const;
 const MODULE_GROUPS: ReadonlyArray<{
 /**
- * title：对象字段。
+ * title：title名称或显示文本。
  */
 
   title: string;  
   /**
- * ids：对象字段。
+ * ids：ID相关字段。
  */
 
   ids: PrototypeModuleId[];
@@ -92,9 +92,9 @@ const MODULE_GROUPS: ReadonlyArray<{
   },
 ];
 /**
- * formatNumber：执行核心业务逻辑。
+ * formatNumber：规范化或转换Number。
  * @param value number 参数说明。
- * @returns string。
+ * @returns 返回Number。
  */
 
 
@@ -102,10 +102,10 @@ function formatNumber(value: number): string {
   return new Intl.NumberFormat('zh-CN').format(value);
 }
 /**
- * ratioPercent：执行核心业务逻辑。
+ * ratioPercent：执行ratioPercent相关逻辑。
  * @param current number 参数说明。
  * @param max number 参数说明。
- * @returns string。
+ * @returns 返回ratioPercent。
  */
 
 
@@ -118,9 +118,9 @@ function ratioPercent(current: number, max: number): string {
   return `${Math.max(0, Math.min(100, (current / max) * 100))}%`;
 }
 /**
- * resolvePrototypeGradeTone：执行核心业务逻辑。
+ * resolvePrototypeGradeTone：规范化或转换PrototypeGradeTone。
  * @param label string 参数说明。
- * @returns UiGameItemGradeTone | null。
+ * @returns 返回PrototypeGradeTone。
  */
 
 
@@ -138,9 +138,9 @@ function resolvePrototypeGradeTone(label: string): UiGameItemGradeTone | null {
   return null;
 }
 /**
- * getPrototypeItemTypeLabel：按给定条件读取/查询数据。
+ * getPrototypeItemTypeLabel：读取Prototype道具TypeLabel。
  * @param category string 参数说明。
- * @returns string。
+ * @returns 返回Prototype道具TypeLabel。
  */
 
 
@@ -161,9 +161,9 @@ function getPrototypeItemTypeLabel(category: string): string {
   }
 }
 /**
- * getModuleStatusLabel：按给定条件读取/查询数据。
+ * getModuleStatusLabel：读取模块StatuLabel。
  * @param status PrototypeModuleCardData['status'] 参数说明。
- * @returns string。
+ * @returns 返回模块StatuLabel。
  */
 
 
@@ -179,9 +179,9 @@ function getModuleStatusLabel(status: PrototypeModuleCardData['status']): string
   return '待迁移';
 }
 /**
- * openModulePreview：执行核心业务逻辑。
+ * openModulePreview：执行open模块Preview相关逻辑。
  * @param module PrototypeModuleCardData 参数说明。
- * @returns void。
+ * @returns 无返回值，直接更新open模块Preview相关状态。
  */
 
 
@@ -204,10 +204,10 @@ function openModulePreview(module: PrototypeModuleCardData): void {
   });
 }
 /**
- * openInventoryDetail：执行核心业务逻辑。
+ * openInventoryDetail：执行open背包详情相关逻辑。
  * @param itemName string 参数说明。
  * @param note string 参数说明。
- * @returns void。
+ * @returns 无返回值，直接更新open背包详情相关状态。
  */
 
 
@@ -228,7 +228,7 @@ function openInventoryDetail(itemName: string, note: string): void {
   });
 }
 /**
- * TooltipItemCard：执行核心业务逻辑。
+ * TooltipItemCard：渲染提示道具Card组件。
  * @param {
   name,
   meta,
@@ -238,7 +238,7 @@ function openInventoryDetail(itemName: string, note: string): void {
   meta: string;
   onClick: () => void;
 } 参数说明。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新提示道具Card相关状态。
  */
 
 
@@ -248,17 +248,17 @@ function TooltipItemCard({
   onClick,
 }: {
 /**
- * name：对象字段。
+ * name：名称名称或显示文本。
  */
 
   name: string;  
   /**
- * meta：对象字段。
+ * meta：meta相关字段。
  */
 
   meta: string;  
   /**
- * onClick：对象字段。
+ * onClick：onClick相关字段。
  */
 
   onClick: () => void;
@@ -278,8 +278,8 @@ function TooltipItemCard({
   );
 }
 /**
- * LoginPanelPreview：执行核心业务逻辑。
- * @returns 函数返回值。
+ * LoginPanelPreview：渲染Login面板Preview组件。
+ * @returns 无返回值，直接更新Login面板Preview相关状态。
  */
 
 
@@ -308,8 +308,8 @@ function LoginPanelPreview() {
   );
 }
 /**
- * FoundationPanelPreview：执行核心业务逻辑。
- * @returns 函数返回值。
+ * FoundationPanelPreview：渲染Foundation面板Preview组件。
+ * @returns 无返回值，直接更新Foundation面板Preview相关状态。
  */
 
 
@@ -492,8 +492,8 @@ function FoundationPanelPreview() {
   );
 }
 /**
- * HudPanelPreview：执行核心业务逻辑。
- * @returns 函数返回值。
+ * HudPanelPreview：渲染Hud面板Preview组件。
+ * @returns 无返回值，直接更新Hud面板Preview相关状态。
  */
 
 
@@ -558,8 +558,8 @@ function HudPanelPreview() {
   );
 }
 /**
- * AttrPanelPreview：执行核心业务逻辑。
- * @returns 函数返回值。
+ * AttrPanelPreview：渲染Attr面板Preview组件。
+ * @returns 无返回值，直接更新Attr面板Preview相关状态。
  */
 
 
@@ -588,8 +588,8 @@ function AttrPanelPreview() {
   );
 }
 /**
- * EquipmentPanelPreview：执行核心业务逻辑。
- * @returns 函数返回值。
+ * EquipmentPanelPreview：渲染装备面板Preview组件。
+ * @returns 无返回值，直接更新装备面板Preview相关状态。
  */
 
 
@@ -621,8 +621,8 @@ function EquipmentPanelPreview() {
   );
 }
 /**
- * InventoryPanelPreview：执行核心业务逻辑。
- * @returns 函数返回值。
+ * InventoryPanelPreview：渲染背包面板Preview组件。
+ * @returns 无返回值，直接更新背包面板Preview相关状态。
  */
 
 
@@ -700,8 +700,8 @@ function InventoryPanelPreview() {
   );
 }
 /**
- * TechniquePanelPreview：执行核心业务逻辑。
- * @returns 函数返回值。
+ * TechniquePanelPreview：渲染功法面板Preview组件。
+ * @returns 无返回值，直接更新功法面板Preview相关状态。
  */
 
 
@@ -750,8 +750,8 @@ function TechniquePanelPreview() {
   );
 }
 /**
- * ActionPanelPreview：执行核心业务逻辑。
- * @returns 函数返回值。
+ * ActionPanelPreview：渲染Action面板Preview组件。
+ * @returns 无返回值，直接更新Action面板Preview相关状态。
  */
 
 
@@ -782,8 +782,8 @@ function ActionPanelPreview() {
   );
 }
 /**
- * QuestPanelPreview：执行核心业务逻辑。
- * @returns 函数返回值。
+ * QuestPanelPreview：渲染任务面板Preview组件。
+ * @returns 无返回值，直接更新任务面板Preview相关状态。
  */
 
 
@@ -839,8 +839,8 @@ function QuestPanelPreview() {
   );
 }
 /**
- * WorldPanelPreview：执行核心业务逻辑。
- * @returns 函数返回值。
+ * WorldPanelPreview：渲染世界面板Preview组件。
+ * @returns 无返回值，直接更新世界面板Preview相关状态。
  */
 
 
@@ -874,8 +874,8 @@ function WorldPanelPreview() {
   );
 }
 /**
- * MarketPanelPreview：执行核心业务逻辑。
- * @returns 函数返回值。
+ * MarketPanelPreview：处理坊市面板Preview并更新相关状态。
+ * @returns 无返回值，直接更新坊市面板Preview相关状态。
  */
 
 
@@ -964,8 +964,8 @@ function MarketPanelPreview() {
   );
 }
 /**
- * MailPanelPreview：执行核心业务逻辑。
- * @returns 函数返回值。
+ * MailPanelPreview：渲染邮件面板Preview组件。
+ * @returns 无返回值，直接更新邮件面板Preview相关状态。
  */
 
 
@@ -1003,7 +1003,7 @@ function MailPanelPreview() {
   );
 }
 /**
- * SettingsPanelPreview：更新/写入相关状态。
+ * SettingsPanelPreview：写入Setting面板Preview。
  * @param {
   theme,
   deviceMode,
@@ -1013,7 +1013,7 @@ function MailPanelPreview() {
   deviceMode: PreviewDeviceMode;
   scalePercent: number;
 } 参数说明。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新Setting面板Preview相关状态。
  */
 
 
@@ -1023,17 +1023,17 @@ function SettingsPanelPreview({
   scalePercent,
 }: {
 /**
- * theme：对象字段。
+ * theme：theme相关字段。
  */
 
   theme: PrototypeTheme;  
   /**
- * deviceMode：对象字段。
+ * deviceMode：deviceMode相关字段。
  */
 
   deviceMode: PreviewDeviceMode;  
   /**
- * scalePercent：对象字段。
+ * scalePercent：scalePercent相关字段。
  */
 
   scalePercent: number;
@@ -1063,7 +1063,7 @@ function SettingsPanelPreview({
   );
 }
 /**
- * GenericModulePreview：执行核心业务逻辑。
+ * GenericModulePreview：渲染Generic模块Preview组件。
  * @param {
   module,
   deviceMode,
@@ -1071,7 +1071,7 @@ function SettingsPanelPreview({
   module: PrototypeModuleCardData;
   deviceMode: PreviewDeviceMode;
 } 参数说明。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新Generic模块Preview相关状态。
  */
 
 
@@ -1080,12 +1080,12 @@ function GenericModulePreview({
   deviceMode,
 }: {
 /**
- * module：对象字段。
+ * module：模块引用。
  */
 
   module: PrototypeModuleCardData;  
   /**
- * deviceMode：对象字段。
+ * deviceMode：deviceMode相关字段。
  */
 
   deviceMode: PreviewDeviceMode;
@@ -1138,12 +1138,12 @@ function GenericModulePreview({
   );
 }
 /**
- * renderModulePreview：执行核心业务逻辑。
+ * renderModulePreview：执行模块Preview相关逻辑。
  * @param module PrototypeModuleCardData 参数说明。
  * @param deviceMode PreviewDeviceMode 参数说明。
  * @param theme PrototypeTheme 参数说明。
  * @param scalePercent number 参数说明。
- * @returns ReactNode。
+ * @returns 返回模块Preview。
  */
 
 
@@ -1185,7 +1185,7 @@ function renderModulePreview(
   }
 }
 /**
- * ModuleNavigator：执行核心业务逻辑。
+ * ModuleNavigator：渲染模块Navigator组件。
  * @param {
   groupedModules,
   selectedModuleId,
@@ -1195,7 +1195,7 @@ function renderModulePreview(
   selectedModuleId: PrototypeModuleId;
   onSelect: (moduleId: PrototypeModuleId) => void;
 } 参数说明。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新模块Navigator相关状态。
  */
 
 
@@ -1205,25 +1205,25 @@ function ModuleNavigator({
   onSelect,
 }: {
 /**
- * groupedModules：对象字段。
+ * groupedModules：grouped模块相关字段。
  */
 
   groupedModules: {  
   /**
- * title：对象字段。
+ * title：title名称或显示文本。
  */
  title: string;  
  /**
- * items：对象字段。
+ * items：集合字段。
  */
  items: PrototypeModuleCardData[] }[];  
  /**
- * selectedModuleId：对象字段。
+ * selectedModuleId：selected模块ID标识。
  */
 
   selectedModuleId: PrototypeModuleId;  
   /**
- * onSelect：对象字段。
+ * onSelect：onSelect相关字段。
  */
 
   onSelect: (moduleId: PrototypeModuleId) => void;
@@ -1249,7 +1249,7 @@ function ModuleNavigator({
   );
 }
 /**
- * PrototypeDesktopShell：执行核心业务逻辑。
+ * PrototypeDesktopShell：渲染PrototypeDesktopShell组件。
  * @param {
   groupedModules,
   selectedModuleId,
@@ -1261,7 +1261,7 @@ function ModuleNavigator({
   onSelectModule: (moduleId: PrototypeModuleId) => void;
   renderSelectedModule: ReactNode;
 } 参数说明。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新PrototypeDesktopShell相关状态。
  */
 
 
@@ -1272,30 +1272,30 @@ function PrototypeDesktopShell({
   renderSelectedModule,
 }: {
 /**
- * groupedModules：对象字段。
+ * groupedModules：grouped模块相关字段。
  */
 
   groupedModules: {  
   /**
- * title：对象字段。
+ * title：title名称或显示文本。
  */
  title: string;  
  /**
- * items：对象字段。
+ * items：集合字段。
  */
  items: PrototypeModuleCardData[] }[];  
  /**
- * selectedModuleId：对象字段。
+ * selectedModuleId：selected模块ID标识。
  */
 
   selectedModuleId: PrototypeModuleId;  
   /**
- * onSelectModule：对象字段。
+ * onSelectModule：onSelect模块引用。
  */
 
   onSelectModule: (moduleId: PrototypeModuleId) => void;  
   /**
- * renderSelectedModule：对象字段。
+ * renderSelectedModule：Selected模块引用。
  */
 
   renderSelectedModule: ReactNode;
@@ -1312,7 +1312,7 @@ function PrototypeDesktopShell({
   );
 }
 /**
- * PrototypeMobileShell：执行核心业务逻辑。
+ * PrototypeMobileShell：渲染PrototypeMobileShell组件。
  * @param {
   groupedModules,
   selectedModuleId,
@@ -1324,7 +1324,7 @@ function PrototypeDesktopShell({
   onSelectModule: (moduleId: PrototypeModuleId) => void;
   renderSelectedModule: ReactNode;
 } 参数说明。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新PrototypeMobileShell相关状态。
  */
 
 
@@ -1335,30 +1335,30 @@ function PrototypeMobileShell({
   renderSelectedModule,
 }: {
 /**
- * groupedModules：对象字段。
+ * groupedModules：grouped模块相关字段。
  */
 
   groupedModules: {  
   /**
- * title：对象字段。
+ * title：title名称或显示文本。
  */
  title: string;  
  /**
- * items：对象字段。
+ * items：集合字段。
  */
  items: PrototypeModuleCardData[] }[];  
  /**
- * selectedModuleId：对象字段。
+ * selectedModuleId：selected模块ID标识。
  */
 
   selectedModuleId: PrototypeModuleId;  
   /**
- * onSelectModule：对象字段。
+ * onSelectModule：onSelect模块引用。
  */
 
   onSelectModule: (moduleId: PrototypeModuleId) => void;  
   /**
- * renderSelectedModule：对象字段。
+ * renderSelectedModule：Selected模块引用。
  */
 
   renderSelectedModule: ReactNode;
@@ -1375,8 +1375,8 @@ function PrototypeMobileShell({
   );
 }
 /**
- * PrototypeApp：执行核心业务逻辑。
- * @returns 函数返回值。
+ * PrototypeApp：渲染PrototypeApp组件。
+ * @returns 无返回值，直接更新PrototypeApp相关状态。
  */
 
 

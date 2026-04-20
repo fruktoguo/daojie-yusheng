@@ -49,7 +49,7 @@ let WorldSyncQuestLootService = class WorldSyncQuestLootService {
  * @param playerRuntimeService 参数说明。
  * @param worldSessionService 参数说明。
  * @param worldSyncProtocolService 参数说明。
- * @returns 无返回值（构造函数）。
+ * @returns 无返回值，完成实例初始化。
  */
 
     constructor(worldRuntimeService, playerRuntimeService, worldSessionService, worldSyncProtocolService) {

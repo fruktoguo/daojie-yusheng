@@ -13,7 +13,7 @@ import type {
 /** 境界低频同步视图。 */
 export interface RealmUpdateView {
 /**
- * realm：RealmUpdateView 内部字段。
+ * realm：realm相关字段。
  */
 
   realm: PlayerRealmState | null;
@@ -22,52 +22,52 @@ export interface RealmUpdateView {
 /** 排行榜同步视图。 */
 export interface LeaderboardView {
 /**
- * generatedAt：LeaderboardView 内部字段。
+ * generatedAt：generatedAt相关字段。
  */
 
   generatedAt: number;  
   /**
- * limit：LeaderboardView 内部字段。
+ * limit：limit相关字段。
  */
 
   limit: number;  
   /**
- * boards：LeaderboardView 内部字段。
+ * boards：board相关字段。
  */
 
   boards: {  
   /**
- * realm：LeaderboardView 内部字段。
+ * realm：realm相关字段。
  */
 
     realm: LeaderboardRealmEntry[];    
     /**
- * monsterKills：LeaderboardView 内部字段。
+ * monsterKills：怪物Kill相关字段。
  */
 
     monsterKills: LeaderboardMonsterKillEntry[];    
     /**
- * spiritStones：LeaderboardView 内部字段。
+ * spiritStones：spiritStone相关字段。
  */
 
     spiritStones: LeaderboardSpiritStoneEntry[];    
     /**
- * playerKills：LeaderboardView 内部字段。
+ * playerKills：玩家Kill相关字段。
  */
 
     playerKills: LeaderboardPlayerKillEntry[];    
     /**
- * deaths：LeaderboardView 内部字段。
+ * deaths：death相关字段。
  */
 
     deaths: LeaderboardDeathEntry[];    
     /**
- * bodyTraining：LeaderboardView 内部字段。
+ * bodyTraining：bodyTraining相关字段。
  */
 
     bodyTraining: LeaderboardBodyTrainingEntry[];    
     /**
- * supremeAttrs：LeaderboardView 内部字段。
+ * supremeAttrs：supremeAttr相关字段。
  */
 
     supremeAttrs: LeaderboardSupremeAttrEntry[];
@@ -77,12 +77,12 @@ export interface LeaderboardView {
 /** 世界概览同步视图。 */
 export interface WorldSummaryView {
 /**
- * generatedAt：WorldSummaryView 内部字段。
+ * generatedAt：generatedAt相关字段。
  */
 
   generatedAt: number;  
   /**
- * summary：WorldSummaryView 内部字段。
+ * summary：摘要状态或数据块。
  */
 
   summary: LeaderboardWorldSummary;

@@ -11,7 +11,7 @@ import { isNextGmBotPlayerId } from './next-gm.constants';
 
 interface PlayerSnapshotLike {
 /**
- * playerId：PlayerSnapshotLike 内部字段。
+ * playerId：玩家ID标识。
  */
 
   playerId: string;
@@ -52,7 +52,7 @@ export class NextGmMailService {
  * @param mailRuntimeService MailRuntimeServiceLike 参数说明。
  * @param playerPersistenceService PlayerPersistenceServiceLike 参数说明。
  * @param playerRuntimeService PlayerRuntimeServiceLike 参数说明。
- * @returns 无返回值（构造函数）。
+ * @returns 无返回值，完成实例初始化。
  */
 
   constructor(
@@ -64,7 +64,7 @@ export class NextGmMailService {
  * createDirectMail：构建并返回目标对象。
  * @param playerId string 玩家 ID。
  * @param input unknown 输入参数。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新Direct邮件相关状态。
  */
 
 
@@ -72,8 +72,8 @@ export class NextGmMailService {
     return this.mailRuntimeService.createDirectMail(playerId, input ?? {});
   }  
   /**
- * collectBroadcastRecipientPlayerIds：执行核心业务逻辑。
- * @returns Promise<string[]>。
+ * collectBroadcastRecipientPlayerIds：执行BroadcastRecipient玩家ID相关逻辑。
+ * @returns 返回 Promise，完成后得到BroadcastRecipient玩家ID。
  */
 
 
@@ -103,7 +103,7 @@ export class NextGmMailService {
   /**
  * createBroadcastMail：构建并返回目标对象。
  * @param input unknown 输入参数。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新Broadcast邮件相关状态。
  */
 
 

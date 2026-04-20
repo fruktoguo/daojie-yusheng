@@ -16,11 +16,11 @@ const common_1 = require("@nestjs/common");
 /** NPC 邻接访问服务：承接玩家相邻 NPC 的读取与距离校验。 */
 let WorldRuntimeNpcAccessService = class WorldRuntimeNpcAccessService {
 /**
- * resolveAdjacentNpc：执行核心业务逻辑。
+ * resolveAdjacentNpc：规范化或转换AdjacentNPC。
  * @param playerId 玩家 ID。
  * @param npcId npc ID。
  * @param deps 运行时依赖。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新AdjacentNPC相关状态。
  */
 
     resolveAdjacentNpc(playerId, npcId, deps) {
@@ -35,11 +35,11 @@ let WorldRuntimeNpcAccessService = class WorldRuntimeNpcAccessService {
         return npc;
     }    
     /**
- * getNpcForPlayerMap：按给定条件读取/查询数据。
+ * getNpcForPlayerMap：读取NPCFor玩家地图。
  * @param playerId 玩家 ID。
  * @param npcId npc ID。
  * @param deps 运行时依赖。
- * @returns 函数返回值。
+ * @returns 无返回值，完成NPCFor玩家地图的读取/组装。
  */
 
     getNpcForPlayerMap(playerId, npcId, deps) {

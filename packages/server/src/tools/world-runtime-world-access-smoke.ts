@@ -5,7 +5,7 @@ const assert = require("node:assert/strict");
 const { WorldRuntimeWorldAccessService } = require("../runtime/world/world-runtime-world-access.service");
 /**
  * createService：构建并返回目标对象。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新服务相关状态。
  */
 
 
@@ -14,7 +14,7 @@ function createService() {
     /**
  * buildRuntimeSummary：构建并返回目标对象。
  * @param input 输入参数。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新运行态摘要相关状态。
  */
 
         buildRuntimeSummary(input) {
@@ -23,8 +23,8 @@ function createService() {
     });
 }
 /**
- * testAccessorsAndSummary：执行核心业务逻辑。
- * @returns 函数返回值。
+ * testAccessorsAndSummary：执行testAccessorAnd摘要相关逻辑。
+ * @returns 无返回值，直接更新testAccessorAnd摘要相关状态。
  */
 
 
@@ -40,64 +40,64 @@ function testAccessorsAndSummary() {
         lastTickPhaseDurations: { tick: 1 },
         templateRepository: {        
         /**
- * has：执行状态校验并返回判断结果。
+ * has：判断ha是否满足条件。
  * @param id 参数说明。
- * @returns 函数返回值。
+ * @returns 无返回值，完成标识的条件判断。
  */
 
             has(id) { return id === 'yunlai_town'; },            
             /**
- * list：执行核心业务逻辑。
- * @returns 函数返回值。
+ * list：读取列表并返回结果。
+ * @returns 无返回值，完成结果的读取/组装。
  */
 
             list() { return [{ id: 'yunlai_town' }]; },
         },        
         /**
- * listInstances：执行核心业务逻辑。
- * @returns 函数返回值。
+ * listInstances：读取Instance并返回结果。
+ * @returns 无返回值，完成Instance的读取/组装。
  */
 
         listInstances() { return [{ instanceId: 'public:yunlai_town' }]; },        
         /**
- * getPlayerLocationCount：按给定条件读取/查询数据。
- * @returns 函数返回值。
+ * getPlayerLocationCount：读取玩家位置数量。
+ * @returns 无返回值，完成玩家位置数量的读取/组装。
  */
 
         getPlayerLocationCount() { return 1; },        
         /**
- * getPendingCommandCount：按给定条件读取/查询数据。
- * @returns 函数返回值。
+ * getPendingCommandCount：读取待处理Command数量。
+ * @returns 无返回值，完成PendingCommand数量的读取/组装。
  */
 
         getPendingCommandCount() { return 2; },
         worldRuntimeGmQueueService: {        
         /**
- * getPendingSystemCommandCount：按给定条件读取/查询数据。
- * @returns 函数返回值。
+ * getPendingSystemCommandCount：读取待处理SystemCommand数量。
+ * @returns 无返回值，完成PendingSystemCommand数量的读取/组装。
  */
  getPendingSystemCommandCount() { return 4; } },
         worldRuntimeNavigationService: {        
         /**
- * findMapRoute：执行核心业务逻辑。
+ * findMapRoute：读取地图路线并返回结果。
  * @param fromMapId fromMap ID。
  * @param toMapId toMap ID。
- * @returns 函数返回值。
+ * @returns 无返回值，完成地图路线的读取/组装。
  */
 
             findMapRoute(fromMapId, toMapId) { return { fromMapId, toMapId }; },            
             /**
- * interruptManualNavigation：执行核心业务逻辑。
+ * interruptManualNavigation：执行interruptManual导航相关逻辑。
  * @param playerId 玩家 ID。
  * @param runtime 参数说明。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新interruptManual导航相关状态。
  */
 
             interruptManualNavigation(playerId, runtime) { runtime.log.push(['interruptManualNavigation', playerId]); },            
             /**
- * clearNavigationIntent：执行核心业务逻辑。
+ * clearNavigationIntent：执行clear导航Intent相关逻辑。
  * @param playerId 玩家 ID。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新clear导航Intent相关状态。
  */
 
             clearNavigationIntent(playerId) { deps.log.push(['clearNavigationIntent', playerId]); },
@@ -105,42 +105,42 @@ function testAccessorsAndSummary() {
         /**
  * createInstance：构建并返回目标对象。
  * @param input 输入参数。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新Instance相关状态。
  */
 
         createInstance(input) { deps.log.push(['createInstance', input.instanceId]); return instance; },        
         /**
- * getPlayerLocation：按给定条件读取/查询数据。
+ * getPlayerLocation：读取玩家位置。
  * @param playerId 玩家 ID。
- * @returns 函数返回值。
+ * @returns 无返回值，完成玩家位置的读取/组装。
  */
 
         getPlayerLocation(playerId) { return playerId === 'player:1' ? { instanceId: 'public:yunlai_town' } : null; },        
         /**
- * getInstanceRuntime：按给定条件读取/查询数据。
+ * getInstanceRuntime：读取Instance运行态。
  * @param instanceId instance ID。
- * @returns 函数返回值。
+ * @returns 无返回值，完成Instance运行态的读取/组装。
  */
 
         getInstanceRuntime(instanceId) { return instanceId === 'public:yunlai_town' ? instance : null; },        
         /**
- * getPlayer：按给定条件读取/查询数据。
+ * getPlayer：读取玩家。
  * @param playerId 玩家 ID。
- * @returns 函数返回值。
+ * @returns 无返回值，完成玩家的读取/组装。
  */
 
         getPlayer(playerId) { return playerId === 'player:1' ? { instanceId: 'public:yunlai_town' } : null; },
         playerRuntimeService: {        
         /**
- * getPlayer：按给定条件读取/查询数据。
+ * getPlayer：读取玩家。
  * @param playerId 玩家 ID。
- * @returns 函数返回值。
+ * @returns 无返回值，完成玩家的读取/组装。
  */
  getPlayer(playerId) { return deps.getPlayer(playerId); } },        
  /**
- * getPlayerView：按给定条件读取/查询数据。
+ * getPlayerView：读取玩家视图。
  * @param playerId 玩家 ID。
- * @returns 函数返回值。
+ * @returns 无返回值，完成玩家视图的读取/组装。
  */
 
         getPlayerView(playerId) { return playerId === 'player:1' ? { playerId } : null; },

@@ -7,17 +7,17 @@ import type { EquipSlot, ItemStack } from './item-runtime-types';
 /** 炼制技能的经验与等级运行态。 */
 export interface AlchemySkillState {
 /**
- * level：AlchemySkillState 内部字段。
+ * level：等级数值。
  */
 
   level: number;  
   /**
- * exp：AlchemySkillState 内部字段。
+ * exp：exp相关字段。
  */
 
   exp: number;  
   /**
- * expToNext：AlchemySkillState 内部字段。
+ * expToNext：expToNext相关字段。
  */
 
   expToNext: number;
@@ -29,12 +29,12 @@ export type AlchemyIngredientRole = 'main' | 'aux';
 /** 玩家在炼制时实际勾选的材料数量。 */
 export interface AlchemyIngredientSelection {
 /**
- * itemId：AlchemyIngredientSelection 内部字段。
+ * itemId：道具ID标识。
  */
 
   itemId: string;  
   /**
- * count：AlchemyIngredientSelection 内部字段。
+ * count：数量或计量字段。
  */
 
   count: number;
@@ -43,27 +43,27 @@ export interface AlchemyIngredientSelection {
 /** 配方目录里的单个材料定义。 */
 export interface AlchemyRecipeIngredientDef extends AlchemyIngredientSelection {
 /**
- * name：AlchemyRecipeIngredientDef 内部字段。
+ * name：名称名称或显示文本。
  */
 
   name: string;  
   /**
- * role：AlchemyRecipeIngredientDef 内部字段。
+ * role：role相关字段。
  */
 
   role: AlchemyIngredientRole;  
   /**
- * level：AlchemyRecipeIngredientDef 内部字段。
+ * level：等级数值。
  */
 
   level: number;  
   /**
- * grade：AlchemyRecipeIngredientDef 内部字段。
+ * grade：grade相关字段。
  */
 
   grade: TechniqueGrade;  
   /**
- * powerPerUnit：AlchemyRecipeIngredientDef 内部字段。
+ * powerPerUnit：powerPerUnit相关字段。
  */
 
   powerPerUnit: number;
@@ -75,47 +75,47 @@ export type AlchemyRecipeCategory = 'recovery' | 'buff';
 /** 炼制配方目录条目。 */
 export interface AlchemyRecipeCatalogEntry {
 /**
- * recipeId：AlchemyRecipeCatalogEntry 内部字段。
+ * recipeId：recipeID标识。
  */
 
   recipeId: string;  
   /**
- * outputItemId：AlchemyRecipeCatalogEntry 内部字段。
+ * outputItemId：输出道具ID标识。
  */
 
   outputItemId: string;  
   /**
- * outputName：AlchemyRecipeCatalogEntry 内部字段。
+ * outputName：输出名称名称或显示文本。
  */
 
   outputName: string;  
   /**
- * category：AlchemyRecipeCatalogEntry 内部字段。
+ * category：category相关字段。
  */
 
   category: AlchemyRecipeCategory;  
   /**
- * outputCount：AlchemyRecipeCatalogEntry 内部字段。
+ * outputCount：数量或计量字段。
  */
 
   outputCount: number;  
   /**
- * outputLevel：AlchemyRecipeCatalogEntry 内部字段。
+ * outputLevel：输出等级数值。
  */
 
   outputLevel: number;  
   /**
- * baseBrewTicks：AlchemyRecipeCatalogEntry 内部字段。
+ * baseBrewTicks：baseBrewtick相关字段。
  */
 
   baseBrewTicks: number;  
   /**
- * fullPower：AlchemyRecipeCatalogEntry 内部字段。
+ * fullPower：fullPower相关字段。
  */
 
   fullPower: number;  
   /**
- * ingredients：AlchemyRecipeCatalogEntry 内部字段。
+ * ingredients：ingredient相关字段。
  */
 
   ingredients: AlchemyRecipeIngredientDef[];
@@ -124,27 +124,27 @@ export interface AlchemyRecipeCatalogEntry {
 /** 玩家保存的炼制预设。 */
 export interface PlayerAlchemyPreset {
 /**
- * presetId：PlayerAlchemyPreset 内部字段。
+ * presetId：presetID标识。
  */
 
   presetId: string;  
   /**
- * recipeId：PlayerAlchemyPreset 内部字段。
+ * recipeId：recipeID标识。
  */
 
   recipeId: string;  
   /**
- * name：PlayerAlchemyPreset 内部字段。
+ * name：名称名称或显示文本。
  */
 
   name: string;  
   /**
- * ingredients：PlayerAlchemyPreset 内部字段。
+ * ingredients：ingredient相关字段。
  */
 
   ingredients: AlchemyIngredientSelection[];  
   /**
- * updatedAt：PlayerAlchemyPreset 内部字段。
+ * updatedAt：updatedAt相关字段。
  */
 
   updatedAt: number;
@@ -153,97 +153,97 @@ export interface PlayerAlchemyPreset {
 /** 玩家当前炼制任务的运行态。 */
 export interface PlayerAlchemyJob {
 /**
- * recipeId：PlayerAlchemyJob 内部字段。
+ * recipeId：recipeID标识。
  */
 
   recipeId: string;  
   /**
- * outputItemId：PlayerAlchemyJob 内部字段。
+ * outputItemId：输出道具ID标识。
  */
 
   outputItemId: string;  
   /**
- * outputCount：PlayerAlchemyJob 内部字段。
+ * outputCount：数量或计量字段。
  */
 
   outputCount: number;  
   /**
- * quantity：PlayerAlchemyJob 内部字段。
+ * quantity：quantity相关字段。
  */
 
   quantity: number;  
   /**
- * completedCount：PlayerAlchemyJob 内部字段。
+ * completedCount：数量或计量字段。
  */
 
   completedCount: number;  
   /**
- * successCount：PlayerAlchemyJob 内部字段。
+ * successCount：数量或计量字段。
  */
 
   successCount: number;  
   /**
- * failureCount：PlayerAlchemyJob 内部字段。
+ * failureCount：数量或计量字段。
  */
 
   failureCount: number;  
   /**
- * ingredients：PlayerAlchemyJob 内部字段。
+ * ingredients：ingredient相关字段。
  */
 
   ingredients: AlchemyIngredientSelection[];  
   /**
- * phase：PlayerAlchemyJob 内部字段。
+ * phase：phase相关字段。
  */
 
   phase: 'preparing' | 'brewing' | 'paused';  
   /**
- * preparationTicks：PlayerAlchemyJob 内部字段。
+ * preparationTicks：preparationtick相关字段。
  */
 
   preparationTicks: number;  
   /**
- * batchBrewTicks：PlayerAlchemyJob 内部字段。
+ * batchBrewTicks：batchBrewtick相关字段。
  */
 
   batchBrewTicks: number;  
   /**
- * currentBatchRemainingTicks：PlayerAlchemyJob 内部字段。
+ * currentBatchRemainingTicks：currentBatchRemainingtick相关字段。
  */
 
   currentBatchRemainingTicks: number;  
   /**
- * pausedTicks：PlayerAlchemyJob 内部字段。
+ * pausedTicks：pausedtick相关字段。
  */
 
   pausedTicks: number;  
   /**
- * spiritStoneCost：PlayerAlchemyJob 内部字段。
+ * spiritStoneCost：spiritStone消耗数值。
  */
 
   spiritStoneCost: number;  
   /**
- * totalTicks：PlayerAlchemyJob 内部字段。
+ * totalTicks：totaltick相关字段。
  */
 
   totalTicks: number;  
   /**
- * remainingTicks：PlayerAlchemyJob 内部字段。
+ * remainingTicks：remainingtick相关字段。
  */
 
   remainingTicks: number;  
   /**
- * successRate：PlayerAlchemyJob 内部字段。
+ * successRate：successRate数值。
  */
 
   successRate: number;  
   /**
- * exactRecipe：PlayerAlchemyJob 内部字段。
+ * exactRecipe：exactRecipe相关字段。
  */
 
   exactRecipe: boolean;  
   /**
- * startedAt：PlayerAlchemyJob 内部字段。
+ * startedAt：startedAt相关字段。
  */
 
   startedAt: number;
@@ -252,17 +252,17 @@ export interface PlayerAlchemyJob {
 /** 炼制面板的完整同步状态。 */
 export interface SyncedAlchemyPanelState {
 /**
- * furnaceItemId：SyncedAlchemyPanelState 内部字段。
+ * furnaceItemId：furnace道具ID标识。
  */
 
   furnaceItemId?: string;  
   /**
- * presets：SyncedAlchemyPanelState 内部字段。
+ * presets：preset相关字段。
  */
 
   presets: PlayerAlchemyPreset[];  
   /**
- * job：SyncedAlchemyPanelState 内部字段。
+ * job：job相关字段。
  */
 
   job: PlayerAlchemyJob | null;
@@ -271,17 +271,17 @@ export interface SyncedAlchemyPanelState {
 /** 强化目标引用，指向背包槽位或装备槽位。 */
 export interface EnhancementTargetRef {
 /**
- * source：EnhancementTargetRef 内部字段。
+ * source：来源相关字段。
  */
 
   source: 'inventory' | 'equipment';  
   /**
- * slotIndex：EnhancementTargetRef 内部字段。
+ * slotIndex：slotIndex相关字段。
  */
 
   slotIndex?: number;  
   /**
- * slot：EnhancementTargetRef 内部字段。
+ * slot：slot相关字段。
  */
 
   slot?: EquipSlot;
@@ -290,12 +290,12 @@ export interface EnhancementTargetRef {
 /** 强化所需材料的单项要求。 */
 export interface EnhancementMaterialRequirement {
 /**
- * itemId：EnhancementMaterialRequirement 内部字段。
+ * itemId：道具ID标识。
  */
 
   itemId: string;  
   /**
- * count：EnhancementMaterialRequirement 内部字段。
+ * count：数量或计量字段。
  */
 
   count: number;
@@ -304,117 +304,117 @@ export interface EnhancementMaterialRequirement {
 /** 玩家当前强化任务的运行态。 */
 export interface PlayerEnhancementJob {
 /**
- * target：PlayerEnhancementJob 内部字段。
+ * target：目标相关字段。
  */
 
   target: EnhancementTargetRef;  
   /**
- * item：PlayerEnhancementJob 内部字段。
+ * item：道具相关字段。
  */
 
   item: ItemStack;  
   /**
- * targetItemId：PlayerEnhancementJob 内部字段。
+ * targetItemId：目标道具ID标识。
  */
 
   targetItemId: string;  
   /**
- * targetItemName：PlayerEnhancementJob 内部字段。
+ * targetItemName：目标道具名称名称或显示文本。
  */
 
   targetItemName: string;  
   /**
- * targetItemLevel：PlayerEnhancementJob 内部字段。
+ * targetItemLevel：目标道具等级数值。
  */
 
   targetItemLevel: number;  
   /**
- * currentLevel：PlayerEnhancementJob 内部字段。
+ * currentLevel：current等级数值。
  */
 
   currentLevel: number;  
   /**
- * targetLevel：PlayerEnhancementJob 内部字段。
+ * targetLevel：目标等级数值。
  */
 
   targetLevel: number;  
   /**
- * desiredTargetLevel：PlayerEnhancementJob 内部字段。
+ * desiredTargetLevel：desired目标等级数值。
  */
 
   desiredTargetLevel: number;  
   /**
- * spiritStoneCost：PlayerEnhancementJob 内部字段。
+ * spiritStoneCost：spiritStone消耗数值。
  */
 
   spiritStoneCost: number;  
   /**
- * materials：PlayerEnhancementJob 内部字段。
+ * materials：material相关字段。
  */
 
   materials: EnhancementMaterialRequirement[];  
   /**
- * protectionUsed：PlayerEnhancementJob 内部字段。
+ * protectionUsed：protectionUsed相关字段。
  */
 
   protectionUsed: boolean;  
   /**
- * protectionStartLevel：PlayerEnhancementJob 内部字段。
+ * protectionStartLevel：protectionStart等级数值。
  */
 
   protectionStartLevel?: number;  
   /**
- * protectionItemId：PlayerEnhancementJob 内部字段。
+ * protectionItemId：protection道具ID标识。
  */
 
   protectionItemId?: string;  
   /**
- * protectionItemName：PlayerEnhancementJob 内部字段。
+ * protectionItemName：protection道具名称名称或显示文本。
  */
 
   protectionItemName?: string;  
   /**
- * protectionItemSignature：PlayerEnhancementJob 内部字段。
+ * protectionItemSignature：protection道具Signature标识。
  */
 
   protectionItemSignature?: string;  
   /**
- * phase：PlayerEnhancementJob 内部字段。
+ * phase：phase相关字段。
  */
 
   phase: 'enhancing' | 'paused';  
   /**
- * pausedTicks：PlayerEnhancementJob 内部字段。
+ * pausedTicks：pausedtick相关字段。
  */
 
   pausedTicks: number;  
   /**
- * successRate：PlayerEnhancementJob 内部字段。
+ * successRate：successRate数值。
  */
 
   successRate: number;  
   /**
- * totalTicks：PlayerEnhancementJob 内部字段。
+ * totalTicks：totaltick相关字段。
  */
 
   totalTicks: number;  
   /**
- * remainingTicks：PlayerEnhancementJob 内部字段。
+ * remainingTicks：remainingtick相关字段。
  */
 
   remainingTicks: number;  
   /**
- * startedAt：PlayerEnhancementJob 内部字段。
+ * startedAt：startedAt相关字段。
  */
 
   startedAt: number;  
   /**
- * roleEnhancementLevel：PlayerEnhancementJob 内部字段。
+ * roleEnhancementLevel：role强化等级数值。
  */
 
   roleEnhancementLevel: number;  
   /**
- * totalSpeedRate：PlayerEnhancementJob 内部字段。
+ * totalSpeedRate：totalSpeedRate数值。
  */
 
   totalSpeedRate: number;
@@ -423,17 +423,17 @@ export interface PlayerEnhancementJob {
 /** 单个强化目标等级的历史记录。 */
 export interface PlayerEnhancementLevelRecord {
 /**
- * targetLevel：PlayerEnhancementLevelRecord 内部字段。
+ * targetLevel：目标等级数值。
  */
 
   targetLevel: number;  
   /**
- * successCount：PlayerEnhancementLevelRecord 内部字段。
+ * successCount：数量或计量字段。
  */
 
   successCount: number;  
   /**
- * failureCount：PlayerEnhancementLevelRecord 内部字段。
+ * failureCount：数量或计量字段。
  */
 
   failureCount: number;
@@ -445,52 +445,52 @@ export type PlayerEnhancementSessionStatus = 'in_progress' | 'completed' | 'canc
 /** 单件物品的强化历史记录。 */
 export interface PlayerEnhancementRecord {
 /**
- * itemId：PlayerEnhancementRecord 内部字段。
+ * itemId：道具ID标识。
  */
 
   itemId: string;  
   /**
- * highestLevel：PlayerEnhancementRecord 内部字段。
+ * highestLevel：highest等级数值。
  */
 
   highestLevel: number;  
   /**
- * levels：PlayerEnhancementRecord 内部字段。
+ * levels：等级相关字段。
  */
 
   levels: PlayerEnhancementLevelRecord[];  
   /**
- * actionStartedAt：PlayerEnhancementRecord 内部字段。
+ * actionStartedAt：actionStartedAt相关字段。
  */
 
   actionStartedAt?: number;  
   /**
- * actionEndedAt：PlayerEnhancementRecord 内部字段。
+ * actionEndedAt：actionEndedAt相关字段。
  */
 
   actionEndedAt?: number;  
   /**
- * startLevel：PlayerEnhancementRecord 内部字段。
+ * startLevel：start等级数值。
  */
 
   startLevel?: number;  
   /**
- * initialTargetLevel：PlayerEnhancementRecord 内部字段。
+ * initialTargetLevel：initial目标等级数值。
  */
 
   initialTargetLevel?: number;  
   /**
- * desiredTargetLevel：PlayerEnhancementRecord 内部字段。
+ * desiredTargetLevel：desired目标等级数值。
  */
 
   desiredTargetLevel?: number;  
   /**
- * protectionStartLevel：PlayerEnhancementRecord 内部字段。
+ * protectionStartLevel：protectionStart等级数值。
  */
 
   protectionStartLevel?: number;  
   /**
- * status：PlayerEnhancementRecord 内部字段。
+ * status：statu状态或数据块。
  */
 
   status?: PlayerEnhancementSessionStatus;
@@ -499,12 +499,12 @@ export interface PlayerEnhancementRecord {
 /** 可作为强化保护材料的候选项。 */
 export interface SyncedEnhancementProtectionCandidate {
 /**
- * ref：SyncedEnhancementProtectionCandidate 内部字段。
+ * ref：ref相关字段。
  */
 
   ref: EnhancementTargetRef;  
   /**
- * item：SyncedEnhancementProtectionCandidate 内部字段。
+ * item：道具相关字段。
  */
 
   item: ItemStack;
@@ -513,22 +513,22 @@ export interface SyncedEnhancementProtectionCandidate {
 /** 强化材料需求的展示视图。 */
 export interface SyncedEnhancementRequirementView {
 /**
- * itemId：SyncedEnhancementRequirementView 内部字段。
+ * itemId：道具ID标识。
  */
 
   itemId: string;  
   /**
- * name：SyncedEnhancementRequirementView 内部字段。
+ * name：名称名称或显示文本。
  */
 
   name: string;  
   /**
- * count：SyncedEnhancementRequirementView 内部字段。
+ * count：数量或计量字段。
  */
 
   count: number;  
   /**
- * ownedCount：SyncedEnhancementRequirementView 内部字段。
+ * ownedCount：数量或计量字段。
  */
 
   ownedCount: number;
@@ -537,62 +537,62 @@ export interface SyncedEnhancementRequirementView {
 /** 强化候选项的展示视图。 */
 export interface SyncedEnhancementCandidateView {
 /**
- * ref：SyncedEnhancementCandidateView 内部字段。
+ * ref：ref相关字段。
  */
 
   ref: EnhancementTargetRef;  
   /**
- * item：SyncedEnhancementCandidateView 内部字段。
+ * item：道具相关字段。
  */
 
   item: ItemStack;  
   /**
- * currentLevel：SyncedEnhancementCandidateView 内部字段。
+ * currentLevel：current等级数值。
  */
 
   currentLevel: number;  
   /**
- * nextLevel：SyncedEnhancementCandidateView 内部字段。
+ * nextLevel：next等级数值。
  */
 
   nextLevel: number;  
   /**
- * spiritStoneCost：SyncedEnhancementCandidateView 内部字段。
+ * spiritStoneCost：spiritStone消耗数值。
  */
 
   spiritStoneCost: number;  
   /**
- * successRate：SyncedEnhancementCandidateView 内部字段。
+ * successRate：successRate数值。
  */
 
   successRate: number;  
   /**
- * durationTicks：SyncedEnhancementCandidateView 内部字段。
+ * durationTicks：durationtick相关字段。
  */
 
   durationTicks: number;  
   /**
- * materials：SyncedEnhancementCandidateView 内部字段。
+ * materials：material相关字段。
  */
 
   materials: SyncedEnhancementRequirementView[];  
   /**
- * protectionItemId：SyncedEnhancementCandidateView 内部字段。
+ * protectionItemId：protection道具ID标识。
  */
 
   protectionItemId?: string;  
   /**
- * protectionItemName：SyncedEnhancementCandidateView 内部字段。
+ * protectionItemName：protection道具名称名称或显示文本。
  */
 
   protectionItemName?: string;  
   /**
- * allowSelfProtection：SyncedEnhancementCandidateView 内部字段。
+ * allowSelfProtection：allowSelfProtection相关字段。
  */
 
   allowSelfProtection: boolean;  
   /**
- * protectionCandidates：SyncedEnhancementCandidateView 内部字段。
+ * protectionCandidates：protectionCandidate相关字段。
  */
 
   protectionCandidates: SyncedEnhancementProtectionCandidate[];
@@ -601,27 +601,27 @@ export interface SyncedEnhancementCandidateView {
 /** 强化面板的完整同步状态。 */
 export interface SyncedEnhancementPanelState {
 /**
- * hammerItemId：SyncedEnhancementPanelState 内部字段。
+ * hammerItemId：hammer道具ID标识。
  */
 
   hammerItemId?: string;  
   /**
- * enhancementSkillLevel：SyncedEnhancementPanelState 内部字段。
+ * enhancementSkillLevel：强化技能等级数值。
  */
 
   enhancementSkillLevel: number;  
   /**
- * candidates：SyncedEnhancementPanelState 内部字段。
+ * candidates：candidate相关字段。
  */
 
   candidates: SyncedEnhancementCandidateView[];  
   /**
- * records：SyncedEnhancementPanelState 内部字段。
+ * records：record相关字段。
  */
 
   records: PlayerEnhancementRecord[];  
   /**
- * job：SyncedEnhancementPanelState 内部字段。
+ * job：job相关字段。
  */
 
   job: PlayerEnhancementJob | null;

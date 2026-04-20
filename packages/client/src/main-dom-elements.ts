@@ -3,157 +3,157 @@
  */
 export type MainDomElements = {
 /**
- * canvasHost：对象字段。
+ * canvasHost：canvaHost相关字段。
  */
 
   canvasHost: HTMLElement;  
   /**
- * zoomSlider：对象字段。
+ * zoomSlider：zoomSlider相关字段。
  */
 
   zoomSlider: HTMLInputElement | null;  
   /**
- * zoomLevelEl：对象字段。
+ * zoomLevelEl：zoom等级El相关字段。
  */
 
   zoomLevelEl: HTMLElement | null;  
   /**
- * tickRateEl：对象字段。
+ * tickRateEl：tickRateEl相关字段。
  */
 
   tickRateEl: HTMLElement | null;  
   /**
- * currentTimeEl：对象字段。
+ * currentTimeEl：current时间El相关字段。
  */
 
   currentTimeEl: HTMLElement | null;  
   /**
- * currentTimePhaseEl：对象字段。
+ * currentTimePhaseEl：current时间PhaseEl相关字段。
  */
 
   currentTimePhaseEl: HTMLElement | null;  
   /**
- * currentTimeHourAEl：对象字段。
+ * currentTimeHourAEl：current时间HourAEl相关字段。
  */
 
   currentTimeHourAEl: HTMLElement | null;  
   /**
- * currentTimeHourBEl：对象字段。
+ * currentTimeHourBEl：current时间HourBEl相关字段。
  */
 
   currentTimeHourBEl: HTMLElement | null;  
   /**
- * currentTimeDotEl：对象字段。
+ * currentTimeDotEl：current时间DotEl相关字段。
  */
 
   currentTimeDotEl: HTMLElement | null;  
   /**
- * currentTimeMinAEl：对象字段。
+ * currentTimeMinAEl：current时间MinAEl相关字段。
  */
 
   currentTimeMinAEl: HTMLElement | null;  
   /**
- * currentTimeMinBEl：对象字段。
+ * currentTimeMinBEl：current时间MinBEl相关字段。
  */
 
   currentTimeMinBEl: HTMLElement | null;  
   /**
- * tickRateIntEl：对象字段。
+ * tickRateIntEl：tickRateIntEl相关字段。
  */
 
   tickRateIntEl: HTMLElement | null;  
   /**
- * tickRateDotEl：对象字段。
+ * tickRateDotEl：tickRateDotEl相关字段。
  */
 
   tickRateDotEl: HTMLElement | null;  
   /**
- * tickRateFracAEl：对象字段。
+ * tickRateFracAEl：tickRateFracAEl相关字段。
  */
 
   tickRateFracAEl: HTMLElement | null;  
   /**
- * tickRateFracBEl：对象字段。
+ * tickRateFracBEl：tickRateFracBEl相关字段。
  */
 
   tickRateFracBEl: HTMLElement | null;  
   /**
- * fpsRateEl：对象字段。
+ * fpsRateEl：fpRateEl相关字段。
  */
 
   fpsRateEl: HTMLElement | null;  
   /**
- * fpsValueEl：对象字段。
+ * fpsValueEl：fp值El相关字段。
  */
 
   fpsValueEl: HTMLElement | null;  
   /**
- * fpsLowValueEl：对象字段。
+ * fpsLowValueEl：fpLow值El相关字段。
  */
 
   fpsLowValueEl: HTMLElement | null;  
   /**
- * fpsOnePercentValueEl：对象字段。
+ * fpsOnePercentValueEl：fpOnePercent值El相关字段。
  */
 
   fpsOnePercentValueEl: HTMLElement | null;  
   /**
- * pingLatencyEl：对象字段。
+ * pingLatencyEl：pingLatencyEl相关字段。
  */
 
   pingLatencyEl: HTMLElement | null;  
   /**
- * pingUnitEl：对象字段。
+ * pingUnitEl：pingUnitEl相关字段。
  */
 
   pingUnitEl: HTMLElement | null;  
   /**
- * pingHundredsEl：对象字段。
+ * pingHundredsEl：pingHundredEl相关字段。
  */
 
   pingHundredsEl: HTMLElement | null;  
   /**
- * pingTensEl：对象字段。
+ * pingTensEl：pingTenEl相关字段。
  */
 
   pingTensEl: HTMLElement | null;  
   /**
- * pingOnesEl：对象字段。
+ * pingOnesEl：pingOneEl相关字段。
  */
 
   pingOnesEl: HTMLElement | null;  
   /**
- * joinQqGroupBtns：对象字段。
+ * joinQqGroupBtns：joinQqGroupBtn相关字段。
  */
 
   joinQqGroupBtns: NodeListOf<HTMLAnchorElement>;  
   /**
- * targetingBadgeEl：对象字段。
+ * targetingBadgeEl：targetingBadgeEl相关字段。
  */
 
   targetingBadgeEl: HTMLElement | null;  
   /**
- * observeModalEl：对象字段。
+ * observeModalEl：observe弹层El相关字段。
  */
 
   observeModalEl: HTMLElement | null;  
   /**
- * observeModalBodyEl：对象字段。
+ * observeModalBodyEl：observe弹层BodyEl相关字段。
  */
 
   observeModalBodyEl: HTMLElement | null;  
   /**
- * observeModalSubtitleEl：对象字段。
+ * observeModalSubtitleEl：observe弹层SubtitleEl相关字段。
  */
 
   observeModalSubtitleEl: HTMLElement | null;  
   /**
- * observeModalShellEl：对象字段。
+ * observeModalShellEl：observe弹层ShellEl相关字段。
  */
 
   observeModalShellEl: HTMLElement | null;  
   /**
- * observeModalAsideEl：对象字段。
+ * observeModalAsideEl：observe弹层AsideEl相关字段。
  */
 
   observeModalAsideEl: HTMLElement | null;
@@ -163,9 +163,9 @@ export const QQ_GROUP_NUMBER = '940886387';
 export const QQ_GROUP_MOBILE_DEEP_LINK = `mqqapi://card/show_pslcard?src_type=internal&version=1&uin=${QQ_GROUP_NUMBER}&card_type=group&source=qrcode`;
 export const QQ_GROUP_DESKTOP_DEEP_LINK = `tencent://AddContact/?fromId=45&fromSubId=1&subcmd=all&uin=${QQ_GROUP_NUMBER}`;
 /**
- * collectMainDomElements：执行核心业务逻辑。
+ * collectMainDomElements：执行MainDomElement相关逻辑。
  * @param documentRef Document 参数说明。
- * @returns MainDomElements。
+ * @returns 返回MainDomElement。
  */
 
 

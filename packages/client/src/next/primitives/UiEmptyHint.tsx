@@ -3,20 +3,20 @@
  */
 export interface UiEmptyHintProps {
 /**
- * text：UiEmptyHintProps 内部字段。
+ * text：text名称或显示文本。
  */
 
   text: string;  
   /**
- * className：UiEmptyHintProps 内部字段。
+ * className：class名称名称或显示文本。
  */
 
   className?: string;
 }
 /**
- * UiEmptyHint：执行核心业务逻辑。
+ * UiEmptyHint：渲染UiEmptyHint组件。
  * @param { text, className } UiEmptyHintProps 参数说明。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新UiEmptyHint相关状态。
  */
 
 

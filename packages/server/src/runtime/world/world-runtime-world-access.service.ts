@@ -27,24 +27,24 @@ const DEFAULT_PLAYER_RESPAWN_MAP_ID = 'yunlai_town';
 /** world-runtime world-access seam：承接世界级 access/utility/query 外壳。 */
 let WorldRuntimeWorldAccessService = class WorldRuntimeWorldAccessService {
 /**
- * worldRuntimeSummaryQueryService：对象字段。
+ * worldRuntimeSummaryQueryService：世界运行态摘要Query服务引用。
  */
 
     worldRuntimeSummaryQueryService;    
     /**
  * 构造器：初始化 当前 实例并建立基础状态。
  * @param worldRuntimeSummaryQueryService 参数说明。
- * @returns 无返回值（构造函数）。
+ * @returns 无返回值，完成实例初始化。
  */
 
     constructor(worldRuntimeSummaryQueryService) {
         this.worldRuntimeSummaryQueryService = worldRuntimeSummaryQueryService;
     }    
     /**
- * resolveCurrentTickForPlayerId：执行核心业务逻辑。
+ * resolveCurrentTickForPlayerId：规范化或转换当前tickFor玩家ID。
  * @param playerId 玩家 ID。
  * @param deps 运行时依赖。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新CurrenttickFor玩家ID相关状态。
  */
 
     resolveCurrentTickForPlayerId(playerId, deps) {
@@ -57,9 +57,9 @@ let WorldRuntimeWorldAccessService = class WorldRuntimeWorldAccessService {
         return deps.getInstanceRuntime(player.instanceId)?.tick ?? deps.tick;
     }    
     /**
- * getRuntimeSummary：按给定条件读取/查询数据。
+ * getRuntimeSummary：读取运行态摘要。
  * @param deps 运行时依赖。
- * @returns 函数返回值。
+ * @returns 无返回值，完成运行态摘要的读取/组装。
  */
 
     getRuntimeSummary(deps) {
@@ -79,10 +79,10 @@ let WorldRuntimeWorldAccessService = class WorldRuntimeWorldAccessService {
         });
     }    
     /**
- * getOrCreatePublicInstance：按给定条件读取/查询数据。
+ * getOrCreatePublicInstance：读取OrCreatePublicInstance。
  * @param templateId template ID。
  * @param deps 运行时依赖。
- * @returns 函数返回值。
+ * @returns 无返回值，完成OrCreatePublicInstance的读取/组装。
  */
 
     getOrCreatePublicInstance(templateId, deps) {
@@ -99,9 +99,9 @@ let WorldRuntimeWorldAccessService = class WorldRuntimeWorldAccessService {
         });
     }    
     /**
- * resolveDefaultRespawnMapId：执行核心业务逻辑。
+ * resolveDefaultRespawnMapId：规范化或转换默认重生地图ID。
  * @param deps 运行时依赖。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新Default重生地图ID相关状态。
  */
 
     resolveDefaultRespawnMapId(deps) {
@@ -117,21 +117,21 @@ let WorldRuntimeWorldAccessService = class WorldRuntimeWorldAccessService {
         return fallback;
     }    
     /**
- * findMapRoute：执行核心业务逻辑。
+ * findMapRoute：读取地图路线并返回结果。
  * @param fromMapId fromMap ID。
  * @param toMapId toMap ID。
  * @param deps 运行时依赖。
- * @returns 函数返回值。
+ * @returns 无返回值，完成地图路线的读取/组装。
  */
 
     findMapRoute(fromMapId, toMapId, deps) {
         return deps.worldRuntimeNavigationService.findMapRoute(fromMapId, toMapId);
     }    
     /**
- * getPlayerLocationOrThrow：按给定条件读取/查询数据。
+ * getPlayerLocationOrThrow：读取玩家位置OrThrow。
  * @param playerId 玩家 ID。
  * @param deps 运行时依赖。
- * @returns 函数返回值。
+ * @returns 无返回值，完成玩家位置OrThrow的读取/组装。
  */
 
     getPlayerLocationOrThrow(playerId, deps) {
@@ -144,10 +144,10 @@ let WorldRuntimeWorldAccessService = class WorldRuntimeWorldAccessService {
         return location;
     }    
     /**
- * getInstanceRuntimeOrThrow：按给定条件读取/查询数据。
+ * getInstanceRuntimeOrThrow：读取Instance运行态OrThrow。
  * @param instanceId instance ID。
  * @param deps 运行时依赖。
- * @returns 函数返回值。
+ * @returns 无返回值，完成Instance运行态OrThrow的读取/组装。
  */
 
     getInstanceRuntimeOrThrow(instanceId, deps) {
@@ -160,10 +160,10 @@ let WorldRuntimeWorldAccessService = class WorldRuntimeWorldAccessService {
         return instance;
     }    
     /**
- * cancelPendingInstanceCommand：执行状态校验并返回判断结果。
+ * cancelPendingInstanceCommand：判断cancel待处理InstanceCommand是否满足条件。
  * @param playerId 玩家 ID。
  * @param deps 运行时依赖。
- * @returns 函数返回值。
+ * @returns 无返回值，完成cancelPendingInstanceCommand的条件判断。
  */
 
     cancelPendingInstanceCommand(playerId, deps) {
@@ -176,20 +176,20 @@ let WorldRuntimeWorldAccessService = class WorldRuntimeWorldAccessService {
         return deps.getInstanceRuntime(location.instanceId)?.cancelPendingCommand(playerId) ?? false;
     }    
     /**
- * interruptManualNavigation：执行核心业务逻辑。
+ * interruptManualNavigation：执行interruptManual导航相关逻辑。
  * @param playerId 玩家 ID。
  * @param deps 运行时依赖。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新interruptManual导航相关状态。
  */
 
     interruptManualNavigation(playerId, deps) {
         deps.worldRuntimeNavigationService.interruptManualNavigation(playerId, deps);
     }    
     /**
- * interruptManualCombat：执行核心业务逻辑。
+ * interruptManualCombat：执行interruptManual战斗相关逻辑。
  * @param playerId 玩家 ID。
  * @param deps 运行时依赖。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新interruptManual战斗相关状态。
  */
 
     interruptManualCombat(playerId, deps) {
@@ -197,10 +197,10 @@ let WorldRuntimeWorldAccessService = class WorldRuntimeWorldAccessService {
         this.cancelPendingInstanceCommand(playerId, deps);
     }    
     /**
- * getPlayerViewOrThrow：按给定条件读取/查询数据。
+ * getPlayerViewOrThrow：读取玩家视图OrThrow。
  * @param playerId 玩家 ID。
  * @param deps 运行时依赖。
- * @returns 函数返回值。
+ * @returns 无返回值，完成玩家视图OrThrow的读取/组装。
  */
 
     getPlayerViewOrThrow(playerId, deps) {

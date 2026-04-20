@@ -247,9 +247,9 @@ exports.SuggestionRuntimeService = SuggestionRuntimeService = __decorate([
     __metadata("design:paramtypes", [suggestion_persistence_service_1.SuggestionPersistenceService])
 ], SuggestionRuntimeService);
 /**
- * cloneSuggestion：执行核心业务逻辑。
+ * cloneSuggestion：构建Suggestion。
  * @param suggestion 参数说明。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新Suggestion相关状态。
  */
 
 function cloneSuggestion(suggestion) {
@@ -261,9 +261,9 @@ function cloneSuggestion(suggestion) {
     };
 }
 /**
- * getLastGmReplyAt：按给定条件读取/查询数据。
+ * getLastGmReplyAt：读取最近一次GMReplyAt。
  * @param replies 参数说明。
- * @returns 函数返回值。
+ * @returns 无返回值，完成LastGMReplyAt的读取/组装。
  */
 
 function getLastGmReplyAt(replies) {
@@ -279,10 +279,10 @@ function getLastGmReplyAt(replies) {
     return last;
 }
 /**
- * compareSuggestions：执行核心业务逻辑。
+ * compareSuggestions：执行compareSuggestion相关逻辑。
  * @param left 参数说明。
  * @param right 参数说明。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新compareSuggestion相关状态。
  */
 
 function compareSuggestions(left, right) {

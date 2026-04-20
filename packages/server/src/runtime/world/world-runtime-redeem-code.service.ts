@@ -23,17 +23,17 @@ const world_client_event_service_1 = require("../../network/world-client-event.s
 /** world-runtime redeem-code orchestration：承接兑换码结算与结果回推。 */
 let WorldRuntimeRedeemCodeService = class WorldRuntimeRedeemCodeService {
 /**
- * redeemCodeRuntimeService：对象字段。
+ * redeemCodeRuntimeService：redeemCode运行态服务引用。
  */
 
     redeemCodeRuntimeService;    
     /**
- * worldSessionService：对象字段。
+ * worldSessionService：世界Session服务引用。
  */
 
     worldSessionService;    
     /**
- * worldClientEventService：对象字段。
+ * worldClientEventService：世界Client事件服务引用。
  */
 
     worldClientEventService;    
@@ -42,7 +42,7 @@ let WorldRuntimeRedeemCodeService = class WorldRuntimeRedeemCodeService {
  * @param redeemCodeRuntimeService 参数说明。
  * @param worldSessionService 参数说明。
  * @param worldClientEventService 参数说明。
- * @returns 无返回值（构造函数）。
+ * @returns 无返回值，完成实例初始化。
  */
 
     constructor(redeemCodeRuntimeService, worldSessionService, worldClientEventService) {
@@ -51,11 +51,11 @@ let WorldRuntimeRedeemCodeService = class WorldRuntimeRedeemCodeService {
         this.worldClientEventService = worldClientEventService;
     }    
     /**
- * dispatchRedeemCodes：处理事件并驱动执行路径。
+ * dispatchRedeemCodes：判断RedeemCode是否满足条件。
  * @param playerId 玩家 ID。
  * @param codes 参数说明。
  * @param deps 运行时依赖。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新RedeemCode相关状态。
  */
 
     dispatchRedeemCodes(playerId, codes, deps) {

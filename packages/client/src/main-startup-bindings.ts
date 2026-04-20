@@ -10,83 +10,83 @@ import { bindZoomControls } from './main-ui-helpers';
 
 type MainStartupBindingsOptions = {
 /**
- * initializeUiStyleConfig：对象字段。
+ * initializeUiStyleConfig：initializeUiStyle配置状态或数据块。
  */
 
   initializeUiStyleConfig: () => void;  
   /**
- * mountNextUi：对象字段。
+ * mountNextUi：mountNextUi相关字段。
  */
 
   mountNextUi: () => void;  
   /**
- * startClientVersionReload：对象字段。
+ * startClientVersionReload：startClientVersionReload相关字段。
  */
 
   startClientVersionReload: (options: {  
   /**
- * onBeforeReload：对象字段。
+ * onBeforeReload：onBeforeReload相关字段。
  */
  onBeforeReload: () => void }) => void;  
  /**
- * onBeforeVersionReload：对象字段。
+ * onBeforeVersionReload：onBeforeVersionReload相关字段。
  */
 
   onBeforeVersionReload: () => void;  
   /**
- * createChangelogPanel：对象字段。
+ * createChangelogPanel：Changelog面板相关字段。
  */
 
   createChangelogPanel: () => void;  
   /**
- * createTutorialPanel：对象字段。
+ * createTutorialPanel：Tutorial面板相关字段。
  */
 
   createTutorialPanel: () => void;  
   /**
- * syncInitialPanelRuntime：对象字段。
+ * syncInitialPanelRuntime：Initial面板运行态引用。
  */
 
   syncInitialPanelRuntime: () => void;  
   /**
- * subscribePanelStore：对象字段。
+ * subscribePanelStore：subscribe面板存储引用。
  */
 
   subscribePanelStore: () => void;  
   /**
- * attachMapRuntime：对象字段。
+ * attachMapRuntime：attach地图运行态引用。
  */
 
   attachMapRuntime: () => void;  
   /**
- * bodyTrainingPanel：对象字段。
+ * bodyTrainingPanel：bodyTraining面板相关字段。
  */
 
   bodyTrainingPanel: {  
   /**
- * setInfusionHandler：对象字段。
+ * setInfusionHandler：InfusionHandler相关字段。
  */
 
     setInfusionHandler: (handler: (foundationSpent: number) => void) => void;
   };  
   /**
- * hud：对象字段。
+ * hud：hud相关字段。
  */
 
   hud: {  
   /**
- * setCallbacks：对象字段。
+ * setCallbacks：Callback相关字段。
  */
 
     setCallbacks: (callback: () => void) => void;
   };  
   /**
- * lootPanel：对象字段。
+ * lootPanel：掉落面板相关字段。
  */
 
   lootPanel: {  
   /**
- * setCallbacks：对象字段。
+ * setCallbacks：Callback相关字段。
  */
 
     setCallbacks: (
@@ -95,183 +95,183 @@ type MainStartupBindingsOptions = {
     ) => void;
   };  
   /**
- * equipmentPanel：对象字段。
+ * equipmentPanel：装备面板相关字段。
  */
 
   equipmentPanel: {  
   /**
- * setCallbacks：对象字段。
+ * setCallbacks：Callback相关字段。
  */
 
     setCallbacks: (onUnequip: Parameters<SocketPanelSender['sendUnequip']>[0] extends infer T ? (slot: T) => void : never) => void;
   };  
   /**
- * npcShopModal：对象字段。
+ * npcShopModal：NPCShop弹层相关字段。
  */
 
   npcShopModal: {  
   /**
- * setCallbacks：对象字段。
+ * setCallbacks：Callback相关字段。
  */
 
     setCallbacks: (callbacks: {    
     /**
- * onRequestShop：对象字段。
+ * onRequestShop：onRequestShop相关字段。
  */
 
       onRequestShop: (npcId: string) => void;      
       /**
- * onBuyItem：对象字段。
+ * onBuyItem：onBuy道具相关字段。
  */
 
       onBuyItem: (npcId: string, itemId: string, quantity: number) => void;
     }) => void;
   };  
   /**
- * craftWorkbenchModal：对象字段。
+ * craftWorkbenchModal：炼制Workbench弹层相关字段。
  */
 
   craftWorkbenchModal: {  
   /**
- * setCallbacks：对象字段。
+ * setCallbacks：Callback相关字段。
  */
 
     setCallbacks: (callbacks: {    
     /**
- * onRequestAlchemy：对象字段。
+ * onRequestAlchemy：onRequest炼丹相关字段。
  */
 
       onRequestAlchemy: (knownCatalogVersion?: number) => void;      
       /**
- * onRequestEnhancement：对象字段。
+ * onRequestEnhancement：onRequest强化相关字段。
  */
 
       onRequestEnhancement: () => void;      
       /**
- * onStartAlchemy：对象字段。
+ * onStartAlchemy：onStart炼丹相关字段。
  */
 
       onStartAlchemy: (recipeId: string, ingredients: Array<{      
       /**
- * itemId：对象字段。
+ * itemId：道具ID标识。
  */
  itemId: string;      
  /**
- * count：对象字段。
+ * count：数量或计量字段。
  */
  count: number }>, quantity: number) => void;      
  /**
- * onCancelAlchemy：对象字段。
+ * onCancelAlchemy：onCancel炼丹相关字段。
  */
 
       onCancelAlchemy: () => void;      
       /**
- * onStartEnhancement：对象字段。
+ * onStartEnhancement：onStart强化相关字段。
  */
 
       onStartEnhancement: (payload: Parameters<SocketPanelSender['sendStartEnhancement']>[0]) => void;      
       /**
- * onCancelEnhancement：对象字段。
+ * onCancelEnhancement：onCancel强化相关字段。
  */
 
       onCancelEnhancement: () => void;
     }) => void;
   };  
   /**
- * debugPanel：对象字段。
+ * debugPanel：debug面板相关字段。
  */
 
   debugPanel: {  
   /**
- * setCallbacks：对象字段。
+ * setCallbacks：Callback相关字段。
  */
 
     setCallbacks: (onResetSpawn: () => void) => void;
   };  
   /**
- * chatUI：对象字段。
+ * chatUI：chatUI相关字段。
  */
 
   chatUI: {  
   /**
- * setCallback：对象字段。
+ * setCallback：Callback相关字段。
  */
 
     setCallback: (handler: (message: string) => void) => void;
   };  
   /**
- * zoom：对象字段。
+ * zoom：zoom相关字段。
  */
 
   zoom: {  
   /**
- * zoomSlider：对象字段。
+ * zoomSlider：zoomSlider相关字段。
  */
 
     zoomSlider: HTMLInputElement | null;    
     /**
- * zoomResetBtn：对象字段。
+ * zoomResetBtn：zoomResetBtn相关字段。
  */
 
     zoomResetBtn: HTMLButtonElement | null;    
     /**
- * minZoom：对象字段。
+ * minZoom：minZoom相关字段。
  */
 
     minZoom: number;    
     /**
- * maxZoom：对象字段。
+ * maxZoom：maxZoom相关字段。
  */
 
     maxZoom: number;    
     /**
- * applyZoomChange：对象字段。
+ * applyZoomChange：ZoomChange相关字段。
  */
 
     applyZoomChange: (nextZoom: number) => number;
   };  
   /**
- * showToast：对象字段。
+ * showToast：showToast相关字段。
  */
 
   showToast: (message: string) => void;  
   /**
- * joinQqGroupBtns：对象字段。
+ * joinQqGroupBtns：joinQqGroupBtn相关字段。
  */
 
   joinQqGroupBtns: Iterable<HTMLAnchorElement>;  
   /**
- * qqGroupNumber：对象字段。
+ * qqGroupNumber：qqGroupNumber相关字段。
  */
 
   qqGroupNumber: string;  
   /**
- * qqGroupMobileDeepLink：对象字段。
+ * qqGroupMobileDeepLink：qqGroupMobileDeepLink相关字段。
  */
 
   qqGroupMobileDeepLink: string;  
   /**
- * qqGroupDesktopDeepLink：对象字段。
+ * qqGroupDesktopDeepLink：qqGroupDesktopDeepLink相关字段。
  */
 
   qqGroupDesktopDeepLink: string;  
   /**
- * registerAutoBattleButtons：对象字段。
+ * registerAutoBattleButtons：registerAutoBattleButton相关字段。
  */
 
   registerAutoBattleButtons: () => void;  
   /**
- * onOpenRealmAction：对象字段。
+ * onOpenRealmAction：onOpenRealmAction相关字段。
  */
 
   onOpenRealmAction: () => void;  
   /**
- * runtimeSender：对象字段。
+ * runtimeSender：运行态Sender相关字段。
  */
 
   runtimeSender: Pick<SocketRuntimeSender, 'sendAction'>;  
   /**
- * panelSender：对象字段。
+ * panelSender：面板Sender相关字段。
  */
 
   panelSender: Pick<
@@ -288,20 +288,20 @@ type MainStartupBindingsOptions = {
     | 'sendCancelEnhancement'
   >;  
   /**
- * socialEconomySender：对象字段。
+ * socialEconomySender：socialEconomySender相关字段。
  */
 
   socialEconomySender: Pick<SocketSocialEconomySender, 'sendChat'>;  
   /**
- * adminSender：对象字段。
+ * adminSender：adminSender相关字段。
  */
 
   adminSender: Pick<SocketAdminSender, 'sendDebugResetSpawn'>;
 };
 /**
- * copyTextToClipboard：执行核心业务逻辑。
+ * copyTextToClipboard：执行copyTextToClipboard相关逻辑。
  * @param text string 参数说明。
- * @returns Promise<boolean>。
+ * @returns 返回 Promise，完成后得到copyTextToClipboard。
  */
 
 
@@ -335,10 +335,10 @@ async function copyTextToClipboard(text: string): Promise<boolean> {
   }
 }
 /**
- * resolveQqGroupLink：执行核心业务逻辑。
+ * resolveQqGroupLink：规范化或转换QqGroupLink。
  * @param mobile string 参数说明。
  * @param desktop string 参数说明。
- * @returns string。
+ * @returns 返回QqGroupLink。
  */
 
 
@@ -348,9 +348,9 @@ function resolveQqGroupLink(mobile: string, desktop: string): string {
   return isMobile ? mobile : desktop;
 }
 /**
- * bindMainStartup：执行核心业务逻辑。
+ * bindMainStartup：执行bindMainStartup相关逻辑。
  * @param options MainStartupBindingsOptions 选项参数。
- * @returns void。
+ * @returns 无返回值，直接更新bindMainStartup相关状态。
  */
 
 

@@ -4,8 +4,8 @@ const assert = require("node:assert/strict");
 
 const { WorldGatewayGuardHelper } = require("../network/world-gateway-guard.helper");
 /**
- * testGuardHelper：执行核心业务逻辑。
- * @returns 函数返回值。
+ * testGuardHelper：执行testGuard辅助函数相关逻辑。
+ * @returns 无返回值，直接更新testGuard辅助函数相关状态。
  */
 
 
@@ -15,7 +15,7 @@ function testGuardHelper() {
         healthReadinessService: {        
         /**
  * build：构建并返回目标对象。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新结果相关状态。
  */
 
             build() {
@@ -24,20 +24,20 @@ function testGuardHelper() {
         },
         worldClientEventService: {        
         /**
- * emitError：执行核心业务逻辑。
+ * emitError：处理Error并更新相关状态。
  * @param client 参数说明。
  * @param code 参数说明。
  * @param message 参数说明。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新Error相关状态。
  */
 
             emitError(client, code, message) {
                 log.push(['emitError', client.id, code, message]);
             },            
             /**
- * emitNotReady：执行核心业务逻辑。
+ * emitNotReady：读取NotReady并返回结果。
  * @param client 参数说明。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新NotReady相关状态。
  */
 
             emitNotReady(client) {
@@ -50,9 +50,9 @@ function testGuardHelper() {
         id: 'socket:1',
         data: {},        
         /**
- * disconnect：执行核心业务逻辑。
+ * disconnect：判断disconnect是否满足条件。
  * @param force 参数说明。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新disconnect相关状态。
  */
 
         disconnect(force) {

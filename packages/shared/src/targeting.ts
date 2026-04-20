@@ -6,12 +6,12 @@ import { isPointInRange } from './geometry';
 /** 格子坐标 */
 export interface GridPoint {
 /**
- * x：GridPoint 内部字段。
+ * x：x相关字段。
  */
 
   x: number;  
   /**
- * y：GridPoint 内部字段。
+ * y：y相关字段。
  */
 
   y: number;
@@ -23,37 +23,37 @@ export type TargetingShape = 'single' | 'line' | 'area' | 'box' | 'orientedBox' 
 /** 目标选取几何参数 */
 export interface TargetingGeometrySpec {
 /**
- * range：TargetingGeometrySpec 内部字段。
+ * range：范围相关字段。
  */
 
   range: number;  
   /**
- * shape：TargetingGeometrySpec 内部字段。
+ * shape：shape相关字段。
  */
 
   shape?: TargetingShape;  
   /**
- * radius：TargetingGeometrySpec 内部字段。
+ * radius：radiu相关字段。
  */
 
   radius?: number;  
   /**
- * innerRadius：TargetingGeometrySpec 内部字段。
+ * innerRadius：innerRadiu相关字段。
  */
 
   innerRadius?: number;  
   /**
- * width：TargetingGeometrySpec 内部字段。
+ * width：width相关字段。
  */
 
   width?: number;  
   /**
- * height：TargetingGeometrySpec 内部字段。
+ * height：height相关字段。
  */
 
   height?: number;  
   /**
- * checkerParity：TargetingGeometrySpec 内部字段。
+ * checkerParity：checkerParity相关字段。
  */
 
   checkerParity?: 'even' | 'odd';
@@ -62,12 +62,12 @@ export interface TargetingGeometrySpec {
 /** 目标几何附加参数：保存额外距离/面积类修饰。 */
 export interface TargetingGeometryModifiers {
 /**
- * extraRange：TargetingGeometryModifiers 内部字段。
+ * extraRange：extra范围相关字段。
  */
 
   extraRange?: number;  
   /**
- * extraArea：TargetingGeometryModifiers 内部字段。
+ * extraArea：extraArea相关字段。
  */
 
   extraArea?: number;
@@ -76,12 +76,12 @@ export interface TargetingGeometryModifiers {
 /** 目标几何解析结果：放大后的最终命中范围参数。 */
 export interface TargetingGeometryResolution {
 /**
- * finalRange：TargetingGeometryResolution 内部字段。
+ * finalRange：final范围相关字段。
  */
 
   finalRange?: number;  
   /**
- * extraArea：TargetingGeometryResolution 内部字段。
+ * extraArea：extraArea相关字段。
  */
 
   extraArea?: number;

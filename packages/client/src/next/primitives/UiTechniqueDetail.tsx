@@ -8,35 +8,35 @@ import { UiPill } from './UiPill';
 
 export interface UiTechniqueDetailProps {
 /**
- * title：UiTechniqueDetailProps 内部字段。
+ * title：title名称或显示文本。
  */
 
   title: string;  
   /**
- * subtitle：UiTechniqueDetailProps 内部字段。
+ * subtitle：subtitle名称或显示文本。
  */
 
   subtitle?: ReactNode;  
   /**
- * badges：UiTechniqueDetailProps 内部字段。
+ * badges：badge相关字段。
  */
 
   badges?: ReactNode[];  
   /**
- * footer：UiTechniqueDetailProps 内部字段。
+ * footer：footer相关字段。
  */
 
   footer?: ReactNode;
 }
 /**
- * UiTechniqueDetail：执行核心业务逻辑。
+ * UiTechniqueDetail：渲染Ui功法详情组件。
  * @param {
   title,
   subtitle,
   badges = [],
   footer,
 } UiTechniqueDetailProps 参数说明。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新Ui功法详情相关状态。
  */
 
 

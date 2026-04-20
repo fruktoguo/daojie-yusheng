@@ -8,35 +8,35 @@ import { UiPill } from './UiPill';
 
 export interface UiQuestDetailProps {
 /**
- * title：UiQuestDetailProps 内部字段。
+ * title：title名称或显示文本。
  */
 
   title: string;  
   /**
- * note：UiQuestDetailProps 内部字段。
+ * note：note相关字段。
  */
 
   note?: ReactNode;  
   /**
- * badges：UiQuestDetailProps 内部字段。
+ * badges：badge相关字段。
  */
 
   badges?: ReactNode[];  
   /**
- * actions：UiQuestDetailProps 内部字段。
+ * actions：action相关字段。
  */
 
   actions?: ReactNode;
 }
 /**
- * UiQuestDetail：执行核心业务逻辑。
+ * UiQuestDetail：渲染Ui任务详情组件。
  * @param {
   title,
   note,
   badges = [],
   actions,
 } UiQuestDetailProps 参数说明。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新Ui任务详情相关状态。
  */
 
 

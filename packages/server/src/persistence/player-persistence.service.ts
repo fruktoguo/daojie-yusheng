@@ -55,23 +55,23 @@ const PLAYER_SNAPSHOT_PERSISTED_SOURCE_LEGACY_SEEDED = 'legacy_seeded';
 
 let PlayerPersistenceService = PlayerPersistenceService_1 = class PlayerPersistenceService {
 /**
- * logger：对象字段。
+ * logger：日志器引用。
  */
 
     logger = new common_1.Logger(PlayerPersistenceService_1.name);    
     /**
- * pool：对象字段。
+ * pool：缓存或索引容器。
  */
 
     pool = null;    
     /**
- * enabled：对象字段。
+ * enabled：启用开关或状态标识。
  */
 
     enabled = false;    
     /**
- * onModuleInit：执行核心业务逻辑。
- * @returns 函数返回值。
+ * onModuleInit：执行on模块Init相关逻辑。
+ * @returns 无返回值，直接更新on模块Init相关状态。
  */
 
     async onModuleInit() {
@@ -97,25 +97,25 @@ let PlayerPersistenceService = PlayerPersistenceService_1 = class PlayerPersiste
         }
     }    
     /**
- * onModuleDestroy：执行核心业务逻辑。
- * @returns 函数返回值。
+ * onModuleDestroy：执行on模块Destroy相关逻辑。
+ * @returns 无返回值，直接更新on模块Destroy相关状态。
  */
 
     async onModuleDestroy() {
         await this.safeClosePool();
     }    
     /**
- * isEnabled：执行状态校验并返回判断结果。
- * @returns 函数返回值。
+ * isEnabled：判断启用是否满足条件。
+ * @returns 无返回值，完成启用的条件判断。
  */
 
     isEnabled() {
         return this.enabled && this.pool !== null;
     }    
     /**
- * loadPlayerSnapshot：按给定条件读取/查询数据。
+ * loadPlayerSnapshot：读取玩家快照并返回结果。
  * @param playerId 玩家 ID。
- * @returns 函数返回值。
+ * @returns 无返回值，完成玩家快照的读取/组装。
  */
 
     async loadPlayerSnapshot(playerId) {
@@ -124,9 +124,9 @@ let PlayerPersistenceService = PlayerPersistenceService_1 = class PlayerPersiste
         return record?.snapshot ?? null;
     }    
     /**
- * loadPlayerSnapshotRecord：按给定条件读取/查询数据。
+ * loadPlayerSnapshotRecord：读取玩家快照Record并返回结果。
  * @param playerId 玩家 ID。
- * @returns 函数返回值。
+ * @returns 无返回值，完成玩家快照Record的读取/组装。
  */
 
     async loadPlayerSnapshotRecord(playerId) {
@@ -163,8 +163,8 @@ let PlayerPersistenceService = PlayerPersistenceService_1 = class PlayerPersiste
         return record;
     }    
     /**
- * listPlayerSnapshots：执行核心业务逻辑。
- * @returns 函数返回值。
+ * listPlayerSnapshots：读取玩家快照并返回结果。
+ * @returns 无返回值，完成玩家快照的读取/组装。
  */
 
     async listPlayerSnapshots() {
@@ -202,11 +202,11 @@ let PlayerPersistenceService = PlayerPersistenceService_1 = class PlayerPersiste
             .filter((entry) => entry !== null);
     }    
     /**
- * savePlayerSnapshot：执行核心业务逻辑。
+ * savePlayerSnapshot：执行save玩家快照相关逻辑。
  * @param playerId 玩家 ID。
  * @param snapshot 参数说明。
  * @param options 选项参数。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新save玩家快照相关状态。
  */
 
     async savePlayerSnapshot(playerId, snapshot, options = undefined) {
@@ -257,8 +257,8 @@ let PlayerPersistenceService = PlayerPersistenceService_1 = class PlayerPersiste
         ]);
     }    
     /**
- * safeClosePool：执行核心业务逻辑。
- * @returns 函数返回值。
+ * safeClosePool：执行safeClosePool相关逻辑。
+ * @returns 无返回值，直接更新safeClosePool相关状态。
  */
 
     async safeClosePool() {
@@ -278,9 +278,9 @@ exports.PlayerPersistenceService = PlayerPersistenceService = PlayerPersistenceS
     (0, common_1.Injectable)()
 ], PlayerPersistenceService);
 /**
- * ensurePlayerSnapshotTable：执行核心业务逻辑。
+ * ensurePlayerSnapshotTable：执行ensure玩家快照表相关逻辑。
  * @param pool 参数说明。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新ensure玩家快照表相关状态。
  */
 
 async function ensurePlayerSnapshotTable(pool) {
@@ -304,9 +304,9 @@ async function ensurePlayerSnapshotTable(pool) {
 }
 export { PlayerPersistenceService };
 /**
- * normalizePersistedPlayerSnapshotRow：执行核心业务逻辑。
+ * normalizePersistedPlayerSnapshotRow：判断Persisted玩家快照Row是否满足条件。
  * @param row 参数说明。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新Persisted玩家快照Row相关状态。
  */
 
 function normalizePersistedPlayerSnapshotRow(row) {
@@ -338,9 +338,9 @@ function normalizePersistedPlayerSnapshotRow(row) {
     };
 }
 /**
- * normalizePlayerSnapshotRecord：执行核心业务逻辑。
+ * normalizePlayerSnapshotRecord：规范化或转换玩家快照Record。
  * @param raw 参数说明。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新玩家快照Record相关状态。
  */
 
 function normalizePlayerSnapshotRecord(raw) {
@@ -361,9 +361,9 @@ function normalizePlayerSnapshotRecord(raw) {
     };
 }
 /**
- * normalizePlayerSnapshotPayload：执行核心业务逻辑。
+ * normalizePlayerSnapshotPayload：读取玩家快照载荷并返回结果。
  * @param raw 参数说明。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新玩家快照载荷相关状态。
  */
 
 function normalizePlayerSnapshotPayload(raw) {
@@ -492,7 +492,7 @@ function normalizePlayerSnapshotPayload(raw) {
  * buildPersistedPlayerSnapshotPayload：构建并返回目标对象。
  * @param snapshot 参数说明。
  * @param meta 参数说明。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新Persisted玩家快照载荷相关状态。
  */
 
 function buildPersistedPlayerSnapshotPayload(snapshot, meta) {
@@ -512,9 +512,9 @@ function buildPersistedPlayerSnapshotPayload(snapshot, meta) {
     return payload;
 }
 /**
- * normalizePlayerSnapshotPersistedSource：执行核心业务逻辑。
+ * normalizePlayerSnapshotPersistedSource：判断玩家快照Persisted来源是否满足条件。
  * @param value 参数说明。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新玩家快照Persisted来源相关状态。
  */
 
 function normalizePlayerSnapshotPersistedSource(value) {
@@ -525,18 +525,18 @@ function normalizePlayerSnapshotPersistedSource(value) {
             : null;
 }
 /**
- * isFiniteNumber：执行状态校验并返回判断结果。
+ * isFiniteNumber：判断FiniteNumber是否满足条件。
  * @param value 参数说明。
- * @returns 函数返回值。
+ * @returns 无返回值，完成FiniteNumber的条件判断。
  */
 
 function isFiniteNumber(value) {
     return typeof value === 'number' && Number.isFinite(value);
 }
 /**
- * normalizeRuntimeBonuses：执行核心业务逻辑。
+ * normalizeRuntimeBonuses：规范化或转换运行态Bonuse。
  * @param value 参数说明。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新运行态Bonuse相关状态。
  */
 
 function normalizeRuntimeBonuses(value) {
@@ -563,10 +563,10 @@ function normalizeRuntimeBonuses(value) {
         .filter((entry) => entry.source.length > 0);
 }
 /**
- * resolveSnapshotArray：执行核心业务逻辑。
+ * resolveSnapshotArray：规范化或转换快照Array。
  * @param snapshot 参数说明。
  * @param key 参数说明。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新快照Array相关状态。
  */
 
 function resolveSnapshotArray(snapshot, key) {
@@ -574,9 +574,9 @@ function resolveSnapshotArray(snapshot, key) {
     return Array.isArray(value) ? value : [];
 }
 /**
- * canonicalizeRuntimeBonusSource：执行状态校验并返回判断结果。
+ * canonicalizeRuntimeBonusSource：判断canonicalize运行态Bonu来源是否满足条件。
  * @param source 来源对象。
- * @returns 函数返回值。
+ * @returns 无返回值，完成canonicalize运行态Bonu来源的条件判断。
  */
 
 function canonicalizeRuntimeBonusSource(source) {
@@ -604,9 +604,9 @@ function canonicalizeRuntimeBonusSource(source) {
     return normalized;
 }
 /**
- * normalizePendingLogbookMessages：执行核心业务逻辑。
+ * normalizePendingLogbookMessages：规范化或转换待处理LogbookMessage。
  * @param value 参数说明。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新PendingLogbookMessage相关状态。
  */
 
 function normalizePendingLogbookMessages(value) {
@@ -648,9 +648,9 @@ function normalizePendingLogbookMessages(value) {
     return normalized.slice(-200);
 }
 /**
- * isPendingLogbookMessage：执行状态校验并返回判断结果。
+ * isPendingLogbookMessage：判断待处理LogbookMessage是否满足条件。
  * @param value 参数说明。
- * @returns 函数返回值。
+ * @returns 无返回值，完成PendingLogbookMessage的条件判断。
  */
 
 function isPendingLogbookMessage(value) {
@@ -668,9 +668,9 @@ function isPendingLogbookMessage(value) {
         && isFiniteNumber(candidate.at);
 }
 /**
- * normalizePendingLogbookKind：执行核心业务逻辑。
+ * normalizePendingLogbookKind：规范化或转换待处理LogbookKind。
  * @param value 参数说明。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新PendingLogbookKind相关状态。
  */
 
 function normalizePendingLogbookKind(value) {

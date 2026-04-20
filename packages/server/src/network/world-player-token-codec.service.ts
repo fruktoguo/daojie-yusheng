@@ -28,27 +28,27 @@ type TokenKind = typeof ACCESS_KIND | typeof REFRESH_KIND;
 
 interface TokenPayloadInput {
 /**
- * sub：TokenPayloadInput 内部字段。
+ * sub：sub相关字段。
  */
 
   sub?: unknown;  
   /**
- * username：TokenPayloadInput 内部字段。
+ * username：username名称或显示文本。
  */
 
   username?: unknown;  
   /**
- * displayName：TokenPayloadInput 内部字段。
+ * displayName：显示名称名称或显示文本。
  */
 
   displayName?: unknown;  
   /**
- * playerId：TokenPayloadInput 内部字段。
+ * playerId：玩家ID标识。
  */
 
   playerId?: unknown;  
   /**
- * playerName：TokenPayloadInput 内部字段。
+ * playerName：玩家名称名称或显示文本。
  */
 
   playerName?: unknown;
@@ -60,52 +60,52 @@ interface TokenPayloadInput {
 
 export interface ValidatedPlayerTokenPayload extends Record<string, unknown> {
 /**
- * sub：ValidatedPlayerTokenPayload 内部字段。
+ * sub：sub相关字段。
  */
 
   sub: string;  
   /**
- * username：ValidatedPlayerTokenPayload 内部字段。
+ * username：username名称或显示文本。
  */
 
   username: string;  
   /**
- * iss：ValidatedPlayerTokenPayload 内部字段。
+ * iss：启用开关或状态标识。
  */
 
   iss?: string;  
   /**
- * ver：ValidatedPlayerTokenPayload 内部字段。
+ * ver：ver相关字段。
  */
 
   ver?: unknown;  
   /**
- * kind：ValidatedPlayerTokenPayload 内部字段。
+ * kind：kind相关字段。
  */
 
   kind?: unknown;  
   /**
- * scope：ValidatedPlayerTokenPayload 内部字段。
+ * scope：scope相关字段。
  */
 
   scope?: unknown;  
   /**
- * role：ValidatedPlayerTokenPayload 内部字段。
+ * role：role相关字段。
  */
 
   role?: unknown;  
   /**
- * displayName：ValidatedPlayerTokenPayload 内部字段。
+ * displayName：显示名称名称或显示文本。
  */
 
   displayName?: string;  
   /**
- * playerId：ValidatedPlayerTokenPayload 内部字段。
+ * playerId：玩家ID标识。
  */
 
   playerId?: string;  
   /**
- * playerName：ValidatedPlayerTokenPayload 内部字段。
+ * playerName：玩家名称名称或显示文本。
  */
 
   playerName?: string;
@@ -121,7 +121,7 @@ export class WorldPlayerTokenCodecService {
   private readonly signingSecret: string;  
   /**
  * 构造器：初始化 当前 实例并建立基础状态。
- * @returns 无返回值（构造函数）。
+ * @returns 无返回值，完成实例初始化。
  */
 
 
@@ -216,8 +216,8 @@ export class WorldPlayerTokenCodecService {
   }
 }
 /**
- * resolvePlayerTokenSecrets：执行核心业务逻辑。
- * @returns string[]。
+ * resolvePlayerTokenSecrets：规范化或转换玩家TokenSecret。
+ * @returns 返回玩家TokenSecret列表。
  */
 
 
@@ -245,8 +245,8 @@ function resolvePlayerTokenSecrets(): string[] {
   return secrets;
 }
 /**
- * isDevelopmentLikeEnv：执行状态校验并返回判断结果。
- * @returns boolean。
+ * isDevelopmentLikeEnv：判断DevelopmentLikeEnv是否满足条件。
+ * @returns 返回是否满足DevelopmentLikeEnv条件。
  */
 
 
@@ -255,10 +255,10 @@ function isDevelopmentLikeEnv(): boolean {
   return DEVELOPMENT_LIKE_ENVS.has(runtimeEnv);
 }
 /**
- * normalizeValidatedPayload：执行核心业务逻辑。
+ * normalizeValidatedPayload：读取Validated载荷并返回结果。
  * @param payload Record<string, unknown> | null 载荷参数。
  * @param expectedKind TokenKind 参数说明。
- * @returns ValidatedPlayerTokenPayload | null。
+ * @returns 返回Validated载荷。
  */
 
 
@@ -301,10 +301,10 @@ function normalizeValidatedPayload(payload: Record<string, unknown> | null, expe
   return payload as ValidatedPlayerTokenPayload;
 }
 /**
- * normalizeTokenKind：执行核心业务逻辑。
+ * normalizeTokenKind：规范化或转换TokenKind。
  * @param kindValue unknown 参数说明。
  * @param scopeValue unknown 参数说明。
- * @returns TokenKind。
+ * @returns 返回TokenKind。
  */
 
 
@@ -324,9 +324,9 @@ function normalizeTokenKind(kindValue: unknown, scopeValue: unknown): TokenKind 
   return ACCESS_KIND;
 }
 /**
- * normalizeOptionalString：执行核心业务逻辑。
+ * normalizeOptionalString：规范化或转换OptionalString。
  * @param value unknown 参数说明。
- * @returns string。
+ * @returns 返回OptionalString。
  */
 
 
@@ -334,10 +334,10 @@ function normalizeOptionalString(value: unknown): string {
   return typeof value === 'string' && value.trim().length > 0 ? value.trim() : '';
 }
 /**
- * readPositiveIntEnv：执行核心业务逻辑。
+ * readPositiveIntEnv：读取PositiveIntEnv并返回结果。
  * @param name string 参数说明。
  * @param fallback number 参数说明。
- * @returns number。
+ * @returns 返回PositiveIntEnv。
  */
 
 
@@ -346,9 +346,9 @@ function readPositiveIntEnv(name: string, fallback: number): number {
   return Number.isFinite(raw) && raw > 0 ? Math.trunc(raw) : fallback;
 }
 /**
- * base64UrlEncode：执行核心业务逻辑。
+ * base64UrlEncode：执行base64UrlEncode相关逻辑。
  * @param value Buffer 参数说明。
- * @returns string。
+ * @returns 返回base64UrlEncode。
  */
 
 

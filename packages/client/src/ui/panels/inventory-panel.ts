@@ -49,22 +49,22 @@ type InventoryActionKind = 'use' | 'drop' | 'destroy';
 /** InventoryActionDialogState：背包物品操作对话框状态。 */
 interface InventoryActionDialogState {
 /**
- * kind：InventoryActionDialogState 内部字段。
+ * kind：kind相关字段。
  */
 
   kind: InventoryActionKind;  
   /**
- * slotIndex：InventoryActionDialogState 内部字段。
+ * slotIndex：slotIndex相关字段。
  */
 
   slotIndex: number;  
   /**
- * defaultCount：InventoryActionDialogState 内部字段。
+ * defaultCount：数量或计量字段。
  */
 
   defaultCount: number;  
   /**
- * confirmDestroy：InventoryActionDialogState 内部字段。
+ * confirmDestroy：confirmDestroy相关字段。
  */
 
   confirmDestroy: boolean;
@@ -73,21 +73,21 @@ interface InventoryActionDialogState {
 /** InventoryStructureState：背包筛选结果与条目骨架状态。 */
 interface InventoryStructureState {
 /**
- * filter：InventoryStructureState 内部字段。
+ * filter：filter相关字段。
  */
 
   filter: InventoryFilter;  
   /**
- * items：InventoryStructureState 内部字段。
+ * items：集合字段。
  */
 
   items: Array<{  
   /**
- * slotIndex：InventoryStructureState 内部字段。
+ * slotIndex：slotIndex相关字段。
  */
  slotIndex: number;  
  /**
- * identity：InventoryStructureState 内部字段。
+ * identity：identity相关字段。
  */
  identity: string }>;
 }
@@ -95,17 +95,17 @@ interface InventoryStructureState {
 /** InventoryPrimaryAction：背包条目的主操作定义。 */
 interface InventoryPrimaryAction {
 /**
- * label：InventoryPrimaryAction 内部字段。
+ * label：label名称或显示文本。
  */
 
   label: string;  
   /**
- * kind：InventoryPrimaryAction 内部字段。
+ * kind：kind相关字段。
  */
 
   kind: 'use' | 'equip' | 'status';  
   /**
- * disabled：InventoryPrimaryAction 内部字段。
+ * disabled：disabled相关字段。
  */
 
   disabled?: boolean;
@@ -114,32 +114,32 @@ interface InventoryPrimaryAction {
 /** InventoryShellRefs：背包面板壳层节点引用集合。 */
 interface InventoryShellRefs {
 /**
- * section：InventoryShellRefs 内部字段。
+ * section：section相关字段。
  */
 
   section: HTMLDivElement;  
   /**
- * title：InventoryShellRefs 内部字段。
+ * title：title名称或显示文本。
  */
 
   title: HTMLDivElement;  
   /**
- * filters：InventoryShellRefs 内部字段。
+ * filters：filter相关字段。
  */
 
   filters: HTMLDivElement;  
   /**
- * grid：InventoryShellRefs 内部字段。
+ * grid：grid标识。
  */
 
   grid: HTMLDivElement;  
   /**
- * empty：InventoryShellRefs 内部字段。
+ * empty：empty相关字段。
  */
 
   empty: HTMLDivElement;  
   /**
- * loadHint：InventoryShellRefs 内部字段。
+ * loadHint：loadHint相关字段。
  */
 
   loadHint: HTMLDivElement;
@@ -245,7 +245,7 @@ export class InventoryPanel {
   };  
   /**
  * 构造器：初始化 当前 实例并建立基础状态。
- * @returns 无返回值（构造函数）。
+ * @returns 无返回值，完成实例初始化。
  */
 
 
@@ -291,13 +291,13 @@ export class InventoryPanel {
     detailModalHost.close(InventoryPanel.MODAL_OWNER);
   }  
   /**
- * setCallbacks：更新/写入相关状态。
+ * setCallbacks：写入Callback。
  * @param onUse (slotIndex: number, count?: number) => void 参数说明。
  * @param onDrop (slotIndex: number, count: number) => void 参数说明。
  * @param onDestroy (slotIndex: number, count: number) => void 参数说明。
  * @param onEquip (slotIndex: number) => void 参数说明。
  * @param onSort () => void 参数说明。
- * @returns void。
+ * @returns 无返回值，直接更新Callback相关状态。
  */
 
 
@@ -338,9 +338,9 @@ export class InventoryPanel {
     this.update(player.inventory);
   }  
   /**
- * syncPlayerContext：执行核心业务逻辑。
+ * syncPlayerContext：处理玩家上下文并更新相关状态。
  * @param player Pick<PlayerState, 'techniques' | 'equipment' | 'unlockedMinimapIds' | 'realm' | 'heavenGate' | 'foundation'> 玩家对象。
- * @returns void。
+ * @returns 无返回值，直接更新玩家上下文相关状态。
  */
 
 
@@ -750,12 +750,12 @@ export class InventoryPanel {
     }
   }  
   /**
- * patchInventoryCell：执行核心业务逻辑。
+ * patchInventoryCell：执行patch背包Cell相关逻辑。
  * @param cell HTMLElement 参数说明。
  * @param item ItemStack 道具。
  * @param slotIndex number 参数说明。
  * @param cooldownState InventoryItemCooldownState | null 参数说明。
- * @returns boolean。
+ * @returns 返回是否满足patch背包Cell条件。
  */
 
 
@@ -1172,19 +1172,19 @@ export class InventoryPanel {
     body: HTMLElement,
     summary: {    
     /**
- * title：InventoryPanel 内部字段。
+ * title：title名称或显示文本。
  */
  title: string;    
  /**
- * lines：InventoryPanel 内部字段。
+ * lines：line相关字段。
  */
  lines: string[];    
  /**
- * confirmLabel：InventoryPanel 内部字段。
+ * confirmLabel：confirmLabel名称或显示文本。
  */
  confirmLabel?: string;    
  /**
- * cancelLabel：InventoryPanel 内部字段。
+ * cancelLabel：cancelLabel名称或显示文本。
  */
  cancelLabel?: string },
   ): void {
@@ -1207,15 +1207,15 @@ export class InventoryPanel {
     body: HTMLElement,
     labels: {    
     /**
- * title：InventoryPanel 内部字段。
+ * title：title名称或显示文本。
  */
  title: string;    
  /**
- * confirm：InventoryPanel 内部字段。
+ * confirm：confirm相关字段。
  */
  confirm: string;    
  /**
- * danger：InventoryPanel 内部字段。
+ * danger：danger相关字段。
  */
  danger: boolean },
     selectedCount: number,
@@ -1345,11 +1345,11 @@ export class InventoryPanel {
   /** resolveSelectedItem：解析Selected物品。 */
   private resolveSelectedItem(inventory: Inventory): {  
   /**
- * item：InventoryPanel 内部字段。
+ * item：道具相关字段。
  */
  item: ItemStack;  
  /**
- * slotIndex：InventoryPanel 内部字段。
+ * slotIndex：slotIndex相关字段。
  */
  slotIndex: number } | null {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
@@ -1451,22 +1451,22 @@ export class InventoryPanel {
   /** getSpecialUseConfirmSummary：读取Special使用Confirm摘要。 */
   private getSpecialUseConfirmSummary(item: ItemStack): {  
   /**
- * title：InventoryPanel 内部字段。
+ * title：title名称或显示文本。
  */
 
     title: string;    
     /**
- * lines：InventoryPanel 内部字段。
+ * lines：line相关字段。
  */
 
     lines: string[];    
     /**
- * confirmLabel：InventoryPanel 内部字段。
+ * confirmLabel：confirmLabel名称或显示文本。
  */
 
     confirmLabel?: string;    
     /**
- * cancelLabel：InventoryPanel 内部字段。
+ * cancelLabel：cancelLabel名称或显示文本。
  */
 
     cancelLabel?: string;
@@ -1522,22 +1522,22 @@ export class InventoryPanel {
   /** getTechniqueLearningWarningSummary：读取Technique Learning Warning摘要。 */
   private getTechniqueLearningWarningSummary(item: ItemStack): {  
   /**
- * title：InventoryPanel 内部字段。
+ * title：title名称或显示文本。
  */
 
     title: string;    
     /**
- * lines：InventoryPanel 内部字段。
+ * lines：line相关字段。
  */
 
     lines: string[];    
     /**
- * confirmLabel：InventoryPanel 内部字段。
+ * confirmLabel：confirmLabel名称或显示文本。
  */
 
     confirmLabel?: string;    
     /**
- * cancelLabel：InventoryPanel 内部字段。
+ * cancelLabel：cancelLabel名称或显示文本。
  */
 
     cancelLabel?: string;
@@ -1592,17 +1592,17 @@ export class InventoryPanel {
   /** resolveActionLabels：解析动作标签。 */
   private resolveActionLabels(kind: InventoryActionKind): {  
   /**
- * title：InventoryPanel 内部字段。
+ * title：title名称或显示文本。
  */
 
     title: string;    
     /**
- * confirm：InventoryPanel 内部字段。
+ * confirm：confirm相关字段。
  */
 
     confirm: string;    
     /**
- * danger：InventoryPanel 内部字段。
+ * danger：danger相关字段。
  */
 
     danger: boolean;
@@ -1752,11 +1752,11 @@ export class InventoryPanel {
   /** getVisibleItems：读取可见物品。 */
   private getVisibleItems(inventory: Inventory): Array<{  
   /**
- * item：InventoryPanel 内部字段。
+ * item：道具相关字段。
  */
  item: ItemStack;  
  /**
- * slotIndex：InventoryPanel 内部字段。
+ * slotIndex：slotIndex相关字段。
  */
  slotIndex: number }> {
     return inventory.items
@@ -1868,18 +1868,18 @@ export class InventoryPanel {
   /**
  * buildStructureStateFromVisibleItems：构建并返回目标对象。
  * @param visibleItems Array<{ item: ItemStack; slotIndex: number }> 参数说明。
- * @returns InventoryStructureState。
+ * @returns 返回Structure状态From可见道具。
  */
 
 
   private buildStructureStateFromVisibleItems(
     visibleItems: Array<{    
     /**
- * item：InventoryPanel 内部字段。
+ * item：道具相关字段。
  */
  item: ItemStack;    
  /**
- * slotIndex：InventoryPanel 内部字段。
+ * slotIndex：slotIndex相关字段。
  */
  slotIndex: number }>,
   ): InventoryStructureState {
@@ -1892,10 +1892,10 @@ export class InventoryPanel {
     };
   }  
   /**
- * isSameStructureState：执行状态校验并返回判断结果。
+ * isSameStructureState：判断SameStructure状态是否满足条件。
  * @param previous InventoryStructureState | null 参数说明。
  * @param next InventoryStructureState 参数说明。
- * @returns boolean。
+ * @returns 返回是否满足SameStructure状态条件。
  */
 
 

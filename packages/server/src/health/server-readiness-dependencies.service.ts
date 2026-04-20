@@ -8,7 +8,7 @@ import { RuntimeMaintenanceService } from '../runtime/world/runtime-maintenance.
 
 interface RuntimeMaintenanceServiceLike {
 /**
- * isRuntimeMaintenanceActive：RuntimeMaintenanceServiceLike 内部字段。
+ * isRuntimeMaintenanceActive：启用开关或状态标识。
  */
 
   isRuntimeMaintenanceActive?: () => boolean;
@@ -20,7 +20,7 @@ export class ServerReadinessDependenciesService {
 /**
  * 构造器：初始化 当前 实例并建立基础状态。
  * @param maintenanceStateService RuntimeMaintenanceServiceLike 参数说明。
- * @returns 无返回值（构造函数）。
+ * @returns 无返回值，完成实例初始化。
  */
 
   constructor(

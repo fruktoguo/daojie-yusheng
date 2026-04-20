@@ -17,52 +17,52 @@ type AuthConflictKind = 'account' | 'role' | 'display';
 
 interface PersistedAuthRow {
 /**
- * user_id：PersistedAuthRow 内部字段。
+ * user_id：userID标识。
  */
 
   user_id?: unknown;  
   /**
- * username：PersistedAuthRow 内部字段。
+ * username：username名称或显示文本。
  */
 
   username?: unknown;  
   /**
- * player_id：PersistedAuthRow 内部字段。
+ * player_id：玩家ID标识。
  */
 
   player_id?: unknown;  
   /**
- * pending_role_name：PersistedAuthRow 内部字段。
+ * pending_role_name：pendingrole名称名称或显示文本。
  */
 
   pending_role_name?: unknown;  
   /**
- * display_name：PersistedAuthRow 内部字段。
+ * display_name：显示名称名称或显示文本。
  */
 
   display_name?: unknown;  
   /**
- * password_hash：PersistedAuthRow 内部字段。
+ * password_hash：passwordhash相关字段。
  */
 
   password_hash?: unknown;  
   /**
- * total_online_seconds：PersistedAuthRow 内部字段。
+ * total_online_seconds：totalonlinesecond相关字段。
  */
 
   total_online_seconds?: unknown;  
   /**
- * current_online_started_at：PersistedAuthRow 内部字段。
+ * current_online_started_at：currentonlinestartedat相关字段。
  */
 
   current_online_started_at?: unknown;  
   /**
- * created_at：PersistedAuthRow 内部字段。
+ * created_at：createdat相关字段。
  */
 
   created_at?: unknown;  
   /**
- * updated_at：PersistedAuthRow 内部字段。
+ * updated_at：updatedat相关字段。
  */
 
   updated_at?: unknown;
@@ -74,62 +74,62 @@ interface PersistedAuthRow {
 
 interface AuthRecordCandidate {
 /**
- * id：AuthRecordCandidate 内部字段。
+ * id：ID标识。
  */
 
   id?: unknown;  
   /**
- * userId：AuthRecordCandidate 内部字段。
+ * userId：userID标识。
  */
 
   userId?: unknown;  
   /**
- * username：AuthRecordCandidate 内部字段。
+ * username：username名称或显示文本。
  */
 
   username?: unknown;  
   /**
- * displayName：AuthRecordCandidate 内部字段。
+ * displayName：显示名称名称或显示文本。
  */
 
   displayName?: unknown;  
   /**
- * pendingRoleName：AuthRecordCandidate 内部字段。
+ * pendingRoleName：pendingRole名称名称或显示文本。
  */
 
   pendingRoleName?: unknown;  
   /**
- * playerId：AuthRecordCandidate 内部字段。
+ * playerId：玩家ID标识。
  */
 
   playerId?: unknown;  
   /**
- * playerName：AuthRecordCandidate 内部字段。
+ * playerName：玩家名称名称或显示文本。
  */
 
   playerName?: unknown;  
   /**
- * passwordHash：AuthRecordCandidate 内部字段。
+ * passwordHash：passwordHash相关字段。
  */
 
   passwordHash?: unknown;  
   /**
- * totalOnlineSeconds：AuthRecordCandidate 内部字段。
+ * totalOnlineSeconds：totalOnlineSecond相关字段。
  */
 
   totalOnlineSeconds?: unknown;  
   /**
- * currentOnlineStartedAt：AuthRecordCandidate 内部字段。
+ * currentOnlineStartedAt：currentOnlineStartedAt相关字段。
  */
 
   currentOnlineStartedAt?: unknown;  
   /**
- * createdAt：AuthRecordCandidate 内部字段。
+ * createdAt：createdAt相关字段。
  */
 
   createdAt?: unknown;  
   /**
- * updatedAt：AuthRecordCandidate 内部字段。
+ * updatedAt：updatedAt相关字段。
  */
 
   updatedAt?: unknown;
@@ -141,12 +141,12 @@ interface AuthRecordCandidate {
 
 interface AuthExcludeEntryCandidate {
 /**
- * userId：AuthExcludeEntryCandidate 内部字段。
+ * userId：userID标识。
  */
 
   userId?: unknown;  
   /**
- * kind：AuthExcludeEntryCandidate 内部字段。
+ * kind：kind相关字段。
  */
 
   kind?: unknown;
@@ -158,12 +158,12 @@ interface AuthExcludeEntryCandidate {
 
 interface AuthConflict {
 /**
- * kind：AuthConflict 内部字段。
+ * kind：kind相关字段。
  */
 
   kind: AuthConflictKind;  
   /**
- * userId：AuthConflict 内部字段。
+ * userId：userID标识。
  */
 
   userId: string;
@@ -175,7 +175,7 @@ interface AuthConflict {
 
 interface EnsureAvailableOptions {
 /**
- * exclude：EnsureAvailableOptions 内部字段。
+ * exclude：exclude相关字段。
  */
 
   exclude?: AuthExcludeEntryCandidate[];
@@ -187,12 +187,12 @@ interface EnsureAvailableOptions {
 
 interface AuthExcludeEntry {
 /**
- * userId：AuthExcludeEntry 内部字段。
+ * userId：userID标识。
  */
 
   userId: string;  
   /**
- * kind：AuthExcludeEntry 内部字段。
+ * kind：kind相关字段。
  */
 
   kind: AuthConflictKind;
@@ -204,67 +204,67 @@ interface AuthExcludeEntry {
 
 export interface NextPlayerAuthUser {
 /**
- * version：NextPlayerAuthUser 内部字段。
+ * version：version相关字段。
  */
 
   version: 1;  
   /**
- * id：NextPlayerAuthUser 内部字段。
+ * id：ID标识。
  */
 
   id: string;  
   /**
- * userId：NextPlayerAuthUser 内部字段。
+ * userId：userID标识。
  */
 
   userId: string;  
   /**
- * username：NextPlayerAuthUser 内部字段。
+ * username：username名称或显示文本。
  */
 
   username: string;  
   /**
- * displayName：NextPlayerAuthUser 内部字段。
+ * displayName：显示名称名称或显示文本。
  */
 
   displayName: string | null;  
   /**
- * pendingRoleName：NextPlayerAuthUser 内部字段。
+ * pendingRoleName：pendingRole名称名称或显示文本。
  */
 
   pendingRoleName: string;  
   /**
- * playerId：NextPlayerAuthUser 内部字段。
+ * playerId：玩家ID标识。
  */
 
   playerId: string;  
   /**
- * playerName：NextPlayerAuthUser 内部字段。
+ * playerName：玩家名称名称或显示文本。
  */
 
   playerName: string;  
   /**
- * passwordHash：NextPlayerAuthUser 内部字段。
+ * passwordHash：passwordHash相关字段。
  */
 
   passwordHash: string;  
   /**
- * totalOnlineSeconds：NextPlayerAuthUser 内部字段。
+ * totalOnlineSeconds：totalOnlineSecond相关字段。
  */
 
   totalOnlineSeconds: number;  
   /**
- * currentOnlineStartedAt：NextPlayerAuthUser 内部字段。
+ * currentOnlineStartedAt：currentOnlineStartedAt相关字段。
  */
 
   currentOnlineStartedAt: string | null;  
   /**
- * createdAt：NextPlayerAuthUser 内部字段。
+ * createdAt：createdAt相关字段。
  */
 
   createdAt: string;  
   /**
- * updatedAt：NextPlayerAuthUser 内部字段。
+ * updatedAt：updatedAt相关字段。
  */
 
   updatedAt: number;
@@ -690,9 +690,9 @@ export class NextPlayerAuthStoreService implements OnModuleInit, OnModuleDestroy
   }
 }
 /**
- * normalizePersistedAuthRow：执行核心业务逻辑。
+ * normalizePersistedAuthRow：判断Persisted认证Row是否满足条件。
  * @param row PersistedAuthRow | null 参数说明。
- * @returns NextPlayerAuthUser | null。
+ * @returns 返回Persisted认证Row。
  */
 
 
@@ -741,10 +741,10 @@ function normalizePersistedAuthRow(row: PersistedAuthRow | null): NextPlayerAuth
   };
 }
 /**
- * normalizeAuthRecord：执行核心业务逻辑。
+ * normalizeAuthRecord：规范化或转换认证Record。
  * @param raw AuthRecordCandidate | null | undefined 参数说明。
  * @param fallbackKey 参数说明。
- * @returns NextPlayerAuthUser | null。
+ * @returns 返回认证Record。
  */
 
 
@@ -786,15 +786,15 @@ function normalizeAuthRecord(raw: AuthRecordCandidate | null | undefined, fallba
   };
 }
 /**
- * toPersistedUser：执行核心业务逻辑。
+ * toPersistedUser：判断toPersistedUser是否满足条件。
  * @param user NextPlayerAuthUser 参数说明。
- * @returns Omit<NextPlayerAuthUser, 'userId'> & { userId: string }。
+ * @returns 返回toPersistedUser。
  */
 
 
 function toPersistedUser(user: NextPlayerAuthUser): Omit<NextPlayerAuthUser, 'userId'> & {
 /**
- * userId：对象字段。
+ * userId：userID标识。
  */
  userId: string } {
   return {
@@ -814,9 +814,9 @@ function toPersistedUser(user: NextPlayerAuthUser): Omit<NextPlayerAuthUser, 'us
   };
 }
 /**
- * cloneUser：执行核心业务逻辑。
+ * cloneUser：构建User。
  * @param user NextPlayerAuthUser 参数说明。
- * @returns NextPlayerAuthUser。
+ * @returns 返回User。
  */
 
 
@@ -826,9 +826,9 @@ function cloneUser(user: NextPlayerAuthUser): NextPlayerAuthUser {
   };
 }
 /**
- * normalizeRequiredString：执行核心业务逻辑。
+ * normalizeRequiredString：规范化或转换RequiredString。
  * @param value unknown 参数说明。
- * @returns string。
+ * @returns 返回RequiredString。
  */
 
 
@@ -836,9 +836,9 @@ function normalizeRequiredString(value: unknown): string {
   return typeof value === 'string' ? value.trim() : '';
 }
 /**
- * normalizeOptionalDisplayName：执行核心业务逻辑。
+ * normalizeOptionalDisplayName：判断Optional显示名称是否满足条件。
  * @param value unknown 参数说明。
- * @returns string | null。
+ * @returns 返回Optional显示名称。
  */
 
 
@@ -847,9 +847,9 @@ function normalizeOptionalDisplayName(value: unknown): string | null {
   return normalized.trim().length > 0 ? normalized : null;
 }
 /**
- * normalizeDateTime：执行核心业务逻辑。
+ * normalizeDateTime：规范化或转换Date时间。
  * @param value unknown 参数说明。
- * @returns string | null。
+ * @returns 返回Date时间。
  */
 
 
@@ -859,7 +859,7 @@ function normalizeDateTime(value: unknown): string | null {
 /**
  * buildFallbackPlayerId：构建并返回目标对象。
  * @param userId string user ID。
- * @returns string。
+ * @returns 返回Fallback玩家ID。
  */
 
 
@@ -868,11 +868,11 @@ function buildFallbackPlayerId(userId: string): string {
   return normalizedUserId ? `p_${normalizedUserId}` : 'p_guest';
 }
 /**
- * addToSetMap：执行核心业务逻辑。
+ * addToSetMap：处理ToSet地图并更新相关状态。
  * @param target Map<string, Set<string>> 目标对象。
  * @param key string 参数说明。
  * @param userId string user ID。
- * @returns void。
+ * @returns 无返回值，直接更新ToSet地图相关状态。
  */
 
 
@@ -882,11 +882,11 @@ function addToSetMap(target: Map<string, Set<string>>, key: string, userId: stri
   target.set(key, current);
 }
 /**
- * removeFromSetMap：执行核心业务逻辑。
+ * removeFromSetMap：处理FromSet地图并更新相关状态。
  * @param target Map<string, Set<string>> 目标对象。
  * @param key string 参数说明。
  * @param userId string user ID。
- * @returns void。
+ * @returns 无返回值，直接更新FromSet地图相关状态。
  */
 
 
@@ -906,9 +906,9 @@ function removeFromSetMap(target: Map<string, Set<string>>, key: string, userId:
   target.set(key, current);
 }
 /**
- * normalizeExcludeEntries：执行核心业务逻辑。
+ * normalizeExcludeEntries：规范化或转换Exclude条目。
  * @param entries AuthExcludeEntryCandidate[] | undefined 参数说明。
- * @returns AuthExcludeEntry[]。
+ * @returns 返回Exclude条目列表。
  */
 
 
@@ -927,11 +927,11 @@ function normalizeExcludeEntries(entries: AuthExcludeEntryCandidate[] | undefine
     .filter((entry): entry is AuthExcludeEntry => Boolean(entry.userId && entry.kind));
 }
 /**
- * isExcluded：执行状态校验并返回判断结果。
+ * isExcluded：判断Excluded是否满足条件。
  * @param entries AuthExcludeEntry[] 参数说明。
  * @param userId string user ID。
  * @param kind AuthConflictKind 参数说明。
- * @returns boolean。
+ * @returns 返回是否满足Excluded条件。
  */
 
 
@@ -942,7 +942,7 @@ function isExcluded(entries: AuthExcludeEntry[], userId: string, kind: AuthConfl
  * buildConflictMessage：构建并返回目标对象。
  * @param requestedKind AuthConflictKind 参数说明。
  * @param conflictKind AuthConflictKind 参数说明。
- * @returns string。
+ * @returns 返回ConflictMessage。
  */
 
 
@@ -958,9 +958,9 @@ function buildConflictMessage(requestedKind: AuthConflictKind, conflictKind: Aut
   return '称号已存在';
 }
 /**
- * ensurePlayerAuthTable：执行核心业务逻辑。
+ * ensurePlayerAuthTable：执行ensure玩家认证表相关逻辑。
  * @param pool Pool 参数说明。
- * @returns Promise<void>。
+ * @returns 返回 Promise，完成后得到ensure玩家认证表。
  */
 
 

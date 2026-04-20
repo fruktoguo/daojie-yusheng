@@ -5,12 +5,12 @@
 
 interface SelectionSnapshot {
 /**
- * start：SelectionSnapshot 内部字段。
+ * start：start相关字段。
  */
 
   start: number;  
   /**
- * end：SelectionSnapshot 内部字段。
+ * end：end相关字段。
  */
 
   end: number;
@@ -57,11 +57,11 @@ function captureSelection(root: HTMLElement): SelectionSnapshot | null {
 /** resolveOffset：解析偏移。 */
 function resolveOffset(root: HTMLElement, offset: number): {
 /**
- * node：对象字段。
+ * node：node相关字段。
  */
  node: Node;
  /**
- * offset：对象字段。
+ * offset：offset相关字段。
  */
  offset: number } | null {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。

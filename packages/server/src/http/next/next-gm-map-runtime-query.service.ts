@@ -22,17 +22,17 @@ import { isNextGmBotPlayerId } from './next-gm.constants';
 
 interface RuntimePlayerEntryLike {
 /**
- * playerId：RuntimePlayerEntryLike 内部字段。
+ * playerId：玩家ID标识。
  */
 
   playerId: string;  
   /**
- * x：RuntimePlayerEntryLike 内部字段。
+ * x：x相关字段。
  */
 
   x: number;  
   /**
- * y：RuntimePlayerEntryLike 内部字段。
+ * y：y相关字段。
  */
 
   y: number;
@@ -44,37 +44,37 @@ interface RuntimePlayerEntryLike {
 
 interface RuntimePlayerLike {
 /**
- * displayName：RuntimePlayerLike 内部字段。
+ * displayName：显示名称名称或显示文本。
  */
 
   displayName?: string;  
   /**
- * name：RuntimePlayerLike 内部字段。
+ * name：名称名称或显示文本。
  */
 
   name?: string;  
   /**
- * sessionId：RuntimePlayerLike 内部字段。
+ * sessionId：sessionID标识。
  */
 
   sessionId?: string;  
   /**
- * hp：RuntimePlayerLike 内部字段。
+ * hp：hp相关字段。
  */
 
   hp?: number;  
   /**
- * maxHp：RuntimePlayerLike 内部字段。
+ * maxHp：maxHp相关字段。
  */
 
   maxHp?: number;  
   /**
- * combat：RuntimePlayerLike 内部字段。
+ * combat：战斗相关字段。
  */
 
   combat: {  
   /**
- * autoBattle：RuntimePlayerLike 内部字段。
+ * autoBattle：autoBattle相关字段。
  */
 
     autoBattle?: boolean;
@@ -87,57 +87,57 @@ interface RuntimePlayerLike {
 
 interface RuntimeMonsterLike {
 /**
- * runtimeId：RuntimeMonsterLike 内部字段。
+ * runtimeId：运行态ID标识。
  */
 
   runtimeId: string;  
   /**
- * x：RuntimeMonsterLike 内部字段。
+ * x：x相关字段。
  */
 
   x: number;  
   /**
- * y：RuntimeMonsterLike 内部字段。
+ * y：y相关字段。
  */
 
   y: number;  
   /**
- * char：RuntimeMonsterLike 内部字段。
+ * char：char相关字段。
  */
 
   char: string;  
   /**
- * color：RuntimeMonsterLike 内部字段。
+ * color：color相关字段。
  */
 
   color: string;  
   /**
- * name：RuntimeMonsterLike 内部字段。
+ * name：名称名称或显示文本。
  */
 
   name: string;  
   /**
- * hp：RuntimeMonsterLike 内部字段。
+ * hp：hp相关字段。
  */
 
   hp?: number;  
   /**
- * maxHp：RuntimeMonsterLike 内部字段。
+ * maxHp：maxHp相关字段。
  */
 
   maxHp?: number;  
   /**
- * alive：RuntimeMonsterLike 内部字段。
+ * alive：alive相关字段。
  */
 
   alive?: boolean;  
   /**
- * aggroTargetPlayerId：RuntimeMonsterLike 内部字段。
+ * aggroTargetPlayerId：aggro目标玩家ID标识。
  */
 
   aggroTargetPlayerId?: string | null;  
   /**
- * respawnLeft：RuntimeMonsterLike 内部字段。
+ * respawnLeft：重生Left相关字段。
  */
 
   respawnLeft?: number;
@@ -149,12 +149,12 @@ interface RuntimeMonsterLike {
 
 interface RuntimeInstanceLike {
 /**
- * players：RuntimeInstanceLike 内部字段。
+ * players：集合字段。
  */
 
   players: RuntimePlayerEntryLike[];  
   /**
- * tick：RuntimeInstanceLike 内部字段。
+ * tick：tick相关字段。
  */
 
   tick?: number;
@@ -175,32 +175,32 @@ interface InternalRuntimeInstanceLike {
 
 interface StaticMapEntityLike {
 /**
- * id：StaticMapEntityLike 内部字段。
+ * id：ID标识。
  */
 
   id: string;  
   /**
- * x：StaticMapEntityLike 内部字段。
+ * x：x相关字段。
  */
 
   x: number;  
   /**
- * y：StaticMapEntityLike 内部字段。
+ * y：y相关字段。
  */
 
   y: number;  
   /**
- * char：StaticMapEntityLike 内部字段。
+ * char：char相关字段。
  */
 
   char: string;  
   /**
- * color：StaticMapEntityLike 内部字段。
+ * color：color相关字段。
  */
 
   color: string;  
   /**
- * name：StaticMapEntityLike 内部字段。
+ * name：名称名称或显示文本。
  */
 
   name: string;
@@ -212,48 +212,48 @@ interface StaticMapEntityLike {
 
 interface MapTemplateLike {
 /**
- * name：MapTemplateLike 内部字段。
+ * name：名称名称或显示文本。
  */
 
   name: string;  
   /**
- * width：MapTemplateLike 内部字段。
+ * width：width相关字段。
  */
 
   width: number;  
   /**
- * height：MapTemplateLike 内部字段。
+ * height：height相关字段。
  */
 
   height: number;  
   /**
- * source：MapTemplateLike 内部字段。
+ * source：来源相关字段。
  */
 
   source: {  
   /**
- * tiles：MapTemplateLike 内部字段。
+ * tiles：tile相关字段。
  */
 
     tiles: string[];    
     /**
- * time：MapTemplateLike 内部字段。
+ * time：时间相关字段。
  */
 
     time?: unknown;
   };  
   /**
- * baseAuraByTile：MapTemplateLike 内部字段。
+ * baseAuraByTile：baseAuraByTile相关字段。
  */
 
   baseAuraByTile: number[];  
   /**
- * npcs：MapTemplateLike 内部字段。
+ * npcs：NPC相关字段。
  */
 
   npcs: StaticMapEntityLike[];  
   /**
- * containers：MapTemplateLike 内部字段。
+ * containers：container相关字段。
  */
 
   containers: StaticMapEntityLike[];
@@ -281,14 +281,14 @@ interface PlayerRuntimeServiceLike {
 
 interface WorldRuntimeServiceLike {
 /**
- * instances：WorldRuntimeServiceLike 内部字段。
+ * instances：instance相关字段。
  */
 
   instances?: Map<string, InternalRuntimeInstanceLike>;
   getInstance(instanceId: string): RuntimeInstanceLike | null | undefined;
   getRuntimeSummary(): {  
   /**
- * tick：WorldRuntimeServiceLike 内部字段。
+ * tick：tick相关字段。
  */
  tick: number };
 }
@@ -309,12 +309,12 @@ interface RuntimeMapConfigServiceLike {
 
 interface LegacyRuntimeTileInput {
 /**
- * mapChar：LegacyRuntimeTileInput 内部字段。
+ * mapChar：地图Char相关字段。
  */
 
   mapChar?: unknown;  
   /**
- * aura：LegacyRuntimeTileInput 内部字段。
+ * aura：aura相关字段。
  */
 
   aura?: unknown;
@@ -326,27 +326,27 @@ interface LegacyRuntimeTileInput {
 
 interface LegacyAuraResource {
 /**
- * key：LegacyAuraResource 内部字段。
+ * key：key标识。
  */
 
   key: 'aura';  
   /**
- * label：LegacyAuraResource 内部字段。
+ * label：label名称或显示文本。
  */
 
   label: '灵气';  
   /**
- * value：LegacyAuraResource 内部字段。
+ * value：值数值。
  */
 
   value: number;  
   /**
- * effectiveValue：LegacyAuraResource 内部字段。
+ * effectiveValue：effective值数值。
  */
 
   effectiveValue: number;  
   /**
- * level：LegacyAuraResource 内部字段。
+ * level：等级数值。
  */
 
   level: number;
@@ -358,30 +358,30 @@ interface LegacyAuraResource {
 
 interface LegacyRuntimeTileProjection {
 /**
- * type：LegacyRuntimeTileProjection 内部字段。
+ * type：type相关字段。
  */
 
   type?: ReturnType<typeof getTileTypeFromMapChar>;  
   /**
- * walkable：LegacyRuntimeTileProjection 内部字段。
+ * walkable：walkable相关字段。
  */
 
   walkable?: boolean;  
   /**
- * aura：LegacyRuntimeTileProjection 内部字段。
+ * aura：aura相关字段。
  */
 
   aura: number;  
   /**
- * resources：LegacyRuntimeTileProjection 内部字段。
+ * resources：resource相关字段。
  */
 
   resources: LegacyAuraResource[];
 }
 /**
- * isRecord：执行状态校验并返回判断结果。
+ * isRecord：判断Record是否满足条件。
  * @param value unknown 参数说明。
- * @returns value is Record<string, unknown>。
+ * @returns 返回Record映射/集合。
  */
 
 
@@ -389,9 +389,9 @@ function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null;
 }
 /**
- * isFiniteNumber：执行状态校验并返回判断结果。
+ * isFiniteNumber：判断FiniteNumber是否满足条件。
  * @param value unknown 参数说明。
- * @returns value is number。
+ * @returns 返回FiniteNumber数值。
  */
 
 
@@ -399,9 +399,9 @@ function isFiniteNumber(value: unknown): value is number {
   return typeof value === 'number' && Number.isFinite(value);
 }
 /**
- * isTimePhaseId：执行状态校验并返回判断结果。
+ * isTimePhaseId：判断时间阶段ID是否满足条件。
  * @param value string 参数说明。
- * @returns value is TimePhaseId。
+ * @returns 返回时间PhaseID。
  */
 
 
@@ -409,9 +409,9 @@ function isTimePhaseId(value: string): value is TimePhaseId {
   return GAME_TIME_PHASES.some((entry) => entry.id === value);
 }
 /**
- * normalizePalette：执行核心业务逻辑。
+ * normalizePalette：规范化或转换Palette。
  * @param input unknown 输入参数。
- * @returns Partial<Record<TimePhaseId, TimePaletteEntry>> | undefined。
+ * @returns 返回Palette映射/集合。
  */
 
 
@@ -449,7 +449,7 @@ export class NextGmMapRuntimeQueryService {
  * @param playerRuntimeService PlayerRuntimeServiceLike 参数说明。
  * @param worldRuntimeService WorldRuntimeServiceLike 参数说明。
  * @param runtimeMapConfigService RuntimeMapConfigServiceLike 参数说明。
- * @returns 无返回值（构造函数）。
+ * @returns 无返回值，完成实例初始化。
  */
 
   constructor(
@@ -459,13 +459,13 @@ export class NextGmMapRuntimeQueryService {
     @Inject(RuntimeMapConfigService) private readonly runtimeMapConfigService: RuntimeMapConfigServiceLike,
   ) {}  
   /**
- * getMapRuntime：按给定条件读取/查询数据。
+ * getMapRuntime：读取地图运行态。
  * @param mapId string 地图 ID。
  * @param x unknown X 坐标。
  * @param y unknown Y 坐标。
  * @param w unknown 参数说明。
  * @param h unknown 参数说明。
- * @returns 函数返回值。
+ * @returns 无返回值，完成地图运行态的读取/组装。
  */
 
 
@@ -484,30 +484,30 @@ export class NextGmMapRuntimeQueryService {
     const internalInstance = this.worldRuntimeService.instances?.get(instanceId) ?? null;
     const tiles: Array<Array<{    
     /**
- * type：NextGmMapRuntimeQueryService 内部字段。
+ * type：type相关字段。
  */
  type?: ReturnType<typeof getTileTypeFromMapChar>;    
  /**
- * walkable：NextGmMapRuntimeQueryService 内部字段。
+ * walkable：walkable相关字段。
  */
  walkable?: boolean;    
  /**
- * aura：NextGmMapRuntimeQueryService 内部字段。
+ * aura：aura相关字段。
  */
  aura: number }>> = [];
 
     for (let row = startY; row < endY; row += 1) {
       const line: Array<{      
       /**
- * type：NextGmMapRuntimeQueryService 内部字段。
+ * type：type相关字段。
  */
  type?: ReturnType<typeof getTileTypeFromMapChar>;      
  /**
- * walkable：NextGmMapRuntimeQueryService 内部字段。
+ * walkable：walkable相关字段。
  */
  walkable?: boolean;      
  /**
- * aura：NextGmMapRuntimeQueryService 内部字段。
+ * aura：aura相关字段。
  */
  aura: number }> = [];
       const terrainRow = template.source.tiles[row] ?? '';
@@ -637,9 +637,9 @@ export class NextGmMapRuntimeQueryService {
   }
 }
 /**
- * projectLegacyRuntimeTile：执行核心业务逻辑。
+ * projectLegacyRuntimeTile：执行projectLegacy运行态Tile相关逻辑。
  * @param input LegacyRuntimeTileInput 输入参数。
- * @returns LegacyRuntimeTileProjection。
+ * @returns 返回projectLegacy运行态Tile。
  */
 
 
@@ -663,7 +663,7 @@ function projectLegacyRuntimeTile(input: LegacyRuntimeTileInput): LegacyRuntimeT
 /**
  * buildLegacyAuraResource：构建并返回目标对象。
  * @param aura number 参数说明。
- * @returns LegacyAuraResource。
+ * @returns 返回LegacyAuraResource。
  */
 
 
@@ -677,11 +677,11 @@ function buildLegacyAuraResource(aura: number): LegacyAuraResource {
   };
 }
 /**
- * clamp：执行核心业务逻辑。
+ * clamp：执行clamp相关逻辑。
  * @param value number 参数说明。
  * @param min number 参数说明。
  * @param max number 参数说明。
- * @returns number。
+ * @returns 返回clamp。
  */
 
 
@@ -689,14 +689,14 @@ function clamp(value: number, min: number, max: number): number {
   return Math.max(min, Math.min(max, value));
 }
 /**
- * isInRect：执行状态校验并返回判断结果。
+ * isInRect：判断InRect是否满足条件。
  * @param x number X 坐标。
  * @param y number Y 坐标。
  * @param startX number 参数说明。
  * @param startY number 参数说明。
  * @param endX number 参数说明。
  * @param endY number 参数说明。
- * @returns boolean。
+ * @returns 返回是否满足InRect条件。
  */
 
 
@@ -710,18 +710,18 @@ function isInRect(x: number, y: number, startX: number, startY: number, endX: nu
  * @param baseViewRange number 参数说明。
  * @param overrideConfig MapTimeConfig | undefined 参数说明。
  * @param tickSpeed number 参数说明。
- * @returns GameTimeState。
+ * @returns 返回Legacy时间状态。
  */
 
 
 function buildLegacyTimeState(
   template: {  
   /**
- * source：对象字段。
+ * source：来源相关字段。
  */
  source?: {  
  /**
- * time：对象字段。
+ * time：时间相关字段。
  */
  time?: unknown } },
   totalTicks: number,
@@ -764,9 +764,9 @@ function buildLegacyTimeState(
   };
 }
 /**
- * normalizeLegacyMapTimeConfig：执行核心业务逻辑。
+ * normalizeLegacyMapTimeConfig：规范化或转换Legacy地图时间配置。
  * @param input unknown 输入参数。
- * @returns MapTimeConfig。
+ * @returns 返回Legacy地图时间配置。
  */
 
 
@@ -786,9 +786,9 @@ function normalizeLegacyMapTimeConfig(input: unknown): MapTimeConfig {
   };
 }
 /**
- * resolveLegacyDarknessStacks：执行核心业务逻辑。
+ * resolveLegacyDarknessStacks：规范化或转换LegacyDarknessStack。
  * @param lightPercent number 参数说明。
- * @returns number。
+ * @returns 返回LegacyDarknessStack。
  */
 
 

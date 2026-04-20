@@ -9,9 +9,9 @@ import '../styles/index.css';
 
 let root: Root | null = null;
 /**
- * ensureHost：执行核心业务逻辑。
+ * ensureHost：执行ensureHost相关逻辑。
  * @param doc Document 参数说明。
- * @returns HTMLElement。
+ * @returns 返回ensureHost。
  */
 
 
@@ -29,9 +29,9 @@ function ensureHost(doc: Document): HTMLElement {
   return host;
 }
 /**
- * mountNextUi：执行核心业务逻辑。
+ * mountNextUi：执行mountNextUi相关逻辑。
  * @param win Window 参数说明。
- * @returns void。
+ * @returns 无返回值，直接更新mountNextUi相关状态。
  */
 
 

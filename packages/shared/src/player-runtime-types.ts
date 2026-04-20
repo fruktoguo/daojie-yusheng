@@ -13,362 +13,362 @@ import type { Direction } from './world-core-types';
 /** 玩家状态。 */
 export interface PlayerState {
 /**
- * id：PlayerState 内部字段。
+ * id：ID标识。
  */
 
   id: string;  
   /**
- * name：PlayerState 内部字段。
+ * name：名称名称或显示文本。
  */
 
   name: string;  
   /**
- * displayName：PlayerState 内部字段。
+ * displayName：显示名称名称或显示文本。
  */
 
   displayName?: string;  
   /**
- * isBot：PlayerState 内部字段。
+ * isBot：启用开关或状态标识。
  */
 
   isBot?: boolean;  
   /**
- * online：PlayerState 内部字段。
+ * online：online相关字段。
  */
 
   online?: boolean;  
   /**
- * inWorld：PlayerState 内部字段。
+ * inWorld：in世界相关字段。
  */
 
   inWorld?: boolean;  
   /**
- * lastHeartbeatAt：PlayerState 内部字段。
+ * lastHeartbeatAt：lastHeartbeatAt相关字段。
  */
 
   lastHeartbeatAt?: number;  
   /**
- * offlineSinceAt：PlayerState 内部字段。
+ * offlineSinceAt：offlineSinceAt相关字段。
  */
 
   offlineSinceAt?: number;  
   /**
- * senseQiActive：PlayerState 内部字段。
+ * senseQiActive：senseQi激活状态相关字段。
  */
 
   senseQiActive?: boolean;  
   /**
- * autoRetaliate：PlayerState 内部字段。
+ * autoRetaliate：autoRetaliate相关字段。
  */
 
   autoRetaliate?: boolean;  
   /**
- * autoBattleStationary：PlayerState 内部字段。
+ * autoBattleStationary：autoBattleStationary相关字段。
  */
 
   autoBattleStationary?: boolean;  
   /**
- * allowAoePlayerHit：PlayerState 内部字段。
+ * allowAoePlayerHit：allowAoe玩家Hit相关字段。
  */
 
   allowAoePlayerHit?: boolean;  
   /**
- * autoIdleCultivation：PlayerState 内部字段。
+ * autoIdleCultivation：autoIdleCultivation相关字段。
  */
 
   autoIdleCultivation?: boolean;  
   /**
- * autoSwitchCultivation：PlayerState 内部字段。
+ * autoSwitchCultivation：autoSwitchCultivation相关字段。
  */
 
   autoSwitchCultivation?: boolean;  
   /**
- * cultivationActive：PlayerState 内部字段。
+ * cultivationActive：cultivation激活状态相关字段。
  */
 
   cultivationActive?: boolean;  
   /**
- * realmLv：PlayerState 内部字段。
+ * realmLv：realmLv相关字段。
  */
 
   realmLv?: number;  
   /**
- * realmName：PlayerState 内部字段。
+ * realmName：realm名称名称或显示文本。
  */
 
   realmName?: string;  
   /**
- * realmStage：PlayerState 内部字段。
+ * realmStage：realmStage相关字段。
  */
 
   realmStage?: string;  
   /**
- * realmReview：PlayerState 内部字段。
+ * realmReview：realmReview相关字段。
  */
 
   realmReview?: string;  
   /**
- * breakthroughReady：PlayerState 内部字段。
+ * breakthroughReady：breakthroughReady相关字段。
  */
 
   breakthroughReady?: boolean;  
   /**
- * heavenGate：PlayerState 内部字段。
+ * heavenGate：heavenGate相关字段。
  */
 
   heavenGate?: HeavenGateState | null;  
   /**
- * spiritualRoots：PlayerState 内部字段。
+ * spiritualRoots：spiritual根容器相关字段。
  */
 
   spiritualRoots?: HeavenGateRootValues | null;  
   /**
- * boneAgeBaseYears：PlayerState 内部字段。
+ * boneAgeBaseYears：boneAgeBaseYear相关字段。
  */
 
   boneAgeBaseYears?: number;  
   /**
- * lifeElapsedTicks：PlayerState 内部字段。
+ * lifeElapsedTicks：lifeElapsedtick相关字段。
  */
 
   lifeElapsedTicks?: number;  
   /**
- * lifespanYears：PlayerState 内部字段。
+ * lifespanYears：lifespanYear相关字段。
  */
 
   lifespanYears?: number | null;  
   /**
- * mapId：PlayerState 内部字段。
+ * mapId：地图ID标识。
  */
 
   mapId: string;  
   /**
- * x：PlayerState 内部字段。
+ * x：x相关字段。
  */
 
   x: number;  
   /**
- * y：PlayerState 内部字段。
+ * y：y相关字段。
  */
 
   y: number;  
   /**
- * facing：PlayerState 内部字段。
+ * facing：facing相关字段。
  */
 
   facing: Direction;  
   /**
- * viewRange：PlayerState 内部字段。
+ * viewRange：视图范围相关字段。
  */
 
   viewRange: number;  
   /**
- * hp：PlayerState 内部字段。
+ * hp：hp相关字段。
  */
 
   hp: number;  
   /**
- * maxHp：PlayerState 内部字段。
+ * maxHp：maxHp相关字段。
  */
 
   maxHp: number;  
   /**
- * qi：PlayerState 内部字段。
+ * qi：qi相关字段。
  */
 
   qi: number;  
   /**
- * dead：PlayerState 内部字段。
+ * dead：dead相关字段。
  */
 
   dead: boolean;  
   /**
- * foundation：PlayerState 内部字段。
+ * foundation：foundation相关字段。
  */
 
   foundation?: number;  
   /**
- * combatExp：PlayerState 内部字段。
+ * combatExp：战斗Exp相关字段。
  */
 
   combatExp?: number;  
   /**
- * baseAttrs：PlayerState 内部字段。
+ * baseAttrs：baseAttr相关字段。
  */
 
   baseAttrs: Attributes;  
   /**
- * bonuses：PlayerState 内部字段。
+ * bonuses：bonuse相关字段。
  */
 
   bonuses: AttrBonus[];  
   /**
- * temporaryBuffs：PlayerState 内部字段。
+ * temporaryBuffs：temporaryBuff相关字段。
  */
 
   temporaryBuffs?: TemporaryBuffState[];  
   /**
- * finalAttrs：PlayerState 内部字段。
+ * finalAttrs：finalAttr相关字段。
  */
 
   finalAttrs?: Attributes;  
   /**
- * numericStats：PlayerState 内部字段。
+ * numericStats：numericStat相关字段。
  */
 
   numericStats?: NumericStats;  
   /**
- * ratioDivisors：PlayerState 内部字段。
+ * ratioDivisors：ratioDivisor相关字段。
  */
 
   ratioDivisors?: NumericRatioDivisors;  
   /**
- * inventory：PlayerState 内部字段。
+ * inventory：背包相关字段。
  */
 
   inventory: Inventory;  
   /**
- * marketStorage：PlayerState 内部字段。
+ * marketStorage：坊市Storage相关字段。
  */
 
   marketStorage?: MarketStorage;  
   /**
- * equipment：PlayerState 内部字段。
+ * equipment：装备相关字段。
  */
 
   equipment: EquipmentSlots;  
   /**
- * techniques：PlayerState 内部字段。
+ * techniques：功法相关字段。
  */
 
   techniques: TechniqueState[];  
   /**
- * bodyTraining：PlayerState 内部字段。
+ * bodyTraining：bodyTraining相关字段。
  */
 
   bodyTraining?: BodyTrainingState;  
   /**
- * actions：PlayerState 内部字段。
+ * actions：action相关字段。
  */
 
   actions: ActionDef[];  
   /**
- * quests：PlayerState 内部字段。
+ * quests：集合字段。
  */
 
   quests: QuestState[];  
   /**
- * autoBattle：PlayerState 内部字段。
+ * autoBattle：autoBattle相关字段。
  */
 
   autoBattle: boolean;  
   /**
- * autoBattleSkills：PlayerState 内部字段。
+ * autoBattleSkills：autoBattle技能相关字段。
  */
 
   autoBattleSkills: AutoBattleSkillConfig[];  
   /**
- * autoUsePills：PlayerState 内部字段。
+ * autoUsePills：autoUsePill相关字段。
  */
 
   autoUsePills: AutoUsePillConfig[];  
   /**
- * combatTargetingRules：PlayerState 内部字段。
+ * combatTargetingRules：战斗TargetingRule相关字段。
  */
 
   combatTargetingRules?: CombatTargetingRules;  
   /**
- * autoBattleTargetingMode：PlayerState 内部字段。
+ * autoBattleTargetingMode：autoBattleTargetingMode相关字段。
  */
 
   autoBattleTargetingMode: AutoBattleTargetingMode;  
   /**
- * combatTargetId：PlayerState 内部字段。
+ * combatTargetId：战斗目标ID标识。
  */
 
   combatTargetId?: string;  
   /**
- * combatTargetLocked：PlayerState 内部字段。
+ * combatTargetLocked：战斗目标Locked相关字段。
  */
 
   combatTargetLocked?: boolean;  
   /**
- * cultivatingTechId：PlayerState 内部字段。
+ * cultivatingTechId：cultivatingTechID标识。
  */
 
   cultivatingTechId?: string;  
   /**
- * pendingLogbookMessages：PlayerState 内部字段。
+ * pendingLogbookMessages：pendingLogbookMessage相关字段。
  */
 
   pendingLogbookMessages?: PendingLogbookMessage[];  
   /**
- * idleTicks：PlayerState 内部字段。
+ * idleTicks：idletick相关字段。
  */
 
   idleTicks?: number;  
   /**
- * revealedBreakthroughRequirementIds：PlayerState 内部字段。
+ * revealedBreakthroughRequirementIds：revealedBreakthroughRequirementID相关字段。
  */
 
   revealedBreakthroughRequirementIds?: string[];  
   /**
- * unlockedMinimapIds：PlayerState 内部字段。
+ * unlockedMinimapIds：unlockedMinimapID相关字段。
  */
 
   unlockedMinimapIds?: string[];  
   /**
- * realm：PlayerState 内部字段。
+ * realm：realm相关字段。
  */
 
   realm?: PlayerRealmState;  
   /**
- * questNavigation：PlayerState 内部字段。
+ * questNavigation：任务导航相关字段。
  */
 
   questNavigation?: QuestNavigationState;  
   /**
- * questCrossMapNavCooldownUntilLifeTicks：PlayerState 内部字段。
+ * questCrossMapNavCooldownUntilLifeTicks：任务Cross地图Nav冷却UntilLifetick相关字段。
  */
 
   questCrossMapNavCooldownUntilLifeTicks?: number;  
   /**
- * alchemySkill：PlayerState 内部字段。
+ * alchemySkill：炼丹技能相关字段。
  */
 
   alchemySkill?: AlchemySkillState;  
   /**
- * gatherSkill：PlayerState 内部字段。
+ * gatherSkill：gather技能相关字段。
  */
 
   gatherSkill?: AlchemySkillState;  
   /**
- * alchemyPresets：PlayerState 内部字段。
+ * alchemyPresets：炼丹Preset相关字段。
  */
 
   alchemyPresets?: PlayerAlchemyPreset[];  
   /**
- * alchemyJob：PlayerState 内部字段。
+ * alchemyJob：炼丹Job相关字段。
  */
 
   alchemyJob?: PlayerAlchemyJob | null;  
   /**
- * enhancementSkill：PlayerState 内部字段。
+ * enhancementSkill：强化技能相关字段。
  */
 
   enhancementSkill?: AlchemySkillState;  
   /**
- * enhancementSkillLevel：PlayerState 内部字段。
+ * enhancementSkillLevel：强化技能等级数值。
  */
 
   enhancementSkillLevel?: number;  
   /**
- * enhancementJob：PlayerState 内部字段。
+ * enhancementJob：强化Job相关字段。
  */
 
   enhancementJob?: PlayerEnhancementJob | null;  
   /**
- * enhancementRecords：PlayerState 内部字段。
+ * enhancementRecords：强化Record相关字段。
  */
 
   enhancementRecords?: PlayerEnhancementRecord[];

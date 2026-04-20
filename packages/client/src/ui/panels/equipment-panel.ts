@@ -112,32 +112,32 @@ function createFragmentFromHtml(html: string): DocumentFragment {
 /** EquipmentSlotView：装备槽位的渲染引用集合。 */
 type EquipmentSlotView = {
 /**
- * root：对象字段。
+ * root：根容器相关字段。
  */
 
   root: HTMLDivElement;  
   /**
- * name：对象字段。
+ * name：名称名称或显示文本。
  */
 
   name: HTMLSpanElement;  
   /**
- * item：对象字段。
+ * item：道具相关字段。
  */
 
   item: HTMLSpanElement;  
   /**
- * empty：对象字段。
+ * empty：empty相关字段。
  */
 
   empty: HTMLSpanElement;  
   /**
- * meta：对象字段。
+ * meta：meta相关字段。
  */
 
   meta: HTMLSpanElement;  
   /**
- * action：对象字段。
+ * action：action相关字段。
  */
 
   action: HTMLButtonElement;
@@ -163,7 +163,7 @@ export class EquipmentPanel {
   private sectionEl: HTMLDivElement | null = null;  
   /**
  * 构造器：初始化 当前 实例并建立基础状态。
- * @returns 无返回值（构造函数）。
+ * @returns 无返回值，完成实例初始化。
  */
 
 
@@ -184,9 +184,9 @@ export class EquipmentPanel {
     this.pane.replaceChildren(createFragmentFromHtml('<div class="empty-hint ui-empty-hint">尚未装备任何物品</div>'));
   }  
   /**
- * setCallbacks：更新/写入相关状态。
+ * setCallbacks：写入Callback。
  * @param onUnequip (slot: EquipSlot) => void 参数说明。
- * @returns void。
+ * @returns 无返回值，直接更新Callback相关状态。
  */
 
 

@@ -230,16 +230,16 @@ export class MapStore {
   /** 地面物品堆叠索引，key 为 "x,y"。 */
   private groundPiles = new Map<string, GroundItemPileView>();  
   /**
- * pathCells：MapStore 内部字段。
+ * pathCells：路径Cell相关字段。
  */
 
   private pathCells: Array<{  
   /**
- * x：MapStore 内部字段。
+ * x：x相关字段。
  */
  x: number;  
  /**
- * y：MapStore 内部字段。
+ * y：y相关字段。
  */
  y: number }> = [];
   /** 当前寻路/施法叠加层状态。 */
@@ -247,16 +247,16 @@ export class MapStore {
   /** 感气视角叠加层状态。 */
   private senseQi: MapSenseQiOverlayState | null = null;  
   /**
- * threatArrows：MapStore 内部字段。
+ * threatArrows：集合字段。
  */
 
   private threatArrows: Array<{  
   /**
- * ownerId：MapStore 内部字段。
+ * ownerId：ownerID标识。
  */
  ownerId: string;  
  /**
- * targetId：MapStore 内部字段。
+ * targetId：目标ID标识。
  */
  targetId: string }> = [];
   /** 小地图增量版本，推动 minimap 列表与可见性更新。 */
@@ -264,7 +264,7 @@ export class MapStore {
   /** 地图切换后等待首批完整可见块到达时的占位标记。 */
   private awaitingFullVisibilityMapId: string | null = null;  
   /**
- * tickTiming：MapStore 内部字段。
+ * tickTiming：tickTiming相关字段。
  */
 
   private tickTiming = {
@@ -324,22 +324,22 @@ export class MapStore {
     }
     const dataWithTiles = data as NEXT_S2C_MapStatic & {    
     /**
- * tiles：MapStore 内部字段。
+ * tiles：tile相关字段。
  */
 
       tiles?: VisibleTile[][];      
       /**
- * tilesOriginX：MapStore 内部字段。
+ * tilesOriginX：tileOriginX相关字段。
  */
 
       tilesOriginX?: number;      
       /**
- * tilesOriginY：MapStore 内部字段。
+ * tilesOriginY：tileOriginY相关字段。
  */
 
       tilesOriginY?: number;      
       /**
- * tilePatches：MapStore 内部字段。
+ * tilePatches：tilePatche相关字段。
  */
 
       tilePatches?: VisibleTilePatch[];
@@ -552,11 +552,11 @@ export class MapStore {
   /** 写入寻路路径用于前端高亮渲染。 */
   setPathCells(cells: Array<{  
   /**
- * x：MapStore 内部字段。
+ * x：x相关字段。
  */
  x: number;  
  /**
- * y：MapStore 内部字段。
+ * y：y相关字段。
  */
  y: number }>): void {
     this.pathCells = cells.map((cell) => ({ x: cell.x, y: cell.y }));
@@ -687,11 +687,11 @@ export class MapStore {
     return this.tickTiming;
   }  
   /**
- * mergeTickEntities：执行核心业务逻辑。
+ * mergeTickEntities：读取tickEntity并返回结果。
  * @param playerPatches TickRenderEntity[] 参数说明。
  * @param entityPatches TickRenderEntity[] 参数说明。
  * @param removedEntityIds string[] removedEntity ID 集合。
- * @returns ObservedMapEntity[]。
+ * @returns 返回tickEntity列表。
  */
 
 
@@ -755,10 +755,10 @@ export class MapStore {
     return nextMap;
   }  
   /**
- * mergeVisibleMinimapMarkerPatches：执行核心业务逻辑。
+ * mergeVisibleMinimapMarkerPatches：判断可见MinimapMarkerPatche是否满足条件。
  * @param adds MapMinimapMarker[] 参数说明。
  * @param removes string[] 参数说明。
- * @returns MapMinimapMarker[]。
+ * @returns 返回可见MinimapMarkerPatche列表。
  */
 
 
@@ -778,10 +778,10 @@ export class MapStore {
     return [...nextMap.values()];
   }  
   /**
- * mergeThreatArrowPatches：执行核心业务逻辑。
+ * mergeThreatArrowPatches：读取ThreatArrowPatche并返回结果。
  * @param adds Array<[string, string]> 参数说明。
  * @param removes Array<[string, string]> 参数说明。
- * @returns Array<{ ownerId: string; targetId: string }>。
+ * @returns 返回ThreatArrowPatche。
  */
 
 
@@ -790,11 +790,11 @@ export class MapStore {
     removes: Array<[string, string]>,
   ): Array<{  
   /**
- * ownerId：MapStore 内部字段。
+ * ownerId：ownerID标识。
  */
  ownerId: string;  
  /**
- * targetId：MapStore 内部字段。
+ * targetId：目标ID标识。
  */
  targetId: string }> {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。

@@ -7,33 +7,33 @@ exports.WorldGatewayClientEmitHelper = void 0;
 /** 世界 socket 客户端发包 helper：统一 next 单播、市场广播和建议广播的 markProtocol/emit 边界。 */
 class WorldGatewayClientEmitHelper {
 /**
- * gateway：WorldGatewayClientEmitHelper 内部字段。
+ * gateway：gateway相关字段。
  */
 
     gateway;    
     /**
  * 构造器：初始化 当前 实例并建立基础状态。
  * @param gateway 参数说明。
- * @returns 无返回值（构造函数）。
+ * @returns 无返回值，完成实例初始化。
  */
 
     constructor(gateway) {
         this.gateway = gateway;
     }    
     /**
- * markNext：执行核心业务逻辑。
+ * markNext：处理Next并更新相关状态。
  * @param client 参数说明。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新Next相关状态。
  */
 
     markNext(client) {
         this.gateway.worldClientEventService.markProtocol(client, 'next');
     }    
     /**
- * emitNextQuests：执行核心业务逻辑。
+ * emitNextQuests：处理Next任务并更新相关状态。
  * @param client 参数说明。
  * @param payload 载荷参数。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新Next任务相关状态。
  */
 
     emitNextQuests(client, payload) {
@@ -41,10 +41,10 @@ class WorldGatewayClientEmitHelper {
         this.gateway.worldClientEventService.emitQuests(client, payload);
     }    
     /**
- * emitNextSuggestionUpdate：执行核心业务逻辑。
+ * emitNextSuggestionUpdate：处理NextSuggestionUpdate并更新相关状态。
  * @param client 参数说明。
  * @param suggestions 参数说明。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新NextSuggestionUpdate相关状态。
  */
 
     emitNextSuggestionUpdate(client, suggestions) {
@@ -52,10 +52,10 @@ class WorldGatewayClientEmitHelper {
         this.gateway.worldClientEventService.emitSuggestionUpdate(client, suggestions);
     }    
     /**
- * emitNextMailSummary：执行核心业务逻辑。
+ * emitNextMailSummary：处理Next邮件摘要并更新相关状态。
  * @param client 参数说明。
  * @param summary 参数说明。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新Next邮件摘要相关状态。
  */
 
     emitNextMailSummary(client, summary) {
@@ -63,10 +63,10 @@ class WorldGatewayClientEmitHelper {
         this.gateway.worldClientEventService.emitMailSummary(client, summary);
     }    
     /**
- * emitNextMailSummaryForPlayer：执行核心业务逻辑。
+ * emitNextMailSummaryForPlayer：处理Next邮件摘要For玩家并更新相关状态。
  * @param client 参数说明。
  * @param playerId 玩家 ID。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新Next邮件摘要For玩家相关状态。
  */
 
     async emitNextMailSummaryForPlayer(client, playerId) {
@@ -74,10 +74,10 @@ class WorldGatewayClientEmitHelper {
         await this.gateway.worldClientEventService.emitMailSummaryForPlayer(client, playerId);
     }    
     /**
- * emitNextMailPage：执行核心业务逻辑。
+ * emitNextMailPage：处理Next邮件Page并更新相关状态。
  * @param client 参数说明。
  * @param page 参数说明。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新Next邮件Page相关状态。
  */
 
     emitNextMailPage(client, page) {
@@ -85,10 +85,10 @@ class WorldGatewayClientEmitHelper {
         this.gateway.worldClientEventService.emitMailPage(client, page);
     }    
     /**
- * emitNextMailDetail：执行核心业务逻辑。
+ * emitNextMailDetail：处理Next邮件详情并更新相关状态。
  * @param client 参数说明。
  * @param detail 参数说明。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新Next邮件详情相关状态。
  */
 
     emitNextMailDetail(client, detail) {
@@ -96,10 +96,10 @@ class WorldGatewayClientEmitHelper {
         this.gateway.worldClientEventService.emitMailDetail(client, detail);
     }    
     /**
- * emitNextMailOperationResult：执行核心业务逻辑。
+ * emitNextMailOperationResult：处理Next邮件Operation结果并更新相关状态。
  * @param client 参数说明。
  * @param payload 载荷参数。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新Next邮件Operation结果相关状态。
  */
 
     emitNextMailOperationResult(client, payload) {
@@ -107,10 +107,10 @@ class WorldGatewayClientEmitHelper {
         this.gateway.worldClientEventService.emitMailOperationResult(client, payload);
     }    
     /**
- * emitNextMarketUpdate：执行核心业务逻辑。
+ * emitNextMarketUpdate：处理Next坊市Update并更新相关状态。
  * @param client 参数说明。
  * @param payload 载荷参数。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新Next坊市Update相关状态。
  */
 
     emitNextMarketUpdate(client, payload) {
@@ -118,10 +118,10 @@ class WorldGatewayClientEmitHelper {
         this.gateway.worldClientEventService.emitMarketUpdate(client, payload);
     }    
     /**
- * emitNextMarketListings：执行核心业务逻辑。
+ * emitNextMarketListings：读取Next坊市Listing并返回结果。
  * @param client 参数说明。
  * @param payload 载荷参数。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新Next坊市Listing相关状态。
  */
 
     emitNextMarketListings(client, payload) {
@@ -129,10 +129,10 @@ class WorldGatewayClientEmitHelper {
         this.gateway.worldClientEventService.emitMarketListings(client, payload);
     }    
     /**
- * emitNextMarketOrders：执行核心业务逻辑。
+ * emitNextMarketOrders：处理Next坊市订单并更新相关状态。
  * @param client 参数说明。
  * @param payload 载荷参数。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新Next坊市订单相关状态。
  */
 
     emitNextMarketOrders(client, payload) {
@@ -140,10 +140,10 @@ class WorldGatewayClientEmitHelper {
         this.gateway.worldClientEventService.emitMarketOrders(client, payload);
     }    
     /**
- * emitNextMarketStorage：执行核心业务逻辑。
+ * emitNextMarketStorage：处理Next坊市Storage并更新相关状态。
  * @param client 参数说明。
  * @param payload 载荷参数。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新Next坊市Storage相关状态。
  */
 
     emitNextMarketStorage(client, payload) {
@@ -151,10 +151,10 @@ class WorldGatewayClientEmitHelper {
         this.gateway.worldClientEventService.emitMarketStorage(client, payload);
     }    
     /**
- * emitNextMarketItemBook：执行核心业务逻辑。
+ * emitNextMarketItemBook：处理Next坊市道具Book并更新相关状态。
  * @param client 参数说明。
  * @param payload 载荷参数。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新Next坊市道具Book相关状态。
  */
 
     emitNextMarketItemBook(client, payload) {
@@ -162,10 +162,10 @@ class WorldGatewayClientEmitHelper {
         this.gateway.worldClientEventService.emitMarketItemBook(client, payload);
     }    
     /**
- * emitNextMarketTradeHistory：执行核心业务逻辑。
+ * emitNextMarketTradeHistory：判断Next坊市Trade历史是否满足条件。
  * @param client 参数说明。
  * @param payload 载荷参数。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新Next坊市TradeHistory相关状态。
  */
 
     emitNextMarketTradeHistory(client, payload) {
@@ -173,10 +173,10 @@ class WorldGatewayClientEmitHelper {
         this.gateway.worldClientEventService.emitMarketTradeHistory(client, payload);
     }    
     /**
- * emitNextNpcShop：执行核心业务逻辑。
+ * emitNextNpcShop：处理NextNPCShop并更新相关状态。
  * @param client 参数说明。
  * @param payload 载荷参数。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新NextNPCShop相关状态。
  */
 
     emitNextNpcShop(client, payload) {
@@ -184,9 +184,9 @@ class WorldGatewayClientEmitHelper {
         this.gateway.worldClientEventService.emitNpcShop(client, payload);
     }    
     /**
- * flushMarketResult：执行核心业务逻辑。
+ * flushMarketResult：处理刷新坊市结果并更新相关状态。
  * @param result 返回结果。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新flush坊市结果相关状态。
  */
 
     flushMarketResult(result) {
@@ -196,18 +196,18 @@ class WorldGatewayClientEmitHelper {
         });
     }    
     /**
- * emitMailSummary：执行核心业务逻辑。
+ * emitMailSummary：处理邮件摘要并更新相关状态。
  * @param client 参数说明。
  * @param playerId 玩家 ID。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新邮件摘要相关状态。
  */
 
     async emitMailSummary(client, playerId) {
         await this.gateway.worldClientEventService.emitMailSummaryForPlayer(client, playerId);
     }    
     /**
- * broadcastSuggestions：执行核心业务逻辑。
- * @returns 函数返回值。
+ * broadcastSuggestions：执行broadcastSuggestion相关逻辑。
+ * @returns 无返回值，直接更新broadcastSuggestion相关状态。
  */
 
     broadcastSuggestions() {

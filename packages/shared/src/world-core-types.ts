@@ -176,12 +176,12 @@ export enum Direction {
 /** 格子上的隐藏入口提示，用于观察后展示。 */
 export interface HiddenEntranceObservation {
 /**
- * title：HiddenEntranceObservation 内部字段。
+ * title：title名称或显示文本。
  */
 
   title: string;  
   /**
- * desc：HiddenEntranceObservation 内部字段。
+ * desc：desc相关字段。
  */
 
   desc?: string;
@@ -190,52 +190,52 @@ export interface HiddenEntranceObservation {
 /** 格子完整数据。 */
 export interface Tile {
 /**
- * type：Tile 内部字段。
+ * type：type相关字段。
  */
 
   type: TileType;  
   /**
- * walkable：Tile 内部字段。
+ * walkable：walkable相关字段。
  */
 
   walkable: boolean;  
   /**
- * blocksSight：Tile 内部字段。
+ * blocksSight：blockSight相关字段。
  */
 
   blocksSight: boolean;  
   /**
- * aura：Tile 内部字段。
+ * aura：aura相关字段。
  */
 
   aura: number;  
   /**
- * occupiedBy：Tile 内部字段。
+ * occupiedBy：occupiedBy相关字段。
  */
 
   occupiedBy: string | null;  
   /**
- * modifiedAt：Tile 内部字段。
+ * modifiedAt：modifiedAt相关字段。
  */
 
   modifiedAt: number | null;  
   /**
- * hp：Tile 内部字段。
+ * hp：hp相关字段。
  */
 
   hp?: number;  
   /**
- * maxHp：Tile 内部字段。
+ * maxHp：maxHp相关字段。
  */
 
   maxHp?: number;  
   /**
- * hpVisible：Tile 内部字段。
+ * hpVisible：hp可见相关字段。
  */
 
   hpVisible?: boolean;  
   /**
- * hiddenEntrance：Tile 内部字段。
+ * hiddenEntrance：hiddenEntrance相关字段。
  */
 
   hiddenEntrance?: HiddenEntranceObservation;
@@ -256,77 +256,77 @@ export type PortalRouteDomain = MapRouteDomain | 'inherit';
 /** 地图元数据。 */
 export interface MapMeta {
 /**
- * id：MapMeta 内部字段。
+ * id：ID标识。
  */
 
   id: string;  
   /**
- * name：MapMeta 内部字段。
+ * name：名称名称或显示文本。
  */
 
   name: string;  
   /**
- * width：MapMeta 内部字段。
+ * width：width相关字段。
  */
 
   width: number;  
   /**
- * height：MapMeta 内部字段。
+ * height：height相关字段。
  */
 
   height: number;  
   /**
- * playerOverlapPoints：MapMeta 内部字段。
+ * playerOverlapPoints：玩家OverlapPoint相关字段。
  */
 
   playerOverlapPoints?: GridPoint[];  
   /**
- * routeDomain：MapMeta 内部字段。
+ * routeDomain：路线Domain相关字段。
  */
 
   routeDomain?: MapRouteDomain;  
   /**
- * parentMapId：MapMeta 内部字段。
+ * parentMapId：parent地图ID标识。
  */
 
   parentMapId?: string;  
   /**
- * parentOriginX：MapMeta 内部字段。
+ * parentOriginX：parentOriginX相关字段。
  */
 
   parentOriginX?: number;  
   /**
- * parentOriginY：MapMeta 内部字段。
+ * parentOriginY：parentOriginY相关字段。
  */
 
   parentOriginY?: number;  
   /**
- * floorLevel：MapMeta 内部字段。
+ * floorLevel：floor等级数值。
  */
 
   floorLevel?: number;  
   /**
- * floorName：MapMeta 内部字段。
+ * floorName：floor名称名称或显示文本。
  */
 
   floorName?: string;  
   /**
- * spaceVisionMode：MapMeta 内部字段。
+ * spaceVisionMode：spaceVisionMode相关字段。
  */
 
   spaceVisionMode?: MapSpaceVisionMode;  
   /**
- * dangerLevel：MapMeta 内部字段。
+ * dangerLevel：danger等级数值。
  */
 
   dangerLevel?: number;  
   /**
- * recommendedRealm：MapMeta 内部字段。
+ * recommendedRealm：recommendedRealm相关字段。
  */
 
   recommendedRealm?: string;  
   /**
- * description：MapMeta 内部字段。
+ * description：description相关字段。
  */
 
   description?: string;
@@ -341,62 +341,62 @@ export type PortalTrigger = 'manual' | 'auto';
 /** 传送点。 */
 export interface Portal {
 /**
- * x：Portal 内部字段。
+ * x：x相关字段。
  */
 
   x: number;  
   /**
- * y：Portal 内部字段。
+ * y：y相关字段。
  */
 
   y: number;  
   /**
- * targetMapId：Portal 内部字段。
+ * targetMapId：目标地图ID标识。
  */
 
   targetMapId: string;  
   /**
- * targetX：Portal 内部字段。
+ * targetX：目标X相关字段。
  */
 
   targetX: number;  
   /**
- * targetY：Portal 内部字段。
+ * targetY：目标Y相关字段。
  */
 
   targetY: number;  
   /**
- * kind：Portal 内部字段。
+ * kind：kind相关字段。
  */
 
   kind: PortalKind;  
   /**
- * trigger：Portal 内部字段。
+ * trigger：trigger相关字段。
  */
 
   trigger: PortalTrigger;  
   /**
- * routeDomain：Portal 内部字段。
+ * routeDomain：路线Domain相关字段。
  */
 
   routeDomain: MapRouteDomain;  
   /**
- * allowPlayerOverlap：Portal 内部字段。
+ * allowPlayerOverlap：allow玩家Overlap相关字段。
  */
 
   allowPlayerOverlap?: boolean;  
   /**
- * hidden：Portal 内部字段。
+ * hidden：hidden相关字段。
  */
 
   hidden?: boolean;  
   /**
- * observeTitle：Portal 内部字段。
+ * observeTitle：observeTitle名称或显示文本。
  */
 
   observeTitle?: string;  
   /**
- * observeDesc：Portal 内部字段。
+ * observeDesc：observeDesc相关字段。
  */
 
   observeDesc?: string;
@@ -423,87 +423,87 @@ export type BuffModifierMode = 'flat' | 'percent';
 /** 可见 Buff 状态。 */
 export interface VisibleBuffState {
 /**
- * buffId：VisibleBuffState 内部字段。
+ * buffId：buffID标识。
  */
 
   buffId: string;  
   /**
- * name：VisibleBuffState 内部字段。
+ * name：名称名称或显示文本。
  */
 
   name: string;  
   /**
- * desc：VisibleBuffState 内部字段。
+ * desc：desc相关字段。
  */
 
   desc?: string;  
   /**
- * shortMark：VisibleBuffState 内部字段。
+ * shortMark：shortMark相关字段。
  */
 
   shortMark: string;  
   /**
- * category：VisibleBuffState 内部字段。
+ * category：category相关字段。
  */
 
   category: BuffCategory;  
   /**
- * visibility：VisibleBuffState 内部字段。
+ * visibility：可见性相关字段。
  */
 
   visibility: BuffVisibility;  
   /**
- * remainingTicks：VisibleBuffState 内部字段。
+ * remainingTicks：remainingtick相关字段。
  */
 
   remainingTicks: number;  
   /**
- * duration：VisibleBuffState 内部字段。
+ * duration：duration相关字段。
  */
 
   duration: number;  
   /**
- * stacks：VisibleBuffState 内部字段。
+ * stacks：stack相关字段。
  */
 
   stacks: number;  
   /**
- * maxStacks：VisibleBuffState 内部字段。
+ * maxStacks：maxStack相关字段。
  */
 
   maxStacks: number;  
   /**
- * sourceSkillId：VisibleBuffState 内部字段。
+ * sourceSkillId：来源技能ID标识。
  */
 
   sourceSkillId: string;  
   /**
- * sourceSkillName：VisibleBuffState 内部字段。
+ * sourceSkillName：来源技能名称名称或显示文本。
  */
 
   sourceSkillName?: string;  
   /**
- * color：VisibleBuffState 内部字段。
+ * color：color相关字段。
  */
 
   color?: string;  
   /**
- * attrs：VisibleBuffState 内部字段。
+ * attrs：attr相关字段。
  */
 
   attrs?: Partial<Attributes>;  
   /**
- * stats：VisibleBuffState 内部字段。
+ * stats：stat相关字段。
  */
 
   stats?: PartialNumericStats;  
   /**
- * qiProjection：VisibleBuffState 内部字段。
+ * qiProjection：qiProjection相关字段。
  */
 
   qiProjection?: QiProjectionModifier[];  
   /**
- * infiniteDuration：VisibleBuffState 内部字段。
+ * infiniteDuration：infiniteDuration相关字段。
  */
 
   infiniteDuration?: boolean;
@@ -512,82 +512,82 @@ export interface VisibleBuffState {
 /** 渲染用实体。 */
 export interface RenderEntity {
 /**
- * id：RenderEntity 内部字段。
+ * id：ID标识。
  */
 
   id: string;  
   /**
- * x：RenderEntity 内部字段。
+ * x：x相关字段。
  */
 
   x: number;  
   /**
- * y：RenderEntity 内部字段。
+ * y：y相关字段。
  */
 
   y: number;  
   /**
- * char：RenderEntity 内部字段。
+ * char：char相关字段。
  */
 
   char: string;  
   /**
- * color：RenderEntity 内部字段。
+ * color：color相关字段。
  */
 
   color: string;  
   /**
- * name：RenderEntity 内部字段。
+ * name：名称名称或显示文本。
  */
 
   name?: string;  
   /**
- * kind：RenderEntity 内部字段。
+ * kind：kind相关字段。
  */
 
   kind?: EntityKind | 'player';  
   /**
- * monsterTier：RenderEntity 内部字段。
+ * monsterTier：怪物Tier相关字段。
  */
 
   monsterTier?: MonsterTier;  
   /**
- * monsterScale：RenderEntity 内部字段。
+ * monsterScale：怪物Scale相关字段。
  */
 
   monsterScale?: number;  
   /**
- * hp：RenderEntity 内部字段。
+ * hp：hp相关字段。
  */
 
   hp?: number;  
   /**
- * maxHp：RenderEntity 内部字段。
+ * maxHp：maxHp相关字段。
  */
 
   maxHp?: number;  
   /**
- * qi：RenderEntity 内部字段。
+ * qi：qi相关字段。
  */
 
   qi?: number;  
   /**
- * maxQi：RenderEntity 内部字段。
+ * maxQi：maxQi相关字段。
  */
 
   maxQi?: number;  
   /**
- * npcQuestMarker：RenderEntity 内部字段。
+ * npcQuestMarker：NPC任务Marker相关字段。
  */
 
   npcQuestMarker?: NpcQuestMarker;  
   /**
- * observation：RenderEntity 内部字段。
+ * observation：observation相关字段。
  */
 
   observation?: ObservationInsight;  
   /**
- * buffs：RenderEntity 内部字段。
+ * buffs：buff相关字段。
  */
 
   buffs?: VisibleBuffState[];
@@ -608,12 +608,12 @@ export type TimePhaseId =
 /** 时间调色板条目。 */
 export interface TimePaletteEntry {
 /**
- * tint：TimePaletteEntry 内部字段。
+ * tint：tint相关字段。
  */
 
   tint?: string;  
   /**
- * alpha：TimePaletteEntry 内部字段。
+ * alpha：alpha相关字段。
  */
 
   alpha?: number;
@@ -622,12 +622,12 @@ export interface TimePaletteEntry {
 /** 地图光照配置。 */
 export interface MapLightConfig {
 /**
- * base：MapLightConfig 内部字段。
+ * base：base相关字段。
  */
 
   base?: number;  
   /**
- * timeInfluence：MapLightConfig 内部字段。
+ * timeInfluence：时间Influence相关字段。
  */
 
   timeInfluence?: number;
@@ -636,22 +636,22 @@ export interface MapLightConfig {
 /** 地图时间配置。 */
 export interface MapTimeConfig {
 /**
- * offsetTicks：MapTimeConfig 内部字段。
+ * offsetTicks：offsettick相关字段。
  */
 
   offsetTicks?: number;  
   /**
- * scale：MapTimeConfig 内部字段。
+ * scale：scale相关字段。
  */
 
   scale?: number;  
   /**
- * light：MapTimeConfig 内部字段。
+ * light：light相关字段。
  */
 
   light?: MapLightConfig;  
   /**
- * palette：MapTimeConfig 内部字段。
+ * palette：palette相关字段。
  */
 
   palette?: Partial<Record<TimePhaseId, TimePaletteEntry>>;
@@ -660,62 +660,62 @@ export interface MapTimeConfig {
 /** 游戏时间状态。 */
 export interface GameTimeState {
 /**
- * totalTicks：GameTimeState 内部字段。
+ * totalTicks：totaltick相关字段。
  */
 
   totalTicks: number;  
   /**
- * localTicks：GameTimeState 内部字段。
+ * localTicks：localtick相关字段。
  */
 
   localTicks: number;  
   /**
- * dayLength：GameTimeState 内部字段。
+ * dayLength：数量或计量字段。
  */
 
   dayLength: number;  
   /**
- * timeScale：GameTimeState 内部字段。
+ * timeScale：时间Scale相关字段。
  */
 
   timeScale: number;  
   /**
- * phase：GameTimeState 内部字段。
+ * phase：phase相关字段。
  */
 
   phase: TimePhaseId;  
   /**
- * phaseLabel：GameTimeState 内部字段。
+ * phaseLabel：phaseLabel名称或显示文本。
  */
 
   phaseLabel: string;  
   /**
- * darknessStacks：GameTimeState 内部字段。
+ * darknessStacks：darknessStack相关字段。
  */
 
   darknessStacks: number;  
   /**
- * visionMultiplier：GameTimeState 内部字段。
+ * visionMultiplier：visionMultiplier相关字段。
  */
 
   visionMultiplier: number;  
   /**
- * lightPercent：GameTimeState 内部字段。
+ * lightPercent：lightPercent相关字段。
  */
 
   lightPercent: number;  
   /**
- * effectiveViewRange：GameTimeState 内部字段。
+ * effectiveViewRange：effective视图范围相关字段。
  */
 
   effectiveViewRange: number;  
   /**
- * tint：GameTimeState 内部字段。
+ * tint：tint相关字段。
  */
 
   tint: string;  
   /**
- * overlayAlpha：GameTimeState 内部字段。
+ * overlayAlpha：overlayAlpha相关字段。
  */
 
   overlayAlpha: number;
@@ -724,22 +724,22 @@ export interface GameTimeState {
 /** 视口。 */
 export interface Viewport {
 /**
- * x：Viewport 内部字段。
+ * x：x相关字段。
  */
 
   x: number;  
   /**
- * y：Viewport 内部字段。
+ * y：y相关字段。
  */
 
   y: number;  
   /**
- * width：Viewport 内部字段。
+ * width：width相关字段。
  */
 
   width: number;  
   /**
- * height：Viewport 内部字段。
+ * height：height相关字段。
  */
 
   height: number;

@@ -8,115 +8,115 @@ import type { MainAttrDetailStateSource } from './main-attr-detail-state-source'
 
 type MainShellBindingsOptions = {
 /**
- * sidePanel：对象字段。
+ * sidePanel：side面板相关字段。
  */
 
   sidePanel: Pick<SidePanel, 'setVisibilityChangeCallback' | 'setLayoutChangeCallback' | 'setTabChangeCallback' | 'isVisible'>;  
   /**
- * chatUI：对象字段。
+ * chatUI：chatUI相关字段。
  */
 
   chatUI: Pick<ChatUI, 'setLogbookVisible'>;  
   /**
- * attrDetailStateSource：对象字段。
+ * attrDetailStateSource：attr详情状态来源相关字段。
  */
 
   attrDetailStateSource: Pick<MainAttrDetailStateSource, 'requestDetail'>;  
   /**
- * sendRequestLeaderboard：对象字段。
+ * sendRequestLeaderboard：sendRequestLeaderboard相关字段。
  */
 
   sendRequestLeaderboard: () => void;  
   /**
- * sendRequestWorldSummary：对象字段。
+ * sendRequestWorldSummary：sendRequest世界摘要状态或数据块。
  */
 
   sendRequestWorldSummary: () => void;  
   /**
- * setPanelRuntimeShellVisible：对象字段。
+ * setPanelRuntimeShellVisible：面板运行态Shell可见相关字段。
  */
 
   setPanelRuntimeShellVisible: (visible: boolean) => void;  
   /**
- * scheduleLayoutViewportSync：对象字段。
+ * scheduleLayoutViewportSync：scheduleLayoutViewportSync相关字段。
  */
 
   scheduleLayoutViewportSync: () => void;  
   /**
- * resizeCanvas：对象字段。
+ * resizeCanvas：resizeCanva相关字段。
  */
 
   resizeCanvas: () => void;  
   /**
- * responsiveViewportChangeEvent：对象字段。
+ * responsiveViewportChangeEvent：responsiveViewportChange事件相关字段。
  */
 
   responsiveViewportChangeEvent: string;  
   /**
- * scheduleConnectionRecovery：对象字段。
+ * scheduleConnectionRecovery：scheduleConnectionRecovery相关字段。
  */
 
   scheduleConnectionRecovery: (delayMs?: number, forceRefresh?: boolean) => void;  
   /**
- * restartPingLoop：对象字段。
+ * restartPingLoop：restartPingLoop相关字段。
  */
 
   restartPingLoop: () => void;  
   /**
- * stopPingLoop：对象字段。
+ * stopPingLoop：stopPingLoop相关字段。
  */
 
   stopPingLoop: () => void;  
   /**
- * clearPendingSocketPing：对象字段。
+ * clearPendingSocketPing：clearPendingSocketPing相关字段。
  */
 
   clearPendingSocketPing: () => void;  
   /**
- * renderPingLatency：对象字段。
+ * renderPingLatency：PingLatency相关字段。
  */
 
   renderPingLatency: (latencyMs: number | null, status?: string) => void;  
   /**
- * hasPendingTargetedAction：对象字段。
+ * hasPendingTargetedAction：启用开关或状态标识。
  */
 
   hasPendingTargetedAction: () => boolean;  
   /**
- * cancelTargeting：对象字段。
+ * cancelTargeting：cancelTargeting相关字段。
  */
 
   cancelTargeting: (showMessage?: boolean) => void;  
   /**
- * isObserveOpen：对象字段。
+ * isObserveOpen：启用开关或状态标识。
  */
 
   isObserveOpen: () => boolean;  
   /**
- * hideObserveModal：对象字段。
+ * hideObserveModal：hideObserve弹层相关字段。
  */
 
   hideObserveModal: () => void;  
   /**
- * documentRef：对象字段。
+ * documentRef：documentRef相关字段。
  */
 
   documentRef: Document;  
   /**
- * getObserveModalEl：对象字段。
+ * getObserveModalEl：Observe弹层El相关字段。
  */
 
   getObserveModalEl: () => HTMLElement | null;  
   /**
- * getObserveModalShellEl：对象字段。
+ * getObserveModalShellEl：Observe弹层ShellEl相关字段。
  */
 
   getObserveModalShellEl: () => HTMLElement | null;
 };
 /**
- * bindMainShellInteractions：执行核心业务逻辑。
+ * bindMainShellInteractions：执行bindMainShellInteraction相关逻辑。
  * @param options MainShellBindingsOptions 选项参数。
- * @returns void。
+ * @returns 无返回值，直接更新bindMainShellInteraction相关状态。
  */
 
 

@@ -97,21 +97,21 @@ export function nullableDecimalField(label: string, path: string, value: number 
 /** selectField：选择字段。 */
 export function selectField(label: string, path: string, value: string | undefined, options: Array<{
 /**
- * value：对象字段。
+ * value：值数值。
  */
  value: string;
  /**
- * label：对象字段。
+ * label：label名称或显示文本。
  */
  label: string }>, extraClass = ''): string { return `<label class="map-field ${extraClass}"><span>${escapeHtml(label)}</span><select data-map-bind="${escapeHtml(path)}" data-map-kind="string">${options.map((option) => `<option value="${escapeHtml(option.value)}" ${option.value === (value ?? '') ? 'selected' : ''}>${escapeHtml(option.label)}</option>`).join('')}</select></label>`; }
 /** nullableSelectField：处理nullable Select字段。 */
 export function nullableSelectField(label: string, path: string, value: string | undefined, options: Array<{
 /**
- * value：对象字段。
+ * value：值数值。
  */
  value: string;
  /**
- * label：对象字段。
+ * label：label名称或显示文本。
  */
  label: string }>, extraClass = ''): string { return `<label class="map-field ${extraClass}"><span>${escapeHtml(label)}</span><select data-map-bind="${escapeHtml(path)}" data-map-kind="nullable-string">${options.map((option) => `<option value="${escapeHtml(option.value)}" ${option.value === (value ?? '') ? 'selected' : ''}>${escapeHtml(option.label)}</option>`).join('')}</select></label>`; }
 /** textareaField：处理textarea字段。 */

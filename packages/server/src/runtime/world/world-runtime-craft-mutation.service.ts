@@ -25,22 +25,22 @@ const craft_panel_runtime_service_1 = require("../craft/craft-panel-runtime.serv
 /** craft shared mutation orchestration：承接 panel 更新、掉地兜底与 mutation flush。 */
 let WorldRuntimeCraftMutationService = class WorldRuntimeCraftMutationService {
 /**
- * playerRuntimeService：对象字段。
+ * playerRuntimeService：玩家运行态服务引用。
  */
 
     playerRuntimeService;    
     /**
- * craftPanelRuntimeService：对象字段。
+ * craftPanelRuntimeService：炼制面板运行态服务引用。
  */
 
     craftPanelRuntimeService;    
     /**
- * worldSessionService：对象字段。
+ * worldSessionService：世界Session服务引用。
  */
 
     worldSessionService;    
     /**
- * worldClientEventService：对象字段。
+ * worldClientEventService：世界Client事件服务引用。
  */
 
     worldClientEventService;    
@@ -50,7 +50,7 @@ let WorldRuntimeCraftMutationService = class WorldRuntimeCraftMutationService {
  * @param craftPanelRuntimeService 参数说明。
  * @param worldSessionService 参数说明。
  * @param worldClientEventService 参数说明。
- * @returns 无返回值（构造函数）。
+ * @returns 无返回值，完成实例初始化。
  */
 
     constructor(playerRuntimeService, craftPanelRuntimeService, worldSessionService, worldClientEventService) {
@@ -60,11 +60,11 @@ let WorldRuntimeCraftMutationService = class WorldRuntimeCraftMutationService {
         this.worldClientEventService = worldClientEventService;
     }    
     /**
- * emitCraftPanelUpdate：执行核心业务逻辑。
+ * emitCraftPanelUpdate：处理炼制面板Update并更新相关状态。
  * @param playerId 玩家 ID。
  * @param panel 参数说明。
  * @param _deps 参数说明。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新炼制面板Update相关状态。
  */
 
     emitCraftPanelUpdate(playerId, panel, _deps) {
@@ -82,12 +82,12 @@ let WorldRuntimeCraftMutationService = class WorldRuntimeCraftMutationService {
         socket.emit(shared_1.NEXT_S2C.EnhancementPanel, this.craftPanelRuntimeService.buildEnhancementPanelPayload(player));
     }    
     /**
- * flushCraftMutation：执行核心业务逻辑。
+ * flushCraftMutation：执行刷新炼制Mutation相关逻辑。
  * @param playerId 玩家 ID。
  * @param result 返回结果。
  * @param panel 参数说明。
  * @param deps 运行时依赖。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新flush炼制Mutation相关状态。
  */
 
     flushCraftMutation(playerId, result, panel, deps) {
@@ -109,11 +109,11 @@ let WorldRuntimeCraftMutationService = class WorldRuntimeCraftMutationService {
         }
     }    
     /**
- * dropCraftGroundItems：执行核心业务逻辑。
+ * dropCraftGroundItems：执行drop炼制地面道具相关逻辑。
  * @param playerId 玩家 ID。
  * @param items 道具列表。
  * @param deps 运行时依赖。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新drop炼制Ground道具相关状态。
  */
 
     dropCraftGroundItems(playerId, items, deps) {
@@ -145,9 +145,9 @@ exports.WorldRuntimeCraftMutationService = WorldRuntimeCraftMutationService = __
         world_client_event_service_1.WorldClientEventService])
 ], WorldRuntimeCraftMutationService);
 /**
- * formatItemStackLabel：执行核心业务逻辑。
+ * formatItemStackLabel：规范化或转换道具StackLabel。
  * @param item 道具。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新道具StackLabel相关状态。
  */
 
 

@@ -24,14 +24,14 @@ const runtime_gm_auth_service_1 = require("../runtime/gm/runtime-gm-auth.service
 /** GM 令牌透传鉴权服务：Socket 与 runtime gm auth service 对接。 */
 let WorldGmAuthService = class WorldGmAuthService {
 /**
- * gmAuthService：对象字段。
+ * gmAuthService：GM认证服务引用。
  */
 
     gmAuthService;    
     /**
  * 构造器：初始化 当前 实例并建立基础状态。
  * @param gmAuthService 参数说明。
- * @returns 无返回值（构造函数）。
+ * @returns 无返回值，完成实例初始化。
  */
 
     constructor(gmAuthService) {

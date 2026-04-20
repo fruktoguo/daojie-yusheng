@@ -14,8 +14,8 @@ import {
 import { panelDataStore } from '../stores/panel-data-store';
 import { shellStore } from '../stores/shell-store';
 /**
- * NextUiScaffold：执行核心业务逻辑。
- * @returns 函数返回值。
+ * NextUiScaffold：判断NextUiScaffold是否满足条件。
+ * @returns 无返回值，直接更新NextUiScaffold相关状态。
  */
 
 

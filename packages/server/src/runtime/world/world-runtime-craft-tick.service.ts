@@ -24,22 +24,22 @@ const world_runtime_alchemy_service_1 = require("./world-runtime-alchemy.service
 /** world-runtime craft tick orchestration：承接 craft job tick 推进编排。 */
 let WorldRuntimeCraftTickService = class WorldRuntimeCraftTickService {
 /**
- * playerRuntimeService：对象字段。
+ * playerRuntimeService：玩家运行态服务引用。
  */
 
     playerRuntimeService;    
     /**
- * craftPanelRuntimeService：对象字段。
+ * craftPanelRuntimeService：炼制面板运行态服务引用。
  */
 
     craftPanelRuntimeService;    
     /**
- * worldRuntimeEnhancementService：对象字段。
+ * worldRuntimeEnhancementService：世界运行态强化服务引用。
  */
 
     worldRuntimeEnhancementService;    
     /**
- * worldRuntimeAlchemyService：对象字段。
+ * worldRuntimeAlchemyService：世界运行态炼丹服务引用。
  */
 
     worldRuntimeAlchemyService;    
@@ -49,7 +49,7 @@ let WorldRuntimeCraftTickService = class WorldRuntimeCraftTickService {
  * @param craftPanelRuntimeService 参数说明。
  * @param worldRuntimeEnhancementService 参数说明。
  * @param worldRuntimeAlchemyService 参数说明。
- * @returns 无返回值（构造函数）。
+ * @returns 无返回值，完成实例初始化。
  */
 
     constructor(playerRuntimeService, craftPanelRuntimeService, worldRuntimeEnhancementService, worldRuntimeAlchemyService) {
@@ -59,10 +59,10 @@ let WorldRuntimeCraftTickService = class WorldRuntimeCraftTickService {
         this.worldRuntimeAlchemyService = worldRuntimeAlchemyService;
     }    
     /**
- * advanceCraftJobs：执行核心业务逻辑。
+ * advanceCraftJobs：执行advance炼制Job相关逻辑。
  * @param playerIds player ID 集合。
  * @param deps 运行时依赖。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新advance炼制Job相关状态。
  */
 
     advanceCraftJobs(playerIds, deps) {

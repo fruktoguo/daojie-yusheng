@@ -21,21 +21,21 @@ const player_runtime_service_1 = require("../player/player-runtime.service");
 /** 玩家战斗接敌编排服务：承接锁定目标、autoBattle 切换与首个命令 handoff。 */
 let WorldRuntimeBattleEngageService = class WorldRuntimeBattleEngageService {
 /**
- * playerRuntimeService：对象字段。
+ * playerRuntimeService：玩家运行态服务引用。
  */
 
     playerRuntimeService;    
     /**
  * 构造器：初始化 当前 实例并建立基础状态。
  * @param playerRuntimeService 参数说明。
- * @returns 无返回值（构造函数）。
+ * @returns 无返回值，完成实例初始化。
  */
 
     constructor(playerRuntimeService) {
         this.playerRuntimeService = playerRuntimeService;
     }    
     /**
- * dispatchEngageBattle：处理事件并驱动执行路径。
+ * dispatchEngageBattle：判断EngageBattle是否满足条件。
  * @param playerId 玩家 ID。
  * @param targetPlayerId targetPlayer ID。
  * @param targetMonsterId targetMonster ID。
@@ -43,7 +43,7 @@ let WorldRuntimeBattleEngageService = class WorldRuntimeBattleEngageService {
  * @param targetY 参数说明。
  * @param locked 参数说明。
  * @param deps 运行时依赖。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新EngageBattle相关状态。
  */
 
     dispatchEngageBattle(playerId, targetPlayerId, targetMonsterId, targetX, targetY, locked, deps) {

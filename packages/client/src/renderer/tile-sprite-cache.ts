@@ -9,22 +9,22 @@ import { buildCanvasFont } from '../constants/ui/text';
 /** 地块精灵对象，用于命中率高的像素绘制缓存。 */
 export interface TileSprite {
 /**
- * key：TileSprite 内部字段。
+ * key：key标识。
  */
 
   key: string;  
   /**
- * tileType：TileSprite 内部字段。
+ * tileType：tileType相关字段。
  */
 
   tileType: TileType;  
   /**
- * cellSize：TileSprite 内部字段。
+ * cellSize：数量或计量字段。
  */
 
   cellSize: number;  
   /**
- * canvas：TileSprite 内部字段。
+ * canvas：canva相关字段。
  */
 
   canvas: HTMLCanvasElement;
@@ -33,7 +33,7 @@ export interface TileSprite {
 /** 精灵缓存条目，记录最近使用序号用于 LRU 淘汰。 */
 interface TileSpriteCacheEntry extends TileSprite {
 /**
- * lastAccess：TileSpriteCacheEntry 内部字段。
+ * lastAccess：lastAccess相关字段。
  */
 
   lastAccess: number;
@@ -42,7 +42,7 @@ interface TileSpriteCacheEntry extends TileSprite {
 /** 可配置的地块精灵缓存参数。 */
 interface TileSpriteCacheOptions {
 /**
- * maxEntries：TileSpriteCacheOptions 内部字段。
+ * maxEntries：集合字段。
  */
 
   maxEntries?: number;
@@ -149,13 +149,13 @@ export class TileSpriteCache {
     return created;
   }  
   /**
- * drawSprite：执行核心业务逻辑。
+ * drawSprite：执行drawSprite相关逻辑。
  * @param ctx CanvasRenderingContext2D 上下文信息。
  * @param tileType TileType 参数说明。
  * @param cellSize number 参数说明。
  * @param sx number 参数说明。
  * @param sy number 参数说明。
- * @returns TileSprite。
+ * @returns 返回drawSprite。
  */
 
 

@@ -4,8 +4,8 @@ const assert = require("node:assert/strict");
 
 const { WorldRuntimeTickDispatchService } = require("../runtime/world/world-runtime-tick-dispatch.service");
 /**
- * testTickDispatchFacade：执行核心业务逻辑。
- * @returns 函数返回值。
+ * testTickDispatchFacade：判断testtickDispatchFacade是否满足条件。
+ * @returns 无返回值，直接更新testtickDispatchFacade相关状态。
  */
 
 
@@ -14,9 +14,9 @@ function testTickDispatchFacade() {
     const log = [];
     const deps = {    
     /**
- * getInstanceRuntime：按给定条件读取/查询数据。
+ * getInstanceRuntime：读取Instance运行态。
  * @param instanceId instance ID。
- * @returns 函数返回值。
+ * @returns 无返回值，完成Instance运行态的读取/组装。
  */
 
         getInstanceRuntime(instanceId) {
@@ -27,10 +27,10 @@ function testTickDispatchFacade() {
             }
             return {            
             /**
- * isPointInSafeZone：执行状态校验并返回判断结果。
+ * isPointInSafeZone：判断PointInSafeZone是否满足条件。
  * @param x X 坐标。
  * @param y Y 坐标。
- * @returns 函数返回值。
+ * @returns 无返回值，完成PointInSafeZone的条件判断。
  */
 
                 isPointInSafeZone(x, y) {
@@ -41,10 +41,10 @@ function testTickDispatchFacade() {
         },
         playerRuntimeService: {        
         /**
- * enqueueNotice：执行核心业务逻辑。
+ * enqueueNotice：处理Notice并更新相关状态。
  * @param playerId 玩家 ID。
  * @param notice 参数说明。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新Notice相关状态。
  */
 
             enqueueNotice(playerId, notice) {
@@ -53,57 +53,57 @@ function testTickDispatchFacade() {
         },
         worldRuntimeNavigationService: {        
         /**
- * getLegacyNavigationPath：按给定条件读取/查询数据。
+ * getLegacyNavigationPath：读取Legacy导航路径。
  * @param playerId 玩家 ID。
- * @returns 函数返回值。
+ * @returns 无返回值，完成Legacy导航路径的读取/组装。
  */
 
             getLegacyNavigationPath(playerId) { return { playerId, path: [] }; },            
             /**
- * materializeNavigationCommands：执行核心业务逻辑。
- * @returns 函数返回值。
+ * materializeNavigationCommands：执行materialize导航Command相关逻辑。
+ * @returns 无返回值，直接更新materialize导航Command相关状态。
  */
 
             materializeNavigationCommands() { log.push(['materializeNavigationCommands']); },            
             /**
- * resolveNavigationStep：执行核心业务逻辑。
+ * resolveNavigationStep：规范化或转换导航Step。
  * @param playerId 玩家 ID。
  * @param intent 参数说明。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新导航Step相关状态。
  */
 
             resolveNavigationStep(playerId, intent) { return { playerId, intent }; },            
             /**
- * resolveNavigationDestination：执行核心业务逻辑。
+ * resolveNavigationDestination：规范化或转换导航Destination。
  * @param playerId 玩家 ID。
  * @param intent 参数说明。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新导航Destination相关状态。
  */
 
             resolveNavigationDestination(playerId, intent) { return { mapId: 'yunlai_town', intent }; },            
             /**
- * dispatchMoveTo：处理事件并驱动执行路径。
+ * dispatchMoveTo：判断MoveTo是否满足条件。
  * @param playerId 玩家 ID。
  * @param x X 坐标。
  * @param y Y 坐标。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新MoveTo相关状态。
  */
 
             dispatchMoveTo(playerId, x, y) { log.push(['dispatchMoveTo', playerId, x, y]); },
         },
         worldRuntimeTransferService: {        
         /**
- * applyTransfer：更新/写入相关状态。
+ * applyTransfer：处理Transfer并更新相关状态。
  * @param transfer 参数说明。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新Transfer相关状态。
  */
 
             applyTransfer(transfer) { log.push(['applyTransfer', transfer.playerId]); },
         },
         worldRuntimeAutoCombatService: {        
         /**
- * materializeAutoCombatCommands：执行核心业务逻辑。
- * @returns 函数返回值。
+ * materializeAutoCombatCommands：执行materializeAuto战斗Command相关逻辑。
+ * @returns 无返回值，直接更新materializeAuto战斗Command相关状态。
  */
 
             materializeAutoCombatCommands() { log.push(['materializeAutoCombatCommands']); },            
@@ -111,161 +111,161 @@ function testTickDispatchFacade() {
  * buildAutoCombatCommand：构建并返回目标对象。
  * @param instance 地图实例。
  * @param player 玩家对象。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新Auto战斗Command相关状态。
  */
 
             buildAutoCombatCommand(instance, player) { return { instanceId: instance.meta.instanceId, playerId: player.playerId }; },            
             /**
- * selectAutoCombatTarget：执行核心业务逻辑。
+ * selectAutoCombatTarget：读取selectAuto战斗目标并返回结果。
  * @param _instance 参数说明。
  * @param _player 参数说明。
  * @param visibleMonsters 参数说明。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新selectAuto战斗目标相关状态。
  */
 
             selectAutoCombatTarget(_instance, _player, visibleMonsters) { return visibleMonsters[0] ?? null; },            
             /**
- * resolveTrackedAutoCombatTarget：执行核心业务逻辑。
+ * resolveTrackedAutoCombatTarget：读取TrackedAuto战斗目标并返回结果。
  * @param _instance 参数说明。
  * @param _player 参数说明。
  * @param visibleMonsters 参数说明。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新TrackedAuto战斗目标相关状态。
  */
 
             resolveTrackedAutoCombatTarget(_instance, _player, visibleMonsters) { return visibleMonsters[0] ?? null; },            
             /**
- * pickAutoBattleSkill：执行核心业务逻辑。
+ * pickAutoBattleSkill：执行pickAutoBattle技能相关逻辑。
  * @param player 玩家对象。
  * @param distance 参数说明。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新pickAutoBattle技能相关状态。
  */
 
             pickAutoBattleSkill(player, distance) { return { playerId: player.playerId, distance }; },            
             /**
- * resolveAutoBattleDesiredRange：执行核心业务逻辑。
+ * resolveAutoBattleDesiredRange：规范化或转换AutoBattleDesired范围。
  * @param player 玩家对象。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新AutoBattleDesired范围相关状态。
  */
 
             resolveAutoBattleDesiredRange(player) { return player.range ?? 1; },
         },
         worldRuntimePendingCommandService: {        
         /**
- * dispatchPendingCommands：处理事件并驱动执行路径。
- * @returns 函数返回值。
+ * dispatchPendingCommands：判断待处理Command是否满足条件。
+ * @returns 无返回值，直接更新PendingCommand相关状态。
  */
 
             dispatchPendingCommands() { log.push(['dispatchPendingCommands']); },
         },
         worldRuntimeSystemCommandService: {        
         /**
- * dispatchPendingSystemCommands：处理事件并驱动执行路径。
- * @returns 函数返回值。
+ * dispatchPendingSystemCommands：判断待处理SystemCommand是否满足条件。
+ * @returns 无返回值，直接更新PendingSystemCommand相关状态。
  */
 
             dispatchPendingSystemCommands() { log.push(['dispatchPendingSystemCommands']); },            
             /**
- * dispatchSystemCommand：处理事件并驱动执行路径。
+ * dispatchSystemCommand：判断SystemCommand是否满足条件。
  * @param command 输入指令。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新SystemCommand相关状态。
  */
 
             dispatchSystemCommand(command) { log.push(['dispatchSystemCommand', command.kind]); },
         },
         worldRuntimeMovementService: {        
         /**
- * dispatchInstanceCommand：处理事件并驱动执行路径。
+ * dispatchInstanceCommand：判断InstanceCommand是否满足条件。
  * @param playerId 玩家 ID。
  * @param command 输入指令。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新InstanceCommand相关状态。
  */
 
             dispatchInstanceCommand(playerId, command) { log.push(['dispatchInstanceCommand', playerId, command.kind]); },
         },
         worldRuntimePlayerCommandService: {        
         /**
- * dispatchPlayerCommand：处理事件并驱动执行路径。
+ * dispatchPlayerCommand：判断玩家Command是否满足条件。
  * @param playerId 玩家 ID。
  * @param command 输入指令。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新玩家Command相关状态。
  */
 
             dispatchPlayerCommand(playerId, command) { log.push(['dispatchPlayerCommand', playerId, command.kind]); },
         },
         worldRuntimeMonsterActionApplyService: {        
         /**
- * applyMonsterAction：更新/写入相关状态。
+ * applyMonsterAction：处理怪物Action并更新相关状态。
  * @param action 参数说明。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新怪物Action相关状态。
  */
 
             applyMonsterAction(action) { log.push(['applyMonsterAction', action.kind]); },            
             /**
- * applyMonsterBasicAttack：更新/写入相关状态。
+ * applyMonsterBasicAttack：处理怪物BasicAttack并更新相关状态。
  * @param action 参数说明。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新怪物BasicAttack相关状态。
  */
 
             applyMonsterBasicAttack(action) { log.push(['applyMonsterBasicAttack', action.kind]); },            
             /**
- * applyMonsterSkill：更新/写入相关状态。
+ * applyMonsterSkill：处理怪物技能并更新相关状态。
  * @param action 参数说明。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新怪物技能相关状态。
  */
 
             applyMonsterSkill(action) { log.push(['applyMonsterSkill', action.kind]); },
         },
         worldRuntimeItemGroundService: {        
         /**
- * spawnGroundItem：执行核心业务逻辑。
+ * spawnGroundItem：执行spawn地面道具相关逻辑。
  * @param instance 地图实例。
  * @param x X 坐标。
  * @param y Y 坐标。
  * @param item 道具。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新spawnGround道具相关状态。
  */
 
             spawnGroundItem(instance, x, y, item) { log.push(['spawnGroundItem', instance.meta.instanceId, x, y, item.itemId]); },
         },
         worldRuntimeCombatEffectsService: {        
         /**
- * pushCombatEffect：执行核心业务逻辑。
+ * pushCombatEffect：处理战斗Effect并更新相关状态。
  * @param instanceId instance ID。
  * @param effect 参数说明。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新战斗Effect相关状态。
  */
 
             pushCombatEffect(instanceId, effect) { log.push(['pushCombatEffect', instanceId, effect.kind]); },            
             /**
- * pushActionLabelEffect：执行核心业务逻辑。
+ * pushActionLabelEffect：处理ActionLabelEffect并更新相关状态。
  * @param instanceId instance ID。
  * @param x X 坐标。
  * @param y Y 坐标。
  * @param text 参数说明。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新ActionLabelEffect相关状态。
  */
 
             pushActionLabelEffect(instanceId, x, y, text) { log.push(['pushActionLabelEffect', instanceId, x, y, text]); },            
             /**
- * pushDamageFloatEffect：执行核心业务逻辑。
+ * pushDamageFloatEffect：处理DamageFloatEffect并更新相关状态。
  * @param instanceId instance ID。
  * @param x X 坐标。
  * @param y Y 坐标。
  * @param damage 参数说明。
  * @param color 参数说明。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新DamageFloatEffect相关状态。
  */
 
             pushDamageFloatEffect(instanceId, x, y, damage, color) { log.push(['pushDamageFloatEffect', instanceId, x, y, damage, color]); },            
             /**
- * pushAttackEffect：执行核心业务逻辑。
+ * pushAttackEffect：处理AttackEffect并更新相关状态。
  * @param instanceId instance ID。
  * @param fromX 参数说明。
  * @param fromY 参数说明。
  * @param toX 参数说明。
  * @param toY 参数说明。
  * @param color 参数说明。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新AttackEffect相关状态。
  */
 
             pushAttackEffect(instanceId, fromX, fromY, toX, toY, color) { log.push(['pushAttackEffect', instanceId, fromX, fromY, toX, toY, color]); },

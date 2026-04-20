@@ -74,7 +74,7 @@ let WorldPlayerSourceService = class WorldPlayerSourceService {
  * @param authStore 参数说明。
  * @param playerIdentityPersistenceService 参数说明。
  * @param playerPersistenceService 参数说明。
- * @returns 无返回值（构造函数）。
+ * @returns 无返回值，完成实例初始化。
  */
 
     constructor(authStore, playerIdentityPersistenceService, playerPersistenceService) {
@@ -83,16 +83,16 @@ let WorldPlayerSourceService = class WorldPlayerSourceService {
         this.playerPersistenceService = playerPersistenceService;
     }    
     /**
- * onModuleInit：执行核心业务逻辑。
- * @returns 函数返回值。
+ * onModuleInit：执行on模块Init相关逻辑。
+ * @returns 无返回值，直接更新on模块Init相关状态。
  */
 
     async onModuleInit() {
         return;
     }    
     /**
- * onModuleDestroy：执行核心业务逻辑。
- * @returns 函数返回值。
+ * onModuleDestroy：执行on模块Destroy相关逻辑。
+ * @returns 无返回值，直接更新on模块Destroy相关状态。
  */
 
     async onModuleDestroy() {
@@ -140,10 +140,10 @@ let WorldPlayerSourceService = class WorldPlayerSourceService {
             && !isMigrationSourceDisabled();
     }    
     /**
- * resolvePlayerIdentityForMigration：执行核心业务逻辑。
+ * resolvePlayerIdentityForMigration：规范化或转换玩家IdentityForMigration。
  * @param payload 载荷参数。
  * @param options 选项参数。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新玩家IdentityForMigration相关状态。
  */
 
     async resolvePlayerIdentityForMigration(payload, options = undefined) {
@@ -155,10 +155,10 @@ let WorldPlayerSourceService = class WorldPlayerSourceService {
         return null;
     }    
     /**
- * loadPlayerSnapshotForMigration：按给定条件读取/查询数据。
+ * loadPlayerSnapshotForMigration：读取玩家快照ForMigration并返回结果。
  * @param playerId 玩家 ID。
  * @param options 选项参数。
- * @returns 函数返回值。
+ * @returns 无返回值，完成玩家快照ForMigration的读取/组装。
  */
 
     async loadPlayerSnapshotForMigration(playerId, options = undefined) {
@@ -179,11 +179,11 @@ exports.WorldPlayerSourceService = WorldPlayerSourceService = __decorate([
         player_persistence_service_1.PlayerPersistenceService])
 ], WorldPlayerSourceService);
 /**
- * resolveDisplayName：执行核心业务逻辑。
+ * resolveDisplayName：判断显示名称是否满足条件。
  * @param displayName 参数说明。
  * @param username 参数说明。
  * @param fallback 参数说明。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新显示名称相关状态。
  */
 
 function resolveDisplayName(displayName, username, fallback) {
@@ -202,11 +202,11 @@ function resolveDisplayName(displayName, username, fallback) {
     return (0, shared_1.resolveDefaultVisibleDisplayName)(username.normalize('NFC'));
 }
 /**
- * resolvePlayerName：执行核心业务逻辑。
+ * resolvePlayerName：规范化或转换玩家名称。
  * @param playerName 参数说明。
  * @param username 参数说明。
  * @param fallback 参数说明。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新玩家名称相关状态。
  */
 
 function resolvePlayerName(playerName, username, fallback) {
@@ -225,7 +225,7 @@ function resolvePlayerName(playerName, username, fallback) {
 /**
  * buildFallbackPlayerId：构建并返回目标对象。
  * @param userId user ID。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新Fallback玩家ID相关状态。
  */
 
 function buildFallbackPlayerId(userId) {
@@ -234,9 +234,9 @@ function buildFallbackPlayerId(userId) {
     return normalized ? `p_${normalized}` : 'p_guest';
 }
 /**
- * isValidVisibleDisplayName：执行状态校验并返回判断结果。
+ * isValidVisibleDisplayName：判断Valid可见显示名称是否满足条件。
  * @param value 参数说明。
- * @returns 函数返回值。
+ * @returns 无返回值，完成Valid可见显示名称的条件判断。
  */
 
 function isValidVisibleDisplayName(value) {
@@ -247,9 +247,9 @@ function isValidVisibleDisplayName(value) {
         && !(0, shared_1.containsInvisibleOnlyNameGrapheme)(value);
 }
 /**
- * toPlayerSnapshotFromMigrationRow：执行核心业务逻辑。
+ * toPlayerSnapshotFromMigrationRow：执行to玩家快照FromMigrationRow相关逻辑。
  * @param row 参数说明。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新to玩家快照FromMigrationRow相关状态。
  */
 
 function toPlayerSnapshotFromMigrationRow(row) {
@@ -344,9 +344,9 @@ function toPlayerSnapshotFromMigrationRow(row) {
 exports.toPlayerSnapshotFromMigrationRow = toPlayerSnapshotFromMigrationRow;
 export { WorldPlayerSourceService, toPlayerSnapshotFromMigrationRow };
 /**
- * resolveRequiredCompatMapId：执行核心业务逻辑。
+ * resolveRequiredCompatMapId：规范化或转换RequiredCompat地图ID。
  * @param value 参数说明。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新RequiredCompat地图ID相关状态。
  */
 
 function resolveRequiredCompatMapId(value) {
@@ -360,9 +360,9 @@ function resolveRequiredCompatMapId(value) {
     return normalized;
 }
 /**
- * normalizeInventory：执行核心业务逻辑。
+ * normalizeInventory：规范化或转换背包。
  * @param value 参数说明。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新背包相关状态。
  */
 
 function normalizeInventory(value) {
@@ -386,9 +386,9 @@ function normalizeInventory(value) {
     };
 }
 /**
- * normalizeEquipment：执行核心业务逻辑。
+ * normalizeEquipment：规范化或转换装备。
  * @param value 参数说明。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新装备相关状态。
  */
 
 function normalizeEquipment(value) {
@@ -412,9 +412,9 @@ function normalizeEquipment(value) {
     };
 }
 /**
- * normalizeTemporaryBuffs：执行核心业务逻辑。
+ * normalizeTemporaryBuffs：规范化或转换TemporaryBuff。
  * @param value 参数说明。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新TemporaryBuff相关状态。
  */
 
 function normalizeTemporaryBuffs(value) {
@@ -451,9 +451,9 @@ function normalizeTemporaryBuffs(value) {
     return buffs;
 }
 /**
- * normalizeTechniques：执行核心业务逻辑。
+ * normalizeTechniques：规范化或转换功法。
  * @param value 参数说明。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新功法相关状态。
  */
 
 function normalizeTechniques(value) {
@@ -505,9 +505,9 @@ function normalizeTechniques(value) {
     return techniques;
 }
 /**
- * normalizeQuests：执行核心业务逻辑。
+ * normalizeQuests：规范化或转换任务。
  * @param value 参数说明。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新任务相关状态。
  */
 
 function normalizeQuests(value) {
@@ -524,9 +524,9 @@ function normalizeQuests(value) {
     }));
 }
 /**
- * normalizeUnlockedMapIds：执行核心业务逻辑。
+ * normalizeUnlockedMapIds：规范化或转换Unlocked地图ID。
  * @param value 参数说明。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新Unlocked地图ID相关状态。
  */
 
 function normalizeUnlockedMapIds(value) {
@@ -545,9 +545,9 @@ function normalizeUnlockedMapIds(value) {
     return Array.from(result).sort((left, right) => left.localeCompare(right, 'zh-Hans-CN'));
 }
 /**
- * normalizeAutoBattleSkills：执行核心业务逻辑。
+ * normalizeAutoBattleSkills：规范化或转换AutoBattle技能。
  * @param value 参数说明。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新AutoBattle技能相关状态。
  */
 
 function normalizeAutoBattleSkills(value) {
@@ -580,9 +580,9 @@ function normalizeAutoBattleSkills(value) {
     return result;
 }
 /**
- * normalizeItem：执行核心业务逻辑。
+ * normalizeItem：规范化或转换道具。
  * @param value 参数说明。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新道具相关状态。
  */
 
 function normalizeItem(value) {
@@ -605,9 +605,9 @@ function normalizeItem(value) {
     };
 }
 /**
- * normalizeDirection：执行核心业务逻辑。
+ * normalizeDirection：规范化或转换Direction。
  * @param value 参数说明。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新Direction相关状态。
  */
 
 function normalizeDirection(value) {
@@ -619,9 +619,9 @@ function normalizeDirection(value) {
     return shared_1.Direction.South;
 }
 /**
- * normalizeTechniqueRealm：执行核心业务逻辑。
+ * normalizeTechniqueRealm：规范化或转换功法Realm。
  * @param value 参数说明。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新功法Realm相关状态。
  */
 
 function normalizeTechniqueRealm(value) {
@@ -633,10 +633,10 @@ function normalizeTechniqueRealm(value) {
     return undefined;
 }
 /**
- * toFiniteInt：执行核心业务逻辑。
+ * toFiniteInt：执行toFiniteInt相关逻辑。
  * @param value 参数说明。
  * @param fallback 参数说明。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新toFiniteInt相关状态。
  */
 
 function toFiniteInt(value, fallback) {
@@ -645,10 +645,10 @@ function toFiniteInt(value, fallback) {
         : fallback;
 }
 /**
- * toFiniteNumber：执行核心业务逻辑。
+ * toFiniteNumber：执行toFiniteNumber相关逻辑。
  * @param value 参数说明。
  * @param fallback 参数说明。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新toFiniteNumber相关状态。
  */
 
 function toFiniteNumber(value, fallback) {
@@ -657,9 +657,9 @@ function toFiniteNumber(value, fallback) {
         : fallback;
 }
 /**
- * toNullablePositiveInt：执行核心业务逻辑。
+ * toNullablePositiveInt：执行toNullablePositiveInt相关逻辑。
  * @param value 参数说明。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新toNullablePositiveInt相关状态。
  */
 
 function toNullablePositiveInt(value) {
@@ -668,9 +668,9 @@ function toNullablePositiveInt(value) {
         : null;
 }
 /**
- * normalizeLegacyRealmState：执行核心业务逻辑。
+ * normalizeLegacyRealmState：规范化或转换LegacyRealm状态。
  * @param value 参数说明。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新LegacyRealm状态相关状态。
  */
 
 function normalizeLegacyRealmState(value) {
@@ -710,9 +710,9 @@ function normalizeLegacyRealmState(value) {
     };
 }
 /**
- * normalizePendingLogbookMessages：执行核心业务逻辑。
+ * normalizePendingLogbookMessages：规范化或转换待处理LogbookMessage。
  * @param value 参数说明。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新PendingLogbookMessage相关状态。
  */
 
 function normalizePendingLogbookMessages(value) {
@@ -758,9 +758,9 @@ function normalizePendingLogbookMessages(value) {
     return normalized;
 }
 /**
- * normalizePendingLogbookKind：执行核心业务逻辑。
+ * normalizePendingLogbookKind：规范化或转换待处理LogbookKind。
  * @param value 参数说明。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新PendingLogbookKind相关状态。
  */
 
 function normalizePendingLogbookKind(value) {
@@ -777,9 +777,9 @@ function normalizePendingLogbookKind(value) {
     }
 }
 /**
- * normalizeRuntimeBonuses：执行核心业务逻辑。
+ * normalizeRuntimeBonuses：规范化或转换运行态Bonuse。
  * @param value 参数说明。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新运行态Bonuse相关状态。
  */
 
 function normalizeRuntimeBonuses(value) {
@@ -806,9 +806,9 @@ function normalizeRuntimeBonuses(value) {
         .filter((entry) => entry.source.length > 0);
 }
 /**
- * canonicalizeRuntimeBonusSource：执行状态校验并返回判断结果。
+ * canonicalizeRuntimeBonusSource：判断canonicalize运行态Bonu来源是否满足条件。
  * @param source 来源对象。
- * @returns 函数返回值。
+ * @returns 无返回值，完成canonicalize运行态Bonu来源的条件判断。
  */
 
 function canonicalizeRuntimeBonusSource(source) {
@@ -838,7 +838,7 @@ function canonicalizeRuntimeBonusSource(source) {
 }
 /**
  * createRealmState：构建并返回目标对象。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新Realm状态相关状态。
  */
 
 function createRealmState() {
@@ -867,9 +867,9 @@ function createRealmState() {
     };
 }
 /**
- * normalizeHeavenGateState：执行核心业务逻辑。
+ * normalizeHeavenGateState：规范化或转换HeavenGate状态。
  * @param value 参数说明。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新HeavenGate状态相关状态。
  */
 
 function normalizeHeavenGateState(value) {
@@ -893,9 +893,9 @@ function normalizeHeavenGateState(value) {
     };
 }
 /**
- * normalizeHeavenGateRoots：执行核心业务逻辑。
+ * normalizeHeavenGateRoots：规范化或转换HeavenGate根容器。
  * @param value 参数说明。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新HeavenGate根容器相关状态。
  */
 
 function normalizeHeavenGateRoots(value) {
@@ -915,9 +915,9 @@ function normalizeHeavenGateRoots(value) {
     };
 }
 /**
- * resolveRealmLevelFromStage：执行核心业务逻辑。
+ * resolveRealmLevelFromStage：规范化或转换Realm等级FromStage。
  * @param stage 参数说明。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新Realm等级FromStage相关状态。
  */
 
 function resolveRealmLevelFromStage(stage) {

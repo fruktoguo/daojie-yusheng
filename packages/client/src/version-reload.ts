@@ -18,12 +18,12 @@ import {
 /** ClientBuildVersionResponse：版本检查响应。 */
 type ClientBuildVersionResponse = {
 /**
- * buildId：对象字段。
+ * buildId：ID标识。
  */
 
   buildId?: string;  
   /**
- * builtAt：对象字段。
+ * builtAt：builtAt相关字段。
  */
 
   builtAt?: string;
@@ -32,7 +32,7 @@ type ClientBuildVersionResponse = {
 /** StartClientVersionReloadOptions：版本检查启动时的回调选项。 */
 type StartClientVersionReloadOptions = {
 /**
- * onBeforeReload：对象字段。
+ * onBeforeReload：onBeforeReload相关字段。
  */
 
   onBeforeReload?: (nextBuildId: string) => void;

@@ -75,32 +75,32 @@ const MONSTER_LINEAR_NUMERIC_GROWTH_RATES: Record<typeof MONSTER_LINEAR_NUMERIC_
 /** 怪物公式输入：由属性、装备、等级和百分比修饰组合而成。 */
 export interface MonsterFormulaInput {
 /**
- * attrs：MonsterFormulaInput 内部字段。
+ * attrs：attr相关字段。
  */
 
   attrs?: Partial<Attributes>;  
   /**
- * equipment：MonsterFormulaInput 内部字段。
+ * equipment：装备相关字段。
  */
 
   equipment?: Partial<EquipmentSlots>;  
   /**
- * level：MonsterFormulaInput 内部字段。
+ * level：等级数值。
  */
 
   level?: number;  
   /**
- * statPercents：MonsterFormulaInput 内部字段。
+ * statPercents：statPercent相关字段。
  */
 
   statPercents?: NumericStatPercentages;  
   /**
- * grade：MonsterFormulaInput 内部字段。
+ * grade：grade相关字段。
  */
 
   grade?: TechniqueGrade;  
   /**
- * tier：MonsterFormulaInput 内部字段。
+ * tier：tier相关字段。
  */
 
   tier?: MonsterTier;
@@ -109,27 +109,27 @@ export interface MonsterFormulaInput {
 /** 怪物模板掉落项：保留物品基础信息和掉率。 */
 export interface MonsterTemplateDropRecord {
 /**
- * itemId：MonsterTemplateDropRecord 内部字段。
+ * itemId：道具ID标识。
  */
 
   itemId: string;  
   /**
- * name：MonsterTemplateDropRecord 内部字段。
+ * name：名称名称或显示文本。
  */
 
   name: string;  
   /**
- * type：MonsterTemplateDropRecord 内部字段。
+ * type：type相关字段。
  */
 
   type: ItemType;  
   /**
- * count：MonsterTemplateDropRecord 内部字段。
+ * count：数量或计量字段。
  */
 
   count: number;  
   /**
- * chance：MonsterTemplateDropRecord 内部字段。
+ * chance：chance相关字段。
  */
 
   chance?: number;
@@ -141,117 +141,117 @@ export type MonsterTemplateEquipmentRefs = Partial<Record<EquipSlot, string>>;
 /** 怪物模板的原始配置记录，保存编辑器里可直接写入的字段。 */
 export interface MonsterTemplateConfiguredRecord {
 /**
- * id：MonsterTemplateConfiguredRecord 内部字段。
+ * id：ID标识。
  */
 
   id: string;  
   /**
- * name：MonsterTemplateConfiguredRecord 内部字段。
+ * name：名称名称或显示文本。
  */
 
   name: string;  
   /**
- * char：MonsterTemplateConfiguredRecord 内部字段。
+ * char：char相关字段。
  */
 
   char: string;  
   /**
- * color：MonsterTemplateConfiguredRecord 内部字段。
+ * color：color相关字段。
  */
 
   color: string;  
   /**
- * grade：MonsterTemplateConfiguredRecord 内部字段。
+ * grade：grade相关字段。
  */
 
   grade?: TechniqueGrade;  
   /**
- * tier：MonsterTemplateConfiguredRecord 内部字段。
+ * tier：tier相关字段。
  */
 
   tier?: MonsterTier;  
   /**
- * valueStats：MonsterTemplateConfiguredRecord 内部字段。
+ * valueStats：值Stat相关字段。
  */
 
   valueStats?: PartialNumericStats;  
   /**
- * attrs：MonsterTemplateConfiguredRecord 内部字段。
+ * attrs：attr相关字段。
  */
 
   attrs?: Partial<Attributes>;  
   /**
- * statPercents：MonsterTemplateConfiguredRecord 内部字段。
+ * statPercents：statPercent相关字段。
  */
 
   statPercents?: NumericStatPercentages;  
   /**
- * initialBuffs：MonsterTemplateConfiguredRecord 内部字段。
+ * initialBuffs：initialBuff相关字段。
  */
 
   initialBuffs?: MonsterInitialBuffDef[];  
   /**
- * equipment：MonsterTemplateConfiguredRecord 内部字段。
+ * equipment：装备相关字段。
  */
 
   equipment?: MonsterTemplateEquipmentRefs;  
   /**
- * skills：MonsterTemplateConfiguredRecord 内部字段。
+ * skills：技能相关字段。
  */
 
   skills?: string[];  
   /**
- * count：MonsterTemplateConfiguredRecord 内部字段。
+ * count：数量或计量字段。
  */
 
   count?: number;  
   /**
- * radius：MonsterTemplateConfiguredRecord 内部字段。
+ * radius：radiu相关字段。
  */
 
   radius?: number;  
   /**
- * maxAlive：MonsterTemplateConfiguredRecord 内部字段。
+ * maxAlive：maxAlive相关字段。
  */
 
   maxAlive?: number;  
   /**
- * aggroRange：MonsterTemplateConfiguredRecord 内部字段。
+ * aggroRange：aggro范围相关字段。
  */
 
   aggroRange?: number;  
   /**
- * viewRange：MonsterTemplateConfiguredRecord 内部字段。
+ * viewRange：视图范围相关字段。
  */
 
   viewRange?: number;  
   /**
- * aggroMode：MonsterTemplateConfiguredRecord 内部字段。
+ * aggroMode：aggroMode相关字段。
  */
 
   aggroMode?: MonsterAggroMode;  
   /**
- * respawnSec：MonsterTemplateConfiguredRecord 内部字段。
+ * respawnSec：重生Sec相关字段。
  */
 
   respawnSec?: number;  
   /**
- * respawnTicks：MonsterTemplateConfiguredRecord 内部字段。
+ * respawnTicks：重生tick相关字段。
  */
 
   respawnTicks?: number;  
   /**
- * level：MonsterTemplateConfiguredRecord 内部字段。
+ * level：等级数值。
  */
 
   level?: number;  
   /**
- * expMultiplier：MonsterTemplateConfiguredRecord 内部字段。
+ * expMultiplier：expMultiplier相关字段。
  */
 
   expMultiplier?: number;  
   /**
- * drops：MonsterTemplateConfiguredRecord 内部字段。
+ * drops：drop相关字段。
  */
 
   drops?: MonsterTemplateDropRecord[];
@@ -260,92 +260,92 @@ export interface MonsterTemplateConfiguredRecord {
 /** 编辑器里的怪物关联物品选项，供模板装备和掉落引用。 */
 export interface MonsterTemplateEditorItem {
 /**
- * itemId：MonsterTemplateEditorItem 内部字段。
+ * itemId：道具ID标识。
  */
 
   itemId: string;  
   /**
- * name：MonsterTemplateEditorItem 内部字段。
+ * name：名称名称或显示文本。
  */
 
   name: string;  
   /**
- * type：MonsterTemplateEditorItem 内部字段。
+ * type：type相关字段。
  */
 
   type: ItemType;  
   /**
- * desc：MonsterTemplateEditorItem 内部字段。
+ * desc：desc相关字段。
  */
 
   desc: string;  
   /**
- * count：MonsterTemplateEditorItem 内部字段。
+ * count：数量或计量字段。
  */
 
   count?: number;  
   /**
- * groundLabel：MonsterTemplateEditorItem 内部字段。
+ * groundLabel：groundLabel名称或显示文本。
  */
 
   groundLabel?: string;  
   /**
- * grade：MonsterTemplateEditorItem 内部字段。
+ * grade：grade相关字段。
  */
 
   grade?: TechniqueGrade;  
   /**
- * level：MonsterTemplateEditorItem 内部字段。
+ * level：等级数值。
  */
 
   level?: number;  
   /**
- * equipSlot：MonsterTemplateEditorItem 内部字段。
+ * equipSlot：equipSlot相关字段。
  */
 
   equipSlot?: EquipSlot;  
   /**
- * equipAttrs：MonsterTemplateEditorItem 内部字段。
+ * equipAttrs：equipAttr相关字段。
  */
 
   equipAttrs?: Partial<Attributes>;  
   /**
- * equipStats：MonsterTemplateEditorItem 内部字段。
+ * equipStats：equipStat相关字段。
  */
 
   equipStats?: PartialNumericStats;  
   /**
- * equipValueStats：MonsterTemplateEditorItem 内部字段。
+ * equipValueStats：equip值Stat相关字段。
  */
 
   equipValueStats?: PartialNumericStats;  
   /**
- * effects：MonsterTemplateEditorItem 内部字段。
+ * effects：effect相关字段。
  */
 
   effects?: ItemStack['effects'];  
   /**
- * tags：MonsterTemplateEditorItem 内部字段。
+ * tags：tag相关字段。
  */
 
   tags?: string[];  
   /**
- * mapUnlockId：MonsterTemplateEditorItem 内部字段。
+ * mapUnlockId：地图UnlockID标识。
  */
 
   mapUnlockId?: string;  
   /**
- * mapUnlockIds：MonsterTemplateEditorItem 内部字段。
+ * mapUnlockIds：地图UnlockID相关字段。
  */
 
   mapUnlockIds?: string[];  
   /**
- * tileAuraGainAmount：MonsterTemplateEditorItem 内部字段。
+ * tileAuraGainAmount：数量或计量字段。
  */
 
   tileAuraGainAmount?: number;  
   /**
- * allowBatchUse：MonsterTemplateEditorItem 内部字段。
+ * allowBatchUse：allowBatchUse相关字段。
  */
 
   allowBatchUse?: boolean;
@@ -357,137 +357,137 @@ export type MonsterTemplateSourceMode = 'value_stats' | 'attributes';
 /** 解析后的怪物模板记录，已经补齐默认值并计算出运行时数值。 */
 export interface MonsterTemplateResolvedRecord extends MonsterTemplateConfiguredRecord {
 /**
- * grade：MonsterTemplateResolvedRecord 内部字段。
+ * grade：grade相关字段。
  */
 
   grade: TechniqueGrade;  
   /**
- * tier：MonsterTemplateResolvedRecord 内部字段。
+ * tier：tier相关字段。
  */
 
   tier: MonsterTier;  
   /**
- * valueStats：MonsterTemplateResolvedRecord 内部字段。
+ * valueStats：值Stat相关字段。
  */
 
   valueStats?: PartialNumericStats;  
   /**
- * attrs：MonsterTemplateResolvedRecord 内部字段。
+ * attrs：attr相关字段。
  */
 
   attrs?: Attributes;  
   /**
- * statPercents：MonsterTemplateResolvedRecord 内部字段。
+ * statPercents：statPercent相关字段。
  */
 
   statPercents?: NumericStatPercentages;  
   /**
- * initialBuffs：MonsterTemplateResolvedRecord 内部字段。
+ * initialBuffs：initialBuff相关字段。
  */
 
   initialBuffs?: MonsterInitialBuffDef[];  
   /**
- * equipment：MonsterTemplateResolvedRecord 内部字段。
+ * equipment：装备相关字段。
  */
 
   equipment: MonsterTemplateEquipmentRefs;  
   /**
- * skills：MonsterTemplateResolvedRecord 内部字段。
+ * skills：技能相关字段。
  */
 
   skills: string[];  
   /**
- * computedStats：MonsterTemplateResolvedRecord 内部字段。
+ * computedStats：computedStat相关字段。
  */
 
   computedStats: NumericStats;  
   /**
- * resolvedAttrs：MonsterTemplateResolvedRecord 内部字段。
+ * resolvedAttrs：resolvedAttr相关字段。
  */
 
   resolvedAttrs: Attributes;  
   /**
- * resolvedStatPercents：MonsterTemplateResolvedRecord 内部字段。
+ * resolvedStatPercents：resolvedStatPercent相关字段。
  */
 
   resolvedStatPercents?: NumericStatPercentages;  
   /**
- * combatModel：MonsterTemplateResolvedRecord 内部字段。
+ * combatModel：战斗Model相关字段。
  */
 
   combatModel: MonsterCombatModel;  
   /**
- * sourceMode：MonsterTemplateResolvedRecord 内部字段。
+ * sourceMode：来源Mode相关字段。
  */
 
   sourceMode: MonsterTemplateSourceMode;  
   /**
- * hp：MonsterTemplateResolvedRecord 内部字段。
+ * hp：hp相关字段。
  */
 
   hp: number;  
   /**
- * maxHp：MonsterTemplateResolvedRecord 内部字段。
+ * maxHp：maxHp相关字段。
  */
 
   maxHp: number;  
   /**
- * attack：MonsterTemplateResolvedRecord 内部字段。
+ * attack：attack相关字段。
  */
 
   attack: number;  
   /**
- * count：MonsterTemplateResolvedRecord 内部字段。
+ * count：数量或计量字段。
  */
 
   count: number;  
   /**
- * radius：MonsterTemplateResolvedRecord 内部字段。
+ * radius：radiu相关字段。
  */
 
   radius: number;  
   /**
- * maxAlive：MonsterTemplateResolvedRecord 内部字段。
+ * maxAlive：maxAlive相关字段。
  */
 
   maxAlive: number;  
   /**
- * aggroRange：MonsterTemplateResolvedRecord 内部字段。
+ * aggroRange：aggro范围相关字段。
  */
 
   aggroRange: number;  
   /**
- * viewRange：MonsterTemplateResolvedRecord 内部字段。
+ * viewRange：视图范围相关字段。
  */
 
   viewRange: number;  
   /**
- * aggroMode：MonsterTemplateResolvedRecord 内部字段。
+ * aggroMode：aggroMode相关字段。
  */
 
   aggroMode: MonsterAggroMode;  
   /**
- * respawnSec：MonsterTemplateResolvedRecord 内部字段。
+ * respawnSec：重生Sec相关字段。
  */
 
   respawnSec: number;  
   /**
- * respawnTicks：MonsterTemplateResolvedRecord 内部字段。
+ * respawnTicks：重生tick相关字段。
  */
 
   respawnTicks?: number;  
   /**
- * level：MonsterTemplateResolvedRecord 内部字段。
+ * level：等级数值。
  */
 
   level?: number;  
   /**
- * expMultiplier：MonsterTemplateResolvedRecord 内部字段。
+ * expMultiplier：expMultiplier相关字段。
  */
 
   expMultiplier: number;  
   /**
- * drops：MonsterTemplateResolvedRecord 内部字段。
+ * drops：drop相关字段。
  */
 
   drops: MonsterTemplateDropRecord[];

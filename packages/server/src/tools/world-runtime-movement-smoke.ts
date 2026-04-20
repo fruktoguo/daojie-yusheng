@@ -6,7 +6,7 @@ const { WorldRuntimeMovementService } = require("../runtime/world/world-runtime-
 /**
  * buildDeps：构建并返回目标对象。
  * @param log 参数说明。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新Dep相关状态。
  */
 
 
@@ -14,25 +14,25 @@ function buildDeps(log) {
     const playerLocations = new Map([['player:1', { instanceId: 'instance:1', sessionId: 'session:1' }]]);
     const instanceRuntimes = new Map([['instance:1', {    
     /**
- * setPlayerMoveSpeed：更新/写入相关状态。
+ * setPlayerMoveSpeed：写入玩家MoveSpeed。
  * @param playerId 玩家 ID。
  * @param speed 参数说明。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新玩家MoveSpeed相关状态。
  */
 
         setPlayerMoveSpeed(playerId, speed) { log.push(['setPlayerMoveSpeed', playerId, speed]); },        
         /**
- * enqueueMove：执行核心业务逻辑。
+ * enqueueMove：处理Move并更新相关状态。
  * @param payload 载荷参数。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新Move相关状态。
  */
 
         enqueueMove(payload) { log.push(['enqueueMove', payload]); },        
         /**
- * tryPortalTransfer：执行核心业务逻辑。
+ * tryPortalTransfer：执行try传送门Transfer相关逻辑。
  * @param playerId 玩家 ID。
  * @param mode 参数说明。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新tryPortalTransfer相关状态。
  */
 
         tryPortalTransfer(playerId, mode) {
@@ -45,27 +45,27 @@ function buildDeps(log) {
             return { fromInstanceId: 'instance:1', targetMapId: 'yunlai_town', targetX: 8, targetY: 9, playerId, sessionId: 'session:1', reason: mode };
         },        
         /**
- * enqueuePortalUse：执行核心业务逻辑。
+ * enqueuePortalUse：处理传送门Use并更新相关状态。
  * @param payload 载荷参数。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新PortalUse相关状态。
  */
 
         enqueuePortalUse(payload) { log.push(['enqueuePortalUse', payload]); },
     }]]);
     return {    
     /**
- * getPlayerLocation：按给定条件读取/查询数据。
+ * getPlayerLocation：读取玩家位置。
  * @param playerId 玩家 ID。
- * @returns 函数返回值。
+ * @returns 无返回值，完成玩家位置的读取/组装。
  */
 
         getPlayerLocation(playerId) {
             return playerLocations.get(playerId) ?? null;
         },        
         /**
- * getInstanceRuntime：按给定条件读取/查询数据。
+ * getInstanceRuntime：读取Instance运行态。
  * @param instanceId instance ID。
- * @returns 函数返回值。
+ * @returns 无返回值，完成Instance运行态的读取/组装。
  */
 
         getInstanceRuntime(instanceId) {
@@ -73,9 +73,9 @@ function buildDeps(log) {
         },
         playerRuntimeService: {        
         /**
- * getPlayer：按给定条件读取/查询数据。
+ * getPlayer：读取玩家。
  * @param playerId 玩家 ID。
- * @returns 函数返回值。
+ * @returns 无返回值，完成玩家的读取/组装。
  */
 
             getPlayer(playerId) {
@@ -85,44 +85,44 @@ function buildDeps(log) {
                 return { hp: 10, attrs: { numericStats: { moveSpeed: 12 } } };
             },            
             /**
- * recordActivity：执行核心业务逻辑。
+ * recordActivity：执行recordActivity相关逻辑。
  * @param playerId 玩家 ID。
  * @param tick 当前 tick。
  * @param payload 载荷参数。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新recordActivity相关状态。
  */
 
             recordActivity(playerId, tick, payload) { log.push(['recordActivity', playerId, tick, payload]); },
         },        
         /**
- * resolveCurrentTickForPlayerId：执行核心业务逻辑。
- * @returns 函数返回值。
+ * resolveCurrentTickForPlayerId：规范化或转换当前tickFor玩家ID。
+ * @returns 无返回值，直接更新CurrenttickFor玩家ID相关状态。
  */
 
         resolveCurrentTickForPlayerId() { return 33; },
         worldRuntimeCraftInterruptService: {        
         /**
- * interruptCraftForReason：执行核心业务逻辑。
+ * interruptCraftForReason：执行interrupt炼制ForReason相关逻辑。
  * @param playerId 玩家 ID。
  * @param _player 参数说明。
  * @param reason 参数说明。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新interrupt炼制ForReason相关状态。
  */
 
             interruptCraftForReason(playerId, _player, reason) { log.push(['interruptCraftForReason', playerId, reason]); },
         },        
         /**
- * applyTransfer：更新/写入相关状态。
+ * applyTransfer：处理Transfer并更新相关状态。
  * @param transfer 参数说明。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新Transfer相关状态。
  */
 
         applyTransfer(transfer) { log.push(['applyTransfer', transfer.reason]); },
     };
 }
 /**
- * testMoveBranch：执行核心业务逻辑。
- * @returns 函数返回值。
+ * testMoveBranch：执行testMoveBranch相关逻辑。
+ * @returns 无返回值，直接更新testMoveBranch相关状态。
  */
 
 
@@ -153,8 +153,8 @@ function testMoveBranch() {
     ]);
 }
 /**
- * testPortalBranch：执行核心业务逻辑。
- * @returns 函数返回值。
+ * testPortalBranch：执行test传送门Branch相关逻辑。
+ * @returns 无返回值，直接更新testPortalBranch相关状态。
  */
 
 

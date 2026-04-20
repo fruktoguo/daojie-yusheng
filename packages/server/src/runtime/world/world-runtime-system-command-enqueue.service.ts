@@ -34,28 +34,28 @@ const { normalizeCoordinate, normalizeRollCount } = world_runtime_normalization_
 /** world-runtime system-command enqueue orchestration：承接系统/GM 命令入队前的校验与归一化。 */
 let WorldRuntimeSystemCommandEnqueueService = class WorldRuntimeSystemCommandEnqueueService {
 /**
- * worldRuntimeGmQueueService：对象字段。
+ * worldRuntimeGmQueueService：世界运行态GMQueue服务引用。
  */
 
     worldRuntimeGmQueueService;    
     /**
  * 构造器：初始化 当前 实例并建立基础状态。
  * @param worldRuntimeGmQueueService 参数说明。
- * @returns 无返回值（构造函数）。
+ * @returns 无返回值，完成实例初始化。
  */
 
     constructor(worldRuntimeGmQueueService) {
         this.worldRuntimeGmQueueService = worldRuntimeGmQueueService;
     }    
     /**
- * enqueueSpawnMonsterLoot：执行核心业务逻辑。
+ * enqueueSpawnMonsterLoot：处理Spawn怪物掉落并更新相关状态。
  * @param instanceIdInput 参数说明。
  * @param monsterIdInput 参数说明。
  * @param xInput 参数说明。
  * @param yInput 参数说明。
  * @param rollsInput 参数说明。
  * @param deps 运行时依赖。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新Spawn怪物掉落相关状态。
  */
 
     enqueueSpawnMonsterLoot(instanceIdInput, monsterIdInput, xInput, yInput, rollsInput, deps) {
@@ -80,11 +80,11 @@ let WorldRuntimeSystemCommandEnqueueService = class WorldRuntimeSystemCommandEnq
         });
     }    
     /**
- * enqueueDefeatMonster：执行核心业务逻辑。
+ * enqueueDefeatMonster：处理Defeat怪物并更新相关状态。
  * @param instanceIdInput 参数说明。
  * @param runtimeIdInput 参数说明。
  * @param deps 运行时依赖。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新Defeat怪物相关状态。
  */
 
     enqueueDefeatMonster(instanceIdInput, runtimeIdInput, deps) {
@@ -106,12 +106,12 @@ let WorldRuntimeSystemCommandEnqueueService = class WorldRuntimeSystemCommandEnq
         });
     }    
     /**
- * enqueueDamageMonster：执行核心业务逻辑。
+ * enqueueDamageMonster：处理Damage怪物并更新相关状态。
  * @param instanceIdInput 参数说明。
  * @param runtimeIdInput 参数说明。
  * @param amountInput 参数说明。
  * @param deps 运行时依赖。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新Damage怪物相关状态。
  */
 
     enqueueDamageMonster(instanceIdInput, runtimeIdInput, amountInput, deps) {
@@ -139,11 +139,11 @@ let WorldRuntimeSystemCommandEnqueueService = class WorldRuntimeSystemCommandEnq
         });
     }    
     /**
- * enqueueDamagePlayer：执行核心业务逻辑。
+ * enqueueDamagePlayer：处理Damage玩家并更新相关状态。
  * @param playerIdInput 参数说明。
  * @param amountInput 参数说明。
  * @param deps 运行时依赖。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新Damage玩家相关状态。
  */
 
     enqueueDamagePlayer(playerIdInput, amountInput, deps) {
@@ -166,10 +166,10 @@ let WorldRuntimeSystemCommandEnqueueService = class WorldRuntimeSystemCommandEnq
         });
     }    
     /**
- * enqueueRespawnPlayer：执行核心业务逻辑。
+ * enqueueRespawnPlayer：处理重生玩家并更新相关状态。
  * @param playerIdInput 参数说明。
  * @param deps 运行时依赖。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新重生玩家相关状态。
  */
 
     enqueueRespawnPlayer(playerIdInput, deps) {
@@ -186,10 +186,10 @@ let WorldRuntimeSystemCommandEnqueueService = class WorldRuntimeSystemCommandEnq
         });
     }    
     /**
- * enqueueResetPlayerSpawn：执行核心业务逻辑。
+ * enqueueResetPlayerSpawn：处理Reset玩家Spawn并更新相关状态。
  * @param playerIdInput 参数说明。
  * @param deps 运行时依赖。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新Reset玩家Spawn相关状态。
  */
 
     enqueueResetPlayerSpawn(playerIdInput, deps) {
@@ -206,38 +206,38 @@ let WorldRuntimeSystemCommandEnqueueService = class WorldRuntimeSystemCommandEnq
         });
     }    
     /**
- * enqueueGmUpdatePlayer：执行核心业务逻辑。
+ * enqueueGmUpdatePlayer：处理GMUpdate玩家并更新相关状态。
  * @param input 输入参数。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新GMUpdate玩家相关状态。
  */
 
     enqueueGmUpdatePlayer(input) {
         return this.worldRuntimeGmQueueService.enqueueGmUpdatePlayer(input);
     }    
     /**
- * enqueueGmResetPlayer：执行核心业务逻辑。
+ * enqueueGmResetPlayer：处理GMReset玩家并更新相关状态。
  * @param playerIdInput 参数说明。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新GMReset玩家相关状态。
  */
 
     enqueueGmResetPlayer(playerIdInput) {
         return this.worldRuntimeGmQueueService.enqueueGmResetPlayer(playerIdInput);
     }    
     /**
- * enqueueGmSpawnBots：执行核心业务逻辑。
+ * enqueueGmSpawnBots：处理GMSpawnBot并更新相关状态。
  * @param anchorPlayerIdInput 参数说明。
  * @param countInput 参数说明。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新GMSpawnBot相关状态。
  */
 
     enqueueGmSpawnBots(anchorPlayerIdInput, countInput) {
         return this.worldRuntimeGmQueueService.enqueueGmSpawnBots(anchorPlayerIdInput, countInput);
     }    
     /**
- * enqueueGmRemoveBots：执行核心业务逻辑。
+ * enqueueGmRemoveBots：处理GMRemoveBot并更新相关状态。
  * @param playerIdsInput 参数说明。
  * @param allInput 参数说明。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新GMRemoveBot相关状态。
  */
 
     enqueueGmRemoveBots(playerIdsInput, allInput) {

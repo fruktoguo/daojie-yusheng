@@ -24,14 +24,14 @@ const player_runtime_service_1 = require("../player/player-runtime.service");
 /** 战斗运行时技能结算服务：负责技能解析、施放校验与战斗结果写回。 */
 let PlayerCombatService = class PlayerCombatService {
 /**
- * playerRuntimeService：对象字段。
+ * playerRuntimeService：玩家运行态服务引用。
  */
 
     playerRuntimeService;    
     /**
  * 构造器：初始化 当前 实例并建立基础状态。
  * @param playerRuntimeService 参数说明。
- * @returns 无返回值（构造函数）。
+ * @returns 无返回值，完成实例初始化。
  */
 
     constructor(playerRuntimeService) {
@@ -189,11 +189,11 @@ exports.PlayerCombatService = PlayerCombatService = __decorate([
 ], PlayerCombatService);
 export { PlayerCombatService };
 /**
- * resolvePlayerSkill：执行核心业务逻辑。
+ * resolvePlayerSkill：规范化或转换玩家技能。
  * @param techniques 参数说明。
  * @param cooldownReadyTickBySkillId cooldownReadyTickBySkill ID。
  * @param skillId skill ID。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新玩家技能相关状态。
  */
 
 function resolvePlayerSkill(techniques, cooldownReadyTickBySkillId, skillId) {
@@ -218,10 +218,10 @@ function resolvePlayerSkill(techniques, cooldownReadyTickBySkillId, skillId) {
     throw new common_1.NotFoundException(`Skill ${skillId} not found`);
 }
 /**
- * resolveMonsterSkill：执行核心业务逻辑。
+ * resolveMonsterSkill：规范化或转换怪物技能。
  * @param attacker 参数说明。
  * @param skillId skill ID。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新怪物技能相关状态。
  */
 
 function resolveMonsterSkill(attacker, skillId) {
@@ -241,9 +241,9 @@ function resolveMonsterSkill(attacker, skillId) {
     };
 }
 /**
- * toCombatPlayerState：执行核心业务逻辑。
+ * toCombatPlayerState：执行to战斗玩家状态相关逻辑。
  * @param player 玩家对象。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新to战斗玩家状态相关状态。
  */
 
 function toCombatPlayerState(player) {
@@ -261,9 +261,9 @@ function toCombatPlayerState(player) {
     };
 }
 /**
- * resolveSkillRange：执行核心业务逻辑。
+ * resolveSkillRange：规范化或转换技能范围。
  * @param skill 参数说明。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新技能范围相关状态。
  */
 
 function resolveSkillRange(skill) {
@@ -277,9 +277,9 @@ function resolveSkillRange(skill) {
     return Math.max(1, Math.round(skill.range));
 }
 /**
- * normalizeSkillQiCost：执行核心业务逻辑。
+ * normalizeSkillQiCost：规范化或转换技能Qi消耗。
  * @param rawCost 参数说明。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新技能Qi消耗相关状态。
  */
 
 function normalizeSkillQiCost(rawCost) {
@@ -291,12 +291,12 @@ function normalizeSkillQiCost(rawCost) {
     return Math.max(0, Math.round(Number(rawCost)));
 }
 /**
- * resolveDamage：执行核心业务逻辑。
+ * resolveDamage：规范化或转换Damage。
  * @param attacker 参数说明。
  * @param target 目标对象。
  * @param effect 参数说明。
  * @param baseDamage 参数说明。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新Damage相关状态。
  */
 
 function resolveDamage(attacker, target, effect, baseDamage) {
@@ -340,19 +340,19 @@ function resolveDamage(attacker, target, effect, baseDamage) {
     return Math.max(1, Math.round(damage * (0, shared_1.getRealmGapDamageMultiplier)(1, 1)));
 }
 /**
- * inferDamageKind：执行核心业务逻辑。
+ * inferDamageKind：执行inferDamageKind相关逻辑。
  * @param stats 参数说明。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新inferDamageKind相关状态。
  */
 
 function inferDamageKind(stats) {
     return stats.spellAtk >= stats.physAtk ? 'spell' : 'physical';
 }
 /**
- * toTemporaryBuff：执行核心业务逻辑。
+ * toTemporaryBuff：执行toTemporaryBuff相关逻辑。
  * @param effect 参数说明。
  * @param skill 参数说明。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新toTemporaryBuff相关状态。
  */
 
 function toTemporaryBuff(effect, skill) {
@@ -378,10 +378,10 @@ function toTemporaryBuff(effect, skill) {
     };
 }
 /**
- * evaluateSkillFormula：执行核心业务逻辑。
+ * evaluateSkillFormula：执行evaluate技能Formula相关逻辑。
  * @param formula 参数说明。
  * @param context 上下文信息。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新evaluate技能Formula相关状态。
  */
 
 function evaluateSkillFormula(formula, context) {
@@ -422,10 +422,10 @@ function evaluateSkillFormula(formula, context) {
     }
 }
 /**
- * resolveSkillFormulaVar：执行核心业务逻辑。
+ * resolveSkillFormulaVar：规范化或转换技能FormulaVar。
  * @param variable 参数说明。
  * @param context 上下文信息。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新技能FormulaVar相关状态。
  */
 
 function resolveSkillFormulaVar(variable, context) {
@@ -494,10 +494,10 @@ function resolveSkillFormulaVar(variable, context) {
     return 0;
 }
 /**
- * resolveBuffStacks：执行核心业务逻辑。
+ * resolveBuffStacks：规范化或转换BuffStack。
  * @param buffs 参数说明。
  * @param buffId buff ID。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新BuffStack相关状态。
  */
 
 function resolveBuffStacks(buffs, buffId) {

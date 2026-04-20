@@ -34,27 +34,27 @@ const WORLD_TICK_INTERVAL_MS = 100;
 
 let WorldTickService = WorldTickService_1 = class WorldTickService {
 /**
- * runtimeGmStateService：对象字段。
+ * runtimeGmStateService：运行态GM状态服务引用。
  */
 
     runtimeGmStateService;    
     /**
- * runtimeMaintenanceService：对象字段。
+ * runtimeMaintenanceService：运行态Maintenance服务引用。
  */
 
     runtimeMaintenanceService;    
     /**
- * mapRuntimeConfigService：对象字段。
+ * mapRuntimeConfigService：地图运行态配置服务引用。
  */
 
     mapRuntimeConfigService;    
     /**
- * worldRuntimeService：对象字段。
+ * worldRuntimeService：世界运行态服务引用。
  */
 
     worldRuntimeService;    
     /**
- * worldSyncService：对象字段。
+ * worldSyncService：世界Sync服务引用。
  */
 
     worldSyncService;
@@ -75,8 +75,8 @@ let WorldTickService = WorldTickService_1 = class WorldTickService {
         return this.mapRuntimeConfigService.getMapTickSpeed(mapId);
     }    
     /**
- * onModuleInit：执行核心业务逻辑。
- * @returns 函数返回值。
+ * onModuleInit：执行on模块Init相关逻辑。
+ * @returns 无返回值，直接更新on模块Init相关状态。
  */
 
     onModuleInit() {

@@ -17,12 +17,12 @@ import { escapeHtml, formatJson } from './pure';
 /** PresenceMeta：玩家在线状态徽标的渲染元数据。 */
 export interface PresenceMeta {
 /**
- * className：PresenceMeta 内部字段。
+ * className：class名称名称或显示文本。
  */
 
   className: 'online' | 'offline';  
   /**
- * label：PresenceMeta 内部字段。
+ * label：label名称或显示文本。
  */
 
   label: '在线' | '离线挂机' | '离线';

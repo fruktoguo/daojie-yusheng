@@ -6,24 +6,24 @@ import type { PropsWithChildren } from 'react';
 
 export interface UiPillProps {
 /**
- * tone：UiPillProps 内部字段。
+ * tone：tone相关字段。
  */
 
   tone?: 'default' | 'accent';  
   /**
- * className：UiPillProps 内部字段。
+ * className：class名称名称或显示文本。
  */
 
   className?: string;
 }
 /**
- * UiPill：执行核心业务逻辑。
+ * UiPill：渲染UiPill组件。
  * @param {
   tone = 'default',
   className,
   children,
 } PropsWithChildren<UiPillProps> 参数说明。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新UiPill相关状态。
  */
 
 

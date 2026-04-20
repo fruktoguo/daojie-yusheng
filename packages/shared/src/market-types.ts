@@ -12,7 +12,7 @@ export type MarketOrderStatus = 'open' | 'filled' | 'cancelled';
 /** 坊市托管仓 */
 export interface MarketStorage {
 /**
- * items：MarketStorage 内部字段。
+ * items：集合字段。
  */
 
   items: ItemStack[];
@@ -21,42 +21,42 @@ export interface MarketStorage {
 /** 坊市列表里的物品摘要 */
 export interface MarketListedItemView {
 /**
- * itemKey：MarketListedItemView 内部字段。
+ * itemKey：道具Key标识。
  */
 
   itemKey: string;  
   /**
- * item：MarketListedItemView 内部字段。
+ * item：道具相关字段。
  */
 
   item: ItemStack;  
   /**
- * sellOrderCount：MarketListedItemView 内部字段。
+ * sellOrderCount：数量或计量字段。
  */
 
   sellOrderCount: number;  
   /**
- * sellQuantity：MarketListedItemView 内部字段。
+ * sellQuantity：sellQuantity相关字段。
  */
 
   sellQuantity: number;  
   /**
- * lowestSellPrice：MarketListedItemView 内部字段。
+ * lowestSellPrice：lowestSell价格数值。
  */
 
   lowestSellPrice?: number;  
   /**
- * buyOrderCount：MarketListedItemView 内部字段。
+ * buyOrderCount：数量或计量字段。
  */
 
   buyOrderCount: number;  
   /**
- * buyQuantity：MarketListedItemView 内部字段。
+ * buyQuantity：buyQuantity相关字段。
  */
 
   buyQuantity: number;  
   /**
- * highestBuyPrice：MarketListedItemView 内部字段。
+ * highestBuyPrice：highestBuy价格数值。
  */
 
   highestBuyPrice?: number;
@@ -65,17 +65,17 @@ export interface MarketListedItemView {
 /** 坊市盘口价位 */
 export interface MarketPriceLevelView {
 /**
- * unitPrice：MarketPriceLevelView 内部字段。
+ * unitPrice：unit价格数值。
  */
 
   unitPrice: number;  
   /**
- * quantity：MarketPriceLevelView 内部字段。
+ * quantity：quantity相关字段。
  */
 
   quantity: number;  
   /**
- * orderCount：MarketPriceLevelView 内部字段。
+ * orderCount：数量或计量字段。
  */
 
   orderCount: number;
@@ -84,22 +84,22 @@ export interface MarketPriceLevelView {
 /** 坊市单个物品盘口 */
 export interface MarketOrderBookView {
 /**
- * itemKey：MarketOrderBookView 内部字段。
+ * itemKey：道具Key标识。
  */
 
   itemKey: string;  
   /**
- * item：MarketOrderBookView 内部字段。
+ * item：道具相关字段。
  */
 
   item: ItemStack;  
   /**
- * sells：MarketOrderBookView 内部字段。
+ * sells：sell相关字段。
  */
 
   sells: MarketPriceLevelView[];  
   /**
- * buys：MarketOrderBookView 内部字段。
+ * buys：buy相关字段。
  */
 
   buys: MarketPriceLevelView[];
@@ -111,37 +111,37 @@ export type MarketTradeHistorySide = 'buy' | 'sell';
 /** 玩家可见的坊市成交记录 */
 export interface MarketTradeHistoryEntryView {
 /**
- * id：MarketTradeHistoryEntryView 内部字段。
+ * id：ID标识。
  */
 
   id: string;  
   /**
- * side：MarketTradeHistoryEntryView 内部字段。
+ * side：side相关字段。
  */
 
   side: MarketTradeHistorySide;  
   /**
- * itemId：MarketTradeHistoryEntryView 内部字段。
+ * itemId：道具ID标识。
  */
 
   itemId: string;  
   /**
- * itemName：MarketTradeHistoryEntryView 内部字段。
+ * itemName：道具名称名称或显示文本。
  */
 
   itemName: string;  
   /**
- * quantity：MarketTradeHistoryEntryView 内部字段。
+ * quantity：quantity相关字段。
  */
 
   quantity: number;  
   /**
- * unitPrice：MarketTradeHistoryEntryView 内部字段。
+ * unitPrice：unit价格数值。
  */
 
   unitPrice: number;  
   /**
- * createdAt：MarketTradeHistoryEntryView 内部字段。
+ * createdAt：createdAt相关字段。
  */
 
   createdAt: number;
@@ -150,42 +150,42 @@ export interface MarketTradeHistoryEntryView {
 /** 玩家可见的坊市自有订单 */
 export interface MarketOwnOrderView {
 /**
- * id：MarketOwnOrderView 内部字段。
+ * id：ID标识。
  */
 
   id: string;  
   /**
- * side：MarketOwnOrderView 内部字段。
+ * side：side相关字段。
  */
 
   side: MarketOrderSide;  
   /**
- * status：MarketOwnOrderView 内部字段。
+ * status：statu状态或数据块。
  */
 
   status: MarketOrderStatus;  
   /**
- * itemKey：MarketOwnOrderView 内部字段。
+ * itemKey：道具Key标识。
  */
 
   itemKey: string;  
   /**
- * item：MarketOwnOrderView 内部字段。
+ * item：道具相关字段。
  */
 
   item: ItemStack;  
   /**
- * remainingQuantity：MarketOwnOrderView 内部字段。
+ * remainingQuantity：remainingQuantity相关字段。
  */
 
   remainingQuantity: number;  
   /**
- * unitPrice：MarketOwnOrderView 内部字段。
+ * unitPrice：unit价格数值。
  */
 
   unitPrice: number;  
   /**
- * createdAt：MarketOwnOrderView 内部字段。
+ * createdAt：createdAt相关字段。
  */
 
   createdAt: number;

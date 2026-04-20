@@ -26,52 +26,52 @@ const ENHANCEMENT_TARGET_SUCCESS_RATE_BY_LEVEL = [
 /** 强化期望策略：描述某个保护起点下的期望消耗。 */
 export interface EnhancementExpectedCostStrategy {
 /**
- * targetLevel：EnhancementExpectedCostStrategy 内部字段。
+ * targetLevel：目标等级数值。
  */
 
   targetLevel: number;  
   /**
- * protectionStartLevel：EnhancementExpectedCostStrategy 内部字段。
+ * protectionStartLevel：protectionStart等级数值。
  */
 
   protectionStartLevel: number | null;  
   /**
- * spiritStonePerSuccess：EnhancementExpectedCostStrategy 内部字段。
+ * spiritStonePerSuccess：spiritStonePerSuccess相关字段。
  */
 
   spiritStonePerSuccess: number;  
   /**
- * expectedAttempts：EnhancementExpectedCostStrategy 内部字段。
+ * expectedAttempts：expectedAttempt相关字段。
  */
 
   expectedAttempts: number;  
   /**
- * expectedSpiritStones：EnhancementExpectedCostStrategy 内部字段。
+ * expectedSpiritStones：expectedSpiritStone相关字段。
  */
 
   expectedSpiritStones: number;  
   /**
- * expectedProtectionCount：EnhancementExpectedCostStrategy 内部字段。
+ * expectedProtectionCount：数量或计量字段。
  */
 
   expectedProtectionCount: number;  
   /**
- * expectedTargetCopies：EnhancementExpectedCostStrategy 内部字段。
+ * expectedTargetCopies：expected目标Copy相关字段。
  */
 
   expectedTargetCopies: number;  
   /**
- * expectedProtectionCost：EnhancementExpectedCostStrategy 内部字段。
+ * expectedProtectionCost：expectedProtection消耗数值。
  */
 
   expectedProtectionCost?: number;  
   /**
- * expectedTotalCostWithoutBase：EnhancementExpectedCostStrategy 内部字段。
+ * expectedTotalCostWithoutBase：expectedTotal消耗WithoutBase相关字段。
  */
 
   expectedTotalCostWithoutBase?: number;  
   /**
- * expectedTotalCostWithBase：EnhancementExpectedCostStrategy 内部字段。
+ * expectedTotalCostWithBase：expectedTotal消耗WithBase相关字段。
  */
 
   expectedTotalCostWithBase?: number;
@@ -80,12 +80,12 @@ export interface EnhancementExpectedCostStrategy {
 /** 强化期望集合：包含所有策略与最优策略。 */
 export interface EnhancementExpectedCostAnalysis {
 /**
- * strategies：EnhancementExpectedCostAnalysis 内部字段。
+ * strategies：strategy相关字段。
  */
 
   strategies: EnhancementExpectedCostStrategy[];  
   /**
- * bestStrategy：EnhancementExpectedCostAnalysis 内部字段。
+ * bestStrategy：bestStrategy相关字段。
  */
 
   bestStrategy: EnhancementExpectedCostStrategy | null;
@@ -138,37 +138,37 @@ function getEnhancementSpiritStoneCost(itemLevel: number | undefined): number {
 /** computeEnhancementExpectedCostStrategy：计算强化Expected Cost Strategy。 */
 export function computeEnhancementExpectedCostStrategy(input: {
 /**
- * targetLevel：对象字段。
+ * targetLevel：目标等级数值。
  */
 
   targetLevel: number;  
   /**
- * itemLevel：对象字段。
+ * itemLevel：道具等级数值。
  */
 
   itemLevel: number;  
   /**
- * extraSuccessRate：对象字段。
+ * extraSuccessRate：extraSuccessRate数值。
  */
 
   extraSuccessRate?: number;  
   /**
- * protectionStartLevel：对象字段。
+ * protectionStartLevel：protectionStart等级数值。
  */
 
   protectionStartLevel: number | null;  
   /**
- * protectionUnitPrice：对象字段。
+ * protectionUnitPrice：protectionUnit价格数值。
  */
 
   protectionUnitPrice?: number;  
   /**
- * targetItemUnitPrice：对象字段。
+ * targetItemUnitPrice：目标道具Unit价格数值。
  */
 
   targetItemUnitPrice?: number;  
   /**
- * selfProtection：对象字段。
+ * selfProtection：selfProtection相关字段。
  */
 
   selfProtection?: boolean;
@@ -238,32 +238,32 @@ export function computeEnhancementExpectedCostStrategy(input: {
 /** computeBestEnhancementExpectedCost：计算Best强化Expected Cost。 */
 export function computeBestEnhancementExpectedCost(input: {
 /**
- * targetLevel：对象字段。
+ * targetLevel：目标等级数值。
  */
 
   targetLevel: number;  
   /**
- * itemLevel：对象字段。
+ * itemLevel：道具等级数值。
  */
 
   itemLevel: number;  
   /**
- * extraSuccessRate：对象字段。
+ * extraSuccessRate：extraSuccessRate数值。
  */
 
   extraSuccessRate?: number;  
   /**
- * protectionUnitPrice：对象字段。
+ * protectionUnitPrice：protectionUnit价格数值。
  */
 
   protectionUnitPrice?: number;  
   /**
- * targetItemUnitPrice：对象字段。
+ * targetItemUnitPrice：目标道具Unit价格数值。
  */
 
   targetItemUnitPrice?: number;  
   /**
- * selfProtection：对象字段。
+ * selfProtection：selfProtection相关字段。
  */
 
   selfProtection?: boolean;
@@ -338,15 +338,15 @@ function buildRewardVector(
   successRates: number[],
   reward: (input: {  
   /**
- * successRate：对象字段。
+ * successRate：successRate数值。
  */
  successRate: number;  
  /**
- * failureRate：对象字段。
+ * failureRate：failureRate数值。
  */
  failureRate: number;  
  /**
- * protectionActive：对象字段。
+ * protectionActive：protection激活相关字段。
  */
  protectionActive: boolean }) => number,
 ): number[] {

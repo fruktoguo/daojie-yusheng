@@ -42,7 +42,7 @@ function safeSerialize(payload: unknown): string {
 
 interface MovementLoggerLike {
 /**
- * log：MovementLoggerLike 内部字段。
+ * log：log相关字段。
  */
 
   log: (message: string) => void;

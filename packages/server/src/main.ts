@@ -18,17 +18,17 @@ const PORT_CONFLICT_SAMPLE_INTERVAL_MS = 100;
 
 interface PortRange {
 /**
- * start：PortRange 内部字段。
+ * start：start相关字段。
  */
 
   start: number;  
   /**
- * end：PortRange 内部字段。
+ * end：end相关字段。
  */
 
   end: number;  
   /**
- * managed：PortRange 内部字段。
+ * managed：managed相关字段。
  */
 
   managed: boolean;
@@ -40,22 +40,22 @@ interface PortRange {
 
 interface PortConflictSample {
 /**
- * lsofOutput：PortConflictSample 内部字段。
+ * lsofOutput：lsof输出相关字段。
  */
 
   lsofOutput: string;  
   /**
- * ssOutput：PortConflictSample 内部字段。
+ * ssOutput：ss输出相关字段。
  */
 
   ssOutput: string;  
   /**
- * fuserOutput：PortConflictSample 内部字段。
+ * fuserOutput：fuser输出相关字段。
  */
 
   fuserOutput: string;  
   /**
- * text：PortConflictSample 内部字段。
+ * text：text名称或显示文本。
  */
 
   text: string;
@@ -246,16 +246,16 @@ async function bootstrap(): Promise<void> {
   logger.log(`服务端已运行于 http://${host}:${port}`);
 }
 /**
- * hasErrorCode：执行状态校验并返回判断结果。
+ * hasErrorCode：判断ErrorCode是否满足条件。
  * @param error unknown 参数说明。
  * @param code string 参数说明。
- * @returns error is { code: string }。
+ * @returns 返回ErrorCode。
  */
 
 
 function hasErrorCode(error: unknown, code: string): error is {
 /**
- * code：对象字段。
+ * code：code相关字段。
  */
  code: string } {
   return typeof error === 'object' && error !== null && 'code' in error && error.code === code;

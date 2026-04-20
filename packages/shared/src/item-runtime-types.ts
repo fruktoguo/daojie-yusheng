@@ -27,12 +27,12 @@ export type EquipmentTrigger =
 /** 装备条件组合。 */
 export interface EquipmentConditionGroup {
 /**
- * mode：EquipmentConditionGroup 内部字段。
+ * mode：mode相关字段。
  */
 
   mode?: 'all' | 'any';  
   /**
- * items：EquipmentConditionGroup 内部字段。
+ * items：集合字段。
  */
 
   items: EquipmentConditionDef[];
@@ -42,154 +42,154 @@ export interface EquipmentConditionGroup {
 export type EquipmentConditionDef =
   | {  
   /**
- * type：对象字段。
+ * type：type相关字段。
  */
  type: 'time_segment';  
  /**
- * in：对象字段。
+ * in：in相关字段。
  */
  in: TimePhaseId[] }
   | {  
   /**
- * type：对象字段。
+ * type：type相关字段。
  */
  type: 'map';  
  /**
- * mapIds：对象字段。
+ * mapIds：地图ID相关字段。
  */
  mapIds: string[] }
   | {  
   /**
- * type：对象字段。
+ * type：type相关字段。
  */
  type: 'hp_ratio';  
  /**
- * op：对象字段。
+ * op：op相关字段。
  */
  op: '<=' | '>=';  
  /**
- * value：对象字段。
+ * value：值数值。
  */
  value: number }
   | {  
   /**
- * type：对象字段。
+ * type：type相关字段。
  */
  type: 'qi_ratio';  
  /**
- * op：对象字段。
+ * op：op相关字段。
  */
  op: '<=' | '>=';  
  /**
- * value：对象字段。
+ * value：值数值。
  */
  value: number }
   | {  
   /**
- * type：对象字段。
+ * type：type相关字段。
  */
  type: 'is_cultivating';  
  /**
- * value：对象字段。
+ * value：值数值。
  */
  value: boolean }
   | {  
   /**
- * type：对象字段。
+ * type：type相关字段。
  */
  type: 'has_buff';  
  /**
- * buffId：对象字段。
+ * buffId：buffID标识。
  */
  buffId: string;  
  /**
- * minStacks：对象字段。
+ * minStacks：minStack相关字段。
  */
  minStacks?: number }
   | {  
   /**
- * type：对象字段。
+ * type：type相关字段。
  */
  type: 'target_kind';  
  /**
- * in：对象字段。
+ * in：in相关字段。
  */
  in: Array<'monster' | 'player' | 'tile'> };
 
 /** 装备 Buff 定义。 */
 export interface EquipmentBuffDef {
 /**
- * buffId：EquipmentBuffDef 内部字段。
+ * buffId：buffID标识。
  */
 
   buffId: string;  
   /**
- * name：EquipmentBuffDef 内部字段。
+ * name：名称名称或显示文本。
  */
 
   name: string;  
   /**
- * desc：EquipmentBuffDef 内部字段。
+ * desc：desc相关字段。
  */
 
   desc?: string;  
   /**
- * shortMark：EquipmentBuffDef 内部字段。
+ * shortMark：shortMark相关字段。
  */
 
   shortMark?: string;  
   /**
- * category：EquipmentBuffDef 内部字段。
+ * category：category相关字段。
  */
 
   category?: BuffCategory;  
   /**
- * visibility：EquipmentBuffDef 内部字段。
+ * visibility：可见性相关字段。
  */
 
   visibility?: BuffVisibility;  
   /**
- * color：EquipmentBuffDef 内部字段。
+ * color：color相关字段。
  */
 
   color?: string;  
   /**
- * duration：EquipmentBuffDef 内部字段。
+ * duration：duration相关字段。
  */
 
   duration: number;  
   /**
- * stacks：EquipmentBuffDef 内部字段。
+ * stacks：stack相关字段。
  */
 
   stacks?: number;  
   /**
- * maxStacks：EquipmentBuffDef 内部字段。
+ * maxStacks：maxStack相关字段。
  */
 
   maxStacks?: number;  
   /**
- * attrs：EquipmentBuffDef 内部字段。
+ * attrs：attr相关字段。
  */
 
   attrs?: Partial<Attributes>;  
   /**
- * stats：EquipmentBuffDef 内部字段。
+ * stats：stat相关字段。
  */
 
   stats?: PartialNumericStats;  
   /**
- * qiProjection：EquipmentBuffDef 内部字段。
+ * qiProjection：qiProjection相关字段。
  */
 
   qiProjection?: QiProjectionModifier[];  
   /**
- * valueStats：EquipmentBuffDef 内部字段。
+ * valueStats：值Stat相关字段。
  */
 
   valueStats?: PartialNumericStats;  
   /**
- * presentationScale：EquipmentBuffDef 内部字段。
+ * presentationScale：presentationScale相关字段。
  */
 
   presentationScale?: number;
@@ -198,17 +198,17 @@ export interface EquipmentBuffDef {
 /** Buff 维持代价定义。 */
 export interface BuffSustainCostDef {
 /**
- * resource：BuffSustainCostDef 内部字段。
+ * resource：resource相关字段。
  */
 
   resource: 'hp' | 'qi';  
   /**
- * baseCost：BuffSustainCostDef 内部字段。
+ * baseCost：base消耗数值。
  */
 
   baseCost: number;  
   /**
- * growthRate：BuffSustainCostDef 内部字段。
+ * growthRate：growthRate数值。
  */
 
   growthRate?: number;
@@ -217,92 +217,92 @@ export interface BuffSustainCostDef {
 /** 消耗品施加的 Buff 定义。 */
 export interface ConsumableBuffDef {
 /**
- * buffId：ConsumableBuffDef 内部字段。
+ * buffId：buffID标识。
  */
 
   buffId: string;  
   /**
- * name：ConsumableBuffDef 内部字段。
+ * name：名称名称或显示文本。
  */
 
   name: string;  
   /**
- * desc：ConsumableBuffDef 内部字段。
+ * desc：desc相关字段。
  */
 
   desc?: string;  
   /**
- * shortMark：ConsumableBuffDef 内部字段。
+ * shortMark：shortMark相关字段。
  */
 
   shortMark?: string;  
   /**
- * category：ConsumableBuffDef 内部字段。
+ * category：category相关字段。
  */
 
   category?: BuffCategory;  
   /**
- * visibility：ConsumableBuffDef 内部字段。
+ * visibility：可见性相关字段。
  */
 
   visibility?: BuffVisibility;  
   /**
- * color：ConsumableBuffDef 内部字段。
+ * color：color相关字段。
  */
 
   color?: string;  
   /**
- * duration：ConsumableBuffDef 内部字段。
+ * duration：duration相关字段。
  */
 
   duration: number;  
   /**
- * maxStacks：ConsumableBuffDef 内部字段。
+ * maxStacks：maxStack相关字段。
  */
 
   maxStacks?: number;  
   /**
- * attrs：ConsumableBuffDef 内部字段。
+ * attrs：attr相关字段。
  */
 
   attrs?: Partial<Attributes>;  
   /**
- * stats：ConsumableBuffDef 内部字段。
+ * stats：stat相关字段。
  */
 
   stats?: PartialNumericStats;  
   /**
- * qiProjection：ConsumableBuffDef 内部字段。
+ * qiProjection：qiProjection相关字段。
  */
 
   qiProjection?: QiProjectionModifier[];  
   /**
- * valueStats：ConsumableBuffDef 内部字段。
+ * valueStats：值Stat相关字段。
  */
 
   valueStats?: PartialNumericStats;  
   /**
- * presentationScale：ConsumableBuffDef 内部字段。
+ * presentationScale：presentationScale相关字段。
  */
 
   presentationScale?: number;  
   /**
- * infiniteDuration：ConsumableBuffDef 内部字段。
+ * infiniteDuration：infiniteDuration相关字段。
  */
 
   infiniteDuration?: boolean;  
   /**
- * sustainCost：ConsumableBuffDef 内部字段。
+ * sustainCost：sustain消耗数值。
  */
 
   sustainCost?: BuffSustainCostDef;  
   /**
- * expireWithBuffId：ConsumableBuffDef 内部字段。
+ * expireWithBuffId：expireWithBuffID标识。
  */
 
   expireWithBuffId?: string;  
   /**
- * sourceSkillId：ConsumableBuffDef 内部字段。
+ * sourceSkillId：来源技能ID标识。
  */
 
   sourceSkillId?: string;
@@ -311,42 +311,42 @@ export interface ConsumableBuffDef {
 /** 装备常驻数值效果。 */
 export interface EquipmentStatAuraEffectDef {
 /**
- * effectId：EquipmentStatAuraEffectDef 内部字段。
+ * effectId：effectID标识。
  */
 
   effectId?: string;  
   /**
- * type：EquipmentStatAuraEffectDef 内部字段。
+ * type：type相关字段。
  */
 
   type: 'stat_aura';  
   /**
- * conditions：EquipmentStatAuraEffectDef 内部字段。
+ * conditions：condition相关字段。
  */
 
   conditions?: EquipmentConditionGroup;  
   /**
- * attrs：EquipmentStatAuraEffectDef 内部字段。
+ * attrs：attr相关字段。
  */
 
   attrs?: Partial<Attributes>;  
   /**
- * stats：EquipmentStatAuraEffectDef 内部字段。
+ * stats：stat相关字段。
  */
 
   stats?: PartialNumericStats;  
   /**
- * qiProjection：EquipmentStatAuraEffectDef 内部字段。
+ * qiProjection：qiProjection相关字段。
  */
 
   qiProjection?: QiProjectionModifier[];  
   /**
- * valueStats：EquipmentStatAuraEffectDef 内部字段。
+ * valueStats：值Stat相关字段。
  */
 
   valueStats?: PartialNumericStats;  
   /**
- * presentationScale：EquipmentStatAuraEffectDef 内部字段。
+ * presentationScale：presentationScale相关字段。
  */
 
   presentationScale?: number;
@@ -355,37 +355,37 @@ export interface EquipmentStatAuraEffectDef {
 /** 装备成长推进效果。 */
 export interface EquipmentProgressEffectDef {
 /**
- * effectId：EquipmentProgressEffectDef 内部字段。
+ * effectId：effectID标识。
  */
 
   effectId?: string;  
   /**
- * type：EquipmentProgressEffectDef 内部字段。
+ * type：type相关字段。
  */
 
   type: 'progress_boost';  
   /**
- * conditions：EquipmentProgressEffectDef 内部字段。
+ * conditions：condition相关字段。
  */
 
   conditions?: EquipmentConditionGroup;  
   /**
- * attrs：EquipmentProgressEffectDef 内部字段。
+ * attrs：attr相关字段。
  */
 
   attrs?: Partial<Attributes>;  
   /**
- * stats：EquipmentProgressEffectDef 内部字段。
+ * stats：stat相关字段。
  */
 
   stats?: PartialNumericStats;  
   /**
- * qiProjection：EquipmentProgressEffectDef 内部字段。
+ * qiProjection：qiProjection相关字段。
  */
 
   qiProjection?: QiProjectionModifier[];  
   /**
- * valueStats：EquipmentProgressEffectDef 内部字段。
+ * valueStats：值Stat相关字段。
  */
 
   valueStats?: PartialNumericStats;
@@ -394,42 +394,42 @@ export interface EquipmentProgressEffectDef {
 /** 装备持续代价效果。 */
 export interface EquipmentPeriodicCostEffectDef {
 /**
- * effectId：EquipmentPeriodicCostEffectDef 内部字段。
+ * effectId：effectID标识。
  */
 
   effectId?: string;  
   /**
- * type：EquipmentPeriodicCostEffectDef 内部字段。
+ * type：type相关字段。
  */
 
   type: 'periodic_cost';  
   /**
- * trigger：EquipmentPeriodicCostEffectDef 内部字段。
+ * trigger：trigger相关字段。
  */
 
   trigger: 'on_tick' | 'on_cultivation_tick';  
   /**
- * conditions：EquipmentPeriodicCostEffectDef 内部字段。
+ * conditions：condition相关字段。
  */
 
   conditions?: EquipmentConditionGroup;  
   /**
- * resource：EquipmentPeriodicCostEffectDef 内部字段。
+ * resource：resource相关字段。
  */
 
   resource: 'hp' | 'qi';  
   /**
- * mode：EquipmentPeriodicCostEffectDef 内部字段。
+ * mode：mode相关字段。
  */
 
   mode: 'flat' | 'max_ratio_bp' | 'current_ratio_bp';  
   /**
- * value：EquipmentPeriodicCostEffectDef 内部字段。
+ * value：值数值。
  */
 
   value: number;  
   /**
- * minRemain：EquipmentPeriodicCostEffectDef 内部字段。
+ * minRemain：minRemain相关字段。
  */
 
   minRemain?: number;
@@ -438,42 +438,42 @@ export interface EquipmentPeriodicCostEffectDef {
 /** 装备触发 Buff 效果。 */
 export interface EquipmentTimedBuffEffectDef {
 /**
- * effectId：EquipmentTimedBuffEffectDef 内部字段。
+ * effectId：effectID标识。
  */
 
   effectId?: string;  
   /**
- * type：EquipmentTimedBuffEffectDef 内部字段。
+ * type：type相关字段。
  */
 
   type: 'timed_buff';  
   /**
- * trigger：EquipmentTimedBuffEffectDef 内部字段。
+ * trigger：trigger相关字段。
  */
 
   trigger: EquipmentTrigger;  
   /**
- * target：EquipmentTimedBuffEffectDef 内部字段。
+ * target：目标相关字段。
  */
 
   target?: 'self' | 'target';  
   /**
- * cooldown：EquipmentTimedBuffEffectDef 内部字段。
+ * cooldown：冷却相关字段。
  */
 
   cooldown?: number;  
   /**
- * chance：EquipmentTimedBuffEffectDef 内部字段。
+ * chance：chance相关字段。
  */
 
   chance?: number;  
   /**
- * conditions：EquipmentTimedBuffEffectDef 内部字段。
+ * conditions：condition相关字段。
  */
 
   conditions?: EquipmentConditionGroup;  
   /**
- * buff：EquipmentTimedBuffEffectDef 内部字段。
+ * buff：buff相关字段。
  */
 
   buff: EquipmentBuffDef;
@@ -489,132 +489,132 @@ export type EquipmentEffectDef =
 /** 物品堆叠。 */
 export interface ItemStack {
 /**
- * itemId：ItemStack 内部字段。
+ * itemId：道具ID标识。
  */
 
   itemId: string;  
   /**
- * name：ItemStack 内部字段。
+ * name：名称名称或显示文本。
  */
 
   name: string;  
   /**
- * type：ItemStack 内部字段。
+ * type：type相关字段。
  */
 
   type: ItemType;  
   /**
- * count：ItemStack 内部字段。
+ * count：数量或计量字段。
  */
 
   count: number;  
   /**
- * desc：ItemStack 内部字段。
+ * desc：desc相关字段。
  */
 
   desc: string;  
   /**
- * groundLabel：ItemStack 内部字段。
+ * groundLabel：groundLabel名称或显示文本。
  */
 
   groundLabel?: string;  
   /**
- * grade：ItemStack 内部字段。
+ * grade：grade相关字段。
  */
 
   grade?: TechniqueGrade;  
   /**
- * level：ItemStack 内部字段。
+ * level：等级数值。
  */
 
   level?: number;  
   /**
- * equipSlot：ItemStack 内部字段。
+ * equipSlot：equipSlot相关字段。
  */
 
   equipSlot?: EquipSlot;  
   /**
- * equipAttrs：ItemStack 内部字段。
+ * equipAttrs：equipAttr相关字段。
  */
 
   equipAttrs?: Partial<Attributes>;  
   /**
- * equipStats：ItemStack 内部字段。
+ * equipStats：equipStat相关字段。
  */
 
   equipStats?: PartialNumericStats;  
   /**
- * equipValueStats：ItemStack 内部字段。
+ * equipValueStats：equip值Stat相关字段。
  */
 
   equipValueStats?: PartialNumericStats;  
   /**
- * effects：ItemStack 内部字段。
+ * effects：effect相关字段。
  */
 
   effects?: EquipmentEffectDef[];  
   /**
- * healAmount：ItemStack 内部字段。
+ * healAmount：数量或计量字段。
  */
 
   healAmount?: number;  
   /**
- * healPercent：ItemStack 内部字段。
+ * healPercent：healPercent相关字段。
  */
 
   healPercent?: number;  
   /**
- * qiPercent：ItemStack 内部字段。
+ * qiPercent：qiPercent相关字段。
  */
 
   qiPercent?: number;  
   /**
- * cooldown：ItemStack 内部字段。
+ * cooldown：冷却相关字段。
  */
 
   cooldown?: number;  
   /**
- * consumeBuffs：ItemStack 内部字段。
+ * consumeBuffs：consumeBuff相关字段。
  */
 
   consumeBuffs?: ConsumableBuffDef[];  
   /**
- * tags：ItemStack 内部字段。
+ * tags：tag相关字段。
  */
 
   tags?: string[];  
   /**
- * enhanceLevel：ItemStack 内部字段。
+ * enhanceLevel：enhance等级数值。
  */
 
   enhanceLevel?: number;  
   /**
- * alchemySuccessRate：ItemStack 内部字段。
+ * alchemySuccessRate：炼丹SuccessRate数值。
  */
 
   alchemySuccessRate?: number;  
   /**
- * alchemySpeedRate：ItemStack 内部字段。
+ * alchemySpeedRate：炼丹SpeedRate数值。
  */
 
   alchemySpeedRate?: number;  
   /**
- * mapUnlockId：ItemStack 内部字段。
+ * mapUnlockId：地图UnlockID标识。
  */
 
   mapUnlockId?: string;  
   /**
- * mapUnlockIds：ItemStack 内部字段。
+ * mapUnlockIds：地图UnlockID相关字段。
  */
 
   mapUnlockIds?: string[];  
   /**
- * tileAuraGainAmount：ItemStack 内部字段。
+ * tileAuraGainAmount：数量或计量字段。
  */
 
   tileAuraGainAmount?: number;  
   /**
- * allowBatchUse：ItemStack 内部字段。
+ * allowBatchUse：allowBatchUse相关字段。
  */
 
   allowBatchUse?: boolean;
@@ -623,22 +623,22 @@ export interface ItemStack {
 /** 背包。 */
 export interface Inventory {
 /**
- * items：Inventory 内部字段。
+ * items：集合字段。
  */
 
   items: ItemStack[];  
   /**
- * capacity：Inventory 内部字段。
+ * capacity：capacity相关字段。
  */
 
   capacity: number;  
   /**
- * cooldowns：Inventory 内部字段。
+ * cooldowns：冷却相关字段。
  */
 
   cooldowns?: InventoryItemCooldownState[];  
   /**
- * serverTick：Inventory 内部字段。
+ * serverTick：servertick相关字段。
  */
 
   serverTick?: number;
@@ -647,17 +647,17 @@ export interface Inventory {
 /** 背包内物品的运行时冷却态。 */
 export interface InventoryItemCooldownState {
 /**
- * itemId：InventoryItemCooldownState 内部字段。
+ * itemId：道具ID标识。
  */
 
   itemId: string;  
   /**
- * cooldown：InventoryItemCooldownState 内部字段。
+ * cooldown：冷却相关字段。
  */
 
   cooldown: number;  
   /**
- * startedAtTick：InventoryItemCooldownState 内部字段。
+ * startedAtTick：startedAttick相关字段。
  */
 
   startedAtTick: number;

@@ -18,253 +18,253 @@ import {
 
 type MainRuntimeStateSourceOptions = {
 /**
- * getPlayer：对象字段。
+ * getPlayer：玩家引用。
  */
 
   getPlayer: () => PlayerState | null;  
   /**
- * setPlayer：对象字段。
+ * setPlayer：玩家引用。
  */
 
   setPlayer: (player: PlayerState | null) => void;  
   /**
- * getLatestAttrUpdate：对象字段。
+ * getLatestAttrUpdate：LatestAttrUpdate相关字段。
  */
 
   getLatestAttrUpdate: () => ReturnType<MainRuntimeStateSourceOptions['buildAttrStateFromPlayer']> | null;  
   /**
- * setLatestAttrUpdate：对象字段。
+ * setLatestAttrUpdate：LatestAttrUpdate相关字段。
  */
 
   setLatestAttrUpdate: (value: ReturnType<MainRuntimeStateSourceOptions['buildAttrStateFromPlayer']> | null) => void;  
   /**
- * syncAuraLevelBaseValue：对象字段。
+ * syncAuraLevelBaseValue：Aura等级Base值数值。
  */
 
   syncAuraLevelBaseValue: (value?: number) => void;  
   /**
- * syncCurrentTimeState：对象字段。
+ * syncCurrentTimeState：Current时间状态状态或数据块。
  */
 
   syncCurrentTimeState: (state: NEXT_S2C_Bootstrap['time'] | null | undefined) => void;  
   /**
- * resolvePreviewTechniques：对象字段。
+ * resolvePreviewTechniques：Preview功法相关字段。
  */
 
   resolvePreviewTechniques: (techniques: TechniqueState[]) => TechniqueState[];  
   /**
- * buildAttrStateFromPlayer：对象字段。
+ * buildAttrStateFromPlayer：Attr状态From玩家引用。
  */
 
   buildAttrStateFromPlayer: (player: PlayerState) => NEXT_S2C_Bootstrap['self'] extends infer _T ? any : never;  
   /**
- * syncPlayerBridgeState：对象字段。
+ * syncPlayerBridgeState：玩家桥接状态状态或数据块。
  */
 
   syncPlayerBridgeState: (player: PlayerState | null) => void;  
   /**
- * syncAttrBridgeState：对象字段。
+ * syncAttrBridgeState：Attr桥接状态状态或数据块。
  */
 
   syncAttrBridgeState: (value: ReturnType<MainRuntimeStateSourceOptions['buildAttrStateFromPlayer']> | null) => void;  
   /**
- * syncInventoryBridgeState：对象字段。
+ * syncInventoryBridgeState：背包桥接状态状态或数据块。
  */
 
   syncInventoryBridgeState: (inventory: PlayerState['inventory'] | null) => void;  
   /**
- * syncEquipmentBridgeState：对象字段。
+ * syncEquipmentBridgeState：装备桥接状态状态或数据块。
  */
 
   syncEquipmentBridgeState: (equipment: PlayerState['equipment'] | null) => void;  
   /**
- * syncTechniquesBridgeState：对象字段。
+ * syncTechniquesBridgeState：功法桥接状态状态或数据块。
  */
 
   syncTechniquesBridgeState: (techniques: PlayerState['techniques'], cultivatingTechId?: string) => void;  
   /**
- * syncActionsBridgeState：对象字段。
+ * syncActionsBridgeState：Action桥接状态状态或数据块。
  */
 
   syncActionsBridgeState: (actions: PlayerState['actions'], autoBattle: boolean, autoRetaliate: boolean) => void;  
   /**
- * syncBootstrapQuestState：对象字段。
+ * syncBootstrapQuestState：Bootstrap任务状态状态或数据块。
  */
 
   syncBootstrapQuestState: (player: PlayerState) => void;  
   /**
- * syncTargetingOverlay：对象字段。
+ * syncTargetingOverlay：TargetingOverlay相关字段。
  */
 
   syncTargetingOverlay: () => void;  
   /**
- * syncSenseQiOverlay：对象字段。
+ * syncSenseQiOverlay：SenseQiOverlay相关字段。
  */
 
   syncSenseQiOverlay: () => void;  
   /**
- * applyBootstrapToMapRuntime：对象字段。
+ * applyBootstrapToMapRuntime：BootstrapTo地图运行态引用。
  */
 
   applyBootstrapToMapRuntime: (data: NEXT_S2C_Bootstrap) => void;  
   /**
- * applyMapStaticToRuntime：对象字段。
+ * applyMapStaticToRuntime：地图StaticTo运行态引用。
  */
 
   applyMapStaticToRuntime: (data: NEXT_S2C_MapStatic) => void;  
   /**
- * setRuntimePathCells：对象字段。
+ * setRuntimePathCells：运行态路径Cell相关字段。
  */
 
   setRuntimePathCells: () => void;  
   /**
- * resetObservedBaselinesFromPlayer：对象字段。
+ * resetObservedBaselinesFromPlayer：resetObservedBaselineFrom玩家引用。
  */
 
   resetObservedBaselinesFromPlayer: (player: PlayerState) => void;  
   /**
- * clearCurrentPath：对象字段。
+ * clearCurrentPath：clearCurrent路径相关字段。
  */
 
   clearCurrentPath: () => void;  
   /**
- * showSidePanel：对象字段。
+ * showSidePanel：showSide面板相关字段。
  */
 
   showSidePanel: () => void;  
   /**
- * setChatPersistenceScope：对象字段。
+ * setChatPersistenceScope：ChatPersistenceScope相关字段。
  */
 
   setChatPersistenceScope: (scope: string | null) => void;  
   /**
- * showChat：对象字段。
+ * showChat：showChat相关字段。
  */
 
   showChat: () => void;  
   /**
- * showHud：对象字段。
+ * showHud：showHud相关字段。
  */
 
   showHud: () => void;  
   /**
- * resizeCanvas：对象字段。
+ * resizeCanvas：resizeCanva相关字段。
  */
 
   resizeCanvas: () => void;  
   /**
- * refreshZoomChrome：对象字段。
+ * refreshZoomChrome：refreshZoomChrome相关字段。
  */
 
   refreshZoomChrome: () => void;  
   /**
- * setPanelRuntime：对象字段。
+ * setPanelRuntime：面板运行态引用。
  */
 
   setPanelRuntime: (state: {  
   /**
- * connected：对象字段。
+ * connected：connected相关字段。
  */
  connected?: boolean;  
  /**
- * playerId：对象字段。
+ * playerId：玩家ID标识。
  */
  playerId?: string | null;  
  /**
- * mapId：对象字段。
+ * mapId：地图ID标识。
  */
  mapId?: string | null;  
  /**
- * shellVisible：对象字段。
+ * shellVisible：shell可见相关字段。
  */
  shellVisible?: boolean }) => void;  
  /**
- * initAttrPanel：对象字段。
+ * initAttrPanel：initAttr面板相关字段。
  */
 
   initAttrPanel: (player: PlayerState) => void;  
   /**
- * initAttrDetail：对象字段。
+ * initAttrDetail：initAttr详情状态或数据块。
  */
 
   initAttrDetail: () => void;  
   /**
- * initInventoryState：对象字段。
+ * initInventoryState：init背包状态状态或数据块。
  */
 
   initInventoryState: (player: PlayerState) => void;  
   /**
- * initEquipmentPanel：对象字段。
+ * initEquipmentPanel：init装备面板相关字段。
  */
 
   initEquipmentPanel: (player: PlayerState) => void;  
   /**
- * initTechniqueState：对象字段。
+ * initTechniqueState：init功法状态状态或数据块。
  */
 
   initTechniqueState: (player: PlayerState) => void;  
   /**
- * initBodyTrainingPanel：对象字段。
+ * initBodyTrainingPanel：initBodyTraining面板相关字段。
  */
 
   initBodyTrainingPanel: (player: PlayerState) => void;  
   /**
- * initQuestState：对象字段。
+ * initQuestState：init任务状态状态或数据块。
  */
 
   initQuestState: (player: PlayerState) => void;  
   /**
- * initActionState：对象字段。
+ * initActionState：initAction状态状态或数据块。
  */
 
   initActionState: (player: PlayerState) => void;  
   /**
- * initWorldSummaryState：对象字段。
+ * initWorldSummaryState：init世界摘要状态状态或数据块。
  */
 
   initWorldSummaryState: () => void;  
   /**
- * refreshUiChrome：对象字段。
+ * refreshUiChrome：refreshUiChrome相关字段。
  */
 
   refreshUiChrome: () => void;  
   /**
- * initMailState：对象字段。
+ * initMailState：init邮件状态状态或数据块。
  */
 
   initMailState: (playerId: string) => void;  
   /**
- * initSuggestionState：对象字段。
+ * initSuggestionState：initSuggestion状态状态或数据块。
  */
 
   initSuggestionState: (playerId: string) => void;  
   /**
- * hideObserveModal：对象字段。
+ * hideObserveModal：hideObserve弹层相关字段。
  */
 
   hideObserveModal: () => void;  
   /**
- * applyWorldDelta：对象字段。
+ * applyWorldDelta：世界Delta相关字段。
  */
 
   applyWorldDelta: (data: NEXT_S2C_WorldDelta) => void;  
   /**
- * applySelfDelta：对象字段。
+ * applySelfDelta：SelfDelta相关字段。
  */
 
   applySelfDelta: (data: NEXT_S2C_SelfDelta) => void;  
   /**
- * applyPanelDelta：对象字段。
+ * applyPanelDelta：面板Delta相关字段。
  */
 
   applyPanelDelta: (data: NEXT_S2C_PanelDelta) => void;  
   /**
- * inventorySyncPlayerContext：对象字段。
+ * inventorySyncPlayerContext：背包Sync玩家上下文状态或数据块。
  */
 
   inventorySyncPlayerContext: (player?: PlayerState) => void;  
   /**
- * refreshHeavenGateModal：对象字段。
+ * refreshHeavenGateModal：refreshHeavenGate弹层相关字段。
  */
 
   refreshHeavenGateModal: (player: PlayerState | null) => void;
@@ -278,7 +278,7 @@ export type MainRuntimeStateSource = ReturnType<typeof createMainRuntimeStateSou
 /**
  * createMainRuntimeStateSource：构建并返回目标对象。
  * @param options MainRuntimeStateSourceOptions 选项参数。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新Main运行态状态来源相关状态。
  */
 
 
@@ -312,8 +312,8 @@ export function createMainRuntimeStateSource(options: MainRuntimeStateSourceOpti
 
   return {  
   /**
- * clear：执行核心业务逻辑。
- * @returns void。
+ * clear：执行clear相关逻辑。
+ * @returns 无返回值，直接更新clear相关状态。
  */
 
     clear(): void {
@@ -324,9 +324,9 @@ export function createMainRuntimeStateSource(options: MainRuntimeStateSourceOpti
       pendingNextPanelDelta = null;
     },    
     /**
- * handleInitSession：处理事件并驱动执行路径。
+ * handleInitSession：处理InitSession并更新相关状态。
  * @param data NEXT_S2C_InitSession 原始数据。
- * @returns void。
+ * @returns 无返回值，直接更新InitSession相关状态。
  */
 
 
@@ -334,9 +334,9 @@ export function createMainRuntimeStateSource(options: MainRuntimeStateSourceOpti
       latestNextInitSession = data;
     },    
     /**
- * handleMapEnter：处理事件并驱动执行路径。
+ * handleMapEnter：处理地图进入并更新相关状态。
  * @param data NEXT_S2C_MapEnter 原始数据。
- * @returns void。
+ * @returns 无返回值，直接更新地图Enter相关状态。
  */
 
 
@@ -344,9 +344,9 @@ export function createMainRuntimeStateSource(options: MainRuntimeStateSourceOpti
       latestNextMapEnter = data;
     },    
     /**
- * handleWorldDelta：处理事件并驱动执行路径。
+ * handleWorldDelta：处理世界增量并更新相关状态。
  * @param data NEXT_S2C_WorldDelta 原始数据。
- * @returns void。
+ * @returns 无返回值，直接更新世界Delta相关状态。
  */
 
 
@@ -360,9 +360,9 @@ export function createMainRuntimeStateSource(options: MainRuntimeStateSourceOpti
       options.applyWorldDelta(data);
     },    
     /**
- * handleSelfDelta：处理事件并驱动执行路径。
+ * handleSelfDelta：处理Self增量并更新相关状态。
  * @param data NEXT_S2C_SelfDelta 原始数据。
- * @returns void。
+ * @returns 无返回值，直接更新SelfDelta相关状态。
  */
 
 
@@ -376,9 +376,9 @@ export function createMainRuntimeStateSource(options: MainRuntimeStateSourceOpti
       options.applySelfDelta(data);
     },    
     /**
- * handlePanelDelta：处理事件并驱动执行路径。
+ * handlePanelDelta：处理面板增量并更新相关状态。
  * @param data NEXT_S2C_PanelDelta 原始数据。
- * @returns void。
+ * @returns 无返回值，直接更新面板Delta相关状态。
  */
 
 
@@ -392,9 +392,9 @@ export function createMainRuntimeStateSource(options: MainRuntimeStateSourceOpti
       options.applyPanelDelta(data);
     },    
     /**
- * handleRealm：处理事件并驱动执行路径。
+ * handleRealm：处理Realm并更新相关状态。
  * @param data NEXT_S2C_Realm 原始数据。
- * @returns void。
+ * @returns 无返回值，直接更新Realm相关状态。
  */
 
 
@@ -427,9 +427,9 @@ export function createMainRuntimeStateSource(options: MainRuntimeStateSourceOpti
       options.refreshUiChrome();
     },    
     /**
- * handleMapStatic：处理事件并驱动执行路径。
+ * handleMapStatic：处理地图Static并更新相关状态。
  * @param data NEXT_S2C_MapStatic 原始数据。
- * @returns void。
+ * @returns 无返回值，直接更新地图Static相关状态。
  */
 
 
@@ -447,9 +447,9 @@ export function createMainRuntimeStateSource(options: MainRuntimeStateSourceOpti
       }
     },    
     /**
- * handleBootstrap：处理事件并驱动执行路径。
+ * handleBootstrap：处理引导并更新相关状态。
  * @param data NEXT_S2C_Bootstrap 原始数据。
- * @returns void。
+ * @returns 无返回值，直接更新Bootstrap相关状态。
  */
 
 

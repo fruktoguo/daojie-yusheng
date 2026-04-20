@@ -24,25 +24,25 @@ const { cloneQuestState, buildNpcQuestProgressText } = world_runtime_normalizati
 /** NPC quest 写路径叶子服务：承接交互推进、接取与提交三个直接写入动作。 */
 let WorldRuntimeNpcQuestWriteService = class WorldRuntimeNpcQuestWriteService {
 /**
- * playerRuntimeService：对象字段。
+ * playerRuntimeService：玩家运行态服务引用。
  */
 
     playerRuntimeService;    
     /**
  * 构造器：初始化 当前 实例并建立基础状态。
  * @param playerRuntimeService 参数说明。
- * @returns 无返回值（构造函数）。
+ * @returns 无返回值，完成实例初始化。
  */
 
     constructor(playerRuntimeService) {
         this.playerRuntimeService = playerRuntimeService;
     }    
     /**
- * dispatchInteractNpcQuest：处理事件并驱动执行路径。
+ * dispatchInteractNpcQuest：判断InteractNPC任务是否满足条件。
  * @param playerId 玩家 ID。
  * @param npcId npc ID。
  * @param deps 运行时依赖。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新InteractNPC任务相关状态。
  */
 
     dispatchInteractNpcQuest(playerId, npcId, deps) {
@@ -75,12 +75,12 @@ let WorldRuntimeNpcQuestWriteService = class WorldRuntimeNpcQuestWriteService {
         }
     }    
     /**
- * dispatchAcceptNpcQuest：处理事件并驱动执行路径。
+ * dispatchAcceptNpcQuest：判断AcceptNPC任务是否满足条件。
  * @param playerId 玩家 ID。
  * @param npcId npc ID。
  * @param questId quest ID。
  * @param deps 运行时依赖。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新AcceptNPC任务相关状态。
  */
 
     dispatchAcceptNpcQuest(playerId, npcId, questId, deps) {
@@ -102,12 +102,12 @@ let WorldRuntimeNpcQuestWriteService = class WorldRuntimeNpcQuestWriteService {
         deps.queuePlayerNotice(playerId, `${npc.name}：${quest.story ?? quest.desc}`, 'success');
     }    
     /**
- * dispatchSubmitNpcQuest：处理事件并驱动执行路径。
+ * dispatchSubmitNpcQuest：判断SubmitNPC任务是否满足条件。
  * @param playerId 玩家 ID。
  * @param npcId npc ID。
  * @param questId quest ID。
  * @param deps 运行时依赖。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新SubmitNPC任务相关状态。
  */
 
     dispatchSubmitNpcQuest(playerId, npcId, questId, deps) {
@@ -142,11 +142,11 @@ let WorldRuntimeNpcQuestWriteService = class WorldRuntimeNpcQuestWriteService {
         }
     }    
     /**
- * enqueueNpcInteraction：执行核心业务逻辑。
+ * enqueueNpcInteraction：处理NPCInteraction并更新相关状态。
  * @param playerId 玩家 ID。
  * @param actionIdInput 参数说明。
  * @param deps 运行时依赖。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新NPCInteraction相关状态。
  */
 
     enqueueNpcInteraction(playerId, actionIdInput, deps) {
@@ -165,23 +165,23 @@ let WorldRuntimeNpcQuestWriteService = class WorldRuntimeNpcQuestWriteService {
         return deps.getPlayerViewOrThrow(playerId);
     }    
     /**
- * enqueueLegacyNpcInteraction：执行核心业务逻辑。
+ * enqueueLegacyNpcInteraction：处理LegacyNPCInteraction并更新相关状态。
  * @param playerId 玩家 ID。
  * @param actionIdInput 参数说明。
  * @param deps 运行时依赖。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新LegacyNPCInteraction相关状态。
  */
 
     enqueueLegacyNpcInteraction(playerId, actionIdInput, deps) {
         return this.enqueueNpcInteraction(playerId, actionIdInput, deps);
     }    
     /**
- * enqueueAcceptNpcQuest：执行核心业务逻辑。
+ * enqueueAcceptNpcQuest：处理AcceptNPC任务并更新相关状态。
  * @param playerId 玩家 ID。
  * @param npcIdInput 参数说明。
  * @param questIdInput 参数说明。
  * @param deps 运行时依赖。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新AcceptNPC任务相关状态。
  */
 
     enqueueAcceptNpcQuest(playerId, npcIdInput, questIdInput, deps) {
@@ -200,12 +200,12 @@ let WorldRuntimeNpcQuestWriteService = class WorldRuntimeNpcQuestWriteService {
         return deps.getPlayerViewOrThrow(playerId);
     }    
     /**
- * enqueueSubmitNpcQuest：执行核心业务逻辑。
+ * enqueueSubmitNpcQuest：处理SubmitNPC任务并更新相关状态。
  * @param playerId 玩家 ID。
  * @param npcIdInput 参数说明。
  * @param questIdInput 参数说明。
  * @param deps 运行时依赖。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新SubmitNPC任务相关状态。
  */
 
     enqueueSubmitNpcQuest(playerId, npcIdInput, questIdInput, deps) {
@@ -224,11 +224,11 @@ let WorldRuntimeNpcQuestWriteService = class WorldRuntimeNpcQuestWriteService {
         return deps.getPlayerViewOrThrow(playerId);
     }    
     /**
- * executeNpcQuestAction：执行核心业务逻辑。
+ * executeNpcQuestAction：执行executeNPC任务Action相关逻辑。
  * @param playerId 玩家 ID。
  * @param npcId npc ID。
  * @param deps 运行时依赖。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新executeNPC任务Action相关状态。
  */
 
     executeNpcQuestAction(playerId, npcId, deps) {
@@ -271,11 +271,11 @@ let WorldRuntimeNpcQuestWriteService = class WorldRuntimeNpcQuestWriteService {
         return { kind: 'npcQuests', npcQuests: questsView };
     }    
     /**
- * dispatchNpcInteraction：处理事件并驱动执行路径。
+ * dispatchNpcInteraction：判断NPCInteraction是否满足条件。
  * @param playerId 玩家 ID。
  * @param npcId npc ID。
  * @param deps 运行时依赖。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新NPCInteraction相关状态。
  */
 
     dispatchNpcInteraction(playerId, npcId, deps) {

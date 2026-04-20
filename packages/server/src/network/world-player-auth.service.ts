@@ -27,7 +27,7 @@ type AuthSource = 'next' | 'token' | 'token_runtime';
 
 interface AuthenticatePlayerTokenOptions {
 /**
- * protocol：AuthenticatePlayerTokenOptions 内部字段。
+ * protocol：protocol相关字段。
  */
 
   protocol?: unknown;
@@ -39,27 +39,27 @@ interface AuthenticatePlayerTokenOptions {
 
 interface TokenIdentity {
 /**
- * userId：TokenIdentity 内部字段。
+ * userId：userID标识。
  */
 
   userId: string;  
   /**
- * username：TokenIdentity 内部字段。
+ * username：username名称或显示文本。
  */
 
   username: string;  
   /**
- * displayName：TokenIdentity 内部字段。
+ * displayName：显示名称名称或显示文本。
  */
 
   displayName: string;  
   /**
- * playerId：TokenIdentity 内部字段。
+ * playerId：玩家ID标识。
  */
 
   playerId: string;  
   /**
- * playerName：TokenIdentity 内部字段。
+ * playerName：玩家名称名称或显示文本。
  */
 
   playerName: string;
@@ -71,27 +71,27 @@ interface TokenIdentity {
 
 interface PlayerIdentityLike extends TokenIdentity {
 /**
- * persistedSource：PlayerIdentityLike 内部字段。
+ * persistedSource：persisted来源相关字段。
  */
 
   persistedSource?: unknown;  
   /**
- * authSource：PlayerIdentityLike 内部字段。
+ * authSource：认证来源相关字段。
  */
 
   authSource?: unknown;  
   /**
- * nextLoadHit：PlayerIdentityLike 内部字段。
+ * nextLoadHit：nextLoadHit相关字段。
  */
 
   nextLoadHit?: unknown;  
   /**
- * updatedAt：PlayerIdentityLike 内部字段。
+ * updatedAt：updatedAt相关字段。
  */
 
   updatedAt?: unknown;  
   /**
- * version：PlayerIdentityLike 内部字段。
+ * version：version相关字段。
  */
 
   version?: unknown;
@@ -104,17 +104,17 @@ interface PlayerIdentityLike extends TokenIdentity {
 
 interface AuthenticatedPlayerIdentity extends PlayerIdentityLike {
 /**
- * authSource：AuthenticatedPlayerIdentity 内部字段。
+ * authSource：认证来源相关字段。
  */
 
   authSource: AuthSource;  
   /**
- * nextLoadHit：AuthenticatedPlayerIdentity 内部字段。
+ * nextLoadHit：nextLoadHit相关字段。
  */
 
   nextLoadHit: boolean;  
   /**
- * persistedSource：AuthenticatedPlayerIdentity 内部字段。
+ * persistedSource：persisted来源相关字段。
  */
 
   persistedSource?: PersistedSource | null;
@@ -129,37 +129,37 @@ interface PlayerIdentityPersistencePort {
   loadPlayerIdentity(userId: string): Promise<PlayerIdentityLike | null>;
   savePlayerIdentity(identity: {  
   /**
- * userId：PlayerIdentityPersistencePort 内部字段。
+ * userId：userID标识。
  */
 
     userId: string;    
     /**
- * username：PlayerIdentityPersistencePort 内部字段。
+ * username：username名称或显示文本。
  */
 
     username: string;    
     /**
- * displayName：PlayerIdentityPersistencePort 内部字段。
+ * displayName：显示名称名称或显示文本。
  */
 
     displayName: string;    
     /**
- * playerId：PlayerIdentityPersistencePort 内部字段。
+ * playerId：玩家ID标识。
  */
 
     playerId: string;    
     /**
- * playerName：PlayerIdentityPersistencePort 内部字段。
+ * playerName：玩家名称名称或显示文本。
  */
 
     playerName: string;    
     /**
- * persistedSource：PlayerIdentityPersistencePort 内部字段。
+ * persistedSource：persisted来源相关字段。
  */
 
     persistedSource: 'token_seed';    
     /**
- * updatedAt：PlayerIdentityPersistencePort 内部字段。
+ * updatedAt：updatedAt相关字段。
  */
 
     updatedAt: number;
@@ -174,8 +174,8 @@ interface WorldPlayerSourcePort {
   loadNextPlayerIdentity?(userId: string): Promise<PlayerIdentityLike | null>;
 }
 /**
- * hasLegacyDatabaseConfigured：执行状态校验并返回判断结果。
- * @returns boolean。
+ * hasLegacyDatabaseConfigured：判断LegacyDatabaseConfigured是否满足条件。
+ * @returns 返回是否满足LegacyDatabaseConfigured条件。
  */
 
 
@@ -192,9 +192,9 @@ function hasLegacyDatabaseConfigured(): boolean {
   return false;
 }
 /**
- * hasExplicitTokenPlayerIdentityClaims：执行状态校验并返回判断结果。
+ * hasExplicitTokenPlayerIdentityClaims：判断ExplicitToken玩家IdentityClaim是否满足条件。
  * @param payload ValidatedPlayerTokenPayload | null | undefined 载荷参数。
- * @returns boolean。
+ * @returns 返回是否满足ExplicitToken玩家IdentityClaim条件。
  */
 
 
@@ -206,9 +206,9 @@ function hasExplicitTokenPlayerIdentityClaims(
   return Boolean(playerId && playerName);
 }
 /**
- * normalizeProtocol：执行核心业务逻辑。
+ * normalizeProtocol：规范化或转换Protocol。
  * @param protocol unknown 参数说明。
- * @returns string。
+ * @returns 返回Protocol。
  */
 
 
@@ -216,9 +216,9 @@ function normalizeProtocol(protocol: unknown): string {
   return typeof protocol === 'string' ? protocol.trim().toLowerCase() : '';
 }
 /**
- * isExplicitMigrationProtocol：执行状态校验并返回判断结果。
+ * isExplicitMigrationProtocol：判断ExplicitMigrationProtocol是否满足条件。
  * @param protocol string 参数说明。
- * @returns boolean。
+ * @returns 返回是否满足ExplicitMigrationProtocol条件。
  */
 
 
@@ -226,9 +226,9 @@ function isExplicitMigrationProtocol(protocol: string): boolean {
   return protocol === 'migration';
 }
 /**
- * normalizePersistedSource：执行核心业务逻辑。
+ * normalizePersistedSource：判断Persisted来源是否满足条件。
  * @param identity Pick<PlayerIdentityLike, 'persistedSource'> | null | undefined 参数说明。
- * @returns PersistedSource | null。
+ * @returns 返回Persisted来源。
  */
 
 
@@ -256,9 +256,9 @@ function normalizePersistedSource(
   return null;
 }
 /**
- * resolvePersistedNextIdentityAuthSource：执行核心业务逻辑。
+ * resolvePersistedNextIdentityAuthSource：判断PersistedNextIdentity认证来源是否满足条件。
  * @param persistedSource PersistedSource 参数说明。
- * @returns Extract<AuthSource, 'next' | 'token'>。
+ * @returns 返回PersistedNextIdentity认证来源。
  */
 
 
@@ -278,7 +278,7 @@ export class WorldPlayerAuthService {
  * @param worldPlayerTokenService WorldPlayerTokenService 参数说明。
  * @param playerIdentityPersistenceService PlayerIdentityPersistencePort 参数说明。
  * @param worldPlayerSourceService WorldPlayerSourcePort 参数说明。
- * @returns 无返回值（构造函数）。
+ * @returns 无返回值，完成实例初始化。
  */
 
 
@@ -304,10 +304,10 @@ export class WorldPlayerAuthService {
     return this.playerIdentityPersistenceService.loadPlayerIdentity(userId);
   }  
   /**
- * authenticatePlayerToken：执行核心业务逻辑。
+ * authenticatePlayerToken：执行authenticate玩家Token相关逻辑。
  * @param token string 参数说明。
  * @param options AuthenticatePlayerTokenOptions | undefined 选项参数。
- * @returns Promise<AuthenticatedPlayerIdentity | null>。
+ * @returns 返回 Promise，完成后得到authenticate玩家Token。
  */
 
 

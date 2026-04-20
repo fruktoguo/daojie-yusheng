@@ -14,12 +14,12 @@ import { NextManagedAccountService } from './next-managed-account.service';
 
 interface UpdatePlayerPasswordBody {
 /**
- * newPassword：UpdatePlayerPasswordBody 内部字段。
+ * newPassword：newPassword相关字段。
  */
 
   newPassword?: string;  
   /**
- * password：UpdatePlayerPasswordBody 内部字段。
+ * password：password相关字段。
  */
 
   password?: string;
@@ -31,7 +31,7 @@ interface UpdatePlayerPasswordBody {
 
 interface UpdatePlayerAccountBody {
 /**
- * username：UpdatePlayerAccountBody 内部字段。
+ * username：username名称或显示文本。
  */
 
   username?: string;
@@ -43,12 +43,12 @@ interface UpdatePlayerAccountBody {
 
 interface UpdatePlayerBody {
 /**
- * section：UpdatePlayerBody 内部字段。
+ * section：section相关字段。
  */
 
   section?: unknown;  
   /**
- * snapshot：UpdatePlayerBody 内部字段。
+ * snapshot：快照状态或数据块。
  */
 
   snapshot?: unknown;
@@ -60,12 +60,12 @@ interface UpdatePlayerBody {
 
 interface SpawnBotsBody {
 /**
- * anchorPlayerId：SpawnBotsBody 内部字段。
+ * anchorPlayerId：anchor玩家ID标识。
  */
 
   anchorPlayerId?: string;  
   /**
- * count：SpawnBotsBody 内部字段。
+ * count：数量或计量字段。
  */
 
   count?: number;
@@ -77,12 +77,12 @@ interface SpawnBotsBody {
 
 interface RemoveBotsBody {
 /**
- * playerIds：RemoveBotsBody 内部字段。
+ * playerIds：玩家ID相关字段。
  */
 
   playerIds?: string[];  
   /**
- * all：RemoveBotsBody 内部字段。
+ * all：all相关字段。
  */
 
   all?: boolean;
@@ -110,17 +110,17 @@ interface BroadcastMailBody {
 
 interface RedeemCodeGroupBody {
 /**
- * name：RedeemCodeGroupBody 内部字段。
+ * name：名称名称或显示文本。
  */
 
   name?: string;  
   /**
- * rewards：RedeemCodeGroupBody 内部字段。
+ * rewards：reward相关字段。
  */
 
   rewards?: unknown[];  
   /**
- * count：RedeemCodeGroupBody 内部字段。
+ * count：数量或计量字段。
  */
 
   count?: unknown;
@@ -172,7 +172,7 @@ interface RedeemCodeRuntimeServicePort {
 @Reflect.metadata('design:paramtypes', [NextGmWorldService, NextManagedAccountService, NextGmPlayerService, NextGmMailService, RedeemCodeRuntimeService])
 export class NextGmController {
 /**
- * redeemCodeRuntimeService：NextGmController 内部字段。
+ * redeemCodeRuntimeService：redeemCode运行态服务引用。
  */
 
   private readonly redeemCodeRuntimeService: RedeemCodeRuntimeServicePort;  
@@ -183,7 +183,7 @@ export class NextGmController {
  * @param nextGmPlayerService NextGmPlayerService 参数说明。
  * @param nextGmMailService NextGmMailService 参数说明。
  * @param redeemCodeRuntimeService RedeemCodeRuntimeServicePort 参数说明。
- * @returns 无返回值（构造函数）。
+ * @returns 无返回值，完成实例初始化。
  */
 
 
@@ -197,8 +197,8 @@ export class NextGmController {
     this.redeemCodeRuntimeService = redeemCodeRuntimeService;
   }  
   /**
- * getState：按给定条件读取/查询数据。
- * @returns 函数返回值。
+ * getState：读取状态。
+ * @returns 无返回值，完成状态的读取/组装。
  */
 
 
@@ -207,8 +207,8 @@ export class NextGmController {
     return this.nextGmWorldService.getState();
   }  
   /**
- * getEditorCatalog：按给定条件读取/查询数据。
- * @returns 函数返回值。
+ * getEditorCatalog：读取Editor目录。
+ * @returns 无返回值，完成Editor目录的读取/组装。
  */
 
 
@@ -217,8 +217,8 @@ export class NextGmController {
     return this.nextGmWorldService.getEditorCatalog();
   }  
   /**
- * getMaps：按给定条件读取/查询数据。
- * @returns 函数返回值。
+ * getMaps：读取地图。
+ * @returns 无返回值，完成地图的读取/组装。
  */
 
 
@@ -227,14 +227,14 @@ export class NextGmController {
     return this.nextGmWorldService.getMaps();
   }  
   /**
- * getMapRuntime：按给定条件读取/查询数据。
+ * getMapRuntime：读取地图运行态。
  * @param mapId string 地图 ID。
  * @param qx string 参数说明。
  * @param qy string 参数说明。
  * @param qw string 参数说明。
  * @param qh string 参数说明。
  * @param viewerId string viewer ID。
- * @returns 函数返回值。
+ * @returns 无返回值，完成地图运行态的读取/组装。
  */
 
 
@@ -250,9 +250,9 @@ export class NextGmController {
     return this.nextGmWorldService.getMapRuntime(mapId, qx, qy, qw, qh, viewerId);
   }  
   /**
- * getPlayer：按给定条件读取/查询数据。
+ * getPlayer：读取玩家。
  * @param playerId string 玩家 ID。
- * @returns 函数返回值。
+ * @returns 无返回值，完成玩家的读取/组装。
  */
 
 
@@ -267,10 +267,10 @@ export class NextGmController {
     return player;
   }  
   /**
- * updatePlayerPassword：更新/写入相关状态。
+ * updatePlayerPassword：处理玩家Password并更新相关状态。
  * @param playerId string 玩家 ID。
  * @param body UpdatePlayerPasswordBody 参数说明。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新玩家Password相关状态。
  */
 
 
@@ -283,10 +283,10 @@ export class NextGmController {
     return { ok: true };
   }  
   /**
- * updatePlayerAccount：更新/写入相关状态。
+ * updatePlayerAccount：处理玩家Account并更新相关状态。
  * @param playerId string 玩家 ID。
  * @param body UpdatePlayerAccountBody 参数说明。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新玩家Account相关状态。
  */
 
 
@@ -296,10 +296,10 @@ export class NextGmController {
     return { ok: true };
   }  
   /**
- * updatePlayer：更新/写入相关状态。
+ * updatePlayer：处理玩家并更新相关状态。
  * @param playerId string 玩家 ID。
  * @param body UpdatePlayerBody 参数说明。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新玩家相关状态。
  */
 
 
@@ -309,9 +309,9 @@ export class NextGmController {
     return { ok: true };
   }  
   /**
- * resetPlayer：执行核心业务逻辑。
+ * resetPlayer：执行reset玩家相关逻辑。
  * @param playerId string 玩家 ID。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新reset玩家相关状态。
  */
 
 
@@ -327,9 +327,9 @@ export class NextGmController {
     return { ok: true };
   }  
   /**
- * resetHeavenGate：执行核心业务逻辑。
+ * resetHeavenGate：执行resetHeavenGate相关逻辑。
  * @param playerId string 玩家 ID。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新resetHeavenGate相关状态。
  */
 
 
@@ -339,9 +339,9 @@ export class NextGmController {
     return { ok: true };
   }  
   /**
- * spawnBots：执行核心业务逻辑。
+ * spawnBots：执行spawnBot相关逻辑。
  * @param body SpawnBotsBody 参数说明。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新spawnBot相关状态。
  */
 
 
@@ -351,9 +351,9 @@ export class NextGmController {
     return { ok: true };
   }  
   /**
- * removeBots：执行核心业务逻辑。
+ * removeBots：处理Bot并更新相关状态。
  * @param body RemoveBotsBody 参数说明。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新Bot相关状态。
  */
 
 
@@ -363,8 +363,8 @@ export class NextGmController {
     return { ok: true };
   }  
   /**
- * returnAllPlayersToDefaultSpawn：执行核心业务逻辑。
- * @returns 函数返回值。
+ * returnAllPlayersToDefaultSpawn：执行returnAll玩家To默认Spawn相关逻辑。
+ * @returns 无返回值，直接更新returnAll玩家ToDefaultSpawn相关状态。
  */
 
 
@@ -373,8 +373,8 @@ export class NextGmController {
     return this.nextGmPlayerService.returnAllPlayersToDefaultSpawn();
   }  
   /**
- * resetNetworkPerf：执行核心业务逻辑。
- * @returns 函数返回值。
+ * resetNetworkPerf：执行resetNetworkPerf相关逻辑。
+ * @returns 无返回值，直接更新resetNetworkPerf相关状态。
  */
 
 
@@ -384,8 +384,8 @@ export class NextGmController {
     return { ok: true };
   }  
   /**
- * resetCpuPerf：执行核心业务逻辑。
- * @returns 函数返回值。
+ * resetCpuPerf：执行resetCpuPerf相关逻辑。
+ * @returns 无返回值，直接更新resetCpuPerf相关状态。
  */
 
 
@@ -395,8 +395,8 @@ export class NextGmController {
     return { ok: true };
   }  
   /**
- * resetPathfindingPerf：执行核心业务逻辑。
- * @returns 函数返回值。
+ * resetPathfindingPerf：读取resetPathfindingPerf并返回结果。
+ * @returns 无返回值，直接更新resetPathfindingPerf相关状态。
  */
 
 
@@ -409,7 +409,7 @@ export class NextGmController {
  * createDirectMail：构建并返回目标对象。
  * @param playerId string 玩家 ID。
  * @param body DirectMailBody 参数说明。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新Direct邮件相关状态。
  */
 
 
@@ -421,7 +421,7 @@ export class NextGmController {
   /**
  * createBroadcastMail：构建并返回目标对象。
  * @param body BroadcastMailBody 参数说明。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新Broadcast邮件相关状态。
  */
 
 
@@ -431,8 +431,8 @@ export class NextGmController {
     return { ok: true, mailId: result.mailId, batchId: result.batchId, recipientCount: result.recipientCount };
   }  
   /**
- * getRedeemCodeGroups：按给定条件读取/查询数据。
- * @returns 函数返回值。
+ * getRedeemCodeGroups：读取RedeemCodeGroup。
+ * @returns 无返回值，完成RedeemCodeGroup的读取/组装。
  */
 
 
@@ -443,7 +443,7 @@ export class NextGmController {
   /**
  * createRedeemCodeGroup：构建并返回目标对象。
  * @param body RedeemCodeGroupBody 参数说明。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新RedeemCodeGroup相关状态。
  */
 
 
@@ -452,9 +452,9 @@ export class NextGmController {
     return this.redeemCodeRuntimeService.createGroup(body?.name ?? '', body?.rewards ?? [], Number(body?.count));
   }  
   /**
- * getRedeemCodeGroup：按给定条件读取/查询数据。
+ * getRedeemCodeGroup：读取RedeemCodeGroup。
  * @param groupId string group ID。
- * @returns 函数返回值。
+ * @returns 无返回值，完成RedeemCodeGroup的读取/组装。
  */
 
 
@@ -463,10 +463,10 @@ export class NextGmController {
     return this.redeemCodeRuntimeService.getGroupDetail(groupId);
   }  
   /**
- * updateRedeemCodeGroup：更新/写入相关状态。
+ * updateRedeemCodeGroup：处理RedeemCodeGroup并更新相关状态。
  * @param groupId string group ID。
  * @param body RedeemCodeGroupBody 参数说明。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新RedeemCodeGroup相关状态。
  */
 
 
@@ -475,10 +475,10 @@ export class NextGmController {
     return this.redeemCodeRuntimeService.updateGroup(groupId, body?.name ?? '', body?.rewards ?? []);
   }  
   /**
- * appendRedeemCodes：执行核心业务逻辑。
+ * appendRedeemCodes：执行appendRedeemCode相关逻辑。
  * @param groupId string group ID。
  * @param body RedeemCodeGroupBody 参数说明。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新appendRedeemCode相关状态。
  */
 
 
@@ -487,9 +487,9 @@ export class NextGmController {
     return this.redeemCodeRuntimeService.appendCodes(groupId, Number(body?.count));
   }  
   /**
- * destroyRedeemCode：执行核心业务逻辑。
+ * destroyRedeemCode：执行destroyRedeemCode相关逻辑。
  * @param codeId string code ID。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新destroyRedeemCode相关状态。
  */
 
 
@@ -498,9 +498,9 @@ export class NextGmController {
     return this.redeemCodeRuntimeService.destroyCode(codeId);
   }  
   /**
- * getSuggestions：按给定条件读取/查询数据。
+ * getSuggestions：读取Suggestion。
  * @param query SuggestionsQuery 参数说明。
- * @returns 函数返回值。
+ * @returns 无返回值，完成Suggestion的读取/组装。
  */
 
 
@@ -509,9 +509,9 @@ export class NextGmController {
     return this.nextGmWorldService.getSuggestions(query ?? {});
   }  
   /**
- * completeSuggestion：执行核心业务逻辑。
+ * completeSuggestion：执行completeSuggestion相关逻辑。
  * @param id string 参数说明。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新completeSuggestion相关状态。
  */
 
 
@@ -520,10 +520,10 @@ export class NextGmController {
     return this.nextGmWorldService.completeSuggestion(id);
   }  
   /**
- * replySuggestion：执行核心业务逻辑。
+ * replySuggestion：执行replySuggestion相关逻辑。
  * @param id string 参数说明。
  * @param body SuggestionReplyBody 参数说明。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新replySuggestion相关状态。
  */
 
 
@@ -532,9 +532,9 @@ export class NextGmController {
     return this.nextGmWorldService.replySuggestion(id, body ?? {});
   }  
   /**
- * removeSuggestion：执行核心业务逻辑。
+ * removeSuggestion：处理Suggestion并更新相关状态。
  * @param id string 参数说明。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新Suggestion相关状态。
  */
 
 
@@ -543,10 +543,10 @@ export class NextGmController {
     return this.nextGmWorldService.removeSuggestion(id);
   }  
   /**
- * updateMapTick：更新/写入相关状态。
+ * updateMapTick：处理地图tick并更新相关状态。
  * @param mapId string 地图 ID。
  * @param body MapConfigBody 参数说明。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新地图tick相关状态。
  */
 
 
@@ -556,10 +556,10 @@ export class NextGmController {
     return { ok: true };
   }  
   /**
- * updateMapTime：更新/写入相关状态。
+ * updateMapTime：处理地图时间并更新相关状态。
  * @param mapId string 地图 ID。
  * @param body MapConfigBody 参数说明。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新地图时间相关状态。
  */
 
 
@@ -569,8 +569,8 @@ export class NextGmController {
     return { ok: true };
   }  
   /**
- * reloadTickConfig：执行核心业务逻辑。
- * @returns 函数返回值。
+ * reloadTickConfig：读取reloadtick配置并返回结果。
+ * @returns 无返回值，直接更新reloadtick配置相关状态。
  */
 
 
@@ -579,9 +579,9 @@ export class NextGmController {
     return this.nextGmWorldService.reloadTickConfig();
   }  
   /**
- * clearWorldObservation：执行核心业务逻辑。
+ * clearWorldObservation：执行clear世界Observation相关逻辑。
  * @param viewerId string viewer ID。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新clear世界Observation相关状态。
  */
 
 

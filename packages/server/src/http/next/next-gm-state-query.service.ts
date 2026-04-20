@@ -14,12 +14,12 @@ import { NextManagedAccountService } from './next-managed-account.service';
 
 interface ManagedAccountEntryLike {
 /**
- * userId：ManagedAccountEntryLike 内部字段。
+ * userId：userID标识。
  */
 
   userId?: string;  
   /**
- * username：ManagedAccountEntryLike 内部字段。
+ * username：username名称或显示文本。
  */
 
   username?: string;
@@ -48,7 +48,7 @@ interface RuntimeGmStateServiceLike {
 
 interface MapTemplateSummaryLike {
 /**
- * id：MapTemplateSummaryLike 内部字段。
+ * id：ID标识。
  */
 
   id: string;
@@ -62,7 +62,7 @@ interface MapTemplateRepositoryLike {
   listSummaries(): MapTemplateSummaryLike[];
   getOrThrow(mapId: string): {  
   /**
- * name：MapTemplateRepositoryLike 内部字段。
+ * name：名称名称或显示文本。
  */
  name: string };
 }
@@ -73,17 +73,17 @@ interface MapTemplateRepositoryLike {
 
 interface PersistedPlayerEntryLike {
 /**
- * playerId：PersistedPlayerEntryLike 内部字段。
+ * playerId：玩家ID标识。
  */
 
   playerId: string;  
   /**
- * snapshot：PersistedPlayerEntryLike 内部字段。
+ * snapshot：快照状态或数据块。
  */
 
   snapshot: any;  
   /**
- * updatedAt：PersistedPlayerEntryLike 内部字段。
+ * updatedAt：updatedAt相关字段。
  */
 
   updatedAt: number;
@@ -119,17 +119,17 @@ interface PlayerRuntimeServiceLike {
 
 interface PerformanceTimerState {
 /**
- * networkPerfStartedAt：PerformanceTimerState 内部字段。
+ * networkPerfStartedAt：networkPerfStartedAt相关字段。
  */
 
   networkPerfStartedAt: number;  
   /**
- * cpuPerfStartedAt：PerformanceTimerState 内部字段。
+ * cpuPerfStartedAt：cpuPerfStartedAt相关字段。
  */
 
   cpuPerfStartedAt: number;  
   /**
- * pathfindingPerfStartedAt：PerformanceTimerState 内部字段。
+ * pathfindingPerfStartedAt：pathfindingPerfStartedAt相关字段。
  */
 
   pathfindingPerfStartedAt: number;
@@ -149,7 +149,7 @@ export class NextGmStateQueryService {
  * @param playerPersistenceService PlayerPersistenceServiceLike 参数说明。
  * @param playerProgressionService PlayerProgressionServiceLike 参数说明。
  * @param playerRuntimeService PlayerRuntimeServiceLike 参数说明。
- * @returns 无返回值（构造函数）。
+ * @returns 无返回值，完成实例初始化。
  */
 
   constructor(
@@ -167,9 +167,9 @@ export class NextGmStateQueryService {
     private readonly playerRuntimeService: PlayerRuntimeServiceLike,
   ) {}  
   /**
- * getState：按给定条件读取/查询数据。
+ * getState：读取状态。
  * @param timers PerformanceTimerState 参数说明。
- * @returns 函数返回值。
+ * @returns 无返回值，完成状态的读取/组装。
  */
 
 
@@ -193,10 +193,10 @@ export class NextGmStateQueryService {
     };
   }  
   /**
- * collectManagedPlayerIds：执行核心业务逻辑。
+ * collectManagedPlayerIds：执行Managed玩家ID相关逻辑。
  * @param runtimePlayers 参数说明。
  * @param persistedEntries 参数说明。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新Managed玩家ID相关状态。
  */
 
 
@@ -208,7 +208,7 @@ export class NextGmStateQueryService {
  * @param runtimePlayers 参数说明。
  * @param persistedEntries 参数说明。
  * @param accountIndex 参数说明。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新Managed玩家相关状态。
  */
 
 
@@ -241,7 +241,7 @@ export class NextGmStateQueryService {
   /**
  * buildPerformanceSnapshot：构建并返回目标对象。
  * @param timers PerformanceTimerState 参数说明。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新Performance快照相关状态。
  */
 
 
@@ -268,10 +268,10 @@ export class NextGmStateQueryService {
     };
   }  
   /**
- * toManagedPlayerSummary：执行核心业务逻辑。
+ * toManagedPlayerSummary：执行toManaged玩家摘要相关逻辑。
  * @param snapshot 参数说明。
  * @param account 参数说明。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新toManaged玩家摘要相关状态。
  */
 
 
@@ -307,12 +307,12 @@ export class NextGmStateQueryService {
     };
   }  
   /**
- * toManagedPlayerSummaryFromPersistence：执行核心业务逻辑。
+ * toManagedPlayerSummaryFromPersistence：判断toManaged玩家摘要FromPersistence是否满足条件。
  * @param playerId 玩家 ID。
  * @param snapshot 参数说明。
  * @param updatedAt 参数说明。
  * @param account 参数说明。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新toManaged玩家摘要FromPersistence相关状态。
  */
 
 
@@ -349,9 +349,9 @@ export class NextGmStateQueryService {
     };
   }  
   /**
- * toLegacyPlayerState：执行核心业务逻辑。
+ * toLegacyPlayerState：执行toLegacy玩家状态相关逻辑。
  * @param snapshot 参数说明。
- * @returns any。
+ * @returns 返回toLegacy玩家状态。
  */
 
 
@@ -434,10 +434,10 @@ export class NextGmStateQueryService {
     };
   }  
   /**
- * toLegacyPlayerStateFromPersistence：执行核心业务逻辑。
+ * toLegacyPlayerStateFromPersistence：判断toLegacy玩家状态FromPersistence是否满足条件。
  * @param playerId 玩家 ID。
  * @param snapshot 参数说明。
- * @returns any。
+ * @returns 返回toLegacy玩家状态FromPersistence。
  */
 
 
@@ -506,9 +506,9 @@ export class NextGmStateQueryService {
     };
   }  
   /**
- * resolveMapName：执行核心业务逻辑。
+ * resolveMapName：规范化或转换地图名称。
  * @param mapId string 地图 ID。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新地图名称相关状态。
  */
 
 
@@ -521,10 +521,10 @@ export class NextGmStateQueryService {
   }
 }
 /**
- * compareManagedPlayerSummary：执行核心业务逻辑。
+ * compareManagedPlayerSummary：执行compareManaged玩家摘要相关逻辑。
  * @param left 参数说明。
  * @param right 参数说明。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新compareManaged玩家摘要相关状态。
  */
 
 
@@ -546,9 +546,9 @@ function compareManagedPlayerSummary(left, right) {
   return left.roleName.localeCompare(right.roleName, 'zh-Hans-CN');
 }
 /**
- * roundMetric：执行核心业务逻辑。
+ * roundMetric：执行roundMetric相关逻辑。
  * @param value 参数说明。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新roundMetric相关状态。
  */
 
 
@@ -556,9 +556,9 @@ function roundMetric(value) {
   return Math.round(value * 100) / 100;
 }
 /**
- * toLegacyEquipmentSlots：执行核心业务逻辑。
+ * toLegacyEquipmentSlots：执行toLegacy装备Slot相关逻辑。
  * @param slots 参数说明。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新toLegacy装备Slot相关状态。
  */
 
 
@@ -574,9 +574,9 @@ function toLegacyEquipmentSlots(slots) {
   };
 }
 /**
- * cloneTemporaryBuff：执行核心业务逻辑。
+ * cloneTemporaryBuff：构建TemporaryBuff。
  * @param entry 参数说明。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新TemporaryBuff相关状态。
  */
 
 
@@ -591,9 +591,9 @@ function cloneTemporaryBuff(entry) {
   };
 }
 /**
- * cloneRatioDivisors：执行核心业务逻辑。
+ * cloneRatioDivisors：判断RatioDivisor是否满足条件。
  * @param source 来源对象。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新RatioDivisor相关状态。
  */
 
 

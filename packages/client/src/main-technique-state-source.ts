@@ -8,12 +8,12 @@ import { TechniquePanel } from './ui/panels/technique-panel';
 
 type MainTechniqueStateSourceOptions = {
 /**
- * techniquePanel：对象字段。
+ * techniquePanel：功法面板相关字段。
  */
 
   techniquePanel: Pick<TechniquePanel, 'setCallbacks' | 'initFromPlayer' | 'update' | 'syncDynamic' | 'clear'>;  
   /**
- * socket：对象字段。
+ * socket：socket相关字段。
  */
 
   socket: Pick<SocketRuntimeSender, 'sendCultivate'>;
@@ -27,7 +27,7 @@ export type MainTechniqueStateSource = ReturnType<typeof createMainTechniqueStat
 /**
  * createMainTechniqueStateSource：构建并返回目标对象。
  * @param options MainTechniqueStateSourceOptions 选项参数。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新Main功法状态来源相关状态。
  */
 
 
@@ -36,20 +36,20 @@ export function createMainTechniqueStateSource(options: MainTechniqueStateSource
 
   return {  
   /**
- * initFromPlayer：初始化并准备运行时基础状态。
+ * initFromPlayer：执行initFrom玩家相关逻辑。
  * @param player PlayerState 玩家对象。
- * @returns void。
+ * @returns 无返回值，直接更新initFrom玩家相关状态。
  */
 
     initFromPlayer(player: PlayerState): void {
       options.techniquePanel.initFromPlayer(player);
     },    
     /**
- * update：更新/写入相关状态。
+ * update：处理update并更新相关状态。
  * @param techniques TechniqueState[] 参数说明。
  * @param cultivatingTechId string cultivatingTech ID。
  * @param player PlayerState 玩家对象。
- * @returns void。
+ * @returns 无返回值，直接更新功法、标识、玩家相关状态。
  */
 
 
@@ -57,11 +57,11 @@ export function createMainTechniqueStateSource(options: MainTechniqueStateSource
       options.techniquePanel.update(techniques, cultivatingTechId, player);
     },    
     /**
- * syncDynamic：执行核心业务逻辑。
+ * syncDynamic：处理Dynamic并更新相关状态。
  * @param techniques TechniqueState[] 参数说明。
  * @param cultivatingTechId string cultivatingTech ID。
  * @param player PlayerState 玩家对象。
- * @returns void。
+ * @returns 无返回值，直接更新Dynamic相关状态。
  */
 
 
@@ -69,8 +69,8 @@ export function createMainTechniqueStateSource(options: MainTechniqueStateSource
       options.techniquePanel.syncDynamic(techniques, cultivatingTechId, player);
     },    
     /**
- * clear：执行核心业务逻辑。
- * @returns void。
+ * clear：执行clear相关逻辑。
+ * @returns 无返回值，直接更新clear相关状态。
  */
 
 

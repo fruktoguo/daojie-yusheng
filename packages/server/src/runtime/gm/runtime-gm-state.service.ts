@@ -191,7 +191,7 @@ let RuntimeGmStateService = class RuntimeGmStateService {
     }    
     /**
  * buildPerformanceSnapshot：构建并返回目标对象。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新Performance快照相关状态。
  */
 
     buildPerformanceSnapshot() {
@@ -271,7 +271,7 @@ let RuntimeGmStateService = class RuntimeGmStateService {
     }    
     /**
  * buildSharedGmStatePerf：构建并返回目标对象。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新SharedGM状态Perf相关状态。
  */
 
     buildSharedGmStatePerf() {
@@ -295,18 +295,18 @@ exports.RuntimeGmStateService = RuntimeGmStateService = __decorate([
 ], RuntimeGmStateService);
 export { RuntimeGmStateService };
 /**
- * roundMetric：执行核心业务逻辑。
+ * roundMetric：执行roundMetric相关逻辑。
  * @param value 参数说明。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新roundMetric相关状态。
  */
 
 function roundMetric(value) {
     return Math.round(value * 100) / 100;
 }
 /**
- * bytesToMb：执行核心业务逻辑。
+ * bytesToMb：执行byteToMb相关逻辑。
  * @param value 参数说明。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新byteToMb相关状态。
  */
 
 function bytesToMb(value) {

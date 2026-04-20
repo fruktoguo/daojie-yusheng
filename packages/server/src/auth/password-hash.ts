@@ -6,32 +6,32 @@ import { randomBytes, scryptSync, timingSafeEqual } from 'node:crypto';
 
 interface ParsedScryptHash {
 /**
- * cost：ParsedScryptHash 内部字段。
+ * cost：消耗数值。
  */
 
   cost: number;  
   /**
- * blockSize：ParsedScryptHash 内部字段。
+ * blockSize：数量或计量字段。
  */
 
   blockSize: number;  
   /**
- * parallelization：ParsedScryptHash 内部字段。
+ * parallelization：parallelization相关字段。
  */
 
   parallelization: number;  
   /**
- * keyLength：ParsedScryptHash 内部字段。
+ * keyLength：数量或计量字段。
  */
 
   keyLength: number;  
   /**
- * salt：ParsedScryptHash 内部字段。
+ * salt：salt相关字段。
  */
 
   salt: Buffer;  
   /**
- * hash：ParsedScryptHash 内部字段。
+ * hash：启用开关或状态标识。
  */
 
   hash: string;

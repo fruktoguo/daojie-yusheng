@@ -358,20 +358,20 @@ function resolveNearestWalkablePointInDocument(
   document: GmMapDocument,
   origin: {  
   /**
- * x：对象字段。
+ * x：x相关字段。
  */
  x: number;  
  /**
- * y：对象字段。
+ * y：y相关字段。
  */
  y: number },
 ): {
 /**
- * x：对象字段。
+ * x：x相关字段。
  */
  x: number;
  /**
- * y：对象字段。
+ * y：y相关字段。
  */
  y: number } | null {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
@@ -387,11 +387,11 @@ function resolveNearestWalkablePointInDocument(
 
   let portalFallback: {  
   /**
- * x：对象字段。
+ * x：x相关字段。
  */
  x: number;  
  /**
- * y：对象字段。
+ * y：y相关字段。
  */
  y: number } | null = null;
   for (let radius = 0; radius <= Math.max(document.width, document.height); radius += 1) {
@@ -438,34 +438,34 @@ export function normalizeEditableMapDocument(raw: unknown): GmMapDocument {
   const auras = Array.isArray(source.auras) ? source.auras : [];
   const resources = Array.isArray((source as {  
   /**
- * resources：对象字段。
+ * resources：resource相关字段。
  */
  resources?: unknown[] }).resources)
     ? (source as {    
     /**
- * resources：对象字段。
+ * resources：resource相关字段。
  */
  resources: unknown[] }).resources
     : [];
   const safeZones = Array.isArray((source as {  
   /**
- * safeZones：对象字段。
+ * safeZones：safeZone相关字段。
  */
  safeZones?: unknown[] }).safeZones)
     ? (source as {    
     /**
- * safeZones：对象字段。
+ * safeZones：safeZone相关字段。
  */
  safeZones: unknown[] }).safeZones
     : [];
   const landmarks = Array.isArray((source as {  
   /**
- * landmarks：对象字段。
+ * landmarks：landmark相关字段。
  */
  landmarks?: unknown[] }).landmarks)
     ? (source as {    
     /**
- * landmarks：对象字段。
+ * landmarks：landmark相关字段。
  */
  landmarks: unknown[] }).landmarks
     : [];
@@ -480,28 +480,28 @@ export function normalizeEditableMapDocument(raw: unknown): GmMapDocument {
     height: Number.isInteger(source.height) ? Number(source.height) : 0,
     routeDomain: normalizeMapRouteDomain((source as {    
     /**
- * routeDomain：对象字段。
+ * routeDomain：路线Domain相关字段。
  */
  routeDomain?: unknown }).routeDomain) ?? 'system',
     terrainProfileId: typeof (source as {    
     /**
- * terrainProfileId：对象字段。
+ * terrainProfileId：terrainProfileID标识。
  */
  terrainProfileId?: unknown }).terrainProfileId === 'string'
       ? (source as {      
       /**
- * terrainProfileId：对象字段。
+ * terrainProfileId：terrainProfileID标识。
  */
  terrainProfileId: string }).terrainProfileId
       : undefined,
     terrainRealmLv: Number.isFinite((source as {    
     /**
- * terrainRealmLv：对象字段。
+ * terrainRealmLv：terrainRealmLv相关字段。
  */
  terrainRealmLv?: unknown }).terrainRealmLv)
       ? Math.max(1, Math.floor(Number((source as {      
       /**
- * terrainRealmLv：对象字段。
+ * terrainRealmLv：terrainRealmLv相关字段。
  */
  terrainRealmLv?: number }).terrainRealmLv)))
       : undefined,
@@ -536,18 +536,18 @@ export function normalizeEditableMapDocument(raw: unknown): GmMapDocument {
     spawnPoint: {
       x: Number((source.spawnPoint as {      
       /**
- * x：对象字段。
+ * x：x相关字段。
  */
  x?: number } | undefined)?.x ?? 0),
       y: Number((source.spawnPoint as {      
       /**
- * y：对象字段。
+ * y：y相关字段。
  */
  y?: number } | undefined)?.y ?? 0),
     },
     time: normalizeMapTimeConfig((source as {    
     /**
- * time：对象字段。
+ * time：时间相关字段。
  */
  time?: unknown }).time),
     auras: auras.map((point) => ({

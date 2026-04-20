@@ -53,12 +53,12 @@ export class CanvasTextRendererAdapter {
     this.canvas.height = Math.max(1, Math.floor(backbufferHeight));
   }  
   /**
- * syncScene：执行核心业务逻辑。
+ * syncScene：处理Scene并更新相关状态。
  * @param scene MapSceneSnapshot 参数说明。
  * @param transition MapEntityTransition | null 参数说明。
  * @param motionSyncToken number 参数说明。
  * @param pathFadeDurationMs number 参数说明。
- * @returns void。
+ * @returns 无返回值，直接更新Scene相关状态。
  */
 
 
@@ -123,12 +123,12 @@ export class CanvasTextRendererAdapter {
     this.renderer.setSenseQiOverlay(null);
   }  
   /**
- * render：执行核心业务逻辑。
+ * render：执行render相关逻辑。
  * @param scene MapSceneSnapshot 参数说明。
  * @param camera CameraState 参数说明。
  * @param projection TopdownProjection 参数说明。
  * @param progress number 参数说明。
- * @returns void。
+ * @returns 无返回值，直接更新结果相关状态。
  */
 
 
@@ -183,7 +183,7 @@ export class CanvasTextRendererAdapter {
   /** 从动作特效推断浮动文字样式。 */
   private resolveActionTextStyle(effect: Extract<CombatEffect, {  
   /**
- * type：CanvasTextRendererAdapter 内部字段。
+ * type：type相关字段。
  */
  type: 'float' }>): FloatingActionTextStyle | undefined {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。

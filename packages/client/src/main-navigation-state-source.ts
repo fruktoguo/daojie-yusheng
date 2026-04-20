@@ -21,7 +21,7 @@ export type MainNavigationObservedEntity = Pick<
   'id' | 'wx' | 'wy' | 'char' | 'color' | 'name' | 'kind' | 'npcQuestMarker'
 > & {
 /**
- * npcQuestMarker：对象字段。
+ * npcQuestMarker：NPC任务Marker相关字段。
  */
 
   npcQuestMarker?: NpcQuestMarker;
@@ -34,54 +34,54 @@ export type MainNavigationObservedEntity = Pick<
 type PendingAutoInteraction =
   | {  
   /**
- * kind：对象字段。
+ * kind：kind相关字段。
  */
 
       kind: 'npc';      
       /**
- * mapId：对象字段。
+ * mapId：地图ID标识。
  */
 
       mapId: string;      
       /**
- * x：对象字段。
+ * x：x相关字段。
  */
 
       x: number;      
       /**
- * y：对象字段。
+ * y：y相关字段。
  */
 
       y: number;      
       /**
- * npcId：对象字段。
+ * npcId：NPCID标识。
  */
 
       npcId: string;
     }
   | {  
   /**
- * kind：对象字段。
+ * kind：kind相关字段。
  */
 
       kind: 'portal';      
       /**
- * mapId：对象字段。
+ * mapId：地图ID标识。
  */
 
       mapId: string;      
       /**
- * x：对象字段。
+ * x：x相关字段。
  */
 
       x: number;      
       /**
- * y：对象字段。
+ * y：y相关字段。
  */
 
       y: number;      
       /**
- * actionId：对象字段。
+ * actionId：actionID标识。
  */
 
       actionId: 'portal:travel';
@@ -93,79 +93,79 @@ type PendingAutoInteraction =
 
 type MainNavigationStateSourceOptions = {
 /**
- * getPlayer：对象字段。
+ * getPlayer：玩家引用。
  */
 
   getPlayer: () => {  
   /**
- * id：对象字段。
+ * id：ID标识。
  */
  id: string;  
  /**
- * x：对象字段。
+ * x：x相关字段。
  */
  x: number;  
  /**
- * y：对象字段。
+ * y：y相关字段。
  */
  y: number;  
  /**
- * mapId：对象字段。
+ * mapId：地图ID标识。
  */
  mapId: string;  
  /**
- * actions：对象字段。
+ * actions：action相关字段。
  */
  actions?: Array<{  
  /**
- * id：对象字段。
+ * id：ID标识。
  */
  id: string }> } | null;  
  /**
- * setPlayerFacing：对象字段。
+ * setPlayerFacing：玩家Facing相关字段。
  */
 
   setPlayerFacing: (direction: Direction) => void;  
   /**
- * getLatestEntities：对象字段。
+ * getLatestEntities：LatestEntity相关字段。
  */
 
   getLatestEntities: () => MainNavigationObservedEntity[];  
   /**
- * getLatestEntityById：对象字段。
+ * getLatestEntityById：LatestEntityByID标识。
  */
 
   getLatestEntityById: (id: string) => MainNavigationObservedEntity | undefined;  
   /**
- * getMapMeta：对象字段。
+ * getMapMeta：地图Meta相关字段。
  */
 
   getMapMeta: () => MapMeta | null;  
   /**
- * getKnownTileAt：对象字段。
+ * getKnownTileAt：KnownTileAt相关字段。
  */
 
   getKnownTileAt: (x: number, y: number) => Tile | null;  
   /**
- * setRuntimePathCells：对象字段。
+ * setRuntimePathCells：运行态路径Cell相关字段。
  */
 
   setRuntimePathCells: (cells: Array<{  
   /**
- * x：对象字段。
+ * x：x相关字段。
  */
  x: number;  
  /**
- * y：对象字段。
+ * y：y相关字段。
  */
  y: number }>) => void;  
  /**
- * sendMove：对象字段。
+ * sendMove：sendMove相关字段。
  */
 
   sendMove: (direction: Direction) => void;  
   /**
- * sendMoveTo：对象字段。
+ * sendMoveTo：sendMoveTo相关字段。
  */
 
   sendMoveTo: (
@@ -173,54 +173,54 @@ type MainNavigationStateSourceOptions = {
     y: number,
     options?: {    
     /**
- * ignoreVisibilityLimit：对象字段。
+ * ignoreVisibilityLimit：ignore可见性Limit相关字段。
  */
 
       ignoreVisibilityLimit?: boolean;      
       /**
- * allowNearestReachable：对象字段。
+ * allowNearestReachable：allowNearestReachable相关字段。
  */
 
       allowNearestReachable?: boolean;      
       /**
- * packedPath：对象字段。
+ * packedPath：packed路径相关字段。
  */
 
       packedPath?: string;      
       /**
- * packedPathSteps：对象字段。
+ * packedPathSteps：packed路径Step相关字段。
  */
 
       packedPathSteps?: number;      
       /**
- * pathStartX：对象字段。
+ * pathStartX：路径StartX相关字段。
  */
 
       pathStartX?: number;      
       /**
- * pathStartY：对象字段。
+ * pathStartY：路径StartY相关字段。
  */
 
       pathStartY?: number;
     },
   ) => void;  
   /**
- * sendAction：对象字段。
+ * sendAction：sendAction相关字段。
  */
 
   sendAction: (actionId: string) => void;  
   /**
- * openNpcShop：对象字段。
+ * openNpcShop：openNPCShop相关字段。
  */
 
   openNpcShop: (npcId: string) => void;  
   /**
- * openNpcQuestPending：对象字段。
+ * openNpcQuestPending：openNPC任务Pending相关字段。
  */
 
   openNpcQuestPending: (npcId: string) => void;  
   /**
- * showToast：对象字段。
+ * showToast：showToast相关字段。
  */
 
   showToast: (message: string) => void;
@@ -228,11 +228,11 @@ type MainNavigationStateSourceOptions = {
 
 const AUTO_INTERACTION_APPROACH_STEPS: ReadonlyArray<{
 /**
- * dx：对象字段。
+ * dx：dx相关字段。
  */
  dx: number;
  /**
- * dy：对象字段。
+ * dy：dy相关字段。
  */
  dy: number }> = [
   { dx: 0, dy: -1 },
@@ -241,9 +241,9 @@ const AUTO_INTERACTION_APPROACH_STEPS: ReadonlyArray<{
   { dx: 1, dy: 0 },
 ];
 /**
- * isPathPreviewBlockingEntity：执行状态校验并返回判断结果。
+ * isPathPreviewBlockingEntity：判断路径PreviewBlockingEntity是否满足条件。
  * @param entity MainNavigationObservedEntity 参数说明。
- * @returns boolean。
+ * @returns 返回是否满足路径PreviewBlockingEntity条件。
  */
 
 
@@ -253,7 +253,7 @@ function isPathPreviewBlockingEntity(entity: MainNavigationObservedEntity): bool
 /**
  * createPlayerOverlapPointKeySet：构建并返回目标对象。
  * @param mapMeta MapMeta | null 参数说明。
- * @returns ReadonlySet<string>。
+ * @returns 返回玩家OverlapPointKeySet映射/集合。
  */
 
 
@@ -269,36 +269,36 @@ export type MainNavigationStateSource = ReturnType<typeof createMainNavigationSt
 /**
  * createMainNavigationStateSource：构建并返回目标对象。
  * @param options MainNavigationStateSourceOptions 选项参数。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新Main导航状态来源相关状态。
  */
 
 
 export function createMainNavigationStateSource(options: MainNavigationStateSourceOptions) {
   let pathCells: Array<{  
   /**
- * x：对象字段。
+ * x：x相关字段。
  */
  x: number;  
  /**
- * y：对象字段。
+ * y：y相关字段。
  */
  y: number }> = [];
   let pathTarget: {  
   /**
- * x：对象字段。
+ * x：x相关字段。
  */
  x: number;  
  /**
- * y：对象字段。
+ * y：y相关字段。
  */
  y: number } | null = null;
   let pendingAutoInteraction: PendingAutoInteraction | null = null;  
   /**
- * isVisibleBlockingEntityAt：执行状态校验并返回判断结果。
+ * isVisibleBlockingEntityAt：判断可见BlockingEntityAt是否满足条件。
  * @param x number X 坐标。
  * @param y number Y 坐标。
  * @param config { allowSelf?: boolean; mapMeta?: MapMeta | null; playerOverlapPointKeys?: ReadonlySet<string> } 参数说明。
- * @returns boolean。
+ * @returns 返回是否满足可见BlockingEntityAt条件。
  */
 
 
@@ -307,15 +307,15 @@ export function createMainNavigationStateSource(options: MainNavigationStateSour
     y: number,
     config?: {    
     /**
- * allowSelf：对象字段。
+ * allowSelf：allowSelf相关字段。
  */
  allowSelf?: boolean;    
  /**
- * mapMeta：对象字段。
+ * mapMeta：地图Meta相关字段。
  */
  mapMeta?: MapMeta | null;    
  /**
- * playerOverlapPointKeys：对象字段。
+ * playerOverlapPointKeys：玩家OverlapPointKey相关字段。
  */
  playerOverlapPointKeys?: ReadonlySet<string> },
   ): boolean {
@@ -336,10 +336,10 @@ export function createMainNavigationStateSource(options: MainNavigationStateSour
     });
   }  
   /**
- * isCellInsideCurrentMap：执行状态校验并返回判断结果。
+ * isCellInsideCurrentMap：判断CellInside当前地图是否满足条件。
  * @param x number X 坐标。
  * @param y number Y 坐标。
- * @returns boolean。
+ * @returns 返回是否满足CellInsideCurrent地图条件。
  */
 
 
@@ -348,10 +348,10 @@ export function createMainNavigationStateSource(options: MainNavigationStateSour
     return Boolean(mapMeta && x >= 0 && x < mapMeta.width && y >= 0 && y < mapMeta.height);
   }  
   /**
- * isCellAvailableForAutoApproach：执行状态校验并返回判断结果。
+ * isCellAvailableForAutoApproach：判断CellAvailableForAutoApproach是否满足条件。
  * @param x number X 坐标。
  * @param y number Y 坐标。
- * @returns boolean。
+ * @returns 返回是否满足CellAvailableForAutoApproach条件。
  */
 
 
@@ -374,7 +374,7 @@ export function createMainNavigationStateSource(options: MainNavigationStateSour
  * @param startY number 参数说明。
  * @param targetX number 参数说明。
  * @param targetY number 参数说明。
- * @returns { cells: Array<{ x: number; y: number }>; directions: Direction[] } | null。
+ * @returns 返回ClientPreview路径。
  */
 
 
@@ -385,19 +385,19 @@ export function createMainNavigationStateSource(options: MainNavigationStateSour
     targetY: number,
   ): {  
   /**
- * cells：对象字段。
+ * cells：cell相关字段。
  */
  cells: Array<{  
  /**
- * x：对象字段。
+ * x：x相关字段。
  */
  x: number;  
  /**
- * y：对象字段。
+ * y：y相关字段。
  */
  y: number }>;  
  /**
- * directions：对象字段。
+ * directions：direction相关字段。
  */
  directions: Direction[] } | null {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
@@ -454,11 +454,11 @@ export function createMainNavigationStateSource(options: MainNavigationStateSour
 
     const previewCells: Array<{    
     /**
- * x：对象字段。
+ * x：x相关字段。
  */
  x: number;    
  /**
- * y：对象字段。
+ * y：y相关字段。
  */
  y: number }> = [];
     let currentX = startX;
@@ -475,9 +475,9 @@ export function createMainNavigationStateSource(options: MainNavigationStateSour
     };
   }  
   /**
- * resolveNpcInteractionActionId：执行核心业务逻辑。
+ * resolveNpcInteractionActionId：规范化或转换NPCInteractionActionID。
  * @param npc Pick<MainNavigationObservedEntity, 'id' | 'npcQuestMarker'> 参数说明。
- * @returns string | null。
+ * @returns 返回NPCInteractionActionID。
  */
 
 
@@ -504,19 +504,19 @@ export function createMainNavigationStateSource(options: MainNavigationStateSour
     return null;
   }  
   /**
- * resolveNpcApproachTarget：执行核心业务逻辑。
+ * resolveNpcApproachTarget：读取NPCApproach目标并返回结果。
  * @param npc MainNavigationObservedEntity 参数说明。
- * @returns { x: number; y: number } | null。
+ * @returns 返回NPCApproach目标。
  */
 
 
   function resolveNpcApproachTarget(npc: MainNavigationObservedEntity): {  
   /**
- * x：对象字段。
+ * x：x相关字段。
  */
  x: number;  
  /**
- * y：对象字段。
+ * y：y相关字段。
  */
  y: number } | null {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
@@ -528,19 +528,19 @@ export function createMainNavigationStateSource(options: MainNavigationStateSour
 
     let bestCandidate: {    
     /**
- * x：对象字段。
+ * x：x相关字段。
  */
  x: number;    
  /**
- * y：对象字段。
+ * y：y相关字段。
  */
  y: number;    
  /**
- * pathLength：对象字段。
+ * pathLength：数量或计量字段。
  */
  pathLength: number;    
  /**
- * distance：对象字段。
+ * distance：distance相关字段。
  */
  distance: number } | null = null;
     for (const step of AUTO_INTERACTION_APPROACH_STEPS) {
@@ -568,41 +568,41 @@ export function createMainNavigationStateSource(options: MainNavigationStateSour
 
   return {  
   /**
- * getPathCells：按给定条件读取/查询数据。
- * @returns Array<{ x: number; y: number }>。
+ * getPathCells：读取路径Cell。
+ * @returns 返回路径Cell。
  */
 
     getPathCells(): Array<{    
     /**
- * x：对象字段。
+ * x：x相关字段。
  */
  x: number;    
  /**
- * y：对象字段。
+ * y：y相关字段。
  */
  y: number }> {
       return pathCells;
     },    
     /**
- * getPathTarget：按给定条件读取/查询数据。
- * @returns { x: number; y: number } | null。
+ * getPathTarget：读取路径目标。
+ * @returns 返回路径目标。
  */
 
 
     getPathTarget(): {    
     /**
- * x：对象字段。
+ * x：x相关字段。
  */
  x: number;    
  /**
- * y：对象字段。
+ * y：y相关字段。
  */
  y: number } | null {
       return pathTarget;
     },    
     /**
- * hasActivePath：执行状态校验并返回判断结果。
- * @returns boolean。
+ * hasActivePath：判断激活路径是否满足条件。
+ * @returns 返回是否满足激活路径条件。
  */
 
 
@@ -610,8 +610,8 @@ export function createMainNavigationStateSource(options: MainNavigationStateSour
       return Boolean(pathTarget) || pathCells.length > 0;
     },    
     /**
- * syncPathCellsToRuntime：执行核心业务逻辑。
- * @returns void。
+ * syncPathCellsToRuntime：处理路径CellTo运行态并更新相关状态。
+ * @returns 无返回值，直接更新路径CellTo运行态相关状态。
  */
 
 
@@ -619,8 +619,8 @@ export function createMainNavigationStateSource(options: MainNavigationStateSour
       options.setRuntimePathCells(pathCells);
     },    
     /**
- * clearCurrentPath：执行核心业务逻辑。
- * @returns void。
+ * clearCurrentPath：执行clear当前路径相关逻辑。
+ * @returns 无返回值，直接更新clearCurrent路径相关状态。
  */
 
 
@@ -631,8 +631,8 @@ export function createMainNavigationStateSource(options: MainNavigationStateSour
       options.setRuntimePathCells(pathCells);
     },    
     /**
- * trimCurrentPathProgress：执行核心业务逻辑。
- * @returns void。
+ * trimCurrentPathProgress：执行trim当前路径进度相关逻辑。
+ * @returns 无返回值，直接更新trimCurrent路径进度相关状态。
  */
 
 
@@ -659,9 +659,9 @@ export function createMainNavigationStateSource(options: MainNavigationStateSour
       }
     },    
     /**
- * sendMoveCommand：执行核心业务逻辑。
+ * sendMoveCommand：执行sendMoveCommand相关逻辑。
  * @param direction Direction 方向参数。
- * @returns void。
+ * @returns 无返回值，直接更新sendMoveCommand相关状态。
  */
 
 
@@ -682,34 +682,34 @@ export function createMainNavigationStateSource(options: MainNavigationStateSour
       options.sendMove(direction);
     },    
     /**
- * planPathTo：执行核心业务逻辑。
+ * planPathTo：执行plan路径To相关逻辑。
  * @param target { x: number; y: number } 目标对象。
  * @param config { ignoreVisibilityLimit?: boolean; allowNearestReachable?: boolean; preserveAutoInteraction?: boolean } 参数说明。
- * @returns void。
+ * @returns 无返回值，直接更新plan路径To相关状态。
  */
 
 
     planPathTo(
       target: {      
       /**
- * x：对象字段。
+ * x：x相关字段。
  */
  x: number;      
  /**
- * y：对象字段。
+ * y：y相关字段。
  */
  y: number },
       config?: {      
       /**
- * ignoreVisibilityLimit：对象字段。
+ * ignoreVisibilityLimit：ignore可见性Limit相关字段。
  */
  ignoreVisibilityLimit?: boolean;      
  /**
- * allowNearestReachable：对象字段。
+ * allowNearestReachable：allowNearestReachable相关字段。
  */
  allowNearestReachable?: boolean;      
  /**
- * preserveAutoInteraction：对象字段。
+ * preserveAutoInteraction：preserveAutoInteraction相关字段。
  */
  preserveAutoInteraction?: boolean },
     ): void {
@@ -745,11 +745,11 @@ export function createMainNavigationStateSource(options: MainNavigationStateSour
       });
     },    
     /**
- * findObservedEntityAt：执行核心业务逻辑。
+ * findObservedEntityAt：读取ObservedEntityAt并返回结果。
  * @param x number X 坐标。
  * @param y number Y 坐标。
  * @param kind string 参数说明。
- * @returns MainNavigationObservedEntity | null。
+ * @returns 返回ObservedEntityAt。
  */
 
 
@@ -757,8 +757,8 @@ export function createMainNavigationStateSource(options: MainNavigationStateSour
       return options.getLatestEntities().find((entry) => entry.wx === x && entry.wy === y && (kind ? entry.kind === kind : true)) ?? null;
     },    
     /**
- * triggerAutoInteractionIfReady：执行核心业务逻辑。
- * @returns boolean。
+ * triggerAutoInteractionIfReady：读取triggerAutoInteractionIfReady并返回结果。
+ * @returns 返回是否满足triggerAutoInteractionIfReady条件。
  */
 
 
@@ -806,9 +806,9 @@ export function createMainNavigationStateSource(options: MainNavigationStateSour
       return true;
     },    
     /**
- * handleNpcClickTarget：处理事件并驱动执行路径。
+ * handleNpcClickTarget：读取NPCClick目标并返回结果。
  * @param npc MainNavigationObservedEntity 参数说明。
- * @returns boolean。
+ * @returns 返回是否满足NPCClick目标条件。
  */
 
 
@@ -860,20 +860,20 @@ export function createMainNavigationStateSource(options: MainNavigationStateSour
       return true;
     },    
     /**
- * handlePortalClickTarget：处理事件并驱动执行路径。
+ * handlePortalClickTarget：读取传送门Click目标并返回结果。
  * @param target { x: number; y: number } 目标对象。
  * @param tile Tile 参数说明。
- * @returns boolean。
+ * @returns 返回是否满足PortalClick目标条件。
  */
 
 
     handlePortalClickTarget(target: {    
     /**
- * x：对象字段。
+ * x：x相关字段。
  */
  x: number;    
  /**
- * y：对象字段。
+ * y：y相关字段。
  */
  y: number }, tile: Tile): boolean {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。

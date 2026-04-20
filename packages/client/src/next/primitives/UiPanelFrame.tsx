@@ -6,28 +6,28 @@ import type { PropsWithChildren, ReactNode } from 'react';
 
 export interface UiPanelFrameProps {
 /**
- * title：UiPanelFrameProps 内部字段。
+ * title：title名称或显示文本。
  */
 
   title: string;  
   /**
- * subtitle：UiPanelFrameProps 内部字段。
+ * subtitle：subtitle名称或显示文本。
  */
 
   subtitle?: ReactNode;  
   /**
- * actions：UiPanelFrameProps 内部字段。
+ * actions：action相关字段。
  */
 
   actions?: ReactNode;  
   /**
- * className：UiPanelFrameProps 内部字段。
+ * className：class名称名称或显示文本。
  */
 
   className?: string;
 }
 /**
- * UiPanelFrame：执行核心业务逻辑。
+ * UiPanelFrame：渲染Ui面板帧组件。
  * @param {
   title,
   subtitle,
@@ -35,7 +35,7 @@ export interface UiPanelFrameProps {
   className,
   children,
 } PropsWithChildren<UiPanelFrameProps> 参数说明。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新Ui面板帧相关状态。
  */
 
 

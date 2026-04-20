@@ -17,12 +17,12 @@ export type PathResultFailureReason =
 /** 网格点：寻路使用的整点坐标。 */
 export interface PathPoint {
 /**
- * x：PathPoint 内部字段。
+ * x：x相关字段。
  */
 
   x: number;  
   /**
- * y：PathPoint 内部字段。
+ * y：y相关字段。
  */
 
   y: number;
@@ -31,32 +31,32 @@ export interface PathPoint {
 /** 寻路静态地图片段：记录可行走性与代价网格。 */
 export interface PathfindingStaticGrid {
 /**
- * mapId：PathfindingStaticGrid 内部字段。
+ * mapId：地图ID标识。
  */
 
   mapId: string;  
   /**
- * mapRevision：PathfindingStaticGrid 内部字段。
+ * mapRevision：地图Revision相关字段。
  */
 
   mapRevision: number;  
   /**
- * width：PathfindingStaticGrid 内部字段。
+ * width：width相关字段。
  */
 
   width: number;  
   /**
- * height：PathfindingStaticGrid 内部字段。
+ * height：height相关字段。
  */
 
   height: number;  
   /**
- * walkable：PathfindingStaticGrid 内部字段。
+ * walkable：walkable相关字段。
  */
 
   walkable: Uint8Array;  
   /**
- * traversalCost：PathfindingStaticGrid 内部字段。
+ * traversalCost：traversal消耗数值。
  */
 
   traversalCost: Uint16Array;
@@ -65,22 +65,22 @@ export interface PathfindingStaticGrid {
 /** 寻路输入约束：限制路径长度、展开节点数和是否允许到达最近点。 */
 export interface PathfindingSearchLimits {
 /**
- * maxExpandedNodes：PathfindingSearchLimits 内部字段。
+ * maxExpandedNodes：maxExpandedNode相关字段。
  */
 
   maxExpandedNodes: number;  
   /**
- * maxPathLength：PathfindingSearchLimits 内部字段。
+ * maxPathLength：数量或计量字段。
  */
 
   maxPathLength: number;  
   /**
- * maxGoalDistance：PathfindingSearchLimits 内部字段。
+ * maxGoalDistance：maxGoalDistance相关字段。
  */
 
   maxGoalDistance?: number;  
   /**
- * allowPartialPath：PathfindingSearchLimits 内部字段。
+ * allowPartialPath：allowPartial路径相关字段。
  */
 
   allowPartialPath?: boolean;
@@ -89,27 +89,27 @@ export interface PathfindingSearchLimits {
 /** 寻路成功结果：携带完整/截断路径与遍历统计。 */
 export interface PathfindingSearchSuccess {
 /**
- * status：PathfindingSearchSuccess 内部字段。
+ * status：statu状态或数据块。
  */
 
   status: 'success';  
   /**
- * path：PathfindingSearchSuccess 内部字段。
+ * path：路径相关字段。
  */
 
   path: PathPoint[];  
   /**
- * expandedNodes：PathfindingSearchSuccess 内部字段。
+ * expandedNodes：expandedNode相关字段。
  */
 
   expandedNodes: number;  
   /**
- * reachedGoal：PathfindingSearchSuccess 内部字段。
+ * reachedGoal：reachedGoal相关字段。
  */
 
   reachedGoal: PathPoint;  
   /**
- * complete：PathfindingSearchSuccess 内部字段。
+ * complete：complete相关字段。
  */
 
   complete: boolean;
@@ -118,17 +118,17 @@ export interface PathfindingSearchSuccess {
 /** 寻路失败结果：用于提示目标不可达或提前终止。 */
 export interface PathfindingSearchFailure {
 /**
- * status：PathfindingSearchFailure 内部字段。
+ * status：statu状态或数据块。
  */
 
   status: 'failed';  
   /**
- * reason：PathfindingSearchFailure 内部字段。
+ * reason：reason相关字段。
  */
 
   reason: PathResultFailureReason;  
   /**
- * expandedNodes：PathfindingSearchFailure 内部字段。
+ * expandedNodes：expandedNode相关字段。
  */
 
   expandedNodes: number;
@@ -140,12 +140,12 @@ export type PathfindingSearchResult = PathfindingSearchSuccess | PathfindingSear
 /** A* open set 的堆节点，保存索引和优先级分值。 */
 interface HeapNode {
 /**
- * index：HeapNode 内部字段。
+ * index：index相关字段。
  */
 
   index: number;  
   /**
- * score：HeapNode 内部字段。
+ * score：score数值。
  */
 
   score: number;
@@ -154,12 +154,12 @@ interface HeapNode {
 /** 寻路运行期附加选项。 */
 interface PathfindingRunOptions {
 /**
- * cancelFlag：PathfindingRunOptions 内部字段。
+ * cancelFlag：cancelFlag相关字段。
  */
 
   cancelFlag?: Int32Array;  
   /**
- * cancelCheckInterval：PathfindingRunOptions 内部字段。
+ * cancelCheckInterval：cancelCheckInterval相关字段。
  */
 
   cancelCheckInterval?: number;
@@ -299,11 +299,11 @@ function validateGoals(
   goals: PathPoint[],
 ): {
 /**
- * indices：对象字段。
+ * indices：indice相关字段。
  */
  indices: Set<number>;
  /**
- * goalByIndex：对象字段。
+ * goalByIndex：goalByIndex相关字段。
  */
  goalByIndex: Map<number, PathPoint> } | PathfindingSearchFailure {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。

@@ -20,58 +20,58 @@ export type UiGameItemGradeTone =
 
 export interface UiGameItemProps extends ButtonHTMLAttributes<HTMLButtonElement> {
 /**
- * name：UiGameItemProps 内部字段。
+ * name：名称名称或显示文本。
  */
 
   name: string;  
   /**
- * typeLabel：UiGameItemProps 内部字段。
+ * typeLabel：typeLabel名称或显示文本。
  */
 
   typeLabel?: ReactNode;  
   /**
- * quantity：UiGameItemProps 内部字段。
+ * quantity：quantity相关字段。
  */
 
   quantity?: ReactNode;  
   /**
- * gradeLabel：UiGameItemProps 内部字段。
+ * gradeLabel：gradeLabel名称或显示文本。
  */
 
   gradeLabel?: ReactNode;  
   /**
- * note：UiGameItemProps 内部字段。
+ * note：note相关字段。
  */
 
   note?: ReactNode;  
   /**
- * chips：UiGameItemProps 内部字段。
+ * chips：chip相关字段。
  */
 
   chips?: ReactNode[];  
   /**
- * actions：UiGameItemProps 内部字段。
+ * actions：action相关字段。
  */
 
   actions?: ReactNode;  
   /**
- * active：UiGameItemProps 内部字段。
+ * active：启用开关或状态标识。
  */
 
   active?: boolean;  
   /**
- * compactName：UiGameItemProps 内部字段。
+ * compactName：compact名称名称或显示文本。
  */
 
   compactName?: boolean;  
   /**
- * gradeTone：UiGameItemProps 内部字段。
+ * gradeTone：gradeTone相关字段。
  */
 
   gradeTone?: UiGameItemGradeTone | null;
 }
 /**
- * UiGameItem：执行核心业务逻辑。
+ * UiGameItem：渲染UiGame道具组件。
  * @param {
   name,
   typeLabel,
@@ -87,7 +87,7 @@ export interface UiGameItemProps extends ButtonHTMLAttributes<HTMLButtonElement>
   children,
   ...props
 } PropsWithChildren<UiGameItemProps> 参数说明。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新UiGame道具相关状态。
  */
 
 

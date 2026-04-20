@@ -121,129 +121,129 @@ const LEGACY_MAP_TERRAIN_PROFILE_IDS = {
 /** MapInstanceRuntime：地图实例运行时实现。 */
 class MapInstanceRuntime {
 /**
- * meta：MapInstanceRuntime 内部字段。
+ * meta：meta相关字段。
  */
 
     meta;    
     /**
- * template：MapInstanceRuntime 内部字段。
+ * template：template相关字段。
  */
 
     template;    
     /**
- * occupancy：MapInstanceRuntime 内部字段。
+ * occupancy：occupancy相关字段。
  */
 
     occupancy;    
     /**
- * auraByTile：MapInstanceRuntime 内部字段。
+ * auraByTile：auraByTile相关字段。
  */
 
     auraByTile;    
     /**
- * tileDamageByTile：MapInstanceRuntime 内部字段。
+ * tileDamageByTile：tileDamageByTile相关字段。
  */
 
     tileDamageByTile = new Map();    
     /**
- * playersById：MapInstanceRuntime 内部字段。
+ * playersById：玩家ByID标识。
  */
 
     playersById = new Map();    
     /**
- * playersByHandle：MapInstanceRuntime 内部字段。
+ * playersByHandle：玩家ByHandle相关字段。
  */
 
     playersByHandle = new Map();    
     /**
- * npcsById：MapInstanceRuntime 内部字段。
+ * npcsById：NPCByID标识。
  */
 
     npcsById = new Map();    
     /**
- * npcIdByTile：MapInstanceRuntime 内部字段。
+ * npcIdByTile：NPCIDByTile相关字段。
  */
 
     npcIdByTile = new Map();    
     /**
- * landmarksById：MapInstanceRuntime 内部字段。
+ * landmarksById：landmarkByID标识。
  */
 
     landmarksById = new Map();    
     /**
- * landmarkIdByTile：MapInstanceRuntime 内部字段。
+ * landmarkIdByTile：landmarkIDByTile相关字段。
  */
 
     landmarkIdByTile = new Map();    
     /**
- * containersById：MapInstanceRuntime 内部字段。
+ * containersById：containerByID标识。
  */
 
     containersById = new Map();    
     /**
- * containerIdByTile：MapInstanceRuntime 内部字段。
+ * containerIdByTile：containerIDByTile相关字段。
  */
 
     containerIdByTile = new Map();    
     /**
- * monstersByRuntimeId：MapInstanceRuntime 内部字段。
+ * monstersByRuntimeId：怪物By运行态ID标识。
  */
 
     monstersByRuntimeId = new Map();    
     /**
- * monsterRuntimeIdByTile：MapInstanceRuntime 内部字段。
+ * monsterRuntimeIdByTile：怪物运行态IDByTile相关字段。
  */
 
     monsterRuntimeIdByTile = new Map();    
     /**
- * groundPilesByTile：MapInstanceRuntime 内部字段。
+ * groundPilesByTile：groundPileByTile相关字段。
  */
 
     groundPilesByTile = new Map();    
     /**
- * pendingCommands：MapInstanceRuntime 内部字段。
+ * pendingCommands：pendingCommand相关字段。
  */
 
     pendingCommands = new Map();    
     /**
- * freeHandles：MapInstanceRuntime 内部字段。
+ * freeHandles：freeHandle相关字段。
  */
 
     freeHandles = [];    
     /**
- * nextHandle：MapInstanceRuntime 内部字段。
+ * nextHandle：nextHandle相关字段。
  */
 
     nextHandle = 1;    
     /**
- * tick：MapInstanceRuntime 内部字段。
+ * tick：tick相关字段。
  */
 
     tick = 0;    
     /**
- * worldRevision：MapInstanceRuntime 内部字段。
+ * worldRevision：世界Revision相关字段。
  */
 
     worldRevision = 0;    
     /**
- * persistentRevision：MapInstanceRuntime 内部字段。
+ * persistentRevision：persistentRevision相关字段。
  */
 
     persistentRevision = 1;    
     /**
- * persistedRevision：MapInstanceRuntime 内部字段。
+ * persistedRevision：persistedRevision相关字段。
  */
 
     persistedRevision = 1;    
     /**
- * changedAuraTileCount：MapInstanceRuntime 内部字段。
+ * changedAuraTileCount：数量或计量字段。
  */
 
     changedAuraTileCount = 0;    
     /**
  * 构造器：初始化 当前 实例并建立基础状态。
  * @param request 请求参数。
- * @returns 无返回值（构造函数）。
+ * @returns 无返回值，完成实例初始化。
  */
 
     constructor(request) {

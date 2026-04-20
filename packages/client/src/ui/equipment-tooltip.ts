@@ -129,7 +129,7 @@ function formatTriggerLabel(trigger: EquipmentEffectDef extends infer _T ? strin
 /** buildTimedBuffAsideCard：构建Timed Buff Aside卡片。 */
 function buildTimedBuffAsideCard(effect: Extract<EquipmentEffectDef, {
 /**
- * type：对象字段。
+ * type：type相关字段。
  */
  type: 'timed_buff' }>): SkillTooltipAsideCard {
   const stackLimit = formatBuffMaxStacks(effect.buff.maxStacks);
@@ -155,11 +155,11 @@ function buildTimedBuffAsideCard(effect: Extract<EquipmentEffectDef, {
 /** buildEffectSummary：构建效果摘要。 */
 function buildEffectSummary(effect: EquipmentEffectDef): {
 /**
- * lines：对象字段。
+ * lines：line相关字段。
  */
  lines: string[];
  /**
- * asideCard：对象字段。
+ * asideCard：asideCard相关字段。
  */
  asideCard?: SkillTooltipAsideCard } {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
@@ -224,22 +224,22 @@ function buildEffectSummary(effect: EquipmentEffectDef): {
 /** ItemTooltipPayload：物品提示框载荷。 */
 export interface ItemTooltipPayload {
 /**
- * title：ItemTooltipPayload 内部字段。
+ * title：title名称或显示文本。
  */
 
   title: string;  
   /**
- * lines：ItemTooltipPayload 内部字段。
+ * lines：line相关字段。
  */
 
   lines: string[];  
   /**
- * asideCards：ItemTooltipPayload 内部字段。
+ * asideCards：asideCard相关字段。
  */
 
   asideCards: SkillTooltipAsideCard[];  
   /**
- * allowHtml：ItemTooltipPayload 内部字段。
+ * allowHtml：allowHtml相关字段。
  */
 
   allowHtml: boolean;
@@ -248,12 +248,12 @@ export interface ItemTooltipPayload {
 /** ItemTooltipCooldownState：物品冷却显示状态。 */
 export interface ItemTooltipCooldownState {
 /**
- * cooldown：ItemTooltipCooldownState 内部字段。
+ * cooldown：冷却相关字段。
  */
 
   cooldown: number;  
   /**
- * cooldownLeft：ItemTooltipCooldownState 内部字段。
+ * cooldownLeft：冷却Left相关字段。
  */
 
   cooldownLeft: number;
@@ -262,22 +262,22 @@ export interface ItemTooltipCooldownState {
 /** ItemTooltipContext：物品提示预览上下文。 */
 export interface ItemTooltipContext {
 /**
- * learnedTechniqueIds：ItemTooltipContext 内部字段。
+ * learnedTechniqueIds：learned功法ID相关字段。
  */
 
   learnedTechniqueIds?: ReadonlySet<string>;  
   /**
- * unlockedMinimapIds：ItemTooltipContext 内部字段。
+ * unlockedMinimapIds：unlockedMinimapID相关字段。
  */
 
   unlockedMinimapIds?: ReadonlySet<string>;  
   /**
- * equippedItem：ItemTooltipContext 内部字段。
+ * equippedItem：equipped道具相关字段。
  */
 
   equippedItem?: ItemStack | null;  
   /**
- * itemCooldown：ItemTooltipContext 内部字段。
+ * itemCooldown：道具冷却相关字段。
  */
 
   itemCooldown?: ItemTooltipCooldownState | null;

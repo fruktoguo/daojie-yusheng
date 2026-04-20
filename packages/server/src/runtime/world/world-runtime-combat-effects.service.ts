@@ -16,14 +16,14 @@ const common_1 = require("@nestjs/common");
 /** 战斗特效状态服务：承接实例级 fx buffer 与 push helper。 */
 let WorldRuntimeCombatEffectsService = class WorldRuntimeCombatEffectsService {
 /**
- * latestCombatEffectsByInstanceId：对象字段。
+ * latestCombatEffectsByInstanceId：latest战斗EffectByInstanceID标识。
  */
 
     latestCombatEffectsByInstanceId = new Map();    
     /**
- * getCombatEffects：按给定条件读取/查询数据。
+ * getCombatEffects：读取战斗Effect。
  * @param instanceId instance ID。
- * @returns 函数返回值。
+ * @returns 无返回值，完成战斗Effect的读取/组装。
  */
 
     getCombatEffects(instanceId) {
@@ -31,26 +31,26 @@ let WorldRuntimeCombatEffectsService = class WorldRuntimeCombatEffectsService {
         return effects ? effects.map((entry) => ({ ...entry })) : [];
     }    
     /**
- * resetFrameEffects：执行核心业务逻辑。
- * @returns 函数返回值。
+ * resetFrameEffects：执行reset帧Effect相关逻辑。
+ * @returns 无返回值，直接更新reset帧Effect相关状态。
  */
 
     resetFrameEffects() {
         this.latestCombatEffectsByInstanceId.clear();
     }    
     /**
- * resetAll：执行核心业务逻辑。
- * @returns 函数返回值。
+ * resetAll：执行resetAll相关逻辑。
+ * @returns 无返回值，直接更新resetAll相关状态。
  */
 
     resetAll() {
         this.latestCombatEffectsByInstanceId.clear();
     }    
     /**
- * pushCombatEffect：执行核心业务逻辑。
+ * pushCombatEffect：处理战斗Effect并更新相关状态。
  * @param instanceId instance ID。
  * @param effect 参数说明。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新战斗Effect相关状态。
  */
 
     pushCombatEffect(instanceId, effect) {
@@ -64,12 +64,12 @@ let WorldRuntimeCombatEffectsService = class WorldRuntimeCombatEffectsService {
         this.latestCombatEffectsByInstanceId.set(instanceId, [effect]);
     }    
     /**
- * pushActionLabelEffect：执行核心业务逻辑。
+ * pushActionLabelEffect：处理ActionLabelEffect并更新相关状态。
  * @param instanceId instance ID。
  * @param x X 坐标。
  * @param y Y 坐标。
  * @param text 参数说明。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新ActionLabelEffect相关状态。
  */
 
     pushActionLabelEffect(instanceId, x, y, text) {
@@ -83,13 +83,13 @@ let WorldRuntimeCombatEffectsService = class WorldRuntimeCombatEffectsService {
         });
     }    
     /**
- * pushDamageFloatEffect：执行核心业务逻辑。
+ * pushDamageFloatEffect：处理DamageFloatEffect并更新相关状态。
  * @param instanceId instance ID。
  * @param x X 坐标。
  * @param y Y 坐标。
  * @param damage 参数说明。
  * @param color 参数说明。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新DamageFloatEffect相关状态。
  */
 
     pushDamageFloatEffect(instanceId, x, y, damage, color) {
@@ -103,14 +103,14 @@ let WorldRuntimeCombatEffectsService = class WorldRuntimeCombatEffectsService {
         });
     }    
     /**
- * pushAttackEffect：执行核心业务逻辑。
+ * pushAttackEffect：处理AttackEffect并更新相关状态。
  * @param instanceId instance ID。
  * @param fromX 参数说明。
  * @param fromY 参数说明。
  * @param toX 参数说明。
  * @param toY 参数说明。
  * @param color 参数说明。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新AttackEffect相关状态。
  */
 
     pushAttackEffect(instanceId, fromX, fromY, toX, toY, color) {

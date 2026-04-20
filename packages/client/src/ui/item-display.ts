@@ -18,22 +18,22 @@ import { formatDisplayInteger } from '../utils/number';
 /** ItemAffinityBadge：物品展示徽记。 */
 export interface ItemAffinityBadge {
 /**
- * label：ItemAffinityBadge 内部字段。
+ * label：label名称或显示文本。
  */
 
   label: string;  
   /**
- * title：ItemAffinityBadge 内部字段。
+ * title：title名称或显示文本。
  */
 
   title: string;  
   /**
- * tone：ItemAffinityBadge 内部字段。
+ * tone：tone相关字段。
  */
 
   tone: 'physical' | 'spell' | 'mixed' | 'utility';  
   /**
- * element：ItemAffinityBadge 内部字段。
+ * element：element相关字段。
  */
 
   element: ElementKey | 'multi' | 'neutral';
@@ -42,27 +42,27 @@ export interface ItemAffinityBadge {
 /** ItemDisplayMeta：物品展示元数据。 */
 export interface ItemDisplayMeta {
 /**
- * displayItem：ItemDisplayMeta 内部字段。
+ * displayItem：显示道具相关字段。
  */
 
   displayItem: ItemStack;  
   /**
- * grade：ItemDisplayMeta 内部字段。
+ * grade：grade相关字段。
  */
 
   grade: TechniqueGrade | null;  
   /**
- * gradeLabel：ItemDisplayMeta 内部字段。
+ * gradeLabel：gradeLabel名称或显示文本。
  */
 
   gradeLabel: string | null;  
   /**
- * levelLabel：ItemDisplayMeta 内部字段。
+ * levelLabel：等级Label名称或显示文本。
  */
 
   levelLabel: string | null;  
   /**
- * affinityBadge：ItemDisplayMeta 内部字段。
+ * affinityBadge：affinityBadge相关字段。
  */
 
   affinityBadge: ItemAffinityBadge | null;
@@ -78,12 +78,12 @@ function appendUnique<T>(list: T[], value: T): void {
 /** resolveTechniqueDamageProfile：解析Technique Damage Profile。 */
 function resolveTechniqueDamageProfile(skills: SkillDef[]): {
 /**
- * kinds：对象字段。
+ * kinds：kind相关字段。
  */
 
   kinds: SkillDamageKind[];  
   /**
- * elements：对象字段。
+ * elements：element相关字段。
  */
 
   elements: ElementKey[];
@@ -112,11 +112,11 @@ function formatAffinityLabel(
   element: ItemAffinityBadge['element'],
 ): {
 /**
- * label：对象字段。
+ * label：label名称或显示文本。
  */
  label: string;
  /**
- * title：对象字段。
+ * title：title名称或显示文本。
  */
  title: string } {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。

@@ -6,12 +6,12 @@ import { resolveServerNextDatabaseEnvSource } from '../config/env-alias';
 
 interface PersistenceServiceLike {
 /**
- * enabled：PersistenceServiceLike 内部字段。
+ * enabled：启用开关或状态标识。
  */
 
   enabled?: boolean;  
   /**
- * pool：PersistenceServiceLike 内部字段。
+ * pool：缓存或索引容器。
  */
 
   pool?: unknown;
@@ -23,22 +23,22 @@ interface PersistenceServiceLike {
 
 interface RuntimeSummaryLike {
 /**
- * tick：RuntimeSummaryLike 内部字段。
+ * tick：tick相关字段。
  */
 
   tick?: number;  
   /**
- * instanceCount：RuntimeSummaryLike 内部字段。
+ * instanceCount：数量或计量字段。
  */
 
   instanceCount?: number;  
   /**
- * playerCount：RuntimeSummaryLike 内部字段。
+ * playerCount：数量或计量字段。
  */
 
   playerCount?: number;  
   /**
- * pendingCommandCount：RuntimeSummaryLike 内部字段。
+ * pendingCommandCount：数量或计量字段。
  */
 
   pendingCommandCount?: number;
@@ -50,7 +50,7 @@ interface RuntimeSummaryLike {
 
 interface RuntimeServiceLike {
 /**
- * getRuntimeSummary：RuntimeServiceLike 内部字段。
+ * getRuntimeSummary：get运行态摘要状态或数据块。
  */
 
   getRuntimeSummary?: () => RuntimeSummaryLike;
@@ -62,7 +62,7 @@ interface RuntimeServiceLike {
 
 interface MaintenanceStateServiceLike {
 /**
- * isRuntimeMaintenanceActive：MaintenanceStateServiceLike 内部字段。
+ * isRuntimeMaintenanceActive：启用开关或状态标识。
  */
 
   isRuntimeMaintenanceActive?: () => boolean;
@@ -74,32 +74,32 @@ interface MaintenanceStateServiceLike {
 
 export interface HealthReadinessDependencies {
 /**
- * playerPersistenceService：HealthReadinessDependencies 内部字段。
+ * playerPersistenceService：玩家Persistence服务引用。
  */
 
   playerPersistenceService?: PersistenceServiceLike | null;  
   /**
- * mailPersistenceService：HealthReadinessDependencies 内部字段。
+ * mailPersistenceService：邮件Persistence服务引用。
  */
 
   mailPersistenceService?: PersistenceServiceLike | null;  
   /**
- * marketPersistenceService：HealthReadinessDependencies 内部字段。
+ * marketPersistenceService：坊市Persistence服务引用。
  */
 
   marketPersistenceService?: PersistenceServiceLike | null;  
   /**
- * suggestionPersistenceService：HealthReadinessDependencies 内部字段。
+ * suggestionPersistenceService：suggestionPersistence服务引用。
  */
 
   suggestionPersistenceService?: PersistenceServiceLike | null;  
   /**
- * maintenanceStateService：HealthReadinessDependencies 内部字段。
+ * maintenanceStateService：maintenance状态服务引用。
  */
 
   maintenanceStateService?: MaintenanceStateServiceLike | null;  
   /**
- * worldRuntimeService：HealthReadinessDependencies 内部字段。
+ * worldRuntimeService：世界运行态服务引用。
  */
 
   worldRuntimeService?: RuntimeServiceLike | null;
@@ -111,12 +111,12 @@ export interface HealthReadinessDependencies {
 
 interface PersistenceReadiness {
 /**
- * enabled：PersistenceReadiness 内部字段。
+ * enabled：启用开关或状态标识。
  */
 
   enabled: boolean;  
   /**
- * reason：PersistenceReadiness 内部字段。
+ * reason：reason相关字段。
  */
 
   reason: string;
@@ -128,32 +128,32 @@ interface PersistenceReadiness {
 
 interface RuntimeReadiness {
 /**
- * ready：RuntimeReadiness 内部字段。
+ * ready：ready相关字段。
  */
 
   ready: boolean;  
   /**
- * reason：RuntimeReadiness 内部字段。
+ * reason：reason相关字段。
  */
 
   reason: string;  
   /**
- * tick：RuntimeReadiness 内部字段。
+ * tick：tick相关字段。
  */
 
   tick: number;  
   /**
- * instanceCount：RuntimeReadiness 内部字段。
+ * instanceCount：数量或计量字段。
  */
 
   instanceCount: number;  
   /**
- * playerCount：RuntimeReadiness 内部字段。
+ * playerCount：数量或计量字段。
  */
 
   playerCount: number;  
   /**
- * pendingCommandCount：RuntimeReadiness 内部字段。
+ * pendingCommandCount：数量或计量字段。
  */
 
   pendingCommandCount: number;
@@ -165,132 +165,132 @@ interface RuntimeReadiness {
 
 interface HealthResponse {
 /**
- * ok：HealthResponse 内部字段。
+ * ok：ok相关字段。
  */
 
   ok: boolean;  
   /**
- * service：HealthResponse 内部字段。
+ * service：服务引用。
  */
 
   service: string;  
   /**
- * alive：HealthResponse 内部字段。
+ * alive：alive相关字段。
  */
 
   alive: {  
   /**
- * ok：HealthResponse 内部字段。
+ * ok：ok相关字段。
  */
 
     ok: boolean;    
     /**
- * service：HealthResponse 内部字段。
+ * service：服务引用。
  */
 
     service: string;
   };  
   /**
- * readiness：HealthResponse 内部字段。
+ * readiness：readiness相关字段。
  */
 
   readiness: {  
   /**
- * ok：HealthResponse 内部字段。
+ * ok：ok相关字段。
  */
 
     ok: boolean;    
     /**
- * maintenance：HealthResponse 内部字段。
+ * maintenance：maintenance相关字段。
  */
 
     maintenance: {    
     /**
- * active：HealthResponse 内部字段。
+ * active：启用开关或状态标识。
  */
 
       active: boolean;      
       /**
- * source：HealthResponse 内部字段。
+ * source：来源相关字段。
  */
 
       source: string | null;      
       /**
- * reason：HealthResponse 内部字段。
+ * reason：reason相关字段。
  */
 
       reason: string;
     };    
     /**
- * database：HealthResponse 内部字段。
+ * database：database相关字段。
  */
 
     database: {    
     /**
- * configured：HealthResponse 内部字段。
+ * configured：configured相关字段。
  */
 
       configured: boolean;      
       /**
- * source：HealthResponse 内部字段。
+ * source：来源相关字段。
  */
 
       source: string | null;
     };    
     /**
- * persistence：HealthResponse 内部字段。
+ * persistence：persistence相关字段。
  */
 
     persistence: {    
     /**
- * player：HealthResponse 内部字段。
+ * player：玩家引用。
  */
 
       player: PersistenceReadiness;      
       /**
- * mail：HealthResponse 内部字段。
+ * mail：邮件相关字段。
  */
 
       mail: PersistenceReadiness;      
       /**
- * market：HealthResponse 内部字段。
+ * market：坊市相关字段。
  */
 
       market: PersistenceReadiness;      
       /**
- * suggestion：HealthResponse 内部字段。
+ * suggestion：suggestion相关字段。
  */
 
       suggestion: PersistenceReadiness;
     };    
     /**
- * auth：HealthResponse 内部字段。
+ * auth：认证相关字段。
  */
 
     auth: {    
     /**
- * ready：HealthResponse 内部字段。
+ * ready：ready相关字段。
  */
 
       ready: boolean;      
       /**
- * mode：HealthResponse 内部字段。
+ * mode：mode相关字段。
  */
 
       mode: 'next_only';      
       /**
- * source：HealthResponse 内部字段。
+ * source：来源相关字段。
  */
 
       source: null;      
       /**
- * reason：HealthResponse 内部字段。
+ * reason：reason相关字段。
  */
 
       reason: 'next_auth_only';
     };    
     /**
- * runtime：HealthResponse 内部字段。
+ * runtime：运行态引用。
  */
 
     runtime: RuntimeReadiness;

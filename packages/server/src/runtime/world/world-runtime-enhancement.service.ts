@@ -23,17 +23,17 @@ const world_runtime_craft_mutation_service_1 = require("./world-runtime-craft-mu
 /** world-runtime enhancement orchestration：承接强化写路径与面板刷新。 */
 let WorldRuntimeEnhancementService = class WorldRuntimeEnhancementService {
 /**
- * playerRuntimeService：对象字段。
+ * playerRuntimeService：玩家运行态服务引用。
  */
 
     playerRuntimeService;    
     /**
- * craftPanelRuntimeService：对象字段。
+ * craftPanelRuntimeService：炼制面板运行态服务引用。
  */
 
     craftPanelRuntimeService;    
     /**
- * worldRuntimeCraftMutationService：对象字段。
+ * worldRuntimeCraftMutationService：世界运行态炼制Mutation服务引用。
  */
 
     worldRuntimeCraftMutationService;    
@@ -42,7 +42,7 @@ let WorldRuntimeEnhancementService = class WorldRuntimeEnhancementService {
  * @param playerRuntimeService 参数说明。
  * @param craftPanelRuntimeService 参数说明。
  * @param worldRuntimeCraftMutationService 参数说明。
- * @returns 无返回值（构造函数）。
+ * @returns 无返回值，完成实例初始化。
  */
 
     constructor(playerRuntimeService, craftPanelRuntimeService, worldRuntimeCraftMutationService) {
@@ -51,11 +51,11 @@ let WorldRuntimeEnhancementService = class WorldRuntimeEnhancementService {
         this.worldRuntimeCraftMutationService = worldRuntimeCraftMutationService;
     }    
     /**
- * dispatchStartEnhancement：处理事件并驱动执行路径。
+ * dispatchStartEnhancement：判断开始强化是否满足条件。
  * @param playerId 玩家 ID。
  * @param payload 载荷参数。
  * @param deps 运行时依赖。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新Start强化相关状态。
  */
 
     dispatchStartEnhancement(playerId, payload, deps) {
@@ -69,10 +69,10 @@ let WorldRuntimeEnhancementService = class WorldRuntimeEnhancementService {
         this.worldRuntimeCraftMutationService.flushCraftMutation(playerId, result, 'enhancement', deps);
     }    
     /**
- * dispatchCancelEnhancement：处理事件并驱动执行路径。
+ * dispatchCancelEnhancement：判断Cancel强化是否满足条件。
  * @param playerId 玩家 ID。
  * @param deps 运行时依赖。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新Cancel强化相关状态。
  */
 
     dispatchCancelEnhancement(playerId, deps) {
@@ -86,11 +86,11 @@ let WorldRuntimeEnhancementService = class WorldRuntimeEnhancementService {
         this.worldRuntimeCraftMutationService.flushCraftMutation(playerId, result, 'enhancement', deps);
     }    
     /**
- * tickEnhancement：执行核心业务逻辑。
+ * tickEnhancement：执行tick强化相关逻辑。
  * @param playerId 玩家 ID。
  * @param player 玩家对象。
  * @param deps 运行时依赖。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新tick强化相关状态。
  */
 
     tickEnhancement(playerId, player, deps) {

@@ -24,17 +24,17 @@ export type QiVisibilityLevel = typeof QI_VISIBILITY_LEVELS[number];
 /** 灵力资源描述符：由族、形态、元素三元信息唯一确定。 */
 export interface QiResourceDescriptor {
 /**
- * family：QiResourceDescriptor 内部字段。
+ * family：family相关字段。
  */
 
   family: QiFamilyKey;  
   /**
- * form：QiResourceDescriptor 内部字段。
+ * form：form相关字段。
  */
 
   form: QiFormKey;  
   /**
- * element：QiResourceDescriptor 内部字段。
+ * element：element相关字段。
  */
 
   element: QiElementKey;
@@ -43,22 +43,22 @@ export interface QiResourceDescriptor {
 /** 灵力投影筛选条件：按资源键、族、形态或元素筛选命中项。 */
 export interface QiProjectionSelector {
 /**
- * resourceKeys：QiProjectionSelector 内部字段。
+ * resourceKeys：resourceKey相关字段。
  */
 
   resourceKeys?: string[];  
   /**
- * families：QiProjectionSelector 内部字段。
+ * families：family相关字段。
  */
 
   families?: QiFamilyKey[];  
   /**
- * forms：QiProjectionSelector 内部字段。
+ * forms：form相关字段。
  */
 
   forms?: QiFormKey[];  
   /**
- * elements：QiProjectionSelector 内部字段。
+ * elements：element相关字段。
  */
 
   elements?: QiElementKey[];
@@ -67,17 +67,17 @@ export interface QiProjectionSelector {
 /** 单条灵力投影规则：控制资源可见性和效率倍率。 */
 export interface QiProjectionModifier {
 /**
- * selector：QiProjectionModifier 内部字段。
+ * selector：selector相关字段。
  */
 
   selector?: QiProjectionSelector;  
   /**
- * visibility：QiProjectionModifier 内部字段。
+ * visibility：可见性相关字段。
  */
 
   visibility?: Exclude<QiVisibilityLevel, 'hidden'>;  
   /**
- * efficiencyBpMultiplier：QiProjectionModifier 内部字段。
+ * efficiencyBpMultiplier：efficiencyBpMultiplier相关字段。
  */
 
   efficiencyBpMultiplier?: number;
@@ -86,17 +86,17 @@ export interface QiProjectionModifier {
 /** 编译后的单条灵力投影结果，供运行时直接查表使用。 */
 export interface CompiledQiResourceProjection {
 /**
- * visibility：CompiledQiResourceProjection 内部字段。
+ * visibility：可见性相关字段。
  */
 
   visibility: QiVisibilityLevel;  
   /**
- * efficiencyBp：CompiledQiResourceProjection 内部字段。
+ * efficiencyBp：efficiencyBp相关字段。
  */
 
   efficiencyBp: number;  
   /**
- * descriptor：CompiledQiResourceProjection 内部字段。
+ * descriptor：descriptor相关字段。
  */
 
   descriptor: QiResourceDescriptor;
@@ -105,17 +105,17 @@ export interface CompiledQiResourceProjection {
 /** 当前角色的灵力投影快照，便于缓存和增量对比。 */
 export interface CompiledQiProjectionProfile {
 /**
- * revision：CompiledQiProjectionProfile 内部字段。
+ * revision：revision相关字段。
  */
 
   revision: number;  
   /**
- * resourceProfiles：CompiledQiProjectionProfile 内部字段。
+ * resourceProfiles：resourceProfile相关字段。
  */
 
   resourceProfiles: Record<string, CompiledQiResourceProjection>;  
   /**
- * familyVisibility：CompiledQiProjectionProfile 内部字段。
+ * familyVisibility：family可见性相关字段。
  */
 
   familyVisibility: Partial<Record<QiFamilyKey, QiVisibilityLevel>>;
@@ -124,17 +124,17 @@ export interface CompiledQiProjectionProfile {
 /** 灵力流衰减参数，决定资源随时间的递减速度。 */
 export interface QiRuntimeFlowConfig {
 /**
- * halfLifeRateScale：QiRuntimeFlowConfig 内部字段。
+ * halfLifeRateScale：halfLifeRateScale相关字段。
  */
 
   halfLifeRateScale: number;  
   /**
- * halfLifeRateScaled：QiRuntimeFlowConfig 内部字段。
+ * halfLifeRateScaled：halfLifeRateScaled相关字段。
  */
 
   halfLifeRateScaled: number;  
   /**
- * minimumDecayPerTick：QiRuntimeFlowConfig 内部字段。
+ * minimumDecayPerTick：minimumDecayPertick相关字段。
  */
 
   minimumDecayPerTick: number;

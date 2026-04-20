@@ -4,12 +4,12 @@
 /** 突破材料需求 */
 export interface BreakthroughItemRequirement {
 /**
- * itemId：BreakthroughItemRequirement 内部字段。
+ * itemId：道具ID标识。
  */
 
   itemId: string;  
   /**
- * count：BreakthroughItemRequirement 内部字段。
+ * count：数量或计量字段。
  */
 
   count: number;
@@ -21,47 +21,47 @@ export type BreakthroughRequirementType = 'item' | 'technique' | 'attribute' | '
 /** 突破需求视图条目 */
 export interface BreakthroughRequirementView {
 /**
- * id：BreakthroughRequirementView 内部字段。
+ * id：ID标识。
  */
 
   id: string;  
   /**
- * type：BreakthroughRequirementView 内部字段。
+ * type：type相关字段。
  */
 
   type: BreakthroughRequirementType;  
   /**
- * label：BreakthroughRequirementView 内部字段。
+ * label：label名称或显示文本。
  */
 
   label: string;  
   /**
- * completed：BreakthroughRequirementView 内部字段。
+ * completed：completed相关字段。
  */
 
   completed: boolean;  
   /**
- * hidden：BreakthroughRequirementView 内部字段。
+ * hidden：hidden相关字段。
  */
 
   hidden: boolean;  
   /**
- * optional：BreakthroughRequirementView 内部字段。
+ * optional：optional相关字段。
  */
 
   optional?: boolean;  
   /**
- * blocksBreakthrough：BreakthroughRequirementView 内部字段。
+ * blocksBreakthrough：blockBreakthrough相关字段。
  */
 
   blocksBreakthrough?: boolean;  
   /**
- * increasePct：BreakthroughRequirementView 内部字段。
+ * increasePct：increasePct相关字段。
  */
 
   increasePct?: number;  
   /**
- * detail：BreakthroughRequirementView 内部字段。
+ * detail：详情状态或数据块。
  */
 
   detail?: string;
@@ -70,52 +70,52 @@ export interface BreakthroughRequirementView {
 /** 突破预览状态 */
 export interface BreakthroughPreviewState {
 /**
- * targetRealmLv：BreakthroughPreviewState 内部字段。
+ * targetRealmLv：目标RealmLv相关字段。
  */
 
   targetRealmLv: number;  
   /**
- * targetDisplayName：BreakthroughPreviewState 内部字段。
+ * targetDisplayName：目标显示名称名称或显示文本。
  */
 
   targetDisplayName: string;  
   /**
- * totalRequirements：BreakthroughPreviewState 内部字段。
+ * totalRequirements：totalRequirement相关字段。
  */
 
   totalRequirements: number;  
   /**
- * completedRequirements：BreakthroughPreviewState 内部字段。
+ * completedRequirements：completedRequirement相关字段。
  */
 
   completedRequirements: number;  
   /**
- * allCompleted：BreakthroughPreviewState 内部字段。
+ * allCompleted：allCompleted相关字段。
  */
 
   allCompleted: boolean;  
   /**
- * canBreakthrough：BreakthroughPreviewState 内部字段。
+ * canBreakthrough：canBreakthrough相关字段。
  */
 
   canBreakthrough: boolean;  
   /**
- * blockingRequirements：BreakthroughPreviewState 内部字段。
+ * blockingRequirements：blockingRequirement相关字段。
  */
 
   blockingRequirements: number;  
   /**
- * completedBlockingRequirements：BreakthroughPreviewState 内部字段。
+ * completedBlockingRequirements：completedBlockingRequirement相关字段。
  */
 
   completedBlockingRequirements: number;  
   /**
- * requirements：BreakthroughPreviewState 内部字段。
+ * requirements：requirement相关字段。
  */
 
   requirements: BreakthroughRequirementView[];  
   /**
- * blockedReason：BreakthroughPreviewState 内部字段。
+ * blockedReason：blockedReason相关字段。
  */
 
   blockedReason?: string;

@@ -154,9 +154,9 @@ let ContentTemplateRepository = ContentTemplateRepository_1 = class ContentTempl
         })).sort((left, right) => left.itemId.localeCompare(right.itemId, 'zh-Hans-CN'));
     }    
     /**
- * rollLootPoolItems：执行核心业务逻辑。
+ * rollLootPoolItems：执行roll掉落Pool道具相关逻辑。
  * @param query 参数说明。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新roll掉落Pool道具相关状态。
  */
 
     rollLootPoolItems(query) {
@@ -210,9 +210,9 @@ let ContentTemplateRepository = ContentTemplateRepository_1 = class ContentTempl
         return result;
     }    
     /**
- * normalizeItem：执行核心业务逻辑。
+ * normalizeItem：规范化或转换道具。
  * @param item 道具。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新道具相关状态。
  */
 
     normalizeItem(item) {
@@ -233,18 +233,18 @@ let ContentTemplateRepository = ContentTemplateRepository_1 = class ContentTempl
         };
     }    
     /**
- * getLearnTechniqueId：按给定条件读取/查询数据。
+ * getLearnTechniqueId：读取Learn功法ID。
  * @param itemId 道具 ID。
- * @returns 函数返回值。
+ * @returns 无返回值，完成Learn功法ID的读取/组装。
  */
 
     getLearnTechniqueId(itemId) {
         return this.itemTemplates.get(itemId)?.learnTechniqueId ?? null;
     }    
     /**
- * getItemSortLevel：按给定条件读取/查询数据。
+ * getItemSortLevel：读取道具Sort等级。
  * @param item 道具。
- * @returns 函数返回值。
+ * @returns 无返回值，完成道具Sort等级的读取/组装。
  */
 
     getItemSortLevel(item) {
@@ -270,7 +270,7 @@ let ContentTemplateRepository = ContentTemplateRepository_1 = class ContentTempl
     /**
  * createTechniqueState：构建并返回目标对象。
  * @param techniqueId technique ID。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新功法状态相关状态。
  */
 
     createTechniqueState(techniqueId) {
@@ -301,18 +301,18 @@ let ContentTemplateRepository = ContentTemplateRepository_1 = class ContentTempl
         };
     }    
     /**
- * getTechniqueName：按给定条件读取/查询数据。
+ * getTechniqueName：读取功法名称。
  * @param techniqueId technique ID。
- * @returns 函数返回值。
+ * @returns 无返回值，完成功法名称的读取/组装。
  */
 
     getTechniqueName(techniqueId) {
         return this.techniqueTemplates.get(techniqueId)?.name ?? null;
     }    
     /**
- * hydrateTechniqueState：执行核心业务逻辑。
+ * hydrateTechniqueState：执行hydrate功法状态相关逻辑。
  * @param input 输入参数。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新hydrate功法状态相关状态。
  */
 
     hydrateTechniqueState(input) {
@@ -380,8 +380,8 @@ let ContentTemplateRepository = ContentTemplateRepository_1 = class ContentTempl
         };
     }    
     /**
- * listTechniqueTemplates：执行核心业务逻辑。
- * @returns 函数返回值。
+ * listTechniqueTemplates：读取功法Template并返回结果。
+ * @returns 无返回值，完成功法Template的读取/组装。
  */
 
     listTechniqueTemplates() {
@@ -400,12 +400,12 @@ let ContentTemplateRepository = ContentTemplateRepository_1 = class ContentTempl
         })).sort((left, right) => left.id.localeCompare(right.id, 'zh-Hans-CN'));
     }    
     /**
- * rollMonsterDrops：执行核心业务逻辑。
+ * rollMonsterDrops：执行roll怪物Drop相关逻辑。
  * @param monsterId monster ID。
  * @param rolls 参数说明。
  * @param lootRateBonus 参数说明。
  * @param rareLootRateBonus 参数说明。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新roll怪物Drop相关状态。
  */
 
     rollMonsterDrops(monsterId, rolls = 1, lootRateBonus = 0, rareLootRateBonus = 0) {
@@ -460,7 +460,7 @@ let ContentTemplateRepository = ContentTemplateRepository_1 = class ContentTempl
     /**
  * createRuntimeMonstersForMap：构建并返回目标对象。
  * @param mapId 地图 ID。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新运行态怪物For地图相关状态。
  */
 
     createRuntimeMonstersForMap(mapId) {
@@ -514,7 +514,7 @@ let ContentTemplateRepository = ContentTemplateRepository_1 = class ContentTempl
     /**
  * buildFallbackMonsterRuntimeStatesForMap：构建并返回目标对象。
  * @param mapId 地图 ID。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新Fallback怪物运行态状态For地图相关状态。
  */
 
     buildFallbackMonsterRuntimeStatesForMap(mapId) {
@@ -577,9 +577,9 @@ let ContentTemplateRepository = ContentTemplateRepository_1 = class ContentTempl
         return runtimeStates;
     }    
     /**
- * getMonsterCombatProfile：按给定条件读取/查询数据。
+ * getMonsterCombatProfile：读取怪物战斗Profile。
  * @param monsterId monster ID。
- * @returns 函数返回值。
+ * @returns 无返回值，完成怪物战斗Profile的读取/组装。
  */
 
     getMonsterCombatProfile(monsterId) {
@@ -597,9 +597,9 @@ let ContentTemplateRepository = ContentTemplateRepository_1 = class ContentTempl
         };
     }    
     /**
- * getSkill：按给定条件读取/查询数据。
+ * getSkill：读取技能。
  * @param skillId skill ID。
- * @returns 函数返回值。
+ * @returns 无返回值，完成技能的读取/组装。
  */
 
     getSkill(skillId) {
@@ -614,8 +614,8 @@ let ContentTemplateRepository = ContentTemplateRepository_1 = class ContentTempl
         return null;
     }    
     /**
- * loadSharedTechniqueBuffs：按给定条件读取/查询数据。
- * @returns 函数返回值。
+ * loadSharedTechniqueBuffs：读取Shared功法Buff并返回结果。
+ * @returns 无返回值，完成Shared功法Buff的读取/组装。
  */
 
     loadSharedTechniqueBuffs() {
@@ -638,8 +638,8 @@ let ContentTemplateRepository = ContentTemplateRepository_1 = class ContentTempl
         }
     }    
     /**
- * loadAll：按给定条件读取/查询数据。
- * @returns 函数返回值。
+ * loadAll：读取All并返回结果。
+ * @returns 无返回值，完成All的读取/组装。
  */
 
     loadAll() {
@@ -696,8 +696,8 @@ let ContentTemplateRepository = ContentTemplateRepository_1 = class ContentTempl
         this.logger.log(`已加载 ${this.itemTemplates.size} 个物品模板、${this.techniqueTemplates.size} 个功法、${this.monsterDropsByMonsterId.size} 张妖兽掉落表和 ${this.starterInventoryEntries.length} 条初始物品记录`);
     }    
     /**
- * loadMonsterDrops：按给定条件读取/查询数据。
- * @returns 函数返回值。
+ * loadMonsterDrops：读取怪物Drop并返回结果。
+ * @returns 无返回值，完成怪物Drop的读取/组装。
  */
 
     loadMonsterDrops() {
@@ -747,7 +747,7 @@ let ContentTemplateRepository = ContentTemplateRepository_1 = class ContentTempl
  * @param rawDrops 参数说明。
  * @param rawEquipment 参数说明。
  * @param context 上下文信息。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新怪物Drop相关状态。
  */
 
     buildMonsterDrops(rawDrops, rawEquipment, context) {
@@ -802,10 +802,10 @@ let ContentTemplateRepository = ContentTemplateRepository_1 = class ContentTempl
         return drops;
     }    
     /**
- * resolveMonsterDropChance：执行核心业务逻辑。
+ * resolveMonsterDropChance：规范化或转换怪物DropChance。
  * @param drop 参数说明。
  * @param context 上下文信息。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新怪物DropChance相关状态。
  */
 
     resolveMonsterDropChance(drop, context) {
@@ -823,10 +823,10 @@ let ContentTemplateRepository = ContentTemplateRepository_1 = class ContentTempl
         };
     }    
     /**
- * computeDefaultMonsterDropChance：执行核心业务逻辑。
+ * computeDefaultMonsterDropChance：执行默认怪物DropChance相关逻辑。
  * @param drop 参数说明。
  * @param context 上下文信息。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新Default怪物DropChance相关状态。
  */
 
     computeDefaultMonsterDropChance(drop, context) {
@@ -853,9 +853,9 @@ let ContentTemplateRepository = ContentTemplateRepository_1 = class ContentTempl
         return Math.max(Number.MIN_VALUE, Math.min(1, chance));
     }    
     /**
- * getMaterialBaseDropChance：按给定条件读取/查询数据。
+ * getMaterialBaseDropChance：读取MaterialBaseDropChance。
  * @param tier 参数说明。
- * @returns 函数返回值。
+ * @returns 无返回值，完成MaterialBaseDropChance的读取/组装。
  */
 
     getMaterialBaseDropChance(tier) {
@@ -869,9 +869,9 @@ let ContentTemplateRepository = ContentTemplateRepository_1 = class ContentTempl
         }
     }    
     /**
- * getMonsterDropCategoryBase：按给定条件读取/查询数据。
+ * getMonsterDropCategoryBase：读取怪物DropCategoryBase。
  * @param drop 参数说明。
- * @returns 函数返回值。
+ * @returns 无返回值，完成怪物DropCategoryBase的读取/组装。
  */
 
     getMonsterDropCategoryBase(drop) {
@@ -896,9 +896,9 @@ let ContentTemplateRepository = ContentTemplateRepository_1 = class ContentTempl
         }
     }    
     /**
- * getMonsterTierDropFactor：按给定条件读取/查询数据。
+ * getMonsterTierDropFactor：读取怪物TierDropFactor。
  * @param tier 参数说明。
- * @returns 函数返回值。
+ * @returns 无返回值，完成怪物TierDropFactor的读取/组装。
  */
 
     getMonsterTierDropFactor(tier) {
@@ -912,9 +912,9 @@ let ContentTemplateRepository = ContentTemplateRepository_1 = class ContentTempl
         }
     }    
     /**
- * getMonsterDropItemGrade：按给定条件读取/查询数据。
+ * getMonsterDropItemGrade：读取怪物Drop道具Grade。
  * @param drop 参数说明。
- * @returns 函数返回值。
+ * @returns 无返回值，完成怪物Drop道具Grade的读取/组装。
  */
 
     getMonsterDropItemGrade(drop) {
@@ -937,7 +937,7 @@ let ContentTemplateRepository = ContentTemplateRepository_1 = class ContentTempl
  * buildSpiritStoneMonsterDrop：构建并返回目标对象。
  * @param context 上下文信息。
  * @param override 参数说明。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新SpiritStone怪物Drop相关状态。
  */
 
     buildSpiritStoneMonsterDrop(context, override) {
@@ -965,9 +965,9 @@ let ContentTemplateRepository = ContentTemplateRepository_1 = class ContentTempl
         };
     }    
     /**
- * computeSpiritStoneDropChance：执行核心业务逻辑。
+ * computeSpiritStoneDropChance：执行SpiritStoneDropChance相关逻辑。
  * @param tier 参数说明。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新SpiritStoneDropChance相关状态。
  */
 
     computeSpiritStoneDropChance(tier) {
@@ -981,9 +981,9 @@ let ContentTemplateRepository = ContentTemplateRepository_1 = class ContentTempl
         }
     }    
     /**
- * computeSpiritStoneDropCount：执行核心业务逻辑。
+ * computeSpiritStoneDropCount：执行SpiritStoneDrop数量相关逻辑。
  * @param context 上下文信息。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新SpiritStoneDrop数量相关状态。
  */
 
     computeSpiritStoneDropCount(context) {
@@ -996,9 +996,9 @@ let ContentTemplateRepository = ContentTemplateRepository_1 = class ContentTempl
         return Math.max(1, Math.floor(1 + (gradeIndex * 0.5) + (Math.floor(level / 12) * 0.5)));
     }    
     /**
- * resolveRawEquipmentItemId：执行核心业务逻辑。
+ * resolveRawEquipmentItemId：规范化或转换Raw装备道具ID。
  * @param entry 参数说明。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新Raw装备道具ID相关状态。
  */
 
     resolveRawEquipmentItemId(entry) {
@@ -1013,9 +1013,9 @@ let ContentTemplateRepository = ContentTemplateRepository_1 = class ContentTempl
         return '';
     }    
     /**
- * normalizeMonsterDropEntry：执行核心业务逻辑。
+ * normalizeMonsterDropEntry：规范化或转换怪物Drop条目。
  * @param raw 参数说明。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新怪物Drop条目相关状态。
  */
 
     normalizeMonsterDropEntry(raw) {
@@ -1050,9 +1050,9 @@ let ContentTemplateRepository = ContentTemplateRepository_1 = class ContentTempl
         };
     }    
     /**
- * getLootPoolCandidateIds：按给定条件读取/查询数据。
+ * getLootPoolCandidateIds：读取掉落PoolCandidateID。
  * @param query 参数说明。
- * @returns 函数返回值。
+ * @returns 无返回值，完成掉落PoolCandidateID的读取/组装。
  */
 
     getLootPoolCandidateIds(query) {
@@ -1070,9 +1070,9 @@ let ContentTemplateRepository = ContentTemplateRepository_1 = class ContentTempl
         return result;
     }    
     /**
- * normalizeMonsterRuntimeTemplate：执行核心业务逻辑。
+ * normalizeMonsterRuntimeTemplate：规范化或转换怪物运行态Template。
  * @param raw 参数说明。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新怪物运行态Template相关状态。
  */
 
     normalizeMonsterRuntimeTemplate(raw) {
@@ -1135,10 +1135,10 @@ let ContentTemplateRepository = ContentTemplateRepository_1 = class ContentTempl
         };
     }    
     /**
- * normalizeMonsterSkills：执行核心业务逻辑。
+ * normalizeMonsterSkills：规范化或转换怪物技能。
  * @param raw 参数说明。
  * @param monsterId monster ID。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新怪物技能相关状态。
  */
 
     normalizeMonsterSkills(raw, monsterId) {
@@ -1185,8 +1185,8 @@ let ContentTemplateRepository = ContentTemplateRepository_1 = class ContentTempl
         return normalized;
     }    
     /**
- * loadMonsterRuntimeStates：按给定条件读取/查询数据。
- * @returns 函数返回值。
+ * loadMonsterRuntimeStates：读取怪物运行态状态并返回结果。
+ * @returns 无返回值，完成怪物运行态状态的读取/组装。
  */
 
     loadMonsterRuntimeStates() {
@@ -1227,9 +1227,9 @@ exports.ContentTemplateRepository = ContentTemplateRepository = ContentTemplateR
 ], ContentTemplateRepository);
 export { ContentTemplateRepository };
 /**
- * parseMonsterIdFromRuntimeId：执行核心业务逻辑。
+ * parseMonsterIdFromRuntimeId：规范化或转换怪物IDFrom运行态ID。
  * @param runtimeId runtime ID。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新怪物IDFrom运行态ID相关状态。
  */
 
 function parseMonsterIdFromRuntimeId(runtimeId) {
@@ -1238,12 +1238,12 @@ function parseMonsterIdFromRuntimeId(runtimeId) {
     return parts.length >= 4 ? parts[2] ?? '' : '';
 }
 /**
- * normalizeMonsterMaxHp：执行核心业务逻辑。
+ * normalizeMonsterMaxHp：规范化或转换怪物MaxHp。
  * @param maxHp 参数说明。
  * @param hp 参数说明。
  * @param attrs 参数说明。
  * @param numericStats 参数说明。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新怪物MaxHp相关状态。
  */
 
 function normalizeMonsterMaxHp(maxHp, hp, attrs, numericStats) {
@@ -1263,10 +1263,10 @@ function normalizeMonsterMaxHp(maxHp, hp, attrs, numericStats) {
     return 0;
 }
 /**
- * normalizeMonsterRespawnTicks：执行核心业务逻辑。
+ * normalizeMonsterRespawnTicks：规范化或转换怪物重生tick。
  * @param respawnTicks 参数说明。
  * @param respawnSec 参数说明。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新怪物重生tick相关状态。
  */
 
 function normalizeMonsterRespawnTicks(respawnTicks, respawnSec) {
@@ -1281,18 +1281,18 @@ function normalizeMonsterRespawnTicks(respawnTicks, respawnSec) {
     return 15;
 }
 /**
- * normalizeMonsterTier：执行核心业务逻辑。
+ * normalizeMonsterTier：规范化或转换怪物Tier。
  * @param raw 参数说明。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新怪物Tier相关状态。
  */
 
 function normalizeMonsterTier(raw) {
     return raw === 'variant' || raw === 'demon_king' ? raw : 'mortal_blood';
 }
 /**
- * normalizeTechniqueGrade：执行核心业务逻辑。
+ * normalizeTechniqueGrade：规范化或转换功法Grade。
  * @param raw 参数说明。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新功法Grade相关状态。
  */
 
 function normalizeTechniqueGrade(raw) {
@@ -1310,9 +1310,9 @@ function normalizeTechniqueGrade(raw) {
     }
 }
 /**
- * cloneSkill：执行核心业务逻辑。
+ * cloneSkill：构建技能。
  * @param source 来源对象。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新技能相关状态。
  */
 
 function cloneSkill(source) {
@@ -1323,9 +1323,9 @@ function cloneSkill(source) {
     };
 }
 /**
- * resolveSkillRange：执行核心业务逻辑。
+ * resolveSkillRange：规范化或转换技能范围。
  * @param skill 参数说明。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新技能范围相关状态。
  */
 
 function resolveSkillRange(skill) {
@@ -1339,11 +1339,11 @@ function resolveSkillRange(skill) {
     return Math.max(1, Math.round(skill.range));
 }
 /**
- * normalizeMonsterAggroRange：执行核心业务逻辑。
+ * normalizeMonsterAggroRange：规范化或转换怪物Aggro范围。
  * @param aggroRange 参数说明。
  * @param radius 影响半径。
  * @param viewRange 参数说明。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新怪物Aggro范围相关状态。
  */
 
 function normalizeMonsterAggroRange(aggroRange, radius, viewRange) {
@@ -1361,20 +1361,20 @@ function normalizeMonsterAggroRange(aggroRange, radius, viewRange) {
     return 4;
 }
 /**
- * normalizeMonsterLeashRange：执行核心业务逻辑。
+ * normalizeMonsterLeashRange：规范化或转换怪物Leash范围。
  * @param aggroRange 参数说明。
  * @param radius 影响半径。
  * @param viewRange 参数说明。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新怪物Leash范围相关状态。
  */
 
 function normalizeMonsterLeashRange(aggroRange, radius, viewRange) {
     return Math.max(2, normalizeMonsterAggroRange(aggroRange, radius, viewRange) + 4);
 }
 /**
- * normalizeMonsterRuntimeStateRecord：执行核心业务逻辑。
+ * normalizeMonsterRuntimeStateRecord：规范化或转换怪物运行态状态Record。
  * @param raw 参数说明。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新怪物运行态状态Record相关状态。
  */
 
 function normalizeMonsterRuntimeStateRecord(raw) {
@@ -1417,11 +1417,11 @@ function normalizeMonsterRuntimeStateRecord(raw) {
     };
 }
 /**
- * planFallbackSpawnCounts：执行核心业务逻辑。
+ * planFallbackSpawnCounts：执行planFallbackSpawn数量相关逻辑。
  * @param mapId 地图 ID。
  * @param document 参数说明。
  * @param spawns 参数说明。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新planFallbackSpawn数量相关状态。
  */
 
 function planFallbackSpawnCounts(mapId, document, spawns) {
@@ -1477,9 +1477,9 @@ function planFallbackSpawnCounts(mapId, document, spawns) {
     return planned;
 }
 /**
- * resolveFallbackSpawnRequestedCount：执行核心业务逻辑。
+ * resolveFallbackSpawnRequestedCount：规范化或转换FallbackSpawnRequested数量。
  * @param spawn 参数说明。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新FallbackSpawnRequested数量相关状态。
  */
 
 function resolveFallbackSpawnRequestedCount(spawn) {
@@ -1494,9 +1494,9 @@ function resolveFallbackSpawnRequestedCount(spawn) {
     return 1;
 }
 /**
- * resolveFallbackSpawnPerSpawnCap：执行核心业务逻辑。
+ * resolveFallbackSpawnPerSpawnCap：规范化或转换FallbackSpawnPerSpawnCap。
  * @param profileId profile ID。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新FallbackSpawnPerSpawnCap相关状态。
  */
 
 function resolveFallbackSpawnPerSpawnCap(profileId) {
@@ -1511,9 +1511,9 @@ function resolveFallbackSpawnPerSpawnCap(profileId) {
     }
 }
 /**
- * resolveFallbackSpawnTotalCap：执行核心业务逻辑。
+ * resolveFallbackSpawnTotalCap：规范化或转换FallbackSpawnTotalCap。
  * @param profileId profile ID。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新FallbackSpawnTotalCap相关状态。
  */
 
 function resolveFallbackSpawnTotalCap(profileId) {
@@ -1528,9 +1528,9 @@ function resolveFallbackSpawnTotalCap(profileId) {
     }
 }
 /**
- * cloneMonsterAttributes：执行核心业务逻辑。
+ * cloneMonsterAttributes：构建怪物Attribute。
  * @param source 来源对象。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新怪物Attribute相关状态。
  */
 
 function cloneMonsterAttributes(source) {
@@ -1544,9 +1544,9 @@ function cloneMonsterAttributes(source) {
     };
 }
 /**
- * collectJsonFiles：执行核心业务逻辑。
+ * collectJsonFiles：执行JsonFile相关逻辑。
  * @param dirPath 参数说明。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新JsonFile相关状态。
  */
 
 function collectJsonFiles(dirPath) {
@@ -1570,12 +1570,12 @@ function collectJsonFiles(dirPath) {
     return files;
 }
 /**
- * resolveFallbackSpawnPositions：执行核心业务逻辑。
+ * resolveFallbackSpawnPositions：规范化或转换FallbackSpawn位置。
  * @param document 参数说明。
  * @param spawn 参数说明。
  * @param count 数量。
  * @param occupied 参数说明。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新FallbackSpawn位置相关状态。
  */
 
 function resolveFallbackSpawnPositions(document, spawn, count, occupied) {
@@ -1624,9 +1624,9 @@ function resolveFallbackSpawnPositions(document, spawn, count, occupied) {
     return positions;
 }
 /**
- * normalizeStarterInventoryEntry：执行核心业务逻辑。
+ * normalizeStarterInventoryEntry：规范化或转换Starter背包条目。
  * @param raw 参数说明。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新Starter背包条目相关状态。
  */
 
 function normalizeStarterInventoryEntry(raw) {
@@ -1646,9 +1646,9 @@ function normalizeStarterInventoryEntry(raw) {
     };
 }
 /**
- * normalizeItemTemplate：执行核心业务逻辑。
+ * normalizeItemTemplate：规范化或转换道具Template。
  * @param raw 参数说明。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新道具Template相关状态。
  */
 
 function normalizeItemTemplate(raw) {
@@ -1703,9 +1703,9 @@ function normalizeItemTemplate(raw) {
     };
 }
 /**
- * normalizeConsumableBuffs：执行核心业务逻辑。
+ * normalizeConsumableBuffs：规范化或转换ConsumableBuff。
  * @param raw 参数说明。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新ConsumableBuff相关状态。
  */
 
 function normalizeConsumableBuffs(raw) {
@@ -1774,10 +1774,10 @@ function normalizeConsumableBuffs(raw) {
     return buffs.length > 0 ? buffs : undefined;
 }
 /**
- * matchesLootPoolFilters：执行核心业务逻辑。
+ * matchesLootPoolFilters：执行matche掉落PoolFilter相关逻辑。
  * @param item 道具。
  * @param query 参数说明。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新matche掉落PoolFilter相关状态。
  */
 
 function matchesLootPoolFilters(item, query) {
@@ -1818,9 +1818,9 @@ function matchesLootPoolFilters(item, query) {
     return tagGroups.every((group) => group.some((tag) => tagSet.has(tag)));
 }
 /**
- * resolveTechniqueGradeOrder：执行核心业务逻辑。
+ * resolveTechniqueGradeOrder：规范化或转换功法Grade订单。
  * @param grade 参数说明。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新功法Grade订单相关状态。
  */
 
 function resolveTechniqueGradeOrder(grade) {
@@ -1846,9 +1846,9 @@ function resolveTechniqueGradeOrder(grade) {
     }
 }
 /**
- * inferTechniqueGradeFromItemLevel：执行核心业务逻辑。
+ * inferTechniqueGradeFromItemLevel：执行infer功法GradeFrom道具等级相关逻辑。
  * @param level 参数说明。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新infer功法GradeFrom道具等级相关状态。
  */
 
 function inferTechniqueGradeFromItemLevel(level) {
@@ -1880,9 +1880,9 @@ function inferTechniqueGradeFromItemLevel(level) {
     return 'mortal';
 }
 /**
- * resolveItemTemplateLevel：执行核心业务逻辑。
+ * resolveItemTemplateLevel：规范化或转换道具Template等级。
  * @param item 道具。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新道具Template等级相关状态。
  */
 
 function resolveItemTemplateLevel(item) {
@@ -1911,10 +1911,10 @@ function resolveItemTemplateLevel(item) {
     return gradeOrder === null ? 1 : gradeOrder + 1;
 }
 /**
- * randomIntInclusive：执行核心业务逻辑。
+ * randomIntInclusive：执行randomIntInclusive相关逻辑。
  * @param min 参数说明。
  * @param max 参数说明。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新randomIntInclusive相关状态。
  */
 
 function randomIntInclusive(min, max) {
@@ -1926,28 +1926,28 @@ function randomIntInclusive(min, max) {
     return min + Math.floor(Math.random() * ((max - min) + 1));
 }
 /**
- * isRecord：执行状态校验并返回判断结果。
+ * isRecord：判断Record是否满足条件。
  * @param value 参数说明。
- * @returns 函数返回值。
+ * @returns 无返回值，完成Record的条件判断。
  */
 
 function isRecord(value) {
     return Boolean(value) && typeof value === 'object' && !Array.isArray(value);
 }
 /**
- * clampUnitRatio：执行核心业务逻辑。
+ * clampUnitRatio：执行clampUnitRatio相关逻辑。
  * @param value 参数说明。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新clampUnitRatio相关状态。
  */
 
 function clampUnitRatio(value) {
     return Math.max(0.01, Math.min(1, Number(value)));
 }
 /**
- * normalizeTechniqueTemplate：执行核心业务逻辑。
+ * normalizeTechniqueTemplate：规范化或转换功法Template。
  * @param raw 参数说明。
  * @param sharedTechniqueBuffs 参数说明。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新功法Template相关状态。
  */
 
 function normalizeTechniqueTemplate(raw, sharedTechniqueBuffs = new Map()) {
@@ -1992,10 +1992,10 @@ function normalizeTechniqueTemplate(raw, sharedTechniqueBuffs = new Map()) {
     };
 }
 /**
- * normalizeTechniqueLayer：执行核心业务逻辑。
+ * normalizeTechniqueLayer：规范化或转换功法层。
  * @param raw 参数说明。
  * @param realmLv 参数说明。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新功法层相关状态。
  */
 
 function normalizeTechniqueLayer(raw, realmLv) {
@@ -2018,9 +2018,9 @@ function normalizeTechniqueLayer(raw, realmLv) {
     };
 }
 /**
- * normalizeTechniqueLayerAttrs：执行核心业务逻辑。
+ * normalizeTechniqueLayerAttrs：规范化或转换功法层Attr。
  * @param raw 参数说明。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新功法层Attr相关状态。
  */
 
 function normalizeTechniqueLayerAttrs(raw) {
@@ -2041,9 +2041,9 @@ function normalizeTechniqueLayerAttrs(raw) {
     return Object.keys(result).length > 0 ? result : undefined;
 }
 /**
- * normalizeTechniqueAttrCurves：执行核心业务逻辑。
+ * normalizeTechniqueAttrCurves：规范化或转换功法AttrCurve。
  * @param raw 参数说明。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新功法AttrCurve相关状态。
  */
 
 function normalizeTechniqueAttrCurves(raw) {
@@ -2075,12 +2075,12 @@ function normalizeTechniqueAttrCurves(raw) {
     return Object.keys(result).length > 0 ? result : undefined;
 }
 /**
- * normalizeSkill：执行核心业务逻辑。
+ * normalizeSkill：规范化或转换技能。
  * @param raw 参数说明。
  * @param grade 参数说明。
  * @param realmLv 参数说明。
  * @param sharedTechniqueBuffs 参数说明。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新技能相关状态。
  */
 
 function normalizeSkill(raw, grade, realmLv, sharedTechniqueBuffs = new Map()) {
@@ -2130,10 +2130,10 @@ function normalizeSkill(raw, grade, realmLv, sharedTechniqueBuffs = new Map()) {
     };
 }
 /**
- * cloneSkillEffects：执行核心业务逻辑。
+ * cloneSkillEffects：构建技能Effect。
  * @param raw 参数说明。
  * @param sharedTechniqueBuffs 参数说明。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新技能Effect相关状态。
  */
 
 function cloneSkillEffects(raw, sharedTechniqueBuffs = new Map()) {
@@ -2142,9 +2142,9 @@ function cloneSkillEffects(raw, sharedTechniqueBuffs = new Map()) {
         .map((entry) => resolveSharedTechniqueBuffEffect(entry, sharedTechniqueBuffs));
 }
 /**
- * normalizeSharedTechniqueBuffEffect：执行核心业务逻辑。
+ * normalizeSharedTechniqueBuffEffect：规范化或转换Shared功法BuffEffect。
  * @param raw 参数说明。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新Shared功法BuffEffect相关状态。
  */
 
 function normalizeSharedTechniqueBuffEffect(raw) {
@@ -2165,10 +2165,10 @@ function normalizeSharedTechniqueBuffEffect(raw) {
     };
 }
 /**
- * resolveSharedTechniqueBuffEffect：执行核心业务逻辑。
+ * resolveSharedTechniqueBuffEffect：规范化或转换Shared功法BuffEffect。
  * @param raw 参数说明。
  * @param sharedTechniqueBuffs 参数说明。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新Shared功法BuffEffect相关状态。
  */
 
 function resolveSharedTechniqueBuffEffect(raw, sharedTechniqueBuffs) {
@@ -2198,9 +2198,9 @@ function resolveSharedTechniqueBuffEffect(raw, sharedTechniqueBuffs) {
     };
 }
 /**
- * isTechniqueGrade：执行状态校验并返回判断结果。
+ * isTechniqueGrade：判断功法Grade是否满足条件。
  * @param value 参数说明。
- * @returns 函数返回值。
+ * @returns 无返回值，完成功法Grade的条件判断。
  */
 
 function isTechniqueGrade(value) {
@@ -2214,18 +2214,18 @@ function isTechniqueGrade(value) {
         || value === 'emperor';
 }
 /**
- * isTechniqueCategory：执行状态校验并返回判断结果。
+ * isTechniqueCategory：判断功法Category是否满足条件。
  * @param value 参数说明。
- * @returns 函数返回值。
+ * @returns 无返回值，完成功法Category的条件判断。
  */
 
 function isTechniqueCategory(value) {
     return value === 'arts' || value === 'internal' || value === 'divine' || value === 'secret';
 }
 /**
- * inferTechniqueCategory：执行核心业务逻辑。
+ * inferTechniqueCategory：执行infer功法Category相关逻辑。
  * @param skills 参数说明。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新infer功法Category相关状态。
  */
 
 function inferTechniqueCategory(skills) {

@@ -65,11 +65,11 @@ export class Camera {
   /** 将世界坐标转换为屏幕像素坐标。 */
   worldToScreen(wx: number, wy: number, screenW: number, screenH: number): {  
   /**
- * sx：Camera 内部字段。
+ * sx：sx相关字段。
  */
  sx: number;  
  /**
- * sy：Camera 内部字段。
+ * sy：sy相关字段。
  */
  sy: number } {
     return {

@@ -24,22 +24,22 @@ import type {
 /** 地图安全区边距。 */
 export interface MapSafeAreaInsets {
 /**
- * top：MapSafeAreaInsets 内部字段。
+ * top：top相关字段。
  */
 
   top: number;  
   /**
- * right：MapSafeAreaInsets 内部字段。
+ * right：right相关字段。
  */
 
   right: number;  
   /**
- * bottom：MapSafeAreaInsets 内部字段。
+ * bottom：bottom相关字段。
  */
 
   bottom: number;  
   /**
- * left：MapSafeAreaInsets 内部字段。
+ * left：left相关字段。
  */
 
   left: number;
@@ -48,82 +48,82 @@ export interface MapSafeAreaInsets {
 /** 前端可观察实体快照。 */
 export interface ObservedMapEntity {
 /**
- * id：ObservedMapEntity 内部字段。
+ * id：ID标识。
  */
 
   id: string;  
   /**
- * wx：ObservedMapEntity 内部字段。
+ * wx：wx相关字段。
  */
 
   wx: number;  
   /**
- * wy：ObservedMapEntity 内部字段。
+ * wy：wy相关字段。
  */
 
   wy: number;  
   /**
- * char：ObservedMapEntity 内部字段。
+ * char：char相关字段。
  */
 
   char: string;  
   /**
- * color：ObservedMapEntity 内部字段。
+ * color：color相关字段。
  */
 
   color: string;  
   /**
- * name：ObservedMapEntity 内部字段。
+ * name：名称名称或显示文本。
  */
 
   name?: string;  
   /**
- * kind：ObservedMapEntity 内部字段。
+ * kind：kind相关字段。
  */
 
   kind?: string;  
   /**
- * monsterTier：ObservedMapEntity 内部字段。
+ * monsterTier：怪物Tier相关字段。
  */
 
   monsterTier?: MonsterTier;  
   /**
- * monsterScale：ObservedMapEntity 内部字段。
+ * monsterScale：怪物Scale相关字段。
  */
 
   monsterScale?: number;  
   /**
- * hp：ObservedMapEntity 内部字段。
+ * hp：hp相关字段。
  */
 
   hp?: number;  
   /**
- * maxHp：ObservedMapEntity 内部字段。
+ * maxHp：maxHp相关字段。
  */
 
   maxHp?: number;  
   /**
- * qi：ObservedMapEntity 内部字段。
+ * qi：qi相关字段。
  */
 
   qi?: number;  
   /**
- * maxQi：ObservedMapEntity 内部字段。
+ * maxQi：maxQi相关字段。
  */
 
   maxQi?: number;  
   /**
- * npcQuestMarker：ObservedMapEntity 内部字段。
+ * npcQuestMarker：NPC任务Marker相关字段。
  */
 
   npcQuestMarker?: TickRenderEntity['npcQuestMarker'];  
   /**
- * observation：ObservedMapEntity 内部字段。
+ * observation：observation相关字段。
  */
 
   observation?: TickRenderEntity['observation'];  
   /**
- * buffs：ObservedMapEntity 内部字段。
+ * buffs：buff相关字段。
  */
 
   buffs?: VisibleBuffState[];
@@ -132,47 +132,47 @@ export interface ObservedMapEntity {
 /** 技能瞄准叠加层状态。 */
 export interface MapTargetingOverlayState {
 /**
- * originX：MapTargetingOverlayState 内部字段。
+ * originX：originX相关字段。
  */
 
   originX: number;  
   /**
- * originY：MapTargetingOverlayState 内部字段。
+ * originY：originY相关字段。
  */
 
   originY: number;  
   /**
- * range：MapTargetingOverlayState 内部字段。
+ * range：范围相关字段。
  */
 
   range: number;  
   /**
- * visibleOnly：MapTargetingOverlayState 内部字段。
+ * visibleOnly：可见Only相关字段。
  */
 
   visibleOnly?: boolean;  
   /**
- * shape：MapTargetingOverlayState 内部字段。
+ * shape：shape相关字段。
  */
 
   shape?: TargetingShape;  
   /**
- * radius：MapTargetingOverlayState 内部字段。
+ * radius：radiu相关字段。
  */
 
   radius?: number;  
   /**
- * affectedCells：MapTargetingOverlayState 内部字段。
+ * affectedCells：affectedCell相关字段。
  */
 
   affectedCells?: GridPoint[];  
   /**
- * hoverX：MapTargetingOverlayState 内部字段。
+ * hoverX：hoverX相关字段。
  */
 
   hoverX?: number;  
   /**
- * hoverY：MapTargetingOverlayState 内部字段。
+ * hoverY：hoverY相关字段。
  */
 
   hoverY?: number;
@@ -181,17 +181,17 @@ export interface MapTargetingOverlayState {
 /** 感气视野叠加层状态。 */
 export interface MapSenseQiOverlayState {
 /**
- * hoverX：MapSenseQiOverlayState 内部字段。
+ * hoverX：hoverX相关字段。
  */
 
   hoverX?: number;  
   /**
- * hoverY：MapSenseQiOverlayState 内部字段。
+ * hoverY：hoverY相关字段。
  */
 
   hoverY?: number;  
   /**
- * levelBaseValue：MapSenseQiOverlayState 内部字段。
+ * levelBaseValue：等级Base值数值。
  */
 
   levelBaseValue?: number;
@@ -200,31 +200,31 @@ export interface MapSenseQiOverlayState {
 /** 地图统一叠加层状态。 */
 export interface MapOverlayState {
 /**
- * pathCells：MapOverlayState 内部字段。
+ * pathCells：路径Cell相关字段。
  */
 
   pathCells: GridPoint[];  
   /**
- * targeting：MapOverlayState 内部字段。
+ * targeting：targeting相关字段。
  */
 
   targeting: MapTargetingOverlayState | null;  
   /**
- * senseQi：MapOverlayState 内部字段。
+ * senseQi：senseQi相关字段。
  */
 
   senseQi: MapSenseQiOverlayState | null;  
   /**
- * threatArrows：MapOverlayState 内部字段。
+ * threatArrows：集合字段。
  */
 
   threatArrows: Array<{  
   /**
- * ownerId：MapOverlayState 内部字段。
+ * ownerId：ownerID标识。
  */
  ownerId: string;  
  /**
- * targetId：MapOverlayState 内部字段。
+ * targetId：目标ID标识。
  */
  targetId: string }>;
 }
@@ -232,65 +232,65 @@ export interface MapOverlayState {
 /** 小地图来源快照。 */
 export interface MinimapSourceSnapshot {
 /**
- * mapMeta：MinimapSourceSnapshot 内部字段。
+ * mapMeta：地图Meta相关字段。
  */
 
   mapMeta: MapMeta | null;  
   /**
- * snapshot：MinimapSourceSnapshot 内部字段。
+ * snapshot：快照状态或数据块。
  */
 
   snapshot: MapMinimapSnapshot | null;  
   /**
- * rememberedMarkers：MinimapSourceSnapshot 内部字段。
+ * rememberedMarkers：rememberedMarker相关字段。
  */
 
   rememberedMarkers: MapMinimapMarker[];  
   /**
- * visibleMarkers：MinimapSourceSnapshot 内部字段。
+ * visibleMarkers：可见Marker相关字段。
  */
 
   visibleMarkers: MapMinimapMarker[];  
   /**
- * tileCache：MinimapSourceSnapshot 内部字段。
+ * tileCache：缓存或索引容器。
  */
 
   tileCache: ReadonlyMap<string, Tile>;  
   /**
- * visibleTiles：MinimapSourceSnapshot 内部字段。
+ * visibleTiles：可见Tile相关字段。
  */
 
   visibleTiles: ReadonlySet<string>;  
   /**
- * visibleEntities：MinimapSourceSnapshot 内部字段。
+ * visibleEntities：可见Entity相关字段。
  */
 
   visibleEntities: readonly ObservedMapEntity[];  
   /**
- * groundPiles：MinimapSourceSnapshot 内部字段。
+ * groundPiles：groundPile相关字段。
  */
 
   groundPiles: ReadonlyMap<string, GroundItemPileView>;  
   /**
- * player：MinimapSourceSnapshot 内部字段。
+ * player：玩家引用。
  */
 
   player: {  
   /**
- * x：MinimapSourceSnapshot 内部字段。
+ * x：x相关字段。
  */
  x: number;  
  /**
- * y：MinimapSourceSnapshot 内部字段。
+ * y：y相关字段。
  */
  y: number } | null;  
  /**
- * viewRadius：MinimapSourceSnapshot 内部字段。
+ * viewRadius：视图Radiu相关字段。
  */
 
   viewRadius: number;  
   /**
- * memoryVersion：MinimapSourceSnapshot 内部字段。
+ * memoryVersion：memoryVersion相关字段。
  */
 
   memoryVersion: number;
@@ -299,27 +299,27 @@ export interface MinimapSourceSnapshot {
 /** 实体运动过渡信息。 */
 export interface MapEntityTransition {
 /**
- * movedId：MapEntityTransition 内部字段。
+ * movedId：movedID标识。
  */
 
   movedId?: string;  
   /**
- * shiftX：MapEntityTransition 内部字段。
+ * shiftX：shiftX相关字段。
  */
 
   shiftX?: number;  
   /**
- * shiftY：MapEntityTransition 内部字段。
+ * shiftY：shiftY相关字段。
  */
 
   shiftY?: number;  
   /**
- * snapCamera：MapEntityTransition 内部字段。
+ * snapCamera：snapCamera相关字段。
  */
 
   snapCamera?: boolean;  
   /**
- * settleMotion：MapEntityTransition 内部字段。
+ * settleMotion：settleMotion相关字段。
  */
 
   settleMotion?: boolean;
@@ -328,12 +328,12 @@ export interface MapEntityTransition {
 /** tick 流逝与插值时长。 */
 export interface MapTickTiming {
 /**
- * startedAt：MapTickTiming 内部字段。
+ * startedAt：startedAt相关字段。
  */
 
   startedAt: number;  
   /**
- * durationMs：MapTickTiming 内部字段。
+ * durationMs：durationM相关字段。
  */
 
   durationMs: number;
@@ -342,93 +342,93 @@ export interface MapTickTiming {
 /** MapStore 对外输出的只读快照。 */
 export interface MapStoreSnapshot {
 /**
- * mapMeta：MapStoreSnapshot 内部字段。
+ * mapMeta：地图Meta相关字段。
  */
 
   mapMeta: MapMeta | null;  
   /**
- * player：MapStoreSnapshot 内部字段。
+ * player：玩家引用。
  */
 
   player: {  
   /**
- * id：MapStoreSnapshot 内部字段。
+ * id：ID标识。
  */
 
     id: string;    
     /**
- * x：MapStoreSnapshot 内部字段。
+ * x：x相关字段。
  */
 
     x: number;    
     /**
- * y：MapStoreSnapshot 内部字段。
+ * y：y相关字段。
  */
 
     y: number;    
     /**
- * mapId：MapStoreSnapshot 内部字段。
+ * mapId：地图ID标识。
  */
 
     mapId: string;    
     /**
- * viewRange：MapStoreSnapshot 内部字段。
+ * viewRange：视图范围相关字段。
  */
 
     viewRange?: number;    
     /**
- * senseQiActive：MapStoreSnapshot 内部字段。
+ * senseQiActive：senseQi激活状态相关字段。
  */
 
     senseQiActive?: boolean;
   } | null;  
   /**
- * time：MapStoreSnapshot 内部字段。
+ * time：时间相关字段。
  */
 
   time: GameTimeState | null;  
   /**
- * tileCache：MapStoreSnapshot 内部字段。
+ * tileCache：缓存或索引容器。
  */
 
   tileCache: ReadonlyMap<string, Tile>;  
   /**
- * visibleTiles：MapStoreSnapshot 内部字段。
+ * visibleTiles：可见Tile相关字段。
  */
 
   visibleTiles: ReadonlySet<string>;  
   /**
- * entities：MapStoreSnapshot 内部字段。
+ * entities：entity相关字段。
  */
 
   entities: readonly ObservedMapEntity[];  
   /**
- * groundPiles：MapStoreSnapshot 内部字段。
+ * groundPiles：groundPile相关字段。
  */
 
   groundPiles: ReadonlyMap<string, GroundItemPileView>;  
   /**
- * overlays：MapStoreSnapshot 内部字段。
+ * overlays：overlay相关字段。
  */
 
   overlays: MapOverlayState;  
   /**
- * minimap：MapStoreSnapshot 内部字段。
+ * minimap：缓存或索引容器。
  */
 
   minimap: MinimapSourceSnapshot;  
   /**
- * tickTiming：MapStoreSnapshot 内部字段。
+ * tickTiming：tickTiming相关字段。
  */
 
   tickTiming: MapTickTiming;  
   /**
- * visibleTileRevision：MapStoreSnapshot 内部字段。
+ * visibleTileRevision：可见TileRevision相关字段。
  */
 
   visibleTileRevision: number;  
   /**
- * entityTransition：MapStoreSnapshot 内部字段。
+ * entityTransition：entityTransition相关字段。
  */
 
   entityTransition: MapEntityTransition | null;
@@ -437,47 +437,47 @@ export interface MapStoreSnapshot {
 /** 鼠标命中的交互对象。 */
 export interface MapInteractionTarget {
 /**
- * x：MapInteractionTarget 内部字段。
+ * x：x相关字段。
  */
 
   x: number;  
   /**
- * y：MapInteractionTarget 内部字段。
+ * y：y相关字段。
  */
 
   y: number;  
   /**
- * entityId：MapInteractionTarget 内部字段。
+ * entityId：entityID标识。
  */
 
   entityId?: string;  
   /**
- * entityKind：MapInteractionTarget 内部字段。
+ * entityKind：entityKind相关字段。
  */
 
   entityKind?: string;  
   /**
- * walkable：MapInteractionTarget 内部字段。
+ * walkable：walkable相关字段。
  */
 
   walkable: boolean;  
   /**
- * visible：MapInteractionTarget 内部字段。
+ * visible：可见相关字段。
  */
 
   visible: boolean;  
   /**
- * known：MapInteractionTarget 内部字段。
+ * known：known相关字段。
  */
 
   known: boolean;  
   /**
- * clientX：MapInteractionTarget 内部字段。
+ * clientX：clientX相关字段。
  */
 
   clientX?: number;  
   /**
- * clientY：MapInteractionTarget 内部字段。
+ * clientY：clientY相关字段。
  */
 
   clientY?: number;
@@ -486,12 +486,12 @@ export interface MapInteractionTarget {
 /** 地图交互回调。 */
 export interface MapRuntimeInteractionCallbacks {
 /**
- * onTarget：MapRuntimeInteractionCallbacks 内部字段。
+ * onTarget：on目标相关字段。
  */
 
   onTarget?: (target: MapInteractionTarget) => void;  
   /**
- * onHover：MapRuntimeInteractionCallbacks 内部字段。
+ * onHover：onHover相关字段。
  */
 
   onHover?: (target: MapInteractionTarget | null) => void;
@@ -500,53 +500,53 @@ export interface MapRuntimeInteractionCallbacks {
 /** 传给渲染层的场景快照。 */
 export interface MapSceneSnapshot {
 /**
- * mapMeta：MapSceneSnapshot 内部字段。
+ * mapMeta：地图Meta相关字段。
  */
 
   mapMeta: MapMeta | null;  
   /**
- * player：MapSceneSnapshot 内部字段。
+ * player：玩家引用。
  */
 
   player: MapStoreSnapshot['player'];  
   /**
- * terrain：MapSceneSnapshot 内部字段。
+ * terrain：terrain相关字段。
  */
 
   terrain: {  
   /**
- * tileCache：MapSceneSnapshot 内部字段。
+ * tileCache：缓存或索引容器。
  */
 
     tileCache: ReadonlyMap<string, Tile>;    
     /**
- * visibleTiles：MapSceneSnapshot 内部字段。
+ * visibleTiles：可见Tile相关字段。
  */
 
     visibleTiles: ReadonlySet<string>;    
     /**
- * visibleTileRevision：MapSceneSnapshot 内部字段。
+ * visibleTileRevision：可见TileRevision相关字段。
  */
 
     visibleTileRevision: number;    
     /**
- * time：MapSceneSnapshot 内部字段。
+ * time：时间相关字段。
  */
 
     time: GameTimeState | null;
   };  
   /**
- * entities：MapSceneSnapshot 内部字段。
+ * entities：entity相关字段。
  */
 
   entities: readonly ObservedMapEntity[];  
   /**
- * groundPiles：MapSceneSnapshot 内部字段。
+ * groundPiles：groundPile相关字段。
  */
 
   groundPiles: ReadonlyMap<string, GroundItemPileView>;  
   /**
- * overlays：MapSceneSnapshot 内部字段。
+ * overlays：overlay相关字段。
  */
 
   overlays: MapOverlayState;
@@ -555,80 +555,80 @@ export interface MapSceneSnapshot {
 /** 世界级增量入参。 */
 export interface MapNextWorldDeltaInput {
 /**
- * playerPatches：MapNextWorldDeltaInput 内部字段。
+ * playerPatches：玩家Patche相关字段。
  */
 
   playerPatches: TickRenderEntity[];  
   /**
- * entityPatches：MapNextWorldDeltaInput 内部字段。
+ * entityPatches：entityPatche相关字段。
  */
 
   entityPatches: TickRenderEntity[];  
   /**
- * removedEntityIds：MapNextWorldDeltaInput 内部字段。
+ * removedEntityIds：removedEntityID相关字段。
  */
 
   removedEntityIds?: string[];  
   /**
- * groundPatches：MapNextWorldDeltaInput 内部字段。
+ * groundPatches：groundPatche相关字段。
  */
 
   groundPatches?: GroundItemPilePatch[];  
   /**
- * effects：MapNextWorldDeltaInput 内部字段。
+ * effects：effect相关字段。
  */
 
   effects?: CombatEffect[];  
   /**
- * threatArrows：MapNextWorldDeltaInput 内部字段。
+ * threatArrows：集合字段。
  */
 
   threatArrows?: Array<{  
   /**
- * ownerId：MapNextWorldDeltaInput 内部字段。
+ * ownerId：ownerID标识。
  */
  ownerId: string;  
  /**
- * targetId：MapNextWorldDeltaInput 内部字段。
+ * targetId：目标ID标识。
  */
  targetId: string }>;  
  /**
- * threatArrowAdds：MapNextWorldDeltaInput 内部字段。
+ * threatArrowAdds：threatArrowAdd相关字段。
  */
 
   threatArrowAdds?: Array<[string, string]>;  
   /**
- * threatArrowRemoves：MapNextWorldDeltaInput 内部字段。
+ * threatArrowRemoves：threatArrowRemove相关字段。
  */
 
   threatArrowRemoves?: Array<[string, string]>;  
   /**
- * pathCells：MapNextWorldDeltaInput 内部字段。
+ * pathCells：路径Cell相关字段。
  */
 
   pathCells?: GridPoint[];  
   /**
- * tickDurationMs：MapNextWorldDeltaInput 内部字段。
+ * tickDurationMs：tickDurationM相关字段。
  */
 
   tickDurationMs?: number;  
   /**
- * time：MapNextWorldDeltaInput 内部字段。
+ * time：时间相关字段。
  */
 
   time?: GameTimeState | null;  
   /**
- * visibleTiles：MapNextWorldDeltaInput 内部字段。
+ * visibleTiles：可见Tile相关字段。
  */
 
   visibleTiles?: VisibleTile[][];  
   /**
- * visibleTilePatches：MapNextWorldDeltaInput 内部字段。
+ * visibleTilePatches：可见TilePatche相关字段。
  */
 
   visibleTilePatches?: VisibleTilePatch[];  
   /**
- * mapId：MapNextWorldDeltaInput 内部字段。
+ * mapId：地图ID标识。
  */
 
   mapId?: string;
@@ -637,37 +637,37 @@ export interface MapNextWorldDeltaInput {
 /** 本体增量入参。 */
 export interface MapNextSelfDeltaInput {
 /**
- * mapId：MapNextSelfDeltaInput 内部字段。
+ * mapId：地图ID标识。
  */
 
   mapId?: string;  
   /**
- * x：MapNextSelfDeltaInput 内部字段。
+ * x：x相关字段。
  */
 
   x?: number;  
   /**
- * y：MapNextSelfDeltaInput 内部字段。
+ * y：y相关字段。
  */
 
   y?: number;  
   /**
- * facing：MapNextSelfDeltaInput 内部字段。
+ * facing：facing相关字段。
  */
 
   facing?: Direction;  
   /**
- * hp：MapNextSelfDeltaInput 内部字段。
+ * hp：hp相关字段。
  */
 
   hp?: number;  
   /**
- * qi：MapNextSelfDeltaInput 内部字段。
+ * qi：qi相关字段。
  */
 
   qi?: number;  
   /**
- * playerPatch：MapNextSelfDeltaInput 内部字段。
+ * playerPatch：玩家Patch相关字段。
  */
 
   playerPatch?: TickRenderEntity | null;
@@ -676,42 +676,42 @@ export interface MapNextSelfDeltaInput {
 /** 入场初始化入参。 */
 export interface MapBootstrapInput {
 /**
- * self：MapBootstrapInput 内部字段。
+ * self：self相关字段。
  */
 
   self: PlayerState;  
   /**
- * mapMeta：MapBootstrapInput 内部字段。
+ * mapMeta：地图Meta相关字段。
  */
 
   mapMeta: MapMeta;  
   /**
- * minimap：MapBootstrapInput 内部字段。
+ * minimap：缓存或索引容器。
  */
 
   minimap?: MapMinimapSnapshot | null;  
   /**
- * visibleMinimapMarkers：MapBootstrapInput 内部字段。
+ * visibleMinimapMarkers：可见MinimapMarker相关字段。
  */
 
   visibleMinimapMarkers?: MapMinimapMarker[];  
   /**
- * minimapLibrary：MapBootstrapInput 内部字段。
+ * minimapLibrary：minimapLibrary相关字段。
  */
 
   minimapLibrary: MapMinimapArchiveEntry[];  
   /**
- * tiles：MapBootstrapInput 内部字段。
+ * tiles：tile相关字段。
  */
 
   tiles: VisibleTile[][];  
   /**
- * players：MapBootstrapInput 内部字段。
+ * players：集合字段。
  */
 
   players: RenderEntity[];  
   /**
- * time：MapBootstrapInput 内部字段。
+ * time：时间相关字段。
  */
 
   time?: GameTimeState | null;

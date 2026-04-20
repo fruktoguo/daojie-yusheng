@@ -51,12 +51,12 @@ const SUPREME_ATTR_LABELS = {
 
 let LeaderboardRuntimeService = class LeaderboardRuntimeService {
 /**
- * playerRuntimeService：对象字段。
+ * playerRuntimeService：玩家运行态服务引用。
  */
 
     playerRuntimeService;    
     /**
- * marketRuntimeService：对象字段。
+ * marketRuntimeService：坊市运行态服务引用。
  */
 
     marketRuntimeService;
@@ -363,9 +363,9 @@ exports.LeaderboardRuntimeService = LeaderboardRuntimeService = __decorate([
 ], LeaderboardRuntimeService);
 export { LeaderboardRuntimeService };
 /**
- * clampLeaderboardLimit：执行核心业务逻辑。
+ * clampLeaderboardLimit：执行clampLeaderboardLimit相关逻辑。
  * @param limit 参数说明。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新clampLeaderboardLimit相关状态。
  */
 
 function clampLeaderboardLimit(limit) {
@@ -377,20 +377,20 @@ function clampLeaderboardLimit(limit) {
     return Math.max(1, Math.min(MAX_LEADERBOARD_LIMIT, Math.floor(Number(limit))));
 }
 /**
- * compareName：执行核心业务逻辑。
+ * compareName：执行compare名称相关逻辑。
  * @param left 参数说明。
  * @param right 参数说明。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新compare名称相关状态。
  */
 
 function compareName(left, right) {
     return left.playerName.localeCompare(right.playerName, 'zh-Hans-CN');
 }
 /**
- * toNonNegativeInteger：执行核心业务逻辑。
+ * toNonNegativeInteger：执行toNonNegativeInteger相关逻辑。
  * @param input 输入参数。
  * @param fallback 参数说明。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新toNonNegativeInteger相关状态。
  */
 
 function toNonNegativeInteger(input, fallback) {
@@ -399,9 +399,9 @@ function toNonNegativeInteger(input, fallback) {
     return Math.max(0, normalized);
 }
 /**
- * normalizePlayerName：执行核心业务逻辑。
+ * normalizePlayerName：规范化或转换玩家名称。
  * @param player 玩家对象。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新玩家名称相关状态。
  */
 
 function normalizePlayerName(player) {

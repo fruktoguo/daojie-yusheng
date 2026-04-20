@@ -12,42 +12,42 @@ export type UiFontLevelKey = (typeof UI_TEXT_SETTINGS.fontLevels)[number]['key']
 /** UiFontLevelDefinition：字号级别定义。 */
 export type UiFontLevelDefinition = {
 /**
- * key：对象字段。
+ * key：key标识。
  */
 
   key: UiFontLevelKey;  
   /**
- * label：对象字段。
+ * label：label名称或显示文本。
  */
 
   label: string;  
   /**
- * description：对象字段。
+ * description：description相关字段。
  */
 
   description: string;  
   /**
- * min：对象字段。
+ * min：min相关字段。
  */
 
   min: number;  
   /**
- * max：对象字段。
+ * max：max相关字段。
  */
 
   max: number;  
   /**
- * defaultSize：对象字段。
+ * defaultSize：数量或计量字段。
  */
 
   defaultSize: number;  
   /**
- * previewText：对象字段。
+ * previewText：previewText名称或显示文本。
  */
 
   previewText: string;  
   /**
- * previewClassName：对象字段。
+ * previewClassName：previewClass名称名称或显示文本。
  */
 
   previewClassName: string;
@@ -56,17 +56,17 @@ export type UiFontLevelDefinition = {
 /** UiStyleConfig：界面样式配置。 */
 export type UiStyleConfig = {
 /**
- * colorMode：对象字段。
+ * colorMode：colorMode相关字段。
  */
 
   colorMode: UiColorMode;  
   /**
- * globalFontOffset：对象字段。
+ * globalFontOffset：globalFontOffset相关字段。
  */
 
   globalFontOffset: number;  
   /**
- * uiScale：对象字段。
+ * uiScale：uiScale相关字段。
  */
 
   uiScale: number;
@@ -75,15 +75,15 @@ export type UiStyleConfig = {
 /** 颜色模式切换选项。 */
 export const UI_COLOR_MODE_OPTIONS: Array<{
 /**
- * value：对象字段。
+ * value：值数值。
  */
  value: UiColorMode;
  /**
- * label：对象字段。
+ * label：label名称或显示文本。
  */
  label: string;
  /**
- * description：对象字段。
+ * description：description相关字段。
  */
  description: string }> = [
   { value: 'light', label: '浅色', description: '保持当前纸卷风格的亮面配色。' },

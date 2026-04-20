@@ -180,7 +180,7 @@ exports.WorldProjectorService = WorldProjectorService = __decorate([
 /**
  * buildMapEnter：构建并返回目标对象。
  * @param view 参数说明。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新地图Enter相关状态。
  */
 
 function buildMapEnter(view) {
@@ -198,7 +198,7 @@ function buildMapEnter(view) {
 /**
  * buildFullWorldDelta：构建并返回目标对象。
  * @param view 参数说明。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新Full世界Delta相关状态。
  */
 
 function buildFullWorldDelta(view) {
@@ -275,7 +275,7 @@ function buildFullWorldDelta(view) {
 /**
  * buildFullSelfDelta：构建并返回目标对象。
  * @param player 玩家对象。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新FullSelfDelta相关状态。
  */
 
 function buildFullSelfDelta(player) {
@@ -295,7 +295,7 @@ function buildFullSelfDelta(player) {
 /**
  * buildFullPanelDelta：构建并返回目标对象。
  * @param player 玩家对象。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新Full面板Delta相关状态。
  */
 
 function buildFullPanelDelta(player) {
@@ -331,9 +331,9 @@ function buildFullPanelDelta(player) {
     };
 }
 /**
- * captureWorldState：执行核心业务逻辑。
+ * captureWorldState：执行capture世界状态相关逻辑。
  * @param view 参数说明。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新capture世界状态相关状态。
  */
 
 function captureWorldState(view) {
@@ -388,9 +388,9 @@ function captureWorldState(view) {
     };
 }
 /**
- * capturePlayerState：执行核心业务逻辑。
+ * capturePlayerState：执行capture玩家状态相关逻辑。
  * @param player 玩家对象。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新capture玩家状态相关状态。
  */
 
 function capturePlayerState(player) {
@@ -418,9 +418,9 @@ function capturePlayerState(player) {
     };
 }
 /**
- * captureInventoryPanelSlice：执行核心业务逻辑。
+ * captureInventoryPanelSlice：执行capture背包面板Slice相关逻辑。
  * @param player 玩家对象。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新capture背包面板Slice相关状态。
  */
 
 function captureInventoryPanelSlice(player) {
@@ -431,9 +431,9 @@ function captureInventoryPanelSlice(player) {
     };
 }
 /**
- * captureEquipmentPanelSlice：执行核心业务逻辑。
+ * captureEquipmentPanelSlice：执行capture装备面板Slice相关逻辑。
  * @param player 玩家对象。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新capture装备面板Slice相关状态。
  */
 
 function captureEquipmentPanelSlice(player) {
@@ -446,9 +446,9 @@ function captureEquipmentPanelSlice(player) {
     };
 }
 /**
- * captureTechniquePanelSlice：执行核心业务逻辑。
+ * captureTechniquePanelSlice：执行capture功法面板Slice相关逻辑。
  * @param player 玩家对象。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新capture功法面板Slice相关状态。
  */
 
 function captureTechniquePanelSlice(player) {
@@ -460,9 +460,9 @@ function captureTechniquePanelSlice(player) {
     };
 }
 /**
- * captureAttrPanelSlice：执行核心业务逻辑。
+ * captureAttrPanelSlice：执行captureAttr面板Slice相关逻辑。
  * @param player 玩家对象。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新captureAttr面板Slice相关状态。
  */
 
 function captureAttrPanelSlice(player) {
@@ -487,9 +487,9 @@ function captureAttrPanelSlice(player) {
     };
 }
 /**
- * captureActionPanelSlice：执行核心业务逻辑。
+ * captureActionPanelSlice：执行captureAction面板Slice相关逻辑。
  * @param player 玩家对象。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新captureAction面板Slice相关状态。
  */
 
 function captureActionPanelSlice(player) {
@@ -512,9 +512,9 @@ function captureActionPanelSlice(player) {
     };
 }
 /**
- * captureBuffPanelSlice：执行核心业务逻辑。
+ * captureBuffPanelSlice：执行captureBuff面板Slice相关逻辑。
  * @param player 玩家对象。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新captureBuff面板Slice相关状态。
  */
 
 function captureBuffPanelSlice(player) {
@@ -524,10 +524,10 @@ function captureBuffPanelSlice(player) {
     };
 }
 /**
- * combineProjectorState：执行核心业务逻辑。
+ * combineProjectorState：执行combineProjector状态相关逻辑。
  * @param worldState 参数说明。
  * @param playerState 参数说明。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新combineProjector状态相关状态。
  */
 
 function combineProjectorState(worldState, playerState) {
@@ -546,10 +546,10 @@ function combineProjectorState(worldState, playerState) {
     };
 }
 /**
- * captureProjectorState：执行核心业务逻辑。
+ * captureProjectorState：执行captureProjector状态相关逻辑。
  * @param view 参数说明。
  * @param player 玩家对象。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新captureProjector状态相关状态。
  */
 
 function captureProjectorState(view, player) {
@@ -558,7 +558,7 @@ function captureProjectorState(view, player) {
 /**
  * buildFullAttrDelta：构建并返回目标对象。
  * @param player 玩家对象。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新FullAttrDelta相关状态。
  */
 
 function buildFullAttrDelta(player) {
@@ -586,7 +586,7 @@ function buildFullAttrDelta(player) {
 /**
  * buildFullActionDelta：构建并返回目标对象。
  * @param player 玩家对象。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新FullActionDelta相关状态。
  */
 
 function buildFullActionDelta(player) {
@@ -613,7 +613,7 @@ function buildFullActionDelta(player) {
 /**
  * buildFullBuffDelta：构建并返回目标对象。
  * @param player 玩家对象。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新FullBuffDelta相关状态。
  */
 
 function buildFullBuffDelta(player) {
@@ -627,7 +627,7 @@ function buildFullBuffDelta(player) {
  * buildAttrDelta：构建并返回目标对象。
  * @param previousAttr 参数说明。
  * @param player 玩家对象。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新AttrDelta相关状态。
  */
 
 function buildAttrDelta(previousAttr, player) {
@@ -704,7 +704,7 @@ function buildAttrDelta(previousAttr, player) {
  * buildSelfDelta：构建并返回目标对象。
  * @param previous 参数说明。
  * @param player 玩家对象。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新SelfDelta相关状态。
  */
 
 function buildSelfDelta(previous, player) {
@@ -742,7 +742,7 @@ function buildSelfDelta(previous, player) {
  * buildPanelDelta：构建并返回目标对象。
  * @param previous 参数说明。
  * @param player 玩家对象。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新面板Delta相关状态。
  */
 
 function buildPanelDelta(previous, player) {
@@ -868,10 +868,10 @@ function buildPanelDelta(previous, player) {
     return delta.inv || delta.eq || delta.tech || delta.attr || delta.act || delta.buff ? delta : null;
 }
 /**
- * diffPlayerEntries：执行核心业务逻辑。
+ * diffPlayerEntries：执行diff玩家条目相关逻辑。
  * @param previous 参数说明。
  * @param current 参数说明。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新diff玩家条目相关状态。
  */
 
 function diffPlayerEntries(previous, current) {
@@ -893,10 +893,10 @@ function diffPlayerEntries(previous, current) {
     return result;
 }
 /**
- * diffNpcEntries：执行核心业务逻辑。
+ * diffNpcEntries：执行diffNPC条目相关逻辑。
  * @param previous 参数说明。
  * @param current 参数说明。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新diffNPC条目相关状态。
  */
 
 function diffNpcEntries(previous, current) {
@@ -964,20 +964,20 @@ function diffNpcEntries(previous, current) {
     return result;
 }
 /**
- * isSameNpcQuestMarker：执行状态校验并返回判断结果。
+ * isSameNpcQuestMarker：判断SameNPC任务Marker是否满足条件。
  * @param left 参数说明。
  * @param right 参数说明。
- * @returns 函数返回值。
+ * @returns 无返回值，完成SameNPC任务Marker的条件判断。
  */
 
 function isSameNpcQuestMarker(left, right) {
     return left?.line === right?.line && left?.state === right?.state;
 }
 /**
- * diffPortalEntries：执行核心业务逻辑。
+ * diffPortalEntries：执行diff传送门条目相关逻辑。
  * @param previous 参数说明。
  * @param current 参数说明。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新diffPortal条目相关状态。
  */
 
 function diffPortalEntries(previous, current) {
@@ -999,10 +999,10 @@ function diffPortalEntries(previous, current) {
     return result;
 }
 /**
- * diffMonsterEntries：执行核心业务逻辑。
+ * diffMonsterEntries：执行diff怪物条目相关逻辑。
  * @param previous 参数说明。
  * @param current 参数说明。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新diff怪物条目相关状态。
  */
 
 function diffMonsterEntries(previous, current) {
@@ -1074,10 +1074,10 @@ function diffMonsterEntries(previous, current) {
     return result;
 }
 /**
- * diffGroundPiles：执行核心业务逻辑。
+ * diffGroundPiles：执行diff地面Pile相关逻辑。
  * @param previous 参数说明。
  * @param current 参数说明。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新diffGroundPile相关状态。
  */
 
 function diffGroundPiles(previous, current) {
@@ -1109,10 +1109,10 @@ function diffGroundPiles(previous, current) {
     return result;
 }
 /**
- * diffContainerEntries：执行核心业务逻辑。
+ * diffContainerEntries：执行diffContainer条目相关逻辑。
  * @param previous 参数说明。
  * @param current 参数说明。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新diffContainer条目相关状态。
  */
 
 function diffContainerEntries(previous, current) {
@@ -1169,10 +1169,10 @@ function diffContainerEntries(previous, current) {
     return result;
 }
 /**
- * diffInventorySlots：执行核心业务逻辑。
+ * diffInventorySlots：执行diff背包Slot相关逻辑。
  * @param previous 参数说明。
  * @param current 参数说明。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新diff背包Slot相关状态。
  */
 
 function diffInventorySlots(previous, current) {
@@ -1195,10 +1195,10 @@ function diffInventorySlots(previous, current) {
     return patch;
 }
 /**
- * diffEquipmentSlots：执行核心业务逻辑。
+ * diffEquipmentSlots：执行diff装备Slot相关逻辑。
  * @param previous 参数说明。
  * @param current 参数说明。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新diff装备Slot相关状态。
  */
 
 function diffEquipmentSlots(previous, current) {
@@ -1220,10 +1220,10 @@ function diffEquipmentSlots(previous, current) {
     return patch;
 }
 /**
- * diffTechniqueEntries：执行核心业务逻辑。
+ * diffTechniqueEntries：执行diff功法条目相关逻辑。
  * @param previous 参数说明。
  * @param current 参数说明。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新diff功法条目相关状态。
  */
 
 function diffTechniqueEntries(previous, current) {
@@ -1234,10 +1234,10 @@ function diffTechniqueEntries(previous, current) {
         .map((entry) => cloneTechniqueEntry(entry));
 }
 /**
- * diffRemovedTechniqueIds：执行核心业务逻辑。
+ * diffRemovedTechniqueIds：处理diffRemoved功法ID并更新相关状态。
  * @param previous 参数说明。
  * @param current 参数说明。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新diffRemoved功法ID相关状态。
  */
 
 function diffRemovedTechniqueIds(previous, current) {
@@ -1248,10 +1248,10 @@ function diffRemovedTechniqueIds(previous, current) {
         .filter((techId) => !currentIds.has(techId));
 }
 /**
- * diffActionEntries：执行核心业务逻辑。
+ * diffActionEntries：执行diffAction条目相关逻辑。
  * @param previous 参数说明。
  * @param current 参数说明。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新diffAction条目相关状态。
  */
 
 function diffActionEntries(previous, current) {
@@ -1262,10 +1262,10 @@ function diffActionEntries(previous, current) {
         .map((entry) => ({ ...entry }));
 }
 /**
- * diffRemovedActionIds：执行核心业务逻辑。
+ * diffRemovedActionIds：处理diffRemovedActionID并更新相关状态。
  * @param previous 参数说明。
  * @param current 参数说明。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新diffRemovedActionID相关状态。
  */
 
 function diffRemovedActionIds(previous, current) {
@@ -1276,10 +1276,10 @@ function diffRemovedActionIds(previous, current) {
         .filter((actionId) => !currentIds.has(actionId));
 }
 /**
- * diffBuffEntries：执行核心业务逻辑。
+ * diffBuffEntries：执行diffBuff条目相关逻辑。
  * @param previous 参数说明。
  * @param current 参数说明。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新diffBuff条目相关状态。
  */
 
 function diffBuffEntries(previous, current) {
@@ -1290,10 +1290,10 @@ function diffBuffEntries(previous, current) {
         .map((entry) => cloneVisibleBuff(entry));
 }
 /**
- * diffRemovedBuffIds：执行核心业务逻辑。
+ * diffRemovedBuffIds：处理diffRemovedBuffID并更新相关状态。
  * @param previous 参数说明。
  * @param current 参数说明。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新diffRemovedBuffID相关状态。
  */
 
 function diffRemovedBuffIds(previous, current) {
@@ -1304,10 +1304,10 @@ function diffRemovedBuffIds(previous, current) {
         .filter((buffId) => !currentIds.has(buffId));
 }
 /**
- * diffAttributes：执行核心业务逻辑。
+ * diffAttributes：执行diffAttribute相关逻辑。
  * @param previous 参数说明。
  * @param current 参数说明。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新diffAttribute相关状态。
  */
 
 function diffAttributes(previous, current) {
@@ -1327,10 +1327,10 @@ function diffAttributes(previous, current) {
     return changes > 0 ? { patch, changes } : { changes: 0 };
 }
 /**
- * diffNumericStats：执行核心业务逻辑。
+ * diffNumericStats：执行diffNumericStat相关逻辑。
  * @param previous 参数说明。
  * @param current 参数说明。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新diffNumericStat相关状态。
  */
 
 function diffNumericStats(previous, current) {
@@ -1362,10 +1362,10 @@ function diffNumericStats(previous, current) {
     return changes > 0 ? { patch, changes } : { changes: 0 };
 }
 /**
- * diffRatioDivisors：执行核心业务逻辑。
+ * diffRatioDivisors：判断diffRatioDivisor是否满足条件。
  * @param previous 参数说明。
  * @param current 参数说明。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新diffRatioDivisor相关状态。
  */
 
 function diffRatioDivisors(previous, current) {
@@ -1391,10 +1391,10 @@ function diffRatioDivisors(previous, current) {
     return changes > 0 ? { patch, changes } : { changes: 0 };
 }
 /**
- * diffElementGroup：执行核心业务逻辑。
+ * diffElementGroup：执行diffElementGroup相关逻辑。
  * @param previous 参数说明。
  * @param current 参数说明。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新diffElementGroup相关状态。
  */
 
 function diffElementGroup(previous, current) {
@@ -1414,10 +1414,10 @@ function diffElementGroup(previous, current) {
     return changes > 0 ? { patch, changes } : { changes: 0 };
 }
 /**
- * isSameItem：执行状态校验并返回判断结果。
+ * isSameItem：判断Same道具是否满足条件。
  * @param left 参数说明。
  * @param right 参数说明。
- * @returns 函数返回值。
+ * @returns 无返回值，完成Same道具的条件判断。
  */
 
 function isSameItem(left, right) {
@@ -1453,9 +1453,9 @@ function isSameItem(left, right) {
         && left.allowBatchUse === right.allowBatchUse;
 }
 /**
- * cloneTechniqueEntry：执行核心业务逻辑。
+ * cloneTechniqueEntry：构建功法条目。
  * @param source 来源对象。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新功法条目相关状态。
  */
 
 function cloneTechniqueEntry(source) {
@@ -1473,10 +1473,10 @@ function cloneTechniqueEntry(source) {
     };
 }
 /**
- * isSameTechniqueEntry：执行状态校验并返回判断结果。
+ * isSameTechniqueEntry：判断Same功法条目是否满足条件。
  * @param left 参数说明。
  * @param right 参数说明。
- * @returns 函数返回值。
+ * @returns 无返回值，完成Same功法条目的条件判断。
  */
 
 function isSameTechniqueEntry(left, right) {
@@ -1503,10 +1503,10 @@ function isSameTechniqueEntry(left, right) {
         && shallowEqualRecord(left.attrCurves, right.attrCurves);
 }
 /**
- * isSameActionEntry：执行状态校验并返回判断结果。
+ * isSameActionEntry：判断SameAction条目是否满足条件。
  * @param left 参数说明。
  * @param right 参数说明。
- * @returns 函数返回值。
+ * @returns 无返回值，完成SameAction条目的条件判断。
  */
 
 function isSameActionEntry(left, right) {
@@ -1531,10 +1531,10 @@ function isSameActionEntry(left, right) {
         && left.skillEnabled === right.skillEnabled;
 }
 /**
- * isSameBuffEntry：执行状态校验并返回判断结果。
+ * isSameBuffEntry：判断SameBuff条目是否满足条件。
  * @param left 参数说明。
  * @param right 参数说明。
- * @returns 函数返回值。
+ * @returns 无返回值，完成SameBuff条目的条件判断。
  */
 
 function isSameBuffEntry(left, right) {
@@ -1564,10 +1564,10 @@ function isSameBuffEntry(left, right) {
         && shallowEqualArray(left.qiProjection, right.qiProjection);
 }
 /**
- * isSameGroundPile：执行状态校验并返回判断结果。
+ * isSameGroundPile：判断Same地面Pile是否满足条件。
  * @param left 参数说明。
  * @param right 参数说明。
- * @returns 函数返回值。
+ * @returns 无返回值，完成SameGroundPile的条件判断。
  */
 
 function isSameGroundPile(left, right) {
@@ -1590,10 +1590,10 @@ function isSameGroundPile(left, right) {
     return true;
 }
 /**
- * isSameGroundItemEntry：执行状态校验并返回判断结果。
+ * isSameGroundItemEntry：判断Same地面道具条目是否满足条件。
  * @param left 参数说明。
  * @param right 参数说明。
- * @returns 函数返回值。
+ * @returns 无返回值，完成SameGround道具条目的条件判断。
  */
 
 function isSameGroundItemEntry(left, right) {
@@ -1614,10 +1614,10 @@ function isSameGroundItemEntry(left, right) {
         && left.groundLabel === right.groundLabel;
 }
 /**
- * shallowEqualArray：执行核心业务逻辑。
+ * shallowEqualArray：执行shallowEqualArray相关逻辑。
  * @param left 参数说明。
  * @param right 参数说明。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新shallowEqualArray相关状态。
  */
 
 function shallowEqualArray(left, right) {
@@ -1637,10 +1637,10 @@ function shallowEqualArray(left, right) {
     return true;
 }
 /**
- * shallowEqualRecord：执行核心业务逻辑。
+ * shallowEqualRecord：执行shallowEqualRecord相关逻辑。
  * @param left 参数说明。
  * @param right 参数说明。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新shallowEqualRecord相关状态。
  */
 
 function shallowEqualRecord(left, right) {
@@ -1674,10 +1674,10 @@ function shallowEqualRecord(left, right) {
     return true;
 }
 /**
- * shallowEqualValue：执行核心业务逻辑。
+ * shallowEqualValue：执行shallowEqual值相关逻辑。
  * @param left 参数说明。
  * @param right 参数说明。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新shallowEqual值相关状态。
  */
 
 function shallowEqualValue(left, right) {
@@ -1695,18 +1695,18 @@ function shallowEqualValue(left, right) {
     return false;
 }
 /**
- * isPlainObject：执行状态校验并返回判断结果。
+ * isPlainObject：判断PlainObject是否满足条件。
  * @param value 参数说明。
- * @returns 函数返回值。
+ * @returns 无返回值，完成PlainObject的条件判断。
  */
 
 function isPlainObject(value) {
     return Boolean(value) && typeof value === 'object' && !Array.isArray(value);
 }
 /**
- * cloneAttributes：执行核心业务逻辑。
+ * cloneAttributes：构建Attribute。
  * @param source 来源对象。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新Attribute相关状态。
  */
 
 function cloneAttributes(source) {
@@ -1722,7 +1722,7 @@ function cloneAttributes(source) {
 /**
  * buildAttrBonuses：构建并返回目标对象。
  * @param player 玩家对象。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新AttrBonuse相关状态。
  */
 
 function buildAttrBonuses(player) {
@@ -1731,9 +1731,9 @@ function buildAttrBonuses(player) {
         : [];
 }
 /**
- * cloneSpecialStats：执行核心业务逻辑。
+ * cloneSpecialStats：构建SpecialStat。
  * @param source 来源对象。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新SpecialStat相关状态。
  */
 
 function cloneSpecialStats(source) {
@@ -1743,10 +1743,10 @@ function cloneSpecialStats(source) {
     };
 }
 /**
- * isSameAttrBonuses：执行状态校验并返回判断结果。
+ * isSameAttrBonuses：判断SameAttrBonuse是否满足条件。
  * @param left 参数说明。
  * @param right 参数说明。
- * @returns 函数返回值。
+ * @returns 无返回值，完成SameAttrBonuse的条件判断。
  */
 
 function isSameAttrBonuses(left, right) {
@@ -1770,9 +1770,9 @@ function isSameAttrBonuses(left, right) {
     return true;
 }
 /**
- * cloneAttrBonus：执行核心业务逻辑。
+ * cloneAttrBonus：构建AttrBonu。
  * @param source 来源对象。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新AttrBonu相关状态。
  */
 
 function cloneAttrBonus(source) {
@@ -1787,10 +1787,10 @@ function cloneAttrBonus(source) {
     };
 }
 /**
- * isSameSpecialStats：执行状态校验并返回判断结果。
+ * isSameSpecialStats：判断SameSpecialStat是否满足条件。
  * @param left 参数说明。
  * @param right 参数说明。
- * @returns 函数返回值。
+ * @returns 无返回值，完成SameSpecialStat的条件判断。
  */
 
 function isSameSpecialStats(left, right) {
@@ -1798,9 +1798,9 @@ function isSameSpecialStats(left, right) {
         && left.combatExp === right.combatExp;
 }
 /**
- * cloneNumericStats：执行核心业务逻辑。
+ * cloneNumericStats：构建NumericStat。
  * @param source 来源对象。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新NumericStat相关状态。
  */
 
 function cloneNumericStats(source) {
@@ -1851,9 +1851,9 @@ function cloneNumericStats(source) {
     };
 }
 /**
- * clonePartialNumericStats：执行核心业务逻辑。
+ * clonePartialNumericStats：构建PartialNumericStat。
  * @param source 来源对象。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新PartialNumericStat相关状态。
  */
 
 function clonePartialNumericStats(source) {
@@ -1878,9 +1878,9 @@ function clonePartialNumericStats(source) {
     return Object.keys(clone).length > 0 ? clone : undefined;
 }
 /**
- * cloneNumericRatioDivisors：执行核心业务逻辑。
+ * cloneNumericRatioDivisors：判断NumericRatioDivisor是否满足条件。
  * @param source 来源对象。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新NumericRatioDivisor相关状态。
  */
 
 function cloneNumericRatioDivisors(source) {
@@ -1901,9 +1901,9 @@ function cloneNumericRatioDivisors(source) {
     };
 }
 /**
- * cloneQiProjectionModifier：执行核心业务逻辑。
+ * cloneQiProjectionModifier：构建QiProjectionModifier。
  * @param source 来源对象。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新QiProjectionModifier相关状态。
  */
 
 function cloneQiProjectionModifier(source) {
@@ -1921,9 +1921,9 @@ function cloneQiProjectionModifier(source) {
     };
 }
 /**
- * cloneVisibleBuff：执行核心业务逻辑。
+ * cloneVisibleBuff：判断可见Buff是否满足条件。
  * @param source 来源对象。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新可见Buff相关状态。
  */
 
 function cloneVisibleBuff(source) {
@@ -1938,7 +1938,7 @@ function cloneVisibleBuff(source) {
  * buildPortalId：构建并返回目标对象。
  * @param x X 坐标。
  * @param y Y 坐标。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新PortalID相关状态。
  */
 
 function buildPortalId(x, y) {

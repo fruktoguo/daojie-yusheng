@@ -6,40 +6,40 @@ const { WorldRuntimePlayerCombatOutcomeService } = require("../runtime/world/wor
 /**
  * createService：构建并返回目标对象。
  * @param log 参数说明。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新服务相关状态。
  */
 
 
 function createService(log = []) {
     return new WorldRuntimePlayerCombatOutcomeService({    
     /**
- * dispatchDamagePlayer：处理事件并驱动执行路径。
+ * dispatchDamagePlayer：判断Damage玩家是否满足条件。
  * @param playerId 玩家 ID。
  * @param amount 参数说明。
  * @param deps 运行时依赖。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新Damage玩家相关状态。
  */
 
         dispatchDamagePlayer(playerId, amount, deps) {
             log.push(['dispatchDamagePlayer', playerId, amount, deps.marker]);
         },        
         /**
- * handlePlayerMonsterKill：处理事件并驱动执行路径。
+ * handlePlayerMonsterKill：处理玩家怪物Kill并更新相关状态。
  * @param instance 地图实例。
  * @param monster 参数说明。
  * @param killerPlayerId killerPlayer ID。
  * @param deps 运行时依赖。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新玩家怪物Kill相关状态。
  */
 
         handlePlayerMonsterKill(instance, monster, killerPlayerId, deps) {
             log.push(['handlePlayerMonsterKill', instance.meta.instanceId, monster.runtimeId, killerPlayerId, deps.marker]);
         },        
         /**
- * handlePlayerDefeat：处理事件并驱动执行路径。
+ * handlePlayerDefeat：处理玩家Defeat并更新相关状态。
  * @param playerId 玩家 ID。
  * @param deps 运行时依赖。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新玩家Defeat相关状态。
  */
 
         handlePlayerDefeat(playerId, deps) {
@@ -47,19 +47,19 @@ function createService(log = []) {
         },
     }, {    
     /**
- * processPendingRespawns：处理事件并驱动执行路径。
+ * processPendingRespawns：处理待处理重生并更新相关状态。
  * @param deps 运行时依赖。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新Pending重生相关状态。
  */
 
         processPendingRespawns(deps) {
             log.push(['processPendingRespawns', deps.marker]);
         },        
         /**
- * respawnPlayer：执行核心业务逻辑。
+ * respawnPlayer：执行重生玩家相关逻辑。
  * @param playerId 玩家 ID。
  * @param deps 运行时依赖。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新重生玩家相关状态。
  */
 
         respawnPlayer(playerId, deps) {
@@ -68,8 +68,8 @@ function createService(log = []) {
     });
 }
 /**
- * testOutcomeDelegations：执行核心业务逻辑。
- * @returns 函数返回值。
+ * testOutcomeDelegations：执行testOutcomeDelegation相关逻辑。
+ * @returns 无返回值，直接更新testOutcomeDelegation相关状态。
  */
 
 

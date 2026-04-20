@@ -42,17 +42,17 @@ const {
 /** 世界运行时玩家视图查询服务：承接玩家视野与已准备拾取窗口状态的只读拼装。 */
 let WorldRuntimePlayerViewQueryService = class WorldRuntimePlayerViewQueryService {
 /**
- * playerRuntimeService：对象字段。
+ * playerRuntimeService：玩家运行态服务引用。
  */
 
     playerRuntimeService;    
     /**
- * worldRuntimeLootContainerService：对象字段。
+ * worldRuntimeLootContainerService：世界运行态掉落Container服务引用。
  */
 
     worldRuntimeLootContainerService;    
     /**
- * worldRuntimeNpcQuestInteractionQueryService：对象字段。
+ * worldRuntimeNpcQuestInteractionQueryService：世界运行态NPC任务InteractionQuery服务引用。
  */
 
     worldRuntimeNpcQuestInteractionQueryService;    
@@ -61,7 +61,7 @@ let WorldRuntimePlayerViewQueryService = class WorldRuntimePlayerViewQueryServic
  * @param playerRuntimeService 参数说明。
  * @param worldRuntimeLootContainerService 参数说明。
  * @param worldRuntimeNpcQuestInteractionQueryService 参数说明。
- * @returns 无返回值（构造函数）。
+ * @returns 无返回值，完成实例初始化。
  */
 
     constructor(playerRuntimeService, worldRuntimeLootContainerService, worldRuntimeNpcQuestInteractionQueryService) {
@@ -70,11 +70,11 @@ let WorldRuntimePlayerViewQueryService = class WorldRuntimePlayerViewQueryServic
         this.worldRuntimeNpcQuestInteractionQueryService = worldRuntimeNpcQuestInteractionQueryService;
     }    
     /**
- * getPlayerView：按给定条件读取/查询数据。
+ * getPlayerView：读取玩家视图。
  * @param runtime 参数说明。
  * @param playerId 玩家 ID。
  * @param radius 影响半径。
- * @returns 函数返回值。
+ * @returns 无返回值，完成玩家视图的读取/组装。
  */
 
     getPlayerView(runtime, playerId, radius) {
@@ -98,7 +98,7 @@ let WorldRuntimePlayerViewQueryService = class WorldRuntimePlayerViewQueryServic
  * @param playerId 玩家 ID。
  * @param tileX 参数说明。
  * @param tileY 参数说明。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新掉落窗口Sync状态相关状态。
  */
 
     buildLootWindowSyncState(runtime, playerId, tileX, tileY) {
@@ -155,11 +155,11 @@ let WorldRuntimePlayerViewQueryService = class WorldRuntimePlayerViewQueryServic
         };
     }    
     /**
- * decoratePlayerViewNpcs：执行核心业务逻辑。
+ * decoratePlayerViewNpcs：执行decorate玩家视图NPC相关逻辑。
  * @param runtime 参数说明。
  * @param playerId 玩家 ID。
  * @param view 参数说明。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新decorate玩家视图NPC相关状态。
  */
 
     decoratePlayerViewNpcs(runtime, playerId, view) {

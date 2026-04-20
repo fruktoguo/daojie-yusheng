@@ -17,15 +17,15 @@ const movement_debug_1 = require("../../debug/movement-debug");
 /** world-runtime transfer orchestration：承接跨实例传送写路径。 */
 let WorldRuntimeTransferService = class WorldRuntimeTransferService {
 /**
- * logger：对象字段。
+ * logger：日志器引用。
  */
 
     logger = new common_1.Logger(WorldRuntimeTransferService.name);    
     /**
- * applyTransfer：更新/写入相关状态。
+ * applyTransfer：处理Transfer并更新相关状态。
  * @param transfer 参数说明。
  * @param deps 运行时依赖。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新Transfer相关状态。
  */
 
     applyTransfer(transfer, deps) {

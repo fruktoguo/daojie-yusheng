@@ -4,7 +4,7 @@
 
 export type MapPerformanceConfig = {
 /**
- * showFpsMonitor：对象字段。
+ * showFpsMonitor：showFpMonitor相关字段。
  */
 
   showFpsMonitor: boolean;

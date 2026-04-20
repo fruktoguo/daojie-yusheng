@@ -1871,17 +1871,17 @@ function delay(ms) {
     });
 }
 /**
- * resolveExpectedLegacySocketProtocolGuardCode：执行核心业务逻辑。
- * @returns 函数返回值。
+ * resolveExpectedLegacySocketProtocolGuardCode：规范化或转换ExpectedLegacySocketProtocolGuardCode。
+ * @returns 无返回值，直接更新ExpectedLegacySocketProtocolGuardCode相关状态。
  */
 
 function resolveExpectedLegacySocketProtocolGuardCode() {
     return LEGACY_SOCKET_PROTOCOL_ENABLED ? 'AUTH_PROTOCOL_MISMATCH' : 'LEGACY_PROTOCOL_DISABLED';
 }
 /**
- * readBooleanEnv：执行核心业务逻辑。
+ * readBooleanEnv：读取BooleanEnv并返回结果。
  * @param key 参数说明。
- * @returns 函数返回值。
+ * @returns 无返回值，完成BooleanEnv的读取/组装。
  */
 
 function readBooleanEnv(key) {

@@ -5,8 +5,8 @@ const { WorldRuntimeService } = require("../runtime/world/world-runtime.service"
 const { WorldRuntimeNpcShopQueryService } = require("../runtime/world/world-runtime-npc-shop-query.service");
 const { WorldRuntimeNpcShopService } = require("../runtime/world/world-runtime-npc-shop.service");
 /**
- * testQueryBuildNpcShopView：执行核心业务逻辑。
- * @returns 函数返回值。
+ * testQueryBuildNpcShopView：读取testQueryBuildNPCShop视图并返回结果。
+ * @returns 无返回值，直接更新testQueryBuildNPCShop视图相关状态。
  */
 
 
@@ -17,7 +17,7 @@ function testQueryBuildNpcShopView() {
  * createItem：构建并返回目标对象。
  * @param itemId 道具 ID。
  * @param count 数量。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新道具相关状态。
  */
 
         createItem(itemId, count) {
@@ -33,16 +33,16 @@ function testQueryBuildNpcShopView() {
         },
     }, {    
     /**
- * canReceiveInventoryItem：执行状态校验并返回判断结果。
- * @returns 函数返回值。
+ * canReceiveInventoryItem：判断Receive背包道具是否满足条件。
+ * @returns 无返回值，完成Receive背包道具的条件判断。
  */
 
         canReceiveInventoryItem() {
             return true;
         },        
         /**
- * getInventoryCountByItemId：按给定条件读取/查询数据。
- * @returns 函数返回值。
+ * getInventoryCountByItemId：读取背包数量By道具ID。
+ * @returns 无返回值，完成背包数量By道具ID的读取/组装。
  */
 
         getInventoryCountByItemId() {
@@ -51,10 +51,10 @@ function testQueryBuildNpcShopView() {
     });
     const result = service.buildNpcShopView('player:1', 'npc_a', {    
     /**
- * resolveAdjacentNpc：执行核心业务逻辑。
+ * resolveAdjacentNpc：规范化或转换AdjacentNPC。
  * @param playerId 玩家 ID。
  * @param npcId npc ID。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新AdjacentNPC相关状态。
  */
 
         resolveAdjacentNpc(playerId, npcId) {
@@ -86,8 +86,8 @@ function testQueryBuildNpcShopView() {
     assert.deepEqual(log, [['resolveAdjacentNpc', 'player:1', 'npc_a']]);
 }
 /**
- * testWorldRuntimeFacadeBuildNpcShopView：执行核心业务逻辑。
- * @returns 函数返回值。
+ * testWorldRuntimeFacadeBuildNpcShopView：构建test世界运行态FacadeBuildNPCShop视图。
+ * @returns 无返回值，直接更新test世界运行态FacadeBuildNPCShop视图相关状态。
  */
 
 
@@ -95,9 +95,9 @@ function testWorldRuntimeFacadeBuildNpcShopView() {
     const log = [];
     const runtime = {    
     /**
- * getPlayerLocationOrThrow：按给定条件读取/查询数据。
+ * getPlayerLocationOrThrow：读取玩家位置OrThrow。
  * @param playerId 玩家 ID。
- * @returns 函数返回值。
+ * @returns 无返回值，完成玩家位置OrThrow的读取/组装。
  */
 
         getPlayerLocationOrThrow(playerId) {
@@ -110,7 +110,7 @@ function testWorldRuntimeFacadeBuildNpcShopView() {
  * @param playerId 玩家 ID。
  * @param npcId npc ID。
  * @param deps 运行时依赖。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新NPCShop视图相关状态。
  */
 
             buildNpcShopView(playerId, npcId, deps) {
@@ -128,8 +128,8 @@ function testWorldRuntimeFacadeBuildNpcShopView() {
     assert.throws(() => WorldRuntimeService.prototype.buildNpcShopView.call(runtime, 'player:1', '   '), /npcId is required/);
 }
 /**
- * testQueryValidateNpcShopPurchase：执行核心业务逻辑。
- * @returns 函数返回值。
+ * testQueryValidateNpcShopPurchase：读取testQueryValidateNPCShopPurchase并返回结果。
+ * @returns 无返回值，直接更新testQueryValidateNPCShopPurchase相关状态。
  */
 
 
@@ -140,7 +140,7 @@ function testQueryValidateNpcShopPurchase() {
  * createItem：构建并返回目标对象。
  * @param itemId 道具 ID。
  * @param count 数量。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新道具相关状态。
  */
 
         createItem(itemId, count) {
@@ -156,10 +156,10 @@ function testQueryValidateNpcShopPurchase() {
         },
     }, {    
     /**
- * canReceiveInventoryItem：执行状态校验并返回判断结果。
+ * canReceiveInventoryItem：判断Receive背包道具是否满足条件。
  * @param playerId 玩家 ID。
  * @param itemId 道具 ID。
- * @returns 函数返回值。
+ * @returns 无返回值，完成Receive背包道具的条件判断。
  */
 
         canReceiveInventoryItem(playerId, itemId) {
@@ -167,10 +167,10 @@ function testQueryValidateNpcShopPurchase() {
             return true;
         },        
         /**
- * getInventoryCountByItemId：按给定条件读取/查询数据。
+ * getInventoryCountByItemId：读取背包数量By道具ID。
  * @param playerId 玩家 ID。
  * @param itemId 道具 ID。
- * @returns 函数返回值。
+ * @returns 无返回值，完成背包数量By道具ID的读取/组装。
  */
 
         getInventoryCountByItemId(playerId, itemId) {
@@ -180,10 +180,10 @@ function testQueryValidateNpcShopPurchase() {
     });
     const result = service.validateNpcShopPurchase('player:1', 'npc_a', 'qi_pill', 2, {    
     /**
- * resolveAdjacentNpc：执行核心业务逻辑。
+ * resolveAdjacentNpc：规范化或转换AdjacentNPC。
  * @param playerId 玩家 ID。
  * @param npcId npc ID。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新AdjacentNPC相关状态。
  */
 
         resolveAdjacentNpc(playerId, npcId) {
@@ -207,8 +207,8 @@ function testQueryValidateNpcShopPurchase() {
     ]);
 }
 /**
- * testWorldRuntimeFacadeValidateNpcShopPurchase：执行核心业务逻辑。
- * @returns 函数返回值。
+ * testWorldRuntimeFacadeValidateNpcShopPurchase：判断test世界运行态FacadeValidateNPCShopPurchase是否满足条件。
+ * @returns 无返回值，直接更新test世界运行态FacadeValidateNPCShopPurchase相关状态。
  */
 
 
@@ -217,13 +217,13 @@ function testWorldRuntimeFacadeValidateNpcShopPurchase() {
     const runtime = {
         worldRuntimeNpcShopQueryService: {        
         /**
- * validateNpcShopPurchase：执行核心业务逻辑。
+ * validateNpcShopPurchase：判断NPCShopPurchase是否满足条件。
  * @param playerId 玩家 ID。
  * @param npcId npc ID。
  * @param itemId 道具 ID。
  * @param quantity 参数说明。
  * @param deps 运行时依赖。
- * @returns 函数返回值。
+ * @returns 无返回值，完成NPCShopPurchase的条件判断。
  */
 
             validateNpcShopPurchase(playerId, npcId, itemId, quantity, deps) {
@@ -239,8 +239,8 @@ function testWorldRuntimeFacadeValidateNpcShopPurchase() {
     ]);
 }
 /**
- * testEnqueue：执行核心业务逻辑。
- * @returns 函数返回值。
+ * testEnqueue：处理testEnqueue并更新相关状态。
+ * @returns 无返回值，直接更新testEnqueue相关状态。
  */
 
 
@@ -248,44 +248,44 @@ function testEnqueue() {
     const log = [];
     const service = new WorldRuntimeNpcShopService({}, {    
     /**
- * getCurrencyItemName：按给定条件读取/查询数据。
- * @returns 函数返回值。
+ * getCurrencyItemName：读取Currency道具名称。
+ * @returns 无返回值，完成Currency道具名称的读取/组装。
  */
  getCurrencyItemName() { return '灵石'; },    
  /**
- * getCurrencyItemId：按给定条件读取/查询数据。
- * @returns 函数返回值。
+ * getCurrencyItemId：读取Currency道具ID。
+ * @returns 无返回值，完成Currency道具ID的读取/组装。
  */
  getCurrencyItemId() { return 'spirit_stone'; } });
     const queued = new Map();
     const deps = {    
     /**
- * getPlayerLocationOrThrow：按给定条件读取/查询数据。
- * @returns 函数返回值。
+ * getPlayerLocationOrThrow：读取玩家位置OrThrow。
+ * @returns 无返回值，完成玩家位置OrThrow的读取/组装。
  */
 
         getPlayerLocationOrThrow() { return { instanceId: 'instance:1' }; },        
         /**
- * validateNpcShopPurchase：执行核心业务逻辑。
+ * validateNpcShopPurchase：判断NPCShopPurchase是否满足条件。
  * @param playerId 玩家 ID。
  * @param npcId npc ID。
  * @param itemId 道具 ID。
  * @param quantity 参数说明。
- * @returns 函数返回值。
+ * @returns 无返回值，完成NPCShopPurchase的条件判断。
  */
 
         validateNpcShopPurchase(playerId, npcId, itemId, quantity) { log.push(['validateNpcShopPurchase', playerId, npcId, itemId, quantity]); },        
         /**
- * enqueuePendingCommand：执行核心业务逻辑。
+ * enqueuePendingCommand：处理待处理Command并更新相关状态。
  * @param playerId 玩家 ID。
  * @param command 输入指令。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新PendingCommand相关状态。
  */
 
         enqueuePendingCommand(playerId, command) { queued.set(playerId, command); },        
         /**
- * getPlayerViewOrThrow：按给定条件读取/查询数据。
- * @returns 函数返回值。
+ * getPlayerViewOrThrow：读取玩家视图OrThrow。
+ * @returns 无返回值，完成玩家视图OrThrow的读取/组装。
  */
 
         getPlayerViewOrThrow() { return { tick: 1 }; },
@@ -296,8 +296,8 @@ function testEnqueue() {
     assert.deepEqual(result, { tick: 1 });
 }
 /**
- * testDispatch：执行核心业务逻辑。
- * @returns 函数返回值。
+ * testDispatch：判断testDispatch是否满足条件。
+ * @returns 无返回值，直接更新testDispatch相关状态。
  */
 
 
@@ -305,56 +305,56 @@ function testDispatch() {
     const log = [];
     const service = new WorldRuntimeNpcShopService({    
     /**
- * consumeInventoryItemByItemId：执行核心业务逻辑。
+ * consumeInventoryItemByItemId：执行consume背包道具By道具ID相关逻辑。
  * @param playerId 玩家 ID。
  * @param itemId 道具 ID。
  * @param count 数量。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新consume背包道具By道具ID相关状态。
  */
 
         consumeInventoryItemByItemId(playerId, itemId, count) { log.push(['consumeInventoryItemByItemId', playerId, itemId, count]); },        
         /**
- * receiveInventoryItem：执行核心业务逻辑。
+ * receiveInventoryItem：执行receive背包道具相关逻辑。
  * @param playerId 玩家 ID。
  * @param item 道具。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新receive背包道具相关状态。
  */
 
         receiveInventoryItem(playerId, item) { log.push(['receiveInventoryItem', playerId, item.itemId, item.count]); },
     }, {    
     /**
- * getCurrencyItemId：按给定条件读取/查询数据。
- * @returns 函数返回值。
+ * getCurrencyItemId：读取Currency道具ID。
+ * @returns 无返回值，完成Currency道具ID的读取/组装。
  */
 
         getCurrencyItemId() { return 'spirit_stone'; },        
         /**
- * getCurrencyItemName：按给定条件读取/查询数据。
- * @returns 函数返回值。
+ * getCurrencyItemName：读取Currency道具名称。
+ * @returns 无返回值，完成Currency道具名称的读取/组装。
  */
 
         getCurrencyItemName() { return '灵石'; },
     });
     const deps = {    
     /**
- * validateNpcShopPurchase：执行核心业务逻辑。
- * @returns 函数返回值。
+ * validateNpcShopPurchase：判断NPCShopPurchase是否满足条件。
+ * @returns 无返回值，完成NPCShopPurchase的条件判断。
  */
 
         validateNpcShopPurchase() { return { totalCost: 5, item: { itemId: 'qi_pill', name: '聚气丹', count: 1 } }; },        
         /**
- * refreshQuestStates：执行核心业务逻辑。
+ * refreshQuestStates：执行refresh任务状态相关逻辑。
  * @param playerId 玩家 ID。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新refresh任务状态相关状态。
  */
 
         refreshQuestStates(playerId) { log.push(['refreshQuestStates', playerId]); },        
         /**
- * queuePlayerNotice：执行核心业务逻辑。
+ * queuePlayerNotice：执行queue玩家Notice相关逻辑。
  * @param playerId 玩家 ID。
  * @param message 参数说明。
  * @param tone 参数说明。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新queue玩家Notice相关状态。
  */
 
         queuePlayerNotice(playerId, message, tone) { log.push(['queuePlayerNotice', playerId, message, tone]); },

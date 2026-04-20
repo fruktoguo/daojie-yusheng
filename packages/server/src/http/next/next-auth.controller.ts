@@ -9,32 +9,32 @@ import { NextPlayerAuthService } from './next-player-auth.service';
 
 interface AuthBody {
 /**
- * accountName：AuthBody 内部字段。
+ * accountName：account名称名称或显示文本。
  */
 
   accountName?: unknown;  
   /**
- * password：AuthBody 内部字段。
+ * password：password相关字段。
  */
 
   password?: unknown;  
   /**
- * displayName：AuthBody 内部字段。
+ * displayName：显示名称名称或显示文本。
  */
 
   displayName?: unknown;  
   /**
- * roleName：AuthBody 内部字段。
+ * roleName：role名称名称或显示文本。
  */
 
   roleName?: unknown;  
   /**
- * loginName：AuthBody 内部字段。
+ * loginName：login名称名称或显示文本。
  */
 
   loginName?: unknown;  
   /**
- * refreshToken：AuthBody 内部字段。
+ * refreshToken：refreshToken标识。
  */
 
   refreshToken?: unknown;

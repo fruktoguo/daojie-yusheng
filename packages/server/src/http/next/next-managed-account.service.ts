@@ -14,42 +14,42 @@ import type { NextPlayerAuthUser } from './next-player-auth-store.service';
 
 interface ManagedAccountRecord {
 /**
- * playerId：ManagedAccountRecord 内部字段。
+ * playerId：玩家ID标识。
  */
 
   playerId: string;  
   /**
- * playerName：ManagedAccountRecord 内部字段。
+ * playerName：玩家名称名称或显示文本。
  */
 
   playerName: string;  
   /**
- * userId：ManagedAccountRecord 内部字段。
+ * userId：userID标识。
  */
 
   userId: string;  
   /**
- * username：ManagedAccountRecord 内部字段。
+ * username：username名称或显示文本。
  */
 
   username: string;  
   /**
- * displayName：ManagedAccountRecord 内部字段。
+ * displayName：显示名称名称或显示文本。
  */
 
   displayName: string | null;  
   /**
- * createdAt：ManagedAccountRecord 内部字段。
+ * createdAt：createdAt相关字段。
  */
 
   createdAt: string;  
   /**
- * totalOnlineSeconds：ManagedAccountRecord 内部字段。
+ * totalOnlineSeconds：totalOnlineSecond相关字段。
  */
 
   totalOnlineSeconds: number;  
   /**
- * currentOnlineStartedAt：ManagedAccountRecord 内部字段。
+ * currentOnlineStartedAt：currentOnlineStartedAt相关字段。
  */
 
   currentOnlineStartedAt: string | null;
@@ -61,17 +61,17 @@ interface ManagedAccountRecord {
 
 interface ManagedAccountUpdateResult {
 /**
- * username：ManagedAccountUpdateResult 内部字段。
+ * username：username名称或显示文本。
  */
 
   username: string;  
   /**
- * displayNameChanged：ManagedAccountUpdateResult 内部字段。
+ * displayNameChanged：显示名称Changed相关字段。
  */
 
   displayNameChanged: boolean;  
   /**
- * nextDisplayName：ManagedAccountUpdateResult 内部字段。
+ * nextDisplayName：next显示名称名称或显示文本。
  */
 
   nextDisplayName: string;
@@ -92,7 +92,7 @@ interface PlayerIdentityPersistencePort {
 
 interface PlayerRuntimeSnapshot {
 /**
- * displayName：PlayerRuntimeSnapshot 内部字段。
+ * displayName：显示名称名称或显示文本。
  */
 
   displayName?: string;
@@ -106,7 +106,7 @@ interface PlayerRuntimePort {
   snapshot(playerId: string): PlayerRuntimeSnapshot | null;
   setIdentity(playerId: string, input: {  
   /**
- * displayName：PlayerRuntimePort 内部字段。
+ * displayName：显示名称名称或显示文本。
  */
  displayName?: string }): unknown;
 }
@@ -117,13 +117,13 @@ export class NextManagedAccountService {
   /** 记录便于追踪管理操作的服务日志。 */
   private readonly logger = new Logger(NextManagedAccountService.name);  
   /**
- * playerIdentityPersistenceService：NextManagedAccountService 内部字段。
+ * playerIdentityPersistenceService：玩家IdentityPersistence服务引用。
  */
 
 
   private readonly playerIdentityPersistenceService: PlayerIdentityPersistencePort;  
   /**
- * playerRuntimeService：NextManagedAccountService 内部字段。
+ * playerRuntimeService：玩家运行态服务引用。
  */
 
 

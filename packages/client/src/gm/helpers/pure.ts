@@ -8,12 +8,12 @@ import {
 /** GM 邮件草稿里单条附件的最小输入结构。 */
 interface GmMailAttachmentDraft {
 /**
- * itemId：GmMailAttachmentDraft 内部字段。
+ * itemId：道具ID标识。
  */
 
   itemId: string;  
   /**
- * count：GmMailAttachmentDraft 内部字段。
+ * count：数量或计量字段。
  */
 
   count: number;
@@ -22,37 +22,37 @@ interface GmMailAttachmentDraft {
 /** GM 邮件编辑器中整份草稿的输入结构。 */
 interface GmMailComposerDraft {
 /**
- * templateId：GmMailComposerDraft 内部字段。
+ * templateId：templateID标识。
  */
 
   templateId: string;  
   /**
- * targetPlayerId：GmMailComposerDraft 内部字段。
+ * targetPlayerId：目标玩家ID标识。
  */
 
   targetPlayerId: string;  
   /**
- * senderLabel：GmMailComposerDraft 内部字段。
+ * senderLabel：senderLabel名称或显示文本。
  */
 
   senderLabel: string;  
   /**
- * title：GmMailComposerDraft 内部字段。
+ * title：title名称或显示文本。
  */
 
   title: string;  
   /**
- * body：GmMailComposerDraft 内部字段。
+ * body：body相关字段。
  */
 
   body: string;  
   /**
- * expireHours：GmMailComposerDraft 内部字段。
+ * expireHours：expireHour相关字段。
  */
 
   expireHours: string;  
   /**
- * attachments：GmMailComposerDraft 内部字段。
+ * attachments：attachment相关字段。
  */
 
   attachments: GmMailAttachmentDraft[];
@@ -111,22 +111,22 @@ export function createDefaultRedeemGroupDraft(
   createRedeemReward: () => RedeemCodeGroupRewardItem = createDefaultRedeemReward,
 ): {
 /**
- * name：对象字段。
+ * name：名称名称或显示文本。
  */
 
   name: string;  
   /**
- * rewards：对象字段。
+ * rewards：reward相关字段。
  */
 
   rewards: RedeemCodeGroupRewardItem[];  
   /**
- * createCount：对象字段。
+ * createCount：数量或计量字段。
  */
 
   createCount: string;  
   /**
- * appendCount：对象字段。
+ * appendCount：数量或计量字段。
  */
 
   appendCount: string;
@@ -255,12 +255,12 @@ export function getPlayerPresenceMeta(
   player: Pick<GmManagedPlayerSummary, 'meta'>,
 ): {
 /**
- * className：对象字段。
+ * className：class名称名称或显示文本。
  */
 
   className: 'online' | 'offline';  
   /**
- * label：对象字段。
+ * label：label名称或显示文本。
  */
 
   label: '在线' | '离线挂机' | '离线';

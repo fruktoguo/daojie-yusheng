@@ -7,47 +7,47 @@ const { WorldRuntimeEnhancementService } = require("../runtime/world/world-runti
 /**
  * createDeps：构建并返回目标对象。
  * @param log 参数说明。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新Dep相关状态。
  */
 
 
 function createDeps(log) {
     return {    
     /**
- * queuePlayerNotice：执行核心业务逻辑。
+ * queuePlayerNotice：执行queue玩家Notice相关逻辑。
  * @param playerId 玩家 ID。
  * @param message 参数说明。
  * @param kind 参数说明。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新queue玩家Notice相关状态。
  */
 
         queuePlayerNotice(playerId, message, kind) { log.push(['queuePlayerNotice', playerId, message, kind]); },        
         /**
- * getInstanceRuntimeOrThrow：按给定条件读取/查询数据。
- * @returns 函数返回值。
+ * getInstanceRuntimeOrThrow：读取Instance运行态OrThrow。
+ * @returns 无返回值，完成Instance运行态OrThrow的读取/组装。
  */
 
         getInstanceRuntimeOrThrow() {
             return {            
             /**
- * dropGroundItem：执行核心业务逻辑。
- * @returns 函数返回值。
+ * dropGroundItem：执行drop地面道具相关逻辑。
+ * @returns 无返回值，直接更新dropGround道具相关状态。
  */
 
                 dropGroundItem() { log.push(['dropGroundItem']); return { sourceId: 'ground:1' }; },
             };
         },        
         /**
- * spawnGroundItem：执行核心业务逻辑。
- * @returns 函数返回值。
+ * spawnGroundItem：执行spawn地面道具相关逻辑。
+ * @returns 无返回值，直接更新spawnGround道具相关状态。
  */
 
         spawnGroundItem() { log.push(['spawnGroundItem']); },
     };
 }
 /**
- * testStartEnhancement：执行核心业务逻辑。
- * @returns 函数返回值。
+ * testStartEnhancement：执行test开始强化相关逻辑。
+ * @returns 无返回值，直接更新testStart强化相关状态。
  */
 
 
@@ -55,56 +55,56 @@ function testStartEnhancement() {
     const log = [];
     const playerRuntimeService = {    
     /**
- * getPlayerOrThrow：按给定条件读取/查询数据。
- * @returns 函数返回值。
+ * getPlayerOrThrow：读取玩家OrThrow。
+ * @returns 无返回值，完成玩家OrThrow的读取/组装。
  */
 
         getPlayerOrThrow() { return { playerId: 'player:1', instanceId: 'instance:1', x: 1, y: 2 }; },        
         /**
- * getPlayer：按给定条件读取/查询数据。
- * @returns 函数返回值。
+ * getPlayer：读取玩家。
+ * @returns 无返回值，完成玩家的读取/组装。
  */
 
         getPlayer() { return { playerId: 'player:1' }; },        
         /**
- * receiveInventoryItem：执行核心业务逻辑。
- * @returns 函数返回值。
+ * receiveInventoryItem：执行receive背包道具相关逻辑。
+ * @returns 无返回值，直接更新receive背包道具相关状态。
  */
 
         receiveInventoryItem() { log.push(['receiveInventoryItem']); },
     };
     const craftPanelRuntimeService = {    
     /**
- * startEnhancement：执行核心业务逻辑。
- * @returns 函数返回值。
+ * startEnhancement：执行开始强化相关逻辑。
+ * @returns 无返回值，直接更新start强化相关状态。
  */
 
         startEnhancement() { return { ok: true, messages: [{ text: '强化开始', kind: 'success' }], panelChanged: true, groundDrops: [] }; },        
         /**
  * buildEnhancementPanelPayload：构建并返回目标对象。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新强化面板载荷相关状态。
  */
 
         buildEnhancementPanelPayload() { return { ok: true }; },
     };
     const craftMutationService = new WorldRuntimeCraftMutationService(playerRuntimeService, craftPanelRuntimeService, {    
     /**
- * getSocketByPlayerId：按给定条件读取/查询数据。
- * @returns 函数返回值。
+ * getSocketByPlayerId：读取SocketBy玩家ID。
+ * @returns 无返回值，完成SocketBy玩家ID的读取/组装。
  */
 
         getSocketByPlayerId() { return {        
         /**
- * emit：执行核心业务逻辑。
+ * emit：处理emit并更新相关状态。
  * @param event 参数说明。
  * @param payload 载荷参数。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新结果相关状态。
  */
  emit(event, payload) { log.push(['emit', event, payload.ok]); } }; },
     }, {    
     /**
- * prefersNext：执行核心业务逻辑。
- * @returns 函数返回值。
+ * prefersNext：执行preferNext相关逻辑。
+ * @returns 无返回值，直接更新preferNext相关状态。
  */
 
         prefersNext() { return true; },
@@ -117,8 +117,8 @@ function testStartEnhancement() {
     ]);
 }
 /**
- * testCancelEnhancement：执行核心业务逻辑。
- * @returns 函数返回值。
+ * testCancelEnhancement：判断testCancel强化是否满足条件。
+ * @returns 无返回值，直接更新testCancel强化相关状态。
  */
 
 
@@ -126,54 +126,54 @@ function testCancelEnhancement() {
     const log = [];
     const playerRuntimeService = {    
     /**
- * getPlayerOrThrow：按给定条件读取/查询数据。
- * @returns 函数返回值。
+ * getPlayerOrThrow：读取玩家OrThrow。
+ * @returns 无返回值，完成玩家OrThrow的读取/组装。
  */
 
         getPlayerOrThrow() { return { playerId: 'player:1', instanceId: 'instance:1', x: 1, y: 2 }; },        
         /**
- * getPlayer：按给定条件读取/查询数据。
- * @returns 函数返回值。
+ * getPlayer：读取玩家。
+ * @returns 无返回值，完成玩家的读取/组装。
  */
 
         getPlayer() { return { playerId: 'player:1' }; },        
         /**
- * receiveInventoryItem：执行核心业务逻辑。
- * @returns 函数返回值。
+ * receiveInventoryItem：执行receive背包道具相关逻辑。
+ * @returns 无返回值，直接更新receive背包道具相关状态。
  */
 
         receiveInventoryItem() { log.push(['receiveInventoryItem']); },
     };
     const craftPanelRuntimeService = {    
     /**
- * cancelEnhancement：执行状态校验并返回判断结果。
- * @returns 函数返回值。
+ * cancelEnhancement：判断cancel强化是否满足条件。
+ * @returns 无返回值，完成cancel强化的条件判断。
  */
 
         cancelEnhancement() { return { ok: true, messages: [{ text: '强化取消', kind: 'info' }], panelChanged: false, groundDrops: [] }; },        
         /**
  * buildEnhancementPanelPayload：构建并返回目标对象。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新强化面板载荷相关状态。
  */
 
         buildEnhancementPanelPayload() { return { ok: true }; },
     };
     const craftMutationService = new WorldRuntimeCraftMutationService(playerRuntimeService, craftPanelRuntimeService, {    
     /**
- * getSocketByPlayerId：按给定条件读取/查询数据。
- * @returns 函数返回值。
+ * getSocketByPlayerId：读取SocketBy玩家ID。
+ * @returns 无返回值，完成SocketBy玩家ID的读取/组装。
  */
 
         getSocketByPlayerId() { return {        
         /**
- * emit：执行核心业务逻辑。
- * @returns 函数返回值。
+ * emit：处理emit并更新相关状态。
+ * @returns 无返回值，直接更新结果相关状态。
  */
  emit() { log.push(['emit']); } }; },
     }, {    
     /**
- * prefersNext：执行核心业务逻辑。
- * @returns 函数返回值。
+ * prefersNext：执行preferNext相关逻辑。
+ * @returns 无返回值，直接更新preferNext相关状态。
  */
 
         prefersNext() { return true; },
@@ -185,8 +185,8 @@ function testCancelEnhancement() {
     ]);
 }
 /**
- * testWorldRuntimeFacadeDispatchStartEnhancement：执行核心业务逻辑。
- * @returns 函数返回值。
+ * testWorldRuntimeFacadeDispatchStartEnhancement：判断test世界运行态FacadeDispatch开始强化是否满足条件。
+ * @returns 无返回值，直接更新test世界运行态FacadeDispatchStart强化相关状态。
  */
 
 
@@ -195,11 +195,11 @@ function testWorldRuntimeFacadeDispatchStartEnhancement() {
     const runtime = {
         worldRuntimeEnhancementService: {        
         /**
- * dispatchStartEnhancement：处理事件并驱动执行路径。
+ * dispatchStartEnhancement：判断开始强化是否满足条件。
  * @param playerId 玩家 ID。
  * @param payload 载荷参数。
  * @param deps 运行时依赖。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新Start强化相关状态。
  */
 
             dispatchStartEnhancement(playerId, payload, deps) {
@@ -213,8 +213,8 @@ function testWorldRuntimeFacadeDispatchStartEnhancement() {
     ]);
 }
 /**
- * testWorldRuntimeFacadeDispatchCancelEnhancement：执行核心业务逻辑。
- * @returns 函数返回值。
+ * testWorldRuntimeFacadeDispatchCancelEnhancement：判断test世界运行态FacadeDispatchCancel强化是否满足条件。
+ * @returns 无返回值，直接更新test世界运行态FacadeDispatchCancel强化相关状态。
  */
 
 
@@ -223,10 +223,10 @@ function testWorldRuntimeFacadeDispatchCancelEnhancement() {
     const runtime = {
         worldRuntimeEnhancementService: {        
         /**
- * dispatchCancelEnhancement：处理事件并驱动执行路径。
+ * dispatchCancelEnhancement：判断Cancel强化是否满足条件。
  * @param playerId 玩家 ID。
  * @param deps 运行时依赖。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新Cancel强化相关状态。
  */
 
             dispatchCancelEnhancement(playerId, deps) {

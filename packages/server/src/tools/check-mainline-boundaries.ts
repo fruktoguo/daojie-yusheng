@@ -6,9 +6,9 @@ const path = require("node:path");
 
 const packageRoot = path.resolve(__dirname, "..", "..");
 /**
- * readSource：执行核心业务逻辑。
+ * readSource：读取来源并返回结果。
  * @param relativePath 参数说明。
- * @returns 函数返回值。
+ * @returns 无返回值，完成来源的读取/组装。
  */
 
 
@@ -20,9 +20,9 @@ function readSource(relativePath) {
     };
 }
 /**
- * lineCount：执行核心业务逻辑。
+ * lineCount：执行line数量相关逻辑。
  * @param source 来源对象。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新line数量相关状态。
  */
 
 
@@ -36,11 +36,11 @@ function lineCount(source) {
     return source.endsWith("\n") ? lines - 1 : lines;
 }
 /**
- * expectLineCap：执行核心业务逻辑。
+ * expectLineCap：执行expectLineCap相关逻辑。
  * @param label 参数说明。
  * @param source 来源对象。
  * @param maxLines 参数说明。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新expectLineCap相关状态。
  */
 
 
@@ -50,12 +50,12 @@ function expectLineCap(label, source, maxLines) {
     return lines;
 }
 /**
- * expectAbsent：执行核心业务逻辑。
+ * expectAbsent：执行expectAbsent相关逻辑。
  * @param label 参数说明。
  * @param source 来源对象。
  * @param pattern 参数说明。
  * @param reason 参数说明。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新expectAbsent相关状态。
  */
 
 
@@ -63,12 +63,12 @@ function expectAbsent(label, source, pattern, reason) {
     assert.ok(!pattern.test(source), `${label} 检测到禁止残余：${reason}`);
 }
 /**
- * expectPresent：执行核心业务逻辑。
+ * expectPresent：执行expectPresent相关逻辑。
  * @param label 参数说明。
  * @param source 来源对象。
  * @param pattern 参数说明。
  * @param reason 参数说明。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新expectPresent相关状态。
  */
 
 
@@ -76,8 +76,8 @@ function expectPresent(label, source, pattern, reason) {
     assert.ok(pattern.test(source), `${label} 缺少预期边界：${reason}`);
 }
 /**
- * checkWorldRuntime：执行状态校验并返回判断结果。
- * @returns 函数返回值。
+ * checkWorldRuntime：判断世界运行态是否满足条件。
+ * @returns 无返回值，完成世界运行态的条件判断。
  */
 
 
@@ -96,8 +96,8 @@ function checkWorldRuntime() {
     return lines;
 }
 /**
- * checkWorldGateway：执行状态校验并返回判断结果。
- * @returns 函数返回值。
+ * checkWorldGateway：判断世界Gateway是否满足条件。
+ * @returns 无返回值，完成世界Gateway的条件判断。
  */
 
 
@@ -113,8 +113,8 @@ function checkWorldGateway() {
     return lines;
 }
 /**
- * checkWorldSync：执行状态校验并返回判断结果。
- * @returns 函数返回值。
+ * checkWorldSync：判断世界同步是否满足条件。
+ * @returns 无返回值，完成世界Sync的条件判断。
  */
 
 
@@ -128,8 +128,8 @@ function checkWorldSync() {
     return lines;
 }
 /**
- * checkWorldProjector：执行状态校验并返回判断结果。
- * @returns 函数返回值。
+ * checkWorldProjector：判断世界Projector是否满足条件。
+ * @returns 无返回值，完成世界Projector的条件判断。
  */
 
 
@@ -142,8 +142,8 @@ function checkWorldProjector() {
     return lines;
 }
 /**
- * main：执行核心业务逻辑。
- * @returns 函数返回值。
+ * main：执行main相关逻辑。
+ * @returns 无返回值，直接更新main相关状态。
  */
 
 

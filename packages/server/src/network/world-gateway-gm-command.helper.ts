@@ -7,24 +7,24 @@ exports.WorldGatewayGmCommandHelper = void 0;
 /** 世界 socket GM 命令 helper：收敛维护命令。 */
 class WorldGatewayGmCommandHelper {
 /**
- * gateway：WorldGatewayGmCommandHelper 内部字段。
+ * gateway：gateway相关字段。
  */
 
     gateway;    
     /**
  * 构造器：初始化 当前 实例并建立基础状态。
  * @param gateway 参数说明。
- * @returns 无返回值（构造函数）。
+ * @returns 无返回值，完成实例初始化。
  */
 
     constructor(gateway) {
         this.gateway = gateway;
     }    
     /**
- * handleGmGetState：处理事件并驱动执行路径。
+ * handleGmGetState：读取GMGet状态并返回结果。
  * @param client 参数说明。
  * @param _payload 参数说明。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新GMGet状态相关状态。
  */
 
     handleGmGetState(client, _payload) {
@@ -37,10 +37,10 @@ class WorldGatewayGmCommandHelper {
         this.gateway.worldGmSocketService.emitState(client);
     }    
     /**
- * handleGmSpawnBots：处理事件并驱动执行路径。
+ * handleGmSpawnBots：处理GMSpawnBot并更新相关状态。
  * @param client 参数说明。
  * @param payload 载荷参数。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新GMSpawnBot相关状态。
  */
 
     handleGmSpawnBots(client, payload) {
@@ -58,10 +58,10 @@ class WorldGatewayGmCommandHelper {
         }
     }    
     /**
- * handleGmRemoveBots：处理事件并驱动执行路径。
+ * handleGmRemoveBots：处理GMRemoveBot并更新相关状态。
  * @param client 参数说明。
  * @param payload 载荷参数。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新GMRemoveBot相关状态。
  */
 
     handleGmRemoveBots(client, payload) {
@@ -79,10 +79,10 @@ class WorldGatewayGmCommandHelper {
         }
     }    
     /**
- * handleGmUpdatePlayer：处理事件并驱动执行路径。
+ * handleGmUpdatePlayer：处理GMUpdate玩家并更新相关状态。
  * @param client 参数说明。
  * @param payload 载荷参数。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新GMUpdate玩家相关状态。
  */
 
     handleGmUpdatePlayer(client, payload) {
@@ -100,10 +100,10 @@ class WorldGatewayGmCommandHelper {
         }
     }    
     /**
- * handleGmResetPlayer：处理事件并驱动执行路径。
+ * handleGmResetPlayer：处理GMReset玩家并更新相关状态。
  * @param client 参数说明。
  * @param payload 载荷参数。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新GMReset玩家相关状态。
  */
 
     handleGmResetPlayer(client, payload) {

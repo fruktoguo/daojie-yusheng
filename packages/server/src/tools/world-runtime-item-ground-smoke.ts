@@ -3,8 +3,8 @@
 const assert = require("node:assert/strict");
 const { WorldRuntimeItemGroundService } = require("../runtime/world/world-runtime-item-ground.service");
 /**
- * testDropItem：执行核心业务逻辑。
- * @returns 函数返回值。
+ * testDropItem：执行testDrop道具相关逻辑。
+ * @returns 无返回值，直接更新testDrop道具相关状态。
  */
 
 
@@ -12,17 +12,17 @@ function testDropItem() {
     const log = [];
     const service = new WorldRuntimeItemGroundService({    
     /**
- * getPlayerOrThrow：按给定条件读取/查询数据。
- * @returns 函数返回值。
+ * getPlayerOrThrow：读取玩家OrThrow。
+ * @returns 无返回值，完成玩家OrThrow的读取/组装。
  */
 
         getPlayerOrThrow() { return { x: 5, y: 7 }; },        
         /**
- * splitInventoryItem：执行核心业务逻辑。
+ * splitInventoryItem：处理背包道具并更新相关状态。
  * @param playerId 玩家 ID。
  * @param slotIndex 参数说明。
  * @param count 数量。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新背包道具相关状态。
  */
 
         splitInventoryItem(playerId, slotIndex, count) {
@@ -30,34 +30,34 @@ function testDropItem() {
             return { itemId: 'rat_tail', name: '鼠尾', count: 2 };
         },        
         /**
- * receiveInventoryItem：执行核心业务逻辑。
+ * receiveInventoryItem：执行receive背包道具相关逻辑。
  * @param playerId 玩家 ID。
  * @param item 道具。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新receive背包道具相关状态。
  */
 
         receiveInventoryItem(playerId, item) { log.push(['receiveInventoryItem', playerId, item.itemId, item.count]); },
     });
     const deps = {    
     /**
- * getPlayerLocationOrThrow：按给定条件读取/查询数据。
- * @returns 函数返回值。
+ * getPlayerLocationOrThrow：读取玩家位置OrThrow。
+ * @returns 无返回值，完成玩家位置OrThrow的读取/组装。
  */
 
         getPlayerLocationOrThrow() { return { instanceId: 'instance:1' }; },        
         /**
- * getInstanceRuntimeOrThrow：按给定条件读取/查询数据。
- * @returns 函数返回值。
+ * getInstanceRuntimeOrThrow：读取Instance运行态OrThrow。
+ * @returns 无返回值，完成Instance运行态OrThrow的读取/组装。
  */
 
         getInstanceRuntimeOrThrow() {
             return {            
             /**
- * dropGroundItem：执行核心业务逻辑。
+ * dropGroundItem：执行drop地面道具相关逻辑。
  * @param x X 坐标。
  * @param y Y 坐标。
  * @param item 道具。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新dropGround道具相关状态。
  */
 
                 dropGroundItem(x, y, item) {
@@ -67,18 +67,18 @@ function testDropItem() {
             };
         },        
         /**
- * refreshQuestStates：执行核心业务逻辑。
+ * refreshQuestStates：执行refresh任务状态相关逻辑。
  * @param playerId 玩家 ID。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新refresh任务状态相关状态。
  */
 
         refreshQuestStates(playerId) { log.push(['refreshQuestStates', playerId]); },        
         /**
- * queuePlayerNotice：执行核心业务逻辑。
+ * queuePlayerNotice：执行queue玩家Notice相关逻辑。
  * @param playerId 玩家 ID。
  * @param message 参数说明。
  * @param tone 参数说明。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新queue玩家Notice相关状态。
  */
 
         queuePlayerNotice(playerId, message, tone) { log.push(['queuePlayerNotice', playerId, message, tone]); },
@@ -92,8 +92,8 @@ function testDropItem() {
     ]);
 }
 /**
- * testTakeGroundDelegation：执行核心业务逻辑。
- * @returns 函数返回值。
+ * testTakeGroundDelegation：执行testTake地面Delegation相关逻辑。
+ * @returns 无返回值，直接更新testTakeGroundDelegation相关状态。
  */
 
 
@@ -103,19 +103,19 @@ function testTakeGroundDelegation() {
     const deps = {
         worldRuntimeLootContainerService: {        
         /**
- * dispatchTakeGround：处理事件并驱动执行路径。
+ * dispatchTakeGround：判断Take地面是否满足条件。
  * @param playerId 玩家 ID。
  * @param sourceId source ID。
  * @param itemKey 参数说明。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新TakeGround相关状态。
  */
 
             dispatchTakeGround(playerId, sourceId, itemKey) { log.push(['dispatchTakeGround', playerId, sourceId, itemKey]); },            
             /**
- * dispatchTakeGroundAll：处理事件并驱动执行路径。
+ * dispatchTakeGroundAll：判断Take地面All是否满足条件。
  * @param playerId 玩家 ID。
  * @param sourceId source ID。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新TakeGroundAll相关状态。
  */
 
             dispatchTakeGroundAll(playerId, sourceId) { log.push(['dispatchTakeGroundAll', playerId, sourceId]); },
@@ -129,8 +129,8 @@ function testTakeGroundDelegation() {
     ]);
 }
 /**
- * testSpawnGroundItem：执行核心业务逻辑。
- * @returns 函数返回值。
+ * testSpawnGroundItem：执行testSpawn地面道具相关逻辑。
+ * @returns 无返回值，直接更新testSpawnGround道具相关状态。
  */
 
 
@@ -139,11 +139,11 @@ function testSpawnGroundItem() {
     const service = new WorldRuntimeItemGroundService({});
     service.spawnGroundItem({    
     /**
- * dropGroundItem：执行核心业务逻辑。
+ * dropGroundItem：执行drop地面道具相关逻辑。
  * @param x X 坐标。
  * @param y Y 坐标。
  * @param item 道具。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新dropGround道具相关状态。
  */
 
         dropGroundItem(x, y, item) {
@@ -156,8 +156,8 @@ function testSpawnGroundItem() {
     ]);
 }
 /**
- * testSpawnGroundItemFailure：执行核心业务逻辑。
- * @returns 函数返回值。
+ * testSpawnGroundItemFailure：执行testSpawn地面道具Failure相关逻辑。
+ * @returns 无返回值，直接更新testSpawnGround道具Failure相关状态。
  */
 
 
@@ -166,8 +166,8 @@ function testSpawnGroundItemFailure() {
     assert.throws(() => {
         service.spawnGroundItem({        
         /**
- * dropGroundItem：执行核心业务逻辑。
- * @returns 函数返回值。
+ * dropGroundItem：执行drop地面道具相关逻辑。
+ * @returns 无返回值，直接更新dropGround道具相关状态。
  */
 
             dropGroundItem() {

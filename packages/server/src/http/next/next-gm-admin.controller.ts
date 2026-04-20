@@ -10,7 +10,7 @@ import { NextGmAuthGuard } from './next-gm-auth.guard';
 
 interface DatabaseRestoreBody {
 /**
- * backupId：DatabaseRestoreBody 内部字段。
+ * backupId：backupID标识。
  */
 
   backupId?: string;
@@ -34,13 +34,13 @@ export class NextGmAdminController {
 /**
  * 构造器：初始化 当前 实例并建立基础状态。
  * @param nextGmAdminService NextGmAdminService 参数说明。
- * @returns 无返回值（构造函数）。
+ * @returns 无返回值，完成实例初始化。
  */
 
   constructor(private readonly nextGmAdminService: NextGmAdminService) {}  
   /**
- * getDatabaseState：按给定条件读取/查询数据。
- * @returns 函数返回值。
+ * getDatabaseState：读取Database状态。
+ * @returns 无返回值，完成Database状态的读取/组装。
  */
 
 
@@ -49,8 +49,8 @@ export class NextGmAdminController {
     return this.nextGmAdminService.getDatabaseState();
   }  
   /**
- * triggerDatabaseBackup：执行核心业务逻辑。
- * @returns 函数返回值。
+ * triggerDatabaseBackup：执行triggerDatabaseBackup相关逻辑。
+ * @returns 无返回值，直接更新triggerDatabaseBackup相关状态。
  */
 
 
@@ -59,10 +59,10 @@ export class NextGmAdminController {
     return this.nextGmAdminService.triggerDatabaseBackup();
   }  
   /**
- * downloadDatabaseBackup：执行核心业务逻辑。
+ * downloadDatabaseBackup：读取downloadDatabaseBackup并返回结果。
  * @param backupId string backup ID。
  * @param response DownloadResponseLike 参数说明。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新downloadDatabaseBackup相关状态。
  */
 
 
@@ -72,9 +72,9 @@ export class NextGmAdminController {
     response.download(record.filePath, record.fileName);
   }  
   /**
- * triggerDatabaseRestore：执行核心业务逻辑。
+ * triggerDatabaseRestore：执行triggerDatabaseRestore相关逻辑。
  * @param body DatabaseRestoreBody 参数说明。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新triggerDatabaseRestore相关状态。
  */
 
 

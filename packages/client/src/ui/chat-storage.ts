@@ -9,12 +9,12 @@ import {
 /** ChatMessageRecord：聊天持久化记录。 */
 type ChatMessageRecord = ChatStoredMessage & {
 /**
- * scopeId：对象字段。
+ * scopeId：scopeID标识。
  */
 
   scopeId: string;  
   /**
- * channel：对象字段。
+ * channel：channel相关字段。
  */
 
   channel: ChatChannel;

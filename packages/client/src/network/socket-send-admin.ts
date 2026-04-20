@@ -7,7 +7,7 @@ import type { SocketEmitEvent } from './socket-send-types';
 
 type AdminSenderDeps = {
 /**
- * emitEvent：对象字段。
+ * emitEvent：事件相关字段。
  */
 
   emitEvent: SocketEmitEvent;
@@ -15,24 +15,24 @@ type AdminSenderDeps = {
 /**
  * createSocketAdminSender：构建并返回目标对象。
  * @param deps AdminSenderDeps 运行时依赖。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新SocketAdminSender相关状态。
  */
 
 
 export function createSocketAdminSender(deps: AdminSenderDeps) {
   return {  
   /**
- * sendGmGetState：执行核心业务逻辑。
- * @returns void。
+ * sendGmGetState：读取sendGMGet状态并返回结果。
+ * @returns 无返回值，直接更新sendGMGet状态相关状态。
  */
 
     sendGmGetState(): void {
       deps.emitEvent(NEXT_C2S.GmGetState, {});
     },    
     /**
- * sendGmSpawnBots：执行核心业务逻辑。
+ * sendGmSpawnBots：执行sendGMSpawnBot相关逻辑。
  * @param count number 数量。
- * @returns void。
+ * @returns 无返回值，直接更新sendGMSpawnBot相关状态。
  */
 
 
@@ -40,10 +40,10 @@ export function createSocketAdminSender(deps: AdminSenderDeps) {
       deps.emitEvent(NEXT_C2S.GmSpawnBots, { count });
     },    
     /**
- * sendGmRemoveBots：执行核心业务逻辑。
+ * sendGmRemoveBots：处理sendGMRemoveBot并更新相关状态。
  * @param playerIds string[] player ID 集合。
  * @param all 参数说明。
- * @returns void。
+ * @returns 无返回值，直接更新sendGMRemoveBot相关状态。
  */
 
 
@@ -51,9 +51,9 @@ export function createSocketAdminSender(deps: AdminSenderDeps) {
       deps.emitEvent(NEXT_C2S.GmRemoveBots, { playerIds, all });
     },    
     /**
- * sendGmUpdatePlayer：执行核心业务逻辑。
+ * sendGmUpdatePlayer：处理sendGMUpdate玩家并更新相关状态。
  * @param payload NEXT_C2S_EventPayload<typeof NEXT_C2S.GmUpdatePlayer> 载荷参数。
- * @returns void。
+ * @returns 无返回值，直接更新sendGMUpdate玩家相关状态。
  */
 
 
@@ -63,9 +63,9 @@ export function createSocketAdminSender(deps: AdminSenderDeps) {
       deps.emitEvent(NEXT_C2S.GmUpdatePlayer, payload);
     },    
     /**
- * sendGmResetPlayer：执行核心业务逻辑。
+ * sendGmResetPlayer：执行sendGMReset玩家相关逻辑。
  * @param playerId string 玩家 ID。
- * @returns void。
+ * @returns 无返回值，直接更新sendGMReset玩家相关状态。
  */
 
 
@@ -73,8 +73,8 @@ export function createSocketAdminSender(deps: AdminSenderDeps) {
       deps.emitEvent(NEXT_C2S.GmResetPlayer, { playerId });
     },    
     /**
- * sendDebugResetSpawn：执行核心业务逻辑。
- * @returns void。
+ * sendDebugResetSpawn：执行sendDebugResetSpawn相关逻辑。
+ * @returns 无返回值，直接更新sendDebugResetSpawn相关状态。
  */
 
 

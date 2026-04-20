@@ -9,22 +9,22 @@ export type ExternalStoreListener = () => void;
 
 export interface ExternalStore<TState> {
 /**
- * getState：ExternalStore 内部字段。
+ * getState：get状态状态或数据块。
  */
 
   getState: () => TState;  
   /**
- * setState：ExternalStore 内部字段。
+ * setState：set状态状态或数据块。
  */
 
   setState: (nextState: TState) => void;  
   /**
- * patchState：ExternalStore 内部字段。
+ * patchState：patch状态状态或数据块。
  */
 
   patchState: (patch: Partial<TState>) => void;  
   /**
- * subscribe：ExternalStore 内部字段。
+ * subscribe：subscribe相关字段。
  */
 
   subscribe: (listener: ExternalStoreListener) => () => void;
@@ -32,7 +32,7 @@ export interface ExternalStore<TState> {
 /**
  * createExternalStore：构建并返回目标对象。
  * @param initialState TState 参数说明。
- * @returns ExternalStore<TState>。
+ * @returns 返回External存储。
  */
 
 

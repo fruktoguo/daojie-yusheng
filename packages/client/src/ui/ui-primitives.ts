@@ -9,27 +9,27 @@ function applyUiButtonVariants(button: HTMLButtonElement, variants: UiButtonVari
 /** createUiButton：创建界面按钮。 */
 export function createUiButton(options: {
 /**
- * label：对象字段。
+ * label：label名称或显示文本。
  */
 
   label: string;  
   /**
- * type：对象字段。
+ * type：type相关字段。
  */
 
   type?: 'button' | 'submit' | 'reset';  
   /**
- * variants：对象字段。
+ * variants：variant相关字段。
  */
 
   variants?: UiButtonVariant[];  
   /**
- * className：对象字段。
+ * className：class名称名称或显示文本。
  */
 
   className?: string;  
   /**
- * dataset：对象字段。
+ * dataset：dataset相关字段。
  */
 
   dataset?: Record<string, string>;
@@ -56,27 +56,27 @@ export function createSmallBtn(
   label: string,
   options: {  
   /**
- * type：对象字段。
+ * type：type相关字段。
  */
 
     type?: 'button' | 'submit' | 'reset';    
     /**
- * variants：对象字段。
+ * variants：variant相关字段。
  */
 
     variants?: UiButtonVariant[];    
     /**
- * className：对象字段。
+ * className：class名称名称或显示文本。
  */
 
     className?: string;    
     /**
- * disabled：对象字段。
+ * disabled：disabled相关字段。
  */
 
     disabled?: boolean;    
     /**
- * dataset：对象字段。
+ * dataset：dataset相关字段。
  */
 
     dataset?: Record<string, string>;
@@ -114,12 +114,12 @@ export function createEmptyHint(text: string, className?: string): HTMLDivElemen
 /** createUiPanelSection：创建界面面板Section。 */
 export function createUiPanelSection(title: string): {
 /**
- * section：对象字段。
+ * section：section相关字段。
  */
 
   section: HTMLDivElement;  
   /**
- * title：对象字段。
+ * title：title名称或显示文本。
  */
 
   title: HTMLDivElement;
@@ -138,12 +138,12 @@ export function createUiPanelSection(title: string): {
 /** createPanelSectionWithTitle：创建面板Section With标题。 */
 export function createPanelSectionWithTitle(title: string): {
 /**
- * sectionEl：对象字段。
+ * sectionEl：sectionEl相关字段。
  */
 
   sectionEl: HTMLDivElement;  
   /**
- * titleEl：对象字段。
+ * titleEl：titleEl相关字段。
  */
 
   titleEl: HTMLDivElement;

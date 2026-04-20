@@ -40,17 +40,17 @@ const {
 /** 任务只读查询服务：承接任务视图构造、奖励解析与导航目标解析。 */
 let WorldRuntimeQuestQueryService = class WorldRuntimeQuestQueryService {
 /**
- * contentTemplateRepository：对象字段。
+ * contentTemplateRepository：内容Template仓储引用。
  */
 
     contentTemplateRepository;    
     /**
- * templateRepository：对象字段。
+ * templateRepository：template仓储引用。
  */
 
     templateRepository;    
     /**
- * playerRuntimeService：对象字段。
+ * playerRuntimeService：玩家运行态服务引用。
  */
 
     playerRuntimeService;    
@@ -59,7 +59,7 @@ let WorldRuntimeQuestQueryService = class WorldRuntimeQuestQueryService {
  * @param contentTemplateRepository 参数说明。
  * @param templateRepository 参数说明。
  * @param playerRuntimeService 参数说明。
- * @returns 无返回值（构造函数）。
+ * @returns 无返回值，完成实例初始化。
  */
 
     constructor(contentTemplateRepository, templateRepository, playerRuntimeService) {
@@ -70,7 +70,7 @@ let WorldRuntimeQuestQueryService = class WorldRuntimeQuestQueryService {
     /**
  * buildQuestListView：构建并返回目标对象。
  * @param playerId 玩家 ID。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新任务列表视图相关状态。
  */
 
     buildQuestListView(playerId) {
@@ -83,7 +83,7 @@ let WorldRuntimeQuestQueryService = class WorldRuntimeQuestQueryService {
  * @param playerId 玩家 ID。
  * @param npcId npc ID。
  * @param deps 运行时依赖。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新NPC任务视图相关状态。
  */
 
     buildNpcQuestsView(playerId, npcId, deps) {
@@ -94,7 +94,7 @@ let WorldRuntimeQuestQueryService = class WorldRuntimeQuestQueryService {
  * createNpcQuestsEnvelope：构建并返回目标对象。
  * @param playerId 玩家 ID。
  * @param npc 参数说明。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新NPC任务Envelope相关状态。
  */
 
     createNpcQuestsEnvelope(playerId, npc) {
@@ -105,10 +105,10 @@ let WorldRuntimeQuestQueryService = class WorldRuntimeQuestQueryService {
         };
     }    
     /**
- * collectNpcQuestViews：执行核心业务逻辑。
+ * collectNpcQuestViews：执行NPC任务视图相关逻辑。
  * @param playerId 玩家 ID。
  * @param npc 参数说明。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新NPC任务视图相关状态。
  */
 
     collectNpcQuestViews(playerId, npc) {
@@ -150,10 +150,10 @@ let WorldRuntimeQuestQueryService = class WorldRuntimeQuestQueryService {
         return result.sort(compareQuestViews);
     }    
     /**
- * resolveQuestProgress：执行核心业务逻辑。
+ * resolveQuestProgress：规范化或转换任务进度。
  * @param playerId 玩家 ID。
  * @param quest 参数说明。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新任务进度相关状态。
  */
 
     resolveQuestProgress(playerId, quest) {
@@ -189,10 +189,10 @@ let WorldRuntimeQuestQueryService = class WorldRuntimeQuestQueryService {
         }
     }    
     /**
- * canQuestBecomeReady：执行状态校验并返回判断结果。
+ * canQuestBecomeReady：读取任务BecomeReady并返回结果。
  * @param playerId 玩家 ID。
  * @param quest 参数说明。
- * @returns 函数返回值。
+ * @returns 无返回值，完成任务BecomeReady的条件判断。
  */
 
     canQuestBecomeReady(playerId, quest) {
@@ -208,7 +208,7 @@ let WorldRuntimeQuestQueryService = class WorldRuntimeQuestQueryService {
  * @param playerId 玩家 ID。
  * @param questId quest ID。
  * @param status 参数说明。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新任务状态From来源相关状态。
  */
 
     createQuestStateFromSource(playerId, questId, status = 'active') {
@@ -298,7 +298,7 @@ let WorldRuntimeQuestQueryService = class WorldRuntimeQuestQueryService {
     /**
  * buildQuestRewardItems：构建并返回目标对象。
  * @param quest 参数说明。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新任务Reward道具相关状态。
  */
 
     buildQuestRewardItems(quest) {
@@ -329,7 +329,7 @@ let WorldRuntimeQuestQueryService = class WorldRuntimeQuestQueryService {
     /**
  * buildQuestRewardItemsFromRecord：构建并返回目标对象。
  * @param quest 参数说明。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新任务Reward道具FromRecord相关状态。
  */
 
     buildQuestRewardItemsFromRecord(quest) {
@@ -372,9 +372,9 @@ let WorldRuntimeQuestQueryService = class WorldRuntimeQuestQueryService {
         })];
     }    
     /**
- * resolveQuestNavigationTarget：执行核心业务逻辑。
+ * resolveQuestNavigationTarget：读取任务导航目标并返回结果。
  * @param quest 参数说明。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新任务导航目标相关状态。
  */
 
     resolveQuestNavigationTarget(quest) {

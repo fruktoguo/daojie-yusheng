@@ -6,7 +6,7 @@ const { WorldGatewayClientEmitHelper } = require("../network/world-gateway-clien
 /**
  * createGateway：构建并返回目标对象。
  * @param log 参数说明。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新Gateway相关状态。
  */
 
 
@@ -14,24 +14,24 @@ function createGateway(log = []) {
     return {
         gatewaySessionStateHelper: {        
         /**
- * getMarketSubscribers：按给定条件读取/查询数据。
- * @returns 函数返回值。
+ * getMarketSubscribers：读取坊市Subscriber。
+ * @returns 无返回值，完成坊市Subscriber的读取/组装。
  */
 
             getMarketSubscribers() {
                 return new Set(['player:1']);
             },            
             /**
- * getMarketListingRequests：按给定条件读取/查询数据。
- * @returns 函数返回值。
+ * getMarketListingRequests：读取坊市ListingRequest。
+ * @returns 无返回值，完成坊市ListingRequest的读取/组装。
  */
 
             getMarketListingRequests() {
                 return new Map([['player:1', 2]]);
             },            
             /**
- * getMarketTradeHistoryRequests：按给定条件读取/查询数据。
- * @returns 函数返回值。
+ * getMarketTradeHistoryRequests：读取坊市Trade历史Request。
+ * @returns 无返回值，完成坊市TradeHistoryRequest的读取/组装。
  */
 
             getMarketTradeHistoryRequests() {
@@ -40,40 +40,40 @@ function createGateway(log = []) {
         },
         worldClientEventService: {        
         /**
- * markProtocol：执行核心业务逻辑。
+ * markProtocol：处理Protocol并更新相关状态。
  * @param client 参数说明。
  * @param protocol 参数说明。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新Protocol相关状态。
  */
 
             markProtocol(client, protocol) {
                 log.push(['markProtocol', client.id, protocol]);
             },            
             /**
- * emitQuests：执行核心业务逻辑。
+ * emitQuests：处理任务并更新相关状态。
  * @param client 参数说明。
  * @param payload 载荷参数。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新任务相关状态。
  */
 
             emitQuests(client, payload) {
                 log.push(['emitQuests', client.id, payload]);
             },            
             /**
- * emitMailSummary：执行核心业务逻辑。
+ * emitMailSummary：处理邮件摘要并更新相关状态。
  * @param client 参数说明。
  * @param payload 载荷参数。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新邮件摘要相关状态。
  */
 
             emitMailSummary(client, payload) {
                 log.push(['emitMailSummary', client.id, payload]);
             },            
             /**
- * emitMailSummaryForPlayer：执行核心业务逻辑。
+ * emitMailSummaryForPlayer：处理邮件摘要For玩家并更新相关状态。
  * @param client 参数说明。
  * @param playerId 玩家 ID。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新邮件摘要For玩家相关状态。
  */
 
             emitMailSummaryForPlayer(client, playerId) {
@@ -81,29 +81,29 @@ function createGateway(log = []) {
                 return Promise.resolve();
             },            
             /**
- * emitNpcShop：执行核心业务逻辑。
+ * emitNpcShop：处理NPCShop并更新相关状态。
  * @param client 参数说明。
  * @param payload 载荷参数。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新NPCShop相关状态。
  */
 
             emitNpcShop(client, payload) {
                 log.push(['emitNpcShop', client.id, payload]);
             },            
             /**
- * flushMarketResult：执行核心业务逻辑。
+ * flushMarketResult：处理刷新坊市结果并更新相关状态。
  * @param subscribers 参数说明。
  * @param result 返回结果。
  * @param options 选项参数。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新flush坊市结果相关状态。
  */
 
             flushMarketResult(subscribers, result, options) {
                 log.push(['flushMarketResult', Array.from(subscribers), result, options.marketListingRequests.get('player:1'), options.marketTradeHistoryRequests.get('player:1')]);
             },            
             /**
- * broadcastSuggestionUpdate：执行核心业务逻辑。
- * @returns 函数返回值。
+ * broadcastSuggestionUpdate：处理broadcastSuggestionUpdate并更新相关状态。
+ * @returns 无返回值，直接更新broadcastSuggestionUpdate相关状态。
  */
 
             broadcastSuggestionUpdate() {
@@ -113,8 +113,8 @@ function createGateway(log = []) {
     };
 }
 /**
- * testClientEmitHelper：执行核心业务逻辑。
- * @returns 函数返回值。
+ * testClientEmitHelper：处理testClientEmit辅助函数并更新相关状态。
+ * @returns 无返回值，直接更新testClientEmit辅助函数相关状态。
  */
 
 

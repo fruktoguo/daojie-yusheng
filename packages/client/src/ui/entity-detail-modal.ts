@@ -48,20 +48,20 @@ export class EntityDetailModal {
   /** MODAL_OWNER：弹窗OWNER。 */
   private static readonly MODAL_OWNER = 'entity-detail-modal';  
   /**
- * pending：EntityDetailModal 内部字段。
+ * pending：pending相关字段。
  */
 
   private pending: {  
   /**
- * kind：EntityDetailModal 内部字段。
+ * kind：kind相关字段。
  */
  kind: NEXT_S2C_Detail['kind'];  
  /**
- * id：EntityDetailModal 内部字段。
+ * id：ID标识。
  */
  id: string;  
  /**
- * title：EntityDetailModal 内部字段。
+ * title：title名称或显示文本。
  */
  title: string } | null = null;
   /** detail：详情。 */
@@ -344,29 +344,29 @@ export class EntityDetailModal {
     `;
   }  
   /**
- * renderObservation：执行核心业务逻辑。
+ * renderObservation：执行Observation相关逻辑。
  * @param observation { verdict?: string; lines?: Array<{ label: string; value: string }> } | null | undefined 参数说明。
  * @param hideVitals 参数说明。
- * @returns string。
+ * @returns 返回Observation。
  */
 
 
   private renderObservation(
     observation: {    
     /**
- * verdict：EntityDetailModal 内部字段。
+ * verdict：verdict相关字段。
  */
  verdict?: string;    
  /**
- * lines：EntityDetailModal 内部字段。
+ * lines：line相关字段。
  */
  lines?: Array<{    
  /**
- * label：EntityDetailModal 内部字段。
+ * label：label名称或显示文本。
  */
  label: string;    
  /**
- * value：EntityDetailModal 内部字段。
+ * value：值数值。
  */
  value: string }> } | null | undefined,
     hideVitals = false,

@@ -22,22 +22,22 @@ export type ToastKind =
 
 export type InitializeMainAppOptions = {
 /**
- * windowRef：对象字段。
+ * windowRef：窗口Ref相关字段。
  */
 
   windowRef: Window;  
   /**
- * documentRef：对象字段。
+ * documentRef：documentRef相关字段。
  */
 
   documentRef: Document;  
   /**
- * dom：对象字段。
+ * dom：dom相关字段。
  */
 
   dom: MainDomElements;  
   /**
- * modules：对象字段。
+ * modules：模块相关字段。
  */
 
   modules: MainFrontendModules;

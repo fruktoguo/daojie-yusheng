@@ -52,7 +52,7 @@ let WorldSyncService = class WorldSyncService {
  * @param worldSyncProtocolService 参数说明。
  * @param worldSyncAuxStateService 参数说明。
  * @param worldSyncEnvelopeService 参数说明。
- * @returns 无返回值（构造函数）。
+ * @returns 无返回值，完成实例初始化。
  */
 
     constructor(worldRuntimeService, playerRuntimeService, worldSessionService, worldSyncQuestLootService, worldSyncProtocolService, worldSyncAuxStateService, worldSyncEnvelopeService) {
@@ -143,54 +143,54 @@ let WorldSyncService = class WorldSyncService {
         this.worldSyncAuxStateService.clearPlayerCache(playerId);
     }    
     /**
- * emitLootWindowUpdate：执行核心业务逻辑。
+ * emitLootWindowUpdate：处理掉落窗口Update并更新相关状态。
  * @param playerId 玩家 ID。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新掉落窗口Update相关状态。
  */
 
     emitLootWindowUpdate(playerId) {
         this.worldSyncQuestLootService.emitLootWindowUpdate(playerId);
     }    
     /**
- * openLootWindow：执行核心业务逻辑。
+ * openLootWindow：执行open掉落窗口相关逻辑。
  * @param playerId 玩家 ID。
  * @param x X 坐标。
  * @param y Y 坐标。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新open掉落窗口相关状态。
  */
 
     openLootWindow(playerId, x, y) {
         return this.worldSyncQuestLootService.openLootWindow(playerId, x, y);
     }    
     /**
- * emitNextInitialSync：执行核心业务逻辑。
+ * emitNextInitialSync：处理NextInitial同步并更新相关状态。
  * @param playerId 玩家 ID。
  * @param socket 参数说明。
  * @param view 参数说明。
  * @param player 玩家对象。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新NextInitialSync相关状态。
  */
 
     emitNextInitialSync(playerId, socket, view, player) {
         this.worldSyncAuxStateService.emitNextInitialSync(playerId, socket, view, player);
     }    
     /**
- * emitNextDeltaSync：执行核心业务逻辑。
+ * emitNextDeltaSync：处理Next增量同步并更新相关状态。
  * @param playerId 玩家 ID。
  * @param socket 参数说明。
  * @param view 参数说明。
  * @param player 玩家对象。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新NextDeltaSync相关状态。
  */
 
     emitNextDeltaSync(playerId, socket, view, player) {
         this.worldSyncAuxStateService.emitNextDeltaSync(playerId, socket, view, player);
     }    
     /**
- * emitPendingNotices：执行核心业务逻辑。
+ * emitPendingNotices：处理待处理Notice并更新相关状态。
  * @param playerId 玩家 ID。
  * @param socket 参数说明。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新PendingNotice相关状态。
  */
 
     emitPendingNotices(playerId, socket) {

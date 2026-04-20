@@ -50,11 +50,11 @@ export function getBuffOptionLabel(option: GmEditorBuffOption): string {
 /** 输出功法下拉选项数组，支持是否追加“未选择”。 */
 export function getTechniqueCatalogOptions(editorCatalog: EditorCatalog, includeEmpty = false): Array<{
 /**
- * value：对象字段。
+ * value：值数值。
  */
  value: string;
  /**
- * label：对象字段。
+ * label：label名称或显示文本。
  */
  label: string }> {
   const options = editorCatalog?.techniques.map((option) => ({
@@ -70,11 +70,11 @@ export function getLearnedTechniqueOptions(
   includeEmpty = false,
 ): Array<{
 /**
- * value：对象字段。
+ * value：值数值。
  */
  value: string;
  /**
- * label：对象字段。
+ * label：label名称或显示文本。
  */
  label: string }> {
   const options = techniques.map((technique) => ({
@@ -87,11 +87,11 @@ export function getLearnedTechniqueOptions(
 /** 输出境界下拉选项，供编辑器与保存时的境界选择。 */
 export function getRealmCatalogOptions(editorCatalog: EditorCatalog): Array<{
 /**
- * value：对象字段。
+ * value：值数值。
  */
  value: number;
  /**
- * label：对象字段。
+ * label：label名称或显示文本。
  */
  label: string }> {
   return editorCatalog?.realmLevels.map((entry) => ({
@@ -106,11 +106,11 @@ export function getItemCatalogOptions(
   filter?: (option: GmEditorItemOption) => boolean,
 ): Array<{
 /**
- * value：对象字段。
+ * value：值数值。
  */
  value: string;
  /**
- * label：对象字段。
+ * label：label名称或显示文本。
  */
  label: string }> {
   const items = filter ? (editorCatalog?.items.filter(filter) ?? []) : (editorCatalog?.items ?? []);
@@ -123,11 +123,11 @@ export function getItemCatalogOptions(
 /** 输出 Buff 下拉选项，始终补齐当前已选值避免回显丢失。 */
 export function getBuffCatalogOptions(editorCatalog: EditorCatalog, selectedBuffId?: string): Array<{
 /**
- * value：对象字段。
+ * value：值数值。
  */
  value: string;
  /**
- * label：对象字段。
+ * label：label名称或显示文本。
  */
  label: string }> {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
@@ -148,11 +148,11 @@ export function getBuffCatalogOptions(editorCatalog: EditorCatalog, selectedBuff
 /** 输出可用于邮件附件的物品列表，复用 `getItemCatalogOptions` 结果。 */
 export function getMailAttachmentItemOptions(editorCatalog: EditorCatalog): Array<{
 /**
- * value：对象字段。
+ * value：值数值。
  */
  value: string;
  /**
- * label：对象字段。
+ * label：label名称或显示文本。
  */
  label: string }> {
   return getItemCatalogOptions(editorCatalog);
@@ -304,11 +304,11 @@ export function getInventoryRowMeta(item: ItemStack): string {
 /** 获取邮件模板元数据，若不存在返回占位文案。 */
 export function getMailTemplateOptionMeta(templateId: string): {
 /**
- * label：对象字段。
+ * label：label名称或显示文本。
  */
  label: string;
  /**
- * description：对象字段。
+ * description：description相关字段。
  */
  description: string } | null {
   return GM_MAIL_TEMPLATE_OPTIONS.find((entry) => entry.templateId === templateId) ?? null;

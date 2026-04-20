@@ -35,25 +35,25 @@ const GUEST_HELLO_CONTRACT = Object.freeze({
 /** 世界 socket 引导 helper：收敛 connect/hello/bootstrap 的协议判断与输入构建。 */
 class WorldGatewayBootstrapHelper {
 /**
- * gateway：WorldGatewayBootstrapHelper 内部字段。
+ * gateway：gateway相关字段。
  */
 
     gateway;    
     /**
  * 构造器：初始化 当前 实例并建立基础状态。
  * @param gateway 参数说明。
- * @returns 无返回值（构造函数）。
+ * @returns 无返回值，完成实例初始化。
  */
 
     constructor(gateway) {
         this.gateway = gateway;
     }    
     /**
- * setBootstrapTraceContext：更新/写入相关状态。
+ * setBootstrapTraceContext：写入引导Trace上下文。
  * @param client 参数说明。
  * @param entryPath 参数说明。
  * @param identity 参数说明。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新BootstrapTrace上下文相关状态。
  */
 
     setBootstrapTraceContext(client, entryPath, identity) {
@@ -64,9 +64,9 @@ class WorldGatewayBootstrapHelper {
         client.data.bootstrapSnapshotPersistedSource = null;
     }    
     /**
- * resolveBootstrapPromise：执行核心业务逻辑。
+ * resolveBootstrapPromise：判断引导Promise是否满足条件。
  * @param client 参数说明。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新BootstrapPromise相关状态。
  */
 
     resolveBootstrapPromise(client) {
@@ -74,10 +74,10 @@ class WorldGatewayBootstrapHelper {
         return promise && typeof promise.then === 'function' ? promise : null;
     }    
     /**
- * rememberBootstrapPromise：执行核心业务逻辑。
+ * rememberBootstrapPromise：判断remember引导Promise是否满足条件。
  * @param client 参数说明。
  * @param promise 参数说明。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新rememberBootstrapPromise相关状态。
  */
 
     rememberBootstrapPromise(client, promise) {
@@ -90,9 +90,9 @@ class WorldGatewayBootstrapHelper {
         return promise;
     }    
     /**
- * awaitPendingBootstrap：执行核心业务逻辑。
+ * awaitPendingBootstrap：执行await待处理引导相关逻辑。
  * @param client 参数说明。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新awaitPendingBootstrap相关状态。
  */
 
     async awaitPendingBootstrap(client) {
@@ -118,9 +118,9 @@ class WorldGatewayBootstrapHelper {
         return typeof client?.data?.playerId === 'string' && client.data.playerId.trim().length > 0;
     }    
     /**
- * hasSocketAuthHint：执行状态校验并返回判断结果。
+ * hasSocketAuthHint：判断Socket认证Hint是否满足条件。
  * @param client 参数说明。
- * @returns 函数返回值。
+ * @returns 无返回值，完成Socket认证Hint的条件判断。
  */
 
     hasSocketAuthHint(client) {
@@ -128,19 +128,19 @@ class WorldGatewayBootstrapHelper {
             || this.gateway.sessionBootstrapService.pickSocketGmToken(client).length > 0;
     }    
     /**
- * resolveAuthenticatedBootstrapEntryPath：执行核心业务逻辑。
+ * resolveAuthenticatedBootstrapEntryPath：规范化或转换Authenticated引导条目路径。
  * @param client 参数说明。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新AuthenticatedBootstrap条目路径相关状态。
  */
 
     resolveAuthenticatedBootstrapEntryPath(client) {
         return client?.data?.isGm === true ? 'connect_gm_token' : 'connect_token';
     }    
     /**
- * resolveAuthenticatedIdentitySource：执行核心业务逻辑。
+ * resolveAuthenticatedIdentitySource：规范化或转换AuthenticatedIdentity来源。
  * @param client 参数说明。
  * @param identity 参数说明。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新AuthenticatedIdentity来源相关状态。
  */
 
     resolveAuthenticatedIdentitySource(client, identity) {
@@ -156,10 +156,10 @@ class WorldGatewayBootstrapHelper {
         return bootstrapIdentitySource;
     }    
     /**
- * resolveAuthenticatedIdentityPersistedSource：执行核心业务逻辑。
+ * resolveAuthenticatedIdentityPersistedSource：判断AuthenticatedIdentityPersisted来源是否满足条件。
  * @param client 参数说明。
  * @param identity 参数说明。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新AuthenticatedIdentityPersisted来源相关状态。
  */
 
     resolveAuthenticatedIdentityPersistedSource(client, identity) {
@@ -175,10 +175,10 @@ class WorldGatewayBootstrapHelper {
         return bootstrapIdentityPersistedSource;
     }    
     /**
- * resolveAuthenticatedRequestedSessionId：执行核心业务逻辑。
+ * resolveAuthenticatedRequestedSessionId：规范化或转换AuthenticatedRequestedSessionID。
  * @param client 参数说明。
  * @param identity 参数说明。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新AuthenticatedRequestedSessionID相关状态。
  */
 
     resolveAuthenticatedRequestedSessionId(client, identity) {
@@ -207,7 +207,7 @@ class WorldGatewayBootstrapHelper {
  * buildAuthenticatedBootstrapInput：构建并返回目标对象。
  * @param client 参数说明。
  * @param identity 参数说明。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新AuthenticatedBootstrap输入相关状态。
  */
 
     buildAuthenticatedBootstrapInput(client, identity) {
@@ -225,11 +225,11 @@ class WorldGatewayBootstrapHelper {
         };
     }    
     /**
- * startAuthenticatedBootstrap：执行核心业务逻辑。
+ * startAuthenticatedBootstrap：执行开始Authenticated引导相关逻辑。
  * @param client 参数说明。
  * @param entryPath 参数说明。
  * @param identity 参数说明。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新startAuthenticatedBootstrap相关状态。
  */
 
     startAuthenticatedBootstrap(client, entryPath, identity) {
@@ -249,20 +249,20 @@ class WorldGatewayBootstrapHelper {
         return this.rememberBootstrapPromise(client, promise);
     }    
     /**
- * resolveGuestDetachedBinding：执行核心业务逻辑。
+ * resolveGuestDetachedBinding：规范化或转换GuestDetachedBinding。
  * @param payloadSessionId payloadSession ID。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新GuestDetachedBinding相关状态。
  */
 
     resolveGuestDetachedBinding(payloadSessionId) {
         return this.gateway.worldSessionService.getDetachedBindingBySessionId(payloadSessionId);
     }    
     /**
- * rejectAuthenticatedConnect：执行核心业务逻辑。
+ * rejectAuthenticatedConnect：执行rejectAuthenticatedConnect相关逻辑。
  * @param client 参数说明。
  * @param code 参数说明。
  * @param message 参数说明。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新rejectAuthenticatedConnect相关状态。
  */
 
     rejectAuthenticatedConnect(client, code, message) {
@@ -271,11 +271,11 @@ class WorldGatewayBootstrapHelper {
         return null;
     }    
     /**
- * rejectGmConnect：执行核心业务逻辑。
+ * rejectGmConnect：执行rejectGMConnect相关逻辑。
  * @param client 参数说明。
  * @param code 参数说明。
  * @param message 参数说明。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新rejectGMConnect相关状态。
  */
 
     rejectGmConnect(client, code, message) {
@@ -284,11 +284,11 @@ class WorldGatewayBootstrapHelper {
         return null;
     }    
     /**
- * rejectGuestHello：执行核心业务逻辑。
+ * rejectGuestHello：执行rejectGuestHello相关逻辑。
  * @param client 参数说明。
  * @param code 参数说明。
  * @param message 参数说明。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新rejectGuestHello相关状态。
  */
 
     rejectGuestHello(client, code, message) {
@@ -300,7 +300,7 @@ class WorldGatewayBootstrapHelper {
  * buildGuestHelloBootstrapInput：构建并返回目标对象。
  * @param client 参数说明。
  * @param payload 载荷参数。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新GuestHelloBootstrap输入相关状态。
  */
 
     buildGuestHelloBootstrapInput(client, payload) {
@@ -327,10 +327,10 @@ class WorldGatewayBootstrapHelper {
         };
     }    
     /**
- * handleGuestHello：处理事件并驱动执行路径。
+ * handleGuestHello：处理GuestHello并更新相关状态。
  * @param client 参数说明。
  * @param payload 载荷参数。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新GuestHello相关状态。
  */
 
     async handleGuestHello(client, payload) {
@@ -338,10 +338,10 @@ class WorldGatewayBootstrapHelper {
         await this.gateway.sessionBootstrapService.bootstrapPlayerSession(client, this.buildGuestHelloBootstrapInput(client, payload));
     }    
     /**
- * resolveBootstrapAuthContext：执行核心业务逻辑。
+ * resolveBootstrapAuthContext：规范化或转换引导认证上下文。
  * @param client 参数说明。
  * @param options 选项参数。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新Bootstrap认证上下文相关状态。
  */
 
     async resolveBootstrapAuthContext(client, options = undefined) {
@@ -390,9 +390,9 @@ class WorldGatewayBootstrapHelper {
         return { identity };
     }    
     /**
- * ensureConnectionProtocol：执行核心业务逻辑。
+ * ensureConnectionProtocol：执行ensureConnectionProtocol相关逻辑。
  * @param client 参数说明。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新ensureConnectionProtocol相关状态。
  */
 
     ensureConnectionProtocol(client) {
@@ -418,9 +418,9 @@ class WorldGatewayBootstrapHelper {
         return true;
     }    
     /**
- * startConnectionBootstrap：执行核心业务逻辑。
+ * startConnectionBootstrap：执行开始Connection引导相关逻辑。
  * @param client 参数说明。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新startConnectionBootstrap相关状态。
  */
 
     async startConnectionBootstrap(client) {
@@ -437,9 +437,9 @@ class WorldGatewayBootstrapHelper {
         });
     }    
     /**
- * ensureHelloProtocol：执行核心业务逻辑。
+ * ensureHelloProtocol：执行ensureHelloProtocol相关逻辑。
  * @param client 参数说明。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新ensureHelloProtocol相关状态。
  */
 
     ensureHelloProtocol(client) {
@@ -456,10 +456,10 @@ class WorldGatewayBootstrapHelper {
         return true;
     }    
     /**
- * shouldAllowGuestHelloBootstrap：执行核心业务逻辑。
+ * shouldAllowGuestHelloBootstrap：判断AllowGuestHello引导是否满足条件。
  * @param client 参数说明。
  * @param payload 载荷参数。
- * @returns 函数返回值。
+ * @returns 无返回值，完成AllowGuestHelloBootstrap的条件判断。
  */
 
     async shouldAllowGuestHelloBootstrap(client, payload) {
@@ -484,9 +484,9 @@ class WorldGatewayBootstrapHelper {
         return true;
     }    
     /**
- * handleConnection：处理事件并驱动执行路径。
+ * handleConnection：处理Connection并更新相关状态。
  * @param client 参数说明。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新Connection相关状态。
  */
 
     async handleConnection(client) {
@@ -511,10 +511,10 @@ class WorldGatewayBootstrapHelper {
         }
     }    
     /**
- * handleHello：处理事件并驱动执行路径。
+ * handleHello：处理Hello并更新相关状态。
  * @param client 参数说明。
  * @param payload 载荷参数。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新Hello相关状态。
  */
 
     async handleHello(client, payload) {

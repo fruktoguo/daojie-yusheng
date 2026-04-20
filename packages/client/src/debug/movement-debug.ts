@@ -6,7 +6,7 @@ const MOVEMENT_DEBUG_QUERY_KEY = 'debugMovement';
 /** NextMovementDebugWindow：挂载 next 移动调试开关的 window 扩展。 */
 type NextMovementDebugWindow = Window & {
 /**
- * __NEXT_DEBUG_MOVEMENT__：对象字段。
+ * __NEXT_DEBUG_MOVEMENT__：NEXTDEBUGMOVEMENT相关字段。
  */
 
   __NEXT_DEBUG_MOVEMENT__?: unknown;

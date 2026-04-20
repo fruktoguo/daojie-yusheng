@@ -7,47 +7,47 @@ export type EffectiveLayoutBreakpoint = 'mobile' | 'compact' | 'wide';
 /** 响应式视口换算指标。 */
 export interface ResponsiveViewportMetrics {
 /**
- * locked：ResponsiveViewportMetrics 内部字段。
+ * locked：locked相关字段。
  */
 
   locked: boolean;  
   /**
- * rawWidth：ResponsiveViewportMetrics 内部字段。
+ * rawWidth：rawWidth相关字段。
  */
 
   rawWidth: number;  
   /**
- * rawHeight：ResponsiveViewportMetrics 内部字段。
+ * rawHeight：rawHeight相关字段。
  */
 
   rawHeight: number;  
   /**
- * viewportWidth：ResponsiveViewportMetrics 内部字段。
+ * viewportWidth：viewportWidth相关字段。
  */
 
   viewportWidth: number;  
   /**
- * viewportHeight：ResponsiveViewportMetrics 内部字段。
+ * viewportHeight：viewportHeight相关字段。
  */
 
   viewportHeight: number;  
   /**
- * scale：ResponsiveViewportMetrics 内部字段。
+ * scale：scale相关字段。
  */
 
   scale: number;  
   /**
- * offsetX：ResponsiveViewportMetrics 内部字段。
+ * offsetX：offsetX相关字段。
  */
 
   offsetX: number;  
   /**
- * offsetY：ResponsiveViewportMetrics 内部字段。
+ * offsetY：offsetY相关字段。
  */
 
   offsetY: number;  
   /**
- * dpr：ResponsiveViewportMetrics 内部字段。
+ * dpr：dpr相关字段。
  */
 
   dpr: number;
@@ -176,11 +176,11 @@ export function clientToViewportPoint(
   clientY: number,
 ): {
 /**
- * x：对象字段。
+ * x：x相关字段。
  */
  x: number;
  /**
- * y：对象字段。
+ * y：y相关字段。
  */
  y: number } {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。

@@ -6,28 +6,28 @@ import type { ButtonHTMLAttributes, ReactNode } from 'react';
 
 export interface UiTechniqueListItemProps extends ButtonHTMLAttributes<HTMLButtonElement> {
 /**
- * title：UiTechniqueListItemProps 内部字段。
+ * title：title名称或显示文本。
  */
 
   title: string;  
   /**
- * level：UiTechniqueListItemProps 内部字段。
+ * level：等级数值。
  */
 
   level: ReactNode;  
   /**
- * note：UiTechniqueListItemProps 内部字段。
+ * note：note相关字段。
  */
 
   note?: ReactNode;  
   /**
- * active：UiTechniqueListItemProps 内部字段。
+ * active：启用开关或状态标识。
  */
 
   active?: boolean;
 }
 /**
- * UiTechniqueListItem：执行核心业务逻辑。
+ * UiTechniqueListItem：读取Ui功法列表道具并返回结果。
  * @param {
   title,
   level,
@@ -36,7 +36,7 @@ export interface UiTechniqueListItemProps extends ButtonHTMLAttributes<HTMLButto
   className,
   ...props
 } UiTechniqueListItemProps 参数说明。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新Ui功法列表道具相关状态。
  */
 
 

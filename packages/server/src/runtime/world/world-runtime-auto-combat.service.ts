@@ -25,23 +25,23 @@ const { chebyshevDistance, findNextDirectionOnMap, buildAutoBattleGoalPoints } =
 /** 自动战斗编排服务：承接 auto-targeting 与 auto command 物化。 */
 let WorldRuntimeAutoCombatService = class WorldRuntimeAutoCombatService {
 /**
- * playerRuntimeService：对象字段。
+ * playerRuntimeService：玩家运行态服务引用。
  */
 
     playerRuntimeService;    
     /**
  * 构造器：初始化 当前 实例并建立基础状态。
  * @param playerRuntimeService 参数说明。
- * @returns 无返回值（构造函数）。
+ * @returns 无返回值，完成实例初始化。
  */
 
     constructor(playerRuntimeService) {
         this.playerRuntimeService = playerRuntimeService;
     }    
     /**
- * materializeAutoCombatCommands：执行核心业务逻辑。
+ * materializeAutoCombatCommands：执行materializeAuto战斗Command相关逻辑。
  * @param deps 运行时依赖。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新materializeAuto战斗Command相关状态。
  */
 
     materializeAutoCombatCommands(deps) {
@@ -82,7 +82,7 @@ let WorldRuntimeAutoCombatService = class WorldRuntimeAutoCombatService {
  * @param instance 地图实例。
  * @param player 玩家对象。
  * @param deps 运行时依赖。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新Auto战斗Command相关状态。
  */
 
     buildAutoCombatCommand(instance, player, deps) {
@@ -138,12 +138,12 @@ let WorldRuntimeAutoCombatService = class WorldRuntimeAutoCombatService {
         };
     }    
     /**
- * selectAutoCombatTarget：执行核心业务逻辑。
+ * selectAutoCombatTarget：读取selectAuto战斗目标并返回结果。
  * @param instance 地图实例。
  * @param player 玩家对象。
  * @param visibleMonsters 参数说明。
  * @param deps 运行时依赖。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新selectAuto战斗目标相关状态。
  */
 
     selectAutoCombatTarget(instance, player, visibleMonsters, deps) {
@@ -186,12 +186,12 @@ let WorldRuntimeAutoCombatService = class WorldRuntimeAutoCombatService {
         return best;
     }    
     /**
- * resolveTrackedAutoCombatTarget：执行核心业务逻辑。
+ * resolveTrackedAutoCombatTarget：读取TrackedAuto战斗目标并返回结果。
  * @param instance 地图实例。
  * @param player 玩家对象。
  * @param visibleMonsters 参数说明。
  * @param deps 运行时依赖。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新TrackedAuto战斗目标相关状态。
  */
 
     resolveTrackedAutoCombatTarget(instance, player, visibleMonsters, deps) {
@@ -221,10 +221,10 @@ let WorldRuntimeAutoCombatService = class WorldRuntimeAutoCombatService {
         return null;
     }    
     /**
- * pickAutoBattleSkill：执行核心业务逻辑。
+ * pickAutoBattleSkill：执行pickAutoBattle技能相关逻辑。
  * @param player 玩家对象。
  * @param distance 参数说明。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新pickAutoBattle技能相关状态。
  */
 
     pickAutoBattleSkill(player, distance) {
@@ -256,9 +256,9 @@ let WorldRuntimeAutoCombatService = class WorldRuntimeAutoCombatService {
         return null;
     }    
     /**
- * resolveAutoBattleDesiredRange：执行核心业务逻辑。
+ * resolveAutoBattleDesiredRange：规范化或转换AutoBattleDesired范围。
  * @param player 玩家对象。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新AutoBattleDesired范围相关状态。
  */
 
     resolveAutoBattleDesiredRange(player) {

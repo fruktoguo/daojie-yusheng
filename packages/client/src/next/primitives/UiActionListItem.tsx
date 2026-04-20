@@ -6,28 +6,28 @@ import type { ButtonHTMLAttributes, ReactNode } from 'react';
 
 export interface UiActionListItemProps extends ButtonHTMLAttributes<HTMLButtonElement> {
 /**
- * title：UiActionListItemProps 内部字段。
+ * title：title名称或显示文本。
  */
 
   title: string;  
   /**
- * state：UiActionListItemProps 内部字段。
+ * state：状态状态或数据块。
  */
 
   state: ReactNode;  
   /**
- * note：UiActionListItemProps 内部字段。
+ * note：note相关字段。
  */
 
   note?: ReactNode;  
   /**
- * active：UiActionListItemProps 内部字段。
+ * active：启用开关或状态标识。
  */
 
   active?: boolean;
 }
 /**
- * UiActionListItem：执行核心业务逻辑。
+ * UiActionListItem：读取UiAction列表道具并返回结果。
  * @param {
   title,
   state,
@@ -36,7 +36,7 @@ export interface UiActionListItemProps extends ButtonHTMLAttributes<HTMLButtonEl
   className,
   ...props
 } UiActionListItemProps 参数说明。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新UiAction列表道具相关状态。
  */
 
 

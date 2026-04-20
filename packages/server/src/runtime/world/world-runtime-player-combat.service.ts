@@ -28,12 +28,12 @@ const { formatItemStackLabel } = world_runtime_normalization_helpers_1;
 /** world-runtime player combat outcome：承接玩家战斗结果收口与击杀奖励分发。 */
 let WorldRuntimePlayerCombatService = class WorldRuntimePlayerCombatService {
 /**
- * contentTemplateRepository：对象字段。
+ * contentTemplateRepository：内容Template仓储引用。
  */
 
     contentTemplateRepository;    
     /**
- * playerRuntimeService：对象字段。
+ * playerRuntimeService：玩家运行态服务引用。
  */
 
     playerRuntimeService;    
@@ -41,7 +41,7 @@ let WorldRuntimePlayerCombatService = class WorldRuntimePlayerCombatService {
  * 构造器：初始化 当前 实例并建立基础状态。
  * @param contentTemplateRepository 参数说明。
  * @param playerRuntimeService 参数说明。
- * @returns 无返回值（构造函数）。
+ * @returns 无返回值，完成实例初始化。
  */
 
     constructor(contentTemplateRepository, playerRuntimeService) {
@@ -49,12 +49,12 @@ let WorldRuntimePlayerCombatService = class WorldRuntimePlayerCombatService {
         this.playerRuntimeService = playerRuntimeService;
     }    
     /**
- * handlePlayerMonsterKill：处理事件并驱动执行路径。
+ * handlePlayerMonsterKill：处理玩家怪物Kill并更新相关状态。
  * @param instance 地图实例。
  * @param monster 参数说明。
  * @param killerPlayerId killerPlayer ID。
  * @param deps 运行时依赖。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新玩家怪物Kill相关状态。
  */
 
     handlePlayerMonsterKill(instance, monster, killerPlayerId, deps) {
@@ -72,12 +72,12 @@ let WorldRuntimePlayerCombatService = class WorldRuntimePlayerCombatService {
         }
     }    
     /**
- * distributeMonsterKillProgress：执行核心业务逻辑。
+ * distributeMonsterKillProgress：判断distribute怪物Kill进度是否满足条件。
  * @param instance 地图实例。
  * @param monster 参数说明。
  * @param killerPlayerId killerPlayer ID。
  * @param deps 运行时依赖。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新distribute怪物Kill进度相关状态。
  */
 
     distributeMonsterKillProgress(instance, monster, killerPlayerId, deps) {
@@ -102,11 +102,11 @@ let WorldRuntimePlayerCombatService = class WorldRuntimePlayerCombatService {
         }
     }    
     /**
- * resolveMonsterExpParticipants：执行核心业务逻辑。
+ * resolveMonsterExpParticipants：规范化或转换怪物ExpParticipant。
  * @param instance 地图实例。
  * @param runtimeId runtime ID。
  * @param killerPlayerId killerPlayer ID。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新怪物ExpParticipant相关状态。
  */
 
     resolveMonsterExpParticipants(instance, runtimeId, killerPlayerId) {
@@ -147,9 +147,9 @@ let WorldRuntimePlayerCombatService = class WorldRuntimePlayerCombatService {
         return participants;
     }    
     /**
- * resolveMonsterTopContributionRealmLv：执行核心业务逻辑。
+ * resolveMonsterTopContributionRealmLv：规范化或转换怪物TopContributionRealmLv。
  * @param participants 参数说明。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新怪物TopContributionRealmLv相关状态。
  */
 
     resolveMonsterTopContributionRealmLv(participants) {
@@ -167,14 +167,14 @@ let WorldRuntimePlayerCombatService = class WorldRuntimePlayerCombatService {
         return topRealmLv;
     }    
     /**
- * deliverMonsterLoot：执行核心业务逻辑。
+ * deliverMonsterLoot：执行deliver怪物掉落相关逻辑。
  * @param playerId 玩家 ID。
  * @param instance 地图实例。
  * @param x X 坐标。
  * @param y Y 坐标。
  * @param item 道具。
  * @param deps 运行时依赖。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新deliver怪物掉落相关状态。
  */
 
     deliverMonsterLoot(playerId, instance, x, y, item, deps) {
@@ -189,11 +189,11 @@ let WorldRuntimePlayerCombatService = class WorldRuntimePlayerCombatService {
         deps.queuePlayerNotice(playerId, `${formatItemStackLabel(item)} 掉落在 (${x}, ${y}) 的地面上，但你的背包已满。`, 'loot');
     }    
     /**
- * dispatchDamagePlayer：处理事件并驱动执行路径。
+ * dispatchDamagePlayer：判断Damage玩家是否满足条件。
  * @param playerId 玩家 ID。
  * @param amount 参数说明。
  * @param deps 运行时依赖。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新Damage玩家相关状态。
  */
 
     dispatchDamagePlayer(playerId, amount, deps) {
@@ -213,10 +213,10 @@ let WorldRuntimePlayerCombatService = class WorldRuntimePlayerCombatService {
         }
     }    
     /**
- * handlePlayerDefeat：处理事件并驱动执行路径。
+ * handlePlayerDefeat：处理玩家Defeat并更新相关状态。
  * @param playerId 玩家 ID。
  * @param deps 运行时依赖。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新玩家Defeat相关状态。
  */
 
     handlePlayerDefeat(playerId, deps) {

@@ -14,7 +14,7 @@ import {
 
 type SocketServerEventRegistryDeps = {
 /**
- * getSocket：对象字段。
+ * getSocket：Socket相关字段。
  */
 
   getSocket: () => Socket | null;
@@ -22,16 +22,16 @@ type SocketServerEventRegistryDeps = {
 /**
  * createSocketServerEventRegistry：构建并返回目标对象。
  * @param deps SocketServerEventRegistryDeps 运行时依赖。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新SocketServer事件注册表相关状态。
  */
 
 
 export function createSocketServerEventRegistry(deps: SocketServerEventRegistryDeps) {
   const callbacks: ServerEventCallbackBuckets = {};  
   /**
- * getCallbacks：按给定条件读取/查询数据。
+ * getCallbacks：读取Callback。
  * @param event TEvent 参数说明。
- * @returns Array<ServerEventCallback<TEvent>>。
+ * @returns 返回Callback列表。
  */
 
 
@@ -49,9 +49,9 @@ export function createSocketServerEventRegistry(deps: SocketServerEventRegistryD
     return next;
   }  
   /**
- * bindServerEvent：执行核心业务逻辑。
+ * bindServerEvent：执行bindServer事件相关逻辑。
  * @param event TEvent 参数说明。
- * @returns void。
+ * @returns 无返回值，直接更新bindServer事件相关状态。
  */
 
 
@@ -67,18 +67,18 @@ export function createSocketServerEventRegistry(deps: SocketServerEventRegistryD
 
   return {  
   /**
- * on：执行核心业务逻辑。
+ * on：执行on相关逻辑。
  * @param event TEvent 参数说明。
  * @param cb ServerEventCallback<TEvent> 参数说明。
- * @returns void。
+ * @returns 无返回值，直接更新on相关状态。
  */
 
     on<TEvent extends BoundServerEventName>(event: TEvent, cb: ServerEventCallback<TEvent>): void {
       getCallbacks(event).push(cb);
     },    
     /**
- * bindSessionEvents：执行核心业务逻辑。
- * @returns void。
+ * bindSessionEvents：执行bindSession事件相关逻辑。
+ * @returns 无返回值，直接更新bindSession事件相关状态。
  */
 
 
@@ -88,8 +88,8 @@ export function createSocketServerEventRegistry(deps: SocketServerEventRegistryD
       }
     },    
     /**
- * bindGameplayEvents：执行核心业务逻辑。
- * @returns void。
+ * bindGameplayEvents：执行bindGameplay事件相关逻辑。
+ * @returns 无返回值，直接更新bindGameplay事件相关状态。
  */
 
 

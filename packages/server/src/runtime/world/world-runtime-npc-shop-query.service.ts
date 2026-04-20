@@ -26,12 +26,12 @@ const NPC_SHOP_CURRENCY_ITEM_ID = 'spirit_stone';
 /** NPC 商店只读查询服务：承接商店封装与购买前校验。 */
 let WorldRuntimeNpcShopQueryService = class WorldRuntimeNpcShopQueryService {
 /**
- * contentTemplateRepository：对象字段。
+ * contentTemplateRepository：内容Template仓储引用。
  */
 
     contentTemplateRepository;    
     /**
- * playerRuntimeService：对象字段。
+ * playerRuntimeService：玩家运行态服务引用。
  */
 
     playerRuntimeService;    
@@ -39,7 +39,7 @@ let WorldRuntimeNpcShopQueryService = class WorldRuntimeNpcShopQueryService {
  * 构造器：初始化 当前 实例并建立基础状态。
  * @param contentTemplateRepository 参数说明。
  * @param playerRuntimeService 参数说明。
- * @returns 无返回值（构造函数）。
+ * @returns 无返回值，完成实例初始化。
  */
 
     constructor(contentTemplateRepository, playerRuntimeService) {
@@ -47,16 +47,16 @@ let WorldRuntimeNpcShopQueryService = class WorldRuntimeNpcShopQueryService {
         this.playerRuntimeService = playerRuntimeService;
     }    
     /**
- * getCurrencyItemId：按给定条件读取/查询数据。
- * @returns 函数返回值。
+ * getCurrencyItemId：读取Currency道具ID。
+ * @returns 无返回值，完成Currency道具ID的读取/组装。
  */
 
     getCurrencyItemId() {
         return NPC_SHOP_CURRENCY_ITEM_ID;
     }    
     /**
- * getCurrencyItemName：按给定条件读取/查询数据。
- * @returns 函数返回值。
+ * getCurrencyItemName：读取Currency道具名称。
+ * @returns 无返回值，完成Currency道具名称的读取/组装。
  */
 
     getCurrencyItemName() {
@@ -67,7 +67,7 @@ let WorldRuntimeNpcShopQueryService = class WorldRuntimeNpcShopQueryService {
  * @param playerId 玩家 ID。
  * @param npcId npc ID。
  * @param deps 运行时依赖。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新NPCShop视图相关状态。
  */
 
     buildNpcShopView(playerId, npcId, deps) {
@@ -75,13 +75,13 @@ let WorldRuntimeNpcShopQueryService = class WorldRuntimeNpcShopQueryService {
         return this.createEnvelopeForNpc(npc);
     }    
     /**
- * validateNpcShopPurchase：执行核心业务逻辑。
+ * validateNpcShopPurchase：判断NPCShopPurchase是否满足条件。
  * @param playerId 玩家 ID。
  * @param npcId npc ID。
  * @param itemId 道具 ID。
  * @param quantity 参数说明。
  * @param deps 运行时依赖。
- * @returns 函数返回值。
+ * @returns 无返回值，完成NPCShopPurchase的条件判断。
  */
 
     validateNpcShopPurchase(playerId, npcId, itemId, quantity, deps) {
@@ -91,7 +91,7 @@ let WorldRuntimeNpcShopQueryService = class WorldRuntimeNpcShopQueryService {
     /**
  * createEnvelopeForNpc：构建并返回目标对象。
  * @param npc 参数说明。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新EnvelopeForNPC相关状态。
  */
 
     createEnvelopeForNpc(npc) {
@@ -121,7 +121,7 @@ let WorldRuntimeNpcShopQueryService = class WorldRuntimeNpcShopQueryService {
     /**
  * buildShopState：构建并返回目标对象。
  * @param npc 参数说明。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新Shop状态相关状态。
  */
 
     buildShopState(npc) {
@@ -155,12 +155,12 @@ let WorldRuntimeNpcShopQueryService = class WorldRuntimeNpcShopQueryService {
         };
     }    
     /**
- * validatePurchaseForNpc：执行核心业务逻辑。
+ * validatePurchaseForNpc：判断PurchaseForNPC是否满足条件。
  * @param playerId 玩家 ID。
  * @param npc 参数说明。
  * @param itemId 道具 ID。
  * @param quantity 参数说明。
- * @returns 函数返回值。
+ * @returns 无返回值，完成PurchaseForNPC的条件判断。
  */
 
     validatePurchaseForNpc(playerId, npc, itemId, quantity) {

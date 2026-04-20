@@ -6,20 +6,20 @@ const { WorldRuntimeCombatCommandService } = require("../runtime/world/world-run
 /**
  * createService：构建并返回目标对象。
  * @param log 参数说明。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新服务相关状态。
  */
 
 
 function createService(log) {
     return new WorldRuntimeCombatCommandService({    
     /**
- * dispatchBasicAttack：处理事件并驱动执行路径。
+ * dispatchBasicAttack：判断BasicAttack是否满足条件。
  * @param playerId 玩家 ID。
  * @param targetPlayerId targetPlayer ID。
  * @param targetMonsterId targetMonster ID。
  * @param targetX 参数说明。
  * @param targetY 参数说明。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新BasicAttack相关状态。
  */
 
         dispatchBasicAttack(playerId, targetPlayerId, targetMonsterId, targetX, targetY) {
@@ -27,24 +27,24 @@ function createService(log) {
         },
     }, {    
     /**
- * dispatchCastSkill：处理事件并驱动执行路径。
+ * dispatchCastSkill：判断Cast技能是否满足条件。
  * @param playerId 玩家 ID。
  * @param skillId skill ID。
  * @param targetPlayerId targetPlayer ID。
  * @param targetMonsterId targetMonster ID。
  * @param targetRef 参数说明。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新Cast技能相关状态。
  */
 
         dispatchCastSkill(playerId, skillId, targetPlayerId, targetMonsterId, targetRef) {
             log.push(['dispatchCastSkill', playerId, skillId, targetPlayerId, targetMonsterId, targetRef]);
         },        
         /**
- * resolveLegacySkillTargetRef：执行核心业务逻辑。
+ * resolveLegacySkillTargetRef：读取Legacy技能目标Ref并返回结果。
  * @param attacker 参数说明。
  * @param skill 参数说明。
  * @param targetRef 参数说明。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新Legacy技能目标Ref相关状态。
  */
 
         resolveLegacySkillTargetRef(attacker, skill, targetRef) {
@@ -52,23 +52,23 @@ function createService(log) {
             return { kind: 'monster', monsterId: 'monster:1' };
         },        
         /**
- * dispatchCastSkillToMonster：处理事件并驱动执行路径。
+ * dispatchCastSkillToMonster：判断Cast技能To怪物是否满足条件。
  * @param attacker 参数说明。
  * @param skillId skill ID。
  * @param targetMonsterId targetMonster ID。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新Cast技能To怪物相关状态。
  */
 
         dispatchCastSkillToMonster(attacker, skillId, targetMonsterId) {
             log.push(['dispatchCastSkillToMonster', attacker.playerId, skillId, targetMonsterId]);
         },        
         /**
- * dispatchCastSkillToTile：处理事件并驱动执行路径。
+ * dispatchCastSkillToTile：判断Cast技能ToTile是否满足条件。
  * @param attacker 参数说明。
  * @param skillId skill ID。
  * @param targetX 参数说明。
  * @param targetY 参数说明。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新Cast技能ToTile相关状态。
  */
 
         dispatchCastSkillToTile(attacker, skillId, targetX, targetY) {
@@ -76,14 +76,14 @@ function createService(log) {
         },
     }, {    
     /**
- * dispatchEngageBattle：处理事件并驱动执行路径。
+ * dispatchEngageBattle：判断EngageBattle是否满足条件。
  * @param playerId 玩家 ID。
  * @param targetPlayerId targetPlayer ID。
  * @param targetMonsterId targetMonster ID。
  * @param targetX 参数说明。
  * @param targetY 参数说明。
  * @param locked 参数说明。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新EngageBattle相关状态。
  */
 
         dispatchEngageBattle(playerId, targetPlayerId, targetMonsterId, targetX, targetY, locked) {
@@ -92,8 +92,8 @@ function createService(log) {
     });
 }
 /**
- * testDispatchBasicAttackDelegates：执行核心业务逻辑。
- * @returns 函数返回值。
+ * testDispatchBasicAttackDelegates：判断testDispatchBasicAttackDelegate是否满足条件。
+ * @returns 无返回值，直接更新testDispatchBasicAttackDelegate相关状态。
  */
 
 
@@ -106,8 +106,8 @@ function testDispatchBasicAttackDelegates() {
     ]);
 }
 /**
- * testDispatchCastSkillDelegates：执行核心业务逻辑。
- * @returns 函数返回值。
+ * testDispatchCastSkillDelegates：判断testDispatchCast技能Delegate是否满足条件。
+ * @returns 无返回值，直接更新testDispatchCast技能Delegate相关状态。
  */
 
 
@@ -120,8 +120,8 @@ function testDispatchCastSkillDelegates() {
     ]);
 }
 /**
- * testResolveLegacySkillTargetRefDelegates：执行核心业务逻辑。
- * @returns 函数返回值。
+ * testResolveLegacySkillTargetRefDelegates：读取testResolveLegacy技能目标RefDelegate并返回结果。
+ * @returns 无返回值，直接更新testResolveLegacy技能目标RefDelegate相关状态。
  */
 
 
@@ -135,8 +135,8 @@ function testResolveLegacySkillTargetRefDelegates() {
     assert.deepEqual(result, { kind: 'monster', monsterId: 'monster:1' });
 }
 /**
- * testDispatchCastSkillToMonsterDelegates：执行核心业务逻辑。
- * @returns 函数返回值。
+ * testDispatchCastSkillToMonsterDelegates：判断testDispatchCast技能To怪物Delegate是否满足条件。
+ * @returns 无返回值，直接更新testDispatchCast技能To怪物Delegate相关状态。
  */
 
 
@@ -149,8 +149,8 @@ function testDispatchCastSkillToMonsterDelegates() {
     ]);
 }
 /**
- * testDispatchCastSkillToTileDelegates：执行核心业务逻辑。
- * @returns 函数返回值。
+ * testDispatchCastSkillToTileDelegates：判断testDispatchCast技能ToTileDelegate是否满足条件。
+ * @returns 无返回值，直接更新testDispatchCast技能ToTileDelegate相关状态。
  */
 
 
@@ -163,8 +163,8 @@ function testDispatchCastSkillToTileDelegates() {
     ]);
 }
 /**
- * testDispatchEngageBattleDelegates：执行核心业务逻辑。
- * @returns 函数返回值。
+ * testDispatchEngageBattleDelegates：判断testDispatchEngageBattleDelegate是否满足条件。
+ * @returns 无返回值，直接更新testDispatchEngageBattleDelegate相关状态。
  */
 
 

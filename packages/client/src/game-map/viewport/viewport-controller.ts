@@ -5,37 +5,37 @@ import { MAX_DPR } from '../../constants/visuals/viewport';
 /** 视口计算快照。 */
 export interface ViewportSnapshot {
 /**
- * cssWidth：ViewportSnapshot 内部字段。
+ * cssWidth：cssWidth相关字段。
  */
 
   cssWidth: number;  
   /**
- * cssHeight：ViewportSnapshot 内部字段。
+ * cssHeight：cssHeight相关字段。
  */
 
   cssHeight: number;  
   /**
- * dpr：ViewportSnapshot 内部字段。
+ * dpr：dpr相关字段。
  */
 
   dpr: number;  
   /**
- * viewportScale：ViewportSnapshot 内部字段。
+ * viewportScale：viewportScale相关字段。
  */
 
   viewportScale: number;  
   /**
- * backbufferWidth：ViewportSnapshot 内部字段。
+ * backbufferWidth：backbufferWidth相关字段。
  */
 
   backbufferWidth: number;  
   /**
- * backbufferHeight：ViewportSnapshot 内部字段。
+ * backbufferHeight：backbufferHeight相关字段。
  */
 
   backbufferHeight: number;  
   /**
- * safeArea：ViewportSnapshot 内部字段。
+ * safeArea：safeArea相关字段。
  */
 
   safeArea: MapSafeAreaInsets;

@@ -26,27 +26,27 @@ export type NumericValueType = 'flat' | 'ratio_value' | 'rate_bp' | 'throughput'
 /** 五行元素属性组 */
 export interface ElementStatGroup {
 /**
- * metal：ElementStatGroup 内部字段。
+ * metal：metal相关字段。
  */
 
   metal: number;  
   /**
- * wood：ElementStatGroup 内部字段。
+ * wood：wood相关字段。
  */
 
   wood: number;  
   /**
- * water：ElementStatGroup 内部字段。
+ * water：water相关字段。
  */
 
   water: number;  
   /**
- * fire：ElementStatGroup 内部字段。
+ * fire：fire相关字段。
  */
 
   fire: number;  
   /**
- * earth：ElementStatGroup 内部字段。
+ * earth：earth相关字段。
  */
 
   earth: number;
@@ -61,162 +61,162 @@ export type NumericScalarStatKey = typeof NUMERIC_SCALAR_STAT_KEYS[number];
 /** 完整数值属性集（含五行元素加成/减免） */
 export interface NumericStats {
 /**
- * maxHp：NumericStats 内部字段。
+ * maxHp：maxHp相关字段。
  */
 
   maxHp: number;  
   /**
- * maxQi：NumericStats 内部字段。
+ * maxQi：maxQi相关字段。
  */
 
   maxQi: number;  
   /**
- * physAtk：NumericStats 内部字段。
+ * physAtk：phyAtk相关字段。
  */
 
   physAtk: number;  
   /**
- * spellAtk：NumericStats 内部字段。
+ * spellAtk：spellAtk相关字段。
  */
 
   spellAtk: number;  
   /**
- * physDef：NumericStats 内部字段。
+ * physDef：phyDef相关字段。
  */
 
   physDef: number;  
   /**
- * spellDef：NumericStats 内部字段。
+ * spellDef：spellDef相关字段。
  */
 
   spellDef: number;  
   /**
- * hit：NumericStats 内部字段。
+ * hit：hit相关字段。
  */
 
   hit: number;  
   /**
- * dodge：NumericStats 内部字段。
+ * dodge：dodge相关字段。
  */
 
   dodge: number;  
   /**
- * crit：NumericStats 内部字段。
+ * crit：crit相关字段。
  */
 
   crit: number;  
   /**
- * antiCrit：NumericStats 内部字段。
+ * antiCrit：antiCrit相关字段。
  */
 
   antiCrit: number;  
   /**
- * critDamage：NumericStats 内部字段。
+ * critDamage：critDamage相关字段。
  */
 
   critDamage: number;  
   /**
- * breakPower：NumericStats 内部字段。
+ * breakPower：breakPower相关字段。
  */
 
   breakPower: number;  
   /**
- * resolvePower：NumericStats 内部字段。
+ * resolvePower：resolvePower相关字段。
  */
 
   resolvePower: number;  
   /**
- * maxQiOutputPerTick：NumericStats 内部字段。
+ * maxQiOutputPerTick：maxQi输出Pertick相关字段。
  */
 
   maxQiOutputPerTick: number;  
   /**
- * qiRegenRate：NumericStats 内部字段。
+ * qiRegenRate：qiRegenRate数值。
  */
 
   qiRegenRate: number;  
   /**
- * hpRegenRate：NumericStats 内部字段。
+ * hpRegenRate：hpRegenRate数值。
  */
 
   hpRegenRate: number;  
   /**
- * cooldownSpeed：NumericStats 内部字段。
+ * cooldownSpeed：冷却Speed数值。
  */
 
   cooldownSpeed: number;  
   /**
- * auraCostReduce：NumericStats 内部字段。
+ * auraCostReduce：aura消耗Reduce相关字段。
  */
 
   auraCostReduce: number;  
   /**
- * auraPowerRate：NumericStats 内部字段。
+ * auraPowerRate：auraPowerRate数值。
  */
 
   auraPowerRate: number;  
   /**
- * playerExpRate：NumericStats 内部字段。
+ * playerExpRate：玩家ExpRate数值。
  */
 
   playerExpRate: number;  
   /**
- * techniqueExpRate：NumericStats 内部字段。
+ * techniqueExpRate：功法ExpRate数值。
  */
 
   techniqueExpRate: number;  
   /**
- * realmExpPerTick：NumericStats 内部字段。
+ * realmExpPerTick：realmExpPertick相关字段。
  */
 
   realmExpPerTick: number;  
   /**
- * techniqueExpPerTick：NumericStats 内部字段。
+ * techniqueExpPerTick：功法ExpPertick相关字段。
  */
 
   techniqueExpPerTick: number;  
   /**
- * lootRate：NumericStats 内部字段。
+ * lootRate：掉落Rate数值。
  */
 
   lootRate: number;  
   /**
- * rareLootRate：NumericStats 内部字段。
+ * rareLootRate：rare掉落Rate数值。
  */
 
   rareLootRate: number;  
   /**
- * viewRange：NumericStats 内部字段。
+ * viewRange：视图范围相关字段。
  */
 
   viewRange: number;  
   /**
- * moveSpeed：NumericStats 内部字段。
+ * moveSpeed：moveSpeed数值。
  */
 
   moveSpeed: number;  
   /**
- * extraAggroRate：NumericStats 内部字段。
+ * extraAggroRate：extraAggroRate数值。
  */
 
   extraAggroRate: number;  
   /**
- * extraRange：NumericStats 内部字段。
+ * extraRange：extra范围相关字段。
  */
 
   extraRange: number;  
   /**
- * extraArea：NumericStats 内部字段。
+ * extraArea：extraArea相关字段。
  */
 
   extraArea: number;  
   /**
- * elementDamageBonus：NumericStats 内部字段。
+ * elementDamageBonus：elementDamageBonu相关字段。
  */
 
   elementDamageBonus: ElementStatGroup;  
   /**
- * elementDamageReduce：NumericStats 内部字段。
+ * elementDamageReduce：elementDamageReduce相关字段。
  */
 
   elementDamageReduce: ElementStatGroup;
@@ -225,12 +225,12 @@ export interface NumericStats {
 /** 部分数值属性（用于增量叠加） */
 export interface PartialNumericStats extends Partial<Omit<NumericStats, 'elementDamageBonus' | 'elementDamageReduce'>> {
 /**
- * elementDamageBonus：PartialNumericStats 内部字段。
+ * elementDamageBonus：elementDamageBonu相关字段。
  */
 
   elementDamageBonus?: PartialElementStatGroup;  
   /**
- * elementDamageReduce：PartialNumericStats 内部字段。
+ * elementDamageReduce：elementDamageReduce相关字段。
  */
 
   elementDamageReduce?: PartialElementStatGroup;
@@ -239,52 +239,52 @@ export interface PartialNumericStats extends Partial<Omit<NumericStats, 'element
 /** 具体属性乘区拆解 */
 export interface NumericStatBreakdownEntry {
 /**
- * realmBaseValue：NumericStatBreakdownEntry 内部字段。
+ * realmBaseValue：realmBase值数值。
  */
 
   realmBaseValue: number;  
   /**
- * bonusBaseValue：NumericStatBreakdownEntry 内部字段。
+ * bonusBaseValue：bonuBase值数值。
  */
 
   bonusBaseValue: number;  
   /**
- * baseValue：NumericStatBreakdownEntry 内部字段。
+ * baseValue：base值数值。
  */
 
   baseValue: number;  
   /**
- * flatBuffValue：NumericStatBreakdownEntry 内部字段。
+ * flatBuffValue：flatBuff值数值。
  */
 
   flatBuffValue: number;  
   /**
- * preMultiplierValue：NumericStatBreakdownEntry 内部字段。
+ * preMultiplierValue：preMultiplier值数值。
  */
 
   preMultiplierValue: number;  
   /**
- * attrMultiplierPct：NumericStatBreakdownEntry 内部字段。
+ * attrMultiplierPct：attrMultiplierPct相关字段。
  */
 
   attrMultiplierPct: number;  
   /**
- * realmMultiplier：NumericStatBreakdownEntry 内部字段。
+ * realmMultiplier：realmMultiplier相关字段。
  */
 
   realmMultiplier: number;  
   /**
- * buffMultiplierPct：NumericStatBreakdownEntry 内部字段。
+ * buffMultiplierPct：buffMultiplierPct相关字段。
  */
 
   buffMultiplierPct: number;  
   /**
- * pillMultiplierPct：NumericStatBreakdownEntry 内部字段。
+ * pillMultiplierPct：pillMultiplierPct相关字段。
  */
 
   pillMultiplierPct: number;  
   /**
- * finalValue：NumericStatBreakdownEntry 内部字段。
+ * finalValue：final值数值。
  */
 
   finalValue: number;
@@ -296,27 +296,27 @@ export type NumericStatBreakdownMap = Partial<Record<NumericScalarStatKey, Numer
 /** 数值修改器（来源标识 + 属性/数值增量） */
 export interface NumericModifier {
 /**
- * source：NumericModifier 内部字段。
+ * source：来源相关字段。
  */
 
   source: string;  
   /**
- * baseAttrs：NumericModifier 内部字段。
+ * baseAttrs：baseAttr相关字段。
  */
 
   baseAttrs?: Partial<Attributes>;  
   /**
- * stats：NumericModifier 内部字段。
+ * stats：stat相关字段。
  */
 
   stats?: PartialNumericStats;  
   /**
- * label：NumericModifier 内部字段。
+ * label：label名称或显示文本。
  */
 
   label?: string;  
   /**
- * meta：NumericModifier 内部字段。
+ * meta：meta相关字段。
  */
 
   meta?: Record<string, unknown>;
@@ -325,37 +325,37 @@ export interface NumericModifier {
 /** RatioValue 除数配置（控制闪避/暴击等属性的收益递减曲线） */
 export interface NumericRatioDivisors {
 /**
- * dodge：NumericRatioDivisors 内部字段。
+ * dodge：dodge相关字段。
  */
 
   dodge: number;  
   /**
- * crit：NumericRatioDivisors 内部字段。
+ * crit：crit相关字段。
  */
 
   crit: number;  
   /**
- * breakPower：NumericRatioDivisors 内部字段。
+ * breakPower：breakPower相关字段。
  */
 
   breakPower: number;  
   /**
- * resolvePower：NumericRatioDivisors 内部字段。
+ * resolvePower：resolvePower相关字段。
  */
 
   resolvePower: number;  
   /**
- * cooldownSpeed：NumericRatioDivisors 内部字段。
+ * cooldownSpeed：冷却Speed数值。
  */
 
   cooldownSpeed: number;  
   /**
- * moveSpeed：NumericRatioDivisors 内部字段。
+ * moveSpeed：moveSpeed数值。
  */
 
   moveSpeed: number;  
   /**
- * elementDamageReduce：NumericRatioDivisors 内部字段。
+ * elementDamageReduce：elementDamageReduce相关字段。
  */
 
   elementDamageReduce: ElementStatGroup;
@@ -364,17 +364,17 @@ export interface NumericRatioDivisors {
 /** 境界数值模板（基础属性 + RatioValue 除数） */
 export interface RealmNumericTemplate {
 /**
- * stage：RealmNumericTemplate 内部字段。
+ * stage：stage相关字段。
  */
 
   stage: PlayerRealmStage;  
   /**
- * stats：RealmNumericTemplate 内部字段。
+ * stats：stat相关字段。
  */
 
   stats: NumericStats;  
   /**
- * ratioDivisors：RealmNumericTemplate 内部字段。
+ * ratioDivisors：ratioDivisor相关字段。
  */
 
   ratioDivisors: NumericRatioDivisors;

@@ -855,9 +855,9 @@ async function seedNativePersistenceForToken(token) {
     }
 }
 /**
- * parseJwtPayload：执行核心业务逻辑。
+ * parseJwtPayload：读取Jwt载荷并返回结果。
  * @param token 参数说明。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新Jwt载荷相关状态。
  */
 
 function parseJwtPayload(token) {

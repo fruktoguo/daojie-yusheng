@@ -96,76 +96,76 @@ const RESTORE_JOB_PHASE = {
 @Injectable()
 export class NextGmAdminService {
 /**
- * logger：NextGmAdminService 内部字段。
+ * logger：日志器引用。
  */
 
     logger = new Logger(NextGmAdminService.name);    
     /**
- * pool：NextGmAdminService 内部字段。
+ * pool：缓存或索引容器。
  */
 
     pool = null;    
     /**
- * persistenceEnabled：NextGmAdminService 内部字段。
+ * persistenceEnabled：启用开关或状态标识。
  */
 
     persistenceEnabled = false;    
     /**
- * backupDirectory：NextGmAdminService 内部字段。
+ * backupDirectory：backupDirectory相关字段。
  */
 
     backupDirectory = resolveBackupDirectory();    
     /**
- * currentDatabaseJob：NextGmAdminService 内部字段。
+ * currentDatabaseJob：currentDatabaseJob相关字段。
  */
 
     currentDatabaseJob = null;    
     /**
- * lastDatabaseJob：NextGmAdminService 内部字段。
+ * lastDatabaseJob：lastDatabaseJob相关字段。
  */
 
     lastDatabaseJob = null;    
     /**
- * initialAfdianPersistentConfigFromEnv：NextGmAdminService 内部字段。
+ * initialAfdianPersistentConfigFromEnv：initialAfdianPersistent配置FromEnv相关字段。
  */
 
     initialAfdianPersistentConfigFromEnv = hasEnvBackedAfdianPersistentConfig();    
     /**
- * initialAfdianPersistentConfig：NextGmAdminService 内部字段。
+ * initialAfdianPersistentConfig：initialAfdianPersistent配置状态或数据块。
  */
 
     initialAfdianPersistentConfig = readPersistentConfigFromEnv();    
     /**
- * initialAfdianRuntimeToken：NextGmAdminService 内部字段。
+ * initialAfdianRuntimeToken：initialAfdian运行态Token标识。
  */
 
     initialAfdianRuntimeToken = readRuntimeTokenFromEnv();    
     /**
- * afdianPersistentConfig：NextGmAdminService 内部字段。
+ * afdianPersistentConfig：afdianPersistent配置状态或数据块。
  */
 
     afdianPersistentConfig = cloneAfdianPersistentConfig(this.initialAfdianPersistentConfig);    
     /**
- * afdianRuntimeToken：NextGmAdminService 内部字段。
+ * afdianRuntimeToken：afdian运行态Token标识。
  */
 
     afdianRuntimeToken = this.initialAfdianRuntimeToken;    
     /**
- * memoryOrdersByTradeNo：NextGmAdminService 内部字段。
+ * memoryOrdersByTradeNo：memory订单ByTradeNo相关字段。
  */
 
     memoryOrdersByTradeNo = new Map();    
     /**
  * 构造器：初始化 当前 实例并建立基础状态。
  * @param databaseRestoreCoordinator 参数说明。
- * @returns 无返回值（构造函数）。
+ * @returns 无返回值，完成实例初始化。
  */
 
     constructor(@Inject(NextDatabaseRestoreCoordinatorService) private readonly databaseRestoreCoordinator) {
     }    
     /**
- * onModuleInit：执行核心业务逻辑。
- * @returns 函数返回值。
+ * onModuleInit：执行on模块Init相关逻辑。
+ * @returns 无返回值，直接更新on模块Init相关状态。
  */
 
     async onModuleInit() {
@@ -193,16 +193,16 @@ export class NextGmAdminService {
         }
     }    
     /**
- * onModuleDestroy：执行核心业务逻辑。
- * @returns 函数返回值。
+ * onModuleDestroy：执行on模块Destroy相关逻辑。
+ * @returns 无返回值，直接更新on模块Destroy相关状态。
  */
 
     async onModuleDestroy() {
         await this.closePool();
     }    
     /**
- * getDatabaseState：按给定条件读取/查询数据。
- * @returns 函数返回值。
+ * getDatabaseState：读取Database状态。
+ * @returns 无返回值，完成Database状态的读取/组装。
  */
 
     async getDatabaseState() {
@@ -227,8 +227,8 @@ export class NextGmAdminService {
         };
     }    
     /**
- * isRuntimeMaintenanceActive：执行状态校验并返回判断结果。
- * @returns 函数返回值。
+ * isRuntimeMaintenanceActive：判断运行态Maintenance激活是否满足条件。
+ * @returns 无返回值，完成运行态Maintenance激活的条件判断。
  */
 
     isRuntimeMaintenanceActive() {
@@ -240,8 +240,8 @@ export class NextGmAdminService {
         return this.currentDatabaseJob?.status === 'running' && this.currentDatabaseJob?.type === 'restore';
     }    
     /**
- * triggerDatabaseBackup：执行核心业务逻辑。
- * @returns 函数返回值。
+ * triggerDatabaseBackup：执行triggerDatabaseBackup相关逻辑。
+ * @returns 无返回值，直接更新triggerDatabaseBackup相关状态。
  */
 
     triggerDatabaseBackup() {
@@ -273,9 +273,9 @@ export class NextGmAdminService {
         };
     }    
     /**
- * getBackupDownloadRecord：按给定条件读取/查询数据。
+ * getBackupDownloadRecord：读取BackupDownloadRecord。
  * @param backupId backup ID。
- * @returns 函数返回值。
+ * @returns 无返回值，完成BackupDownloadRecord的读取/组装。
  */
 
     async getBackupDownloadRecord(backupId) {
@@ -295,9 +295,9 @@ export class NextGmAdminService {
         };
     }    
     /**
- * triggerDatabaseRestore：执行核心业务逻辑。
+ * triggerDatabaseRestore：执行triggerDatabaseRestore相关逻辑。
  * @param backupId backup ID。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新triggerDatabaseRestore相关状态。
  */
 
     async triggerDatabaseRestore(backupId) {
@@ -383,8 +383,8 @@ export class NextGmAdminService {
         };
     }    
     /**
- * getAfdianConfig：按给定条件读取/查询数据。
- * @returns 函数返回值。
+ * getAfdianConfig：读取Afdian配置。
+ * @returns 无返回值，完成Afdian配置的读取/组装。
  */
 
     getAfdianConfig() {
@@ -394,9 +394,9 @@ export class NextGmAdminService {
         };
     }    
     /**
- * saveAfdianConfig：执行核心业务逻辑。
+ * saveAfdianConfig：执行saveAfdian配置相关逻辑。
  * @param input 输入参数。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新saveAfdian配置相关状态。
  */
 
     async saveAfdianConfig(input) {
@@ -410,9 +410,9 @@ export class NextGmAdminService {
         return this.getAfdianConfig();
     }    
     /**
- * listAfdianOrders：执行核心业务逻辑。
+ * listAfdianOrders：读取Afdian订单并返回结果。
  * @param query 参数说明。
- * @returns 函数返回值。
+ * @returns 无返回值，完成Afdian订单的读取/组装。
  */
 
     async listAfdianOrders(query) {
@@ -454,9 +454,9 @@ export class NextGmAdminService {
         };
     }    
     /**
- * pingAfdianApi：执行核心业务逻辑。
+ * pingAfdianApi：执行pingAfdianApi相关逻辑。
  * @param input 输入参数。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新pingAfdianApi相关状态。
  */
 
     async pingAfdianApi(input) {
@@ -469,9 +469,9 @@ export class NextGmAdminService {
         };
     }    
     /**
- * syncAfdianOrders：执行核心业务逻辑。
+ * syncAfdianOrders：处理Afdian订单并更新相关状态。
  * @param input 输入参数。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新Afdian订单相关状态。
  */
 
     async syncAfdianOrders(input) {
@@ -541,10 +541,10 @@ export class NextGmAdminService {
         };
     }    
     /**
- * handleAfdianWebhook：处理事件并驱动执行路径。
+ * handleAfdianWebhook：处理AfdianWebhook并更新相关状态。
  * @param body 参数说明。
  * @param headers 参数说明。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新AfdianWebhook相关状态。
  */
 
     async handleAfdianWebhook(body, headers = {}) {
@@ -576,8 +576,8 @@ export class NextGmAdminService {
         await this.upsertAfdianOrders([order], 'webhook');
     }    
     /**
- * reloadPersistentCompatibilityState：执行核心业务逻辑。
- * @returns 函数返回值。
+ * reloadPersistentCompatibilityState：读取reloadPersistentCompatibility状态并返回结果。
+ * @returns 无返回值，直接更新reloadPersistentCompatibility状态相关状态。
  */
 
     async reloadPersistentCompatibilityState() {
@@ -585,8 +585,8 @@ export class NextGmAdminService {
         await this.loadAfdianPersistentConfig();
     }    
     /**
- * loadPersistedDatabaseJobState：按给定条件读取/查询数据。
- * @returns 函数返回值。
+ * loadPersistedDatabaseJobState：读取PersistedDatabaseJob状态并返回结果。
+ * @returns 无返回值，完成PersistedDatabaseJob状态的读取/组装。
  */
 
     async loadPersistedDatabaseJobState() {
@@ -631,8 +631,8 @@ export class NextGmAdminService {
         }
     }    
     /**
- * persistDatabaseJobState：执行核心业务逻辑。
- * @returns 函数返回值。
+ * persistDatabaseJobState：判断persistDatabaseJob状态是否满足条件。
+ * @returns 无返回值，直接更新persistDatabaseJob状态相关状态。
  */
 
     async persistDatabaseJobState() {
@@ -654,9 +654,9 @@ export class NextGmAdminService {
       `, [DATABASE_JOB_STATE_SCOPE, DATABASE_JOB_STATE_KEY, JSON.stringify(payload)]);
     }    
     /**
- * persistBackupMetadata：执行核心业务逻辑。
+ * persistBackupMetadata：判断persistBackupMetadata是否满足条件。
  * @param record 参数说明。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新persistBackupMetadata相关状态。
  */
 
     async persistBackupMetadata(record) {
@@ -680,7 +680,7 @@ export class NextGmAdminService {
     /**
  * createDatabaseBackupSnapshot：构建并返回目标对象。
  * @param input 输入参数。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新DatabaseBackup快照相关状态。
  */
 
     async createDatabaseBackupSnapshot(input) {
@@ -730,8 +730,8 @@ export class NextGmAdminService {
         };
     }    
     /**
- * loadPersistedBackupMetadataRecords：按给定条件读取/查询数据。
- * @returns 函数返回值。
+ * loadPersistedBackupMetadataRecords：读取PersistedBackupMetadataRecord并返回结果。
+ * @returns 无返回值，完成PersistedBackupMetadataRecord的读取/组装。
  */
 
     async loadPersistedBackupMetadataRecords() {
@@ -758,8 +758,8 @@ export class NextGmAdminService {
         return Array.from(records.values());
     }    
     /**
- * backfillBackupMetadataFromFilesystem：执行核心业务逻辑。
- * @returns 函数返回值。
+ * backfillBackupMetadataFromFilesystem：执行backfillBackupMetadataFromFilesystem相关逻辑。
+ * @returns 无返回值，直接更新backfillBackupMetadataFromFilesystem相关状态。
  */
 
     async backfillBackupMetadataFromFilesystem() {
@@ -775,8 +775,8 @@ export class NextGmAdminService {
         })));
     }    
     /**
- * loadAfdianPersistentConfig：按给定条件读取/查询数据。
- * @returns 函数返回值。
+ * loadAfdianPersistentConfig：读取AfdianPersistent配置并返回结果。
+ * @returns 无返回值，完成AfdianPersistent配置的读取/组装。
  */
 
     async loadAfdianPersistentConfig() {
@@ -798,9 +798,9 @@ export class NextGmAdminService {
         this.applyAfdianPersistentConfig(normalizeStoredPersistentConfig(payload));
     }    
     /**
- * persistAfdianPersistentConfig：执行核心业务逻辑。
+ * persistAfdianPersistentConfig：判断persistAfdianPersistent配置是否满足条件。
  * @param config 参数说明。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新persistAfdianPersistent配置相关状态。
  */
 
     async persistAfdianPersistentConfig(config) {
@@ -818,8 +818,8 @@ export class NextGmAdminService {
       `, [AFDIAN_CONFIG_SCOPE, AFDIAN_CONFIG_KEY, JSON.stringify(config)]);
     }    
     /**
- * getAfdianConfigForm：按给定条件读取/查询数据。
- * @returns 函数返回值。
+ * getAfdianConfigForm：读取Afdian配置Form。
+ * @returns 无返回值，完成Afdian配置Form的读取/组装。
  */
 
     getAfdianConfigForm() {
@@ -831,8 +831,8 @@ export class NextGmAdminService {
         };
     }    
     /**
- * getAfdianConfigStatus：按给定条件读取/查询数据。
- * @returns 函数返回值。
+ * getAfdianConfigStatus：读取Afdian配置Statu。
+ * @returns 无返回值，完成Afdian配置Statu的读取/组装。
  */
 
     getAfdianConfigStatus() {
@@ -862,9 +862,9 @@ export class NextGmAdminService {
         };
     }    
     /**
- * getRequiredAfdianApiConfig：按给定条件读取/查询数据。
+ * getRequiredAfdianApiConfig：读取RequiredAfdianApi配置。
  * @param requestToken 参数说明。
- * @returns 函数返回值。
+ * @returns 无返回值，完成RequiredAfdianApi配置的读取/组装。
  */
 
     getRequiredAfdianApiConfig(requestToken) {
@@ -880,23 +880,23 @@ export class NextGmAdminService {
         return { userId, token };
     }    
     /**
- * queryAfdianOrders：按给定条件读取/查询数据。
+ * queryAfdianOrders：读取Afdian订单并返回结果。
  * @param userId user ID。
  * @param token 参数说明。
  * @param params 参数说明。
- * @returns 函数返回值。
+ * @returns 无返回值，完成Afdian订单的读取/组装。
  */
 
     async queryAfdianOrders(userId, token, params) {
         return this.requestAfdianApi(userId, token, AFDIAN_QUERY_ORDER_PATH, params);
     }    
     /**
- * requestAfdianApi：执行核心业务逻辑。
+ * requestAfdianApi：执行requestAfdianApi相关逻辑。
  * @param userId user ID。
  * @param token 参数说明。
  * @param apiPath 参数说明。
  * @param params 参数说明。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新requestAfdianApi相关状态。
  */
 
     async requestAfdianApi(userId, token, apiPath, params) {
@@ -951,10 +951,10 @@ export class NextGmAdminService {
         return record;
     }    
     /**
- * upsertAfdianOrders：执行核心业务逻辑。
+ * upsertAfdianOrders：执行upsertAfdian订单相关逻辑。
  * @param orders 参数说明。
  * @param source 来源对象。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新upsertAfdian订单相关状态。
  */
 
     async upsertAfdianOrders(orders, source) {
@@ -988,7 +988,7 @@ export class NextGmAdminService {
  * buildStoredAfdianOrderChange：构建并返回目标对象。
  * @param order 参数说明。
  * @param source 来源对象。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新StoredAfdian订单Change相关状态。
  */
 
     async buildStoredAfdianOrderChange(order, source) {
@@ -1033,9 +1033,9 @@ export class NextGmAdminService {
         };
     }    
     /**
- * loadAfdianOrder：按给定条件读取/查询数据。
+ * loadAfdianOrder：读取Afdian订单并返回结果。
  * @param outTradeNo 参数说明。
- * @returns 函数返回值。
+ * @returns 无返回值，完成Afdian订单的读取/组装。
  */
 
     async loadAfdianOrder(outTradeNo) {
@@ -1057,8 +1057,8 @@ export class NextGmAdminService {
         return this.memoryOrdersByTradeNo.get(normalized) ?? null;
     }    
     /**
- * loadAllAfdianOrders：按给定条件读取/查询数据。
- * @returns 函数返回值。
+ * loadAllAfdianOrders：读取AllAfdian订单并返回结果。
+ * @returns 无返回值，完成AllAfdian订单的读取/组装。
  */
 
     async loadAllAfdianOrders() {
@@ -1081,8 +1081,8 @@ export class NextGmAdminService {
         return Array.from(this.memoryOrdersByTradeNo.values());
     }    
     /**
- * readAllPersistentDocuments：执行核心业务逻辑。
- * @returns 函数返回值。
+ * readAllPersistentDocuments：读取AllPersistentDocument并返回结果。
+ * @returns 无返回值，完成AllPersistentDocument的读取/组装。
  */
 
     async readAllPersistentDocuments() {
@@ -1105,8 +1105,8 @@ export class NextGmAdminService {
         })).filter((entry) => entry.scope && entry.key && !BACKUP_EXCLUDED_SCOPES.has(entry.scope));
     }    
     /**
- * listFilesystemBackups：执行核心业务逻辑。
- * @returns 函数返回值。
+ * listFilesystemBackups：读取FilesystemBackup并返回结果。
+ * @returns 无返回值，完成FilesystemBackup的读取/组装。
  */
 
     async listFilesystemBackups() {
@@ -1141,8 +1141,8 @@ export class NextGmAdminService {
         return records;
     }    
     /**
- * listDatabaseBackups：执行核心业务逻辑。
- * @returns 函数返回值。
+ * listDatabaseBackups：读取DatabaseBackup并返回结果。
+ * @returns 无返回值，完成DatabaseBackup的读取/组装。
  */
 
     async listDatabaseBackups() {
@@ -1177,9 +1177,9 @@ export class NextGmAdminService {
         return merged;
     }    
     /**
- * findBackupRecord：执行核心业务逻辑。
+ * findBackupRecord：读取BackupRecord并返回结果。
  * @param backupId backup ID。
- * @returns 函数返回值。
+ * @returns 无返回值，完成BackupRecord的读取/组装。
  */
 
     async findBackupRecord(backupId) {
@@ -1195,9 +1195,9 @@ export class NextGmAdminService {
         return records.find((entry) => entry.id === normalized) ?? null;
     }    
     /**
- * readBackupPayload：执行核心业务逻辑。
+ * readBackupPayload：读取Backup载荷并返回结果。
  * @param filePath 参数说明。
- * @returns 函数返回值。
+ * @returns 无返回值，完成Backup载荷的读取/组装。
  */
 
     async readBackupPayload(filePath) {
@@ -1213,8 +1213,8 @@ export class NextGmAdminService {
         }
     }    
     /**
- * closePool：执行核心业务逻辑。
- * @returns 函数返回值。
+ * closePool：执行closePool相关逻辑。
+ * @returns 无返回值，直接更新closePool相关状态。
  */
 
     async closePool() {
@@ -1230,10 +1230,10 @@ export class NextGmAdminService {
         }
     }    
     /**
- * loadPersistentPayloadByScopes：按给定条件读取/查询数据。
+ * loadPersistentPayloadByScopes：读取Persistent载荷ByScope并返回结果。
  * @param scopes 参数说明。
  * @param key 参数说明。
- * @returns 函数返回值。
+ * @returns 无返回值，完成Persistent载荷ByScope的读取/组装。
  */
 
     async loadPersistentPayloadByScopes(scopes, key) {
@@ -1251,9 +1251,9 @@ export class NextGmAdminService {
         return null;
     }    
     /**
- * startDatabaseJob：执行核心业务逻辑。
+ * startDatabaseJob：执行开始DatabaseJob相关逻辑。
  * @param input 输入参数。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新startDatabaseJob相关状态。
  */
 
     startDatabaseJob(input) {
@@ -1263,10 +1263,10 @@ export class NextGmAdminService {
         return input;
     }    
     /**
- * updateDatabaseJobPhase：更新/写入相关状态。
+ * updateDatabaseJobPhase：判断DatabaseJob阶段是否满足条件。
  * @param job 参数说明。
  * @param phase 参数说明。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新DatabaseJobPhase相关状态。
  */
 
     updateDatabaseJobPhase(job, phase) {
@@ -1287,10 +1287,10 @@ export class NextGmAdminService {
         });
     }    
     /**
- * runDatabaseJob：执行核心业务逻辑。
+ * runDatabaseJob：执行runDatabaseJob相关逻辑。
  * @param job 参数说明。
  * @param work 参数说明。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新runDatabaseJob相关状态。
  */
 
     async runDatabaseJob(job, work) {
@@ -1321,8 +1321,8 @@ export class NextGmAdminService {
         }
     }    
     /**
- * assertNoRunningDatabaseJob：执行核心业务逻辑。
- * @returns 函数返回值。
+ * assertNoRunningDatabaseJob：执行assertNoRunningDatabaseJob相关逻辑。
+ * @returns 无返回值，直接更新assertNoRunningDatabaseJob相关状态。
  */
 
     assertNoRunningDatabaseJob() {
@@ -1331,8 +1331,8 @@ export class NextGmAdminService {
         }
     }    
     /**
- * assertRestoreMaintenanceEnabled：执行核心业务逻辑。
- * @returns 函数返回值。
+ * assertRestoreMaintenanceEnabled：执行assertRestoreMaintenance启用相关逻辑。
+ * @returns 无返回值，直接更新assertRestoreMaintenance启用相关状态。
  */
 
     assertRestoreMaintenanceEnabled() {
@@ -1344,9 +1344,9 @@ export class NextGmAdminService {
         throw new BadRequestException('执行兼容 restore 前必须先开启维护态（SERVER_NEXT_RUNTIME_MAINTENANCE=1 或 RUNTIME_MAINTENANCE=1）');
     }    
     /**
- * applyAfdianPersistentConfig：更新/写入相关状态。
+ * applyAfdianPersistentConfig：判断AfdianPersistent配置是否满足条件。
  * @param config 参数说明。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新AfdianPersistent配置相关状态。
  */
 
     applyAfdianPersistentConfig(config) {
@@ -1373,9 +1373,9 @@ export class NextGmAdminService {
         }
     }    
     /**
- * applyAfdianRuntimeToken：更新/写入相关状态。
+ * applyAfdianRuntimeToken：处理Afdian运行态Token并更新相关状态。
  * @param token 参数说明。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新Afdian运行态Token相关状态。
  */
 
     applyAfdianRuntimeToken(token) {
@@ -1391,8 +1391,8 @@ export class NextGmAdminService {
     }
 }
 /**
- * resolveBackupDirectory：执行核心业务逻辑。
- * @returns 函数返回值。
+ * resolveBackupDirectory：规范化或转换BackupDirectory。
+ * @returns 无返回值，直接更新BackupDirectory相关状态。
  */
 
 function resolveBackupDirectory() {
@@ -1409,16 +1409,16 @@ function resolveBackupDirectory() {
 }
 /**
  * buildBackupId：构建并返回目标对象。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新BackupID相关状态。
  */
 
 function buildBackupId() {
     return `${Date.now().toString(36)}-${randomUUID().slice(0, 8)}`;
 }
 /**
- * cloneDatabaseJob：执行核心业务逻辑。
+ * cloneDatabaseJob：构建DatabaseJob。
  * @param value 参数说明。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新DatabaseJob相关状态。
  */
 
 function cloneDatabaseJob(value) {
@@ -1435,16 +1435,16 @@ function cloneDatabaseJob(value) {
  * buildBackupFilePath：构建并返回目标对象。
  * @param backupDirectory 参数说明。
  * @param fileName 参数说明。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新BackupFile路径相关状态。
  */
 
 function buildBackupFilePath(backupDirectory, fileName) {
     return join(backupDirectory, fileName);
 }
 /**
- * resolveExistingBackupFilePath：执行核心业务逻辑。
+ * resolveExistingBackupFilePath：判断ExistingBackupFile路径是否满足条件。
  * @param filePath 参数说明。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新ExistingBackupFile路径相关状态。
  */
 
 async function resolveExistingBackupFilePath(filePath) {
@@ -1453,9 +1453,9 @@ async function resolveExistingBackupFilePath(filePath) {
     return stats?.isFile() ? filePath : null;
 }
 /**
- * normalizeStoredDatabaseJobState：执行核心业务逻辑。
+ * normalizeStoredDatabaseJobState：规范化或转换StoredDatabaseJob状态。
  * @param value 参数说明。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新StoredDatabaseJob状态相关状态。
  */
 
 function normalizeStoredDatabaseJobState(value) {
@@ -1467,9 +1467,9 @@ function normalizeStoredDatabaseJobState(value) {
     };
 }
 /**
- * shouldRecoverCompletedDatabaseJob：执行核心业务逻辑。
+ * shouldRecoverCompletedDatabaseJob：判断RecoverCompletedDatabaseJob是否满足条件。
  * @param job 参数说明。
- * @returns 函数返回值。
+ * @returns 无返回值，完成RecoverCompletedDatabaseJob的条件判断。
  */
 
 function shouldRecoverCompletedDatabaseJob(job) {
@@ -1484,9 +1484,9 @@ function shouldRecoverCompletedDatabaseJob(job) {
     return typeof job.finishedAt === 'string' && job.finishedAt.trim().length > 0;
 }
 /**
- * normalizeDatabaseJobSnapshot：执行核心业务逻辑。
+ * normalizeDatabaseJobSnapshot：规范化或转换DatabaseJob快照。
  * @param value 参数说明。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新DatabaseJob快照相关状态。
  */
 
 function normalizeDatabaseJobSnapshot(value) {
@@ -1543,9 +1543,9 @@ function normalizeDatabaseJobSnapshot(value) {
     };
 }
 /**
- * normalizeStoredBackupMetadata：执行核心业务逻辑。
+ * normalizeStoredBackupMetadata：规范化或转换StoredBackupMetadata。
  * @param value 参数说明。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新StoredBackupMetadata相关状态。
  */
 
 function normalizeStoredBackupMetadata(value) {
@@ -1589,9 +1589,9 @@ function normalizeStoredBackupMetadata(value) {
     };
 }
 /**
- * assertCompatibleBackupPayload：执行核心业务逻辑。
+ * assertCompatibleBackupPayload：读取assertCompatibleBackup载荷并返回结果。
  * @param value 参数说明。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新assertCompatibleBackup载荷相关状态。
  */
 
 function assertCompatibleBackupPayload(value) {
@@ -1653,9 +1653,9 @@ function assertCompatibleBackupPayload(value) {
     };
 }
 /**
- * summarizeText：执行核心业务逻辑。
+ * summarizeText：执行summarizeText相关逻辑。
  * @param value 参数说明。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新summarizeText相关状态。
  */
 
 function summarizeText(value) {
@@ -1664,10 +1664,10 @@ function summarizeText(value) {
     return normalized.length > 160 ? `${normalized.slice(0, 160)}...` : normalized;
 }
 /**
- * assertAfdianWebhookAuthorized：执行核心业务逻辑。
+ * assertAfdianWebhookAuthorized：执行assertAfdianWebhookAuthorized相关逻辑。
  * @param envelope 参数说明。
  * @param headers 参数说明。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新assertAfdianWebhookAuthorized相关状态。
  */
 
 function assertAfdianWebhookAuthorized(envelope, headers) {
@@ -1705,10 +1705,10 @@ function assertAfdianWebhookAuthorized(envelope, headers) {
     throw new UnauthorizedException('爱发电 webhook 鉴权失败');
 }
 /**
- * normalizePersistentDocumentBackupEntry：执行核心业务逻辑。
+ * normalizePersistentDocumentBackupEntry：判断PersistentDocumentBackup条目是否满足条件。
  * @param value 参数说明。
  * @param index 参数说明。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新PersistentDocumentBackup条目相关状态。
  */
 
 function normalizePersistentDocumentBackupEntry(value, index = -1) {
@@ -1740,18 +1740,18 @@ function normalizePersistentDocumentBackupEntry(value, index = -1) {
     };
 }
 /**
- * computeBackupChecksum：执行核心业务逻辑。
+ * computeBackupChecksum：判断BackupChecksum是否满足条件。
  * @param docs 参数说明。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新BackupChecksum相关状态。
  */
 
 function computeBackupChecksum(docs) {
     return createHash('sha256').update(JSON.stringify(docs)).digest('hex');
 }
 /**
- * readBooleanEnv：执行核心业务逻辑。
+ * readBooleanEnv：读取BooleanEnv并返回结果。
  * @param key 参数说明。
- * @returns 函数返回值。
+ * @returns 无返回值，完成BooleanEnv的读取/组装。
  */
 
 function readBooleanEnv(key) {
@@ -1767,9 +1767,9 @@ function readBooleanEnv(key) {
     return normalized === '1' || normalized === 'true' || normalized === 'yes' || normalized === 'on';
 }
 /**
- * extractAfdianOrderList：执行核心业务逻辑。
+ * extractAfdianOrderList：读取extractAfdian订单列表并返回结果。
  * @param response 参数说明。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新extractAfdian订单列表相关状态。
  */
 
 function extractAfdianOrderList(response) {
@@ -1785,9 +1785,9 @@ function extractAfdianOrderList(response) {
     return list.map((entry) => normalizeAfdianOrderPayload(entry)).filter((item) => item !== null);
 }
 /**
- * normalizeAfdianOrderPayload：执行核心业务逻辑。
+ * normalizeAfdianOrderPayload：读取Afdian订单载荷并返回结果。
  * @param value 参数说明。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新Afdian订单载荷相关状态。
  */
 
 function normalizeAfdianOrderPayload(value) {
@@ -1809,9 +1809,9 @@ function normalizeAfdianOrderPayload(value) {
     };
 }
 /**
- * normalizeStoredAfdianOrder：执行核心业务逻辑。
+ * normalizeStoredAfdianOrder：规范化或转换StoredAfdian订单。
  * @param value 参数说明。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新StoredAfdian订单相关状态。
  */
 
 function normalizeStoredAfdianOrder(value) {
@@ -1851,10 +1851,10 @@ function normalizeStoredAfdianOrder(value) {
     };
 }
 /**
- * isSameStoredAfdianOrder：执行状态校验并返回判断结果。
+ * isSameStoredAfdianOrder：判断SameStoredAfdian订单是否满足条件。
  * @param left 参数说明。
  * @param right 参数说明。
- * @returns 函数返回值。
+ * @returns 无返回值，完成SameStoredAfdian订单的条件判断。
  */
 
 function isSameStoredAfdianOrder(left, right) {
@@ -1878,10 +1878,10 @@ function isSameStoredAfdianOrder(left, right) {
         && isSameSkuDetail(left.skuDetail, right.skuDetail);
 }
 /**
- * isSameSkuDetail：执行状态校验并返回判断结果。
+ * isSameSkuDetail：判断SameSku详情是否满足条件。
  * @param left 参数说明。
  * @param right 参数说明。
- * @returns 函数返回值。
+ * @returns 无返回值，完成SameSku详情的条件判断。
  */
 
 function isSameSkuDetail(left, right) {
@@ -1901,10 +1901,10 @@ function isSameSkuDetail(left, right) {
     return true;
 }
 /**
- * isSameJsonValue：执行状态校验并返回判断结果。
+ * isSameJsonValue：判断SameJson值是否满足条件。
  * @param left 参数说明。
  * @param right 参数说明。
- * @returns 函数返回值。
+ * @returns 无返回值，完成SameJson值的条件判断。
  */
 
 function isSameJsonValue(left, right) {
@@ -1958,9 +1958,9 @@ function isSameJsonValue(left, right) {
     return false;
 }
 /**
- * asRecord：执行核心业务逻辑。
+ * asRecord：执行aRecord相关逻辑。
  * @param value 参数说明。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新aRecord相关状态。
  */
 
 function asRecord(value) {
@@ -1972,9 +1972,9 @@ function asRecord(value) {
     return value;
 }
 /**
- * normalizeEnvValue：执行核心业务逻辑。
+ * normalizeEnvValue：规范化或转换Env值。
  * @param value 参数说明。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新Env值相关状态。
  */
 
 function normalizeEnvValue(value) {
@@ -1988,8 +1988,8 @@ function normalizeEnvValue(value) {
     return trimmed ? trimmed : null;
 }
 /**
- * readAfdianWebhookSecret：执行核心业务逻辑。
- * @returns 函数返回值。
+ * readAfdianWebhookSecret：读取AfdianWebhookSecret并返回结果。
+ * @returns 无返回值，完成AfdianWebhookSecret的读取/组装。
  */
 
 function readAfdianWebhookSecret() {
@@ -1998,9 +1998,9 @@ function readAfdianWebhookSecret() {
         ?? null;
 }
 /**
- * extractBearerToken：执行核心业务逻辑。
+ * extractBearerToken：执行extractBearerToken相关逻辑。
  * @param value 参数说明。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新extractBearerToken相关状态。
  */
 
 function extractBearerToken(value) {
@@ -2019,10 +2019,10 @@ function extractBearerToken(value) {
     return token || null;
 }
 /**
- * safeEqualText：执行核心业务逻辑。
+ * safeEqualText：执行safeEqualText相关逻辑。
  * @param left 参数说明。
  * @param right 参数说明。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新safeEqualText相关状态。
  */
 
 function safeEqualText(left, right) {
@@ -2038,9 +2038,9 @@ function safeEqualText(left, right) {
     return leftBuffer.length > 0 && timingSafeEqual(leftBuffer, rightBuffer);
 }
 /**
- * normalizeTimestamp：执行核心业务逻辑。
+ * normalizeTimestamp：规范化或转换Timestamp。
  * @param value 参数说明。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新Timestamp相关状态。
  */
 
 function normalizeTimestamp(value) {
@@ -2055,10 +2055,10 @@ function normalizeTimestamp(value) {
     return null;
 }
 /**
- * readInteger：执行核心业务逻辑。
+ * readInteger：读取Integer并返回结果。
  * @param value 参数说明。
  * @param fallback 参数说明。
- * @returns 函数返回值。
+ * @returns 无返回值，完成Integer的读取/组装。
  */
 
 function readInteger(value, fallback = 0) {
@@ -2067,12 +2067,12 @@ function readInteger(value, fallback = 0) {
     return Number.isFinite(parsed) ? Math.trunc(parsed) : fallback;
 }
 /**
- * clampInteger：执行核心业务逻辑。
+ * clampInteger：执行clampInteger相关逻辑。
  * @param value 参数说明。
  * @param fallback 参数说明。
  * @param min 参数说明。
  * @param max 参数说明。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新clampInteger相关状态。
  */
 
 function clampInteger(value, fallback, min, max) {
@@ -2089,9 +2089,9 @@ function clampInteger(value, fallback, min, max) {
     return parsed;
 }
 /**
- * readOptionalString：执行核心业务逻辑。
+ * readOptionalString：读取OptionalString并返回结果。
  * @param value 参数说明。
- * @returns 函数返回值。
+ * @returns 无返回值，完成OptionalString的读取/组装。
  */
 
 function readOptionalString(value) {
@@ -2105,8 +2105,8 @@ function readOptionalString(value) {
     return trimmed ? trimmed : null;
 }
 /**
- * readPersistentConfigFromEnv：执行核心业务逻辑。
- * @returns 函数返回值。
+ * readPersistentConfigFromEnv：读取Persistent配置FromEnv并返回结果。
+ * @returns 无返回值，完成Persistent配置FromEnv的读取/组装。
  */
 
 function readPersistentConfigFromEnv() {
@@ -2117,8 +2117,8 @@ function readPersistentConfigFromEnv() {
     });
 }
 /**
- * hasEnvBackedAfdianPersistentConfig：执行状态校验并返回判断结果。
- * @returns 函数返回值。
+ * hasEnvBackedAfdianPersistentConfig：判断EnvBackedAfdianPersistent配置是否满足条件。
+ * @returns 无返回值，完成EnvBackedAfdianPersistent配置的条件判断。
  */
 
 function hasEnvBackedAfdianPersistentConfig() {
@@ -2127,9 +2127,9 @@ function hasEnvBackedAfdianPersistentConfig() {
         || normalizeEnvValue(process.env.AFDIAN_PUBLIC_BASE_URL) !== null;
 }
 /**
- * cloneAfdianPersistentConfig：执行核心业务逻辑。
+ * cloneAfdianPersistentConfig：判断AfdianPersistent配置是否满足条件。
  * @param config 参数说明。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新AfdianPersistent配置相关状态。
  */
 
 function cloneAfdianPersistentConfig(config) {
@@ -2145,17 +2145,17 @@ function cloneAfdianPersistentConfig(config) {
     };
 }
 /**
- * readRuntimeTokenFromEnv：执行核心业务逻辑。
- * @returns 函数返回值。
+ * readRuntimeTokenFromEnv：读取运行态TokenFromEnv并返回结果。
+ * @returns 无返回值，完成运行态TokenFromEnv的读取/组装。
  */
 
 function readRuntimeTokenFromEnv() {
     return normalizeEnvValue(process.env.AFDIAN_TOKEN) ?? '';
 }
 /**
- * normalizePersistentConfig：执行核心业务逻辑。
+ * normalizePersistentConfig：判断Persistent配置是否满足条件。
  * @param input 输入参数。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新Persistent配置相关状态。
  */
 
 function normalizePersistentConfig(input) {
@@ -2166,9 +2166,9 @@ function normalizePersistentConfig(input) {
     };
 }
 /**
- * normalizeStoredPersistentConfig：执行核心业务逻辑。
+ * normalizeStoredPersistentConfig：判断StoredPersistent配置是否满足条件。
  * @param input 输入参数。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新StoredPersistent配置相关状态。
  */
 
 function normalizeStoredPersistentConfig(input) {
@@ -2179,9 +2179,9 @@ function normalizeStoredPersistentConfig(input) {
     };
 }
 /**
- * normalizeApiBaseUrl：执行核心业务逻辑。
+ * normalizeApiBaseUrl：规范化或转换ApiBaseUrl。
  * @param value 参数说明。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新ApiBaseUrl相关状态。
  */
 
 function normalizeApiBaseUrl(value) {
@@ -2193,9 +2193,9 @@ function normalizeApiBaseUrl(value) {
     });
 }
 /**
- * normalizePublicBaseUrl：执行核心业务逻辑。
+ * normalizePublicBaseUrl：规范化或转换PublicBaseUrl。
  * @param value 参数说明。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新PublicBaseUrl相关状态。
  */
 
 function normalizePublicBaseUrl(value) {
@@ -2207,10 +2207,10 @@ function normalizePublicBaseUrl(value) {
     });
 }
 /**
- * normalizeBaseUrl：执行核心业务逻辑。
+ * normalizeBaseUrl：规范化或转换BaseUrl。
  * @param value 参数说明。
  * @param options 选项参数。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新BaseUrl相关状态。
  */
 
 function normalizeBaseUrl(value, options) {
@@ -2245,7 +2245,7 @@ function normalizeBaseUrl(value, options) {
  * buildWebhookUrl：构建并返回目标对象。
  * @param publicBaseUrl 参数说明。
  * @param webhookPath 参数说明。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新WebhookUrl相关状态。
  */
 
 function buildWebhookUrl(publicBaseUrl, webhookPath) {

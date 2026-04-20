@@ -7,7 +7,7 @@ const { WorldRuntimeNpcQuestInteractionQueryService } = require("../runtime/worl
  * createService：构建并返回目标对象。
  * @param player 玩家对象。
  * @param collectNpcQuestViews 参数说明。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新服务相关状态。
  */
 
 
@@ -16,8 +16,8 @@ function createService(player, collectNpcQuestViews) {
         collectNpcQuestViews,
     }, {    
     /**
- * getPlayer：按给定条件读取/查询数据。
- * @returns 函数返回值。
+ * getPlayer：读取玩家。
+ * @returns 无返回值，完成玩家的读取/组装。
  */
 
         getPlayer() {
@@ -26,8 +26,8 @@ function createService(player, collectNpcQuestViews) {
     });
 }
 /**
- * testResolveNpcQuestMarkerReady：执行核心业务逻辑。
- * @returns 函数返回值。
+ * testResolveNpcQuestMarkerReady：读取testResolveNPC任务MarkerReady并返回结果。
+ * @returns 无返回值，直接更新testResolveNPC任务MarkerReady相关状态。
  */
 
 
@@ -42,8 +42,8 @@ function testResolveNpcQuestMarkerReady() {
     });
     const marker = service.resolveNpcQuestMarker('player:1', 'npc_a', {    
     /**
- * getNpcForPlayerMap：按给定条件读取/查询数据。
- * @returns 函数返回值。
+ * getNpcForPlayerMap：读取NPCFor玩家地图。
+ * @returns 无返回值，完成NPCFor玩家地图的读取/组装。
  */
 
         getNpcForPlayerMap() {
@@ -53,8 +53,8 @@ function testResolveNpcQuestMarkerReady() {
     assert.deepEqual(marker, { line: 'main', state: 'ready' });
 }
 /**
- * testResolveNpcQuestMarkerActive：执行核心业务逻辑。
- * @returns 函数返回值。
+ * testResolveNpcQuestMarkerActive：规范化或转换testResolveNPC任务Marker激活。
+ * @returns 无返回值，直接更新testResolveNPC任务Marker激活相关状态。
  */
 
 
@@ -69,8 +69,8 @@ function testResolveNpcQuestMarkerActive() {
     });
     const marker = service.resolveNpcQuestMarker('player:1', 'npc_a', {    
     /**
- * getNpcForPlayerMap：按给定条件读取/查询数据。
- * @returns 函数返回值。
+ * getNpcForPlayerMap：读取NPCFor玩家地图。
+ * @returns 无返回值，完成NPCFor玩家地图的读取/组装。
  */
 
         getNpcForPlayerMap() {
@@ -80,8 +80,8 @@ function testResolveNpcQuestMarkerActive() {
     assert.deepEqual(marker, { line: 'branch', state: 'active' });
 }
 /**
- * testResolveNpcQuestMarkerAvailable：执行核心业务逻辑。
- * @returns 函数返回值。
+ * testResolveNpcQuestMarkerAvailable：规范化或转换testResolveNPC任务MarkerAvailable。
+ * @returns 无返回值，直接更新testResolveNPC任务MarkerAvailable相关状态。
  */
 
 
@@ -99,10 +99,10 @@ function testResolveNpcQuestMarkerAvailable() {
     });
     const marker = service.resolveNpcQuestMarker('player:1', 'npc_a', {    
     /**
- * getNpcForPlayerMap：按给定条件读取/查询数据。
+ * getNpcForPlayerMap：读取NPCFor玩家地图。
  * @param playerId 玩家 ID。
  * @param npcId npc ID。
- * @returns 函数返回值。
+ * @returns 无返回值，完成NPCFor玩家地图的读取/组装。
  */
 
         getNpcForPlayerMap(playerId, npcId) {
@@ -117,8 +117,8 @@ function testResolveNpcQuestMarkerAvailable() {
     ]);
 }
 /**
- * testResolveNpcQuestMarkerReturnsUndefinedWithoutPlayer：执行核心业务逻辑。
- * @returns 函数返回值。
+ * testResolveNpcQuestMarkerReturnsUndefinedWithoutPlayer：规范化或转换testResolveNPC任务MarkerReturnUndefinedWithout玩家。
+ * @returns 无返回值，直接更新testResolveNPC任务MarkerReturnUndefinedWithout玩家相关状态。
  */
 
 
@@ -128,8 +128,8 @@ function testResolveNpcQuestMarkerReturnsUndefinedWithoutPlayer() {
     });
     const marker = service.resolveNpcQuestMarker('player:1', 'npc_a', {    
     /**
- * getNpcForPlayerMap：按给定条件读取/查询数据。
- * @returns 函数返回值。
+ * getNpcForPlayerMap：读取NPCFor玩家地图。
+ * @returns 无返回值，完成NPCFor玩家地图的读取/组装。
  */
 
         getNpcForPlayerMap() {
@@ -139,8 +139,8 @@ function testResolveNpcQuestMarkerReturnsUndefinedWithoutPlayer() {
     assert.equal(marker, undefined);
 }
 /**
- * testResolveNpcQuestMarkerReturnsUndefinedWithoutNpc：执行核心业务逻辑。
- * @returns 函数返回值。
+ * testResolveNpcQuestMarkerReturnsUndefinedWithoutNpc：规范化或转换testResolveNPC任务MarkerReturnUndefinedWithoutNPC。
+ * @returns 无返回值，直接更新testResolveNPC任务MarkerReturnUndefinedWithoutNPC相关状态。
  */
 
 
@@ -155,8 +155,8 @@ function testResolveNpcQuestMarkerReturnsUndefinedWithoutNpc() {
     });
     const marker = service.resolveNpcQuestMarker('player:1', 'npc_a', {    
     /**
- * getNpcForPlayerMap：按给定条件读取/查询数据。
- * @returns 函数返回值。
+ * getNpcForPlayerMap：读取NPCFor玩家地图。
+ * @returns 无返回值，完成NPCFor玩家地图的读取/组装。
  */
 
         getNpcForPlayerMap() {

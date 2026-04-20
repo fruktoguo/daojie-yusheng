@@ -50,36 +50,36 @@ const path = __importStar(require("path"));
 const project_path_1 = require("../../common/project-path");
 let MapTemplateRepository = MapTemplateRepository_1 = class MapTemplateRepository {
 /**
- * logger：对象字段。
+ * logger：日志器引用。
  */
 
     logger = new common_1.Logger(MapTemplateRepository_1.name);    
     /**
- * templates：对象字段。
+ * templates：template相关字段。
  */
 
     templates = new Map();    
     /**
- * npcLocationById：对象字段。
+ * npcLocationById：NPC位置ByID标识。
  */
 
     npcLocationById = new Map();    
     /**
- * questSourceById：对象字段。
+ * questSourceById：任务来源ByID标识。
  */
 
     questSourceById = new Map();    
     /**
- * onModuleInit：执行核心业务逻辑。
- * @returns 函数返回值。
+ * onModuleInit：执行on模块Init相关逻辑。
+ * @returns 无返回值，直接更新on模块Init相关状态。
  */
 
     onModuleInit() {
         this.loadAll();
     }    
     /**
- * listSummaries：执行核心业务逻辑。
- * @returns 函数返回值。
+ * listSummaries：读取摘要并返回结果。
+ * @returns 无返回值，完成摘要的读取/组装。
  */
 
     listSummaries() {
@@ -96,17 +96,17 @@ let MapTemplateRepository = MapTemplateRepository_1 = class MapTemplateRepositor
         }));
     }    
     /**
- * list：执行核心业务逻辑。
- * @returns 函数返回值。
+ * list：读取列表并返回结果。
+ * @returns 无返回值，完成结果的读取/组装。
  */
 
     list() {
         return Array.from(this.templates.values());
     }    
     /**
- * getOrThrow：按给定条件读取/查询数据。
+ * getOrThrow：读取OrThrow。
  * @param templateId template ID。
- * @returns 函数返回值。
+ * @returns 无返回值，完成OrThrow的读取/组装。
  */
 
     getOrThrow(templateId) {
@@ -119,35 +119,35 @@ let MapTemplateRepository = MapTemplateRepository_1 = class MapTemplateRepositor
         return template;
     }    
     /**
- * has：执行状态校验并返回判断结果。
+ * has：判断ha是否满足条件。
  * @param templateId template ID。
- * @returns 函数返回值。
+ * @returns 无返回值，完成标识的条件判断。
  */
 
     has(templateId) {
         return this.templates.has(templateId);
     }    
     /**
- * getNpcLocation：按给定条件读取/查询数据。
+ * getNpcLocation：读取NPC位置。
  * @param npcId npc ID。
- * @returns 函数返回值。
+ * @returns 无返回值，完成NPC位置的读取/组装。
  */
 
     getNpcLocation(npcId) {
         return this.npcLocationById.get(npcId) ?? null;
     }    
     /**
- * getQuestSource：按给定条件读取/查询数据。
+ * getQuestSource：读取任务来源。
  * @param questId quest ID。
- * @returns 函数返回值。
+ * @returns 无返回值，完成任务来源的读取/组装。
  */
 
     getQuestSource(questId) {
         return this.questSourceById.get(questId) ?? null;
     }    
     /**
- * loadAll：按给定条件读取/查询数据。
- * @returns 函数返回值。
+ * loadAll：读取All并返回结果。
+ * @returns 无返回值，完成All的读取/组装。
  */
 
     loadAll() {
@@ -195,7 +195,7 @@ let MapTemplateRepository = MapTemplateRepository_1 = class MapTemplateRepositor
     /**
  * buildTemplate：构建并返回目标对象。
  * @param document 参数说明。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新Template相关状态。
  */
 
     buildTemplate(document) {
@@ -312,11 +312,11 @@ exports.MapTemplateRepository = MapTemplateRepository = MapTemplateRepository_1 
 ], MapTemplateRepository);
 export { MapTemplateRepository, getTileIndex };
 /**
- * normalizeSafeZones：执行核心业务逻辑。
+ * normalizeSafeZones：规范化或转换SafeZone。
  * @param input 输入参数。
  * @param width 参数说明。
  * @param height 参数说明。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新SafeZone相关状态。
  */
 
 function normalizeSafeZones(input, width, height) {
@@ -345,12 +345,12 @@ function normalizeSafeZones(input, width, height) {
     return result.sort((left, right) => left.y - right.y || left.x - right.x || left.radius - right.radius);
 }
 /**
- * fillSafeZoneMask：执行核心业务逻辑。
+ * fillSafeZoneMask：执行fillSafeZoneMask相关逻辑。
  * @param mask 参数说明。
  * @param width 参数说明。
  * @param height 参数说明。
  * @param zone 参数说明。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新fillSafeZoneMask相关状态。
  */
 
 function fillSafeZoneMask(mask, width, height, zone) {
@@ -373,11 +373,11 @@ function fillSafeZoneMask(mask, width, height, zone) {
     }
 }
 /**
- * normalizeLandmarks：执行核心业务逻辑。
+ * normalizeLandmarks：规范化或转换Landmark。
  * @param input 输入参数。
  * @param width 参数说明。
  * @param height 参数说明。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新Landmark相关状态。
  */
 
 function normalizeLandmarks(input, width, height) {
@@ -411,11 +411,11 @@ function normalizeLandmarks(input, width, height) {
     return result.sort(compareLandmarks);
 }
 /**
- * normalizeContainerRecord：执行核心业务逻辑。
+ * normalizeContainerRecord：规范化或转换ContainerRecord。
  * @param landmark 参数说明。
  * @param x X 坐标。
  * @param y Y 坐标。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新ContainerRecord相关状态。
  */
 
 function normalizeContainerRecord(landmark, x, y) {
@@ -446,9 +446,9 @@ function normalizeContainerRecord(landmark, x, y) {
     };
 }
 /**
- * normalizeNpcShopItems：执行核心业务逻辑。
+ * normalizeNpcShopItems：规范化或转换NPCShop道具。
  * @param input 输入参数。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新NPCShop道具相关状态。
  */
 
 function normalizeNpcShopItems(input) {
@@ -470,9 +470,9 @@ function normalizeNpcShopItems(input) {
     return result;
 }
 /**
- * normalizeNpcQuests：执行核心业务逻辑。
+ * normalizeNpcQuests：规范化或转换NPC任务。
  * @param input 输入参数。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新NPC任务相关状态。
  */
 
 function normalizeNpcQuests(input) {
@@ -503,9 +503,9 @@ function normalizeNpcQuests(input) {
     return result;
 }
 /**
- * normalizeContainerDrops：执行核心业务逻辑。
+ * normalizeContainerDrops：规范化或转换ContainerDrop。
  * @param input 输入参数。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新ContainerDrop相关状态。
  */
 
 function normalizeContainerDrops(input) {
@@ -536,9 +536,9 @@ function normalizeContainerDrops(input) {
     return result;
 }
 /**
- * normalizeContainerLootPools：执行核心业务逻辑。
+ * normalizeContainerLootPools：规范化或转换Container掉落Pool。
  * @param input 输入参数。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新Container掉落Pool相关状态。
  */
 
 function normalizeContainerLootPools(input) {
@@ -574,30 +574,30 @@ function normalizeContainerLootPools(input) {
     return result;
 }
 /**
- * compareLandmarks：执行核心业务逻辑。
+ * compareLandmarks：处理compareLandmark并更新相关状态。
  * @param left 参数说明。
  * @param right 参数说明。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新compareLandmark相关状态。
  */
 
 function compareLandmarks(left, right) {
     return left.y - right.y || left.x - right.x || left.id.localeCompare(right.id, 'zh-Hans-CN');
 }
 /**
- * compareContainers：执行核心业务逻辑。
+ * compareContainers：执行compareContainer相关逻辑。
  * @param left 参数说明。
  * @param right 参数说明。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新compareContainer相关状态。
  */
 
 function compareContainers(left, right) {
     return left.y - right.y || left.x - right.x || left.id.localeCompare(right.id, 'zh-Hans-CN');
 }
 /**
- * indexDocumentNpcs：执行核心业务逻辑。
+ * indexDocumentNpcs：执行indexDocumentNPC相关逻辑。
  * @param document 参数说明。
  * @param target 目标对象。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新indexDocumentNPC相关状态。
  */
 
 function indexDocumentNpcs(document, target) {
@@ -621,19 +621,19 @@ function indexDocumentNpcs(document, target) {
     }
 }
 /**
- * compareNpcs：执行核心业务逻辑。
+ * compareNpcs：执行compareNPC相关逻辑。
  * @param left 参数说明。
  * @param right 参数说明。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新compareNPC相关状态。
  */
 
 function compareNpcs(left, right) {
     return left.y - right.y || left.x - right.x || left.id.localeCompare(right.id, 'zh-Hans-CN');
 }
 /**
- * normalizeContainerGrade：执行核心业务逻辑。
+ * normalizeContainerGrade：规范化或转换ContainerGrade。
  * @param input 输入参数。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新ContainerGrade相关状态。
  */
 
 function normalizeContainerGrade(input) {
@@ -649,9 +649,9 @@ function normalizeContainerGrade(input) {
         : 'mortal';
 }
 /**
- * normalizeOptionalContainerGrade：执行核心业务逻辑。
+ * normalizeOptionalContainerGrade：规范化或转换OptionalContainerGrade。
  * @param input 输入参数。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新OptionalContainerGrade相关状态。
  */
 
 function normalizeOptionalContainerGrade(input) {
@@ -663,10 +663,10 @@ function normalizeOptionalContainerGrade(input) {
     return normalizeContainerGrade(input);
 }
 /**
- * clampPoint：执行核心业务逻辑。
+ * clampPoint：执行clampPoint相关逻辑。
  * @param value 参数说明。
  * @param size 参数说明。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新clampPoint相关状态。
  */
 
 function clampPoint(value, size) {
@@ -678,19 +678,19 @@ function clampPoint(value, size) {
     return Math.max(0, Math.min(size - 1, Math.trunc(value)));
 }
 /**
- * normalizeRouteDomain：执行核心业务逻辑。
+ * normalizeRouteDomain：规范化或转换路线Domain。
  * @param routeDomain 参数说明。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新路线Domain相关状态。
  */
 
 function normalizeRouteDomain(routeDomain) {
     return routeDomain ?? 'system';
 }
 /**
- * normalizePortalRouteDomain：执行核心业务逻辑。
+ * normalizePortalRouteDomain：规范化或转换传送门路线Domain。
  * @param routeDomain 参数说明。
  * @param fallback 参数说明。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新Portal路线Domain相关状态。
  */
 
 function normalizePortalRouteDomain(routeDomain, fallback) {
@@ -702,23 +702,23 @@ function normalizePortalRouteDomain(routeDomain, fallback) {
     return normalizeRouteDomain(fallback);
 }
 /**
- * isInBounds：执行状态校验并返回判断结果。
+ * isInBounds：判断InBound是否满足条件。
  * @param x X 坐标。
  * @param y Y 坐标。
  * @param width 参数说明。
  * @param height 参数说明。
- * @returns 函数返回值。
+ * @returns 无返回值，完成InBound的条件判断。
  */
 
 function isInBounds(x, y, width, height) {
     return x >= 0 && y >= 0 && x < width && y < height;
 }
 /**
- * getTileIndex：按给定条件读取/查询数据。
+ * getTileIndex：读取TileIndex。
  * @param x X 坐标。
  * @param y Y 坐标。
  * @param width 参数说明。
- * @returns 函数返回值。
+ * @returns 无返回值，完成TileIndex的读取/组装。
  */
 
 function getTileIndex(x, y, width) {

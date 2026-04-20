@@ -4,8 +4,8 @@ const assert = require("node:assert/strict");
 
 const { WorldRuntimeCommandIntakeFacadeService } = require("../runtime/world/world-runtime-command-intake-facade.service");
 /**
- * testCommandIntakeFacade：执行核心业务逻辑。
- * @returns 函数返回值。
+ * testCommandIntakeFacade：执行testCommandIntakeFacade相关逻辑。
+ * @returns 无返回值，直接更新testCommandIntakeFacade相关状态。
  */
 
 
@@ -15,337 +15,337 @@ function testCommandIntakeFacade() {
     const deps = {
         worldRuntimeNavigationService: {        
         /**
- * enqueueMove：执行核心业务逻辑。
+ * enqueueMove：处理Move并更新相关状态。
  * @param playerId 玩家 ID。
  * @param directionInput 参数说明。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新Move相关状态。
  */
 
             enqueueMove(playerId, directionInput) { log.push(['enqueueMove', playerId, directionInput]); return 'move'; },            
             /**
- * enqueueMoveTo：执行核心业务逻辑。
+ * enqueueMoveTo：处理MoveTo并更新相关状态。
  * @param playerId 玩家 ID。
  * @param xInput 参数说明。
  * @param yInput 参数说明。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新MoveTo相关状态。
  */
 
             enqueueMoveTo(playerId, xInput, yInput) { log.push(['enqueueMoveTo', playerId, xInput, yInput]); return 'moveTo'; },            
             /**
- * usePortal：执行核心业务逻辑。
+ * usePortal：执行use传送门相关逻辑。
  * @param playerId 玩家 ID。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新usePortal相关状态。
  */
 
             usePortal(playerId) { log.push(['usePortal', playerId]); return 'portal'; },            
             /**
- * navigateQuest：执行核心业务逻辑。
+ * navigateQuest：执行navigate任务相关逻辑。
  * @param playerId 玩家 ID。
  * @param questIdInput 参数说明。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新navigate任务相关状态。
  */
 
             navigateQuest(playerId, questIdInput) { log.push(['navigateQuest', playerId, questIdInput]); return 'quest'; },
         },
         worldRuntimePlayerCommandEnqueueService: {        
         /**
- * enqueueBasicAttack：执行核心业务逻辑。
+ * enqueueBasicAttack：处理BasicAttack并更新相关状态。
  * @param playerId 玩家 ID。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新BasicAttack相关状态。
  */
 
             enqueueBasicAttack(playerId) { log.push(['enqueueBasicAttack', playerId]); return 'basic'; },            
             /**
- * enqueueBattleTarget：执行核心业务逻辑。
+ * enqueueBattleTarget：读取Battle目标并返回结果。
  * @param playerId 玩家 ID。
  * @param locked 参数说明。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新Battle目标相关状态。
  */
 
             enqueueBattleTarget(playerId, locked) { log.push(['enqueueBattleTarget', playerId, locked]); return 'battle'; },            
             /**
- * enqueueUseItem：执行核心业务逻辑。
+ * enqueueUseItem：处理Use道具并更新相关状态。
  * @param playerId 玩家 ID。
  * @param slotIndexInput 参数说明。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新Use道具相关状态。
  */
 
             enqueueUseItem(playerId, slotIndexInput) { log.push(['enqueueUseItem', playerId, slotIndexInput]); return 'use'; },            
             /**
- * enqueueDropItem：执行核心业务逻辑。
+ * enqueueDropItem：处理Drop道具并更新相关状态。
  * @param playerId 玩家 ID。
  * @param slotIndexInput 参数说明。
  * @param countInput 参数说明。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新Drop道具相关状态。
  */
 
             enqueueDropItem(playerId, slotIndexInput, countInput) { log.push(['enqueueDropItem', playerId, slotIndexInput, countInput]); return 'drop'; },            
             /**
- * enqueueTakeGround：执行核心业务逻辑。
+ * enqueueTakeGround：处理Take地面并更新相关状态。
  * @param playerId 玩家 ID。
  * @param sourceIdInput 参数说明。
  * @param itemKeyInput 参数说明。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新TakeGround相关状态。
  */
 
             enqueueTakeGround(playerId, sourceIdInput, itemKeyInput) { log.push(['enqueueTakeGround', playerId, sourceIdInput, itemKeyInput]); return 'take'; },            
             /**
- * enqueueTakeGroundAll：执行核心业务逻辑。
+ * enqueueTakeGroundAll：处理Take地面All并更新相关状态。
  * @param playerId 玩家 ID。
  * @param sourceIdInput 参数说明。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新TakeGroundAll相关状态。
  */
 
             enqueueTakeGroundAll(playerId, sourceIdInput) { log.push(['enqueueTakeGroundAll', playerId, sourceIdInput]); return 'takeAll'; },            
             /**
- * enqueueEquip：执行核心业务逻辑。
+ * enqueueEquip：处理Equip并更新相关状态。
  * @param playerId 玩家 ID。
  * @param slotIndexInput 参数说明。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新Equip相关状态。
  */
 
             enqueueEquip(playerId, slotIndexInput) { log.push(['enqueueEquip', playerId, slotIndexInput]); return 'equip'; },            
             /**
- * enqueueUnequip：执行核心业务逻辑。
+ * enqueueUnequip：处理Unequip并更新相关状态。
  * @param playerId 玩家 ID。
  * @param slotInput 参数说明。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新Unequip相关状态。
  */
 
             enqueueUnequip(playerId, slotInput) { log.push(['enqueueUnequip', playerId, slotInput]); return 'unequip'; },            
             /**
- * enqueueCultivate：执行核心业务逻辑。
+ * enqueueCultivate：处理Cultivate并更新相关状态。
  * @param playerId 玩家 ID。
  * @param techniqueIdInput 参数说明。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新Cultivate相关状态。
  */
 
             enqueueCultivate(playerId, techniqueIdInput) { log.push(['enqueueCultivate', playerId, techniqueIdInput]); return 'cultivate'; },            
             /**
- * enqueueStartAlchemy：执行核心业务逻辑。
+ * enqueueStartAlchemy：处理开始炼丹并更新相关状态。
  * @param playerId 玩家 ID。
  * @param payload 载荷参数。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新Start炼丹相关状态。
  */
 
             enqueueStartAlchemy(playerId, payload) { log.push(['enqueueStartAlchemy', playerId, payload.recipeId]); return 'startAlchemy'; },            
             /**
- * enqueueCancelAlchemy：执行核心业务逻辑。
+ * enqueueCancelAlchemy：判断Cancel炼丹是否满足条件。
  * @param playerId 玩家 ID。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新Cancel炼丹相关状态。
  */
 
             enqueueCancelAlchemy(playerId) { log.push(['enqueueCancelAlchemy', playerId]); return 'cancelAlchemy'; },            
             /**
- * enqueueSaveAlchemyPreset：执行核心业务逻辑。
+ * enqueueSaveAlchemyPreset：处理Save炼丹Preset并更新相关状态。
  * @param playerId 玩家 ID。
  * @param payload 载荷参数。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新Save炼丹Preset相关状态。
  */
 
             enqueueSaveAlchemyPreset(playerId, payload) { log.push(['enqueueSaveAlchemyPreset', playerId, payload.presetId]); return 'savePreset'; },            
             /**
- * enqueueDeleteAlchemyPreset：执行核心业务逻辑。
+ * enqueueDeleteAlchemyPreset：处理Delete炼丹Preset并更新相关状态。
  * @param playerId 玩家 ID。
  * @param presetId preset ID。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新Delete炼丹Preset相关状态。
  */
 
             enqueueDeleteAlchemyPreset(playerId, presetId) { log.push(['enqueueDeleteAlchemyPreset', playerId, presetId]); return 'deletePreset'; },            
             /**
- * enqueueStartEnhancement：执行核心业务逻辑。
+ * enqueueStartEnhancement：处理开始强化并更新相关状态。
  * @param playerId 玩家 ID。
  * @param payload 载荷参数。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新Start强化相关状态。
  */
 
             enqueueStartEnhancement(playerId, payload) { log.push(['enqueueStartEnhancement', playerId, payload.itemId]); return 'startEnhancement'; },            
             /**
- * enqueueCancelEnhancement：执行核心业务逻辑。
+ * enqueueCancelEnhancement：判断Cancel强化是否满足条件。
  * @param playerId 玩家 ID。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新Cancel强化相关状态。
  */
 
             enqueueCancelEnhancement(playerId) { log.push(['enqueueCancelEnhancement', playerId]); return 'cancelEnhancement'; },            
             /**
- * enqueueRedeemCodes：执行核心业务逻辑。
+ * enqueueRedeemCodes：处理RedeemCode并更新相关状态。
  * @param playerId 玩家 ID。
  * @param codesInput 参数说明。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新RedeemCode相关状态。
  */
 
             enqueueRedeemCodes(playerId, codesInput) { log.push(['enqueueRedeemCodes', playerId, codesInput.length]); return 'redeem'; },            
             /**
- * enqueueHeavenGateAction：执行核心业务逻辑。
+ * enqueueHeavenGateAction：处理HeavenGateAction并更新相关状态。
  * @param playerId 玩家 ID。
  * @param actionInput 参数说明。
  * @param elementInput 参数说明。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新HeavenGateAction相关状态。
  */
 
             enqueueHeavenGateAction(playerId, actionInput, elementInput) { log.push(['enqueueHeavenGateAction', playerId, actionInput, elementInput]); return 'heavenGate'; },            
             /**
- * enqueueCastSkill：执行核心业务逻辑。
+ * enqueueCastSkill：处理Cast技能并更新相关状态。
  * @param playerId 玩家 ID。
  * @param skillIdInput 参数说明。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新Cast技能相关状态。
  */
 
             enqueueCastSkill(playerId, skillIdInput) { log.push(['enqueueCastSkill', playerId, skillIdInput]); return 'cast'; },            
             /**
- * enqueueCastSkillTargetRef：执行核心业务逻辑。
+ * enqueueCastSkillTargetRef：读取Cast技能目标Ref并返回结果。
  * @param playerId 玩家 ID。
  * @param skillIdInput 参数说明。
  * @param targetRefInput 参数说明。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新Cast技能目标Ref相关状态。
  */
 
             enqueueCastSkillTargetRef(playerId, skillIdInput, targetRefInput) { log.push(['enqueueCastSkillTargetRef', playerId, skillIdInput, targetRefInput.kind]); return 'castRef'; },
         },
         worldRuntimeActionExecutionService: {        
         /**
- * executeAction：执行核心业务逻辑。
+ * executeAction：执行executeAction相关逻辑。
  * @param playerId 玩家 ID。
  * @param actionIdInput 参数说明。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新executeAction相关状态。
  */
 
             executeAction(playerId, actionIdInput) { log.push(['executeAction', playerId, actionIdInput]); return 'action'; },            
             /**
- * executeLegacyNpcAction：执行核心业务逻辑。
+ * executeLegacyNpcAction：执行executeLegacyNPCAction相关逻辑。
  * @param playerId 玩家 ID。
  * @param npcId npc ID。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新executeLegacyNPCAction相关状态。
  */
 
             executeLegacyNpcAction(playerId, npcId) { log.push(['executeLegacyNpcAction', playerId, npcId]); return 'legacy'; },
         },
         worldRuntimeNpcShopService: {        
         /**
- * enqueueBuyNpcShopItem：执行核心业务逻辑。
+ * enqueueBuyNpcShopItem：处理BuyNPCShop道具并更新相关状态。
  * @param playerId 玩家 ID。
  * @param npcIdInput 参数说明。
  * @param itemIdInput 参数说明。
  * @param quantityInput 参数说明。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新BuyNPCShop道具相关状态。
  */
 
             enqueueBuyNpcShopItem(playerId, npcIdInput, itemIdInput, quantityInput) { log.push(['enqueueBuyNpcShopItem', playerId, npcIdInput, itemIdInput, quantityInput]); return 'buy'; },
         },
         worldRuntimeNpcQuestWriteService: {        
         /**
- * enqueueNpcInteraction：执行核心业务逻辑。
+ * enqueueNpcInteraction：处理NPCInteraction并更新相关状态。
  * @param playerId 玩家 ID。
  * @param actionIdInput 参数说明。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新NPCInteraction相关状态。
  */
 
             enqueueNpcInteraction(playerId, actionIdInput) { log.push(['enqueueNpcInteraction', playerId, actionIdInput]); return 'npc'; },            
             /**
- * enqueueLegacyNpcInteraction：执行核心业务逻辑。
+ * enqueueLegacyNpcInteraction：处理LegacyNPCInteraction并更新相关状态。
  * @param playerId 玩家 ID。
  * @param actionIdInput 参数说明。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新LegacyNPCInteraction相关状态。
  */
 
             enqueueLegacyNpcInteraction(playerId, actionIdInput) { log.push(['enqueueLegacyNpcInteraction', playerId, actionIdInput]); return 'legacyNpc'; },            
             /**
- * enqueueAcceptNpcQuest：执行核心业务逻辑。
+ * enqueueAcceptNpcQuest：处理AcceptNPC任务并更新相关状态。
  * @param playerId 玩家 ID。
  * @param npcIdInput 参数说明。
  * @param questIdInput 参数说明。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新AcceptNPC任务相关状态。
  */
 
             enqueueAcceptNpcQuest(playerId, npcIdInput, questIdInput) { log.push(['enqueueAcceptNpcQuest', playerId, npcIdInput, questIdInput]); return 'accept'; },            
             /**
- * enqueueSubmitNpcQuest：执行核心业务逻辑。
+ * enqueueSubmitNpcQuest：处理SubmitNPC任务并更新相关状态。
  * @param playerId 玩家 ID。
  * @param npcIdInput 参数说明。
  * @param questIdInput 参数说明。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新SubmitNPC任务相关状态。
  */
 
             enqueueSubmitNpcQuest(playerId, npcIdInput, questIdInput) { log.push(['enqueueSubmitNpcQuest', playerId, npcIdInput, questIdInput]); return 'submit'; },
         },
         worldRuntimeSystemCommandEnqueueService: {        
         /**
- * enqueueSpawnMonsterLoot：执行核心业务逻辑。
+ * enqueueSpawnMonsterLoot：处理Spawn怪物掉落并更新相关状态。
  * @param instanceIdInput 参数说明。
  * @param monsterIdInput 参数说明。
  * @param xInput 参数说明。
  * @param yInput 参数说明。
  * @param rollsInput 参数说明。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新Spawn怪物掉落相关状态。
  */
 
             enqueueSpawnMonsterLoot(instanceIdInput, monsterIdInput, xInput, yInput, rollsInput) { log.push(['enqueueSpawnMonsterLoot', instanceIdInput, monsterIdInput, xInput, yInput, rollsInput]); return 'spawnLoot'; },            
             /**
- * enqueueDefeatMonster：执行核心业务逻辑。
+ * enqueueDefeatMonster：处理Defeat怪物并更新相关状态。
  * @param instanceIdInput 参数说明。
  * @param runtimeIdInput 参数说明。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新Defeat怪物相关状态。
  */
 
             enqueueDefeatMonster(instanceIdInput, runtimeIdInput) { log.push(['enqueueDefeatMonster', instanceIdInput, runtimeIdInput]); return 'defeatMonster'; },            
             /**
- * enqueueDamageMonster：执行核心业务逻辑。
+ * enqueueDamageMonster：处理Damage怪物并更新相关状态。
  * @param instanceIdInput 参数说明。
  * @param runtimeIdInput 参数说明。
  * @param amountInput 参数说明。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新Damage怪物相关状态。
  */
 
             enqueueDamageMonster(instanceIdInput, runtimeIdInput, amountInput) { log.push(['enqueueDamageMonster', instanceIdInput, runtimeIdInput, amountInput]); return 'damageMonster'; },            
             /**
- * enqueueDamagePlayer：执行核心业务逻辑。
+ * enqueueDamagePlayer：处理Damage玩家并更新相关状态。
  * @param playerIdInput 参数说明。
  * @param amountInput 参数说明。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新Damage玩家相关状态。
  */
 
             enqueueDamagePlayer(playerIdInput, amountInput) { log.push(['enqueueDamagePlayer', playerIdInput, amountInput]); return 'damagePlayer'; },            
             /**
- * enqueueRespawnPlayer：执行核心业务逻辑。
+ * enqueueRespawnPlayer：处理重生玩家并更新相关状态。
  * @param playerIdInput 参数说明。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新重生玩家相关状态。
  */
 
             enqueueRespawnPlayer(playerIdInput) { log.push(['enqueueRespawnPlayer', playerIdInput]); return 'respawn'; },            
             /**
- * enqueueResetPlayerSpawn：执行核心业务逻辑。
+ * enqueueResetPlayerSpawn：处理Reset玩家Spawn并更新相关状态。
  * @param playerIdInput 参数说明。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新Reset玩家Spawn相关状态。
  */
 
             enqueueResetPlayerSpawn(playerIdInput) { log.push(['enqueueResetPlayerSpawn', playerIdInput]); return 'resetSpawn'; },            
             /**
- * enqueueGmUpdatePlayer：执行核心业务逻辑。
+ * enqueueGmUpdatePlayer：处理GMUpdate玩家并更新相关状态。
  * @param input 输入参数。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新GMUpdate玩家相关状态。
  */
 
             enqueueGmUpdatePlayer(input) { log.push(['enqueueGmUpdatePlayer', input.playerId]); return 'gmUpdate'; },            
             /**
- * enqueueGmResetPlayer：执行核心业务逻辑。
+ * enqueueGmResetPlayer：处理GMReset玩家并更新相关状态。
  * @param playerIdInput 参数说明。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新GMReset玩家相关状态。
  */
 
             enqueueGmResetPlayer(playerIdInput) { log.push(['enqueueGmResetPlayer', playerIdInput]); return 'gmReset'; },            
             /**
- * enqueueGmSpawnBots：执行核心业务逻辑。
+ * enqueueGmSpawnBots：处理GMSpawnBot并更新相关状态。
  * @param anchorPlayerIdInput 参数说明。
  * @param countInput 参数说明。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新GMSpawnBot相关状态。
  */
 
             enqueueGmSpawnBots(anchorPlayerIdInput, countInput) { log.push(['enqueueGmSpawnBots', anchorPlayerIdInput, countInput]); return 'gmSpawnBots'; },            
             /**
- * enqueueGmRemoveBots：执行核心业务逻辑。
+ * enqueueGmRemoveBots：处理GMRemoveBot并更新相关状态。
  * @param playerIdsInput 参数说明。
  * @param allInput 参数说明。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新GMRemoveBot相关状态。
  */
 
             enqueueGmRemoveBots(playerIdsInput, allInput) { log.push(['enqueueGmRemoveBots', playerIdsInput.length, allInput]); return 'gmRemoveBots'; },

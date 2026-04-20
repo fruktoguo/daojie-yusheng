@@ -9,15 +9,15 @@ import { clonePlainValue } from './structured';
 /** 支持的二进制载荷输入类型。 */
 export type BinaryPayload = ArrayBuffer | Uint8Array | {
 /**
- * buffer：对象字段。
+ * buffer：缓冲区相关字段。
  */
  buffer: ArrayBufferLike;
  /**
- * byteLength：对象字段。
+ * byteLength：数量或计量字段。
  */
  byteLength: number;
  /**
- * byteOffset：对象字段。
+ * byteOffset：byteOffset相关字段。
  */
  byteOffset?: number };
 
@@ -49,15 +49,15 @@ export function normalizeBinaryPayload(payload: unknown): Uint8Array | null {
   if (typeof payload === 'object' && payload !== null && 'buffer' in payload && 'byteLength' in payload) {
     const view = payload as {    
     /**
- * buffer：对象字段。
+ * buffer：缓冲区相关字段。
  */
  buffer: ArrayBufferLike;    
  /**
- * byteLength：对象字段。
+ * byteLength：数量或计量字段。
  */
  byteLength: number;    
  /**
- * byteOffset：对象字段。
+ * byteOffset：byteOffset相关字段。
  */
  byteOffset?: number };
     return new Uint8Array(view.buffer, view.byteOffset ?? 0, view.byteLength);

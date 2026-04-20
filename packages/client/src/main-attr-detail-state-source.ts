@@ -8,37 +8,37 @@ import { AttrPanel } from './ui/panels/attr-panel';
 
 type MainAttrDetailStateSourceOptions = {
 /**
- * attrPanel：对象字段。
+ * attrPanel：attr面板相关字段。
  */
 
   attrPanel: Pick<AttrPanel, 'update'>;  
   /**
- * socket：对象字段。
+ * socket：socket相关字段。
  */
 
   socket: Pick<SocketPanelSender, 'sendRequestAttrDetail'>;  
   /**
- * getPlayer：对象字段。
+ * getPlayer：玩家引用。
  */
 
   getPlayer: () => PlayerState | null;  
   /**
- * getLatestAttrUpdate：对象字段。
+ * getLatestAttrUpdate：LatestAttrUpdate相关字段。
  */
 
   getLatestAttrUpdate: () => NEXT_S2C_AttrUpdate | null;  
   /**
- * setLatestAttrUpdate：对象字段。
+ * setLatestAttrUpdate：LatestAttrUpdate相关字段。
  */
 
   setLatestAttrUpdate: (value: NEXT_S2C_AttrUpdate | null) => void;  
   /**
- * mergeAttrUpdatePatch：对象字段。
+ * mergeAttrUpdatePatch：AttrUpdatePatch相关字段。
  */
 
   mergeAttrUpdatePatch: (current: NEXT_S2C_AttrUpdate | null, data: NEXT_S2C_AttrUpdate) => NEXT_S2C_AttrUpdate;  
   /**
- * cloneJson：对象字段。
+ * cloneJson：Json相关字段。
  */
 
   cloneJson: <T>(value: T) => T;
@@ -52,23 +52,23 @@ export type MainAttrDetailStateSource = ReturnType<typeof createMainAttrDetailSt
 /**
  * createMainAttrDetailStateSource：构建并返回目标对象。
  * @param options MainAttrDetailStateSourceOptions 选项参数。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新MainAttr详情状态来源相关状态。
  */
 
 
 export function createMainAttrDetailStateSource(options: MainAttrDetailStateSourceOptions) {
   return {  
   /**
- * requestDetail：执行核心业务逻辑。
- * @returns void。
+ * requestDetail：执行request详情相关逻辑。
+ * @returns 无返回值，直接更新request详情相关状态。
  */
 
     requestDetail(): void {
       options.socket.sendRequestAttrDetail();
     },    
     /**
- * init：初始化并准备运行时基础状态。
- * @returns void。
+ * init：执行init相关逻辑。
+ * @returns 无返回值，直接更新init相关状态。
  */
 
 
@@ -76,9 +76,9 @@ export function createMainAttrDetailStateSource(options: MainAttrDetailStateSour
       options.socket.sendRequestAttrDetail();
     },    
     /**
- * handleAttrDetail：处理事件并驱动执行路径。
+ * handleAttrDetail：处理Attr详情并更新相关状态。
  * @param data NEXT_S2C_AttrDetail 原始数据。
- * @returns void。
+ * @returns 无返回值，直接更新Attr详情相关状态。
  */
 
 

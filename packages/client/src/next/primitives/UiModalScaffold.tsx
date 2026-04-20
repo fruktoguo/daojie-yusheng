@@ -6,30 +6,30 @@ import type { PropsWithChildren, ReactNode } from 'react';
 
 export interface UiModalScaffoldProps {
 /**
- * title：UiModalScaffoldProps 内部字段。
+ * title：title名称或显示文本。
  */
 
   title: string;  
   /**
- * subtitle：UiModalScaffoldProps 内部字段。
+ * subtitle：subtitle名称或显示文本。
  */
 
   subtitle?: ReactNode;  
   /**
- * actions：UiModalScaffoldProps 内部字段。
+ * actions：action相关字段。
  */
 
   actions?: ReactNode;
 }
 /**
- * UiModalScaffold：执行核心业务逻辑。
+ * UiModalScaffold：渲染Ui弹层Scaffold组件。
  * @param {
   title,
   subtitle,
   actions,
   children,
 } PropsWithChildren<UiModalScaffoldProps> 参数说明。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新Ui弹层Scaffold相关状态。
  */
 
 

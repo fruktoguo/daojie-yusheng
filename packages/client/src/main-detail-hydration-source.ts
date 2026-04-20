@@ -16,7 +16,7 @@ import {
 
 type MainDetailHydrationSourceOptions = {
 /**
- * hydrateSyncedItemStack：对象字段。
+ * hydrateSyncedItemStack：hydrateSynced道具Stack相关字段。
  */
 
   hydrateSyncedItemStack: (item: SyncedItemStack, previous?: Inventory['items'][number]) => Inventory['items'][number];
@@ -30,26 +30,26 @@ export type MainDetailHydrationSource = ReturnType<typeof createMainDetailHydrat
 /**
  * createMainDetailHydrationSource：构建并返回目标对象。
  * @param options MainDetailHydrationSourceOptions 选项参数。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新Main详情Hydration来源相关状态。
  */
 
 
 export function createMainDetailHydrationSource(options: MainDetailHydrationSourceOptions) {
   return {  
   /**
- * cloneJson：执行核心业务逻辑。
+ * cloneJson：构建Json。
  * @param value T 参数说明。
- * @returns T。
+ * @returns 返回Json。
  */
 
     cloneJson<T>(value: T): T {
       return clonePlainValue(value);
     },    
     /**
- * hydrateSyncedItemStack：执行核心业务逻辑。
+ * hydrateSyncedItemStack：处理hydrateSynced道具Stack并更新相关状态。
  * @param item SyncedItemStack 道具。
  * @param previous Inventory['items'][number] 参数说明。
- * @returns Inventory['items'][number]。
+ * @returns 返回hydrateSynced道具Stack数值。
  */
 
 
@@ -57,9 +57,9 @@ export function createMainDetailHydrationSource(options: MainDetailHydrationSour
       return options.hydrateSyncedItemStack(item, previous);
     },    
     /**
- * hydrateLootWindowState：执行核心业务逻辑。
+ * hydrateLootWindowState：执行hydrate掉落窗口状态相关逻辑。
  * @param window NEXT_S2C_LootWindowUpdate['window'] 参数说明。
- * @returns LootWindowState | null。
+ * @returns 返回hydrate掉落窗口状态。
  */
 
 
@@ -90,9 +90,9 @@ export function createMainDetailHydrationSource(options: MainDetailHydrationSour
       };
     },    
     /**
- * hydrateNpcShopResponse：执行核心业务逻辑。
+ * hydrateNpcShopResponse：执行hydrateNPCShopResponse相关逻辑。
  * @param data NEXT_S2C_NpcShop 原始数据。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新hydrateNPCShopResponse相关状态。
  */
 
 
@@ -120,9 +120,9 @@ export function createMainDetailHydrationSource(options: MainDetailHydrationSour
       };
     },    
     /**
- * formatTraversalCost：执行核心业务逻辑。
+ * formatTraversalCost：规范化或转换Traversal消耗。
  * @param tile Tile 参数说明。
- * @returns string。
+ * @returns 返回Traversal消耗。
  */
 
 

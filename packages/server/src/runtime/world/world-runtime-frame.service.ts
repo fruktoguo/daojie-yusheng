@@ -23,12 +23,12 @@ const world_runtime_metrics_service_1 = require("./world-runtime-metrics.service
 /** world-runtime frame seam：承接 tickAll/advanceFrame/sync-flush-duration 这组世界级 frame 外壳。 */
 let WorldRuntimeFrameService = class WorldRuntimeFrameService {
 /**
- * worldRuntimeInstanceTickOrchestrationService：对象字段。
+ * worldRuntimeInstanceTickOrchestrationService：世界运行态InstancetickOrchestration服务引用。
  */
 
     worldRuntimeInstanceTickOrchestrationService;    
     /**
- * worldRuntimeMetricsService：对象字段。
+ * worldRuntimeMetricsService：世界运行态Metric服务引用。
  */
 
     worldRuntimeMetricsService;    
@@ -36,7 +36,7 @@ let WorldRuntimeFrameService = class WorldRuntimeFrameService {
  * 构造器：初始化 当前 实例并建立基础状态。
  * @param worldRuntimeInstanceTickOrchestrationService 参数说明。
  * @param worldRuntimeMetricsService 参数说明。
- * @returns 无返回值（构造函数）。
+ * @returns 无返回值，完成实例初始化。
  */
 
     constructor(worldRuntimeInstanceTickOrchestrationService, worldRuntimeMetricsService) {
@@ -44,29 +44,29 @@ let WorldRuntimeFrameService = class WorldRuntimeFrameService {
         this.worldRuntimeMetricsService = worldRuntimeMetricsService;
     }    
     /**
- * tickAll：执行核心业务逻辑。
+ * tickAll：执行tickAll相关逻辑。
  * @param deps 运行时依赖。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新tickAll相关状态。
  */
 
     tickAll(deps) {
         return this.advanceFrame(deps, 1000);
     }    
     /**
- * advanceFrame：执行核心业务逻辑。
+ * advanceFrame：执行advance帧相关逻辑。
  * @param deps 运行时依赖。
  * @param frameDurationMs 参数说明。
  * @param getInstanceTickSpeed 参数说明。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新advance帧相关状态。
  */
 
     advanceFrame(deps, frameDurationMs = 1000, getInstanceTickSpeed = null) {
         return this.worldRuntimeInstanceTickOrchestrationService.advanceFrame(deps, frameDurationMs, getInstanceTickSpeed);
     }    
     /**
- * recordSyncFlushDuration：执行核心业务逻辑。
+ * recordSyncFlushDuration：处理record同步刷新耗时并更新相关状态。
  * @param durationMs 参数说明。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新recordSyncFlushDuration相关状态。
  */
 
     recordSyncFlushDuration(durationMs) {

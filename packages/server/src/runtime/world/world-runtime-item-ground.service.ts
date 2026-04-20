@@ -24,26 +24,26 @@ const { formatItemStackLabel } = world_runtime_normalization_helpers_1;
 /** world-runtime item ground orchestration：承接丢弃/拾取地面与容器物品链路。 */
 let WorldRuntimeItemGroundService = class WorldRuntimeItemGroundService {
 /**
- * playerRuntimeService：对象字段。
+ * playerRuntimeService：玩家运行态服务引用。
  */
 
     playerRuntimeService;    
     /**
  * 构造器：初始化 当前 实例并建立基础状态。
  * @param playerRuntimeService 参数说明。
- * @returns 无返回值（构造函数）。
+ * @returns 无返回值，完成实例初始化。
  */
 
     constructor(playerRuntimeService) {
         this.playerRuntimeService = playerRuntimeService;
     }    
     /**
- * dispatchDropItem：处理事件并驱动执行路径。
+ * dispatchDropItem：判断Drop道具是否满足条件。
  * @param playerId 玩家 ID。
  * @param slotIndex 参数说明。
  * @param count 数量。
  * @param deps 运行时依赖。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新Drop道具相关状态。
  */
 
     dispatchDropItem(playerId, slotIndex, count, deps) {
@@ -62,35 +62,35 @@ let WorldRuntimeItemGroundService = class WorldRuntimeItemGroundService {
         deps.queuePlayerNotice(playerId, `放下 ${formatItemStackLabel(item)}`, 'info');
     }    
     /**
- * dispatchTakeGround：处理事件并驱动执行路径。
+ * dispatchTakeGround：判断Take地面是否满足条件。
  * @param playerId 玩家 ID。
  * @param sourceId source ID。
  * @param itemKey 参数说明。
  * @param deps 运行时依赖。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新TakeGround相关状态。
  */
 
     dispatchTakeGround(playerId, sourceId, itemKey, deps) {
         deps.worldRuntimeLootContainerService.dispatchTakeGround(playerId, sourceId, itemKey, deps);
     }    
     /**
- * dispatchTakeGroundAll：处理事件并驱动执行路径。
+ * dispatchTakeGroundAll：判断Take地面All是否满足条件。
  * @param playerId 玩家 ID。
  * @param sourceId source ID。
  * @param deps 运行时依赖。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新TakeGroundAll相关状态。
  */
 
     dispatchTakeGroundAll(playerId, sourceId, deps) {
         deps.worldRuntimeLootContainerService.dispatchTakeGroundAll(playerId, sourceId, deps);
     }    
     /**
- * spawnGroundItem：执行核心业务逻辑。
+ * spawnGroundItem：执行spawn地面道具相关逻辑。
  * @param instance 地图实例。
  * @param x X 坐标。
  * @param y Y 坐标。
  * @param item 道具。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新spawnGround道具相关状态。
  */
 
     spawnGroundItem(instance, x, y, item) {

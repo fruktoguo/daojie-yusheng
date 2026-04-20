@@ -69,42 +69,42 @@ function renderPlainTooltipLine(label: string, value: string): string {
 /** 市场面板对外的请求/提交回调。 */
 interface MarketPanelCallbacks {
 /**
- * onRequestMarket：MarketPanelCallbacks 内部字段。
+ * onRequestMarket：onRequest坊市相关字段。
  */
 
   onRequestMarket: () => void;  
   /**
- * onRequestListings：MarketPanelCallbacks 内部字段。
+ * onRequestListings：onRequestListing相关字段。
  */
 
   onRequestListings: (payload: NEXT_C2S_RequestMarketListings) => void;  
   /**
- * onRequestItemBook：MarketPanelCallbacks 内部字段。
+ * onRequestItemBook：onRequest道具Book相关字段。
  */
 
   onRequestItemBook: (itemKey: string) => void;  
   /**
- * onRequestTradeHistory：MarketPanelCallbacks 内部字段。
+ * onRequestTradeHistory：onRequestTradeHistory相关字段。
  */
 
   onRequestTradeHistory: (page: number) => void;  
   /**
- * onCreateSellOrder：MarketPanelCallbacks 内部字段。
+ * onCreateSellOrder：onCreateSell订单相关字段。
  */
 
   onCreateSellOrder: (slotIndex: number, quantity: number, unitPrice: number) => void;  
   /**
- * onCreateBuyOrder：MarketPanelCallbacks 内部字段。
+ * onCreateBuyOrder：onCreateBuy订单相关字段。
  */
 
   onCreateBuyOrder: (itemKey: string, quantity: number, unitPrice: number) => void;  
   /**
- * onCancelOrder：MarketPanelCallbacks 内部字段。
+ * onCancelOrder：onCancel订单相关字段。
  */
 
   onCancelOrder: (orderId: string) => void;  
   /**
- * onClaimStorage：MarketPanelCallbacks 内部字段。
+ * onClaimStorage：onClaimStorage相关字段。
  */
 
   onClaimStorage: () => void;
@@ -124,17 +124,17 @@ type MarketPriceAction = 'decrease' | 'increase' | 'double' | 'half' | 'preset';
 /** 交易弹窗当前的可编辑状态。 */
 interface MarketTradeDialogState {
 /**
- * kind：MarketTradeDialogState 内部字段。
+ * kind：kind相关字段。
  */
 
   kind: MarketTradeDialogKind;  
   /**
- * quantity：MarketTradeDialogState 内部字段。
+ * quantity：quantity相关字段。
  */
 
   quantity: number;  
   /**
- * unitPrice：MarketTradeDialogState 内部字段。
+ * unitPrice：unit价格数值。
  */
 
   unitPrice: number;
@@ -143,37 +143,37 @@ interface MarketTradeDialogState {
 /** 强化预估结果在界面里的展示结构。 */
 interface MarketEnhancementEstimateView {
 /**
- * strategy：MarketEnhancementEstimateView 内部字段。
+ * strategy：strategy相关字段。
  */
 
   strategy: EnhancementExpectedCostStrategy;  
   /**
- * costLine：MarketEnhancementEstimateView 内部字段。
+ * costLine：消耗Line相关字段。
  */
 
   costLine: string;  
   /**
- * attemptsLine：MarketEnhancementEstimateView 内部字段。
+ * attemptsLine：attemptLine相关字段。
  */
 
   attemptsLine: string;  
   /**
- * timeLine：MarketEnhancementEstimateView 内部字段。
+ * timeLine：时间Line相关字段。
  */
 
   timeLine: string;  
   /**
- * baseUnitPrice：MarketEnhancementEstimateView 内部字段。
+ * baseUnitPrice：baseUnit价格数值。
  */
 
   baseUnitPrice?: number;  
   /**
- * usesMarketBasePrice：MarketEnhancementEstimateView 内部字段。
+ * usesMarketBasePrice：use坊市Base价格数值。
  */
 
   usesMarketBasePrice: boolean;  
   /**
- * basePricePending：MarketEnhancementEstimateView 内部字段。
+ * basePricePending：base价格Pending相关字段。
  */
 
   basePricePending: boolean;
@@ -196,11 +196,11 @@ const MARKET_DIALOG_MAX_QUANTITY = 999_900_000_000;
 /** 功法书筛选按钮的静态配置。 */
 const MARKET_TECHNIQUE_FILTERS: Array<{
 /**
- * id：对象字段。
+ * id：ID标识。
  */
  id: MarketTechniqueFilter;
  /**
- * label：对象字段。
+ * label：label名称或显示文本。
  */
  label: string }> = [
   { id: 'all', label: '全部功法' },
@@ -264,7 +264,7 @@ export class MarketPanel {
   private tooltipNode: HTMLElement | null = null;  
   /**
  * 构造器：初始化 当前 实例并建立基础状态。
- * @returns 无返回值（构造函数）。
+ * @returns 无返回值，完成实例初始化。
  */
 
 
@@ -764,17 +764,17 @@ export class MarketPanel {
     emptyText: string,
     quickAction?: {    
     /**
- * kind：MarketPanel 内部字段。
+ * kind：kind相关字段。
  */
 
       kind: MarketTradeDialogKind;      
       /**
- * label：MarketPanel 内部字段。
+ * label：label名称或显示文本。
  */
 
       label: string;      
       /**
- * disabled：MarketPanel 内部字段。
+ * disabled：disabled相关字段。
  */
 
       disabled?: boolean;
@@ -1234,15 +1234,15 @@ export class MarketPanel {
   private renderCategoryTabs(update: NEXT_S2C_MarketUpdate): string {
     const categories: Array<{    
     /**
- * id：MarketPanel 内部字段。
+ * id：ID标识。
  */
  id: MarketCategoryFilter;    
  /**
- * label：MarketPanel 内部字段。
+ * label：label名称或显示文本。
  */
  label: string;    
  /**
- * count：MarketPanel 内部字段。
+ * count：数量或计量字段。
  */
  count: number }> = [
       { id: 'all', label: '全部', count: update.listedItems.length },
@@ -1267,15 +1267,15 @@ export class MarketPanel {
   private renderEquipmentTabs(update: NEXT_S2C_MarketUpdate): string {
     const categories: Array<{    
     /**
- * id：MarketPanel 内部字段。
+ * id：ID标识。
  */
  id: MarketEquipmentFilter;    
  /**
- * label：MarketPanel 内部字段。
+ * label：label名称或显示文本。
  */
  label: string;    
  /**
- * count：MarketPanel 内部字段。
+ * count：数量或计量字段。
  */
  count: number }> = [
       {
@@ -1343,17 +1343,17 @@ export class MarketPanel {
   /** 计算当前列表分页状态。 */
   private getPaginationState(items: MarketListedItemView[]): {  
   /**
- * page：MarketPanel 内部字段。
+ * page：page相关字段。
  */
 
     page: number;    
     /**
- * totalPages：MarketPanel 内部字段。
+ * totalPages：totalPage相关字段。
  */
 
     totalPages: number;    
     /**
- * items：MarketPanel 内部字段。
+ * items：集合字段。
  */
 
     items: MarketListedItemView[];

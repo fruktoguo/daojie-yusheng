@@ -15,57 +15,57 @@ import type { MainNavigationObservedEntity } from './main-navigation-state-sourc
 
 type PendingTargetedAction = {
 /**
- * actionId：对象字段。
+ * actionId：actionID标识。
  */
 
   actionId: string;  
   /**
- * actionName：对象字段。
+ * actionName：action名称名称或显示文本。
  */
 
   actionName: string;  
   /**
- * targetMode：对象字段。
+ * targetMode：目标Mode相关字段。
  */
 
   targetMode?: string;  
   /**
- * range：对象字段。
+ * range：范围相关字段。
  */
 
   range: number;  
   /**
- * shape：对象字段。
+ * shape：shape相关字段。
  */
 
   shape?: TargetingShape;  
   /**
- * radius：对象字段。
+ * radius：radiu相关字段。
  */
 
   radius?: number;  
   /**
- * width：对象字段。
+ * width：width相关字段。
  */
 
   width?: number;  
   /**
- * height：对象字段。
+ * height：height相关字段。
  */
 
   height?: number;  
   /**
- * maxTargets：对象字段。
+ * maxTargets：max目标相关字段。
  */
 
   maxTargets?: number;  
   /**
- * hoverX：对象字段。
+ * hoverX：hoverX相关字段。
  */
 
   hoverX?: number;  
   /**
- * hoverY：对象字段。
+ * hoverY：hoverY相关字段。
  */
 
   hoverY?: number;
@@ -77,180 +77,180 @@ type PendingTargetedAction = {
 
 type MainMapRuntimeBridgeSourceOptions = {
 /**
- * mapRuntime：对象字段。
+ * mapRuntime：地图运行态引用。
  */
 
   mapRuntime: {  
   /**
- * getVisibleTileAt：对象字段。
+ * getVisibleTileAt：可见TileAt相关字段。
  */
 
     getVisibleTileAt: (x: number, y: number) => Tile | null;    
     /**
- * getKnownTileAt：对象字段。
+ * getKnownTileAt：KnownTileAt相关字段。
  */
 
     getKnownTileAt: (x: number, y: number) => Tile | null;    
     /**
- * getGroundPileAt：对象字段。
+ * getGroundPileAt：GroundPileAt相关字段。
  */
 
     getGroundPileAt: (x: number, y: number) => GroundItemPileView | null;    
     /**
- * getMapMeta：对象字段。
+ * getMapMeta：地图Meta相关字段。
  */
 
     getMapMeta: () => {    
     /**
- * width：对象字段。
+ * width：width相关字段。
  */
  width: number;    
  /**
- * height：对象字段。
+ * height：height相关字段。
  */
  height: number } | null;    
  /**
- * setViewportSize：对象字段。
+ * setViewportSize：数量或计量字段。
  */
 
     setViewportSize: (cssWidth: number, cssHeight: number, devicePixelRatio: number, viewportScale: number) => void;
   };  
   /**
- * canvasHost：对象字段。
+ * canvasHost：canvaHost相关字段。
  */
 
   canvasHost: HTMLElement;  
   /**
- * getPlayer：对象字段。
+ * getPlayer：玩家引用。
  */
 
   getPlayer: () => {  
   /**
- * x：对象字段。
+ * x：x相关字段。
  */
  x: number;  
  /**
- * y：对象字段。
+ * y：y相关字段。
  */
  y: number;  
  /**
- * viewRange：对象字段。
+ * viewRange：视图范围相关字段。
  */
  viewRange?: number } | null;  
  /**
- * getDisplayRangeX：对象字段。
+ * getDisplayRangeX：显示范围X相关字段。
  */
 
   getDisplayRangeX: () => number;  
   /**
- * getDisplayRangeY：对象字段。
+ * getDisplayRangeY：显示范围Y相关字段。
  */
 
   getDisplayRangeY: () => number;  
   /**
- * navigation：对象字段。
+ * navigation：导航相关字段。
  */
 
   navigation: {  
   /**
- * clearCurrentPath：对象字段。
+ * clearCurrentPath：clearCurrent路径相关字段。
  */
 
     clearCurrentPath: () => void;    
     /**
- * trimCurrentPathProgress：对象字段。
+ * trimCurrentPathProgress：trimCurrent路径进度状态或数据块。
  */
 
     trimCurrentPathProgress: () => void;    
     /**
- * sendMoveCommand：对象字段。
+ * sendMoveCommand：sendMoveCommand相关字段。
  */
 
     sendMoveCommand: (dir: Direction) => void;    
     /**
- * planPathTo：对象字段。
+ * planPathTo：plan路径To相关字段。
  */
 
     planPathTo: (
       target: {      
       /**
- * x：对象字段。
+ * x：x相关字段。
  */
  x: number;      
  /**
- * y：对象字段。
+ * y：y相关字段。
  */
  y: number },
       options?: {      
       /**
- * ignoreVisibilityLimit：对象字段。
+ * ignoreVisibilityLimit：ignore可见性Limit相关字段。
  */
  ignoreVisibilityLimit?: boolean;      
  /**
- * allowNearestReachable：对象字段。
+ * allowNearestReachable：allowNearestReachable相关字段。
  */
  allowNearestReachable?: boolean;      
  /**
- * preserveAutoInteraction：对象字段。
+ * preserveAutoInteraction：preserveAutoInteraction相关字段。
  */
  preserveAutoInteraction?: boolean },
     ) => void;    
     /**
- * findObservedEntityAt：对象字段。
+ * findObservedEntityAt：ObservedEntityAt相关字段。
  */
 
     findObservedEntityAt: (x: number, y: number, kind?: string) => MainNavigationObservedEntity | null;    
     /**
- * handleNpcClickTarget：对象字段。
+ * handleNpcClickTarget：NPCClick目标相关字段。
  */
 
     handleNpcClickTarget: (npc: MainNavigationObservedEntity) => boolean;    
     /**
- * handlePortalClickTarget：对象字段。
+ * handlePortalClickTarget：PortalClick目标相关字段。
  */
 
     handlePortalClickTarget: (target: {    
     /**
- * x：对象字段。
+ * x：x相关字段。
  */
  x: number;    
  /**
- * y：对象字段。
+ * y：y相关字段。
  */
  y: number }, tile: Tile) => boolean;
   };  
   /**
- * targeting：对象字段。
+ * targeting：targeting相关字段。
  */
 
   targeting: {  
   /**
- * syncTargetingOverlay：对象字段。
+ * syncTargetingOverlay：TargetingOverlay相关字段。
  */
 
     syncTargetingOverlay: () => void;    
     /**
- * cancelTargeting：对象字段。
+ * cancelTargeting：cancelTargeting相关字段。
  */
 
     cancelTargeting: (showMessage?: boolean) => void;    
     /**
- * getCurrentActionDef：对象字段。
+ * getCurrentActionDef：CurrentActionDef相关字段。
  */
 
     getCurrentActionDef: (actionId: string) => ActionDef | null;    
     /**
- * resolveCurrentTargetingRange：对象字段。
+ * resolveCurrentTargetingRange：CurrentTargeting范围相关字段。
  */
 
     resolveCurrentTargetingRange: (action: NonNullable<PendingTargetedAction>) => number;    
     /**
- * beginTargeting：对象字段。
+ * beginTargeting：beginTargeting相关字段。
  */
 
     beginTargeting: (actionId: string, actionName: string, targetMode?: string, range?: number) => void;    
     /**
- * computeAffectedCellsForAction：对象字段。
+ * computeAffectedCellsForAction：AffectedCellForAction相关字段。
  */
 
     computeAffectedCellsForAction: (
@@ -258,31 +258,31 @@ type MainMapRuntimeBridgeSourceOptions = {
       anchor: GridPoint,
     ) => GridPoint[];    
     /**
- * resolveTargetRefForAction：对象字段。
+ * resolveTargetRefForAction：目标RefForAction相关字段。
  */
 
     resolveTargetRefForAction: (
       action: Pick<NonNullable<PendingTargetedAction>, 'actionId' | 'range' | 'shape' | 'radius' | 'width' | 'height' | 'targetMode'>,
       target: {      
       /**
- * x：对象字段。
+ * x：x相关字段。
  */
  x: number;      
  /**
- * y：对象字段。
+ * y：y相关字段。
  */
  y: number;      
  /**
- * entityId：对象字段。
+ * entityId：entityID标识。
  */
  entityId?: string;      
  /**
- * entityKind：对象字段。
+ * entityKind：entityKind相关字段。
  */
  entityKind?: string },
     ) => string | null;    
     /**
- * hasAffectableTargetInArea：对象字段。
+ * hasAffectableTargetInArea：启用开关或状态标识。
  */
 
     hasAffectableTargetInArea: (
@@ -291,67 +291,67 @@ type MainMapRuntimeBridgeSourceOptions = {
       anchorY: number,
     ) => boolean;    
     /**
- * syncSenseQiOverlay：对象字段。
+ * syncSenseQiOverlay：SenseQiOverlay相关字段。
  */
 
     syncSenseQiOverlay: () => void;    
     /**
- * setHoveredMapTile：对象字段。
+ * setHoveredMapTile：Hovered地图Tile相关字段。
  */
 
     setHoveredMapTile: (value: {    
     /**
- * x：对象字段。
+ * x：x相关字段。
  */
  x: number;    
  /**
- * y：对象字段。
+ * y：y相关字段。
  */
  y: number;    
  /**
- * clientX：对象字段。
+ * clientX：clientX相关字段。
  */
  clientX: number;    
  /**
- * clientY：对象字段。
+ * clientY：clientY相关字段。
  */
  clientY: number } | null) => void;    
  /**
- * getPendingTargetedAction：对象字段。
+ * getPendingTargetedAction：PendingTargetedAction相关字段。
  */
 
     getPendingTargetedAction: () => PendingTargetedAction;    
     /**
- * setPendingTargetedActionHover：对象字段。
+ * setPendingTargetedActionHover：PendingTargetedActionHover相关字段。
  */
 
     setPendingTargetedActionHover: (target: {    
     /**
- * x：对象字段。
+ * x：x相关字段。
  */
  x?: number;    
  /**
- * y：对象字段。
+ * y：y相关字段。
  */
  y?: number } | null) => void;
   };  
   /**
- * observe：对象字段。
+ * observe：observe相关字段。
  */
 
   observe: {  
   /**
- * hide：对象字段。
+ * hide：hide相关字段。
  */
 
     hide: () => void;    
     /**
- * show：对象字段。
+ * show：show相关字段。
  */
 
     show: (x: number, y: number) => void;    
     /**
- * isOpen：对象字段。
+ * isOpen：启用开关或状态标识。
  */
 
     isOpen: () => boolean;
@@ -366,15 +366,15 @@ export type MainMapRuntimeBridgeSource = ReturnType<typeof createMainMapRuntimeB
 /**
  * createMainMapRuntimeBridgeSource：构建并返回目标对象。
  * @param options MainMapRuntimeBridgeSourceOptions 选项参数。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新Main地图运行态桥接来源相关状态。
  */
 
 
 export function createMainMapRuntimeBridgeSource(options: MainMapRuntimeBridgeSourceOptions) {
   return {  
   /**
- * resizeCanvas：执行核心业务逻辑。
- * @returns void。
+ * resizeCanvas：判断resizeCanva是否满足条件。
+ * @returns 无返回值，直接更新resizeCanva相关状态。
  */
 
     resizeCanvas(): void {
@@ -387,8 +387,8 @@ export function createMainMapRuntimeBridgeSource(options: MainMapRuntimeBridgeSo
       options.mapRuntime.setViewportSize(cssWidth, cssHeight, window.devicePixelRatio || 1, viewportScale);
     },    
     /**
- * clearCurrentPath：执行核心业务逻辑。
- * @returns void。
+ * clearCurrentPath：执行clear当前路径相关逻辑。
+ * @returns 无返回值，直接更新clearCurrent路径相关状态。
  */
 
 
@@ -396,8 +396,8 @@ export function createMainMapRuntimeBridgeSource(options: MainMapRuntimeBridgeSo
       options.navigation.clearCurrentPath();
     },    
     /**
- * trimCurrentPathProgress：执行核心业务逻辑。
- * @returns void。
+ * trimCurrentPathProgress：执行trim当前路径进度相关逻辑。
+ * @returns 无返回值，直接更新trimCurrent路径进度相关状态。
  */
 
 
@@ -405,9 +405,9 @@ export function createMainMapRuntimeBridgeSource(options: MainMapRuntimeBridgeSo
       options.navigation.trimCurrentPathProgress();
     },    
     /**
- * sendMoveCommand：执行核心业务逻辑。
+ * sendMoveCommand：执行sendMoveCommand相关逻辑。
  * @param dir Direction 参数说明。
- * @returns void。
+ * @returns 无返回值，直接更新sendMoveCommand相关状态。
  */
 
 
@@ -415,45 +415,45 @@ export function createMainMapRuntimeBridgeSource(options: MainMapRuntimeBridgeSo
       options.navigation.sendMoveCommand(dir);
     },    
     /**
- * planPathTo：执行核心业务逻辑。
+ * planPathTo：执行plan路径To相关逻辑。
  * @param target { x: number; y: number } 目标对象。
  * @param optionsArg { ignoreVisibilityLimit?: boolean; allowNearestReachable?: boolean; preserveAutoInteraction?: boolean } 参数说明。
- * @returns void。
+ * @returns 无返回值，直接更新plan路径To相关状态。
  */
 
 
     planPathTo(
       target: {      
       /**
- * x：对象字段。
+ * x：x相关字段。
  */
  x: number;      
  /**
- * y：对象字段。
+ * y：y相关字段。
  */
  y: number },
       optionsArg?: {      
       /**
- * ignoreVisibilityLimit：对象字段。
+ * ignoreVisibilityLimit：ignore可见性Limit相关字段。
  */
  ignoreVisibilityLimit?: boolean;      
  /**
- * allowNearestReachable：对象字段。
+ * allowNearestReachable：allowNearestReachable相关字段。
  */
  allowNearestReachable?: boolean;      
  /**
- * preserveAutoInteraction：对象字段。
+ * preserveAutoInteraction：preserveAutoInteraction相关字段。
  */
  preserveAutoInteraction?: boolean },
     ): void {
       options.navigation.planPathTo(target, optionsArg);
     },    
     /**
- * findObservedEntityAt：执行核心业务逻辑。
+ * findObservedEntityAt：读取ObservedEntityAt并返回结果。
  * @param x number X 坐标。
  * @param y number Y 坐标。
  * @param kind string 参数说明。
- * @returns MainNavigationObservedEntity | null。
+ * @returns 返回ObservedEntityAt。
  */
 
 
@@ -461,9 +461,9 @@ export function createMainMapRuntimeBridgeSource(options: MainMapRuntimeBridgeSo
       return options.navigation.findObservedEntityAt(x, y, kind);
     },    
     /**
- * handleNpcClickTarget：处理事件并驱动执行路径。
+ * handleNpcClickTarget：读取NPCClick目标并返回结果。
  * @param npc MainNavigationObservedEntity 参数说明。
- * @returns boolean。
+ * @returns 返回是否满足NPCClick目标条件。
  */
 
 
@@ -471,27 +471,27 @@ export function createMainMapRuntimeBridgeSource(options: MainMapRuntimeBridgeSo
       return options.navigation.handleNpcClickTarget(npc);
     },    
     /**
- * handlePortalClickTarget：处理事件并驱动执行路径。
+ * handlePortalClickTarget：读取传送门Click目标并返回结果。
  * @param target { x: number; y: number } 目标对象。
  * @param tile Tile 参数说明。
- * @returns boolean。
+ * @returns 返回是否满足PortalClick目标条件。
  */
 
 
     handlePortalClickTarget(target: {    
     /**
- * x：对象字段。
+ * x：x相关字段。
  */
  x: number;    
  /**
- * y：对象字段。
+ * y：y相关字段。
  */
  y: number }, tile: Tile): boolean {
       return options.navigation.handlePortalClickTarget(target, tile);
     },    
     /**
- * syncTargetingOverlay：执行核心业务逻辑。
- * @returns void。
+ * syncTargetingOverlay：读取TargetingOverlay并返回结果。
+ * @returns 无返回值，直接更新TargetingOverlay相关状态。
  */
 
 
@@ -499,9 +499,9 @@ export function createMainMapRuntimeBridgeSource(options: MainMapRuntimeBridgeSo
       options.targeting.syncTargetingOverlay();
     },    
     /**
- * cancelTargeting：执行状态校验并返回判断结果。
+ * cancelTargeting：读取cancelTargeting并返回结果。
  * @param showMessage 参数说明。
- * @returns void。
+ * @returns 无返回值，完成cancelTargeting的条件判断。
  */
 
 
@@ -509,9 +509,9 @@ export function createMainMapRuntimeBridgeSource(options: MainMapRuntimeBridgeSo
       options.targeting.cancelTargeting(showMessage);
     },    
     /**
- * getCurrentActionDef：按给定条件读取/查询数据。
+ * getCurrentActionDef：读取当前ActionDef。
  * @param actionId string action ID。
- * @returns ActionDef | null。
+ * @returns 返回CurrentActionDef。
  */
 
 
@@ -519,9 +519,9 @@ export function createMainMapRuntimeBridgeSource(options: MainMapRuntimeBridgeSo
       return options.targeting.getCurrentActionDef(actionId);
     },    
     /**
- * resolveCurrentTargetingRange：执行核心业务逻辑。
+ * resolveCurrentTargetingRange：读取当前Targeting范围并返回结果。
  * @param action NonNullable<PendingTargetedAction> 参数说明。
- * @returns number。
+ * @returns 返回CurrentTargeting范围。
  */
 
 
@@ -529,12 +529,12 @@ export function createMainMapRuntimeBridgeSource(options: MainMapRuntimeBridgeSo
       return options.targeting.resolveCurrentTargetingRange(action);
     },    
     /**
- * beginTargeting：执行核心业务逻辑。
+ * beginTargeting：读取开始Targeting并返回结果。
  * @param actionId string action ID。
  * @param actionName string 参数说明。
  * @param targetMode string 参数说明。
  * @param range 参数说明。
- * @returns void。
+ * @returns 无返回值，直接更新beginTargeting相关状态。
  */
 
 
@@ -542,10 +542,10 @@ export function createMainMapRuntimeBridgeSource(options: MainMapRuntimeBridgeSo
       options.targeting.beginTargeting(actionId, actionName, targetMode, range);
     },    
     /**
- * computeAffectedCellsForAction：执行核心业务逻辑。
+ * computeAffectedCellsForAction：执行AffectedCellForAction相关逻辑。
  * @param action Pick<NonNullable<PendingTargetedAction>, 'actionId' | 'range' | 'shape' | 'radius' | 'width' | 'height'> 参数说明。
  * @param anchor GridPoint 参数说明。
- * @returns GridPoint[]。
+ * @returns 返回AffectedCellForAction列表。
  */
 
 
@@ -556,10 +556,10 @@ export function createMainMapRuntimeBridgeSource(options: MainMapRuntimeBridgeSo
       return options.targeting.computeAffectedCellsForAction(action, anchor);
     },    
     /**
- * resolveTargetRefForAction：执行核心业务逻辑。
+ * resolveTargetRefForAction：读取目标RefForAction并返回结果。
  * @param action Pick<NonNullable<PendingTargetedAction>, 'actionId' | 'range' | 'shape' | 'radius' | 'width' | 'height' | 'targetMode'> 参数说明。
  * @param target { x: number; y: number; entityId?: string; entityKind?: string } 目标对象。
- * @returns string | null。
+ * @returns 返回目标RefForAction。
  */
 
 
@@ -567,30 +567,30 @@ export function createMainMapRuntimeBridgeSource(options: MainMapRuntimeBridgeSo
       action: Pick<NonNullable<PendingTargetedAction>, 'actionId' | 'range' | 'shape' | 'radius' | 'width' | 'height' | 'targetMode'>,
       target: {      
       /**
- * x：对象字段。
+ * x：x相关字段。
  */
  x: number;      
  /**
- * y：对象字段。
+ * y：y相关字段。
  */
  y: number;      
  /**
- * entityId：对象字段。
+ * entityId：entityID标识。
  */
  entityId?: string;      
  /**
- * entityKind：对象字段。
+ * entityKind：entityKind相关字段。
  */
  entityKind?: string },
     ): string | null {
       return options.targeting.resolveTargetRefForAction(action, target);
     },    
     /**
- * hasAffectableTargetInArea：执行状态校验并返回判断结果。
+ * hasAffectableTargetInArea：读取Affectable目标InArea并返回结果。
  * @param action Pick<NonNullable<PendingTargetedAction>, 'actionId' | 'shape' | 'range' | 'radius' | 'width' | 'height'> 参数说明。
  * @param anchorX number 参数说明。
  * @param anchorY number 参数说明。
- * @returns boolean。
+ * @returns 返回是否满足Affectable目标InArea条件。
  */
 
 
@@ -602,10 +602,10 @@ export function createMainMapRuntimeBridgeSource(options: MainMapRuntimeBridgeSo
       return options.targeting.hasAffectableTargetInArea(action, anchorX, anchorY);
     },    
     /**
- * getVisibleTileAt：按给定条件读取/查询数据。
+ * getVisibleTileAt：读取可见TileAt。
  * @param x number X 坐标。
  * @param y number Y 坐标。
- * @returns Tile | null。
+ * @returns 返回可见TileAt。
  */
 
 
@@ -613,10 +613,10 @@ export function createMainMapRuntimeBridgeSource(options: MainMapRuntimeBridgeSo
       return options.mapRuntime.getVisibleTileAt(x, y);
     },    
     /**
- * getKnownTileAt：按给定条件读取/查询数据。
+ * getKnownTileAt：读取KnownTileAt。
  * @param x number X 坐标。
  * @param y number Y 坐标。
- * @returns Tile | null。
+ * @returns 返回KnownTileAt。
  */
 
 
@@ -624,10 +624,10 @@ export function createMainMapRuntimeBridgeSource(options: MainMapRuntimeBridgeSo
       return options.mapRuntime.getKnownTileAt(x, y);
     },    
     /**
- * isPointInsideCurrentMap：执行状态校验并返回判断结果。
+ * isPointInsideCurrentMap：判断PointInside当前地图是否满足条件。
  * @param x number X 坐标。
  * @param y number Y 坐标。
- * @returns boolean。
+ * @returns 返回是否满足PointInsideCurrent地图条件。
  */
 
 
@@ -639,10 +639,10 @@ export function createMainMapRuntimeBridgeSource(options: MainMapRuntimeBridgeSo
       return x >= 0 && y >= 0 && x < mapMeta.width && y < mapMeta.height;
     },    
     /**
- * getVisibleGroundPileAt：按给定条件读取/查询数据。
+ * getVisibleGroundPileAt：读取可见地面PileAt。
  * @param x number X 坐标。
  * @param y number Y 坐标。
- * @returns GroundItemPileView | null。
+ * @returns 返回可见GroundPileAt。
  */
 
 
@@ -650,8 +650,8 @@ export function createMainMapRuntimeBridgeSource(options: MainMapRuntimeBridgeSo
       return options.mapRuntime.getGroundPileAt(x, y);
     },    
     /**
- * syncSenseQiOverlay：执行核心业务逻辑。
- * @returns void。
+ * syncSenseQiOverlay：处理SenseQiOverlay并更新相关状态。
+ * @returns 无返回值，直接更新SenseQiOverlay相关状态。
  */
 
 
@@ -659,10 +659,10 @@ export function createMainMapRuntimeBridgeSource(options: MainMapRuntimeBridgeSo
       options.targeting.syncSenseQiOverlay();
     },    
     /**
- * isWithinDisplayedMemoryBounds：执行状态校验并返回判断结果。
+ * isWithinDisplayedMemoryBounds：判断WithinDisplayedMemoryBound是否满足条件。
  * @param x number X 坐标。
  * @param y number Y 坐标。
- * @returns boolean。
+ * @returns 返回是否满足WithinDisplayedMemoryBound条件。
  */
 
 
@@ -676,8 +676,8 @@ export function createMainMapRuntimeBridgeSource(options: MainMapRuntimeBridgeSo
       return Math.abs(x - player.x) <= options.getDisplayRangeX() && Math.abs(y - player.y) <= options.getDisplayRangeY();
     },    
     /**
- * hideObserveModal：执行核心业务逻辑。
- * @returns void。
+ * hideObserveModal：执行hideObserve弹层相关逻辑。
+ * @returns 无返回值，直接更新hideObserve弹层相关状态。
  */
 
 
@@ -685,10 +685,10 @@ export function createMainMapRuntimeBridgeSource(options: MainMapRuntimeBridgeSo
       options.observe.hide();
     },    
     /**
- * showObserveModal：执行核心业务逻辑。
+ * showObserveModal：执行showObserve弹层相关逻辑。
  * @param targetX number 参数说明。
  * @param targetY number 参数说明。
- * @returns void。
+ * @returns 无返回值，直接更新showObserve弹层相关状态。
  */
 
 
@@ -696,8 +696,8 @@ export function createMainMapRuntimeBridgeSource(options: MainMapRuntimeBridgeSo
       options.observe.show(targetX, targetY);
     },    
     /**
- * isObserveOpen：执行状态校验并返回判断结果。
- * @returns boolean。
+ * isObserveOpen：判断ObserveOpen是否满足条件。
+ * @returns 返回是否满足ObserveOpen条件。
  */
 
 
@@ -705,8 +705,8 @@ export function createMainMapRuntimeBridgeSource(options: MainMapRuntimeBridgeSo
       return options.observe.isOpen();
     },    
     /**
- * getPendingTargetedAction：按给定条件读取/查询数据。
- * @returns PendingTargetedAction。
+ * getPendingTargetedAction：读取待处理TargetedAction。
+ * @returns 返回PendingTargetedAction。
  */
 
 
@@ -714,52 +714,52 @@ export function createMainMapRuntimeBridgeSource(options: MainMapRuntimeBridgeSo
       return options.targeting.getPendingTargetedAction();
     },    
     /**
- * setPendingTargetedActionHover：更新/写入相关状态。
+ * setPendingTargetedActionHover：写入待处理TargetedActionHover。
  * @param target { x?: number; y?: number } | null 目标对象。
- * @returns void。
+ * @returns 无返回值，直接更新PendingTargetedActionHover相关状态。
  */
 
 
     setPendingTargetedActionHover(target: {    
     /**
- * x：对象字段。
+ * x：x相关字段。
  */
  x?: number;    
  /**
- * y：对象字段。
+ * y：y相关字段。
  */
  y?: number } | null): void {
       options.targeting.setPendingTargetedActionHover(target);
     },    
     /**
- * setHoveredMapTile：更新/写入相关状态。
+ * setHoveredMapTile：写入Hovered地图Tile。
  * @param value { x: number; y: number; clientX: number; clientY: number } | null 参数说明。
- * @returns void。
+ * @returns 无返回值，直接更新Hovered地图Tile相关状态。
  */
 
 
     setHoveredMapTile(value: {    
     /**
- * x：对象字段。
+ * x：x相关字段。
  */
  x: number;    
  /**
- * y：对象字段。
+ * y：y相关字段。
  */
  y: number;    
  /**
- * clientX：对象字段。
+ * clientX：clientX相关字段。
  */
  clientX: number;    
  /**
- * clientY：对象字段。
+ * clientY：clientY相关字段。
  */
  clientY: number } | null): void {
       options.targeting.setHoveredMapTile(value);
     },    
     /**
- * bindKeyboardInput：执行核心业务逻辑。
- * @returns void。
+ * bindKeyboardInput：执行bindKeyboard输入相关逻辑。
+ * @returns 无返回值，直接更新bindKeyboard输入相关状态。
  */
 
 

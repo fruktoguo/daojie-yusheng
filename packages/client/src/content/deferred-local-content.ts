@@ -4,12 +4,12 @@ import { preloadMonsterLocationCatalog } from './monster-locations';
 /** 兼容 requestIdleCallback 的 Window 扩展。 */
 type IdleWindow = Window & {
 /**
- * requestIdleCallback：对象字段。
+ * requestIdleCallback：requestIdleCallback相关字段。
  */
 
   requestIdleCallback?: (callback: () => void, options?: {  
   /**
- * timeout：对象字段。
+ * timeout：超时数值。
  */
  timeout: number }) => number;
 };

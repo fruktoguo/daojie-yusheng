@@ -15,9 +15,9 @@ exports.ALCHEMY_CATALOG_VERSION = ALCHEMY_CATALOG_VERSION;
 const ALCHEMY_FURNACE_TAG = 'alchemy_furnace';
 exports.ALCHEMY_FURNACE_TAG = ALCHEMY_FURNACE_TAG;
 /**
- * cloneAlchemyCatalogEntry：执行核心业务逻辑。
+ * cloneAlchemyCatalogEntry：构建炼丹目录条目。
  * @param entry 参数说明。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新炼丹目录条目相关状态。
  */
 
 
@@ -28,9 +28,9 @@ function cloneAlchemyCatalogEntry(entry) {
     };
 }
 /**
- * cloneAlchemyPreset：执行核心业务逻辑。
+ * cloneAlchemyPreset：构建炼丹Preset。
  * @param entry 参数说明。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新炼丹Preset相关状态。
  */
 
 
@@ -41,9 +41,9 @@ function cloneAlchemyPreset(entry) {
     };
 }
 /**
- * cloneAlchemyJob：执行核心业务逻辑。
+ * cloneAlchemyJob：构建炼丹Job。
  * @param entry 参数说明。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新炼丹Job相关状态。
  */
 
 

@@ -4,17 +4,17 @@ import { LOCAL_EDITOR_CATALOG } from '../content/editor-catalog';
 /** 可用于危险评估的境界等级区间。 */
 type RealmLevelRange = {
 /**
- * minLevel：对象字段。
+ * minLevel：min等级数值。
  */
 
   minLevel: number;  
   /**
- * maxLevel：对象字段。
+ * maxLevel：max等级数值。
  */
 
   maxLevel: number;  
   /**
- * displayLabel：对象字段。
+ * displayLabel：显示Label名称或显示文本。
  */
 
   displayLabel: string;
@@ -23,17 +23,17 @@ type RealmLevelRange = {
 /** 地图危险度评估结果。 */
 export interface MapDangerAssessment {
 /**
- * recommendedRealmLabel：MapDangerAssessment 内部字段。
+ * recommendedRealmLabel：recommendedRealmLabel名称或显示文本。
  */
 
   recommendedRealmLabel: string;  
   /**
- * dangerLabel：MapDangerAssessment 内部字段。
+ * dangerLabel：dangerLabel名称或显示文本。
  */
 
   dangerLabel: string;  
   /**
- * dangerTone：MapDangerAssessment 内部字段。
+ * dangerTone：dangerTone相关字段。
  */
 
   dangerTone: number;
@@ -64,11 +64,11 @@ function buildRealmAliasIndex(): void {
 
   const groupedByName = new Map<string, {  
   /**
- * minLevel：对象字段。
+ * minLevel：min等级数值。
  */
  minLevel: number;  
  /**
- * maxLevel：对象字段。
+ * maxLevel：max等级数值。
  */
  maxLevel: number }>();
   for (const entry of LOCAL_EDITOR_CATALOG.realmLevels) {
@@ -190,11 +190,11 @@ function resolvePlayerRealmLevel(player: PlayerState): number {
 /** 生成“比玩家更强”时的危险描述。 */
 function describeHarderDanger(gap: number): {
 /**
- * label：对象字段。
+ * label：label名称或显示文本。
  */
  label: string;
  /**
- * tone：对象字段。
+ * tone：tone相关字段。
  */
  tone: number } {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
@@ -217,11 +217,11 @@ function describeHarderDanger(gap: number): {
 /** 生成“比玩家更弱”时的危险描述。 */
 function describeEasierDanger(gap: number): {
 /**
- * label：对象字段。
+ * label：label名称或显示文本。
  */
  label: string;
  /**
- * tone：对象字段。
+ * tone：tone相关字段。
  */
  tone: number } {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。

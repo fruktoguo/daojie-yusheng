@@ -7,7 +7,7 @@ import { SuggestionRuntimeService } from '../../runtime/suggestion/suggestion-ru
 
 interface SuggestionReplyLike {
 /**
- * content：SuggestionReplyLike 内部字段。
+ * content：内容相关字段。
  */
 
   content: string;
@@ -19,22 +19,22 @@ interface SuggestionReplyLike {
 
 interface SuggestionEntryLike {
 /**
- * title：SuggestionEntryLike 内部字段。
+ * title：title名称或显示文本。
  */
 
   title: string;  
   /**
- * description：SuggestionEntryLike 内部字段。
+ * description：description相关字段。
  */
 
   description: string;  
   /**
- * authorName：SuggestionEntryLike 内部字段。
+ * authorName：author名称名称或显示文本。
  */
 
   authorName: string;  
   /**
- * replies：SuggestionEntryLike 内部字段。
+ * replies：reply相关字段。
  */
 
   replies: SuggestionReplyLike[];
@@ -54,17 +54,17 @@ interface SuggestionRuntimeServiceLike {
 
 interface SuggestionQueryInput {
 /**
- * page：SuggestionQueryInput 内部字段。
+ * page：page相关字段。
  */
 
   page?: unknown;  
   /**
- * pageSize：SuggestionQueryInput 内部字段。
+ * pageSize：数量或计量字段。
  */
 
   pageSize?: unknown;  
   /**
- * keyword：SuggestionQueryInput 内部字段。
+ * keyword：keyword相关字段。
  */
 
   keyword?: unknown;
@@ -79,14 +79,14 @@ export class NextGmSuggestionQueryService {
 /**
  * 构造器：初始化 当前 实例并建立基础状态。
  * @param suggestionRuntimeService SuggestionRuntimeServiceLike 参数说明。
- * @returns 无返回值（构造函数）。
+ * @returns 无返回值，完成实例初始化。
  */
 
   constructor(@Inject(SuggestionRuntimeService) private readonly suggestionRuntimeService: SuggestionRuntimeServiceLike) {}  
   /**
- * getSuggestions：按给定条件读取/查询数据。
+ * getSuggestions：读取Suggestion。
  * @param query SuggestionQueryInput | null 参数说明。
- * @returns 函数返回值。
+ * @returns 无返回值，完成Suggestion的读取/组装。
  */
 
 
@@ -125,11 +125,11 @@ export class NextGmSuggestionQueryService {
   }
 }
 /**
- * clamp：执行核心业务逻辑。
+ * clamp：执行clamp相关逻辑。
  * @param value number 参数说明。
  * @param min number 参数说明。
  * @param max number 参数说明。
- * @returns number。
+ * @returns 返回clamp。
  */
 
 

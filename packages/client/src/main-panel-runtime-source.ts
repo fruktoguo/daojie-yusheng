@@ -3,36 +3,36 @@
  */
 type PanelRuntimeStore = {
 /**
- * getState：对象字段。
+ * getState：状态状态或数据块。
  */
 
   getState: () => {  
   /**
- * runtime：对象字段。
+ * runtime：运行态引用。
  */
 
     runtime: unknown;    
     /**
- * capabilities：对象字段。
+ * capabilities：capability相关字段。
  */
 
     capabilities: unknown;
   };  
   /**
- * subscribe：对象字段。
+ * subscribe：subscribe相关字段。
  */
 
   subscribe: (listener: (state: {  
   /**
- * runtime：对象字段。
+ * runtime：运行态引用。
  */
  runtime: unknown;  
  /**
- * capabilities：对象字段。
+ * capabilities：capability相关字段。
  */
  capabilities: unknown }) => void) => void;  
  /**
- * setRuntime：对象字段。
+ * setRuntime：运行态引用。
  */
 
   setRuntime: (patch: Record<string, unknown>) => void;
@@ -44,22 +44,22 @@ type PanelRuntimeStore = {
 
 type MainPanelRuntimeSourceOptions = {
 /**
- * store：对象字段。
+ * store：存储引用。
  */
 
   store: PanelRuntimeStore;  
   /**
- * nextUiBridge：对象字段。
+ * nextUiBridge：nextUi桥接引用。
  */
 
   nextUiBridge: {  
   /**
- * syncRuntime：对象字段。
+ * syncRuntime：运行态引用。
  */
 
     syncRuntime: (runtime: any) => void;    
     /**
- * syncCapabilities：对象字段。
+ * syncCapabilities：Capability相关字段。
  */
 
     syncCapabilities: (capabilities: any) => void;
@@ -74,15 +74,15 @@ export type MainPanelRuntimeSource = ReturnType<typeof createMainPanelRuntimeSou
 /**
  * createMainPanelRuntimeSource：构建并返回目标对象。
  * @param options MainPanelRuntimeSourceOptions 选项参数。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新Main面板运行态来源相关状态。
  */
 
 
 export function createMainPanelRuntimeSource(options: MainPanelRuntimeSourceOptions) {
   return {  
   /**
- * syncInitialBridgeState：执行核心业务逻辑。
- * @returns void。
+ * syncInitialBridgeState：处理Initial桥接状态并更新相关状态。
+ * @returns 无返回值，直接更新Initial桥接状态相关状态。
  */
 
     syncInitialBridgeState(): void {
@@ -91,8 +91,8 @@ export function createMainPanelRuntimeSource(options: MainPanelRuntimeSourceOpti
       options.nextUiBridge.syncCapabilities(state.capabilities);
     },    
     /**
- * subscribeBridgeState：执行核心业务逻辑。
- * @returns void。
+ * subscribeBridgeState：执行subscribe桥接状态相关逻辑。
+ * @returns 无返回值，直接更新subscribe桥接状态相关状态。
  */
 
 
@@ -103,9 +103,9 @@ export function createMainPanelRuntimeSource(options: MainPanelRuntimeSourceOpti
       });
     },    
     /**
- * setRuntime：更新/写入相关状态。
+ * setRuntime：写入运行态。
  * @param patch Record<string, unknown> 参数说明。
- * @returns void。
+ * @returns 无返回值，直接更新运行态相关状态。
  */
 
 
@@ -113,9 +113,9 @@ export function createMainPanelRuntimeSource(options: MainPanelRuntimeSourceOpti
       options.store.setRuntime(patch);
     },    
     /**
- * setRuntimeMapId：更新/写入相关状态。
+ * setRuntimeMapId：写入运行态地图ID。
  * @param mapId string | null 地图 ID。
- * @returns void。
+ * @returns 无返回值，直接更新运行态地图ID相关状态。
  */
 
 
@@ -123,9 +123,9 @@ export function createMainPanelRuntimeSource(options: MainPanelRuntimeSourceOpti
       options.store.setRuntime({ mapId });
     },    
     /**
- * setRuntimeShellVisible：更新/写入相关状态。
+ * setRuntimeShellVisible：写入运行态Shell可见。
  * @param visible boolean 参数说明。
- * @returns void。
+ * @returns 无返回值，直接更新运行态Shell可见相关状态。
  */
 
 
@@ -133,8 +133,8 @@ export function createMainPanelRuntimeSource(options: MainPanelRuntimeSourceOpti
       options.store.setRuntime({ shellVisible: visible });
     },    
     /**
- * setRuntimeDisconnected：更新/写入相关状态。
- * @returns void。
+ * setRuntimeDisconnected：写入运行态Disconnected。
+ * @returns 无返回值，直接更新运行态Disconnected相关状态。
  */
 
 
@@ -142,8 +142,8 @@ export function createMainPanelRuntimeSource(options: MainPanelRuntimeSourceOpti
       options.store.setRuntime({ connected: false });
     },    
     /**
- * resetRuntime：执行核心业务逻辑。
- * @returns void。
+ * resetRuntime：执行reset运行态相关逻辑。
+ * @returns 无返回值，直接更新reset运行态相关状态。
  */
 
 

@@ -24,17 +24,17 @@ const world_sync_minimap_service_1 = require("./world-sync-minimap.service");
 /** map/static aux cache 服务：承接 player 级 map cache 与 tile/minimap patch 规划。 */
 let WorldSyncMapStaticAuxService = class WorldSyncMapStaticAuxService {
 /**
- * worldSyncMapSnapshotService：对象字段。
+ * worldSyncMapSnapshotService：世界Sync地图快照服务引用。
  */
 
     worldSyncMapSnapshotService;    
     /**
- * worldSyncMinimapService：对象字段。
+ * worldSyncMinimapService：世界SyncMinimap服务引用。
  */
 
     worldSyncMinimapService;    
     /**
- * cacheByPlayerId：对象字段。
+ * cacheByPlayerId：缓存By玩家ID标识。
  */
 
     cacheByPlayerId = new Map();    
@@ -42,7 +42,7 @@ let WorldSyncMapStaticAuxService = class WorldSyncMapStaticAuxService {
  * 构造器：初始化 当前 实例并建立基础状态。
  * @param worldSyncMapSnapshotService 参数说明。
  * @param worldSyncMinimapService 参数说明。
- * @returns 无返回值（构造函数）。
+ * @returns 无返回值，完成实例初始化。
  */
 
     constructor(worldSyncMapSnapshotService, worldSyncMinimapService) {
@@ -54,7 +54,7 @@ let WorldSyncMapStaticAuxService = class WorldSyncMapStaticAuxService {
  * @param view 参数说明。
  * @param player 玩家对象。
  * @param template 参数说明。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新Initial地图Static状态相关状态。
  */
 
     buildInitialMapStaticState(view, player, template) {
@@ -76,7 +76,7 @@ let WorldSyncMapStaticAuxService = class WorldSyncMapStaticAuxService {
  * @param view 参数说明。
  * @param player 玩家对象。
  * @param template 参数说明。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新Delta地图StaticPlan相关状态。
  */
 
     buildDeltaMapStaticPlan(playerId, view, player, template) {
@@ -113,19 +113,19 @@ let WorldSyncMapStaticAuxService = class WorldSyncMapStaticAuxService {
         };
     }    
     /**
- * commitPlayerCache：执行核心业务逻辑。
+ * commitPlayerCache：执行commit玩家缓存相关逻辑。
  * @param playerId 玩家 ID。
  * @param cacheState 参数说明。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新commit玩家缓存相关状态。
  */
 
     commitPlayerCache(playerId, cacheState) {
         this.cacheByPlayerId.set(playerId, cacheState);
     }    
     /**
- * clearPlayerCache：执行核心业务逻辑。
+ * clearPlayerCache：执行clear玩家缓存相关逻辑。
  * @param playerId 玩家 ID。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新clear玩家缓存相关状态。
  */
 
     clearPlayerCache(playerId) {
@@ -143,7 +143,7 @@ exports.WorldSyncMapStaticAuxService = WorldSyncMapStaticAuxService = __decorate
  * @param view 参数说明。
  * @param visibleTiles 参数说明。
  * @param visibleMinimapMarkers 参数说明。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新缓存状态相关状态。
  */
 
 function buildCacheState(view, visibleTiles, visibleMinimapMarkers) {
@@ -155,10 +155,10 @@ function buildCacheState(view, visibleTiles, visibleMinimapMarkers) {
     };
 }
 /**
- * diffVisibleTiles：执行核心业务逻辑。
+ * diffVisibleTiles：判断diff可见Tile是否满足条件。
  * @param previous 参数说明。
  * @param current 参数说明。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新diff可见Tile相关状态。
  */
 
 function diffVisibleTiles(previous, current) {
@@ -185,9 +185,9 @@ function diffVisibleTiles(previous, current) {
     return patches;
 }
 /**
- * parseCoordKey：执行核心业务逻辑。
+ * parseCoordKey：规范化或转换CoordKey。
  * @param key 参数说明。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新CoordKey相关状态。
  */
 
 function parseCoordKey(key) {
@@ -204,9 +204,9 @@ function parseCoordKey(key) {
     ];
 }
 /**
- * cloneMinimapMarker：执行核心业务逻辑。
+ * cloneMinimapMarker：构建MinimapMarker。
  * @param source 来源对象。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新MinimapMarker相关状态。
  */
 
 function cloneMinimapMarker(source) {
@@ -220,9 +220,9 @@ function cloneMinimapMarker(source) {
     };
 }
 /**
- * cloneTile：执行核心业务逻辑。
+ * cloneTile：构建Tile。
  * @param source 来源对象。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新Tile相关状态。
  */
 
 function cloneTile(source) {
@@ -232,10 +232,10 @@ function cloneTile(source) {
     };
 }
 /**
- * isSameTile：执行状态校验并返回判断结果。
+ * isSameTile：判断SameTile是否满足条件。
  * @param left 参数说明。
  * @param right 参数说明。
- * @returns 函数返回值。
+ * @returns 无返回值，完成SameTile的条件判断。
  */
 
 function isSameTile(left, right) {

@@ -25,12 +25,12 @@ const { normalizeRuntimeActionId } = world_runtime_normalization_helpers_1;
 /** world-runtime action execution orchestration：承接动作入口分流与低频 toggle/交互编排。 */
 let WorldRuntimeActionExecutionService = class WorldRuntimeActionExecutionService {
 /**
- * playerRuntimeService：对象字段。
+ * playerRuntimeService：玩家运行态服务引用。
  */
 
     playerRuntimeService;    
     /**
- * worldRuntimeNpcQuestWriteService：对象字段。
+ * worldRuntimeNpcQuestWriteService：世界运行态NPC任务Write服务引用。
  */
 
     worldRuntimeNpcQuestWriteService;    
@@ -38,7 +38,7 @@ let WorldRuntimeActionExecutionService = class WorldRuntimeActionExecutionServic
  * 构造器：初始化 当前 实例并建立基础状态。
  * @param playerRuntimeService 参数说明。
  * @param worldRuntimeNpcQuestWriteService 参数说明。
- * @returns 无返回值（构造函数）。
+ * @returns 无返回值，完成实例初始化。
  */
 
     constructor(playerRuntimeService, worldRuntimeNpcQuestWriteService) {
@@ -46,12 +46,12 @@ let WorldRuntimeActionExecutionService = class WorldRuntimeActionExecutionServic
         this.worldRuntimeNpcQuestWriteService = worldRuntimeNpcQuestWriteService;
     }    
     /**
- * executeAction：执行核心业务逻辑。
+ * executeAction：执行executeAction相关逻辑。
  * @param playerId 玩家 ID。
  * @param actionIdInput 参数说明。
  * @param targetInput 参数说明。
  * @param deps 运行时依赖。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新executeAction相关状态。
  */
 
     executeAction(playerId, actionIdInput, targetInput, deps) {
@@ -145,23 +145,23 @@ let WorldRuntimeActionExecutionService = class WorldRuntimeActionExecutionServic
         throw new common_1.BadRequestException(`Unsupported actionId: ${actionId}`);
     }    
     /**
- * executeLegacyNpcAction：执行核心业务逻辑。
+ * executeLegacyNpcAction：执行executeLegacyNPCAction相关逻辑。
  * @param playerId 玩家 ID。
  * @param npcId npc ID。
  * @param deps 运行时依赖。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新executeLegacyNPCAction相关状态。
  */
 
     executeLegacyNpcAction(playerId, npcId, deps) {
         return this.worldRuntimeNpcQuestWriteService.executeNpcQuestAction(playerId, npcId, deps);
     }    
     /**
- * toggleCombatSetting：执行核心业务逻辑。
+ * toggleCombatSetting：执行toggle战斗Setting相关逻辑。
  * @param playerId 玩家 ID。
  * @param currentTick 参数说明。
  * @param key 参数说明。
  * @param deps 运行时依赖。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新toggle战斗Setting相关状态。
  */
 
     toggleCombatSetting(playerId, currentTick, key, deps) {

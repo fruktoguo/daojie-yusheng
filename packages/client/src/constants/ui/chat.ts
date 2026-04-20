@@ -27,32 +27,32 @@ export type ChatMessageScope = typeof CHAT_MESSAGE_SCOPES[number];
 /** ChatStoredMessage：聊天持久化消息。 */
 export interface ChatStoredMessage {
 /**
- * id：ChatStoredMessage 内部字段。
+ * id：ID标识。
  */
 
   id: string;  
   /**
- * at：ChatStoredMessage 内部字段。
+ * at：at相关字段。
  */
 
   at: number;  
   /**
- * text：ChatStoredMessage 内部字段。
+ * text：text名称或显示文本。
  */
 
   text: string;  
   /**
- * from：ChatStoredMessage 内部字段。
+ * from：from相关字段。
  */
 
   from?: string;  
   /**
- * kind：ChatStoredMessage 内部字段。
+ * kind：kind相关字段。
  */
 
   kind: ChatMessageKind;  
   /**
- * scope：ChatStoredMessage 内部字段。
+ * scope：scope相关字段。
  */
 
   scope?: ChatMessageScope;

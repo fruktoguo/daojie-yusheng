@@ -154,10 +154,10 @@ exports.PlayerAttributesService = PlayerAttributesService = __decorate([
 ], PlayerAttributesService);
 export { PlayerAttributesService };
 /**
- * applySpiritualRoots：更新/写入相关状态。
+ * applySpiritualRoots：处理Spiritual根容器并更新相关状态。
  * @param target 目标对象。
  * @param roots 参数说明。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新Spiritual根容器相关状态。
  */
 
 function applySpiritualRoots(target, roots) {
@@ -179,7 +179,7 @@ function applySpiritualRoots(target, roots) {
 }
 /**
  * createBaseAttributes：构建并返回目标对象。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新BaseAttribute相关状态。
  */
 
 function createBaseAttributes() {
@@ -194,7 +194,7 @@ function createBaseAttributes() {
 }
 /**
  * createPercentBonusAccumulator：构建并返回目标对象。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新PercentBonuAccumulator相关状态。
  */
 
 function createPercentBonusAccumulator() {
@@ -206,9 +206,9 @@ function createPercentBonusAccumulator() {
     };
 }
 /**
- * cloneAttributes：执行核心业务逻辑。
+ * cloneAttributes：构建Attribute。
  * @param source 来源对象。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新Attribute相关状态。
  */
 
 function cloneAttributes(source) {
@@ -222,10 +222,10 @@ function cloneAttributes(source) {
     };
 }
 /**
- * addAttributes：执行核心业务逻辑。
+ * addAttributes：处理Attribute并更新相关状态。
  * @param target 目标对象。
  * @param patch 参数说明。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新Attribute相关状态。
  */
 
 function addAttributes(target, patch) {
@@ -242,9 +242,9 @@ function addAttributes(target, patch) {
     }
 }
 /**
- * clampAttributes：执行核心业务逻辑。
+ * clampAttributes：执行clampAttribute相关逻辑。
  * @param target 目标对象。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新clampAttribute相关状态。
  */
 
 function clampAttributes(target) {
@@ -253,11 +253,11 @@ function clampAttributes(target) {
     }
 }
 /**
- * applyAttrWeight：更新/写入相关状态。
+ * applyAttrWeight：处理AttrWeight并更新相关状态。
  * @param target 目标对象。
  * @param key 参数说明。
  * @param value 参数说明。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新AttrWeight相关状态。
  */
 
 function applyAttrWeight(target, key, value) {
@@ -271,11 +271,11 @@ function applyAttrWeight(target, key, value) {
     (0, shared_1.addPartialNumericStats)(target, scalePartialNumericStats(weight, value));
 }
 /**
- * accumulateAttrPercentBonus：执行核心业务逻辑。
+ * accumulateAttrPercentBonus：执行accumulateAttrPercentBonu相关逻辑。
  * @param target 目标对象。
  * @param key 参数说明。
  * @param value 参数说明。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新accumulateAttrPercentBonu相关状态。
  */
 
 function accumulateAttrPercentBonus(target, key, value) {
@@ -296,10 +296,10 @@ function accumulateAttrPercentBonus(target, key, value) {
         target.spellAtk += weight.spellAtk * value;
 }
 /**
- * applyPercentBonuses：更新/写入相关状态。
+ * applyPercentBonuses：处理PercentBonuse并更新相关状态。
  * @param target 目标对象。
  * @param bonuses 参数说明。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新PercentBonuse相关状态。
  */
 
 function applyPercentBonuses(target, bonuses) {
@@ -315,20 +315,20 @@ function applyPercentBonuses(target, bonuses) {
         target.spellAtk *= 1 + bonuses.spellAtk / 100;
 }
 /**
- * resolveItemStats：执行核心业务逻辑。
+ * resolveItemStats：规范化或转换道具Stat。
  * @param equipStats 参数说明。
  * @param equipValueStats 参数说明。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新道具Stat相关状态。
  */
 
 function resolveItemStats(equipStats, equipValueStats) {
     return equipValueStats ? (0, shared_1.compileValueStatsToActualStats)(equipValueStats) : equipStats;
 }
 /**
- * scalePartialNumericStats：执行核心业务逻辑。
+ * scalePartialNumericStats：执行scalePartialNumericStat相关逻辑。
  * @param source 来源对象。
  * @param multiplier 参数说明。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新scalePartialNumericStat相关状态。
  */
 
 function scalePartialNumericStats(source, multiplier) {
@@ -360,9 +360,9 @@ function scalePartialNumericStats(source, multiplier) {
     return scaled;
 }
 /**
- * toTechniqueState：执行核心业务逻辑。
+ * toTechniqueState：执行to功法状态相关逻辑。
  * @param entry 参数说明。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新to功法状态相关状态。
  */
 
 function toTechniqueState(entry) {
@@ -382,9 +382,9 @@ function toTechniqueState(entry) {
     };
 }
 /**
- * collectProjectedRuntimeBonuses：执行核心业务逻辑。
+ * collectProjectedRuntimeBonuses：执行Projected运行态Bonuse相关逻辑。
  * @param bonuses 参数说明。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新Projected运行态Bonuse相关状态。
  */
 
 function collectProjectedRuntimeBonuses(bonuses) {
@@ -406,10 +406,10 @@ function collectProjectedRuntimeBonuses(bonuses) {
     });
 }
 /**
- * resolveTechniqueAttrBonus：执行核心业务逻辑。
+ * resolveTechniqueAttrBonus：规范化或转换功法AttrBonu。
  * @param techniques 参数说明。
  * @param runtimeBonuses 参数说明。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新功法AttrBonu相关状态。
  */
 
 function resolveTechniqueAttrBonus(techniques, runtimeBonuses) {
@@ -425,9 +425,9 @@ function resolveTechniqueAttrBonus(techniques, runtimeBonuses) {
     return (0, shared_1.calcTechniqueFinalAttrBonus)(techniques.map(toTechniqueState));
 }
 /**
- * resolveVitalBaselineBonus：执行核心业务逻辑。
+ * resolveVitalBaselineBonus：规范化或转换VitalBaselineBonu。
  * @param runtimeBonuses 参数说明。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新VitalBaselineBonu相关状态。
  */
 
 function resolveVitalBaselineBonus(runtimeBonuses) {
@@ -436,9 +436,9 @@ function resolveVitalBaselineBonus(runtimeBonuses) {
         : null;
 }
 /**
- * isDerivedRuntimeBonusSource：执行状态校验并返回判断结果。
+ * isDerivedRuntimeBonusSource：判断Derived运行态Bonu来源是否满足条件。
  * @param source 来源对象。
- * @returns 函数返回值。
+ * @returns 无返回值，完成Derived运行态Bonu来源的条件判断。
  */
 
 function isDerivedRuntimeBonusSource(source) {
@@ -452,10 +452,10 @@ function isDerivedRuntimeBonusSource(source) {
         || source.startsWith('buff:');
 }
 /**
- * hasAttrStateChanged：执行状态校验并返回判断结果。
+ * hasAttrStateChanged：判断Attr状态Changed是否满足条件。
  * @param previous 参数说明。
  * @param next 参数说明。
- * @returns 函数返回值。
+ * @returns 无返回值，完成Attr状态Changed的条件判断。
  */
 
 function hasAttrStateChanged(previous, next) {
@@ -466,10 +466,10 @@ function hasAttrStateChanged(previous, next) {
         || !isSameRatioDivisors(previous.ratioDivisors, next.ratioDivisors);
 }
 /**
- * isSameAttributes：执行状态校验并返回判断结果。
+ * isSameAttributes：判断SameAttribute是否满足条件。
  * @param left 参数说明。
  * @param right 参数说明。
- * @returns 函数返回值。
+ * @returns 无返回值，完成SameAttribute的条件判断。
  */
 
 function isSameAttributes(left, right) {
@@ -483,10 +483,10 @@ function isSameAttributes(left, right) {
     return true;
 }
 /**
- * isSameNumericStats：执行状态校验并返回判断结果。
+ * isSameNumericStats：判断SameNumericStat是否满足条件。
  * @param left 参数说明。
  * @param right 参数说明。
- * @returns 函数返回值。
+ * @returns 无返回值，完成SameNumericStat的条件判断。
  */
 
 function isSameNumericStats(left, right) {
@@ -529,10 +529,10 @@ function isSameNumericStats(left, right) {
         && left.elementDamageReduce.earth === right.elementDamageReduce.earth;
 }
 /**
- * isSameRatioDivisors：执行状态校验并返回判断结果。
+ * isSameRatioDivisors：判断SameRatioDivisor是否满足条件。
  * @param left 参数说明。
  * @param right 参数说明。
- * @returns 函数返回值。
+ * @returns 无返回值，完成SameRatioDivisor的条件判断。
  */
 
 function isSameRatioDivisors(left, right) {
@@ -549,11 +549,11 @@ function isSameRatioDivisors(left, right) {
         && left.elementDamageReduce.earth === right.elementDamageReduce.earth;
 }
 /**
- * clamp：执行核心业务逻辑。
+ * clamp：执行clamp相关逻辑。
  * @param value 参数说明。
  * @param min 参数说明。
  * @param max 参数说明。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新clamp相关状态。
  */
 
 function clamp(value, min, max) {

@@ -15,52 +15,52 @@ function createFragmentFromHtml(html: string): DocumentFragment {
 /** GM 面板与主客户端之间的动作回调集合。 */
 interface GmCallbacks {
 /**
- * onRefresh：GmCallbacks 内部字段。
+ * onRefresh：onRefresh相关字段。
  */
 
   onRefresh: () => void;  
   /**
- * onResetSelf：GmCallbacks 内部字段。
+ * onResetSelf：onResetSelf相关字段。
  */
 
   onResetSelf: () => void;  
   /**
- * onCycleZoom：GmCallbacks 内部字段。
+ * onCycleZoom：onCycleZoom相关字段。
  */
 
   onCycleZoom: () => void;  
   /**
- * onSpawnBots：GmCallbacks 内部字段。
+ * onSpawnBots：onSpawnBot相关字段。
  */
 
   onSpawnBots: (count: number) => void;  
   /**
- * onRemoveBots：GmCallbacks 内部字段。
+ * onRemoveBots：onRemoveBot相关字段。
  */
 
   onRemoveBots: (playerIds?: string[], all?: boolean) => void;  
   /**
- * onUpdatePlayer：GmCallbacks 内部字段。
+ * onUpdatePlayer：onUpdate玩家引用。
  */
 
   onUpdatePlayer: (payload: NEXT_C2S_GmUpdatePlayer) => void;  
   /**
- * onResetPlayer：GmCallbacks 内部字段。
+ * onResetPlayer：onReset玩家引用。
  */
 
   onResetPlayer: (playerId: string) => void;  
   /**
- * onResetHeavenGate：GmCallbacks 内部字段。
+ * onResetHeavenGate：onResetHeavenGate相关字段。
  */
 
   onResetHeavenGate: (playerId: string) => void;  
   /**
- * onMarkSuggestionCompleted：GmCallbacks 内部字段。
+ * onMarkSuggestionCompleted：onMarkSuggestionCompleted相关字段。
  */
 
   onMarkSuggestionCompleted: (id: string) => void;  
   /**
- * onRemoveSuggestion：GmCallbacks 内部字段。
+ * onRemoveSuggestion：onRemoveSuggestion相关字段。
  */
 
   onRemoveSuggestion: (id: string) => void;
@@ -841,11 +841,11 @@ export class GmPanel {
   /** 记录容器滚动和焦点位置。 */
   private captureContainerState(container: HTMLElement): {  
   /**
- * scrollTop：GmPanel 内部字段。
+ * scrollTop：scrollTop相关字段。
  */
  scrollTop: number;  
  /**
- * focusSelector：GmPanel 内部字段。
+ * focusSelector：focuSelector相关字段。
  */
  focusSelector: string | null } {
     return {
@@ -857,11 +857,11 @@ export class GmPanel {
   /** 恢复容器滚动和焦点位置。 */
   private restoreContainerState(container: HTMLElement, preserved: {  
   /**
- * scrollTop：GmPanel 内部字段。
+ * scrollTop：scrollTop相关字段。
  */
  scrollTop: number;  
  /**
- * focusSelector：GmPanel 内部字段。
+ * focusSelector：focuSelector相关字段。
  */
  focusSelector: string | null }): void {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。

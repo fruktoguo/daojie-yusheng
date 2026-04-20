@@ -24,7 +24,7 @@ import { initializeMapPerformanceConfig } from './ui/performance-config';
 /**
  * createMainFrontendModules：构建并返回目标对象。
  * @param windowRef Window 参数说明。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新MainFrontend模块相关状态。
  */
 
 

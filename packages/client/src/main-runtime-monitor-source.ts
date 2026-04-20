@@ -19,17 +19,17 @@ import type { SocketRuntimeSender } from './network/socket-send-runtime';
 
 type FpsSampleStats = {
 /**
- * fps：对象字段。
+ * fps：fp相关字段。
  */
 
   fps: number | null;  
   /**
- * low：对象字段。
+ * low：low相关字段。
  */
 
   low: number | null;  
   /**
- * onePercentLow：对象字段。
+ * onePercentLow：onePercentLow相关字段。
  */
 
   onePercentLow: number | null;
@@ -41,68 +41,68 @@ type FpsSampleStats = {
 
 type MainRuntimeMonitorSourceOptions = {
 /**
- * mapRuntime：对象字段。
+ * mapRuntime：地图运行态引用。
  */
 
   mapRuntime: Pick<MapRuntime, 'setTickDurationMs'>;  
   /**
- * connection：对象字段。
+ * connection：connection相关字段。
  */
 
   connection: Pick<import('./network/socket').SocketManager, 'connected' | 'reconnect'>;  
   /**
- * runtimeSender：对象字段。
+ * runtimeSender：运行态Sender相关字段。
  */
 
   runtimeSender: Pick<SocketRuntimeSender, 'sendPing'>;  
   /**
- * login：对象字段。
+ * login：login相关字段。
  */
 
   login: {  
   /**
- * hasRefreshToken：对象字段。
+ * hasRefreshToken：启用开关或状态标识。
  */
 
     hasRefreshToken: () => boolean;    
     /**
- * restoreSession：对象字段。
+ * restoreSession：restoreSession相关字段。
  */
 
     restoreSession: () => Promise<boolean>;    
     /**
- * getAccessToken：对象字段。
+ * getAccessToken：AccessToken标识。
  */
 
     getAccessToken: () => string | null;
   };  
   /**
- * documentRef：对象字段。
+ * documentRef：documentRef相关字段。
  */
 
   documentRef: Document;  
   /**
- * windowRef：对象字段。
+ * windowRef：窗口Ref相关字段。
  */
 
   windowRef: Window;  
   /**
- * locationHost：对象字段。
+ * locationHost：位置Host相关字段。
  */
 
   locationHost: string;  
   /**
- * syncEstimatedServerTickInterval：对象字段。
+ * syncEstimatedServerTickInterval：EstimatedServertickInterval相关字段。
  */
 
   syncEstimatedServerTickInterval: (dtMs: number) => void;  
   /**
- * showToast：对象字段。
+ * showToast：showToast相关字段。
  */
 
   showToast: (message: string) => void;  
   /**
- * onBeforeVersionReload：对象字段。
+ * onBeforeVersionReload：onBeforeVersionReload相关字段。
  */
 
   onBeforeVersionReload: () => void;
@@ -114,107 +114,107 @@ type MainRuntimeMonitorSourceOptions = {
 
 type MainRuntimeMonitorElements = {
 /**
- * currentTimeEl：对象字段。
+ * currentTimeEl：current时间El相关字段。
  */
 
   currentTimeEl: HTMLElement | null;  
   /**
- * currentTimePhaseEl：对象字段。
+ * currentTimePhaseEl：current时间PhaseEl相关字段。
  */
 
   currentTimePhaseEl: HTMLElement | null;  
   /**
- * currentTimeHourAEl：对象字段。
+ * currentTimeHourAEl：current时间HourAEl相关字段。
  */
 
   currentTimeHourAEl: HTMLElement | null;  
   /**
- * currentTimeHourBEl：对象字段。
+ * currentTimeHourBEl：current时间HourBEl相关字段。
  */
 
   currentTimeHourBEl: HTMLElement | null;  
   /**
- * currentTimeDotEl：对象字段。
+ * currentTimeDotEl：current时间DotEl相关字段。
  */
 
   currentTimeDotEl: HTMLElement | null;  
   /**
- * currentTimeMinAEl：对象字段。
+ * currentTimeMinAEl：current时间MinAEl相关字段。
  */
 
   currentTimeMinAEl: HTMLElement | null;  
   /**
- * currentTimeMinBEl：对象字段。
+ * currentTimeMinBEl：current时间MinBEl相关字段。
  */
 
   currentTimeMinBEl: HTMLElement | null;  
   /**
- * tickRateEl：对象字段。
+ * tickRateEl：tickRateEl相关字段。
  */
 
   tickRateEl: HTMLElement | null;  
   /**
- * tickRateIntEl：对象字段。
+ * tickRateIntEl：tickRateIntEl相关字段。
  */
 
   tickRateIntEl: HTMLElement | null;  
   /**
- * tickRateDotEl：对象字段。
+ * tickRateDotEl：tickRateDotEl相关字段。
  */
 
   tickRateDotEl: HTMLElement | null;  
   /**
- * tickRateFracAEl：对象字段。
+ * tickRateFracAEl：tickRateFracAEl相关字段。
  */
 
   tickRateFracAEl: HTMLElement | null;  
   /**
- * tickRateFracBEl：对象字段。
+ * tickRateFracBEl：tickRateFracBEl相关字段。
  */
 
   tickRateFracBEl: HTMLElement | null;  
   /**
- * fpsRateEl：对象字段。
+ * fpsRateEl：fpRateEl相关字段。
  */
 
   fpsRateEl: HTMLElement | null;  
   /**
- * fpsValueEl：对象字段。
+ * fpsValueEl：fp值El相关字段。
  */
 
   fpsValueEl: HTMLElement | null;  
   /**
- * fpsLowValueEl：对象字段。
+ * fpsLowValueEl：fpLow值El相关字段。
  */
 
   fpsLowValueEl: HTMLElement | null;  
   /**
- * fpsOnePercentValueEl：对象字段。
+ * fpsOnePercentValueEl：fpOnePercent值El相关字段。
  */
 
   fpsOnePercentValueEl: HTMLElement | null;  
   /**
- * pingLatencyEl：对象字段。
+ * pingLatencyEl：pingLatencyEl相关字段。
  */
 
   pingLatencyEl: HTMLElement | null;  
   /**
- * pingUnitEl：对象字段。
+ * pingUnitEl：pingUnitEl相关字段。
  */
 
   pingUnitEl: HTMLElement | null;  
   /**
- * pingHundredsEl：对象字段。
+ * pingHundredsEl：pingHundredEl相关字段。
  */
 
   pingHundredsEl: HTMLElement | null;  
   /**
- * pingTensEl：对象字段。
+ * pingTensEl：pingTenEl相关字段。
  */
 
   pingTensEl: HTMLElement | null;  
   /**
- * pingOnesEl：对象字段。
+ * pingOnesEl：pingOneEl相关字段。
  */
 
   pingOnesEl: HTMLElement | null;
@@ -229,7 +229,7 @@ export type MainRuntimeMonitorSource = ReturnType<typeof createMainRuntimeMonito
  * createMainRuntimeMonitorSource：构建并返回目标对象。
  * @param options MainRuntimeMonitorSourceOptions 选项参数。
  * @param elements MainRuntimeMonitorElements 参数说明。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新Main运行态Monitor来源相关状态。
  */
 
 
@@ -244,17 +244,17 @@ export function createMainRuntimeMonitorSource(
   let pendingSocketPing:
     | {    
     /**
- * serial：对象字段。
+ * serial：serial相关字段。
  */
 
         serial: number;        
         /**
- * clientAt：对象字段。
+ * clientAt：clientAt相关字段。
  */
 
         clientAt: number;        
         /**
- * timeoutId：对象字段。
+ * timeoutId：超时ID标识。
  */
 
         timeoutId: ReturnType<typeof setTimeout>;
@@ -272,9 +272,9 @@ export function createMainRuntimeMonitorSource(
   let fpsFrameDurations: number[] = [];
   let fpsFrameDurationWriteIndex = 0;  
   /**
- * formatFpsMetric：执行核心业务逻辑。
+ * formatFpsMetric：规范化或转换FpMetric。
  * @param value number | null 参数说明。
- * @returns string。
+ * @returns 返回FpMetric。
  */
 
 
@@ -287,9 +287,9 @@ export function createMainRuntimeMonitorSource(
     return String(Math.min(999, Math.max(0, Math.round(value)))).padStart(3, '0');
   }  
   /**
- * renderFpsStats：执行核心业务逻辑。
+ * renderFpsStats：执行FpStat相关逻辑。
  * @param stats FpsSampleStats 参数说明。
- * @returns void。
+ * @returns 无返回值，直接更新FpStat相关状态。
  */
 
 
@@ -315,9 +315,9 @@ export function createMainRuntimeMonitorSource(
     }
   }  
   /**
- * resetFpsMonitorSamples：执行核心业务逻辑。
+ * resetFpsMonitorSamples：执行resetFpMonitorSample相关逻辑。
  * @param now 参数说明。
- * @returns void。
+ * @returns 无返回值，直接更新resetFpMonitorSample相关状态。
  */
 
 
@@ -329,9 +329,9 @@ export function createMainRuntimeMonitorSource(
     fpsFrameDurationWriteIndex = 0;
   }  
   /**
- * appendFpsFrameDuration：执行核心业务逻辑。
+ * appendFpsFrameDuration：执行appendFp帧耗时相关逻辑。
  * @param frameDurationMs number 参数说明。
- * @returns void。
+ * @returns 无返回值，直接更新appendFp帧Duration相关状态。
  */
 
 
@@ -348,8 +348,8 @@ export function createMainRuntimeMonitorSource(
     fpsFrameDurationWriteIndex = (fpsFrameDurationWriteIndex + 1) % MAP_FPS_SAMPLE_WINDOW_SIZE;
   }  
   /**
- * resolveFpsLowStats：执行核心业务逻辑。
- * @returns Pick<FpsSampleStats, 'low' | 'onePercentLow'>。
+ * resolveFpsLowStats：规范化或转换FpLowStat。
+ * @returns 返回FpLowStat。
  */
 
 
@@ -372,9 +372,9 @@ export function createMainRuntimeMonitorSource(
     };
   }  
   /**
- * tickFpsMonitor：执行核心业务逻辑。
+ * tickFpsMonitor：执行tickFpMonitor相关逻辑。
  * @param now number 参数说明。
- * @returns void。
+ * @returns 无返回值，直接更新tickFpMonitor相关状态。
  */
 
 
@@ -413,8 +413,8 @@ export function createMainRuntimeMonitorSource(
     fpsMonitorFrameRequestId = options.windowRef.requestAnimationFrame(tickFpsMonitor);
   }  
   /**
- * startFpsMonitor：执行核心业务逻辑。
- * @returns void。
+ * startFpsMonitor：执行开始FpMonitor相关逻辑。
+ * @returns 无返回值，直接更新startFpMonitor相关状态。
  */
 
 
@@ -437,8 +437,8 @@ export function createMainRuntimeMonitorSource(
     fpsMonitorFrameRequestId = options.windowRef.requestAnimationFrame(tickFpsMonitor);
   }  
   /**
- * stopFpsMonitor：执行核心业务逻辑。
- * @returns void。
+ * stopFpsMonitor：执行stopFpMonitor相关逻辑。
+ * @returns 无返回值，直接更新stopFpMonitor相关状态。
  */
 
 
@@ -457,9 +457,9 @@ export function createMainRuntimeMonitorSource(
     }
   }  
   /**
- * syncFpsMonitorVisibility：执行核心业务逻辑。
+ * syncFpsMonitorVisibility：判断FpMonitor可见性是否满足条件。
  * @param showFpsMonitor boolean 参数说明。
- * @returns void。
+ * @returns 无返回值，直接更新FpMonitor可见性相关状态。
  */
 
 
@@ -473,9 +473,9 @@ export function createMainRuntimeMonitorSource(
     stopFpsMonitor();
   }  
   /**
- * renderTickRate：执行核心业务逻辑。
+ * renderTickRate：执行tickRate相关逻辑。
  * @param seconds number 参数说明。
- * @returns void。
+ * @returns 无返回值，直接更新tickRate相关状态。
  */
 
 
@@ -489,10 +489,10 @@ export function createMainRuntimeMonitorSource(
     if (elements.tickRateFracBEl) elements.tickRateFracBEl.textContent = fraction[1] ?? '0';
   }  
   /**
- * resolveDisplayedLocalTicks：执行核心业务逻辑。
+ * resolveDisplayedLocalTicks：判断DisplayedLocaltick是否满足条件。
  * @param state GameTimeState | null 状态对象。
  * @param now 参数说明。
- * @returns number | null。
+ * @returns 返回DisplayedLocaltick数值。
  */
 
 
@@ -510,10 +510,10 @@ export function createMainRuntimeMonitorSource(
     return ((state.localTicks + elapsedTicks) % dayLength + dayLength) % dayLength;
   }  
   /**
- * resolveDisplayedPhaseLabel：执行核心业务逻辑。
+ * resolveDisplayedPhaseLabel：判断Displayed阶段Label是否满足条件。
  * @param state GameTimeState 状态对象。
  * @param localTicks number 参数说明。
- * @returns string。
+ * @returns 返回DisplayedPhaseLabel。
  */
 
 
@@ -522,10 +522,10 @@ export function createMainRuntimeMonitorSource(
     return phase?.label ?? state.phaseLabel;
   }  
   /**
- * renderCurrentTime：执行核心业务逻辑。
+ * renderCurrentTime：执行当前时间相关逻辑。
  * @param state GameTimeState | null 状态对象。
  * @param now 参数说明。
- * @returns void。
+ * @returns 无返回值，直接更新Current时间相关状态。
  */
 
 
@@ -550,9 +550,9 @@ export function createMainRuntimeMonitorSource(
     }
   }  
   /**
- * syncCurrentTimeState：执行核心业务逻辑。
+ * syncCurrentTimeState：处理当前时间状态并更新相关状态。
  * @param state GameTimeState | null 状态对象。
- * @returns void。
+ * @returns 无返回值，直接更新Current时间状态相关状态。
  */
 
 
@@ -562,9 +562,9 @@ export function createMainRuntimeMonitorSource(
     renderCurrentTime(currentTimeState, currentTimeStateSyncedAt);
   }  
   /**
- * syncCurrentTimeTickInterval：执行核心业务逻辑。
+ * syncCurrentTimeTickInterval：处理当前时间tickInterval并更新相关状态。
  * @param dtMs number | null | undefined 参数说明。
- * @returns void。
+ * @returns 无返回值，直接更新Current时间tickInterval相关状态。
  */
 
 
@@ -579,10 +579,10 @@ export function createMainRuntimeMonitorSource(
     options.mapRuntime.setTickDurationMs(Math.max(1, Math.round(dtMs * 0.5)));
   }  
   /**
- * renderPingLatency：执行核心业务逻辑。
+ * renderPingLatency：执行PingLatency相关逻辑。
  * @param latencyMs number | null 参数说明。
  * @param status 参数说明。
- * @returns void。
+ * @returns 无返回值，直接更新PingLatency相关状态。
  */
 
 
@@ -614,9 +614,9 @@ export function createMainRuntimeMonitorSource(
     }
   }  
   /**
- * waitFor：执行核心业务逻辑。
+ * waitFor：执行waitFor相关逻辑。
  * @param ms number 参数说明。
- * @returns Promise<void>。
+ * @returns 返回 Promise，完成后得到waitFor。
  */
 
 
@@ -626,9 +626,9 @@ export function createMainRuntimeMonitorSource(
     });
   }  
   /**
- * recoverConnection：执行核心业务逻辑。
+ * recoverConnection：执行recoverConnection相关逻辑。
  * @param forceRefresh 参数说明。
- * @returns Promise<void>。
+ * @returns 返回 Promise，完成后得到recoverConnection。
  */
 
 
@@ -662,10 +662,10 @@ export function createMainRuntimeMonitorSource(
     return connectionRecoveryPromise;
   }  
   /**
- * scheduleConnectionRecovery：执行核心业务逻辑。
+ * scheduleConnectionRecovery：执行scheduleConnectionRecovery相关逻辑。
  * @param delayMs 参数说明。
  * @param forceRefresh 参数说明。
- * @returns void。
+ * @returns 无返回值，直接更新scheduleConnectionRecovery相关状态。
  */
 
 
@@ -681,8 +681,8 @@ export function createMainRuntimeMonitorSource(
     }, delayMs);
   }  
   /**
- * clearPendingSocketPing：执行核心业务逻辑。
- * @returns void。
+ * clearPendingSocketPing：执行clear待处理SocketPing相关逻辑。
+ * @returns 无返回值，直接更新clearPendingSocketPing相关状态。
  */
 
 
@@ -696,9 +696,9 @@ export function createMainRuntimeMonitorSource(
     pendingSocketPing = null;
   }  
   /**
- * markSocketPingTimeout：执行核心业务逻辑。
+ * markSocketPingTimeout：处理SocketPing超时并更新相关状态。
  * @param serial number 参数说明。
- * @returns void。
+ * @returns 无返回值，直接更新SocketPing超时相关状态。
  */
 
 
@@ -712,8 +712,8 @@ export function createMainRuntimeMonitorSource(
     renderPingLatency(null, options.connection.connected ? '超时' : '离线');
   }  
   /**
- * sampleServerPing：执行核心业务逻辑。
- * @returns void。
+ * sampleServerPing：执行sampleServerPing相关逻辑。
+ * @returns 无返回值，直接更新sampleServerPing相关状态。
  */
 
 
@@ -741,8 +741,8 @@ export function createMainRuntimeMonitorSource(
     pendingSocketPing = { serial, clientAt, timeoutId };
   }  
   /**
- * stopPingLoop：执行核心业务逻辑。
- * @returns void。
+ * stopPingLoop：执行stopPingLoop相关逻辑。
+ * @returns 无返回值，直接更新stopPingLoop相关状态。
  */
 
 
@@ -756,9 +756,9 @@ export function createMainRuntimeMonitorSource(
     clearPendingSocketPing();
   }  
   /**
- * scheduleNextPing：执行核心业务逻辑。
+ * scheduleNextPing：执行scheduleNextPing相关逻辑。
  * @param delayMs 参数说明。
- * @returns void。
+ * @returns 无返回值，直接更新scheduleNextPing相关状态。
  */
 
 
@@ -775,9 +775,9 @@ export function createMainRuntimeMonitorSource(
     }, delayMs);
   }  
   /**
- * restartPingLoop：执行核心业务逻辑。
+ * restartPingLoop：执行restartPingLoop相关逻辑。
  * @param immediate 参数说明。
- * @returns void。
+ * @returns 无返回值，直接更新restartPingLoop相关状态。
  */
 
 
@@ -796,15 +796,15 @@ export function createMainRuntimeMonitorSource(
     scheduleNextPing(SERVER_PING_INTERVAL_MS);
   }  
   /**
- * handlePong：处理事件并驱动执行路径。
+ * handlePong：处理Pong并更新相关状态。
  * @param data { clientAt: number } 原始数据。
- * @returns void。
+ * @returns 无返回值，直接更新Pong相关状态。
  */
 
 
   function handlePong(data: {  
   /**
- * clientAt：对象字段。
+ * clientAt：clientAt相关字段。
  */
  clientAt: number }): void {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
@@ -817,9 +817,9 @@ export function createMainRuntimeMonitorSource(
     renderPingLatency(performance.now() - data.clientAt);
   }  
   /**
- * initialize：初始化并准备运行时基础状态。
+ * initialize：执行initialize相关逻辑。
  * @param showFpsMonitor boolean 参数说明。
- * @returns void。
+ * @returns 无返回值，直接更新initialize相关状态。
  */
 
 
@@ -848,8 +848,8 @@ export function createMainRuntimeMonitorSource(
     syncCurrentTimeState,
     syncCurrentTimeTickInterval,    
     /**
- * getCurrentTimeState：按给定条件读取/查询数据。
- * @returns GameTimeState | null。
+ * getCurrentTimeState：读取当前时间状态。
+ * @returns 返回Current时间状态。
  */
 
     getCurrentTimeState(): GameTimeState | null {
@@ -862,8 +862,8 @@ export function createMainRuntimeMonitorSource(
     stopPingLoop,
     handlePong,    
     /**
- * getDocumentVisibilityState：按给定条件读取/查询数据。
- * @returns DocumentVisibilityState。
+ * getDocumentVisibilityState：读取Document可见性状态。
+ * @returns 返回Document可见性状态。
  */
 
     getDocumentVisibilityState(): DocumentVisibilityState {

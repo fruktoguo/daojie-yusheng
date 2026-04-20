@@ -21,22 +21,22 @@ type CorsOriginResolver = (origin: string | undefined, callback: CorsOriginCallb
 
 export interface ServerNextCorsOptions {
 /**
- * origin：ServerNextCorsOptions 内部字段。
+ * origin：origin相关字段。
  */
 
   origin: CorsOriginResolver;  
   /**
- * methods：ServerNextCorsOptions 内部字段。
+ * methods：method相关字段。
  */
 
   methods: string[];  
   /**
- * allowedHeaders：ServerNextCorsOptions 内部字段。
+ * allowedHeaders：allowedHeader相关字段。
  */
 
   allowedHeaders: string[];  
   /**
- * credentials：ServerNextCorsOptions 内部字段。
+ * credentials：credential相关字段。
  */
 
   credentials: boolean;
@@ -73,7 +73,7 @@ export function resolveServerNextCorsOptions(): ServerNextCorsOptions | false {
 /**
  * buildOriginResolver：构建并返回目标对象。
  * @param allowedOriginSet Set<string> 参数说明。
- * @returns CorsOriginResolver。
+ * @returns 返回OriginResolver。
  */
 
 
@@ -97,8 +97,8 @@ function buildOriginResolver(allowedOriginSet: Set<string>): CorsOriginResolver 
   };
 }
 /**
- * isDevelopmentLikeEnv：执行状态校验并返回判断结果。
- * @returns boolean。
+ * isDevelopmentLikeEnv：判断DevelopmentLikeEnv是否满足条件。
+ * @returns 返回是否满足DevelopmentLikeEnv条件。
  */
 
 
@@ -107,9 +107,9 @@ function isDevelopmentLikeEnv(): boolean {
   return DEVELOPMENT_LIKE_ENVS.has(runtimeEnv);
 }
 /**
- * isLocalOrigin：执行状态校验并返回判断结果。
+ * isLocalOrigin：判断LocalOrigin是否满足条件。
  * @param origin string 参数说明。
- * @returns boolean。
+ * @returns 返回是否满足LocalOrigin条件。
  */
 
 
@@ -117,9 +117,9 @@ function isLocalOrigin(origin: string): boolean {
   return /^https?:\/\/(localhost|127\.0\.0\.1|\[::1\])(?::\d+)?$/i.test(origin);
 }
 /**
- * normalizeOrigin：执行核心业务逻辑。
+ * normalizeOrigin：规范化或转换Origin。
  * @param origin string 参数说明。
- * @returns string。
+ * @returns 返回Origin。
  */
 
 
@@ -127,10 +127,10 @@ function normalizeOrigin(origin: string): string {
   return origin.trim().replace(/\/+$/, '');
 }
 /**
- * readCsvEnv：执行核心业务逻辑。
+ * readCsvEnv：读取CsvEnv并返回结果。
  * @param names string[] 参数说明。
  * @param fallback string[] 参数说明。
- * @returns string[]。
+ * @returns 返回CsvEnv列表。
  */
 
 
@@ -148,10 +148,10 @@ function readCsvEnv(names: string[], fallback: string[] = []): string[] {
     .filter(Boolean);
 }
 /**
- * readBooleanEnv：执行核心业务逻辑。
+ * readBooleanEnv：读取BooleanEnv并返回结果。
  * @param names string[] 参数说明。
  * @param fallback boolean 参数说明。
- * @returns boolean。
+ * @returns 返回是否满足BooleanEnv条件。
  */
 
 

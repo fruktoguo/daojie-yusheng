@@ -27,32 +27,32 @@ const SUGGESTION_EDITABLE_FIELD_IDS = new Set<SuggestionEditableFieldId>([
 /** SuggestionRenderState：建议面板滚动与选区状态。 */
 type SuggestionRenderState = {
 /**
- * focusedFieldId：对象字段。
+ * focusedFieldId：focusedFieldID标识。
  */
 
   focusedFieldId: SuggestionEditableFieldId | null;  
   /**
- * selectionStart：对象字段。
+ * selectionStart：selectionStart相关字段。
  */
 
   selectionStart: number | null;  
   /**
- * selectionEnd：对象字段。
+ * selectionEnd：selectionEnd相关字段。
  */
 
   selectionEnd: number | null;  
   /**
- * fieldScrollTop：对象字段。
+ * fieldScrollTop：fieldScrollTop相关字段。
  */
 
   fieldScrollTop: number;  
   /**
- * listScrollTop：对象字段。
+ * listScrollTop：ScrollTop相关字段。
  */
 
   listScrollTop: number;  
   /**
- * threadScrollTop：对象字段。
+ * threadScrollTop：threadScrollTop相关字段。
  */
 
   threadScrollTop: number;
@@ -61,22 +61,22 @@ type SuggestionRenderState = {
 /** SuggestionPageData：建议分页视图数据。 */
 type SuggestionPageData = {
 /**
- * items：对象字段。
+ * items：集合字段。
  */
 
   items: Suggestion[];  
   /**
- * total：对象字段。
+ * total：数量或计量字段。
  */
 
   total: number;  
   /**
- * page：对象字段。
+ * page：page相关字段。
  */
 
   page: number;  
   /**
- * totalPages：对象字段。
+ * totalPages：totalPage相关字段。
  */
 
   totalPages: number;
@@ -85,7 +85,7 @@ type SuggestionPageData = {
 /** SuggestionModalMeta：建议弹窗标题元数据。 */
 type SuggestionModalMeta = {
 /**
- * subtitle：对象字段。
+ * subtitle：subtitle名称或显示文本。
  */
 
   subtitle: string;
@@ -130,7 +130,7 @@ export class SuggestionPanel {
       | 'sendMarkSuggestionRepliesRead'
     > 参数说明。
  * @param isConnected () => boolean 参数说明。
- * @returns 无返回值（构造函数）。
+ * @returns 无返回值，完成实例初始化。
  */
 
 
@@ -848,22 +848,22 @@ export class SuggestionPanel {
   /** getPagedSuggestions：读取Paged Suggestions。 */
   private getPagedSuggestions(tab: SuggestionListTab): {  
   /**
- * items：SuggestionPanel 内部字段。
+ * items：集合字段。
  */
 
     items: Suggestion[];    
     /**
- * total：SuggestionPanel 内部字段。
+ * total：数量或计量字段。
  */
 
     total: number;    
     /**
- * page：SuggestionPanel 内部字段。
+ * page：page相关字段。
  */
 
     page: number;    
     /**
- * totalPages：SuggestionPanel 内部字段。
+ * totalPages：totalPage相关字段。
  */
 
     totalPages: number;

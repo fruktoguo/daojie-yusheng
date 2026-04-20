@@ -32,23 +32,23 @@ const MARKET_STORAGE_SCOPE = 'server_next_market_storage_v1';
 /** 坊市持久化服务：管理订单、交易历史和仓库数据的持久化一致性。 */
 let MarketPersistenceService = MarketPersistenceService_1 = class MarketPersistenceService {
 /**
- * logger：对象字段。
+ * logger：日志器引用。
  */
 
     logger = new common_1.Logger(MarketPersistenceService_1.name);    
     /**
- * pool：对象字段。
+ * pool：缓存或索引容器。
  */
 
     pool = null;    
     /**
- * enabled：对象字段。
+ * enabled：启用开关或状态标识。
  */
 
     enabled = false;    
     /**
- * onModuleInit：执行核心业务逻辑。
- * @returns 函数返回值。
+ * onModuleInit：执行on模块Init相关逻辑。
+ * @returns 无返回值，直接更新on模块Init相关状态。
  */
 
     async onModuleInit() {
@@ -74,8 +74,8 @@ let MarketPersistenceService = MarketPersistenceService_1 = class MarketPersiste
         }
     }    
     /**
- * onModuleDestroy：执行核心业务逻辑。
- * @returns 函数返回值。
+ * onModuleDestroy：执行on模块Destroy相关逻辑。
+ * @returns 无返回值，直接更新on模块Destroy相关状态。
  */
 
     async onModuleDestroy() {
@@ -97,8 +97,8 @@ let MarketPersistenceService = MarketPersistenceService_1 = class MarketPersiste
             .sort((left, right) => left.createdAt - right.createdAt || left.id.localeCompare(right.id));
     }    
     /**
- * loadTradeHistory：按给定条件读取/查询数据。
- * @returns 函数返回值。
+ * loadTradeHistory：读取Trade历史并返回结果。
+ * @returns 无返回值，完成TradeHistory的读取/组装。
  */
 
     async loadTradeHistory() {
@@ -110,8 +110,8 @@ let MarketPersistenceService = MarketPersistenceService_1 = class MarketPersiste
             .sort((left, right) => right.createdAt - left.createdAt || left.id.localeCompare(right.id));
     }    
     /**
- * loadStorages：按给定条件读取/查询数据。
- * @returns 函数返回值。
+ * loadStorages：读取Storage并返回结果。
+ * @returns 无返回值，完成Storage的读取/组装。
  */
 
     async loadStorages() {
@@ -126,9 +126,9 @@ let MarketPersistenceService = MarketPersistenceService_1 = class MarketPersiste
             .sort((left, right) => left.playerId.localeCompare(right.playerId, 'zh-Hans-CN'));
     }    
     /**
- * persistMutation：执行核心业务逻辑。
+ * persistMutation：判断persistMutation是否满足条件。
  * @param input 输入参数。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新persistMutation相关状态。
  */
 
     async persistMutation(input) {
@@ -167,11 +167,11 @@ let MarketPersistenceService = MarketPersistenceService_1 = class MarketPersiste
         return result.rows;
     }    
     /**
- * persistOrders：执行核心业务逻辑。
+ * persistOrders：判断persist订单是否满足条件。
  * @param client 参数说明。
  * @param upserts 参数说明。
  * @param deletions 参数说明。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新persist订单相关状态。
  */
 
     async persistOrders(client, upserts, deletions) {
@@ -190,11 +190,11 @@ let MarketPersistenceService = MarketPersistenceService_1 = class MarketPersiste
         }
     }    
     /**
- * persistStorages：执行核心业务逻辑。
+ * persistStorages：判断persistStorage是否满足条件。
  * @param client 参数说明。
  * @param upserts 参数说明。
  * @param deletions 参数说明。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新persistStorage相关状态。
  */
 
     async persistStorages(client, upserts, deletions) {
@@ -213,10 +213,10 @@ let MarketPersistenceService = MarketPersistenceService_1 = class MarketPersiste
         }
     }    
     /**
- * persistTrades：执行核心业务逻辑。
+ * persistTrades：判断persistTrade是否满足条件。
  * @param client 参数说明。
  * @param trades 参数说明。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新persistTrade相关状态。
  */
 
     async persistTrades(client, trades) {
@@ -230,8 +230,8 @@ let MarketPersistenceService = MarketPersistenceService_1 = class MarketPersiste
         }
     }    
     /**
- * safeClosePool：执行核心业务逻辑。
- * @returns 函数返回值。
+ * safeClosePool：执行safeClosePool相关逻辑。
+ * @returns 无返回值，直接更新safeClosePool相关状态。
  */
 
     async safeClosePool() {
@@ -251,9 +251,9 @@ exports.MarketPersistenceService = MarketPersistenceService = MarketPersistenceS
     (0, common_1.Injectable)()
 ], MarketPersistenceService);
 /**
- * normalizeMarketOrder：执行核心业务逻辑。
+ * normalizeMarketOrder：规范化或转换坊市订单。
  * @param raw 参数说明。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新坊市订单相关状态。
  */
 
 function normalizeMarketOrder(raw) {
@@ -293,9 +293,9 @@ function normalizeMarketOrder(raw) {
 }
 export { MarketPersistenceService };
 /**
- * normalizeTradeRecord：执行核心业务逻辑。
+ * normalizeTradeRecord：规范化或转换TradeRecord。
  * @param raw 参数说明。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新TradeRecord相关状态。
  */
 
 function normalizeTradeRecord(raw) {
@@ -325,9 +325,9 @@ function normalizeTradeRecord(raw) {
     };
 }
 /**
- * normalizeUnitPrice：执行核心业务逻辑。
+ * normalizeUnitPrice：规范化或转换Unit价格。
  * @param value 参数说明。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新Unit价格相关状态。
  */
 
 function normalizeUnitPrice(value) {
@@ -341,9 +341,9 @@ function normalizeUnitPrice(value) {
     return unitPrice;
 }
 /**
- * normalizeStorage：执行核心业务逻辑。
+ * normalizeStorage：规范化或转换Storage。
  * @param raw 参数说明。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新Storage相关状态。
  */
 
 function normalizeStorage(raw) {

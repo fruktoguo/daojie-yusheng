@@ -4,32 +4,32 @@ import type { MapSafeAreaInsets } from '../types';
 /** 摄像机状态快照。 */
 export interface CameraState {
 /**
- * x：CameraState 内部字段。
+ * x：x相关字段。
  */
 
   x: number;  
   /**
- * y：CameraState 内部字段。
+ * y：y相关字段。
  */
 
   y: number;  
   /**
- * targetX：CameraState 内部字段。
+ * targetX：目标X相关字段。
  */
 
   targetX: number;  
   /**
- * targetY：CameraState 内部字段。
+ * targetY：目标Y相关字段。
  */
 
   targetY: number;  
   /**
- * offsetX：CameraState 内部字段。
+ * offsetX：offsetX相关字段。
  */
 
   offsetX: number;  
   /**
- * offsetY：CameraState 内部字段。
+ * offsetY：offsetY相关字段。
  */
 
   offsetY: number;
@@ -38,7 +38,7 @@ export interface CameraState {
 /** 摄像机控制器，负责平滑跟随与偏移。 */
 export class CameraController {
 /**
- * state：CameraController 内部字段。
+ * state：状态状态或数据块。
  */
 
   private state: CameraState = {

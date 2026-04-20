@@ -11,12 +11,12 @@ type InlineItemChipTone = 'reward' | 'required' | 'material' | 'monster' | 'defa
 /** InlineItemMention：内嵌物品提及项。 */
 interface InlineItemMention {
 /**
- * itemId：InlineItemMention 内部字段。
+ * itemId：道具ID标识。
  */
 
   itemId: string;  
   /**
- * name：InlineItemMention 内部字段。
+ * name：名称名称或显示文本。
  */
 
   name: string;
@@ -25,17 +25,17 @@ interface InlineItemMention {
 /** 渲染内嵌物品标签时可覆盖的显示参数。 */
 interface RenderInlineItemChipOptions {
 /**
- * count：RenderInlineItemChipOptions 内部字段。
+ * count：数量或计量字段。
  */
 
   count?: number;  
   /**
- * label：RenderInlineItemChipOptions 内部字段。
+ * label：label名称或显示文本。
  */
 
   label?: string;  
   /**
- * tone：RenderInlineItemChipOptions 内部字段。
+ * tone：tone相关字段。
  */
 
   tone?: InlineItemChipTone;
@@ -197,7 +197,7 @@ export function renderInlineItemChip(itemId: string, options?: RenderInlineItemC
 /** renderInlineMonsterChip：渲染Inline妖兽Chip。 */
 export function renderInlineMonsterChip(monsterId: string, options?: {
 /**
- * label：对象字段。
+ * label：label名称或显示文本。
  */
  label?: string }): string {
   const location = getMonsterLocationEntry(monsterId);

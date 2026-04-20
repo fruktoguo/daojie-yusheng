@@ -14,87 +14,87 @@ import type { NumericRatioDivisors, NumericStatBreakdownMap, NumericStats } from
 /** 属性面板低频更新视图。 */
 export interface AttrUpdateView {
 /**
- * baseAttrs：AttrUpdateView 内部字段。
+ * baseAttrs：baseAttr相关字段。
  */
 
   baseAttrs?: Attributes;  
   /**
- * bonuses：AttrUpdateView 内部字段。
+ * bonuses：bonuse相关字段。
  */
 
   bonuses?: AttrBonus[];  
   /**
- * finalAttrs：AttrUpdateView 内部字段。
+ * finalAttrs：finalAttr相关字段。
  */
 
   finalAttrs?: Attributes;  
   /**
- * numericStats：AttrUpdateView 内部字段。
+ * numericStats：numericStat相关字段。
  */
 
   numericStats?: NumericStats;  
   /**
- * ratioDivisors：AttrUpdateView 内部字段。
+ * ratioDivisors：ratioDivisor相关字段。
  */
 
   ratioDivisors?: NumericRatioDivisors;  
   /**
- * maxHp：AttrUpdateView 内部字段。
+ * maxHp：maxHp相关字段。
  */
 
   maxHp?: number;  
   /**
- * qi：AttrUpdateView 内部字段。
+ * qi：qi相关字段。
  */
 
   qi?: number;  
   /**
- * specialStats：AttrUpdateView 内部字段。
+ * specialStats：specialStat相关字段。
  */
 
   specialStats?: PlayerSpecialStats;  
   /**
- * boneAgeBaseYears：AttrUpdateView 内部字段。
+ * boneAgeBaseYears：boneAgeBaseYear相关字段。
  */
 
   boneAgeBaseYears?: number;  
   /**
- * lifeElapsedTicks：AttrUpdateView 内部字段。
+ * lifeElapsedTicks：lifeElapsedtick相关字段。
  */
 
   lifeElapsedTicks?: number;  
   /**
- * lifespanYears：AttrUpdateView 内部字段。
+ * lifespanYears：lifespanYear相关字段。
  */
 
   lifespanYears?: number | null;  
   /**
- * realmProgress：AttrUpdateView 内部字段。
+ * realmProgress：realm进度状态或数据块。
  */
 
   realmProgress?: number;  
   /**
- * realmProgressToNext：AttrUpdateView 内部字段。
+ * realmProgressToNext：realm进度ToNext相关字段。
  */
 
   realmProgressToNext?: number;  
   /**
- * realmBreakthroughReady：AttrUpdateView 内部字段。
+ * realmBreakthroughReady：realmBreakthroughReady相关字段。
  */
 
   realmBreakthroughReady?: boolean;  
   /**
- * alchemySkill：AttrUpdateView 内部字段。
+ * alchemySkill：炼丹技能相关字段。
  */
 
   alchemySkill?: PlayerState['alchemySkill'];  
   /**
- * gatherSkill：AttrUpdateView 内部字段。
+ * gatherSkill：gather技能相关字段。
  */
 
   gatherSkill?: PlayerState['gatherSkill'];  
   /**
- * enhancementSkill：AttrUpdateView 内部字段。
+ * enhancementSkill：强化技能相关字段。
  */
 
   enhancementSkill?: PlayerState['enhancementSkill'];
@@ -103,67 +103,67 @@ export interface AttrUpdateView {
 /** 功法面板局部更新项。 */
 export interface TechniqueUpdateEntryView {
 /**
- * techId：TechniqueUpdateEntryView 内部字段。
+ * techId：techID标识。
  */
 
   techId: string;  
   /**
- * level：TechniqueUpdateEntryView 内部字段。
+ * level：等级数值。
  */
 
   level?: number;  
   /**
- * exp：TechniqueUpdateEntryView 内部字段。
+ * exp：exp相关字段。
  */
 
   exp?: number;  
   /**
- * expToNext：TechniqueUpdateEntryView 内部字段。
+ * expToNext：expToNext相关字段。
  */
 
   expToNext?: number;  
   /**
- * realmLv：TechniqueUpdateEntryView 内部字段。
+ * realmLv：realmLv相关字段。
  */
 
   realmLv?: number;  
   /**
- * realm：TechniqueUpdateEntryView 内部字段。
+ * realm：realm相关字段。
  */
 
   realm?: TechniqueRealm;  
   /**
- * skillsEnabled：TechniqueUpdateEntryView 内部字段。
+ * skillsEnabled：启用开关或状态标识。
  */
 
   skillsEnabled?: boolean | null;  
   /**
- * name：TechniqueUpdateEntryView 内部字段。
+ * name：名称名称或显示文本。
  */
 
   name?: string | null;  
   /**
- * grade：TechniqueUpdateEntryView 内部字段。
+ * grade：grade相关字段。
  */
 
   grade?: TechniqueGrade | null;  
   /**
- * category：TechniqueUpdateEntryView 内部字段。
+ * category：category相关字段。
  */
 
   category?: TechniqueCategory | null;  
   /**
- * skills：TechniqueUpdateEntryView 内部字段。
+ * skills：技能相关字段。
  */
 
   skills?: SkillDef[] | null;  
   /**
- * layers：TechniqueUpdateEntryView 内部字段。
+ * layers：层相关字段。
  */
 
   layers?: TechniqueLayerDef[] | null;  
   /**
- * attrCurves：TechniqueUpdateEntryView 内部字段。
+ * attrCurves：attrCurve相关字段。
  */
 
   attrCurves?: TechniqueState['attrCurves'] | null;
@@ -172,57 +172,57 @@ export interface TechniqueUpdateEntryView {
 /** 行动面板局部更新项。 */
 export interface ActionUpdateEntryView {
 /**
- * id：ActionUpdateEntryView 内部字段。
+ * id：ID标识。
  */
 
   id: string;  
   /**
- * cooldownLeft：ActionUpdateEntryView 内部字段。
+ * cooldownLeft：冷却Left相关字段。
  */
 
   cooldownLeft?: number;  
   /**
- * autoBattleEnabled：ActionUpdateEntryView 内部字段。
+ * autoBattleEnabled：启用开关或状态标识。
  */
 
   autoBattleEnabled?: boolean | null;  
   /**
- * autoBattleOrder：ActionUpdateEntryView 内部字段。
+ * autoBattleOrder：autoBattle订单相关字段。
  */
 
   autoBattleOrder?: number | null;  
   /**
- * skillEnabled：ActionUpdateEntryView 内部字段。
+ * skillEnabled：启用开关或状态标识。
  */
 
   skillEnabled?: boolean | null;  
   /**
- * name：ActionUpdateEntryView 内部字段。
+ * name：名称名称或显示文本。
  */
 
   name?: string | null;  
   /**
- * type：ActionUpdateEntryView 内部字段。
+ * type：type相关字段。
  */
 
   type?: ActionType | null;  
   /**
- * desc：ActionUpdateEntryView 内部字段。
+ * desc：desc相关字段。
  */
 
   desc?: string | null;  
   /**
- * range：ActionUpdateEntryView 内部字段。
+ * range：范围相关字段。
  */
 
   range?: number | null;  
   /**
- * requiresTarget：ActionUpdateEntryView 内部字段。
+ * requiresTarget：require目标相关字段。
  */
 
   requiresTarget?: boolean | null;  
   /**
- * targetMode：ActionUpdateEntryView 内部字段。
+ * targetMode：目标Mode相关字段。
  */
 
   targetMode?: 'any' | 'entity' | 'tile' | null;
@@ -231,22 +231,22 @@ export interface ActionUpdateEntryView {
 /** 属性面板增量视图。 */
 export interface PanelAttrDeltaView extends AttrUpdateView {
 /**
- * r：PanelAttrDeltaView 内部字段。
+ * r：r相关字段。
  */
 
   r: number;  
   /**
- * full：PanelAttrDeltaView 内部字段。
+ * full：full相关字段。
  */
 
   full?: 1;  
   /**
- * stage：PanelAttrDeltaView 内部字段。
+ * stage：stage相关字段。
  */
 
   stage?: PlayerRealmStage;  
   /**
- * numericStatBreakdowns：PanelAttrDeltaView 内部字段。
+ * numericStatBreakdowns：numericStatBreakdown相关字段。
  */
 
   numericStatBreakdowns?: NumericStatBreakdownMap;
@@ -255,22 +255,22 @@ export interface PanelAttrDeltaView extends AttrUpdateView {
 /** 功法面板更新视图。 */
 export interface TechniqueUpdateView {
 /**
- * techniques：TechniqueUpdateView 内部字段。
+ * techniques：功法相关字段。
  */
 
   techniques: TechniqueUpdateEntryView[];  
   /**
- * removeTechniqueIds：TechniqueUpdateView 内部字段。
+ * removeTechniqueIds：remove功法ID相关字段。
  */
 
   removeTechniqueIds?: string[];  
   /**
- * cultivatingTechId：TechniqueUpdateView 内部字段。
+ * cultivatingTechId：cultivatingTechID标识。
  */
 
   cultivatingTechId?: string | null;  
   /**
- * bodyTraining：TechniqueUpdateView 内部字段。
+ * bodyTraining：bodyTraining相关字段。
  */
 
   bodyTraining?: BodyTrainingState | null;
@@ -279,67 +279,67 @@ export interface TechniqueUpdateView {
 /** 行动面板更新视图。 */
 export interface ActionsUpdateView {
 /**
- * actions：ActionsUpdateView 内部字段。
+ * actions：action相关字段。
  */
 
   actions: ActionUpdateEntryView[];  
   /**
- * removeActionIds：ActionsUpdateView 内部字段。
+ * removeActionIds：removeActionID相关字段。
  */
 
   removeActionIds?: string[];  
   /**
- * actionOrder：ActionsUpdateView 内部字段。
+ * actionOrder：action订单相关字段。
  */
 
   actionOrder?: string[];  
   /**
- * autoBattle：ActionsUpdateView 内部字段。
+ * autoBattle：autoBattle相关字段。
  */
 
   autoBattle?: boolean;  
   /**
- * combatTargetId：ActionsUpdateView 内部字段。
+ * combatTargetId：战斗目标ID标识。
  */
 
   combatTargetId?: string | null;  
   /**
- * combatTargetLocked：ActionsUpdateView 内部字段。
+ * combatTargetLocked：战斗目标Locked相关字段。
  */
 
   combatTargetLocked?: boolean;  
   /**
- * autoRetaliate：ActionsUpdateView 内部字段。
+ * autoRetaliate：autoRetaliate相关字段。
  */
 
   autoRetaliate?: boolean;  
   /**
- * autoBattleStationary：ActionsUpdateView 内部字段。
+ * autoBattleStationary：autoBattleStationary相关字段。
  */
 
   autoBattleStationary?: boolean;  
   /**
- * allowAoePlayerHit：ActionsUpdateView 内部字段。
+ * allowAoePlayerHit：allowAoe玩家Hit相关字段。
  */
 
   allowAoePlayerHit?: boolean;  
   /**
- * autoIdleCultivation：ActionsUpdateView 内部字段。
+ * autoIdleCultivation：autoIdleCultivation相关字段。
  */
 
   autoIdleCultivation?: boolean;  
   /**
- * autoSwitchCultivation：ActionsUpdateView 内部字段。
+ * autoSwitchCultivation：autoSwitchCultivation相关字段。
  */
 
   autoSwitchCultivation?: boolean;  
   /**
- * cultivationActive：ActionsUpdateView 内部字段。
+ * cultivationActive：cultivation激活状态相关字段。
  */
 
   cultivationActive?: boolean;  
   /**
- * senseQiActive：ActionsUpdateView 内部字段。
+ * senseQiActive：senseQi激活状态相关字段。
  */
 
   senseQiActive?: boolean;
@@ -348,32 +348,32 @@ export interface ActionsUpdateView {
 /** 功法面板增量视图。 */
 export interface PanelTechniqueDeltaView {
 /**
- * r：PanelTechniqueDeltaView 内部字段。
+ * r：r相关字段。
  */
 
   r: number;  
   /**
- * full：PanelTechniqueDeltaView 内部字段。
+ * full：full相关字段。
  */
 
   full?: 1;  
   /**
- * techniques：PanelTechniqueDeltaView 内部字段。
+ * techniques：功法相关字段。
  */
 
   techniques?: TechniqueUpdateEntryView[];  
   /**
- * removeTechniqueIds：PanelTechniqueDeltaView 内部字段。
+ * removeTechniqueIds：remove功法ID相关字段。
  */
 
   removeTechniqueIds?: string[];  
   /**
- * cultivatingTechId：PanelTechniqueDeltaView 内部字段。
+ * cultivatingTechId：cultivatingTechID标识。
  */
 
   cultivatingTechId?: string | null;  
   /**
- * bodyTraining：PanelTechniqueDeltaView 内部字段。
+ * bodyTraining：bodyTraining相关字段。
  */
 
   bodyTraining?: BodyTrainingState | null;
@@ -382,92 +382,92 @@ export interface PanelTechniqueDeltaView {
 /** 行动面板增量视图。 */
 export interface PanelActionDeltaView {
 /**
- * r：PanelActionDeltaView 内部字段。
+ * r：r相关字段。
  */
 
   r: number;  
   /**
- * full：PanelActionDeltaView 内部字段。
+ * full：full相关字段。
  */
 
   full?: 1;  
   /**
- * actions：PanelActionDeltaView 内部字段。
+ * actions：action相关字段。
  */
 
   actions?: ActionUpdateEntryView[];  
   /**
- * removeActionIds：PanelActionDeltaView 内部字段。
+ * removeActionIds：removeActionID相关字段。
  */
 
   removeActionIds?: string[];  
   /**
- * actionOrder：PanelActionDeltaView 内部字段。
+ * actionOrder：action订单相关字段。
  */
 
   actionOrder?: string[];  
   /**
- * autoBattle：PanelActionDeltaView 内部字段。
+ * autoBattle：autoBattle相关字段。
  */
 
   autoBattle?: boolean;  
   /**
- * autoUsePills：PanelActionDeltaView 内部字段。
+ * autoUsePills：autoUsePill相关字段。
  */
 
   autoUsePills?: AutoUsePillConfig[];  
   /**
- * combatTargetingRules：PanelActionDeltaView 内部字段。
+ * combatTargetingRules：战斗TargetingRule相关字段。
  */
 
   combatTargetingRules?: CombatTargetingRules;  
   /**
- * autoBattleTargetingMode：PanelActionDeltaView 内部字段。
+ * autoBattleTargetingMode：autoBattleTargetingMode相关字段。
  */
 
   autoBattleTargetingMode?: AutoBattleTargetingMode;  
   /**
- * combatTargetId：PanelActionDeltaView 内部字段。
+ * combatTargetId：战斗目标ID标识。
  */
 
   combatTargetId?: string | null;  
   /**
- * combatTargetLocked：PanelActionDeltaView 内部字段。
+ * combatTargetLocked：战斗目标Locked相关字段。
  */
 
   combatTargetLocked?: boolean;  
   /**
- * autoRetaliate：PanelActionDeltaView 内部字段。
+ * autoRetaliate：autoRetaliate相关字段。
  */
 
   autoRetaliate?: boolean;  
   /**
- * autoBattleStationary：PanelActionDeltaView 内部字段。
+ * autoBattleStationary：autoBattleStationary相关字段。
  */
 
   autoBattleStationary?: boolean;  
   /**
- * allowAoePlayerHit：PanelActionDeltaView 内部字段。
+ * allowAoePlayerHit：allowAoe玩家Hit相关字段。
  */
 
   allowAoePlayerHit?: boolean;  
   /**
- * autoIdleCultivation：PanelActionDeltaView 内部字段。
+ * autoIdleCultivation：autoIdleCultivation相关字段。
  */
 
   autoIdleCultivation?: boolean;  
   /**
- * autoSwitchCultivation：PanelActionDeltaView 内部字段。
+ * autoSwitchCultivation：autoSwitchCultivation相关字段。
  */
 
   autoSwitchCultivation?: boolean;  
   /**
- * cultivationActive：PanelActionDeltaView 内部字段。
+ * cultivationActive：cultivation激活状态相关字段。
  */
 
   cultivationActive?: boolean;  
   /**
- * senseQiActive：PanelActionDeltaView 内部字段。
+ * senseQiActive：senseQi激活状态相关字段。
  */
 
   senseQiActive?: boolean;
@@ -476,22 +476,22 @@ export interface PanelActionDeltaView {
 /** Buff 面板增量视图。 */
 export interface PanelBuffDeltaView {
 /**
- * r：PanelBuffDeltaView 内部字段。
+ * r：r相关字段。
  */
 
   r: number;  
   /**
- * full：PanelBuffDeltaView 内部字段。
+ * full：full相关字段。
  */
 
   full?: 1;  
   /**
- * buffs：PanelBuffDeltaView 内部字段。
+ * buffs：buff相关字段。
  */
 
   buffs?: VisibleBuffState[];  
   /**
- * removeBuffIds：PanelBuffDeltaView 内部字段。
+ * removeBuffIds：removeBuffID相关字段。
  */
 
   removeBuffIds?: string[];

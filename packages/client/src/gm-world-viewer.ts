@@ -88,7 +88,7 @@ export class GmWorldViewer {
   /** runtimeData：运行时数据。 */
   private runtimeData: GmMapRuntimeRes | null = null;  
   /**
- * viewX：GmWorldViewer 内部字段。
+ * viewX：视图X相关字段。
  */
 
 
@@ -97,24 +97,24 @@ export class GmWorldViewer {
   /** viewY：视图Y。 */
   private viewY = 0;  
   /**
- * selectedCell：GmWorldViewer 内部字段。
+ * selectedCell：selectedCell相关字段。
  */
 
 
   // 选中状态
   private selectedCell: {  
   /**
- * x：GmWorldViewer 内部字段。
+ * x：x相关字段。
  */
  x: number;  
  /**
- * y：GmWorldViewer 内部字段。
+ * y：y相关字段。
  */
  y: number } | null = null;
   /** selectedEntity：selected实体。 */
   private selectedEntity: GmRuntimeEntity | null = null;  
   /**
- * isDragging：GmWorldViewer 内部字段。
+ * isDragging：启用开关或状态标识。
  */
 
 
@@ -149,7 +149,7 @@ export class GmWorldViewer {
  * 构造器：初始化 当前 实例并建立基础状态。
  * @param request RequestFn 请求参数。
  * @param setStatus StatusFn 参数说明。
- * @returns 无返回值（构造函数）。
+ * @returns 无返回值，完成实例初始化。
  */
 
 
@@ -242,8 +242,8 @@ export class GmWorldViewer {
     this.clearObservation();
   }  
   /**
- * startRaf：执行核心业务逻辑。
- * @returns void。
+ * startRaf：执行开始Raf相关逻辑。
+ * @returns 无返回值，直接更新startRaf相关状态。
  */
 
 
@@ -273,8 +273,8 @@ export class GmWorldViewer {
     }
   }  
   /**
- * loadRuntime：按给定条件读取/查询数据。
- * @returns Promise<void>。
+ * loadRuntime：读取运行态并返回结果。
+ * @returns 返回 Promise，完成后得到运行态。
  */
 
 
@@ -359,19 +359,19 @@ export class GmWorldViewer {
   /** getViewport：读取视口。 */
   private getViewport(): {  
   /**
- * startX：GmWorldViewer 内部字段。
+ * startX：startX相关字段。
  */
  startX: number;  
  /**
- * startY：GmWorldViewer 内部字段。
+ * startY：startY相关字段。
  */
  startY: number;  
  /**
- * w：GmWorldViewer 内部字段。
+ * w：w相关字段。
  */
  w: number;  
  /**
- * h：GmWorldViewer 内部字段。
+ * h：h相关字段。
  */
  h: number } {
     const cellSize = getCellSize();
@@ -403,8 +403,8 @@ export class GmWorldViewer {
     this.camera.snap(fakePlayer);
   }  
   /**
- * renderAll：执行核心业务逻辑。
- * @returns void。
+ * renderAll：执行All相关逻辑。
+ * @returns 无返回值，直接更新All相关状态。
  */
 
 
@@ -461,8 +461,8 @@ export class GmWorldViewer {
     }
   }  
   /**
- * bindEvents：执行核心业务逻辑。
- * @returns void。
+ * bindEvents：执行bind事件相关逻辑。
+ * @returns 无返回值，直接更新bind事件相关状态。
  */
 
 
@@ -476,7 +476,7 @@ export class GmWorldViewer {
     this.canvas.addEventListener('contextmenu', (e) => e.preventDefault());
   }  
   /**
- * handlePointerDown：GmWorldViewer 内部字段。
+ * handlePointerDown：handlePointerDown相关字段。
  */
 
 
@@ -499,7 +499,7 @@ export class GmWorldViewer {
     }
   };  
   /**
- * handlePointerMove：GmWorldViewer 内部字段。
+ * handlePointerMove：handlePointerMove相关字段。
  */
 
 
@@ -514,7 +514,7 @@ export class GmWorldViewer {
     // 拖动中只移动摄像机，不发请求
   };  
   /**
- * handlePointerUp：GmWorldViewer 内部字段。
+ * handlePointerUp：handlePointerUp相关字段。
  */
 
 
@@ -527,7 +527,7 @@ export class GmWorldViewer {
     }
   };  
   /**
- * handleWheel：GmWorldViewer 内部字段。
+ * handleWheel：handleWheel相关字段。
  */
 
 
@@ -542,7 +542,7 @@ export class GmWorldViewer {
     this.loadRuntime().then(() => this.renderAll()).catch(() => {});
   };  
   /**
- * handleResize：GmWorldViewer 内部字段。
+ * handleResize：数量或计量字段。
  */
 
 
@@ -554,11 +554,11 @@ export class GmWorldViewer {
   /** screenToWorld：处理屏幕To世界。 */
   private screenToWorld(sx: number, sy: number): {  
   /**
- * x：GmWorldViewer 内部字段。
+ * x：x相关字段。
  */
  x: number;  
  /**
- * y：GmWorldViewer 内部字段。
+ * y：y相关字段。
  */
  y: number } | null {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
@@ -598,8 +598,8 @@ export class GmWorldViewer {
     updateDisplayMetrics(rect.width, rect.height, GM_WORLD_VIEW_MAX);
   }  
   /**
- * renderMapList：执行核心业务逻辑。
- * @returns void。
+ * renderMapList：读取地图列表并返回结果。
+ * @returns 无返回值，直接更新地图列表相关状态。
  */
 
 
@@ -642,8 +642,8 @@ export class GmWorldViewer {
     this.mapListEl.replaceChildren(fragment);
   }  
   /**
- * captureTimeControlDraftState：执行核心业务逻辑。
- * @returns {
+ * captureTimeControlDraftState：执行capture时间ControlDraft状态相关逻辑。
+ * @returns 返回capture时间ControlDraft状态数值。
     focusedField: 'speed' | 'offset' | null;
     selectionStart: number | null;
     selectionEnd: number | null;
@@ -655,17 +655,17 @@ export class GmWorldViewer {
 
   private captureTimeControlDraftState(): {  
   /**
- * focusedField：GmWorldViewer 内部字段。
+ * focusedField：focusedField相关字段。
  */
 
     focusedField: 'speed' | 'offset' | null;    
     /**
- * selectionStart：GmWorldViewer 内部字段。
+ * selectionStart：selectionStart相关字段。
  */
 
     selectionStart: number | null;    
     /**
- * selectionEnd：GmWorldViewer 内部字段。
+ * selectionEnd：selectionEnd相关字段。
  */
 
     selectionEnd: number | null;
@@ -694,29 +694,29 @@ export class GmWorldViewer {
     };
   }  
   /**
- * restoreTimeControlFocus：执行核心业务逻辑。
+ * restoreTimeControlFocus：执行restore时间ControlFocu相关逻辑。
  * @param state {
     focusedField: 'speed' | 'offset' | null;
     selectionStart: number | null;
     selectionEnd: number | null;
   } 状态对象。
- * @returns void。
+ * @returns 无返回值，直接更新restore时间ControlFocu相关状态。
  */
 
 
   private restoreTimeControlFocus(state: {  
   /**
- * focusedField：GmWorldViewer 内部字段。
+ * focusedField：focusedField相关字段。
  */
 
     focusedField: 'speed' | 'offset' | null;    
     /**
- * selectionStart：GmWorldViewer 内部字段。
+ * selectionStart：selectionStart相关字段。
  */
 
     selectionStart: number | null;    
     /**
- * selectionEnd：GmWorldViewer 内部字段。
+ * selectionEnd：selectionEnd相关字段。
  */
 
     selectionEnd: number | null;
@@ -789,9 +789,9 @@ export class GmWorldViewer {
     this.restoreTimeControlFocus(previousControlState);
   }  
   /**
- * ensureTimeControlShell：执行核心业务逻辑。
+ * ensureTimeControlShell：执行ensure时间ControlShell相关逻辑。
  * @param speeds number[] 参数说明。
- * @returns void。
+ * @returns 无返回值，直接更新ensure时间ControlShell相关状态。
  */
 
 
@@ -861,8 +861,8 @@ export class GmWorldViewer {
     this.bindTimeControlEvents();
   }  
   /**
- * bindTimeControlEvents：执行核心业务逻辑。
- * @returns void。
+ * bindTimeControlEvents：执行bind时间Control事件相关逻辑。
+ * @returns 无返回值，直接更新bind时间Control事件相关状态。
  */
 
 
@@ -913,10 +913,10 @@ export class GmWorldViewer {
     });
   }  
   /**
- * syncTimeControlMetric：执行核心业务逻辑。
+ * syncTimeControlMetric：处理时间ControlMetric并更新相关状态。
  * @param key string 参数说明。
  * @param value string 参数说明。
- * @returns void。
+ * @returns 无返回值，直接更新时间ControlMetric相关状态。
  */
 
 
@@ -938,7 +938,7 @@ export class GmWorldViewer {
     try {
       await this.request<{      
       /**
- * ok：GmWorldViewer 内部字段。
+ * ok：ok相关字段。
  */
  ok: true }>(`${GM_API_BASE_PATH}/maps/${this.currentMapId}/tick`, {
         method: 'PUT',
@@ -962,7 +962,7 @@ export class GmWorldViewer {
     try {
       await this.request<{      
       /**
- * ok：GmWorldViewer 内部字段。
+ * ok：ok相关字段。
  */
  ok: true }>(`${GM_API_BASE_PATH}/maps/${this.currentMapId}/time`, {
         method: 'PUT',
@@ -985,7 +985,7 @@ export class GmWorldViewer {
     try {
       await this.request<{      
       /**
- * ok：GmWorldViewer 内部字段。
+ * ok：ok相关字段。
  */
  ok: true }>(`${GM_API_BASE_PATH}/tick-config/reload`, {
         method: 'POST',
@@ -1010,15 +1010,15 @@ export class GmWorldViewer {
     this.observationRegistered = false;
     void this.request<{    
     /**
- * ok：GmWorldViewer 内部字段。
+ * ok：ok相关字段。
  */
  ok: true }>(`${GM_API_BASE_PATH}/world-observers/${encodeURIComponent(this.viewerId)}`, {
       method: 'DELETE',
     }).catch(() => {});
   }  
   /**
- * renderInfo：执行核心业务逻辑。
- * @returns void。
+ * renderInfo：执行Info相关逻辑。
+ * @returns 无返回值，直接更新Info相关状态。
  */
 
 
@@ -1104,8 +1104,8 @@ export class GmWorldViewer {
     }
   }  
   /**
- * ensureInfoShell：执行核心业务逻辑。
- * @returns void。
+ * ensureInfoShell：执行ensureInfoShell相关逻辑。
+ * @returns 无返回值，直接更新ensureInfoShell相关状态。
  */
 
 
@@ -1124,10 +1124,10 @@ export class GmWorldViewer {
     `));
   }  
   /**
- * syncInfoSection：执行核心业务逻辑。
+ * syncInfoSection：处理InfoSection并更新相关状态。
  * @param section 'map' | 'cell' | 'entity' 参数说明。
  * @param html string 参数说明。
- * @returns void。
+ * @returns 无返回值，直接更新InfoSection相关状态。
  */
 
 

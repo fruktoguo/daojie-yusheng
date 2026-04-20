@@ -23,9 +23,9 @@ type ServerUrlEnvSource = 'SERVER_NEXT_URL';
 
 type ShadowUrlEnvSource = 'SERVER_NEXT_SHADOW_URL' | 'SERVER_NEXT_URL';
 /**
- * readTrimmedEnv：执行核心业务逻辑。
+ * readTrimmedEnv：读取TrimmedEnv并返回结果。
  * @param names string[] 参数说明。
- * @returns string。
+ * @returns 返回TrimmedEnv。
  */
 
 
@@ -47,8 +47,8 @@ export function readTrimmedEnv(...names: string[]): string {
   return '';
 }
 /**
- * resolveServerNextDatabaseEnvSource：执行核心业务逻辑。
- * @returns DatabaseEnvSource | null。
+ * resolveServerNextDatabaseEnvSource：规范化或转换ServerNextDatabaseEnv来源。
+ * @returns 返回ServerNextDatabaseEnv来源。
  */
 
 
@@ -66,8 +66,8 @@ export function resolveServerNextDatabaseEnvSource(): DatabaseEnvSource | null {
   return null;
 }
 /**
- * resolveServerNextDatabaseUrl：执行核心业务逻辑。
- * @returns string。
+ * resolveServerNextDatabaseUrl：规范化或转换ServerNextDatabaseUrl。
+ * @returns 返回ServerNextDatabaseUrl。
  */
 
 
@@ -75,8 +75,8 @@ export function resolveServerNextDatabaseUrl(): string {
   return readTrimmedEnv('SERVER_NEXT_DATABASE_URL', 'DATABASE_URL');
 }
 /**
- * resolveServerNextGmPasswordEnvSource：执行核心业务逻辑。
- * @returns GmPasswordEnvSource | null。
+ * resolveServerNextGmPasswordEnvSource：规范化或转换ServerNextGMPasswordEnv来源。
+ * @returns 返回ServerNextGMPasswordEnv来源。
  */
 
 
@@ -94,9 +94,9 @@ export function resolveServerNextGmPasswordEnvSource(): GmPasswordEnvSource | nu
   return null;
 }
 /**
- * resolveServerNextGmPassword：执行核心业务逻辑。
+ * resolveServerNextGmPassword：规范化或转换ServerNextGMPassword。
  * @param defaultValue 参数说明。
- * @returns string。
+ * @returns 返回ServerNextGMPassword。
  */
 
 
@@ -104,8 +104,8 @@ export function resolveServerNextGmPassword(defaultValue = ''): string {
   return readTrimmedEnv('SERVER_NEXT_GM_PASSWORD', 'GM_PASSWORD') || defaultValue;
 }
 /**
- * resolveServerNextUrlEnvSource：执行核心业务逻辑。
- * @returns ServerUrlEnvSource | null。
+ * resolveServerNextUrlEnvSource：规范化或转换ServerNextUrlEnv来源。
+ * @returns 返回ServerNextUrlEnv来源。
  */
 
 
@@ -119,8 +119,8 @@ export function resolveServerNextUrlEnvSource(): ServerUrlEnvSource | null {
   return null;
 }
 /**
- * resolveServerNextUrl：执行核心业务逻辑。
- * @returns string。
+ * resolveServerNextUrl：规范化或转换ServerNextUrl。
+ * @returns 返回ServerNextUrl。
  */
 
 
@@ -128,8 +128,8 @@ export function resolveServerNextUrl(): string {
   return readTrimmedEnv('SERVER_NEXT_URL');
 }
 /**
- * resolveServerNextShadowUrlEnvSource：执行核心业务逻辑。
- * @returns ShadowUrlEnvSource | null。
+ * resolveServerNextShadowUrlEnvSource：规范化或转换ServerNextShadowUrlEnv来源。
+ * @returns 返回ServerNextShadowUrlEnv来源。
  */
 
 
@@ -147,8 +147,8 @@ export function resolveServerNextShadowUrlEnvSource(): ShadowUrlEnvSource | null
   return null;
 }
 /**
- * resolveServerNextShadowUrl：执行核心业务逻辑。
- * @returns string。
+ * resolveServerNextShadowUrl：规范化或转换ServerNextShadowUrl。
+ * @returns 返回ServerNextShadowUrl。
  */
 
 

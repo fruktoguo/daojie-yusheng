@@ -7,165 +7,165 @@ import type { SocketManager } from './network/socket';
 
 type MainLowFrequencySocketBindingsOptions = {
 /**
- * socket：对象字段。
+ * socket：socket相关字段。
  */
 
   socket: Pick<SocketManager, 'on' | 'onKick' | 'onConnectError' | 'onDisconnect'>;  
   /**
- * onLootWindowUpdate：对象字段。
+ * onLootWindowUpdate：on掉落窗口Update相关字段。
  */
 
   onLootWindowUpdate: (data: NEXT_S2C_EventPayload<typeof NEXT_S2C.LootWindowUpdate>) => void;  
   /**
- * onTileDetail：对象字段。
+ * onTileDetail：onTile详情状态或数据块。
  */
 
   onTileDetail: (data: NEXT_S2C_EventPayload<typeof NEXT_S2C.TileDetail>) => void;  
   /**
- * onDetail：对象字段。
+ * onDetail：on详情状态或数据块。
  */
 
   onDetail: (data: NEXT_S2C_EventPayload<typeof NEXT_S2C.Detail>) => void;  
   /**
- * onAttrDetail：对象字段。
+ * onAttrDetail：onAttr详情状态或数据块。
  */
 
   onAttrDetail: (data: NEXT_S2C_EventPayload<typeof NEXT_S2C.AttrDetail>) => void;  
   /**
- * onAlchemyPanel：对象字段。
+ * onAlchemyPanel：on炼丹面板相关字段。
  */
 
   onAlchemyPanel: (data: NEXT_S2C_EventPayload<typeof NEXT_S2C.AlchemyPanel>) => void;  
   /**
- * onEnhancementPanel：对象字段。
+ * onEnhancementPanel：on强化面板相关字段。
  */
 
   onEnhancementPanel: (data: NEXT_S2C_EventPayload<typeof NEXT_S2C.EnhancementPanel>) => void;  
   /**
- * onLeaderboard：对象字段。
+ * onLeaderboard：onLeaderboard相关字段。
  */
 
   onLeaderboard: (data: NEXT_S2C_EventPayload<typeof NEXT_S2C.Leaderboard>) => void;  
   /**
- * onWorldSummary：对象字段。
+ * onWorldSummary：on世界摘要状态或数据块。
  */
 
   onWorldSummary: (data: NEXT_S2C_EventPayload<typeof NEXT_S2C.WorldSummary>) => void;  
   /**
- * onNpcQuests：对象字段。
+ * onNpcQuests：集合字段。
  */
 
   onNpcQuests: (data: NEXT_S2C_EventPayload<typeof NEXT_S2C.NpcQuests>) => void;  
   /**
- * onQuests：对象字段。
+ * onQuests：集合字段。
  */
 
   onQuests: (data: NEXT_S2C_EventPayload<typeof NEXT_S2C.Quests>) => void;  
   /**
- * onQuestNavigateResult：对象字段。
+ * onQuestNavigateResult：on任务Navigate结果相关字段。
  */
 
   onQuestNavigateResult: (data: NEXT_S2C_EventPayload<typeof NEXT_S2C.QuestNavigateResult>) => void;  
   /**
- * onSuggestionUpdate：对象字段。
+ * onSuggestionUpdate：onSuggestionUpdate相关字段。
  */
 
   onSuggestionUpdate: (data: NEXT_S2C_EventPayload<typeof NEXT_S2C.SuggestionUpdate>) => void;  
   /**
- * onMailSummary：对象字段。
+ * onMailSummary：on邮件摘要状态或数据块。
  */
 
   onMailSummary: (data: NEXT_S2C_EventPayload<typeof NEXT_S2C.MailSummary>) => void;  
   /**
- * onMailPage：对象字段。
+ * onMailPage：on邮件Page相关字段。
  */
 
   onMailPage: (data: NEXT_S2C_EventPayload<typeof NEXT_S2C.MailPage>) => void;  
   /**
- * onMailDetail：对象字段。
+ * onMailDetail：on邮件详情状态或数据块。
  */
 
   onMailDetail: (data: NEXT_S2C_EventPayload<typeof NEXT_S2C.MailDetail>) => void;  
   /**
- * onRedeemCodesResult：对象字段。
+ * onRedeemCodesResult：onRedeemCode结果相关字段。
  */
 
   onRedeemCodesResult: (data: NEXT_S2C_EventPayload<typeof NEXT_S2C.RedeemCodesResult>) => void;  
   /**
- * onMailOpResult：对象字段。
+ * onMailOpResult：on邮件Op结果相关字段。
  */
 
   onMailOpResult: (data: NEXT_S2C_EventPayload<typeof NEXT_S2C.MailOpResult>) => void;  
   /**
- * onMarketUpdate：对象字段。
+ * onMarketUpdate：on坊市Update相关字段。
  */
 
   onMarketUpdate: (data: NEXT_S2C_EventPayload<typeof NEXT_S2C.MarketUpdate>) => void;  
   /**
- * onMarketListings：对象字段。
+ * onMarketListings：on坊市Listing相关字段。
  */
 
   onMarketListings: (data: NEXT_S2C_EventPayload<typeof NEXT_S2C.MarketListings>) => void;  
   /**
- * onMarketOrders：对象字段。
+ * onMarketOrders：on坊市订单相关字段。
  */
 
   onMarketOrders: (data: NEXT_S2C_EventPayload<typeof NEXT_S2C.MarketOrders>) => void;  
   /**
- * onMarketStorage：对象字段。
+ * onMarketStorage：on坊市Storage相关字段。
  */
 
   onMarketStorage: (data: NEXT_S2C_EventPayload<typeof NEXT_S2C.MarketStorage>) => void;  
   /**
- * onMarketItemBook：对象字段。
+ * onMarketItemBook：on坊市道具Book相关字段。
  */
 
   onMarketItemBook: (data: NEXT_S2C_EventPayload<typeof NEXT_S2C.MarketItemBook>) => void;  
   /**
- * onMarketTradeHistory：对象字段。
+ * onMarketTradeHistory：on坊市TradeHistory相关字段。
  */
 
   onMarketTradeHistory: (data: NEXT_S2C_EventPayload<typeof NEXT_S2C.MarketTradeHistory>) => void;  
   /**
- * onNpcShop：对象字段。
+ * onNpcShop：onNPCShop相关字段。
  */
 
   onNpcShop: (data: NEXT_S2C_EventPayload<typeof NEXT_S2C.NpcShop>) => void;  
   /**
- * onNotice：对象字段。
+ * onNotice：onNotice相关字段。
  */
 
   onNotice: (data: NEXT_S2C_EventPayload<typeof NEXT_S2C.Notice>) => void;  
   /**
- * onError：对象字段。
+ * onError：onError相关字段。
  */
 
   onError: (data: NEXT_S2C_EventPayload<typeof NEXT_S2C.Error>) => void;  
   /**
- * onKick：对象字段。
+ * onKick：onKick相关字段。
  */
 
   onKick: Parameters<SocketManager['onKick']>[0];  
   /**
- * onConnectError：对象字段。
+ * onConnectError：onConnectError相关字段。
  */
 
   onConnectError: Parameters<SocketManager['onConnectError']>[0];  
   /**
- * onDisconnect：对象字段。
+ * onDisconnect：onDisconnect相关字段。
  */
 
   onDisconnect: Parameters<SocketManager['onDisconnect']>[0];  
   /**
- * onPong：对象字段。
+ * onPong：onPong相关字段。
  */
 
   onPong: (data: NEXT_S2C_EventPayload<typeof NEXT_S2C.Pong>) => void;
 };
 /**
- * bindMainLowFrequencySocketEvents：执行核心业务逻辑。
+ * bindMainLowFrequencySocketEvents：执行bindMainLowFrequencySocket事件相关逻辑。
  * @param options MainLowFrequencySocketBindingsOptions 选项参数。
- * @returns void。
+ * @returns 无返回值，直接更新bindMainLowFrequencySocket事件相关状态。
  */
 
 

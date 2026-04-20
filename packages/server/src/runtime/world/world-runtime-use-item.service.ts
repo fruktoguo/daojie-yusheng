@@ -24,17 +24,17 @@ const player_runtime_service_1 = require("../player/player-runtime.service");
 /** world-runtime use-item orchestration：承接物品使用结算分支。 */
 let WorldRuntimeUseItemService = class WorldRuntimeUseItemService {
 /**
- * contentTemplateRepository：对象字段。
+ * contentTemplateRepository：内容Template仓储引用。
  */
 
     contentTemplateRepository;    
     /**
- * templateRepository：对象字段。
+ * templateRepository：template仓储引用。
  */
 
     templateRepository;    
     /**
- * playerRuntimeService：对象字段。
+ * playerRuntimeService：玩家运行态服务引用。
  */
 
     playerRuntimeService;    
@@ -43,7 +43,7 @@ let WorldRuntimeUseItemService = class WorldRuntimeUseItemService {
  * @param contentTemplateRepository 参数说明。
  * @param templateRepository 参数说明。
  * @param playerRuntimeService 参数说明。
- * @returns 无返回值（构造函数）。
+ * @returns 无返回值，完成实例初始化。
  */
 
     constructor(contentTemplateRepository, templateRepository, playerRuntimeService) {
@@ -52,11 +52,11 @@ let WorldRuntimeUseItemService = class WorldRuntimeUseItemService {
         this.playerRuntimeService = playerRuntimeService;
     }    
     /**
- * dispatchUseItem：处理事件并驱动执行路径。
+ * dispatchUseItem：判断Use道具是否满足条件。
  * @param playerId 玩家 ID。
  * @param slotIndex 参数说明。
  * @param deps 运行时依赖。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新Use道具相关状态。
  */
 
     dispatchUseItem(playerId, slotIndex, deps) {
@@ -90,13 +90,13 @@ let WorldRuntimeUseItemService = class WorldRuntimeUseItemService {
         deps.queuePlayerNotice(playerId, `使用 ${item.name}`, 'success');
     }    
     /**
- * handleMapUnlockItem：处理事件并驱动执行路径。
+ * handleMapUnlockItem：处理地图Unlock道具并更新相关状态。
  * @param playerId 玩家 ID。
  * @param slotIndex 参数说明。
  * @param item 道具。
  * @param mapUnlockIds mapUnlock ID 集合。
  * @param deps 运行时依赖。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新地图Unlock道具相关状态。
  */
 
     handleMapUnlockItem(playerId, slotIndex, item, mapUnlockIds, deps) {
@@ -123,12 +123,12 @@ let WorldRuntimeUseItemService = class WorldRuntimeUseItemService {
         deps.queuePlayerNotice(playerId, `已解锁地图：${targetLabel}`, 'success');
     }    
     /**
- * handleTileAuraItem：处理事件并驱动执行路径。
+ * handleTileAuraItem：处理TileAura道具并更新相关状态。
  * @param playerId 玩家 ID。
  * @param slotIndex 参数说明。
  * @param item 道具。
  * @param deps 运行时依赖。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新TileAura道具相关状态。
  */
 
     handleTileAuraItem(playerId, slotIndex, item, deps) {

@@ -6,33 +6,33 @@ import type { ButtonHTMLAttributes, PropsWithChildren, ReactNode } from 'react';
 
 export interface UiItemCardProps extends ButtonHTMLAttributes<HTMLButtonElement> {
 /**
- * title：UiItemCardProps 内部字段。
+ * title：title名称或显示文本。
  */
 
   title: string;  
   /**
- * subtitle：UiItemCardProps 内部字段。
+ * subtitle：subtitle名称或显示文本。
  */
 
   subtitle?: ReactNode;  
   /**
- * meta：UiItemCardProps 内部字段。
+ * meta：meta相关字段。
  */
 
   meta?: ReactNode;  
   /**
- * badge：UiItemCardProps 内部字段。
+ * badge：badge相关字段。
  */
 
   badge?: ReactNode;  
   /**
- * active：UiItemCardProps 内部字段。
+ * active：启用开关或状态标识。
  */
 
   active?: boolean;
 }
 /**
- * UiItemCard：执行核心业务逻辑。
+ * UiItemCard：渲染Ui道具Card组件。
  * @param {
   title,
   subtitle,
@@ -43,7 +43,7 @@ export interface UiItemCardProps extends ButtonHTMLAttributes<HTMLButtonElement>
   children,
   ...props
 } PropsWithChildren<UiItemCardProps> 参数说明。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新Ui道具Card相关状态。
  */
 
 

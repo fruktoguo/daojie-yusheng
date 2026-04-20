@@ -18,61 +18,61 @@ const world_runtime_normalization_helpers_1 = require("./world-runtime.normaliza
 /** world-runtime instance-read facade：承接地图模板、实例和 tile/combat 只读 facade。 */
 let WorldRuntimeInstanceReadFacadeService = class WorldRuntimeInstanceReadFacadeService {
 /**
- * listMapTemplates：执行核心业务逻辑。
+ * listMapTemplates：读取地图Template并返回结果。
  * @param deps 运行时依赖。
- * @returns 函数返回值。
+ * @returns 无返回值，完成地图Template的读取/组装。
  */
 
     listMapTemplates(deps) {
         return deps.templateRepository.listSummaries();
     }    
     /**
- * listInstances：执行核心业务逻辑。
+ * listInstances：读取Instance并返回结果。
  * @param deps 运行时依赖。
- * @returns 函数返回值。
+ * @returns 无返回值，完成Instance的读取/组装。
  */
 
     listInstances(deps) {
         return deps.worldRuntimeInstanceQueryService.listInstances(deps);
     }    
     /**
- * getInstance：按给定条件读取/查询数据。
+ * getInstance：读取Instance。
  * @param instanceId instance ID。
  * @param deps 运行时依赖。
- * @returns 函数返回值。
+ * @returns 无返回值，完成Instance的读取/组装。
  */
 
     getInstance(instanceId, deps) {
         return deps.worldRuntimeInstanceQueryService.getInstance(deps, instanceId);
     }    
     /**
- * listInstanceMonsters：执行核心业务逻辑。
+ * listInstanceMonsters：读取Instance怪物并返回结果。
  * @param instanceId instance ID。
  * @param deps 运行时依赖。
- * @returns 函数返回值。
+ * @returns 无返回值，完成Instance怪物的读取/组装。
  */
 
     listInstanceMonsters(instanceId, deps) {
         return deps.worldRuntimeInstanceQueryService.listInstanceMonsters(deps.getInstanceRuntimeOrThrow(instanceId));
     }    
     /**
- * getInstanceMonster：按给定条件读取/查询数据。
+ * getInstanceMonster：读取Instance怪物。
  * @param instanceId instance ID。
  * @param runtimeId runtime ID。
  * @param deps 运行时依赖。
- * @returns 函数返回值。
+ * @returns 无返回值，完成Instance怪物的读取/组装。
  */
 
     getInstanceMonster(instanceId, runtimeId, deps) {
         return deps.worldRuntimeInstanceQueryService.getInstanceMonster(deps.getInstanceRuntimeOrThrow(instanceId), runtimeId);
     }    
     /**
- * getInstanceTileState：按给定条件读取/查询数据。
+ * getInstanceTileState：读取InstanceTile状态。
  * @param instanceId instance ID。
  * @param x X 坐标。
  * @param y Y 坐标。
  * @param deps 运行时依赖。
- * @returns 函数返回值。
+ * @returns 无返回值，完成InstanceTile状态的读取/组装。
  */
 
     getInstanceTileState(instanceId, x, y, deps) {
@@ -85,10 +85,10 @@ let WorldRuntimeInstanceReadFacadeService = class WorldRuntimeInstanceReadFacade
         return deps.worldRuntimeInstanceQueryService.getInstanceTileState(instance, x, y);
     }    
     /**
- * getCombatEffects：按给定条件读取/查询数据。
+ * getCombatEffects：读取战斗Effect。
  * @param instanceId instance ID。
  * @param deps 运行时依赖。
- * @returns 函数返回值。
+ * @returns 无返回值，完成战斗Effect的读取/组装。
  */
 
     getCombatEffects(instanceId, deps) {
@@ -98,7 +98,7 @@ let WorldRuntimeInstanceReadFacadeService = class WorldRuntimeInstanceReadFacade
  * createInstance：构建并返回目标对象。
  * @param input 输入参数。
  * @param deps 运行时依赖。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新Instance相关状态。
  */
 
     createInstance(input, deps) {

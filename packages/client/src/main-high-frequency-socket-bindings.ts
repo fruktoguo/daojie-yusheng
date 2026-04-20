@@ -7,55 +7,55 @@ import type { SocketManager } from './network/socket';
 
 type MainHighFrequencySocketBindingsOptions = {
 /**
- * socket：对象字段。
+ * socket：socket相关字段。
  */
 
   socket: Pick<SocketManager, 'on'>;  
   /**
- * onBootstrap：对象字段。
+ * onBootstrap：onBootstrap相关字段。
  */
 
   onBootstrap: (data: NEXT_S2C_EventPayload<typeof NEXT_S2C.Bootstrap>) => void;  
   /**
- * onInitSession：对象字段。
+ * onInitSession：onInitSession相关字段。
  */
 
   onInitSession: (data: NEXT_S2C_EventPayload<typeof NEXT_S2C.InitSession>) => void;  
   /**
- * onMapEnter：对象字段。
+ * onMapEnter：on地图Enter相关字段。
  */
 
   onMapEnter: (data: NEXT_S2C_EventPayload<typeof NEXT_S2C.MapEnter>) => void;  
   /**
- * onRealm：对象字段。
+ * onRealm：onRealm相关字段。
  */
 
   onRealm: (data: NEXT_S2C_EventPayload<typeof NEXT_S2C.Realm>) => void;  
   /**
- * onWorldDelta：对象字段。
+ * onWorldDelta：on世界Delta相关字段。
  */
 
   onWorldDelta: (data: NEXT_S2C_EventPayload<typeof NEXT_S2C.WorldDelta>) => void;  
   /**
- * onSelfDelta：对象字段。
+ * onSelfDelta：onSelfDelta相关字段。
  */
 
   onSelfDelta: (data: NEXT_S2C_EventPayload<typeof NEXT_S2C.SelfDelta>) => void;  
   /**
- * onPanelDelta：对象字段。
+ * onPanelDelta：on面板Delta相关字段。
  */
 
   onPanelDelta: (data: NEXT_S2C_EventPayload<typeof NEXT_S2C.PanelDelta>) => void;  
   /**
- * onMapStatic：对象字段。
+ * onMapStatic：on地图Static相关字段。
  */
 
   onMapStatic: (data: NEXT_S2C_EventPayload<typeof NEXT_S2C.MapStatic>) => void;
 };
 /**
- * bindMainHighFrequencySocketEvents：执行核心业务逻辑。
+ * bindMainHighFrequencySocketEvents：执行bindMainHighFrequencySocket事件相关逻辑。
  * @param options MainHighFrequencySocketBindingsOptions 选项参数。
- * @returns void。
+ * @returns 无返回值，直接更新bindMainHighFrequencySocket事件相关状态。
  */
 
 

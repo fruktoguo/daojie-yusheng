@@ -8,7 +8,7 @@ import { SuggestionPanel } from './ui/suggestion-panel';
 
 type MainSuggestionStateSourceOptions = {
 /**
- * socket：对象字段。
+ * socket：socket相关字段。
  */
 
   socket: Pick<
@@ -20,7 +20,7 @@ type MainSuggestionStateSourceOptions = {
     | 'sendMarkSuggestionRepliesRead'
   >;  
   /**
- * isSocketConnected：对象字段。
+ * isSocketConnected：启用开关或状态标识。
  */
 
   isSocketConnected: () => boolean;
@@ -34,7 +34,7 @@ export type MainSuggestionStateSource = ReturnType<typeof createMainSuggestionSt
 /**
  * createMainSuggestionStateSource：构建并返回目标对象。
  * @param options MainSuggestionStateSourceOptions 选项参数。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新MainSuggestion状态来源相关状态。
  */
 
 
@@ -43,17 +43,17 @@ export function createMainSuggestionStateSource(options: MainSuggestionStateSour
 
   return {  
   /**
- * initFromPlayer：初始化并准备运行时基础状态。
+ * initFromPlayer：执行initFrom玩家相关逻辑。
  * @param playerId string 玩家 ID。
- * @returns void。
+ * @returns 无返回值，直接更新initFrom玩家相关状态。
  */
 
     initFromPlayer(playerId: string): void {
       suggestionPanel.setPlayerId(playerId);
     },    
     /**
- * clear：执行核心业务逻辑。
- * @returns void。
+ * clear：执行clear相关逻辑。
+ * @returns 无返回值，直接更新clear相关状态。
  */
 
 
@@ -61,9 +61,9 @@ export function createMainSuggestionStateSource(options: MainSuggestionStateSour
       suggestionPanel.clear();
     },    
     /**
- * handleSuggestionUpdate：处理事件并驱动执行路径。
+ * handleSuggestionUpdate：处理SuggestionUpdate并更新相关状态。
  * @param suggestions Suggestion[] 参数说明。
- * @returns void。
+ * @returns 无返回值，直接更新SuggestionUpdate相关状态。
  */
 
 

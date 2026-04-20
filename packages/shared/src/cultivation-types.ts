@@ -36,17 +36,17 @@ export type TechniqueCategory = 'arts' | 'internal' | 'divine' | 'secret';
 /** 功法单属性成长分段。 */
 export interface TechniqueAttrCurveSegment {
 /**
- * startLevel：TechniqueAttrCurveSegment 内部字段。
+ * startLevel：start等级数值。
  */
 
   startLevel: number;  
   /**
- * endLevel：TechniqueAttrCurveSegment 内部字段。
+ * endLevel：end等级数值。
  */
 
   endLevel?: number;  
   /**
- * gainPerLevel：TechniqueAttrCurveSegment 内部字段。
+ * gainPerLevel：gainPer等级数值。
  */
 
   gainPerLevel: number;
@@ -58,17 +58,17 @@ export type TechniqueAttrCurves = Partial<Record<AttrKey, TechniqueAttrCurveSegm
 /** 功法单层配置。 */
 export interface TechniqueLayerDef {
 /**
- * level：TechniqueLayerDef 内部字段。
+ * level：等级数值。
  */
 
   level: number;  
   /**
- * expToNext：TechniqueLayerDef 内部字段。
+ * expToNext：expToNext相关字段。
  */
 
   expToNext: number;  
   /**
- * attrs：TechniqueLayerDef 内部字段。
+ * attrs：attr相关字段。
  */
 
   attrs?: Partial<Attributes>;
@@ -119,27 +119,27 @@ export type HeavenGateRootValues = Record<ElementKey, number>;
 /** 开天门暂存状态。 */
 export interface HeavenGateState {
 /**
- * unlocked：HeavenGateState 内部字段。
+ * unlocked：unlocked相关字段。
  */
 
   unlocked: boolean;  
   /**
- * severed：HeavenGateState 内部字段。
+ * severed：severed相关字段。
  */
 
   severed: ElementKey[];  
   /**
- * roots：HeavenGateState 内部字段。
+ * roots：根容器相关字段。
  */
 
   roots: HeavenGateRootValues | null;  
   /**
- * entered：HeavenGateState 内部字段。
+ * entered：entered相关字段。
  */
 
   entered: boolean;  
   /**
- * averageBonus：HeavenGateState 内部字段。
+ * averageBonus：averageBonu相关字段。
  */
 
   averageBonus: number;
@@ -148,92 +148,92 @@ export interface HeavenGateState {
 /** 玩家大境界状态。 */
 export interface PlayerRealmState {
 /**
- * stage：PlayerRealmState 内部字段。
+ * stage：stage相关字段。
  */
 
   stage: PlayerRealmStage;  
   /**
- * realmLv：PlayerRealmState 内部字段。
+ * realmLv：realmLv相关字段。
  */
 
   realmLv: number;  
   /**
- * displayName：PlayerRealmState 内部字段。
+ * displayName：显示名称名称或显示文本。
  */
 
   displayName: string;  
   /**
- * name：PlayerRealmState 内部字段。
+ * name：名称名称或显示文本。
  */
 
   name: string;  
   /**
- * shortName：PlayerRealmState 内部字段。
+ * shortName：short名称名称或显示文本。
  */
 
   shortName: string;  
   /**
- * path：PlayerRealmState 内部字段。
+ * path：路径相关字段。
  */
 
   path: 'martial' | 'immortal' | 'ascended';  
   /**
- * narrative：PlayerRealmState 内部字段。
+ * narrative：narrative相关字段。
  */
 
   narrative: string;  
   /**
- * review：PlayerRealmState 内部字段。
+ * review：review相关字段。
  */
 
   review?: string;  
   /**
- * lifespanYears：PlayerRealmState 内部字段。
+ * lifespanYears：lifespanYear相关字段。
  */
 
   lifespanYears: number | null;  
   /**
- * progress：PlayerRealmState 内部字段。
+ * progress：进度状态或数据块。
  */
 
   progress: number;  
   /**
- * progressToNext：PlayerRealmState 内部字段。
+ * progressToNext：进度ToNext相关字段。
  */
 
   progressToNext: number;  
   /**
- * breakthroughReady：PlayerRealmState 内部字段。
+ * breakthroughReady：breakthroughReady相关字段。
  */
 
   breakthroughReady: boolean;  
   /**
- * nextStage：PlayerRealmState 内部字段。
+ * nextStage：nextStage相关字段。
  */
 
   nextStage?: PlayerRealmStage;  
   /**
- * breakthroughItems：PlayerRealmState 内部字段。
+ * breakthroughItems：集合字段。
  */
 
   breakthroughItems: BreakthroughItemRequirement[];  
   /**
- * minTechniqueLevel：PlayerRealmState 内部字段。
+ * minTechniqueLevel：min功法等级数值。
  */
 
   minTechniqueLevel: number;  
   /**
- * minTechniqueRealm：PlayerRealmState 内部字段。
+ * minTechniqueRealm：min功法Realm相关字段。
  */
 
   minTechniqueRealm?: TechniqueRealm;  
   /**
- * breakthrough：PlayerRealmState 内部字段。
+ * breakthrough：breakthrough相关字段。
  */
 
   breakthrough?: BreakthroughPreviewState;  
   /**
- * heavenGate：PlayerRealmState 内部字段。
+ * heavenGate：heavenGate相关字段。
  */
 
   heavenGate?: HeavenGateState | null;
@@ -242,12 +242,12 @@ export interface PlayerRealmState {
 /** 玩家特殊养成数值。 */
 export interface PlayerSpecialStats {
 /**
- * foundation：PlayerSpecialStats 内部字段。
+ * foundation：foundation相关字段。
  */
 
   foundation: number;  
   /**
- * combatExp：PlayerSpecialStats 内部字段。
+ * combatExp：战斗Exp相关字段。
  */
 
   combatExp: number;
@@ -256,67 +256,67 @@ export interface PlayerSpecialStats {
 /** 功法状态。 */
 export interface TechniqueState {
 /**
- * techId：TechniqueState 内部字段。
+ * techId：techID标识。
  */
 
   techId: string;  
   /**
- * name：TechniqueState 内部字段。
+ * name：名称名称或显示文本。
  */
 
   name: string;  
   /**
- * level：TechniqueState 内部字段。
+ * level：等级数值。
  */
 
   level: number;  
   /**
- * exp：TechniqueState 内部字段。
+ * exp：exp相关字段。
  */
 
   exp: number;  
   /**
- * expToNext：TechniqueState 内部字段。
+ * expToNext：expToNext相关字段。
  */
 
   expToNext: number;  
   /**
- * realmLv：TechniqueState 内部字段。
+ * realmLv：realmLv相关字段。
  */
 
   realmLv: number;  
   /**
- * realm：TechniqueState 内部字段。
+ * realm：realm相关字段。
  */
 
   realm: TechniqueRealm;  
   /**
- * skillsEnabled：TechniqueState 内部字段。
+ * skillsEnabled：启用开关或状态标识。
  */
 
   skillsEnabled?: boolean;  
   /**
- * skills：TechniqueState 内部字段。
+ * skills：技能相关字段。
  */
 
   skills: SkillDef[];  
   /**
- * grade：TechniqueState 内部字段。
+ * grade：grade相关字段。
  */
 
   grade?: TechniqueGrade;  
   /**
- * category：TechniqueState 内部字段。
+ * category：category相关字段。
  */
 
   category?: TechniqueCategory;  
   /**
- * layers：TechniqueState 内部字段。
+ * layers：层相关字段。
  */
 
   layers?: TechniqueLayerDef[];  
   /**
- * attrCurves：TechniqueState 内部字段。
+ * attrCurves：attrCurve相关字段。
  */
 
   attrCurves?: TechniqueAttrCurves;
@@ -325,17 +325,17 @@ export interface TechniqueState {
 /** 炼体状态。 */
 export interface BodyTrainingState {
 /**
- * level：BodyTrainingState 内部字段。
+ * level：等级数值。
  */
 
   level: number;  
   /**
- * exp：BodyTrainingState 内部字段。
+ * exp：exp相关字段。
  */
 
   exp: number;  
   /**
- * expToNext：BodyTrainingState 内部字段。
+ * expToNext：expToNext相关字段。
  */
 
   expToNext: number;

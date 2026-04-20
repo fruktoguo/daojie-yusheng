@@ -6,7 +6,7 @@ const { createNumericStats, createNumericRatioDivisors } = require("@mud/shared-
 const { WorldSyncPlayerStateService } = require("../network/world-sync-player-state.service");
 /**
  * createPlayer：构建并返回目标对象。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新玩家相关状态。
  */
 
 
@@ -93,8 +93,8 @@ function createPlayer() {
     };
 }
 /**
- * testPlayerState：执行核心业务逻辑。
- * @returns 函数返回值。
+ * testPlayerState：执行test玩家状态相关逻辑。
+ * @returns 无返回值，直接更新test玩家状态相关状态。
  */
 
 

@@ -213,9 +213,9 @@ async function main() {
     }
 }
 /**
- * hasCombatFx：执行状态校验并返回判断结果。
+ * hasCombatFx：判断战斗Fx是否满足条件。
  * @param payload 载荷参数。
- * @returns 函数返回值。
+ * @returns 无返回值，完成战斗Fx的条件判断。
  */
 
 function hasCombatFx(payload) {

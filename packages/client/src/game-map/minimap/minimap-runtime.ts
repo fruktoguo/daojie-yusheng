@@ -9,9 +9,9 @@ export class MinimapRuntime {
   /** 底层小地图实例。 */
   private readonly minimap = new Minimap();  
   /**
- * setMoveHandler：更新/写入相关状态。
+ * setMoveHandler：写入MoveHandler。
  * @param handler ((x: number, y: number) => void) | null 参数说明。
- * @returns void。
+ * @returns 无返回值，直接更新MoveHandler相关状态。
  */
 
 

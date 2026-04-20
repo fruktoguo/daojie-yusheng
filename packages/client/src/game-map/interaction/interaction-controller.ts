@@ -21,7 +21,7 @@ export class InteractionController {
  * @param getSnapshot SnapshotProvider 参数说明。
  * @param getCamera () => CameraController 参数说明。
  * @param projection TopdownProjection 参数说明。
- * @returns 无返回值（构造函数）。
+ * @returns 无返回值，完成实例初始化。
  */
 
 
@@ -68,7 +68,7 @@ export class InteractionController {
     this.detach();
   }  
   /**
- * handleClick：InteractionController 内部字段。
+ * handleClick：handleClick相关字段。
  */
 
 
@@ -79,7 +79,7 @@ export class InteractionController {
     }
   };  
   /**
- * handleMove：InteractionController 内部字段。
+ * handleMove：handleMove相关字段。
  */
 
 
@@ -87,7 +87,7 @@ export class InteractionController {
     this.callbacks.onHover?.(this.resolveTarget(event));
   };  
   /**
- * handleLeave：InteractionController 内部字段。
+ * handleLeave：handleLeave相关字段。
  */
 
 

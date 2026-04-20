@@ -21,24 +21,24 @@ const world_runtime_world_access_service_1 = require("./world-runtime-world-acce
 /** world-runtime player-session seam：承接玩家接入、断开与 runtime 注销。 */
 let WorldRuntimePlayerSessionService = class WorldRuntimePlayerSessionService {
 /**
- * worldRuntimeWorldAccessService：对象字段。
+ * worldRuntimeWorldAccessService：世界运行态世界Access服务引用。
  */
 
     worldRuntimeWorldAccessService;    
     /**
  * 构造器：初始化 当前 实例并建立基础状态。
  * @param worldRuntimeWorldAccessService 参数说明。
- * @returns 无返回值（构造函数）。
+ * @returns 无返回值，完成实例初始化。
  */
 
     constructor(worldRuntimeWorldAccessService) {
         this.worldRuntimeWorldAccessService = worldRuntimeWorldAccessService;
     }    
     /**
- * connectPlayer：执行核心业务逻辑。
+ * connectPlayer：执行connect玩家相关逻辑。
  * @param input 输入参数。
  * @param deps 运行时依赖。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新connect玩家相关状态。
  */
 
     connectPlayer(input, deps) {
@@ -75,10 +75,10 @@ let WorldRuntimePlayerSessionService = class WorldRuntimePlayerSessionService {
         return this.worldRuntimeWorldAccessService.getPlayerViewOrThrow(playerId, deps);
     }    
     /**
- * disconnectPlayer：执行核心业务逻辑。
+ * disconnectPlayer：判断disconnect玩家是否满足条件。
  * @param playerId 玩家 ID。
  * @param deps 运行时依赖。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新disconnect玩家相关状态。
  */
 
     disconnectPlayer(playerId, deps) {
@@ -96,11 +96,11 @@ let WorldRuntimePlayerSessionService = class WorldRuntimePlayerSessionService {
         return disconnected;
     }    
     /**
- * removePlayer：执行核心业务逻辑。
+ * removePlayer：处理玩家并更新相关状态。
  * @param playerId 玩家 ID。
  * @param reason 参数说明。
  * @param deps 运行时依赖。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新玩家相关状态。
  */
 
     removePlayer(playerId, reason = 'removed', deps) {

@@ -99,11 +99,11 @@ exports.RuntimeMapConfigService = RuntimeMapConfigService = __decorate([
 ], RuntimeMapConfigService);
 export { RuntimeMapConfigService };
 /**
- * clamp：执行核心业务逻辑。
+ * clamp：执行clamp相关逻辑。
  * @param value 参数说明。
  * @param min 参数说明。
  * @param max 参数说明。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新clamp相关状态。
  */
 
 function clamp(value, min, max) {

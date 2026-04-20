@@ -24,53 +24,53 @@ const HEAVEN_GATE_SEVER_COST_PERCENT = Math.round(HEAVEN_GATE_SEVER_COST_RATIO *
 type PendingAction =
   | {  
   /**
- * kind：对象字段。
+ * kind：kind相关字段。
  */
  kind: 'sever' | 'restore';  
  /**
- * element：对象字段。
+ * element：element相关字段。
  */
  element: ElementKey }
   | {  
   /**
- * kind：对象字段。
+ * kind：kind相关字段。
  */
  kind: 'open' | 'reroll' | 'enter' };
 
 /** HeavenGateSession：天门弹层会话状态。 */
 interface HeavenGateSession {
 /**
- * realmName：HeavenGateSession 内部字段。
+ * realmName：realm名称名称或显示文本。
  */
 
   realmName: string;  
   /**
- * currentExp：HeavenGateSession 内部字段。
+ * currentExp：currentExp相关字段。
  */
 
   currentExp: number;  
   /**
- * maxExp：HeavenGateSession 内部字段。
+ * maxExp：maxExp相关字段。
  */
 
   maxExp: number;  
   /**
- * severed：HeavenGateSession 内部字段。
+ * severed：severed相关字段。
  */
 
   severed: Set<ElementKey>;  
   /**
- * roots：HeavenGateSession 内部字段。
+ * roots：根容器相关字段。
  */
 
   roots: HeavenGateRootValues | null;  
   /**
- * unlocked：HeavenGateSession 内部字段。
+ * unlocked：unlocked相关字段。
  */
 
   unlocked: boolean;  
   /**
- * entered：HeavenGateSession 内部字段。
+ * entered：entered相关字段。
  */
 
   entered: boolean;
@@ -79,12 +79,12 @@ interface HeavenGateSession {
 /** 打开天门弹窗时注入的交互回调。 */
 interface HeavenGateModalOptions {
 /**
- * showToast：HeavenGateModalOptions 内部字段。
+ * showToast：showToast相关字段。
  */
 
   showToast: (message: string, kind?: 'system' | 'chat' | 'quest' | 'combat' | 'loot' | 'grudge') => void;  
   /**
- * sendAction：HeavenGateModalOptions 内部字段。
+ * sendAction：sendAction相关字段。
  */
 
   sendAction: (action: 'sever' | 'restore' | 'open' | 'reroll' | 'enter', element?: ElementKey) => void;
@@ -190,15 +190,15 @@ function getSessionRenderKey(session: HeavenGateSession): string {
 /** describeRoots：处理describe Roots。 */
 function describeRoots(roots: HeavenGateRootValues): {
 /**
- * name：对象字段。
+ * name：名称名称或显示文本。
  */
  name: string;
  /**
- * meta：对象字段。
+ * meta：meta相关字段。
  */
  meta: string;
  /**
- * desc：对象字段。
+ * desc：desc相关字段。
  */
  desc: string } {
   return describeSpiritualRoots(roots);
@@ -527,10 +527,10 @@ function renderHeavenGateModal(player: PlayerState, session: HeavenGateSession, 
   });
 }
 /**
- * renderHeavenGateShell：执行核心业务逻辑。
+ * renderHeavenGateShell：执行HeavenGateShell相关逻辑。
  * @param session HeavenGateSession 参数说明。
  * @param judgement { name: string; meta: string; desc: string } | null 参数说明。
- * @returns string。
+ * @returns 返回HeavenGateShell。
  */
 
 
@@ -538,15 +538,15 @@ function renderHeavenGateShell(
   session: HeavenGateSession,
   judgement: {  
   /**
- * name：对象字段。
+ * name：名称名称或显示文本。
  */
  name: string;  
  /**
- * meta：对象字段。
+ * meta：meta相关字段。
  */
  meta: string;  
  /**
- * desc：对象字段。
+ * desc：desc相关字段。
  */
  desc: string } | null,
 ): string {
@@ -564,11 +564,11 @@ function renderHeavenGateShell(
   `;
 }
 /**
- * patchHeavenGateModalBody：执行核心业务逻辑。
+ * patchHeavenGateModalBody：执行patchHeavenGate弹层Body相关逻辑。
  * @param body HTMLElement 参数说明。
  * @param session HeavenGateSession 参数说明。
  * @param judgement { name: string; meta: string; desc: string } | null 参数说明。
- * @returns boolean。
+ * @returns 返回是否满足patchHeavenGate弹层Body条件。
  */
 
 
@@ -577,15 +577,15 @@ function patchHeavenGateModalBody(
   session: HeavenGateSession,
   judgement: {  
   /**
- * name：对象字段。
+ * name：名称名称或显示文本。
  */
  name: string;  
  /**
- * meta：对象字段。
+ * meta：meta相关字段。
  */
  meta: string;  
  /**
- * desc：对象字段。
+ * desc：desc相关字段。
  */
  desc: string } | null,
 ): boolean {
@@ -609,14 +609,14 @@ function patchHeavenGateModalBody(
   return true;
 }
 /**
- * bindHeavenGateEvents：执行核心业务逻辑。
+ * bindHeavenGateEvents：执行bindHeavenGate事件相关逻辑。
  * @param body HTMLElement 参数说明。
  * @param player PlayerState 玩家对象。
  * @param session HeavenGateSession 参数说明。
  * @param options HeavenGateModalOptions 选项参数。
  * @param shouldAnimate boolean 参数说明。
  * @param rootsKey string | null 参数说明。
- * @returns void。
+ * @returns 无返回值，直接更新bindHeavenGate事件相关状态。
  */
 
 
@@ -697,10 +697,10 @@ function bindHeavenGateEvents(
   }
 }
 /**
- * setInnerHtml：更新/写入相关状态。
+ * setInnerHtml：写入InnerHtml。
  * @param node Element | null 参数说明。
  * @param value string 参数说明。
- * @returns void。
+ * @returns 无返回值，直接更新InnerHtml相关状态。
  */
 
 
@@ -736,11 +736,11 @@ export function refreshHeavenGateModal(player: PlayerState | null | undefined, o
 /** getHeavenGateHudAction：读取Heaven关卡HUD动作。 */
 export function getHeavenGateHudAction(player: PlayerState | null | undefined): {
 /**
- * visible：对象字段。
+ * visible：可见相关字段。
  */
  visible: boolean;
  /**
- * label：对象字段。
+ * label：label名称或显示文本。
  */
  label: string } | null {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。

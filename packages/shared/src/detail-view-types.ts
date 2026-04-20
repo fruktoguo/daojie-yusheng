@@ -9,27 +9,27 @@ import type { NpcQuestMarker } from './world-view-types';
 /** 观察详情里的掉落预览条目。 */
 export interface ObservationLootPreviewEntry {
 /**
- * itemId：ObservationLootPreviewEntry 内部字段。
+ * itemId：道具ID标识。
  */
 
   itemId: string;  
   /**
- * name：ObservationLootPreviewEntry 内部字段。
+ * name：名称名称或显示文本。
  */
 
   name: string;  
   /**
- * type：ObservationLootPreviewEntry 内部字段。
+ * type：type相关字段。
  */
 
   type: ItemType;  
   /**
- * count：ObservationLootPreviewEntry 内部字段。
+ * count：数量或计量字段。
  */
 
   count: number;  
   /**
- * chance：ObservationLootPreviewEntry 内部字段。
+ * chance：chance相关字段。
  */
 
   chance: number;
@@ -38,12 +38,12 @@ export interface ObservationLootPreviewEntry {
 /** 观察详情里的掉落预览列表。 */
 export interface ObservationLootPreview {
 /**
- * entries：ObservationLootPreview 内部字段。
+ * entries：集合字段。
  */
 
   entries: ObservationLootPreviewEntry[];  
   /**
- * emptyText：ObservationLootPreview 内部字段。
+ * emptyText：emptyText名称或显示文本。
  */
 
   emptyText?: string;
@@ -52,67 +52,67 @@ export interface ObservationLootPreview {
 /** 地块详情里可见实体的汇总信息。 */
 export interface ObservedTileEntityDetail {
 /**
- * id：ObservedTileEntityDetail 内部字段。
+ * id：ID标识。
  */
 
   id: string;  
   /**
- * name：ObservedTileEntityDetail 内部字段。
+ * name：名称名称或显示文本。
  */
 
   name?: string;  
   /**
- * kind：ObservedTileEntityDetail 内部字段。
+ * kind：kind相关字段。
  */
 
   kind?: EntityKind | 'player' | null;  
   /**
- * monsterTier：ObservedTileEntityDetail 内部字段。
+ * monsterTier：怪物Tier相关字段。
  */
 
   monsterTier?: MonsterTier | null;  
   /**
- * monsterScale：ObservedTileEntityDetail 内部字段。
+ * monsterScale：怪物Scale相关字段。
  */
 
   monsterScale?: number | null;  
   /**
- * hp：ObservedTileEntityDetail 内部字段。
+ * hp：hp相关字段。
  */
 
   hp?: number;  
   /**
- * maxHp：ObservedTileEntityDetail 内部字段。
+ * maxHp：maxHp相关字段。
  */
 
   maxHp?: number;  
   /**
- * qi：ObservedTileEntityDetail 内部字段。
+ * qi：qi相关字段。
  */
 
   qi?: number;  
   /**
- * maxQi：ObservedTileEntityDetail 内部字段。
+ * maxQi：maxQi相关字段。
  */
 
   maxQi?: number;  
   /**
- * npcQuestMarker：ObservedTileEntityDetail 内部字段。
+ * npcQuestMarker：NPC任务Marker相关字段。
  */
 
   npcQuestMarker?: NpcQuestMarker | null;  
   /**
- * observation：ObservedTileEntityDetail 内部字段。
+ * observation：observation相关字段。
  */
 
   observation?: ObservationInsight | null;  
   /**
- * lootPreview：ObservedTileEntityDetail 内部字段。
+ * lootPreview：掉落Preview相关字段。
  */
 
   lootPreview?: ObservationLootPreview | null;  
   /**
- * buffs：ObservedTileEntityDetail 内部字段。
+ * buffs：buff相关字段。
  */
 
   buffs?: VisibleBuffState[] | null;

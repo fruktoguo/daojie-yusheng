@@ -3,157 +3,157 @@
  */
 type MainResetStateSourceOptions = {
 /**
- * clearRuntimeState：对象字段。
+ * clearRuntimeState：clear运行态状态状态或数据块。
  */
 
   clearRuntimeState: () => void;  
   /**
- * syncEstimatedServerTick：对象字段。
+ * syncEstimatedServerTick：EstimatedServertick相关字段。
  */
 
   syncEstimatedServerTick: (value: number | null) => void;  
   /**
- * syncCurrentTimeState：对象字段。
+ * syncCurrentTimeState：Current时间状态状态或数据块。
  */
 
   syncCurrentTimeState: (value: null) => void;  
   /**
- * clearCurrentPath：对象字段。
+ * clearCurrentPath：clearCurrent路径相关字段。
  */
 
   clearCurrentPath: () => void;  
   /**
- * clearTechniqueMap：对象字段。
+ * clearTechniqueMap：缓存或索引容器。
  */
 
   clearTechniqueMap: () => void;  
   /**
- * clearActionMap：对象字段。
+ * clearActionMap：缓存或索引容器。
  */
 
   clearActionMap: () => void;  
   /**
- * clearObservedEntities：对象字段。
+ * clearObservedEntities：clearObservedEntity相关字段。
  */
 
   clearObservedEntities: () => void;  
   /**
- * clearTargetingState：对象字段。
+ * clearTargetingState：clearTargeting状态状态或数据块。
  */
 
   clearTargetingState: () => void;  
   /**
- * hideObserveModal：对象字段。
+ * hideObserveModal：hideObserve弹层相关字段。
  */
 
   hideObserveModal: () => void;  
   /**
- * syncTargetingOverlay：对象字段。
+ * syncTargetingOverlay：TargetingOverlay相关字段。
  */
 
   syncTargetingOverlay: () => void;  
   /**
- * hideSidePanel：对象字段。
+ * hideSidePanel：hideSide面板相关字段。
  */
 
   hideSidePanel: () => void;  
   /**
- * hideChat：对象字段。
+ * hideChat：hideChat相关字段。
  */
 
   hideChat: () => void;  
   /**
- * clearChatPersistenceScope：对象字段。
+ * clearChatPersistenceScope：clearChatPersistenceScope相关字段。
  */
 
   clearChatPersistenceScope: () => void;  
   /**
- * hideDebugPanel：对象字段。
+ * hideDebugPanel：hideDebug面板相关字段。
  */
 
   hideDebugPanel: () => void;  
   /**
- * clearAttrPanel：对象字段。
+ * clearAttrPanel：clearAttr面板相关字段。
  */
 
   clearAttrPanel: () => void;  
   /**
- * clearInventoryState：对象字段。
+ * clearInventoryState：clear背包状态状态或数据块。
  */
 
   clearInventoryState: () => void;  
   /**
- * clearEquipmentPanel：对象字段。
+ * clearEquipmentPanel：clear装备面板相关字段。
  */
 
   clearEquipmentPanel: () => void;  
   /**
- * clearTechniqueState：对象字段。
+ * clearTechniqueState：clear功法状态状态或数据块。
  */
 
   clearTechniqueState: () => void;  
   /**
- * clearQuestState：对象字段。
+ * clearQuestState：clear任务状态状态或数据块。
  */
 
   clearQuestState: () => void;  
   /**
- * clearActionState：对象字段。
+ * clearActionState：clearAction状态状态或数据块。
  */
 
   clearActionState: () => void;  
   /**
- * clearEntityDetailModal：对象字段。
+ * clearEntityDetailModal：clearEntity详情弹层相关字段。
  */
 
   clearEntityDetailModal: () => void;  
   /**
- * clearWorldSummaryState：对象字段。
+ * clearWorldSummaryState：clear世界摘要状态状态或数据块。
  */
 
   clearWorldSummaryState: () => void;  
   /**
- * clearLootPanel：对象字段。
+ * clearLootPanel：clear掉落面板相关字段。
  */
 
   clearLootPanel: () => void;  
   /**
- * clearWorldPanel：对象字段。
+ * clearWorldPanel：clear世界面板相关字段。
  */
 
   clearWorldPanel: () => void;  
   /**
- * clearMailState：对象字段。
+ * clearMailState：clear邮件状态状态或数据块。
  */
 
   clearMailState: () => void;  
   /**
- * clearSuggestionState：对象字段。
+ * clearSuggestionState：clearSuggestion状态状态或数据块。
  */
 
   clearSuggestionState: () => void;  
   /**
- * resetMapRuntime：对象字段。
+ * resetMapRuntime：reset地图运行态引用。
  */
 
   resetMapRuntime: () => void;  
   /**
- * resetNextUiBridge：对象字段。
+ * resetNextUiBridge：resetNextUi桥接引用。
  */
 
   resetNextUiBridge: () => void;  
   /**
- * resetPanelRuntime：对象字段。
+ * resetPanelRuntime：reset面板运行态引用。
  */
 
   resetPanelRuntime: () => void;  
   /**
- * resizeCanvas：对象字段。
+ * resizeCanvas：resizeCanva相关字段。
  */
 
   resizeCanvas: () => void;  
   /**
- * hideHud：对象字段。
+ * hideHud：hideHud相关字段。
  */
 
   hideHud: () => void;
@@ -167,15 +167,15 @@ export type MainResetStateSource = ReturnType<typeof createMainResetStateSource>
 /**
  * createMainResetStateSource：构建并返回目标对象。
  * @param options MainResetStateSourceOptions 选项参数。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新MainReset状态来源相关状态。
  */
 
 
 export function createMainResetStateSource(options: MainResetStateSourceOptions) {
   return {  
   /**
- * reset：执行核心业务逻辑。
- * @returns void。
+ * reset：执行reset相关逻辑。
+ * @returns 无返回值，直接更新reset相关状态。
  */
 
     reset(): void {

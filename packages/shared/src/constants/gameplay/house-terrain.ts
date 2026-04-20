@@ -10,52 +10,52 @@ import { TileType } from '../../types';
 
 export type HouseDecorTileDefinition = {
 /**
- * type：对象字段。
+ * type：type相关字段。
  */
 
   type: TileType;  
   /**
- * mapChar：对象字段。
+ * mapChar：地图Char相关字段。
  */
 
   mapChar: string;  
   /**
- * label：对象字段。
+ * label：label名称或显示文本。
  */
 
   label: string;  
   /**
- * walkable：对象字段。
+ * walkable：walkable相关字段。
  */
 
   walkable: boolean;  
   /**
- * blocksSight：对象字段。
+ * blocksSight：blockSight相关字段。
  */
 
   blocksSight: boolean;  
   /**
- * traversalCost：对象字段。
+ * traversalCost：traversal消耗数值。
  */
 
   traversalCost: number;  
   /**
- * bgColor：对象字段。
+ * bgColor：bgColor相关字段。
  */
 
   bgColor: string;  
   /**
- * glyph：对象字段。
+ * glyph：glyph相关字段。
  */
 
   glyph: string;  
   /**
- * glyphColor：对象字段。
+ * glyphColor：glyphColor相关字段。
  */
 
   glyphColor: string;  
   /**
- * minimapColor：对象字段。
+ * minimapColor：minimapColor相关字段。
  */
 
   minimapColor: string;

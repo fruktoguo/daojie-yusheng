@@ -4,8 +4,8 @@ const assert = require("node:assert/strict");
 
 const { WorldSyncEnvelopeService } = require("../network/world-sync-envelope.service");
 /**
- * testEnvelopeService：执行核心业务逻辑。
- * @returns 函数返回值。
+ * testEnvelopeService：执行testEnvelope服务相关逻辑。
+ * @returns 无返回值，直接更新testEnvelope服务相关状态。
  */
 
 
@@ -14,7 +14,7 @@ function testEnvelopeService() {
     /**
  * createInitialEnvelope：构建并返回目标对象。
  * @param binding 参数说明。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新InitialEnvelope相关状态。
  */
 
         createInitialEnvelope(binding) {
@@ -25,7 +25,7 @@ function testEnvelopeService() {
         },        
         /**
  * createDeltaEnvelope：构建并返回目标对象。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新DeltaEnvelope相关状态。
  */
 
         createDeltaEnvelope() {
@@ -34,9 +34,9 @@ function testEnvelopeService() {
             };
         },        
         /**
- * clear：执行核心业务逻辑。
+ * clear：执行clear相关逻辑。
  * @param playerId 玩家 ID。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新clear相关状态。
  */
 
         clear(playerId) {
@@ -44,8 +44,8 @@ function testEnvelopeService() {
         },
     }, {    
     /**
- * getCombatEffects：按给定条件读取/查询数据。
- * @returns 函数返回值。
+ * getCombatEffects：读取战斗Effect。
+ * @returns 无返回值，完成战斗Effect的读取/组装。
  */
 
         getCombatEffects() {
@@ -56,9 +56,9 @@ function testEnvelopeService() {
         },
     }, {    
     /**
- * getOrThrow：按给定条件读取/查询数据。
+ * getOrThrow：读取OrThrow。
  * @param mapId 地图 ID。
- * @returns 函数返回值。
+ * @returns 无返回值，完成OrThrow的读取/组装。
  */
 
         getOrThrow(mapId) {
@@ -68,7 +68,7 @@ function testEnvelopeService() {
     }, {    
     /**
  * buildVisibleTileKeySet：构建并返回目标对象。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新可见TileKeySet相关状态。
  */
 
         buildVisibleTileKeySet() {

@@ -13,52 +13,52 @@ import { createExternalStore } from './create-external-store';
 
 export interface NextUiPanelDataState {
 /**
- * player：NextUiPanelDataState 内部字段。
+ * player：玩家引用。
  */
 
   player: PlayerState | null;  
   /**
- * attrUpdate：NextUiPanelDataState 内部字段。
+ * attrUpdate：attrUpdate相关字段。
  */
 
   attrUpdate: NEXT_S2C_AttrUpdate | null;  
   /**
- * inventory：NextUiPanelDataState 内部字段。
+ * inventory：背包相关字段。
  */
 
   inventory: Inventory | null;  
   /**
- * equipment：NextUiPanelDataState 内部字段。
+ * equipment：装备相关字段。
  */
 
   equipment: PlayerState['equipment'] | null;  
   /**
- * techniques：NextUiPanelDataState 内部字段。
+ * techniques：功法相关字段。
  */
 
   techniques: TechniqueState[];  
   /**
- * cultivatingTechId：NextUiPanelDataState 内部字段。
+ * cultivatingTechId：cultivatingTechID标识。
  */
 
   cultivatingTechId: string | undefined;  
   /**
- * actions：NextUiPanelDataState 内部字段。
+ * actions：action相关字段。
  */
 
   actions: ActionDef[];  
   /**
- * autoBattle：NextUiPanelDataState 内部字段。
+ * autoBattle：autoBattle相关字段。
  */
 
   autoBattle: boolean;  
   /**
- * autoRetaliate：NextUiPanelDataState 内部字段。
+ * autoRetaliate：autoRetaliate相关字段。
  */
 
   autoRetaliate: boolean;  
   /**
- * quests：NextUiPanelDataState 内部字段。
+ * quests：集合字段。
  */
 
   quests: PlayerState['quests'] | null;

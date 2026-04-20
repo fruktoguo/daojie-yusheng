@@ -25,22 +25,22 @@ const skillTemplateMap = new Map(
 /** 本地 Buff 模板的最小字段集合。 */
 type LocalBuffTemplate = {
 /**
- * buffId：对象字段。
+ * buffId：buffID标识。
  */
 
   buffId: string;  
   /**
- * name：对象字段。
+ * name：名称名称或显示文本。
  */
 
   name: string;  
   /**
- * shortMark：对象字段。
+ * shortMark：shortMark相关字段。
  */
 
   shortMark?: string;  
   /**
- * category：对象字段。
+ * category：category相关字段。
  */
 
   category?: 'buff' | 'debuff';

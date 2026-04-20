@@ -4,37 +4,37 @@ export type NoticeKind = 'info' | 'success' | 'warn' | 'travel' | 'combat' | 'lo
 /** 单条通知消息视图。 */
 export interface NoticeItemView {
 /**
- * id：NoticeItemView 内部字段。
+ * id：ID标识。
  */
 
   id?: number;  
   /**
- * messageId：NoticeItemView 内部字段。
+ * messageId：messageID标识。
  */
 
   messageId?: string;  
   /**
- * kind：NoticeItemView 内部字段。
+ * kind：kind相关字段。
  */
 
   kind: NoticeKind;  
   /**
- * text：NoticeItemView 内部字段。
+ * text：text名称或显示文本。
  */
 
   text: string;  
   /**
- * from：NoticeItemView 内部字段。
+ * from：from相关字段。
  */
 
   from?: string;  
   /**
- * occurredAt：NoticeItemView 内部字段。
+ * occurredAt：occurredAt相关字段。
  */
 
   occurredAt?: number;  
   /**
- * persistUntilAck：NoticeItemView 内部字段。
+ * persistUntilAck：persistUntilAck相关字段。
  */
 
   persistUntilAck?: boolean;
@@ -43,7 +43,7 @@ export interface NoticeItemView {
 /** 通知批次视图。 */
 export interface NoticeView {
 /**
- * items：NoticeView 内部字段。
+ * items：集合字段。
  */
 
   items: NoticeItemView[];
@@ -52,57 +52,57 @@ export interface NoticeView {
 /** 系统消息视图。 */
 export interface SystemMessageView {
 /**
- * id：SystemMessageView 内部字段。
+ * id：ID标识。
  */
 
   id?: string;  
   /**
- * text：SystemMessageView 内部字段。
+ * text：text名称或显示文本。
  */
 
   text: string;  
   /**
- * kind：SystemMessageView 内部字段。
+ * kind：kind相关字段。
  */
 
   kind?: NoticeKind;  
   /**
- * from：SystemMessageView 内部字段。
+ * from：from相关字段。
  */
 
   from?: string;  
   /**
- * occurredAt：SystemMessageView 内部字段。
+ * occurredAt：occurredAt相关字段。
  */
 
   occurredAt?: number;  
   /**
- * persistUntilAck：SystemMessageView 内部字段。
+ * persistUntilAck：persistUntilAck相关字段。
  */
 
   persistUntilAck?: boolean;  
   /**
- * floating：SystemMessageView 内部字段。
+ * floating：floating相关字段。
  */
 
   floating?: {  
   /**
- * x：SystemMessageView 内部字段。
+ * x：x相关字段。
  */
 
     x: number;    
     /**
- * y：SystemMessageView 内部字段。
+ * y：y相关字段。
  */
 
     y: number;    
     /**
- * text：SystemMessageView 内部字段。
+ * text：text名称或显示文本。
  */
 
     text: string;    
     /**
- * color：SystemMessageView 内部字段。
+ * color：color相关字段。
  */
 
     color?: string;

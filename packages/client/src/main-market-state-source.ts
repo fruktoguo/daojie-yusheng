@@ -18,7 +18,7 @@ import { MarketPanel } from './ui/panels/market-panel';
 
 type MainMarketStateSourceOptions = {
 /**
- * socket：对象字段。
+ * socket：socket相关字段。
  */
 
   socket: Pick<
@@ -33,12 +33,12 @@ type MainMarketStateSourceOptions = {
     | 'sendClaimMarketStorage'
   >;  
   /**
- * getPlayer：对象字段。
+ * getPlayer：玩家引用。
  */
 
   getPlayer: () => PlayerState | null;  
   /**
- * hydrateInventoryItem：对象字段。
+ * hydrateInventoryItem：hydrate背包道具相关字段。
  */
 
   hydrateInventoryItem: (item: SyncedItemStack) => Inventory['items'][number];
@@ -52,7 +52,7 @@ export type MainMarketStateSource = ReturnType<typeof createMainMarketStateSourc
 /**
  * createMainMarketStateSource：构建并返回目标对象。
  * @param options MainMarketStateSourceOptions 选项参数。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新Main坊市状态来源相关状态。
  */
 
 
@@ -72,18 +72,18 @@ export function createMainMarketStateSource(options: MainMarketStateSourceOption
 
   return {  
   /**
- * initFromPlayer：初始化并准备运行时基础状态。
+ * initFromPlayer：执行initFrom玩家相关逻辑。
  * @param player PlayerState 玩家对象。
- * @returns void。
+ * @returns 无返回值，直接更新initFrom玩家相关状态。
  */
 
     initFromPlayer(player: PlayerState): void {
       marketPanel.initFromPlayer(player);
     },    
     /**
- * syncInventory：执行核心业务逻辑。
+ * syncInventory：处理背包并更新相关状态。
  * @param inventory Inventory 参数说明。
- * @returns void。
+ * @returns 无返回值，直接更新背包相关状态。
  */
 
 
@@ -91,8 +91,8 @@ export function createMainMarketStateSource(options: MainMarketStateSourceOption
       marketPanel.syncInventory(inventory);
     },    
     /**
- * clear：执行核心业务逻辑。
- * @returns void。
+ * clear：执行clear相关逻辑。
+ * @returns 无返回值，直接更新clear相关状态。
  */
 
 
@@ -100,9 +100,9 @@ export function createMainMarketStateSource(options: MainMarketStateSourceOption
       marketPanel.clear();
     },    
     /**
- * handleMarketUpdate：处理事件并驱动执行路径。
+ * handleMarketUpdate：处理坊市Update并更新相关状态。
  * @param data NEXT_S2C_MarketUpdate 原始数据。
- * @returns void。
+ * @returns 无返回值，直接更新坊市Update相关状态。
  */
 
 
@@ -116,9 +116,9 @@ export function createMainMarketStateSource(options: MainMarketStateSourceOption
       marketPanel.updateMarket(data);
     },    
     /**
- * handleMarketListings：处理事件并驱动执行路径。
+ * handleMarketListings：读取坊市Listing并返回结果。
  * @param data NEXT_S2C_MarketListings 原始数据。
- * @returns void。
+ * @returns 无返回值，直接更新坊市Listing相关状态。
  */
 
 
@@ -126,9 +126,9 @@ export function createMainMarketStateSource(options: MainMarketStateSourceOption
       marketPanel.updateListings(data);
     },    
     /**
- * handleMarketOrders：处理事件并驱动执行路径。
+ * handleMarketOrders：处理坊市订单并更新相关状态。
  * @param data NEXT_S2C_MarketOrders 原始数据。
- * @returns void。
+ * @returns 无返回值，直接更新坊市订单相关状态。
  */
 
 
@@ -136,9 +136,9 @@ export function createMainMarketStateSource(options: MainMarketStateSourceOption
       marketPanel.updateOrders(data);
     },    
     /**
- * handleMarketStorage：处理事件并驱动执行路径。
+ * handleMarketStorage：处理坊市Storage并更新相关状态。
  * @param data NEXT_S2C_MarketStorage 原始数据。
- * @returns void。
+ * @returns 无返回值，直接更新坊市Storage相关状态。
  */
 
 
@@ -154,9 +154,9 @@ export function createMainMarketStateSource(options: MainMarketStateSourceOption
       marketPanel.updateStorage(data);
     },    
     /**
- * handleMarketItemBook：处理事件并驱动执行路径。
+ * handleMarketItemBook：处理坊市道具Book并更新相关状态。
  * @param data NEXT_S2C_MarketItemBook 原始数据。
- * @returns void。
+ * @returns 无返回值，直接更新坊市道具Book相关状态。
  */
 
 
@@ -164,9 +164,9 @@ export function createMainMarketStateSource(options: MainMarketStateSourceOption
       marketPanel.updateItemBook(data);
     },    
     /**
- * handleMarketTradeHistory：处理事件并驱动执行路径。
+ * handleMarketTradeHistory：判断坊市Trade历史是否满足条件。
  * @param data NEXT_S2C_MarketTradeHistory 原始数据。
- * @returns void。
+ * @returns 无返回值，直接更新坊市TradeHistory相关状态。
  */
 
 

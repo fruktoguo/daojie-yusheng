@@ -1,8 +1,8 @@
 import { bootstrapMainApp } from './main-bootstrap-assembly';
 /**
- * runMainAppBootstrap：执行核心业务逻辑。
+ * runMainAppBootstrap：执行runMainApp引导相关逻辑。
  * @param context ReturnType<typeof import('./main-app-runtime-context').createMainAppRuntimeContext> 上下文信息。
- * @returns void。
+ * @returns 无返回值，直接更新runMainAppBootstrap相关状态。
  */
 
 

@@ -29,11 +29,11 @@ function escapeHtmlAttr(value: string): string {
 
 const MAIL_FILTER_OPTIONS: Array<{
 /**
- * id：对象字段。
+ * id：ID标识。
  */
  id: MailFilter;
  /**
- * label：对象字段。
+ * label：label名称或显示文本。
  */
  label: string }> = [
   { id: 'all', label: '全部' },
@@ -62,17 +62,17 @@ const MAIL_ATTACHMENT_PAGE_SIZE = 10;
 /** 邮件面板渲染时需要保留的本地状态。 */
 type MailRenderState = {
 /**
- * listScrollTop：对象字段。
+ * listScrollTop：ScrollTop相关字段。
  */
 
   listScrollTop: number;  
   /**
- * detailScrollTop：对象字段。
+ * detailScrollTop：详情ScrollTop相关字段。
  */
 
   detailScrollTop: number;  
   /**
- * focusSelector：对象字段。
+ * focusSelector：focuSelector相关字段。
  */
 
   focusSelector: string | null;
@@ -81,12 +81,12 @@ type MailRenderState = {
 /** 邮件弹窗标题区所需的附加信息。 */
 type MailModalMeta = {
 /**
- * subtitle：对象字段。
+ * subtitle：subtitle名称或显示文本。
  */
 
   subtitle: string;  
   /**
- * hint：对象字段。
+ * hint：hint相关字段。
  */
 
   hint: string;
@@ -95,72 +95,72 @@ type MailModalMeta = {
 /** 邮件详情区已缓存的 DOM 节点。 */
 type MailDetailRefs = {
 /**
- * titleNode：对象字段。
+ * titleNode：titleNode相关字段。
  */
 
   titleNode: HTMLElement;  
   /**
- * senderNode：对象字段。
+ * senderNode：senderNode相关字段。
  */
 
   senderNode: HTMLElement;  
   /**
- * createdAtNode：对象字段。
+ * createdAtNode：createdAtNode相关字段。
  */
 
   createdAtNode: HTMLElement;  
   /**
- * expireNode：对象字段。
+ * expireNode：expireNode相关字段。
  */
 
   expireNode: HTMLElement;  
   /**
- * markReadButton：对象字段。
+ * markReadButton：ReadButton相关字段。
  */
 
   markReadButton: HTMLButtonElement;  
   /**
- * claimButton：对象字段。
+ * claimButton：claimButton相关字段。
  */
 
   claimButton: HTMLButtonElement;  
   /**
- * deleteButton：对象字段。
+ * deleteButton：Button相关字段。
  */
 
   deleteButton: HTMLButtonElement;  
   /**
- * bodyNode：对象字段。
+ * bodyNode：bodyNode相关字段。
  */
 
   bodyNode: HTMLElement;  
   /**
- * attachmentPagination：对象字段。
+ * attachmentPagination：attachmentPagination相关字段。
  */
 
   attachmentPagination: HTMLElement;  
   /**
- * attachmentPageMeta：对象字段。
+ * attachmentPageMeta：attachmentPageMeta相关字段。
  */
 
   attachmentPageMeta: HTMLElement;  
   /**
- * attachmentPrevButton：对象字段。
+ * attachmentPrevButton：attachmentPrevButton相关字段。
  */
 
   attachmentPrevButton: HTMLButtonElement;  
   /**
- * attachmentNextButton：对象字段。
+ * attachmentNextButton：attachmentNextButton相关字段。
  */
 
   attachmentNextButton: HTMLButtonElement;  
   /**
- * attachmentList：对象字段。
+ * attachmentList：集合字段。
  */
 
   attachmentList: HTMLElement;  
   /**
- * attachmentEmpty：对象字段。
+ * attachmentEmpty：attachmentEmpty相关字段。
  */
 
   attachmentEmpty: HTMLElement;
@@ -203,7 +203,7 @@ export class MailPanel {
     | 'sendClaimMailAttachments'
     | 'sendDeleteMail'
   > 参数说明。
- * @returns 无返回值（构造函数）。
+ * @returns 无返回值，完成实例初始化。
  */
 
 
@@ -295,19 +295,19 @@ export class MailPanel {
   /** 处理标记已读、领取和删除的回包。 */
   handleOpResult(result: {  
   /**
- * operation：MailPanel 内部字段。
+ * operation：operation相关字段。
  */
  operation: 'markRead' | 'claim' | 'delete';  
  /**
- * ok：MailPanel 内部字段。
+ * ok：ok相关字段。
  */
  ok: boolean;  
  /**
- * mailIds：MailPanel 内部字段。
+ * mailIds：邮件ID相关字段。
  */
  mailIds: string[];  
  /**
- * message：MailPanel 内部字段。
+ * message：message相关字段。
  */
  message?: string }): void {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。

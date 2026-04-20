@@ -12,20 +12,20 @@ type UiButtonVariant = 'ghost' | 'danger';
 
 export interface UiButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {
 /**
- * variants：UiButtonProps 内部字段。
+ * variants：variant相关字段。
  */
 
   variants?: UiButtonVariant[];
 }
 /**
- * UiButton：执行核心业务逻辑。
+ * UiButton：渲染UiButton组件。
  * @param {
   variants = [],
   className,
   children,
   ...props
 } PropsWithChildren<UiButtonProps> 参数说明。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新UiButton相关状态。
  */
 
 

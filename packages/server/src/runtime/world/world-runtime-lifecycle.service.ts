@@ -17,9 +17,9 @@ const world_runtime_normalization_helpers_1 = require("./world-runtime.normaliza
 /** world-runtime lifecycle seam：承接公共实例 bootstrap、持久化恢复与整体验证前 rebuild。 */
 let WorldRuntimeLifecycleService = class WorldRuntimeLifecycleService {
 /**
- * bootstrapPublicInstances：执行核心业务逻辑。
+ * bootstrapPublicInstances：执行引导PublicInstance相关逻辑。
  * @param deps 运行时依赖。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新bootstrapPublicInstance相关状态。
  */
 
     bootstrapPublicInstances(deps) {
@@ -36,9 +36,9 @@ let WorldRuntimeLifecycleService = class WorldRuntimeLifecycleService {
         deps.logger.log(`已初始化 ${deps.getInstanceCount()} 个公共实例`);
     }    
     /**
- * restorePublicInstancePersistence：执行核心业务逻辑。
+ * restorePublicInstancePersistence：判断restorePublicInstancePersistence是否满足条件。
  * @param deps 运行时依赖。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新restorePublicInstancePersistence相关状态。
  */
 
     async restorePublicInstancePersistence(deps) {
@@ -61,9 +61,9 @@ let WorldRuntimeLifecycleService = class WorldRuntimeLifecycleService {
         }
     }    
     /**
- * rebuildPersistentRuntimeAfterRestore：执行核心业务逻辑。
+ * rebuildPersistentRuntimeAfterRestore：判断rebuildPersistent运行态AfterRestore是否满足条件。
  * @param deps 运行时依赖。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新rebuildPersistent运行态AfterRestore相关状态。
  */
 
     async rebuildPersistentRuntimeAfterRestore(deps) {

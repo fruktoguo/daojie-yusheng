@@ -17,22 +17,22 @@ function escapeHtml(value: string): string {
 /** NpcQuestModalCallbacks：任务弹窗回调集。 */
 interface NpcQuestModalCallbacks {
 /**
- * onRequestQuests：NpcQuestModalCallbacks 内部字段。
+ * onRequestQuests：集合字段。
  */
 
   onRequestQuests: (npcId: string) => void;  
   /**
- * onAcceptQuest：NpcQuestModalCallbacks 内部字段。
+ * onAcceptQuest：onAccept任务相关字段。
  */
 
   onAcceptQuest: (npcId: string, questId: string) => void;  
   /**
- * onSubmitQuest：NpcQuestModalCallbacks 内部字段。
+ * onSubmitQuest：onSubmit任务相关字段。
  */
 
   onSubmitQuest: (npcId: string, questId: string) => void;  
   /**
- * onNavigateQuest：NpcQuestModalCallbacks 内部字段。
+ * onNavigateQuest：onNavigate任务相关字段。
  */
 
   onNavigateQuest: (questId: string) => void;
@@ -41,12 +41,12 @@ interface NpcQuestModalCallbacks {
 /** NpcQuestModalMeta：任务弹窗标题元数据。 */
 type NpcQuestModalMeta = {
 /**
- * title：对象字段。
+ * title：title名称或显示文本。
  */
 
   title: string;  
   /**
- * subtitle：对象字段。
+ * subtitle：subtitle名称或显示文本。
  */
 
   subtitle: string;
@@ -55,17 +55,17 @@ type NpcQuestModalMeta = {
 /** NpcQuestRenderState：任务弹窗滚动与焦点状态。 */
 type NpcQuestRenderState = {
 /**
- * listScrollTop：对象字段。
+ * listScrollTop：ScrollTop相关字段。
  */
 
   listScrollTop: number;  
   /**
- * detailScrollTop：对象字段。
+ * detailScrollTop：详情ScrollTop相关字段。
  */
 
   detailScrollTop: number;  
   /**
- * focusSelector：对象字段。
+ * focusSelector：focuSelector相关字段。
  */
 
   focusSelector: string | null;
@@ -677,15 +677,15 @@ export class NpcQuestModal {
   /** resolveRequiredItemProgress：解析Required物品进度。 */
   private resolveRequiredItemProgress(quest: QuestState): {  
   /**
- * itemName：NpcQuestModal 内部字段。
+ * itemName：道具名称名称或显示文本。
  */
  itemName: string;  
  /**
- * current：NpcQuestModal 内部字段。
+ * current：current相关字段。
  */
  current: number;  
  /**
- * required：NpcQuestModal 内部字段。
+ * required：required相关字段。
  */
  required: number } | null {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。

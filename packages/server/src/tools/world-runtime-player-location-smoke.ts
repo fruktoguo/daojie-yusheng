@@ -4,8 +4,8 @@ const assert = require("node:assert/strict");
 
 const { WorldRuntimePlayerLocationService } = require("../runtime/world/world-runtime-player-location.service");
 /**
- * testOwnershipMethods：执行核心业务逻辑。
- * @returns 函数返回值。
+ * testOwnershipMethods：执行testOwnershipMethod相关逻辑。
+ * @returns 无返回值，直接更新testOwnershipMethod相关状态。
  */
 
 
@@ -24,8 +24,8 @@ function testOwnershipMethods() {
     assert.equal(service.getPlayerLocationCount(), 1);
 }
 /**
- * testResetState：执行核心业务逻辑。
- * @returns 函数返回值。
+ * testResetState：执行testReset状态相关逻辑。
+ * @returns 无返回值，直接更新testReset状态相关状态。
  */
 
 

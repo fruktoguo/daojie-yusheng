@@ -33,67 +33,67 @@ const world_runtime_npc_quest_write_service_1 = require("./world-runtime-npc-que
 /** world-runtime player-command orchestration：承接玩家命令路由与门禁。 */
 let WorldRuntimePlayerCommandService = class WorldRuntimePlayerCommandService {
 /**
- * playerRuntimeService：对象字段。
+ * playerRuntimeService：玩家运行态服务引用。
  */
 
     playerRuntimeService;    
     /**
- * worldRuntimeUseItemService：对象字段。
+ * worldRuntimeUseItemService：世界运行态Use道具服务引用。
  */
 
     worldRuntimeUseItemService;    
     /**
- * worldRuntimeEquipmentService：对象字段。
+ * worldRuntimeEquipmentService：世界运行态装备服务引用。
  */
 
     worldRuntimeEquipmentService;    
     /**
- * worldRuntimeItemGroundService：对象字段。
+ * worldRuntimeItemGroundService：世界运行态道具Ground服务引用。
  */
 
     worldRuntimeItemGroundService;    
     /**
- * worldRuntimeNavigationService：对象字段。
+ * worldRuntimeNavigationService：世界运行态导航服务引用。
  */
 
     worldRuntimeNavigationService;    
     /**
- * worldRuntimeCombatCommandService：对象字段。
+ * worldRuntimeCombatCommandService：世界运行态战斗Command服务引用。
  */
 
     worldRuntimeCombatCommandService;    
     /**
- * worldRuntimeCultivationService：对象字段。
+ * worldRuntimeCultivationService：世界运行态Cultivation服务引用。
  */
 
     worldRuntimeCultivationService;    
     /**
- * worldRuntimeAlchemyService：对象字段。
+ * worldRuntimeAlchemyService：世界运行态炼丹服务引用。
  */
 
     worldRuntimeAlchemyService;    
     /**
- * worldRuntimeEnhancementService：对象字段。
+ * worldRuntimeEnhancementService：世界运行态强化服务引用。
  */
 
     worldRuntimeEnhancementService;    
     /**
- * worldRuntimeRedeemCodeService：对象字段。
+ * worldRuntimeRedeemCodeService：世界运行态RedeemCode服务引用。
  */
 
     worldRuntimeRedeemCodeService;    
     /**
- * worldRuntimeProgressionService：对象字段。
+ * worldRuntimeProgressionService：世界运行态修炼进度服务引用。
  */
 
     worldRuntimeProgressionService;    
     /**
- * worldRuntimeNpcShopService：对象字段。
+ * worldRuntimeNpcShopService：世界运行态NPCShop服务引用。
  */
 
     worldRuntimeNpcShopService;    
     /**
- * worldRuntimeNpcQuestWriteService：对象字段。
+ * worldRuntimeNpcQuestWriteService：世界运行态NPC任务Write服务引用。
  */
 
     worldRuntimeNpcQuestWriteService;    
@@ -112,7 +112,7 @@ let WorldRuntimePlayerCommandService = class WorldRuntimePlayerCommandService {
  * @param worldRuntimeProgressionService 参数说明。
  * @param worldRuntimeNpcShopService 参数说明。
  * @param worldRuntimeNpcQuestWriteService 参数说明。
- * @returns 无返回值（构造函数）。
+ * @returns 无返回值，完成实例初始化。
  */
 
     constructor(playerRuntimeService, worldRuntimeUseItemService, worldRuntimeEquipmentService, worldRuntimeItemGroundService, worldRuntimeNavigationService, worldRuntimeCombatCommandService, worldRuntimeCultivationService, worldRuntimeAlchemyService, worldRuntimeEnhancementService, worldRuntimeRedeemCodeService, worldRuntimeProgressionService, worldRuntimeNpcShopService, worldRuntimeNpcQuestWriteService) {
@@ -131,11 +131,11 @@ let WorldRuntimePlayerCommandService = class WorldRuntimePlayerCommandService {
         this.worldRuntimeNpcQuestWriteService = worldRuntimeNpcQuestWriteService;
     }    
     /**
- * dispatchPlayerCommand：处理事件并驱动执行路径。
+ * dispatchPlayerCommand：判断玩家Command是否满足条件。
  * @param playerId 玩家 ID。
  * @param command 输入指令。
  * @param deps 运行时依赖。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新玩家Command相关状态。
  */
 
     dispatchPlayerCommand(playerId, command, deps) {

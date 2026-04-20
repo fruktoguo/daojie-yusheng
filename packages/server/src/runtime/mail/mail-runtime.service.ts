@@ -33,17 +33,17 @@ const MAIL_DEFAULT_SENDER_LABEL = '司命台';
 
 let MailRuntimeService = class MailRuntimeService {
 /**
- * contentTemplateRepository：对象字段。
+ * contentTemplateRepository：内容Template仓储引用。
  */
 
     contentTemplateRepository;    
     /**
- * playerRuntimeService：对象字段。
+ * playerRuntimeService：玩家运行态服务引用。
  */
 
     playerRuntimeService;    
     /**
- * mailPersistenceService：对象字段。
+ * mailPersistenceService：邮件Persistence服务引用。
  */
 
     mailPersistenceService;
@@ -549,7 +549,7 @@ exports.MailRuntimeService = MailRuntimeService = __decorate([
 export { MailRuntimeService };
 /**
  * createEmptyMailbox：构建并返回目标对象。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新Empty邮件箱相关状态。
  */
 
 function createEmptyMailbox() {
@@ -560,9 +560,9 @@ function createEmptyMailbox() {
     };
 }
 /**
- * normalizeArgs：执行核心业务逻辑。
+ * normalizeArgs：规范化或转换Arg。
  * @param args 参数说明。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新Arg相关状态。
  */
 
 function normalizeArgs(args) {
@@ -598,9 +598,9 @@ function normalizeArgs(args) {
     return normalized;
 }
 /**
- * normalizeAttachments：执行核心业务逻辑。
+ * normalizeAttachments：规范化或转换Attachment。
  * @param attachments 参数说明。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新Attachment相关状态。
  */
 
 function normalizeAttachments(attachments) {

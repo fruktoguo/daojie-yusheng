@@ -33,21 +33,21 @@ interface RuntimeGmStateServiceLike {
 interface MapTemplateRepositoryLike {
   getOrThrow(mapId: string): {  
   /**
- * id：MapTemplateRepositoryLike 内部字段。
+ * id：ID标识。
  */
  id: string;  
  /**
- * source：MapTemplateRepositoryLike 内部字段。
+ * source：来源相关字段。
  */
  source: {  
  /**
- * time：MapTemplateRepositoryLike 内部字段。
+ * time：时间相关字段。
  */
  time?: Record<string, unknown> } };
   loadAll(): void;
   listSummaries(): Array<{  
   /**
- * id：MapTemplateRepositoryLike 内部字段。
+ * id：ID标识。
  */
  id: string }>;
 }
@@ -79,15 +79,15 @@ interface RuntimeMapConfigServiceLike {
 interface NextGmStateQueryServiceLike {
   getState(timers: {  
   /**
- * networkPerfStartedAt：NextGmStateQueryServiceLike 内部字段。
+ * networkPerfStartedAt：networkPerfStartedAt相关字段。
  */
  networkPerfStartedAt: number;  
  /**
- * cpuPerfStartedAt：NextGmStateQueryServiceLike 内部字段。
+ * cpuPerfStartedAt：cpuPerfStartedAt相关字段。
  */
  cpuPerfStartedAt: number;  
  /**
- * pathfindingPerfStartedAt：NextGmStateQueryServiceLike 内部字段。
+ * pathfindingPerfStartedAt：pathfindingPerfStartedAt相关字段。
  */
  pathfindingPerfStartedAt: number }): Promise<unknown>;
 }
@@ -131,22 +131,22 @@ interface NextGmSuggestionQueryServiceLike {
 @Injectable()
 export class NextGmWorldService {
 /**
- * networkPerfStartedAt：NextGmWorldService 内部字段。
+ * networkPerfStartedAt：networkPerfStartedAt相关字段。
  */
 
   private networkPerfStartedAt = Date.now();  
   /**
- * cpuPerfStartedAt：NextGmWorldService 内部字段。
+ * cpuPerfStartedAt：cpuPerfStartedAt相关字段。
  */
 
   private cpuPerfStartedAt = Date.now();  
   /**
- * pathfindingPerfStartedAt：NextGmWorldService 内部字段。
+ * pathfindingPerfStartedAt：pathfindingPerfStartedAt相关字段。
  */
 
   private pathfindingPerfStartedAt = Date.now();  
   /**
- * worldObserverIds：NextGmWorldService 内部字段。
+ * worldObserverIds：世界ObserverID相关字段。
  */
 
   private worldObserverIds = new Set<string>();  
@@ -162,7 +162,7 @@ export class NextGmWorldService {
  * @param nextGmMapQueryService NextGmMapQueryServiceLike 参数说明。
  * @param nextGmMapRuntimeQueryService NextGmMapRuntimeQueryServiceLike 参数说明。
  * @param nextGmSuggestionQueryService NextGmSuggestionQueryServiceLike 参数说明。
- * @returns 无返回值（构造函数）。
+ * @returns 无返回值，完成实例初始化。
  */
 
 
@@ -189,8 +189,8 @@ export class NextGmWorldService {
     private readonly nextGmSuggestionQueryService: NextGmSuggestionQueryServiceLike,
   ) {}  
   /**
- * getState：按给定条件读取/查询数据。
- * @returns 函数返回值。
+ * getState：读取状态。
+ * @returns 无返回值，完成状态的读取/组装。
  */
 
 
@@ -202,8 +202,8 @@ export class NextGmWorldService {
     });
   }  
   /**
- * getEditorCatalog：按给定条件读取/查询数据。
- * @returns 函数返回值。
+ * getEditorCatalog：读取Editor目录。
+ * @returns 无返回值，完成Editor目录的读取/组装。
  */
 
 
@@ -211,9 +211,9 @@ export class NextGmWorldService {
     return this.nextGmEditorQueryService.getEditorCatalog();
   }  
   /**
- * getSuggestions：按给定条件读取/查询数据。
+ * getSuggestions：读取Suggestion。
  * @param query 参数说明。
- * @returns 函数返回值。
+ * @returns 无返回值，完成Suggestion的读取/组装。
  */
 
 
@@ -221,9 +221,9 @@ export class NextGmWorldService {
     return this.nextGmSuggestionQueryService.getSuggestions(query);
   }  
   /**
- * completeSuggestion：执行核心业务逻辑。
+ * completeSuggestion：执行completeSuggestion相关逻辑。
  * @param id string 参数说明。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新completeSuggestion相关状态。
  */
 
 
@@ -238,10 +238,10 @@ export class NextGmWorldService {
     return { ok: true };
   }  
   /**
- * replySuggestion：执行核心业务逻辑。
+ * replySuggestion：执行replySuggestion相关逻辑。
  * @param id string 参数说明。
  * @param body 参数说明。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新replySuggestion相关状态。
  */
 
 
@@ -256,9 +256,9 @@ export class NextGmWorldService {
     return { ok: true };
   }  
   /**
- * removeSuggestion：执行核心业务逻辑。
+ * removeSuggestion：处理Suggestion并更新相关状态。
  * @param id string 参数说明。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新Suggestion相关状态。
  */
 
 
@@ -273,8 +273,8 @@ export class NextGmWorldService {
     return { ok: true };
   }  
   /**
- * getMaps：按给定条件读取/查询数据。
- * @returns 函数返回值。
+ * getMaps：读取地图。
+ * @returns 无返回值，完成地图的读取/组装。
  */
 
 
@@ -282,14 +282,14 @@ export class NextGmWorldService {
     return this.nextGmMapQueryService.getMaps();
   }  
   /**
- * getMapRuntime：按给定条件读取/查询数据。
+ * getMapRuntime：读取地图运行态。
  * @param mapId string 地图 ID。
  * @param x X 坐标。
  * @param y Y 坐标。
  * @param w 参数说明。
  * @param h 参数说明。
  * @param viewerId viewer ID。
- * @returns 函数返回值。
+ * @returns 无返回值，完成地图运行态的读取/组装。
  */
 
 
@@ -303,10 +303,10 @@ export class NextGmWorldService {
     return this.nextGmMapRuntimeQueryService.getMapRuntime(mapId, x, y, w, h);
   }  
   /**
- * updateMapTick：更新/写入相关状态。
+ * updateMapTick：处理地图tick并更新相关状态。
  * @param mapId string 地图 ID。
  * @param body 参数说明。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新地图tick相关状态。
  */
 
 
@@ -315,10 +315,10 @@ export class NextGmWorldService {
     this.runtimeMapConfigService.updateMapTick(mapId, body);
   }  
   /**
- * updateMapTime：更新/写入相关状态。
+ * updateMapTime：处理地图时间并更新相关状态。
  * @param mapId string 地图 ID。
  * @param body 参数说明。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新地图时间相关状态。
  */
 
 
@@ -327,8 +327,8 @@ export class NextGmWorldService {
     this.runtimeMapConfigService.updateMapTime(mapId, template.source.time ?? {}, body);
   }  
   /**
- * reloadTickConfig：执行核心业务逻辑。
- * @returns 函数返回值。
+ * reloadTickConfig：读取reloadtick配置并返回结果。
+ * @returns 无返回值，直接更新reloadtick配置相关状态。
  */
 
 
@@ -342,9 +342,9 @@ export class NextGmWorldService {
     return { ok: true };
   }  
   /**
- * clearWorldObservation：执行核心业务逻辑。
+ * clearWorldObservation：执行clear世界Observation相关逻辑。
  * @param viewerId viewer ID。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新clear世界Observation相关状态。
  */
 
 
@@ -359,8 +359,8 @@ export class NextGmWorldService {
     this.worldObserverIds.delete(normalized);
   }  
   /**
- * resetNetworkPerf：执行核心业务逻辑。
- * @returns 函数返回值。
+ * resetNetworkPerf：执行resetNetworkPerf相关逻辑。
+ * @returns 无返回值，直接更新resetNetworkPerf相关状态。
  */
 
 
@@ -368,8 +368,8 @@ export class NextGmWorldService {
     this.networkPerfStartedAt = Date.now();
   }  
   /**
- * resetCpuPerf：执行核心业务逻辑。
- * @returns 函数返回值。
+ * resetCpuPerf：执行resetCpuPerf相关逻辑。
+ * @returns 无返回值，直接更新resetCpuPerf相关状态。
  */
 
 
@@ -377,8 +377,8 @@ export class NextGmWorldService {
     this.cpuPerfStartedAt = Date.now();
   }  
   /**
- * resetPathfindingPerf：执行核心业务逻辑。
- * @returns 函数返回值。
+ * resetPathfindingPerf：读取resetPathfindingPerf并返回结果。
+ * @returns 无返回值，直接更新resetPathfindingPerf相关状态。
  */
 
 

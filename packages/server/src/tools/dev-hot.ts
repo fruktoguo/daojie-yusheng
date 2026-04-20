@@ -16,9 +16,9 @@ let serverProcess: import("node:child_process").ChildProcess | null = null;
 let serverGeneration = 0;
 let watchReady = false;
 /**
- * padDatePart：执行核心业务逻辑。
+ * padDatePart：处理padDatePart并更新相关状态。
  * @param value number 参数说明。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新padDatePart相关状态。
  */
 
 
@@ -26,8 +26,8 @@ function padDatePart(value: number) {
   return String(value).padStart(2, "0");
 }
 /**
- * getTimestamp：按给定条件读取/查询数据。
- * @returns 函数返回值。
+ * getTimestamp：读取Timestamp。
+ * @returns 无返回值，完成Timestamp的读取/组装。
  */
 
 
@@ -42,9 +42,9 @@ function getTimestamp() {
   return `${year}-${month}-${day} ${hours}:${minutes}:${seconds}`;
 }
 /**
- * log：执行核心业务逻辑。
+ * log：执行log相关逻辑。
  * @param message string 参数说明。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新log相关状态。
  */
 
 
@@ -52,10 +52,10 @@ function log(message: string) {
   process.stdout.write(`[${getTimestamp()}] [server-next dev] ${message}\n`);
 }
 /**
- * forwardWithCapture：执行核心业务逻辑。
+ * forwardWithCapture：执行forwardWithCapture相关逻辑。
  * @param stream NodeJS.ReadableStream 参数说明。
  * @param onText (text: string) => void 参数说明。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新forwardWithCapture相关状态。
  */
 
 
@@ -67,9 +67,9 @@ function forwardWithCapture(stream: NodeJS.ReadableStream, onText: (text: string
   });
 }
 /**
- * stopServer：执行核心业务逻辑。
+ * stopServer：执行stopServer相关逻辑。
  * @param onStopped () => void 参数说明。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新stopServer相关状态。
  */
 
 
@@ -106,8 +106,8 @@ function stopServer(onStopped?: () => void) {
   forceKillTimer.unref();
 }
 /**
- * startServer：执行核心业务逻辑。
- * @returns 函数返回值。
+ * startServer：执行开始Server相关逻辑。
+ * @returns 无返回值，直接更新startServer相关状态。
  */
 
 
@@ -137,9 +137,9 @@ function startServer() {
   });
 }
 /**
- * restartServer：执行核心业务逻辑。
+ * restartServer：执行restartServer相关逻辑。
  * @param reason string 参数说明。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新restartServer相关状态。
  */
 
 
@@ -153,9 +153,9 @@ function restartServer(reason: string) {
   stopServer(() => startServer());
 }
 /**
- * shutdown：执行核心业务逻辑。
+ * shutdown：执行shutdown相关逻辑。
  * @param tscWatcher import("node:child_process").ChildProcess 参数说明。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新shutdown相关状态。
  */
 
 

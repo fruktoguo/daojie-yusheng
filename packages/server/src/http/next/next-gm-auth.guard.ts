@@ -15,7 +15,7 @@ export class NextGmAuthGuard implements CanActivate {
 /**
  * 构造器：初始化 当前 实例并建立基础状态。
  * @param authService RuntimeGmAuthServiceLike 参数说明。
- * @returns 无返回值（构造函数）。
+ * @returns 无返回值，完成实例初始化。
  */
 
   constructor(@Inject(RuntimeGmAuthService) private readonly authService: RuntimeGmAuthServiceLike) {}

@@ -5,8 +5,8 @@ import { useExternalStoreSnapshot } from '../hooks/use-external-store-snapshot';
 import { shellStore } from '../stores/shell-store';
 import { NextUiScaffold } from './NextUiScaffold';
 /**
- * NextUiRoot：执行核心业务逻辑。
- * @returns 函数返回值。
+ * NextUiRoot：渲染NextUi根容器组件。
+ * @returns 无返回值，直接更新NextUi根容器相关状态。
  */
 
 

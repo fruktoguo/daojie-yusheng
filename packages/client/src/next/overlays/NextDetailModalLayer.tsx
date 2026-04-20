@@ -1,8 +1,8 @@
 import { useExternalStoreSnapshot } from '../hooks/use-external-store-snapshot';
 import { closeNextDetailModal, overlayStore } from './overlay-store';
 /**
- * NextDetailModalLayer：执行核心业务逻辑。
- * @returns 函数返回值。
+ * NextDetailModalLayer：渲染Next详情弹层层组件。
+ * @returns 无返回值，直接更新Next详情弹层层相关状态。
  */
 
 

@@ -6,22 +6,22 @@ import { FloatingTooltip } from './ui/floating-tooltip';
 
 export type ObserveAsideCard = {
 /**
- * mark：对象字段。
+ * mark：mark相关字段。
  */
 
   mark?: string;  
   /**
- * title：对象字段。
+ * title：title名称或显示文本。
  */
 
   title: string;  
   /**
- * lines：对象字段。
+ * lines：line相关字段。
  */
 
   lines: string[];  
   /**
- * tone：对象字段。
+ * tone：tone相关字段。
  */
 
   tone?: 'buff' | 'debuff';
@@ -37,32 +37,32 @@ function createFragmentFromHtml(html: string): DocumentFragment {
 /** createObserveModalController：创建观察弹层控制器。 */
 export function createObserveModalController(options: {
 /**
- * observeModalEl：对象字段。
+ * observeModalEl：observe弹层El相关字段。
  */
 
   observeModalEl: HTMLElement | null;  
   /**
- * observeModalBodyEl：对象字段。
+ * observeModalBodyEl：observe弹层BodyEl相关字段。
  */
 
   observeModalBodyEl: HTMLElement | null;  
   /**
- * observeModalSubtitleEl：对象字段。
+ * observeModalSubtitleEl：observe弹层SubtitleEl相关字段。
  */
 
   observeModalSubtitleEl: HTMLElement | null;  
   /**
- * observeModalAsideEl：对象字段。
+ * observeModalAsideEl：observe弹层AsideEl相关字段。
  */
 
   observeModalAsideEl: HTMLElement | null;  
   /**
- * observeBuffTooltip：对象字段。
+ * observeBuffTooltip：observeBuff提示相关字段。
  */
 
   observeBuffTooltip: FloatingTooltip;  
   /**
- * escapeHtml：对象字段。
+ * escapeHtml：escapeHtml相关字段。
  */
 
   escapeHtml: (value: string) => string;
@@ -78,8 +78,8 @@ export function createObserveModalController(options: {
 
   return {  
   /**
- * hide：执行核心业务逻辑。
- * @returns void。
+ * hide：执行hide相关逻辑。
+ * @returns 无返回值，直接更新hide相关状态。
  */
 
     hide(): void {
@@ -95,10 +95,10 @@ export function createObserveModalController(options: {
       }
     },    
     /**
- * setSubtitle：更新/写入相关状态。
+ * setSubtitle：写入Subtitle。
  * @param targetX number 参数说明。
  * @param targetY number 参数说明。
- * @returns void。
+ * @returns 无返回值，直接更新Subtitle相关状态。
  */
 
     setSubtitle(targetX: number, targetY: number): void {
@@ -107,9 +107,9 @@ export function createObserveModalController(options: {
       }
     },    
     /**
- * renderBody：执行核心业务逻辑。
+ * renderBody：执行Body相关逻辑。
  * @param html string 参数说明。
- * @returns void。
+ * @returns 无返回值，直接更新Body相关状态。
  */
 
     renderBody(html: string): void {
@@ -121,9 +121,9 @@ export function createObserveModalController(options: {
       observeModalBodyEl.replaceChildren(createFragmentFromHtml(html));
     },    
     /**
- * renderAsideCards：执行核心业务逻辑。
+ * renderAsideCards：执行AsideCard相关逻辑。
  * @param cards ObserveAsideCard[] 参数说明。
- * @returns void。
+ * @returns 无返回值，直接更新AsideCard相关状态。
  */
 
     renderAsideCards(cards: ObserveAsideCard[]): void {
@@ -154,8 +154,8 @@ export function createObserveModalController(options: {
       observeModalAsideEl.setAttribute('aria-hidden', 'false');
     },    
     /**
- * show：执行核心业务逻辑。
- * @returns void。
+ * show：执行show相关逻辑。
+ * @returns 无返回值，直接更新show相关状态。
  */
 
     show(): void {
@@ -189,32 +189,32 @@ export function refreshZoomChrome(
 /** bindZoomControls：绑定缩放控件。 */
 export function bindZoomControls(options: {
 /**
- * zoomSlider：对象字段。
+ * zoomSlider：zoomSlider相关字段。
  */
 
   zoomSlider: HTMLInputElement | null;  
   /**
- * zoomResetBtn：对象字段。
+ * zoomResetBtn：zoomResetBtn相关字段。
  */
 
   zoomResetBtn: HTMLButtonElement | null;  
   /**
- * minZoom：对象字段。
+ * minZoom：minZoom相关字段。
  */
 
   minZoom: number;  
   /**
- * maxZoom：对象字段。
+ * maxZoom：maxZoom相关字段。
  */
 
   maxZoom: number;  
   /**
- * applyZoomChange：对象字段。
+ * applyZoomChange：ZoomChange相关字段。
  */
 
   applyZoomChange: (nextZoom: number) => number;  
   /**
- * showToast：对象字段。
+ * showToast：showToast相关字段。
  */
 
   showToast: (message: string) => void;

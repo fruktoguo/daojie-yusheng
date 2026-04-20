@@ -5,17 +5,17 @@
 /** 排行榜通用玩家条目。 */
 export interface LeaderboardPlayerEntry {
 /**
- * rank：LeaderboardPlayerEntry 内部字段。
+ * rank：rank相关字段。
  */
 
   rank: number;  
   /**
- * playerId：LeaderboardPlayerEntry 内部字段。
+ * playerId：玩家ID标识。
  */
 
   playerId: string;  
   /**
- * playerName：LeaderboardPlayerEntry 内部字段。
+ * playerName：玩家名称名称或显示文本。
  */
 
   playerName: string;
@@ -24,27 +24,27 @@ export interface LeaderboardPlayerEntry {
 /** 境界排行榜条目。 */
 export interface LeaderboardRealmEntry extends LeaderboardPlayerEntry {
 /**
- * realmLv：LeaderboardRealmEntry 内部字段。
+ * realmLv：realmLv相关字段。
  */
 
   realmLv: number;  
   /**
- * realmName：LeaderboardRealmEntry 内部字段。
+ * realmName：realm名称名称或显示文本。
  */
 
   realmName: string;  
   /**
- * realmShortName：LeaderboardRealmEntry 内部字段。
+ * realmShortName：realmShort名称名称或显示文本。
  */
 
   realmShortName?: string;  
   /**
- * progress：LeaderboardRealmEntry 内部字段。
+ * progress：进度状态或数据块。
  */
 
   progress: number;  
   /**
- * foundation：LeaderboardRealmEntry 内部字段。
+ * foundation：foundation相关字段。
  */
 
   foundation: number;
@@ -53,17 +53,17 @@ export interface LeaderboardRealmEntry extends LeaderboardPlayerEntry {
 /** 击杀怪物排行榜条目。 */
 export interface LeaderboardMonsterKillEntry extends LeaderboardPlayerEntry {
 /**
- * totalKills：LeaderboardMonsterKillEntry 内部字段。
+ * totalKills：totalKill相关字段。
  */
 
   totalKills: number;  
   /**
- * eliteKills：LeaderboardMonsterKillEntry 内部字段。
+ * eliteKills：eliteKill相关字段。
  */
 
   eliteKills: number;  
   /**
- * bossKills：LeaderboardMonsterKillEntry 内部字段。
+ * bossKills：bossKill相关字段。
  */
 
   bossKills: number;
@@ -72,7 +72,7 @@ export interface LeaderboardMonsterKillEntry extends LeaderboardPlayerEntry {
 /** 灵石榜条目。 */
 export interface LeaderboardSpiritStoneEntry extends LeaderboardPlayerEntry {
 /**
- * spiritStoneCount：LeaderboardSpiritStoneEntry 内部字段。
+ * spiritStoneCount：数量或计量字段。
  */
 
   spiritStoneCount: number;
@@ -81,7 +81,7 @@ export interface LeaderboardSpiritStoneEntry extends LeaderboardPlayerEntry {
 /** 玩家击杀榜条目。 */
 export interface LeaderboardPlayerKillEntry extends LeaderboardPlayerEntry {
 /**
- * playerKillCount：LeaderboardPlayerKillEntry 内部字段。
+ * playerKillCount：数量或计量字段。
  */
 
   playerKillCount: number;
@@ -90,7 +90,7 @@ export interface LeaderboardPlayerKillEntry extends LeaderboardPlayerEntry {
 /** 死亡榜条目。 */
 export interface LeaderboardDeathEntry extends LeaderboardPlayerEntry {
 /**
- * deathCount：LeaderboardDeathEntry 内部字段。
+ * deathCount：数量或计量字段。
  */
 
   deathCount: number;
@@ -99,17 +99,17 @@ export interface LeaderboardDeathEntry extends LeaderboardPlayerEntry {
 /** 体修榜条目。 */
 export interface LeaderboardBodyTrainingEntry extends LeaderboardPlayerEntry {
 /**
- * level：LeaderboardBodyTrainingEntry 内部字段。
+ * level：等级数值。
  */
 
   level: number;  
   /**
- * exp：LeaderboardBodyTrainingEntry 内部字段。
+ * exp：exp相关字段。
  */
 
   exp: number;  
   /**
- * expToNext：LeaderboardBodyTrainingEntry 内部字段。
+ * expToNext：expToNext相关字段。
  */
 
   expToNext: number;
@@ -118,27 +118,27 @@ export interface LeaderboardBodyTrainingEntry extends LeaderboardPlayerEntry {
 /** 四项至尊属性榜条目。 */
 export interface LeaderboardSupremeAttrEntry {
 /**
- * attr：LeaderboardSupremeAttrEntry 内部字段。
+ * attr：attr相关字段。
  */
 
   attr: 'constitution' | 'spirit' | 'perception' | 'talent';  
   /**
- * label：LeaderboardSupremeAttrEntry 内部字段。
+ * label：label名称或显示文本。
  */
 
   label: string;  
   /**
- * playerId：LeaderboardSupremeAttrEntry 内部字段。
+ * playerId：玩家ID标识。
  */
 
   playerId: string;  
   /**
- * playerName：LeaderboardSupremeAttrEntry 内部字段。
+ * playerName：玩家名称名称或显示文本。
  */
 
   playerName: string;  
   /**
- * value：LeaderboardSupremeAttrEntry 内部字段。
+ * value：值数值。
  */
 
   value: number;
@@ -147,22 +147,22 @@ export interface LeaderboardSupremeAttrEntry {
 /** 世界活跃行为统计。 */
 export interface LeaderboardWorldActionCounts {
 /**
- * cultivation：LeaderboardWorldActionCounts 内部字段。
+ * cultivation：cultivation相关字段。
  */
 
   cultivation: number;  
   /**
- * combat：LeaderboardWorldActionCounts 内部字段。
+ * combat：战斗相关字段。
  */
 
   combat: number;  
   /**
- * alchemy：LeaderboardWorldActionCounts 内部字段。
+ * alchemy：炼丹相关字段。
  */
 
   alchemy: number;  
   /**
- * enhancement：LeaderboardWorldActionCounts 内部字段。
+ * enhancement：强化相关字段。
  */
 
   enhancement: number;
@@ -171,17 +171,17 @@ export interface LeaderboardWorldActionCounts {
 /** 世界境界分布统计。 */
 export interface LeaderboardWorldRealmCounts {
 /**
- * initial：LeaderboardWorldRealmCounts 内部字段。
+ * initial：initial相关字段。
  */
 
   initial: number;  
   /**
- * mortal：LeaderboardWorldRealmCounts 内部字段。
+ * mortal：mortal相关字段。
  */
 
   mortal: number;  
   /**
- * qiRefiningOrAbove：LeaderboardWorldRealmCounts 内部字段。
+ * qiRefiningOrAbove：qiRefiningOrAbove相关字段。
  */
 
   qiRefiningOrAbove: number;
@@ -190,27 +190,27 @@ export interface LeaderboardWorldRealmCounts {
 /** 世界击杀与死亡统计。 */
 export interface LeaderboardWorldKillCounts {
 /**
- * normalMonsters：LeaderboardWorldKillCounts 内部字段。
+ * normalMonsters：集合字段。
  */
 
   normalMonsters: number;  
   /**
- * eliteMonsters：LeaderboardWorldKillCounts 内部字段。
+ * eliteMonsters：集合字段。
  */
 
   eliteMonsters: number;  
   /**
- * bossMonsters：LeaderboardWorldKillCounts 内部字段。
+ * bossMonsters：集合字段。
  */
 
   bossMonsters: number;  
   /**
- * playerKills：LeaderboardWorldKillCounts 内部字段。
+ * playerKills：玩家Kill相关字段。
  */
 
   playerKills: number;  
   /**
- * playerDeaths：LeaderboardWorldKillCounts 内部字段。
+ * playerDeaths：玩家Death相关字段。
  */
 
   playerDeaths: number;
@@ -219,22 +219,22 @@ export interface LeaderboardWorldKillCounts {
 /** 世界概览统计摘要。 */
 export interface LeaderboardWorldSummary {
 /**
- * totalSpiritStones：LeaderboardWorldSummary 内部字段。
+ * totalSpiritStones：totalSpiritStone相关字段。
  */
 
   totalSpiritStones: number;  
   /**
- * actionCounts：LeaderboardWorldSummary 内部字段。
+ * actionCounts：action数量相关字段。
  */
 
   actionCounts: LeaderboardWorldActionCounts;  
   /**
- * realmCounts：LeaderboardWorldSummary 内部字段。
+ * realmCounts：realm数量相关字段。
  */
 
   realmCounts: LeaderboardWorldRealmCounts;  
   /**
- * killCounts：LeaderboardWorldSummary 内部字段。
+ * killCounts：kill数量相关字段。
  */
 
   killCounts: LeaderboardWorldKillCounts;

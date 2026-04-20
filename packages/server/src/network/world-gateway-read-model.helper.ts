@@ -10,24 +10,24 @@ const world_gateway_attr_detail_helper_1 = require("./world-gateway-attr-detail.
 /** 世界 socket 读模型 helper：只收敛请求详情/排行/摘要入口。 */
 class WorldGatewayReadModelHelper {
 /**
- * gateway：WorldGatewayReadModelHelper 内部字段。
+ * gateway：gateway相关字段。
  */
 
     gateway;    
     /**
  * 构造器：初始化 当前 实例并建立基础状态。
  * @param gateway 参数说明。
- * @returns 无返回值（构造函数）。
+ * @returns 无返回值，完成实例初始化。
  */
 
     constructor(gateway) {
         this.gateway = gateway;
     }    
     /**
- * handleNextRequestAttrDetail：处理事件并驱动执行路径。
+ * handleNextRequestAttrDetail：处理NextRequestAttr详情并更新相关状态。
  * @param client 参数说明。
  * @param _payload 参数说明。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新NextRequestAttr详情相关状态。
  */
 
     handleNextRequestAttrDetail(client, _payload) {
@@ -62,10 +62,10 @@ class WorldGatewayReadModelHelper {
         }
     }    
     /**
- * handleNextRequestLeaderboard：处理事件并驱动执行路径。
+ * handleNextRequestLeaderboard：处理NextRequestLeaderboard并更新相关状态。
  * @param client 参数说明。
  * @param payload 载荷参数。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新NextRequestLeaderboard相关状态。
  */
 
     handleNextRequestLeaderboard(client, payload) {
@@ -84,10 +84,10 @@ class WorldGatewayReadModelHelper {
         }
     }    
     /**
- * handleNextRequestWorldSummary：处理事件并驱动执行路径。
+ * handleNextRequestWorldSummary：处理NextRequest世界摘要并更新相关状态。
  * @param client 参数说明。
  * @param _payload 参数说明。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新NextRequest世界摘要相关状态。
  */
 
     handleNextRequestWorldSummary(client, _payload) {
@@ -106,10 +106,10 @@ class WorldGatewayReadModelHelper {
         }
     }    
     /**
- * handleRequestDetail：处理事件并驱动执行路径。
+ * handleRequestDetail：处理Request详情并更新相关状态。
  * @param client 参数说明。
  * @param payload 载荷参数。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新Request详情相关状态。
  */
 
     handleRequestDetail(client, payload) {
@@ -130,10 +130,10 @@ class WorldGatewayReadModelHelper {
         }
     }    
     /**
- * handleRequestTileDetail：处理事件并驱动执行路径。
+ * handleRequestTileDetail：处理RequestTile详情并更新相关状态。
  * @param client 参数说明。
  * @param payload 载荷参数。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新RequestTile详情相关状态。
  */
 
     handleRequestTileDetail(client, payload) {

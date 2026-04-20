@@ -18,17 +18,17 @@ const TICK_METRIC_WINDOW_SIZE = 60;
 /** world-runtime metrics state：承接 tick / sync flush 指标状态所有权。 */
 let WorldRuntimeMetricsService = class WorldRuntimeMetricsService {
 /**
- * lastTickDurationMs：对象字段。
+ * lastTickDurationMs：lasttickDurationM相关字段。
  */
 
     lastTickDurationMs = 0;    
     /**
- * lastSyncFlushDurationMs：对象字段。
+ * lastSyncFlushDurationMs：lastSyncFlushDurationM相关字段。
  */
 
     lastSyncFlushDurationMs = 0;    
     /**
- * lastTickPhaseDurations：对象字段。
+ * lastTickPhaseDurations：lasttickPhaseDuration相关字段。
  */
 
     lastTickPhaseDurations = {
@@ -40,19 +40,19 @@ let WorldRuntimeMetricsService = class WorldRuntimeMetricsService {
         playerAdvanceMs: 0,
     };    
     /**
- * tickDurationHistoryMs：对象字段。
+ * tickDurationHistoryMs：tickDurationHistoryM相关字段。
  */
 
     tickDurationHistoryMs = [];    
     /**
- * syncFlushDurationHistoryMs：对象字段。
+ * syncFlushDurationHistoryMs：FlushDurationHistoryM相关字段。
  */
 
     syncFlushDurationHistoryMs = [];    
     /**
- * recordIdleFrame：执行核心业务逻辑。
+ * recordIdleFrame：执行recordIdle帧相关逻辑。
  * @param startedAt 参数说明。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新recordIdle帧相关状态。
  */
 
     recordIdleFrame(startedAt) {
@@ -68,10 +68,10 @@ let WorldRuntimeMetricsService = class WorldRuntimeMetricsService {
         pushDurationMetric(this.tickDurationHistoryMs, this.lastTickDurationMs);
     }    
     /**
- * recordFrameResult：执行核心业务逻辑。
+ * recordFrameResult：执行record帧结果相关逻辑。
  * @param startedAt 参数说明。
  * @param phaseDurations 参数说明。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新record帧结果相关状态。
  */
 
     recordFrameResult(startedAt, phaseDurations) {
@@ -87,9 +87,9 @@ let WorldRuntimeMetricsService = class WorldRuntimeMetricsService {
         pushDurationMetric(this.tickDurationHistoryMs, this.lastTickDurationMs);
     }    
     /**
- * recordSyncFlushDuration：执行核心业务逻辑。
+ * recordSyncFlushDuration：处理record同步刷新耗时并更新相关状态。
  * @param durationMs 参数说明。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新recordSyncFlushDuration相关状态。
  */
 
     recordSyncFlushDuration(durationMs) {
@@ -102,9 +102,9 @@ exports.WorldRuntimeMetricsService = WorldRuntimeMetricsService = __decorate([
     (0, common_1.Injectable)()
 ], WorldRuntimeMetricsService);
 /**
- * roundDurationMs：执行核心业务逻辑。
+ * roundDurationMs：执行round耗时M相关逻辑。
  * @param value 参数说明。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新roundDurationM相关状态。
  */
 
 
@@ -112,10 +112,10 @@ function roundDurationMs(value) {
     return Math.round(value * 1000) / 1000;
 }
 /**
- * pushDurationMetric：执行核心业务逻辑。
+ * pushDurationMetric：处理耗时Metric并更新相关状态。
  * @param history 参数说明。
  * @param value 参数说明。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新DurationMetric相关状态。
  */
 
 

@@ -14,111 +14,111 @@ import { MAP_FALLBACK } from './constants/world/world-panel';
 
 type MainUiStateSourceOptions = {
 /**
- * hud：对象字段。
+ * hud：hud相关字段。
  */
 
   hud: Pick<HUD, 'update'>;  
   /**
- * worldPanel：对象字段。
+ * worldPanel：世界面板相关字段。
  */
 
   worldPanel: Pick<WorldPanel, 'update' | 'clear'>;  
   /**
- * mapRuntime：对象字段。
+ * mapRuntime：地图运行态引用。
  */
 
   mapRuntime: {  
   /**
- * getMapMeta：对象字段。
+ * getMapMeta：地图Meta相关字段。
  */
 
     getMapMeta: () => {    
     /**
- * name：对象字段。
+ * name：名称名称或显示文本。
  */
  name?: string;    
  /**
- * recommendedRealm：对象字段。
+ * recommendedRealm：recommendedRealm相关字段。
  */
  recommendedRealm?: string } | null;    
  /**
- * setZoom：对象字段。
+ * setZoom：Zoom相关字段。
  */
 
     setZoom: (zoom: number) => void;
   };  
   /**
- * zoomSlider：对象字段。
+ * zoomSlider：zoomSlider相关字段。
  */
 
   zoomSlider: HTMLInputElement | null;  
   /**
- * zoomLevelEl：对象字段。
+ * zoomLevelEl：zoom等级El相关字段。
  */
 
   zoomLevelEl: HTMLElement | null;  
   /**
- * resizeCanvas：对象字段。
+ * resizeCanvas：resizeCanva相关字段。
  */
 
   resizeCanvas: () => void;  
   /**
- * documentRef：对象字段。
+ * documentRef：documentRef相关字段。
  */
 
   documentRef: Document;  
   /**
- * showToastEl：对象字段。
+ * showToastEl：showToastEl相关字段。
  */
 
   showToastEl: HTMLElement | null;  
   /**
- * getPlayer：对象字段。
+ * getPlayer：玩家引用。
  */
 
   getPlayer: () => PlayerState | null;  
   /**
- * getLatestEntities：对象字段。
+ * getLatestEntities：LatestEntity相关字段。
  */
 
   getLatestEntities: () => Array<{  
   /**
- * id：对象字段。
+ * id：ID标识。
  */
 
     id: string;    
     /**
- * wx：对象字段。
+ * wx：wx相关字段。
  */
 
     wx: number;    
     /**
- * wy：对象字段。
+ * wy：wy相关字段。
  */
 
     wy: number;    
     /**
- * name：对象字段。
+ * name：名称名称或显示文本。
  */
 
     name?: string;    
     /**
- * kind：对象字段。
+ * kind：kind相关字段。
  */
 
     kind?: string;    
     /**
- * monsterTier：对象字段。
+ * monsterTier：怪物Tier相关字段。
  */
 
     monsterTier?: MonsterTier;    
     /**
- * hp：对象字段。
+ * hp：hp相关字段。
  */
 
     hp?: number;    
     /**
- * maxHp：对象字段。
+ * maxHp：maxHp相关字段。
  */
 
     maxHp?: number;
@@ -133,16 +133,16 @@ export type MainUiStateSource = ReturnType<typeof createMainUiStateSource>;
 /**
  * createMainUiStateSource：构建并返回目标对象。
  * @param options MainUiStateSourceOptions 选项参数。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新MainUi状态来源相关状态。
  */
 
 
 export function createMainUiStateSource(options: MainUiStateSourceOptions) {
   let pendingLayoutViewportSync = false;  
   /**
- * resolveRealmLabel：执行核心业务逻辑。
+ * resolveRealmLabel：规范化或转换RealmLabel。
  * @param player PlayerState 玩家对象。
- * @returns string。
+ * @returns 返回RealmLabel。
  */
 
 
@@ -163,9 +163,9 @@ export function createMainUiStateSource(options: MainUiStateSourceOptions) {
     return labels[top.realm] ?? '修行中';
   }  
   /**
- * resolveTitleLabel：执行核心业务逻辑。
+ * resolveTitleLabel：规范化或转换TitleLabel。
  * @param player PlayerState 玩家对象。
- * @returns string。
+ * @returns 返回TitleLabel。
  */
 
 
@@ -183,9 +183,9 @@ export function createMainUiStateSource(options: MainUiStateSourceOptions) {
     return '见习弟子';
   }  
   /**
- * hasSelectionWithin：执行状态校验并返回判断结果。
+ * hasSelectionWithin：判断SelectionWithin是否满足条件。
  * @param root HTMLElement | null 参数说明。
- * @returns boolean。
+ * @returns 返回是否满足SelectionWithin条件。
  */
 
 
@@ -200,8 +200,8 @@ export function createMainUiStateSource(options: MainUiStateSourceOptions) {
     return !!anchor && !!focus && root.contains(anchor) && root.contains(focus);
   }  
   /**
- * shouldPauseWorldPanelRefresh：执行核心业务逻辑。
- * @returns boolean。
+ * shouldPauseWorldPanelRefresh：判断Pause世界面板Refresh是否满足条件。
+ * @returns 返回是否满足Pause世界面板Refresh条件。
  */
 
 
@@ -211,10 +211,10 @@ export function createMainUiStateSource(options: MainUiStateSourceOptions) {
 
   return {  
   /**
- * showToast：执行核心业务逻辑。
+ * showToast：执行showToast相关逻辑。
  * @param message string 参数说明。
  * @param kind 'system' | 'chat' | 'quest' | 'combat' | 'loot' | 'grudge' | 'success' | 'warn' | 'travel' 参数说明。
- * @returns void。
+ * @returns 无返回值，直接更新showToast相关状态。
  */
 
     showToast(
@@ -236,9 +236,9 @@ export function createMainUiStateSource(options: MainUiStateSourceOptions) {
       }, durationMs);
     },    
     /**
- * refreshZoomChrome：执行核心业务逻辑。
+ * refreshZoomChrome：执行refreshZoomChrome相关逻辑。
  * @param zoom 参数说明。
- * @returns void。
+ * @returns 无返回值，直接更新refreshZoomChrome相关状态。
  */
 
 
@@ -246,8 +246,8 @@ export function createMainUiStateSource(options: MainUiStateSourceOptions) {
       syncZoomChrome(zoom, options.zoomSlider, options.zoomLevelEl);
     },    
     /**
- * refreshZoomViewport：执行核心业务逻辑。
- * @returns void。
+ * refreshZoomViewport：执行refreshZoomViewport相关逻辑。
+ * @returns 无返回值，直接更新refreshZoomViewport相关状态。
  */
 
 
@@ -256,9 +256,9 @@ export function createMainUiStateSource(options: MainUiStateSourceOptions) {
       options.mapRuntime.setZoom(getZoom());
     },    
     /**
- * applyZoomChange：更新/写入相关状态。
+ * applyZoomChange：处理ZoomChange并更新相关状态。
  * @param nextZoom number 参数说明。
- * @returns number。
+ * @returns 返回ZoomChange。
  */
 
 
@@ -275,8 +275,8 @@ export function createMainUiStateSource(options: MainUiStateSourceOptions) {
       return zoom;
     },    
     /**
- * resolveMapDanger：执行核心业务逻辑。
- * @returns string。
+ * resolveMapDanger：规范化或转换地图Danger。
+ * @returns 返回地图Danger。
  */
 
 
@@ -291,8 +291,8 @@ export function createMainUiStateSource(options: MainUiStateSourceOptions) {
       return assessMapDanger(player, options.mapRuntime.getMapMeta()?.recommendedRealm, fallback?.recommendedRealm).dangerLabel;
     },    
     /**
- * refreshHudChrome：执行核心业务逻辑。
- * @returns void。
+ * refreshHudChrome：执行refreshHudChrome相关逻辑。
+ * @returns 无返回值，直接更新refreshHudChrome相关状态。
  */
 
 
@@ -313,8 +313,8 @@ export function createMainUiStateSource(options: MainUiStateSourceOptions) {
       });
     },    
     /**
- * refreshUiChrome：执行核心业务逻辑。
- * @returns void。
+ * refreshUiChrome：执行refreshUiChrome相关逻辑。
+ * @returns 无返回值，直接更新refreshUiChrome相关状态。
  */
 
 
@@ -335,9 +335,9 @@ export function createMainUiStateSource(options: MainUiStateSourceOptions) {
       });
     },    
     /**
- * getInfoRadius：按给定条件读取/查询数据。
+ * getInfoRadius：读取InfoRadiu。
  * @param currentTimeState GameTimeState | null 参数说明。
- * @returns number。
+ * @returns 返回InfoRadiu。
  */
 
 
@@ -352,8 +352,8 @@ export function createMainUiStateSource(options: MainUiStateSourceOptions) {
       return baseViewRange;
     },    
     /**
- * scheduleLayoutViewportSync：执行核心业务逻辑。
- * @returns void。
+ * scheduleLayoutViewportSync：处理scheduleLayoutViewport同步并更新相关状态。
+ * @returns 无返回值，直接更新scheduleLayoutViewportSync相关状态。
  */
 
 

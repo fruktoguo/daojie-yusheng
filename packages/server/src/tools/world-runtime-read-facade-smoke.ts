@@ -4,8 +4,8 @@ const assert = require("node:assert/strict");
 
 const { WorldRuntimeReadFacadeService } = require("../runtime/world/world-runtime-read-facade.service");
 /**
- * testReadFacade：执行核心业务逻辑。
- * @returns 函数返回值。
+ * testReadFacade：读取testReadFacade并返回结果。
+ * @returns 无返回值，直接更新testReadFacade相关状态。
  */
 
 
@@ -15,9 +15,9 @@ function testReadFacade() {
     const deps = {
         tick: 7,        
         /**
- * getPlayerLocationOrThrow：按给定条件读取/查询数据。
+ * getPlayerLocationOrThrow：读取玩家位置OrThrow。
  * @param playerId 玩家 ID。
- * @returns 函数返回值。
+ * @returns 无返回值，完成玩家位置OrThrow的读取/组装。
  */
 
         getPlayerLocationOrThrow(playerId) {
@@ -25,9 +25,9 @@ function testReadFacade() {
             return { instanceId: 'public:yunlai_town' };
         },        
         /**
- * getPlayerViewOrThrow：按给定条件读取/查询数据。
+ * getPlayerViewOrThrow：读取玩家视图OrThrow。
  * @param playerId 玩家 ID。
- * @returns 函数返回值。
+ * @returns 无返回值，完成玩家视图OrThrow的读取/组装。
  */
 
         getPlayerViewOrThrow(playerId) {
@@ -35,9 +35,9 @@ function testReadFacade() {
             return { tick: 7, visibleMonsters: [] };
         },        
         /**
- * getInstanceRuntimeOrThrow：按给定条件读取/查询数据。
+ * getInstanceRuntimeOrThrow：读取Instance运行态OrThrow。
  * @param instanceId instance ID。
- * @returns 函数返回值。
+ * @returns 无返回值，完成Instance运行态OrThrow的读取/组装。
  */
 
         getInstanceRuntimeOrThrow(instanceId) {
@@ -45,10 +45,10 @@ function testReadFacade() {
             return {
                 meta: { instanceId },                
                 /**
- * getContainerAtTile：按给定条件读取/查询数据。
+ * getContainerAtTile：读取ContainerAtTile。
  * @param x X 坐标。
  * @param y Y 坐标。
- * @returns 函数返回值。
+ * @returns 无返回值，完成ContainerAtTile的读取/组装。
  */
 
                 getContainerAtTile(x, y) {
@@ -58,9 +58,9 @@ function testReadFacade() {
             };
         },        
         /**
- * refreshQuestStates：执行核心业务逻辑。
+ * refreshQuestStates：执行refresh任务状态相关逻辑。
  * @param playerId 玩家 ID。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新refresh任务状态相关状态。
  */
 
         refreshQuestStates(playerId) {
@@ -68,9 +68,9 @@ function testReadFacade() {
         },
         playerRuntimeService: {        
         /**
- * getPlayerOrThrow：按给定条件读取/查询数据。
+ * getPlayerOrThrow：读取玩家OrThrow。
  * @param playerId 玩家 ID。
- * @returns 函数返回值。
+ * @returns 无返回值，完成玩家OrThrow的读取/组装。
  */
 
             getPlayerOrThrow(playerId) {
@@ -78,20 +78,20 @@ function testReadFacade() {
                 return { playerId };
             },            
             /**
- * getPlayer：按给定条件读取/查询数据。
+ * getPlayer：读取玩家。
  * @param playerId 玩家 ID。
- * @returns 函数返回值。
+ * @returns 无返回值，完成玩家的读取/组装。
  */
 
             getPlayer(playerId) {
                 return playerId === 'player:1' ? { instanceId: 'public:yunlai_town', x: 10, y: 10 } : null;
             },            
             /**
- * setContextActions：更新/写入相关状态。
+ * setContextActions：写入上下文Action。
  * @param playerId 玩家 ID。
  * @param actions 参数说明。
  * @param tick 当前 tick。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新上下文Action相关状态。
  */
 
             setContextActions(playerId, actions, tick) {
@@ -103,7 +103,7 @@ function testReadFacade() {
  * buildNpcShopView：构建并返回目标对象。
  * @param playerId 玩家 ID。
  * @param npcId npc ID。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新NPCShop视图相关状态。
  */
 
             buildNpcShopView(playerId, npcId) {
@@ -111,12 +111,12 @@ function testReadFacade() {
                 return { npcId };
             },            
             /**
- * validateNpcShopPurchase：执行核心业务逻辑。
+ * validateNpcShopPurchase：判断NPCShopPurchase是否满足条件。
  * @param playerId 玩家 ID。
  * @param npcId npc ID。
  * @param itemId 道具 ID。
  * @param quantity 参数说明。
- * @returns 函数返回值。
+ * @returns 无返回值，完成NPCShopPurchase的条件判断。
  */
 
             validateNpcShopPurchase(playerId, npcId, itemId, quantity) {
@@ -127,7 +127,7 @@ function testReadFacade() {
         /**
  * buildQuestListView：构建并返回目标对象。
  * @param playerId 玩家 ID。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新任务列表视图相关状态。
  */
 
             buildQuestListView(playerId) {
@@ -138,7 +138,7 @@ function testReadFacade() {
  * buildNpcQuestsView：构建并返回目标对象。
  * @param playerId 玩家 ID。
  * @param npcId npc ID。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新NPC任务视图相关状态。
  */
 
             buildNpcQuestsView(playerId, npcId) {
@@ -149,25 +149,25 @@ function testReadFacade() {
  * createNpcQuestsEnvelope：构建并返回目标对象。
  * @param playerId 玩家 ID。
  * @param npc 参数说明。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新NPC任务Envelope相关状态。
  */
 
             createNpcQuestsEnvelope(playerId, npc) {
                 return { playerId, npcId: npc.id };
             },            
             /**
- * resolveQuestProgress：执行核心业务逻辑。
+ * resolveQuestProgress：规范化或转换任务进度。
  * @param playerId 玩家 ID。
  * @param quest 参数说明。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新任务进度相关状态。
  */
 
             resolveQuestProgress(playerId, quest) {
                 return `${playerId}:${quest.id}`;
             },            
             /**
- * canQuestBecomeReady：执行状态校验并返回判断结果。
- * @returns 函数返回值。
+ * canQuestBecomeReady：读取任务BecomeReady并返回结果。
+ * @returns 无返回值，完成任务BecomeReady的条件判断。
  */
 
             canQuestBecomeReady() {
@@ -178,7 +178,7 @@ function testReadFacade() {
  * @param playerId 玩家 ID。
  * @param questId quest ID。
  * @param status 参数说明。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新任务状态From来源相关状态。
  */
 
             createQuestStateFromSource(playerId, questId, status) {
@@ -187,7 +187,7 @@ function testReadFacade() {
             /**
  * buildQuestRewardItems：构建并返回目标对象。
  * @param quest 参数说明。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新任务Reward道具相关状态。
  */
 
             buildQuestRewardItems(quest) {
@@ -196,16 +196,16 @@ function testReadFacade() {
             /**
  * buildQuestRewardItemsFromRecord：构建并返回目标对象。
  * @param quest 参数说明。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新任务Reward道具FromRecord相关状态。
  */
 
             buildQuestRewardItemsFromRecord(quest) {
                 return quest.rewards ?? [];
             },            
             /**
- * resolveQuestNavigationTarget：执行核心业务逻辑。
+ * resolveQuestNavigationTarget：读取任务导航目标并返回结果。
  * @param quest 参数说明。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新任务导航目标相关状态。
  */
 
             resolveQuestNavigationTarget(quest) {
@@ -217,7 +217,7 @@ function testReadFacade() {
  * buildDetail：构建并返回目标对象。
  * @param context 上下文信息。
  * @param target 目标对象。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新详情相关状态。
  */
 
             buildDetail(context, target) {
@@ -227,7 +227,7 @@ function testReadFacade() {
  * buildTileDetail：构建并返回目标对象。
  * @param context 上下文信息。
  * @param target 目标对象。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新Tile详情相关状态。
  */
 
             buildTileDetail(context, target) {
@@ -238,7 +238,7 @@ function testReadFacade() {
         /**
  * buildContextActions：构建并返回目标对象。
  * @param view 参数说明。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新上下文Action相关状态。
  */
 
             buildContextActions(view) {
@@ -247,10 +247,10 @@ function testReadFacade() {
         },
         worldRuntimePlayerViewQueryService: {        
         /**
- * getPlayerView：按给定条件读取/查询数据。
+ * getPlayerView：读取玩家视图。
  * @param _deps 参数说明。
  * @param playerId 玩家 ID。
- * @returns 函数返回值。
+ * @returns 无返回值，完成玩家视图的读取/组装。
  */
 
             getPlayerView(_deps, playerId) {
@@ -263,7 +263,7 @@ function testReadFacade() {
  * @param playerId 玩家 ID。
  * @param tileX 参数说明。
  * @param tileY 参数说明。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新掉落窗口Sync状态相关状态。
  */
 
             buildLootWindowSyncState(_deps, playerId, tileX, tileY) {
@@ -273,11 +273,11 @@ function testReadFacade() {
         },
         worldRuntimeLootContainerService: {        
         /**
- * prepareContainerLootSource：执行核心业务逻辑。
+ * prepareContainerLootSource：执行prepareContainer掉落来源相关逻辑。
  * @param instanceId instance ID。
  * @param container 参数说明。
  * @param tick 当前 tick。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新prepareContainer掉落来源相关状态。
  */
 
             prepareContainerLootSource(instanceId, container, tick) {
@@ -286,10 +286,10 @@ function testReadFacade() {
         },
         worldRuntimeNpcAccessService: {        
         /**
- * resolveAdjacentNpc：执行核心业务逻辑。
+ * resolveAdjacentNpc：规范化或转换AdjacentNPC。
  * @param playerId 玩家 ID。
  * @param npcId npc ID。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新AdjacentNPC相关状态。
  */
 
             resolveAdjacentNpc(playerId, npcId) {

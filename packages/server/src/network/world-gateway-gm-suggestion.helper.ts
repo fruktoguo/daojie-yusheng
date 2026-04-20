@@ -7,24 +7,24 @@ exports.WorldGatewayGmSuggestionHelper = void 0;
 /** 世界 socket GM 建议 helper：只收敛 suggestion 的 GM 维护写路径。 */
 class WorldGatewayGmSuggestionHelper {
 /**
- * gateway：WorldGatewayGmSuggestionHelper 内部字段。
+ * gateway：gateway相关字段。
  */
 
     gateway;    
     /**
  * 构造器：初始化 当前 实例并建立基础状态。
  * @param gateway 参数说明。
- * @returns 无返回值（构造函数）。
+ * @returns 无返回值，完成实例初始化。
  */
 
     constructor(gateway) {
         this.gateway = gateway;
     }    
     /**
- * handleGmMarkSuggestionCompleted：处理事件并驱动执行路径。
+ * handleGmMarkSuggestionCompleted：处理GMMarkSuggestionCompleted并更新相关状态。
  * @param client 参数说明。
  * @param payload 载荷参数。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新GMMarkSuggestionCompleted相关状态。
  */
 
     async handleGmMarkSuggestionCompleted(client, payload) {
@@ -43,10 +43,10 @@ class WorldGatewayGmSuggestionHelper {
         }
     }    
     /**
- * handleGmRemoveSuggestion：处理事件并驱动执行路径。
+ * handleGmRemoveSuggestion：处理GMRemoveSuggestion并更新相关状态。
  * @param client 参数说明。
  * @param payload 载荷参数。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新GMRemoveSuggestion相关状态。
  */
 
     async handleGmRemoveSuggestion(client, payload) {

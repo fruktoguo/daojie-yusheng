@@ -18,32 +18,32 @@ function escapeHtml(value: string): string {
 /** 浮动提示的展示参数，控制 HTML 渲染和右侧辅助卡片。 */
 interface FloatingTooltipShowOptions {
 /**
- * allowHtml：FloatingTooltipShowOptions 内部字段。
+ * allowHtml：allowHtml相关字段。
  */
 
   allowHtml?: boolean;  
   /**
- * asideCards：FloatingTooltipShowOptions 内部字段。
+ * asideCards：asideCard相关字段。
  */
 
   asideCards?: Array<{  
   /**
- * mark：FloatingTooltipShowOptions 内部字段。
+ * mark：mark相关字段。
  */
 
     mark?: string;    
     /**
- * title：FloatingTooltipShowOptions 内部字段。
+ * title：title名称或显示文本。
  */
 
     title: string;    
     /**
- * lines：FloatingTooltipShowOptions 内部字段。
+ * lines：line相关字段。
  */
 
     lines: string[];    
     /**
- * tone：FloatingTooltipShowOptions 内部字段。
+ * tone：tone相关字段。
  */
 
     tone?: 'buff' | 'debuff';
@@ -73,7 +73,7 @@ export class FloatingTooltip {
   /**
  * 构造器：初始化 当前 实例并建立基础状态。
  * @param className 参数说明。
- * @returns 无返回值（构造函数）。
+ * @returns 无返回值，完成实例初始化。
  */
 
 

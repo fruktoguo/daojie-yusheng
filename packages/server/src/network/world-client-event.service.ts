@@ -56,7 +56,7 @@ let WorldClientEventService = class WorldClientEventService {
  * @param suggestionRuntimeService 参数说明。
  * @param worldSessionService 参数说明。
  * @param worldSyncQuestLootService 参数说明。
- * @returns 无返回值（构造函数）。
+ * @returns 无返回值，完成实例初始化。
  */
 
     constructor(mailRuntimeService, marketRuntimeService, playerRuntimeService, suggestionRuntimeService, worldSessionService, worldSyncQuestLootService) {
@@ -333,9 +333,9 @@ let WorldClientEventService = class WorldClientEventService {
         this.emit(client, shared_1.NEXT_S2C.NpcShop, payload);
     }    
     /**
- * normalizePlayerIds：执行核心业务逻辑。
+ * normalizePlayerIds：规范化或转换玩家ID。
  * @param playerIds player ID 集合。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新玩家ID相关状态。
  */
 
     normalizePlayerIds(playerIds) {
@@ -347,10 +347,10 @@ let WorldClientEventService = class WorldClientEventService {
         return Array.from(new Set(playerIds.filter((entry) => typeof entry === 'string' && entry.trim().length > 0).map((entry) => entry.trim())));
     }    
     /**
- * resolveMarketListingsRequest：执行核心业务逻辑。
+ * resolveMarketListingsRequest：读取坊市ListingRequest并返回结果。
  * @param playerId 玩家 ID。
  * @param listingRequests 参数说明。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新坊市ListingRequest相关状态。
  */
 
     resolveMarketListingsRequest(playerId, listingRequests) {
@@ -365,10 +365,10 @@ let WorldClientEventService = class WorldClientEventService {
         return { page: 1 };
     }    
     /**
- * resolveMarketTradeHistoryPage：执行核心业务逻辑。
+ * resolveMarketTradeHistoryPage：判断坊市Trade历史Page是否满足条件。
  * @param playerId 玩家 ID。
  * @param tradeHistoryRequests 参数说明。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新坊市TradeHistoryPage相关状态。
  */
 
     resolveMarketTradeHistoryPage(playerId, tradeHistoryRequests) {
@@ -383,11 +383,11 @@ let WorldClientEventService = class WorldClientEventService {
         return null;
     }    
     /**
- * flushMarketResult：执行核心业务逻辑。
+ * flushMarketResult：处理刷新坊市结果并更新相关状态。
  * @param subscriberPlayerIds subscriberPlayer ID 集合。
  * @param result 返回结果。
  * @param options 选项参数。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新flush坊市结果相关状态。
  */
 
     flushMarketResult(subscriberPlayerIds, result, options) {
@@ -443,8 +443,8 @@ let WorldClientEventService = class WorldClientEventService {
         }
     }    
     /**
- * broadcastSuggestionUpdate：执行核心业务逻辑。
- * @returns 函数返回值。
+ * broadcastSuggestionUpdate：处理broadcastSuggestionUpdate并更新相关状态。
+ * @returns 无返回值，直接更新broadcastSuggestionUpdate相关状态。
  */
 
     broadcastSuggestionUpdate() {

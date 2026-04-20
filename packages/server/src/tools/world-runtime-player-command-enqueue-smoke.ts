@@ -6,16 +6,16 @@ const { WorldRuntimePlayerCommandEnqueueService } = require("../runtime/world/wo
 /**
  * createDeps：构建并返回目标对象。
  * @param log 参数说明。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新Dep相关状态。
  */
 
 
 function createDeps(log = []) {
     return {    
     /**
- * getPlayerLocationOrThrow：按给定条件读取/查询数据。
+ * getPlayerLocationOrThrow：读取玩家位置OrThrow。
  * @param playerId 玩家 ID。
- * @returns 函数返回值。
+ * @returns 无返回值，完成玩家位置OrThrow的读取/组装。
  */
 
         getPlayerLocationOrThrow(playerId) {
@@ -23,28 +23,28 @@ function createDeps(log = []) {
             return { instanceId: 'public:yunlai_town' };
         },        
         /**
- * interruptManualCombat：执行核心业务逻辑。
+ * interruptManualCombat：执行interruptManual战斗相关逻辑。
  * @param playerId 玩家 ID。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新interruptManual战斗相关状态。
  */
 
         interruptManualCombat(playerId) {
             log.push(['interruptManualCombat', playerId]);
         },        
         /**
- * enqueuePendingCommand：执行核心业务逻辑。
+ * enqueuePendingCommand：处理待处理Command并更新相关状态。
  * @param playerId 玩家 ID。
  * @param command 输入指令。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新PendingCommand相关状态。
  */
 
         enqueuePendingCommand(playerId, command) {
             log.push(['enqueuePendingCommand', playerId, command]);
         },        
         /**
- * getPlayerViewOrThrow：按给定条件读取/查询数据。
+ * getPlayerViewOrThrow：读取玩家视图OrThrow。
  * @param playerId 玩家 ID。
- * @returns 函数返回值。
+ * @returns 无返回值，完成玩家视图OrThrow的读取/组装。
  */
 
         getPlayerViewOrThrow(playerId) {
@@ -56,16 +56,16 @@ function createDeps(log = []) {
 /**
  * createService：构建并返回目标对象。
  * @param actions 参数说明。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新服务相关状态。
  */
 
 
 function createService(actions = []) {
     return new WorldRuntimePlayerCommandEnqueueService({    
     /**
- * getPlayerOrThrow：按给定条件读取/查询数据。
+ * getPlayerOrThrow：读取玩家OrThrow。
  * @param playerId 玩家 ID。
- * @returns 函数返回值。
+ * @returns 无返回值，完成玩家OrThrow的读取/组装。
  */
 
         getPlayerOrThrow(playerId) {
@@ -79,8 +79,8 @@ function createService(actions = []) {
     });
 }
 /**
- * testBasicAttackQueue：执行核心业务逻辑。
- * @returns 函数返回值。
+ * testBasicAttackQueue：执行testBasicAttackQueue相关逻辑。
+ * @returns 无返回值，直接更新testBasicAttackQueue相关状态。
  */
 
 
@@ -105,8 +105,8 @@ function testBasicAttackQueue() {
     ]);
 }
 /**
- * testStartAlchemyClonesIngredients：执行核心业务逻辑。
- * @returns 函数返回值。
+ * testStartAlchemyClonesIngredients：构建test开始炼丹CloneIngredient。
+ * @returns 无返回值，直接更新testStart炼丹CloneIngredient相关状态。
  */
 
 
@@ -123,8 +123,8 @@ function testStartAlchemyClonesIngredients() {
     assert.equal(log[1][2].payload.ingredients[0].count, 2);
 }
 /**
- * testCastSkillRequiresKnownAction：执行核心业务逻辑。
- * @returns 函数返回值。
+ * testCastSkillRequiresKnownAction：执行testCast技能RequireKnownAction相关逻辑。
+ * @returns 无返回值，直接更新testCast技能RequireKnownAction相关状态。
  */
 
 
@@ -147,8 +147,8 @@ function testCastSkillRequiresKnownAction() {
     ]);
 }
 /**
- * testHeavenGateActionNormalizesElement：执行核心业务逻辑。
- * @returns 函数返回值。
+ * testHeavenGateActionNormalizesElement：规范化或转换testHeavenGateActionNormalizeElement。
+ * @returns 无返回值，直接更新testHeavenGateActionNormalizeElement相关状态。
  */
 
 
@@ -168,8 +168,8 @@ function testHeavenGateActionNormalizesElement() {
     ]);
 }
 /**
- * testStartEnhancementClonesNestedPayload：执行核心业务逻辑。
- * @returns 函数返回值。
+ * testStartEnhancementClonesNestedPayload：读取test开始强化CloneNested载荷并返回结果。
+ * @returns 无返回值，直接更新testStart强化CloneNested载荷相关状态。
  */
 
 

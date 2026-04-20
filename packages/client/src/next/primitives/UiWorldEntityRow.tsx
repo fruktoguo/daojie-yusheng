@@ -6,29 +6,29 @@ import type { ReactNode } from 'react';
 
 export interface UiWorldEntityRowProps {
 /**
- * name：UiWorldEntityRowProps 内部字段。
+ * name：名称名称或显示文本。
  */
 
   name: string;  
   /**
- * kind：UiWorldEntityRowProps 内部字段。
+ * kind：kind相关字段。
  */
 
   kind: ReactNode;  
   /**
- * note：UiWorldEntityRowProps 内部字段。
+ * note：note相关字段。
  */
 
   note?: ReactNode;
 }
 /**
- * UiWorldEntityRow：执行核心业务逻辑。
+ * UiWorldEntityRow：渲染Ui世界EntityRow组件。
  * @param {
   name,
   kind,
   note,
 } UiWorldEntityRowProps 参数说明。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新Ui世界EntityRow相关状态。
  */
 
 

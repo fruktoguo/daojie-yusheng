@@ -10,47 +10,47 @@ import type { NpcQuestMarker } from './world-view-types';
 
 export interface PortalDetailView {
 /**
- * id：PortalDetailView 内部字段。
+ * id：ID标识。
  */
 
   id: string;  
   /**
- * x：PortalDetailView 内部字段。
+ * x：x相关字段。
  */
 
   x: number;  
   /**
- * y：PortalDetailView 内部字段。
+ * y：y相关字段。
  */
 
   y: number;  
   /**
- * kind：PortalDetailView 内部字段。
+ * kind：kind相关字段。
  */
 
   kind?: string;  
   /**
- * targetMapId：PortalDetailView 内部字段。
+ * targetMapId：目标地图ID标识。
  */
 
   targetMapId: string;  
   /**
- * targetMapName：PortalDetailView 内部字段。
+ * targetMapName：目标地图名称名称或显示文本。
  */
 
   targetMapName?: string;  
   /**
- * targetX：PortalDetailView 内部字段。
+ * targetX：目标X相关字段。
  */
 
   targetX?: number;  
   /**
- * targetY：PortalDetailView 内部字段。
+ * targetY：目标Y相关字段。
  */
 
   targetY?: number;  
   /**
- * trigger：PortalDetailView 内部字段。
+ * trigger：trigger相关字段。
  */
 
   trigger?: 'manual' | 'auto';
@@ -62,22 +62,22 @@ export interface PortalDetailView {
 
 export interface GroundDetailView {
 /**
- * sourceId：GroundDetailView 内部字段。
+ * sourceId：来源ID标识。
  */
 
   sourceId: string;  
   /**
- * x：GroundDetailView 内部字段。
+ * x：x相关字段。
  */
 
   x: number;  
   /**
- * y：GroundDetailView 内部字段。
+ * y：y相关字段。
  */
 
   y: number;  
   /**
- * items：GroundDetailView 内部字段。
+ * items：集合字段。
  */
 
   items: ItemStack[];
@@ -89,32 +89,32 @@ export interface GroundDetailView {
 
 export interface ContainerDetailView {
 /**
- * id：ContainerDetailView 内部字段。
+ * id：ID标识。
  */
 
   id: string;  
   /**
- * name：ContainerDetailView 内部字段。
+ * name：名称名称或显示文本。
  */
 
   name: string;  
   /**
- * x：ContainerDetailView 内部字段。
+ * x：x相关字段。
  */
 
   x: number;  
   /**
- * y：ContainerDetailView 内部字段。
+ * y：y相关字段。
  */
 
   y: number;  
   /**
- * grade：ContainerDetailView 内部字段。
+ * grade：grade相关字段。
  */
 
   grade: number;  
   /**
- * desc：ContainerDetailView 内部字段。
+ * desc：desc相关字段。
  */
 
   desc?: string;
@@ -126,62 +126,62 @@ export interface ContainerDetailView {
 
 export interface NpcDetailView {
 /**
- * id：NpcDetailView 内部字段。
+ * id：ID标识。
  */
 
   id: string;  
   /**
- * name：NpcDetailView 内部字段。
+ * name：名称名称或显示文本。
  */
 
   name: string;  
   /**
- * char：NpcDetailView 内部字段。
+ * char：char相关字段。
  */
 
   char: string;  
   /**
- * color：NpcDetailView 内部字段。
+ * color：color相关字段。
  */
 
   color: string;  
   /**
- * x：NpcDetailView 内部字段。
+ * x：x相关字段。
  */
 
   x: number;  
   /**
- * y：NpcDetailView 内部字段。
+ * y：y相关字段。
  */
 
   y: number;  
   /**
- * dialogue：NpcDetailView 内部字段。
+ * dialogue：dialogue相关字段。
  */
 
   dialogue: string;  
   /**
- * role：NpcDetailView 内部字段。
+ * role：role相关字段。
  */
 
   role?: string;  
   /**
- * hasShop：NpcDetailView 内部字段。
+ * hasShop：启用开关或状态标识。
  */
 
   hasShop?: 1;  
   /**
- * questCount：NpcDetailView 内部字段。
+ * questCount：数量或计量字段。
  */
 
   questCount?: number;  
   /**
- * questMarker：NpcDetailView 内部字段。
+ * questMarker：任务Marker相关字段。
  */
 
   questMarker?: NpcQuestMarker | null;  
   /**
- * observation：NpcDetailView 内部字段。
+ * observation：observation相关字段。
  */
 
   observation?: ObservationInsight;
@@ -193,77 +193,77 @@ export interface NpcDetailView {
 
 export interface MonsterDetailView {
 /**
- * id：MonsterDetailView 内部字段。
+ * id：ID标识。
  */
 
   id: string;  
   /**
- * mid：MonsterDetailView 内部字段。
+ * mid：mid标识。
  */
 
   mid: string;  
   /**
- * name：MonsterDetailView 内部字段。
+ * name：名称名称或显示文本。
  */
 
   name: string;  
   /**
- * char：MonsterDetailView 内部字段。
+ * char：char相关字段。
  */
 
   char: string;  
   /**
- * color：MonsterDetailView 内部字段。
+ * color：color相关字段。
  */
 
   color: string;  
   /**
- * x：MonsterDetailView 内部字段。
+ * x：x相关字段。
  */
 
   x: number;  
   /**
- * y：MonsterDetailView 内部字段。
+ * y：y相关字段。
  */
 
   y: number;  
   /**
- * hp：MonsterDetailView 内部字段。
+ * hp：hp相关字段。
  */
 
   hp: number;  
   /**
- * maxHp：MonsterDetailView 内部字段。
+ * maxHp：maxHp相关字段。
  */
 
   maxHp: number;  
   /**
- * level：MonsterDetailView 内部字段。
+ * level：等级数值。
  */
 
   level: number;  
   /**
- * tier：MonsterDetailView 内部字段。
+ * tier：tier相关字段。
  */
 
   tier: MonsterTier;  
   /**
- * alive：MonsterDetailView 内部字段。
+ * alive：alive相关字段。
  */
 
   alive: boolean;  
   /**
- * respawnTicks：MonsterDetailView 内部字段。
+ * respawnTicks：重生tick相关字段。
  */
 
   respawnTicks?: number;  
   /**
- * observation：MonsterDetailView 内部字段。
+ * observation：observation相关字段。
  */
 
   observation?: ObservationInsight;  
   /**
- * buffs：MonsterDetailView 内部字段。
+ * buffs：buff相关字段。
  */
 
   buffs?: VisibleBuffState[];
@@ -275,47 +275,47 @@ export interface MonsterDetailView {
 
 export interface PlayerDetailView {
 /**
- * id：PlayerDetailView 内部字段。
+ * id：ID标识。
  */
 
   id: string;  
   /**
- * x：PlayerDetailView 内部字段。
+ * x：x相关字段。
  */
 
   x: number;  
   /**
- * y：PlayerDetailView 内部字段。
+ * y：y相关字段。
  */
 
   y: number;  
   /**
- * hp：PlayerDetailView 内部字段。
+ * hp：hp相关字段。
  */
 
   hp: number;  
   /**
- * maxHp：PlayerDetailView 内部字段。
+ * maxHp：maxHp相关字段。
  */
 
   maxHp: number;  
   /**
- * qi：PlayerDetailView 内部字段。
+ * qi：qi相关字段。
  */
 
   qi: number;  
   /**
- * maxQi：PlayerDetailView 内部字段。
+ * maxQi：maxQi相关字段。
  */
 
   maxQi: number;  
   /**
- * observation：PlayerDetailView 内部字段。
+ * observation：observation相关字段。
  */
 
   observation?: ObservationInsight;  
   /**
- * buffs：PlayerDetailView 内部字段。
+ * buffs：buff相关字段。
  */
 
   buffs?: VisibleBuffState[];
@@ -327,58 +327,58 @@ export interface PlayerDetailView {
 
 export interface TileDetailView {
 /**
- * x：TileDetailView 内部字段。
+ * x：x相关字段。
  */
 
   x: number;  
   /**
- * y：TileDetailView 内部字段。
+ * y：y相关字段。
  */
 
   y: number;  
   /**
- * aura：TileDetailView 内部字段。
+ * aura：aura相关字段。
  */
 
   aura?: number;  
   /**
- * safeZone：TileDetailView 内部字段。
+ * safeZone：safeZone相关字段。
  */
 
   safeZone?: {  
   /**
- * x：TileDetailView 内部字段。
+ * x：x相关字段。
  */
 
     x: number;    
     /**
- * y：TileDetailView 内部字段。
+ * y：y相关字段。
  */
 
     y: number;    
     /**
- * radius：TileDetailView 内部字段。
+ * radius：radiu相关字段。
  */
 
     radius: number;
   };  
   /**
- * portal：TileDetailView 内部字段。
+ * portal：portal相关字段。
  */
 
   portal?: PortalDetailView;  
   /**
- * ground：TileDetailView 内部字段。
+ * ground：ground相关字段。
  */
 
   ground?: GroundDetailView;  
   /**
- * entities：TileDetailView 内部字段。
+ * entities：entity相关字段。
  */
 
   entities?: ObservedTileEntityDetail[];  
   /**
- * error：TileDetailView 内部字段。
+ * error：error相关字段。
  */
 
   error?: string;

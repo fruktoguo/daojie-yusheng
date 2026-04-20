@@ -13,30 +13,30 @@ type MainToastKind = 'system' | 'chat' | 'quest' | 'combat' | 'loot' | 'grudge' 
 
 type MainNoticeStateSourceOptions = {
 /**
- * chatUI：对象字段。
+ * chatUI：chatUI相关字段。
  */
 
   chatUI: Pick<ChatUI, 'addMessage'>;  
   /**
- * ackSystemMessages：对象字段。
+ * ackSystemMessages：ackSystemMessage相关字段。
  */
 
   ackSystemMessages: (ids: string[]) => void;  
   /**
- * showToast：对象字段。
+ * showToast：showToast相关字段。
  */
 
   showToast: (message: string, kind?: MainToastKind) => void;  
   /**
- * clearCurrentPath：对象字段。
+ * clearCurrentPath：clearCurrent路径相关字段。
  */
 
   clearCurrentPath: () => void;
 };
 /**
- * resolveSystemMsgIdFromNextNotice：执行核心业务逻辑。
+ * resolveSystemMsgIdFromNextNotice：规范化或转换SystemMsgIDFromNextNotice。
  * @param item NEXT_S2C_NoticeItem 道具。
- * @returns string | undefined。
+ * @returns 返回SystemMsgIDFromNextNotice。
  */
 
 
@@ -49,9 +49,9 @@ function resolveSystemMsgIdFromNextNotice(item: NEXT_S2C_NoticeItem): string | u
   return typeof item.id === 'number' ? String(item.id) : undefined;
 }
 /**
- * toSystemMsgFromNextNotice：执行核心业务逻辑。
+ * toSystemMsgFromNextNotice：执行toSystemMsgFromNextNotice相关逻辑。
  * @param item NEXT_S2C_NoticeItem 道具。
- * @returns NEXT_S2C_SystemMsg。
+ * @returns 返回toSystemMsgFromNextNotice。
  */
 
 
@@ -91,16 +91,16 @@ export type MainNoticeStateSource = ReturnType<typeof createMainNoticeStateSourc
 /**
  * createMainNoticeStateSource：构建并返回目标对象。
  * @param options MainNoticeStateSourceOptions 选项参数。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新MainNotice状态来源相关状态。
  */
 
 
 export function createMainNoticeStateSource(options: MainNoticeStateSourceOptions) {
   return {  
   /**
- * handleSystemMsg：处理事件并驱动执行路径。
+ * handleSystemMsg：处理SystemMsg并更新相关状态。
  * @param data NEXT_S2C_SystemMsg 原始数据。
- * @returns void。
+ * @returns 无返回值，直接更新SystemMsg相关状态。
  */
 
     handleSystemMsg(data: NEXT_S2C_SystemMsg): void {
@@ -144,9 +144,9 @@ export function createMainNoticeStateSource(options: MainNoticeStateSourceOption
       options.showToast(data.text, fallbackKind);
     },    
     /**
- * handleNotice：处理事件并驱动执行路径。
+ * handleNotice：处理Notice并更新相关状态。
  * @param payload NEXT_S2C_Notice 载荷参数。
- * @returns void。
+ * @returns 无返回值，直接更新Notice相关状态。
  */
 
 

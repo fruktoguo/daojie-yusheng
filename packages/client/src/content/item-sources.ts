@@ -6,17 +6,17 @@ const SPIRIT_STONE_ITEM_ID = 'spirit_stone';
 /** 物品来源条目的通用字段。 */
 interface ItemSourceBaseEntry {
 /**
- * kind：ItemSourceBaseEntry 内部字段。
+ * kind：kind相关字段。
  */
 
   kind: ItemSourceKind;  
   /**
- * mapId：ItemSourceBaseEntry 内部字段。
+ * mapId：地图ID标识。
  */
 
   mapId: string;  
   /**
- * mapName：ItemSourceBaseEntry 内部字段。
+ * mapName：地图名称名称或显示文本。
  */
 
   mapName: string;
@@ -25,27 +25,27 @@ interface ItemSourceBaseEntry {
 /** 击杀掉落类来源条目。 */
 export interface MonsterItemSourceEntry extends ItemSourceBaseEntry {
 /**
- * kind：MonsterItemSourceEntry 内部字段。
+ * kind：kind相关字段。
  */
 
   kind: 'monster_drop';  
   /**
- * monsterId：MonsterItemSourceEntry 内部字段。
+ * monsterId：怪物ID标识。
  */
 
   monsterId: string;  
   /**
- * monsterName：MonsterItemSourceEntry 内部字段。
+ * monsterName：怪物名称名称或显示文本。
  */
 
   monsterName: string;  
   /**
- * chance：MonsterItemSourceEntry 内部字段。
+ * chance：chance相关字段。
  */
 
   chance?: number;  
   /**
- * count：MonsterItemSourceEntry 内部字段。
+ * count：数量或计量字段。
  */
 
   count: number;
@@ -54,32 +54,32 @@ export interface MonsterItemSourceEntry extends ItemSourceBaseEntry {
 /** 采矿或搜索的直接掉落条目。 */
 export interface DirectItemNodeSourceEntry extends ItemSourceBaseEntry {
 /**
- * kind：DirectItemNodeSourceEntry 内部字段。
+ * kind：kind相关字段。
  */
 
   kind: 'mining' | 'search';  
   /**
- * landmarkId：DirectItemNodeSourceEntry 内部字段。
+ * landmarkId：landmarkID标识。
  */
 
   landmarkId: string;  
   /**
- * landmarkName：DirectItemNodeSourceEntry 内部字段。
+ * landmarkName：landmark名称名称或显示文本。
  */
 
   landmarkName: string;  
   /**
- * mode：DirectItemNodeSourceEntry 内部字段。
+ * mode：mode相关字段。
  */
 
   mode: 'direct';  
   /**
- * chance：DirectItemNodeSourceEntry 内部字段。
+ * chance：chance相关字段。
  */
 
   chance?: number;  
   /**
- * count：DirectItemNodeSourceEntry 内部字段。
+ * count：数量或计量字段。
  */
 
   count: number;
@@ -88,62 +88,62 @@ export interface DirectItemNodeSourceEntry extends ItemSourceBaseEntry {
 /** 采矿或搜索的池子掉落条目。 */
 export interface PoolItemNodeSourceEntry extends ItemSourceBaseEntry {
 /**
- * kind：PoolItemNodeSourceEntry 内部字段。
+ * kind：kind相关字段。
  */
 
   kind: 'mining' | 'search';  
   /**
- * landmarkId：PoolItemNodeSourceEntry 内部字段。
+ * landmarkId：landmarkID标识。
  */
 
   landmarkId: string;  
   /**
- * landmarkName：PoolItemNodeSourceEntry 内部字段。
+ * landmarkName：landmark名称名称或显示文本。
  */
 
   landmarkName: string;  
   /**
- * mode：PoolItemNodeSourceEntry 内部字段。
+ * mode：mode相关字段。
  */
 
   mode: 'pool';  
   /**
- * poolIndex：PoolItemNodeSourceEntry 内部字段。
+ * poolIndex：poolIndex相关字段。
  */
 
   poolIndex: number;  
   /**
- * poolChance：PoolItemNodeSourceEntry 内部字段。
+ * poolChance：poolChance相关字段。
  */
 
   poolChance?: number;  
   /**
- * countMin：PoolItemNodeSourceEntry 内部字段。
+ * countMin：数量Min相关字段。
  */
 
   countMin?: number;  
   /**
- * countMax：PoolItemNodeSourceEntry 内部字段。
+ * countMax：数量Max相关字段。
  */
 
   countMax?: number;  
   /**
- * minLevel：PoolItemNodeSourceEntry 内部字段。
+ * minLevel：min等级数值。
  */
 
   minLevel?: number;  
   /**
- * maxLevel：PoolItemNodeSourceEntry 内部字段。
+ * maxLevel：max等级数值。
  */
 
   maxLevel?: number;  
   /**
- * maxGrade：PoolItemNodeSourceEntry 内部字段。
+ * maxGrade：maxGrade相关字段。
  */
 
   maxGrade?: string;  
   /**
- * tagGroups：PoolItemNodeSourceEntry 内部字段。
+ * tagGroups：tagGroup相关字段。
  */
 
   tagGroups?: string[][];
@@ -152,27 +152,27 @@ export interface PoolItemNodeSourceEntry extends ItemSourceBaseEntry {
 /** 任务奖励来源条目。 */
 export interface QuestItemSourceEntry extends ItemSourceBaseEntry {
 /**
- * kind：QuestItemSourceEntry 内部字段。
+ * kind：kind相关字段。
  */
 
   kind: 'quest';  
   /**
- * questId：QuestItemSourceEntry 内部字段。
+ * questId：任务ID标识。
  */
 
   questId: string;  
   /**
- * questTitle：QuestItemSourceEntry 内部字段。
+ * questTitle：任务Title名称或显示文本。
  */
 
   questTitle: string;  
   /**
- * line：QuestItemSourceEntry 内部字段。
+ * line：line相关字段。
  */
 
   line?: string;  
   /**
- * chapter：QuestItemSourceEntry 内部字段。
+ * chapter：chapter相关字段。
  */
 
   chapter?: string;
@@ -181,17 +181,17 @@ export interface QuestItemSourceEntry extends ItemSourceBaseEntry {
 /** 商店购买来源条目。 */
 export interface ShopItemSourceEntry extends ItemSourceBaseEntry {
 /**
- * kind：ShopItemSourceEntry 内部字段。
+ * kind：kind相关字段。
  */
 
   kind: 'shop';  
   /**
- * npcId：ShopItemSourceEntry 内部字段。
+ * npcId：NPCID标识。
  */
 
   npcId: string;  
   /**
- * npcName：ShopItemSourceEntry 内部字段。
+ * npcName：NPC名称名称或显示文本。
  */
 
   npcName: string;
@@ -273,11 +273,11 @@ function getSourceLinkLabel(kind: ItemSourceKind): string {
 /** 把来源条目拆成若干个展示标签。 */
 function formatSourceDetails(entry: ItemSourceEntry): Array<{
 /**
- * tone：对象字段。
+ * tone：tone相关字段。
  */
  tone: string;
  /**
- * text：对象字段。
+ * text：text名称或显示文本。
  */
  text: string }> {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
@@ -346,12 +346,12 @@ export function renderItemSourceListHtml(
   itemId: string,
   options: {  
   /**
- * maxEntries：对象字段。
+ * maxEntries：集合字段。
  */
 
     maxEntries?: number;    
     /**
- * compact：对象字段。
+ * compact：compact相关字段。
  */
 
     compact?: boolean;

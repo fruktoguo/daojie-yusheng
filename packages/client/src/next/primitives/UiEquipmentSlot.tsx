@@ -6,28 +6,28 @@ import type { ButtonHTMLAttributes, ReactNode } from 'react';
 
 export interface UiEquipmentSlotProps extends ButtonHTMLAttributes<HTMLButtonElement> {
 /**
- * slot：UiEquipmentSlotProps 内部字段。
+ * slot：slot相关字段。
  */
 
   slot: string;  
   /**
- * itemName：UiEquipmentSlotProps 内部字段。
+ * itemName：道具名称名称或显示文本。
  */
 
   itemName?: ReactNode;  
   /**
- * stateLabel：UiEquipmentSlotProps 内部字段。
+ * stateLabel：状态Label名称或显示文本。
  */
 
   stateLabel?: ReactNode;  
   /**
- * active：UiEquipmentSlotProps 内部字段。
+ * active：启用开关或状态标识。
  */
 
   active?: boolean;
 }
 /**
- * UiEquipmentSlot：执行核心业务逻辑。
+ * UiEquipmentSlot：渲染Ui装备Slot组件。
  * @param {
   slot,
   itemName,
@@ -36,7 +36,7 @@ export interface UiEquipmentSlotProps extends ButtonHTMLAttributes<HTMLButtonEle
   className,
   ...props
 } UiEquipmentSlotProps 参数说明。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新Ui装备Slot相关状态。
  */
 
 

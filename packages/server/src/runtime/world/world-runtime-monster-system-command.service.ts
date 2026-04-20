@@ -22,28 +22,28 @@ const content_template_repository_1 = require("../../content/content-template.re
 /** world-runtime monster system-command leaf：承接妖兽掉落/击败/受伤这组三件套系统命令执行。 */
 let WorldRuntimeMonsterSystemCommandService = class WorldRuntimeMonsterSystemCommandService {
 /**
- * contentTemplateRepository：对象字段。
+ * contentTemplateRepository：内容Template仓储引用。
  */
 
     contentTemplateRepository;    
     /**
  * 构造器：初始化 当前 实例并建立基础状态。
  * @param contentTemplateRepository 参数说明。
- * @returns 无返回值（构造函数）。
+ * @returns 无返回值，完成实例初始化。
  */
 
     constructor(contentTemplateRepository) {
         this.contentTemplateRepository = contentTemplateRepository;
     }    
     /**
- * dispatchSpawnMonsterLoot：处理事件并驱动执行路径。
+ * dispatchSpawnMonsterLoot：判断Spawn怪物掉落是否满足条件。
  * @param instanceId instance ID。
  * @param x X 坐标。
  * @param y Y 坐标。
  * @param monsterId monster ID。
  * @param rolls 参数说明。
  * @param deps 运行时依赖。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新Spawn怪物掉落相关状态。
  */
 
     dispatchSpawnMonsterLoot(instanceId, x, y, monsterId, rolls, deps) {
@@ -57,11 +57,11 @@ let WorldRuntimeMonsterSystemCommandService = class WorldRuntimeMonsterSystemCom
         this.spawnItems(instance, x, y, items, deps);
     }    
     /**
- * dispatchDefeatMonster：处理事件并驱动执行路径。
+ * dispatchDefeatMonster：判断Defeat怪物是否满足条件。
  * @param instanceId instance ID。
  * @param runtimeId runtime ID。
  * @param deps 运行时依赖。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新Defeat怪物相关状态。
  */
 
     dispatchDefeatMonster(instanceId, runtimeId, deps) {
@@ -75,12 +75,12 @@ let WorldRuntimeMonsterSystemCommandService = class WorldRuntimeMonsterSystemCom
         this.spawnRolledMonsterLoot(instance, monster.monsterId, 1, monster.x, monster.y, deps);
     }    
     /**
- * dispatchDamageMonster：处理事件并驱动执行路径。
+ * dispatchDamageMonster：判断Damage怪物是否满足条件。
  * @param instanceId instance ID。
  * @param runtimeId runtime ID。
  * @param amount 参数说明。
  * @param deps 运行时依赖。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新Damage怪物相关状态。
  */
 
     dispatchDamageMonster(instanceId, runtimeId, amount, deps) {
@@ -98,14 +98,14 @@ let WorldRuntimeMonsterSystemCommandService = class WorldRuntimeMonsterSystemCom
         this.spawnRolledMonsterLoot(instance, target.monsterId, 1, target.x, target.y, deps);
     }    
     /**
- * spawnRolledMonsterLoot：执行核心业务逻辑。
+ * spawnRolledMonsterLoot：执行spawnRolled怪物掉落相关逻辑。
  * @param instance 地图实例。
  * @param monsterId monster ID。
  * @param rolls 参数说明。
  * @param x X 坐标。
  * @param y Y 坐标。
  * @param deps 运行时依赖。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新spawnRolled怪物掉落相关状态。
  */
 
     spawnRolledMonsterLoot(instance, monsterId, rolls, x, y, deps) {
@@ -113,13 +113,13 @@ let WorldRuntimeMonsterSystemCommandService = class WorldRuntimeMonsterSystemCom
         this.spawnItems(instance, x, y, items, deps);
     }    
     /**
- * spawnItems：执行核心业务逻辑。
+ * spawnItems：执行spawn道具相关逻辑。
  * @param instance 地图实例。
  * @param x X 坐标。
  * @param y Y 坐标。
  * @param items 道具列表。
  * @param deps 运行时依赖。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新spawn道具相关状态。
  */
 
     spawnItems(instance, x, y, items, deps) {

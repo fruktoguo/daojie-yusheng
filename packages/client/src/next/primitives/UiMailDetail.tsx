@@ -7,29 +7,29 @@ import { UiPanelFrame } from './UiPanelFrame';
 
 export interface UiMailDetailProps {
 /**
- * title：UiMailDetailProps 内部字段。
+ * title：title名称或显示文本。
  */
 
   title: string;  
   /**
- * from：UiMailDetailProps 内部字段。
+ * from：from相关字段。
  */
 
   from: ReactNode;  
   /**
- * bodyLines：UiMailDetailProps 内部字段。
+ * bodyLines：bodyLine相关字段。
  */
 
   bodyLines: string[];
 }
 /**
- * UiMailDetail：执行核心业务逻辑。
+ * UiMailDetail：渲染Ui邮件详情组件。
  * @param {
   title,
   from,
   bodyLines,
 } UiMailDetailProps 参数说明。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新Ui邮件详情相关状态。
  */
 
 

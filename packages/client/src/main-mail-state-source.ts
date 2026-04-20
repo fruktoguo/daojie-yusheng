@@ -33,7 +33,7 @@ type MailOpResultState = Parameters<MailPanel['handleOpResult']>[0];
 
 type MainMailStateSourceOptions = {
 /**
- * socket：对象字段。
+ * socket：socket相关字段。
  */
 
   socket: Pick<
@@ -55,7 +55,7 @@ export type MainMailStateSource = ReturnType<typeof createMainMailStateSource>;
 /**
  * createMainMailStateSource：构建并返回目标对象。
  * @param options MainMailStateSourceOptions 选项参数。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新Main邮件状态来源相关状态。
  */
 
 
@@ -64,17 +64,17 @@ export function createMainMailStateSource(options: MainMailStateSourceOptions) {
 
   return {  
   /**
- * initFromPlayer：初始化并准备运行时基础状态。
+ * initFromPlayer：执行initFrom玩家相关逻辑。
  * @param playerId string 玩家 ID。
- * @returns void。
+ * @returns 无返回值，直接更新initFrom玩家相关状态。
  */
 
     initFromPlayer(playerId: string): void {
       mailPanel.setPlayerId(playerId);
     },    
     /**
- * clear：执行核心业务逻辑。
- * @returns void。
+ * clear：执行clear相关逻辑。
+ * @returns 无返回值，直接更新clear相关状态。
  */
 
 
@@ -82,9 +82,9 @@ export function createMainMailStateSource(options: MainMailStateSourceOptions) {
       mailPanel.clear();
     },    
     /**
- * handleMailSummary：处理事件并驱动执行路径。
+ * handleMailSummary：处理邮件摘要并更新相关状态。
  * @param summary MailSummaryState 参数说明。
- * @returns void。
+ * @returns 无返回值，直接更新邮件摘要相关状态。
  */
 
 
@@ -92,9 +92,9 @@ export function createMainMailStateSource(options: MainMailStateSourceOptions) {
       mailPanel.updateSummary(summary);
     },    
     /**
- * handleMailPage：处理事件并驱动执行路径。
+ * handleMailPage：处理邮件Page并更新相关状态。
  * @param page MailPageState 参数说明。
- * @returns void。
+ * @returns 无返回值，直接更新邮件Page相关状态。
  */
 
 
@@ -102,10 +102,10 @@ export function createMainMailStateSource(options: MainMailStateSourceOptions) {
       mailPanel.updatePage(page);
     },    
     /**
- * handleMailDetail：处理事件并驱动执行路径。
+ * handleMailDetail：处理邮件详情并更新相关状态。
  * @param detail MailDetailState 参数说明。
  * @param error MailDetailError 参数说明。
- * @returns void。
+ * @returns 无返回值，直接更新邮件详情相关状态。
  */
 
 
@@ -113,9 +113,9 @@ export function createMainMailStateSource(options: MainMailStateSourceOptions) {
       mailPanel.updateDetail(detail, error);
     },    
     /**
- * handleMailOpResult：处理事件并驱动执行路径。
+ * handleMailOpResult：处理邮件Op结果并更新相关状态。
  * @param result MailOpResultState 返回结果。
- * @returns void。
+ * @returns 无返回值，直接更新邮件Op结果相关状态。
  */
 
 

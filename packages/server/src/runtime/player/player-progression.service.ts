@@ -739,9 +739,9 @@ let PlayerProgressionService = PlayerProgressionService_1 = class PlayerProgress
         })).sort((left, right) => left.realmLv - right.realmLv);
     }    
     /**
- * resolveInitialRealmState：执行核心业务逻辑。
+ * resolveInitialRealmState：规范化或转换InitialRealm状态。
  * @param player 玩家对象。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新InitialRealm状态相关状态。
  */
 
     resolveInitialRealmState(player) {
@@ -759,9 +759,9 @@ let PlayerProgressionService = PlayerProgressionService_1 = class PlayerProgress
         return this.createRealmStateFromLevel(resolveRealmLevelFromStage(stage), rawProgress);
     }    
     /**
- * normalizeRealmState：执行核心业务逻辑。
+ * normalizeRealmState：规范化或转换Realm状态。
  * @param value 参数说明。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新Realm状态相关状态。
  */
 
     normalizeRealmState(value) {
@@ -776,7 +776,7 @@ let PlayerProgressionService = PlayerProgressionService_1 = class PlayerProgress
  * createRealmStateFromLevel：构建并返回目标对象。
  * @param realmLvInput 参数说明。
  * @param progressInput 参数说明。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新Realm状态From等级相关状态。
  */
 
     createRealmStateFromLevel(realmLvInput, progressInput = 0) {
@@ -816,11 +816,11 @@ let PlayerProgressionService = PlayerProgressionService_1 = class PlayerProgress
         };
     }    
     /**
- * applyResolvedRealmState：更新/写入相关状态。
+ * applyResolvedRealmState：规范化或转换ResolvedRealm状态。
  * @param player 玩家对象。
  * @param realm 参数说明。
  * @param options 选项参数。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新ResolvedRealm状态相关状态。
  */
 
     applyResolvedRealmState(player, realm, options) {
@@ -843,10 +843,10 @@ let PlayerProgressionService = PlayerProgressionService_1 = class PlayerProgress
         return attrRecalculated;
     }    
     /**
- * applyRealmPresentation：更新/写入相关状态。
+ * applyRealmPresentation：处理RealmPresentation并更新相关状态。
  * @param player 玩家对象。
  * @param realm 参数说明。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新RealmPresentation相关状态。
  */
 
     applyRealmPresentation(player, realm) {
@@ -866,7 +866,7 @@ let PlayerProgressionService = PlayerProgressionService_1 = class PlayerProgress
  * buildBreakthroughPreview：构建并返回目标对象。
  * @param player 玩家对象。
  * @param realm 参数说明。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新BreakthroughPreview相关状态。
  */
 
     buildBreakthroughPreview(player, realm) {
@@ -953,10 +953,10 @@ let PlayerProgressionService = PlayerProgressionService_1 = class PlayerProgress
         };
     }    
     /**
- * syncHeavenGateState：执行核心业务逻辑。
+ * syncHeavenGateState：处理HeavenGate状态并更新相关状态。
  * @param player 玩家对象。
  * @param realm 参数说明。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新HeavenGate状态相关状态。
  */
 
     syncHeavenGateState(player, realm) {
@@ -989,9 +989,9 @@ let PlayerProgressionService = PlayerProgressionService_1 = class PlayerProgress
         return nextState;
     }    
     /**
- * hasCompletedHeavenGate：执行状态校验并返回判断结果。
+ * hasCompletedHeavenGate：判断CompletedHeavenGate是否满足条件。
  * @param player 玩家对象。
- * @returns 函数返回值。
+ * @returns 无返回值，完成CompletedHeavenGate的条件判断。
  */
 
     hasCompletedHeavenGate(player) {
@@ -1000,36 +1000,36 @@ let PlayerProgressionService = PlayerProgressionService_1 = class PlayerProgress
         return heavenGate?.entered === true || normalizeHeavenGateRoots(player.spiritualRoots) !== null;
     }    
     /**
- * hasReachedHeavenGateRealm：执行状态校验并返回判断结果。
+ * hasReachedHeavenGateRealm：判断ReachedHeavenGateRealm是否满足条件。
  * @param realmLv 参数说明。
- * @returns 函数返回值。
+ * @returns 无返回值，完成ReachedHeavenGateRealm的条件判断。
  */
 
     hasReachedHeavenGateRealm(realmLv) {
         return realmLv >= HEAVEN_GATE_REALM_LEVEL;
     }    
     /**
- * getHeavenGateSeverCost：按给定条件读取/查询数据。
+ * getHeavenGateSeverCost：读取HeavenGateSever消耗。
  * @param realm 参数说明。
- * @returns 函数返回值。
+ * @returns 无返回值，完成HeavenGateSever消耗的读取/组装。
  */
 
     getHeavenGateSeverCost(realm) {
         return Math.max(1, Math.round(realm.progressToNext * 0.1));
     }    
     /**
- * getHeavenGateRerollCost：按给定条件读取/查询数据。
+ * getHeavenGateRerollCost：读取HeavenGateReroll消耗。
  * @param realm 参数说明。
- * @returns 函数返回值。
+ * @returns 无返回值，完成HeavenGateReroll消耗的读取/组装。
  */
 
     getHeavenGateRerollCost(realm) {
         return Math.max(1, Math.round(realm.progressToNext * 0.25));
     }    
     /**
- * weightedPickHeavenGateSegment：执行核心业务逻辑。
+ * weightedPickHeavenGateSegment：执行weightedPickHeavenGateSegment相关逻辑。
  * @param segments 参数说明。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新weightedPickHeavenGateSegment相关状态。
  */
 
     weightedPickHeavenGateSegment(segments) {
@@ -1048,19 +1048,19 @@ let PlayerProgressionService = PlayerProgressionService_1 = class PlayerProgress
         return segments[segments.length - 1];
     }    
     /**
- * randomHeavenGateInt：执行核心业务逻辑。
+ * randomHeavenGateInt：执行randomHeavenGateInt相关逻辑。
  * @param min 参数说明。
  * @param max 参数说明。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新randomHeavenGateInt相关状态。
  */
 
     randomHeavenGateInt(min, max) {
         return Math.floor(Math.random() * (max - min + 1)) + min;
     }    
     /**
- * getHeavenGateExtraPerfectRootKeepChance：按给定条件读取/查询数据。
+ * getHeavenGateExtraPerfectRootKeepChance：读取HeavenGateExtraPerfect根容器KeepChance。
  * @param averageBonus 参数说明。
- * @returns 函数返回值。
+ * @returns 无返回值，完成HeavenGateExtraPerfect根容器KeepChance的读取/组装。
  */
 
     getHeavenGateExtraPerfectRootKeepChance(averageBonus) {
@@ -1078,10 +1078,10 @@ let PlayerProgressionService = PlayerProgressionService_1 = class PlayerProgress
         return squaredBonus / (squaredBonus + squaredSoftCap);
     }    
     /**
- * distributeHeavenGateRoots：执行核心业务逻辑。
+ * distributeHeavenGateRoots：判断distributeHeavenGate根容器是否满足条件。
  * @param total 参数说明。
  * @param remaining 参数说明。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新distributeHeavenGate根容器相关状态。
  */
 
     distributeHeavenGateRoots(total, remaining) {
@@ -1143,10 +1143,10 @@ let PlayerProgressionService = PlayerProgressionService_1 = class PlayerProgress
         return result;
     }    
     /**
- * softenHeavenGatePerfectRoots：执行核心业务逻辑。
+ * softenHeavenGatePerfectRoots：执行softenHeavenGatePerfect根容器相关逻辑。
  * @param roots 参数说明。
  * @param averageBonus 参数说明。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新softenHeavenGatePerfect根容器相关状态。
  */
 
     softenHeavenGatePerfectRoots(roots, averageBonus) {
@@ -1173,10 +1173,10 @@ let PlayerProgressionService = PlayerProgressionService_1 = class PlayerProgress
         return roots;
     }    
     /**
- * rollHeavenGateRoots：执行核心业务逻辑。
+ * rollHeavenGateRoots：执行rollHeavenGate根容器相关逻辑。
  * @param severed 参数说明。
  * @param averageBonus 参数说明。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新rollHeavenGate根容器相关状态。
  */
 
     rollHeavenGateRoots(severed, averageBonus) {
@@ -1193,11 +1193,11 @@ let PlayerProgressionService = PlayerProgressionService_1 = class PlayerProgress
         return this.softenHeavenGatePerfectRoots(roots, averageBonus);
     }    
     /**
- * consumeInventoryItemById：执行核心业务逻辑。
+ * consumeInventoryItemById：执行consume背包道具ByID相关逻辑。
  * @param player 玩家对象。
  * @param itemId 道具 ID。
  * @param count 数量。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新consume背包道具ByID相关状态。
  */
 
     consumeInventoryItemById(player, itemId, count) {
@@ -1220,11 +1220,11 @@ let PlayerProgressionService = PlayerProgressionService_1 = class PlayerProgress
         }
     }    
     /**
- * gainRealmProgressInternal：执行核心业务逻辑。
+ * gainRealmProgressInternal：执行gainRealm进度Internal相关逻辑。
  * @param player 玩家对象。
  * @param amount 参数说明。
  * @param options 选项参数。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新gainRealm进度Internal相关状态。
  */
 
     gainRealmProgressInternal(player, amount, options) {
@@ -1315,9 +1315,9 @@ let PlayerProgressionService = PlayerProgressionService_1 = class PlayerProgress
         };
     }    
     /**
- * resolveCultivatingTechnique：执行核心业务逻辑。
+ * resolveCultivatingTechnique：规范化或转换Cultivating功法。
  * @param player 玩家对象。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新Cultivating功法相关状态。
  */
 
     resolveCultivatingTechnique(player) {
@@ -1331,9 +1331,9 @@ let PlayerProgressionService = PlayerProgressionService_1 = class PlayerProgress
         return player.techniques.techniques.find((entry) => entry.techId === currentTechId) ?? null;
     }    
     /**
- * resolveActiveCultivatingTechnique：执行核心业务逻辑。
+ * resolveActiveCultivatingTechnique：规范化或转换激活Cultivating功法。
  * @param player 玩家对象。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新激活Cultivating功法相关状态。
  */
 
     resolveActiveCultivatingTechnique(player) {
@@ -1379,9 +1379,9 @@ let PlayerProgressionService = PlayerProgressionService_1 = class PlayerProgress
         };
     }    
     /**
- * clearInvalidCultivation：执行核心业务逻辑。
+ * clearInvalidCultivation：执行clearInvalidCultivation相关逻辑。
  * @param player 玩家对象。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新clearInvalidCultivation相关状态。
  */
 
     clearInvalidCultivation(player) {
@@ -1400,10 +1400,10 @@ let PlayerProgressionService = PlayerProgressionService_1 = class PlayerProgress
         };
     }    
     /**
- * findNextCultivatingTechnique：执行核心业务逻辑。
+ * findNextCultivatingTechnique：读取NextCultivating功法并返回结果。
  * @param player 玩家对象。
  * @param currentTechId currentTech ID。
- * @returns 函数返回值。
+ * @returns 无返回值，完成NextCultivating功法的读取/组装。
  */
 
     findNextCultivatingTechnique(player, currentTechId) {
@@ -1425,9 +1425,9 @@ let PlayerProgressionService = PlayerProgressionService_1 = class PlayerProgress
         return null;
     }    
     /**
- * isTechniqueMaxed：执行状态校验并返回判断结果。
+ * isTechniqueMaxed：判断功法Maxed是否满足条件。
  * @param technique 参数说明。
- * @returns 函数返回值。
+ * @returns 无返回值，完成功法Maxed的条件判断。
  */
 
     isTechniqueMaxed(technique) {
@@ -1438,10 +1438,10 @@ let PlayerProgressionService = PlayerProgressionService_1 = class PlayerProgress
         return level >= maxLevel || (technique.expToNext ?? 0) <= 0;
     }    
     /**
- * advanceTechniqueProgressInternal：执行核心业务逻辑。
+ * advanceTechniqueProgressInternal：执行advance功法进度Internal相关逻辑。
  * @param player 玩家对象。
  * @param amount 参数说明。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新advance功法进度Internal相关状态。
  */
 
     advanceTechniqueProgressInternal(player, amount) {
@@ -1521,13 +1521,13 @@ let PlayerProgressionService = PlayerProgressionService_1 = class PlayerProgress
         return mutation;
     }    
     /**
- * getRealmCombatExp：按给定条件读取/查询数据。
+ * getRealmCombatExp：读取Realm战斗Exp。
  * @param monsterLevel 参数说明。
  * @param playerRealmLv 参数说明。
  * @param monsterTier 参数说明。
  * @param expMultiplier 参数说明。
  * @param contributionRatio 参数说明。
- * @returns 函数返回值。
+ * @returns 无返回值，完成Realm战斗Exp的读取/组装。
  */
 
     getRealmCombatExp(monsterLevel, playerRealmLv, monsterTier, expMultiplier = 1, contributionRatio = 1) {
@@ -1549,13 +1549,13 @@ let PlayerProgressionService = PlayerProgressionService_1 = class PlayerProgress
             / 1000;
     }    
     /**
- * getTechniqueCombatExp：按给定条件读取/查询数据。
+ * getTechniqueCombatExp：读取功法战斗Exp。
  * @param monsterLevel 参数说明。
  * @param playerRealmLv 参数说明。
  * @param monsterTier 参数说明。
  * @param expMultiplier 参数说明。
  * @param contributionRatio 参数说明。
- * @returns 函数返回值。
+ * @returns 无返回值，完成功法战斗Exp的读取/组装。
  */
 
     getTechniqueCombatExp(monsterLevel, playerRealmLv, monsterTier, expMultiplier = 1, contributionRatio = 1) {
@@ -1577,10 +1577,10 @@ let PlayerProgressionService = PlayerProgressionService_1 = class PlayerProgress
             / 200;
     }    
     /**
- * finalizeProgressionMutation：执行核心业务逻辑。
+ * finalizeProgressionMutation：执行finalize修炼进度Mutation相关逻辑。
  * @param player 玩家对象。
  * @param mutation 参数说明。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新finalize修炼进度Mutation相关状态。
  */
 
     finalizeProgressionMutation(player, mutation) {
@@ -1598,9 +1598,9 @@ let PlayerProgressionService = PlayerProgressionService_1 = class PlayerProgress
         player.persistentRevision += 1;
     }    
     /**
- * finalizePresentationMutation：执行核心业务逻辑。
+ * finalizePresentationMutation：执行finalizePresentationMutation相关逻辑。
  * @param player 玩家对象。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新finalizePresentationMutation相关状态。
  */
 
     finalizePresentationMutation(player) {
@@ -1615,9 +1615,9 @@ exports.PlayerProgressionService = PlayerProgressionService = PlayerProgressionS
 ], PlayerProgressionService);
 export { PlayerProgressionService };
 /**
- * resolveStageForRealmLevel：执行核心业务逻辑。
+ * resolveStageForRealmLevel：规范化或转换StageForRealm等级。
  * @param realmLv 参数说明。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新StageForRealm等级相关状态。
  */
 
 function resolveStageForRealmLevel(realmLv) {
@@ -1638,9 +1638,9 @@ function resolveStageForRealmLevel(realmLv) {
     return shared_1.PLAYER_REALM_ORDER[0];
 }
 /**
- * resolveRealmLevelFromStage：执行核心业务逻辑。
+ * resolveRealmLevelFromStage：规范化或转换Realm等级FromStage。
  * @param stage 参数说明。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新Realm等级FromStage相关状态。
  */
 
 function resolveRealmLevelFromStage(stage) {
@@ -1662,9 +1662,9 @@ function resolveRealmLevelFromStage(stage) {
     }
 }
 /**
- * formatTechniqueRealmLabel：执行核心业务逻辑。
+ * formatTechniqueRealmLabel：规范化或转换功法RealmLabel。
  * @param value 参数说明。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新功法RealmLabel相关状态。
  */
 
 function formatTechniqueRealmLabel(value) {
@@ -1682,7 +1682,7 @@ function formatTechniqueRealmLabel(value) {
 }
 /**
  * createEmptyMutation：构建并返回目标对象。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新EmptyMutation相关状态。
  */
 
 function createEmptyMutation() {
@@ -1696,10 +1696,10 @@ function createEmptyMutation() {
     };
 }
 /**
- * mergeProgressionMutation：执行核心业务逻辑。
+ * mergeProgressionMutation：处理修炼进度Mutation并更新相关状态。
  * @param left 参数说明。
  * @param right 参数说明。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新修炼进度Mutation相关状态。
  */
 
 function mergeProgressionMutation(left, right) {
@@ -1726,11 +1726,11 @@ function mergeProgressionMutation(left, right) {
     };
 }
 /**
- * applyRateBonus：更新/写入相关状态。
+ * applyRateBonus：处理RateBonu并更新相关状态。
  * @param baseGain 参数说明。
  * @param bonusRateBp 参数说明。
  * @param minimumGain 参数说明。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新RateBonu相关状态。
  */
 
 function applyRateBonus(baseGain, bonusRateBp, minimumGain = 1) {
@@ -1757,20 +1757,20 @@ function applyRateBonus(baseGain, bonusRateBp, minimumGain = 1) {
     return guaranteed + (Math.random() < remainder ? 1 : 0);
 }
 /**
- * getMonsterKillRealmExpAdjustment：按给定条件读取/查询数据。
+ * getMonsterKillRealmExpAdjustment：读取怪物KillRealmExpAdjustment。
  * @param playerRealmLv 参数说明。
  * @param monsterLevel 参数说明。
  * @param monsterTier 参数说明。
- * @returns 函数返回值。
+ * @returns 无返回值，完成怪物KillRealmExpAdjustment的读取/组装。
  */
 
 function getMonsterKillRealmExpAdjustment(playerRealmLv, monsterLevel, monsterTier) {
     return (0, shared_1.getMonsterKillExpLevelAdjustment)(playerRealmLv, monsterLevel, monsterTier);
 }
 /**
- * snapshotCultivatingTechnique：执行核心业务逻辑。
+ * snapshotCultivatingTechnique：执行快照Cultivating功法相关逻辑。
  * @param player 玩家对象。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新快照Cultivating功法相关状态。
  */
 
 function snapshotCultivatingTechnique(player) {
@@ -1796,11 +1796,11 @@ function snapshotCultivatingTechnique(player) {
     };
 }
 /**
- * calculateRealmProgressGain：执行核心业务逻辑。
+ * calculateRealmProgressGain：执行Realm进度Gain相关逻辑。
  * @param previousRealmLv 参数说明。
  * @param previousProgress 参数说明。
  * @param currentRealm 参数说明。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新Realm进度Gain相关状态。
  */
 
 function calculateRealmProgressGain(previousRealmLv, previousProgress, currentRealm) {
@@ -1815,10 +1815,10 @@ function calculateRealmProgressGain(previousRealmLv, previousProgress, currentRe
     return Math.max(0, currentRealm.progress - previousProgress);
 }
 /**
- * calculateTechniqueGain：执行核心业务逻辑。
+ * calculateTechniqueGain：执行功法Gain相关逻辑。
  * @param previous 参数说明。
  * @param current 参数说明。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新功法Gain相关状态。
  */
 
 function calculateTechniqueGain(previous, current) {
@@ -1843,7 +1843,7 @@ function calculateTechniqueGain(previous, current) {
 }
 /**
  * createEmptyRoots：构建并返回目标对象。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新Empty根容器相关状态。
  */
 
 function createEmptyRoots() {
@@ -1856,9 +1856,9 @@ function createEmptyRoots() {
     };
 }
 /**
- * cloneHeavenGateRoots：执行核心业务逻辑。
+ * cloneHeavenGateRoots：构建HeavenGate根容器。
  * @param roots 参数说明。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新HeavenGate根容器相关状态。
  */
 
 function cloneHeavenGateRoots(roots) {
@@ -1876,9 +1876,9 @@ function cloneHeavenGateRoots(roots) {
     };
 }
 /**
- * normalizeHeavenGateRoots：执行核心业务逻辑。
+ * normalizeHeavenGateRoots：规范化或转换HeavenGate根容器。
  * @param roots 参数说明。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新HeavenGate根容器相关状态。
  */
 
 function normalizeHeavenGateRoots(roots) {
@@ -1892,9 +1892,9 @@ function normalizeHeavenGateRoots(roots) {
     return ELEMENT_KEYS.some((element) => normalized[element] > 0) ? normalized : null;
 }
 /**
- * normalizeHeavenGateState：执行核心业务逻辑。
+ * normalizeHeavenGateState：规范化或转换HeavenGate状态。
  * @param state 状态对象。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新HeavenGate状态相关状态。
  */
 
 function normalizeHeavenGateState(state) {
@@ -1927,10 +1927,10 @@ function normalizeHeavenGateState(state) {
     };
 }
 /**
- * getInventoryCount：按给定条件读取/查询数据。
+ * getInventoryCount：读取背包数量。
  * @param player 玩家对象。
  * @param itemId 道具 ID。
- * @returns 函数返回值。
+ * @returns 无返回值，完成背包数量的读取/组装。
  */
 
 function getInventoryCount(player, itemId) {
@@ -1946,10 +1946,10 @@ function getInventoryCount(player, itemId) {
     return total;
 }
 /**
- * normalizePositiveInt：执行核心业务逻辑。
+ * normalizePositiveInt：规范化或转换PositiveInt。
  * @param value 参数说明。
  * @param fallback 参数说明。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新PositiveInt相关状态。
  */
 
 function normalizePositiveInt(value, fallback) {
@@ -1958,9 +1958,9 @@ function normalizePositiveInt(value, fallback) {
     return Number.isFinite(numeric) ? Math.max(0, Math.floor(numeric)) : fallback;
 }
 /**
- * normalizeProgressionAmount：执行核心业务逻辑。
+ * normalizeProgressionAmount：规范化或转换修炼进度数量。
  * @param value 参数说明。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新修炼进度数量相关状态。
  */
 
 function normalizeProgressionAmount(value) {
@@ -1969,9 +1969,9 @@ function normalizeProgressionAmount(value) {
     return Number.isFinite(numeric) ? Math.max(0, Math.floor(numeric)) : 0;
 }
 /**
- * normalizeProgressionTicks：执行核心业务逻辑。
+ * normalizeProgressionTicks：规范化或转换修炼进度tick。
  * @param value 参数说明。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新修炼进度tick相关状态。
  */
 
 function normalizeProgressionTicks(value) {
@@ -1980,9 +1980,9 @@ function normalizeProgressionTicks(value) {
     return Number.isFinite(numeric) ? Math.max(0, numeric) : 0;
 }
 /**
- * normalizeCombatExpMultiplier：执行核心业务逻辑。
+ * normalizeCombatExpMultiplier：规范化或转换战斗ExpMultiplier。
  * @param value 参数说明。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新战斗ExpMultiplier相关状态。
  */
 
 function normalizeCombatExpMultiplier(value) {
@@ -1991,9 +1991,9 @@ function normalizeCombatExpMultiplier(value) {
     return Number.isFinite(numeric) && numeric > 0 ? numeric : 1;
 }
 /**
- * normalizeNullablePositiveInt：执行核心业务逻辑。
+ * normalizeNullablePositiveInt：规范化或转换NullablePositiveInt。
  * @param value 参数说明。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新NullablePositiveInt相关状态。
  */
 
 function normalizeNullablePositiveInt(value) {
@@ -2002,10 +2002,10 @@ function normalizeNullablePositiveInt(value) {
     return Number.isFinite(numeric) && numeric > 0 ? Math.floor(numeric) : null;
 }
 /**
- * isSameHeavenGateRoots：执行状态校验并返回判断结果。
+ * isSameHeavenGateRoots：判断SameHeavenGate根容器是否满足条件。
  * @param left 参数说明。
  * @param right 参数说明。
- * @returns 函数返回值。
+ * @returns 无返回值，完成SameHeavenGate根容器的条件判断。
  */
 
 function isSameHeavenGateRoots(left, right) {
@@ -2024,11 +2024,11 @@ function isSameHeavenGateRoots(left, right) {
         && left.earth === right.earth;
 }
 /**
- * clamp：执行核心业务逻辑。
+ * clamp：执行clamp相关逻辑。
  * @param value 参数说明。
  * @param min 参数说明。
  * @param max 参数说明。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新clamp相关状态。
  */
 
 function clamp(value, min, max) {

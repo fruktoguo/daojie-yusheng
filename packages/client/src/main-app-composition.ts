@@ -2,9 +2,9 @@ import { scheduleDeferredLocalContentPreload } from './content/deferred-local-co
 import type { InitializeMainAppOptions } from './main-app-assembly-types';
 import { assembleMainApp } from './main-app-runtime-assembly';
 /**
- * initializeMainApp：初始化并准备运行时基础状态。
+ * initializeMainApp：执行initializeMainApp相关逻辑。
  * @param options InitializeMainAppOptions 选项参数。
- * @returns void。
+ * @returns 无返回值，直接更新initializeMainApp相关状态。
  */
 
 

@@ -6,39 +6,39 @@ const { WorldRuntimeGmSystemCommandService } = require("../runtime/world/world-r
 /**
  * createService：构建并返回目标对象。
  * @param log 参数说明。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新服务相关状态。
  */
 
 
 function createService(log = []) {
     return new WorldRuntimeGmSystemCommandService({    
     /**
- * dispatchGmUpdatePlayer：处理事件并驱动执行路径。
+ * dispatchGmUpdatePlayer：判断GMUpdate玩家是否满足条件。
  * @param command 输入指令。
  * @param deps 运行时依赖。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新GMUpdate玩家相关状态。
  */
 
         dispatchGmUpdatePlayer(command, deps) {
             log.push(['dispatchGmUpdatePlayer', command.kind, typeof deps.resolveDefaultRespawnMapId, typeof deps.getOrCreatePublicInstance]);
         },        
         /**
- * dispatchGmSpawnBots：处理事件并驱动执行路径。
+ * dispatchGmSpawnBots：判断GMSpawnBot是否满足条件。
  * @param anchorPlayerId anchorPlayer ID。
  * @param count 数量。
  * @param deps 运行时依赖。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新GMSpawnBot相关状态。
  */
 
         dispatchGmSpawnBots(anchorPlayerId, count, deps) {
             log.push(['dispatchGmSpawnBots', anchorPlayerId, count, typeof deps.connectPlayer]);
         },        
         /**
- * dispatchGmRemoveBots：处理事件并驱动执行路径。
+ * dispatchGmRemoveBots：判断GMRemoveBot是否满足条件。
  * @param playerIds player ID 集合。
  * @param all 参数说明。
  * @param deps 运行时依赖。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新GMRemoveBot相关状态。
  */
 
         dispatchGmRemoveBots(playerIds, all, deps) {
@@ -46,10 +46,10 @@ function createService(log = []) {
         },
     }, {    
     /**
- * respawnPlayer：执行核心业务逻辑。
+ * respawnPlayer：执行重生玩家相关逻辑。
  * @param playerId 玩家 ID。
  * @param deps 运行时依赖。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新重生玩家相关状态。
  */
 
         respawnPlayer(playerId, deps) {
@@ -59,7 +59,7 @@ function createService(log = []) {
 }
 /**
  * createDeps：构建并返回目标对象。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新Dep相关状态。
  */
 
 
@@ -68,70 +68,70 @@ function createDeps() {
         marker: 'deps',
         playerRuntimeService: {},        
         /**
- * resolveDefaultRespawnMapId：执行核心业务逻辑。
- * @returns 函数返回值。
+ * resolveDefaultRespawnMapId：规范化或转换默认重生地图ID。
+ * @returns 无返回值，直接更新Default重生地图ID相关状态。
  */
 
         resolveDefaultRespawnMapId() { return 'yunlai_town'; },        
         /**
- * getOrCreatePublicInstance：按给定条件读取/查询数据。
- * @returns 函数返回值。
+ * getOrCreatePublicInstance：读取OrCreatePublicInstance。
+ * @returns 无返回值，完成OrCreatePublicInstance的读取/组装。
  */
 
         getOrCreatePublicInstance() { return null; },        
         /**
- * getPlayerLocation：按给定条件读取/查询数据。
- * @returns 函数返回值。
+ * getPlayerLocation：读取玩家位置。
+ * @returns 无返回值，完成玩家位置的读取/组装。
  */
 
         getPlayerLocation() { return null; },        
         /**
- * setPlayerLocation：更新/写入相关状态。
- * @returns 函数返回值。
+ * setPlayerLocation：写入玩家位置。
+ * @returns 无返回值，直接更新玩家位置相关状态。
  */
 
         setPlayerLocation() {},        
         /**
- * getInstanceRuntime：按给定条件读取/查询数据。
- * @returns 函数返回值。
+ * getInstanceRuntime：读取Instance运行态。
+ * @returns 无返回值，完成Instance运行态的读取/组装。
  */
 
         getInstanceRuntime() { return null; },        
         /**
- * getPlayerViewOrThrow：按给定条件读取/查询数据。
- * @returns 函数返回值。
+ * getPlayerViewOrThrow：读取玩家视图OrThrow。
+ * @returns 无返回值，完成玩家视图OrThrow的读取/组装。
  */
 
         getPlayerViewOrThrow() { return null; },        
         /**
- * refreshPlayerContextActions：执行核心业务逻辑。
- * @returns 函数返回值。
+ * refreshPlayerContextActions：执行refresh玩家上下文Action相关逻辑。
+ * @returns 无返回值，直接更新refresh玩家上下文Action相关状态。
  */
 
         refreshPlayerContextActions() {},        
         /**
- * resolveCurrentTickForPlayerId：执行核心业务逻辑。
- * @returns 函数返回值。
+ * resolveCurrentTickForPlayerId：规范化或转换当前tickFor玩家ID。
+ * @returns 无返回值，直接更新CurrenttickFor玩家ID相关状态。
  */
 
         resolveCurrentTickForPlayerId() { return 0; },        
         /**
- * connectPlayer：执行核心业务逻辑。
- * @returns 函数返回值。
+ * connectPlayer：执行connect玩家相关逻辑。
+ * @returns 无返回值，直接更新connect玩家相关状态。
  */
 
         connectPlayer() {},        
         /**
- * removePlayer：执行核心业务逻辑。
- * @returns 函数返回值。
+ * removePlayer：处理玩家并更新相关状态。
+ * @returns 无返回值，直接更新玩家相关状态。
  */
 
         removePlayer() {},
     };
 }
 /**
- * testDispatchesKnownCommands：执行核心业务逻辑。
- * @returns 函数返回值。
+ * testDispatchesKnownCommands：判断testDispatcheKnownCommand是否满足条件。
+ * @returns 无返回值，直接更新testDispatcheKnownCommand相关状态。
  */
 
 
@@ -151,8 +151,8 @@ function testDispatchesKnownCommands() {
     ]);
 }
 /**
- * testIgnoreUnknownCommand：执行核心业务逻辑。
- * @returns 函数返回值。
+ * testIgnoreUnknownCommand：执行testIgnoreUnknownCommand相关逻辑。
+ * @returns 无返回值，直接更新testIgnoreUnknownCommand相关状态。
  */
 
 

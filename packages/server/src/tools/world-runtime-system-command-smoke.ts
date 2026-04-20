@@ -6,23 +6,23 @@ const { WorldRuntimeSystemCommandService } = require("../runtime/world/world-run
 /**
  * createService：构建并返回目标对象。
  * @param log 参数说明。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新服务相关状态。
  */
 
 
 function createService(log = []) {
     return new WorldRuntimeSystemCommandService({    
     /**
- * getPendingSystemCommandCount：按给定条件读取/查询数据。
- * @returns 函数返回值。
+ * getPendingSystemCommandCount：读取待处理SystemCommand数量。
+ * @returns 无返回值，完成PendingSystemCommand数量的读取/组装。
  */
 
         getPendingSystemCommandCount() {
             return 4;
         },        
         /**
- * drainPendingSystemCommands：执行核心业务逻辑。
- * @returns 函数返回值。
+ * drainPendingSystemCommands：执行drain待处理SystemCommand相关逻辑。
+ * @returns 无返回值，直接更新drainPendingSystemCommand相关状态。
  */
 
         drainPendingSystemCommands() {
@@ -35,30 +35,30 @@ function createService(log = []) {
         },
     }, {    
     /**
- * dispatchSpawnMonsterLoot：处理事件并驱动执行路径。
+ * dispatchSpawnMonsterLoot：判断Spawn怪物掉落是否满足条件。
  * @param instanceId instance ID。
  * @param x X 坐标。
  * @param y Y 坐标。
  * @param monsterId monster ID。
  * @param rolls 参数说明。
  * @param deps 运行时依赖。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新Spawn怪物掉落相关状态。
  */
 
         dispatchSpawnMonsterLoot(instanceId, x, y, monsterId, rolls, deps) {
             log.push(['spawnMonsterLoot', instanceId, x, y, monsterId, rolls, deps.marker]);
         },        
         /**
- * dispatchDamageMonster：处理事件并驱动执行路径。
- * @returns 函数返回值。
+ * dispatchDamageMonster：判断Damage怪物是否满足条件。
+ * @returns 无返回值，直接更新Damage怪物相关状态。
  */
 
         dispatchDamageMonster() {
             log.push(['damageMonster']);
         },        
         /**
- * dispatchDefeatMonster：处理事件并驱动执行路径。
- * @returns 函数返回值。
+ * dispatchDefeatMonster：判断Defeat怪物是否满足条件。
+ * @returns 无返回值，直接更新Defeat怪物相关状态。
  */
 
         dispatchDefeatMonster() {
@@ -66,21 +66,21 @@ function createService(log = []) {
         },
     }, {    
     /**
- * dispatchDamagePlayer：处理事件并驱动执行路径。
+ * dispatchDamagePlayer：判断Damage玩家是否满足条件。
  * @param playerId 玩家 ID。
  * @param amount 参数说明。
  * @param deps 运行时依赖。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新Damage玩家相关状态。
  */
 
         dispatchDamagePlayer(playerId, amount, deps) {
             log.push(['damagePlayer', playerId, amount, deps.marker]);
         },        
         /**
- * respawnPlayer：执行核心业务逻辑。
+ * respawnPlayer：执行重生玩家相关逻辑。
  * @param playerId 玩家 ID。
  * @param deps 运行时依赖。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新重生玩家相关状态。
  */
 
         respawnPlayer(playerId, deps) {
@@ -88,10 +88,10 @@ function createService(log = []) {
         },
     }, {    
     /**
- * dispatchGmSystemCommand：处理事件并驱动执行路径。
+ * dispatchGmSystemCommand：判断GMSystemCommand是否满足条件。
  * @param command 输入指令。
  * @param deps 运行时依赖。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新GMSystemCommand相关状态。
  */
 
         dispatchGmSystemCommand(command, deps) {
@@ -101,8 +101,8 @@ function createService(log = []) {
     });
 }
 /**
- * testDispatchPendingSystemCommands：执行核心业务逻辑。
- * @returns 函数返回值。
+ * testDispatchPendingSystemCommands：判断testDispatch待处理SystemCommand是否满足条件。
+ * @returns 无返回值，直接更新testDispatchPendingSystemCommand相关状态。
  */
 
 
@@ -118,8 +118,8 @@ function testDispatchPendingSystemCommands() {
     ]);
 }
 /**
- * testDispatchSystemCommandRoutes：执行核心业务逻辑。
- * @returns 函数返回值。
+ * testDispatchSystemCommandRoutes：判断testDispatchSystemCommand路线是否满足条件。
+ * @returns 无返回值，直接更新testDispatchSystemCommand路线相关状态。
  */
 
 

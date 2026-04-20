@@ -11,18 +11,18 @@ import { shellStore } from '../stores/shell-store';
 
 export const nextUiBridge = {
 /**
- * syncMounted：执行核心业务逻辑。
+ * syncMounted：处理Mounted并更新相关状态。
  * @param mounted boolean 参数说明。
- * @returns void。
+ * @returns 无返回值，直接更新Mounted相关状态。
  */
 
   syncMounted(mounted: boolean): void {
     shellStore.patchState({ mounted });
   },  
   /**
- * syncEnabled：执行核心业务逻辑。
+ * syncEnabled：处理启用并更新相关状态。
  * @param enabled boolean 参数说明。
- * @returns void。
+ * @returns 无返回值，直接更新启用相关状态。
  */
 
 
@@ -30,9 +30,9 @@ export const nextUiBridge = {
     shellStore.patchState({ enabled });
   },  
   /**
- * syncRuntime：执行核心业务逻辑。
+ * syncRuntime：处理运行态并更新相关状态。
  * @param runtime PanelRuntimeState 参数说明。
- * @returns void。
+ * @returns 无返回值，直接更新运行态相关状态。
  */
 
 
@@ -40,9 +40,9 @@ export const nextUiBridge = {
     shellStore.patchState({ runtime: { ...runtime } });
   },  
   /**
- * syncCapabilities：执行核心业务逻辑。
+ * syncCapabilities：处理Capability并更新相关状态。
  * @param capabilities PanelCapabilities 参数说明。
- * @returns void。
+ * @returns 无返回值，直接更新Capability相关状态。
  */
 
 
@@ -55,9 +55,9 @@ export const nextUiBridge = {
     });
   },  
   /**
- * syncPlayer：执行核心业务逻辑。
+ * syncPlayer：处理玩家并更新相关状态。
  * @param player PlayerState | null 玩家对象。
- * @returns void。
+ * @returns 无返回值，直接更新玩家相关状态。
  */
 
 
@@ -65,9 +65,9 @@ export const nextUiBridge = {
     panelDataStore.patchState({ player });
   },  
   /**
- * syncAttrUpdate：执行核心业务逻辑。
+ * syncAttrUpdate：处理AttrUpdate并更新相关状态。
  * @param attrUpdate NEXT_S2C_AttrUpdate | null 参数说明。
- * @returns void。
+ * @returns 无返回值，直接更新AttrUpdate相关状态。
  */
 
 
@@ -75,9 +75,9 @@ export const nextUiBridge = {
     panelDataStore.patchState({ attrUpdate });
   },  
   /**
- * syncInventory：执行核心业务逻辑。
+ * syncInventory：处理背包并更新相关状态。
  * @param inventory Inventory | null 参数说明。
- * @returns void。
+ * @returns 无返回值，直接更新背包相关状态。
  */
 
 
@@ -85,9 +85,9 @@ export const nextUiBridge = {
     panelDataStore.patchState({ inventory });
   },  
   /**
- * syncEquipment：执行核心业务逻辑。
+ * syncEquipment：处理装备并更新相关状态。
  * @param equipment PlayerState['equipment'] | null 参数说明。
- * @returns void。
+ * @returns 无返回值，直接更新装备相关状态。
  */
 
 
@@ -95,10 +95,10 @@ export const nextUiBridge = {
     panelDataStore.patchState({ equipment });
   },  
   /**
- * syncTechniques：执行核心业务逻辑。
+ * syncTechniques：处理功法并更新相关状态。
  * @param techniques TechniqueState[] 参数说明。
  * @param cultivatingTechId string | undefined cultivatingTech ID。
- * @returns void。
+ * @returns 无返回值，直接更新功法相关状态。
  */
 
 
@@ -112,11 +112,11 @@ export const nextUiBridge = {
     });
   },  
   /**
- * syncActions：执行核心业务逻辑。
+ * syncActions：处理Action并更新相关状态。
  * @param actions ActionDef[] 参数说明。
  * @param autoBattle boolean 参数说明。
  * @param autoRetaliate boolean 参数说明。
- * @returns void。
+ * @returns 无返回值，直接更新Action相关状态。
  */
 
 
@@ -132,9 +132,9 @@ export const nextUiBridge = {
     });
   },  
   /**
- * syncQuests：执行核心业务逻辑。
+ * syncQuests：处理任务并更新相关状态。
  * @param quests PlayerState['quests'] | null 参数说明。
- * @returns void。
+ * @returns 无返回值，直接更新任务相关状态。
  */
 
 
@@ -142,8 +142,8 @@ export const nextUiBridge = {
     panelDataStore.patchState({ quests });
   },  
   /**
- * reset：执行核心业务逻辑。
- * @returns void。
+ * reset：执行reset相关逻辑。
+ * @returns 无返回值，直接更新reset相关状态。
  */
 
 

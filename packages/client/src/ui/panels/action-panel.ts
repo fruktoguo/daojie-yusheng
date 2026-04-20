@@ -47,32 +47,32 @@ type SkillPresetStatusTone = 'success' | 'error' | 'info';
 /** 动作列表行里需要缓存的节点引用，供局部 patch 直接改 DOM。 */
 interface ActionRowRefs {
 /**
- * row：ActionRowRefs 内部字段。
+ * row：row相关字段。
  */
 
   row: HTMLElement;  
   /**
- * cdNode：ActionRowRefs 内部字段。
+ * cdNode：cdNode相关字段。
  */
 
   cdNode: HTMLElement;  
   /**
- * execNode：ActionRowRefs 内部字段。
+ * execNode：execNode相关字段。
  */
 
   execNode: HTMLButtonElement;  
   /**
- * stateNode：ActionRowRefs 内部字段。
+ * stateNode：状态Node相关字段。
  */
 
   stateNode?: HTMLElement;  
   /**
- * orderNode：ActionRowRefs 内部字段。
+ * orderNode：订单Node相关字段。
  */
 
   orderNode?: HTMLElement;  
   /**
- * toggleNode：ActionRowRefs 内部字段。
+ * toggleNode：toggleNode相关字段。
  */
 
   toggleNode?: HTMLButtonElement;
@@ -81,12 +81,12 @@ interface ActionRowRefs {
 /** 技能管理列表里的单条条目，包含动作本体和预览指标。 */
 interface SkillManagementEntry {
 /**
- * action：SkillManagementEntry 内部字段。
+ * action：action相关字段。
  */
 
   action: ActionDef;  
   /**
- * metrics：SkillManagementEntry 内部字段。
+ * metrics：metric相关字段。
  */
 
   metrics: SkillPreviewMetrics;
@@ -95,22 +95,22 @@ interface SkillManagementEntry {
 /** 动作对应技能的倾向标签，用来在卡片上补充元素倾向说明。 */
 interface ActionSkillAffinityBadge {
 /**
- * label：ActionSkillAffinityBadge 内部字段。
+ * label：label名称或显示文本。
  */
 
   label: string;  
   /**
- * title：ActionSkillAffinityBadge 内部字段。
+ * title：title名称或显示文本。
  */
 
   title: string;  
   /**
- * tone：ActionSkillAffinityBadge 内部字段。
+ * tone：tone相关字段。
  */
 
   tone: 'physical' | 'spell' | 'mixed' | 'utility';  
   /**
- * element：ActionSkillAffinityBadge 内部字段。
+ * element：element相关字段。
  */
 
   element: ElementKey | 'multi' | 'neutral';
@@ -119,17 +119,17 @@ interface ActionSkillAffinityBadge {
 /** 技能预设里单个技能的启用状态，同时保留自动/手动标记。 */
 interface SkillPresetSkillState {
 /**
- * skillId：SkillPresetSkillState 内部字段。
+ * skillId：技能ID标识。
  */
 
   skillId: string;  
   /**
- * enabled：SkillPresetSkillState 内部字段。
+ * enabled：启用开关或状态标识。
  */
 
   enabled: boolean;  
   /**
- * skillEnabled：SkillPresetSkillState 内部字段。
+ * skillEnabled：启用开关或状态标识。
  */
 
   skillEnabled: boolean;
@@ -138,17 +138,17 @@ interface SkillPresetSkillState {
 /** 单个技能预设的持久化记录。 */
 interface SkillPresetRecord {
 /**
- * id：SkillPresetRecord 内部字段。
+ * id：ID标识。
  */
 
   id: string;  
   /**
- * name：SkillPresetRecord 内部字段。
+ * name：名称名称或显示文本。
  */
 
   name: string;  
   /**
- * skills：SkillPresetRecord 内部字段。
+ * skills：技能相关字段。
  */
 
   skills: SkillPresetSkillState[];
@@ -157,22 +157,22 @@ interface SkillPresetRecord {
 /** 技能预设导入导出的库结构。 */
 interface SkillPresetLibrary {
 /**
- * v：SkillPresetLibrary 内部字段。
+ * v：v相关字段。
  */
 
   v: number;  
   /**
- * p：SkillPresetLibrary 内部字段。
+ * p：p相关字段。
  */
 
   p: Array<{  
   /**
- * n：SkillPresetLibrary 内部字段。
+ * n：n相关字段。
  */
 
     n: string;    
     /**
- * s：SkillPresetLibrary 内部字段。
+ * s：s相关字段。
  */
 
     s: Array<[string, 0 | 1]>;
@@ -182,12 +182,12 @@ interface SkillPresetLibrary {
 /** 技能预设当前的状态提示。 */
 interface SkillPresetStatus {
 /**
- * tone：SkillPresetStatus 内部字段。
+ * tone：tone相关字段。
  */
 
   tone: SkillPresetStatusTone;  
   /**
- * text：SkillPresetStatus 内部字段。
+ * text：text名称或显示文本。
  */
 
   text: string;
@@ -275,15 +275,15 @@ export class ActionPanel {
   /** 技能查询缓存，保存技能定义、等级和已知技能列表。 */
   private skillLookup = new Map<string, {  
   /**
- * skill：ActionPanel 内部字段。
+ * skill：技能相关字段。
  */
  skill: SkillDef;  
  /**
- * techLevel：ActionPanel 内部字段。
+ * techLevel：tech等级数值。
  */
  techLevel: number;  
  /**
- * knownSkills：ActionPanel 内部字段。
+ * knownSkills：known技能相关字段。
  */
  knownSkills: SkillDef[] }>();
   /** 面板内统一复用的悬浮提示。 */
@@ -292,7 +292,7 @@ export class ActionPanel {
   private actionRowRefs = new Map<string, ActionRowRefs>();  
   /**
  * 构造器：初始化 当前 实例并建立基础状态。
- * @returns 无返回值（构造函数）。
+ * @returns 无返回值，完成实例初始化。
  */
 
 
@@ -316,10 +316,10 @@ export class ActionPanel {
     this.pane.replaceChildren(createFragmentFromHtml('<div class="empty-hint ui-empty-hint">暂无可用行动</div>'));
   }  
   /**
- * setCallbacks：更新/写入相关状态。
+ * setCallbacks：写入Callback。
  * @param onAction (actionId: string, requiresTarget?: boolean, targetMode?: string, range?: number, actionName?: string) => void 参数说明。
  * @param onUpdateAutoBattleSkills (skills: AutoBattleSkillConfig[]) => void 参数说明。
- * @returns void。
+ * @returns 无返回值，直接更新Callback相关状态。
  */
 
 
@@ -415,17 +415,17 @@ export class ActionPanel {
 
     const tabGroups: Array<{    
     /**
- * id：ActionPanel 内部字段。
+ * id：ID标识。
  */
 
       id: ActionMainTab;      
       /**
- * label：ActionPanel 内部字段。
+ * label：label名称或显示文本。
  */
 
       label: string;      
       /**
- * types：ActionPanel 内部字段。
+ * types：type相关字段。
  */
 
       types: string[];
@@ -737,11 +737,11 @@ export class ActionPanel {
   /** 读取开关卡片当前状态，顺便决定按钮上的开/关文案。 */
   private getSwitchCardState(action: ActionDef): {  
   /**
- * active：ActionPanel 内部字段。
+ * active：启用开关或状态标识。
  */
  active: boolean;  
  /**
- * label：ActionPanel 内部字段。
+ * label：label名称或显示文本。
  */
  label: string } {
     switch (action.id) {
@@ -846,11 +846,11 @@ export class ActionPanel {
     payload: unknown,
     options?: {    
     /**
- * preserveIds：ActionPanel 内部字段。
+ * preserveIds：preserveID相关字段。
  */
  preserveIds?: boolean;    
  /**
- * existingNames：ActionPanel 内部字段。
+ * existingNames：existing名称相关字段。
  */
  existingNames?: Set<string> },
   ): SkillPresetRecord[] {
@@ -891,7 +891,7 @@ export class ActionPanel {
     index: number,
     options?: {    
     /**
- * preserveIds：ActionPanel 内部字段。
+ * preserveIds：preserveID相关字段。
  */
  preserveIds?: boolean },
   ): SkillPresetRecord | null {
@@ -1039,11 +1039,11 @@ export class ActionPanel {
     text: string,
     options?: {    
     /**
- * preserveIds：ActionPanel 内部字段。
+ * preserveIds：preserveID相关字段。
  */
  preserveIds?: boolean;    
  /**
- * existingNames：ActionPanel 内部字段。
+ * existingNames：existing名称相关字段。
  */
  existingNames?: Set<string> },
   ): SkillPresetRecord[] {
@@ -1051,20 +1051,20 @@ export class ActionPanel {
 
     const parsedPresets: Array<{    
     /**
- * n：ActionPanel 内部字段。
+ * n：n相关字段。
  */
  n: string;    
  /**
- * s：ActionPanel 内部字段。
+ * s：s相关字段。
  */
  s: Array<[string, 0 | 1]> }> = [];
     let current: {    
     /**
- * n：ActionPanel 内部字段。
+ * n：n相关字段。
  */
  n: string;    
  /**
- * s：ActionPanel 内部字段。
+ * s：s相关字段。
  */
  s: Array<[string, 0 | 1]> } | null = null;
     for (const rawLine of text.split(/\r?\n/)) {
@@ -1227,12 +1227,12 @@ export class ActionPanel {
     action: ActionDef,
     options?: {    
     /**
- * showDragHandle：ActionPanel 内部字段。
+ * showDragHandle：showDragHandle相关字段。
  */
 
       showDragHandle?: boolean;      
       /**
- * autoBattleDisplayOrder：ActionPanel 内部字段。
+ * autoBattleDisplayOrder：autoBattle显示订单相关字段。
  */
 
       autoBattleDisplayOrder?: number | null;
@@ -3088,12 +3088,12 @@ export class ActionPanel {
     action: ActionDef,
     options?: {    
     /**
- * showDragHandle：ActionPanel 内部字段。
+ * showDragHandle：showDragHandle相关字段。
  */
 
       showDragHandle?: boolean;      
       /**
- * autoBattleDisplayOrder：ActionPanel 内部字段。
+ * autoBattleDisplayOrder：autoBattle显示订单相关字段。
  */
 
       autoBattleDisplayOrder?: number | null;

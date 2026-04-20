@@ -6,33 +6,33 @@ import type { ButtonHTMLAttributes, ReactNode } from 'react';
 
 export interface UiMailListItemProps extends ButtonHTMLAttributes<HTMLButtonElement> {
 /**
- * title：UiMailListItemProps 内部字段。
+ * title：title名称或显示文本。
  */
 
   title: string;  
   /**
- * sender：UiMailListItemProps 内部字段。
+ * sender：sender相关字段。
  */
 
   sender: ReactNode;  
   /**
- * status：UiMailListItemProps 内部字段。
+ * status：statu状态或数据块。
  */
 
   status: ReactNode;  
   /**
- * note：UiMailListItemProps 内部字段。
+ * note：note相关字段。
  */
 
   note?: ReactNode;  
   /**
- * active：UiMailListItemProps 内部字段。
+ * active：启用开关或状态标识。
  */
 
   active?: boolean;
 }
 /**
- * UiMailListItem：执行核心业务逻辑。
+ * UiMailListItem：读取Ui邮件列表道具并返回结果。
  * @param {
   title,
   sender,
@@ -42,7 +42,7 @@ export interface UiMailListItemProps extends ButtonHTMLAttributes<HTMLButtonElem
   className,
   ...props
 } UiMailListItemProps 参数说明。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新Ui邮件列表道具相关状态。
  */
 
 

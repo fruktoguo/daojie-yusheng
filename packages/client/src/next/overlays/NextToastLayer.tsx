@@ -1,8 +1,8 @@
 import { useExternalStoreSnapshot } from '../hooks/use-external-store-snapshot';
 import { overlayStore } from './overlay-store';
 /**
- * NextToastLayer：执行核心业务逻辑。
- * @returns 函数返回值。
+ * NextToastLayer：渲染NextToast层组件。
+ * @returns 无返回值，直接更新NextToast层相关状态。
  */
 
 

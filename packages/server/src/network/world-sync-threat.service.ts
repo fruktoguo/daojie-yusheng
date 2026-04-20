@@ -33,7 +33,7 @@ let WorldSyncThreatService = class WorldSyncThreatService {
  * 构造器：初始化 当前 实例并建立基础状态。
  * @param worldRuntimeService 参数说明。
  * @param playerRuntimeService 参数说明。
- * @returns 无返回值（构造函数）。
+ * @returns 无返回值，完成实例初始化。
  */
 
     constructor(worldRuntimeService, playerRuntimeService) {
@@ -138,20 +138,20 @@ exports.WorldSyncThreatService = WorldSyncThreatService = __decorate([
         player_runtime_service_1.PlayerRuntimeService])
 ], WorldSyncThreatService);
 /**
- * cloneThreatArrows：执行核心业务逻辑。
+ * cloneThreatArrows：构建ThreatArrow。
  * @param source 来源对象。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新ThreatArrow相关状态。
  */
 
 function cloneThreatArrows(source) {
     return source.map(([ownerId, targetId]) => [ownerId, targetId]);
 }
 /**
- * diffThreatArrows：执行核心业务逻辑。
+ * diffThreatArrows：执行diffThreatArrow相关逻辑。
  * @param previous 参数说明。
  * @param current 参数说明。
  * @param forceFull 参数说明。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新diffThreatArrow相关状态。
  */
 
 function diffThreatArrows(previous, current, forceFull) {
@@ -182,17 +182,17 @@ function diffThreatArrows(previous, current, forceFull) {
  * buildThreatArrowKey：构建并返回目标对象。
  * @param ownerId owner ID。
  * @param targetId target ID。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新ThreatArrowKey相关状态。
  */
 
 function buildThreatArrowKey(ownerId, targetId) {
     return `${ownerId}\n${targetId}`;
 }
 /**
- * compareThreatArrows：执行核心业务逻辑。
+ * compareThreatArrows：执行compareThreatArrow相关逻辑。
  * @param left 参数说明。
  * @param right 参数说明。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新compareThreatArrow相关状态。
  */
 
 function compareThreatArrows(left, right) {
@@ -204,10 +204,10 @@ function compareThreatArrows(left, right) {
     return compareStableStrings(left[1], right[1]);
 }
 /**
- * compareStableStrings：执行核心业务逻辑。
+ * compareStableStrings：执行compareStableString相关逻辑。
  * @param left 参数说明。
  * @param right 参数说明。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新compareStableString相关状态。
  */
 
 function compareStableStrings(left, right) {

@@ -6,23 +6,23 @@ const { WorldRuntimeQuestStateService } = require("../runtime/world/world-runtim
 /**
  * createService：构建并返回目标对象。
  * @param { player, progressMap = {}, readyMap = {}, createdQuest = null, log = [] } 参数说明。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新服务相关状态。
  */
 
 
 function createService({ player, progressMap = {}, readyMap = {}, createdQuest = null, log = [] } = {}) {
     const playerRuntimeService = {    
     /**
- * getPlayer：按给定条件读取/查询数据。
- * @returns 函数返回值。
+ * getPlayer：读取玩家。
+ * @returns 无返回值，完成玩家的读取/组装。
  */
 
         getPlayer() {
             return player ?? null;
         },        
         /**
- * getPlayerOrThrow：按给定条件读取/查询数据。
- * @returns 函数返回值。
+ * getPlayerOrThrow：读取玩家OrThrow。
+ * @returns 无返回值，完成玩家OrThrow的读取/组装。
  */
 
         getPlayerOrThrow() {
@@ -34,9 +34,9 @@ function createService({ player, progressMap = {}, readyMap = {}, createdQuest =
             return player;
         },        
         /**
- * markQuestStateDirty：执行核心业务逻辑。
+ * markQuestStateDirty：处理任务状态Dirty并更新相关状态。
  * @param playerId 玩家 ID。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新任务状态Dirty相关状态。
  */
 
         markQuestStateDirty(playerId) {
@@ -45,10 +45,10 @@ function createService({ player, progressMap = {}, readyMap = {}, createdQuest =
     };
     const worldRuntimeQuestQueryService = {    
     /**
- * resolveQuestProgress：执行核心业务逻辑。
+ * resolveQuestProgress：规范化或转换任务进度。
  * @param playerId 玩家 ID。
  * @param quest 参数说明。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新任务进度相关状态。
  */
 
         resolveQuestProgress(playerId, quest) {
@@ -57,10 +57,10 @@ function createService({ player, progressMap = {}, readyMap = {}, createdQuest =
                 : quest.progress;
         },        
         /**
- * canQuestBecomeReady：执行状态校验并返回判断结果。
+ * canQuestBecomeReady：读取任务BecomeReady并返回结果。
  * @param playerId 玩家 ID。
  * @param quest 参数说明。
- * @returns 函数返回值。
+ * @returns 无返回值，完成任务BecomeReady的条件判断。
  */
 
         canQuestBecomeReady(playerId, quest) {
@@ -73,7 +73,7 @@ function createService({ player, progressMap = {}, readyMap = {}, createdQuest =
  * @param playerId 玩家 ID。
  * @param questId quest ID。
  * @param status 参数说明。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新任务状态From来源相关状态。
  */
 
         createQuestStateFromSource(playerId, questId, status) {
@@ -96,8 +96,8 @@ function createService({ player, progressMap = {}, readyMap = {}, createdQuest =
     return new WorldRuntimeQuestStateService(playerRuntimeService, worldRuntimeQuestQueryService);
 }
 /**
- * testRefreshQuestStates：执行核心业务逻辑。
- * @returns 函数返回值。
+ * testRefreshQuestStates：执行testRefresh任务状态相关逻辑。
+ * @returns 无返回值，直接更新testRefresh任务状态相关状态。
  */
 
 
@@ -127,8 +127,8 @@ function testRefreshQuestStates() {
     assert.deepEqual(log, [['markQuestStateDirty', 'player:1']]);
 }
 /**
- * testTryAcceptNextQuest：执行核心业务逻辑。
- * @returns 函数返回值。
+ * testTryAcceptNextQuest：执行testTryAcceptNext任务相关逻辑。
+ * @returns 无返回值，直接更新testTryAcceptNext任务相关状态。
  */
 
 
@@ -160,8 +160,8 @@ function testTryAcceptNextQuest() {
     assert.equal(service.tryAcceptNextQuest('player:1', null), null);
 }
 /**
- * testAdvanceKillQuestProgress：执行核心业务逻辑。
- * @returns 函数返回值。
+ * testAdvanceKillQuestProgress：执行testAdvanceKill任务进度相关逻辑。
+ * @returns 无返回值，直接更新testAdvanceKill任务进度相关状态。
  */
 
 
@@ -196,8 +196,8 @@ function testAdvanceKillQuestProgress() {
     assert.deepEqual(log, [['markQuestStateDirty', 'player:1']]);
 }
 /**
- * testAdvanceLearnTechniqueQuest：执行核心业务逻辑。
- * @returns 函数返回值。
+ * testAdvanceLearnTechniqueQuest：执行testAdvanceLearn功法任务相关逻辑。
+ * @returns 无返回值，直接更新testAdvanceLearn功法任务相关状态。
  */
 
 
@@ -256,8 +256,8 @@ function testAdvanceLearnTechniqueQuest() {
     assert.deepEqual(unchangedLog, []);
 }
 /**
- * testCanReceiveRewardItems：执行核心业务逻辑。
- * @returns 函数返回值。
+ * testCanReceiveRewardItems：判断testCanReceiveReward道具是否满足条件。
+ * @returns 无返回值，直接更新testCanReceiveReward道具相关状态。
  */
 
 

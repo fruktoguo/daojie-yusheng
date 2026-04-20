@@ -340,9 +340,9 @@ async function main() {
     }
 }
 /**
- * resolveImmediateEngageProof：执行核心业务逻辑。
+ * resolveImmediateEngageProof：规范化或转换ImmediateEngageProof。
  * @param { playerId, runtimeId, beforePlayer, beforeMonster, firstSelfDelta, firstWorldDelta, } 参数说明。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新ImmediateEngageProof相关状态。
  */
 
 function resolveImmediateEngageProof({ playerId, runtimeId, beforePlayer, beforeMonster, firstSelfDelta, firstWorldDelta, }) {

@@ -53,23 +53,23 @@ function renderKeyValueCard(label: string, value: string): string {
 /** renderItemSummary：渲染物品摘要。 */
 function renderItemSummary(item: {
 /**
- * name：对象字段。
+ * name：名称名称或显示文本。
  */
  name?: string;
  /**
- * itemId：对象字段。
+ * itemId：道具ID标识。
  */
  itemId: string;
  /**
- * type：对象字段。
+ * type：type相关字段。
  */
  type?: string;
  /**
- * level：对象字段。
+ * level：等级数值。
  */
  level?: number;
  /**
- * equipSlot：对象字段。
+ * equipSlot：equipSlot相关字段。
  */
  equipSlot?: string }): string {
   const parts = [
@@ -103,40 +103,40 @@ function toEquipSlot(value: string | undefined): EnhancementTargetRef['slot'] | 
 /** CraftWorkbenchCallbacks：工坊弹窗回调集。 */
 type CraftWorkbenchCallbacks = {
 /**
- * onRequestAlchemy：对象字段。
+ * onRequestAlchemy：onRequest炼丹相关字段。
  */
 
   onRequestAlchemy: (knownCatalogVersion?: number) => void;  
   /**
- * onRequestEnhancement：对象字段。
+ * onRequestEnhancement：onRequest强化相关字段。
  */
 
   onRequestEnhancement: () => void;  
   /**
- * onStartAlchemy：对象字段。
+ * onStartAlchemy：onStart炼丹相关字段。
  */
 
   onStartAlchemy: (recipeId: string, ingredients: Array<{  
   /**
- * itemId：对象字段。
+ * itemId：道具ID标识。
  */
  itemId: string;  
  /**
- * count：对象字段。
+ * count：数量或计量字段。
  */
  count: number }>, quantity: number) => void;  
  /**
- * onCancelAlchemy：对象字段。
+ * onCancelAlchemy：onCancel炼丹相关字段。
  */
 
   onCancelAlchemy: () => void;  
   /**
- * onStartEnhancement：对象字段。
+ * onStartEnhancement：onStart强化相关字段。
  */
 
   onStartEnhancement: (payload: NEXT_C2S_StartEnhancement) => void;  
   /**
- * onCancelEnhancement：对象字段。
+ * onCancelEnhancement：onCancel强化相关字段。
  */
 
   onCancelEnhancement: () => void;

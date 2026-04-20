@@ -23,7 +23,7 @@ let CraftPanelAlchemyQueryService = class CraftPanelAlchemyQueryService {
  * @param knownCatalogVersion 参数说明。
  * @param alchemyCatalog 参数说明。
  * @param equippedWeapon 参数说明。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新炼丹面板载荷相关状态。
  */
 
     buildAlchemyPanelPayload(player, knownCatalogVersion, alchemyCatalog, equippedWeapon) {
@@ -46,7 +46,7 @@ let CraftPanelAlchemyQueryService = class CraftPanelAlchemyQueryService {
  * buildAlchemyPanelState：构建并返回目标对象。
  * @param player 玩家对象。
  * @param equippedWeapon 参数说明。
- * @returns 函数返回值。
+ * @returns 无返回值，直接更新炼丹面板状态相关状态。
  */
 
     buildAlchemyPanelState(player, equippedWeapon) {
