@@ -66,7 +66,7 @@ export function buildDynamicBuffDescription(
     return `当前总层数 ${Math.max(0, Math.round(buff.stacks))}，四维已降低 ${formatDynamicPercent(getSoulDevourErosionRatio(buff.stacks))}；此残意即使身死也不会散去。`;
   }
   if (buff.buffId === PVP_SOUL_INJURY_BUFF_ID) {
-    return '神魂受创，神识 -1%；身死与遁返都不会清除，需静养满一时辰。';
+    return '神魂受创；身死与遁返都不会清除，需静养满一时辰。';
   }
   if (buff.buffId === PVP_SHA_INFUSION_BUFF_ID) {
     const safeStacks = Math.max(0, Math.round(buff.stacks));

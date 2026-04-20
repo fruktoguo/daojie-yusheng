@@ -2653,8 +2653,8 @@ export class WorldService implements OnModuleInit, OnModuleDestroy {
     return syncDynamicBuffPresentation({
       buffId: PVP_SOUL_INJURY_BUFF_ID,
       name: '神魂受损',
-      desc: '神魂受创，神识 -1%；身死与遁返都不会清除，需静养满一时辰。',
-      baseDesc: '神魂受创，神识 -1%；身死与遁返都不会清除，需静养满一时辰。',
+      desc: '神魂受创；身死与遁返都不会清除，需静养满一时辰。',
+      baseDesc: '神魂受创；身死与遁返都不会清除，需静养满一时辰。',
       shortMark: '残',
       category: 'debuff',
       visibility: 'public',
@@ -2666,10 +2666,6 @@ export class WorldService implements OnModuleInit, OnModuleDestroy {
       sourceSkillName: '杀孽',
       realmLv: Math.max(1, Math.floor(sourceRealmLv)),
       color: '#8a5a64',
-      attrs: {
-        spirit: -1,
-      },
-      attrMode: 'percent',
       persistOnDeath: true,
       persistOnReturnToSpawn: true,
     });
@@ -2965,7 +2961,7 @@ export class WorldService implements OnModuleInit, OnModuleDestroy {
     this.applyPvPSoulInjury(victim);
     messages.push({
       playerId: victim.id,
-      text: '神魂受损，一时辰内神识 -1%；身死与遁返都不会清除。',
+      text: '神魂受损；身死与遁返都不会清除，需静养一时辰。',
       kind: 'combat',
     });
 
