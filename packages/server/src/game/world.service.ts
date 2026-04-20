@@ -2700,6 +2700,7 @@ export class WorldService implements OnModuleInit, OnModuleDestroy {
       },
       statMode: 'percent',
       persistOnDeath: true,
+      persistOnReturnToSpawn: true,
     });
   }
 
@@ -2764,6 +2765,7 @@ export class WorldService implements OnModuleInit, OnModuleDestroy {
       };
       existing.statMode = 'percent';
       existing.persistOnDeath = true;
+      existing.persistOnReturnToSpawn = true;
       syncDynamicBuffPresentation(existing);
       this.attrService.recalcPlayer(player);
       return existing.stacks;
@@ -8236,7 +8238,11 @@ export class WorldService implements OnModuleInit, OnModuleDestroy {
     player.y = spawn.y;
     player.facing = Direction.South;
     if (options.clearBuffs) {
-      player.temporaryBuffs = (player.temporaryBuffs ?? []).filter((buff) => buff.persistOnReturnToSpawn === true);
+      player.temporaryBuffs = (player.temporaryBuffs ?? []).filter((buff) => (
+        buff.persistOnReturnToSpawn === true
+        || buff.buffId === PVP_SHA_INFUSION_BUFF_ID
+        || buff.buffId === PVP_SHA_BACKLASH_BUFF_ID
+      ));
     }
     this.attrService.recalcPlayer(player);
     if (options.restoreVitals) {
