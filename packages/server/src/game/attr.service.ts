@@ -39,6 +39,10 @@ import {
   REALM_LINEAR_NUMERIC_KEYS,
 } from '../constants/gameplay/attr';
 import { SOUL_DEVOUR_EROSION_BUFF_ID } from '../constants/gameplay/equipment';
+import {
+  PVP_SHA_INFUSION_ATTACK_CAP_PERCENT,
+  PVP_SHA_INFUSION_BUFF_ID,
+} from '../constants/gameplay/pvp';
 import { getSoulDevourErosionRatio } from './buff-presentation';
 import { QiProjectionService } from './qi-projection.service';
 
@@ -134,6 +138,21 @@ function scaleNumericStats(stats: PartialNumericStats | undefined, factor: numbe
     }
   }
   return Object.keys(result).length > 0 ? result : undefined;
+}
+
+/** scalePvpShaInfusionStats：执行对应的业务逻辑。 */
+function scalePvpShaInfusionStats(stats: PartialNumericStats | undefined, factor: number): PartialNumericStats | undefined {
+  const scaled = scaleNumericStats(stats, factor);
+  if (!scaled) {
+    return undefined;
+  }
+  if (scaled.physAtk !== undefined) {
+    scaled.physAtk = Math.min(scaled.physAtk, PVP_SHA_INFUSION_ATTACK_CAP_PERCENT);
+  }
+  if (scaled.spellAtk !== undefined) {
+    scaled.spellAtk = Math.min(scaled.spellAtk, PVP_SHA_INFUSION_ATTACK_CAP_PERCENT);
+  }
+  return scaled;
 }
 
 /** applyAttributeAdditions：执行对应的业务逻辑。 */
@@ -438,7 +457,9 @@ export class AttrService {
         continue;
       }
 /** scaled：定义该变量以承载业务值。 */
-      const scaled = scaleNumericStats(buff.stats, effectFactor);
+      const scaled = buff.buffId === PVP_SHA_INFUSION_BUFF_ID
+        ? scalePvpShaInfusionStats(buff.stats, effectFactor)
+        : scaleNumericStats(buff.stats, effectFactor);
       if (!scaled) {
         continue;
       }

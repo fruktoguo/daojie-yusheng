@@ -1,6 +1,10 @@
 import type { TemporaryBuffState } from '@mud/shared';
 import { SOUL_DEVOUR_EROSION_BUFF_ID } from '../constants/gameplay/equipment';
-import { PVP_SHA_INFUSION_BUFF_ID, PVP_SOUL_INJURY_BUFF_ID } from '../constants/gameplay/pvp';
+import {
+  PVP_SHA_INFUSION_ATTACK_CAP_PERCENT,
+  PVP_SHA_INFUSION_BUFF_ID,
+  PVP_SOUL_INJURY_BUFF_ID,
+} from '../constants/gameplay/pvp';
 import { FIRE_BURN_MARK_BUFF_ID } from '../constants/gameplay/technique-buffs';
 import { getBuffSustainCost, getBuffSustainResourceLabel, getNextBuffSustainCost } from './buff-sustain';
 
@@ -63,7 +67,7 @@ export function buildDynamicBuffDescription(
   }
   if (buff.buffId === PVP_SHA_INFUSION_BUFF_ID) {
     const safeStacks = Math.max(0, Math.round(buff.stacks));
-    return `当前 ${safeStacks} 层；每层攻击 +1%、防御 -2%，死亡时会按层数比例折损当前境界修为，不足时继续折损底蕴。`;
+    return `当前 ${safeStacks} 层；每层攻击 +1%（最高 +${PVP_SHA_INFUSION_ATTACK_CAP_PERCENT}%）、防御 -2%，死亡时会按层数比例折损当前境界修为，不足时继续折损底蕴。`;
   }
   if (buff.buffId === FIRE_BURN_MARK_BUFF_ID) {
 /** safeStacks：定义该变量以承载业务值。 */

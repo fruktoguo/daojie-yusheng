@@ -16,6 +16,8 @@ export const PVP_SOUL_INJURY_DURATION_TICKS = 3600;
 export const PVP_SHA_INFUSION_BUFF_ID = 'pvp.sha_infusion';
 /** 煞气入体的来源标识。 */
 export const PVP_SHA_INFUSION_SOURCE_ID = 'pvp.kill';
+/** 煞气入体提供的攻击增幅上限百分比。 */
+export const PVP_SHA_INFUSION_ATTACK_CAP_PERCENT = 100;
 /** 煞气入体每层衰减间隔。 */
 export const PVP_SHA_INFUSION_DECAY_TICKS = 600;
 

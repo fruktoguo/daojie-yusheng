@@ -80,6 +80,7 @@ import {
 import {
   BLOOD_ESSENCE_ITEM_ID,
   BLOOD_ESSENCE_SHA_GAIN,
+  PVP_SHA_INFUSION_ATTACK_CAP_PERCENT,
   PVP_SHA_INFUSION_BUFF_ID,
   PVP_SHA_INFUSION_DECAY_TICKS,
   PVP_SHA_INFUSION_SOURCE_ID,
@@ -2654,8 +2655,8 @@ export class WorldService implements OnModuleInit, OnModuleDestroy {
     return syncDynamicBuffPresentation({
       buffId: PVP_SHA_INFUSION_BUFF_ID,
       name: '煞气入体',
-      desc: '每层攻击 +1%、防御 -2%；每十分钟自然消退一层，死亡时会按层数比例折损当前境界修为，不足时继续折损底蕴。',
-      baseDesc: '每层攻击 +1%、防御 -2%；每十分钟自然消退一层，死亡时会按层数比例折损当前境界修为，不足时继续折损底蕴。',
+      desc: `每层攻击 +1%（最高 +${PVP_SHA_INFUSION_ATTACK_CAP_PERCENT}%）、防御 -2%；每十分钟自然消退一层，死亡时会按层数比例折损当前境界修为，不足时继续折损底蕴。`,
+      baseDesc: `每层攻击 +1%（最高 +${PVP_SHA_INFUSION_ATTACK_CAP_PERCENT}%）、防御 -2%；每十分钟自然消退一层，死亡时会按层数比例折损当前境界修为，不足时继续折损底蕴。`,
       shortMark: '煞',
       category: 'buff',
       visibility: 'public',
@@ -2690,7 +2691,7 @@ export class WorldService implements OnModuleInit, OnModuleDestroy {
     const existing = player.temporaryBuffs.find((buff) => buff.buffId === PVP_SHA_INFUSION_BUFF_ID);
     if (existing && existing.remainingTicks > 0) {
       existing.name = '煞气入体';
-      existing.desc = '每层攻击 +1%、防御 -2%；每十分钟自然消退一层，死亡时会按层数比例折损当前境界修为，不足时继续折损底蕴。';
+      existing.desc = `每层攻击 +1%（最高 +${PVP_SHA_INFUSION_ATTACK_CAP_PERCENT}%）、防御 -2%；每十分钟自然消退一层，死亡时会按层数比例折损当前境界修为，不足时继续折损底蕴。`;
       existing.baseDesc = existing.desc;
       existing.shortMark = '煞';
       existing.category = 'buff';
