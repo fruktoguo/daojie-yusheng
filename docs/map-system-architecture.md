@@ -134,9 +134,9 @@
 
 相关实现：
 
-- `packages/server/src/runtime/map/map-template.repository.js`
-- `packages/server/src/runtime/instance/map-instance.runtime.js`
-- `packages/server/src/runtime/world/world-runtime.service.js`
+- `packages/server/src/runtime/map/map-template.repository.ts`
+- `packages/server/src/runtime/instance/map-instance.runtime.ts`
+- `packages/server/src/runtime/world/world-runtime.service.ts`
 - `packages/server/src/network/world-session-bootstrap.service.js`
 
 ### 2.2 当前已具备的能力

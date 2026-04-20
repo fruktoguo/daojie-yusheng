@@ -134,10 +134,10 @@
 - `packages/shared/src/protocol.ts`
 - `packages/shared/src/types.ts`
 - `packages/shared/src/network-protobuf.ts`
-- `packages/server/src/network/world.gateway.js`
-- `packages/server/src/network/world-sync.service.js`
-- `packages/server/src/network/world-projector.service.js`
-- `packages/server/src/runtime/world/world-runtime.service.js`
+- `packages/server/src/network/world.gateway.ts`
+- `packages/server/src/network/world-sync.service.ts`
+- `packages/server/src/network/world-projector.service.ts`
+- `packages/server/src/runtime/world/world-runtime.service.ts`
 - `packages/client/src/network/socket.ts`
 - `packages/client/src/main.ts`
 

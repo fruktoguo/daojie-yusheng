@@ -9,10 +9,10 @@ const SOURCE_EXTENSIONS = [".js", ".ts"];
 const IMPORT_PATTERN = /require\(['\"]([^'\"]+)['\"]\)|from ['\"]([^'\"]+)['\"]/g;
 
 const ALLOWED_RUNTIME_TO_NETWORK = new Set([
-  `packages${path.sep}server${path.sep}src${path.sep}network${path.sep}world-session.service.js`,
-  `packages${path.sep}server${path.sep}src${path.sep}network${path.sep}world-client-event.service.js`,
+  `packages${path.sep}server${path.sep}src${path.sep}network${path.sep}world-session.service.ts`,
+  `packages${path.sep}server${path.sep}src${path.sep}network${path.sep}world-client-event.service.ts`,
   `packages${path.sep}server${path.sep}src${path.sep}network${path.sep}world-player-token.service.ts`,
-  `packages${path.sep}server${path.sep}src${path.sep}network${path.sep}world-sync.service.js`,
+  `packages${path.sep}server${path.sep}src${path.sep}network${path.sep}world-sync.service.ts`,
 ]);
 
 const ALLOWED_RUNTIME_TO_HTTP = new Set([
@@ -21,10 +21,10 @@ const ALLOWED_RUNTIME_TO_HTTP = new Set([
 ]);
 
 const FORBIDDEN_NETWORK_RUNTIME_BYPASSES = [
-  `packages${path.sep}server${path.sep}src${path.sep}network${path.sep}world-player-source.service.js`,
-  `packages${path.sep}server${path.sep}src${path.sep}network${path.sep}world-player-snapshot.service.js`,
+  `packages${path.sep}server${path.sep}src${path.sep}network${path.sep}world-player-source.service.ts`,
+  `packages${path.sep}server${path.sep}src${path.sep}network${path.sep}world-player-snapshot.service.ts`,
   `packages${path.sep}server${path.sep}src${path.sep}network${path.sep}world-player-auth.service.ts`,
-  `packages${path.sep}server${path.sep}src${path.sep}network${path.sep}world-auth.registry.js`,
+  `packages${path.sep}server${path.sep}src${path.sep}network${path.sep}world-auth.registry.ts`,
 ];
 
 function resolveImportTarget(absoluteTarget) {

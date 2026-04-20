@@ -65,7 +65,7 @@
   - `compat_snapshot_*` failureStage 已删，仍保留 migration snapshot load / save / miss 失败分支本体。
 - `packages/server/src/network/world-session-bootstrap.service.js`
   - 已改成中性 migration 回退 reason，但 runtime fallback 分支本体还没删除。
-- `packages/server/src/network/world-sync.service.js`
+- `packages/server/src/network/world-sync.service.ts`
   - `getLegacyCombatEffects()` 命名已删，但 combat effects 仍由现有 runtime 缓存提供。
   - 其它 compat 初始/增量分支由 boundary audit 持续盯住，删前先以 audit 结果为准。
 
@@ -75,9 +75,9 @@
   - `legacy:vitals_baseline` 兼容规范化已删；当前只剩历史 persistedSource 标签 `legacy_seeded` 常量定义。
 - `packages/server/src/persistence/player-identity-persistence.service.js`
   - 仍显式保留 `legacy_backfill` / `legacy_sync` persistedSource 常量，用于 next 身份记录与拒绝性校验。
-- `packages/server/src/runtime/player/player-runtime.service.js`
+- `packages/server/src/runtime/player/player-runtime.service.ts`
   - `resolveCompatiblePendingLogbookMessages()`、`resolveCompatibleRuntimeBonuses()` 与 `legacy:vitals_baseline` 兼容规范化均已删除。
-- `packages/server/src/runtime/world/world-runtime.service.js`
+- `packages/server/src/runtime/world/world-runtime.service.ts`
   - `legacyNpcInteraction`、`legacyGmUpdatePlayer`、`legacyGmResetPlayer`、`legacyGmSpawnBots`、`legacyGmRemoveBots` wrapper 与 dispatch case 已删除。
   - 当前 `world-runtime` 不再保留仅为旧事件名/parity 存在的双路径入口。
 
@@ -87,7 +87,7 @@
   - 仍保留 `legacyPasswordRecordScopes`。
 - `packages/server/src/http/next/next-gm-admin.service.js`
   - 仍双读 `server_next_legacy_afdian_*`、`server_next_legacy_db_*` scope。
-- `packages/server/src/runtime/gm/runtime-gm-auth.service.js`
+- `packages/server/src/runtime/gm/runtime-gm-auth.service.ts`
   - 仍会回退读取 legacy GM 密码 scope。
 - `packages/server/src/tools/gm-database-smoke.js`
   - 仍验证 legacy GM auth scope 兼容。
@@ -177,7 +177,7 @@
 
 ### 第 3 批：删运行时 / 持久化 compat 装载
 
-- [x] 删除 `world-sync.service.js` 中对 `getLegacyCombatEffects()` 的直接读取
+- [x] 删除 `world-sync.service.ts` 中对 `getLegacyCombatEffects()` 的直接读取
 - [x] 删除 `player-runtime.service.js` 中 `resolveCompatiblePendingLogbookMessages()` / `resolveCompatibleRuntimeBonuses()`
 - [x] 删除 `player-runtime.service.js`、`player-persistence.service.js`、`world-player-source.service.js` 中对 `legacy:vitals_baseline` 的兼容规范化
 - [x] 删除 `world-session-bootstrap.service.js` 中只用于 compat miss 描述的回退原因分支
@@ -196,8 +196,8 @@
 
 本轮实际补跑：
 
-- `world-sync.service.js` 当前只经 `appendNextCombatEffects()` → `collectNextCombatEffects()` 走 next 战斗特效主链
-- `player-runtime.service.js` 已删除 `legacy:vitals_baseline` → `runtime:vitals_baseline` 的运行时兼容规范化。
+- `world-sync.service.ts` 当前只经 `appendNextCombatEffects()` → `collectNextCombatEffects()` 走 next 战斗特效主链
+- `player-runtime.service.ts` 已删除 `legacy:vitals_baseline` → `runtime:vitals_baseline` 的运行时兼容规范化。
 - `player-persistence.service.js` 与 `world-player-source.service.js` 上的 `legacy:vitals_baseline` 兼容点已不再存在；当前持久化侧剩余 compat 面不再属于该标签。
 - `pnpm --filter @mud/server-next smoke:runtime`
 - `pnpm --filter @mud/server-next smoke:progression`
@@ -246,9 +246,9 @@
 
 顶层补充收口：
 
-- `world-runtime.service.js` 已删除最后一组旧事件名 wrapper / case：`legacyNpcInteraction`、`legacyGmUpdatePlayer`、`legacyGmResetPlayer`、`legacyGmSpawnBots`、`legacyGmRemoveBots`
+- `world-runtime.service.ts` 已删除最后一组旧事件名 wrapper / case：`legacyNpcInteraction`、`legacyGmUpdatePlayer`、`legacyGmResetPlayer`、`legacyGmSpawnBots`、`legacyGmRemoveBots`
 - `next-auth-bootstrap-smoke.js` 的 GM runtime mock 已同步切到 `enqueueGm*` 真入口
-- `world-session-bootstrap.service.js` / `world-player-snapshot.service.js` / `world.gateway.js` 已删除 `allowLegacyFallback` 运行时回退 plumbing，仅保留 next-only miss 与 fallbackReason 追踪
+- `world-session-bootstrap.service.js` / `world-player-snapshot.service.js` / `world.gateway.ts` 已删除 `allowLegacyFallback` 运行时回退 plumbing，仅保留 next-only miss 与 fallbackReason 追踪
 
 当前阶段结论：
 

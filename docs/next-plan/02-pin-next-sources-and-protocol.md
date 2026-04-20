@@ -12,7 +12,7 @@
   - `packages/shared/src/network-protobuf.ts` `1072` 行
 - 运行时真源
   - `packages/server/src/runtime/*`
-  - `packages/server/src/network/world.gateway.js`
+  - `packages/server/src/network/world.gateway.ts`
 - 内容与地图真源
   - `packages/server/data/content/*`
   - `packages/server/data/maps/*`
@@ -57,7 +57,7 @@
 - [x] 确认 `packages/client/src/main.ts` 是唯一前台入口主链
 - [x] 盘点仍通过 legacy 文件定义 next 行为的入口
 - [x] 清掉“next 行为由 legacy 文件决定”的残留路径
-- [x] 盘点 `NEXT_C2S` 声明与 `world.gateway.js` 实现差异
+- [x] 盘点 `NEXT_C2S` 声明与 `world.gateway.ts` 实现差异
 - [x] 盘点 `NEXT_S2C` 声明与客户端监听差异
 - [x] 决定 `SaveAlchemyPreset` 保留为 next 正式能力
 - [x] 决定 `DeleteAlchemyPreset` 保留为 next 正式能力
@@ -101,10 +101,10 @@
 - 当前 direct legacy source 扫描未命中 `packages/client/src/*` 与 `packages/shared/src/*`；客户端旧 alias / 事件消费差异继续留在 `NEXT_S2C` 对齐阶段处理
 - 当前只保留两组真实 residual：`client` 的观察类本地动作桥，以及 `server` 的 migration-only / compat 边界（不再包括 auth / identity / snapshot 启动自动回填）；纯 inventory / audit 输出不再单列为待收口入口
 
-### 第 3 批：对齐 `NEXT_C2S` 到 `world.gateway.js`
+### 第 3 批：对齐 `NEXT_C2S` 到 `world.gateway.ts`
 
 - [x] 列出 `NEXT_C2S` 中所有事件
-- [x] 对照 `packages/server/src/network/world.gateway.js`
+- [x] 对照 `packages/server/src/network/world.gateway.ts`
 - [x] 标记三类结果：
   - 已声明且已实现
   - 已声明但未实现
@@ -189,7 +189,7 @@
 
 ### server
 
-- [x] `world.gateway.js` 不再消费 shared 未声明事件
+- [x] `world.gateway.ts` 不再消费 shared 未声明事件
 - [x] `runtime/*` 不再通过 legacy 文件决定 next 行为
 - [x] `server/data/*` 不再由 legacy 内容或地图目录兜底
 

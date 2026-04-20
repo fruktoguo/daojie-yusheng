@@ -10,20 +10,14 @@ const {
   resolveServerNextDatabaseUrl,
   resolveServerNextGmPassword,
   resolveServerNextShadowUrl,
-} = require('../packages/server/src/config/env-alias');/**
- * 标记是否已数据库。
- */
+} = require('./server-next-env-alias');
 const { probeShadowTarget } = require('./shadow-target-probe');
 
 
 const hasDatabase = Boolean(resolveServerNextDatabaseUrl());
-const hasShadowUrl = Boolean(resolveServerNextShadowUrl());/**
- * 标记是否已GMpassword。
- */
+const hasShadowUrl = Boolean(resolveServerNextShadowUrl());
 
-const hasGmPassword = Boolean(resolveServerNextGmPassword());/**
- * 标记是否已shadow 环境destructivegate。
- */
+const hasGmPassword = Boolean(resolveServerNextGmPassword());
 
 const hasShadowDestructiveGate = process.env.SERVER_NEXT_SHADOW_ALLOW_DESTRUCTIVE === '1';
 

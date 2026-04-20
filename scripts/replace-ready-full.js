@@ -19,7 +19,7 @@ const {
   resolveServerNextGmPasswordEnvSource,
   resolveServerNextShadowUrl,
   resolveServerNextShadowUrlEnvSource,
-} = require('../packages/server/src/config/env-alias');
+} = require('./server-next-env-alias');
 const { probeShadowTarget } = require('./shadow-target-probe');
 
 /**

@@ -16,7 +16,7 @@ const {
   resolveServerNextGmPasswordEnvSource,
   resolveServerNextShadowUrl,
   resolveServerNextShadowUrlEnvSource,
-} = require('../packages/server/src/config/env-alias');
+} = require('./server-next-env-alias');
 
 /**
  * 记录shadow 环境地址。

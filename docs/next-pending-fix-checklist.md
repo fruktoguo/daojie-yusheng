@@ -61,7 +61,7 @@
 - 状态：已修
 - 风险：公网环境下属于事故级安全风险
 - 现状：
-  - `packages/server/src/runtime/gm/runtime-gm-auth.service.js`
+  - `packages/server/src/runtime/gm/runtime-gm-auth.service.ts`
   - 仍保留开发态 `admin123` 便于本地 smoke
 - 本轮处理：
   - `onModuleInit()` 与初始密码读取都已补 fail-fast
@@ -74,7 +74,7 @@
 - 现状：
   - `packages/server/src/config/server-cors.ts`
   - `packages/server/src/main.ts`
-  - `packages/server/src/network/world.gateway.js`
+  - `packages/server/src/network/world.gateway.ts`
 - 本轮处理：
   - HTTP 与 Socket 共用同一套 CORS 配置解析
   - 本地开发默认只放行 `localhost / 127.0.0.1 / ::1`
@@ -142,7 +142,7 @@
 - 状态：已做路径回退，但未完成真源替换
 - 风险：当前能跑，不代表已经 next-native
 - 现状：
-  - `packages/server/src/common/project-path.js`
+  - `packages/server/src/common/project-path.ts`
   - 当前通过 fallback 从 `legacy/server/data` 读取地图和内容
 - 待修：
   - 把内容/地图真源正式迁到当前主线目录
@@ -170,7 +170,7 @@
 - 状态：未修
 - 风险：索引、审计、热点隔离、局部恢复与长期演进能力不足
 - 现状：
-  - `packages/server/src/persistence/persistent-document-table.js`
+  - `packages/server/src/persistence/persistent-document-table.ts`
   - 核心表：`persistent_documents(scope, key, payload, updatedAt)`
 - 待修：
   - 明确哪些状态继续保留文档表，哪些应拆为专表
@@ -182,7 +182,7 @@
 - 风险：数据规模增长后吞吐、延迟和失败恢复会变差
 - 现状：
   - `packages/server/src/persistence/player-persistence-flush.service.js`
-  - `packages/server/src/persistence/map-persistence-flush.service.js`
+  - `packages/server/src/persistence/map-persistence-flush.service.ts`
 - 待修：
   - 补更细粒度 dirty 分发
   - 评估批量写、并行度、失败重试与优先级策略
@@ -203,9 +203,9 @@
 - 状态：未修
 - 风险：并发、频繁状态抖动时容易先变成热点
 - 现状：
-  - `packages/server/src/network/world-projector.service.js`
-  - `packages/server/src/network/world-sync.service.js`
-  - `packages/server/src/runtime/player/player-runtime.service.js`
+  - `packages/server/src/network/world-projector.service.ts`
+  - `packages/server/src/network/world-sync.service.ts`
+  - `packages/server/src/runtime/player/player-runtime.service.ts`
 - 待修：
   - 用 revision / slice / 结构化比较替代字符串化比较
   - 避免在热路径做临时序列化
@@ -226,9 +226,9 @@
 - 状态：未修
 - 风险：维护成本高，任何改动都容易牵一发而动全身
 - 现状：
-  - `packages/server/src/network/world-projector.service.js`
-  - `packages/server/src/network/world-sync.service.js`
-  - `packages/server/src/runtime/world/world-runtime.service.js`
+  - `packages/server/src/network/world-projector.service.ts`
+  - `packages/server/src/network/world-sync.service.ts`
+  - `packages/server/src/runtime/world/world-runtime.service.ts`
 - 待修：
   - 拆编排层、slice 层、读模型层、热点逻辑层
   - 把新系统扩展路径从巨型主服务中切出去

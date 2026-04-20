@@ -14,7 +14,7 @@ const repoRoot = path.resolve(__dirname, '..');
 const {
   resolveServerNextDatabaseEnvSource,
   resolveServerNextDatabaseUrl,
-} = require('../packages/server/src/config/env-alias');
+} = require('./server-next-env-alias');
 
 /**
  * 记录数据库地址。

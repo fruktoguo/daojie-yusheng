@@ -4,7 +4,7 @@ const fs = require("node:fs");
 const path = require("node:path");
 
 const repoRoot = path.resolve(__dirname, "..");
-const migrateScriptPath = path.join(repoRoot, "packages/server/src/tools/migrate-next-mainline-once.js");
+const migrateScriptPath = path.join(repoRoot, "packages/server/src/tools/migrate-next-mainline-once.ts");
 const source = fs.readFileSync(migrateScriptPath, "utf8");
 
 const ALLOWED_TABLE_CONSTANTS = new Set([

@@ -906,8 +906,8 @@
 
 - `packages/server/src/network/world-session-bootstrap.service.js`
 - `packages/server/src/network/world-session.service.js`
-- `packages/server/src/network/world.gateway.js`
-- `packages/server/src/runtime/player/player-runtime.service.js`
+- `packages/server/src/network/world.gateway.ts`
+- `packages/server/src/runtime/player/player-runtime.service.ts`
 - `packages/server/src/network/world-gm-auth.service.js`
 
 还剩的具体工程块：
@@ -940,11 +940,11 @@
 当前阻塞模块：
 
 - `packages/server/src/app.module.ts`
-- `packages/server/src/network/world-sync.service.js`
+- `packages/server/src/network/world-sync.service.ts`
 - `packages/server/src/network/world-legacy-sync.service.js`
-- `packages/server/src/network/world-protocol-projection.service.js`
+- `packages/server/src/network/world-protocol-projection.service.ts`
 - `packages/server/src/network/world-gm-socket.service.js`
-- `packages/server/src/runtime/tick/world-tick.service.js`
+- `packages/server/src/runtime/tick/world-tick.service.ts`
 
 还剩的具体工程块：
 
@@ -1025,8 +1025,8 @@
 
 当前阻塞模块：
 
-- `packages/server/src/network/world-sync.service.js`
-- `packages/server/src/network/world-projector.service.js`
+- `packages/server/src/network/world-sync.service.ts`
+- `packages/server/src/network/world-projector.service.ts`
 
 主要剩余项：
 
@@ -1044,9 +1044,9 @@
 
 当前阻塞模块：
 
-- `packages/server/src/network/world-projector.service.js`
-- `packages/server/src/network/world-sync.service.js`
-- `packages/server/src/runtime/player/player-attributes.service.js`
+- `packages/server/src/network/world-projector.service.ts`
+- `packages/server/src/network/world-sync.service.ts`
+- `packages/server/src/runtime/player/player-attributes.service.ts`
 
 主要剩余项：
 
@@ -1063,9 +1063,9 @@
 
 当前阻塞模块：
 
-- `packages/server/src/network/world-projector.service.js`
-- `packages/server/src/network/world-sync.service.js`
-- `packages/server/src/network/world-sync-protocol.service.js`
+- `packages/server/src/network/world-projector.service.ts`
+- `packages/server/src/network/world-sync.service.ts`
+- `packages/server/src/network/world-sync-protocol.service.ts`
 
 主要剩余项：
 

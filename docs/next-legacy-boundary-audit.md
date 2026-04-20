@@ -21,7 +21,6 @@
 ## 备注
 
 - 运行命令：`pnpm audit:server-next-boundaries` 或 `pnpm --filter @mud/server-next audit:legacy-boundaries`。
-- 报告由 `packages/server/src/tools/audit/next-legacy-boundary-audit.js` 自动生成。
+- 报告由 `packages/server/src/tools/audit/next-legacy-boundary-audit.ts` 自动生成。
 - 这份审计的定位是 inventory，不是 replace-ready 验收，也不会替代 `pnpm verify:replace-ready`、`with-db`、`shadow` 或协议审计。
 - 清单里若仍残留已迁移路径，脚本现在会 fail-soft 跳过并把原因写进报告，而不是直接中断。
-

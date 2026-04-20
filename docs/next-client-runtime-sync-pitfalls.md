@@ -126,8 +126,8 @@
 
 优先看：
 
-- `packages/server/src/runtime/world/world-runtime.service.js`
-- `packages/server/src/runtime/instance/map-instance.runtime.js`
+- `packages/server/src/runtime/world/world-runtime.service.ts`
+- `packages/server/src/runtime/instance/map-instance.runtime.ts`
 
 要先确认：
 
@@ -139,8 +139,8 @@
 
 优先看：
 
-- `packages/server/src/network/world-projector.service.js`
-- `packages/server/src/network/world-sync.service.js`
+- `packages/server/src/network/world-projector.service.ts`
+- `packages/server/src/network/world-sync.service.ts`
 - `packages/shared/src/protocol.ts`
 
 要确认：

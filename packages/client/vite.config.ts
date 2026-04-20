@@ -58,8 +58,16 @@ export default defineConfig(({ mode }) => {
     build: {
       rollupOptions: {
         input: clientInputs,
-        output: {
+        output: {        
+        /**
+ * manualChunks：执行核心业务逻辑。
+ * @param id 参数说明。
+ * @returns 函数返回值。
+ */
+
           manualChunks(id) {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
             if (id.includes('/node_modules/')) {
               return 'vendor';
             }

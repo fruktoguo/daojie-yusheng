@@ -16,7 +16,7 @@ const {
   resolveServerNextGmPasswordEnvSource,
   resolveServerNextShadowUrl,
   resolveServerNextShadowUrlEnvSource,
-} = require('../packages/server/src/config/env-alias');
+} = require('./server-next-env-alias');
 const { normalizeBooleanEnv } = require('../packages/server/src/tools/gm-database-proof-lib');
 
 /**

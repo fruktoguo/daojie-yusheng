@@ -322,7 +322,7 @@ legacy 之后只承担三种用途：
 - `packages/server/src/network/world.gateway.js`
 - `packages/server/src/network/world-sync.service.js`
 - `packages/server/src/network/world-projector.service.js`
-- `packages/server/src/runtime/world/world-runtime.service.js`
+- `packages/server/src/runtime/world/world-runtime.service.ts`
 - `packages/client/src/network/socket.ts`
 - `packages/client/src/main.ts`
 - `packages/client/src/ui/panels/*`

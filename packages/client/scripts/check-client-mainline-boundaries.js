@@ -3,32 +3,109 @@ const path = require('node:path');
 
 const clientRoot = path.resolve(__dirname, '..');
 const srcRoot = path.join(clientRoot, 'src');
+/**
+ * read：执行核心业务逻辑。
+ * @param relativePath 参数说明。
+ * @returns 函数返回值。
+ */
+/**
+ * read：执行核心业务逻辑。
+ * @param relativePath 参数说明。
+ * @returns 函数返回值。
+ */
+
 
 function read(relativePath) {
   return fs.readFileSync(path.join(clientRoot, relativePath), 'utf8');
 }
+/**
+ * lineCount：执行核心业务逻辑。
+ * @param relativePath 参数说明。
+ * @returns 函数返回值。
+ */
+/**
+ * lineCount：执行核心业务逻辑。
+ * @param relativePath 参数说明。
+ * @returns 函数返回值。
+ */
+
 
 function lineCount(relativePath) {
   const content = read(relativePath);
   const newlineMatches = content.match(/\n/g);
   return newlineMatches ? newlineMatches.length : 0;
 }
+/**
+ * assert：执行核心业务逻辑。
+ * @param condition 参数说明。
+ * @param message 参数说明。
+ * @returns 函数返回值。
+ */
+/**
+ * assert：执行核心业务逻辑。
+ * @param condition 参数说明。
+ * @param message 参数说明。
+ * @returns 函数返回值。
+ */
+
 
 function assert(condition, message) {
   if (!condition) {
     throw new Error(message);
   }
 }
+/**
+ * assertMissing：执行核心业务逻辑。
+ * @param content 参数说明。
+ * @param pattern 参数说明。
+ * @param message 参数说明。
+ * @returns 函数返回值。
+ */
+/**
+ * assertMissing：执行核心业务逻辑。
+ * @param content 参数说明。
+ * @param pattern 参数说明。
+ * @param message 参数说明。
+ * @returns 函数返回值。
+ */
+
 
 function assertMissing(content, pattern, message) {
   assert(!pattern.test(content), message);
 }
+/**
+ * assertIncludes：执行核心业务逻辑。
+ * @param content 参数说明。
+ * @param pattern 参数说明。
+ * @param message 参数说明。
+ * @returns 函数返回值。
+ */
+/**
+ * assertIncludes：执行核心业务逻辑。
+ * @param content 参数说明。
+ * @param pattern 参数说明。
+ * @param message 参数说明。
+ * @returns 函数返回值。
+ */
+
 
 function assertIncludes(content, pattern, message) {
   assert(pattern.test(content), message);
 }
+/**
+ * main：执行核心业务逻辑。
+ * @returns 函数返回值。
+ */
+/**
+ * main：执行核心业务逻辑。
+ * @returns 函数返回值。
+ */
+
 
 function main() {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+// 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
   const mainTs = read('src/main.ts');
   const compositionTs = read('src/main-app-composition.ts');
   const runtimeAssemblyTs = read('src/main-app-runtime-assembly.ts');

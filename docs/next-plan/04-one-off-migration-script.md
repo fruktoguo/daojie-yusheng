@@ -4,7 +4,7 @@
 
 当前脚本落点：
 
-- `packages/server/src/tools/migrate-next-mainline-once.js`
+- `packages/server/src/tools/migrate-next-mainline-once.ts`
 - 包内入口：`pnpm --filter @mud/server-next migrate:legacy-next:once`
 
 当前已落地能力：
