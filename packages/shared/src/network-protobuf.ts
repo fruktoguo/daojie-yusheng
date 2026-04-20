@@ -39,6 +39,8 @@ message TickRenderEntityPayload {
   required sint32 y = 3;
   optional string char = 4;
   optional string color = 5;
+  optional string badgeJson = 32;
+  optional bool clearBadge = 33;
   optional string name = 6;
   optional bool clearName = 7;
   optional string kind = 8;
@@ -501,6 +503,11 @@ function toWireTickEntity(entity: TickRenderEntity): Record<string, unknown> {
   };
   if (entity.char !== undefined) wire.char = entity.char;
   if (entity.color !== undefined) wire.color = entity.color;
+  if (entity.badge === null) {
+    wire.clearBadge = true;
+  } else if (entity.badge !== undefined) {
+    wire.badgeJson = JSON.stringify(entity.badge);
+  }
   setNullableWireValue(wire, 'name', 'clearName', entity.name);
   setNullableWireValue(wire, 'kind', 'clearKind', entity.kind);
   setNullableWireValue(wire, 'monsterTier', 'clearMonsterTier', entity.monsterTier);
@@ -539,6 +546,11 @@ function fromWireTickEntity(wire: Record<string, unknown>): TickRenderEntity {
   };
   if (hasOwn(wire, 'char')) patch.char = String(wire.char ?? '');
   if (hasOwn(wire, 'color')) patch.color = String(wire.color ?? '');
+  if (wire.clearBadge === true) {
+    patch.badge = null;
+  } else if (typeof wire.badgeJson === 'string') {
+    patch.badge = JSON.parse(wire.badgeJson) as NonNullable<TickRenderEntity['badge']>;
+  }
 /** name：定义该变量以承载业务值。 */
   const name = readNullableWireValue<string>(wire, 'name', 'clearName');
   if (name !== undefined) patch.name = name;

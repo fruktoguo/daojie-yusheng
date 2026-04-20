@@ -79,6 +79,8 @@ import { PLAYER_SPECIAL_STATS_SYNC_INTERVAL_MS } from '../constants/gameplay/att
 import {
   BLOOD_ESSENCE_ITEM_ID,
   BLOOD_ESSENCE_SHA_GAIN,
+  PVP_SHA_BACKLASH_BUFF_ID,
+  PVP_SHA_BACKLASH_DECAY_TICKS,
   PVP_SHA_INFUSION_BUFF_ID,
   PVP_SHA_INFUSION_DECAY_TICKS,
   REFINED_SHA_RESOURCE_KEY,
@@ -4827,6 +4829,8 @@ export class TickService implements OnApplicationBootstrap, OnModuleDestroy {
         const colorChanged = !previous || previous.color !== entity.color;
 /** nameChanged：定义该变量以承载业务值。 */
         const nameChanged = !previous || previous.name !== entity.name;
+/** badgeTextChanged：定义该变量以承载业务值。 */
+        const badgeChanged = !previous || !this.isStructuredEqual(previous.badge, entity.badge);
 /** kindChanged：定义该变量以承载业务值。 */
         const kindChanged = !previous || previous.kind !== entity.kind;
 /** monsterTierChanged：定义该变量以承载业务值。 */
@@ -4857,6 +4861,7 @@ export class TickService implements OnApplicationBootstrap, OnModuleDestroy {
         const changed = moved
           || charChanged
           || colorChanged
+          || badgeChanged
           || nameChanged
           || kindChanged
           || monsterTierChanged
@@ -4884,6 +4889,7 @@ export class TickService implements OnApplicationBootstrap, OnModuleDestroy {
 
         if (charChanged) next.char = entity.char;
         if (colorChanged) next.color = entity.color;
+        if (badgeChanged) next.badge = entity.badge ?? null;
         if (nameChanged) next.name = entity.name ?? null;
         if (kindChanged) next.kind = entity.kind ?? null;
         if (monsterTierChanged) next.monsterTier = entity.monsterTier ?? null;
@@ -5132,12 +5138,14 @@ export class TickService implements OnApplicationBootstrap, OnModuleDestroy {
         syncDynamicBuffPresentation(buff);
         resourceSpent = true;
       }
-      if (buff.buffId === PVP_SHA_INFUSION_BUFF_ID) {
+      if (buff.buffId === PVP_SHA_INFUSION_BUFF_ID || buff.buffId === PVP_SHA_BACKLASH_BUFF_ID) {
         buff.remainingTicks -= 1;
         if (buff.remainingTicks <= 0) {
           if (buff.stacks > 1) {
             buff.stacks -= 1;
-            buff.remainingTicks = PVP_SHA_INFUSION_DECAY_TICKS;
+            buff.remainingTicks = buff.buffId === PVP_SHA_INFUSION_BUFF_ID
+              ? PVP_SHA_INFUSION_DECAY_TICKS
+              : PVP_SHA_BACKLASH_DECAY_TICKS;
             syncDynamicBuffPresentation(buff);
             nextBuffs.push(buff);
           } else {

@@ -374,7 +374,7 @@ export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect, On
       autoBattle: false,
       autoBattleSkills: [],
       autoUsePills: [],
-      combatTargetingRules: { hostile: ['monster', 'retaliators', 'terrain'], friendly: ['non_hostile_players'] },
+      combatTargetingRules: { hostile: ['monster', 'demonized_players', 'retaliators', 'terrain'], friendly: ['non_hostile_players'] },
       autoBattleTargetingMode: 'auto',
       autoRetaliate: true,
       autoBattleStationary: false,

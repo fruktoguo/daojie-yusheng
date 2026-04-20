@@ -78,7 +78,7 @@ export class BotService {
         autoBattle: false,
         autoBattleSkills: [],
         autoUsePills: [],
-        combatTargetingRules: { hostile: ['monster', 'retaliators', 'terrain'], friendly: ['non_hostile_players'] },
+        combatTargetingRules: { hostile: ['monster', 'demonized_players', 'retaliators', 'terrain'], friendly: ['non_hostile_players'] },
         autoBattleTargetingMode: 'auto',
         autoRetaliate: false,
         allowAoePlayerHit: false,
@@ -184,4 +184,3 @@ export class BotService {
     return candidates[Math.floor(Math.random() * candidates.length)];
   }
 }
-

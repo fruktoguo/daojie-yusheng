@@ -213,6 +213,7 @@ const COMBAT_TARGETING_GROUPS: CombatTargetingGroup[] = [
     summary: '勾选后，这些单位会被你视为敌方目标，可多选组合。',
     options: [
       { key: 'monster', label: '妖兽单位', summary: '把野外与副本中的妖兽视为敌方目标。' },
+      { key: 'demonized_players', label: '入魔玩家', summary: '把煞气入体超过 20 层的玩家纳入敌方目标。' },
       { key: 'retaliators', label: '反击对象', summary: '把主动攻击过你的玩家纳入敌方目标。' },
       { key: 'party', label: '协同行列', summary: '预留给队伍、同行等协作关系的敌友识别。', disabled: true },
       { key: 'sect', label: '同道关系', summary: '预留给宗门、阵营等长期关系的敌友识别。', disabled: true },

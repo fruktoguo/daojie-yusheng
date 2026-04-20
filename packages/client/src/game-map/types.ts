@@ -39,6 +39,7 @@ export interface ObservedMapEntity {
   char: string;
 /** color：定义该变量以承载业务值。 */
   color: string;
+  badge?: TickRenderEntity['badge'];
   name?: string;
   kind?: string;
   hostile?: boolean;

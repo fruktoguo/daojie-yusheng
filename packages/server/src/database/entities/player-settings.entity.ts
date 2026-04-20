@@ -43,7 +43,7 @@ export class PlayerSettingsEntity {
   @Column({ type: 'jsonb', default: () => `'[]'` })
   autoUsePills!: unknown[];
 
-  @Column({ type: 'jsonb', default: () => '\'{"hostile":["monster","retaliators","terrain"],"friendly":["non_hostile_players"]}\'' })
+  @Column({ type: 'jsonb', default: () => '\'{"hostile":["monster","demonized_players","retaliators","terrain"],"friendly":["non_hostile_players"]}\'' })
   combatTargetingRules!: unknown;
 
   @Column({ type: 'varchar', default: 'auto' })

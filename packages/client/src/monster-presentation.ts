@@ -1,11 +1,10 @@
-import type { MonsterTier } from '@mud/shared';
+import type { EntityBadge, MonsterTier } from '@mud/shared';
 
 /** MonsterPresentation：定义该接口的能力与字段约束。 */
 export interface MonsterPresentation {
 /** label：定义该变量以承载业务值。 */
   label: string;
-  badgeText?: string;
-  badgeClassName?: string;
+  badge?: EntityBadge;
 /** scale：定义该变量以承载业务值。 */
   scale: number;
 }
@@ -32,16 +31,14 @@ export function getMonsterPresentation(
   if (tier === 'variant') {
     return {
       label,
-      badgeText: '异',
-      badgeClassName: 'monster-badge monster-badge--variant',
+      badge: { text: '异', tone: 'variant' },
       scale: 1.2,
     };
   }
   if (tier === 'demon_king') {
     return {
       label,
-      badgeText: '王',
-      badgeClassName: 'monster-badge monster-badge--boss',
+      badge: { text: '王', tone: 'boss' },
       scale: 1.5,
     };
   }
@@ -50,4 +47,3 @@ export function getMonsterPresentation(
     scale: 1,
   };
 }
-

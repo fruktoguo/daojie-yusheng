@@ -77,6 +77,7 @@ interface DomainDeps {
   getPlayerThreatId: (player: PlayerState) => string;
   getMonsterThreatId: (monster: RuntimeMonsterTargetLike) => string;
   getExtraAggroRate: (target: PlayerState | RuntimeMonsterTargetLike) => number;
+  isPlayerPassivelyHostileTarget: (player: PlayerState, target: PlayerState) => boolean;
   isMonsterAutoAggroEnabled: (monster: RuntimeMonsterTargetLike, timeState: GameTimeState) => boolean;
   clearCombatTarget: (player: PlayerState) => void;
 }
@@ -205,9 +206,38 @@ export class WorldTargetingDomain {
       });
     }
 
+    for (const targetPlayer of this.playerService.getPlayersByMap(player.mapId)) {
+      if (targetPlayer.id === player.id || targetPlayer.dead) {
+        continue;
+      }
+      if (!this.deps.isPlayerPassivelyHostileTarget(player, targetPlayer)) {
+        continue;
+      }
+/** target：定义该变量以承载业务值。 */
+      const target = { kind: 'player', x: targetPlayer.x, y: targetPlayer.y, player: targetPlayer } as const;
+      if (
+        !this.canPlayerSeeTarget(player, target, effectiveViewRange)
+        || !this.deps.canPlayerUseHostileEffectOnTarget(player, target)
+      ) {
+        continue;
+      }
+      this.threatService.addThreat({
+        ownerId,
+        targetId: this.deps.getPlayerThreatId(targetPlayer),
+        baseThreat: gameplayConstants.DEFAULT_PASSIVE_THREAT_PER_TICK,
+        targetExtraAggroRate: this.deps.getExtraAggroRate(targetPlayer),
+        distance: gridDistance(player, targetPlayer),
+      });
+    }
+
     for (const entry of this.threatService.getThreatEntries(ownerId)) {
       const target = this.resolveThreatTargetForPlayer(player, entry.targetId);
-      if (!target || target.kind === 'tile' || !this.canPlayerSeeTarget(player, target, effectiveViewRange)) {
+      if (
+        !target
+        || target.kind === 'tile'
+        || !this.canPlayerSeeTarget(player, target, effectiveViewRange)
+        || (target.kind === 'player' && !this.deps.canPlayerUseHostileEffectOnTarget(player, target))
+      ) {
         this.threatService.decayThreat(ownerId, entry.targetId, player.maxHp);
       }
     }

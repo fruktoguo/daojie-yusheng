@@ -20,6 +20,18 @@ export const PVP_SHA_INFUSION_SOURCE_ID = 'pvp.kill';
 export const PVP_SHA_INFUSION_ATTACK_CAP_PERCENT = 100;
 /** 煞气入体每层衰减间隔。 */
 export const PVP_SHA_INFUSION_DECAY_TICKS = 600;
+/** 煞气反噬 Debuff ID。 */
+export const PVP_SHA_BACKLASH_BUFF_ID = 'pvp.sha_backlash';
+/** 煞气反噬来源标识。 */
+export const PVP_SHA_BACKLASH_SOURCE_ID = 'pvp.sha_backlash';
+/** 煞气反噬每层攻击/防御降低百分比。 */
+export const PVP_SHA_BACKLASH_PERCENT_PER_STACK = 2;
+/** 煞气反噬每层衰减间隔。 */
+export const PVP_SHA_BACKLASH_DECAY_TICKS = 600;
+/** 煞气反噬按煞气入体层数折算时的除数。 */
+export const PVP_SHA_BACKLASH_STACK_DIVISOR = 2;
+/** 煞气入体超过该层数后会被视为魔染目标。 */
+export const PVP_SHA_DEMONIZED_STACK_THRESHOLD = 20;
 
 /** 血精石与尸身残煞注入的凝练煞气资源键。 */
 export const REFINED_SHA_RESOURCE_KEY = buildQiResourceKey({

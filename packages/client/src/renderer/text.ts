@@ -5,6 +5,7 @@
 import { IRenderer, SenseQiOverlayState, TargetingOverlayState, type FloatingActionTextStyle } from './types';
 import {
   DEFAULT_AURA_LEVEL_BASE_VALUE,
+  EntityBadge,
   GameTimeState,
   GroundItemEntryView,
   GroundItemPileView,
@@ -267,6 +268,7 @@ interface AnimEntity {
   char: string;
 /** color：定义该变量以承载业务值。 */
   color: string;
+  badge?: EntityBadge;
   name?: string;
   kind?: string;
   hostile?: boolean;
@@ -772,7 +774,7 @@ export class TextRenderer implements IRenderer {
   /** 更新实体列表，记录旧位置用于插值动画 */
   updateEntities(
 /** list：定义该变量以承载业务值。 */
-    list: readonly { id: string; wx: number; wy: number; char: string; color: string; name?: string; kind?: string; hostile?: boolean; monsterTier?: MonsterTier; monsterScale?: number; hp?: number; maxHp?: number; respawnRemainingTicks?: number; respawnTotalTicks?: number; npcQuestMarker?: NpcQuestMarker | null; buffs?: VisibleBuffState[] }[],
+    list: readonly { id: string; wx: number; wy: number; char: string; color: string; badge?: EntityBadge | null; name?: string; kind?: string; hostile?: boolean; monsterTier?: MonsterTier; monsterScale?: number; hp?: number; maxHp?: number; respawnRemainingTicks?: number; respawnTotalTicks?: number; npcQuestMarker?: NpcQuestMarker | null; buffs?: VisibleBuffState[] }[],
     movedId?: string,
     shiftX = 0,
     shiftY = 0,
@@ -835,6 +837,7 @@ export class TextRenderer implements IRenderer {
         anim.gridY = e.wy;
         anim.char = e.char;
         anim.color = e.color;
+        anim.badge = e.badge ?? undefined;
         anim.name = e.name;
         anim.kind = e.kind;
         anim.hostile = e.hostile;
@@ -857,6 +860,7 @@ export class TextRenderer implements IRenderer {
           targetWY: twy,
           char: e.char,
           color: e.color,
+          badge: e.badge ?? undefined,
           name: e.name,
           kind: e.kind,
           hostile: e.hostile,
@@ -974,11 +978,12 @@ export class TextRenderer implements IRenderer {
         const labelY = visualSy - Math.max(6, renderedCellSize * 0.18);
 /** labelColor：定义该变量以承载业务值。 */
         const labelColor = isCrowd ? '#f4dfaf' : isMonster ? '#ffddcc' : isPlayer ? '#d8f3c3' : isContainer ? '#ffe3b8' : '#cce7ff';
-        if (isMonster && monsterPresentation?.badgeText) {
-          this.drawMonsterBadgeLabel(
+/** badge：定义该变量以承载业务值。 */
+        const badge = anim.badge ?? monsterPresentation?.badge;
+        if (badge) {
+          this.drawEntityBadgeLabel(
             label,
-            monsterPresentation.badgeText,
-            monsterPresentation.badgeClassName ?? 'monster-badge',
+            badge,
             sx + renderedCellSize / 2,
             labelY,
             renderedCellSize,
@@ -1176,10 +1181,9 @@ export class TextRenderer implements IRenderer {
     return invT * invT * start + 2 * invT * t * control + t * t * end;
   }
 
-  private drawMonsterBadgeLabel(
+  private drawEntityBadgeLabel(
     label: string,
-    badgeText: string,
-    badgeClassName: string,
+    badge: EntityBadge,
     centerX: number,
     baselineY: number,
     cellSize: number,
@@ -1199,13 +1203,19 @@ export class TextRenderer implements IRenderer {
 /** badgeTextSize：定义该变量以承载业务值。 */
     const badgeTextSize = Math.max(9, cellSize * 0.2);
 /** badgeWidth：定义该变量以承载业务值。 */
-    const badgeWidth = Math.max(16, badgeText.length * badgeTextSize + badgePaddingX * 2);
+    const badgeWidth = Math.max(16, badge.text.length * badgeTextSize + badgePaddingX * 2);
 /** gap：定义该变量以承载业务值。 */
     const gap = Math.max(4, cellSize * 0.08);
 /** fill：定义该变量以承载业务值。 */
-    const fill = badgeClassName.includes('--boss') ? 'rgba(120, 32, 24, 0.92)' : 'rgba(42, 54, 91, 0.92)';
+    const fill = badge.tone === 'boss' || badge.tone === 'demonic'
+      ? 'rgba(120, 32, 24, 0.92)'
+      : 'rgba(42, 54, 91, 0.92)';
 /** stroke：定义该变量以承载业务值。 */
-    const stroke = badgeClassName.includes('--boss') ? 'rgba(255, 188, 156, 0.86)' : 'rgba(185, 211, 255, 0.82)';
+    const stroke = badge.tone === 'boss'
+      ? 'rgba(255, 188, 156, 0.86)'
+      : badge.tone === 'demonic'
+        ? 'rgba(255, 145, 178, 0.9)'
+        : 'rgba(185, 211, 255, 0.82)';
 /** textColor：定义该变量以承载业务值。 */
     const textColor = '#fff6eb';
 
@@ -1234,7 +1244,7 @@ export class TextRenderer implements IRenderer {
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
     ctx.fillStyle = textColor;
-    ctx.fillText(badgeText, left + badgeWidth / 2, badgeY + badgeHeight / 2 + 0.5);
+    ctx.fillText(badge.text, left + badgeWidth / 2, badgeY + badgeHeight / 2 + 0.5);
     ctx.restore();
 
     this.drawOutlinedText(

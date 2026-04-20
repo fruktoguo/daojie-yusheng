@@ -663,8 +663,15 @@ export class WorldPanel {
 /** presentation：定义该变量以承载业务值。 */
     const presentation = getMonsterPresentation(monster.name, monster.tier);
 /** badge：定义该变量以承载业务值。 */
-    const badge = presentation.badgeText
-      ? `<span class="${presentation.badgeClassName}">${escapeHtml(presentation.badgeText)}</span>`
+    const badgeClassName = presentation.badge
+      ? presentation.badge.tone === 'boss'
+        ? 'monster-badge monster-badge--boss'
+        : presentation.badge.tone === 'demonic'
+          ? 'monster-badge monster-badge--boss'
+          : 'monster-badge monster-badge--variant'
+      : '';
+    const badge = presentation.badge
+      ? `<span class="${badgeClassName}">${escapeHtml(presentation.badge.text)}</span>`
       : '';
     return `${badge}${escapeHtml(presentation.label)}`;
   }

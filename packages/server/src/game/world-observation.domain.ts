@@ -87,6 +87,7 @@ interface ObservationDomainDeps {
   getMapRenderableBuffs: (buffs: TemporaryBuffState[] | undefined) => VisibleBuffState[];
   getRenderableBuffs: (buffs: TemporaryBuffState[] | undefined) => VisibleBuffState[];
   getPlayerRenderableBuffs: (player: PlayerState) => VisibleBuffState[];
+  getPlayerDisplayName: (player: PlayerState) => string;
   getEffectiveDropChance: (viewer: PlayerState, monster: RuntimeMonsterLike, drop: DropConfig) => number;
   resolveNpcQuestMarker: (viewer: PlayerState, npc: NpcConfig) => NpcQuestMarker | undefined;
   formatRespawnTicks: (ticks?: number) => string;
@@ -146,7 +147,7 @@ export class WorldObservationDomain {
     const snapshot = this.createPlayerObservationSnapshot(target);
     return {
       id: target.id,
-      name: target.name,
+      name: this.deps.getPlayerDisplayName(target),
       kind: 'player',
       monsterScale: this.deps.getTemporaryBuffPresentationScale(target.temporaryBuffs),
       hp: target.hp,

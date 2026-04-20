@@ -484,6 +484,7 @@ export interface TickRenderEntity {
   y: number;
   char?: string;
   color?: string;
+  badge?: RenderEntity['badge'] | null;
   name?: string | null;
   kind?: EntityKind | 'player' | null;
   monsterTier?: MonsterTier | null;

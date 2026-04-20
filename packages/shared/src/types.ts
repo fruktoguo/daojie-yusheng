@@ -185,6 +185,14 @@ export interface MapMinimapArchiveEntry {
 }
 
 /** 渲染用实体 */
+export type EntityBadgeTone = 'neutral' | 'variant' | 'boss' | 'demonic';
+
+/** 实体徽标 */
+export interface EntityBadge {
+  text: string;
+  tone: EntityBadgeTone;
+}
+
 export interface RenderEntity {
 /** id：定义该变量以承载业务值。 */
   id: string;
@@ -196,6 +204,7 @@ export interface RenderEntity {
   char: string;
 /** color：定义该变量以承载业务值。 */
   color: string;
+  badge?: EntityBadge;
   name?: string;
   kind?: EntityKind | 'player';
   monsterTier?: MonsterTier;
@@ -1754,6 +1763,7 @@ export type CombatTargetingRuleScope = 'hostile' | 'friendly';
 export type CombatTargetingRuleKey =
   | 'monster'
   | 'all_players'
+  | 'demonized_players'
   | 'retaliators'
   | 'non_hostile_players'
   | 'terrain'
@@ -1772,6 +1782,7 @@ export interface CombatTargetingRules {
 export const HOSTILE_COMBAT_TARGETING_RULE_KEYS = [
   'monster',
   'all_players',
+  'demonized_players',
   'retaliators',
   'terrain',
   'party',
@@ -1792,6 +1803,7 @@ export const FRIENDLY_COMBAT_TARGETING_RULE_KEYS = [
 /** DEFAULT_HOSTILE_COMBAT_TARGETING_RULES：定义该变量以承载业务值。 */
 export const DEFAULT_HOSTILE_COMBAT_TARGETING_RULES = [
   'monster',
+  'demonized_players',
   'retaliators',
   'terrain',
 ] as const satisfies readonly CombatTargetingRuleKey[];

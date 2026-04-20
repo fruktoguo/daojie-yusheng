@@ -86,6 +86,7 @@ import {
   AccountRedeemCodesRes,
   buildDefaultCombatTargetingRules,
   buildEffectiveTargetingGeometry,
+  CombatTargetingRules,
   resolveTargetingGeometry,
   computeAffectedCellsFromAnchor,
   CONNECTION_RECOVERY_RETRY_MS,
@@ -847,6 +848,7 @@ type ObservedEntity = {
   char: string;
 /** color：定义该变量以承载业务值。 */
   color: string;
+  badge?: RenderEntity['badge'];
   name?: string;
   kind?: string;
   hostile?: boolean;
@@ -872,8 +874,19 @@ function isPlayerLikeEntityKind(kind: string | null | undefined): boolean {
   return kind === 'player' || isCrowdEntityKind(kind);
 }
 
+const PVP_SHA_INFUSION_BUFF_ID = 'pvp.sha_infusion';
+const PVP_SHA_DEMONIZED_STACK_THRESHOLD = 20;
+const DEMONIZED_TARGETING_MIGRATION_KEY_PREFIX = 'combat_targeting_demonized_v1:';
+
+function isDemonizedPlayerEntity(entity: Pick<ObservedEntity, 'kind' | 'buffs'>): boolean {
+  return entity.kind === 'player' && (entity.buffs ?? []).some((buff) => (
+    buff.buffId === PVP_SHA_INFUSION_BUFF_ID
+    && Math.max(0, Math.round(buff.stacks ?? 0)) > PVP_SHA_DEMONIZED_STACK_THRESHOLD
+  ));
+}
+
 /** isEntityHostileToMe：执行对应的业务逻辑。 */
-function isEntityHostileToMe(entity: Pick<ObservedEntity, 'id' | 'kind'>): boolean {
+function isEntityHostileToMe(entity: Pick<ObservedEntity, 'id' | 'kind' | 'buffs'>): boolean {
   if (!myPlayer) {
     return false;
   }
@@ -889,6 +902,9 @@ function isEntityHostileToMe(entity: Pick<ObservedEntity, 'id' | 'kind'>): boole
     return hasCombatTargetingRule(rules, 'hostile', 'monster');
   }
   if (entity.kind === 'player') {
+    if (hasCombatTargetingRule(rules, 'hostile', 'demonized_players') && isDemonizedPlayerEntity(entity)) {
+      return true;
+    }
     return hasCombatTargetingRule(rules, 'hostile', 'all_players')
       || (
         hasCombatTargetingRule(rules, 'hostile', 'retaliators')
@@ -906,10 +922,58 @@ function decorateObservedEntitiesForDisplay(entities: ObservedEntity[]): Observe
   }));
 }
 
+function refreshVisibleEntityHostilityImmediately(): void {
+  const entities = decorateObservedEntitiesForDisplay(getLatestObservedEntitiesSnapshot() as ObservedEntity[]);
+  latestEntities = entities;
+  latestEntityMap = new Map(entities.map((entity) => [entity.id, entity]));
+  mapRuntime.replaceVisibleEntities(latestEntities);
+}
+
+function hasAppliedDemonizedTargetingMigration(playerId: string): boolean {
+  try {
+    return localStorage.getItem(`${DEMONIZED_TARGETING_MIGRATION_KEY_PREFIX}${playerId}`) === '1';
+  } catch {
+    return false;
+  }
+}
+
+function markDemonizedTargetingMigrationApplied(playerId: string): void {
+  try {
+    localStorage.setItem(`${DEMONIZED_TARGETING_MIGRATION_KEY_PREFIX}${playerId}`, '1');
+  } catch {
+    // ignore storage failure
+  }
+}
+
+function maybeMigrateDemonizedTargetingRule(): void {
+  if (!myPlayer?.id) {
+    return;
+  }
+  if (hasAppliedDemonizedTargetingMigration(myPlayer.id)) {
+    return;
+  }
+  const currentRules = normalizeCombatTargetingRules(
+    myPlayer.combatTargetingRules,
+    buildDefaultCombatTargetingRules({ includeAllPlayersHostile: myPlayer.allowAoePlayerHit === true }),
+  );
+  if (currentRules.hostile.includes('demonized_players')) {
+    markDemonizedTargetingMigrationApplied(myPlayer.id);
+    return;
+  }
+  const nextRules: CombatTargetingRules = {
+    ...currentRules,
+    hostile: [...currentRules.hostile, 'demonized_players'],
+  };
+  myPlayer.combatTargetingRules = nextRules;
+  refreshVisibleEntityHostilityImmediately();
+  socket.sendUpdateCombatTargetingRules(nextRules);
+  markDemonizedTargetingMigrationApplied(myPlayer.id);
+}
+
 /** ObserveEntityCardData：定义该类型的结构与数据语义。 */
 type ObserveEntityCardData = Pick<
   ObservedEntity,
-  'id' | 'name' | 'kind' | 'monsterTier' | 'hp' | 'maxHp' | 'qi' | 'maxQi' | 'npcQuestMarker' | 'observation' | 'lootPreview' | 'buffs'
+  'id' | 'badge' | 'name' | 'kind' | 'monsterTier' | 'hp' | 'maxHp' | 'qi' | 'maxQi' | 'npcQuestMarker' | 'observation' | 'lootPreview' | 'buffs'
 >;
 
 /** PendingAutoInteraction：定义该类型的结构与数据语义。 */
@@ -2188,8 +2252,16 @@ function buildObservedEntityCardHtml(entity: ObserveEntityCardData): string {
 /** title：定义该变量以承载业务值。 */
   const title = monsterPresentation?.label ?? entity.name ?? entity.id;
 /** badge：定义该变量以承载业务值。 */
-  const badge = monsterPresentation?.badgeText
-    ? `<span class="${monsterPresentation.badgeClassName}">${escapeHtml(monsterPresentation.badgeText)}</span>`
+  const badgeEntity = entity.badge ?? monsterPresentation?.badge;
+  const badgeClassName = badgeEntity
+    ? badgeEntity.tone === 'boss'
+      ? 'monster-badge monster-badge--boss'
+      : badgeEntity.tone === 'demonic'
+        ? 'monster-badge monster-badge--boss'
+        : 'monster-badge monster-badge--variant'
+    : '';
+  const badge = badgeEntity
+    ? `<span class="${badgeClassName}">${escapeHtml(badgeEntity.text)}</span>`
     : '';
 /** vitalRows：定义该变量以承载业务值。 */
   const vitalRows = [
@@ -2690,6 +2762,11 @@ actionPanel.setCallbacks(
     socket.sendUpdateAutoUsePills(pills);
   },
   (combatTargetingRules) => {
+    if (myPlayer) {
+      myPlayer.combatTargetingRules = combatTargetingRules;
+      myPlayer.allowAoePlayerHit = combatTargetingRules.hostile.includes('all_players');
+      refreshVisibleEntityHostilityImmediately();
+    }
     socket.sendUpdateCombatTargetingRules(combatTargetingRules);
   },
   (mode) => {
@@ -4127,12 +4204,13 @@ socket.onInit((data: S2C_Init) => {
   latestAttrUpdate = buildAttrStateFromPlayer(myPlayer);
   myPlayer.senseQiActive = myPlayer.senseQiActive === true;
   myPlayer.autoBattleStationary = myPlayer.autoBattleStationary === true;
-  myPlayer.combatTargetingRules = myPlayer.combatTargetingRules ?? { hostile: ['monster', 'retaliators', 'terrain'], friendly: ['non_hostile_players'] };
+  myPlayer.combatTargetingRules = myPlayer.combatTargetingRules ?? { hostile: ['monster', 'demonized_players', 'retaliators', 'terrain'], friendly: ['non_hostile_players'] };
   myPlayer.autoBattleTargetingMode = myPlayer.autoBattleTargetingMode ?? 'auto';
   myPlayer.allowAoePlayerHit = myPlayer.allowAoePlayerHit === true;
   myPlayer.autoIdleCultivation = myPlayer.autoIdleCultivation !== false;
   myPlayer.autoSwitchCultivation = myPlayer.autoSwitchCultivation === true;
   myPlayer.cultivationActive = myPlayer.cultivationActive === true;
+  maybeMigrateDemonizedTargetingRule();
   syncTargetingOverlay();
   mapRuntime.applyInit(data);
   syncSenseQiOverlay();

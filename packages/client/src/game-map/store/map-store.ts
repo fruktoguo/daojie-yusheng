@@ -76,6 +76,7 @@ function toObservedEntity(entity: RenderEntity): ObservedMapEntity {
     wy: entity.y,
     char: entity.char,
     color: entity.color,
+    badge: entity.badge,
     name: entity.name,
     kind: entity.kind ?? 'player',
     monsterTier: entity.monsterTier,
@@ -100,6 +101,7 @@ function mergeObservedEntityPatch(patch: TickRenderEntity, previous?: ObservedMa
     wy: patch.y,
     char: patch.char ?? previous?.char ?? '?',
     color: patch.color ?? previous?.color ?? '#fff',
+    badge: applyNullablePatch(patch.badge, previous?.badge),
     name: applyNullablePatch(patch.name, previous?.name),
     kind: applyNullablePatch(patch.kind, previous?.kind),
     monsterTier: applyNullablePatch(patch.monsterTier, previous?.monsterTier),
@@ -655,7 +657,5 @@ export class MapStore {
     }
   }
 }
-
-
 
 

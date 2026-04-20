@@ -206,7 +206,7 @@ export class PlayerEntity {
   autoUsePills!: unknown[];
 
   /** 战斗目标判定规则 */
-  @Column({ type: 'jsonb', default: () => '\'{"hostile":["monster","retaliators","terrain"],"friendly":["non_hostile_players"]}\'' })
+  @Column({ type: 'jsonb', default: () => '\'{"hostile":["monster","demonized_players","retaliators","terrain"],"friendly":["non_hostile_players"]}\'' })
   combatTargetingRules!: unknown;
 
   /** 自动战斗索敌方案 */
