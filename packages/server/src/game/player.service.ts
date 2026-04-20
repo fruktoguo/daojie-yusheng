@@ -57,6 +57,7 @@ import { MapService } from './map.service';
 import { resolveQuestTargetName } from './quest-display';
 import { EquipmentService } from './equipment.service';
 import { TechniqueService } from './technique.service';
+import { WorldRuleService } from './world-rule.service';
 import {
   normalizeDisplayName,
   resolveDisplayName,
@@ -256,6 +257,7 @@ export class PlayerService implements OnModuleInit {
     private readonly mapService: MapService,
     private readonly equipmentService: EquipmentService,
     private readonly techniqueService: TechniqueService,
+    private readonly worldRuleService: WorldRuleService,
   ) {}
 
 /** onModuleInit：执行对应的业务逻辑。 */
@@ -839,9 +841,9 @@ export class PlayerService implements OnModuleInit {
     if (state.autoRetaliate === undefined) state.autoRetaliate = true;
     if (state.autoBattleStationary === undefined) state.autoBattleStationary = false;
     if (state.allowAoePlayerHit === undefined) state.allowAoePlayerHit = false;
-    state.combatTargetingRules = normalizeCombatTargetingRules(
+    state.combatTargetingRules = this.worldRuleService.buildEffectiveCombatTargetingRules(
       state.combatTargetingRules,
-      buildDefaultCombatTargetingRules({ includeAllPlayersHostile: state.allowAoePlayerHit === true }),
+      state.allowAoePlayerHit === true,
     );
     state.allowAoePlayerHit = hasCombatTargetingRule(state.combatTargetingRules, 'hostile', 'all_players');
     if (state.autoIdleCultivation === undefined) state.autoIdleCultivation = true;
@@ -2019,9 +2021,9 @@ export class PlayerService implements OnModuleInit {
       autoBattle: settings?.autoBattle ?? entity.autoBattle ?? false,
       autoBattleSkills: ((settings?.autoBattleSkills ?? entity.autoBattleSkills) ?? []) as AutoBattleSkillConfig[],
       autoUsePills: normalizeAutoUsePillConfigs(settings?.autoUsePills ?? entity.autoUsePills),
-      combatTargetingRules: normalizeCombatTargetingRules(
-        settings?.combatTargetingRules ?? entity.combatTargetingRules,
-        buildDefaultCombatTargetingRules({ includeAllPlayersHostile: (settings?.allowAoePlayerHit ?? entity.allowAoePlayerHit) === true }),
+      combatTargetingRules: this.worldRuleService.buildEffectiveCombatTargetingRules(
+        (settings?.combatTargetingRules ?? entity.combatTargetingRules) as PlayerState['combatTargetingRules'],
+        (settings?.allowAoePlayerHit ?? entity.allowAoePlayerHit) === true,
       ),
       autoBattleTargetingMode: normalizeAutoBattleTargetingMode(settings?.autoBattleTargetingMode ?? entity.autoBattleTargetingMode),
       combatTargetId: settings?.combatTargetId ?? entity.combatTargetId ?? undefined,
@@ -2031,9 +2033,9 @@ export class PlayerService implements OnModuleInit {
 /** autoBattleStationary：定义该变量以承载业务值。 */
       autoBattleStationary: settings?.autoBattleStationary ?? entity.autoBattleStationary === true,
       allowAoePlayerHit: hasCombatTargetingRule(
-        normalizeCombatTargetingRules(
-          settings?.combatTargetingRules ?? entity.combatTargetingRules,
-          buildDefaultCombatTargetingRules({ includeAllPlayersHostile: (settings?.allowAoePlayerHit ?? entity.allowAoePlayerHit) === true }),
+        this.worldRuleService.buildEffectiveCombatTargetingRules(
+          (settings?.combatTargetingRules ?? entity.combatTargetingRules) as PlayerState['combatTargetingRules'],
+          (settings?.allowAoePlayerHit ?? entity.allowAoePlayerHit) === true,
         ),
         'hostile',
         'all_players',

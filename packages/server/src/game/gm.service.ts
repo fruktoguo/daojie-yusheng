@@ -46,6 +46,8 @@ import {
   GmRuntimeEntity,
   GmShortcutRunRes,
   GmStateRes,
+  GmUpdateWorldSettingsReq,
+  GmWorldSettings,
   GmUpdateMapTimeReq,
   Inventory,
   hasCombatTargetingRule,
@@ -111,6 +113,7 @@ import { DirtyFlag, PlayerService } from './player.service';
 import { TechniqueService } from './technique.service';
 import { TimeService } from './time.service';
 import { WorldService } from './world.service';
+import { WorldRuleService } from './world-rule.service';
 import { LootService } from './loot.service';
 import { syncDynamicBuffPresentation } from './buff-presentation';
 import {
@@ -243,6 +246,11 @@ type GmCommand =
       type: 'removeBots';
       playerIds?: string[];
       all?: boolean;
+    }
+  | {
+/** type：定义该变量以承载业务值。 */
+      type: 'applyPeaceMode';
+      mapId: string;
     };
 
 /** GmPlayerUserIdentity：定义该接口的能力与字段约束。 */
@@ -368,6 +376,7 @@ export class GmService {
     private readonly navigationService: NavigationService,
     private readonly performanceService: PerformanceService,
     private readonly worldService: WorldService,
+    private readonly worldRuleService: WorldRuleService,
     private readonly accountService: AccountService,
     private readonly nameUniquenessService: NameUniquenessService,
     private readonly roleNameModerationService: RoleNameModerationService,
@@ -406,9 +415,22 @@ export class GmService {
       playerStats,
       mapIds: this.mapService.getAllMapIds().sort(),
       botCount: this.botService.getBotCount(),
+      worldSettings: this.getWorldSettings(),
       riskAuditLogs,
       perf: this.performanceService.getSnapshot(),
     };
+  }
+
+  async updateWorldSettings(payload: GmUpdateWorldSettingsReq): Promise<void> {
+    const nextPeaceModeEnabled = payload?.worldSettings?.peaceModeEnabled === true;
+    const changed = await this.worldRuleService.setPeaceModeEnabled(nextPeaceModeEnabled);
+    if (!changed || !nextPeaceModeEnabled) {
+      return;
+    }
+    await this.disableOfflinePlayerAllPlayerHostility();
+    for (const mapId of this.getMapsWithRuntimePlayers()) {
+      this.enqueue(mapId, { type: 'applyPeaceMode', mapId });
+    }
   }
 
 /** normalizePlayerListQuery：执行对应的业务逻辑。 */
@@ -1302,6 +1324,12 @@ export class GmService {
     this.worldObservationSessions.clear();
   }
 
+  private getWorldSettings(): GmWorldSettings {
+    return {
+      peaceModeEnabled: this.worldRuleService.isPeaceModeEnabled(),
+    };
+  }
+
   updateWorldObservation(
     viewerId: string | undefined,
     mapId: string,
@@ -1962,6 +1990,8 @@ export class GmService {
         return this.applyQueuedAddHerbStockToMap(command.mapId, command.amount);
       case 'removeBots':
         return this.applyQueuedRemoveBots(command.playerIds, command.all);
+      case 'applyPeaceMode':
+        return this.applyQueuedPeaceMode(command.mapId);
     }
   }
 
@@ -2001,6 +2031,33 @@ export class GmService {
     if (!player) return '目标玩家不存在';
     this.techniqueService.resetHeavenGateForTesting(player);
     this.markDirty(player.id, ['attr', 'actions', 'tech']);
+    return null;
+  }
+
+  private applyQueuedPeaceMode(mapId: string): string | null {
+    for (const player of this.playerService.getPlayersByMap(mapId)) {
+      if (player.isBot === true || player.inWorld === false) {
+        continue;
+      }
+      if (!this.worldRuleService.shouldForceDisableAllPlayerHostility(
+        player.combatTargetingRules,
+        player.allowAoePlayerHit === true,
+      )) {
+        continue;
+      }
+      player.combatTargetingRules = this.worldRuleService.buildEffectiveCombatTargetingRules(
+        player.combatTargetingRules,
+        player.allowAoePlayerHit === true,
+      );
+      player.allowAoePlayerHit = false;
+      player.retaliatePlayerTargetId = undefined;
+      player.combatTargetId = undefined;
+      player.combatTargetLocked = false;
+      this.markDirty(player.id, ['actions']);
+      void this.playerService.savePlayer(player.id).catch((error: Error) => {
+        this.logger.error(`和平模式清理玩家全体攻击落盘失败: ${player.id} ${error.message}`);
+      });
+    }
     return null;
   }
 
@@ -3179,6 +3236,46 @@ export class GmService {
   /** 将离线玩家状态持久化到数据库 */
   private async persistOfflinePlayer(_entity: PlayerEntity, player: PlayerState): Promise<void> {
     await this.playerService.saveDetachedPlayerState(player);
+  }
+
+  private getMapsWithRuntimePlayers(): string[] {
+    return [...new Set(
+      this.playerService.getAllPlayers()
+        .filter((player) => player.isBot !== true && player.inWorld !== false)
+        .map((player) => player.mapId),
+    )];
+  }
+
+  private async disableOfflinePlayerAllPlayerHostility(): Promise<void> {
+    const runtimeIds = new Set(
+      this.playerService.getAllPlayers()
+        .filter((player) => player.isBot !== true)
+        .map((player) => player.id),
+    );
+    const entities = await this.playerRepo.find();
+    const dirtyEntities: PlayerEntity[] = [];
+    for (const entity of entities) {
+      if (runtimeIds.has(entity.id)) {
+        continue;
+      }
+      if (!this.worldRuleService.shouldForceDisableAllPlayerHostility(
+        entity.combatTargetingRules as PlayerState['combatTargetingRules'],
+        entity.allowAoePlayerHit === true,
+      )) {
+        continue;
+      }
+      entity.combatTargetingRules = this.worldRuleService.buildEffectiveCombatTargetingRules(
+        entity.combatTargetingRules as PlayerState['combatTargetingRules'],
+        entity.allowAoePlayerHit === true,
+      );
+      entity.allowAoePlayerHit = false;
+      entity.combatTargetId = null;
+      entity.combatTargetLocked = false;
+      dirtyEntities.push(entity);
+    }
+    if (dirtyEntities.length > 0) {
+      await this.playerRepo.save(dirtyEntities);
+    }
   }
 
 /** enqueue：执行对应的业务逻辑。 */

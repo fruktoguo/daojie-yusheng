@@ -2121,6 +2121,12 @@ export interface GmPlayerSummaryStats {
   offlinePlayers: number;
 }
 
+/** GM 世界规则快照 */
+export interface GmWorldSettings {
+/** peaceModeEnabled：定义该变量以承载业务值。 */
+  peaceModeEnabled: boolean;
+}
+
 /** GmStateRes：定义该接口的能力与字段约束。 */
 export interface GmStateRes {
 /** players：定义该变量以承载业务值。 */
@@ -2133,10 +2139,18 @@ export interface GmStateRes {
   mapIds: string[];
 /** botCount：定义该变量以承载业务值。 */
   botCount: number;
+/** worldSettings：定义该变量以承载业务值。 */
+  worldSettings: GmWorldSettings;
 /** riskAuditLogs：定义该变量以承载业务值。 */
   riskAuditLogs: GmRiskOperationAuditRecord[];
 /** perf：定义该变量以承载业务值。 */
   perf: GmPerformanceSnapshot;
+}
+
+/** GmUpdateWorldSettingsReq：定义该接口的能力与字段约束。 */
+export interface GmUpdateWorldSettingsReq {
+/** worldSettings：定义该变量以承载业务值。 */
+  worldSettings: GmWorldSettings;
 }
 
 /** RedeemCodeGroupRewardItem：定义该接口的能力与字段约束。 */

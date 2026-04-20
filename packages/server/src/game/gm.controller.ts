@@ -54,6 +54,7 @@ import {
   GmUpdateMapTimeReq,
   GmUpdateRedeemCodeGroupReq,
   GmUpdatePlayerReq,
+  GmUpdateWorldSettingsReq,
 } from '@mud/shared';
 import { FileInterceptor } from '@nestjs/platform-express';
 import { GmAuthGuard } from './gm-auth.guard';
@@ -94,6 +95,12 @@ export class GmController {
   @Get('state')
   getState(@Query() query: GmListPlayersQuery): Promise<GmStateRes> {
     return this.gmService.getState(query);
+  }
+
+  @Put('world-settings')
+  async updateWorldSettings(@Body() body: GmUpdateWorldSettingsReq): Promise<{ ok: true }> {
+    await this.gmService.updateWorldSettings(body);
+    return { ok: true };
   }
 
   @Get('editor-catalog')

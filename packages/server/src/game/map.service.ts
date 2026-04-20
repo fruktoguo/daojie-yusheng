@@ -67,6 +67,7 @@ import * as fs from 'fs';
 import { resolveServerDataPath } from '../common/data-path';
 import { PersistentDocumentService } from '../database/persistent-document.service';
 import { ContentService } from './content.service';
+import { WorldRuleService } from './world-rule.service';
 import { PathfindingActorType, PathfindingStaticGrid } from './pathfinding/pathfinding.types';
 import {
   DEFAULT_TERRAIN_DURABILITY_BY_TILE,
@@ -230,6 +231,7 @@ export class MapService implements OnModuleInit, OnModuleDestroy {
   constructor(
     private readonly contentService: ContentService,
     private readonly persistentDocumentService: PersistentDocumentService,
+    private readonly worldRuleService: WorldRuleService,
   ) {
     this.contentDomain = new MapContentDomain(this.contentService, {
       warn: (message) => this.logger.warn(message),
@@ -266,6 +268,7 @@ export class MapService implements OnModuleInit, OnModuleDestroy {
         },
         getMapRevision: (mapId) => this.getMapRevision(mapId),
         markTileDirty: (mapId, x, y) => this.markTileDirty(mapId, x, y),
+        isPeaceModeEnabled: () => this.worldRuleService.isPeaceModeEnabled(),
       },
     );
     this.portalDomain = new MapPortalDomain(this.maps);

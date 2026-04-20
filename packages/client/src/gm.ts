@@ -28,6 +28,7 @@ import {
   type GmReplySuggestionReq,
   type GmSetPlayerBodyTrainingLevelReq,
   type GmSuggestionListRes,
+  type GmUpdateWorldSettingsReq,
   type GmCpuSectionSnapshot,
   type GmEditorBuffOption,
   type GmEditorCatalogRes,
@@ -209,6 +210,7 @@ const summaryOfflineHangingEl = document.getElementById('summary-offline-hanging
 const summaryOfflineEl = document.getElementById('summary-offline') as HTMLDivElement;
 /** summaryBotsEl：定义该变量以承载业务值。 */
 const summaryBotsEl = document.getElementById('summary-bots') as HTMLDivElement;
+const summaryPeaceModeEl = document.getElementById('summary-peace-mode') as HTMLDivElement;
 /** summaryTickEl：定义该变量以承载业务值。 */
 const summaryTickEl = document.getElementById('summary-tick') as HTMLDivElement;
 /** summaryTickWindowEl：定义该变量以承载业务值。 */
@@ -241,6 +243,7 @@ const serverSubtabCpuBtn = document.getElementById('server-subtab-cpu') as HTMLB
 const serverSubtabDatabaseBtn = document.getElementById('server-subtab-database') as HTMLButtonElement;
 /** serverPanelOverviewEl：定义该变量以承载业务值。 */
 const serverPanelOverviewEl = document.getElementById('server-panel-overview') as HTMLElement;
+const togglePeaceModeBtn = document.getElementById('toggle-peace-mode') as HTMLButtonElement;
 /** serverPanelTrafficEl：定义该变量以承载业务值。 */
 const serverPanelTrafficEl = document.getElementById('server-panel-traffic') as HTMLElement;
 /** serverPanelCpuEl：定义该变量以承载业务值。 */
@@ -4328,6 +4331,7 @@ function renderSummary(data: GmStateRes): void {
   summaryOfflineHangingEl.textContent = `${data.playerStats.offlineHangingPlayers}`;
   summaryOfflineEl.textContent = `${data.playerStats.offlinePlayers}`;
   summaryBotsEl.textContent = `${data.botCount}`;
+  summaryPeaceModeEl.textContent = data.worldSettings.peaceModeEnabled ? '开启' : '关闭';
   summaryTickEl.textContent = tickPerf.lastMapId
     ? `${Math.round(tickPerf.lastMs)} ms · ${tickPerf.lastMapId}`
     : `${Math.round(tickPerf.lastMs)} ms`;
@@ -4386,6 +4390,32 @@ function renderSummary(data: GmStateRes): void {
   pathfindingDropTotalEl.textContent = `${data.perf.pathfinding.droppedPending + data.perf.pathfinding.droppedStaleResults}`;
   pathfindingDropNoteEl.textContent = `等待丢弃 ${data.perf.pathfinding.droppedPending} · 结果过期 ${data.perf.pathfinding.droppedStaleResults}`;
   renderPerfLists(data);
+}
+
+async function togglePeaceMode(): Promise<void> {
+  if (!state) {
+    return;
+  }
+  const nextPeaceModeEnabled = state.worldSettings.peaceModeEnabled !== true;
+  const confirmed = window.confirm(
+    nextPeaceModeEnabled
+      ? '开启和平模式后，会立刻关闭所有玩家的全体攻击，并允许玩家在任意位置重叠。是否继续？'
+      : '关闭和平模式后，将恢复正常世界规则，但不会自动替玩家重新打开全体攻击。是否继续？',
+  );
+  if (!confirmed) {
+    return;
+  }
+  const payload: GmUpdateWorldSettingsReq = {
+    worldSettings: {
+      peaceModeEnabled: nextPeaceModeEnabled,
+    },
+  };
+  await request<BasicOkRes>('/gm/world-settings', {
+    method: 'PUT',
+    body: JSON.stringify(payload),
+  });
+  await loadState(true, false);
+  setStatus(nextPeaceModeEnabled ? '已开启和平模式' : '已关闭和平模式');
 }
 
 /** renderPlayerPageMeta：执行对应的业务逻辑。 */
@@ -6730,6 +6760,11 @@ document.getElementById('refresh-state')?.addEventListener('click', () => {
   loadState(false, true).catch((error: unknown) => {
 /** setStatus：处理当前场景中的对应操作。 */
     setStatus(error instanceof Error ? error.message : '刷新失败', true);
+  });
+});
+togglePeaceModeBtn?.addEventListener('click', () => {
+  togglePeaceMode().catch((error: unknown) => {
+    setStatus(error instanceof Error ? error.message : '切换和平模式失败', true);
   });
 });
 document.getElementById('logout')?.addEventListener('click', () => logout());

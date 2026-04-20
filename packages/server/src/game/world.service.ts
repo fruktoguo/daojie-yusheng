@@ -121,6 +121,7 @@ import { TimeService } from './time.service';
 import { AlchemyService } from './alchemy.service';
 import { EnhancementService } from './enhancement.service';
 import { TechniqueActivityService } from './technique-activity.service';
+import { WorldRuleService } from './world-rule.service';
 import { buildMonsterInitialBuffSourceId } from './temporary-buff-storage';
 import {
   DEFAULT_MONSTER_RATIO_DIVISORS,
@@ -412,6 +413,7 @@ export class WorldService implements OnModuleInit, OnModuleDestroy {
     private readonly alchemyService: AlchemyService,
     private readonly enhancementService: EnhancementService,
     private readonly techniqueActivityService: TechniqueActivityService,
+    private readonly worldRuleService: WorldRuleService,
   ) {
     this.questDomain = new WorldQuestDomain(
       this.mapService,
@@ -1247,6 +1249,17 @@ export class WorldService implements OnModuleInit, OnModuleDestroy {
     }
 
     if (actionId === 'toggle:allow_aoe_player_hit') {
+      if (this.worldRuleService.isPeaceModeEnabled()) {
+        return {
+          ...EMPTY_UPDATE,
+          messages: [{
+            playerId: player.id,
+            text: '当前处于和平模式，无法开启全体攻击。',
+            kind: 'system',
+          }],
+          dirty: ['actions'],
+        };
+      }
 /** enabled：定义该变量以承载业务值。 */
       const enabled = player.allowAoePlayerHit !== true;
       this.setPlayerHostileAllPlayersEnabled(player, enabled);
@@ -8103,9 +8116,9 @@ export class WorldService implements OnModuleInit, OnModuleDestroy {
 
 /** getPlayerCombatTargetingRules：处理当前场景中的对应操作。 */
   private getPlayerCombatTargetingRules(player: PlayerState) {
-    return normalizeCombatTargetingRules(
+    return this.worldRuleService.buildEffectiveCombatTargetingRules(
       player.combatTargetingRules,
-      buildDefaultCombatTargetingRules({ includeAllPlayersHostile: player.allowAoePlayerHit === true }),
+      player.allowAoePlayerHit === true,
     );
   }
 
@@ -8147,6 +8160,9 @@ export class WorldService implements OnModuleInit, OnModuleDestroy {
 
 /** canPlayerDealDamageToPlayer：执行对应的业务逻辑。 */
   private canPlayerDealDamageToPlayer(attacker: PlayerState, target: PlayerState): boolean {
+    if (this.worldRuleService.isPeaceModeEnabled()) {
+      return false;
+    }
     if (attacker.id === target.id) {
       return false;
     }

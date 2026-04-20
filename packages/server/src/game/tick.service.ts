@@ -116,6 +116,7 @@ import { MailService, PreparedClaimOperation, PreparedDeleteOperation, PreparedM
 import { PreparedRedeemCodeOperation, RedeemCodeService } from './redeem-code.service';
 import { TimeService } from './time.service';
 import { WorldMessage, WorldService, WorldUpdate } from './world.service';
+import { WorldRuleService } from './world-rule.service';
 import { syncDynamicBuffPresentation } from './buff-presentation';
 import { getBuffSustainCost, getBuffSustainResourceLabel } from './buff-sustain';
 import {
@@ -229,6 +230,7 @@ export class TickService implements OnApplicationBootstrap, OnModuleDestroy {
     private readonly navigationService: NavigationService,
     private readonly botService: BotService,
     private readonly gmService: GmService,
+    private readonly worldRuleService: WorldRuleService,
     private readonly performanceService: PerformanceService,
     private readonly attrService: AttrService,
     private readonly inventoryService: InventoryService,
@@ -3278,11 +3280,25 @@ export class TickService implements OnApplicationBootstrap, OnModuleDestroy {
       }
       case 'updateCombatTargetingRules': {
         const { combatTargetingRules } = data as { combatTargetingRules: PlayerState['combatTargetingRules'] };
-/** nextRules：定义该变量以承载业务值。 */
-        const nextRules = normalizeCombatTargetingRules(
-          combatTargetingRules,
-          buildDefaultCombatTargetingRules({ includeAllPlayersHostile: player.allowAoePlayerHit === true }),
+        const attemptedAllPlayersHostile = hasCombatTargetingRule(
+          normalizeCombatTargetingRules(
+            combatTargetingRules,
+            buildDefaultCombatTargetingRules({ includeAllPlayersHostile: player.allowAoePlayerHit === true }),
+          ),
+          'hostile',
+          'all_players',
         );
+/** nextRules：定义该变量以承载业务值。 */
+        const nextRules = this.worldRuleService.buildEffectiveCombatTargetingRules(
+          combatTargetingRules,
+          player.allowAoePlayerHit === true,
+        );
+        if (this.worldRuleService.isPeaceModeEnabled() && attemptedAllPlayersHostile) {
+          messages.push({ playerId: player.id, text: '当前处于和平模式，无法开启全体攻击。', kind: 'system' });
+          this.forcedTickSyncPlayers.add(player.id);
+          this.resetPlayerSyncState(player.id);
+          this.markActionsDirty(player.id);
+        }
         if (!isPlainEqual(player.combatTargetingRules ?? null, nextRules)) {
           player.combatTargetingRules = nextRules;
           player.allowAoePlayerHit = hasCombatTargetingRule(nextRules, 'hostile', 'all_players');

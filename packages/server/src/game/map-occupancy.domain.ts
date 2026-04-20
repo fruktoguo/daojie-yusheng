@@ -19,6 +19,7 @@ interface DomainDeps {
   replacePlayerOverlapPointsByMap: (next: Map<string, Set<string>>) => void;
   getMapRevision: (mapId: string) => number;
   markTileDirty: (mapId: string, x: number, y: number) => void;
+  isPeaceModeEnabled: () => boolean;
 }
 
 /** MapOccupancyDomain：封装相关状态与行为。 */
@@ -147,6 +148,9 @@ export class MapOccupancyDomain {
       if (blockers.length === 0) {
         continue;
       }
+      if (actorType === 'player' && this.deps.isPeaceModeEnabled()) {
+        continue;
+      }
       if (actorType === 'player' && this.supportsPlayerOverlap(mapId, x, y)) {
         continue;
       }
@@ -256,6 +260,9 @@ export class MapOccupancyDomain {
 /** blockingOccupants：定义该变量以承载业务值。 */
     const blockingOccupants = [...occupants.entries()].filter(([id]) => id !== occupancyId);
     if (blockingOccupants.length === 0) {
+      return true;
+    }
+    if (actorType === 'player' && this.deps.isPeaceModeEnabled()) {
       return true;
     }
 
@@ -506,4 +513,3 @@ export class MapOccupancyDomain {
     return [...this.maps.keys()];
   }
 }
-

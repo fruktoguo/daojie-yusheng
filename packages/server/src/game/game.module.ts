@@ -53,6 +53,7 @@ import { LeaderboardService } from './leaderboard.service';
 import { AlchemyService } from './alchemy.service';
 import { EnhancementService } from './enhancement.service';
 import { TechniqueActivityService } from './technique-activity.service';
+import { WorldRuleService } from './world-rule.service';
 
 @Module({
   imports: [
@@ -105,6 +106,7 @@ import { TechniqueActivityService } from './technique-activity.service';
     AlchemyService,
     EnhancementService,
     TechniqueActivityService,
+    WorldRuleService,
     PathRequestSchedulerService,
     PathWorkerPoolService,
     DatabaseBackupService,
