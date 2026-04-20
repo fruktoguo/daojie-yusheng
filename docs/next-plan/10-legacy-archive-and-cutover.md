@@ -27,6 +27,7 @@
 
 - [10-cutover-execution-checklist.md](./10-cutover-execution-checklist.md)
 - [10-cutover-execution-log-template.md](./10-cutover-execution-log-template.md)
+- [10-cutover-step-by-step-runbook.md](./10-cutover-step-by-step-runbook.md)
 
 ## 任务
 
@@ -41,6 +42,7 @@
 - [x] 记录仍保留的 legacy 归档范围和原因
 - [x] 固定仓库内 next cutover / readiness proof
 - [x] 固定真实切换前/切换后人工执行清单与记录模板
+- [x] 固定真实切换的逐步执行手册
 
 ## 执行顺序
 

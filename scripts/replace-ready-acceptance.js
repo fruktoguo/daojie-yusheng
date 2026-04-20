@@ -63,6 +63,8 @@ const steps = [
     extraEnv: {
       DATABASE_URL: '',
       SERVER_NEXT_DATABASE_URL: '',
+      SERVER_NEXT_ALLOW_UNREADY_TRAFFIC: '',
+      SERVER_NEXT_SMOKE_ALLOW_UNREADY: '',
       SERVER_NEXT_SKIP_LOCAL_ENV_AUTOLOAD: '1',
     },
   },
@@ -79,6 +81,8 @@ const steps = [
     extraEnv: {
       DATABASE_URL: '',
       SERVER_NEXT_DATABASE_URL: '',
+      SERVER_NEXT_ALLOW_UNREADY_TRAFFIC: '',
+      SERVER_NEXT_SMOKE_ALLOW_UNREADY: '',
       SERVER_NEXT_URL: shadowUrl,
     },
   },

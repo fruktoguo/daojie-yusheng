@@ -42,6 +42,8 @@ const childEnv = {
   ...process.env,
   NEXT_AUTH_TRACE_ENABLED: traceEnabledValue,
   SERVER_NEXT_AUTH_TRACE_ENABLED: traceEnabledValue,
+  SERVER_NEXT_ALLOW_UNREADY_TRAFFIC: '',
+  SERVER_NEXT_SMOKE_ALLOW_UNREADY: '',
   ...(databaseEnvSource === 'SERVER_NEXT_DATABASE_URL' ? null : { SERVER_NEXT_DATABASE_URL: databaseUrl }),
 };
 

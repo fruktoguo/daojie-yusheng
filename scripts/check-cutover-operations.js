@@ -28,10 +28,29 @@ function main() {
   const runbook = read('packages/server/REPLACE-RUNBOOK.md');
   const checklist = read('docs/next-plan/10-cutover-execution-checklist.md');
   const logTemplate = read('docs/next-plan/10-cutover-execution-log-template.md');
+  const stepByStepRunbook = read('docs/next-plan/10-cutover-step-by-step-runbook.md');
+  const cutoverAutoPreflight = read('scripts/cutover-auto-preflight.sh');
+  const cutoverAutoPostcheck = read('scripts/cutover-auto-postcheck.sh');
+  const cutoverAutoAll = read('scripts/cutover-auto-all.sh');
 
   assert(
     rootPackage.scripts['proof:cutover-operations'],
     '根 package.json 缺少脚本：proof:cutover-operations',
+  );
+  assertIncludes(
+    cutoverAutoPreflight,
+    /verify:replace-ready:full[\s\S]*verify:replace-ready:doctor[\s\S]*proof:cutover-operations/,
+    'cutover-auto-preflight.sh 必须继续覆盖切换前 gate 与 proof',
+  );
+  assertIncludes(
+    cutoverAutoPostcheck,
+    /\/health[\s\S]*\/api\/auth\/gm\/login[\s\S]*\/api\/gm\/state[\s\S]*\/api\/gm\/editor-catalog[\s\S]*\/api\/gm\/database\/state[\s\S]*\/api\/gm\/maps\/.*\/runtime/s,
+    'cutover-auto-postcheck.sh 必须继续覆盖切换后机器可验证的只读面',
+  );
+  assertIncludes(
+    cutoverAutoAll,
+    /cutover-auto-preflight\.sh[\s\S]*cutover-auto-postcheck\.sh/,
+    'cutover-auto-all.sh 必须继续串行执行 preflight 与 postcheck',
   );
 
   assertIncludes(
@@ -72,6 +91,17 @@ function main() {
   );
 
   assertIncludes(
+    stepByStepRunbook,
+    /## 1\. 切换前 30-60 分钟[\s\S]*## 2\. 切换窗口开始后[\s\S]*## 3\. 切换后 30-60 分钟[\s\S]*## 4\. 停止条件[\s\S]*## 5\. 完成标志/,
+    '逐步执行手册必须继续覆盖切换前、切换中、切换后、停止条件与完成标志',
+  );
+  assertIncludes(
+    stepByStepRunbook,
+    /pnpm verify:replace-ready:shadow:destructive:preflight[\s\S]*maintenance=active/,
+    '逐步执行手册必须继续明确 destructive 先 preflight 后 destructive',
+  );
+
+  assertIncludes(
     plan10,
     /\[10-cutover-execution-checklist\.md\]\(\.\/10-cutover-execution-checklist\.md\)/,
     '10 文档必须继续引用切换执行清单',
@@ -80,6 +110,11 @@ function main() {
     plan10,
     /\[10-cutover-execution-log-template\.md\]\(\.\/10-cutover-execution-log-template\.md\)/,
     '10 文档必须继续引用切换执行记录模板',
+  );
+  assertIncludes(
+    plan10,
+    /\[10-cutover-step-by-step-runbook\.md\]\(\.\/10-cutover-step-by-step-runbook\.md\)/,
+    '10 文档必须继续引用逐步执行手册',
   );
   assertIncludes(
     plan10,
@@ -105,13 +140,28 @@ function main() {
   );
   assertIncludes(
     ops,
+    /cutover-auto-preflight\.sh[\s\S]*cutover-auto-postcheck\.sh[\s\S]*cutover-auto-all\.sh/,
+    'server-next-operations 必须继续引用 cutover-auto 脚本',
+  );
+  assertIncludes(
+    ops,
     /\[10-cutover-execution-log-template\.md\]\(\.\/next-plan\/10-cutover-execution-log-template\.md\)/,
     'server-next-operations 必须继续引用切换执行记录模板',
+  );
+  assertIncludes(
+    ops,
+    /\[10-cutover-step-by-step-runbook\.md\]\(\.\/next-plan\/10-cutover-step-by-step-runbook\.md\)/,
+    'server-next-operations 必须继续引用逐步执行手册',
   );
   assertIncludes(
     runbook,
     /10-cutover-execution-checklist\.md/,
     'REPLACE-RUNBOOK 必须继续引用切换执行清单',
+  );
+  assertIncludes(
+    runbook,
+    /10-cutover-step-by-step-runbook\.md/,
+    'REPLACE-RUNBOOK 必须继续引用逐步执行手册',
   );
 
   process.stdout.write(

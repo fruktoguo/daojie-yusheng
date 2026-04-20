@@ -13,10 +13,26 @@
 - [docs/server-next-operations.md](../../docs/server-next-operations.md)
 - [docs/next-plan/10-cutover-execution-checklist.md](../../docs/next-plan/10-cutover-execution-checklist.md)
 - [docs/next-plan/10-cutover-execution-log-template.md](../../docs/next-plan/10-cutover-execution-log-template.md)
+- [docs/next-plan/10-cutover-step-by-step-runbook.md](../../docs/next-plan/10-cutover-step-by-step-runbook.md)
 
 快速入口：
 
 - 本地：`pnpm verify:replace-ready`
+- 本地 shadow reset：`bash ./scripts/shadow-local-reset.sh`
+- 本地 shadow 启动：`bash ./scripts/shadow-local-up.sh`
+- 本地 shadow 状态：`bash ./scripts/shadow-local-status.sh`
+- 本地 shadow 只读验证：`bash ./scripts/shadow-local-verify.sh`
+- 本地 shadow acceptance：`bash ./scripts/shadow-local-acceptance.sh`
+- 本地 shadow full：`bash ./scripts/shadow-local-full.sh`
+- 本地 shadow 常用全链：`bash ./scripts/shadow-local-all.sh`
+- 本地 shadow 维护态开启：`bash ./scripts/shadow-local-maintenance-on.sh`
+- 本地 shadow destructive preflight：`bash ./scripts/shadow-local-destructive-preflight.sh`
+- 本地 shadow destructive 全链：`bash ./scripts/shadow-local-destructive.sh`
+- 本地 shadow 维护态关闭：`bash ./scripts/shadow-local-maintenance-off.sh`
+- 本地 shadow 停止：`bash ./scripts/shadow-local-down.sh`
+- 切换前自动 gate：`bash ./scripts/cutover-auto-preflight.sh`
+- 切换后机器只读检查：`bash ./scripts/cutover-auto-postcheck.sh`
+- 切换前后自动链：`bash ./scripts/cutover-auto-all.sh`
 - 最小带库 proof：`pnpm verify:replace-ready:proof:with-db`
 - 带库闭环：`pnpm verify:replace-ready:with-db`
 - shadow：`pnpm verify:replace-ready:shadow`
@@ -31,3 +47,4 @@
 - 旧后端正式流量、正式端口和正式部署链仍不以这份文档为准。
 - `local / with-db / acceptance / full / shadow-destructive` 是五层不同门禁，不能混读。
 - `verify:server-next*` 只保留为兼容别名。
+- 本地 shadow `.sh` 会自动加载本地 env；只有显式切远程 target 时，才需要手工覆盖 URL/密码。

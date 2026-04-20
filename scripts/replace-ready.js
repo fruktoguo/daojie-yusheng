@@ -41,6 +41,8 @@ const replaceReadyMode = databaseUrl ? 'with-db' : 'local';
  */
 const childEnv = {
   ...process.env,
+  SERVER_NEXT_ALLOW_UNREADY_TRAFFIC: '',
+  SERVER_NEXT_SMOKE_ALLOW_UNREADY: '',
   ...(databaseEnvSource === 'SERVER_NEXT_DATABASE_URL'
     ? null
     : (databaseUrl ? { SERVER_NEXT_DATABASE_URL: databaseUrl } : null)),

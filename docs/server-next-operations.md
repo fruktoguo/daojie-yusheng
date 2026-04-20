@@ -196,6 +196,12 @@ shadow-destructive 额外需要：
 - `acceptance` 里的本地与 shadow 自动部分
 - `full`
 
+如果想把切换前 gate 和切换后机器只读检查一起自动跑掉，直接用：
+
+- `bash ./scripts/cutover-auto-preflight.sh`
+- `bash ./scripts/cutover-auto-postcheck.sh`
+- `bash ./scripts/cutover-auto-all.sh`
+
 ### 模型辅助验证
 
 像 `gpt-5.3-codex-spark` 这类快速模型，当前适合承担：
@@ -230,6 +236,7 @@ shadow-destructive 额外需要：
 
 - [10-cutover-execution-checklist.md](./next-plan/10-cutover-execution-checklist.md)
 - [10-cutover-execution-log-template.md](./next-plan/10-cutover-execution-log-template.md)
+- [10-cutover-step-by-step-runbook.md](./next-plan/10-cutover-step-by-step-runbook.md)
 
 ### 和 task-breakdown 对齐
 
@@ -271,11 +278,37 @@ node node_modules/.pnpm/node_modules/typescript/bin/tsc -p packages/server/tscon
 
 ### 本地 shadow
 
-1. `docker compose -f docker-compose.server-next.yml up -d --build`
-2. `pnpm verify:replace-ready:doctor`
-3. `pnpm verify:replace-ready:with-db`
-4. `SERVER_NEXT_SHADOW_URL=http://127.0.0.1:11923 pnpm verify:replace-ready:shadow`
-5. 如需 GM 关键写路径：`SERVER_NEXT_URL=http://127.0.0.1:11923 pnpm --filter @mud/server-next smoke:gm-next`
+推荐直接使用这些脚本：
+
+1. `bash ./scripts/shadow-local-reset.sh`
+2. `bash ./scripts/shadow-local-status.sh`
+3. `bash ./scripts/shadow-local-verify.sh`
+4. `bash ./scripts/shadow-local-acceptance.sh`
+5. `bash ./scripts/shadow-local-full.sh`
+6. 如需 GM 关键写路径：`SERVER_NEXT_URL=http://127.0.0.1:11923 pnpm --filter @mud/server-next smoke:gm-next`
+7. 如需一键串起常用链：`bash ./scripts/shadow-local-all.sh`
+
+这些 `.sh` 会自动加载本地 env，不需要手工 `export` shadow URL、GM 密码或 destructive 开关。
+
+如需切维护态：
+
+1. `bash ./scripts/shadow-local-maintenance-on.sh`
+2. `bash ./scripts/shadow-local-destructive-preflight.sh`
+3. `bash ./scripts/shadow-local-destructive.sh`
+
+说明：
+
+- `shadow-local-destructive.sh` 默认会自动执行：
+  - 切维护态
+  - destructive preflight
+  - destructive proof
+  - 恢复非维护态
+- 如需在 destructive 后保留维护态，设置 `SHADOW_LOCAL_SKIP_RESTORE_AFTER_DESTRUCTIVE=1`
+- 如需把 destructive 也串进整套本地链，设置 `SHADOW_LOCAL_RUN_DESTRUCTIVE=1` 后执行 `bash ./scripts/shadow-local-all.sh`
+
+如需停掉本地 shadow：
+
+- `bash ./scripts/shadow-local-down.sh`
 
 ### `gm/database/*`
 
