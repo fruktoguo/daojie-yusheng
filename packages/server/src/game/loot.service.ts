@@ -838,19 +838,28 @@ export class LootService implements OnModuleInit, OnModuleDestroy {
     const nextHp = Math.max(0, currentHp - appliedDamage);
     state.hp = nextHp;
     if (nextHp <= 0) {
-      state.destroyed = true;
-      state.entries = [];
-      this.clearContainerActiveSearch(state);
-/** respawnTicks：定义该变量以承载业务值。 */
-      const respawnTicks = this.resolveContainerRefreshTicks(container);
-      state.refreshAtTick = respawnTicks !== undefined ? this.getCurrentTick(mapId) + respawnTicks : undefined;
-      state.respawnTotalTicks = respawnTicks;
+/** damagedHerbEntry：定义该变量以承载业务值。 */
+      const damagedHerbEntry = state.entries.find((entry) => entry.item.count > 0);
+      if (damagedHerbEntry) {
+        damagedHerbEntry.item.count -= 1;
+        if (damagedHerbEntry.item.count <= 0) {
+          state.entries = state.entries.filter((entry) => entry !== damagedHerbEntry);
+        }
+      }
+/** nextRow：定义该变量以承载业务值。 */
+      const nextRow = this.groupLootEntries(state.entries).find((entry) => entry.item.count > 0);
+      if (!nextRow) {
+        this.scheduleHerbRespawn(mapId, container, state);
+      } else {
+        state.herb = this.buildHerbMeta(nextRow.item);
+        this.syncContainerVariantState(container, state, true);
+      }
     }
     this.markRuntimeStateDirty();
 
     return {
 /** destroyed：定义该变量以承载业务值。 */
-      destroyed: state.destroyed === true,
+      destroyed: Boolean(state.destroyed),
       hp: Math.max(0, Math.round(state.hp ?? 0)),
       maxHp: Math.max(1, Math.round(state.maxHp ?? 1)),
       appliedDamage,
