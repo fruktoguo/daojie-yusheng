@@ -116,8 +116,11 @@ function createService(log: unknown[] = []) {
       sendBootstrap(socket: { id: string }, payload: { self: { unlockedMinimapIds: string[] } }) {
         log.push(['sendBootstrap', socket.id, payload.self.unlockedMinimapIds]);
       },
-      sendMapStatic(socket: { id: string }, payload: { tiles?: unknown; tilePatches?: unknown }) {
-        log.push(['sendMapStatic', socket.id, Boolean(payload.tiles), Boolean(payload.tilePatches)]);
+      sendMapStatic(socket: { id: string }, payload: { tiles?: unknown }) {
+        log.push(['sendMapStatic', socket.id, Boolean(payload.tiles)]);
+      },
+      sendWorldDelta(socket: { id: string }, payload: { tp?: unknown; vma?: unknown; vmr?: unknown }) {
+        log.push(['sendWorldDelta', socket.id, Boolean(payload.tp), Boolean(payload.vma), Boolean(payload.vmr)]);
       },
       sendRealm(socket: { id: string }, payload: { realm?: { stage?: string | null } | null }) {
         log.push(['sendRealm', socket.id, payload.realm?.stage ?? null]);
@@ -320,26 +323,26 @@ function testAuxStateSync() {
   const { service, setLootWindow } = createService(log);
   const socket = { id: 'socket:1', emit() {} };
 
-  service.emitNextInitialSync('player:1', socket, createView(10), createPlayer('炼气', 10));
+  service.emitAuxInitialSync('player:1', socket, createView(10), createPlayer('炼气', 10));
   setLootWindow({
     tileX: 4,
     tileY: 5,
     title: '增量拾取',
     sources: [],
   });
-  service.emitNextDeltaSync('player:1', socket, createView(11), createPlayer('筑基', 20));
+  service.emitAuxDeltaSync('player:1', socket, createView(11), createPlayer('筑基', 20));
   service.clearPlayerCache('player:1');
 
   assert.deepEqual(log, [
     ['getTemplate', 'map.a'],
     ['sendBootstrap', 'socket:1', ['map.a']],
-    ['sendMapStatic', 'socket:1', true, false],
+    ['sendMapStatic', 'socket:1', true],
     ['sendRealm', 'socket:1', '炼气'],
     ['sendLootWindow', 'socket:1', '初始拾取'],
     ['emitInitialThreatSync', 'socket:1', 10, 1],
     ['commitPlayerCache', 'player:1', 'initial'],
     ['getTemplate', 'map.a'],
-    ['sendMapStatic', 'socket:1', false, true],
+    ['sendWorldDelta', 'socket:1', true, true, true],
     ['sendRealm', 'socket:1', '筑基'],
     ['sendLootWindow', 'socket:1', '增量拾取'],
     ['emitDeltaThreatSync', 'socket:1', 11, 1, false],

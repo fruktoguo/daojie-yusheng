@@ -2,7 +2,7 @@ import type { Direction, EntityKind, GameTimeState, MonsterTier, VisibleBuffStat
 import type { CombatEffect } from './action-combat-types';
 import type { GroundItemEntryView } from './loot-view-types';
 import type { ObservationInsight } from './observation-types';
-import type { NpcQuestMarker } from './world-view-types';
+import type { MapMinimapMarker, NpcQuestMarker } from './world-view-types';
 
 /**
  * 高频世界同步与局部 patch 共享视图。
@@ -486,6 +486,16 @@ export interface WorldDeltaView {
  */
 
   tp?: VisibleTilePatchView[];  
+  /**
+ * vma：可见MinimapMarkerAdd相关字段。
+ */
+
+  vma?: MapMinimapMarker[];
+  /**
+ * vmr：可见MinimapMarkerRemove相关字段。
+ */
+
+  vmr?: string[];
   /**
  * mid：mid标识。
  */

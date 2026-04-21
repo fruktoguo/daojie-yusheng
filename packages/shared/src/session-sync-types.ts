@@ -2,7 +2,6 @@ import type { PlayerRealmState } from './cultivation-types';
 import type { PlayerState } from './player-runtime-types';
 import type { MapMinimapArchiveEntry, MapMinimapMarker, MapMinimapSnapshot } from './world-view-types';
 import type { MapMeta, GameTimeState, RenderEntity, VisibleTile } from './world-core-types';
-import type { VisibleTilePatchView } from './world-patch-types';
 
 /** 首次连接引导包视图。玩家完整面板状态以 self 为真源，避免再由首连 PanelDelta 重复整包下发。 */
 export interface BootstrapView {
@@ -159,25 +158,10 @@ export interface MapStaticView {
 
   tilesOriginY?: number;  
   /**
- * tilePatches：tilePatche相关字段。
- */
-
-  tilePatches?: VisibleTilePatchView[];  
-  /**
  * visibleMinimapMarkers：可见MinimapMarker相关字段。
  */
 
   visibleMinimapMarkers?: MapMinimapMarker[];  
-  /**
- * visibleMinimapMarkerAdds：可见MinimapMarkerAdd相关字段。
- */
-
-  visibleMinimapMarkerAdds?: MapMinimapMarker[];  
-  /**
- * visibleMinimapMarkerRemoves：可见MinimapMarkerRemove相关字段。
- */
-
-  visibleMinimapMarkerRemoves?: string[];
 }
 
 /** 境界面板快照视图。 */

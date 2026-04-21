@@ -44,10 +44,7 @@ const EXPECTED_INTERFACES = {
     tiles: { type: 'VisibleTile[][]', optional: true },
     tilesOriginX: { type: 'number', optional: true },
     tilesOriginY: { type: 'number', optional: true },
-    tilePatches: { type: 'VisibleTilePatch[]', optional: true },
     visibleMinimapMarkers: { type: 'MapMinimapMarker[]', optional: true },
-    visibleMinimapMarkerAdds: { type: 'MapMinimapMarker[]', optional: true },
-    visibleMinimapMarkerRemoves: { type: 'string[]', optional: true },
   },
   NEXT_S2C_PanelDelta: {
     inv: { type: 'NEXT_S2C_PanelInventoryDelta', optional: true },

@@ -38,6 +38,7 @@ const EMPTY_CPU_BREAKDOWN = [];
 const EMPTY_NETWORK_BUCKETS = [];
 
 const EMPTY_PATHFINDING_FAILURES = [];
+const WORLD_DELTA_ENTITY_KEYS = Object.freeze(['p', 'm', 'n', 'o', 'g', 'c']);
 const CPU_BREAKDOWN_LABELS = Object.freeze({
     pendingCommandsMs: '待处理命令',
     systemCommandsMs: '系统命令',
@@ -48,6 +49,8 @@ const CPU_BREAKDOWN_LABELS = Object.freeze({
     syncFlushMs: '同步广播',
     otherMs: '其余开销',
 });
+const C2S_NAME_BY_EVENT = buildProtocolNameByEvent(shared_1.C2S);
+const S2C_NAME_BY_EVENT = buildProtocolNameByEvent(shared_1.S2C);
 
 let RuntimeGmStateService = class RuntimeGmStateService {
     /** 地图模板仓库，用于把地图 ID 还原成可读名称。 */
@@ -139,7 +142,7 @@ let RuntimeGmStateService = class RuntimeGmStateService {
     }
     /** GM 状态下发固定收敛到 next 事件。 */
     getGmStateEvent(client) {
-        return shared_1.NEXT_S2C.GmState;
+        return shared_1.S2C.GmState;
     }
     /** GM 面板协议分支固定为 next-only。 */
     resolveGmStateEmission(client) {
@@ -160,11 +163,11 @@ let RuntimeGmStateService = class RuntimeGmStateService {
     }
     /** 记录客户端 -> 服务端的 socket 事件流量。 */
     recordNetworkIn(event, payload) {
-        this.recordNetworkBucket(this.networkInBucketByKey, event, payload);
+        this.recordNetworkBucket(this.networkInBucketByKey, 'c2s', event, payload);
     }
     /** 记录服务端 -> 客户端的 socket 事件流量。 */
     recordNetworkOut(event, payload) {
-        this.recordNetworkBucket(this.networkOutBucketByKey, event, payload);
+        this.recordNetworkBucket(this.networkOutBucketByKey, 's2c', event, payload);
     }
     /** 清空累计网络统计。 */
     resetNetworkPerfCounters() {
@@ -319,25 +322,25 @@ let RuntimeGmStateService = class RuntimeGmStateService {
             peakQueueDepth: 0,
         };
     }
-    /** 把事件累计到对应流量桶。 */
-    recordNetworkBucket(bucketByKey, event, payload) {
-        const key = normalizeNetworkEventKey(event);
-        if (!key) {
+    /** 把单个 socket 包累计到对应协议桶。 */
+    recordNetworkBucket(bucketByKey, direction, event, payload) {
+        const label = resolveNetworkPacketLabel(direction, event, payload);
+        if (!label) {
             return;
         }
         const bytes = measureNetworkPayloadBytes(event, payload);
         if (bytes <= 0) {
             return;
         }
-        const current = bucketByKey.get(key);
+        const current = bucketByKey.get(label);
         if (current) {
             current.bytes += bytes;
             current.count += 1;
             return;
         }
-        bucketByKey.set(key, {
-            key,
-            label: key,
+        bucketByKey.set(label, {
+            key: label,
+            label,
             bytes,
             count: 1,
         });
@@ -394,6 +397,75 @@ function sumBucketBytes(buckets) {
 
 function normalizeNetworkEventKey(event) {
     return typeof event === 'string' ? event.trim() : '';
+}
+
+function buildProtocolNameByEvent(eventMap) {
+    return new Map(Object.entries(eventMap).map(([name, event]) => [event, name]));
+}
+
+function resolveNetworkPacketLabel(direction, event, payload) {
+    const eventKey = normalizeNetworkEventKey(event);
+    if (!eventKey) {
+        return '';
+    }
+    const protocolName = direction === 'c2s'
+        ? C2S_NAME_BY_EVENT.get(eventKey)
+        : S2C_NAME_BY_EVENT.get(eventKey);
+    if (protocolName) {
+        if (direction === 's2c' && eventKey === shared_1.S2C.WorldDelta) {
+            return direction + "_" + resolveWorldDeltaPacketLabel(protocolName, payload);
+        }
+        return direction + "_" + protocolName;
+    }
+    return direction + "_" + eventKey.replace(/[^a-zA-Z0-9]+/g, '_').replace(/^_+|_+$/g, '');
+}
+
+function resolveWorldDeltaPacketLabel(protocolName, payload) {
+    const tags = [];
+    if (hasWorldDeltaEntityPayload(payload)) {
+        tags.push('entity');
+    }
+    if (hasWorldDeltaTilePayload(payload)) {
+        tags.push('tile');
+    }
+    if (hasWorldDeltaMinimapPayload(payload)) {
+        tags.push('minimap');
+    }
+    if (hasWorldDeltaThreatPayload(payload)) {
+        tags.push('threat');
+    }
+    if (hasNonEmptyArray(payload?.path)) {
+        tags.push('path');
+    }
+    if (hasNonEmptyArray(payload?.fx)) {
+        tags.push('fx');
+    }
+    if (payload?.time !== undefined || typeof payload?.dt === 'number' || typeof payload?.auraLevelBaseValue === 'number') {
+        tags.push('time');
+    }
+    return tags.length > 0 ? `${protocolName}(${tags.join('+')})` : protocolName;
+}
+
+function hasWorldDeltaEntityPayload(payload) {
+    return WORLD_DELTA_ENTITY_KEYS.some((key) => hasNonEmptyArray(payload?.[key]));
+}
+
+function hasWorldDeltaTilePayload(payload) {
+    return hasNonEmptyArray(payload?.v) || hasNonEmptyArray(payload?.tp);
+}
+
+function hasWorldDeltaMinimapPayload(payload) {
+    return hasNonEmptyArray(payload?.vma) || hasNonEmptyArray(payload?.vmr);
+}
+
+function hasWorldDeltaThreatPayload(payload) {
+    return hasNonEmptyArray(payload?.threatArrows)
+        || hasNonEmptyArray(payload?.threatArrowAdds)
+        || hasNonEmptyArray(payload?.threatArrowRemoves);
+}
+
+function hasNonEmptyArray(value) {
+    return Array.isArray(value) && value.length > 0;
 }
 
 function measureNetworkPayloadBytes(event, payload) {

@@ -24,7 +24,6 @@ import type {
   NEXT_S2C_PanelTechniqueDelta,
   NEXT_S2C_PlayerDetail,
   NEXT_S2C_PortalDetail,
-  VisibleTilePatch,
 } from './protocol-response-payload-types';
 import type { BootstrapView, MapStaticView } from './session-sync-types';
 import type { AlchemyPanelSyncView, EnhancementPanelSyncView, MailDetailSyncView, NpcShopSyncView } from './service-sync-types';
@@ -179,17 +178,23 @@ export type NEXT_C2S_EventName = typeof NEXT_C2S[keyof typeof NEXT_C2S];
 /** next 服务端事件名联合。 */
 export type NEXT_S2C_EventName = typeof NEXT_S2C[keyof typeof NEXT_S2C];
 
+/** 中性客户端事件表导出；保留 NEXT_* 作为兼容别名。 */
+export const C2S = NEXT_C2S;
+
+/** 中性服务端事件表导出；保留 NEXT_* 作为兼容别名。 */
+export const S2C = NEXT_S2C;
+
+/** 中性客户端事件名联合。 */
+export type ClientToServerEventName = NEXT_C2S_EventName;
+
+/** 中性服务端事件名联合。 */
+export type ServerToClientEventName = NEXT_S2C_EventName;
+
 /** 首次连接引导包：同步自身状态、首屏地图和小地图图鉴。 */
 export interface NEXT_S2C_Bootstrap extends BootstrapView {}
 
 /** 地图静态快照：地图元数据、小地图、静态地块和标记增量。 */
-export interface NEXT_S2C_MapStatic extends MapStaticView {
-/**
- * tilePatches：tilePatche相关字段。
- */
-
-  tilePatches?: VisibleTilePatch[];
-}
+export interface NEXT_S2C_MapStatic extends MapStaticView {}
 
 /** 面板总增量，按模块拆分下发。首连阶段允许只发 revision 占位，完整面板以 Bootstrap.self 为真源。 */
 export interface NEXT_S2C_PanelDelta {
@@ -899,3 +904,37 @@ export type NEXT_C2S_EventPayload<TEvent extends NEXT_C2S_EventName> = NEXT_C2S_
 
 /** 根据 next 服务端事件名读取对应载荷类型。 */
 export type NEXT_S2C_EventPayload<TEvent extends NEXT_S2C_EventName> = NEXT_S2C_PayloadMap[TEvent];
+
+/** 根据中性客户端事件名读取对应载荷类型。 */
+export type ClientToServerEventPayload<TEvent extends ClientToServerEventName> = NEXT_C2S_PayloadMap[TEvent];
+
+/** 根据中性服务端事件名读取对应载荷类型。 */
+export type ServerToClientEventPayload<TEvent extends ServerToClientEventName> = NEXT_S2C_PayloadMap[TEvent];
+
+/** 中性客户端事件载荷映射。 */
+export type ClientToServerPayloadMap = NEXT_C2S_PayloadMap;
+
+/** 中性服务端事件载荷映射。 */
+export type ServerToClientPayloadMap = NEXT_S2C_PayloadMap;
+
+/** 更短的中性事件载荷映射别名。 */
+export type C2S_PayloadMap = NEXT_C2S_PayloadMap;
+export type S2C_PayloadMap = NEXT_S2C_PayloadMap;
+
+/** 更短的中性事件载荷查询别名。 */
+export type C2S_EventPayload<TEvent extends ClientToServerEventName> = NEXT_C2S_PayloadMap[TEvent];
+export type S2C_EventPayload<TEvent extends ServerToClientEventName> = NEXT_S2C_PayloadMap[TEvent];
+
+/** protocol.ts 内部定义的中性载荷/视图片段别名。 */
+export type S2C_Bootstrap = NEXT_S2C_Bootstrap;
+export type S2C_MapStatic = NEXT_S2C_MapStatic;
+export type S2C_PanelDelta = NEXT_S2C_PanelDelta;
+export type S2C_Tick = NEXT_S2C_Tick;
+export type S2C_AttrUpdate = NEXT_S2C_AttrUpdate;
+export type S2C_TechniqueUpdate = NEXT_S2C_TechniqueUpdate;
+export type S2C_ActionsUpdate = NEXT_S2C_ActionsUpdate;
+export type S2C_AlchemyPanel = NEXT_S2C_AlchemyPanel;
+export type S2C_EnhancementPanel = NEXT_S2C_EnhancementPanel;
+export type S2C_Detail = NEXT_S2C_Detail;
+export type S2C_AttrDetail = NEXT_S2C_AttrDetail;
+export type S2C_MailDetail = NEXT_S2C_MailDetail;

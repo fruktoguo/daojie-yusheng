@@ -27,6 +27,7 @@
    - 已完成一小步：GM `bodyTraining` 修改链已回到运行时权威入口，在线玩家会先走 `PlayerRuntimeService.setManagedBodyTrainingLevel()`，再持久化并 `markPersisted`，不再只改快照后期待 runtime 被动追平。
    - 已完成一小步：`gm-database` restore 已改成分块批量写入 `persistent_documents`，并补了 backup/restore 阶段日志；当前 blocker 已从“外层 240s/420s 超时”前移到“需要最新根级 with-db 复证”。
    - 已完成一小步：最新工作树下 `pnpm verify:replace-ready:with-db` 已通过，`build:client-next -> server with-db smoke -> audit:server-next-protocol` 重新闭环。
+   - 已完成一小步：移动视野下的 `tile/minimap marker` patch 已从 `MapStatic` 拆到 `WorldDelta`；`MapStatic` 只再承担首包/换图全量静态层，GM 流量榜不会再把移动时地块 patch 记进 `s2c_MapStatic`。
    - 下一步再看 `Bootstrap / MapStatic` 剩余分层与 `acceptance / full / shadow:destructive` 的当前证据。
 4. 收掉 `client-next` 的 patch-first 尾项，避免仍有整块重绘面板混在 next 主链里。
 5. 补强 `shared-next` 的新增字段全链路硬门禁，避免协议新增再次靠人工补洞。

@@ -17,7 +17,7 @@ import type {
   VisibleBuffState,
   VisibleTile,
   VisibleTilePatch,
-  NEXT_S2C_MapStatic,
+  S2C_MapStatic,
   TickRenderEntity,
 } from '@mud/shared-next';
 
@@ -568,7 +568,7 @@ export interface MapSceneSnapshot {
 }
 
 /** 世界级增量入参。 */
-export interface MapNextWorldDeltaInput {
+export interface MapWorldDeltaInput {
 /**
  * playerPatches：玩家Patche相关字段。
  */
@@ -643,6 +643,16 @@ export interface MapNextWorldDeltaInput {
 
   visibleTilePatches?: VisibleTilePatch[];  
   /**
+ * visibleMinimapMarkerAdds：可见MinimapMarkerAdd相关字段。
+ */
+
+  visibleMinimapMarkerAdds?: MapMinimapMarker[];
+  /**
+ * visibleMinimapMarkerRemoves：可见MinimapMarkerRemove相关字段。
+ */
+
+  visibleMinimapMarkerRemoves?: string[];
+  /**
  * mapId：地图ID标识。
  */
 
@@ -650,7 +660,7 @@ export interface MapNextWorldDeltaInput {
 }
 
 /** 本体增量入参。 */
-export interface MapNextSelfDeltaInput {
+export interface MapSelfDeltaInput {
 /**
  * mapId：地图ID标识。
  */
@@ -745,9 +755,9 @@ export interface MapRuntimeApi {
   setProjection(mode: 'topdown'): void;
   setTickDurationMs(durationMs: number): void;
   applyBootstrap(data: MapBootstrapInput): void;
-  applyMapStatic(data: NEXT_S2C_MapStatic): void;
-  applyNextWorldDelta(data: MapNextWorldDeltaInput): void;
-  applyNextSelfDelta(data: MapNextSelfDeltaInput): void;
+  applyMapStatic(data: S2C_MapStatic): void;
+  applyWorldDelta(data: MapWorldDeltaInput): void;
+  applySelfDelta(data: MapSelfDeltaInput): void;
   reset(): void;
   setInteractionCallbacks(callbacks: MapRuntimeInteractionCallbacks): void;
   setMoveHandler(handler: ((x: number, y: number) => void) | null): void;

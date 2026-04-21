@@ -16,29 +16,29 @@ const shared_1 = require("@mud/shared-next");
 
 let WorldSyncProtocolService = class WorldSyncProtocolService {
 /**
- * sendNextEnvelope：执行sendNextEnvelope相关逻辑。
+ * sendEnvelope：执行sendEnvelope相关逻辑。
  * @param socket 参数说明。
  * @param envelope 参数说明。
- * @returns 无返回值，直接更新sendNextEnvelope相关状态。
+ * @returns 无返回值，直接更新sendEnvelope相关状态。
  */
 
-    sendNextEnvelope(socket, envelope) {
+    sendEnvelope(socket, envelope) {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
         if (envelope?.initSession) {
-            socket.emit(shared_1.NEXT_S2C.InitSession, envelope.initSession);
+            socket.emit(shared_1.S2C.InitSession, envelope.initSession);
         }
         if (envelope?.mapEnter) {
-            socket.emit(shared_1.NEXT_S2C.MapEnter, envelope.mapEnter);
+            socket.emit(shared_1.S2C.MapEnter, envelope.mapEnter);
         }
         if (envelope?.worldDelta) {
-            socket.emit(shared_1.NEXT_S2C.WorldDelta, envelope.worldDelta);
+            socket.emit(shared_1.S2C.WorldDelta, envelope.worldDelta);
         }
         if (envelope?.selfDelta) {
-            socket.emit(shared_1.NEXT_S2C.SelfDelta, envelope.selfDelta);
+            socket.emit(shared_1.S2C.SelfDelta, envelope.selfDelta);
         }
         if (envelope?.panelDelta) {
-            socket.emit(shared_1.NEXT_S2C.PanelDelta, envelope.panelDelta);
+            socket.emit(shared_1.S2C.PanelDelta, envelope.panelDelta);
         }
     }    
     /**
@@ -49,7 +49,16 @@ let WorldSyncProtocolService = class WorldSyncProtocolService {
  */
 
     sendBootstrap(socket, payload) {
-        socket.emit(shared_1.NEXT_S2C.Bootstrap, payload);
+        socket.emit(shared_1.S2C.Bootstrap, payload);
+    }    
+    /**
+ * sendWorldDelta：执行send世界Delta相关逻辑。
+ * @param socket 参数说明。
+ * @param payload 载荷参数。
+ * @returns 无返回值，直接更新send世界Delta相关状态。
+ */
+    sendWorldDelta(socket, payload) {
+        socket.emit(shared_1.S2C.WorldDelta, payload);
     }    
     /**
  * resolveEmission：判断Emission是否满足条件。
@@ -90,7 +99,7 @@ let WorldSyncProtocolService = class WorldSyncProtocolService {
  */
 
     sendQuestSync(socket, payload) {
-        socket.emit(shared_1.NEXT_S2C.Quests, payload);
+        socket.emit(shared_1.S2C.Quests, payload);
     }    
     /**
  * sendMapStatic：执行send地图Static相关逻辑。
@@ -100,7 +109,7 @@ let WorldSyncProtocolService = class WorldSyncProtocolService {
  */
 
     sendMapStatic(socket, payload) {
-        socket.emit(shared_1.NEXT_S2C.MapStatic, payload);
+        socket.emit(shared_1.S2C.MapStatic, payload);
     }    
     /**
  * sendRealm：执行sendRealm相关逻辑。
@@ -110,7 +119,7 @@ let WorldSyncProtocolService = class WorldSyncProtocolService {
  */
 
     sendRealm(socket, payload) {
-        socket.emit(shared_1.NEXT_S2C.Realm, payload);
+        socket.emit(shared_1.S2C.Realm, payload);
     }    
     /**
  * sendLootWindow：执行send掉落窗口相关逻辑。
@@ -120,7 +129,7 @@ let WorldSyncProtocolService = class WorldSyncProtocolService {
  */
 
     sendLootWindow(socket, payload) {
-        socket.emit(shared_1.NEXT_S2C.LootWindowUpdate, payload);
+        socket.emit(shared_1.S2C.LootWindowUpdate, payload);
     }    
     /**
  * sendNotices：执行sendNotice相关逻辑。
@@ -130,7 +139,7 @@ let WorldSyncProtocolService = class WorldSyncProtocolService {
  */
 
     sendNotices(socket, items) {
-        socket.emit(shared_1.NEXT_S2C.Notice, { items });
+        socket.emit(shared_1.S2C.Notice, { items });
     }
 };
 exports.WorldSyncProtocolService = WorldSyncProtocolService;

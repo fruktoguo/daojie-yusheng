@@ -3,7 +3,7 @@ import { resolvePreviewTechniques } from './content/local-templates';
 import { FloatingTooltip } from './ui/floating-tooltip';
 import { refreshHeavenGateModal } from './ui/heaven-gate-modal';
 import { getDisplayRangeX, getDisplayRangeY } from './display';
-import { nextUiBridge } from './next/bridge/next-ui-bridge';
+import { reactUiBridge } from './next/bridge/next-ui-bridge';
 import { createMainConnectionStateSource } from './main-connection-state-source';
 import { createMainMapRuntimeBridgeSource } from './main-map-runtime-bridge-source';
 import { createMainNavigationStateSource } from './main-navigation-state-source';
@@ -229,12 +229,12 @@ export function createMainRuntimeOwnerContext(options: CreateMainRuntimeOwnerCon
     inventoryStateSource: panelContext.inventoryStateSource,
     techniqueStateSource: panelContext.techniqueStateSource,
     actionStateSource: panelContext.actionStateSource,
-    syncInventoryBridgeState: (inventory) => nextUiBridge.syncInventory(inventory),
-    syncEquipmentBridgeState: (equipment) => nextUiBridge.syncEquipment(equipment),
-    syncTechniquesBridgeState: (techniques, cultivatingTechId) => nextUiBridge.syncTechniques(techniques, cultivatingTechId),
-    syncActionsBridgeState: (actions, autoBattle, autoRetaliate) => nextUiBridge.syncActions(actions, autoBattle, autoRetaliate),
-    syncAttrBridgeState: (value) => nextUiBridge.syncAttrUpdate(value),
-    syncPlayerBridgeState: (player) => nextUiBridge.syncPlayer(player),
+    syncInventoryBridgeState: (inventory) => reactUiBridge.syncInventory(inventory),
+    syncEquipmentBridgeState: (equipment) => reactUiBridge.syncEquipment(equipment),
+    syncTechniquesBridgeState: (techniques, cultivatingTechId) => reactUiBridge.syncTechniques(techniques, cultivatingTechId),
+    syncActionsBridgeState: (actions, autoBattle, autoRetaliate) => reactUiBridge.syncActions(actions, autoBattle, autoRetaliate),
+    syncAttrBridgeState: (value) => reactUiBridge.syncAttrUpdate(value),
+    syncPlayerBridgeState: (player) => reactUiBridge.syncPlayer(player),
     refreshHeavenGateModal: (player) => refreshHeavenGateModal(player, {
       showToast: (message) => panelContext.uiStateSource.showToast(message),
       sendAction: (action, element) => runtimeSender.sendHeavenGateAction(action, element),
@@ -262,8 +262,8 @@ export function createMainRuntimeOwnerContext(options: CreateMainRuntimeOwnerCon
     mergeAttrUpdatePatch: (current, patch) => panelDeltaStateSource.mergeAttrUpdatePatch(current, patch),
     syncAuraLevelBaseValue: (nextValue) => panelContext.breakthroughStateSource.syncAuraLevelBaseValue(nextValue),
     syncCurrentTimeState: (state) => runtimeMonitorSource.syncCurrentTimeState(state ?? null),
-    applyWorldDeltaToRuntime: (input) => mapRuntime.applyNextWorldDelta(input),
-    applySelfDeltaToRuntime: (input) => mapRuntime.applyNextSelfDelta(input),
+    applyWorldDeltaToRuntime: (input) => mapRuntime.applyWorldDelta(input),
+    applySelfDeltaToRuntime: (input) => mapRuntime.applySelfDelta(input),
     navigation: {
       trimCurrentPathProgress: () => navigationStateSource.trimCurrentPathProgress(),
       triggerAutoInteractionIfReady: () => navigationStateSource.triggerAutoInteractionIfReady(),
@@ -301,12 +301,12 @@ export function createMainRuntimeOwnerContext(options: CreateMainRuntimeOwnerCon
     syncCurrentTimeState: (state) => runtimeMonitorSource.syncCurrentTimeState(state ?? null),
     resolvePreviewTechniques,
     buildAttrStateFromPlayer: (player) => panelDeltaStateSource.buildAttrStateFromPlayer(player),
-    syncPlayerBridgeState: (player) => nextUiBridge.syncPlayer(player),
-    syncAttrBridgeState: (value) => nextUiBridge.syncAttrUpdate(value),
-    syncInventoryBridgeState: (inventory) => nextUiBridge.syncInventory(inventory),
-    syncEquipmentBridgeState: (equipment) => nextUiBridge.syncEquipment(equipment),
-    syncTechniquesBridgeState: (techniques, cultivatingTechId) => nextUiBridge.syncTechniques(techniques, cultivatingTechId),
-    syncActionsBridgeState: (actions, autoBattle, autoRetaliate) => nextUiBridge.syncActions(actions, autoBattle, autoRetaliate),
+    syncPlayerBridgeState: (player) => reactUiBridge.syncPlayer(player),
+    syncAttrBridgeState: (value) => reactUiBridge.syncAttrUpdate(value),
+    syncInventoryBridgeState: (inventory) => reactUiBridge.syncInventory(inventory),
+    syncEquipmentBridgeState: (equipment) => reactUiBridge.syncEquipment(equipment),
+    syncTechniquesBridgeState: (techniques, cultivatingTechId) => reactUiBridge.syncTechniques(techniques, cultivatingTechId),
+    syncActionsBridgeState: (actions, autoBattle, autoRetaliate) => reactUiBridge.syncActions(actions, autoBattle, autoRetaliate),
     syncBootstrapQuestState: (player) => panelContext.questStateSource.syncBootstrapQuestState(player),
     normalizeBootstrapPlayer: (player) => panelContext.actionStateSource.normalizeBootstrapPlayer(player),
     clearTargetingState: () => targetingStateSource.clear(),
@@ -320,11 +320,8 @@ export function createMainRuntimeOwnerContext(options: CreateMainRuntimeOwnerCon
       tiles: data.tiles,
       tilesOriginX: data.tilesOriginX,
       tilesOriginY: data.tilesOriginY,
-      tilePatches: data.tilePatches,
       minimapLibrary: data.minimapLibrary,
       visibleMinimapMarkers: data.visibleMinimapMarkers,
-      visibleMinimapMarkerAdds: data.visibleMinimapMarkerAdds,
-      visibleMinimapMarkerRemoves: data.visibleMinimapMarkerRemoves,
     }),
     setRuntimePathCells: () => navigationStateSource.syncPathCellsToRuntime(),
     resetObservedBaselinesFromPlayer: (player) => {
@@ -413,14 +410,14 @@ export function createMainRuntimeOwnerContext(options: CreateMainRuntimeOwnerCon
     clearMailState: () => panelContext.mailStateSource.clear(),
     clearSuggestionState: () => panelContext.suggestionStateSource.clear(),
     resetMapRuntime: () => mapRuntime.reset(),
-    resetNextUiBridge: () => {
-      nextUiBridge.reset();
-      nextUiBridge.syncPlayer(null);
-      nextUiBridge.syncAttrUpdate(null);
-      nextUiBridge.syncInventory(null);
-      nextUiBridge.syncEquipment(null);
-      nextUiBridge.syncTechniques([], undefined);
-      nextUiBridge.syncActions([], false, true);
+    resetReactUiBridge: () => {
+      reactUiBridge.reset();
+      reactUiBridge.syncPlayer(null);
+      reactUiBridge.syncAttrUpdate(null);
+      reactUiBridge.syncInventory(null);
+      reactUiBridge.syncEquipment(null);
+      reactUiBridge.syncTechniques([], undefined);
+      reactUiBridge.syncActions([], false, true);
     },
     resetPanelRuntime: () => panelContext.panelRuntimeSource.resetRuntime(),
     resizeCanvas,

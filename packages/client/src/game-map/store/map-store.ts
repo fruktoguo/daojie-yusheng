@@ -8,7 +8,7 @@ import {
   type MapMinimapSnapshot,
   type PlayerState,
   type RenderEntity,
-  type NEXT_S2C_MapStatic,
+  type S2C_MapStatic,
   type TickRenderEntity,
   type Tile,
   type VisibleTile,
@@ -34,8 +34,8 @@ import {
 import type {
   MapBootstrapInput,
   MapEntityTransition,
-  MapNextSelfDeltaInput,
-  MapNextWorldDeltaInput,
+  MapSelfDeltaInput,
+  MapWorldDeltaInput,
   MapSenseQiOverlayState,
   MapStoreSnapshot,
   MapTargetingOverlayState,
@@ -364,13 +364,13 @@ export class MapStore {
   }
 
   /** 接收地图静态信息更新：元数据、可见块与小地图元数据。 */
-  applyMapStatic(data: NEXT_S2C_MapStatic): void {
+  applyMapStatic(data: S2C_MapStatic): void {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
     if (!this.player) {
       return;
     }
-    const dataWithTiles = data as NEXT_S2C_MapStatic & {    
+    const dataWithTiles = data as S2C_MapStatic & {    
     /**
  * tiles：tile相关字段。
  */
@@ -386,21 +386,12 @@ export class MapStore {
  */
 
       tilesOriginY?: number;      
-      /**
- * tilePatches：tilePatche相关字段。
- */
-
-      tilePatches?: VisibleTilePatch[];
     };
     if (Array.isArray(dataWithTiles.tiles)
       && typeof dataWithTiles.tilesOriginX === 'number'
       && typeof dataWithTiles.tilesOriginY === 'number'
       && data.mapId === this.player.mapId) {
       this.cacheVisibleTiles(data.mapId, dataWithTiles.tiles, dataWithTiles.tilesOriginX, dataWithTiles.tilesOriginY);
-    } else if (Array.isArray(dataWithTiles.tilePatches)
-      && dataWithTiles.tilePatches.length > 0
-      && data.mapId === this.player.mapId) {
-      this.applyVisibleTilePatches(data.mapId, dataWithTiles.tilePatches);
     }
 
     if (data.mapMeta && data.mapId === this.player.mapId) {
@@ -422,14 +413,6 @@ export class MapStore {
     if (data.visibleMinimapMarkers !== undefined && data.mapId === this.player.mapId) {
       this.visibleMinimapMarkers = cloneJson(data.visibleMinimapMarkers);
       rememberVisibleMarkers(data.mapId, this.visibleMinimapMarkers);
-    } else if (data.mapId === this.player.mapId && ((data.visibleMinimapMarkerAdds?.length ?? 0) > 0 || (data.visibleMinimapMarkerRemoves?.length ?? 0) > 0)) {
-      this.visibleMinimapMarkers = this.mergeVisibleMinimapMarkerPatches(
-        data.visibleMinimapMarkerAdds ?? [],
-        data.visibleMinimapMarkerRemoves ?? [],
-      );
-      if ((data.visibleMinimapMarkerAdds?.length ?? 0) > 0) {
-        rememberVisibleMarkers(data.mapId, data.visibleMinimapMarkerAdds ?? []);
-      }
     }
     if ('minimap' in data && data.mapId === this.player.mapId) {
       this.minimapSnapshot = data.minimap ?? null;
@@ -440,7 +423,7 @@ export class MapStore {
   }
 
   /** 处理世界级增量：实体移动、威胁箭头、地块更新与时间推进。 */
-  applyNextWorldDelta(data: MapNextWorldDeltaInput): void {
+  applyWorldDelta(data: MapWorldDeltaInput): void {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
     if (!this.player) {
@@ -497,6 +480,15 @@ export class MapStore {
     } else if (!preloadingDifferentMap && Array.isArray(data.visibleTilePatches) && data.visibleTilePatches.length > 0) {
       this.applyVisibleTilePatches(this.player.mapId, data.visibleTilePatches);
     }
+    if (!preloadingDifferentMap && ((data.visibleMinimapMarkerAdds?.length ?? 0) > 0 || (data.visibleMinimapMarkerRemoves?.length ?? 0) > 0)) {
+      this.visibleMinimapMarkers = this.mergeVisibleMinimapMarkerPatches(
+        data.visibleMinimapMarkerAdds ?? [],
+        data.visibleMinimapMarkerRemoves ?? [],
+      );
+      if ((data.visibleMinimapMarkerAdds?.length ?? 0) > 0) {
+        rememberVisibleMarkers(this.player.mapId, data.visibleMinimapMarkerAdds ?? []);
+      }
+    }
     const hasEntityPatch = data.playerPatches.length > 0 || data.entityPatches.length > 0 || (data.removedEntityIds?.length ?? 0) > 0;
     if (hasEntityPatch) {
       this.entities = this.mergeTickEntities(data.playerPatches, data.entityPatches, data.removedEntityIds ?? []);
@@ -523,7 +515,7 @@ export class MapStore {
   }
 
   /** 处理本体增量：坐标、生命/真元变化、地图切换。 */
-  applyNextSelfDelta(data: MapNextSelfDeltaInput): void {
+  applySelfDelta(data: MapSelfDeltaInput): void {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
     if (!this.player) {

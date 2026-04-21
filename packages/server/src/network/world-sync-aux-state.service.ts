@@ -13,6 +13,7 @@ import {
   type RealmView,
   type SyncedItemStack,
   type SyncedLootWindowState,
+  type WorldDeltaView,
 } from '@mud/shared-next';
 
 import { MapTemplateRepository } from '../runtime/map/map-template.repository';
@@ -70,6 +71,7 @@ interface WorldSyncMinimapServicePort {
 interface WorldSyncProtocolServicePort {
   sendBootstrap: WorldSyncProtocolServiceInstance['sendBootstrap'];
   sendMapStatic: WorldSyncProtocolServiceInstance['sendMapStatic'];
+  sendWorldDelta: WorldSyncProtocolServiceInstance['sendWorldDelta'];
   sendRealm: WorldSyncProtocolServiceInstance['sendRealm'];
   sendLootWindow: WorldSyncProtocolServiceInstance['sendLootWindow'];
 }
@@ -88,7 +90,7 @@ interface WorldSyncPlayerStateServicePort {
   buildPlayerSyncState: WorldSyncPlayerStateServiceInstance['buildPlayerSyncState'];
 }
 
-interface NextAuxState {
+interface ProtocolAuxState {
   realm: PlayerRealmState | null;
   threatArrows: ThreatArrow;
   lootWindow: LootWindowState;
@@ -101,15 +103,18 @@ interface MapStaticSyncOptions {
   tiles?: VisibleTilesSnapshot['matrix'];
   tilesOriginX?: number;
   tilesOriginY?: number;
-  tilePatches?: MapStaticSyncView['tilePatches'];
   visibleMinimapMarkers?: MapMinimapMarker[];
-  visibleMinimapMarkerAdds?: MapStaticSyncView['visibleMinimapMarkerAdds'];
-  visibleMinimapMarkerRemoves?: MapStaticSyncView['visibleMinimapMarkerRemoves'];
+}
+
+interface WorldDeltaMapPatchSyncOptions {
+  tilePatches?: WorldDeltaView['tp'];
+  visibleMinimapMarkerAdds?: WorldDeltaView['vma'];
+  visibleMinimapMarkerRemoves?: WorldDeltaView['vmr'];
 }
 
 @Injectable()
 export class WorldSyncAuxStateService {
-  private readonly nextAuxStateByPlayerId = new Map<string, NextAuxState>();
+  private readonly protocolAuxStateByPlayerId = new Map<string, ProtocolAuxState>();
 
   constructor(
     @Inject(MapTemplateRepository)
@@ -132,10 +137,10 @@ export class WorldSyncAuxStateService {
 
   clearPlayerCache(playerId: string): void {
     this.worldSyncMapStaticAuxService.clearPlayerCache(playerId);
-    this.nextAuxStateByPlayerId.delete(playerId);
+    this.protocolAuxStateByPlayerId.delete(playerId);
   }
 
-  emitNextInitialSync(
+  emitAuxInitialSync(
     playerId: string,
     socket: SocketLike,
     view: PlayerView,
@@ -171,22 +176,22 @@ export class WorldSyncAuxStateService {
     this.worldSyncProtocolService.sendLootWindow(socket, { window: lootWindow });
     this.worldSyncThreatService.emitInitialThreatSync(socket, view, threatArrows);
     this.worldSyncMapStaticAuxService.commitPlayerCache(playerId, mapStaticState.cacheState);
-    this.nextAuxStateByPlayerId.set(playerId, {
+    this.protocolAuxStateByPlayerId.set(playerId, {
       realm: cloneRealmState(player.realm),
       threatArrows: cloneThreatArrows(threatArrows),
       lootWindow: cloneLootWindow(lootWindow),
     });
   }
 
-  emitNextDeltaSync(
+  emitAuxDeltaSync(
     playerId: string,
     socket: SocketLike,
     view: PlayerView,
     player: RuntimePlayer,
   ): void {
-    const previous = this.nextAuxStateByPlayerId.get(playerId) ?? null;
+    const previous = this.protocolAuxStateByPlayerId.get(playerId) ?? null;
     if (!previous) {
-      this.emitNextInitialSync(playerId, socket, view, player);
+      this.emitAuxInitialSync(playerId, socket, view, player);
       return;
     }
 
@@ -215,9 +220,9 @@ export class WorldSyncAuxStateService {
       || mapStaticPlan.visibleMinimapMarkerRemoves.length > 0
       || mapStaticPlan.tilePatches.length > 0
     ) {
-      this.worldSyncProtocolService.sendMapStatic(
+      this.worldSyncProtocolService.sendWorldDelta(
         socket,
-        this.buildMapStaticSyncPayload(template, {
+        this.buildWorldDeltaMapPatchPayload(view, {
           tilePatches: mapStaticPlan.tilePatches.length > 0 ? mapStaticPlan.tilePatches : undefined,
           visibleMinimapMarkerAdds:
             mapStaticPlan.visibleMinimapMarkerAdds.length > 0
@@ -249,7 +254,7 @@ export class WorldSyncAuxStateService {
     );
 
     this.worldSyncMapStaticAuxService.commitPlayerCache(playerId, mapStaticPlan.cacheState);
-    this.nextAuxStateByPlayerId.set(playerId, {
+    this.protocolAuxStateByPlayerId.set(playerId, {
       realm: currentRealm,
       threatArrows: cloneThreatArrows(currentThreatArrows),
       lootWindow: cloneLootWindow(lootWindow),
@@ -279,10 +284,21 @@ export class WorldSyncAuxStateService {
       tiles: options.tiles,
       tilesOriginX: options.tilesOriginX,
       tilesOriginY: options.tilesOriginY,
-      tilePatches: options.tilePatches,
       visibleMinimapMarkers: options.visibleMinimapMarkers,
-      visibleMinimapMarkerAdds: options.visibleMinimapMarkerAdds,
-      visibleMinimapMarkerRemoves: options.visibleMinimapMarkerRemoves,
+    };
+  }
+
+  private buildWorldDeltaMapPatchPayload(
+    view: PlayerView,
+    options: WorldDeltaMapPatchSyncOptions = {},
+  ): WorldDeltaView {
+    return {
+      t: view.tick,
+      wr: view.worldRevision,
+      sr: view.selfRevision,
+      tp: options.tilePatches,
+      vma: options.visibleMinimapMarkerAdds,
+      vmr: options.visibleMinimapMarkerRemoves,
     };
   }
 

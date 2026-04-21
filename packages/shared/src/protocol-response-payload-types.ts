@@ -199,13 +199,7 @@ export interface NEXT_S2C_Tick extends TickView {
   g?: GroundItemPilePatch[];
 }
 /** 地图静态同步：低频重同步地图元数据、小地图与静态标记。 */
-export interface NEXT_S2C_MapStaticSync extends MapStaticSyncView {
-/**
- * tilePatches：tilePatche相关字段。
- */
-
-  tilePatches?: VisibleTilePatch[];
-}
+export interface NEXT_S2C_MapStaticSync extends MapStaticSyncView {}
 /** 实体进入视野的单条事件。 */
 export interface NEXT_S2C_Enter extends EnterView {}
 /** 实体离开视野的单条事件。 */
@@ -303,3 +297,66 @@ export interface NEXT_S2C_MailPage extends MailPageSyncView {}
 export interface NEXT_S2C_MailOpResult extends MailOpResultView {}
 /** 建议列表更新。 */
 export interface NEXT_S2C_SuggestionUpdate extends SuggestionUpdateView {}
+
+// 中性响应载荷类型别名；保留 NEXT_* 作为兼容导出。
+export type S2C_LootWindowUpdate = NEXT_S2C_LootWindowUpdate;
+export type S2C_QuestNavigateResult = NEXT_S2C_QuestNavigateResult;
+export type S2C_RedeemCodesResult = NEXT_S2C_RedeemCodesResult;
+export type S2C_GmState = NEXT_S2C_GmState;
+export type S2C_InitSession = NEXT_S2C_InitSession;
+export type S2C_MapEnter = NEXT_S2C_MapEnter;
+export type S2C_NoticeItem = NEXT_S2C_NoticeItem;
+export type S2C_Notice = NEXT_S2C_Notice;
+export type S2C_Realm = NEXT_S2C_Realm;
+export type S2C_WorldPlayerPatch = NEXT_S2C_WorldPlayerPatch;
+export type S2C_WorldMonsterPatch = NEXT_S2C_WorldMonsterPatch;
+export type S2C_WorldNpcPatch = NEXT_S2C_WorldNpcPatch;
+export type S2C_WorldPortalPatch = NEXT_S2C_WorldPortalPatch;
+export type S2C_WorldGroundPatch = NEXT_S2C_WorldGroundPatch;
+export type S2C_WorldContainerPatch = NEXT_S2C_WorldContainerPatch;
+export type S2C_WorldDelta = NEXT_S2C_WorldDelta;
+export type S2C_SelfDelta = NEXT_S2C_SelfDelta;
+export type S2C_PanelInventoryDelta = NEXT_S2C_PanelInventoryDelta;
+export type S2C_PanelEquipmentDelta = NEXT_S2C_PanelEquipmentDelta;
+export type S2C_PanelTechniqueDelta = NEXT_S2C_PanelTechniqueDelta;
+export type S2C_PanelAttrDelta = NEXT_S2C_PanelAttrDelta;
+export type S2C_PanelActionDelta = NEXT_S2C_PanelActionDelta;
+export type S2C_PanelBuffDelta = NEXT_S2C_PanelBuffDelta;
+export type S2C_Pong = NEXT_S2C_Pong;
+export type S2C_Tick = NEXT_S2C_Tick;
+export type S2C_MapStaticSync = NEXT_S2C_MapStaticSync;
+export type S2C_Enter = NEXT_S2C_Enter;
+export type S2C_Leave = NEXT_S2C_Leave;
+export type S2C_Init = NEXT_S2C_Init;
+export type S2C_Error = NEXT_S2C_Error;
+export type S2C_AttrUpdate = NEXT_S2C_AttrUpdate;
+export type S2C_RealmUpdate = NEXT_S2C_RealmUpdate;
+export type S2C_InventoryUpdate = NEXT_S2C_InventoryUpdate;
+export type S2C_EquipmentUpdate = NEXT_S2C_EquipmentUpdate;
+export type S2C_TechniqueUpdate = NEXT_S2C_TechniqueUpdate;
+export type S2C_ActionsUpdate = NEXT_S2C_ActionsUpdate;
+export type S2C_NpcShop = NEXT_S2C_NpcShop;
+export type S2C_MarketUpdate = NEXT_S2C_MarketUpdate;
+export type S2C_MarketListings = NEXT_S2C_MarketListings;
+export type S2C_MarketOrders = NEXT_S2C_MarketOrders;
+export type S2C_MarketStorage = NEXT_S2C_MarketStorage;
+export type S2C_MarketItemBook = NEXT_S2C_MarketItemBook;
+export type S2C_MarketTradeHistory = NEXT_S2C_MarketTradeHistory;
+export type S2C_NpcQuests = NEXT_S2C_NpcQuests;
+export type S2C_PortalDetail = NEXT_S2C_PortalDetail;
+export type S2C_GroundDetail = NEXT_S2C_GroundDetail;
+export type S2C_ContainerDetail = NEXT_S2C_ContainerDetail;
+export type S2C_NpcDetail = NEXT_S2C_NpcDetail;
+export type S2C_MonsterDetail = NEXT_S2C_MonsterDetail;
+export type S2C_PlayerDetail = NEXT_S2C_PlayerDetail;
+export type S2C_TileDetail = NEXT_S2C_TileDetail;
+export type S2C_TileRuntimeDetail = NEXT_S2C_TileRuntimeDetail;
+export type S2C_QuestUpdate = NEXT_S2C_QuestUpdate;
+export type S2C_Leaderboard = NEXT_S2C_Leaderboard;
+export type S2C_LeaderboardPlayerLocations = NEXT_S2C_LeaderboardPlayerLocations;
+export type S2C_WorldSummary = NEXT_S2C_WorldSummary;
+export type S2C_SystemMsg = NEXT_S2C_SystemMsg;
+export type S2C_MailSummary = NEXT_S2C_MailSummary;
+export type S2C_MailPage = NEXT_S2C_MailPage;
+export type S2C_MailOpResult = NEXT_S2C_MailOpResult;
+export type S2C_SuggestionUpdate = NEXT_S2C_SuggestionUpdate;

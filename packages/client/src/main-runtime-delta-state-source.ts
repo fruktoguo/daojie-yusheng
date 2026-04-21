@@ -1,10 +1,10 @@
 import {
   type ActionDef,
   type GroundItemPilePatch,
-  type NEXT_S2C_AttrUpdate,
-  type NEXT_S2C_PanelDelta,
-  type NEXT_S2C_SelfDelta,
-  type NEXT_S2C_WorldDelta,
+  type S2C_AttrUpdate,
+  type S2C_PanelDelta,
+  type S2C_SelfDelta,
+  type S2C_WorldDelta,
   type MonsterTier,
   type PlayerState,
   type RenderEntity,
@@ -12,7 +12,7 @@ import {
   type TickRenderEntity,
   cloneJson,
 } from '@mud/shared-next';
-import { logNextMovement } from './debug/movement-debug';
+import { logMovement } from './debug/movement-debug';
 import { getLatestObservedEntitiesSnapshot } from './game-map/store/map-store';
 import { getMonsterPresentation } from './monster-presentation';
 import type { MainRuntimeObservedEntity as ObservedEntity } from './main-runtime-view-types';
@@ -51,17 +51,17 @@ type MainRuntimeDeltaStateSourceOptions = {
  * getLatestAttrUpdate：LatestAttrUpdate相关字段。
  */
 
-  getLatestAttrUpdate: () => NEXT_S2C_AttrUpdate | null;  
+  getLatestAttrUpdate: () => S2C_AttrUpdate | null;
   /**
  * setLatestAttrUpdate：LatestAttrUpdate相关字段。
  */
 
-  setLatestAttrUpdate: (value: NEXT_S2C_AttrUpdate | null) => void;  
+  setLatestAttrUpdate: (value: S2C_AttrUpdate | null) => void;
   /**
  * mergeAttrUpdatePatch：AttrUpdatePatch相关字段。
  */
 
-  mergeAttrUpdatePatch: (previous: NEXT_S2C_AttrUpdate | null, patch: NEXT_S2C_AttrUpdate) => NEXT_S2C_AttrUpdate;  
+  mergeAttrUpdatePatch: (previous: S2C_AttrUpdate | null, patch: S2C_AttrUpdate) => S2C_AttrUpdate;
   /**
  * syncAuraLevelBaseValue：Aura等级Base值数值。
  */
@@ -71,7 +71,7 @@ type MainRuntimeDeltaStateSourceOptions = {
  * syncCurrentTimeState：Current时间状态状态或数据块。
  */
 
-  syncCurrentTimeState: (state: NEXT_S2C_WorldDelta['time'] | null | undefined) => void;  
+  syncCurrentTimeState: (state: S2C_WorldDelta['time'] | null | undefined) => void;
   /**
  * applyWorldDeltaToRuntime：世界DeltaTo运行态引用。
  */
@@ -101,7 +101,7 @@ type MainRuntimeDeltaStateSourceOptions = {
  * effects：effect相关字段。
  */
 
-    effects?: NEXT_S2C_WorldDelta['fx'];    
+    effects?: S2C_WorldDelta['fx'];
     /**
  * threatArrows：集合字段。
  */
@@ -147,17 +147,27 @@ type MainRuntimeDeltaStateSourceOptions = {
  * time：时间相关字段。
  */
 
-    time?: NEXT_S2C_WorldDelta['time'];    
+    time?: S2C_WorldDelta['time'];
     /**
  * visibleTiles：可见Tile相关字段。
  */
 
-    visibleTiles?: NEXT_S2C_WorldDelta['v'];    
+    visibleTiles?: S2C_WorldDelta['v'];
     /**
  * visibleTilePatches：可见TilePatche相关字段。
  */
 
-    visibleTilePatches?: NEXT_S2C_WorldDelta['tp'];    
+    visibleTilePatches?: S2C_WorldDelta['tp'];
+    /**
+ * visibleMinimapMarkerAdds：可见MinimapMarkerAdd相关字段。
+ */
+
+    visibleMinimapMarkerAdds?: S2C_WorldDelta['vma'];
+    /**
+ * visibleMinimapMarkerRemoves：可见MinimapMarkerRemove相关字段。
+ */
+
+    visibleMinimapMarkerRemoves?: S2C_WorldDelta['vmr'];
     /**
  * mapId：地图ID标识。
  */
@@ -312,7 +322,7 @@ type MainRuntimeDeltaStateSourceOptions = {
  * updateAttrPanel：Attr面板相关字段。
  */
 
-  updateAttrPanel: (value: NEXT_S2C_AttrUpdate) => void;  
+  updateAttrPanel: (value: S2C_AttrUpdate) => void;
   /**
  * refreshUiChrome：refreshUiChrome相关字段。
  */
@@ -322,34 +332,34 @@ type MainRuntimeDeltaStateSourceOptions = {
  * handleAttrUpdate：AttrUpdate相关字段。
  */
 
-  handleAttrUpdate: (data: NEXT_S2C_AttrUpdate) => void;  
+  handleAttrUpdate: (data: S2C_AttrUpdate) => void;
   /**
  * handleInventoryUpdate：背包Update相关字段。
  */
 
-  handleInventoryUpdate: (data: NonNullable<NEXT_S2C_PanelDelta['inv']>) => void;  
+  handleInventoryUpdate: (data: NonNullable<S2C_PanelDelta['inv']>) => void;
   /**
  * handleEquipmentUpdate：装备Update相关字段。
  */
 
-  handleEquipmentUpdate: (data: NonNullable<NEXT_S2C_PanelDelta['eq']>) => void;  
+  handleEquipmentUpdate: (data: NonNullable<S2C_PanelDelta['eq']>) => void;
   /**
  * handleTechniqueUpdate：功法Update相关字段。
  */
 
-  handleTechniqueUpdate: (data: NonNullable<NEXT_S2C_PanelDelta['tech']>) => void;  
+  handleTechniqueUpdate: (data: NonNullable<S2C_PanelDelta['tech']>) => void;
   /**
  * handleActionsUpdate：ActionUpdate相关字段。
  */
 
-  handleActionsUpdate: (data: NonNullable<NEXT_S2C_PanelDelta['act']>) => void;
+  handleActionsUpdate: (data: NonNullable<S2C_PanelDelta['act']>) => void;
 };
 
-const NEXT_PLAYER_ENTITY_COLOR = '#8ec5ff';
-const NEXT_MONSTER_ENTITY_COLOR = '#ff9b73';
-const NEXT_NPC_ENTITY_COLOR = '#f3d27a';
-const NEXT_PORTAL_ENTITY_COLOR = '#b9a7ff';
-const NEXT_CONTAINER_ENTITY_COLOR = '#c18b46';
+const PLAYER_ENTITY_COLOR = '#8ec5ff';
+const MONSTER_ENTITY_COLOR = '#ff9b73';
+const NPC_ENTITY_COLOR = '#f3d27a';
+const PORTAL_ENTITY_COLOR = '#b9a7ff';
+const CONTAINER_ENTITY_COLOR = '#c18b46';
 /**
  * getFirstGrapheme：读取首个Grapheme。
  * @param input string | undefined 输入参数。
@@ -598,6 +608,8 @@ export function createMainRuntimeDeltaStateSource(options: MainRuntimeDeltaState
       time: data.time ?? undefined,
       visibleTiles: data.v,
       visibleTilePatches: data.tp,
+      visibleMinimapMarkerAdds: data.vma,
+      visibleMinimapMarkerRemoves: data.vmr,
     };
   }  
   /**
@@ -781,7 +793,7 @@ export function createMainRuntimeDeltaStateSource(options: MainRuntimeDeltaState
         player.y = selfPatch.y;
       }
       if (selfPatch && (typeof selfPatch.x === 'number' || typeof selfPatch.y === 'number')) {
-        logNextMovement('client.recv.worldDelta.selfPatch', {
+        logMovement('client.recv.worldDelta.selfPatch', {
           playerId: player.id,
           before: previousState,
           patch: {
@@ -859,7 +871,7 @@ export function createMainRuntimeDeltaStateSource(options: MainRuntimeDeltaState
         player.y = data.y;
       }
       if (typeof data.mid === 'string' || typeof data.x === 'number' || typeof data.y === 'number' || data.f !== undefined) {
-        logNextMovement('client.recv.selfDelta', {
+        logMovement('client.recv.selfDelta', {
           playerId: player.id,
           before: previousState,
           delta: {

@@ -13,6 +13,7 @@ const path = require("node:path");
 const socket_io_client_1 = require("socket.io-client");
 const env_alias_1 = require("../config/env-alias");
 const stable_dist_1 = require("./stable-dist");
+const smoke_player_cleanup_1 = require("./smoke-player-cleanup");
 exports.packageRoot = (0, stable_dist_1.resolveToolPackageRoot)(__dirname);
 exports.distRoot = (0, stable_dist_1.resolveToolDistRoot)(__dirname, exports.packageRoot);
 exports.repoRoot = path.resolve(exports.packageRoot, '..', '..');
@@ -20,6 +21,7 @@ exports.repoRoot = path.resolve(exports.packageRoot, '..', '..');
  * 记录服务端入口文件路径。
  */
 const serverEntry = path.join(exports.distRoot, 'main.js');
+const WORLD_DELTA_ENTITY_KEYS = Object.freeze(['p', 'm', 'n', 'o', 'g', 'c']);
 /**
  * 处理delay。
  */
@@ -256,7 +258,7 @@ function invertEventMap(input) {
   return result;
 }
 /**
- * 从源码里提取 NEXT_C2S / NEXT_S2C 成员引用，作为协议静态面校验基础。
+ * 从源码里提取 C2S / S2C 成员引用，作为协议静态面校验基础。
  */
 function extractStaticProtocolMembers(relativePath, qualifierName) {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
@@ -332,6 +334,40 @@ function createAuditor(options) {
     return `${direction}:${event}`;
   }
 /**
+ * 派生event显示名。
+ */
+  function resolveDerivedEventName(direction, event, payload) {
+    const baseName = eventNames[direction].get(event) ?? event;
+    if (direction !== 's2c' || event !== shared_next_compat.S2C.WorldDelta) {
+      return baseName;
+    }
+    const tags = [];
+    if (WORLD_DELTA_ENTITY_KEYS.some((key) => Array.isArray(payload?.[key]) && payload[key].length > 0)) {
+      tags.push('entity');
+    }
+    if ((Array.isArray(payload?.v) && payload.v.length > 0) || (Array.isArray(payload?.tp) && payload.tp.length > 0)) {
+      tags.push('tile');
+    }
+    if ((Array.isArray(payload?.vma) && payload.vma.length > 0) || (Array.isArray(payload?.vmr) && payload.vmr.length > 0)) {
+      tags.push('minimap');
+    }
+    if ((Array.isArray(payload?.threatArrows) && payload.threatArrows.length > 0)
+      || (Array.isArray(payload?.threatArrowAdds) && payload.threatArrowAdds.length > 0)
+      || (Array.isArray(payload?.threatArrowRemoves) && payload.threatArrowRemoves.length > 0)) {
+      tags.push('threat');
+    }
+    if (Array.isArray(payload?.path) && payload.path.length > 0) {
+      tags.push('path');
+    }
+    if (Array.isArray(payload?.fx) && payload.fx.length > 0) {
+      tags.push('fx');
+    }
+    if (payload?.time !== undefined || typeof payload?.dt === 'number' || typeof payload?.auraLevelBaseValue === 'number') {
+      tags.push('time');
+    }
+    return tags.length > 0 ? `${baseName}(${tags.join('+')})` : baseName;
+  }
+/**
  * 确保coverage。
  */
   function ensureCoverage(direction, event) {
@@ -385,6 +421,7 @@ function createAuditor(options) {
  * 记录bytes。
  */
     const bytes = measurePayloadBytes(payload);
+    const derivedEventName = resolveDerivedEventName(direction, event, payload);
 /**
  * 记录属性字段。
  */
@@ -399,7 +436,7 @@ function createAuditor(options) {
     records.push({
       direction,
       event,
-      eventName: stat.eventName,
+      eventName: derivedEventName,
       bytes,
       caseName,
       socketLabel,
@@ -443,18 +480,15 @@ function createAuditor(options) {
  * 构建traffic行数据。
  */
   function buildTrafficRows() {
-    return Array.from(stats.values())
-      .map((entry) => ({
-        direction: entry.direction,
-        event: entry.event,
-        eventName: entry.eventName,
-        count: entry.count,
-        totalBytes: entry.totalBytes,
-        averageBytes: entry.count > 0 ? Math.round(entry.totalBytes / entry.count) : 0,
-        caseNames: [...entry.caseNames].sort(),
-        socketLabels: [...entry.socketLabels].sort(),
-      }))
-      .sort((left, right) => right.totalBytes - left.totalBytes || right.count - left.count || left.event.localeCompare(right.event));
+    return records.map((entry, index) => ({
+      index: index + 1,
+      direction: entry.direction,
+      event: entry.event,
+      eventName: entry.eventName,
+      bytes: entry.bytes,
+      caseName: entry.caseName,
+      socketLabel: entry.socketLabel ?? '',
+    }));
   }
 /**
  * 构建missing。
@@ -767,8 +801,9 @@ function createRuntimeApi(baseUrl) {
  */
 
     deletePlayer(playerId) {
-      return request(`/runtime/players/${playerId}`, {
-        method: 'DELETE',
+      return (0, smoke_player_cleanup_1.purgeSmokePlayerArtifactsByPlayerId)(playerId, {
+        serverUrl: baseUrl,
+        databaseUrl: (0, env_alias_1.resolveServerNextDatabaseUrl)(),
       });
     },
   };
@@ -1091,7 +1126,7 @@ function resolveCompatEventLabel(direction, event) {
 /**
  * 记录来源。
  */
-  const source = direction === 'c2s' ? shared_next_compat.NEXT_C2S : shared_next_compat.NEXT_S2C;
+  const source = direction === 'c2s' ? shared_next_compat.C2S : shared_next_compat.S2C;
   for (const [label, wire] of Object.entries(source)) {
     if (wire === event) {
       return label;
@@ -1156,8 +1191,8 @@ async function connectHello(socket, payload, timeoutMs = 5_000) {
       reject(error);
     });
   });
-  socket.emit(shared_next_compat.NEXT_C2S.Hello, payload);
-  return socket.waitForEvent(shared_next_compat.NEXT_S2C.InitSession, () => true, timeoutMs);
+  socket.emit(shared_next_compat.C2S.Hello, payload);
+  return socket.waitForEvent(shared_next_compat.S2C.InitSession, () => true, timeoutMs);
 }
 
 /**
