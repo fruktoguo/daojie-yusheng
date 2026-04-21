@@ -18,6 +18,7 @@ exports.WorldRuntimeRespawnService = void 0;
 const common_1 = require("@nestjs/common");
 
 const player_runtime_service_1 = require("../player/player-runtime.service");
+const PRISON_MAP_ID = 'prison';
 
 /** world-runtime respawn orchestration：承接复生队列消费与单人复生编排。 */
 let WorldRuntimeRespawnService = class WorldRuntimeRespawnService {
@@ -71,10 +72,14 @@ let WorldRuntimeRespawnService = class WorldRuntimeRespawnService {
             return;
         }
         const previous = deps.getPlayerLocation(playerId);
-        const targetMapId = deps.resolveDefaultRespawnMapId();
+        const previousInstance = previous ? deps.getInstanceRuntime(previous.instanceId) : null;
+        const previousMapId = previousInstance?.template?.id ?? player.templateId ?? '';
+        const targetMapId = previousMapId === PRISON_MAP_ID
+            ? PRISON_MAP_ID
+            : deps.resolveDefaultRespawnMapId();
         const targetInstance = deps.getOrCreatePublicInstance(targetMapId);
         if (previous) {
-            deps.getInstanceRuntime(previous.instanceId)?.disconnectPlayer(playerId);
+            previousInstance?.disconnectPlayer(playerId);
         }
         const runtimePlayer = targetInstance.connectPlayer({
             playerId,
