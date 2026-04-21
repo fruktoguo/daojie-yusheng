@@ -77,6 +77,7 @@ import {
   RETURN_TO_SPAWN_ACTION_ID,
   RETURN_TO_SPAWN_COOLDOWN_TICKS,
 } from '../constants/gameplay/action';
+import { resolveRuntimeRespawnMapId } from '../constants/gameplay/respawn';
 import {
   BLOOD_ESSENCE_ITEM_ID,
   BLOOD_ESSENCE_SHA_GAIN,
@@ -7261,7 +7262,7 @@ export class WorldService implements OnModuleInit, OnModuleDestroy {
 /** restorePlayerAfterDefeat：处理当前场景中的对应操作。 */
   private restorePlayerAfterDefeat(player: PlayerState, occupy: boolean) {
 /** respawnPlacement：定义该变量以承载业务值。 */
-    const respawnPlacement = this.mapService.resolveDefaultPlayerSpawnPosition(player.id, player.respawnMapId);
+    const respawnPlacement = this.resolvePlayerRespawnPlacement(player);
     player.pendingSkillCast = undefined;
     this.navigationService.clearMoveTarget(player.id);
     player.questNavigation = undefined;
@@ -8241,7 +8242,7 @@ export class WorldService implements OnModuleInit, OnModuleDestroy {
     options: { restoreVitals: boolean; clearBuffs: boolean },
   ): WorldUpdate {
 /** spawn：定义该变量以承载业务值。 */
-    const spawn = this.mapService.resolveDefaultPlayerSpawnPosition(player.id, player.respawnMapId);
+    const spawn = this.resolvePlayerRespawnPlacement(player);
     player.pendingSkillCast = undefined;
     this.navigationService.clearMoveTarget(player.id);
     this.mapService.removeOccupant(player.mapId, player.x, player.y, player.id);
@@ -8280,25 +8281,38 @@ export class WorldService implements OnModuleInit, OnModuleDestroy {
   }
 
 /** getReturnToSpawnTargetName：执行对应的业务逻辑。 */
-  private getReturnToSpawnTargetName(player: Pick<PlayerState, 'respawnMapId'>): string {
+  private getReturnToSpawnTargetName(player: Pick<PlayerState, 'mapId' | 'respawnMapId'>): string {
 /** mapId：定义该变量以承载业务值。 */
-    const mapId = this.mapService.resolvePlayerRespawnMapId(player.respawnMapId);
+    const mapId = this.resolvePlayerRespawnMapId(player);
     return this.mapService.getMapMeta(mapId)?.name ?? '落脚处';
   }
 
 /** getReturnToSpawnActionName：执行对应的业务逻辑。 */
-  private getReturnToSpawnActionName(player: Pick<PlayerState, 'respawnMapId'>): string {
+  private getReturnToSpawnActionName(player: Pick<PlayerState, 'mapId' | 'respawnMapId'>): string {
     return `遁返${this.getReturnToSpawnTargetName(player)}`;
   }
 
 /** getReturnToSpawnActionDesc：执行对应的业务逻辑。 */
-  private getReturnToSpawnActionDesc(player: Pick<PlayerState, 'respawnMapId'>): string {
+  private getReturnToSpawnActionDesc(player: Pick<PlayerState, 'mapId' | 'respawnMapId'>): string {
     return `催动归引灵符，立刻遁返${this.getReturnToSpawnTargetName(player)}落脚处，之后需调息 ${RETURN_TO_SPAWN_COOLDOWN_TICKS} 息。`;
   }
 
 /** getReturnToSpawnSuccessText：执行对应的业务逻辑。 */
-  private getReturnToSpawnSuccessText(player: Pick<PlayerState, 'respawnMapId'>): string {
+  private getReturnToSpawnSuccessText(player: Pick<PlayerState, 'mapId' | 'respawnMapId'>): string {
     return `归引灵符化作清光，你已遁返${this.getReturnToSpawnTargetName(player)}落脚处。`;
+  }
+
+  private resolvePlayerRespawnMapId(player: Pick<PlayerState, 'mapId' | 'respawnMapId'>): string {
+    return this.mapService.resolvePlayerRespawnMapId(
+      resolveRuntimeRespawnMapId(player.mapId, player.respawnMapId),
+    );
+  }
+
+  private resolvePlayerRespawnPlacement(player: Pick<PlayerState, 'id' | 'mapId' | 'respawnMapId'>): { mapId: string; x: number; y: number } {
+    return this.mapService.resolveDefaultPlayerSpawnPosition(
+      player.id,
+      resolveRuntimeRespawnMapId(player.mapId, player.respawnMapId),
+    );
   }
 
 /** persistMonsterRuntimeState：执行对应的业务逻辑。 */
