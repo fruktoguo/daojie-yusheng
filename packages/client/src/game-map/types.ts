@@ -377,6 +377,11 @@ export interface MapStoreSnapshot {
 
     y: number;    
     /**
+ * char：地图上用于表示玩家的单字符。
+ */
+
+    char: string;
+    /**
  * mapId：地图ID标识。
  */
 

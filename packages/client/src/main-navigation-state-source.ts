@@ -240,6 +240,20 @@ const AUTO_INTERACTION_APPROACH_STEPS: ReadonlyArray<{
   { dx: -1, dy: 0 },
   { dx: 1, dy: 0 },
 ];
+
+const ADJACENT_INTERACTION_APPROACH_STEPS: ReadonlyArray<{
+  dx: number;
+  dy: number;
+}> = [
+  { dx: -1, dy: -1 },
+  { dx: 0, dy: -1 },
+  { dx: 1, dy: -1 },
+  { dx: -1, dy: 0 },
+  { dx: 1, dy: 0 },
+  { dx: -1, dy: 1 },
+  { dx: 0, dy: 1 },
+  { dx: 1, dy: 1 },
+];
 /**
  * isPathPreviewBlockingEntity：判断路径PreviewBlockingEntity是否满足条件。
  * @param entity MainNavigationObservedEntity 参数说明。
@@ -510,7 +524,7 @@ export function createMainNavigationStateSource(options: MainNavigationStateSour
  */
 
 
-  function resolveNpcApproachTarget(npc: MainNavigationObservedEntity): {  
+  function resolveNpcApproachTarget(npc: MainNavigationObservedEntity): {
   /**
  * x：x相关字段。
  */
@@ -546,6 +560,39 @@ export function createMainNavigationStateSource(options: MainNavigationStateSour
     for (const step of AUTO_INTERACTION_APPROACH_STEPS) {
       const candidateX = npc.wx + step.dx;
       const candidateY = npc.wy + step.dy;
+      if (!isCellAvailableForAutoApproach(candidateX, candidateY)) {
+        continue;
+      }
+      const previewPath = buildClientPreviewPath(player.x, player.y, candidateX, candidateY);
+      if (!previewPath && (player.x !== candidateX || player.y !== candidateY)) {
+        continue;
+      }
+      const pathLength = previewPath?.cells.length ?? 0;
+      const distance = gridDistance({ x: player.x, y: player.y }, { x: candidateX, y: candidateY });
+      if (
+        !bestCandidate
+        || pathLength < bestCandidate.pathLength
+        || (pathLength === bestCandidate.pathLength && distance < bestCandidate.distance)
+      ) {
+        bestCandidate = { x: candidateX, y: candidateY, pathLength, distance };
+      }
+    }
+    return bestCandidate ? { x: bestCandidate.x, y: bestCandidate.y } : null;
+  }
+
+  function resolveAdjacentInteractionApproachTarget(target: { x: number; y: number }): {
+    x: number;
+    y: number;
+  } | null {
+    const player = options.getPlayer();
+    if (!player) {
+      return null;
+    }
+
+    let bestCandidate: { x: number; y: number; pathLength: number; distance: number } | null = null;
+    for (const step of ADJACENT_INTERACTION_APPROACH_STEPS) {
+      const candidateX = target.x + step.dx;
+      const candidateY = target.y + step.dy;
       if (!isCellAvailableForAutoApproach(candidateX, candidateY)) {
         continue;
       }
@@ -771,7 +818,11 @@ export function createMainNavigationStateSource(options: MainNavigationStateSour
         return false;
       }
       if (pendingAutoInteraction.kind === 'portal') {
-        if (player.x !== pendingAutoInteraction.x || player.y !== pendingAutoInteraction.y) {
+        if (!isPointInRange(
+          { x: player.x, y: player.y },
+          { x: pendingAutoInteraction.x, y: pendingAutoInteraction.y },
+          1,
+        )) {
           return false;
         }
         const actionId = pendingAutoInteraction.actionId;
@@ -882,7 +933,7 @@ export function createMainNavigationStateSource(options: MainNavigationStateSour
       if (!player || (tile.type !== 'portal' && tile.type !== 'stairs')) {
         return false;
       }
-      if (player.x === target.x && player.y === target.y) {
+      if (isPointInRange({ x: player.x, y: player.y }, { x: target.x, y: target.y }, 1)) {
         pathCells = [];
         pathTarget = null;
         pendingAutoInteraction = {
@@ -893,6 +944,12 @@ export function createMainNavigationStateSource(options: MainNavigationStateSour
           actionId: 'portal:travel',
         };
         options.setRuntimePathCells(pathCells);
+        options.sendAction('portal:travel');
+        return true;
+      }
+      const approachTarget = resolveAdjacentInteractionApproachTarget(target);
+      if (!approachTarget) {
+        options.showToast('找不到能靠近该传送点的位置');
         return true;
       }
       pendingAutoInteraction = {
@@ -902,7 +959,7 @@ export function createMainNavigationStateSource(options: MainNavigationStateSour
         y: target.y,
         actionId: 'portal:travel',
       };
-      this.planPathTo({ x: target.x, y: target.y }, { preserveAutoInteraction: true });
+      this.planPathTo(approachTarget, { allowNearestReachable: true, preserveAutoInteraction: true });
       return true;
     },
   };

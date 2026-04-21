@@ -14,6 +14,7 @@ import {
   type VisibleTile,
   type VisibleTilePatch,
   clonePlainValue,
+  getFirstGrapheme,
 } from '@mud/shared-next';
 import {
   deleteRememberedMap,
@@ -151,7 +152,7 @@ function buildLocalPlayerEntity(player: PlayerState, previous?: ObservedMapEntit
     id: player.id,
     wx: player.x,
     wy: player.y,
-    char: previous?.char ?? '我',
+    char: getFirstGrapheme(player.displayName ?? player.name ?? '') || previous?.char || '我',
     color: previous?.color ?? '#7ee787',
     badge: previous?.badge,
     hostile: false,
@@ -305,6 +306,8 @@ export class MapStore {
   };
   /** 本地实体运动过渡信息，用于下一次插值渲染。 */
   private entityTransition: MapEntityTransition | null = null;
+  /** 记录已由 WorldDelta 预加载的新图实体 mapId，避免后续 SelfDelta 再清掉。 */
+  private preloadedEntityMapId: string | null = null;
 
   /** 首次接入/重连时初始化地图状态与基础缓存。 */
   applyBootstrap(data: MapBootstrapInput): void {
@@ -443,8 +446,16 @@ export class MapStore {
     if (!this.player) {
       return;
     }
-    if (typeof data.mapId === 'string' && data.mapId && data.mapId !== this.player.mapId) {
-      this.player.mapId = data.mapId;
+    const hintedMapId = typeof data.mapId === 'string' && data.mapId
+      ? data.mapId
+      : this.player.mapId;
+    const preloadingDifferentMap = hintedMapId !== this.player.mapId;
+    if (preloadingDifferentMap) {
+      this.groundPiles.clear();
+      this.entities = [];
+      this.entityMap.clear();
+      this.threatArrows = [];
+      this.preloadedEntityMapId = hintedMapId;
     }
 
     const oldX = this.player.x;
@@ -476,14 +487,14 @@ export class MapStore {
     if (Array.isArray(data.pathCells)) {
       this.pathCells = data.pathCells.map((cell) => ({ x: cell.x, y: cell.y }));
     }
-    if (Array.isArray(data.visibleTiles)) {
+    if (Array.isArray(data.visibleTiles) && !preloadingDifferentMap) {
       this.cacheVisibleTiles(
         this.player.mapId,
         data.visibleTiles,
         this.player.x - this.getViewRadius(),
         this.player.y - this.getViewRadius(),
       );
-    } else if (Array.isArray(data.visibleTilePatches) && data.visibleTilePatches.length > 0) {
+    } else if (!preloadingDifferentMap && Array.isArray(data.visibleTilePatches) && data.visibleTilePatches.length > 0) {
       this.applyVisibleTilePatches(this.player.mapId, data.visibleTilePatches);
     }
     const hasEntityPatch = data.playerPatches.length > 0 || data.entityPatches.length > 0 || (data.removedEntityIds?.length ?? 0) > 0;
@@ -529,17 +540,20 @@ export class MapStore {
       this.minimapMemoryVersion = 0;
       this.minimapSnapshot = null;
       this.visibleMinimapMarkers = [];
-      this.groundPiles.clear();
-      this.entities = [];
-      this.entityMap.clear();
-      this.threatArrows = [];
       this.pathCells = [];
+      if (this.preloadedEntityMapId !== nextMapId) {
+        this.groundPiles.clear();
+        this.entities = [];
+        this.entityMap.clear();
+        this.threatArrows = [];
+      }
       this.player.mapId = nextMapId;
       this.minimapSnapshot = (this.player.unlockedMinimapIds ?? []).includes(this.player.mapId)
         ? getCachedMapSnapshot(this.player.mapId)
         : null;
       hydrateTileCacheFromMemory(this.player.mapId, this.tileCache);
       this.awaitingFullVisibilityMapId = this.player.mapId;
+      this.preloadedEntityMapId = null;
     }
 
     if (typeof data.hp === 'number') {
@@ -692,6 +706,7 @@ export class MapStore {
             id: this.player.id,
             x: this.player.x,
             y: this.player.y,
+            char: getFirstGrapheme(this.player.displayName ?? this.player.name ?? '') || '我',
             mapId: this.player.mapId,
             viewRange: this.player.viewRange,
             senseQiActive: this.player.senseQiActive,
@@ -761,6 +776,10 @@ export class MapStore {
     for (const patch of [...playerPatches, ...entityPatches]) {
       const previous = nextMap.get(patch.id);
       const next = mergeObservedEntityPatch(patch, previous);
+      if (this.player && patch.id === this.player.id) {
+        next.char = getFirstGrapheme(this.player.displayName ?? this.player.name ?? '') || next.char;
+        next.name = this.player.name ?? next.name;
+      }
       if (previous) {
         const index = merged.findIndex((entity) => entity.id === patch.id);
         if (index >= 0) {
@@ -902,4 +921,3 @@ export class MapStore {
     }
   }
 }
-

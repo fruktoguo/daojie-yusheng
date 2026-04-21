@@ -323,6 +323,8 @@ export class WorldPanel {
   private nearbyPane = document.getElementById('pane-nearby')!;
   /** suggestionPane：建议Pane。 */
   private suggestionPane = document.getElementById('pane-suggestions')!;
+  /** tianjiPane：天机阁 Pane。 */
+  private tianjiPane = document.getElementById('pane-tianji') ?? document.createElement('div');
   /** lastNearbyMonsterIds：last Nearby妖兽ID 列表。 */
   private lastNearbyMonsterIds: string[] | null = null;
   /** lastNearbyNpcIds：last Nearby NPC ID 列表。 */
@@ -345,6 +347,7 @@ export class WorldPanel {
 
   constructor() {
     this.bindSuggestionPaneEvents();
+    this.bindTianjiPaneEvents();
   }
 
   /** setCallbacks：处理set Callbacks。 */
@@ -353,7 +356,7 @@ export class WorldPanel {
   }
 
   /** 根据玩家、地图、实体、行动、任务数据刷新三个子面板 */
-  update(input: {  
+  update(input: {
   /**
  * player：玩家引用。
  */
@@ -384,6 +387,7 @@ export class WorldPanel {
     this.syncMapPane(snapshot);
     this.syncNearbyPane(snapshot);
     this.syncSuggestionPane(snapshot);
+    this.syncTianjiPane();
   }
 
   /** clear：清理clear。 */
@@ -391,6 +395,7 @@ export class WorldPanel {
     this.mapPane.replaceChildren(createFragmentFromHtml('<div class="empty-hint ui-empty-hint">尚未进入世界</div>'));
     this.nearbyPane.replaceChildren(createFragmentFromHtml('<div class="empty-hint ui-empty-hint">尚未进入世界</div>'));
     this.suggestionPane.replaceChildren(createFragmentFromHtml('<div class="empty-hint ui-empty-hint">尚未进入世界</div>'));
+    this.tianjiPane.replaceChildren(createFragmentFromHtml('<div class="empty-hint ui-empty-hint">尚未进入世界</div>'));
     this.lastNearbyMonsterIds = null;
     this.lastNearbyNpcIds = null;
     this.lastSuggestionActionIds = null;
@@ -540,6 +545,14 @@ export class WorldPanel {
     }
   }
 
+  /** syncTianjiPane：同步天机阁 Pane。 */
+  private syncTianjiPane(): void {
+    if (!this.patchTianjiPane()) {
+      this.renderTianjiPane();
+      this.patchTianjiPane();
+    }
+  }
+
   /** renderMapPane：渲染地图Pane。 */
   private renderMapPane(snapshot: WorldPanelSnapshot): void {
     const html = `
@@ -630,18 +643,44 @@ export class WorldPanel {
           `).join('')}
         </div>
       `}
-      <div class="panel-section ui-surface-pane ui-surface-pane--stack">
-        <div class="panel-section-title">世界情报</div>
-        <div class="ui-action-row ui-action-row--start">
-          <button class="small-btn ghost" type="button" data-world-open-leaderboard="true">天下榜</button>
-          <button class="small-btn ghost" type="button" data-world-open-summary="true">世界总览</button>
-        </div>
-      </div>
     `;
     preserveSelection(this.suggestionPane, () => {
       this.suggestionPane.replaceChildren(createFragmentFromHtml(html));
     });
     this.captureSuggestionRefs(snapshot);
+  }
+
+  /** renderTianjiPane：渲染天机阁 Pane。 */
+  private renderTianjiPane(): void {
+    const html = `
+      <div class="panel-section ui-surface-pane ui-surface-pane--stack">
+        <div class="panel-section-title" data-world-tianji-title="true">天机阁</div>
+        <div class="panel-subtext ui-panel-subtext" data-world-tianji-desc="true">阁藏天下卷宗，专收低频榜册与汇总情报。</div>
+      </div>
+      <div class="ui-card-list">
+        <button
+          class="suggestion-card ui-surface-card ui-surface-card--compact"
+          data-world-tianji-action="leaderboard"
+          type="button"
+        >
+          <div class="suggestion-title">天下榜</div>
+          <div class="suggestion-desc">查看境界、击杀、灵石与至尊属性榜册，并追索玩家击杀榜上榜者坐标。</div>
+          <div class="entity-meta">榜册十分钟一更，追索十息一追</div>
+        </button>
+        <button
+          class="suggestion-card ui-surface-card ui-surface-card--compact"
+          data-world-tianji-action="world"
+          type="button"
+        >
+          <div class="suggestion-title">世界总览</div>
+          <div class="suggestion-desc">查看全服灵石总量、活跃行为、境界分布与杀伐走势，并可转看榜册卷宗。</div>
+          <div class="entity-meta">点击查看世界卷宗</div>
+        </button>
+      </div>
+    `;
+    preserveSelection(this.tianjiPane, () => {
+      this.tianjiPane.replaceChildren(createFragmentFromHtml(html));
+    });
   }
 
   /** patchMapPane：处理patch地图Pane。 */
@@ -754,6 +793,14 @@ export class WorldPanel {
     return true;
   }
 
+  /** patchTianjiPane：确认天机阁基础结构已就位。 */
+  private patchTianjiPane(): boolean {
+    return this.tianjiPane.querySelector('[data-world-tianji-title="true"]') !== null
+      && this.tianjiPane.querySelector('[data-world-tianji-desc="true"]') !== null
+      && this.tianjiPane.querySelector('[data-world-tianji-action="leaderboard"]') !== null
+      && this.tianjiPane.querySelector('[data-world-tianji-action="world"]') !== null;
+  }
+
   /** captureNearbyRefs：处理capture Nearby Refs。 */
   private captureNearbyRefs(snapshot: WorldPanelSnapshot): void {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
@@ -819,6 +866,26 @@ export class WorldPanel {
         return;
       }
       if (target.closest('[data-world-open-summary]')) {
+        this.callbacks.onOpenWorldSummary?.();
+        event.preventDefault();
+      }
+    });
+  }
+
+  /** bindTianjiPaneEvents：绑定天机阁入口事件。 */
+  private bindTianjiPaneEvents(): void {
+    this.tianjiPane.addEventListener('click', (event) => {
+      const target = event.target;
+      if (!(target instanceof HTMLElement)) {
+        return;
+      }
+      const action = target.closest<HTMLElement>('[data-world-tianji-action]')?.dataset.worldTianjiAction;
+      if (action === 'leaderboard') {
+        this.callbacks.onOpenLeaderboard?.();
+        event.preventDefault();
+        return;
+      }
+      if (action === 'world') {
         this.callbacks.onOpenWorldSummary?.();
         event.preventDefault();
       }

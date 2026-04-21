@@ -155,7 +155,8 @@ let WorldRuntimeContextActionQueryService = class WorldRuntimeContextActionQuery
             });
         }
         for (const portal of view.localPortals) {
-            if (portal.trigger !== 'manual' || portal.x !== view.self.x || portal.y !== view.self.y) {
+            if (portal.trigger !== 'manual'
+                || chebyshevDistance(view.self.x, view.self.y, portal.x, portal.y) > 1) {
                 continue;
             }
             const targetName = this.templateRepository.has(portal.targetMapId)

@@ -1202,7 +1202,7 @@ export class TextRenderer implements IRenderer {
   }
 
   /** 绘制所有实体（角色/怪物/NPC），含位置插值动画 */
-  renderEntities(camera: Camera, progress = 1, localPlayerId?: string, localPlayerX?: number, localPlayerY?: number) {
+  renderEntities(camera: Camera, progress = 1, localPlayerId?: string, localPlayerX?: number, localPlayerY?: number, localPlayerChar?: string) {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
     if (!this.ctx) return;
@@ -1262,7 +1262,7 @@ export class TextRenderer implements IRenderer {
           oldWY: localPlayerY as number,
           targetWX: localPlayerX as number,
           targetWY: localPlayerY as number,
-          char: '@',
+          char: localPlayerChar || '我',
           color: '#fff4dc',
           kind: 'player',
         },

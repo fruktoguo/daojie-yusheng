@@ -93,6 +93,16 @@ type MainRuntimeStateSourceOptions = {
 
   syncBootstrapQuestState: (player: PlayerState) => void;  
   /**
+ * normalizeBootstrapPlayer：首包阶段规整动作与战斗设置真源。
+ */
+
+  normalizeBootstrapPlayer: (player: PlayerState) => void;
+  /**
+ * clearTargetingState：清空选目标暂态。
+ */
+
+  clearTargetingState: () => void;
+  /**
  * syncTargetingOverlay：TargetingOverlay相关字段。
  */
 
@@ -247,7 +257,7 @@ type MainRuntimeStateSourceOptions = {
  * applyWorldDelta：世界Delta相关字段。
  */
 
-  applyWorldDelta: (data: NEXT_S2C_WorldDelta) => void;  
+  applyWorldDelta: (data: NEXT_S2C_WorldDelta, mapIdHint?: string) => void;  
   /**
  * applySelfDelta：SelfDelta相关字段。
  */
@@ -357,7 +367,11 @@ export function createMainRuntimeStateSource(options: MainRuntimeStateSourceOpti
         pendingNextWorldDelta = data;
         return;
       }
-      options.applyWorldDelta(data);
+      const player = options.getPlayer();
+      const mapIdHint = latestNextMapEnter?.mid && latestNextMapEnter.mid !== player?.mapId
+        ? latestNextMapEnter.mid
+        : undefined;
+      options.applyWorldDelta(data, mapIdHint);
     },    
     /**
  * handleSelfDelta：处理Self增量并更新相关状态。
@@ -455,6 +469,7 @@ export function createMainRuntimeStateSource(options: MainRuntimeStateSourceOpti
 
     handleBootstrap(data: NEXT_S2C_Bootstrap): void {
       options.hideObserveModal();
+      options.clearTargetingState();
       latestNextInitSession = latestNextInitSession?.pid === data.self.id ? latestNextInitSession : null;
       latestNextMapEnter = latestNextMapEnter?.mid === data.self.mapId ? latestNextMapEnter : null;
       if (typeof data.auraLevelBaseValue === 'number') {
@@ -471,6 +486,7 @@ export function createMainRuntimeStateSource(options: MainRuntimeStateSourceOpti
       player.autoIdleCultivation = player.autoIdleCultivation !== false;
       player.autoSwitchCultivation = player.autoSwitchCultivation === true;
       player.cultivationActive = player.cultivationActive === true;
+      options.normalizeBootstrapPlayer(player);
 
       options.setPlayer(player);
       options.syncPlayerBridgeState(player);

@@ -187,7 +187,7 @@ export interface IRenderer {
     settleEntityId?: string,
     motionSyncToken?: number,
   ): void;
-  renderEntities(camera: Camera, progress?: number, localPlayerId?: string, localPlayerX?: number, localPlayerY?: number): void;
+  renderEntities(camera: Camera, progress?: number, localPlayerId?: string, localPlayerX?: number, localPlayerY?: number, localPlayerChar?: string): void;
   addFloatingText(
     x: number,
     y: number,
@@ -202,5 +202,4 @@ export interface IRenderer {
   renderAttackTrails(camera: Camera): void;
   destroy(): void;
 }
-
 

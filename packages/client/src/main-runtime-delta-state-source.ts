@@ -522,7 +522,7 @@ export function createMainRuntimeDeltaStateSource(options: MainRuntimeDeltaState
  */
 
 
-  function buildNextWorldDeltaRuntimeInput(data: NEXT_S2C_WorldDelta) {
+  function buildNextWorldDeltaRuntimeInput(data: NEXT_S2C_WorldDelta, mapIdHint?: string) {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
     const playerPatches: TickRenderEntity[] = [];
@@ -584,6 +584,7 @@ export function createMainRuntimeDeltaStateSource(options: MainRuntimeDeltaState
       entityPatches,
       removedEntityIds,
       groundPatches,
+      mapId: mapIdHint ?? data.mid,
       effects: data.fx ? cloneJson(data.fx) : undefined,
       threatArrows: Array.isArray(data.threatArrows)
         ? data.threatArrows
@@ -597,7 +598,6 @@ export function createMainRuntimeDeltaStateSource(options: MainRuntimeDeltaState
       time: data.time ?? undefined,
       visibleTiles: data.v,
       visibleTilePatches: data.tp,
-      mapId: data.mid,
     };
   }  
   /**
@@ -696,10 +696,10 @@ export function createMainRuntimeDeltaStateSource(options: MainRuntimeDeltaState
     }
 
     const latestAttrUpdate = options.getLatestAttrUpdate();
-    const nextNumericStats = player.numericStats
+    const nextNumericStats: typeof player.numericStats = player.numericStats
       ? cloneJson(player.numericStats)
       : latestAttrUpdate?.numericStats
-        ? cloneJson(latestAttrUpdate.numericStats)
+        ? cloneJson(latestAttrUpdate.numericStats as NonNullable<typeof player.numericStats>)
         : undefined;
     if (nextNumericStats) {
       if (typeof data.maxHp === 'number') {
@@ -753,7 +753,7 @@ export function createMainRuntimeDeltaStateSource(options: MainRuntimeDeltaState
  * @returns 无返回值，直接更新世界Delta相关状态。
  */
 
-    handleWorldDelta(data: NEXT_S2C_WorldDelta): void {
+    handleWorldDelta(data: NEXT_S2C_WorldDelta, mapIdHint?: string): void {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
       const player = options.getPlayer();
@@ -766,7 +766,7 @@ export function createMainRuntimeDeltaStateSource(options: MainRuntimeDeltaState
         y: player.y,
         facing: player.facing,
       };
-      const runtimeInput = buildNextWorldDeltaRuntimeInput(data);
+      const runtimeInput = buildNextWorldDeltaRuntimeInput(data, mapIdHint);
       const selfPatch = runtimeInput.playerPatches.find((patch) => patch.id === player.id);
       options.syncAuraLevelBaseValue(data.auraLevelBaseValue);
       options.syncCurrentTimeState(data.time ?? null);
@@ -835,8 +835,6 @@ export function createMainRuntimeDeltaStateSource(options: MainRuntimeDeltaState
       const mapChanged = typeof data.mid === 'string' && previousMapId !== data.mid;
       if (mapChanged) {
         options.navigation.clearCurrentPath();
-        options.setLatestObservedEntities([]);
-        options.setLatestObservedEntityMap(new Map());
         options.targeting.setHoveredMapTile(null);
         options.hideObserveModal();
         options.clearLootPanel();

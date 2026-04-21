@@ -506,7 +506,9 @@ class MapInstanceRuntime {
             return null;
         }
 
-        const portal = this.getPortalAt(player.x, player.y);
+        const portal = reason === 'manual_portal'
+            ? this.getInteractablePortalNear(player.x, player.y)
+            : this.getPortalAt(player.x, player.y);
         if (!portal) {
             return null;
         }
@@ -1878,6 +1880,19 @@ class MapInstanceRuntime {
 
         const portalIndex = this.template.portalIndexByTile[this.toTileIndex(x, y)];
         return portalIndex >= 0 ? this.template.portals[portalIndex] ?? null : null;
+    }
+    getInteractablePortalNear(x, y) {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
+        for (let dy = -1; dy <= 1; dy += 1) {
+            for (let dx = -1; dx <= 1; dx += 1) {
+                const portal = this.getPortalAt(x + dx, y + dy);
+                if (portal) {
+                    return portal;
+                }
+            }
+        }
+        return null;
     }
     /** updateAuraDirtyState：更新灵气脏状态。 */
     updateAuraDirtyState(tileIndex, previous, next) {

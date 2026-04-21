@@ -171,7 +171,7 @@ export class CanvasTextRendererAdapter {
     );
     this.renderer.renderWarningZones(this.cameraBridge);
     this.renderer.renderAttackTrails(this.cameraBridge);
-    this.renderer.renderEntities(this.cameraBridge, progress, scene.player.id, scene.player.x, scene.player.y);
+    this.renderer.renderEntities(this.cameraBridge, progress, scene.player.id, scene.player.x, scene.player.y, scene.player.char);
     this.renderer.renderFloatingTexts(this.cameraBridge);
   }
 
@@ -197,6 +197,5 @@ export class CanvasTextRendererAdapter {
     return isLocalDivineSkillName(effect.text) ? 'divine' : 'default';
   }
 }
-
 
 
