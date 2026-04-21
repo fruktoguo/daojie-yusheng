@@ -125,5 +125,117 @@ export interface CombatTargetingRules {
   includePlayers?: boolean;
 }
 
+export const HOSTILE_COMBAT_TARGETING_RULE_KEYS = [
+  'monster',
+  'all_players',
+  'demonized_players',
+  'retaliators',
+  'terrain',
+  'party',
+  'sect',
+] as const satisfies readonly CombatTargetingRuleKey[];
+
+export const FRIENDLY_COMBAT_TARGETING_RULE_KEYS = [
+  'all_players',
+  'retaliators',
+  'non_hostile_players',
+  'party',
+  'sect',
+] as const satisfies readonly CombatTargetingRuleKey[];
+
+export const DEFAULT_HOSTILE_COMBAT_TARGETING_RULES = [
+  'monster',
+  'demonized_players',
+  'retaliators',
+  'terrain',
+] as const satisfies readonly CombatTargetingRuleKey[];
+
+export const DEFAULT_FRIENDLY_COMBAT_TARGETING_RULES = [
+  'non_hostile_players',
+] as const satisfies readonly CombatTargetingRuleKey[];
+
+function normalizeCombatTargetingRuleList(
+  value: unknown,
+  allowedKeys: readonly CombatTargetingRuleKey[],
+  fallback: readonly CombatTargetingRuleKey[],
+): CombatTargetingRuleKey[] {
+  const source = Array.isArray(value) ? value : fallback;
+  const normalized: CombatTargetingRuleKey[] = [];
+  const seen = new Set<CombatTargetingRuleKey>();
+  for (const entry of source) {
+    if (typeof entry !== 'string') {
+      continue;
+    }
+    const rule = entry as CombatTargetingRuleKey;
+    if (!allowedKeys.includes(rule) || seen.has(rule)) {
+      continue;
+    }
+    normalized.push(rule);
+    seen.add(rule);
+  }
+  return normalized;
+}
+
+export function buildDefaultCombatTargetingRules(options?: {
+  includeAllPlayersHostile?: boolean;
+}): CombatTargetingRules {
+  const hostile: CombatTargetingRuleKey[] = [...DEFAULT_HOSTILE_COMBAT_TARGETING_RULES];
+  if (options?.includeAllPlayersHostile === true && !hostile.includes('all_players')) {
+    hostile.push('all_players');
+  }
+  return {
+    hostile,
+    friendly: [...DEFAULT_FRIENDLY_COMBAT_TARGETING_RULES],
+  };
+}
+
+export function normalizeCombatTargetingRules(
+  value: unknown,
+  fallback: CombatTargetingRules = buildDefaultCombatTargetingRules(),
+): CombatTargetingRules {
+  const record = typeof value === 'object' && value !== null
+    ? value as CombatTargetingRules
+    : {};
+  const legacyIncludePlayers = record.includePlayers === true || fallback.includePlayers === true;
+  const legacyMonsterEnabled = record.includeNormalMonsters === true
+    || record.includeEliteMonsters === true
+    || record.includeBosses === true
+    || fallback.includeNormalMonsters === true
+    || fallback.includeEliteMonsters === true
+    || fallback.includeBosses === true;
+  const hostileFallback = [...(fallback.hostile ?? DEFAULT_HOSTILE_COMBAT_TARGETING_RULES)];
+  if (legacyMonsterEnabled && !hostileFallback.includes('monster')) {
+    hostileFallback.unshift('monster');
+  }
+  if (legacyIncludePlayers && !hostileFallback.includes('all_players')) {
+    hostileFallback.push('all_players');
+  }
+  return {
+    hostile: normalizeCombatTargetingRuleList(record.hostile, HOSTILE_COMBAT_TARGETING_RULE_KEYS, hostileFallback),
+    friendly: normalizeCombatTargetingRuleList(
+      record.friendly,
+      FRIENDLY_COMBAT_TARGETING_RULE_KEYS,
+      fallback.friendly ?? DEFAULT_FRIENDLY_COMBAT_TARGETING_RULES,
+    ),
+  };
+}
+
 /** 自动战斗目标选择模式。 */
 export type AutoBattleTargetingMode = 'auto' | 'nearest' | 'low_hp' | 'full_hp' | 'boss' | 'player';
+
+export const AUTO_BATTLE_TARGETING_MODES = [
+  'auto',
+  'nearest',
+  'low_hp',
+  'full_hp',
+  'boss',
+  'player',
+] as const satisfies readonly AutoBattleTargetingMode[];
+
+export function isAutoBattleTargetingMode(value: unknown): value is AutoBattleTargetingMode {
+  return typeof value === 'string' && (AUTO_BATTLE_TARGETING_MODES as readonly string[]).includes(value);
+}
+
+export function normalizeAutoBattleTargetingMode(value: unknown): AutoBattleTargetingMode {
+  return isAutoBattleTargetingMode(value) ? value : 'auto';
+}

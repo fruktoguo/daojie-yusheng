@@ -1,14 +1,17 @@
-import { Inject, Injectable, NotFoundException } from '@nestjs/common';
+import { BadRequestException, Inject, Injectable, NotFoundException } from '@nestjs/common';
 import {
   DEFAULT_BASE_ATTRS,
   DEFAULT_INVENTORY_CAPACITY,
   Direction,
   EQUIP_SLOTS,
   VIEW_RADIUS,
+  getBodyTrainingExpToNext,
+  normalizeBodyTrainingState,
 } from '@mud/shared-next';
 import { ContentTemplateRepository } from '../../content/content-template.repository';
 import { MapTemplateRepository } from '../../runtime/map/map-template.repository';
 import { PlayerPersistenceService } from '../../persistence/player-persistence.service';
+import { MarketRuntimeService } from '../../runtime/market/market-runtime.service';
 import { PlayerProgressionService } from '../../runtime/player/player-progression.service';
 import { PlayerRuntimeService } from '../../runtime/player/player-runtime.service';
 import { WorldRuntimeService } from '../../runtime/world/world-runtime.service';
@@ -53,6 +56,7 @@ interface ManagedAccountEntryLike {
 
 
 interface ContentTemplateRepositoryLike {
+  getItemName(itemId: string): string | null;
   normalizeItem(input: unknown): unknown;
 }
 /**
@@ -110,6 +114,18 @@ interface PlayerRuntimeServiceLike {
   restoreSnapshot(snapshot: any): void;
   listPlayerSnapshots(): any[];
   rebuildActionState(snapshot: any, tick: number): void;
+  markPersisted(playerId: string): void;
+  setManagedBodyTrainingLevel(playerId: string, level: number): any;
+}
+/**
+ * MarketRuntimeServiceLike：定义接口结构约束，明确可交付字段含义。
+ */
+
+
+interface MarketRuntimeServiceLike {
+  getStorage(playerId: string): { items: any[] };
+  runExclusiveMarketMutation(playerId: string, action: (context: any) => Promise<any> | any): Promise<any>;
+  setStorage(playerId: string, storage: { items: any[] }, context: any): void;
 }
 /**
  * WorldRuntimeServiceLike：定义接口结构约束，明确可交付字段含义。
@@ -117,10 +133,12 @@ interface PlayerRuntimeServiceLike {
 
 
 interface WorldRuntimeServiceLike {
-  enqueueGmUpdatePlayer(input: unknown): void;
-  enqueueGmResetPlayer(playerId: string): void;
-  enqueueGmSpawnBots(anchorPlayerId: string, count: number): void;
-  enqueueGmRemoveBots(playerIds: string[], all: boolean): void;
+  worldRuntimeCommandIntakeFacadeService: {
+    enqueueGmUpdatePlayer(input: unknown): void;
+    enqueueGmResetPlayer(playerId: string): void;
+    enqueueGmSpawnBots(anchorPlayerId: string, count: number): void;
+    enqueueGmRemoveBots(playerIds: string[], all: boolean): void;
+  };
 }
 /**
  * NextManagedAccountServiceLike：定义接口结构约束，明确可交付字段含义。
@@ -160,6 +178,8 @@ export class NextGmPlayerService {
     private readonly playerProgressionService: PlayerProgressionServiceLike,
     @Inject(PlayerRuntimeService)
     private readonly playerRuntimeService: PlayerRuntimeServiceLike,
+    @Inject(MarketRuntimeService)
+    private readonly marketRuntimeService: MarketRuntimeServiceLike,
     @Inject(WorldRuntimeService)
     private readonly worldRuntimeService: WorldRuntimeServiceLike,
     @Inject(NextManagedAccountService)
@@ -220,7 +240,7 @@ export class NextGmPlayerService {
     const runtime = this.playerRuntimeService.snapshot(playerId);
     if (runtime) {
       if (section === NEXT_GM_PLAYER_MUTATION_CONTRACT.runtimeQueueSection) {
-        this.worldRuntimeService.enqueueGmUpdatePlayer({
+        this.worldRuntimeService.worldRuntimeCommandIntakeFacadeService.enqueueGmUpdatePlayer({
           playerId,
           mapId: typeof snapshot.mapId === 'string' ? snapshot.mapId : runtime.templateId,
           x: Number.isFinite(snapshot.x) ? snapshot.x : runtime.x,
@@ -269,7 +289,7 @@ export class NextGmPlayerService {
 
 
   resetPlayer(playerId: string) {
-    this.worldRuntimeService.enqueueGmResetPlayer(playerId);
+    this.worldRuntimeService.worldRuntimeCommandIntakeFacadeService.enqueueGmResetPlayer(playerId);
   }  
   /**
  * resetPersistedPlayer：判断resetPersisted玩家是否满足条件。
@@ -341,6 +361,79 @@ export class NextGmPlayerService {
     this.playerRuntimeService.restoreSnapshot(refreshedRuntime);
   }  
   /**
+ * setPlayerBodyTrainingLevel：设置玩家炼体等级。
+ * @param playerId string 玩家 ID。
+ * @param requestedLevel 参数说明。
+ * @returns 无返回值，直接更新玩家炼体等级相关状态。
+ */
+
+
+  async setPlayerBodyTrainingLevel(playerId: string, requestedLevel: unknown) {
+    const level = this.parseBodyTrainingLevel(requestedLevel);
+    if (level === null) {
+      throw new BadRequestException('炼体等级必须是非负整数');
+    }
+
+    const runtime = this.playerRuntimeService.snapshot(playerId);
+    if (!runtime) {
+      const persisted = await this.playerPersistenceService.loadPlayerSnapshot(playerId);
+      if (!persisted) {
+        throw new NotFoundException('目标玩家不存在');
+      }
+      persisted.progression.bodyTraining = this.buildBodyTrainingState(persisted.progression.bodyTraining, level);
+      await this.playerPersistenceService.savePlayerSnapshot(playerId, persisted);
+      return;
+    }
+
+    this.playerRuntimeService.setManagedBodyTrainingLevel(playerId, level);
+    const persisted = this.playerRuntimeService.buildPersistenceSnapshot(playerId);
+    if (!persisted) {
+      throw new NotFoundException('目标玩家不存在');
+    }
+    await this.playerPersistenceService.savePlayerSnapshot(playerId, persisted);
+    this.playerRuntimeService.markPersisted(playerId);
+  }  
+  /**
+ * addPlayerFoundation：调整玩家底蕴。
+ * @param playerId string 玩家 ID。
+ * @param requestedAmount 参数说明。
+ * @returns 无返回值，直接更新玩家底蕴相关状态。
+ */
+
+
+  async addPlayerFoundation(playerId: string, requestedAmount: unknown) {
+    const amount = this.parseCounterDelta(requestedAmount, '底蕴增量');
+
+    await this.mutateManagedPlayer(playerId, {
+      mutatePersisted: (persisted) => {
+        persisted.progression.foundation = this.applyCounterDelta(persisted.progression.foundation, amount);
+      },
+      mutateRuntime: (runtime, persisted) => {
+        runtime.foundation = persisted.progression.foundation;
+      },
+    });
+  }  
+  /**
+ * addPlayerCombatExp：调整玩家战斗经验。
+ * @param playerId string 玩家 ID。
+ * @param requestedAmount 参数说明。
+ * @returns 无返回值，直接更新玩家战斗经验相关状态。
+ */
+
+
+  async addPlayerCombatExp(playerId: string, requestedAmount: unknown) {
+    const amount = this.parseCounterDelta(requestedAmount, '战斗经验增量');
+
+    await this.mutateManagedPlayer(playerId, {
+      mutatePersisted: (persisted) => {
+        persisted.progression.combatExp = this.applyCounterDelta(persisted.progression.combatExp, amount);
+      },
+      mutateRuntime: (runtime, persisted) => {
+        runtime.combatExp = persisted.progression.combatExp;
+      },
+    });
+  }  
+  /**
  * spawnBots：执行spawnBot相关逻辑。
  * @param anchorPlayerId string anchorPlayer ID。
  * @param count number 数量。
@@ -349,7 +442,7 @@ export class NextGmPlayerService {
 
 
   spawnBots(anchorPlayerId: string, count: number) {
-    this.worldRuntimeService.enqueueGmSpawnBots(anchorPlayerId, count);
+    this.worldRuntimeService.worldRuntimeCommandIntakeFacadeService.enqueueGmSpawnBots(anchorPlayerId, count);
   }  
   /**
  * removeBots：处理Bot并更新相关状态。
@@ -360,7 +453,7 @@ export class NextGmPlayerService {
 
 
   removeBots(playerIds: string[], all: boolean) {
-    this.worldRuntimeService.enqueueGmRemoveBots(playerIds, all);
+    this.worldRuntimeService.worldRuntimeCommandIntakeFacadeService.enqueueGmRemoveBots(playerIds, all);
   }  
   /**
  * returnAllPlayersToDefaultSpawn：执行returnAll玩家To默认Spawn相关逻辑。
@@ -381,7 +474,7 @@ export class NextGmPlayerService {
 
     const persistedEntries = await this.playerPersistenceService.listPlayerSnapshots();
     for (const runtime of runtimePlayers) {
-      this.worldRuntimeService.enqueueGmResetPlayer(runtime.playerId);
+      this.worldRuntimeService.worldRuntimeCommandIntakeFacadeService.enqueueGmResetPlayer(runtime.playerId);
     }
 
     let updatedOfflinePlayers = 0;
@@ -413,6 +506,163 @@ export class NextGmPlayerService {
       targetMapId: template.id,
       targetX: template.spawnX,
       targetY: template.spawnY,
+    };
+  }  
+  /**
+ * cleanupAllPlayersInvalidItems：清理全部非机器人的无效物品。
+ * @returns 无返回值，直接更新全部无效物品清理相关状态。
+ */
+
+
+  async cleanupAllPlayersInvalidItems() {
+    const runtimePlayers = this.playerRuntimeService
+      .listPlayerSnapshots()
+      .filter((entry) => !isNextGmBotPlayerId(entry.playerId));
+    const runtimePlayerIds = new Set(runtimePlayers.map((entry) => entry.playerId));
+
+    let queuedRuntimePlayers = 0;
+    let updatedOfflinePlayers = 0;
+    let totalInvalidInventoryStacksRemoved = 0;
+    let totalInvalidMarketStorageStacksRemoved = 0;
+    let totalInvalidEquipmentRemoved = 0;
+
+    for (const runtime of runtimePlayers) {
+      const summary = await this.cleanupManagedPlayerInvalidItems(runtime.playerId);
+      if (!this.hasInvalidItems(summary)) {
+        continue;
+      }
+      queuedRuntimePlayers += 1;
+      totalInvalidInventoryStacksRemoved += summary.inventoryStacksRemoved;
+      totalInvalidMarketStorageStacksRemoved += summary.marketStorageStacksRemoved;
+      totalInvalidEquipmentRemoved += summary.equipmentRemoved;
+    }
+
+    const persistedEntries = await this.playerPersistenceService.listPlayerSnapshots();
+    for (const entry of persistedEntries) {
+      if (runtimePlayerIds.has(entry.playerId) || isNextGmBotPlayerId(entry.playerId)) {
+        continue;
+      }
+
+      const summary = await this.cleanupManagedPlayerInvalidItems(entry.playerId);
+      if (!this.hasInvalidItems(summary)) {
+        continue;
+      }
+      updatedOfflinePlayers += 1;
+      totalInvalidInventoryStacksRemoved += summary.inventoryStacksRemoved;
+      totalInvalidMarketStorageStacksRemoved += summary.marketStorageStacksRemoved;
+      totalInvalidEquipmentRemoved += summary.equipmentRemoved;
+    }
+
+    return {
+      ok: true,
+      totalPlayers: queuedRuntimePlayers + updatedOfflinePlayers,
+      queuedRuntimePlayers,
+      updatedOfflinePlayers,
+      totalInvalidInventoryStacksRemoved,
+      totalInvalidMarketStorageStacksRemoved,
+      totalInvalidEquipmentRemoved,
+    };
+  }  
+  /**
+ * compensateAllPlayersCombatExp：补偿全部非机器人的战斗经验。
+ * @returns 无返回值，直接更新全部战斗经验补偿相关状态。
+ */
+
+
+  async compensateAllPlayersCombatExp() {
+    const runtimePlayers = this.playerRuntimeService
+      .listPlayerSnapshots()
+      .filter((entry) => !isNextGmBotPlayerId(entry.playerId));
+    const runtimePlayerIds = new Set(runtimePlayers.map((entry) => entry.playerId));
+
+    let queuedRuntimePlayers = 0;
+    let updatedOfflinePlayers = 0;
+    let totalCombatExpGranted = 0;
+
+    for (const runtime of runtimePlayers) {
+      const amount = this.calculateCombatExpCompensationForRuntime(runtime);
+      if (amount <= 0) {
+        continue;
+      }
+
+      await this.addPlayerCombatExp(runtime.playerId, amount);
+      queuedRuntimePlayers += 1;
+      totalCombatExpGranted += amount;
+    }
+
+    const persistedEntries = await this.playerPersistenceService.listPlayerSnapshots();
+    for (const entry of persistedEntries) {
+      if (runtimePlayerIds.has(entry.playerId) || isNextGmBotPlayerId(entry.playerId)) {
+        continue;
+      }
+
+      const amount = this.calculateCombatExpCompensationForPersistence(entry.snapshot);
+      if (amount <= 0) {
+        continue;
+      }
+
+      await this.addPlayerCombatExp(entry.playerId, amount);
+      updatedOfflinePlayers += 1;
+      totalCombatExpGranted += amount;
+    }
+
+    return {
+      ok: true,
+      totalPlayers: queuedRuntimePlayers + updatedOfflinePlayers,
+      queuedRuntimePlayers,
+      updatedOfflinePlayers,
+      totalCombatExpGranted,
+    };
+  }  
+  /**
+ * compensateAllPlayersFoundation：补偿全部非机器人的底蕴。
+ * @returns 无返回值，直接更新全部底蕴补偿相关状态。
+ */
+
+
+  async compensateAllPlayersFoundation() {
+    const runtimePlayers = this.playerRuntimeService
+      .listPlayerSnapshots()
+      .filter((entry) => !isNextGmBotPlayerId(entry.playerId));
+    const runtimePlayerIds = new Set(runtimePlayers.map((entry) => entry.playerId));
+
+    let queuedRuntimePlayers = 0;
+    let updatedOfflinePlayers = 0;
+    let totalFoundationGranted = 0;
+
+    for (const runtime of runtimePlayers) {
+      const amount = this.calculateFoundationCompensationForRuntime(runtime);
+      if (amount <= 0) {
+        continue;
+      }
+
+      await this.addPlayerFoundation(runtime.playerId, amount);
+      queuedRuntimePlayers += 1;
+      totalFoundationGranted += amount;
+    }
+
+    const persistedEntries = await this.playerPersistenceService.listPlayerSnapshots();
+    for (const entry of persistedEntries) {
+      if (runtimePlayerIds.has(entry.playerId) || isNextGmBotPlayerId(entry.playerId)) {
+        continue;
+      }
+
+      const amount = this.calculateFoundationCompensationForPersistence(entry.snapshot);
+      if (amount <= 0) {
+        continue;
+      }
+
+      await this.addPlayerFoundation(entry.playerId, amount);
+      updatedOfflinePlayers += 1;
+      totalFoundationGranted += amount;
+    }
+
+    return {
+      ok: true,
+      totalPlayers: queuedRuntimePlayers + updatedOfflinePlayers,
+      queuedRuntimePlayers,
+      updatedOfflinePlayers,
+      totalFoundationGranted,
     };
   }  
   /**
@@ -811,6 +1061,291 @@ export class NextGmPlayerService {
     this.playerRuntimeService.rebuildActionState(snapshot, 0);
   }  
   /**
+ * mutateManagedPlayer：统一处理玩家快照的持久化与运行态回写。
+ * @param playerId string 玩家 ID。
+ * @param input 参数说明。
+ * @returns 无返回值，直接更新玩家快照变更相关状态。
+ */
+
+
+  private async mutateManagedPlayer(
+    playerId: string,
+    input: {
+      mutatePersisted: (persisted: any) => void;
+      mutateRuntime?: (runtime: any, persisted: any) => void;
+    },
+  ) {
+    const runtime = this.playerRuntimeService.snapshot(playerId);
+    const persisted = runtime
+      ? this.playerRuntimeService.buildPersistenceSnapshot(playerId)
+      : await this.playerPersistenceService.loadPlayerSnapshot(playerId);
+    if (!persisted) {
+      throw new NotFoundException('目标玩家不存在');
+    }
+
+    input.mutatePersisted(persisted);
+    await this.playerPersistenceService.savePlayerSnapshot(playerId, persisted);
+    if (!runtime) {
+      return;
+    }
+
+    const refreshedRuntime = this.playerRuntimeService.snapshot(playerId);
+    if (!refreshedRuntime) {
+      return;
+    }
+
+    if (input.mutateRuntime) {
+      input.mutateRuntime(refreshedRuntime, persisted);
+    }
+    this.repairRuntimeSnapshot(refreshedRuntime);
+    refreshedRuntime.selfRevision += 1;
+    refreshedRuntime.persistentRevision += 1;
+    this.playerRuntimeService.restoreSnapshot(refreshedRuntime);
+  }  
+  /**
+ * cleanupManagedPlayerInvalidItems：清理单个玩家的无效物品与托管仓。
+ * @param playerId string 玩家 ID。
+ * @returns 无返回值，直接更新单个玩家无效物品清理相关状态。
+ */
+
+
+  private async cleanupManagedPlayerInvalidItems(playerId: string) {
+    let summary = {
+      inventoryStacksRemoved: 0,
+      marketStorageStacksRemoved: 0,
+      equipmentRemoved: 0,
+    };
+
+    const runtime = this.playerRuntimeService.snapshot(playerId);
+    const persisted = runtime
+      ? this.playerRuntimeService.buildPersistenceSnapshot(playerId)
+      : await this.playerPersistenceService.loadPlayerSnapshot(playerId);
+    if (!persisted) {
+      throw new NotFoundException('目标玩家不存在');
+    }
+
+    summary = this.cleanupInvalidItemsFromSnapshot(persisted);
+    if (summary.inventoryStacksRemoved > 0 || summary.equipmentRemoved > 0) {
+      await this.playerPersistenceService.savePlayerSnapshot(playerId, persisted);
+      if (runtime) {
+        const refreshedRuntime = this.playerRuntimeService.snapshot(playerId);
+        if (refreshedRuntime) {
+          const runtimeSummary = this.cleanupInvalidItemsFromSnapshot(refreshedRuntime);
+          summary.inventoryStacksRemoved = Math.max(summary.inventoryStacksRemoved, runtimeSummary.inventoryStacksRemoved);
+          summary.equipmentRemoved = Math.max(summary.equipmentRemoved, runtimeSummary.equipmentRemoved);
+          this.repairRuntimeSnapshot(refreshedRuntime);
+          refreshedRuntime.selfRevision += 1;
+          refreshedRuntime.persistentRevision += 1;
+          this.playerRuntimeService.restoreSnapshot(refreshedRuntime);
+        }
+      }
+    }
+
+    const storageSummary = await this.cleanupInvalidMarketStorage(playerId);
+    summary.marketStorageStacksRemoved = storageSummary.marketStorageStacksRemoved;
+    return summary;
+  }  
+  /**
+ * cleanupInvalidItemsFromSnapshot：清理背包与装备中的无效物品。
+ * @param snapshot 参数说明。
+ * @returns 无返回值，直接更新快照无效物品清理相关状态。
+ */
+
+
+  private cleanupInvalidItemsFromSnapshot(snapshot) {
+    const inventoryItems = Array.isArray(snapshot.inventory?.items) ? snapshot.inventory.items : [];
+    const nextInventoryItems = inventoryItems.filter((entry) => this.isValidItem(entry?.itemId));
+    const inventoryStacksRemoved = inventoryItems.length - nextInventoryItems.length;
+    if (inventoryStacksRemoved > 0 && snapshot.inventory) {
+      snapshot.inventory.items = nextInventoryItems;
+      if (Number.isFinite(snapshot.inventory.revision)) {
+        snapshot.inventory.revision = Math.max(1, Math.trunc(snapshot.inventory.revision) + 1);
+      }
+    }
+
+    let equipmentRemoved = 0;
+    const equipmentSlots = Array.isArray(snapshot.equipment?.slots) ? snapshot.equipment.slots : [];
+    for (const entry of equipmentSlots) {
+      if (!entry?.item || this.isValidItem(entry.item.itemId)) {
+        continue;
+      }
+      entry.item = null;
+      equipmentRemoved += 1;
+    }
+    if (equipmentRemoved > 0 && snapshot.equipment && Number.isFinite(snapshot.equipment.revision)) {
+      snapshot.equipment.revision = Math.max(1, Math.trunc(snapshot.equipment.revision) + 1);
+    }
+
+    return {
+      inventoryStacksRemoved,
+      marketStorageStacksRemoved: 0,
+      equipmentRemoved,
+    };
+  }  
+  /**
+ * cleanupInvalidMarketStorage：清理坊市托管仓中的无效物品。
+ * @param playerId string 玩家 ID。
+ * @returns 无返回值，直接更新托管仓无效物品清理相关状态。
+ */
+
+
+  private async cleanupInvalidMarketStorage(playerId: string) {
+    const storage = this.marketRuntimeService.getStorage(playerId);
+    const items = Array.isArray(storage?.items) ? storage.items : [];
+    const nextItems = items.filter((entry) => this.isValidItem(entry?.item?.itemId));
+    const marketStorageStacksRemoved = items.length - nextItems.length;
+    if (marketStorageStacksRemoved <= 0) {
+      return { marketStorageStacksRemoved: 0 };
+    }
+
+    await this.marketRuntimeService.runExclusiveMarketMutation(playerId, (context) => {
+      this.marketRuntimeService.setStorage(playerId, { items: nextItems }, context);
+      return { ok: true };
+    });
+    return { marketStorageStacksRemoved };
+  }  
+  /**
+ * isValidItem：判断道具是否仍存在于内容模板中。
+ * @param itemId 参数说明。
+ * @returns 无返回值，完成道具有效性的条件判断。
+ */
+
+
+  private isValidItem(itemId: unknown) {
+    return typeof itemId === 'string' && itemId.trim().length > 0 && this.contentTemplateRepository.getItemName(itemId.trim()) !== null;
+  }  
+  /**
+ * buildBodyTrainingState：构建炼体状态。
+ * @param current 参数说明。
+ * @param level number 等级。
+ * @returns 无返回值，直接更新炼体状态相关状态。
+ */
+
+
+  private buildBodyTrainingState(current, level: number) {
+    const normalizedLevel = Math.max(0, Math.trunc(level));
+    const preservedExp = this.normalizeNonNegativeInt(current?.exp);
+    const expToNext = getBodyTrainingExpToNext(normalizedLevel);
+
+    return normalizeBodyTrainingState({
+      level: normalizedLevel,
+      exp: Math.min(preservedExp, Math.max(0, expToNext - 1)),
+    });
+  }  
+  /**
+ * parseBodyTrainingLevel：解析炼体等级输入。
+ * @param value 参数说明。
+ * @returns 无返回值，完成炼体等级解析。
+ */
+
+
+  private parseBodyTrainingLevel(value: unknown) {
+    const numeric = Number(value);
+    if (!Number.isFinite(numeric) || numeric < 0 || !Number.isInteger(numeric)) {
+      return null;
+    }
+    return Math.trunc(numeric);
+  }  
+  /**
+ * parseCounterDelta：解析整数增量。
+ * @param value 参数说明。
+ * @param label string 标签。
+ * @returns 无返回值，完成整数增量解析。
+ */
+
+
+  private parseCounterDelta(value: unknown, label: string) {
+    const numeric = Number(value);
+    if (!Number.isFinite(numeric) || !Number.isInteger(numeric)) {
+      throw new BadRequestException(`${label}必须是整数`);
+    }
+    return Math.trunc(numeric);
+  }  
+  /**
+ * applyCounterDelta：把整数增量应用到计数值。
+ * @param currentValue 参数说明。
+ * @param amount number 增量。
+ * @returns 无返回值，直接更新计数值相关状态。
+ */
+
+
+  private applyCounterDelta(currentValue: unknown, amount: number) {
+    return Math.max(0, this.normalizeNonNegativeInt(currentValue) + amount);
+  }  
+  /**
+ * normalizeNonNegativeInt：归一化非负整数。
+ * @param value 参数说明。
+ * @returns 无返回值，完成非负整数归一化。
+ */
+
+
+  private normalizeNonNegativeInt(value: unknown) {
+    return Math.max(0, Math.trunc(Number(value) || 0));
+  }  
+  /**
+ * calculateCombatExpCompensationForRuntime：计算运行态战斗经验补偿。
+ * @param player 参数说明。
+ * @returns 无返回值，完成运行态战斗经验补偿计算。
+ */
+
+
+  private calculateCombatExpCompensationForRuntime(player) {
+    const realmExpToNext = this.normalizeNonNegativeInt(player.realm?.progressToNext);
+    const bodyTrainingExpToNext = normalizeBodyTrainingState(player.bodyTraining).expToNext;
+    return realmExpToNext + this.normalizeNonNegativeInt(bodyTrainingExpToNext);
+  }  
+  /**
+ * calculateCombatExpCompensationForPersistence：计算持久化快照战斗经验补偿。
+ * @param snapshot 参数说明。
+ * @returns 无返回值，完成持久化战斗经验补偿计算。
+ */
+
+
+  private calculateCombatExpCompensationForPersistence(snapshot) {
+    const realm = this.playerProgressionService.createRealmStateFromLevel(
+      snapshot.progression?.realm?.realmLv ?? 1,
+      snapshot.progression?.realm?.progress ?? 0,
+    );
+    const bodyTraining = normalizeBodyTrainingState(snapshot.progression?.bodyTraining);
+    return this.normalizeNonNegativeInt(realm.progressToNext) + this.normalizeNonNegativeInt(bodyTraining.expToNext);
+  }  
+  /**
+ * calculateFoundationCompensationForRuntime：计算运行态底蕴补偿。
+ * @param player 参数说明。
+ * @returns 无返回值，完成运行态底蕴补偿计算。
+ */
+
+
+  private calculateFoundationCompensationForRuntime(player) {
+    return this.normalizeNonNegativeInt(player.realm?.progressToNext) * 5;
+  }  
+  /**
+ * calculateFoundationCompensationForPersistence：计算持久化快照底蕴补偿。
+ * @param snapshot 参数说明。
+ * @returns 无返回值，完成持久化底蕴补偿计算。
+ */
+
+
+  private calculateFoundationCompensationForPersistence(snapshot) {
+    const realm = this.playerProgressionService.createRealmStateFromLevel(
+      snapshot.progression?.realm?.realmLv ?? 1,
+      snapshot.progression?.realm?.progress ?? 0,
+    );
+    return this.normalizeNonNegativeInt(realm.progressToNext) * 5;
+  }  
+  /**
+ * hasInvalidItems：判断是否存在无效物品清理结果。
+ * @param summary 参数说明。
+ * @returns 无返回值，完成无效物品清理结果判断。
+ */
+
+
+  private hasInvalidItems(summary: { inventoryStacksRemoved: number; marketStorageStacksRemoved: number; equipmentRemoved: number }) {
+    return summary.inventoryStacksRemoved > 0
+      || summary.marketStorageStacksRemoved > 0
+      || summary.equipmentRemoved > 0;
+  }  
+  /**
  * toManagedPlayerSummary：执行toManaged玩家摘要相关逻辑。
  * @param snapshot 参数说明。
  * @param account 参数说明。
@@ -954,6 +1489,7 @@ export class NextGmPlayerService {
       dead: snapshot.hp <= 0,
       foundation: snapshot.foundation,
       combatExp: snapshot.combatExp,
+      bodyTraining: normalizeBodyTrainingState(snapshot.bodyTraining),
       baseAttrs: { ...snapshot.attrs.baseAttrs },
       bonuses: [],
       temporaryBuffs: snapshot.buffs.buffs.map((entry) => cloneTemporaryBuff(entry)),
@@ -1043,6 +1579,7 @@ export class NextGmPlayerService {
       lifespanYears: snapshot.progression.lifespanYears,
       foundation: snapshot.progression.foundation,
       combatExp: snapshot.progression.combatExp,
+      bodyTraining: normalizeBodyTrainingState(snapshot.progression.bodyTraining),
       baseAttrs: { ...DEFAULT_BASE_ATTRS },
       bonuses: [],
       temporaryBuffs: snapshot.buffs.buffs.map((entry) => cloneTemporaryBuff(entry)),

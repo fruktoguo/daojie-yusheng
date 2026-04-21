@@ -211,8 +211,11 @@ function normalizeEditableContainerRecord(input: unknown): GmMapContainerRecord 
   }
   const container = input as GmMapContainerRecord;
   return {
+    variant: container.variant === 'herb' ? 'herb' : undefined,
     grade: normalizeContainerGrade(container.grade),
     refreshTicks: Number.isFinite(container.refreshTicks) ? Number(container.refreshTicks) : undefined,
+    refreshTicksMin: Number.isFinite(container.refreshTicksMin) ? Number(container.refreshTicksMin) : undefined,
+    refreshTicksMax: Number.isFinite(container.refreshTicksMax) ? Number(container.refreshTicksMax) : undefined,
     char: normalizeOptionalTrimmedString(container.char),
     color: normalizeOptionalTrimmedString(container.color),
     drops: Array.isArray(container.drops)
@@ -835,6 +838,21 @@ export function validateEditableMapDocument(document: GmMapDocument): string | n
       const refreshTicks = landmark.container.refreshTicks;
       if (refreshTicks !== undefined && (!Number.isInteger(refreshTicks) || refreshTicks <= 0)) {
         return `${label} 的容器刷新时间必须为正整数`;
+      }
+      const refreshTicksMin = landmark.container.refreshTicksMin;
+      const refreshTicksMax = landmark.container.refreshTicksMax;
+      if (refreshTicksMin !== undefined && (!Number.isInteger(refreshTicksMin) || refreshTicksMin <= 0)) {
+        return `${label} 的容器最小刷新时间必须为正整数`;
+      }
+      if (refreshTicksMax !== undefined && (!Number.isInteger(refreshTicksMax) || refreshTicksMax <= 0)) {
+        return `${label} 的容器最大刷新时间必须为正整数`;
+      }
+      if (
+        refreshTicksMin !== undefined
+        && refreshTicksMax !== undefined
+        && refreshTicksMin > refreshTicksMax
+      ) {
+        return `${label} 的容器刷新时间范围无效`;
       }
       for (let poolIndex = 0; poolIndex < (landmark.container.lootPools?.length ?? 0); poolIndex += 1) {
         const pool = landmark.container.lootPools![poolIndex]!;

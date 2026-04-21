@@ -4,18 +4,18 @@ import type { BodyTrainingState, TechniqueAttrCurves, TechniqueCategory, Techniq
 import type { ActionUpdateEntryView as ActionUpdateEntry, TechniqueUpdateEntryView as TechniqueUpdateEntry } from './panel-update-types';
 import type { NEXT_S2C_ActionsUpdate, NEXT_S2C_AttrUpdate, NEXT_S2C_TechniqueUpdate } from './protocol';
 import {
-  fromWireAttributes,
-  fromWireNumericStats,
-  fromWirePlayerSpecialStats,
-  fromWireRatioDivisors,
+  fromWirePartialAttributes,
+  fromWirePartialNumericStats,
+  fromWirePartialPlayerSpecialStats,
+  fromWirePartialRatioDivisors,
   hasOwn,
   parseJson,
   readNullableWireValue,
   setNullableWireValue,
-  toWireAttributes,
-  toWireNumericStats,
-  toWirePlayerSpecialStats,
-  toWireRatioDivisors,
+  toWirePartialAttributes,
+  toWirePartialNumericStats,
+  toWirePartialPlayerSpecialStats,
+  toWirePartialRatioDivisors,
 } from './network-protobuf-wire-helpers';
 
 /** 将功法增量条目转换为 wire 结构。 */
@@ -243,14 +243,15 @@ export function toWireAttrUpdate(payload: NEXT_S2C_AttrUpdate): Record<string, u
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
   const wire: Record<string, unknown> = {};
-  if (payload.baseAttrs) wire.baseAttrs = toWireAttributes(payload.baseAttrs);
+  if (payload.baseAttrs) wire.baseAttrs = toWirePartialAttributes(payload.baseAttrs);
   if (payload.bonuses !== undefined) wire.bonusesJson = JSON.stringify(payload.bonuses);
-  if (payload.finalAttrs) wire.finalAttrs = toWireAttributes(payload.finalAttrs);
-  if (payload.numericStats) wire.numericStats = toWireNumericStats(payload.numericStats);
-  if (payload.ratioDivisors) wire.ratioDivisors = toWireRatioDivisors(payload.ratioDivisors);
+  if (payload.finalAttrs) wire.finalAttrs = toWirePartialAttributes(payload.finalAttrs);
+  if (payload.numericStats) wire.numericStats = toWirePartialNumericStats(payload.numericStats);
+  if (payload.ratioDivisors) wire.ratioDivisors = toWirePartialRatioDivisors(payload.ratioDivisors);
+  if (payload.numericStatBreakdowns !== undefined) wire.numericStatBreakdownsJson = JSON.stringify(payload.numericStatBreakdowns);
   if (payload.maxHp !== undefined) wire.maxHp = payload.maxHp;
   if (payload.qi !== undefined) wire.qi = payload.qi;
-  if (payload.specialStats) wire.specialStats = toWirePlayerSpecialStats(payload.specialStats);
+  if (payload.specialStats) wire.specialStats = toWirePartialPlayerSpecialStats(payload.specialStats);
   if (payload.boneAgeBaseYears !== undefined) wire.boneAgeBaseYears = payload.boneAgeBaseYears;
   if (payload.lifeElapsedTicks !== undefined) wire.lifeElapsedTicks = payload.lifeElapsedTicks;
   if (payload.realmProgress !== undefined) wire.realmProgress = payload.realmProgress;
@@ -269,14 +270,15 @@ export function fromWireAttrUpdate(wire: Record<string, unknown>): NEXT_S2C_Attr
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
   const payload: NEXT_S2C_AttrUpdate = {};
-  if (hasOwn(wire, 'baseAttrs')) payload.baseAttrs = fromWireAttributes(wire.baseAttrs as Record<string, unknown>);
+  if (hasOwn(wire, 'baseAttrs')) payload.baseAttrs = fromWirePartialAttributes(wire.baseAttrs as Record<string, unknown>);
   if (typeof wire.bonusesJson === 'string') payload.bonuses = parseJson<AttrBonus[]>(wire.bonusesJson);
-  if (hasOwn(wire, 'finalAttrs')) payload.finalAttrs = fromWireAttributes(wire.finalAttrs as Record<string, unknown>);
-  if (hasOwn(wire, 'numericStats')) payload.numericStats = fromWireNumericStats(wire.numericStats as Record<string, unknown>);
-  if (hasOwn(wire, 'ratioDivisors')) payload.ratioDivisors = fromWireRatioDivisors(wire.ratioDivisors as Record<string, unknown>);
+  if (hasOwn(wire, 'finalAttrs')) payload.finalAttrs = fromWirePartialAttributes(wire.finalAttrs as Record<string, unknown>);
+  if (hasOwn(wire, 'numericStats')) payload.numericStats = fromWirePartialNumericStats(wire.numericStats as Record<string, unknown>);
+  if (hasOwn(wire, 'ratioDivisors')) payload.ratioDivisors = fromWirePartialRatioDivisors(wire.ratioDivisors as Record<string, unknown>);
+  if (typeof wire.numericStatBreakdownsJson === 'string') payload.numericStatBreakdowns = parseJson(wire.numericStatBreakdownsJson);
   if (hasOwn(wire, 'maxHp')) payload.maxHp = Number(wire.maxHp ?? 0);
   if (hasOwn(wire, 'qi')) payload.qi = Number(wire.qi ?? 0);
-  if (hasOwn(wire, 'specialStats')) payload.specialStats = fromWirePlayerSpecialStats(wire.specialStats as Record<string, unknown>);
+  if (hasOwn(wire, 'specialStats')) payload.specialStats = fromWirePartialPlayerSpecialStats(wire.specialStats as Record<string, unknown>);
   if (hasOwn(wire, 'boneAgeBaseYears')) payload.boneAgeBaseYears = Number(wire.boneAgeBaseYears ?? 0);
   if (hasOwn(wire, 'lifeElapsedTicks')) payload.lifeElapsedTicks = Number(wire.lifeElapsedTicks ?? 0);
   if (hasOwn(wire, 'realmProgress')) payload.realmProgress = Number(wire.realmProgress ?? 0);

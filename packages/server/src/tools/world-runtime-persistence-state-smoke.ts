@@ -75,6 +75,12 @@ function testBuildAndMarkSnapshot() {
 
         buildAuraPersistenceEntries() { return ['aura:1']; },        
         /**
+ * buildTileResourcePersistenceEntries：构建并返回目标对象。
+ * @returns 无返回值，直接更新Tile资源Persistence条目相关状态。
+ */
+
+        buildTileResourcePersistenceEntries() { return ['tile-resource:1']; },        
+        /**
  * buildGroundPersistenceEntries：构建并返回目标对象。
  * @returns 无返回值，直接更新GroundPersistence条目相关状态。
  */
@@ -122,6 +128,7 @@ function testBuildAndMarkSnapshot() {
     const snapshot = service.buildMapPersistenceSnapshot('public:yunlai_town', deps);
     assert.equal(snapshot.templateId, 'yunlai_town');
     assert.deepEqual(snapshot.auraEntries, ['aura:1']);
+    assert.deepEqual(snapshot.tileResourceEntries, ['tile-resource:1']);
     assert.deepEqual(snapshot.groundPileEntries, ['ground:1']);
     assert.deepEqual(snapshot.containerStates, [{ id: 'container:1' }]);
     service.markMapPersisted('public:yunlai_town', deps);

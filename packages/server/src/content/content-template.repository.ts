@@ -150,6 +150,7 @@ let ContentTemplateRepository = ContentTemplateRepository_1 = class ContentTempl
             mapUnlockId: template.mapUnlockId,
             mapUnlockIds: Array.isArray(template.mapUnlockIds) ? template.mapUnlockIds.slice() : undefined,
             tileAuraGainAmount: template.tileAuraGainAmount,
+            tileResourceGains: Array.isArray(template.tileResourceGains) ? template.tileResourceGains.map((entry) => ({ ...entry })) : undefined,
             allowBatchUse: template.allowBatchUse,
         })).sort((left, right) => left.itemId.localeCompare(right.itemId, 'zh-Hans-CN'));
     }    
@@ -1662,6 +1663,27 @@ function normalizeItemTemplate(raw) {
     if (typeof candidate.itemId !== 'string' || !candidate.itemId.trim()) {
         return null;
     }
+    const defaultTileAuraResourceKey = (0, shared_1.buildQiResourceKey)(shared_1.DEFAULT_QI_RESOURCE_DESCRIPTOR);
+    const normalizedTileAuraGainAmount = Number.isFinite(candidate.tileAuraGainAmount)
+        ? Number(candidate.tileAuraGainAmount)
+        : undefined;
+    const normalizedTileResourceGains = Array.isArray(candidate.tileResourceGains)
+        ? candidate.tileResourceGains
+            .filter((entry) => entry && typeof entry === 'object')
+            .map((entry) => ({
+                resourceKey: typeof entry.resourceKey === 'string' ? entry.resourceKey.trim() : '',
+                amount: Number.isFinite(entry.amount) ? Number(entry.amount) : NaN,
+            }))
+            .filter((entry) => entry.resourceKey.length > 0 && Number.isFinite(entry.amount) && entry.amount > 0)
+        : undefined;
+    const defaultTileResourceGains = normalizedTileAuraGainAmount && normalizedTileAuraGainAmount > 0
+        ? [{
+            resourceKey: defaultTileAuraResourceKey,
+            amount: normalizedTileAuraGainAmount,
+        }]
+        : undefined;
+    const synthesizedTileAuraGainAmount = normalizedTileAuraGainAmount
+        ?? normalizedTileResourceGains?.find((entry) => entry.resourceKey === defaultTileAuraResourceKey)?.amount;
     return {
         itemId: candidate.itemId,
 
@@ -1691,9 +1713,10 @@ function normalizeItemTemplate(raw) {
         mapUnlockIds: Array.isArray(candidate.mapUnlockIds)
             ? candidate.mapUnlockIds.filter((entry) => typeof entry === 'string' && entry.length > 0)
             : undefined,
-        tileAuraGainAmount: Number.isFinite(candidate.tileAuraGainAmount)
-            ? Number(candidate.tileAuraGainAmount)
-            : undefined,
+        tileAuraGainAmount: synthesizedTileAuraGainAmount,
+        tileResourceGains: normalizedTileResourceGains && normalizedTileResourceGains.length > 0
+            ? normalizedTileResourceGains
+            : defaultTileResourceGains,
 
         allowBatchUse: candidate.allowBatchUse === true,
 

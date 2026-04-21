@@ -8,6 +8,14 @@ import { WorldClientEventService } from './network/world-client-event.service';
 import { WorldGmSocketService } from './network/world-gm-socket.service';
 import { WorldProjectorService } from './network/world-projector.service';
 import { WorldProtocolProjectionService } from './network/world-protocol-projection.service';
+import { WorldSessionBootstrapContextHelper } from './network/world-session-bootstrap-context.helper';
+import { WorldSessionBootstrapContractService } from './network/world-session-bootstrap-contract.service';
+import { WorldSessionBootstrapFinalizeService } from './network/world-session-bootstrap-finalize.service';
+import { WorldSessionBootstrapPostEmitService } from './network/world-session-bootstrap-post-emit.service';
+import { WorldSessionBootstrapPlayerInitService } from './network/world-session-bootstrap-player-init.service';
+import { WorldSessionBootstrapRuntimeService } from './network/world-session-bootstrap-runtime.service';
+import { WorldSessionBootstrapSessionBindService } from './network/world-session-bootstrap-session-bind.service';
+import { WorldSessionBootstrapSnapshotService } from './network/world-session-bootstrap-snapshot.service';
 import { WorldSessionBootstrapService } from './network/world-session-bootstrap.service';
 import { WorldSessionReaperService } from './network/world-session-reaper.service';
 import { WorldSessionService } from './network/world-session.service';
@@ -223,6 +231,14 @@ import { WorldRuntimeService } from './runtime/world/world-runtime.service';
     RedeemCodeRuntimeService,
     ...WORLD_AUTH_PROVIDERS,
     WorldSessionService,
+    WorldSessionBootstrapContextHelper,
+    WorldSessionBootstrapContractService,
+    WorldSessionBootstrapFinalizeService,
+    WorldSessionBootstrapPostEmitService,
+    WorldSessionBootstrapPlayerInitService,
+    WorldSessionBootstrapRuntimeService,
+    WorldSessionBootstrapSessionBindService,
+    WorldSessionBootstrapSnapshotService,
     WorldSessionBootstrapService,
     WorldSessionReaperService,
     WorldClientEventService,

@@ -48,6 +48,7 @@ import type { SocketAdminSender } from './network/socket-send-admin';
 import type { SocketPanelSender } from './network/socket-send-panel';
 import type { SocketRuntimeSender } from './network/socket-send-runtime';
 import type { SocketSocialEconomySender } from './network/socket-send-social-economy';
+import type { ClientTechniqueActivityKind } from './technique-activity-client.helpers';
 /**
  * ToastKind：统一结构类型，保证协议与运行时一致性。
  */
@@ -453,6 +454,8 @@ type MainBootstrapAssemblyOptions = {
   panelSender: Pick<
     SocketPanelSender,
     | 'sendTakeLoot'
+    | 'sendStartGather'
+    | 'sendCancelGather'
     | 'sendStopLootHarvest'
     | 'sendUnequip'
     | 'sendRequestNpcShop'
@@ -500,6 +503,16 @@ type MainBootstrapAssemblyOptions = {
 
 
 export function bootstrapMainApp(options: MainBootstrapAssemblyOptions): void {
+  const techniqueActivityPanelHandlers: {
+    [K in ClientTechniqueActivityKind]:
+      K extends 'alchemy' ? MainDetailStateSource['handleAlchemyPanel'] : MainDetailStateSource['handleEnhancementPanel'];
+  } = {
+    alchemy: (data: Parameters<MainDetailStateSource['handleAlchemyPanel']>[0]) =>
+      options.detailStateSource.handleAlchemyPanel(data),
+    enhancement: (data: Parameters<MainDetailStateSource['handleEnhancementPanel']>[0]) =>
+      options.detailStateSource.handleEnhancementPanel(data),
+  };
+
   options.mapRuntimeBridgeSource.resizeCanvas();
   options.uiStateSource.refreshZoomChrome();
   bindResponsiveViewportCss(options.windowRef);
@@ -639,8 +652,8 @@ export function bootstrapMainApp(options: MainBootstrapAssemblyOptions): void {
     onTileDetail: (data) => options.detailStateSource.handleTileDetail(data),
     onDetail: (data) => options.detailStateSource.handleDetail(data),
     onAttrDetail: (data) => options.detailStateSource.handleAttrDetail(data),
-    onAlchemyPanel: (data) => options.detailStateSource.handleAlchemyPanel(data),
-    onEnhancementPanel: (data) => options.detailStateSource.handleEnhancementPanel(data),
+    onAlchemyPanel: techniqueActivityPanelHandlers.alchemy,
+    onEnhancementPanel: techniqueActivityPanelHandlers.enhancement,
     onLeaderboard: (data) => options.detailStateSource.handleLeaderboard(data),
     onLeaderboardPlayerLocations: (data) => options.detailStateSource.handleLeaderboardPlayerLocations(data),
     onWorldSummary: (data) => options.detailStateSource.handleWorldSummary(data),

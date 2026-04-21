@@ -81,11 +81,33 @@ function testStartAlchemy() {
 
         startAlchemy() { return { ok: true, messages: [{ text: '炼丹开始', kind: 'success' }], panelChanged: true, groundDrops: [] }; },        
         /**
+ * startTechniqueActivity：统一技艺活动开始入口。
+ * @returns 无返回值，直接更新技艺活动开始相关状态。
+ */
+
+        startTechniqueActivity(_player, kind) {
+            if (kind !== 'alchemy') {
+                throw new Error(`unexpected technique activity kind: ${kind}`);
+            }
+            return this.startAlchemy();
+        },        
+        /**
  * buildAlchemyPanelPayload：构建并返回目标对象。
  * @returns 无返回值，直接更新炼丹面板载荷相关状态。
  */
 
         buildAlchemyPanelPayload() { return { ok: true }; },
+        /**
+ * buildTechniqueActivityPanelPayload：统一技艺面板载荷入口。
+ * @returns 无返回值，直接更新技艺面板载荷相关状态。
+ */
+
+        buildTechniqueActivityPanelPayload(_player, kind) {
+            if (kind !== 'alchemy') {
+                throw new Error(`unexpected technique activity kind: ${kind}`);
+            }
+            return this.buildAlchemyPanelPayload();
+        },
     };
     const craftMutationService = new WorldRuntimeCraftMutationService(playerRuntimeService, craftPanelRuntimeService, {    
     /**
@@ -157,6 +179,17 @@ function testDeletePreset() {
  */
 
         buildAlchemyPanelPayload() { return { ok: true }; },
+        /**
+ * buildTechniqueActivityPanelPayload：统一技艺面板载荷入口。
+ * @returns 无返回值，直接更新技艺面板载荷相关状态。
+ */
+
+        buildTechniqueActivityPanelPayload(_player, kind) {
+            if (kind !== 'alchemy') {
+                throw new Error(`unexpected technique activity kind: ${kind}`);
+            }
+            return this.buildAlchemyPanelPayload();
+        },
     };
     const craftMutationService = new WorldRuntimeCraftMutationService(playerRuntimeService, craftPanelRuntimeService, {    
     /**
@@ -193,7 +226,7 @@ function testDeletePreset() {
 function testWorldRuntimeFacadeDispatchStartAlchemy() {
     const log = [];
     const runtime = {
-        worldRuntimeAlchemyService: {        
+        worldRuntimeGameplayWriteFacadeService: {        
         /**
  * dispatchStartAlchemy：判断开始炼丹是否满足条件。
  * @param playerId 玩家 ID。
@@ -221,7 +254,7 @@ function testWorldRuntimeFacadeDispatchStartAlchemy() {
 function testWorldRuntimeFacadeDispatchCancelAlchemy() {
     const log = [];
     const runtime = {
-        worldRuntimeAlchemyService: {        
+        worldRuntimeGameplayWriteFacadeService: {        
         /**
  * dispatchCancelAlchemy：判断Cancel炼丹是否满足条件。
  * @param playerId 玩家 ID。
@@ -248,7 +281,7 @@ function testWorldRuntimeFacadeDispatchCancelAlchemy() {
 function testWorldRuntimeFacadeDispatchSaveAlchemyPreset() {
     const log = [];
     const runtime = {
-        worldRuntimeAlchemyService: {        
+        worldRuntimeGameplayWriteFacadeService: {        
         /**
  * dispatchSaveAlchemyPreset：判断Save炼丹Preset是否满足条件。
  * @param playerId 玩家 ID。
@@ -276,7 +309,7 @@ function testWorldRuntimeFacadeDispatchSaveAlchemyPreset() {
 function testWorldRuntimeFacadeDispatchDeleteAlchemyPreset() {
     const log = [];
     const runtime = {
-        worldRuntimeAlchemyService: {        
+        worldRuntimeGameplayWriteFacadeService: {        
         /**
  * dispatchDeleteAlchemyPreset：判断Delete炼丹Preset是否满足条件。
  * @param playerId 玩家 ID。

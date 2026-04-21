@@ -16,7 +16,18 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.WorldRuntimeBattleEngageService = void 0;
 
 const common_1 = require("@nestjs/common");
+const player_combat_config_helpers_1 = require("../player/player-combat-config.helpers");
 const player_runtime_service_1 = require("../player/player-runtime.service");
+
+function ensureHostileRelation(resolution) {
+    if ((0, player_combat_config_helpers_1.isHostileCombatRelationResolution)(resolution)) {
+        return;
+    }
+    if (resolution?.blockedReason === 'self_target') {
+        throw new common_1.BadRequestException('不能攻击自己');
+    }
+    throw new common_1.BadRequestException('当前目标不在敌方判定规则内');
+}
 
 /** 玩家战斗接敌编排服务：承接锁定目标、autoBattle 切换与首个命令 handoff。 */
 let WorldRuntimeBattleEngageService = class WorldRuntimeBattleEngageService {
@@ -54,6 +65,19 @@ let WorldRuntimeBattleEngageService = class WorldRuntimeBattleEngageService {
         const wasAutoBattleActive = currentPlayer.combat.autoBattle === true;
         deps.interruptManualCombat(playerId);
         if (!targetMonsterId) {
+            if (targetPlayerId) {
+                const target = this.playerRuntimeService.getPlayerOrThrow(targetPlayerId);
+                if (target.instanceId !== currentPlayer.instanceId) {
+                    throw new common_1.BadRequestException('目标不在同一地图');
+                }
+                ensureHostileRelation((0, player_combat_config_helpers_1.resolveCombatRelation)(currentPlayer, {
+                    kind: 'player',
+                    target,
+                }));
+            }
+            if (targetX !== null && targetY !== null) {
+                ensureHostileRelation((0, player_combat_config_helpers_1.resolveCombatRelation)(currentPlayer, { kind: 'terrain' }));
+            }
             const targetRef = targetPlayerId
                 ? `player:${targetPlayerId}`
                 : (targetX !== null && targetY !== null ? `tile:${targetX}:${targetY}` : null);
@@ -78,6 +102,7 @@ let WorldRuntimeBattleEngageService = class WorldRuntimeBattleEngageService {
         if (!monster?.alive) {
             throw new common_1.NotFoundException(`Monster ${targetMonsterId} not found`);
         }
+        ensureHostileRelation((0, player_combat_config_helpers_1.resolveCombatRelation)(player, { kind: 'monster' }));
         this.playerRuntimeService.updateCombatSettings(playerId, {
             autoBattle: true,
         }, currentTick);

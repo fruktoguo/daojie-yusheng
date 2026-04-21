@@ -143,10 +143,6 @@ export function bindMainShellInteractions(options: MainShellBindingsOptions): vo
 
   options.sidePanel.setTabChangeCallback((tabName) => {
     syncChatLogbookVisibility();
-    if (tabName === 'attr') {
-      options.attrDetailStateSource.requestDetail();
-      return;
-    }
     if (tabName === 'world') {
       options.sendRequestLeaderboard();
       options.sendRequestWorldSummary();

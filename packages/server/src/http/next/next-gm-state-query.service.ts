@@ -1,5 +1,11 @@
 import { Inject, Injectable } from '@nestjs/common';
-import { DEFAULT_BASE_ATTRS, VIEW_RADIUS } from '@mud/shared-next';
+import {
+  DEFAULT_BASE_ATTRS,
+  VIEW_RADIUS,
+  type GmListPlayersQuery,
+  type GmManagedPlayerSummary,
+  type GmPlayerSortMode,
+} from '@mud/shared-next';
 import { MapTemplateRepository } from '../../runtime/map/map-template.repository';
 import { PlayerPersistenceService } from '../../persistence/player-persistence.service';
 import { PlayerProgressionService } from '../../runtime/player/player-progression.service';
@@ -134,6 +140,17 @@ interface PerformanceTimerState {
 
   pathfindingPerfStartedAt: number;
 }
+
+interface NormalizedGmListPlayersQuery {
+  page: number;
+  pageSize: number;
+  keyword: string;
+  keywordNeedle: string;
+  sort: GmPlayerSortMode;
+}
+
+const DEFAULT_GM_PAGE_SIZE = 50;
+const MAX_GM_PAGE_SIZE = 200;
 /**
  * NextGmStateQueryService：封装该能力的入口与生命周期，承载运行时核心协作。
  */
@@ -173,22 +190,29 @@ export class NextGmStateQueryService {
  */
 
 
-  async getState(timers: PerformanceTimerState) {
+  async getState(query: GmListPlayersQuery | undefined, timers: PerformanceTimerState) {
     const perf = this.buildPerformanceSnapshot(timers);
     const runtimePlayers = this.playerRuntimeService.listPlayerSnapshots();
     const persistedEntries = await this.playerPersistenceService.listPlayerSnapshots();
     const accountIndex = await this.nextManagedAccountService.getManagedAccountIndex(
       this.collectManagedPlayerIds(runtimePlayers, persistedEntries),
     );
-    const players = this.buildManagedPlayers(runtimePlayers, persistedEntries, accountIndex);
+    const allPlayers = this.buildManagedPlayers(runtimePlayers, persistedEntries, accountIndex);
+    const normalizedQuery = normalizeGmListPlayersQuery(query);
+    const filteredPlayers = filterManagedPlayers(allPlayers, normalizedQuery.keywordNeedle);
+    const sortedPlayers = sortManagedPlayers(filteredPlayers, normalizedQuery.sort);
+    const playerPage = buildPlayerPage(normalizedQuery, sortedPlayers.length);
+    const players = sliceManagedPlayers(sortedPlayers, playerPage.page, playerPage.pageSize);
 
     return {
       players,
+      playerPage,
+      playerStats: buildManagedPlayerStats(filteredPlayers),
       mapIds: this.mapTemplateRepository
         .listSummaries()
         .map((entry) => entry.id)
         .sort((left, right) => left.localeCompare(right, 'zh-Hans-CN')),
-      botCount: players.reduce((count, snapshot) => count + (snapshot.meta.isBot ? 1 : 0), 0),
+      botCount: filteredPlayers.reduce((count, snapshot) => count + (snapshot.meta.isBot ? 1 : 0), 0),
       perf,
     };
   }  
@@ -528,22 +552,215 @@ export class NextGmStateQueryService {
  */
 
 
-function compareManagedPlayerSummary(left, right) {
+function compareManagedPlayerSummary(left, right, sort: GmPlayerSortMode = 'online') {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
+  const botCompare = compareBotPriority(left, right);
+  if (botCompare !== 0) {
+    return botCompare;
+  }
+
+  switch (sort) {
+    case 'realm-desc': {
+      const realmCompare = compareRealm(left, right, 'desc');
+      if (realmCompare !== 0) {
+        return realmCompare;
+      }
+      const onlineCompare = compareOnlinePriority(left, right);
+      if (onlineCompare !== 0) {
+        return onlineCompare;
+      }
+      break;
+    }
+    case 'realm-asc': {
+      const realmCompare = compareRealm(left, right, 'asc');
+      if (realmCompare !== 0) {
+        return realmCompare;
+      }
+      const onlineCompare = compareOnlinePriority(left, right);
+      if (onlineCompare !== 0) {
+        return onlineCompare;
+      }
+      break;
+    }
+    case 'map': {
+      const mapCompare = compareMap(left, right);
+      if (mapCompare !== 0) {
+        return mapCompare;
+      }
+      break;
+    }
+    case 'name': {
+      const nameCompare = compareName(left, right);
+      if (nameCompare !== 0) {
+        return nameCompare;
+      }
+      const onlineCompare = compareOnlinePriority(left, right);
+      if (onlineCompare !== 0) {
+        return onlineCompare;
+      }
+      break;
+    }
+    case 'online':
+    default: {
+      const onlineCompare = compareOnlinePriority(left, right);
+      if (onlineCompare !== 0) {
+        return onlineCompare;
+      }
+      const realmCompare = compareRealm(left, right, 'desc');
+      if (realmCompare !== 0) {
+        return realmCompare;
+      }
+      const mapCompare = compareMap(left, right);
+      if (mapCompare !== 0) {
+        return mapCompare;
+      }
+      break;
+    }
+  }
+
+  return compareName(left, right);
+}
+
+function normalizeGmListPlayersQuery(query: GmListPlayersQuery | undefined): NormalizedGmListPlayersQuery {
+  const keyword = typeof query?.keyword === 'string' ? query.keyword.trim() : '';
+
+  return {
+    page: sanitizePositiveInteger(query?.page, 1),
+    pageSize: Math.min(MAX_GM_PAGE_SIZE, sanitizePositiveInteger(query?.pageSize, DEFAULT_GM_PAGE_SIZE)),
+    keyword,
+    keywordNeedle: keyword.toLocaleLowerCase('zh-Hans-CN'),
+    sort: isGmPlayerSortMode(query?.sort) ? query.sort : 'realm-desc',
+  };
+}
+
+function filterManagedPlayers(players: GmManagedPlayerSummary[], keywordNeedle: string): GmManagedPlayerSummary[] {
+  if (!keywordNeedle) {
+    return players;
+  }
+
+  return players.filter((player) =>
+    matchesKeyword(player.id, keywordNeedle)
+    || matchesKeyword(player.name, keywordNeedle)
+    || matchesKeyword(player.roleName, keywordNeedle)
+    || matchesKeyword(player.displayName, keywordNeedle)
+    || matchesKeyword(player.accountName, keywordNeedle)
+    || matchesKeyword(player.mapId, keywordNeedle)
+    || matchesKeyword(player.mapName, keywordNeedle),
+  );
+}
+
+function sortManagedPlayers(players: GmManagedPlayerSummary[], sort: GmPlayerSortMode): GmManagedPlayerSummary[] {
+  return [...players].sort((left, right) => compareManagedPlayerSummary(left, right, sort));
+}
+
+function buildPlayerPage(query: NormalizedGmListPlayersQuery, total: number) {
+  const totalPages = Math.max(1, Math.ceil(total / query.pageSize));
+  const page = Math.min(query.page, totalPages);
+
+  return {
+    page,
+    pageSize: query.pageSize,
+    total,
+    totalPages,
+    keyword: query.keyword,
+    sort: query.sort,
+  };
+}
+
+function sliceManagedPlayers(players: GmManagedPlayerSummary[], page: number, pageSize: number): GmManagedPlayerSummary[] {
+  const start = (page - 1) * pageSize;
+  return players.slice(start, start + pageSize);
+}
+
+function buildManagedPlayerStats(players: GmManagedPlayerSummary[]) {
+  let onlinePlayers = 0;
+  let offlineHangingPlayers = 0;
+
+  for (const player of players) {
+    if (player.meta.online) {
+      onlinePlayers += 1;
+      continue;
+    }
+    if (player.meta.inWorld) {
+      offlineHangingPlayers += 1;
+    }
+  }
+
+  return {
+    totalPlayers: players.length,
+    onlinePlayers,
+    offlineHangingPlayers,
+    offlinePlayers: Math.max(0, players.length - onlinePlayers - offlineHangingPlayers),
+  };
+}
+
+function sanitizePositiveInteger(value: unknown, fallback: number): number {
+  if (typeof value === 'number' && Number.isFinite(value)) {
+    return Math.max(1, Math.trunc(value));
+  }
+  if (typeof value === 'string' && value.trim().length > 0) {
+    const parsed = Number.parseInt(value, 10);
+    if (Number.isFinite(parsed)) {
+      return Math.max(1, parsed);
+    }
+  }
+  return fallback;
+}
+
+function isGmPlayerSortMode(value: unknown): value is GmPlayerSortMode {
+  return value === 'realm-desc'
+    || value === 'realm-asc'
+    || value === 'online'
+    || value === 'map'
+    || value === 'name';
+}
+
+function matchesKeyword(value: string | undefined, keywordNeedle: string): boolean {
+  return typeof value === 'string'
+    && value.toLocaleLowerCase('zh-Hans-CN').includes(keywordNeedle);
+}
+
+function compareBotPriority(left, right) {
   if (left.meta.isBot !== right.meta.isBot) {
     return left.meta.isBot ? 1 : -1;
   }
+  return 0;
+}
 
+function compareOnlinePriority(left, right) {
   if (left.meta.online !== right.meta.online) {
     return left.meta.online ? -1 : 1;
   }
+  return 0;
+}
 
+function compareRealm(left, right, direction: 'asc' | 'desc') {
+  const diff = direction === 'asc'
+    ? left.realmLv - right.realmLv
+    : right.realmLv - left.realmLv;
+  if (diff !== 0) {
+    return diff;
+  }
+  return left.realmLabel.localeCompare(right.realmLabel, 'zh-Hans-CN');
+}
+
+function compareMap(left, right) {
   if (left.mapName !== right.mapName) {
     return left.mapName.localeCompare(right.mapName, 'zh-Hans-CN');
   }
+  if (left.mapId !== right.mapId) {
+    return left.mapId.localeCompare(right.mapId, 'zh-Hans-CN');
+  }
+  return 0;
+}
 
-  return left.roleName.localeCompare(right.roleName, 'zh-Hans-CN');
+function compareName(left, right) {
+  const roleCompare = left.roleName.localeCompare(right.roleName, 'zh-Hans-CN');
+  if (roleCompare !== 0) {
+    return roleCompare;
+  }
+  return left.id.localeCompare(right.id, 'zh-Hans-CN');
 }
 /**
  * roundMetric：执行roundMetric相关逻辑。

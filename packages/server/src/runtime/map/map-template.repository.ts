@@ -48,6 +48,8 @@ const shared_1 = require("@mud/shared-next");
 const fs = __importStar(require("fs"));
 const path = __importStar(require("path"));
 const project_path_1 = require("../../common/project-path");
+
+const DEFAULT_TILE_AURA_RESOURCE_KEY = (0, shared_1.buildQiResourceKey)(shared_1.DEFAULT_QI_RESOURCE_DESCRIPTOR);
 let MapTemplateRepository = MapTemplateRepository_1 = class MapTemplateRepository {
 /**
  * logger：日志器引用。
@@ -209,6 +211,7 @@ let MapTemplateRepository = MapTemplateRepository_1 = class MapTemplateRepositor
         const portalIndexByTile = new Int32Array(size);
         const safeZoneMask = new Uint8Array(size);
         const baseAuraByTile = new Int32Array(size);
+        const baseTileResourceEntryByKey = new Map();
         portalIndexByTile.fill(-1);
         for (let y = 0; y < height; y += 1) {
             const row = document.tiles[y] ?? '';
@@ -281,7 +284,42 @@ let MapTemplateRepository = MapTemplateRepository_1 = class MapTemplateRepositor
             if (!isInBounds(aura.x, aura.y, width, height) || !Number.isFinite(aura.value)) {
                 continue;
             }
-            baseAuraByTile[getTileIndex(aura.x, aura.y, width)] = Math.max(0, Math.trunc(aura.value));
+            const tileIndex = getTileIndex(aura.x, aura.y, width);
+            const value = Math.max(0, Math.trunc(aura.value));
+            baseAuraByTile[tileIndex] = value;
+            if (value > 0) {
+                baseTileResourceEntryByKey.set(`${DEFAULT_TILE_AURA_RESOURCE_KEY}:${tileIndex}`, {
+                    resourceKey: DEFAULT_TILE_AURA_RESOURCE_KEY,
+                    tileIndex,
+                    value,
+                });
+            }
+        }
+        for (const resource of document.resources ?? []) {
+            if (!isInBounds(resource.x, resource.y, width, height)
+                || !Number.isFinite(resource.value)
+                || typeof resource.resourceKey !== 'string') {
+                continue;
+            }
+            const resourceKey = resource.resourceKey.trim();
+            if (!(0, shared_1.parseQiResourceKey)(resourceKey)) {
+                continue;
+            }
+            const tileIndex = getTileIndex(resource.x, resource.y, width);
+            const value = Math.max(0, Math.trunc(resource.value));
+            if (resourceKey === DEFAULT_TILE_AURA_RESOURCE_KEY) {
+                baseAuraByTile[tileIndex] = value;
+            }
+            if (value > 0) {
+                baseTileResourceEntryByKey.set(`${resourceKey}:${tileIndex}`, {
+                    resourceKey,
+                    tileIndex,
+                    value,
+                });
+            }
+            else {
+                baseTileResourceEntryByKey.delete(`${resourceKey}:${tileIndex}`);
+            }
         }
         return {
             id: document.id,
@@ -302,6 +340,7 @@ let MapTemplateRepository = MapTemplateRepository_1 = class MapTemplateRepositor
             walkableMask,
             blocksSightMask,
             baseAuraByTile,
+            baseTileResourceEntries: Array.from(baseTileResourceEntryByKey.values()).sort((left, right) => left.resourceKey.localeCompare(right.resourceKey, 'zh-Hans-CN') || left.tileIndex - right.tileIndex),
             source: document,
         };
     }
@@ -431,9 +470,16 @@ function normalizeContainerRecord(landmark, x, y) {
         x,
         y,
         desc: typeof landmark.desc === 'string' && landmark.desc.trim() ? landmark.desc : undefined,
+        variant: container.variant === 'herb' ? 'herb' : undefined,
         grade: normalizeContainerGrade(container.grade),
         refreshTicks: Number.isInteger(container.refreshTicks) && Number(container.refreshTicks) > 0
             ? Number(container.refreshTicks)
+            : undefined,
+        refreshTicksMin: Number.isInteger(container.refreshTicksMin) && Number(container.refreshTicksMin) > 0
+            ? Number(container.refreshTicksMin)
+            : undefined,
+        refreshTicksMax: Number.isInteger(container.refreshTicksMax) && Number(container.refreshTicksMax) > 0
+            ? Number(container.refreshTicksMax)
             : undefined,
         char: typeof container.char === 'string' && container.char.trim()
             ? container.char.trim().slice(0, 1)

@@ -12,6 +12,8 @@
 
 如需看前端重构本身、`client-next` UI 状态与前端专属验证口径，统一看 [docs/frontend-refactor/verification.md](./frontend-refactor/verification.md) 与 [docs/frontend-refactor/README.md](./frontend-refactor/README.md)。
 
+如需看 GM 凭据、默认密码禁用口径与本地显式降级规则，统一看 [docs/gm-security-baseline.md](./gm-security-baseline.md)。
+
 ## 当前定位
 
 - `server-next` 当前仍是独立 shadow / replace-ready 线，不是默认正式生产入口。
@@ -135,6 +137,12 @@ shadow / acceptance / full 额外需要：
 
 - `SERVER_NEXT_SHADOW_URL` 或 `SERVER_NEXT_URL`
 - `SERVER_NEXT_GM_PASSWORD` 或 `GM_PASSWORD`
+
+本地开发如需显式临时降级为默认 GM 密码，额外需要：
+
+- `SERVER_NEXT_ALLOW_INSECURE_LOCAL_GM_PASSWORD=1` 或 `GM_ALLOW_INSECURE_LOCAL_GM_PASSWORD=1`
+- `SERVER_NEXT_RUNTIME_ENV` / `APP_ENV` / `NODE_ENV` 必须是 `development`、`dev`、`local` 或 `test`
+- 该降级只允许本地开发；`shadow / acceptance / full / 生产` 一律禁止
 
 shadow-destructive 额外需要：
 
@@ -358,9 +366,10 @@ node node_modules/.pnpm/node_modules/typescript/bin/tsc -p packages/server/tscon
 
 ## 相关文档
 
-- 当前状态与缺口：[next-gap-analysis.md](next-gap-analysis.md)
-- 剩余执行方案：[next-remaining-execution-plan.md](next-remaining-execution-plan.md)
-- 详细任务拆分：[next-remaining-task-breakdown.md](next-remaining-task-breakdown.md)
-- legacy 清理门槛：[next-legacy-removal-checklist.md](next-legacy-removal-checklist.md)
+- 当前主计划：[next-plan/main.md](next-plan/main.md)
+- 原地硬切策略：[next-in-place-hard-cut-plan.md](next-in-place-hard-cut-plan.md)
+- blocker 看板：[next-replacement-blocker-board.md](next-replacement-blocker-board.md)
+- packages blocker 分布：[next-package-migration-board.md](next-package-migration-board.md)
+- legacy 收尾与 cutover：[next-plan/10-legacy-archive-and-cutover.md](next-plan/10-legacy-archive-and-cutover.md)
 - legacy 边界审计：[next-legacy-boundary-audit.md](next-legacy-boundary-audit.md)
 - 协议审计：[next-protocol-audit.md](next-protocol-audit.md)

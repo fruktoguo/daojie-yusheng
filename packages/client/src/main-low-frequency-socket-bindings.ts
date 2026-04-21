@@ -1,5 +1,6 @@
 import { NEXT_S2C, type NEXT_S2C_EventPayload } from '@mud/shared-next';
 import type { SocketManager } from './network/socket';
+import { bindTechniqueActivityPanelEvents } from './technique-activity-client.helpers';
 /**
  * MainLowFrequencySocketBindingsOptions：统一结构类型，保证协议与运行时一致性。
  */
@@ -179,8 +180,10 @@ export function bindMainLowFrequencySocketEvents(options: MainLowFrequencySocket
   options.socket.on(NEXT_S2C.TileDetail, options.onTileDetail);
   options.socket.on(NEXT_S2C.Detail, options.onDetail);
   options.socket.on(NEXT_S2C.AttrDetail, options.onAttrDetail);
-  options.socket.on(NEXT_S2C.AlchemyPanel, options.onAlchemyPanel);
-  options.socket.on(NEXT_S2C.EnhancementPanel, options.onEnhancementPanel);
+  bindTechniqueActivityPanelEvents(options.socket, {
+    alchemy: options.onAlchemyPanel,
+    enhancement: options.onEnhancementPanel,
+  });
   options.socket.on(NEXT_S2C.Leaderboard, options.onLeaderboard);
   options.socket.on(NEXT_S2C.LeaderboardPlayerLocations, options.onLeaderboardPlayerLocations);
   options.socket.on(NEXT_S2C.WorldSummary, options.onWorldSummary);

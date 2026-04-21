@@ -409,6 +409,5 @@ legacy 之后只承担三种用途：
 ## 13. 相关文档
 
 - [next 系统模块 / API / 数据目录总盘点](./next-system-module-api-inventory.md)
-- [next 现状缺口分析](./next-gap-analysis.md)
-- [next 剩余任务详单](./next-remaining-task-breakdown.md)
+- [当前主计划总表](./next-plan/main.md)
 - [server-next 验证](../packages/server/TESTING.md)

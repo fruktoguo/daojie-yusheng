@@ -66,7 +66,7 @@
 | 子域 | 迁移级别 | next 目标 | 默认值策略 | 备注 |
 | --- | --- | --- | --- | --- |
 | 基础身份 | 必须迁移 | `name` `displayName` | 缺失时回退到账号映射 | 不应和 auth 映射冲突 |
-| 位置与朝向 | 必须迁移 | `placement.templateId/x/y/facing` | 缺失时回默认出生点 | 这是进世界最基础数据 |
+| 位置与朝向 | 必须迁移 | `placement.instanceId/templateId/x/y/facing` | 缺失 `instanceId` 时按 `public:${templateId}` 补公共实例；缺 `templateId` 时回默认出生点 | 这是进世界最基础数据，`instanceId` 已开始收为正式落点入口 |
 | 血量与灵力 | 必须迁移 | `vitals.hp/maxHp/qi/maxQi` | 上限缺失时按 starter 修复 | 不应迁出非法值 |
 | 战斗开关 | 建议迁移 | `combat.*` | 缺失时按 next 默认关闭或兜底 | 可接受部分重置 |
 | 基础属性 | 必须迁移 | `attrs.baseAttrs/finalAttrs/numericStats` | 缺失时按 next 重算 | 如果能由基础属性重算，可迁基础不迁派生 |
@@ -126,6 +126,7 @@ legacy 来源当前锁定为：
 | --- | --- | --- | --- |
 | `payload.playerId` / `key` | `player_id` | 取首个非空字符串 | 缺失则整条失败 |
 | `payload.placement.templateId` / `payload.templateId` | `template_id` | 取首个非空字符串 | 缺失则整条失败 |
+| `payload.placement.instanceId` / `payload.instanceId` | `instance_id` | 取首个非空字符串；缺失时按 `public:${template_id}` 回填 | 允许兼容旧快照，但新主链应写真实实例落点 |
 | `payload.__snapshotMeta.persistedSource` / `payload.persistedSource` | `persisted_source` | 保留 `native/legacy_seeded` 等来源标签 | 缺失时置 `native` |
 | `payload.__snapshotMeta.seededAt` | `seeded_at` | 归一为非负整数 | 非法时置 `null` |
 | `payload.savedAt` / `payload.__snapshotMeta.savedAt` | `saved_at` | 归一为非负整数 | 缺失时置当前毫秒时间 |

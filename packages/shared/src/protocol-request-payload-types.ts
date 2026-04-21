@@ -59,7 +59,9 @@ import type {
   SellMarketItemView,
   SortInventoryView,
   StartAlchemyView,
+  StartGatherView,
   StartEnhancementView,
+  CancelGatherView,
   StopLootHarvestView,
   SubmitNpcQuestView,
   TakeLootView,
@@ -163,6 +165,10 @@ export interface NEXT_C2S_RequestLeaderboardPlayerLocations extends RequestLeade
 export interface NEXT_C2S_RequestWorldSummary extends RequestWorldSummaryView {}
 /** 停止当前连续采摘。 */
 export interface NEXT_C2S_StopLootHarvest extends StopLootHarvestView {}
+/** 开始草药采集。 */
+export interface NEXT_C2S_StartGather extends StartGatherView {}
+/** 取消草药采集。 */
+export interface NEXT_C2S_CancelGather extends CancelGatherView {}
 /** 创建坊市卖单。 */
 export interface NEXT_C2S_CreateMarketSellOrder extends CreateMarketSellOrderView {}
 /** 创建坊市买单。 */

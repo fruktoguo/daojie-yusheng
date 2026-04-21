@@ -25,12 +25,11 @@
 
 ## 关联现有文档
 
-这些文档仍然保留在 `docs/` 根目录，不移动，以免影响已有引用，但前端重构时需要一起参考：
+前端这里不再保留独立历史归档文档，相关同步边界已经收口到本目录文档里：
 
-- `../next-client-runtime-sync-pitfalls.md`
-- `../next-line-split.md`
+- `./sync-pitfalls.md`
 - `../next-legacy-boundary-audit.md`
-- `../next-legacy-removal-checklist.md`
+- `../next-plan/10-legacy-archive-and-cutover.md`
 
 ## 当前范围
 

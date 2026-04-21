@@ -42,6 +42,7 @@ let WorldRuntimeSummaryQueryService = class WorldRuntimeSummaryQueryService {
                 totalMs: summarizeDurations(input.lastTickDurationMs, input.tickDurationHistoryMs),
                 syncFlushMs: summarizeDurations(input.lastSyncFlushDurationMs, input.syncFlushDurationHistoryMs),
                 phases: input.lastTickPhaseDurations,
+                phaseSummaries: summarizePhaseDurations(input.tickPhaseDurationHistoryMs),
             },
             instances: input.instances,
         };
@@ -51,5 +52,43 @@ exports.WorldRuntimeSummaryQueryService = WorldRuntimeSummaryQueryService;
 exports.WorldRuntimeSummaryQueryService = WorldRuntimeSummaryQueryService = __decorate([
     (0, common_1.Injectable)()
 ], WorldRuntimeSummaryQueryService);
+
+function summarizePhaseDurations(historyByKey) {
+    if (!historyByKey || typeof historyByKey !== 'object') {
+        return {};
+    }
+
+    const summaries = {};
+    for (const [key, history] of Object.entries(historyByKey)) {
+        if (!Array.isArray(history)) {
+            continue;
+        }
+        let total = 0;
+        let max = 0;
+        let nonZeroCount = 0;
+        for (const rawValue of history) {
+            const value = Number(rawValue) || 0;
+            total += value;
+            if (value > max) {
+                max = value;
+            }
+            if (value > 0) {
+                nonZeroCount += 1;
+            }
+        }
+        summaries[key] = {
+            count: nonZeroCount,
+            sampleCount: history.length,
+            totalMs: roundDurationMs(total),
+            avgMs: nonZeroCount > 0 ? roundDurationMs(total / nonZeroCount) : 0,
+            maxMs: roundDurationMs(max),
+        };
+    }
+    return summaries;
+}
+
+function roundDurationMs(value) {
+    return Math.round(value * 1000) / 1000;
+}
 
 export { WorldRuntimeSummaryQueryService };

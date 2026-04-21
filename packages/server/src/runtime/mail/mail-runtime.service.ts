@@ -480,6 +480,7 @@ let MailRuntimeService = class MailRuntimeService {
                     mapUnlockId: item.mapUnlockId,
                     mapUnlockIds: Array.isArray(item.mapUnlockIds) ? item.mapUnlockIds.slice() : undefined,
                     tileAuraGainAmount: item.tileAuraGainAmount,
+                    tileResourceGains: Array.isArray(item.tileResourceGains) ? item.tileResourceGains.map((entry) => ({ ...entry })) : undefined,
                     allowBatchUse: item.allowBatchUse,
                 });
             }

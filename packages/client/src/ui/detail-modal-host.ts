@@ -53,6 +53,11 @@ type DetailModalOptions = {
 
   renderBody?: (body: HTMLElement) => void;  
   /**
+ * onRequestClose：请求关闭前的拦截钩子。
+ */
+
+  onRequestClose?: () => boolean;
+  /**
  * onClose：onClose相关字段。
  */
 
@@ -107,6 +112,11 @@ type DetailModalPatchOptions = {
 
   renderBody?: (body: HTMLElement) => void;  
   /**
+ * onRequestClose：请求关闭前的拦截钩子。
+ */
+
+  onRequestClose?: (() => boolean) | null;
+  /**
  * onClose：onClose相关字段。
  */
 
@@ -134,6 +144,8 @@ class DetailModalHost {
   private body = document.getElementById('detail-modal-body')!;
   /** ownerId：owner ID。 */
   private ownerId: string | null = null;
+  /** onRequestClose：请求关闭前的拦截钩子。 */
+  private onRequestClose: (() => boolean) | null = null;
   /** onClose：on Close。 */
   private onClose: (() => void) | null = null;
   /** frameClassState：帧Class状态。 */
@@ -147,10 +159,13 @@ class DetailModalHost {
 
     this.ensureInitialized();
     if (this.ownerId && this.ownerId !== options.ownerId) {
-      this.dismiss(true);
+      if (!this.dismiss(true)) {
+        return;
+      }
     }
 
     this.ownerId = options.ownerId;
+    this.onRequestClose = options.onRequestClose ?? null;
     this.onClose = options.onClose ?? null;
     this.setFrameClasses(options.variantClass ?? '', options.size);
     this.title.textContent = options.title;
@@ -189,6 +204,9 @@ class DetailModalHost {
 
     if (!this.isOpenFor(options.ownerId)) {
       return false;
+    }
+    if (options.onRequestClose !== undefined) {
+      this.onRequestClose = options.onRequestClose;
     }
     if (options.onClose !== undefined) {
       this.onClose = options.onClose;
@@ -240,12 +258,16 @@ class DetailModalHost {
   }
 
   /** dismiss：处理dismiss。 */
-  private dismiss(notify: boolean): void {
+  private dismiss(notify: boolean): boolean {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
-    if (!this.ownerId && this.modal.classList.contains('hidden')) return;
+    if (!this.ownerId && this.modal.classList.contains('hidden')) return true;
+    if (notify && this.onRequestClose && this.onRequestClose() === false) {
+      return false;
+    }
     const onClose = this.onClose;
     this.ownerId = null;
+    this.onRequestClose = null;
     this.onClose = null;
     this.setFrameClasses('', undefined);
     this.body.innerHTML = '';
@@ -254,6 +276,7 @@ class DetailModalHost {
     if (notify) {
       onClose?.();
     }
+    return true;
   }
 
   /** setFrameClasses：处理set帧Classes。 */

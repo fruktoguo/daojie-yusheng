@@ -101,6 +101,8 @@ export const NEXT_C2S = {
   DropItem: 'n:c:dropItem',
   DestroyItem: 'n:c:destroyItem',
   StopLootHarvest: 'n:c:stopLootHarvest',
+  StartGather: 'n:c:startGather',
+  CancelGather: 'n:c:cancelGather',
   TakeGround: 'n:c:takeGround',
   SortInventory: 'n:c:sortInventory',
   Equip: 'n:c:equip',
@@ -506,6 +508,16 @@ export interface NEXT_C2S_PayloadMap extends Record<NEXT_C2S_EventName, unknown>
  */
 
   [NEXT_C2S.StopLootHarvest]: RequestPayloads.NEXT_C2S_StopLootHarvest;  
+  /**
+ * [NEXT_C2S.StartGather]：NEXT_C2S_PayloadMap 协议映射条目，用于描述事件到 payload 类型的映射。
+ */
+
+  [NEXT_C2S.StartGather]: RequestPayloads.NEXT_C2S_StartGather;  
+  /**
+ * [NEXT_C2S.CancelGather]：NEXT_C2S_PayloadMap 协议映射条目，用于描述事件到 payload 类型的映射。
+ */
+
+  [NEXT_C2S.CancelGather]: RequestPayloads.NEXT_C2S_CancelGather;  
   /**
  * [NEXT_C2S.CreateMarketSellOrder]：NEXT_C2S_PayloadMap 协议映射条目，用于描述事件到 payload 类型的映射。
  */

@@ -27,6 +27,16 @@ const { chebyshevDistance } = world_runtime_path_planning_helpers_1;
 const world_runtime_observation_helpers_1 = require("./world-runtime.observation.helpers");
 const { createTileCombatAttributes, createTileCombatNumericStats, createTileCombatRatioDivisors } = world_runtime_observation_helpers_1;
 
+function ensureHostileRelation(resolution) {
+    if ((0, player_combat_config_helpers_1.isHostileCombatRelationResolution)(resolution)) {
+        return;
+    }
+    if (resolution?.blockedReason === 'self_target') {
+        throw new common_1.BadRequestException('不能攻击自己');
+    }
+    throw new common_1.BadRequestException('当前目标不在敌方判定规则内');
+}
+
 /** 玩家技能派发服务：承接 player skill dispatch 与 legacy target 解析。 */
 let WorldRuntimePlayerSkillDispatchService = class WorldRuntimePlayerSkillDispatchService {
 /**
@@ -103,9 +113,10 @@ let WorldRuntimePlayerSkillDispatchService = class WorldRuntimePlayerSkillDispat
         if (attacker.instanceId !== target.instanceId) {
             throw new common_1.BadRequestException(`Target ${targetPlayerId} not in same instance`);
         }
-        if (!(0, player_combat_config_helpers_1.canPlayerDealDamageToPlayer)(attacker, target)) {
-            throw new common_1.BadRequestException('当前目标不在可攻击名单内');
-        }
+        ensureHostileRelation((0, player_combat_config_helpers_1.resolveCombatRelation)(attacker, {
+            kind: 'player',
+            target,
+        }));
         const distance = chebyshevDistance(attacker.x, attacker.y, target.x, target.y);
         const result = this.playerCombatService.castSkill(attacker, target, skillId, currentTick, distance);
         const effectColor = getSkillEffectColor(skill);
@@ -141,7 +152,10 @@ let WorldRuntimePlayerSkillDispatchService = class WorldRuntimePlayerSkillDispat
             if (!target || target.playerId === attacker.playerId || target.instanceId !== attacker.instanceId || target.hp <= 0) {
                 return null;
             }
-            if (!(0, player_combat_config_helpers_1.canPlayerDealDamageToPlayer)(attacker, target)) {
+            if (!(0, player_combat_config_helpers_1.isHostileCombatRelationResolution)((0, player_combat_config_helpers_1.resolveCombatRelation)(attacker, {
+                kind: 'player',
+                target,
+            }))) {
                 return null;
             }
             return { kind: 'player', playerId: target.playerId };
@@ -152,6 +166,9 @@ let WorldRuntimePlayerSkillDispatchService = class WorldRuntimePlayerSkillDispat
             if (!monster?.alive) {
                 return null;
             }
+            if (!(0, player_combat_config_helpers_1.isHostileCombatRelationResolution)((0, player_combat_config_helpers_1.resolveCombatRelation)(attacker, { kind: 'monster' }))) {
+                return null;
+            }
             return { kind: 'monster', monsterId: monster.runtimeId };
         }
         const tile = (0, shared_1.parseTileTargetRef)(targetRef);
@@ -159,7 +176,11 @@ let WorldRuntimePlayerSkillDispatchService = class WorldRuntimePlayerSkillDispat
             return null;
         }
         const directDistance = chebyshevDistance(attacker.x, attacker.y, tile.x, tile.y);
-        if (directDistance <= resolveRuntimeSkillRange(skill) && instance.getTileCombatState(tile.x, tile.y)) {
+        if (
+            directDistance <= resolveRuntimeSkillRange(skill)
+            && instance.getTileCombatState(tile.x, tile.y)
+            && (0, player_combat_config_helpers_1.isHostileCombatRelationResolution)((0, player_combat_config_helpers_1.resolveCombatRelation)(attacker, { kind: 'terrain' }))
+        ) {
             return { kind: 'tile', x: tile.x, y: tile.y };
         }
         const affectedCells = (0, shared_1.computeAffectedCellsFromAnchor)({ x: attacker.x, y: attacker.y }, { x: tile.x, y: tile.y }, {
@@ -177,7 +198,10 @@ let WorldRuntimePlayerSkillDispatchService = class WorldRuntimePlayerSkillDispat
             .sort((left, right) => chebyshevDistance(tile.x, tile.y, left.x, left.y) - chebyshevDistance(tile.x, tile.y, right.x, right.y));
         for (const cell of affectedCells) {
             const monster = monsters.find((entry) => entry.x === cell.x && entry.y === cell.y);
-            if (monster) {
+            if (
+                monster
+                && (0, player_combat_config_helpers_1.isHostileCombatRelationResolution)((0, player_combat_config_helpers_1.resolveCombatRelation)(attacker, { kind: 'monster' }))
+            ) {
                 return { kind: 'monster', monsterId: monster.runtimeId };
             }
         }
@@ -186,12 +210,21 @@ let WorldRuntimePlayerSkillDispatchService = class WorldRuntimePlayerSkillDispat
             .sort((left, right) => chebyshevDistance(tile.x, tile.y, left.x, left.y) - chebyshevDistance(tile.x, tile.y, right.x, right.y));
         for (const cell of affectedCells) {
             const player = players.find((entry) => entry.x === cell.x && entry.y === cell.y);
-            if (player) {
+            if (
+                player
+                && (0, player_combat_config_helpers_1.isHostileCombatRelationResolution)((0, player_combat_config_helpers_1.resolveCombatRelation)(attacker, {
+                    kind: 'player',
+                    target: player,
+                }))
+            ) {
                 return { kind: 'player', playerId: player.playerId };
             }
         }
         for (const cell of affectedCells) {
-            if (instance.getTileCombatState(cell.x, cell.y)) {
+            if (
+                instance.getTileCombatState(cell.x, cell.y)
+                && (0, player_combat_config_helpers_1.isHostileCombatRelationResolution)((0, player_combat_config_helpers_1.resolveCombatRelation)(attacker, { kind: 'terrain' }))
+            ) {
                 return { kind: 'tile', x: cell.x, y: cell.y };
             }
         }
@@ -214,6 +247,7 @@ let WorldRuntimePlayerSkillDispatchService = class WorldRuntimePlayerSkillDispat
         if (!target) {
             throw new common_1.NotFoundException(`Monster ${targetMonsterId} not found`);
         }
+        ensureHostileRelation((0, player_combat_config_helpers_1.resolveCombatRelation)(attacker, { kind: 'monster' }));
         const distance = chebyshevDistance(attacker.x, attacker.y, target.x, target.y);
         const currentTick = deps.resolveCurrentTickForPlayerId(attacker.playerId);
         const result = this.playerCombatService.castSkillToMonster(attacker, {
@@ -266,6 +300,7 @@ let WorldRuntimePlayerSkillDispatchService = class WorldRuntimePlayerSkillDispat
         if (!tileState || tileState.destroyed) {
             throw new common_1.BadRequestException('该目标无法被攻击');
         }
+        ensureHostileRelation((0, player_combat_config_helpers_1.resolveCombatRelation)(attacker, { kind: 'terrain' }));
         const distance = chebyshevDistance(attacker.x, attacker.y, targetX, targetY);
         const currentTick = deps.resolveCurrentTickForPlayerId(attacker.playerId);
         const result = this.playerCombatService.castSkillToMonster(attacker, {

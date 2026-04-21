@@ -1,4 +1,5 @@
 import { BadRequestException, Inject, Injectable } from '@nestjs/common';
+import { type GmListPlayersQuery } from '@mud/shared-next';
 import { ContentTemplateRepository } from '../../content/content-template.repository';
 import { MapTemplateRepository } from '../../runtime/map/map-template.repository';
 import { RuntimeMapConfigService } from '../../runtime/map/runtime-map-config.service';
@@ -24,6 +25,7 @@ interface ContentTemplateRepositoryLike {
 
 interface RuntimeGmStateServiceLike {
   buildPerformanceSnapshot(): Record<string, unknown>;
+  resetNetworkPerfCounters(): void;
 }
 /**
  * MapTemplateRepositoryLike：定义接口结构约束，明确可交付字段含义。
@@ -77,7 +79,7 @@ interface RuntimeMapConfigServiceLike {
 
 
 interface NextGmStateQueryServiceLike {
-  getState(timers: {  
+  getState(query: GmListPlayersQuery | undefined, timers: {  
   /**
  * networkPerfStartedAt：networkPerfStartedAt相关字段。
  */
@@ -194,8 +196,8 @@ export class NextGmWorldService {
  */
 
 
-  async getState() {
-    return this.nextGmStateQueryService.getState({
+  async getState(query?: GmListPlayersQuery) {
+    return this.nextGmStateQueryService.getState(query, {
       networkPerfStartedAt: this.networkPerfStartedAt,
       cpuPerfStartedAt: this.cpuPerfStartedAt,
       pathfindingPerfStartedAt: this.pathfindingPerfStartedAt,
@@ -366,6 +368,7 @@ export class NextGmWorldService {
 
   resetNetworkPerf() {
     this.networkPerfStartedAt = Date.now();
+    this.runtimeGmStateService.resetNetworkPerfCounters();
   }  
   /**
  * resetCpuPerf：执行resetCpuPerf相关逻辑。

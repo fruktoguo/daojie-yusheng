@@ -1,4 +1,4 @@
-import type { NumericRatioDivisors, NumericStats } from './numeric';
+import type { NumericRatioDivisors, NumericStats, PartialNumericRatioDivisors, PartialNumericStats } from './numeric';
 import type { PlayerSpecialStats } from './cultivation-types';
 import type { Attributes } from './attribute-types';
 import type { QuestLine } from './quest-types';
@@ -125,6 +125,36 @@ export function fromWireAttributes(wire: Record<string, unknown> | undefined): A
   };
 }
 
+/** 将部分属性对象转换为 protobuf 兼容的纯对象。 */
+export function toWirePartialAttributes(attrs: Partial<Attributes> | undefined): Record<string, number> | undefined {
+  if (!attrs) {
+    return undefined;
+  }
+  const wire: Record<string, number> = {};
+  if (hasOwn(attrs, 'constitution')) wire.constitution = Number(attrs.constitution ?? 0);
+  if (hasOwn(attrs, 'spirit')) wire.spirit = Number(attrs.spirit ?? 0);
+  if (hasOwn(attrs, 'perception')) wire.perception = Number(attrs.perception ?? 0);
+  if (hasOwn(attrs, 'talent')) wire.talent = Number(attrs.talent ?? 0);
+  if (hasOwn(attrs, 'comprehension')) wire.comprehension = Number(attrs.comprehension ?? 0);
+  if (hasOwn(attrs, 'luck')) wire.luck = Number(attrs.luck ?? 0);
+  return Object.keys(wire).length > 0 ? wire : undefined;
+}
+
+/** 从 protobuf 兼容对象还原部分属性结构。 */
+export function fromWirePartialAttributes(wire: Record<string, unknown> | undefined): Partial<Attributes> | undefined {
+  if (!wire) {
+    return undefined;
+  }
+  const attrs: Partial<Attributes> = {};
+  if (hasOwn(wire, 'constitution')) attrs.constitution = Number(wire.constitution ?? 0);
+  if (hasOwn(wire, 'spirit')) attrs.spirit = Number(wire.spirit ?? 0);
+  if (hasOwn(wire, 'perception')) attrs.perception = Number(wire.perception ?? 0);
+  if (hasOwn(wire, 'talent')) attrs.talent = Number(wire.talent ?? 0);
+  if (hasOwn(wire, 'comprehension')) attrs.comprehension = Number(wire.comprehension ?? 0);
+  if (hasOwn(wire, 'luck')) attrs.luck = Number(wire.luck ?? 0);
+  return Object.keys(attrs).length > 0 ? attrs : undefined;
+}
+
 /** 将数值属性按原样克隆为 wire 结构。 */
 export function toWireNumericStats(stats: NumericStats | undefined): Record<string, unknown> | undefined {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
@@ -145,6 +175,22 @@ export function fromWireNumericStats(wire: Record<string, unknown> | undefined):
   return cloneJson(wire) as unknown as NumericStats;
 }
 
+/** 将部分数值属性按原样克隆为 wire 结构。 */
+export function toWirePartialNumericStats(stats: PartialNumericStats | undefined): Record<string, unknown> | undefined {
+  if (!stats) {
+    return undefined;
+  }
+  return cloneJson(stats) as unknown as Record<string, unknown>;
+}
+
+/** 从 wire 结构还原部分数值属性。 */
+export function fromWirePartialNumericStats(wire: Record<string, unknown> | undefined): PartialNumericStats | undefined {
+  if (!wire) {
+    return undefined;
+  }
+  return cloneJson(wire) as unknown as PartialNumericStats;
+}
+
 /** 将比率除数结构克隆为 wire 结构。 */
 export function toWireRatioDivisors(divisors: NumericRatioDivisors | undefined): Record<string, unknown> | undefined {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
@@ -163,6 +209,22 @@ export function fromWireRatioDivisors(wire: Record<string, unknown> | undefined)
     return undefined;
   }
   return cloneJson(wire) as unknown as NumericRatioDivisors;
+}
+
+/** 将部分比率除数结构克隆为 wire 结构。 */
+export function toWirePartialRatioDivisors(divisors: PartialNumericRatioDivisors | undefined): Record<string, unknown> | undefined {
+  if (!divisors) {
+    return undefined;
+  }
+  return cloneJson(divisors) as unknown as Record<string, unknown>;
+}
+
+/** 从 wire 结构还原部分比率除数。 */
+export function fromWirePartialRatioDivisors(wire: Record<string, unknown> | undefined): PartialNumericRatioDivisors | undefined {
+  if (!wire) {
+    return undefined;
+  }
+  return cloneJson(wire) as unknown as PartialNumericRatioDivisors;
 }
 
 /** 将 NPC 任务标记转换为 wire 结构。 */
@@ -209,6 +271,16 @@ export function toWireVisibleTile(tile: VisibleTile): Record<string, unknown> {
   if (tile.modifiedAt !== null && tile.modifiedAt !== undefined) wire.modifiedAt = tile.modifiedAt;
   if (tile.hp !== undefined) wire.hp = tile.hp;
   if (tile.maxHp !== undefined) wire.maxHp = tile.maxHp;
+  if (tile.resources && tile.resources.length > 0) {
+    wire.resources = tile.resources.map((resource) => ({
+      key: resource.key,
+      label: resource.label,
+      value: resource.value,
+      effectiveValue: resource.effectiveValue,
+      level: resource.level,
+      sourceValue: resource.sourceValue,
+    }));
+  }
   if (tile.hiddenEntrance?.title) wire.hiddenEntranceTitle = tile.hiddenEntrance.title;
   if (tile.hiddenEntrance?.desc) wire.hiddenEntranceDesc = tile.hiddenEntrance.desc;
   return wire;
@@ -231,6 +303,24 @@ export function fromWireVisibleTile(wire: Record<string, unknown>): VisibleTile 
     hp: hasOwn(wire, 'hp') ? Number(wire.hp ?? 0) : undefined,
     maxHp: hasOwn(wire, 'maxHp') ? Number(wire.maxHp ?? 0) : undefined,
     hpVisible: hasOwn(wire, 'hpVisible') ? Boolean(wire.hpVisible) : undefined,
+    resources: Array.isArray(wire.resources)
+      ? wire.resources
+        .filter((resource) => resource && typeof resource === 'object')
+        .map((resource) => ({
+          key: String(resource.key ?? ''),
+          label: String(resource.label ?? ''),
+          value: Number(resource.value ?? 0),
+          effectiveValue: hasOwn(resource as Record<string, unknown>, 'effectiveValue')
+            ? Number(resource.effectiveValue ?? 0)
+            : undefined,
+          level: hasOwn(resource as Record<string, unknown>, 'level')
+            ? Number(resource.level ?? 0)
+            : undefined,
+          sourceValue: hasOwn(resource as Record<string, unknown>, 'sourceValue')
+            ? Number(resource.sourceValue ?? 0)
+            : undefined,
+        }))
+      : undefined,
     hiddenEntrance: typeof wire.hiddenEntranceTitle === 'string'
       ? {
           title: wire.hiddenEntranceTitle,
@@ -274,4 +364,34 @@ export function fromWirePlayerSpecialStats(wire: Record<string, unknown>): Playe
     foundation: Number(wire.foundation ?? 0),
     combatExp: Number(wire.combatExp ?? 0),
   };
+}
+
+/** 将部分玩家特殊属性转换为 wire 结构。 */
+export function toWirePartialPlayerSpecialStats(payload: Partial<PlayerSpecialStats> | undefined): Record<string, unknown> | undefined {
+  if (!payload) {
+    return undefined;
+  }
+  const wire: Record<string, unknown> = {};
+  if (hasOwn(payload, 'foundation')) {
+    wire.foundation = Number(payload.foundation ?? 0);
+  }
+  if (hasOwn(payload, 'combatExp')) {
+    wire.combatExp = Number(payload.combatExp ?? 0);
+  }
+  return Object.keys(wire).length > 0 ? wire : undefined;
+}
+
+/** 从 wire 结构还原部分玩家特殊属性。 */
+export function fromWirePartialPlayerSpecialStats(wire: Record<string, unknown> | undefined): Partial<PlayerSpecialStats> | undefined {
+  if (!wire) {
+    return undefined;
+  }
+  const payload: Partial<PlayerSpecialStats> = {};
+  if (hasOwn(wire, 'foundation')) {
+    payload.foundation = Number(wire.foundation ?? 0);
+  }
+  if (hasOwn(wire, 'combatExp')) {
+    payload.combatExp = Number(wire.combatExp ?? 0);
+  }
+  return Object.keys(payload).length > 0 ? payload : undefined;
 }

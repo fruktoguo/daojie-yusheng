@@ -52,7 +52,7 @@
 
 ## 2. 文档来源
 
-### `docs/next-gap-analysis.md`
+### `docs/next-plan/main.md`
 
 主要抽出了前端相关部分：
 
@@ -66,7 +66,7 @@
 - `current-state.md`
 - `verification.md`
 
-### `docs/next-client-runtime-sync-pitfalls.md`
+### 早期前端同步问题排查记录
 
 主要抽出了：
 
@@ -78,11 +78,11 @@
 
 - `sync-pitfalls.md`
 
-### `docs/next-line-split.md`
+### `docs/next-in-place-hard-cut-plan.md`
 
 主要抽出了：
 
-- `client-next` 作为独立新线的定位
+- `client-next` 作为当前主线前端的定位
 - 为什么不再继续扩张旧前端 compat
 
 对应输出：

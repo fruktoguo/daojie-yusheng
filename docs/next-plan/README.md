@@ -21,6 +21,13 @@
 - [09 验证门禁与验收](./09-verification-and-acceptance.md)
 - [10 legacy 归档与最终切换](./10-legacy-archive-and-cutover.md)
 
+当前专题规划：
+
+- [12 气机资源统一化规划](./12-qi-resource-unification.md)
+- [13 敌我判定规则统一化规划](./13-combat-relation-rules-unification.md)
+- [14 技艺活动框架统一化规划](./14-technique-activity-framework.md)
+- [15 地图地块特征统一化规划](./15-map-tile-feature-unification.md)
+
 当前策略文档：
 
 - [next 原地硬切执行文档](../next-in-place-hard-cut-plan.md)

@@ -14,6 +14,7 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.MapPersistenceService = void 0;
 
 const common_1 = require("@nestjs/common");
+const shared_1 = require("@mud/shared-next");
 
 const pg_1 = require("pg");
 
@@ -22,6 +23,7 @@ const persistent_document_table_1 = require("./persistent-document-table");
 const env_alias_1 = require("../config/env-alias");
 
 const MAP_SNAPSHOT_SCOPE = 'server_next_map_aura_v1';
+const DEFAULT_TILE_AURA_RESOURCE_KEY = (0, shared_1.buildQiResourceKey)(shared_1.DEFAULT_QI_RESOURCE_DESCRIPTOR);
 
 /** 地图快照持久化服务：保存/读取地图环境快照并进行脏数据规整。 */
 let MapPersistenceService = MapPersistenceService_1 = class MapPersistenceService {
@@ -144,22 +146,32 @@ function normalizeMapSnapshot(raw) {
     if (snapshot.version !== 1 || typeof snapshot.templateId !== 'string') {
         return null;
     }
+    const normalizedAuraEntries = Array.isArray(snapshot.auraEntries)
+        ? snapshot.auraEntries
+            .filter((entry) => Boolean(entry)
+            && typeof entry === 'object'
+            && Number.isFinite(entry.tileIndex)
+            && Number.isFinite(entry.value))
+            .map((entry) => ({
+            tileIndex: Math.trunc(entry.tileIndex),
+            value: Math.max(0, Math.trunc(entry.value)),
+        }))
+        : [];
+    const normalizedTileResourceEntries = normalizeTileResourceEntries(snapshot.tileResourceEntries, snapshot.auraEntries);
     return {
         version: 1,
 
         savedAt: typeof snapshot.savedAt === 'number' && Number.isFinite(snapshot.savedAt) ? Math.trunc(snapshot.savedAt) : Date.now(),
         templateId: snapshot.templateId,
-        auraEntries: Array.isArray(snapshot.auraEntries)
-            ? snapshot.auraEntries
-                .filter((entry) => Boolean(entry)
-                && typeof entry === 'object'
-                && Number.isFinite(entry.tileIndex)
-                && Number.isFinite(entry.value))
+        auraEntries: normalizedAuraEntries.length > 0
+            ? normalizedAuraEntries
+            : normalizedTileResourceEntries
+                .filter((entry) => entry.resourceKey === DEFAULT_TILE_AURA_RESOURCE_KEY)
                 .map((entry) => ({
-                tileIndex: Math.trunc(entry.tileIndex),
-                value: Math.max(0, Math.trunc(entry.value)),
-            }))
-            : [],
+                tileIndex: entry.tileIndex,
+                value: entry.value,
+            })),
+        tileResourceEntries: normalizedTileResourceEntries,
         groundPileEntries: Array.isArray(snapshot.groundPileEntries)
             ? snapshot.groundPileEntries
                 .filter((entry) => Boolean(entry)
@@ -180,6 +192,39 @@ function normalizeMapSnapshot(raw) {
                 .filter((entry) => Boolean(entry))
             : [],
     };
+}
+/** normalizeTileResourceEntries：规范化或转换地块资源持久化条目。 */
+function normalizeTileResourceEntries(rawTileResourceEntries, rawAuraEntries) {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
+    if (Array.isArray(rawTileResourceEntries)) {
+        return rawTileResourceEntries
+            .filter((entry) => Boolean(entry)
+            && typeof entry === 'object'
+            && typeof entry.resourceKey === 'string'
+            && entry.resourceKey.trim().length > 0
+            && Number.isFinite(entry.tileIndex)
+            && Number.isFinite(entry.value))
+            .map((entry) => ({
+            resourceKey: entry.resourceKey.trim(),
+            tileIndex: Math.trunc(entry.tileIndex),
+            value: Math.max(0, Math.trunc(entry.value)),
+        }))
+            .filter((entry) => entry.value > 0 || entry.resourceKey === DEFAULT_TILE_AURA_RESOURCE_KEY);
+    }
+    if (!Array.isArray(rawAuraEntries)) {
+        return [];
+    }
+    return rawAuraEntries
+        .filter((entry) => Boolean(entry)
+        && typeof entry === 'object'
+        && Number.isFinite(entry.tileIndex)
+        && Number.isFinite(entry.value))
+        .map((entry) => ({
+        resourceKey: DEFAULT_TILE_AURA_RESOURCE_KEY,
+        tileIndex: Math.trunc(entry.tileIndex),
+        value: Math.max(0, Math.trunc(entry.value)),
+    }));
 }
 export { MapPersistenceService };
 /**
@@ -316,4 +361,3 @@ function normalizePersistedGroundItem(raw) {
     };
 }
 //# sourceMappingURL=map-persistence.service.js.map
-

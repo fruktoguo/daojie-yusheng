@@ -358,6 +358,28 @@ function testDeadPlayerOnlyAllowsRedeemCodes() {
     ]);
 }
 /**
+ * testTechniqueActivityRoutes：执行test技艺活动路线相关逻辑。
+ * @returns 无返回值，直接更新test技艺活动路线相关状态。
+ */
+
+
+function testTechniqueActivityRoutes() {
+    const log = [];
+    const service = createService(log);
+    service.dispatchStartTechniqueActivity('player:1', 'alchemy', { recipeId: 'recipe.a' }, {});
+    service.dispatchCancelTechniqueActivity('player:1', 'enhancement', {});
+    service.dispatchPlayerCommand('player:1', { kind: 'startEnhancement', payload: { itemId: 'item.a' } }, {});
+    service.dispatchPlayerCommand('player:1', { kind: 'cancelAlchemy' }, {});
+    assert.deepEqual(log, [
+        ['dispatchStartAlchemy', 'player:1', { recipeId: 'recipe.a' }],
+        ['dispatchCancelEnhancement', 'player:1'],
+        ['getPlayer', 'player:1'],
+        ['dispatchStartEnhancement', 'player:1', { itemId: 'item.a' }],
+        ['getPlayer', 'player:1'],
+        ['dispatchCancelAlchemy', 'player:1'],
+    ]);
+}
+/**
  * testNpcQuestRoutes：执行testNPC任务路线相关逻辑。
  * @returns 无返回值，直接更新testNPC任务路线相关状态。
  */
@@ -379,6 +401,7 @@ function testNpcQuestRoutes() {
 testUseItemDelegates();
 testCastSkillDelegates();
 testDeadPlayerOnlyAllowsRedeemCodes();
+testTechniqueActivityRoutes();
 testNpcQuestRoutes();
 
 console.log(JSON.stringify({ ok: true, case: 'world-runtime-player-command' }, null, 2));

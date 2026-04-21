@@ -49,9 +49,9 @@ if (!gmPassword) {
 }
 
 async function main() {
-  const shadowProbe = await probeShadowTarget(shadowUrl);
+  const shadowProbe = await probeShadowTarget(shadowUrl, { gmPassword });
   if (!shadowProbe.ok) {
-    throw new Error(`shadow target ${shadowProbe.reason}; current /health payload=${JSON.stringify(shadowProbe.healthPayload ?? null)}`);
+    throw new Error(`shadow target ${shadowProbe.reason}; current /health payload=${JSON.stringify(shadowProbe.healthPayload ?? null)}; current /api/gm/state payload=${JSON.stringify(shadowProbe.gmStatePayload ?? null)}`);
   }
 
   process.stdout.write('[replace-ready:shadow] steps=smoke:shadow\n');

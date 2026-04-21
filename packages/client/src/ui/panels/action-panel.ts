@@ -10,9 +10,11 @@ import {
   AutoUsePillConfig,
   CombatTargetingRuleKey,
   CombatTargetingRules,
+  DEFAULT_PLAYER_REALM_STAGE,
   ItemStack,
   PlayerState,
   SkillDef,
+  resolveSkillUnlockLevel,
   type ElementKey,
   type SkillDamageKind,
 } from '@mud/shared-next';
@@ -24,6 +26,7 @@ import { preserveSelection } from '../selection-preserver';
 import { getLocalItemTemplate, resolvePreviewItem } from '../../content/local-templates';
 import { getActionTypeLabel, getElementKeyLabel } from '../../domain-labels';
 import { ACTION_SHORTCUTS_KEY, ACTION_SKILL_PRESETS_KEY, RETURN_TO_SPAWN_ACTION_ID } from '../../constants/ui/action';
+import { formatDisplayNumber } from '../../utils/number';
 import {
   appendUnique,
   decodePresetTextValue,
@@ -43,6 +46,72 @@ function createFragmentFromHtml(html: string): DocumentFragment {
   return template.content.cloneNode(true) as DocumentFragment;
 }
 
+type SkillEnabledEntry = {
+  skillEnabled?: boolean;
+};
+
+function getPlayerEnabledSkillSlotLimitByLevel(level: number | undefined): number {
+  const normalizedLevel = Number.isFinite(level) ? Math.max(1, Math.floor(Number(level))) : 1;
+  let extraSlots = 0;
+
+  const earlyLevels = Math.min(normalizedLevel, 6);
+  extraSlots += Math.max(0, earlyLevels - 1);
+
+  if (normalizedLevel >= 7) {
+    extraSlots += Math.floor((Math.min(normalizedLevel, 18) - 6) / 3);
+  }
+
+  if (normalizedLevel >= 19) {
+    extraSlots += Math.floor((Math.min(normalizedLevel, 30) - 18) / 5);
+  }
+
+  if (normalizedLevel >= 31) {
+    extraSlots += Math.floor((normalizedLevel - 30) / 6);
+  }
+
+  extraSlots += Math.floor(normalizedLevel / 6);
+  extraSlots += Math.floor(normalizedLevel / 12);
+
+  return 4 + extraSlots;
+}
+
+function resolvePlayerSkillSlotLimitLocal(
+  player: Pick<PlayerState, 'realmLv' | 'realm'> | null | undefined,
+): number {
+  return getPlayerEnabledSkillSlotLimitByLevel(player?.realm?.realmLv ?? player?.realmLv);
+}
+
+function countEnabledSkillEntriesLocal<T extends SkillEnabledEntry>(entries: readonly T[]): number {
+  let count = 0;
+  for (const entry of entries) {
+    if (entry.skillEnabled !== false) {
+      count += 1;
+    }
+  }
+  return count;
+}
+
+function enforceSkillEnabledLimitLocal<T extends SkillEnabledEntry>(
+  entries: readonly T[],
+  limit: number,
+): T[] {
+  const normalizedLimit = Number.isFinite(limit) ? Math.max(0, Math.floor(limit)) : 0;
+  let enabledCount = 0;
+  return entries.map((entry) => {
+    if (entry.skillEnabled === false) {
+      return entry;
+    }
+    if (enabledCount < normalizedLimit) {
+      enabledCount += 1;
+      return entry;
+    }
+    return {
+      ...entry,
+      skillEnabled: false,
+    };
+  });
+}
+
 /** 行动面板的主标签页：对话、技能、开关和通用动作。 */
 type ActionMainTab = 'dialogue' | 'skill' | 'toggle' | 'utility';
 /** 技能区的子标签页：自动技能和手动技能。 */
@@ -59,7 +128,7 @@ type SkillManagementSortDirection = 'asc' | 'desc';
 type SkillManagementFilterToggle = 'melee' | 'ranged' | 'physical' | 'spell' | 'single' | 'aoe';
 /** 技能预设状态提示的语气。 */
 type SkillPresetStatusTone = 'success' | 'error' | 'info';
-type CombatSettingsTab = 'auto_pills' | 'targeting' | 'targeting_plan';
+type CombatSettingsTab = 'auto_pills' | 'targeting';
 type AutoUsePillSubview = 'main' | 'picker' | 'conditions';
 
 interface AutoUsePillViewEntry {
@@ -84,12 +153,12 @@ interface CombatTargetingCardOption {
 }
 
 const AUTO_BATTLE_TARGETING_MODE_OPTIONS: Array<{ mode: AutoBattleTargetingMode; label: string; summary: string }> = [
-  { mode: 'auto', label: '自动', summary: '按当前默认逻辑综合选择目标。' },
-  { mode: 'nearest', label: '最近', summary: '更偏向最近目标。' },
-  { mode: 'low_hp', label: '残血', summary: '更偏向血量更低的目标。' },
-  { mode: 'full_hp', label: '满血', summary: '更偏向血量更高的目标。' },
-  { mode: 'boss', label: '妖王', summary: '更偏向妖王目标。' },
-  { mode: 'player', label: '玩家', summary: '更偏向玩家目标。' },
+  { mode: 'auto', label: '自动', summary: '按仇恨自动切换。' },
+  { mode: 'nearest', label: '优先更近', summary: '更偏向最近目标。' },
+  { mode: 'low_hp', label: '优先残血', summary: '更偏向血量低的目标。' },
+  { mode: 'full_hp', label: '优先满血', summary: '更偏向血量高的目标。' },
+  { mode: 'boss', label: '优先Boss', summary: '更偏向妖王目标。' },
+  { mode: 'player', label: '优先玩家', summary: '更偏向玩家目标。' },
 ];
 
 const HOSTILE_TARGETING_KEYS = new Set<CombatTargetingRuleKey>([
@@ -285,6 +354,8 @@ export class ActionPanel {
   private static readonly COMBAT_SETTINGS_MODAL_OWNER = 'action-panel-combat-settings';
   /** 技能预设弹窗的归属标识，和技能管理弹层分开管理。 */
   private static readonly SKILL_PRESET_MODAL_OWNER = 'action-panel-skill-preset';
+  /** 索敌方案弹层。 */
+  private static readonly TARGETING_PLAN_MODAL_OWNER = 'action-panel-targeting-plan';
   /** 自动吃药槽位上限。 */
   private static readonly AUTO_USE_PILL_SLOT_LIMIT = 12;
   /** 面板根节点，后续只做局部 patch。 */
@@ -319,10 +390,16 @@ export class ActionPanel {
   private skillManagementFilterToggles = new Set<SkillManagementFilterToggle>();
   /** 外部技能管理状态摘要，用来判断弹层是否需要重绘。 */
   private skillManagementExternalRevision: string | null = null;
+  /** 技能管理弹层内的状态提示。 */
+  private skillManagementStatus: SkillPresetStatus | null = null;
   /** 外部技能预设状态摘要，用来判断弹层是否需要重绘。 */
   private skillPresetExternalRevision: string | null = null;
+  /** 外部索敌方案状态摘要。 */
+  private targetingPlanExternalRevision: string | null = null;
   /** 战斗设置弹层外部摘要。 */
   private combatSettingsExternalRevision: string | null = null;
+  /** 战斗设置弹层内的状态提示。 */
+  private combatSettingsStatus: SkillPresetStatus | null = null;
   /** 技能管理列表的滚动位置，重绘后尽量恢复。 */
   private skillManagementListScrollTop = 0;
   /** 战斗设置当前标签。 */
@@ -331,8 +408,6 @@ export class ActionPanel {
   private autoUsePillDraft: AutoUsePillConfig[] | null = null;
   /** 目标选择草稿。 */
   private combatTargetingDraft: CombatTargetingRules | null = null;
-  /** 索敌方案草稿。 */
-  private autoBattleTargetingModeDraft: AutoBattleTargetingMode | null = null;
   /** 自动丹药当前选中的槽位。 */
   private autoUsePillSelectedIndex = 0;
   /** 自动丹药弹层当前子视图。 */
@@ -419,9 +494,10 @@ export class ActionPanel {
     this.skillManagementDraft = null;
     this.autoUsePillDraft = null;
     this.combatTargetingDraft = null;
-    this.autoBattleTargetingModeDraft = null;
     this.skillManagementExternalRevision = null;
+    this.skillManagementStatus = null;
     this.skillPresetExternalRevision = null;
+    this.targetingPlanExternalRevision = null;
     this.combatSettingsExternalRevision = null;
     this.skillManagementListScrollTop = 0;
     this.combatSettingsActiveTab = 'auto_pills';
@@ -430,7 +506,8 @@ export class ActionPanel {
     detailModalHost.close(ActionPanel.SKILL_MANAGEMENT_MODAL_OWNER);
     detailModalHost.close(ActionPanel.COMBAT_SETTINGS_MODAL_OWNER);
     detailModalHost.close(ActionPanel.SKILL_PRESET_MODAL_OWNER);
-    this.pane.replaceChildren(createFragmentFromHtml('<div class="empty-hint ui-empty-hint">暂无可用行动</div>'));
+    detailModalHost.close(ActionPanel.TARGETING_PLAN_MODAL_OWNER);
+    this.pane.replaceChildren(createFragmentFromHtml('<div class="empty-hint">暂无可用行动</div>'));
   }  
   /**
  * setCallbacks：写入Callback。
@@ -498,6 +575,7 @@ export class ActionPanel {
     }
     this.renderSkillManagementModalIfOpen();
     this.renderSkillPresetModalIfOpen();
+    this.renderTargetingPlanModalIfOpen();
     this.renderCombatSettingsModalIfOpen();
   }
 
@@ -516,6 +594,7 @@ export class ActionPanel {
     this.render(this.currentActions);
     this.renderSkillManagementModalIfOpen();
     this.renderSkillPresetModalIfOpen();
+    this.renderTargetingPlanModalIfOpen();
     this.renderCombatSettingsModalIfOpen();
   }
 
@@ -568,10 +647,14 @@ export class ActionPanel {
       groups.set(action.type, list);
     }
     const autoBattleDisplayOrders = this.buildAutoBattleDisplayOrderMap(actions);
+    const enabledSkillCount = this.getEnabledSkillCount(actions);
+    const skillSlotLimit = this.getSkillSlotLimit();
 
-    let html = `<div class="action-tab-bar ui-tab-strip">
+    let html = `<div class="action-tab-bar">
       ${tabGroups.map((tab) => `
-        <button class="action-tab-btn ui-tab-strip-button ${this.activeTab === tab.id ? 'active' : ''}" data-action-tab="${tab.id}" type="button">${tab.label}</button>
+        <button class="action-tab-btn ${this.activeTab === tab.id ? 'active' : ''}" data-action-tab="${tab.id}" type="button">${tab.id === 'skill'
+          ? `${tab.label} <span class="action-skill-subtab-count">${enabledSkillCount}/${skillSlotLimit}</span>`
+          : tab.label}</button>
       `).join('')}
     </div>`;
 
@@ -580,10 +663,10 @@ export class ActionPanel {
       if (tab.id === 'toggle') {
         const switchEntries = actions.filter((action) => this.isSwitchAction(action));
         if (switchEntries.length === 0) {
-          html += '<div class="empty-hint ui-empty-hint">当前分组暂无内容</div></div>';
+          html += '<div class="empty-hint">当前分组暂无内容</div></div>';
           continue;
         }
-        html += `<div class="panel-section ui-surface-pane ui-surface-pane--stack">
+        html += `<div class="panel-section">
           <div class="panel-section-title">开关</div>
           <div class="intel-grid compact">`;
         for (const action of switchEntries) {
@@ -598,12 +681,12 @@ export class ActionPanel {
           || this.isUtilityAction(action)
         ));
         if (utilityEntries.length === 0) {
-          html += '<div class="empty-hint ui-empty-hint">当前分组暂无内容</div></div>';
+          html += '<div class="empty-hint">当前分组暂无内容</div></div>';
           continue;
         }
-        html += `<div class="panel-section ui-surface-pane ui-surface-pane--stack">
+        html += `<div class="panel-section">
           <div class="panel-section-title">行动</div>
-          <div class="action-card-list ui-card-list ui-card-list--compact">`;
+          <div class="action-card-list">`;
         for (const action of utilityEntries) {
           html += this.renderActionItem(action);
         }
@@ -612,7 +695,7 @@ export class ActionPanel {
       }
       const relevantTypes = tab.types.filter((type) => (groups.get(type)?.length ?? 0) > 0);
       if (relevantTypes.length === 0) {
-        html += '<div class="empty-hint ui-empty-hint">当前分组暂无内容</div>';
+        html += '<div class="empty-hint">当前分组暂无内容</div>';
       } else {
         for (const type of relevantTypes) {
           const entries = (groups.get(type) ?? []).filter((action) => !this.isUtilityAction(action));
@@ -623,9 +706,9 @@ export class ActionPanel {
             html += this.renderSkillSection(entries, autoBattleDisplayOrders);
             continue;
           }
-          html += `<div class="panel-section ui-surface-pane ui-surface-pane--stack">
+          html += `<div class="panel-section">
       <div class="panel-section-title">${getActionTypeLabel(type)}</div>
-      <div class="action-card-list ui-card-list ui-card-list--compact">`;
+      <div class="action-card-list">`;
           for (const action of entries) {
             html += this.renderActionItem(action);
           }
@@ -698,6 +781,11 @@ export class ActionPanel {
     this.pane.querySelectorAll<HTMLElement>('[data-action-combat-settings-open]').forEach((button) => {
       button.addEventListener('click', () => {
         this.openCombatSettingsModal();
+      });
+    });
+    this.pane.querySelectorAll<HTMLElement>('[data-action-targeting-plan-open]').forEach((button) => {
+      button.addEventListener('click', () => {
+        this.openTargetingPlanModal();
       });
     });
     this.bindActionCardEvents(this.pane);
@@ -905,7 +993,7 @@ export class ActionPanel {
   /** 渲染一条状态开关卡片。 */
   private renderSwitchItem(action: ActionDef): string {
     const state = this.getSwitchCardState(action);
-    return `<div class="gm-player-row ui-surface-card ui-surface-card--compact ui-selectable-card ${state.active ? 'is-active' : ''}" data-action-card="${action.id}" role="button" tabindex="0">
+    return `<div class="gm-player-row ${state.active ? 'is-active' : ''}" data-action-card="${action.id}" role="button" tabindex="0">
       <div>
         <div class="gm-player-name">${escapeHtml(this.getSwitchCardTitle(action))}</div>
         <div class="gm-player-meta">${escapeHtml(action.desc)}${this.renderShortcutMeta(action.id)}</div>
@@ -1271,7 +1359,7 @@ export class ActionPanel {
   private buildSkillPresetExternalRevision(): string {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
-    const parts: string[] = [];
+    const parts: string[] = [String(this.getSkillSlotLimit())];
     for (const action of this.getSkillActions(this.currentActions)) {
       parts.push(action.id);
       parts.push(action.autoBattleEnabled !== false ? '1' : '0');
@@ -1321,11 +1409,17 @@ export class ActionPanel {
   private buildTechniqueFallbackActions(player: PlayerState, currentActions: ActionDef[]): ActionDef[] {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
-    const existingSkillIds = new Set(currentActions.filter((action) => action.type === 'skill').map((action) => action.id));
+    const currentSkillActions = currentActions.filter((action) => action.type === 'skill');
+    const existingSkillIds = new Set(currentSkillActions.map((action) => action.id));
     const autoBattleSkillMap = new Map((player.autoBattleSkills ?? []).map((entry, index) => [entry.skillId, { entry, index }] as const));
+    const playerRealmStage = player.realm?.stage ?? DEFAULT_PLAYER_REALM_STAGE;
     const fallback: ActionDef[] = [];
-    for (const technique of player.techniques) {
+    for (const technique of getSkillEnabledTechniques(player)) {
       for (const skill of technique.skills ?? []) {
+        const unlockPlayerRealm = skill.unlockPlayerRealm ?? DEFAULT_PLAYER_REALM_STAGE;
+        if (technique.level < resolveSkillUnlockLevel(skill) || playerRealmStage < unlockPlayerRealm) {
+          continue;
+        }
         if (existingSkillIds.has(skill.id)) {
           continue;
         }
@@ -1338,7 +1432,7 @@ export class ActionPanel {
           cooldownLeft: 0,
           range: skill.targeting?.range ?? skill.range,
           requiresTarget: skill.requiresTarget ?? true,
-          targetMode: skill.targetMode ?? 'entity',
+          targetMode: skill.targetMode ?? 'any',
           autoBattleEnabled: config?.entry.enabled ?? true,
           autoBattleOrder: config?.index,
           skillEnabled: config?.entry.skillEnabled ?? true,
@@ -1350,7 +1444,15 @@ export class ActionPanel {
       const rightOrder = right.autoBattleOrder ?? Number.MAX_SAFE_INTEGER;
       return (leftOrder - rightOrder) || left.id.localeCompare(right.id, 'zh-Hans-CN');
     });
-    return fallback;
+    const combined = [...currentSkillActions, ...fallback]
+      .sort((left, right) => {
+        const leftOrder = left.autoBattleOrder ?? Number.MAX_SAFE_INTEGER;
+        const rightOrder = right.autoBattleOrder ?? Number.MAX_SAFE_INTEGER;
+        return (leftOrder - rightOrder) || left.id.localeCompare(right.id, 'zh-Hans-CN');
+      });
+    const normalized = this.normalizeSkillActions(combined);
+    const fallbackMap = new Map(normalized.map((action) => [action.id, action] as const));
+    return fallback.map((action) => fallbackMap.get(action.id) ?? action);
   }
 
   /** 渲染单条动作或技能卡片。 */
@@ -1392,7 +1494,7 @@ export class ActionPanel {
       : '';
     const affinityChip = skillContext ? this.renderActionSkillAffinityChip(skillContext.skill) : '';
 
-    return `<div class="action-item ui-surface-card ui-surface-card--compact ${onCd ? 'cooldown' : ''} ${isAutoBattleSkill ? 'action-item-draggable' : ''}" data-action-row="${action.id}"${rowAttrs}>
+    return `<div class="action-item ${onCd ? 'cooldown' : ''} ${isAutoBattleSkill ? 'action-item-draggable' : ''}" data-action-row="${action.id}"${rowAttrs}>
       <div class="action-copy ${skillContext ? 'action-copy-tooltip' : ''} ${affinityChip ? 'action-copy--with-affinity' : ''}"${tooltipAttrs}>
         <div>
           <span class="action-name">${escapeHtml(action.name)}</span>
@@ -1510,7 +1612,7 @@ export class ActionPanel {
         ...action,
         autoBattleEnabled: action.autoBattleEnabled !== false,
       }));
-    const mutated = this.withSequentialAutoBattleOrder(mutator(skillActions));
+    const mutated = this.normalizeSkillActions(mutator(skillActions));
     this.currentActions = this.replaceSkillActions(mutated);
     if (this.previewPlayer) {
       this.previewPlayer.actions = this.currentActions.filter((action) => action.id !== 'client:observe');
@@ -1522,7 +1624,11 @@ export class ActionPanel {
   }
 
   /** 把技能管理草稿的改动写回预览态并刷新弹层。 */
-  private applySkillManagementDraftMutation(mutator: (skills: ActionDef[]) => ActionDef[]): void {
+  private applySkillManagementDraftMutation(
+    mutator: (skills: ActionDef[]) => ActionDef[],
+    rerender = true,
+  ): void {
+    this.resetSkillManagementCloseConfirm();
     const orderedIds = this.skillManagementSortField === 'custom'
       ? []
       : this.getSortedSkillManagementActionIds();
@@ -1535,9 +1641,11 @@ export class ActionPanel {
     const orderedSkillActions = orderedIds.length > 1
       ? this.reorderSkillManagementSubset(skillActions, orderedIds)
       : skillActions;
-    const mutated = this.withSequentialAutoBattleOrder(mutator(orderedSkillActions));
-    this.skillManagementDraft = this.getAutoBattleSkillConfigs(mutated);
-    this.renderSkillManagementModal();
+    const mutated = this.normalizeSkillActions(mutator(orderedSkillActions));
+    this.skillManagementDraft = this.normalizeSkillConfigs(this.getAutoBattleSkillConfigs(mutated));
+    if (rerender) {
+      this.renderSkillManagementModal();
+    }
   }
 
   /** 按当前顺序重新编号自动战斗顺位。 */
@@ -1663,35 +1771,37 @@ export class ActionPanel {
     const autoSkills = enabledSkills.filter((action) => action.autoBattleEnabled !== false);
     const manualSkills = enabledSkills.filter((action) => action.autoBattleEnabled === false);
     const visibleSkills = this.activeSkillTab === 'auto' ? autoSkills : manualSkills;
+    const slotSummary = this.getSkillSlotSummary(actions);
     const hint = this.activeSkillTab === 'auto'
-      ? '自动战斗会按列表从上到下尝试已启用技能，可直接拖拽调整优先级。'
-      : '这里的技能不会参与自动战斗，但仍可手动点击或使用绑定键触发。';
+      ? `自动战斗会按列表从上到下尝试已启用技能，可直接拖拽调整优先级。当前已启用 ${slotSummary}。`
+      : `这里的技能不会参与自动战斗，但仍可手动点击或使用绑定键触发。当前已启用 ${slotSummary}。`;
 
-    let html = `<div class="panel-section action-skill-section ui-surface-pane ui-surface-pane--stack">
+    let html = `<div class="panel-section action-skill-section">
       <div class="panel-section-head">
-        <div class="panel-section-title">技能</div>
+        <div class="panel-section-title">技能 · ${slotSummary}</div>
         <div class="action-section-actions">
           <button class="small-btn ghost" data-action-skill-manage-open type="button">技能管理</button>
           <button class="small-btn ghost" data-action-combat-settings-open type="button">战斗设置</button>
           <button class="small-btn ghost" data-action-skill-preset-open type="button">技能方案</button>
+          <button class="small-btn ghost" data-action-targeting-plan-open type="button">索敌方案 · ${escapeHtml(this.getAutoBattleTargetingModeLabel())}</button>
         </div>
       </div>
-      <div class="action-skill-subtabs ui-subtab-grid ui-subtab-grid--two-column">
-        <button class="action-skill-subtab-btn ui-subtab-button ${this.activeSkillTab === 'auto' ? 'active' : ''}" data-action-skill-tab="auto" type="button">
+      <div class="action-skill-subtabs">
+        <button class="action-skill-subtab-btn ${this.activeSkillTab === 'auto' ? 'active' : ''}" data-action-skill-tab="auto" type="button">
           自动
-          <span class="action-skill-subtab-count ui-count-chip">${autoSkills.length}</span>
+          <span class="action-skill-subtab-count">${autoSkills.length}</span>
         </button>
-        <button class="action-skill-subtab-btn ui-subtab-button ${this.activeSkillTab === 'manual' ? 'active' : ''}" data-action-skill-tab="manual" type="button">
+        <button class="action-skill-subtab-btn ${this.activeSkillTab === 'manual' ? 'active' : ''}" data-action-skill-tab="manual" type="button">
           手动
-          <span class="action-skill-subtab-count ui-count-chip">${manualSkills.length}</span>
+          <span class="action-skill-subtab-count">${manualSkills.length}</span>
         </button>
       </div>
-      <div class="action-section-hint ui-form-copy">${hint}</div>`;
+      <div class="action-section-hint">${hint}</div>`;
 
     if (visibleSkills.length === 0) {
-      html += `<div class="empty-hint ui-empty-hint">${this.activeSkillTab === 'auto' ? '当前没有启用自动战斗的技能' : '当前没有仅手动触发的技能'}</div>`;
+      html += `<div class="empty-hint">${this.activeSkillTab === 'auto' ? '当前没有启用自动战斗的技能' : '当前没有仅手动触发的技能'}</div>`;
     } else {
-      html += '<div class="action-skill-list ui-card-list ui-card-list--compact">';
+      html += '<div class="action-skill-list">';
       for (const action of visibleSkills) {
         html += this.renderActionItem(action, {
           showDragHandle: this.activeSkillTab === 'auto',
@@ -1927,10 +2037,156 @@ export class ActionPanel {
     return actions.filter((action) => action.type === 'skill');
   }
 
+  /** 读取当前角色可启用的技能槽位上限。 */
+  private getSkillSlotLimit(): number {
+    return resolvePlayerSkillSlotLimitLocal(this.previewPlayer);
+  }
+
+  /** 统计当前已启用的技能数量。 */
+  private getEnabledSkillCount(actions: ActionDef[] = this.currentActions): number {
+    return countEnabledSkillEntriesLocal(this.getSkillActions(actions));
+  }
+
+  /** 汇总当前技能槽启用情况，供方案弹层摘要复用。 */
+  private getSkillSlotSummary(actions: ActionDef[] = this.currentActions): string {
+    return `${this.getEnabledSkillCount(actions)}/${this.getSkillSlotLimit()} 项`;
+  }
+
+  /** 按槽位上限规整自动战斗技能配置。 */
+  private normalizeSkillConfigs(configs: AutoBattleSkillConfig[]): AutoBattleSkillConfig[] {
+    return enforceSkillEnabledLimitLocal(configs.map((entry) => ({
+      skillId: entry.skillId,
+      enabled: entry.enabled !== false,
+      skillEnabled: entry.skillEnabled !== false,
+    })), this.getSkillSlotLimit());
+  }
+
+  /** 按槽位上限规整技能动作。 */
+  private normalizeSkillActions(actions: ActionDef[]): ActionDef[] {
+    return enforceSkillEnabledLimitLocal(this.withSequentialAutoBattleOrder(actions), this.getSkillSlotLimit());
+  }
+
+  /** 把自动战斗技能配置规整成稳定顺序，便于比较草稿差异。 */
+  private normalizeAutoBattleSkillConfigsLocal(
+    configs: AutoBattleSkillConfig[] | null | undefined,
+  ): AutoBattleSkillConfig[] {
+    const source = Array.isArray(configs) ? configs : [];
+    const normalized: AutoBattleSkillConfig[] = [];
+    const seen = new Set<string>();
+    for (const entry of source) {
+      const skillId = typeof entry?.skillId === 'string' ? entry.skillId.trim() : '';
+      if (!skillId || seen.has(skillId)) {
+        continue;
+      }
+      normalized.push({
+        skillId,
+        enabled: entry.enabled !== false,
+        skillEnabled: entry.skillEnabled !== false,
+      });
+      seen.add(skillId);
+    }
+    return normalized;
+  }
+
+  /** 比较两份自动战斗技能配置是否完全一致。 */
+  private areAutoBattleSkillConfigsEqual(
+    left: AutoBattleSkillConfig[] | null | undefined,
+    right: AutoBattleSkillConfig[] | null | undefined,
+  ): boolean {
+    const normalizedLeft = this.normalizeAutoBattleSkillConfigsLocal(left);
+    const normalizedRight = this.normalizeAutoBattleSkillConfigsLocal(right);
+    if (normalizedLeft.length !== normalizedRight.length) {
+      return false;
+    }
+    return normalizedLeft.every((entry, index) => {
+      const target = normalizedRight[index];
+      return target?.skillId === entry.skillId
+        && target.enabled === entry.enabled
+        && target.skillEnabled === entry.skillEnabled;
+    });
+  }
+
+  /** 判断技能管理当前是否存在未应用的改动。 */
+  private hasPendingSkillManagementChanges(): boolean {
+    return !this.areAutoBattleSkillConfigsEqual(
+      this.skillManagementDraft,
+      this.getAutoBattleSkillConfigs(this.currentActions),
+    );
+  }
+
+  /** 关闭技能管理前确认是否放弃本地草稿。 */
+  private confirmDiscardSkillManagementChanges(): boolean {
+    if (!this.hasPendingSkillManagementChanges()) {
+      return true;
+    }
+    return window.confirm('技能管理有未应用的改动，关闭后会丢失这些改动。确定关闭吗？');
+  }
+
+  /** 请求关闭技能管理弹层。 */
+  private requestSkillManagementClose(): void {
+    if (!this.confirmDiscardSkillManagementChanges()) {
+      return;
+    }
+    this.discardSkillManagementDraft();
+    detailModalHost.close(ActionPanel.SKILL_MANAGEMENT_MODAL_OWNER);
+  }
+
+  /** 清理技能管理里的临时关闭确认提示。 */
+  private resetSkillManagementCloseConfirm(): void {
+    if (this.skillManagementStatus?.tone === 'info') {
+      this.skillManagementStatus = null;
+    }
+  }
+
+  /** 渲染技能管理当前的状态提示。 */
+  private renderSkillManagementStatus(): string {
+    if (!this.skillManagementStatus) {
+      return '';
+    }
+    return `<div class="skill-preset-status ui-status-text ${this.skillManagementStatus.tone === 'error' ? 'error' : this.skillManagementStatus.tone === 'success' ? 'success' : ''}">${escapeHtml(this.skillManagementStatus.text)}</div>`;
+  }
+
+  /** 汇总技能管理当前的过滤和排序范围。 */
+  private getSkillManagementScopeSummary(
+    filteredEntries: SkillManagementEntry[],
+    visibleEntries: SkillManagementEntry[],
+  ): { filter: string; sort: string } {
+    const totalSkills = this.getSkillActions(this.getSkillManagementPreviewActions()).length;
+    const filter = this.skillManagementFilterToggles.size > 0
+      ? `过滤 ${filteredEntries.length}/${totalSkills} 项`
+      : `过滤 全部 ${filteredEntries.length} 项`;
+    const sortFieldLabel = ({
+      custom: '当前顺位',
+      actualDamage: '伤害',
+      qiCost: '蓝耗',
+      range: '距离',
+      targetCount: '目标',
+      cooldown: '冷却',
+    } satisfies Record<SkillManagementSortField, string>)[this.skillManagementSortField];
+    const sort = this.skillManagementSortField === 'custom'
+      ? `排序 ${sortFieldLabel}`
+      : `排序 ${sortFieldLabel} · ${this.skillManagementSortDirection === 'asc' ? '正序' : '倒序'} · 展示 ${visibleEntries.length} 项`;
+    return { filter, sort };
+  }
+
+  /** 生成技能管理空态文案。 */
+  private getSkillManagementEmptyStateText(): string {
+    const base = this.skillManagementTab === 'auto'
+      ? '当前过滤下没有自动技能。'
+      : this.skillManagementTab === 'manual'
+        ? '当前过滤下没有手动技能。'
+        : '当前过滤下没有禁用技能。';
+    if (this.skillManagementFilterToggles.size === 0) {
+      return base;
+    }
+    return `${base} 可以先清空过滤标签，再继续批量调整。`;
+  }
+
   /** 打开技能管理弹层，并以当前自动/手动页签作为初始视图。 */
   private openSkillManagement(): void {
     this.skillManagementTab = this.activeSkillTab;
     this.skillManagementListScrollTop = 0;
+    this.skillManagementStatus = null;
     this.syncSkillManagementDraft();
     this.renderSkillManagementModal();
   }
@@ -1939,11 +2195,16 @@ export class ActionPanel {
   private openCombatSettingsModal(): void {
     this.syncAutoUsePillDraft();
     this.syncCombatTargetingDraft();
-    this.syncAutoBattleTargetingModeDraft();
+    this.combatSettingsStatus = null;
     this.combatSettingsActiveTab = 'auto_pills';
     this.autoUsePillSelectedIndex = 0;
     this.autoUsePillSubview = 'main';
     this.renderCombatSettingsModal();
+  }
+
+  /** 打开索敌方案弹层。 */
+  private openTargetingPlanModal(): void {
+    this.renderTargetingPlanModal();
   }
 
   /** 复制自动吃药配置。 */
@@ -1989,15 +2250,16 @@ export class ActionPanel {
   /** 读取当前目标选择规则。 */
   private getCombatTargetingRules(): CombatTargetingRules {
     const source = this.previewPlayer?.combatTargetingRules ?? {};
+    const defaults = this.buildDefaultCombatTargetingRules(this.allowAoePlayerHit);
     const hostile = this.normalizeCombatTargetingScope(
       source.hostile,
       HOSTILE_TARGETING_KEYS,
-      this.buildDefaultCombatTargetingRules(this.allowAoePlayerHit).hostile ?? [],
+      this.buildLegacyHostileTargetingFallback(source, defaults.hostile ?? []),
     );
     const friendly = this.normalizeCombatTargetingScope(
       source.friendly,
       FRIENDLY_TARGETING_KEYS,
-      this.buildDefaultCombatTargetingRules(this.allowAoePlayerHit).friendly ?? [],
+      defaults.friendly ?? [],
     );
     return {
       hostile,
@@ -2011,15 +2273,16 @@ export class ActionPanel {
 
   /** 复制目标选择规则。 */
   private cloneCombatTargetingRules(rules: CombatTargetingRules): CombatTargetingRules {
+    const defaults = this.buildDefaultCombatTargetingRules(rules.includePlayers === true);
     const hostile = this.normalizeCombatTargetingScope(
       rules.hostile,
       HOSTILE_TARGETING_KEYS,
-      this.buildDefaultCombatTargetingRules(rules.includePlayers === true).hostile ?? [],
+      this.buildLegacyHostileTargetingFallback(rules, defaults.hostile ?? []),
     );
     const friendly = this.normalizeCombatTargetingScope(
       rules.friendly,
       FRIENDLY_TARGETING_KEYS,
-      this.buildDefaultCombatTargetingRules(rules.includePlayers === true).friendly ?? [],
+      defaults.friendly ?? [],
     );
     return {
       hostile,
@@ -2041,6 +2304,40 @@ export class ActionPanel {
       hostile,
       friendly: [...DEFAULT_FRIENDLY_COMBAT_TARGETING_RULES],
     };
+  }
+
+  /** 兼容旧布尔字段，折叠为当前 hostile 规则回退集。 */
+  private buildLegacyHostileTargetingFallback(
+    rules: CombatTargetingRules,
+    defaults: CombatTargetingRuleKey[],
+  ): CombatTargetingRuleKey[] {
+    const fallback = defaults.filter(
+      (entry) => entry !== 'monster' && entry !== 'all_players',
+    ) as CombatTargetingRuleKey[];
+    if (this.resolveLegacyMonsterTargetEnabled(rules, defaults)) {
+      fallback.unshift('monster');
+    }
+    const includePlayers = rules.includePlayers ?? defaults.includes('all_players');
+    if (includePlayers && !fallback.includes('all_players')) {
+      fallback.push('all_players');
+    }
+    return fallback;
+  }
+
+  /** 旧 include* 怪物字段任一为 true 时，折叠为统一 monster 规则。 */
+  private resolveLegacyMonsterTargetEnabled(
+    rules: CombatTargetingRules,
+    defaults: CombatTargetingRuleKey[],
+  ): boolean {
+    const hasLegacyMonsterOverride = rules.includeNormalMonsters !== undefined
+      || rules.includeEliteMonsters !== undefined
+      || rules.includeBosses !== undefined;
+    if (!hasLegacyMonsterOverride) {
+      return defaults.includes('monster');
+    }
+    return rules.includeNormalMonsters === true
+      || rules.includeEliteMonsters === true
+      || rules.includeBosses === true;
   }
 
   /** 规整目标规则分组。 */
@@ -2111,26 +2408,13 @@ export class ActionPanel {
     return JSON.stringify({
       pills: this.getAutoUsePills(),
       rules: this.getCombatTargetingRules(),
-      targetingMode: this.getAutoBattleTargetingMode(),
       allowAoePlayerHit: this.allowAoePlayerHit,
     });
-  }
-
-  /** 构建索敌方案外部摘要。 */
-  private buildTargetingPlanExternalRevision(): string {
-    return this.previewPlayer?.autoBattleTargetingMode ?? 'auto';
   }
 
   /** 读取当前索敌方案标签。 */
   private getAutoBattleTargetingMode(): AutoBattleTargetingMode {
     return this.previewPlayer?.autoBattleTargetingMode ?? 'auto';
-  }
-
-  /** 同步索敌方案草稿。 */
-  private syncAutoBattleTargetingModeDraft(): AutoBattleTargetingMode {
-    const nextDraft = this.autoBattleTargetingModeDraft ?? this.getAutoBattleTargetingMode();
-    this.autoBattleTargetingModeDraft = nextDraft;
-    return nextDraft;
   }
 
   /** 读取当前索敌方案标签。 */
@@ -2205,6 +2489,7 @@ export class ActionPanel {
   private applyAutoUsePillDraftMutation(
     mutator: (draft: AutoUsePillConfig[]) => AutoUsePillConfig[],
   ): void {
+    this.resetCombatSettingsCloseConfirm();
     const next = this.normalizeAutoUsePillsLocal(mutator(this.cloneAutoUsePillConfigs(this.syncAutoUsePillDraft())));
     this.autoUsePillDraft = next;
     this.autoUsePillSelectedIndex = Math.max(0, Math.min(this.autoUsePillSelectedIndex, ActionPanel.AUTO_USE_PILL_SLOT_LIMIT - 1));
@@ -2482,6 +2767,18 @@ export class ActionPanel {
     this.renderCombatSettingsModal();
   }
 
+  /** 仅在索敌方案弹层已打开且内容变化时重绘。 */
+  private renderTargetingPlanModalIfOpen(): void {
+    if (!detailModalHost.isOpenFor(ActionPanel.TARGETING_PLAN_MODAL_OWNER)) {
+      return;
+    }
+    const nextRevision = this.getAutoBattleTargetingMode();
+    if (this.targetingPlanExternalRevision === nextRevision) {
+      return;
+    }
+    this.renderTargetingPlanModal();
+  }
+
   /** 渲染战斗设置弹层。 */
   private renderCombatSettingsModal(): void {
     this.autoUsePillTooltip.hide(true);
@@ -2511,7 +2808,7 @@ export class ActionPanel {
             ${slotEntry
               ? `
                 <span class="auto-pill-slot-name">${escapeHtml(slotEntry.name)}</span>
-                <span class="auto-pill-slot-count">${slotEntry.count > 0 ? `背包 ${slotEntry.count}` : '背包暂无'}</span>
+                <span class="auto-pill-slot-count">${slotEntry.count > 0 ? slotEntry.count : '-'}</span>
               `
               : `
                 <span class="auto-pill-slot-empty">+</span>
@@ -2530,7 +2827,7 @@ export class ActionPanel {
     }).join('');
     const pickerEntries = this.getAutoUsePillPickerEntries();
     const pickerBody = pickerEntries.length === 0
-      ? '<div class="empty-hint ui-empty-hint">当前没有可选的自动服用丹药。</div>'
+      ? '<div class="empty-hint">当前没有可选的自动服用丹药。</div>'
       : `
         <div class="auto-pill-picker-grid">
           ${pickerEntries.map((entry) => `
@@ -2540,8 +2837,8 @@ export class ActionPanel {
               type="button"
             >
               <span class="auto-pill-picker-title">${escapeHtml(entry.name)}</span>
-              <span class="auto-pill-picker-count">${entry.count > 0 ? `背包 ${entry.count}` : '背包暂无'}</span>
-              <span class="auto-pill-picker-meta">${escapeHtml(entry.desc || this.renderAutoUsePillConditionSummary(entry.conditions))}</span>
+              <span class="auto-pill-picker-count">${entry.count > 0 ? entry.count : '-'}</span>
+              <span class="auto-pill-picker-meta">${escapeHtml(this.renderAutoUsePillEffectSummary(entry))}</span>
             </button>
           `).join('')}
         </div>
@@ -2552,9 +2849,9 @@ export class ActionPanel {
           <div class="auto-pill-condition-summary-card">
             <div class="auto-pill-card-title-row">
               <div class="auto-pill-card-title">${escapeHtml(currentEntry.name)}</div>
-              <span class="auto-pill-card-count">${currentEntry.count > 0 ? `背包 ${currentEntry.count}` : '背包暂无'}</span>
+              <span class="auto-pill-card-count">${currentEntry.count > 0 ? currentEntry.count : '-'}</span>
             </div>
-            <div class="auto-pill-card-meta">${escapeHtml(currentEntry.desc || '已选择自动服用丹药')}</div>
+            <div class="auto-pill-card-meta">${escapeHtml(this.renderAutoUsePillEffectSummary(currentEntry))}</div>
             <div class="auto-pill-config-summary">${escapeHtml(this.renderAutoUsePillConditionSummary(currentConfig?.conditions ?? []))}</div>
           </div>
           <div class="auto-pill-condition-panel auto-pill-condition-panel--standalone">
@@ -2566,7 +2863,7 @@ export class ActionPanel {
               ? `<div class="auto-pill-condition-list">
                   ${currentConfig?.conditions.map((condition, conditionIndex) => this.renderAutoUsePillConditionRow(currentEntry.itemId, condition, conditionIndex)).join('')}
                 </div>`
-              : '<div class="empty-hint ui-empty-hint">还没有设置任何触发条件。</div>'}
+              : '<div class="empty-hint">还没有设置任何触发条件。</div>'}
             <div class="auto-pill-condition-actions">
               <button class="small-btn ghost" data-auto-pill-add-condition="${escapeHtml(currentEntry.itemId)}" data-condition-kind="hp" type="button">添加生命条件</button>
               <button class="small-btn ghost" data-auto-pill-add-condition="${escapeHtml(currentEntry.itemId)}" data-condition-kind="qi" type="button">添加灵力条件</button>
@@ -2577,47 +2874,15 @@ export class ActionPanel {
           </div>
         </div>
       `
-      : '<div class="empty-hint ui-empty-hint">当前槽位还没有选择药品，无法设置条件。</div>';
+      : '<div class="empty-hint">当前槽位还没有选择药品，无法设置条件。</div>';
     const autoPillBody = `
       <div class="skill-preset-card auto-pill-hero-card">
         <div class="skill-preset-card-title">自动丹药槽</div>
-        <div class="skill-preset-card-copy">点槽位会弹出独立药品选择小窗，点槽位下方“条件”会弹出独立条件设置小窗。改动会和目标选择一起在“应用”时提交。</div>
+        <div class="skill-preset-card-copy">点槽位会在上面弹出独立药品选择小窗，点槽位下方“条件”会弹出独立条件设置小窗。改动会与目标选择一起在“应用”时提交。</div>
       </div>
       <div class="auto-pill-slot-grid">${slotMarkup}</div>
     `;
     const targetingBody = this.renderCombatTargetingSection();
-    const targetingPlanMode = this.syncAutoBattleTargetingModeDraft();
-    const targetingPlanActiveOption = AUTO_BATTLE_TARGETING_MODE_OPTIONS.find((entry) => entry.mode === targetingPlanMode)
-      ?? AUTO_BATTLE_TARGETING_MODE_OPTIONS[0]!;
-    const targetingPlanBody = `
-      <div class="targeting-plan-shell">
-        <div class="targeting-plan-hero">
-          <div class="targeting-plan-card">
-            <div class="skill-preset-card-title">当前方案</div>
-            <div class="targeting-plan-current">${escapeHtml(targetingPlanActiveOption.label)}</div>
-            <div class="skill-preset-card-copy">${escapeHtml(targetingPlanActiveOption.summary)}</div>
-          </div>
-        </div>
-        <div class="targeting-plan-card targeting-plan-options">
-          <div class="skill-preset-section-head">
-            <div class="skill-preset-card-title">方案切换</div>
-            <div class="skill-preset-list-meta">这里控制自动战斗在候选目标里的优先索敌顺序，改动会和其他战斗设置一起在“应用”后生效。</div>
-          </div>
-          <div class="targeting-plan-grid">
-            ${AUTO_BATTLE_TARGETING_MODE_OPTIONS.map((entry) => `
-              <button
-                class="targeting-plan-option ${entry.mode === targetingPlanMode ? 'active' : ''}"
-                data-targeting-plan-mode="${escapeHtml(entry.mode)}"
-                type="button"
-              >
-                <span class="targeting-plan-option-title">${escapeHtml(entry.label)}</span>
-                <span class="targeting-plan-option-copy">${escapeHtml(entry.summary)}</span>
-              </button>
-            `).join('')}
-          </div>
-        </div>
-      </div>
-    `;
     const overviewBody = `
       <div class="auto-pill-shell">
         <div class="auto-pill-topbar">
@@ -2630,17 +2895,12 @@ export class ActionPanel {
             <button class="small-btn ghost" data-combat-settings-cancel type="button">取消</button>
           </div>
         </div>
-        <div class="action-skill-subtabs combat-settings-tabs ui-subtab-grid ui-subtab-grid--three-column">
-          <button class="action-skill-subtab-btn ui-subtab-button ${this.combatSettingsActiveTab === 'auto_pills' ? 'active' : ''}" data-combat-settings-tab="auto_pills" type="button">丹药自动服用</button>
-          <button class="action-skill-subtab-btn ui-subtab-button ${this.combatSettingsActiveTab === 'targeting' ? 'active' : ''}" data-combat-settings-tab="targeting" type="button">目标选择</button>
-          <button class="action-skill-subtab-btn ui-subtab-button ${this.combatSettingsActiveTab === 'targeting_plan' ? 'active' : ''}" data-combat-settings-tab="targeting_plan" type="button">索敌方案</button>
+        <div class="action-skill-subtabs combat-settings-tabs">
+          <button class="action-skill-subtab-btn ${this.combatSettingsActiveTab === 'auto_pills' ? 'active' : ''}" data-combat-settings-tab="auto_pills" type="button">丹药自动服用</button>
+          <button class="action-skill-subtab-btn ${this.combatSettingsActiveTab === 'targeting' ? 'active' : ''}" data-combat-settings-tab="targeting" type="button">目标选择</button>
         </div>
         <div class="combat-settings-panel-body">
-          ${this.combatSettingsActiveTab === 'auto_pills'
-            ? autoPillBody
-            : this.combatSettingsActiveTab === 'targeting'
-              ? targetingBody
-              : targetingPlanBody}
+          ${this.combatSettingsActiveTab === 'auto_pills' ? autoPillBody : targetingBody}
         </div>
         ${this.combatSettingsActiveTab === 'auto_pills' && this.autoUsePillSubview === 'picker'
           ? `
@@ -2685,33 +2945,91 @@ export class ActionPanel {
       ownerId: ActionPanel.COMBAT_SETTINGS_MODAL_OWNER,
       variantClass: 'detail-modal--combat-settings',
       title: '战斗设置',
-      subtitle: this.combatSettingsActiveTab === 'auto_pills'
-        ? `自动丹药 ${pillDraft.length} 种`
-        : this.combatSettingsActiveTab === 'targeting'
-          ? '目标选择'
-          : `索敌方案 · ${targetingPlanActiveOption.label}`,
+      subtitle: `自动丹药 ${pillDraft.length} 种 · ${this.combatSettingsActiveTab === 'auto_pills' ? '丹药自动服用' : '目标选择'}`,
       bodyHtml: overviewBody,
+      onRequestClose: () => this.confirmDiscardCombatSettingsChanges(),
       onClose: () => this.discardCombatSettingsDraft(),
       onAfterRender: (body) => this.bindCombatSettingsEvents(body),
     });
     this.combatSettingsExternalRevision = this.buildCombatSettingsExternalRevision();
   }
 
+  /** 渲染索敌方案弹层。 */
+  private renderTargetingPlanModal(): void {
+    const activeMode = this.getAutoBattleTargetingMode();
+    const activeOption = AUTO_BATTLE_TARGETING_MODE_OPTIONS.find((entry) => entry.mode === activeMode)
+      ?? AUTO_BATTLE_TARGETING_MODE_OPTIONS[0]!;
+
+    detailModalHost.open({
+      ownerId: ActionPanel.TARGETING_PLAN_MODAL_OWNER,
+      variantClass: 'detail-modal--targeting-plan',
+      title: '索敌方案',
+      subtitle: `当前 ${activeOption.label}`,
+      bodyHtml: `
+        <div class="targeting-plan-shell">
+          <div class="targeting-plan-hero">
+            <div class="targeting-plan-card">
+              <div class="skill-preset-card-title">当前方案</div>
+              <div class="targeting-plan-current">${escapeHtml(activeOption.label)}</div>
+              <div class="skill-preset-card-copy">${escapeHtml(activeOption.summary)}</div>
+            </div>
+          </div>
+          <div class="targeting-plan-card targeting-plan-options">
+            <div class="skill-preset-section-head">
+              <div class="skill-preset-card-title">方案切换</div>
+              <div class="skill-preset-list-meta">点击后立即切换。</div>
+            </div>
+            <div class="targeting-plan-grid">
+              ${AUTO_BATTLE_TARGETING_MODE_OPTIONS.map((entry) => `
+                <button
+                  class="targeting-plan-option ${entry.mode === activeMode ? 'active' : ''}"
+                  data-targeting-plan-mode="${escapeHtml(entry.mode)}"
+                  type="button"
+                >
+                  <span class="targeting-plan-option-title">${escapeHtml(entry.label)}</span>
+                  <span class="targeting-plan-option-copy">${escapeHtml(entry.summary)}</span>
+                </button>
+              `).join('')}
+            </div>
+          </div>
+        </div>
+      `,
+      onAfterRender: (body) => {
+        this.bindTargetingPlanEvents(body);
+      },
+    });
+    this.targetingPlanExternalRevision = activeMode;
+  }
+
   /** 战斗设置关闭前确认。 */
   private confirmDiscardCombatSettingsChanges(): boolean {
-    if (!this.areAutoUsePillConfigsEqual(this.autoUsePillDraft, this.getAutoUsePills())
-      || !this.areCombatTargetingRulesEqual(this.combatTargetingDraft, this.getCombatTargetingRules())
-      || this.syncAutoBattleTargetingModeDraft() !== this.getAutoBattleTargetingMode()) {
-      return window.confirm('战斗设置里有未应用的改动，关闭后会丢失这些改动。确定关闭吗？');
+    if (this.areAutoUsePillConfigsEqual(this.autoUsePillDraft, this.getAutoUsePills())
+      && this.areCombatTargetingRulesEqual(this.combatTargetingDraft, this.getCombatTargetingRules())) {
+      return true;
     }
-    return true;
+    return window.confirm('战斗设置里有未应用的改动，关闭后会丢失这些改动。确定关闭吗？');
+  }
+
+  /** 渲染战斗设置状态提示。 */
+  private renderCombatSettingsStatus(): string {
+    if (!this.combatSettingsStatus) {
+      return '';
+    }
+    return `<div class="skill-preset-status ui-status-text ${this.combatSettingsStatus.tone === 'error' ? 'error' : this.combatSettingsStatus.tone === 'success' ? 'success' : ''}">${escapeHtml(this.combatSettingsStatus.text)}</div>`;
+  }
+
+  /** 清理战斗设置里的临时关闭确认提示。 */
+  private resetCombatSettingsCloseConfirm(): void {
+    if (this.combatSettingsStatus?.tone === 'info') {
+      this.combatSettingsStatus = null;
+    }
   }
 
   /** 丢弃战斗设置草稿。 */
   private discardCombatSettingsDraft(): void {
     this.autoUsePillDraft = null;
     this.combatTargetingDraft = null;
-    this.autoBattleTargetingModeDraft = null;
+    this.combatSettingsStatus = null;
     this.combatSettingsActiveTab = 'auto_pills';
     this.autoUsePillSelectedIndex = 0;
     this.autoUsePillSubview = 'main';
@@ -2720,12 +3038,21 @@ export class ActionPanel {
     this.combatSettingsExternalRevision = null;
   }
 
+  /** 请求关闭战斗设置弹层。 */
+  private requestCombatSettingsClose(): void {
+    if (!this.confirmDiscardCombatSettingsChanges()) {
+      return;
+    }
+    this.discardCombatSettingsDraft();
+    detailModalHost.close(ActionPanel.COMBAT_SETTINGS_MODAL_OWNER);
+  }
+
   /** 绑定战斗设置交互。 */
   private bindCombatSettingsEvents(root: HTMLElement): void {
     root.querySelectorAll<HTMLElement>('[data-combat-settings-tab]').forEach((button) => {
       button.addEventListener('click', () => {
         const tab = button.dataset.combatSettingsTab;
-        this.combatSettingsActiveTab = tab === 'targeting' || tab === 'targeting_plan' ? tab : 'auto_pills';
+        this.combatSettingsActiveTab = tab === 'targeting' ? 'targeting' : 'auto_pills';
         this.renderCombatSettingsModal();
       });
     });
@@ -2734,11 +3061,7 @@ export class ActionPanel {
     });
     root.querySelectorAll<HTMLElement>('[data-combat-settings-cancel]').forEach((button) => {
       button.addEventListener('click', () => {
-        if (!this.confirmDiscardCombatSettingsChanges()) {
-          return;
-        }
-        this.discardCombatSettingsDraft();
-        detailModalHost.close(ActionPanel.COMBAT_SETTINGS_MODAL_OWNER);
+        this.requestCombatSettingsClose();
       });
     });
     root.querySelectorAll<HTMLElement>('[data-auto-pill-slot]').forEach((button) => {
@@ -2849,6 +3172,7 @@ export class ActionPanel {
         if (!key) {
           return;
         }
+        this.resetCombatSettingsCloseConfirm();
         const draft = this.syncCombatTargetingDraft();
         const isHostile = HOSTILE_TARGETING_KEYS.has(key);
         const scope = isHostile ? 'hostile' : 'friendly';
@@ -2865,18 +3189,27 @@ export class ActionPanel {
         this.renderCombatSettingsModal();
       });
     });
+    this.bindAutoUsePillSlotTooltipEvents(root);
+    this.bindAutoUsePillPickerTooltipEvents(root);
+  }
+
+  /** 绑定索敌方案弹层交互。 */
+  private bindTargetingPlanEvents(root: HTMLElement): void {
     root.querySelectorAll<HTMLElement>('[data-targeting-plan-mode]').forEach((button) => {
       button.addEventListener('click', () => {
         const mode = button.dataset.targetingPlanMode as AutoBattleTargetingMode | undefined;
-        if (!mode) {
+        if (!mode || mode === this.getAutoBattleTargetingMode()) {
           return;
         }
-        this.autoBattleTargetingModeDraft = mode;
-        this.renderCombatSettingsModal();
+        if (this.previewPlayer) {
+          this.previewPlayer.autoBattleTargetingMode = mode;
+        }
+        this.targetingPlanExternalRevision = null;
+        this.render(this.currentActions);
+        this.renderTargetingPlanModal();
+        this.onUpdateAutoBattleTargetingMode?.(mode);
       });
     });
-    this.bindAutoUsePillSlotTooltipEvents(root);
-    this.bindAutoUsePillPickerTooltipEvents(root);
   }
 
   /** 绑定槽位 tooltip。 */
@@ -2973,29 +3306,44 @@ export class ActionPanel {
   /** 渲染自动吃药条件摘要。 */
   private renderAutoUsePillConditionSummary(conditions: AutoUsePillCondition[]): string {
     if (conditions.length === 0) {
-      return '未设置';
+      return '未设置条件，不会自动使用。';
     }
     return conditions.map((condition) => {
       if (condition.type === 'buff_missing') {
-        return '效果未生效';
+        return '当前药品效果未生效时使用';
       }
-      return `${condition.resource === 'qi' ? '灵力' : '血量'} ${condition.op === 'lt' ? '<' : '>'} ${condition.thresholdPct}%`;
+      return `当前${condition.resource === 'hp' ? '生命' : '灵力'}${condition.op === 'lt' ? '低于' : '高于'} ${condition.thresholdPct}%`;
     }).join('；');
+  }
+
+  /** 渲染自动丹药效果摘要。 */
+  private renderAutoUsePillEffectSummary(entry: AutoUsePillViewEntry): string {
+    const parts: string[] = [];
+    if ((entry.healAmount ?? 0) > 0) {
+      parts.push(`恢复气血 ${formatDisplayNumber(entry.healAmount ?? 0)}`);
+    }
+    if ((entry.healPercent ?? 0) > 0) {
+      parts.push(`恢复生命 ${Math.round((entry.healPercent ?? 0) * 100)}%`);
+    }
+    if ((entry.qiPercent ?? 0) > 0) {
+      parts.push(`恢复灵力 ${Math.round((entry.qiPercent ?? 0) * 100)}%`);
+    }
+    if ((entry.consumeBuffs?.length ?? 0) > 0) {
+      parts.push(`附带 ${entry.consumeBuffs?.map((buff) => buff.name || buff.buffId || 'Buff').join('、')}`);
+    }
+    return parts.join('；') || '效果以物品真源配置为准。';
   }
 
   /** 应用战斗设置。 */
   private applyCombatSettingsChanges(): void {
     const nextPills = this.syncAutoUsePillDraft();
     const nextRules = this.syncCombatTargetingDraft();
-    const nextTargetingMode = this.syncAutoBattleTargetingModeDraft();
     const pillsChanged = !this.areAutoUsePillConfigsEqual(nextPills, this.getAutoUsePills());
     const rulesChanged = !this.areCombatTargetingRulesEqual(nextRules, this.getCombatTargetingRules());
-    const targetingModeChanged = nextTargetingMode !== this.getAutoBattleTargetingMode();
     const allowAoeChanged = (nextRules.includePlayers === true) !== this.allowAoePlayerHit;
     if (this.previewPlayer) {
       this.previewPlayer.autoUsePills = this.cloneAutoUsePillConfigs(nextPills);
       this.previewPlayer.combatTargetingRules = this.cloneCombatTargetingRules(nextRules);
-      this.previewPlayer.autoBattleTargetingMode = nextTargetingMode;
       this.previewPlayer.allowAoePlayerHit = nextRules.includePlayers === true;
     }
     this.render(this.currentActions);
@@ -3006,9 +3354,6 @@ export class ActionPanel {
     }
     if (rulesChanged) {
       this.onUpdateCombatTargetingRules?.(nextRules);
-    }
-    if (targetingModeChanged) {
-      this.onUpdateAutoBattleTargetingMode?.(nextTargetingMode);
     }
     if (allowAoeChanged) {
       this.onAction?.('toggle:allow_aoe_player_hit', false, undefined, undefined, '全体攻击');
@@ -3038,6 +3383,13 @@ export class ActionPanel {
     this.skillPresetStatus = null;
     if (!this.skillPresets.some((preset) => preset.id === this.selectedSkillPresetId)) {
       this.selectedSkillPresetId = this.skillPresets[0]?.id ?? null;
+    }
+  }
+
+  /** 清理技能方案删除二次确认状态。 */
+  private resetSkillPresetDeleteConfirm(): void {
+    if (this.skillPresetStatus?.tone === 'info') {
+      this.skillPresetStatus = null;
     }
   }
 
@@ -3079,6 +3431,39 @@ export class ActionPanel {
     return `命中 ${matched}/${preset.skills.length} 项 · 当前新增 ${currentOnly} 项`;
   }
 
+  /** 汇总当前方案名输入会如何被规整。 */
+  private getSkillPresetNameDraftSummary(): string {
+    const selected = this.getSelectedSkillPreset();
+    const raw = this.skillPresetNameDraft;
+    const sanitized = this.sanitizeSkillPresetName(raw);
+    if (!raw.trim()) {
+      return `命名规则：最多 ${SKILL_PRESET_NAME_MAX_LENGTH} 字，自动压缩多余空格；留空时会使用默认名。`;
+    }
+    if (!sanitized) {
+      return '当前输入在清理空白后为空，请换一个方案名。';
+    }
+    const usedNames = new Set(
+      this.skillPresets
+        .filter((preset) => preset.id !== selected?.id)
+        .map((preset) => preset.name),
+    );
+    const resolved = this.resolveUniqueSkillPresetName(sanitized, usedNames);
+    return resolved === sanitized
+      ? `将以“${sanitized}”保存。`
+      : `当前名称重复，将自动保存为“${resolved}”。`;
+  }
+
+  /** 汇总当前导入文本的规模和导入规则。 */
+  private getSkillPresetImportSummary(): string {
+    const text = this.skillPresetImportText.trim();
+    if (!text) {
+      return '支持键值文本和旧 JSON；名称重复时会自动追加编号。';
+    }
+    const lineCount = text.split(/\r?\n/).length;
+    const byteSize = new TextEncoder().encode(text).length;
+    return `已粘贴 ${formatDisplayNumber(lineCount)} 行 · ${formatDisplayNumber(byteSize)} B；导入时会自动跳过无效技能并给重名方案补编号。`;
+  }
+
   /** 把方案弹层里的结果提示渲染成状态条。 */
   private renderSkillPresetStatus(): string {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
@@ -3106,13 +3491,14 @@ export class ActionPanel {
         body.replaceChildren(createFragmentFromHtml(`
         <div class="skill-preset-shell ui-card-list">
           <div class="skill-preset-hero">
-            <div class="skill-preset-card ui-surface-pane ui-surface-pane--stack">
+            <div class="skill-preset-card">
               <div class="skill-preset-card-title">保存当前技能布局</div>
-              <div class="skill-preset-card-copy ui-form-copy">只记录当前已启用技能的顺序，以及它们是自动还是手动。未写进方案的技能会视为禁用，只保存在当前浏览器。导入时会自动忽略不存在的技能，并把你当前多出来的技能保留在禁用区。</div>
-              <div class="skill-manage-summary ui-meta-tag-row">
-                <span class="ui-meta-tag">${escapeHtml(currentSummary)}</span>
+              <div class="skill-preset-card-copy">只记录当前已启用技能的顺序，以及它们是自动还是手动。未写进方案的技能会视为禁用，只保存在当前浏览器。导入时会自动忽略不存在的技能，并把你当前多出来的技能保留在禁用区。</div>
+              <div class="skill-manage-summary">
+                <span>${escapeHtml(currentSummary)}</span>
+                <span>已启用 ${this.getSkillSlotSummary(this.currentActions)}</span>
               </div>
-              <div class="skill-preset-save-row ui-action-row ui-action-row--start">
+              <div class="skill-preset-save-row">
                 <input
                   class="skill-preset-name-input ui-input"
                   data-skill-preset-name-input
@@ -3125,14 +3511,14 @@ export class ActionPanel {
                 <button class="small-btn ghost" data-skill-preset-overwrite type="button"${selected && currentSkills.length > 0 ? '' : ' disabled'}>覆盖选中</button>
               </div>
             </div>
-            <div class="skill-preset-card ui-surface-pane ui-surface-pane--stack">
+            <div class="skill-preset-card">
               <div class="skill-preset-card-title">选中方案</div>
-              <div class="skill-preset-card-copy ui-form-copy">${selected ? escapeHtml(selectedSummary) : '还没有选中任何技能方案。'}</div>
-              <div class="skill-manage-summary ui-meta-tag-row">
-                <span class="ui-meta-tag">${escapeHtml(compatibilitySummary)}</span>
-                <span class="ui-meta-tag">${selected ? '导出内容只包含技能 id 顺序和自动/手动标记' : '可导出单个方案或整个本地列表'}</span>
+              <div class="skill-preset-card-copy">${selected ? escapeHtml(selectedSummary) : '还没有选中任何技能方案。'}</div>
+              <div class="skill-manage-summary">
+                <span>${escapeHtml(compatibilitySummary)}</span>
+                <span>${selected ? '导出内容只包含技能 id 顺序和自动/手动标记' : '可导出单个方案或整个本地列表'}</span>
               </div>
-              <div class="skill-preset-actions ui-action-row ui-action-row--start">
+              <div class="skill-preset-actions">
                 <button class="small-btn" data-skill-preset-apply type="button"${selected ? '' : ' disabled'}>套用选中</button>
                 <button class="small-btn ghost" data-skill-preset-copy type="button"${selected ? '' : ' disabled'}>复制选中</button>
                 <button class="small-btn ghost" data-skill-preset-export-selected type="button"${selected ? '' : ' disabled'}>导出选中</button>
@@ -3143,17 +3529,17 @@ export class ActionPanel {
           </div>
           ${this.renderSkillPresetStatus()}
           <div class="skill-preset-layout">
-            <div class="skill-preset-list-card ui-surface-pane ui-surface-pane--stack">
+            <div class="skill-preset-list-card">
               <div class="skill-preset-section-head">
                 <div class="skill-preset-card-title">本地方案列表</div>
                 <div class="skill-preset-list-meta">${this.skillPresets.length > 0 ? '列表从上到下按最近保存排序' : '当前还没有保存任何方案'}</div>
               </div>
               ${this.skillPresets.length === 0
-                ? '<div class="empty-hint ui-empty-hint">先保存一份当前技能方案，再进行导出或分享。</div>'
-                : `<div class="skill-preset-list ui-card-list ui-scroll-panel">
+                ? '<div class="empty-hint">先保存一份当前技能方案，再进行导出或分享。</div>'
+                : `<div class="skill-preset-list">
                     ${this.skillPresets.map((preset) => `
                       <button
-                        class="skill-preset-item ui-surface-card ui-surface-card--compact ui-selectable-card ${preset.id === this.selectedSkillPresetId ? 'is-active' : ''}"
+                        class="skill-preset-item ${preset.id === this.selectedSkillPresetId ? 'active' : ''}"
                         data-skill-preset-select="${escapeHtml(preset.id)}"
                         type="button"
                       >
@@ -3164,19 +3550,19 @@ export class ActionPanel {
                     `).join('')}
                   </div>`}
             </div>
-            <div class="skill-preset-import-card ui-surface-pane ui-surface-pane--stack">
+            <div class="skill-preset-import-card">
               <div class="skill-preset-section-head">
                 <div class="skill-preset-card-title">导入数据</div>
                 <button class="small-btn ghost" data-skill-preset-import-file-open type="button">读取文件</button>
               </div>
-              <div class="skill-preset-card-copy ui-form-copy">支持导入键值文本，也兼容之前的 JSON 分享数据。若名称重复，会自动在本地追加编号。</div>
+              <div class="skill-preset-card-copy">支持导入键值文本，也兼容之前的 JSON 分享数据。若名称重复，会自动在本地追加编号。</div>
               <textarea
                 class="skill-preset-import-input ui-textarea"
                 data-skill-preset-import-input
                 placeholder="粘贴技能方案文本，例如：&#10;v=3&#10;p=日常刷图&#10;s=fireball,1&#10;s=guard,0"
               >${escapeHtml(this.skillPresetImportText)}</textarea>
               <input class="hidden" data-skill-preset-import-file type="file" accept="text/plain,.txt,.preset,application/json,.json" />
-              <div class="skill-preset-actions ui-action-row ui-action-row--start">
+              <div class="skill-preset-actions">
                 <button class="small-btn" data-skill-preset-import type="button"${this.skillPresetImportText.trim() ? '' : ' disabled'}>导入到本地</button>
                 <button class="small-btn ghost" data-skill-preset-import-clear type="button"${this.skillPresetImportText.trim() ? '' : ' disabled'}>清空输入</button>
               </div>
@@ -3199,16 +3585,19 @@ export class ActionPanel {
   private bindSkillPresetEvents(root: HTMLElement): void {
     root.querySelectorAll<HTMLInputElement>('[data-skill-preset-name-input]').forEach((input) => {
       input.addEventListener('input', () => {
+        this.resetSkillPresetDeleteConfirm();
         this.skillPresetNameDraft = input.value.slice(0, SKILL_PRESET_NAME_MAX_LENGTH);
       });
     });
     root.querySelectorAll<HTMLElement>('[data-skill-preset-save]').forEach((button) => {
       button.addEventListener('click', () => {
+        this.resetSkillPresetDeleteConfirm();
         this.saveCurrentSkillPreset(false);
       });
     });
     root.querySelectorAll<HTMLElement>('[data-skill-preset-overwrite]').forEach((button) => {
       button.addEventListener('click', () => {
+        this.resetSkillPresetDeleteConfirm();
         this.saveCurrentSkillPreset(true);
       });
     });
@@ -3218,6 +3607,7 @@ export class ActionPanel {
         if (!presetId) {
           return;
         }
+        this.resetSkillPresetDeleteConfirm();
         this.selectedSkillPresetId = presetId;
         const preset = this.getSelectedSkillPreset();
         this.skillPresetNameDraft = preset?.name ?? this.skillPresetNameDraft;
@@ -3227,21 +3617,25 @@ export class ActionPanel {
     });
     root.querySelectorAll<HTMLElement>('[data-skill-preset-apply]').forEach((button) => {
       button.addEventListener('click', () => {
+        this.resetSkillPresetDeleteConfirm();
         this.applySelectedSkillPreset();
       });
     });
     root.querySelectorAll<HTMLElement>('[data-skill-preset-copy]').forEach((button) => {
       button.addEventListener('click', () => {
+        this.resetSkillPresetDeleteConfirm();
         this.copySelectedSkillPreset();
       });
     });
     root.querySelectorAll<HTMLElement>('[data-skill-preset-export-selected]').forEach((button) => {
       button.addEventListener('click', () => {
+        this.resetSkillPresetDeleteConfirm();
         this.exportSelectedSkillPreset();
       });
     });
     root.querySelectorAll<HTMLElement>('[data-skill-preset-export-all]').forEach((button) => {
       button.addEventListener('click', () => {
+        this.resetSkillPresetDeleteConfirm();
         this.exportAllSkillPresets();
       });
     });
@@ -3252,11 +3646,13 @@ export class ActionPanel {
     });
     root.querySelectorAll<HTMLTextAreaElement>('[data-skill-preset-import-input]').forEach((input) => {
       input.addEventListener('input', () => {
+        this.resetSkillPresetDeleteConfirm();
         this.skillPresetImportText = input.value;
       });
     });
     root.querySelectorAll<HTMLElement>('[data-skill-preset-import-clear]').forEach((button) => {
       button.addEventListener('click', () => {
+        this.resetSkillPresetDeleteConfirm();
         this.skillPresetImportText = '';
         this.skillPresetStatus = null;
         this.renderSkillPresetModal();
@@ -3264,6 +3660,7 @@ export class ActionPanel {
     });
     root.querySelectorAll<HTMLElement>('[data-skill-preset-import]').forEach((button) => {
       button.addEventListener('click', () => {
+        this.resetSkillPresetDeleteConfirm();
         this.importSkillPresetsFromText(this.skillPresetImportText);
       });
     });
@@ -3639,15 +4036,17 @@ export class ActionPanel {
       seen.add(action.id);
     }
 
-    this.skillManagementDraft = normalized;
-    return normalized;
+    const nextDraft = this.normalizeSkillConfigs(normalized);
+    this.skillManagementDraft = nextDraft;
+    return nextDraft;
   }
 
   /** 把草稿套进当前动作快照，生成弹层里的预览列表。 */
   private getSkillManagementPreviewActions(): ActionDef[] {
     const draft = this.syncSkillManagementDraft();
     const draftMap = new Map(draft.map((entry, index) => [entry.skillId, { entry, index }]));
-    const skillActions = this.getSkillActions(this.currentActions)
+    const skillActions = this.normalizeSkillActions(
+      this.getSkillActions(this.currentActions)
       .map((action) => {
         const draftEntry = draftMap.get(action.id);
         if (!draftEntry) {
@@ -3664,7 +4063,8 @@ export class ActionPanel {
           autoBattleOrder: draftEntry.index,
         };
       })
-      .sort((left, right) => (left.autoBattleOrder ?? Number.MAX_SAFE_INTEGER) - (right.autoBattleOrder ?? Number.MAX_SAFE_INTEGER));
+      .sort((left, right) => (left.autoBattleOrder ?? Number.MAX_SAFE_INTEGER) - (right.autoBattleOrder ?? Number.MAX_SAFE_INTEGER)),
+    );
     return this.replaceSkillActions(skillActions);
   }
 
@@ -3673,6 +4073,7 @@ export class ActionPanel {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
     const parts = [
+      String(this.getSkillSlotLimit()),
       this.skillManagementSortField,
       this.skillManagementSortDirection,
       [...this.skillManagementFilterToggles].sort().join(','),
@@ -3791,6 +4192,7 @@ export class ActionPanel {
     const autoEntries = filteredEntries.filter((entry) => entry.action.skillEnabled !== false && entry.action.autoBattleEnabled !== false);
     const manualEntries = filteredEntries.filter((entry) => entry.action.skillEnabled !== false && entry.action.autoBattleEnabled === false);
     const disabledEntries = filteredEntries.filter((entry) => entry.action.skillEnabled === false);
+    const slotSummary = this.getSkillSlotSummary(previewActions);
     const visibleEntries = this.sortSkillManagementEntries(
       this.skillManagementTab === 'auto'
         ? autoEntries
@@ -3801,32 +4203,32 @@ export class ActionPanel {
     const dragSortEnabled = this.skillManagementTab === 'auto'
       && this.skillManagementSortField === 'custom'
       && visibleEntries.length > 1;
-    const hint = this.buildSkillManagementHint(dragSortEnabled);
+    const hint = this.buildSkillManagementHint(dragSortEnabled, slotSummary);
 
     detailModalHost.open({
       ownerId: ActionPanel.SKILL_MANAGEMENT_MODAL_OWNER,
       variantClass: 'detail-modal--skill-management',
       title: '技能管理',
-      subtitle: `已学技能 ${skillEntries.length} 项 · 当前过滤 ${filteredEntries.length} 项`,
+      subtitle: `已学技能 ${skillEntries.length} 项 · 已启用 ${slotSummary} · 当前过滤 ${filteredEntries.length} 项`,
       renderBody: (body) => {
         body.replaceChildren(createFragmentFromHtml(`
         <div class="skill-manage-shell ui-card-list">
           <div class="skill-manage-topbar">
-            <div class="action-skill-subtabs skill-manage-subtabs ui-subtab-grid ui-subtab-grid--three-column">
-              <button class="action-skill-subtab-btn ui-subtab-button ${this.skillManagementTab === 'auto' ? 'active' : ''}" data-skill-manage-tab="auto" type="button">
+            <div class="action-skill-subtabs skill-manage-subtabs">
+              <button class="action-skill-subtab-btn ${this.skillManagementTab === 'auto' ? 'active' : ''}" data-skill-manage-tab="auto" type="button">
                 自动
-                <span class="action-skill-subtab-count ui-count-chip">${autoEntries.length}</span>
+                <span class="action-skill-subtab-count">${autoEntries.length}</span>
               </button>
-              <button class="action-skill-subtab-btn ui-subtab-button ${this.skillManagementTab === 'manual' ? 'active' : ''}" data-skill-manage-tab="manual" type="button">
+              <button class="action-skill-subtab-btn ${this.skillManagementTab === 'manual' ? 'active' : ''}" data-skill-manage-tab="manual" type="button">
                 手动
-                <span class="action-skill-subtab-count ui-count-chip">${manualEntries.length}</span>
+                <span class="action-skill-subtab-count">${manualEntries.length}</span>
               </button>
-              <button class="action-skill-subtab-btn ui-subtab-button ${this.skillManagementTab === 'disabled' ? 'active' : ''}" data-skill-manage-tab="disabled" type="button">
+              <button class="action-skill-subtab-btn ${this.skillManagementTab === 'disabled' ? 'active' : ''}" data-skill-manage-tab="disabled" type="button">
                 禁用
-                <span class="action-skill-subtab-count ui-count-chip">${disabledEntries.length}</span>
+                <span class="action-skill-subtab-count">${disabledEntries.length}</span>
               </button>
             </div>
-            <div class="skill-manage-toolbar ui-action-row ui-action-row--end">
+            <div class="skill-manage-toolbar">
               <button class="small-btn" data-skill-manage-apply type="button">应用</button>
               <button class="small-btn ghost" data-skill-manage-cancel type="button">取消</button>
               <button class="small-btn ghost ${this.skillManagementSortOpen ? 'active' : ''}" data-skill-manage-sort-toggle type="button">
@@ -3837,15 +4239,16 @@ export class ActionPanel {
               </button>
             </div>
           </div>
-          <div class="skill-manage-summary ui-meta-tag-row">
-            <span class="ui-meta-tag">当前过滤 ${filteredEntries.length} 项</span>
-            <span class="ui-meta-tag">自动 ${autoEntries.length} 项</span>
-            <span class="ui-meta-tag">手动 ${manualEntries.length} 项</span>
-            <span class="ui-meta-tag">禁用 ${disabledEntries.length} 项</span>
+          <div class="skill-manage-summary">
+            <span>已启用 ${slotSummary}</span>
+            <span>当前过滤 ${filteredEntries.length} 项</span>
+            <span>自动 ${autoEntries.length} 项</span>
+            <span>手动 ${manualEntries.length} 项</span>
+            <span>禁用 ${disabledEntries.length} 项</span>
           </div>
-          ${this.skillManagementSortOpen ? this.renderSkillManagementSortPanel(visibleEntries.length) : ''}
+          ${this.skillManagementSortOpen ? this.renderSkillManagementSortPanel() : ''}
           ${this.skillManagementFilterOpen ? `
-            <div class="skill-manage-filter-panel ui-surface-pane ui-surface-pane--stack ui-surface-pane--muted">
+            <div class="skill-manage-filter-panel">
               <div class="skill-manage-filter-head">
                 <div class="skill-manage-filter-title">过滤技能</div>
                 <button class="small-btn ghost" data-skill-manage-filter-all type="button">全部技能</button>
@@ -3861,29 +4264,32 @@ export class ActionPanel {
                   ${this.renderSkillManagementChipToggle('aoe', '群攻')}
                 </div>
               </div>
-              <div class="skill-manage-filter-copy ui-form-copy">同类标签可同时选中；若某一类开了多个，则按该类任意命中处理。</div>
+              <div class="skill-manage-filter-copy">同类标签可同时选中；若某一类开了多个，则按该类任意命中处理。</div>
             </div>
           ` : ''}
-          <div class="skill-manage-batch ui-action-row ui-action-row--start">
+          <div class="skill-manage-batch">
             <button class="small-btn" data-skill-manage-bulk="auto" type="button"${filteredEntries.length > 0 ? '' : ' disabled'}>当前过滤全部自动</button>
             <button class="small-btn ghost" data-skill-manage-bulk="manual" type="button"${filteredEntries.length > 0 ? '' : ' disabled'}>当前过滤全部手动</button>
             <button class="small-btn ghost" data-skill-manage-bulk="enabled" type="button"${filteredEntries.length > 0 ? '' : ' disabled'}>当前过滤全部启用</button>
             <button class="small-btn ghost" data-skill-manage-bulk="disabled" type="button"${filteredEntries.length > 0 ? '' : ' disabled'}>当前过滤全部禁用</button>
           </div>
-          <div class="action-section-hint ui-form-copy">${hint}</div>
+          <div class="action-section-hint">${hint}</div>
           ${visibleEntries.length === 0
-            ? `<div class="empty-hint ui-empty-hint">${this.skillManagementTab === 'auto' ? '当前过滤下没有自动技能' : this.skillManagementTab === 'manual' ? '当前过滤下没有手动技能' : '当前过滤下没有禁用技能'}</div>`
-            : `<div class="action-skill-list skill-manage-list ui-card-list ui-card-list--compact ui-scroll-panel">
+            ? `<div class="empty-hint">${escapeHtml(this.getSkillManagementEmptyStateText())}</div>`
+            : `<div class="action-skill-list skill-manage-list">
               ${visibleEntries.map((entry) => this.renderSkillManagementItem(entry.action, {
                 showDragHandle: dragSortEnabled,
                 autoBattleDisplayOrder: this.skillManagementTab === 'auto'
                   ? (autoBattleDisplayOrders.get(entry.action.id) ?? null)
                   : null,
-              })).join('')}
+                canMoveUp: this.skillManagementSortField === 'custom' && visibleEntries.indexOf(entry) > 0,
+                canMoveDown: this.skillManagementSortField === 'custom' && visibleEntries.indexOf(entry) < visibleEntries.length - 1,
+              }, entry.metrics)).join('')}
             </div>`}
         </div>
       `));
       },
+      onRequestClose: () => this.confirmDiscardSkillManagementChanges(),
       onClose: () => {
         this.discardSkillManagementDraft();
       },
@@ -3926,6 +4332,12 @@ export class ActionPanel {
       button.addEventListener('click', () => {
         const value = button.dataset.skillManageSortFieldToggle as SkillManagementSortField | undefined;
         if (!value) return;
+        if (value === this.skillManagementSortField) {
+          return;
+        }
+        if (value === 'custom' && this.skillManagementSortField !== 'custom') {
+          this.applySkillManagementSortOrder(false, false);
+        }
         this.skillManagementSortField = value;
         this.renderSkillManagementModal();
       });
@@ -3936,11 +4348,6 @@ export class ActionPanel {
         if (!value) return;
         this.skillManagementSortDirection = value;
         this.renderSkillManagementModal();
-      });
-    });
-    root.querySelectorAll<HTMLElement>('[data-skill-manage-apply-sort]').forEach((button) => {
-      button.addEventListener('click', () => {
-        this.applySkillManagementSortOrder();
       });
     });
     root.querySelectorAll<HTMLElement>('[data-skill-manage-filter-toggle]').forEach((button) => {
@@ -3967,6 +4374,35 @@ export class ActionPanel {
         this.renderSkillManagementModal();
       });
     });
+    root.querySelectorAll<HTMLElement>('[data-skill-manage-move-up], [data-skill-manage-move-down]').forEach((button) => {
+      button.addEventListener('click', () => {
+        const actionId = button.dataset.skillManageMoveUp ?? button.dataset.skillManageMoveDown;
+        if (!actionId) {
+          return;
+        }
+        const position = button.dataset.skillManageMoveUp ? 'before' : 'after';
+        const visibleEntries = this.sortSkillManagementEntries(
+          this.getFilteredSkillManagementEntries(this.getSkillManagementEntries(this.getSkillManagementPreviewActions())),
+        ).filter((entry) => (
+          this.skillManagementTab === 'disabled'
+            ? entry.action.skillEnabled === false
+            : this.skillManagementTab === 'auto'
+              ? entry.action.skillEnabled !== false && entry.action.autoBattleEnabled !== false
+              : entry.action.skillEnabled !== false && entry.action.autoBattleEnabled === false
+        ));
+        const currentIndex = visibleEntries.findIndex((entry) => entry.action.id === actionId);
+        if (currentIndex < 0) {
+          return;
+        }
+        const targetId = position === 'before'
+          ? (visibleEntries[currentIndex - 1]?.action.id ?? null)
+          : (visibleEntries[currentIndex + 1]?.action.id ?? null);
+        if (!targetId) {
+          return;
+        }
+        this.moveSkillManagementSkill(actionId, targetId, position);
+      });
+    });
     root.querySelectorAll<HTMLElement>('[data-skill-manage-bulk]').forEach((button) => {
       button.addEventListener('click', () => {
         const mode = button.dataset.skillManageBulk as SkillManagementBulkMode | undefined;
@@ -3990,8 +4426,23 @@ export class ActionPanel {
         .map((entry) => entry.action.id),
     );
     if (filteredSkillIds.size === 0) {
+      this.skillManagementStatus = {
+        tone: 'error',
+        text: '当前过滤结果里没有可批量调整的技能。',
+      };
+      this.renderSkillManagementModal();
       return;
     }
+    const label = ({
+      auto: '切到自动',
+      manual: '切到手动',
+      enabled: '批量启用',
+      disabled: '批量禁用',
+    } satisfies Record<SkillManagementBulkMode, string>)[mode];
+    this.skillManagementStatus = {
+      tone: 'success',
+      text: `已对当前过滤命中的 ${filteredSkillIds.size} 项技能执行“${label}”。`,
+    };
     this.applySkillManagementDraftMutation((skills) => skills.map((action) => (
       filteredSkillIds.has(action.id)
         ? mode === 'enabled'
@@ -4151,15 +4602,11 @@ export class ActionPanel {
   }
 
   /** 渲染技能管理里的排序面板、方向和应用说明。 */
-  private renderSkillManagementSortPanel(visibleCount: number): string {
-    const canApplySort = this.skillManagementTab !== 'disabled'
-      && this.skillManagementSortField !== 'custom'
-      && visibleCount > 1;
+  private renderSkillManagementSortPanel(): string {
     return `
-      <div class="skill-manage-sort-panel ui-surface-pane ui-surface-pane--stack">
+      <div class="skill-manage-sort-panel">
         <div class="skill-manage-filter-head">
           <div class="skill-manage-filter-title">排序规则</div>
-          <button class="small-btn ghost" data-skill-manage-apply-sort type="button"${canApplySort ? '' : ' disabled'}>应用到当前顺位</button>
         </div>
         <div class="skill-manage-chip-group">
           <span class="skill-manage-chip-group-title">排序字段</span>
@@ -4182,28 +4629,40 @@ export class ActionPanel {
         <div class="skill-manage-filter-copy ui-form-copy">${this.skillManagementTab === 'disabled'
           ? '禁用页签只提供查看与筛选；重新启用后，技能会按原自动状态回到自动或手动列表。'
           : this.skillManagementSortField === 'custom'
-            ? '当前顺位模式下，自动页签可直接拖拽调整优先级。'
-            : '当前列表会按选定规则显示；点“应用到当前顺位”后，会把这一排序写回技能顺位。'}</div>
+            ? '当前顺位模式下，自动页签可直接拖拽，或用上移、下移调整优先级。'
+            : '当前列表会按选定规则显示；切回“当前顺位”或点顶部“应用”时，会把当前结果写回真实顺位。'}</div>
       </div>
     `;
   }
 
   /** 生成技能管理列表上方的操作提示。 */
-  private buildSkillManagementHint(dragSortEnabled: boolean): string {
+  private buildSkillManagementHint(dragSortEnabled: boolean, slotSummary: string): string {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
     if (this.skillManagementTab === 'disabled') {
-      return '这里是未启用的技能，重新打开“启用”后，技能会按当前自动状态回到自动或手动列表。';
+      return `这里是未启用的技能，重新打开“启用”后，技能会按当前自动状态回到自动或手动列表。当前已启用 ${slotSummary}。`;
     }
     if (this.skillManagementSortField !== 'custom') {
-      return '当前列表已按选定规则排序显示，可切换升序或降序，也可把这一排序应用到当前顺位。';
+      return `当前列表已按选定规则显示；切回“当前顺位”或点顶部“应用”时，会把当前结果写回真实顺位。当前已启用 ${slotSummary}。`;
     }
     if (dragSortEnabled) {
-      return '自动战斗会按列表从上到下尝试技能，当前可直接拖拽调整优先级。';
+      return `自动战斗会按列表从上到下尝试技能，当前可直接拖拽，或用上移、下移调整优先级。当前已启用 ${slotSummary}，超过上限会自动禁用末位技能。`;
     }
     return this.skillManagementTab === 'auto'
-      ? '这里显示会参与自动战斗的技能，可继续用过滤条件缩小范围后批量调整。'
-      : '这里显示仅手动触发的技能，可通过过滤快速圈定一组技能再批量切换。';
+      ? `这里显示会参与自动战斗的技能，可继续用过滤条件缩小范围后批量调整。当前已启用 ${slotSummary}。`
+      : `这里显示仅手动触发的技能，可通过过滤快速圈定一组技能再批量切换。当前已启用 ${slotSummary}。`;
+  }
+
+  /** 渲染当前排序字段对应的指标读数。 */
+  private renderSkillManagementMetricReadout(metrics: SkillPreviewMetrics): string | null {
+    switch (this.skillManagementSortField) {
+      case 'actualDamage':
+        return metrics.actualDamage === null ? '伤害 未知' : `伤害 ${formatDisplayNumber(metrics.actualDamage)}`;
+      case 'qiCost':
+        return `蓝耗 ${formatDisplayNumber(metrics.actualQiCost)}`;
+      default:
+        return null;
+    }
   }
 
   /** 渲染排序字段按钮。 */
@@ -4230,6 +4689,9 @@ export class ActionPanel {
   private applySkillManagementChanges(): void {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
+    if (this.skillManagementSortField !== 'custom') {
+      this.applySkillManagementSortOrder(false, false);
+    }
     const nextActions = this.getSkillManagementPreviewActions();
     const nextAutoBattleSkills = this.getAutoBattleSkillConfigs(nextActions);
     this.currentActions = nextActions;
@@ -4255,6 +4717,7 @@ export class ActionPanel {
 
   /** 清掉技能管理草稿、拖拽态和滚动位置。 */
   private discardSkillManagementDraft(): void {
+    this.resetSkillManagementCloseConfirm();
     this.skillManagementDraft = null;
     this.skillManagementExternalRevision = null;
     this.skillManagementListScrollTop = 0;
@@ -4263,36 +4726,49 @@ export class ActionPanel {
   }
 
   /** 把当前排序结果写回技能管理草稿顺位。 */
-  private applySkillManagementSortOrder(): void {
+  private applySkillManagementSortOrder(rerender = true, notify = true): boolean {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
     if (this.skillManagementTab === 'disabled' || this.skillManagementSortField === 'custom') {
-      return;
+      if (notify) {
+        this.skillManagementStatus = {
+          tone: 'error',
+          text: '当前页签或排序模式不支持把排序结果写回技能顺位。',
+        };
+        this.renderSkillManagementModal();
+      }
+      return false;
     }
-    const visibleEntries = this.sortSkillManagementEntries(
-      this.getFilteredSkillManagementEntries(this.getSkillManagementEntries(this.getSkillManagementPreviewActions()))
-        .filter((entry) => (
-          this.skillManagementTab === 'auto'
-            ? entry.action.skillEnabled !== false && entry.action.autoBattleEnabled !== false
-            : entry.action.skillEnabled !== false && entry.action.autoBattleEnabled === false
-        )),
-    );
-    const orderedIds = visibleEntries.map((entry) => entry.action.id);
+    const orderedIds = this.getSortedSkillManagementActionIds();
     if (orderedIds.length <= 1) {
-      return;
+      if (notify) {
+        this.skillManagementStatus = {
+          tone: 'error',
+          text: '当前可见技能不足 2 项，无法应用新的顺位。',
+        };
+        this.renderSkillManagementModal();
+      }
+      return false;
     }
-    this.applySkillManagementDraftMutation((skills) => {
-      const subset = new Set(orderedIds);
-      const orderedActions = orderedIds
-        .map((id) => skills.find((action) => action.id === id))
-        .filter((action): action is ActionDef => Boolean(action));
-      let nextIndex = 0;
-      return skills.map((action) => (
-        subset.has(action.id)
-          ? (orderedActions[nextIndex++] ?? action)
-          : action
-      ));
-    });
+    if (notify) {
+      const sortLabel = ({
+        actualDamage: '伤害',
+        qiCost: '蓝耗',
+        range: '距离',
+        targetCount: '目标',
+        cooldown: '冷却',
+        custom: '当前顺位',
+      } satisfies Record<SkillManagementSortField, string>)[this.skillManagementSortField];
+      this.skillManagementStatus = {
+        tone: 'success',
+        text: `已按“${sortLabel} · ${this.skillManagementSortDirection === 'asc' ? '正序' : '倒序'}”重写当前顺位。`,
+      };
+    }
+    this.applySkillManagementDraftMutation(
+      (skills) => this.reorderSkillManagementSubset(skills, orderedIds),
+      rerender,
+    );
+    return true;
   }
 
   /** 渲染技能管理弹层里的单条技能。 */
@@ -4309,7 +4785,18 @@ export class ActionPanel {
  */
 
       autoBattleDisplayOrder?: number | null;
+      /**
+ * moveUpTargetId：上移目标相关字段。
+ */
+
+      canMoveUp?: boolean;
+      /**
+ * canMoveDown：是否可下移。
+ */
+
+      canMoveDown?: boolean;
     },
+    metrics?: SkillPreviewMetrics,
   ): string {
     const skillContext = this.skillLookup.get(action.id);
     const tooltipAttrs = skillContext
@@ -4321,9 +4808,12 @@ export class ActionPanel {
       ? options.autoBattleDisplayOrder + 1
       : undefined;
     const rowAttrs = options?.showDragHandle ? ` data-skill-manage-skill-row="${action.id}"` : '';
+    const canMoveUp = options?.canMoveUp === true;
+    const canMoveDown = options?.canMoveDown === true;
+    const metricReadout = metrics ? this.renderSkillManagementMetricReadout(metrics) : '';
     const affinityChip = skillContext ? this.renderActionSkillAffinityChip(skillContext.skill) : '';
 
-    return `<div class="action-item action-item-draggable ui-surface-card ui-surface-card--compact" data-action-row="${action.id}"${rowAttrs}>
+    return `<div class="action-item action-item-draggable" data-action-row="${action.id}"${rowAttrs}>
       <div class="action-copy ${skillContext ? 'action-copy-tooltip' : ''} ${affinityChip ? 'action-copy--with-affinity' : ''}"${tooltipAttrs}>
         <div>
           <span class="action-name">${escapeHtml(action.name)}</span>
@@ -4336,9 +4826,12 @@ export class ActionPanel {
         <div class="action-desc">${escapeHtml(action.desc)}</div>
         ${affinityChip}
       </div>
-      <div class="action-cta ui-action-row ui-action-row--end">
+      <div class="action-cta">
+        ${metricReadout ? `<span class="skill-manage-metric-readout">${escapeHtml(metricReadout)}</span>` : ''}
         <button class="small-btn ghost ${autoBattleEnabled ? 'active' : ''}" data-skill-manage-auto-toggle="${action.id}" type="button">${autoBattleEnabled ? '自动 开' : '自动 关'}</button>
         <button class="small-btn ghost ${skillEnabled ? 'active' : ''}" data-skill-manage-enabled-toggle="${action.id}" type="button">${skillEnabled ? '启用 开' : '启用 关'}</button>
+        <button class="small-btn ghost" data-skill-manage-move-up="${action.id}" type="button"${canMoveUp ? '' : ' disabled'}>上移</button>
+        <button class="small-btn ghost" data-skill-manage-move-down="${action.id}" type="button"${canMoveDown ? '' : ' disabled'}>下移</button>
         ${options?.showDragHandle ? `<button class="small-btn ghost action-drag-handle" data-skill-manage-drag="${action.id}" draggable="true" type="button">拖拽</button>` : ''}
       </div>
     </div>`;

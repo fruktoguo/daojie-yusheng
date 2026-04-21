@@ -7,14 +7,23 @@ var __decorate = (this && this.__decorate) || function (decorators, target, key,
     else for (var i = decorators.length - 1; i >= 0; i--) if (d = decorators[i]) r = (c < 3 ? d(r) : c > 3 ? d(target, key, r) : d(target, key)) || r;
     return c > 3 && r && Object.defineProperty(target, key, r), r;
 };
+var __metadata = (this && this.__metadata) || function (k, v) {
+    if (typeof Reflect === "object" && typeof Reflect.metadata === "function") return Reflect.metadata(k, v);
+};
 
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.WorldRuntimeCommandIntakeFacadeService = void 0;
 
 const common_1 = require("@nestjs/common");
+const world_runtime_system_command_enqueue_service_1 = require("./world-runtime-system-command-enqueue.service");
 
 /** world-runtime command-intake facade：承接玩家输入、动作入口与 system enqueue facade。 */
 let WorldRuntimeCommandIntakeFacadeService = class WorldRuntimeCommandIntakeFacadeService {
+    /** GM/system enqueue 真源，避免外部继续透传整个 worldRuntimeService。 */
+    worldRuntimeSystemCommandEnqueueService;
+    constructor(worldRuntimeSystemCommandEnqueueService) {
+        this.worldRuntimeSystemCommandEnqueueService = worldRuntimeSystemCommandEnqueueService;
+    }
 /**
  * enqueueMove：处理Move并更新相关状态。
  * @param playerId 玩家 ID。
@@ -204,7 +213,7 @@ let WorldRuntimeCommandIntakeFacadeService = class WorldRuntimeCommandIntakeFaca
  */
 
     enqueueStartAlchemy(playerId, payload, deps) {
-        return deps.worldRuntimePlayerCommandEnqueueService.enqueueStartAlchemy(playerId, payload, deps);
+        return this.enqueueStartTechniqueActivity(playerId, 'alchemy', payload, deps);
     }    
     /**
  * enqueueCancelAlchemy：判断Cancel炼丹是否满足条件。
@@ -214,7 +223,7 @@ let WorldRuntimeCommandIntakeFacadeService = class WorldRuntimeCommandIntakeFaca
  */
 
     enqueueCancelAlchemy(playerId, deps) {
-        return deps.worldRuntimePlayerCommandEnqueueService.enqueueCancelAlchemy(playerId, deps);
+        return this.enqueueCancelTechniqueActivity(playerId, 'alchemy', deps);
     }    
     /**
  * enqueueSaveAlchemyPreset：处理Save炼丹Preset并更新相关状态。
@@ -247,7 +256,7 @@ let WorldRuntimeCommandIntakeFacadeService = class WorldRuntimeCommandIntakeFaca
  */
 
     enqueueStartEnhancement(playerId, payload, deps) {
-        return deps.worldRuntimePlayerCommandEnqueueService.enqueueStartEnhancement(playerId, payload, deps);
+        return this.enqueueStartTechniqueActivity(playerId, 'enhancement', payload, deps);
     }    
     /**
  * enqueueCancelEnhancement：判断Cancel强化是否满足条件。
@@ -257,7 +266,30 @@ let WorldRuntimeCommandIntakeFacadeService = class WorldRuntimeCommandIntakeFaca
  */
 
     enqueueCancelEnhancement(playerId, deps) {
-        return deps.worldRuntimePlayerCommandEnqueueService.enqueueCancelEnhancement(playerId, deps);
+        return this.enqueueCancelTechniqueActivity(playerId, 'enhancement', deps);
+    }    
+    /**
+ * enqueueStartTechniqueActivity：统一技艺活动开始入队入口。
+ * @param playerId 玩家 ID。
+ * @param kind 参数说明。
+ * @param payload 载荷参数。
+ * @param deps 运行时依赖。
+ * @returns 无返回值，直接更新技艺活动开始入队相关状态。
+ */
+
+    enqueueStartTechniqueActivity(playerId, kind, payload, deps) {
+        return deps.worldRuntimePlayerCommandEnqueueService.enqueueStartTechniqueActivity(playerId, kind, payload, deps);
+    }    
+    /**
+ * enqueueCancelTechniqueActivity：统一技艺活动取消入队入口。
+ * @param playerId 玩家 ID。
+ * @param kind 参数说明。
+ * @param deps 运行时依赖。
+ * @returns 无返回值，直接更新技艺活动取消入队相关状态。
+ */
+
+    enqueueCancelTechniqueActivity(playerId, kind, deps) {
+        return deps.worldRuntimePlayerCommandEnqueueService.enqueueCancelTechniqueActivity(playerId, kind, deps);
     }    
     /**
  * enqueueRedeemCodes：处理RedeemCode并更新相关状态。
@@ -442,8 +474,8 @@ let WorldRuntimeCommandIntakeFacadeService = class WorldRuntimeCommandIntakeFaca
  * @returns 无返回值，直接更新GMUpdate玩家相关状态。
  */
 
-    enqueueGmUpdatePlayer(input, deps) {
-        return deps.worldRuntimeSystemCommandEnqueueService.enqueueGmUpdatePlayer(input);
+    enqueueGmUpdatePlayer(input) {
+        return this.worldRuntimeSystemCommandEnqueueService.enqueueGmUpdatePlayer(input);
     }    
     /**
  * enqueueGmResetPlayer：处理GMReset玩家并更新相关状态。
@@ -452,8 +484,8 @@ let WorldRuntimeCommandIntakeFacadeService = class WorldRuntimeCommandIntakeFaca
  * @returns 无返回值，直接更新GMReset玩家相关状态。
  */
 
-    enqueueGmResetPlayer(playerIdInput, deps) {
-        return deps.worldRuntimeSystemCommandEnqueueService.enqueueGmResetPlayer(playerIdInput);
+    enqueueGmResetPlayer(playerIdInput) {
+        return this.worldRuntimeSystemCommandEnqueueService.enqueueGmResetPlayer(playerIdInput);
     }    
     /**
  * enqueueGmSpawnBots：处理GMSpawnBot并更新相关状态。
@@ -463,8 +495,8 @@ let WorldRuntimeCommandIntakeFacadeService = class WorldRuntimeCommandIntakeFaca
  * @returns 无返回值，直接更新GMSpawnBot相关状态。
  */
 
-    enqueueGmSpawnBots(anchorPlayerIdInput, countInput, deps) {
-        return deps.worldRuntimeSystemCommandEnqueueService.enqueueGmSpawnBots(anchorPlayerIdInput, countInput);
+    enqueueGmSpawnBots(anchorPlayerIdInput, countInput) {
+        return this.worldRuntimeSystemCommandEnqueueService.enqueueGmSpawnBots(anchorPlayerIdInput, countInput);
     }    
     /**
  * enqueueGmRemoveBots：处理GMRemoveBot并更新相关状态。
@@ -474,13 +506,14 @@ let WorldRuntimeCommandIntakeFacadeService = class WorldRuntimeCommandIntakeFaca
  * @returns 无返回值，直接更新GMRemoveBot相关状态。
  */
 
-    enqueueGmRemoveBots(playerIdsInput, allInput, deps) {
-        return deps.worldRuntimeSystemCommandEnqueueService.enqueueGmRemoveBots(playerIdsInput, allInput);
+    enqueueGmRemoveBots(playerIdsInput, allInput) {
+        return this.worldRuntimeSystemCommandEnqueueService.enqueueGmRemoveBots(playerIdsInput, allInput);
     }
 };
 exports.WorldRuntimeCommandIntakeFacadeService = WorldRuntimeCommandIntakeFacadeService;
 exports.WorldRuntimeCommandIntakeFacadeService = WorldRuntimeCommandIntakeFacadeService = __decorate([
-    (0, common_1.Injectable)()
+    (0, common_1.Injectable)(),
+    __metadata("design:paramtypes", [world_runtime_system_command_enqueue_service_1.WorldRuntimeSystemCommandEnqueueService])
 ], WorldRuntimeCommandIntakeFacadeService);
 
 export { WorldRuntimeCommandIntakeFacadeService };

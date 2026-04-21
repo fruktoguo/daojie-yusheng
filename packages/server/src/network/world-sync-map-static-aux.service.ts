@@ -228,6 +228,7 @@ function cloneMinimapMarker(source) {
 function cloneTile(source) {
     return {
         ...source,
+        resources: source.resources?.map((entry) => ({ ...entry })),
         hiddenEntrance: source.hiddenEntrance ? { ...source.hiddenEntrance } : undefined,
     };
 }
@@ -251,6 +252,7 @@ function isSameTile(left, right) {
         && left.walkable === right.walkable
         && left.blocksSight === right.blocksSight
         && left.aura === right.aura
+        && isSameTileResourceList(left.resources, right.resources)
         && left.occupiedBy === right.occupiedBy
         && left.modifiedAt === right.modifiedAt
         && left.hp === right.hp
@@ -258,6 +260,26 @@ function isSameTile(left, right) {
         && left.hiddenEntrance?.portalId === right.hiddenEntrance?.portalId
         && left.hiddenEntrance?.portalKind === right.hiddenEntrance?.portalKind
         && left.hiddenEntrance?.portalTargetMapId === right.hiddenEntrance?.portalTargetMapId;
+}
+
+function isSameTileResourceList(left, right) {
+  if (left === right) {
+    return true;
+  }
+  if (!left || !right || left.length !== right.length) {
+    return false;
+  }
+  for (let index = 0; index < left.length; index += 1) {
+    if (left[index]?.key !== right[index]?.key
+      || left[index]?.label !== right[index]?.label
+      || left[index]?.value !== right[index]?.value
+      || left[index]?.effectiveValue !== right[index]?.effectiveValue
+      || left[index]?.level !== right[index]?.level
+      || left[index]?.sourceValue !== right[index]?.sourceValue) {
+      return false;
+    }
+  }
+  return true;
 }
 
 export { WorldSyncMapStaticAuxService };

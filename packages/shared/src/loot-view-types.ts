@@ -150,6 +150,25 @@ export interface LootWindowSourceView {
  */
 
   emptyText?: string;
+  /**
+ * variant：来源附加变体标识。
+ */
+
+  variant?: 'herb';
+  /**
+ * herb：草药采集摘要。
+ */
+
+  herb?: {
+    grade?: TechniqueGrade;
+    level?: number;
+    gatherTicks?: number;
+  };
+  /**
+ * destroyed：资源点是否已被摧毁。
+ */
+
+  destroyed?: boolean;
 }
 
 /** 拾取窗口状态 */

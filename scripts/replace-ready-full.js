@@ -99,10 +99,11 @@ const childEnv = {
 };
 
 async function main() {
-  const shadowProbe = await probeShadowTarget(shadowUrl);
+  const shadowProbe = await probeShadowTarget(shadowUrl, { gmPassword });
   if (!shadowProbe.ok) {
     process.stderr.write(`replace-ready full blocked by shadow target: ${shadowProbe.reason}\n`);
     process.stderr.write(`current /health payload=${JSON.stringify(shadowProbe.healthPayload ?? null)}\n`);
+    process.stderr.write(`current /api/gm/state payload=${JSON.stringify(shadowProbe.gmStatePayload ?? null)}\n`);
     process.stderr.write('fix SERVER_NEXT_SHADOW_URL/SERVER_NEXT_URL first, then rerun pnpm verify:replace-ready:full\n');
     process.exit(1);
   }

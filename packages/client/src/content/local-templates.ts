@@ -216,6 +216,7 @@ export function resolvePreviewItem(item: ItemStack): ItemStack {
     mapUnlockId: item.mapUnlockId ?? template.mapUnlockId,
     mapUnlockIds: item.mapUnlockIds ?? template.mapUnlockIds,
     tileAuraGainAmount: item.tileAuraGainAmount ?? template.tileAuraGainAmount,
+    tileResourceGains: item.tileResourceGains ?? template.tileResourceGains,
     allowBatchUse: item.allowBatchUse ?? template.allowBatchUse,
   };
 }

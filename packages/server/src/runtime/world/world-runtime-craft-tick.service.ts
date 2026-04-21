@@ -18,8 +18,7 @@ exports.WorldRuntimeCraftTickService = void 0;
 const common_1 = require("@nestjs/common");
 const player_runtime_service_1 = require("../player/player-runtime.service");
 const craft_panel_runtime_service_1 = require("../craft/craft-panel-runtime.service");
-const world_runtime_enhancement_service_1 = require("./world-runtime-enhancement.service");
-const world_runtime_alchemy_service_1 = require("./world-runtime-alchemy.service");
+const world_runtime_craft_mutation_service_1 = require("./world-runtime-craft-mutation.service");
 
 /** world-runtime craft tick orchestration：承接 craft job tick 推进编排。 */
 let WorldRuntimeCraftTickService = class WorldRuntimeCraftTickService {
@@ -34,29 +33,22 @@ let WorldRuntimeCraftTickService = class WorldRuntimeCraftTickService {
 
     craftPanelRuntimeService;    
     /**
- * worldRuntimeEnhancementService：世界运行态强化服务引用。
+ * worldRuntimeCraftMutationService：世界运行态技艺活动 mutation 服务引用。
  */
 
-    worldRuntimeEnhancementService;    
-    /**
- * worldRuntimeAlchemyService：世界运行态炼丹服务引用。
- */
-
-    worldRuntimeAlchemyService;    
+    worldRuntimeCraftMutationService;    
     /**
  * 构造器：初始化 当前 实例并建立基础状态。
  * @param playerRuntimeService 参数说明。
  * @param craftPanelRuntimeService 参数说明。
- * @param worldRuntimeEnhancementService 参数说明。
- * @param worldRuntimeAlchemyService 参数说明。
+ * @param worldRuntimeCraftMutationService 参数说明。
  * @returns 无返回值，完成实例初始化。
  */
 
-    constructor(playerRuntimeService, craftPanelRuntimeService, worldRuntimeEnhancementService, worldRuntimeAlchemyService) {
+    constructor(playerRuntimeService, craftPanelRuntimeService, worldRuntimeCraftMutationService) {
         this.playerRuntimeService = playerRuntimeService;
         this.craftPanelRuntimeService = craftPanelRuntimeService;
-        this.worldRuntimeEnhancementService = worldRuntimeEnhancementService;
-        this.worldRuntimeAlchemyService = worldRuntimeAlchemyService;
+        this.worldRuntimeCraftMutationService = worldRuntimeCraftMutationService;
     }    
     /**
  * advanceCraftJobs：执行advance炼制Job相关逻辑。
@@ -71,11 +63,21 @@ let WorldRuntimeCraftTickService = class WorldRuntimeCraftTickService {
             if (!player) {
                 continue;
             }
-            if (this.craftPanelRuntimeService.hasActiveAlchemyJob(player)) {
-                this.worldRuntimeAlchemyService.tickAlchemy(playerId, player, deps);
+            for (const kind of this.craftPanelRuntimeService.listActiveTechniqueActivityKinds(player)) {
+                this.worldRuntimeCraftMutationService.flushCraftMutation(
+                    playerId,
+                    this.craftPanelRuntimeService.tickTechniqueActivity(player, kind),
+                    kind,
+                    deps,
+                );
             }
-            if (this.craftPanelRuntimeService.hasActiveEnhancementJob(player)) {
-                this.worldRuntimeEnhancementService.tickEnhancement(playerId, player, deps);
+            if (player.gatherJob && Number(player.gatherJob.remainingTicks) > 0) {
+                this.worldRuntimeCraftMutationService.flushCraftMutation(
+                    playerId,
+                    deps.worldRuntimeLootContainerService.tickGather(playerId, deps),
+                    'gather',
+                    deps,
+                );
             }
         }
     }
@@ -85,8 +87,7 @@ exports.WorldRuntimeCraftTickService = WorldRuntimeCraftTickService = __decorate
     (0, common_1.Injectable)(),
     __metadata("design:paramtypes", [player_runtime_service_1.PlayerRuntimeService,
         craft_panel_runtime_service_1.CraftPanelRuntimeService,
-        world_runtime_enhancement_service_1.WorldRuntimeEnhancementService,
-        world_runtime_alchemy_service_1.WorldRuntimeAlchemyService])
+        world_runtime_craft_mutation_service_1.WorldRuntimeCraftMutationService])
 ], WorldRuntimeCraftTickService);
 
 export { WorldRuntimeCraftTickService };

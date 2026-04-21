@@ -16,6 +16,7 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.WorldRuntimeDetailQueryService = void 0;
 
 const common_1 = require("@nestjs/common");
+const shared_1 = require("@mud/shared-next");
 
 const content_template_repository_1 = require("../../content/content-template.repository");
 
@@ -270,6 +271,7 @@ let WorldRuntimeDetailQueryService = class WorldRuntimeDetailQueryService {
             };
         }
 
+        const resources = buildTileRuntimeResources(instance.listTileResources?.(x, y) ?? [], aura);
         const groundPile = instance.getTileGroundPile(x, y);
         const portal = instance.getPortalAtTile(x, y);
         const safeZone = instance.getSafeZoneAtTile(x, y);
@@ -348,6 +350,7 @@ let WorldRuntimeDetailQueryService = class WorldRuntimeDetailQueryService {
             x,
             y,
             aura,
+            resources: resources.length > 0 ? resources : undefined,
             safeZone: safeZone
                 ? {
                     x: safeZone.x,
@@ -391,3 +394,62 @@ exports.WorldRuntimeDetailQueryService = WorldRuntimeDetailQueryService = __deco
 ], WorldRuntimeDetailQueryService);
 
 export { WorldRuntimeDetailQueryService };
+
+function buildTileRuntimeResources(entries, aura) {
+    const resources = entries
+        .filter((entry) => entry
+        && typeof entry.resourceKey === 'string'
+        && Number.isFinite(entry.value)
+        && entry.value > 0)
+        .map((entry) => {
+        const parsed = (0, shared_1.parseQiResourceKey)(entry.resourceKey);
+        return {
+            key: entry.resourceKey,
+            label: resolveTileResourceLabel(entry.resourceKey, parsed),
+            value: Math.max(0, Math.trunc(entry.value)),
+            effectiveValue: Math.max(0, Math.trunc(entry.value)),
+            level: parsed?.family === 'aura'
+                ? (0, shared_1.getAuraLevel)(Math.max(0, Math.trunc(entry.value)), shared_1.DEFAULT_AURA_LEVEL_BASE_VALUE)
+                : undefined,
+            sourceValue: Number.isFinite(entry.sourceValue) ? Math.max(0, Math.trunc(entry.sourceValue)) : undefined,
+        };
+    });
+    if (resources.length > 0) {
+        return resources;
+    }
+    if (!Number.isFinite(aura) || aura <= 0) {
+        return [];
+    }
+    return [{
+        key: 'aura.refined.neutral',
+        label: '灵气',
+        value: Math.max(0, Math.trunc(aura)),
+        effectiveValue: Math.max(0, Math.trunc(aura)),
+        level: (0, shared_1.getAuraLevel)(Math.max(0, Math.trunc(aura)), shared_1.DEFAULT_AURA_LEVEL_BASE_VALUE),
+    }];
+}
+
+function resolveTileResourceLabel(resourceKey, parsed) {
+    if (!parsed) {
+        return resourceKey;
+    }
+    if (parsed.family === 'aura' && parsed.form === 'refined' && parsed.element === 'neutral') {
+        return '灵气';
+    }
+    const elementLabel = parsed.element === 'neutral'
+        ? ''
+        : ({
+            metal: '金',
+            wood: '木',
+            water: '水',
+            fire: '火',
+            earth: '土',
+        }[parsed.element] ?? `${parsed.element}`);
+    const formLabel = parsed.form === 'dispersed' ? '逸散' : '';
+    const familyLabel = ({
+        aura: '灵气',
+        sha: '煞气',
+        demonic: '魔气',
+    }[parsed.family] ?? parsed.family);
+    return `${elementLabel}${formLabel}${familyLabel}` || resourceKey;
+}

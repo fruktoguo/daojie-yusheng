@@ -307,6 +307,7 @@ function summarizeDurations(last, history) {
             last,
             avg60: last,
             max60: last,
+            count: 0,
         };
     }
 
@@ -323,6 +324,7 @@ function summarizeDurations(last, history) {
         last,
         avg60: roundDurationMs(total / history.length),
         max60: roundDurationMs(max),
+        count: history.length,
     };
 }
 /** 任务主线类型校验与兜底。 */

@@ -86,7 +86,7 @@ class WorldGatewayInventoryHelper {
             return;
         }
         try {
-            this.gateway.worldRuntimeService.enqueueUseItem(playerId, payload?.slotIndex);
+            this.gateway.worldRuntimeService.worldRuntimeCommandIntakeFacadeService.enqueueUseItem(playerId, payload?.slotIndex, this.gateway.worldRuntimeService);
         }
         catch (error) {
             this.gateway.worldClientEventService.emitGatewayError(client, 'USE_ITEM_FAILED', error);
@@ -117,7 +117,7 @@ class WorldGatewayInventoryHelper {
             return;
         }
         try {
-            this.gateway.worldRuntimeService.enqueueDropItem(playerId, payload?.slotIndex, payload?.count);
+            this.gateway.worldRuntimeService.worldRuntimeCommandIntakeFacadeService.enqueueDropItem(playerId, payload?.slotIndex, payload?.count, this.gateway.worldRuntimeService);
         }
         catch (error) {
             this.gateway.worldClientEventService.emitGatewayError(client, 'DROP_ITEM_FAILED', error);
@@ -149,13 +149,57 @@ class WorldGatewayInventoryHelper {
         }
         try {
             if (payload?.takeAll) {
-                this.gateway.worldRuntimeService.enqueueTakeGroundAll(playerId, payload?.sourceId);
+                this.gateway.worldRuntimeService.worldRuntimeCommandIntakeFacadeService.enqueueTakeGroundAll(playerId, payload?.sourceId, this.gateway.worldRuntimeService);
                 return;
             }
-            this.gateway.worldRuntimeService.enqueueTakeGround(playerId, payload?.sourceId, payload?.itemKey);
+            this.gateway.worldRuntimeService.worldRuntimeCommandIntakeFacadeService.enqueueTakeGround(playerId, payload?.sourceId, payload?.itemKey, this.gateway.worldRuntimeService);
         }
         catch (error) {
             this.gateway.worldClientEventService.emitGatewayError(client, 'TAKE_GROUND_FAILED', error);
+        }
+    }    
+    /**
+ * handleStartGather：处理开始草药采集并更新相关状态。
+ * @param client 参数说明。
+ * @param payload 载荷参数。
+ * @returns 无返回值，直接更新开始草药采集相关状态。
+ */
+
+    handleStartGather(client, payload) {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
+        const playerId = this.gateway.gatewayGuardHelper.requirePlayerId(client);
+        if (!playerId) {
+            return;
+        }
+        try {
+            this.gateway.worldClientEventService.markProtocol(client, 'next');
+            this.gateway.worldRuntimeService.worldRuntimeCommandIntakeFacadeService.enqueueStartTechniqueActivity(playerId, 'gather', payload, this.gateway.worldRuntimeService);
+        }
+        catch (error) {
+            this.gateway.worldClientEventService.emitGatewayError(client, 'START_GATHER_FAILED', error);
+        }
+    }    
+    /**
+ * handleCancelGather：处理取消草药采集并更新相关状态。
+ * @param client 参数说明。
+ * @param _payload 参数说明。
+ * @returns 无返回值，直接更新取消草药采集相关状态。
+ */
+
+    handleCancelGather(client, _payload) {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
+        const playerId = this.gateway.gatewayGuardHelper.requirePlayerId(client);
+        if (!playerId) {
+            return;
+        }
+        try {
+            this.gateway.worldClientEventService.markProtocol(client, 'next');
+            this.gateway.worldRuntimeService.worldRuntimeCommandIntakeFacadeService.enqueueCancelTechniqueActivity(playerId, 'gather', this.gateway.worldRuntimeService);
+        }
+        catch (error) {
+            this.gateway.worldClientEventService.emitGatewayError(client, 'CANCEL_GATHER_FAILED', error);
         }
     }    
     /**
@@ -195,7 +239,7 @@ class WorldGatewayInventoryHelper {
             return;
         }
         try {
-            this.gateway.worldRuntimeService.enqueueEquip(playerId, payload?.slotIndex);
+            this.gateway.worldRuntimeService.worldRuntimeCommandIntakeFacadeService.enqueueEquip(playerId, payload?.slotIndex, this.gateway.worldRuntimeService);
         }
         catch (error) {
             this.gateway.worldClientEventService.emitGatewayError(client, 'EQUIP_FAILED', error);
@@ -226,7 +270,7 @@ class WorldGatewayInventoryHelper {
             return;
         }
         try {
-            this.gateway.worldRuntimeService.enqueueUnequip(playerId, payload?.slot);
+            this.gateway.worldRuntimeService.worldRuntimeCommandIntakeFacadeService.enqueueUnequip(playerId, payload?.slot, this.gateway.worldRuntimeService);
         }
         catch (error) {
             this.gateway.worldClientEventService.emitGatewayError(client, 'UNEQUIP_FAILED', error);

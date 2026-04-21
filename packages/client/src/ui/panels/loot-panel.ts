@@ -3,6 +3,7 @@
  * 以弹层形式展示地面物品和容器搜索结果，支持逐件或批量拿取
  */
 import { LootWindowState } from '@mud/shared-next';
+import { getTechniqueGradeLabel } from '../../domain-labels';
 import { detailModalHost } from '../detail-modal-host';
 import { formatDisplayCountBadge, formatDisplayInteger } from '../../utils/number';
 
@@ -16,16 +17,38 @@ function escapeHtml(value: string): string {
     .replaceAll("'", '&#39;');
 }
 
+type LootHerbExtras = {
+  variant?: string;
+  herb?: {
+    grade?: string;
+    level?: number;
+    gatherTicks?: number;
+  };
+  destroyed?: boolean;
+};
+
+function readLootHerbExtras(source: LootWindowState['sources'][number]): LootHerbExtras {
+  return source as LootWindowState['sources'][number] & LootHerbExtras;
+}
+
 /** LootPanel：战利品面板实现。 */
 export class LootPanel {
   /** MODAL_OWNER：弹窗OWNER。 */
   private static readonly MODAL_OWNER = 'loot-panel';
+  /** onManualClose：手动关闭回调。 */
+  private onManualClose: (() => void) | null = null;
+  /** suppressAutoOpen：手动关闭后抑制自动重开。 */
+  private suppressAutoOpen = false;
   /** windowState：窗口状态。 */
   private windowState: LootWindowState | null = null;
   /** onTake：on Take。 */
   private onTake: ((sourceId: string, itemKey: string) => void) | null = null;
   /** onTakeAll：on Take All。 */
   private onTakeAll: ((sourceId: string) => void) | null = null;  
+  /** onStartGather：开始草药采集。 */
+  private onStartGather: ((sourceId: string, itemKey: string) => void) | null = null;
+  /** onCancelGather：取消草药采集。 */
+  private onCancelGather: (() => void) | null = null;
   /** onStopHarvest：停止连续采摘。 */
   private onStopHarvest: (() => void) | null = null;
   /**
@@ -39,16 +62,23 @@ export class LootPanel {
   setCallbacks(
     onTake: (sourceId: string, itemKey: string) => void,
     onTakeAll: (sourceId: string) => void,
+    onStartGather?: (sourceId: string, itemKey: string) => void,
+    onCancelGather?: () => void,
     onStopHarvest?: () => void,
+    onManualClose?: () => void,
   ): void {
     this.onTake = onTake;
     this.onTakeAll = onTakeAll;
+    this.onStartGather = onStartGather ?? null;
+    this.onCancelGather = onCancelGather ?? null;
     this.onStopHarvest = onStopHarvest ?? null;
+    this.onManualClose = onManualClose ?? null;
   }
 
   /** clear：清理clear。 */
   clear(): void {
     this.windowState = null;
+    this.suppressAutoOpen = false;
     detailModalHost.close(LootPanel.MODAL_OWNER);
   }
 
@@ -58,7 +88,11 @@ export class LootPanel {
 
     this.windowState = windowState;
     if (!windowState) {
+      this.suppressAutoOpen = false;
       detailModalHost.close(LootPanel.MODAL_OWNER);
+      return;
+    }
+    if (this.suppressAutoOpen) {
       return;
     }
     this.render();
@@ -73,25 +107,55 @@ export class LootPanel {
     }
 
     const { tileX, tileY, title, sources } = this.windowState;
+    const useHerbVariant = sources.some((source) => readLootHerbExtras(source).variant === 'herb');
     const existingBody = detailModalHost.isOpenFor(LootPanel.MODAL_OWNER)
       ? document.getElementById('detail-modal-body')
       : null;
     if (existingBody && this.patchBody(existingBody, sources)) {
+      this.patchModalChrome(title, tileX, tileY, useHerbVariant);
       return;
     }
     detailModalHost.open({
       ownerId: LootPanel.MODAL_OWNER,
-      size: 'lg',
-      variantClass: 'detail-modal--loot',
+      variantClass: useHerbVariant ? 'detail-modal--herb-gather' : 'detail-modal--loot',
       title,
       subtitle: `坐标 (${tileX}, ${tileY})`,
+      hint: '点击空白处关闭',
       renderBody: (body) => {
         this.renderBody(body, sources);
+      },
+      onClose: () => {
+        this.suppressAutoOpen = true;
+        this.onManualClose?.();
       },
       onAfterRender: (body) => {
         this.bindEvents(body);
       },
     });
+  }
+
+  /** patchModalChrome：同步标题栏和 variant 外观。 */
+  private patchModalChrome(title: string, tileX: number, tileY: number, useHerbVariant: boolean): void {
+    const titleNode = document.getElementById('detail-modal-title');
+    const subtitleNode = document.getElementById('detail-modal-subtitle');
+    const hintNode = document.getElementById('detail-modal-hint');
+    if (titleNode) {
+      titleNode.textContent = title;
+    }
+    if (subtitleNode) {
+      subtitleNode.textContent = `坐标 (${tileX}, ${tileY})`;
+      subtitleNode.classList.remove('hidden');
+    }
+    if (hintNode) {
+      hintNode.textContent = '点击空白处关闭';
+    }
+    for (const node of [document.getElementById('detail-modal'), document.getElementById('detail-modal-card')]) {
+      if (!(node instanceof HTMLElement)) {
+        continue;
+      }
+      node.classList.remove('detail-modal--loot', 'detail-modal--herb-gather');
+      node.classList.add(useHerbVariant ? 'detail-modal--herb-gather' : 'detail-modal--loot');
+    }
   }
 
   /** renderBody：渲染身体。 */
@@ -144,15 +208,17 @@ export class LootPanel {
     }
     body.dataset.lootBound = 'true';
     body.addEventListener('click', (event) => {
-      const target = event.target instanceof HTMLElement ? event.target.closest<HTMLElement>('[data-loot-take],[data-loot-take-all],[data-loot-stop-harvest]') : null;
+      const target = event.target instanceof HTMLElement
+        ? event.target.closest<HTMLElement>('[data-loot-take],[data-loot-take-all],[data-loot-start-gather],[data-loot-cancel-gather],[data-loot-stop-harvest]')
+        : null;
       if (!target || !(target instanceof HTMLButtonElement)) {
         return;
       }
       event.stopPropagation();
       const sourceId = target.dataset.sourceId;
-      if (!sourceId) {
-        return;
-      }
+    if (!sourceId) {
+      return;
+    }
       if (target.dataset.lootTake === 'true') {
         const itemKey = target.dataset.itemKey;
         if (!itemKey) {
@@ -161,8 +227,20 @@ export class LootPanel {
         this.onTake?.(sourceId, itemKey);
         return;
       }
+      if (target.dataset.lootStartGather === 'true') {
+        const itemKey = target.dataset.itemKey;
+        if (!itemKey) {
+          return;
+        }
+        this.onStartGather?.(sourceId, itemKey);
+        return;
+      }
       if (target.dataset.lootTakeAll === 'true') {
         this.onTakeAll?.(sourceId);
+        return;
+      }
+      if (target.dataset.lootCancelGather === 'true') {
+        this.onCancelGather?.();
         return;
       }
       if (target.dataset.lootStopHarvest === 'true') {
@@ -171,28 +249,56 @@ export class LootPanel {
     });
   }
 
+  /** isHarvestSource：判断是否连续采摘来源。 */
+  private isHarvestSource(source: LootWindowState['sources'][number]): boolean {
+    return source.kind === 'ground' && source.searchable;
+  }
+
+  /** getSourceSubtitle：读取来源副标题。 */
+  private getSourceSubtitle(source: LootWindowState['sources'][number]): string {
+    const extras = readLootHerbExtras(source);
+    const isHerb = extras.variant === 'herb';
+    const herbGrade = extras.herb?.grade;
+    const gradeLabel = getTechniqueGradeLabel((isHerb ? herbGrade : source.grade) ?? '', (isHerb ? herbGrade : source.grade) ?? '');
+    if (isHerb) {
+      return `草药采集${gradeLabel ? ` · ${gradeLabel}` : ''}`;
+    }
+    if (source.kind === 'ground') {
+      return '直接拾取';
+    }
+    return `容器搜索${gradeLabel ? ` · ${gradeLabel}` : ''}`;
+  }
+
+  /** getSearchHeading：读取搜索态标题。 */
+  private getSearchHeading(source: LootWindowState['sources'][number]): string {
+    return this.isHarvestSource(source) ? '连续采摘中' : '搜索中';
+  }
+
   /** createSourceSection：创建 source section。 */
   private createSourceSection(source: LootWindowState['sources'][number]): HTMLElement {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
-    const section = createElement('section', 'loot-source-section');
+    const extras = readLootHerbExtras(source);
+    const isHerb = extras.variant === 'herb';
+    const harvestSource = this.isHarvestSource(source);
+    const section = createElement('section', `loot-source-section${isHerb ? ' loot-source-section--herb' : ''}`);
     section.dataset.lootSourceSection = source.sourceId;
     const head = createElement('div', 'loot-source-head');
     const titleWrap = createElement('div', '');
     titleWrap.append(
       createElement('div', 'loot-source-title', source.title),
-      createElement('div', 'loot-source-subtitle', source.kind === 'ground' ? '直接拾取' : `容器搜索${source.grade ? ` · ${source.grade}` : ''}`),
+      createElement('div', 'loot-source-subtitle', this.getSourceSubtitle(source)),
     );
     const actions = createElement('div', 'loot-source-actions');
-    if (source.items.length > 0) {
+    if (source.items.length > 0 && !harvestSource) {
       const takeAllButton = createElement('button', 'small-btn', '全部拿取');
       takeAllButton.type = 'button';
       takeAllButton.dataset.lootTakeAll = 'true';
       takeAllButton.dataset.sourceId = source.sourceId;
       actions.append(takeAllButton);
     }
-    if (source.search && source.search.remainingTicks > 0) {
-      const stopButton = createElement('button', 'small-btn ghost', '停止采摘');
+    if (!isHerb && source.search && source.search.remainingTicks > 0) {
+      const stopButton = createElement('button', `small-btn ${harvestSource ? 'danger' : 'ghost'}`, harvestSource ? '停止采集' : '停止搜索');
       stopButton.type = 'button';
       stopButton.dataset.lootStopHarvest = 'true';
       stopButton.dataset.sourceId = source.sourceId;
@@ -203,12 +309,49 @@ export class LootPanel {
     }
     head.append(titleWrap, actions);
     section.append(head);
+    const herbSummary = this.createHerbSummary(source);
+    if (herbSummary) {
+      section.append(herbSummary);
+    }
     const searchState = this.createSearchState(source);
     if (searchState) {
       section.append(searchState);
     }
     section.append(this.createItemsContent(source));
     return section;
+  }
+
+  /** createHerbSummary：创建草药采集摘要。 */
+  private createHerbSummary(source: LootWindowState['sources'][number]): HTMLElement | null {
+    const extras = readLootHerbExtras(source);
+    if (extras.variant !== 'herb' || !extras.herb) {
+      return null;
+    }
+    const totalCount = source.items.reduce((sum, entry) => sum + Math.max(0, Math.floor(entry.item.count || 0)), 0);
+    const gradeLabel = extras.herb.grade ? getTechniqueGradeLabel(extras.herb.grade, extras.herb.grade) : '';
+    const harvesting = Boolean(source.search && source.search.remainingTicks > 0);
+    const summary = createElement('div', 'herb-gather-summary');
+    const meta = createElement('div', 'herb-gather-summary-meta');
+    if (gradeLabel) {
+      meta.append(createElement('span', '', gradeLabel));
+    }
+    meta.append(
+      createElement('span', '', `LV ${formatDisplayInteger(extras.herb.level ?? 1)}`),
+      createElement('span', '', `采集 ${formatDisplayInteger(extras.herb.gatherTicks ?? 0)} 息`),
+      createElement('span', '', `存量 ${formatDisplayInteger(totalCount)} 朵`),
+      createElement('span', '', extras.destroyed ? '已摧毁' : '可采集'),
+    );
+    summary.append(meta);
+    if (harvesting) {
+      const actions = createElement('div', 'herb-gather-summary-actions');
+      const stopButton = createElement('button', 'small-btn danger', '停止采集');
+      stopButton.type = 'button';
+      stopButton.dataset.lootCancelGather = 'true';
+      stopButton.dataset.sourceId = source.sourceId;
+      actions.append(stopButton);
+      summary.append(actions);
+    }
+    return summary;
   }
 
   /** createSearchState：创建搜索状态。 */
@@ -221,7 +364,7 @@ export class LootPanel {
     const searchState = createElement('div', 'loot-search-state');
     const copy = createElement('div', 'loot-search-copy');
     copy.append(
-      createElement('strong', '', '搜索中'),
+      createElement('strong', '', this.getSearchHeading(source)),
       createElement('span', '', `${formatDisplayInteger(source.search.elapsedTicks)} / ${formatDisplayInteger(source.search.totalTicks)} 息`),
     );
     const bar = createElement('div', 'loot-search-bar');
@@ -236,25 +379,33 @@ export class LootPanel {
   private createItemsContent(source: LootWindowState['sources'][number]): HTMLElement {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
+    const harvestSource = this.isHarvestSource(source);
+    const isHerb = readLootHerbExtras(source).variant === 'herb';
+    const harvesting = Boolean(source.search && source.search.remainingTicks > 0);
     if (source.items.length <= 0) {
       return createElement('div', 'loot-source-empty', source.emptyText ?? '这里什么都没有。');
     }
-    const grid = createElement('div', 'inventory-grid loot-item-grid');
+    const grid = createElement('div', `inventory-grid ${isHerb ? 'herb-gather-grid' : 'loot-item-grid'}`);
     for (const entry of source.items) {
-      const cell = createElement('div', 'inventory-cell');
+      const cell = createElement('div', isHerb ? 'herb-gather-card' : 'inventory-cell');
       const head = createElement('div', 'inventory-cell-head');
       head.append(
-        createElement('span', 'inventory-cell-type', source.kind === 'ground' ? '地面' : '容器'),
+        createElement('span', 'inventory-cell-type', isHerb ? '当前库存' : source.kind === 'ground' ? '地面' : '容器'),
         createElement('span', 'inventory-cell-count', formatDisplayCountBadge(entry.item.count)),
       );
-      const name = createElement('div', 'inventory-cell-name', entry.item.name);
-      name.title = entry.item.name;
+      const name = createElement('div', 'inventory-cell-name', isHerb ? '点击开始连续采摘' : entry.item.name);
+      name.title = isHerb ? '点击开始连续采摘当前草药' : entry.item.name;
       const actions = createElement('div', 'inventory-cell-actions');
-      const button = createElement('button', 'small-btn', '拿取');
+      const button = createElement('button', 'small-btn', isHerb ? (harvesting ? '连续采摘中' : '开始采摘') : '拿取');
       button.type = 'button';
-      button.dataset.lootTake = 'true';
+      if (isHerb) {
+        button.dataset.lootStartGather = 'true';
+      } else {
+        button.dataset.lootTake = 'true';
+      }
       button.dataset.sourceId = source.sourceId;
       button.dataset.itemKey = entry.itemKey;
+      button.disabled = isHerb && harvesting;
       actions.append(button);
       cell.append(head, name, actions);
       grid.append(cell);

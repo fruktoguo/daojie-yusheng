@@ -30,13 +30,12 @@ function buildDeps(log) {
         queuePlayerNotice(playerId, message, tone) { log.push(['queuePlayerNotice', playerId, message, tone]); },
         worldRuntimeCraftMutationService: {        
         /**
- * emitCraftPanelUpdate：处理炼制面板Update并更新相关状态。
+ * emitAllTechniqueActivityPanelUpdates：处理所有技艺面板Update并更新相关状态。
  * @param playerId 玩家 ID。
- * @param panel 参数说明。
  * @returns 无返回值，直接更新炼制面板Update相关状态。
  */
 
-            emitCraftPanelUpdate(playerId, panel) { log.push(['emitCraftPanelUpdate', playerId, panel]); },
+            emitAllTechniqueActivityPanelUpdates(playerId) { log.push(['emitAllTechniqueActivityPanelUpdates', playerId]); },
         },
     };
 }
@@ -75,8 +74,7 @@ function testEquip() {
     assert.deepEqual(log, [
         ['equipItem', 'player:1', 3],
         ['queuePlayerNotice', 'player:1', '装备 铁剑', 'success'],
-        ['emitCraftPanelUpdate', 'player:1', 'alchemy'],
-        ['emitCraftPanelUpdate', 'player:1', 'enhancement'],
+        ['emitAllTechniqueActivityPanelUpdates', 'player:1'],
     ]);
 }
 /**
@@ -114,8 +112,7 @@ function testUnequip() {
     assert.deepEqual(log, [
         ['unequipItem', 'player:1', 'weapon'],
         ['queuePlayerNotice', 'player:1', '卸下 铁剑', 'info'],
-        ['emitCraftPanelUpdate', 'player:1', 'alchemy'],
-        ['emitCraftPanelUpdate', 'player:1', 'enhancement'],
+        ['emitAllTechniqueActivityPanelUpdates', 'player:1'],
     ]);
 }
 

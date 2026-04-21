@@ -386,7 +386,7 @@ function computeEnhancementAdjustedSuccessRate(targetEnhanceLevel, roleEnhanceme
  */
 
 function computeEnhancementJobTicks(itemLevel, totalSpeedRate) {
-    return computeAdjustedCraftTicks(computeEnhancementJobBaseTicks(itemLevel), totalSpeedRate);
+    return shared_1.computeAdjustedCraftTicks(computeEnhancementJobBaseTicks(itemLevel), totalSpeedRate);
 }
 /**
  * getEnhancementTargetSuccessRate：读取强化目标SuccessRate。
@@ -408,26 +408,6 @@ function getEnhancementTargetSuccessRate(targetEnhanceLevel) {
 function computeEnhancementJobBaseTicks(itemLevel) {
     const normalizedLevel = Math.max(1, Math.floor(Number(itemLevel) || 1));
     return 5 + Math.max(0, normalizedLevel - 1) * 1;
-}
-/**
- * computeAdjustedCraftTicks：执行Adjusted炼制tick相关逻辑。
- * @param baseTicks 参数说明。
- * @param speedRate 参数说明。
- * @returns 无返回值，直接更新Adjusted炼制tick相关状态。
- */
-
-function computeAdjustedCraftTicks(baseTicks, speedRate) {
-  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
-
-    const normalizedBaseTicks = Math.max(1, Math.floor(Number(baseTicks) || 1));
-    const normalizedSpeedRate = Number.isFinite(speedRate) ? Number(speedRate) : 0;
-    if (normalizedSpeedRate === 0) {
-        return normalizedBaseTicks;
-    }
-    if (normalizedSpeedRate > 0) {
-        return Math.max(1, Math.ceil(normalizedBaseTicks / (1 + normalizedSpeedRate)));
-    }
-    return Math.max(1, Math.ceil(normalizedBaseTicks * (1 + Math.abs(normalizedSpeedRate))));
 }
 /**
  * applyEnhancementSuccessModifier：处理强化SuccessModifier并更新相关状态。

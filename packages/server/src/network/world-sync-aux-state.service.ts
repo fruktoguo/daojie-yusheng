@@ -327,6 +327,9 @@ function cloneLootWindow(source: LootWindowState): LootWindowState {
       grade: entry.grade,
       searchable: entry.searchable,
       search: entry.search ? { ...entry.search } : undefined,
+      variant: entry.variant,
+      herb: entry.herb ? { ...entry.herb } : undefined,
+      destroyed: entry.destroyed,
       items: entry.items.map((item) => ({
         itemKey: item.itemKey,
         item: { ...item.item },
@@ -544,10 +547,24 @@ function isSameLootWindow(left: LootWindowState, right: LootWindowState): boolea
       || leftSource.desc !== rightSource.desc
       || leftSource.grade !== rightSource.grade
       || leftSource.searchable !== rightSource.searchable
+      || leftSource.variant !== rightSource.variant
+      || leftSource.destroyed !== rightSource.destroyed
       || leftSource.emptyText !== rightSource.emptyText
       || leftSource.items.length !== rightSource.items.length
     ) {
       return false;
+    }
+    if (Boolean(leftSource.herb) !== Boolean(rightSource.herb)) {
+      return false;
+    }
+    if (leftSource.herb && rightSource.herb) {
+      if (
+        leftSource.herb.grade !== rightSource.herb.grade
+        || leftSource.herb.level !== rightSource.herb.level
+        || leftSource.herb.gatherTicks !== rightSource.herb.gatherTicks
+      ) {
+        return false;
+      }
     }
     if (Boolean(leftSource.search) !== Boolean(rightSource.search)) {
       return false;
@@ -603,7 +620,28 @@ function isSameSyncedItem(left: SyncedItemStack | null | undefined, right: Synce
     && left.mapUnlockId === right.mapUnlockId
     && shallowEqualArray(left.mapUnlockIds, right.mapUnlockIds)
     && left.tileAuraGainAmount === right.tileAuraGainAmount
+    && shallowEqualTileResourceGainArray(left.tileResourceGains, right.tileResourceGains)
     && left.allowBatchUse === right.allowBatchUse;
+}
+
+function shallowEqualTileResourceGainArray(
+  left: SyncedItemStack['tileResourceGains'],
+  right: SyncedItemStack['tileResourceGains'],
+): boolean {
+  if (left === right) {
+    return true;
+  }
+  if (!left || !right || left.length !== right.length) {
+    return false;
+  }
+
+  for (let index = 0; index < left.length; index += 1) {
+    if (left[index]?.resourceKey !== right[index]?.resourceKey || left[index]?.amount !== right[index]?.amount) {
+      return false;
+    }
+  }
+
+  return true;
 }
 
 function shallowEqualArray(left: readonly unknown[] | null | undefined, right: readonly unknown[] | null | undefined): boolean {

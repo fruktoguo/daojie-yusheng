@@ -1061,6 +1061,9 @@ export class GmWorldViewer {
               <div class="panel-row"><span class="panel-label">地块</span><span class="panel-value">${TILE_TYPE_LABELS[tile.type] ?? tile.type}</span></div>
               <div class="panel-row"><span class="panel-label">可行走</span><span class="panel-value">${tile.walkable ? '是' : '否'}</span></div>
               <div class="panel-row"><span class="panel-label">灵气</span><span class="panel-value">${tile.aura ?? 0}</span></div>
+              ${tile.resources && tile.resources.length > 0
+                ? `<div class="panel-row"><span class="panel-label">气机</span><span class="panel-value">${tile.resources.map((entry) => `${escapeHtml(entry.label)} ${entry.effectiveValue ?? entry.value}`).join('、')}</span></div>`
+                : ''}
             `
             : '<div class="empty-hint">无地块数据</div>'}
         `,

@@ -345,6 +345,11 @@ export interface MonsterTemplateEditorItem {
 
   tileAuraGainAmount?: number;  
   /**
+ * tileResourceGains：集合字段。
+ */
+
+  tileResourceGains?: ItemStack['tileResourceGains'];
+  /**
  * allowBatchUse：allowBatchUse相关字段。
  */
 
@@ -1064,6 +1069,7 @@ function createMonsterTemplateEquipmentItem(item: MonsterTemplateEditorItem): It
     mapUnlockId: item.mapUnlockId,
     mapUnlockIds: item.mapUnlockIds ? [...item.mapUnlockIds] : undefined,
     tileAuraGainAmount: item.tileAuraGainAmount,
+    tileResourceGains: item.tileResourceGains ? item.tileResourceGains.map((entry) => ({ ...entry })) : undefined,
     allowBatchUse: item.allowBatchUse,
   };
 }

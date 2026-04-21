@@ -60,7 +60,7 @@ let WorldRuntimeAlchemyService = class WorldRuntimeAlchemyService {
  */
 
     interruptAlchemyForReason(playerId, player, reason, deps) {
-        this.worldRuntimeCraftMutationService.flushCraftMutation(playerId, this.craftPanelRuntimeService.interruptAlchemy(player, reason), 'alchemy', deps);
+        this.worldRuntimeCraftMutationService.flushCraftMutation(playerId, this.craftPanelRuntimeService.interruptTechniqueActivity(player, 'alchemy', reason), 'alchemy', deps);
     }    
     /**
  * dispatchStartAlchemy：判断开始炼丹是否满足条件。
@@ -74,7 +74,7 @@ let WorldRuntimeAlchemyService = class WorldRuntimeAlchemyService {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
         const player = this.playerRuntimeService.getPlayerOrThrow(playerId);
-        const result = this.craftPanelRuntimeService.startAlchemy(player, payload);
+        const result = this.craftPanelRuntimeService.startTechniqueActivity(player, 'alchemy', payload);
         if (!result.ok) {
             throw new common_1.BadRequestException(result.error ?? '启动炼丹失败');
         }
@@ -91,7 +91,7 @@ let WorldRuntimeAlchemyService = class WorldRuntimeAlchemyService {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
         const player = this.playerRuntimeService.getPlayerOrThrow(playerId);
-        const result = this.craftPanelRuntimeService.cancelAlchemy(player);
+        const result = this.craftPanelRuntimeService.cancelTechniqueActivity(player, 'alchemy');
         if (!result.ok) {
             throw new common_1.BadRequestException(result.error ?? '取消炼丹失败');
         }
@@ -142,7 +142,7 @@ let WorldRuntimeAlchemyService = class WorldRuntimeAlchemyService {
  */
 
     tickAlchemy(playerId, player, deps) {
-        this.worldRuntimeCraftMutationService.flushCraftMutation(playerId, this.craftPanelRuntimeService.tickAlchemy(player), 'alchemy', deps);
+        this.worldRuntimeCraftMutationService.flushCraftMutation(playerId, this.craftPanelRuntimeService.tickTechniqueActivity(player, 'alchemy'), 'alchemy', deps);
     }
 };
 exports.WorldRuntimeAlchemyService = WorldRuntimeAlchemyService;

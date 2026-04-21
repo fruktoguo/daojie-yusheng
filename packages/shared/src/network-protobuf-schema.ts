@@ -110,6 +110,15 @@ message VisibleTileRowPayload {
   repeated VisibleTileCellPayload cells = 1;
 }
 
+message TileRuntimeResourcePayload {
+  optional string key = 1;
+  optional string label = 2;
+  optional sint32 value = 3;
+  optional sint32 effectiveValue = 4;
+  optional sint32 level = 5;
+  optional sint32 sourceValue = 6;
+}
+
 message VisibleTileCellPayload {
   optional bool hidden = 1;
   optional string type = 2;
@@ -123,6 +132,7 @@ message VisibleTileCellPayload {
   optional bool hpVisible = 10;
   optional string hiddenEntranceTitle = 11;
   optional string hiddenEntranceDesc = 12;
+  repeated TileRuntimeResourcePayload resources = 13;
 }
 
 message PointPayload {

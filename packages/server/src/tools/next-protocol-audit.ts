@@ -429,42 +429,95 @@ function buildUniqueDisplayName(seed) {
   return String.fromCodePoint(0x4E00 + (hash % (0x9FFF - 0x4E00 + 1)));
 }
 /**
+ * 计算审计命名辅助的稳定 hash 文本。
+ */
+function buildAuditHash(seed) {
+  var hash = 2166136261;
+  for (var index = 0; index < seed.length; index += 1) {
+    hash ^= seed.charCodeAt(index);
+    hash = Math.imul(hash, 16777619) >>> 0;
+  }
+  return hash.toString(36);
+}
+/**
+ * 把审计 seed 规整成 ASCII token，供账号名和角色名复用。
+ */
+function buildAuditToken(seed, maxLength, attempt) {
+  var normalized = typeof seed === 'string' ? seed.toLowerCase().replace(/[^a-z0-9]+/g, '') : '';
+  var suffix = attempt > 0 ? attempt.toString(36) : '';
+  var token = normalized + buildAuditHash(seed + ":" + attempt) + suffix;
+  if (!token) {
+    token = "audit" + buildAuditHash(String(seed));
+  }
+  return token.slice(-maxLength);
+}
+/**
+ * 为审计注册生成稳定唯一的账号名。
+ */
+function buildUniqueAuditAccountName(seed, attempt) {
+  return "acct_" + buildAuditToken(seed, 15, attempt);
+}
+/**
+ * 为审计注册生成稳定唯一的角色名。
+ */
+function buildUniqueAuditRoleName(seed, attempt) {
+  return "审" + buildAuditToken(seed, 12, attempt);
+}
+/**
+ * 判断注册失败是否属于可重试的命名冲突。
+ */
+function isRegisterConflictError(error) {
+  var message = error instanceof Error ? error.message : String(error ?? "");
+  return message.includes("称号已存在")
+    || message.includes("显示名称已存在")
+    || message.includes("账号已存在");
+}
+/**
  * 注册并登录审计账号，返回访问令牌与玩家标识。
  */
 async function registerAndLoginPlayer(baseUrl, suffix) {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
 /**
- * 记录short。
- */
-  var short = suffix.slice(-8);
-/**
- * 记录account名称。
- */
-  var accountName = 'acct_' + short;
-/**
- * 记录password。
- */
-  var password = 'Pass_' + short;
-  await requestJson(baseUrl, '/api/auth/register', {
-    method: 'POST',
-    body: {
-      accountName: accountName,
-      password: password,
-      displayName: buildUniqueDisplayName('next-protocol-audit:' + suffix),
-      roleName: '审角' + short.slice(-4),
-    },
-  });
-/**
  * 记录login。
  */
-  var login = await requestJson(baseUrl, '/api/auth/login', {
-    method: 'POST',
-    body: {
-      loginName: accountName,
-      password: password,
-    },
-  });
+  var login = null;
+/**
+ * 记录最终账号。
+ */
+  var accountName = "";
+/**
+ * 记录最终密码。
+ */
+  var password = "";
+  for (var attempt = 0; attempt < 12; attempt += 1) {
+    accountName = buildUniqueAuditAccountName(suffix, attempt);
+    password = "Pass_" + buildAuditToken(suffix, 10, attempt);
+    try {
+      await requestJson(baseUrl, '/api/auth/register', {
+        method: 'POST',
+        body: {
+          accountName: accountName,
+          password: password,
+          displayName: buildUniqueDisplayName('next-protocol-audit:' + suffix + ":" + attempt),
+          roleName: buildUniqueAuditRoleName(suffix, attempt),
+        },
+      });
+      login = await requestJson(baseUrl, '/api/auth/login', {
+        method: 'POST',
+        body: {
+          loginName: accountName,
+          password: password,
+        },
+      });
+      break;
+    }
+    catch (error) {
+      if (!isRegisterConflictError(error) || attempt >= 11) {
+        throw error;
+      }
+    }
+  }
 /**
  * 记录payload。
  */
@@ -1519,16 +1572,23 @@ async function playerControlCase(runtime) {
   }, 5000, "updateAutoUsePills");
   socket.emit(NEXT_C2S.UpdateCombatTargetingRules, {
     combatTargetingRules: {
+      hostile: ["demonized_players", "retaliators", "terrain"],
+      friendly: ["non_hostile_players", "party"],
       includeNormalMonsters: false,
-      includeEliteMonsters: true,
-      includeBosses: true,
+      includeEliteMonsters: false,
+      includeBosses: false,
       includePlayers: false,
     },
   });
   await lib.waitForState(runtime.api, playerId, function (current) {
     return current?.combat?.combatTargetingRules?.includeNormalMonsters === false
-      && current.combat.combatTargetingRules.includeEliteMonsters === true
-      && current.combat.combatTargetingRules.includeBosses === true
+      && current.combat.combatTargetingRules.includeEliteMonsters === false
+      && current.combat.combatTargetingRules.includeBosses === false
+      && Array.isArray(current.combat.combatTargetingRules.hostile)
+      && current.combat.combatTargetingRules.hostile.includes("monster") === false
+      && current.combat.combatTargetingRules.hostile.includes("all_players") === false
+      && Array.isArray(current.combat.combatTargetingRules.friendly)
+      && current.combat.combatTargetingRules.friendly.includes("party") === true
       && current.combat.combatTargetingRules.includePlayers === false;
   }, 5000, "updateCombatTargetingRules");
   socket.emit(NEXT_C2S.UpdateAutoBattleTargetingMode, { mode: "nearest" });
@@ -1855,6 +1915,10 @@ async function progressionCase(runtime) {
   player = (await runtime.api.fetchState(attackerId)).player;
   attacker.emit(NEXT_C2S.UseItem, { slotIndex: slot(player, "pill.minor_heal") });
   await lib.waitForState(runtime.api, attackerId, function (current) { return current.hp > 50; }, 5000, "heal");
+  attacker.emit(NEXT_C2S.UseAction, { actionId: "toggle:allow_aoe_player_hit" });
+  await lib.waitForState(runtime.api, attackerId, function (current) {
+    return current?.combat?.allowAoePlayerHit === true;
+  }, 5000, "allowAoePlayerHit");
 /**
  * 记录守方施法前状态。
  */

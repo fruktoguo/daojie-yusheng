@@ -518,6 +518,47 @@ let suggestionSearchTimer: number | null = null;
 let lastPlayerListStructureKey: string | null = null;
 /** lastEditorStructureKey：last编辑器Structure Key。 */
 let lastEditorStructureKey: string | null = null;
+
+function buildGmStateApiPath(params: URLSearchParams): string {
+  return `${GM_API_BASE_PATH}/state?${params.toString()}`;
+}
+
+function buildGmPlayerApiPath(playerId: string): string {
+  return `${GM_API_BASE_PATH}/players/${encodeURIComponent(playerId)}`;
+}
+
+function buildGmDatabaseBackupDownloadApiPath(backupId: string): string {
+  return `${GM_API_BASE_PATH}/database/backups/${encodeURIComponent(backupId)}/download`;
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null;
+}
+
+function assertGmStateResponseShape(data: unknown): asserts data is GmStateRes {
+  if (!isRecord(data)
+    || !Array.isArray(data.players)
+    || !Array.isArray(data.mapIds)
+    || !isRecord(data.playerPage)
+    || !Number.isFinite(data.playerPage.page)
+    || !Number.isFinite(data.playerPage.pageSize)
+    || !Number.isFinite(data.playerPage.total)
+    || !Number.isFinite(data.playerPage.totalPages)
+    || !isRecord(data.playerStats)
+    || !Number.isFinite(data.playerStats.totalPlayers)
+    || !Number.isFinite(data.playerStats.onlinePlayers)
+    || !Number.isFinite(data.playerStats.offlineHangingPlayers)
+    || !Number.isFinite(data.playerStats.offlinePlayers)
+    || !isRecord(data.perf)) {
+    throw new Error('GM 状态响应结构异常');
+  }
+}
+
+function assertGmPlayerDetailResponseShape(data: unknown): asserts data is GmPlayerDetailRes {
+  if (!isRecord(data) || !isRecord(data.player) || typeof data.player.id !== 'string') {
+    throw new Error('GM 玩家详情响应结构异常');
+  }
+}
 /** lastSuggestionStructureKey：last建议Structure Key。 */
 let lastSuggestionStructureKey: string | null = null;
 /** lastNetworkInStructureKey：last Network In Structure Key。 */
@@ -2543,7 +2584,7 @@ function getDownloadFileName(response: Response, fallback: string): string {
 
 /** downloadDatabaseBackup：处理download数据库备份。 */
 async function downloadDatabaseBackup(backupId: string): Promise<void> {
-  const response = await requestBlob(`/gm/database/backups/${encodeURIComponent(backupId)}/download`);
+  const response = await requestBlob(buildGmDatabaseBackupDownloadApiPath(backupId));
   const blob = await response.blob();
   const fileName = getDownloadFileName(response, `${backupId}.dump`);
   const objectUrl = URL.createObjectURL(blob);
@@ -3041,10 +3082,10 @@ async function sendDirectMail(): Promise<void> {
  * ok：ok相关字段。
  */
  ok: true;  
- /**
+/**
  * mailId：邮件ID标识。
  */
- mailId: string }>(`/gm/players/${encodeURIComponent(detail.id)}/mail`, {
+ mailId: string }>(`${buildGmPlayerApiPath(detail.id)}/mail`, {
     method: 'POST',
     body: JSON.stringify(payload),
   });
@@ -4725,7 +4766,8 @@ async function loadState(silent = false, refreshDetail = false): Promise<void> {
   if (keyword) {
     params.set('keyword', keyword);
   }
-  const data = await request<GmStateRes>(`/gm/state?${params.toString()}`);
+  const data = await request<GmStateRes>(buildGmStateApiPath(params));
+  assertGmStateResponseShape(data);
   /** state：状态。 */
   state = data;
   /** currentPlayerPage：当前玩家分页。 */
@@ -4780,7 +4822,8 @@ async function loadSelectedPlayerDetail(playerId: string, silent = false): Promi
   clearEditorRenderCache();
   render();
   try {
-    const data = await request<GmPlayerDetailRes>(`/gm/players/${encodeURIComponent(playerId)}`);
+    const data = await request<GmPlayerDetailRes>(buildGmPlayerApiPath(playerId));
+    assertGmPlayerDetailResponseShape(data);
     if (nonce !== detailRequestNonce || selectedPlayerId !== playerId) {
       return;
     }

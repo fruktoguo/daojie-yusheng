@@ -14,6 +14,12 @@ export type {
   CombatTargetingRules,
 } from './automation-types';
 export type {
+  CombatRelation,
+  CombatRelationBlockedReason,
+  CombatRelationResolution,
+  CombatRelationTargetKind,
+} from './combat-relation';
+export type {
   ActionDef,
   ActionType,
   CombatEffect,
@@ -39,6 +45,7 @@ export type {
   PlayerAlchemyJob,
   PlayerAlchemyPreset,
   PlayerEnhancementJob,
+  PlayerGatherJob,
   PlayerEnhancementLevelRecord,
   PlayerEnhancementRecord,
   PlayerEnhancementSessionStatus,
@@ -48,6 +55,24 @@ export type {
   SyncedEnhancementProtectionCandidate,
   SyncedEnhancementRequirementView,
 } from './crafting-types';
+export type {
+  TechniqueActivityJobBase,
+  RuntimeTechniqueActivityKind,
+  TechniqueActivityInterruptReason,
+  TechniqueActivityKind,
+  TechniqueSkillProgressState,
+} from './technique-activity-types';
+export type {
+  TechniqueActivityCancelErrorCode,
+  TechniqueActivityCancelEventName,
+  TechniqueActivityCommandKind,
+  TechniqueActivityMetadata,
+  TechniqueActivityPanelEventName,
+  TechniqueActivityRequestEventName,
+  TechniqueActivityRequestPanelErrorCode,
+  TechniqueActivityStartErrorCode,
+  TechniqueActivityStartEventName,
+} from './technique-activity-meta';
 export {
   PlayerRealmStage,
   TechniqueRealm,

@@ -1,5 +1,10 @@
 import { NEXT_C2S, type NEXT_C2S_EventPayload } from '@mud/shared-next';
 import type { SocketEmitEvent } from './socket-send-types';
+import {
+  emitTechniqueActivityCancel,
+  emitTechniqueActivityPanelRequest,
+  emitTechniqueActivityStart,
+} from '../technique-activity-client.helpers';
 /**
  * PanelSenderDeps：统一结构类型，保证协议与运行时一致性。
  */
@@ -12,6 +17,56 @@ type PanelSenderDeps = {
 
   emitEvent: SocketEmitEvent;
 };
+
+type StartGatherPayload = {
+  sourceId: string;
+  itemKey: string;
+};
+
+type CancelGatherPayload = Record<string, never>;
+
+function sendTechniqueActivityRequest(
+  deps: PanelSenderDeps,
+  kind: 'alchemy',
+  payload: NEXT_C2S_EventPayload<typeof NEXT_C2S.RequestAlchemyPanel>,
+): void;
+function sendTechniqueActivityRequest(
+  deps: PanelSenderDeps,
+  kind: 'enhancement',
+  payload: NEXT_C2S_EventPayload<typeof NEXT_C2S.RequestEnhancementPanel>,
+): void;
+function sendTechniqueActivityRequest(
+  deps: PanelSenderDeps,
+  kind: 'alchemy' | 'enhancement',
+  payload: NEXT_C2S_EventPayload<typeof NEXT_C2S.RequestAlchemyPanel> | NEXT_C2S_EventPayload<typeof NEXT_C2S.RequestEnhancementPanel>,
+): void {
+  emitTechniqueActivityPanelRequest(deps.emitEvent, kind, payload as never);
+}
+
+function sendTechniqueActivityStart(
+  deps: PanelSenderDeps,
+  kind: 'alchemy',
+  payload: NEXT_C2S_EventPayload<typeof NEXT_C2S.StartAlchemy>,
+): void;
+function sendTechniqueActivityStart(
+  deps: PanelSenderDeps,
+  kind: 'enhancement',
+  payload: NEXT_C2S_EventPayload<typeof NEXT_C2S.StartEnhancement>,
+): void;
+function sendTechniqueActivityStart(
+  deps: PanelSenderDeps,
+  kind: 'alchemy' | 'enhancement',
+  payload: NEXT_C2S_EventPayload<typeof NEXT_C2S.StartAlchemy> | NEXT_C2S_EventPayload<typeof NEXT_C2S.StartEnhancement>,
+): void {
+  emitTechniqueActivityStart(deps.emitEvent, kind, payload as never);
+}
+
+function sendTechniqueActivityCancel(
+  deps: PanelSenderDeps,
+  kind: 'alchemy' | 'enhancement',
+): void {
+  emitTechniqueActivityCancel(deps.emitEvent, kind);
+}
 /**
  * createSocketPanelSender：构建并返回目标对象。
  * @param deps PanelSenderDeps 运行时依赖。
@@ -64,6 +119,24 @@ export function createSocketPanelSender(deps: PanelSenderDeps) {
 
     sendTakeLoot(sourceId: string, itemKey?: string, takeAll = false): void {
       deps.emitEvent(NEXT_C2S.TakeGround, { sourceId, itemKey, takeAll });
+    },    
+    /**
+ * sendStartGather：执行send开始采集相关逻辑。
+ * @param payload StartGatherPayload 载荷参数。
+ * @returns 无返回值，直接更新sendStart采集相关状态。
+ */
+
+
+    sendStartGather(payload: StartGatherPayload): void {
+      deps.emitEvent((NEXT_C2S as Record<string, unknown>).StartGather as never, payload as never);
+    },    
+    /**
+ * sendCancelGather：执行send取消采集相关逻辑。
+ * @returns 无返回值，直接更新sendCancel采集相关状态。
+ */
+
+    sendCancelGather(): void {
+      deps.emitEvent((NEXT_C2S as Record<string, unknown>).CancelGather as never, {} as CancelGatherPayload as never);
     },    
     /**
  * sendStopLootHarvest：停止当前连续采摘。
@@ -171,7 +244,7 @@ export function createSocketPanelSender(deps: PanelSenderDeps) {
 
 
     sendRequestAlchemyPanel(knownCatalogVersion?: number): void {
-      deps.emitEvent(NEXT_C2S.RequestAlchemyPanel, { knownCatalogVersion });
+      sendTechniqueActivityRequest(deps, 'alchemy', { knownCatalogVersion });
     },    
     /**
  * sendSaveAlchemyPreset：执行sendSave炼丹Preset相关逻辑。
@@ -205,7 +278,7 @@ export function createSocketPanelSender(deps: PanelSenderDeps) {
     sendStartAlchemy(
       payload: NEXT_C2S_EventPayload<typeof NEXT_C2S.StartAlchemy>,
     ): void {
-      deps.emitEvent(NEXT_C2S.StartAlchemy, payload);
+      sendTechniqueActivityStart(deps, 'alchemy', payload);
     },    
     /**
  * sendCancelAlchemy：判断sendCancel炼丹是否满足条件。
@@ -214,7 +287,7 @@ export function createSocketPanelSender(deps: PanelSenderDeps) {
 
 
     sendCancelAlchemy(): void {
-      deps.emitEvent(NEXT_C2S.CancelAlchemy, {});
+      sendTechniqueActivityCancel(deps, 'alchemy');
     },    
     /**
  * sendRequestEnhancementPanel：执行sendRequest强化面板相关逻辑。
@@ -223,7 +296,7 @@ export function createSocketPanelSender(deps: PanelSenderDeps) {
 
 
     sendRequestEnhancementPanel(): void {
-      deps.emitEvent(NEXT_C2S.RequestEnhancementPanel, {});
+      sendTechniqueActivityRequest(deps, 'enhancement', {});
     },    
     /**
  * sendStartEnhancement：执行send开始强化相关逻辑。
@@ -235,7 +308,7 @@ export function createSocketPanelSender(deps: PanelSenderDeps) {
     sendStartEnhancement(
       payload: NEXT_C2S_EventPayload<typeof NEXT_C2S.StartEnhancement>,
     ): void {
-      deps.emitEvent(NEXT_C2S.StartEnhancement, payload);
+      sendTechniqueActivityStart(deps, 'enhancement', payload);
     },    
     /**
  * sendCancelEnhancement：判断sendCancel强化是否满足条件。
@@ -244,7 +317,7 @@ export function createSocketPanelSender(deps: PanelSenderDeps) {
 
 
     sendCancelEnhancement(): void {
-      deps.emitEvent(NEXT_C2S.CancelEnhancement, {});
+      sendTechniqueActivityCancel(deps, 'enhancement');
     },
   };
 }

@@ -126,9 +126,9 @@ const CHECKS = [
   {
     id: "runtime.legacy_snapshot_adapter",
     category: "P1 runtime/persistence compat",
-    description: "WorldPlayerSource 仍保留显式 migration snapshot 查询入口",
+    description: "WorldPlayerSource 仍保留 migration-only snapshot 占位入口",
     file: "packages/server/src/network/world-player-source.service.ts",
-    pattern: "queryMigrationSnapshotRow(",
+    pattern: "loadPlayerSnapshotForMigration(",
   },
   {
     id: "perf.full_capture",

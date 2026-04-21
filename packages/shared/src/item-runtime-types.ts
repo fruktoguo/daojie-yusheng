@@ -10,6 +10,20 @@ export type ItemType = 'consumable' | 'equipment' | 'material' | 'quest_item' | 
 /** 装备槽位。 */
 export type EquipSlot = 'weapon' | 'head' | 'body' | 'legs' | 'accessory';
 
+/** 地块资源增益定义。 */
+export interface TileResourceGainDef {
+/**
+ * resourceKey：地块资源键。
+ */
+
+  resourceKey: string;
+  /**
+ * amount：数量或计量字段。
+ */
+
+  amount: number;
+}
+
 /** 装备效果触发器。 */
 export type EquipmentTrigger =
   | 'on_equip'
@@ -599,6 +613,16 @@ export interface ItemStack {
 
   alchemySpeedRate?: number;  
   /**
+ * enhancementSuccessRate：强化SuccessRate数值。
+ */
+
+  enhancementSuccessRate?: number;  
+  /**
+ * enhancementSpeedRate：强化SpeedRate数值。
+ */
+
+  enhancementSpeedRate?: number;  
+  /**
  * mapUnlockId：地图UnlockID标识。
  */
 
@@ -613,6 +637,11 @@ export interface ItemStack {
  */
 
   tileAuraGainAmount?: number;  
+  /**
+ * tileResourceGains：集合字段。
+ */
+
+  tileResourceGains?: TileResourceGainDef[];
   /**
  * allowBatchUse：allowBatchUse相关字段。
  */

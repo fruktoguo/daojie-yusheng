@@ -63,23 +63,20 @@ pnpm verify:server-next:full
 
 ## 先看哪些文档
 
-### 当前状态与缺口
+### 当前状态、计划与阻塞
 
-- [docs/next-gap-analysis.md](./docs/next-gap-analysis.md)
+- [docs/next-plan/main.md](./docs/next-plan/main.md)
+- [docs/next-in-place-hard-cut-plan.md](./docs/next-in-place-hard-cut-plan.md)
+- [docs/next-replacement-blocker-board.md](./docs/next-replacement-blocker-board.md)
+- [docs/next-package-migration-board.md](./docs/next-package-migration-board.md)
 - [packages/server/NEXT-GAP-ANALYSIS.md](./packages/server/NEXT-GAP-ANALYSIS.md)
-
-### 执行计划与任务拆分
-
-- [docs/next-remaining-execution-plan.md](./docs/next-remaining-execution-plan.md)
-- [docs/next-remaining-task-breakdown.md](./docs/next-remaining-task-breakdown.md)
-- [docs/next-remaining-engineering-ledger.md](./docs/next-remaining-engineering-ledger.md)
 
 ### 运维、门禁与审计
 
 - [docs/server-next-operations.md](./docs/server-next-operations.md)
 - [docs/next-protocol-audit.md](./docs/next-protocol-audit.md)
 - [docs/next-legacy-boundary-audit.md](./docs/next-legacy-boundary-audit.md)
-- [docs/next-legacy-removal-checklist.md](./docs/next-legacy-removal-checklist.md)
+- [docs/next-plan/10-legacy-archive-and-cutover.md](./docs/next-plan/10-legacy-archive-and-cutover.md)
 
 ### 包内入口
 
@@ -87,6 +84,7 @@ pnpm verify:server-next:full
 - [packages/server/TESTING.md](./packages/server/TESTING.md)
 - [packages/server/REPLACE-RUNBOOK.md](./packages/server/REPLACE-RUNBOOK.md)
 - [next-workspace/README.md](./next-workspace/README.md)
+
 
 ## 当前口径提醒
 

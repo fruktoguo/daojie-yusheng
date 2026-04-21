@@ -177,6 +177,14 @@ async function main() {
         const state = await fetchState(attackerId);
         return (state.player?.qi ?? 0) >= preparedQi;
     }, 5000);
+    attacker.emit(shared_1.NEXT_C2S.UseAction, { actionId: 'toggle:allow_aoe_player_hit' });
+    await waitFor(async () => {
+/**
+ * 记录状态。
+ */
+        const state = await fetchState(attackerId);
+        return state.player?.combat?.allowAoePlayerHit === true;
+    }, 5000);
 /**
  * 记录attackerbeforecast。
  */

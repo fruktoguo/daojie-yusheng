@@ -62,7 +62,7 @@ let WorldRuntimeEnhancementService = class WorldRuntimeEnhancementService {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
         const player = this.playerRuntimeService.getPlayerOrThrow(playerId);
-        const result = this.craftPanelRuntimeService.startEnhancement(player, payload);
+        const result = this.craftPanelRuntimeService.startTechniqueActivity(player, 'enhancement', payload);
         if (!result.ok) {
             throw new common_1.BadRequestException(result.error ?? '启动强化失败');
         }
@@ -79,7 +79,7 @@ let WorldRuntimeEnhancementService = class WorldRuntimeEnhancementService {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
         const player = this.playerRuntimeService.getPlayerOrThrow(playerId);
-        const result = this.craftPanelRuntimeService.cancelEnhancement(player);
+        const result = this.craftPanelRuntimeService.cancelTechniqueActivity(player, 'enhancement');
         if (!result.ok) {
             throw new common_1.BadRequestException(result.error ?? '取消强化失败');
         }
@@ -94,7 +94,7 @@ let WorldRuntimeEnhancementService = class WorldRuntimeEnhancementService {
  */
 
     tickEnhancement(playerId, player, deps) {
-        this.worldRuntimeCraftMutationService.flushCraftMutation(playerId, this.craftPanelRuntimeService.tickEnhancement(player), 'enhancement', deps);
+        this.worldRuntimeCraftMutationService.flushCraftMutation(playerId, this.craftPanelRuntimeService.tickTechniqueActivity(player, 'enhancement'), 'enhancement', deps);
     }
 };
 exports.WorldRuntimeEnhancementService = WorldRuntimeEnhancementService;

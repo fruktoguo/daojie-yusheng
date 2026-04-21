@@ -1,6 +1,7 @@
 /**
  * 炼制与强化共享类型：承接面板、任务运行态与同步视图结构。
  */
+import type { TechniqueActivityJobBase } from './technique-activity-types';
 import type { TechniqueGrade } from './cultivation-types';
 import type { EquipSlot, ItemStack } from './item-runtime-types';
 
@@ -418,6 +419,25 @@ export interface PlayerEnhancementJob {
  */
 
   totalSpeedRate: number;
+}
+
+/** 玩家当前采集任务的最小持久化运行态。 */
+export interface PlayerGatherJob extends TechniqueActivityJobBase {
+/**
+ * resourceNodeId：资源节点 ID。
+ */
+
+  resourceNodeId: string;  
+  /**
+ * resourceNodeName：资源节点名称名称或显示文本。
+ */
+
+  resourceNodeName: string;  
+  /**
+ * phase：phase相关字段。
+ */
+
+  phase: 'gathering' | 'paused';
 }
 
 /** 单个强化目标等级的历史记录。 */

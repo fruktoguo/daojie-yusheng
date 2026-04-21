@@ -7,6 +7,8 @@ const shared_1 = require("@mud/shared-next");
 
 const map_template_repository_1 = require("../map/map-template.repository");
 
+const DEFAULT_TILE_AURA_RESOURCE_KEY = (0, shared_1.buildQiResourceKey)(shared_1.DEFAULT_QI_RESOURCE_DESCRIPTOR);
+
 /** INVALID_OCCUPANCY：空占位值，表示该地块当前未被占用。 */
 const INVALID_OCCUPANCY = 0;
 
@@ -136,10 +138,20 @@ class MapInstanceRuntime {
 
     occupancy;    
     /**
- * auraByTile：auraByTile相关字段。
+ * auraByTile：默认灵气资源桶兼容视图。
  */
 
     auraByTile;    
+    /**
+ * tileResourceBuckets：按资源键拆分的地块资源桶。
+ */
+
+    tileResourceBuckets = new Map();    
+    /**
+ * baseTileResourceBuckets：按资源键拆分的模板基线资源桶。
+ */
+
+    baseTileResourceBuckets = new Map();    
     /**
  * tileDamageByTile：tileDamageByTile相关字段。
  */
@@ -236,10 +248,20 @@ class MapInstanceRuntime {
 
     persistedRevision = 1;    
     /**
- * changedAuraTileCount：数量或计量字段。
+ * changedAuraTileCount：默认灵气脏地块数量。
  */
 
     changedAuraTileCount = 0;    
+    /**
+ * changedTileResourceEntryCount：通用地块资源脏条目数量。
+ */
+
+    changedTileResourceEntryCount = 0;    
+    /**
+ * changedTileResourceEntryCountByKey：按资源键统计脏条目数量。
+ */
+
+    changedTileResourceEntryCountByKey = new Map();    
     /**
  * 构造器：初始化 当前 实例并建立基础状态。
  * @param request 请求参数。
@@ -262,6 +284,26 @@ class MapInstanceRuntime {
         this.template = request.template;
         this.occupancy = new Uint32Array(request.template.width * request.template.height);
         this.auraByTile = new Int32Array(request.template.baseAuraByTile);
+        this.tileResourceBuckets.set(DEFAULT_TILE_AURA_RESOURCE_KEY, this.auraByTile);
+        this.baseTileResourceBuckets.set(DEFAULT_TILE_AURA_RESOURCE_KEY, request.template.baseAuraByTile);
+        for (const entry of request.template.baseTileResourceEntries ?? []) {
+            if (!entry
+                || entry.resourceKey === DEFAULT_TILE_AURA_RESOURCE_KEY
+                || !Number.isFinite(entry.tileIndex)
+                || !Number.isFinite(entry.value)) {
+                continue;
+            }
+            const tileIndex = Math.trunc(entry.tileIndex);
+            if (tileIndex < 0 || tileIndex >= this.auraByTile.length) {
+                continue;
+            }
+            const value = Math.max(0, Math.trunc(entry.value));
+            if (value <= 0) {
+                continue;
+            }
+            this.getOrCreateTileResourceBucket(entry.resourceKey)[tileIndex] = value;
+            this.getOrCreateBaseTileResourceBucket(entry.resourceKey)[tileIndex] = value;
+        }
         for (const npc of request.template.npcs) {
             const state = {
                 npcId: npc.id,
@@ -672,7 +714,47 @@ class MapInstanceRuntime {
         if (!this.isInBounds(x, y)) {
             return null;
         }
-        return this.auraByTile[this.toTileIndex(x, y)] ?? 0;
+        return this.getTileResource(DEFAULT_TILE_AURA_RESOURCE_KEY, x, y);
+    }
+    /** getTileResource：读取指定地块的指定资源。 */
+    getTileResource(resourceKey, x, y) {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
+        if (!this.isInBounds(x, y)) {
+            return null;
+        }
+        return this.getTileResourceValueByIndex(resourceKey, this.toTileIndex(x, y));
+    }
+    /** listTileResources：读取指定地块的全部有效资源。 */
+    listTileResources(x, y) {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
+        if (!this.isInBounds(x, y)) {
+            return null;
+        }
+        const tileIndex = this.toTileIndex(x, y);
+        const entries = [];
+        for (const [resourceKey, bucket] of this.tileResourceBuckets.entries()) {
+            const value = bucket[tileIndex] ?? 0;
+            if (value <= 0) {
+                continue;
+            }
+            entries.push({
+                resourceKey,
+                value,
+                sourceValue: this.getTileResourceBaseValueByIndex(resourceKey, tileIndex),
+            });
+        }
+        entries.sort((left, right) => {
+            if (left.resourceKey === DEFAULT_TILE_AURA_RESOURCE_KEY && right.resourceKey !== DEFAULT_TILE_AURA_RESOURCE_KEY) {
+                return -1;
+            }
+            if (left.resourceKey !== DEFAULT_TILE_AURA_RESOURCE_KEY && right.resourceKey === DEFAULT_TILE_AURA_RESOURCE_KEY) {
+                return 1;
+            }
+            return left.resourceKey.localeCompare(right.resourceKey, 'zh-Hans-CN');
+        });
+        return entries;
     }
     /** getTileGroundPile：读取指定地块地面物品堆。 */
     getTileGroundPile(x, y) {
@@ -985,35 +1067,56 @@ class MapInstanceRuntime {
     addTileAura(x, y, amount) {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
+        return this.addTileResource(DEFAULT_TILE_AURA_RESOURCE_KEY, x, y, amount);
+    }
+    /** addTileResource：给地块叠加指定资源。 */
+    addTileResource(resourceKey, x, y, amount) {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
         if (!this.isInBounds(x, y) || !Number.isFinite(amount)) {
             return null;
         }
 
         const normalizedAmount = Math.trunc(amount);
         if (normalizedAmount === 0) {
-            return this.getTileAura(x, y);
+            return this.getTileResource(resourceKey, x, y);
         }
 
         const tileIndex = this.toTileIndex(x, y);
-
-        const previous = this.auraByTile[tileIndex] ?? 0;
-
+        const previous = this.getTileResourceValueByIndex(resourceKey, tileIndex);
         const next = Math.max(0, previous + normalizedAmount);
         if (next === previous) {
             return next;
         }
-        this.auraByTile[tileIndex] = next;
-        this.updateAuraDirtyState(tileIndex, previous, next);
+        this.setTileResourceValueByIndex(resourceKey, tileIndex, next, previous);
         return next;
     }
     /** hydrateAura：用持久化数据回填地块灵气。 */
     hydrateAura(entries) {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
+        this.hydrateTileResources((entries ?? []).map((entry) => ({
+            resourceKey: DEFAULT_TILE_AURA_RESOURCE_KEY,
+            tileIndex: entry.tileIndex,
+            value: entry.value,
+        })));
+    }
+    /** hydrateTileResources：用持久化数据回填地块资源。 */
+    hydrateTileResources(entries) {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
+        this.tileResourceBuckets.clear();
         this.auraByTile.set(this.template.baseAuraByTile);
+        this.tileResourceBuckets.set(DEFAULT_TILE_AURA_RESOURCE_KEY, this.auraByTile);
         this.changedAuraTileCount = 0;
+        this.changedTileResourceEntryCount = 0;
+        this.changedTileResourceEntryCountByKey.clear();
         for (const entry of entries) {
-            if (!Number.isFinite(entry.tileIndex) || !Number.isFinite(entry.value)) {
+            if (!entry
+                || typeof entry.resourceKey !== 'string'
+                || !entry.resourceKey
+                || !Number.isFinite(entry.tileIndex)
+                || !Number.isFinite(entry.value)) {
                 continue;
             }
 
@@ -1023,10 +1126,13 @@ class MapInstanceRuntime {
             }
 
             const next = Math.max(0, Math.trunc(entry.value));
-            this.auraByTile[tileIndex] = next;
-            if (next !== this.template.baseAuraByTile[tileIndex]) {
-                this.changedAuraTileCount += 1;
+            if (entry.resourceKey !== DEFAULT_TILE_AURA_RESOURCE_KEY && next <= 0) {
+                continue;
             }
+            const bucket = this.getOrCreateTileResourceBucket(entry.resourceKey);
+            const previous = bucket[tileIndex] ?? 0;
+            bucket[tileIndex] = next;
+            this.applyTileResourceDirtyCounter(entry.resourceKey, tileIndex, previous, next);
         }
         this.persistentRevision = 1;
         this.persistedRevision = 1;
@@ -1081,16 +1187,38 @@ class MapInstanceRuntime {
             return [];
         }
 
+        return this.buildTileResourcePersistenceEntries()
+            .filter((entry) => entry.resourceKey === DEFAULT_TILE_AURA_RESOURCE_KEY)
+            .map((entry) => ({
+            tileIndex: entry.tileIndex,
+            value: entry.value,
+        }));
+    }
+    /** buildTileResourcePersistenceEntries：导出地块资源持久化条目。 */
+    buildTileResourcePersistenceEntries() {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
+        if (this.changedTileResourceEntryCount === 0) {
+            return [];
+        }
         const entries = [];
-        for (let tileIndex = 0; tileIndex < this.auraByTile.length; tileIndex += 1) {
-            const value = this.auraByTile[tileIndex] ?? 0;
-            if (value !== this.template.baseAuraByTile[tileIndex]) {
-                entries.push({
-                    tileIndex,
-                    value,
-                });
+        for (const [resourceKey, bucket] of this.tileResourceBuckets.entries()) {
+            const dirtyCount = this.changedTileResourceEntryCountByKey.get(resourceKey) ?? 0;
+            if (dirtyCount <= 0) {
+                continue;
+            }
+            for (let tileIndex = 0; tileIndex < bucket.length; tileIndex += 1) {
+                const value = bucket[tileIndex] ?? 0;
+                if (value !== this.getTileResourceBaseValueByIndex(resourceKey, tileIndex)) {
+                    entries.push({
+                        resourceKey,
+                        tileIndex,
+                        value,
+                    });
+                }
             }
         }
+        entries.sort((left, right) => left.resourceKey.localeCompare(right.resourceKey, 'zh-Hans-CN') || left.tileIndex - right.tileIndex);
         return entries;
     }
     /** buildGroundPersistenceEntries：导出地面物品堆持久化条目。 */
@@ -1898,19 +2026,80 @@ class MapInstanceRuntime {
     updateAuraDirtyState(tileIndex, previous, next) {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
-
-        const baseValue = this.template.baseAuraByTile[tileIndex] ?? 0;
-
-        const previousDirty = previous !== baseValue;
-
-        const nextDirty = next !== baseValue;
-        if (!previousDirty && nextDirty) {
-            this.changedAuraTileCount += 1;
+        this.applyTileResourceDirtyCounter(DEFAULT_TILE_AURA_RESOURCE_KEY, tileIndex, previous, next);
+        this.persistentRevision += 1;
+    }
+    /** getOrCreateTileResourceBucket：读取或初始化地块资源桶。 */
+    getOrCreateTileResourceBucket(resourceKey) {
+        const existing = this.tileResourceBuckets.get(resourceKey);
+        if (existing) {
+            return existing;
         }
-        else if (previousDirty && !nextDirty) {
-            this.changedAuraTileCount = Math.max(0, this.changedAuraTileCount - 1);
+        const bucket = new Int32Array(this.template.width * this.template.height);
+        this.tileResourceBuckets.set(resourceKey, bucket);
+        return bucket;
+    }
+    /** getOrCreateBaseTileResourceBucket：读取或初始化模板基线资源桶。 */
+    getOrCreateBaseTileResourceBucket(resourceKey) {
+        const existing = this.baseTileResourceBuckets.get(resourceKey);
+        if (existing) {
+            return existing;
+        }
+        const bucket = new Int32Array(this.template.width * this.template.height);
+        this.baseTileResourceBuckets.set(resourceKey, bucket);
+        return bucket;
+    }
+    /** getTileResourceBaseValueByIndex：读取资源在模板上的基线值。 */
+    getTileResourceBaseValueByIndex(resourceKey, tileIndex) {
+        return this.baseTileResourceBuckets.get(resourceKey)?.[tileIndex] ?? 0;
+    }
+    /** getTileResourceValueByIndex：读取资源在指定索引上的当前值。 */
+    getTileResourceValueByIndex(resourceKey, tileIndex) {
+        const bucket = resourceKey === DEFAULT_TILE_AURA_RESOURCE_KEY
+            ? this.auraByTile
+            : this.tileResourceBuckets.get(resourceKey);
+        return bucket?.[tileIndex] ?? 0;
+    }
+    /** setTileResourceValueByIndex：写入资源值并维护脏标记。 */
+    setTileResourceValueByIndex(resourceKey, tileIndex, next, previous = this.getTileResourceValueByIndex(resourceKey, tileIndex)) {
+        const bucket = this.getOrCreateTileResourceBucket(resourceKey);
+        bucket[tileIndex] = next;
+        this.applyTileResourceDirtyCounter(resourceKey, tileIndex, previous, next);
+        if (resourceKey !== DEFAULT_TILE_AURA_RESOURCE_KEY && (this.changedTileResourceEntryCountByKey.get(resourceKey) ?? 0) <= 0) {
+            this.tileResourceBuckets.delete(resourceKey);
         }
         this.persistentRevision += 1;
+    }
+    /** applyTileResourceDirtyCounter：维护地块资源脏条目统计。 */
+    applyTileResourceDirtyCounter(resourceKey, tileIndex, previous, next) {
+        const baseValue = this.getTileResourceBaseValueByIndex(resourceKey, tileIndex);
+        const previousDirty = previous !== baseValue;
+        const nextDirty = next !== baseValue;
+        if (previousDirty === nextDirty) {
+            if (resourceKey === DEFAULT_TILE_AURA_RESOURCE_KEY) {
+                this.changedAuraTileCount = this.changedTileResourceEntryCountByKey.get(DEFAULT_TILE_AURA_RESOURCE_KEY) ?? this.changedAuraTileCount;
+            }
+            return;
+        }
+        const previousCount = this.changedTileResourceEntryCountByKey.get(resourceKey) ?? 0;
+        const nextCount = nextDirty
+            ? previousCount + 1
+            : Math.max(0, previousCount - 1);
+        if (nextCount > 0) {
+            this.changedTileResourceEntryCountByKey.set(resourceKey, nextCount);
+        }
+        else {
+            this.changedTileResourceEntryCountByKey.delete(resourceKey);
+        }
+        if (!previousDirty && nextDirty) {
+            this.changedTileResourceEntryCount += 1;
+        }
+        else if (previousDirty && !nextDirty) {
+            this.changedTileResourceEntryCount = Math.max(0, this.changedTileResourceEntryCount - 1);
+        }
+        if (resourceKey === DEFAULT_TILE_AURA_RESOURCE_KEY) {
+            this.changedAuraTileCount = nextCount;
+        }
     }
     /** isInBounds：判断坐标是否在地图范围内。 */
     isInBounds(x, y) {

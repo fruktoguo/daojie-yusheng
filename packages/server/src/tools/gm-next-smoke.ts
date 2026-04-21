@@ -196,6 +196,85 @@ async function main() {
         }, null, 2));
         return;
     }
+/**
+ * 记录非GM socket。
+ */
+    let nonGmSocket = null;
+    try {
+        nonGmSocket = (0, socket_io_client_1.io)(SERVER_NEXT_URL, {
+            path: '/socket.io',
+            transports: ['websocket'],
+            forceNew: true,
+            auth: {
+                token: auth.accessToken,
+                protocol: 'next',
+            },
+        });
+/**
+ * 记录非GM init。
+ */
+        let nonGmInit = null;
+/**
+ * 记录非GM错误。
+ */
+        let nonGmSocketError = null;
+/**
+ * 记录非GM next GM状态数量。
+ */
+        let nonGmNextGmStateCount = 0;
+/**
+ * 记录非GM legacy GM状态数量。
+ */
+        let nonGmLegacyGmStateCount = 0;
+        nonGmSocket.on(shared_1.NEXT_S2C.InitSession, (payload) => {
+            nonGmInit = payload;
+        });
+        nonGmSocket.on(shared_1.NEXT_S2C.Error, (payload) => {
+            nonGmSocketError = payload ?? null;
+        });
+        nonGmSocket.on(shared_1.NEXT_S2C.GmState, () => {
+            nonGmNextGmStateCount += 1;
+        });
+        nonGmSocket.on('s:gmState', () => {
+            nonGmLegacyGmStateCount += 1;
+        });
+        await onceConnected(nonGmSocket);
+        await waitFor(() => {
+            return nonGmInit !== null;
+        }, 5000, 'non-gm next init');
+        nonGmSocket.emit(shared_1.NEXT_C2S.GmGetState, {});
+        await waitFor(() => {
+            return nonGmSocketError?.code === 'GM_FORBIDDEN';
+        }, 5000, 'non-gm socket gmGetState forbidden');
+        if (nonGmNextGmStateCount > 0 || nonGmLegacyGmStateCount > 0) {
+            throw new Error(`non-gm socket unexpectedly received gm state: ${JSON.stringify({
+                next: nonGmNextGmStateCount,
+                legacy: nonGmLegacyGmStateCount,
+            })}`);
+        }
+    }
+    finally {
+        nonGmSocket?.close();
+    }
+/**
+ * 记录未授权读接口响应。
+ */
+    const unauthorizedReadResponse = await requestRaw('/api/gm/state');
+    if (unauthorizedReadResponse.status !== 401) {
+        throw new Error(`expected unauthorized /api/gm/state status 401, got ${unauthorizedReadResponse.status}`);
+    }
+/**
+ * 记录未授权写接口响应。
+ */
+    const unauthorizedWriteResponse = await requestRaw(`/api/gm/players/${auth.playerId}/reset`, {
+        method: 'POST',
+        headers: {
+            authorization: 'Bearer invalid-gm-token',
+        },
+    });
+    if (unauthorizedWriteResponse.status !== 401) {
+        throw new Error(`expected unauthorized gm write status 401, got ${unauthorizedWriteResponse.status}`);
+    }
     socket = (0, socket_io_client_1.io)(SERVER_NEXT_URL, {
         path: '/socket.io',
         transports: ['websocket'],
@@ -278,6 +357,9 @@ async function main() {
     });
     socket.on(shared_1.NEXT_S2C.GmState, (payload) => {
         gmStateEvents.push({ kind: 'next', payload });
+    });
+    socket.on('s:gmState', (payload) => {
+        gmStateEvents.push({ kind: 'legacy', payload });
     });
     try {
         await onceConnected(socket);
@@ -416,6 +498,18 @@ async function main() {
  */
         const initialHttpState = await authedGetJson('/api/gm/state', gmToken);
         assertGmStateShape(initialHttpState, 'initial http gm state');
+        const queriedHttpState = await authedGetJson(`/api/gm/state?page=1&pageSize=5&sort=name&keyword=${encodeURIComponent(auth.loginName)}`, gmToken);
+        assertGmStateShape(queriedHttpState, 'queried http gm state');
+        assertGmStateQueryContract(queriedHttpState, {
+            pageSize: 5,
+            sort: 'name',
+            keyword: auth.loginName,
+            expectedPlayerId: auth.playerId,
+        });
+        assertGmPerfHotspots(queriedHttpState, 'queried http gm state');
+        if (gmStateEvents.some((entry) => entry?.kind === 'legacy')) {
+            throw new Error(`gm socket leaked legacy gm state before mutations: ${JSON.stringify(gmStateEvents)}`);
+        }
 /**
  * 记录http运行态before。
  */
@@ -506,6 +600,71 @@ async function main() {
  * 记录httpremove状态。
  */
         const httpRemoveState = await waitForGmState(gmToken, (payload) => Number(payload?.botCount ?? 0) === 0, 8000, 'http gmRemoveBots');
+/**
+ * 记录GM详情before。
+ */
+        const gmPlayerDetailBefore = await fetchGmPlayerDetail(gmToken, auth.playerId);
+/**
+ * 记录bodytraining等级before。
+ */
+        const bodyTrainingLevelBefore = getBodyTrainingLevel(gmPlayerDetailBefore?.player?.snapshot);
+/**
+ * 记录foundation before。
+ */
+        const foundationBefore = getNonNegativeInt(gmPlayerDetailBefore?.player?.snapshot?.foundation);
+/**
+ * 记录combatexp before。
+ */
+        const combatExpBefore = getNonNegativeInt(gmPlayerDetailBefore?.player?.snapshot?.combatExp);
+/**
+ * 记录目标bodytraining等级。
+ */
+        const targetBodyTrainingLevel = bodyTrainingLevelBefore + 1;
+/**
+ * 记录foundation调整值。
+ */
+        const foundationDelta = 17;
+/**
+ * 记录combatexp调整值。
+ */
+        const combatExpDelta = 19;
+        await authedRequestJson(`/api/gm/players/${auth.playerId}/body-training/level`, {
+            method: 'POST',
+            token: gmToken,
+            body: {
+                level: targetBodyTrainingLevel,
+            },
+        });
+/**
+ * 记录bodytraining已更新详情。
+ */
+        const bodyTrainingUpdatedDetail = await waitForGmPlayerDetail(gmToken, auth.playerId, (payload) => getBodyTrainingLevel(payload?.player?.snapshot) === targetBodyTrainingLevel, 8000, 'gm set body training level');
+/**
+ * 记录bodytraining已更新运行态。
+ */
+        const bodyTrainingUpdatedRuntime = await waitForPlayerState(auth.playerId, (player) => getBodyTrainingLevel(player) === targetBodyTrainingLevel, 8000);
+        await authedRequestJson(`/api/gm/players/${auth.playerId}/foundation/add`, {
+            method: 'POST',
+            token: gmToken,
+            body: {
+                amount: foundationDelta,
+            },
+        });
+/**
+ * 记录foundation已更新运行态。
+ */
+        const foundationUpdatedRuntime = await waitForPlayerState(auth.playerId, (player) => getNonNegativeInt(player?.foundation) === foundationBefore + foundationDelta, 8000);
+        await authedRequestJson(`/api/gm/players/${auth.playerId}/combat-exp/add`, {
+            method: 'POST',
+            token: gmToken,
+            body: {
+                amount: combatExpDelta,
+            },
+        });
+/**
+ * 记录combatexp已更新运行态。
+ */
+        const combatExpUpdatedRuntime = await waitForPlayerState(auth.playerId, (player) => getNonNegativeInt(player?.combatExp) === combatExpBefore + combatExpDelta, 8000);
 /**
  * 记录mail汇总before。
  */
@@ -641,6 +800,109 @@ async function main() {
         const mapRuntimeReloaded = await waitForGmMapRuntime(gmToken, httpResetRuntime.templateId, auth.playerId, httpResetRuntime.x, httpResetRuntime.y, (runtime) => Number(runtime?.tickSpeed ?? 0) === nextTickSpeed
             && Number(runtime?.timeConfig?.scale ?? 0) === nextTimeScale
             && Number(runtime?.timeConfig?.offsetTicks ?? 0) === nextOffsetTicks, 8000, 'gm tick reload');
+/**
+ * 记录shortcut return-all前运行态。
+ */
+        const runtimeBeforeShortcutReturn = await waitForPlayerState(auth.playerId, () => true, 5000);
+/**
+ * 记录shortcut return-all目标位置。
+ */
+        const shortcutReturnMoveTarget = await findNearbyWalkablePosition(gmToken, auth.playerId, runtimeBeforeShortcutReturn.templateId, runtimeBeforeShortcutReturn.x, runtimeBeforeShortcutReturn.y);
+/**
+ * 记录shortcut return-all目标血量。
+ */
+        const shortcutReturnMoveHp = computeReducedHp(runtimeBeforeShortcutReturn.hp, runtimeBeforeShortcutReturn.maxHp, 7);
+        await authedRequestJson(`/api/gm/players/${auth.playerId}`, {
+            method: 'PUT',
+            token: gmToken,
+            body: {
+                section: 'position',
+                snapshot: {
+                    mapId: runtimeBeforeShortcutReturn.templateId,
+                    x: shortcutReturnMoveTarget.x,
+                    y: shortcutReturnMoveTarget.y,
+                    hp: shortcutReturnMoveHp,
+                },
+            },
+        });
+        await waitForRuntimeAndGmPlayerState(auth.playerId, gmToken, (runtime, summary) => {
+            return matchesUpdatedRuntimeAndSummary(runtime, summary, {
+                previousMapId: runtimeBeforeShortcutReturn.templateId,
+                previousX: runtimeBeforeShortcutReturn.x,
+                previousY: runtimeBeforeShortcutReturn.y,
+                previousHp: runtimeBeforeShortcutReturn.hp,
+                previousAutoBattle: runtimeBeforeShortcutReturn.combat?.autoBattle ?? false,
+                nextMapId: runtimeBeforeShortcutReturn.templateId,
+            });
+        }, 8000, 'gm shortcut pre-return-all move');
+/**
+ * 记录return-all快捷执行结果。
+ */
+        const returnAllPlayersResult = assertGmShortcutRunRes(await authedRequestJson('/api/gm/shortcuts/players/return-all-to-default-spawn', {
+            method: 'POST',
+            token: gmToken,
+            body: {},
+        }), 'gm shortcut return-all-to-default-spawn');
+/**
+ * 记录return-all后运行态。
+ */
+        const returnAllPlayersRuntime = await waitForPlayerState(auth.playerId, (player) => player.templateId === returnAllPlayersResult.targetMapId
+            && player.x === returnAllPlayersResult.targetX
+            && player.y === returnAllPlayersResult.targetY
+            && player.hp === player.maxHp
+            && player.combat?.autoBattle === false, 8000);
+/**
+ * 记录cleanup快捷执行结果。
+ */
+        const cleanupInvalidItemsResult = assertGmShortcutRunRes(await authedRequestJson('/api/gm/shortcuts/players/cleanup-invalid-items', {
+            method: 'POST',
+            token: gmToken,
+            body: {},
+        }), 'gm shortcut cleanup-invalid-items');
+/**
+ * 记录战斗经验补偿前运行态。
+ */
+        const runtimeBeforeCombatCompensation = await waitForPlayerState(auth.playerId, () => true, 5000);
+/**
+ * 记录当前玩家预期战斗经验补偿。
+ */
+        const expectedCombatExpCompensation = getExpectedCombatExpCompensation(runtimeBeforeCombatCompensation);
+/**
+ * 记录combatexp补偿快捷执行结果。
+ */
+        const combatExpCompensationResult = assertGmShortcutRunRes(await authedRequestJson('/api/gm/shortcuts/compensation/combat-exp-2026-04-09', {
+            method: 'POST',
+            token: gmToken,
+            body: {},
+        }), 'gm shortcut compensate combat exp');
+/**
+ * 记录combatexp补偿后运行态。
+ */
+        const combatExpCompensatedRuntime = expectedCombatExpCompensation > 0
+            ? await waitForPlayerState(auth.playerId, (player) => getNonNegativeInt(player?.combatExp) === getNonNegativeInt(runtimeBeforeCombatCompensation?.combatExp) + expectedCombatExpCompensation, 8000)
+            : runtimeBeforeCombatCompensation;
+/**
+ * 记录底蕴补偿前运行态。
+ */
+        const runtimeBeforeFoundationCompensation = await waitForPlayerState(auth.playerId, () => true, 5000);
+/**
+ * 记录当前玩家预期底蕴补偿。
+ */
+        const expectedFoundationCompensation = getExpectedFoundationCompensation(runtimeBeforeFoundationCompensation);
+/**
+ * 记录foundation补偿快捷执行结果。
+ */
+        const foundationCompensationResult = assertGmShortcutRunRes(await authedRequestJson('/api/gm/shortcuts/compensation/foundation-2026-04-09', {
+            method: 'POST',
+            token: gmToken,
+            body: {},
+        }), 'gm shortcut compensate foundation');
+/**
+ * 记录foundation补偿后运行态。
+ */
+        const foundationCompensatedRuntime = expectedFoundationCompensation > 0
+            ? await waitForPlayerState(auth.playerId, (player) => getNonNegativeInt(player?.foundation) === getNonNegativeInt(runtimeBeforeFoundationCompensation?.foundation) + expectedFoundationCompensation, 8000)
+            : runtimeBeforeFoundationCompensation;
         await authedRequestJson(`/api/gm/players/${auth.playerId}/password`, {
             method: 'POST',
             token: gmToken,
@@ -732,6 +994,16 @@ async function main() {
                 botCountAfterRemove: Number(httpRemoveState?.botCount ?? 0),
                 playerSummary: summarizeGmPlayer(httpUpdatedGmState, auth.playerId),
                 resetSummary: summarizeGmPlayer(httpResetGmState, auth.playerId),
+                playerDetail: {
+                    accountUsername: gmPlayerDetailBefore?.player?.account?.username ?? null,
+                    bodyTrainingLevelBefore,
+                    bodyTrainingLevelAfter: getBodyTrainingLevel(bodyTrainingUpdatedDetail?.player?.snapshot),
+                    bodyTrainingRuntimeLevelAfter: getBodyTrainingLevel(bodyTrainingUpdatedRuntime),
+                    foundationBefore,
+                    foundationAfter: getNonNegativeInt(foundationUpdatedRuntime?.foundation),
+                    combatExpBefore,
+                    combatExpAfter: getNonNegativeInt(combatExpUpdatedRuntime?.combatExp),
+                },
                 mail: {
                     directMailId: String(directMail?.mailId ?? ''),
                     broadcastMailId: String(broadcastMail?.mailId ?? ''),
@@ -755,10 +1027,42 @@ async function main() {
                     offsetTicks: Number(mapRuntimeReloaded?.timeConfig?.offsetTicks ?? 0),
                     entityCount: Array.isArray(mapRuntimeUpdated?.entities) ? mapRuntimeUpdated.entities.length : 0,
                 },
+                shortcuts: {
+                    returnAllToDefaultSpawn: {
+                        totalPlayers: returnAllPlayersResult.totalPlayers,
+                        queuedRuntimePlayers: returnAllPlayersResult.queuedRuntimePlayers,
+                        updatedOfflinePlayers: returnAllPlayersResult.updatedOfflinePlayers,
+                        targetMapId: returnAllPlayersResult.targetMapId ?? null,
+                        targetX: returnAllPlayersResult.targetX ?? null,
+                        targetY: returnAllPlayersResult.targetY ?? null,
+                        selectedPlayerMapId: returnAllPlayersRuntime.templateId,
+                    },
+                    cleanupInvalidItems: {
+                        totalPlayers: cleanupInvalidItemsResult.totalPlayers,
+                        inventoryStacksRemoved: cleanupInvalidItemsResult.totalInvalidInventoryStacksRemoved ?? 0,
+                        marketStorageStacksRemoved: cleanupInvalidItemsResult.totalInvalidMarketStorageStacksRemoved ?? 0,
+                        equipmentRemoved: cleanupInvalidItemsResult.totalInvalidEquipmentRemoved ?? 0,
+                    },
+                    combatExpCompensation: {
+                        totalPlayers: combatExpCompensationResult.totalPlayers,
+                        totalGranted: combatExpCompensationResult.totalCombatExpGranted ?? 0,
+                        expectedForSelectedPlayer: expectedCombatExpCompensation,
+                        selectedPlayerCombatExp: getNonNegativeInt(combatExpCompensatedRuntime?.combatExp),
+                    },
+                    foundationCompensation: {
+                        totalPlayers: foundationCompensationResult.totalPlayers,
+                        totalGranted: foundationCompensationResult.totalFoundationGranted ?? 0,
+                        expectedForSelectedPlayer: expectedFoundationCompensation,
+                        selectedPlayerFoundation: getNonNegativeInt(foundationCompensatedRuntime?.foundation),
+                    },
+                },
             },
             gmState: {
                 initialPlayers: initialHttpState.players.length,
                 initialMaps: initialHttpState.mapIds.length,
+                cpuBreakdownCount: queriedHttpState?.perf?.cpu?.breakdown?.length ?? 0,
+                networkInBucketCount: queriedHttpState?.perf?.networkInBuckets?.length ?? 0,
+                networkOutBucketCount: queriedHttpState?.perf?.networkOutBuckets?.length ?? 0,
             },
             passwordChange: {
                 verifiedPlayerId: reloginPlayerId,
@@ -1138,6 +1442,27 @@ async function requestJson(path, init = {}) {
     return response.json();
 }
 /**
+ * 发送原始 HTTP 请求，供未授权/非 JSON 场景验证使用。
+ */
+async function requestRaw(path, init = {}) {
+/**
+ * 记录请求体。
+ */
+    const body = init.body === undefined ? undefined : JSON.stringify(init.body);
+/**
+ * 记录headers。
+ */
+    const headers = {
+        ...(body === undefined ? {} : { 'content-type': 'application/json' }),
+        ...(init.headers ?? {}),
+    };
+    return fetch(`${SERVER_NEXT_URL}${path}`, {
+        method: init.method ?? 'GET',
+        headers: Object.keys(headers).length > 0 ? headers : undefined,
+        body,
+    });
+}
+/**
  * 处理authedgetjson。
  */
 async function authedGetJson(path, token) {
@@ -1159,6 +1484,16 @@ async function fetchPlayerState(playerId) {
     return requestJson(`/runtime/players/${playerId}/state`, {
         method: 'GET',
     });
+}
+/**
+ * 处理fetchGM玩家详情。
+ */
+async function fetchGmPlayerDetail(token, playerId) {
+/**
+ * 记录payload。
+ */
+    const payload = await authedGetJson(`/api/gm/players/${playerId}`, token);
+    return assertGmPlayerDetailShape(payload, `/api/gm/players/${playerId}`);
 }
 /**
  * 处理fetch玩家地块详情。
@@ -1230,6 +1565,27 @@ async function waitForMailPage(playerId, predicate, timeoutMs, label) {
             return false;
         }
         resolved = page;
+        return true;
+    }, timeoutMs, label);
+    return resolved;
+}
+/**
+ * 轮询 GM 玩家详情直到满足指定断言。
+ */
+async function waitForGmPlayerDetail(token, playerId, predicate, timeoutMs, label) {
+/**
+ * 记录resolved。
+ */
+    let resolved = null;
+    await waitFor(async () => {
+/**
+ * 记录payload。
+ */
+        const payload = await fetchGmPlayerDetail(token, playerId);
+        if (!(await predicate(payload))) {
+            return false;
+        }
+        resolved = payload;
         return true;
     }, timeoutMs, label);
     return resolved;
@@ -1555,8 +1911,124 @@ async function waitForSocketGmState(gmStateEvents, socketError, playerId, expect
  * 断言GM状态shape。
  */
 function assertGmStateShape(payload, label) {
-    if (!Array.isArray(payload?.players) || !Array.isArray(payload?.mapIds)) {
+    if (!Array.isArray(payload?.players)
+        || !Array.isArray(payload?.mapIds)
+        || !Number.isFinite(payload?.botCount)
+        || !Number.isFinite(payload?.playerPage?.page)
+        || !Number.isFinite(payload?.playerPage?.pageSize)
+        || !Number.isFinite(payload?.playerPage?.total)
+        || !Number.isFinite(payload?.playerPage?.totalPages)
+        || typeof payload?.playerPage?.keyword !== 'string'
+        || typeof payload?.playerPage?.sort !== 'string'
+        || !Number.isFinite(payload?.playerStats?.totalPlayers)
+        || !Number.isFinite(payload?.playerStats?.onlinePlayers)
+        || !Number.isFinite(payload?.playerStats?.offlineHangingPlayers)
+        || !Number.isFinite(payload?.playerStats?.offlinePlayers)
+        || typeof payload?.perf !== 'object'
+        || payload?.perf === null) {
         throw new Error(`unexpected ${label} payload: ${JSON.stringify(payload)}`);
+    }
+}
+/**
+ * 断言 GM 性能热点数据不为空。
+ */
+function assertGmPerfHotspots(payload, label) {
+    if (!Array.isArray(payload?.perf?.cpu?.breakdown) || payload.perf.cpu.breakdown.length <= 0) {
+        throw new Error(`unexpected ${label} cpu breakdown payload: ${JSON.stringify(payload?.perf?.cpu)}`);
+    }
+    if (!Array.isArray(payload?.perf?.networkInBuckets) || payload.perf.networkInBuckets.length <= 0) {
+        throw new Error(`unexpected ${label} network in buckets payload: ${JSON.stringify(payload?.perf)}`);
+    }
+    if (!Array.isArray(payload?.perf?.networkOutBuckets) || payload.perf.networkOutBuckets.length <= 0) {
+        throw new Error(`unexpected ${label} network out buckets payload: ${JSON.stringify(payload?.perf)}`);
+    }
+}
+/**
+ * 断言 GM 玩家详情结构。
+ */
+function assertGmPlayerDetailShape(payload, label) {
+    if (typeof payload?.player?.id !== 'string'
+        || !payload.player.id.trim()
+        || typeof payload?.player?.snapshot !== 'object'
+        || payload.player.snapshot === null
+        || typeof payload?.player?.name !== 'string'
+        || typeof payload?.player?.roleName !== 'string') {
+        throw new Error(`unexpected ${label} payload: ${JSON.stringify(payload)}`);
+    }
+    return payload;
+}
+/**
+ * 断言 GM 快捷执行结果结构。
+ */
+function assertGmShortcutRunRes(payload, label) {
+    if (payload?.ok !== true
+        || !Number.isFinite(payload?.totalPlayers)
+        || !Number.isFinite(payload?.queuedRuntimePlayers)
+        || !Number.isFinite(payload?.updatedOfflinePlayers)) {
+        throw new Error(`unexpected ${label} payload: ${JSON.stringify(payload)}`);
+    }
+    if (payload.totalPlayers !== payload.queuedRuntimePlayers + payload.updatedOfflinePlayers) {
+        throw new Error(`unexpected ${label} player totals: ${JSON.stringify(payload)}`);
+    }
+    return payload;
+}
+/**
+ * 读取非负整数。
+ */
+function getNonNegativeInt(value) {
+    return Math.max(0, Math.trunc(Number(value) || 0));
+}
+/**
+ * 读取炼体等级。
+ */
+function getBodyTrainingLevel(snapshot) {
+    return getNonNegativeInt(snapshot?.bodyTraining?.level);
+}
+/**
+ * 计算当前玩家预期战斗经验补偿。
+ */
+function getExpectedCombatExpCompensation(player) {
+    return getNonNegativeInt(player?.realm?.progressToNext) + getNonNegativeInt(shared_1.normalizeBodyTrainingState(player?.bodyTraining).expToNext);
+}
+/**
+ * 计算当前玩家预期底蕴补偿。
+ */
+function getExpectedFoundationCompensation(player) {
+    return getNonNegativeInt(player?.realm?.progressToNext) * 5;
+}
+/**
+ * 校验 GM 状态查询参数确实被服务端消费，而不是只回默认列表。
+ */
+function assertGmStateQueryContract(payload, expected) {
+    if (payload?.playerPage?.pageSize !== expected.pageSize) {
+        throw new Error(`unexpected gm state pageSize: ${JSON.stringify(payload?.playerPage ?? null)}`);
+    }
+    if (payload?.playerPage?.sort !== expected.sort) {
+        throw new Error(`unexpected gm state sort: ${JSON.stringify(payload?.playerPage ?? null)}`);
+    }
+    if (payload?.playerPage?.keyword !== expected.keyword) {
+        throw new Error(`unexpected gm state keyword: ${JSON.stringify(payload?.playerPage ?? null)}`);
+    }
+    if (!Array.isArray(payload?.players) || payload.players.length === 0) {
+        throw new Error(`gm state query unexpectedly empty: ${JSON.stringify(payload)}`);
+    }
+    if (payload.players.length > expected.pageSize) {
+        throw new Error(`gm state query exceeded pageSize: ${JSON.stringify({ length: payload.players.length, pageSize: expected.pageSize })}`);
+    }
+    if (!payload.players.some((entry) => entry?.id === expected.expectedPlayerId)) {
+        throw new Error(`gm state query missing expected player ${expected.expectedPlayerId}: ${JSON.stringify(payload.players)}`);
+    }
+    if (!payload.players.every((entry) => typeof entry?.accountName === 'string' && entry.accountName.toLowerCase().includes(expected.keyword.toLowerCase()))) {
+        throw new Error(`gm state keyword filter did not constrain accountName as expected: ${JSON.stringify(payload.players)}`);
+    }
+    for (let index = 1; index < payload.players.length; index += 1) {
+        const previous = payload.players[index - 1];
+        const current = payload.players[index];
+        const previousName = typeof previous?.roleName === 'string' ? previous.roleName : '';
+        const currentName = typeof current?.roleName === 'string' ? current.roleName : '';
+        if (previousName.localeCompare(currentName, 'zh-Hans-CN') > 0) {
+            throw new Error(`gm state name sort is not ascending: ${JSON.stringify(payload.players.map((entry) => entry?.roleName ?? null))}`);
+        }
     }
 }
 /**

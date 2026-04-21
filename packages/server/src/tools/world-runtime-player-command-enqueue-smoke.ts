@@ -190,10 +190,54 @@ function testStartEnhancementClonesNestedPayload() {
     });
 }
 
+/**
+ * testTechniqueActivityGenericQueueHelpers：验证通用技艺活动入队 helper。
+ * @returns 无返回值，直接更新通用技艺活动入队 helper 相关状态。
+ */
+
+function testTechniqueActivityGenericQueueHelpers() {
+    const log = [];
+    const service = createService();
+    const deps = createDeps(log);
+    const startResult = service.enqueueStartTechniqueActivity('player:1', 'alchemy', { recipeId: 'recipe:generic' }, deps);
+    const cancelResult = service.enqueueCancelTechniqueActivity('player:1', 'enhancement', deps);
+    const gatherStartResult = service.enqueueStartTechniqueActivity('player:1', 'gather', { sourceId: 'container:inst:herb', itemKey: 'item:herb' }, deps);
+    const gatherCancelResult = service.enqueueCancelTechniqueActivity('player:1', 'gather', deps);
+    assert.deepEqual(startResult, { playerId: 'player:1', tick: 9 });
+    assert.deepEqual(cancelResult, { playerId: 'player:1', tick: 9 });
+    assert.deepEqual(gatherStartResult, { playerId: 'player:1', tick: 9 });
+    assert.deepEqual(gatherCancelResult, { playerId: 'player:1', tick: 9 });
+    assert.deepEqual(log, [
+        ['getPlayerLocationOrThrow', 'player:1'],
+        ['enqueuePendingCommand', 'player:1', {
+            kind: 'startAlchemy',
+            payload: { recipeId: 'recipe:generic' },
+        }],
+        ['getPlayerViewOrThrow', 'player:1'],
+        ['getPlayerLocationOrThrow', 'player:1'],
+        ['enqueuePendingCommand', 'player:1', {
+            kind: 'cancelEnhancement',
+        }],
+        ['getPlayerViewOrThrow', 'player:1'],
+        ['getPlayerLocationOrThrow', 'player:1'],
+        ['enqueuePendingCommand', 'player:1', {
+            kind: 'startGather',
+            payload: { sourceId: 'container:inst:herb', itemKey: 'item:herb' },
+        }],
+        ['getPlayerViewOrThrow', 'player:1'],
+        ['getPlayerLocationOrThrow', 'player:1'],
+        ['enqueuePendingCommand', 'player:1', {
+            kind: 'cancelGather',
+        }],
+        ['getPlayerViewOrThrow', 'player:1'],
+    ]);
+}
+
 testBasicAttackQueue();
 testStartAlchemyClonesIngredients();
 testCastSkillRequiresKnownAction();
 testHeavenGateActionNormalizesElement();
 testStartEnhancementClonesNestedPayload();
+testTechniqueActivityGenericQueueHelpers();
 
 console.log(JSON.stringify({ ok: true, case: 'world-runtime-player-command-enqueue' }, null, 2));

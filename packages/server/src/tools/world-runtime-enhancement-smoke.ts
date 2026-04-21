@@ -81,11 +81,33 @@ function testStartEnhancement() {
 
         startEnhancement() { return { ok: true, messages: [{ text: '强化开始', kind: 'success' }], panelChanged: true, groundDrops: [] }; },        
         /**
+ * startTechniqueActivity：统一技艺活动开始入口。
+ * @returns 无返回值，直接更新技艺活动开始相关状态。
+ */
+
+        startTechniqueActivity(_player, kind) {
+            if (kind !== 'enhancement') {
+                throw new Error(`unexpected technique activity kind: ${kind}`);
+            }
+            return this.startEnhancement();
+        },        
+        /**
  * buildEnhancementPanelPayload：构建并返回目标对象。
  * @returns 无返回值，直接更新强化面板载荷相关状态。
  */
 
         buildEnhancementPanelPayload() { return { ok: true }; },
+        /**
+ * buildTechniqueActivityPanelPayload：统一技艺面板载荷入口。
+ * @returns 无返回值，直接更新技艺面板载荷相关状态。
+ */
+
+        buildTechniqueActivityPanelPayload(_player, kind) {
+            if (kind !== 'enhancement') {
+                throw new Error(`unexpected technique activity kind: ${kind}`);
+            }
+            return this.buildEnhancementPanelPayload();
+        },
     };
     const craftMutationService = new WorldRuntimeCraftMutationService(playerRuntimeService, craftPanelRuntimeService, {    
     /**
@@ -152,11 +174,33 @@ function testCancelEnhancement() {
 
         cancelEnhancement() { return { ok: true, messages: [{ text: '强化取消', kind: 'info' }], panelChanged: false, groundDrops: [] }; },        
         /**
+ * cancelTechniqueActivity：统一技艺活动取消入口。
+ * @returns 无返回值，直接更新技艺活动取消相关状态。
+ */
+
+        cancelTechniqueActivity(_player, kind) {
+            if (kind !== 'enhancement') {
+                throw new Error(`unexpected technique activity kind: ${kind}`);
+            }
+            return this.cancelEnhancement();
+        },        
+        /**
  * buildEnhancementPanelPayload：构建并返回目标对象。
  * @returns 无返回值，直接更新强化面板载荷相关状态。
  */
 
         buildEnhancementPanelPayload() { return { ok: true }; },
+        /**
+ * buildTechniqueActivityPanelPayload：统一技艺面板载荷入口。
+ * @returns 无返回值，直接更新技艺面板载荷相关状态。
+ */
+
+        buildTechniqueActivityPanelPayload(_player, kind) {
+            if (kind !== 'enhancement') {
+                throw new Error(`unexpected technique activity kind: ${kind}`);
+            }
+            return this.buildEnhancementPanelPayload();
+        },
     };
     const craftMutationService = new WorldRuntimeCraftMutationService(playerRuntimeService, craftPanelRuntimeService, {    
     /**
@@ -193,7 +237,7 @@ function testCancelEnhancement() {
 function testWorldRuntimeFacadeDispatchStartEnhancement() {
     const log = [];
     const runtime = {
-        worldRuntimeEnhancementService: {        
+        worldRuntimeGameplayWriteFacadeService: {        
         /**
  * dispatchStartEnhancement：判断开始强化是否满足条件。
  * @param playerId 玩家 ID。
@@ -221,7 +265,7 @@ function testWorldRuntimeFacadeDispatchStartEnhancement() {
 function testWorldRuntimeFacadeDispatchCancelEnhancement() {
     const log = [];
     const runtime = {
-        worldRuntimeEnhancementService: {        
+        worldRuntimeGameplayWriteFacadeService: {        
         /**
  * dispatchCancelEnhancement：判断Cancel强化是否满足条件。
  * @param playerId 玩家 ID。

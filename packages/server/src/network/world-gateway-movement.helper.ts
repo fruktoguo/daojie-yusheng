@@ -52,7 +52,7 @@ class WorldGatewayMovementHelper {
             },
         });
         try {
-            this.gateway.worldRuntimeService.enqueueMoveTo(playerId, payload?.x, payload?.y, payload?.allowNearestReachable, payload?.packedPath, payload?.packedPathSteps, payload?.pathStartX, payload?.pathStartY);
+            this.gateway.worldRuntimeService.worldRuntimeCommandIntakeFacadeService.enqueueMoveTo(playerId, payload?.x, payload?.y, payload?.allowNearestReachable, payload?.packedPath, payload?.packedPathSteps, payload?.pathStartX, payload?.pathStartY, this.gateway.worldRuntimeService);
         }
         catch (error) {
             this.gateway.worldClientEventService.emitGatewayError(client, 'MOVE_TO_FAILED', error);
@@ -84,7 +84,7 @@ class WorldGatewayMovementHelper {
             return;
         }
         try {
-            this.gateway.worldRuntimeService.navigateQuest(playerId, questId);
+            this.gateway.worldRuntimeService.worldRuntimeCommandIntakeFacadeService.navigateQuest(playerId, questId, this.gateway.worldRuntimeService);
             this.gateway.worldClientEventService.emitQuestNavigateResult(client, questId, true);
         }
         catch (error) {
@@ -112,7 +112,7 @@ class WorldGatewayMovementHelper {
             direction: payload?.d ?? null,
         });
         try {
-            this.gateway.worldRuntimeService.enqueueMove(playerId, payload?.d);
+            this.gateway.worldRuntimeService.worldRuntimeCommandIntakeFacadeService.enqueueMove(playerId, payload?.d, this.gateway.worldRuntimeService);
         }
         catch (error) {
             this.gateway.worldClientEventService.emitGatewayError(client, 'MOVE_FAILED', error);

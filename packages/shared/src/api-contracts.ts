@@ -17,7 +17,7 @@ import type {
 import type { QuestLine, QuestObjectiveType } from './quest-types';
 import type { Suggestion } from './world-view-types';
 import type { TechniqueCategory, TechniqueGrade, TechniqueLayerDef } from './cultivation-types';
-import type { ConsumableBuffDef, EquipmentEffectDef, EquipSlot, ItemStack, ItemType } from './item-runtime-types';
+import type { ConsumableBuffDef, EquipmentEffectDef, EquipSlot, ItemStack, ItemType, TileResourceGainDef } from './item-runtime-types';
 import type { PlayerState } from './player-runtime-types';
 import type { SkillDef, TemporaryBuffState } from './skill-types';
 import type { GameTimeState, MapRouteDomain, MapTimeConfig, MonsterAggroMode, MonsterTier, PortalRouteDomain, VisibleTile } from './world-core-types';
@@ -1214,6 +1214,11 @@ export interface GmEditorItemOption {
 
   tileAuraGainAmount?: number;  
   /**
+ * tileResourceGains：集合字段。
+ */
+
+  tileResourceGains?: TileResourceGainDef[];
+  /**
  * allowBatchUse：allowBatchUse相关字段。
  */
 
@@ -1670,6 +1675,11 @@ export interface GmMapContainerLootPoolRecord {
 /** GM 地图容器记录。 */
 export interface GmMapContainerRecord {
 /**
+ * variant：来源附加变体标识。
+ */
+
+  variant?: 'herb';
+/**
  * grade：grade相关字段。
  */
 
@@ -1679,6 +1689,16 @@ export interface GmMapContainerRecord {
  */
 
   refreshTicks?: number;  
+  /**
+ * refreshTicksMin：刷新最小 tick。
+ */
+
+  refreshTicksMin?: number;
+  /**
+ * refreshTicksMax：刷新最大 tick。
+ */
+
+  refreshTicksMax?: number;
   /**
  * char：char相关字段。
  */
@@ -2532,45 +2552,14 @@ export interface GmResetPerfRes {
  * ok：ok相关字段。
  */
 
-  ok: true;  
-  /**
- * scope：scope相关字段。
- */
-
-  scope: 'network' | 'cpu' | 'pathfinding';
+  ok: true;
 }
 
-/** GM 广播邮件请求。 */
-export interface GmBroadcastMailReq {
-/**
- * title：title名称或显示文本。
- */
-
-  title: string;  
-  /**
- * content：内容相关字段。
- */
-
-  content: string;  
-  /**
- * templateArgs：templateArg相关字段。
- */
-
-  templateArgs?: MailTemplateArg[];  
-  /**
- * attachments：attachment相关字段。
- */
-
-  attachments?: MailAttachment[];  
-  /**
- * expireAt：expireAt相关字段。
- */
-
-  expireAt?: string;
-}
+/** GM 广播邮件请求，当前与通用邮件内容请求保持一致。 */
+export interface GmBroadcastMailReq extends GmCreateMailReq {}
 
 /** GM 给单个玩家发邮件请求。 */
-export interface GmSendPlayerMailReq extends GmBroadcastMailReq {
+export interface GmSendPlayerMailReq extends GmCreateMailReq {
 /**
  * playerId：玩家ID标识。
  */
@@ -2578,16 +2567,43 @@ export interface GmSendPlayerMailReq extends GmBroadcastMailReq {
   playerId: string;
 }
 
-/** GM 发邮件响应。 */
-export interface GmSendMailRes {
+/** GM 给单个玩家发邮件响应。 */
+export interface GmSendPlayerMailRes {
 /**
  * ok：ok相关字段。
  */
 
   ok: true;  
   /**
- * mailIds：邮件ID相关字段。
+ * mailId：邮件ID相关字段。
  */
 
-  mailIds: string[];
+  mailId: string;
 }
+
+/** GM 广播邮件响应。 */
+export interface GmBroadcastMailRes {
+/**
+ * ok：ok相关字段。
+ */
+
+  ok: true;  
+  /**
+ * mailId：邮件ID相关字段。
+ */
+
+  mailId: string;  
+  /**
+ * batchId：batchID标识。
+ */
+
+  batchId: string;  
+  /**
+ * recipientCount：数量或计量字段。
+ */
+
+  recipientCount: number;
+}
+
+/** GM 发邮件响应。 */
+export type GmSendMailRes = GmSendPlayerMailRes | GmBroadcastMailRes;

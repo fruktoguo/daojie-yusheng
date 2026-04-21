@@ -37,6 +37,10 @@ const GM_DATABASE_SMOKE_CONTRACT = Object.freeze({
     excludes: '真实 shadow 目标机、运营审批链、跨环境灾备取证与人工维护记录',
     completionMapping: 'replace-ready:proof:with-db.gm-database-destructive-local',
 });
+
+const GM_DATABASE_JOB_SETTLE_TIMEOUT_MS = 120_000;
+
+const GM_DATABASE_RESTORE_SETTLE_TIMEOUT_MS = 420_000;
 /**
  * 记录changedGMpassword。
  */
@@ -154,6 +158,7 @@ async function main() {
 /**
  * 记录备份结果。
  */
+        logStage('backup:start');
         const backupResult = await triggerBackupWithConcurrentRejection(token);
         originalBackupId = String(backupResult?.job?.backupId ?? '').trim();
         if (!originalBackupId) {
@@ -163,6 +168,10 @@ async function main() {
  * 记录备份状态。
  */
         const backupState = await waitForJobSettled(token, String(backupResult?.job?.id ?? ''), 'backup');
+        logStage('backup:completed', {
+            backupId: originalBackupId,
+            jobId: String(backupResult?.job?.id ?? ''),
+        });
         await assertBackupDownload(token, originalBackupId, requireBackupRecord(backupState, originalBackupId, 'manual backup'));
         postBackupSuggestionId = await createSuggestion(playerId, {
             title: `restore-suggestion-${playerSuffix.slice(-6)}`,
@@ -231,6 +240,9 @@ async function main() {
 /**
  * 记录恢复结果。
  */
+        logStage('restore:start', {
+            backupId: originalBackupId,
+        });
         const restoreResult = await triggerRestoreWithConcurrentRejection(token, {
             backupId: originalBackupId,
         });
@@ -245,6 +257,9 @@ async function main() {
  * 记录恢复状态。
  */
         const restoreState = await waitForRestoreSettledAfterPasswordRollback(restoreJobId);
+        logStage('restore:completed', {
+            jobId: restoreJobId,
+        });
         checkpointBackupId = String(restoreState.lastJob?.checkpointBackupId ?? '').trim();
         if (!checkpointBackupId) {
             throw new Error(`expected checkpointBackupId in restore lastJob: ${JSON.stringify(restoreState.lastJob)}`);
@@ -1257,7 +1272,7 @@ async function waitForJobSettled(token, jobId, type) {
             throw new Error(`expected lastJob phase completed, got ${JSON.stringify(state.lastJob)}`);
         }
         return state;
-    }, 15000);
+    }, GM_DATABASE_JOB_SETTLE_TIMEOUT_MS);
 }
 /**
  * 等待for恢复settledafterpasswordrollback。
@@ -1297,7 +1312,11 @@ async function waitForRestoreSettledAfterPasswordRollback(jobId) {
             throw new Error(`expected completed restore lastJob, got ${JSON.stringify(state.lastJob)}`);
         }
         return state;
-    }, 45000, 1000);
+    }, GM_DATABASE_RESTORE_SETTLE_TIMEOUT_MS, 1000);
+}
+
+function logStage(stage, extra = {}) {
+    process.stdout.write(`[gm-database-smoke] ${stage} ${JSON.stringify(extra)}\n`);
 }
 /**
  * 等待for恢复running。

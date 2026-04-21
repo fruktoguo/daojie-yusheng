@@ -15,8 +15,9 @@ const ENTRY_TIMEOUT_OVERRIDES_MS = new Map([
     ['next-auth-bootstrap-smoke.js', 45_000],
     ['gm-next-smoke.js', 45_000],
     ['persistence-smoke.js', 45_000],
-    ['gm-database-smoke.js', 45_000],
-    ['shadow-gm-database-proof.js', 45_000],
+    ['gm-database-smoke.js', 420_000],
+    ['gm-database-backup-persistence-smoke.js', 60_000],
+    ['shadow-gm-database-proof.js', 240_000],
 ]);
 /**
  * 解析是否关闭统一烟测超时。

@@ -101,21 +101,11 @@ function buildLocalItemStack(itemId: string, count = 1): ItemStack | null {
   if (!template) {
     return null;
   }
+  const normalizedCount = normalizeCount(count);
   return {
-    itemId: template.itemId,
-    name: template.name,
-    type: template.type,
-    count: normalizeCount(count),
+    ...template,
+    count: normalizedCount,
     desc: template.desc ?? '',
-    groundLabel: template.groundLabel,
-    grade: template.grade,
-    level: template.level,
-    equipSlot: template.equipSlot,
-    equipAttrs: template.equipAttrs,
-    equipStats: template.equipStats,
-    equipValueStats: template.equipValueStats,
-    effects: template.effects,
-    tags: template.tags,
   };
 }
 
@@ -323,4 +313,3 @@ export function bindInlineItemTooltips(root: HTMLElement): void {
     }
   });
 }
-

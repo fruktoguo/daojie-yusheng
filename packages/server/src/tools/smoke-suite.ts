@@ -56,14 +56,19 @@ const net = __importStar(require("node:net"));
  */
 const path = __importStar(require("node:path"));
 const env_alias_1 = require("../config/env-alias");
+const stable_dist_1 = require("./stable-dist");
 /**
  * 记录包根目录。
  */
-const packageRoot = path.resolve(__dirname, '..', '..');
+const packageRoot = (0, stable_dist_1.resolveToolPackageRoot)(__dirname);
 /**
  * 记录构建产物目录。
  */
-const distRoot = path.join(packageRoot, 'dist');
+const distRoot = (0, stable_dist_1.resolveToolDistRoot)(__dirname, packageRoot);
+/**
+ * 记录仓库根目录。
+ */
+const repoRoot = path.resolve(packageRoot, '..', '..');
 /**
  * 记录服务端入口文件路径。
  */
@@ -279,7 +284,7 @@ async function startServer(port, extraEnv = {}) {
  * 记录子进程。
  */
     const child = (0, node_child_process_1.spawn)('node', [serverEntry], {
-        cwd: packageRoot,
+        cwd: repoRoot,
         env: {
             ...process.env,
             ...extraEnv,
@@ -345,7 +350,7 @@ async function runNodeScript(scriptPath, extraEnv) {
  * 记录子进程。
  */
         const child = (0, node_child_process_1.spawn)('node', [scriptPath], {
-            cwd: packageRoot,
+            cwd: repoRoot,
             env: {
                 ...process.env,
                 ...extraEnv,

@@ -26,6 +26,7 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.WorldRuntimePlayerCommandEnqueueService = void 0;
 
 const common_1 = require("@nestjs/common");
+const technique_activity_registry_helpers_1 = require("../craft/technique-activity-registry.helpers");
 const player_runtime_service_1 = require("../player/player-runtime.service");
 const world_runtime_normalization_helpers_1 = require("./world-runtime.normalization.helpers");
 
@@ -226,10 +227,7 @@ let WorldRuntimePlayerCommandEnqueueService = class WorldRuntimePlayerCommandEnq
  */
 
     enqueueStartAlchemy(playerId, payload, deps) {
-        return this.enqueueNormalizedPlayerCommand(playerId, {
-            kind: 'startAlchemy',
-            payload: this.cloneAlchemyPayload(payload),
-        }, deps);
+        return this.enqueueStartTechniqueActivity(playerId, 'alchemy', this.cloneAlchemyPayload(payload), deps);
     }    
     /**
  * enqueueCancelAlchemy：判断Cancel炼丹是否满足条件。
@@ -239,7 +237,7 @@ let WorldRuntimePlayerCommandEnqueueService = class WorldRuntimePlayerCommandEnq
  */
 
     enqueueCancelAlchemy(playerId, deps) {
-        return this.enqueueNormalizedPlayerCommand(playerId, { kind: 'cancelAlchemy' }, deps);
+        return this.enqueueCancelTechniqueActivity(playerId, 'alchemy', deps);
     }    
     /**
  * enqueueSaveAlchemyPreset：处理Save炼丹Preset并更新相关状态。
@@ -278,10 +276,7 @@ let WorldRuntimePlayerCommandEnqueueService = class WorldRuntimePlayerCommandEnq
  */
 
     enqueueStartEnhancement(playerId, payload, deps) {
-        return this.enqueueNormalizedPlayerCommand(playerId, {
-            kind: 'startEnhancement',
-            payload: this.cloneEnhancementPayload(payload),
-        }, deps);
+        return this.enqueueStartTechniqueActivity(playerId, 'enhancement', this.cloneEnhancementPayload(payload), deps);
     }    
     /**
  * enqueueCancelEnhancement：判断Cancel强化是否满足条件。
@@ -291,7 +286,38 @@ let WorldRuntimePlayerCommandEnqueueService = class WorldRuntimePlayerCommandEnq
  */
 
     enqueueCancelEnhancement(playerId, deps) {
-        return this.enqueueNormalizedPlayerCommand(playerId, { kind: 'cancelEnhancement' }, deps);
+        return this.enqueueCancelTechniqueActivity(playerId, 'enhancement', deps);
+    }    
+    /**
+ * enqueueStartTechniqueActivity：统一技艺活动开始入队。
+ * @param playerId 玩家 ID。
+ * @param kind 参数说明。
+ * @param payload 载荷参数。
+ * @param deps 运行时依赖。
+ * @returns 无返回值，直接更新技艺活动开始入队相关状态。
+ */
+
+    enqueueStartTechniqueActivity(playerId, kind, payload, deps) {
+        return this.enqueueNormalizedPlayerCommand(
+            playerId,
+            (0, technique_activity_registry_helpers_1.buildTechniqueActivityStartCommand)(kind, payload),
+            deps,
+        );
+    }    
+    /**
+ * enqueueCancelTechniqueActivity：统一技艺活动取消入队。
+ * @param playerId 玩家 ID。
+ * @param kind 参数说明。
+ * @param deps 运行时依赖。
+ * @returns 无返回值，直接更新技艺活动取消入队相关状态。
+ */
+
+    enqueueCancelTechniqueActivity(playerId, kind, deps) {
+        return this.enqueueNormalizedPlayerCommand(
+            playerId,
+            (0, technique_activity_registry_helpers_1.buildTechniqueActivityCancelCommand)(kind),
+            deps,
+        );
     }    
     /**
  * enqueueRedeemCodes：处理RedeemCode并更新相关状态。

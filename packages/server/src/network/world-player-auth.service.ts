@@ -3,7 +3,6 @@ import { Inject, Injectable, Logger } from '@nestjs/common';
 import { PlayerIdentityPersistenceService } from '../persistence/player-identity-persistence.service';
 import { type ValidatedPlayerTokenPayload } from './world-player-token-codec.service';
 import { recordAuthTrace, WorldPlayerTokenService } from './world-player-token.service';
-import { WorldPlayerSourceService } from './world-player-source.service';
 
 const LEGACY_DATABASE_ENV_KEYS = [
   'SERVER_NEXT_DATABASE_URL',
@@ -166,14 +165,6 @@ interface PlayerIdentityPersistencePort {
   }): Promise<PlayerIdentityLike | null>;
 }
 /**
- * WorldPlayerSourcePort：定义接口结构约束，明确可交付字段含义。
- */
-
-
-interface WorldPlayerSourcePort {
-  loadNextPlayerIdentity?(userId: string): Promise<PlayerIdentityLike | null>;
-}
-/**
  * hasLegacyDatabaseConfigured：判断LegacyDatabaseConfigured是否满足条件。
  * @returns 返回是否满足LegacyDatabaseConfigured条件。
  */
@@ -303,7 +294,6 @@ export class WorldPlayerAuthService {
  * 构造器：初始化 当前 实例并建立基础状态。
  * @param worldPlayerTokenService WorldPlayerTokenService 参数说明。
  * @param playerIdentityPersistenceService PlayerIdentityPersistencePort 参数说明。
- * @param worldPlayerSourceService WorldPlayerSourcePort 参数说明。
  * @returns 无返回值，完成实例初始化。
  */
 
@@ -314,19 +304,11 @@ export class WorldPlayerAuthService {
     /** 玩家身份持久化入口。 */
     @Inject(PlayerIdentityPersistenceService)
     private readonly playerIdentityPersistenceService: PlayerIdentityPersistencePort,
-    /** 玩家源服务，负责读取 next 真源。 */
-    @Inject(WorldPlayerSourceService)
-    private readonly worldPlayerSourceService: WorldPlayerSourcePort,
   ) {}
 
   /** 加载 next 玩家身份，优先走 next 持久化来源。 */
   async loadNextPlayerIdentity(userId: string): Promise<PlayerIdentityLike | null> {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
-
-    if (typeof this.worldPlayerSourceService?.loadNextPlayerIdentity === 'function') {
-      return this.worldPlayerSourceService.loadNextPlayerIdentity(userId);
-    }
-
     return this.playerIdentityPersistenceService.loadPlayerIdentity(userId);
   }  
   /**

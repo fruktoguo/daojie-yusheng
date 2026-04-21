@@ -1,6 +1,7 @@
 import { NEXT_S2C_Leaderboard, NEXT_S2C_LeaderboardPlayerLocations, NEXT_S2C_WorldSummary } from '@mud/shared-next';
 import type { SocketPanelSender } from './network/socket-send-panel';
 import { detailModalHost } from './ui/detail-modal-host';
+import { preserveSelection } from './ui/selection-preserver';
 import { WorldPanel } from './ui/panels/world-panel';
 import { formatDisplayInteger } from './utils/number';
 /**
@@ -24,6 +25,20 @@ type MainWorldSummaryStateSourceOptions = {
 const LEADERBOARD_MODAL_OWNER = 'world:leaderboard';
 const WORLD_SUMMARY_MODAL_OWNER = 'world:summary';
 const LEADERBOARD_PLAYER_LOCATION_REFRESH_INTERVAL_MS = 10_000;
+const LEADERBOARD_PLAYER_LOCATION_EVENT = 'mud:leaderboard-player-locations';
+
+type LeaderboardTab = 'realm' | 'monsterKills' | 'spiritStones' | 'playerKills' | 'deaths' | 'bodyTraining' | 'supremeAttrs';
+
+const LEADERBOARD_LIMIT = 10;
+const LEADERBOARD_TAB_LABELS: Record<LeaderboardTab, string> = {
+  realm: '境界',
+  monsterKills: '斩妖',
+  spiritStones: '灵石',
+  playerKills: '杀伐',
+  deaths: '身陨',
+  bodyTraining: '炼体',
+  supremeAttrs: '四维最强',
+};
 /**
  * cloneJson：构建Json。
  * @param value T 参数说明。
@@ -60,24 +75,14 @@ function formatLeaderboardGeneratedAt(timestamp: number): string {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
   if (!Number.isFinite(timestamp) || timestamp <= 0) {
-    return '刚刚更新';
+    return '调卷中';
   }
-  return new Date(timestamp).toLocaleString('zh-CN', { hour12: false });
-}
-/**
- * renderLeaderboardRows：执行LeaderboardRow相关逻辑。
- * @param rows string[] 参数说明。
- * @returns 返回LeaderboardRow。
- */
-
-
-function renderLeaderboardRows(rows: string[]): string {
-  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
-
-  if (rows.length === 0) {
-    return '<div class="empty-hint ui-empty-hint">暂无数据</div>';
-  }
-  return `<div class="observe-entity-list">${rows.join('')}</div>`;
+  const date = new Date(timestamp);
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const day = String(date.getDate()).padStart(2, '0');
+  const hour = String(date.getHours()).padStart(2, '0');
+  const minute = String(date.getMinutes()).padStart(2, '0');
+  return `${month}-${day} ${hour}:${minute}`;
 }
 /**
  * MainWorldSummaryStateSource：统一结构类型，保证协议与运行时一致性。
@@ -97,6 +102,17 @@ export function createMainWorldSummaryStateSource(options: MainWorldSummaryState
   let latestWorldSummary: NEXT_S2C_WorldSummary | null = null;  
   let leaderboardPlayerLocationById = new Map<string, NEXT_S2C_LeaderboardPlayerLocations['entries'][number]>();
   let leaderboardLocationTimer: number | null = null;
+  let activeLeaderboardTab: LeaderboardTab = 'realm';
+  let leaderboardLoading = false;
+  let worldSummaryLoading = false;
+
+  function emitLeaderboardPlayerLocations(): void {
+    window.dispatchEvent(new CustomEvent(LEADERBOARD_PLAYER_LOCATION_EVENT, {
+      detail: {
+        entries: [...leaderboardPlayerLocationById.values()].map((entry) => cloneJson(entry)),
+      },
+    }));
+  }
   /**
  * renderLeaderboardModal：执行Leaderboard弹层相关逻辑。
  * @returns 无返回值，直接更新Leaderboard弹层相关状态。
@@ -105,68 +121,24 @@ export function createMainWorldSummaryStateSource(options: MainWorldSummaryState
 
   function renderLeaderboardModal(): void {
     const data = latestLeaderboard;
-    const bodyHtml = !data
-      ? '<div class="empty-hint ui-empty-hint">正在读取天下榜……</div>'
-      : `
-        <div class="panel-section">
-          <div class="panel-section-title">境界榜</div>
-          ${renderLeaderboardRows(data.boards.realm.map((entry) => `
-            <div class="observe-modal-row">
-              <span class="observe-modal-label">#${entry.rank} ${escapeHtml(entry.playerName)}</span>
-              <span class="observe-modal-value">${escapeHtml(entry.realmName)} · 根基 ${formatDisplayInteger(entry.foundation)}</span>
-            </div>
-          `))}
-        </div>
-        <div class="panel-section">
-          <div class="panel-section-title">灵石榜</div>
-          ${renderLeaderboardRows(data.boards.spiritStones.map((entry) => `
-            <div class="observe-modal-row">
-              <span class="observe-modal-label">#${entry.rank} ${escapeHtml(entry.playerName)}</span>
-              <span class="observe-modal-value">${formatDisplayInteger(entry.spiritStoneCount)}</span>
-            </div>
-          `))}
-        </div>
-        <div class="panel-section">
-          <div class="panel-section-title">锻体榜</div>
-          ${renderLeaderboardRows(data.boards.bodyTraining.map((entry) => `
-            <div class="observe-modal-row">
-              <span class="observe-modal-label">#${entry.rank} ${escapeHtml(entry.playerName)}</span>
-              <span class="observe-modal-value">LV ${formatDisplayInteger(entry.level)} · ${formatDisplayInteger(entry.exp)}/${formatDisplayInteger(entry.expToNext)}</span>
-            </div>
-          `))}
-        </div>
-        <div class="panel-section">
-          <div class="panel-section-title">玩家击杀榜</div>
-          ${renderLeaderboardRows(data.boards.playerKills.map((entry) => `
-            <div class="observe-modal-row observe-modal-row--stack">
-              <span class="observe-modal-label">#${entry.rank} ${escapeHtml(entry.playerName)}</span>
-              <span class="observe-modal-value">击杀玩家 ${formatDisplayInteger(entry.playerKillCount)}</span>
-              <span class="observe-modal-subvalue" data-leaderboard-player-location="${escapeHtml(entry.playerId)}">${escapeHtml(formatLeaderboardPlayerLocation(entry.playerId))}</span>
-            </div>
-          `))}
-        </div>
-        <div class="panel-section">
-          <div class="panel-section-title">至尊属性</div>
-          ${renderLeaderboardRows(data.boards.supremeAttrs.map((entry) => `
-            <div class="observe-modal-row">
-              <span class="observe-modal-label">${escapeHtml(entry.label)} · ${escapeHtml(entry.playerName)}</span>
-              <span class="observe-modal-value">${formatDisplayInteger(entry.value)}</span>
-            </div>
-          `))}
-        </div>
-      `;
-    detailModalHost.open({
+    const limit = data?.limit ?? LEADERBOARD_LIMIT;
+    const modalOptions = {
       ownerId: LEADERBOARD_MODAL_OWNER,
-      variantClass: 'detail-modal--quest',
-      title: '天下榜',
-      subtitle: data ? `Top ${data.limit} · 榜册十分钟一更 · 坐标十秒一追索 · ${formatLeaderboardGeneratedAt(data.generatedAt)}` : '加载中',
-      bodyHtml,
+      variantClass: 'detail-modal--leaderboard',
+      title: '排行榜',
+      subtitle: `收录前 ${formatDisplayInteger(limit)} 名 · 十分钟一更 · ${formatLeaderboardGeneratedAt(data?.generatedAt ?? 0)}`,
+      hint: '点击空白处关闭',
+      bodyHtml: renderLeaderboardModalBody(data),
+      onAfterRender: bindLeaderboardModalEvents,
       onClose: () => {
         stopLeaderboardLocationPolling();
       },
-    });
+    };
+    if (!detailModalHost.patch(modalOptions)) {
+      detailModalHost.open(modalOptions);
+    }
     requestVisibleLeaderboardPlayerLocations();
-  }  
+  }
   /**
  * renderWorldSummaryModal：执行世界摘要弹层相关逻辑。
  * @returns 无返回值，直接更新世界摘要弹层相关状态。
@@ -175,61 +147,26 @@ export function createMainWorldSummaryStateSource(options: MainWorldSummaryState
 
   function renderWorldSummaryModal(): void {
     const data = latestWorldSummary;
-    const bodyHtml = !data
-      ? '<div class="empty-hint ui-empty-hint">正在读取世界总览……</div>'
-      : `
-        <div class="panel-section ui-surface-pane ui-surface-pane--stack">
-          <div class="panel-section-title">世界资源</div>
-          <div class="info-list ui-key-value-list">
-            <div class="info-line ui-key-value-item ui-surface-card ui-surface-card--compact"><span class="ui-key-value-label">全服灵石</span><strong class="ui-key-value-value">${formatDisplayInteger(data.summary.totalSpiritStones)}</strong></div>
-          </div>
-        </div>
-        <div class="panel-section ui-surface-pane ui-surface-pane--stack">
-          <div class="panel-section-title">行为统计</div>
-          <div class="info-list ui-key-value-list">
-            <div class="info-line ui-key-value-item ui-surface-card ui-surface-card--compact"><span class="ui-key-value-label">修炼</span><strong class="ui-key-value-value">${formatDisplayInteger(data.summary.actionCounts.cultivation)}</strong></div>
-            <div class="info-line ui-key-value-item ui-surface-card ui-surface-card--compact"><span class="ui-key-value-label">战斗</span><strong class="ui-key-value-value">${formatDisplayInteger(data.summary.actionCounts.combat)}</strong></div>
-            <div class="info-line ui-key-value-item ui-surface-card ui-surface-card--compact"><span class="ui-key-value-label">炼丹</span><strong class="ui-key-value-value">${formatDisplayInteger(data.summary.actionCounts.alchemy)}</strong></div>
-            <div class="info-line ui-key-value-item ui-surface-card ui-surface-card--compact"><span class="ui-key-value-label">强化</span><strong class="ui-key-value-value">${formatDisplayInteger(data.summary.actionCounts.enhancement)}</strong></div>
-          </div>
-        </div>
-        <div class="panel-section ui-surface-pane ui-surface-pane--stack">
-          <div class="panel-section-title">境界分布</div>
-          <div class="info-list ui-key-value-list">
-            <div class="info-line ui-key-value-item ui-surface-card ui-surface-card--compact"><span class="ui-key-value-label">凡俗</span><strong class="ui-key-value-value">${formatDisplayInteger(data.summary.realmCounts.initial)}</strong></div>
-            <div class="info-line ui-key-value-item ui-surface-card ui-surface-card--compact"><span class="ui-key-value-label">后天</span><strong class="ui-key-value-value">${formatDisplayInteger(data.summary.realmCounts.mortal)}</strong></div>
-            <div class="info-line ui-key-value-item ui-surface-card ui-surface-card--compact"><span class="ui-key-value-label">炼气及以上</span><strong class="ui-key-value-value">${formatDisplayInteger(data.summary.realmCounts.qiRefiningOrAbove)}</strong></div>
-          </div>
-        </div>
-        <div class="panel-section ui-surface-pane ui-surface-pane--stack">
-          <div class="panel-section-title">击杀统计</div>
-          <div class="info-list ui-key-value-list">
-            <div class="info-line ui-key-value-item ui-surface-card ui-surface-card--compact"><span class="ui-key-value-label">普通妖兽</span><strong class="ui-key-value-value">${formatDisplayInteger(data.summary.killCounts.normalMonsters)}</strong></div>
-            <div class="info-line ui-key-value-item ui-surface-card ui-surface-card--compact"><span class="ui-key-value-label">精英妖兽</span><strong class="ui-key-value-value">${formatDisplayInteger(data.summary.killCounts.eliteMonsters)}</strong></div>
-            <div class="info-line ui-key-value-item ui-surface-card ui-surface-card--compact"><span class="ui-key-value-label">首领妖兽</span><strong class="ui-key-value-value">${formatDisplayInteger(data.summary.killCounts.bossMonsters)}</strong></div>
-            <div class="info-line ui-key-value-item ui-surface-card ui-surface-card--compact"><span class="ui-key-value-label">玩家击杀</span><strong class="ui-key-value-value">${formatDisplayInteger(data.summary.killCounts.playerKills)}</strong></div>
-            <div class="info-line ui-key-value-item ui-surface-card ui-surface-card--compact"><span class="ui-key-value-label">玩家死亡</span><strong class="ui-key-value-value">${formatDisplayInteger(data.summary.killCounts.playerDeaths)}</strong></div>
-          </div>
-        </div>
-      `;
-    detailModalHost.open({
+    const modalOptions = {
       ownerId: WORLD_SUMMARY_MODAL_OWNER,
-      variantClass: 'detail-modal--quest',
-      title: '世界总览',
-      subtitle: data ? formatLeaderboardGeneratedAt(data.generatedAt) : '加载中',
-      bodyHtml,
-    });
+      variantClass: 'detail-modal--leaderboard',
+      title: '世界',
+      subtitle: `世界卷宗 · 十分钟一更 · ${formatLeaderboardGeneratedAt(data?.generatedAt ?? 0)}`,
+      hint: '点击空白处关闭',
+      bodyHtml: renderWorldSummaryModalBody(data),
+      onAfterRender: bindWorldSummaryModalEvents,
+    };
+    if (!detailModalHost.patch(modalOptions)) {
+      detailModalHost.open(modalOptions);
+    }
   }
 
   options.worldPanel.setCallbacks({
     onOpenLeaderboard: () => {
-      renderLeaderboardModal();
-      startLeaderboardLocationPolling();
-      options.socket.sendRequestLeaderboard();
+      openLeaderboardModal();
     },
     onOpenWorldSummary: () => {
-      renderWorldSummaryModal();
-      options.socket.sendRequestWorldSummary();
+      openWorldSummaryModal();
     },
   });
 
@@ -253,6 +190,7 @@ export function createMainWorldSummaryStateSource(options: MainWorldSummaryState
       latestLeaderboard = null;
       latestWorldSummary = null;
       leaderboardPlayerLocationById.clear();
+      emitLeaderboardPlayerLocations();
       stopLeaderboardLocationPolling();
       detailModalHost.close(LEADERBOARD_MODAL_OWNER);
       detailModalHost.close(WORLD_SUMMARY_MODAL_OWNER);
@@ -268,6 +206,7 @@ export function createMainWorldSummaryStateSource(options: MainWorldSummaryState
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
       latestLeaderboard = cloneJson(data);
+      leaderboardLoading = false;
       if (detailModalHost.isOpenFor(LEADERBOARD_MODAL_OWNER)) {
         renderLeaderboardModal();
       }
@@ -280,10 +219,13 @@ export function createMainWorldSummaryStateSource(options: MainWorldSummaryState
 
     handleLeaderboardPlayerLocations(data: NEXT_S2C_LeaderboardPlayerLocations): void {
       leaderboardPlayerLocationById = new Map(data.entries.map((entry) => [entry.playerId, cloneJson(entry)]));
+      emitLeaderboardPlayerLocations();
       if (!detailModalHost.isOpenFor(LEADERBOARD_MODAL_OWNER)) {
         return;
       }
-      renderLeaderboardModal();
+      if (activeLeaderboardTab === 'playerKills') {
+        patchLeaderboardPlayerLocationTexts();
+      }
     },    
     /**
  * handleWorldSummary：处理世界摘要并更新相关状态。
@@ -296,6 +238,7 @@ export function createMainWorldSummaryStateSource(options: MainWorldSummaryState
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
       latestWorldSummary = cloneJson(data);
+      worldSummaryLoading = false;
       if (detailModalHost.isOpenFor(WORLD_SUMMARY_MODAL_OWNER)) {
         renderWorldSummaryModal();
       }
@@ -340,5 +283,298 @@ export function createMainWorldSummaryStateSource(options: MainWorldSummaryState
     return entry.online
       ? `坐标：${entry.mapName} (${formatDisplayInteger(entry.x)}, ${formatDisplayInteger(entry.y)})`
       : `离线坐标：${entry.mapName} (${formatDisplayInteger(entry.x)}, ${formatDisplayInteger(entry.y)})`;
+  }
+
+  function openLeaderboardModal(): void {
+    leaderboardLoading = true;
+    renderLeaderboardModal();
+    startLeaderboardLocationPolling();
+    options.socket.sendRequestLeaderboard();
+  }
+
+  function openWorldSummaryModal(): void {
+    worldSummaryLoading = true;
+    renderWorldSummaryModal();
+    options.socket.sendRequestWorldSummary();
+  }
+
+  function renderActiveLeaderboardBoard(data: NEXT_S2C_Leaderboard | null): string {
+    if (!data) {
+      return '<div class="empty-hint">暂无榜册内容。</div>';
+    }
+    switch (activeLeaderboardTab) {
+      case 'realm':
+        return renderStandardLeaderboardList(
+          data.boards.realm.map((entry) => ({
+            rank: entry.rank,
+            name: entry.playerName,
+            value: escapeHtml(entry.realmName),
+          })),
+        );
+      case 'monsterKills':
+        return renderStandardLeaderboardList(
+          data.boards.monsterKills.map((entry) => ({
+            rank: entry.rank,
+            name: entry.playerName,
+            value: `击杀 ${formatDisplayInteger(entry.totalKills)}`,
+            meta: `精英 ${formatDisplayInteger(entry.eliteKills)} · Boss ${formatDisplayInteger(entry.bossKills)}`,
+          })),
+        );
+      case 'spiritStones':
+        return renderStandardLeaderboardList(
+          data.boards.spiritStones.map((entry) => ({
+            rank: entry.rank,
+            name: entry.playerName,
+            value: `${formatDisplayInteger(entry.spiritStoneCount)} 灵石`,
+          })),
+        );
+      case 'playerKills':
+        return renderStandardLeaderboardList(
+          data.boards.playerKills.map((entry) => ({
+            rank: entry.rank,
+            name: entry.playerName,
+            value: `击杀玩家 ${formatDisplayInteger(entry.playerKillCount)}`,
+            meta: formatLeaderboardPlayerLocation(entry.playerId),
+          })),
+        );
+      case 'deaths':
+        return renderStandardLeaderboardList(
+          data.boards.deaths.map((entry) => ({
+            rank: entry.rank,
+            name: entry.playerName,
+            value: `死亡 ${formatDisplayInteger(entry.deathCount)}`,
+          })),
+        );
+      case 'bodyTraining':
+        return renderStandardLeaderboardList(
+          data.boards.bodyTraining.map((entry) => ({
+            rank: entry.rank,
+            name: entry.playerName,
+            value: `炼体 ${formatDisplayInteger(entry.level)} 层`,
+          })),
+        );
+      case 'supremeAttrs':
+        return renderSupremeAttrBoard(data);
+      default:
+        return '<div class="empty-hint">暂无榜册内容。</div>';
+    }
+  }
+
+  function renderLeaderboardModalBody(data: NEXT_S2C_Leaderboard | null): string {
+    const tabs = (Object.keys(LEADERBOARD_TAB_LABELS) as LeaderboardTab[])
+      .map((tab) => `
+        <button
+          class="leaderboard-tab-btn ${tab === activeLeaderboardTab ? 'active' : ''}"
+          data-leaderboard-tab="${tab}"
+          type="button"
+        >${LEADERBOARD_TAB_LABELS[tab]}</button>
+      `)
+      .join('');
+    return `
+      <div class="leaderboard-shell">
+        <div class="leaderboard-toolbar">
+          <div class="leaderboard-tabs">${tabs}</div>
+          <div class="leaderboard-toolbar-actions">
+            <button class="small-btn ghost" data-open-world-summary type="button">世界卷宗</button>
+            <button class="small-btn" data-leaderboard-refresh type="button">${leaderboardLoading ? '调卷中' : '刷新榜册'}</button>
+          </div>
+        </div>
+        <div class="leaderboard-content">
+          ${leaderboardLoading && !data ? '<div class="leaderboard-loading">天机阁正在调阅最新榜册……</div>' : ''}
+          <div class="leaderboard-board">${renderActiveLeaderboardBoard(data)}</div>
+        </div>
+      </div>
+    `;
+  }
+
+  function renderWorldSummaryModalBody(data: NEXT_S2C_WorldSummary | null): string {
+    return `
+      <div class="leaderboard-shell">
+        <div class="leaderboard-toolbar">
+          <div class="panel-subtext">阁藏天下卷宗，专收全服低频汇总情报。</div>
+          <div class="leaderboard-toolbar-actions">
+            <button class="small-btn ghost" data-open-leaderboard type="button">天下榜</button>
+            <button class="small-btn" data-world-summary-refresh type="button">${worldSummaryLoading ? '调卷中' : '刷新卷宗'}</button>
+          </div>
+        </div>
+        <div class="leaderboard-content">
+          ${worldSummaryLoading && !data ? '<div class="leaderboard-loading">天机阁正在调阅世界卷宗……</div>' : ''}
+          <div class="leaderboard-board">${renderWorldSummaryBoard(data)}</div>
+        </div>
+      </div>
+    `;
+  }
+
+  function bindLeaderboardModalEvents(body: HTMLElement): void {
+    body.onclick = (event) => {
+      const target = event.target as HTMLElement | null;
+      if (!target) {
+        return;
+      }
+      const tabButton = target.closest<HTMLElement>('[data-leaderboard-tab]');
+      if (tabButton) {
+        event.preventDefault();
+        event.stopPropagation();
+        const tab = tabButton.dataset.leaderboardTab as LeaderboardTab | undefined;
+        if (!tab || tab === activeLeaderboardTab) {
+          return;
+        }
+        activeLeaderboardTab = tab;
+        renderLeaderboardModal();
+        return;
+      }
+      if (target.closest('[data-leaderboard-refresh]')) {
+        event.preventDefault();
+        event.stopPropagation();
+        leaderboardLoading = true;
+        renderLeaderboardModal();
+        options.socket.sendRequestLeaderboard();
+        return;
+      }
+      if (target.closest('[data-open-world-summary]')) {
+        event.preventDefault();
+        event.stopPropagation();
+        openWorldSummaryModal();
+      }
+    };
+  }
+
+  function bindWorldSummaryModalEvents(body: HTMLElement): void {
+    body.onclick = (event) => {
+      const target = event.target as HTMLElement | null;
+      if (!target) {
+        return;
+      }
+      if (target.closest('[data-world-summary-refresh]')) {
+        event.preventDefault();
+        event.stopPropagation();
+        worldSummaryLoading = true;
+        renderWorldSummaryModal();
+        options.socket.sendRequestWorldSummary();
+        return;
+      }
+      if (target.closest('[data-open-leaderboard]')) {
+        event.preventDefault();
+        event.stopPropagation();
+        openLeaderboardModal();
+      }
+    };
+  }
+
+  function patchLeaderboardPlayerLocationTexts(): void {
+    const body = document.getElementById('detail-modal-body');
+    if (!body) {
+      return;
+    }
+    const playerKillEntries = latestLeaderboard?.boards.playerKills ?? [];
+    preserveSelection(body, () => {
+      const submetaNodes = [...body.querySelectorAll<HTMLElement>('.leaderboard-submeta')];
+      playerKillEntries.forEach((entry, index) => {
+        const node = submetaNodes[index];
+        if (!node) {
+          return;
+        }
+        const nextText = formatLeaderboardPlayerLocation(entry.playerId);
+        if (node.textContent === nextText) {
+          return;
+        }
+        node.textContent = nextText;
+      });
+    });
+  }
+
+  function renderStandardLeaderboardList(entries: Array<{
+    rank: number;
+    name: string;
+    value: string;
+    meta?: string;
+  }>): string {
+    if (entries.length === 0) {
+      return '<div class="empty-hint">暂无榜册内容。</div>';
+    }
+    return `
+      <div class="leaderboard-list">
+        ${entries.map((entry) => `
+          <div class="leaderboard-row">
+            <div class="leaderboard-rank">#${formatDisplayInteger(entry.rank)}</div>
+            <div class="leaderboard-main">
+              <div class="leaderboard-name">${escapeHtml(entry.name)}</div>
+              <div class="leaderboard-meta">${entry.value}</div>
+              ${entry.meta ? `<div class="leaderboard-submeta">${escapeHtml(entry.meta)}</div>` : ''}
+            </div>
+          </div>
+        `).join('')}
+      </div>
+    `;
+  }
+
+  function renderSupremeAttrBoard(data: NEXT_S2C_Leaderboard): string {
+    if (data.boards.supremeAttrs.length === 0) {
+      return '<div class="empty-hint">暂无榜册内容。</div>';
+    }
+    return `
+      <div class="leaderboard-supreme-grid">
+        ${data.boards.supremeAttrs.map((entry) => `
+          <div class="leaderboard-supreme-card">
+            <div class="leaderboard-supreme-label">${escapeHtml(entry.label)}</div>
+            <div class="leaderboard-supreme-name">${escapeHtml(entry.playerName)}</div>
+            <div class="leaderboard-supreme-value">${formatDisplayInteger(entry.value)}</div>
+          </div>
+        `).join('')}
+      </div>
+    `;
+  }
+
+  function renderWorldSummaryBoard(data: NEXT_S2C_WorldSummary | null): string {
+    if (!data) {
+      return '<div class="empty-hint">暂无世界卷宗。</div>';
+    }
+    const summary = data.summary;
+    return `
+      <div class="leaderboard-world-grid">
+        ${renderWorldSection('灵石总和', [{
+          label: '全体玩家持有',
+          value: `${formatDisplayInteger(summary.totalSpiritStones)} 灵石`,
+          hint: '包含背包、坊市托管仓与求购挂单中冻结的灵石。',
+        }])}
+        ${renderWorldSection('当前行动人数', [
+          { label: '修炼', value: `${formatDisplayInteger(summary.actionCounts.cultivation)} 人` },
+          { label: '战斗', value: `${formatDisplayInteger(summary.actionCounts.combat)} 人` },
+          { label: '炼丹', value: `${formatDisplayInteger(summary.actionCounts.alchemy)} 人` },
+          { label: '强化', value: `${formatDisplayInteger(summary.actionCounts.enhancement)} 人` },
+        ])}
+        ${renderWorldSection('境界人数', [
+          { label: '初始境界', value: `${formatDisplayInteger(summary.realmCounts.initial)} 人`, hint: 'Lv.1' },
+          { label: '凡人境界', value: `${formatDisplayInteger(summary.realmCounts.mortal)} 人`, hint: 'Lv.2 - Lv.18' },
+          { label: '炼气及以上', value: `${formatDisplayInteger(summary.realmCounts.qiRefiningOrAbove)} 人`, hint: 'Lv.19+' },
+        ])}
+        ${renderWorldSection('全服击杀与死亡', [
+          { label: '普通怪物', value: `${formatDisplayInteger(summary.killCounts.normalMonsters)} 次` },
+          { label: '精英怪物', value: `${formatDisplayInteger(summary.killCounts.eliteMonsters)} 次` },
+          { label: 'Boss', value: `${formatDisplayInteger(summary.killCounts.bossMonsters)} 次` },
+          { label: '玩家击杀玩家', value: `${formatDisplayInteger(summary.killCounts.playerKills)} 次` },
+          { label: '玩家死亡', value: `${formatDisplayInteger(summary.killCounts.playerDeaths)} 次` },
+        ])}
+      </div>
+    `;
+  }
+
+  function renderWorldSection(title: string, entries: Array<{ label: string; value: string; hint?: string }>): string {
+    return `
+      <section class="leaderboard-world-card">
+        <div class="leaderboard-world-title">${escapeHtml(title)}</div>
+        <div class="leaderboard-world-list">
+          ${entries.map((entry) => `
+            <div class="leaderboard-world-row">
+              <div class="leaderboard-world-copy">
+                <div class="leaderboard-world-label">${escapeHtml(entry.label)}</div>
+                ${entry.hint ? `<div class="leaderboard-world-hint">${escapeHtml(entry.hint)}</div>` : ''}
+              </div>
+              <div class="leaderboard-world-value">${escapeHtml(entry.value)}</div>
+            </div>
+          `).join('')}
+        </div>
+      </section>
+    `;
   }
 }

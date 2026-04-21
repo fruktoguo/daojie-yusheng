@@ -965,6 +965,17 @@ function createAuthStarterSnapshotDeps() {
                     foundation: 0,
                     combatExp: 0,
                     bodyTraining: null,
+                    gatherJob: {
+                        resourceNodeId: 'landmark.herb.moondew_grass',
+                        resourceNodeName: '月露草',
+                        phase: 'gathering',
+                        startedAt: Date.now(),
+                        totalTicks: 12,
+                        remainingTicks: 4,
+                        pausedTicks: 0,
+                        successRate: 1,
+                        spiritStoneCost: 0,
+                    },
                     boneAgeBaseYears: shared_1.DEFAULT_BONE_AGE_YEARS,
                     lifeElapsedTicks: 0,
                     lifespanYears: null,
@@ -1235,7 +1246,7 @@ async function verifyHelloAuthBootstrapForbiddenContract() {
                 ok: true,
             },
         }),
-    }, {}, {}, {}, {}, {}, {}, {}, {}, {
+    }, {}, {}, {}, {}, {}, {}, {}, {}, {}, {
         markProtocol: (client, protocol) => {
             client.data.protocol = protocol;
         },
@@ -1313,7 +1324,7 @@ async function verifyImplicitLegacyProtocolEntryContract() {
                 ok: true,
             },
         }),
-    }, {}, {}, {}, {}, {}, {}, {}, {}, {
+    }, {}, {}, {}, {}, {}, {}, {}, {}, {}, {
         markProtocol: (client, protocol) => {
             client.data.protocol = protocol;
         },
@@ -1596,7 +1607,7 @@ async function verifyGmBootstrapSessionPolicyContract() {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
     const bootstrapService = new world_session_bootstrap_service_1.WorldSessionBootstrapService(null, null, null, null, null, null, null, null, null, null);
-    const gateway = new world_gateway_1.WorldGateway(null, null, bootstrapService, null, null, null, null, null, null, null, null, null, null, null);
+    const gateway = new world_gateway_1.WorldGateway(null, null, bootstrapService, null, null, null, null, null, null, null, null, null, null, null, null);
     const gmClient = {
         id: 'proof_gm_bootstrap_client',
         handshake: {
@@ -2063,13 +2074,6 @@ async function verifyMalformedNextIdentityAndSnapshotRecordGuardContract() {
             return true;
         },
         async loadPlayerIdentity() {
-            return null;
-        },
-        async savePlayerIdentity() {
-            throw new Error('unexpected_save_player_identity');
-        },
-    }, {
-        async loadNextPlayerIdentity() {
             return {
                 userId: 'proof_user_invalid_next_identity_shape',
                 username: 'proof_invalid_next_identity_shape',
@@ -2078,6 +2082,9 @@ async function verifyMalformedNextIdentityAndSnapshotRecordGuardContract() {
                 playerName: '无效角色',
                 persistedSource: 'native',
             };
+        },
+        async savePlayerIdentity() {
+            throw new Error('unexpected_save_player_identity');
         },
     });
     const malformedIdentity = await authService.authenticatePlayerToken('proof.token.invalid_next_identity_shape', {
@@ -2091,17 +2098,6 @@ async function verifyMalformedNextIdentityAndSnapshotRecordGuardContract() {
             return true;
         },
         async loadPlayerSnapshotRecord() {
-            return null;
-        },
-        async savePlayerSnapshot() {
-            throw new Error('unexpected_save_player_snapshot');
-        },
-    }, {
-        buildStarterPersistenceSnapshot() {
-            throw new Error('unexpected_build_starter_snapshot');
-        },
-    }, {
-        async loadNextPlayerSnapshotRecord() {
             return {
                 snapshot: {
                     identity: {
@@ -2110,6 +2106,13 @@ async function verifyMalformedNextIdentityAndSnapshotRecordGuardContract() {
                 },
                 persistedSource: 'invalid_snapshot_source',
             };
+        },
+        async savePlayerSnapshot() {
+            throw new Error('unexpected_save_player_snapshot');
+        },
+    }, {
+        buildStarterPersistenceSnapshot() {
+            throw new Error('unexpected_build_starter_snapshot');
         },
     });
     let snapshotError = null;
@@ -2744,8 +2747,10 @@ async function verifyAuthenticatedSnapshotRecoveryNoticeContract() {
     }, {
         getAll: () => [],
     }, {
-        removePlayer: () => undefined,
-        connectPlayer: () => undefined,
+        worldRuntimePlayerSessionService: {
+            removePlayer: () => undefined,
+            connectPlayer: () => undefined,
+        },
     }, {
         getBinding: () => null,
         registerSocket: (client, playerId, requestedSessionId) => ({
@@ -3201,8 +3206,10 @@ async function verifyAuthenticatedSnapshotRecoveryBootstrapLinkContract() {
             }, {
                 getAll: () => [],
             }, {
-                removePlayer: () => undefined,
-                connectPlayer: () => undefined,
+                worldRuntimePlayerSessionService: {
+                    removePlayer: () => undefined,
+                    connectPlayer: () => undefined,
+                },
             }, {
                 getBinding: () => null,
                 registerSocket: (client, playerId, requestedSessionId) => ({
@@ -3546,7 +3553,7 @@ async function verifyTokenSeedIdentityContract() {
             }),
         },
     }, null, null, null, null, null, null, null, null, null);
-    const tokenSeedGateway = new world_gateway_1.WorldGateway(null, null, tokenSeedBootstrapService, null, null, null, null, null, null, null, null, null, null, null);
+    const tokenSeedGateway = new world_gateway_1.WorldGateway(null, null, tokenSeedBootstrapService, null, null, null, null, null, null, null, null, null, null, null, null);
     const tokenSeedClient = {
         id: 'proof_socket_token_seed_reuse',
         handshake: {
@@ -5536,6 +5543,17 @@ async function writePersistedPlayerSnapshotDocument(playerId, persistedSource = 
             foundation: 0,
             combatExp: 0,
             bodyTraining: null,
+            gatherJob: {
+                resourceNodeId: 'landmark.herb.green_spirit_stem',
+                resourceNodeName: '青灵茎',
+                phase: 'paused',
+                startedAt: savedAt,
+                totalTicks: 10,
+                remainingTicks: 6,
+                pausedTicks: 2,
+                successRate: 0.85,
+                spiritStoneCost: 0,
+            },
             boneAgeBaseYears: shared_1.DEFAULT_BONE_AGE_YEARS,
             lifeElapsedTicks: 0,
             lifespanYears: null,

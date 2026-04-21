@@ -17,7 +17,7 @@ function startAuditServer(requestedPort) {
  * 记录子进程。
  */
     const child = childProcess.spawn("node", [serverEntry], {
-      cwd: lib.packageRoot,
+      cwd: lib.repoRoot,
       env: {
         ...process.env,
         SERVER_NEXT_PORT: String(requestedPort),
@@ -93,8 +93,9 @@ async function runAudit(baseUrl) {
 /**
  * 记录子进程。
  */
-  const child = childProcess.spawn("node", ["dist/tools/next-protocol-audit.js"], {
-    cwd: lib.packageRoot,
+  const auditScript = path.join(lib.distRoot, "tools", "next-protocol-audit.js");
+  const child = childProcess.spawn("node", [auditScript], {
+    cwd: lib.repoRoot,
     env: {
       ...process.env,
       SERVER_NEXT_URL: baseUrl,

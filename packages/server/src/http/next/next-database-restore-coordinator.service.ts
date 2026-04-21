@@ -36,7 +36,9 @@ interface WorldSessionServiceLike {
 
 
 interface WorldRuntimeServiceLike {
-  removePlayer(playerId: string): void;
+  worldRuntimePlayerSessionService: {
+    removePlayer(playerId: string, reason: string, deps: unknown): void;
+  };
   rebuildPersistentRuntimeAfterRestore(): Promise<void>;
 }
 /**
@@ -151,7 +153,7 @@ export class NextDatabaseRestoreCoordinatorService {
     }
 
     for (const playerId of runtimePlayerIds) {
-      this.worldRuntimeService.removePlayer(playerId);
+      this.worldRuntimeService.worldRuntimePlayerSessionService.removePlayer(playerId, 'removed', this.worldRuntimeService);
       if (NEXT_GM_RESTORE_CONTRACT.clearDetachedCachesBeforeRestore) {
         this.worldSyncService.clearDetachedPlayerCaches(playerId);
       }

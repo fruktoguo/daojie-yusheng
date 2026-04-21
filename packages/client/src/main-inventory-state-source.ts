@@ -131,6 +131,7 @@ export function createMainInventoryStateSource(options: MainInventoryStateSource
 
 
     syncInventory(inventory: Inventory, player: PlayerState | null): void {
+      options.inventoryPanel.syncPlayerContext(player ?? undefined);
       options.inventoryPanel.update(inventory);
       options.questStateSource.syncInventory(inventory);
       options.marketStateSource.syncInventory(inventory);

@@ -2,6 +2,7 @@ import type { MonsterTier, VisibleBuffState } from './world-core-types';
 import type { ItemStack } from './item-runtime-types';
 import type { ObservedTileEntityDetail } from './detail-view-types';
 import type { ObservationInsight } from './observation-types';
+import type { TileRuntimeResourceView } from './service-sync-types';
 import type { NpcQuestMarker } from './world-view-types';
 
 /**
@@ -341,6 +342,11 @@ export interface TileDetailView {
  */
 
   aura?: number;  
+  /**
+ * resources：resource相关字段。
+ */
+
+  resources?: TileRuntimeResourceView[];  
   /**
  * safeZone：safeZone相关字段。
  */

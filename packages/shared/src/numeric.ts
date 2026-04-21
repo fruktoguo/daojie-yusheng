@@ -361,6 +361,15 @@ export interface NumericRatioDivisors {
   elementDamageReduce: ElementStatGroup;
 }
 
+/** 部分 RatioValue 除数（用于增量 patch）。 */
+export interface PartialNumericRatioDivisors extends Partial<Omit<NumericRatioDivisors, 'elementDamageReduce'>> {
+/**
+ * elementDamageReduce：elementDamageReduce相关字段。
+ */
+
+  elementDamageReduce?: PartialElementStatGroup;
+}
+
 /** 境界数值模板（基础属性 + RatioValue 除数） */
 export interface RealmNumericTemplate {
 /**

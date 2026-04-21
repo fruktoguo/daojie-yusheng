@@ -10,7 +10,6 @@ import {
 import type { SocketSocialEconomySender } from '../network/socket-send-social-economy';
 import { getLocalItemTemplate } from '../content/local-templates';
 import { detailModalHost } from './detail-modal-host';
-import { createEmptyHint } from './ui-primitives';
 
 /** 转义 HTML 文本中的危险字符。 */
 function escapeHtml(value: string): string {
@@ -25,6 +24,14 @@ function escapeHtml(value: string): string {
 /** 复用文本转义逻辑处理 HTML 属性值。 */
 function escapeHtmlAttr(value: string): string {
   return escapeHtml(value);
+}
+
+/** 创建与 main 当前样式一致的邮件空态节点。 */
+function createMailEmptyHint(text: string): HTMLDivElement {
+  const node = document.createElement('div');
+  node.className = 'empty-hint';
+  node.textContent = text;
+  return node;
 }
 
 const MAIL_FILTER_OPTIONS: Array<{
@@ -58,6 +65,16 @@ const EMPTY_PAGE: MailPageView = {
 
 /** 邮件附件列表每页显示数量。 */
 const MAIL_ATTACHMENT_PAGE_SIZE = 10;
+/** 邮件弹窗默认提示。 */
+const MAIL_MODAL_HINT_DEFAULT = '点击空白处关闭';
+/** 邮件列表空态文案。 */
+const MAIL_LIST_EMPTY_TEXT = '当前筛选下暂无邮件';
+/** 邮件详情空态文案。 */
+const MAIL_DETAIL_EMPTY_TEXT = '请选择一封邮件查看详情';
+/** 邮件正文空态文案。 */
+const MAIL_BODY_EMPTY_TEXT = '这封邮件没有正文内容。';
+/** 邮件附件空态文案。 */
+const MAIL_ATTACHMENT_EMPTY_TEXT = '这封邮件没有附件';
 
 /** 邮件面板渲染时需要保留的本地状态。 */
 type MailRenderState = {
@@ -80,7 +97,7 @@ type MailRenderState = {
 
 /** 邮件弹窗标题区所需的附加信息。 */
 type MailModalMeta = {
-/**
+  /**
  * subtitle：subtitle名称或显示文本。
  */
 
@@ -331,16 +348,14 @@ export class MailPanel {
   open(): void {
     this.socket.sendRequestMailSummary();
     this.requestCurrentPage();
+    const meta = this.buildModalMeta();
     detailModalHost.open({
       ownerId: MailPanel.MODAL_OWNER,
-      size: 'lg',
       variantClass: 'detail-modal--mail',
       title: '飞书台',
-      subtitle: `未读 ${this.summary.unreadCount} · 可领取 ${this.summary.claimableCount}`,
-      hint: this.statusMessage || '点击空白处关闭',
-      renderBody: (body) => {
-        body.innerHTML = this.buildBodyHtml();
-      },
+      subtitle: meta.subtitle,
+      hint: meta.hint,
+      bodyHtml: this.buildBodyHtml(),
       onAfterRender: (body) => this.bindEvents(body),
     });
   }
@@ -384,14 +399,11 @@ export class MailPanel {
     }
     detailModalHost.open({
       ownerId: MailPanel.MODAL_OWNER,
-      size: 'lg',
       variantClass: 'detail-modal--mail',
       title: '飞书台',
       subtitle: meta.subtitle,
       hint: meta.hint,
-      renderBody: (body) => {
-        body.innerHTML = this.buildBodyHtml();
-      },
+      bodyHtml: this.buildBodyHtml(),
       onAfterRender: (nextBody) => {
         this.bindEvents(nextBody);
         if (renderState) {
@@ -448,7 +460,7 @@ export class MailPanel {
             <div class="mail-list" data-mail-list="true">
               ${this.pageData.items.length > 0
                 ? this.pageData.items.map((item) => this.renderListEntry(item)).join('')
-                : '<div class="empty-hint">当前筛选下暂无邮件</div>'}
+                : `<div class="empty-hint">${escapeHtml(MAIL_LIST_EMPTY_TEXT)}</div>`}
             </div>
             <div class="suggestion-pagination">
               <button class="small-btn ghost" data-mail-page-action="prev" type="button" ${this.pageData.page <= 1 ? 'disabled' : ''}>上一页</button>
@@ -462,7 +474,7 @@ export class MailPanel {
               <div class="mail-pane-note">单实例详情弹层</div>
             </div>
             <div class="mail-detail" data-mail-detail="true">
-              ${detail ? this.renderDetail(detail) : '<div class="empty-hint">请选择一封邮件查看详情</div>'}
+              ${detail ? this.renderDetail(detail) : `<div class="empty-hint">${escapeHtml(MAIL_DETAIL_EMPTY_TEXT)}</div>`}
             </div>
           </section>
         </div>
@@ -624,7 +636,7 @@ export class MailPanel {
 
     const attachmentList = document.createElement('div');
     attachmentList.className = 'mail-attachment-list';
-    const attachmentEmpty = createEmptyHint('这封邮件没有附件');
+    const attachmentEmpty = createMailEmptyHint(MAIL_ATTACHMENT_EMPTY_TEXT);
 
     attachmentBlock.append(attachmentHead, attachmentList, attachmentEmpty);
     detailRoot.replaceChildren(head, bodyNode, attachmentBlock);
@@ -654,7 +666,7 @@ export class MailPanel {
 
     if (!detail) {
       this.detailRefs = null;
-      detailRoot.replaceChildren(createEmptyHint('请选择一封邮件查看详情'));
+      detailRoot.replaceChildren(createMailEmptyHint(MAIL_DETAIL_EMPTY_TEXT));
       return true;
     }
 
@@ -680,7 +692,7 @@ export class MailPanel {
     refs.markReadButton.disabled = detail.read;
     refs.claimButton.disabled = !detail.attachments.length || detail.claimed;
     refs.deleteButton.disabled = !detail.deletable;
-    refs.bodyNode.replaceChildren(...(body || '这封邮件没有正文内容。').split('\n').flatMap((line, index, arr) => {
+    refs.bodyNode.replaceChildren(...(body || MAIL_BODY_EMPTY_TEXT).split('\n').flatMap((line, index, arr) => {
       const nodes: Node[] = [document.createTextNode(line)];
       if (index < arr.length - 1) {
         nodes.push(document.createElement('br'));
@@ -720,8 +732,8 @@ export class MailPanel {
       }
     });
     if (this.pageData.items.length === 0) {
-      const emptyNode = listRoot.querySelector<HTMLElement>('.empty-hint') ?? createEmptyHint('当前筛选下暂无邮件');
-      emptyNode.textContent = '当前筛选下暂无邮件';
+      const emptyNode = listRoot.querySelector<HTMLElement>('.empty-hint') ?? createMailEmptyHint(MAIL_LIST_EMPTY_TEXT);
+      emptyNode.textContent = MAIL_LIST_EMPTY_TEXT;
       listRoot.replaceChildren(emptyNode);
       return true;
     }
@@ -793,7 +805,7 @@ export class MailPanel {
           <button class="small-btn danger" data-mail-delete="${escapeHtmlAttr(detail.mailId)}" type="button" ${!detail.deletable ? 'disabled' : ''}>删除</button>
         </div>
       </div>
-      <div class="mail-detail-body">${escapeHtml(body || '这封邮件没有正文内容。').replaceAll('\n', '<br />')}</div>
+      <div class="mail-detail-body">${escapeHtml(body || MAIL_BODY_EMPTY_TEXT).replaceAll('\n', '<br />')}</div>
       <div class="mail-attachment-block">
         <div class="mail-attachment-head">
           <div class="mail-attachment-title">附件</div>
@@ -812,7 +824,7 @@ export class MailPanel {
                 <strong>x${attachment.count}</strong>
               </div>
             `).join('')}</div>`
-          : '<div class="empty-hint">这封邮件没有附件</div>'}
+          : `<div class="empty-hint">${escapeHtml(MAIL_ATTACHMENT_EMPTY_TEXT)}</div>`}
       </div>
     `;
   }
@@ -1031,7 +1043,7 @@ export class MailPanel {
   private buildModalMeta(): MailModalMeta {
     return {
       subtitle: `未读 ${this.summary.unreadCount} · 可领取 ${this.summary.claimableCount}`,
-      hint: this.statusMessage || '点击空白处关闭',
+      hint: this.statusMessage || MAIL_MODAL_HINT_DEFAULT,
     };
   }
 

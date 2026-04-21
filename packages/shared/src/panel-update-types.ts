@@ -5,7 +5,7 @@ import type { SkillDef } from './skill-types';
 import type { AutoBattleTargetingMode, AutoUsePillConfig, CombatTargetingRules } from './automation-types';
 import type { PlayerState } from './player-runtime-types';
 import type { VisibleBuffState } from './world-core-types';
-import type { NumericRatioDivisors, NumericStatBreakdownMap, NumericStats } from './numeric';
+import type { NumericStatBreakdownMap, PartialNumericRatioDivisors, PartialNumericStats } from './numeric';
 
 /**
  * 面板局部更新条目与低频属性更新视图。
@@ -17,7 +17,7 @@ export interface AttrUpdateView {
  * baseAttrs：baseAttr相关字段。
  */
 
-  baseAttrs?: Attributes;  
+  baseAttrs?: Partial<Attributes>;  
   /**
  * bonuses：bonuse相关字段。
  */
@@ -27,17 +27,22 @@ export interface AttrUpdateView {
  * finalAttrs：finalAttr相关字段。
  */
 
-  finalAttrs?: Attributes;  
+  finalAttrs?: Partial<Attributes>;  
   /**
  * numericStats：numericStat相关字段。
  */
 
-  numericStats?: NumericStats;  
+  numericStats?: PartialNumericStats;  
   /**
  * ratioDivisors：ratioDivisor相关字段。
  */
 
-  ratioDivisors?: NumericRatioDivisors;  
+  ratioDivisors?: PartialNumericRatioDivisors;  
+  /**
+ * numericStatBreakdowns：numericStatBreakdown相关字段。
+ */
+
+  numericStatBreakdowns?: NumericStatBreakdownMap;
   /**
  * maxHp：maxHp相关字段。
  */
@@ -52,7 +57,7 @@ export interface AttrUpdateView {
  * specialStats：specialStat相关字段。
  */
 
-  specialStats?: PlayerSpecialStats;  
+  specialStats?: Partial<PlayerSpecialStats>;  
   /**
  * boneAgeBaseYears：boneAgeBaseYear相关字段。
  */
@@ -245,11 +250,6 @@ export interface PanelAttrDeltaView extends AttrUpdateView {
  */
 
   stage?: PlayerRealmStage;  
-  /**
- * numericStatBreakdowns：numericStatBreakdown相关字段。
- */
-
-  numericStatBreakdowns?: NumericStatBreakdownMap;
 }
 
 /** 功法面板更新视图。 */

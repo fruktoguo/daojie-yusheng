@@ -30,6 +30,16 @@ const {
     formatCombatActionClause,
 } = world_runtime_observation_helpers_1;
 
+function ensureHostileRelation(resolution) {
+    if ((0, player_combat_config_helpers_1.isHostileCombatRelationResolution)(resolution)) {
+        return;
+    }
+    if (resolution?.blockedReason === 'self_target') {
+        throw new common_1.BadRequestException('不能攻击自己');
+    }
+    throw new common_1.BadRequestException('当前目标不在敌方判定规则内');
+}
+
 /** 普攻减伤采用与 legacy 对齐的攻防基准。 */
 const DEFENSE_REDUCTION_ATTACK_RATIO = 0.1;
 const DEFENSE_REDUCTION_BASELINE = 100;
@@ -107,6 +117,7 @@ let WorldRuntimeBasicAttackService = class WorldRuntimeBasicAttackService {
         if (!monster || !monster.alive) {
             throw new common_1.NotFoundException(`Monster ${targetMonsterId} not found`);
         }
+        ensureHostileRelation((0, player_combat_config_helpers_1.resolveCombatRelation)(attacker, { kind: 'monster' }));
         if (chebyshevDistance(attacker.x, attacker.y, monster.x, monster.y) > 1) {
             throw new common_1.BadRequestException('目标超出攻击距离');
         }
@@ -139,9 +150,10 @@ let WorldRuntimeBasicAttackService = class WorldRuntimeBasicAttackService {
         if (target.instanceId !== attacker.instanceId) {
             throw new common_1.BadRequestException('目标不在同一地图');
         }
-        if (!(0, player_combat_config_helpers_1.canPlayerDealDamageToPlayer)(attacker, target)) {
-            throw new common_1.BadRequestException('当前目标不在可攻击名单内');
-        }
+        ensureHostileRelation((0, player_combat_config_helpers_1.resolveCombatRelation)(attacker, {
+            kind: 'player',
+            target,
+        }));
         if (chebyshevDistance(attacker.x, attacker.y, target.x, target.y) > 1) {
             throw new common_1.BadRequestException('目标超出攻击距离');
         }
@@ -176,6 +188,7 @@ let WorldRuntimeBasicAttackService = class WorldRuntimeBasicAttackService {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
         const instance = deps.getInstanceRuntimeOrThrow(attacker.instanceId);
+        ensureHostileRelation((0, player_combat_config_helpers_1.resolveCombatRelation)(attacker, { kind: 'terrain' }));
         if (chebyshevDistance(attacker.x, attacker.y, targetX, targetY) > 1) {
             throw new common_1.BadRequestException('目标超出攻击距离');
         }

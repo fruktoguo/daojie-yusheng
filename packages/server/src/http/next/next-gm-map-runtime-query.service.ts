@@ -4,7 +4,8 @@ import {
   GAME_DAY_TICKS,
   GAME_TIME_PHASES,
   VIEW_RADIUS,
-  getAuraLevel,
+  getQiResourceDefaultLevel,
+  getQiResourceDisplayLabel,
   getTileTypeFromMapChar,
   isTileTypeWalkable,
 } from '@mud/shared-next';
@@ -166,6 +167,7 @@ interface RuntimeInstanceLike {
 
 interface InternalRuntimeInstanceLike {
   getTileAura(x: number, y: number): number | undefined;
+  listTileResources?(x: number, y: number): Array<{ resourceKey: string; value: number; sourceValue?: number }> | undefined;
   listMonsters(): RuntimeMonsterLike[];
 }
 /**
@@ -318,6 +320,11 @@ interface LegacyRuntimeTileInput {
  */
 
   aura?: unknown;
+  /**
+ * resources：resource相关字段。
+ */
+
+  resources?: unknown;
 }
 /**
  * LegacyAuraResource：定义接口结构约束，明确可交付字段含义。
@@ -329,12 +336,12 @@ interface LegacyAuraResource {
  * key：key标识。
  */
 
-  key: 'aura';  
+  key: string;  
   /**
  * label：label名称或显示文本。
  */
 
-  label: '灵气';  
+  label: string;  
   /**
  * value：值数值。
  */
@@ -349,7 +356,12 @@ interface LegacyAuraResource {
  * level：等级数值。
  */
 
-  level: number;
+  level?: number;
+  /**
+ * sourceValue：来源值数值。
+ */
+
+  sourceValue?: number;
 }
 /**
  * LegacyRuntimeTileProjection：定义接口结构约束，明确可交付字段含义。
@@ -494,7 +506,11 @@ export class NextGmMapRuntimeQueryService {
  /**
  * aura：aura相关字段。
  */
- aura: number }>> = [];
+ aura: number;    
+ /**
+ * resources：resource相关字段。
+ */
+ resources?: LegacyAuraResource[] }>> = [];
 
     for (let row = startY; row < endY; row += 1) {
       const line: Array<{      
@@ -509,7 +525,11 @@ export class NextGmMapRuntimeQueryService {
  /**
  * aura：aura相关字段。
  */
- aura: number }> = [];
+ aura: number;      
+ /**
+ * resources：resource相关字段。
+ */
+ resources?: LegacyAuraResource[] }> = [];
       const terrainRow = template.source.tiles[row] ?? '';
       for (let column = startX; column < endX; column += 1) {
         const aura =
@@ -519,12 +539,14 @@ export class NextGmMapRuntimeQueryService {
         const tile = projectLegacyRuntimeTile({
           mapChar: terrainRow[column] ?? '#',
           aura,
+          resources: internalInstance?.listTileResources?.(column, row),
         });
 
         line.push({
           type: tile.type,
           walkable: tile.walkable,
           aura: tile.aura,
+          resources: tile.resources,
         });
       }
       tiles.push(line);
@@ -647,9 +669,22 @@ function projectLegacyRuntimeTile(input: LegacyRuntimeTileInput): LegacyRuntimeT
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
   const aura = Number.isFinite(input?.aura) ? Math.trunc(Number(input.aura)) : 0;
+  const resources = Array.isArray(input?.resources)
+    ? input.resources
+      .filter((entry) => entry
+        && typeof entry === 'object'
+        && typeof entry.resourceKey === 'string'
+        && Number.isFinite(entry.value))
+      .map((entry) => buildLegacyQiResource(
+        entry.resourceKey,
+        Number(entry.value),
+        Number.isFinite(entry.sourceValue) ? Number(entry.sourceValue) : undefined,
+      ))
+      .filter((entry) => entry.value > 0)
+    : [];
   const projection: LegacyRuntimeTileProjection = {
     aura,
-    resources: [buildLegacyAuraResource(aura)],
+    resources: resources.length > 0 ? resources : [buildLegacyAuraResource(aura)],
   };
 
   if (typeof input?.mapChar === 'string') {
@@ -668,12 +703,18 @@ function projectLegacyRuntimeTile(input: LegacyRuntimeTileInput): LegacyRuntimeT
 
 
 function buildLegacyAuraResource(aura: number): LegacyAuraResource {
+  return buildLegacyQiResource('aura.refined.neutral', aura, 0);
+}
+
+function buildLegacyQiResource(resourceKey: string, value: number, sourceValue?: number): LegacyAuraResource {
+  const normalizedValue = Math.max(0, Math.trunc(Number(value) || 0));
   return {
-    key: 'aura',
-    label: '灵气',
-    value: aura,
-    effectiveValue: aura,
-    level: getAuraLevel(aura, DEFAULT_AURA_LEVEL_BASE_VALUE),
+    key: resourceKey,
+    label: getQiResourceDisplayLabel(resourceKey),
+    value: normalizedValue,
+    effectiveValue: normalizedValue,
+    level: getQiResourceDefaultLevel(resourceKey, normalizedValue, DEFAULT_AURA_LEVEL_BASE_VALUE),
+    sourceValue: Number.isFinite(sourceValue) ? Math.max(0, Math.trunc(Number(sourceValue))) : undefined,
   };
 }
 /**

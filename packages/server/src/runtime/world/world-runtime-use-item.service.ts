@@ -16,10 +16,13 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.WorldRuntimeUseItemService = void 0;
 
 const common_1 = require("@nestjs/common");
+const shared_1 = require("@mud/shared-next");
 
 const content_template_repository_1 = require("../../content/content-template.repository");
 const map_template_repository_1 = require("../map/map-template.repository");
 const player_runtime_service_1 = require("../player/player-runtime.service");
+
+const DEFAULT_TILE_AURA_RESOURCE_KEY = (0, shared_1.buildQiResourceKey)(shared_1.DEFAULT_QI_RESOURCE_DESCRIPTOR);
 
 /** world-runtime use-item orchestration：承接物品使用结算分支。 */
 let WorldRuntimeUseItemService = class WorldRuntimeUseItemService {
@@ -76,8 +79,8 @@ let WorldRuntimeUseItemService = class WorldRuntimeUseItemService {
             this.handleMapUnlockItem(playerId, slotIndex, item, mapUnlockIds, deps);
             return;
         }
-        if (item.tileAuraGainAmount) {
-            this.handleTileAuraItem(playerId, slotIndex, item, deps);
+        if (this.resolveTileResourceGains(item).length > 0) {
+            this.handleTileResourceItem(playerId, slotIndex, item, deps);
             return;
         }
         this.playerRuntimeService.useItem(playerId, slotIndex);
@@ -123,27 +126,64 @@ let WorldRuntimeUseItemService = class WorldRuntimeUseItemService {
         deps.queuePlayerNotice(playerId, `已解锁地图：${targetLabel}`, 'success');
     }    
     /**
- * handleTileAuraItem：处理TileAura道具并更新相关状态。
+ * handleTileResourceItem：处理Tile资源道具并更新相关状态。
  * @param playerId 玩家 ID。
  * @param slotIndex 参数说明。
  * @param item 道具。
  * @param deps 运行时依赖。
- * @returns 无返回值，直接更新TileAura道具相关状态。
+ * @returns 无返回值，直接更新Tile资源道具相关状态。
  */
 
-    handleTileAuraItem(playerId, slotIndex, item, deps) {
+    handleTileResourceItem(playerId, slotIndex, item, deps) {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
-
+        const resourceGains = this.resolveTileResourceGains(item);
+        const unsupportedResource = resourceGains.find((entry) => entry.resourceKey !== DEFAULT_TILE_AURA_RESOURCE_KEY);
+        if (unsupportedResource) {
+            throw new common_1.BadRequestException(`当前版本暂不支持道具直接改写地块资源：${unsupportedResource.resourceKey}`);
+        }
+        const totalAuraGain = resourceGains.reduce((sum, entry) => sum + entry.amount, 0);
+        if (totalAuraGain <= 0) {
+            throw new common_1.BadRequestException(`Failed to resolve tile resource gain from item ${item.itemId}`);
+        }
         const location = deps.getPlayerLocationOrThrow(playerId);
         const player = this.playerRuntimeService.getPlayerOrThrow(playerId);
         const instance = deps.getInstanceRuntimeOrThrow(location.instanceId);
-        const nextAura = instance.addTileAura(player.x, player.y, item.tileAuraGainAmount);
+        const nextAura = instance.addTileAura(player.x, player.y, totalAuraGain);
         if (nextAura === null) {
             throw new common_1.BadRequestException(`Failed to add aura at ${player.x},${player.y}`);
         }
         this.playerRuntimeService.consumeInventoryItem(playerId, slotIndex, 1);
         deps.refreshQuestStates(playerId);
         deps.queuePlayerNotice(playerId, `使用 ${item.name}，当前地块灵气提升至 ${nextAura}`, 'success');
+    }
+    /**
+ * resolveTileResourceGains：解析地块资源增益列表。
+ * @param item 道具。
+ * @returns 返回地块资源增益列表。
+ */
+
+    resolveTileResourceGains(item) {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
+        if (Array.isArray(item.tileResourceGains) && item.tileResourceGains.length > 0) {
+            return item.tileResourceGains
+                .filter((entry) => entry
+                && typeof entry.resourceKey === 'string'
+                && entry.resourceKey.length > 0
+                && Number.isFinite(entry.amount)
+                && entry.amount > 0)
+                .map((entry) => ({
+                resourceKey: entry.resourceKey,
+                amount: Number(entry.amount),
+            }));
+        }
+        if (Number.isFinite(item.tileAuraGainAmount) && item.tileAuraGainAmount > 0) {
+            return [{
+                resourceKey: DEFAULT_TILE_AURA_RESOURCE_KEY,
+                amount: Number(item.tileAuraGainAmount),
+            }];
+        }
+        return [];
     }
 };
 exports.WorldRuntimeUseItemService = WorldRuntimeUseItemService;

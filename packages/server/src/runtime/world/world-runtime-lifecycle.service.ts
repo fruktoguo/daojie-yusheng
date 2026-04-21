@@ -55,7 +55,11 @@ let WorldRuntimeLifecycleService = class WorldRuntimeLifecycleService {
             if (!snapshot || snapshot.templateId !== instance.template.id) {
                 continue;
             }
-            instance.hydrateAura(snapshot.auraEntries);
+            instance.hydrateTileResources(snapshot.tileResourceEntries ?? snapshot.auraEntries?.map((entry) => ({
+                resourceKey: 'aura.refined.neutral',
+                tileIndex: entry.tileIndex,
+                value: entry.value,
+            })) ?? []);
             instance.hydrateGroundPiles(snapshot.groundPileEntries);
             deps.worldRuntimeLootContainerService.hydrateContainerStates(instanceId, snapshot.containerStates ?? []);
         }

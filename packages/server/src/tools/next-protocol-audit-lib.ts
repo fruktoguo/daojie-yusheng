@@ -12,8 +12,9 @@ const net = require("node:net");
 const path = require("node:path");
 const socket_io_client_1 = require("socket.io-client");
 const env_alias_1 = require("../config/env-alias");
-exports.packageRoot = path.resolve(__dirname, '..', '..');
-exports.distRoot = path.join(exports.packageRoot, 'dist');
+const stable_dist_1 = require("./stable-dist");
+exports.packageRoot = (0, stable_dist_1.resolveToolPackageRoot)(__dirname);
+exports.distRoot = (0, stable_dist_1.resolveToolDistRoot)(__dirname, exports.packageRoot);
 exports.repoRoot = path.resolve(exports.packageRoot, '..', '..');
 /**
  * 记录服务端入口文件路径。
@@ -105,7 +106,7 @@ async function startIsolatedServer(port) {
  * 记录子进程。
  */
     const child = (0, node_child_process_1.spawn)('node', [serverEntry], {
-      cwd: exports.packageRoot,
+      cwd: exports.repoRoot,
       env: {
         ...process.env,
         SERVER_NEXT_PORT: String(port),

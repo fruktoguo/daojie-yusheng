@@ -1,291 +1,495 @@
-// @ts-nocheck
-"use strict";
+import type {
+  AutoUsePillCondition,
+  AutoUsePillConfig,
+  CombatRelationBlockedReason,
+  CombatRelationResolution,
+  CombatRelationTargetKind,
+  CombatTargetingRuleKey,
+  CombatTargetingRuleScope,
+  CombatTargetingRules,
+} from '@mud/shared-next';
 
-Object.defineProperty(exports, "__esModule", { value: true });
-exports.canPlayerDealDamageToPlayer = exports.isPlayerPassivelyHostileTarget = exports.normalizePersistedCombatTargetingRules = exports.isSameCombatTargetingRules = exports.cloneCombatTargetingRules = exports.normalizePersistedAutoUsePills = exports.isSameAutoUsePillList = exports.cloneAutoUsePillList = void 0;
-const pvp_1 = require("../../constants/gameplay/pvp");
-/**
- * cloneAutoUsePillCondition：构建AutoUsePillCondition。
- * @param input 输入参数。
- * @returns 无返回值，直接更新AutoUsePillCondition相关状态。
- */
+import {
+  PVP_SHA_DEMONIZED_STACK_THRESHOLD,
+  PVP_SHA_INFUSION_BUFF_ID,
+} from '../../constants/gameplay/pvp';
 
+type AutoUsePillConditionLike = AutoUsePillCondition & Record<string, unknown>;
 
-function cloneAutoUsePillCondition(input) {
-    return {
-        ...input,
-    };
+interface PlayerCombatLike {
+  allowAoePlayerHit?: boolean;
+  retaliatePlayerTargetId?: string | null;
+  combatTargetingRules?: CombatTargetingRules | null;
 }
-/**
- * cloneAutoUsePillEntry：构建AutoUsePill条目。
- * @param input 输入参数。
- * @returns 无返回值，直接更新AutoUsePill条目相关状态。
- */
 
-function cloneAutoUsePillEntry(input) {
-    return {
-        ...input,
-        conditions: Array.isArray(input.conditions)
-            ? input.conditions.map((condition) => cloneAutoUsePillCondition(condition))
-            : [],
-    };
+interface PlayerBuffLike {
+  buffId?: string | null;
+  stacks?: number | null;
+  remainingTicks?: number | null;
 }
-/**
- * cloneAutoUsePillList：读取AutoUsePill列表并返回结果。
- * @param input 输入参数。
- * @returns 无返回值，直接更新AutoUsePill列表相关状态。
- */
 
-function cloneAutoUsePillList(input) {
-    return Array.isArray(input) ? input.map((entry) => cloneAutoUsePillEntry(entry)) : [];
+interface PlayerTargetLike {
+  playerId: string;
+  combat?: PlayerCombatLike | null;
+  buffs?: PlayerBuffLike[] | null;
 }
-exports.cloneAutoUsePillList = cloneAutoUsePillList;
-/**
- * isSameAutoUsePillCondition：判断SameAutoUsePillCondition是否满足条件。
- * @param left 参数说明。
- * @param right 参数说明。
- * @returns 无返回值，完成SameAutoUsePillCondition的条件判断。
- */
 
-function isSameAutoUsePillCondition(left, right) {
-  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+interface CombatRelationTargetFlags {
+  sameParty?: boolean;
+  sameSect?: boolean;
+  passivelyHostile?: boolean;
+  retaliator?: boolean;
+}
 
-    if (left === right) {
-        return true;
-    }
-    if (!left || !right) {
-        return false;
-    }
-    const leftKeys = Object.keys(left);
-    const rightKeys = Object.keys(right);
-    if (leftKeys.length !== rightKeys.length) {
-        return false;
-    }
-    for (const key of leftKeys) {
-        if (!Object.prototype.hasOwnProperty.call(right, key) || left[key] !== right[key]) {
-            return false;
-        }
-    }
+type CombatRelationTargetInput =
+  | {
+    kind: 'player';
+    target: PlayerTargetLike | null | undefined;
+    flags?: CombatRelationTargetFlags | null;
+  }
+  | {
+    kind: 'monster';
+  }
+  | {
+    kind: 'terrain';
+  };
+
+interface CanonicalCombatTargetingRules extends CombatTargetingRules {
+  hostile: CombatTargetingRuleKey[];
+  friendly: CombatTargetingRuleKey[];
+  includeNormalMonsters: boolean;
+  includeEliteMonsters: boolean;
+  includeBosses: boolean;
+  includePlayers: boolean;
+}
+
+function cloneAutoUsePillCondition(input: AutoUsePillConditionLike): AutoUsePillConditionLike {
+  return {
+    ...input,
+  };
+}
+
+function cloneAutoUsePillEntry(input: AutoUsePillConfig): AutoUsePillConfig {
+  return {
+    ...input,
+    conditions: Array.isArray(input.conditions)
+      ? input.conditions.map((condition) => cloneAutoUsePillCondition(condition as AutoUsePillConditionLike))
+      : [],
+  };
+}
+
+export function cloneAutoUsePillList(input: AutoUsePillConfig[] | null | undefined): AutoUsePillConfig[] {
+  return Array.isArray(input) ? input.map((entry) => cloneAutoUsePillEntry(entry)) : [];
+}
+
+function isSameAutoUsePillCondition(
+  left: AutoUsePillConditionLike | null | undefined,
+  right: AutoUsePillConditionLike | null | undefined,
+): boolean {
+  if (left === right) {
     return true;
+  }
+  if (!left || !right) {
+    return false;
+  }
+
+  const leftKeys = Object.keys(left);
+  const rightKeys = Object.keys(right);
+  if (leftKeys.length !== rightKeys.length) {
+    return false;
+  }
+  for (const key of leftKeys) {
+    if (!Object.prototype.hasOwnProperty.call(right, key) || left[key] !== right[key]) {
+      return false;
+    }
+  }
+  return true;
 }
-/**
- * isSameAutoUsePillEntry：判断SameAutoUsePill条目是否满足条件。
- * @param left 参数说明。
- * @param right 参数说明。
- * @returns 无返回值，完成SameAutoUsePill条目的条件判断。
- */
 
-function isSameAutoUsePillEntry(left, right) {
-  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
-
-    if (left === right) {
-        return true;
-    }
-    if (!left || !right) {
-        return false;
-    }
-    if (left.itemId !== right.itemId) {
-        return false;
-    }
-    const leftConditions = Array.isArray(left.conditions) ? left.conditions : [];
-    const rightConditions = Array.isArray(right.conditions) ? right.conditions : [];
-    if (leftConditions.length !== rightConditions.length) {
-        return false;
-    }
-    for (let index = 0; index < leftConditions.length; index += 1) {
-        if (!isSameAutoUsePillCondition(leftConditions[index], rightConditions[index])) {
-            return false;
-        }
-    }
+function isSameAutoUsePillEntry(left: AutoUsePillConfig | null | undefined, right: AutoUsePillConfig | null | undefined): boolean {
+  if (left === right) {
     return true;
+  }
+  if (!left || !right) {
+    return false;
+  }
+  if (left.itemId !== right.itemId) {
+    return false;
+  }
+
+  const leftConditions = Array.isArray(left.conditions) ? left.conditions : [];
+  const rightConditions = Array.isArray(right.conditions) ? right.conditions : [];
+  if (leftConditions.length !== rightConditions.length) {
+    return false;
+  }
+  for (let index = 0; index < leftConditions.length; index += 1) {
+    if (
+      !isSameAutoUsePillCondition(
+        leftConditions[index] as AutoUsePillConditionLike,
+        rightConditions[index] as AutoUsePillConditionLike,
+      )
+    ) {
+      return false;
+    }
+  }
+  return true;
 }
-/**
- * isSameAutoUsePillList：读取SameAutoUsePill列表并返回结果。
- * @param previous 参数说明。
- * @param current 参数说明。
- * @returns 无返回值，完成SameAutoUsePill列表的条件判断。
- */
 
-function isSameAutoUsePillList(previous, current) {
-  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
-
-    if (previous === current) {
-        return true;
-    }
-    const left = Array.isArray(previous) ? previous : [];
-    const right = Array.isArray(current) ? current : [];
-    if (left.length !== right.length) {
-        return false;
-    }
-    for (let index = 0; index < left.length; index += 1) {
-        if (!isSameAutoUsePillEntry(left[index], right[index])) {
-            return false;
-        }
-    }
+export function isSameAutoUsePillList(
+  previous: AutoUsePillConfig[] | null | undefined,
+  current: AutoUsePillConfig[] | null | undefined,
+): boolean {
+  if (previous === current) {
     return true;
-}
-exports.isSameAutoUsePillList = isSameAutoUsePillList;
-/**
- * normalizePersistedAutoUsePills：判断PersistedAutoUsePill是否满足条件。
- * @param input 输入参数。
- * @returns 无返回值，直接更新PersistedAutoUsePill相关状态。
- */
-
-function normalizePersistedAutoUsePills(input) {
-  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
-
-    if (!Array.isArray(input)) {
-        return [];
+  }
+  const left = Array.isArray(previous) ? previous : [];
+  const right = Array.isArray(current) ? current : [];
+  if (left.length !== right.length) {
+    return false;
+  }
+  for (let index = 0; index < left.length; index += 1) {
+    if (!isSameAutoUsePillEntry(left[index], right[index])) {
+      return false;
     }
-    return input
-        .filter((entry) => entry && typeof entry.itemId === 'string' && entry.itemId.trim().length > 0)
-        .map((entry) => ({
-        itemId: entry.itemId.trim(),
-        conditions: Array.isArray(entry.conditions)
-            ? entry.conditions
-                .filter((condition) => condition && typeof condition.type === 'string')
-                .map((condition) => cloneAutoUsePillCondition(condition))
-            : [],
+  }
+  return true;
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null && !Array.isArray(value);
+}
+
+export function normalizePersistedAutoUsePills(input: unknown): AutoUsePillConfig[] {
+  if (!Array.isArray(input)) {
+    return [];
+  }
+
+  return input
+    .filter((entry): entry is Record<string, unknown> => isRecord(entry) && typeof entry.itemId === 'string' && entry.itemId.trim().length > 0)
+    .map((entry) => ({
+      itemId: String(entry.itemId).trim(),
+      conditions: Array.isArray(entry.conditions)
+        ? entry.conditions
+            .filter((condition): condition is AutoUsePillConditionLike => isRecord(condition) && typeof condition.type === 'string')
+            .map((condition) => cloneAutoUsePillCondition(condition))
+        : [],
     }));
 }
-exports.normalizePersistedAutoUsePills = normalizePersistedAutoUsePills;
-/**
- * cloneCombatTargetingRules：读取战斗TargetingRule并返回结果。
- * @param input 输入参数。
- * @returns 无返回值，直接更新战斗TargetingRule相关状态。
- */
 
-function cloneCombatTargetingRules(input) {
-    if (!input) {
-        return undefined;
+function buildDefaultCombatTargetingRules(includeAllPlayersHostile = false): CanonicalCombatTargetingRules {
+  const hostile: CombatTargetingRuleKey[] = ['monster', 'demonized_players', 'retaliators', 'terrain'];
+  if (includeAllPlayersHostile && !hostile.includes('all_players')) {
+    hostile.push('all_players');
+  }
+  const friendly: CombatTargetingRuleKey[] = ['non_hostile_players'];
+  return {
+    hostile,
+    friendly,
+    includeNormalMonsters: hostile.includes('monster'),
+    includeEliteMonsters: hostile.includes('monster'),
+    includeBosses: hostile.includes('monster'),
+    includePlayers: hostile.includes('all_players'),
+  };
+}
+
+function hasLegacyMonsterOverride(input: Partial<CombatTargetingRules> | null | undefined): boolean {
+  return input?.includeNormalMonsters !== undefined
+    || input?.includeEliteMonsters !== undefined
+    || input?.includeBosses !== undefined;
+}
+
+function resolveLegacyMonsterEnabled(input: Partial<CombatTargetingRules> | null | undefined, defaults: CombatTargetingRuleKey[]): boolean {
+  if (hasLegacyMonsterOverride(input)) {
+    return input?.includeNormalMonsters === true
+      || input?.includeEliteMonsters === true
+      || input?.includeBosses === true;
+  }
+  return defaults.includes('monster');
+}
+
+function buildLegacyHostileFallback(
+  input: Partial<CombatTargetingRules> | null | undefined,
+  defaults: CombatTargetingRuleKey[],
+): CombatTargetingRuleKey[] {
+  const fallback: CombatTargetingRuleKey[] = defaults.filter((entry) => entry !== 'monster' && entry !== 'all_players');
+  if (resolveLegacyMonsterEnabled(input, defaults)) {
+    fallback.unshift('monster');
+  }
+  const includePlayers = input?.includePlayers ?? defaults.includes('all_players');
+  if (includePlayers && !fallback.includes('all_players')) {
+    fallback.push('all_players');
+  }
+  return fallback;
+}
+
+function normalizeCombatTargetingScope(
+  input: CombatTargetingRuleKey[] | null | undefined,
+  scope: CombatTargetingRuleScope,
+  fallback: CombatTargetingRuleKey[],
+): CombatTargetingRuleKey[] {
+  const allowed = scope === 'hostile'
+    ? new Set<CombatTargetingRuleKey>(['monster', 'all_players', 'demonized_players', 'retaliators', 'party', 'sect', 'terrain'])
+    : new Set<CombatTargetingRuleKey>(['monster', 'all_players', 'retaliators', 'non_hostile_players', 'terrain', 'party', 'sect']);
+  const source = Array.isArray(input) ? input : fallback;
+  const normalized: CombatTargetingRuleKey[] = [];
+  const seen = new Set<CombatTargetingRuleKey>();
+
+  for (const raw of source) {
+    if (!allowed.has(raw) || seen.has(raw)) {
+      continue;
     }
-    const defaults = buildDefaultCombatTargetingRules(input.includePlayers === true);
-    const hostile = normalizeCombatTargetingScope(input.hostile, 'hostile', defaults.hostile);
-    const friendly = normalizeCombatTargetingScope(input.friendly, 'friendly', defaults.friendly);
+    seen.add(raw);
+    normalized.push(raw);
+  }
+  return normalized;
+}
+
+export function cloneCombatTargetingRules(
+  input: CombatTargetingRules | null | undefined,
+): CanonicalCombatTargetingRules | undefined {
+  if (!input) {
+    return undefined;
+  }
+
+  const defaults = buildDefaultCombatTargetingRules(input.includePlayers === true);
+  const hostile = normalizeCombatTargetingScope(
+    input.hostile,
+    'hostile',
+    buildLegacyHostileFallback(input, defaults.hostile),
+  );
+  const friendly = normalizeCombatTargetingScope(input.friendly, 'friendly', defaults.friendly);
+
+  return {
+    hostile,
+    friendly,
+    includeNormalMonsters: hostile.includes('monster'),
+    includeEliteMonsters: hostile.includes('monster'),
+    includeBosses: hostile.includes('monster'),
+    includePlayers: hostile.includes('all_players'),
+  };
+}
+
+export function isSameCombatTargetingRules(
+  left: CombatTargetingRules | null | undefined,
+  right: CombatTargetingRules | null | undefined,
+): boolean {
+  if (left === right) {
+    return true;
+  }
+  if (!left || !right) {
+    return left === right;
+  }
+
+  const leftHostile = Array.isArray(left.hostile) ? left.hostile : [];
+  const rightHostile = Array.isArray(right.hostile) ? right.hostile : [];
+  const leftFriendly = Array.isArray(left.friendly) ? left.friendly : [];
+  const rightFriendly = Array.isArray(right.friendly) ? right.friendly : [];
+  if (leftHostile.length !== rightHostile.length || leftFriendly.length !== rightFriendly.length) {
+    return false;
+  }
+  for (let index = 0; index < leftHostile.length; index += 1) {
+    if (leftHostile[index] !== rightHostile[index]) {
+      return false;
+    }
+  }
+  for (let index = 0; index < leftFriendly.length; index += 1) {
+    if (leftFriendly[index] !== rightFriendly[index]) {
+      return false;
+    }
+  }
+  return left.includeNormalMonsters === right.includeNormalMonsters
+    && left.includeEliteMonsters === right.includeEliteMonsters
+    && left.includeBosses === right.includeBosses
+    && left.includePlayers === right.includePlayers;
+}
+
+export function normalizePersistedCombatTargetingRules(input: unknown): CanonicalCombatTargetingRules | undefined {
+  if (!isRecord(input)) {
+    return undefined;
+  }
+
+  return cloneCombatTargetingRules({
+    hostile: Array.isArray(input.hostile) ? (input.hostile as CombatTargetingRuleKey[]) : undefined,
+    friendly: Array.isArray(input.friendly) ? (input.friendly as CombatTargetingRuleKey[]) : undefined,
+    includeNormalMonsters: input.includeNormalMonsters === true ? true : input.includeNormalMonsters === false ? false : undefined,
+    includeEliteMonsters: input.includeEliteMonsters === true ? true : input.includeEliteMonsters === false ? false : undefined,
+    includeBosses: input.includeBosses === true ? true : input.includeBosses === false ? false : undefined,
+    includePlayers: input.includePlayers === true ? true : input.includePlayers === false ? false : undefined,
+  });
+}
+
+export function isPlayerPassivelyHostileTarget(target: PlayerTargetLike | null | undefined): boolean {
+  return Array.isArray(target?.buffs)
+    && target.buffs.some((buff) =>
+      buff?.buffId === PVP_SHA_INFUSION_BUFF_ID
+      && Math.max(0, Math.round(buff?.stacks ?? 0)) > PVP_SHA_DEMONIZED_STACK_THRESHOLD
+      && Math.max(0, Math.round(buff?.remainingTicks ?? 0)) > 0,
+    );
+}
+
+function buildEffectiveCombatTargetingRules(attacker: PlayerTargetLike | null | undefined): CanonicalCombatTargetingRules {
+  const normalized = cloneCombatTargetingRules(attacker?.combat?.combatTargetingRules);
+  const fallback = buildDefaultCombatTargetingRules(attacker?.combat?.allowAoePlayerHit === true);
+  const hostile = [...(normalized?.hostile ?? fallback.hostile)];
+  if (attacker?.combat?.allowAoePlayerHit === true && !hostile.includes('all_players')) {
+    hostile.push('all_players');
+  }
+  const friendly = [...(normalized?.friendly ?? fallback.friendly)];
+  return {
+    hostile,
+    friendly,
+    includeNormalMonsters: hostile.includes('monster'),
+    includeEliteMonsters: hostile.includes('monster'),
+    includeBosses: hostile.includes('monster'),
+    includePlayers: hostile.includes('all_players'),
+  };
+}
+
+function buildNeutralResolution(reason: CombatRelationBlockedReason = 'rule_not_matched'): CombatRelationResolution {
+  return {
+    relation: 'neutral',
+    matchedRules: [],
+    blockedReason: reason,
+  };
+}
+
+function buildBlockedResolution(reason: CombatRelationBlockedReason): CombatRelationResolution {
+  return {
+    relation: 'blocked',
+    matchedRules: [],
+    blockedReason: reason,
+  };
+}
+
+function resolveRelationMatchesForPlayerTarget(
+  rules: CanonicalCombatTargetingRules,
+  attacker: PlayerTargetLike,
+  target: PlayerTargetLike,
+  flags?: CombatRelationTargetFlags | null,
+): CombatRelationResolution {
+  if (attacker.playerId === target.playerId) {
+    return buildBlockedResolution('self_target');
+  }
+  const effectiveFlags: CombatRelationTargetFlags = {
+    sameParty: flags?.sameParty === true,
+    sameSect: flags?.sameSect === true,
+    passivelyHostile: flags?.passivelyHostile ?? isPlayerPassivelyHostileTarget(target),
+    retaliator: flags?.retaliator ?? attacker.combat?.retaliatePlayerTargetId === target.playerId,
+  };
+  const hostileMatches: CombatTargetingRuleKey[] = [];
+  const friendlyMatches: CombatTargetingRuleKey[] = [];
+  const isPartyOrSectTarget = effectiveFlags.sameParty === true || effectiveFlags.sameSect === true;
+  const playerExplicitlyHostile = effectiveFlags.retaliator === true
+    || effectiveFlags.passivelyHostile === true
+    || isPartyOrSectTarget === true;
+  if (rules.hostile.includes('all_players')) {
+    hostileMatches.push('all_players');
+  }
+  if (effectiveFlags.retaliator && rules.hostile.includes('retaliators')) {
+    hostileMatches.push('retaliators');
+  }
+  if (effectiveFlags.passivelyHostile && rules.hostile.includes('demonized_players')) {
+    hostileMatches.push('demonized_players');
+  }
+  if (effectiveFlags.sameParty && rules.hostile.includes('party')) {
+    hostileMatches.push('party');
+  }
+  if (effectiveFlags.sameSect && rules.hostile.includes('sect')) {
+    hostileMatches.push('sect');
+  }
+  if (hostileMatches.length > 0) {
     return {
-        hostile,
-        friendly,
-        includeNormalMonsters: hostile.includes('monster'),
-        includeEliteMonsters: hostile.includes('monster'),
-        includeBosses: hostile.includes('monster'),
-        includePlayers: hostile.includes('all_players'),
+      relation: 'hostile',
+      matchedRules: hostileMatches,
     };
-}
-exports.cloneCombatTargetingRules = cloneCombatTargetingRules;
-/**
- * isSameCombatTargetingRules：读取Same战斗TargetingRule并返回结果。
- * @param left 参数说明。
- * @param right 参数说明。
- * @returns 无返回值，完成Same战斗TargetingRule的条件判断。
- */
-
-function isSameCombatTargetingRules(left, right) {
-  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
-
-    if (left === right) {
-        return true;
-    }
-    if (!left || !right) {
-        return left === right;
-    }
-    const leftHostile = Array.isArray(left.hostile) ? left.hostile : [];
-    const rightHostile = Array.isArray(right.hostile) ? right.hostile : [];
-    const leftFriendly = Array.isArray(left.friendly) ? left.friendly : [];
-    const rightFriendly = Array.isArray(right.friendly) ? right.friendly : [];
-    if (leftHostile.length !== rightHostile.length || leftFriendly.length !== rightFriendly.length) {
-        return false;
-    }
-    for (let index = 0; index < leftHostile.length; index += 1) {
-        if (leftHostile[index] !== rightHostile[index]) {
-            return false;
-        }
-    }
-    for (let index = 0; index < leftFriendly.length; index += 1) {
-        if (leftFriendly[index] !== rightFriendly[index]) {
-            return false;
-        }
-    }
-    return left.includeNormalMonsters === right.includeNormalMonsters
-        && left.includeEliteMonsters === right.includeEliteMonsters
-        && left.includeBosses === right.includeBosses
-        && left.includePlayers === right.includePlayers;
-}
-exports.isSameCombatTargetingRules = isSameCombatTargetingRules;
-/**
- * normalizePersistedCombatTargetingRules：读取Persisted战斗TargetingRule并返回结果。
- * @param input 输入参数。
- * @returns 无返回值，直接更新Persisted战斗TargetingRule相关状态。
- */
-
-function normalizePersistedCombatTargetingRules(input) {
-  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
-
-    if (!input || typeof input !== 'object') {
-        return undefined;
-    }
-    return cloneCombatTargetingRules({
-        hostile: input.hostile,
-        friendly: input.friendly,
-        includeNormalMonsters: input.includeNormalMonsters,
-        includeEliteMonsters: input.includeEliteMonsters,
-        includeBosses: input.includeBosses,
-        includePlayers: input.includePlayers,
-    });
-}
-exports.normalizePersistedCombatTargetingRules = normalizePersistedCombatTargetingRules;
-function buildDefaultCombatTargetingRules(includeAllPlayersHostile = false) {
-    const hostile = ['monster', 'demonized_players', 'retaliators', 'terrain'];
-    if (includeAllPlayersHostile === true && !hostile.includes('all_players')) {
-        hostile.push('all_players');
-    }
+  }
+  if (rules.friendly.includes('all_players')) {
+    friendlyMatches.push('all_players');
+  }
+  if (effectiveFlags.retaliator && rules.friendly.includes('retaliators')) {
+    friendlyMatches.push('retaliators');
+  }
+  if (!playerExplicitlyHostile && rules.friendly.includes('non_hostile_players')) {
+    friendlyMatches.push('non_hostile_players');
+  }
+  if (effectiveFlags.sameParty && rules.friendly.includes('party')) {
+    friendlyMatches.push('party');
+  }
+  if (effectiveFlags.sameSect && rules.friendly.includes('sect')) {
+    friendlyMatches.push('sect');
+  }
+  if (friendlyMatches.length > 0) {
     return {
-        hostile,
-        friendly: ['non_hostile_players'],
+      relation: 'friendly',
+      matchedRules: friendlyMatches,
     };
+  }
+  return buildNeutralResolution();
 }
-function normalizeCombatTargetingScope(input, scope, fallback) {
-    const allowed = scope === 'hostile'
-        ? new Set(['monster', 'all_players', 'demonized_players', 'retaliators', 'party', 'sect', 'terrain'])
-        : new Set(['monster', 'all_players', 'retaliators', 'non_hostile_players', 'terrain', 'party', 'sect']);
-    const source = Array.isArray(input) ? input : fallback;
-    const normalized = [];
-    const seen = new Set();
-    for (const raw of source) {
-        if (!allowed.has(raw) || seen.has(raw)) {
-            continue;
-        }
-        seen.add(raw);
-        normalized.push(raw);
-    }
-    return normalized;
-}
-function isPlayerPassivelyHostileTarget(target) {
-  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
-    return Array.isArray(target?.buffs)
-        && target.buffs.some((buff) => buff?.buffId === pvp_1.PVP_SHA_INFUSION_BUFF_ID
-            && Math.max(0, Math.round(buff?.stacks ?? 0)) > pvp_1.PVP_SHA_DEMONIZED_STACK_THRESHOLD
-            && Math.max(0, Math.round(buff?.remainingTicks ?? 0)) > 0);
+function resolveRelationMatchesForRuleOnlyTarget(
+  rules: CanonicalCombatTargetingRules,
+  hostileRule: CombatTargetingRuleKey,
+  friendlyRule: CombatTargetingRuleKey,
+): CombatRelationResolution {
+  if (rules.hostile.includes(hostileRule)) {
+    return {
+      relation: 'hostile',
+      matchedRules: [hostileRule],
+    };
+  }
+  if (rules.friendly.includes(friendlyRule)) {
+    return {
+      relation: 'friendly',
+      matchedRules: [friendlyRule],
+    };
+  }
+  return buildNeutralResolution();
 }
-exports.isPlayerPassivelyHostileTarget = isPlayerPassivelyHostileTarget;
-function canPlayerDealDamageToPlayer(attacker, target) {
-  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
-    if (!attacker || !target || attacker.playerId === target.playerId) {
-        return false;
+export function resolveCombatRelation(
+  attacker: PlayerTargetLike | null | undefined,
+  input: CombatRelationTargetInput,
+): CombatRelationResolution {
+  if (!attacker) {
+    return buildBlockedResolution('target_missing');
+  }
+  const rules = buildEffectiveCombatTargetingRules(attacker);
+  if (input.kind === 'player') {
+    if (!input.target) {
+      return buildBlockedResolution('target_missing');
     }
-    return attacker.combat?.allowAoePlayerHit === true
-        || attacker.combat?.retaliatePlayerTargetId === target.playerId
-        || isPlayerPassivelyHostileTarget(target);
+    return resolveRelationMatchesForPlayerTarget(rules, attacker, input.target, input.flags);
+  }
+  if (input.kind === 'monster') {
+    return resolveRelationMatchesForRuleOnlyTarget(rules, 'monster', 'monster');
+  }
+  return resolveRelationMatchesForRuleOnlyTarget(rules, 'terrain', 'terrain');
 }
-exports.canPlayerDealDamageToPlayer = canPlayerDealDamageToPlayer;
-export {
-    cloneAutoUsePillList,
-    isSameAutoUsePillList,
-    normalizePersistedAutoUsePills,
-    cloneCombatTargetingRules,
-    isSameCombatTargetingRules,
-    normalizePersistedCombatTargetingRules,
-    isPlayerPassivelyHostileTarget,
-    canPlayerDealDamageToPlayer,
-};
+
+export function resolveCombatRelationForTargetKind(
+  attacker: PlayerTargetLike | null | undefined,
+  targetKind: CombatRelationTargetKind,
+): CombatRelationResolution {
+  if (targetKind === 'player') {
+    return buildNeutralResolution();
+  }
+  if (targetKind === 'monster') {
+    return resolveCombatRelation(attacker, { kind: 'monster' });
+  }
+  return resolveCombatRelation(attacker, { kind: 'terrain' });
+}
+
+export function isHostileCombatRelationResolution(input: CombatRelationResolution | null | undefined): boolean {
+  return input?.relation === 'hostile';
+}
+
+export function canPlayerDealDamageToPlayer(
+  attacker: PlayerTargetLike | null | undefined,
+  target: PlayerTargetLike | null | undefined,
+): boolean {
+  return isHostileCombatRelationResolution(resolveCombatRelation(attacker, {
+    kind: 'player',
+    target,
+  }));
+}

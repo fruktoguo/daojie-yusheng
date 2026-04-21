@@ -239,6 +239,23 @@ type MainTargetingStateSourceOptions = {
 
   showToast: (message: string) => void;
 };
+
+function buildSenseQiTooltipLines(tile: Tile, x: number, y: number, formatAuraLevelText: (auraValue: number) => string): string[] {
+  const lines = [`坐标 (${x}, ${y})`];
+  if (Array.isArray(tile.resources) && tile.resources.length > 0) {
+    for (const resource of tile.resources) {
+      const displayValue = resource.effectiveValue ?? resource.value;
+      lines.push(
+        resource.label === '灵气'
+          ? formatAuraLevelText(displayValue)
+          : `${resource.label} ${Math.max(0, Math.round(displayValue))}`,
+      );
+    }
+    return lines;
+  }
+  lines.push(formatAuraLevelText(tile.aura ?? 0));
+  return lines;
+}
 /**
  * doesTargetingRequireVision：读取doeTargetingRequireVision并返回结果。
  * @param actionId string action ID。
@@ -518,10 +535,7 @@ export function createMainTargetingStateSource(options: MainTargetingStateSource
 
       options.senseQiTooltip.show(
         '感气视角',
-        [
-          `坐标 (${hoveredMapTile.x}, ${hoveredMapTile.y})`,
-          options.formatAuraLevelText(tile.aura ?? 0),
-        ],
+        buildSenseQiTooltipLines(tile, hoveredMapTile.x, hoveredMapTile.y, options.formatAuraLevelText),
         hoveredMapTile.clientX,
         hoveredMapTile.clientY,
       );

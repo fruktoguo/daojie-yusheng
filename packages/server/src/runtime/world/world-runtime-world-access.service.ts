@@ -75,6 +75,7 @@ let WorldRuntimeWorldAccessService = class WorldRuntimeWorldAccessService {
             tickDurationHistoryMs: deps.tickDurationHistoryMs,
             syncFlushDurationHistoryMs: deps.syncFlushDurationHistoryMs,
             lastTickPhaseDurations: deps.lastTickPhaseDurations,
+            tickPhaseDurationHistoryMs: deps.tickPhaseDurationHistoryMs,
             instances,
         });
     }    

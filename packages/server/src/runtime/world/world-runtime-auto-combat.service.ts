@@ -24,6 +24,23 @@ const { findPlayerSkill, resolveAutoBattleSkillQiCost } = world_runtime_normaliz
 const world_runtime_path_planning_helpers_1 = require("./world-runtime.path-planning.helpers");
 const { chebyshevDistance, findNextDirectionOnMap, buildAutoBattleGoalPoints } = world_runtime_path_planning_helpers_1;
 
+function isHostileRelation(resolution) {
+    return (0, player_combat_config_helpers_1.isHostileCombatRelationResolution)(resolution);
+}
+
+function resolveAutoCombatPlayerPriority(resolution) {
+    if (!resolution?.matchedRules?.length) {
+        return 0;
+    }
+    if (resolution.matchedRules.includes('retaliators')) {
+        return 3;
+    }
+    if (resolution.matchedRules.includes('demonized_players')) {
+        return 1;
+    }
+    return 0;
+}
+
 /** 自动战斗编排服务：承接 auto-targeting 与 auto command 物化。 */
 let WorldRuntimeAutoCombatService = class WorldRuntimeAutoCombatService {
 /**
@@ -178,7 +195,12 @@ let WorldRuntimeAutoCombatService = class WorldRuntimeAutoCombatService {
                 continue;
             }
             const retaliating = liveMonster.aggroTargetPlayerId === player.playerId;
+            const monsterRelation = (0, player_combat_config_helpers_1.resolveCombatRelation)(player, { kind: 'monster' });
+            const monsterHostile = isHostileRelation(monsterRelation);
             if (!player.combat.autoBattle && !retaliating) {
+                continue;
+            }
+            if (!monsterHostile && !retaliating) {
                 continue;
             }
             const aggroRank = retaliating ? 1 : 0;
@@ -240,10 +262,14 @@ let WorldRuntimeAutoCombatService = class WorldRuntimeAutoCombatService {
                 return null;
             }
             const trackedPlayer = this.playerRuntimeService.getPlayer(targetPlayerId);
+            const relation = (0, player_combat_config_helpers_1.resolveCombatRelation)(player, {
+                kind: 'player',
+                target: trackedPlayer,
+            });
             if (trackedPlayer?.instanceId === player.instanceId
                 && trackedPlayer.playerId !== player.playerId
                 && trackedPlayer.hp > 0
-                && (0, player_combat_config_helpers_1.canPlayerDealDamageToPlayer)(player, trackedPlayer)
+                && isHostileRelation(relation)
                 && chebyshevDistance(player.x, player.y, trackedPlayer.x, trackedPlayer.y) <= radius) {
                 return {
                     kind: 'player',
@@ -258,7 +284,12 @@ let WorldRuntimeAutoCombatService = class WorldRuntimeAutoCombatService {
         }
         if (targetRuntimeId.startsWith('tile:')) {
             const tile = shared_1.parseTileTargetRef(targetRuntimeId);
-            if (!tile || !instance.getTileCombatState(tile.x, tile.y) || chebyshevDistance(player.x, player.y, tile.x, tile.y) > radius) {
+            if (
+                !tile
+                || !instance.getTileCombatState(tile.x, tile.y)
+                || chebyshevDistance(player.x, player.y, tile.x, tile.y) > radius
+                || !isHostileRelation((0, player_combat_config_helpers_1.resolveCombatRelation)(player, { kind: 'terrain' }))
+            ) {
                 return this.handleMissingTrackedTarget(player, deps);
             }
             return {
@@ -270,7 +301,7 @@ let WorldRuntimeAutoCombatService = class WorldRuntimeAutoCombatService {
             };
         }
         const visibleTarget = view.localMonsters.find((entry) => entry.runtimeId === targetRuntimeId);
-        if (visibleTarget) {
+        if (visibleTarget && isHostileRelation((0, player_combat_config_helpers_1.resolveCombatRelation)(player, { kind: 'monster' }))) {
             return {
                 kind: 'monster',
                 runtimeId: visibleTarget.runtimeId,
@@ -281,7 +312,11 @@ let WorldRuntimeAutoCombatService = class WorldRuntimeAutoCombatService {
             };
         }
         const trackedTarget = instance.getMonster(targetRuntimeId);
-        if (trackedTarget?.alive && chebyshevDistance(player.x, player.y, trackedTarget.x, trackedTarget.y) <= radius) {
+        if (
+            trackedTarget?.alive
+            && chebyshevDistance(player.x, player.y, trackedTarget.x, trackedTarget.y) <= radius
+            && isHostileRelation((0, player_combat_config_helpers_1.resolveCombatRelation)(player, { kind: 'monster' }))
+        ) {
             return {
                 kind: 'monster',
                 runtimeId: trackedTarget.runtimeId,
@@ -321,15 +356,18 @@ let WorldRuntimeAutoCombatService = class WorldRuntimeAutoCombatService {
             if (!target || target.instanceId !== player.instanceId || target.hp <= 0) {
                 continue;
             }
-            if (!(0, player_combat_config_helpers_1.canPlayerDealDamageToPlayer)(player, target)) {
+            const relation = (0, player_combat_config_helpers_1.resolveCombatRelation)(player, {
+                kind: 'player',
+                target,
+            });
+            if (!isHostileRelation(relation)) {
                 continue;
             }
-            const retaliating = player.combat.retaliatePlayerTargetId === target.playerId;
-            const demonized = (0, player_combat_config_helpers_1.isPlayerPassivelyHostileTarget)(target);
+            const retaliating = relation.matchedRules.includes('retaliators');
             if (!player.combat.autoBattle && !retaliating) {
                 continue;
             }
-            const priority = retaliating ? 3 : demonized ? 1 : 0;
+            const priority = resolveAutoCombatPlayerPriority(relation);
             const distance = chebyshevDistance(player.x, player.y, target.x, target.y);
             if (!best
                 || priority > best.priority

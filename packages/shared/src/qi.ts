@@ -184,6 +184,24 @@ export const DEFAULT_QI_RUNTIME_FLOW_CONFIGS: Partial<Record<string, QiRuntimeFl
   },
 };
 
+/**
+ * 根据单次灵力消耗，计算每个 3x3 地块应注入的逸散灵气值。
+ *
+ * 说明：
+ * - `100` 以内维持原本每格 `10%` 的线性转化。
+ * - 超过 `100` 后按对数曲线衰减，保证单次消耗越大，单位灵力可转化出的逸散越低。
+ * - 该函数返回“每格”注入值；外围 3x3 的总注入量由调用方决定。
+ */
+export function calculateDispersedAuraGainPerTile(qiCost: number): number {
+  const normalizedCost = Number.isFinite(qiCost) ? Math.max(0, Math.floor(qiCost)) : 0;
+  if (normalizedCost <= 0) {
+    return 0;
+  }
+  const overflowLogFactor = normalizedCost <= 100 ? 0 : Math.log10(normalizedCost / 100);
+  const conversionDivisor = 10 * (1 + Math.max(0, overflowLogFactor));
+  return Math.max(0, Math.floor(normalizedCost / conversionDivisor));
+}
+
 /** 拼接灵力资源键，便于配置和查表。 */
 export function buildQiResourceKey(descriptor: QiResourceDescriptor): string {
   return `${descriptor.family}.${descriptor.form}.${descriptor.element}`;
@@ -218,6 +236,48 @@ export function isQiFamilyResource(resourceKey: string, family: QiFamilyKey): bo
 /** 判断资源键是否属于灵气族。 */
 export function isAuraQiResourceKey(resourceKey: string): boolean {
   return isQiFamilyResource(resourceKey, 'aura');
+}
+
+/** 返回资源键对应的显示标签。 */
+export function getQiResourceDisplayLabel(resourceKey: string): string {
+  const parsed = parseQiResourceKey(resourceKey);
+  if (!parsed) {
+    return resourceKey;
+  }
+  if (parsed.family === 'aura' && parsed.form === 'refined' && parsed.element === 'neutral') {
+    return '灵气';
+  }
+  const elementLabel = parsed.element === 'neutral'
+    ? ''
+    : ({
+      metal: '金',
+      wood: '木',
+      water: '水',
+      fire: '火',
+      earth: '土',
+    }[parsed.element] ?? parsed.element);
+  const formLabel = parsed.form === 'dispersed' ? '逸散' : '';
+  const familyLabel = ({
+    aura: '灵气',
+    sha: '煞气',
+    demonic: '魔气',
+  }[parsed.family] ?? parsed.family);
+  return `${elementLabel}${formLabel}${familyLabel}` || resourceKey;
+}
+
+/** 按资源类型推导默认等级语义；当前仅灵气族映射等级。 */
+export function getQiResourceDefaultLevel(
+  resourceKey: string,
+  value: number,
+  auraLevelBaseValue = DEFAULT_AURA_LEVEL_BASE_VALUE,
+): number | undefined {
+  const normalizedValue = Number.isFinite(value) ? Math.max(0, Math.trunc(value)) : 0;
+  if (normalizedValue <= 0) {
+    return 0;
+  }
+  return isAuraQiResourceKey(resourceKey)
+    ? getAuraLevel(normalizedValue, auraLevelBaseValue)
+    : undefined;
 }
 
 /** 将灵力效率倍率归一化为 basis point 口径。 */

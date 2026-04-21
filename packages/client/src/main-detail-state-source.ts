@@ -18,6 +18,7 @@ import { CraftWorkbenchModal } from './ui/craft-workbench-modal';
 import { EntityDetailModal } from './ui/entity-detail-modal';
 import { NpcShopModal } from './ui/npc-shop-modal';
 import { LootPanel } from './ui/panels/loot-panel';
+import { applyTechniqueActivityPanelToWorkbench } from './technique-activity-client.helpers';
 /**
  * MainDetailStateSourceOptions：统一结构类型，保证协议与运行时一致性。
  */
@@ -157,7 +158,7 @@ export function createMainDetailStateSource(options: MainDetailStateSourceOption
 
 
     handleAlchemyPanel(data: NEXT_S2C_AlchemyPanel): void {
-      options.craftWorkbenchModal.updateAlchemy(data);
+      applyTechniqueActivityPanelToWorkbench(options.craftWorkbenchModal, 'alchemy', data);
     },    
     /**
  * handleEnhancementPanel：处理强化面板并更新相关状态。
@@ -167,7 +168,7 @@ export function createMainDetailStateSource(options: MainDetailStateSourceOption
 
 
     handleEnhancementPanel(data: NEXT_S2C_EnhancementPanel): void {
-      options.craftWorkbenchModal.updateEnhancement(data);
+      applyTechniqueActivityPanelToWorkbench(options.craftWorkbenchModal, 'enhancement', data);
     },    
     /**
  * handleLeaderboard：处理Leaderboard并更新相关状态。

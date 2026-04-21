@@ -341,3 +341,22 @@
 - [x] 下一批优先推进第 9 批最终收尾，迁掉 `migrate-next-mainline-once.js` 与 `env-alias.js`
 - [x] 最终移除 `env-alias.js` 兼容壳并清零 `packages/server/src` 手写 `.js`
 - [ ] 下一阶段逐步去掉迁移期 `// @ts-nocheck` 并补强 server TS 类型约束
+
+## 16. 后续专项通用化规划
+
+说明：
+
+- 这一组不是当前 `replace-ready` 的立即阻塞项。
+- 这组文档用于承接下一阶段你明确指定的“通用化”方向，避免它们继续散在口头结论里。
+
+对应专题文档：
+
+- [12 气机资源统一化规划](./12-qi-resource-unification.md)
+- [13 敌我判定规则统一化规划](./13-combat-relation-rules-unification.md)
+- [14 技艺活动框架统一化规划](./14-technique-activity-framework.md)
+- [15 地图地块特征统一化规划](./15-map-tile-feature-unification.md)
+
+- [ ] 先把 `qi / craft-skill / craft-duration / craft-success` 这类 shared 纯函数合同固定下来
+- [ ] 再收口手动技能 / 普攻 / 自动战斗的统一敌我关系判定
+- [ ] 再把地块单值 `aura` 升成通用 tile resource runtime
+- [ ] 最后把炼丹 / 强化 / 采集收口为统一技艺活动框架

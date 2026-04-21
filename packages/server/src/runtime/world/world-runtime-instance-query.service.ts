@@ -71,6 +71,7 @@ let WorldRuntimeInstanceQueryService = class WorldRuntimeInstanceQueryService {
         }
         return {
             aura,
+            resources: instance.listTileResources?.(x, y) ?? [],
             safeZone: instance.getSafeZoneAtTile(x, y),
             container: instance.getContainerAtTile(x, y),
             groundPile: instance.getTileGroundPile(x, y),

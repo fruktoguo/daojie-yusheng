@@ -142,43 +142,43 @@ let WorldRuntimeController = class WorldRuntimeController {
     }
     /** spawnMonsterLoot：生成妖兽战利品。 */
     spawnMonsterLoot(instanceId, body) {
-        return this.worldRuntimeService.enqueueSpawnMonsterLoot(instanceId, body.monsterId ?? '', Number.isFinite(body.x) ? Number(body.x) : Number.NaN, Number.isFinite(body.y) ? Number(body.y) : Number.NaN, Number.isFinite(body.rolls) ? Number(body.rolls) : undefined);
+        return this.worldRuntimeService.worldRuntimeCommandIntakeFacadeService.enqueueSpawnMonsterLoot(instanceId, body.monsterId ?? '', Number.isFinite(body.x) ? Number(body.x) : Number.NaN, Number.isFinite(body.y) ? Number(body.y) : Number.NaN, Number.isFinite(body.rolls) ? Number(body.rolls) : undefined, this.worldRuntimeService);
     }
     /** defeatMonster：直接结算一只妖兽被击败后的占用释放。 */
     defeatMonster(instanceId, runtimeId, _body) {
-        return this.worldRuntimeService.enqueueDefeatMonster(instanceId, runtimeId);
+        return this.worldRuntimeService.worldRuntimeCommandIntakeFacadeService.enqueueDefeatMonster(instanceId, runtimeId, this.worldRuntimeService);
     }
     /** damageMonster：伤害妖兽。 */
     damageMonster(instanceId, runtimeId, body) {
-        return this.worldRuntimeService.enqueueDamageMonster(instanceId, runtimeId, Number.isFinite(body.amount) ? Number(body.amount) : Number.NaN);
+        return this.worldRuntimeService.worldRuntimeCommandIntakeFacadeService.enqueueDamageMonster(instanceId, runtimeId, Number.isFinite(body.amount) ? Number(body.amount) : Number.NaN, this.worldRuntimeService);
     }
     /** connectPlayer：将玩家接入当前实例，并同步初始移动速度与位置。 */
     connectPlayer(body) {
-        return this.worldRuntimeService.connectPlayer({
+        return this.worldRuntimeService.worldRuntimePlayerSessionService.connectPlayer({
             playerId: body.playerId ?? '',
             sessionId: body.sessionId,
             mapId: body.mapId,
             preferredX: body.preferredX,
             preferredY: body.preferredY,
-        });
+        }, this.worldRuntimeService);
     }
     /** removePlayer：注销玩家运行态，先清会话再断开实例。 */
     removePlayer(playerId) {
         return {
-            ok: this.worldRuntimeService.removePlayer(playerId),
+            ok: this.worldRuntimeService.worldRuntimePlayerSessionService.removePlayer(playerId, 'removed', this.worldRuntimeService),
         };
     }
     /** movePlayer：移动玩家。 */
     movePlayer(playerId, body) {
-        return this.worldRuntimeService.enqueueMove(playerId, body.direction ?? '');
+        return this.worldRuntimeService.worldRuntimeCommandIntakeFacadeService.enqueueMove(playerId, body.direction ?? '', this.worldRuntimeService);
     }
     /** useAction：使用动作。 */
     useAction(playerId, body) {
-        return this.worldRuntimeService.executeAction(playerId, body.actionId ?? '');
+        return this.worldRuntimeService.worldRuntimeCommandIntakeFacadeService.executeAction(playerId, body.actionId ?? '', undefined, this.worldRuntimeService);
     }
     /** usePortal：把当前站位的传送请求排入下一次 tick。 */
     usePortal(playerId) {
-        return this.worldRuntimeService.usePortal(playerId);
+        return this.worldRuntimeService.worldRuntimeCommandIntakeFacadeService.usePortal(playerId, this.worldRuntimeService);
     }
     /** getPlayerView：读取玩家当前视野快照，并补上 NPC 任务标记。 */
     getPlayerView(playerId, radius) {
@@ -306,11 +306,11 @@ let WorldRuntimeController = class WorldRuntimeController {
     }
     /** damagePlayer：把玩家受伤请求交给世界运行时排队处理。 */
     damagePlayer(playerId, body) {
-        return this.worldRuntimeService.enqueueDamagePlayer(playerId, Number.isFinite(body.amount) ? Number(body.amount) : Number.NaN);
+        return this.worldRuntimeService.worldRuntimeCommandIntakeFacadeService.enqueueDamagePlayer(playerId, Number.isFinite(body.amount) ? Number(body.amount) : Number.NaN, this.worldRuntimeService);
     }
     /** respawnPlayer：把玩家复生请求交给世界运行时处理。 */
     respawnPlayer(playerId, _body) {
-        return this.worldRuntimeService.enqueueRespawnPlayer(playerId);
+        return this.worldRuntimeService.worldRuntimeCommandIntakeFacadeService.enqueueRespawnPlayer(playerId, this.worldRuntimeService);
     }
     /** grantItem：直接给玩家发放物品并同步运行态。 */
     grantItem(playerId, body) {
@@ -322,70 +322,70 @@ let WorldRuntimeController = class WorldRuntimeController {
     useItem(playerId, body) {
         return {
             queued: true,
-            view: this.worldRuntimeService.enqueueUseItem(playerId, Number.isFinite(body.slotIndex) ? Number(body.slotIndex) : -1),
+            view: this.worldRuntimeService.worldRuntimeCommandIntakeFacadeService.enqueueUseItem(playerId, Number.isFinite(body.slotIndex) ? Number(body.slotIndex) : -1, this.worldRuntimeService),
         };
     }
     /** dropItem：提交丢弃物品请求，落地逻辑由实例侧执行。 */
     dropItem(playerId, body) {
         return {
             queued: true,
-            view: this.worldRuntimeService.enqueueDropItem(playerId, Number.isFinite(body.slotIndex) ? Number(body.slotIndex) : -1, Number.isFinite(body.count) ? Number(body.count) : undefined),
+            view: this.worldRuntimeService.worldRuntimeCommandIntakeFacadeService.enqueueDropItem(playerId, Number.isFinite(body.slotIndex) ? Number(body.slotIndex) : -1, Number.isFinite(body.count) ? Number(body.count) : undefined, this.worldRuntimeService),
         };
     }
     /** takeGround：提交拾取地面或容器物品的请求。 */
     takeGround(playerId, body) {
         return {
             queued: true,
-            view: this.worldRuntimeService.enqueueTakeGround(playerId, body.sourceId ?? '', body.itemKey ?? ''),
+            view: this.worldRuntimeService.worldRuntimeCommandIntakeFacadeService.enqueueTakeGround(playerId, body.sourceId ?? '', body.itemKey ?? '', this.worldRuntimeService),
         };
     }
     /** equipItem：提交装备请求。 */
     equipItem(playerId, body) {
         return {
             queued: true,
-            view: this.worldRuntimeService.enqueueEquip(playerId, Number.isFinite(body.slotIndex) ? Number(body.slotIndex) : -1),
+            view: this.worldRuntimeService.worldRuntimeCommandIntakeFacadeService.enqueueEquip(playerId, Number.isFinite(body.slotIndex) ? Number(body.slotIndex) : -1, this.worldRuntimeService),
         };
     }
     /** unequipItem：提交卸下装备请求。 */
     unequipItem(playerId, body) {
         return {
             queued: true,
-            view: this.worldRuntimeService.enqueueUnequip(playerId, String(body.slot ?? '')),
+            view: this.worldRuntimeService.worldRuntimeCommandIntakeFacadeService.enqueueUnequip(playerId, String(body.slot ?? ''), this.worldRuntimeService),
         };
     }
     /** cultivateTechnique：切换或开始修炼指定功法。 */
     cultivateTechnique(playerId, body) {
         return {
             queued: true,
-            view: this.worldRuntimeService.enqueueCultivate(playerId, body.techniqueId ?? null),
+            view: this.worldRuntimeService.worldRuntimeCommandIntakeFacadeService.enqueueCultivate(playerId, body.techniqueId ?? null, this.worldRuntimeService),
         };
     }
     /** castSkill：提交技能释放请求。 */
     castSkill(playerId, body) {
         return {
             queued: true,
-            view: this.worldRuntimeService.enqueueCastSkill(playerId, body.skillId ?? '', body.targetPlayerId ?? '', body.targetMonsterId ?? ''),
+            view: this.worldRuntimeService.worldRuntimeCommandIntakeFacadeService.enqueueCastSkill(playerId, body.skillId ?? '', body.targetPlayerId ?? '', body.targetMonsterId ?? '', null, this.worldRuntimeService),
         };
     }
     /** buyNpcShopItem：提交 NPC 商店购买请求。 */
     buyNpcShopItem(playerId, npcId, body) {
         return {
             queued: true,
-            view: this.worldRuntimeService.enqueueBuyNpcShopItem(playerId, npcId, body.itemId ?? '', Number.isFinite(body.quantity) ? Number(body.quantity) : undefined),
+            view: this.worldRuntimeService.worldRuntimeCommandIntakeFacadeService.enqueueBuyNpcShopItem(playerId, npcId, body.itemId ?? '', Number.isFinite(body.quantity) ? Number(body.quantity) : undefined, this.worldRuntimeService),
         };
     }
     /** acceptNpcQuest：提交接取 NPC 任务请求。 */
     acceptNpcQuest(playerId, npcId, body) {
         return {
             queued: true,
-            view: this.worldRuntimeService.enqueueAcceptNpcQuest(playerId, npcId, body.questId ?? ''),
+            view: this.worldRuntimeService.worldRuntimeCommandIntakeFacadeService.enqueueAcceptNpcQuest(playerId, npcId, body.questId ?? '', this.worldRuntimeService),
         };
     }
     /** submitNpcQuest：提交完成 NPC 任务请求。 */
     submitNpcQuest(playerId, npcId, body) {
         return {
             queued: true,
-            view: this.worldRuntimeService.enqueueSubmitNpcQuest(playerId, npcId, body.questId ?? ''),
+            view: this.worldRuntimeService.worldRuntimeCommandIntakeFacadeService.enqueueSubmitNpcQuest(playerId, npcId, body.questId ?? '', this.worldRuntimeService),
         };
     }
     /** markMailRead：标记邮件为已读。 */
@@ -1396,4 +1396,3 @@ exports.WorldRuntimeController = WorldRuntimeController = __decorate([
         map_persistence_flush_service_1.MapPersistenceFlushService])
 ], WorldRuntimeController);
 export { WorldRuntimeController };
-

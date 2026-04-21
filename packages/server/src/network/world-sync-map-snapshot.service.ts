@@ -3,7 +3,10 @@ import {
   DARKNESS_STACK_TO_VISION_MULTIPLIER,
   GAME_DAY_TICKS,
   GAME_TIME_PHASES,
+  DEFAULT_AURA_LEVEL_BASE_VALUE,
   doesTileTypeBlockSight,
+  getQiResourceDefaultLevel,
+  getQiResourceDisplayLabel,
   getTileTypeFromMapChar,
   isTileTypeWalkable,
 } from '@mud/shared-next';
@@ -218,6 +221,18 @@ export class WorldSyncMapSnapshotService {
       walkable: isTileTypeWalkable(tileType),
       blocksSight: doesTileTypeBlockSight(tileType),
       aura: state.aura,
+      resources: Array.isArray(state.resources)
+        ? state.resources
+          .filter((entry) => entry && typeof entry.resourceKey === 'string' && Number.isFinite(entry.value) && entry.value > 0)
+          .map((entry) => ({
+            key: entry.resourceKey,
+            label: getQiResourceDisplayLabel(entry.resourceKey),
+            value: Math.max(0, Math.trunc(entry.value)),
+            effectiveValue: Math.max(0, Math.trunc(entry.value)),
+            level: getQiResourceDefaultLevel(entry.resourceKey, entry.value, DEFAULT_AURA_LEVEL_BASE_VALUE),
+            sourceValue: Number.isFinite(entry.sourceValue) ? Math.max(0, Math.trunc(entry.sourceValue)) : undefined,
+          }))
+        : undefined,
       occupiedBy: null,
       modifiedAt: state.combat?.modifiedAt ?? null,
       hp: state.combat?.hp,

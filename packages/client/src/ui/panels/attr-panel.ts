@@ -7,13 +7,16 @@ import {
   ATTR_TO_PERCENT_NUMERIC_WEIGHTS,
   ATTR_TO_NUMERIC_WEIGHTS,
   AttrBonus,
+  AttrDetailView,
   AttrKey,
   Attributes,
   BASE_MOVE_POINTS_PER_TICK,
   ELEMENT_KEYS,
   HeavenGateRootValues,
+  NumericStatBreakdownMap,
   NumericRatioDivisors,
   NumericStats,
+  NEXT_S2C_AttrDetail,
   PlayerState,
   PlayerSpecialStats,
   ratioValue,
@@ -38,13 +41,17 @@ import {
   type NumericCardKey,
   type PlayerSpecialCardKey,
 } from '../../constants/ui/attr-panel';
-import { formatDisplayInteger, formatDisplayNumber, formatDisplayPercent } from '../../utils/number';
+import { formatDisplayInteger, formatDisplayNumber, formatDisplayPercent, formatDisplaySignedNumber } from '../../utils/number';
 import {
   describeSpiritualRoots,
   getSpiritualRootAbsorptionRate,
   normalizeSpiritualRoots,
   resolveSpiritualRootsFromBonuses,
 } from '../../utils/spiritual-roots';
+
+type AttrPanelCallbacks = {
+  onRequestDetail?: () => void;
+};
 
 
 /** formatRateBp：格式化速率Bp。 */
@@ -157,6 +164,11 @@ function formatCritDamageDisplay(value: number): string {
   return formatDisplayPercent(total);
 }
 
+/** percentModifierToMultiplier：将百分比修饰换算成乘区倍率。 */
+function percentModifierToMultiplier(percent: number): number {
+  return Math.max(0, 1 + percent / 100);
+}
+
 /** formatMoveSpeedEffect：格式化移动速度效果。 */
 function formatMoveSpeedEffect(value: number): string {
   const safeValue = Math.max(0, value);
@@ -171,6 +183,116 @@ function formatMoveSpeedEffect(value: number): string {
 /** formatMoveSpeedDisplay：格式化移动速度显示。 */
 function formatMoveSpeedDisplay(value: number): string {
   return formatDisplayInteger(BASE_MOVE_POINTS_PER_TICK + Math.max(0, value));
+}
+
+/** formatMultiplierDisplay：格式化乘区倍率显示。 */
+function formatMultiplierDisplay(multiplier: number): string {
+  return `X${formatDisplayNumber(multiplier * 100)}%`;
+}
+
+/** formatBreakdownValue：格式化拆解数值显示。 */
+function formatBreakdownValue(key: NumericCardKey, value: number): string {
+  if (key === 'critDamage') {
+    return formatDisplayPercent(value / 10);
+  }
+  if (RATE_BP_KEYS.has(key)) {
+    return formatDisplayPercent(value / 100);
+  }
+  if (key === 'moveSpeed') {
+    return formatDisplayInteger(value);
+  }
+  return formatDisplayNumber(value);
+}
+
+/** formatSignedBreakdownValue：格式化带符号的拆解数值显示。 */
+function formatSignedBreakdownValue(key: NumericCardKey, value: number): string {
+  const sign = value >= 0 ? '+' : '-';
+  const absValue = Math.abs(value);
+  if (key === 'critDamage') {
+    return `${sign}${formatDisplayPercent(absValue / 10)}`;
+  }
+  if (RATE_BP_KEYS.has(key)) {
+    return `${sign}${formatDisplayPercent(absValue / 100)}`;
+  }
+  return `${sign}${formatDisplaySignedNumber(value).replace(/^[+-]/, '')}`;
+}
+
+/** renderTooltipPrimaryLine：渲染 tooltip 主行。 */
+function renderTooltipPrimaryLine(label: string, value: string): string {
+  return `<span class="attr-tooltip-primary"><span class="attr-tooltip-primary-label">${escapeHtml(label)}</span><span class="attr-tooltip-primary-value">${escapeHtml(value)}</span></span>`;
+}
+
+/** renderTooltipSectionLine：渲染 tooltip 分组行。 */
+function renderTooltipSectionLine(label: string, tone: 'fixed' | 'percent'): string {
+  return `<span class="attr-tooltip-section ${tone}">${escapeHtml(label)}</span>`;
+}
+
+/** renderTooltipChildLine：渲染 tooltip 子行。 */
+function renderTooltipChildLine(label: string, value: string, tone: 'fixed' | 'percent'): string {
+  return `<span class="attr-tooltip-child ${tone}"><span class="attr-tooltip-child-label">${escapeHtml(label)}</span><span class="attr-tooltip-child-value">${escapeHtml(value)}</span></span>`;
+}
+
+/** SYSTEM_FIXED_BASE_BY_NUMERIC_KEY：数值面板中的系统固定底座。 */
+const SYSTEM_FIXED_BASE_BY_NUMERIC_KEY: Partial<Record<NumericCardKey, number>> = {
+  realmExpPerTick: 1,
+  techniqueExpPerTick: 5,
+};
+
+/** getAttrFlatContribution：计算六维对当前数值的固定贡献。 */
+function getAttrFlatContribution(key: NumericCardKey, attrs: Attributes): number {
+  let total = 0;
+  for (const attrKey of ATTR_KEYS) {
+    const weight = ATTR_TO_NUMERIC_WEIGHTS[attrKey][key];
+    if (typeof weight !== 'number' || weight === 0) {
+      continue;
+    }
+    total += attrs[attrKey] * weight;
+  }
+  return total;
+}
+
+/** buildNumericBreakdownLines：构建 main 风格的数值拆解 tooltip 行。 */
+function buildNumericBreakdownLines(
+  breakdowns: NumericStatBreakdownMap | undefined,
+  key: NumericCardKey,
+  attrs: Attributes,
+): string[] {
+  const breakdown = breakdowns?.[key];
+  if (!breakdown) {
+    return [];
+  }
+  const attrMultiplier = percentModifierToMultiplier(breakdown.attrMultiplierPct);
+  const buffMultiplier = percentModifierToMultiplier(breakdown.buffMultiplierPct);
+  const pillMultiplier = percentModifierToMultiplier(breakdown.pillMultiplierPct);
+  const totalMultiplier = attrMultiplier * breakdown.realmMultiplier * buffMultiplier * pillMultiplier;
+  const attrFlatContribution = getAttrFlatContribution(key, attrs);
+  const systemFixedBase = Math.max(0, SYSTEM_FIXED_BASE_BY_NUMERIC_KEY[key] ?? 0);
+  const foldedSystemBase = Math.min(systemFixedBase, Math.max(0, breakdown.flatBuffValue));
+  const displayFixedBaseValue = key === 'moveSpeed'
+    ? BASE_MOVE_POINTS_PER_TICK + breakdown.realmBaseValue + attrFlatContribution
+    : breakdown.realmBaseValue + attrFlatContribution + foldedSystemBase;
+  const displayExtraValue = breakdown.baseValue - breakdown.realmBaseValue - attrFlatContribution + breakdown.flatBuffValue - foldedSystemBase;
+  const displayFixedTotalValue = key === 'moveSpeed'
+    ? BASE_MOVE_POINTS_PER_TICK + breakdown.baseValue + breakdown.flatBuffValue
+    : breakdown.baseValue + breakdown.flatBuffValue;
+  const displayFinalValue = key === 'moveSpeed'
+    ? BASE_MOVE_POINTS_PER_TICK + breakdown.finalValue
+    : breakdown.finalValue;
+  const lines = [
+    renderTooltipPrimaryLine('实际：', formatBreakdownValue(key, displayFinalValue)),
+    renderTooltipSectionLine(`总固定值：${formatBreakdownValue(key, displayFixedTotalValue)}`, 'fixed'),
+    renderTooltipChildLine('基础值：', formatBreakdownValue(key, displayFixedBaseValue), 'fixed'),
+    renderTooltipChildLine('额外值：', formatSignedBreakdownValue(key, displayExtraValue), 'fixed'),
+    renderTooltipSectionLine(`总百分比：${formatMultiplierDisplay(totalMultiplier)}`, 'percent'),
+    renderTooltipChildLine('六维：', formatMultiplierDisplay(attrMultiplier), 'percent'),
+    renderTooltipChildLine('境界：', formatMultiplierDisplay(breakdown.realmMultiplier), 'percent'),
+    renderTooltipChildLine('状态：', formatMultiplierDisplay(buffMultiplier), 'percent'),
+    renderTooltipChildLine('丹药：', formatMultiplierDisplay(pillMultiplier), 'percent'),
+  ];
+  if (breakdown.preMultiplierValue <= 1e-6 && breakdown.finalValue > 0) {
+    lines.push('<span class="attr-tooltip-note">基础值为 0 时，实际结果还会受到乘区参考底座撬动</span>');
+  }
+  return lines;
 }
 
 /** buildCombatFormulaLines：构建战斗Formula Lines。 */
@@ -229,13 +351,23 @@ function buildCombatFormulaLines(key: NumericCardKey): string[] {
 }
 
 /** buildNumericTooltip：构建Numeric提示。 */
-function buildNumericTooltip(label: string, key: NumericCardKey, numericValue: number, ratioValueText?: string): string {
+function buildNumericTooltip(
+  label: string,
+  key: NumericCardKey,
+  numericValue: number,
+  ratioValueText?: string,
+  breakdowns?: NumericStatBreakdownMap,
+  attrs?: Attributes,
+): string {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
-  const lines = [
-    NUMERIC_TOOLTIP_DESCRIPTIONS[key] ?? '该属性影响角色的实际战斗表现。',
-    `当前数值：${key === 'critDamage' ? formatCritDamageDisplay(numericValue) : key === 'moveSpeed' ? formatMoveSpeedDisplay(numericValue) : RATE_BP_KEYS.has(key) ? formatRateBp(numericValue) : formatDisplayInteger(numericValue)}`,
-  ];
+  const breakdownLines = attrs ? buildNumericBreakdownLines(breakdowns, key, attrs) : [];
+  const lines = [NUMERIC_TOOLTIP_DESCRIPTIONS[key] ?? '该属性影响角色的实际战斗表现。'];
+  if (breakdownLines.length > 0) {
+    lines.push(...breakdownLines);
+  } else {
+    lines.push(`当前数值：${key === 'critDamage' ? formatCritDamageDisplay(numericValue) : key === 'moveSpeed' ? formatMoveSpeedDisplay(numericValue) : RATE_BP_KEYS.has(key) ? formatRateBp(numericValue) : formatDisplayInteger(numericValue)}`);
+  }
   lines.push(...buildCombatFormulaLines(key));
   if (key === 'moveSpeed') {
     lines.push(`实际效果：${formatMoveSpeedEffect(numericValue)}`);
@@ -552,6 +684,16 @@ export class AttrPanel {
   private lastStructureKey: string | null = null;
   /** tooltipTarget：提示目标。 */
   private tooltipTarget: Element | null = null;  
+  /** callbacks：详情请求回调。 */
+  private callbacks: AttrPanelCallbacks | null = null;
+  /** latestData：最近一次属性更新。 */
+  private latestData: NEXT_S2C_AttrUpdate | null = null;
+  /** detailData：最近一次低频详情。 */
+  private detailData: AttrDetailView | null = null;
+  /** detailStale：低频详情是否过期。 */
+  private detailStale = false;
+  /** detailRequested：是否已发出详情请求。 */
+  private detailRequested = false;
   /**
  * 构造器：初始化 当前 实例并建立基础状态。
  * @returns 无返回值，完成实例初始化。
@@ -564,8 +706,17 @@ export class AttrPanel {
     this.bindTooltipEvents();
   }
 
+  /** setCallbacks：注册详情请求回调。 */
+  setCallbacks(callbacks: AttrPanelCallbacks): void {
+    this.callbacks = callbacks;
+  }
+
   /** clear：清理clear。 */
   clear(): void {
+    this.latestData = null;
+    this.detailData = null;
+    this.detailStale = false;
+    this.detailRequested = false;
     this.lastSnapshot = null;
     this.lastStructureKey = null;
     this.tooltipTarget = null;
@@ -577,32 +728,50 @@ export class AttrPanel {
   update(data: NEXT_S2C_AttrUpdate): void {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
-    if (!data.baseAttrs || !data.bonuses) {
+    this.latestData = data;
+    const baseAttrs = this.resolveCompleteAttrs(data.baseAttrs);
+    if (!baseAttrs || !data.bonuses) {
       this.clear();
       return;
     }
-    const finalAttrs = data.finalAttrs ?? this.mergeAttrs(data.baseAttrs, data.bonuses);
+    const finalAttrs = this.resolveCompleteAttrs(data.finalAttrs) ?? this.mergeAttrs(baseAttrs, data.bonuses);
     const snapshot = this.buildSnapshot(
-      data.baseAttrs,
+      baseAttrs,
       data.bonuses,
       finalAttrs,
-      data.numericStats,
-      data.ratioDivisors,
-      data.specialStats,
+      data.numericStats as NumericStats | undefined,
+      data.ratioDivisors as NumericRatioDivisors | undefined,
+      data.specialStats as PlayerSpecialStats | undefined,
       data.alchemySkill,
       data.gatherSkill,
       data.enhancementSkill,
+      data.numericStatBreakdowns,
     );
     const structureKey = this.buildStructureKey(snapshot);
     if (this.lastStructureKey !== structureKey || !this.patch(snapshot)) {
       this.render(snapshot);
-      return;
+    } else {
+      this.lastSnapshot = snapshot;
     }
-    this.lastSnapshot = snapshot;
   }
 
   /** 使用玩家状态初始化属性面板。 */
   initFromPlayer(player: PlayerState): void {
+    this.latestData = {
+      baseAttrs: player.baseAttrs,
+      bonuses: player.bonuses,
+      finalAttrs: player.finalAttrs ?? this.mergeAttrs(player.baseAttrs, player.bonuses),
+      numericStats: player.numericStats,
+      ratioDivisors: player.ratioDivisors,
+      specialStats: {
+        foundation: Math.max(0, Math.floor(player.foundation ?? 0)),
+        combatExp: Math.max(0, Math.floor(player.combatExp ?? 0)),
+      },
+      alchemySkill: player.alchemySkill,
+      gatherSkill: player.gatherSkill,
+      enhancementSkill: player.enhancementSkill,
+    };
+    this.detailStale = false;
     const finalAttrs = player.finalAttrs ?? this.mergeAttrs(player.baseAttrs, player.bonuses);
     const snapshot = this.buildSnapshot(
       player.baseAttrs,
@@ -617,6 +786,37 @@ export class AttrPanel {
       player.alchemySkill,
       player.gatherSkill,
       player.enhancementSkill,
+      this.latestData.numericStatBreakdowns,
+    );
+    this.render(snapshot);
+  }
+
+  /** invalidateDetail：将当前低频详情标记为过期。 */
+  invalidateDetail(): void {
+    this.detailStale = this.detailData !== null;
+    this.detailRequested = false;
+  }
+
+  /** applyDetail：写入低频详情并用现有 update 流刷新。 */
+  applyDetail(detail: NEXT_S2C_AttrDetail): void {
+    this.detailData = detail;
+    this.detailStale = false;
+    this.detailRequested = true;
+    if (this.latestData) {
+      this.update(this.latestData);
+      return;
+    }
+    const snapshot = this.buildSnapshot(
+      detail.baseAttrs,
+      detail.bonuses,
+      detail.finalAttrs,
+      detail.numericStats,
+      detail.ratioDivisors,
+      undefined,
+      detail.alchemySkill,
+      detail.gatherSkill,
+      detail.enhancementSkill,
+      detail.numericStatBreakdowns,
     );
     this.render(snapshot);
   }
@@ -635,6 +835,19 @@ export class AttrPanel {
     }
     return result;
   }  
+
+  /** 把属性 patch 解析成完整六维属性；不完整时返回 null。 */
+  private resolveCompleteAttrs(attrs: Partial<Attributes> | undefined): Attributes | null {
+    if (!attrs) {
+      return null;
+    }
+    for (const key of ATTR_KEYS) {
+      if (typeof attrs[key] !== 'number') {
+        return null;
+      }
+    }
+    return attrs as Attributes;
+  }
   /**
  * buildSnapshot：构建并返回目标对象。
  * @param base Attributes 参数说明。
@@ -660,6 +873,7 @@ export class AttrPanel {
     alchemySkill?: PlayerState['alchemySkill'],
     gatherSkill?: PlayerState['gatherSkill'],
     enhancementSkill?: PlayerState['enhancementSkill'],
+    numericStatBreakdowns?: NumericStatBreakdownMap,
   ): AttrPanelSnapshot {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
@@ -698,7 +912,7 @@ export class AttrPanel {
             breakPower: '破招',
             resolvePower: '化解',
           },
-        }),
+        }, final, numericStatBreakdowns),
         qi: this.buildNumericPaneSnapshot('灵力运转', stats, ratioDivisors, {
           keys: ['maxQi', 'maxQiOutputPerTick', 'qiRegenRate', 'hpRegenRate', 'cooldownSpeed', 'auraCostReduce', 'auraPowerRate'],
           ratioKeys: ['cooldownSpeed'],
@@ -711,8 +925,8 @@ export class AttrPanel {
             auraCostReduce: '光环消耗缩减',
             auraPowerRate: '光环效果增强',
           },
-        }),
-        special: this.buildSpecialPaneSnapshot(stats, ratioDivisors, specialStats),
+        }, final, numericStatBreakdowns),
+        special: this.buildSpecialPaneSnapshot(stats, ratioDivisors, specialStats, final, numericStatBreakdowns),
         craft: this.buildCraftPaneSnapshot(alchemySkill, gatherSkill, enhancementSkill),
       },
     };
@@ -949,6 +1163,8 @@ export class AttrPanel {
  * legends：legend相关字段。
  */
  legends?: Record<string, string> },
+    attrs?: Attributes,
+    breakdowns?: NumericStatBreakdownMap,
   ): AttrPaneSnapshot {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
@@ -988,7 +1204,7 @@ export class AttrPanel {
           value,
           sub,
           tooltipTitle: label,
-          tooltipDetail: buildNumericTooltip(label, key, numericValue, actualLine),
+          tooltipDetail: buildNumericTooltip(label, key, numericValue, actualLine, breakdowns, attrs),
         };
       }),
     };
@@ -1006,6 +1222,8 @@ export class AttrPanel {
     stats?: NumericStats,
     ratios?: NumericRatioDivisors,
     specialStats?: PlayerSpecialStats,
+    attrs?: Attributes,
+    breakdowns?: NumericStatBreakdownMap,
   ): AttrPaneSnapshot {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
@@ -1042,7 +1260,7 @@ export class AttrPanel {
         lootRate: '掉落增幅',
         rareLootRate: '稀有掉落',
       },
-    });
+    }, attrs, breakdowns);
     if (numericPane.kind !== 'numeric') {
       return numericPane;
     }
@@ -1118,7 +1336,7 @@ export class AttrPanel {
     this.lastStructureKey = this.buildStructureKey(snapshot);
     preserveSelection(this.pane, () => {
       this.pane.replaceChildren(createFragmentFromHtml(`<div class="attr-layout">
-        <div class="action-tab-bar ui-tab-strip">${this.renderTabs()}</div>
+        <div class="action-tab-bar">${this.renderTabs()}</div>
         <div class="action-tab-pane ${this.activeTab === 'base' ? 'active' : ''}" data-attr-pane="base">${this.renderPane(snapshot.panes.base)}</div>
         <div class="action-tab-pane ${this.activeTab === 'root' ? 'active' : ''}" data-attr-pane="root">${this.renderPane(snapshot.panes.root)}</div>
         <div class="action-tab-pane ${this.activeTab === 'vein' ? 'active' : ''}" data-attr-pane="vein">${this.renderPane(snapshot.panes.vein)}</div>
@@ -1133,7 +1351,7 @@ export class AttrPanel {
   /** renderTabs：渲染标签页。 */
   private renderTabs(): string {
     return (Object.keys(ATTR_TAB_LABELS) as AttrTab[])
-      .map((tab) => `<button class="action-tab-btn ui-tab-strip-button ${this.activeTab === tab ? 'active' : ''}" data-attr-tab="${tab}" type="button">${ATTR_TAB_LABELS[tab]}</button>`)
+      .map((tab) => `<button class="action-tab-btn ${this.activeTab === tab ? 'active' : ''}" data-attr-tab="${tab}" type="button">${ATTR_TAB_LABELS[tab]}</button>`)
       .join('');
   }
 
@@ -1142,14 +1360,14 @@ export class AttrPanel {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
     if (snapshot.kind === 'placeholder') {
-      return `<div class="panel-section ui-surface-pane ui-surface-pane--stack" data-pane-kind="placeholder"><div class="empty-hint ui-empty-hint" data-placeholder-text="true">${snapshot.message}</div></div>`;
+      return `<div class="panel-section" data-pane-kind="placeholder"><div class="empty-hint" data-placeholder-text="true">${snapshot.message}</div></div>`;
     }
     if (snapshot.kind === 'numeric') {
-      return `<div class="panel-section ui-surface-pane ui-surface-pane--stack" data-pane-kind="numeric">
+      return `<div class="panel-section" data-pane-kind="numeric">
         <div class="panel-section-title" data-numeric-title="true">${snapshot.title}</div>
         <div class="attr-grid wide">
           ${snapshot.cards.map((card) => `
-            <div class="attr-mini ui-surface-card ui-surface-card--compact" data-numeric-card="${card.key}" data-tooltip-title="${escapeHtml(card.tooltipTitle)}" data-tooltip-detail="${escapeHtml(card.tooltipDetail)}">
+            <div class="attr-mini" data-numeric-card="${card.key}" data-tooltip-title="${escapeHtml(card.tooltipTitle)}" data-tooltip-detail="${escapeHtml(card.tooltipDetail)}">
               <div class="attr-mini-label" data-numeric-label="true">${card.label}</div>
               <div class="attr-mini-value" data-numeric-value="true">${card.value}</div>
               <div class="attr-mini-sub ${card.sub ? '' : 'hidden'}" data-numeric-sub="true">${card.sub ?? ''}</div>
@@ -1184,7 +1402,7 @@ export class AttrPanel {
       })
       .join('');
 
-    return `<div class="panel-section ui-surface-pane ui-surface-pane--stack" data-pane-kind="radar">
+    return `<div class="panel-section" data-pane-kind="radar">
       <div class="attr-radar-shell">
         <div class="attr-radar-head">
           <div class="attr-radar-title">${snapshot.title}</div>
@@ -1429,6 +1647,57 @@ export class AttrPanel {
         line-height: 1.4;
         color: var(--ink-grey);
       }
+      .attr-tooltip .attr-tooltip-primary {
+        display: flex;
+        align-items: baseline;
+        justify-content: space-between;
+        gap: 12px;
+      }
+      .attr-tooltip .attr-tooltip-primary {
+        color: var(--ink-black);
+        font-weight: var(--font-weight-semibold);
+      }
+      .attr-tooltip .attr-tooltip-primary-value {
+        color: #b85c38;
+      }
+      .attr-tooltip .attr-tooltip-section {
+        display: inline-flex;
+        align-items: center;
+        margin-top: 4px;
+        padding: 2px 8px;
+        border-radius: 999px;
+        font-size: var(--font-size-11);
+        font-weight: var(--font-weight-semibold);
+      }
+      .attr-tooltip .attr-tooltip-section.fixed {
+        color: #7a4b22;
+        background: rgba(197, 128, 53, 0.14);
+      }
+      .attr-tooltip .attr-tooltip-section.percent {
+        color: #1d5d4f;
+        background: rgba(45, 140, 115, 0.14);
+      }
+      .attr-tooltip .attr-tooltip-child {
+        display: flex;
+        align-items: baseline;
+        justify-content: space-between;
+        gap: 12px;
+        padding-left: 12px;
+      }
+      .attr-tooltip .attr-tooltip-child.fixed .attr-tooltip-child-label {
+        color: #8c6742;
+      }
+      .attr-tooltip .attr-tooltip-child.percent .attr-tooltip-child-label {
+        color: #2f7e6d;
+      }
+      .attr-tooltip .attr-tooltip-child-value {
+        color: var(--ink-black);
+      }
+      .attr-tooltip .attr-tooltip-note {
+        display: block;
+        margin-top: 4px;
+        color: var(--ink-grey);
+      }
       .attr-radar-shell {
         display: grid;
         gap: 10px;
@@ -1502,6 +1771,7 @@ export class AttrPanel {
       if (!tooltipNode) {
         return;
       }
+      this.requestDetailIfNeeded();
       if (this.tooltip.isPinnedTo(tooltipNode)) {
         this.tooltipTarget = null;
         this.tooltip.hide(true);
@@ -1510,7 +1780,7 @@ export class AttrPanel {
       this.tooltipTarget = tooltipNode;
       const title = tooltipNode.getAttribute('data-tooltip-title') ?? '';
       const detail = tooltipNode.getAttribute('data-tooltip-detail') ?? '';
-      this.tooltip.showPinned(tooltipNode, title, splitTooltipLines(detail), event.clientX, event.clientY);
+      this.tooltip.showPinned(tooltipNode, title, splitTooltipLines(detail), event.clientX, event.clientY, { allowHtml: true });
       event.preventDefault();
       event.stopPropagation();
     }, true);
@@ -1536,12 +1806,13 @@ export class AttrPanel {
         }
         return;
       }
+      this.requestDetailIfNeeded();
 
       if (this.tooltipTarget !== tooltipNode) {
         this.tooltipTarget = tooltipNode;
         const title = tooltipNode.getAttribute('data-tooltip-title') ?? '';
         const detail = tooltipNode.getAttribute('data-tooltip-detail') ?? '';
-        this.tooltip.show(title, splitTooltipLines(detail), event.clientX, event.clientY);
+        this.tooltip.show(title, splitTooltipLines(detail), event.clientX, event.clientY, { allowHtml: true });
         return;
       }
 
@@ -1560,5 +1831,20 @@ export class AttrPanel {
       this.tooltipTarget = null;
       this.tooltip.hide();
     });
+  }
+
+  /** requestDetailIfNeeded：按需触发低频详情请求。 */
+  private requestDetailIfNeeded(): void {
+    if (!this.latestData) {
+      return;
+    }
+    if (this.detailData && !this.detailStale) {
+      return;
+    }
+    if (this.detailRequested) {
+      return;
+    }
+    this.detailRequested = true;
+    this.callbacks?.onRequestDetail?.();
   }
 }

@@ -1,5 +1,13 @@
-import { ActionDef, AutoBattleSkillConfig, PlayerState } from '@mud/shared-next';
+import {
+  ActionDef,
+  AutoBattleSkillConfig,
+  PlayerState,
+  buildDefaultCombatTargetingRules,
+  normalizeAutoBattleTargetingMode,
+  normalizeCombatTargetingRules,
+} from '@mud/shared-next';
 import type { SocketRuntimeSender } from './network/socket-send-runtime';
+import type { ClientTechniqueActivityKind } from './technique-activity-client.helpers';
 import { ActionPanel } from './ui/panels/action-panel';
 /**
  * MainActionStateSourceOptions：统一结构类型，保证协议与运行时一致性。
@@ -56,15 +64,10 @@ type MainActionStateSourceOptions = {
 
   openNpcQuestPending: (npcId: string) => void;  
   /**
- * openAlchemy：open炼丹相关字段。
+ * openTechniqueActivity：打开指定技艺活动面板。
  */
 
-  openAlchemy: () => void;  
-  /**
- * openEnhancement：open强化相关字段。
- */
-
-  openEnhancement: () => void;  
+  openTechniqueActivity: (kind: ClientTechniqueActivityKind) => void;  
   /**
  * getInfoRadius：InfoRadiu相关字段。
  */
@@ -82,6 +85,11 @@ type MainActionStateSourceOptions = {
 
 
 export type MainActionStateSource = ReturnType<typeof createMainActionStateSource>;
+
+const TECHNIQUE_ACTIVITY_ACTIONS = {
+  'alchemy:open': 'alchemy',
+  'enhancement:open': 'enhancement',
+} as const satisfies Record<string, ClientTechniqueActivityKind>;
 /**
  * createMainActionStateSource：构建并返回目标对象。
  * @param options MainActionStateSourceOptions 选项参数。
@@ -116,16 +124,11 @@ export function createMainActionStateSource(options: MainActionStateSourceOption
         options.socket.sendAction(actionId);
         return;
       }
-      if (actionId === 'alchemy:open') {
+      const techniqueActivityKind = TECHNIQUE_ACTIVITY_ACTIONS[actionId as keyof typeof TECHNIQUE_ACTIVITY_ACTIONS];
+      if (techniqueActivityKind) {
         options.cancelTargeting();
         options.hideObserveModal();
-        options.openAlchemy();
-        return;
-      }
-      if (actionId === 'enhancement:open') {
-        options.cancelTargeting();
-        options.hideObserveModal();
-        options.openEnhancement();
+        options.openTechniqueActivity(techniqueActivityKind);
         return;
       }
       if (requiresTarget) {
@@ -164,6 +167,21 @@ export function createMainActionStateSource(options: MainActionStateSourceOption
 
     initFromPlayer(player: PlayerState): void {
       options.actionPanel.initFromPlayer(player);
+    },    
+    /**
+ * normalizeBootstrapPlayer：在首包阶段规整动作与战斗设置真源。
+ * @param player PlayerState 玩家对象。
+ * @returns 无返回值，直接更新玩家相关状态。
+ */
+
+    normalizeBootstrapPlayer(player: PlayerState): void {
+      player.combatTargetingRules = normalizeCombatTargetingRules(
+        player.combatTargetingRules,
+        buildDefaultCombatTargetingRules({
+          includeAllPlayersHostile: player.allowAoePlayerHit === true,
+        }),
+      );
+      player.autoBattleTargetingMode = normalizeAutoBattleTargetingMode(player.autoBattleTargetingMode);
     },    
     /**
  * update：处理update并更新相关状态。

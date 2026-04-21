@@ -186,8 +186,6 @@ export function createMainRuntimeOwnerContext(options: CreateMainRuntimeOwnerCon
     getLatestEntities: () => rootRuntimeSource.getLatestEntities(),
     showToast: helpers.showToast,
     sendInspectTileRuntime: (x, y) => runtimeSender.sendInspectTileRuntime(x, y),
-    openEntityDetailPending: (kind, id, title) => panelContext.panelDeps.entityDetailModal.openPending(kind, id, title),
-    sendRequestDetail: (kind, id) => runtimeSender.sendRequestDetail(kind, id),
   });
 
   navigationStateSource = createMainNavigationStateSource({

@@ -84,16 +84,13 @@ async function main() {
  */
     const token = await loginGm();
 /**
+ * 校验GM只读接口不会在无认证下裸露。
+ */
+    await assertUnauthorizedGmRead('/api/gm/state');
+/**
  * 记录GM状态。
  */
-    const gmState = await fetchJson('/api/gm/state', {
-        headers: {
-            authorization: `Bearer ${token}`,
-        },
-    });
-    if (!gmState || !Array.isArray(gmState.players) || !Array.isArray(gmState.mapIds)) {
-        throw new Error(`unexpected /api/gm/state payload: ${JSON.stringify(gmState)}`);
-    }
+    const gmState = assertGmStateShape(await authedGetJson('/api/gm/state', token), '/api/gm/state');
 /**
  * 记录数据库状态。
  */
@@ -160,6 +157,10 @@ async function main() {
  * 记录socketerror。
  */
     let socketError = null;
+/**
+ * 记录非GM socket 意外收到的 GM 状态包。
+ */
+    const unexpectedGmStatePayloads = [];
     socket.onAny((event) => {
         if (LEGACY_S2C_EVENTS.has(event)) {
             legacyEvents.push(event);
@@ -201,6 +202,9 @@ async function main() {
         panelDeltaCount += 1;
         events.push('panelDelta');
     });
+    socket.on(shared_1.NEXT_S2C.GmState, (payload) => {
+        unexpectedGmStatePayloads.push(payload);
+    });
     await onceConnected(socket);
     socket.emit(shared_1.NEXT_C2S.Hello, {
         mapId: 'yunlai_town',
@@ -222,6 +226,9 @@ async function main() {
     if (legacyEvents.length > 0) {
         throw new Error(`shadow socket received legacy events: ${legacyEvents.join(', ')}`);
     }
+    if (unexpectedGmStatePayloads.length > 0) {
+        throw new Error(`shadow non-gm socket unexpectedly received ${shared_1.NEXT_S2C.GmState}: ${JSON.stringify(unexpectedGmStatePayloads[0])}`);
+    }
 /**
  * 记录玩家状态payload。
  */
@@ -240,7 +247,15 @@ async function main() {
     /**
  * 保存当前值映射。
  */
-
+    const filteredStatePath = `/api/gm/state?page=1&pageSize=1&sort=name&keyword=${encodeURIComponent(runtimePlayerId)}`;
+    const filteredGmState = assertGmStateShape(await authedGetJson(filteredStatePath, token), filteredStatePath);
+    assertGmStateQueryContract(filteredGmState, {
+        expectedPlayerId: runtimePlayerId,
+        keyword: runtimePlayerId,
+        page: 1,
+        pageSize: 1,
+        sort: 'name',
+    });
     const currentMap = assertGmMapsShape(await authedGetJson('/api/gm/maps', token), runtimePlayer.templateId);
     const runtimeInspection = assertMapRuntimeShape(await fetchGmMapRuntime(token, runtimePlayer.templateId, runtimePlayerId, runtimePlayer.x, runtimePlayer.y), runtimePlayer.templateId, runtimePlayerId);
     socket.close();
@@ -253,6 +268,12 @@ async function main() {
             playerCount: gmState.players.length,
             mapCount: gmState.mapIds.length,
             botCount: gmState.botCount ?? null,
+            readGuard: {
+                unauthorizedProtected: true,
+                filteredQueryPageSize: filteredGmState.playerPage.pageSize,
+                filteredQuerySort: filteredGmState.playerPage.sort,
+                filteredQueryKeyword: filteredGmState.playerPage.keyword,
+            },
         },
         health: {
             ready: resolveShadowHealthReady(health),
@@ -280,6 +301,7 @@ async function main() {
             panelDeltaCount,
         },
         legacyEvents,
+        unexpectedGmStateCount: unexpectedGmStatePayloads.length,
         events,
     }, null, 2));
 }
@@ -369,6 +391,18 @@ async function authedGetJson(path, token) {
     });
 }
 /**
+ * 断言GM只读接口未对匿名访问裸露。
+ */
+async function assertUnauthorizedGmRead(path) {
+/**
+ * 记录response。
+ */
+    const response = await fetch(`${serverUrl}${path}`);
+    if (response.status !== 401 && response.status !== 403) {
+        throw new Error(`expected unauthorized gm read for ${path}, got ${response.status} ${await response.text()}`);
+    }
+}
+/**
  * 处理sleep。
  */
 function sleep(ms) {
@@ -417,6 +451,175 @@ async function fetchGmMapRuntime(token, mapId, viewerId, x, y) {
  */
     const startY = Math.max(0, Math.trunc(y) - 2);
     return authedGetJson(`/api/gm/maps/${mapId}/runtime?x=${startX}&y=${startY}&w=5&h=5&viewerId=${encodeURIComponent(viewerId)}`, token);
+}
+/**
+ * 断言GM状态shape。
+ */
+function assertGmStateShape(payload, label) {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
+    if (!payload || typeof payload !== 'object' || Array.isArray(payload)) {
+        throw new Error(`unexpected ${label} payload: ${JSON.stringify(payload)}`);
+    }
+    if (!Array.isArray(payload.players) || !Array.isArray(payload.mapIds)) {
+        throw new Error(`unexpected ${label} collections: ${JSON.stringify(payload)}`);
+    }
+    if (payload.mapIds.length === 0 || !payload.mapIds.every((entry) => typeof entry === 'string' && entry.trim().length > 0)) {
+        throw new Error(`unexpected ${label} mapIds: ${JSON.stringify(payload.mapIds)}`);
+    }
+    if (!Number.isFinite(payload?.playerPage?.page)
+        || !Number.isFinite(payload?.playerPage?.pageSize)
+        || !Number.isFinite(payload?.playerPage?.total)
+        || !Number.isFinite(payload?.playerPage?.totalPages)
+        || typeof payload?.playerPage?.keyword !== 'string'
+        || typeof payload?.playerPage?.sort !== 'string') {
+        throw new Error(`unexpected ${label} playerPage: ${JSON.stringify(payload?.playerPage ?? null)}`);
+    }
+    if (payload.playerPage.page < 1 || payload.playerPage.pageSize < 1) {
+        throw new Error(`unexpected ${label} page bounds: ${JSON.stringify(payload.playerPage)}`);
+    }
+    const expectedTotalPages = Math.max(1, Math.ceil(payload.playerPage.total / payload.playerPage.pageSize));
+    if (payload.playerPage.totalPages !== expectedTotalPages || payload.playerPage.page > payload.playerPage.totalPages) {
+        throw new Error(`unexpected ${label} pagination totals: ${JSON.stringify(payload.playerPage)}`);
+    }
+    if (!Number.isFinite(payload?.playerStats?.totalPlayers)
+        || !Number.isFinite(payload?.playerStats?.onlinePlayers)
+        || !Number.isFinite(payload?.playerStats?.offlineHangingPlayers)
+        || !Number.isFinite(payload?.playerStats?.offlinePlayers)) {
+        throw new Error(`unexpected ${label} playerStats: ${JSON.stringify(payload?.playerStats ?? null)}`);
+    }
+    if (payload.playerStats.totalPlayers !== payload.playerPage.total) {
+        throw new Error(`unexpected ${label} total mismatch: ${JSON.stringify({
+            totalPlayers: payload.playerStats.totalPlayers,
+            total: payload.playerPage.total,
+        })}`);
+    }
+    if (!Number.isFinite(payload?.botCount) || payload.botCount < 0) {
+        throw new Error(`unexpected ${label} botCount: ${JSON.stringify(payload?.botCount ?? null)}`);
+    }
+    if (payload.players.length > payload.playerPage.pageSize) {
+        throw new Error(`unexpected ${label} player count exceeds page size: ${JSON.stringify({
+            players: payload.players.length,
+            pageSize: payload.playerPage.pageSize,
+        })}`);
+    }
+    payload.players.forEach((player, index) => assertGmManagedPlayerSummaryShape(player, `${label}.players[${index}]`));
+    assertGmPerformanceSnapshotShape(payload.perf, `${label}.perf`);
+    return payload;
+}
+/**
+ * 校验GM状态查询参数确实被服务端消费。
+ */
+function assertGmStateQueryContract(payload, expected) {
+    if (payload?.playerPage?.page !== expected.page) {
+        throw new Error(`unexpected gm state page: ${JSON.stringify(payload?.playerPage ?? null)}`);
+    }
+    if (payload?.playerPage?.pageSize !== expected.pageSize) {
+        throw new Error(`unexpected gm state pageSize: ${JSON.stringify(payload?.playerPage ?? null)}`);
+    }
+    if (payload?.playerPage?.sort !== expected.sort) {
+        throw new Error(`unexpected gm state sort: ${JSON.stringify(payload?.playerPage ?? null)}`);
+    }
+    if (payload?.playerPage?.keyword !== expected.keyword) {
+        throw new Error(`unexpected gm state keyword: ${JSON.stringify(payload?.playerPage ?? null)}`);
+    }
+    if (!Array.isArray(payload?.players) || payload.players.length !== 1) {
+        throw new Error(`gm state filtered query should return exactly one player: ${JSON.stringify(payload)}`);
+    }
+    if (payload.players[0]?.id !== expected.expectedPlayerId) {
+        throw new Error(`gm state filtered query missing expected player ${expected.expectedPlayerId}: ${JSON.stringify(payload.players)}`);
+    }
+    if (payload?.playerStats?.totalPlayers < 1 || payload?.playerPage?.total < 1) {
+        throw new Error(`gm state filtered query unexpectedly empty: ${JSON.stringify(payload)}`);
+    }
+}
+/**
+ * 断言GM玩家摘要shape。
+ */
+function assertGmManagedPlayerSummaryShape(payload, label) {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
+    if (!payload || typeof payload !== 'object' || Array.isArray(payload)) {
+        throw new Error(`unexpected ${label}: ${JSON.stringify(payload)}`);
+    }
+    if (typeof payload.id !== 'string'
+        || typeof payload.name !== 'string'
+        || typeof payload.roleName !== 'string'
+        || typeof payload.displayName !== 'string'
+        || !Number.isFinite(payload.realmLv)
+        || typeof payload.realmLabel !== 'string'
+        || typeof payload.mapId !== 'string'
+        || typeof payload.mapName !== 'string'
+        || !Number.isFinite(payload.x)
+        || !Number.isFinite(payload.y)
+        || !Number.isFinite(payload.hp)
+        || !Number.isFinite(payload.maxHp)
+        || !Number.isFinite(payload.qi)
+        || typeof payload.dead !== 'boolean'
+        || typeof payload.autoBattle !== 'boolean'
+        || typeof payload.autoRetaliate !== 'boolean') {
+        throw new Error(`unexpected ${label} summary fields: ${JSON.stringify(payload)}`);
+    }
+    if (payload.accountName != null && typeof payload.accountName !== 'string') {
+        throw new Error(`unexpected ${label}.accountName: ${JSON.stringify(payload.accountName)}`);
+    }
+    if (payload.autoBattleStationary != null && typeof payload.autoBattleStationary !== 'boolean') {
+        throw new Error(`unexpected ${label}.autoBattleStationary: ${JSON.stringify(payload.autoBattleStationary)}`);
+    }
+    if (!payload.meta || typeof payload.meta !== 'object' || Array.isArray(payload.meta)) {
+        throw new Error(`unexpected ${label}.meta: ${JSON.stringify(payload?.meta ?? null)}`);
+    }
+    if (typeof payload.meta.isBot !== 'boolean'
+        || typeof payload.meta.online !== 'boolean'
+        || typeof payload.meta.inWorld !== 'boolean'
+        || !Array.isArray(payload.meta.dirtyFlags)) {
+        throw new Error(`unexpected ${label}.meta fields: ${JSON.stringify(payload.meta)}`);
+    }
+}
+/**
+ * 断言GM性能快照shape。
+ */
+function assertGmPerformanceSnapshotShape(payload, label) {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
+    if (!payload || typeof payload !== 'object' || Array.isArray(payload)) {
+        throw new Error(`unexpected ${label}: ${JSON.stringify(payload)}`);
+    }
+    if (!Number.isFinite(payload.cpuPercent)
+        || !Number.isFinite(payload.memoryMb)
+        || !Number.isFinite(payload.tickMs)
+        || !Number.isFinite(payload.networkStatsStartedAt)
+        || !Number.isFinite(payload.networkStatsElapsedSec)
+        || !Number.isFinite(payload.networkInBytes)
+        || !Number.isFinite(payload.networkOutBytes)
+        || !Array.isArray(payload.networkInBuckets)
+        || !Array.isArray(payload.networkOutBuckets)
+        || !payload.tick
+        || typeof payload.tick !== 'object'
+        || !payload.cpu
+        || typeof payload.cpu !== 'object'
+        || !payload.pathfinding
+        || typeof payload.pathfinding !== 'object') {
+        throw new Error(`unexpected ${label} fields: ${JSON.stringify(payload)}`);
+    }
+    payload.networkInBuckets.forEach((entry, index) => assertGmNetworkBucketShape(entry, `${label}.networkInBuckets[${index}]`));
+    payload.networkOutBuckets.forEach((entry, index) => assertGmNetworkBucketShape(entry, `${label}.networkOutBuckets[${index}]`));
+}
+/**
+ * 断言GM网络bucket shape。
+ */
+function assertGmNetworkBucketShape(payload, label) {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
+    if (!payload || typeof payload !== 'object' || Array.isArray(payload)) {
+        throw new Error(`unexpected ${label}: ${JSON.stringify(payload)}`);
+    }
+    if (typeof payload.key !== 'string'
+        || typeof payload.label !== 'string'
+        || !Number.isFinite(payload.bytes)
+        || !Number.isFinite(payload.count)) {
+        throw new Error(`unexpected ${label} fields: ${JSON.stringify(payload)}`);
+    }
 }
 /**
  * 断言GMmapsshape。

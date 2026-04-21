@@ -4,16 +4,29 @@
  */
 
 import {
+  calcTechniqueAttrValues,
   EquipmentEffectDef,
+  GAME_TIME_PHASES,
   formatBuffMaxStacks,
   ItemStack,
+  parseQiResourceKey,
+  TECHNIQUE_ATTR_KEYS,
 } from '@mud/shared-next';
 import {
+  ATTR_KEY_LABELS,
+  getEntityKindLabel,
   getEquipSlotLabel,
   getItemTypeLabel,
+  getTechniqueGradeLabel,
 } from '../domain-labels';
 import { renderItemSourceListHtml } from '../content/item-sources';
-import { resolvePreviewItem, resolveTechniqueIdFromBookItemId } from '../content/local-templates';
+import { getCachedMapMeta } from '../map-static-cache';
+import {
+  getLocalRealmLevelEntry,
+  getLocalTechniqueTemplate,
+  resolvePreviewItem,
+  resolveTechniqueIdFromBookItemId,
+} from '../content/local-templates';
 import { SkillTooltipAsideCard, SkillTooltipContent } from './skill-tooltip';
 import { describePreviewBonuses } from './stat-preview';
 import { formatDisplayInteger, formatDisplayNumber, formatDisplayPercent } from '../utils/number';
@@ -38,24 +51,76 @@ function renderPlainLine(label: string, value: string): string {
   return renderLabelLine(label, escapeHtml(value));
 }
 
+/** resolveQiElementLabel：解析灵气元素标签。 */
+function resolveQiElementLabel(element: string): string {
+  switch (element) {
+    case 'metal':
+      return '金';
+    case 'wood':
+      return '木';
+    case 'water':
+      return '水';
+    case 'fire':
+      return '火';
+    case 'earth':
+      return '土';
+    default:
+      return '无属性';
+  }
+}
+
+/** resolveQiFamilyLabel：解析灵气族标签。 */
+function resolveQiFamilyLabel(family: string): string {
+  switch (family) {
+    case 'sha':
+      return '煞气';
+    case 'demonic':
+      return '魔气';
+    default:
+      return '灵气';
+  }
+}
+
+/** resolveTileResourceGainLabel：解析地块资源增益标签。 */
+function resolveTileResourceGainLabel(resourceKey: string): string {
+  const parsed = parseQiResourceKey(resourceKey);
+  if (!parsed) {
+    return `当前地块资源 ${resourceKey}`;
+  }
+  if (parsed.family === 'aura' && parsed.form === 'refined' && parsed.element === 'neutral') {
+    return '当前地块灵力';
+  }
+  const familyLabel = resolveQiFamilyLabel(parsed.family);
+  const elementLabel = resolveQiElementLabel(parsed.element);
+  const formLabel = parsed.form === 'dispersed' ? '逸散' : '凝练';
+  return `当前地块${elementLabel}${formLabel}${familyLabel}`;
+}
+
 /** resolveMedicineCategoryLabel：解析Medicine Category标签。 */
 function resolveMedicineCategoryLabel(item: ItemStack): string | null {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
   const tags = item.tags ?? [];
+  const labels: string[] = [];
   if (tags.includes('生命回复')) {
-    return '生命回复';
+    labels.push('生命回复');
   }
-  if (tags.includes('灵力回复')) {
-    return '灵力回复';
+  if (tags.includes('灵力回复') && !labels.includes('灵力回复')) {
+    labels.push('灵力回复');
   }
-  if (tags.includes('增益')) {
-    return '增益';
+  if (tags.includes('增益') && !labels.includes('增益')) {
+    labels.push('增益');
   }
-  if (tags.includes('特殊')) {
-    return '特殊';
+  if (tags.includes('特殊') && !labels.includes('特殊')) {
+    labels.push('特殊');
   }
-  return null;
+  if (tags.includes('药材') && !labels.includes('药材')) {
+    labels.push('药材');
+  }
+  if (tags.includes('异材') && !labels.includes('异材')) {
+    labels.push('异材');
+  }
+  return labels.length > 0 ? labels.join(' / ') : null;
 }
 
 /** normalizeBuffMark：规范化Buff Mark。 */
@@ -83,15 +148,33 @@ function describeBuffStats(
   return describePreviewBonuses(attrs, stats, valueStats);
 }
 
-/** formatConditionText：格式化条件文本。 */
-function formatConditionText(effect: EquipmentEffectDef): string[] {
+/** getTimePhaseLabel：读取时段标签。 */
+function getTimePhaseLabel(phaseId: string): string {
+  return GAME_TIME_PHASES.find((entry) => entry.id === phaseId)?.label ?? phaseId;
+}
+
+/** getMapLabel：读取地图标签。 */
+function getMapLabel(mapId: string): string {
+  return getCachedMapMeta(mapId)?.name ?? mapId;
+}
+
+/** getConditionTargetKindLabel：读取条件目标类型标签。 */
+function getConditionTargetKindLabel(kind: 'monster' | 'player' | 'tile'): string {
+  if (kind === 'tile') {
+    return '地块';
+  }
+  return getEntityKindLabel(kind, kind);
+}
+
+/** formatEquipmentConditionText：格式化装备条件文本。 */
+export function formatEquipmentConditionText(effect: EquipmentEffectDef): string[] {
   const conditions = effect.conditions?.items ?? [];
   return conditions.map((condition) => {
     switch (condition.type) {
       case 'time_segment':
-        return `时段：${condition.in.join(' / ')}`;
+        return `时段：${condition.in.map((entry) => getTimePhaseLabel(entry)).join(' / ')}`;
       case 'map':
-        return `地图：${condition.mapIds.join(' / ')}`;
+        return `地图：${condition.mapIds.map((entry) => getMapLabel(entry)).join(' / ')}`;
       case 'hp_ratio':
         return `生命 ${condition.op} ${formatDisplayPercent(condition.value * 100)}`;
       case 'qi_ratio':
@@ -101,7 +184,7 @@ function formatConditionText(effect: EquipmentEffectDef): string[] {
       case 'has_buff':
         return `需带有 ${condition.buffId}${condition.minStacks ? ` ${condition.minStacks} 层` : ''}`;
       case 'target_kind':
-        return `目标：${condition.in.join(' / ')}`;
+        return `目标：${condition.in.map((entry) => getConditionTargetKindLabel(entry)).join(' / ')}`;
       default:
         return '';
     }
@@ -134,7 +217,7 @@ function buildTimedBuffAsideCard(effect: Extract<EquipmentEffectDef, {
  type: 'timed_buff' }>): SkillTooltipAsideCard {
   const stackLimit = formatBuffMaxStacks(effect.buff.maxStacks);
   const stackText = stackLimit ? ` · 最多 ${stackLimit} 层` : '';
-  const conditionLines = formatConditionText(effect);
+  const conditionLines = formatEquipmentConditionText(effect);
   const buffLines = describeBuffStats(effect.buff.attrs, effect.buff.stats, effect.buff.valueStats);
   const lines = [
     `${formatTriggerLabel(effect.trigger)} · ${effect.target === 'target' ? '目标' : '自身'} · ${formatDisplayInteger(effect.buff.duration)} 息${stackText}`,
@@ -164,7 +247,7 @@ function buildEffectSummary(effect: EquipmentEffectDef): {
  asideCard?: SkillTooltipAsideCard } {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
-  const conditionLines = formatConditionText(effect);
+  const conditionLines = formatEquipmentConditionText(effect);
   switch (effect.type) {
     case 'stat_aura': {
       const effectLines = describeBuffStats(effect.attrs, effect.stats, effect.valueStats);
@@ -325,7 +408,7 @@ function resolveItemStatusLabel(item: ItemStack, context?: ItemTooltipContext): 
 function buildPlainEffectSummary(effect: EquipmentEffectDef): string[] {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
-  const conditionLines = formatConditionText(effect);
+  const conditionLines = formatEquipmentConditionText(effect);
   switch (effect.type) {
     case 'stat_aura': {
       const effectLines = describeBuffStats(effect.attrs, effect.stats, effect.valueStats);
@@ -410,14 +493,21 @@ function buildConsumableEffectDetails(item: ItemStack, itemCooldown?: ItemToolti
     lines.push(`药效：${buff.name}${metaParts.length > 0 ? `，${metaParts.join('，')}` : ''}`);
     const bonusLines = describeBuffStats(buff.attrs, buff.stats, buff.valueStats);
     if (bonusLines.length > 0) {
-      lines.push(`具体加成：${bonusLines.join('，')}`);
+      lines.push(`效果：${bonusLines.join('，')}`);
     }
-    if (buff.desc?.trim()) {
+    if (bonusLines.length === 0 && buff.desc?.trim()) {
       lines.push(`说明：${buff.desc.trim()}`);
     }
   }
 
-  if (typeof previewItem.tileAuraGainAmount === 'number' && previewItem.tileAuraGainAmount > 0) {
+  if (Array.isArray(previewItem.tileResourceGains) && previewItem.tileResourceGains.length > 0) {
+    for (const gain of previewItem.tileResourceGains) {
+      if (typeof gain.amount !== 'number' || gain.amount <= 0) {
+        continue;
+      }
+      lines.push(`立即效果：${resolveTileResourceGainLabel(gain.resourceKey)} +${formatDisplayInteger(gain.amount)}`);
+    }
+  } else if (typeof previewItem.tileAuraGainAmount === 'number' && previewItem.tileAuraGainAmount > 0) {
     lines.push(`立即效果：当前地块灵力 +${formatDisplayInteger(previewItem.tileAuraGainAmount)}`);
   }
   if (previewItem.mapUnlockId || (previewItem.mapUnlockIds?.length ?? 0) > 0) {
@@ -438,10 +528,38 @@ export function describeItemEffectDetails(item: ItemStack): string[] {
   return buildConsumableEffectDetails(previewItem);
 }
 
+/** describeEquipmentUtilityBonuses：整理装备功能性词条。 */
+export function describeEquipmentUtilityBonuses(item: ItemStack): string[] {
+  const lines: string[] = [];
+  const formatSignedRate = (value: number): string => `${value > 0 ? '+' : ''}${formatDisplayPercent(value * 100)}`;
+  if (typeof item.alchemySpeedRate === 'number' && item.alchemySpeedRate !== 0) {
+    lines.push(`炼丹速度 ${formatSignedRate(item.alchemySpeedRate)}`);
+  }
+  if (typeof item.alchemySuccessRate === 'number' && item.alchemySuccessRate !== 0) {
+    lines.push(`炼丹成功 ${formatSignedRate(item.alchemySuccessRate)}`);
+  }
+  if (typeof item.enhancementSpeedRate === 'number' && item.enhancementSpeedRate !== 0) {
+    lines.push(`强化速度 ${formatSignedRate(item.enhancementSpeedRate)}`);
+  }
+  if (typeof item.enhancementSuccessRate === 'number' && item.enhancementSuccessRate !== 0) {
+    lines.push(`强化成功修正 ${formatSignedRate(item.enhancementSuccessRate)}`);
+  }
+  return lines;
+}
+
+/** describeEquipmentBonuses：整理装备词条。 */
+export function describeEquipmentBonuses(item: ItemStack): string[] {
+  const previewItem = resolvePreviewItem(item);
+  return [
+    ...describeBuffStats(previewItem.equipAttrs, previewItem.equipStats, previewItem.equipValueStats),
+    ...describeEquipmentUtilityBonuses(previewItem),
+  ];
+}
+
 /** buildEquipmentComparisonAsideCard：构建Equipment Comparison Aside卡片。 */
 function buildEquipmentComparisonAsideCard(item: ItemStack): SkillTooltipAsideCard {
   const previewItem = resolvePreviewItem(item);
-  const staticLines = describeBuffStats(previewItem.equipAttrs, previewItem.equipStats, previewItem.equipValueStats);
+  const propertyLines = describeEquipmentBonuses(previewItem);
   const effectLines = (previewItem.effects ?? []).flatMap((effect) => buildPlainEffectSummary(effect));
   return {
     mark: '装',
@@ -449,11 +567,59 @@ function buildEquipmentComparisonAsideCard(item: ItemStack): SkillTooltipAsideCa
     lines: [
       previewItem.name,
       ...(previewItem.equipSlot ? [`部位：${getEquipSlotLabel(previewItem.equipSlot)}`] : []),
-      ...(staticLines.length > 0 ? [`静态词条：${staticLines.join('，')}`] : []),
+      ...(propertyLines.length > 0 ? [`装备属性：${propertyLines.join('，')}`] : []),
       ...effectLines,
     ],
     tone: 'buff',
   };
+}
+
+/** formatTechniqueAttrSummary：格式化功法属性摘要。 */
+function formatTechniqueAttrSummary(attrs: ReturnType<typeof calcTechniqueAttrValues>): string {
+  const parts = TECHNIQUE_ATTR_KEYS
+    .map((key) => {
+      const value = attrs[key] ?? 0;
+      if (value <= 0) {
+        return null;
+      }
+      return `${ATTR_KEY_LABELS[key]}+${formatDisplayNumber(value)}`;
+    })
+    .filter((entry): entry is string => entry !== null);
+  return parts.length > 0 ? parts.join(' / ') : '无属性提升';
+}
+
+/** buildTechniqueBookTooltipLines：构建功法书 tooltip 行。 */
+function buildTechniqueBookTooltipLines(item: ItemStack): string[] {
+  const techniqueId = resolveTechniqueIdFromBookItemId(item.itemId);
+  if (!techniqueId) {
+    return [];
+  }
+  const technique = getLocalTechniqueTemplate(techniqueId);
+  if (!technique) {
+    return [];
+  }
+  const realmLabel = technique.realmLv
+    ? (getLocalRealmLevelEntry(technique.realmLv)?.displayName ?? `Lv.${formatDisplayInteger(technique.realmLv)}`)
+    : '未知';
+  const maxLevel = Math.max(
+    1,
+    ...((technique.layers ?? []).map((layer) => Math.max(1, Math.floor(layer.level)))),
+  );
+  const totalAttrs = calcTechniqueAttrValues(maxLevel, technique.layers);
+  const skillNames = (technique.skills ?? [])
+    .map((skill) => skill.name.trim())
+    .filter((name) => name.length > 0);
+  return [
+    renderPlainLine('功法', technique.name),
+    renderPlainLine('描述', item.desc?.trim() || '暂无描述'),
+    renderPlainLine('境界', realmLabel),
+    renderPlainLine('品阶', getTechniqueGradeLabel(technique.grade)),
+    renderPlainLine('满层属性', formatTechniqueAttrSummary(totalAttrs)),
+    renderPlainLine(
+      `附带技能${skillNames.length > 0 ? `（${formatDisplayInteger(skillNames.length)}）` : ''}`,
+      skillNames.length > 0 ? skillNames.join('、') : '无',
+    ),
+  ];
 }
 
 /** buildItemTooltipPayload：构建物品提示载荷。 */
@@ -468,11 +634,17 @@ export function buildItemTooltipPayload(item: ItemStack, context?: ItemTooltipCo
     const effectLines = previewItem.effects?.length
       ? previewItem.effects.flatMap((effect) => buildPlainEffectSummary(effect))
       : buildConsumableEffectDetails(previewItem, context?.itemCooldown);
+    const techniqueBookLines = previewItem.type === 'skill_book'
+      ? buildTechniqueBookTooltipLines(previewItem)
+      : [];
     const lines = [
-      `<span class="skill-tooltip-desc">${escapeHtml(previewItem.desc ?? '')}</span>`,
+      ...(previewItem.type === 'skill_book'
+        ? []
+        : [`<span class="skill-tooltip-desc">${escapeHtml(previewItem.desc ?? '')}</span>`]),
       renderPlainLine('类型', getItemTypeLabel(previewItem.type)),
       ...(medicineCategoryLabel ? [renderPlainLine('分类', medicineCategoryLabel)] : []),
       ...(statusLabel ? [renderPlainLine('状态', statusLabel)] : []),
+      ...techniqueBookLines,
       ...effectLines.map((line) => `<span class="skill-tooltip-detail">${escapeHtml(line)}</span>`),
       `<div class="inventory-source-block"><span class="skill-tooltip-label">来源：</span>${sourceListHtml}</div>`,
     ].filter((line) => line.length > 0);
@@ -484,16 +656,14 @@ export function buildItemTooltipPayload(item: ItemStack, context?: ItemTooltipCo
     };
   }
 
-  const staticLines = [
-    ...describeBuffStats(previewItem.equipAttrs, previewItem.equipStats, previewItem.equipValueStats),
-  ];
+  const propertyLines = describeEquipmentBonuses(previewItem);
   const effectSummaries = (previewItem.effects ?? []).map((effect) => buildEffectSummary(effect));
   const lines: string[] = [
     `<span class="skill-tooltip-desc">${escapeHtml(previewItem.desc ?? '')}</span>`,
     renderPlainLine('类型', getItemTypeLabel(previewItem.type)),
     ...(previewItem.equipSlot ? [renderPlainLine('部位', getEquipSlotLabel(previewItem.equipSlot))] : []),
     ...(statusLabel ? [renderPlainLine('状态', statusLabel)] : []),
-    ...(staticLines.length > 0 ? [renderPlainLine('静态词条', staticLines.join('，'))] : []),
+    ...(propertyLines.length > 0 ? [renderPlainLine('装备属性', propertyLines.join('，'))] : []),
     ...effectSummaries.flatMap((entry) => entry.lines),
     `<div class="inventory-source-block"><span class="skill-tooltip-label">来源：</span>${sourceListHtml}</div>`,
   ];
@@ -520,5 +690,3 @@ export function buildEquipmentTooltipContent(item: ItemStack, context?: ItemTool
     asideCards: payload.asideCards,
   };
 }
-
-

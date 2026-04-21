@@ -1,6 +1,7 @@
 import { NEXT_S2C_AttrDetail, NEXT_S2C_AttrUpdate, PlayerState } from '@mud/shared-next';
 import type { SocketPanelSender } from './network/socket-send-panel';
 import { AttrPanel } from './ui/panels/attr-panel';
+
 /**
  * MainAttrDetailStateSourceOptions：统一结构类型，保证协议与运行时一致性。
  */
@@ -11,7 +12,7 @@ type MainAttrDetailStateSourceOptions = {
  * attrPanel：attr面板相关字段。
  */
 
-  attrPanel: Pick<AttrPanel, 'update'>;  
+  attrPanel: Pick<AttrPanel, 'update' | 'setCallbacks' | 'applyDetail'>;  
   /**
  * socket：socket相关字段。
  */
@@ -57,7 +58,7 @@ export type MainAttrDetailStateSource = ReturnType<typeof createMainAttrDetailSt
 
 
 export function createMainAttrDetailStateSource(options: MainAttrDetailStateSourceOptions) {
-  return {  
+  const source = {  
   /**
  * requestDetail：执行request详情相关逻辑。
  * @returns 无返回值，直接更新request详情相关状态。
@@ -73,7 +74,7 @@ export function createMainAttrDetailStateSource(options: MainAttrDetailStateSour
 
 
     init(): void {
-      options.socket.sendRequestAttrDetail();
+      // 按 main 口径，属性低频详情只在 tooltip 交互时按需请求。
     },    
     /**
  * handleAttrDetail：处理Attr详情并更新相关状态。
@@ -89,6 +90,7 @@ export function createMainAttrDetailStateSource(options: MainAttrDetailStateSour
       if (!player) {
         return;
       }
+      const detail = options.cloneJson(data);
       const latestAttrUpdate = options.getLatestAttrUpdate();
       const nextSpecialStats = latestAttrUpdate?.specialStats
         ? options.cloneJson(latestAttrUpdate.specialStats)
@@ -96,28 +98,39 @@ export function createMainAttrDetailStateSource(options: MainAttrDetailStateSour
             foundation: Math.max(0, Math.floor(player.foundation ?? 0)),
             combatExp: Math.max(0, Math.floor(player.combatExp ?? 0)),
           };
-      const nextAttrUpdate = options.mergeAttrUpdatePatch(latestAttrUpdate, {
-        baseAttrs: options.cloneJson(data.baseAttrs),
-        bonuses: options.cloneJson(data.bonuses),
-        finalAttrs: options.cloneJson(data.finalAttrs),
-        numericStats: options.cloneJson(data.numericStats),
-        ratioDivisors: options.cloneJson(data.ratioDivisors),
+      const nextAttrUpdateBase = options.mergeAttrUpdatePatch(latestAttrUpdate, {
+        baseAttrs: options.cloneJson(detail.baseAttrs),
+        bonuses: options.cloneJson(detail.bonuses),
+        finalAttrs: options.cloneJson(detail.finalAttrs),
+        numericStats: options.cloneJson(detail.numericStats),
+        ratioDivisors: options.cloneJson(detail.ratioDivisors),
         specialStats: nextSpecialStats,
-        alchemySkill: options.cloneJson(data.alchemySkill ?? player.alchemySkill),
-        gatherSkill: options.cloneJson(data.gatherSkill ?? player.gatherSkill),
-        enhancementSkill: options.cloneJson(data.enhancementSkill ?? player.enhancementSkill),
+        alchemySkill: options.cloneJson(detail.alchemySkill ?? player.alchemySkill),
+        gatherSkill: options.cloneJson(detail.gatherSkill ?? player.gatherSkill),
+        enhancementSkill: options.cloneJson(detail.enhancementSkill ?? player.enhancementSkill),
       });
+      const nextAttrUpdate: NEXT_S2C_AttrUpdate = {
+        ...nextAttrUpdateBase,
+        numericStatBreakdowns: options.cloneJson(detail.numericStatBreakdowns),
+      };
       options.setLatestAttrUpdate(nextAttrUpdate);
 
-      player.baseAttrs = options.cloneJson(data.baseAttrs);
-      player.bonuses = options.cloneJson(data.bonuses);
-      player.finalAttrs = options.cloneJson(data.finalAttrs);
-      player.numericStats = options.cloneJson(data.numericStats);
-      player.ratioDivisors = options.cloneJson(data.ratioDivisors);
-      player.alchemySkill = options.cloneJson(data.alchemySkill ?? player.alchemySkill);
-      player.gatherSkill = options.cloneJson(data.gatherSkill ?? player.gatherSkill);
-      player.enhancementSkill = options.cloneJson(data.enhancementSkill ?? player.enhancementSkill);
+      player.baseAttrs = options.cloneJson(detail.baseAttrs);
+      player.bonuses = options.cloneJson(detail.bonuses);
+      player.finalAttrs = options.cloneJson(detail.finalAttrs);
+      player.numericStats = options.cloneJson(detail.numericStats);
+      player.ratioDivisors = options.cloneJson(detail.ratioDivisors);
+      player.alchemySkill = options.cloneJson(detail.alchemySkill ?? player.alchemySkill);
+      player.gatherSkill = options.cloneJson(detail.gatherSkill ?? player.gatherSkill);
+      player.enhancementSkill = options.cloneJson(detail.enhancementSkill ?? player.enhancementSkill);
       options.attrPanel.update(nextAttrUpdate);
+      options.attrPanel.applyDetail(detail);
     },
   };
+  options.attrPanel.setCallbacks({
+    onRequestDetail: () => {
+      source.requestDetail();
+    },
+  });
+  return source;
 }

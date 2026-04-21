@@ -1,248 +1,296 @@
-// @ts-nocheck
-"use strict";
+import {
+  NEXT_C2S,
+  NEXT_S2C,
+  parseTileTargetRef,
+  type GridPoint,
+  type NEXT_C2S_EventPayload,
+} from '@mud/shared-next';
+import type { Socket } from 'socket.io';
 
-Object.defineProperty(exports, "__esModule", { value: true });
-exports.WorldGatewayActionHelper = void 0;
+interface TileDetailPayload extends GridPoint {
+  [key: string]: unknown;
+}
 
-const shared_1 = require("@mud/shared-next");
+interface ProtocolActionResult {
+  kind: string;
+  npcShop?: unknown;
+  npcQuests?: unknown;
+}
+
+interface WorldGatewayActionDeps {
+  gatewayGuardHelper: {
+    requirePlayerId(client: Socket): string | null | undefined;
+  };
+  worldClientEventService: {
+    markProtocol(client: Socket, protocol: 'next'): void;
+    emitGatewayError(client: Socket, code: string, error: unknown): void;
+    getExplicitProtocol(client: Socket): 'next' | string;
+  };
+  gatewayClientEmitHelper: {
+    emitNextNpcShop(client: Socket, payload: unknown): void;
+    emitNextQuests(client: Socket, payload: unknown): void;
+  };
+  worldProtocolProjectionService: {
+    emitTileLootInteraction(client: Socket, playerId: string, payload: TileDetailPayload): void;
+  };
+  playerRuntimeService: {
+    getPlayerOrThrow(playerId: string): GridPoint;
+  };
+  worldRuntimeService: {
+    buildTileDetail(playerId: string, tile: GridPoint): TileDetailPayload;
+    buildQuestListView(playerId: string): unknown;
+    worldRuntimeCommandIntakeFacadeService: {
+      enqueueResetPlayerSpawn(playerId: string, deps: unknown): void;
+      enqueueBattleTarget(
+        playerId: string,
+        locked: boolean,
+        targetPlayerId: string | null,
+        targetMonsterId: string | null,
+        targetX: number | undefined,
+        targetY: number | undefined,
+        deps: unknown,
+      ): void;
+      enqueueNpcInteraction(playerId: string, actionId: string, deps: unknown): void;
+      executeAction(playerId: string, actionId: string, target: string | undefined, deps: unknown): ProtocolActionResult;
+      enqueueRedeemCodes(playerId: string, codes: string[], deps: unknown): void;
+      usePortal(playerId: string, deps: unknown): void;
+      enqueueCultivate(playerId: string, techId: string | null, deps: unknown): void;
+      enqueueCastSkill(
+        playerId: string,
+        skillId: string,
+        targetPlayerId: string | null,
+        targetMonsterId: string | null,
+        targetRef: string | null,
+        deps: unknown,
+      ): void;
+      enqueueCastSkillTargetRef(playerId: string, actionId: string, target: string, deps: unknown): void;
+    };
+  };
+}
 
 /** 世界 socket 小型 action helper：收敛 redeem / portal / cultivate / cast skill 入口。 */
-class WorldGatewayActionHelper {
-/**
- * gateway：gateway相关字段。
- */
+export class WorldGatewayActionHelper {
+  constructor(private readonly gateway: WorldGatewayActionDeps) {}
 
-    gateway;    
-    /**
- * 构造器：初始化 当前 实例并建立基础状态。
- * @param gateway 参数说明。
- * @returns 无返回值，完成实例初始化。
- */
+  handleNextRedeemCodes(
+    client: Socket,
+    payload: NEXT_C2S_EventPayload<typeof NEXT_C2S.RedeemCodes>,
+  ): void {
+    this.executeRedeemCodes(client, payload);
+  }
 
-    constructor(gateway) {
-        this.gateway = gateway;
-    }    
-    /**
- * handleNextRedeemCodes：处理NextRedeemCode并更新相关状态。
- * @param client 参数说明。
- * @param payload 载荷参数。
- * @returns 无返回值，直接更新NextRedeemCode相关状态。
- */
-
-    handleNextRedeemCodes(client, payload) {
-        this.executeRedeemCodes(client, payload);
-    }    
-    /**
- * handleUseAction：处理UseAction并更新相关状态。
- * @param client 参数说明。
- * @param payload 载荷参数。
- * @returns 无返回值，直接更新UseAction相关状态。
- */
-
-    handleUseAction(client, payload) {
-  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
-
-        const playerId = this.gateway.gatewayGuardHelper.requirePlayerId(client);
-        if (!playerId) {
-            return;
-        }
-        this.gateway.worldClientEventService.markProtocol(client, 'next');
-        try {
-            this.handleProtocolAction(client, playerId, payload);
-        }
-        catch (error) {
-            this.gateway.worldClientEventService.emitGatewayError(client, 'USE_ACTION_FAILED', error);
-        }
-    }    
-    /**
- * handleProtocolAction：处理ProtocolAction并更新相关状态。
- * @param client 参数说明。
- * @param playerId 玩家 ID。
- * @param payload 载荷参数。
- * @returns 无返回值，直接更新ProtocolAction相关状态。
- */
-
-    handleProtocolAction(client, playerId, payload) {
-  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
-
-        const actionId = this.resolveActionId(payload);
-        if (actionId === 'debug:reset_spawn' || actionId === 'travel:return_spawn') {
-            this.gateway.worldRuntimeService.enqueueResetPlayerSpawn(playerId);
-            return;
-        }
-        if (actionId === 'loot:open') {
-            const tile = typeof payload?.target === 'string' ? (0, shared_1.parseTileTargetRef)(payload.target) : null;
-            if (!tile) {
-                throw new Error('拿取需要指定目标格子');
-            }
-            const player = this.gateway.playerRuntimeService.getPlayerOrThrow(playerId);
-            if (Math.max(Math.abs(player.x - tile.x), Math.abs(player.y - tile.y)) > 1) {
-                throw new Error('拿取范围只有 1 格。');
-            }
-            this.gateway.worldProtocolProjectionService.emitTileLootInteraction(client, playerId, this.gateway.worldRuntimeService.buildTileDetail(playerId, tile));
-            return;
-        }
-        if (actionId === 'battle:engage' || actionId === 'battle:force_attack') {
-            const target = typeof payload?.target === 'string' ? payload.target.trim() : '';
-            const tile = target ? (0, shared_1.parseTileTargetRef)(target) : null;
-            const targetPlayerId = target.startsWith('player:') ? target.slice('player:'.length) : null;
-            const targetMonsterId = target && !target.startsWith('player:') && !tile ? target : null;
-            if (targetMonsterId) {
-                this.gateway.worldRuntimeService.enqueueBattleTarget(playerId, actionId === 'battle:force_attack', null, targetMonsterId);
-                return;
-            }
-            this.gateway.worldRuntimeService.enqueueBattleTarget(playerId, actionId === 'battle:force_attack', targetPlayerId, null, tile?.x, tile?.y);
-            return;
-        }
-        if (actionId.startsWith('npc:')) {
-            this.gateway.worldRuntimeService.enqueueNpcInteraction(playerId, actionId);
-            return;
-        }
-        const target = typeof payload?.target === 'string' ? payload.target.trim() : '';
-        if (actionId === 'body_training:infuse') {
-            this.emitProtocolActionResult(client, playerId, this.gateway.worldRuntimeService.executeAction(playerId, actionId, target));
-            return;
-        }
-        if (target) {
-            this.gateway.worldRuntimeService.enqueueCastSkillTargetRef(playerId, actionId, target);
-            return;
-        }
-        this.emitProtocolActionResult(client, playerId, this.gateway.worldRuntimeService.executeAction(playerId, actionId));
-    }    
-    /**
- * resolveActionId：规范化或转换ActionID。
- * @param payload 载荷参数。
- * @returns 无返回值，直接更新ActionID相关状态。
- */
-
-    resolveActionId(payload) {
-  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
-
-        const actionId = typeof payload?.actionId === 'string' && payload.actionId.trim()
-            ? payload.actionId.trim()
-            : (typeof payload?.type === 'string' ? payload.type.trim() : '');
-        if (!actionId) {
-            throw new Error('actionId is required');
-        }
-        return actionId;
-    }    
-    /**
- * emitProtocolActionResult：处理ProtocolAction结果并更新相关状态。
- * @param client 参数说明。
- * @param playerId 玩家 ID。
- * @param result 返回结果。
- * @returns 无返回值，直接更新ProtocolAction结果相关状态。
- */
-
-    emitProtocolActionResult(client, playerId, result) {
-  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
-
-        if (result.kind === 'npcShop' && result.npcShop) {
-            this.gateway.gatewayClientEmitHelper.emitNextNpcShop(client, result.npcShop);
-            return;
-        }
-        if (result.kind !== 'npcQuests') {
-            return;
-        }
-        if (this.gateway.worldClientEventService.getExplicitProtocol(client) === 'next' && result.npcQuests) {
-            client.emit(shared_1.NEXT_S2C.NpcQuests, result.npcQuests);
-        }
-        this.gateway.gatewayClientEmitHelper.emitNextQuests(client, this.gateway.worldRuntimeService.buildQuestListView(playerId));
-    }    
-    /**
- * executeRedeemCodes：执行executeRedeemCode相关逻辑。
- * @param client 参数说明。
- * @param payload 载荷参数。
- * @returns 无返回值，直接更新executeRedeemCode相关状态。
- */
-
-    executeRedeemCodes(client, payload) {
-  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
-
-        const playerId = this.gateway.gatewayGuardHelper.requirePlayerId(client);
-        if (!playerId) {
-            return;
-        }
-        try {
-            this.gateway.worldRuntimeService.enqueueRedeemCodes(playerId, payload?.codes ?? []);
-        }
-        catch (error) {
-            this.gateway.worldClientEventService.emitGatewayError(client, 'REDEEM_CODES_FAILED', error);
-        }
-    }    
-    /**
- * handleUsePortal：处理Use传送门并更新相关状态。
- * @param client 参数说明。
- * @returns 无返回值，直接更新UsePortal相关状态。
- */
-
-    handleUsePortal(client) {
-  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
-
-        const playerId = this.gateway.gatewayGuardHelper.requirePlayerId(client);
-        if (!playerId) {
-            return;
-        }
-        try {
-            this.gateway.worldRuntimeService.usePortal(playerId);
-        }
-        catch (error) {
-            this.gateway.worldClientEventService.emitGatewayError(client, 'PORTAL_FAILED', error);
-        }
-    }    
-    /**
- * executeCultivate：执行executeCultivate相关逻辑。
- * @param client 参数说明。
- * @param payload 载荷参数。
- * @returns 无返回值，直接更新executeCultivate相关状态。
- */
-
-    executeCultivate(client, payload) {
-  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
-
-        const playerId = this.gateway.gatewayGuardHelper.requirePlayerId(client);
-        if (!playerId) {
-            return;
-        }
-        try {
-            this.gateway.worldRuntimeService.enqueueCultivate(playerId, payload?.techId ?? null);
-        }
-        catch (error) {
-            this.gateway.worldClientEventService.emitGatewayError(client, 'CULTIVATE_FAILED', error);
-        }
-    }    
-    /**
- * handleNextCultivate：处理NextCultivate并更新相关状态。
- * @param client 参数说明。
- * @param payload 载荷参数。
- * @returns 无返回值，直接更新NextCultivate相关状态。
- */
-
-    handleNextCultivate(client, payload) {
-        this.executeCultivate(client, payload);
-    }    
-    /**
- * handleCastSkill：处理Cast技能并更新相关状态。
- * @param client 参数说明。
- * @param payload 载荷参数。
- * @returns 无返回值，直接更新Cast技能相关状态。
- */
-
-    handleCastSkill(client, payload) {
-  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
-
-        const playerId = this.gateway.gatewayGuardHelper.requirePlayerId(client);
-        if (!playerId) {
-            return;
-        }
-        try {
-            this.gateway.worldRuntimeService.enqueueCastSkill(playerId, payload?.skillId, payload?.targetPlayerId ?? null, payload?.targetMonsterId ?? null, payload?.targetRef ?? null);
-        }
-        catch (error) {
-            this.gateway.worldClientEventService.emitGatewayError(client, 'CAST_SKILL_FAILED', error);
-        }
+  handleUseAction(
+    client: Socket,
+    payload: NEXT_C2S_EventPayload<typeof NEXT_C2S.UseAction>,
+  ): void {
+    const playerId = this.gateway.gatewayGuardHelper.requirePlayerId(client);
+    if (!playerId) {
+      return;
     }
-}
-exports.WorldGatewayActionHelper = WorldGatewayActionHelper;
 
-export { WorldGatewayActionHelper };
+    this.gateway.worldClientEventService.markProtocol(client, 'next');
+    try {
+      this.handleProtocolAction(client, playerId, payload);
+    } catch (error) {
+      this.gateway.worldClientEventService.emitGatewayError(client, 'USE_ACTION_FAILED', error);
+    }
+  }
+
+  private handleProtocolAction(
+    client: Socket,
+    playerId: string,
+    payload: NEXT_C2S_EventPayload<typeof NEXT_C2S.UseAction>,
+  ): void {
+    const actionId = this.resolveActionId(payload);
+    if (actionId === 'debug:reset_spawn' || actionId === 'travel:return_spawn') {
+      this.gateway.worldRuntimeService.worldRuntimeCommandIntakeFacadeService.enqueueResetPlayerSpawn(playerId, this.gateway.worldRuntimeService);
+      return;
+    }
+
+    if (actionId === 'loot:open') {
+      const tile = typeof payload?.target === 'string' ? parseTileTargetRef(payload.target) : null;
+      if (!tile) {
+        throw new Error('拿取需要指定目标格子');
+      }
+
+      const player = this.gateway.playerRuntimeService.getPlayerOrThrow(playerId);
+      if (Math.max(Math.abs(player.x - tile.x), Math.abs(player.y - tile.y)) > 1) {
+        throw new Error('拿取范围只有 1 格。');
+      }
+
+      this.gateway.worldProtocolProjectionService.emitTileLootInteraction(
+        client,
+        playerId,
+        this.gateway.worldRuntimeService.buildTileDetail(playerId, tile),
+      );
+      return;
+    }
+
+    if (actionId === 'battle:engage' || actionId === 'battle:force_attack') {
+      const target = typeof payload?.target === 'string' ? payload.target.trim() : '';
+      const tile = target ? parseTileTargetRef(target) : null;
+      const targetPlayerId = target.startsWith('player:') ? target.slice('player:'.length) : null;
+      const targetMonsterId = target && !target.startsWith('player:') && !tile ? target : null;
+      if (targetMonsterId) {
+        this.gateway.worldRuntimeService.worldRuntimeCommandIntakeFacadeService.enqueueBattleTarget(
+          playerId,
+          actionId === 'battle:force_attack',
+          null,
+          targetMonsterId,
+          undefined,
+          undefined,
+          this.gateway.worldRuntimeService,
+        );
+        return;
+      }
+
+      this.gateway.worldRuntimeService.worldRuntimeCommandIntakeFacadeService.enqueueBattleTarget(
+        playerId,
+        actionId === 'battle:force_attack',
+        targetPlayerId,
+        null,
+        tile?.x,
+        tile?.y,
+        this.gateway.worldRuntimeService,
+      );
+      return;
+    }
+
+    if (actionId.startsWith('npc:')) {
+      this.gateway.worldRuntimeService.worldRuntimeCommandIntakeFacadeService.enqueueNpcInteraction(playerId, actionId, this.gateway.worldRuntimeService);
+      return;
+    }
+
+    const target = typeof payload?.target === 'string' ? payload.target.trim() : '';
+    if (actionId === 'body_training:infuse') {
+      this.emitProtocolActionResult(
+        client,
+        playerId,
+        this.gateway.worldRuntimeService.worldRuntimeCommandIntakeFacadeService.executeAction(playerId, actionId, target, this.gateway.worldRuntimeService),
+      );
+      return;
+    }
+
+    if (target) {
+      this.gateway.worldRuntimeService.worldRuntimeCommandIntakeFacadeService.enqueueCastSkillTargetRef(playerId, actionId, target, this.gateway.worldRuntimeService);
+      return;
+    }
+
+    this.emitProtocolActionResult(
+      client,
+      playerId,
+      this.gateway.worldRuntimeService.worldRuntimeCommandIntakeFacadeService.executeAction(playerId, actionId, undefined, this.gateway.worldRuntimeService),
+    );
+  }
+
+  private resolveActionId(payload: NEXT_C2S_EventPayload<typeof NEXT_C2S.UseAction>): string {
+    const actionId =
+      typeof payload?.actionId === 'string' && payload.actionId.trim()
+        ? payload.actionId.trim()
+        : typeof payload?.type === 'string'
+          ? payload.type.trim()
+          : '';
+    if (!actionId) {
+      throw new Error('actionId is required');
+    }
+    return actionId;
+  }
+
+  private emitProtocolActionResult(
+    client: Socket,
+    playerId: string,
+    result: ProtocolActionResult,
+  ): void {
+    if (result.kind === 'npcShop' && result.npcShop) {
+      this.gateway.gatewayClientEmitHelper.emitNextNpcShop(client, result.npcShop);
+      return;
+    }
+
+    if (result.kind !== 'npcQuests') {
+      return;
+    }
+
+    if (this.gateway.worldClientEventService.getExplicitProtocol(client) === 'next' && result.npcQuests) {
+      client.emit(NEXT_S2C.NpcQuests, result.npcQuests);
+    }
+    this.gateway.gatewayClientEmitHelper.emitNextQuests(
+      client,
+      this.gateway.worldRuntimeService.buildQuestListView(playerId),
+    );
+  }
+
+  private executeRedeemCodes(
+    client: Socket,
+    payload: NEXT_C2S_EventPayload<typeof NEXT_C2S.RedeemCodes>,
+  ): void {
+    const playerId = this.gateway.gatewayGuardHelper.requirePlayerId(client);
+    if (!playerId) {
+      return;
+    }
+
+    try {
+      this.gateway.worldRuntimeService.worldRuntimeCommandIntakeFacadeService.enqueueRedeemCodes(playerId, payload?.codes ?? [], this.gateway.worldRuntimeService);
+    } catch (error) {
+      this.gateway.worldClientEventService.emitGatewayError(client, 'REDEEM_CODES_FAILED', error);
+    }
+  }
+
+  handleUsePortal(client: Socket): void {
+    const playerId = this.gateway.gatewayGuardHelper.requirePlayerId(client);
+    if (!playerId) {
+      return;
+    }
+
+    try {
+      this.gateway.worldRuntimeService.worldRuntimeCommandIntakeFacadeService.usePortal(playerId, this.gateway.worldRuntimeService);
+    } catch (error) {
+      this.gateway.worldClientEventService.emitGatewayError(client, 'PORTAL_FAILED', error);
+    }
+  }
+
+  private executeCultivate(
+    client: Socket,
+    payload: NEXT_C2S_EventPayload<typeof NEXT_C2S.Cultivate>,
+  ): void {
+    const playerId = this.gateway.gatewayGuardHelper.requirePlayerId(client);
+    if (!playerId) {
+      return;
+    }
+
+    try {
+      this.gateway.worldRuntimeService.worldRuntimeCommandIntakeFacadeService.enqueueCultivate(playerId, payload?.techId ?? null, this.gateway.worldRuntimeService);
+    } catch (error) {
+      this.gateway.worldClientEventService.emitGatewayError(client, 'CULTIVATE_FAILED', error);
+    }
+  }
+
+  handleNextCultivate(
+    client: Socket,
+    payload: NEXT_C2S_EventPayload<typeof NEXT_C2S.Cultivate>,
+  ): void {
+    this.executeCultivate(client, payload);
+  }
+
+  handleCastSkill(
+    client: Socket,
+    payload: NEXT_C2S_EventPayload<typeof NEXT_C2S.CastSkill>,
+  ): void {
+    const playerId = this.gateway.gatewayGuardHelper.requirePlayerId(client);
+    if (!playerId) {
+      return;
+    }
+
+    try {
+      this.gateway.worldRuntimeService.worldRuntimeCommandIntakeFacadeService.enqueueCastSkill(
+        playerId,
+        payload?.skillId,
+        payload?.targetPlayerId ?? null,
+        payload?.targetMonsterId ?? null,
+        payload?.targetRef ?? null,
+        this.gateway.worldRuntimeService,
+      );
+    } catch (error) {
+      this.gateway.worldClientEventService.emitGatewayError(client, 'CAST_SKILL_FAILED', error);
+    }
+  }
+}

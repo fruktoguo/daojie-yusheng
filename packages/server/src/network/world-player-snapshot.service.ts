@@ -6,7 +6,6 @@ import {
   PlayerPersistenceService,
 } from '../persistence/player-persistence.service';
 import { PlayerRuntimeService } from '../runtime/player/player-runtime.service';
-import { WorldPlayerSourceService } from './world-player-source.service';
 import { recordAuthTrace } from './world-player-token.service';
 
 const ALLOWED_SNAPSHOT_PERSISTED_SOURCES = new Set([
@@ -23,12 +22,6 @@ type NativeStarterFailureStage =
   | 'native_snapshot_recovery_load_failed'
   | 'native_snapshot_recovery_build_failed'
   | 'native_snapshot_recovery_seed_failed';
-
-interface MigrationSnapshotSourceOptions {
-  allowMigrationSource: boolean;
-  allowLegacyHttpIdentityFallback: false;
-  reason: string;
-}
 
 interface NativeStarterSnapshotResult {
   ok: boolean;
@@ -50,14 +43,6 @@ interface PlayerRuntimeSnapshotPort {
   buildStarterPersistenceSnapshot(playerId: string): PersistedPlayerSnapshot | null;
 }
 
-interface WorldPlayerSourcePort {
-  loadNextPlayerSnapshotRecord?(playerId: string): Promise<PersistedPlayerSnapshotRecord | null>;
-  loadPlayerSnapshotForMigration?(
-    playerId: string,
-    options: MigrationSnapshotSourceOptions,
-  ): Promise<PersistedPlayerSnapshot | null>;
-}
-
 function normalizeSnapshotPersistedSource(persistedSource: unknown): SnapshotPersistedSource | null {
   const normalizedPersistedSource = typeof persistedSource === 'string'
     ? persistedSource.trim()
@@ -71,25 +56,13 @@ function normalizeSnapshotPersistedSource(persistedSource: unknown): SnapshotPer
 export class WorldPlayerSnapshotService {
   private readonly logger = new Logger(WorldPlayerSnapshotService.name);
   private readonly playerRuntimeService: PlayerRuntimeSnapshotPort;
-  private readonly worldPlayerSourceService: WorldPlayerSourcePort;
 
   constructor(
     private readonly playerPersistenceService: PlayerPersistenceService,
     @Inject(PlayerRuntimeService)
     playerRuntimeService: unknown,
-    @Inject(WorldPlayerSourceService)
-    worldPlayerSourceService: unknown,
   ) {
     this.playerRuntimeService = playerRuntimeService as PlayerRuntimeSnapshotPort;
-    this.worldPlayerSourceService = worldPlayerSourceService as WorldPlayerSourcePort;
-  }
-
-  buildMigrationSnapshotSourceOptions(reason: string): MigrationSnapshotSourceOptions {
-    return {
-      allowMigrationSource: true,
-      allowLegacyHttpIdentityFallback: false,
-      reason,
-    };
   }
 
   isPersistenceEnabled(): boolean {
@@ -97,18 +70,7 @@ export class WorldPlayerSnapshotService {
   }
 
   async loadNextPlayerSnapshotRecord(playerId: string): Promise<PersistedPlayerSnapshotRecord | null> {
-    if (typeof this.worldPlayerSourceService?.loadNextPlayerSnapshotRecord === 'function') {
-      return this.worldPlayerSourceService.loadNextPlayerSnapshotRecord(playerId);
-    }
     return this.playerPersistenceService.loadPlayerSnapshotRecord(playerId);
-  }
-
-  async loadMigrationPlayerSnapshot(playerId: string): Promise<PersistedPlayerSnapshot | null> {
-    const migrationSourceOptions = this.buildMigrationSnapshotSourceOptions('snapshot_backfill');
-    if (typeof this.worldPlayerSourceService?.loadPlayerSnapshotForMigration !== 'function') {
-      throw new Error('migration snapshot source unavailable');
-    }
-    return this.worldPlayerSourceService.loadPlayerSnapshotForMigration(playerId, migrationSourceOptions);
   }
 
   async ensureNativeStarterSnapshot(playerId: string): Promise<NativeStarterSnapshotResult> {

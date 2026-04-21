@@ -17,6 +17,7 @@ import { createMainSuggestionStateSource } from './main-suggestion-state-source'
 import { createMainTechniqueStateSource } from './main-technique-state-source';
 import { createMainUiStateSource } from './main-ui-state-source';
 import { createMainWorldSummaryStateSource } from './main-world-summary-state-source';
+import type { ClientTechniqueActivityKind } from './technique-activity-client.helpers';
 import type { MainDomElements } from './main-dom-elements';
 import type { MainFrontendModules } from './main-frontend-modules';
 import type { ToastKind } from './main-app-assembly-types';
@@ -115,6 +116,10 @@ export function createMainPanelContext(options: CreateMainPanelContextOptions) {
 
   let uiStateSource!: ReturnType<typeof createMainUiStateSource>;
   let panelDeltaStateSource!: ReturnType<typeof import('./main-panel-delta-state-source').createMainPanelDeltaStateSource>;
+  const techniqueActivityOpeners = {
+    alchemy: () => craftWorkbenchModal.openAlchemy(),
+    enhancement: () => craftWorkbenchModal.openEnhancement(),
+  } as const satisfies Record<ClientTechniqueActivityKind, () => void>;
 
   const actionStateSource = createMainActionStateSource({
     actionPanel,
@@ -125,8 +130,7 @@ export function createMainPanelContext(options: CreateMainPanelContextOptions) {
     openBreakthroughModal: () => breakthroughStateSource.openBreakthroughModal(),
     openNpcShop: (npcId) => npcShopModal.open(npcId),
     openNpcQuestPending: (npcId) => npcQuestModal.openPending(npcId),
-    openAlchemy: () => craftWorkbenchModal.openAlchemy(),
-    openEnhancement: () => craftWorkbenchModal.openEnhancement(),
+    openTechniqueActivity: (kind) => techniqueActivityOpeners[kind](),
     getInfoRadius: callbacks.getInfoRadius,
     getCurrentActionDef: callbacks.getCurrentActionDef,
   });

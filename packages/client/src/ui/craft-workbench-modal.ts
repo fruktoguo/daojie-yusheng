@@ -144,6 +144,15 @@ type CraftWorkbenchCallbacks = {
 
 /** CraftWorkbenchMode：模式枚举。 */
 type CraftWorkbenchMode = 'alchemy' | 'enhancement' | null;
+type CraftWorkbenchActiveMode = Exclude<CraftWorkbenchMode, null>;
+
+/** CraftWorkbenchModeDefinition：工坊模式定义。 */
+type CraftWorkbenchModeDefinition = {
+  title: string;
+  getSubtitle: () => string;
+  requestPanel: () => void;
+  renderBody: () => string;
+};
 
 /** CraftWorkbenchModal：制作Workbench弹窗实现。 */
 export class CraftWorkbenchModal {
@@ -213,18 +222,12 @@ export class CraftWorkbenchModal {
 
   /** openAlchemy：打开炼丹。 */
   openAlchemy(): void {
-    this.activeMode = 'alchemy';
-    this.loading = true;
-    this.render();
-    this.callbacks?.onRequestAlchemy(this.alchemyCatalogVersion || undefined);
+    this.openMode('alchemy');
   }
 
   /** openEnhancement：打开强化。 */
   openEnhancement(): void {
-    this.activeMode = 'enhancement';
-    this.loading = true;
-    this.render();
-    this.callbacks?.onRequestEnhancement();
+    this.openMode('enhancement');
   }
 
   /** updateAlchemy：更新炼丹。 */
@@ -239,11 +242,7 @@ export class CraftWorkbenchModal {
         ingredients: entry.ingredients.map((ingredient) => ({ ...ingredient })),
       }));
     }
-    if (this.activeMode !== 'alchemy') {
-      return;
-    }
-    this.loading = false;
-    this.render();
+    this.finishModeUpdate('alchemy');
   }
 
   /** updateEnhancement：更新强化。 */
@@ -254,11 +253,7 @@ export class CraftWorkbenchModal {
     if (data.state?.enhancementSkillLevel) {
       this.enhancementSkillLevel = Math.max(1, Math.floor(data.state.enhancementSkillLevel));
     }
-    if (this.activeMode !== 'enhancement') {
-      return;
-    }
-    this.loading = false;
-    this.render();
+    this.finishModeUpdate('enhancement');
   }
 
   /** clear：清理clear。 */
@@ -279,30 +274,23 @@ export class CraftWorkbenchModal {
     if (!detailModalHost.isOpenFor(CraftWorkbenchModal.MODAL_OWNER)) {
       return;
     }
-    if (this.activeMode === 'alchemy') {
-      this.callbacks?.onRequestAlchemy(this.alchemyCatalogVersion || undefined);
-      return;
-    }
-    if (this.activeMode === 'enhancement') {
-      this.callbacks?.onRequestEnhancement();
-    }
+    this.getActiveModeDefinition()?.requestPanel();
   }
 
   /** render：渲染渲染。 */
   private render(): void {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
-    if (!this.activeMode) {
+    const modeDefinition = this.getActiveModeDefinition();
+    if (!modeDefinition) {
       return;
     }
-    const title = this.activeMode === 'alchemy' ? '炼丹工坊' : '强化工坊';
-    const subtitle = this.activeMode === 'alchemy'
-      ? `丹道 Lv ${formatDisplayInteger(this.alchemySkillLevel)} · 采集 Lv ${formatDisplayInteger(this.gatherSkillLevel)}`
-      : `强化 Lv ${formatDisplayInteger(this.enhancementSkillLevel)}`;
+    const title = modeDefinition.title;
+    const subtitle = modeDefinition.getSubtitle();
     const existingBody = detailModalHost.isOpenFor(CraftWorkbenchModal.MODAL_OWNER)
       ? document.getElementById('detail-modal-body')
       : null;
-    if (existingBody && this.patchBody(existingBody, title, subtitle)) {
+    if (existingBody && this.patchBody(existingBody, title, subtitle, modeDefinition)) {
       return;
     }
     detailModalHost.open({
@@ -312,7 +300,7 @@ export class CraftWorkbenchModal {
       title,
       subtitle,
       renderBody: (body) => {
-        body.innerHTML = `<div data-craft-workbench-body="true">${this.activeMode === 'alchemy' ? this.renderAlchemyBody() : this.renderEnhancementBody()}</div>`;
+        body.innerHTML = `<div data-craft-workbench-body="true">${modeDefinition.renderBody()}</div>`;
       },
       onAfterRender: (body) => this.bindActions(body),
       onClose: () => {
@@ -323,7 +311,12 @@ export class CraftWorkbenchModal {
   }
 
   /** patchBody：局部刷新工坊弹层。 */
-  private patchBody(body: HTMLElement, title: string, subtitle: string): boolean {
+  private patchBody(
+    body: HTMLElement,
+    title: string,
+    subtitle: string,
+    modeDefinition: CraftWorkbenchModeDefinition,
+  ): boolean {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
     const shell = body.querySelector<HTMLElement>('[data-craft-workbench-body="true"]');
@@ -334,9 +327,50 @@ export class CraftWorkbenchModal {
     }
     titleNode.textContent = title;
     subtitleNode.textContent = subtitle;
-    shell.innerHTML = this.activeMode === 'alchemy' ? this.renderAlchemyBody() : this.renderEnhancementBody();
+    shell.innerHTML = modeDefinition.renderBody();
     this.bindActions(body);
     return true;
+  }
+
+  /** openMode：按模式打开工坊面板。 */
+  private openMode(mode: CraftWorkbenchActiveMode): void {
+    this.activeMode = mode;
+    this.loading = true;
+    this.render();
+    this.getModeDefinition(mode).requestPanel();
+  }
+
+  /** finishModeUpdate：处理模式更新后的收尾。 */
+  private finishModeUpdate(mode: CraftWorkbenchActiveMode): void {
+    if (this.activeMode !== mode) {
+      return;
+    }
+    this.loading = false;
+    this.render();
+  }
+
+  /** getActiveModeDefinition：读取当前激活模式定义。 */
+  private getActiveModeDefinition(): CraftWorkbenchModeDefinition | null {
+    return this.activeMode ? this.getModeDefinition(this.activeMode) : null;
+  }
+
+  /** getModeDefinition：读取模式定义。 */
+  private getModeDefinition(mode: CraftWorkbenchActiveMode): CraftWorkbenchModeDefinition {
+    const definitions: Record<CraftWorkbenchActiveMode, CraftWorkbenchModeDefinition> = {
+      alchemy: {
+        title: '炼丹工坊',
+        getSubtitle: () => `丹道 Lv ${formatDisplayInteger(this.alchemySkillLevel)} · 采集 Lv ${formatDisplayInteger(this.gatherSkillLevel)}`,
+        requestPanel: () => this.callbacks?.onRequestAlchemy(this.alchemyCatalogVersion || undefined),
+        renderBody: () => this.renderAlchemyBody(),
+      },
+      enhancement: {
+        title: '强化工坊',
+        getSubtitle: () => `强化 Lv ${formatDisplayInteger(this.enhancementSkillLevel)}`,
+        requestPanel: () => this.callbacks?.onRequestEnhancement(),
+        renderBody: () => this.renderEnhancementBody(),
+      },
+    };
+    return definitions[mode];
   }
 
   /** bindActions：绑定动作。 */

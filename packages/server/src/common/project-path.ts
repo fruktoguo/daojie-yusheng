@@ -1,10 +1,15 @@
 import * as fs from 'node:fs';
 import * as path from 'node:path';
 
+const packageRootOverride = typeof process.env.SERVER_NEXT_PACKAGE_ROOT === 'string'
+  ? process.env.SERVER_NEXT_PACKAGE_ROOT.trim()
+  : '';
+
 const REPO_ROOT_CANDIDATES = [
+  packageRootOverride ? path.resolve(packageRootOverride, '..', '..') : '',
   process.cwd(),
   path.resolve(__dirname, '../../../..'),
-];
+].filter((entry) => Boolean(entry));
 
 /** 在当前工作目录与编译产物反推项目根目录，服务端组件通用依赖该路径。 */
 function resolveRepoRoot(): string {

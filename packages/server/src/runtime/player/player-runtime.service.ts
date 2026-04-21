@@ -193,6 +193,7 @@ let PlayerRuntimeService = class PlayerRuntimeService {
             },
             alchemySkill: createCraftSkillState(),
             gatherSkill: createCraftSkillState(),
+            gatherJob: null,
             alchemyPresets: [],
             alchemyJob: null,
             enhancementSkill: createCraftSkillState(),
@@ -1345,6 +1346,44 @@ let PlayerRuntimeService = class PlayerRuntimeService {
         };
     }    
     /**
+ * setManagedBodyTrainingLevel：以运行时权威链路设置托管玩家炼体等级。
+ * @param playerId 玩家 ID。
+ * @param requestedLevel 目标等级。
+ * @returns 无返回值，直接更新炼体状态相关状态。
+ */
+
+    setManagedBodyTrainingLevel(playerId, requestedLevel) {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
+
+        const player = this.getPlayerOrThrow(playerId);
+
+        const currentBodyTraining = (0, shared_1.normalizeBodyTrainingState)(player.bodyTraining);
+        const normalizedLevel = Math.max(0, Math.trunc(Number(requestedLevel) || 0));
+        const expToNext = (0, shared_1.getBodyTrainingExpToNext)(normalizedLevel);
+        const nextBodyTraining = (0, shared_1.normalizeBodyTrainingState)({
+            level: normalizedLevel,
+            exp: Math.min(currentBodyTraining.exp, Math.max(0, expToNext - 1)),
+            expToNext,
+        });
+        if (nextBodyTraining.level === currentBodyTraining.level
+            && nextBodyTraining.exp === currentBodyTraining.exp
+            && nextBodyTraining.expToNext === currentBodyTraining.expToNext) {
+            return player;
+        }
+        player.bodyTraining = nextBodyTraining;
+        player.techniques.revision += 1;
+        if (nextBodyTraining.level !== currentBodyTraining.level) {
+            this.playerAttributesService.recalculate(player);
+        }
+        else {
+            this.playerAttributesService.markPanelDirty(player);
+        }
+        this.playerProgressionService.refreshPreview(player);
+        this.bumpPersistentRevision(player);
+        return player;
+    }    
+    /**
  * recordActivity：执行recordActivity相关逻辑。
  * @param playerId 玩家 ID。
  * @param currentTick 参数说明。
@@ -2154,6 +2193,7 @@ let PlayerRuntimeService = class PlayerRuntimeService {
             spiritualRoots: normalizeHeavenGateRoots(snapshot.progression?.spiritualRoots),
             alchemySkill: normalizeCraftSkillState(snapshot.progression?.alchemySkill),
             gatherSkill: normalizeCraftSkillState(snapshot.progression?.gatherSkill),
+            gatherJob: normalizeGatherJob(snapshot.progression?.gatherJob),
             alchemyPresets: normalizeAlchemyPresets(snapshot.progression?.alchemyPresets),
             alchemyJob: normalizeAlchemyJob(snapshot.progression?.alchemyJob),
             enhancementSkill: normalizeCraftSkillState(snapshot.progression?.enhancementSkill),
@@ -2463,6 +2503,7 @@ function cloneRuntimePlayerState(player) {
         },
         alchemySkill: cloneCraftSkillState(player.alchemySkill),
         gatherSkill: cloneCraftSkillState(player.gatherSkill),
+        gatherJob: player.gatherJob ? cloneGatherJob(player.gatherJob) : null,
         alchemyPresets: (player.alchemyPresets ?? []).map((entry) => cloneAlchemyPreset(entry)),
         alchemyJob: player.alchemyJob ? cloneAlchemyJob(player.alchemyJob) : null,
         enhancementSkill: cloneCraftSkillState(player.enhancementSkill),
@@ -2608,6 +2649,7 @@ function buildRuntimePlayerPersistenceSnapshot(player) {
             spiritualRoots: cloneHeavenGateRoots(player.spiritualRoots),
             alchemySkill: cloneCraftSkillState(player.alchemySkill),
             gatherSkill: cloneCraftSkillState(player.gatherSkill),
+            gatherJob: player.gatherJob ? cloneGatherJob(player.gatherJob) : null,
             alchemyPresets: (player.alchemyPresets ?? []).map((entry) => cloneAlchemyPreset(entry)),
             alchemyJob: player.alchemyJob ? cloneAlchemyJob(player.alchemyJob) : null,
             enhancementSkill: cloneCraftSkillState(player.enhancementSkill),
@@ -2750,6 +2792,41 @@ function cloneAlchemyPreset(entry) {
     return {
         ...entry,
         ingredients: Array.isArray(entry.ingredients) ? entry.ingredients.map((ingredient) => ({ ...ingredient })) : [],
+    };
+}
+/**
+ * normalizeGatherJob：规范化或转换采集 Job。
+ * @param value 参数说明。
+ * @returns 无返回值，直接更新采集 Job 相关状态。
+ */
+
+function normalizeGatherJob(value) {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
+    if (!value || typeof value !== 'object' || typeof value.resourceNodeId !== 'string') {
+        return null;
+    }
+    return {
+        resourceNodeId: String(value.resourceNodeId),
+        resourceNodeName: typeof value.resourceNodeName === 'string' ? value.resourceNodeName : String(value.resourceNodeId),
+        phase: value.phase === 'paused' ? 'paused' : 'gathering',
+        startedAt: Math.max(0, Math.floor(Number(value.startedAt) || 0)),
+        totalTicks: Math.max(1, Math.floor(Number(value.totalTicks) || 1)),
+        remainingTicks: Math.max(0, Math.floor(Number(value.remainingTicks) || 0)),
+        pausedTicks: Math.max(0, Math.floor(Number(value.pausedTicks) || 0)),
+        successRate: Math.max(0, Math.min(1, Number(value.successRate) || 0)),
+        spiritStoneCost: Math.max(0, Math.floor(Number(value.spiritStoneCost) || 0)),
+    };
+}
+/**
+ * cloneGatherJob：构建采集 Job。
+ * @param entry 参数说明。
+ * @returns 无返回值，直接更新采集 Job 相关状态。
+ */
+
+function cloneGatherJob(entry) {
+    return {
+        ...entry,
     };
 }
 /**

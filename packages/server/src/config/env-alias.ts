@@ -1,6 +1,4 @@
-import * as path from 'node:path';
-
-require(path.resolve(__dirname, '../../../../scripts/load-local-runtime-env.js'));
+import './load-local-runtime-env';
 /**
  * DatabaseEnvSource：统一结构类型，保证协议与运行时一致性。
  */

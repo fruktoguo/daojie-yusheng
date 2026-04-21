@@ -131,6 +131,59 @@ let WorldRuntimePlayerCommandService = class WorldRuntimePlayerCommandService {
         this.worldRuntimeNpcQuestWriteService = worldRuntimeNpcQuestWriteService;
     }    
     /**
+ * dispatchStartTechniqueActivity：统一开始技艺活动命令分发。
+ * @param playerId 玩家 ID。
+ * @param kind 技艺活动类型。
+ * @param payload 载荷参数。
+ * @param deps 运行时依赖。
+ * @returns 无返回值，直接更新技艺活动相关状态。
+ */
+
+    dispatchStartTechniqueActivity(playerId, kind, payload, deps) {
+        switch (kind) {
+            case 'alchemy':
+                this.worldRuntimeAlchemyService.dispatchStartAlchemy(playerId, payload, deps);
+                return;
+            case 'enhancement':
+                this.worldRuntimeEnhancementService.dispatchStartEnhancement(playerId, payload, deps);
+                return;
+            case 'gather':
+                deps.worldRuntimeCraftMutationService.flushCraftMutation(
+                    playerId,
+                    deps.worldRuntimeLootContainerService.dispatchStartGather(playerId, payload, deps),
+                    'gather',
+                    deps,
+                );
+                return;
+        }
+    }    
+    /**
+ * dispatchCancelTechniqueActivity：统一取消技艺活动命令分发。
+ * @param playerId 玩家 ID。
+ * @param kind 技艺活动类型。
+ * @param deps 运行时依赖。
+ * @returns 无返回值，直接更新技艺活动相关状态。
+ */
+
+    dispatchCancelTechniqueActivity(playerId, kind, deps) {
+        switch (kind) {
+            case 'alchemy':
+                this.worldRuntimeAlchemyService.dispatchCancelAlchemy(playerId, deps);
+                return;
+            case 'enhancement':
+                this.worldRuntimeEnhancementService.dispatchCancelEnhancement(playerId, deps);
+                return;
+            case 'gather':
+                deps.worldRuntimeCraftMutationService.flushCraftMutation(
+                    playerId,
+                    deps.worldRuntimeLootContainerService.dispatchCancelGather(playerId, deps),
+                    'gather',
+                    deps,
+                );
+                return;
+        }
+    }    
+    /**
  * dispatchPlayerCommand：判断玩家Command是否满足条件。
  * @param playerId 玩家 ID。
  * @param command 输入指令。
@@ -180,10 +233,10 @@ let WorldRuntimePlayerCommandService = class WorldRuntimePlayerCommandService {
                 this.worldRuntimeCultivationService.dispatchCultivateTechnique(playerId, command.techniqueId, deps);
                 return;
             case 'startAlchemy':
-                this.worldRuntimeAlchemyService.dispatchStartAlchemy(playerId, command.payload, deps);
+                this.dispatchStartTechniqueActivity(playerId, 'alchemy', command.payload, deps);
                 return;
             case 'cancelAlchemy':
-                this.worldRuntimeAlchemyService.dispatchCancelAlchemy(playerId, deps);
+                this.dispatchCancelTechniqueActivity(playerId, 'alchemy', deps);
                 return;
             case 'saveAlchemyPreset':
                 this.worldRuntimeAlchemyService.dispatchSaveAlchemyPreset(playerId, command.payload, deps);
@@ -192,10 +245,16 @@ let WorldRuntimePlayerCommandService = class WorldRuntimePlayerCommandService {
                 this.worldRuntimeAlchemyService.dispatchDeleteAlchemyPreset(playerId, command.presetId, deps);
                 return;
             case 'startEnhancement':
-                this.worldRuntimeEnhancementService.dispatchStartEnhancement(playerId, command.payload, deps);
+                this.dispatchStartTechniqueActivity(playerId, 'enhancement', command.payload, deps);
                 return;
             case 'cancelEnhancement':
-                this.worldRuntimeEnhancementService.dispatchCancelEnhancement(playerId, deps);
+                this.dispatchCancelTechniqueActivity(playerId, 'enhancement', deps);
+                return;
+            case 'startGather':
+                this.dispatchStartTechniqueActivity(playerId, 'gather', command.payload, deps);
+                return;
+            case 'cancelGather':
+                this.dispatchCancelTechniqueActivity(playerId, 'gather', deps);
                 return;
             case 'redeemCodes':
                 this.worldRuntimeRedeemCodeService.dispatchRedeemCodes(playerId, command.codes, deps);

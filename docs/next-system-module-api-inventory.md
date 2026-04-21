@@ -651,9 +651,9 @@ GM：
 
 ## 8. 相关文档
 
-- `docs/next-gap-analysis.md`
-- `docs/next-remaining-task-breakdown.md`
-- `docs/next-remaining-execution-plan.md`
+- `docs/next-plan/main.md`
+- `docs/next-in-place-hard-cut-plan.md`
+- `docs/next-plan/10-legacy-archive-and-cutover.md`
 - `docs/server-next-operations.md`
 - `docs/frontend-refactor/README.md`
 - `docs/frontend-refactor/module-inventory.md`

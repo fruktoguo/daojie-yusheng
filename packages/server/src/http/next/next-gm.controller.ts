@@ -1,4 +1,5 @@
 import { BadRequestException, Body, Controller, Delete, Get, Inject, Param, Post, Put, Query, UseGuards } from '@nestjs/common';
+import { type GmListPlayersQuery } from '@mud/shared-next';
 
 import { RedeemCodeRuntimeService } from '../../runtime/redeem/redeem-code-runtime.service';
 import { NEXT_GM_HTTP_CONTRACT } from './next-gm-contract';
@@ -52,6 +53,30 @@ interface UpdatePlayerBody {
  */
 
   snapshot?: unknown;
+}
+/**
+ * SetPlayerBodyTrainingLevelBody：定义接口结构约束，明确可交付字段含义。
+ */
+
+
+interface SetPlayerBodyTrainingLevelBody {
+/**
+ * level：等级数值。
+ */
+
+  level?: number;
+}
+/**
+ * AddPlayerCounterBody：定义接口结构约束，明确可交付字段含义。
+ */
+
+
+interface AddPlayerCounterBody {
+/**
+ * amount：数量或计量字段。
+ */
+
+  amount?: number;
 }
 /**
  * SpawnBotsBody：定义接口结构约束，明确可交付字段含义。
@@ -203,8 +228,8 @@ export class NextGmController {
 
 
   @Get('state')
-  getState() {
-    return this.nextGmWorldService.getState();
+  getState(@Query() query: GmListPlayersQuery) {
+    return this.nextGmWorldService.getState(query);
   }  
   /**
  * getEditorCatalog：读取Editor目录。
@@ -327,6 +352,45 @@ export class NextGmController {
     return { ok: true };
   }  
   /**
+ * setPlayerBodyTrainingLevel：设置玩家炼体等级。
+ * @param playerId string 玩家 ID。
+ * @param body SetPlayerBodyTrainingLevelBody 参数说明。
+ * @returns 无返回值，直接更新玩家炼体等级相关状态。
+ */
+
+
+  @Post('players/:playerId/body-training/level')
+  async setPlayerBodyTrainingLevel(@Param('playerId') playerId: string, @Body() body: SetPlayerBodyTrainingLevelBody) {
+    await this.nextGmPlayerService.setPlayerBodyTrainingLevel(playerId, body?.level);
+    return { ok: true };
+  }  
+  /**
+ * addPlayerFoundation：调整玩家底蕴。
+ * @param playerId string 玩家 ID。
+ * @param body AddPlayerCounterBody 参数说明。
+ * @returns 无返回值，直接更新玩家底蕴相关状态。
+ */
+
+
+  @Post('players/:playerId/foundation/add')
+  async addPlayerFoundation(@Param('playerId') playerId: string, @Body() body: AddPlayerCounterBody) {
+    await this.nextGmPlayerService.addPlayerFoundation(playerId, body?.amount);
+    return { ok: true };
+  }  
+  /**
+ * addPlayerCombatExp：调整玩家战斗经验。
+ * @param playerId string 玩家 ID。
+ * @param body AddPlayerCounterBody 参数说明。
+ * @returns 无返回值，直接更新玩家战斗经验相关状态。
+ */
+
+
+  @Post('players/:playerId/combat-exp/add')
+  async addPlayerCombatExp(@Param('playerId') playerId: string, @Body() body: AddPlayerCounterBody) {
+    await this.nextGmPlayerService.addPlayerCombatExp(playerId, body?.amount);
+    return { ok: true };
+  }  
+  /**
  * resetHeavenGate：执行resetHeavenGate相关逻辑。
  * @param playerId string 玩家 ID。
  * @returns 无返回值，直接更新resetHeavenGate相关状态。
@@ -371,6 +435,36 @@ export class NextGmController {
   @Post('shortcuts/players/return-all-to-default-spawn')
   async returnAllPlayersToDefaultSpawn() {
     return this.nextGmPlayerService.returnAllPlayersToDefaultSpawn();
+  }  
+  /**
+ * cleanupAllPlayersInvalidItems：清理全部非机器人的无效物品。
+ * @returns 无返回值，直接更新全部无效物品清理相关状态。
+ */
+
+
+  @Post('shortcuts/players/cleanup-invalid-items')
+  async cleanupAllPlayersInvalidItems() {
+    return this.nextGmPlayerService.cleanupAllPlayersInvalidItems();
+  }  
+  /**
+ * compensateAllPlayersCombatExp：补偿全部非机器人的战斗经验。
+ * @returns 无返回值，直接更新全部战斗经验补偿相关状态。
+ */
+
+
+  @Post('shortcuts/compensation/combat-exp-2026-04-09')
+  async compensateAllPlayersCombatExp() {
+    return this.nextGmPlayerService.compensateAllPlayersCombatExp();
+  }  
+  /**
+ * compensateAllPlayersFoundation：补偿全部非机器人的底蕴。
+ * @returns 无返回值，直接更新全部底蕴补偿相关状态。
+ */
+
+
+  @Post('shortcuts/compensation/foundation-2026-04-09')
+  async compensateAllPlayersFoundation() {
+    return this.nextGmPlayerService.compensateAllPlayersFoundation();
   }  
   /**
  * resetNetworkPerf：执行resetNetworkPerf相关逻辑。

@@ -1017,6 +1017,7 @@ let MarketRuntimeService = MarketRuntimeService_1 = class MarketRuntimeService {
             mapUnlockId: normalized.mapUnlockId,
             mapUnlockIds: Array.isArray(normalized.mapUnlockIds) ? normalized.mapUnlockIds.slice() : undefined,
             tileAuraGainAmount: normalized.tileAuraGainAmount,
+            tileResourceGains: Array.isArray(normalized.tileResourceGains) ? normalized.tileResourceGains.map((entry) => ({ ...entry })) : undefined,
             allowBatchUse: normalized.allowBatchUse,
         };
     }    

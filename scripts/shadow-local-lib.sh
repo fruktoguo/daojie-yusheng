@@ -8,6 +8,7 @@ SHADOW_REPO_ROOT="$(cd "${SHADOW_LIB_DIR}/.." && pwd)"
 SHADOW_RUNTIME_DIR="${SHADOW_REPO_ROOT}/.runtime"
 SHADOW_PID_FILE="${SHADOW_RUNTIME_DIR}/server-next-shadow.pid"
 SHADOW_LOG_FILE="${SHADOW_RUNTIME_DIR}/server-next-shadow.log"
+SHADOW_DIST_ROOT_FILE="${SHADOW_RUNTIME_DIR}/server-next-shadow.dist-root"
 SHADOW_PORT="${SERVER_NEXT_SHADOW_PORT:-11923}"
 SHADOW_URL_DEFAULT="http://127.0.0.1:${SHADOW_PORT}"
 SHADOW_COMPOSE_FILE="${SERVER_NEXT_COMPOSE_FILE:-docker-compose.server-next.yml}"
@@ -112,6 +113,29 @@ shadow_compile_server() {
   )
 }
 
+shadow_create_stable_dist_snapshot() {
+  local runtime_dir=""
+  runtime_dir="$(shadow_runtime_dir)"
+  local snapshot_root=""
+  snapshot_root="$(mktemp -d "${runtime_dir}/shadow-dist.XXXXXX")"
+  local snapshot_dist_root="${snapshot_root}/dist"
+  cp -R "${SHADOW_REPO_ROOT}/packages/server/dist" "${snapshot_dist_root}"
+  ln -s "${SHADOW_REPO_ROOT}/packages/server/node_modules" "${snapshot_root}/node_modules"
+  printf '%s\n' "${snapshot_dist_root}" > "${SHADOW_DIST_ROOT_FILE}"
+  printf '%s\n' "${snapshot_dist_root}"
+}
+
+shadow_cleanup_stable_dist_snapshot() {
+  local dist_root=""
+  if [[ -f "${SHADOW_DIST_ROOT_FILE}" ]]; then
+    dist_root="$(cat "${SHADOW_DIST_ROOT_FILE}" 2>/dev/null || true)"
+    rm -f "${SHADOW_DIST_ROOT_FILE}"
+  fi
+  if [[ -n "${dist_root}" ]]; then
+    rm -rf "$(dirname "${dist_root}")"
+  fi
+}
+
 shadow_collect_children() {
   local root_pid="$1"
   ps -eo pid=,ppid= | awk -v root_pid="${root_pid}" '
@@ -172,6 +196,8 @@ shadow_stop_existing() {
     rm -f "${SHADOW_PID_FILE}"
   fi
 
+  shadow_cleanup_stable_dist_snapshot
+
   local port_pid=""
   port_pid="$(lsof -tiTCP:${SHADOW_PORT} -sTCP:LISTEN 2>/dev/null | head -n 1 || true)"
   if [[ -n "${port_pid}" ]]; then
@@ -229,17 +255,21 @@ shadow_start() {
   fi
 
   echo "==> 启动本地 next shadow (maintenance=${maintenance_flag}) ..."
-  (
-    cd "${SHADOW_REPO_ROOT}"
-    if command -v setsid >/dev/null 2>&1; then
-      SERVER_NEXT_ALLOW_UNREADY_TRAFFIC=1 SERVER_NEXT_SMOKE_ALLOW_UNREADY=1 \
-        setsid node packages/server/dist/main.js >> "${SHADOW_LOG_FILE}" 2>&1 < /dev/null &
-    else
-      SERVER_NEXT_ALLOW_UNREADY_TRAFFIC=1 SERVER_NEXT_SMOKE_ALLOW_UNREADY=1 \
-        nohup node packages/server/dist/main.js >> "${SHADOW_LOG_FILE}" 2>&1 < /dev/null &
-    fi
-    echo "$!" > "${SHADOW_PID_FILE}"
-  )
+  local shadow_dist_root=""
+  shadow_dist_root="$(shadow_create_stable_dist_snapshot)"
+	(
+	  cd "${SHADOW_REPO_ROOT}"
+	  if command -v setsid >/dev/null 2>&1; then
+	    SERVER_NEXT_PACKAGE_ROOT="${SHADOW_REPO_ROOT}/packages/server" \
+	      SERVER_NEXT_ALLOW_UNREADY_TRAFFIC=1 SERVER_NEXT_SMOKE_ALLOW_UNREADY=1 \
+	        setsid node "${shadow_dist_root}/main.js" >> "${SHADOW_LOG_FILE}" 2>&1 < /dev/null &
+	  else
+	    SERVER_NEXT_PACKAGE_ROOT="${SHADOW_REPO_ROOT}/packages/server" \
+	      SERVER_NEXT_ALLOW_UNREADY_TRAFFIC=1 SERVER_NEXT_SMOKE_ALLOW_UNREADY=1 \
+	        nohup node "${shadow_dist_root}/main.js" >> "${SHADOW_LOG_FILE}" 2>&1 < /dev/null &
+	  fi
+	  echo "$!" > "${SHADOW_PID_FILE}"
+	)
 
   local health_payload=""
   health_payload="$(shadow_wait_for_health "${maintenance_flag}")"

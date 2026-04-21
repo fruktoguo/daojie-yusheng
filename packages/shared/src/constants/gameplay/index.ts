@@ -21,6 +21,7 @@
  * - `threat`：仇恨积累、衰减与目标选择规则。
  */
 export * from './core';
+export * from './action';
 export * from './world';
 export * from './aura';
 export * from './qi';

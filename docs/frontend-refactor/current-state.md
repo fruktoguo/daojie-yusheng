@@ -12,7 +12,7 @@
 
 ## 2. 已经完成的前端主链收口
 
-从现有代码和 `docs/next-gap-analysis.md` 可以确认，前端主链已经完成了这些收口：
+从当前代码和仓库级主计划可以确认，前端主链已经完成了这些收口：
 
 - `socket.ts` 已只消费 next 事件
 - `main.ts` 的主同步入口围绕 `Bootstrap / WorldDelta / SelfDelta / PanelDelta`
@@ -80,7 +80,7 @@
 
 ### 4.3 运行时与 UI 的高频边界仍需继续收死
 
-根据 `next-client-runtime-sync-pitfalls.md`，高频动态链路仍然要继续防止：
+根据当前同步边界，高频动态链路仍然要继续防止：
 
 - 同一状态被多源驱动
 - 非空间更新压平空间动画

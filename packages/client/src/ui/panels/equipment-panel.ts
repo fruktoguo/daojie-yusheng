@@ -7,7 +7,7 @@ import { getEquipSlotLabel } from '../../domain-labels';
 import { resolvePreviewItem } from '../../content/local-templates';
 import { preserveSelection } from '../selection-preserver';
 import { FloatingTooltip, prefersPinnedTooltipInteraction } from '../floating-tooltip';
-import { buildItemTooltipPayload } from '../equipment-tooltip';
+import { buildItemTooltipPayload, describeEquipmentBonuses, formatEquipmentConditionText } from '../equipment-tooltip';
 import { describePreviewBonuses } from '../stat-preview';
 import { formatDisplayInteger, formatDisplayPercent } from '../../utils/number';
 
@@ -15,30 +15,10 @@ import { formatDisplayInteger, formatDisplayPercent } from '../../utils/number';
 function formatEffectCondition(effect: EquipmentEffectDef): string {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
-  const conditions = effect?.conditions?.items ?? [];
-  if (conditions.length === 0) {
+  const parts = formatEquipmentConditionText(effect);
+  if (parts.length === 0) {
     return '';
   }
-  const parts = conditions.map((condition) => {
-    switch (condition.type) {
-      case 'time_segment':
-        return `时段:${condition.in.join('/')}`;
-      case 'map':
-        return `地图:${condition.mapIds.join('/')}`;
-      case 'hp_ratio':
-        return `生命${condition.op}${formatDisplayPercent(condition.value * 100)}`;
-      case 'qi_ratio':
-        return `灵力${condition.op}${formatDisplayPercent(condition.value * 100)}`;
-      case 'is_cultivating':
-        return condition.value ? '修炼中' : '未修炼';
-      case 'has_buff':
-        return `需带有 ${condition.buffId}`;
-      case 'target_kind':
-        return `目标:${condition.in.join('/')}`;
-      default:
-        return '';
-    }
-  }).filter((part) => part.length > 0);
   return parts.length > 0 ? ` [${parts.join('，')}]` : '';
 }
 
@@ -96,7 +76,7 @@ function formatItemBonuses(item: EquipmentSlots[EquipSlot]): string {
 
   if (!item) return '暂无词条';
   const previewItem = resolvePreviewItem(item);
-  const bonusParts = describePreviewBonuses(previewItem.equipAttrs, previewItem.equipStats, previewItem.equipValueStats);
+  const bonusParts = describeEquipmentBonuses(previewItem);
   const effectParts = formatItemEffects(item);
   const parts = [...bonusParts, ...effectParts];
   return parts.length > 0 ? parts.join(' / ') : '暂无词条';
@@ -181,7 +161,7 @@ export class EquipmentPanel {
     this.slotViews.clear();
     this.sectionEl = null;
     this.emptyStateEl = null;
-    this.pane.replaceChildren(createFragmentFromHtml('<div class="empty-hint ui-empty-hint">尚未装备任何物品</div>'));
+    this.pane.replaceChildren(createFragmentFromHtml('<div class="empty-hint">尚未装备任何物品</div>'));
   }  
   /**
  * setCallbacks：写入Callback。
@@ -256,7 +236,7 @@ export class EquipmentPanel {
       this.slotViews.clear();
 
       const sectionEl = document.createElement('div');
-      sectionEl.className = 'panel-section ui-surface-pane ui-surface-pane--stack';
+      sectionEl.className = 'panel-section';
 
       const titleEl = document.createElement('div');
       titleEl.className = 'panel-section-title';
@@ -264,7 +244,7 @@ export class EquipmentPanel {
       sectionEl.append(titleEl);
 
       const emptyStateEl = document.createElement('div');
-      emptyStateEl.className = 'empty-hint ui-empty-hint';
+      emptyStateEl.className = 'empty-hint';
       emptyStateEl.textContent = '尚未装备任何物品';
       emptyStateEl.hidden = true;
       sectionEl.append(emptyStateEl);
@@ -284,7 +264,7 @@ export class EquipmentPanel {
   /** createSlotView：创建槽位视图。 */
   private createSlotView(slot: EquipSlot): EquipmentSlotView {
     const root = document.createElement('div');
-    root.className = 'equip-slot ui-surface-card ui-surface-card--compact';
+    root.className = 'equip-slot';
 
     const copy = document.createElement('div');
     copy.className = 'equip-copy';

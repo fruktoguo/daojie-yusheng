@@ -351,6 +351,8 @@ function testGameplayWriteFacade() {
     service.dispatchEquipItem('player:1', 2, deps);
     service.dispatchUnequipItem('player:1', 'weapon', deps);
     service.dispatchCultivateTechnique('player:1', 'tech:1', deps);
+    service.dispatchStartTechniqueActivity('player:1', 'alchemy', { recipeId: 'recipe:generic' }, deps);
+    service.dispatchCancelTechniqueActivity('player:1', 'enhancement', deps);
     service.dispatchStartAlchemy('player:1', { recipeId: 'recipe:1' }, deps);
     service.dispatchCancelAlchemy('player:1', deps);
     service.dispatchSaveAlchemyPreset('player:1', { presetId: 'preset:1' }, deps);
@@ -369,7 +371,15 @@ function testGameplayWriteFacade() {
     service.processPendingRespawns(deps);
     service.respawnPlayer('player:1', deps);
 
-    assert.ok(log.length >= 30);
+    assert.deepEqual(log.slice(16, 22), [
+        ['dispatchCultivateTechnique', 'player:1', 'tech:1'],
+        ['dispatchStartAlchemy', 'player:1', 'recipe:generic'],
+        ['dispatchCancelEnhancement', 'player:1'],
+        ['dispatchStartAlchemy', 'player:1', 'recipe:1'],
+        ['dispatchCancelAlchemy', 'player:1'],
+        ['dispatchSaveAlchemyPreset', 'player:1', 'preset:1'],
+    ]);
+    assert.ok(log.length >= 32);
 }
 
 testGameplayWriteFacade();

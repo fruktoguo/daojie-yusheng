@@ -1,6 +1,7 @@
 import {
   type ActionDef,
   type ActionUpdateEntry,
+  type Attributes,
   type Inventory,
   type NEXT_S2C_ActionsUpdate,
   type NEXT_S2C_AttrUpdate,
@@ -9,6 +10,10 @@ import {
   type NEXT_S2C_PanelActionDelta,
   type NEXT_S2C_PanelTechniqueDelta,
   type NEXT_S2C_TechniqueUpdate,
+  type NumericRatioDivisors,
+  type NumericStats,
+  type PartialNumericRatioDivisors,
+  type PartialNumericStats,
   type PlayerState,
   type SyncedItemStack,
   type TechniqueState,
@@ -49,6 +54,11 @@ type MainPanelDeltaStateSourceOptions = {
  */
 
     update: (value: NEXT_S2C_AttrUpdate) => void;
+    /**
+ * invalidateDetail：标记属性详情过期。
+ */
+
+    invalidateDetail?: () => void;
   };  
   /**
  * equipmentPanel：装备面板相关字段。
@@ -214,6 +224,7 @@ type MainPanelDeltaStateSourceOptions = {
     syncSenseQiOverlay: () => void;
   };
 };
+
 /**
  * applyNullablePatch：处理NullablePatch并更新相关状态。
  * @param value T | null | undefined 参数说明。
@@ -242,6 +253,134 @@ function applyNullablePatch<T>(value: T | null | undefined, fallback: T | undefi
 
 function cloneJson<T>(value: T): T {
   return clonePlainValue(value);
+}
+
+function mergeAttrValuePatch(base: Partial<Attributes> | undefined, patch: Partial<Attributes> | undefined, fallback: Attributes): Attributes {
+  return {
+    constitution: patch?.constitution ?? base?.constitution ?? fallback.constitution,
+    spirit: patch?.spirit ?? base?.spirit ?? fallback.spirit,
+    perception: patch?.perception ?? base?.perception ?? fallback.perception,
+    talent: patch?.talent ?? base?.talent ?? fallback.talent,
+    comprehension: patch?.comprehension ?? base?.comprehension ?? fallback.comprehension,
+    luck: patch?.luck ?? base?.luck ?? fallback.luck,
+  };
+}
+
+function mergeElementGroupPatch<T extends Record<'metal' | 'wood' | 'water' | 'fire' | 'earth', number>>(
+  base: T | undefined,
+  patch: Partial<T> | undefined,
+): T | undefined {
+  if (!base && !patch) {
+    return undefined;
+  }
+  return {
+    metal: patch?.metal ?? base?.metal ?? 0,
+    wood: patch?.wood ?? base?.wood ?? 0,
+    water: patch?.water ?? base?.water ?? 0,
+    fire: patch?.fire ?? base?.fire ?? 0,
+    earth: patch?.earth ?? base?.earth ?? 0,
+  } as T;
+}
+
+function mergeNumericStatsPatch(base: PartialNumericStats | undefined, patch: PartialNumericStats | undefined): NumericStats | undefined {
+  if (!base && !patch) {
+    return undefined;
+  }
+  const previous: NumericStats = {
+    maxHp: base?.maxHp ?? 0,
+    maxQi: base?.maxQi ?? 0,
+    physAtk: base?.physAtk ?? 0,
+    spellAtk: base?.spellAtk ?? 0,
+    physDef: base?.physDef ?? 0,
+    spellDef: base?.spellDef ?? 0,
+    hit: base?.hit ?? 0,
+    dodge: base?.dodge ?? 0,
+    crit: base?.crit ?? 0,
+    antiCrit: base?.antiCrit ?? 0,
+    critDamage: base?.critDamage ?? 0,
+    breakPower: base?.breakPower ?? 0,
+    resolvePower: base?.resolvePower ?? 0,
+    maxQiOutputPerTick: base?.maxQiOutputPerTick ?? 0,
+    qiRegenRate: base?.qiRegenRate ?? 0,
+    hpRegenRate: base?.hpRegenRate ?? 0,
+    cooldownSpeed: base?.cooldownSpeed ?? 0,
+    auraCostReduce: base?.auraCostReduce ?? 0,
+    auraPowerRate: base?.auraPowerRate ?? 0,
+    playerExpRate: base?.playerExpRate ?? 0,
+    techniqueExpRate: base?.techniqueExpRate ?? 0,
+    realmExpPerTick: base?.realmExpPerTick ?? 0,
+    techniqueExpPerTick: base?.techniqueExpPerTick ?? 0,
+    lootRate: base?.lootRate ?? 0,
+    rareLootRate: base?.rareLootRate ?? 0,
+    viewRange: base?.viewRange ?? 0,
+    moveSpeed: base?.moveSpeed ?? 0,
+    extraAggroRate: base?.extraAggroRate ?? 0,
+    extraRange: base?.extraRange ?? 0,
+    extraArea: base?.extraArea ?? 0,
+    elementDamageBonus: mergeElementGroupPatch(undefined, base?.elementDamageBonus) ?? { metal: 0, wood: 0, water: 0, fire: 0, earth: 0 },
+    elementDamageReduce: mergeElementGroupPatch(undefined, base?.elementDamageReduce) ?? { metal: 0, wood: 0, water: 0, fire: 0, earth: 0 },
+  };
+  return {
+    maxHp: patch?.maxHp ?? previous.maxHp,
+    maxQi: patch?.maxQi ?? previous.maxQi,
+    physAtk: patch?.physAtk ?? previous.physAtk,
+    spellAtk: patch?.spellAtk ?? previous.spellAtk,
+    physDef: patch?.physDef ?? previous.physDef,
+    spellDef: patch?.spellDef ?? previous.spellDef,
+    hit: patch?.hit ?? previous.hit,
+    dodge: patch?.dodge ?? previous.dodge,
+    crit: patch?.crit ?? previous.crit,
+    antiCrit: patch?.antiCrit ?? previous.antiCrit,
+    critDamage: patch?.critDamage ?? previous.critDamage,
+    breakPower: patch?.breakPower ?? previous.breakPower,
+    resolvePower: patch?.resolvePower ?? previous.resolvePower,
+    maxQiOutputPerTick: patch?.maxQiOutputPerTick ?? previous.maxQiOutputPerTick,
+    qiRegenRate: patch?.qiRegenRate ?? previous.qiRegenRate,
+    hpRegenRate: patch?.hpRegenRate ?? previous.hpRegenRate,
+    cooldownSpeed: patch?.cooldownSpeed ?? previous.cooldownSpeed,
+    auraCostReduce: patch?.auraCostReduce ?? previous.auraCostReduce,
+    auraPowerRate: patch?.auraPowerRate ?? previous.auraPowerRate,
+    playerExpRate: patch?.playerExpRate ?? previous.playerExpRate,
+    techniqueExpRate: patch?.techniqueExpRate ?? previous.techniqueExpRate,
+    realmExpPerTick: patch?.realmExpPerTick ?? previous.realmExpPerTick,
+    techniqueExpPerTick: patch?.techniqueExpPerTick ?? previous.techniqueExpPerTick,
+    lootRate: patch?.lootRate ?? previous.lootRate,
+    rareLootRate: patch?.rareLootRate ?? previous.rareLootRate,
+    viewRange: patch?.viewRange ?? previous.viewRange,
+    moveSpeed: patch?.moveSpeed ?? previous.moveSpeed,
+    extraAggroRate: patch?.extraAggroRate ?? previous.extraAggroRate,
+    extraRange: patch?.extraRange ?? previous.extraRange,
+    extraArea: patch?.extraArea ?? previous.extraArea,
+    elementDamageBonus: mergeElementGroupPatch(previous.elementDamageBonus, patch?.elementDamageBonus) ?? previous.elementDamageBonus,
+    elementDamageReduce: mergeElementGroupPatch(previous.elementDamageReduce, patch?.elementDamageReduce) ?? previous.elementDamageReduce,
+  } as NumericStats;
+}
+
+function mergeRatioDivisorsPatch(
+  base: PartialNumericRatioDivisors | undefined,
+  patch: PartialNumericRatioDivisors | undefined,
+): NumericRatioDivisors | undefined {
+  if (!base && !patch) {
+    return undefined;
+  }
+  const previous: NumericRatioDivisors = {
+    dodge: base?.dodge ?? 0,
+    crit: base?.crit ?? 0,
+    breakPower: base?.breakPower ?? 0,
+    resolvePower: base?.resolvePower ?? 0,
+    cooldownSpeed: base?.cooldownSpeed ?? 0,
+    moveSpeed: base?.moveSpeed ?? 0,
+    elementDamageReduce: mergeElementGroupPatch(undefined, base?.elementDamageReduce) ?? { metal: 0, wood: 0, water: 0, fire: 0, earth: 0 },
+  };
+  return {
+    dodge: patch?.dodge ?? previous.dodge,
+    crit: patch?.crit ?? previous.crit,
+    breakPower: patch?.breakPower ?? previous.breakPower,
+    resolvePower: patch?.resolvePower ?? previous.resolvePower,
+    cooldownSpeed: patch?.cooldownSpeed ?? previous.cooldownSpeed,
+    moveSpeed: patch?.moveSpeed ?? previous.moveSpeed,
+    elementDamageReduce: mergeElementGroupPatch(previous.elementDamageReduce, patch?.elementDamageReduce) ?? previous.elementDamageReduce,
+  } as NumericRatioDivisors;
 }
 /**
  * MainPanelDeltaStateSource：统一结构类型，保证协议与运行时一致性。
@@ -301,34 +440,31 @@ export function createMainPanelDeltaStateSource(options: MainPanelDeltaStateSour
 
   function mergeAttrUpdatePatch(previous: NEXT_S2C_AttrUpdate | null, patch: NEXT_S2C_AttrUpdate): NEXT_S2C_AttrUpdate {
     const player = options.getPlayer();
+    const fallbackBaseAttrs = player?.baseAttrs ?? {
+      constitution: 0,
+      spirit: 0,
+      perception: 0,
+      talent: 0,
+      comprehension: 0,
+      luck: 0,
+    };
+    const fallbackFinalAttrs = (player?.finalAttrs ?? player?.baseAttrs ?? fallbackBaseAttrs) as Attributes;
     return {
-      baseAttrs: patch.baseAttrs ? cloneJson(patch.baseAttrs) : cloneJson(previous?.baseAttrs ?? player?.baseAttrs ?? {
-        constitution: 0,
-        spirit: 0,
-        perception: 0,
-        talent: 0,
-        comprehension: 0,
-        luck: 0,
-      }),
+      baseAttrs: cloneJson(mergeAttrValuePatch(previous?.baseAttrs as Attributes | undefined, patch.baseAttrs, fallbackBaseAttrs)),
       bonuses: patch.bonuses ? cloneJson(patch.bonuses) : cloneJson(previous?.bonuses ?? player?.bonuses ?? []),
-      finalAttrs: patch.finalAttrs ? cloneJson(patch.finalAttrs) : cloneJson(previous?.finalAttrs ?? player?.finalAttrs ?? previous?.baseAttrs ?? player?.baseAttrs ?? {
-        constitution: 0,
-        spirit: 0,
-        perception: 0,
-        talent: 0,
-        comprehension: 0,
-        luck: 0,
-      }),
-      numericStats: patch.numericStats ? cloneJson(patch.numericStats) : (previous?.numericStats ? cloneJson(previous.numericStats) : undefined),
-      ratioDivisors: patch.ratioDivisors ? cloneJson(patch.ratioDivisors) : (previous?.ratioDivisors ? cloneJson(previous.ratioDivisors) : undefined),
+      finalAttrs: cloneJson(mergeAttrValuePatch(previous?.finalAttrs as Attributes | undefined, patch.finalAttrs, fallbackFinalAttrs)),
+      numericStats: mergeNumericStatsPatch((previous?.numericStats as NumericStats | undefined) ?? player?.numericStats, patch.numericStats),
+      ratioDivisors: mergeRatioDivisorsPatch((previous?.ratioDivisors as NumericRatioDivisors | undefined) ?? player?.ratioDivisors, patch.ratioDivisors),
       maxHp: patch.maxHp ?? previous?.maxHp ?? player?.maxHp ?? 0,
       qi: patch.qi ?? previous?.qi ?? player?.qi ?? 0,
-      specialStats: patch.specialStats
-        ? cloneJson(patch.specialStats)
-        : cloneJson(previous?.specialStats ?? {
-          foundation: Math.max(0, Math.floor(player?.foundation ?? 0)),
-          combatExp: Math.max(0, Math.floor(player?.combatExp ?? 0)),
-        }),
+      specialStats: {
+        foundation: patch.specialStats?.foundation
+          ?? previous?.specialStats?.foundation
+          ?? Math.max(0, Math.floor(player?.foundation ?? 0)),
+        combatExp: patch.specialStats?.combatExp
+          ?? previous?.specialStats?.combatExp
+          ?? Math.max(0, Math.floor(player?.combatExp ?? 0)),
+      },
       boneAgeBaseYears: patch.boneAgeBaseYears ?? previous?.boneAgeBaseYears ?? player?.boneAgeBaseYears ?? undefined,
       lifeElapsedTicks: patch.lifeElapsedTicks ?? previous?.lifeElapsedTicks ?? player?.lifeElapsedTicks ?? undefined,
       lifespanYears: patch.lifespanYears === null
@@ -451,6 +587,13 @@ export function createMainPanelDeltaStateSource(options: MainPanelDeltaStateSour
       mapUnlockId: item.mapUnlockId ?? previousSameItem?.mapUnlockId,
       mapUnlockIds: item.mapUnlockIds ?? previousSameItem?.mapUnlockIds ?? template?.mapUnlockIds,
       tileAuraGainAmount: item.tileAuraGainAmount ?? previousSameItem?.tileAuraGainAmount,
+      tileResourceGains: item.tileResourceGains
+        ? cloneJson(item.tileResourceGains)
+        : previousSameItem?.tileResourceGains
+          ? cloneJson(previousSameItem.tileResourceGains)
+          : template?.tileResourceGains
+            ? cloneJson(template.tileResourceGains)
+            : undefined,
       allowBatchUse: item.allowBatchUse ?? previousSameItem?.allowBatchUse,
     };
   }  
@@ -801,14 +944,15 @@ export function createMainPanelDeltaStateSource(options: MainPanelDeltaStateSour
     handleAttrUpdate(data: NEXT_S2C_AttrUpdate): void {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
+      options.attrPanel.invalidateDetail?.();
       latestAttrUpdate = mergeAttrUpdatePatch(latestAttrUpdate, data);
       const player = options.getPlayer();
       if (player) {
-        player.baseAttrs = latestAttrUpdate.baseAttrs ?? player.baseAttrs;
+        player.baseAttrs = (latestAttrUpdate.baseAttrs as Attributes | undefined) ?? player.baseAttrs;
         player.bonuses = latestAttrUpdate.bonuses ?? player.bonuses;
-        player.finalAttrs = latestAttrUpdate.finalAttrs ?? player.finalAttrs;
-        player.numericStats = latestAttrUpdate.numericStats ?? player.numericStats;
-        player.ratioDivisors = latestAttrUpdate.ratioDivisors ?? player.ratioDivisors;
+        player.finalAttrs = (latestAttrUpdate.finalAttrs as Attributes | undefined) ?? player.finalAttrs;
+        player.numericStats = (latestAttrUpdate.numericStats as NumericStats | undefined) ?? player.numericStats;
+        player.ratioDivisors = (latestAttrUpdate.ratioDivisors as NumericRatioDivisors | undefined) ?? player.ratioDivisors;
         player.maxHp = latestAttrUpdate.maxHp ?? player.maxHp;
         player.qi = latestAttrUpdate.qi ?? player.qi;
         player.foundation = latestAttrUpdate.specialStats?.foundation ?? player.foundation;

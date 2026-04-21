@@ -19,10 +19,12 @@ const fs = require("fs");
 const path = require("path");
 const shared_1 = require("@mud/shared-next");
 const content_template_repository_1 = require("../../content/content-template.repository");
+const project_path_1 = require("../../common/project-path");
 const player_runtime_service_1 = require("../player/player-runtime.service");
 const craft_panel_alchemy_query_service_1 = require("./craft-panel-alchemy-query.service");
 const craft_panel_alchemy_query_helpers_1 = require("./craft-panel-alchemy-query.helpers");
 const craft_panel_enhancement_query_service_1 = require("./craft-panel-enhancement-query.service");
+const technique_activity_runtime_helpers_1 = require("./technique-activity-runtime.helpers");
 
 /** 强化锤能力判定使用的物品标签。 */
 const ENHANCEMENT_HAMMER_TAG = 'enhancement_hammer';
@@ -133,13 +135,78 @@ let CraftPanelRuntimeService = class CraftPanelRuntimeService {
         this.ensureCraftSkills(player);
         return this.craftPanelEnhancementQueryService.buildEnhancementPanelPayload(player, this.enhancementConfigs);
     }
+    /** 按 activity kind 统一返回技艺面板载荷。 */
+    buildTechniqueActivityPanelPayload(player, kind, knownCatalogVersion) {
+        if (kind === 'alchemy') {
+            return this.buildAlchemyPanelPayload(player, knownCatalogVersion);
+        }
+        if (kind === 'enhancement') {
+            return this.buildEnhancementPanelPayload(player);
+        }
+        return null;
+    }
     /** 判断玩家当前是否有炼丹任务在进行。 */
     hasActiveAlchemyJob(player) {
-        return Boolean(player.alchemyJob && player.alchemyJob.remainingTicks > 0);
+        return (0, technique_activity_runtime_helpers_1.hasTechniqueActivityJob)(player.alchemyJob);
     }
     /** 判断玩家当前是否有强化任务在进行。 */
     hasActiveEnhancementJob(player) {
-        return Boolean(player.enhancementJob && player.enhancementJob.remainingTicks > 0);
+        return (0, technique_activity_runtime_helpers_1.hasTechniqueActivityJob)(player.enhancementJob);
+    }
+    /** 判断指定技艺活动当前是否仍处于进行中。 */
+    hasActiveTechniqueActivity(player, kind) {
+        if (kind === 'alchemy') {
+            return this.hasActiveAlchemyJob(player);
+        }
+        if (kind === 'enhancement') {
+            return this.hasActiveEnhancementJob(player);
+        }
+        return false;
+    }
+    /** 返回当前玩家仍在运行中的技艺活动键。 */
+    listActiveTechniqueActivityKinds(player) {
+        return (0, technique_activity_runtime_helpers_1.listRuntimeTechniqueActivityKinds)()
+            .filter((kind) => this.hasActiveTechniqueActivity(player, kind));
+    }
+    /** 统一派发技艺活动的开始写路径。 */
+    startTechniqueActivity(player, kind, payload) {
+        if (kind === 'alchemy') {
+            return this.startAlchemy(player, payload);
+        }
+        if (kind === 'enhancement') {
+            return this.startEnhancement(player, payload);
+        }
+        return buildCraftMutationResult(`unsupported technique activity kind: ${kind}`);
+    }
+    /** 统一派发技艺活动的取消写路径。 */
+    cancelTechniqueActivity(player, kind) {
+        if (kind === 'alchemy') {
+            return this.cancelAlchemy(player);
+        }
+        if (kind === 'enhancement') {
+            return this.cancelEnhancement(player);
+        }
+        return buildCraftMutationResult(`unsupported technique activity kind: ${kind}`);
+    }
+    /** 统一派发技艺活动的中断。 */
+    interruptTechniqueActivity(player, kind, reason) {
+        if (kind === 'alchemy') {
+            return this.interruptAlchemy(player, reason);
+        }
+        if (kind === 'enhancement') {
+            return this.interruptEnhancement(player, reason);
+        }
+        return buildCraftTickResult();
+    }
+    /** 统一派发技艺活动的 tick 推进。 */
+    tickTechniqueActivity(player, kind) {
+        if (kind === 'alchemy') {
+            return this.tickAlchemy(player);
+        }
+        if (kind === 'enhancement') {
+            return this.tickEnhancement(player);
+        }
+        return buildCraftTickResult();
     }
     /** 提交新炼丹任务前完成装备与状态校验。 */
     startAlchemy(player, payload) {
@@ -179,7 +246,7 @@ let CraftPanelRuntimeService = class CraftPanelRuntimeService {
         if (spiritStoneCost > 0) {
             consumeInventoryItemByItemId(player, SPIRIT_STONE_ITEM_ID, spiritStoneCost);
         }
-        const batchBrewTicks = computeAdjustedCraftTicks(recipe.baseBrewTicks, this.getWeapon(player)?.alchemySpeedRate ?? 0);
+        const batchBrewTicks = shared_1.computeAdjustedCraftTicks(recipe.baseBrewTicks, this.getWeapon(player)?.alchemySpeedRate ?? 0);
         const totalTicks = ALCHEMY_PREPARATION_TICKS + (batchBrewTicks * quantity);
         const successRate = Math.max(0.65, Math.min(1, 0.92 + ((player.alchemySkill?.level ?? 1) - recipe.outputLevel) * 0.03 + (this.getWeapon(player)?.alchemySuccessRate ?? 0)));
         player.alchemyJob = {
@@ -367,24 +434,19 @@ let CraftPanelRuntimeService = class CraftPanelRuntimeService {
 
         this.ensureCraftSkills(player);
         const job = player.alchemyJob;
-        if (!job || job.remainingTicks <= 0) {
-            return buildCraftTickResult();
-        }
-        const currentPausedTicks = job.phase === 'paused' ? job.pausedTicks : 0;
-        const addedPauseTicks = Math.max(0, ALCHEMY_INTERRUPT_PAUSE_TICKS - currentPausedTicks);
+        const addedPauseTicks = (0, technique_activity_runtime_helpers_1.applyTechniqueActivityInterrupt)(job, ALCHEMY_INTERRUPT_PAUSE_TICKS);
         if (addedPauseTicks <= 0) {
             return buildCraftTickResult();
         }
-        job.phase = 'paused';
-        job.pausedTicks = ALCHEMY_INTERRUPT_PAUSE_TICKS;
-        job.remainingTicks += addedPauseTicks;
-        job.totalTicks += addedPauseTicks;
         this.finalizeMutation(player, { persistentOnly: true });
         return buildCraftTickResult(true, [{
                 kind: 'system',
-                text: reason === 'move'
-                    ? `${this.contentTemplateRepository.getItemName(job.outputItemId) ?? job.outputItemId} 的炼制被移动打断，炉火暂歇 ${ALCHEMY_INTERRUPT_PAUSE_TICKS} 息。`
-                    : `${this.contentTemplateRepository.getItemName(job.outputItemId) ?? job.outputItemId} 的炼制被出手打断，炉火暂歇 ${ALCHEMY_INTERRUPT_PAUSE_TICKS} 息。`,
+                text: (0, technique_activity_runtime_helpers_1.buildTechniqueActivityInterruptMessage)(
+                    this.contentTemplateRepository.getItemName(job.outputItemId) ?? job.outputItemId,
+                    '炼制',
+                    ALCHEMY_INTERRUPT_PAUSE_TICKS,
+                    reason,
+                ),
             }]);
     }    
     /**
@@ -403,13 +465,15 @@ let CraftPanelRuntimeService = class CraftPanelRuntimeService {
         }
         job.remainingTicks = Math.max(0, job.remainingTicks - 1);
         if (job.phase === 'paused') {
-            job.pausedTicks = Math.max(0, job.pausedTicks - 1);
-            if (job.pausedTicks > 0) {
+            const resumed = (0, technique_activity_runtime_helpers_1.advanceTechniqueActivityPause)(
+                job,
+                job.completedCount > 0 || job.currentBatchRemainingTicks < job.batchBrewTicks
+                    ? 'brewing'
+                    : 'preparing',
+            );
+            if (!resumed.resumed) {
                 return buildCraftTickResult();
             }
-            job.phase = job.completedCount > 0 || job.currentBatchRemainingTicks < job.batchBrewTicks
-                ? 'brewing'
-                : 'preparing';
             return buildCraftTickResult(true);
         }
         if (job.phase === 'preparing') {
@@ -633,24 +697,19 @@ let CraftPanelRuntimeService = class CraftPanelRuntimeService {
 
         this.ensureCraftSkills(player);
         const job = player.enhancementJob;
-        if (!job || job.remainingTicks <= 0) {
-            return buildCraftTickResult();
-        }
-        const currentPausedTicks = job.phase === 'paused' ? job.pausedTicks : 0;
-        const addedPauseTicks = Math.max(0, ENHANCEMENT_INTERRUPT_PAUSE_TICKS - currentPausedTicks);
+        const addedPauseTicks = (0, technique_activity_runtime_helpers_1.applyTechniqueActivityInterrupt)(job, ENHANCEMENT_INTERRUPT_PAUSE_TICKS);
         if (addedPauseTicks <= 0) {
             return buildCraftTickResult();
         }
-        job.phase = 'paused';
-        job.pausedTicks = ENHANCEMENT_INTERRUPT_PAUSE_TICKS;
-        job.remainingTicks += addedPauseTicks;
-        job.totalTicks += addedPauseTicks;
         this.finalizeMutation(player, { persistentOnly: true });
         return buildCraftTickResult(true, [{
                 kind: 'system',
-                text: reason === 'move'
-                    ? `${job.targetItemName} 的强化被移动打断，暂歇 ${ENHANCEMENT_INTERRUPT_PAUSE_TICKS} 息。`
-                    : `${job.targetItemName} 的强化被出手打断，暂歇 ${ENHANCEMENT_INTERRUPT_PAUSE_TICKS} 息。`,
+                text: (0, technique_activity_runtime_helpers_1.buildTechniqueActivityInterruptMessage)(
+                    job.targetItemName,
+                    '强化',
+                    ENHANCEMENT_INTERRUPT_PAUSE_TICKS,
+                    reason,
+                ),
             }]);
     }    
     /**
@@ -669,11 +728,10 @@ let CraftPanelRuntimeService = class CraftPanelRuntimeService {
         }
         job.remainingTicks = Math.max(0, job.remainingTicks - 1);
         if (job.phase === 'paused') {
-            job.pausedTicks = Math.max(0, job.pausedTicks - 1);
-            if (job.pausedTicks > 0) {
+            const resumed = (0, technique_activity_runtime_helpers_1.advanceTechniqueActivityPause)(job, 'enhancing');
+            if (!resumed.resumed) {
                 return buildCraftTickResult();
             }
-            job.phase = 'enhancing';
             return buildCraftTickResult(true);
         }
         if (job.remainingTicks > 0) {
@@ -1574,7 +1632,7 @@ export { CraftPanelRuntimeService };
  */
 
 function resolveContentPath(...segments) {
-    return path.resolve(__dirname, '../../../../../packages/server/data/content', ...segments);
+    return (0, project_path_1.resolveProjectPath)('packages', 'server', 'data', 'content', ...segments);
 }
 /**
  * walkJsonFiles：执行walkJsonFile相关逻辑。
@@ -2147,7 +2205,7 @@ function computeEnhancementToolSpeedRate(toolBaseSpeedRate, roleEnhancementLevel
  */
 
 function computeEnhancementJobTicks(itemLevel, speedRate) {
-    return computeAdjustedCraftTicks(computeEnhancementJobBaseTicks(itemLevel), speedRate);
+    return shared_1.computeAdjustedCraftTicks(computeEnhancementJobBaseTicks(itemLevel), speedRate);
 }
 /**
  * computeEnhancementJobBaseTicks：执行强化JobBasetick相关逻辑。
@@ -2158,26 +2216,6 @@ function computeEnhancementJobTicks(itemLevel, speedRate) {
 function computeEnhancementJobBaseTicks(itemLevel) {
     const normalizedLevel = Math.max(1, Math.floor(Number(itemLevel) || 1));
     return ENHANCEMENT_BASE_JOB_TICKS + Math.max(0, normalizedLevel - 1) * ENHANCEMENT_JOB_TICKS_PER_ITEM_LEVEL;
-}
-/**
- * computeAdjustedCraftTicks：执行Adjusted炼制tick相关逻辑。
- * @param baseTicks 参数说明。
- * @param speedRate 参数说明。
- * @returns 无返回值，直接更新Adjusted炼制tick相关状态。
- */
-
-function computeAdjustedCraftTicks(baseTicks, speedRate) {
-  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
-
-    const normalizedBaseTicks = Math.max(1, Math.floor(Number(baseTicks) || 1));
-    const normalizedSpeedRate = Number.isFinite(speedRate) ? Number(speedRate) : 0;
-    if (normalizedSpeedRate === 0) {
-        return normalizedBaseTicks;
-    }
-    if (normalizedSpeedRate > 0) {
-        return Math.max(1, Math.ceil(normalizedBaseTicks / (1 + normalizedSpeedRate)));
-    }
-    return Math.max(1, Math.ceil(normalizedBaseTicks * (1 + Math.abs(normalizedSpeedRate))));
 }
 /**
  * applyEnhancementSuccessModifier：处理强化SuccessModifier并更新相关状态。

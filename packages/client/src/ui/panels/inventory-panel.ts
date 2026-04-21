@@ -3,6 +3,7 @@
  * 展示物品网格列表，支持分类筛选、使用/装备/丢弃操作与物品详情弹层
  */
 import {
+  calcTechniqueAttrValues,
   EquipSlot,
   HeavenGateState,
   HEAVEN_GATE_REROLL_COST_RATIO,
@@ -12,13 +13,16 @@ import {
   PlayerState,
   PlayerRealmState,
   SHATTER_SPIRIT_PILL_COST_RATIO,
+  TECHNIQUE_ATTR_KEYS,
   TECHNIQUE_LEARNING_HEAVY_DECAY_WARNING_DELTA,
   createItemStackSignature,
   shouldWarnTechniqueLearningDifficulty,
 } from '@mud/shared-next';
 import {
+  getAttrKeyLabel,
   getEquipSlotLabel,
   getItemTypeLabel,
+  getTechniqueGradeLabel,
 } from '../../domain-labels';
 import {
   hasLoadedItemSourceCatalog,
@@ -27,16 +31,26 @@ import {
   preloadItemSourceCatalog,
   renderItemSourceListHtml,
 } from '../../content/item-sources';
-import { getLocalTechniqueTemplate, resolvePreviewItem, resolveTechniqueIdFromBookItemId } from '../../content/local-templates';
+import {
+  getLocalRealmLevelEntry,
+  getLocalTechniqueTemplate,
+  resolvePreviewItem,
+  resolveTechniqueIdFromBookItemId,
+} from '../../content/local-templates';
 import { detailModalHost } from '../detail-modal-host';
 import { FloatingTooltip, prefersPinnedTooltipInteraction } from '../floating-tooltip';
-import { buildItemTooltipPayload, describeItemEffectDetails, ItemTooltipCooldownState } from '../equipment-tooltip';
+import {
+  buildItemTooltipPayload,
+  describeEquipmentBonuses,
+  describeItemEffectDetails,
+  ItemTooltipCooldownState,
+} from '../equipment-tooltip';
 import { getItemAffixTypeLabel, getItemDecorClassName, getItemDisplayMeta } from '../item-display';
 import { preserveSelection } from '../selection-preserver';
 import { createEmptyHint, createPanelSectionWithTitle, createSmallBtn } from '../ui-primitives';
 import { describePreviewBonuses } from '../stat-preview';
 import { INVENTORY_FILTER_TABS, InventoryFilter } from '../../constants/ui/inventory';
-import { formatDisplayCountBadge, formatDisplayInteger } from '../../utils/number';
+import { formatDisplayCountBadge, formatDisplayInteger, formatDisplayNumber } from '../../utils/number';
 import { resolveInventoryCooldownLeft } from '../../runtime/server-tick';
 import {
   INVENTORY_PANEL_TOOLTIP_STYLE_ID,
@@ -634,21 +648,19 @@ export class InventoryPanel {
     }
 
     const { sectionEl, titleEl } = createPanelSectionWithTitle('背包');
-    sectionEl.classList.add('ui-panel-section');
-    titleEl.classList.add('ui-panel-section-title');
     titleEl.dataset.inventoryTitle = 'true';
 
     const head = document.createElement('div');
-    head.className = 'inventory-panel-head ui-panel-section-head';
+    head.className = 'inventory-panel-head';
     head.append(titleEl);
     head.append(createSmallBtn('一键整理', { dataset: { sortInventory: 'true' } }));
 
     const filters = document.createElement('div');
-    filters.className = 'inventory-filter-tabs ui-filter-tabs';
+    filters.className = 'inventory-filter-tabs';
     for (const tab of INVENTORY_FILTER_TABS) {
       const button = document.createElement('button');
       button.type = 'button';
-      button.className = 'inventory-filter-tab ui-filter-tab';
+      button.className = 'inventory-filter-tab';
       button.dataset.filterButton = tab.id;
       button.dataset.filter = tab.id;
       button.textContent = tab.label;
@@ -894,7 +906,9 @@ export class InventoryPanel {
       this.sourceExpanded = false;
       this.sourceExpandedItemKey = this.selectedItemKey;
     }
-    const bonusLines = describePreviewBonuses(previewItem.equipAttrs, previewItem.equipStats, previewItem.equipValueStats);
+    const bonusLines = item.type === 'equipment'
+      ? describeEquipmentBonuses(previewItem)
+      : describePreviewBonuses(previewItem.equipAttrs, previewItem.equipStats, previewItem.equipValueStats);
     const effectLines = formatItemEffects(item);
     const primaryAction = this.getPrimaryAction(item);
     const statusLabel = this.getItemStatusLabel(item);
@@ -1100,37 +1114,37 @@ export class InventoryPanel {
   ): void {
     const previewItem = resolvePreviewItem(item);
     body.replaceChildren(createFragmentFromHtml(`
-      <div class="ui-detail-grid ui-detail-grid--section inventory-detail-grid">
-        <div class="ui-detail-field ui-detail-field--section">
+      <div class="quest-detail-grid inventory-detail-grid">
+        <div class="quest-detail-section">
           <strong>物品类型</strong>
           <span data-inventory-modal-type="true">${this.escapeHtml(getItemTypeLabel(item.type))}</span>
         </div>
-        <div class="ui-detail-field ui-detail-field--section">
+        <div class="quest-detail-section">
           <strong>当前数量</strong>
           <span data-inventory-modal-count="true">${formatDisplayCountBadge(item.count)}</span>
         </div>
-        ${item.equipSlot ? `<div class="ui-detail-field ui-detail-field--section">
+        ${item.equipSlot ? `<div class="quest-detail-section">
           <strong>装备部位</strong>
           <span data-inventory-modal-slot="true">${this.escapeHtml(getEquipSlotLabel(item.equipSlot))}</span>
         </div>` : ''}
       </div>
-      <div class="ui-detail-field ui-detail-field--section">
+      <div class="quest-detail-section">
         <strong>物品说明</strong>
         <span data-inventory-modal-desc="true">${this.escapeHtml(previewItem.desc)}</span>
       </div>
-      ${statusLabel ? `<div class="ui-detail-field ui-detail-field--section">
+      ${statusLabel ? `<div class="quest-detail-section">
         <strong>当前状态</strong>
         <span data-inventory-modal-status="true">${this.escapeHtml(statusLabel)}</span>
       </div>` : ''}
-      ${bonusLines.length > 0 ? `<div class="ui-detail-field ui-detail-field--section">
-        <strong>附加词条</strong>
+      ${bonusLines.length > 0 ? `<div class="quest-detail-section">
+        <strong>装备属性</strong>
         <span data-inventory-modal-bonuses="true">${this.escapeHtml(bonusLines.join(' / '))}</span>
       </div>` : ''}
-      ${effectLines.length > 0 ? `<div class="ui-detail-field ui-detail-field--section">
+      ${effectLines.length > 0 ? `<div class="quest-detail-section">
         <strong>特殊效果</strong>
         <span data-inventory-modal-effects="true">${this.escapeHtml(effectLines.join(' / '))}</span>
       </div>` : ''}
-      <div class="ui-detail-field ui-detail-field--section inventory-source-section">
+      <div class="quest-detail-section inventory-source-section">
         <strong>来源</strong>
         ${sourceListHtml}
         ${canToggleSourceList
@@ -1520,7 +1534,7 @@ export class InventoryPanel {
   }
 
   /** getTechniqueLearningWarningSummary：读取Technique Learning Warning摘要。 */
-  private getTechniqueLearningWarningSummary(item: ItemStack): {  
+  private getTechniqueLearningWarningSummary(item: ItemStack): {
   /**
  * title：title名称或显示文本。
  */
@@ -1576,6 +1590,53 @@ export class InventoryPanel {
       confirmLabel: '确认学习',
       cancelLabel: '取消学习',
     };
+  }
+
+  /** formatTechniqueAttrSummary：格式化功法属性摘要。 */
+  private formatTechniqueAttrSummary(item: NonNullable<ReturnType<typeof getLocalTechniqueTemplate>>): string {
+    const maxLevel = Math.max(
+      1,
+      ...((item.layers ?? []).map((layer) => Math.max(1, Math.floor(layer.level)))),
+    );
+    const totalAttrs = calcTechniqueAttrValues(maxLevel, item.layers);
+    const parts = TECHNIQUE_ATTR_KEYS
+      .map((key) => {
+        const value = totalAttrs[key] ?? 0;
+        if (value <= 0) {
+          return null;
+        }
+        return `${getAttrKeyLabel(key)}+${formatDisplayNumber(value)}`;
+      })
+      .filter((entry): entry is string => entry !== null);
+    return parts.length > 0 ? parts.join(' / ') : '无属性提升';
+  }
+
+  /** buildTechniqueBookSummaryFields：构建功法书概要。 */
+  private buildTechniqueBookSummaryFields(item: ItemStack): Array<{ label: string; value: string }> {
+    const techniqueId = resolveTechniqueIdFromBookItemId(item.itemId);
+    if (!techniqueId) {
+      return [];
+    }
+    const technique = getLocalTechniqueTemplate(techniqueId);
+    if (!technique) {
+      return [];
+    }
+    const realmLabel = technique.realmLv
+      ? (getLocalRealmLevelEntry(technique.realmLv)?.displayName ?? `Lv.${formatDisplayInteger(technique.realmLv)}`)
+      : '未知';
+    const skillNames = (technique.skills ?? [])
+      .map((skill) => skill.name.trim())
+      .filter((name) => name.length > 0);
+    return [
+      { label: '功法', value: technique.name },
+      { label: '境界', value: realmLabel },
+      { label: '品阶', value: getTechniqueGradeLabel(technique.grade) },
+      { label: '满层属性', value: this.formatTechniqueAttrSummary(technique) },
+      {
+        label: `附带技能${skillNames.length > 0 ? `（${formatDisplayInteger(skillNames.length)}）` : ''}`,
+        value: skillNames.length > 0 ? skillNames.join('、') : '无',
+      },
+    ];
   }
 
   /** openActionDialog：打开动作对话。 */

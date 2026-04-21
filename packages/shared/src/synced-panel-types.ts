@@ -1,5 +1,5 @@
 import type { TechniqueCategory, TechniqueGrade } from './cultivation-types';
-import type { ConsumableBuffDef, EquipmentEffectDef, EquipSlot, ItemStack, ItemType } from './item-runtime-types';
+import type { ConsumableBuffDef, EquipmentEffectDef, EquipSlot, ItemStack, ItemType, TileResourceGainDef } from './item-runtime-types';
 import type { LootSearchProgressView, LootSourceKind } from './loot-view-types';
 import type { MarketListedItemView, MarketOrderBookView, MarketOwnOrderView, MarketStorage, MarketTradeHistoryEntryView } from './market-types';
 
@@ -120,6 +120,16 @@ export interface SyncedItemStack {
 
   alchemySpeedRate?: number;  
   /**
+ * enhancementSuccessRate：强化SuccessRate数值。
+ */
+
+  enhancementSuccessRate?: number;  
+  /**
+ * enhancementSpeedRate：强化SpeedRate数值。
+ */
+
+  enhancementSpeedRate?: number;  
+  /**
  * mapUnlockId：地图UnlockID标识。
  */
 
@@ -134,6 +144,11 @@ export interface SyncedItemStack {
  */
 
   tileAuraGainAmount?: number;  
+  /**
+ * tileResourceGains：集合字段。
+ */
+
+  tileResourceGains?: TileResourceGainDef[];
   /**
  * allowBatchUse：allowBatchUse相关字段。
  */
@@ -321,6 +336,25 @@ export interface SyncedLootWindowSourceView {
  */
 
   emptyText?: string;
+  /**
+ * variant：来源附加变体标识。
+ */
+
+  variant?: 'herb';
+  /**
+ * herb：草药采集摘要。
+ */
+
+  herb?: {
+    grade?: TechniqueGrade;
+    level?: number;
+    gatherTicks?: number;
+  };
+  /**
+ * destroyed：资源点是否已被摧毁。
+ */
+
+  destroyed?: boolean;
 }
 
 /** 战利品窗口完整状态。 */

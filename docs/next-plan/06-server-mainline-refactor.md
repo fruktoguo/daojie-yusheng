@@ -255,6 +255,8 @@
 - `next-auth-bootstrap-smoke.js` 已同步验证“auth 返回 token/token_seed，bootstrap 在快照成功后提升为 next/native”的新边界
 - 已进一步收紧：`token/token_seed` 仍可进入 bootstrap，但在 bootstrap 自持提升完成前不再享有 detached-session implicit reuse、requested session reuse 或 connected-session reuse；运行时 session reuse 仅保留给 `next/native`
 - 本轮继续收紧：next 协议下，已加载 `legacy_backfill / legacy_sync` 身份会在 `world-player-auth.service.ts` 的 auth 边界直接被拒绝，不再进入 `world-session-bootstrap.service.js` 的 bootstrap 合同裁判；`token_seed -> native` 的 snapshot recovery / required normalization 已由 bootstrap/snapshot 单路径承接，不再决定后续 `world-runtime` batch-5 ownership seam 的执行顺序。
+- 继续收口（2026-04-21）：authenticated bootstrap 现在会先在 `world-session-bootstrap.service.ts` 显式裁定 requested `sessionId` 是否准入，再交给 `world-session.service.ts`；GM、`token/token_seed`、invalid persistedSource 等不允许复用会话的路径不再依赖 `registerSocket()` 的被动忽略。
+- 继续收口（2026-04-21）：`world-player-auth.service.ts` 新增 next identity 必需字段校验，缺少 `userId/username/displayName/playerId/playerName` 任一字段时直接拒绝；`world-player-snapshot.service.ts` 新增 next snapshot `persistedSource` 白名单校验，异常记录会在 bootstrap 前失败，不再带着脏状态进入 runtime。
 
 当前结论：
 

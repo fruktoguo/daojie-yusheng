@@ -51,6 +51,7 @@ let WorldRuntimePersistenceStateService = class WorldRuntimePersistenceStateServ
             savedAt: Date.now(),
             templateId: instance.template.id,
             auraEntries: instance.buildAuraPersistenceEntries(),
+            tileResourceEntries: instance.buildTileResourcePersistenceEntries(),
             groundPileEntries: instance.buildGroundPersistenceEntries(),
             containerStates: deps.worldRuntimeLootContainerService.buildContainerPersistenceStates(instanceId),
         };

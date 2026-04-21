@@ -9,13 +9,14 @@ import {
   MAP_MEMORY_STORAGE_KEY,
   MapMinimapMarker,
   Tile,
+  TileRuntimeResourceView,
   TileType,
   VisibleTile,
   VisibleTilePatch,
 } from '@mud/shared-next';
 
 /** 已探索地块的持久化字段。 */
-type RememberedTile = Pick<Tile, 'type' | 'walkable' | 'blocksSight' | 'aura'>;
+type RememberedTile = Pick<Tile, 'type' | 'walkable' | 'blocksSight' | 'aura' | 'resources'>;
 /** 已探索标记的持久化字段。 */
 type RememberedMarker = Pick<MapMinimapMarker, 'id' | 'kind' | 'x' | 'y' | 'label' | 'detail'>;
 /** 地图级地块记忆序列化结构。 */
@@ -76,12 +77,20 @@ function isTileType(value: unknown): value is TileType {
 }
 
 /** 将地块压缩为持久化记录。 */
-function toRememberedTile(tile: Pick<Tile, 'type' | 'walkable' | 'blocksSight' | 'aura'>): Tile {
+function toRememberedTile(tile: Pick<Tile, 'type' | 'walkable' | 'blocksSight' | 'aura' | 'resources'>): Tile {
   return {
     type: tile.type,
     walkable: tile.walkable,
     blocksSight: tile.blocksSight,
     aura: Math.max(0, Math.floor(tile.aura ?? 0)),
+    resources: tile.resources?.map((entry) => ({
+      key: entry.key,
+      label: entry.label,
+      value: Math.max(0, Math.floor(entry.value ?? 0)),
+      effectiveValue: typeof entry.effectiveValue === 'number' ? Math.max(0, Math.floor(entry.effectiveValue)) : undefined,
+      level: typeof entry.level === 'number' ? Math.max(0, Math.floor(entry.level)) : undefined,
+      sourceValue: typeof entry.sourceValue === 'number' ? Math.max(0, Math.floor(entry.sourceValue)) : undefined,
+    })),
     occupiedBy: null,
     modifiedAt: null,
   };
@@ -103,7 +112,29 @@ function isSerializedRememberedTile(value: unknown): value is RememberedTile {
   return isTileType(candidate.type)
     && typeof candidate.walkable === 'boolean'
     && typeof candidate.blocksSight === 'boolean'
-    && (typeof candidate.aura === 'number' || candidate.aura === undefined);
+    && (typeof candidate.aura === 'number' || candidate.aura === undefined)
+    && (candidate.resources === undefined || isSerializedRememberedResources(candidate.resources));
+}
+
+/** 校验反序列化后的资源列表是否符合地块记忆结构。 */
+function isSerializedRememberedResources(value: unknown): value is TileRuntimeResourceView[] {
+  if (!Array.isArray(value)) {
+    return false;
+  }
+
+  return value.every((entry) => {
+    if (!entry || typeof entry !== 'object') {
+      return false;
+    }
+
+    const candidate = entry as Partial<TileRuntimeResourceView>;
+    return typeof candidate.key === 'string'
+      && typeof candidate.label === 'string'
+      && typeof candidate.value === 'number'
+      && (candidate.effectiveValue === undefined || typeof candidate.effectiveValue === 'number')
+      && (candidate.level === undefined || typeof candidate.level === 'number')
+      && (candidate.sourceValue === undefined || typeof candidate.sourceValue === 'number');
+  });
 }
 
 /** 校验反序列化后标记记录是否符合持久化结构。 */
@@ -243,6 +274,14 @@ function buildSerializedMapMemory(): SerializedMapMemoryEnvelope {
           walkable: tile.walkable,
           blocksSight: tile.blocksSight,
           aura: Math.max(0, Math.floor(tile.aura ?? 0)),
+          resources: tile.resources?.map((resource) => ({
+            key: resource.key,
+            label: resource.label,
+            value: Math.max(0, Math.floor(resource.value ?? 0)),
+            effectiveValue: typeof resource.effectiveValue === 'number' ? Math.max(0, Math.floor(resource.effectiveValue)) : undefined,
+            level: typeof resource.level === 'number' ? Math.max(0, Math.floor(resource.level)) : undefined,
+            sourceValue: typeof resource.sourceValue === 'number' ? Math.max(0, Math.floor(resource.sourceValue)) : undefined,
+          })),
         };
       }
     }

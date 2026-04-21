@@ -14,6 +14,14 @@ exports.WorldRuntimeMetricsService = void 0;
 const common_1 = require("@nestjs/common");
 
 const TICK_METRIC_WINDOW_SIZE = 60;
+const EMPTY_TICK_PHASE_DURATIONS = Object.freeze({
+    pendingCommandsMs: 0,
+    systemCommandsMs: 0,
+    instanceTicksMs: 0,
+    transfersMs: 0,
+    monsterActionsMs: 0,
+    playerAdvanceMs: 0,
+});
 
 /** world-runtime metrics state：承接 tick / sync flush 指标状态所有权。 */
 let WorldRuntimeMetricsService = class WorldRuntimeMetricsService {
@@ -31,14 +39,7 @@ let WorldRuntimeMetricsService = class WorldRuntimeMetricsService {
  * lastTickPhaseDurations：lasttickPhaseDuration相关字段。
  */
 
-    lastTickPhaseDurations = {
-        pendingCommandsMs: 0,
-        systemCommandsMs: 0,
-        instanceTicksMs: 0,
-        transfersMs: 0,
-        monsterActionsMs: 0,
-        playerAdvanceMs: 0,
-    };    
+    lastTickPhaseDurations = { ...EMPTY_TICK_PHASE_DURATIONS };    
     /**
  * tickDurationHistoryMs：tickDurationHistoryM相关字段。
  */
@@ -50,22 +51,21 @@ let WorldRuntimeMetricsService = class WorldRuntimeMetricsService {
 
     syncFlushDurationHistoryMs = [];    
     /**
+ * tickPhaseDurationHistoryMs：tick 分段窗口历史。
+ */
+
+    tickPhaseDurationHistoryMs = createTickPhaseDurationHistory();    
+    /**
  * recordIdleFrame：执行recordIdle帧相关逻辑。
  * @param startedAt 参数说明。
  * @returns 无返回值，直接更新recordIdle帧相关状态。
  */
 
     recordIdleFrame(startedAt) {
-        this.lastTickPhaseDurations = {
-            pendingCommandsMs: 0,
-            systemCommandsMs: 0,
-            instanceTicksMs: 0,
-            transfersMs: 0,
-            monsterActionsMs: 0,
-            playerAdvanceMs: 0,
-        };
+        this.lastTickPhaseDurations = { ...EMPTY_TICK_PHASE_DURATIONS };
         this.lastTickDurationMs = roundDurationMs(performance.now() - startedAt);
         pushDurationMetric(this.tickDurationHistoryMs, this.lastTickDurationMs);
+        pushTickPhaseDurationHistory(this.tickPhaseDurationHistoryMs, this.lastTickPhaseDurations);
     }    
     /**
  * recordFrameResult：执行record帧结果相关逻辑。
@@ -85,6 +85,7 @@ let WorldRuntimeMetricsService = class WorldRuntimeMetricsService {
         };
         this.lastTickDurationMs = roundDurationMs(performance.now() - startedAt);
         pushDurationMetric(this.tickDurationHistoryMs, this.lastTickDurationMs);
+        pushTickPhaseDurationHistory(this.tickPhaseDurationHistoryMs, this.lastTickPhaseDurations);
     }    
     /**
  * recordSyncFlushDuration：处理record同步刷新耗时并更新相关状态。
@@ -125,6 +126,27 @@ function pushDurationMetric(history, value) {
     history.push(value);
     if (history.length > TICK_METRIC_WINDOW_SIZE) {
         history.splice(0, history.length - TICK_METRIC_WINDOW_SIZE);
+    }
+}
+
+function createTickPhaseDurationHistory() {
+    return {
+        pendingCommandsMs: [],
+        systemCommandsMs: [],
+        instanceTicksMs: [],
+        transfersMs: [],
+        monsterActionsMs: [],
+        playerAdvanceMs: [],
+    };
+}
+
+function pushTickPhaseDurationHistory(history, durations) {
+    for (const [key, value] of Object.entries(durations)) {
+        const bucket = history[key];
+        if (!Array.isArray(bucket)) {
+            continue;
+        }
+        pushDurationMetric(bucket, value);
     }
 }
 

@@ -18,7 +18,6 @@ exports.WorldRuntimeCraftInterruptService = void 0;
 const common_1 = require("@nestjs/common");
 const craft_panel_runtime_service_1 = require("../craft/craft-panel-runtime.service");
 const world_runtime_craft_mutation_service_1 = require("./world-runtime-craft-mutation.service");
-const world_runtime_alchemy_service_1 = require("./world-runtime-alchemy.service");
 
 /** world-runtime craft interrupt orchestration：承接跨 craft 面板的中断写路径。 */
 let WorldRuntimeCraftInterruptService = class WorldRuntimeCraftInterruptService {
@@ -33,22 +32,15 @@ let WorldRuntimeCraftInterruptService = class WorldRuntimeCraftInterruptService 
 
     worldRuntimeCraftMutationService;    
     /**
- * worldRuntimeAlchemyService：世界运行态炼丹服务引用。
- */
-
-    worldRuntimeAlchemyService;    
-    /**
  * 构造器：初始化 当前 实例并建立基础状态。
  * @param craftPanelRuntimeService 参数说明。
  * @param worldRuntimeCraftMutationService 参数说明。
- * @param worldRuntimeAlchemyService 参数说明。
  * @returns 无返回值，完成实例初始化。
  */
 
-    constructor(craftPanelRuntimeService, worldRuntimeCraftMutationService, worldRuntimeAlchemyService) {
+    constructor(craftPanelRuntimeService, worldRuntimeCraftMutationService) {
         this.craftPanelRuntimeService = craftPanelRuntimeService;
         this.worldRuntimeCraftMutationService = worldRuntimeCraftMutationService;
-        this.worldRuntimeAlchemyService = worldRuntimeAlchemyService;
     }    
     /**
  * interruptCraftForReason：执行interrupt炼制ForReason相关逻辑。
@@ -60,16 +52,29 @@ let WorldRuntimeCraftInterruptService = class WorldRuntimeCraftInterruptService 
  */
 
     interruptCraftForReason(playerId, player, reason, deps) {
-        this.worldRuntimeAlchemyService.interruptAlchemyForReason(playerId, player, reason, deps);
-        this.worldRuntimeCraftMutationService.flushCraftMutation(playerId, this.craftPanelRuntimeService.interruptEnhancement(player, reason), 'enhancement', deps);
+        for (const kind of this.craftPanelRuntimeService.listActiveTechniqueActivityKinds(player)) {
+            this.worldRuntimeCraftMutationService.flushCraftMutation(
+                playerId,
+                this.craftPanelRuntimeService.interruptTechniqueActivity(player, kind, reason),
+                kind,
+                deps,
+            );
+        }
+        if (player.gatherJob && Number(player.gatherJob.remainingTicks) > 0) {
+            this.worldRuntimeCraftMutationService.flushCraftMutation(
+                playerId,
+                deps.worldRuntimeLootContainerService.interruptGather(playerId, player, reason, deps),
+                'gather',
+                deps,
+            );
+        }
     }
 };
 exports.WorldRuntimeCraftInterruptService = WorldRuntimeCraftInterruptService;
 exports.WorldRuntimeCraftInterruptService = WorldRuntimeCraftInterruptService = __decorate([
     (0, common_1.Injectable)(),
     __metadata("design:paramtypes", [craft_panel_runtime_service_1.CraftPanelRuntimeService,
-        world_runtime_craft_mutation_service_1.WorldRuntimeCraftMutationService,
-        world_runtime_alchemy_service_1.WorldRuntimeAlchemyService])
+        world_runtime_craft_mutation_service_1.WorldRuntimeCraftMutationService])
 ], WorldRuntimeCraftInterruptService);
 
 export { WorldRuntimeCraftInterruptService };

@@ -173,13 +173,35 @@ function testMapUnlockBranch() {
 function testTileAuraBranch() {
     const log = [];
     const service = createService({ log });
-    service.playerRuntimeService.peekInventoryItem = () => ({ itemId: 'spirit_dust', name: '灵尘', tileAuraGainAmount: 3 });
+    service.playerRuntimeService.peekInventoryItem = () => ({
+        itemId: 'spirit_dust',
+        name: '灵尘',
+        tileResourceGains: [{ resourceKey: 'aura.refined.neutral', amount: 3 }],
+    });
     service.dispatchUseItem('player:1', 1, createDeps(log));
     assert.deepEqual(log, [
         ['addTileAura', 3, 4, 3],
         ['consumeInventoryItem', 'player:1', 1, 1],
         ['refreshQuestStates', 'player:1'],
         ['queuePlayerNotice', 'player:1', '使用 灵尘，当前地块灵气提升至 7', 'success'],
+    ]);
+}
+/**
+ * testLegacyTileAuraBranch：执行test旧TileAuraBranch相关逻辑。
+ * @returns 无返回值，直接更新test旧TileAuraBranch相关状态。
+ */
+
+
+function testLegacyTileAuraBranch() {
+    const log = [];
+    const service = createService({ log });
+    service.playerRuntimeService.peekInventoryItem = () => ({ itemId: 'old_spirit_dust', name: '旧灵尘', tileAuraGainAmount: 2 });
+    service.dispatchUseItem('player:1', 3, createDeps(log));
+    assert.deepEqual(log, [
+        ['addTileAura', 3, 4, 2],
+        ['consumeInventoryItem', 'player:1', 3, 1],
+        ['refreshQuestStates', 'player:1'],
+        ['queuePlayerNotice', 'player:1', '使用 旧灵尘，当前地块灵气提升至 7', 'success'],
     ]);
 }
 /**
@@ -202,6 +224,7 @@ function testNormalUseBranch() {
 
 testMapUnlockBranch();
 testTileAuraBranch();
+testLegacyTileAuraBranch();
 testNormalUseBranch();
 
 console.log(JSON.stringify({ ok: true, case: 'world-runtime-use-item' }, null, 2));

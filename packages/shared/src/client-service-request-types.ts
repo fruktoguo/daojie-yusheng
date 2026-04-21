@@ -189,6 +189,23 @@ export interface RequestWorldSummaryView {}
 /** 停止当前连续采摘。 */
 export interface StopLootHarvestView {}
 
+/** 开始当前草药采集。 */
+export interface StartGatherView {
+/**
+ * sourceId：来源 ID。
+ */
+
+  sourceId: string;
+  /**
+ * itemKey：道具 Key。
+ */
+
+  itemKey?: string;
+}
+
+/** 取消当前草药采集。 */
+export interface CancelGatherView {}
+
 /** 创建卖单。 */
 export interface CreateMarketSellOrderView {
 /**

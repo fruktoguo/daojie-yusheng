@@ -116,17 +116,13 @@ function createDeps() {
 
         resolveCurrentTickForPlayerId() { return 0; },        
         /**
- * connectPlayer：执行connect玩家相关逻辑。
+ * worldRuntimePlayerSessionService：提供运行态玩家会话 facade。
  * @returns 无返回值，直接更新connect玩家相关状态。
  */
-
-        connectPlayer() {},        
-        /**
- * removePlayer：处理玩家并更新相关状态。
- * @returns 无返回值，直接更新玩家相关状态。
- */
-
-        removePlayer() {},
+        worldRuntimePlayerSessionService: {
+            connectPlayer() {},
+            removePlayer() {},
+        },
     };
 }
 /**

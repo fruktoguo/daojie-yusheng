@@ -11,6 +11,7 @@ import {
   isOffsetInRange,
   ItemType,
   NpcQuestMarker,
+  parseQiResourceKey,
   TILE_VISUAL_BG_COLORS,
   TILE_VISUAL_GLYPHS,
   TILE_VISUAL_GLYPH_COLORS,
@@ -269,14 +270,67 @@ function easeInOutCubic(t: number): number {
 }
 
 /** 依据感气值计算叠加层 RGBA 样式。 */
-function getSenseQiOverlayStyle(aura: number, levelBaseValue = DEFAULT_AURA_LEVEL_BASE_VALUE): string {
+function getSenseQiOverlayStyle(
+  aura: number,
+  levelBaseValue = DEFAULT_AURA_LEVEL_BASE_VALUE,
+  family: 'aura' | 'sha' | 'demonic' = 'aura',
+): string {
   void levelBaseValue;
   const normalized = Math.max(0, Math.min(aura, SENSE_QI_OVERLAY_STYLE.maxAuraLevel)) / SENSE_QI_OVERLAY_STYLE.maxAuraLevel;
-  const red = Math.round(SENSE_QI_OVERLAY_STYLE.baseRed + normalized * SENSE_QI_OVERLAY_STYLE.redRange);
-  const green = Math.round(SENSE_QI_OVERLAY_STYLE.baseGreen + normalized * SENSE_QI_OVERLAY_STYLE.greenRange);
-  const blue = Math.round(SENSE_QI_OVERLAY_STYLE.baseBlue + normalized * SENSE_QI_OVERLAY_STYLE.blueRange);
+  const palette = family === 'sha'
+    ? {
+      baseRed: 30,
+      redRange: 164,
+      baseGreen: 10,
+      greenRange: 54,
+      baseBlue: 8,
+      blueRange: 32,
+    }
+    : family === 'demonic'
+      ? {
+        baseRed: 10,
+        redRange: 56,
+        baseGreen: 24,
+        greenRange: 150,
+        baseBlue: 12,
+        blueRange: 48,
+      }
+      : SENSE_QI_OVERLAY_STYLE;
+  const red = Math.round(palette.baseRed + normalized * palette.redRange);
+  const green = Math.round(palette.baseGreen + normalized * palette.greenRange);
+  const blue = Math.round(palette.baseBlue + normalized * palette.blueRange);
   const alpha = SENSE_QI_OVERLAY_STYLE.baseAlpha - normalized * SENSE_QI_OVERLAY_STYLE.alphaRange;
   return `rgba(${red}, ${green}, ${blue}, ${alpha.toFixed(3)})`;
+}
+
+function resolveSenseQiOverlaySignal(tile: Tile | null | undefined): {
+  family: 'aura' | 'sha' | 'demonic';
+  value: number;
+} {
+  if (!tile) {
+    return { family: 'aura', value: 0 };
+  }
+  if (!Array.isArray(tile.resources) || tile.resources.length === 0) {
+    return { family: 'aura', value: Math.max(0, tile.aura ?? 0) };
+  }
+  let strongestFamily: 'aura' | 'sha' | 'demonic' = 'aura';
+  let strongestValue = Math.max(0, tile.aura ?? 0);
+  for (const resource of tile.resources) {
+    const candidate = resource.effectiveValue ?? resource.value;
+    if (typeof candidate !== 'number' || !Number.isFinite(candidate) || candidate <= strongestValue) {
+      continue;
+    }
+    const parsed = parseQiResourceKey(resource.key);
+    if (!parsed) {
+      continue;
+    }
+    strongestFamily = parsed.family;
+    strongestValue = candidate;
+  }
+  return {
+    family: strongestFamily,
+    value: strongestValue,
+  };
 }
 
 /** 渲染中实体的动画状态。 */
@@ -966,8 +1020,10 @@ export class TextRenderer implements IRenderer {
         }
 
         if (tile && this.senseQiOverlay) {
-          const senseQiAura = isVisible ? tile.aura : 0;
-          ctx.fillStyle = getSenseQiOverlayStyle(senseQiAura, senseQiLevelBaseValue);
+          const signal: ReturnType<typeof resolveSenseQiOverlaySignal> = isVisible
+            ? resolveSenseQiOverlaySignal(tile)
+            : { family: 'aura', value: 0 };
+          ctx.fillStyle = getSenseQiOverlayStyle(signal.value, senseQiLevelBaseValue, signal.family);
           ctx.fillRect(sx, sy, cellSize, cellSize);
           if (isVisible && gx === this.senseQiOverlay.hoverX && gy === this.senseQiOverlay.hoverY) {
             ctx.strokeStyle = SENSE_QI_OVERLAY_STYLE.hoverStroke;

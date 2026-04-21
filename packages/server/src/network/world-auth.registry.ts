@@ -1,22 +1,17 @@
-// @ts-nocheck
-"use strict";
-Object.defineProperty(exports, "__esModule", { value: true });
-exports.WORLD_AUTH_PROVIDERS = void 0;
-const world_gm_auth_service_1 = require("./world-gm-auth.service");
-const world_player_auth_service_1 = require("./world-player-auth.service");
-const world_player_source_service_1 = require("./world-player-source.service");
-const world_player_snapshot_service_1 = require("./world-player-snapshot.service");
-const world_player_token_codec_service_1 = require("./world-player-token-codec.service");
-const world_player_token_service_1 = require("./world-player-token.service");
+import { WorldGmAuthService } from './world-gm-auth.service';
+import { WorldPlayerAuthService } from './world-player-auth.service';
+import { WorldPlayerSourceService } from './world-player-source.service';
+import { WorldPlayerSnapshotService } from './world-player-snapshot.service';
+import { WorldPlayerTokenCodecService } from './world-player-token-codec.service';
+import { WorldPlayerTokenService } from './world-player-token.service';
 
 /** 世界鉴权注入项：负责玩家来源、Token 解析、鉴权与 GM 权限校验。 */
 const WORLD_AUTH_PROVIDERS = [
-    world_player_source_service_1.WorldPlayerSourceService,
-    world_player_token_codec_service_1.WorldPlayerTokenCodecService,
-    world_player_token_service_1.WorldPlayerTokenService,
-    world_player_auth_service_1.WorldPlayerAuthService,
-    world_player_snapshot_service_1.WorldPlayerSnapshotService,
-    world_gm_auth_service_1.WorldGmAuthService,
+    WorldPlayerSourceService,
+    WorldPlayerTokenCodecService,
+    WorldPlayerTokenService,
+    WorldPlayerAuthService,
+    WorldPlayerSnapshotService,
+    WorldGmAuthService,
 ];
-exports.WORLD_AUTH_PROVIDERS = WORLD_AUTH_PROVIDERS;
 export { WORLD_AUTH_PROVIDERS };

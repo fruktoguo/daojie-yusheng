@@ -2,7 +2,14 @@ import type { NumericRatioDivisors, NumericStats } from './numeric';
 import type { ActionDef } from './action-combat-types';
 import type { AutoBattleSkillConfig, AutoBattleTargetingMode, AutoUsePillConfig, CombatTargetingRules } from './automation-types';
 import type { BodyTrainingState, HeavenGateRootValues, HeavenGateState, PlayerRealmState, TechniqueState } from './cultivation-types';
-import type { AlchemySkillState, PlayerAlchemyJob, PlayerAlchemyPreset, PlayerEnhancementJob, PlayerEnhancementRecord } from './crafting-types';
+import type {
+  AlchemySkillState,
+  PlayerAlchemyJob,
+  PlayerAlchemyPreset,
+  PlayerEnhancementJob,
+  PlayerEnhancementRecord,
+  PlayerGatherJob,
+} from './crafting-types';
 import type { EquipmentSlots, Inventory } from './item-runtime-types';
 import type { MarketStorage } from './market-types';
 import type { PendingLogbookMessage, QuestNavigationState, QuestState } from './quest-types';
@@ -352,6 +359,11 @@ export interface PlayerState {
  */
 
   gatherSkill?: AlchemySkillState;  
+  /**
+ * gatherJob：gather Job 相关字段。
+ */
+
+  gatherJob?: PlayerGatherJob | null;  
   /**
  * alchemyPresets：炼丹Preset相关字段。
  */

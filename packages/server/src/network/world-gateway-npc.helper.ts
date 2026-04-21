@@ -79,7 +79,7 @@ class WorldGatewayNpcHelper {
             return;
         }
         try {
-            this.gateway.worldRuntimeService.enqueueAcceptNpcQuest(playerId, payload?.npcId, payload?.questId);
+            this.gateway.worldRuntimeService.worldRuntimeCommandIntakeFacadeService.enqueueAcceptNpcQuest(playerId, payload?.npcId, payload?.questId, this.gateway.worldRuntimeService);
         }
         catch (error) {
             this.gateway.worldClientEventService.emitGatewayError(client, 'NPC_QUEST_ACCEPT_FAILED', error);
@@ -100,7 +100,7 @@ class WorldGatewayNpcHelper {
             return;
         }
         try {
-            this.gateway.worldRuntimeService.enqueueSubmitNpcQuest(playerId, payload?.npcId, payload?.questId);
+            this.gateway.worldRuntimeService.worldRuntimeCommandIntakeFacadeService.enqueueSubmitNpcQuest(playerId, payload?.npcId, payload?.questId, this.gateway.worldRuntimeService);
         }
         catch (error) {
             this.gateway.worldClientEventService.emitGatewayError(client, 'NPC_QUEST_SUBMIT_FAILED', error);
@@ -121,7 +121,7 @@ class WorldGatewayNpcHelper {
             return;
         }
         try {
-            this.gateway.worldRuntimeService.enqueueBuyNpcShopItem(playerId, payload?.npcId, payload?.itemId, payload?.quantity);
+            this.gateway.worldRuntimeService.worldRuntimeCommandIntakeFacadeService.enqueueBuyNpcShopItem(playerId, payload?.npcId, payload?.itemId, payload?.quantity, this.gateway.worldRuntimeService);
         }
         catch (error) {
             this.gateway.worldClientEventService.emitGatewayError(client, 'NPC_SHOP_BUY_FAILED', error);

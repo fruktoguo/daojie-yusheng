@@ -16,11 +16,11 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.WorldRuntimeCraftMutationService = void 0;
 
 const common_1 = require("@nestjs/common");
-const shared_1 = require("@mud/shared-next");
 const world_session_service_1 = require("../../network/world-session.service");
 const world_client_event_service_1 = require("../../network/world-client-event.service");
 const player_runtime_service_1 = require("../player/player-runtime.service");
 const craft_panel_runtime_service_1 = require("../craft/craft-panel-runtime.service");
+const technique_activity_registry_helpers_1 = require("../craft/technique-activity-registry.helpers");
 
 /** craft shared mutation orchestration：承接 panel 更新、掉地兜底与 mutation flush。 */
 let WorldRuntimeCraftMutationService = class WorldRuntimeCraftMutationService {
@@ -75,11 +75,20 @@ let WorldRuntimeCraftMutationService = class WorldRuntimeCraftMutationService {
         if (!socket || !player || !this.worldClientEventService.prefersNext(socket)) {
             return;
         }
-        if (panel === 'alchemy') {
-            socket.emit(shared_1.NEXT_S2C.AlchemyPanel, this.craftPanelRuntimeService.buildAlchemyPanelPayload(player));
-            return;
+        const payload = this.craftPanelRuntimeService.buildTechniqueActivityPanelPayload(player, panel);
+        (0, technique_activity_registry_helpers_1.emitTechniqueActivityPanel)(socket, panel, payload);
+    }    
+    /**
+ * emitAllTechniqueActivityPanelUpdates：按统一技艺顺序补发所有面板。
+ * @param playerId 玩家 ID。
+ * @param deps 参数说明。
+ * @returns 无返回值，直接更新所有技艺面板相关状态。
+ */
+
+    emitAllTechniqueActivityPanelUpdates(playerId, deps) {
+        for (const kind of (0, technique_activity_registry_helpers_1.listTechniqueActivityRefreshKinds)()) {
+            this.emitCraftPanelUpdate(playerId, kind, deps);
         }
-        socket.emit(shared_1.NEXT_S2C.EnhancementPanel, this.craftPanelRuntimeService.buildEnhancementPanelPayload(player));
     }    
     /**
  * flushCraftMutation：执行刷新炼制Mutation相关逻辑。

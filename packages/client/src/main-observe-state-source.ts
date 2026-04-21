@@ -3,7 +3,6 @@ import {
   GroundItemPileView,
   getTileTraversalCost,
   MonsterTier,
-  NEXT_S2C_Detail,
   NEXT_S2C_TileDetail,
   RenderEntity,
   Tile,
@@ -14,8 +13,10 @@ import { getEntityBadgeClassName, getMonsterPresentation } from './monster-prese
 import { getEntityKindLabel, getTileTypeLabel } from './domain-labels';
 import { FloatingTooltip, prefersPinnedTooltipInteraction } from './ui/floating-tooltip';
 import { createObserveModalController, type ObserveAsideCard } from './main-ui-helpers';
+import { detailModalHost } from './ui/detail-modal-host';
+import { bindInlineItemTooltips, renderInlineItemChip } from './ui/item-inline-tooltip';
 import { describePreviewBonuses } from './ui/stat-preview';
-import { formatDisplayCountBadge, formatDisplayCurrentMax, formatDisplayInteger } from './utils/number';
+import { formatDisplayCountBadge, formatDisplayCurrentMax, formatDisplayInteger, formatDisplayPercent } from './utils/number';
 /**
  * MainToastKind：统一结构类型，保证协议与运行时一致性。
  */
@@ -117,7 +118,9 @@ type ObserveEntity = {
 type ObserveEntityCardData = Pick<
   ObserveEntity,
   'id' | 'name' | 'kind' | 'monsterTier' | 'badge' | 'hp' | 'maxHp' | 'qi' | 'maxQi' | 'npcQuestMarker' | 'observation' | 'buffs'
->;
+> & {
+  lootPreview?: NonNullable<NonNullable<NEXT_S2C_TileDetail['entities']>[number]['lootPreview']>;
+};
 /**
  * ActiveObservedTile：统一结构类型，保证协议与运行时一致性。
  */
@@ -213,16 +216,6 @@ type MainObserveStateSourceOptions = {
  */
 
   sendInspectTileRuntime: (x: number, y: number) => void;  
-  /**
- * openEntityDetailPending：openEntity详情Pending相关字段。
- */
-
-  openEntityDetailPending: (kind: NEXT_S2C_Detail['kind'], id: string, title: string) => void;  
-  /**
- * sendRequestDetail：sendRequest详情状态或数据块。
- */
-
-  sendRequestDetail: (kind: NEXT_S2C_Detail['kind'], id: string) => void;
 };
 /**
  * TileRuntimeResourceDetail：统一结构类型，保证协议与运行时一致性。
@@ -326,6 +319,25 @@ function formatCurrentMax(current?: number, max?: number): string {
     return '未明';
   }
   return formatDisplayCurrentMax(Math.max(0, Math.round(current)), Math.max(0, Math.round(max)));
+}
+
+function isObservationVitalLabel(label: string | null | undefined): boolean {
+  return label === '生命' || label === '气血' || label === '灵力';
+}
+
+function isObservationDuplicatePrimaryLabel(label: string | null | undefined): boolean {
+  return isObservationVitalLabel(label);
+}
+
+function buildObservePrimaryRows(entity: ObserveEntityCardData): Array<{ label: string; value: string }> {
+  return [
+    { label: '生命', value: formatCurrentMax(entity.hp, entity.maxHp) },
+    { label: '灵力', value: formatCurrentMax(entity.qi, entity.maxQi) },
+  ].filter((entry) => entry.value !== '未明');
+}
+
+function buildObserveDetailRows(entity: ObserveEntityCardData): Array<{ label: string; value: string }> {
+  return (entity.observation?.lines ?? []).filter((row) => !isObservationDuplicatePrimaryLabel(row.label));
 }
 /**
  * buildObservationRows：构建并返回目标对象。
@@ -504,6 +516,16 @@ export function createMainObserveStateSource(options: MainObserveStateSourceOpti
     ) {
       return [];
     }
+    if (Array.isArray(activeObservedTileDetail.resources) && activeObservedTileDetail.resources.length > 0) {
+      return activeObservedTileDetail.resources.map((resource) => ({
+        key: resource.key,
+        label: resource.label,
+        value: resource.value,
+        effectiveValue: resource.effectiveValue,
+        level: resource.level,
+        sourceValue: resource.sourceValue,
+      }));
+    }
     if (typeof activeObservedTileDetail.aura === 'number') {
       return [{
         key: 'aura',
@@ -574,8 +596,22 @@ export function createMainObserveStateSource(options: MainObserveStateSourceOpti
     }
     const detailResources = getObservedTileRuntimeResources(targetX, targetY);
     if (!activeObservedTileDetail) {
-      if ((tile.aura ?? 0) <= 0) {
+      const visibleTileResources = tile.resources?.filter((resource) => (resource.effectiveValue ?? resource.value) > 0) ?? [];
+      if (visibleTileResources.length === 0 && (tile.aura ?? 0) <= 0) {
         return [];
+      }
+      if (visibleTileResources.length > 0) {
+        return visibleTileResources.map((resource) => ({
+          mark: resource.label.slice(0, 1),
+          title: resource.label,
+          lines: [
+            typeof resource.level === 'number'
+              ? `当前等级：${formatDisplayInteger(Math.max(0, Math.round(resource.level)))}`
+              : `当前数值：${formatDisplayInteger(Math.max(0, Math.round(resource.effectiveValue ?? resource.value)))}`,
+            '感气决运转中，正在细察此地气机。',
+          ],
+          tone: 'buff',
+        }));
       }
       return [{
         mark: '气',
@@ -633,6 +669,7 @@ export function createMainObserveStateSource(options: MainObserveStateSourceOpti
       npcQuestMarker: entity.npcQuestMarker,
       observation: entity.observation,
       buffs: entity.buffs,
+      lootPreview: undefined,
     };
   }  
   /**
@@ -664,6 +701,7 @@ export function createMainObserveStateSource(options: MainObserveStateSourceOpti
       maxQi: entity.maxQi,
       npcQuestMarker: entity.npcQuestMarker ?? undefined,
       observation: entity.observation ?? undefined,
+      lootPreview: entity.lootPreview ?? undefined,
       buffs: entity.buffs ?? undefined,
     };
   }  
@@ -694,21 +732,40 @@ export function createMainObserveStateSource(options: MainObserveStateSourceOpti
       .filter((entity) => !hasCrowdEntity || entity.kind !== 'player')
       .map((entity) => toObserveEntityCardData(entity));
   }  
-  /**
- * resolveObserveDetailKind：规范化或转换Observe详情Kind。
- * @param kind ObserveEntityCardData['kind'] 参数说明。
- * @returns 返回Observe详情Kind。
- */
-
-
-  function resolveObserveDetailKind(kind: ObserveEntityCardData['kind']): NEXT_S2C_Detail['kind'] | null {
-  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
-
-    if (kind === 'npc' || kind === 'monster' || kind === 'player' || kind === 'portal' || kind === 'ground' || kind === 'container') {
-      return kind;
+  function buildLootPreviewRowsHtml(
+    lootPreview: NonNullable<ObserveEntityCardData['lootPreview']>,
+    maxEntries?: number,
+  ): string {
+    if (lootPreview.entries.length === 0) {
+      return `<div class="observe-entity-empty">${escapeHtml(lootPreview.emptyText ?? '此獠身上暂未看出稳定掉落。')}</div>`;
     }
-    return null;
-  }  
+    const visibleEntries = typeof maxEntries === 'number' && maxEntries > 0
+      ? lootPreview.entries.slice(0, maxEntries)
+      : lootPreview.entries;
+    const remainingCount = Math.max(0, lootPreview.entries.length - visibleEntries.length);
+    const rowsHtml = visibleEntries.map((entry) => `
+      <div class="observe-modal-row">
+        <span class="observe-modal-label">${renderInlineItemChip(entry.itemId, {
+          count: entry.count,
+          label: entry.name,
+          tone: 'reward',
+        })}</span>
+        <span class="observe-modal-value">${escapeHtml(formatDisplayPercent(Math.max(0, entry.chance * 100), { maximumFractionDigits: 2 }))}</span>
+      </div>
+    `).join('');
+    const moreHtml = remainingCount > 0
+      ? `<div class="observe-entity-empty">另有 ${escapeHtml(formatDisplayCountBadge(remainingCount))} 项潜在掉落，展开可查看完整列表。</div>`
+      : '';
+    return `<div class="observe-entity-list">${rowsHtml}</div>${moreHtml}`;
+  }
+
+  function rerenderActiveObservedTile(): void {
+    const player = options.getPlayer();
+    if (!player || !activeObservedTile || activeObservedTile.mapId !== player.mapId) {
+      return;
+    }
+    render(activeObservedTile.x, activeObservedTile.y);
+  }
   /**
  * buildObservedEntityCardHtml：构建并返回目标对象。
  * @param entity ObserveEntityCardData 参数说明。
@@ -729,7 +786,7 @@ export function createMainObserveStateSource(options: MainObserveStateSourceOpti
         <div class="observe-entity-empty">地图广播已将此格玩家聚合为人群显示，不再实时展开单人的血条、Buff 与细节变化。</div>
       </div>`;
     }
-    const detailRows = entity.observation?.lines ?? [];
+    const detailRows = buildObserveDetailRows(entity);
     const monsterPresentation = entity.kind === 'monster'
       ? getMonsterPresentation(entity.name, entity.monsterTier)
       : null;
@@ -739,10 +796,7 @@ export function createMainObserveStateSource(options: MainObserveStateSourceOpti
     const badgeHtml = badge && badgeClassName
       ? `<span class="${badgeClassName}">${escapeHtml(badge.text)}</span>`
       : '';
-    const vitalRows = [
-      { label: '生命', value: formatCurrentMax(entity.hp, entity.maxHp) },
-      { label: '灵力', value: formatCurrentMax(entity.qi, entity.maxQi) },
-    ].filter((entry) => entry.value !== '—');
+    const vitalRows = buildObservePrimaryRows(entity);
     const fallbackVitalRows = (entity.kind === 'monster' || entity.kind === 'npc' || entity.kind === 'player') && detailRows.length === 0
       ? vitalRows
       : [];
@@ -756,13 +810,18 @@ export function createMainObserveStateSource(options: MainObserveStateSourceOpti
       ${buildBuffSectionHtml('增益状态', [...publicBuffs, ...observeOnlyBuffs], '当前未见明显增益状态')}
       ${buildBuffSectionHtml('减益状态', [...publicDebuffs, ...observeOnlyDebuffs], '当前未见明显减益状态')}
     </div>`;
-    const detailKind = resolveObserveDetailKind(entity.kind);
-    const detailAttrs = detailKind
-      ? ` data-observe-detail-kind="${escapeHtml(detailKind)}" data-observe-detail-id="${escapeHtml(entity.id)}" data-observe-detail-title="${escapeHtml(title)}"`
+    const lootAction = entity.kind === 'monster'
+      ? `<div class="observe-entity-actions">
+          <button
+            class="small-btn ghost observe-entity-action-btn${entity.observation?.clarity === 'complete' ? '' : ' is-disabled'}"
+            type="button"
+            data-observe-loot-id="${escapeHtml(entity.id)}"
+            aria-disabled="${entity.observation?.clarity === 'complete' ? 'false' : 'true'}"
+            title="${escapeHtml(entity.observation?.clarity === 'complete' ? '查看掉落物与概率' : '神识完全探查后可查看掉落物与概率')}"
+          >掉落物</button>
+        </div>`
       : '';
-    const tag = detailKind ? 'button' : 'div';
-    const typeAttr = detailKind ? ' type="button"' : '';
-    return `<${tag} class="observe-entity-card${detailKind ? ' observe-entity-card--interactive' : ''}"${typeAttr}${detailAttrs}>
+    return `<div class="observe-entity-card">
       <div class="observe-entity-head">
         <span class="observe-entity-name">${badgeHtml}${escapeHtml(title)}</span>
         <span class="observe-entity-kind">${escapeHtml(getEntityKindLabel(entity.kind, '未知'))}</span>
@@ -772,7 +831,8 @@ export function createMainObserveStateSource(options: MainObserveStateSourceOpti
         ? `<div class="observe-entity-grid">${buildObservationRows(detailGrid)}</div>`
         : '<div class="observe-entity-empty">此身气机尽藏，暂未看出更多端倪。</div>'}
       ${buffSection}
-    </${tag}>`;
+      ${lootAction}
+    </div>`;
   }  
   /**
  * buildObservedEntitySectionHtml：构建并返回目标对象。
@@ -783,33 +843,79 @@ export function createMainObserveStateSource(options: MainObserveStateSourceOpti
 
   function buildObservedEntitySectionHtml(entities: ObserveEntityCardData[]): string {
     return `<section class="observe-modal-section">
-      <div class="observe-modal-section-title">地块实体</div>
+      <div class="observe-modal-section-title">角色信息</div>
       ${entities.length > 0
         ? `<div class="observe-entity-list">${entities.map((entity) => buildObservedEntityCardHtml(entity)).join('')}</div>`
-        : '<div class="observe-entity-empty">该地块当前没有可观察的角色、怪物、NPC、传送点或地面物。</div>'}
+        : '<div class="observe-entity-empty">该地块当前没有角色、怪物或 NPC。</div>'}
     </section>`;
   }  
   /**
- * bindObserveEntityDetailActions：执行bindObserveEntity详情Action相关逻辑。
- * @param root ParentNode 参数说明。
- * @returns 无返回值，直接更新bindObserveEntity详情Action相关状态。
+ * findObservedEntityById：通过当前已观察详情查找实体。
+ * @param entityId string 参数说明。
+ * @returns 返回观察实体卡数据。
  */
 
 
-  function bindObserveEntityDetailActions(root: ParentNode): void {
-    root.querySelectorAll<HTMLElement>('[data-observe-detail-id][data-observe-detail-kind]').forEach((node) => {
+  function findObservedEntityById(entityId: string): ObserveEntityCardData | null {
+    const entities = activeObservedTileDetail?.entities;
+    if (!entities) {
+      return null;
+    }
+    const matched = entities.find((entity) => entity.id === entityId);
+    return matched ? normalizeObserveEntityCardData(matched) : null;
+  }
+  /**
+ * openObserveLootPreview：打开怪物掉落预览详情。
+ * @param entity ObserveEntityCardData 参数说明。
+ * @returns 无返回值，直接更新目标相关状态。
+ */
+
+
+  function openObserveLootPreview(entity: ObserveEntityCardData): void {
+    if (entity.kind !== 'monster' || entity.observation?.clarity !== 'complete' || !entity.lootPreview) {
+      return;
+    }
+    detailModalHost.open({
+      ownerId: 'observe-loot-preview',
+      variantClass: 'detail-modal--loot',
+      title: `${entity.name ?? '目标'}掉落物`,
+      subtitle: '当前神识推演下的实际掉落概率',
+      bodyHtml: `
+        <section class="quest-detail-section">
+          <strong>掉落预览</strong>
+          <div class="observe-loot-preview-list">${buildLootPreviewRowsHtml(entity.lootPreview)}</div>
+        </section>
+      `,
+      onAfterRender: (body) => {
+        bindInlineItemTooltips(body);
+      },
+    });
+  }
+  /**
+ * bindObserveLootPreviewActions：绑定观察卡掉落预览入口。
+ * @param root ParentNode 参数说明。
+ * @returns 无返回值，直接更新目标相关状态。
+ */
+
+
+  function bindObserveLootPreviewActions(root: ParentNode): void {
+    root.querySelectorAll<HTMLElement>('[data-observe-loot-id]').forEach((node) => {
       node.addEventListener('click', (event) => {
-        const kind = node.dataset.observeDetailKind as NEXT_S2C_Detail['kind'] | undefined;
-        const id = node.dataset.observeDetailId?.trim();
-        if (!kind || !id) {
+        const entityId = node.dataset.observeLootId?.trim();
+        if (!entityId) {
           return;
         }
-        const title = node.dataset.observeDetailTitle?.trim() || node.textContent?.trim() || id;
-        options.openEntityDetailPending(kind, id, title);
-        options.sendRequestDetail(kind, id);
+        const entity = findObservedEntityById(entityId);
+        if (!entity || entity.kind !== 'monster' || entity.observation?.clarity !== 'complete' || !entity.lootPreview) {
+          options.showToast('神识尚未完全探明其掉落。');
+          event.preventDefault();
+          event.stopPropagation();
+          return;
+        }
+        openObserveLootPreview(entity);
         event.preventDefault();
         event.stopPropagation();
-      }, true);
+      });
     });
   }  
   /**
@@ -912,6 +1018,17 @@ export function createMainObserveStateSource(options: MainObserveStateSourceOpti
         value: formatDisplayInteger(Math.max(0, Math.round(observedTileDetail.aura))),
       });
     }
+    if ((observedTileDetail?.resources?.length ?? 0) > 0) {
+      const visibleResourceSummary = observedTileDetail!.resources!
+        .filter((resource) => resource.key !== 'aura.refined.neutral' && resource.value > 0)
+        .map((resource) => `${resource.label} ${formatDisplayInteger(Math.max(0, Math.round(resource.effectiveValue ?? resource.value)))}`);
+      if (visibleResourceSummary.length > 0) {
+        terrainRows.push({
+          label: '气机',
+          value: visibleResourceSummary.join('、'),
+        });
+      }
+    }
     if (groundSourceId) {
       terrainRows.push({ label: '掉落来源', value: groundSourceId });
     }
@@ -1008,7 +1125,7 @@ export function createMainObserveStateSource(options: MainObserveStateSourceOpti
         </div>
         ${buildObservedEntitySectionHtml(sortedEntities)}
       `);
-      bindObserveEntityDetailActions(options.observeModalBodyEl);
+      bindObserveLootPreviewActions(options.observeModalBodyEl);
       bindObserveBuffTooltips(options.observeModalBodyEl);
     }
     observeModalController.renderAsideCards(buildObservedResourceAsideCards(targetX, targetY, tile));

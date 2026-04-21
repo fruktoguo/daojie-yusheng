@@ -1,117 +1,73 @@
-// @ts-nocheck
-"use strict";
+import { Inject, Injectable, Logger, Optional } from '@nestjs/common';
 
-var __decorate = (this && this.__decorate) || function (decorators, target, key, desc) {
+import type { PersistedPlayerSnapshot } from '../persistence/player-persistence.service';
+import { MailRuntimeService } from '../runtime/mail/mail-runtime.service';
+import { PlayerRuntimeService } from '../runtime/player/player-runtime.service';
+import { SuggestionRuntimeService } from '../runtime/suggestion/suggestion-runtime.service';
+import { WorldRuntimeService } from '../runtime/world/world-runtime.service';
+import { WorldClientEventService } from './world-client-event.service';
+import {
+    BootstrapClientLike,
+    BootstrapRecoveryContext,
+    BootstrapSessionInput,
+    WorldSessionBootstrapContextHelper,
+} from './world-session-bootstrap-context.helper';
+import { WorldSessionBootstrapContractService } from './world-session-bootstrap-contract.service';
+import { WorldSessionBootstrapFinalizeService } from './world-session-bootstrap-finalize.service';
+import { WorldSessionBootstrapPostEmitService } from './world-session-bootstrap-post-emit.service';
+import { WorldSessionBootstrapPlayerInitService } from './world-session-bootstrap-player-init.service';
+import { WorldSessionBootstrapSessionBindService } from './world-session-bootstrap-session-bind.service';
+import {
+    BootstrapIdentityLike,
+    BootstrapRecoveryNoticeResult,
+    BootstrapSnapshotTraceResult,
+    WorldSessionBootstrapSnapshotService,
+} from './world-session-bootstrap-snapshot.service';
+import { WorldSessionBootstrapRuntimeService } from './world-session-bootstrap-runtime.service';
+import { WorldGmAuthService } from './world-gm-auth.service';
+import { WorldPlayerAuthService } from './world-player-auth.service';
+import { WorldPlayerSnapshotService } from './world-player-snapshot.service';
+import { WorldSessionService } from './world-session.service';
+import { WorldSyncService } from './world-sync.service';
 
-    var c = arguments.length, r = c < 3 ? target : desc === null ? desc = Object.getOwnPropertyDescriptor(target, key) : desc, d;
-    if (typeof Reflect === "object" && typeof Reflect.decorate === "function") r = Reflect.decorate(decorators, target, key, desc);
-    else for (var i = decorators.length - 1; i >= 0; i--) if (d = decorators[i]) r = (c < 3 ? d(r) : c > 3 ? d(target, key, r) : d(target, key)) || r;
-    return c > 3 && r && Object.defineProperty(target, key, r), r;
-};
-
-var __metadata = (this && this.__metadata) || function (k, v) {
-    if (typeof Reflect === "object" && typeof Reflect.metadata === "function") return Reflect.metadata(k, v);
-};
-Object.defineProperty(exports, "__esModule", { value: true });
-exports.WorldSessionBootstrapService = void 0;
-
-const common_1 = require("@nestjs/common");
-
-const mail_runtime_service_1 = require("../runtime/mail/mail-runtime.service");
-
-const player_runtime_service_1 = require("../runtime/player/player-runtime.service");
-
-const suggestion_runtime_service_1 = require("../runtime/suggestion/suggestion-runtime.service");
-
-const world_runtime_service_1 = require("../runtime/world/world-runtime.service");
-
-const world_gm_auth_service_1 = require("./world-gm-auth.service");
-
-const world_player_auth_service_1 = require("./world-player-auth.service");
-
-const world_player_snapshot_service_1 = require("./world-player-snapshot.service");
-
-const world_session_service_1 = require("./world-session.service");
-
-const world_sync_service_1 = require("./world-sync.service");
-
-const world_client_event_service_1 = require("./world-client-event.service");
-
-const world_player_token_service_1 = require("./world-player-token.service");
-
-const STRICT_NATIVE_SNAPSHOT_ENV_KEYS = [
-    'SERVER_NEXT_AUTH_REQUIRE_NATIVE_SNAPSHOT',
-    'NEXT_AUTH_REQUIRE_NATIVE_SNAPSHOT',
-];
-
-const NATIVE_SNAPSHOT_RECOVERY_ENV_KEYS = [
-    'SERVER_NEXT_AUTH_ALLOW_NATIVE_SNAPSHOT_RECOVERY',
-    'NEXT_AUTH_ALLOW_NATIVE_SNAPSHOT_RECOVERY',
-];
-
-const NATIVE_SNAPSHOT_RECOVERY_IDENTITY_SOURCES = new Set([
-    'token_seed',
-]);
-
-const MAX_REQUESTED_SESSION_ID_LENGTH = 128;
-
-const REQUESTED_SESSION_ID_PATTERN = /^[A-Za-z0-9:_-]+$/;
-
-const IMPLICIT_DETACHED_RESUME_AUTH_SOURCES = new Set([
-    'next',
-    'token',
-]);
-
-const AUTHENTICATED_BOOTSTRAP_ENTRY_PATHS = new Set([
-    'connect_token',
-    'connect_gm_token',
-]);
-
-const AUTHENTICATED_NEXT_REUSE_PERSISTED_SOURCES = new Set([
-    'native',
-]);
-
-const AUTHENTICATED_TOKEN_REUSE_PERSISTED_SOURCES = new Set([
-    'token_seed',
-]);
-
-const NEXT_BOOTSTRAP_ALLOWED_IDENTITY_SOURCES = new Set([
-    'next',
-    'token',
-]);
-
-const NEXT_BOOTSTRAP_ALLOWED_NEXT_PERSISTED_SOURCES = new Set([
-    'native',
-]);
-/** 是否强制只允许 native 快照，不接受兼容回填。 */
-function isStrictNativeSnapshotRequired() {
-  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
-
-    for (const key of STRICT_NATIVE_SNAPSHOT_ENV_KEYS) {
-        const value = typeof process.env[key] === 'string' ? process.env[key].trim().toLowerCase() : '';
-        if (value === '1' || value === 'true' || value === 'yes' || value === 'on') {
-            return true;
-        }
-    }
-    return false;
+interface SuggestionRuntimePort {
+    getAll(): unknown[];
 }
-/** 是否允许从兼容数据恢复 native 快照。 */
-function isNativeSnapshotRecoveryEnabled() {
-  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
-    for (const key of NATIVE_SNAPSHOT_RECOVERY_ENV_KEYS) {
-        const value = typeof process.env[key] === 'string' ? process.env[key].trim().toLowerCase() : '';
-        if (value === '1' || value === 'true' || value === 'yes' || value === 'on') {
-            return true;
-        }
-    }
-    return false;
+interface WorldClientEventPort {
+    emitPendingLogbookNotice(client: BootstrapClientLike, notice: unknown): void;
+    emitSuggestionUpdate(client: BootstrapClientLike, suggestions: unknown[]): void;
+    emitMailSummaryForPlayer(client: BootstrapClientLike, playerId: string): Promise<void>;
+    emitPendingLogbookMessages(client: BootstrapClientLike, playerId: string): void;
+}
+
+interface PlayerRuntimeInitPort {
+    loadOrCreatePlayer(
+        playerId: string,
+        sessionId: string,
+        loadSnapshot: () => Promise<PersistedPlayerSnapshot | null>,
+    ): Promise<{
+        instanceId?: string | null;
+        templateId?: string | null;
+        x: number;
+        y: number;
+    }>;
+    setIdentity(playerId: string, input: {
+        name?: string | null;
+        displayName?: string | null;
+    }): void;
+}
+
+interface MailRuntimeInitPort {
+    ensurePlayerMailbox(playerId: string): Promise<void>;
+    ensureWelcomeMail(playerId: string): Promise<void>;
 }
 
 /** 世界会话引导服务：把 token、快照和 runtime 初始状态组装成可用会话。 */
-let WorldSessionBootstrapService = class WorldSessionBootstrapService {
+@Injectable()
+export class WorldSessionBootstrapService {
     /** 记录引导路径、身份来源和恢复结果。 */
-    logger = new common_1.Logger(WorldSessionBootstrapService.name);
+    logger = new Logger(WorldSessionBootstrapService.name);
     /** 普通玩家鉴权服务。 */
     worldPlayerAuthService;
     /** 玩家快照服务。 */
@@ -131,7 +87,23 @@ let WorldSessionBootstrapService = class WorldSessionBootstrapService {
     /** 同步服务。 */
     worldSyncService;
     /** 客户端事件服务。 */
-    worldClientEventService;    
+    worldClientEventService;
+    /** bootstrap 上下文辅助。 */
+    contextHelper;
+    /** bootstrap 合同与 session 策略辅助。 */
+    contractService;
+    /** bootstrap runtime attach/detach 辅助。 */
+    runtimeBootstrapService;
+    /** bootstrap snapshot recovery 辅助。 */
+    snapshotBootstrapService;
+    /** bootstrap 初始同步后的事件下发辅助。 */
+    postEmitBootstrapService;
+    /** bootstrap 前置校验与 session 绑定辅助。 */
+    sessionBindBootstrapService;
+    /** bootstrap 玩家初始化辅助。 */
+    playerInitBootstrapService;
+    /** bootstrap 完成态日志与 trace 辅助。 */
+    finalizeBootstrapService;
     /**
  * 构造器：初始化 当前 实例并建立基础状态。
  * @param worldPlayerAuthService 参数说明。
@@ -147,7 +119,49 @@ let WorldSessionBootstrapService = class WorldSessionBootstrapService {
  * @returns 无返回值，完成实例初始化。
  */
 
-    constructor(worldPlayerAuthService, worldPlayerSnapshotService, worldGmAuthService, playerRuntimeService, mailRuntimeService, suggestionRuntimeService, worldRuntimeService, worldSessionService, worldSyncService, worldClientEventService) {
+    constructor(
+        worldPlayerAuthService: WorldPlayerAuthService,
+        worldPlayerSnapshotService: WorldPlayerSnapshotService,
+        @Inject(WorldGmAuthService)
+        worldGmAuthService: unknown,
+        @Inject(PlayerRuntimeService)
+        playerRuntimeService: unknown,
+        @Inject(MailRuntimeService)
+        mailRuntimeService: unknown,
+        @Inject(SuggestionRuntimeService)
+        suggestionRuntimeService: unknown,
+        @Inject(WorldRuntimeService)
+        worldRuntimeService: unknown,
+        worldSessionService: WorldSessionService,
+        @Inject(WorldSyncService)
+        worldSyncService: unknown,
+        @Inject(WorldClientEventService)
+        worldClientEventService: unknown,
+        @Optional()
+        @Inject(WorldSessionBootstrapContextHelper)
+        contextHelper?: WorldSessionBootstrapContextHelper | null,
+        @Optional()
+        @Inject(WorldSessionBootstrapContractService)
+        contractService?: WorldSessionBootstrapContractService | null,
+        @Optional()
+        @Inject(WorldSessionBootstrapRuntimeService)
+        runtimeBootstrapService?: WorldSessionBootstrapRuntimeService | null,
+        @Optional()
+        @Inject(WorldSessionBootstrapSnapshotService)
+        snapshotBootstrapService?: WorldSessionBootstrapSnapshotService | null,
+        @Optional()
+        @Inject(WorldSessionBootstrapPostEmitService)
+        postEmitBootstrapService?: WorldSessionBootstrapPostEmitService | null,
+        @Optional()
+        @Inject(WorldSessionBootstrapSessionBindService)
+        sessionBindBootstrapService?: WorldSessionBootstrapSessionBindService | null,
+        @Optional()
+        @Inject(WorldSessionBootstrapPlayerInitService)
+        playerInitBootstrapService?: WorldSessionBootstrapPlayerInitService | null,
+        @Optional()
+        @Inject(WorldSessionBootstrapFinalizeService)
+        finalizeBootstrapService?: WorldSessionBootstrapFinalizeService | null,
+    ) {
         this.worldPlayerAuthService = worldPlayerAuthService;
         this.worldPlayerSnapshotService = worldPlayerSnapshotService;
         this.worldGmAuthService = worldGmAuthService;
@@ -158,63 +172,45 @@ let WorldSessionBootstrapService = class WorldSessionBootstrapService {
         this.worldSessionService = worldSessionService;
         this.worldSyncService = worldSyncService;
         this.worldClientEventService = worldClientEventService;
+        this.contextHelper = contextHelper ?? new WorldSessionBootstrapContextHelper();
+        this.contractService = contractService ?? new WorldSessionBootstrapContractService(this.contextHelper, worldSessionService ?? null);
+        this.runtimeBootstrapService = runtimeBootstrapService ?? new WorldSessionBootstrapRuntimeService(worldSessionService ?? null, this.contractService, this.contextHelper);
+        this.snapshotBootstrapService = snapshotBootstrapService ?? new WorldSessionBootstrapSnapshotService(this.contextHelper, worldPlayerSnapshotService ?? null, worldPlayerAuthService ?? null, playerRuntimeService ?? null);
+        this.postEmitBootstrapService = postEmitBootstrapService ?? new WorldSessionBootstrapPostEmitService(
+            this.snapshotBootstrapService,
+            suggestionRuntimeService as SuggestionRuntimePort,
+            worldClientEventService as WorldClientEventPort,
+        );
+        this.sessionBindBootstrapService = sessionBindBootstrapService ?? new WorldSessionBootstrapSessionBindService(
+            this.contextHelper,
+            this.contractService,
+            worldSessionService ?? null,
+        );
+        this.playerInitBootstrapService = playerInitBootstrapService ?? new WorldSessionBootstrapPlayerInitService(
+            playerRuntimeService as PlayerRuntimeInitPort,
+            mailRuntimeService as MailRuntimeInitPort,
+        );
+        this.finalizeBootstrapService = finalizeBootstrapService ?? new WorldSessionBootstrapFinalizeService();
     }
     /** 从握手信息中提取普通玩家 token。 */
-    pickSocketToken(client) {
-
-        const token = client.handshake?.auth?.token;
-        return typeof token === 'string' ? token.trim() : '';
+    pickSocketToken(client: BootstrapClientLike) {
+        return this.contextHelper.pickSocketToken(client);
     }
     /** 从握手信息中提取 GM token。 */
-    pickSocketGmToken(client) {
-
-        const token = client.handshake?.auth?.gmToken;
-        return typeof token === 'string' ? token.trim() : '';
+    pickSocketGmToken(client: BootstrapClientLike) {
+        return this.contextHelper.pickSocketGmToken(client);
     }
     /** 校验并规范化客户端请求的 sessionId。 */
-    inspectRequestedSessionId(rawSessionId, client, source = 'socket') {
-  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
-
-        if (typeof rawSessionId !== 'string') {
-            return {
-                sessionId: '',
-                error: null,
-            };
-        }
-
-        const normalizedSessionId = rawSessionId.trim();
-        if (!normalizedSessionId) {
-            return {
-                sessionId: '',
-                error: null,
-            };
-        }
-        if (normalizedSessionId.length > MAX_REQUESTED_SESSION_ID_LENGTH) {
-            this.logger.warn(`${source} 请求的 sessionId 过长，已拒绝：socket=${client?.id ?? '未知'} length=${normalizedSessionId.length}`);
-            return {
-                sessionId: '',
-                error: 'too_long',
-            };
-        }
-        if (!REQUESTED_SESSION_ID_PATTERN.test(normalizedSessionId)) {
-            this.logger.warn(`${source} 请求的 sessionId 含非法字符，已拒绝：socket=${client?.id ?? '未知'}`);
-            return {
-                sessionId: '',
-                error: 'invalid_chars',
-            };
-        }
-        return {
-            sessionId: normalizedSessionId,
-            error: null,
-        };
+    inspectRequestedSessionId(rawSessionId: unknown, client: BootstrapClientLike, source = 'socket') {
+        return this.contractService.inspectRequestedSessionId(rawSessionId, client, source);
     }
     /** 读取握手中的 sessionId 并做合法性检查。 */
-    inspectSocketRequestedSessionId(client) {
-        return this.inspectRequestedSessionId(client.handshake?.auth?.sessionId, client, 'socket');
+    inspectSocketRequestedSessionId(client: BootstrapClientLike) {
+        return this.contractService.inspectSocketRequestedSessionId(client);
     }
     /** 返回已通过检查的请求 sessionId。 */
-    pickSocketRequestedSessionId(client) {
-        return this.inspectSocketRequestedSessionId(client).sessionId;
+    pickSocketRequestedSessionId(client: BootstrapClientLike) {
+        return this.contractService.pickSocketRequestedSessionId(client);
     }
     /** 普通玩家 token 走 next 鉴权实现。 */
     authenticateSocketToken(token, options = undefined) {
@@ -225,371 +221,183 @@ let WorldSessionBootstrapService = class WorldSessionBootstrapService {
         return this.worldGmAuthService.validateSocketGmToken(token);
     }
     /** 记录引导入口路径，便于排查是 token 还是 GM 入口。 */
-    resolveBootstrapEntryPath(client) {
-
-        const entryPath = client?.data?.bootstrapEntryPath;
-        return typeof entryPath === 'string' && entryPath.trim() ? entryPath.trim() : null;
+    resolveBootstrapEntryPath(client: BootstrapClientLike) {
+        return this.contextHelper.resolveBootstrapEntryPath(client);
     }
     /** 读取引导阶段记录的身份来源。 */
-    resolveBootstrapIdentitySource(client) {
-
-        const identitySource = client?.data?.bootstrapIdentitySource;
-        return typeof identitySource === 'string' && identitySource.trim() ? identitySource.trim() : null;
+    resolveBootstrapIdentitySource(client: BootstrapClientLike) {
+        return this.contextHelper.resolveBootstrapIdentitySource(client);
     }
     /** 读取引导阶段记录的持久化来源。 */
-    resolveBootstrapIdentityPersistedSource(client) {
-
-        const identityPersistedSource = client?.data?.bootstrapIdentityPersistedSource;
-        return typeof identityPersistedSource === 'string' && identityPersistedSource.trim() ? identityPersistedSource.trim() : null;
+    resolveBootstrapIdentityPersistedSource(client: BootstrapClientLike) {
+        return this.contextHelper.resolveBootstrapIdentityPersistedSource(client);
     }
     /** 读取引导阶段记录的快照来源。 */
-    resolveBootstrapSnapshotSource(client) {
-
-        const snapshotSource = client?.data?.bootstrapSnapshotSource;
-        return typeof snapshotSource === 'string' && snapshotSource.trim() ? snapshotSource.trim() : null;
+    resolveBootstrapSnapshotSource(client: BootstrapClientLike) {
+        return this.contextHelper.resolveBootstrapSnapshotSource(client);
     }
     /** 读取引导阶段记录的快照持久化来源。 */
-    resolveBootstrapSnapshotPersistedSource(client) {
-
-        const snapshotPersistedSource = client?.data?.bootstrapSnapshotPersistedSource;
-        return typeof snapshotPersistedSource === 'string' && snapshotPersistedSource.trim() ? snapshotPersistedSource.trim() : null;
+    resolveBootstrapSnapshotPersistedSource(client: BootstrapClientLike) {
+        return this.contextHelper.resolveBootstrapSnapshotPersistedSource(client);
     }
     /** 读取握手时记录的协议版本。 */
-    resolveClientProtocol(client) {
-
-        const protocol = client?.data?.protocol;
-        return typeof protocol === 'string' && protocol.trim() ? protocol.trim().toLowerCase() : null;
+    resolveClientProtocol(client: BootstrapClientLike) {
+        return this.contextHelper.resolveClientProtocol(client);
     }
     /** 解析鉴权后最终采用的身份来源。 */
-    resolveAuthenticatedBootstrapIdentitySource(client, input = undefined) {
-  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
-
-
-        const authSource = typeof input?.authSource === 'string' ? input.authSource.trim() : '';
-        if (authSource) {
-            return authSource;
-        }
-        return this.resolveBootstrapIdentitySource(client);
+    resolveAuthenticatedBootstrapIdentitySource(client: BootstrapClientLike, input: BootstrapSessionInput | undefined = undefined) {
+        return this.contextHelper.resolveAuthenticatedBootstrapIdentitySource(client, input);
     }
     /** 解析鉴权后最终采用的持久化来源。 */
-    resolveAuthenticatedBootstrapIdentityPersistedSource(client, input = undefined) {
-  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
-
-
-        const persistedSource = typeof input?.persistedSource === 'string' ? input.persistedSource.trim() : '';
-        if (persistedSource) {
-            return persistedSource;
-        }
-        return this.resolveBootstrapIdentityPersistedSource(client);
+    resolveAuthenticatedBootstrapIdentityPersistedSource(client: BootstrapClientLike, input: BootstrapSessionInput | undefined = undefined) {
+        return this.contextHelper.resolveAuthenticatedBootstrapIdentityPersistedSource(client, input);
     }
     /** 在认证成功后回写身份来源，供后续同步和审计使用。 */
-    rememberAuthenticatedBootstrapIdentity(client, input = undefined) {
-  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
-
-        if (!client?.data
-            || !input
-            || (typeof input?.authSource !== 'string' && typeof input?.persistedSource !== 'string')) {
-            return;
-        }
-        client.data.bootstrapIdentitySource = this.resolveAuthenticatedBootstrapIdentitySource(client, input);
-        client.data.bootstrapIdentityPersistedSource = this.resolveAuthenticatedBootstrapIdentityPersistedSource(client, input);
+    rememberAuthenticatedBootstrapIdentity(client: BootstrapClientLike, input: BootstrapSessionInput | undefined = undefined) {
+        this.contextHelper.rememberAuthenticatedBootstrapIdentity(client, input);
     }
     /** 统一解析 bootstrap 合同上下文，避免各入口重复各自判断。 */
-    resolveBootstrapContractContext(client, input = undefined) {
-        const entryPath = this.resolveBootstrapEntryPath(client);
-        const protocol = this.resolveClientProtocol(client);
-        const identitySource = this.resolveAuthenticatedBootstrapIdentitySource(client, input);
-        const identityPersistedSource = this.resolveAuthenticatedBootstrapIdentityPersistedSource(client, input);
-        const effectiveIdentitySource = identitySource === 'next' && identityPersistedSource === 'token_seed'
-            ? 'token'
-            : identitySource;
-        return {
-            entryPath,
-            protocol,
-            identitySource,
-            identityPersistedSource,
-            effectiveIdentitySource,
-            isAuthenticatedEntry: AUTHENTICATED_BOOTSTRAP_ENTRY_PATHS.has(entryPath ?? ''),
-            isGm: client?.data?.isGm === true,
-        };
+    resolveBootstrapContractContext(client: BootstrapClientLike, input: BootstrapSessionInput | undefined = undefined) {
+        return this.contractService.resolveBootstrapContractContext(client, input);
     }
     /** 校验 next 协议 bootstrap 是否越权使用了旧身份来源。 */
-    resolveAuthenticatedBootstrapContractViolation(client, input = undefined) {
-  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
-
-
-        const contract = this.resolveBootstrapContractContext(client, input);
-        if (!contract.isAuthenticatedEntry) {
-            return null;
-        }
-        if (contract.protocol !== 'next') {
-            return null;
-        }
-        const authSource = contract.identitySource;
-        const persistedSource = contract.identityPersistedSource;
-        if (!NEXT_BOOTSTRAP_ALLOWED_IDENTITY_SOURCES.has(authSource ?? '')) {
-            return {
-                stage: 'next_bootstrap_identity_source_blocked',
-                message: `NEXT 协议 bootstrap 不接受 ${authSource || 'unknown'} 身份来源`,
-            };
-        }
-        if (!persistedSource) {
-            return {
-                stage: 'next_bootstrap_persisted_source_missing',
-                message: 'NEXT 协议 bootstrap 缺少持久化身份来源',
-            };
-        }
-        if (authSource === 'token' && !AUTHENTICATED_TOKEN_REUSE_PERSISTED_SOURCES.has(persistedSource)) {
-            return {
-                stage: 'next_bootstrap_token_persisted_source_invalid',
-                message: `NEXT 协议 token 身份不接受 ${persistedSource} 持久化来源`,
-            };
-        }
-        if (authSource === 'next' && !NEXT_BOOTSTRAP_ALLOWED_NEXT_PERSISTED_SOURCES.has(persistedSource)) {
-            return {
-                stage: 'next_bootstrap_next_persisted_source_invalid',
-                message: `NEXT 协议 next 身份不接受 ${persistedSource} 持久化来源`,
-            };
-        }
-        return null;
+    resolveAuthenticatedBootstrapContractViolation(client: BootstrapClientLike, input: BootstrapSessionInput | undefined = undefined) {
+        return this.contractService.resolveAuthenticatedBootstrapContractViolation(client, input);
     }
     /** 计算不同入口下的 session 复用策略。 */
-    resolveBootstrapSessionReusePolicy(client) {
-  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
-
-        const contract = this.resolveBootstrapContractContext(client);
-        if (contract.isGm) {
-            return {
-                allowImplicitDetachedResume: false,
-                allowRequestedDetachedResume: false,
-                allowConnectedSessionReuse: false,
-            };
-        }
-
-        if (contract.isAuthenticatedEntry) {
-
-            const allowAuthenticatedReuse = contract.effectiveIdentitySource === 'next'
-                && AUTHENTICATED_NEXT_REUSE_PERSISTED_SOURCES.has(contract.identityPersistedSource ?? '');
-            return {
-                allowImplicitDetachedResume: allowAuthenticatedReuse,
-                allowRequestedDetachedResume: allowAuthenticatedReuse,
-                allowConnectedSessionReuse: allowAuthenticatedReuse,
-            };
-        }
-        if (!contract.identitySource) {
-            return {
-                allowImplicitDetachedResume: true,
-                allowRequestedDetachedResume: true,
-                allowConnectedSessionReuse: true,
-            };
-        }
-        return {
-            allowImplicitDetachedResume: false,
-            allowRequestedDetachedResume: false,
-            allowConnectedSessionReuse: false,
-        };
+    resolveBootstrapSessionReusePolicy(client: BootstrapClientLike) {
+        return this.contractService.resolveBootstrapSessionReusePolicy(client);
     }
     /** 记录 bootstrap 阶段的 snapshot 来源。 */
-    rememberBootstrapSnapshotContext(client, snapshotSource, snapshotPersistedSource = null) {
-  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
-
-        if (!client?.data) {
-            return;
-        }
-        client.data.bootstrapSnapshotSource = typeof snapshotSource === 'string' && snapshotSource.trim()
-            ? snapshotSource.trim()
-            : null;
-        client.data.bootstrapSnapshotPersistedSource = typeof snapshotPersistedSource === 'string' && snapshotPersistedSource.trim()
-            ? snapshotPersistedSource.trim()
-            : null;
+    rememberBootstrapSnapshotContext(client: BootstrapClientLike, snapshotSource: string | null, snapshotPersistedSource: string | null = null) {
+        this.contextHelper.rememberBootstrapSnapshotContext(client, snapshotSource, snapshotPersistedSource);
     }
     /** 记录 bootstrap 阶段的身份持久化来源。 */
-    rememberBootstrapIdentityPersistedSource(client, identityPersistedSource) {
-  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
-
-        if (!client?.data) {
-            return;
-        }
-        client.data.bootstrapIdentityPersistedSource = typeof identityPersistedSource === 'string' && identityPersistedSource.trim()
-            ? identityPersistedSource.trim()
-            : null;
+    rememberBootstrapIdentityPersistedSource(client: BootstrapClientLike, identityPersistedSource: string | null | undefined) {
+        this.contextHelper.rememberBootstrapIdentityPersistedSource(client, identityPersistedSource);
     }
     /** 当前入口是否允许隐式恢复断开会话。 */
-    shouldAllowImplicitDetachedResume(client) {
-        return this.resolveBootstrapSessionReusePolicy(client).allowImplicitDetachedResume;
+    shouldAllowImplicitDetachedResume(client: BootstrapClientLike) {
+        return this.contractService.shouldAllowImplicitDetachedResume(client);
     }
     /** 当前入口是否允许复用仍在线会话。 */
-    shouldAllowConnectedSessionReuse(client) {
-        return this.resolveBootstrapSessionReusePolicy(client).allowConnectedSessionReuse;
+    shouldAllowConnectedSessionReuse(client: BootstrapClientLike) {
+        return this.contractService.shouldAllowConnectedSessionReuse(client);
     }
     /** 当前入口是否允许按请求 sessionId 恢复断开会话。 */
-    shouldAllowRequestedDetachedResume(client) {
-        return this.resolveBootstrapSessionReusePolicy(client).allowRequestedDetachedResume;
+    shouldAllowRequestedDetachedResume(client: BootstrapClientLike) {
+        return this.contractService.shouldAllowRequestedDetachedResume(client);
     }
     /** 统一裁定 authenticated bootstrap 是否接受客户端携带的 requested sessionId。 */
-    resolveBootstrapRequestedSessionId(client, requestedSessionId) {
-  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
-
-        const normalizedSessionId = this.worldSessionService?.normalizeRequestedSessionId
-            ? this.worldSessionService.normalizeRequestedSessionId(requestedSessionId)
-            : this.inspectRequestedSessionId(requestedSessionId, client, 'bootstrap').sessionId;
-        if (!normalizedSessionId) {
-            return undefined;
-        }
-        if (!this.shouldAllowRequestedDetachedResume(client)) {
-            return undefined;
-        }
-        return normalizedSessionId;
+    resolveBootstrapRequestedSessionId(client: BootstrapClientLike, requestedSessionId: string | null | undefined) {
+        return this.contractService.resolveBootstrapRequestedSessionId(client, requestedSessionId);
     }
     /** 清理 bootstrap 阶段缓存的快照恢复结果。 */
-    clearAuthenticatedSnapshotRecovery(client) {
-  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
-
-        if (!client?.data) {
-            return;
-        }
-        client.data.authenticatedSnapshotRecovery = null;
-        client.data.authenticatedSnapshotRecoveryFallback = null;
+    clearAuthenticatedSnapshotRecovery(client: BootstrapClientLike) {
+        this.contextHelper.clearAuthenticatedSnapshotRecovery(client);
     }
     /** 记录 bootstrap 阶段的快照恢复结果。 */
-    rememberAuthenticatedSnapshotRecovery(client, recovery) {
-  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
-
-        if (!client?.data || !recovery) {
-            return;
-        }
-        client.data.authenticatedSnapshotRecovery = recovery;
-        client.data.authenticatedSnapshotRecoveryFallback = { ...recovery };
+    rememberAuthenticatedSnapshotRecovery(client: BootstrapClientLike, recovery: BootstrapRecoveryContext | null | undefined) {
+        this.contextHelper.rememberAuthenticatedSnapshotRecovery(client, recovery);
     }
     /** 消费并清空快照恢复结果。 */
-    consumeAuthenticatedSnapshotRecovery(client) {
-  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
-
-
-        const recovery = client?.data?.authenticatedSnapshotRecovery ?? client?.data?.authenticatedSnapshotRecoveryFallback ?? null;
-        if (client?.data) {
-            client.data.authenticatedSnapshotRecovery = null;
-            client.data.authenticatedSnapshotRecoveryFallback = null;
-        }
-        return recovery && typeof recovery === 'object' ? recovery : null;
+    consumeAuthenticatedSnapshotRecovery(client: BootstrapClientLike): BootstrapRecoveryContext | null {
+        return this.contextHelper.consumeAuthenticatedSnapshotRecovery(client);
     }
     /** 当临时 recovery 上下文丢失时，尝试用 bootstrap 真源上下文回推恢复合同。 */
-    resolveAuthenticatedSnapshotRecovery(client) {
-  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
-
-        const directRecovery = this.consumeAuthenticatedSnapshotRecovery(client);
-        if (directRecovery) {
-            return directRecovery;
-        }
-        const snapshotSource = this.resolveBootstrapSnapshotSource(client);
-        const identityPersistedSource = this.resolveBootstrapIdentityPersistedSource(client);
-        const snapshotPersistedSource = this.resolveBootstrapSnapshotPersistedSource(client);
-        const matchesTokenSeedNativeRecovery = identityPersistedSource === 'token_seed'
-            && snapshotPersistedSource === 'native';
-        if (snapshotSource !== 'recovery_native' && !matchesTokenSeedNativeRecovery) {
-            return null;
-        }
-        return {
-            identityPersistedSource,
-            snapshotPersistedSource,
-            recoveryReason: snapshotSource === 'recovery_native'
-                ? 'bootstrap_context:recovery_native'
-                : 'bootstrap_context:token_seed_native',
-        };
+    resolveAuthenticatedSnapshotRecovery(client: BootstrapClientLike): BootstrapRecoveryContext | null {
+        return this.snapshotBootstrapService.resolveAuthenticatedSnapshotRecovery(client);
     }
     /** 生成快照恢复提示文案。 */
-    buildAuthenticatedSnapshotRecoveryMessage(recovery) {
-  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
-
-
-        const identityPersistedSource = typeof recovery?.identityPersistedSource === 'string' ? recovery.identityPersistedSource.trim() : '';
-        if (identityPersistedSource === 'token_seed') {
-            return '检测到你是首次以 next 真源入场，角色数据已自动补齐为初始快照。';
-        }
-        return '检测到角色快照缺失，已自动补齐为 next 初始快照。';
+    buildAuthenticatedSnapshotRecoveryMessage(recovery: BootstrapRecoveryContext | null | undefined) {
+        return this.snapshotBootstrapService.buildAuthenticatedSnapshotRecoveryMessage(recovery);
     }
     /** 将快照恢复结果写入玩家日志书，供客户端确认。 */
-    emitAuthenticatedSnapshotRecoveryNotice(client, playerId) {
-  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
-
-
-        const recovery = this.resolveAuthenticatedSnapshotRecovery(client);
-        if (!recovery) {
-            return null;
-        }
-
-        const message = this.buildAuthenticatedSnapshotRecoveryMessage(recovery);
-        const queuedNotice = {
-            id: `snapshot_recovery:${playerId}:${typeof recovery.identityPersistedSource === 'string' ? recovery.identityPersistedSource : 'unknown'}`,
-            kind: 'system',
-            text: message,
-            from: 'system',
-            at: Date.now(),
-        };
-        this.playerRuntimeService.queuePendingLogbookMessage(playerId, queuedNotice);
-        return {
-            ...recovery,
-            queuedNotice,
-        };
+    emitAuthenticatedSnapshotRecoveryNotice(client: BootstrapClientLike, playerId: string): BootstrapRecoveryNoticeResult | null {
+        return this.snapshotBootstrapService.emitAuthenticatedSnapshotRecoveryNotice(client, playerId);
+    }
+    /** 在初始同步后统一下发 bootstrap 相关 notice、建议、邮件和日志书。 */
+    async emitPostBootstrapState(client: BootstrapClientLike, playerId: string): Promise<BootstrapRecoveryNoticeResult | null> {
+        return this.postEmitBootstrapService.emitPostBootstrapState(client, playerId);
+    }
+    /** 统一处理 bootstrap 阶段的 load/create、身份回写和邮箱预热。 */
+    async initializeBootstrapPlayer(input: {
+        playerId: string;
+        sessionId: string;
+        name?: string | null;
+        displayName?: string | null;
+        loadSnapshot: () => Promise<PersistedPlayerSnapshot | null>;
+    }) {
+        return this.playerInitBootstrapService.initializeBootstrapPlayer(input);
+    }
+    /** 统一收口 bootstrap 完成态日志与 auth-trace。 */
+    finalizeBootstrap(input: {
+        playerId: string;
+        sessionId: string;
+        mapId: string;
+        requestedSessionId?: string | null;
+        protocol: string | null | undefined;
+        isGm: boolean;
+        entryPath: string | null;
+        identitySource: string | null;
+        identityPersistedSource: string | null;
+        snapshotSource: string | null;
+        snapshotPersistedSource: string | null;
+        bootstrapRecovery: BootstrapRecoveryNoticeResult | null;
+    }) {
+        this.finalizeBootstrapService.finalizeBootstrap(input);
     }
     /** 延迟一拍后再发初始同步，避免与握手流程抢时序。 */
     async deferInitialSyncEmission() {
         await new Promise((resolve) => setImmediate(resolve));
     }
+    /** 兼容真实 runtime facade 与 proof stub 的 player session 入口。 */
+    resolveWorldRuntimeBootstrapSessionPort() {
+        return this.runtimeBootstrapService.resolveWorldRuntimeBootstrapSessionPort(this.worldRuntimeService);
+    }
+    /** 统一连接 bootstrap player 到 runtime。 */
+    connectBootstrapRuntimePlayer(input: {
+        playerId: string;
+        sessionId?: string | null;
+        instanceId?: string | null;
+        mapId?: string | null;
+        preferredX?: number;
+        preferredY?: number;
+    }) {
+        return this.runtimeBootstrapService.connectBootstrapRuntimePlayer(this.worldRuntimeService, input);
+    }
+    /** 统一从 runtime 清理 bootstrap player 绑定。 */
+    removeBootstrapRuntimePlayer(playerId: string, reason: string) {
+        return this.runtimeBootstrapService.removeBootstrapRuntimePlayer(this.worldRuntimeService, playerId, reason);
+    }
+    /** 在 authenticated bootstrap 前回写身份来源并校验合同。 */
+    prepareAuthenticatedBootstrap(client: BootstrapClientLike, input: BootstrapSessionInput) {
+        this.sessionBindBootstrapService.prepareAuthenticatedBootstrap(client, input);
+    }
     /** 引导前先按 session 复用策略处理 runtime 绑定。 */
-    prepareBootstrapRuntime(client, playerId) {
-  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
-
-
-        const normalizedPlayerId = typeof playerId === 'string' ? playerId.trim() : '';
-        if (!normalizedPlayerId) {
-            return;
-        }
-
-        const existingBinding = this.worldSessionService.getBinding(normalizedPlayerId);
-        if (!existingBinding) {
-            return;
-        }
-
-        const shouldBreakConnectedSessionReuse = existingBinding.connected === true
-            && !this.shouldAllowConnectedSessionReuse(client);
-
-        const shouldBreakDetachedResume = existingBinding.connected !== true
-            && !this.shouldAllowImplicitDetachedResume(client);
-        if (!shouldBreakConnectedSessionReuse && !shouldBreakDetachedResume) {
-            return;
-        }
-        this.worldRuntimeService.removePlayer(normalizedPlayerId, shouldBreakConnectedSessionReuse ? 'replaced' : 'removed');
+    prepareBootstrapRuntime(client: BootstrapClientLike, playerId: string) {
+        this.runtimeBootstrapService.prepareBootstrapRuntime(client, playerId, this.worldRuntimeService);
+    }
+    /** 统一裁定 requestedSessionId、绑定 session 并回写 client.data。 */
+    registerBootstrapSession(client: BootstrapClientLike, input: BootstrapSessionInput) {
+        return this.sessionBindBootstrapService.registerBootstrapSession(client, input);
     }
     /** 完成玩家会话引导，并把 runtime、同步和消息状态全部串起来。 */
-    async bootstrapPlayerSession(client, input) {
+    async bootstrapPlayerSession(client: BootstrapClientLike, input: BootstrapSessionInput): Promise<void> {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
-        this.rememberAuthenticatedBootstrapIdentity(client, input);
-
-        const authenticatedBootstrapContractViolation = this.resolveAuthenticatedBootstrapContractViolation(client, input);
-        if (authenticatedBootstrapContractViolation) {
-            throw new Error(authenticatedBootstrapContractViolation.stage);
-        }
+        this.prepareAuthenticatedBootstrap(client, input);
         this.prepareBootstrapRuntime(client, input.playerId);
-        const requestedSessionId = this.resolveBootstrapRequestedSessionId(client, input.requestedSessionId);
+        const { binding, requestedSessionId } = this.registerBootstrapSession(client, input);
 
-        const binding = this.worldSessionService.registerSocket(client, input.playerId, requestedSessionId, {
-            allowImplicitDetachedResume: this.shouldAllowImplicitDetachedResume(client),
-            allowRequestedDetachedResume: this.shouldAllowRequestedDetachedResume(client),
-            allowConnectedSessionReuse: this.shouldAllowConnectedSessionReuse(client),
-        });
-        client.data.playerId = binding.playerId;
-        client.data.sessionId = binding.sessionId;
-
-        const player = await this.playerRuntimeService.loadOrCreatePlayer(binding.playerId, binding.sessionId, input.loadSnapshot);
-        this.playerRuntimeService.setIdentity(binding.playerId, {
+        const player = await this.initializeBootstrapPlayer({
+            playerId: binding.playerId,
+            sessionId: binding.sessionId,
             name: input.name,
             displayName: input.displayName,
+            loadSnapshot: input.loadSnapshot,
         });
-        await this.mailRuntimeService.ensurePlayerMailbox(binding.playerId);
-        await this.mailRuntimeService.ensureWelcomeMail(binding.playerId);
-        this.worldRuntimeService.connectPlayer({
+        this.connectBootstrapRuntimePlayer({
             playerId: binding.playerId,
             sessionId: binding.sessionId,
             instanceId: player.instanceId || undefined,
@@ -600,20 +408,7 @@ let WorldSessionBootstrapService = class WorldSessionBootstrapService {
         await this.deferInitialSyncEmission();
         this.worldSyncService.emitInitialSync(binding.playerId, client);
 
-        const bootstrapRecovery = this.emitAuthenticatedSnapshotRecoveryNotice(client, binding.playerId);
-        if (bootstrapRecovery?.queuedNotice) {
-            if (client?.data) {
-                const existingPrefilledIds = client.data.prefilledPendingLogbookMessageIds instanceof Set
-                    ? client.data.prefilledPendingLogbookMessageIds
-                    : new Set();
-                existingPrefilledIds.add(bootstrapRecovery.queuedNotice.id);
-                client.data.prefilledPendingLogbookMessageIds = existingPrefilledIds;
-            }
-            this.worldClientEventService.emitPendingLogbookNotice(client, bootstrapRecovery.queuedNotice);
-        }
-        this.worldClientEventService.emitSuggestionUpdate(client, this.suggestionRuntimeService.getAll());
-        await this.worldClientEventService.emitMailSummaryForPlayer(client, binding.playerId);
-        this.worldClientEventService.emitPendingLogbookMessages(client, binding.playerId);
+        const bootstrapRecovery = await this.emitPostBootstrapState(client, binding.playerId);
 
         const bootstrapEntryPath = this.resolveBootstrapEntryPath(client);
 
@@ -624,310 +419,47 @@ let WorldSessionBootstrapService = class WorldSessionBootstrapService {
         const bootstrapSnapshotSource = this.resolveBootstrapSnapshotSource(client);
 
         const bootstrapSnapshotPersistedSource = this.resolveBootstrapSnapshotPersistedSource(client);
-        this.logger.debug(`会话引导已就绪：playerId=${binding.playerId} sessionId=${binding.sessionId} mapId=${player.templateId || input.mapId || '未知'} requestedSessionId=${requestedSessionId ?? ''} protocol=${client.data.protocol ?? '未知'} gm=${client.data.isGm === true} entryPath=${bootstrapEntryPath ?? '未知'} identitySource=${bootstrapIdentitySource ?? '未知'}`);
-        (0, world_player_token_service_1.recordAuthTrace)({
-            type: 'bootstrap',
+        this.finalizeBootstrap({
             playerId: binding.playerId,
             sessionId: binding.sessionId,
             mapId: player.templateId || input.mapId || 'unknown',
-            requestedSessionId: requestedSessionId ?? null,
-
-            gm: client.data.isGm === true,
-            protocol: client.data.protocol ?? 'unknown',
+            requestedSessionId,
+            protocol: client.data.protocol,
+            isGm: client.data.isGm === true,
             entryPath: bootstrapEntryPath,
             identitySource: bootstrapIdentitySource,
             identityPersistedSource: bootstrapIdentityPersistedSource,
             snapshotSource: bootstrapSnapshotSource,
             snapshotPersistedSource: bootstrapSnapshotPersistedSource,
-            linkedIdentitySource: bootstrapIdentitySource,
-            linkedSnapshotSource: bootstrapSnapshotSource,
-            linkedSnapshotPersistedSource: bootstrapSnapshotPersistedSource,
-            recoveryOutcome: bootstrapRecovery ? 'success' : null,
-
-            recoveryReason: typeof bootstrapRecovery?.recoveryReason === 'string' ? bootstrapRecovery.recoveryReason : null,
-
-            recoveryIdentityPersistedSource: typeof bootstrapRecovery?.identityPersistedSource === 'string' ? bootstrapRecovery.identityPersistedSource : null,
-
-            recoverySnapshotPersistedSource: typeof bootstrapRecovery?.snapshotPersistedSource === 'string' ? bootstrapRecovery.snapshotPersistedSource : null,
+            bootstrapRecovery,
         });
     }
     /** 读取玩家快照；authenticated 主链只记录 next-only miss，不再做 runtime compat 回退。 */
-    async loadPlayerSnapshot(playerId) {
-        return this.worldPlayerSnapshotService.loadPlayerSnapshot(playerId);
+    async loadPlayerSnapshot(playerId: string): Promise<PersistedPlayerSnapshot | null> {
+        return this.snapshotBootstrapService.loadPlayerSnapshot(playerId);
     }
     /** 读取玩家快照并带上来源追踪。 */
-    async loadPlayerSnapshotWithTrace(playerId, fallbackReason = null) {
-  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
-
-        if (this.worldPlayerSnapshotService?.loadPlayerSnapshotResult) {
-            return this.worldPlayerSnapshotService.loadPlayerSnapshotResult(playerId, fallbackReason);
-        }
-
-        const snapshot = await this.worldPlayerSnapshotService.loadPlayerSnapshot(playerId, fallbackReason);
-        return {
-            snapshot,
-            source: snapshot ? 'unknown' : 'miss',
-            persistedSource: null,
-            fallbackReason,
-            seedPersisted: false,
-        };
+    async loadPlayerSnapshotWithTrace(playerId: string, fallbackReason: string | null = null): Promise<BootstrapSnapshotTraceResult> {
+        return this.snapshotBootstrapService.loadPlayerSnapshotWithTrace(playerId, fallbackReason);
     }
     /** 计算 authenticated 主链的 next-only 快照策略。 */
-    resolveAuthenticatedSnapshotPolicy(identity, client = undefined) {
-  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
-
-
-        const persistenceEnabled = this.worldPlayerSnapshotService.isPersistenceEnabled();
-        if (persistenceEnabled && isStrictNativeSnapshotRequired()) {
-            return {
-                fallbackReason: 'strict_native_snapshot_required',
-            };
-        }
-
-        const protocol = this.resolveClientProtocol(client);
-
-        const authSource = typeof identity?.authSource === 'string' ? identity.authSource.trim() : '';
-        if (persistenceEnabled) {
-            return {
-                fallbackReason: authSource ? `persistence_enabled_blocked:${authSource}` : 'persistence_enabled_blocked:unknown',
-            };
-        }
-        return {
-            fallbackReason: authSource ? `identity_source:${authSource}` : 'identity_source:unknown',
-        };
+    resolveAuthenticatedSnapshotPolicy(identity: BootstrapIdentityLike, client: BootstrapClientLike | undefined = undefined) {
+        return this.snapshotBootstrapService.resolveAuthenticatedSnapshotPolicy(identity, client);
     }
     /** 计算缺失快照时是否允许原生补齐。 */
-    resolveAuthenticatedMissingSnapshotRecovery(identity) {
-  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
-
-        if (!this.worldPlayerSnapshotService.isPersistenceEnabled()) {
-            return {
-                allowNativeRecovery: false,
-                recoveryReason: 'persistence_disabled',
-            };
-        }
-        if (!isNativeSnapshotRecoveryEnabled()) {
-            return {
-                allowNativeRecovery: false,
-                recoveryReason: 'native_snapshot_recovery_disabled',
-            };
-        }
-
-        const authSource = typeof identity?.authSource === 'string' ? identity.authSource.trim() : '';
-        if (authSource !== 'next' && authSource !== 'token') {
-            return {
-                allowNativeRecovery: false,
-                recoveryReason: authSource ? `auth_source:${authSource}` : 'auth_source:unknown',
-            };
-        }
-
-        const persistedSource = typeof identity?.persistedSource === 'string' ? identity.persistedSource.trim() : '';
-        if (!NATIVE_SNAPSHOT_RECOVERY_IDENTITY_SOURCES.has(persistedSource)) {
-            return {
-                allowNativeRecovery: false,
-                recoveryReason: persistedSource ? `persisted_source:${persistedSource}` : 'persisted_source:unknown',
-            };
-        }
-        return {
-            allowNativeRecovery: true,
-            recoveryReason: `persisted_source:${persistedSource}`,
-        };
+    resolveAuthenticatedMissingSnapshotRecovery(identity: BootstrapIdentityLike) {
+        return this.snapshotBootstrapService.resolveAuthenticatedMissingSnapshotRecovery(identity);
     }
     /** 针对 token_seed 身份做原生提升。 */
-    async promoteAuthenticatedTokenSeedIdentity(identity, client) {
-  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
-
-        const persistedSource = typeof identity?.persistedSource === 'string' ? identity.persistedSource.trim() : '';
-        const normalizedUserId = typeof identity?.userId === 'string' ? identity.userId.trim() : '';
-        const normalizedPlayerId = typeof identity?.playerId === 'string' ? identity.playerId.trim() : '';
-        const persistenceService = this.worldPlayerAuthService?.playerIdentityPersistenceService;
-        if (persistedSource !== 'token_seed' || !persistenceService?.isEnabled || !persistenceService.isEnabled()) {
-            return identity;
-        }
-
-        let promotedIdentity = null;
-        try {
-            promotedIdentity = await persistenceService.savePlayerIdentity({
-                ...identity,
-                persistedSource: 'native',
-                updatedAt: Date.now(),
-            });
-        }
-        catch (error) {
-            this.logger.warn(`玩家身份 token_seed 原生提升失败：userId=${normalizedUserId} playerId=${normalizedPlayerId} error=${error instanceof Error ? error.message : String(error)}`);
-            return identity;
-        }
-
-        const promotedPersistedSource = typeof promotedIdentity?.persistedSource === 'string'
-            ? promotedIdentity.persistedSource.trim()
-            : '';
-        if (promotedPersistedSource !== 'native') {
-            this.logger.warn(`玩家身份 token_seed 原生提升返回了异常 persistedSource：userId=${normalizedUserId} playerId=${normalizedPlayerId} actual=${promotedPersistedSource || '未知'}`);
-            return identity;
-        }
-        identity.persistedSource = promotedPersistedSource;
-        identity.authSource = 'next';
-        if (client?.data) {
-            client.data.bootstrapIdentitySource = 'next';
-            client.data.bootstrapIdentityPersistedSource = promotedPersistedSource;
-        }
-        return identity;
+    async promoteAuthenticatedTokenSeedIdentity(identity: BootstrapIdentityLike, client: BootstrapClientLike) {
+        return this.snapshotBootstrapService.promoteAuthenticatedTokenSeedIdentity(identity, client);
     }
     /** 当 bootstrap 已选择 native 快照时，要求 token_seed 身份必须同步归一到 next/native。 */
-    async requireAuthenticatedTokenSeedNativeNormalization(identity, client, recoveryReason = 'unknown') {
-  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
-
-        const persistedSource = typeof identity?.persistedSource === 'string' ? identity.persistedSource.trim() : '';
-        if (persistedSource !== 'token_seed') {
-            return identity;
-        }
-        const persistenceService = this.worldPlayerAuthService?.playerIdentityPersistenceService;
-        const persistenceEnabled = Boolean(persistenceService?.isEnabled && persistenceService.isEnabled());
-        const promotedIdentity = await this.promoteAuthenticatedTokenSeedIdentity(identity, client);
-        const promotedPersistedSource = typeof promotedIdentity?.persistedSource === 'string' ? promotedIdentity.persistedSource.trim() : '';
-        const promotedAuthSource = typeof promotedIdentity?.authSource === 'string' ? promotedIdentity.authSource.trim() : '';
-        if (promotedPersistedSource === 'native' && promotedAuthSource === 'next') {
-            return promotedIdentity;
-        }
-        const normalizedUserId = typeof identity?.userId === 'string' ? identity.userId.trim() : '';
-        const normalizedPlayerId = typeof identity?.playerId === 'string' ? identity.playerId.trim() : '';
-        const failureStage = !persistenceEnabled
-            ? 'token_seed_native_promotion_persistence_disabled'
-            : promotedPersistedSource && promotedPersistedSource !== 'token_seed'
-                ? 'token_seed_native_promotion_invalid_result'
-                : 'token_seed_native_promotion_failed';
-        this.clearAuthenticatedSnapshotRecovery(client);
-        this.logger.warn(`玩家身份 token_seed 原生归一失败：userId=${normalizedUserId} playerId=${normalizedPlayerId} recoveryReason=${recoveryReason} stage=${failureStage} authSource=${promotedAuthSource || '未知'} persistedSource=${promotedPersistedSource || '未知'}`);
-        const normalizationError = new Error(`Authenticated next player identity normalization failed after native snapshot selection: playerId=${normalizedPlayerId || 'unknown'} recoveryReason=${recoveryReason} stage=${failureStage}`);
-        normalizationError.failureStage = failureStage;
-        throw normalizationError;
+    async requireAuthenticatedTokenSeedNativeNormalization(identity: BootstrapIdentityLike, client: BootstrapClientLike, recoveryReason = 'unknown') {
+        return this.snapshotBootstrapService.requireAuthenticatedTokenSeedNativeNormalization(identity, client, recoveryReason);
     }
     /** 加载鉴权玩家快照，并在必要时做恢复或提示。 */
-    async loadAuthenticatedPlayerSnapshot(identity, client = undefined) {
-  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
-
-        this.rememberBootstrapIdentityPersistedSource(client, identity?.persistedSource ?? null);
-
-        const fallbackPolicy = this.resolveAuthenticatedSnapshotPolicy(identity, client);
-
-        const snapshotResult = await this.loadPlayerSnapshotWithTrace(identity.playerId, fallbackPolicy.fallbackReason);
-        this.rememberBootstrapSnapshotContext(client, snapshotResult.source, snapshotResult.persistedSource);
-
-        const snapshot = snapshotResult.snapshot;
-
-        const identityPersistedSource = typeof identity?.persistedSource === 'string' ? identity.persistedSource.trim() : '';
-
-        const snapshotPersistedSource = typeof snapshotResult.persistedSource === 'string' ? snapshotResult.persistedSource.trim() : '';
-
-        const shouldRememberPreseededRecovery = Boolean(snapshot)
-            && identityPersistedSource === 'token_seed'
-            && snapshotPersistedSource === 'native';
-        if (snapshot
-            || !this.worldPlayerSnapshotService.isPersistenceEnabled()) {
-            if (shouldRememberPreseededRecovery) {
-                await this.requireAuthenticatedTokenSeedNativeNormalization(identity, client, `persisted_source:${identityPersistedSource}`);
-                this.rememberAuthenticatedSnapshotRecovery(client, {
-                    identityPersistedSource,
-                    snapshotPersistedSource,
-                    recoveryReason: `persisted_source:${identityPersistedSource}`,
-                });
-            }
-            else {
-                this.clearAuthenticatedSnapshotRecovery(client);
-            }
-            return snapshot;
-        }
-
-        const recoveryPolicy = this.resolveAuthenticatedMissingSnapshotRecovery(identity);
-        if (recoveryPolicy.allowNativeRecovery) {
-
-            const recoveredSnapshot = await this.worldPlayerSnapshotService.ensureNativeStarterSnapshot(identity.playerId);
-            if (recoveredSnapshot.ok && recoveredSnapshot.snapshot) {
-                try {
-                    await this.requireAuthenticatedTokenSeedNativeNormalization(identity, client, recoveryPolicy.recoveryReason);
-                }
-                catch (error) {
-                    (0, world_player_token_service_1.recordAuthTrace)({
-                        type: 'snapshot_recovery',
-                        playerId: identity.playerId,
-
-                        authSource: typeof identity?.authSource === 'string' ? identity.authSource : null,
-
-                        identityPersistedSource: typeof identity?.persistedSource === 'string' ? identity.persistedSource : null,
-                        outcome: 'failure',
-                        reason: recoveryPolicy.recoveryReason,
-
-                        persistedSource: typeof recoveredSnapshot.persistedSource === 'string' ? recoveredSnapshot.persistedSource : null,
-                        failureStage: typeof error?.failureStage === 'string' ? error.failureStage : 'token_seed_native_promotion_failed',
-                    });
-                    throw error;
-                }
-                (0, world_player_token_service_1.recordAuthTrace)({
-                    type: 'snapshot_recovery',
-                    playerId: identity.playerId,
-
-                    authSource: typeof identity?.authSource === 'string' ? identity.authSource : null,
-
-                    identityPersistedSource: typeof identity?.persistedSource === 'string' ? identity.persistedSource : null,
-                    outcome: 'success',
-                    reason: recoveryPolicy.recoveryReason,
-
-                    persistedSource: typeof recoveredSnapshot.persistedSource === 'string' ? recoveredSnapshot.persistedSource : null,
-                    failureStage: null,
-                });
-                this.rememberAuthenticatedSnapshotRecovery(client, {
-                    identityPersistedSource,
-                    snapshotPersistedSource: recoveredSnapshot.persistedSource ?? null,
-                    recoveryReason: recoveryPolicy.recoveryReason,
-                });
-                this.rememberBootstrapSnapshotContext(client, 'recovery_native', recoveredSnapshot.persistedSource ?? null);
-                return recoveredSnapshot.snapshot;
-            }
-            (0, world_player_token_service_1.recordAuthTrace)({
-                type: 'snapshot_recovery',
-                playerId: identity.playerId,
-
-                authSource: typeof identity?.authSource === 'string' ? identity.authSource : null,
-
-                identityPersistedSource: typeof identity?.persistedSource === 'string' ? identity.persistedSource : null,
-                outcome: 'failure',
-                reason: recoveryPolicy.recoveryReason,
-
-                persistedSource: typeof recoveredSnapshot.persistedSource === 'string' ? recoveredSnapshot.persistedSource : null,
-                failureStage: recoveredSnapshot.failureStage ?? 'unknown',
-            });
-            this.clearAuthenticatedSnapshotRecovery(client);
-            throw new Error(`Authenticated next player snapshot recovery failed while persistence is enabled: playerId=${identity.playerId} recoveryReason=${recoveryPolicy.recoveryReason} stage=${recoveredSnapshot.failureStage ?? 'unknown'}`);
-        }
-        (0, world_player_token_service_1.recordAuthTrace)({
-            type: 'snapshot_recovery',
-            playerId: identity.playerId,
-
-            authSource: typeof identity?.authSource === 'string' ? identity.authSource : null,
-
-            identityPersistedSource: typeof identity?.persistedSource === 'string' ? identity.persistedSource : null,
-            outcome: 'blocked',
-            reason: recoveryPolicy.recoveryReason,
-            persistedSource: null,
-            failureStage: null,
-        });
-        this.clearAuthenticatedSnapshotRecovery(client);
-        throw new Error(`Authenticated next player snapshot missing while persistence is enabled: playerId=${identity.playerId} recoveryReason=${recoveryPolicy.recoveryReason}`);
+    async loadAuthenticatedPlayerSnapshot(identity: BootstrapIdentityLike, client: BootstrapClientLike | undefined = undefined): Promise<PersistedPlayerSnapshot | null> {
+        return this.snapshotBootstrapService.loadAuthenticatedPlayerSnapshot(identity, client);
     }
-};
-exports.WorldSessionBootstrapService = WorldSessionBootstrapService;
-exports.WorldSessionBootstrapService = WorldSessionBootstrapService = __decorate([
-    (0, common_1.Injectable)(),
-    __metadata("design:paramtypes", [world_player_auth_service_1.WorldPlayerAuthService,
-        world_player_snapshot_service_1.WorldPlayerSnapshotService,
-        world_gm_auth_service_1.WorldGmAuthService,
-        player_runtime_service_1.PlayerRuntimeService,
-        mail_runtime_service_1.MailRuntimeService,
-        suggestion_runtime_service_1.SuggestionRuntimeService,
-        world_runtime_service_1.WorldRuntimeService,
-        world_session_service_1.WorldSessionService,
-        world_sync_service_1.WorldSyncService,
-        world_client_event_service_1.WorldClientEventService])
-], WorldSessionBootstrapService);
-export { WorldSessionBootstrapService };
-//# sourceMappingURL=world-session-bootstrap.service.js.map
+}

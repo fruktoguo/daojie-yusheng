@@ -10,8 +10,14 @@ const { WorldRuntimeCommandIntakeFacadeService } = require("../runtime/world/wor
 
 
 function testCommandIntakeFacade() {
-    const service = new WorldRuntimeCommandIntakeFacadeService();
     const log = [];
+    const systemCommandEnqueueService = {
+        enqueueGmUpdatePlayer(input) { log.push(['enqueueGmUpdatePlayer', input.playerId]); return 'gmUpdate'; },
+        enqueueGmResetPlayer(playerIdInput) { log.push(['enqueueGmResetPlayer', playerIdInput]); return 'gmReset'; },
+        enqueueGmSpawnBots(anchorPlayerIdInput, countInput) { log.push(['enqueueGmSpawnBots', anchorPlayerIdInput, countInput]); return 'gmSpawnBots'; },
+        enqueueGmRemoveBots(playerIdsInput, allInput) { log.push(['enqueueGmRemoveBots', playerIdsInput.length, allInput]); return 'gmRemoveBots'; },
+    };
+    const service = new WorldRuntimeCommandIntakeFacadeService(systemCommandEnqueueService);
     const deps = {
         worldRuntimeNavigationService: {        
         /**
@@ -128,14 +134,21 @@ function testCommandIntakeFacade() {
  * @returns 无返回值，直接更新Start炼丹相关状态。
  */
 
-            enqueueStartAlchemy(playerId, payload) { log.push(['enqueueStartAlchemy', playerId, payload.recipeId]); return 'startAlchemy'; },            
+            enqueueStartTechniqueActivity(playerId, kind, payload) {
+                const marker = kind === 'alchemy' ? payload.recipeId : payload.itemId;
+                log.push(['enqueueStartTechniqueActivity', playerId, kind, marker]);
+                return kind === 'alchemy' ? 'startAlchemy' : 'startEnhancement';
+            },            
             /**
- * enqueueCancelAlchemy：判断Cancel炼丹是否满足条件。
+ * enqueueCancelTechniqueActivity：判断Cancel技艺活动是否满足条件。
  * @param playerId 玩家 ID。
  * @returns 无返回值，直接更新Cancel炼丹相关状态。
  */
 
-            enqueueCancelAlchemy(playerId) { log.push(['enqueueCancelAlchemy', playerId]); return 'cancelAlchemy'; },            
+            enqueueCancelTechniqueActivity(playerId, kind) {
+                log.push(['enqueueCancelTechniqueActivity', playerId, kind]);
+                return kind === 'alchemy' ? 'cancelAlchemy' : 'cancelEnhancement';
+            },            
             /**
  * enqueueSaveAlchemyPreset：处理Save炼丹Preset并更新相关状态。
  * @param playerId 玩家 ID。
@@ -159,14 +172,6 @@ function testCommandIntakeFacade() {
  * @returns 无返回值，直接更新Start强化相关状态。
  */
 
-            enqueueStartEnhancement(playerId, payload) { log.push(['enqueueStartEnhancement', playerId, payload.itemId]); return 'startEnhancement'; },            
-            /**
- * enqueueCancelEnhancement：判断Cancel强化是否满足条件。
- * @param playerId 玩家 ID。
- * @returns 无返回值，直接更新Cancel强化相关状态。
- */
-
-            enqueueCancelEnhancement(playerId) { log.push(['enqueueCancelEnhancement', playerId]); return 'cancelEnhancement'; },            
             /**
  * enqueueRedeemCodes：处理RedeemCode并更新相关状态。
  * @param playerId 玩家 ID。
@@ -325,30 +330,6 @@ function testCommandIntakeFacade() {
  * @returns 无返回值，直接更新GMUpdate玩家相关状态。
  */
 
-            enqueueGmUpdatePlayer(input) { log.push(['enqueueGmUpdatePlayer', input.playerId]); return 'gmUpdate'; },            
-            /**
- * enqueueGmResetPlayer：处理GMReset玩家并更新相关状态。
- * @param playerIdInput 参数说明。
- * @returns 无返回值，直接更新GMReset玩家相关状态。
- */
-
-            enqueueGmResetPlayer(playerIdInput) { log.push(['enqueueGmResetPlayer', playerIdInput]); return 'gmReset'; },            
-            /**
- * enqueueGmSpawnBots：处理GMSpawnBot并更新相关状态。
- * @param anchorPlayerIdInput 参数说明。
- * @param countInput 参数说明。
- * @returns 无返回值，直接更新GMSpawnBot相关状态。
- */
-
-            enqueueGmSpawnBots(anchorPlayerIdInput, countInput) { log.push(['enqueueGmSpawnBots', anchorPlayerIdInput, countInput]); return 'gmSpawnBots'; },            
-            /**
- * enqueueGmRemoveBots：处理GMRemoveBot并更新相关状态。
- * @param playerIdsInput 参数说明。
- * @param allInput 参数说明。
- * @returns 无返回值，直接更新GMRemoveBot相关状态。
- */
-
-            enqueueGmRemoveBots(playerIdsInput, allInput) { log.push(['enqueueGmRemoveBots', playerIdsInput.length, allInput]); return 'gmRemoveBots'; },
         },
     };
 
@@ -369,10 +350,14 @@ function testCommandIntakeFacade() {
     assert.equal(service.enqueueCultivate('player:1', 'tech:1', deps), 'cultivate');
     assert.equal(service.enqueueStartAlchemy('player:1', { recipeId: 'recipe:1' }, deps), 'startAlchemy');
     assert.equal(service.enqueueCancelAlchemy('player:1', deps), 'cancelAlchemy');
+    assert.equal(service.enqueueStartTechniqueActivity('player:1', 'alchemy', { recipeId: 'recipe:2' }, deps), 'startAlchemy');
+    assert.equal(service.enqueueCancelTechniqueActivity('player:1', 'alchemy', deps), 'cancelAlchemy');
     assert.equal(service.enqueueSaveAlchemyPreset('player:1', { presetId: 'preset:1' }, deps), 'savePreset');
     assert.equal(service.enqueueDeleteAlchemyPreset('player:1', 'preset:1', deps), 'deletePreset');
     assert.equal(service.enqueueStartEnhancement('player:1', { itemId: 'item:1' }, deps), 'startEnhancement');
     assert.equal(service.enqueueCancelEnhancement('player:1', deps), 'cancelEnhancement');
+    assert.equal(service.enqueueStartTechniqueActivity('player:1', 'enhancement', { itemId: 'item:2' }, deps), 'startEnhancement');
+    assert.equal(service.enqueueCancelTechniqueActivity('player:1', 'enhancement', deps), 'cancelEnhancement');
     assert.equal(service.enqueueRedeemCodes('player:1', ['A'], deps), 'redeem');
     assert.equal(service.enqueueHeavenGateAction('player:1', 'open', 'metal', deps), 'heavenGate');
     assert.equal(service.enqueueCastSkill('player:1', 'skill:1', null, 'monster:1', null, deps), 'cast');
@@ -388,10 +373,10 @@ function testCommandIntakeFacade() {
     assert.equal(service.enqueueDamagePlayer('player:1', 12, deps), 'damagePlayer');
     assert.equal(service.enqueueRespawnPlayer('player:1', deps), 'respawn');
     assert.equal(service.enqueueResetPlayerSpawn('player:1', deps), 'resetSpawn');
-    assert.equal(service.enqueueGmUpdatePlayer({ playerId: 'player:1' }, deps), 'gmUpdate');
-    assert.equal(service.enqueueGmResetPlayer('player:1', deps), 'gmReset');
-    assert.equal(service.enqueueGmSpawnBots('player:1', 2, deps), 'gmSpawnBots');
-    assert.equal(service.enqueueGmRemoveBots(['bot:1'], true, deps), 'gmRemoveBots');
+    assert.equal(service.enqueueGmUpdatePlayer({ playerId: 'player:1' }), 'gmUpdate');
+    assert.equal(service.enqueueGmResetPlayer('player:1'), 'gmReset');
+    assert.equal(service.enqueueGmSpawnBots('player:1', 2), 'gmSpawnBots');
+    assert.equal(service.enqueueGmRemoveBots(['bot:1'], true), 'gmRemoveBots');
     assert.ok(log.length > 30);
 }
 

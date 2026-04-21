@@ -8,7 +8,8 @@
       .hud-resources,
       .hud-grid,
       .intel-grid,
-      .world-hero {
+      .world-hero,
+      .leaderboard-supreme-grid {
         grid-template-columns: 1fr;
       }
       .ui-detail-grid {
@@ -464,11 +465,54 @@
         height: min(84dvh, calc(100dvh - var(--detail-modal-padding-top) - var(--detail-modal-padding-bottom) - (var(--detail-modal-safe-gap, 12px) * 2) - 16px));
         max-height: none;
       }
+      .detail-modal-card.detail-modal--leaderboard {
+        width: min(100%, calc(100vw - 16px));
+        height: min(82dvh, calc(100dvh - var(--detail-modal-padding-top) - var(--detail-modal-padding-bottom) - (var(--detail-modal-safe-gap, 12px) * 2) - 12px));
+        max-height: none;
+      }
       .panel-section-head,
       .skill-manage-topbar,
       .skill-manage-filter-head {
         flex-direction: column;
         align-items: stretch;
+      }
+      .leaderboard-toolbar,
+      .leaderboard-toolbar-actions {
+        align-items: stretch;
+      }
+      .leaderboard-toolbar {
+        flex-direction: column;
+      }
+      .leaderboard-toolbar-actions {
+        justify-content: stretch;
+      }
+      .leaderboard-toolbar-actions > button {
+        flex: 1 1 auto;
+      }
+      .leaderboard-tabs {
+        display: flex;
+        width: 100%;
+      }
+      .leaderboard-tab-btn {
+        flex: 0 0 auto;
+      }
+      .leaderboard-row {
+        grid-template-columns: 1fr;
+        gap: 8px;
+      }
+      .leaderboard-world-grid {
+        grid-template-columns: 1fr;
+      }
+      .leaderboard-world-row {
+        flex-direction: column;
+        gap: 6px;
+      }
+      .leaderboard-world-value {
+        text-align: left;
+        white-space: normal;
+      }
+      .leaderboard-rank {
+        font-size: var(--font-size-role-title-16);
       }
       .skill-manage-filter-grid,
       .skill-manage-field-group {

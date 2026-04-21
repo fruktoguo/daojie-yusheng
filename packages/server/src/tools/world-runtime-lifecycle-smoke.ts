@@ -81,13 +81,13 @@ async function testRestoreAndRebuild() {
         meta: { persistent: true },
         template: { id: 'yunlai_town' },        
         /**
- * hydrateAura：执行hydrateAura相关逻辑。
+ * hydrateTileResources：执行hydrateTile资源相关逻辑。
  * @param entries 参数说明。
- * @returns 无返回值，直接更新hydrateAura相关状态。
+ * @returns 无返回值，直接更新hydrateTile资源相关状态。
  */
 
-        hydrateAura(entries) {
-            log.push(['hydrateAura', entries]);
+        hydrateTileResources(entries) {
+            log.push(['hydrateTileResources', entries]);
         },        
         /**
  * hydrateGroundPiles：执行hydrate地面Pile相关逻辑。
@@ -103,12 +103,12 @@ async function testRestoreAndRebuild() {
         meta: { persistent: false },
         template: { id: 'forest_1' },        
         /**
- * hydrateAura：执行hydrateAura相关逻辑。
- * @returns 无返回值，直接更新hydrateAura相关状态。
+ * hydrateTileResources：执行hydrateTile资源相关逻辑。
+ * @returns 无返回值，直接更新hydrateTile资源相关状态。
  */
 
-        hydrateAura() {
-            log.push(['volatileHydrateAura']);
+        hydrateTileResources() {
+            log.push(['volatileHydrateTileResources']);
         },        
         /**
  * hydrateGroundPiles：执行hydrate地面Pile相关逻辑。
@@ -143,6 +143,7 @@ async function testRestoreAndRebuild() {
                     return {
                         templateId: 'yunlai_town',
                         auraEntries: ['aura:1'],
+                        tileResourceEntries: ['tile-resource:1'],
                         groundPileEntries: ['ground:1'],
                         containerStates: [{ id: 'container:1' }],
                     };
@@ -176,7 +177,7 @@ async function testRestoreAndRebuild() {
     });
     assert.deepEqual(log, [
         ['loadMapSnapshot', 'public:yunlai_town'],
-        ['hydrateAura', ['aura:1']],
+        ['hydrateTileResources', ['tile-resource:1']],
         ['hydrateGroundPiles', ['ground:1']],
         ['hydrateContainerStates', 'public:yunlai_town', [{ id: 'container:1' }]],
     ]);

@@ -1,6 +1,7 @@
 import type { PartialNumericStats } from './numeric';
 import type { ObservationInsight } from './observation-types';
 import type { QiProjectionModifier } from './qi';
+import type { TileRuntimeResourceView } from './service-sync-types';
 import type { Attributes } from './attribute-types';
 import type { GridPoint } from './targeting';
 import type { NpcQuestMarker } from './world-view-types';
@@ -209,6 +210,11 @@ export interface Tile {
  */
 
   aura: number;  
+  /**
+ * resources：resource相关字段。
+ */
+
+  resources?: TileRuntimeResourceView[];  
   /**
  * occupiedBy：occupiedBy相关字段。
  */

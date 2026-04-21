@@ -1,7 +1,24 @@
-import { NEXT_S2C_Detail, NEXT_S2C_NpcDetail, NEXT_S2C_PlayerDetail, NEXT_S2C_MonsterDetail, NEXT_S2C_ContainerDetail, VisibleBuffState, MONSTER_TIER_LABELS, type NpcQuestMarker } from '@mud/shared-next';
+import {
+  NEXT_S2C_Detail,
+  NEXT_S2C_NpcDetail,
+  NEXT_S2C_PlayerDetail,
+  NEXT_S2C_MonsterDetail,
+  NEXT_S2C_ContainerDetail,
+  NEXT_S2C_LeaderboardPlayerLocations,
+  VisibleBuffState,
+  MONSTER_TIER_LABELS,
+  type NpcQuestMarker,
+} from '@mud/shared-next';
 import { getEntityKindLabel, getQuestLineLabel } from '../domain-labels';
 import { detailModalHost } from './detail-modal-host';
+import { FloatingTooltip, prefersPinnedTooltipInteraction } from './floating-tooltip';
 import { bindInlineItemTooltips, renderInlineItemChip } from './item-inline-tooltip';
+import { describePreviewBonuses } from './stat-preview';
+
+const LEADERBOARD_PLAYER_LOCATION_EVENT = 'mud:leaderboard-player-locations';
+type LeaderboardTrackedLocation = NEXT_S2C_LeaderboardPlayerLocations['entries'][number];
+
+let trackedLeaderboardLocations = new Map<string, LeaderboardTrackedLocation>();
 
 /** escapeHtml：转义 HTML 文本中的危险字符。 */
 function escapeHtml(value: string): string {
@@ -43,10 +60,33 @@ function formatNpcQuestMarker(marker: NpcQuestMarker | null | undefined): string
   return `${getQuestLineLabel(marker.line)} · ${stateLabel}`;
 }
 
+function isObservationVitalLabel(label: string | null | undefined): boolean {
+  return label === '生命' || label === '气血' || label === '灵力';
+}
+
+function formatObservationClarity(clarity: string | undefined): string {
+  switch (clarity) {
+    case 'veiled':
+      return '雾里看花';
+    case 'blurred':
+      return '轮廓模糊';
+    case 'partial':
+      return '窥得部分';
+    case 'clear':
+      return '已较清晰';
+    case 'complete':
+      return '洞察完整';
+    default:
+      return '未明';
+  }
+}
+
 /** EntityDetailModal：实体详情弹窗实现。 */
 export class EntityDetailModal {
   /** MODAL_OWNER：弹窗OWNER。 */
   private static readonly MODAL_OWNER = 'entity-detail-modal';  
+  /** buffTooltip：Buff 浮动提示。 */
+  private readonly buffTooltip = new FloatingTooltip();
   /**
  * pending：pending相关字段。
  */
@@ -68,6 +108,18 @@ export class EntityDetailModal {
   private detail: NEXT_S2C_Detail | null = null;
   /** loading：loading。 */
   private loading = false;
+
+  constructor() {
+    window.addEventListener(LEADERBOARD_PLAYER_LOCATION_EVENT, (event) => {
+      const customEvent = event as CustomEvent<{ entries?: LeaderboardTrackedLocation[] }>;
+      trackedLeaderboardLocations = new Map(
+        (customEvent.detail?.entries ?? []).map((entry) => [entry.playerId, entry]),
+      );
+      if (this.pending?.kind === 'player' && detailModalHost.isOpenFor(EntityDetailModal.MODAL_OWNER)) {
+        this.render();
+      }
+    });
+  }
 
   /** openPending：打开待处理。 */
   openPending(kind: NEXT_S2C_Detail['kind'], id: string, title: string): void {
@@ -119,12 +171,14 @@ export class EntityDetailModal {
         body.innerHTML = `<div data-entity-detail-body="true">${this.renderBody()}</div>`;
       },
       onClose: () => {
+        this.buffTooltip.hide(true);
         this.pending = null;
         this.detail = null;
         this.loading = false;
       },
       onAfterRender: (body) => {
         bindInlineItemTooltips(body);
+        this.bindBuffTooltips(body);
       },
     });
   }
@@ -143,6 +197,7 @@ export class EntityDetailModal {
     subtitleNode.textContent = subtitle;
     shell.innerHTML = this.renderBody();
     bindInlineItemTooltips(body);
+    this.bindBuffTooltips(body);
     return true;
   }
 
@@ -151,13 +206,13 @@ export class EntityDetailModal {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
     if (this.loading && !this.detail) {
-      return '<div class="empty-hint ui-empty-hint">正在读取目标详情……</div>';
+      return '<div class="empty-hint">正在读取目标详情……</div>';
     }
     if (!this.detail) {
-      return '<div class="empty-hint ui-empty-hint">暂时无法读取目标详情。</div>';
+      return '<div class="empty-hint">暂时无法读取目标详情。</div>';
     }
     if (this.detail.error) {
-      return `<div class="empty-hint ui-empty-hint">${escapeHtml(this.detail.error)}</div>`;
+      return `<div class="empty-hint">${escapeHtml(this.detail.error)}</div>`;
     }
     switch (this.detail.kind) {
       case 'npc':
@@ -173,7 +228,7 @@ export class EntityDetailModal {
       case 'container':
         return this.renderContainer(this.detail.container ?? null);
       default:
-        return '<div class="empty-hint ui-empty-hint">当前详情类型暂未支持展示。</div>';
+        return '<div class="empty-hint">当前详情类型暂未支持展示。</div>';
     }
   }
 
@@ -199,7 +254,7 @@ export class EntityDetailModal {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
     if (!npc) {
-      return '<div class="empty-hint ui-empty-hint">未读取到 NPC 详情。</div>';
+      return '<div class="empty-hint">未读取到 NPC 详情。</div>';
     }
     return `
       <div class="ui-title-block">
@@ -223,7 +278,7 @@ export class EntityDetailModal {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
     if (!monster) {
-      return '<div class="empty-hint ui-empty-hint">未读取到怪物详情。</div>';
+      return '<div class="empty-hint">未读取到怪物详情。</div>';
     }
     return `
       <div class="ui-title-block">
@@ -248,7 +303,7 @@ export class EntityDetailModal {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
     if (!player) {
-      return '<div class="empty-hint ui-empty-hint">未读取到玩家详情。</div>';
+      return '<div class="empty-hint">未读取到玩家详情。</div>';
     }
     const pendingTitle = this.pending?.kind === 'player' && this.pending.id === player.id ? this.pending.title : '';
     const titleRow = pendingTitle && pendingTitle !== player.id
@@ -266,8 +321,31 @@ export class EntityDetailModal {
         <div class="ui-detail-field ui-detail-field--section"><strong>生命</strong><span>${player.hp}/${player.maxHp}</span></div>
         <div class="ui-detail-field ui-detail-field--section"><strong>灵力</strong><span>${player.qi}/${player.maxQi}</span></div>
       </div>
+      ${this.renderTrackedPlayerIntel(player.id)}
       ${this.renderObservation(player.observation, true)}
       ${this.renderBuffs(player.buffs ?? [])}
+    `;
+  }
+
+  /** renderTrackedPlayerIntel：渲染玩家天机追索情报。 */
+  private renderTrackedPlayerIntel(playerId: string): string {
+    const tracked = trackedLeaderboardLocations.get(playerId);
+    if (!tracked) {
+      return `
+        <div class="ui-detail-field ui-detail-field--section">
+          <strong>天机追索</strong>
+          <div>此人当前不在已缓存的玩家击杀榜追索册页中。查看天下榜时若命中上榜对象，会在这里同步显示最新坐标。</div>
+        </div>
+      `;
+    }
+    const coordinate = `${tracked.mapName} (${tracked.x}, ${tracked.y})`;
+    const status = tracked.online ? '在线追索' : '离线坐标';
+    return `
+      <div class="ui-detail-grid ui-detail-grid--section">
+        <div class="ui-detail-field ui-detail-field--section"><strong>天机追索</strong><span>${escapeHtml(status)}</span></div>
+        <div class="ui-detail-field ui-detail-field--section"><strong>卷宗坐标</strong><span>${escapeHtml(coordinate)}</span></div>
+      </div>
+      <div class="ui-detail-field ui-detail-field--section"><strong>说明</strong><div>该坐标来自天下榜玩家击杀榜的低频追索结果，榜册开启期间每十息刷新一次。</div></div>
     `;
   }
 
@@ -277,7 +355,7 @@ export class EntityDetailModal {
 
     const portal = this.detail?.portal;
     if (!portal) {
-      return '<div class="empty-hint ui-empty-hint">未读取到传送点详情。</div>';
+      return '<div class="empty-hint">未读取到传送点详情。</div>';
     }
     const portalKind = portal.kind === 'stairs' ? '楼梯' : portal.kind === 'gate' ? '关隘' : '传送点';
     const destination = typeof portal.targetX === 'number' && typeof portal.targetY === 'number'
@@ -304,7 +382,7 @@ export class EntityDetailModal {
 
     const ground = this.detail?.ground;
     if (!ground) {
-      return '<div class="empty-hint ui-empty-hint">未读取到地面物详情。</div>';
+      return '<div class="empty-hint">未读取到地面物详情。</div>';
     }
     const items = ground.items.length > 0
       ? `<div class="inline-item-flow">${ground.items.map((item) => renderInlineItemChip(item.itemId, { count: item.count, label: item.name, tone: 'reward' })).join('')}</div>`
@@ -327,7 +405,7 @@ export class EntityDetailModal {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
     if (!container) {
-      return '<div class="empty-hint ui-empty-hint">未读取到容器详情。</div>';
+      return '<div class="empty-hint">未读取到容器详情。</div>';
     }
     return `
       <div class="ui-title-block">
@@ -356,7 +434,11 @@ export class EntityDetailModal {
     /**
  * verdict：verdict相关字段。
  */
- verdict?: string;    
+ verdict?: string;
+ /**
+ * clarity：clarity相关字段。
+ */
+ clarity?: string;
  /**
  * lines：line相关字段。
  */
@@ -377,12 +459,16 @@ export class EntityDetailModal {
       return '<div class="ui-detail-field ui-detail-field--section"><strong>观测</strong><div>未得更多回响。</div></div>';
     }
     const lines = hideVitals
-      ? (observation.lines ?? []).filter((line) => line.label !== '生命' && line.label !== '气血' && line.label !== '灵力')
+      ? (observation.lines ?? []).filter((line) => !isObservationVitalLabel(line.label))
       : (observation.lines ?? []);
     const rows = lines.length > 0
       ? `<div class="entity-detail-list">${lines.map((line) => `<div class="observe-modal-row"><span class="observe-modal-label">${escapeHtml(line.label)}</span><span class="observe-modal-value">${escapeHtml(line.value)}</span></div>`).join('')}</div>`
       : '<div>暂无额外细节。</div>';
     return `
+      <div class="ui-detail-grid ui-detail-grid--section">
+        <div class="ui-detail-field ui-detail-field--section"><strong>清晰度</strong><span>${escapeHtml(formatObservationClarity(observation.clarity))}</span></div>
+        <div class="ui-detail-field ui-detail-field--section"><strong>洞察条目</strong><span>${lines.length} 条</span></div>
+      </div>
       <div class="ui-detail-field ui-detail-field--section"><strong>判词</strong><div>${escapeHtml(observation.verdict ?? '未得更多回响。')}</div></div>
       <div class="ui-detail-field ui-detail-field--section"><strong>细节</strong><div>${rows}</div></div>
     `;
@@ -395,9 +481,108 @@ export class EntityDetailModal {
     if (buffs.length === 0) {
       return '<div class="ui-detail-field ui-detail-field--section"><strong>状态</strong><div>当前未见明显状态变化。</div></div>';
     }
+    const publicBuffs = buffs.filter((buff) => buff.visibility === 'public' && buff.category === 'buff');
+    const publicDebuffs = buffs.filter((buff) => buff.visibility === 'public' && buff.category === 'debuff');
+    const observeOnlyBuffs = buffs.filter((buff) => buff.visibility === 'observe_only' && buff.category === 'buff');
+    const observeOnlyDebuffs = buffs.filter((buff) => buff.visibility === 'observe_only' && buff.category === 'debuff');
+    const visibleCount = publicBuffs.length + publicDebuffs.length;
+    const insightCount = observeOnlyBuffs.length + observeOnlyDebuffs.length;
     return `
-      <div class="ui-detail-field ui-detail-field--section"><strong>状态</strong><div class="entity-detail-buff-list">${buffs.map((buff) => `<span class="inline-item-chip inline-item-chip--material">${escapeHtml(buff.name)}</span>`).join('')}</div></div>
+      <div class="ui-detail-field ui-detail-field--section">
+        <strong>状态</strong>
+        <div class="ui-detail-grid ui-detail-grid--section">
+          <div class="ui-detail-field ui-detail-field--section"><strong>可见状态</strong><span>${visibleCount} 项</span></div>
+          <div class="ui-detail-field ui-detail-field--section"><strong>洞察状态</strong><span>${insightCount} 项</span></div>
+        </div>
+        <div class="observe-buff-columns">
+          ${this.renderBuffSection('可见增益', publicBuffs, '当前未见明显可见增益')}
+          ${this.renderBuffSection('可见减益', publicDebuffs, '当前未见明显可见减益')}
+          ${this.renderBuffSection('洞察增益', observeOnlyBuffs, '神识未探到额外增益')}
+          ${this.renderBuffSection('洞察减益', observeOnlyDebuffs, '神识未探到额外减益')}
+        </div>
+      </div>
     `;
   }
-}
 
+  /** renderBuffSection：渲染 Buff 分组。 */
+  private renderBuffSection(title: string, buffs: VisibleBuffState[], emptyText: string): string {
+    return `<section class="observe-buff-section">
+      <div class="observe-buff-title">${escapeHtml(title)}</div>
+      ${buffs.length > 0
+        ? `<div class="observe-buff-list">${buffs.map((buff) => this.renderBuffBadge(buff)).join('')}</div>`
+        : `<div class="observe-entity-empty">${escapeHtml(emptyText)}</div>`}
+    </section>`;
+  }
+
+  /** renderBuffBadge：渲染单个 Buff 徽记。 */
+  private renderBuffBadge(buff: VisibleBuffState): string {
+    const title = escapeHtml(buff.name);
+    const detail = escapeHtml(this.buildBuffTooltipLines(buff).join('\n'));
+    const stackText = buff.maxStacks > 1 ? `<span class="observe-buff-stack">${Math.max(0, Math.round(buff.stacks))}</span>` : '';
+    const className = buff.category === 'debuff' ? 'observe-buff-chip debuff' : 'observe-buff-chip buff';
+    return `<button class="${className}" type="button" data-entity-buff-tooltip-title="${title}" data-entity-buff-tooltip-detail="${detail}">
+      <span class="observe-buff-mark">${escapeHtml(buff.shortMark)}</span>
+      <span class="observe-buff-name">${escapeHtml(buff.name)}</span>
+      <span class="observe-buff-duration">${escapeHtml(this.formatBuffDuration(buff))}</span>
+      ${stackText}
+    </button>`;
+  }
+
+  /** bindBuffTooltips：绑定 Buff tooltip。 */
+  private bindBuffTooltips(root: ParentNode): void {
+    root.querySelectorAll<HTMLElement>('[data-entity-buff-tooltip-title]').forEach((node) => {
+      const title = node.dataset.entityBuffTooltipTitle ?? '';
+      const detail = node.dataset.entityBuffTooltipDetail ?? '';
+      const lines = detail.split('\n').filter(Boolean);
+      const tapMode = prefersPinnedTooltipInteraction();
+      node.addEventListener('click', (event) => {
+        if (!tapMode) {
+          return;
+        }
+        if (this.buffTooltip.isPinnedTo(node)) {
+          this.buffTooltip.hide(true);
+          return;
+        }
+        this.buffTooltip.showPinned(node, title, lines, event.clientX, event.clientY);
+        event.preventDefault();
+        event.stopPropagation();
+      });
+      node.addEventListener('mouseenter', (event) => {
+        this.buffTooltip.show(title, lines, event.clientX, event.clientY);
+      });
+      node.addEventListener('mousemove', (event) => {
+        this.buffTooltip.move(event.clientX, event.clientY);
+      });
+      node.addEventListener('mouseleave', () => {
+        this.buffTooltip.hide();
+      });
+    });
+  }
+
+  /** formatBuffDuration：格式化 Buff 持续时间。 */
+  private formatBuffDuration(buff: VisibleBuffState): string {
+    return `${Math.max(0, Math.round(buff.remainingTicks))} / ${Math.max(1, Math.round(buff.duration))} 息`;
+  }
+
+  /** buildBuffTooltipLines：组装 Buff tooltip 文案。 */
+  private buildBuffTooltipLines(buff: VisibleBuffState): string[] {
+    const lines = [
+      `类别：${buff.category === 'debuff' ? '减益' : '增益'}`,
+      `剩余：${this.formatBuffDuration(buff)}`,
+    ];
+    if (buff.maxStacks > 1) {
+      lines.push(`层数：${Math.max(0, Math.round(buff.stacks))} / ${Math.max(1, Math.round(buff.maxStacks))}`);
+    }
+    if (buff.sourceSkillName || buff.sourceSkillId) {
+      lines.push(`来源：${buff.sourceSkillName ?? buff.sourceSkillId}`);
+    }
+    const effectLines = describePreviewBonuses(buff.attrs, buff.stats);
+    if (effectLines.length > 0) {
+      lines.push(`效果：${effectLines.join('，')}`);
+    }
+    if (buff.desc) {
+      lines.push(buff.desc);
+    }
+    return lines;
+  }
+}

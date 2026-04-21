@@ -232,6 +232,59 @@ let WorldRuntimeGameplayWriteFacadeService = class WorldRuntimeGameplayWriteFaca
         deps.worldRuntimeCultivationService.dispatchCultivateTechnique(playerId, techniqueId, deps);
     }    
     /**
+ * dispatchStartTechniqueActivity：统一开始技艺活动写侧入口。
+ * @param playerId 玩家 ID。
+ * @param kind 技艺活动类型。
+ * @param payload 载荷参数。
+ * @param deps 运行时依赖。
+ * @returns 无返回值，直接更新技艺活动相关状态。
+ */
+
+    dispatchStartTechniqueActivity(playerId, kind, payload, deps) {
+        switch (kind) {
+            case 'alchemy':
+                deps.worldRuntimeAlchemyService.dispatchStartAlchemy(playerId, payload, deps);
+                return;
+            case 'enhancement':
+                deps.worldRuntimeEnhancementService.dispatchStartEnhancement(playerId, payload, deps);
+                return;
+            case 'gather':
+                deps.worldRuntimeCraftMutationService.flushCraftMutation(
+                    playerId,
+                    deps.worldRuntimeLootContainerService.dispatchStartGather(playerId, payload, deps),
+                    'gather',
+                    deps,
+                );
+                return;
+        }
+    }    
+    /**
+ * dispatchCancelTechniqueActivity：统一取消技艺活动写侧入口。
+ * @param playerId 玩家 ID。
+ * @param kind 技艺活动类型。
+ * @param deps 运行时依赖。
+ * @returns 无返回值，直接更新技艺活动相关状态。
+ */
+
+    dispatchCancelTechniqueActivity(playerId, kind, deps) {
+        switch (kind) {
+            case 'alchemy':
+                deps.worldRuntimeAlchemyService.dispatchCancelAlchemy(playerId, deps);
+                return;
+            case 'enhancement':
+                deps.worldRuntimeEnhancementService.dispatchCancelEnhancement(playerId, deps);
+                return;
+            case 'gather':
+                deps.worldRuntimeCraftMutationService.flushCraftMutation(
+                    playerId,
+                    deps.worldRuntimeLootContainerService.dispatchCancelGather(playerId, deps),
+                    'gather',
+                    deps,
+                );
+                return;
+        }
+    }    
+    /**
  * dispatchStartAlchemy：判断开始炼丹是否满足条件。
  * @param playerId 玩家 ID。
  * @param payload 载荷参数。
@@ -240,7 +293,7 @@ let WorldRuntimeGameplayWriteFacadeService = class WorldRuntimeGameplayWriteFaca
  */
 
     dispatchStartAlchemy(playerId, payload, deps) {
-        deps.worldRuntimeAlchemyService.dispatchStartAlchemy(playerId, payload, deps);
+        this.dispatchStartTechniqueActivity(playerId, 'alchemy', payload, deps);
     }    
     /**
  * dispatchCancelAlchemy：判断Cancel炼丹是否满足条件。
@@ -250,7 +303,7 @@ let WorldRuntimeGameplayWriteFacadeService = class WorldRuntimeGameplayWriteFaca
  */
 
     dispatchCancelAlchemy(playerId, deps) {
-        deps.worldRuntimeAlchemyService.dispatchCancelAlchemy(playerId, deps);
+        this.dispatchCancelTechniqueActivity(playerId, 'alchemy', deps);
     }    
     /**
  * dispatchSaveAlchemyPreset：判断Save炼丹Preset是否满足条件。
@@ -283,7 +336,7 @@ let WorldRuntimeGameplayWriteFacadeService = class WorldRuntimeGameplayWriteFaca
  */
 
     dispatchStartEnhancement(playerId, payload, deps) {
-        deps.worldRuntimeEnhancementService.dispatchStartEnhancement(playerId, payload, deps);
+        this.dispatchStartTechniqueActivity(playerId, 'enhancement', payload, deps);
     }    
     /**
  * dispatchCancelEnhancement：判断Cancel强化是否满足条件。
@@ -293,7 +346,7 @@ let WorldRuntimeGameplayWriteFacadeService = class WorldRuntimeGameplayWriteFaca
  */
 
     dispatchCancelEnhancement(playerId, deps) {
-        deps.worldRuntimeEnhancementService.dispatchCancelEnhancement(playerId, deps);
+        this.dispatchCancelTechniqueActivity(playerId, 'enhancement', deps);
     }    
     /**
  * dispatchInteractNpcQuest：判断InteractNPC任务是否满足条件。

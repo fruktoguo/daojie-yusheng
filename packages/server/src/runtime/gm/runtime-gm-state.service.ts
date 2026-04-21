@@ -38,6 +38,16 @@ const EMPTY_CPU_BREAKDOWN = [];
 const EMPTY_NETWORK_BUCKETS = [];
 
 const EMPTY_PATHFINDING_FAILURES = [];
+const CPU_BREAKDOWN_LABELS = Object.freeze({
+    pendingCommandsMs: '待处理命令',
+    systemCommandsMs: '系统命令',
+    instanceTicksMs: '实例 tick',
+    transfersMs: '跨图迁移',
+    monsterActionsMs: '怪物行为',
+    playerAdvanceMs: '玩家推进',
+    syncFlushMs: '同步广播',
+    otherMs: '其余开销',
+});
 
 let RuntimeGmStateService = class RuntimeGmStateService {
     /** 地图模板仓库，用于把地图 ID 还原成可读名称。 */
@@ -50,6 +60,10 @@ let RuntimeGmStateService = class RuntimeGmStateService {
     worldSessionService;
     /** 等待下次 flush 的 GM 状态推送目标。 */
     pendingStatePushPlayerIds = new Set();
+    /** 网络上行事件累计桶。 */
+    networkInBucketByKey = new Map();
+    /** 网络下行事件累计桶。 */
+    networkOutBucketByKey = new Map();
     /** 缓存依赖并接入 GM 状态推送链路。 */
     constructor(mapTemplateRepository, playerRuntimeService, worldRuntimeService, worldSessionService) {
         this.mapTemplateRepository = mapTemplateRepository;
@@ -96,22 +110,22 @@ let RuntimeGmStateService = class RuntimeGmStateService {
     }
     /** 把 GM 的玩家变更请求转交给 world runtime 统一处理。 */
     enqueueUpdatePlayer(requesterPlayerId, payload) {
-        this.worldRuntimeService.enqueueGmUpdatePlayer(payload);
+        this.worldRuntimeService.worldRuntimeCommandIntakeFacadeService.enqueueGmUpdatePlayer(payload);
         this.queueMutationStatePush(requesterPlayerId);
     }
     /** 把 GM 的玩家重置请求转交给 world runtime。 */
     enqueueResetPlayer(requesterPlayerId, playerId) {
-        this.worldRuntimeService.enqueueGmResetPlayer(playerId);
+        this.worldRuntimeService.worldRuntimeCommandIntakeFacadeService.enqueueGmResetPlayer(playerId);
         this.queueMutationStatePush(requesterPlayerId);
     }
     /** 把 GM 的刷怪请求转交给 world runtime。 */
     enqueueSpawnBots(requesterPlayerId, count) {
-        this.worldRuntimeService.enqueueGmSpawnBots(requesterPlayerId, count);
+        this.worldRuntimeService.worldRuntimeCommandIntakeFacadeService.enqueueGmSpawnBots(requesterPlayerId, count);
         this.queueMutationStatePush(requesterPlayerId);
     }
     /** 把 GM 的批量删 bot 请求转交给 world runtime。 */
     enqueueRemoveBots(requesterPlayerId, playerIds, all) {
-        this.worldRuntimeService.enqueueGmRemoveBots(playerIds, all);
+        this.worldRuntimeService.worldRuntimeCommandIntakeFacadeService.enqueueGmRemoveBots(playerIds, all);
         this.queueMutationStatePush(requesterPlayerId);
     }
     /** GM mutation 成功入队后，统一决定是否刷新 GM 面板状态。 */
@@ -143,6 +157,19 @@ let RuntimeGmStateService = class RuntimeGmStateService {
     /** GM 状态最终协议固定收敛到 next。 */
     resolveEffectiveProtocol(client) {
         return 'next';
+    }
+    /** 记录客户端 -> 服务端的 socket 事件流量。 */
+    recordNetworkIn(event, payload) {
+        this.recordNetworkBucket(this.networkInBucketByKey, event, payload);
+    }
+    /** 记录服务端 -> 客户端的 socket 事件流量。 */
+    recordNetworkOut(event, payload) {
+        this.recordNetworkBucket(this.networkOutBucketByKey, event, payload);
+    }
+    /** 清空累计网络统计。 */
+    resetNetworkPerfCounters() {
+        this.networkInBucketByKey.clear();
+        this.networkOutBucketByKey.clear();
     }
     /** 汇总在线玩家、地图列表和性能数据，生成 GM 面板快照。 */
     buildState() {
@@ -209,10 +236,18 @@ let RuntimeGmStateService = class RuntimeGmStateService {
         const now = Date.now();
 
         const sharedGmStatePerf = this.buildSharedGmStatePerf();
+        const networkInBuckets = buildSortedNetworkBuckets(this.networkInBucketByKey);
+        const networkOutBuckets = buildSortedNetworkBuckets(this.networkOutBucketByKey);
+        const networkInBytes = sumBucketBytes(networkInBuckets);
+        const networkOutBytes = sumBucketBytes(networkOutBuckets);
+        const cpuBreakdown = buildCpuBreakdown(summary);
+        const cpuPercent = cpuBreakdown.length > 0
+            ? roundMetric(Math.max(0, Math.min(100, cpuBreakdown.reduce((sum, entry) => sum + entry.percent, 0))))
+            : 0;
 
         const tickAvgMs = summary.tickPerf?.totalMs?.avg60 ?? summary.lastTickDurationMs;
         return {
-            cpuPercent: 0,
+            cpuPercent,
             memoryMb: bytesToMb(memoryUsage.rss),
             tickMs: summary.lastTickDurationMs,
             tick: {
@@ -239,7 +274,7 @@ let RuntimeGmStateService = class RuntimeGmStateService {
                 externalMb: bytesToMb(memoryUsage.external),
                 profileStartedAt: Math.max(0, now - Math.round(processUptimeSec * 1000)),
                 profileElapsedSec: roundMetric(processUptimeSec),
-                breakdown: EMPTY_CPU_BREAKDOWN,
+                breakdown: cpuBreakdown.length > 0 ? cpuBreakdown : EMPTY_CPU_BREAKDOWN,
             },
             pathfinding: {
                 statsStartedAt: now,
@@ -263,10 +298,10 @@ let RuntimeGmStateService = class RuntimeGmStateService {
             },
             networkStatsStartedAt: now,
             networkStatsElapsedSec: 0,
-            networkInBytes: 0,
-            networkOutBytes: 0,
-            networkInBuckets: EMPTY_NETWORK_BUCKETS,
-            networkOutBuckets: EMPTY_NETWORK_BUCKETS,
+            networkInBytes,
+            networkOutBytes,
+            networkInBuckets: networkInBuckets.length > 0 ? networkInBuckets : EMPTY_NETWORK_BUCKETS,
+            networkOutBuckets: networkOutBuckets.length > 0 ? networkOutBuckets : EMPTY_NETWORK_BUCKETS,
         };
     }    
     /**
@@ -283,6 +318,29 @@ let RuntimeGmStateService = class RuntimeGmStateService {
             queueDepth: 0,
             peakQueueDepth: 0,
         };
+    }
+    /** 把事件累计到对应流量桶。 */
+    recordNetworkBucket(bucketByKey, event, payload) {
+        const key = normalizeNetworkEventKey(event);
+        if (!key) {
+            return;
+        }
+        const bytes = measureNetworkPayloadBytes(event, payload);
+        if (bytes <= 0) {
+            return;
+        }
+        const current = bucketByKey.get(key);
+        if (current) {
+            current.bytes += bytes;
+            current.count += 1;
+            return;
+        }
+        bucketByKey.set(key, {
+            key,
+            label: key,
+            bytes,
+            count: 1,
+        });
     }
 };
 exports.RuntimeGmStateService = RuntimeGmStateService;
@@ -311,4 +369,101 @@ function roundMetric(value) {
 
 function bytesToMb(value) {
     return roundMetric(value / (1024 * 1024));
+}
+
+function buildSortedNetworkBuckets(bucketByKey) {
+    return Array.from(bucketByKey.values()).sort((left, right) => {
+        if (right.bytes !== left.bytes) {
+            return right.bytes - left.bytes;
+        }
+        if (right.count !== left.count) {
+            return right.count - left.count;
+        }
+        return left.label.localeCompare(right.label, 'zh-Hans-CN');
+    }).map((entry) => ({
+        key: entry.key,
+        label: entry.label,
+        bytes: roundMetric(entry.bytes),
+        count: entry.count,
+    }));
+}
+
+function sumBucketBytes(buckets) {
+    return roundMetric(buckets.reduce((sum, bucket) => sum + bucket.bytes, 0));
+}
+
+function normalizeNetworkEventKey(event) {
+    return typeof event === 'string' ? event.trim() : '';
+}
+
+function measureNetworkPayloadBytes(event, payload) {
+    const eventKey = normalizeNetworkEventKey(event);
+    if (!eventKey) {
+        return 0;
+    }
+    try {
+        const serialized = JSON.stringify(payload ?? null);
+        return Buffer.byteLength(eventKey, 'utf8') + Buffer.byteLength(serialized ?? 'null', 'utf8');
+    }
+    catch (_error) {
+        return Buffer.byteLength(eventKey, 'utf8');
+    }
+}
+
+function buildCpuBreakdown(summary) {
+    const phaseSummaries = summary?.tickPerf?.phaseSummaries;
+    const totalWindowMs = Number(summary?.tickPerf?.totalMs?.avg60 ?? 0) * Number(phaseSummaries?.pendingCommandsMs?.sampleCount ?? 0);
+    const rows = [];
+    let coveredTotalMs = 0;
+    for (const key of [
+        'pendingCommandsMs',
+        'systemCommandsMs',
+        'instanceTicksMs',
+        'transfersMs',
+        'monsterActionsMs',
+        'playerAdvanceMs',
+    ]) {
+        const phaseSummary = phaseSummaries?.[key];
+        const totalMs = Number(phaseSummary?.totalMs ?? 0);
+        if (!(totalMs > 0)) {
+            continue;
+        }
+        coveredTotalMs += totalMs;
+        rows.push({
+            key,
+            label: CPU_BREAKDOWN_LABELS[key] ?? key,
+            totalMs: roundMetric(totalMs),
+            count: Number(phaseSummary?.count ?? 0),
+            avgMs: roundMetric(Number(phaseSummary?.avgMs ?? 0)),
+            percent: totalWindowMs > 0 ? roundMetric((totalMs / totalWindowMs) * 100) : 0,
+        });
+    }
+    const syncFlushSummary = summary?.tickPerf?.syncFlushMs;
+    const syncFlushCount = Number(syncFlushSummary?.count ?? 0);
+    const syncFlushTotalMs = roundMetric(Number(syncFlushSummary?.avg60 ?? 0) * syncFlushCount);
+    if (syncFlushTotalMs > 0) {
+        coveredTotalMs += syncFlushTotalMs;
+        rows.push({
+            key: 'syncFlushMs',
+            label: CPU_BREAKDOWN_LABELS.syncFlushMs,
+            totalMs: syncFlushTotalMs,
+            count: syncFlushCount,
+            avgMs: roundMetric(Number(syncFlushSummary?.avg60 ?? 0)),
+            percent: totalWindowMs > 0 ? roundMetric((syncFlushTotalMs / totalWindowMs) * 100) : 0,
+        });
+    }
+    const otherTotalMs = roundMetric(Math.max(0, totalWindowMs - coveredTotalMs));
+    if (otherTotalMs > 0) {
+        rows.push({
+            key: 'otherMs',
+            label: CPU_BREAKDOWN_LABELS.otherMs,
+            totalMs: otherTotalMs,
+            count: Number(phaseSummaries?.pendingCommandsMs?.sampleCount ?? 0),
+            avgMs: Number(phaseSummaries?.pendingCommandsMs?.sampleCount ?? 0) > 0
+                ? roundMetric(otherTotalMs / Number(phaseSummaries.pendingCommandsMs.sampleCount))
+                : 0,
+            percent: totalWindowMs > 0 ? roundMetric((otherTotalMs / totalWindowMs) * 100) : 0,
+        });
+    }
+    return rows;
 }

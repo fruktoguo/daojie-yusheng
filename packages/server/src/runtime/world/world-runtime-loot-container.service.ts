@@ -15,6 +15,7 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.WorldRuntimeLootContainerService = void 0;
 
 const common_1 = require("@nestjs/common");
+const shared_1 = require("@mud/shared-next");
 const content_template_repository_1 = require("../../content/content-template.repository");
 const player_runtime_service_1 = require("../player/player-runtime.service");
 const world_runtime_normalization_helpers_1 = require("./world-runtime.normalization.helpers");
@@ -47,6 +48,8 @@ const CONTAINER_SEARCH_TICKS_BY_GRADE = {
     saint: 4,
     emperor: 4,
 };
+
+const DEFAULT_CRAFT_EXP_TO_NEXT = 60;
 
 /** loot/container 状态域服务：承接容器状态、翻找推进、持久化与容器拿取。 */
 let WorldRuntimeLootContainerService = class WorldRuntimeLootContainerService {
@@ -190,7 +193,9 @@ let WorldRuntimeLootContainerService = class WorldRuntimeLootContainerService {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
         const containerState = this.ensureContainerState(instanceId, container, currentTick);
-        if (!containerState.activeSearch && hasHiddenContainerEntries(containerState.entries)) {
+        if (container.variant !== 'herb'
+            && !containerState.activeSearch
+            && hasHiddenContainerEntries(containerState.entries)) {
             this.beginContainerSearch(containerState, container.grade);
             this.markContainerPersistenceDirty(instanceId);
         }
@@ -209,6 +214,39 @@ let WorldRuntimeLootContainerService = class WorldRuntimeLootContainerService {
         const containerState = this.containerStatesByInstanceId.get(instanceId)?.get(buildContainerSourceId(instanceId, container.id));
         if (!containerState) {
             return null;
+        }
+        if (container.variant === 'herb') {
+            const herbRows = groupContainerLootRows(containerState.entries);
+            const primaryItem = herbRows[0]?.item ?? null;
+            return {
+                sourceId: containerState.sourceId,
+                kind: 'container',
+                title: container.name,
+                desc: container.desc,
+                grade: container.grade,
+                searchable: true,
+                search: containerState.activeSearch
+                    ? {
+                        totalTicks: containerState.activeSearch.totalTicks,
+                        remainingTicks: containerState.activeSearch.remainingTicks,
+                        elapsedTicks: containerState.activeSearch.totalTicks - containerState.activeSearch.remainingTicks,
+                    }
+                    : undefined,
+                items: herbRows.map((entry) => ({
+                    itemKey: entry.itemKey,
+                    item: { ...entry.item },
+                })),
+                emptyText: herbRows.length > 0
+                    ? '当前可继续采集此处草药。'
+                    : '这处草药已经采尽，正在等待重新生长。',
+                variant: 'herb',
+                herb: {
+                    grade: container.grade,
+                    level: Math.max(1, Math.floor(Number(primaryItem?.level) || 1)),
+                    gatherTicks: CONTAINER_SEARCH_TICKS_BY_GRADE[container.grade] ?? 1,
+                },
+                destroyed: herbRows.length <= 0,
+            };
         }
         return {
             sourceId: containerState.sourceId,
@@ -252,7 +290,7 @@ let WorldRuntimeLootContainerService = class WorldRuntimeLootContainerService {
             if (typeof existing.refreshAtTick === 'number' && existing.refreshAtTick <= currentTick && !existing.activeSearch) {
                 existing.entries = this.generateContainerEntries(container, currentTick);
                 existing.generatedAtTick = currentTick;
-                existing.refreshAtTick = container.refreshTicks ? currentTick + container.refreshTicks : undefined;
+                existing.refreshAtTick = resolveContainerRefreshAtTick(container, currentTick);
                 this.markContainerPersistenceDirty(instanceId);
             }
             return existing;
@@ -262,7 +300,7 @@ let WorldRuntimeLootContainerService = class WorldRuntimeLootContainerService {
             containerId: container.id,
             entries: this.generateContainerEntries(container, currentTick),
             generatedAtTick: currentTick,
-            refreshAtTick: container.refreshTicks ? currentTick + container.refreshTicks : undefined,
+            refreshAtTick: resolveContainerRefreshAtTick(container, currentTick),
             activeSearch: undefined,
         };
         states.set(sourceId, created);
@@ -359,6 +397,9 @@ let WorldRuntimeLootContainerService = class WorldRuntimeLootContainerService {
                 if (!runtimeContainer) {
                     continue;
                 }
+                if (runtimeContainer.variant === 'herb') {
+                    continue;
+                }
                 if (!state.activeSearch) {
                     if (hasHiddenContainerEntries(state.entries) && this.hasActiveContainerViewer(instanceId, runtimeContainer.x, runtimeContainer.y, playerLocationIndex)) {
                         this.beginContainerSearch(state, runtimeContainer.grade);
@@ -427,6 +468,224 @@ let WorldRuntimeLootContainerService = class WorldRuntimeLootContainerService {
 
     markContainerPersistenceDirty(instanceId) {
         this.dirtyContainerPersistenceInstanceIds.add(instanceId);
+    }    
+    /**
+ * dispatchStartGather：开始草药采集。
+ * @param playerId 玩家 ID。
+ * @param payload 采集载荷。
+ * @param deps 运行时依赖。
+ * @returns 返回统一 mutation 结果。
+ */
+
+    dispatchStartGather(playerId, payload, deps) {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
+        const location = deps.getPlayerLocationOrThrow(playerId);
+        const player = this.playerRuntimeService.getPlayerOrThrow(playerId);
+        if (player.gatherJob && Number(player.gatherJob.remainingTicks) > 0) {
+            return buildContainerMutationResult('当前已有采集任务在进行中。');
+        }
+        const sourceId = typeof payload?.sourceId === 'string' ? payload.sourceId.trim() : '';
+        const itemKey = typeof payload?.itemKey === 'string' ? payload.itemKey.trim() : '';
+        const resolved = this.resolveHerbContainerStateForPlayer(location.instanceId, playerId, player, sourceId, deps);
+        const herbRows = groupContainerLootRows(resolved.state.entries);
+        const nextRow = (itemKey
+            ? herbRows.find((entry) => entry.itemKey === itemKey)
+            : herbRows[0]) ?? null;
+        if (!nextRow) {
+            return buildContainerMutationResult('当前没有可采集的草药。');
+        }
+        const totalTicks = CONTAINER_SEARCH_TICKS_BY_GRADE[resolved.container.grade] ?? 1;
+        resolved.state.activeSearch = {
+            itemKey: nextRow.itemKey,
+            totalTicks,
+            remainingTicks: totalTicks,
+        };
+        player.gatherJob = {
+            resourceNodeId: resolved.container.id,
+            resourceNodeName: resolved.container.name,
+            startedAt: Date.now(),
+            totalTicks,
+            remainingTicks: totalTicks,
+            pausedTicks: 0,
+            successRate: 1,
+            spiritStoneCost: 0,
+            phase: 'gathering',
+        };
+        this.playerRuntimeService.bumpPersistentRevision(player);
+        this.markContainerPersistenceDirty(location.instanceId);
+        return buildContainerTickResult(false, [{
+                kind: 'info',
+                text: `你开始采集 ${resolved.container.name}。`,
+            }]);
+    }    
+    /**
+ * dispatchCancelGather：取消当前草药采集。
+ * @param playerId 玩家 ID。
+ * @param deps 运行时依赖。
+ * @returns 返回统一 mutation 结果。
+ */
+
+    dispatchCancelGather(playerId, deps) {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
+        const player = this.playerRuntimeService.getPlayerOrThrow(playerId);
+        const job = player.gatherJob;
+        if (!job || Number(job.remainingTicks) <= 0) {
+            return buildContainerMutationResult('当前没有可取消的采集任务。');
+        }
+        const location = deps.getPlayerLocationOrThrow(playerId);
+        const instance = deps.getInstanceRuntimeOrThrow(location.instanceId);
+        const container = instance.getContainerById(job.resourceNodeId);
+        if (container) {
+            const state = this.ensureContainerState(location.instanceId, container, deps.tick);
+            state.activeSearch = undefined;
+            this.markContainerPersistenceDirty(location.instanceId);
+        }
+        player.gatherJob = null;
+        this.playerRuntimeService.bumpPersistentRevision(player);
+        return buildContainerTickResult(false, [{
+                kind: 'info',
+                text: `你停止了 ${job.resourceNodeName} 的采集。`,
+            }]);
+    }    
+    /**
+ * interruptGather：因移动或出手中断采集。
+ * @param playerId 玩家 ID。
+ * @param player 玩家对象。
+ * @param reason 中断原因。
+ * @param deps 运行时依赖。
+ * @returns 返回统一 tick 结果。
+ */
+
+    interruptGather(playerId, player, reason, deps) {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
+        const job = player.gatherJob;
+        if (!job || Number(job.remainingTicks) <= 0) {
+            return buildContainerTickResult();
+        }
+        const location = deps.getPlayerLocationOrThrow(playerId);
+        const instance = deps.getInstanceRuntimeOrThrow(location.instanceId);
+        const container = instance.getContainerById(job.resourceNodeId);
+        if (container) {
+            const state = this.ensureContainerState(location.instanceId, container, deps.tick);
+            state.activeSearch = undefined;
+            this.markContainerPersistenceDirty(location.instanceId);
+        }
+        player.gatherJob = null;
+        this.playerRuntimeService.bumpPersistentRevision(player);
+        return buildContainerTickResult(false, [{
+                kind: 'system',
+                text: `${job.resourceNodeName} 的采集被${reason === 'move' ? '移动' : '出手'}打断。`,
+            }]);
+    }    
+    /**
+ * tickGather：推进当前草药采集。
+ * @param playerId 玩家 ID。
+ * @param deps 运行时依赖。
+ * @returns 返回统一 tick 结果。
+ */
+
+    tickGather(playerId, deps) {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
+        const player = this.playerRuntimeService.getPlayer(playerId);
+        const job = player?.gatherJob;
+        if (!player || !job || Number(job.remainingTicks) <= 0) {
+            return buildContainerTickResult();
+        }
+        const location = deps.getPlayerLocationOrThrow(playerId);
+        const instance = deps.getInstanceRuntimeOrThrow(location.instanceId);
+        const container = instance.getContainerById(job.resourceNodeId);
+        if (!container || container.variant !== 'herb') {
+            player.gatherJob = null;
+            this.playerRuntimeService.bumpPersistentRevision(player);
+            return buildContainerTickResult(false, [{
+                    kind: 'warn',
+                    text: '采集目标已经不存在。',
+                }]);
+        }
+        const lootWindowTarget = this.playerRuntimeService.getLootWindowTarget(playerId);
+        if (!lootWindowTarget
+            || lootWindowTarget.tileX !== container.x
+            || lootWindowTarget.tileY !== container.y
+            || Math.max(Math.abs(player.x - container.x), Math.abs(player.y - container.y)) > 1) {
+            player.gatherJob = null;
+            this.playerRuntimeService.bumpPersistentRevision(player);
+            return buildContainerTickResult(false, [{
+                    kind: 'warn',
+                    text: '你已离开草药采集范围。',
+                }]);
+        }
+        const state = this.ensureContainerState(location.instanceId, container, deps.tick);
+        if (!state.activeSearch) {
+            const nextRow = groupContainerLootRows(state.entries)[0] ?? null;
+            if (!nextRow) {
+                player.gatherJob = null;
+                this.playerRuntimeService.bumpPersistentRevision(player);
+                return buildContainerTickResult(false, [{
+                        kind: 'info',
+                        text: `${container.name} 已经采尽。`,
+                    }]);
+            }
+            const totalTicks = CONTAINER_SEARCH_TICKS_BY_GRADE[container.grade] ?? 1;
+            state.activeSearch = {
+                itemKey: nextRow.itemKey,
+                totalTicks,
+                remainingTicks: totalTicks,
+            };
+            job.totalTicks = totalTicks;
+            job.remainingTicks = totalTicks;
+        }
+        state.activeSearch.remainingTicks -= 1;
+        job.remainingTicks = Math.max(0, state.activeSearch.remainingTicks);
+        this.markContainerPersistenceDirty(location.instanceId);
+        if (state.activeSearch.remainingTicks > 0) {
+            this.playerRuntimeService.bumpPersistentRevision(player);
+            return buildContainerTickResult();
+        }
+        const harvestedRow = groupContainerLootRows(state.entries)
+            .find((entry) => entry.itemKey === state.activeSearch?.itemKey) ?? null;
+        if (!harvestedRow) {
+            state.activeSearch = undefined;
+            player.gatherJob = null;
+            this.playerRuntimeService.bumpPersistentRevision(player);
+            return buildContainerTickResult(false, [{
+                    kind: 'warn',
+                    text: `${container.name} 当前没有可收取的草药。`,
+                }]);
+        }
+        removeContainerRowEntries(state.entries, harvestedRow.entries);
+        state.activeSearch = undefined;
+        this.playerRuntimeService.receiveInventoryItem(playerId, harvestedRow.item);
+        const skillChanged = applyGatherSkillExp(player.gatherSkill, harvestedRow.item.level, job.totalTicks);
+        deps.refreshQuestStates(playerId);
+        const nextRow = groupContainerLootRows(state.entries)[0] ?? null;
+        if (nextRow) {
+            const totalTicks = CONTAINER_SEARCH_TICKS_BY_GRADE[container.grade] ?? 1;
+            state.activeSearch = {
+                itemKey: nextRow.itemKey,
+                totalTicks,
+                remainingTicks: totalTicks,
+            };
+            player.gatherJob = {
+                ...job,
+                startedAt: Date.now(),
+                totalTicks,
+                remainingTicks: totalTicks,
+                pausedTicks: 0,
+                phase: 'gathering',
+            };
+        }
+        else {
+            player.gatherJob = null;
+        }
+        this.playerRuntimeService.bumpPersistentRevision(player);
+        return buildContainerTickResult(false, [{
+                kind: 'loot',
+                text: `获得 ${formatItemStackLabel(harvestedRow.item)}`,
+            }], true, false, Boolean(skillChanged));
     }    
     /**
  * dispatchTakeGround：判断Take地面是否满足条件。
@@ -527,6 +786,9 @@ let WorldRuntimeLootContainerService = class WorldRuntimeLootContainerService {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
         const resolved = this.resolveContainerStateForPlayer(instanceId, playerId, player, sourceId, deps);
+        if (resolved.container.variant === 'herb') {
+            throw new common_1.BadRequestException('草药采集请使用采集动作');
+        }
         const row = groupContainerLootRows(resolved.state.entries.filter((entry) => entry.visible)).find((entry) => entry.itemKey === itemKey);
         if (!row) {
             throw new common_1.NotFoundException(`Container item ${itemKey} not found at ${sourceId}`);
@@ -555,6 +817,9 @@ let WorldRuntimeLootContainerService = class WorldRuntimeLootContainerService {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
         const resolved = this.resolveContainerStateForPlayer(instanceId, playerId, player, sourceId, deps);
+        if (resolved.container.variant === 'herb') {
+            throw new common_1.BadRequestException('草药采集请使用采集动作');
+        }
         const rows = groupContainerLootRows(resolved.state.entries.filter((entry) => entry.visible));
         if (rows.length === 0) {
             return [];
@@ -619,6 +884,23 @@ let WorldRuntimeLootContainerService = class WorldRuntimeLootContainerService {
             throw new common_1.BadRequestException('当前拿取界面与目标容器不一致');
         }
         return { container, state: this.ensureContainerState(instanceId, container, deps.tick) };
+    }    
+    /**
+ * resolveHerbContainerStateForPlayer：解析草药容器状态。
+ * @param instanceId instance ID。
+ * @param playerId 玩家 ID。
+ * @param player 玩家对象。
+ * @param sourceId source ID。
+ * @param deps 运行时依赖。
+ * @returns 返回草药容器与状态。
+ */
+
+    resolveHerbContainerStateForPlayer(instanceId, playerId, player, sourceId, deps) {
+        const resolved = this.resolveContainerStateForPlayer(instanceId, playerId, player, sourceId, deps);
+        if (resolved.container.variant !== 'herb') {
+            throw new common_1.BadRequestException('当前目标不是草药采集点');
+        }
+        return resolved;
     }
 };
 exports.WorldRuntimeLootContainerService = WorldRuntimeLootContainerService;
@@ -636,6 +918,90 @@ exports.WorldRuntimeLootContainerService = WorldRuntimeLootContainerService = __
 
 function buildIsContainerSourceId(sourceId) {
     return typeof sourceId === 'string' && sourceId.startsWith('container:');
+}
+
+function resolveContainerRefreshAtTick(container, currentTick) {
+    const fixedRefreshTicks = Number.isInteger(container.refreshTicks) && Number(container.refreshTicks) > 0
+        ? Number(container.refreshTicks)
+        : undefined;
+    if (fixedRefreshTicks) {
+        return currentTick + fixedRefreshTicks;
+    }
+    const refreshTicksMin = Number.isInteger(container.refreshTicksMin) && Number(container.refreshTicksMin) > 0
+        ? Number(container.refreshTicksMin)
+        : undefined;
+    const refreshTicksMax = Number.isInteger(container.refreshTicksMax) && Number(container.refreshTicksMax) > 0
+        ? Number(container.refreshTicksMax)
+        : undefined;
+    if (!refreshTicksMin && !refreshTicksMax) {
+        return undefined;
+    }
+    const min = refreshTicksMin ?? refreshTicksMax ?? 1;
+    const max = Math.max(min, refreshTicksMax ?? min);
+    return currentTick + randomIntInclusive(min, max);
+}
+
+function randomIntInclusive(min, max) {
+    const normalizedMin = Math.max(1, Math.floor(Number(min) || 1));
+    const normalizedMax = Math.max(normalizedMin, Math.floor(Number(max) || normalizedMin));
+    return normalizedMin + Math.floor(Math.random() * ((normalizedMax - normalizedMin) + 1));
+}
+
+function buildContainerMutationResult(error) {
+    return {
+        ok: false,
+        error,
+        messages: [],
+        panelChanged: false,
+    };
+}
+
+function buildContainerTickResult(panelChanged = false, messages = [], inventoryChanged = false, equipmentChanged = false, attrChanged = false, groundDrops = []) {
+    return {
+        ok: true,
+        panelChanged,
+        inventoryChanged,
+        equipmentChanged,
+        attrChanged,
+        messages,
+        groundDrops,
+    };
+}
+
+function getCraftSkillExpToNextByLevel(level) {
+    const normalizedLevel = Math.max(1, Math.floor(Number(level) || 1));
+    return Math.max(DEFAULT_CRAFT_EXP_TO_NEXT, DEFAULT_CRAFT_EXP_TO_NEXT + ((normalizedLevel - 1) * 12));
+}
+
+function applyCraftSkillExp(skill, amount) {
+    if (!skill) {
+        return false;
+    }
+    let changed = false;
+    skill.exp += Math.max(0, Math.floor(Number(amount) || 0));
+    while (skill.expToNext > 0 && skill.exp >= skill.expToNext) {
+        skill.exp -= skill.expToNext;
+        skill.level += 1;
+        skill.expToNext = getCraftSkillExpToNextByLevel(skill.level);
+        changed = true;
+    }
+    return changed || amount > 0;
+}
+
+function applyGatherSkillExp(skill, targetLevel, baseActionTicks) {
+    if (!skill) {
+        return false;
+    }
+    const gain = shared_1.computeCraftSkillExpGain({
+        skillLevel: skill.level,
+        targetLevel,
+        baseActionTicks,
+        getExpToNextByLevel: getCraftSkillExpToNextByLevel,
+        successCount: 1,
+        failureCount: 0,
+        successMultiplier: 1,
+    }).finalGain;
+    return applyCraftSkillExp(skill, gain);
 }
 
 export { WorldRuntimeLootContainerService };

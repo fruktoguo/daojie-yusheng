@@ -1,32 +1,20 @@
-// @ts-nocheck
-"use strict";
-var __decorate = (this && this.__decorate) || function (decorators, target, key, desc) {
+import { Inject, Injectable, Logger, Optional } from '@nestjs/common';
 
-    var c = arguments.length, r = c < 3 ? target : desc === null ? desc = Object.getOwnPropertyDescriptor(target, key) : desc, d;
-    if (typeof Reflect === "object" && typeof Reflect.decorate === "function") r = Reflect.decorate(decorators, target, key, desc);
-    else for (var i = decorators.length - 1; i >= 0; i--) if (d = decorators[i]) r = (c < 3 ? d(r) : c > 3 ? d(target, key, r) : d(target, key)) || r;
-    return c > 3 && r && Object.defineProperty(target, key, r), r;
-};
+import * as shared_1 from '@mud/shared-next';
 
-var __metadata = (this && this.__metadata) || function (k, v) {
-    if (typeof Reflect === "object" && typeof Reflect.metadata === "function") return Reflect.metadata(k, v);
-};
+import { NextPlayerAuthStoreService } from '../http/next/next-player-auth-store.service';
+import { PlayerIdentityPersistenceService } from '../persistence/player-identity-persistence.service';
+import { PlayerPersistenceService } from '../persistence/player-persistence.service';
 
-var __param = (this && this.__param) || function (paramIndex, decorator) {
-    return function (target, key) { decorator(target, key, paramIndex); };
-};
-Object.defineProperty(exports, "__esModule", { value: true });
-exports.toPlayerSnapshotFromMigrationRow = exports.WorldPlayerSourceService = void 0;
+interface PlayerIdentityPersistencePort {
+    isEnabled(): boolean;
+    loadPlayerIdentity(userId: string): Promise<unknown>;
+}
 
-const common_1 = require("@nestjs/common");
-
-const shared_1 = require("@mud/shared-next");
-
-const next_player_auth_store_service_1 = require("../http/next/next-player-auth-store.service");
-
-const player_identity_persistence_service_1 = require("../persistence/player-identity-persistence.service");
-
-const player_persistence_service_1 = require("../persistence/player-persistence.service");
+interface PlayerSnapshotPersistencePort {
+    isEnabled(): boolean;
+    loadPlayerSnapshotRecord(playerId: string): Promise<{ snapshot?: unknown } | null>;
+}
 
 const DISABLE_MIGRATION_SOURCE_ENV_KEYS = [
     'SERVER_NEXT_AUTH_DISABLE_COMPAT_MIGRATION_SOURCE',
@@ -60,15 +48,15 @@ function assertExplicitMigrationAccess(options, logger, action) {
 }
 
 /** 玩家来源服务：主链只认 next 真源，legacy 数据库只保留给显式 migration 入口。 */
-let WorldPlayerSourceService = class WorldPlayerSourceService {
+@Injectable()
+export class WorldPlayerSourceService {
     /** 记录来源解析与迁移入口行为。 */
-    logger = new common_1.Logger(WorldPlayerSourceService.name);
-    /** 保留注入位，避免迁移期外部 provider 断裂。 */
-    authStore;
+    private readonly logger = new Logger(WorldPlayerSourceService.name);
     /** next 身份持久化入口。 */
-    playerIdentityPersistenceService;
+    private readonly playerIdentityPersistenceService: PlayerIdentityPersistencePort;
     /** next 快照持久化入口。 */
-    playerPersistenceService;    
+    private readonly playerPersistenceService: PlayerSnapshotPersistencePort;
+
     /**
  * 构造器：初始化 当前 实例并建立基础状态。
  * @param authStore 参数说明。
@@ -77,11 +65,17 @@ let WorldPlayerSourceService = class WorldPlayerSourceService {
  * @returns 无返回值，完成实例初始化。
  */
 
-    constructor(authStore, playerIdentityPersistenceService, playerPersistenceService) {
-        this.authStore = authStore;
-        this.playerIdentityPersistenceService = playerIdentityPersistenceService;
-        this.playerPersistenceService = playerPersistenceService;
-    }    
+    constructor(
+        @Optional() _authStore: NextPlayerAuthStoreService | null,
+        @Inject(PlayerIdentityPersistenceService)
+        playerIdentityPersistenceService: unknown,
+        @Inject(PlayerPersistenceService)
+        playerPersistenceService: unknown,
+    ) {
+        this.playerIdentityPersistenceService = playerIdentityPersistenceService as PlayerIdentityPersistencePort;
+        this.playerPersistenceService = playerPersistenceService as PlayerSnapshotPersistencePort;
+    }
+
     /**
  * onModuleInit：执行on模块Init相关逻辑。
  * @returns 无返回值，直接更新on模块Init相关状态。
@@ -89,7 +83,8 @@ let WorldPlayerSourceService = class WorldPlayerSourceService {
 
     async onModuleInit() {
         return;
-    }    
+    }
+
     /**
  * onModuleDestroy：执行on模块Destroy相关逻辑。
  * @returns 无返回值，直接更新on模块Destroy相关状态。
@@ -112,8 +107,7 @@ let WorldPlayerSourceService = class WorldPlayerSourceService {
     async loadNextPlayerIdentity(userId) {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
-        if (!this.isNextIdentitySourceEnabled()
-            || typeof this.playerIdentityPersistenceService?.loadPlayerIdentity !== 'function') {
+        if (!this.isNextIdentitySourceEnabled()) {
             return null;
         }
         return this.playerIdentityPersistenceService.loadPlayerIdentity(userId);
@@ -122,8 +116,7 @@ let WorldPlayerSourceService = class WorldPlayerSourceService {
     async loadNextPlayerSnapshotRecord(playerId) {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
-        if (!this.isNextSnapshotSourceEnabled()
-            || typeof this.playerPersistenceService?.loadPlayerSnapshotRecord !== 'function') {
+        if (!this.isNextSnapshotSourceEnabled()) {
             return null;
         }
         return this.playerPersistenceService.loadPlayerSnapshotRecord(playerId);
@@ -138,7 +131,7 @@ let WorldPlayerSourceService = class WorldPlayerSourceService {
     isMigrationSourceEnabled(options = undefined) {
         return isMigrationAccessExplicit(options)
             && !isMigrationSourceDisabled();
-    }    
+    }
     /**
  * resolvePlayerIdentityForMigration：规范化或转换玩家IdentityForMigration。
  * @param payload 载荷参数。
@@ -153,7 +146,7 @@ let WorldPlayerSourceService = class WorldPlayerSourceService {
             this.logger.warn(`旧玩家源 identity_source 已移除：reason=legacy_users_players_removed migration_only=true userId=${typeof payload?.sub === 'string' ? payload.sub : '未知'}`);
         }
         return null;
-    }    
+    }
     /**
  * loadPlayerSnapshotForMigration：读取玩家快照ForMigration并返回结果。
  * @param playerId 玩家 ID。
@@ -169,15 +162,7 @@ let WorldPlayerSourceService = class WorldPlayerSourceService {
         }
         return null;
     }
-};
-exports.WorldPlayerSourceService = WorldPlayerSourceService;
-exports.WorldPlayerSourceService = WorldPlayerSourceService = __decorate([
-    (0, common_1.Injectable)(),
-    __param(0, (0, common_1.Optional)()),
-    __metadata("design:paramtypes", [next_player_auth_store_service_1.NextPlayerAuthStoreService,
-        player_identity_persistence_service_1.PlayerIdentityPersistenceService,
-        player_persistence_service_1.PlayerPersistenceService])
-], WorldPlayerSourceService);
+}
 /**
  * resolveDisplayName：判断显示名称是否满足条件。
  * @param displayName 参数说明。
@@ -346,8 +331,7 @@ function toPlayerSnapshotFromMigrationRow(row) {
 function buildPublicPlayerInstanceId(templateId) {
     return `public:${templateId}`;
 }
-exports.toPlayerSnapshotFromMigrationRow = toPlayerSnapshotFromMigrationRow;
-export { WorldPlayerSourceService, toPlayerSnapshotFromMigrationRow };
+export { toPlayerSnapshotFromMigrationRow };
 /**
  * resolveRequiredCompatMapId：规范化或转换RequiredCompat地图ID。
  * @param value 参数说明。
@@ -541,7 +525,7 @@ function normalizeUnlockedMapIds(value) {
         throw new Error('Migration player snapshot invalid unlockedMinimapIds');
     }
 
-    const result = new Set();
+    const result = new Set<string>();
     for (const entry of value) {
         if (typeof entry === 'string' && entry.trim()) {
             result.add(entry);

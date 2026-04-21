@@ -82,6 +82,9 @@ export function createMainDetailHydrationSource(options: MainDetailHydrationSour
           searchable: source.searchable,
           search: source.search ? clonePlainValue(source.search) : undefined,
           emptyText: source.emptyText,
+          variant: source.variant,
+          herb: source.herb ? clonePlainValue(source.herb) : undefined,
+          destroyed: source.destroyed,
           items: source.items.map((entry) => ({
             itemKey: entry.itemKey,
             item: options.hydrateSyncedItemStack(entry.item),

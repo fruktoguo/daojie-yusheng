@@ -20,6 +20,17 @@ const common_1 = require("@nestjs/common");
 const world_runtime_gm_queue_service_1 = require("./world-runtime-gm-queue.service");
 const world_runtime_player_combat_outcome_service_1 = require("./world-runtime-player-combat-outcome.service");
 
+function resolvePlayerSessionPort(deps) {
+    const sessionService = deps?.worldRuntimePlayerSessionService;
+    if (sessionService && typeof sessionService.connectPlayer === 'function' && typeof sessionService.removePlayer === 'function') {
+        return {
+            connectPlayer: (input) => sessionService.connectPlayer(input, deps),
+            removePlayer: (playerId) => sessionService.removePlayer(playerId, 'removed', deps),
+        };
+    }
+    throw new Error('gm_system_command_player_session_service_unavailable');
+}
+
 /** world-runtime gm-system-command seam：承接 GM system-command 分发与依赖收口。 */
 let WorldRuntimeGmSystemCommandService = class WorldRuntimeGmSystemCommandService {
 /**
@@ -69,21 +80,27 @@ let WorldRuntimeGmSystemCommandService = class WorldRuntimeGmSystemCommandServic
                 this.worldRuntimePlayerCombatOutcomeService.respawnPlayer(command.playerId, deps);
                 return true;
             case 'gmSpawnBots':
+                {
+                const playerSessionPort = resolvePlayerSessionPort(deps);
                 this.worldRuntimeGmQueueService.dispatchGmSpawnBots(command.anchorPlayerId, command.count, {
                     playerRuntimeService: deps.playerRuntimeService,
                     resolveDefaultRespawnMapId: () => deps.resolveDefaultRespawnMapId(),
-                    connectPlayer: (input) => deps.connectPlayer(input),
+                    connectPlayer: (input) => playerSessionPort.connectPlayer(input),
                     getPlayerViewOrThrow: (playerId) => deps.getPlayerViewOrThrow(playerId),
                     refreshPlayerContextActions: (playerId, view) => deps.refreshPlayerContextActions(playerId, view),
                     resolveCurrentTickForPlayerId: (playerId) => deps.resolveCurrentTickForPlayerId(playerId),
                 });
                 return true;
+                }
             case 'gmRemoveBots':
+                {
+                const playerSessionPort = resolvePlayerSessionPort(deps);
                 this.worldRuntimeGmQueueService.dispatchGmRemoveBots(command.playerIds, command.all, {
                     playerRuntimeService: deps.playerRuntimeService,
-                    removePlayer: (playerId) => deps.removePlayer(playerId),
+                    removePlayer: (playerId) => playerSessionPort.removePlayer(playerId),
                 });
                 return true;
+                }
             default:
                 return false;
         }

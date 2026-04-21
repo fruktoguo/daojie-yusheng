@@ -182,6 +182,7 @@ function toItemStackState(entry) {
     mapUnlockId: entry.mapUnlockId,
     mapUnlockIds: entry.mapUnlockIds?.slice(),
     tileAuraGainAmount: entry.tileAuraGainAmount,
+    tileResourceGains: entry.tileResourceGains?.map((resource) => ({ ...resource })),
     allowBatchUse: entry.allowBatchUse,
   };
 }

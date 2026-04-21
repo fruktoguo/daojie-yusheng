@@ -88,6 +88,8 @@ const RESTORE_JOB_PHASE = {
     RELOADING_RUNTIME: 'reloading_runtime',
     COMPLETED: 'completed',
 };
+
+const RESTORE_DOCUMENT_BATCH_SIZE = 200;
 /**
  * NextGmAdminService：封装该能力的入口与生命周期，承载运行时核心协作。
  */
@@ -351,12 +353,7 @@ export class NextGmAdminService {
                     this.updateDatabaseJobPhase(job, RESTORE_JOB_PHASE.APPLYING_DOCUMENTS);
                     await restoreClient.query('BEGIN');
                     await restoreClient.query('DELETE FROM persistent_documents WHERE NOT (scope = ANY($1::varchar[]))', [Array.from(BACKUP_EXCLUDED_SCOPES)]);
-                    for (const entry of validatedPayload.docs) {
-                        await restoreClient.query(`
-            INSERT INTO persistent_documents(scope, key, payload, "updatedAt")
-            VALUES ($1, $2, $3::jsonb, $4::timestamptz)
-          `, [entry.scope, entry.key, JSON.stringify(entry.payload), entry.updatedAt]);
-                    }
+                    await this.insertBackupDocumentsInBatches(restoreClient, validatedPayload.docs);
                     await restoreClient.query('COMMIT');
                     job.appliedAt = new Date().toISOString();
                     this.updateDatabaseJobPhase(job, RESTORE_JOB_PHASE.COMMITTED);
@@ -728,6 +725,41 @@ export class NextGmAdminService {
             documentsCount: docs.length,
             checksumSha256,
         };
+    }    
+    /**
+ * insertBackupDocumentsInBatches：按批次写入恢复文档，避免逐条 INSERT 拉长 restore 窗口。
+ * @param client 数据库客户端。
+ * @param docs 备份文档列表。
+ * @returns 返回 Promise，完成后得到批量写入结果。
+ */
+
+    async insertBackupDocumentsInBatches(client, docs) {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
+        const total = Array.isArray(docs) ? docs.length : 0;
+        if (total <= 0) {
+            return;
+        }
+        this.logger.log(`数据库恢复开始批量写入 ${total} 条 persistent_documents`);
+        for (let start = 0; start < total; start += RESTORE_DOCUMENT_BATCH_SIZE) {
+            const batch = docs.slice(start, start + RESTORE_DOCUMENT_BATCH_SIZE);
+            const values = [];
+            const params = [];
+            for (let index = 0; index < batch.length; index += 1) {
+                const entry = batch[index];
+                const offset = index * 4;
+                values.push(`($${offset + 1}, $${offset + 2}, $${offset + 3}::jsonb, $${offset + 4}::timestamptz)`);
+                params.push(entry.scope, entry.key, JSON.stringify(entry.payload), entry.updatedAt);
+            }
+            await client.query(`
+        INSERT INTO persistent_documents(scope, key, payload, "updatedAt")
+        VALUES ${values.join(',\n')}
+      `, params);
+            const written = start + batch.length;
+            if (written === total || written % 1000 === 0) {
+                this.logger.log(`数据库恢复已写入 ${written}/${total} 条 persistent_documents`);
+            }
+        }
     }    
     /**
  * loadPersistedBackupMetadataRecords：读取PersistedBackupMetadataRecord并返回结果。

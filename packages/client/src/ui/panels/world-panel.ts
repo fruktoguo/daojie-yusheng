@@ -392,10 +392,10 @@ export class WorldPanel {
 
   /** clear：清理clear。 */
   clear(): void {
-    this.mapPane.replaceChildren(createFragmentFromHtml('<div class="empty-hint ui-empty-hint">尚未进入世界</div>'));
-    this.nearbyPane.replaceChildren(createFragmentFromHtml('<div class="empty-hint ui-empty-hint">尚未进入世界</div>'));
-    this.suggestionPane.replaceChildren(createFragmentFromHtml('<div class="empty-hint ui-empty-hint">尚未进入世界</div>'));
-    this.tianjiPane.replaceChildren(createFragmentFromHtml('<div class="empty-hint ui-empty-hint">尚未进入世界</div>'));
+    this.mapPane.replaceChildren(createFragmentFromHtml('<div class="empty-hint">尚未进入世界</div>'));
+    this.nearbyPane.replaceChildren(createFragmentFromHtml('<div class="empty-hint">尚未进入世界</div>'));
+    this.suggestionPane.replaceChildren(createFragmentFromHtml('<div class="empty-hint">尚未进入世界</div>'));
+    this.tianjiPane.replaceChildren(createFragmentFromHtml('<div class="empty-hint">尚未进入世界</div>'));
     this.lastNearbyMonsterIds = null;
     this.lastNearbyNpcIds = null;
     this.lastSuggestionActionIds = null;
@@ -568,12 +568,12 @@ export class WorldPanel {
           <div class="world-danger-sub" data-world-map-recommend="true">推荐境界：${escapeHtml(snapshot.recommend)}</div>
         </div>
       </div>
-      <div class="info-list ui-key-value-list">
-        <div class="info-line ui-key-value-item ui-surface-card ui-surface-card--compact"><span class="ui-key-value-label">当前阶段</span><strong class="ui-key-value-value" data-world-map-realm="true">${escapeHtml(snapshot.realmLabel)}</strong></div>
-        <div class="info-line ui-key-value-item ui-surface-card ui-surface-card--compact"><span class="ui-key-value-label">推进路线</span><strong class="ui-key-value-value" data-world-map-route="true">${escapeHtml(snapshot.route)}</strong></div>
-        <div class="info-line ui-key-value-item ui-surface-card ui-surface-card--compact"><span class="ui-key-value-label">主要资源</span><strong class="ui-key-value-value" data-world-map-resources="true">${escapeHtml(snapshot.resourcesLabel)}</strong></div>
-        <div class="info-line ui-key-value-item ui-surface-card ui-surface-card--compact"><span class="ui-key-value-label">主要威胁</span><strong class="ui-key-value-value" data-world-map-threats="true">${escapeHtml(snapshot.threatsLabel)}</strong></div>
-        <div class="info-line ui-key-value-item ui-surface-card ui-surface-card--compact"><span class="ui-key-value-label">当前主修</span><strong class="ui-key-value-value" data-world-map-cultivating="true">${escapeHtml(snapshot.cultivatingName)}</strong></div>
+      <div class="info-list">
+        <div class="info-line"><span>当前阶段</span><strong data-world-map-realm="true">${escapeHtml(snapshot.realmLabel)}</strong></div>
+        <div class="info-line"><span>推进路线</span><strong data-world-map-route="true">${escapeHtml(snapshot.route)}</strong></div>
+        <div class="info-line"><span>主要资源</span><strong data-world-map-resources="true">${escapeHtml(snapshot.resourcesLabel)}</strong></div>
+        <div class="info-line"><span>主要威胁</span><strong data-world-map-threats="true">${escapeHtml(snapshot.threatsLabel)}</strong></div>
+        <div class="info-line"><span>当前主修</span><strong data-world-map-cultivating="true">${escapeHtml(snapshot.cultivatingName)}</strong></div>
       </div>
     `;
     preserveSelection(this.mapPane, () => {
@@ -584,13 +584,13 @@ export class WorldPanel {
   /** renderNearbyPane：渲染Nearby Pane。 */
   private renderNearbyPane(snapshot: WorldPanelSnapshot): void {
     const html = `
-      ${snapshot.nearbyMonsters.length === 0 && snapshot.nearbyNpcs.length === 0 ? '<div class="empty-hint ui-empty-hint">附近暂时平静</div>' : ''}
+      ${snapshot.nearbyMonsters.length === 0 && snapshot.nearbyNpcs.length === 0 ? '<div class="empty-hint">附近暂时平静</div>' : ''}
       ${snapshot.nearbyMonsters.length > 0 ? `
-        <div class="panel-section ui-surface-pane ui-surface-pane--stack">
+        <div class="panel-section">
           <div class="panel-section-title">附近威胁</div>
-          <div class="entity-list ui-card-list">
+          <div class="entity-list">
             ${snapshot.nearbyMonsters.map((monster) => `
-              <div class="entity-card threat ui-surface-card ui-surface-card--compact" data-world-monster-card="${escapeHtml(monster.id)}">
+              <div class="entity-card threat" data-world-monster-card="${escapeHtml(monster.id)}">
                 <div>
                   <div class="entity-name" data-world-monster-name="${escapeHtml(monster.id)}">${this.renderMonsterName(monster)}</div>
                   <div class="entity-meta" data-world-monster-meta="${escapeHtml(monster.id)}">距离 ${formatDisplayInteger(monster.distance)} 格 · HP ${formatDisplayCurrentMax(monster.hp, monster.maxHp)}</div>
@@ -602,11 +602,11 @@ export class WorldPanel {
         </div>
       ` : ''}
       ${snapshot.nearbyNpcs.length > 0 ? `
-        <div class="panel-section ui-surface-pane ui-surface-pane--stack">
+        <div class="panel-section">
           <div class="panel-section-title">可交互人物</div>
-          <div class="entity-list ui-card-list">
+          <div class="entity-list">
             ${snapshot.nearbyNpcs.map((npc) => `
-              <div class="entity-card ally ui-surface-card ui-surface-card--compact" data-world-npc-card="${escapeHtml(npc.id)}">
+              <div class="entity-card ally" data-world-npc-card="${escapeHtml(npc.id)}">
                 <div>
                   <div class="entity-name" data-world-npc-name="${escapeHtml(npc.id)}">${escapeHtml(npc.name)}</div>
                   <div class="entity-meta">就在视野附近，可尝试接话或交任务</div>
@@ -626,17 +626,17 @@ export class WorldPanel {
   /** renderSuggestionPane：渲染建议Pane。 */
   private renderSuggestionPane(snapshot: WorldPanelSnapshot): void {
     const html = `
-      <div class="panel-section ui-surface-pane ui-surface-pane--stack">
+      <div class="panel-section">
         <div class="panel-section-title">当前建议</div>
-        <div class="info-list ui-key-value-list">
-          <div class="info-line ui-key-value-item ui-surface-card ui-surface-card--compact"><span class="ui-key-value-label">优先事项</span><strong class="ui-key-value-value" data-world-suggestion-priority="true">${escapeHtml(snapshot.currentQuestTitle)}</strong></div>
-          <div class="info-line ui-key-value-item ui-surface-card ui-surface-card--compact"><span class="ui-key-value-label">任务节点</span><strong class="ui-key-value-value" data-world-suggestion-progress="true">${escapeHtml(snapshot.currentQuestProgress)}</strong></div>
+        <div class="info-list">
+          <div class="info-line"><span>优先事项</span><strong data-world-suggestion-priority="true">${escapeHtml(snapshot.currentQuestTitle)}</strong></div>
+          <div class="info-line"><span>任务节点</span><strong data-world-suggestion-progress="true">${escapeHtml(snapshot.currentQuestProgress)}</strong></div>
         </div>
       </div>
-      ${snapshot.quickActions.length === 0 ? '<div class="empty-hint ui-empty-hint">当前没有可立即执行的行动</div>' : `
-        <div class="action-suggestion-list ui-card-list">
+      ${snapshot.quickActions.length === 0 ? '<div class="empty-hint">当前没有可立即执行的行动</div>' : `
+        <div class="action-suggestion-list">
           ${snapshot.quickActions.map((action) => `
-            <div class="suggestion-card ui-surface-card ui-surface-card--compact" data-world-quick-action="${escapeHtml(action.id)}">
+            <div class="suggestion-card" data-world-quick-action="${escapeHtml(action.id)}">
               <div class="suggestion-title" data-world-quick-action-title="${escapeHtml(action.id)}">${escapeHtml(action.name)}</div>
               <div class="suggestion-desc" data-world-quick-action-desc="${escapeHtml(action.id)}">${escapeHtml(action.desc)}</div>
             </div>
@@ -653,28 +653,32 @@ export class WorldPanel {
   /** renderTianjiPane：渲染天机阁 Pane。 */
   private renderTianjiPane(): void {
     const html = `
-      <div class="panel-section ui-surface-pane ui-surface-pane--stack">
+      <div class="panel-section">
         <div class="panel-section-title" data-world-tianji-title="true">天机阁</div>
-        <div class="panel-subtext ui-panel-subtext" data-world-tianji-desc="true">阁藏天下卷宗，专收低频榜册与汇总情报。</div>
+        <div class="panel-subtext" data-world-tianji-desc="true">阁藏天下卷宗，专收低频榜册与汇总情报。</div>
       </div>
-      <div class="ui-card-list">
+      <div class="tianji-action-list">
         <button
-          class="suggestion-card ui-surface-card ui-surface-card--compact"
-          data-world-tianji-action="leaderboard"
-          type="button"
-        >
-          <div class="suggestion-title">天下榜</div>
-          <div class="suggestion-desc">查看境界、击杀、灵石与至尊属性榜册，并追索玩家击杀榜上榜者坐标。</div>
-          <div class="entity-meta">榜册十分钟一更，追索十息一追</div>
-        </button>
-        <button
-          class="suggestion-card ui-surface-card ui-surface-card--compact"
+          class="tianji-action-card"
           data-world-tianji-action="world"
           type="button"
         >
-          <div class="suggestion-title">世界总览</div>
-          <div class="suggestion-desc">查看全服灵石总量、活跃行为、境界分布与杀伐走势，并可转看榜册卷宗。</div>
-          <div class="entity-meta">点击查看世界卷宗</div>
+          <div>
+            <div class="tianji-action-title">世界</div>
+            <div class="tianji-action-desc">查看全服灵石总和、行动人数、境界人数，以及击杀与死亡总计。</div>
+          </div>
+          <div class="tianji-action-arrow">查看</div>
+        </button>
+        <button
+          class="tianji-action-card"
+          data-world-tianji-action="leaderboard"
+          type="button"
+        >
+          <div>
+            <div class="tianji-action-title">排行榜</div>
+            <div class="tianji-action-desc">查看境界、击杀、灵石、死亡、炼体与四维最强榜单。</div>
+          </div>
+          <div class="tianji-action-arrow">查看</div>
         </button>
       </div>
     `;

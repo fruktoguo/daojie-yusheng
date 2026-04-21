@@ -58,8 +58,7 @@ let WorldRuntimeEquipmentService = class WorldRuntimeEquipmentService {
         }
         this.playerRuntimeService.equipItem(playerId, slotIndex);
         deps.queuePlayerNotice(playerId, `装备 ${item.name}`, 'success');
-        deps.worldRuntimeCraftMutationService.emitCraftPanelUpdate(playerId, 'alchemy', deps);
-        deps.worldRuntimeCraftMutationService.emitCraftPanelUpdate(playerId, 'enhancement', deps);
+        deps.worldRuntimeCraftMutationService.emitAllTechniqueActivityPanelUpdates(playerId, deps);
     }    
     /**
  * dispatchUnequipItem：判断Unequip道具是否满足条件。
@@ -83,8 +82,7 @@ let WorldRuntimeEquipmentService = class WorldRuntimeEquipmentService {
         }
         this.playerRuntimeService.unequipItem(playerId, slot);
         deps.queuePlayerNotice(playerId, `卸下 ${item.name}`, 'info');
-        deps.worldRuntimeCraftMutationService.emitCraftPanelUpdate(playerId, 'alchemy', deps);
-        deps.worldRuntimeCraftMutationService.emitCraftPanelUpdate(playerId, 'enhancement', deps);
+        deps.worldRuntimeCraftMutationService.emitAllTechniqueActivityPanelUpdates(playerId, deps);
     }
 };
 exports.WorldRuntimeEquipmentService = WorldRuntimeEquipmentService;
