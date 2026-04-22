@@ -344,7 +344,8 @@ async function assertBackupDownload(baseUrl, token, backupId, expectedRecord = n
     if (payload?.backupId !== backupId) {
         throw new Error(`expected downloaded backupId=${backupId}, got ${JSON.stringify(payload)}`);
     }
-    if (payload?.kind !== 'server_next_persistent_documents_backup_v1') {
+    if (payload?.kind !== 'server_persistent_documents_backup_v1'
+        && payload?.kind !== 'server_persistence_backup_v2') {
         throw new Error(`unexpected backup payload kind: ${JSON.stringify(payload)}`);
     }
     if (!Array.isArray(payload?.docs) || payload.docs.length === 0) {
@@ -363,6 +364,21 @@ async function assertBackupDownload(baseUrl, token, backupId, expectedRecord = n
     if (payload.checksumSha256 !== downloadedChecksum) {
         throw new Error(`expected downloaded checksumSha256=${downloadedChecksum}, got ${payload.checksumSha256}`);
     }
+    if (payload?.kind === 'server_persistence_backup_v2') {
+        if (!Array.isArray(payload?.tables) || payload.tables.length === 0) {
+            throw new Error(`expected downloaded backup structured tables, got ${JSON.stringify(payload)}`);
+        }
+        if (Number(payload?.tablesCount) !== payload.tables.length) {
+            throw new Error(`expected tablesCount to match tables length, got ${JSON.stringify(payload)}`);
+        }
+        if (typeof payload?.tablesChecksumSha256 !== 'string' || payload.tablesChecksumSha256.trim().length === 0) {
+            throw new Error(`expected downloaded backup tablesChecksumSha256, got ${JSON.stringify(payload)}`);
+        }
+        const downloadedTablesChecksum = computeChecksumForTables(payload.tables);
+        if (payload.tablesChecksumSha256 !== downloadedTablesChecksum) {
+            throw new Error(`expected downloaded tablesChecksumSha256=${downloadedTablesChecksum}, got ${payload.tablesChecksumSha256}`);
+        }
+    }
     if (options.expectedFilePath) {
 /**
  * 记录diskpayload。
@@ -370,6 +386,10 @@ async function assertBackupDownload(baseUrl, token, backupId, expectedRecord = n
         const diskPayload = JSON.parse(await node_fs_1.promises.readFile(options.expectedFilePath, 'utf8'));
         if (computeChecksumForDocs(diskPayload?.docs ?? []) !== downloadedChecksum) {
             throw new Error(`expected downloaded backup checksum to match on-disk backup for ${backupId}`);
+        }
+        if (payload?.kind === 'server_persistence_backup_v2'
+            && computeChecksumForTables(diskPayload?.tables ?? []) !== String(payload.tablesChecksumSha256 ?? '')) {
+            throw new Error(`expected downloaded backup structured table checksum to match on-disk backup for ${backupId}`);
         }
     }
     if (expectedRecord) {
@@ -387,7 +407,16 @@ async function assertBackupDownload(baseUrl, token, backupId, expectedRecord = n
         if (expectedChecksum && expectedChecksum !== payload.checksumSha256) {
             throw new Error(`expected metadata checksumSha256=${expectedChecksum}, got ${payload.checksumSha256}`);
         }
+        const expectedTablesCount = Number(expectedRecord?.tablesCount);
+        const expectedTablesChecksum = String(expectedRecord?.tablesChecksumSha256 ?? '').trim();
+        if (Number.isFinite(expectedTablesCount) && expectedTablesCount !== Number(payload?.tablesCount ?? 0)) {
+            throw new Error(`expected metadata tablesCount=${expectedTablesCount}, got ${payload?.tablesCount}`);
+        }
+        if (expectedTablesChecksum && expectedTablesChecksum !== String(payload?.tablesChecksumSha256 ?? '')) {
+            throw new Error(`expected metadata tablesChecksumSha256=${expectedTablesChecksum}, got ${payload?.tablesChecksumSha256}`);
+        }
     }
+    return payload;
 }
 exports.assertBackupDownload = assertBackupDownload;
 /**
@@ -419,6 +448,20 @@ exports.buildBackupFilePath = buildBackupFilePath;
 function computeChecksumForDocs(docs) {
     const crypto = require('node:crypto');
     return crypto.createHash('sha256').update(JSON.stringify(docs)).digest('hex');
+}
+/**
+ * 处理computchecksumfortables。
+ */
+function computeChecksumForTables(tables) {
+    const crypto = require('node:crypto');
+    const normalized = Array.isArray(tables)
+        ? tables.map((entry) => ({
+            tableName: typeof entry?.tableName === 'string' ? entry.tableName : '',
+            rowCount: Number(entry?.rowCount ?? 0),
+            checksumSha256: typeof entry?.checksumSha256 === 'string' ? entry.checksumSha256 : '',
+        }))
+        : [];
+    return crypto.createHash('sha256').update(JSON.stringify(normalized)).digest('hex');
 }
 /**
  * 处理delay。

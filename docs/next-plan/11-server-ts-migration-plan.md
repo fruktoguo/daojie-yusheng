@@ -10,7 +10,7 @@
 - 当前 `packages/server` 包内非 `dist` 手写 `.js`：`0` 个文件，`0` 行
 - 当前已完成的 TS 迁移簇：
   - [x] bootstrap/config 入口簇：`main.ts`、`server-cors.ts`、`env-alias.ts`
-  - [x] `app.module` / `http/next-http.registry` / `http/next/*` 整簇
+  - [x] `app.module` / `http/native-http.registry` / `http/next/*` 整簇
   - [x] auth 叶子簇：`account-validation.ts`、`password-hash.ts`、`player-token-verify.ts`
   - [x] network token/auth 最小链：`world-player-token-codec.service.ts`、`world-player-token.service.ts`、`world-player-auth.service.ts`
   - [x] 高优先级类型收口簇：`runtime/tick/world-tick.service.ts`、`runtime/world/world-runtime-player-session.service.ts`、`persistence/player-persistence.service.ts`
@@ -35,7 +35,7 @@
 原因：
 
 - 第 1-9 批已经把外围叶子、持久化、`runtime player / instance / world` 主链，以及大量 `network` 主链收到了 TS
-- `world-projector.service.ts`、`world-sync-aux-state.service.ts`、`world-sync-map-snapshot.service.ts`、`world-session-bootstrap.service.ts` 这批高风险文件已经回到真实 TS 主线，并补过 `compile + smoke:next-auth-bootstrap + audit:protocol`
+- `world-projector.service.ts`、`world-sync-aux-state.service.ts`、`world-sync-map-snapshot.service.ts`、`world-session-bootstrap.service.ts` 这批高风险文件已经回到真实 TS 主线，并补过 `compile + smoke:auth-bootstrap + audit:protocol`
 - `world-session-bootstrap` 已继续把 `context/contract`、`runtime/snapshot`、`post-bootstrap emit`、`player-init`、`finalize`、`session bind/preflight` 从编排层抽出到独立 helper/service，并保留 façade 口兼容 gateway 与 smoke proof
 - 下一轮不该回头做低价值扫尾，而是继续打 `acceptance/full` 实环境复证和剩余更深层的 `network/bootstrap` 编排拆分
 
@@ -43,7 +43,7 @@
 
 - `packages/server/src/network/world-projector.service.ts`
 - `packages/server/src/network/world-session-bootstrap.service.ts`
-- `packages/server/src/tools/next-auth-bootstrap-smoke.ts`
+- `packages/server/src/tools/auth-bootstrap-smoke.ts`
 - 根级 `verify:replace-ready:acceptance / full`
 
 最近一轮已回答的高优先级点：
@@ -54,14 +54,14 @@
 - `world-player-auth.service.ts` 的鉴权选项与 identity 结构已从 `unknown` 收紧到 `string/boolean/number` 口径。
 - `world-session.service.ts` 已去掉 `@ts-nocheck`，会话绑定、断线恢复、purge/requeue 都收成了显式结构。
 - `world-player-snapshot.service.ts` 已去掉 `@ts-nocheck`，native starter snapshot / next-only miss / persistedSource 审计都改成显式返回类型。
-- `next-protocol-audit.ts` 已同步到当前 bootstrap 协议口径，不再硬假设 bootstrap 后一定再来一条完整 attr `PanelDelta`。
+- `protocol-audit.ts` 已同步到当前 bootstrap 协议口径，不再硬假设 bootstrap 后一定再来一条完整 attr `PanelDelta`。
 - `world-sync-player-state.service.ts`、`world-sync-map-snapshot.service.ts`、`world-sync-aux-state.service.ts` 已收回真实 TS 源码，`Bootstrap / MapStatic / SelfDelta` 分层不再依赖兼容壳。
 - `world-session-bootstrap.service.ts` 已去掉 `@ts-nocheck` 与编译壳，`client.data` bootstrap 上下文、snapshot recovery 上下文和 `bootstrapPlayerSession` 输入边界已经回到显式 TS 本地类型。
 - `world-session-bootstrap-context.helper.ts` 与 `world-session-bootstrap-contract.service.ts` 已落地，socket token / requestedSessionId / contract policy / session reuse 这条 seam 不再全压在 `WorldSessionBootstrapService` 本体里。
 - `world-session-bootstrap-session-bind.service.ts` 已落地，authenticated bootstrap 的 identity 回写、contract violation 判定、requestedSessionId 裁定、`registerSocket + client.data` 回写已从主编排段拆出。
-- `world-session-bootstrap.service.ts` 当前只保留 façade 与 bootstrap 编排，`next-auth-bootstrap` proof 已覆盖这次 `context/contract`、`post-bootstrap emit`、`player-init`、`finalize`、`session bind/preflight` 下沉后的兼容口径。
+- `world-session-bootstrap.service.ts` 当前只保留 façade 与 bootstrap 编排，`auth-bootstrap` proof 已覆盖这次 `context/contract`、`post-bootstrap emit`、`player-init`、`finalize`、`session bind/preflight` 下沉后的兼容口径。
 - `world-session-bootstrap` 剩余最高价值残段已收敛到 `activation/runtime attach + initial sync orchestration`，下一刀应继续沿这一段拆，而不是回头做低价值表面整理。
-- `next-gm-player.service.ts` 的 `bodyTraining` 写路径已从“改快照 + 期待 runtime 跟上”收回到运行时权威 helper；`gm-next-smoke` 现在同时验证 GM 详情回读和 runtime level 同步。
+- `next-gm-player.service.ts` 的 `bodyTraining` 写路径已从“改快照 + 期待 runtime 跟上”收回到运行时权威 helper；`gm-smoke` 现在同时验证 GM 详情回读和 runtime level 同步。
 - `next-gm-admin.service.ts` 的 destructive restore 已从逐条 `INSERT persistent_documents` 改成分块批量写入，并补了 backup / restore 阶段日志，`gm-database-smoke` 不再停在旧的单条写入超时形态。
 - `world-projector.service.ts` 已回到显式 TS 主线，`WorldDelta / SelfDelta / PanelDelta` 的 world slice、item slice、technique slice、attr delta、specialStats delta 都已经过专用 helper 收口。
 - `world-projector.service.ts` 的 `Technique` 快照已补深 clone；技能、效果、怪物前摇、成长曲线的比较不再停留在泛 `shallowEqualArray/shallowEqualRecord` 包装层。
@@ -72,7 +72,7 @@
 ### 第 0 批：已完成的入口与最小 auth 链
 
 - [x] 迁移 `main/config/bootstrap`
-- [x] 迁移 `app.module` / `http/next-http.registry` / `http/next/*`
+- [x] 迁移 `app.module` / `http/native-http.registry` / `http/next/*`
 - [x] 迁移 auth 叶子簇
 - [x] 迁移 network token/auth 最小链
 - [x] 文档中写清当前 `.js` 剩余基线
@@ -101,7 +101,7 @@
 - [x] 迁移 `world-session-reaper.service.js`
 - [x] 迁移 `world-session-bootstrap.service.js`
 - [x] 跑 `pnpm --filter @mud/server compile`
-- [x] 补 `pnpm --filter @mud/server smoke:next-auth-bootstrap`
+- [x] 补 `pnpm --filter @mud/server smoke:auth-bootstrap`
 - [x] 视改动面补 `pnpm --filter @mud/server smoke:session`
 
 当前这批规模：`9` 个文件，`2,718` 行。
@@ -155,7 +155,7 @@
 - [x] 迁移 `runtime/redeem/*.js`
 - [x] 迁移 `runtime/tick/world-tick.service.js`
 - [x] 跑 `pnpm --filter @mud/server compile`
-- [x] 按改动面补 `smoke:combat / smoke:loot / smoke:runtime / smoke:gm-next`
+- [x] 按改动面补 `smoke:combat / smoke:loot / smoke:runtime / smoke:gm`
 
 ### 第 7 批：runtime player / instance / world 主链
 
@@ -177,9 +177,9 @@
 
 - [x] 顺手迁移 `runtime/suggestion/suggestion-runtime.service.js`
 - [x] 迁移 `tools/*.js`
-- [x] 迁移 `tools/next-auth-bootstrap-smoke/*.js`
+- [x] 迁移 `tools/auth-bootstrap-smoke-support/*.js`
 - [x] 迁移 `audit/next-legacy-boundary-audit.js`
-- [x] 迁移 `migrate-next-mainline-once.js`
+- [x] 迁移并最终退役一次性迁移脚本
 - [x] 迁移 `smoke-suite.js` 与各类 smoke helper
 - [x] 跑 `pnpm --filter @mud/server compile`
 - [x] 跑与本批改动相关的 smoke
@@ -197,7 +197,7 @@
 ## 每轮验证规则
 
 - [x] 默认至少跑 `pnpm --filter @mud/server compile`
-- [x] 动到 auth/session/bootstrap，补 `smoke:next-auth-bootstrap`
+- [x] 动到 auth/session/bootstrap，补 `smoke:auth-bootstrap`
 - [x] 动到 runtime/world/network sync/gateway，补 `smoke:runtime`，必要时补 `smoke:session`
 - [x] 动到 persistence，补 `smoke:persistence`，必要时补 `smoke:gm-database`
 - [x] 动到协议/发包，补 `audit:protocol`
@@ -205,9 +205,9 @@
 
 ## 本轮补充
 
-- [x] 第 8 批 `runtime/suggestion` 与除迁移脚本外的 `tools / smoke / audit` 真源已整簇迁到 TS
-- [x] `packages/shared/scripts/check-network-protobuf-contract.cjs` 已切到 `packages/server/src/tools/next-protocol-audit.ts`
-- [x] `next-protocol-audit.ts` 与 `next-legacy-boundary-audit.ts` 生成报告中的源码路径说明已切到 `.ts`
+- [x] 第 8 批 `runtime/suggestion` 与 `tools / smoke / audit` 真源已整簇迁到 TS，迁移期脚本随后已退役
+- [x] `packages/shared/scripts/check-network-protobuf-contract.cjs` 已切到 `packages/server/src/tools/protocol-audit.ts`
+- [x] `protocol-audit.ts` 与 `next-legacy-boundary-audit.ts` 生成报告中的源码路径说明已切到 `.ts`
 - [x] 已确认测试、审计、proof 相关显式源码引用中，`packages/server/src` 已无 `.js` 真源
 - [x] `packages/server/debug-loot.js` 与 `packages/server/scripts/dev-hot.js` 已收进 `src/tools/*.ts`，包内非 `dist` `.js` 已清零
 

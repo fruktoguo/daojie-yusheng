@@ -6,12 +6,38 @@
 
 const childProcess = require("node:child_process");
 const path = require("node:path");
-const lib = require("./next-protocol-audit-lib.js");
+const pg = require("pg");
+const lib = require("./protocol-audit-lib.js");
+const nextGmContract = require("../http/native/native-gm-contract");
 const serverEntry = path.join(lib.distRoot, "main.js");
+
+function resolveAuditGmPassword() {
+  return process.env.SERVER_GM_PASSWORD || process.env.GM_PASSWORD || "admin123";
+}
+
+async function resetLocalGmPasswordRecordIfNeeded() {
+  const databaseUrl = process.env.SERVER_DATABASE_URL || process.env.DATABASE_URL || "";
+  if (!databaseUrl.trim()) {
+    return;
+  }
+
+  const pool = new pg.Pool({
+    connectionString: databaseUrl,
+  });
+
+  try {
+    await pool.query('DELETE FROM persistent_documents WHERE scope = $1 AND key = $2', [
+      nextGmContract.GM_AUTH_CONTRACT.passwordRecordScope,
+      nextGmContract.GM_AUTH_CONTRACT.passwordRecordKey,
+    ]);
+  } finally {
+    await pool.end().catch(() => undefined);
+  }
+}
 /**
  * 启动审计服务端。
  */
-function startAuditServer(requestedPort) {
+function startAuditServer(requestedPort, gmPassword) {
   return new Promise((resolve, reject) => {
 /**
  * 记录子进程。
@@ -25,7 +51,7 @@ function startAuditServer(requestedPort) {
         SERVER_ALLOW_UNREADY_TRAFFIC: "1",
         SERVER_SMOKE_ALLOW_UNREADY: "1",
         SERVER_ALLOW_INSECURE_LOCAL_GM_PASSWORD: process.env.SERVER_ALLOW_INSECURE_LOCAL_GM_PASSWORD || "1",
-        SERVER_GM_PASSWORD: process.env.SERVER_GM_PASSWORD || process.env.GM_PASSWORD || "admin123",
+        SERVER_GM_PASSWORD: gmPassword,
       },
       stdio: ["ignore", "pipe", "pipe"],
     });
@@ -91,7 +117,7 @@ function startAuditServer(requestedPort) {
 /**
  * 运行审计。
  */
-async function runAudit(baseUrl) {
+async function runAudit(baseUrl, gmPassword) {
 /**
  * 记录子进程。
  */
@@ -102,6 +128,9 @@ async function runAudit(baseUrl) {
       ...process.env,
       SERVER_URL: baseUrl,
       SERVER_SHADOW_URL: baseUrl,
+      SERVER_GM_PASSWORD: gmPassword,
+      GM_PASSWORD: gmPassword,
+      SERVER_ALLOW_INSECURE_LOCAL_GM_PASSWORD: process.env.SERVER_ALLOW_INSECURE_LOCAL_GM_PASSWORD || "1",
     },
     stdio: "inherit",
   });
@@ -130,18 +159,20 @@ async function main() {
  * 记录desired端口。
  */
   const desiredPort = Number.isInteger(requestedPort) && requestedPort > 0 ? requestedPort : await lib.allocateFreePort();
+  const gmPassword = resolveAuditGmPassword();
 /**
  * 记录服务端。
  */
   let server = null;
   try {
-    server = await startAuditServer(desiredPort);
+    await resetLocalGmPasswordRecordIfNeeded();
+    server = await startAuditServer(desiredPort, gmPassword);
 /**
  * 记录base地址。
  */
     const baseUrl = `http://127.0.0.1:${server.port}`;
     await lib.waitForHealth(baseUrl, 20000);
-    process.exitCode = await runAudit(baseUrl);
+    process.exitCode = await runAudit(baseUrl, gmPassword);
   } finally {
     await lib.stopServer(server && server.child ? server.child : null);
   }

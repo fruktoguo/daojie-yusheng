@@ -70,7 +70,7 @@ let WorldSyncProtocolService = class WorldSyncProtocolService {
         return {
             protocol: 'mainline',
 
-            emitNext: true,
+            emitMainline: true,
         };
     }    
     /**

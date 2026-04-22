@@ -11,8 +11,6 @@ export type PanelId =
   | 'market'
   | 'action'
   | 'world-map-intel'
-  | 'world-nearby'
-  | 'world-suggestions'
   | 'world-tianji'
   | 'loot'
   | 'settings'

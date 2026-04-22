@@ -470,6 +470,15 @@
         height: min(82dvh, calc(100dvh - var(--detail-modal-padding-top) - var(--detail-modal-padding-bottom) - (var(--detail-modal-safe-gap, 12px) * 2) - 12px));
         max-height: none;
       }
+      .detail-modal-card.detail-modal--world-migration {
+        width: min(100%, calc(100vw - 16px));
+      }
+      .world-migration-choice-grid {
+        grid-template-columns: 1fr;
+      }
+      .world-migration-choice {
+        min-height: 148px;
+      }
       .panel-section-head,
       .skill-manage-topbar,
       .skill-manage-filter-head {

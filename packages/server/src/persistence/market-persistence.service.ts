@@ -23,11 +23,13 @@ const persistent_document_table_1 = require("./persistent-document-table");
 
 const env_alias_1 = require("../config/env-alias");
 
-const MARKET_ORDER_SCOPE = 'server_next_market_orders_v1';
+const MARKET_ORDER_SCOPE = 'server_market_orders_v1';
 
-const MARKET_TRADE_SCOPE = 'server_next_market_trade_history_v1';
+const MARKET_TRADE_SCOPE = 'server_market_trade_history_v1';
 
-const MARKET_STORAGE_SCOPE = 'server_next_market_storage_v1';
+const MARKET_STORAGE_SCOPE = 'server_market_storage_v1';
+
+const PLAYER_MARKET_STORAGE_ITEM_TABLE = 'player_market_storage_item';
 
 /** 坊市持久化服务：管理订单、交易历史和仓库数据的持久化一致性。 */
 let MarketPersistenceService = MarketPersistenceService_1 = class MarketPersistenceService {
@@ -65,14 +67,15 @@ let MarketPersistenceService = MarketPersistenceService_1 = class MarketPersiste
         });
         try {
             await (0, persistent_document_table_1.ensurePersistentDocumentsTable)(this.pool);
+            await ensurePlayerMarketStorageItemTable(this.pool);
             this.enabled = true;
-            this.logger.log('坊市持久化已启用（persistent_documents）');
+            this.logger.log('坊市持久化已启用（player_market_storage_item + persistent_documents compat）');
         }
         catch (error) {
             this.logger.error('坊市持久化初始化失败，已回退为禁用模式', error instanceof Error ? error.stack : String(error));
             await this.safeClosePool();
         }
-    }    
+    }
     /**
  * onModuleDestroy：执行on模块Destroy相关逻辑。
  * @returns 无返回值，直接更新on模块Destroy相关状态。
@@ -95,7 +98,7 @@ let MarketPersistenceService = MarketPersistenceService_1 = class MarketPersiste
             .map((row) => normalizeMarketOrder(row.payload))
             .filter((entry) => Boolean(entry))
             .sort((left, right) => left.createdAt - right.createdAt || left.id.localeCompare(right.id));
-    }    
+    }
     /**
  * loadTradeHistory：读取Trade历史并返回结果。
  * @returns 无返回值，完成TradeHistory的读取/组装。
@@ -108,13 +111,17 @@ let MarketPersistenceService = MarketPersistenceService_1 = class MarketPersiste
             .map((row) => normalizeTradeRecord(row.payload))
             .filter((entry) => Boolean(entry))
             .sort((left, right) => right.createdAt - left.createdAt || left.id.localeCompare(right.id));
-    }    
+    }
     /**
  * loadStorages：读取Storage并返回结果。
  * @returns 无返回值，完成Storage的读取/组装。
  */
 
     async loadStorages() {
+        const structuredStorages = await this.loadStructuredStorages();
+        if (structuredStorages.length > 0) {
+            return structuredStorages;
+        }
 
         const rows = await this.loadScopeRows(MARKET_STORAGE_SCOPE);
         return rows
@@ -124,7 +131,7 @@ let MarketPersistenceService = MarketPersistenceService_1 = class MarketPersiste
         }))
             .filter((entry) => entry.playerId.trim().length > 0 && entry.storage.items.length > 0)
             .sort((left, right) => left.playerId.localeCompare(right.playerId, 'zh-Hans-CN'));
-    }    
+    }
     /**
  * persistMutation：判断persistMutation是否满足条件。
  * @param input 输入参数。
@@ -167,6 +174,53 @@ let MarketPersistenceService = MarketPersistenceService_1 = class MarketPersiste
         return result.rows;
     }    
     /**
+ * loadStructuredStorages：读取结构化Storage并返回结果。
+ * @returns 无返回值，完成结构化Storage的读取/组装。
+ */
+
+    async loadStructuredStorages() {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
+        if (!this.pool || !this.enabled) {
+            return [];
+        }
+
+        const result = await this.pool.query(`
+          SELECT player_id, slot_index, item_id, count, raw_payload
+          FROM ${PLAYER_MARKET_STORAGE_ITEM_TABLE}
+          ORDER BY player_id ASC, slot_index ASC, storage_item_id ASC
+        `);
+/**
+ * 记录rows。
+ */
+        const rows = Array.isArray(result.rows) ? result.rows : [];
+        if (rows.length === 0) {
+            return [];
+        }
+/**
+ * 记录grouped。
+ */
+        const grouped = new Map();
+        for (const row of rows) {
+/**
+ * 记录playerId。
+ */
+            const playerId = typeof row?.player_id === 'string' ? row.player_id.trim() : '';
+            if (!playerId) {
+                continue;
+            }
+/**
+ * 记录current。
+ */
+            const current = grouped.get(playerId) ?? { playerId, storage: { items: [] } };
+            current.storage.items.push(normalizeStructuredStorageItem(row));
+            grouped.set(playerId, current);
+        }
+        return Array.from(grouped.values())
+            .filter((entry) => entry.storage.items.length > 0)
+            .sort((left, right) => left.playerId.localeCompare(right.playerId, 'zh-Hans-CN'));
+    }
+    /**
  * persistOrders：判断persist订单是否满足条件。
  * @param client 参数说明。
  * @param upserts 参数说明。
@@ -200,6 +254,8 @@ let MarketPersistenceService = MarketPersistenceService_1 = class MarketPersiste
     async persistStorages(client, upserts, deletions) {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
+        await this.persistStructuredStorages(client, upserts, deletions);
+
         for (const entry of upserts) {
             await client.query(`
           INSERT INTO persistent_documents(scope, key, payload, "updatedAt")
@@ -212,6 +268,70 @@ let MarketPersistenceService = MarketPersistenceService_1 = class MarketPersiste
             await client.query('DELETE FROM persistent_documents WHERE scope = $1 AND key = ANY($2::varchar[])', [MARKET_STORAGE_SCOPE, deletions]);
         }
     }    
+    /**
+ * persistStructuredStorages：判断persistStructuredStorage是否满足条件。
+ * @param client 参数说明。
+ * @param upserts 参数说明。
+ * @param deletions 参数说明。
+ * @returns 无返回值，直接更新persistStructuredStorage相关状态。
+ */
+
+    async persistStructuredStorages(client, upserts, deletions) {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
+/**
+ * 记录upsertplayerids。
+ */
+        const upsertPlayerIds = upserts
+            .map((entry) => typeof entry?.playerId === 'string' ? entry.playerId.trim() : '')
+            .filter((entry, index, list) => entry.length > 0 && list.indexOf(entry) === index);
+        if (upsertPlayerIds.length > 0) {
+            await client.query(`DELETE FROM ${PLAYER_MARKET_STORAGE_ITEM_TABLE} WHERE player_id = ANY($1::varchar[])`, [upsertPlayerIds]);
+        }
+        if (deletions.length > 0) {
+            await client.query(`DELETE FROM ${PLAYER_MARKET_STORAGE_ITEM_TABLE} WHERE player_id = ANY($1::varchar[])`, [deletions]);
+        }
+        for (const entry of upserts) {
+/**
+ * 记录playerId。
+ */
+            const playerId = typeof entry?.playerId === 'string' ? entry.playerId.trim() : '';
+            if (!playerId) {
+                continue;
+            }
+/**
+ * 记录items。
+ */
+            const items = normalizeStorage(entry.storage).items;
+            for (let slotIndex = 0; slotIndex < items.length; slotIndex += 1) {
+/**
+ * 记录item。
+ */
+                const item = items[slotIndex];
+                await client.query(`
+                  INSERT INTO ${PLAYER_MARKET_STORAGE_ITEM_TABLE}(
+                    storage_item_id,
+                    player_id,
+                    slot_index,
+                    item_id,
+                    count,
+                    enhance_level,
+                    raw_payload,
+                    updated_at
+                  )
+                  VALUES ($1, $2, $3, $4, $5, $6, $7::jsonb, now())
+                `, [
+                    buildMarketStorageItemId(playerId, slotIndex),
+                    playerId,
+                    slotIndex,
+                    item.itemId,
+                    Math.max(1, Math.trunc(Number(item.count ?? 1))),
+                    normalizeEnhanceLevel(item),
+                    JSON.stringify(item),
+                ]);
+            }
+        }
+    }
     /**
  * persistTrades：判断persistTrade是否满足条件。
  * @param client 参数说明。
@@ -362,5 +482,102 @@ function normalizeStorage(raw) {
             : [],
     };
 }
-//# sourceMappingURL=market-persistence.service.js.map
 
+/**
+ * ensurePlayerMarketStorageItemTable：创建玩家市场托管仓结构化表。
+ * @param pool 参数说明。
+ * @returns 无返回值，直接更新玩家市场托管仓结构化表相关状态。
+ */
+async function ensurePlayerMarketStorageItemTable(pool) {
+/**
+ * 记录client。
+ */
+    const client = await pool.connect();
+    try {
+        await client.query(`
+          CREATE TABLE IF NOT EXISTS ${PLAYER_MARKET_STORAGE_ITEM_TABLE} (
+            storage_item_id varchar(160) PRIMARY KEY,
+            player_id varchar(100) NOT NULL,
+            slot_index integer NOT NULL,
+            item_id varchar(160) NOT NULL,
+            count integer NOT NULL DEFAULT 1,
+            enhance_level integer,
+            raw_payload jsonb NOT NULL DEFAULT '{}'::jsonb,
+            updated_at timestamptz NOT NULL DEFAULT now()
+          )
+        `);
+        await client.query(`
+          CREATE INDEX IF NOT EXISTS player_market_storage_item_player_idx
+          ON ${PLAYER_MARKET_STORAGE_ITEM_TABLE}(player_id, slot_index ASC)
+        `);
+        await client.query(`
+          CREATE INDEX IF NOT EXISTS player_market_storage_item_item_idx
+          ON ${PLAYER_MARKET_STORAGE_ITEM_TABLE}(item_id, player_id ASC)
+        `);
+    }
+    finally {
+        client.release();
+    }
+}
+
+/**
+ * buildMarketStorageItemId：构建市场仓行主键。
+ * @param playerId 玩家 ID。
+ * @param slotIndex 槽位索引。
+ * @returns 返回市场仓行主键。
+ */
+function buildMarketStorageItemId(playerId, slotIndex) {
+    return `market_storage:${playerId}:${Math.max(0, Math.trunc(Number(slotIndex ?? 0)))}`;
+}
+
+/**
+ * normalizeEnhanceLevel：规范化强化等级。
+ * @param item 参数说明。
+ * @returns 无返回值，直接更新强化等级相关状态。
+ */
+function normalizeEnhanceLevel(item) {
+/**
+ * 记录candidates。
+ */
+    const candidates = [item?.enhanceLevel, item?.enhancementLevel, item?.level];
+    for (const value of candidates) {
+        if (Number.isFinite(value)) {
+            return Math.max(0, Math.trunc(Number(value)));
+        }
+    }
+    return null;
+}
+
+/**
+ * normalizeStructuredStorageItem：规范化结构化Storage道具。
+ * @param row 参数说明。
+ * @returns 无返回值，直接更新结构化Storage道具相关状态。
+ */
+function normalizeStructuredStorageItem(row) {
+/**
+ * 记录rawPayload。
+ */
+    const rawPayload = typeof row?.raw_payload === 'object' && row.raw_payload !== null ? row.raw_payload : null;
+/**
+ * 记录itemId。
+ */
+    const itemId = typeof rawPayload?.itemId === 'string'
+        ? rawPayload.itemId
+        : (typeof row?.item_id === 'string' ? row.item_id : 'unknown_item');
+/**
+ * 记录count。
+ */
+    const count = Math.max(1, Math.trunc(Number(rawPayload?.count ?? row?.count ?? 1)));
+    return rawPayload
+        ? {
+            ...rawPayload,
+            itemId,
+            count,
+        }
+        : {
+            itemId,
+            count,
+            enhanceLevel: normalizeEnhanceLevel(row),
+        };
+}
+//# sourceMappingURL=market-persistence.service.js.map

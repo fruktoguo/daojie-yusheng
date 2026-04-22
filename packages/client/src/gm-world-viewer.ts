@@ -152,6 +152,8 @@ export class GmWorldViewer {
   private transferXDraft: string | null = null;
   /** transferYDraft：迁移目标 Y 草稿。 */
   private transferYDraft: string | null = null;
+  /** infoTab：右侧信息面板当前页签。 */
+  private infoTab: 'info' | 'manage' = 'info';
   /** viewerId：viewer ID。 */
   private readonly viewerId = createViewerId();
   /** observationRegistered：observation Registered。 */
@@ -1417,48 +1419,61 @@ export class GmWorldViewer {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
     if (this.infoEl.querySelector('[data-world-info-shell]')) {
+      this.mountTimeControlIntoInfoShell();
+      this.syncInfoTabState();
       return;
     }
     this.infoEl.replaceChildren(createFragmentFromHtml(`
       <div data-world-info-shell>
-        <div class="panel-section" data-world-info-section="instance"></div>
-        <div class="panel-section">
-          <div class="panel-section-title">实例操作</div>
-          <div class="gm-btn-row" style="margin-bottom:6px;">
-            <select class="gm-inline-input" data-instance-create-template style="flex:1;min-width:0;"></select>
-          </div>
-          <div class="gm-btn-row" style="margin-bottom:6px;">
-            <input
-              type="text"
-              class="gm-inline-input"
-              data-instance-create-name
-              placeholder="新线路实例名（可选）"
-              style="flex:1;min-width:0;"
-            />
-          </div>
-          <div class="gm-btn-row" style="margin-bottom:8px;">
-            <button class="small-btn" data-instance-create-line="peaceful">新建和平线</button>
-            <button class="small-btn" data-instance-create-line="real">新建真实线</button>
-          </div>
-          <div class="gm-btn-row" style="margin-bottom:6px;">
-            <input
-              type="text"
-              class="gm-inline-input"
-              data-instance-transfer-player-id
-              placeholder="玩家 ID"
-              style="flex:1;min-width:0;"
-            />
-          </div>
-          <div class="gm-btn-row" style="margin-bottom:6px;">
-            <input type="number" class="gm-inline-input" data-instance-transfer-x placeholder="X" style="width:72px;" />
-            <input type="number" class="gm-inline-input" data-instance-transfer-y placeholder="Y" style="width:72px;" />
-            <button class="small-btn" data-instance-transfer-player>迁移到当前实例</button>
+        <div class="workspace-tabs" style="margin-bottom:12px;">
+          <button class="workspace-tab" type="button" data-world-info-tab="info">信息</button>
+          <button class="workspace-tab" type="button" data-world-info-tab="manage">世界操作</button>
+        </div>
+        <div data-world-info-panel="info">
+          <div class="panel-section" data-world-info-section="instance"></div>
+          <div class="panel-section" data-world-info-section="cell"></div>
+          <div class="panel-section" data-world-info-section="entity"></div>
+        </div>
+        <div data-world-info-panel="manage" hidden>
+          <div class="panel-section" data-world-info-time-host></div>
+          <div class="panel-section">
+            <div class="panel-section-title">实例操作</div>
+            <div class="gm-btn-row" style="margin-bottom:6px;">
+              <select class="gm-inline-input" data-instance-create-template style="flex:1;min-width:0;"></select>
+            </div>
+            <div class="gm-btn-row" style="margin-bottom:6px;">
+              <input
+                type="text"
+                class="gm-inline-input"
+                data-instance-create-name
+                placeholder="新线路实例名（可选）"
+                style="flex:1;min-width:0;"
+              />
+            </div>
+            <div class="gm-btn-row" style="margin-bottom:8px;">
+              <button class="small-btn" data-instance-create-line="peaceful">新建和平线</button>
+              <button class="small-btn" data-instance-create-line="real">新建真实线</button>
+            </div>
+            <div class="gm-btn-row" style="margin-bottom:6px;">
+              <input
+                type="text"
+                class="gm-inline-input"
+                data-instance-transfer-player-id
+                placeholder="玩家 ID"
+                style="flex:1;min-width:0;"
+              />
+            </div>
+            <div class="gm-btn-row" style="margin-bottom:6px;">
+              <input type="number" class="gm-inline-input" data-instance-transfer-x placeholder="X" style="width:72px;" />
+              <input type="number" class="gm-inline-input" data-instance-transfer-y placeholder="Y" style="width:72px;" />
+              <button class="small-btn" data-instance-transfer-player>迁移到当前实例</button>
+            </div>
           </div>
         </div>
-        <div class="panel-section" data-world-info-section="cell"></div>
-        <div class="panel-section" data-world-info-section="entity"></div>
       </div>
     `));
+    this.mountTimeControlIntoInfoShell();
+    this.syncInfoTabState();
     this.bindInfoEvents();
   }  
   /**
@@ -1483,6 +1498,29 @@ export class GmWorldViewer {
     }
     root.hidden = false;
     root.replaceChildren(createFragmentFromHtml(html));
+  }
+
+  private mountTimeControlIntoInfoShell(): void {
+    const host = this.infoEl.querySelector<HTMLElement>('[data-world-info-time-host]');
+    if (!host) {
+      return;
+    }
+    this.timeControlEl.style.marginTop = '0';
+    if (this.timeControlEl.parentElement !== host) {
+      host.replaceChildren(this.timeControlEl);
+    }
+  }
+
+  private syncInfoTabState(): void {
+    this.infoEl.querySelectorAll<HTMLButtonElement>('[data-world-info-tab]').forEach((button) => {
+      const tab = button.getAttribute('data-world-info-tab');
+      const active = tab === this.infoTab;
+      button.classList.toggle('active', active);
+      button.setAttribute('aria-selected', active ? 'true' : 'false');
+    });
+    this.infoEl.querySelectorAll<HTMLElement>('[data-world-info-panel]').forEach((panel) => {
+      panel.hidden = panel.getAttribute('data-world-info-panel') !== this.infoTab;
+    });
   }
 
   private syncInstanceActionValues(): void {
@@ -1565,6 +1603,15 @@ export class GmWorldViewer {
     this.infoEl.addEventListener('click', (event) => {
       const target = event.target;
       if (!(target instanceof HTMLElement)) {
+        return;
+      }
+      const tabButton = target.closest<HTMLElement>('[data-world-info-tab]');
+      if (tabButton) {
+        const nextTab = tabButton.getAttribute('data-world-info-tab');
+        if (nextTab === 'info' || nextTab === 'manage') {
+          this.infoTab = nextTab;
+          this.syncInfoTabState();
+        }
         return;
       }
       const createButton = target.closest<HTMLElement>('[data-instance-create-line]');

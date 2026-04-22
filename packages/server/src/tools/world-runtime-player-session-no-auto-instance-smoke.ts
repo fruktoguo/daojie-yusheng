@@ -34,6 +34,16 @@ function createService(log, publicInstances) {
       }
       return publicInstances.get(mapId);
     },
+    getOrCreateDefaultLineInstance(mapId, linePreset) {
+      log.push(['getOrCreateDefaultLineInstance', mapId, linePreset]);
+      if (linePreset === 'real') {
+        throw new Error('unexpected real default line allocation');
+      }
+      if (!publicInstances.has(mapId)) {
+        publicInstances.set(mapId, createPublicInstance(mapId, log));
+      }
+      return publicInstances.get(mapId);
+    },
     getPlayerViewOrThrow(playerId, deps) {
       log.push(['getPlayerViewOrThrow', playerId]);
       const location = deps.getPlayerLocation(playerId);
@@ -138,7 +148,7 @@ function testMultiplePlayersDoNotAutoCreateExtraLines() {
       ['setPlayerLocation', 'player:3', 'public:wildlands'],
     ],
   );
-  assert.equal(log.filter((entry) => entry[0] === 'getOrCreatePublicInstance').length, 3);
+  assert.equal(log.filter((entry) => entry[0] === 'getOrCreateDefaultLineInstance').length, 3);
   assert.equal(log.some((entry) => `${entry}`.includes('real:wildlands')), false);
   assert.equal(log.some((entry) => `${entry}`.includes('line:wildlands')), false);
 }

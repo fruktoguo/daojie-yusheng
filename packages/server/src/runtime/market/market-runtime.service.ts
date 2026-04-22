@@ -64,8 +64,8 @@ let MarketRuntimeService = MarketRuntimeService_1 = class MarketRuntimeService {
         this.playerRuntimeService = playerRuntimeService;
         this.marketPersistenceService = marketPersistenceService;
     }
-    /** 模块初始化时从持久化回填挂单、成交历史和仓库。 */
-    async onModuleInit() {
+    /** 应用完成启动后再回填坊市快照，避免早于持久化服务初始化导致空装载。 */
+    async onApplicationBootstrap() {
         await this.reloadFromPersistence();
     }
     /** 重新加载坊市快照，通常用于启动或 GM 恢复后重建内存态。 */

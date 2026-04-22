@@ -67,7 +67,7 @@ function main() {
     failures.push("PROTOBUF_NEXT_C2S_EVENTS 不再为空，需同步主链与审计策略");
   }
 
-  process.stdout.write("[next protobuf drift proof] summary\n");
+  process.stdout.write("[protobuf drift proof] summary\n");
   process.stdout.write(`- required_protocol_types: ${REQUIRED_PROTOCOL_TYPES.length}\n`);
   process.stdout.write(`- required_lookup_types: ${REQUIRED_LOOKUP_TYPES.length}\n`);
   process.stdout.write(`- required_wire_functions: ${REQUIRED_WIRE_FUNCTIONS.length}\n`);
@@ -75,7 +75,7 @@ function main() {
   process.stdout.write(`- protobuf_next_c2s_events: ${networkProtobuf.PROTOBUF_NEXT_C2S_EVENTS.size}\n`);
 
   if (failures.length > 0) {
-    process.stderr.write("[next protobuf drift proof] failed\n");
+    process.stderr.write("[protobuf drift proof] failed\n");
     for (const failure of failures) {
       process.stderr.write(`- ${failure}\n`);
     }
@@ -83,7 +83,7 @@ function main() {
     return;
   }
 
-  process.stdout.write("[next protobuf drift proof] passed\n");
+  process.stdout.write("[protobuf drift proof] passed\n");
 }
 
 main();

@@ -28,23 +28,11 @@ const sharedName = normalizeSharedName(args.shared);
  * 记录内容目录。
  */
 const contentDir = path.join(repoRoot, 'packages/server/data/content');
-function resolvePackagesDirName(name) {
-  if (name === 'client-next') {
-    return 'client';
-  }
-  if (name === 'server-next') {
-    return 'server';
-  }
-  if (name === 'shared-next') {
-    return 'shared';
-  }
-  return name;
-}
 function resolveWorkspacePackageDir(name) {
-  const nextDir = path.join(repoRoot, 'packages', resolvePackagesDirName(name));
-  return name.endsWith('-next') || name === 'config-editor'
-    ? nextDir
-    : path.join(repoRoot, 'legacy', name);
+  if (name === 'config-editor' || name === 'client' || name === 'server' || name === 'shared') {
+    return path.join(repoRoot, 'packages', name);
+  }
+  return path.join(repoRoot, 'legacy', name);
 }
 /**
  * 记录客户端包目录。
@@ -136,20 +124,20 @@ function parseArgs(argv) {
  * 校验并规范化客户端包名参数。
  */
 function normalizeClientName(value) {
-  if (value === 'client' || value === 'client-next') {
+  if (value === 'client') {
     return value;
   }
-  throw new Error('缺少有效的 --client=client 或 --client=client-next');
+  throw new Error('缺少有效的 --client=client');
 }
 
 /**
  * 校验并规范化 shared 包名参数。
  */
 function normalizeSharedName(value) {
-  if (value === 'shared' || value === 'shared-next') {
+  if (value === 'shared') {
     return value;
   }
-  throw new Error('缺少有效的 --shared=shared 或 --shared=shared-next');
+  throw new Error('缺少有效的 --shared=shared');
 }
 
 /**

@@ -112,7 +112,7 @@ function enforceSkillEnabledLimitLocal<T extends SkillEnabledEntry>(
   });
 }
 
-/** 行动面板的主标签页：对话、技能、开关和通用动作。 */
+/** 行动面板的主标签页：交互、技能、开关和通用动作。 */
 type ActionMainTab = 'dialogue' | 'skill' | 'toggle' | 'utility';
 /** 技能区的子标签页：自动技能和手动技能。 */
 type SkillSubTab = 'auto' | 'manual';
@@ -635,7 +635,7 @@ export class ActionPanel {
 
       types: string[];
     }> = [
-      { id: 'dialogue', label: '对话', types: ['quest', 'interact', 'travel'] },
+      { id: 'dialogue', label: '交互', types: ['quest', 'interact', 'travel'] },
       { id: 'skill', label: '技能', types: ['skill', 'battle', 'gather'] },
       { id: 'toggle', label: '开关', types: ['toggle'] },
       { id: 'utility', label: '行动', types: ['toggle'] },

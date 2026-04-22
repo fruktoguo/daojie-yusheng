@@ -38,7 +38,6 @@
     "proof:replace-ready-gates": "node scripts/check-replace-ready-gates.js",
     "proof:client-shared-no-legacy-source": "node scripts/prove-client-shared-no-legacy-source.js",
     "proof:client-no-legacy-alias": "node scripts/prove-client-no-legacy-alias.js",
-    "proof:migration-write-boundaries": "node scripts/prove-migration-write-boundaries.js",
     "proof:no-legacy-file-behavior": "node scripts/prove-no-legacy-file-behavior.js",
     "proof:client-s2c-consumption": "node scripts/prove-client-s2c-consumption.js",
     "proof:shared-types-source": "node scripts/prove-shared-types-source.js",
@@ -46,7 +45,7 @@
     "proof:protocol-source": "node scripts/prove-protocol-source.js",
     "proof:server-runtime-mainline": "node scripts/prove-server-runtime-mainline.js",
     "audit:protocol": "pnpm --filter @mud/server audit:protocol",
-    "audit:boundaries": "pnpm --filter @mud/server audit:legacy-boundaries",
+    "audit:boundaries": "pnpm --filter @mud/server audit:boundaries",
     "report:alchemy-material-power": "node scripts/report-alchemy-material-power.mjs"
   },
   "engines": {

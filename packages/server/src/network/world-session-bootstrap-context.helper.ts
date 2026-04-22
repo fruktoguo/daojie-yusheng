@@ -47,6 +47,7 @@ interface BootstrapSessionInput {
     persistedSource?: string | null;
     name?: string | null;
     displayName?: string | null;
+    instanceId?: string | null;
     mapId?: string | null;
     preferredX?: number | null;
     preferredY?: number | null;

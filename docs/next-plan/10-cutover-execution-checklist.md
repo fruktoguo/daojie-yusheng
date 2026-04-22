@@ -33,7 +33,7 @@
 ### 2. 环境与入口
 
 - [ ] 当前默认 README/启动入口已指向 next 主线
-- [ ] `start-next.sh`、根级 `dev:* / start:* / verify:replace-ready*` 命令可正常使用
+- [ ] 根 `start.sh` 与根级 `dev:* / start:* / verify:replace-ready*` 命令可正常使用
 - [ ] `legacy/*` 不再被默认启动、默认验证或默认构建流程引用
 - [ ] shadow URL、GM 密码、数据库连接与当前切换窗口目标一致
 
@@ -68,7 +68,7 @@
 
 ### 3. GM 最小闭环
 
-- [ ] `gm-next` 只读面返回正常
+- [ ] `gm` 只读面返回正常
 - [ ] 必要时验证 `gm/database/state`
 - [ ] 必要时验证地图运行时只读面
 

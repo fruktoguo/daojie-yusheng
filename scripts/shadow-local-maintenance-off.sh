@@ -1,5 +1,5 @@
 #!/bin/bash
-# 用途：把本地 next shadow 恢复为非维护态。
+# 用途：把本地 shadow 恢复为非维护态。
 
 set -euo pipefail
 

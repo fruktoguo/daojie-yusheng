@@ -13,15 +13,16 @@ const pg_1 = require("pg");
 
 const env_alias_1 = require("../config/env-alias");
 
-const PLAYER_AUTH_TABLE = 'server_next_player_auth';
-const PLAYER_IDENTITY_TABLE = 'server_next_player_identity';
-const PLAYER_SNAPSHOT_TABLE = 'server_next_player_snapshot';
+const PLAYER_AUTH_TABLE = 'server_player_auth';
+const PLAYER_IDENTITY_TABLE = 'server_player_identity';
+const PLAYER_SNAPSHOT_TABLE = 'server_player_snapshot';
 const PLAYER_SCOPED_NEXT_TABLES = [
   'player_presence',
   'player_world_anchor',
   'player_position_checkpoint',
   'player_vitals',
   'player_progression_core',
+  'player_attr_state',
   'player_body_training_state',
   'player_inventory_item',
   'player_profession_state',
@@ -32,6 +33,15 @@ const PLAYER_SCOPED_NEXT_TABLES = [
   'player_mail_attachment',
   'player_mail',
   'player_mail_counter',
+  'player_persistent_buff_state',
+  'player_enhancement_record',
+  'player_map_unlock',
+  'player_equipment_slot',
+  'player_technique_state',
+  'player_quest_progress',
+  'player_combat_preferences',
+  'player_auto_battle_skill',
+  'player_auto_use_item_rule',
   'durable_operation_log',
   'asset_audit_log',
   'outbox_event',
@@ -77,6 +87,7 @@ async function purgeSmokePlayerArtifactsByPlayerId(playerId, options = undefined
   const result = {
     playerId: normalizedPlayerId,
     runtimeRemoved: false,
+    runtimeDeleteError: '',
     deleted: {
       authRows: 0,
       identityRows: 0,
@@ -91,13 +102,18 @@ async function purgeSmokePlayerArtifactsByPlayerId(playerId, options = undefined
   }
 
   if (serverUrl) {
-    const response = await fetch(`${serverUrl}/runtime/players/${encodeURIComponent(normalizedPlayerId)}`, {
-      method: 'DELETE',
-    });
-    if (!response.ok && response.status !== 404) {
-      throw new Error(`runtime delete player failed: ${response.status} ${await response.text()}`);
+    try {
+      const response = await fetch(`${serverUrl}/runtime/players/${encodeURIComponent(normalizedPlayerId)}`, {
+        method: 'DELETE',
+      });
+      if (!response.ok && response.status !== 404) {
+        result.runtimeDeleteError = `runtime delete player failed: ${response.status} ${await response.text()}`;
+      } else {
+        result.runtimeRemoved = response.ok;
+      }
+    } catch (error) {
+      result.runtimeDeleteError = error instanceof Error ? error.message : String(error);
     }
-    result.runtimeRemoved = response.ok;
   }
 
   if (!databaseUrl) {

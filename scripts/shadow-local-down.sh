@@ -1,5 +1,5 @@
 #!/bin/bash
-# 用途：停止本地 next shadow。
+# 用途：停止本地 shadow。
 
 set -euo pipefail
 

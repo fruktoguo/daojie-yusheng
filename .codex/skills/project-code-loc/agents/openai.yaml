@@ -1,4 +1,0 @@
-interface:
-  display_name: "项目代码行数统计"
-  short_description: "统计项目源代码行数，并默认排除常见工程配置与工具配置文件"
-  default_prompt: "使用 $project-code-loc 统计这个项目的代码行数，并排除常见配置文件与构建输出。"

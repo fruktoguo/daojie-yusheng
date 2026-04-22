@@ -24,7 +24,7 @@ const common_1 = require("@nestjs/common");
 
 const shared_1 = require("@mud/shared");
 
-const next_gm_constants_1 = require("../../http/next/next-gm.constants");
+const next_gm_constants_1 = require("../../http/native/native-gm.constants");
 
 const market_1 = require("../../constants/gameplay/market");
 
@@ -190,7 +190,7 @@ let LeaderboardRuntimeService = class LeaderboardRuntimeService {
     collectOnlineSnapshots() {
 
         const players = this.playerRuntimeService.listPlayerSnapshots()
-            .filter((player) => !(0, next_gm_constants_1.isNextGmBotPlayerId)(player.playerId))
+            .filter((player) => !(0, next_gm_constants_1.isNativeGmBotPlayerId)(player.playerId))
             .filter((player) => typeof player.sessionId === 'string' && player.sessionId.length > 0);
         return players.map((player) => this.createSnapshot(player));
     }

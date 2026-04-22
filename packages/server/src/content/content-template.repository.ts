@@ -2035,10 +2035,22 @@ function normalizeTechniqueLayer(raw, realmLv) {
     return {
         level: Math.max(1, Math.trunc(Number(candidate.level))),
         expToNext: Number.isFinite(candidate.expFactor)
-            ? (0, shared_1.scaleTechniqueExp)(Number(candidate.expFactor), realmLv)
+            ? scaleTechniqueExpCompat(Number(candidate.expFactor), realmLv)
             : Math.max(0, Math.trunc(Number(candidate.expToNext ?? 0))),
         attrs: normalizeTechniqueLayerAttrs(candidate.attrs),
     };
+}
+
+function scaleTechniqueExpCompat(expFactor, realmLv) {
+  if (typeof shared_1.scaleTechniqueExp === 'function') {
+    return (0, shared_1.scaleTechniqueExp)(expFactor, realmLv);
+  }
+  if (expFactor <= 0) {
+    return 0;
+  }
+  const normalizedRealmLv = Number.isFinite(realmLv) ? Math.max(1, Math.floor(Number(realmLv))) : 1;
+  const expBase = Number.isFinite(shared_1.TECHNIQUE_EXP_BASE) ? Number(shared_1.TECHNIQUE_EXP_BASE) : 100;
+  return Math.max(0, Math.round(expFactor * expBase * normalizedRealmLv));
 }
 /**
  * normalizeTechniqueLayerAttrs：规范化或转换功法层Attr。

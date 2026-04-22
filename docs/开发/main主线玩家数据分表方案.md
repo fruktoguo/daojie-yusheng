@@ -17,6 +17,35 @@
 
 本文默认面向 `packages/server` 的玩家持久化重构，不讨论地图实例、邮件系统、市场撮合、宗门、GM、配置编辑器等非玩家主档域。
 
+## 1.1 当前 next 实现映射（2026-04-23）
+
+这份文档描述的是玩家域终局拆表口径；当前 `next` 主线已经开始落地，但命名和覆盖面还没有完全到终局。
+
+当前已落地或已对齐的关键映射：
+
+- 逻辑上的 `player_identity`，当前真实表名仍是 `server_next_player_identity`
+- 旧玩家快照主表仍是 `server_next_player_snapshot`，当前是“旧快照 + 分域投影双写”状态，不是已经完全退役
+- `player_presence`、`player_world_anchor`、`player_position_checkpoint`、`player_vitals`、`player_progression_core`、`player_attr_state`、`player_body_training_state`、`player_inventory_item`、`player_map_unlock`、`player_equipment_slot`、`player_technique_state`、`player_persistent_buff_state`、`player_quest_progress`、`player_combat_preferences`、`player_auto_battle_skill`、`player_auto_use_item_rule`、`player_profession_state`、`player_alchemy_preset`、`player_active_job`、`player_enhancement_record`、`player_logbook_message`、`player_recovery_watermark` 已经开始承接 next 主线写入
+- `player_vitals` 当前已落地字段子集是 `hp / max_hp / qi / max_qi`；`dead` 还不属于当前 next 快照真源
+- `player_progression_core` 当前已落地字段子集是 `foundation / combat_exp / bone_age_base_years / life_elapsed_ticks / lifespan_years`；击杀计数与跨图导航冷却还不属于当前 next 快照真源
+- `player_attr_state` 当前已落地字段子集是 `base_attrs_payload / bonus_entries_payload / revealed_breakthrough_requirement_ids / realm_payload / heaven_gate_payload / spiritual_roots_payload`
+- `player_body_training_state` 当前已落地字段子集是 `level / exp / exp_to_next`
+- `player_persistent_buff_state` 当前已落地字段子集是 `buff_id / source_skill_id / source_caster_id / realm_lv / remaining_ticks / duration / stacks / max_stacks / sustain_ticks_elapsed / raw_payload`
+- `player_enhancement_record` 当前已落地字段子集是 `record_id / item_id / highest_level / levels_payload / action_started_at / action_ended_at / start_level / initial_target_level / desired_target_level / protection_start_level / status`
+- `player_market_storage_item` 当前已落地字段子集是 `storage_item_id / player_id / slot_index / item_id / count / enhance_level / raw_payload / updated_at`；当前由 `MarketPersistenceService` 读写，运行时启动与 restore 后重载都会优先从该表回读
+- `WorldPlayerSnapshotService` 已在旧快照 miss 时接入 `PlayerDomainPersistenceService.loadProjectedSnapshot()`；当前可从 `player_world_anchor / player_position_checkpoint / player_vitals / player_progression_core / player_attr_state / player_body_training_state / player_inventory_item / player_map_unlock / player_equipment_slot / player_technique_state / player_persistent_buff_state / player_quest_progress / player_combat_preferences / player_auto_battle_skill / player_auto_use_item_rule / player_profession_state / player_alchemy_preset / player_active_job / player_enhancement_record / player_logbook_message / player_recovery_watermark` 这一组已落地投影子集回组装玩家快照
+- `PlayerDomainPersistenceService` 当前已对上述已落地投影子集补齐单域直写接口；除 `player_wallet / player_market_storage_item` 外，玩家域主线可以不经整档快照、直接按单域事务 upsert 并推进对应 recovery watermark
+- 当前这条分域恢复读链对外仍保持 `source=next`，并通过 `fallbackReason+=player_domain_projection` 标记来源；`player_presence` 单独存在时不会触发恢复
+- `player_active_job` 已采用统一作业表口径，不再继续按“炼丹作业表 / 强化作业表”分成两张当前作业表
+- 当前 `player_active_job` 投影已开始保留 `job_run_id / job_version`，不会在同一作业的普通快照投影里反复重置作业实例身份
+- `migrate-next-mainline-once --domains=player-domain` 已落地，当前迁移目标与上面的已落地投影子集一致，不包含 `player_presence`
+- 当前 GM backup payload 已显式带出 `player_market_storage_item`，`gm-database-smoke` 也已经补上 restore 后的值级回滚断言，并已在 2026-04-23 的完整 destructive smoke 与 `verify:proof:with-db` 中再次通过
+
+当前尚未等价落地的部分：
+
+- 本文中的多数玩家分域表仍处于终局设计态，不应解读为 `next` 已经全部建表完成
+- 文末的 `player_checkpoint` 仍是设计占位；当前实现落点以 `player_world_anchor + player_position_checkpoint + player_recovery_watermark` 为主
+
 ## 2. 输入基线
 
 本文的输入不是想象出来的字段，而是参考主线 `/home/yuohira/mud-mmo` 当前真实参与“玩家下次还在”的数据面：
@@ -101,7 +130,7 @@
 | 功法与养成 | `player_technique_state` `player_body_training_state` `player_persistent_buff_state` |
 | 任务与地图 | `player_quest_progress` `player_map_unlock` |
 | 战斗偏好与自动化 | `player_combat_preferences` `player_auto_battle_skill` `player_auto_use_item_rule` |
-| 职业与长作业 | `player_profession_state` `player_alchemy_preset` `player_alchemy_job` `player_enhancement_job` `player_enhancement_record` |
+| 职业与长作业 | `player_profession_state` `player_alchemy_preset` `player_active_job` `player_enhancement_record` |
 | 消息与恢复水位 | `player_logbook_message` `player_recovery_watermark` `player_checkpoint` |
 
 ## 6. 按表展开
@@ -164,6 +193,8 @@
 | `offline_since_at` | 离线起点 | `player_presence.offlineSinceAt` |
 | `runtime_owner_id` | 当前运行时所有者节点 | 新增 |
 | `session_epoch` | 角色会话 epoch | 新增 |
+| `transfer_state` | 是否处于跨节点转移中 | 新增 |
+| `transfer_target_node_id` | 转移目标节点 | 新增 |
 | `updated_at` | 最后更新时间 | 新增 |
 
 写入时机：
@@ -272,7 +303,7 @@
 | `hp` | 当前生命 | `players.hp` |
 | `max_hp` | 当前最大生命 | `players.maxHp` |
 | `qi` | 当前气 | `players.qi` |
-| `dead` | 是否死亡 | `players.dead` |
+| `max_qi` | 当前最大气 | 当前 next 快照真实字段 `maxQi` |
 | `updated_at` | 最后更新时间 | 新增 |
 
 写入时机：
@@ -298,15 +329,9 @@
 | `player_id` | 角色主键 | 新拆分 |
 | `foundation` | 修为基础值 | `players.foundation` |
 | `combat_exp` | 战斗经验 | `players.combatExp` |
-| `player_kill_count` | 玩家击杀 | `players.playerKillCount` |
-| `monster_kill_count` | 怪物击杀 | `players.monsterKillCount` |
-| `elite_kill_count` | 精英击杀 | `players.eliteMonsterKillCount` |
-| `boss_kill_count` | Boss 击杀 | `players.bossMonsterKillCount` |
-| `death_count` | 死亡次数 | `players.deathCount` |
 | `bone_age_base_years` | 骨龄基线 | `players.boneAgeBaseYears` |
 | `life_elapsed_ticks` | 已流逝寿元 ticks | `players.lifeElapsedTicks` |
 | `lifespan_years` | 寿元上限年数 | `players.lifespanYears` |
-| `quest_cross_map_nav_cooldown_until_life_ticks` | 跨图导航冷却 | `players.questCrossMapNavCooldownUntilLifeTicks` |
 | `updated_at` | 最后更新时间 | 新增 |
 
 写入时机：
@@ -315,6 +340,11 @@
 - 境界成长
 - 寿元流逝批刷
 - 任务推进影响跨图冷却
+
+当前 next 已落地说明：
+
+- 这张表当前只承接 `foundation / combat_exp / bone_age_base_years / life_elapsed_ticks / lifespan_years`
+- `player_kill_count / monster_kill_count / elite_kill_count / boss_kill_count / death_count / quest_cross_map_nav_cooldown_until_life_ticks` 仍属于后续补齐项，不能假定 next 当前快照已经稳定提供
 
 ### 6.7 `player_attr_state`
 
@@ -347,6 +377,11 @@
 不应存：
 
 - 最终派生面板属性
+
+当前 next 已落地说明：
+
+- 这张表当前已经落地，并进入分域投影恢复链
+- 当前 GM backup payload 已显式带出这张表，`gm-database-smoke` 也已经补上 restore 后的值级回滚断言，并已在 2026-04-23 的完整 destructive smoke 中再次通过
 
 ### 6.8 `player_wallet`
 
@@ -424,6 +459,13 @@
 - 未领取邮件附件
 
 ### 6.10 `player_market_storage_item`
+
+当前 next 已落地说明：
+
+- 当前 next 已落地该表，真实表名即 `player_market_storage_item`
+- 当前由 `MarketPersistenceService` 读写，运行时启动与 restore 后重载会优先从该表回读，`server_market_storage_v1` 只保留兼容镜像
+- 当前 GM backup payload 已显式带出这张表，`gm-database-smoke` 也已经补上 restore 后的值级回滚断言，并已在 2026-04-23 的完整 destructive smoke 中再次通过
+- `persistence-smoke` 已补成直接 proof：会先删除 compat 文档，再证明 `player_market_storage_item` 在服务重启后仍能被运行时真实回读并领取
 
 用途：
 
@@ -507,6 +549,7 @@
 | `level` | 等级 | `level` |
 | `exp` | 当前经验 | `exp` |
 | `exp_to_next` | 到下一阶经验 | `expToNext` |
+| `realm_lv` | 当前境界层级快照 | `realmLv` |
 | `skills_enabled` | 已启用技能列表 | `skillsEnabled?` |
 | `raw_payload` | 兼容未知结构 | 完整 `TechniqueState` |
 | `updated_at` | 最后更新时间 | 新增 |
@@ -516,6 +559,10 @@
 - 修炼
 - 切换功法配置
 - 功法升级
+
+当前 next 已落地说明：
+
+- 这张表当前已经按 `level / exp / exp_to_next / realm_lv / skills_enabled / raw_payload` 落地，并进入分域投影恢复链
 
 ### 6.13 `player_body_training_state`
 
@@ -541,6 +588,10 @@
 
 - 炼体推进
 - 炼体升级
+
+当前 next 已落地说明：
+
+- 这张表当前已经按 `level / exp / exp_to_next` 落地，并进入分域投影恢复链
 
 ### 6.14 `player_persistent_buff_state`
 
@@ -580,6 +631,11 @@
 
 - 明确允许重启丢弃的临时战斗态 buff
 
+当前 next 已落地说明：
+
+- 这张表当前已经落地，并进入分域投影恢复链
+- 当前 GM backup payload 已显式带出这张表，`gm-database-smoke` 也已经补上 restore 后的值级回滚断言，并已在 2026-04-23 的完整 destructive smoke 中再次通过
+
 ### 6.15 `player_quest_progress`
 
 用途：
@@ -597,7 +653,7 @@
 | `player_id` | 角色主键 | `quests[]` |
 | `quest_id` | 任务 id | `id` |
 | `status` | 任务状态 | `status` |
-| `progress` | 进度 payload | `progress` |
+| `progress_payload` | 进度 payload | `progress` |
 | `raw_payload` | 完整回退 | 完整 `QuestState` |
 | `updated_at` | 最后更新时间 | 新增 |
 
@@ -607,6 +663,10 @@
 - 推进
 - 完成
 - 放弃
+
+当前 next 已落地说明：
+
+- 这张表当前已经按 `status / progress_payload / raw_payload` 落地，并进入分域投影恢复链
 
 ### 6.16 `player_map_unlock`
 
@@ -646,14 +706,16 @@
 | --- | --- | --- |
 | `player_id` | 角色主键 | 新拆分 |
 | `auto_battle` | 自动战斗开关 | `autoBattle` |
+| `auto_retaliate` | 自动反击开关 | `autoRetaliate` |
+| `auto_battle_stationary` | 原地自动战斗 | `autoBattleStationary` |
 | `auto_battle_targeting_mode` | 目标模式 | `autoBattleTargetingMode` |
+| `retaliate_player_target_id` | 反击玩家目标 | `retaliatePlayerTargetId` |
 | `combat_target_locked` | 是否锁定目标 | `combatTargetLocked` |
 | `combat_target_id` | 当前锁定目标 | `combatTargetId` |
-| `auto_retaliate` | 自动反击 | `autoRetaliate` |
-| `auto_battle_stationary` | 原地自动战斗 | `autoBattleStationary` |
 | `allow_aoe_player_hit` | 是否允许 AOE 伤人 | `allowAoePlayerHit` |
 | `auto_idle_cultivation` | 自动挂机修炼 | `autoIdleCultivation` |
 | `auto_switch_cultivation` | 自动切换修炼 | `autoSwitchCultivation` |
+| `sense_qi_active` | 灵气感知开关 | `senseQiActive` |
 | `cultivating_tech_id` | 当前修炼功法 | `cultivatingTechId` |
 | `targeting_rules_payload` | 敌我索敌规则 | `combatTargetingRules` |
 | `updated_at` | 最后更新时间 | 新增 |
@@ -662,6 +724,10 @@
 
 - 设置变更
 - 目标锁定策略变更
+
+当前 next 已落地说明：
+
+- 这张表当前已经按 `auto_battle / auto_retaliate / auto_battle_stationary / auto_battle_targeting_mode / retaliate_player_target_id / combat_target_id / combat_target_locked / allow_aoe_player_hit / auto_idle_cultivation / auto_switch_cultivation / sense_qi_active / cultivating_tech_id / targeting_rules_payload` 落地，并进入分域投影恢复链
 
 ### 6.18 `player_auto_battle_skill`
 
@@ -681,11 +747,16 @@
 | `skill_id` | 技能 id | `skillId` |
 | `enabled` | 条目启用 | `enabled` |
 | `skill_enabled` | 技能自身启用 | `skillEnabled?` |
+| `auto_battle_order` | 自动战斗排序 | `autoBattleOrder?` |
 | `updated_at` | 最后更新时间 | 新增 |
 
 写入时机：
 
 - 自动战斗技能配置变更
+
+当前 next 已落地说明：
+
+- 这张表当前已经按 `enabled / skill_enabled / auto_battle_order` 落地，并进入分域投影恢复链
 
 ### 6.19 `player_auto_use_item_rule`
 
@@ -709,6 +780,10 @@
 写入时机：
 
 - 自动用药规则变更
+
+当前 next 已落地说明：
+
+- 这张表当前已经按 `condition_payload` 落地，并进入分域投影恢复链
 
 ### 6.20 `player_profession_state`
 
@@ -768,99 +843,55 @@
 - 修改预设
 - 删除预设
 
-### 6.22 `player_alchemy_job`
+### 6.22 `player_active_job`
 
 用途：
 
-- 炼丹长作业真源
+- 当前活跃技艺作业真源
+- 同一玩家同一时刻只保留 1 个活跃 job
 
 主键与约束：
 
 - 主键：`player_id`
+- 唯一：`job_run_id`
 
 字段：
 
 | 字段 | 含义 | 来源 |
 | --- | --- | --- |
-| `player_id` | 角色主键 | `alchemyJob` |
-| `recipe_id` | 配方 id | `recipeId` |
-| `output_item_id` | 产物 id | `outputItemId` |
-| `output_count` | 单批产量 | `outputCount` |
-| `quantity` | 总批次数量 | `quantity` |
-| `completed_count` | 已完成批次 | `completedCount` |
-| `success_count` | 成功次数 | `successCount` |
-| `failure_count` | 失败次数 | `failureCount` |
-| `ingredients_payload` | 原料列表 | `ingredients[]` |
+| `player_id` | 角色主键 | `alchemyJob` / `enhancementJob` |
+| `job_run_id` | 本次作业实例 id | 新增 |
+| `job_type` | `alchemy` / `enhancement` | 新增 |
+| `status` | `running` / `paused` / `completed` / `cancelled` / `failed` | 综合状态 |
 | `phase` | 当前阶段 | `phase` |
-| `preparation_ticks` | 准备阶段 ticks | `preparationTicks` |
-| `batch_brew_ticks` | 单批炼制 ticks | `batchBrewTicks` |
-| `current_batch_remaining_ticks` | 当前批剩余 ticks | `currentBatchRemainingTicks` |
+| `started_at` | 开始时间 | `startedAt` |
+| `finished_at` | 结束时间 | 新增 |
 | `paused_ticks` | 暂停累计 ticks | `pausedTicks` |
-| `spirit_stone_cost` | 消耗灵石 | `spiritStoneCost` |
 | `total_ticks` | 总 ticks | `totalTicks` |
 | `remaining_ticks` | 剩余 ticks | `remainingTicks` |
 | `success_rate` | 成功率 | `successRate` |
-| `exact_recipe` | 配方快照 | `exactRecipe` |
-| `started_at` | 开始时间 | `startedAt` |
+| `speed_rate` | 总速度倍率 | `totalSpeedRate` / 运行时换算值 |
+| `job_version` | 当前作业状态版本 | 新增 |
+| `detail_jsonb` | 作业差异明细 | `alchemyJob` / `enhancementJob` 差异字段 |
 | `updated_at` | 最后更新时间 | 新增 |
 
 写入时机：
 
-- 开始炼丹
-- 暂停/继续
-- 每批完成
-- 取消
-- 结束
-
-### 6.23 `player_enhancement_job`
-
-用途：
-
-- 强化长作业真源
-
-主键与约束：
-
-- 主键：`player_id`
-
-字段：
-
-| 字段 | 含义 | 来源 |
-| --- | --- | --- |
-| `player_id` | 角色主键 | `enhancementJob` |
-| `target_payload` | 目标对象快照 | `target` |
-| `item_payload` | 被强化物品快照 | `item` |
-| `target_item_id` | 目标物品 id | `targetItemId` |
-| `target_item_name` | 目标物品名 | `targetItemName` |
-| `target_item_level` | 目标物品等级 | `targetItemLevel` |
-| `current_level` | 当前强化等级 | `currentLevel` |
-| `target_level` | 本轮目标等级 | `targetLevel` |
-| `desired_target_level` | 最终期望等级 | `desiredTargetLevel` |
-| `spirit_stone_cost` | 消耗灵石 | `spiritStoneCost` |
-| `materials_payload` | 材料列表 | `materials[]` |
-| `protection_used` | 是否使用保护 | `protectionUsed` |
-| `protection_start_level` | 保护起始等级 | `protectionStartLevel?` |
-| `protection_item_id` | 保护物品 id | `protectionItemId?` |
-| `protection_item_name` | 保护物品名 | `protectionItemName?` |
-| `protection_item_signature` | 保护物品签名 | `protectionItemSignature?` |
-| `phase` | 当前阶段 | `phase` |
-| `paused_ticks` | 暂停累计 ticks | `pausedTicks` |
-| `success_rate` | 成功率 | `successRate` |
-| `total_ticks` | 总 ticks | `totalTicks` |
-| `remaining_ticks` | 剩余 ticks | `remainingTicks` |
-| `started_at` | 开始时间 | `startedAt` |
-| `role_enhancement_level` | 角色强化技艺等级 | `roleEnhancementLevel` |
-| `total_speed_rate` | 总速度倍率 | `totalSpeedRate` |
-| `updated_at` | 最后更新时间 | 新增 |
-
-写入时机：
-
-- 开始强化
+- 开始作业
 - 暂停/继续
 - 每轮推进
 - 取消
 - 结束
 
-### 6.24 `player_enhancement_record`
+说明：
+
+- `job_run_id` 每次开新作业都必须刷新，旧 job 的延迟完成/重试包必须因 `job_run_id` 不匹配而失败
+- `job_version` 在同一 `job_run_id` 内单调递增，所有推进/取消/完成都按 `player_id + job_run_id + job_version` 做 CAS
+- `detail_jsonb` 仅存差异字段：
+  - 炼丹：`recipe_id`、`output_item_id`、`output_count`、`quantity`、`completed_count`、`success_count`、`failure_count`、`ingredients_payload`、`preparation_ticks`、`batch_brew_ticks`、`current_batch_remaining_ticks`、`spirit_stone_cost`、`exact_recipe`
+  - 强化：`target_payload`、`item_payload`、`target_item_id`、`target_item_name`、`target_item_level`、`current_level`、`target_level`、`desired_target_level`、`spirit_stone_cost`、`materials_payload`、`protection_used`、`protection_start_level`、`protection_item_id`、`protection_item_name`、`protection_item_signature`、`role_enhancement_level`
+
+### 6.23 `player_enhancement_record`
 
 用途：
 
@@ -899,7 +930,12 @@
 
 - 禁止继续沿用旧列名 `enhancementRecords`
 
-### 6.25 `player_logbook_message`
+当前 next 已落地说明：
+
+- 这张表当前已经落地，并进入分域投影恢复链
+- 当前 GM backup payload 已显式带出这张表，`gm-database-smoke` 也已经补上 restore 后的值级回滚断言，并已在 2026-04-23 的完整 destructive smoke 中再次通过
+
+### 6.24 `player_logbook_message`
 
 用途：
 
@@ -927,7 +963,7 @@
 - append 新消息
 - 玩家确认已读
 
-### 6.26 `player_recovery_watermark`
+### 6.25 `player_recovery_watermark`
 
 用途：
 
@@ -960,17 +996,22 @@
 | `quest_version` | 任务版本 |
 | `map_unlock_version` | 地图解锁版本 |
 | `combat_pref_version` | 战斗偏好版本 |
+| `auto_battle_skill_version` | 自动战斗技能版本 |
+| `auto_use_item_rule_version` | 自动用药规则版本 |
 | `profession_version` | 职业成长版本 |
-| `alchemy_job_version` | 炼丹作业版本 |
-| `enhancement_job_version` | 强化作业版本 |
+| `alchemy_preset_version` | 炼丹预设版本 |
+| `active_job_version` | 当前活跃作业版本 |
+| `enhancement_record_version` | 强化记录版本 |
 | `logbook_version` | 日志消息版本 |
+| `mail_version` | 邮件主表版本 |
+| `mail_counter_version` | 邮件计数聚合版本 |
 | `updated_at` | 最后更新时间 |
 
 写入时机：
 
 - 每个正式提交域在事务内推进自己的版本
 
-### 6.27 `player_checkpoint`
+### 6.26 `player_checkpoint`
 
 用途：
 
@@ -1024,8 +1065,7 @@
 | `player_settings.autoBattle* combatTarget* autoRetaliate ...` | `player_combat_preferences` + `player_auto_battle_skill` + `player_auto_use_item_rule` |
 | `player_settings.alchemySkill gatherSkill enhancementSkillLevel` | `player_profession_state` |
 | `player_settings.alchemyPresets` | `player_alchemy_preset` |
-| `player_settings.alchemyJob` | `player_alchemy_job` |
-| `player_settings.enhancementJob` | `player_enhancement_job` |
+| `player_settings.alchemyJob` + `player_settings.enhancementJob` | `player_active_job` |
 | `player_settings.enhancementRecords` | `player_enhancement_record` |
 | `players.pendingLogbookMessages` | `player_logbook_message` |
 | `users.displayName` | 继续留在账号域 |
@@ -1058,9 +1098,16 @@
 - `player_inventory_item`
 - `player_market_storage_item`
 - `player_equipment_slot`
+- `player_active_job`（仅限创建/取消/完成或伴随资产结算的场景）
+- `player_enhancement_record`（强化结算时）
 - 必要时联动 `player_world_anchor`
 - 必要时联动 `player_position_checkpoint`
+- 提交前必须校验 `player_presence.runtime_owner_id + session_epoch`
 - 同事务推进 `player_recovery_watermark`
+
+补充：
+
+- 后续接入 `player_mail / player_mail_counter` 后，邮件领取也进入同类强持久化事务链
 
 ### 8.2 最终一致 flush 域
 
@@ -1077,8 +1124,7 @@
 - `player_auto_battle_skill`
 - `player_auto_use_item_rule`
 - `player_profession_state`
-- `player_alchemy_job`
-- `player_enhancement_job`
+- `player_active_job`（仅限运行中进度字段）
 
 ### 8.3 小事务即时写域
 
@@ -1090,6 +1136,8 @@
 - `player_logbook_message`
 
 ## 9. 恢复顺序
+
+以下顺序是终局推荐顺序；当前 next 实际已接入的分域恢复链，以本文第 1.1 节列出的“当前已落地投影子集”为准，不应把这里直接解读成“全部已经上线可恢复”。
 
 推荐顺序：
 
@@ -1115,16 +1163,15 @@
 20. `player_auto_use_item_rule`
 21. `player_profession_state`
 22. `player_alchemy_preset`
-23. `player_alchemy_job`
-24. `player_enhancement_job`
-25. `player_enhancement_record`
-26. `player_logbook_message`
-27. 按 `player_recovery_watermark` 校验版本一致
-28. 必要时用 `player_checkpoint` 做加速或 fallback
+23. `player_active_job`
+24. `player_enhancement_record`
+25. `player_logbook_message`
+26. 按 `player_recovery_watermark` 校验版本一致
+27. 必要时用 `player_checkpoint` 做加速或 fallback
 
 ## 10. 最终结论
 
-基于参考 `main` 主线的真实玩家数据面，玩家域不能只粗糙地拆成“主档 / 背包 / 设置 / 任务”四五块，而必须至少拆成本文这 27 张表对应的职责边界。
+基于参考 `main` 主线的真实玩家数据面，玩家域不能只粗糙地拆成“主档 / 背包 / 设置 / 任务”四五块，而必须至少拆成本文这 26 张表对应的职责边界。
 
 其中真正的核心不是“表变多了”，而是三件事：
 

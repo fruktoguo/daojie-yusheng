@@ -10,6 +10,7 @@ const smoke_timeout_1 = require("./smoke-timeout");
 const socket_io_client_1 = require("socket.io-client");
 const shared_1 = require("@mud/shared");
 const env_alias_1 = require("../config/env-alias");
+const smoke_player_auth_1 = require("./smoke-player-auth");
 /**
  * 记录 server 访问地址。
  */
@@ -19,11 +20,23 @@ const SERVER_URL = (0, env_alias_1.resolveServerUrl)() || 'http://127.0.0.1:3111
  */
 let playerId = '';
 /**
+ * 记录会话ID。
+ */
+let sessionId = '';
+/**
  * 串联执行脚本主流程。
  */
 async function main() {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
+/**
+ * 记录认证。
+ */
+    const auth = await (0, smoke_player_auth_1.registerAndLoginSmokePlayer)(SERVER_URL, {
+        accountPrefix: 'prs',
+        rolePrefix: '返',
+        seed: 'player-respawn',
+    });
 /**
  * 记录socket。
  */
@@ -31,6 +44,7 @@ async function main() {
         path: '/socket.io',
         transports: ['websocket'],
         auth: {
+            token: auth.accessToken,
             protocol: 'mainline',
         },
     });
@@ -53,14 +67,24 @@ async function main() {
     });
     socket.on(shared_1.S2C.InitSession, (payload) => {
         playerId = String(payload?.pid ?? '');
+        sessionId = String(payload?.sid ?? '');
     });
     await onceConnected(socket);
-    socket.emit('n:c:hello', {
+    await waitFor(() => playerId.length > 0 && sessionId.length > 0, 5000);
+    await postJson('/runtime/players/connect', {
+        playerId,
+        sessionId,
         mapId: 'wildlands',
         preferredX: 6,
         preferredY: 6,
     });
-    await waitFor(() => playerId.length > 0 && mapEnterEvents.some((entry) => entry.mid === 'wildlands'), 4000);
+    await waitForCondition(async () => {
+/**
+ * 记录状态。
+ */
+        const state = await fetchJson(`${SERVER_URL}/runtime/players/${playerId}/state`);
+        return state.player?.templateId === 'wildlands';
+    }, 6000);
     await postJson(`/runtime/players/${playerId}/damage`, {
         amount: 999999,
     });
@@ -218,4 +242,6 @@ function delay(ms) {
 void main().catch((error) => {
     console.error(error);
     process.exitCode = 1;
+}).finally(async () => {
+    await (0, smoke_player_auth_1.flushRegisteredSmokePlayers)();
 });

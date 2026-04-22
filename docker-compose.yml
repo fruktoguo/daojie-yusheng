@@ -1,24 +1,24 @@
 services:
   postgres:
     image: postgres:16-alpine
-    container_name: mud-local-postgres-next
+    container_name: mud-local-postgres
     environment:
       POSTGRES_USER: ${DB_USERNAME:-mud}
       POSTGRES_PASSWORD: ${DB_PASSWORD:-jiuzhou123}
-      POSTGRES_DB: ${DB_DATABASE:-mud_mmo_next}
+      POSTGRES_DB: ${DB_DATABASE:-daojie_yusheng}
     volumes:
-      - pgdata_server_next:/var/lib/postgresql/data
+      - pgdata_server:/var/lib/postgresql/data
     ports:
       - "${DB_PORT:-15432}:5432"
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U ${DB_USERNAME:-mud} -d ${DB_DATABASE:-mud_mmo_next}"]
+      test: ["CMD-SHELL", "pg_isready -U ${DB_USERNAME:-mud} -d ${DB_DATABASE:-daojie_yusheng}"]
       interval: 5s
       timeout: 5s
       retries: 5
 
   redis:
     image: redis:7-alpine
-    container_name: mud-local-redis-next
+    container_name: mud-local-redis
     ports:
       - "${REDIS_PORT:-16379}:6379"
     healthcheck:
@@ -27,25 +27,25 @@ services:
       timeout: 5s
       retries: 5
 
-  server-next:
+  server:
     build:
       context: .
       dockerfile: packages/server/Dockerfile
     environment:
-      SERVER_NEXT_HOST: 0.0.0.0
-      SERVER_NEXT_PORT: 13001
-      SERVER_NEXT_DATABASE_URL: postgres://${DB_USERNAME:-mud}:${DB_PASSWORD:-jiuzhou123}@postgres:5432/${DB_DATABASE:-mud_mmo_next}
-      DATABASE_URL: postgres://${DB_USERNAME:-mud}:${DB_PASSWORD:-jiuzhou123}@postgres:5432/${DB_DATABASE:-mud_mmo_next}
+      SERVER_HOST: 0.0.0.0
+      SERVER_PORT: 13001
+      SERVER_DATABASE_URL: postgres://${DB_USERNAME:-mud}:${DB_PASSWORD:-jiuzhou123}@postgres:5432/${DB_DATABASE:-daojie_yusheng}
+      DATABASE_URL: postgres://${DB_USERNAME:-mud}:${DB_PASSWORD:-jiuzhou123}@postgres:5432/${DB_DATABASE:-daojie_yusheng}
       JWT_SECRET: ${JWT_SECRET}
-      SERVER_NEXT_GM_PASSWORD: ${GM_PASSWORD:-admin123}
+      SERVER_GM_PASSWORD: ${GM_PASSWORD:-admin123}
       GM_PASSWORD: ${GM_PASSWORD:-admin123}
-      SERVER_NEXT_RUNTIME_TOKEN: ${SERVER_NEXT_RUNTIME_TOKEN}
-      SERVER_NEXT_ALLOW_LEGACY_HTTP_COMPAT: ${SERVER_NEXT_ALLOW_LEGACY_HTTP_COMPAT:-0}
-      SERVER_NEXT_GM_DATABASE_BACKUP_DIR: /var/lib/server-next/gm-database-backups
+      SERVER_RUNTIME_TOKEN: ${SERVER_RUNTIME_TOKEN}
+      SERVER_ALLOW_LEGACY_HTTP_COMPAT: ${SERVER_ALLOW_LEGACY_HTTP_COMPAT:-0}
+      SERVER_GM_DATABASE_BACKUP_DIR: /var/lib/server/gm-database-backups
     ports:
       - "11922:13001"
     volumes:
-      - server_next_backup_data:/var/lib/server-next
+      - server_backup_data:/var/lib/server
     depends_on:
       postgres:
         condition: service_healthy
@@ -68,7 +68,7 @@ services:
     ports:
       - "11921:80"
     depends_on:
-      server-next:
+      server:
         condition: service_healthy
     healthcheck:
       test: ["CMD-SHELL", "wget --spider -q http://127.0.0.1:80 || exit 1"]
@@ -78,5 +78,5 @@ services:
       start_period: 10s
 
 volumes:
-  pgdata_server_next:
-  server_next_backup_data:
+  pgdata_server:
+  server_backup_data:

@@ -1,273 +1,224 @@
-// @ts-nocheck
-"use strict";
+import { Inject, Injectable, Logger, type OnModuleDestroy, type OnModuleInit } from '@nestjs/common';
 
-var __decorate = (this && this.__decorate) || function (decorators, target, key, desc) {
-
-    var c = arguments.length, r = c < 3 ? target : desc === null ? desc = Object.getOwnPropertyDescriptor(target, key) : desc, d;
-    if (typeof Reflect === "object" && typeof Reflect.decorate === "function") r = Reflect.decorate(decorators, target, key, desc);
-    else for (var i = decorators.length - 1; i >= 0; i--) if (d = decorators[i]) r = (c < 3 ? d(r) : c > 3 ? d(target, key, r) : d(target, key)) || r;
-    return c > 3 && r && Object.defineProperty(target, key, r), r;
-};
-
-var __metadata = (this && this.__metadata) || function (k, v) {
-    if (typeof Reflect === "object" && typeof Reflect.metadata === "function") return Reflect.metadata(k, v);
-};
-
-var PlayerPersistenceFlushService_1;
-Object.defineProperty(exports, "__esModule", { value: true });
-exports.PlayerPersistenceFlushService = void 0;
-
-const common_1 = require("@nestjs/common");
-
-const player_runtime_service_1 = require("../runtime/player/player-runtime.service");
-
-const player_persistence_service_1 = require("./player-persistence.service");
+import { PlayerRuntimeService } from '../runtime/player/player-runtime.service';
+import { PlayerDomainPersistenceService } from './player-domain-persistence.service';
+import {
+  PlayerPersistenceService,
+  type PersistedPlayerSnapshot,
+} from './player-persistence.service';
 
 const PLAYER_PERSISTENCE_FLUSH_INTERVAL_MS = 5000;
 const PLAYER_PERSISTENCE_FLUSH_BATCH_SIZE = 24;
 const PLAYER_PERSISTENCE_FLUSH_PARALLELISM = 4;
 const PLAYER_PERSISTENCE_FLUSH_RETRY_COUNT = 1;
 
-/** 玩家快照脏数据刷盘服务：定时/退出时持久化玩家运行时快照。 */
-let PlayerPersistenceFlushService = PlayerPersistenceFlushService_1 = class PlayerPersistenceFlushService {
-/**
- * playerRuntimeService：玩家运行态服务引用。
- */
-
-    playerRuntimeService;    
-    /**
- * playerPersistenceService：玩家Persistence服务引用。
- */
-
-    playerPersistenceService;    
-    /**
- * logger：日志器引用。
- */
-
-    logger = new common_1.Logger(PlayerPersistenceFlushService_1.name);    
-    /**
- * timer：timer相关字段。
- */
-
-    timer = null;    
-    /**
- * flushPromise：flushPromise相关字段。
- */
-
-    flushPromise = null;    
-    /**
- * 构造器：初始化 当前 实例并建立基础状态。
- * @param playerRuntimeService 参数说明。
- * @param playerPersistenceService 参数说明。
- * @returns 无返回值，完成实例初始化。
- */
-
-    constructor(playerRuntimeService, playerPersistenceService) {
-        this.playerRuntimeService = playerRuntimeService;
-        this.playerPersistenceService = playerPersistenceService;
-    }    
-    /**
- * onModuleInit：执行on模块Init相关逻辑。
- * @returns 无返回值，直接更新on模块Init相关状态。
- */
-
-    onModuleInit() {
-        this.timer = setInterval(() => {
-            void this.flushDirtyPlayers();
-        }, PLAYER_PERSISTENCE_FLUSH_INTERVAL_MS);
-        this.timer.unref();
-        this.logger.log(`玩家持久化刷新已启动，间隔 ${PLAYER_PERSISTENCE_FLUSH_INTERVAL_MS}ms`);
-    }    
-    /**
- * onModuleDestroy：执行on模块Destroy相关逻辑。
- * @returns 无返回值，直接更新on模块Destroy相关状态。
- */
-
-    onModuleDestroy() {
-        if (this.timer) {
-            clearInterval(this.timer);
-            this.timer = null;
-        }
-    }
-
-    /** 应用关闭前 flush 全量脏玩家，保证关键状态落库。 */
-    async beforeApplicationShutdown() {
-        await this.flushAllNow();
-    }
-
-    /** 立即刷单个玩家快照。 */
-    async flushPlayer(playerId) {
-  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
-
-        if (!this.playerPersistenceService.isEnabled()) {
-            return;
-        }
-
-        const snapshot = this.playerRuntimeService.buildPersistenceSnapshot(playerId);
-        if (!snapshot) {
-            return;
-        }
-        await this.playerPersistenceService.savePlayerSnapshot(playerId, snapshot);
-        this.playerRuntimeService.markPersisted(playerId);
-    }    
-    /**
- * flushAllNow：执行刷新AllNow相关逻辑。
- * @returns 无返回值，直接更新flushAllNow相关状态。
- */
-
-    async flushAllNow() {
-  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
-
-        if (!this.playerPersistenceService.isEnabled()) {
-            return;
-        }
-        if (this.flushPromise) {
-            await this.flushPromise;
-        }
-        await this.runFlushCycle('shutdown');
-    }    
-    /**
- * flushDirtyPlayers：执行刷新Dirty玩家相关逻辑。
- * @returns 无返回值，直接更新flushDirty玩家相关状态。
- */
-
-    async flushDirtyPlayers() {
-  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
-
-        if (!this.playerPersistenceService.isEnabled()
-            || this.flushPromise
-            || isRestoreFreezeActive()) {
-            return;
-        }
-        await this.runFlushCycle('interval');
-    }    
-    /**
- * runFlushCycle：执行run刷新Cycle相关逻辑。
- * @param reason 参数说明。
- * @returns 无返回值，直接更新runFlushCycle相关状态。
- */
-
-    async runFlushCycle(reason) {
-  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
-
-        if (!this.playerPersistenceService.isEnabled()) {
-            return;
-        }
-
-        const promise = (async () => {
-
-            const dirtyPlayerIds = this.playerRuntimeService.listDirtyPlayers();
-            if (dirtyPlayerIds.length === 0) {
-                return;
-            }
-            const batches = chunkValues(dirtyPlayerIds, PLAYER_PERSISTENCE_FLUSH_BATCH_SIZE);
-            for (const batch of batches) {
-                await runConcurrent(batch, PLAYER_PERSISTENCE_FLUSH_PARALLELISM, async (playerId) => {
-                    const snapshot = this.playerRuntimeService.buildPersistenceSnapshot(playerId);
-                    if (!snapshot) {
-                        return;
-                    }
-                    await retryFlush(PLAYER_PERSISTENCE_FLUSH_RETRY_COUNT, async () => {
-                        await this.playerPersistenceService.savePlayerSnapshot(playerId, snapshot);
-                    });
-                    this.playerRuntimeService.markPersisted(playerId);
-                }, (playerId, error) => {
-                    this.logger.error(`玩家持久化刷新失败（${reason}） playerId=${playerId}`, error instanceof Error ? error.stack : String(error));
-                });
-            }
-        })();
-        this.flushPromise = promise;
-        try {
-            await promise;
-        }
-        finally {
-            if (this.flushPromise === promise) {
-                this.flushPromise = null;
-            }
-        }
-    }
-};
-exports.PlayerPersistenceFlushService = PlayerPersistenceFlushService;
-exports.PlayerPersistenceFlushService = PlayerPersistenceFlushService = PlayerPersistenceFlushService_1 = __decorate([
-    (0, common_1.Injectable)(),
-    __metadata("design:paramtypes", [player_runtime_service_1.PlayerRuntimeService,
-        player_persistence_service_1.PlayerPersistenceService])
-], PlayerPersistenceFlushService);
-/**
- * isRestoreFreezeActive：判断RestoreFreeze激活是否满足条件。
- * @returns 无返回值，完成RestoreFreeze激活的条件判断。
- */
-
-function isRestoreFreezeActive() {
-
-    const value = process.env.SERVER_RUNTIME_RESTORE_ACTIVE;
-    return typeof value === 'string' && /^(1|true|yes|on)$/iu.test(value.trim());
+interface PlayerRuntimeFlushPort {
+  listDirtyPlayers(): string[];
+  buildPersistenceSnapshot(playerId: string): PersistedPlayerSnapshot | null;
+  markPersisted(playerId: string): void;
+  describePersistencePresence(playerId: string): {
+    online: boolean;
+    inWorld: boolean;
+    lastHeartbeatAt?: number | null;
+    offlineSinceAt?: number | null;
+    runtimeOwnerId?: string | null;
+    sessionEpoch?: number | null;
+    transferState?: string | null;
+    transferTargetNodeId?: string | null;
+    versionSeed?: number | null;
+  } | null;
 }
-export { PlayerPersistenceFlushService };
-/**
- * chunkValues：执行chunk值相关逻辑。
- * @param values 参数说明。
- * @param chunkSize 参数说明。
- * @returns 无返回值，直接更新chunk值相关状态。
- */
 
-function chunkValues(values, chunkSize) {
-  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+/** 玩家快照刷盘服务：保留 snapshot 兼容真源，同时双写玩家分域表。 */
+@Injectable()
+export class PlayerPersistenceFlushService implements OnModuleInit, OnModuleDestroy {
+  private readonly logger = new Logger(PlayerPersistenceFlushService.name);
+  private timer: NodeJS.Timeout | null = null;
+  private flushPromise: Promise<void> | null = null;
 
-    if (!Array.isArray(values) || values.length === 0) {
-        return [];
+  constructor(
+    @Inject(PlayerRuntimeService)
+    private readonly playerRuntimeService: PlayerRuntimeFlushPort,
+    private readonly playerPersistenceService: PlayerPersistenceService,
+    private readonly playerDomainPersistenceService: PlayerDomainPersistenceService,
+  ) {}
+
+  onModuleInit(): void {
+    this.timer = setInterval(() => {
+      void this.flushDirtyPlayers();
+    }, PLAYER_PERSISTENCE_FLUSH_INTERVAL_MS);
+    this.timer.unref();
+    this.logger.log(`玩家持久化刷新已启动，间隔 ${PLAYER_PERSISTENCE_FLUSH_INTERVAL_MS}ms`);
+  }
+
+  onModuleDestroy(): void {
+    if (this.timer) {
+      clearInterval(this.timer);
+      this.timer = null;
     }
-    const normalizedChunkSize = Math.max(1, Math.trunc(chunkSize));
-    const chunks = [];
-    for (let index = 0; index < values.length; index += normalizedChunkSize) {
-        chunks.push(values.slice(index, index + normalizedChunkSize));
+  }
+
+  /** 应用关闭前 flush 全量脏玩家，保证关键状态落库。 */
+  async beforeApplicationShutdown(): Promise<void> {
+    await this.flushAllNow();
+  }
+
+  /** 立即刷单个玩家快照与分域投影。 */
+  async flushPlayer(playerId: string): Promise<void> {
+    const snapshotEnabled = this.playerPersistenceService.isEnabled();
+    const domainEnabled = this.playerDomainPersistenceService.isEnabled();
+    if (!snapshotEnabled && !domainEnabled) {
+      return;
     }
-    return chunks;
-}
-/**
- * runConcurrent：执行runConcurrent相关逻辑。
- * @param values 参数说明。
- * @param parallelism 参数说明。
- * @param worker 参数说明。
- * @param onError 参数说明。
- * @returns 无返回值，直接更新runConcurrent相关状态。
- */
 
-async function runConcurrent(values, parallelism, worker, onError) {
-  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+    const snapshot = this.playerRuntimeService.buildPersistenceSnapshot(playerId);
+    if (!snapshot) {
+      return;
+    }
 
-    const normalizedParallelism = Math.max(1, Math.trunc(parallelism));
-    for (let index = 0; index < values.length; index += normalizedParallelism) {
-        const slice = values.slice(index, index + normalizedParallelism);
-        const results = await Promise.allSettled(slice.map((value) => worker(value)));
-        results.forEach((result, resultIndex) => {
-            if (result.status === 'rejected') {
-                onError?.(slice[resultIndex], result.reason);
+    await this.flushPlayerSnapshotProjection(playerId, snapshot, snapshotEnabled, domainEnabled);
+    this.playerRuntimeService.markPersisted(playerId);
+  }
+
+  async flushAllNow(): Promise<void> {
+    const snapshotEnabled = this.playerPersistenceService.isEnabled();
+    const domainEnabled = this.playerDomainPersistenceService.isEnabled();
+    if (!snapshotEnabled && !domainEnabled) {
+      return;
+    }
+    if (this.flushPromise) {
+      await this.flushPromise;
+    }
+    await this.runFlushCycle('shutdown');
+  }
+
+  async flushDirtyPlayers(): Promise<void> {
+    const snapshotEnabled = this.playerPersistenceService.isEnabled();
+    const domainEnabled = this.playerDomainPersistenceService.isEnabled();
+    if ((!snapshotEnabled && !domainEnabled) || this.flushPromise || isRestoreFreezeActive()) {
+      return;
+    }
+    await this.runFlushCycle('interval');
+  }
+
+  private async runFlushCycle(reason: string): Promise<void> {
+    const snapshotEnabled = this.playerPersistenceService.isEnabled();
+    const domainEnabled = this.playerDomainPersistenceService.isEnabled();
+    if (!snapshotEnabled && !domainEnabled) {
+      return;
+    }
+
+    const promise = (async () => {
+      const dirtyPlayerIds = this.playerRuntimeService.listDirtyPlayers();
+      if (dirtyPlayerIds.length === 0) {
+        return;
+      }
+
+      const batches = chunkValues(dirtyPlayerIds, PLAYER_PERSISTENCE_FLUSH_BATCH_SIZE);
+      for (const batch of batches) {
+        await runConcurrent(
+          batch,
+          PLAYER_PERSISTENCE_FLUSH_PARALLELISM,
+          async (playerId) => {
+            const snapshot = this.playerRuntimeService.buildPersistenceSnapshot(playerId);
+            if (!snapshot) {
+              return;
             }
-        });
-    }
-}
-/**
- * retryFlush：执行retry刷新相关逻辑。
- * @param retryCount 参数说明。
- * @param work 参数说明。
- * @returns 无返回值，直接更新retryFlush相关状态。
- */
+            await retryFlush(PLAYER_PERSISTENCE_FLUSH_RETRY_COUNT, async () => {
+              await this.flushPlayerSnapshotProjection(
+                playerId,
+                snapshot,
+                snapshotEnabled,
+                domainEnabled,
+              );
+            });
+            this.playerRuntimeService.markPersisted(playerId);
+          },
+          (playerId, error) => {
+            this.logger.error(
+              `玩家持久化刷新失败（${reason}） playerId=${playerId}`,
+              error instanceof Error ? error.stack : String(error),
+            );
+          },
+        );
+      }
+    })();
 
-async function retryFlush(retryCount, work) {
-  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
-
-    const attempts = Math.max(0, Math.trunc(retryCount)) + 1;
-    let lastError = null;
-    for (let attempt = 0; attempt < attempts; attempt += 1) {
-        try {
-            await work();
-            return;
-        }
-        catch (error) {
-            lastError = error;
-        }
+    this.flushPromise = promise;
+    try {
+      await promise;
+    } finally {
+      if (this.flushPromise === promise) {
+        this.flushPromise = null;
+      }
     }
-    throw lastError;
+  }
+
+  private async flushPlayerSnapshotProjection(
+    playerId: string,
+    snapshot: PersistedPlayerSnapshot,
+    snapshotEnabled: boolean,
+    domainEnabled: boolean,
+  ): Promise<void> {
+    if (snapshotEnabled) {
+      await this.playerPersistenceService.savePlayerSnapshot(playerId, snapshot);
+    }
+    if (!domainEnabled) {
+      return;
+    }
+    await this.playerDomainPersistenceService.savePlayerSnapshotProjection(playerId, snapshot);
+    const presence = this.playerRuntimeService.describePersistencePresence(playerId);
+    if (presence) {
+      await this.playerDomainPersistenceService.savePlayerPresence(playerId, presence);
+    }
+  }
 }
-//# sourceMappingURL=player-persistence-flush.service.js.map
+
+function isRestoreFreezeActive(): boolean {
+  const value = process.env.SERVER_RUNTIME_RESTORE_ACTIVE;
+  return typeof value === 'string' && /^(1|true|yes|on)$/iu.test(value.trim());
+}
+
+function chunkValues<T>(values: T[], chunkSize: number): T[][] {
+  if (!Array.isArray(values) || values.length === 0) {
+    return [];
+  }
+  const normalizedChunkSize = Math.max(1, Math.trunc(chunkSize));
+  const chunks: T[][] = [];
+  for (let index = 0; index < values.length; index += normalizedChunkSize) {
+    chunks.push(values.slice(index, index + normalizedChunkSize));
+  }
+  return chunks;
+}
+
+async function runConcurrent<T>(
+  values: T[],
+  parallelism: number,
+  worker: (value: T) => Promise<void>,
+  onError?: (value: T, error: unknown) => void,
+): Promise<void> {
+  const normalizedParallelism = Math.max(1, Math.trunc(parallelism));
+  for (let index = 0; index < values.length; index += normalizedParallelism) {
+    const slice = values.slice(index, index + normalizedParallelism);
+    const results = await Promise.allSettled(slice.map((value) => worker(value)));
+    results.forEach((result, resultIndex) => {
+      if (result.status === 'rejected') {
+        onError?.(slice[resultIndex], result.reason);
+      }
+    });
+  }
+}
+
+async function retryFlush(retryCount: number, work: () => Promise<void>): Promise<void> {
+  const attempts = Math.max(0, Math.trunc(retryCount)) + 1;
+  let lastError: unknown = null;
+  for (let attempt = 0; attempt < attempts; attempt += 1) {
+    try {
+      await work();
+      return;
+    } catch (error: unknown) {
+      lastError = error;
+    }
+  }
+  throw lastError;
+}

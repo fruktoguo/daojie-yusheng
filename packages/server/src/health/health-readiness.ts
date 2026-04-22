@@ -277,7 +277,7 @@ interface HealthResponse {
  * mode：mode相关字段。
  */
 
-      mode: 'next_only';      
+      mode: 'native_only';      
       /**
  * source：来源相关字段。
  */
@@ -287,7 +287,7 @@ interface HealthResponse {
  * reason：reason相关字段。
  */
 
-      reason: 'next_auth_only';
+      reason: 'native_auth_only';
     };    
     /**
  * runtime：运行态引用。
@@ -402,13 +402,13 @@ function inspectPersistenceServiceEnabled(service: PersistenceServiceLike): bool
   return service.enabled === true && service.pool != null;
 }
 
-/** 鉴权 readiness 当前固定为 next-only。 */
+/** 鉴权 readiness 当前固定为原生主线。 */
 function resolveAuthReadiness() {
   return {
     ready: true,
-    mode: 'next_only' as const,
+    mode: 'native_only' as const,
     source: null,
-    reason: 'next_auth_only' as const,
+    reason: 'native_auth_only' as const,
   };
 }
 

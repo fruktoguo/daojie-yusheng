@@ -89,6 +89,11 @@ interface ResolveTargetInstanceInput {
 interface WorldRuntimeWorldAccessPort {
   resolveDefaultRespawnMapId(deps: WorldRuntimePlayerSessionDeps): string;
   getOrCreatePublicInstance(mapId: string, deps: WorldRuntimePlayerSessionDeps): InstanceRuntimeLike;
+  getOrCreateDefaultLineInstance(
+    mapId: string,
+    linePreset: 'peaceful' | 'real',
+    deps: WorldRuntimePlayerSessionDeps,
+  ): InstanceRuntimeLike;
   getPlayerViewOrThrow(playerId: string, deps: WorldRuntimePlayerSessionDeps): unknown;
 }
 
@@ -217,7 +222,11 @@ export class WorldRuntimePlayerSessionService {
         `玩家 ${input.playerId} 恢复落点 instanceId 未命中现有实例，且无法映射为公共实例，已退回 mapId：instanceId=${input.requestedInstanceId} templateId=${targetMapId}`,
       );
     }
-    return this.worldRuntimeWorldAccessService.getOrCreatePublicInstance(targetMapId, deps);
+    return this.worldRuntimeWorldAccessService.getOrCreateDefaultLineInstance(
+      targetMapId,
+      resolvePlayerWorldPreferenceLinePreset(input.playerId, deps),
+      deps,
+    );
   }
 }
 
@@ -242,4 +251,14 @@ function resolvePublicMapIdFromInstanceId(
     return '';
   }
   return templateId;
+}
+
+function resolvePlayerWorldPreferenceLinePreset(
+  playerId: string,
+  deps: Pick<WorldRuntimePlayerSessionDeps, 'playerRuntimeService'>,
+): 'peaceful' | 'real' {
+  const player = deps.playerRuntimeService.getPlayer(playerId) as
+    | { worldPreference?: { linePreset?: unknown } }
+    | null;
+  return player?.worldPreference?.linePreset === 'real' ? 'real' : 'peaceful';
 }

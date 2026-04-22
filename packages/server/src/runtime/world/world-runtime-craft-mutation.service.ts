@@ -72,7 +72,7 @@ let WorldRuntimeCraftMutationService = class WorldRuntimeCraftMutationService {
 
         const socket = this.worldSessionService.getSocketByPlayerId(playerId);
         const player = this.playerRuntimeService.getPlayer(playerId);
-        if (!socket || !player || !this.worldClientEventService.prefersNext(socket)) {
+        if (!socket || !player || !this.worldClientEventService.prefersMainline(socket)) {
             return;
         }
         const payload = this.craftPanelRuntimeService.buildTechniqueActivityPanelPayload(player, panel);

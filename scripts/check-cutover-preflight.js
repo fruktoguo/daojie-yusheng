@@ -24,10 +24,15 @@ function assertNotIncludes(content, pattern, message) {
   assert(!pattern.test(content), message);
 }
 
+function assertMissing(relativePath, message) {
+  assert(!fs.existsSync(path.join(repoRoot, relativePath)), message);
+}
+
 function main() {
+  const rootPackage = JSON.parse(read('package.json'));
+  const serverPackage = JSON.parse(read('packages/server/package.json'));
   const mainPlan = read('docs/next-plan/main.md');
-  const plan03 = read('docs/next-plan/03-required-data-migration-checklist.md');
-  const plan04 = read('docs/next-plan/04-one-off-migration-script.md');
+  const nextPlanReadme = read('docs/next-plan/README.md');
   const plan05 = read('docs/next-plan/05-remove-compat-and-bridges.md');
   const plan06 = read('docs/next-plan/06-server-mainline-refactor.md');
   const plan07 = read('docs/next-plan/07-client-mainline-refactor.md');
@@ -35,16 +40,6 @@ function main() {
   const plan09 = read('docs/next-plan/09-verification-and-acceptance.md');
   const plan10 = read('docs/next-plan/10-legacy-archive-and-cutover.md');
 
-  assertIncludes(
-    plan03,
-    /## 完成定义[\s\S]*- \[x\] 有一份按真源 \/ 运行态 \/ legacy 来源组织的数据迁移清单[\s\S]*- \[x\] 每个数据域都能回答“从哪来、到哪去、怎么转”/,
-    '03 必须继续保持完成定义全绿',
-  );
-  assertIncludes(
-    plan04,
-    /## 完成定义[\s\S]*- \[x\] 同一份 legacy 数据可以稳定转成 next 真源[\s\S]*- \[x\] 迁移失败能明确定位/,
-    '04 必须继续保持完成定义全绿',
-  );
   assertIncludes(
     plan05,
     /## 完成定义[\s\S]*- \[x\] 玩家主链不再默认走 compat fallback[\s\S]*- \[x\] 主要路径只剩 next 单线逻辑/,
@@ -93,14 +88,84 @@ function main() {
   );
   assertIncludes(
     plan10,
-    /## 切换前检查表[\s\S]*- \[x\] next 真源已唯一化[\s\S]*- \[x\] 迁移脚本已能把必要数据写入 next 真源[\s\S]*- \[x\] 主要 compat 面已不再阻塞主链[\s\S]*- \[x\] server\/client\/shared 主链都已收口到可继续开发[\s\S]*- \[x\] 验证门禁口径已固定/,
+    /## 切换前检查表[\s\S]*- \[x\] next 真源已唯一化[\s\S]*- \[x\] 不再保留一次性迁移脚本，默认按空库 \/ 新服入口切换[\s\S]*- \[x\] 主要 compat 面已不再阻塞主链[\s\S]*- \[x\] server\/client\/shared 主链都已收口到可继续开发[\s\S]*- \[x\] 验证门禁口径已固定/,
     '10 必须继续记录仓库内切换前检查表已完成',
   );
   assertIncludes(
     plan10,
-    /- \[x\] legacy 只剩归档和迁移参考价值[\s\S]*- \[x\] next 主线可以作为后续唯一开发入口/,
+    /- \[x\] legacy 只剩归档和历史参考价值[\s\S]*- \[x\] next 主线可以作为后续唯一开发入口/,
     '10 必须继续记录已完成的 cutover 定义',
   );
+
+  assertNotIncludes(
+    nextPlanReadme,
+    /03-required-data-migration-checklist|04-one-off-migration-script/,
+    'next-plan README 不应再保留迁移清单或一次性迁移脚本文档入口',
+  );
+  assertNotIncludes(
+    mainPlan,
+    /03-required-data-migration-checklist|04-one-off-migration-script|给“数据迁移完成”补一条迁移 proof 链|legacy 数据可以稳定迁到 next/,
+    '总表不应再保留迁移阶段入口、迁移 proof 口径或 legacy 数据迁移完成定义',
+  );
+  assertNotIncludes(
+    plan09,
+    /migrate:legacy-next:once|migrate-next-mainline-once|数据迁移 proof 链/,
+    '09 不应再保留迁移 proof 链或一次性迁移脚本入口',
+  );
+  assertNotIncludes(
+    plan10,
+    /迁移来源|迁移脚本已能把必要数据写入 next 真源|legacy 只剩归档和迁移参考价值/,
+    '10 不应再把迁移来源或迁移参考价值当成当前切换口径',
+  );
+  assert(
+    !Object.prototype.hasOwnProperty.call(rootPackage.scripts, 'proof:migration-write-boundaries'),
+    '根 package.json 不应再暴露迁移写边界 proof',
+  );
+  assert(
+    !Object.keys(serverPackage.scripts).some((name) => name.startsWith('migrate:')),
+    'packages/server package.json 不应再保留迁移脚本入口',
+  );
+  assert(
+    !Object.keys(serverPackage.scripts).some(
+      (name) =>
+        name.startsWith('proof:') &&
+        !['proof:content-map-sources', 'proof:runtime-network-no-legacy-source', 'proof:mainline-boundaries'].includes(name),
+    ),
+    'packages/server package.json 不应再保留过时 proof 别名',
+  );
+  assertMissing(
+    'docs/next-plan/03-required-data-migration-checklist.md',
+    '03 迁移清单文档应已删除',
+  );
+  assertMissing(
+    'docs/next-plan/04-one-off-migration-script.md',
+    '04 一次性迁移脚本文档应已删除',
+  );
+  assertMissing(
+    'packages/server/src/tools/migrate-next-mainline-once.ts',
+    'server 迁移脚本真源应已删除',
+  );
+  assertMissing(
+    'packages/server/src/tools/fixtures/migrate-next-mainline-once/sample-legacy.json',
+    '迁移样本 fixture 应已删除',
+  );
+  assertMissing(
+    'scripts/prove-migration-write-boundaries.js',
+    '迁移写边界 proof 脚本应已删除',
+  );
+  const serverToolFiles = fs
+    .readdirSync(path.join(repoRoot, 'packages/server/src/tools'), { withFileTypes: true })
+    .filter((entry) => entry.isFile())
+    .map((entry) => entry.name);
+  const allowedProofTools = new Set([
+    'prove-content-map-sources.ts',
+    'prove-runtime-network-no-legacy-source.ts',
+  ]);
+  for (const fileName of serverToolFiles) {
+    if (/^prove-.*\.ts$/.test(fileName)) {
+      assert(allowedProofTools.has(fileName), `packages/server/src/tools 不应再保留过时 proof 壳：${fileName}`);
+    }
+  }
 
   assertIncludes(
     mainPlan,
@@ -131,7 +196,7 @@ function main() {
   process.stdout.write(
     [
       'cutover preflight contract check passed',
-      '03/04/05/06/07/08 completed-by-doc',
+      '03/04 retired; 05/06/07/08 completed-by-doc',
       '09 default gates passed; only shadow-destructive remains optional/maintenance-gated',
       '10 repository-side cutover checks fixed; remaining blockers are manual cutover operations',
     ].join('\n') + '\n',

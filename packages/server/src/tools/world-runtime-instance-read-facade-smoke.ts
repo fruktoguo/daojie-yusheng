@@ -13,8 +13,42 @@ function testInstanceReadFacade() {
     const service = new WorldRuntimeInstanceReadFacadeService();
     const log = [];
     const instance = {
-        meta: { instanceId: 'public:yunlai_town' },
+        meta: {
+            instanceId: 'public:yunlai_town',
+            templateId: 'yunlai_town',
+            displayName: '云来镇·和平',
+            linePreset: 'peaceful',
+            lineIndex: 1,
+            instanceOrigin: 'bootstrap',
+            defaultEntry: true,
+            persistent: true,
+            supportsPvp: false,
+            canDamageTile: true,
+        },
+        template: { name: '云来镇' },
+        tick: 7,
+        worldRevision: 11,
+        playerCount: 3,
         monsters: [{ runtimeId: 'monster:1' }],
+        snapshot() {
+            return {
+                instanceId: this.meta.instanceId,
+                displayName: this.meta.displayName,
+                templateId: this.meta.templateId,
+                templateName: this.template.name,
+                kind: 'public',
+                linePreset: this.meta.linePreset,
+                lineIndex: this.meta.lineIndex,
+                instanceOrigin: this.meta.instanceOrigin,
+                defaultEntry: this.meta.defaultEntry,
+                persistent: this.meta.persistent,
+                supportsPvp: this.meta.supportsPvp,
+                canDamageTile: this.meta.canDamageTile,
+                tick: this.tick,
+                worldRevision: this.worldRevision,
+                playerCount: this.playerCount,
+            };
+        },
     };
     const deps = {
         templateRepository: {        
@@ -33,6 +67,7 @@ function testInstanceReadFacade() {
             getOrThrow(templateId) {
                 return {
                     id: templateId,
+                    name: '云来镇',
                     width: 2,
                     height: 2,
                     baseAuraByTile: [0, 0, 0, 0],
@@ -56,7 +91,7 @@ function testInstanceReadFacade() {
  * @returns 无返回值，完成Instance的读取/组装。
  */
 
-            getInstance(_deps, instanceId) { return { instanceId }; },            
+            getInstance(_deps, instanceId) { return deps.getInstanceRuntimeOrThrow(instanceId).snapshot(); },            
             /**
  * listInstanceMonsters：读取Instance怪物并返回结果。
  * @param input 输入参数。
@@ -155,11 +190,27 @@ function testInstanceReadFacade() {
 
     assert.deepEqual(service.listMapTemplates(deps), [{ id: 'yunlai_town' }]);
     assert.deepEqual(service.listInstances(deps), [{ instanceId: 'public:yunlai_town' }]);
-    assert.deepEqual(service.getInstance('public:yunlai_town', deps), { instanceId: 'public:yunlai_town' });
+    assert.deepEqual(service.getInstance('public:yunlai_town', deps), {
+        instanceId: 'public:yunlai_town',
+        displayName: '云来镇·和平',
+        templateId: 'yunlai_town',
+        templateName: '云来镇',
+        kind: 'public',
+        linePreset: 'peaceful',
+        lineIndex: 1,
+        instanceOrigin: 'bootstrap',
+        defaultEntry: true,
+        persistent: true,
+        supportsPvp: false,
+        canDamageTile: true,
+        tick: 7,
+        worldRevision: 11,
+        playerCount: 3,
+    });
     assert.deepEqual(service.listInstanceMonsters('public:yunlai_town', deps), [{ runtimeId: 'monster:1' }]);
     assert.deepEqual(service.getInstanceMonster('public:yunlai_town', 'monster:1', deps), { runtimeId: 'monster:1' });
     assert.deepEqual(service.getInstanceTileState('public:yunlai_town', 10, 11, deps), { x: 10, y: 11 });
-    assert.deepEqual(service.getCombatEffects('public:yunlai_town', deps), [{ kind: 'flash', cloned: true }]);
+    assert.deepEqual(service.getCombatEffects('public:yunlai_town', deps), [{ kind: 'flash' }]);
     const created = service.createInstance({
         instanceId: 'public:new_map',
         templateId: 'yunlai_town',
@@ -167,6 +218,27 @@ function testInstanceReadFacade() {
         persistent: true,
     }, deps);
     assert.equal(created.meta.instanceId, 'public:new_map');
+    assert.equal(created.meta.displayName, '云来镇·和平');
+    assert.equal(created.meta.linePreset, 'peaceful');
+    assert.equal(created.meta.lineIndex, 1);
+    assert.equal(created.meta.instanceOrigin, 'bootstrap');
+    assert.equal(created.meta.defaultEntry, true);
+    assert.equal(created.meta.supportsPvp, false);
+    assert.equal(created.meta.canDamageTile, true);
+    const createdReal = service.createInstance({
+        instanceId: 'real:yunlai_town',
+        templateId: 'yunlai_town',
+        kind: 'public',
+        persistent: true,
+    }, deps);
+    assert.equal(createdReal.meta.instanceId, 'real:yunlai_town');
+    assert.equal(createdReal.meta.displayName, '云来镇·真实');
+    assert.equal(createdReal.meta.linePreset, 'real');
+    assert.equal(createdReal.meta.lineIndex, 1);
+    assert.equal(createdReal.meta.instanceOrigin, 'bootstrap');
+    assert.equal(createdReal.meta.defaultEntry, true);
+    assert.equal(createdReal.meta.supportsPvp, true);
+    assert.equal(createdReal.meta.canDamageTile, true);
 }
 
 testInstanceReadFacade();

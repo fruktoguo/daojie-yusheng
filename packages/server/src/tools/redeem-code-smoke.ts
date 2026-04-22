@@ -10,6 +10,7 @@ const smoke_timeout_1 = require("./smoke-timeout");
 const socket_io_client_1 = require("socket.io-client");
 const shared_1 = require("@mud/shared");
 const env_alias_1 = require("../config/env-alias");
+const smoke_player_auth_1 = require("./smoke-player-auth");
 /**
  * 记录 server 访问地址。
  */
@@ -72,12 +73,21 @@ async function main() {
         throw new Error(`unexpected create group payload: ${JSON.stringify(created)}`);
     }
 /**
+ * 记录玩家认证。
+ */
+    const playerAuth = await (0, smoke_player_auth_1.registerAndLoginSmokePlayer)(SERVER_URL, {
+        accountPrefix: 'rdm',
+        rolePrefix: '兑',
+        seed: 'redeem-code',
+    });
+/**
  * 记录socket。
  */
     const socket = (0, socket_io_client_1.io)(SERVER_URL, {
         path: '/socket.io',
         transports: ['websocket'],
         auth: {
+            token: playerAuth.accessToken,
             protocol: 'mainline',
         },
     });
@@ -387,4 +397,6 @@ function delay(ms) {
 void main().catch((error) => {
     console.error(error);
     process.exitCode = 1;
+}).finally(async () => {
+    await (0, smoke_player_auth_1.flushRegisteredSmokePlayers)();
 });

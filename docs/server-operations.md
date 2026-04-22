@@ -372,4 +372,4 @@ node node_modules/.pnpm/node_modules/typescript/bin/tsc -p packages/server/tscon
 - packages blocker 分布：[next-package-migration-board.md](next-package-migration-board.md)
 - legacy 收尾与 cutover：[next-plan/10-legacy-archive-and-cutover.md](next-plan/10-legacy-archive-and-cutover.md)
 - legacy 边界审计：[next-legacy-boundary-audit.md](next-legacy-boundary-audit.md)
-- 协议审计：[next-protocol-audit.md](next-protocol-audit.md)
+- 协议审计：[protocol-audit.md](protocol-audit.md)

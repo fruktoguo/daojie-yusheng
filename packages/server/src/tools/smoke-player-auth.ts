@@ -32,9 +32,11 @@ const SMOKE_PLAYER_CLEANUP_SIGNAL_EXIT_CODES = Object.freeze({
     SIGINT: 130,
     SIGTERM: 143,
 });
+const originalProcessExit = process.exit.bind(process);
 const registeredSmokePlayers = new Map();
 let smokePlayerCleanupHooksInstalled = false;
 let smokePlayerCleanupPromise = null;
+let smokePlayerExitCleanupInFlight = false;
 /**
  * 创建smoke 校验玩家identity。
  */
@@ -345,6 +347,18 @@ function installSmokePlayerCleanupHooks() {
         return;
     }
     smokePlayerCleanupHooksInstalled = true;
+    process.exit = ((code) => {
+        if (smokePlayerExitCleanupInFlight) {
+            return originalProcessExit(code);
+        }
+        smokePlayerExitCleanupInFlight = true;
+        void flushRegisteredSmokePlayers()
+            .catch(reportSmokeCleanupError)
+            .finally(() => {
+            originalProcessExit(code);
+        });
+        return undefined;
+    });
     process.once('beforeExit', () => {
         void flushRegisteredSmokePlayers().catch(reportSmokeCleanupError);
     });
@@ -352,14 +366,14 @@ function installSmokePlayerCleanupHooks() {
         void flushRegisteredSmokePlayers()
             .catch(reportSmokeCleanupError)
             .finally(() => {
-            process.exit(SMOKE_PLAYER_CLEANUP_SIGNAL_EXIT_CODES.SIGINT);
+            originalProcessExit(SMOKE_PLAYER_CLEANUP_SIGNAL_EXIT_CODES.SIGINT);
         });
     });
     process.once('SIGTERM', () => {
         void flushRegisteredSmokePlayers()
             .catch(reportSmokeCleanupError)
             .finally(() => {
-            process.exit(SMOKE_PLAYER_CLEANUP_SIGNAL_EXIT_CODES.SIGTERM);
+            originalProcessExit(SMOKE_PLAYER_CLEANUP_SIGNAL_EXIT_CODES.SIGTERM);
         });
     });
     process.once('uncaughtException', (error) => {
@@ -367,7 +381,7 @@ function installSmokePlayerCleanupHooks() {
         void flushRegisteredSmokePlayers()
             .catch(reportSmokeCleanupError)
             .finally(() => {
-            process.exit(1);
+            originalProcessExit(1);
         });
     });
     process.once('unhandledRejection', (reason) => {
@@ -375,7 +389,7 @@ function installSmokePlayerCleanupHooks() {
         void flushRegisteredSmokePlayers()
             .catch(reportSmokeCleanupError)
             .finally(() => {
-            process.exit(1);
+            originalProcessExit(1);
         });
     });
 }

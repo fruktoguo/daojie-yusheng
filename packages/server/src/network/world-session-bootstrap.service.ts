@@ -56,6 +56,17 @@ interface PlayerRuntimeInitPort {
         name?: string | null;
         displayName?: string | null;
     }): void;
+    describePersistencePresence(playerId: string): {
+        online: boolean;
+        inWorld: boolean;
+        lastHeartbeatAt?: number | null;
+        offlineSinceAt?: number | null;
+        runtimeOwnerId?: string | null;
+        sessionEpoch?: number | null;
+        transferState?: string | null;
+        transferTargetNodeId?: string | null;
+        versionSeed?: number | null;
+    } | null;
 }
 
 interface MailRuntimeInitPort {
@@ -188,6 +199,7 @@ export class WorldSessionBootstrapService {
         );
         this.playerInitBootstrapService = playerInitBootstrapService ?? new WorldSessionBootstrapPlayerInitService(
             playerRuntimeService as PlayerRuntimeInitPort,
+            null,
             mailRuntimeService as MailRuntimeInitPort,
         );
         this.finalizeBootstrapService = finalizeBootstrapService ?? new WorldSessionBootstrapFinalizeService();
@@ -400,7 +412,7 @@ export class WorldSessionBootstrapService {
         this.connectBootstrapRuntimePlayer({
             playerId: binding.playerId,
             sessionId: binding.sessionId,
-            instanceId: player.instanceId || undefined,
+            instanceId: input.instanceId ?? (player.instanceId || undefined),
             mapId: input.mapId ?? (player.templateId || undefined),
             preferredX: input.preferredX ?? (player.templateId ? player.x : undefined),
             preferredY: input.preferredY ?? (player.templateId ? player.y : undefined),

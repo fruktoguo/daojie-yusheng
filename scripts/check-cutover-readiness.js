@@ -10,6 +10,17 @@ function read(relativePath) {
   return fs.readFileSync(path.join(repoRoot, relativePath), 'utf8');
 }
 
+function exists(relativePath) {
+  return fs.existsSync(path.join(repoRoot, relativePath));
+}
+
+function listFiles(relativePath) {
+  return fs
+    .readdirSync(path.join(repoRoot, relativePath), { withFileTypes: true })
+    .filter((entry) => entry.isFile())
+    .map((entry) => entry.name);
+}
+
 function assert(condition, message) {
   if (!condition) {
     throw new Error(message);
@@ -29,8 +40,51 @@ function main() {
   const serverReadme = read('packages/server/README.md');
   const serverTesting = read('packages/server/TESTING.md');
   const serverOps = read('docs/server-operations.md');
-  const startNext = read('start-next.sh');
-  const startLegacy = read('start.sh');
+  const startRoot = read('start.sh');
+
+  const rootFiles = listFiles('.');
+  const allowedComposeAndStackFiles = new Set([
+    'docker-compose.yml',
+    'docker-compose.legacy.yml',
+    'docker-compose.mainline.yml',
+    'docker-stack.yml',
+    'docker-stack.mainline.yml',
+  ]);
+  for (const fileName of rootFiles) {
+    assert(!/^start-.+\.sh$/.test(fileName), `根目录不应再保留额外 start 兼容壳：${fileName}`);
+    if (/^docker-(?:compose|stack)\..+\.yml$/.test(fileName)) {
+      assert(
+        allowedComposeAndStackFiles.has(fileName),
+        `根目录不应再保留过时 compose/stack 兼容壳：${fileName}`,
+      );
+    }
+  }
+
+  const scriptFiles = listFiles('scripts');
+  assert(
+    !scriptFiles.some((fileName) => /^server-.*verify\.(?:js|sh|cmd)$/.test(fileName)),
+    'scripts/ 不应再保留 server 验证兼容壳家族',
+  );
+  assert(
+    !scriptFiles.includes('verify-alias-banner.js'),
+    'scripts/ 不应再保留旧验证 alias banner',
+  );
+
+  const allowedProofScripts = new Set([
+    'prove-client-no-legacy-alias.js',
+    'prove-client-s2c-consumption.js',
+    'prove-client-shared-no-legacy-source.js',
+    'prove-no-legacy-file-behavior.js',
+    'prove-protobuf-drift.js',
+    'prove-protocol-source.js',
+    'prove-server-runtime-mainline.js',
+    'prove-shared-types-source.js',
+  ]);
+  for (const fileName of scriptFiles) {
+    if (/^prove-.*\.js$/.test(fileName)) {
+      assert(allowedProofScripts.has(fileName), `scripts/ 中存在过时 proof 壳：${fileName}`);
+    }
+  }
 
   const requiredScripts = [
     'build',
@@ -78,28 +132,38 @@ function main() {
   );
   assertIncludes(
     readme,
-    /`\.\/start-next\.sh` 是默认本地启动脚本；`\.\/start\.sh` 只保留给 `legacy\/` 归档排查/,
-    'README 必须继续明确 start-next.sh 是默认入口，start.sh 只给 legacy 归档排查',
+    /当前主验证入口是 `verify:replace-ready\*`/,
+    'README 必须继续明确 replace-ready 是当前主验证入口',
   );
   assertIncludes(
-    startNext,
-    /启动 server 本地开发环境/,
-    'start-next.sh 必须继续明确自己服务于主线本地开发环境',
+    readme,
+    /- 旧兼容验证、proof 与启动入口已移除/,
+    'README 必须继续明确旧兼容验证、proof 与启动入口已移除',
   );
   assertIncludes(
-    startLegacy,
-    /启动 legacy 归档本地开发环境/,
-    'start.sh 必须继续明确自己只服务于 legacy 归档环境',
+    readme,
+    /`\.\/start\.sh` 是默认且唯一的本地启动脚本/,
+    'README 必须继续明确 start.sh 是默认且唯一的本地启动脚本',
   );
   assertIncludes(
-    startLegacy,
-    /next 默认请使用 \.\/start-next\.sh/,
-    'start.sh 必须继续提示 next 默认入口是 start-next.sh',
+    startRoot,
+    /启动当前本地开发环境/,
+    'start.sh 必须继续明确自己服务于当前本地开发环境',
+  );
+  assertIncludes(
+    startRoot,
+    /docker-compose\.yml/,
+    'start.sh 必须继续以根 docker-compose.yml 作为默认 compose 入口',
+  );
+  assertIncludes(
+    startRoot,
+    /\.runtime\/server\.local\.env/,
+    'start.sh 必须继续只读取当前 server.local.env 本地入口',
   );
 
   assertIncludes(
     nextPlanReadme,
-    /当前主线只认 `packages\/\*`；`legacy\/\*` 只继续保留为归档参考、旧数据格式对照和迁移输入来源。/,
+    /当前主线只认 `packages\/\*`；`legacy\/\*` 只继续保留为归档参考、旧数据格式对照和历史排查参考。/,
     'next-plan README 必须继续明确主线与 legacy 的角色划分',
   );
 
@@ -136,7 +200,7 @@ function main() {
   );
   assertIncludes(
     cutoverPlan,
-    /- \[x\] 把 legacy 剩余价值收束为“查规则 \/ 查旧数据格式 \/ 迁移来源”/,
+    /- \[x\] 把 legacy 剩余价值收束为“查规则 \/ 查旧数据格式 \/ 历史对照”/,
     '10 文档必须继续记录 legacy 剩余价值已收束',
   );
   assertIncludes(
@@ -166,13 +230,13 @@ function main() {
   );
   assertIncludes(
     cutoverPlan,
-    /- \[x\] legacy 只剩归档和迁移参考价值/,
+    /- \[x\] legacy 只剩归档和历史参考价值/,
     '10 文档必须继续记录切换后检查里 legacy 角色已收束',
   );
   assertIncludes(
     cutoverPlan,
-    /- \[x\] legacy 只剩归档和迁移参考价值/,
-    '10 文档完成定义必须继续记录 legacy 只剩归档和迁移参考价值',
+    /- \[x\] legacy 只剩归档和历史参考价值/,
+    '10 文档完成定义必须继续记录 legacy 只剩归档和历史参考价值',
   );
   assertIncludes(
     cutoverPlan,
@@ -187,7 +251,7 @@ function main() {
   );
   assertIncludes(
     mainPlan,
-    /- \[x\] 把 legacy 剩余价值收束为“查规则 \/ 查旧数据格式 \/ 迁移来源”/,
+    /- \[x\] 把 legacy 剩余价值收束为“查规则 \/ 查旧数据格式 \/ 历史对照”/,
     '总表必须继续记录 legacy 剩余价值已收束',
   );
   assertIncludes(
@@ -202,8 +266,8 @@ function main() {
   );
   assertIncludes(
     mainPlan,
-    /- \[x\] legacy 只剩归档和迁移参考价值/,
-    '总表必须继续记录 legacy 已只剩归档和迁移参考价值',
+    /- \[x\] legacy 只剩归档和历史参考价值/,
+    '总表必须继续记录 legacy 已只剩归档和历史参考价值',
   );
 
   const workflowDir = path.join(repoRoot, '.github', 'workflows');
@@ -211,7 +275,7 @@ function main() {
   for (const fileName of workflowFiles) {
     const content = fs.readFileSync(path.join(workflowDir, fileName), 'utf8');
     assert(
-      !/archive:legacy:|pnpm --dir legacy\/|legacy\/(client|server|shared)|\.\/start\.sh/.test(content),
+      !/archive:legacy:|pnpm --dir legacy\/|legacy\/(client|server|shared)/.test(content),
       `workflow 不应再把 legacy 当默认主入口：${fileName}`,
     );
   }
@@ -221,7 +285,7 @@ function main() {
       'cutover readiness contract check passed',
       'checked=root scripts + README/docs + server ops/testing + workflows',
       'default mainline=packages/*',
-      'legacy role=archive/reference/migration-input only',
+      'legacy role=archive/reference only',
     ].join('\n') + '\n',
   );
 }

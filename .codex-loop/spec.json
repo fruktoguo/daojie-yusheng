@@ -1,0 +1,26 @@
+{
+  "enabled": true,
+  "task": "严格按我已给出的计划继续开发，重点是执行而不是重新规划；将可安全并行的低冲突子任务分配给 subagents，主线程统一负责核心实现与最终收口，避免任何并发写冲突，并尽量一次完成当前计划内所有高相关改动、测试、校验和必要文档更新，最后仅汇报完成情况与剩余阻塞。仅在 mud-mmo-next/docs/开发/计划/商业级数据落盘改造计划.md 的全部任务完成、所需修改和验证均已满足后，才输出结束标识 PERSISTENCE_PLAN_ALL_DONE。",
+  "done_token": "PERSISTENCE_PLAN_ALL_DONE",
+  "required_sections": [
+    "完成了什么",
+    "验证结果",
+    "剩余风险"
+  ],
+  "required_paths_modified": [
+    "docs/开发/计划/商业级数据落盘改造计划.md",
+    "packages/server/src"
+  ],
+  "required_paths_exist": [
+    ".codex-loop/spec.json"
+  ],
+  "commands": [
+    {
+      "label": "build",
+      "command": "pnpm build",
+      "cwd": ".",
+      "expect_exit_code": 0
+    }
+  ],
+  "max_rounds": 99
+}

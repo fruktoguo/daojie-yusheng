@@ -2,7 +2,7 @@
 
 const assert = require('node:assert/strict');
 
-const { NextGmWorldService } = require('../http/next/next-gm-world.service');
+const { NativeGmWorldService } = require('../http/native/native-gm-world.service');
 
 function createService(log = [], overrides = {}) {
   const templates = new Map([
@@ -48,7 +48,7 @@ function createService(log = [], overrides = {}) {
       defaultEntry: true,
       persistent: true,
       supportsPvp: false,
-      canDamageTile: false,
+      canDamageTile: true,
       playerCount: 8,
     },
     {
@@ -62,7 +62,7 @@ function createService(log = [], overrides = {}) {
       defaultEntry: false,
       persistent: false,
       supportsPvp: false,
-      canDamageTile: false,
+      canDamageTile: true,
       playerCount: 2,
     },
   ];
@@ -114,7 +114,7 @@ function createService(log = [], overrides = {}) {
             templateName: templates.get(input.templateId)?.name ?? input.templateId,
             playerCount: 0,
             supportsPvp: input.linePreset === 'real',
-            canDamageTile: input.linePreset === 'real',
+            canDamageTile: true,
           };
         },
       };
@@ -141,7 +141,7 @@ function createService(log = [], overrides = {}) {
     },
   };
 
-  return new NextGmWorldService(
+  return new NativeGmWorldService(
     { loadAll() {} },
     { buildPerformanceSnapshot() { return {}; }, resetNetworkPerfCounters() {} },
     {

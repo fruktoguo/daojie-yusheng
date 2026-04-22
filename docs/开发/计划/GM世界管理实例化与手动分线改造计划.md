@@ -11,7 +11,7 @@
 当前主线已经有地图实例运行时，但 GM 世界管理仍然不是“实例主语”：
 
 - `packages/client/src/gm-world-viewer.ts` 当前仍请求 `/api/gm/maps`，左侧列表展示的是地图模板，而不是实例。
-- `packages/server/src/http/next/next-gm-map-runtime-query.service.ts` 当前仍把 GM 运行态窗口固定到 `public:${mapId}`，只能看默认公共实例。
+- `packages/server/src/http/native/next-gm-map-runtime-query.service.ts` 当前仍把 GM 运行态窗口固定到 `public:${mapId}`，只能看默认公共实例。
 - `packages/server/src/runtime/world/world-runtime.controller.ts` 已经有 `listInstances()` / `getInstance()` 这类实例只读能力，但 GM 前台没有接这条链。
 - `packages/server/src/runtime/instance/map-instance.runtime.ts` 当前实例元数据只有 `instanceId / templateId / kind / persistent / owner*`，还没有“实例名字 / 分线预设 / PVP / 地块攻击”这组 GM 运营字段。
 - `packages/server/src/runtime/world/world-runtime-lifecycle.service.ts` 启动阶段仍只会为每张地图创建一个 `public:${templateId}` 公共实例。

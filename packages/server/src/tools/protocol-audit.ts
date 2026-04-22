@@ -9,13 +9,14 @@ var path = require("node:path");
 var pg = require("pg");
 var shared = require("@mud/shared");
 var envAlias = require("../config/env-alias");
-var lib = require("./next-protocol-audit-lib");
+var lib = require("./protocol-audit-lib");
+var smokePlayerAuth = require("./smoke-player-auth");
 /**
- * next 协议上行事件枚举快捷引用。
+ * 协议上行事件枚举快捷引用。
  */
 var C2S = shared.C2S;
 /**
- * next 协议下行事件枚举快捷引用。
+ * 协议下行事件枚举快捷引用。
  */
 var S2C = shared.S2C;
 /**
@@ -23,15 +24,15 @@ var S2C = shared.S2C;
  */
 var Direction = shared.Direction;
 /**
- * 用于快速校验事件名是否合法的 next 上行事件集合。
+ * 用于快速校验事件名是否合法的上行事件集合。
  */
 var C2S_SET = new Set(Object.values(C2S));
 /**
- * 用于快速校验事件名是否合法的 next 下行事件集合。
+ * 用于快速校验事件名是否合法的下行事件集合。
  */
 var S2C_SET = new Set(Object.values(S2C));
 /**
- * 用于审计 next 连接是否误混出 legacy 下行事件的黑名单集合。
+ * 用于审计当前连接是否误混出 legacy 下行事件的黑名单集合。
  */
 var LEGACY_S2C_SET = new Set([
   's:init',
@@ -75,11 +76,25 @@ var LEGACY_S2C_SET = new Set([
 /**
  * 协议审计 Markdown 报告的输出路径。
  */
-var DOC_OUTPUT = path.resolve(__dirname, "../../../../docs/next-protocol-audit.md");
+var DOC_OUTPUT = path.resolve(__dirname, "../../../../docs/protocol-audit.md");
 var SERVER_DATABASE_URL = envAlias.resolveServerDatabaseUrl();
 var HAS_DATABASE = Boolean(SERVER_DATABASE_URL);
+
+function resolveRequestedAuditCases() {
+  var raw = typeof process.env.SERVER_PROTOCOL_AUDIT_CASES === 'string'
+    ? process.env.SERVER_PROTOCOL_AUDIT_CASES.trim()
+    : '';
+  if (!raw) {
+    return null;
+  }
+  var values = raw
+    .split(',')
+    .map(function (entry) { return entry.trim(); })
+    .filter(Boolean);
+  return values.length > 0 ? new Set(values) : null;
+}
 /**
- * 本次审计预期应该覆盖到的 next 上行事件清单。
+ * 本次审计预期应该覆盖到的上行事件清单。
  */
 var EXPECTED_C2S = [
   C2S.Hello,
@@ -150,7 +165,7 @@ var EXPECTED_C2S = [
   C2S.HeavenGateAction,
 ];
 /**
- * 本次审计预期应该覆盖到的 next 下行事件清单。
+ * 本次审计预期应该覆盖到的下行事件清单。
  */
 var EXPECTED_S2C = [
   S2C.Bootstrap,
@@ -411,7 +426,7 @@ function buildFallbackPlayerId(userId) {
  * 记录normalized。
  */
   var normalized = typeof userId === 'string' ? userId.trim() : '';
-  return normalized ? 'p_' + normalized : 'p_guest';
+  return normalized ? 'p_' + normalized : '';
 }
 /**
  * 根据种子稳定生成唯一显示名，避免注册冲突。
@@ -529,8 +544,12 @@ async function registerAndLoginPlayer(baseUrl, suffix) {
 /**
  * 记录玩家ID。
  */
-  var playerId = normalizeNextPlayerId(typeof payload?.playerId === 'string' ? payload.playerId.trim() : '')
+  var playerId = normalizeMainlinePlayerId(typeof payload?.playerId === 'string' ? payload.playerId.trim() : '')
     || buildFallbackPlayerId(payload.sub);
+  smokePlayerAuth.registerSmokePlayerForCleanup(playerId, {
+    serverUrl: baseUrl,
+    databaseUrl: SERVER_DATABASE_URL,
+  });
   return {
     accessToken: login.accessToken,
     playerId: playerId,
@@ -556,7 +575,7 @@ async function ensureNativeDocsForAccessToken(token) {
 /**
  * 记录玩家ID。
  */
-  var tokenPlayerId = normalizeNextPlayerId(typeof payload?.playerId === 'string' ? payload.playerId.trim() : '');
+  var tokenPlayerId = normalizeMainlinePlayerId(typeof payload?.playerId === 'string' ? payload.playerId.trim() : '');
 /**
  * 记录用户名。
  */
@@ -579,7 +598,7 @@ async function ensureNativeDocsForAccessToken(token) {
     if (!tokenPlayerId) {
       var playerResult = await pool.query('SELECT id, name FROM players WHERE "userId" = $1::uuid LIMIT 1', [tokenUserId]);
       var playerRow = Array.isArray(playerResult?.rows) ? playerResult.rows[0] : null;
-      tokenPlayerId = normalizeNextPlayerId(typeof playerRow?.id === 'string' ? playerRow.id.trim() : tokenPlayerId);
+      tokenPlayerId = normalizeMainlinePlayerId(typeof playerRow?.id === 'string' ? playerRow.id.trim() : tokenPlayerId);
       if (!tokenPlayerName) {
         tokenPlayerName = typeof playerRow?.name === 'string' ? playerRow.name.trim() : tokenPlayerName;
       }
@@ -605,7 +624,7 @@ async function ensureNativeDocsForAccessToken(token) {
       VALUES ($1, $2, $3::jsonb, now())
       ON CONFLICT (scope, key)
       DO UPDATE SET payload = EXCLUDED.payload, "updatedAt" = now()
-    `, ['server_next_player_identities_v1', tokenUserId, JSON.stringify({
+    `, ['server_player_identities_v1', tokenUserId, JSON.stringify({
       version: 1,
       userId: tokenUserId,
       username: tokenUsername,
@@ -620,7 +639,7 @@ async function ensureNativeDocsForAccessToken(token) {
       VALUES ($1, $2, $3::jsonb, now())
       ON CONFLICT (scope, key)
       DO UPDATE SET payload = EXCLUDED.payload, "updatedAt" = now()
-    `, ['server_next_player_snapshots_v1', tokenPlayerId, JSON.stringify({
+    `, ['server_player_snapshots_v1', tokenPlayerId, JSON.stringify({
       version: 1,
       savedAt: Date.now(),
       placement: {
@@ -692,10 +711,46 @@ async function ensureNativeDocsForAccessToken(token) {
     await pool.end().catch(function () { return undefined; });
   }
 }
+
+async function waitForPresenceSessionFence(playerId, input, timeoutMs) {
+  if (!HAS_DATABASE) {
+    return null;
+  }
+  var normalizedPlayerId = typeof playerId === 'string' ? playerId.trim() : '';
+  var normalizedRuntimeOwnerId = typeof input?.runtimeOwnerId === 'string' ? input.runtimeOwnerId.trim() : '';
+  var normalizedSessionEpoch = Number.isFinite(input?.sessionEpoch) ? Math.max(1, Math.trunc(Number(input.sessionEpoch))) : 0;
+  if (!normalizedPlayerId || !normalizedRuntimeOwnerId || !normalizedSessionEpoch) {
+    return null;
+  }
+  var pool = new pg.Pool({
+    connectionString: SERVER_DATABASE_URL,
+  });
+  try {
+    return await lib.waitForValue(async function () {
+      var result = await pool.query(
+        'SELECT online, runtime_owner_id, session_epoch FROM player_presence WHERE player_id = $1 LIMIT 1',
+        [normalizedPlayerId],
+      );
+      var row = Array.isArray(result?.rows) ? result.rows[0] : null;
+      if (!row) {
+        return null;
+      }
+      var runtimeOwnerId = typeof row.runtime_owner_id === 'string' ? row.runtime_owner_id.trim() : '';
+      var sessionEpoch = Number.isFinite(row.session_epoch) ? Math.trunc(Number(row.session_epoch)) : Number(row.session_epoch ?? 0);
+      return row.online === true
+        && runtimeOwnerId === normalizedRuntimeOwnerId
+        && sessionEpoch === normalizedSessionEpoch
+        ? row
+        : null;
+    }, timeoutMs, 'waitForPresenceSessionFence:' + normalizedPlayerId);
+  } finally {
+    await pool.end().catch(function () { return undefined; });
+  }
+}
 /**
- * 规范化 next 玩家ID，统一为 p_<uuid> 形态。
+ * 规范化 主线玩家ID，统一为 p_<uuid> 形态。
  */
-function normalizeNextPlayerId(value) {
+function normalizeMainlinePlayerId(value) {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
   if (typeof value !== 'string') {
@@ -741,40 +796,73 @@ async function loginGm(baseUrl) {
 async function hello(runtime, socket, payload) {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
-  await socket.onceConnected();
-  socket.emit(C2S.Hello, payload);
 /**
- * 记录init会话。
+ * 记录注册表。
  */
-  var initSession = await socket.waitForEvent(S2C.InitSession);
+  var sessionAuthRegistry = runtime.__auditSessionAuthRegistry instanceof Map
+    ? runtime.__auditSessionAuthRegistry
+    : (runtime.__auditSessionAuthRegistry = new Map());
 /**
- * 记录玩家ID。
+ * 记录requested会话ID。
  */
-  var playerId = typeof initSession?.pid === 'string' && initSession.pid.trim()
-    ? initSession.pid.trim()
-    : (typeof payload?.playerId === 'string' ? payload.playerId.trim() : '');
-  if (playerId) {
-    runtime.trackPlayer(playerId);
+  var requestedSessionId = typeof payload?.sessionId === 'string' ? payload.sessionId.trim() : '';
+/**
+ * 记录现有auth。
+ */
+  var existingSocketAuth = socket?.socket?.auth && typeof socket.socket.auth === 'object'
+    ? socket.socket.auth
+    : null;
+/**
+ * 记录access令牌。
+ */
+  var accessToken = typeof existingSocketAuth?.token === 'string' ? existingSocketAuth.token.trim() : '';
+  if (!accessToken && requestedSessionId) {
+/**
+ * 记录恢复auth。
+ */
+    var resumedAuth = sessionAuthRegistry.get(requestedSessionId) ?? null;
+    accessToken = typeof resumedAuth?.accessToken === 'string' ? resumedAuth.accessToken.trim() : '';
+    if (!accessToken) {
+      throw new Error('missing auth context for requested sessionId: ' + requestedSessionId);
+    }
   }
-  await socket.waitForEvent(S2C.MapEnter);
-  await socket.waitForEvent(S2C.WorldDelta);
-  await socket.waitForEvent(S2C.SelfDelta);
-  var panelDelta = await socket.waitForEvent(S2C.PanelDelta);
-  assertInitialPanelDeltaIsRevisionOnly(panelDelta);
-  var bootstrap = await socket.waitForEvent(S2C.Bootstrap);
-  await socket.waitForEvent(S2C.MapStatic);
-  await socket.waitForEvent(S2C.Realm);
-  await socket.waitForEvent(S2C.LootWindowUpdate);
-  await socket.waitForEvent(S2C.Quests);
-  return {
-    playerId: playerId,
-    sessionId: typeof initSession?.sid === 'string' ? initSession.sid : '',
-    initSession: initSession,
-    bootstrap: bootstrap,
-  };
+  if (!accessToken) {
+/**
+ * 记录seed。
+ */
+    var seed = [runtime.caseName || 'protocol-audit', socket.label || 'socket', pid('auth')].join(':');
+/**
+ * 记录auth。
+ */
+    var auth = await registerAndLoginPlayer(runtime.baseUrl, seed);
+    accessToken = auth.accessToken;
+  }
+  socket.setAuth({
+    ...(existingSocketAuth ?? {}),
+    protocol: 'mainline',
+    token: accessToken,
+    ...(requestedSessionId ? { sessionId: requestedSessionId } : {}),
+  });
+  socket.connect();
+/**
+ * 记录会话。
+ */
+  var explicitHello = payload?.explicitHello === true;
+  if (explicitHello) {
+    socket.emit(C2S.Hello, {
+      ...(payload ?? {}),
+      explicitHello: undefined,
+    });
+  }
+  var session = await awaitAuthenticatedBootstrap(runtime, socket, 5000);
+  if (session.sessionId) {
+    sessionAuthRegistry.set(session.sessionId, { accessToken: accessToken });
+  }
+  await alignAuthenticatedAuditPlayer(runtime, socket, session.playerId, session.sessionId, payload);
+  return session;
 }
 /**
- * 等待鉴权型 next socket 在 connect 阶段完成 bootstrap。
+ * 等待鉴权型协议 socket 在 connect 阶段完成 bootstrap。
  */
 async function awaitAuthenticatedBootstrap(runtime, socket, timeoutMs) {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
@@ -798,7 +886,10 @@ async function awaitAuthenticatedBootstrap(runtime, socket, timeoutMs) {
   await socket.waitForEvent(S2C.SelfDelta, function () { return true; }, timeoutMs);
   var panelDelta = await socket.waitForEvent(S2C.PanelDelta, function () { return true; }, timeoutMs);
   assertInitialPanelDeltaIsRevisionOnly(panelDelta);
-  await socket.waitForEvent(S2C.Bootstrap, function () { return true; }, timeoutMs);
+/**
+ * 记录bootstrap。
+ */
+  var bootstrap = await socket.waitForEvent(S2C.Bootstrap, function () { return true; }, timeoutMs);
   await socket.waitForEvent(S2C.MapStatic, function () { return true; }, timeoutMs);
   await socket.waitForEvent(S2C.Realm, function () { return true; }, timeoutMs);
   await socket.waitForEvent(S2C.LootWindowUpdate, function () { return true; }, timeoutMs);
@@ -807,7 +898,96 @@ async function awaitAuthenticatedBootstrap(runtime, socket, timeoutMs) {
     playerId: playerId,
     sessionId: typeof initSession?.sid === 'string' ? initSession.sid : '',
     initSession: initSession,
+    bootstrap: bootstrap,
   };
+}
+
+/**
+ * 把鉴权型协议审计玩家对齐到用例需要的地图、实例与坐标。
+ */
+async function alignAuthenticatedAuditPlayer(runtime, socket, playerId, sessionId, payload) {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
+  if (!playerId) {
+    return;
+  }
+/**
+ * 记录target实例ID。
+ */
+  var targetInstanceId = typeof payload?.instanceId === 'string' ? payload.instanceId.trim() : '';
+/**
+ * 记录target地图ID。
+ */
+  var targetMapId = typeof payload?.mapId === 'string' ? payload.mapId.trim() : '';
+/**
+ * 记录targetX。
+ */
+  var targetX = Number.isFinite(payload?.preferredX) ? Number(payload.preferredX) : null;
+/**
+ * 记录targetY。
+ */
+  var targetY = Number.isFinite(payload?.preferredY) ? Number(payload.preferredY) : null;
+  if (!targetInstanceId && !targetMapId && targetX === null && targetY === null) {
+    return;
+  }
+/**
+ * 记录expected实例ID。
+ */
+  var expectedInstanceId = targetInstanceId || (targetMapId ? 'public:' + targetMapId : '');
+/**
+ * 记录当前状态。
+ */
+  var currentState = (await runtime.api.fetchState(playerId)).player ?? null;
+  if (!currentState) {
+    return;
+  }
+/**
+ * 记录instanceMatched。
+ */
+  var instanceMatched = expectedInstanceId ? currentState.instanceId === expectedInstanceId : true;
+/**
+ * 记录positionMatched。
+ */
+  var positionMatched = targetX !== null && targetY !== null
+    ? currentState.x === targetX && currentState.y === targetY
+    : true;
+  if (instanceMatched && positionMatched) {
+    return;
+  }
+  if (expectedInstanceId && targetX !== null && targetY !== null) {
+/**
+ * 记录gm令牌。
+ */
+    var gmToken = await loginGm(runtime.baseUrl);
+    await requestJson(runtime.baseUrl, '/api/gm/world/instances/transfer-player', {
+      method: 'POST',
+      token: gmToken,
+      body: {
+        playerId: playerId,
+        instanceId: expectedInstanceId,
+        x: targetX,
+        y: targetY,
+      },
+    });
+    await lib.waitForState(runtime.api, playerId, function (player) {
+      return player.instanceId === expectedInstanceId
+        && player.x === targetX
+        && player.y === targetY;
+    }, 5000, 'auditTransfer');
+    return;
+  }
+  if (expectedInstanceId && currentState.instanceId !== expectedInstanceId) {
+    await runtime.api.connectPlayer({
+      playerId: playerId,
+      sessionId: sessionId || undefined,
+      mapId: targetMapId || undefined,
+      preferredX: undefined,
+      preferredY: undefined,
+    });
+    await lib.waitForState(runtime.api, playerId, function (player) {
+      return player.instanceId === expectedInstanceId;
+    }, 5000, 'auditConnectPlayer');
+  }
 }
 /**
  * 断言首连 panel delta 只承担 revision 占位，而不再重复整包面板快照。
@@ -900,7 +1080,7 @@ function assertNoLegacyS2CEvents(runtime, caseName) {
   var detail = legacyEvents
     .map(function (entry) { return caseName + ":" + entry.socket + ":" + entry.event; })
     .join(", ");
-  throw new Error("next socket received legacy S2C events: " + detail);
+  throw new Error("protocol socket received legacy S2C events: " + detail);
 }
 /**
  * 处理bootstrapcase。
@@ -913,7 +1093,7 @@ async function bootstrapCase(runtime) {
 /**
  * 记录会话。
  */
-  var session = await hello(runtime, socket, { mapId: "yunlai_town", preferredX: 32, preferredY: 5 });
+  var session = await hello(runtime, socket, { mapId: "yunlai_town", preferredX: 32, preferredY: 5, explicitHello: true });
 /**
  * 记录玩家ID。
  */
@@ -1212,6 +1392,16 @@ async function heartbeatChatCase(runtime) {
  * 记录receiverID。
  */
   var receiverId = receiverSession.playerId;
+/**
+ * 记录sender状态。
+ */
+  var senderState = (await runtime.api.fetchState(senderId)).player ?? null;
+/**
+ * 记录聊天发送者标签。
+ */
+  var senderChatLabel = typeof senderState?.displayName === 'string' && senderState.displayName.trim()
+    ? senderState.displayName.trim()
+    : (typeof senderState?.name === 'string' && senderState.name.trim() ? senderState.name.trim() : senderId);
   sender.emit(C2S.Heartbeat, { clientAt: 2002 });
   await emitAndWait(sender, C2S.Ping, { clientAt: 2003 }, S2C.Pong, function (payload) {
     return payload && payload.clientAt === 2003;
@@ -1227,7 +1417,7 @@ async function heartbeatChatCase(runtime) {
   sender.emit(C2S.Chat, { message: message });
   await receiver.waitForEventAfter(S2C.Notice, noticeAfter, function (payload) {
     return Array.isArray(payload?.items) && payload.items.some(function (item) {
-      return item?.kind === 'chat' && item.text === message && item.from === senderId;
+      return item?.kind === 'chat' && item.text === message && item.from === senderChatLabel;
     });
   }, 5000);
 }
@@ -1836,7 +2026,17 @@ async function mailCase(runtime) {
  * 记录玩家ID。
  */
   var playerId = session.playerId;
-  await runtime.api.createDirectMail(playerId, { fallbackTitle: "审计邮件", fallbackBody: "next protocol audit", senderLabel: "system", attachments: [{ itemId: "rat_tail", count: 2 }] });
+/**
+ * 记录直达邮件。
+ */
+  var createdMail = await runtime.api.createDirectMail(playerId, { fallbackTitle: "审计邮件", fallbackBody: "protocol audit", senderLabel: "system", attachments: [{ itemId: "rat_tail", count: 2 }] });
+/**
+ * 记录目标mailID。
+ */
+  var targetMailId = typeof (createdMail === null || createdMail === void 0 ? void 0 : createdMail.mailId) === "string" ? createdMail.mailId : "";
+  if (!targetMailId) {
+    throw new Error("mailCase createDirectMail missing mailId");
+  }
   await emitAndWait(socket, C2S.RequestMailSummary, {}, S2C.MailSummary, function (payload) {
     return payload && payload.summary && (payload.summary.unreadCount >= 1 || payload.summary.claimableCount >= 1 || payload.summary.revision >= 1);
   }, 5000);
@@ -1844,23 +2044,69 @@ async function mailCase(runtime) {
  * 记录page。
  */
   var page = await emitAndWait(socket, C2S.RequestMailPage, { page: 1, pageSize: 20 }, S2C.MailPage, function (payload) {
-    return payload && payload.page && payload.page.items && payload.page.items.length > 0;
+    return payload && payload.page && payload.page.items && payload.page.items.some(function (entry) { return entry && entry.mailId === targetMailId; });
   }, 5000);
 /**
  * 记录mailID。
  */
-  var mailId = page.page.items[0].mailId;
+  var mailEntry = page.page.items.find(function (entry) { return entry && entry.mailId === targetMailId; }) || null;
+  if (!mailEntry) {
+    throw new Error("mailCase audit mail missing from page");
+  }
+  var mailId = mailEntry.mailId;
   await emitAndWait(socket, C2S.RequestMailDetail, { mailId: mailId }, S2C.MailDetail, function (payload) {
     return payload && payload.detail && payload.detail.mailId === mailId;
   }, 5000);
   await emitAndWait(socket, C2S.MarkMailRead, { mailIds: [mailId] }, S2C.MailOpResult, function (payload) {
     return payload && payload.mailIds && payload.mailIds.indexOf(mailId) >= 0;
   }, 5000);
-  await emitAndWait(socket, C2S.ClaimMailAttachments, { mailIds: [mailId] }, S2C.MailOpResult, function (payload) {
+/**
+ * 记录claim令牌。
+ */
+  var claimToken = typeof ((socket === null || socket === void 0 ? void 0 : socket.socket) === null || (socket === null || socket === void 0 ? void 0 : socket.socket) === void 0 ? void 0 : socket.socket.auth?.token) === "string"
+    ? socket.socket.auth.token.trim()
+    : "";
+  if (!claimToken) {
+    throw new Error("mailCase missing access token for reconnect claim flow");
+  }
+  socket.close();
+  await lib.delay(100);
+/**
+ * 记录claimsocket。
+ */
+  var claimSocket = runtime.createSocket("mail:claim", { token: claimToken, protocol: "mainline" });
+/**
+ * 记录claim会话。
+ */
+  var claimSession = await hello(runtime, claimSocket, {});
+  if (claimSession.playerId !== playerId) {
+    throw new Error("mailCase resumed unexpected playerId: expected=" + playerId + " actual=" + claimSession.playerId);
+  }
+  var claimRuntimeState = await lib.waitForValue(async function () {
+    var payload = await runtime.api.fetchState(playerId);
+    var player = payload?.player ?? null;
+    if (!player?.runtimeOwnerId) {
+      return null;
+    }
+    var sessionEpoch = Number.isFinite(player?.sessionEpoch) ? Math.max(1, Math.trunc(Number(player.sessionEpoch))) : 0;
+    return sessionEpoch > 0
+      ? {
+          runtimeOwnerId: player.runtimeOwnerId,
+          sessionEpoch: sessionEpoch,
+        }
+      : null;
+  }, 5000, "mailCaseRuntimeFence:" + playerId);
+  await runtime.api.post("/runtime/persistence/flush", {});
+  await lib.delay(100);
+  await waitForPresenceSessionFence(playerId, claimRuntimeState, 5000);
+  var claimResult = await emitAndWait(claimSocket, C2S.ClaimMailAttachments, { mailIds: [mailId] }, S2C.MailOpResult, function (payload) {
     return payload && payload.mailIds && payload.mailIds.indexOf(mailId) >= 0;
   }, 5000);
+  if (!claimResult?.ok) {
+    throw new Error("mail claim failed: " + (claimResult?.message || "unknown"));
+  }
   await lib.waitForState(runtime.api, playerId, function (player) { return count(player, "rat_tail") >= 2; }, 5000, "mailClaim");
-  await emitAndWait(socket, C2S.DeleteMail, { mailIds: [mailId] }, S2C.MailOpResult, function (payload) {
+  await emitAndWait(claimSocket, C2S.DeleteMail, { mailIds: [mailId] }, S2C.MailOpResult, function (payload) {
     return payload && payload.mailIds && payload.mailIds.indexOf(mailId) >= 0;
   }, 5000);
 }
@@ -1879,11 +2125,21 @@ async function progressionCase(runtime) {
 /**
  * 记录attacker会话。
  */
-  var attackerSession = await hello(runtime, attacker, { mapId: "wildlands", preferredX: 18, preferredY: 18 });
+  var attackerSession = await hello(runtime, attacker, {
+    instanceId: "real:wildlands",
+    mapId: "wildlands",
+    preferredX: 18,
+    preferredY: 18
+  });
 /**
  * 记录defender会话。
  */
-  var defenderSession = await hello(runtime, defender, { mapId: "wildlands", preferredX: 19, preferredY: 18 });
+  var defenderSession = await hello(runtime, defender, {
+    instanceId: "real:wildlands",
+    mapId: "wildlands",
+    preferredX: 19,
+    preferredY: 18
+  });
 /**
  * 记录attackerID。
  */
@@ -1922,9 +2178,31 @@ async function progressionCase(runtime) {
 /**
  * 记录守方施法前状态。
  */
+  var attackerBeforeCast = (await runtime.api.fetchState(attackerId)).player;
+/**
+ * 记录守方施法前状态。
+ */
   var defenderBeforeCast = (await runtime.api.fetchState(defenderId)).player;
   attacker.emit(C2S.CastSkill, { skillId: learnedSkillId, targetPlayerId: defenderId });
-  await lib.waitForState(runtime.api, defenderId, function (current) { return current.hp < defenderBeforeCast.hp; }, 8000, "cast");
+  await lib.waitFor(async function () {
+    var states = await Promise.all([
+      runtime.api.fetchState(attackerId),
+      runtime.api.fetchState(defenderId)
+    ]);
+    var attackerAfter = states[0]?.player;
+    var defenderAfter = states[1]?.player;
+    if (!attackerAfter || !defenderAfter) {
+      return false;
+    }
+    return attackerAfter.qi < attackerBeforeCast.qi
+      || attackerAfter.actions?.actions?.some(function (entry) {
+        return entry?.id === learnedSkillId && entry.cooldownLeft > 0;
+      }) === true
+      || defenderAfter.hp < defenderBeforeCast.hp
+      || defenderAfter.buffs?.buffs?.some(function (entry) {
+        return entry?.buffId === "buff.qingmu_mark" && entry.remainingTicks > 0;
+      }) === true;
+  }, 8000, "cast");
 }
 /**
  * 处理掉落case。
@@ -1991,6 +2269,12 @@ async function lootCase(runtime) {
 async function marketCase(runtime) {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
+  var marketSpawnPoints = {
+    seller: { mapId: "yunlai_town", preferredX: 39, preferredY: 33 },
+    buyer: { mapId: "yunlai_town", preferredX: 40, preferredY: 33 },
+    storageSeller: { mapId: "yunlai_town", preferredX: 41, preferredY: 33 },
+    storageBuyer: { mapId: "yunlai_town", preferredX: 38, preferredY: 33 },
+  };
 /**
  * 记录seller。
  */
@@ -2014,19 +2298,19 @@ async function marketCase(runtime) {
 /**
  * 记录seller会话。
  */
-  var sellerSession = await hello(runtime, seller, { mapId: "yunlai_town", preferredX: 39, preferredY: 33 });
+  var sellerSession = await hello(runtime, seller, marketSpawnPoints.seller);
 /**
  * 记录buyer会话。
  */
-  var buyerSession = await hello(runtime, buyer, { mapId: "yunlai_town", preferredX: 39, preferredY: 33 });
+  var buyerSession = await hello(runtime, buyer, marketSpawnPoints.buyer);
 /**
  * 记录storageseller会话。
  */
-  var storageSellerSession = await hello(runtime, storageSeller, { mapId: "yunlai_town", preferredX: 39, preferredY: 33 });
+  var storageSellerSession = await hello(runtime, storageSeller, marketSpawnPoints.storageSeller);
 /**
  * 记录storagebuyer会话。
  */
-  var storageBuyerSession = await hello(runtime, storageBuyer, { mapId: "yunlai_town", preferredX: 39, preferredY: 33 });
+  var storageBuyerSession = await hello(runtime, storageBuyer, marketSpawnPoints.storageBuyer);
 /**
  * 记录sellerID。
  */
@@ -2205,13 +2489,13 @@ function render(report) {
  * 汇总输出行。
  */
   var lines = [
-    "# Next 协议审计报告",
+    "# 协议审计报告",
     "",
     "- 生成时间: " + report.generatedAt,
     "- 目标服务: " + report.baseUrl,
     "- 运行模式: " + report.serverMode,
     "- 统计口径: 应用层 payload bytes；对象载荷按 `JSON.stringify(payload)` 的 UTF-8 字节数计算，二进制载荷按 `byteLength` 计算；流量明细按单个包体逐条记录，不做事件级合并。",
-    "- 覆盖基线: 以 `server` 当前已声明并实际接线的 next socket 事件面为准；仍依赖 legacy 的 client-next 兼容流量不计入这份审计。",
+    "- 覆盖基线: 以 `server` 当前已声明并实际接线的主线 socket 事件面为准；仍依赖 legacy 的归档兼容流量不计入这份审计。",
     "",
     "## 用例结果",
     "",
@@ -2295,6 +2579,13 @@ async function main() {
     { name: "loot", run: lootCase },
     { name: "market", run: marketCase },
   ];
+  var requestedCases = resolveRequestedAuditCases();
+  if (requestedCases) {
+    cases = cases.filter(function (entry) { return requestedCases.has(entry.name); });
+    if (cases.length === 0) {
+      throw new Error("no protocol audit cases matched SERVER_PROTOCOL_AUDIT_CASES=" + Array.from(requestedCases).join(','));
+    }
+  }
 /**
  * 汇总caseresults。
  */
@@ -2315,14 +2606,14 @@ async function main() {
     }
     STATIC_S2C_SURFACE_CHECKS.forEach(function (entry) {
       var result = lib.assertStaticProtocolEventSurface(entry);
-      process.stdout.write("[next audit] static surface ok: " + result.label + " => " + result.members.join(', ') + "\n");
+      process.stdout.write("[protocol audit] static surface ok: " + result.label + " => " + result.members.join(', ') + "\n");
     });
     for (var i = 0; i < cases.length; i += 1) {
 /**
  * 记录entry。
  */
       var entry = cases[i];
-      process.stdout.write("[next audit] running " + entry.name + "\n");
+      process.stdout.write("[protocol audit] running " + entry.name + "\n");
 /**
  * 记录startedat。
  */
@@ -2377,12 +2668,14 @@ async function main() {
   });
   fs.mkdirSync(path.dirname(DOC_OUTPUT), { recursive: true });
   fs.writeFileSync(DOC_OUTPUT, markdown, "utf8");
-  process.stdout.write("[next audit] report written to " + DOC_OUTPUT + "\n");
-  if (missing.length > 0) {
-    throw new Error("next protocol audit has uncovered events: " + missing.map(function (entry) { return entry.direction + "." + entry.eventName; }).join(", "));
+  process.stdout.write("[protocol audit] report written to " + DOC_OUTPUT + "\n");
+  if (!requestedCases && missing.length > 0) {
+    throw new Error("protocol audit has uncovered events: " + missing.map(function (entry) { return entry.direction + "." + entry.eventName; }).join(", "));
   }
 }
 void main().catch(function (error) {
   console.error(error);
   process.exitCode = 1;
+}).finally(async function () {
+  await smokePlayerAuth.flushRegisteredSmokePlayers();
 });

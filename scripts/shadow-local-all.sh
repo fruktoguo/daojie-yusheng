@@ -1,5 +1,5 @@
 #!/bin/bash
-# 用途：按固定顺序执行本地 next shadow 的整套常用验证链。
+# 用途：按固定顺序执行本地 shadow 的整套常用验证链。
 # 默认：up -> status -> doctor -> shadow -> acceptance -> full
 # 可选：设置 SHADOW_LOCAL_RUN_DESTRUCTIVE=1 后再追加 destructive 全链
 

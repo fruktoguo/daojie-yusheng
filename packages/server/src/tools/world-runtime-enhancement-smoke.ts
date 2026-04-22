@@ -125,11 +125,11 @@ function testStartEnhancement() {
  emit(event, payload) { log.push(['emit', event, payload.ok]); } }; },
     }, {    
     /**
- * prefersNext：执行preferNext相关逻辑。
+ * prefersMainline：执行preferNext相关逻辑。
  * @returns 无返回值，直接更新preferNext相关状态。
  */
 
-        prefersNext() { return true; },
+        prefersMainline() { return true; },
     });
     const service = new WorldRuntimeEnhancementService(playerRuntimeService, craftPanelRuntimeService, craftMutationService);
     service.dispatchStartEnhancement('player:1', { target: 1 }, createDeps(log));
@@ -216,11 +216,11 @@ function testCancelEnhancement() {
  emit() { log.push(['emit']); } }; },
     }, {    
     /**
- * prefersNext：执行preferNext相关逻辑。
+ * prefersMainline：执行preferNext相关逻辑。
  * @returns 无返回值，直接更新preferNext相关状态。
  */
 
-        prefersNext() { return true; },
+        prefersMainline() { return true; },
     });
     const service = new WorldRuntimeEnhancementService(playerRuntimeService, craftPanelRuntimeService, craftMutationService);
     service.dispatchCancelEnhancement('player:1', createDeps(log));

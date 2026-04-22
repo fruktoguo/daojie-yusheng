@@ -10,7 +10,7 @@
   - `docs/server-operations.md`
   - 根级 `verify:replace-ready*` wrapper
   为准。
-- `verify:replace-ready*` 是当前主口径；旧 verify 别名不再作为文档主入口。
+- `verify:replace-ready*` 是当前唯一文档口径。
 
 ## 任务
 
@@ -19,7 +19,7 @@
 - [x] 固定 `acceptance` 门禁口径
 - [x] 固定 `full` 门禁口径
 - [x] 固定 `shadow-destructive` 门禁口径
-- [x] 给“数据迁移完成”补一条迁移 proof 链
+- [x] 确认 gate 不再依赖任何迁移 proof 链
 - [x] 跑通 `pnpm build`
 - [x] 跑通 `pnpm verify:replace-ready`
 - [x] 跑通 `pnpm verify:replace-ready:with-db`
@@ -72,7 +72,7 @@
 
 这表示：
 
-- 当前 `shadow / acceptance` 已可在本机 next shadow 上实跑。
+- 当前 `shadow / acceptance` 已可在本机 shadow 实例上实跑。
 - 当前 `local / with-db / shadow / acceptance / full` 都已在本轮实跑通过。
 - `shadow-destructive` 不应沿用历史结果冒充完成，但本轮本机 maintenance-active destructive 证据已经补齐。
 
@@ -194,24 +194,18 @@
 - `pnpm --dir packages/server smoke:monster-combat`
 - `pnpm --dir packages/server smoke:player-respawn`
 
-## 数据迁移 proof 链
+## 不再保留迁移 proof 链
 
-`04` 完成后，这里要补一条固定 proof，不能只靠 dry-run。
+当前切换口径已经改成“新游戏 / 空库入口”，仓库内不再保留：
 
-- [x] 跑 `pnpm --filter @mud/server migrate:legacy-next:once` 的样本/真实转换
-- [x] 用迁移后的 next 真源重新跑 `pnpm verify:replace-ready:proof:with-db`
-- [x] 补 `pnpm --filter @mud/server smoke:persistence`
-- [x] 涉及 GM scope 迁移时，补 `pnpm --filter @mud/server smoke:gm-database`
-- [x] 记录迁移前后摘要：
-  - 迁了哪些域
-  - 写入了哪些 next scope / 表
-  - 丢弃了哪些可重建数据
-  - 还剩哪些 legacy scope 未退役
+- 包内旧迁移命令入口
+- 根级旧迁移写边界 proof
+- 以一次性迁移为前提的 gate 说明
 
 补充说明：
 
-- 这里的 `[x]` 表示 `04` 已固定历史 proof 链与摘要记录，见 `04-one-off-migration-script.md` 的正式转换 proof 链与本轮实跑记录。
-- 它不自动等价于“当前轮次 with-db / acceptance / full 已重新实跑完成”；当前轮次 gate 是否重跑，仍以上面的环境就绪度与当前验证结论为准。
+- 当前 `[x]` 只回答现有 `replace-ready` 门禁与 proof 是否成立，不再回答 legacy 数据转换是否成立。
+- 带库链路仍以上面的 `proof:with-db / with-db / full` 为准，但它们验证的是当前真源、持久化与恢复链，不再包含一次性迁移步骤。
 
 ## 失败归类规则
 
@@ -255,7 +249,7 @@
 - [x] `pnpm build` 本地通过
 - [x] `pnpm verify:replace-ready` 本地通过，已拿到 `[replace-ready] completed mode=local`
 - [x] `pnpm verify:replace-ready:doctor`
-  - 历史别名命令仍可用，但当前主口径已切到 `pnpm verify:replace-ready:doctor`
+  - 当前主口径只保留 `pnpm verify:replace-ready:doctor`
 - [x] `pnpm verify:replace-ready:doctor`
   - 当前 shell 实跑结果：`local / with-db / proof with-db / shadow / acceptance / full` 为 `ready`
   - `shadow target probe` 当前为 `ready (reachable_with_nonready_health_503)`
@@ -268,26 +262,26 @@
   - 本轮实跑结果：local 无库 profile 下通过，输出 `reason=no_db_legacy_http_memory_fallback_disabled`
 - [x] `pnpm verify:replace-ready:with-db`
   - 本轮实跑结果：默认本地 env 自动加载后通过，输出 `[replace-ready:with-db] completed`
-  - 当前带库链路已覆盖到 `audit:protocol`，并刷新 `docs/next-protocol-audit.md`
+  - 当前带库链路已覆盖到 `audit:protocol`，并刷新 `docs/protocol-audit.md`
 - [x] `pnpm proof:replace-ready-gates`
   - 本轮实跑结果：`doctor / acceptance / full` 的脚本边界、root wrapper 和 `09/TESTING` 文档口径已固定一致
 - [x] `shadow target probe`
   - 当前口径已固定到 `doctor / shadow` wrapper：
     - 不能只看 `SERVER_SHADOW_URL/SERVER_URL` 和 `GM_PASSWORD` 是否存在
     - 还要确认 `/health` 可达，且 `/api/auth/gm/login` 不是 `404`
-    - 否则只能算“变量存在，但目标不是 next shadow 入口”
+    - 否则只能算“变量存在，但目标不是 shadow 入口”
 - [x] `pnpm verify:replace-ready:acceptance`
   - 本轮先暴露出 gate 漂移：当前 shell 带 DB 时，`acceptance` 首段被偷偷升级成 `with-db`
   - 已修正为固定先跑 `local`
   - 随后补齐了 shadow target probe、`shadow-smoke` 的 `503/liveness` 兼容、以及 `gm` 不再被 DB 变量误带偏
-  - 当前已在本机 `127.0.0.1:11923` next shadow 实例上实跑通过
+  - 当前已在本机 `127.0.0.1:11923` shadow 实例上实跑通过
 - [x] `pnpm verify:replace-ready:shadow`
-  - 本轮实跑结果：本机 `127.0.0.1:11923` next shadow 已通过 `/health`、GM 登录、`/gm/state`、`/gm/maps`、`/gm/editor-catalog`、`/gm/maps/:mapId/runtime` 与最小 next 会话链
+  - 本轮实跑结果：本机 `127.0.0.1:11923` shadow 已通过 `/health`、GM 登录、`/gm/state`、`/gm/maps`、`/gm/editor-catalog`、`/gm/maps/:mapId/runtime` 与最小主线会话链
 - [x] `pnpm verify:replace-ready:full`
   - 本轮先后修掉了三类真实阻塞：
   - 本地数据库 URL 指错到 `127.0.0.1:5432/mud_next`
-  - `next-auth-bootstrap-smoke` 的 `token_seed` recovery trace 断言过时
-  - `gm-next-smoke` 在本地带库 proof 环境里会被旧 GM 密码记录污染
+  - `auth-bootstrap-smoke` 的 `token_seed` recovery trace 断言过时
+  - `gm-smoke` 在本地带库 proof 环境里会被旧 GM 密码记录污染
   - 最终 `with-db -> gm-database -> backup-persistence -> shadow -> gm` 已全链通过
 - [x] `SERVER_SHADOW_ALLOW_DESTRUCTIVE=1 pnpm verify:replace-ready:shadow:destructive:preflight`
   - 本轮在本机 `127.0.0.1:11923` maintenance-active shadow 上通过
@@ -300,8 +294,8 @@
     - `checkpointBackupId=mo610elj-9a6db43f`
   - 执行记录已写入：
     - [10-cutover-execution-log-2026-04-20-local-shadow-destructive.md](./10-cutover-execution-log-2026-04-20-local-shadow-destructive.md)
-- [x] 迁移 proof 链已固定到 `04`
-  - 当前仓库记录已包含：`migrate-next-mainline-once --write -> verify:replace-ready:proof:with-db -> smoke:persistence -> smoke:gm-database -> smoke:progression -> smoke:runtime`
+- [x] 已明确不再保留迁移 proof 链
+  - 当前仓库记录只保留 `verify:replace-ready:proof:with-db -> smoke:persistence -> smoke:gm-database -> audit:protocol` 这类现行主链 gate，不再包含一次性迁移步骤
 
 ## 交付记录格式
 

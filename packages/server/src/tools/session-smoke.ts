@@ -40,38 +40,36 @@ async function main() {
  */
     const reaperProof = await verifyWorldSessionReaperProof();
 /**
- * 记录invalidhello。
+ * 记录未登录hello。
  */
-    const invalidHello = (0, socket_io_client_1.io)(SERVER_URL, {
+    const unauthenticatedHello = (0, socket_io_client_1.io)(SERVER_URL, {
         path: '/socket.io',
         transports: ['websocket'],
     });
 /**
- * 记录invalidhelloerror。
+ * 记录未登录hello错误。
  */
-    let invalidHelloError = null;
+    let unauthenticatedHelloError = null;
 /**
- * 记录invalidhellodisconnected。
+ * 记录未登录hello断开。
  */
-    let invalidHelloDisconnected = false;
+    let unauthenticatedHelloDisconnected = false;
 /**
- * 记录invalidhelloinitcount。
+ * 记录未登录hello init 数量。
  */
-    let invalidHelloInitCount = 0;
-    await onceConnected(invalidHello);
-    invalidHello.on(shared_1.S2C.Error, (payload) => {
-        invalidHelloError = payload;
+    let unauthenticatedHelloInitCount = 0;
+    await onceConnected(unauthenticatedHello);
+    unauthenticatedHello.on(shared_1.S2C.Error, (payload) => {
+        unauthenticatedHelloError = payload;
     });
-    invalidHello.on(shared_1.S2C.InitSession, () => {
-        invalidHelloInitCount += 1;
+    unauthenticatedHello.on(shared_1.S2C.InitSession, () => {
+        unauthenticatedHelloInitCount += 1;
     });
-    invalidHello.on('disconnect', () => {
-        invalidHelloDisconnected = true;
+    unauthenticatedHello.on('disconnect', () => {
+        unauthenticatedHelloDisconnected = true;
     });
-    invalidHello.emit('n:c:hello', {
-        sessionId: 'invalid hello session!*',
-    });
-    await waitFor(() => invalidHelloError !== null && invalidHelloDisconnected, 4000);
+    unauthenticatedHello.emit('n:c:hello', {});
+    await waitFor(() => unauthenticatedHelloError !== null && unauthenticatedHelloDisconnected, 4000);
 /**
  * 记录隐式legacy。
  */
@@ -161,51 +159,46 @@ async function main() {
     await waitFor(() => explicitLegacyError !== null && explicitLegacyDisconnected, 4000);
     explicitLegacy.close();
 /**
- * 记录guestdisabled。
+ * 记录未登录连接。
  */
-    const guestDisabled = (0, socket_io_client_1.io)(SERVER_URL, {
+    const unauthenticatedConnect = (0, socket_io_client_1.io)(SERVER_URL, {
         path: '/socket.io',
         transports: ['websocket'],
     });
 /**
- * 记录guestdisabled错误。
+ * 记录未登录连接错误。
  */
-    let guestDisabledError = null;
+    let unauthenticatedConnectError = null;
 /**
- * 记录guestdisabled断开。
+ * 记录未登录连接断开。
  */
-    let guestDisabledDisconnected = false;
+    let unauthenticatedConnectDisconnected = false;
 /**
- * 记录guestdisabledinit数量。
+ * 记录未登录连接 init 数量。
  */
-    let guestDisabledInitCount = 0;
+    let unauthenticatedConnectInitCount = 0;
 /**
  * 记录events。
  */
     const events = [];
-    await onceConnected(guestDisabled);
-    guestDisabled.on(shared_1.S2C.Error, (payload) => {
-        guestDisabledError = payload;
+    await onceConnected(unauthenticatedConnect);
+    unauthenticatedConnect.on(shared_1.S2C.Error, (payload) => {
+        unauthenticatedConnectError = payload;
     });
-    guestDisabled.on(shared_1.S2C.InitSession, () => {
-        guestDisabledInitCount += 1;
-        events.push('guestDisabled:init');
+    unauthenticatedConnect.on(shared_1.S2C.InitSession, () => {
+        unauthenticatedConnectInitCount += 1;
+        events.push('unauthenticatedConnect:init');
     });
-    guestDisabled.on('disconnect', () => {
-        guestDisabledDisconnected = true;
+    unauthenticatedConnect.on('disconnect', () => {
+        unauthenticatedConnectDisconnected = true;
     });
-    guestDisabled.emit('n:c:hello', {
-        mapId: 'yunlai_town',
-        preferredX: 32,
-        preferredY: 5,
-    });
-    await waitFor(() => guestDisabledError !== null && guestDisabledDisconnected, 4000);
-    guestDisabled.close();
-    if ((invalidHelloError?.code ?? null) !== 'AUTH_FAIL') {
-        throw new Error(`expected unauthenticated socket to be rejected with AUTH_FAIL before hello bootstrap, got ${JSON.stringify(invalidHelloError)}`);
+    await waitFor(() => unauthenticatedConnectError !== null && unauthenticatedConnectDisconnected, 4000);
+    unauthenticatedConnect.close();
+    if ((unauthenticatedHelloError?.code ?? null) !== 'AUTH_FAIL') {
+        throw new Error(`expected unauthenticated hello to be rejected with AUTH_FAIL, got ${JSON.stringify(unauthenticatedHelloError)}`);
     }
-    if (invalidHelloInitCount !== 0) {
-        throw new Error(`expected unauthenticated socket to avoid bootstrap init, got ${invalidHelloInitCount}`);
+    if (unauthenticatedHelloInitCount !== 0) {
+        throw new Error(`expected unauthenticated hello to avoid bootstrap init, got ${unauthenticatedHelloInitCount}`);
     }
     if ((implicitLegacyError?.code ?? null) !== 'AUTH_FAIL') {
         throw new Error(`expected implicit unauthenticated legacy ping to be rejected with AUTH_FAIL, got ${JSON.stringify(implicitLegacyError)}`);
@@ -222,19 +215,19 @@ async function main() {
     if (explicitLegacyNextPongCount !== 0) {
         throw new Error(`expected explicit legacy ping to avoid next pong emission while disabled, got ${explicitLegacyNextPongCount}`);
     }
-    if ((guestDisabledError?.code ?? null) !== 'AUTH_FAIL') {
-        throw new Error(`expected unauthenticated hello to be rejected with AUTH_FAIL, got ${JSON.stringify(guestDisabledError)}`);
+    if ((unauthenticatedConnectError?.code ?? null) !== 'AUTH_FAIL') {
+        throw new Error(`expected unauthenticated socket connect to be rejected with AUTH_FAIL, got ${JSON.stringify(unauthenticatedConnectError)}`);
     }
-    if (guestDisabledInitCount !== 0) {
-        throw new Error(`expected unauthenticated hello to avoid bootstrap init, got ${guestDisabledInitCount}`);
+    if (unauthenticatedConnectInitCount !== 0) {
+        throw new Error(`expected unauthenticated socket connect to avoid bootstrap init, got ${unauthenticatedConnectInitCount}`);
     }
     console.log(JSON.stringify({
         ok: true,
         url: SERVER_URL,
-        guestConnectRejectedCode: guestDisabledError?.code ?? null,
+        unauthenticatedConnectRejectedCode: unauthenticatedConnectError?.code ?? null,
         serviceProof,
         reaperProof,
-        invalidHelloRejectedCode: invalidHelloError?.code ?? null,
+        unauthenticatedHelloRejectedCode: unauthenticatedHelloError?.code ?? null,
         implicitLegacyRejectedCode: implicitLegacyError?.code ?? null,
         explicitLegacyRejectedCode: explicitLegacyError?.code ?? null,
         explicitLegacyPongServerAt: explicitLegacyLegacyPong?.serverAt ?? null,

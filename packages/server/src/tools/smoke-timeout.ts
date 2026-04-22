@@ -15,9 +15,10 @@ const DEFAULT_SMOKE_TIMEOUT_MS = 10_000;
 const ENTRY_TIMEOUT_OVERRIDES_MS = new Map([
     ['auth-bootstrap-smoke.js', 45_000],
     ['gm-smoke.js', 45_000],
-    ['next-auth-bootstrap-smoke.js', 45_000],
-    ['gm-next-smoke.js', 45_000],
     ['persistence-smoke.js', 45_000],
+    ['player-domain-persistence-smoke.js', 30_000],
+    ['player-domain-recovery-smoke.js', 30_000],
+    ['durable-operation-smoke.js', 30_000],
     ['gm-database-smoke.js', 900_000],
     ['gm-database-backup-persistence-smoke.js', 60_000],
     ['shadow-gm-database-proof.js', 240_000],

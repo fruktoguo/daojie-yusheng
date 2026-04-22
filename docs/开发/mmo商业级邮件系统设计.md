@@ -21,21 +21,35 @@
 基于当前主线代码，现有邮件系统已经具备基础闭环：
 
 - 服务端有独立邮件运行时：`packages/server/src/runtime/mail/mail-runtime.service.ts`
-- 邮件真源当前落在 PostgreSQL `persistent_documents` 的单玩家 mailbox JSON 文档
+- 邮件真源已经开始迁到 `player_mail / player_mail_attachment / player_mail_counter`
 - 客户端协议已按 `摘要 / 分页 / 详情 / 操作结果` 分层
 - GM 已支持单人发信和全服广播发信
 - 附件领取、删除条件、背包容量校验都在服务端执行
 
 但它距离商业级 MMO 运营要求还有明显缺口：
 
-- 邮件箱仍是“单玩家单 JSON 文档”模型，不利于批量运营、索引、审计、修复
+- 结构化真源已落地，但旧 `persistent_documents(scope=server_next_mailboxes_v1)` 仍保留兼容镜像，主链还没完全清退
 - 广播发信是同步逐人投递，没有任务队列、失败重试、断点续投
-- 没有正式的发信批次、收件回执、操作审计真源
-- 邮件状态更新与附件发货之间缺少可证明的一致性方案
+- 没有正式的发信批次、收件回执、campaign 级运营真源
+- 附件领取虽已接入强持久化事务链，但已读/删除/广播投递还没有全部进入同等级商业链路
 - 在线玩家收到新邮件后，没有完整的主动推送链路保证角标及时更新
 - 缺少运营侧查询、撤销、冻结、补偿、追责、导出能力
 
 结论是：当前实现适合主线验证和中小规模内测，不足以支撑商业级 MMO 的长期运营。
+
+### 2.1 当前已落地进度（2026-04-22）
+
+已落地：
+
+- `player_mail / player_mail_attachment / player_mail_counter` 结构化表已经接入读写主链
+- 邮件附件领取已经接入 `DurableOperationService`，并联动 `durable_operation_log / outbox_event / asset_audit_log`
+- GM 数据库备份/恢复已经能够覆盖邮件结构化主线表，而不是只备份旧 mailbox JSON
+
+未完成：
+
+- `mail_campaigns / mail_messages / mail_receipts` 这类运营级批次和回执真源还没有正式落地
+- GM 广播仍是请求线程内逐玩家串行投递，不是异步任务投递
+- 在线新邮件 push、失败重试、运营报表、批次审计和回放链路还没有完成
 
 ## 3. 商业级目标
 
@@ -239,7 +253,7 @@
 - 将 receipt 状态推进为 `claimed`
 - 失败恢复
 
-### 6.5 `http/next/next-gm-mail.service`
+### 6.5 `http/native/native-gm-mail.service`
 
 继续作为 GM 入口，但只负责：
 

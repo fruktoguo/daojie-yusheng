@@ -20,7 +20,7 @@ const shared_1 = require("@mud/shared");
 
 const world_client_event_service_1 = require("./world-client-event.service");
 
-/** 协议投影服务：把世界层的局部视图转成 next Socket 事件。 */
+/** 协议投影服务：把世界层的局部视图转成 主线 Socket 事件。 */
 let WorldProtocolProjectionService = class WorldProtocolProjectionService {
     /** 复用客户端事件服务发送拾取窗口等联动事件。 */
     worldClientEventService;    
@@ -42,11 +42,11 @@ let WorldProtocolProjectionService = class WorldProtocolProjectionService {
         this.emitTileDetail(client, payload);
         this.worldClientEventService.emitLootWindowUpdate(client, playerId, payload.x, payload.y);
     }
-    /** 当前投影固定收敛到 next 协议。 */
+    /** 当前投影固定收敛到 mainline 协议。 */
     resolveProjectionEmission(client) {
         return {
             protocol: 'mainline',
-            emitNext: true,
+            emitMainline: true,
         };
     }
 };

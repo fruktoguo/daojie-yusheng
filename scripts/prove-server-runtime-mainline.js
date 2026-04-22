@@ -16,8 +16,8 @@ const ALLOWED_RUNTIME_TO_NETWORK = new Set([
 ]);
 
 const ALLOWED_RUNTIME_TO_HTTP = new Set([
-  `packages${path.sep}server${path.sep}src${path.sep}http${path.sep}next${path.sep}next-gm.constants.ts`,
-  `packages${path.sep}server${path.sep}src${path.sep}http${path.sep}next${path.sep}next-gm-contract.ts`,
+  `packages${path.sep}server${path.sep}src${path.sep}http${path.sep}native${path.sep}native-gm.constants.ts`,
+  `packages${path.sep}server${path.sep}src${path.sep}http${path.sep}native${path.sep}native-gm-contract.ts`,
 ]);
 
 const FORBIDDEN_NETWORK_RUNTIME_BYPASSES = [

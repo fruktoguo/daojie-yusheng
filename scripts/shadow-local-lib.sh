@@ -1,18 +1,18 @@
 #!/bin/bash
-# 用途：提供本地 next shadow 启动、维护态切换、状态查看与停止的共享函数。
+# 用途：提供本地 shadow 启动、维护态切换、状态查看与停止的共享函数。
 
 set -euo pipefail
 
 SHADOW_LIB_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 SHADOW_REPO_ROOT="$(cd "${SHADOW_LIB_DIR}/.." && pwd)"
 SHADOW_RUNTIME_DIR="${SHADOW_REPO_ROOT}/.runtime"
-SHADOW_PID_FILE="${SHADOW_RUNTIME_DIR}/server-next-shadow.pid"
-SHADOW_LOG_FILE="${SHADOW_RUNTIME_DIR}/server-next-shadow.log"
-SHADOW_DIST_ROOT_FILE="${SHADOW_RUNTIME_DIR}/server-next-shadow.dist-root"
+SHADOW_PID_FILE="${SHADOW_RUNTIME_DIR}/server-shadow.pid"
+SHADOW_LOG_FILE="${SHADOW_RUNTIME_DIR}/server-shadow.log"
+SHADOW_DIST_ROOT_FILE="${SHADOW_RUNTIME_DIR}/server-shadow.dist-root"
 SHADOW_PORT="${SERVER_SHADOW_PORT:-11923}"
 SHADOW_URL_DEFAULT="http://127.0.0.1:${SHADOW_PORT}"
-SHADOW_COMPOSE_FILE="${SERVER_COMPOSE_FILE:-docker-compose.server.yml}"
-SHADOW_COMPOSE_PROJECT="${SERVER_COMPOSE_PROJECT:-mud-next-local}"
+SHADOW_COMPOSE_FILE="${SERVER_COMPOSE_FILE:-docker-compose.mainline.yml}"
+SHADOW_COMPOSE_PROJECT="${SERVER_COMPOSE_PROJECT:-mud-local}"
 
 shadow_repo_root() {
   printf '%s\n' "${SHADOW_REPO_ROOT}"
@@ -82,7 +82,7 @@ shadow_prepare_env() {
   fi
 }
 
-shadow_docker_compose_next() {
+shadow_docker_compose_mainline() {
   (
     cd "${SHADOW_REPO_ROOT}"
     docker compose -p "${SHADOW_COMPOSE_PROJECT}" -f "${SHADOW_COMPOSE_FILE}" "$@"
@@ -96,17 +96,17 @@ shadow_ensure_local_infra() {
   fi
 
   shadow_require_command docker
-  echo "==> 确保本地 next PostgreSQL / Redis 已启动..."
-  shadow_docker_compose_next up -d postgres redis >/dev/null
+  echo "==> 确保本地主线 PostgreSQL / Redis 已启动..."
+  shadow_docker_compose_mainline up -d postgres redis >/dev/null
 }
 
 shadow_compile_server() {
   if [[ "${SHADOW_LOCAL_SKIP_COMPILE:-0}" == "1" ]]; then
-    echo "==> 已跳过 server-next 编译 (SHADOW_LOCAL_SKIP_COMPILE=1)"
+    echo "==> 已跳过服务端编译 (SHADOW_LOCAL_SKIP_COMPILE=1)"
     return 0
   fi
 
-  echo "==> 编译 server-next ..."
+  echo "==> 编译服务端 ..."
   (
     cd "${SHADOW_REPO_ROOT}"
     pnpm --filter @mud/server compile
@@ -254,7 +254,7 @@ shadow_start() {
     unset SERVER_RUNTIME_MAINTENANCE || true
   fi
 
-  echo "==> 启动本地 next shadow (maintenance=${maintenance_flag}) ..."
+  echo "==> 启动本地 shadow (maintenance=${maintenance_flag}) ..."
   local shadow_dist_root=""
   shadow_dist_root="$(shadow_create_stable_dist_snapshot)"
 	(

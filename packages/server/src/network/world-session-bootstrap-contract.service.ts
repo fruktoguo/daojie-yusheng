@@ -24,11 +24,11 @@ const AUTHENTICATED_TOKEN_REUSE_PERSISTED_SOURCES = new Set([
 ]);
 
 const BOOTSTRAP_ALLOWED_IDENTITY_SOURCES = new Set([
-    'next',
+    'mainline',
     'token',
 ]);
 
-const BOOTSTRAP_ALLOWED_NEXT_PERSISTED_SOURCES = new Set([
+const BOOTSTRAP_ALLOWED_MAINLINE_PERSISTED_SOURCES = new Set([
     'native',
 ]);
 
@@ -67,7 +67,7 @@ export class WorldSessionBootstrapContractService {
         const protocol = contextHelper.resolveClientProtocol(client);
         const identitySource = contextHelper.resolveAuthenticatedBootstrapIdentitySource(client, input);
         const identityPersistedSource = contextHelper.resolveAuthenticatedBootstrapIdentityPersistedSource(client, input);
-        const effectiveIdentitySource = identitySource === 'next' && identityPersistedSource === 'token_seed'
+        const effectiveIdentitySource = identitySource === 'mainline' && identityPersistedSource === 'token_seed'
             ? 'token'
             : identitySource;
         return {
@@ -90,26 +90,26 @@ export class WorldSessionBootstrapContractService {
         const persistedSource = contract.identityPersistedSource;
         if (!BOOTSTRAP_ALLOWED_IDENTITY_SOURCES.has(authSource ?? '')) {
             return {
-                stage: 'next_bootstrap_identity_source_blocked',
-                message: `NEXT 协议 bootstrap 不接受 ${authSource || 'unknown'} 身份来源`,
+                stage: 'mainline_bootstrap_identity_source_blocked',
+                message: `主线协议 bootstrap 不接受 ${authSource || 'unknown'} 身份来源`,
             };
         }
         if (!persistedSource) {
             return {
-                stage: 'next_bootstrap_persisted_source_missing',
-                message: 'NEXT 协议 bootstrap 缺少持久化身份来源',
+                stage: 'mainline_bootstrap_persisted_source_missing',
+                message: '主线协议 bootstrap 缺少持久化身份来源',
             };
         }
         if (authSource === 'token' && !AUTHENTICATED_TOKEN_REUSE_PERSISTED_SOURCES.has(persistedSource)) {
             return {
-                stage: 'next_bootstrap_token_persisted_source_invalid',
-                message: `NEXT 协议 token 身份不接受 ${persistedSource} 持久化来源`,
+                stage: 'mainline_bootstrap_token_persisted_source_invalid',
+                message: `主线协议 token 身份不接受 ${persistedSource} 持久化来源`,
             };
         }
-        if (authSource === 'next' && !BOOTSTRAP_ALLOWED_NEXT_PERSISTED_SOURCES.has(persistedSource)) {
+        if (authSource === 'mainline' && !BOOTSTRAP_ALLOWED_MAINLINE_PERSISTED_SOURCES.has(persistedSource)) {
             return {
-                stage: 'next_bootstrap_next_persisted_source_invalid',
-                message: `NEXT 协议 next 身份不接受 ${persistedSource} 持久化来源`,
+                stage: 'mainline_bootstrap_mainline_persisted_source_invalid',
+                message: `主线协议主线身份不接受 ${persistedSource} 持久化来源`,
             };
         }
         return null;
@@ -125,7 +125,7 @@ export class WorldSessionBootstrapContractService {
             };
         }
         if (contract.isAuthenticatedEntry) {
-            const allowAuthenticatedReuse = contract.effectiveIdentitySource === 'next'
+            const allowAuthenticatedReuse = contract.effectiveIdentitySource === 'mainline'
                 && AUTHENTICATED_REUSE_PERSISTED_SOURCES.has(contract.identityPersistedSource ?? '');
             return {
                 allowImplicitDetachedResume: allowAuthenticatedReuse,

@@ -10,7 +10,7 @@ const pg_1 = require("pg");
 const socket_io_client_1 = require("socket.io-client");
 const shared_1 = require("@mud/shared");
 const env_alias_1 = require("../config/env-alias");
-const next_gm_contract_1 = require("../http/next/next-gm-contract");
+const next_gm_contract_1 = require("../http/native/native-gm-contract");
 const smoke_player_auth_1 = require("./smoke-player-auth");
 const smoke_player_cleanup_1 = require("./smoke-player-cleanup");
 /**
@@ -26,7 +26,7 @@ const SERVER_DATABASE_URL = (0, env_alias_1.resolveServerDatabaseUrl)();
  */
 const hasDatabaseUrl = Boolean(SERVER_DATABASE_URL);
 const LEGACY_HTTP_MEMORY_FALLBACK_ENABLED = readBooleanEnv('SERVER_ALLOW_LEGACY_HTTP_MEMORY_FALLBACK')
-    || readBooleanEnv('NEXT_ALLOW_LEGACY_HTTP_MEMORY_FALLBACK');
+    || readBooleanEnv('SERVER_ALLOW_LEGACY_HTTP_MEMORY_FALLBACK');
 const LEGACY_SOCKET_PROTOCOL_ENABLED = readBooleanEnv('SERVER_ALLOW_LEGACY_SOCKET_PROTOCOL')
     || readBooleanEnv('SERVER_ALLOW_LEGACY_SOCKET_PROTOCOL');
 /**
@@ -53,10 +53,10 @@ const roleName = `兼烟${suffix.slice(-4)}`;
  * 预留给 GM 改密验证链路使用的新密码。
  */
 const gmChangedPassword = `${password}_gmchg${suffix.slice(-4)}`;
-const GM_NEXT_SMOKE_BOUNDARY = Object.freeze({
+const GM_MAINLINE_SMOKE_BOUNDARY = Object.freeze({
     answers: [
         'shadow 或本地带库环境下，GM socket / HTTP 主链、玩家编辑、邮件、建议与地图控制关键写路径是否可跑通',
-        'GM 协议守卫、GM sessionId 守卫与 next-only 协议边界是否生效',
+        'GM 协议守卫、GM sessionId 守卫与 mainline-only 协议边界是否生效',
     ],
     excludes: [
         '不证明 backup / restore / destructive 维护窗口',
@@ -105,9 +105,9 @@ async function main() {
             url: SERVER_URL,
             skipped: true,
             reason: 'no_db_legacy_http_memory_fallback_disabled',
-            answers: GM_NEXT_SMOKE_BOUNDARY.answers,
-            excludes: GM_NEXT_SMOKE_BOUNDARY.excludes,
-            completionMapping: GM_NEXT_SMOKE_BOUNDARY.completionMapping,
+            answers: GM_MAINLINE_SMOKE_BOUNDARY.answers,
+            excludes: GM_MAINLINE_SMOKE_BOUNDARY.excludes,
+            completionMapping: GM_MAINLINE_SMOKE_BOUNDARY.completionMapping,
         }, null, 2));
         return;
     }
@@ -188,10 +188,10 @@ async function main() {
             ok: true,
             url: SERVER_URL,
             skipped: true,
-            reason: 'no_db_next_protocol_rejects_token_runtime',
-            answers: GM_NEXT_SMOKE_BOUNDARY.answers,
-            excludes: GM_NEXT_SMOKE_BOUNDARY.excludes,
-            completionMapping: GM_NEXT_SMOKE_BOUNDARY.completionMapping,
+            reason: 'no_db_mainline_protocol_rejects_token_runtime',
+            answers: GM_MAINLINE_SMOKE_BOUNDARY.answers,
+            excludes: GM_MAINLINE_SMOKE_BOUNDARY.excludes,
+            completionMapping: GM_MAINLINE_SMOKE_BOUNDARY.completionMapping,
             protocolGuardRejectedCode: protocolGuardError?.code ?? null,
             legacyProtocolGuardRejectedCode: legacyProtocolGuardError?.code ?? null,
             gmSessionIdGuardRejectedCode: gmSessionIdGuardError?.code ?? null,
@@ -223,7 +223,7 @@ async function main() {
 /**
  * 记录非GM next GM状态数量。
  */
-        let nonGmNextGmStateCount = 0;
+        let nonGmMainlineGmStateCount = 0;
 /**
  * 记录非GM legacy GM状态数量。
  */
@@ -235,7 +235,7 @@ async function main() {
             nonGmSocketError = payload ?? null;
         });
         nonGmSocket.on(shared_1.S2C.GmState, () => {
-            nonGmNextGmStateCount += 1;
+            nonGmMainlineGmStateCount += 1;
         });
         nonGmSocket.on('s:gmState', () => {
             nonGmLegacyGmStateCount += 1;
@@ -243,14 +243,14 @@ async function main() {
         await onceConnected(nonGmSocket);
         await waitFor(() => {
             return nonGmInit !== null;
-        }, 5000, 'non-gm next init');
+        }, 5000, 'non-gm mainline init');
         nonGmSocket.emit(shared_1.C2S.GmGetState, {});
         await waitFor(() => {
             return nonGmSocketError?.code === 'GM_FORBIDDEN';
         }, 5000, 'non-gm socket gmGetState forbidden');
-        if (nonGmNextGmStateCount > 0 || nonGmLegacyGmStateCount > 0) {
+        if (nonGmMainlineGmStateCount > 0 || nonGmLegacyGmStateCount > 0) {
             throw new Error(`non-gm socket unexpectedly received gm state: ${JSON.stringify({
-                next: nonGmNextGmStateCount,
+                next: nonGmMainlineGmStateCount,
                 legacy: nonGmLegacyGmStateCount,
             })}`);
         }
@@ -292,7 +292,7 @@ async function main() {
  */
     const gmStateEvents = [];
 /**
- * 记录next init。
+ * 记录mainline init。
  */
     let nextInit = null;
 /**
@@ -331,7 +331,7 @@ async function main() {
         socketError = new Error(`legacy socket error: ${JSON.stringify(payload)}`);
     });
     socket.on(shared_1.S2C.Error, (payload) => {
-        socketError = new Error(`next socket error: ${JSON.stringify(payload)}`);
+        socketError = new Error(`mainline socket error: ${JSON.stringify(payload)}`);
     });
     socket.on(shared_1.S2C.InitSession, (payload) => {
         nextInit = payload;
@@ -358,7 +358,7 @@ async function main() {
         panelDeltaCount += 1;
     });
     socket.on(shared_1.S2C.GmState, (payload) => {
-        gmStateEvents.push({ kind: 'next', payload });
+        gmStateEvents.push({ kind: 'mainline', payload });
     });
     socket.on('s:gmState', (payload) => {
         gmStateEvents.push({ kind: 'legacy', payload });
@@ -368,7 +368,7 @@ async function main() {
         await waitFor(() => {
             throwIfSocketError(socketError);
             return nextInit !== null;
-        }, 5000, 'next init');
+        }, 5000, 'mainline init');
         await waitFor(() => {
             throwIfSocketError(socketError);
             return bootstrapCount > 0
@@ -378,7 +378,7 @@ async function main() {
                 && worldDeltaCount > 0
                 && selfDeltaCount > 0
                 && panelDeltaCount > 0;
-        }, 12000, 'gm next bootstrap ready');
+        }, 12000, 'gm mainline bootstrap ready');
 /**
  * 记录initial运行态。
  */
@@ -409,7 +409,7 @@ async function main() {
         const initialSocketGmState = await emitAndWaitForGmState(socket, gmStateEvents, socketError, shared_1.C2S.GmGetState, {}, (entry) => {
             return Array.isArray(entry?.payload?.players) && Array.isArray(entry?.payload?.mapIds);
         }, 5000, 'socket gmGetState');
-        assertNextGmState(initialSocketGmState, 'socket gmGetState');
+        assertMainlineGmState(initialSocketGmState, 'socket gmGetState');
 /**
  * 记录socketbotbaseline。
  */
@@ -432,7 +432,7 @@ async function main() {
         const socketSpawnAck = await emitAndWaitForGmState(socket, gmStateEvents, socketError, shared_1.C2S.GmSpawnBots, {
             count: 1,
         }, (entry) => Array.isArray(entry?.payload?.players) && Array.isArray(entry?.payload?.mapIds), 8000, 'socket gmSpawnBots ack');
-        assertNextGmState(socketSpawnAck, 'socket gmSpawnBots ack');
+        assertMainlineGmState(socketSpawnAck, 'socket gmSpawnBots ack');
 /**
  * 记录socket出生点bot数量。
  */
@@ -446,7 +446,7 @@ async function main() {
             hp: socketTargetHp,
             autoBattle: socketTargetAutoBattle,
         }, (entry) => Array.isArray(entry?.payload?.players) && Array.isArray(entry?.payload?.mapIds), 12000, 'socket gmUpdatePlayer ack');
-        assertNextGmState(socketUpdateAck, 'socket gmUpdatePlayer ack');
+        assertMainlineGmState(socketUpdateAck, 'socket gmUpdatePlayer ack');
 /**
  * 记录socketupdated。
  */
@@ -471,7 +471,7 @@ async function main() {
         const socketResetAck = await emitAndWaitForGmState(socket, gmStateEvents, socketError, shared_1.C2S.GmResetPlayer, {
             playerId: auth.playerId,
         }, (entry) => Array.isArray(entry?.payload?.players) && Array.isArray(entry?.payload?.mapIds), 12000, 'socket gmResetPlayer ack');
-        assertNextGmState(socketResetAck, 'socket gmResetPlayer ack');
+        assertMainlineGmState(socketResetAck, 'socket gmResetPlayer ack');
 /**
  * 记录socketreset。
  */
@@ -493,7 +493,7 @@ async function main() {
         const socketRemoveAck = await emitAndWaitForGmState(socket, gmStateEvents, socketError, shared_1.C2S.GmRemoveBots, {
             all: true,
         }, (entry) => Array.isArray(entry?.payload?.players) && Array.isArray(entry?.payload?.mapIds), 8000, 'socket gmRemoveBots ack');
-        assertNextGmState(socketRemoveAck, 'socket gmRemoveBots ack');
+        assertMainlineGmState(socketRemoveAck, 'socket gmRemoveBots ack');
         const socketRemoveObserved = await waitForGmState(gmToken, (payload) => Number(payload?.botCount ?? 0) === 0, 8000, 'socket gmRemoveBots observed');
 /**
  * 记录initialhttp状态。
@@ -943,14 +943,14 @@ async function main() {
         console.log(JSON.stringify({
             ok: true,
             url: SERVER_URL,
-            answers: GM_NEXT_SMOKE_BOUNDARY.answers,
-            excludes: GM_NEXT_SMOKE_BOUNDARY.excludes,
-            completionMapping: GM_NEXT_SMOKE_BOUNDARY.completionMapping,
+            answers: GM_MAINLINE_SMOKE_BOUNDARY.answers,
+            excludes: GM_MAINLINE_SMOKE_BOUNDARY.excludes,
+            completionMapping: GM_MAINLINE_SMOKE_BOUNDARY.completionMapping,
             playerId: auth.playerId,
             socket: {
                 gmStateEvents: gmStateEvents.length,
                 legacyGmStateEvents: gmStateEvents.filter((entry) => entry.kind === 'legacy').length,
-                nextGmStateEvents: gmStateEvents.filter((entry) => entry.kind === 'next').length,
+                mainlineGmStateEvents: gmStateEvents.filter((entry) => entry.kind === 'mainline').length,
                 bootstrap: {
                     initSessionCount: nextInit ? 1 : 0,
                     bootstrapCount,
@@ -1232,7 +1232,7 @@ async function ensureNativeDocsForAccessToken(token) {
 /**
  * 记录玩家ID。
  */
-    let tokenPlayerId = normalizeNextPlayerId(typeof payload?.playerId === 'string' ? payload.playerId.trim() : '');
+    let tokenPlayerId = normalizeMainlinePlayerId(typeof payload?.playerId === 'string' ? payload.playerId.trim() : '');
 /**
  * 记录用户名。
  */
@@ -1255,7 +1255,7 @@ async function ensureNativeDocsForAccessToken(token) {
         if (!tokenPlayerId) {
             const playerResult = await pool.query('SELECT id, name FROM players WHERE "userId" = $1::uuid LIMIT 1', [tokenUserId]);
             const playerRow = Array.isArray(playerResult?.rows) ? playerResult.rows[0] : null;
-            tokenPlayerId = normalizeNextPlayerId(typeof playerRow?.id === 'string' ? playerRow.id.trim() : tokenPlayerId);
+            tokenPlayerId = normalizeMainlinePlayerId(typeof playerRow?.id === 'string' ? playerRow.id.trim() : tokenPlayerId);
             if (!tokenPlayerName) {
                 tokenPlayerName = typeof playerRow?.name === 'string' ? playerRow.name.trim() : tokenPlayerName;
             }
@@ -1281,7 +1281,7 @@ async function ensureNativeDocsForAccessToken(token) {
       VALUES ($1, $2, $3::jsonb, now())
       ON CONFLICT (scope, key)
       DO UPDATE SET payload = EXCLUDED.payload, "updatedAt" = now()
-    `, ['server_next_player_identities_v1', tokenUserId, JSON.stringify({
+    `, ['server_player_identities_v1', tokenUserId, JSON.stringify({
                 version: 1,
                 userId: tokenUserId,
                 username: tokenUsername,
@@ -1296,7 +1296,7 @@ async function ensureNativeDocsForAccessToken(token) {
       VALUES ($1, $2, $3::jsonb, now())
       ON CONFLICT (scope, key)
       DO UPDATE SET payload = EXCLUDED.payload, "updatedAt" = now()
-    `, ['server_next_player_snapshots_v1', tokenPlayerId, JSON.stringify({
+    `, ['server_player_snapshots_v1', tokenPlayerId, JSON.stringify({
                 version: 1,
                 savedAt: Date.now(),
                 placement: {
@@ -2136,11 +2136,11 @@ function assertLegacyGmState(entry, label) {
     }
 }
 /**
- * 确认收到的是 next GM 状态包而不是异常格式。
+ * 确认收到的是主线 GM 状态包而不是异常格式。
  */
-function assertNextGmState(entry, label) {
-    if (entry?.kind !== 'next') {
-        throw new Error(`expected next gm state for ${label}, got ${entry?.kind ?? 'none'}`);
+function assertMainlineGmState(entry, label) {
+    if (entry?.kind !== 'mainline') {
+        throw new Error(`expected mainline gm state for ${label}, got ${entry?.kind ?? 'none'}`);
     }
 }
 /**
@@ -2277,21 +2277,21 @@ function parseJwtPayload(token) {
     }
 }
 /**
- * 从 next 玩家令牌中解析 playerId，优先信任显式 playerId 字段。
+ * 从 主线玩家令牌中解析 playerId，优先信任显式 playerId 字段。
  */
 function resolveTokenPlayerId(payload) {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
-    const tokenPlayerId = normalizeNextPlayerId(typeof payload?.playerId === 'string' ? payload.playerId.trim() : '');
+    const tokenPlayerId = normalizeMainlinePlayerId(typeof payload?.playerId === 'string' ? payload.playerId.trim() : '');
     if (tokenPlayerId) {
         return tokenPlayerId;
     }
-    return normalizeNextPlayerId(typeof payload?.sub === 'string' ? payload.sub.trim() : '');
+    return normalizeMainlinePlayerId(typeof payload?.sub === 'string' ? payload.sub.trim() : '');
 }
 /**
- * 规范化 next 玩家ID，统一为 p_<uuid> 形态。
+ * 规范化 主线玩家ID，统一为 p_<uuid> 形态。
  */
-function normalizeNextPlayerId(value) {
+function normalizeMainlinePlayerId(value) {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
     if (typeof value !== 'string') {
@@ -2425,4 +2425,6 @@ async function deletePlayer(playerId) {
 void main().catch((error) => {
     console.error(error);
     process.exitCode = 1;
+}).finally(async () => {
+    await (0, smoke_player_auth_1.flushRegisteredSmokePlayers)();
 });

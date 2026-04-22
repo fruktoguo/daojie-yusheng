@@ -24,9 +24,9 @@ const pg_1 = require("pg");
 
 const env_alias_1 = require("../config/env-alias");
 
-const PLAYER_IDENTITY_SCOPE = 'server_next_player_identities_v1';
+const PLAYER_IDENTITY_SCOPE = 'server_player_identities_v1';
 
-const PLAYER_IDENTITY_TABLE = 'server_next_player_identity';
+const PLAYER_IDENTITY_TABLE = 'server_player_identity';
 
 const CREATE_PLAYER_IDENTITY_TABLE_SQL = `
   CREATE TABLE IF NOT EXISTS ${PLAYER_IDENTITY_TABLE} (
@@ -42,17 +42,17 @@ const CREATE_PLAYER_IDENTITY_TABLE_SQL = `
 `;
 
 const CREATE_PLAYER_IDENTITY_USERNAME_INDEX_SQL = `
-  CREATE INDEX IF NOT EXISTS server_next_player_identity_username_idx
+  CREATE INDEX IF NOT EXISTS server_player_identity_username_idx
   ON ${PLAYER_IDENTITY_TABLE}(username)
 `;
 
 const CREATE_PLAYER_IDENTITY_PLAYER_INDEX_SQL = `
-  CREATE INDEX IF NOT EXISTS server_next_player_identity_player_idx
+  CREATE INDEX IF NOT EXISTS server_player_identity_player_idx
   ON ${PLAYER_IDENTITY_TABLE}(player_id)
 `;
 
 const CREATE_PLAYER_IDENTITY_DISPLAY_INDEX_SQL = `
-  CREATE INDEX IF NOT EXISTS server_next_player_identity_display_idx
+  CREATE INDEX IF NOT EXISTS server_player_identity_display_idx
   ON ${PLAYER_IDENTITY_TABLE}(display_name)
 `;
 
@@ -101,7 +101,7 @@ let PlayerIdentityPersistenceService = PlayerIdentityPersistenceService_1 = clas
         try {
             await ensurePlayerIdentityTable(this.pool);
             this.enabled = true;
-            this.logger.log('玩家身份持久化已启用（server_next_player_identity）');
+            this.logger.log('玩家身份持久化已启用（server_player_identity）');
         }
         catch (error) {
             this.logger.error('玩家身份持久化初始化失败，已回退为禁用模式', error instanceof Error ? error.stack : String(error));
@@ -152,7 +152,7 @@ let PlayerIdentityPersistenceService = PlayerIdentityPersistenceService_1 = clas
 
         const normalized = normalizePersistedPlayerIdentityRow(result.rows[0]);
         if (!normalized) {
-            throw new Error(`Player identity next record invalid: userId=${normalizedUserId}`);
+            throw new Error(`Player identity mainline record invalid: userId=${normalizedUserId}`);
         }
         return normalized;
     }    

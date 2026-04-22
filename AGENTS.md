@@ -189,16 +189,6 @@
 - `server-next-verify`
   - 命中 `packages/server` 的 smoke、with-db、shadow、replace-ready、协议审计、replace-runbook 验证
 
-以下 skill 只有在用户明确要求，或主线收敛必须同步补齐时才使用：
-
-- `content-pipeline`
-- `item-content-author`
-- `monster-content-author`
-- `building-content-author`
-- `quest-content-author`
-- `technique-skill-generator`
-- `git-release-ops`
-
 ## 8. 实施前检查清单
 
 - 是否应该优先改 `packages/client`、`packages/shared`、`packages/server` 或 `packages/config-editor`
@@ -221,7 +211,7 @@
   - `pnpm verify:replace-ready:shadow`
   - `pnpm verify:replace-ready:acceptance`
   - `pnpm verify:replace-ready:full`
-- `verify:server-next*` 视为兼容别名；新的交付口径优先使用 `verify:replace-ready*`
+- 交付口径统一使用 `verify:replace-ready*`
 - 涉及 `client/shared/server` 联动时，默认检查协议、类型、消费端、发包端是否同时收敛
 - 涉及持久化时，交付前必须说明是否检查了数据库真源、回读链或恢复链
 - 涉及 UI 时，交付时必须说明是否检查了浅色模式、深色模式、手机模式；未检查要明确写出
@@ -249,7 +239,7 @@
 
 - 只有在用户明确要求提交、推送、建仓库或整理历史时，才执行 Git 写操作
 - 一旦用户要求提交，应保持原子化，使用 Conventional Commits，并写真实验证结果
-- 与提交拆分、发布说明、PR 文案相关的工作，优先使用 `git-release-ops`
+- 与提交拆分、发布说明、PR 文案相关的工作，按本文件 Git 基线直接执行
 
 ## 12. 一句话执行口径
 

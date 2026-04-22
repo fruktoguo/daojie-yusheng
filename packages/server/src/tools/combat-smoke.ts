@@ -7,13 +7,28 @@
 Object.defineProperty(exports, "__esModule", { value: true });
 const smoke_timeout_1 = require("./smoke-timeout");
 (0, smoke_timeout_1.installSmokeTimeout)(__filename);
+const pg_1 = require("pg");
 const socket_io_client_1 = require("socket.io-client");
 const shared_1 = require("@mud/shared");
 const env_alias_1 = require("../config/env-alias");
+const next_gm_contract_1 = require("../http/native/native-gm-contract");
+const smoke_player_auth_1 = require("./smoke-player-auth");
 /**
  * 记录 server 访问地址。
  */
 const SERVER_URL = (0, env_alias_1.resolveServerUrl)() || 'http://127.0.0.1:3111';
+/**
+ * 记录数据库连接串。
+ */
+const SERVER_DATABASE_URL = (0, env_alias_1.resolveServerDatabaseUrl)();
+/**
+ * 标记当前是否具备数据库环境。
+ */
+const hasDatabaseUrl = Boolean(SERVER_DATABASE_URL);
+/**
+ * 记录GMpassword。
+ */
+const GM_PASSWORD = (0, env_alias_1.resolveServerGmPassword)('admin123');
 /**
  * 记录attackerID。
  */
@@ -22,6 +37,14 @@ let attackerId = '';
  * 记录defenderID。
  */
 let defenderId = '';
+/**
+ * 记录attacker会话ID。
+ */
+let attackerSessionId = '';
+/**
+ * 记录defender会话ID。
+ */
+let defenderSessionId = '';
 /**
  * 从当前玩家状态里解析指定功法已解锁的真实技能 ID。
  */
@@ -61,12 +84,34 @@ async function main() {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
 /**
+ * 记录攻击者认证。
+ */
+    const attackerAuth = await (0, smoke_player_auth_1.registerAndLoginSmokePlayer)(SERVER_URL, {
+        accountPrefix: 'atk',
+        rolePrefix: '攻',
+        seed: 'combat-attacker',
+    });
+/**
+ * 记录防守者认证。
+ */
+    const defenderAuth = await (0, smoke_player_auth_1.registerAndLoginSmokePlayer)(SERVER_URL, {
+        accountPrefix: 'def',
+        rolePrefix: '守',
+        seed: 'combat-defender',
+    });
+/**
+ * 记录战斗实例ID。
+ */
+    const combatSetup = await ensureCombatInstance();
+    const combatInstanceId = combatSetup.instanceId;
+/**
  * 记录attacker。
  */
     const attacker = (0, socket_io_client_1.io)(SERVER_URL, {
         path: '/socket.io',
         transports: ['websocket'],
         auth: {
+            token: attackerAuth.accessToken,
             protocol: 'mainline',
         },
     });
@@ -77,6 +122,7 @@ async function main() {
         path: '/socket.io',
         transports: ['websocket'],
         auth: {
+            token: defenderAuth.accessToken,
             protocol: 'mainline',
         },
     });
@@ -120,27 +166,41 @@ async function main() {
     });
     attacker.on(shared_1.S2C.InitSession, (payload) => {
         attackerId = String(payload?.pid ?? '');
+        attackerSessionId = String(payload?.sid ?? '');
     });
     defender.on(shared_1.S2C.InitSession, (payload) => {
         defenderId = String(payload?.pid ?? '');
+        defenderSessionId = String(payload?.sid ?? '');
     });
     await Promise.all([onceConnected(attacker), onceConnected(defender)]);
-    attacker.emit(shared_1.C2S.Hello, {
-        mapId: 'wildlands',
-        preferredX: 18,
-        preferredY: 18,
+    await waitFor(() => attackerId.length > 0 && defenderId.length > 0 && attackerSessionId.length > 0 && defenderSessionId.length > 0, 5000);
+    await requestJson('/api/gm/world/instances/transfer-player', {
+        method: 'POST',
+        token: combatSetup.gmToken,
+        body: {
+            playerId: attackerId,
+            instanceId: combatInstanceId,
+            x: 18,
+            y: 18,
+        },
     });
-    defender.emit(shared_1.C2S.Hello, {
-        mapId: 'wildlands',
-        preferredX: 19,
-        preferredY: 18,
+    await requestJson('/api/gm/world/instances/transfer-player', {
+        method: 'POST',
+        token: combatSetup.gmToken,
+        body: {
+            playerId: defenderId,
+            instanceId: combatInstanceId,
+            x: 19,
+            y: 18,
+        },
     });
     await waitFor(async () => {
         if (!attackerId || !defenderId) {
             return false;
         }
         const [attackerState, defenderState] = await Promise.all([fetchState(attackerId), fetchState(defenderId)]);
-        return attackerState.player && defenderState.player;
+        return attackerState.player?.instanceId === combatInstanceId
+            && defenderState.player?.instanceId === combatInstanceId;
     }, 5000);
     await ensurePlayersAdjacent(attacker, attackerId, defender, defenderId);
 /**
@@ -309,6 +369,81 @@ function hasCombatFx(payload) {
     return Array.isArray(payload?.fx) && payload.fx.length > 0;
 }
 /**
+ * 确保战斗 smoke 使用支持 PVP 的真实实例。
+ */
+async function ensureCombatInstance() {
+    await resetLocalGmPasswordRecordIfNeeded();
+/**
+ * 记录GM令牌。
+ */
+    const gmToken = await loginGm();
+/**
+ * 记录payload。
+ */
+    const payload = await requestJson('/api/gm/world/instances', {
+        method: 'POST',
+        token: gmToken,
+        body: {
+            templateId: 'wildlands',
+            linePreset: 'real',
+            displayName: `战烟_${Date.now().toString(36)}`,
+        },
+    });
+/**
+ * 记录instanceId。
+ */
+    const instanceId = String(payload?.instance?.instanceId ?? '').trim();
+    if (!instanceId) {
+        throw new Error(`unexpected gm world instance payload: ${JSON.stringify(payload)}`);
+    }
+    return {
+        instanceId,
+        gmToken,
+    };
+}
+/**
+ * 登录 GM 接口并返回 access token。
+ */
+async function loginGm() {
+/**
+ * 记录payload。
+ */
+    const payload = await requestJson('/api/auth/gm/login', {
+        method: 'POST',
+        body: {
+            password: GM_PASSWORD,
+        },
+    });
+/**
+ * 记录token。
+ */
+    const token = typeof payload?.accessToken === 'string' ? payload.accessToken.trim() : '';
+    if (!token) {
+        throw new Error(`unexpected GM login payload: ${JSON.stringify(payload)}`);
+    }
+    return token;
+}
+/**
+ * 在本地带库 smoke 环境下，先清掉持久化 GM 密码记录，避免历史密码污染当前登录链。
+ */
+async function resetLocalGmPasswordRecordIfNeeded() {
+    if (!hasDatabaseUrl) {
+        return;
+    }
+    if (!SERVER_URL.startsWith('http://127.0.0.1:')) {
+        return;
+    }
+    const pool = new pg_1.Pool({
+        connectionString: SERVER_DATABASE_URL,
+    });
+    try {
+        await pool.query('DELETE FROM persistent_documents WHERE scope = $1 AND key = $2', [next_gm_contract_1.GM_AUTH_CONTRACT.passwordRecordScope, next_gm_contract_1.GM_AUTH_CONTRACT.passwordRecordKey]);
+    }
+    finally {
+        await pool.end().catch(() => undefined);
+    }
+}
+/**
  * 处理fetch状态。
  */
 async function fetchState(playerId) {
@@ -342,6 +477,33 @@ async function postJson(path, body) {
     if (!response.ok) {
         throw new Error(`request failed: ${response.status} ${await response.text()}`);
     }
+}
+/**
+ * 统一发送 JSON 请求并按需附带鉴权头。
+ */
+async function requestJson(path, init = {}) {
+/**
+ * 记录body。
+ */
+    const body = init.body === undefined ? undefined : JSON.stringify(init.body);
+/**
+ * 记录response。
+ */
+    const response = await fetch(`${SERVER_URL}${path}`, {
+        method: init.method ?? 'GET',
+        headers: {
+            ...(body === undefined ? {} : { 'content-type': 'application/json' }),
+            ...(init.token ? { authorization: `Bearer ${init.token}` } : {}),
+        },
+        body,
+    });
+    if (!response.ok) {
+        throw new Error(`request failed: ${init.method ?? 'GET'} ${path}: ${response.status} ${await response.text()}`);
+    }
+    if (response.status === 204) {
+        return null;
+    }
+    return response.json();
 }
 /**
  * 处理delete玩家。
@@ -566,4 +728,6 @@ function readBuffRemaining(player, buffId) {
 void main().catch((error) => {
     console.error(error);
     process.exitCode = 1;
+}).finally(async () => {
+    await (0, smoke_player_auth_1.flushRegisteredSmokePlayers)();
 });

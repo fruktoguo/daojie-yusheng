@@ -16,23 +16,62 @@ const shared_1 = require("@mud/shared");
 const env_alias_1 = require("../config/env-alias");
 const smoke_player_auth_1 = require("./smoke-player-auth");
 const smoke_player_cleanup_1 = require("./smoke-player-cleanup");
+const stable_dist_1 = require("./stable-dist");
 /**
  * 记录包根目录。
  */
-const packageRoot = (0, node_path_1.resolve)(__dirname, '..', '..');
+const packageRoot = (0, stable_dist_1.resolveToolPackageRoot)(__dirname);
+/**
+ * 记录持有的稳定 dist 快照。
+ */
+const ownedDistSnapshot = (() => {
+    const explicitDistRoot = typeof process.env.SERVER_TOOL_DIST_ROOT === 'string'
+        ? process.env.SERVER_TOOL_DIST_ROOT.trim()
+        : '';
+    if (explicitDistRoot) {
+        return null;
+    }
+    return (0, stable_dist_1.createStableDistSnapshot)({
+        label: 'persistence-smoke',
+        packageRoot,
+    });
+})();
+/**
+ * 记录dist根目录。
+ */
+const distRoot = ownedDistSnapshot?.distRoot ?? (0, stable_dist_1.resolveToolDistRoot)(__dirname, packageRoot);
+/**
+ * 记录仓库根目录。
+ */
+const repoRoot = (0, node_path_1.resolve)(packageRoot, '..', '..');
 /**
  * 记录服务端入口文件路径。
  */
-const serverEntry = (0, node_path_1.join)(packageRoot, 'dist', 'main.js');
+const serverEntry = (0, node_path_1.join)(distRoot, 'main.js');
 /**
  * 记录数据库地址。
  */
 const databaseUrl = (0, env_alias_1.resolveServerDatabaseUrl)();
+const MARKET_STORAGE_SCOPE = 'server_market_storage_v1';
 const PERSISTENCE_SMOKE_CONTRACT = Object.freeze({
-    answers: 'with-db 本地环境下的 next 持久化闭环：重启后玩家状态、掉落、灵气与地图解锁仍可从数据库真源恢复',
+    answers: 'with-db 本地环境下的 next 持久化闭环：重启后玩家状态、掉落、灵气、地图解锁与结构化坊市托管仓仍可从数据库真源恢复',
     excludes: 'shadow destructive、维护窗口 backup/restore、真实运营取证与跨环境灾备演练',
     completionMapping: 'replace-ready:proof:with-db.persistence',
 });
+const BASELINE_MARKET_STORAGE_ITEMS = Object.freeze([
+    {
+        itemId: 'wolf_fang',
+        count: 4,
+        name: '狼牙',
+    },
+    {
+        itemId: 'iron_sword',
+        count: 1,
+        name: '铁剑',
+        enhanceLevel: 2,
+        equipSlot: 'weapon',
+    },
+]);
 /**
  * 记录default端口。
  */
@@ -269,10 +308,17 @@ async function connectAndMutate(token) {
     };
     await postJson('/runtime/persistence/flush', {});
     await waitForPersistedPlayerSnapshot(playerId);
+    await replaceStructuredPlayerMarketStorageItems(playerId, BASELINE_MARKET_STORAGE_ITEMS);
+    await deleteLegacyMarketStorageDocument(playerId);
+    await assertStructuredPlayerMarketStorageItems(playerId, BASELINE_MARKET_STORAGE_ITEMS);
+    await assertLegacyMarketStorageDocumentAbsent(playerId);
     await delay(300);
     socket.close();
     await delay(300);
-    return persistedTile;
+    return {
+        persistedTile,
+        expectedMarketStorageItems: BASELINE_MARKET_STORAGE_ITEMS,
+    };
 }
 /**
  * 确保玩家稳定抵达 wildlands，不依赖一次性 portal 指令命中。
@@ -309,7 +355,7 @@ async function ensureTravelToWildlands(socket, currentPlayerId) {
 /**
  * 处理reconnectandread。
  */
-async function reconnectAndRead(persistedTile) {
+async function reconnectAndRead(reconnectTarget) {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
     if (!accessToken) {
@@ -419,7 +465,7 @@ async function reconnectAndRead(persistedTile) {
 /**
  * 记录目标tile。
  */
-    const targetTile = persistedTile ?? {
+    const targetTile = reconnectTarget?.persistedTile ?? {
         instanceId: playerState.player.instanceId,
         x: playerState.player.x,
         y: playerState.player.y,
@@ -440,6 +486,29 @@ async function reconnectAndRead(persistedTile) {
     if (restoredGroundCount < 3) {
         throw new Error(`expected persisted ground rat_tail >= 3, got ${JSON.stringify(tileState)}`);
     }
+    const expectedMarketStorageItems = normalizeComparableMarketStorageItems(reconnectTarget?.expectedMarketStorageItems);
+    const persistedStructuredMarketStorageItems = await readStructuredPlayerMarketStorageItems(playerId);
+    if (JSON.stringify(persistedStructuredMarketStorageItems) !== JSON.stringify(expectedMarketStorageItems)) {
+        throw new Error(`expected structured market storage rows to survive restart as ${JSON.stringify(expectedMarketStorageItems)}, got ${JSON.stringify(persistedStructuredMarketStorageItems)}`);
+    }
+    const marketBeforeClaim = await fetchJson(`${baseUrl}/runtime/players/${playerId}/market`);
+    const actualMarketStorageItems = normalizeComparableMarketStorageItems(marketBeforeClaim?.storage?.items);
+    if (JSON.stringify(actualMarketStorageItems) !== JSON.stringify(expectedMarketStorageItems)) {
+        throw new Error(`expected persisted structured market storage ${JSON.stringify(expectedMarketStorageItems)}, got ${JSON.stringify(actualMarketStorageItems)}; runtimeMarketPayload=${JSON.stringify(marketBeforeClaim)}; persistedRows=${JSON.stringify(persistedStructuredMarketStorageItems)}`);
+    }
+    if (playerState.player.inventory.items.some((entry) => expectedMarketStorageItems.some((item) => item.itemId === entry.itemId))) {
+        throw new Error(`expected structured market storage items to stay outside inventory before claim, got ${JSON.stringify(playerState.player.inventory.items)}`);
+    }
+    await postJson(`/runtime/players/${playerId}/market/claim-storage`, {});
+    await waitForCondition(async () => {
+        const claimedState = await fetchJson(`${baseUrl}/runtime/players/${playerId}/state`);
+        return expectedMarketStorageItems.every((item) => claimedState.player?.inventory?.items?.some((entry) => entry.itemId === item.itemId && Number(entry.count ?? 0) >= item.count));
+    }, 5000);
+    await waitForCondition(async () => {
+        const marketAfterClaim = await fetchJson(`${baseUrl}/runtime/players/${playerId}/market`);
+        return Array.isArray(marketAfterClaim?.storage?.items) && marketAfterClaim.storage.items.length === 0;
+    }, 5000);
+    await assertStructuredPlayerMarketStorageItems(playerId, []);
     return {
         mapEnter: captured.mapEnter,
         reconnectInit,
@@ -448,6 +517,10 @@ async function reconnectAndRead(persistedTile) {
         worldDelta: captured.worldDelta,
         playerState: {
             unlockedMapIds: playerState.player.unlockedMapIds ?? [],
+        },
+        marketStorage: {
+            beforeClaim: actualMarketStorageItems,
+            claimed: expectedMarketStorageItems,
         },
         persistedTile: targetTile,
         tileAura: tileState.tile?.aura ?? 0,
@@ -537,9 +610,11 @@ async function startServer() {
  * 记录子进程。
  */
     const child = (0, node_child_process_1.spawn)('node', [serverEntry], {
-        cwd: packageRoot,
+        cwd: repoRoot,
         env: {
             ...process.env,
+            SERVER_PACKAGE_ROOT: packageRoot,
+            SERVER_TOOL_DIST_ROOT: distRoot,
             SERVER_PORT: String(currentPort),
             SERVER_DATABASE_URL: databaseUrl,
             SERVER_RUNTIME_HTTP: '1',
@@ -749,7 +824,7 @@ async function seedNativePersistenceForToken(token) {
     });
     try {
         await pool.query(`
-      INSERT INTO server_next_player_identity(
+      INSERT INTO server_player_identity(
         user_id,
         username,
         player_id,
@@ -780,7 +855,7 @@ async function seedNativePersistenceForToken(token) {
             updatedAt: Date.now(),
         })]);
         await pool.query(`
-      INSERT INTO server_next_player_snapshot(
+      INSERT INTO server_player_snapshot(
         player_id,
         template_id,
         persisted_source,
@@ -902,6 +977,128 @@ function parseJwtPayload(token) {
         return null;
     }
 }
+
+async function replaceStructuredPlayerMarketStorageItems(playerIdToSeed, items) {
+  const client = new pg_1.Client({ connectionString: databaseUrl });
+  await client.connect();
+  try {
+    await client.query('BEGIN');
+    await client.query('DELETE FROM player_market_storage_item WHERE player_id = $1', [playerIdToSeed]);
+    for (let slotIndex = 0; slotIndex < (Array.isArray(items) ? items : []).length; slotIndex += 1) {
+      const entry = items[slotIndex];
+      await client.query(`
+        INSERT INTO player_market_storage_item(
+          storage_item_id,
+          player_id,
+          slot_index,
+          item_id,
+          count,
+          enhance_level,
+          raw_payload,
+          updated_at
+        )
+        VALUES ($1, $2, $3, $4, $5, $6, $7::jsonb, now())
+      `, [
+        `persistence-market-storage:${playerIdToSeed}:${slotIndex}`,
+        playerIdToSeed,
+        slotIndex,
+        String(entry?.itemId ?? ''),
+        Number(entry?.count ?? 1),
+        normalizeOptionalInteger(entry?.enhanceLevel ?? entry?.enhancementLevel ?? entry?.level),
+        JSON.stringify(entry ?? {}),
+      ]);
+    }
+    await client.query('COMMIT');
+  }
+  catch (error) {
+    await client.query('ROLLBACK').catch(() => undefined);
+    throw error;
+  }
+  finally {
+    await client.end().catch(() => undefined);
+  }
+}
+
+async function deleteLegacyMarketStorageDocument(playerIdToDelete) {
+  const client = new pg_1.Client({ connectionString: databaseUrl });
+  await client.connect();
+  try {
+    await client.query('DELETE FROM persistent_documents WHERE scope = $1 AND key = $2', [
+      MARKET_STORAGE_SCOPE,
+      playerIdToDelete,
+    ]);
+  }
+  finally {
+    await client.end().catch(() => undefined);
+  }
+}
+
+async function assertLegacyMarketStorageDocumentAbsent(playerIdToCheck) {
+  const client = new pg_1.Client({ connectionString: databaseUrl });
+  await client.connect();
+  try {
+    const result = await client.query('SELECT 1 FROM persistent_documents WHERE scope = $1 AND key = $2 LIMIT 1', [
+      MARKET_STORAGE_SCOPE,
+      playerIdToCheck,
+    ]);
+    if ((result.rowCount ?? 0) !== 0) {
+      throw new Error(`expected legacy market storage document to be absent for ${playerIdToCheck}`);
+    }
+  }
+  finally {
+    await client.end().catch(() => undefined);
+  }
+}
+
+async function assertStructuredPlayerMarketStorageItems(playerIdToCheck, expectedItems) {
+  const actual = await readStructuredPlayerMarketStorageItems(playerIdToCheck);
+  const expected = normalizeComparableMarketStorageItems(expectedItems);
+  if (JSON.stringify(actual) !== JSON.stringify(expected)) {
+    throw new Error(`expected structured market storage ${JSON.stringify(expected)}, got ${JSON.stringify(actual)}`);
+  }
+}
+
+async function readStructuredPlayerMarketStorageItems(playerIdToCheck) {
+  const client = new pg_1.Client({ connectionString: databaseUrl });
+  await client.connect();
+  try {
+    const result = await client.query(`
+      SELECT slot_index, item_id, count, enhance_level, raw_payload
+      FROM player_market_storage_item
+      WHERE player_id = $1
+      ORDER BY slot_index ASC, storage_item_id ASC
+    `, [playerIdToCheck]);
+    return normalizeComparableMarketStorageItems(result.rows ?? []);
+  }
+  finally {
+    await client.end().catch(() => undefined);
+  }
+}
+
+function normalizeComparableMarketStorageItems(items) {
+  return (Array.isArray(items) ? items : []).map((entry, index) => ({
+    slotIndex: Number(entry?.slotIndex ?? entry?.slot_index ?? index),
+    itemId: String(entry?.itemId ?? entry?.item_id ?? entry?.item?.itemId ?? ''),
+    count: Number(entry?.count ?? entry?.item?.count ?? 1),
+    enhanceLevel: normalizeOptionalInteger(
+      entry?.enhanceLevel
+      ?? entry?.enhancementLevel
+      ?? entry?.enhance_level
+      ?? entry?.item?.enhanceLevel
+      ?? entry?.item?.enhancementLevel
+      ?? entry?.item?.level
+      ?? entry?.level,
+    ),
+  })).sort((left, right) => left.slotIndex - right.slotIndex
+    || left.itemId.localeCompare(right.itemId, 'zh-Hans-CN'));
+}
+
+function normalizeOptionalInteger(value) {
+  if (!Number.isFinite(value)) {
+    return null;
+  }
+  return Math.trunc(Number(value));
+}
 /**
  * 等待 persisted player snapshot 写入 next 专表。
  */
@@ -911,7 +1108,7 @@ async function waitForPersistedPlayerSnapshot(playerIdToCheck) {
             connectionString: databaseUrl,
         });
         try {
-            const result = await pool.query('SELECT 1 FROM server_next_player_snapshot WHERE player_id = $1 LIMIT 1', [playerIdToCheck]);
+            const result = await pool.query('SELECT 1 FROM server_player_snapshot WHERE player_id = $1 LIMIT 1', [playerIdToCheck]);
             return Array.isArray(result?.rows) && result.rows.length > 0;
         }
         finally {
@@ -1024,4 +1221,13 @@ async function allocateFreePort() {
 void main().catch((error) => {
     console.error(error);
     process.exitCode = 1;
+}).finally(() => {
+    return (0, smoke_player_auth_1.flushRegisteredSmokePlayers)()
+        .catch((error) => {
+        console.error(error);
+        process.exitCode = 1;
+    })
+        .finally(() => {
+        ownedDistSnapshot?.cleanup();
+    });
 });

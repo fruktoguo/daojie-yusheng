@@ -1,5 +1,6 @@
 import { Inject, Injectable, Optional } from '@nestjs/common';
 
+import { PlayerDomainPersistenceService } from '../persistence/player-domain-persistence.service';
 import type { PersistedPlayerSnapshot } from '../persistence/player-persistence.service';
 import { MailRuntimeService } from '../runtime/mail/mail-runtime.service';
 import { PlayerRuntimeService } from '../runtime/player/player-runtime.service';
@@ -21,6 +22,17 @@ interface PlayerRuntimePort {
         name?: string | null;
         displayName?: string | null;
     }): void;
+    describePersistencePresence?(playerId: string): {
+        online: boolean;
+        inWorld: boolean;
+        lastHeartbeatAt?: number | null;
+        offlineSinceAt?: number | null;
+        runtimeOwnerId?: string | null;
+        sessionEpoch?: number | null;
+        transferState?: string | null;
+        transferTargetNodeId?: string | null;
+        versionSeed?: number | null;
+    } | null;
 }
 
 interface MailRuntimePort {
@@ -35,6 +47,9 @@ export class WorldSessionBootstrapPlayerInitService {
         @Optional()
         @Inject(PlayerRuntimeService)
         private readonly playerRuntimeService: PlayerRuntimePort | null = null,
+        @Optional()
+        @Inject(PlayerDomainPersistenceService)
+        private readonly playerDomainPersistenceService: PlayerDomainPersistenceService | null = null,
         @Optional()
         @Inject(MailRuntimeService)
         private readonly mailRuntimeService: MailRuntimePort | null = null,
@@ -59,6 +74,16 @@ export class WorldSessionBootstrapPlayerInitService {
             name: input.name,
             displayName: input.displayName,
         });
+        const presence = this.playerRuntimeService.describePersistencePresence?.(input.playerId) ?? null;
+        if (presence) {
+            await this.playerDomainPersistenceService?.savePlayerPresence(input.playerId, {
+                ...presence,
+                online: true,
+                inWorld: Boolean(player.templateId),
+                offlineSinceAt: null,
+                versionSeed: Date.now(),
+            });
+        }
         await this.mailRuntimeService?.ensurePlayerMailbox(input.playerId);
         await this.mailRuntimeService?.ensureWelcomeMail(input.playerId);
         return player;

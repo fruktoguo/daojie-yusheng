@@ -13,12 +13,10 @@ import { recordAuthTrace } from './world-player-token.service';
 
 const STRICT_NATIVE_SNAPSHOT_ENV_KEYS = [
     'SERVER_AUTH_REQUIRE_NATIVE_SNAPSHOT',
-    'NEXT_AUTH_REQUIRE_NATIVE_SNAPSHOT',
 ];
 
 const NATIVE_SNAPSHOT_RECOVERY_ENV_KEYS = [
     'SERVER_AUTH_ALLOW_NATIVE_SNAPSHOT_RECOVERY',
-    'NEXT_AUTH_ALLOW_NATIVE_SNAPSHOT_RECOVERY',
 ];
 
 const NATIVE_SNAPSHOT_RECOVERY_IDENTITY_SOURCES = new Set([
@@ -174,9 +172,9 @@ export class WorldSessionBootstrapSnapshotService {
     buildAuthenticatedSnapshotRecoveryMessage(recovery: BootstrapRecoveryContext | null | undefined) {
         const identityPersistedSource = typeof recovery?.identityPersistedSource === 'string' ? recovery.identityPersistedSource.trim() : '';
         if (identityPersistedSource === 'token_seed') {
-            return '检测到你是首次以 next 真源入场，角色数据已自动补齐为初始快照。';
+            return '检测到你是首次以主线真源入场，角色数据已自动补齐为初始快照。';
         }
-        return '检测到角色快照缺失，已自动补齐为 next 初始快照。';
+        return '检测到角色快照缺失，已自动补齐为主线初始快照。';
     }
 
     emitAuthenticatedSnapshotRecoveryNotice(client: BootstrapClientLike, playerId: string): BootstrapRecoveryNoticeResult | null {
@@ -257,7 +255,7 @@ export class WorldSessionBootstrapSnapshotService {
         }
 
         const authSource = typeof identity?.authSource === 'string' ? identity.authSource.trim() : '';
-        if (authSource !== 'next' && authSource !== 'token') {
+        if (authSource !== 'mainline' && authSource !== 'token') {
             return {
                 allowNativeRecovery: false,
                 recoveryReason: authSource ? `auth_source:${authSource}` : 'auth_source:unknown',
@@ -326,9 +324,9 @@ export class WorldSessionBootstrapSnapshotService {
             return identity;
         }
         identity.persistedSource = promotedPersistedSource;
-        identity.authSource = 'next';
+        identity.authSource = 'mainline';
         if (client?.data) {
-            client.data.bootstrapIdentitySource = 'next';
+            client.data.bootstrapIdentitySource = 'mainline';
             client.data.bootstrapIdentityPersistedSource = promotedPersistedSource;
         }
         return identity;
@@ -344,7 +342,7 @@ export class WorldSessionBootstrapSnapshotService {
         const promotedIdentity = await this.promoteAuthenticatedTokenSeedIdentity(identity, client);
         const promotedPersistedSource = typeof promotedIdentity?.persistedSource === 'string' ? promotedIdentity.persistedSource.trim() : '';
         const promotedAuthSource = typeof promotedIdentity?.authSource === 'string' ? promotedIdentity.authSource.trim() : '';
-        if (promotedPersistedSource === 'native' && promotedAuthSource === 'next') {
+        if (promotedPersistedSource === 'native' && promotedAuthSource === 'mainline') {
             return promotedIdentity;
         }
         const normalizedUserId = typeof identity?.userId === 'string' ? identity.userId.trim() : '';
@@ -356,7 +354,7 @@ export class WorldSessionBootstrapSnapshotService {
                 : 'token_seed_native_promotion_failed';
         this.getContextHelper().clearAuthenticatedSnapshotRecovery(client);
         this.logger.warn(`玩家身份 token_seed 原生归一失败：userId=${normalizedUserId} playerId=${normalizedPlayerId} recoveryReason=${recoveryReason} stage=${failureStage} authSource=${promotedAuthSource || '未知'} persistedSource=${promotedPersistedSource || '未知'}`);
-        const normalizationError: BootstrapNormalizationError = new Error(`Authenticated next player identity normalization failed after native snapshot selection: playerId=${normalizedPlayerId || 'unknown'} recoveryReason=${recoveryReason} stage=${failureStage}`);
+        const normalizationError: BootstrapNormalizationError = new Error(`Authenticated mainline player identity normalization failed after native snapshot selection: playerId=${normalizedPlayerId || 'unknown'} recoveryReason=${recoveryReason} stage=${failureStage}`);
         normalizationError.failureStage = failureStage;
         throw normalizationError;
     }
@@ -440,7 +438,7 @@ export class WorldSessionBootstrapSnapshotService {
                 failureStage: recoveredSnapshot.failureStage ?? 'unknown',
             });
             contextHelper.clearAuthenticatedSnapshotRecovery(client);
-            throw new Error(`Authenticated next player snapshot recovery failed while persistence is enabled: playerId=${identity.playerId} recoveryReason=${recoveryPolicy.recoveryReason} stage=${recoveredSnapshot.failureStage ?? 'unknown'}`);
+            throw new Error(`Authenticated mainline player snapshot recovery failed while persistence is enabled: playerId=${identity.playerId} recoveryReason=${recoveryPolicy.recoveryReason} stage=${recoveredSnapshot.failureStage ?? 'unknown'}`);
         }
         recordAuthTrace({
             type: 'snapshot_recovery',
@@ -453,7 +451,7 @@ export class WorldSessionBootstrapSnapshotService {
             failureStage: null,
         });
         contextHelper.clearAuthenticatedSnapshotRecovery(client);
-        throw new Error(`Authenticated next player snapshot missing while persistence is enabled: playerId=${identity.playerId} recoveryReason=${recoveryPolicy.recoveryReason}`);
+        throw new Error(`Authenticated mainline player snapshot missing while persistence is enabled: playerId=${identity.playerId} recoveryReason=${recoveryPolicy.recoveryReason}`);
     }
 }
 

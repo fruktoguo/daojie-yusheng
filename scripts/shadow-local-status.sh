@@ -1,5 +1,5 @@
 #!/bin/bash
-# 用途：查看本地 next shadow 当前状态。
+# 用途：查看本地 shadow 当前状态。
 
 set -euo pipefail
 

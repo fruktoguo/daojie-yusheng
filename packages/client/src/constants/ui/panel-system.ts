@@ -22,7 +22,7 @@ export const DESKTOP_PANEL_LAYOUT: PanelLayoutProfile = {
     },
     {
       placement: 'center-intel',
-      panelIds: ['world-map-intel', 'world-nearby', 'world-suggestions'],
+      panelIds: ['world-map-intel', 'world-tianji'],
     },
     {
       placement: 'right-top',
@@ -67,8 +67,7 @@ export const MOBILE_PANEL_LAYOUT: PanelLayoutProfile = {
         'quest',
         'action',
         'world-map-intel',
-        'world-nearby',
-        'world-suggestions',
+        'world-tianji',
       ],
     },
   ],

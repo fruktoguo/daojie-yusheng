@@ -1,15 +1,15 @@
 /** MOVEMENT_DEBUG_STORAGE_KEY：移动调试存储KEY。 */
-const MOVEMENT_DEBUG_STORAGE_KEY = 'next.debug.movement';
+const MOVEMENT_DEBUG_STORAGE_KEY = 'debug.movement';
 /** MOVEMENT_DEBUG_QUERY_KEY：移动调试查询KEY。 */
 const MOVEMENT_DEBUG_QUERY_KEY = 'debugMovement';
 
-/** MovementDebugWindow：挂载 next 移动调试开关的 window 扩展。 */
+/** MovementDebugWindow：挂载移动调试开关的 window 扩展。 */
 type MovementDebugWindow = Window & {
 /**
- * __NEXT_DEBUG_MOVEMENT__：NEXTDEBUGMOVEMENT相关字段。
+ * __DEBUG_MOVEMENT__：DEBUGMOVEMENT相关字段。
  */
 
-  __NEXT_DEBUG_MOVEMENT__?: unknown;
+  __DEBUG_MOVEMENT__?: unknown;
 };
 
 /** normalizeDebugFlag：规范化调试Flag。 */
@@ -33,11 +33,11 @@ export function isMovementDebugEnabled(): boolean {
   if (typeof window === 'undefined') {
     return false;
   }
-  if (normalizeDebugFlag(import.meta.env.VITE_NEXT_DEBUG_MOVEMENT)) {
+  if (normalizeDebugFlag(import.meta.env.VITE_DEBUG_MOVEMENT)) {
     return true;
   }
   const debugWindow = window as MovementDebugWindow;
-  if (normalizeDebugFlag(debugWindow.__NEXT_DEBUG_MOVEMENT__)) {
+  if (normalizeDebugFlag(debugWindow.__DEBUG_MOVEMENT__)) {
     return true;
   }
   try {
@@ -62,7 +62,7 @@ export function logMovement(scope: string, payload?: unknown): void {
   if (!isMovementDebugEnabled()) {
     return;
   }
-  const prefix = `[next-move][${scope}]`;
+  const prefix = `[move][${scope}]`;
   if (payload === undefined) {
     console.info(prefix);
     return;

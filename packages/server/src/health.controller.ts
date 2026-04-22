@@ -58,9 +58,9 @@ export class HealthController {
         },
         auth: {
           ready: true,
-          mode: 'next_only' as const,
+          mode: 'native_only' as const,
           source: null,
-          reason: 'next_auth_only' as const,
+          reason: 'native_auth_only' as const,
         },
         runtime: {
           ready: false,

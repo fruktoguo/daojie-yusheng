@@ -21,7 +21,7 @@ const persistent_document_table_1 = require("./persistent-document-table");
 
 const env_alias_1 = require("../config/env-alias");
 
-const SUGGESTION_SCOPE = 'server_next_suggestions_v1';
+const SUGGESTION_SCOPE = 'server_suggestions_v1';
 
 const SUGGESTION_KEY = 'global';
 

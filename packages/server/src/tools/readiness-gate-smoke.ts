@@ -54,10 +54,9 @@ async function main() {
  */
             const health = await waitForHealth(200);
 /**
- * 记录bootstrap。
+ * 记录rejection。
  */
-            const bootstrapped = await expectNextSocketBootstrapped();
-            playerIdsToDelete.push(bootstrapped.playerId);
+            const rejection = await expectNextSocketRejected();
             if (health?.readiness?.database?.configured !== true) {
                 throw new Error(`expected database.configured=true when db env exists, got ${JSON.stringify(health?.readiness?.database ?? null)}`);
             }
@@ -66,6 +65,9 @@ async function main() {
             }
             if (health?.readiness?.ok !== true) {
                 throw new Error(`expected readiness.ok=true when db env exists, got ${JSON.stringify(health?.readiness ?? null)}`);
+            }
+            if (rejection.code !== 'AUTH_FAIL') {
+                throw new Error(`expected AUTH_FAIL for unauthenticated mainline socket under ready gate, got ${JSON.stringify(rejection)}`);
             }
         }
         else {
@@ -99,24 +101,24 @@ async function main() {
  */
             const health = await waitForHealth(200);
 /**
- * 记录bootstrap。
+ * 记录rejection。
  */
-            const bootstrapped = await expectNextSocketBootstrapped();
-            playerIdsToDelete.push(bootstrapped.playerId);
+            const rejection = await expectNextSocketRejected();
             if (health?.readiness?.ok !== true) {
                 throw new Error(`expected readiness.ok=true under with-db gate, got ${JSON.stringify(health?.readiness ?? null)}`);
             }
+            if (rejection.code !== 'AUTH_FAIL') {
+                throw new Error(`expected AUTH_FAIL under with-db readiness bypass, got ${JSON.stringify(rejection)}`);
+            }
             console.log(JSON.stringify({
                 ok: true,
-                playerId: bootstrapped.playerId,
                 gate: {
                     healthStatus: 200,
-                    bootstrapAllowed: true,
+                    rejectionCode: 'AUTH_FAIL',
                 },
                 bypass: {
                     healthStatus: 200,
-                    sessionId: bootstrapped.sessionId,
-                    events: bootstrapped.events,
+                    rejectionCode: 'AUTH_FAIL',
                 },
             }, null, 2));
         }
@@ -126,24 +128,24 @@ async function main() {
  */
             const health = await waitForHealth(503);
 /**
- * 记录bypass。
+ * 记录rejection。
  */
-            const bypass = await expectNextSocketBootstrapped();
-            playerIdsToDelete.push(bypass.playerId);
+            const rejection = await expectNextSocketRejected();
             if (health?.readiness?.ok !== false) {
                 throw new Error(`expected readiness.ok=false under bypass, got ${JSON.stringify(health?.readiness ?? null)}`);
             }
+            if (rejection.code !== 'AUTH_FAIL') {
+                throw new Error(`expected AUTH_FAIL under readiness bypass without auth, got ${JSON.stringify(rejection)}`);
+            }
             console.log(JSON.stringify({
                 ok: true,
-                playerId: bypass.playerId,
                 gate: {
                     healthStatus: 503,
                     rejectionCode: 'SERVER_NOT_READY',
                 },
                 bypass: {
                     healthStatus: 503,
-                    sessionId: bypass.sessionId,
-                    events: bypass.events,
+                    rejectionCode: 'AUTH_FAIL',
                 },
             }, null, 2));
         }

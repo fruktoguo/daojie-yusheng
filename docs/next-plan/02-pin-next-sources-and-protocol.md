@@ -26,7 +26,7 @@
 
 协议侧当前还有一个明确事实：
 
-- [docs/next-protocol-audit.md](../next-protocol-audit.md) 已经能覆盖大部分 next socket 事件面
+- [docs/protocol-audit.md](../protocol-audit.md) 已经能覆盖大部分主线 socket 事件面
 - 高流量热点仍集中在：
   - `Bootstrap`
   - `MapStatic`

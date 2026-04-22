@@ -2,7 +2,7 @@
 
 这个目录作为 next 原地硬切的主要任务入口。
 
-当前主线只认 `packages/*`；`legacy/*` 只继续保留为归档参考、旧数据格式对照和迁移输入来源。
+当前主线只认 `packages/*`；`legacy/*` 只继续保留为归档参考、旧数据格式对照和历史排查参考。
 
 当前主任务清单：
 
@@ -12,8 +12,6 @@
 
 - [01 冻结 legacy 与边界收口](./01-freeze-legacy-and-boundaries.md)
 - [02 钉死 next 真源与协议主线](./02-pin-next-sources-and-protocol.md)
-- [03 必须迁移的数据清单](./03-required-data-migration-checklist.md)
-- [04 一次性迁移脚本](./04-one-off-migration-script.md)
 - [05 删除 compat 与桥接层](./05-remove-compat-and-bridges.md)
 - [06 服务端主链收口](./06-server-mainline-refactor.md)
 - [07 客户端主链收口](./07-client-mainline-refactor.md)

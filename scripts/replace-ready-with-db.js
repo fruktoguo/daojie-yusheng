@@ -75,6 +75,6 @@ for (const step of steps) {
 }
 
 process.stdout.write('[replace-ready:with-db] completed\n');
-process.stdout.write('[replace-ready:with-db] boundary=with-db automated proof only; this still does not include shadow acceptance or destructive proof\n');
+process.stdout.write('[replace-ready:with-db] boundary=with-db automated proof only; this includes local destructive gm-database restore proof, but still does not include shadow or acceptance/full environment proof\n');
 process.stdout.write('[replace-ready:with-db] next=run pnpm verify:replace-ready:acceptance or pnpm verify:replace-ready:full when shadow + GM env are ready\n');
 process.exit(0);

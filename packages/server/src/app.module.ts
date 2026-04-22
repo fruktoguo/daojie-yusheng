@@ -1,7 +1,7 @@
 import { Module } from '@nestjs/common';
 import { ConfigModule } from '@nestjs/config';
 
-import { NEXT_HTTP_CONTROLLERS, NEXT_HTTP_PROVIDERS } from './http/next-http.registry';
+import { NATIVE_HTTP_CONTROLLERS, NATIVE_HTTP_PROVIDERS } from './http/native-http.registry';
 import { WorldGateway } from './network/world.gateway';
 import { WORLD_AUTH_PROVIDERS } from './network/world-auth.registry';
 import { WorldClientEventService } from './network/world-client-event.service';
@@ -108,9 +108,11 @@ import { PlayerAttributesService } from './runtime/player/player-attributes.serv
 import { LeaderboardRuntimeService } from './runtime/player/leaderboard-runtime.service';
 import { PlayerProgressionService } from './runtime/player/player-progression.service';
 import { MapPersistenceFlushService } from './persistence/map-persistence-flush.service';
+import { DurableOperationService } from './persistence/durable-operation.service';
 import { MapPersistenceService } from './persistence/map-persistence.service';
 import { MailPersistenceService } from './persistence/mail-persistence.service';
 import { MarketPersistenceService } from './persistence/market-persistence.service';
+import { PlayerDomainPersistenceService } from './persistence/player-domain-persistence.service';
 import { PlayerIdentityPersistenceService } from './persistence/player-identity-persistence.service';
 import { PlayerPersistenceFlushService } from './persistence/player-persistence-flush.service';
 import { PlayerPersistenceService } from './persistence/player-persistence.service';
@@ -133,11 +135,11 @@ import { WorldRuntimeService } from './runtime/world/world-runtime.service';
   ],
   controllers: [
     HealthController,
-    ...NEXT_HTTP_CONTROLLERS,
+    ...NATIVE_HTTP_CONTROLLERS,
     WorldRuntimeController,
   ],
   providers: [
-    ...NEXT_HTTP_PROVIDERS,
+    ...NATIVE_HTTP_PROVIDERS,
     ContentTemplateRepository,
     ServerReadinessDependenciesService,
     HealthReadinessService,
@@ -214,8 +216,10 @@ import { WorldRuntimeService } from './runtime/world/world-runtime.service';
     PlayerCombatService,
     MapPersistenceService,
     MapPersistenceFlushService,
+    DurableOperationService,
     MailPersistenceService,
     MarketPersistenceService,
+    PlayerDomainPersistenceService,
     PlayerIdentityPersistenceService,
     PlayerPersistenceService,
     PlayerPersistenceFlushService,

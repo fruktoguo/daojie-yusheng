@@ -48,13 +48,8 @@ pnpm verify:replace-ready:with-db
 pnpm verify:replace-ready:shadow
 pnpm verify:replace-ready:acceptance
 pnpm verify:replace-ready:full
-./start-next.sh
+./start.sh
 ```
-
-兼容别名仍可用：
-
-- `verify:server-next*` 继续转发到 `verify:replace-ready*`
-- 旧 `prove-next-*` 入口继续转发到当前 `proof:*` 真源
 
 `build:client` 是当前前端构建主入口。
 
@@ -82,7 +77,7 @@ pnpm verify:replace-ready:full
 ### 运维、门禁与审计
 
 - [docs/server-operations.md](./docs/server-operations.md)
-- [docs/next-protocol-audit.md](./docs/next-protocol-audit.md)
+- [docs/protocol-audit.md](./docs/protocol-audit.md)
 - [docs/next-legacy-boundary-audit.md](./docs/next-legacy-boundary-audit.md)
 - [docs/next-plan/10-legacy-archive-and-cutover.md](./docs/next-plan/10-legacy-archive-and-cutover.md)
 
@@ -98,6 +93,8 @@ pnpm verify:replace-ready:full
 
 - `local / with-db / acceptance / full / shadow-destructive` 是五层不同门禁，不能混读
 - 根级主验证入口是 `verify:replace-ready*`
-- `./start-next.sh` 是默认本地启动脚本；`./start.sh` 只保留给 `legacy/` 归档排查
+- 根级 proof 主入口是 `proof:*`
+- `./start.sh` 是默认且唯一的本地启动脚本
+- 旧兼容验证、proof 与启动入口已移除
 - 根级 `docker-compose.yml` 现在默认对应 next full-stack 本地入口；legacy Docker 归档入口改为 `docker-compose.legacy.yml`
 - 任何“可以删 legacy / 可以宣布完整替换”的结论，都应以文档、audit、smoke、verify 与真实环境证据共同成立为准

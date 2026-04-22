@@ -1,5 +1,5 @@
 /**
- * client-next 侧 HTTP API 前缀常量。
+ * 客户端侧 HTTP API 前缀常量。
  */
 
 export const HTTP_API_PREFIX = '/api';

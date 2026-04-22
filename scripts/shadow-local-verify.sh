@@ -1,5 +1,5 @@
 #!/bin/bash
-# 用途：在当前本地 next shadow 上执行只读 shadow 验证。
+# 用途：在当前本地 shadow 上执行只读 shadow 验证。
 
 set -euo pipefail
 

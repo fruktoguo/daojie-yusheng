@@ -72,6 +72,10 @@ interface WorldGatewayActionDeps {
 export class WorldGatewayActionHelper {
   constructor(private readonly gateway: WorldGatewayActionDeps) {}
 
+  private isDirectRuntimeAction(actionId: string): boolean {
+    return actionId === 'body_training:infuse' || actionId === 'world:migrate';
+  }
+
   handleRedeemCodes(
     client: Socket,
     payload: ClientToServerEventPayload<typeof C2S.RedeemCodes>,
@@ -162,7 +166,7 @@ export class WorldGatewayActionHelper {
     }
 
     const target = typeof payload?.target === 'string' ? payload.target.trim() : '';
-    if (actionId === 'body_training:infuse') {
+    if (this.isDirectRuntimeAction(actionId)) {
       this.emitProtocolActionResult(
         client,
         playerId,

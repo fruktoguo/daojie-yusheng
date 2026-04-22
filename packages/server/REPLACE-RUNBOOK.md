@@ -46,5 +46,5 @@
 - 当前运行手册只服务于 shadow / replace-ready 线，不等于正式生产切换手册。
 - 旧后端正式流量、正式端口和正式部署链仍不以这份文档为准。
 - `local / with-db / acceptance / full / shadow-destructive` 是五层不同门禁，不能混读。
-- `verify:server-next*` 只保留为兼容别名；`verify:replace-ready*` 是当前主入口。
+- 当前只使用 `verify:replace-ready*`；旧兼容验证入口已移除。
 - 本地 shadow `.sh` 会自动加载本地 env；只有显式切远程 target 时，才需要手工覆盖 URL/密码。

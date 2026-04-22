@@ -28,7 +28,7 @@
 - `packages/client/src/runtime/**`
 - `packages/client/src/ui/**`
 - `docs/next-plan/**`
-- `docs/next-protocol-audit.md`
+- `docs/protocol-audit.md`
 - `docs/next-replacement-blocker-board.md`
 - `docs/map-system-architecture.md`
 
@@ -174,7 +174,7 @@
 优点：
 
 - 协议已经拆成首包、静态、世界增量、自身增量、面板增量、详情。
-- 有 `next-protocol-audit` 这类实际审计链，而不是只靠人工检查。
+- 有 `protocol-audit` 这类实际审计链，而不是只靠人工检查。
 - 客户端主消费入口围绕 next 协议组织，方向正确。
 
 问题：

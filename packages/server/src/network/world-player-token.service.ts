@@ -13,10 +13,9 @@ import {
   WorldPlayerTokenCodecService,
 } from './world-player-token-codec.service';
 
-const TRACE_FILE_ENV_VAR = 'NEXT_AUTH_TRACE_FILE';
+const TRACE_FILE_ENV_VAR = 'SERVER_AUTH_TRACE_FILE';
 const TRACE_RECORD_LIMIT = 256;
 const AUTH_TRACE_ENABLE_ENV_KEYS = [
-  'SERVER_AUTH_TRACE_ENABLED',
   'SERVER_AUTH_TRACE_ENABLED',
 ] as const;
 const AUTH_TRACE_TRUE_VALUES = new Set(['1', 'true', 'yes', 'on', 'enable', 'enabled']);
@@ -99,10 +98,10 @@ interface AuthTraceEntry {
 
   persistenceEnabled?: boolean | null;  
   /**
- * nextLoadHit：nextLoadHit相关字段。
+ * mainlineLoadHit：mainlineLoadHit相关字段。
  */
 
-  nextLoadHit?: boolean | null;  
+  mainlineLoadHit?: boolean | null;  
   /**
  * compatTried：compatTried相关字段。
  */
@@ -318,10 +317,10 @@ interface AuthTraceIdentitySummary {
 
   persistenceEnabledCount: number;  
   /**
- * nextLoadHitCount：数量或计量字段。
+ * mainlineLoadHitCount：数量或计量字段。
  */
 
-  nextLoadHitCount: number;  
+  mainlineLoadHitCount: number;  
   /**
  * compatTriedCount：数量或计量字段。
  */
@@ -664,7 +663,7 @@ interface PlayerIdentityFromPayload {
 }
 
 declare global {
-  var __NEXT_AUTH_TRACE: AuthTraceState | undefined;
+  var __MAINLINE_AUTH_TRACE: AuthTraceState | undefined;
 }
 
 /** 玩家认证 trace 服务：记录鉴权、回填和 bootstrap 的调试轨迹。 */
@@ -699,8 +698,8 @@ function isAuthTraceEnabled(): boolean {
 export function ensureAuthTraceState(): AuthTraceState {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
-  if (!globalThis.__NEXT_AUTH_TRACE) {
-    globalThis.__NEXT_AUTH_TRACE = {
+  if (!globalThis.__MAINLINE_AUTH_TRACE) {
+    globalThis.__MAINLINE_AUTH_TRACE = {
       enabled: isAuthTraceEnabled(),
       records: [],
       filePath: resolveTraceFilePath(),
@@ -709,7 +708,7 @@ export function ensureAuthTraceState(): AuthTraceState {
     };
   }
 
-  return globalThis.__NEXT_AUTH_TRACE;
+  return globalThis.__MAINLINE_AUTH_TRACE;
 }
 
 /** 追加一条认证 trace 记录。 */
@@ -812,7 +811,7 @@ function buildAuthTraceSummary(records: readonly AuthTraceRecord[]): AuthTraceSu
     sourceCounts: {},
     persistedSourceCounts: {},
     persistenceEnabledCount: 0,
-    nextLoadHitCount: 0,
+    mainlineLoadHitCount: 0,
     compatTriedCount: 0,
     persistAttemptedCount: 0,
     persistSucceededCount: 0,
@@ -884,8 +883,8 @@ function buildAuthTraceSummary(records: readonly AuthTraceRecord[]): AuthTraceSu
       if (entry.persistenceEnabled === true) {
         identity.persistenceEnabledCount += 1;
       }
-      if (entry.nextLoadHit === true) {
-        identity.nextLoadHitCount += 1;
+      if (entry.mainlineLoadHit === true) {
+        identity.mainlineLoadHitCount += 1;
       }
       if (entry.compatTried === true) {
         identity.compatTriedCount += 1;

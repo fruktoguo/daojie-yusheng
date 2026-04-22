@@ -16,7 +16,7 @@
 2. 在 shadow 条件齐备后，补跑 `verify:replace-ready:acceptance / full / shadow:destructive`，把剩余历史证据变成当前证据。
 3. 继续压首包与同步链尾项：
    - 已完成一小步：首连 `PanelDelta` 改为 revision-only 占位，不再重复整包 inventory / equipment / technique / attr / action / buff 快照。
-   - 已完成一小步：`next-protocol-audit` 已按当前首包合同改为从 `Bootstrap.self` 校验 attr surface，不再错误等待 bootstrap 后额外 `PanelDelta`。
+  - 已完成一小步：`protocol-audit` 已按当前首包合同改为从 `Bootstrap.self` 校验 attr surface，不再错误等待 bootstrap 后额外 `PanelDelta`。
    - 已完成一小步：`attr delta` 与 `specialStats delta` 已改成 shared/client/server 全链路 partial patch，`WorldProjector` 不再靠 `PanelAttrDelta` 强转兜底。
    - 已完成一小步：`WorldProjector` 的 item / effect / technique 比较链已改成专用 helper，技能、效果、成长曲线和深 clone 已回到显式协议边界。
    - 已完成一小步：`world-session-bootstrap` 已去掉编译壳和 `@ts-nocheck`，bootstrap client 上下文、snapshot recovery 上下文、session 输入边界已回到显式 TS。

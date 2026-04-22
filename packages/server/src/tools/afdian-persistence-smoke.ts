@@ -4,14 +4,14 @@ const pg = require("pg");
 const core = require("@nestjs/core");
 
 const { AppModule } = require("../app.module");
-const { NextGmAdminService } = require("../http/next/next-gm-admin.service");
+const { NativeGmAdminService } = require("../http/native/native-gm-admin.service");
 const { resolveServerDatabaseUrl } = require("../config/env-alias");
 
-const NATIVE_CONFIG_SCOPE = "server_next_afdian_config_v1";
-const LEGACY_CONFIG_SCOPE = "server_next_legacy_afdian_config_v1";
+const NATIVE_CONFIG_SCOPE = "server_afdian_config_v1";
+const LEGACY_CONFIG_SCOPE = "server_legacy_afdian_config_v1";
 const CONFIG_KEY = "afdian";
-const NATIVE_ORDER_SCOPE = "server_next_afdian_orders_v1";
-const LEGACY_ORDER_SCOPE = "server_next_legacy_afdian_orders_v1";
+const NATIVE_ORDER_SCOPE = "server_afdian_orders_v1";
+const LEGACY_ORDER_SCOPE = "server_legacy_afdian_orders_v1";
 /**
  * main：执行main相关逻辑。
  * @returns 无返回值，直接更新main相关状态。
@@ -56,7 +56,7 @@ async function main() {
       client.release();
     }
 
-    const service = app.get(NextGmAdminService);
+    const service = app.get(NativeGmAdminService);
     await service.reloadPersistentCompatibilityState();
 
     const config = service.getAfdianConfig();

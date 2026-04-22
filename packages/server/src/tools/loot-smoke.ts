@@ -10,6 +10,7 @@ const smoke_timeout_1 = require("./smoke-timeout");
 const socket_io_client_1 = require("socket.io-client");
 const shared_1 = require("@mud/shared");
 const env_alias_1 = require("../config/env-alias");
+const smoke_player_auth_1 = require("./smoke-player-auth");
 /**
  * 记录 server 访问地址。
  */
@@ -37,12 +38,29 @@ async function main() {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
 /**
+ * 记录dropper认证。
+ */
+    const dropperAuth = await (0, smoke_player_auth_1.registerAndLoginSmokePlayer)(SERVER_URL, {
+        accountPrefix: 'drp',
+        rolePrefix: '扔',
+        seed: 'loot-dropper',
+    });
+/**
+ * 记录looter认证。
+ */
+    const looterAuth = await (0, smoke_player_auth_1.registerAndLoginSmokePlayer)(SERVER_URL, {
+        accountPrefix: 'lot',
+        rolePrefix: '拾',
+        seed: 'loot-looter',
+    });
+/**
  * 记录dropper。
  */
     const dropper = (0, socket_io_client_1.io)(SERVER_URL, {
         path: '/socket.io',
         transports: ['websocket'],
         auth: {
+            token: dropperAuth.accessToken,
             protocol: 'mainline',
         },
     });
@@ -53,6 +71,7 @@ async function main() {
         path: '/socket.io',
         transports: ['websocket'],
         auth: {
+            token: looterAuth.accessToken,
             protocol: 'mainline',
         },
     });
@@ -598,4 +617,9 @@ async function waitForState(loader, timeoutMs, rejectOnTimeout = true) {
 function sleep(timeoutMs) {
     return new Promise((resolve) => setTimeout(resolve, timeoutMs));
 }
-main();
+void main().catch((error) => {
+    console.error(error);
+    process.exitCode = 1;
+}).finally(async () => {
+    await (0, smoke_player_auth_1.flushRegisteredSmokePlayers)();
+});

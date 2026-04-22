@@ -102,10 +102,6 @@ const smokeCases = [
     { name: 'auth-bootstrap-mainline', scriptFile: 'auth-bootstrap-smoke.js' },
     { name: 'auth-bootstrap-migration', scriptFile: 'auth-bootstrap-smoke.js' },
     { name: 'gm', scriptFile: 'gm-smoke.js' },
-    { name: 'next-auth-bootstrap', scriptFile: 'auth-bootstrap-smoke.js' },
-    { name: 'next-auth-bootstrap-mainline', scriptFile: 'auth-bootstrap-smoke.js' },
-    { name: 'next-auth-bootstrap-migration', scriptFile: 'auth-bootstrap-smoke.js' },
-    { name: 'gm-next', scriptFile: 'gm-smoke.js' },
     { name: 'redeem-code', scriptFile: 'redeem-code-smoke.js' },
     { name: 'monster-runtime', scriptFile: 'monster-runtime-smoke.js' },
     { name: 'monster-combat', scriptFile: 'monster-combat-smoke.js' },
@@ -115,8 +111,15 @@ const smokeCases = [
     { name: 'monster-loot', scriptFile: 'monster-loot-smoke.js' },
     { name: 'player-recovery', scriptFile: 'player-recovery-smoke.js' },
     { name: 'player-respawn', scriptFile: 'player-respawn-smoke.js' },
-    { name: 'persistence', scriptFile: 'persistence-smoke.js', standalone: true },
-    { name: 'gm-database', scriptFile: 'gm-database-smoke.js', standalone: true },
+  { name: 'persistence', scriptFile: 'persistence-smoke.js', standalone: true },
+  { name: 'player-domain-persistence', scriptFile: 'player-domain-persistence-smoke.js', standalone: true },
+  { name: 'player-domain-recovery', scriptFile: 'player-domain-recovery-smoke.js', standalone: true },
+  { name: 'durable-operation', scriptFile: 'durable-operation-smoke.js', standalone: true },
+  { name: 'gm-database', scriptFile: 'gm-database-smoke.js', standalone: true },
+  { name: 'world-runtime-lifecycle', scriptFile: 'world-runtime-lifecycle-smoke.js', standalone: true },
+  { name: 'gm-world-instance', scriptFile: 'gm-world-instance-smoke.js', standalone: true },
+  { name: 'world-runtime-instance-capability-guard', scriptFile: 'world-runtime-instance-capability-guard-smoke.js', standalone: true },
+  { name: 'world-runtime-player-session-no-auto-instance', scriptFile: 'world-runtime-player-session-no-auto-instance-smoke.js', standalone: true },
 ];
 const LONG_RUNNING_SMOKE_TIMEOUT_MS = '20000';
 const LONG_RUNNING_SMOKE_CASES = new Set([
@@ -125,9 +128,6 @@ const LONG_RUNNING_SMOKE_CASES = new Set([
     'auth-bootstrap',
     'auth-bootstrap-mainline',
     'auth-bootstrap-migration',
-    'next-auth-bootstrap',
-    'next-auth-bootstrap-mainline',
-    'next-auth-bootstrap-migration',
     'monster-runtime',
     'monster-combat',
     'monster-ai',
@@ -142,7 +142,7 @@ const SMOKE_GATE_PROFILES = {
     },
     'with-db': {
         answers: '在提供数据库环境时，local smoke 子集和数据库相关 smoke case 是否可跑通。',
-        excludes: '不证明 shadow、acceptance、full 或 destructive 维护窗口。',
+        excludes: '不证明 shadow、acceptance、full 或真实目标环境运维链；本地 destructive gm-database restore 已包含在 with-db 持久化 case 中。',
     },
 };
 /**
@@ -186,7 +186,11 @@ async function main() {
     process.stdout.write(`[server smoke] excludes=${gateProfile.excludes}\n`);
     process.stdout.write(`[server smoke] cases=${cases.map((entry) => entry.name).join(', ')}\n`);
     for (const entry of cases) {
-        if ((entry.name === 'persistence' || entry.name === 'gm-database') && !hasDatabaseUrl()) {
+        if ((entry.name === 'persistence'
+            || entry.name === 'player-domain-persistence'
+            || entry.name === 'player-domain-recovery'
+            || entry.name === 'durable-operation'
+            || entry.name === 'gm-database') && !hasDatabaseUrl()) {
             results.push({
                 name: entry.name,
                 durationMs: 0,
@@ -384,7 +388,11 @@ function resolveSelectedCases() {
  * 记录cases。
  */
     const cases = smokeCases.filter((entry) => {
-        if (entry.name === 'persistence' || entry.name === 'gm-database') {
+        if (entry.name === 'persistence'
+            || entry.name === 'player-domain-persistence'
+            || entry.name === 'player-domain-recovery'
+            || entry.name === 'durable-operation'
+            || entry.name === 'gm-database') {
             return includePersistence;
         }
         return true;
@@ -431,16 +439,12 @@ function resolveCaseExtraEnv(entry) {
         extraEnv.SERVER_DATABASE_URL = databaseUrl;
     }
     if (entry.name === 'gm'
-        || entry.name === 'gm-next'
         || entry.name === 'redeem-code'
         || entry.name === 'persistence'
         || entry.name === 'gm-database'
         || entry.name === 'auth-bootstrap'
         || entry.name === 'auth-bootstrap-mainline'
-        || entry.name === 'auth-bootstrap-migration'
-        || entry.name === 'next-auth-bootstrap'
-        || entry.name === 'next-auth-bootstrap-mainline'
-        || entry.name === 'next-auth-bootstrap-migration') {
+        || entry.name === 'auth-bootstrap-migration') {
         extraEnv.SERVER_ALLOW_LEGACY_HTTP_COMPAT = '1';
     }
     if (entry.name === 'session') {
@@ -448,26 +452,21 @@ function resolveCaseExtraEnv(entry) {
     }
     if (entry.name === 'auth-bootstrap'
         || entry.name === 'auth-bootstrap-mainline'
-        || entry.name === 'auth-bootstrap-migration'
-        || entry.name === 'next-auth-bootstrap'
-        || entry.name === 'next-auth-bootstrap-mainline'
-        || entry.name === 'next-auth-bootstrap-migration') {
+        || entry.name === 'auth-bootstrap-migration') {
         extraEnv.SERVER_SESSION_DETACH_EXPIRE_MS = '4000';
         extraEnv.SERVER_AUTH_ALLOW_COMPAT_IDENTITY_BACKFILL = '0';
-        extraEnv.NEXT_AUTH_ALLOW_COMPAT_IDENTITY_BACKFILL = '0';
-        if (entry.name === 'auth-bootstrap-mainline' || entry.name === 'next-auth-bootstrap-mainline') {
-            extraEnv.NEXT_AUTH_BOOTSTRAP_PROFILE = 'mainline';
+        if (entry.name === 'auth-bootstrap-mainline') {
+            extraEnv.SERVER_AUTH_BOOTSTRAP_PROFILE = 'mainline';
         }
-        else if (entry.name === 'auth-bootstrap-migration' || entry.name === 'next-auth-bootstrap-migration') {
-            extraEnv.NEXT_AUTH_BOOTSTRAP_PROFILE = 'migration';
+        else if (entry.name === 'auth-bootstrap-migration') {
+            extraEnv.SERVER_AUTH_BOOTSTRAP_PROFILE = 'migration';
         }
 /**
  * 记录tracesuffix。
  */
         const traceSuffix = `${process.pid}-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
         extraEnv.SERVER_AUTH_TRACE_ENABLED = '1';
-        extraEnv.SERVER_AUTH_TRACE_ENABLED = '1';
-        extraEnv.NEXT_AUTH_TRACE_FILE = path.join(packageRoot, '.runtime', `next-auth-trace-${traceSuffix}.jsonl`);
+        extraEnv.SERVER_AUTH_TRACE_FILE = path.join(packageRoot, '.runtime', `mainline-auth-trace-${traceSuffix}.jsonl`);
     }
     if (LONG_RUNNING_SMOKE_CASES.has(entry.name)) {
         extraEnv.SERVER_SMOKE_TIMEOUT_MS = LONG_RUNNING_SMOKE_TIMEOUT_MS;
@@ -483,7 +482,7 @@ function cleanupCaseExtraEnv(extraEnv) {
 /**
  * 记录trace文件。
  */
-    const traceFile = typeof extraEnv.NEXT_AUTH_TRACE_FILE === 'string' ? extraEnv.NEXT_AUTH_TRACE_FILE.trim() : '';
+    const traceFile = typeof extraEnv.SERVER_AUTH_TRACE_FILE === 'string' ? extraEnv.SERVER_AUTH_TRACE_FILE.trim() : '';
     if (!traceFile) {
         return;
     }

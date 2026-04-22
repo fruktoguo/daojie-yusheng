@@ -46,17 +46,17 @@ jobs:
         env:
           POSTGRES_USER: postgres
           POSTGRES_PASSWORD: postgres
-          POSTGRES_DB: mud_next_ci
+          POSTGRES_DB: daojie_yusheng_ci
         ports:
           - 5432:5432
         options: >-
-          --health-cmd "pg_isready -U postgres -d mud_next_ci"
+          --health-cmd "pg_isready -U postgres -d daojie_yusheng_ci"
           --health-interval 10s
           --health-timeout 5s
           --health-retries 10
 
     env:
-      DATABASE_URL: postgresql://postgres:postgres@127.0.0.1:5432/mud_next_ci?schema=public
+      DATABASE_URL: postgresql://postgres:postgres@127.0.0.1:5432/daojie_yusheng_ci?schema=public
       SERVER_GM_PASSWORD: ci-shadow-${{ github.run_id }}-${{ github.run_attempt }}
 
     steps:
@@ -176,7 +176,7 @@ jobs:
           GM_PASSWORD: ${{ secrets.PROD_GM_PASSWORD }}
           SERVER_RUNTIME_TOKEN: ${{ secrets.PROD_SERVER_RUNTIME_TOKEN }}
         run: |
-          docker --context shadow-server stack deploy --with-registry-auth -c docker-stack.server.yml daojie-yusheng-server
+          docker --context shadow-server stack deploy --with-registry-auth -c docker-stack.mainline.yml daojie-yusheng-server
 
       - name: Doctor deployed shadow env
         env:

@@ -1,5 +1,5 @@
 #!/bin/bash
-# 用途：对本地 next shadow 执行完整 destructive proof。
+# 用途：对本地 shadow 执行完整 destructive proof。
 # 默认流程：切维护态 -> preflight -> destructive -> 恢复非维护态。
 
 set -euo pipefail

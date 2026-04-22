@@ -21,7 +21,7 @@ const persistent_document_table_1 = require("./persistent-document-table");
 
 const env_alias_1 = require("../config/env-alias");
 
-const REDEEM_CODE_SCOPE = 'server_next_redeem_codes_v1';
+const REDEEM_CODE_SCOPE = 'server_redeem_codes_v1';
 
 const REDEEM_CODE_KEY = 'global';
 

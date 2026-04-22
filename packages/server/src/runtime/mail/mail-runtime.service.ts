@@ -21,6 +21,10 @@ const shared_1 = require("@mud/shared");
 
 const content_template_repository_1 = require("../../content/content-template.repository");
 
+const player_domain_persistence_service_1 = require("../../persistence/player-domain-persistence.service");
+
+const durable_operation_service_1 = require("../../persistence/durable-operation.service");
+
 const mail_persistence_service_1 = require("../../persistence/mail-persistence.service");
 
 const player_runtime_service_1 = require("../player/player-runtime.service");
@@ -47,20 +51,35 @@ let MailRuntimeService = class MailRuntimeService {
  */
 
     mailPersistenceService;
+    /**
+ * durableOperationService：强持久化事务服务引用。
+ */
+
+    durableOperationService;
+    /**
+ * playerDomainPersistenceService：玩家分域持久化服务引用。
+ */
+
+    playerDomainPersistenceService;
     /** 玩家邮箱缓存，按 playerId 索引。 */
     mailboxByPlayerId = new Map();
     /** 正在加载中的邮箱任务，避免重复读库。 */
     loadingMailboxByPlayerId = new Map();
+    /** 正在串行执行的邮箱写任务，避免同玩家邮箱写链互相覆盖。 */
+    mailboxWriteByPlayerId = new Map();
     /** 注入内容、玩家与邮件持久化服务。 */
-    constructor(contentTemplateRepository, playerRuntimeService, mailPersistenceService) {
+    constructor(contentTemplateRepository, playerRuntimeService, mailPersistenceService, durableOperationService, playerDomainPersistenceService) {
         this.contentTemplateRepository = contentTemplateRepository;
         this.playerRuntimeService = playerRuntimeService;
         this.mailPersistenceService = mailPersistenceService;
+        this.durableOperationService = durableOperationService;
+        this.playerDomainPersistenceService = playerDomainPersistenceService;
     }
     /** 清空内存邮箱缓存，通常用于重载或测试。 */
     clearRuntimeCache() {
         this.mailboxByPlayerId.clear();
         this.loadingMailboxByPlayerId.clear();
+        this.mailboxWriteByPlayerId.clear();
     }
     /** 读取玩家邮箱，缓存未命中时从持久化层回填。 */
     async ensurePlayerMailbox(playerId) {
@@ -94,24 +113,27 @@ let MailRuntimeService = class MailRuntimeService {
     async ensureWelcomeMail(playerId) {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
-
-        const mailbox = await this.ensurePlayerMailbox(playerId);
-        if (this.hasWelcomeMailHistory(mailbox)) {
-            if (mailbox.welcomeMailDeliveredAt == null) {
-                mailbox.welcomeMailDeliveredAt = resolveWelcomeMailHistoryTimestamp(mailbox) ?? Date.now();
-                await this.persistMailbox(playerId, mailbox);
+        return this.runSerializedMailboxWrite(playerId, async () => {
+            const mailbox = await this.ensurePlayerMailbox(playerId);
+            if (this.hasWelcomeMailHistory(mailbox)) {
+                if (mailbox.welcomeMailDeliveredAt == null) {
+                    mailbox.welcomeMailDeliveredAt = resolveWelcomeMailHistoryTimestamp(mailbox) ?? Date.now();
+                    this.compactMailbox(mailbox);
+                    await this.persistMailboxMutation(playerId, mailbox, []);
+                }
+                return;
             }
-            return;
-        }
-        mailbox.welcomeMailDeliveredAt = Date.now();
-        this.appendMail(mailbox, {
-            templateId: MAIL_WELCOME_TEMPLATE_ID,
-            attachments: [
-                { itemId: 'pill.minor_heal', count: 2 },
-                { itemId: 'spirit_stone', count: 8 },
-            ],
+            mailbox.welcomeMailDeliveredAt = Date.now();
+            this.appendMail(playerId, mailbox, {
+                templateId: MAIL_WELCOME_TEMPLATE_ID,
+                attachments: [
+                    { itemId: 'pill.minor_heal', count: 2 },
+                    { itemId: 'spirit_stone', count: 8 },
+                ],
+            });
+            this.compactMailbox(mailbox);
+            await this.persistMailboxMutation(playerId, mailbox, mailbox.mails.slice(0, 1));
         });
-        await this.persistMailbox(playerId, mailbox);
     }
     /** 汇总邮箱未读数和可领取附件数。 */
     async getSummary(playerId) {
@@ -177,184 +199,265 @@ let MailRuntimeService = class MailRuntimeService {
     /** 批量标记邮件已读。 */
     async markRead(playerId, mailIds) {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
-
-
-        const mailbox = await this.ensurePlayerMailbox(playerId);
-
-        const normalizedIds = (0, shared_1.normalizeMailBatchIds)(mailIds);
-        if (normalizedIds.length === 0) {
+        return this.runSerializedMailboxWrite(playerId, async () => {
+            const mailbox = await this.ensurePlayerMailbox(playerId);
+            const normalizedIds = (0, shared_1.normalizeMailBatchIds)(mailIds);
+            if (normalizedIds.length === 0) {
+                return {
+                    operation: 'markRead',
+                    ok: false,
+                    mailIds: [],
+                    message: '未选择要标记已读的邮件。',
+                };
+            }
+            const visible = this.findVisibleMails(mailbox, normalizedIds);
+            if (visible.length === 0) {
+                return {
+                    operation: 'markRead',
+                    ok: false,
+                    mailIds: [],
+                    message: '目标邮件不存在、已过期，或已被删除。',
+                };
+            }
+            const now = Date.now();
+            let changed = false;
+            for (const entry of visible) {
+                let entryChanged = false;
+                if (entry.firstSeenAt == null) {
+                    entry.firstSeenAt = now;
+                    entryChanged = true;
+                }
+                if (entry.readAt == null) {
+                    entry.readAt = now;
+                    entryChanged = true;
+                }
+                if (entryChanged) {
+                    entry.updatedAt = now;
+                    entry.mailVersion = nextMailVersion(entry);
+                    changed = true;
+                }
+            }
+            if (changed) {
+                mailbox.revision += 1;
+                this.compactMailbox(mailbox);
+                await this.persistMailboxMutation(playerId, mailbox, visible);
+            }
             return {
                 operation: 'markRead',
-                ok: false,
-                mailIds: [],
-                message: '未选择要标记已读的邮件。',
+                ok: true,
+                mailIds: visible.map((entry) => entry.mailId),
             };
-        }
-
-        const visible = this.findVisibleMails(mailbox, normalizedIds);
-        if (visible.length === 0) {
-            return {
-                operation: 'markRead',
-                ok: false,
-                mailIds: [],
-                message: '目标邮件不存在、已过期，或已被删除。',
-            };
-        }
-
-        const now = Date.now();
-
-        let changed = false;
-        for (const entry of visible) {
-            if (entry.firstSeenAt == null) {
-                entry.firstSeenAt = now;
-                changed = true;
-            }
-            if (entry.readAt == null) {
-                entry.readAt = now;
-                entry.updatedAt = now;
-                changed = true;
-            }
-        }
-        if (changed) {
-            mailbox.revision += 1;
-            await this.persistMailbox(playerId, mailbox);
-        }
-        return {
-            operation: 'markRead',
-            ok: true,
-            mailIds: visible.map((entry) => entry.mailId),
-        };
+        });
     }
     /** 批量领取邮件附件。 */
     async claimAttachments(playerId, mailIds) {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
-
-
-        const mailbox = await this.ensurePlayerMailbox(playerId);
-
-        const normalizedIds = (0, shared_1.normalizeMailBatchIds)(mailIds);
-        if (normalizedIds.length === 0) {
+        return this.runSerializedMailboxWrite(playerId, async () => {
+            const mailbox = await this.ensurePlayerMailbox(playerId);
+            const normalizedIds = (0, shared_1.normalizeMailBatchIds)(mailIds);
+            if (normalizedIds.length === 0) {
+                return {
+                    operation: 'claim',
+                    ok: false,
+                    mailIds: [],
+                    message: '未选择要领取附件的邮件。',
+                };
+            }
+            const visible = this.findVisibleMails(mailbox, normalizedIds)
+                .filter((entry) => entry.attachments.length > 0 && entry.claimedAt == null);
+            if (visible.length === 0) {
+                return {
+                    operation: 'claim',
+                    ok: false,
+                    mailIds: [],
+                    message: '当前没有可领取附件的邮件。',
+                };
+            }
+            const items = this.resolveAttachmentItems(visible);
+            if (!items) {
+                return {
+                    operation: 'claim',
+                    ok: false,
+                    mailIds: visible.map((entry) => entry.mailId),
+                    message: '邮件附件包含无效物品，暂时无法领取。',
+                };
+            }
+            const nextInventoryItems = this.buildNextInventoryItems(playerId, items);
+            if (!nextInventoryItems) {
+                return {
+                    operation: 'claim',
+                    ok: false,
+                    mailIds: visible.map((entry) => entry.mailId),
+                    message: '背包空间不足，无法领取全部附件。',
+                };
+            }
+            if (this.durableOperationService?.isEnabled?.()) {
+                try {
+                    await this.claimAttachmentsDurably(playerId, normalizedIds, visible, nextInventoryItems);
+                    this.playerRuntimeService.replaceInventoryItems(playerId, nextInventoryItems.map((entry) => ({ ...entry.rawPayload })));
+                    this.mailboxByPlayerId.delete(playerId);
+                    this.loadingMailboxByPlayerId.delete(playerId);
+                    await this.ensurePlayerMailbox(playerId);
+                    return {
+                        operation: 'claim',
+                        ok: true,
+                        mailIds: visible.map((entry) => entry.mailId),
+                        message: `已领取 ${visible.length} 封邮件的附件。`,
+                    };
+                }
+                catch (error) {
+                    return {
+                        operation: 'claim',
+                        ok: false,
+                        mailIds: visible.map((entry) => entry.mailId),
+                        message: resolveClaimErrorMessage(error),
+                    };
+                }
+            }
+            for (const item of items) {
+                this.playerRuntimeService.receiveInventoryItem(playerId, item);
+            }
+            const now = Date.now();
+            for (const entry of visible) {
+                entry.firstSeenAt ??= now;
+                entry.readAt ??= now;
+                entry.claimedAt = now;
+                entry.updatedAt = now;
+                entry.mailVersion = nextMailVersion(entry);
+            }
+            mailbox.revision += 1;
+            this.compactMailbox(mailbox);
+            await this.persistMailboxMutation(playerId, mailbox, visible);
             return {
                 operation: 'claim',
-                ok: false,
-                mailIds: [],
-                message: '未选择要领取附件的邮件。',
-            };
-        }
-
-        const visible = this.findVisibleMails(mailbox, normalizedIds)
-            .filter((entry) => entry.attachments.length > 0 && entry.claimedAt == null);
-        if (visible.length === 0) {
-            return {
-                operation: 'claim',
-                ok: false,
-                mailIds: [],
-                message: '当前没有可领取附件的邮件。',
-            };
-        }
-
-        const items = this.resolveAttachmentItems(visible);
-        if (!items) {
-            return {
-                operation: 'claim',
-                ok: false,
+                ok: true,
                 mailIds: visible.map((entry) => entry.mailId),
-                message: '邮件附件包含无效物品，暂时无法领取。',
+                message: `已领取 ${visible.length} 封邮件的附件。`,
             };
-        }
-        if (!this.canReceiveAllAttachments(playerId, items)) {
-            return {
-                operation: 'claim',
-                ok: false,
+        });
+    }
+    async claimAttachmentsDurably(playerId, normalizedIds, visible, nextInventoryItems) {
+        const attempt = async () => {
+            const sessionFence = this.playerRuntimeService.getSessionFence?.(playerId) ?? null;
+            const currentSnapshot = this.playerRuntimeService.buildPersistenceSnapshot?.(playerId) ?? null;
+            const nextSnapshot = currentSnapshot
+                ? {
+                    ...currentSnapshot,
+                    savedAt: Date.now(),
+                    inventory: {
+                        ...currentSnapshot.inventory,
+                        revision: Math.max(1, Math.trunc(Number(currentSnapshot.inventory?.revision ?? 1)) + 1),
+                        items: nextInventoryItems.map((entry) => ({ ...entry.rawPayload })),
+                    },
+                }
+                : null;
+            if (!sessionFence?.runtimeOwnerId || !sessionFence?.sessionEpoch || !nextSnapshot) {
+                throw new Error('player_session_fencing_unavailable');
+            }
+            await this.durableOperationService.claimMailAttachments({
+                operationId: buildMailClaimOperationId(playerId, sessionFence.sessionEpoch, normalizedIds),
+                playerId,
+                expectedRuntimeOwnerId: sessionFence.runtimeOwnerId,
+                expectedSessionEpoch: sessionFence.sessionEpoch,
                 mailIds: visible.map((entry) => entry.mailId),
-                message: '背包空间不足，无法领取全部附件。',
-            };
-        }
-        for (const item of items) {
-            this.playerRuntimeService.receiveInventoryItem(playerId, item);
-        }
-
-        const now = Date.now();
-        for (const entry of visible) {
-            entry.firstSeenAt ??= now;
-            entry.readAt ??= now;
-            entry.claimedAt = now;
-            entry.updatedAt = now;
-        }
-        mailbox.revision += 1;
-        await this.persistMailbox(playerId, mailbox);
-        return {
-            operation: 'claim',
-            ok: true,
-            mailIds: visible.map((entry) => entry.mailId),
-            message: `已领取 ${visible.length} 封邮件的附件。`,
+                nextInventoryItems,
+                nextPlayerSnapshot: nextSnapshot,
+            });
         };
+        try {
+            await attempt();
+        }
+        catch (error) {
+            if (!shouldRetryClaimFence(error) || !(await this.syncCurrentPresenceFence(playerId))) {
+                throw error;
+            }
+            await attempt();
+        }
+    }
+    async syncCurrentPresenceFence(playerId) {
+        if (!this.playerDomainPersistenceService?.isEnabled?.()) {
+            return false;
+        }
+        const presence = this.playerRuntimeService.describePersistencePresence?.(playerId) ?? null;
+        if (!presence?.runtimeOwnerId || !presence?.sessionEpoch) {
+            return false;
+        }
+        await this.playerDomainPersistenceService.savePlayerPresence(playerId, {
+            ...presence,
+            versionSeed: Date.now(),
+        });
+        return true;
     }
     /** 批量删除已满足删除条件的邮件。 */
     async deleteMails(playerId, mailIds) {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
-
-
-        const mailbox = await this.ensurePlayerMailbox(playerId);
-
-        const normalizedIds = (0, shared_1.normalizeMailBatchIds)(mailIds);
-        if (normalizedIds.length === 0) {
+        return this.runSerializedMailboxWrite(playerId, async () => {
+            const mailbox = await this.ensurePlayerMailbox(playerId);
+            const normalizedIds = (0, shared_1.normalizeMailBatchIds)(mailIds);
+            if (normalizedIds.length === 0) {
+                return {
+                    operation: 'delete',
+                    ok: false,
+                    mailIds: [],
+                    message: '未选择要删除的邮件。',
+                };
+            }
+            const visible = this.findVisibleMails(mailbox, normalizedIds);
+            if (visible.length === 0) {
+                return {
+                    operation: 'delete',
+                    ok: false,
+                    mailIds: [],
+                    message: '目标邮件不存在、已过期，或已被删除。',
+                };
+            }
+            if (visible.some((entry) => entry.attachments.length > 0 && entry.claimedAt == null)) {
+                return {
+                    operation: 'delete',
+                    ok: false,
+                    mailIds: [],
+                    message: '仍有未领取附件的邮件，不能直接删除。',
+                };
+            }
+            const now = Date.now();
+            const deletedEntries = visible.map((entry) => serializeMailboxEntry(entry));
+            for (const entry of visible) {
+                entry.deletedAt = now;
+                entry.updatedAt = now;
+                entry.mailVersion = nextMailVersion(entry);
+            }
+            mailbox.revision += 1;
+            this.compactMailbox(mailbox);
+            await this.persistMailboxMutation(playerId, mailbox, deletedEntries);
             return {
                 operation: 'delete',
-                ok: false,
-                mailIds: [],
-                message: '未选择要删除的邮件。',
+                ok: true,
+                mailIds: visible.map((entry) => entry.mailId),
             };
-        }
-
-        const visible = this.findVisibleMails(mailbox, normalizedIds);
-        if (visible.length === 0) {
-            return {
-                operation: 'delete',
-                ok: false,
-                mailIds: [],
-                message: '目标邮件不存在、已过期，或已被删除。',
-            };
-        }
-        if (visible.some((entry) => entry.attachments.length > 0 && entry.claimedAt == null)) {
-            return {
-                operation: 'delete',
-                ok: false,
-                mailIds: [],
-                message: '仍有未领取附件的邮件，不能直接删除。',
-            };
-        }
-
-        const now = Date.now();
-        for (const entry of visible) {
-            entry.deletedAt = now;
-            entry.updatedAt = now;
-        }
-        mailbox.revision += 1;
-        await this.persistMailbox(playerId, mailbox);
-        return {
-            operation: 'delete',
-            ok: true,
-            mailIds: visible.map((entry) => entry.mailId),
-        };
+        });
     }
     /** 创建一封直接邮件，并在需要时尝试立刻发送附件。 */
     async createDirectMail(playerId, input) {
-
-        const mailbox = await this.ensurePlayerMailbox(playerId);
-
-        const mailId = this.appendMail(mailbox, input);
-        await this.persistMailbox(playerId, mailbox);
-        return mailId;
+        return this.runSerializedMailboxWrite(playerId, async () => {
+            const mailbox = await this.ensurePlayerMailbox(playerId);
+            const mailId = this.appendMail(playerId, mailbox, input);
+            this.compactMailbox(mailbox);
+            const createdEntry = this.findVisibleMail(mailbox, mailId);
+            await this.persistMailboxMutation(playerId, mailbox, createdEntry ? [createdEntry] : []);
+            return mailId;
+        });
     }
     /** 往邮箱里追加一封邮件，供欢迎信和系统发信复用。 */
-    appendMail(mailbox, input) {
+    appendMail(playerId, mailbox, input) {
+        const previousNewestCreatedAt = Number.isFinite(mailbox.mails[0]?.createdAt)
+            ? Math.trunc(Number(mailbox.mails[0].createdAt))
+            : 0;
+        const now = Math.max(Date.now(), previousNewestCreatedAt + 1);
 
-        const now = Date.now();
-
-        const mailId = `mail:${now.toString(36)}:${mailbox.revision.toString(36)}:${mailbox.mails.length.toString(36)}`;
+        const mailId = buildMailId(playerId, mailbox, now);
         mailbox.mails.unshift({
             version: 1,
+            mailVersion: 1,
             mailId,
             senderLabel: input.senderLabel?.trim() || MAIL_DEFAULT_SENDER_LABEL,
             templateId: input.templateId?.trim() || null,
@@ -495,6 +598,11 @@ let MailRuntimeService = class MailRuntimeService {
     /** 检查玩家背包是否能一次性容纳全部附件。 */
     canReceiveAllAttachments(playerId, items) {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+        return this.buildNextInventoryItems(playerId, items) !== null;
+    }
+    /** 预演附件领取后的背包形态；容量不足时返回 null。 */
+    buildNextInventoryItems(playerId, items) {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
 
         const player = this.playerRuntimeService.getPlayerOrThrow(playerId);
@@ -508,20 +616,25 @@ let MailRuntimeService = class MailRuntimeService {
             signatureIndex.set((0, shared_1.createItemStackSignature)(simulated[index]), index);
         }
         for (const item of items) {
-            const signature = (0, shared_1.createItemStackSignature)(item);
+            const normalized = this.contentTemplateRepository.normalizeItem(item);
+            const signature = (0, shared_1.createItemStackSignature)(normalized);
             const existingIndex = signatureIndex.get(signature);
             if (existingIndex !== undefined) {
-                simulated[existingIndex].count += item.count;
+                simulated[existingIndex].count += normalized.count;
                 continue;
             }
             if (nextSize >= player.inventory.capacity) {
-                return false;
+                return null;
             }
             signatureIndex.set(signature, simulated.length);
-            simulated.push({ ...item });
+            simulated.push({ ...normalized });
             nextSize += 1;
         }
-        return true;
+        return simulated.map((entry) => ({
+            itemId: entry.itemId,
+            count: entry.count,
+            rawPayload: { ...entry },
+        }));
     }
     /** 规范化邮箱数据，去掉过期垃圾并压缩结构。 */
     compactMailbox(mailbox) {
@@ -529,23 +642,36 @@ let MailRuntimeService = class MailRuntimeService {
         const now = Date.now();
         mailbox.mails = mailbox.mails
             .filter((entry) => entry.deletedAt == null && (entry.expireAt == null || entry.expireAt > now))
-            .sort((left, right) => right.createdAt - left.createdAt || left.mailId.localeCompare(right.mailId));
+            .sort((left, right) => right.createdAt - left.createdAt || right.mailId.localeCompare(left.mailId));
     }
     /** 持久化单个玩家的邮箱快照。 */
     async persistMailbox(playerId, mailbox) {
         this.compactMailbox(mailbox);
-        await this.mailPersistenceService.saveMailbox(playerId, {
-            version: 1,
-            revision: Math.max(1, mailbox.revision),
-            welcomeMailDeliveredAt: Number.isFinite(mailbox.welcomeMailDeliveredAt)
-                ? Math.trunc(Number(mailbox.welcomeMailDeliveredAt))
-                : null,
-            mails: mailbox.mails.map((entry) => ({
-                ...entry,
-                args: entry.args.map((arg) => ({ ...arg })),
-                attachments: entry.attachments.map((attachment) => ({ ...attachment })),
-            })),
+        await this.mailPersistenceService.saveMailbox(playerId, serializeMailboxPayload(mailbox));
+    }
+    /** 按受影响邮件局部 upsert 结构化真源，并同步兼容镜像。 */
+    async persistMailboxMutation(playerId, mailbox, affectedEntries) {
+        await this.mailPersistenceService.saveMailboxMutation(
+            playerId,
+            serializeMailboxPayload(mailbox),
+            serializeMailboxEntries(affectedEntries),
+        );
+    }
+    /** 同一玩家的邮箱写链按序执行，避免并发写把缓存和持久化状态交叉覆盖。 */
+    async runSerializedMailboxWrite(playerId, task) {
+        const normalizedPlayerId = typeof playerId === 'string' ? playerId.trim() : '';
+        if (!normalizedPlayerId) {
+            return task();
+        }
+        const previous = this.mailboxWriteByPlayerId.get(normalizedPlayerId) ?? Promise.resolve();
+        const next = previous.catch(() => undefined).then(async () => task());
+        const tracked = next.finally(() => {
+            if (this.mailboxWriteByPlayerId.get(normalizedPlayerId) === tracked) {
+                this.mailboxWriteByPlayerId.delete(normalizedPlayerId);
+            }
         });
+        this.mailboxWriteByPlayerId.set(normalizedPlayerId, tracked);
+        return tracked;
     }
     /** 判断邮箱是否已经留下欢迎信投递记录。 */
     hasWelcomeMailHistory(mailbox) {
@@ -563,7 +689,8 @@ exports.MailRuntimeService = MailRuntimeService = __decorate([
     (0, common_1.Injectable)(),
     __metadata("design:paramtypes", [content_template_repository_1.ContentTemplateRepository,
         player_runtime_service_1.PlayerRuntimeService,
-        mail_persistence_service_1.MailPersistenceService])
+        mail_persistence_service_1.MailPersistenceService,
+        durable_operation_service_1.DurableOperationService])
 ], MailRuntimeService);
 export { MailRuntimeService };
 /**
@@ -591,6 +718,80 @@ function resolveWelcomeMailHistoryTimestamp(mailbox) {
         return Number.isFinite(welcomeEntry.createdAt) ? Math.trunc(Number(welcomeEntry.createdAt)) : Date.now();
     }
     return Number(mailbox.revision ?? 1) > 1 ? Date.now() : null;
+}
+
+function serializeMailboxPayload(mailbox) {
+    return {
+        version: 1,
+        revision: Math.max(1, mailbox.revision),
+        welcomeMailDeliveredAt: Number.isFinite(mailbox.welcomeMailDeliveredAt)
+            ? Math.trunc(Number(mailbox.welcomeMailDeliveredAt))
+            : null,
+        mails: serializeMailboxEntries(mailbox.mails),
+    };
+}
+
+function serializeMailboxEntries(entries) {
+    return Array.isArray(entries) ? entries.map((entry) => serializeMailboxEntry(entry)) : [];
+}
+
+function serializeMailboxEntry(entry) {
+    return {
+        ...entry,
+        args: Array.isArray(entry?.args) ? entry.args.map((arg) => ({ ...arg })) : [],
+        attachments: Array.isArray(entry?.attachments)
+            ? entry.attachments.map((attachment) => ({ ...attachment }))
+            : [],
+    };
+}
+
+function nextMailVersion(entry) {
+    return Math.max(1, Math.trunc(Number(entry?.mailVersion ?? 1)) + 1);
+}
+
+function buildMailClaimOperationId(playerId, sessionEpoch, mailIds) {
+    const normalizedPlayerId = typeof playerId === 'string' ? playerId.trim() : 'player';
+    const normalizedEpoch = Number.isFinite(sessionEpoch) ? Math.max(1, Math.trunc(Number(sessionEpoch))) : 1;
+    const normalizedIds = Array.isArray(mailIds) ? mailIds.map((entry) => String(entry ?? '').trim()).filter(Boolean).sort() : [];
+    return `mail-claim:${normalizedPlayerId}:${normalizedEpoch}:${normalizedIds.join(',')}`;
+}
+
+function resolveClaimErrorMessage(error) {
+    const code = error instanceof Error ? error.message : String(error);
+    if (code.startsWith('player_session_fencing_conflict')) {
+        const auditDebugEnabled = typeof process.env.SERVER_PROTOCOL_AUDIT_CASES === 'string'
+            && process.env.SERVER_PROTOCOL_AUDIT_CASES.trim().length > 0;
+        return auditDebugEnabled
+            ? `当前会话已失效，请重新连接后再领取附件。 [${code}]`
+            : '当前会话已失效，请重新连接后再领取附件。';
+    }
+    if (code === 'mail_already_claimed_or_deleted') {
+        return '目标邮件已经领取或删除，请刷新邮箱后重试。';
+    }
+    if (code === 'mail_claim_targets_missing' || code === 'mail_claim_attachments_missing') {
+        return '目标邮件已变化，请刷新邮箱后重试。';
+    }
+    if (code === 'mail_already_expired') {
+        return '目标邮件已过期，无法再领取附件。';
+    }
+    return '邮件附件领取失败，请稍后重试。';
+}
+
+function shouldRetryClaimFence(error) {
+    const code = error instanceof Error ? error.message : String(error);
+    return code.startsWith('player_session_fencing_conflict');
+}
+
+function buildMailId(playerId, mailbox, createdAt) {
+    return `mail:${normalizeMailIdComponent(playerId)}:${createdAt.toString(36)}:${mailbox.revision.toString(36)}:${mailbox.mails.length.toString(36)}`;
+}
+
+function normalizeMailIdComponent(value) {
+    const normalized = String(value ?? '')
+        .trim()
+        .replace(/[^a-zA-Z0-9_-]+/g, '_')
+        .slice(0, 48);
+    return normalized || 'unknown';
 }
 /**
  * normalizeArgs：规范化或转换Arg。

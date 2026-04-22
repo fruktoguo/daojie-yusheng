@@ -34,7 +34,7 @@
 - [x] 列出仍然必须保留的 legacy 文件范围
 - [x] 把不再需要的 legacy 入口从主文档中移除
 - [x] 把不再需要的 legacy 入口从主流程中移除
-- [x] 把 legacy 剩余价值收束为“查规则 / 查旧数据格式 / 迁移来源”
+- [x] 把 legacy 剩余价值收束为“查规则 / 查旧数据格式 / 历史对照”
 - [x] 更新顶层说明文档，明确仓库只有 next 是活跃主线
 - [x] 更新部署 / 验证 / 运维文档，移除误导性的旧主线描述
 - [ ] 完成一次 next 主线切换前检查
@@ -49,14 +49,13 @@
 ### 第 1 批：先列 legacy 保留白名单
 
 - [x] 保留为归档/参考的 legacy 目录范围
-- [x] 保留为迁移来源的 legacy 文件范围
 - [x] 保留为审计/比对证据的 legacy 文件范围
 
 至少分成三类：
 
 - 查旧规则
 - 查旧数据格式
-- 迁移脚本输入来源
+- 历史排查参考
 
 这一步不做删除，只做白名单。
 
@@ -94,7 +93,8 @@
 
 重点确认：
 
-- `./start-next.sh` 与 `./start.sh` 的职责
+- 根 `./start.sh` 是唯一默认启动入口
+- 根 `./start.sh` 是唯一默认启动入口；旧 `start-*` 兼容壳已删除
 - 根级推荐命令
 - 文档首页推荐入口
 
@@ -104,7 +104,7 @@
 - [x] 仓库内 cutover/preflight proof 已固定
 - [x] 仓库内 cutover/operations proof 已固定
 - [x] `docs/next-plan/main.md` 已完成到可切换状态
-- [x] `03/04/05/06/07` 已达到可交接级别
+- [x] 迁移阶段已退役，`05/06/07/08` 已达到可交接级别
 - [x] `09` 已收成“默认 gate 已跑通，destructive 仍单独保留”的固定口径
 - [x] `08/09/10` 的仓库内最终切换检查已固定
 - [ ] 真实切换前/后观察仍需继续收尾
@@ -142,14 +142,14 @@
 
 | 范围 | 保留原因 | 谁还在读 | 计划何时再评估 |
 | --- | --- | --- | --- |
-| `legacy/server/src/database/entities/*.ts`、`legacy/server/data/runtime/suggestions.json`、`legacy/server/src/game/map.service.ts` | 一次性迁移脚本与迁移清单当前仍需要这些 legacy 真源定义来锁定输入表/文件/导出格式 | `docs/next-plan/03-required-data-migration-checklist.md`、`packages/server/src/tools/migrate-next-mainline-once.ts`、人工迁移排查 | `03/04/09` 全部闭环后复查，优先在迁移 proof 固定后缩范围 |
+| `legacy/server/src/database/entities/*.ts`、`legacy/server/data/runtime/suggestions.json`、`legacy/server/src/game/map.service.ts` | 仅保留为历史数据结构、旧建议文件格式与旧地图实现对照，不再进入默认开发、默认验证或默认启动流程 | `docs/next-plan/10-legacy-archive-and-cutover.md`、人工历史排查 | 真实切换后的归档复查窗口继续评估，优先看是否还能进一步缩到必要样本 |
 | `legacy/client/src/**`、`legacy/shared/src/**`、`legacy/server/src/game/**` | 作为归档行为基线、协议旧格式与 UI/玩法旧规则参考；不再进入默认开发、默认验证或默认启动流程，只在人工排查与历史对照时查看 | `docs/next-plan/06-server-mainline-refactor.md`、`docs/next-plan/07-client-mainline-refactor.md`、`docs/next-plan/08-shared-content-and-map-cleanup.md`、人工对照排查 | `09/10` 闭环后复查，优先继续收缩到必要子目录 |
-| `legacy/client`、`legacy/server`、`legacy/shared` 包根与其显式启动入口 | 仅保留为归档运行/排查入口，不再参与默认 workspace 或默认 next 构建；根级命令也已收口到 `archive:legacy:*` 命名 | `start.sh`、根级 `package.json` 里的 `archive:legacy:*` 命令、人工归档排查 | 当 `10` 的切换前/切换后检查完成后复查，评估是否还能进一步下沉为纯静态归档 |
+| `legacy/client`、`legacy/server`、`legacy/shared` 包根与其显式启动入口 | 仅保留为归档运行/排查入口，不再参与默认 workspace 或默认 next 构建；根级命令也已收口到 `archive:legacy:*` 命名 | 根级 `package.json` 里的 `archive:legacy:*` 命令、人工归档排查 | 当 `10` 的切换前/切换后检查完成后复查，评估是否还能进一步下沉为纯静态归档 |
 
 ## 切换前检查表
 
 - [x] next 真源已唯一化
-- [x] 迁移脚本已能把必要数据写入 next 真源
+- [x] 不再保留一次性迁移脚本，默认按空库 / 新服入口切换
 - [x] 主要 compat 面已不再阻塞主链
 - [x] server/client/shared 主链都已收口到可继续开发
 - [x] 验证门禁口径已固定
@@ -160,14 +160,14 @@
 - [x] README 与 docs 首页只指向 next 主线
 - [x] 默认命令只指向 next 主线
 - [x] workflow 文案不再暗示 legacy 是主入口
-- [x] legacy 只剩归档和迁移参考价值
+- [x] legacy 只剩归档和历史参考价值
 - [x] 已有独立的切换后观察记录模板
 
 ## 本轮仓库内 proof
 
 - [x] `proof:cutover-readiness`
   - 固定检查根级默认脚本、README / `next-plan` 入口、server 运维文档、workflow 与 `10/main` 文档口径
-  - 固定 legacy 只允许以 `archive:legacy:*`、`./start.sh` 和白名单/迁移/审计文档的形式继续出现
+  - 固定 legacy 只允许以 `archive:legacy:*` 和白名单/迁移/审计文档的形式继续出现
   - 不回答 shadow/acceptance/full 的真实环境是否 ready；那部分继续由 `09` 负责
 - [x] `proof:cutover-preflight`
   - 固定检查 `03/04/05/06/07` 的完成定义继续为绿
@@ -188,5 +188,5 @@
 ## 完成定义
 
 - [x] `packages/*` 成为唯一活跃主线
-- [x] legacy 只剩归档和迁移参考价值
+- [x] legacy 只剩归档和历史参考价值
 - [x] next 主线可以作为后续唯一开发入口

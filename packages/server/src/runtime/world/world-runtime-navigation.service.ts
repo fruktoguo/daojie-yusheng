@@ -278,7 +278,12 @@ let WorldRuntimeNavigationService = class WorldRuntimeNavigationService {
         if (navigation?.kind === 'point') {
             this.navigationIntents.delete(transfer.playerId);
         }
-        deps.queuePlayerNotice(transfer.playerId, `${transfer.reason === 'manual_portal' ? '通过界门' : '穿过灵脉'}抵达 ${deps.getOrCreatePublicInstance(transfer.targetMapId).template.name}`, 'travel');
+        const runtimePlayer = this.playerRuntimeService.getPlayer(transfer.playerId);
+        const linePreset = runtimePlayer?.worldPreference?.linePreset === 'real' ? 'real' : 'peaceful';
+        const targetInstance = typeof deps.getOrCreateDefaultLineInstance === 'function'
+            ? deps.getOrCreateDefaultLineInstance(transfer.targetMapId, linePreset)
+            : deps.getOrCreatePublicInstance(transfer.targetMapId);
+        deps.queuePlayerNotice(transfer.playerId, `${transfer.reason === 'manual_portal' ? '通过界门' : '穿过灵脉'}抵达 ${targetInstance.template.name}`, 'travel');
     }    
     /**
  * materializeNavigationCommands：执行materialize导航Command相关逻辑。

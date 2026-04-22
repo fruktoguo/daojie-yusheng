@@ -77,6 +77,9 @@ function createSnapshot(gatherJob) {
             y: 5,
             facing: Direction.South,
         },
+        worldPreference: {
+            linePreset: 'real',
+        },
         vitals: {
             hp: 100,
             maxHp: 100,
@@ -162,9 +165,11 @@ function testGatherJobRoundtrip() {
     };
     const player = service.hydrateFromSnapshot('player:1', 'session:1', createSnapshot(gatherJob));
     assert.deepEqual(player.gatherJob, gatherJob);
+    assert.deepEqual(player.worldPreference, { linePreset: 'real' });
     service.players.set('player:1', player);
     const snapshot = service.buildPersistenceSnapshot('player:1');
     assert.deepEqual(snapshot.progression.gatherJob, gatherJob);
+    assert.deepEqual(snapshot.worldPreference, { linePreset: 'real' });
 }
 
 function testInvalidGatherJobFallsBackToNull() {
@@ -185,6 +190,7 @@ function testFreshSnapshotKeepsGatherJobEmpty() {
         facing: Direction.South,
     });
     assert.equal(snapshot.progression.gatherJob, null);
+    assert.deepEqual(snapshot.worldPreference, { linePreset: 'peaceful' });
 }
 
 testGatherJobRoundtrip();

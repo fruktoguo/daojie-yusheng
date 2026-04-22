@@ -67,11 +67,11 @@ let WorldClientEventService = class WorldClientEventService {
         this.worldSessionService = worldSessionService;
         this.worldSyncQuestLootService = worldSyncQuestLootService;
     }
-    /** 记录客户端偏好的 next 协议。 */
-    markPrefersNext(client) {
+    /** 记录客户端偏好的 mainline 协议。 */
+    markPrefersMainline(client) {
         this.markProtocol(client, 'mainline');
     }
-    /** 写入客户端协议信息，只保留 next 这一条有效路径。 */
+    /** 写入客户端协议信息，只保留主线这一条有效路径。 */
     markProtocol(client, protocol) {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
@@ -80,27 +80,27 @@ let WorldClientEventService = class WorldClientEventService {
         }
         client.data.protocol = protocol;
     }
-    /** 当前实现只支持 next 协议。 */
+    /** 当前实现只支持 mainline 协议。 */
     getProtocol(client) {
         return 'mainline';
     }
-    /** 显式返回 next 协议，供兼容调用复用。 */
+    /** 显式返回 mainline 协议，供兼容调用复用。 */
     getExplicitProtocol(client) {
         return 'mainline';
     }
-    /** 返回协议投影结果，告知上层直接走 next 下发。 */
+    /** 返回协议投影结果，告知上层直接走主线下发。 */
     resolveProtocolEmission(client) {
         return {
             protocol: 'mainline',
 
-            emitNext: true,
+            emitMainline: true,
         };
     }
-    /** 判断是否优先使用 next 协议。 */
-    prefersNext(client) {
+    /** 判断是否优先使用 mainline 协议。 */
+    prefersMainline(client) {
         return true;
     }
-    /** 最终协议始终收敛到 next。 */
+    /** 最终协议始终收敛到主线。 */
     resolveEffectiveProtocol(client) {
         return 'mainline';
     }
@@ -134,7 +134,7 @@ let WorldClientEventService = class WorldClientEventService {
                 text: normalizedText,
             }]);
     }
-    /** 统一发送 next Notice，供即时提示与日志书回放共用。 */
+    /** 统一发送主线 Notice，供即时提示与日志书回放共用。 */
     emitNoticeItems(client, items) {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
@@ -148,7 +148,7 @@ let WorldClientEventService = class WorldClientEventService {
             items: normalizedItems,
         });
     }
-    /** 将待确认日志书条目直接翻译成 next Notice。 */
+    /** 将待确认日志书条目直接翻译成主线 Notice。 */
     emitPendingLogbookNotice(client, entry) {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 

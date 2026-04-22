@@ -22,7 +22,7 @@ if ! command -v cargo >/dev/null 2>&1; then
   exit 1
 fi
 
-pnpm --dir "$ROOT_DIR" --filter @mud/shared-next build
+pnpm --dir "$ROOT_DIR" --filter @mud/shared build
 node "$TS_BIN" -p "$BENCH_DIR/tsconfig.json"
 cargo build --release --manifest-path "$RUST_MANIFEST"
 node "$BENCH_DIR/dist/compare.js" --rust-binary "$RUST_BINARY" "$@"

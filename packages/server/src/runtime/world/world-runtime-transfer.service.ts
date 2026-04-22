@@ -45,14 +45,17 @@ let WorldRuntimeTransferService = class WorldRuntimeTransferService {
             reason: transfer.reason,
         });
         source.disconnectPlayer(transfer.playerId);
-        const target = deps.getOrCreatePublicInstance(transfer.targetMapId);
+        const runtimePlayer = deps.playerRuntimeService.getPlayer(transfer.playerId);
+        const linePreset = runtimePlayer?.worldPreference?.linePreset === 'real' ? 'real' : 'peaceful';
+        const target = typeof deps.getOrCreateDefaultLineInstance === 'function'
+            ? deps.getOrCreateDefaultLineInstance(transfer.targetMapId, linePreset)
+            : deps.getOrCreatePublicInstance(transfer.targetMapId);
         target.connectPlayer({
             playerId: transfer.playerId,
             sessionId: transfer.sessionId,
             preferredX: transfer.targetX,
             preferredY: transfer.targetY,
         });
-        const runtimePlayer = deps.playerRuntimeService.getPlayer(transfer.playerId);
         target.setPlayerMoveSpeed(transfer.playerId, runtimePlayer?.attrs.numericStats.moveSpeed ?? 0);
         deps.setPlayerLocation(transfer.playerId, {
             instanceId: target.meta.instanceId,

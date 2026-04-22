@@ -15,8 +15,7 @@ function normalizeDebugFlag(value: unknown): boolean {
 
 /** 判断是否开启服务端新版移动日志调试。 */
 export function isServerNextMovementDebugEnabled(): boolean {
-  return normalizeDebugFlag(process.env.SERVER_DEBUG_MOVEMENT)
-    || normalizeDebugFlag(process.env.NEXT_DEBUG_MOVEMENT);
+  return normalizeDebugFlag(process.env.SERVER_DEBUG_MOVEMENT);
 }
 
 /** 安全序列化日志载荷，失败时回退为错误摘要，避免调试日志再抛错。 */

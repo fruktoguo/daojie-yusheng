@@ -1,5 +1,5 @@
 #!/bin/bash
-# 用途：对本地 next shadow 执行 destructive preflight，无需手动 export destructive 开关。
+# 用途：对本地 shadow 执行 destructive preflight，无需手动 export destructive 开关。
 
 set -euo pipefail
 

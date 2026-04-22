@@ -48,7 +48,7 @@ import type { MapMinimapArchiveEntry, MapMinimapMarker, MapMinimapSnapshot, NpcQ
 export type * from './protocol-request-payload-types';
 export type * from './protocol-response-payload-types';
 
-/** server-next 客户端发往服务端的事件名集合。 */
+/** 客户端发往服务端的事件名集合。 */
 export const NEXT_C2S = {
   Hello: 'n:c:hello',
   Move: 'n:c:move',
@@ -130,7 +130,7 @@ export const NEXT_C2S = {
   Ping: 'n:c:ping',
 } as const;
 
-/** server-next 服务端发往客户端的事件名集合。 */
+/** 服务端发往客户端的事件名集合。 */
 export const NEXT_S2C = {
   Bootstrap: 'n:s:bootstrap',
   InitSession: 'n:s:initSession',
@@ -172,10 +172,10 @@ export const NEXT_S2C = {
   Pong: 'n:s:pong',
 } as const;
 
-/** next 客户端事件名联合。 */
+/** 客户端事件名联合。 */
 export type NEXT_C2S_EventName = typeof NEXT_C2S[keyof typeof NEXT_C2S];
 
-/** next 服务端事件名联合。 */
+/** 服务端事件名联合。 */
 export type NEXT_S2C_EventName = typeof NEXT_S2C[keyof typeof NEXT_S2C];
 
 /** 中性客户端事件表导出；保留 NEXT_* 作为兼容别名。 */
@@ -311,7 +311,7 @@ export interface NEXT_S2C_MailDetail extends MailDetailSyncView {}
 
 /** 建议系统的收发载荷。 */
 
-/** next 客户端事件与载荷映射，作为 client/server/shared 的统一类型真源。 */
+/** 客户端事件与载荷映射，作为 client/server/shared 的统一类型真源。 */
 export interface NEXT_C2S_PayloadMap extends Record<NEXT_C2S_EventName, unknown> {
 /**
  * [NEXT_C2S.Hello]：NEXT_C2S_PayloadMap 协议映射条目，用于描述事件到 payload 类型的映射。
@@ -705,7 +705,7 @@ export interface NEXT_C2S_PayloadMap extends Record<NEXT_C2S_EventName, unknown>
   [NEXT_C2S.Ping]: RequestPayloads.NEXT_C2S_Ping;
 }
 
-/** next 服务端事件与载荷映射，作为 bootstrap/panel/delta 的共享护栏。 */
+/** 服务端事件与载荷映射，作为 bootstrap/panel/delta 的共享护栏。 */
 export interface NEXT_S2C_PayloadMap extends Record<NEXT_S2C_EventName, unknown> {
 /**
  * [NEXT_S2C.Bootstrap]：NEXT_S2C_PayloadMap 协议映射条目，用于描述事件到 payload 类型的映射。
@@ -899,10 +899,10 @@ export interface NEXT_S2C_PayloadMap extends Record<NEXT_S2C_EventName, unknown>
   [NEXT_S2C.Pong]: ResponsePayloads.NEXT_S2C_Pong;
 }
 
-/** 根据 next 客户端事件名读取对应载荷类型。 */
+/** 根据客户端事件名读取对应载荷类型。 */
 export type NEXT_C2S_EventPayload<TEvent extends NEXT_C2S_EventName> = NEXT_C2S_PayloadMap[TEvent];
 
-/** 根据 next 服务端事件名读取对应载荷类型。 */
+/** 根据服务端事件名读取对应载荷类型。 */
 export type NEXT_S2C_EventPayload<TEvent extends NEXT_S2C_EventName> = NEXT_S2C_PayloadMap[TEvent];
 
 /** 根据中性客户端事件名读取对应载荷类型。 */

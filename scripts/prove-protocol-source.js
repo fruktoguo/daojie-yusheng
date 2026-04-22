@@ -88,12 +88,12 @@ function main() {
     }
   }
 
-  process.stdout.write("[next protocol source proof] summary\n");
+  process.stdout.write("[protocol source proof] summary\n");
   process.stdout.write(`- checked_files: ${checkedFiles}\n`);
   process.stdout.write(`- skipped_files: ${ALLOWED_FILES.size} explicit + tools directories\n`);
 
   if (failures.length > 0) {
-    process.stderr.write("[next protocol source proof] failed\n");
+    process.stderr.write("[protocol source proof] failed\n");
     for (const failure of failures) {
       process.stderr.write(`- ${failure}\n`);
     }
@@ -101,7 +101,7 @@ function main() {
     return;
   }
 
-  process.stdout.write("[next protocol source proof] passed\n");
+  process.stdout.write("[protocol source proof] passed\n");
 }
 
 main();

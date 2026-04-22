@@ -58,7 +58,7 @@
 | --- | --- | --- | --- |
 | 显式迁移数据源 | `packages/server/src/network/world-player-source.service.js` | 直接查 legacy `users` / `players` 表，只供显式 migration 使用 | `04` 完成一次性迁移脚本、`05` 删 compat 后退场 |
 | 鉴权与快照回填 | `packages/server/src/network/world-player-source.service.js`、`world-player-auth.service.ts`、`world-player-snapshot.service.js` | next 主链 miss 时，受显式开关控制地读取 legacy 身份/快照 | 待 `04`、`05`、`06` 收口 |
-| GM 历史 scope 读取 | `packages/server/src/http/next/next-gm-admin.service.js`、`next-gm-contract.js`、`packages/server/src/runtime/gm/runtime-gm-auth.service.ts` | 读取 `server_next_legacy_*` scope 或旧 GM 密码记录，保证历史数据可迁 | `03/04` 锁定 GM 迁移后，进入 `05` 删除 |
+| GM 历史 scope 读取 | `packages/server/src/http/native/native-gm-admin.service.js`、`native-gm-contract.js`、`packages/server/src/runtime/gm/runtime-gm-auth.service.ts` | 读取 `server_next_legacy_*` scope 或旧 GM 密码记录，保证历史数据可迁 | `03/04` 锁定 GM 迁移后，进入 `05` 删除 |
 | 运行时残余 compat | `packages/server/src/network/world-sync.service.ts`、`packages/server/src/runtime/player/player-runtime.service.ts`、`packages/server/src/persistence/player-persistence.service.js` | next 同步仍读 legacy combat effects，快照/bonus 仍兼容 `legacy:vitals_baseline` 标签 | 进入 `05/06` 逐步清除 |
 
 ## 必须暂时保留的入口
@@ -72,7 +72,7 @@
   - 仍负责 token -> identity、persistedSource 归一与 next 协议下 legacy persistedSource 拒绝；真正的 migration source/snapshot 残余已收束到 `world-player-source.service.js` / `world-player-snapshot.service.js`。
 - `packages/server/src/network/world-player-snapshot.service.js`
   - 仍负责显式 migration 快照补种与 starter snapshot 收口。
-- `packages/server/src/http/next/next-gm-admin.service.js`
+- `packages/server/src/http/native/native-gm-admin.service.js`
   - 仍在读取 legacy Afdian / 备份 / 作业 metadata scope。
 - `packages/server/src/runtime/gm/runtime-gm-auth.service.ts`
   - 仍需兼容历史 GM 密码记录 scope，直到 GM 数据迁移完成。
@@ -90,7 +90,7 @@
 - `packages/server/src/network/world-player-source.service.js` 中仅用于兼容命名的 wrapper 方法
   - 这批 alias 已并回 `resolvePlayerIdentityForMigration / loadPlayerSnapshotForMigration`
   - 后续不应再重新引入新的 compat 命名包装层。
-- `packages/server/src/http/next/next-gm-admin.service.js` / `next-gm-contract.js` 中的 `server_next_legacy_*` scope fallback
+- `packages/server/src/http/native/native-gm-admin.service.js` / `native-gm-contract.js` 中的 `server_next_legacy_*` scope fallback
   - 一旦 `03/04` 把 GM 认证、备份、作业 metadata 完整迁到 native scope，就应直接删除，而不是继续保留双读。
 - `packages/server/src/network/world-sync.service.ts` 中 next envelope 对 legacy combat effects 的直接读取
   - 这是明确的 compat 债，应在 `06` 里优先替换，不再继续扩散。

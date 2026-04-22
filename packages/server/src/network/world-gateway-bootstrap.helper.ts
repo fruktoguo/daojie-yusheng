@@ -5,12 +5,8 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.WorldGatewayBootstrapHelper = void 0;
 
 const AUTHENTICATED_REQUESTED_SESSION_ID_AUTH_SOURCES = new Set([
-    'next',
+    'mainline',
     'token',
-]);
-const GUEST_HELLO_IDENTITY_OVERRIDE_KEYS = Object.freeze([
-    'playerId',
-    'requestedPlayerId',
 ]);
 const AUTHENTICATED_CONNECT_CONTRACT = Object.freeze({
     protocolRequiredCode: 'AUTH_PROTOCOL_REQUIRED',
@@ -24,14 +20,6 @@ const GM_CONNECT_CONTRACT = Object.freeze({
     authFailCode: 'GM_AUTH_FAIL',
     playerAuthRequiredCode: 'GM_PLAYER_AUTH_REQUIRED',
     sessionIdForbiddenCode: 'GM_SESSION_ID_FORBIDDEN',
-});
-const GUEST_HELLO_CONTRACT = Object.freeze({
-    protocolMismatchCode: 'HELLO_PROTOCOL_MISMATCH',
-    unsupportedProtocolCode: 'HELLO_PROTOCOL_UNSUPPORTED',
-    authBootstrapForbiddenCode: 'HELLO_AUTH_BOOTSTRAP_FORBIDDEN',
-    sessionIdInvalidCode: 'HELLO_SESSION_ID_INVALID',
-    identityOverrideForbiddenCode: 'HELLO_IDENTITY_OVERRIDE_FORBIDDEN',
-    helloFailedCode: 'HELLO_FAILED',
 });
 
 /** 世界 socket 引导 helper：收敛 connect/hello/bootstrap 的协议判断与输入构建。 */
@@ -128,21 +116,6 @@ class WorldGatewayBootstrapHelper {
     hasSocketAuthHint(client) {
         return this.gateway.sessionBootstrapService.pickSocketToken(client).length > 0
             || this.gateway.sessionBootstrapService.pickSocketGmToken(client).length > 0;
-    }    
-    /**
- * shouldAllowGuestHelloBypass：判断是否允许未登录 next socket 留在 hello 引导链。
- * @param client 参数说明。
- * @returns 无返回值，完成GuestHelloBypass条件判断。
- */
-
-    shouldAllowGuestHelloBypass(client) {
-        if (this.hasSocketAuthHint(client)) {
-            return false;
-        }
-        const handshakeProtocol = typeof client?.handshake?.auth?.protocol === 'string'
-            ? client.handshake.auth.protocol.trim().toLowerCase()
-            : '';
-        return handshakeProtocol === 'mainline';
     }    
     /**
  * resolveAuthenticatedBootstrapEntryPath：规范化或转换Authenticated引导条目路径。
@@ -266,15 +239,6 @@ class WorldGatewayBootstrapHelper {
         return this.rememberBootstrapPromise(client, promise);
     }    
     /**
- * resolveGuestDetachedBinding：规范化或转换GuestDetachedBinding。
- * @param payloadSessionId payloadSession ID。
- * @returns 无返回值，直接更新GuestDetachedBinding相关状态。
- */
-
-    resolveGuestDetachedBinding(payloadSessionId) {
-        return this.gateway.worldSessionService.getDetachedBindingBySessionId(payloadSessionId);
-    }    
-    /**
  * rejectAuthenticatedConnect：执行rejectAuthenticatedConnect相关逻辑。
  * @param client 参数说明。
  * @param code 参数说明。
@@ -311,76 +275,20 @@ class WorldGatewayBootstrapHelper {
         return null;
     }    
     /**
- * rejectGuestHello：执行rejectGuestHello相关逻辑。
- * @param client 参数说明。
- * @param code 参数说明。
- * @param message 参数说明。
- * @returns 无返回值，直接更新rejectGuestHello相关状态。
- */
-
-    rejectGuestHello(client, code, message) {
-        this.gateway.worldClientEventService.emitError(client, code, message);
-        client.disconnect(true);
-        return false;
-    }    
-    /**
- * buildGuestHelloBootstrapInput：构建并返回目标对象。
- * @param client 参数说明。
- * @param payload 载荷参数。
- * @returns 无返回值，直接更新GuestHelloBootstrap输入相关状态。
- */
-
-    buildGuestHelloBootstrapInput(client, payload) {
-  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
-
-        const detachedBinding = this.resolveGuestDetachedBinding(payload?.sessionId);
-        const guestDetachedBinding = detachedBinding && this.gateway.worldSessionService.isGuestPlayerId(detachedBinding.playerId)
-            ? detachedBinding
-            : null;
-        if (detachedBinding && !guestDetachedBinding) {
-            this.gateway.logger.warn(`已拒绝非游客绑定上的游客 hello 脱机续连：socket=${client.id} playerId=${detachedBinding.playerId} sessionId=${detachedBinding.sessionId}`);
-        }
-        const playerId = guestDetachedBinding?.playerId ?? this.gateway.worldSessionService.createGuestPlayerId();
-        const mapId = guestDetachedBinding ? undefined : payload.mapId;
-        const preferredX = guestDetachedBinding ? undefined : payload.preferredX;
-        const preferredY = guestDetachedBinding ? undefined : payload.preferredY;
-        return {
-            playerId,
-            requestedSessionId: guestDetachedBinding?.sessionId,
-            mapId,
-            preferredX,
-            preferredY,
-            loadSnapshot: () => this.gateway.sessionBootstrapService.loadPlayerSnapshot(playerId),
-        };
-    }    
-    /**
- * handleGuestHello：处理GuestHello并更新相关状态。
- * @param client 参数说明。
- * @param payload 载荷参数。
- * @returns 无返回值，直接更新GuestHello相关状态。
- */
-
-    async handleGuestHello(client, payload) {
-        this.setBootstrapTraceContext(client, 'hello_guest', null);
-        await this.gateway.sessionBootstrapService.bootstrapPlayerSession(client, this.buildGuestHelloBootstrapInput(client, payload));
-    }    
-    /**
  * resolveBootstrapAuthContext：规范化或转换引导认证上下文。
  * @param client 参数说明。
- * @param options 选项参数。
  * @returns 无返回值，直接更新Bootstrap认证上下文相关状态。
  */
 
-    async resolveBootstrapAuthContext(client, options = undefined) {
+    async resolveBootstrapAuthContext(client) {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
-        const allowGuest = options?.allowGuest === true;
         const token = this.gateway.sessionBootstrapService.pickSocketToken(client);
         const gmToken = this.gateway.sessionBootstrapService.pickSocketGmToken(client);
         const requestedSessionInspection = this.gateway.sessionBootstrapService.inspectSocketRequestedSessionId(client);
         const protocol = typeof client?.data?.protocol === 'string' ? client.data.protocol.trim().toLowerCase() : '';
         if ((token || gmToken) && protocol === 'mainline' && requestedSessionInspection.error) {
-            return this.rejectAuthenticatedConnect(client, AUTHENTICATED_CONNECT_CONTRACT.invalidSessionIdCode, 'next 认证握手 sessionId 非法');
+            return this.rejectAuthenticatedConnect(client, AUTHENTICATED_CONNECT_CONTRACT.invalidSessionIdCode, '主线认证握手 sessionId 非法');
         }
         if (gmToken) {
             if (!this.gateway.sessionBootstrapService.authenticateSocketGmToken(gmToken)) {
@@ -396,7 +304,7 @@ class WorldGatewayBootstrapHelper {
             client.data.gmRole = 'gm';
         }
         if (!token) {
-            return allowGuest ? { identity: null } : null;
+            return null;
         }
         const identity = await this.gateway.sessionBootstrapService.authenticateSocketToken(token, {
             protocol,
@@ -404,8 +312,8 @@ class WorldGatewayBootstrapHelper {
         if (!identity) {
             return this.rejectAuthenticatedConnect(client, AUTHENTICATED_CONNECT_CONTRACT.authFailCode, '认证失败');
         }
-        if (protocol === 'mainline' && identity.authSource !== 'next' && identity.authSource !== 'token') {
-            return this.rejectAuthenticatedConnect(client, AUTHENTICATED_CONNECT_CONTRACT.authFailCode, 'mainline 协议仅允许 next 真源身份');
+        if (protocol === 'mainline' && identity.authSource !== 'mainline' && identity.authSource !== 'token') {
+            return this.rejectAuthenticatedConnect(client, AUTHENTICATED_CONNECT_CONTRACT.authFailCode, 'mainline 协议仅允许 主线真源身份');
         }
         const authenticatedBootstrapContractViolation = this.gateway.sessionBootstrapService.resolveAuthenticatedBootstrapContractViolation(client, {
             authSource: this.resolveAuthenticatedIdentitySource(client, identity),
@@ -458,10 +366,7 @@ class WorldGatewayBootstrapHelper {
             return;
         }
         const { identity } = authContext;
-        void this.startAuthenticatedBootstrap(client, this.resolveAuthenticatedBootstrapEntryPath(client), identity).catch((error) => {
-            this.gateway.worldClientEventService.emitGatewayError(client, 'AUTH_FAIL', error);
-            client.disconnect(true);
-        });
+        await this.startAuthenticatedBootstrap(client, this.resolveAuthenticatedBootstrapEntryPath(client), identity);
     }    
     /**
  * ensureHelloProtocol：执行ensureHelloProtocol相关逻辑。
@@ -474,40 +379,12 @@ class WorldGatewayBootstrapHelper {
 
         const currentProtocol = typeof client?.data?.protocol === 'string' ? client.data.protocol.trim().toLowerCase() : '';
         if (currentProtocol === 'legacy') {
-            return this.rejectGuestHello(client, GUEST_HELLO_CONTRACT.protocolMismatchCode, 'legacy 握手连接不能进入 mainline hello 链路');
+            return this.rejectAuthenticatedConnect(client, AUTHENTICATED_CONNECT_CONTRACT.legacyProtocolDisabledCode, 'legacy 握手连接不能进入 mainline hello 链路') !== null;
         }
         if (currentProtocol && currentProtocol !== 'mainline') {
-            return this.rejectGuestHello(client, GUEST_HELLO_CONTRACT.unsupportedProtocolCode, `不支持的 hello 协议上下文: ${currentProtocol}`);
+            return this.rejectAuthenticatedConnect(client, AUTHENTICATED_CONNECT_CONTRACT.unsupportedProtocolCode, `不支持的 hello 协议上下文: ${currentProtocol}`) !== null;
         }
         this.gateway.worldClientEventService.markProtocol(client, 'mainline');
-        return true;
-    }    
-    /**
- * shouldAllowGuestHelloBootstrap：判断AllowGuestHello引导是否满足条件。
- * @param client 参数说明。
- * @param payload 载荷参数。
- * @returns 无返回值，完成AllowGuestHelloBootstrap的条件判断。
- */
-
-    async shouldAllowGuestHelloBootstrap(client, payload) {
-  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
-
-        if (this.hasSocketAuthHint(client)) {
-            const waited = await this.awaitPendingBootstrap(client);
-            if (waited) {
-                return false;
-            }
-            this.gateway.logger.warn(`已拒绝 token hello 引导回退：socket=${client.id} protocol=${'mainline'}`);
-            return this.rejectGuestHello(client, GUEST_HELLO_CONTRACT.authBootstrapForbiddenCode, 'token/gmToken 连接只允许 connect 阶段 bootstrap');
-        }
-        const requestedSessionInspection = this.gateway.sessionBootstrapService.inspectRequestedSessionId(payload?.sessionId, client, 'hello');
-        if (requestedSessionInspection.error) {
-            return this.rejectGuestHello(client, GUEST_HELLO_CONTRACT.sessionIdInvalidCode, 'hello 请求 sessionId 非法');
-        }
-        const identityOverrideKeys = GUEST_HELLO_IDENTITY_OVERRIDE_KEYS.filter((key) => typeof payload?.[key] === 'string' && payload[key].trim());
-        if (identityOverrideKeys.length > 0) {
-            return this.rejectGuestHello(client, GUEST_HELLO_CONTRACT.identityOverrideForbiddenCode, 'guest hello 不允许自带 playerId/requestedPlayerId');
-        }
         return true;
     }    
     /**
@@ -527,9 +404,6 @@ class WorldGatewayBootstrapHelper {
             return;
         }
         if (!this.hasSocketAuthHint(client)) {
-            if (this.shouldAllowGuestHelloBypass(client)) {
-                return;
-            }
             this.rejectUnauthenticatedConnect(client);
             return;
         }
@@ -551,7 +425,7 @@ class WorldGatewayBootstrapHelper {
  * @returns 无返回值，直接更新Hello相关状态。
  */
 
-    async handleHello(client, payload) {
+    async handleHello(client, _payload) {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
         if (!this.ensureHelloProtocol(client)) {
@@ -562,21 +436,20 @@ class WorldGatewayBootstrapHelper {
                 return;
             }
             if (!this.hasSocketAuthHint(client)) {
-                if (!this.shouldAllowGuestHelloBypass(client)) {
-                    this.rejectUnauthenticatedConnect(client);
-                    return;
-                }
+                this.rejectUnauthenticatedConnect(client);
+                return;
             }
             if (typeof client.data.playerId === 'string' && client.data.playerId.trim()) {
                 return;
             }
-            if (!(await this.shouldAllowGuestHelloBootstrap(client, payload))) {
+            if (await this.awaitPendingBootstrap(client)) {
                 return;
             }
-            await this.handleGuestHello(client, payload);
+            await this.startConnectionBootstrap(client);
         }
         catch (error) {
-            this.gateway.worldClientEventService.emitGatewayError(client, GUEST_HELLO_CONTRACT.helloFailedCode, error);
+            this.gateway.worldClientEventService.emitGatewayError(client, AUTHENTICATED_CONNECT_CONTRACT.authFailCode, error);
+            client.disconnect(true);
         }
     }
 }

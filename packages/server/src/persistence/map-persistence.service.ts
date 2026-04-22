@@ -22,7 +22,7 @@ const persistent_document_table_1 = require("./persistent-document-table");
 
 const env_alias_1 = require("../config/env-alias");
 
-const MAP_SNAPSHOT_SCOPE = 'server_next_map_aura_v1';
+const MAP_SNAPSHOT_SCOPE = 'server_map_aura_v1';
 const DEFAULT_TILE_AURA_RESOURCE_KEY = (0, shared_1.buildQiResourceKey)(shared_1.DEFAULT_QI_RESOURCE_DESCRIPTOR);
 
 /** 地图快照持久化服务：保存/读取地图环境快照并进行脏数据规整。 */

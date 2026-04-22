@@ -10,6 +10,7 @@ const smoke_timeout_1 = require("./smoke-timeout");
 const socket_io_client_1 = require("socket.io-client");
 const shared_1 = require("@mud/shared");
 const env_alias_1 = require("../config/env-alias");
+const smoke_player_auth_1 = require("./smoke-player-auth");
 /**
  * 记录 server 访问地址。
  */
@@ -37,12 +38,21 @@ async function main() {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
 /**
+ * 记录认证。
+ */
+    const auth = await (0, smoke_player_auth_1.registerAndLoginSmokePlayer)(SERVER_URL, {
+        accountPrefix: 'mlt',
+        rolePrefix: '落',
+        seed: 'monster-loot',
+    });
+/**
  * 记录socket。
  */
     const socket = (0, socket_io_client_1.io)(SERVER_URL, {
         path: '/socket.io',
         transports: ['websocket'],
         auth: {
+            token: auth.accessToken,
             protocol: 'mainline',
         },
     });
@@ -86,11 +96,30 @@ async function main() {
             const state = await fetchState();
             return state.player ? state : null;
         }, 5000);
-        const { instanceId, x, y } = playerState.player;
+/**
+ * 记录清洁地块。
+ */
+        const cleanTile = await findCleanLootTile(playerState.player.instanceId, playerState.player.x, playerState.player.y);
+        if (cleanTile.x !== playerState.player.x || cleanTile.y !== playerState.player.y) {
+            await movePlayerToTile(socket, cleanTile.x, cleanTile.y);
+        }
+/**
+ * 记录spawn前状态。
+ */
+        const spawnState = await waitForState(async () => {
+/**
+ * 记录状态。
+ */
+            const state = await fetchState();
+            return state.player?.x === cleanTile.x && state.player?.y === cleanTile.y
+                ? state
+                : null;
+        }, 5000);
+        const { instanceId, x, y } = spawnState.player;
 /**
  * 记录inventorybefore。
  */
-        const inventoryBefore = getInventoryCount(playerState.player, TARGET_ITEM_ID);
+        const inventoryBefore = getInventoryCount(spawnState.player, TARGET_ITEM_ID);
         await postJson(`/runtime/instances/${instanceId}/spawn-monster-loot`, {
             monsterId: MONSTER_ID,
             x,
@@ -137,9 +166,24 @@ async function main() {
  */
             const tile = await fetchTile(instanceId, x, y);
             return getInventoryCount(state.player, TARGET_ITEM_ID) === inventoryBefore + ratTailCount
-                && !(tile.tile?.groundPile?.items?.some((entry) => entry.itemId === TARGET_ITEM_ID) ?? false)
-                && panelEvents.some((payload) => payload.inv?.slots?.some((entry) => entry.item?.itemId === TARGET_ITEM_ID && entry.item.count === inventoryBefore + ratTailCount));
-        }, 5000);
+                && !(tile.tile?.groundPile?.items?.some((entry) => entry.itemId === TARGET_ITEM_ID) ?? false);
+        }, 5000).catch(async (error) => {
+/**
+ * 记录state。
+ */
+            const state = await fetchState().catch(() => null);
+/**
+ * 记录tile。
+ */
+            const tile = await fetchTile(instanceId, x, y).catch(() => null);
+            throw new Error([
+                error instanceof Error ? error.message : String(error),
+                `state=${JSON.stringify(state)}`,
+                `tile=${JSON.stringify(tile)}`,
+                `lastPanel=${JSON.stringify(panelEvents[panelEvents.length - 1] ?? null)}`,
+                `lastWorld=${JSON.stringify(worldEvents[worldEvents.length - 1] ?? null)}`,
+            ].join('\n'));
+        });
 /**
  * 记录final状态。
  */
@@ -148,6 +192,10 @@ async function main() {
  * 记录finaltile。
  */
         const finalTile = await fetchTile(instanceId, x, y);
+/**
+ * 记录panel是否patched。
+ */
+        const inventoryPanelPatched = panelEvents.some((payload) => payload.inv?.slots?.some((entry) => entry.item?.itemId === TARGET_ITEM_ID && entry.item.count === inventoryBefore + ratTailCount));
         console.log(JSON.stringify({
             ok: true,
             url: SERVER_URL,
@@ -157,6 +205,7 @@ async function main() {
             spawnedCount: ratTailCount,
             inventoryBefore,
             inventoryAfter: getInventoryCount(finalState.player, TARGET_ITEM_ID),
+            inventoryPanelPatched,
             sourceId,
             finalTile,
             finalState,
@@ -293,6 +342,60 @@ async function waitForState(loader, timeoutMs) {
     }
 }
 /**
+ * 处理move玩家到tile。
+ */
+async function movePlayerToTile(socket, targetX, targetY) {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
+    socket.emit(shared_1.C2S.MoveTo, {
+        x: targetX,
+        y: targetY,
+        allowNearestReachable: false,
+    });
+    await waitForState(async () => {
+/**
+ * 记录状态。
+ */
+        const state = await fetchState();
+        return state.player?.x === targetX && state.player?.y === targetY
+            ? state
+            : null;
+    }, 5000);
+}
+/**
+ * 查找干净 loot 地块。
+ */
+async function findCleanLootTile(instanceId, startX, startY) {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
+    const visited = new Set();
+    const candidates = [{ x: startX, y: startY }];
+    for (let radius = 1; radius <= 6; radius += 1) {
+        for (let offsetY = -radius; offsetY <= radius; offsetY += 1) {
+            for (let offsetX = -radius; offsetX <= radius; offsetX += 1) {
+                const x = startX + offsetX;
+                const y = startY + offsetY;
+                const key = `${x},${y}`;
+                if (visited.has(key)) {
+                    continue;
+                }
+                visited.add(key);
+                candidates.push({ x, y });
+            }
+        }
+    }
+    for (const candidate of candidates) {
+/**
+ * 记录tile。
+ */
+        const tile = await fetchTile(instanceId, candidate.x, candidate.y).catch(() => null);
+        if (!tile?.tile?.groundPile) {
+            return candidate;
+        }
+    }
+    throw new Error(`failed to find clean loot tile near ${startX},${startY}`);
+}
+/**
  * 处理delay。
  */
 function delay(ms) {
@@ -314,4 +417,9 @@ async function deletePlayer(playerIdValue) {
         throw new Error(`request failed: ${response.status} ${await response.text()}`);
     }
 }
-main();
+void main().catch((error) => {
+    console.error(error);
+    process.exitCode = 1;
+}).finally(async () => {
+    await (0, smoke_player_auth_1.flushRegisteredSmokePlayers)();
+});

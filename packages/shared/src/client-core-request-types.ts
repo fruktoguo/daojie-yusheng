@@ -3,28 +3,7 @@ import type { AutoBattleSkillConfig, AutoBattleTargetingMode, AutoUsePillConfig,
 import type { Direction } from './world-core-types';
 
 /** 握手就绪声明。 */
-export interface HelloRequestView {
-/**
- * sessionId：sessionID标识。
- */
-
-  sessionId?: string;  
-  /**
- * mapId：地图ID标识。
- */
-
-  mapId?: string;  
-  /**
- * preferredX：preferredX相关字段。
- */
-
-  preferredX?: number;  
-  /**
- * preferredY：preferredY相关字段。
- */
-
-  preferredY?: number;
-}
+export interface HelloRequestView {}
 
 /** 移动指令。 */
 export interface MoveRequestView {

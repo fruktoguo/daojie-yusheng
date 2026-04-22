@@ -12,6 +12,7 @@ import {
   BODY_TRAINING_EXP_BASE,
   BODY_TRAINING_EXP_GROWTH_RATE,
   TECHNIQUE_ATTR_KEYS,
+  TECHNIQUE_EXP_BASE,
   TECHNIQUE_GRADE_ATTR_DECAY_K,
   TECHNIQUE_GRADE_ATTR_DECAY_SPANS,
   TECHNIQUE_GRADE_ATTR_FREE_LIMITS,
@@ -60,6 +61,13 @@ export function getTechniqueLayerDef(level: number, layers?: TechniqueLayerDef[]
 /** 获取当前层升级所需经验 */
 export function getTechniqueExpToNext(level: number, layers?: TechniqueLayerDef[]): number {
   return Math.max(0, getTechniqueLayerDef(level, layers)?.expToNext ?? 0);
+}
+
+/** 根据经验倍率与功法境界等级计算功法实际经验需求 */
+export function scaleTechniqueExp(expFactor: number, realmLv = 1): number {
+  if (expFactor <= 0) return 0;
+  const normalizedRealmLv = Number.isFinite(realmLv) ? Math.max(1, Math.floor(realmLv)) : 1;
+  return Math.max(0, Math.round(expFactor * TECHNIQUE_EXP_BASE * normalizedRealmLv));
 }
 
 /** 解析技能解锁层数（优先 unlockLevel，其次 unlockRealm+1） */
@@ -266,6 +274,5 @@ export function calcTechniqueFinalAttrBonus(techniques: readonly TechniqueState[
 
   return result;
 }
-
 
 

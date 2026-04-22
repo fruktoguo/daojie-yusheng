@@ -15,8 +15,7 @@
 
 - 第 1 阶段对应 [01 冻结 legacy 与边界收口](./01-freeze-legacy-and-boundaries.md)
 - 第 2-3 阶段对应 [02 钉死 next 真源与协议主线](./02-pin-next-sources-and-protocol.md)
-- 第 4 阶段对应 [03 必须迁移的数据清单](./03-required-data-migration-checklist.md)
-- 第 5 阶段对应 [04 一次性迁移脚本](./04-one-off-migration-script.md)
+- 第 4-5 阶段已退役：不再保留迁移清单与一次性迁移脚本
 - 第 6 阶段对应 [05 删除 compat 与桥接层](./05-remove-compat-and-bridges.md)
 - 第 7 阶段对应 [06 服务端主链收口](./06-server-mainline-refactor.md)
 - 第 8 阶段对应 [07 客户端主链收口](./07-client-mainline-refactor.md)
@@ -70,54 +69,26 @@
 - [x] 扫一遍所有 `NEXT_C2S` / `NEXT_S2C`，确认不再有“声明了但没实现”的事件
 - [x] 跑一遍协议审计，确认共享协议、客户端、服务端三边一致
 
-## 4. 产出必须迁移的数据清单
+## 4. 确认不再保留迁移清单
 
 对应任务文档：
 
-- [03 必须迁移的数据清单](./03-required-data-migration-checklist.md)
+- 本阶段已退役，不再保留迁移清单文档
 
-- [x] 列出账号身份相关数据
-- [x] 列出角色基础信息相关数据
-- [x] 列出地图位置 / 出生点 / 当前实例相关数据
-- [x] 列出境界 / 属性 / 数值成长相关数据
-- [x] 列出背包 / 装备 / 物品相关数据
-- [x] 列出功法 / 技能 / 修炼状态相关数据
-- [x] 列出任务相关数据
-- [x] 列出邮件相关数据
-- [x] 列出市场相关数据
-- [x] 列出建议 / 回复相关数据
-- [x] 列出兑换码和 GM 必要持久化数据
-- [x] 对每个数据域写清 legacy 来源、next 目标、转换规则、默认值、可丢弃项
-- [x] 把这份数据清单单独落成文档
+- [x] 确认当前切换口径按空库 / 新服入口收口
+- [x] 从 `next-plan` 入口移除迁移清单文档
+- [x] 删除不再需要的数据迁移清单文档
 
-补充口径：
-
-- [x] 已明确可重建项：`buff / runtimeBonuses / pendingLogbookMessages`
-- [x] 已明确可按条件跳过项：`市场成交历史 / 地图环境快照 / Afdian / GM 备份作业历史`
-
-## 5. 写一次性迁移脚本
+## 5. 删除一次性迁移脚本与 proof 链
 
 对应任务文档：
 
-- [04 一次性迁移脚本](./04-one-off-migration-script.md)
+- 本阶段已退役，不再保留一次性迁移脚本文档
 
-- [x] 选定迁移脚本落点目录
-- [x] 支持 dry-run
-- [x] 支持输出迁移统计摘要
-- [x] 支持输出失败清单
-- [x] 支持按数据域分段执行
-- [x] 支持从 legacy 来源读取账号与角色数据
-- [x] 支持从 legacy 来源读取邮件数据
-- [x] 支持从 legacy 来源读取市场数据
-- [x] 支持从 legacy 来源读取兑换码数据
-- [x] 支持从 legacy 来源读取建议 / 回复数据
-- [x] 支持从 legacy 来源读取 GM 密码数据
-- [x] 支持从 legacy 来源读取 GM 备份 / 作业数据
-- [x] 支持迁移背包 / 装备 / 功法 / 任务 / 邮件 / 市场 / 建议等核心数据
-- [x] 支持把结果写入 next 所需持久化结构
-- [x] 设计迁移后的最小验证命令
-- [x] 补一份样本 fixture 并跑通 dry-run
-- [x] 用一份样本数据跑通完整转换
+- [x] 删除包内一次性迁移脚本入口
+- [x] 删除迁移样本 fixture
+- [x] 删除迁移写入边界 proof
+- [x] 从验证与 cutover 文档移除迁移 proof 口径
 
 ## 6. 删除 compat / bridge / parity 层
 
@@ -178,11 +149,11 @@
 本轮继续把 `world-runtime.service.ts` 里剩余的命令入口 facade 再压一层：新增 `WorldRuntimeCommandIntakeFacadeService` 承接 navigation enqueue、action execution、player-command enqueue、NPC quest/shop enqueue 与 system-command enqueue 这一整簇 thin wrapper。验证已补跑 `smoke:world-runtime-command-intake-facade` 与 `smoke:runtime`；`world-runtime.service.ts` 当前为 `1177` 行，虽然没有继续线性下降，但剩余职责已进一步集中到 world-level getter/barrel 与少量薄编排。 
 本轮继续把 `06` 的收口口径固定成可执行 proof：删除 `world.gateway.ts` 中已经只剩历史意义的 `handleGm* / execute*` 中转壳，删除 `world-sync.service.ts` 底部残留的 dead diff helper，并新增 `packages/server/src/tools/check-mainline-boundaries.js`。这条 proof 现已接入 `@mud/server verify / verify:with-db / verify:replace-ready / verify:proof:with-db / verify:replace-ready:with-db`，默认检查 `world-runtime.service.ts <= 1200`、`world.gateway.ts <= 1400`、`world-sync.service.ts <= 180`、`world-projector.service.ts <= 1500`，同时确认 gateway 不再自持 raw market state 或 execute/GM 中转壳、sync 不再自持 aux cache 或遗留 diff helper、runtime 不再自持 `pendingCommands / playerLocations / instances` raw owner。当前基线已固定为：`world-runtime.service.ts` `1177` 行、`world.gateway.ts` `1385` 行、`world-sync.service.ts` `157` 行、`world-projector.service.ts` `1484` 行；`06` 主链口径对应的 world/gateway/sync/projector 收口项因此全部勾掉。 
 
-补充说明：server 全面 TS 化已开始按职责簇推进。本轮先迁移 bootstrap/config 入口簇：`packages/server/src/config/env-alias.js -> env-alias.ts`、`packages/server/src/config/server-cors.js -> server-cors.ts`、`packages/server/src/main.js -> main.ts`，不改 next 主链行为、协议或 GM/admin 语义；`pnpm --filter @mud/server compile` 与 `pnpm --filter @mud/server smoke:readiness-gate` 已实跑通过。当前 `packages/server/src` 还剩 `278` 个 `.js` 真源，`app.module.js`、`http/next-http.registry.js` 与 `http/next/*` 仍暂留在下一批 HTTP/bootstrap 簇内统一迁移，避免本轮跨太多不相干链路。
+补充说明：server 全面 TS 化已开始按职责簇推进。本轮先迁移 bootstrap/config 入口簇：`packages/server/src/config/env-alias.js -> env-alias.ts`、`packages/server/src/config/server-cors.js -> server-cors.ts`、`packages/server/src/main.js -> main.ts`，不改 next 主链行为、协议或 GM/admin 语义；`pnpm --filter @mud/server compile` 与 `pnpm --filter @mud/server smoke:readiness-gate` 已实跑通过。当前 `packages/server/src` 还剩 `278` 个 `.js` 真源，`app.module.js`、`http/native-http.registry.js` 与 `http/native/*` 当时仍暂留在下一批 HTTP/bootstrap 簇内统一迁移，避免本轮跨太多不相干链路。
 
-补充说明：本轮继续把 HTTP/bootstrap 簇整体迁成 TS，统一收掉 `packages/server/src/app.module.js`、`packages/server/src/http/next-http.registry.js` 与 `packages/server/src/http/next/*.js` 这条链路上的真源 `.js`。本轮完成迁移的文件包括：`next-gm-contract.js -> next-gm-contract.ts`、`next-gm.constants.js -> next-gm.constants.ts`、`next-auth-rate-limit.service.js -> next-auth-rate-limit.service.ts`、`next-gm-auth.guard.js -> next-gm-auth.guard.ts`、`next-player-auth-store.service.js -> next-player-auth-store.service.ts`、`next-player-auth.service.js -> next-player-auth.service.ts`、`next-managed-account.service.js -> next-managed-account.service.ts`、`next-gm-map-query.service.js -> next-gm-map-query.service.ts`、`next-gm-editor-query.service.js -> next-gm-editor-query.service.ts`、`next-gm-suggestion-query.service.js -> next-gm-suggestion-query.service.ts`、`next-gm-map-runtime-query.service.js -> next-gm-map-runtime-query.service.ts`、`next-gm-mail.service.js -> next-gm-mail.service.ts`、`next-database-restore-coordinator.service.js -> next-database-restore-coordinator.service.ts`、`next-gm-state-query.service.js -> next-gm-state-query.service.ts`、`next-gm-player.service.js -> next-gm-player.service.ts`、`next-gm-world.service.js -> next-gm-world.service.ts`、`next-gm-admin.service.js -> next-gm-admin.service.ts`、`next-auth.controller.js -> next-auth.controller.ts`、`next-account.controller.js -> next-account.controller.ts`、`next-gm-auth.controller.js -> next-gm-auth.controller.ts`、`next-gm.controller.js -> next-gm.controller.ts`、`next-gm-admin.controller.js -> next-gm-admin.controller.ts`、`packages/server/src/http/next-http.registry.js -> next-http.registry.ts`、`packages/server/src/app.module.js -> app.module.ts`。同轮还同步把 `packages/server/src/tools/audit/next-legacy-boundary-audit.js` 里指向 `app.module.js` 的审计路径改到 `app.module.ts`，并把 `next-gm-admin.service.ts`、`next-http.registry.ts`、`app.module.ts` 清理为真实 ES import/export 风格 TS 源码，不保留编译产物式 `require(...)` 残余。验证已补跑 `pnpm --filter @mud/server compile`、`pnpm --filter @mud/server exec node dist/tools/smoke-suite.js --case readiness-gate --case next-auth-bootstrap --case gm-next` 并通过；当前 `packages/server/src` 还剩 `254` 个 `.js` 真源。`docs/next-plan/06-server-mainline-refactor.md` 本轮无新增主链收口结论，因此不单独改动；下一批继续按职责簇选择新的 next 主链 `.js -> .ts` 目标。
+补充说明：本轮继续把 HTTP/bootstrap 簇整体迁成 TS，统一收掉 `packages/server/src/app.module.js`、`packages/server/src/http/native-http.registry.js` 与 `packages/server/src/http/native/*.js` 这条链路上的真源 `.js`。本轮完成迁移的文件包括：`native-gm-contract.js -> native-gm-contract.ts`、`native-gm.constants.js -> native-gm.constants.ts`、`native-auth-rate-limit.service.js -> native-auth-rate-limit.service.ts`、`native-gm-auth.guard.js -> native-gm-auth.guard.ts`、`native-player-auth-store.service.js -> native-player-auth-store.service.ts`、`native-player-auth.service.js -> native-player-auth.service.ts`、`native-managed-account.service.js -> native-managed-account.service.ts`、`native-gm-map-query.service.js -> native-gm-map-query.service.ts`、`native-gm-editor-query.service.js -> native-gm-editor-query.service.ts`、`native-gm-suggestion-query.service.js -> native-gm-suggestion-query.service.ts`、`native-gm-map-runtime-query.service.js -> native-gm-map-runtime-query.service.ts`、`native-gm-mail.service.js -> native-gm-mail.service.ts`、`native-database-restore-coordinator.service.js -> native-database-restore-coordinator.service.ts`、`native-gm-state-query.service.js -> native-gm-state-query.service.ts`、`native-gm-player.service.js -> native-gm-player.service.ts`、`native-gm-world.service.js -> native-gm-world.service.ts`、`native-gm-admin.service.js -> native-gm-admin.service.ts`、`native-auth.controller.js -> native-auth.controller.ts`、`native-account.controller.js -> native-account.controller.ts`、`native-gm-auth.controller.js -> native-gm-auth.controller.ts`、`native-gm.controller.js -> native-gm.controller.ts`、`native-gm-admin.controller.js -> native-gm-admin.controller.ts`、`packages/server/src/http/native-http.registry.js -> native-http.registry.ts`、`packages/server/src/app.module.js -> app.module.ts`。同轮还同步把 `packages/server/src/tools/audit/next-legacy-boundary-audit.js` 里指向 `app.module.js` 的审计路径改到 `app.module.ts`，并把 `native-gm-admin.service.ts`、`native-http.registry.ts`、`app.module.ts` 清理为真实 ES import/export 风格 TS 源码，不保留编译产物式 `require(...)` 残余。验证已补跑 `pnpm --filter @mud/server compile`、`pnpm --filter @mud/server exec node dist/tools/smoke-suite.js --case readiness-gate --case next-auth-bootstrap --case gm-next` 并通过；当前 `packages/server/src` 还剩 `254` 个 `.js` 真源。`docs/next-plan/06-server-mainline-refactor.md` 本轮无新增主链收口结论，因此不单独改动；下一批继续按职责簇选择新的 next 主链 `.js -> .ts` 目标。
 
-补充说明：本轮继续以最低风险职责簇推进 server TS loop，已把 `packages/server/src/auth/account-validation.js -> account-validation.ts`、`packages/server/src/auth/password-hash.js -> password-hash.ts` 与 `packages/server/src/auth/player-token-verify.js -> player-token-verify.ts` 一并收口，不扩到 `network` 的 token/bootstrap/session 主链，也不改 `runtime-gm-auth` 现有哈希实现。直接消费端仍维持原扩展名无关导入：`next-player-auth.service.ts`、`next-managed-account.service.ts`、`next-player-auth-store.service.ts` 无需改行为即可继续编译；`player-token-verify.ts` 随后已被 `world-player-token-codec.service.ts` 复用。验证已补跑两轮 `pnpm --filter @mud/server compile`，并在前两刀补跑 `pnpm --filter @mud/server smoke:next-auth-bootstrap`，结果通过；auth 叶子簇收口后 `packages/server/src` 剩余手写 `.js` 真源基线为 `251`。
+补充说明：本轮继续以最低风险职责簇推进 server TS loop，已把 `packages/server/src/auth/account-validation.js -> account-validation.ts`、`packages/server/src/auth/password-hash.js -> password-hash.ts` 与 `packages/server/src/auth/player-token-verify.js -> player-token-verify.ts` 一并收口，不扩到 `network` 的 token/bootstrap/session 主链，也不改 `runtime-gm-auth` 现有哈希实现。直接消费端仍维持原扩展名无关导入：`native-player-auth.service.ts`、`native-managed-account.service.ts`、`native-player-auth-store.service.ts` 无需改行为即可继续编译；`player-token-verify.ts` 随后已被 `world-player-token-codec.service.ts` 复用。验证已补跑两轮 `pnpm --filter @mud/server compile`，并在前两刀补跑 `pnpm --filter @mud/server smoke:next-auth-bootstrap`，结果通过；auth 叶子簇收口后 `packages/server/src` 剩余手写 `.js` 真源基线为 `251`。
 
 补充说明：本轮随后继续沿同一条 network/auth 最小链路推进，把 `packages/server/src/network/world-player-token-codec.service.js -> world-player-token-codec.service.ts` 收口，并复用 `packages/server/src/auth/player-token-verify.ts` 取代 codec 内部重复的 JWT 校验逻辑，不扩到 `world-player-token.service.js`、`world-player-auth.service.js` 与 session/bootstrap 编排。验证已补跑 `pnpm --filter @mud/server compile` 与 `pnpm --filter @mud/server smoke:next-auth-bootstrap`，结果通过；codec seam 收口后 `packages/server/src` 剩余手写 `.js` 真源基线为 `250`。
 
@@ -259,7 +230,7 @@
 - [09 验证门禁与验收](./09-verification-and-acceptance.md)
 
 - [x] 把 `local / with-db / acceptance / full / shadow-destructive` 继续固定为唯一门禁口径
-- [x] 给“数据迁移完成”补一条迁移 proof 链
+- [x] 确认门禁不再依赖任何迁移 proof 链
 - [x] 跑通 `pnpm build`
 - [x] 跑通 `pnpm verify:replace-ready`
 - [x] 跑通 `pnpm verify:replace-ready:with-db`
@@ -271,7 +242,7 @@
 补充说明：
 
 - 当前仓库已证明 `local` 与 `with-db` 都在本轮实跑通过。
-- `acceptance` 已在本机 next shadow 上实跑通过。
+- `acceptance` 已在本机 shadow 上实跑通过。
 - `full` 也已在本轮实跑通过。
 - `shadow-destructive` 仍应以维护窗口与当前轮次实跑记录为准，不能沿用历史 `[x]` 口径。
 
@@ -283,7 +254,7 @@
 
 - [x] 列出仍然必须保留的 legacy 文件范围
 - [x] 把不再需要的 legacy 入口从主文档和主流程中移除
-- [x] 把 legacy 剩余价值收束为“查规则 / 查旧数据格式 / 迁移来源”
+- [x] 把 legacy 剩余价值收束为“查规则 / 查旧数据格式 / 历史对照”
 - [x] 更新顶层说明文档，明确当前仓库只有 next 是活跃主线
 - [x] 固定 next cutover / readiness 的仓库内 proof
 - [x] 固定 next cutover / preflight 的仓库内 proof
@@ -296,20 +267,20 @@
 - [10 legacy 归档与最终切换](./10-legacy-archive-and-cutover.md)
 
 - [x] `packages/*` 成为唯一活跃主线
-- [x] legacy 数据可以稳定迁到 next
+- [x] 默认切换按空库 / 新服入口执行，不再保留 legacy 数据迁移路径
 - [x] 玩家主链不再默认走 compat fallback
 - [x] GM 关键面与必要管理面能闭环
 - [x] 协议、运行时、UI 不再为了 legacy 对齐背额外复杂度
-- [x] legacy 只剩归档和迁移参考价值
+- [x] legacy 只剩归档和历史参考价值
 - [x] next 主线可以作为后续唯一开发入口
 - [x] 验证门禁全部按 next 主链口径通过
 
 ## 14. 当前建议顺序
 
-- [x] 先完成“必须迁移的数据清单”
+- [x] 先完成 next 真源与协议主线收口
 - [x] 再补协议空洞和最外层 compat 删除
-- [x] 再写一次性迁移脚本
 - [x] 再做 server/client/shared 主链收口
+- [x] 再删除迁移期脚本、proof 与文档入口
 - [ ] 最后完成 `10` 的真实切换前/切换后人工检查（本地 destructive proof 已补，真实生产/远程切换仍需按执行清单完成）
   - 当前已补逐步执行手册，剩余是实际环境里的人工执行与记录回写
 
@@ -338,7 +309,7 @@
 - [x] 再推进第 7 批 `runtime player / instance / world` 主链前半段
 - [x] 再推进第 5 批 `network gateway / sync / projector` 残余簇
 - [x] 再收掉第 7 批剩余 `runtime/world` 主链
-- [x] 下一批优先推进第 9 批最终收尾，迁掉 `migrate-next-mainline-once.js` 与 `env-alias.js`
+- [x] 第 9 批最终收尾已删除一次性迁移脚本与 `env-alias.js`
 - [x] 最终移除 `env-alias.js` 兼容壳并清零 `packages/server/src` 手写 `.js`
 - [ ] 下一阶段逐步去掉迁移期 `// @ts-nocheck` 并补强 server TS 类型约束
 

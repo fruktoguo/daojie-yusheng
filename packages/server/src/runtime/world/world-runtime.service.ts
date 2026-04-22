@@ -27,7 +27,7 @@ const shared_1 = require("@mud/shared");
 
 const movement_debug_1 = require("../../debug/movement-debug");
 
-const next_gm_constants_1 = require("../../http/next/next-gm.constants");
+const next_gm_constants_1 = require("../../http/native/native-gm.constants");
 
 const content_template_repository_1 = require("../../content/content-template.repository");
 
@@ -647,6 +647,9 @@ let WorldRuntimeService = WorldRuntimeService_1 = class WorldRuntimeService {
     }
         getOrCreatePublicInstance(templateId) {
         return this.worldRuntimeWorldAccessService.getOrCreatePublicInstance(templateId, this);
+    }
+        getOrCreateDefaultLineInstance(templateId, linePreset) {
+        return this.worldRuntimeWorldAccessService.getOrCreateDefaultLineInstance(templateId, linePreset, this);
     }
         resolveDefaultRespawnMapId() {
         return this.worldRuntimeWorldAccessService.resolveDefaultRespawnMapId(this);

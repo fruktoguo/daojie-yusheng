@@ -19,7 +19,7 @@ const common_1 = require("@nestjs/common");
 
 const shared_1 = require("@mud/shared");
 
-const next_gm_constants_1 = require("../../http/next/next-gm.constants");
+const next_gm_constants_1 = require("../../http/native/native-gm.constants");
 const pvp_1 = require("../../constants/gameplay/pvp");
 
 const content_template_repository_1 = require("../../content/content-template.repository");
@@ -79,7 +79,7 @@ let PlayerRuntimeService = class PlayerRuntimeService {
 
         const existing = this.players.get(playerId);
         if (existing) {
-            existing.sessionId = sessionId;
+            this.refreshRuntimeSession(existing, sessionId);
             this.pendingCombatEffectsByPlayerId.delete(playerId);
             return existing;
         }
@@ -89,6 +89,7 @@ let PlayerRuntimeService = class PlayerRuntimeService {
         const player = snapshot
             ? this.hydrateFromSnapshot(playerId, sessionId, snapshot)
             : this.createFreshPlayer(playerId, sessionId);
+        this.bindRuntimeSession(player, sessionId);
         this.players.set(playerId, player);
         return player;
     }
@@ -99,11 +100,12 @@ let PlayerRuntimeService = class PlayerRuntimeService {
 
         const existing = this.players.get(playerId);
         if (existing) {
-            existing.sessionId = sessionId;
+            this.refreshRuntimeSession(existing, sessionId);
             return existing;
         }
 
         const player = this.createFreshPlayer(playerId, sessionId);
+        this.bindRuntimeSession(player, sessionId);
         this.players.set(playerId, player);
         this.pendingCombatEffectsByPlayerId.delete(playerId);
         return player;
@@ -116,12 +118,19 @@ let PlayerRuntimeService = class PlayerRuntimeService {
         const player = {
             playerId,
             sessionId,
+            runtimeOwnerId: null,
+            sessionEpoch: 0,
+            lastHeartbeatAt: null,
+            offlineSinceAt: null,
             name: playerId,
             displayName: playerId,
             persistentRevision: 1,
             persistedRevision: 0,
             instanceId: '',
             templateId: '',
+            worldPreference: {
+                linePreset: 'peaceful',
+            },
             x: 0,
             y: 0,
             facing: shared_1.Direction.South,
@@ -239,6 +248,9 @@ let PlayerRuntimeService = class PlayerRuntimeService {
         const player = this.players.get(playerId);
         if (player) {
             player.sessionId = null;
+            if (!Number.isFinite(player.offlineSinceAt)) {
+                player.offlineSinceAt = Date.now();
+            }
         }
     }
     /** 从运行时中移除玩家，通常用于注销或彻底清理。 */
@@ -257,7 +269,7 @@ let PlayerRuntimeService = class PlayerRuntimeService {
         }
         player.lootWindowTarget = { tileX, tileY };
         return player;
-    }    
+    }
     /**
  * clearLootWindow：执行clear掉落窗口相关逻辑。
  * @param playerId 玩家 ID。
@@ -274,7 +286,7 @@ let PlayerRuntimeService = class PlayerRuntimeService {
         }
         player.lootWindowTarget = null;
         return player;
-    }    
+    }
     /**
  * getLootWindowTarget：读取掉落窗口目标。
  * @param playerId 玩家 ID。
@@ -293,7 +305,7 @@ let PlayerRuntimeService = class PlayerRuntimeService {
             tileX: player.lootWindowTarget.tileX,
             tileY: player.lootWindowTarget.tileY,
         };
-    }    
+    }
     /**
  * getPlayer：读取玩家。
  * @param playerId 玩家 ID。
@@ -302,7 +314,7 @@ let PlayerRuntimeService = class PlayerRuntimeService {
 
     getPlayer(playerId) {
         return this.players.get(playerId) ?? null;
-    }    
+    }
     /**
  * getPlayerOrThrow：读取玩家OrThrow。
  * @param playerId 玩家 ID。
@@ -318,7 +330,87 @@ let PlayerRuntimeService = class PlayerRuntimeService {
             throw new common_1.NotFoundException(`Player ${playerId} not found`);
         }
         return player;
-    }    
+    }
+    /**
+ * getSessionFence：读取当前运行态 session fencing 信息。
+ * @param playerId 玩家 ID。
+ * @returns 无返回值，完成 session fencing 信息读取。
+ */
+
+    getSessionFence(playerId) {
+        const player = this.getPlayer(playerId);
+        if (!player) {
+            return null;
+        }
+        return {
+            runtimeOwnerId: typeof player.runtimeOwnerId === 'string' && player.runtimeOwnerId.trim()
+                ? player.runtimeOwnerId.trim()
+                : null,
+            sessionEpoch: Number.isFinite(player.sessionEpoch)
+                ? Math.max(1, Math.trunc(Number(player.sessionEpoch)))
+                : null,
+        };
+    }
+    /**
+ * describePersistencePresence：导出 presence 域所需的运行态投影。
+ * @param playerId 玩家 ID。
+ * @returns 无返回值，完成 presence 投影读取。
+ */
+
+    describePersistencePresence(playerId) {
+        const player = this.getPlayer(playerId);
+        if (!player) {
+            return null;
+        }
+        const sessionFence = this.getSessionFence(playerId);
+        const online = typeof player.sessionId === 'string' && player.sessionId.trim().length > 0;
+        return {
+            online,
+            inWorld: online && typeof player.templateId === 'string' && player.templateId.trim().length > 0,
+            lastHeartbeatAt: Number.isFinite(player.lastHeartbeatAt)
+                ? Math.trunc(Number(player.lastHeartbeatAt))
+                : (online ? Date.now() : null),
+            offlineSinceAt: online
+                ? null
+                : (Number.isFinite(player.offlineSinceAt) ? Math.trunc(Number(player.offlineSinceAt)) : Date.now()),
+            runtimeOwnerId: sessionFence?.runtimeOwnerId ?? null,
+            sessionEpoch: sessionFence?.sessionEpoch ?? null,
+            transferState: null,
+            transferTargetNodeId: null,
+            versionSeed: Date.now(),
+        };
+    }
+    /**
+ * markHeartbeat：更新玩家最后一次心跳时间。
+ * @param playerId 玩家 ID。
+ * @returns 无返回值，直接刷新心跳戳。
+ */
+
+    markHeartbeat(playerId) {
+        const player = this.getPlayer(playerId);
+        if (!player) {
+            return;
+        }
+        player.lastHeartbeatAt = Date.now();
+    }
+    /**
+ * replaceInventoryItems：用已提交的新背包快照替换运行态。
+ * @param playerId 玩家 ID。
+ * @param items 新背包条目。
+ * @returns 无返回值，直接更新运行态背包。
+ */
+
+    replaceInventoryItems(playerId, items) {
+        const player = this.getPlayerOrThrow(playerId);
+        const nextItems = Array.isArray(items)
+            ? items.map((entry) => this.contentTemplateRepository.normalizeItem(entry))
+            : [];
+        player.inventory.items = nextItems;
+        player.inventory.revision += 1;
+        this.playerProgressionService.refreshPreview(player);
+        this.bumpPersistentRevision(player);
+        return player;
+    }
     /**
  * getViewRadius：读取视图Radiu。
  * @param playerId 玩家 ID。
@@ -329,7 +421,7 @@ let PlayerRuntimeService = class PlayerRuntimeService {
 
         const player = this.getPlayerOrThrow(playerId);
         return Math.max(1, Math.round(player.attrs.numericStats.viewRange));
-    }    
+    }
     /**
  * gainRealmProgress：执行gainRealm进度相关逻辑。
  * @param playerId 玩家 ID。
@@ -344,7 +436,7 @@ let PlayerRuntimeService = class PlayerRuntimeService {
 
         const result = this.playerProgressionService.gainRealmProgress(player, amount, options);
         return this.applyProgressionResult(player, result);
-    }    
+    }
     /**
  * gainFoundation：执行gainFoundation相关逻辑。
  * @param playerId 玩家 ID。
@@ -358,7 +450,7 @@ let PlayerRuntimeService = class PlayerRuntimeService {
 
         const result = this.playerProgressionService.gainFoundation(player, amount);
         return this.applyProgressionResult(player, result);
-    }    
+    }
     /**
  * gainCombatExp：执行gain战斗Exp相关逻辑。
  * @param playerId 玩家 ID。
@@ -372,7 +464,7 @@ let PlayerRuntimeService = class PlayerRuntimeService {
 
         const result = this.playerProgressionService.gainCombatExp(player, amount);
         return this.applyProgressionResult(player, result);
-    }    
+    }
     /**
  * advanceProgressionTick：执行advance修炼进度tick相关逻辑。
  * @param playerId 玩家 ID。
@@ -387,7 +479,7 @@ let PlayerRuntimeService = class PlayerRuntimeService {
 
         const result = this.playerProgressionService.advanceProgressionTick(player, elapsedTicks, options);
         return this.applyProgressionResult(player, result);
-    }    
+    }
     /**
  * advanceCultivation：执行advanceCultivation相关逻辑。
  * @param playerId 玩家 ID。
@@ -402,7 +494,7 @@ let PlayerRuntimeService = class PlayerRuntimeService {
 
         const result = this.playerProgressionService.advanceCultivation(player, elapsedTicks);
         return this.applyProgressionResult(player, result, currentTick);
-    }    
+    }
     /**
  * grantMonsterKillProgress：执行grant怪物Kill进度相关逻辑。
  * @param playerId 玩家 ID。
@@ -417,7 +509,7 @@ let PlayerRuntimeService = class PlayerRuntimeService {
 
         const result = this.playerProgressionService.grantMonsterKillProgress(player, input);
         return this.applyProgressionResult(player, result, currentTick);
-    }    
+    }
     /**
  * refreshProgressionPreview：执行refresh修炼进度Preview相关逻辑。
  * @param playerId 玩家 ID。
@@ -429,7 +521,7 @@ let PlayerRuntimeService = class PlayerRuntimeService {
         const player = this.getPlayerOrThrow(playerId);
         this.playerProgressionService.refreshPreview(player);
         return player;
-    }    
+    }
     /**
  * handleHeavenGateAction：处理HeavenGateAction并更新相关状态。
  * @param playerId 玩家 ID。
@@ -445,7 +537,7 @@ let PlayerRuntimeService = class PlayerRuntimeService {
 
         const result = this.playerProgressionService.handleHeavenGateAction(player, action, element);
         return this.applyProgressionResult(player, result, currentTick, true);
-    }    
+    }
     /**
  * attemptBreakthrough：执行attemptBreakthrough相关逻辑。
  * @param playerId 玩家 ID。
@@ -459,7 +551,7 @@ let PlayerRuntimeService = class PlayerRuntimeService {
 
         const result = this.playerProgressionService.attemptBreakthrough(player);
         return this.applyProgressionResult(player, result, currentTick, true);
-    }    
+    }
     /**
  * syncFromWorldView：处理From世界视图并更新相关状态。
  * @param playerId 玩家 ID。
@@ -500,7 +592,7 @@ let PlayerRuntimeService = class PlayerRuntimeService {
             player.selfRevision += 1;
         }
         return player;
-    }    
+    }
     /**
  * setContextActions：写入上下文Action。
  * @param playerId 玩家 ID。
@@ -524,7 +616,7 @@ let PlayerRuntimeService = class PlayerRuntimeService {
         player.actions.contextActions = normalized;
         this.rebuildActionState(player, currentTick);
         return player;
-    }    
+    }
     /**
  * setVitals：写入Vital。
  * @param playerId 玩家 ID。
@@ -574,7 +666,7 @@ let PlayerRuntimeService = class PlayerRuntimeService {
             player.selfRevision += 1;
         }
         return player;
-    }    
+    }
     /**
  * grantItem：执行grant道具相关逻辑。
  * @param playerId 玩家 ID。
@@ -605,7 +697,7 @@ let PlayerRuntimeService = class PlayerRuntimeService {
         this.playerProgressionService.refreshPreview(player);
         this.bumpPersistentRevision(player);
         return player;
-    }    
+    }
     /**
  * getInventoryCountByItemId：读取背包数量By道具ID。
  * @param playerId 玩家 ID。
@@ -626,7 +718,7 @@ let PlayerRuntimeService = class PlayerRuntimeService {
             }
         }
         return total;
-    }    
+    }
     /**
  * canReceiveInventoryItem：判断Receive背包道具是否满足条件。
  * @param playerId 玩家 ID。
@@ -643,7 +735,7 @@ let PlayerRuntimeService = class PlayerRuntimeService {
             return true;
         }
         return player.inventory.items.length < player.inventory.capacity;
-    }    
+    }
     /**
  * peekInventoryItem：执行peek背包道具相关逻辑。
  * @param playerId 玩家 ID。
@@ -655,7 +747,7 @@ let PlayerRuntimeService = class PlayerRuntimeService {
 
         const player = this.getPlayerOrThrow(playerId);
         return player.inventory.items[slotIndex] ?? null;
-    }    
+    }
     /**
  * peekEquippedItem：执行peekEquipped道具相关逻辑。
  * @param playerId 玩家 ID。
@@ -667,7 +759,7 @@ let PlayerRuntimeService = class PlayerRuntimeService {
 
         const player = this.getPlayerOrThrow(playerId);
         return player.equipment.slots.find((entry) => entry.slot === slot)?.item ?? null;
-    }    
+    }
     /**
  * getTechniqueName：读取功法名称。
  * @param playerId 玩家 ID。
@@ -679,7 +771,7 @@ let PlayerRuntimeService = class PlayerRuntimeService {
 
         const player = this.getPlayerOrThrow(playerId);
         return player.techniques.techniques.find((entry) => entry.techId === techId)?.name ?? null;
-    }    
+    }
     /**
  * listQuests：读取任务并返回结果。
  * @param playerId 玩家 ID。
@@ -690,7 +782,7 @@ let PlayerRuntimeService = class PlayerRuntimeService {
 
         const player = this.getPlayerOrThrow(playerId);
         return player.quests.quests.map((entry) => ({ ...entry, rewards: entry.rewards.map((reward) => ({ ...reward })) }));
-    }    
+    }
     /**
  * getPendingLogbookMessages：读取待处理LogbookMessage。
  * @param playerId 玩家 ID。
@@ -701,7 +793,7 @@ let PlayerRuntimeService = class PlayerRuntimeService {
 
         const player = this.getPlayerOrThrow(playerId);
         return player.pendingLogbookMessages.map((entry) => ({ ...entry }));
-    }    
+    }
     /**
  * getLegacyPendingLogbookMessages：读取Legacy待处理LogbookMessage。
  * @param playerId 玩家 ID。
@@ -710,7 +802,7 @@ let PlayerRuntimeService = class PlayerRuntimeService {
 
     getLegacyPendingLogbookMessages(playerId) {
         return this.getPendingLogbookMessages(playerId);
-    }    
+    }
     /**
  * queuePendingLogbookMessage：执行queue待处理LogbookMessage相关逻辑。
  * @param playerId 玩家 ID。
@@ -746,7 +838,7 @@ let PlayerRuntimeService = class PlayerRuntimeService {
         player.pendingLogbookMessages = limited;
         this.bumpPersistentRevision(player);
         return player;
-    }    
+    }
     /**
  * queueLegacyPendingLogbookMessage：执行queueLegacy待处理LogbookMessage相关逻辑。
  * @param playerId 玩家 ID。
@@ -756,7 +848,7 @@ let PlayerRuntimeService = class PlayerRuntimeService {
 
     queueLegacyPendingLogbookMessage(playerId, message) {
         return this.queuePendingLogbookMessage(playerId, message);
-    }    
+    }
     /**
  * deferVitalRecoveryUntilTick：执行deferVitalRecoveryUntiltick相关逻辑。
  * @param playerId 玩家 ID。
@@ -776,7 +868,7 @@ let PlayerRuntimeService = class PlayerRuntimeService {
         }
         player.vitalRecoveryDeferredUntilTick = normalizedTick;
         return player;
-    }    
+    }
     /**
  * suppressVitalRecoveryUntilTick：执行suppressVitalRecoveryUntiltick相关逻辑。
  * @param playerId 玩家 ID。
@@ -786,7 +878,7 @@ let PlayerRuntimeService = class PlayerRuntimeService {
 
     suppressVitalRecoveryUntilTick(playerId, currentTick) {
         return this.deferVitalRecoveryUntilTick(playerId, currentTick);
-    }    
+    }
     /**
  * acknowledgePendingLogbookMessages：执行acknowledge待处理LogbookMessage相关逻辑。
  * @param playerId 玩家 ID。
@@ -818,7 +910,7 @@ let PlayerRuntimeService = class PlayerRuntimeService {
         player.pendingLogbookMessages = next;
         this.bumpPersistentRevision(player);
         return player;
-    }    
+    }
     /**
  * ackLegacyPendingLogbookMessages：执行ackLegacy待处理LogbookMessage相关逻辑。
  * @param playerId 玩家 ID。
@@ -828,7 +920,7 @@ let PlayerRuntimeService = class PlayerRuntimeService {
 
     ackLegacyPendingLogbookMessages(playerId, ids) {
         return this.acknowledgePendingLogbookMessages(playerId, ids);
-    }    
+    }
     /**
  * markQuestStateDirty：处理任务状态Dirty并更新相关状态。
  * @param playerId 玩家 ID。
@@ -841,7 +933,7 @@ let PlayerRuntimeService = class PlayerRuntimeService {
         player.quests.revision += 1;
         this.bumpPersistentRevision(player);
         return player;
-    }    
+    }
     /**
  * enqueueNotice：处理Notice并更新相关状态。
  * @param playerId 玩家 ID。
@@ -866,7 +958,7 @@ let PlayerRuntimeService = class PlayerRuntimeService {
         });
         player.notices.nextId += 1;
         return player;
-    }    
+    }
     /**
  * enqueueCombatEffect：处理战斗Effect并更新相关状态。
  * @param playerId 玩家 ID。
@@ -889,7 +981,7 @@ let PlayerRuntimeService = class PlayerRuntimeService {
             return;
         }
         this.pendingCombatEffectsByPlayerId.set(playerId, [cloneCombatEffect(effect)]);
-    }    
+    }
     /**
  * enqueueCombatEffects：处理战斗Effect并更新相关状态。
  * @param playerId 玩家 ID。
@@ -901,7 +993,7 @@ let PlayerRuntimeService = class PlayerRuntimeService {
         for (const effect of effects) {
             this.enqueueCombatEffect(playerId, effect);
         }
-    }    
+    }
     /**
  * drainCombatEffects：执行drain战斗Effect相关逻辑。
  * @param playerId 玩家 ID。
@@ -918,7 +1010,7 @@ let PlayerRuntimeService = class PlayerRuntimeService {
         }
         this.pendingCombatEffectsByPlayerId.delete(playerId);
         return queue.map((entry) => cloneCombatEffect(entry));
-    }    
+    }
     /**
  * drainNotices：执行drainNotice相关逻辑。
  * @param playerId 玩家 ID。
@@ -937,7 +1029,7 @@ let PlayerRuntimeService = class PlayerRuntimeService {
         const queue = player.notices.queue.map((entry) => ({ ...entry }));
         player.notices.queue.length = 0;
         return queue;
-    }    
+    }
     /**
  * splitInventoryItem：处理背包道具并更新相关状态。
  * @param playerId 玩家 ID。
@@ -969,7 +1061,7 @@ let PlayerRuntimeService = class PlayerRuntimeService {
         player.inventory.revision += 1;
         this.bumpPersistentRevision(player);
         return extracted;
-    }    
+    }
     /**
  * receiveInventoryItem：执行receive背包道具相关逻辑。
  * @param playerId 玩家 ID。
@@ -996,7 +1088,7 @@ let PlayerRuntimeService = class PlayerRuntimeService {
         this.playerProgressionService.refreshPreview(player);
         this.bumpPersistentRevision(player);
         return player;
-    }    
+    }
     /**
  * useItem：执行use道具相关逻辑。
  * @param playerId 玩家 ID。
@@ -1049,7 +1141,7 @@ let PlayerRuntimeService = class PlayerRuntimeService {
         this.playerProgressionService.refreshPreview(player);
         this.bumpPersistentRevision(player);
         return player;
-    }    
+    }
     /**
  * consumeInventoryItem：执行consume背包道具相关逻辑。
  * @param playerId 玩家 ID。
@@ -1073,7 +1165,7 @@ let PlayerRuntimeService = class PlayerRuntimeService {
         this.playerProgressionService.refreshPreview(player);
         this.bumpPersistentRevision(player);
         return player;
-    }    
+    }
     /**
  * consumeInventoryItemByItemId：执行consume背包道具By道具ID相关逻辑。
  * @param playerId 玩家 ID。
@@ -1109,7 +1201,7 @@ let PlayerRuntimeService = class PlayerRuntimeService {
         this.playerProgressionService.refreshPreview(player);
         this.bumpPersistentRevision(player);
         return player;
-    }    
+    }
     /**
  * destroyInventoryItem：执行destroy背包道具相关逻辑。
  * @param playerId 玩家 ID。
@@ -1140,7 +1232,7 @@ let PlayerRuntimeService = class PlayerRuntimeService {
         this.playerProgressionService.refreshPreview(player);
         this.bumpPersistentRevision(player);
         return destroyed;
-    }    
+    }
     /**
  * sortInventory：执行sort背包相关逻辑。
  * @param playerId 玩家 ID。
@@ -1175,7 +1267,7 @@ let PlayerRuntimeService = class PlayerRuntimeService {
         player.inventory.revision += 1;
         this.bumpPersistentRevision(player);
         return player;
-    }    
+    }
     /**
  * unlockMap：执行unlock地图相关逻辑。
  * @param playerId 玩家 ID。
@@ -1195,7 +1287,7 @@ let PlayerRuntimeService = class PlayerRuntimeService {
             .sort((left, right) => left.localeCompare(right, 'zh-Hans-CN'));
         this.bumpPersistentRevision(player);
         return player;
-    }    
+    }
     /**
  * hasUnlockedMap：判断Unlocked地图是否满足条件。
  * @param playerId 玩家 ID。
@@ -1205,7 +1297,7 @@ let PlayerRuntimeService = class PlayerRuntimeService {
 
     hasUnlockedMap(playerId, mapId) {
         return this.getPlayerOrThrow(playerId).unlockedMapIds.includes(mapId);
-    }    
+    }
     /**
  * equipItem：执行equip道具相关逻辑。
  * @param playerId 玩家 ID。
@@ -1246,7 +1338,7 @@ let PlayerRuntimeService = class PlayerRuntimeService {
         this.playerAttributesService.recalculate(player);
         this.bumpPersistentRevision(player);
         return player;
-    }    
+    }
     /**
  * unequipItem：执行unequip道具相关逻辑。
  * @param playerId 玩家 ID。
@@ -1271,7 +1363,7 @@ let PlayerRuntimeService = class PlayerRuntimeService {
         this.playerAttributesService.recalculate(player);
         this.bumpPersistentRevision(player);
         return player;
-    }    
+    }
     /**
  * cultivateTechnique：执行cultivate功法相关逻辑。
  * @param playerId 玩家 ID。
@@ -1297,7 +1389,7 @@ let PlayerRuntimeService = class PlayerRuntimeService {
         player.techniques.revision += 1;
         this.bumpPersistentRevision(player);
         return player;
-    }    
+    }
     /**
  * infuseBodyTraining：执行infuseBodyTraining相关逻辑。
  * @param playerId 玩家 ID。
@@ -1344,7 +1436,7 @@ let PlayerRuntimeService = class PlayerRuntimeService {
             foundationSpent: consumed,
             expGained: consumed * shared_1.BODY_TRAINING_FOUNDATION_EXP_MULTIPLIER,
         };
-    }    
+    }
     /**
  * setManagedBodyTrainingLevel：以运行时权威链路设置托管玩家炼体等级。
  * @param playerId 玩家 ID。
@@ -1382,7 +1474,7 @@ let PlayerRuntimeService = class PlayerRuntimeService {
         this.playerProgressionService.refreshPreview(player);
         this.bumpPersistentRevision(player);
         return player;
-    }    
+    }
     /**
  * recordActivity：执行recordActivity相关逻辑。
  * @param playerId 玩家 ID。
@@ -1405,7 +1497,7 @@ let PlayerRuntimeService = class PlayerRuntimeService {
             player.combat.cultivationActive = false;
         }
         return player;
-    }    
+    }
     /**
  * spendQi：执行spendQi相关逻辑。
  * @param playerId 玩家 ID。
@@ -1430,7 +1522,7 @@ let PlayerRuntimeService = class PlayerRuntimeService {
         player.selfRevision += 1;
         this.bumpPersistentRevision(player);
         return player;
-    }    
+    }
     /**
  * applyDamage：处理Damage并更新相关状态。
  * @param playerId 玩家 ID。
@@ -1452,7 +1544,7 @@ let PlayerRuntimeService = class PlayerRuntimeService {
         player.selfRevision += 1;
         this.bumpPersistentRevision(player);
         return player;
-    }    
+    }
     /**
  * setSkillCooldownReadyTick：写入技能冷却Readytick。
  * @param playerId 玩家 ID。
@@ -1468,7 +1560,7 @@ let PlayerRuntimeService = class PlayerRuntimeService {
         player.combat.cooldownReadyTickBySkillId[skillId] = Math.max(0, Math.trunc(readyTick));
         this.rebuildActionState(player, currentTick);
         return player;
-    }    
+    }
     /**
  * updateAutoBattleSkills：处理AutoBattle技能并更新相关状态。
  * @param playerId 玩家 ID。
@@ -1490,7 +1582,7 @@ let PlayerRuntimeService = class PlayerRuntimeService {
         this.rebuildActionState(player, 0);
         this.bumpPersistentRevision(player);
         return player;
-    }    
+    }
     /**
  * updateAutoUsePills：处理AutoUsePill并更新相关状态。
  * @param playerId 玩家 ID。
@@ -1511,7 +1603,7 @@ let PlayerRuntimeService = class PlayerRuntimeService {
         player.combat.autoUsePills = normalized;
         this.bumpPersistentRevision(player);
         return player;
-    }    
+    }
     /**
  * updateCombatTargetingRules：读取战斗TargetingRule并返回结果。
  * @param playerId 玩家 ID。
@@ -1532,7 +1624,7 @@ let PlayerRuntimeService = class PlayerRuntimeService {
         player.combat.combatTargetingRules = normalized;
         this.bumpPersistentRevision(player);
         return player;
-    }    
+    }
     /**
  * updateAutoBattleTargetingMode：读取AutoBattleTargetingMode并返回结果。
  * @param playerId 玩家 ID。
@@ -1553,7 +1645,7 @@ let PlayerRuntimeService = class PlayerRuntimeService {
         player.combat.autoBattleTargetingMode = normalized;
         this.bumpPersistentRevision(player);
         return player;
-    }    
+    }
     /**
  * updateTechniqueSkillAvailability：处理功法技能Availability并更新相关状态。
  * @param playerId 玩家 ID。
@@ -1605,7 +1697,7 @@ let PlayerRuntimeService = class PlayerRuntimeService {
         this.rebuildActionState(player, 0);
         this.bumpPersistentRevision(player);
         return player;
-    }    
+    }
     /**
  * updateCombatSettings：处理战斗Setting并更新相关状态。
  * @param playerId 玩家 ID。
@@ -1659,7 +1751,26 @@ let PlayerRuntimeService = class PlayerRuntimeService {
         this.rebuildActionState(player, currentTick);
         this.bumpPersistentRevision(player);
         return player;
-    }    
+    }
+    /**
+ * updateWorldPreference：更新玩家默认世界偏好。
+ * @param playerId 玩家 ID。
+ * @param linePreset 分线偏好。
+ * @returns 返回更新后的玩家运行态。
+ */
+
+    updateWorldPreference(playerId, linePreset) {
+        const player = this.getPlayerOrThrow(playerId);
+        const nextLinePreset = normalizePlayerWorldPreferenceLinePreset(linePreset);
+        if (player.worldPreference?.linePreset === nextLinePreset) {
+            return player;
+        }
+        player.worldPreference = {
+            linePreset: nextLinePreset,
+        };
+        this.bumpPersistentRevision(player);
+        return player;
+    }
     /**
  * setCombatTarget：写入战斗目标。
  * @param playerId 玩家 ID。
@@ -1687,7 +1798,7 @@ let PlayerRuntimeService = class PlayerRuntimeService {
         this.rebuildActionState(player, currentTick);
         this.bumpPersistentRevision(player);
         return player;
-    }    
+    }
     /**
  * clearCombatTarget：读取clear战斗目标并返回结果。
  * @param playerId 玩家 ID。
@@ -1697,7 +1808,7 @@ let PlayerRuntimeService = class PlayerRuntimeService {
 
     clearCombatTarget(playerId, currentTick = 0) {
         return this.setCombatTarget(playerId, null, false, currentTick);
-    }    
+    }
     /**
  * setRetaliatePlayerTarget：写入当前反击锁定的玩家目标。
  * @param playerId 玩家 ID。
@@ -1719,7 +1830,7 @@ let PlayerRuntimeService = class PlayerRuntimeService {
         this.rebuildActionState(player, currentTick);
         this.bumpPersistentRevision(player);
         return player;
-    }    
+    }
     /**
  * applyTemporaryBuff：处理TemporaryBuff并更新相关状态。
  * @param playerId 玩家 ID。
@@ -1885,7 +1996,7 @@ let PlayerRuntimeService = class PlayerRuntimeService {
         this.playerAttributesService.recalculate(player);
         this.bumpPersistentRevision(player);
         return nextStacks;
-    }    
+    }
     /**
  * advanceTick：执行advancetick相关逻辑。
  * @param currentTick 参数说明。
@@ -1897,7 +2008,7 @@ let PlayerRuntimeService = class PlayerRuntimeService {
         for (const player of this.players.values()) {
             this.advanceSinglePlayerTick(player, currentTick, options);
         }
-    }    
+    }
     /**
  * advanceTickForPlayerIds：执行advancetickFor玩家ID相关逻辑。
  * @param playerIds player ID 集合。
@@ -1919,7 +2030,7 @@ let PlayerRuntimeService = class PlayerRuntimeService {
             }
             this.advanceSinglePlayerTick(player, currentTick, options);
         }
-    }    
+    }
     /**
  * advanceSinglePlayerTick：执行advanceSingle玩家tick相关逻辑。
  * @param player 玩家对象。
@@ -1950,7 +2061,7 @@ let PlayerRuntimeService = class PlayerRuntimeService {
             if (hasActiveSkillCooldown(player, currentTick)) {
                 this.rebuildActionState(player, currentTick);
             }
-    }    
+    }
     /**
  * respawnPlayer：执行重生玩家相关逻辑。
  * @param playerId 玩家 ID。
@@ -2018,7 +2129,7 @@ let PlayerRuntimeService = class PlayerRuntimeService {
             this.bumpPersistentRevision(player);
         }
         return player;
-    }    
+    }
     /**
  * listDirtyPlayers：读取Dirty玩家并返回结果。
  * @returns 无返回值，完成Dirty玩家的读取/组装。
@@ -2026,10 +2137,10 @@ let PlayerRuntimeService = class PlayerRuntimeService {
 
     listDirtyPlayers() {
         return Array.from(this.players.values())
-            .filter((player) => !(0, next_gm_constants_1.isNextGmBotPlayerId)(player.playerId))
+            .filter((player) => !(0, next_gm_constants_1.isNativeGmBotPlayerId)(player.playerId))
             .filter((player) => player.persistentRevision > player.persistedRevision)
             .map((player) => player.playerId);
-    }    
+    }
     /**
  * buildFreshPersistenceSnapshot：构建并返回目标对象。
  * @param playerId 玩家 ID。
@@ -2059,7 +2170,7 @@ let PlayerRuntimeService = class PlayerRuntimeService {
             : shared_1.Direction.South;
         player.unlockedMapIds = [templateId];
         return buildRuntimePlayerPersistenceSnapshot(player);
-    }    
+    }
     /**
  * buildStarterPersistenceSnapshot：构建并返回目标对象。
  * @param playerId 玩家 ID。
@@ -2084,7 +2195,7 @@ let PlayerRuntimeService = class PlayerRuntimeService {
             y: template.spawnY,
             facing: shared_1.Direction.South,
         });
-    }    
+    }
     /**
  * buildPersistenceSnapshot：构建并返回目标对象。
  * @param playerId 玩家 ID。
@@ -2096,11 +2207,11 @@ let PlayerRuntimeService = class PlayerRuntimeService {
 
 
         const player = this.players.get(playerId);
-        if (!player || !player.templateId || (0, next_gm_constants_1.isNextGmBotPlayerId)(playerId)) {
+        if (!player || !player.templateId || (0, next_gm_constants_1.isNativeGmBotPlayerId)(playerId)) {
             return null;
         }
         return buildRuntimePlayerPersistenceSnapshot(player);
-    }    
+    }
     /**
  * markPersisted：判断Persisted是否满足条件。
  * @param playerId 玩家 ID。
@@ -2116,7 +2227,7 @@ let PlayerRuntimeService = class PlayerRuntimeService {
             return;
         }
         player.persistedRevision = player.persistentRevision;
-    }    
+    }
     /**
  * snapshot：执行快照相关逻辑。
  * @param playerId 玩家 ID。
@@ -2132,7 +2243,7 @@ let PlayerRuntimeService = class PlayerRuntimeService {
             return null;
         }
         return cloneRuntimePlayerState(player);
-    }    
+    }
     /**
  * listPlayerSnapshots：读取玩家快照并返回结果。
  * @returns 无返回值，完成玩家快照的读取/组装。
@@ -2140,7 +2251,7 @@ let PlayerRuntimeService = class PlayerRuntimeService {
 
     listPlayerSnapshots() {
         return Array.from(this.players.values(), (player) => cloneRuntimePlayerState(player));
-    }    
+    }
     /**
  * restoreSnapshot：执行restore快照相关逻辑。
  * @param snapshot 参数说明。
@@ -2150,7 +2261,7 @@ let PlayerRuntimeService = class PlayerRuntimeService {
     restoreSnapshot(snapshot) {
         this.players.set(snapshot.playerId, cloneRuntimePlayerState(snapshot));
         this.pendingCombatEffectsByPlayerId.delete(snapshot.playerId);
-    }    
+    }
     /**
  * hydrateFromSnapshot：执行hydrateFrom快照相关逻辑。
  * @param playerId 玩家 ID。
@@ -2168,6 +2279,10 @@ let PlayerRuntimeService = class PlayerRuntimeService {
         const player = {
             playerId,
             sessionId,
+            runtimeOwnerId: null,
+            sessionEpoch: 0,
+            lastHeartbeatAt: null,
+            offlineSinceAt: null,
             name: playerId,
             displayName: playerId,
             persistentRevision: 1,
@@ -2175,6 +2290,9 @@ let PlayerRuntimeService = class PlayerRuntimeService {
             instanceId: normalizePlayerPlacementInstanceId(snapshot.placement.instanceId)
                 ?? buildPublicPlayerInstanceId(snapshot.placement.templateId),
             templateId: snapshot.placement.templateId,
+            worldPreference: {
+                linePreset: normalizePlayerWorldPreferenceLinePreset(snapshot.worldPreference?.linePreset),
+            },
             x: snapshot.placement.x,
             y: snapshot.placement.y,
             facing: snapshot.placement.facing,
@@ -2298,7 +2416,7 @@ let PlayerRuntimeService = class PlayerRuntimeService {
         }
         this.rebuildActionState(player, 0);
         return player;
-    }    
+    }
     /**
  * bumpPersistentRevision：判断bumpPersistentRevision是否满足条件。
  * @param player 玩家对象。
@@ -2307,7 +2425,32 @@ let PlayerRuntimeService = class PlayerRuntimeService {
 
     bumpPersistentRevision(player) {
         player.persistentRevision += 1;
-    }    
+    }
+    /**
+ * bindRuntimeSession：为玩家生成新的运行时所有权 fencing。
+ * @param player 玩家对象。
+ * @param sessionId session ID。
+ * @returns 无返回值，直接更新会话所有权。
+ */
+
+    bindRuntimeSession(player, sessionId) {
+        player.sessionId = sessionId;
+        player.sessionEpoch = Math.max(1, Math.trunc(Number(player.sessionEpoch ?? 0)) + 1);
+        player.runtimeOwnerId = buildRuntimeOwnerId(player.playerId, sessionId, player.sessionEpoch);
+        player.lastHeartbeatAt = Date.now();
+        player.offlineSinceAt = null;
+        return player;
+    }
+    refreshRuntimeSession(player, sessionId) {
+        const normalizedSessionId = typeof sessionId === 'string' ? sessionId.trim() : '';
+        const existingSessionId = typeof player.sessionId === 'string' ? player.sessionId.trim() : '';
+        if (normalizedSessionId && normalizedSessionId === existingSessionId && player.runtimeOwnerId) {
+            player.lastHeartbeatAt = Date.now();
+            player.offlineSinceAt = null;
+            return player;
+        }
+        return this.bindRuntimeSession(player, sessionId);
+    }
     /**
  * applyProgressionResult：处理修炼进度结果并更新相关状态。
  * @param player 玩家对象。
@@ -2338,7 +2481,7 @@ let PlayerRuntimeService = class PlayerRuntimeService {
             this.rebuildActionState(player, currentTick);
         }
         return player;
-    }    
+    }
     /**
  * rebuildActionState：构建rebuildAction状态。
  * @param player 玩家对象。
@@ -2363,7 +2506,7 @@ let PlayerRuntimeService = class PlayerRuntimeService {
         if (techniqueFlagsChanged) {
             player.techniques.revision += 1;
         }
-    }    
+    }
     /**
  * applyConsumableItem：处理Consumable道具并更新相关状态。
  * @param player 玩家对象。
@@ -2438,9 +2581,20 @@ function buildEquipmentSnapshot(equipment) {
 function cloneRuntimePlayerState(player) {
     return {
         ...player,
+        runtimeOwnerId: typeof player.runtimeOwnerId === 'string' ? player.runtimeOwnerId : null,
+        sessionEpoch: Number.isFinite(player.sessionEpoch) ? Math.trunc(Number(player.sessionEpoch)) : 0,
+        lastHeartbeatAt: Number.isFinite(player.lastHeartbeatAt)
+            ? Math.trunc(Number(player.lastHeartbeatAt))
+            : null,
+        offlineSinceAt: Number.isFinite(player.offlineSinceAt)
+            ? Math.trunc(Number(player.offlineSinceAt))
+            : null,
         realm: cloneRealmState(player.realm),
         heavenGate: cloneHeavenGateState(player.heavenGate),
         spiritualRoots: cloneHeavenGateRoots(player.spiritualRoots),
+        worldPreference: {
+            linePreset: normalizePlayerWorldPreferenceLinePreset(player.worldPreference?.linePreset),
+        },
         bodyTraining: player.bodyTraining ? { ...player.bodyTraining } : null,
         unlockedMapIds: player.unlockedMapIds.slice(),
         inventory: {
@@ -2612,6 +2766,20 @@ function cloneHeavenGateRoots(roots) {
         earth: roots.earth,
     };
 }
+
+function resolveRevealedBreakthroughRequirementIds(realm) {
+    const requirements = Array.isArray(realm?.breakthrough?.requirements) ? realm.breakthrough.requirements : [];
+    return requirements
+        .filter((entry) => typeof entry?.id === 'string' && entry.id.trim().length > 0 && entry.hidden !== true)
+        .map((entry) => entry.id.trim());
+}
+
+function buildRuntimeOwnerId(playerId, sessionId, sessionEpoch) {
+    const normalizedPlayerId = typeof playerId === 'string' ? playerId.trim() : 'player';
+    const normalizedSessionId = typeof sessionId === 'string' ? sessionId.trim() : 'session';
+    const normalizedEpoch = Number.isFinite(sessionEpoch) ? Math.max(1, Math.trunc(Number(sessionEpoch))) : 1;
+    return `rt:${normalizedPlayerId}:${normalizedEpoch.toString(36)}:${Date.now().toString(36)}:${Math.random().toString(36).slice(2, 10)}:${normalizedSessionId}`;
+}
 /**
  * buildRuntimePlayerPersistenceSnapshot：构建并返回目标对象。
  * @param player 玩家对象。
@@ -2630,6 +2798,9 @@ function buildRuntimePlayerPersistenceSnapshot(player) {
             x: player.x,
             y: player.y,
             facing: player.facing,
+        },
+        worldPreference: {
+            linePreset: normalizePlayerWorldPreferenceLinePreset(player.worldPreference?.linePreset),
         },
         vitals: {
             hp: player.hp,
@@ -2656,6 +2827,10 @@ function buildRuntimePlayerPersistenceSnapshot(player) {
             enhancementSkillLevel: Math.max(1, Math.floor(Number(player.enhancementSkill?.level ?? player.enhancementSkillLevel) || 1)),
             enhancementJob: player.enhancementJob ? cloneEnhancementJob(player.enhancementJob) : null,
             enhancementRecords: (player.enhancementRecords ?? []).map((entry) => cloneEnhancementRecord(entry)),
+        },
+        attrState: {
+            baseAttrs: player.attrs?.baseAttrs ? cloneAttributes(player.attrs.baseAttrs) : null,
+            revealedBreakthroughRequirementIds: resolveRevealedBreakthroughRequirementIds(player.realm),
         },
         unlockedMapIds: player.unlockedMapIds.slice(),
         inventory: {
@@ -2714,6 +2889,10 @@ function normalizePlayerPlacementInstanceId(value) {
     }
     const normalized = value.trim();
     return normalized ? normalized : null;
+}
+
+function normalizePlayerWorldPreferenceLinePreset(value) {
+    return value === 'real' ? 'real' : 'peaceful';
 }
 
 function buildPublicPlayerInstanceId(templateId) {

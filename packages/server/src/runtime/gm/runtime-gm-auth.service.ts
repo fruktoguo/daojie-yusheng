@@ -23,7 +23,7 @@ const crypto = require("node:crypto");
 
 const pg_1 = require("pg");
 
-const next_gm_contract_1 = require("../../http/next/next-gm-contract");
+const next_gm_contract_1 = require("../../http/native/native-gm-contract");
 
 const persistent_document_table_1 = require("../../persistence/persistent-document-table");
 

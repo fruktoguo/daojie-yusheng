@@ -65,7 +65,7 @@
 ### 自动生成或低重复报告
 
 - legacy 边界审计：[../../docs/next-legacy-boundary-audit.md](../../docs/next-legacy-boundary-audit.md)
-- next 协议审计：[../../docs/next-protocol-audit.md](../../docs/next-protocol-audit.md)
+- 协议审计：[../../docs/protocol-audit.md](../../docs/protocol-audit.md)
 
 ## 五层门禁
 

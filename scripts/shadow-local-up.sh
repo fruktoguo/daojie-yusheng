@@ -1,5 +1,5 @@
 #!/bin/bash
-# 用途：启动本地 next shadow（非维护态）。
+# 用途：启动本地 shadow（非维护态）。
 
 set -euo pipefail
 

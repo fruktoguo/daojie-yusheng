@@ -14,15 +14,39 @@ const node_path_1 = require("node:path");
 const pg_1 = require("pg");
 const env_alias_1 = require("../config/env-alias");
 const gm_database_proof_lib_1 = require("./gm-database-proof-lib");
-const next_gm_contract_1 = require("../http/next/next-gm-contract");
+const next_gm_contract_1 = require("../http/native/native-gm-contract");
+const stable_dist_1 = require("./stable-dist");
 /**
  * 记录包根目录。
  */
-const packageRoot = (0, node_path_1.resolve)(__dirname, '..', '..');
+const packageRoot = (0, stable_dist_1.resolveToolPackageRoot)(__dirname);
+/**
+ * 记录持有的稳定 dist 快照。
+ */
+const ownedDistSnapshot = (() => {
+    const explicitDistRoot = typeof process.env.SERVER_TOOL_DIST_ROOT === 'string'
+        ? process.env.SERVER_TOOL_DIST_ROOT.trim()
+        : '';
+    if (explicitDistRoot) {
+        return null;
+    }
+    return (0, stable_dist_1.createStableDistSnapshot)({
+        label: 'gm-db-backup-persistence',
+        packageRoot,
+    });
+})();
+/**
+ * 记录dist根目录。
+ */
+const distRoot = ownedDistSnapshot?.distRoot ?? (0, stable_dist_1.resolveToolDistRoot)(__dirname, packageRoot);
+/**
+ * 记录仓库根目录。
+ */
+const repoRoot = (0, node_path_1.resolve)(packageRoot, '..', '..');
 /**
  * 记录服务端入口文件路径。
  */
-const serverEntry = (0, node_path_1.join)(packageRoot, 'dist', 'main.js');
+const serverEntry = (0, node_path_1.join)(distRoot, 'main.js');
 /**
  * 记录数据库地址。
  */
@@ -174,9 +198,11 @@ async function startServer() {
  * 记录子进程。
  */
     const child = (0, node_child_process_1.spawn)('node', [serverEntry], {
-        cwd: packageRoot,
+        cwd: repoRoot,
         env: {
             ...process.env,
+            SERVER_PACKAGE_ROOT: packageRoot,
+            SERVER_TOOL_DIST_ROOT: distRoot,
             SERVER_PORT: String(currentPort),
             SERVER_DATABASE_URL: databaseUrl,
             SERVER_RUNTIME_HTTP: '1',
@@ -275,4 +301,6 @@ async function allocateFreePort() {
 void main().catch((error) => {
     console.error(error);
     process.exitCode = 1;
+}).finally(() => {
+    ownedDistSnapshot?.cleanup();
 });

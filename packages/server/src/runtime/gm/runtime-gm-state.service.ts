@@ -21,7 +21,7 @@ const shared_1 = require("@mud/shared");
 
 const os = require("os");
 
-const next_gm_contract_1 = require("../../http/next/next-gm-contract");
+const next_gm_contract_1 = require("../../http/native/native-gm-contract");
 
 const world_session_service_1 = require("../../network/world-session.service");
 
@@ -31,7 +31,7 @@ const player_runtime_service_1 = require("../player/player-runtime.service");
 
 const world_runtime_service_1 = require("../world/world-runtime.service");
 
-const next_gm_constants_1 = require("../../http/next/next-gm.constants");
+const next_gm_constants_1 = require("../../http/native/native-gm.constants");
 
 const EMPTY_CPU_BREAKDOWN = [];
 
@@ -135,20 +135,20 @@ let RuntimeGmStateService = class RuntimeGmStateService {
     queueMutationStatePush(requesterPlayerId) {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
-        if (!next_gm_contract_1.NEXT_GM_SOCKET_CONTRACT.pushStateAfterMutation) {
+        if (!next_gm_contract_1.NATIVE_GM_SOCKET_CONTRACT.pushStateAfterMutation) {
             return;
         }
         this.queueStatePush(requesterPlayerId);
     }
-    /** GM 状态下发固定收敛到 next 事件。 */
+    /** GM 状态下发固定收敛到主线事件。 */
     getGmStateEvent(client) {
         return shared_1.S2C.GmState;
     }
-    /** GM 面板协议分支固定为 next-only。 */
+    /** GM 面板协议分支固定为主线唯一通道。 */
     resolveGmStateEmission(client) {
         return {
             protocol: 'mainline',
-            emitNext: true,
+            emitMainline: true,
             emitLegacy: false,
         };
     }
@@ -157,7 +157,7 @@ let RuntimeGmStateService = class RuntimeGmStateService {
         const protocol = client?.data?.protocol;
         return protocol === 'mainline' || protocol === 'legacy' ? protocol : null;
     }
-    /** GM 状态最终协议固定收敛到 next。 */
+    /** GM 状态最终协议固定收敛到主线。 */
     resolveEffectiveProtocol(client) {
         return 'mainline';
     }
@@ -200,7 +200,7 @@ let RuntimeGmStateService = class RuntimeGmStateService {
                 dead: player.hp <= 0,
 
                 autoBattle: player.combat.autoBattle === true,
-                isBot: (0, next_gm_constants_1.isNextGmBotPlayerId)(player.playerId),
+                isBot: (0, next_gm_constants_1.isNativeGmBotPlayerId)(player.playerId),
             };
         })
             .sort((left, right) => {

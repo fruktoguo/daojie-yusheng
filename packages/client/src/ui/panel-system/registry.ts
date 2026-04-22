@@ -125,24 +125,6 @@ export function buildDefaultPanelRegistry(): PanelRegistry {
       preservesInteractionState: true,
     },
     {
-      id: 'world-nearby',
-      title: '附近',
-      templateKind: 'embedded',
-      rootSelector: '#pane-nearby',
-      defaultPlacement: { desktop: 'center-intel', mobile: 'external' },
-      supports: ['desktop', 'mobile'],
-      preservesInteractionState: true,
-    },
-    {
-      id: 'world-suggestions',
-      title: '建议',
-      templateKind: 'embedded',
-      rootSelector: '#pane-suggestions',
-      defaultPlacement: { desktop: 'center-intel', mobile: 'external' },
-      supports: ['desktop', 'mobile'],
-      preservesInteractionState: true,
-    },
-    {
       id: 'world-tianji',
       title: '天机阁',
       templateKind: 'embedded',
@@ -215,6 +197,5 @@ export function buildDefaultPanelRegistry(): PanelRegistry {
 
   return registry;
 }
-
 
 

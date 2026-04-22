@@ -4,7 +4,7 @@ import { Pool, type PoolClient } from 'pg';
 
 import { resolveServerDatabaseUrl } from '../config/env-alias';
 
-const PLAYER_SNAPSHOT_TABLE = 'server_next_player_snapshot';
+const PLAYER_SNAPSHOT_TABLE = 'server_player_snapshot';
 
 const CREATE_PLAYER_SNAPSHOT_TABLE_SQL = `
   CREATE TABLE IF NOT EXISTS ${PLAYER_SNAPSHOT_TABLE} (
@@ -20,12 +20,12 @@ const CREATE_PLAYER_SNAPSHOT_TABLE_SQL = `
 `;
 
 const CREATE_PLAYER_SNAPSHOT_TEMPLATE_INDEX_SQL = `
-  CREATE INDEX IF NOT EXISTS server_next_player_snapshot_template_idx
+  CREATE INDEX IF NOT EXISTS server_player_snapshot_template_idx
   ON ${PLAYER_SNAPSHOT_TABLE}(template_id)
 `;
 
 const CREATE_PLAYER_SNAPSHOT_SOURCE_INDEX_SQL = `
-  CREATE INDEX IF NOT EXISTS server_next_player_snapshot_source_idx
+  CREATE INDEX IF NOT EXISTS server_player_snapshot_source_idx
   ON ${PLAYER_SNAPSHOT_TABLE}(persisted_source)
 `;
 
@@ -35,7 +35,7 @@ const ALTER_PLAYER_SNAPSHOT_ADD_INSTANCE_ID_SQL = `
 `;
 
 const CREATE_PLAYER_SNAPSHOT_INSTANCE_INDEX_SQL = `
-  CREATE INDEX IF NOT EXISTS server_next_player_snapshot_instance_idx
+  CREATE INDEX IF NOT EXISTS server_player_snapshot_instance_idx
   ON ${PLAYER_SNAPSHOT_TABLE}(instance_id)
 `;
 
@@ -86,6 +86,11 @@ interface PlayerSnapshotProgression {
   spiritualRoots: Record<string, unknown> | null;
 }
 
+interface PlayerSnapshotAttrState {
+  baseAttrs: Record<string, unknown> | null;
+  revealedBreakthroughRequirementIds: string[];
+}
+
 interface PlayerSnapshotInventory {
   revision: number;
   capacity: number;
@@ -117,6 +122,9 @@ interface PlayerSnapshotCombat {
   autoBattle: boolean;
   autoRetaliate: boolean;
   autoBattleStationary: boolean;
+  autoBattleTargetingMode?: string;
+  retaliatePlayerTargetId?: string | null;
+  combatTargetingRules?: Record<string, unknown> | null;
   combatTargetId: string | null;
   combatTargetLocked: boolean;
   allowAoePlayerHit: boolean;
@@ -124,6 +132,11 @@ interface PlayerSnapshotCombat {
   autoSwitchCultivation: boolean;
   senseQiActive: boolean;
   autoBattleSkills: unknown[];
+  autoUsePills?: unknown[];
+}
+
+interface PlayerSnapshotWorldPreference {
+  linePreset: 'peaceful' | 'real';
 }
 
 interface PendingLogbookMessageSnapshot {
@@ -147,8 +160,10 @@ export interface PersistedPlayerSnapshot {
   version: 1;
   savedAt: number;
   placement: PlayerSnapshotPlacement;
+  worldPreference?: PlayerSnapshotWorldPreference;
   vitals: PlayerSnapshotVitals;
   progression: PlayerSnapshotProgression;
+  attrState?: PlayerSnapshotAttrState;
   unlockedMapIds: string[];
   inventory: PlayerSnapshotInventory;
   equipment: PlayerSnapshotEquipment;
@@ -215,7 +230,7 @@ export class PlayerPersistenceService implements OnModuleInit, OnModuleDestroy {
     try {
       await ensurePlayerSnapshotTable(this.pool);
       this.enabled = true;
-      this.logger.log('玩家快照持久化已启用（server_next_player_snapshot）');
+      this.logger.log('玩家快照持久化已启用（server_player_snapshot）');
     } catch (error: unknown) {
       this.logger.error(
         '玩家快照持久化初始化失败，已回退为禁用模式',
@@ -481,6 +496,8 @@ function normalizePlayerSnapshotPayload(raw: unknown): PersistedPlayerSnapshot |
   const quests = asRecord(snapshot.quests);
   const combat = asRecord(snapshot.combat);
   const progression = asRecord(snapshot.progression);
+  const worldPreference = asRecord(snapshot.worldPreference);
+  const attrState = asRecord(snapshot.attrState);
 
   return {
     version: 1,
@@ -491,6 +508,9 @@ function normalizePlayerSnapshotPayload(raw: unknown): PersistedPlayerSnapshot |
       x: isFiniteNumber(placementInput.x) ? Math.trunc(placementInput.x) : 0,
       y: isFiniteNumber(placementInput.y) ? Math.trunc(placementInput.y) : 0,
       facing: isFiniteNumber(placementInput.facing) ? Math.trunc(placementInput.facing) : 1,
+    },
+    worldPreference: {
+      linePreset: normalizePlayerWorldPreferenceLinePreset(worldPreference?.linePreset),
     },
     vitals: {
       hp: isFiniteNumber(vitals?.hp) ? Math.trunc(vitals.hp) : 100,
@@ -527,6 +547,12 @@ function normalizePlayerSnapshotPayload(raw: unknown): PersistedPlayerSnapshot |
       realm: asRecordOrNull(progression?.realm),
       heavenGate: asRecordOrNull(progression?.heavenGate),
       spiritualRoots: asRecordOrNull(progression?.spiritualRoots),
+    },
+    attrState: {
+      baseAttrs: asRecordOrNull(attrState?.baseAttrs),
+      revealedBreakthroughRequirementIds: normalizeStringArray(
+        attrState?.revealedBreakthroughRequirementIds,
+      ),
     },
     unlockedMapIds: normalizeUnlockedMapIds(snapshot.unlockedMapIds),
     inventory: {
@@ -621,6 +647,10 @@ function normalizePlayerSnapshotPlacementInstanceId(value: unknown): string | nu
 
 function buildPublicPlayerInstanceId(templateId: string): string {
   return `public:${templateId}`;
+}
+
+function normalizePlayerWorldPreferenceLinePreset(value: unknown): 'peaceful' | 'real' {
+  return value === 'real' ? 'real' : 'peaceful';
 }
 
 function isFiniteNumber(value: unknown): value is number {
@@ -763,6 +793,10 @@ function asRecordOrUndefined(value: unknown): Record<string, unknown> | undefine
 }
 
 function normalizeUnlockedMapIds(value: unknown): string[] {
+  return normalizeStringArray(value).sort((left, right) => left.localeCompare(right, 'zh-Hans-CN'));
+}
+
+function normalizeStringArray(value: unknown): string[] {
   if (!Array.isArray(value)) {
     return [];
   }
@@ -771,7 +805,7 @@ function normalizeUnlockedMapIds(value: unknown): string[] {
     new Set(
       value.filter((entry): entry is string => typeof entry === 'string' && entry.trim().length > 0),
     ),
-  ).sort((left, right) => left.localeCompare(right, 'zh-Hans-CN'));
+  );
 }
 
 function normalizeUpdatedAt(value: unknown): number {

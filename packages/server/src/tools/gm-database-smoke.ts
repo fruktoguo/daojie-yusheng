@@ -15,16 +15,41 @@ const socket_io_client_1 = require("socket.io-client");
 const shared_next_1 = require("@mud/shared");
 const pg_1 = require("pg");
 const env_alias_1 = require("../config/env-alias");
-const next_gm_contract_1 = require("../http/next/next-gm-contract");
+const next_gm_contract_1 = require("../http/native/native-gm-contract");
+const smoke_player_auth_1 = require("./smoke-player-auth");
 const smoke_player_cleanup_1 = require("./smoke-player-cleanup");
+const stable_dist_1 = require("./stable-dist");
 /**
  * 记录包根目录。
  */
-const packageRoot = (0, node_path_1.resolve)(__dirname, '..', '..');
+const packageRoot = (0, stable_dist_1.resolveToolPackageRoot)(__dirname);
+/**
+ * 记录持有的稳定 dist 快照。
+ */
+const ownedDistSnapshot = (() => {
+    const explicitDistRoot = typeof process.env.SERVER_TOOL_DIST_ROOT === 'string'
+        ? process.env.SERVER_TOOL_DIST_ROOT.trim()
+        : '';
+    if (explicitDistRoot) {
+        return null;
+    }
+    return (0, stable_dist_1.createStableDistSnapshot)({
+        label: 'gm-database-smoke',
+        packageRoot,
+    });
+})();
+/**
+ * 记录dist根目录。
+ */
+const distRoot = ownedDistSnapshot?.distRoot ?? (0, stable_dist_1.resolveToolDistRoot)(__dirname, packageRoot);
+/**
+ * 记录仓库根目录。
+ */
+const repoRoot = (0, node_path_1.resolve)(packageRoot, '..', '..');
 /**
  * 记录服务端入口文件路径。
  */
-const serverEntry = (0, node_path_1.join)(packageRoot, 'dist', 'main.js');
+const serverEntry = (0, node_path_1.join)(distRoot, 'main.js');
 /**
  * 记录数据库地址。
  */
@@ -42,6 +67,10 @@ const GM_DATABASE_SMOKE_CONTRACT = Object.freeze({
 const GM_DATABASE_JOB_SETTLE_TIMEOUT_MS = 120_000;
 
 const GM_DATABASE_RESTORE_SETTLE_TIMEOUT_MS = 720_000;
+
+const GM_DATABASE_JOB_STATE_SCOPE = 'server_db_jobs_v1';
+
+const GM_DATABASE_JOB_STATE_KEY = 'gm_database';
 /**
  * 记录changedGMpassword。
  */
@@ -63,6 +92,259 @@ const accountName = `gdb_${playerSuffix.slice(-10)}`;
  */
 const playerPassword = `Pass_${playerSuffix}`;
 /**
+ * 记录备份前结构化炼体状态。
+ */
+const BASELINE_BODY_TRAINING_STATE = Object.freeze({
+    level: 3,
+    exp: 9,
+    expToNext: 27,
+});
+/**
+ * 记录备份前结构化生命状态。
+ */
+const BASELINE_VITALS_STATE = Object.freeze({
+    hp: 61,
+    maxHp: 88,
+    qi: 17,
+    maxQi: 35,
+});
+/**
+ * 记录备份后结构化生命状态。
+ */
+const POST_BACKUP_VITALS_STATE = Object.freeze({
+    hp: 23,
+    maxHp: 104,
+    qi: 4,
+    maxQi: 46,
+});
+/**
+ * 记录备份前结构化进度核心状态。
+ */
+const BASELINE_PROGRESSION_CORE_STATE = Object.freeze({
+    foundation: 12,
+    combatExp: 41,
+    boneAgeBaseYears: 19,
+    lifeElapsedTicks: 1234,
+    lifespanYears: 81,
+});
+/**
+ * 记录备份后结构化进度核心状态。
+ */
+const POST_BACKUP_PROGRESSION_CORE_STATE = Object.freeze({
+    foundation: 4,
+    combatExp: 99,
+    boneAgeBaseYears: 22,
+    lifeElapsedTicks: 5678,
+    lifespanYears: 95,
+});
+/**
+ * 记录备份后结构化炼体状态。
+ */
+const POST_BACKUP_BODY_TRAINING_STATE = Object.freeze({
+    level: 8,
+    exp: 64,
+    expToNext: 125,
+});
+/**
+ * 记录备份前结构化属性状态。
+ */
+const BASELINE_ATTR_STATE = Object.freeze({
+    baseAttrs: {
+        constitution: 13,
+        spirit: 9,
+        perception: 8,
+        talent: 7,
+        comprehension: 6,
+        luck: 5,
+    },
+    bonusEntries: [
+        {
+            source: 'runtime:gm-database-smoke',
+            label: '备份前校验',
+            attrs: { constitution: 2 },
+            stats: { attack: 3 },
+        },
+    ],
+    revealedBreakthroughRequirementIds: ['realm.req.technique', 'realm.req.item'],
+    realm: {
+        stage: 'qi_refining',
+        realmLv: 2,
+        progress: 18,
+        breakthrough: {
+            requirements: [{ id: 'realm.req.technique', hidden: false, completed: true }],
+        },
+    },
+    heavenGate: {
+        unlocked: true,
+        averageBonus: 12,
+        severed: ['metal'],
+    },
+    spiritualRoots: {
+        metal: 18,
+        wood: 12,
+        water: 9,
+        fire: 7,
+        earth: 5,
+    },
+});
+/**
+ * 记录备份后结构化属性状态。
+ */
+const POST_BACKUP_ATTR_STATE = Object.freeze({
+    baseAttrs: {
+        constitution: 21,
+        spirit: 15,
+        perception: 11,
+        talent: 10,
+        comprehension: 9,
+        luck: 8,
+    },
+    bonusEntries: [
+        {
+            source: 'runtime:gm-database-smoke:mutated',
+            label: '备份后篡改',
+            attrs: { constitution: 5 },
+            stats: { attack: 9 },
+        },
+    ],
+    revealedBreakthroughRequirementIds: ['realm.req.mutated'],
+    realm: {
+        stage: 'foundation',
+        realmLv: 1,
+        progress: 2,
+        breakthrough: {
+            requirements: [{ id: 'realm.req.mutated', hidden: false, completed: false }],
+        },
+    },
+    heavenGate: {
+        unlocked: false,
+        averageBonus: 1,
+        severed: ['wood'],
+    },
+    spiritualRoots: {
+        metal: 1,
+        wood: 2,
+        water: 3,
+        fire: 4,
+        earth: 5,
+    },
+});
+/**
+ * 记录备份前结构化持续 buff 状态。
+ */
+const BASELINE_PERSISTENT_BUFF_STATES = Object.freeze([
+    {
+        buffId: 'buff.qi_shield',
+        sourceSkillId: 'skill.qi.shield',
+        sourceCasterId: 'npc.master',
+        realmLv: 2,
+        remainingTicks: 15,
+        duration: 30,
+        stacks: 1,
+        maxStacks: 3,
+        sustainTicksElapsed: 4,
+        rawPayload: {
+            buffId: 'buff.qi_shield',
+            sourceSkillId: 'skill.qi.shield',
+            remainingTicks: 15,
+            duration: 30,
+            stacks: 1,
+            maxStacks: 3,
+            sustainTicksElapsed: 4,
+            name: '气盾',
+        },
+    },
+]);
+/**
+ * 记录备份后结构化持续 buff 状态。
+ */
+const POST_BACKUP_PERSISTENT_BUFF_STATES = Object.freeze([
+    {
+        buffId: 'buff.flame_armor',
+        sourceSkillId: 'skill.fire.armor',
+        sourceCasterId: 'npc.elder',
+        realmLv: 4,
+        remainingTicks: 6,
+        duration: 12,
+        stacks: 2,
+        maxStacks: 2,
+        sustainTicksElapsed: 7,
+        rawPayload: {
+            buffId: 'buff.flame_armor',
+            sourceSkillId: 'skill.fire.armor',
+            remainingTicks: 6,
+            duration: 12,
+            stacks: 2,
+            maxStacks: 2,
+            sustainTicksElapsed: 7,
+            name: '炎甲',
+        },
+    },
+]);
+/**
+ * 记录备份前结构化强化记录。
+ */
+const BASELINE_ENHANCEMENT_RECORDS = Object.freeze([
+    {
+        recordId: `gm-backup:baseline:${playerSuffix}:iron_sword`,
+        itemId: 'iron_sword',
+        highestLevel: 4,
+        levels: [{ targetLevel: 3, successCount: 2, failureCount: 1 }],
+        actionStartedAt: 1_720_000_000_000,
+        actionEndedAt: 1_720_000_030_000,
+        startLevel: 2,
+        initialTargetLevel: 3,
+        desiredTargetLevel: 4,
+        protectionStartLevel: 2,
+        status: 'completed',
+    },
+]);
+/**
+ * 记录备份后结构化强化记录。
+ */
+const POST_BACKUP_ENHANCEMENT_RECORDS = Object.freeze([
+    {
+        recordId: `gm-backup:mutated:${playerSuffix}:bronze_blade`,
+        itemId: 'bronze_blade',
+        highestLevel: 1,
+        levels: [{ targetLevel: 1, successCount: 1, failureCount: 0 }],
+        actionStartedAt: 1_720_100_000_000,
+        actionEndedAt: 1_720_100_010_000,
+        startLevel: 0,
+        initialTargetLevel: 1,
+        desiredTargetLevel: 1,
+        protectionStartLevel: 0,
+        status: 'completed',
+    },
+]);
+/**
+ * 记录备份前结构化市场仓物品。
+ */
+const BASELINE_MARKET_STORAGE_ITEMS = Object.freeze([
+    {
+        itemId: 'rat_tail',
+        count: 3,
+        name: '鼠尾',
+    },
+    {
+        itemId: 'iron_sword',
+        count: 1,
+        name: '铁剑',
+        enhanceLevel: 2,
+        equipSlot: 'weapon',
+    },
+]);
+/**
+ * 记录备份后结构化市场仓物品。
+ */
+const POST_BACKUP_MARKET_STORAGE_ITEMS = Object.freeze([
+    {
+        itemId: 'wolf_fang',
+        count: 5,
+        name: '狼牙',
+    },
+]);
+/**
  * 记录role名称。
  */
 const roleName = `归档${playerSuffix.slice(-4)}`;
@@ -78,6 +360,343 @@ let currentPort = Number(process.env.SERVER_SMOKE_PORT ?? 3212);
  * 记录base地址。
  */
 let baseUrl = `http://127.0.0.1:${currentPort}`;
+/**
+ * 处理seedstructuredplayerpresence。
+ */
+async function seedStructuredPlayerPresence(playerId) {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
+    const client = new pg_1.Client({ connectionString: databaseUrl });
+    await client.connect();
+    try {
+        await client.query(`
+      INSERT INTO player_presence(
+        player_id,
+        online,
+        in_world,
+        last_heartbeat_at,
+        runtime_owner_id,
+        session_epoch,
+        transfer_state,
+        updated_at
+      )
+      VALUES ($1, $2, $3, $4, $5, $6, $7, now())
+      ON CONFLICT (player_id)
+      DO UPDATE SET
+        online = EXCLUDED.online,
+        in_world = EXCLUDED.in_world,
+        last_heartbeat_at = EXCLUDED.last_heartbeat_at,
+        runtime_owner_id = EXCLUDED.runtime_owner_id,
+        session_epoch = EXCLUDED.session_epoch,
+        transfer_state = EXCLUDED.transfer_state,
+        updated_at = now()
+    `, [playerId, true, true, Date.now(), `gm-restore:${playerId}`, 1, 'idle']);
+    }
+    finally {
+        await client.end().catch(() => undefined);
+    }
+}
+/**
+ * 处理upsertstructuredplayerbodytrainingstate。
+ */
+async function upsertStructuredPlayerBodyTrainingState(playerId, state) {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
+    const client = new pg_1.Client({ connectionString: databaseUrl });
+    await client.connect();
+    try {
+        await client.query(`
+      INSERT INTO player_body_training_state(
+        player_id,
+        level,
+        exp,
+        exp_to_next,
+        updated_at
+      )
+      VALUES ($1, $2, $3, $4, now())
+      ON CONFLICT (player_id)
+      DO UPDATE SET
+        level = EXCLUDED.level,
+        exp = EXCLUDED.exp,
+        exp_to_next = EXCLUDED.exp_to_next,
+        updated_at = now()
+    `, [
+            playerId,
+            Number(state?.level ?? 0),
+            Number(state?.exp ?? 0),
+            Number(state?.expToNext ?? 0),
+        ]);
+    }
+    finally {
+        await client.end().catch(() => undefined);
+    }
+}
+/**
+ * 处理upsertstructuredplayervitals。
+ */
+async function upsertStructuredPlayerVitals(playerId, state) {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
+    const client = new pg_1.Client({ connectionString: databaseUrl });
+    await client.connect();
+    try {
+        await client.query(`
+      INSERT INTO player_vitals(
+        player_id,
+        hp,
+        max_hp,
+        qi,
+        max_qi,
+        updated_at
+      )
+      VALUES ($1, $2, $3, $4, $5, now())
+      ON CONFLICT (player_id)
+      DO UPDATE SET
+        hp = EXCLUDED.hp,
+        max_hp = EXCLUDED.max_hp,
+        qi = EXCLUDED.qi,
+        max_qi = EXCLUDED.max_qi,
+        updated_at = now()
+    `, [
+            playerId,
+            Number(state?.hp ?? 0),
+            Number(state?.maxHp ?? 0),
+            Number(state?.qi ?? 0),
+            Number(state?.maxQi ?? 0),
+        ]);
+    }
+    finally {
+        await client.end().catch(() => undefined);
+    }
+}
+/**
+ * 处理upsertstructuredplayerprogressioncore。
+ */
+async function upsertStructuredPlayerProgressionCore(playerId, state) {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
+    const client = new pg_1.Client({ connectionString: databaseUrl });
+    await client.connect();
+    try {
+        await client.query(`
+      INSERT INTO player_progression_core(
+        player_id,
+        foundation,
+        combat_exp,
+        bone_age_base_years,
+        life_elapsed_ticks,
+        lifespan_years,
+        updated_at
+      )
+      VALUES ($1, $2, $3, $4, $5, $6, now())
+      ON CONFLICT (player_id)
+      DO UPDATE SET
+        foundation = EXCLUDED.foundation,
+        combat_exp = EXCLUDED.combat_exp,
+        bone_age_base_years = EXCLUDED.bone_age_base_years,
+        life_elapsed_ticks = EXCLUDED.life_elapsed_ticks,
+        lifespan_years = EXCLUDED.lifespan_years,
+        updated_at = now()
+    `, [
+            playerId,
+            Number(state?.foundation ?? 0),
+            Number(state?.combatExp ?? 0),
+            Number(state?.boneAgeBaseYears ?? 0),
+            Number(state?.lifeElapsedTicks ?? 0),
+            Number(state?.lifespanYears ?? 0),
+        ]);
+    }
+    finally {
+        await client.end().catch(() => undefined);
+    }
+}
+
+async function upsertStructuredPlayerAttrState(playerId, state) {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
+    const client = new pg_1.Client({ connectionString: databaseUrl });
+    await client.connect();
+    try {
+        await client.query(`
+      INSERT INTO player_attr_state(
+        player_id,
+        base_attrs_payload,
+        bonus_entries_payload,
+        revealed_breakthrough_requirement_ids,
+        realm_payload,
+        heaven_gate_payload,
+        spiritual_roots_payload,
+        updated_at
+      )
+      VALUES ($1, $2::jsonb, $3::jsonb, $4::jsonb, $5::jsonb, $6::jsonb, $7::jsonb, now())
+      ON CONFLICT (player_id)
+      DO UPDATE SET
+        base_attrs_payload = EXCLUDED.base_attrs_payload,
+        bonus_entries_payload = EXCLUDED.bonus_entries_payload,
+        revealed_breakthrough_requirement_ids = EXCLUDED.revealed_breakthrough_requirement_ids,
+        realm_payload = EXCLUDED.realm_payload,
+        heaven_gate_payload = EXCLUDED.heaven_gate_payload,
+        spiritual_roots_payload = EXCLUDED.spiritual_roots_payload,
+        updated_at = now()
+    `, [
+            playerId,
+            JSON.stringify(state?.baseAttrs ?? null),
+            JSON.stringify(Array.isArray(state?.bonusEntries) ? state.bonusEntries : []),
+            JSON.stringify(Array.isArray(state?.revealedBreakthroughRequirementIds) ? state.revealedBreakthroughRequirementIds : []),
+            JSON.stringify(state?.realm ?? null),
+            JSON.stringify(state?.heavenGate ?? null),
+            JSON.stringify(state?.spiritualRoots ?? null),
+        ]);
+    }
+    finally {
+        await client.end().catch(() => undefined);
+    }
+}
+
+async function replaceStructuredPlayerPersistentBuffStates(playerId, states) {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
+    const client = new pg_1.Client({ connectionString: databaseUrl });
+    await client.connect();
+    try {
+        await client.query('BEGIN');
+        await client.query('DELETE FROM player_persistent_buff_state WHERE player_id = $1', [playerId]);
+        for (const entry of Array.isArray(states) ? states : []) {
+            await client.query(`
+        INSERT INTO player_persistent_buff_state(
+          player_id,
+          buff_id,
+          source_skill_id,
+          source_caster_id,
+          realm_lv,
+          remaining_ticks,
+          duration,
+          stacks,
+          max_stacks,
+          sustain_ticks_elapsed,
+          raw_payload,
+          updated_at
+        )
+        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11::jsonb, now())
+      `, [
+                playerId,
+                String(entry?.buffId ?? ''),
+                String(entry?.sourceSkillId ?? ''),
+                entry?.sourceCasterId ?? null,
+                Number(entry?.realmLv ?? 0),
+                Number(entry?.remainingTicks ?? 0),
+                Number(entry?.duration ?? 0),
+                Number(entry?.stacks ?? 1),
+                Number(entry?.maxStacks ?? 1),
+                entry?.sustainTicksElapsed == null ? null : Number(entry.sustainTicksElapsed),
+                JSON.stringify(entry?.rawPayload ?? entry ?? {}),
+            ]);
+        }
+        await client.query('COMMIT');
+    }
+    catch (error) {
+        await client.query('ROLLBACK').catch(() => undefined);
+        throw error;
+    }
+    finally {
+        await client.end().catch(() => undefined);
+    }
+}
+
+async function replaceStructuredPlayerEnhancementRecords(playerId, records) {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
+    const client = new pg_1.Client({ connectionString: databaseUrl });
+    await client.connect();
+    try {
+        await client.query('BEGIN');
+        await client.query('DELETE FROM player_enhancement_record WHERE player_id = $1', [playerId]);
+        for (const entry of Array.isArray(records) ? records : []) {
+            await client.query(`
+        INSERT INTO player_enhancement_record(
+          record_id,
+          player_id,
+          item_id,
+          highest_level,
+          levels_payload,
+          action_started_at,
+          action_ended_at,
+          start_level,
+          initial_target_level,
+          desired_target_level,
+          protection_start_level,
+          status,
+          updated_at
+        )
+        VALUES ($1, $2, $3, $4, $5::jsonb, $6, $7, $8, $9, $10, $11, $12, now())
+      `, [
+                String(entry?.recordId ?? ''),
+                playerId,
+                String(entry?.itemId ?? ''),
+                Number(entry?.highestLevel ?? 0),
+                JSON.stringify(Array.isArray(entry?.levels) ? entry.levels : []),
+                Number(entry?.actionStartedAt ?? 0),
+                Number(entry?.actionEndedAt ?? 0),
+                Number(entry?.startLevel ?? 0),
+                Number(entry?.initialTargetLevel ?? 0),
+                Number(entry?.desiredTargetLevel ?? 0),
+                Number(entry?.protectionStartLevel ?? 0),
+                String(entry?.status ?? ''),
+            ]);
+        }
+        await client.query('COMMIT');
+    }
+    catch (error) {
+        await client.query('ROLLBACK').catch(() => undefined);
+        throw error;
+    }
+    finally {
+        await client.end().catch(() => undefined);
+    }
+}
+
+async function replaceStructuredPlayerMarketStorageItems(playerId, items) {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
+    const client = new pg_1.Client({ connectionString: databaseUrl });
+    await client.connect();
+    try {
+        await client.query('BEGIN');
+        await client.query('DELETE FROM player_market_storage_item WHERE player_id = $1', [playerId]);
+        for (let slotIndex = 0; slotIndex < (Array.isArray(items) ? items : []).length; slotIndex += 1) {
+            const entry = items[slotIndex];
+            await client.query(`
+        INSERT INTO player_market_storage_item(
+          storage_item_id,
+          player_id,
+          slot_index,
+          item_id,
+          count,
+          enhance_level,
+          raw_payload,
+          updated_at
+        )
+        VALUES ($1, $2, $3, $4, $5, $6, $7::jsonb, now())
+      `, [
+                `gm-market-storage:${playerId}:${slotIndex}`,
+                playerId,
+                slotIndex,
+                String(entry?.itemId ?? ''),
+                Number(entry?.count ?? 1),
+                normalizeOptionalInteger(entry?.enhanceLevel ?? entry?.enhancementLevel ?? entry?.level),
+                JSON.stringify(entry ?? {}),
+            ]);
+        }
+        await client.query('COMMIT');
+    }
+    catch (error) {
+        await client.query('ROLLBACK').catch(() => undefined);
+        throw error;
+    }
+    finally {
+        await client.end().catch(() => undefined);
+    }
+}
 /**
  * 串联执行脚本主流程。
  */
@@ -114,6 +733,10 @@ async function main() {
  */
     let postBackupSuggestionId = '';
 /**
+ * 记录pre备份mailID。
+ */
+    let preBackupMailId = '';
+/**
  * 记录post备份mailID。
  */
     let postBackupMailId = '';
@@ -121,6 +744,10 @@ async function main() {
  * 记录mail汇总baseline。
  */
     let mailSummaryBaseline = null;
+/**
+ * 记录备份内 GM 认证文档。
+ */
+    let backupGmAuthPayload = null;
 /**
  * 记录mailpagetotalbaseline。
  */
@@ -156,6 +783,34 @@ async function main() {
  */
         const playerAuth = await registerAndLoginPlayer();
         playerId = playerAuth.playerId;
+        await seedStructuredPlayerPresence(playerId);
+        await upsertStructuredPlayerVitals(playerId, BASELINE_VITALS_STATE);
+        await upsertStructuredPlayerProgressionCore(playerId, BASELINE_PROGRESSION_CORE_STATE);
+        await upsertStructuredPlayerBodyTrainingState(playerId, BASELINE_BODY_TRAINING_STATE);
+        await upsertStructuredPlayerAttrState(playerId, BASELINE_ATTR_STATE);
+        await replaceStructuredPlayerPersistentBuffStates(playerId, BASELINE_PERSISTENT_BUFF_STATES);
+        await replaceStructuredPlayerEnhancementRecords(playerId, BASELINE_ENHANCEMENT_RECORDS);
+        await replaceStructuredPlayerMarketStorageItems(playerId, BASELINE_MARKET_STORAGE_ITEMS);
+        const initialMailPage = await fetchMailPage(playerId);
+        const initialMailSummary = await fetchMailSummary(playerId);
+        if (!initialMailSummary || !initialMailPage) {
+            throw new Error(`expected initial mail state before baseline direct mail, got ${JSON.stringify({
+                summary: initialMailSummary,
+                page: initialMailPage,
+            })}`);
+        }
+        preBackupMailId = await createDirectMail(token, playerId, {
+            fallbackTitle: `baseline-mail-${playerSuffix.slice(-6)}`,
+            fallbackBody: `baseline mail ${playerSuffix}`,
+            attachments: [{ itemId: 'pill.minor_heal', count: 1 }],
+        });
+        await waitForMailSummary(playerId, (summary) => {
+            return Number(summary?.unreadCount ?? 0) === Number(initialMailSummary.unreadCount ?? 0) + 1
+                && Number(summary?.claimableCount ?? 0) === Number(initialMailSummary.claimableCount ?? 0) + 1
+                && Number(summary?.revision ?? 0) === Number(initialMailSummary.revision ?? 0) + 1;
+        }, 10000);
+        await waitForMailPresent(playerId, preBackupMailId, Number(initialMailPage.total ?? 0) + 1);
+        await waitForStructuredMailPresent(preBackupMailId);
 /**
  * 记录备份结果。
  */
@@ -173,7 +828,40 @@ async function main() {
             backupId: originalBackupId,
             jobId: String(backupResult?.job?.id ?? ''),
         });
-        await assertBackupDownload(token, originalBackupId, requireBackupRecord(backupState, originalBackupId, 'manual backup'));
+        const backupPayload = await assertBackupDownload(token, originalBackupId, requireBackupRecord(backupState, originalBackupId, 'manual backup'));
+        assertStructuredTablePresent(backupPayload, 'player_presence');
+        assertStructuredTablePresent(backupPayload, 'player_vitals');
+        assertStructuredTablePresent(backupPayload, 'player_progression_core');
+        assertStructuredTablePresent(backupPayload, 'player_attr_state');
+        assertStructuredTablePresent(backupPayload, 'player_body_training_state');
+        assertStructuredTablePresent(backupPayload, 'player_map_unlock');
+        assertStructuredTablePresent(backupPayload, 'player_market_storage_item');
+        assertStructuredTablePresent(backupPayload, 'player_equipment_slot');
+        assertStructuredTablePresent(backupPayload, 'player_technique_state');
+        assertStructuredTablePresent(backupPayload, 'player_persistent_buff_state');
+        assertStructuredTablePresent(backupPayload, 'player_quest_progress');
+        assertStructuredTablePresent(backupPayload, 'player_combat_preferences');
+        assertStructuredTablePresent(backupPayload, 'player_auto_battle_skill');
+        assertStructuredTablePresent(backupPayload, 'player_auto_use_item_rule');
+        assertStructuredTablePresent(backupPayload, 'player_enhancement_record');
+        assertStructuredTablePresent(backupPayload, 'player_mail');
+        assertStructuredTablePresent(backupPayload, 'player_mail_attachment');
+        assertStructuredTablePresent(backupPayload, 'player_mail_counter');
+        backupGmAuthPayload = requireBackupDocumentPayload(backupPayload, next_gm_contract_1.GM_AUTH_CONTRACT.passwordRecordScope, next_gm_contract_1.GM_AUTH_CONTRACT.passwordRecordKey);
+        await upsertStructuredPlayerVitals(playerId, POST_BACKUP_VITALS_STATE);
+        await assertStructuredPlayerVitals(playerId, POST_BACKUP_VITALS_STATE);
+        await upsertStructuredPlayerProgressionCore(playerId, POST_BACKUP_PROGRESSION_CORE_STATE);
+        await assertStructuredPlayerProgressionCore(playerId, POST_BACKUP_PROGRESSION_CORE_STATE);
+        await upsertStructuredPlayerBodyTrainingState(playerId, POST_BACKUP_BODY_TRAINING_STATE);
+        await assertStructuredPlayerBodyTrainingState(playerId, POST_BACKUP_BODY_TRAINING_STATE);
+        await upsertStructuredPlayerAttrState(playerId, POST_BACKUP_ATTR_STATE);
+        await assertStructuredPlayerAttrState(playerId, POST_BACKUP_ATTR_STATE);
+        await replaceStructuredPlayerPersistentBuffStates(playerId, POST_BACKUP_PERSISTENT_BUFF_STATES);
+        await assertStructuredPlayerPersistentBuffStates(playerId, POST_BACKUP_PERSISTENT_BUFF_STATES);
+        await replaceStructuredPlayerEnhancementRecords(playerId, POST_BACKUP_ENHANCEMENT_RECORDS);
+        await assertStructuredPlayerEnhancementRecords(playerId, POST_BACKUP_ENHANCEMENT_RECORDS);
+        await replaceStructuredPlayerMarketStorageItems(playerId, POST_BACKUP_MARKET_STORAGE_ITEMS);
+        await assertStructuredPlayerMarketStorageItems(playerId, POST_BACKUP_MARKET_STORAGE_ITEMS);
         postBackupSuggestionId = await createSuggestion(playerId, {
             title: `restore-suggestion-${playerSuffix.slice(-6)}`,
             description: `post-backup suggestion ${playerSuffix}`,
@@ -205,7 +893,10 @@ async function main() {
                 && Number(summary?.revision ?? 0) === Number(mailSummaryBaseline.revision ?? 0) + 1;
         }, 10000);
         await waitForMailPresent(playerId, postBackupMailId, mailPageTotalBaseline + 1);
-        await authedPostJson('/api/auth/gm/password', token, {
+        await waitForStructuredMailPresent(postBackupMailId);
+        await resetGmAuthPasswordRecord();
+        const passwordChangeToken = await login(gmPassword);
+        await authedPostJson('/api/auth/gm/password', passwordChangeToken, {
             currentPassword: gmPassword,
             newPassword: changedGmPassword,
         });
@@ -261,6 +952,7 @@ async function main() {
         logStage('restore:completed', {
             jobId: restoreJobId,
         });
+        await assertGmAuthPasswordRecordMatchesBackup(backupGmAuthPayload);
         checkpointBackupId = String(restoreState.lastJob?.checkpointBackupId ?? '').trim();
         if (!checkpointBackupId) {
             throw new Error(`expected checkpointBackupId in restore lastJob: ${JSON.stringify(restoreState.lastJob)}`);
@@ -277,9 +969,20 @@ async function main() {
  */
         const rollbackToken = await login(gmPassword);
         await assertBackupDownload(rollbackToken, checkpointBackupId, requireBackupRecord(restoreState, checkpointBackupId, 'checkpoint backup'));
+        await waitForMailPresent(playerId, preBackupMailId, mailPageTotalBaseline);
         await waitForSuggestionAbsent(rollbackToken, postBackupSuggestionId);
         await waitForMailAbsent(playerId, postBackupMailId, mailPageTotalBaseline);
         await waitForMailSummary(playerId, (summary) => matchesMailSummary(summary, mailSummaryBaseline), 10000);
+        await assertStructuredPlayerPresencePresent(playerId);
+        await assertStructuredPlayerVitals(playerId, BASELINE_VITALS_STATE);
+        await assertStructuredPlayerProgressionCore(playerId, BASELINE_PROGRESSION_CORE_STATE);
+        await assertStructuredPlayerBodyTrainingState(playerId, BASELINE_BODY_TRAINING_STATE);
+        await assertStructuredPlayerAttrState(playerId, BASELINE_ATTR_STATE);
+        await assertStructuredPlayerPersistentBuffStates(playerId, BASELINE_PERSISTENT_BUFF_STATES);
+        await assertStructuredPlayerEnhancementRecords(playerId, BASELINE_ENHANCEMENT_RECORDS);
+        await assertStructuredPlayerMarketStorageItems(playerId, BASELINE_MARKET_STORAGE_ITEMS);
+        await assertStructuredMailPresent(preBackupMailId);
+        await assertStructuredMailAbsent(postBackupMailId);
     }
     finally {
         await stopServer(server);
@@ -315,9 +1018,20 @@ async function main() {
         if (typeof finalState.lastJob?.appliedAt !== 'string' || !finalState.lastJob.appliedAt.trim()) {
             throw new Error(`expected appliedAt to persist after restart, got ${JSON.stringify(finalState.lastJob)}`);
         }
+        await waitForMailPresent(playerId, preBackupMailId, mailPageTotalBaseline);
         await waitForSuggestionAbsent(token, postBackupSuggestionId);
         await waitForMailAbsent(playerId, postBackupMailId, mailPageTotalBaseline);
         await waitForMailSummary(playerId, (summary) => matchesMailSummary(summary, mailSummaryBaseline), 10000);
+        await assertStructuredPlayerPresencePresent(playerId);
+        await assertStructuredPlayerVitals(playerId, BASELINE_VITALS_STATE);
+        await assertStructuredPlayerProgressionCore(playerId, BASELINE_PROGRESSION_CORE_STATE);
+        await assertStructuredPlayerBodyTrainingState(playerId, BASELINE_BODY_TRAINING_STATE);
+        await assertStructuredPlayerAttrState(playerId, BASELINE_ATTR_STATE);
+        await assertStructuredPlayerPersistentBuffStates(playerId, BASELINE_PERSISTENT_BUFF_STATES);
+        await assertStructuredPlayerEnhancementRecords(playerId, BASELINE_ENHANCEMENT_RECORDS);
+        await assertStructuredPlayerMarketStorageItems(playerId, BASELINE_MARKET_STORAGE_ITEMS);
+        await assertStructuredMailPresent(preBackupMailId);
+        await assertStructuredMailAbsent(postBackupMailId);
     }
     finally {
         await stopServer(server);
@@ -398,9 +1112,11 @@ async function startServer(options) {
  * 记录子进程。
  */
     const child = (0, node_child_process_1.spawn)('node', [serverEntry], {
-        cwd: packageRoot,
+        cwd: repoRoot,
         env: {
             ...process.env,
+            SERVER_PACKAGE_ROOT: packageRoot,
+            SERVER_TOOL_DIST_ROOT: distRoot,
             SERVER_PORT: String(currentPort),
             SERVER_DATABASE_URL: databaseUrl,
             SERVER_RUNTIME_HTTP: '1',
@@ -442,6 +1158,462 @@ async function resetGmAuthPasswordRecord() {
     finally {
         await client.end().catch(() => undefined);
     }
+}
+/**
+ * 处理waitforstructuredmailpresent。
+ */
+async function waitForStructuredMailPresent(mailId) {
+    await waitForCondition(async () => {
+        const client = new pg_1.Client({ connectionString: databaseUrl });
+        await client.connect();
+        try {
+            const [mailResult, attachmentResult] = await Promise.all([
+                client.query('SELECT 1 FROM player_mail WHERE mail_id = $1 LIMIT 1', [mailId]),
+                client.query('SELECT 1 FROM player_mail_attachment WHERE mail_id = $1 LIMIT 1', [mailId]),
+            ]);
+            return (mailResult.rowCount ?? 0) > 0 && (attachmentResult.rowCount ?? 0) > 0;
+        }
+        finally {
+            await client.end().catch(() => undefined);
+        }
+    }, 5000);
+}
+/**
+ * 处理assertstructuredmailpresent。
+ */
+async function assertStructuredMailPresent(mailId) {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
+    const client = new pg_1.Client({ connectionString: databaseUrl });
+    await client.connect();
+    try {
+        const [mailResult, attachmentResult] = await Promise.all([
+            client.query('SELECT mail_version, deleted_at FROM player_mail WHERE mail_id = $1 LIMIT 1', [mailId]),
+            client.query('SELECT claimed_at FROM player_mail_attachment WHERE mail_id = $1 ORDER BY attachment_id ASC LIMIT 1', [mailId]),
+        ]);
+        if ((mailResult.rowCount ?? 0) === 0) {
+            throw new Error(`expected structured player_mail row ${mailId} to be present after restore`);
+        }
+        if ((attachmentResult.rowCount ?? 0) === 0) {
+            throw new Error(`expected structured player_mail_attachment row for ${mailId} to be present after restore`);
+        }
+        const mailRow = mailResult.rows[0] ?? {};
+        if (mailRow?.deleted_at != null || Number(mailRow?.mail_version ?? 0) <= 0) {
+            throw new Error(`expected structured player_mail row ${mailId} to stay visible after restore, got ${JSON.stringify(mailRow)}`);
+        }
+    }
+    finally {
+        await client.end().catch(() => undefined);
+    }
+}
+/**
+ * 处理assertstructuredplayerpresencepresent。
+ */
+async function assertStructuredPlayerPresencePresent(playerId) {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
+    const client = new pg_1.Client({ connectionString: databaseUrl });
+    await client.connect();
+    try {
+        const result = await client.query('SELECT online, in_world FROM player_presence WHERE player_id = $1 LIMIT 1', [playerId]);
+        if ((result.rowCount ?? 0) === 0) {
+            throw new Error(`expected player_presence row for ${playerId}`);
+        }
+        const row = result.rows[0];
+        if (row?.online !== true || row?.in_world !== true) {
+            throw new Error(`expected player_presence online/in_world to survive restore, got ${JSON.stringify(row)}`);
+        }
+    }
+    finally {
+        await client.end().catch(() => undefined);
+    }
+}
+/**
+ * 处理assertstructuredplayerbodytrainingstate。
+ */
+async function assertStructuredPlayerBodyTrainingState(playerId, expectedState) {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
+    const client = new pg_1.Client({ connectionString: databaseUrl });
+    await client.connect();
+    try {
+        const result = await client.query('SELECT level, exp, exp_to_next FROM player_body_training_state WHERE player_id = $1 LIMIT 1', [playerId]);
+        if ((result.rowCount ?? 0) === 0) {
+            throw new Error(`expected player_body_training_state row for ${playerId}`);
+        }
+        const row = result.rows[0] ?? {};
+        const actual = {
+            level: Number(row?.level ?? 0),
+            exp: Number(row?.exp ?? 0),
+            expToNext: Number(row?.exp_to_next ?? 0),
+        };
+        const expected = {
+            level: Number(expectedState?.level ?? 0),
+            exp: Number(expectedState?.exp ?? 0),
+            expToNext: Number(expectedState?.expToNext ?? 0),
+        };
+        if (actual.level !== expected.level || actual.exp !== expected.exp || actual.expToNext !== expected.expToNext) {
+            throw new Error(`expected player_body_training_state=${JSON.stringify(expected)}, got ${JSON.stringify(actual)}`);
+        }
+    }
+    finally {
+        await client.end().catch(() => undefined);
+    }
+}
+/**
+ * 处理assertstructuredplayervitals。
+ */
+async function assertStructuredPlayerVitals(playerId, expectedState) {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
+    const client = new pg_1.Client({ connectionString: databaseUrl });
+    await client.connect();
+    try {
+        const result = await client.query('SELECT hp, max_hp, qi, max_qi FROM player_vitals WHERE player_id = $1 LIMIT 1', [playerId]);
+        if ((result.rowCount ?? 0) === 0) {
+            throw new Error(`expected player_vitals row for ${playerId}`);
+        }
+        const row = result.rows[0] ?? {};
+        const actual = {
+            hp: Number(row?.hp ?? 0),
+            maxHp: Number(row?.max_hp ?? 0),
+            qi: Number(row?.qi ?? 0),
+            maxQi: Number(row?.max_qi ?? 0),
+        };
+        const expected = {
+            hp: Number(expectedState?.hp ?? 0),
+            maxHp: Number(expectedState?.maxHp ?? 0),
+            qi: Number(expectedState?.qi ?? 0),
+            maxQi: Number(expectedState?.maxQi ?? 0),
+        };
+        if (actual.hp !== expected.hp || actual.maxHp !== expected.maxHp || actual.qi !== expected.qi || actual.maxQi !== expected.maxQi) {
+            throw new Error(`expected player_vitals=${JSON.stringify(expected)}, got ${JSON.stringify(actual)}`);
+        }
+    }
+    finally {
+        await client.end().catch(() => undefined);
+    }
+}
+/**
+ * 处理assertstructuredplayerprogressioncore。
+ */
+async function assertStructuredPlayerProgressionCore(playerId, expectedState) {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
+    const client = new pg_1.Client({ connectionString: databaseUrl });
+    await client.connect();
+    try {
+        const result = await client.query(`
+      SELECT foundation, combat_exp, bone_age_base_years, life_elapsed_ticks, lifespan_years
+      FROM player_progression_core
+      WHERE player_id = $1
+      LIMIT 1
+    `, [playerId]);
+        if ((result.rowCount ?? 0) === 0) {
+            throw new Error(`expected player_progression_core row for ${playerId}`);
+        }
+        const row = result.rows[0] ?? {};
+        const actual = {
+            foundation: Number(row?.foundation ?? 0),
+            combatExp: Number(row?.combat_exp ?? 0),
+            boneAgeBaseYears: Number(row?.bone_age_base_years ?? 0),
+            lifeElapsedTicks: Number(row?.life_elapsed_ticks ?? 0),
+            lifespanYears: Number(row?.lifespan_years ?? 0),
+        };
+        const expected = {
+            foundation: Number(expectedState?.foundation ?? 0),
+            combatExp: Number(expectedState?.combatExp ?? 0),
+            boneAgeBaseYears: Number(expectedState?.boneAgeBaseYears ?? 0),
+            lifeElapsedTicks: Number(expectedState?.lifeElapsedTicks ?? 0),
+            lifespanYears: Number(expectedState?.lifespanYears ?? 0),
+        };
+        if (actual.foundation !== expected.foundation
+            || actual.combatExp !== expected.combatExp
+            || actual.boneAgeBaseYears !== expected.boneAgeBaseYears
+            || actual.lifeElapsedTicks !== expected.lifeElapsedTicks
+            || actual.lifespanYears !== expected.lifespanYears) {
+            throw new Error(`expected player_progression_core=${JSON.stringify(expected)}, got ${JSON.stringify(actual)}`);
+        }
+    }
+    finally {
+        await client.end().catch(() => undefined);
+    }
+}
+
+async function assertStructuredPlayerAttrState(playerId, expectedState) {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
+    const client = new pg_1.Client({ connectionString: databaseUrl });
+    await client.connect();
+    try {
+        const result = await client.query(`
+      SELECT
+        base_attrs_payload,
+        bonus_entries_payload,
+        revealed_breakthrough_requirement_ids,
+        realm_payload,
+        heaven_gate_payload,
+        spiritual_roots_payload
+      FROM player_attr_state
+      WHERE player_id = $1
+      LIMIT 1
+    `, [playerId]);
+        if ((result.rowCount ?? 0) === 0) {
+            throw new Error(`expected player_attr_state row for ${playerId}`);
+        }
+        const row = result.rows[0] ?? {};
+        const actual = {
+            baseAttrs: row?.base_attrs_payload ?? null,
+            bonusEntries: Array.isArray(row?.bonus_entries_payload) ? row.bonus_entries_payload : [],
+            revealedBreakthroughRequirementIds: Array.isArray(row?.revealed_breakthrough_requirement_ids)
+                ? row.revealed_breakthrough_requirement_ids
+                : [],
+            realm: row?.realm_payload ?? null,
+            heavenGate: row?.heaven_gate_payload ?? null,
+            spiritualRoots: row?.spiritual_roots_payload ?? null,
+        };
+        const expected = {
+            baseAttrs: expectedState?.baseAttrs ?? null,
+            bonusEntries: Array.isArray(expectedState?.bonusEntries) ? expectedState.bonusEntries : [],
+            revealedBreakthroughRequirementIds: Array.isArray(expectedState?.revealedBreakthroughRequirementIds)
+                ? expectedState.revealedBreakthroughRequirementIds
+                : [],
+            realm: expectedState?.realm ?? null,
+            heavenGate: expectedState?.heavenGate ?? null,
+            spiritualRoots: expectedState?.spiritualRoots ?? null,
+        };
+        if (JSON.stringify(normalizeComparableJson(actual)) !== JSON.stringify(normalizeComparableJson(expected))) {
+            throw new Error(`expected player_attr_state=${JSON.stringify(expected)}, got ${JSON.stringify(actual)}`);
+        }
+    }
+    finally {
+        await client.end().catch(() => undefined);
+    }
+}
+
+async function assertStructuredPlayerPersistentBuffStates(playerId, expectedStates) {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
+    const client = new pg_1.Client({ connectionString: databaseUrl });
+    await client.connect();
+    try {
+        const result = await client.query(`
+      SELECT
+        buff_id,
+        source_skill_id,
+        source_caster_id,
+        realm_lv,
+        remaining_ticks,
+        duration,
+        stacks,
+        max_stacks,
+        sustain_ticks_elapsed,
+        raw_payload
+      FROM player_persistent_buff_state
+      WHERE player_id = $1
+      ORDER BY buff_id ASC, source_skill_id ASC
+    `, [playerId]);
+        const actual = normalizeComparablePersistentBuffStates(result.rows ?? []);
+        const expected = normalizeComparablePersistentBuffStates(expectedStates);
+        if (JSON.stringify(normalizeComparableJson(actual)) !== JSON.stringify(normalizeComparableJson(expected))) {
+            throw new Error(`expected player_persistent_buff_state=${JSON.stringify(expected)}, got ${JSON.stringify(actual)}`);
+        }
+    }
+    finally {
+        await client.end().catch(() => undefined);
+    }
+}
+
+async function assertStructuredPlayerEnhancementRecords(playerId, expectedRecords) {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
+    const client = new pg_1.Client({ connectionString: databaseUrl });
+    await client.connect();
+    try {
+        const result = await client.query(`
+      SELECT
+        record_id,
+        item_id,
+        highest_level,
+        levels_payload,
+        action_started_at,
+        action_ended_at,
+        start_level,
+        initial_target_level,
+        desired_target_level,
+        protection_start_level,
+        status
+      FROM player_enhancement_record
+      WHERE player_id = $1
+      ORDER BY record_id ASC
+    `, [playerId]);
+        const actual = normalizeComparableEnhancementRecords(result.rows ?? []);
+        const expected = normalizeComparableEnhancementRecords(expectedRecords);
+        if (JSON.stringify(normalizeComparableJson(actual)) !== JSON.stringify(normalizeComparableJson(expected))) {
+            throw new Error(`expected player_enhancement_record=${JSON.stringify(expected)}, got ${JSON.stringify(actual)}`);
+        }
+    }
+    finally {
+        await client.end().catch(() => undefined);
+    }
+}
+
+async function assertStructuredPlayerMarketStorageItems(playerId, expectedItems) {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
+    const client = new pg_1.Client({ connectionString: databaseUrl });
+    await client.connect();
+    try {
+        const result = await client.query(`
+      SELECT
+        slot_index,
+        item_id,
+        count,
+        enhance_level,
+        raw_payload
+      FROM player_market_storage_item
+      WHERE player_id = $1
+      ORDER BY slot_index ASC, storage_item_id ASC
+    `, [playerId]);
+        const actual = normalizeComparableMarketStorageItems(result.rows ?? []);
+        const expected = normalizeComparableMarketStorageItems(expectedItems);
+        if (JSON.stringify(normalizeComparableJson(actual)) !== JSON.stringify(normalizeComparableJson(expected))) {
+            throw new Error(`expected player_market_storage_item=${JSON.stringify(expected)}, got ${JSON.stringify(actual)}`);
+        }
+    }
+    finally {
+        await client.end().catch(() => undefined);
+    }
+}
+/**
+ * 处理assertstructuredmailabsent。
+ */
+async function assertStructuredMailAbsent(mailId) {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
+    const client = new pg_1.Client({ connectionString: databaseUrl });
+    await client.connect();
+    try {
+        const result = await client.query('SELECT 1 FROM player_mail WHERE mail_id = $1 LIMIT 1', [mailId]);
+        if ((result.rowCount ?? 0) !== 0) {
+            throw new Error(`expected structured player_mail row ${mailId} to be absent after restore`);
+        }
+    }
+    finally {
+        await client.end().catch(() => undefined);
+    }
+}
+/**
+ * 处理assertstructuredtablepresent。
+ */
+function assertStructuredTablePresent(payload, tableName) {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
+    const tables = Array.isArray(payload?.tables) ? payload.tables : [];
+    const record = tables.find((entry) => String(entry?.tableName ?? '').trim() === tableName);
+    if (!record) {
+        throw new Error(`expected backup payload to include structured table ${tableName}, got ${JSON.stringify(tables)}`);
+    }
+}
+
+function requireBackupDocumentPayload(payload, scope, key) {
+  const docs = Array.isArray(payload?.docs) ? payload.docs : [];
+  const record = docs.find((entry) => String(entry?.scope ?? '').trim() === scope && String(entry?.key ?? '').trim() === key);
+  if (!record) {
+    throw new Error(`expected backup payload to include document ${scope}/${key}, got ${JSON.stringify(docs)}`);
+  }
+  return record?.payload ?? null;
+}
+
+function normalizeComparablePersistentBuffStates(states) {
+    return (Array.isArray(states) ? states : []).map((entry) => ({
+        buffId: String(entry?.buffId ?? entry?.buff_id ?? ''),
+        sourceSkillId: String(entry?.sourceSkillId ?? entry?.source_skill_id ?? ''),
+        sourceCasterId: entry?.sourceCasterId ?? entry?.source_caster_id ?? null,
+        realmLv: Number(entry?.realmLv ?? entry?.realm_lv ?? 0),
+        remainingTicks: Number(entry?.remainingTicks ?? entry?.remaining_ticks ?? 0),
+        duration: Number(entry?.duration ?? 0),
+        stacks: Number(entry?.stacks ?? 1),
+        maxStacks: Number(entry?.maxStacks ?? entry?.max_stacks ?? 1),
+        sustainTicksElapsed: entry?.sustainTicksElapsed ?? entry?.sustain_ticks_elapsed ?? null,
+        rawPayload: entry?.rawPayload ?? entry?.raw_payload ?? null,
+    })).sort((left, right) => left.buffId.localeCompare(right.buffId, 'zh-Hans-CN')
+        || left.sourceSkillId.localeCompare(right.sourceSkillId, 'zh-Hans-CN'));
+}
+
+function normalizeComparableEnhancementRecords(records) {
+    return (Array.isArray(records) ? records : []).map((entry) => ({
+        recordId: String(entry?.recordId ?? entry?.record_id ?? ''),
+        itemId: String(entry?.itemId ?? entry?.item_id ?? ''),
+        highestLevel: Number(entry?.highestLevel ?? entry?.highest_level ?? 0),
+        levels: Array.isArray(entry?.levels ?? entry?.levels_payload) ? (entry?.levels ?? entry?.levels_payload) : [],
+        actionStartedAt: Number(entry?.actionStartedAt ?? entry?.action_started_at ?? 0),
+        actionEndedAt: Number(entry?.actionEndedAt ?? entry?.action_ended_at ?? 0),
+        startLevel: Number(entry?.startLevel ?? entry?.start_level ?? 0),
+        initialTargetLevel: Number(entry?.initialTargetLevel ?? entry?.initial_target_level ?? 0),
+        desiredTargetLevel: Number(entry?.desiredTargetLevel ?? entry?.desired_target_level ?? 0),
+        protectionStartLevel: Number(entry?.protectionStartLevel ?? entry?.protection_start_level ?? 0),
+        status: String(entry?.status ?? ''),
+    })).sort((left, right) => left.recordId.localeCompare(right.recordId, 'zh-Hans-CN'));
+}
+
+function normalizeComparableMarketStorageItems(items) {
+    return (Array.isArray(items) ? items : []).map((entry, index) => ({
+        slotIndex: Number(entry?.slotIndex ?? entry?.slot_index ?? index),
+        itemId: String(entry?.itemId ?? entry?.item_id ?? ''),
+        count: Number(entry?.count ?? 1),
+        enhanceLevel: normalizeOptionalInteger(
+            entry?.enhanceLevel
+            ?? entry?.enhancementLevel
+            ?? entry?.enhance_level
+            ?? entry?.level,
+        ),
+        rawPayload: entry?.rawPayload ?? entry?.raw_payload ?? entry ?? null,
+    })).sort((left, right) => left.slotIndex - right.slotIndex
+        || left.itemId.localeCompare(right.itemId, 'zh-Hans-CN'));
+}
+
+function normalizeOptionalInteger(value) {
+    if (!Number.isFinite(value)) {
+        return null;
+    }
+    return Math.trunc(Number(value));
+}
+
+function normalizeComparableJson(value) {
+    if (Array.isArray(value)) {
+        return value.map((entry) => normalizeComparableJson(entry));
+    }
+    if (!value || typeof value !== 'object') {
+        return value;
+    }
+    return Object.fromEntries(Object.keys(value)
+        .sort((left, right) => left.localeCompare(right, 'zh-Hans-CN'))
+        .map((key) => [key, normalizeComparableJson(value[key])]));
+}
+
+async function assertGmAuthPasswordRecordMatchesBackup(expectedPayload) {
+  const client = new pg_1.Client({ connectionString: databaseUrl });
+  await client.connect();
+  try {
+    const result = await client.query('SELECT payload FROM persistent_documents WHERE scope = $1 AND key = $2 LIMIT 1', [
+      next_gm_contract_1.GM_AUTH_CONTRACT.passwordRecordScope,
+      next_gm_contract_1.GM_AUTH_CONTRACT.passwordRecordKey,
+    ]);
+    if ((result.rowCount ?? 0) === 0) {
+      throw new Error('expected restored GM auth password record to exist before relogin');
+    }
+    const currentPayload = result.rows[0]?.payload ?? null;
+    if (JSON.stringify(currentPayload) !== JSON.stringify(expectedPayload)) {
+      throw new Error(`expected restored GM auth password record to match backup payload, got ${JSON.stringify({
+        expectedPayload,
+        currentPayload,
+      })}`);
+    }
+  }
+  finally {
+    await client.end().catch(() => undefined);
+  }
 }
 /**
  * 停止服务端。
@@ -608,10 +1780,14 @@ async function registerAndLoginPlayer() {
 /**
  * 记录玩家ID。
  */
-    const playerId = payload?.sub ? `p_${String(payload.sub).trim()}` : '';
+    const playerId = resolveTokenPlayerId(payload);
     if (!accessToken || !playerId) {
         throw new Error(`unexpected player login payload: ${JSON.stringify(loginResult)}`);
     }
+    (0, smoke_player_auth_1.registerSmokePlayerForCleanup)(playerId, {
+        serverUrl: baseUrl,
+        databaseUrl,
+    });
     return {
         accessToken,
         playerId,
@@ -1036,6 +2212,39 @@ function parseJwtPayload(token) {
     }
 }
 /**
+ * 从 主线玩家令牌中解析 playerId，优先信任显式 playerId 字段。
+ */
+function resolveTokenPlayerId(payload) {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
+    const direct = normalizeMainlinePlayerId(typeof payload?.playerId === 'string' ? payload.playerId.trim() : '');
+    if (direct) {
+        return direct;
+    }
+    return normalizeMainlinePlayerId(typeof payload?.sub === 'string' ? payload.sub.trim() : '');
+}
+/**
+ * 规范化 主线玩家ID，统一为 p_<uuid> 形态。
+ */
+function normalizeMainlinePlayerId(value) {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
+    if (typeof value !== 'string') {
+        return '';
+    }
+/**
+ * 记录trimmed。
+ */
+    const trimmed = value.trim();
+    if (!trimmed) {
+        return '';
+    }
+    if (trimmed.startsWith('p_')) {
+        return trimmed;
+    }
+    return /^[0-9a-fA-F-]{36}$/.test(trimmed) ? `p_${trimmed}` : trimmed;
+}
+/**
  * 断言备份download。
  */
 async function assertBackupDownload(token, backupId, expectedRecord = null) {
@@ -1070,7 +2279,8 @@ async function assertBackupDownload(token, backupId, expectedRecord = null) {
     if (payload?.backupId !== backupId) {
         throw new Error(`expected downloaded backupId=${backupId}, got ${JSON.stringify(payload)}`);
     }
-    if (payload?.kind !== 'server_next_persistent_documents_backup_v1') {
+    if (payload?.kind !== 'server_persistent_documents_backup_v1'
+        && payload?.kind !== 'server_persistence_backup_v2') {
         throw new Error(`unexpected backup payload kind: ${JSON.stringify(payload)}`);
     }
     if (!Array.isArray(payload?.docs) || payload.docs.length === 0) {
@@ -1089,12 +2299,31 @@ async function assertBackupDownload(token, backupId, expectedRecord = null) {
     if (payload.checksumSha256 !== downloadedChecksum) {
         throw new Error(`expected downloaded checksumSha256=${downloadedChecksum}, got ${payload.checksumSha256}`);
     }
+    if (payload?.kind === 'server_persistence_backup_v2') {
+        if (!Array.isArray(payload?.tables) || payload.tables.length === 0) {
+            throw new Error(`expected downloaded backup structured tables, got ${JSON.stringify(payload)}`);
+        }
+        if (Number(payload?.tablesCount) !== payload.tables.length) {
+            throw new Error(`expected tablesCount to match tables length, got ${JSON.stringify(payload)}`);
+        }
+        if (typeof payload?.tablesChecksumSha256 !== 'string' || payload.tablesChecksumSha256.trim().length === 0) {
+            throw new Error(`expected downloaded backup tablesChecksumSha256, got ${JSON.stringify(payload)}`);
+        }
+        const downloadedTablesChecksum = computeChecksumForTables(payload.tables);
+        if (payload.tablesChecksumSha256 !== downloadedTablesChecksum) {
+            throw new Error(`expected downloaded tablesChecksumSha256=${downloadedTablesChecksum}, got ${payload.tablesChecksumSha256}`);
+        }
+    }
 /**
  * 记录diskpayload。
  */
     const diskPayload = JSON.parse(await node_fs_1.promises.readFile(resolveBackupFilePath(backupId), 'utf8'));
     if (computeChecksumForDocs(diskPayload?.docs ?? []) !== downloadedChecksum) {
         throw new Error(`expected downloaded backup checksum to match on-disk backup for ${backupId}`);
+    }
+    if (payload?.kind === 'server_persistence_backup_v2'
+        && computeChecksumForTables(diskPayload?.tables ?? []) !== String(payload?.tablesChecksumSha256 ?? '')) {
+        throw new Error(`expected downloaded backup structured table checksum to match on-disk backup for ${backupId}`);
     }
     if (expectedRecord) {
 /**
@@ -1111,7 +2340,16 @@ async function assertBackupDownload(token, backupId, expectedRecord = null) {
         if (expectedChecksum && expectedChecksum !== payload.checksumSha256) {
             throw new Error(`expected metadata checksumSha256=${expectedChecksum}, got ${payload.checksumSha256}`);
         }
+        const expectedTablesCount = Number(expectedRecord?.tablesCount);
+        const expectedTablesChecksum = String(expectedRecord?.tablesChecksumSha256 ?? '').trim();
+        if (Number.isFinite(expectedTablesCount) && expectedTablesCount !== Number(payload?.tablesCount ?? 0)) {
+            throw new Error(`expected metadata tablesCount=${expectedTablesCount}, got ${payload?.tablesCount}`);
+        }
+        if (expectedTablesChecksum && expectedTablesChecksum !== String(payload?.tablesChecksumSha256 ?? '')) {
+            throw new Error(`expected metadata tablesChecksumSha256=${expectedTablesChecksum}, got ${payload?.tablesChecksumSha256}`);
+        }
     }
+    return payload;
 }
 /**
  * 处理expect恢复rejectedwithoutmaintenance。
@@ -1279,31 +2517,9 @@ async function waitForJobSettled(token, jobId, type) {
  * 等待for恢复settledafterpasswordrollback。
  */
 async function waitForRestoreSettledAfterPasswordRollback(jobId) {
-/**
- * 记录缓存token。
- */
-    let cachedToken = '';
-    return waitForCondition(async () => {
-        if (!cachedToken) {
-            try {
-                cachedToken = await login(gmPassword);
-            }
-            catch {
-                return false;
-            }
-        }
-/**
- * 记录状态。
- */
-        let state;
-        try {
-            state = await authedGetJson('/api/gm/database/state', cachedToken);
-        }
-        catch {
-            cachedToken = '';
-            return false;
-        }
-        if (state.runningJob?.id === jobId) {
+    await waitForCondition(async () => {
+        const state = await readPersistedDatabaseJobState();
+        if (state.currentJob?.id === jobId) {
             return false;
         }
         if (state.lastJob?.id !== jobId) {
@@ -1314,6 +2530,50 @@ async function waitForRestoreSettledAfterPasswordRollback(jobId) {
         }
         return state;
     }, GM_DATABASE_RESTORE_SETTLE_TIMEOUT_MS, 1000);
+/**
+ * 记录rollback令牌。
+ */
+    const rollbackToken = await login(gmPassword);
+    return waitForCondition(async () => {
+/**
+ * 记录状态。
+ */
+        const state = await authedGetJson('/api/gm/database/state', rollbackToken);
+        if (state.runningJob?.id === jobId) {
+            return false;
+        }
+        if (state.lastJob?.id !== jobId) {
+            return false;
+        }
+        if (state.lastJob?.type !== 'restore' || state.lastJob?.status !== 'completed' || state.lastJob?.phase !== 'completed') {
+            throw new Error(`expected completed restore lastJob, got ${JSON.stringify(state.lastJob)}`);
+        }
+        return state;
+    }, 15000, 1000);
+}
+
+async function readPersistedDatabaseJobState() {
+/**
+ * 记录客户端。
+ */
+    const client = new pg_1.Client({ connectionString: databaseUrl });
+    await client.connect();
+    try {
+        const result = await client.query('SELECT payload FROM persistent_documents WHERE scope = $1 AND key = $2 LIMIT 1', [
+            GM_DATABASE_JOB_STATE_SCOPE,
+            GM_DATABASE_JOB_STATE_KEY,
+        ]);
+        return result.rows[0]?.payload ?? {};
+    }
+    catch (error) {
+        if (error && typeof error === 'object' && error.code === '42P01') {
+            return {};
+        }
+        throw error;
+    }
+    finally {
+        await client.end().catch(() => undefined);
+    }
 }
 
 function logStage(stage, extra = {}) {
@@ -1514,6 +2774,20 @@ function computeChecksumForDocs(docs) {
     return crypto.createHash('sha256').update(JSON.stringify(docs)).digest('hex');
 }
 /**
+ * 处理computechecksumfortables。
+ */
+function computeChecksumForTables(tables) {
+    const crypto = require('node:crypto');
+    const normalized = Array.isArray(tables)
+        ? tables.map((entry) => ({
+            tableName: typeof entry?.tableName === 'string' ? entry.tableName : '',
+            rowCount: Number(entry?.rowCount ?? 0),
+            checksumSha256: typeof entry?.checksumSha256 === 'string' ? entry.checksumSha256 : '',
+        }))
+        : [];
+    return crypto.createHash('sha256').update(JSON.stringify(normalized)).digest('hex');
+}
+/**
  * 等待forcondition。
  */
 async function waitForCondition(predicate, timeoutMs, intervalMs = 100) {
@@ -1618,4 +2892,13 @@ async function allocateFreePort() {
 void main().catch((error) => {
     console.error(error);
     process.exitCode = 1;
+}).finally(() => {
+    return (0, smoke_player_auth_1.flushRegisteredSmokePlayers)()
+        .catch((error) => {
+        console.error(error);
+        process.exitCode = 1;
+    })
+        .finally(() => {
+        ownedDistSnapshot?.cleanup();
+    });
 });

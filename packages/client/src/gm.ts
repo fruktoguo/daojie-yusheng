@@ -768,7 +768,7 @@ function getManagedAccountActivityMeta(player: Pick<GmManagedPlayerRecord, 'meta
     return {
       label: '在线时间戳',
       value: player.meta.lastHeartbeatAt ? formatDateTime(player.meta.lastHeartbeatAt) : '当前在线，暂无可靠记录',
-      note: player.meta.lastHeartbeatAt ? undefined : 'server-next 当前未返回可靠的本次上线时间。',
+      note: player.meta.lastHeartbeatAt ? undefined : '当前未返回可靠的本次上线时间。',
     };
   }
   if (player.meta.updatedAt) {
@@ -800,7 +800,7 @@ function getEditorCatalogFallbackNote(): string {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
   if (editorCatalogSource === 'local-fallback') {
-    return '服务端编辑目录加载失败，当前仅保留本地参考标签；模板快捷写入已停用，避免把本地目录直接写回 server-next。';
+    return '服务端编辑目录加载失败，当前仅保留本地参考标签；模板快捷写入已停用，避免把本地目录直接写回服务端。';
   }
   if (editorCatalogSource === 'unavailable') {
     return '编辑目录尚未加载完成，模板快捷写入暂不可用。';
@@ -2173,7 +2173,7 @@ function renderDatabasePanel(): void {
   const busy = databaseState?.runningJob?.status === 'running';
   const backups = databaseState?.backups ?? [];
   const summary = databaseStateLoading && !databaseState
-    ? '正在读取 server-next 持久化备份状态…'
+    ? '正在读取持久化备份状态…'
     : formatDatabaseJobLabel(databaseState);
   const schedulesLine = databaseState?.automation?.schedulesActive === false
     ? '当前未启用自动定时备份，现阶段仅支持手工触发导出。'
@@ -2181,16 +2181,20 @@ function renderDatabasePanel(): void {
   const retentionLine = databaseState?.automation?.retentionEnforced === false
     ? '当前未启用自动保留清理，历史备份需要手工管理。'
     : `保留策略：整点备份最多 ${databaseState?.retention.hourly ?? 72} 份，每日备份最多 ${databaseState?.retention.daily ?? 14} 份。手动导出和导入前备份当前不自动删。`;
-  const restoreLine = `${databaseState?.automation?.restoreRequiresMaintenance === true ? '导入历史备份前必须先开启维护态；' : ''}${databaseState?.automation?.preImportBackupEnabled === false ? '' : '服务端会先生成一份“导入前备份”，随后暂停 tick、断开玩家连接、覆盖 server-next persistent_documents 并重建运行时。'}${databaseState?.automation?.preImportBackupEnabled === false ? '导入会直接覆盖当前 server-next persistent_documents。' : ''}`;
+  const restoreLine = `${databaseState?.automation?.restoreRequiresMaintenance === true ? '导入历史备份前必须先开启维护态；' : ''}${databaseState?.automation?.preImportBackupEnabled === false ? '' : '服务端会先生成一份“导入前备份”，随后暂停 tick、断开玩家连接、覆盖主线持久化真源并重建运行时。'}${databaseState?.automation?.preImportBackupEnabled === false ? '导入会直接覆盖当前主线持久化真源。' : ''}`;
   const scopeLine = databaseState?.scope === 'persistent_documents_only'
-    ? '作用范围：仅 server-next persistent_documents。'
+    ? '作用范围：仅持久化文档。'
+    : databaseState?.scope === 'mainline_persistence'
+    ? '作用范围：主线持久化真源（persistent_documents + next-native 结构化表）。'
     : '作用范围：以服务端返回说明为准。';
   const restoreModeLine = databaseState?.restoreMode === 'replace_persistent_documents'
-    ? '恢复方式：覆盖 server-next persistent_documents。'
+    ? '恢复方式：覆盖持久化文档。'
+    : databaseState?.restoreMode === 'replace_mainline_persistence'
+    ? '恢复方式：覆盖主线持久化真源。'
     : '恢复方式：以服务端返回说明为准。';
   const persistenceLine = databaseState?.persistenceEnabled === false
     ? '当前未启用数据库持久化，此面板仅供查看主线持久化说明。'
-    : '当前 server-next 持久化已启用，可手工导出或恢复其快照。';
+    : '当前持久化已启用，可手工导出或恢复其快照。';
   const rows = backups.length > 0
     ? backups.map((backup) => `
         <div class="network-row">
@@ -2204,7 +2208,7 @@ function renderDatabasePanel(): void {
           </div>
         </div>
       `).join('')
-    : '<div class="empty-hint">当前还没有 server-next 持久化备份。</div>';
+    : '<div class="empty-hint">当前还没有持久化备份。</div>';
 
   serverPanelDatabaseEl.innerHTML = `
     <div class="button-row">
@@ -2219,12 +2223,12 @@ function renderDatabasePanel(): void {
       ${schedulesLine}<br />
       ${retentionLine}<br />
       ${escapeHtml(restoreLine)}<br />
-      ${escapeHtml(databaseState?.note ?? '当前为 server-next 持久化备份面板，具体覆盖范围与限制以服务端返回说明为准。')}
+      ${escapeHtml(databaseState?.note ?? '当前为持久化备份面板，具体覆盖范围与限制以服务端返回说明为准。')}
     </div>
     <div class="network-breakdown">
       <div class="network-breakdown-head">
         <div class="panel-title">历史持久化备份</div>
-        <div class="network-breakdown-subtitle">支持下载任意历史备份，也支持把某份备份重新恢复为当前 server-next persistent_documents</div>
+        <div class="network-breakdown-subtitle">支持下载任意历史备份，也支持把某份备份重新恢复为当前持久化文档</div>
       </div>
       <div class="network-breakdown-list">${rows}</div>
     </div>

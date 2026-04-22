@@ -7,7 +7,7 @@
 补充（2026-04-20，server TS loop 当前进度）：
 
 - bootstrap/config 入口簇已从手写 `.js` 真源迁到 `.ts`：`packages/server/src/config/env-alias.ts`、`packages/server/src/config/server-cors.ts`、`packages/server/src/main.ts`
-- HTTP/bootstrap 簇已从手写 `.js` 真源迁到 `.ts`：`packages/server/src/app.module.ts`、`packages/server/src/http/next-http.registry.ts` 与 `packages/server/src/http/next/*.ts`
+- HTTP/bootstrap 簇已从手写 `.js` 真源迁到 `.ts`：`packages/server/src/app.module.ts`、`packages/server/src/http/native-http.registry.ts` 与 `packages/server/src/http/native/*.ts`
 - 前三轮 TS loop 迁移均不改变 next 主链行为、协议、持久化与 GM/admin 语义；已补跑 `pnpm --filter @mud/server compile`、`smoke:readiness-gate`、`smoke:next-auth-bootstrap`、`smoke:gm-next`
 - 第 3 轮已继续收掉 auth 叶子真源：`packages/server/src/auth/account-validation.ts`、`packages/server/src/auth/password-hash.ts`、`packages/server/src/auth/player-token-verify.ts`
 - 第 4-6 轮继续沿 network/auth 最小链路推进：`packages/server/src/network/world-player-token-codec.service.ts`、`packages/server/src/network/world-player-token.service.ts` 与 `packages/server/src/network/world-player-auth.service.ts` 已从手写 `.js` 真源迁到 `.ts`
@@ -362,18 +362,18 @@
 - 本轮验证已补跑 `pnpm --filter @mud/server audit:protocol`、根级 `pnpm build` 与 `pnpm verify:replace-ready`，其中 `audit:protocol` 实际覆盖了 `RequestDetail` / `RequestTileDetail` 主链
 - 新增 `packages/server/src/runtime/world/world-runtime-summary-query.service.js`
 - `world-runtime.service.ts` 的 `getRuntimeSummary()` 现已委托给 `WorldRuntimeSummaryQueryService`，仅保留实例列表与计数上下文采集；summary payload 与 tickPerf 汇总构造下沉为显式只读查询服务
-- 这一刀没有改 `world-runtime.controller.js`、`runtime-gm-state.service.ts`、`next-gm-world.service.js` 的调用面，继续把 `world-runtime.service.ts` 保留为总编排 facade，避免把 batch 4 扩散到更宽的调用链整理
+- 这一刀没有改 `world-runtime.controller.js`、`runtime-gm-state.service.ts`、`native-gm-world.service.js` 的调用面，继续把 `world-runtime.service.ts` 保留为总编排 facade，避免把 batch 4 扩散到更宽的调用链整理
 - 本轮验证已补跑 `pnpm --filter @mud/server audit:protocol`、根级 `pnpm build` 与 `pnpm verify:replace-ready`；结果继续通过，`audit:protocol` 在无库口径下完成整套 runtime bootstrap/protocol 检查并更新审计报告
 - 新增 `packages/server/src/runtime/world/world-runtime-instance-query.service.js`
 - `world-runtime.service.ts` 的 `listInstances()`、`getInstance()`、`listInstanceMonsters()`、`getInstanceMonster()`、`getInstanceTileState()` 已统一委托给 `WorldRuntimeInstanceQueryService`，只保留实例存在性校验和总编排 facade
 - 这组实例只读查询仍保持原 controller / world-sync / GM 调用面不变，不把 batch 4 扩散到持久化快照、脏实例追踪或任何写状态流程
 - 本轮验证已补跑 `pnpm --filter @mud/server audit:protocol`、根级 `pnpm build` 与 `pnpm verify:replace-ready`；结果继续通过，实例只读查询抽离未影响 runtime HTTP、GM 读取口径和 world-sync 审计链
-- `packages/server/src/http/next/next-gm-player.service.js` 现已接管 `getPlayerDetail()` 及玩家详情聚合 helper，`NextGmWorldService` 不再承接玩家详情读链
-- `packages/server/src/http/next/next-gm.controller.js` 的 `GET /api/gm/players/:playerId` 已改为转发到 `nextGmPlayerService.getPlayerDetail()`，不改路由面和返回结构
+- `packages/server/src/http/native/native-gm-player.service.js` 现已接管 `getPlayerDetail()` 及玩家详情聚合 helper，`NativeGmWorldService` 不再承接玩家详情读链
+- `packages/server/src/http/native/native-gm.controller.js` 的 `GET /api/gm/players/:playerId` 已改为转发到 `nextGmPlayerService.getPlayerDetail()`，不改路由面和返回结构
 - 这一刀只移动 GM 玩家详情只读查询，不触碰 `getState()`、`buildPerformanceSnapshot()`、地图 runtime 观测和任何 GM 写路径
 - 本轮验证已补跑 `pnpm --filter @mud/server smoke:gm-next`、`pnpm --filter @mud/server audit:protocol`、根级 `pnpm build` 与 `pnpm verify:replace-ready`；结果继续通过，其中 `gm-next` 在无库本地口径下返回 `ok: true` 且标记 `skipped`
-- 新增 `packages/server/src/http/next/next-gm-map-query.service.js`
-- `packages/server/src/http/next/next-gm-world.service.js` 的 `getMaps()` 已委托给 `NextGmMapQueryService`，world service 仅保留 GM world facade，不再承接地图列表展示拼装
+- 新增 `packages/server/src/http/native/native-gm-map-query.service.js`
+- `packages/server/src/http/native/native-gm-world.service.js` 的 `getMaps()` 已委托给 `NativeGmMapQueryService`，world service 仅保留 GM world facade，不再承接地图列表展示拼装
 - 这一刀只移动 GM 地图列表只读查询，不触碰 `getMapRuntime()`、`getState()`、`buildPerformanceSnapshot()` 或任何 GM 写路径
 - 本轮验证已补跑 `pnpm --filter @mud/server smoke:gm-next`、`pnpm --filter @mud/server audit:protocol`、根级 `pnpm build` 与 `pnpm verify:replace-ready`；结果继续通过，其中 `gm-next` 在无库本地口径下返回 `ok: true` 且标记 `skipped`
 - 新增 `packages/server/src/runtime/world/world-runtime-player-view-query.service.js`
@@ -402,20 +402,20 @@
 - `world-runtime.service.ts` 的 `buildNpcQuestsView()` 现已改成更薄 facade：仍保留 `getPlayerLocationOrThrow()`、`npcId` 归一/空值校验与 `refreshQuestStates()` 前置，再委托给 `WorldRuntimeQuestQueryService.buildNpcQuestsView()`；`refreshQuestStates()` 的归属继续留在 quest-state / write 域，不越界到 query service
 - 本轮扩充 `packages/server/src/tools/world-runtime-quest-list-view-smoke.js`，补上 query-side `buildNpcQuestsView()` 与 world-runtime facade 的专项断言，并补跑 `packages/server/src/tools/world-runtime-npc-quest-write-smoke.js` 作为写链回归，不把这刀扩散到 NPC quest accept/submit/interact 写路径拆分
 - 本轮验证已补跑 `pnpm --filter @mud/server smoke:world-runtime-quest-list-view`、`pnpm --filter @mud/server smoke:world-runtime-npc-quest-write` 与根级 `pnpm verify:replace-ready`；结果通过，说明 NPC quest view query 抽离未打破 NPC quest 读链、写链回归与 local replace-ready 证明链
-- 新增 `packages/server/src/http/next/next-gm-editor-query.service.js`
-- `packages/server/src/http/next/next-gm-world.service.js` 的 `getEditorCatalog()` / `buildEditorBuffCatalog()` 已委托给 `NextGmEditorQueryService`，world service 继续只保留 GM world facade
+- 新增 `packages/server/src/http/native/native-gm-editor-query.service.js`
+- `packages/server/src/http/native/native-gm-world.service.js` 的 `getEditorCatalog()` / `buildEditorBuffCatalog()` 已委托给 `NativeGmEditorQueryService`，world service 继续只保留 GM world facade
 - 这一刀只移动 GM editor 只读查询，不触碰 `getState()`、`getMapRuntime()`、`buildPerformanceSnapshot()` 或任何 GM 写路径
 - 本轮验证已补跑 `pnpm --filter @mud/server smoke:gm-next`、`pnpm --filter @mud/server audit:protocol`、根级 `pnpm build` 与 `pnpm verify:replace-ready`；结果继续通过，其中 `gm-next` 在无库本地口径下返回 `ok: true` 且标记 `skipped`
-- 新增 `packages/server/src/http/next/next-gm-suggestion-query.service.js`
-- `packages/server/src/http/next/next-gm-world.service.js` 的 `getSuggestions()` 已委托给 `NextGmSuggestionQueryService`，world service 只保留建议的写操作与 GM world facade
+- 新增 `packages/server/src/http/native/native-gm-suggestion-query.service.js`
+- `packages/server/src/http/native/native-gm-world.service.js` 的 `getSuggestions()` 已委托给 `NativeGmSuggestionQueryService`，world service 只保留建议的写操作与 GM world facade
 - 这一刀只移动 GM suggestion 列表只读查询，不触碰 `completeSuggestion()`、`replySuggestion()`、`removeSuggestion()` 或任何其它 GM 写路径
 - 本轮验证已补跑 `pnpm --filter @mud/server smoke:gm-next`、`pnpm --filter @mud/server audit:protocol`、根级 `pnpm build` 与 `pnpm verify:replace-ready`；结果继续通过，其中 `gm-next` 在无库本地口径下返回 `ok: true` 且标记 `skipped`
-- 新增 `packages/server/src/http/next/next-gm-map-runtime-query.service.js`
-- `packages/server/src/http/next/next-gm-world.service.js` 的 `getMapRuntime()` 已委托给 `NextGmMapRuntimeQueryService`，world service 只保留 observer 标记与 GM world facade
+- 新增 `packages/server/src/http/native/native-gm-map-runtime-query.service.js`
+- `packages/server/src/http/native/native-gm-world.service.js` 的 `getMapRuntime()` 已委托给 `NativeGmMapRuntimeQueryService`，world service 只保留 observer 标记与 GM world facade
 - 这一刀只移动 GM 地图窗口只读查询，不触碰 `updateMapTick()`、`updateMapTime()`、`reloadTickConfig()`、`getState()` 或任何 GM 写路径
 - 本轮验证已补跑 `pnpm --filter @mud/server smoke:gm-next`、`pnpm --filter @mud/server audit:protocol`、根级 `pnpm build` 与 `pnpm verify:replace-ready`；结果继续通过，其中 `gm-next` 在无库本地口径下返回 `ok: true` 且标记 `skipped`
-- 新增 `packages/server/src/http/next/next-gm-state-query.service.js`
-- `packages/server/src/http/next/next-gm-world.service.js` 的 `getState()` 已委托给 `NextGmStateQueryService`，在线/离线玩家摘要聚合、账号索引查询和 GM perf 组装不再留在 world service
+- 新增 `packages/server/src/http/native/native-gm-state-query.service.js`
+- `packages/server/src/http/native/native-gm-world.service.js` 的 `getState()` 已委托给 `NativeGmStateQueryService`，在线/离线玩家摘要聚合、账号索引查询和 GM perf 组装不再留在 world service
 - 这一刀只移动 GM state 只读聚合，不触碰 `resetNetworkPerf()`、`resetCpuPerf()`、`resetPathfindingPerf()`、地图控制写路径或任何其它 GM 写操作
 - 本轮验证已补跑 `pnpm --filter @mud/server smoke:gm-next`、`pnpm --filter @mud/server audit:protocol`、根级 `pnpm build` 与 `pnpm verify:replace-ready`；结果继续通过，其中 `gm-next` 在无库本地口径下返回 `ok: true` 且标记 `skipped`
 - `packages/server/src/runtime/world/world-runtime-gm-queue.service.js` 现已真正持有 `pendingSystemCommands` 与 `pendingRespawnPlayerIds`，不再只是 GM enqueue/disptach helper
@@ -424,7 +424,7 @@
 
 第 4 批结论：
 
-- `world-runtime.service.ts` 与 `next-gm-world.service.js` 的主要冷路径查询已下沉到显式 query service
+- `world-runtime.service.ts` 与 `native-gm-world.service.js` 的主要冷路径查询已下沉到显式 query service
 - 下一步应转入第 5 批的热路径状态域拆分，而不是继续在第 4 批里堆 facade 细拆
 
 最小验证：
@@ -733,7 +733,7 @@
 
 ### 第 6 批：把 GM 改动边界写死
 
-- [x] 以 `next-gm-contract.js`、`next-gm-player.service.js`、`world-gm-socket.service.js` 为准，明确 GM 改动边界
+- [x] 以 `native-gm-contract.js`、`native-gm-player.service.js`、`world-gm-socket.service.js` 为准，明确 GM 改动边界
 - [x] 必须继续走 runtime queue 的：
   - `position`
   - 机器人 spawn/remove
@@ -751,14 +751,14 @@
 
 本轮继续完成：
 
-- `packages/server/src/http/next/next-gm-player.service.js` 的 `updatePlayer()` 现在把 `position` 继续限定为 runtime queue，其余当前已处理 section 统一改为 direct persistence，再按保存结果回写在线 runtime
+- `packages/server/src/http/native/native-gm-player.service.js` 的 `updatePlayer()` 现在把 `position` 继续限定为 runtime queue，其余当前已处理 section 统一改为 direct persistence，再按保存结果回写在线 runtime
 - 在线玩家的非 `position` GM 更新不再直接形成 runtime-only 写路径，收口到“queue 或 persistence” 两类
 - `autoBattleSkills.autoBattleOrder` 已在 direct persistence 分支保留，消除在线/离线 GM 更新时这一字段的保存漂移
 - 本轮验证已补跑 `pnpm --filter @mud/server smoke:gm-next`、`pnpm --filter @mud/server smoke:gm-database`、根级 `pnpm build` 与 `pnpm verify:replace-ready`；其中 `gm-database` 因缺少 `SERVER_DATABASE_URL/DATABASE_URL` 按预期跳过，`gm-next` 在无库本地口径下返回 `ok: true` 且标记 `skipped`
-- `packages/server/src/http/next/next-gm-player.service.js` 的 `resetHeavenGate()` 现在也改为 persistence-first：在线玩家不再直接形成 runtime-only 清空路径，而是先落 `progression.heavenGate/spiritualRoots`，再按保存结果回写在线 runtime
+- `packages/server/src/http/native/native-gm-player.service.js` 的 `resetHeavenGate()` 现在也改为 persistence-first：在线玩家不再直接形成 runtime-only 清空路径，而是先落 `progression.heavenGate/spiritualRoots`，再按保存结果回写在线 runtime
 - 本轮验证已再次补跑 `pnpm --filter @mud/server smoke:gm-next`、`pnpm --filter @mud/server smoke:gm-database`、根级 `pnpm build` 与 `pnpm verify:replace-ready`；结果与上一轮一致：`gm-next` 在无库本地口径下 `ok: true` 且标记 `skipped`，`gm-database` 因缺少 `SERVER_DATABASE_URL/DATABASE_URL` 按预期跳过
 - `packages/server/src/network/world-gm-socket.service.js` 不再在 socket 层自行决定 mutate 后的 `queueStatePush()`；GM socket 的 4 个 `enqueue*` 现在只负责转发到 `runtime-gm-state.service.js`
-- `packages/server/src/runtime/gm/runtime-gm-state.service.ts` 现在统一在 4 个 `enqueue*` 内按 `NEXT_GM_SOCKET_CONTRACT.pushStateAfterMutation` 决定是否排 GM 状态刷新，把“写入队列 + 刷新策略”收回 runtime GM state 边界内
+- `packages/server/src/runtime/gm/runtime-gm-state.service.ts` 现在统一在 4 个 `enqueue*` 内按 `NATIVE_GM_SOCKET_CONTRACT.pushStateAfterMutation` 决定是否排 GM 状态刷新，把“写入队列 + 刷新策略”收回 runtime GM state 边界内
 - 本轮验证再次通过：`pnpm --filter @mud/server smoke:gm-next` 返回 `ok: true` 且在无库口径下 `skipped`；`pnpm build` 与 `pnpm verify:replace-ready` 继续通过；`pnpm --filter @mud/server smoke:gm-database` 仍因缺少 `SERVER_DATABASE_URL/DATABASE_URL` 按预期跳过
 
 最小验证：

@@ -20,7 +20,7 @@ const common_1 = require("@nestjs/common");
 const world_runtime_summary_query_service_1 = require("./world-runtime-summary-query.service");
 const world_runtime_normalization_helpers_1 = require("./world-runtime.normalization.helpers");
 
-const { buildPublicInstanceId } = world_runtime_normalization_helpers_1;
+const { buildPublicInstanceId, buildRealInstanceId, normalizeRuntimeInstanceLinePreset } = world_runtime_normalization_helpers_1;
 
 const DEFAULT_PLAYER_RESPAWN_MAP_ID = 'yunlai_town';
 
@@ -98,6 +98,33 @@ let WorldRuntimeWorldAccessService = class WorldRuntimeWorldAccessService {
             kind: 'public',
             persistent: true,
             linePreset: 'peaceful',
+            lineIndex: 1,
+            instanceOrigin: 'bootstrap',
+            defaultEntry: true,
+        });
+    }    
+    /**
+ * getOrCreateDefaultLineInstance：按默认和平/真实线获取实例。
+ * @param templateId template ID。
+ * @param linePreset 分线预设。
+ * @param deps 运行时依赖。
+ * @returns 返回默认入口实例。
+ */
+
+    getOrCreateDefaultLineInstance(templateId, linePreset, deps) {
+        const normalizedPreset = normalizeRuntimeInstanceLinePreset(linePreset);
+        if (normalizedPreset !== 'real') {
+            return this.getOrCreatePublicInstance(templateId, deps);
+        }
+        if (!deps.templateRepository.has(templateId)) {
+            throw new common_1.NotFoundException(`Unknown map template: ${templateId}`);
+        }
+        return deps.createInstance({
+            instanceId: buildRealInstanceId(templateId),
+            templateId,
+            kind: 'default_real',
+            persistent: true,
+            linePreset: 'real',
             lineIndex: 1,
             instanceOrigin: 'bootstrap',
             defaultEntry: true,

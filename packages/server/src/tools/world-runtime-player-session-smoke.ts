@@ -54,6 +54,26 @@ function createService(log) {
             };
         },        
         /**
+ * getOrCreateDefaultLineInstance：按默认分线读取实例。
+ * @param mapId 地图 ID。
+ * @param linePreset 分线预设。
+ * @returns 返回默认线实例。
+ */
+
+        getOrCreateDefaultLineInstance(mapId, linePreset) {
+            log.push(['getOrCreateDefaultLineInstance', mapId, linePreset]);
+            return {
+                meta: { instanceId: linePreset === 'real' ? `real:${mapId}` : `public:${mapId}` },
+                connectPlayer(payload) {
+                    log.push(['connectPlayer', payload]);
+                    return { sessionId: payload.sessionId };
+                },
+                setPlayerMoveSpeed(playerId, speed) {
+                    log.push(['setPlayerMoveSpeed', playerId, speed]);
+                },
+            };
+        },        
+        /**
  * getPlayerViewOrThrow：读取玩家视图OrThrow。
  * @param playerId 玩家 ID。
  * @returns 无返回值，完成玩家视图OrThrow的读取/组装。
@@ -114,6 +134,9 @@ function testConnectPlayer() {
                 log.push(['ensurePlayer', playerId, sessionId]);
                 return { attrs: { numericStats: { moveSpeed: 12 } } };
             },
+            getPlayer() {
+                return null;
+            },
         },
         logger: {        
         /**
@@ -127,7 +150,7 @@ function testConnectPlayer() {
     assert.deepEqual(view, { playerId: 'player:1' });
     assert.deepEqual(log, [
         ['resolveDefaultRespawnMapId'],
-        ['getOrCreatePublicInstance', 'yunlai_town'],
+        ['getOrCreateDefaultLineInstance', 'yunlai_town', 'peaceful'],
         ['connectPlayer', { playerId: 'player:1', sessionId: 'session:1', preferredX: undefined, preferredY: undefined }],
         ['ensurePlayer', 'player:1', 'session:1'],
         ['setPlayerMoveSpeed', 'player:1', 12],
@@ -136,6 +159,47 @@ function testConnectPlayer() {
         ['debug', '玩家 player:1 已附着到实例 public:yunlai_town'],
         ['getPlayerViewOrThrow', 'player:1'],
     ]);
+}
+
+function testConnectPlayerFallsBackToRealDefaultLine() {
+    const log = [];
+    const service = createService(log);
+    const deps = {
+        getPlayerLocation() { return null; },
+        getInstanceRuntime() { return null; },
+        setPlayerLocation(playerId, location) { log.push(['setPlayerLocation', playerId, location]); },
+        worldRuntimeGmQueueService: {
+            clearPendingRespawn(playerId) { log.push(['clearPendingRespawn', playerId]); },
+        },
+        playerRuntimeService: {
+            ensurePlayer(playerId, sessionId) {
+                log.push(['ensurePlayer', playerId, sessionId]);
+                return { attrs: { numericStats: { moveSpeed: 18 } } };
+            },
+            getPlayer() {
+                return {
+                    worldPreference: {
+                        linePreset: 'real',
+                    },
+                };
+            },
+            syncFromWorldView(playerId, sessionId, view) {
+                log.push(['syncFromWorldView', playerId, sessionId, view.playerId]);
+                return view;
+            },
+        },
+        logger: {
+            debug(message) { log.push(['debug', message]); },
+            warn(message) { log.push(['warn', message]); },
+        },
+    };
+    service.connectPlayer({ playerId: 'player:real', sessionId: 'session:real', mapId: 'wildlands' }, deps);
+    assert.deepEqual(log.slice(0, 3), [
+        ['getOrCreateDefaultLineInstance', 'wildlands', 'real'],
+        ['connectPlayer', { playerId: 'player:real', sessionId: 'session:real', preferredX: undefined, preferredY: undefined }],
+        ['ensurePlayer', 'player:real', 'session:real'],
+    ]);
+    assert.deepEqual(log[4], ['setPlayerLocation', 'player:real', { instanceId: 'real:wildlands', sessionId: 'session:real' }]);
 }
 /**
  * testDisconnectAndRemovePlayer：判断testDisconnectAndRemove玩家是否满足条件。
@@ -234,6 +298,7 @@ function testDisconnectAndRemovePlayer() {
 }
 
 testConnectPlayer();
+testConnectPlayerFallsBackToRealDefaultLine();
 testDisconnectAndRemovePlayer();
 
 console.log(JSON.stringify({ ok: true, case: 'world-runtime-player-session' }, null, 2));

@@ -1,5 +1,6 @@
-import { Inject, Injectable, Logger } from '@nestjs/common';
+import { Inject, Injectable, Logger, Optional } from '@nestjs/common';
 
+import { PlayerDomainPersistenceService } from '../persistence/player-domain-persistence.service';
 import {
   type PersistedPlayerSnapshot,
   type PersistedPlayerSnapshotRecord,
@@ -16,7 +17,7 @@ const ALLOWED_SNAPSHOT_PERSISTED_SOURCES = new Set([
 ] as const);
 
 type SnapshotPersistedSource = 'native' | 'legacy_sync' | 'legacy_backfill' | 'token_seed';
-type SnapshotResultSource = 'next' | 'miss';
+type SnapshotResultSource = 'mainline' | 'miss';
 type NativeStarterFailureStage =
   | 'native_snapshot_recovery_persistence_disabled'
   | 'native_snapshot_recovery_load_failed'
@@ -43,6 +44,14 @@ interface PlayerRuntimeSnapshotPort {
   buildStarterPersistenceSnapshot(playerId: string): PersistedPlayerSnapshot | null;
 }
 
+interface PlayerDomainSnapshotPort {
+  isEnabled(): boolean;
+  loadProjectedSnapshot(
+    playerId: string,
+    buildStarterSnapshot: (playerId: string) => PersistedPlayerSnapshot | null,
+  ): Promise<PersistedPlayerSnapshot | null>;
+}
+
 function normalizeSnapshotPersistedSource(persistedSource: unknown): SnapshotPersistedSource | null {
   const normalizedPersistedSource = typeof persistedSource === 'string'
     ? persistedSource.trim()
@@ -59,6 +68,9 @@ export class WorldPlayerSnapshotService {
 
   constructor(
     private readonly playerPersistenceService: PlayerPersistenceService,
+    @Optional()
+    @Inject(PlayerDomainPersistenceService)
+    private readonly playerDomainPersistenceService: PlayerDomainSnapshotPort | null = null,
     @Inject(PlayerRuntimeService)
     playerRuntimeService: unknown,
   ) {
@@ -66,7 +78,7 @@ export class WorldPlayerSnapshotService {
   }
 
   isPersistenceEnabled(): boolean {
-    return this.playerPersistenceService.isEnabled();
+    return this.playerPersistenceService.isEnabled() || this.playerDomainPersistenceService?.isEnabled() === true;
   }
 
   async loadPersistedPlayerSnapshotRecord(playerId: string): Promise<PersistedPlayerSnapshotRecord | null> {
@@ -140,12 +152,12 @@ export class WorldPlayerSnapshotService {
     try {
       nextSnapshotRecord = await this.loadPersistedPlayerSnapshotRecord(playerId);
     } catch (error: unknown) {
-      const message = `Player snapshot next record load failed: playerId=${playerId} error=${error instanceof Error ? error.message : String(error)}`;
+      const message = `Player snapshot mainline record load failed: playerId=${playerId} error=${error instanceof Error ? error.message : String(error)}`;
       this.logger.error(message);
       recordAuthTrace({
         type: 'snapshot',
         playerId,
-        source: 'next_invalid',
+        source: 'mainline_invalid',
         persistedSource: null,
         fallbackReason,
         fallbackHit: false,
@@ -156,34 +168,60 @@ export class WorldPlayerSnapshotService {
     if (nextSnapshotRecord?.snapshot) {
       const normalizedPersistedSource = normalizeSnapshotPersistedSource(nextSnapshotRecord.persistedSource);
       if (!normalizedPersistedSource) {
-        const message = `Player snapshot next record persistedSource invalid: playerId=${playerId} persistedSource=${typeof nextSnapshotRecord.persistedSource === 'string' ? nextSnapshotRecord.persistedSource : 'unknown'}`;
+        const message = `Player snapshot mainline record persistedSource invalid: playerId=${playerId} persistedSource=${typeof nextSnapshotRecord.persistedSource === 'string' ? nextSnapshotRecord.persistedSource : 'unknown'}`;
         this.logger.error(message);
         recordAuthTrace({
           type: 'snapshot',
           playerId,
-          source: 'next_invalid',
+          source: 'mainline_invalid',
           persistedSource: null,
           fallbackReason,
           fallbackHit: false,
         });
         throw new Error(message);
       }
-      this.logger.debug(`玩家快照来源=next persistedSource=${normalizedPersistedSource} playerId=${playerId}`);
+      this.logger.debug(`玩家快照来源=主线 persistedSource=${normalizedPersistedSource} playerId=${playerId}`);
       recordAuthTrace({
         type: 'snapshot',
         playerId,
-        source: 'next',
+        source: 'mainline',
         persistedSource: normalizedPersistedSource,
         fallbackReason,
         fallbackHit: false,
       });
       return {
         snapshot: nextSnapshotRecord.snapshot,
-        source: 'next',
+        source: 'mainline',
         persistedSource: normalizedPersistedSource,
         fallbackReason,
         seedPersisted: false,
       };
+    }
+
+    if (this.playerDomainPersistenceService?.isEnabled()) {
+      const projectedSnapshot = await this.playerDomainPersistenceService.loadProjectedSnapshot(
+        playerId,
+        (targetPlayerId) => this.playerRuntimeService.buildStarterPersistenceSnapshot(targetPlayerId),
+      );
+      if (projectedSnapshot) {
+        const projectedFallbackReason = appendProjectionFallbackReason(fallbackReason);
+        this.logger.debug(`玩家快照来源=主线 persistedSource=native projection=player-domain playerId=${playerId}`);
+        recordAuthTrace({
+          type: 'snapshot',
+          playerId,
+          source: 'mainline',
+          persistedSource: 'native',
+          fallbackReason: projectedFallbackReason,
+          fallbackHit: true,
+        });
+        return {
+          snapshot: projectedSnapshot,
+          source: 'mainline',
+          persistedSource: 'native',
+          fallbackReason: projectedFallbackReason,
+          seedPersisted: false,
+        };
+      }
     }
     return buildPersistedSnapshotMissResult(playerId, fallbackReason, this.logger);
   }
@@ -197,12 +235,16 @@ export class WorldPlayerSnapshotService {
   }
 }
 
+function appendProjectionFallbackReason(fallbackReason: string | null): string {
+  return fallbackReason ? `${fallbackReason}|player_domain_projection` : 'player_domain_projection';
+}
+
 function buildPersistedSnapshotMissResult(
   playerId: string,
   fallbackReason: string | null,
   logger: Logger,
 ): LoadPlayerSnapshotResult {
-  logger.debug(`玩家快照来源=miss playerId=${playerId} nextOnly=true fallbackReason=${fallbackReason ?? '无'}`);
+  logger.debug(`玩家快照来源=miss playerId=${playerId} mainlineOnly=true fallbackReason=${fallbackReason ?? '无'}`);
   recordAuthTrace({
     type: 'snapshot',
     playerId,

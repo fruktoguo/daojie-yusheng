@@ -40,4 +40,4 @@
 - `packages/server/src/network/world-sync.service.js`
 - `packages/client/src/ui/panels/action-panel.ts`
 - `docs/next-legacy-boundary-audit.md`
-- `docs/next-protocol-audit.md`
+- `docs/protocol-audit.md`

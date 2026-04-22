@@ -18,7 +18,7 @@ type PersistedSource = 'native' | 'legacy_sync' | 'legacy_backfill' | 'token_see
  * AuthSource：统一结构类型，保证协议与运行时一致性。
  */
 
-type AuthSource = 'next' | 'token' | 'token_runtime';
+type AuthSource = 'mainline' | 'token' | 'token_runtime';
 /**
  * AuthenticatePlayerTokenOptions：定义接口结构约束，明确可交付字段含义。
  */
@@ -80,10 +80,10 @@ interface PlayerIdentityLike extends TokenIdentity {
 
   authSource?: string | null;  
   /**
- * nextLoadHit：nextLoadHit相关字段。
+ * mainlineLoadHit：mainlineLoadHit相关字段。
  */
 
-  nextLoadHit?: boolean;  
+  mainlineLoadHit?: boolean;  
   /**
  * updatedAt：updatedAt相关字段。
  */
@@ -108,10 +108,10 @@ export interface AuthenticatedPlayerIdentity extends PlayerIdentityLike {
 
   authSource: AuthSource;  
   /**
- * nextLoadHit：nextLoadHit相关字段。
+ * mainlineLoadHit：mainlineLoadHit相关字段。
  */
 
-  nextLoadHit: boolean;  
+  mainlineLoadHit: boolean;  
   /**
  * persistedSource：persisted来源相关字段。
  */
@@ -281,11 +281,11 @@ function normalizePersistedSource(
 
 function resolvePersistedIdentityAuthSource(
   persistedSource: PersistedSource,
-): Extract<AuthSource, 'next' | 'token'> {
-  return persistedSource === 'token_seed' ? 'token' : 'next';
+): Extract<AuthSource, 'mainline' | 'token'> {
+  return persistedSource === 'token_seed' ? 'token' : 'mainline';
 }
 
-/** 世界玩家鉴权服务：把 token 校验、next 身份加载与 token_seed 持久化收敛到一起。 */
+/** 世界玩家鉴权服务：把 token 校验、主线身份加载与 token_seed 持久化收敛到一起。 */
 @Injectable()
 export class WorldPlayerAuthService {
   /** 鉴权日志，便于追踪 token、回填和持久化失败。 */
@@ -299,14 +299,14 @@ export class WorldPlayerAuthService {
 
 
   constructor(
-    /** 生成和校验 next 玩家令牌。 */
+    /** 生成和校验 主线玩家令牌。 */
     private readonly worldPlayerTokenService: WorldPlayerTokenService,
     /** 玩家身份持久化入口。 */
     @Inject(PlayerIdentityPersistenceService)
     private readonly playerIdentityPersistenceService: PlayerIdentityPersistencePort,
   ) {}
 
-  /** 加载 next 玩家身份，优先走 next 持久化来源。 */
+  /** 加载主线玩家身份，优先走主线持久化来源。 */
   async loadPersistedPlayerIdentity(userId: string): Promise<PlayerIdentityLike | null> {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
     return this.playerIdentityPersistenceService.loadPlayerIdentity(userId);
@@ -331,7 +331,7 @@ export class WorldPlayerAuthService {
     }
 
     const protocol = normalizeProtocol(options?.protocol);
-    const nextProtocolStrict = protocol === 'mainline';
+    const mainlineProtocolStrict = protocol === 'mainline';
     const explicitMigrationProtocol = isExplicitMigrationProtocol(protocol);
     const tokenIdentity = this.worldPlayerTokenService.resolvePlayerIdentityFromPayload(payload);
     const identityPersistenceEnabled = this.playerIdentityPersistenceService.isEnabled();
@@ -340,19 +340,19 @@ export class WorldPlayerAuthService {
     try {
       nextIdentity = await this.loadPersistedPlayerIdentity(payload.sub);
     } catch (error) {
-      const message = `Player identity next record load failed: userId=${payload.sub} error=${error instanceof Error ? error.message : String(error)}`;
+      const message = `Player identity mainline record load failed: userId=${payload.sub} error=${error instanceof Error ? error.message : String(error)}`;
       this.logger.error(message);
       recordAuthTrace({
         type: 'identity',
-        source: 'next_invalid',
+        source: 'mainline_invalid',
         userId: payload.sub,
         playerId: tokenIdentity?.playerId ?? null,
         persistenceEnabled: identityPersistenceEnabled,
-        nextLoadHit: false,
+        mainlineLoadHit: false,
         compatTried: false,
         persistAttempted: false,
         persistSucceeded: null,
-        persistFailureStage: 'next_identity_load_failed',
+        persistFailureStage: 'mainline_identity_load_failed',
       });
       throw new Error(message);
     }
@@ -360,19 +360,19 @@ export class WorldPlayerAuthService {
     if (nextIdentity) {
       const normalizedNextIdentity = normalizeLoadedPlayerIdentity(nextIdentity);
       if (!normalizedNextIdentity) {
-        this.logger.error(`玩家身份 next 记录缺少必要字段：userId=${normalizeIdentityString(nextIdentity.userId) || payload.sub} playerId=${normalizeIdentityString(nextIdentity.playerId) || '未知'}`);
+        this.logger.error(`玩家身份主线记录缺少必要字段：userId=${normalizeIdentityString(nextIdentity.userId) || payload.sub} playerId=${normalizeIdentityString(nextIdentity.playerId) || '未知'}`);
         recordAuthTrace({
           type: 'identity',
-          source: 'next_invalid',
+          source: 'mainline_invalid',
           userId: normalizeIdentityString(nextIdentity.userId) || payload.sub,
           playerId: normalizeIdentityString(nextIdentity.playerId) || null,
           persistedSource: normalizePersistedSource(nextIdentity),
           persistenceEnabled: identityPersistenceEnabled,
-          nextLoadHit: true,
+          mainlineLoadHit: true,
           compatTried: false,
           persistAttempted: false,
           persistSucceeded: null,
-          persistFailureStage: 'next_identity_shape_invalid',
+          persistFailureStage: 'mainline_identity_shape_invalid',
         });
         return null;
       }
@@ -380,27 +380,27 @@ export class WorldPlayerAuthService {
       nextIdentity = normalizedNextIdentity;
       const nextPersistedSource = normalizePersistedSource(nextIdentity);
       if (!nextPersistedSource) {
-        this.logger.error(`玩家身份 next 记录缺少 persistedSource：userId=${nextIdentity.userId} playerId=${nextIdentity.playerId}`);
+        this.logger.error(`玩家身份主线记录缺少 persistedSource：userId=${nextIdentity.userId} playerId=${nextIdentity.playerId}`);
         recordAuthTrace({
           type: 'identity',
-          source: 'next_invalid',
+          source: 'mainline_invalid',
           userId: nextIdentity.userId,
           playerId: nextIdentity.playerId,
           persistedSource: null,
           persistenceEnabled: identityPersistenceEnabled,
-          nextLoadHit: true,
+          mainlineLoadHit: true,
           compatTried: false,
           persistAttempted: false,
           persistSucceeded: null,
-          persistFailureStage: 'next_identity_persisted_source_missing',
+          persistFailureStage: 'mainline_identity_persisted_source_missing',
         });
         return null;
       }
 
-      const nextProtocolBlockedPersistedSource = nextProtocolStrict
+      const mainlineProtocolBlockedPersistedSource = mainlineProtocolStrict
         && (nextPersistedSource === 'legacy_sync' || nextPersistedSource === 'legacy_backfill');
-      if (nextProtocolBlockedPersistedSource) {
-        this.logger.warn(`NEXT 协议拒绝 legacy persistedSource 身份：userId=${nextIdentity.userId} playerId=${nextIdentity.playerId} persistedSource=${nextPersistedSource}`);
+      if (mainlineProtocolBlockedPersistedSource) {
+        this.logger.warn(`主线协议拒绝 legacy persistedSource 身份：userId=${nextIdentity.userId} playerId=${nextIdentity.playerId} persistedSource=${nextPersistedSource}`);
         recordAuthTrace({
           type: 'identity',
           source: 'miss',
@@ -408,11 +408,11 @@ export class WorldPlayerAuthService {
           playerId: nextIdentity.playerId,
           persistedSource: nextPersistedSource,
           persistenceEnabled: identityPersistenceEnabled,
-          nextLoadHit: true,
+          mainlineLoadHit: true,
           compatTried: false,
           persistAttempted: false,
           persistSucceeded: null,
-          persistFailureStage: 'next_protocol_legacy_persisted_identity_blocked',
+          persistFailureStage: 'mainline_protocol_legacy_persisted_identity_blocked',
         });
         return null;
       }
@@ -423,19 +423,19 @@ export class WorldPlayerAuthService {
         && nextPersistedSource !== 'legacy_backfill'
         && nextPersistedSource !== 'token_seed'
       ) {
-        this.logger.error(`玩家身份 next 记录存在不支持的 persistedSource：userId=${nextIdentity.userId} playerId=${nextIdentity.playerId} persistedSource=${nextPersistedSource}`);
+        this.logger.error(`玩家身份主线记录存在不支持的 persistedSource：userId=${nextIdentity.userId} playerId=${nextIdentity.playerId} persistedSource=${nextPersistedSource}`);
         recordAuthTrace({
           type: 'identity',
-          source: 'next_invalid',
+          source: 'mainline_invalid',
           userId: nextIdentity.userId,
           playerId: nextIdentity.playerId,
           persistedSource: nextPersistedSource,
           persistenceEnabled: identityPersistenceEnabled,
-          nextLoadHit: true,
+          mainlineLoadHit: true,
           compatTried: false,
           persistAttempted: false,
           persistSucceeded: null,
-          persistFailureStage: 'next_identity_persisted_source_invalid',
+          persistFailureStage: 'mainline_identity_persisted_source_invalid',
         });
         return null;
       }
@@ -448,7 +448,7 @@ export class WorldPlayerAuthService {
         playerId: nextIdentity.playerId,
         persistedSource: nextPersistedSource,
         persistenceEnabled: identityPersistenceEnabled,
-        nextLoadHit: true,
+        mainlineLoadHit: true,
         compatTried: false,
         persistAttempted: false,
         persistSucceeded: null,
@@ -458,13 +458,13 @@ export class WorldPlayerAuthService {
         ...nextIdentity,
         persistedSource: nextPersistedSource,
         authSource: nextIdentityAuthSource,
-        nextLoadHit: true,
+        mainlineLoadHit: true,
       };
     }
 
     const legacyDatabaseConfigured = hasLegacyDatabaseConfigured();
     const allowTokenRuntimeIdentity = !identityPersistenceEnabled
-      && !nextProtocolStrict
+      && !mainlineProtocolStrict
       && !explicitMigrationProtocol
       && tokenIdentity
       && hasExplicitTokenPlayerIdentityClaims(payload)
@@ -477,7 +477,7 @@ export class WorldPlayerAuthService {
         playerId: tokenIdentity.playerId,
         persistedSource: null,
         persistenceEnabled: false,
-        nextLoadHit: false,
+        mainlineLoadHit: false,
         compatTried: false,
         persistAttempted: false,
         persistSucceeded: null,
@@ -486,7 +486,7 @@ export class WorldPlayerAuthService {
       return {
         ...tokenIdentity,
         authSource: 'token_runtime',
-        nextLoadHit: false,
+        mainlineLoadHit: false,
       };
     }
 
@@ -497,7 +497,7 @@ export class WorldPlayerAuthService {
         userId: payload.sub,
         playerId: tokenIdentity?.playerId ?? null,
         persistenceEnabled: identityPersistenceEnabled,
-        nextLoadHit: false,
+        mainlineLoadHit: false,
         compatTried: false,
         persistAttempted: false,
         persistSucceeded: null,
@@ -526,7 +526,7 @@ export class WorldPlayerAuthService {
           playerId: tokenIdentity.playerId,
           persistedSource: null,
           persistenceEnabled: true,
-          nextLoadHit: false,
+          mainlineLoadHit: false,
           compatTried: false,
           persistAttempted: true,
           persistSucceeded: false,
@@ -545,7 +545,7 @@ export class WorldPlayerAuthService {
           playerId: tokenIdentity.playerId,
           persistedSource: persistedTokenSource,
           persistenceEnabled: true,
-          nextLoadHit: false,
+          mainlineLoadHit: false,
           compatTried: false,
           persistAttempted: true,
           persistSucceeded: false,
@@ -562,7 +562,7 @@ export class WorldPlayerAuthService {
           playerId: tokenIdentity.playerId,
           persistedSource: persistedTokenSource,
           persistenceEnabled: true,
-          nextLoadHit: false,
+          mainlineLoadHit: false,
           compatTried: false,
           persistAttempted: true,
           persistSucceeded: true,
@@ -572,23 +572,23 @@ export class WorldPlayerAuthService {
           ...tokenIdentity,
           persistedSource: persistedTokenSource,
           authSource: 'token',
-          nextLoadHit: false,
+          mainlineLoadHit: false,
         };
       }
     }
 
-    if (nextProtocolStrict) {
+    if (mainlineProtocolStrict) {
       recordAuthTrace({
         type: 'identity',
         source: 'miss',
         userId: payload.sub,
         playerId: tokenIdentity?.playerId ?? null,
         persistenceEnabled: identityPersistenceEnabled,
-        nextLoadHit: false,
+        mainlineLoadHit: false,
         compatTried: false,
         persistAttempted: false,
         persistSucceeded: null,
-        persistFailureStage: 'next_protocol_native_identity_required',
+        persistFailureStage: 'mainline_protocol_native_identity_required',
       });
       return null;
     }
@@ -599,7 +599,7 @@ export class WorldPlayerAuthService {
       userId: payload.sub,
       playerId: tokenIdentity?.playerId ?? null,
       persistenceEnabled: identityPersistenceEnabled,
-      nextLoadHit: false,
+      mainlineLoadHit: false,
       compatTried: false,
       persistAttempted: false,
       persistSucceeded: null,

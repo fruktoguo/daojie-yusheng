@@ -74,7 +74,7 @@ function createInstance(overrides = {}) {
     meta: {
       instanceId: 'public:yunlai_town',
       supportsPvp: false,
-      canDamageTile: false,
+      canDamageTile: true,
       ...overrides.meta,
     },
     damageTile(x, y, amount) {
@@ -189,7 +189,7 @@ function testPeacefulLineRejectsPlayerBasicAttack() {
   const deps = createBasicAttackDeps(createInstance({
     meta: {
       supportsPvp: false,
-      canDamageTile: false,
+      canDamageTile: true,
     },
   }));
   assert.throws(() => {
@@ -227,18 +227,32 @@ function testRealLineAllowsPlayerBasicAttack() {
   assert.match(log[8][2], /原始 14 - 实际 9 - 法术/);
 }
 
-function testPeacefulLineRejectsTileAttack() {
+function testPeacefulLineAllowsTileAttack() {
+  const log = [];
   const attacker = createAttacker();
-  const service = createBasicAttackService(attacker, createTarget());
-  const deps = createBasicAttackDeps(createInstance({
+  const instance = createInstance({
     meta: {
       supportsPvp: false,
-      canDamageTile: false,
+      canDamageTile: true,
     },
-  }));
-  assert.throws(() => {
-    service.dispatchBasicAttackToTile(attacker, 11, 10, 'physical', 12, deps);
-  }, /当前实例不允许攻击地块/);
+    damageTile(x, y, amount) {
+      log.push(['damageTile', x, y, amount]);
+      return { appliedDamage: 5 };
+    },
+  });
+  const service = createBasicAttackService(attacker, createTarget(), log);
+  const deps = createBasicAttackDeps(instance, log);
+  service.dispatchBasicAttackToTile(attacker, 11, 10, 'physical', 12, deps);
+  assert.deepEqual(log[0], ['getInstanceRuntimeOrThrow', 'public:yunlai_town']);
+  assert.deepEqual(log[1], ['damageTile', 11, 10, 12]);
+  assert.deepEqual(log[2], ['pushActionLabelEffect', 'public:yunlai_town', 10, 10, '攻击']);
+  assert.deepEqual(log[3].slice(0, 6), ['pushAttackEffect', 'public:yunlai_town', 10, 10, 11, 10]);
+  assert.equal(typeof log[3][6], 'string');
+  assert.deepEqual(log[4].slice(0, 5), ['pushDamageFloatEffect', 'public:yunlai_town', 11, 10, 5]);
+  assert.equal(typeof log[4][5], 'string');
+  assert.deepEqual(log[5].slice(0, 2), ['queuePlayerNotice', 'player:attacker']);
+  assert.match(log[5][2], /攻击/);
+  assert.match(log[5][2], /原始 12 - 实际 5 - 物理/);
 }
 
 function testRealLineAllowsTileAttack() {
@@ -278,7 +292,7 @@ function testPeacefulLineRejectsPlayerLockOn() {
   const deps = createBattleEngageDeps(createInstance({
     meta: {
       supportsPvp: false,
-      canDamageTile: false,
+      canDamageTile: true,
     },
   }), log);
   assert.throws(() => {
@@ -313,7 +327,7 @@ function testRealLineAllowsTileLockOnAndDispatch() {
 
 testPeacefulLineRejectsPlayerBasicAttack();
 testRealLineAllowsPlayerBasicAttack();
-testPeacefulLineRejectsTileAttack();
+testPeacefulLineAllowsTileAttack();
 testRealLineAllowsTileAttack();
 testPeacefulLineRejectsPlayerLockOn();
 testRealLineAllowsTileLockOnAndDispatch();

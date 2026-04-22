@@ -17,6 +17,8 @@
 - 具体 SQL migration 文件
 - 每一张表的最终 ORM 代码
 
+当前实现进度、已落地分域清单、当前 with-db / gm-database proof 状态，以 [计划/商业级数据落盘改造计划.md](./计划/商业级数据落盘改造计划.md) 为准；本文默认描述终局口径，不把这里的表清单直接等同于“当前已经全部落地”。
+
 ## 2. 问题定义
 
 你当前最核心的问题不是“数据库不够强”，而是“真源拆分不够彻底”。
@@ -365,7 +367,7 @@
 | 目标表 | 存储内容 | 对应参考字段 |
 | --- | --- | --- |
 | `player_identity` | `player_id`、`user_id`、`role_name`、`created_at`、`updated_at` | `players.id/userId/name` |
-| `player_presence` | `player_id`、`online`、`in_world`、`last_heartbeat_at`、`offline_since_at`、`runtime_owner_id`、`session_epoch` | `player_presence` + `players` 会话镜像 |
+| `player_presence` | `player_id`、`online`、`in_world`、`last_heartbeat_at`、`offline_since_at`、`runtime_owner_id`、`session_epoch`、`transfer_state`、`transfer_target_node_id` | `player_presence` + `players` 会话镜像 |
 | `player_world_anchor` | `player_id`、`respawn_template_id`、`respawn_instance_id?`、`respawn_x`、`respawn_y`、`last_safe_template_id`、`last_safe_instance_id?`、`last_safe_x`、`last_safe_y`、`last_transfer_at` | `mapId`、`respawnMapId`、`x`、`y` 的长期恢复语义 |
 | `player_position_checkpoint` | `player_id`、`instance_id`、`x`、`y`、`facing`、`checkpoint_kind`、`updated_at` | 旧 `x/y/facing`，但只在登出、跨图、GM 传送、死亡回点等关键节点写入 |
 | `player_vitals` | `player_id`、`hp`、`max_hp`、`qi`、`dead`、`updated_at` | `hp/maxHp/qi/dead` |
@@ -375,18 +377,17 @@
 | `player_inventory_item` | `item_instance_id`、`player_id`、`slot_index`、`item_id`、`count`、`enhance_level`、`bind_state`、`raw_payload`、`updated_at` | `inventory.items[]` |
 | `player_market_storage_item` | `storage_item_id`、`player_id`、`slot_index`、`item_id`、`count`、`enhance_level`、`raw_payload`、`updated_at` | `marketStorage.items[]` |
 | `player_equipment_slot` | `player_id`、`slot_type`、`item_instance_id`、`raw_payload`、`updated_at` | `equipment.weapon/head/body/legs/accessory` |
-| `player_technique_state` | `player_id`、`tech_id`、`level`、`exp`、`exp_to_next`、`skills_enabled`、`raw_payload`、`updated_at` | `techniques[]` |
+| `player_technique_state` | `player_id`、`tech_id`、`level`、`exp`、`exp_to_next`、`realm_lv`、`skills_enabled`、`raw_payload`、`updated_at` | `techniques[]` |
 | `player_body_training_state` | `player_id`、`level`、`exp`、`exp_to_next`、`updated_at` | `bodyTraining` |
 | `player_persistent_buff_state` | `player_id`、`buff_id`、`source_skill_id`、`source_caster_id?`、`realm_lv`、`remaining_ticks`、`duration`、`stacks`、`max_stacks`、`sustain_ticks_elapsed?`、`raw_payload`、`updated_at` | `temporaryBuffs[]` 中需要跨重启保留的部分 |
-| `player_quest_progress` | `player_id`、`quest_id`、`status`、`progress`、`raw_payload`、`updated_at` | `quests[]` |
+| `player_quest_progress` | `player_id`、`quest_id`、`status`、`progress_payload`、`raw_payload`、`updated_at` | `quests[]` |
 | `player_map_unlock` | `player_id`、`map_id`、`unlocked_at` | `unlockedMinimapIds[]` |
-| `player_combat_preferences` | `player_id`、`auto_battle`、`auto_battle_targeting_mode`、`combat_target_locked`、`auto_retaliate`、`auto_battle_stationary`、`allow_aoe_player_hit`、`auto_idle_cultivation`、`auto_switch_cultivation`、`cultivating_tech_id`、`targeting_rules_payload`、`updated_at` | 自动战斗与索敌主设置 |
-| `player_auto_battle_skill` | `player_id`、`skill_id`、`enabled`、`skill_enabled?`、`updated_at` | `autoBattleSkills[]` |
+| `player_combat_preferences` | `player_id`、`auto_battle`、`auto_retaliate`、`auto_battle_stationary`、`auto_battle_targeting_mode`、`retaliate_player_target_id`、`combat_target_id`、`combat_target_locked`、`allow_aoe_player_hit`、`auto_idle_cultivation`、`auto_switch_cultivation`、`sense_qi_active`、`cultivating_tech_id`、`targeting_rules_payload`、`updated_at` | 自动战斗与索敌主设置 |
+| `player_auto_battle_skill` | `player_id`、`skill_id`、`enabled`、`skill_enabled?`、`auto_battle_order`、`updated_at` | `autoBattleSkills[]` |
 | `player_auto_use_item_rule` | `player_id`、`item_id`、`condition_payload`、`updated_at` | `autoUsePills[]` |
 | `player_profession_state` | `player_id`、`profession_type`、`level`、`exp`、`exp_to_next`、`updated_at` | `alchemySkill`、`gatherSkill`、强化技艺等级 |
 | `player_alchemy_preset` | `preset_id`、`player_id`、`recipe_id`、`name`、`ingredients_payload`、`updated_at` | `alchemyPresets[]` |
-| `player_alchemy_job` | `player_id`、`recipe_id`、`output_item_id`、`output_count`、`quantity`、`completed_count`、`success_count`、`failure_count`、`ingredients_payload`、`phase`、`preparation_ticks`、`batch_brew_ticks`、`current_batch_remaining_ticks`、`paused_ticks`、`spirit_stone_cost`、`total_ticks`、`remaining_ticks`、`success_rate`、`exact_recipe`、`started_at`、`updated_at` | `alchemyJob` |
-| `player_enhancement_job` | `player_id`、`target_payload`、`item_payload`、`target_item_id`、`target_item_name`、`target_item_level`、`current_level`、`target_level`、`desired_target_level`、`spirit_stone_cost`、`materials_payload`、`protection_used`、`protection_start_level?`、`protection_item_id?`、`protection_item_name?`、`protection_item_signature?`、`phase`、`paused_ticks`、`success_rate`、`total_ticks`、`remaining_ticks`、`started_at`、`role_enhancement_level`、`total_speed_rate`、`updated_at` | `enhancementJob` |
+| `player_active_job` | `player_id`、`job_run_id`、`job_type`、`status`、`phase`、`started_at`、`finished_at?`、`paused_ticks`、`total_ticks`、`remaining_ticks`、`success_rate`、`speed_rate`、`job_version`、`detail_jsonb`、`updated_at` | `alchemyJob` + `enhancementJob` |
 | `player_enhancement_record` | `record_id`、`player_id`、`item_id`、`highest_level`、`levels_payload`、`action_started_at?`、`action_ended_at?`、`start_level?`、`initial_target_level?`、`desired_target_level?`、`protection_start_level?`、`status?`、`updated_at` | 真正的 `PlayerEnhancementRecord[]` 语义 |
 | `player_logbook_message` | `message_id`、`player_id`、`kind`、`text`、`from_name?`、`occurred_at`、`acked_at?` | `pendingLogbookMessages[]` |
 | `player_recovery_watermark` | 各域最近正式提交版本 | 聚合恢复水位 |
@@ -414,7 +415,7 @@
 10. 读 `player_technique_state / player_body_training_state / player_persistent_buff_state / player_quest_progress`
 11. 读 `player_map_unlock`
 12. 读 `player_combat_preferences / player_auto_battle_skill / player_auto_use_item_rule`
-13. 读 `player_profession_state / player_alchemy_preset / player_alchemy_job / player_enhancement_job / player_enhancement_record`
+13. 读 `player_profession_state / player_alchemy_preset / player_active_job / player_enhancement_record`
 14. 读 `player_logbook_message`
 15. 组装运行时对象，并重新计算派生态：
     - `viewRange`
@@ -450,10 +451,10 @@
   - `1-3s` 合批刷
 - `player_map_unlock / player_combat_preferences / player_auto_battle_skill / player_auto_use_item_rule / player_alchemy_preset`
   - 改动即写或短 debounce
-- `player_wallet / player_inventory_item / player_market_storage_item / player_equipment_slot / player_alchemy_job / player_enhancement_job`
+- `player_wallet / player_inventory_item / player_market_storage_item / player_equipment_slot / player_active_job`
   - 不走普通定时 flush 主链
   - 其中资产域走强持久化事务
-  - 任务态与长作业态按业务选择即时写或短延迟确认写
+  - 活跃作业的创建/取消/完成进入强持久化事务，运行中进度可走短延迟确认写
 - `player_logbook_message`
   - append / ack 走独立小事务
 
@@ -474,6 +475,7 @@
 3. 生成全局唯一 `operation_id`
 4. 在同一数据库事务里完成：
    - 写 `durable_operation_log`
+   - 校验 `player_presence.runtime_owner_id + session_epoch`
    - 修改 `player_wallet`
    - 修改 `player_inventory_item`
    - 修改 `player_market_storage_item`
@@ -501,6 +503,7 @@
   - `identity_version`
   - `presence_version`
   - `anchor_version`
+  - `position_checkpoint_version`
   - `vitals_version`
   - `progression_version`
   - `attr_version`
@@ -514,10 +517,15 @@
   - `quest_version`
   - `map_unlock_version`
   - `combat_pref_version`
+  - `auto_battle_skill_version`
+  - `auto_use_item_rule_version`
   - `profession_version`
-  - `alchemy_job_version`
-  - `enhancement_job_version`
+  - `alchemy_preset_version`
+  - `active_job_version`
+  - `enhancement_record_version`
   - `logbook_version`
+  - `mail_version`
+  - `mail_counter_version`
   - `updated_at`
 - `player_checkpoint`
   - `player_id`
@@ -669,19 +677,17 @@
 - 剧情阶段
 - 洞府装饰/机关状态
 
-#### 9.3.6 `instance_overlay`
+#### 9.3.6 `instance_overlay_chunk`
 
 这是地图动态能力的正式真源，不允许只靠零散状态表拼装。
 
 建议字段：
 
 - `instance_id`
-- `overlay_version`
-- `tile_patch_payload`
-- `portal_patch_payload`
-- `npc_patch_payload`
-- `container_patch_payload`
-- `rule_patch_payload`
+- `patch_kind`
+- `chunk_key`
+- `patch_version`
+- `patch_payload`
 - `updated_at`
 
 负责承载：
@@ -691,6 +697,7 @@
 - 动态 portal / anchor
 - 动态 NPC 布局
 - 实例级地形改造
+- 高频 tile 改图按 chunk 拆分，避免整实例 overlay 热行
 
 #### 9.3.7 `instance_recovery_watermark`
 
@@ -861,30 +868,28 @@ Redis 在这个方案里不是正式真源，而是热态加速层。
 建议用途：
 
 - 在线玩家 presence
-- flush 队列
-- 实例 dirty set
-- 玩家 dirty 域集合
+- flush 唤醒信号
+- 最近需要优先刷新的玩家/实例 hint
 - 最近未落盘增量缓存
 - 登录恢复加速投影
 
-### 11.1 玩家 dirty 域
+### 11.1 Flush ledger 真源
+
+真正的待刷真源不在 Redis，而在数据库 ledger：
+
+- `player_flush_ledger(player_id, domain, latest_version, flushed_version, next_attempt_at, claimed_by, claim_until)`
+- `instance_flush_ledger(instance_id, domain, ownership_epoch, latest_version, flushed_version, next_attempt_at, claimed_by, claim_until)`
+
+worker 只认 `latest_version > flushed_version` 的 ledger 行。
+
+### 11.2 Redis 唤醒键
 
 例如：
 
-- `player:dirty:location`
-- `player:dirty:vitals`
-- `player:dirty:inventory`
+- `flush:wakeup:player`
+- `flush:wakeup:instance`
 
-### 11.2 实例 dirty 域
-
-例如：
-
-- `instance:dirty:tile_resource`
-- `instance:dirty:ground_item`
-- `instance:dirty:container`
-- `instance:dirty:boss`
-
-这样 flush worker 可以按域抓取，而不是扫全量对象。
+这样 flush worker 可以被快速唤醒，但不依赖 Redis 保存待刷边界。
 
 ### 11.3 Redis 中禁止承担的职责
 
@@ -912,7 +917,7 @@ Redis 只能是：
 
 - worker cursor 进入数据库
 - `durable_operation_log` 可重建未完成 outbox
-- dirty set 丢失后，可由最近未完成版本扫描回补
+- Redis 唤醒键丢失后，可由 ledger 的 `latest_version > flushed_version` 扫描回补
 - gateway / presence 丢失后，可由 session 真源重建
 
 ## 12. Flush Worker 设计
@@ -923,34 +928,38 @@ Redis 只能是：
 
 改为多个独立 worker：
 
-- `player-location-flush-worker`
+- `player-anchor-checkpoint-flush-worker`
 - `player-state-flush-worker`
 - `instance-resource-flush-worker`
 - `instance-ground-item-flush-worker`
 - `instance-container-flush-worker`
-- `economy-flush-worker`
 - `checkpoint-compaction-worker`
+- `outbox-dispatcher`
 
 ### 12.2 调度规则
 
 每个 worker 按以下规则工作：
 
-1. 从 Redis dirty set 拉取 ID
-2. 合并短时间内重复改动
-3. 按 batch size 写库
-4. 成功后清除 dirty 标记
-5. 失败进入 retry 队列
+1. 从数据库 flush ledger 认领 `latest_version > flushed_version` 的条目
+2. Redis 只负责加速唤醒，不负责 dirty 真源
+3. 合并短时间内重复改动
+4. 按 batch size 写库
+5. 成功后推进 `flushed_version`
+6. 失败进入 retry 队列
 
 ### 12.3 推荐批次参数
 
 初始推荐：
 
 - 玩家 `presence`：事件触发即时写
+- 玩家 `worldAnchor / positionCheckpoint`：`batch 128-256`，`1s`
 - 玩家 `vitals / progression / attr`：`batch 128`，`2-5s`
 - 玩家 `quest / technique / bodyTraining / buff`：`batch 128`，`1-3s`
+- 玩家 `activeJob` 运行中进度：`batch 64-128`，`1-3s`
 - 实例 tile resource：`batch 256`，`2s`
 - 实例 ground item：`batch 128`，`1-2s`
 - 实例 container：`batch 64`，`1-3s`
+- `outbox-dispatcher`：常驻拉取 `ready` 事件
 - checkpoint / compaction：按低峰期执行
 
 这些不是最终值，但方向必须是：
@@ -965,12 +974,13 @@ Redis 只能是：
 
 建议：
 
-- 玩家单次背包变更：一个事务
-- 玩家一次装备切换：一个事务
-- 一个实例一批 ground item upsert：一个事务
-- 一个实例一批 tile resource upsert：一个事务
+- 单玩家一次背包变更：一个事务
+- 单玩家一次装备切换：一个事务
+- 单玩家一次邮件领取：一个事务，可同时覆盖 `player_mail* + player_inventory_item/player_wallet`
+- 单实例一批 ground item upsert：一个事务
+- 单实例一批 tile resource upsert：一个事务
 
-不要把玩家、地图、市场、邮件混在一个事务里。
+不要把多个玩家、多个实例和无关市场批处理混成一个全局大事务。
 
 ### 12.5 强持久化命令链
 
@@ -997,6 +1007,7 @@ Redis 只能是：
 
 - `durable_operation_log` 负责幂等与恢复
 - `outbox_event` 负责跨服务、跨节点事件投递
+- 独立 `outbox-dispatcher` worker 通过 claim 机制消费，不由游戏节点各自消费自己产出的事件
 - `asset_audit_log` 负责运营追责与审计
 
 ### 12.6 Flush worker 只处理最终一致域
@@ -1051,7 +1062,7 @@ worker 不应承担：
 5. 读取 `player_inventory_item / player_market_storage_item / player_equipment_slot`
 6. 读取 `player_technique_state / player_body_training_state / player_persistent_buff_state / player_quest_progress`
 7. 读取 `player_map_unlock / player_combat_preferences / player_auto_battle_skill / player_auto_use_item_rule`
-8. 读取 `player_profession_state / player_alchemy_preset / player_alchemy_job / player_enhancement_job / player_enhancement_record / player_logbook_message`
+8. 读取 `player_profession_state / player_alchemy_preset / player_active_job / player_enhancement_record / player_logbook_message`
 9. 组装运行时并重算派生态
 10. 若锚点或 checkpoint 指向失效实例，则转入 fallback 恢复流程
 
@@ -1098,7 +1109,7 @@ worker 不应承担：
 
 - `instance_catalog.ownership_epoch`
 - `instance_recovery_watermark`
-- `instance_overlay.overlay_version`
+- `instance_overlay_chunk.patch_version`
 - 当前 lease 是否仍有效
 
 恢复顺序建议：
@@ -1167,6 +1178,7 @@ worker 不应承担：
 
 - `player_identity`
 - `player_presence`
+- `player_session_route`
 - `player_world_anchor`
 - `player_position_checkpoint`
 - `player_vitals`
@@ -1186,21 +1198,26 @@ worker 不应承担：
 - `player_auto_use_item_rule`
 - `player_profession_state`
 - `player_alchemy_preset`
-- `player_alchemy_job`
-- `player_enhancement_job`
+- `player_active_job`
 - `player_enhancement_record`
 - `player_logbook_message`
+- `player_mail`
+- `player_mail_attachment`
+- `player_mail_counter`
 - `player_recovery_watermark`
 - `player_checkpoint`
+- `player_flush_ledger`
+- `node_registry`
 - `instance_catalog`
 - `instance_tile_resource_state`
 - `instance_ground_item`
 - `instance_container_state`
 - `instance_monster_runtime_state`
 - `instance_event_state`
-- `instance_overlay`
+- `instance_overlay_chunk`
 - `instance_recovery_watermark`
 - `instance_checkpoint`
+- `instance_flush_ledger`
 - `durable_operation_log`
 - `outbox_event`
 - `asset_audit_log`
@@ -1330,8 +1347,7 @@ worker 不应承担：
 - 新增 `player_auto_use_item_rule`
 - 新增 `player_profession_state`
 - 新增 `player_alchemy_preset`
-- 新增 `player_alchemy_job`
-- 新增 `player_enhancement_job`
+- 新增 `player_active_job`
 - 新增 `player_enhancement_record`
 
 ### 阶段 2：实例目录化
@@ -1370,7 +1386,7 @@ worker 不应承担：
 - `instance_ground_item`
 - `instance_container_state`
 - 高价值对象专表
-- `instance_overlay`
+- `instance_overlay_chunk`
 - `instance_recovery_watermark`
 
 ### 阶段 4：Worker 化
@@ -1381,7 +1397,7 @@ worker 不应承担：
 
 实施：
 
-- Redis dirty set
+- flush ledger + Redis 唤醒
 - 独立 flush worker
 - 重试与监控
 

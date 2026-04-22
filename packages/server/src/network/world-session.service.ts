@@ -70,7 +70,6 @@ export class WorldSessionService {
   private readonly expiredBindings = new Map<string, WorldSessionBinding>();
   private readonly purgedPlayerIds = new Set<string>();
   private nextSessionSequence = 1;
-  private nextGuestPlayerSequence = 1;
   private readonly sessionDetachExpireMs = resolveSessionDetachExpireMs();
 
   registerSocket(
@@ -209,15 +208,6 @@ export class WorldSessionService {
 
   getBindingBySocketId(socketId: string): WorldSessionBinding | null {
     return this.bindingBySocketId.get(socketId) ?? null;
-  }
-
-  createGuestPlayerId(): string {
-    const sequence = this.nextGuestPlayerSequence++;
-    return `guest_${Date.now().toString(36)}_${sequence.toString(36)}`;
-  }
-
-  isGuestPlayerId(playerId: string): boolean {
-    return typeof playerId === 'string' && playerId.trim().startsWith('guest_');
   }
 
   getSocketByPlayerId(playerId: string): SocketPort | null {

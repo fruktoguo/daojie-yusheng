@@ -2,7 +2,7 @@ import { Inject, Injectable, Logger, Optional } from '@nestjs/common';
 
 import * as shared_1 from '@mud/shared';
 
-import { NextPlayerAuthStoreService } from '../http/next/next-player-auth-store.service';
+import { NativePlayerAuthStoreService } from '../http/native/native-player-auth-store.service';
 import { PlayerIdentityPersistenceService } from '../persistence/player-identity-persistence.service';
 import { PlayerPersistenceService } from '../persistence/player-persistence.service';
 
@@ -18,7 +18,6 @@ interface PlayerSnapshotPersistencePort {
 
 const DISABLE_MIGRATION_SOURCE_ENV_KEYS = [
     'SERVER_AUTH_DISABLE_COMPAT_MIGRATION_SOURCE',
-    'NEXT_AUTH_DISABLE_COMPAT_MIGRATION_SOURCE',
 ];
 /** 是否关闭 migration-only 源入口。 */
 function isMigrationSourceDisabled() {
@@ -47,14 +46,14 @@ function assertExplicitMigrationAccess(options, logger, action) {
     return false;
 }
 
-/** 玩家来源服务：主链只认 next 真源，legacy 数据库只保留给显式 migration 入口。 */
+/** 玩家来源服务：主链只认主线真源，legacy 数据库只保留给显式 migration 入口。 */
 @Injectable()
 export class WorldPlayerSourceService {
     /** 记录来源解析与迁移入口行为。 */
     private readonly logger = new Logger(WorldPlayerSourceService.name);
-    /** next 身份持久化入口。 */
+    /** 主线身份持久化入口。 */
     private readonly playerIdentityPersistenceService: PlayerIdentityPersistencePort;
-    /** next 快照持久化入口。 */
+    /** 主线快照持久化入口。 */
     private readonly playerPersistenceService: PlayerSnapshotPersistencePort;
 
     /**
@@ -66,7 +65,7 @@ export class WorldPlayerSourceService {
  */
 
     constructor(
-        @Optional() _authStore: NextPlayerAuthStoreService | null,
+        @Optional() _authStore: NativePlayerAuthStoreService | null,
         @Inject(PlayerIdentityPersistenceService)
         playerIdentityPersistenceService: unknown,
         @Inject(PlayerPersistenceService)
@@ -93,17 +92,17 @@ export class WorldPlayerSourceService {
     async onModuleDestroy() {
         return;
     }
-    /** next 身份持久化源是否可用。 */
+    /** 主线身份持久化源是否可用。 */
     isPrimaryIdentitySourceEnabled() {
         return typeof this.playerIdentityPersistenceService?.isEnabled === 'function'
             && this.playerIdentityPersistenceService.isEnabled();
     }
-    /** next 快照持久化源是否可用。 */
+    /** 主线快照持久化源是否可用。 */
     isPrimarySnapshotSourceEnabled() {
         return typeof this.playerPersistenceService?.isEnabled === 'function'
             && this.playerPersistenceService.isEnabled();
     }
-    /** 直接从 next 身份持久化层读取玩家身份。 */
+    /** 直接从主线身份持久化层读取玩家身份。 */
     async loadPersistedPlayerIdentity(userId) {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
@@ -112,7 +111,7 @@ export class WorldPlayerSourceService {
         }
         return this.playerIdentityPersistenceService.loadPlayerIdentity(userId);
     }
-    /** 直接从 next 快照持久化层读取玩家快照记录。 */
+    /** 直接从主线快照持久化层读取玩家快照记录。 */
     async loadPersistedPlayerSnapshotRecord(playerId) {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
@@ -121,7 +120,7 @@ export class WorldPlayerSourceService {
         }
         return this.playerPersistenceService.loadPlayerSnapshotRecord(playerId);
     }
-    /** 直接从 next 快照持久化层读取玩家快照。 */
+    /** 直接从主线快照持久化层读取玩家快照。 */
     async loadPersistedPlayerSnapshot(playerId) {
 
         const record = await this.loadPersistedPlayerSnapshotRecord(playerId);
@@ -208,17 +207,6 @@ function resolvePlayerName(playerName, username, fallback) {
     return username.normalize('NFC');
 }
 /**
- * buildFallbackPlayerId：构建并返回目标对象。
- * @param userId user ID。
- * @returns 无返回值，直接更新Fallback玩家ID相关状态。
- */
-
-function buildFallbackPlayerId(userId) {
-
-    const normalized = userId.trim();
-    return normalized ? `p_${normalized}` : 'p_guest';
-}
-/**
  * isValidVisibleDisplayName：判断Valid可见显示名称是否满足条件。
  * @param value 参数说明。
  * @returns 无返回值，完成Valid可见显示名称的条件判断。
@@ -261,6 +249,9 @@ function toPlayerSnapshotFromMigrationRow(row) {
             x: toFiniteInt(row.x, 0),
             y: toFiniteInt(row.y, 0),
             facing: normalizeDirection(row.facing),
+        },
+        worldPreference: {
+            linePreset: 'peaceful',
         },
         vitals: {
             hp: Math.max(0, toFiniteInt(row.hp, 100)),

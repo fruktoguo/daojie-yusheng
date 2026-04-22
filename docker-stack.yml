@@ -35,21 +35,21 @@ services:
   server:
     image: ghcr.io/fruktoguo/daojie-yusheng-server:${SERVER_IMAGE_TAG:-latest}
     environment:
-      SERVER_NEXT_HOST: 0.0.0.0
-      SERVER_NEXT_PORT: 3000
-      SERVER_NEXT_DATABASE_URL: postgres://${DB_USERNAME:-mud}:${DB_PASSWORD}@postgres:5432/${DB_DATABASE:-daojie_yusheng}
-      SERVER_NEXT_PLAYER_TOKEN_SECRET: ${SERVER_NEXT_PLAYER_TOKEN_SECRET}
-      SERVER_NEXT_GM_PASSWORD: ${GM_PASSWORD:-admin123}
+      SERVER_HOST: 0.0.0.0
+      SERVER_PORT: 3000
+      SERVER_DATABASE_URL: postgres://${DB_USERNAME:-mud}:${DB_PASSWORD}@postgres:5432/${DB_DATABASE:-daojie_yusheng}
+      SERVER_PLAYER_TOKEN_SECRET: ${SERVER_PLAYER_TOKEN_SECRET}
+      SERVER_GM_PASSWORD: ${GM_PASSWORD:-admin123}
       GM_PASSWORD: ${GM_PASSWORD:-admin123}
       DATABASE_URL: postgres://${DB_USERNAME:-mud}:${DB_PASSWORD}@postgres:5432/${DB_DATABASE:-daojie_yusheng}
-      SERVER_NEXT_GM_DATABASE_BACKUP_DIR: /var/lib/server-next/gm-database-backups
+      SERVER_GM_DATABASE_BACKUP_DIR: /var/lib/server/gm-database-backups
     ports:
       - target: 3000
         published: 11922
         protocol: tcp
         mode: ingress
     volumes:
-      - server_backup_data:/var/lib/server-next
+      - server_backup_data:/var/lib/server
     networks:
       - daojie_net
     stop_grace_period: 30s

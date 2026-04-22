@@ -20,7 +20,15 @@ function createService(log = []) {
  */
 
         dispatchGmUpdatePlayer(command, deps) {
-            log.push(['dispatchGmUpdatePlayer', command.kind, typeof deps.resolveDefaultRespawnMapId, typeof deps.getOrCreatePublicInstance]);
+            log.push([
+                'dispatchGmUpdatePlayer',
+                command.kind,
+                command.playerId,
+                command.instanceId ?? '',
+                typeof deps.resolveDefaultRespawnMapId,
+                typeof deps.getOrCreatePublicInstance,
+                typeof deps.getInstanceRuntime,
+            ]);
         },        
         /**
  * dispatchGmSpawnBots：判断GMSpawnBot是否满足条件。
@@ -135,12 +143,16 @@ function testDispatchesKnownCommands() {
     const log = [];
     const service = createService(log);
     const deps = createDeps();
-    assert.equal(service.dispatchGmSystemCommand({ kind: 'gmUpdatePlayer', playerId: 'player:1' }, deps), true);
+    assert.equal(service.dispatchGmSystemCommand({
+        kind: 'gmUpdatePlayer',
+        playerId: 'player:1',
+        instanceId: 'real:yunlai_town',
+    }, deps), true);
     assert.equal(service.dispatchGmSystemCommand({ kind: 'gmResetPlayer', playerId: 'player:2' }, deps), true);
     assert.equal(service.dispatchGmSystemCommand({ kind: 'gmSpawnBots', anchorPlayerId: 'player:3', count: 2 }, deps), true);
     assert.equal(service.dispatchGmSystemCommand({ kind: 'gmRemoveBots', playerIds: ['bot:1'], all: false }, deps), true);
     assert.deepEqual(log, [
-        ['dispatchGmUpdatePlayer', 'gmUpdatePlayer', 'function', 'function'],
+        ['dispatchGmUpdatePlayer', 'gmUpdatePlayer', 'player:1', 'real:yunlai_town', 'function', 'function', 'function'],
         ['respawnPlayer', 'player:2', 'deps'],
         ['dispatchGmSpawnBots', 'player:3', 2, 'function'],
         ['dispatchGmRemoveBots', ['bot:1'], false, 'function'],

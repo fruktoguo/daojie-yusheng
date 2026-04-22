@@ -125,11 +125,11 @@ function testStartAlchemy() {
  emit(event, payload) { log.push(['emit', event, payload.ok]); } }; },
     }, {    
     /**
- * prefersNext：执行preferNext相关逻辑。
+ * prefersMainline：执行preferNext相关逻辑。
  * @returns 无返回值，直接更新preferNext相关状态。
  */
 
-        prefersNext() { return true; },
+        prefersMainline() { return true; },
     });
     const service = new WorldRuntimeAlchemyService(playerRuntimeService, craftPanelRuntimeService, craftMutationService);
     service.dispatchStartAlchemy('player:1', { presetId: 'p1' }, createDeps(log));
@@ -205,11 +205,11 @@ function testDeletePreset() {
  emit() { log.push(['emit']); } }; },
     }, {    
     /**
- * prefersNext：执行preferNext相关逻辑。
+ * prefersMainline：执行preferNext相关逻辑。
  * @returns 无返回值，直接更新preferNext相关状态。
  */
 
-        prefersNext() { return true; },
+        prefersMainline() { return true; },
     });
     const service = new WorldRuntimeAlchemyService(playerRuntimeService, craftPanelRuntimeService, craftMutationService);
     service.dispatchDeleteAlchemyPreset('player:1', 'preset:1', createDeps(log));

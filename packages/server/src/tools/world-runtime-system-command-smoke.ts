@@ -29,7 +29,7 @@ function createService(log = []) {
             return [
                 { kind: 'spawnMonsterLoot', instanceId: 'public:a', x: 1, y: 2, monsterId: 'monster:a', rolls: 3 },
                 { kind: 'damagePlayer', playerId: 'player:1', amount: 9 },
-                { kind: 'gmUpdatePlayer', playerId: 'player:2' },
+                { kind: 'gmUpdatePlayer', playerId: 'player:2', instanceId: 'real:yunlai_town' },
                 { kind: 'gmRemoveBots', playerIds: ['bot:1'], all: false },
             ];
         },
@@ -95,7 +95,7 @@ function createService(log = []) {
  */
 
         dispatchGmSystemCommand(command, deps) {
-            log.push(['gmSystem', command.kind, deps.marker]);
+            log.push(['gmSystem', command.kind, command.instanceId ?? '', deps.marker]);
             return true;
         },
     });
@@ -113,8 +113,8 @@ function testDispatchPendingSystemCommands() {
     assert.deepEqual(log, [
         ['spawnMonsterLoot', 'public:a', 1, 2, 'monster:a', 3, 'deps'],
         ['damagePlayer', 'player:1', 9, 'deps'],
-        ['gmSystem', 'gmUpdatePlayer', 'deps'],
-        ['gmSystem', 'gmRemoveBots', 'deps'],
+        ['gmSystem', 'gmUpdatePlayer', 'real:yunlai_town', 'deps'],
+        ['gmSystem', 'gmRemoveBots', '', 'deps'],
     ]);
 }
 /**
@@ -129,9 +129,11 @@ function testDispatchSystemCommandRoutes() {
     const deps = { marker: 'routeDeps' };
     service.dispatchSystemCommand({ kind: 'respawnPlayer', playerId: 'player:7' }, deps);
     service.dispatchSystemCommand({ kind: 'gmResetPlayer', playerId: 'player:8' }, deps);
+    service.dispatchSystemCommand({ kind: 'gmUpdatePlayer', playerId: 'player:9', instanceId: 'line:yunlai_town:real:2' }, deps);
     assert.deepEqual(log, [
         ['respawnPlayer', 'player:7', 'routeDeps'],
-        ['gmSystem', 'gmResetPlayer', 'routeDeps'],
+        ['gmSystem', 'gmResetPlayer', '', 'routeDeps'],
+        ['gmSystem', 'gmUpdatePlayer', 'line:yunlai_town:real:2', 'routeDeps'],
     ]);
 }
 

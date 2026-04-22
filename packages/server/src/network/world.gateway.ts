@@ -52,12 +52,8 @@ const world_gateway_client_emit_helper_1 = require("./world-gateway-client-emit.
 const world_gateway_guard_helper_1 = require("./world-gateway-guard.helper");
 const world_gateway_session_state_helper_1 = require("./world-gateway-session-state.helper");
 const AUTHENTICATED_REQUESTED_SESSION_ID_AUTH_SOURCES = new Set([
-    'next',
+    'mainline',
     'token',
-]);
-const GUEST_HELLO_IDENTITY_OVERRIDE_KEYS = Object.freeze([
-    'playerId',
-    'requestedPlayerId',
 ]);
 const AUTHENTICATED_CONNECT_CONTRACT = Object.freeze({
     protocolRequiredCode: 'AUTH_PROTOCOL_REQUIRED',
@@ -70,14 +66,6 @@ const GM_CONNECT_CONTRACT = Object.freeze({
     authFailCode: 'GM_AUTH_FAIL',
     playerAuthRequiredCode: 'GM_PLAYER_AUTH_REQUIRED',
     sessionIdForbiddenCode: 'GM_SESSION_ID_FORBIDDEN',
-});
-const GUEST_HELLO_CONTRACT = Object.freeze({
-    protocolMismatchCode: 'HELLO_PROTOCOL_MISMATCH',
-    unsupportedProtocolCode: 'HELLO_PROTOCOL_UNSUPPORTED',
-    authBootstrapForbiddenCode: 'HELLO_AUTH_BOOTSTRAP_FORBIDDEN',
-    sessionIdInvalidCode: 'HELLO_SESSION_ID_INVALID',
-    identityOverrideForbiddenCode: 'HELLO_IDENTITY_OVERRIDE_FORBIDDEN',
-    helloFailedCode: 'HELLO_FAILED',
 });
 let WorldGateway = WorldGateway_1 = class WorldGateway {
         worldGmSocketService;
@@ -189,6 +177,10 @@ let WorldGateway = WorldGateway_1 = class WorldGateway {
     handleHeartbeat(client, _payload) {
         if (!this.gatewayGuardHelper.requirePlayerId(client)) {
             return;
+        }
+        const playerId = typeof client?.data?.playerId === 'string' ? client.data.playerId.trim() : '';
+        if (playerId) {
+            this.playerRuntimeService.markHeartbeat(playerId);
         }
     }    
     handleSocketGmGetState(client, _payload) {

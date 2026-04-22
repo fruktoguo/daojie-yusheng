@@ -5,9 +5,9 @@
 内容：
 
 - `fixtures/maps/yunlai_town.json`：从 `packages/server/data/maps/yunlai_town.json` 复制出的地图夹具。
-- `src/compare.ts`：TS 对照脚本，复用 `packages/shared/dist/index.js` 里的 next A* 核心。
+- `src/compare.ts`：TS 对照脚本，复用 `packages/shared/dist/index.js` 里的主线 A* 核心。
 - `rust/`：独立 Rust A* 实现与 benchmark 二进制。
-- `run.sh`：一键构建 shared-next、编译 benchmark TS、编译 Rust release 并执行对比。
+- `run.sh`：一键构建 shared 主包、编译 benchmark TS、编译 Rust release 并执行对比。
 
 默认对比场景：
 

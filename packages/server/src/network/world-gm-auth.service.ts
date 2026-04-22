@@ -17,7 +17,7 @@ exports.WorldGmAuthService = void 0;
 
 const common_1 = require("@nestjs/common");
 
-const next_gm_contract_1 = require("../http/next/next-gm-contract");
+const next_gm_contract_1 = require("../http/native/native-gm-contract");
 
 const runtime_gm_auth_service_1 = require("../runtime/gm/runtime-gm-auth.service");
 

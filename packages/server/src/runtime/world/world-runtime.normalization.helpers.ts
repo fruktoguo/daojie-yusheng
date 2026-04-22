@@ -125,7 +125,7 @@ function buildRuntimeInstancePresetMeta(input) {
         lineIndex,
         instanceOrigin: input?.instanceOrigin === 'gm_manual' ? 'gm_manual' : 'bootstrap',
         supportsPvp: linePreset === 'real',
-        canDamageTile: linePreset === 'real',
+        canDamageTile: true,
         defaultEntry,
     };
 }
