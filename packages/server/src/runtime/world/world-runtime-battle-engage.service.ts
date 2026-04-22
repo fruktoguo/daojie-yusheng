@@ -28,6 +28,18 @@ function ensureHostileRelation(resolution) {
     }
     throw new common_1.BadRequestException('当前目标不在敌方判定规则内');
 }
+function ensureInstanceSupportsPlayerCombat(instance) {
+    if (instance?.meta?.supportsPvp === true) {
+        return;
+    }
+    throw new common_1.BadRequestException('当前实例不允许玩家互攻');
+}
+function ensureInstanceSupportsTileDamage(instance) {
+    if (instance?.meta?.canDamageTile === true) {
+        return;
+    }
+    throw new common_1.BadRequestException('当前实例不允许攻击地块');
+}
 
 /** 玩家战斗接敌编排服务：承接锁定目标、autoBattle 切换与首个命令 handoff。 */
 let WorldRuntimeBattleEngageService = class WorldRuntimeBattleEngageService {
@@ -63,9 +75,11 @@ let WorldRuntimeBattleEngageService = class WorldRuntimeBattleEngageService {
         const currentTick = deps.resolveCurrentTickForPlayerId(playerId);
         const currentPlayer = this.playerRuntimeService.getPlayerOrThrow(playerId);
         const wasAutoBattleActive = currentPlayer.combat.autoBattle === true;
+        const instance = currentPlayer.instanceId ? deps.getInstanceRuntimeOrThrow(currentPlayer.instanceId) : null;
         deps.interruptManualCombat(playerId);
         if (!targetMonsterId) {
             if (targetPlayerId) {
+                ensureInstanceSupportsPlayerCombat(instance);
                 const target = this.playerRuntimeService.getPlayerOrThrow(targetPlayerId);
                 if (target.instanceId !== currentPlayer.instanceId) {
                     throw new common_1.BadRequestException('目标不在同一地图');
@@ -76,6 +90,7 @@ let WorldRuntimeBattleEngageService = class WorldRuntimeBattleEngageService {
                 }));
             }
             if (targetX !== null && targetY !== null) {
+                ensureInstanceSupportsTileDamage(instance);
                 ensureHostileRelation((0, player_combat_config_helpers_1.resolveCombatRelation)(currentPlayer, { kind: 'terrain' }));
             }
             const targetRef = targetPlayerId
@@ -97,8 +112,8 @@ let WorldRuntimeBattleEngageService = class WorldRuntimeBattleEngageService {
         if (!player.instanceId) {
             throw new common_1.BadRequestException(`Player ${playerId} not attached to instance`);
         }
-        const instance = deps.getInstanceRuntimeOrThrow(player.instanceId);
-        const monster = instance.getMonster(targetMonsterId);
+        const monsterInstance = deps.getInstanceRuntimeOrThrow(player.instanceId);
+        const monster = monsterInstance.getMonster(targetMonsterId);
         if (!monster?.alive) {
             throw new common_1.NotFoundException(`Monster ${targetMonsterId} not found`);
         }
@@ -110,7 +125,7 @@ let WorldRuntimeBattleEngageService = class WorldRuntimeBattleEngageService {
         if (wasAutoBattleActive) {
             return;
         }
-        const nextCommand = deps.buildAutoCombatCommand(instance, player);
+        const nextCommand = deps.buildAutoCombatCommand(monsterInstance, player);
         if (!nextCommand) {
             return;
         }

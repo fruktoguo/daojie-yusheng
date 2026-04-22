@@ -867,6 +867,26 @@ export interface GmDatabaseBackupRecord {
  */
 
   sizeBytes: number;
+  /**
+ * documentsCount：数量或计量字段。
+ */
+
+  documentsCount?: number;
+  /**
+ * checksumSha256：校验摘要相关字段。
+ */
+
+  checksumSha256?: string;
+  /**
+ * tablesCount：结构化表快照数量。
+ */
+
+  tablesCount?: number;
+  /**
+ * tablesChecksumSha256：结构化表校验摘要。
+ */
+
+  tablesChecksumSha256?: string;
 }
 
 /** 数据库备份/恢复作业快照。 */
@@ -939,74 +959,74 @@ export interface GmDatabaseStateRes {
  * persistenceEnabled：启用开关或状态标识。
  */
 
-  persistenceEnabled?: boolean;  
+  persistenceEnabled?: boolean;
   /**
  * scope：scope相关字段。
  */
 
-  scope?: 'persistent_documents_only';  
+  scope?: 'persistent_documents_only' | 'mainline_persistence';
   /**
  * restoreMode：restoreMode相关字段。
  */
 
-  restoreMode?: 'replace_persistent_documents';  
+  restoreMode?: 'replace_persistent_documents' | 'replace_mainline_persistence';
   /**
  * note：note相关字段。
  */
 
-  note?: string;  
+  note?: string;
   /**
  * automation：automation相关字段。
  */
 
-  automation?: {  
+  automation?: {
   /**
  * retentionEnforced：retentionEnforced相关字段。
  */
 
-    retentionEnforced: boolean;    
+    retentionEnforced: boolean;
     /**
  * schedulesActive：schedule激活状态相关字段。
  */
 
-    schedulesActive: boolean;    
+    schedulesActive: boolean;
     /**
  * restoreRequiresMaintenance：restoreRequireMaintenance相关字段。
  */
 
-    restoreRequiresMaintenance: boolean;    
+    restoreRequiresMaintenance: boolean;
     /**
  * preImportBackupEnabled：启用开关或状态标识。
  */
 
     preImportBackupEnabled: boolean;
-  };  
+  };
   /**
  * retention：retention相关字段。
  */
 
-  retention: {  
+  retention: {
   /**
  * hourly：hourly相关字段。
  */
 
-    hourly: number;    
+    hourly: number;
     /**
  * daily：daily相关字段。
  */
 
     daily: number;
-  };  
+  };
   /**
  * schedules：schedule相关字段。
  */
 
-  schedules: {  
+  schedules: {
   /**
  * hourly：hourly相关字段。
  */
 
-    hourly: string;    
+    hourly: string;
     /**
  * daily：daily相关字段。
  */
@@ -1021,12 +1041,12 @@ export interface GmTriggerDatabaseBackupRes {
  * job：job相关字段。
  */
 
-  job: GmDatabaseJobSnapshot;  
+  job: GmDatabaseJobSnapshot;
   /**
  * scope：scope相关字段。
  */
 
-  scope?: 'persistent_documents_only';  
+  scope?: 'persistent_documents_only' | 'mainline_persistence';
   /**
  * documentsCount：数量或计量字段。
  */
@@ -2338,6 +2358,105 @@ export interface GmUpdateMapReq {
   map: GmMapDocument;
 }
 
+/** GM 世界实例分线预设。 */
+export type GmWorldInstanceLinePreset = 'peaceful' | 'real';
+
+/** GM 世界实例来源。 */
+export type GmWorldInstanceOrigin = 'bootstrap' | 'gm_manual';
+
+/** GM 世界实例列表摘要。 */
+export interface GmWorldInstanceSummary {
+/**
+ * instanceId：实例 ID 标识。
+ */
+
+  instanceId: string;
+  /**
+ * displayName：实例展示名。
+ */
+
+  displayName: string;
+  /**
+ * templateId：地图模板 ID 标识。
+ */
+
+  templateId: string;
+  /**
+ * templateName：地图模板名称。
+ */
+
+  templateName: string;
+  /**
+ * width：width相关字段。
+ */
+
+  width: number;
+  /**
+ * height：height相关字段。
+ */
+
+  height: number;
+  /**
+ * linePreset：分线预设。
+ */
+
+  linePreset: GmWorldInstanceLinePreset;
+  /**
+ * lineIndex：线路序号。
+ */
+
+  lineIndex: number;
+  /**
+ * instanceOrigin：实例来源。
+ */
+
+  instanceOrigin: GmWorldInstanceOrigin;
+  /**
+ * defaultEntry：是否为默认入口线路。
+ */
+
+  defaultEntry: boolean;
+  /**
+ * persistent：是否持久实例。
+ */
+
+  persistent: boolean;
+  /**
+ * supportsPvp：是否支持 PVP。
+ */
+
+  supportsPvp: boolean;
+  /**
+ * canDamageTile：是否可攻击地块。
+ */
+
+  canDamageTile: boolean;
+  /**
+ * playerCount：在线人数。
+ */
+
+  playerCount: number;
+  /**
+ * tick：实例 tick。
+ */
+
+  tick: number;
+  /**
+ * worldRevision：世界版本号。
+ */
+
+  worldRevision: number;
+}
+
+/** GM 世界实例列表响应。 */
+export interface GmWorldInstanceListRes {
+/**
+ * instances：实例列表。
+ */
+
+  instances: GmWorldInstanceSummary[];
+}
+
 // ===== GM 世界管理 =====
 
 /** GM 运行时地图实体 */
@@ -2458,6 +2577,122 @@ export interface GmMapRuntimeRes {
   tickSpeed: number;
   /** 地图 tick 是否暂停 */
   tickPaused: boolean;
+}
+
+/** GM 世界实例运行态快照响应。 */
+export interface GmWorldInstanceRuntimeRes extends GmMapRuntimeRes {
+/**
+ * instanceId：实例 ID 标识。
+ */
+
+  instanceId: string;
+  /**
+ * instanceName：实例名称。
+ */
+
+  instanceName: string;
+  /**
+ * templateId：地图模板 ID 标识。
+ */
+
+  templateId: string;
+  /**
+ * templateName：地图模板名称。
+ */
+
+  templateName: string;
+  /**
+ * linePreset：分线预设。
+ */
+
+  linePreset: GmWorldInstanceLinePreset;
+  /**
+ * lineIndex：线路序号。
+ */
+
+  lineIndex: number;
+  /**
+ * instanceOrigin：实例来源。
+ */
+
+  instanceOrigin: GmWorldInstanceOrigin;
+  /**
+ * defaultEntry：是否为默认入口线路。
+ */
+
+  defaultEntry: boolean;
+  /**
+ * supportsPvp：是否支持 PVP。
+ */
+
+  supportsPvp: boolean;
+  /**
+ * canDamageTile：是否可攻击地块。
+ */
+
+  canDamageTile: boolean;
+  /**
+ * playerCount：在线人数。
+ */
+
+  playerCount: number;
+  /**
+ * worldRevision：世界版本号。
+ */
+
+  worldRevision: number;
+}
+
+/** GM 创建世界实例请求。 */
+export interface GmCreateWorldInstanceReq {
+/**
+ * templateId：地图模板 ID 标识。
+ */
+
+  templateId: string;
+  /**
+ * linePreset：分线预设。
+ */
+
+  linePreset: GmWorldInstanceLinePreset;
+  /**
+ * displayName：实例展示名。
+ */
+
+  displayName?: string;
+}
+
+/** GM 创建世界实例响应。 */
+export interface GmCreateWorldInstanceRes {
+/**
+ * instance：实例摘要。
+ */
+
+  instance: GmWorldInstanceSummary;
+}
+
+/** GM 迁移玩家到实例请求。 */
+export interface GmTransferPlayerToInstanceReq {
+/**
+ * playerId：玩家 ID 标识。
+ */
+
+  playerId: string;
+  /**
+ * instanceId：实例 ID 标识。
+ */
+
+  instanceId: string;
+  /**
+ * x：目标 X 坐标。
+ */
+
+  x?: number;
+  /**
+ * y：目标 Y 坐标。
+ */
+
+  y?: number;
 }
 
 /** GM 修改地图 tick 速率请求 */

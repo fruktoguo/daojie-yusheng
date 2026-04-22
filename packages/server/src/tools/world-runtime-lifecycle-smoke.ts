@@ -38,7 +38,7 @@ function testBootstrapPublicInstances() {
  */
 
         getInstanceCount() {
-            return 2;
+            return 4;
         },
         logger: {        
         /**
@@ -58,14 +58,42 @@ function testBootstrapPublicInstances() {
             templateId: 'yunlai_town',
             kind: 'public',
             persistent: true,
+            linePreset: 'peaceful',
+            lineIndex: 1,
+            instanceOrigin: 'bootstrap',
+            defaultEntry: true,
+        }],
+        ['createInstance', {
+            instanceId: 'real:yunlai_town',
+            templateId: 'yunlai_town',
+            kind: 'public',
+            persistent: true,
+            linePreset: 'real',
+            lineIndex: 1,
+            instanceOrigin: 'bootstrap',
+            defaultEntry: true,
         }],
         ['createInstance', {
             instanceId: 'public:forest_1',
             templateId: 'forest_1',
             kind: 'public',
             persistent: true,
+            linePreset: 'peaceful',
+            lineIndex: 1,
+            instanceOrigin: 'bootstrap',
+            defaultEntry: true,
         }],
-        ['log', '已初始化 2 个公共实例'],
+        ['createInstance', {
+            instanceId: 'real:forest_1',
+            templateId: 'forest_1',
+            kind: 'public',
+            persistent: true,
+            linePreset: 'real',
+            lineIndex: 1,
+            instanceOrigin: 'bootstrap',
+            defaultEntry: true,
+        }],
+        ['log', '已初始化 4 个默认地图实例'],
     ]);
 }
 /**
@@ -267,7 +295,7 @@ async function testRestoreAndRebuild() {
  */
 
         getInstanceCount() {
-            return 1;
+            return 2;
         },
         logger: {        
         /**
@@ -317,7 +345,8 @@ async function testRestoreAndRebuild() {
         'lootContainer',
         'combatEffects',
         ['createInstance', 'public:yunlai_town'],
-        ['log', '已初始化 1 个公共实例'],
+        ['createInstance', 'real:yunlai_town'],
+        ['log', '已初始化 2 个默认地图实例'],
     ]);
 }
 /**

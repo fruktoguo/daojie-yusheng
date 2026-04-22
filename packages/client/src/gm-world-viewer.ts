@@ -6,12 +6,15 @@
 import {
   GM_WORLD_DEFAULT_ZOOM,
   GM_WORLD_POLL_INTERVAL_MS,
-  type GmMapListRes,
-  type GmMapRuntimeRes,
-  type GmMapSummary,
+  type GmCreateWorldInstanceReq,
+  type GmCreateWorldInstanceRes,
   type GmRuntimeEntity,
+  type GmTransferPlayerToInstanceReq,
   type GmUpdateMapTickReq,
   type GmUpdateMapTimeReq,
+  type GmWorldInstanceListRes,
+  type GmWorldInstanceRuntimeRes,
+  type GmWorldInstanceSummary,
   type Tile,
   type TileType,
   ENTITY_KIND_LABELS,
@@ -69,7 +72,7 @@ function createViewerId(): string {
 export class GmWorldViewer {
   /** canvas：canvas。 */
   private canvas: HTMLCanvasElement;
-  /** mapListEl：地图列表元素。 */
+  /** mapListEl：实例列表元素。 */
   private mapListEl: HTMLElement;
   /** timeControlEl：时间Control元素。 */
   private timeControlEl: HTMLElement;
@@ -81,12 +84,12 @@ export class GmWorldViewer {
   /** camera：camera。 */
   private camera: Camera;
 
-  /** currentMapId：当前地图ID。 */
-  private currentMapId: string | null = null;
-  /** maps：maps。 */
-  private maps: GmMapSummary[] = [];
+  /** currentInstanceId：当前实例 ID。 */
+  private currentInstanceId: string | null = null;
+  /** instances：实例列表。 */
+  private instances: GmWorldInstanceSummary[] = [];
   /** runtimeData：运行时数据。 */
-  private runtimeData: GmMapRuntimeRes | null = null;  
+  private runtimeData: GmWorldInstanceRuntimeRes | null = null;
   /**
  * viewX：视图X相关字段。
  */
@@ -139,12 +142,24 @@ export class GmWorldViewer {
   private speedDraft: string | null = null;
   /** offsetDraft：偏移Draft。 */
   private offsetDraft: string | null = null;
+  /** createTemplateIdDraft：创建实例模板草稿。 */
+  private createTemplateIdDraft: string | null = null;
+  /** createNameDraft：新实例名称草稿。 */
+  private createNameDraft: string | null = null;
+  /** transferPlayerIdDraft：迁移玩家 ID 草稿。 */
+  private transferPlayerIdDraft: string | null = null;
+  /** transferXDraft：迁移目标 X 草稿。 */
+  private transferXDraft: string | null = null;
+  /** transferYDraft：迁移目标 Y 草稿。 */
+  private transferYDraft: string | null = null;
   /** viewerId：viewer ID。 */
   private readonly viewerId = createViewerId();
   /** observationRegistered：observation Registered。 */
   private observationRegistered = false;
   /** timeControlBound：时间控制事件是否已绑定。 */
-  private timeControlBound = false;  
+  private timeControlBound = false;
+  /** infoControlBound：实例信息事件是否已绑定。 */
+  private infoControlBound = false;  
   /**
  * 构造器：初始化 当前 实例并建立基础状态。
  * @param request RequestFn 请求参数。
@@ -189,32 +204,63 @@ export class GmWorldViewer {
 
   /** updateMapIds：更新地图ID 列表。 */
   async updateMapIds(_mapIds: string[]): Promise<void> {
-  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
-
-    try {
-      const res = await this.request<GmMapListRes>(`${GM_API_BASE_PATH}/maps`);
-      this.maps = res.maps;
-    } catch {
-      this.maps = _mapIds.map((id) => ({ id, name: id, width: 0, height: 0, portalCount: 0, npcCount: 0, monsterSpawnCount: 0 }));
+    void _mapIds;
+    await this.refreshInstanceList();
+    if (!this.currentInstanceId || this.runtimeData) {
+      return;
     }
-    this.renderMapList();
-  }
-
-  /** selectMap：选择地图。 */
-  async selectMap(mapId: string): Promise<void> {
-  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
-
-    this.currentMapId = mapId;
-    this.selectedCell = null;
-    this.selectedEntity = null;
-    this.renderer.resetScene();
-    this.renderMapList();
     await this.loadRuntime();
-    if (this.runtimeData) {
-      this.viewX = Math.floor(this.runtimeData.width / 2);
-      this.viewY = Math.floor(this.runtimeData.height / 2);
+    const runtime = this.runtimeData as GmWorldInstanceRuntimeRes | null;
+    if (runtime) {
+      this.viewX = Math.floor(runtime.width / 2);
+      this.viewY = Math.floor(runtime.height / 2);
       this.snapCamera();
       await this.loadRuntime();
+    }
+    this.renderAll();
+  }
+
+  /** selectInstance：兼容旧调用，当前实际选择实例。 */
+  async selectInstance(instanceId: string): Promise<void> {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
+    const previousRuntime = this.runtimeData;
+    const previousViewX = this.viewX;
+    const previousViewY = this.viewY;
+    const previousSelectedCell = this.selectedCell;
+    const previousSelectedEntityId = this.selectedEntity?.id ?? null;
+    const nextInstanceSummary = this.instances.find((instance) => instance.instanceId === instanceId) ?? null;
+    const preserveViewState = previousRuntime?.templateId === nextInstanceSummary?.templateId;
+    const previousPreferredTemplateId = this.getPreferredCreateTemplateId();
+    this.currentInstanceId = instanceId;
+    if (this.createTemplateIdDraft && this.createTemplateIdDraft === previousPreferredTemplateId) {
+      this.createTemplateIdDraft = null;
+    }
+    if (!preserveViewState) {
+      this.selectedCell = null;
+    }
+    this.selectedEntity = null;
+    this.renderer.resetScene();
+    this.renderInstanceList();
+    await this.loadRuntime();
+    if (this.runtimeData) {
+      if (preserveViewState) {
+        this.viewX = previousViewX;
+        this.viewY = previousViewY;
+        const didClamp = this.clampViewToRuntimeBounds();
+        this.snapCamera();
+        if (didClamp) {
+          await this.loadRuntime();
+        }
+        this.selectedCell = this.normalizeSelectedCell(previousSelectedCell);
+        this.selectedEntity = this.resolveSelectedEntity(previousSelectedEntityId, this.selectedCell);
+      } else {
+        this.selectedCell = null;
+        this.viewX = Math.floor(this.runtimeData.width / 2);
+        this.viewY = Math.floor(this.runtimeData.height / 2);
+        this.snapCamera();
+        await this.loadRuntime();
+      }
     }
     this.renderAll();
   }
@@ -223,9 +269,10 @@ export class GmWorldViewer {
   startPolling(): void {
     this.stopPolling();
     this.pollTimer = window.setInterval(() => {
-      if (this.currentMapId) {
-        this.loadRuntime().then(() => this.renderAll()).catch(() => {});
-      }
+      this.refreshInstanceList(false)
+        .then(() => (this.currentInstanceId ? this.loadRuntime() : undefined))
+        .then(() => this.renderAll())
+        .catch(() => {});
     }, GM_WORLD_POLL_INTERVAL_MS);
     this.startRaf();
   }
@@ -280,10 +327,86 @@ export class GmWorldViewer {
 
   // ===== 数据加载 =====
 
+  private getCurrentInstanceSummary(): GmWorldInstanceSummary | null {
+    if (!this.currentInstanceId) {
+      return null;
+    }
+    return this.instances.find((instance) => instance.instanceId === this.currentInstanceId) ?? null;
+  }
+
+  private getCurrentTemplateMapId(): string | null {
+    return this.runtimeData?.mapId
+      ?? this.runtimeData?.templateId
+      ?? this.getCurrentInstanceSummary()?.templateId
+      ?? null;
+  }
+
+  private getTemplateOptions(): Array<{ templateId: string; templateName: string }> {
+    const seen = new Set<string>();
+    const templates: Array<{ templateId: string; templateName: string }> = [];
+    for (const instance of this.instances) {
+      if (seen.has(instance.templateId)) {
+        continue;
+      }
+      seen.add(instance.templateId);
+      templates.push({
+        templateId: instance.templateId,
+        templateName: instance.templateName,
+      });
+    }
+    return templates;
+  }
+
+  private getPreferredCreateTemplateId(): string | null {
+    return this.runtimeData?.templateId
+      ?? this.getCurrentInstanceSummary()?.templateId
+      ?? this.getTemplateOptions()[0]?.templateId
+      ?? null;
+  }
+
+  private async refreshInstanceList(render = true): Promise<void> {
+    try {
+      const previousInstanceId = this.currentInstanceId;
+      const previousPreferredTemplateId = this.getPreferredCreateTemplateId();
+      const res = await this.request<GmWorldInstanceListRes>(`${GM_API_BASE_PATH}/world/instances`);
+      this.instances = res.instances;
+      if (this.currentInstanceId && !this.instances.some((instance) => instance.instanceId === this.currentInstanceId)) {
+        this.currentInstanceId = null;
+        this.runtimeData = null;
+        this.selectedCell = null;
+        this.selectedEntity = null;
+      }
+      if (!this.currentInstanceId && this.instances.length > 0) {
+        this.currentInstanceId = this.instances[0]!.instanceId;
+      }
+      if (this.createTemplateIdDraft && this.createTemplateIdDraft === previousPreferredTemplateId) {
+        const nextPreferredTemplateId = this.getPreferredCreateTemplateId();
+        if (nextPreferredTemplateId !== this.createTemplateIdDraft) {
+          this.createTemplateIdDraft = null;
+        }
+      }
+      if (render || previousInstanceId !== this.currentInstanceId || !this.currentInstanceId) {
+        this.renderInstanceList();
+        if (!this.currentInstanceId) {
+          this.renderTimeControl();
+          this.renderInfo();
+        }
+      }
+    } catch (err) {
+      this.instances = [];
+      if (render) {
+        this.renderInstanceList();
+        this.renderTimeControl();
+        this.renderInfo();
+      }
+      this.setStatus(err instanceof Error ? err.message : '加载世界实例列表失败', true);
+    }
+  }
+
   private async loadRuntime(): Promise<void> {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
-    if (!this.currentMapId) return;
+    if (!this.currentInstanceId) return;
     const { startX, startY, w, h } = this.getViewport();
     try {
       const params = new URLSearchParams({
@@ -293,10 +416,11 @@ export class GmWorldViewer {
         h: String(h),
         viewerId: this.viewerId,
       });
-      this.runtimeData = await this.request<GmMapRuntimeRes>(
-        `${GM_API_BASE_PATH}/maps/${this.currentMapId}/runtime?${params.toString()}`,
+      this.runtimeData = await this.request<GmWorldInstanceRuntimeRes>(
+        `${GM_API_BASE_PATH}/world/instances/${encodeURIComponent(this.currentInstanceId)}/runtime?${params.toString()}`,
       );
       this.observationRegistered = true;
+      this.renderInstanceList();
       this.syncToRenderer();
       this.renderTimeControl();
       this.renderInfo();
@@ -357,7 +481,7 @@ export class GmWorldViewer {
   private currentTileRevision = 0;
 
   /** getViewport：读取视口。 */
-  private getViewport(): {  
+  private getViewport(): {
   /**
  * startX：startX相关字段。
  */
@@ -385,6 +509,18 @@ export class GmWorldViewer {
       w: tilesX,
       h: tilesY,
     };
+  }
+
+  private clampViewToRuntimeBounds(): boolean {
+    if (!this.runtimeData) {
+      return false;
+    }
+    const nextViewX = Math.max(0, Math.min(this.runtimeData.width - 1, this.viewX));
+    const nextViewY = Math.max(0, Math.min(this.runtimeData.height - 1, this.viewY));
+    const changed = nextViewX !== this.viewX || nextViewY !== this.viewY;
+    this.viewX = nextViewX;
+    this.viewY = nextViewY;
+    return changed;
   }
 
   /** snapCamera：处理snap Camera。 */
@@ -586,6 +722,34 @@ export class GmWorldViewer {
     return sorted[0] ?? null;
   }
 
+  private normalizeSelectedCell(
+    cell: { x: number; y: number } | null,
+  ): { x: number; y: number } | null {
+    if (!cell || !this.runtimeData) {
+      return null;
+    }
+    if (cell.x < 0 || cell.y < 0 || cell.x >= this.runtimeData.width || cell.y >= this.runtimeData.height) {
+      return null;
+    }
+    return cell;
+  }
+
+  private resolveSelectedEntity(entityId: string | null, cell: { x: number; y: number } | null): GmRuntimeEntity | null {
+    if (!this.runtimeData) {
+      return null;
+    }
+    if (entityId) {
+      const matched = this.runtimeData.entities.find((entity) => entity.id === entityId);
+      if (matched) {
+        return matched;
+      }
+    }
+    if (!cell) {
+      return null;
+    }
+    return this.findEntityAt(cell.x, cell.y);
+  }
+
   /** resizeCanvas：处理resize Canvas。 */
   private resizeCanvas(): void {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
@@ -598,45 +762,89 @@ export class GmWorldViewer {
     updateDisplayMetrics(rect.width, rect.height, GM_WORLD_VIEW_MAX);
   }  
   /**
- * renderMapList：读取地图列表并返回结果。
- * @returns 无返回值，直接更新地图列表相关状态。
+ * renderInstanceList：读取实例列表并返回结果。
+ * @returns 无返回值，直接更新实例列表相关状态。
  */
 
 
-  // ===== 地图列表 =====
+  // ===== 实例列表 =====
 
-  private renderMapList(): void {
+  private renderInstanceList(): void {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
     const fragment = document.createDocumentFragment();
     const existingButtons = new Map<string, HTMLButtonElement>();
     this.mapListEl.querySelectorAll<HTMLButtonElement>('.world-map-btn').forEach((button) => {
-      const mapId = button.dataset.mapId;
-      if (mapId) {
-        existingButtons.set(mapId, button);
+      const instanceId = button.dataset.instanceId;
+      if (instanceId) {
+        existingButtons.set(instanceId, button);
       }
     });
 
-    for (const map of this.maps) {
-      const button = existingButtons.get(map.id) ?? document.createElement('button');
-      if (!existingButtons.has(map.id)) {
-        button.addEventListener('click', () => {
-          const mapId = button.dataset.mapId;
-          if (mapId && mapId !== this.currentMapId) {
-            this.selectMap(mapId).catch(() => {});
-          }
-        });
+    if (this.instances.length === 0) {
+      fragment.append(createFragmentFromHtml('<div class="empty-hint">暂无实例</div>'));
+      this.mapListEl.replaceChildren(fragment);
+      return;
+    }
+
+    const grouped = new Map<string, GmWorldInstanceSummary[]>();
+    for (const instance of this.instances) {
+      const groupKey = `${instance.templateId}|||${instance.templateName}`;
+      const list = grouped.get(groupKey);
+      if (list) {
+        list.push(instance);
+      } else {
+        grouped.set(groupKey, [instance]);
       }
-      button.className = `world-map-btn ${map.id === this.currentMapId ? 'active' : ''}`;
-      button.dataset.mapId = map.id;
-      const nameNode = document.createTextNode(map.name || map.id);
-      const idNode = document.createElement('span');
-      idNode.style.fontSize = '11px';
-      idNode.style.color = '#888';
-      idNode.style.marginLeft = '4px';
-      idNode.textContent = map.id;
-      button.replaceChildren(nameNode, idNode);
-      fragment.append(button);
+    }
+
+    for (const [groupKey, instances] of grouped) {
+      const [templateId, templateName] = groupKey.split('|||');
+      const groupEl = document.createElement('div');
+      groupEl.className = 'world-instance-group';
+      groupEl.style.marginBottom = '8px';
+
+      const headerEl = document.createElement('div');
+      headerEl.style.fontSize = '12px';
+      headerEl.style.fontWeight = '600';
+      headerEl.style.color = '#666';
+      headerEl.style.margin = '8px 0 4px';
+      headerEl.textContent = `${templateName || templateId} (${templateId})`;
+      groupEl.append(headerEl);
+
+      for (const instance of instances) {
+        const button = existingButtons.get(instance.instanceId) ?? document.createElement('button');
+        if (!existingButtons.has(instance.instanceId)) {
+          button.addEventListener('click', () => {
+            const instanceId = button.dataset.instanceId;
+            if (instanceId && instanceId !== this.currentInstanceId) {
+              this.selectInstance(instanceId).catch(() => {});
+            }
+          });
+        }
+        button.className = `world-map-btn ${instance.instanceId === this.currentInstanceId ? 'active' : ''}`;
+        button.dataset.instanceId = instance.instanceId;
+        button.style.display = 'block';
+        button.style.width = '100%';
+        button.style.textAlign = 'left';
+        button.style.marginBottom = '4px';
+        button.innerHTML = `
+          <div style="display:flex;justify-content:space-between;gap:8px;align-items:center;">
+            <span style="display:flex;align-items:center;gap:6px;min-width:0;">
+              <span>${escapeHtml(instance.displayName)}</span>
+              <span style="font-size:10px;line-height:1;padding:2px 6px;border-radius:999px;background:${instance.defaultEntry ? 'rgba(76, 175, 80, 0.14)' : 'rgba(33, 150, 243, 0.14)'};color:${instance.defaultEntry ? '#2e7d32' : '#1565c0'};white-space:nowrap;">${instance.defaultEntry ? '默认线' : '手动线'}</span>
+            </span>
+            <span style="font-size:11px;color:#888;">${instance.playerCount}人</span>
+          </div>
+          <div style="font-size:11px;color:#888;line-height:1.4;">
+            <div>${escapeHtml(instance.instanceId)}</div>
+            <div>${escapeHtml(instance.templateName)} · ${instance.linePreset === 'peaceful' ? '和平' : '真实'} · ${instance.supportsPvp ? 'PVP' : '禁PVP'} · ${instance.canDamageTile ? '可打地块' : '禁地块攻击'}</div>
+          </div>
+        `;
+        groupEl.append(button);
+      }
+
+      fragment.append(groupEl);
     }
 
     this.mapListEl.replaceChildren(fragment);
@@ -742,7 +950,7 @@ export class GmWorldViewer {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
     if (!this.runtimeData) {
-      this.timeControlEl.replaceChildren(createFragmentFromHtml('<div class="empty-hint">未选择地图</div>'));
+      this.timeControlEl.replaceChildren(createFragmentFromHtml('<div class="empty-hint">未选择实例</div>'));
       return;
     }
 
@@ -873,19 +1081,26 @@ export class GmWorldViewer {
       return;
     }
     this.timeControlBound = true;
-    const speedInput = this.timeControlEl.querySelector<HTMLInputElement>('[data-world-speed-input]');
-    const offsetInput = this.timeControlEl.querySelector<HTMLInputElement>('[data-world-offset-input]');
-    speedInput?.addEventListener('input', () => {
-      this.speedDraft = speedInput.value;
-    });
-    offsetInput?.addEventListener('input', () => {
-      this.offsetDraft = offsetInput.value;
+    this.timeControlEl.addEventListener('input', (event) => {
+      const target = event.target;
+      if (!(target instanceof HTMLInputElement)) {
+        return;
+      }
+      if (target.matches('[data-world-speed-input]')) {
+        this.speedDraft = target.value;
+        return;
+      }
+      if (target.matches('[data-world-offset-input]')) {
+        this.offsetDraft = target.value;
+      }
     });
     this.timeControlEl.addEventListener('click', (event) => {
       const target = event.target;
       if (!(target instanceof HTMLElement)) {
         return;
       }
+      const speedInput = this.timeControlEl.querySelector<HTMLInputElement>('[data-world-speed-input]');
+      const offsetInput = this.timeControlEl.querySelector<HTMLInputElement>('[data-world-offset-input]');
       const speedButton = target.closest<HTMLButtonElement>('.world-speed-btn');
       if (speedButton) {
         const speed = parseFloat(speedButton.dataset.speed ?? '1');
@@ -933,14 +1148,15 @@ export class GmWorldViewer {
   private async setWorldSpeed(speed: number): Promise<void> {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
-    if (!this.currentMapId) return;
+    const mapId = this.getCurrentTemplateMapId();
+    if (!mapId) return;
     const clamped = Math.max(0, Math.min(100, speed));
     try {
       await this.request<{      
       /**
  * ok：ok相关字段。
  */
- ok: true }>(`${GM_API_BASE_PATH}/maps/${this.currentMapId}/tick`, {
+ ok: true }>(`${GM_API_BASE_PATH}/maps/${encodeURIComponent(mapId)}/tick`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ speed: clamped } satisfies GmUpdateMapTickReq),
@@ -958,13 +1174,14 @@ export class GmWorldViewer {
   private async updateTime(req: GmUpdateMapTimeReq): Promise<void> {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
-    if (!this.currentMapId) return;
+    const mapId = this.getCurrentTemplateMapId();
+    if (!mapId) return;
     try {
       await this.request<{      
       /**
  * ok：ok相关字段。
  */
- ok: true }>(`${GM_API_BASE_PATH}/maps/${this.currentMapId}/time`, {
+ ok: true }>(`${GM_API_BASE_PATH}/maps/${encodeURIComponent(mapId)}/time`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(req),
@@ -1024,30 +1241,113 @@ export class GmWorldViewer {
 
   // ===== 信息面板 =====
 
+  private captureInfoDraftState(): {
+    focusedField: 'create-template' | 'create-name' | 'transfer-player-id' | 'transfer-x' | 'transfer-y' | null;
+    selectionStart: number | null;
+    selectionEnd: number | null;
+  } {
+    const createTemplateSelect = this.infoEl.querySelector<HTMLSelectElement>('[data-instance-create-template]');
+    const createNameInput = this.infoEl.querySelector<HTMLInputElement>('[data-instance-create-name]');
+    const transferPlayerInput = this.infoEl.querySelector<HTMLInputElement>('[data-instance-transfer-player-id]');
+    const transferXInput = this.infoEl.querySelector<HTMLInputElement>('[data-instance-transfer-x]');
+    const transferYInput = this.infoEl.querySelector<HTMLInputElement>('[data-instance-transfer-y]');
+    const active = document.activeElement;
+    const focusedElement = active instanceof HTMLInputElement || active instanceof HTMLSelectElement ? active : null;
+    const focusedField = focusedElement === createTemplateSelect
+      ? 'create-template'
+      : focusedElement === createNameInput
+      ? 'create-name'
+      : focusedElement === transferPlayerInput
+        ? 'transfer-player-id'
+        : focusedElement === transferXInput
+          ? 'transfer-x'
+          : focusedElement === transferYInput
+            ? 'transfer-y'
+            : null;
+    if (createTemplateSelect) {
+      this.createTemplateIdDraft = focusedField === 'create-template'
+        ? createTemplateSelect.value
+        : this.createTemplateIdDraft;
+    }
+    if (createNameInput) {
+      this.createNameDraft = focusedField === 'create-name' ? createNameInput.value : this.createNameDraft;
+    }
+    if (transferPlayerInput) {
+      this.transferPlayerIdDraft = focusedField === 'transfer-player-id' ? transferPlayerInput.value : this.transferPlayerIdDraft;
+    }
+    if (transferXInput) {
+      this.transferXDraft = focusedField === 'transfer-x' ? transferXInput.value : this.transferXDraft;
+    }
+    if (transferYInput) {
+      this.transferYDraft = focusedField === 'transfer-y' ? transferYInput.value : this.transferYDraft;
+    }
+    return {
+      focusedField,
+      selectionStart: focusedElement instanceof HTMLInputElement ? focusedElement.selectionStart : null,
+      selectionEnd: focusedElement instanceof HTMLInputElement ? focusedElement.selectionEnd : null,
+    };
+  }
+
+  private restoreInfoFocus(state: {
+    focusedField: 'create-template' | 'create-name' | 'transfer-player-id' | 'transfer-x' | 'transfer-y' | null;
+    selectionStart: number | null;
+    selectionEnd: number | null;
+  }): void {
+    if (!state.focusedField) {
+      return;
+    }
+    const selector = state.focusedField === 'create-template'
+      ? '[data-instance-create-template]'
+      : state.focusedField === 'create-name'
+      ? '[data-instance-create-name]'
+      : state.focusedField === 'transfer-player-id'
+        ? '[data-instance-transfer-player-id]'
+        : state.focusedField === 'transfer-x'
+          ? '[data-instance-transfer-x]'
+          : '[data-instance-transfer-y]';
+    const control = this.infoEl.querySelector<HTMLInputElement | HTMLSelectElement>(selector);
+    if (!control) {
+      return;
+    }
+    control.focus();
+    if (control instanceof HTMLInputElement && (state.selectionStart !== null || state.selectionEnd !== null)) {
+      control.setSelectionRange(state.selectionStart ?? control.value.length, state.selectionEnd ?? control.value.length);
+    }
+  }
+
   private renderInfo(): void {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
     if (!this.runtimeData) {
-      this.infoEl.replaceChildren(createFragmentFromHtml('<div class="empty-hint">未选择地图</div>'));
+      this.infoEl.replaceChildren(createFragmentFromHtml('<div class="empty-hint">未选择实例</div>'));
       return;
     }
 
     const d = this.runtimeData;
+    const previousInfoState = this.captureInfoDraftState();
     const playerCount = d.entities.filter((e) => e.kind === 'player').length;
     const monsterCount = d.entities.filter((e) => e.kind === 'monster').length;
     const npcCount = d.entities.filter((e) => e.kind === 'npc').length;
     this.ensureInfoShell();
     this.syncInfoSection(
-      'map',
+      'instance',
       `
-        <div class="panel-section-title">地图信息</div>
-        <div class="panel-row"><span class="panel-label">名称</span><span class="panel-value">${escapeHtml(d.mapName)}</span></div>
-        <div class="panel-row"><span class="panel-label">尺寸</span><span class="panel-value">${d.width} × ${d.height}</span></div>
+        <div class="panel-section-title">实例信息</div>
+        <div class="panel-row"><span class="panel-label">实例名</span><span class="panel-value">${escapeHtml(d.instanceName)}</span></div>
+        <div class="panel-row"><span class="panel-label">实例 ID</span><span class="panel-value">${escapeHtml(d.instanceId)}</span></div>
+        <div class="panel-row"><span class="panel-label">模板地图</span><span class="panel-value">${escapeHtml(d.templateName)} (${escapeHtml(d.templateId)})</span></div>
+        <div class="panel-row"><span class="panel-label">线路</span><span class="panel-value">${d.linePreset === 'peaceful' ? '和平' : '真实'} · 第 ${d.lineIndex} 线${d.defaultEntry ? ' · 默认入口' : ''}</span></div>
+        <div class="panel-row"><span class="panel-label">能力</span><span class="panel-value">${d.linePreset === 'peaceful' ? '和平' : '真实'} / ${d.supportsPvp ? 'PVP' : '禁PVP'} / ${d.canDamageTile ? '可打地块' : '禁地块攻击'}</span></div>
+        <div class="panel-row"><span class="panel-label">来源</span><span class="panel-value">${d.instanceOrigin === 'bootstrap' ? '系统引导' : 'GM 手动'}</span></div>
+        <div class="panel-row"><span class="panel-label">玩家数</span><span class="panel-value">${d.playerCount}</span></div>
+        <div class="panel-row"><span class="panel-label">世界版本</span><span class="panel-value">${d.worldRevision}</span></div>
+        <div class="panel-row"><span class="panel-label">地图尺寸</span><span class="panel-value">${d.width} × ${d.height}</span></div>
         <div class="panel-row"><span class="panel-label">视口玩家</span><span class="panel-value">${playerCount}</span></div>
         <div class="panel-row"><span class="panel-label">视口怪物</span><span class="panel-value">${monsterCount}</span></div>
         <div class="panel-row"><span class="panel-label">视口 NPC</span><span class="panel-value">${npcCount}</span></div>
       `,
     );
+    this.syncInstanceActionValues();
 
     if (this.selectedCell) {
       const key = `${this.selectedCell.x},${this.selectedCell.y}`;
@@ -1105,6 +1405,7 @@ export class GmWorldViewer {
     } else {
       this.syncInfoSection('entity', '');
     }
+    this.restoreInfoFocus(previousInfoState);
   }  
   /**
  * ensureInfoShell：执行ensureInfoShell相关逻辑。
@@ -1120,11 +1421,45 @@ export class GmWorldViewer {
     }
     this.infoEl.replaceChildren(createFragmentFromHtml(`
       <div data-world-info-shell>
-        <div class="panel-section" data-world-info-section="map"></div>
+        <div class="panel-section" data-world-info-section="instance"></div>
+        <div class="panel-section">
+          <div class="panel-section-title">实例操作</div>
+          <div class="gm-btn-row" style="margin-bottom:6px;">
+            <select class="gm-inline-input" data-instance-create-template style="flex:1;min-width:0;"></select>
+          </div>
+          <div class="gm-btn-row" style="margin-bottom:6px;">
+            <input
+              type="text"
+              class="gm-inline-input"
+              data-instance-create-name
+              placeholder="新线路实例名（可选）"
+              style="flex:1;min-width:0;"
+            />
+          </div>
+          <div class="gm-btn-row" style="margin-bottom:8px;">
+            <button class="small-btn" data-instance-create-line="peaceful">新建和平线</button>
+            <button class="small-btn" data-instance-create-line="real">新建真实线</button>
+          </div>
+          <div class="gm-btn-row" style="margin-bottom:6px;">
+            <input
+              type="text"
+              class="gm-inline-input"
+              data-instance-transfer-player-id
+              placeholder="玩家 ID"
+              style="flex:1;min-width:0;"
+            />
+          </div>
+          <div class="gm-btn-row" style="margin-bottom:6px;">
+            <input type="number" class="gm-inline-input" data-instance-transfer-x placeholder="X" style="width:72px;" />
+            <input type="number" class="gm-inline-input" data-instance-transfer-y placeholder="Y" style="width:72px;" />
+            <button class="small-btn" data-instance-transfer-player>迁移到当前实例</button>
+          </div>
+        </div>
         <div class="panel-section" data-world-info-section="cell"></div>
         <div class="panel-section" data-world-info-section="entity"></div>
       </div>
     `));
+    this.bindInfoEvents();
   }  
   /**
  * syncInfoSection：处理InfoSection并更新相关状态。
@@ -1134,7 +1469,7 @@ export class GmWorldViewer {
  */
 
 
-  private syncInfoSection(section: 'map' | 'cell' | 'entity', html: string): void {
+  private syncInfoSection(section: 'instance' | 'cell' | 'entity', html: string): void {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
     const root = this.infoEl.querySelector<HTMLElement>(`[data-world-info-section="${section}"]`);
@@ -1148,5 +1483,166 @@ export class GmWorldViewer {
     }
     root.hidden = false;
     root.replaceChildren(createFragmentFromHtml(html));
+  }
+
+  private syncInstanceActionValues(): void {
+    const createTemplateSelect = this.infoEl.querySelector<HTMLSelectElement>('[data-instance-create-template]');
+    const createNameInput = this.infoEl.querySelector<HTMLInputElement>('[data-instance-create-name]');
+    const transferPlayerInput = this.infoEl.querySelector<HTMLInputElement>('[data-instance-transfer-player-id]');
+    const transferXInput = this.infoEl.querySelector<HTMLInputElement>('[data-instance-transfer-x]');
+    const transferYInput = this.infoEl.querySelector<HTMLInputElement>('[data-instance-transfer-y]');
+    const templateOptions = this.getTemplateOptions();
+    const templateIdSet = new Set(templateOptions.map((option) => option.templateId));
+    if (this.createTemplateIdDraft && !templateIdSet.has(this.createTemplateIdDraft)) {
+      this.createTemplateIdDraft = null;
+    }
+    if (createTemplateSelect) {
+      const selectedTemplateId = this.createTemplateIdDraft ?? this.getPreferredCreateTemplateId() ?? '';
+      createTemplateSelect.replaceChildren(createFragmentFromHtml(
+        templateOptions.length > 0
+          ? templateOptions.map((option) => `
+              <option value="${escapeHtml(option.templateId)}">${escapeHtml(option.templateName)} (${escapeHtml(option.templateId)})</option>
+            `).join('')
+          : '<option value="">暂无可用模板</option>',
+      ));
+      createTemplateSelect.disabled = templateOptions.length === 0;
+      if (selectedTemplateId) {
+        createTemplateSelect.value = selectedTemplateId;
+      }
+      if (!createTemplateSelect.value && templateOptions[0]) {
+        createTemplateSelect.value = templateOptions[0].templateId;
+      }
+    }
+    if (createNameInput && document.activeElement !== createNameInput) {
+      createNameInput.value = this.createNameDraft ?? '';
+    }
+    if (transferPlayerInput && document.activeElement !== transferPlayerInput) {
+      transferPlayerInput.value = this.transferPlayerIdDraft ?? '';
+    }
+    if (transferXInput && document.activeElement !== transferXInput) {
+      transferXInput.value = this.transferXDraft ?? '';
+    }
+    if (transferYInput && document.activeElement !== transferYInput) {
+      transferYInput.value = this.transferYDraft ?? '';
+    }
+  }
+
+  private bindInfoEvents(): void {
+    if (this.infoControlBound) {
+      return;
+    }
+    this.infoControlBound = true;
+    this.infoEl.addEventListener('input', (event) => {
+      const target = event.target;
+      if (!(target instanceof HTMLInputElement)) {
+        return;
+      }
+      if (target.matches('[data-instance-create-name]')) {
+        this.createNameDraft = target.value;
+        return;
+      }
+      if (target.matches('[data-instance-transfer-player-id]')) {
+        this.transferPlayerIdDraft = target.value;
+        return;
+      }
+      if (target.matches('[data-instance-transfer-x]')) {
+        this.transferXDraft = target.value;
+        return;
+      }
+      if (target.matches('[data-instance-transfer-y]')) {
+        this.transferYDraft = target.value;
+      }
+    });
+    this.infoEl.addEventListener('change', (event) => {
+      const target = event.target;
+      if (!(target instanceof HTMLSelectElement)) {
+        return;
+      }
+      if (target.matches('[data-instance-create-template]')) {
+        this.createTemplateIdDraft = target.value || null;
+      }
+    });
+    this.infoEl.addEventListener('click', (event) => {
+      const target = event.target;
+      if (!(target instanceof HTMLElement)) {
+        return;
+      }
+      const createButton = target.closest<HTMLElement>('[data-instance-create-line]');
+      if (createButton) {
+        const preset = createButton.getAttribute('data-instance-create-line');
+        if (preset === 'peaceful' || preset === 'real') {
+          this.createWorldInstance(preset).catch(() => {});
+        }
+        return;
+      }
+      if (target.closest('[data-instance-transfer-player]')) {
+        this.transferPlayerToCurrentInstance().catch(() => {});
+      }
+    });
+  }
+
+  private async createWorldInstance(linePreset: 'peaceful' | 'real'): Promise<void> {
+    const templateId = this.createTemplateIdDraft ?? this.getPreferredCreateTemplateId();
+    if (!templateId) {
+      this.setStatus('当前缺少可用模板，无法创建新线', true);
+      return;
+    }
+    const displayName = this.createNameDraft?.trim();
+    try {
+      const result = await this.request<GmCreateWorldInstanceRes>(`${GM_API_BASE_PATH}/world/instances`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          templateId,
+          linePreset,
+          displayName: displayName || undefined,
+        } satisfies GmCreateWorldInstanceReq),
+      });
+      this.createNameDraft = '';
+      await this.refreshInstanceList();
+      this.currentInstanceId = result.instance.instanceId;
+      await this.loadRuntime();
+      this.renderAll();
+      this.setStatus(`已创建${linePreset === 'peaceful' ? '和平' : '真实'}实例：${result.instance.displayName}`);
+    } catch (err) {
+      this.setStatus(err instanceof Error ? err.message : '创建实例失败', true);
+    }
+  }
+
+  private async transferPlayerToCurrentInstance(): Promise<void> {
+    if (!this.currentInstanceId) {
+      this.setStatus('未选择实例', true);
+      return;
+    }
+    const playerId = this.transferPlayerIdDraft?.trim();
+    if (!playerId) {
+      this.setStatus('请填写要迁移的玩家 ID', true);
+      return;
+    }
+    const parsedX = this.transferXDraft?.trim() ? Number(this.transferXDraft) : undefined;
+    const parsedY = this.transferYDraft?.trim() ? Number(this.transferYDraft) : undefined;
+    if ((parsedX !== undefined && !Number.isFinite(parsedX)) || (parsedY !== undefined && !Number.isFinite(parsedY))) {
+      this.setStatus('迁移坐标必须是有效数字', true);
+      return;
+    }
+    try {
+      await this.request<{ ok: true }>(`${GM_API_BASE_PATH}/world/instances/transfer-player`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          playerId,
+          instanceId: this.currentInstanceId,
+          x: parsedX,
+          y: parsedY,
+        } satisfies GmTransferPlayerToInstanceReq),
+      });
+      this.transferPlayerIdDraft = playerId;
+      await this.refreshInstanceList(false);
+      await this.loadRuntime();
+      this.renderAll();
+      this.setStatus(`已迁移玩家 ${playerId} 到当前实例`);
+    } catch (err) {
+      this.setStatus(err instanceof Error ? err.message : '迁移玩家失败', true);
+    }
   }
 }

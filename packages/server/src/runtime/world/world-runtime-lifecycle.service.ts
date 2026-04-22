@@ -13,6 +13,10 @@ exports.WorldRuntimeLifecycleService = void 0;
 
 const common_1 = require("@nestjs/common");
 const world_runtime_normalization_helpers_1 = require("./world-runtime.normalization.helpers");
+const {
+    buildPublicInstanceId,
+    buildRealInstanceId,
+} = world_runtime_normalization_helpers_1;
 
 /** world-runtime lifecycle seam：承接公共实例 bootstrap、持久化恢复与整体验证前 rebuild。 */
 let WorldRuntimeLifecycleService = class WorldRuntimeLifecycleService {
@@ -27,13 +31,27 @@ let WorldRuntimeLifecycleService = class WorldRuntimeLifecycleService {
 
         for (const template of deps.templateRepository.list()) {
             deps.createInstance({
-                instanceId: (0, world_runtime_normalization_helpers_1.buildPublicInstanceId)(template.id),
+                instanceId: buildPublicInstanceId(template.id),
                 templateId: template.id,
                 kind: 'public',
                 persistent: true,
+                linePreset: 'peaceful',
+                lineIndex: 1,
+                instanceOrigin: 'bootstrap',
+                defaultEntry: true,
+            });
+            deps.createInstance({
+                instanceId: buildRealInstanceId(template.id),
+                templateId: template.id,
+                kind: 'public',
+                persistent: true,
+                linePreset: 'real',
+                lineIndex: 1,
+                instanceOrigin: 'bootstrap',
+                defaultEntry: true,
             });
         }
-        deps.logger.log(`已初始化 ${deps.getInstanceCount()} 个公共实例`);
+        deps.logger.log(`已初始化 ${deps.getInstanceCount()} 个默认地图实例`);
     }    
     /**
  * restorePublicInstancePersistence：判断restorePublicInstancePersistence是否满足条件。

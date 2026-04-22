@@ -58,6 +58,12 @@ let WorldRuntimeTransferService = class WorldRuntimeTransferService {
             instanceId: target.meta.instanceId,
             sessionId: transfer.sessionId,
         });
+        const view = typeof deps.getPlayerViewOrThrow === 'function'
+            ? deps.getPlayerViewOrThrow(transfer.playerId)
+            : null;
+        if (view && typeof deps.playerRuntimeService.syncFromWorldView === 'function') {
+            deps.playerRuntimeService.syncFromWorldView(transfer.playerId, transfer.sessionId, view);
+        }
         deps.worldRuntimeNavigationService.handleTransfer(transfer, deps);
     }
 };

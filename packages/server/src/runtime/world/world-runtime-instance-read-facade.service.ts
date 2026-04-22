@@ -14,6 +14,11 @@ exports.WorldRuntimeInstanceReadFacadeService = void 0;
 const common_1 = require("@nestjs/common");
 const map_instance_runtime_1 = require("../instance/map-instance.runtime");
 const world_runtime_normalization_helpers_1 = require("./world-runtime.normalization.helpers");
+const {
+    buildRuntimeInstancePresetMeta,
+    parseRuntimeInstanceDescriptor,
+    normalizeRuntimeInstanceLinePreset,
+} = world_runtime_normalization_helpers_1;
 
 /** world-runtime instance-read facade：承接地图模板、实例和 tile/combat 只读 facade。 */
 let WorldRuntimeInstanceReadFacadeService = class WorldRuntimeInstanceReadFacadeService {
@@ -109,6 +114,15 @@ let WorldRuntimeInstanceReadFacadeService = class WorldRuntimeInstanceReadFacade
             return existing;
         }
         const template = deps.templateRepository.getOrThrow(input.templateId);
+        const descriptor = parseRuntimeInstanceDescriptor(input.instanceId);
+        const presetMeta = buildRuntimeInstancePresetMeta({
+            templateName: template.name,
+            displayName: input.displayName,
+            linePreset: input.linePreset ?? descriptor?.linePreset ?? normalizeRuntimeInstanceLinePreset(undefined),
+            lineIndex: input.lineIndex ?? descriptor?.lineIndex,
+            instanceOrigin: input.instanceOrigin ?? descriptor?.instanceOrigin,
+            defaultEntry: input.defaultEntry ?? descriptor?.defaultEntry,
+        });
         const instance = new map_instance_runtime_1.MapInstanceRuntime({
             instanceId: input.instanceId,
             template,
@@ -116,6 +130,13 @@ let WorldRuntimeInstanceReadFacadeService = class WorldRuntimeInstanceReadFacade
             kind: input.kind,
             persistent: input.persistent,
             createdAt: Date.now(),
+            displayName: presetMeta.displayName,
+            linePreset: presetMeta.linePreset,
+            lineIndex: presetMeta.lineIndex,
+            instanceOrigin: presetMeta.instanceOrigin,
+            supportsPvp: presetMeta.supportsPvp,
+            canDamageTile: presetMeta.canDamageTile,
+            defaultEntry: presetMeta.defaultEntry,
         });
         deps.setInstanceRuntime(input.instanceId, instance);
         deps.worldRuntimeTickProgressService.initializeInstance(input.instanceId);

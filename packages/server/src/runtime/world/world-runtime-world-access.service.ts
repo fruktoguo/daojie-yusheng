@@ -97,6 +97,10 @@ let WorldRuntimeWorldAccessService = class WorldRuntimeWorldAccessService {
             templateId,
             kind: 'public',
             persistent: true,
+            linePreset: 'peaceful',
+            lineIndex: 1,
+            instanceOrigin: 'bootstrap',
+            defaultEntry: true,
         });
     }    
     /**

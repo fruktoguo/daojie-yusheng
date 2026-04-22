@@ -1,6 +1,6 @@
 # next 系统模块 / API / 数据目录总盘点
 
-更新时间：2026-04-16
+更新时间：2026-04-22
 
 这份文档的目标不是重复已有 gap 文档，而是把当前仓库里和“完整游戏系统”直接相关的四件事放到同一页里：
 
@@ -155,7 +155,10 @@
 ### 2.11 GM 与运维
 
 - GM 总览状态
-- 地图运行态查看
+- 世界实例列表与实例运行态查看
+- 手动创建和平线 / 真实线
+- GM 强制迁移玩家到指定实例
+- 地图运行态兼容查看
 - 玩家详情查看与修改
 - 玩家密码 / 账号修改
 - 玩家重置
@@ -215,7 +218,11 @@ GM 主面：
 | `GET` | `/api/gm/state` | GM 总览状态 |
 | `GET` | `/api/gm/editor-catalog` | 编辑器目录 |
 | `GET` | `/api/gm/maps` | 地图列表 |
-| `GET` | `/api/gm/maps/:mapId/runtime` | 指定地图运行态窗口 |
+| `GET` | `/api/gm/maps/:mapId/runtime` | 和平公共线兼容运行态窗口 |
+| `GET` | `/api/gm/world/instances` | 世界实例列表 |
+| `GET` | `/api/gm/world/instances/:instanceId/runtime` | 指定实例运行态窗口 |
+| `POST` | `/api/gm/world/instances` | 手动创建和平线 / 真实线 |
+| `POST` | `/api/gm/world/instances/transfer-player` | 迁移在线玩家到指定实例 |
 | `GET` | `/api/gm/players/:playerId` | 玩家详情 |
 | `POST` | `/api/gm/players/:playerId/password` | 改玩家密码 |
 | `PUT` | `/api/gm/players/:playerId/account` | 改玩家账号 |

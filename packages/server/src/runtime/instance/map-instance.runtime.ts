@@ -277,6 +277,13 @@ class MapInstanceRuntime {
             kind: request.kind,
             persistent: request.persistent,
             createdAt: request.createdAt,
+            displayName: request.displayName,
+            linePreset: request.linePreset,
+            lineIndex: request.lineIndex,
+            instanceOrigin: request.instanceOrigin,
+            supportsPvp: request.supportsPvp === true,
+            canDamageTile: request.canDamageTile === true,
+            defaultEntry: request.defaultEntry !== false,
             ownerPlayerId: request.ownerPlayerId,
             ownerSectId: request.ownerSectId,
             partyId: request.partyId,
@@ -662,8 +669,17 @@ class MapInstanceRuntime {
     snapshot() {
         return {
             instanceId: this.meta.instanceId,
+            displayName: this.meta.displayName,
             templateId: this.meta.templateId,
+            templateName: this.template.name,
             kind: this.meta.kind,
+            linePreset: this.meta.linePreset,
+            lineIndex: this.meta.lineIndex,
+            instanceOrigin: this.meta.instanceOrigin,
+            defaultEntry: this.meta.defaultEntry === true,
+            persistent: this.meta.persistent === true,
+            supportsPvp: this.meta.supportsPvp === true,
+            canDamageTile: this.meta.canDamageTile === true,
             tick: this.tick,
             worldRevision: this.worldRevision,
             playerCount: this.playersById.size,
@@ -796,6 +812,9 @@ class MapInstanceRuntime {
     damageTile(x, y, damage) {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
+        if (this.meta.canDamageTile !== true) {
+            return null;
+        }
 
         const current = this.getTileCombatState(x, y);
         if (!current) {

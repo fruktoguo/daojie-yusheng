@@ -21,6 +21,114 @@ function normalizeRuntimeActionId(actionIdInput) {
 function buildPublicInstanceId(templateId) {
     return `public:${templateId}`;
 }
+/** 判断分线预设是否有效。 */
+function isRuntimeInstanceLinePreset(value) {
+    return value === 'peaceful' || value === 'real';
+}
+/** 归一化分线预设，非法值回退到和平线。 */
+function normalizeRuntimeInstanceLinePreset(value) {
+    return isRuntimeInstanceLinePreset(value) ? value : 'peaceful';
+}
+/** 生成默认真实线实例 ID。 */
+function buildRealInstanceId(templateId) {
+    return `real:${templateId}`;
+}
+/** 生成手动扩线实例 ID。 */
+function buildManualLineInstanceId(templateId, linePreset, index) {
+    const normalizedIndex = Number.isFinite(index) ? Math.max(2, Math.trunc(index)) : 2;
+    return `line:${templateId}:${normalizeRuntimeInstanceLinePreset(linePreset)}:${normalizedIndex}`;
+}
+/** 解析实例 ID，统一提取模板、预设、序号与默认入口语义。 */
+function parseRuntimeInstanceDescriptor(instanceId) {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
+
+    const normalized = typeof instanceId === 'string' ? instanceId.trim() : '';
+    if (!normalized) {
+        return null;
+    }
+    if (normalized.startsWith('public:')) {
+        const templateId = normalized.slice('public:'.length).trim();
+        if (!templateId) {
+            return null;
+        }
+        return {
+            templateId,
+            linePreset: 'peaceful',
+            lineIndex: 1,
+            defaultEntry: true,
+            instanceOrigin: 'bootstrap',
+        };
+    }
+    if (normalized.startsWith('real:')) {
+        const templateId = normalized.slice('real:'.length).trim();
+        if (!templateId) {
+            return null;
+        }
+        return {
+            templateId,
+            linePreset: 'real',
+            lineIndex: 1,
+            defaultEntry: true,
+            instanceOrigin: 'bootstrap',
+        };
+    }
+    if (!normalized.startsWith('line:')) {
+        return null;
+    }
+    const segments = normalized.split(':');
+    if (segments.length !== 4) {
+        return null;
+    }
+    const [, templateId, presetInput, indexInput] = segments;
+    const linePreset = isRuntimeInstanceLinePreset(presetInput) ? presetInput : '';
+    const parsedIndex = Number(indexInput);
+    if (!templateId || !linePreset || !Number.isFinite(parsedIndex) || Math.trunc(parsedIndex) < 2) {
+        return null;
+    }
+    return {
+        templateId,
+        linePreset,
+        lineIndex: Math.trunc(parsedIndex),
+        defaultEntry: false,
+        instanceOrigin: 'gm_manual',
+    };
+}
+/** 按实例预设生成展示名称。 */
+function buildRuntimeInstanceDisplayName(templateName, linePreset, lineIndex = 1, defaultEntry = true) {
+    const label = normalizeRuntimeInstanceLinePreset(linePreset) === 'real' ? '真实' : '和平';
+    const resolvedTemplateName = typeof templateName === 'string' && templateName.trim()
+        ? templateName.trim()
+        : '未知地图';
+    if (defaultEntry) {
+        return `${resolvedTemplateName}·${label}`;
+    }
+    const normalizedIndex = Number.isFinite(lineIndex) ? Math.max(2, Math.trunc(lineIndex)) : 2;
+    return `${resolvedTemplateName}·${label}-${normalizedIndex}`;
+}
+/** 将分线预设收口为运行时实例元数据。 */
+function buildRuntimeInstancePresetMeta(input) {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
+
+    const defaultEntry = input?.defaultEntry !== false;
+    const linePreset = normalizeRuntimeInstanceLinePreset(input?.linePreset);
+    const lineIndex = Number.isFinite(input?.lineIndex)
+        ? Math.max(defaultEntry ? 1 : 2, Math.trunc(input.lineIndex))
+        : defaultEntry ? 1 : 2;
+    const displayName = typeof input?.displayName === 'string' && input.displayName.trim()
+        ? input.displayName.trim()
+        : buildRuntimeInstanceDisplayName(input?.templateName, linePreset, lineIndex, defaultEntry);
+    return {
+        displayName,
+        linePreset,
+        lineIndex,
+        instanceOrigin: input?.instanceOrigin === 'gm_manual' ? 'gm_manual' : 'bootstrap',
+        supportsPvp: linePreset === 'real',
+        canDamageTile: linePreset === 'real',
+        defaultEntry,
+    };
+}
 /** 生成物品堆叠用于列表展示的标签文本。 */
 function formatItemStackLabel(item) {
 
@@ -596,6 +704,13 @@ function resolveAutoBattleSkillQiCost(baseCost, maxQiOutputPerTick) {
 }
 exports.normalizeRuntimeActionId = normalizeRuntimeActionId;
 exports.buildPublicInstanceId = buildPublicInstanceId;
+exports.isRuntimeInstanceLinePreset = isRuntimeInstanceLinePreset;
+exports.normalizeRuntimeInstanceLinePreset = normalizeRuntimeInstanceLinePreset;
+exports.buildRealInstanceId = buildRealInstanceId;
+exports.buildManualLineInstanceId = buildManualLineInstanceId;
+exports.parseRuntimeInstanceDescriptor = parseRuntimeInstanceDescriptor;
+exports.buildRuntimeInstanceDisplayName = buildRuntimeInstanceDisplayName;
+exports.buildRuntimeInstancePresetMeta = buildRuntimeInstancePresetMeta;
 exports.formatItemStackLabel = formatItemStackLabel;
 exports.formatItemListSummary = formatItemListSummary;
 exports.cloneCombatEffect = cloneCombatEffect;
@@ -645,6 +760,13 @@ exports.resolveAutoBattleSkillQiCost = resolveAutoBattleSkillQiCost;
 export {
     normalizeRuntimeActionId,
     buildPublicInstanceId,
+    isRuntimeInstanceLinePreset,
+    normalizeRuntimeInstanceLinePreset,
+    buildRealInstanceId,
+    buildManualLineInstanceId,
+    parseRuntimeInstanceDescriptor,
+    buildRuntimeInstanceDisplayName,
+    buildRuntimeInstancePresetMeta,
     formatItemStackLabel,
     formatItemListSummary,
     cloneCombatEffect,

@@ -36,6 +36,18 @@ function ensureHostileRelation(resolution) {
     }
     throw new common_1.BadRequestException('当前目标不在敌方判定规则内');
 }
+function ensureInstanceSupportsPlayerCombat(instance) {
+    if (instance?.meta?.supportsPvp === true) {
+        return;
+    }
+    throw new common_1.BadRequestException('当前实例不允许玩家互攻');
+}
+function ensureInstanceSupportsTileDamage(instance) {
+    if (instance?.meta?.canDamageTile === true) {
+        return;
+    }
+    throw new common_1.BadRequestException('当前实例不允许攻击地块');
+}
 
 /** 玩家技能派发服务：承接 player skill dispatch 与 legacy target 解析。 */
 let WorldRuntimePlayerSkillDispatchService = class WorldRuntimePlayerSkillDispatchService {
@@ -109,6 +121,8 @@ let WorldRuntimePlayerSkillDispatchService = class WorldRuntimePlayerSkillDispat
         if (!targetPlayerId) {
             throw new common_1.BadRequestException('targetPlayerId or targetMonsterId is required');
         }
+        const instance = deps.getInstanceRuntimeOrThrow(attacker.instanceId);
+        ensureInstanceSupportsPlayerCombat(instance);
         const target = this.playerRuntimeService.getPlayerOrThrow(targetPlayerId);
         if (attacker.instanceId !== target.instanceId) {
             throw new common_1.BadRequestException(`Target ${targetPlayerId} not in same instance`);
@@ -146,8 +160,12 @@ let WorldRuntimePlayerSkillDispatchService = class WorldRuntimePlayerSkillDispat
         if (!attacker.instanceId) {
             return null;
         }
+        const instance = deps.getInstanceRuntimeOrThrow(attacker.instanceId);
         const targetPlayerId = targetRef.startsWith('player:') ? targetRef.slice('player:'.length).trim() : '';
         if (targetPlayerId) {
+            if (instance?.meta?.supportsPvp !== true) {
+                return null;
+            }
             const target = this.playerRuntimeService.getPlayer(targetPlayerId);
             if (!target || target.playerId === attacker.playerId || target.instanceId !== attacker.instanceId || target.hp <= 0) {
                 return null;
@@ -160,7 +178,6 @@ let WorldRuntimePlayerSkillDispatchService = class WorldRuntimePlayerSkillDispat
             }
             return { kind: 'player', playerId: target.playerId };
         }
-        const instance = deps.getInstanceRuntimeOrThrow(attacker.instanceId);
         if (!targetRef.startsWith('tile:')) {
             const monster = instance.getMonster(targetRef);
             if (!monster?.alive) {
@@ -177,9 +194,12 @@ let WorldRuntimePlayerSkillDispatchService = class WorldRuntimePlayerSkillDispat
         }
         const directDistance = chebyshevDistance(attacker.x, attacker.y, tile.x, tile.y);
         if (
+            instance?.meta?.canDamageTile === true
+            && (
             directDistance <= resolveRuntimeSkillRange(skill)
             && instance.getTileCombatState(tile.x, tile.y)
             && (0, player_combat_config_helpers_1.isHostileCombatRelationResolution)((0, player_combat_config_helpers_1.resolveCombatRelation)(attacker, { kind: 'terrain' }))
+            )
         ) {
             return { kind: 'tile', x: tile.x, y: tile.y };
         }
@@ -211,11 +231,14 @@ let WorldRuntimePlayerSkillDispatchService = class WorldRuntimePlayerSkillDispat
         for (const cell of affectedCells) {
             const player = players.find((entry) => entry.x === cell.x && entry.y === cell.y);
             if (
+                instance?.meta?.supportsPvp === true
+                && (
                 player
                 && (0, player_combat_config_helpers_1.isHostileCombatRelationResolution)((0, player_combat_config_helpers_1.resolveCombatRelation)(attacker, {
                     kind: 'player',
                     target: player,
                 }))
+                )
             ) {
                 return { kind: 'player', playerId: player.playerId };
             }
@@ -296,6 +319,7 @@ let WorldRuntimePlayerSkillDispatchService = class WorldRuntimePlayerSkillDispat
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
         const instance = deps.getInstanceRuntimeOrThrow(attacker.instanceId);
+        ensureInstanceSupportsTileDamage(instance);
         const tileState = instance.getTileCombatState(targetX, targetY);
         if (!tileState || tileState.destroyed) {
             throw new common_1.BadRequestException('该目标无法被攻击');

@@ -1,10 +1,16 @@
 import { BadRequestException, Inject, Injectable } from '@nestjs/common';
-import { type GmListPlayersQuery } from '@mud/shared';
+import { type GmCreateWorldInstanceReq, type GmListPlayersQuery, type GmTransferPlayerToInstanceReq, type GmWorldInstanceLinePreset } from '@mud/shared';
 import { ContentTemplateRepository } from '../../content/content-template.repository';
 import { MapTemplateRepository } from '../../runtime/map/map-template.repository';
 import { RuntimeMapConfigService } from '../../runtime/map/runtime-map-config.service';
 import { RuntimeGmStateService } from '../../runtime/gm/runtime-gm-state.service';
 import { SuggestionRuntimeService } from '../../runtime/suggestion/suggestion-runtime.service';
+import { WorldRuntimeService } from '../../runtime/world/world-runtime.service';
+import {
+  buildManualLineInstanceId,
+  buildRuntimeInstancePresetMeta,
+  isRuntimeInstanceLinePreset,
+} from '../../runtime/world/world-runtime.normalization.helpers';
 import { NextGmEditorQueryService } from './next-gm-editor-query.service';
 import { NextGmMapQueryService } from './next-gm-map-query.service';
 import { NextGmMapRuntimeQueryService } from './next-gm-map-runtime-query.service';
@@ -38,6 +44,10 @@ interface MapTemplateRepositoryLike {
  * id：ID标识。
  */
  id: string;  
+ /**
+ * name：名称名称或显示文本。
+ */
+ name: string;
  /**
  * source：来源相关字段。
  */
@@ -116,6 +126,7 @@ interface NextGmMapQueryServiceLike {
 
 interface NextGmMapRuntimeQueryServiceLike {
   getMapRuntime(mapId: string, x?: unknown, y?: unknown, w?: unknown, h?: unknown): unknown;
+  getInstanceRuntime(instanceId: string, x?: unknown, y?: unknown, w?: unknown, h?: unknown): unknown;
 }
 /**
  * NextGmSuggestionQueryServiceLike：定义接口结构约束，明确可交付字段含义。
@@ -124,6 +135,46 @@ interface NextGmMapRuntimeQueryServiceLike {
 
 interface NextGmSuggestionQueryServiceLike {
   getSuggestions(query?: unknown): unknown;
+}
+
+interface WorldRuntimeCommandIntakeFacadeLike {
+  enqueueGmUpdatePlayer(input: unknown): { queued: boolean };
+}
+
+interface PlayerRuntimeQueryLike {
+  getPlayer(playerId: string): { hp?: number } | null;
+}
+
+interface WorldRuntimeGmQueueLike {
+  hasPendingRespawns(): boolean;
+  hasPendingRespawn(playerId: string): boolean;
+}
+
+interface WorldRuntimeServiceLike {
+  listInstances(): Array<{
+    instanceId: string;
+    displayName?: string;
+    templateId: string;
+    templateName?: string;
+    linePreset?: GmWorldInstanceLinePreset;
+    lineIndex?: number;
+    instanceOrigin?: 'bootstrap' | 'gm_manual';
+    defaultEntry?: boolean;
+    persistent?: boolean;
+    supportsPvp?: boolean;
+    canDamageTile?: boolean;
+    playerCount?: number;
+    tick?: number;
+    worldRevision?: number;
+    width?: number;
+    height?: number;
+  }>;
+  getInstance(instanceId: string): { instanceId: string } | null;
+  getPlayerLocation(playerId: string): { instanceId: string } | null;
+  createInstance(input: unknown): { snapshot(): unknown };
+  playerRuntimeService: PlayerRuntimeQueryLike;
+  worldRuntimeGmQueueService: WorldRuntimeGmQueueLike;
+  worldRuntimeCommandIntakeFacadeService: WorldRuntimeCommandIntakeFacadeLike;
 }
 /**
  * NextGmWorldService：封装该能力的入口与生命周期，承载运行时核心协作。
@@ -164,6 +215,7 @@ export class NextGmWorldService {
  * @param nextGmMapQueryService NextGmMapQueryServiceLike 参数说明。
  * @param nextGmMapRuntimeQueryService NextGmMapRuntimeQueryServiceLike 参数说明。
  * @param nextGmSuggestionQueryService NextGmSuggestionQueryServiceLike 参数说明。
+ * @param worldRuntimeService WorldRuntimeServiceLike 参数说明。
  * @returns 无返回值，完成实例初始化。
  */
 
@@ -189,6 +241,8 @@ export class NextGmWorldService {
     private readonly nextGmMapRuntimeQueryService: NextGmMapRuntimeQueryServiceLike,
     @Inject(NextGmSuggestionQueryService)
     private readonly nextGmSuggestionQueryService: NextGmSuggestionQueryServiceLike,
+    @Inject(WorldRuntimeService)
+    private readonly worldRuntimeService: WorldRuntimeServiceLike,
   ) {}  
   /**
  * getState：读取状态。
@@ -202,7 +256,7 @@ export class NextGmWorldService {
       cpuPerfStartedAt: this.cpuPerfStartedAt,
       pathfindingPerfStartedAt: this.pathfindingPerfStartedAt,
     });
-  }  
+  }
   /**
  * getEditorCatalog：读取Editor目录。
  * @returns 无返回值，完成Editor目录的读取/组装。
@@ -211,7 +265,7 @@ export class NextGmWorldService {
 
   getEditorCatalog() {
     return this.nextGmEditorQueryService.getEditorCatalog();
-  }  
+  }
   /**
  * getSuggestions：读取Suggestion。
  * @param query 参数说明。
@@ -221,7 +275,7 @@ export class NextGmWorldService {
 
   getSuggestions(query) {
     return this.nextGmSuggestionQueryService.getSuggestions(query);
-  }  
+  }
   /**
  * completeSuggestion：执行completeSuggestion相关逻辑。
  * @param id string 参数说明。
@@ -238,7 +292,7 @@ export class NextGmWorldService {
     }
 
     return { ok: true };
-  }  
+  }
   /**
  * replySuggestion：执行replySuggestion相关逻辑。
  * @param id string 参数说明。
@@ -256,7 +310,7 @@ export class NextGmWorldService {
     }
 
     return { ok: true };
-  }  
+  }
   /**
  * removeSuggestion：处理Suggestion并更新相关状态。
  * @param id string 参数说明。
@@ -273,7 +327,7 @@ export class NextGmWorldService {
     }
 
     return { ok: true };
-  }  
+  }
   /**
  * getMaps：读取地图。
  * @returns 无返回值，完成地图的读取/组装。
@@ -282,16 +336,16 @@ export class NextGmWorldService {
 
   getMaps() {
     return this.nextGmMapQueryService.getMaps();
-  }  
+  }
   /**
- * getMapRuntime：读取地图运行态。
+ * getMapRuntime：读取和平公共线兼容运行态。
  * @param mapId string 地图 ID。
  * @param x X 坐标。
  * @param y Y 坐标。
  * @param w 参数说明。
  * @param h 参数说明。
  * @param viewerId viewer ID。
- * @returns 无返回值，完成地图运行态的读取/组装。
+ * @returns 无返回值，完成和平公共线兼容运行态的读取/组装。
  */
 
 
@@ -303,7 +357,121 @@ export class NextGmWorldService {
     }
 
     return this.nextGmMapRuntimeQueryService.getMapRuntime(mapId, x, y, w, h);
-  }  
+  }
+  /**
+ * getWorldInstances：读取世界实例列表。
+ * @returns 无返回值，完成世界实例列表的读取/组装。
+ */
+
+
+  getWorldInstances() {
+    return {
+      instances: this.worldRuntimeService
+        .listInstances()
+        .slice()
+        .sort(compareWorldInstanceSummary),
+    };
+  }
+  /**
+ * getWorldInstanceRuntime：读取实例运行态。
+ * @param instanceId string 实例 ID。
+ * @param x X 坐标。
+ * @param y Y 坐标。
+ * @param w 参数说明。
+ * @param h 参数说明。
+ * @param viewerId viewer ID。
+ * @returns 无返回值，完成实例运行态的读取/组装。
+ */
+
+
+  getWorldInstanceRuntime(instanceId: string, x, y, w, h, viewerId) {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
+    if (typeof viewerId === 'string' && viewerId.trim()) {
+      this.worldObserverIds.add(viewerId.trim());
+    }
+
+    return this.nextGmMapRuntimeQueryService.getInstanceRuntime(instanceId, x, y, w, h);
+  }
+  /**
+ * createWorldInstance：创建手动分线实例。
+ * @param body GmCreateWorldInstanceReq 参数说明。
+ * @returns 无返回值，完成手动分线实例的创建/组装。
+ */
+
+
+  createWorldInstance(body: GmCreateWorldInstanceReq) {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
+    const templateId = typeof body?.templateId === 'string' ? body.templateId.trim() : '';
+    if (!templateId) {
+      throw new BadRequestException('templateId is required');
+    }
+    const template = this.mapTemplateRepository.getOrThrow(templateId);
+    const linePreset = parseRequiredLinePreset(body?.linePreset);
+    const lineIndex = resolveNextManualLineIndex(this.worldRuntimeService.listInstances(), templateId, linePreset);
+    const presetMeta = buildRuntimeInstancePresetMeta({
+      templateName: template.name,
+      displayName: typeof body?.displayName === 'string' ? body.displayName.trim() : '',
+      linePreset,
+      lineIndex,
+      instanceOrigin: 'gm_manual',
+      defaultEntry: false,
+    });
+    const created = this.worldRuntimeService.createInstance({
+      instanceId: buildManualLineInstanceId(templateId, linePreset, lineIndex),
+      templateId,
+      kind: 'public',
+      persistent: false,
+      displayName: presetMeta.displayName,
+      linePreset: presetMeta.linePreset,
+      lineIndex: presetMeta.lineIndex,
+      instanceOrigin: presetMeta.instanceOrigin,
+      defaultEntry: presetMeta.defaultEntry,
+    });
+    return {
+      instance: created.snapshot(),
+    };
+  }
+  /**
+ * transferPlayerToInstance：把在线玩家迁移到指定实例。
+ * @param body GmTransferPlayerToInstanceReq 参数说明。
+ * @returns 无返回值，直接更新玩家实例落点相关状态。
+ */
+
+
+  transferPlayerToInstance(body: GmTransferPlayerToInstanceReq) {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
+    const playerId = typeof body?.playerId === 'string' ? body.playerId.trim() : '';
+    const instanceId = typeof body?.instanceId === 'string' ? body.instanceId.trim() : '';
+    if (!playerId) {
+      throw new BadRequestException('playerId is required');
+    }
+    if (!instanceId) {
+      throw new BadRequestException('instanceId is required');
+    }
+    if (!this.worldRuntimeService.getInstance(instanceId)) {
+      throw new BadRequestException('目标实例不存在');
+    }
+    if (!this.worldRuntimeService.getPlayerLocation(playerId)) {
+      throw new BadRequestException('目标玩家未在线');
+    }
+    const runtimePlayer = this.worldRuntimeService.playerRuntimeService.getPlayer(playerId);
+    if (!runtimePlayer) {
+      throw new BadRequestException('目标玩家运行态不存在');
+    }
+    if ((runtimePlayer.hp ?? 1) <= 0 || this.worldRuntimeService.worldRuntimeGmQueueService.hasPendingRespawn(playerId)) {
+      throw new BadRequestException('目标玩家当前处于待复生状态，无法迁移实例');
+    }
+    this.worldRuntimeService.worldRuntimeCommandIntakeFacadeService.enqueueGmUpdatePlayer({
+      playerId,
+      instanceId,
+      x: Number.isFinite(body?.x) ? Math.trunc(Number(body.x)) : undefined,
+      y: Number.isFinite(body?.y) ? Math.trunc(Number(body.y)) : undefined,
+    });
+    return { ok: true };
+  }
   /**
  * updateMapTick：处理地图tick并更新相关状态。
  * @param mapId string 地图 ID。
@@ -388,4 +556,64 @@ export class NextGmWorldService {
   resetPathfindingPerf() {
     this.pathfindingPerfStartedAt = Date.now();
   }
+}
+
+function parseRequiredLinePreset(input: unknown): GmWorldInstanceLinePreset {
+  if (!isRuntimeInstanceLinePreset(input)) {
+    throw new BadRequestException('linePreset must be peaceful or real');
+  }
+  return input as GmWorldInstanceLinePreset;
+}
+
+function resolveNextManualLineIndex(
+  instances: Array<{ templateId?: string; linePreset?: GmWorldInstanceLinePreset; lineIndex?: number }>,
+  templateId: string,
+  linePreset: GmWorldInstanceLinePreset,
+): number {
+  let nextIndex = 2;
+  for (const instance of instances) {
+    if (instance.templateId !== templateId || instance.linePreset !== linePreset) {
+      continue;
+    }
+    const lineIndex = Number.isFinite(instance.lineIndex) ? Math.trunc(Number(instance.lineIndex)) : 0;
+    if (lineIndex >= nextIndex) {
+      nextIndex = lineIndex + 1;
+    }
+  }
+  return nextIndex;
+}
+
+function compareWorldInstanceSummary(
+  left: {
+    templateName?: string;
+    templateId?: string;
+    linePreset?: GmWorldInstanceLinePreset;
+    lineIndex?: number;
+    displayName?: string;
+  },
+  right: {
+    templateName?: string;
+    templateId?: string;
+    linePreset?: GmWorldInstanceLinePreset;
+    lineIndex?: number;
+    displayName?: string;
+  },
+): number {
+  const leftTemplate = left.templateName || left.templateId || '';
+  const rightTemplate = right.templateName || right.templateId || '';
+  const templateOrder = leftTemplate.localeCompare(rightTemplate, 'zh-Hans-CN');
+  if (templateOrder !== 0) {
+    return templateOrder;
+  }
+  const presetWeight = (value: GmWorldInstanceLinePreset | undefined) => (value === 'real' ? 1 : 0);
+  const presetOrder = presetWeight(left.linePreset) - presetWeight(right.linePreset);
+  if (presetOrder !== 0) {
+    return presetOrder;
+  }
+  const leftIndex = Number.isFinite(left.lineIndex) ? Math.trunc(Number(left.lineIndex)) : 0;
+  const rightIndex = Number.isFinite(right.lineIndex) ? Math.trunc(Number(right.lineIndex)) : 0;
+  if (leftIndex !== rightIndex) {
+    return leftIndex - rightIndex;
+  }
+  return (left.displayName || '').localeCompare(right.displayName || '', 'zh-Hans-CN');
 }

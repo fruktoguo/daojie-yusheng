@@ -39,6 +39,18 @@ function ensureHostileRelation(resolution) {
     }
     throw new common_1.BadRequestException('当前目标不在敌方判定规则内');
 }
+function ensureInstanceSupportsPlayerCombat(instance) {
+    if (instance?.meta?.supportsPvp === true) {
+        return;
+    }
+    throw new common_1.BadRequestException('当前实例不允许玩家互攻');
+}
+function ensureInstanceSupportsTileDamage(instance) {
+    if (instance?.meta?.canDamageTile === true) {
+        return;
+    }
+    throw new common_1.BadRequestException('当前实例不允许攻击地块');
+}
 
 /** 普攻减伤采用与 legacy 对齐的攻防基准。 */
 const DEFENSE_REDUCTION_ATTACK_RATIO = 0.1;
@@ -146,6 +158,8 @@ let WorldRuntimeBasicAttackService = class WorldRuntimeBasicAttackService {
     dispatchBasicAttackToPlayer(attacker, targetPlayerId, damageKind, baseDamage, currentTick, deps) {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
+        const instance = deps.getInstanceRuntimeOrThrow(attacker.instanceId);
+        ensureInstanceSupportsPlayerCombat(instance);
         const target = this.playerRuntimeService.getPlayerOrThrow(targetPlayerId);
         if (target.instanceId !== attacker.instanceId) {
             throw new common_1.BadRequestException('目标不在同一地图');
@@ -188,6 +202,7 @@ let WorldRuntimeBasicAttackService = class WorldRuntimeBasicAttackService {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
         const instance = deps.getInstanceRuntimeOrThrow(attacker.instanceId);
+        ensureInstanceSupportsTileDamage(instance);
         ensureHostileRelation((0, player_combat_config_helpers_1.resolveCombatRelation)(attacker, { kind: 'terrain' }));
         if (chebyshevDistance(attacker.x, attacker.y, targetX, targetY) > 1) {
             throw new common_1.BadRequestException('目标超出攻击距离');

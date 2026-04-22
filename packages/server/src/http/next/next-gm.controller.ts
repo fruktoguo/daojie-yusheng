@@ -1,5 +1,5 @@
 import { BadRequestException, Body, Controller, Delete, Get, Inject, Param, Post, Put, Query, UseGuards } from '@nestjs/common';
-import { type GmListPlayersQuery } from '@mud/shared';
+import { type GmCreateWorldInstanceReq, type GmListPlayersQuery, type GmTransferPlayerToInstanceReq } from '@mud/shared';
 
 import { RedeemCodeRuntimeService } from '../../runtime/redeem/redeem-code-runtime.service';
 import { GM_HTTP_CONTRACT } from './next-gm-contract';
@@ -252,14 +252,14 @@ export class NextGmController {
     return this.nextGmWorldService.getMaps();
   }  
   /**
- * getMapRuntime：读取地图运行态。
+ * getMapRuntime：读取和平公共线兼容运行态。
  * @param mapId string 地图 ID。
  * @param qx string 参数说明。
  * @param qy string 参数说明。
  * @param qw string 参数说明。
  * @param qh string 参数说明。
  * @param viewerId string viewer ID。
- * @returns 无返回值，完成地图运行态的读取/组装。
+ * @returns 无返回值，完成和平公共线兼容运行态的读取/组装。
  */
 
 
@@ -273,6 +273,61 @@ export class NextGmController {
     @Query('viewerId') viewerId: string,
   ) {
     return this.nextGmWorldService.getMapRuntime(mapId, qx, qy, qw, qh, viewerId);
+  }  
+  /**
+ * getWorldInstances：读取实例列表。
+ * @returns 无返回值，完成实例列表的读取/组装。
+ */
+
+
+  @Get('world/instances')
+  getWorldInstances() {
+    return this.nextGmWorldService.getWorldInstances();
+  }  
+  /**
+ * getWorldInstanceRuntime：读取实例运行态。
+ * @param instanceId string 实例 ID。
+ * @param qx string 参数说明。
+ * @param qy string 参数说明。
+ * @param qw string 参数说明。
+ * @param qh string 参数说明。
+ * @param viewerId string viewer ID。
+ * @returns 无返回值，完成实例运行态的读取/组装。
+ */
+
+
+  @Get('world/instances/:instanceId/runtime')
+  getWorldInstanceRuntime(
+    @Param('instanceId') instanceId: string,
+    @Query('x') qx: string,
+    @Query('y') qy: string,
+    @Query('w') qw: string,
+    @Query('h') qh: string,
+    @Query('viewerId') viewerId: string,
+  ) {
+    return this.nextGmWorldService.getWorldInstanceRuntime(instanceId, qx, qy, qw, qh, viewerId);
+  }  
+  /**
+ * createWorldInstance：创建手动实例。
+ * @param body GmCreateWorldInstanceReq 参数说明。
+ * @returns 无返回值，完成手动实例创建。
+ */
+
+
+  @Post('world/instances')
+  createWorldInstance(@Body() body: GmCreateWorldInstanceReq) {
+    return this.nextGmWorldService.createWorldInstance(body);
+  }  
+  /**
+ * transferPlayerToInstance：迁移玩家到指定实例。
+ * @param body GmTransferPlayerToInstanceReq 参数说明。
+ * @returns 无返回值，完成玩家实例迁移。
+ */
+
+
+  @Post('world/instances/transfer-player')
+  transferPlayerToInstance(@Body() body: GmTransferPlayerToInstanceReq) {
+    return this.nextGmWorldService.transferPlayerToInstance(body);
   }  
   /**
  * getPlayer：读取玩家。

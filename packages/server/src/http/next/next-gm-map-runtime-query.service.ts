@@ -10,11 +10,12 @@ import {
   isTileTypeWalkable,
 } from '@mud/shared';
 import type { GameTimeState, MapTimeConfig, TimePaletteEntry, TimePhaseId } from '@mud/shared';
-import { Inject, Injectable } from '@nestjs/common';
+import { Inject, Injectable, NotFoundException } from '@nestjs/common';
 import { getTileIndex, MapTemplateRepository } from '../../runtime/map/map-template.repository';
 import { RuntimeMapConfigService } from '../../runtime/map/runtime-map-config.service';
 import { PlayerRuntimeService } from '../../runtime/player/player-runtime.service';
 import { WorldRuntimeService } from '../../runtime/world/world-runtime.service';
+import { buildPublicInstanceId } from '../../runtime/world/world-runtime.normalization.helpers';
 import { isNextGmBotPlayerId } from './next-gm.constants';
 /**
  * RuntimePlayerEntryLike：定义接口结构约束，明确可交付字段含义。
@@ -150,6 +151,56 @@ interface RuntimeMonsterLike {
 
 interface RuntimeInstanceLike {
 /**
+ * instanceId：实例 ID 标识。
+ */
+
+  instanceId: string;
+  /**
+ * displayName：实例展示名。
+ */
+
+  displayName?: string;
+  /**
+ * templateId：地图模板 ID 标识。
+ */
+
+  templateId: string;
+  /**
+ * linePreset：分线预设。
+ */
+
+  linePreset?: 'peaceful' | 'real';
+  /**
+ * lineIndex：线路序号。
+ */
+
+  lineIndex?: number;
+  /**
+ * instanceOrigin：实例来源。
+ */
+
+  instanceOrigin?: 'bootstrap' | 'gm_manual';
+  /**
+ * defaultEntry：是否默认入口。
+ */
+
+  defaultEntry?: boolean;
+  /**
+ * supportsPvp：是否支持 PVP。
+ */
+
+  supportsPvp?: boolean;
+  /**
+ * canDamageTile：是否可攻击地块。
+ */
+
+  canDamageTile?: boolean;
+  /**
+ * playerCount：在线人数。
+ */
+
+  playerCount?: number;
+  /**
  * players：集合字段。
  */
 
@@ -159,6 +210,11 @@ interface RuntimeInstanceLike {
  */
 
   tick?: number;
+  /**
+ * worldRevision：世界版本号。
+ */
+
+  worldRevision?: number;
 }
 /**
  * InternalRuntimeInstanceLike：定义接口结构约束，明确可交付字段含义。
@@ -180,7 +236,7 @@ interface StaticMapEntityLike {
  * id：ID标识。
  */
 
-  id: string;  
+  id: string;
   /**
  * x：x相关字段。
  */
@@ -214,10 +270,15 @@ interface StaticMapEntityLike {
 
 interface MapTemplateLike {
 /**
+ * id：地图模板 ID 标识。
+ */
+
+  id: string;
+  /**
  * name：名称名称或显示文本。
  */
 
-  name: string;  
+  name: string;
   /**
  * width：width相关字段。
  */
@@ -471,19 +532,41 @@ export class NextGmMapRuntimeQueryService {
     @Inject(RuntimeMapConfigService) private readonly runtimeMapConfigService: RuntimeMapConfigServiceLike,
   ) {}  
   /**
- * getMapRuntime：读取地图运行态。
+ * getMapRuntime：读取和平公共线兼容运行态。
  * @param mapId string 地图 ID。
  * @param x unknown X 坐标。
  * @param y unknown Y 坐标。
  * @param w unknown 参数说明。
  * @param h unknown 参数说明。
- * @returns 无返回值，完成地图运行态的读取/组装。
+ * @returns 无返回值，完成和平公共线兼容运行态的读取/组装。
  */
 
 
   getMapRuntime(mapId: string, x?: unknown, y?: unknown, w?: unknown, h?: unknown) {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
+    this.mapTemplateRepository.getOrThrow(mapId);
+    return this.getInstanceRuntime(buildPublicInstanceId(mapId), x, y, w, h);
+  }
+
+  /**
+ * getInstanceRuntime：读取实例运行态。
+ * @param instanceId string 实例 ID。
+ * @param x unknown X 坐标。
+ * @param y unknown Y 坐标。
+ * @param w unknown 参数说明。
+ * @param h unknown 参数说明。
+ * @returns 无返回值，完成实例运行态的读取/组装。
+ */
+
+  getInstanceRuntime(instanceId: string, x?: unknown, y?: unknown, w?: unknown, h?: unknown) {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
+    const runtimeInstance = this.worldRuntimeService.getInstance(instanceId);
+    if (!runtimeInstance) {
+      throw new NotFoundException(`目标实例不存在：${instanceId}`);
+    }
+    const mapId = runtimeInstance.templateId;
     const template = this.mapTemplateRepository.getOrThrow(mapId);
     const clampedW = Math.min(20, Math.max(1, Math.trunc(Number(w) || 20)));
     const clampedH = Math.min(20, Math.max(1, Math.trunc(Number(h) || 20)));
@@ -491,8 +574,6 @@ export class NextGmMapRuntimeQueryService {
     const startY = clamp(Math.trunc(Number(y) || 0), 0, Math.max(0, template.height - 1));
     const endX = Math.min(template.width, startX + clampedW);
     const endY = Math.min(template.height, startY + clampedH);
-    const instanceId = `public:${mapId}`;
-    const runtimeInstance = this.worldRuntimeService.getInstance(instanceId);
     const internalInstance = this.worldRuntimeService.instances?.get(instanceId) ?? null;
     const tiles: Array<Array<{    
     /**
@@ -641,6 +722,18 @@ export class NextGmMapRuntimeQueryService {
     return {
       mapId,
       mapName: template.name,
+      instanceId: runtimeInstance.instanceId,
+      instanceName: runtimeInstance.displayName ?? template.name,
+      templateId: template.id,
+      templateName: template.name,
+      linePreset: runtimeInstance.linePreset ?? 'peaceful',
+      lineIndex: runtimeInstance.lineIndex ?? 1,
+      instanceOrigin: runtimeInstance.instanceOrigin ?? 'bootstrap',
+      defaultEntry: runtimeInstance.defaultEntry === true,
+      supportsPvp: runtimeInstance.supportsPvp === true,
+      canDamageTile: runtimeInstance.canDamageTile === true,
+      playerCount: Number.isFinite(runtimeInstance.playerCount) ? Number(runtimeInstance.playerCount) : runtimeInstance.players.length,
+      worldRevision: Number.isFinite(runtimeInstance.worldRevision) ? Number(runtimeInstance.worldRevision) : 0,
       width: template.width,
       height: template.height,
       tiles,

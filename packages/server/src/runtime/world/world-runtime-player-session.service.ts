@@ -1,6 +1,7 @@
 import { BadRequestException, Inject, Injectable, NotFoundException } from '@nestjs/common';
 
 import { WorldRuntimeWorldAccessService } from './world-runtime-world-access.service';
+import { parseRuntimeInstanceDescriptor } from './world-runtime.normalization.helpers';
 
 interface ConnectPlayerInput {
   playerId: string;
@@ -70,6 +71,7 @@ interface WorldRuntimePlayerSessionDeps {
     ensurePlayer(playerId: string, sessionId: string): PlayerRuntimeLike;
     getPlayer(playerId: string): unknown;
     removePlayerRuntime(playerId: string): void;
+    syncFromWorldView(playerId: string, sessionId: string, view: unknown): unknown;
   };
   getPlayerLocation(playerId: string): RuntimePlayerLocation | null;
   setPlayerLocation(playerId: string, location: RuntimePlayerLocation): void;
@@ -134,8 +136,11 @@ export class WorldRuntimePlayerSessionService {
     });
     deps.worldRuntimeGmQueueService.clearPendingRespawn(playerId);
     deps.logger.debug(`玩家 ${playerId} 已附着到实例 ${targetInstance.meta.instanceId}`);
-
-    return this.worldRuntimeWorldAccessService.getPlayerViewOrThrow(playerId, deps);
+    const view = this.worldRuntimeWorldAccessService.getPlayerViewOrThrow(playerId, deps);
+    if (typeof deps.playerRuntimeService.syncFromWorldView === 'function') {
+      deps.playerRuntimeService.syncFromWorldView(playerId, runtimePlayer.sessionId, view);
+    }
+    return view;
   }
 
   disconnectPlayer(playerId: string, deps: WorldRuntimePlayerSessionDeps): boolean {
@@ -228,11 +233,11 @@ function resolvePublicMapIdFromInstanceId(
   instanceId: string,
   deps: Pick<WorldRuntimePlayerSessionDeps, 'templateRepository'>,
 ): string {
-  if (!instanceId || !instanceId.startsWith('public:')) {
+  const descriptor = parseRuntimeInstanceDescriptor(instanceId);
+  if (!descriptor?.defaultEntry || descriptor.linePreset !== 'peaceful') {
     return '';
   }
-
-  const templateId = instanceId.slice('public:'.length).trim();
+  const templateId = descriptor.templateId;
   if (!templateId || !deps.templateRepository.has(templateId)) {
     return '';
   }

@@ -150,10 +150,6 @@ async function connectAndMutate(token) {
     }
     await mapEnter;
     await ensureTravelToWildlands(socket, playerId);
-    await postJson(`/runtime/players/${playerId}/vitals`, {
-        hp: 61,
-        qi: 23,
-    });
     await postJson(`/runtime/players/${playerId}/grant-item`, {
         itemId: 'rat_tail',
         count: 3,
@@ -250,13 +246,25 @@ async function connectAndMutate(token) {
         const hasGroundRatTail = tileState.tile?.groundPile?.items?.some((entry) => entry.itemId === 'rat_tail' && entry.count >= 3) ?? false;
         return hasGroundRatTail && !stillHasRatTail;
     }, 5000);
+    await postJson(`/runtime/players/${playerId}/vitals`, {
+        hp: 61,
+        qi: 23,
+    });
+/**
+ * 记录damagedstate。
+ */
+    const damagedState = await fetchJson(`${baseUrl}/runtime/players/${playerId}/state`);
+    if ((damagedState.player?.hp ?? 0) >= (damagedState.player?.maxHp ?? 0)
+        || (damagedState.player?.qi ?? 0) >= (damagedState.player?.maxQi ?? 0)) {
+        throw new Error(`expected player to remain damaged before flush, got ${JSON.stringify(damagedState.player)}`);
+    }
 /**
  * 记录persistedtile。
  */
     const persistedTile = {
-        instanceId: dropState.player.instanceId,
-        x: dropState.player.x,
-        y: dropState.player.y,
+        instanceId: damagedState.player.instanceId,
+        x: damagedState.player.x,
+        y: damagedState.player.y,
     };
     await postJson('/runtime/persistence/flush', {});
     await waitForPersistedPlayerSnapshot(playerId);
