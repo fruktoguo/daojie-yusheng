@@ -10,7 +10,7 @@ import {
   PASSWORD_MIN_LENGTH,
   resolveDefaultVisibleDisplayName,
   truncateRoleName,
-} from '@mud/shared-next';
+} from '@mud/shared';
 
 /** 是否包含空白字符，用于账号/名称和密码合法性快速校验。 */
 function containsWhitespace(value: string): boolean {

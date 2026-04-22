@@ -1,7 +1,7 @@
 /**
  * GM 地图编辑器常量 —— 控制画笔、选区与视图相关选项，便于与 UI 展示分离。
  */
-import { TileType } from '@mud/shared-next';
+import { TileType } from '@mud/shared';
 
 /** 可直接绘制的地块类型列表，保持与地图编辑器画笔一致。 */
 export const PAINT_TILE_TYPES: TileType[] = [

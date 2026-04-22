@@ -83,7 +83,7 @@ import type {
   VoteSuggestionRequestView,
 } from './client-social-admin-request-types';
 
-/** 握手就绪声明：游客链路仅允许声明续连 sid 或首登落点。 */
+/** 握手就绪声明：当前仅允许已登录 next 会话进入引导链路。 */
 export interface NEXT_C2S_Hello extends HelloRequestView {}
 /** 移动指令 */
 export interface NEXT_C2S_Move extends MoveRequestView {}
@@ -239,3 +239,83 @@ export interface NEXT_C2S_MarkSuggestionRepliesRead extends MarkSuggestionReplie
 export interface NEXT_C2S_GmMarkSuggestionCompleted extends GmMarkSuggestionCompletedRequestView {}
 /** GM 删除建议。 */
 export interface NEXT_C2S_GmRemoveSuggestion extends GmRemoveSuggestionRequestView {}
+
+// 中性请求载荷类型别名；保留 NEXT_* 作为兼容导出。
+export type C2S_Hello = NEXT_C2S_Hello;
+export type C2S_Move = NEXT_C2S_Move;
+export type C2S_MoveTo = NEXT_C2S_MoveTo;
+export type C2S_NavigateQuest = NEXT_C2S_NavigateQuest;
+export type C2S_Heartbeat = NEXT_C2S_Heartbeat;
+export type C2S_Ping = NEXT_C2S_Ping;
+export type C2S_InspectTileRuntime = NEXT_C2S_InspectTileRuntime;
+export type C2S_GmGetState = NEXT_C2S_GmGetState;
+export type C2S_GmSpawnBots = NEXT_C2S_GmSpawnBots;
+export type C2S_GmRemoveBots = NEXT_C2S_GmRemoveBots;
+export type C2S_GmUpdatePlayer = NEXT_C2S_GmUpdatePlayer;
+export type C2S_GmResetPlayer = NEXT_C2S_GmResetPlayer;
+export type C2S_Action = NEXT_C2S_Action;
+export type C2S_UpdateAutoBattleSkills = NEXT_C2S_UpdateAutoBattleSkills;
+export type C2S_UpdateAutoUsePills = NEXT_C2S_UpdateAutoUsePills;
+export type C2S_UpdateCombatTargetingRules = NEXT_C2S_UpdateCombatTargetingRules;
+export type C2S_UpdateAutoBattleTargetingMode = NEXT_C2S_UpdateAutoBattleTargetingMode;
+export type C2S_UpdateTechniqueSkillAvailability = NEXT_C2S_UpdateTechniqueSkillAvailability;
+export type C2S_DebugResetSpawn = NEXT_C2S_DebugResetSpawn;
+export type C2S_Chat = NEXT_C2S_Chat;
+export type C2S_AckSystemMessages = NEXT_C2S_AckSystemMessages;
+export type C2S_RequestMarket = NEXT_C2S_RequestMarket;
+export type C2S_RequestMarketListings = NEXT_C2S_RequestMarketListings;
+export type C2S_RequestMailSummary = NEXT_C2S_RequestMailSummary;
+export type C2S_RequestMailPage = NEXT_C2S_RequestMailPage;
+export type C2S_RequestMailDetail = NEXT_C2S_RequestMailDetail;
+export type C2S_RequestQuests = NEXT_C2S_RequestQuests;
+export type C2S_RequestNpcQuests = NEXT_C2S_RequestNpcQuests;
+export type C2S_AcceptNpcQuest = NEXT_C2S_AcceptNpcQuest;
+export type C2S_SubmitNpcQuest = NEXT_C2S_SubmitNpcQuest;
+export type C2S_RequestDetail = NEXT_C2S_RequestDetail;
+export type C2S_MarkMailRead = NEXT_C2S_MarkMailRead;
+export type C2S_ClaimMailAttachments = NEXT_C2S_ClaimMailAttachments;
+export type C2S_DeleteMail = NEXT_C2S_DeleteMail;
+export type C2S_RequestMarketItemBook = NEXT_C2S_RequestMarketItemBook;
+export type C2S_RequestMarketTradeHistory = NEXT_C2S_RequestMarketTradeHistory;
+export type C2S_RequestAttrDetail = NEXT_C2S_RequestAttrDetail;
+export type C2S_RequestLeaderboard = NEXT_C2S_RequestLeaderboard;
+export type C2S_RequestLeaderboardPlayerLocations = NEXT_C2S_RequestLeaderboardPlayerLocations;
+export type C2S_RequestWorldSummary = NEXT_C2S_RequestWorldSummary;
+export type C2S_StopLootHarvest = NEXT_C2S_StopLootHarvest;
+export type C2S_StartGather = NEXT_C2S_StartGather;
+export type C2S_CancelGather = NEXT_C2S_CancelGather;
+export type C2S_CreateMarketSellOrder = NEXT_C2S_CreateMarketSellOrder;
+export type C2S_CreateMarketBuyOrder = NEXT_C2S_CreateMarketBuyOrder;
+export type C2S_BuyMarketItem = NEXT_C2S_BuyMarketItem;
+export type C2S_SellMarketItem = NEXT_C2S_SellMarketItem;
+export type C2S_CancelMarketOrder = NEXT_C2S_CancelMarketOrder;
+export type C2S_ClaimMarketStorage = NEXT_C2S_ClaimMarketStorage;
+export type C2S_UsePortal = NEXT_C2S_UsePortal;
+export type C2S_RequestNpcShop = NEXT_C2S_RequestNpcShop;
+export type C2S_BuyNpcShopItem = NEXT_C2S_BuyNpcShopItem;
+export type C2S_RequestAlchemyPanel = NEXT_C2S_RequestAlchemyPanel;
+export type C2S_SaveAlchemyPreset = NEXT_C2S_SaveAlchemyPreset;
+export type C2S_DeleteAlchemyPreset = NEXT_C2S_DeleteAlchemyPreset;
+export type C2S_StartAlchemy = NEXT_C2S_StartAlchemy;
+export type C2S_CancelAlchemy = NEXT_C2S_CancelAlchemy;
+export type C2S_RequestEnhancementPanel = NEXT_C2S_RequestEnhancementPanel;
+export type C2S_StartEnhancement = NEXT_C2S_StartEnhancement;
+export type C2S_CancelEnhancement = NEXT_C2S_CancelEnhancement;
+export type C2S_HeavenGateAction = NEXT_C2S_HeavenGateAction;
+export type C2S_UseItem = NEXT_C2S_UseItem;
+export type C2S_DropItem = NEXT_C2S_DropItem;
+export type C2S_DestroyItem = NEXT_C2S_DestroyItem;
+export type C2S_TakeLoot = NEXT_C2S_TakeLoot;
+export type C2S_SortInventory = NEXT_C2S_SortInventory;
+export type C2S_Equip = NEXT_C2S_Equip;
+export type C2S_Unequip = NEXT_C2S_Unequip;
+export type C2S_Cultivate = NEXT_C2S_Cultivate;
+export type C2S_CastSkill = NEXT_C2S_CastSkill;
+export type C2S_RedeemCodes = NEXT_C2S_RedeemCodes;
+export type C2S_RequestSuggestions = NEXT_C2S_RequestSuggestions;
+export type C2S_CreateSuggestion = NEXT_C2S_CreateSuggestion;
+export type C2S_VoteSuggestion = NEXT_C2S_VoteSuggestion;
+export type C2S_ReplySuggestion = NEXT_C2S_ReplySuggestion;
+export type C2S_MarkSuggestionRepliesRead = NEXT_C2S_MarkSuggestionRepliesRead;
+export type C2S_GmMarkSuggestionCompleted = NEXT_C2S_GmMarkSuggestionCompleted;
+export type C2S_GmRemoveSuggestion = NEXT_C2S_GmRemoveSuggestion;

@@ -20,7 +20,7 @@ exports.WorldClientEventService = void 0;
 
 const common_1 = require("@nestjs/common");
 
-const shared_1 = require("@mud/shared-next");
+const shared_1 = require("@mud/shared");
 
 const mail_runtime_service_1 = require("../runtime/mail/mail-runtime.service");
 
@@ -69,29 +69,29 @@ let WorldClientEventService = class WorldClientEventService {
     }
     /** 记录客户端偏好的 next 协议。 */
     markPrefersNext(client) {
-        this.markProtocol(client, 'next');
+        this.markProtocol(client, 'mainline');
     }
     /** 写入客户端协议信息，只保留 next 这一条有效路径。 */
     markProtocol(client, protocol) {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
-        if (!client?.data || protocol !== 'next') {
+        if (!client?.data || protocol !== 'mainline') {
             return;
         }
         client.data.protocol = protocol;
     }
     /** 当前实现只支持 next 协议。 */
     getProtocol(client) {
-        return 'next';
+        return 'mainline';
     }
     /** 显式返回 next 协议，供兼容调用复用。 */
     getExplicitProtocol(client) {
-        return 'next';
+        return 'mainline';
     }
     /** 返回协议投影结果，告知上层直接走 next 下发。 */
     resolveProtocolEmission(client) {
         return {
-            protocol: 'next',
+            protocol: 'mainline',
 
             emitNext: true,
         };
@@ -102,7 +102,7 @@ let WorldClientEventService = class WorldClientEventService {
     }
     /** 最终协议始终收敛到 next。 */
     resolveEffectiveProtocol(client) {
-        return 'next';
+        return 'mainline';
     }
     /** 统一 Socket emit 包装，便于后续替换发送层。 */
     emit(client, event, payload) {
@@ -110,7 +110,7 @@ let WorldClientEventService = class WorldClientEventService {
     }
     /** 发送标准错误包。 */
     emitError(client, code, message) {
-        this.emit(client, shared_1.NEXT_S2C.Error, { code, message });
+        this.emit(client, shared_1.S2C.Error, { code, message });
     }
     /** 发送由异常对象转换来的错误包。 */
     emitGatewayError(client, code, error) {
@@ -118,7 +118,7 @@ let WorldClientEventService = class WorldClientEventService {
     }
     /** 发送协议层错误，通常用于鉴权或消息格式错误。 */
     emitProtocolFailure(client, code, text) {
-        client.emit(shared_1.NEXT_S2C.Error, { code, message: text });
+        client.emit(shared_1.S2C.Error, { code, message: text });
     }
     /** 向客户端展示系统提示，供任务、聊天和操作反馈复用。 */
     emitSystemMessage(client, text, kind = 'info') {
@@ -144,7 +144,7 @@ let WorldClientEventService = class WorldClientEventService {
         if (normalizedItems.length <= 0) {
             return;
         }
-        client.emit(shared_1.NEXT_S2C.Notice, {
+        client.emit(shared_1.S2C.Notice, {
             items: normalizedItems,
         });
     }
@@ -170,14 +170,14 @@ let WorldClientEventService = class WorldClientEventService {
     }
     /** 推送心跳响应。 */
     emitPong(client, payload) {
-        this.emit(client, shared_1.NEXT_S2C.Pong, {
+        this.emit(client, shared_1.S2C.Pong, {
             clientAt: payload?.clientAt,
             serverAt: Date.now(),
         });
     }
     /** 返回任务导航结果。 */
     emitQuestNavigateResult(client, questId, ok, error) {
-        this.emit(client, shared_1.NEXT_S2C.QuestNavigateResult, {
+        this.emit(client, shared_1.S2C.QuestNavigateResult, {
             questId,
             ok,
             error,
@@ -187,11 +187,11 @@ let WorldClientEventService = class WorldClientEventService {
     emitLootWindowUpdate(client, playerId, x, y) {
 
         const payload = this.worldSyncQuestLootService.openLootWindow(playerId, x, y);
-        this.emit(client, shared_1.NEXT_S2C.LootWindowUpdate, payload);
+        this.emit(client, shared_1.S2C.LootWindowUpdate, payload);
     }
     /** 向客户端补发聊天风格通知。 */
     emitChatMessage(client, payload) {
-        client.emit(shared_1.NEXT_S2C.Notice, {
+        client.emit(shared_1.S2C.Notice, {
             items: [{
                     kind: 'chat',
                     text: payload.text,
@@ -272,17 +272,17 @@ let WorldClientEventService = class WorldClientEventService {
     }
     /** 推送任务列表。 */
     emitQuests(client, payload) {
-        this.emit(client, shared_1.NEXT_S2C.Quests, payload);
+        this.emit(client, shared_1.S2C.Quests, payload);
     }
     /** 推送建议列表变更。 */
     emitSuggestionUpdate(client, suggestions) {
-        this.emit(client, shared_1.NEXT_S2C.SuggestionUpdate, {
+        this.emit(client, shared_1.S2C.SuggestionUpdate, {
             suggestions,
         });
     }
     /** 推送邮件摘要。 */
     emitMailSummary(client, summary) {
-        this.emit(client, shared_1.NEXT_S2C.MailSummary, { summary });
+        this.emit(client, shared_1.S2C.MailSummary, { summary });
     }
     /** 查询并推送指定玩家的邮件摘要。 */
     async emitMailSummaryForPlayer(client, playerId) {
@@ -290,47 +290,47 @@ let WorldClientEventService = class WorldClientEventService {
     }
     /** 推送邮件分页。 */
     emitMailPage(client, page) {
-        this.emit(client, shared_1.NEXT_S2C.MailPage, { page });
+        this.emit(client, shared_1.S2C.MailPage, { page });
     }
     /** 推送邮件详情。 */
     emitMailDetail(client, detail) {
-        this.emit(client, shared_1.NEXT_S2C.MailDetail, { detail });
+        this.emit(client, shared_1.S2C.MailDetail, { detail });
     }
     /** 推送兑换码结果。 */
     emitRedeemCodesResult(client, payload) {
-        this.emit(client, shared_1.NEXT_S2C.RedeemCodesResult, payload);
+        this.emit(client, shared_1.S2C.RedeemCodesResult, payload);
     }
     /** 推送邮件操作结果。 */
     emitMailOperationResult(client, payload) {
-        this.emit(client, shared_1.NEXT_S2C.MailOpResult, payload);
+        this.emit(client, shared_1.S2C.MailOpResult, payload);
     }
     /** 推送坊市概览更新。 */
     emitMarketUpdate(client, payload) {
-        this.emit(client, shared_1.NEXT_S2C.MarketUpdate, payload);
+        this.emit(client, shared_1.S2C.MarketUpdate, payload);
     }
     /** 推送坊市列表。 */
     emitMarketListings(client, payload) {
-        this.emit(client, shared_1.NEXT_S2C.MarketListings, payload);
+        this.emit(client, shared_1.S2C.MarketListings, payload);
     }
     /** 推送坊市订单。 */
     emitMarketOrders(client, payload) {
-        this.emit(client, shared_1.NEXT_S2C.MarketOrders, payload);
+        this.emit(client, shared_1.S2C.MarketOrders, payload);
     }
     /** 推送坊市仓库。 */
     emitMarketStorage(client, payload) {
-        this.emit(client, shared_1.NEXT_S2C.MarketStorage, payload);
+        this.emit(client, shared_1.S2C.MarketStorage, payload);
     }
     /** 推送坊市图鉴。 */
     emitMarketItemBook(client, payload) {
-        this.emit(client, shared_1.NEXT_S2C.MarketItemBook, payload);
+        this.emit(client, shared_1.S2C.MarketItemBook, payload);
     }
     /** 推送坊市成交历史。 */
     emitMarketTradeHistory(client, payload) {
-        this.emit(client, shared_1.NEXT_S2C.MarketTradeHistory, payload);
+        this.emit(client, shared_1.S2C.MarketTradeHistory, payload);
     }
     /** 推送 NPC 商店数据。 */
     emitNpcShop(client, payload) {
-        this.emit(client, shared_1.NEXT_S2C.NpcShop, payload);
+        this.emit(client, shared_1.S2C.NpcShop, payload);
     }    
     /**
  * normalizePlayerIds：规范化或转换玩家ID。

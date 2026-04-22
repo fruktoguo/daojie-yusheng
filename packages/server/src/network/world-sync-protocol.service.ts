@@ -12,7 +12,7 @@ exports.WorldSyncProtocolService = void 0;
 
 const common_1 = require("@nestjs/common");
 
-const shared_1 = require("@mud/shared-next");
+const shared_1 = require("@mud/shared");
 
 let WorldSyncProtocolService = class WorldSyncProtocolService {
 /**
@@ -68,7 +68,7 @@ let WorldSyncProtocolService = class WorldSyncProtocolService {
 
     resolveEmission(socket) {
         return {
-            protocol: 'next',
+            protocol: 'mainline',
 
             emitNext: true,
         };
@@ -80,7 +80,7 @@ let WorldSyncProtocolService = class WorldSyncProtocolService {
  */
 
     getExplicitProtocol(socket) {
-        return 'next';
+        return 'mainline';
     }    
     /**
  * resolveEffectiveProtocol：规范化或转换EffectiveProtocol。
@@ -89,7 +89,7 @@ let WorldSyncProtocolService = class WorldSyncProtocolService {
  */
 
     resolveEffectiveProtocol(socket) {
-        return 'next';
+        return 'mainline';
     }    
     /**
  * sendQuestSync：处理send任务同步并更新相关状态。

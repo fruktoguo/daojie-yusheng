@@ -4,7 +4,7 @@
 require('./load-local-runtime-env');
 
 /**
- * 用途：执行 server-next 替换链路的全量验证流程。
+ * 用途：执行 server 替换链路的全量验证流程。
  */
 
 const { spawnSync } = require('node:child_process');
@@ -13,48 +13,48 @@ const path = require('node:path');
 const repoRoot = path.resolve(__dirname, '..');
 const nodeBin = process.execPath;
 const {
-  resolveServerNextDatabaseEnvSource,
-  resolveServerNextDatabaseUrl,
-  resolveServerNextGmPassword,
-  resolveServerNextGmPasswordEnvSource,
-  resolveServerNextShadowUrl,
-  resolveServerNextShadowUrlEnvSource,
-} = require('./server-next-env-alias');
+  resolveServerDatabaseEnvSource,
+  resolveServerDatabaseUrl,
+  resolveServerGmPassword,
+  resolveServerGmPasswordEnvSource,
+  resolveServerShadowUrl,
+  resolveServerShadowUrlEnvSource,
+} = require('./server-env-alias');
 const { probeShadowTarget } = require('./shadow-target-probe');
 
 /**
  * 记录数据库地址。
  */
-const databaseUrl = resolveServerNextDatabaseUrl();
+const databaseUrl = resolveServerDatabaseUrl();
 /**
  * 记录数据库环境变量来源。
  */
-const databaseEnvSource = resolveServerNextDatabaseEnvSource();
+const databaseEnvSource = resolveServerDatabaseEnvSource();
 /**
  * 记录shadow 环境地址。
  */
-const shadowUrl = resolveServerNextShadowUrl();
+const shadowUrl = resolveServerShadowUrl();
 /**
  * 记录shadow 环境环境变量来源地址。
  */
-const shadowUrlEnvSource = resolveServerNextShadowUrlEnvSource();
+const shadowUrlEnvSource = resolveServerShadowUrlEnvSource();
 /**
  * 记录GMpassword。
  */
-const gmPassword = resolveServerNextGmPassword();
+const gmPassword = resolveServerGmPassword();
 /**
  * 记录GMpassword环境变量来源。
  */
-const gmPasswordEnvSource = resolveServerNextGmPasswordEnvSource();
+const gmPasswordEnvSource = resolveServerGmPasswordEnvSource();
 
 if (!databaseUrl || !shadowUrl || !gmPassword) {
 /**
  * 记录missing。
  */
   const missing = [
-    databaseUrl ? null : 'DATABASE_URL/SERVER_NEXT_DATABASE_URL',
-    shadowUrl ? null : 'SERVER_NEXT_SHADOW_URL/SERVER_NEXT_URL',
-    gmPassword ? null : 'SERVER_NEXT_GM_PASSWORD/GM_PASSWORD',
+    databaseUrl ? null : 'DATABASE_URL/SERVER_DATABASE_URL',
+    shadowUrl ? null : 'SERVER_SHADOW_URL/SERVER_URL',
+    gmPassword ? null : 'SERVER_GM_PASSWORD/GM_PASSWORD',
   ].filter(Boolean);
   process.stderr.write(`replace-ready full requires: ${missing.join(' + ')}\n`);
   process.stderr.write('run pnpm verify:replace-ready:doctor first, then set the missing env and rerun pnpm verify:replace-ready:full\n');
@@ -69,20 +69,20 @@ const steps = [
   {
     label: 'gm-database',
     kind: 'pnpm',
-    args: ['--filter', '@mud/server-next', 'smoke:gm-database'],
+    args: ['--filter', '@mud/server', 'smoke:gm-database'],
   },
   {
     label: 'gm-database-backup-persistence',
     kind: 'pnpm',
-    args: ['--filter', '@mud/server-next', 'smoke:gm-database:backup-persistence'],
+    args: ['--filter', '@mud/server', 'smoke:gm-database:backup-persistence'],
   },
   { label: 'shadow', kind: 'node', args: ['scripts/replace-ready-shadow.js'] },
   {
-    label: 'gm-next',
+    label: 'gm',
     kind: 'pnpm',
-    args: ['--filter', '@mud/server-next', 'smoke:gm-next'],
+    args: ['--filter', '@mud/server', 'smoke:gm'],
     extraEnv: {
-      SERVER_NEXT_URL: shadowUrl,
+      SERVER_URL: shadowUrl,
     },
   },
 ];
@@ -91,11 +91,11 @@ const steps = [
  */
 const childEnv = {
   ...process.env,
-  SERVER_NEXT_ALLOW_UNREADY_TRAFFIC: '',
-  SERVER_NEXT_SMOKE_ALLOW_UNREADY: '',
-  ...(databaseEnvSource === 'SERVER_NEXT_DATABASE_URL' ? null : { SERVER_NEXT_DATABASE_URL: databaseUrl }),
-  ...(shadowUrlEnvSource === 'SERVER_NEXT_SHADOW_URL' ? null : { SERVER_NEXT_SHADOW_URL: shadowUrl }),
-  ...(gmPasswordEnvSource === 'SERVER_NEXT_GM_PASSWORD' ? null : { SERVER_NEXT_GM_PASSWORD: gmPassword }),
+  SERVER_ALLOW_UNREADY_TRAFFIC: '',
+  SERVER_SMOKE_ALLOW_UNREADY: '',
+  ...(databaseEnvSource === 'SERVER_DATABASE_URL' ? null : { SERVER_DATABASE_URL: databaseUrl }),
+  ...(shadowUrlEnvSource === 'SERVER_SHADOW_URL' ? null : { SERVER_SHADOW_URL: shadowUrl }),
+  ...(gmPasswordEnvSource === 'SERVER_GM_PASSWORD' ? null : { SERVER_GM_PASSWORD: gmPassword }),
 };
 
 async function main() {
@@ -104,11 +104,11 @@ async function main() {
     process.stderr.write(`replace-ready full blocked by shadow target: ${shadowProbe.reason}\n`);
     process.stderr.write(`current /health payload=${JSON.stringify(shadowProbe.healthPayload ?? null)}\n`);
     process.stderr.write(`current /api/gm/state payload=${JSON.stringify(shadowProbe.gmStatePayload ?? null)}\n`);
-    process.stderr.write('fix SERVER_NEXT_SHADOW_URL/SERVER_NEXT_URL first, then rerun pnpm verify:replace-ready:full\n');
+    process.stderr.write('fix SERVER_SHADOW_URL/SERVER_URL first, then rerun pnpm verify:replace-ready:full\n');
     process.exit(1);
   }
 
-  process.stdout.write('[replace-ready:full] steps=with-db -> gm-database -> gm-database-backup-persistence -> shadow -> gm-next\n');
+  process.stdout.write('[replace-ready:full] steps=with-db -> gm-database -> gm-database-backup-persistence -> shadow -> gm\n');
   process.stdout.write('[replace-ready:full] gate=full\n');
 
   for (const step of steps) {

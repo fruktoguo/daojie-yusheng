@@ -1,4 +1,4 @@
-import { VIEW_RADIUS } from '@mud/shared-next';
+import { VIEW_RADIUS } from '@mud/shared';
 import { getCellSize } from '../../display';
 import { CameraController } from '../camera/camera-controller';
 import { InteractionController } from '../interaction/interaction-controller';
@@ -8,8 +8,8 @@ import { CanvasTextRendererAdapter } from '../renderer/canvas-text-renderer-adap
 import { MapScene } from '../scene/map-scene';
 import { MapStore } from '../store/map-store';
 import type {
-  MapNextSelfDeltaInput,
-  MapNextWorldDeltaInput,
+  MapSelfDeltaInput,
+  MapWorldDeltaInput,
   MapRuntimeApi,
   MapRuntimeInteractionCallbacks,
   MapSafeAreaInsets,
@@ -148,13 +148,13 @@ export class MapRuntime implements MapRuntimeApi {
   }
 
   /** 消化世界级增量（实体、地块、效果）并更新场景与镜头。 */
-  applyNextWorldDelta(data: MapNextWorldDeltaInput): void {
+  applyWorldDelta(data: MapWorldDeltaInput): void {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
     for (const effect of data.effects ?? []) {
       this.renderer.enqueueEffect(effect);
     }
-    this.store.applyNextWorldDelta(data);
+    this.store.applyWorldDelta(data);
     const snapshot = this.store.getSnapshot();
     if (snapshot.player) {
       if (snapshot.entityTransition?.snapCamera) {
@@ -167,11 +167,11 @@ export class MapRuntime implements MapRuntimeApi {
   }
 
   /** 消化本体增量（移动、生命、地图切换）并同步场景。 */
-  applyNextSelfDelta(data: MapNextSelfDeltaInput): void {
+  applySelfDelta(data: MapSelfDeltaInput): void {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
     const previousMapId = this.store.getSnapshot().player?.mapId ?? null;
-    this.store.applyNextSelfDelta(data);
+    this.store.applySelfDelta(data);
     const snapshot = this.store.getSnapshot();
     if (previousMapId && snapshot.player?.mapId !== previousMapId) {
       this.renderer.resetScene();

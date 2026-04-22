@@ -6,7 +6,7 @@ import {
   AccountRedeemCodesRes,
   ROLE_NAME_MAX_ASCII_LENGTH,
   ROLE_NAME_MAX_LENGTH,
-} from '@mud/shared-next';
+} from '@mud/shared';
 import { detailModalHost } from '../detail-modal-host';
 import { validateDisplayName, validatePassword, validateRoleName } from '../account-rules';
 import {

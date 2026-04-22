@@ -1,11 +1,11 @@
 import { createExternalStore } from './create-external-store';
 import type { PanelCapabilities, PanelRuntimeState } from '../../ui/panel-system/types';
 /**
- * NextUiShellState：定义接口结构约束，明确可交付字段含义。
+ * ReactUiShellState：定义接口结构约束，明确可交付字段含义。
  */
 
 
-export interface NextUiShellState {
+export interface ReactUiShellState {
 /**
  * enabled：启用开关或状态标识。
  */
@@ -35,7 +35,7 @@ const INITIAL_SHELL_RUNTIME: PanelRuntimeState = {
   mapId: null,
 };
 
-export const shellStore = createExternalStore<NextUiShellState>({
+export const shellStore = createExternalStore<ReactUiShellState>({
   enabled: false,
   mounted: false,
   runtime: INITIAL_SHELL_RUNTIME,

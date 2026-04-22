@@ -1,5 +1,5 @@
 import { BadRequestException, Inject, Injectable } from '@nestjs/common';
-import { type GmListPlayersQuery } from '@mud/shared-next';
+import { type GmListPlayersQuery } from '@mud/shared';
 import { ContentTemplateRepository } from '../../content/content-template.repository';
 import { MapTemplateRepository } from '../../runtime/map/map-template.repository';
 import { RuntimeMapConfigService } from '../../runtime/map/runtime-map-config.service';

@@ -4,7 +4,7 @@
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.WorldGatewayReadModelHelper = void 0;
 
-const shared_1 = require("@mud/shared-next");
+const shared_1 = require("@mud/shared");
 const world_gateway_attr_detail_helper_1 = require("./world-gateway-attr-detail.helper");
 
 /** 世界 socket 读模型 helper：只收敛请求详情/排行/摘要入口。 */
@@ -24,13 +24,13 @@ class WorldGatewayReadModelHelper {
         this.gateway = gateway;
     }    
     /**
- * handleNextRequestAttrDetail：处理NextRequestAttr详情并更新相关状态。
+ * handleRequestAttrDetail：处理NextRequestAttr详情并更新相关状态。
  * @param client 参数说明。
  * @param _payload 参数说明。
  * @returns 无返回值，直接更新NextRequestAttr详情相关状态。
  */
 
-    handleNextRequestAttrDetail(client, _payload) {
+    handleRequestAttrDetail(client, _payload) {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
         const playerId = this.gateway.gatewayGuardHelper.requirePlayerId(client);
@@ -42,10 +42,10 @@ class WorldGatewayReadModelHelper {
             if (!player) {
                 return;
             }
-            this.gateway.worldClientEventService.markProtocol(client, 'next');
+            this.gateway.worldClientEventService.markProtocol(client, 'mainline');
             const bonuses = (0, world_gateway_attr_detail_helper_1.buildAttrDetailBonuses)(player);
             const numericStatBreakdowns = (0, world_gateway_attr_detail_helper_1.buildAttrDetailNumericStatBreakdowns)(player);
-            client.emit(shared_1.NEXT_S2C.AttrDetail, {
+            client.emit(shared_1.S2C.AttrDetail, {
                 baseAttrs: { ...player.attrs.baseAttrs },
                 bonuses,
                 finalAttrs: { ...player.attrs.finalAttrs },
@@ -62,13 +62,13 @@ class WorldGatewayReadModelHelper {
         }
     }    
     /**
- * handleNextRequestLeaderboard：处理NextRequestLeaderboard并更新相关状态。
+ * handleRequestLeaderboard：处理NextRequestLeaderboard并更新相关状态。
  * @param client 参数说明。
  * @param payload 载荷参数。
  * @returns 无返回值，直接更新NextRequestLeaderboard相关状态。
  */
 
-    handleNextRequestLeaderboard(client, payload) {
+    handleRequestLeaderboard(client, payload) {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
         const playerId = this.gateway.gatewayGuardHelper.requirePlayerId(client);
@@ -76,21 +76,21 @@ class WorldGatewayReadModelHelper {
             return;
         }
         try {
-            this.gateway.worldClientEventService.markProtocol(client, 'next');
-            client.emit(shared_1.NEXT_S2C.Leaderboard, this.gateway.leaderboardRuntimeService.buildLeaderboard(payload?.limit));
+            this.gateway.worldClientEventService.markProtocol(client, 'mainline');
+            client.emit(shared_1.S2C.Leaderboard, this.gateway.leaderboardRuntimeService.buildLeaderboard(payload?.limit));
         }
         catch (error) {
             this.gateway.worldClientEventService.emitGatewayError(client, 'REQUEST_LEADERBOARD_FAILED', error);
         }
     }    
     /**
- * handleNextRequestLeaderboardPlayerLocations：处理玩家击杀榜坐标追索请求并更新相关状态。
+ * handleRequestLeaderboardPlayerLocations：处理玩家击杀榜坐标追索请求并更新相关状态。
  * @param client 参数说明。
  * @param payload 载荷参数。
  * @returns 无返回值，直接更新玩家击杀榜坐标追索相关状态。
  */
 
-    handleNextRequestLeaderboardPlayerLocations(client, payload) {
+    handleRequestLeaderboardPlayerLocations(client, payload) {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
         const playerId = this.gateway.gatewayGuardHelper.requirePlayerId(client);
@@ -98,21 +98,21 @@ class WorldGatewayReadModelHelper {
             return;
         }
         try {
-            this.gateway.worldClientEventService.markProtocol(client, 'next');
-            client.emit(shared_1.NEXT_S2C.LeaderboardPlayerLocations, this.gateway.leaderboardRuntimeService.buildLeaderboardPlayerLocations(payload?.playerIds));
+            this.gateway.worldClientEventService.markProtocol(client, 'mainline');
+            client.emit(shared_1.S2C.LeaderboardPlayerLocations, this.gateway.leaderboardRuntimeService.buildLeaderboardPlayerLocations(payload?.playerIds));
         }
         catch (error) {
             this.gateway.worldClientEventService.emitGatewayError(client, 'REQUEST_LEADERBOARD_PLAYER_LOCATIONS_FAILED', error);
         }
     }    
     /**
- * handleNextRequestWorldSummary：处理NextRequest世界摘要并更新相关状态。
+ * handleRequestWorldSummary：处理NextRequest世界摘要并更新相关状态。
  * @param client 参数说明。
  * @param _payload 参数说明。
  * @returns 无返回值，直接更新NextRequest世界摘要相关状态。
  */
 
-    handleNextRequestWorldSummary(client, _payload) {
+    handleRequestWorldSummary(client, _payload) {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
         const playerId = this.gateway.gatewayGuardHelper.requirePlayerId(client);
@@ -120,8 +120,8 @@ class WorldGatewayReadModelHelper {
             return;
         }
         try {
-            this.gateway.worldClientEventService.markProtocol(client, 'next');
-            client.emit(shared_1.NEXT_S2C.WorldSummary, this.gateway.leaderboardRuntimeService.buildWorldSummary());
+            this.gateway.worldClientEventService.markProtocol(client, 'mainline');
+            client.emit(shared_1.S2C.WorldSummary, this.gateway.leaderboardRuntimeService.buildWorldSummary());
         }
         catch (error) {
             this.gateway.worldClientEventService.emitGatewayError(client, 'REQUEST_WORLD_SUMMARY_FAILED', error);
@@ -142,7 +142,7 @@ class WorldGatewayReadModelHelper {
             return;
         }
         try {
-            client.emit(shared_1.NEXT_S2C.Detail, this.gateway.worldRuntimeService.buildDetail(playerId, {
+            client.emit(shared_1.S2C.Detail, this.gateway.worldRuntimeService.buildDetail(playerId, {
                 kind: payload?.kind,
                 id: payload?.id ?? '',
             }));
@@ -166,7 +166,7 @@ class WorldGatewayReadModelHelper {
             return;
         }
         try {
-            client.emit(shared_1.NEXT_S2C.TileDetail, this.gateway.worldRuntimeService.buildTileDetail(playerId, {
+            client.emit(shared_1.S2C.TileDetail, this.gateway.worldRuntimeService.buildTileDetail(playerId, {
                 x: payload?.x,
                 y: payload?.y,
             }));

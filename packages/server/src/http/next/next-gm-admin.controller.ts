@@ -1,6 +1,6 @@
 import { Body, Controller, Get, Param, Post, Res, UseGuards } from '@nestjs/common';
 
-import { NEXT_GM_HTTP_CONTRACT } from './next-gm-contract';
+import { GM_HTTP_CONTRACT } from './next-gm-contract';
 import { NextGmAdminService } from './next-gm-admin.service';
 import { NextGmAuthGuard } from './next-gm-auth.guard';
 /**
@@ -28,7 +28,7 @@ interface DownloadResponseLike {
  */
 
 
-@Controller(NEXT_GM_HTTP_CONTRACT.gmBasePath)
+@Controller(GM_HTTP_CONTRACT.gmBasePath)
 @UseGuards(NextGmAuthGuard)
 export class NextGmAdminController {
 /**

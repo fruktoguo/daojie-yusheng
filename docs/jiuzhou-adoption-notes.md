@@ -164,7 +164,7 @@
 
 建议落地方向：
 
-- 给 `server-next` 的启动补一个更清晰的 pipeline 文档和编排层
+- 给 `server` 的启动补一个更清晰的 pipeline 文档和编排层
 - 即使不大改启动代码，也至少把：
   - runtime maintenance
   - persistence flush

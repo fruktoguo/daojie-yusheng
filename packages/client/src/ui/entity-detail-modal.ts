@@ -1,14 +1,14 @@
 import {
-  NEXT_S2C_Detail,
-  NEXT_S2C_NpcDetail,
-  NEXT_S2C_PlayerDetail,
-  NEXT_S2C_MonsterDetail,
-  NEXT_S2C_ContainerDetail,
-  NEXT_S2C_LeaderboardPlayerLocations,
+  S2C_Detail,
+  S2C_NpcDetail,
+  S2C_PlayerDetail,
+  S2C_MonsterDetail,
+  S2C_ContainerDetail,
+  S2C_LeaderboardPlayerLocations,
   VisibleBuffState,
   MONSTER_TIER_LABELS,
   type NpcQuestMarker,
-} from '@mud/shared-next';
+} from '@mud/shared';
 import { getEntityKindLabel, getQuestLineLabel } from '../domain-labels';
 import { detailModalHost } from './detail-modal-host';
 import { FloatingTooltip, prefersPinnedTooltipInteraction } from './floating-tooltip';
@@ -16,7 +16,7 @@ import { bindInlineItemTooltips, renderInlineItemChip } from './item-inline-tool
 import { describePreviewBonuses } from './stat-preview';
 
 const LEADERBOARD_PLAYER_LOCATION_EVENT = 'mud:leaderboard-player-locations';
-type LeaderboardTrackedLocation = NEXT_S2C_LeaderboardPlayerLocations['entries'][number];
+type LeaderboardTrackedLocation = S2C_LeaderboardPlayerLocations['entries'][number];
 
 let trackedLeaderboardLocations = new Map<string, LeaderboardTrackedLocation>();
 
@@ -95,7 +95,7 @@ export class EntityDetailModal {
   /**
  * kind：kind相关字段。
  */
- kind: NEXT_S2C_Detail['kind'];  
+ kind: S2C_Detail['kind'];  
  /**
  * id：ID标识。
  */
@@ -105,7 +105,7 @@ export class EntityDetailModal {
  */
  title: string } | null = null;
   /** detail：详情。 */
-  private detail: NEXT_S2C_Detail | null = null;
+  private detail: S2C_Detail | null = null;
   /** loading：loading。 */
   private loading = false;
 
@@ -122,7 +122,7 @@ export class EntityDetailModal {
   }
 
   /** openPending：打开待处理。 */
-  openPending(kind: NEXT_S2C_Detail['kind'], id: string, title: string): void {
+  openPending(kind: S2C_Detail['kind'], id: string, title: string): void {
     this.pending = { kind, id, title };
     this.detail = null;
     this.loading = true;
@@ -130,7 +130,7 @@ export class EntityDetailModal {
   }
 
   /** updateDetail：更新详情。 */
-  updateDetail(detail: NEXT_S2C_Detail): void {
+  updateDetail(detail: S2C_Detail): void {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
     if (this.pending && (this.pending.kind !== detail.kind || this.pending.id !== detail.id)) {
@@ -233,7 +233,7 @@ export class EntityDetailModal {
   }
 
   /** resolveTitle：解析标题。 */
-  private resolveTitle(detail: NEXT_S2C_Detail, fallbackTitle?: string): string {
+  private resolveTitle(detail: S2C_Detail, fallbackTitle?: string): string {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
     if (detail.player && fallbackTitle && fallbackTitle.trim() && fallbackTitle !== detail.player.id) {
@@ -250,7 +250,7 @@ export class EntityDetailModal {
   }
 
   /** renderNpc：渲染NPC。 */
-  private renderNpc(npc: NEXT_S2C_NpcDetail | null): string {
+  private renderNpc(npc: S2C_NpcDetail | null): string {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
     if (!npc) {
@@ -274,7 +274,7 @@ export class EntityDetailModal {
   }
 
   /** renderMonster：渲染妖兽。 */
-  private renderMonster(monster: NEXT_S2C_MonsterDetail | null): string {
+  private renderMonster(monster: S2C_MonsterDetail | null): string {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
     if (!monster) {
@@ -299,7 +299,7 @@ export class EntityDetailModal {
   }
 
   /** renderPlayer：渲染玩家。 */
-  private renderPlayer(player: NEXT_S2C_PlayerDetail | null): string {
+  private renderPlayer(player: S2C_PlayerDetail | null): string {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
     if (!player) {
@@ -401,7 +401,7 @@ export class EntityDetailModal {
   }
 
   /** renderContainer：渲染容器。 */
-  private renderContainer(container: NEXT_S2C_ContainerDetail | null): string {
+  private renderContainer(container: S2C_ContainerDetail | null): string {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
     if (!container) {

@@ -8,7 +8,7 @@ const { spawn } = require("node:child_process");
 const { createServer } = require("node:net");
 const { join, resolve } = require("node:path");
 const io = require("socket.io-client");
-const shared = require("@mud/shared-next");
+const shared = require("@mud/shared");
 
 /**
  * 记录包根目录。
@@ -21,7 +21,7 @@ const serverEntry = join(packageRoot, "dist", "main.js");
 /**
  * 记录当前值端口。
  */
-let currentPort = Number(process.env.SERVER_NEXT_BENCH_PORT ?? 3219);
+let currentPort = Number(process.env.SERVER_BENCH_PORT ?? 3219);
 /**
  * 记录base地址。
  */
@@ -62,8 +62,8 @@ async function startServer() {
     cwd: packageRoot,
     env: {
       ...process.env,
-      SERVER_NEXT_PORT: String(currentPort),
-      SERVER_NEXT_RUNTIME_HTTP: "1",
+      SERVER_PORT: String(currentPort),
+      SERVER_RUNTIME_HTTP: "1",
     },
     stdio: ["ignore", "pipe", "pipe"],
   });
@@ -140,7 +140,7 @@ async function measureHandshake() {
   const socket = io(baseUrl, {
     path: "/socket.io",
     transports: ["websocket"],
-    auth: { protocol: "next" },
+    auth: { protocol: "mainline" },
   });
   try {
 /**
@@ -158,10 +158,10 @@ async function measureHandshake() {
     const listener = (event, payload) => {
       events[event] = { timestamp: Date.now(), size: JSON.stringify(payload).length };
     };
-    socket.on(shared.NEXT_S2C.InitSession, (payload) => listener("InitSession", payload));
-    socket.on(shared.NEXT_S2C.Bootstrap, (payload) => listener("Bootstrap", payload));
-    socket.on(shared.NEXT_S2C.MapStatic, (payload) => listener("MapStatic", payload));
-    socket.emit(shared.NEXT_C2S.Hello, {
+    socket.on(shared.S2C.InitSession, (payload) => listener("InitSession", payload));
+    socket.on(shared.S2C.Bootstrap, (payload) => listener("Bootstrap", payload));
+    socket.on(shared.S2C.MapStatic, (payload) => listener("MapStatic", payload));
+    socket.emit(shared.C2S.Hello, {
       mapId: "yunlai_town",
       preferredX: 32,
       preferredY: 5,

@@ -1,8 +1,8 @@
 import {
   AccountRedeemCodesRes,
-  NEXT_S2C_RedeemCodesResult,
+  S2C_RedeemCodesResult,
   PlayerState,
-} from '@mud/shared-next';
+} from '@mud/shared';
 import { SettingsPanel } from './ui/panels/settings-panel';
 /**
  * PendingRedeemCodesRequest：统一结构类型，保证协议与运行时一致性。
@@ -187,11 +187,11 @@ export function createMainSettingsStateSource(options: MainSettingsStateSourceOp
   return {  
   /**
  * handleRedeemCodesResult：处理RedeemCode结果并更新相关状态。
- * @param data NEXT_S2C_RedeemCodesResult 原始数据。
+   * @param data S2C_RedeemCodesResult 原始数据。
  * @returns 无返回值，直接更新RedeemCode结果相关状态。
  */
 
-    handleRedeemCodesResult(data: NEXT_S2C_RedeemCodesResult): void {
+    handleRedeemCodesResult(data: S2C_RedeemCodesResult): void {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
       if (!pendingRedeemCodesRequest) {

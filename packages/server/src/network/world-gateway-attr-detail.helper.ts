@@ -4,7 +4,7 @@
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.buildAttrDetailNumericStatBreakdowns = exports.buildAttrDetailBonuses = void 0;
 
-const shared_1 = require("@mud/shared-next");
+const shared_1 = require("@mud/shared");
 /**
  * buildAttrDetailBonuses：构建并返回目标对象。
  * @param player 玩家对象。

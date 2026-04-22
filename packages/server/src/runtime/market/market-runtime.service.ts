@@ -21,7 +21,7 @@ const common_1 = require("@nestjs/common");
 
 const crypto_1 = require("crypto");
 
-const shared_1 = require("@mud/shared-next");
+const shared_1 = require("@mud/shared");
 
 const content_template_repository_1 = require("../../content/content-template.repository");
 

@@ -1,12 +1,12 @@
-import type { NEXT_C2S_EventName, NEXT_C2S_EventPayload } from '@mud/shared-next';
+import type { ClientToServerEventName, ClientToServerEventPayload } from '@mud/shared';
 /**
  * SocketEmitEvent：统一结构类型，保证协议与运行时一致性。
  */
 
 
-export type SocketEmitEvent = <TEvent extends NEXT_C2S_EventName>(
+export type SocketEmitEvent = <TEvent extends ClientToServerEventName>(
   event: TEvent,
-  payload: NEXT_C2S_EventPayload<TEvent>,
+  payload: ClientToServerEventPayload<TEvent>,
 ) => void;
 /**
  * SocketConnectedGetter：统一结构类型，保证协议与运行时一致性。

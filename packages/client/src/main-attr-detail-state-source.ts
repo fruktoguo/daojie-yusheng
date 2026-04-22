@@ -1,4 +1,4 @@
-import { NEXT_S2C_AttrDetail, NEXT_S2C_AttrUpdate, PlayerState } from '@mud/shared-next';
+import { S2C_AttrDetail, S2C_AttrUpdate, PlayerState } from '@mud/shared';
 import type { SocketPanelSender } from './network/socket-send-panel';
 import { AttrPanel } from './ui/panels/attr-panel';
 
@@ -27,17 +27,17 @@ type MainAttrDetailStateSourceOptions = {
  * getLatestAttrUpdate：LatestAttrUpdate相关字段。
  */
 
-  getLatestAttrUpdate: () => NEXT_S2C_AttrUpdate | null;  
+  getLatestAttrUpdate: () => S2C_AttrUpdate | null;
   /**
  * setLatestAttrUpdate：LatestAttrUpdate相关字段。
  */
 
-  setLatestAttrUpdate: (value: NEXT_S2C_AttrUpdate | null) => void;  
+  setLatestAttrUpdate: (value: S2C_AttrUpdate | null) => void;
   /**
  * mergeAttrUpdatePatch：AttrUpdatePatch相关字段。
  */
 
-  mergeAttrUpdatePatch: (current: NEXT_S2C_AttrUpdate | null, data: NEXT_S2C_AttrUpdate) => NEXT_S2C_AttrUpdate;  
+  mergeAttrUpdatePatch: (current: S2C_AttrUpdate | null, data: S2C_AttrUpdate) => S2C_AttrUpdate;
   /**
  * cloneJson：Json相关字段。
  */
@@ -78,12 +78,12 @@ export function createMainAttrDetailStateSource(options: MainAttrDetailStateSour
     },    
     /**
  * handleAttrDetail：处理Attr详情并更新相关状态。
- * @param data NEXT_S2C_AttrDetail 原始数据。
+   * @param data S2C_AttrDetail 原始数据。
  * @returns 无返回值，直接更新Attr详情相关状态。
  */
 
 
-    handleAttrDetail(data: NEXT_S2C_AttrDetail): void {
+    handleAttrDetail(data: S2C_AttrDetail): void {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
       const player = options.getPlayer();
@@ -92,28 +92,28 @@ export function createMainAttrDetailStateSource(options: MainAttrDetailStateSour
       }
       const detail = options.cloneJson(data);
       const latestAttrUpdate = options.getLatestAttrUpdate();
-      const nextSpecialStats = latestAttrUpdate?.specialStats
+      const specialStats = latestAttrUpdate?.specialStats
         ? options.cloneJson(latestAttrUpdate.specialStats)
         : {
             foundation: Math.max(0, Math.floor(player.foundation ?? 0)),
             combatExp: Math.max(0, Math.floor(player.combatExp ?? 0)),
           };
-      const nextAttrUpdateBase = options.mergeAttrUpdatePatch(latestAttrUpdate, {
+      const attrUpdateBase = options.mergeAttrUpdatePatch(latestAttrUpdate, {
         baseAttrs: options.cloneJson(detail.baseAttrs),
         bonuses: options.cloneJson(detail.bonuses),
         finalAttrs: options.cloneJson(detail.finalAttrs),
         numericStats: options.cloneJson(detail.numericStats),
         ratioDivisors: options.cloneJson(detail.ratioDivisors),
-        specialStats: nextSpecialStats,
+        specialStats: specialStats,
         alchemySkill: options.cloneJson(detail.alchemySkill ?? player.alchemySkill),
         gatherSkill: options.cloneJson(detail.gatherSkill ?? player.gatherSkill),
         enhancementSkill: options.cloneJson(detail.enhancementSkill ?? player.enhancementSkill),
       });
-      const nextAttrUpdate: NEXT_S2C_AttrUpdate = {
-        ...nextAttrUpdateBase,
+      const attrUpdate: S2C_AttrUpdate = {
+        ...attrUpdateBase,
         numericStatBreakdowns: options.cloneJson(detail.numericStatBreakdowns),
       };
-      options.setLatestAttrUpdate(nextAttrUpdate);
+      options.setLatestAttrUpdate(attrUpdate);
 
       player.baseAttrs = options.cloneJson(detail.baseAttrs);
       player.bonuses = options.cloneJson(detail.bonuses);
@@ -123,7 +123,7 @@ export function createMainAttrDetailStateSource(options: MainAttrDetailStateSour
       player.alchemySkill = options.cloneJson(detail.alchemySkill ?? player.alchemySkill);
       player.gatherSkill = options.cloneJson(detail.gatherSkill ?? player.gatherSkill);
       player.enhancementSkill = options.cloneJson(detail.enhancementSkill ?? player.enhancementSkill);
-      options.attrPanel.update(nextAttrUpdate);
+      options.attrPanel.update(attrUpdate);
       options.attrPanel.applyDetail(detail);
     },
   };

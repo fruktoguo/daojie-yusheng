@@ -7,16 +7,16 @@ Object.defineProperty(exports, "__esModule", { value: true });
 const smoke_timeout_1 = require("./smoke-timeout");
 (0, smoke_timeout_1.installSmokeTimeout)(__filename);
 const socket_io_client_1 = require("socket.io-client");
-const shared_1 = require("@mud/shared-next");
+const shared_1 = require("@mud/shared");
 const env_alias_1 = require("../config/env-alias");
 /**
  * 记录服务端地址。
  */
-const serverUrl = (0, env_alias_1.resolveServerNextShadowUrl)() || 'http://127.0.0.1:11923';
+const serverUrl = (0, env_alias_1.resolveServerShadowUrl)() || 'http://127.0.0.1:11923';
 /**
  * 记录GMpassword。
  */
-const gmPassword = (0, env_alias_1.resolveServerNextGmPassword)('admin123');
+const gmPassword = (0, env_alias_1.resolveServerGmPassword)('admin123');
 const SHADOW_SMOKE_BOUNDARY = {
     answers: '已部署 shadow 实例上的只读 acceptance 与最小 GM/runtime read path 是否通过。',
     excludes: '不证明 destructive backup/restore、维护窗口是否开放、完整运营人工回归是否完成。',
@@ -106,7 +106,7 @@ async function main() {
         path: '/socket.io',
         transports: ['websocket'],
         auth: {
-            protocol: 'next',
+            protocol: 'mainline',
         },
     });
 /**
@@ -166,47 +166,47 @@ async function main() {
             legacyEvents.push(event);
         }
     });
-    socket.on(shared_1.NEXT_S2C.Error, (payload) => {
+    socket.on(shared_1.S2C.Error, (payload) => {
         socketError = new Error(`shadow socket error: ${JSON.stringify(payload)}`);
     });
-    socket.on(shared_1.NEXT_S2C.InitSession, (payload) => {
+    socket.on(shared_1.S2C.InitSession, (payload) => {
         sessionInit = payload;
         runtimePlayerId = String(payload?.pid ?? '');
         events.push(payload?.resumed ? 'init:resumed' : 'init:new');
     });
-    socket.on(shared_1.NEXT_S2C.MapEnter, () => {
+    socket.on(shared_1.S2C.MapEnter, () => {
         mapEnterCount += 1;
         events.push('mapEnter');
     });
-    socket.on(shared_1.NEXT_S2C.Bootstrap, () => {
+    socket.on(shared_1.S2C.Bootstrap, () => {
         bootstrapCount += 1;
         events.push('bootstrap');
     });
-    socket.on(shared_1.NEXT_S2C.MapStatic, () => {
+    socket.on(shared_1.S2C.MapStatic, () => {
         mapStaticCount += 1;
         events.push('mapStatic');
     });
-    socket.on(shared_1.NEXT_S2C.Realm, () => {
+    socket.on(shared_1.S2C.Realm, () => {
         realmCount += 1;
         events.push('realm');
     });
-    socket.on(shared_1.NEXT_S2C.WorldDelta, () => {
+    socket.on(shared_1.S2C.WorldDelta, () => {
         worldDeltaCount += 1;
         events.push('worldDelta');
     });
-    socket.on(shared_1.NEXT_S2C.SelfDelta, () => {
+    socket.on(shared_1.S2C.SelfDelta, () => {
         selfDeltaCount += 1;
         events.push('selfDelta');
     });
-    socket.on(shared_1.NEXT_S2C.PanelDelta, () => {
+    socket.on(shared_1.S2C.PanelDelta, () => {
         panelDeltaCount += 1;
         events.push('panelDelta');
     });
-    socket.on(shared_1.NEXT_S2C.GmState, (payload) => {
+    socket.on(shared_1.S2C.GmState, (payload) => {
         unexpectedGmStatePayloads.push(payload);
     });
     await onceConnected(socket);
-    socket.emit(shared_1.NEXT_C2S.Hello, {
+    socket.emit(shared_1.C2S.Hello, {
         mapId: 'yunlai_town',
         preferredX: 32,
         preferredY: 5,
@@ -227,7 +227,7 @@ async function main() {
         throw new Error(`shadow socket received legacy events: ${legacyEvents.join(', ')}`);
     }
     if (unexpectedGmStatePayloads.length > 0) {
-        throw new Error(`shadow non-gm socket unexpectedly received ${shared_1.NEXT_S2C.GmState}: ${JSON.stringify(unexpectedGmStatePayloads[0])}`);
+        throw new Error(`shadow non-gm socket unexpectedly received ${shared_1.S2C.GmState}: ${JSON.stringify(unexpectedGmStatePayloads[0])}`);
     }
 /**
  * 记录玩家状态payload。

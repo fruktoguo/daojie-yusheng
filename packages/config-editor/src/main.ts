@@ -35,7 +35,7 @@ import {
   type TechniqueCategory,
   type TechniqueGrade,
   type TechniqueLayerDef,
-} from '@mud/shared-next';
+} from '@mud/shared';
 import { GmMapEditor } from '../../../packages/client/src/gm-map-editor';
 
 /** 编辑器顶部页签的标识，决定当前显示地图、怪物、功法、文件还是服务状态。 */

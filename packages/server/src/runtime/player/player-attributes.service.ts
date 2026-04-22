@@ -13,7 +13,7 @@ exports.PlayerAttributesService = void 0;
 
 const common_1 = require("@nestjs/common");
 
-const shared_1 = require("@mud/shared-next");
+const shared_1 = require("@mud/shared");
 
 /** 玩家属性结算器：把境界、装备、buff 和根骨折算成最终面板。 */
 let PlayerAttributesService = class PlayerAttributesService {

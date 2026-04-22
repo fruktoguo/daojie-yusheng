@@ -2,7 +2,7 @@
  * 拾取面板
  * 以弹层形式展示地面物品和容器搜索结果，支持逐件或批量拿取
  */
-import { LootWindowState } from '@mud/shared-next';
+import { LootWindowState } from '@mud/shared';
 import { getTechniqueGradeLabel } from '../../domain-labels';
 import { detailModalHost } from '../detail-modal-host';
 import { formatDisplayCountBadge, formatDisplayInteger } from '../../utils/number';

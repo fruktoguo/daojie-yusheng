@@ -179,7 +179,7 @@
       "x": 62,
       "y": 16,
       "targetMapId": "spirit_ridge",
-      "targetX": 3,
+      "targetX": 1,
       "targetY": 36,
       "kind": "portal",
       "trigger": "manual",

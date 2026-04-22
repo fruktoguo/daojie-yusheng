@@ -3,8 +3,8 @@
  * 根据 SkillDef 和玩家上下文生成带公式预览的富文本提示内容
  */
 
-import { AttrKey, NumericScalarStatKey, SkillDef, SkillFormula, SkillFormulaVar, TemporaryBuffState, calcQiCostWithOutputLimit, formatBuffMaxStacks } from '@mud/shared-next';
-import type { PlayerState } from '@mud/shared-next';
+import { AttrKey, NumericScalarStatKey, SkillDef, SkillFormula, SkillFormulaVar, TemporaryBuffState, calcQiCostWithOutputLimit, formatBuffMaxStacks } from '@mud/shared';
+import type { PlayerState } from '@mud/shared';
 import { FORMULA_VAR_LABELS, FORMULA_VAR_META, type SkillScalingMeta } from '../constants/ui/skill-tooltip';
 import { getElementKeyLabel } from '../domain-labels';
 import { getLocalBuffTemplate, resolvePreviewSkill, resolvePreviewSkills } from '../content/local-templates';

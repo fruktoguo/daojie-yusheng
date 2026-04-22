@@ -1,4 +1,4 @@
-import { CAMERA_DELAY_SECONDS, CAMERA_SMOOTH_SPEED } from '@mud/shared-next';
+import { CAMERA_DELAY_SECONDS, CAMERA_SMOOTH_SPEED } from '@mud/shared';
 import type { MapSafeAreaInsets } from '../types';
 
 /** 摄像机状态快照。 */

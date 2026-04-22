@@ -1,46 +1,7 @@
 // @ts-nocheck
 
 /**
- * 用途：复制独立 dist 快照后执行 next 协议审计，避免被后台 watcher/compile 清空共享 dist。
+ * 用途：兼容旧入口，转发到 run-stable-protocol-audit。
  */
 
-import path from 'node:path';
-import { spawn } from 'node:child_process';
-import { createStableDistSnapshot, resolveToolPackageRoot } from './stable-dist';
-
-async function main() {
-  const packageRoot = resolveToolPackageRoot(__dirname);
-  const repoRoot = path.resolve(packageRoot, '..', '..');
-  const snapshot = createStableDistSnapshot({
-    label: 'next-protocol-audit',
-    packageRoot,
-  });
-  const scriptPath = path.join(snapshot.distRoot, 'tools', 'run-next-protocol-audit.js');
-
-  const child = spawn('node', [scriptPath, ...process.argv.slice(2)], {
-    cwd: repoRoot,
-    env: {
-      ...process.env,
-      SERVER_NEXT_PACKAGE_ROOT: packageRoot,
-      SERVER_NEXT_TOOL_DIST_ROOT: snapshot.distRoot,
-    },
-    stdio: 'inherit',
-  });
-
-  await new Promise<void>((resolve, reject) => {
-    child.once('error', reject);
-    child.once('exit', (code, signal) => {
-      snapshot.cleanup();
-      if (code === 0) {
-        resolve();
-        return;
-      }
-      reject(new Error(`run-stable-next-protocol-audit failed: code=${code ?? 'null'} signal=${signal ?? 'none'}`));
-    });
-  });
-}
-
-void main().catch((error) => {
-  console.error(error);
-  process.exitCode = 1;
-});
+require('./run-stable-protocol-audit');

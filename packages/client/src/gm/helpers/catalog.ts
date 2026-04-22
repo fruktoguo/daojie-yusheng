@@ -14,7 +14,7 @@ import {
   EQUIP_SLOT_LABELS,
   GM_MAIL_TEMPLATE_OPTIONS,
   ITEM_TYPE_LABELS,
-} from '@mud/shared-next';
+} from '@mud/shared';
 
 /** EditorCatalog：GM 编辑器当前会话所用的目录快照。 */
 export type EditorCatalog = GmEditorCatalogRes | null;

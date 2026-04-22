@@ -2,7 +2,7 @@
 
 const assert = require("node:assert/strict");
 
-const { NEXT_S2C } = require("@mud/shared-next");
+const { S2C } = require("@mud/shared");
 const { WorldGatewayCraftHelper } = require("../network/world-gateway-craft.helper");
 
 function createGateway(log = [], playerId = 'player:1') {
@@ -67,22 +67,22 @@ function testRequestAndCommandDelegation() {
     const helper = new WorldGatewayCraftHelper(gateway);
     const client = createClient(log);
 
-    helper.handleNextRequestTechniqueActivityPanel(client, { knownCatalogVersion: 7 }, 'alchemy');
-    helper.handleNextRequestEnhancementPanel(client, {}, );
-    helper.handleNextStartTechniqueActivity(client, { recipeId: 'recipe:1' }, 'alchemy');
-    helper.handleNextCancelTechniqueActivity(client, 'enhancement');
-    helper.handleNextSaveAlchemyPreset(client, { presetId: 'preset:1' });
-    helper.handleNextDeleteAlchemyPreset(client, { presetId: 'preset:2' });
+    helper.handleRequestTechniqueActivityPanel(client, { knownCatalogVersion: 7 }, 'alchemy');
+    helper.handleRequestEnhancementPanel(client, {}, );
+    helper.handleStartTechniqueActivity(client, { recipeId: 'recipe:1' }, 'alchemy');
+    helper.handleCancelTechniqueActivity(client, 'enhancement');
+    helper.handleSaveAlchemyPreset(client, { presetId: 'preset:1' });
+    helper.handleDeleteAlchemyPreset(client, { presetId: 'preset:2' });
 
     assert.deepEqual(log, [
         ['getPlayer', 'player:1'],
         ['markProtocol', 'socket:1', 'next'],
         ['buildTechniqueActivityPanelPayload', 'player:1', 'alchemy', 7],
-        ['emit', NEXT_S2C.AlchemyPanel, { kind: 'alchemy', knownCatalogVersion: 7 }],
+        ['emit', S2C.AlchemyPanel, { kind: 'alchemy', knownCatalogVersion: 7 }],
         ['getPlayer', 'player:1'],
         ['markProtocol', 'socket:1', 'next'],
         ['buildTechniqueActivityPanelPayload', 'player:1', 'enhancement', null],
-        ['emit', NEXT_S2C.EnhancementPanel, { kind: 'enhancement', knownCatalogVersion: null }],
+        ['emit', S2C.EnhancementPanel, { kind: 'enhancement', knownCatalogVersion: null }],
         ['markProtocol', 'socket:1', 'next'],
         ['enqueueStartTechniqueActivity', 'player:1', 'alchemy', { recipeId: 'recipe:1' }, true],
         ['markProtocol', 'socket:1', 'next'],
@@ -100,10 +100,10 @@ function testGuardFailureSkipsWork() {
     const helper = new WorldGatewayCraftHelper(gateway);
     const client = createClient(log);
 
-    helper.handleNextRequestTechniqueActivityPanel(client, { knownCatalogVersion: 1 }, 'alchemy');
-    helper.handleNextStartTechniqueActivity(client, { recipeId: 'recipe:1' }, 'alchemy');
-    helper.handleNextCancelTechniqueActivity(client, 'alchemy');
-    helper.handleNextSaveAlchemyPreset(client, { presetId: 'preset:1' });
+    helper.handleRequestTechniqueActivityPanel(client, { knownCatalogVersion: 1 }, 'alchemy');
+    helper.handleStartTechniqueActivity(client, { recipeId: 'recipe:1' }, 'alchemy');
+    helper.handleCancelTechniqueActivity(client, 'alchemy');
+    helper.handleSaveAlchemyPreset(client, { presetId: 'preset:1' });
 
     assert.deepEqual(log, []);
 }
@@ -129,11 +129,11 @@ function testGatewayErrorCodes() {
 
     const helper = new WorldGatewayCraftHelper(gateway);
     const client = createClient(log);
-    helper.handleNextRequestTechniqueActivityPanel(client, { knownCatalogVersion: 0 }, 'enhancement');
-    helper.handleNextStartTechniqueActivity(client, { itemId: 'item:1' }, 'enhancement');
-    helper.handleNextCancelTechniqueActivity(client, 'alchemy');
-    helper.handleNextSaveAlchemyPreset(client, { presetId: 'preset:1' });
-    helper.handleNextDeleteAlchemyPreset(client, { presetId: 'preset:2' });
+    helper.handleRequestTechniqueActivityPanel(client, { knownCatalogVersion: 0 }, 'enhancement');
+    helper.handleStartTechniqueActivity(client, { itemId: 'item:1' }, 'enhancement');
+    helper.handleCancelTechniqueActivity(client, 'alchemy');
+    helper.handleSaveAlchemyPreset(client, { presetId: 'preset:1' });
+    helper.handleDeleteAlchemyPreset(client, { presetId: 'preset:2' });
 
     assert.deepEqual(log, [
         ['getPlayer', 'player:1'],

@@ -12,7 +12,7 @@ const repoRoot = path.resolve(__dirname, '..', '..', '..');
 const protocolPath = path.resolve(__dirname, '../src/protocol.ts');
 const protobufPath = path.resolve(__dirname, '../src/network-protobuf.ts');
 const protobufSchemaPath = path.resolve(__dirname, '../src/network-protobuf-schema.ts');
-const serverAuditPath = path.resolve(repoRoot, 'packages/server/src/tools/next-protocol-audit.ts');
+const serverAuditPath = path.resolve(repoRoot, 'packages/server/src/tools/protocol-audit.ts');
 
 const protocolSource = fs.readFileSync(protocolPath, 'utf8');
 const protocolFile = ts.createSourceFile(protocolPath, protocolSource, ts.ScriptTarget.Latest, true);
@@ -34,13 +34,13 @@ const EXPECTED_STATIC_S2C_SURFACES = [
   {
     label: 'world-sync-protocol service emits',
     relativePath: 'packages/server/src/network/world-sync-protocol.service.ts',
-    qualifierName: 'NEXT_S2C',
+    qualifierName: 'S2C',
     expectedMembers: ['Bootstrap', 'InitSession', 'LootWindowUpdate', 'MapEnter', 'MapStatic', 'Notice', 'PanelDelta', 'Quests', 'Realm', 'SelfDelta', 'WorldDelta'],
   },
   {
     label: 'world-client-event service emits',
     relativePath: 'packages/server/src/network/world-client-event.service.ts',
-    qualifierName: 'NEXT_S2C',
+    qualifierName: 'S2C',
     expectedMembers: [
       'Error',
       'LootWindowUpdate',
@@ -66,7 +66,7 @@ const EXPECTED_STATIC_S2C_SURFACES = [
   {
     label: 'world-protocol-projection service emits',
     relativePath: 'packages/server/src/network/world-protocol-projection.service.ts',
-    qualifierName: 'NEXT_S2C',
+    qualifierName: 'S2C',
     expectedMembers: ['TileDetail'],
   },
 ];
@@ -291,7 +291,7 @@ function extractStaticSurfaceChecks(sourceFile) {
       label: labelNode.text,
       relativePath: pathNode.text,
       qualifierName: qualifierNode.text,
-      expectedMembers: extractStringArray(membersNode, sourceFile, 'NEXT_S2C'),
+      expectedMembers: extractStringArray(membersNode, sourceFile, qualifierNode.text),
     };
   });
 }

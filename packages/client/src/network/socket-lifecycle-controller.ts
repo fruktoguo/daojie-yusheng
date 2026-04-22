@@ -1,5 +1,5 @@
 import type { Socket } from 'socket.io-client';
-import { NEXT_S2C, PLAYER_HEARTBEAT_INTERVAL_MS } from '@mud/shared-next';
+import { S2C, PLAYER_HEARTBEAT_INTERVAL_MS } from '@mud/shared';
 /**
  * SocketLifecycleControllerDeps：统一结构类型，保证协议与运行时一致性。
  */
@@ -76,7 +76,7 @@ export function createSocketLifecycleController(deps: SocketLifecycleControllerD
         deps.sendHello();
       });
 
-      socket.on(NEXT_S2C.Kick, () => {
+      socket.on(S2C.Kick, () => {
         onKickCallbacks.forEach((cb) => cb());
         deps.disconnect();
       });

@@ -3,7 +3,7 @@ import {
   type Attributes,
   NUMERIC_SCALAR_STAT_KEYS,
   type PartialNumericStats,
-} from '@mud/shared-next';
+} from '@mud/shared';
 import { getAttrKeyLabel, getElementKeyLabel, getNumericScalarStatKeyLabel } from '../domain-labels';
 import { PERCENT_STAT_KEYS } from '../constants/ui/stat-preview';
 import { formatDisplayNumber, formatDisplaySignedNumber, formatDisplayPercent } from '../utils/number';

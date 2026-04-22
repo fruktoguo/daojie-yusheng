@@ -3,13 +3,13 @@ import {
   type ActionUpdateEntry,
   type Attributes,
   type Inventory,
-  type NEXT_S2C_ActionsUpdate,
-  type NEXT_S2C_AttrUpdate,
-  type NEXT_S2C_EquipmentUpdate,
-  type NEXT_S2C_InventoryUpdate,
-  type NEXT_S2C_PanelActionDelta,
-  type NEXT_S2C_PanelTechniqueDelta,
-  type NEXT_S2C_TechniqueUpdate,
+  type S2C_ActionsUpdate,
+  type S2C_AttrUpdate,
+  type S2C_EquipmentUpdate,
+  type S2C_InventoryUpdate,
+  type S2C_PanelActionDelta,
+  type S2C_PanelTechniqueDelta,
+  type S2C_TechniqueUpdate,
   type NumericRatioDivisors,
   type NumericStats,
   type PartialNumericRatioDivisors,
@@ -21,7 +21,7 @@ import {
   EQUIP_SLOTS,
   isPlainEqual,
   TechniqueRealm,
-} from '@mud/shared-next';
+} from '@mud/shared';
 import {
   getLocalItemTemplate,
   getLocalSkillTemplate,
@@ -53,7 +53,7 @@ type MainPanelDeltaStateSourceOptions = {
  * update：update相关字段。
  */
 
-    update: (value: NEXT_S2C_AttrUpdate) => void;
+    update: (value: S2C_AttrUpdate) => void;
     /**
  * invalidateDetail：标记属性详情过期。
  */
@@ -96,7 +96,7 @@ type MainPanelDeltaStateSourceOptions = {
  * syncAttrUpdate：AttrUpdate相关字段。
  */
 
-    syncAttrUpdate: (value: NEXT_S2C_AttrUpdate) => void;    
+    syncAttrUpdate: (value: S2C_AttrUpdate) => void;    
     /**
  * syncEquipment：装备相关字段。
  */
@@ -175,7 +175,7 @@ type MainPanelDeltaStateSourceOptions = {
  * syncAttrBridgeState：Attr桥接状态状态或数据块。
  */
 
-  syncAttrBridgeState: (value: NEXT_S2C_AttrUpdate | null) => void;  
+  syncAttrBridgeState: (value: S2C_AttrUpdate | null) => void;  
   /**
  * syncPlayerBridgeState：玩家桥接状态状态或数据块。
  */
@@ -396,7 +396,7 @@ export type MainPanelDeltaStateSource = ReturnType<typeof createMainPanelDeltaSt
 
 
 export function createMainPanelDeltaStateSource(options: MainPanelDeltaStateSourceOptions) {
-  let latestAttrUpdate: NEXT_S2C_AttrUpdate | null = null;
+  let latestAttrUpdate: S2C_AttrUpdate | null = null;
   let latestTechniqueMap = new Map<string, TechniqueState>();
   let latestActionMap = new Map<string, ActionDef>();  
   /**
@@ -406,7 +406,7 @@ export function createMainPanelDeltaStateSource(options: MainPanelDeltaStateSour
  */
 
 
-  function buildAttrStateFromPlayer(player: PlayerState): NEXT_S2C_AttrUpdate {
+  function buildAttrStateFromPlayer(player: PlayerState): S2C_AttrUpdate {
     return {
       baseAttrs: cloneJson(player.baseAttrs),
       bonuses: cloneJson(player.bonuses),
@@ -432,13 +432,13 @@ export function createMainPanelDeltaStateSource(options: MainPanelDeltaStateSour
   }  
   /**
  * mergeAttrUpdatePatch：处理AttrUpdatePatch并更新相关状态。
- * @param previous NEXT_S2C_AttrUpdate | null 参数说明。
- * @param patch NEXT_S2C_AttrUpdate 参数说明。
+ * @param previous S2C_AttrUpdate | null 参数说明。
+ * @param patch S2C_AttrUpdate 参数说明。
  * @returns 返回AttrUpdatePatch。
  */
 
 
-  function mergeAttrUpdatePatch(previous: NEXT_S2C_AttrUpdate | null, patch: NEXT_S2C_AttrUpdate): NEXT_S2C_AttrUpdate {
+  function mergeAttrUpdatePatch(previous: S2C_AttrUpdate | null, patch: S2C_AttrUpdate): S2C_AttrUpdate {
     const player = options.getPlayer();
     const fallbackBaseAttrs = player?.baseAttrs ?? {
       constitution: 0,
@@ -490,13 +490,13 @@ export function createMainPanelDeltaStateSource(options: MainPanelDeltaStateSour
   }  
   /**
  * mergeTechniquePatch：读取功法Patch并返回结果。
- * @param patch import('@mud/shared-next').TechniqueUpdateEntry 参数说明。
+ * @param patch import('@mud/shared').TechniqueUpdateEntry 参数说明。
  * @param previous TechniqueState 参数说明。
  * @returns 返回功法Patch。
  */
 
 
-  function mergeTechniquePatch(patch: import('@mud/shared-next').TechniqueUpdateEntry, previous?: TechniqueState): TechniqueState {
+  function mergeTechniquePatch(patch: import('@mud/shared').TechniqueUpdateEntry, previous?: TechniqueState): TechniqueState {
     const previousSameTechnique = previous?.techId === patch.techId ? previous : undefined;
     const template = getLocalTechniqueTemplate(patch.techId);
     const mergedSkills = applyNullablePatch(patch.skills, previousSameTechnique?.skills);
@@ -600,12 +600,12 @@ export function createMainPanelDeltaStateSource(options: MainPanelDeltaStateSour
   /**
  * mergeInventoryUpdate：处理背包Update并更新相关状态。
  * @param previous Inventory | undefined 参数说明。
- * @param patch NEXT_S2C_InventoryUpdate 参数说明。
+ * @param patch S2C_InventoryUpdate 参数说明。
  * @returns 返回背包Update。
  */
 
 
-  function mergeInventoryUpdate(previous: Inventory | undefined, patch: NEXT_S2C_InventoryUpdate): Inventory {
+  function mergeInventoryUpdate(previous: Inventory | undefined, patch: S2C_InventoryUpdate): Inventory {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
     if (patch.inventory) {
@@ -646,12 +646,12 @@ export function createMainPanelDeltaStateSource(options: MainPanelDeltaStateSour
   /**
  * mergeEquipmentUpdate：处理装备Update并更新相关状态。
  * @param previous PlayerState['equipment'] | undefined 参数说明。
- * @param patch NEXT_S2C_EquipmentUpdate 参数说明。
+ * @param patch S2C_EquipmentUpdate 参数说明。
  * @returns 返回装备Update。
  */
 
 
-  function mergeEquipmentUpdate(previous: PlayerState['equipment'] | undefined, patch: NEXT_S2C_EquipmentUpdate): PlayerState['equipment'] {
+  function mergeEquipmentUpdate(previous: PlayerState['equipment'] | undefined, patch: S2C_EquipmentUpdate): PlayerState['equipment'] {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
     const next = previous
@@ -680,13 +680,13 @@ export function createMainPanelDeltaStateSource(options: MainPanelDeltaStateSour
   }  
   /**
  * mergeTechniqueStates：读取功法状态并返回结果。
- * @param patches import('@mud/shared-next').TechniqueUpdateEntry[] 参数说明。
+ * @param patches import('@mud/shared').TechniqueUpdateEntry[] 参数说明。
  * @param removeTechniqueIds string[] removeTechnique ID 集合。
  * @returns 返回功法状态列表。
  */
 
 
-  function mergeTechniqueStates(patches: import('@mud/shared-next').TechniqueUpdateEntry[], removeTechniqueIds: string[] = []): TechniqueState[] {
+  function mergeTechniqueStates(patches: import('@mud/shared').TechniqueUpdateEntry[], removeTechniqueIds: string[] = []): TechniqueState[] {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
     const removedIdSet = new Set(removeTechniqueIds);
@@ -884,17 +884,17 @@ export function createMainPanelDeltaStateSource(options: MainPanelDeltaStateSour
  * @returns 返回LatestAttrUpdate。
  */
 
-    getLatestAttrUpdate(): NEXT_S2C_AttrUpdate | null {
+    getLatestAttrUpdate(): S2C_AttrUpdate | null {
       return latestAttrUpdate;
     },    
     /**
  * setLatestAttrUpdate：写入最新AttrUpdate。
- * @param value NEXT_S2C_AttrUpdate | null 参数说明。
+ * @param value S2C_AttrUpdate | null 参数说明。
  * @returns 无返回值，直接更新LatestAttrUpdate相关状态。
  */
 
 
-    setLatestAttrUpdate(value: NEXT_S2C_AttrUpdate | null): void {
+    setLatestAttrUpdate(value: S2C_AttrUpdate | null): void {
       latestAttrUpdate = value;
     },
 
@@ -936,12 +936,12 @@ export function createMainPanelDeltaStateSource(options: MainPanelDeltaStateSour
     },    
     /**
  * handleAttrUpdate：处理AttrUpdate并更新相关状态。
- * @param data NEXT_S2C_AttrUpdate 原始数据。
+ * @param data S2C_AttrUpdate 原始数据。
  * @returns 无返回值，直接更新AttrUpdate相关状态。
  */
 
 
-    handleAttrUpdate(data: NEXT_S2C_AttrUpdate): void {
+    handleAttrUpdate(data: S2C_AttrUpdate): void {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
       options.attrPanel.invalidateDetail?.();
@@ -984,12 +984,12 @@ export function createMainPanelDeltaStateSource(options: MainPanelDeltaStateSour
     },    
     /**
  * handleInventoryUpdate：处理背包Update并更新相关状态。
- * @param data NEXT_S2C_InventoryUpdate 原始数据。
+ * @param data S2C_InventoryUpdate 原始数据。
  * @returns 无返回值，直接更新背包Update相关状态。
  */
 
 
-    handleInventoryUpdate(data: NEXT_S2C_InventoryUpdate): void {
+    handleInventoryUpdate(data: S2C_InventoryUpdate): void {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
       const player = options.getPlayer();
@@ -1004,12 +1004,12 @@ export function createMainPanelDeltaStateSource(options: MainPanelDeltaStateSour
     },    
     /**
  * handleEquipmentUpdate：处理装备Update并更新相关状态。
- * @param data NEXT_S2C_EquipmentUpdate 原始数据。
+ * @param data S2C_EquipmentUpdate 原始数据。
  * @returns 无返回值，直接更新装备Update相关状态。
  */
 
 
-    handleEquipmentUpdate(data: NEXT_S2C_EquipmentUpdate): void {
+    handleEquipmentUpdate(data: S2C_EquipmentUpdate): void {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
       const player = options.getPlayer();
@@ -1025,12 +1025,12 @@ export function createMainPanelDeltaStateSource(options: MainPanelDeltaStateSour
     },    
     /**
  * handleTechniqueUpdate：处理功法Update并更新相关状态。
- * @param data NEXT_S2C_TechniqueUpdate | NEXT_S2C_PanelTechniqueDelta 原始数据。
+ * @param data S2C_TechniqueUpdate | S2C_PanelTechniqueDelta 原始数据。
  * @returns 无返回值，直接更新功法Update相关状态。
  */
 
 
-    handleTechniqueUpdate(data: NEXT_S2C_TechniqueUpdate | NEXT_S2C_PanelTechniqueDelta): void {
+    handleTechniqueUpdate(data: S2C_TechniqueUpdate | S2C_PanelTechniqueDelta): void {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
       const player = options.getPlayer();
@@ -1064,12 +1064,12 @@ export function createMainPanelDeltaStateSource(options: MainPanelDeltaStateSour
     },    
     /**
  * handleActionsUpdate：处理ActionUpdate并更新相关状态。
- * @param data NEXT_S2C_ActionsUpdate | NEXT_S2C_PanelActionDelta 原始数据。
+ * @param data S2C_ActionsUpdate | S2C_PanelActionDelta 原始数据。
  * @returns 无返回值，直接更新ActionUpdate相关状态。
  */
 
 
-    handleActionsUpdate(data: NEXT_S2C_ActionsUpdate | NEXT_S2C_PanelActionDelta): void {
+    handleActionsUpdate(data: S2C_ActionsUpdate | S2C_PanelActionDelta): void {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
       const player = options.getPlayer();

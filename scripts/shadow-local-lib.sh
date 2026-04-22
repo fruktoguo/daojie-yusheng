@@ -9,10 +9,10 @@ SHADOW_RUNTIME_DIR="${SHADOW_REPO_ROOT}/.runtime"
 SHADOW_PID_FILE="${SHADOW_RUNTIME_DIR}/server-next-shadow.pid"
 SHADOW_LOG_FILE="${SHADOW_RUNTIME_DIR}/server-next-shadow.log"
 SHADOW_DIST_ROOT_FILE="${SHADOW_RUNTIME_DIR}/server-next-shadow.dist-root"
-SHADOW_PORT="${SERVER_NEXT_SHADOW_PORT:-11923}"
+SHADOW_PORT="${SERVER_SHADOW_PORT:-11923}"
 SHADOW_URL_DEFAULT="http://127.0.0.1:${SHADOW_PORT}"
-SHADOW_COMPOSE_FILE="${SERVER_NEXT_COMPOSE_FILE:-docker-compose.server-next.yml}"
-SHADOW_COMPOSE_PROJECT="${SERVER_NEXT_COMPOSE_PROJECT:-mud-next-local}"
+SHADOW_COMPOSE_FILE="${SERVER_COMPOSE_FILE:-docker-compose.server.yml}"
+SHADOW_COMPOSE_PROJECT="${SERVER_COMPOSE_PROJECT:-mud-next-local}"
 
 shadow_repo_root() {
   printf '%s\n' "${SHADOW_REPO_ROOT}"
@@ -37,7 +37,7 @@ shadow_source_env_file_if_present() {
 
 shadow_load_local_env() {
   cd "${SHADOW_REPO_ROOT}"
-  shadow_source_env_file_if_present ".runtime/server-next.local.env"
+  shadow_source_env_file_if_present ".runtime/server.local.env"
   shadow_source_env_file_if_present ".env"
   shadow_source_env_file_if_present ".env.local"
   shadow_source_env_file_if_present "packages/server/.env"
@@ -54,30 +54,30 @@ shadow_require_command() {
 
 shadow_prepare_env() {
   shadow_load_local_env
-  export SERVER_NEXT_HOST="${SERVER_NEXT_HOST:-127.0.0.1}"
-  export SERVER_NEXT_PORT="${SERVER_NEXT_PORT:-${SHADOW_PORT}}"
-  export SERVER_NEXT_RUNTIME_HTTP="${SERVER_NEXT_RUNTIME_HTTP:-1}"
-  export SERVER_NEXT_SHADOW_URL="${SERVER_NEXT_SHADOW_URL:-${SHADOW_URL_DEFAULT}}"
-  export SERVER_NEXT_URL="${SERVER_NEXT_URL:-${SERVER_NEXT_SHADOW_URL}}"
-  export SERVER_NEXT_DATABASE_URL="${SERVER_NEXT_DATABASE_URL:-${DATABASE_URL:-}}"
-  export DATABASE_URL="${DATABASE_URL:-${SERVER_NEXT_DATABASE_URL:-}}"
-  export SERVER_NEXT_GM_PASSWORD="${SERVER_NEXT_GM_PASSWORD:-${GM_PASSWORD:-}}"
-  export GM_PASSWORD="${GM_PASSWORD:-${SERVER_NEXT_GM_PASSWORD:-}}"
+  export SERVER_HOST="${SERVER_HOST:-127.0.0.1}"
+  export SERVER_PORT="${SERVER_PORT:-${SHADOW_PORT}}"
+  export SERVER_RUNTIME_HTTP="${SERVER_RUNTIME_HTTP:-1}"
+  export SERVER_SHADOW_URL="${SERVER_SHADOW_URL:-${SHADOW_URL_DEFAULT}}"
+  export SERVER_URL="${SERVER_URL:-${SERVER_SHADOW_URL}}"
+  export SERVER_DATABASE_URL="${SERVER_DATABASE_URL:-${DATABASE_URL:-}}"
+  export DATABASE_URL="${DATABASE_URL:-${SERVER_DATABASE_URL:-}}"
+  export SERVER_GM_PASSWORD="${SERVER_GM_PASSWORD:-${GM_PASSWORD:-}}"
+  export GM_PASSWORD="${GM_PASSWORD:-${SERVER_GM_PASSWORD:-}}"
 
-  if [[ -z "${SERVER_NEXT_DATABASE_URL:-}" ]]; then
-    echo "!! 缺少环境变量: SERVER_NEXT_DATABASE_URL 或 DATABASE_URL" >&2
+  if [[ -z "${SERVER_DATABASE_URL:-}" ]]; then
+    echo "!! 缺少环境变量: SERVER_DATABASE_URL 或 DATABASE_URL" >&2
     exit 1
   fi
-  if [[ -z "${SERVER_NEXT_GM_PASSWORD:-}" ]]; then
-    echo "!! 缺少环境变量: SERVER_NEXT_GM_PASSWORD 或 GM_PASSWORD" >&2
+  if [[ -z "${SERVER_GM_PASSWORD:-}" ]]; then
+    echo "!! 缺少环境变量: SERVER_GM_PASSWORD 或 GM_PASSWORD" >&2
     exit 1
   fi
-  if [[ -z "${SERVER_NEXT_PLAYER_TOKEN_SECRET:-${NEXT_PLAYER_TOKEN_SECRET:-}}" ]]; then
-    echo "!! 缺少环境变量: SERVER_NEXT_PLAYER_TOKEN_SECRET 或 NEXT_PLAYER_TOKEN_SECRET" >&2
+  if [[ -z "${SERVER_PLAYER_TOKEN_SECRET:-${SERVER_PLAYER_TOKEN_SECRET:-}}" ]]; then
+    echo "!! 缺少环境变量: SERVER_PLAYER_TOKEN_SECRET 或 SERVER_PLAYER_TOKEN_SECRET" >&2
     exit 1
   fi
-  if [[ -z "${SERVER_NEXT_RUNTIME_TOKEN:-}" ]]; then
-    echo "!! 缺少环境变量: SERVER_NEXT_RUNTIME_TOKEN" >&2
+  if [[ -z "${SERVER_RUNTIME_TOKEN:-}" ]]; then
+    echo "!! 缺少环境变量: SERVER_RUNTIME_TOKEN" >&2
     exit 1
   fi
 }
@@ -109,7 +109,7 @@ shadow_compile_server() {
   echo "==> 编译 server-next ..."
   (
     cd "${SHADOW_REPO_ROOT}"
-    pnpm --filter @mud/server-next compile
+    pnpm --filter @mud/server compile
   )
 }
 
@@ -209,7 +209,7 @@ shadow_stop_existing() {
 shadow_wait_for_health() {
   local expected_maintenance="$1"
   local timeout_seconds="${2:-60}"
-  local health_url="${SERVER_NEXT_SHADOW_URL:-${SHADOW_URL_DEFAULT}}/health"
+  local health_url="${SERVER_SHADOW_URL:-${SHADOW_URL_DEFAULT}}/health"
   local elapsed=0
   local response=""
 
@@ -249,9 +249,9 @@ shadow_start() {
   shadow_runtime_dir >/dev/null
 
   if [[ "${maintenance_flag}" == "1" ]]; then
-    export SERVER_NEXT_RUNTIME_MAINTENANCE=1
+    export SERVER_RUNTIME_MAINTENANCE=1
   else
-    unset SERVER_NEXT_RUNTIME_MAINTENANCE || true
+    unset SERVER_RUNTIME_MAINTENANCE || true
   fi
 
   echo "==> 启动本地 next shadow (maintenance=${maintenance_flag}) ..."
@@ -260,12 +260,12 @@ shadow_start() {
 	(
 	  cd "${SHADOW_REPO_ROOT}"
 	  if command -v setsid >/dev/null 2>&1; then
-	    SERVER_NEXT_PACKAGE_ROOT="${SHADOW_REPO_ROOT}/packages/server" \
-	      SERVER_NEXT_ALLOW_UNREADY_TRAFFIC=1 SERVER_NEXT_SMOKE_ALLOW_UNREADY=1 \
+	    SERVER_PACKAGE_ROOT="${SHADOW_REPO_ROOT}/packages/server" \
+	      SERVER_ALLOW_UNREADY_TRAFFIC=1 SERVER_SMOKE_ALLOW_UNREADY=1 \
 	        setsid node "${shadow_dist_root}/main.js" >> "${SHADOW_LOG_FILE}" 2>&1 < /dev/null &
 	  else
-	    SERVER_NEXT_PACKAGE_ROOT="${SHADOW_REPO_ROOT}/packages/server" \
-	      SERVER_NEXT_ALLOW_UNREADY_TRAFFIC=1 SERVER_NEXT_SMOKE_ALLOW_UNREADY=1 \
+	    SERVER_PACKAGE_ROOT="${SHADOW_REPO_ROOT}/packages/server" \
+	      SERVER_ALLOW_UNREADY_TRAFFIC=1 SERVER_SMOKE_ALLOW_UNREADY=1 \
 	        nohup node "${shadow_dist_root}/main.js" >> "${SHADOW_LOG_FILE}" 2>&1 < /dev/null &
 	  fi
 	  echo "$!" > "${SHADOW_PID_FILE}"
@@ -285,7 +285,7 @@ shadow_status() {
     pid="$(cat "${SHADOW_PID_FILE}" 2>/dev/null || true)"
   fi
 
-  echo "shadow_url=${SERVER_NEXT_SHADOW_URL:-${SHADOW_URL_DEFAULT}}"
+  echo "shadow_url=${SERVER_SHADOW_URL:-${SHADOW_URL_DEFAULT}}"
   echo "shadow_port=${SHADOW_PORT}"
   echo "pid=${pid:-none}"
   echo "log=${SHADOW_LOG_FILE}"
@@ -300,7 +300,7 @@ shadow_status() {
   fi
 
   local response=""
-  response="$(curl -sS -m 2 "${SERVER_NEXT_SHADOW_URL:-${SHADOW_URL_DEFAULT}}/health" || true)"
+  response="$(curl -sS -m 2 "${SERVER_SHADOW_URL:-${SHADOW_URL_DEFAULT}}/health" || true)"
   if [[ -n "${response}" ]]; then
     echo "health=${response}"
   else

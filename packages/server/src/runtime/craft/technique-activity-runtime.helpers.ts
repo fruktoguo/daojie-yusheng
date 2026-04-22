@@ -1,4 +1,4 @@
-const shared_1 = require("@mud/shared-next");
+const shared_1 = require("@mud/shared");
 
 /**
  * hasTechniqueActivityJob：判断技艺活动 job 是否仍处于进行中。

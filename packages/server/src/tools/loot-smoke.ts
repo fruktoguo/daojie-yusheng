@@ -8,12 +8,12 @@ Object.defineProperty(exports, "__esModule", { value: true });
 const smoke_timeout_1 = require("./smoke-timeout");
 (0, smoke_timeout_1.installSmokeTimeout)(__filename);
 const socket_io_client_1 = require("socket.io-client");
-const shared_1 = require("@mud/shared-next");
+const shared_1 = require("@mud/shared");
 const env_alias_1 = require("../config/env-alias");
 /**
- * 记录 server-next 访问地址。
+ * 记录 server 访问地址。
  */
-const SERVER_NEXT_URL = (0, env_alias_1.resolveServerNextUrl)() || 'http://127.0.0.1:3111';
+const SERVER_URL = (0, env_alias_1.resolveServerUrl)() || 'http://127.0.0.1:3111';
 /**
  * 记录dropperID。
  */
@@ -39,16 +39,22 @@ async function main() {
 /**
  * 记录dropper。
  */
-    const dropper = (0, socket_io_client_1.io)(SERVER_NEXT_URL, {
+    const dropper = (0, socket_io_client_1.io)(SERVER_URL, {
         path: '/socket.io',
         transports: ['websocket'],
+        auth: {
+            protocol: 'mainline',
+        },
     });
 /**
  * 记录looter。
  */
-    const looter = (0, socket_io_client_1.io)(SERVER_NEXT_URL, {
+    const looter = (0, socket_io_client_1.io)(SERVER_URL, {
         path: '/socket.io',
         transports: ['websocket'],
+        auth: {
+            protocol: 'mainline',
+        },
     });
 /**
  * 记录dropperpanels。
@@ -66,37 +72,37 @@ async function main() {
  * 记录looterworld。
  */
     const looterWorld = [];
-    dropper.on(shared_1.NEXT_S2C.Error, (payload) => {
+    dropper.on(shared_1.S2C.Error, (payload) => {
         throw new Error(`dropper socket error: ${JSON.stringify(payload)}`);
     });
-    looter.on(shared_1.NEXT_S2C.Error, (payload) => {
+    looter.on(shared_1.S2C.Error, (payload) => {
         throw new Error(`looter socket error: ${JSON.stringify(payload)}`);
     });
-    dropper.on(shared_1.NEXT_S2C.PanelDelta, (payload) => {
+    dropper.on(shared_1.S2C.PanelDelta, (payload) => {
         dropperPanels.push(payload);
     });
-    looter.on(shared_1.NEXT_S2C.PanelDelta, (payload) => {
+    looter.on(shared_1.S2C.PanelDelta, (payload) => {
         looterPanels.push(payload);
     });
-    dropper.on(shared_1.NEXT_S2C.WorldDelta, (payload) => {
+    dropper.on(shared_1.S2C.WorldDelta, (payload) => {
         dropperWorld.push(payload);
     });
-    looter.on(shared_1.NEXT_S2C.WorldDelta, (payload) => {
+    looter.on(shared_1.S2C.WorldDelta, (payload) => {
         looterWorld.push(payload);
     });
-    dropper.on(shared_1.NEXT_S2C.InitSession, (payload) => {
+    dropper.on(shared_1.S2C.InitSession, (payload) => {
         dropperId = String(payload?.pid ?? '');
     });
-    looter.on(shared_1.NEXT_S2C.InitSession, (payload) => {
+    looter.on(shared_1.S2C.InitSession, (payload) => {
         looterId = String(payload?.pid ?? '');
     });
     await Promise.all([onceConnected(dropper), onceConnected(looter)]);
-    dropper.emit(shared_1.NEXT_C2S.Hello, {
+    dropper.emit(shared_1.C2S.Hello, {
         mapId: 'yunlai_town',
         preferredX: 32,
         preferredY: 5,
     });
-    looter.emit(shared_1.NEXT_C2S.Hello, {
+    looter.emit(shared_1.C2S.Hello, {
         mapId: 'yunlai_town',
         preferredX: 33,
         preferredY: 5,
@@ -152,7 +158,7 @@ async function main() {
  * 记录ground数量before。
  */
     const groundCountBefore = getGroundItemCount(tileBeforeDrop?.tile?.groundPile, TARGET_ITEM_ID);
-    dropper.emit(shared_1.NEXT_C2S.DropItem, {
+    dropper.emit(shared_1.C2S.DropItem, {
         slotIndex,
         count: DROP_COUNT,
     });
@@ -201,7 +207,7 @@ async function main() {
  * 记录dropperaftermove。
  */
     const dropperAfterMove = { x: null, y: null };
-    looter.emit(shared_1.NEXT_C2S.TakeGround, {
+    looter.emit(shared_1.C2S.TakeGround, {
         sourceId: droppedPile.sourceId,
         itemKey: TARGET_ITEM_ID,
     });
@@ -234,7 +240,7 @@ async function main() {
     await deletePlayer(looterId);
     console.log(JSON.stringify({
         ok: true,
-        url: SERVER_NEXT_URL,
+        url: SERVER_URL,
         dropperId,
         looterId,
         dropTile: { x: dropX, y: dropY },
@@ -268,7 +274,7 @@ async function moveAwayFromTile(socket, playerId, fromX, fromY) {
         { x: fromX + 1, y: fromY },
     ];
     for (const candidate of candidates) {
-        socket.emit(shared_1.NEXT_C2S.MoveTo, {
+        socket.emit(shared_1.C2S.MoveTo, {
             x: candidate.x,
             y: candidate.y,
             allowNearestReachable: false,
@@ -304,7 +310,7 @@ async function movePlayerToTile(socket, playerId, targetX, targetY) {
     if (state.player.x === targetX && state.player.y === targetY) {
         return { x: state.player.x, y: state.player.y };
     }
-    socket.emit(shared_1.NEXT_C2S.MoveTo, {
+    socket.emit(shared_1.C2S.MoveTo, {
         x: targetX,
         y: targetY,
         allowNearestReachable: false,
@@ -449,7 +455,7 @@ async function fetchState(playerId) {
 /**
  * 记录response。
  */
-    const response = await fetch(`${SERVER_NEXT_URL}/runtime/players/${playerId}/state`);
+    const response = await fetch(`${SERVER_URL}/runtime/players/${playerId}/state`);
     if (!response.ok) {
         throw new Error(`request failed: ${response.status} ${await response.text()}`);
     }
@@ -464,7 +470,7 @@ async function fetchTileState(instanceId, x, y) {
 /**
  * 记录response。
  */
-    const response = await fetch(`${SERVER_NEXT_URL}/runtime/instances/${instanceId}/tiles/${x}/${y}`);
+    const response = await fetch(`${SERVER_URL}/runtime/instances/${instanceId}/tiles/${x}/${y}`);
     if (!response.ok) {
         throw new Error(`request failed: ${response.status} ${await response.text()}`);
     }
@@ -490,7 +496,7 @@ async function postJson(path, body) {
 /**
  * 记录response。
  */
-    const response = await fetch(`${SERVER_NEXT_URL}${path}`, {
+    const response = await fetch(`${SERVER_URL}${path}`, {
         method: 'POST',
         headers: {
             'content-type': 'application/json',
@@ -535,7 +541,7 @@ async function deletePlayer(playerId) {
 /**
  * 记录response。
  */
-    const response = await fetch(`${SERVER_NEXT_URL}/runtime/players/${playerId}`, {
+    const response = await fetch(`${SERVER_URL}/runtime/players/${playerId}`, {
         method: 'DELETE',
     });
     if (!response.ok) {

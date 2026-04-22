@@ -33,7 +33,7 @@ function getVariableNames(node) {
 
 function checkProtocolBoundary() {
   const { filePath, sourceFile } = loadSourceFile('protocol.ts');
-  const allowedVariables = new Set(['NEXT_C2S', 'NEXT_S2C']);
+  const allowedVariables = new Set(['NEXT_C2S', 'NEXT_S2C', 'C2S', 'S2C']);
 
   for (const statement of sourceFile.statements) {
     if (

@@ -3,7 +3,7 @@
 const fs = require("fs/promises");
 const path = require("path");
 const { Pool } = require("pg");
-const { resolveServerNextDatabaseUrl } = require("../config/env-alias");
+const { resolveServerDatabaseUrl } = require("../config/env-alias");
 
 const PLAYER_AUTH_SCOPE = 'server_next_player_auth_v1';
 const PLAYER_AUTH_TABLE = 'server_next_player_auth';
@@ -173,10 +173,10 @@ async function main() {
         return;
     }
     const fixture = options.fixturePath ? await loadFixture(options.fixturePath) : null;
-    const databaseUrl = resolveServerNextDatabaseUrl();
+    const databaseUrl = resolveServerDatabaseUrl();
     printPreflight(options, fixture, databaseUrl);
     if (!databaseUrl.trim() && !fixture) {
-        throw new Error('缺少 SERVER_NEXT_DATABASE_URL/DATABASE_URL');
+        throw new Error('缺少 SERVER_DATABASE_URL/DATABASE_URL');
     }
     if (fixture && !databaseUrl.trim() && !options.dryRun) {
         throw new Error('fixture 模式仅支持 dry-run；缺少数据库时不能执行 --write');
@@ -309,11 +309,11 @@ function printPreflight(options, fixture, databaseUrl) {
 
 function printHelp() {
     process.stdout.write([
-        '用法：pnpm --filter @mud/server-next migrate:legacy-next:once -- --dry-run --fixture=path/to/sample.json --domains=auth,identity,snapshot,progression,inventory,techniques,quests,mail,market,redeem,suggestion,gm-auth,gm-database',
+        '用法：pnpm --filter @mud/server migrate:legacy-next:once -- --dry-run --fixture=path/to/sample.json --domains=auth,identity,snapshot,progression,inventory,techniques,quests,mail,market,redeem,suggestion,gm-auth,gm-database',
         '或：node dist/tools/migrate-next-mainline-once.js [--dry-run] [--write] [--fixture=path/to/sample.json] [--domains=auth,identity,snapshot,progression,inventory,techniques,quests,mail,market,redeem,suggestion,gm-auth,gm-database]',
         '',
         '默认行为：',
-        '- 连接 SERVER_NEXT_DATABASE_URL / DATABASE_URL',
+        '- 连接 SERVER_DATABASE_URL / DATABASE_URL',
         '- 从 persistent_documents 旧 scope 读取 auth/identity/snapshot',
         '- 从 legacy mail_campaigns/mail_audience_members/player_mail_receipts 读取 mail',
         '- 从 legacy market_orders/market_trade_history/players.marketStorage 读取 market',

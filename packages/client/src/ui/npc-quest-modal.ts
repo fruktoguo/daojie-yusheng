@@ -1,4 +1,4 @@
-import { Inventory, NEXT_S2C_NpcQuests, PlayerState, QuestState } from '@mud/shared-next';
+import { Inventory, S2C_NpcQuests, PlayerState, QuestState } from '@mud/shared';
 import { getLocalItemTemplate } from '../content/local-templates';
 import { getQuestLineLabel, getQuestStatusLabel } from '../domain-labels';
 import { detailModalHost } from './detail-modal-host';
@@ -86,7 +86,7 @@ export class NpcQuestModal {
   /** inventory：背包。 */
   private inventory: Inventory = { items: [], capacity: 0 };
   /** state：状态。 */
-  private state: NEXT_S2C_NpcQuests | null = null;
+  private state: S2C_NpcQuests | null = null;
   /** selectedQuestId：selected任务ID。 */
   private selectedQuestId: string | null = null;
   /** delegatedEventsBound：delegated事件Bound。 */
@@ -143,7 +143,7 @@ export class NpcQuestModal {
   }
 
   /** updateQuests：更新Quests。 */
-  updateQuests(data: NEXT_S2C_NpcQuests): void {
+  updateQuests(data: S2C_NpcQuests): void {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
     if (this.activeNpcId && this.activeNpcId !== data.npcId && detailModalHost.isOpenFor(NpcQuestModal.MODAL_OWNER)) {

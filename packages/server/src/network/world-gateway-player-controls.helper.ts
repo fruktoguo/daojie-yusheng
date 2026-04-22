@@ -1,4 +1,4 @@
-import { NEXT_C2S, type NEXT_C2S_EventPayload } from '@mud/shared-next';
+import { C2S, type ClientToServerEventPayload } from '@mud/shared';
 import type { Socket } from 'socket.io';
 
 interface WorldGatewayPlayerControlsDeps {
@@ -6,8 +6,8 @@ interface WorldGatewayPlayerControlsDeps {
     requirePlayerId(client: Socket): string | null | undefined;
   };
   worldClientEventService: {
-    broadcastChat(playerId: string, payload: NEXT_C2S_EventPayload<typeof NEXT_C2S.Chat>): void;
-    acknowledgeSystemMessages(playerId: string, payload: NEXT_C2S_EventPayload<typeof NEXT_C2S.AckSystemMessages>): void;
+    broadcastChat(playerId: string, payload: ClientToServerEventPayload<typeof C2S.Chat>): void;
+    acknowledgeSystemMessages(playerId: string, payload: ClientToServerEventPayload<typeof C2S.AckSystemMessages>): void;
     emitGatewayError(client: Socket, code: string, error: unknown): void;
   };
   worldRuntimeService: {
@@ -16,27 +16,27 @@ interface WorldGatewayPlayerControlsDeps {
       enqueueResetPlayerSpawn(playerId: string, deps: unknown): void;
       enqueueHeavenGateAction(
         playerId: string,
-        action: NEXT_C2S_EventPayload<typeof NEXT_C2S.HeavenGateAction>['action'],
-        element: NEXT_C2S_EventPayload<typeof NEXT_C2S.HeavenGateAction>['element'],
+        action: ClientToServerEventPayload<typeof C2S.HeavenGateAction>['action'],
+        element: ClientToServerEventPayload<typeof C2S.HeavenGateAction>['element'],
         deps: unknown,
       ): void;
     };
   };
   playerRuntimeService: {
-    updateAutoBattleSkills(playerId: string, skills: NEXT_C2S_EventPayload<typeof NEXT_C2S.UpdateAutoBattleSkills>['skills']): void;
-    updateAutoUsePills(playerId: string, pills: NEXT_C2S_EventPayload<typeof NEXT_C2S.UpdateAutoUsePills>['pills']): void;
+    updateAutoBattleSkills(playerId: string, skills: ClientToServerEventPayload<typeof C2S.UpdateAutoBattleSkills>['skills']): void;
+    updateAutoUsePills(playerId: string, pills: ClientToServerEventPayload<typeof C2S.UpdateAutoUsePills>['pills']): void;
     updateCombatTargetingRules(
       playerId: string,
-      rules: NEXT_C2S_EventPayload<typeof NEXT_C2S.UpdateCombatTargetingRules>['combatTargetingRules'],
+      rules: ClientToServerEventPayload<typeof C2S.UpdateCombatTargetingRules>['combatTargetingRules'],
     ): void;
     updateAutoBattleTargetingMode(
       playerId: string,
-      mode: NEXT_C2S_EventPayload<typeof NEXT_C2S.UpdateAutoBattleTargetingMode>['mode'],
+      mode: ClientToServerEventPayload<typeof C2S.UpdateAutoBattleTargetingMode>['mode'],
     ): void;
     updateTechniqueSkillAvailability(playerId: string, techId: string, enabled: boolean): void;
   };
   gatewayClientEmitHelper: {
-    emitNextQuests(client: Socket, payload: unknown): void;
+    emitQuests(client: Socket, payload: unknown): void;
   };
 }
 
@@ -44,9 +44,9 @@ interface WorldGatewayPlayerControlsDeps {
 export class WorldGatewayPlayerControlsHelper {
   constructor(private readonly gateway: WorldGatewayPlayerControlsDeps) {}
 
-  handleNextChat(
+  handleChat(
     client: Socket,
-    payload: NEXT_C2S_EventPayload<typeof NEXT_C2S.Chat>,
+    payload: ClientToServerEventPayload<typeof C2S.Chat>,
   ): void {
     const playerId = this.gateway.gatewayGuardHelper.requirePlayerId(client);
     if (!playerId) {
@@ -55,9 +55,9 @@ export class WorldGatewayPlayerControlsHelper {
     this.gateway.worldClientEventService.broadcastChat(playerId, payload);
   }
 
-  handleNextAckSystemMessages(
+  handleAckSystemMessages(
     client: Socket,
-    payload: NEXT_C2S_EventPayload<typeof NEXT_C2S.AckSystemMessages>,
+    payload: ClientToServerEventPayload<typeof C2S.AckSystemMessages>,
   ): void {
     const playerId = this.gateway.gatewayGuardHelper.requirePlayerId(client);
     if (!playerId) {
@@ -66,9 +66,9 @@ export class WorldGatewayPlayerControlsHelper {
     this.gateway.worldClientEventService.acknowledgeSystemMessages(playerId, payload);
   }
 
-  handleNextDebugResetSpawn(
+  handleDebugResetSpawn(
     client: Socket,
-    _payload: NEXT_C2S_EventPayload<typeof NEXT_C2S.DebugResetSpawn>,
+    _payload: ClientToServerEventPayload<typeof C2S.DebugResetSpawn>,
   ): void {
     const playerId = this.gateway.gatewayGuardHelper.requirePlayerId(client);
     if (!playerId) {
@@ -77,9 +77,9 @@ export class WorldGatewayPlayerControlsHelper {
     this.gateway.worldRuntimeService.worldRuntimeCommandIntakeFacadeService.enqueueResetPlayerSpawn(playerId, this.gateway.worldRuntimeService);
   }
 
-  handleNextUpdateAutoBattleSkills(
+  handleUpdateAutoBattleSkills(
     client: Socket,
-    payload: NEXT_C2S_EventPayload<typeof NEXT_C2S.UpdateAutoBattleSkills>,
+    payload: ClientToServerEventPayload<typeof C2S.UpdateAutoBattleSkills>,
   ): void {
     const playerId = this.gateway.gatewayGuardHelper.requirePlayerId(client);
     if (!playerId) {
@@ -92,9 +92,9 @@ export class WorldGatewayPlayerControlsHelper {
     }
   }
 
-  handleNextUpdateAutoUsePills(
+  handleUpdateAutoUsePills(
     client: Socket,
-    payload: NEXT_C2S_EventPayload<typeof NEXT_C2S.UpdateAutoUsePills>,
+    payload: ClientToServerEventPayload<typeof C2S.UpdateAutoUsePills>,
   ): void {
     const playerId = this.gateway.gatewayGuardHelper.requirePlayerId(client);
     if (!playerId) {
@@ -107,9 +107,9 @@ export class WorldGatewayPlayerControlsHelper {
     }
   }
 
-  handleNextUpdateCombatTargetingRules(
+  handleUpdateCombatTargetingRules(
     client: Socket,
-    payload: NEXT_C2S_EventPayload<typeof NEXT_C2S.UpdateCombatTargetingRules>,
+    payload: ClientToServerEventPayload<typeof C2S.UpdateCombatTargetingRules>,
   ): void {
     const playerId = this.gateway.gatewayGuardHelper.requirePlayerId(client);
     if (!playerId) {
@@ -122,9 +122,9 @@ export class WorldGatewayPlayerControlsHelper {
     }
   }
 
-  handleNextUpdateAutoBattleTargetingMode(
+  handleUpdateAutoBattleTargetingMode(
     client: Socket,
-    payload: NEXT_C2S_EventPayload<typeof NEXT_C2S.UpdateAutoBattleTargetingMode>,
+    payload: ClientToServerEventPayload<typeof C2S.UpdateAutoBattleTargetingMode>,
   ): void {
     const playerId = this.gateway.gatewayGuardHelper.requirePlayerId(client);
     if (!playerId) {
@@ -138,9 +138,9 @@ export class WorldGatewayPlayerControlsHelper {
     }
   }
 
-  handleNextUpdateTechniqueSkillAvailability(
+  handleUpdateTechniqueSkillAvailability(
     client: Socket,
-    payload: NEXT_C2S_EventPayload<typeof NEXT_C2S.UpdateTechniqueSkillAvailability>,
+    payload: ClientToServerEventPayload<typeof C2S.UpdateTechniqueSkillAvailability>,
   ): void {
     const playerId = this.gateway.gatewayGuardHelper.requirePlayerId(client);
     if (!playerId) {
@@ -157,9 +157,9 @@ export class WorldGatewayPlayerControlsHelper {
     }
   }
 
-  handleNextHeavenGateAction(
+  handleHeavenGateAction(
     client: Socket,
-    payload: NEXT_C2S_EventPayload<typeof NEXT_C2S.HeavenGateAction>,
+    payload: ClientToServerEventPayload<typeof C2S.HeavenGateAction>,
   ): void {
     const playerId = this.gateway.gatewayGuardHelper.requirePlayerId(client);
     if (!playerId) {
@@ -174,14 +174,14 @@ export class WorldGatewayPlayerControlsHelper {
 
   handleRequestQuests(
     client: Socket,
-    _payload: NEXT_C2S_EventPayload<typeof NEXT_C2S.RequestQuests>,
+    _payload: ClientToServerEventPayload<typeof C2S.RequestQuests>,
   ): void {
     const playerId = this.gateway.gatewayGuardHelper.requirePlayerId(client);
     if (!playerId) {
       return;
     }
     try {
-      this.gateway.gatewayClientEmitHelper.emitNextQuests(
+      this.gateway.gatewayClientEmitHelper.emitQuests(
         client,
         this.gateway.worldRuntimeService.buildQuestListView(playerId),
       );

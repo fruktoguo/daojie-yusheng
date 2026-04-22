@@ -34,7 +34,7 @@
       "x": 26,
       "y": 8,
       "targetMapId": "qizhen_crossing",
-      "targetX": 49,
+      "targetX": 50,
       "targetY": 21,
       "kind": "portal",
       "trigger": "manual",

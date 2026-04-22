@@ -1,5 +1,5 @@
 import { MAX_ZOOM, MIN_ZOOM } from './display';
-import type { ActionDef, PlayerState } from '@mud/shared-next';
+import type { ActionDef, PlayerState } from '@mud/shared';
 import type { SocketManager } from './network/socket';
 import type { LoginUI } from './ui/login';
 import type { SidePanel } from './ui/side-panel';
@@ -29,7 +29,7 @@ import type { MainUiStateSource } from './main-ui-state-source';
 import { ChangelogPanel } from './ui/changelog-panel';
 import { TutorialPanel } from './ui/tutorial-panel';
 import { startClientVersionReload } from './version-reload';
-import { mountNextUi } from './next/app/mount';
+import { mountReactUi } from './next/app/mount';
 import { initializeUiStyleConfig } from './ui/ui-style-config';
 import { bindMainHighFrequencySocketEvents } from './main-high-frequency-socket-bindings';
 import { bindMainLowFrequencySocketEvents } from './main-low-frequency-socket-bindings';
@@ -529,7 +529,7 @@ export function bootstrapMainApp(options: MainBootstrapAssemblyOptions): void {
 
   bindMainStartup({
     initializeUiStyleConfig,
-    mountNextUi: () => mountNextUi(options.windowRef),
+    mountReactUi: () => mountReactUi(options.windowRef),
     startClientVersionReload,
     onBeforeVersionReload: () => options.runtimeMonitorSource.handleVersionReloadBefore(),
     createChangelogPanel: () => {

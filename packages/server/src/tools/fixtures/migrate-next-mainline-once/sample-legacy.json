@@ -107,7 +107,7 @@
         "payload": {
           "id": "backup_sample",
           "kind": "manual",
-          "fileName": "server-next-persistent-documents-backup_sample.json",
+          "fileName": "server-persistent-documents-backup_sample.json",
           "createdAt": "2026-01-02T00:00:00.000Z",
           "sizeBytes": 1024,
           "documentsCount": 12,

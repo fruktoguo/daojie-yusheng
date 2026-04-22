@@ -16,9 +16,9 @@ const common_1 = require("@nestjs/common");
 let RuntimeMaintenanceService = class RuntimeMaintenanceService {
     /** 判断服务是否处于维护期，任一配置开关为真则阻断主循环推进。 */
     isRuntimeMaintenanceActive() {
-        return readBooleanEnv('SERVER_NEXT_RUNTIME_MAINTENANCE')
+        return readBooleanEnv('SERVER_RUNTIME_MAINTENANCE')
             || readBooleanEnv('RUNTIME_MAINTENANCE')
-            || readBooleanEnv('SERVER_NEXT_RUNTIME_RESTORE_ACTIVE');
+            || readBooleanEnv('SERVER_RUNTIME_RESTORE_ACTIVE');
     }
 };
 exports.RuntimeMaintenanceService = RuntimeMaintenanceService;

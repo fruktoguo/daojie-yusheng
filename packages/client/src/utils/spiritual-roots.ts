@@ -1,4 +1,4 @@
-import type { AttrBonus, ElementKey, HeavenGateRootValues } from '@mud/shared-next';
+import type { AttrBonus, ElementKey, HeavenGateRootValues } from '@mud/shared';
 import { ELEMENT_KEY_LABELS } from '../domain-labels';
 
 const ELEMENTS: readonly ElementKey[] = ['metal', 'wood', 'water', 'fire', 'earth'];

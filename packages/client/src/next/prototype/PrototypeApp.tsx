@@ -1,13 +1,13 @@
 import { useEffect, useMemo, useState, type ReactNode } from 'react';
-import { NextDetailModalLayer } from '../overlays/NextDetailModalLayer';
-import { NextToastLayer } from '../overlays/NextToastLayer';
-import { NextTooltipLayer } from '../overlays/NextTooltipLayer';
+import { DetailModalLayer } from '../overlays/NextDetailModalLayer';
+import { ToastLayer } from '../overlays/NextToastLayer';
+import { TooltipLayer } from '../overlays/NextTooltipLayer';
 import {
-  closeNextDetailModal,
-  hideNextTooltip,
-  openNextDetailModal,
-  showNextToast,
-  showNextTooltip,
+  closeDetailModal,
+  hideTooltip,
+  openDetailModal,
+  showToast,
+  showTooltip,
 } from '../overlays/overlay-store';
 import { UiButton } from '../primitives/UiButton';
 import { UiActionListItem } from '../primitives/UiActionListItem';
@@ -186,7 +186,7 @@ function getModuleStatusLabel(status: PrototypeModuleCardData['status']): string
 
 
 function openModulePreview(module: PrototypeModuleCardData): void {
-  openNextDetailModal({
+  openDetailModal({
     title: module.title,
     subtitle: undefined,
     body: (
@@ -197,7 +197,7 @@ function openModulePreview(module: PrototypeModuleCardData): void {
           ))}
         </div>
         <div className="next-ui-detail-preview-actions">
-          <UiButton type="button" variants={['ghost']} onClick={closeNextDetailModal}>关闭</UiButton>
+          <UiButton type="button" variants={['ghost']} onClick={closeDetailModal}>关闭</UiButton>
         </div>
       </UiModalScaffold>
     ),
@@ -212,7 +212,7 @@ function openModulePreview(module: PrototypeModuleCardData): void {
 
 
 function openInventoryDetail(itemName: string, note: string): void {
-  openNextDetailModal({
+  openDetailModal({
     title: itemName,
     subtitle: undefined,
     body: (
@@ -221,7 +221,7 @@ function openInventoryDetail(itemName: string, note: string): void {
           <span className="prototype-chip">{note}</span>
         </div>
         <div className="next-ui-detail-preview-actions">
-          <UiButton type="button" variants={['ghost']} onClick={closeNextDetailModal}>关闭</UiButton>
+          <UiButton type="button" variants={['ghost']} onClick={closeDetailModal}>关闭</UiButton>
         </div>
       </UiModalScaffold>
     ),
@@ -269,9 +269,9 @@ function TooltipItemCard({
       subtitle={meta}
       onClick={onClick}
       onPointerMove={(event) => {
-        showNextTooltip(name, [meta, '这里未来接入统一物品 Tooltip 内容。'], event.clientX, event.clientY);
+        showTooltip(name, [meta, '这里未来接入统一物品 Tooltip 内容。'], event.clientX, event.clientY);
       }}
-      onPointerLeave={hideNextTooltip}
+      onPointerLeave={hideTooltip}
     >
       <div className="prototype-item-meta">点击查看详情</div>
     </UiItemCard>
@@ -675,9 +675,9 @@ function InventoryPanelPreview() {
                 active={selected?.id === item.id}
                 onClick={() => setSelectedId(item.id)}
                 onPointerMove={(event) => {
-                  showNextTooltip(item.name, [`${item.grade} · ${item.note}`, `数量 ${item.qty}`], event.clientX, event.clientY);
+                  showTooltip(item.name, [`${item.grade} · ${item.note}`, `数量 ${item.qty}`], event.clientX, event.clientY);
                 }}
-                onPointerLeave={hideNextTooltip}
+                onPointerLeave={hideTooltip}
               />
             ))}
           </UiList>
@@ -927,9 +927,9 @@ function MarketPanelPreview() {
                 active={selected?.id === entry.id}
                 onClick={() => setSelectedId(entry.id)}
                 onPointerMove={(event) => {
-                  showNextTooltip(entry.name, [entry.note, `卖 ${formatNumber(entry.sell)} / 买 ${formatNumber(entry.buy)}`], event.clientX, event.clientY);
+                  showTooltip(entry.name, [entry.note, `卖 ${formatNumber(entry.sell)} / 买 ${formatNumber(entry.buy)}`], event.clientX, event.clientY);
                 }}
-                onPointerLeave={hideNextTooltip}
+                onPointerLeave={hideTooltip}
               />
             ))}
           </UiList>
@@ -1444,7 +1444,7 @@ export function PrototypeApp() {
             </div>
 
             <div className="prototype-setting-inline prototype-setting-inline--actions">
-              <UiButton type="button" variants={['ghost']} onClick={() => showNextToast('Toast host 正常。', 'success')}>Toast</UiButton>
+              <UiButton type="button" variants={['ghost']} onClick={() => showToast('Toast host 正常。', 'success')}>Toast</UiButton>
               <UiButton type="button" variants={['ghost']} onClick={() => openModulePreview(selectedModule)}>详情</UiButton>
             </div>
           </UiToolbar>
@@ -1486,9 +1486,9 @@ export function PrototypeApp() {
         </div>
       </div>
 
-      <NextTooltipLayer />
-      <NextDetailModalLayer />
-      <NextToastLayer />
+      <TooltipLayer />
+      <DetailModalLayer />
+      <ToastLayer />
     </div>
   );
 }

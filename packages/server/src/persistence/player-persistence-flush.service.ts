@@ -200,7 +200,7 @@ exports.PlayerPersistenceFlushService = PlayerPersistenceFlushService = PlayerPe
 
 function isRestoreFreezeActive() {
 
-    const value = process.env.SERVER_NEXT_RUNTIME_RESTORE_ACTIVE;
+    const value = process.env.SERVER_RUNTIME_RESTORE_ACTIVE;
     return typeof value === 'string' && /^(1|true|yes|on)$/iu.test(value.trim());
 }
 export { PlayerPersistenceFlushService };

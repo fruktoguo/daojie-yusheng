@@ -16,14 +16,14 @@ import {
   NumericStatBreakdownMap,
   NumericRatioDivisors,
   NumericStats,
-  NEXT_S2C_AttrDetail,
+  S2C_AttrDetail,
   PlayerState,
   PlayerSpecialStats,
   ratioValue,
-  NEXT_S2C_AttrUpdate,
+  S2C_AttrUpdate,
   TileType,
   getTileTraversalCost,
-} from '@mud/shared-next';
+} from '@mud/shared';
 import { ATTR_KEY_LABELS, ELEMENT_KEY_LABELS } from '../../domain-labels';
 import { FloatingTooltip, prefersPinnedTooltipInteraction } from '../floating-tooltip';
 import { preserveSelection } from '../selection-preserver';
@@ -687,7 +687,7 @@ export class AttrPanel {
   /** callbacks：详情请求回调。 */
   private callbacks: AttrPanelCallbacks | null = null;
   /** latestData：最近一次属性更新。 */
-  private latestData: NEXT_S2C_AttrUpdate | null = null;
+  private latestData: S2C_AttrUpdate | null = null;
   /** detailData：最近一次低频详情。 */
   private detailData: AttrDetailView | null = null;
   /** detailStale：低频详情是否过期。 */
@@ -725,7 +725,7 @@ export class AttrPanel {
   }
 
   /** 接收属性更新事件并重新渲染 */
-  update(data: NEXT_S2C_AttrUpdate): void {
+  update(data: S2C_AttrUpdate): void {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
     this.latestData = data;
@@ -798,7 +798,7 @@ export class AttrPanel {
   }
 
   /** applyDetail：写入低频详情并用现有 update 流刷新。 */
-  applyDetail(detail: NEXT_S2C_AttrDetail): void {
+  applyDetail(detail: S2C_AttrDetail): void {
     this.detailData = detail;
     this.detailStale = false;
     this.detailRequested = true;

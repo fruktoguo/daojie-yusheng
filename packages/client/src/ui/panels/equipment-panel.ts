@@ -2,7 +2,7 @@
  * 装备面板
  * 展示 5 个装备槽位的当前装备与词条，支持卸下操作
  */
-import { EquipmentEffectDef, EquipmentSlots, EQUIP_SLOTS, EquipSlot, PlayerState } from '@mud/shared-next';
+import { EquipmentEffectDef, EquipmentSlots, EQUIP_SLOTS, EquipSlot, PlayerState } from '@mud/shared';
 import { getEquipSlotLabel } from '../../domain-labels';
 import { resolvePreviewItem } from '../../content/local-templates';
 import { preserveSelection } from '../selection-preserver';

@@ -60,7 +60,7 @@ const common_1 = require("@nestjs/common");
 
 const fs = __importStar(require("fs"));
 
-const shared_1 = require("@mud/shared-next");
+const shared_1 = require("@mud/shared");
 
 const project_path_1 = require("../../common/project-path");
 

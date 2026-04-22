@@ -3,13 +3,13 @@
   "version": "0.0.1",
   "private": true,
   "scripts": {
-    "prebuild": "pnpm --filter @mud/shared-next build",
+    "prebuild": "pnpm --dir ../shared build",
     "dev": "vite --host 127.0.0.1 --port 5174",
     "build": "tsc -p tsconfig.json && vite build",
-    "start:api": "pnpm --filter @mud/shared-next build && node --watch local-api.cjs"
+    "start:api": "pnpm --dir ../shared build && node --watch local-api.cjs"
   },
   "dependencies": {
-    "@mud/shared-next": "workspace:*"
+    "@mud/shared": "link:../shared"
   },
   "devDependencies": {
     "typescript": "^5.3.0",

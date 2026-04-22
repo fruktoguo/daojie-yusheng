@@ -1,4 +1,4 @@
-import { gameplayConstants } from '@mud/shared-next';
+import { gameplayConstants } from '@mud/shared';
 
 /** 当前估算服务端 tick（可为空表示还未接收到服务端节拍基准）。 */
 let currentServerTick: number | null = null;

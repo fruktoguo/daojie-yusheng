@@ -318,7 +318,7 @@ async function assertBackupDownload(baseUrl, token, backupId, expectedRecord = n
 /**
  * 记录expected文件名称。
  */
-    const expectedFileName = String(expectedRecord?.fileName ?? `server-next-persistent-documents-${backupId}.json`).trim();
+    const expectedFileName = String(expectedRecord?.fileName ?? `server-persistent-documents-${backupId}.json`).trim();
 /**
  * 记录response。
  */
@@ -410,7 +410,7 @@ exports.requireBackupRecord = requireBackupRecord;
  * 构建备份文件路径。
  */
 function buildBackupFilePath(backupDirectory, backupId) {
-    return (0, node_path_1.join)(backupDirectory, `server-next-persistent-documents-${backupId}.json`);
+    return (0, node_path_1.join)(backupDirectory, `server-persistent-documents-${backupId}.json`);
 }
 exports.buildBackupFilePath = buildBackupFilePath;
 /**

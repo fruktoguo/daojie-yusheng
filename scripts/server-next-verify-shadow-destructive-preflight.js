@@ -1,9 +1,9 @@
 #!/usr/bin/env node
 'use strict';
 
-const { printServerNextVerifyAliasBanner } = require('./server-next-verify-alias-banner.js');
+const { printVerifyAliasBanner } = require('./verify-alias-banner.js');
 
-printServerNextVerifyAliasBanner(
+printVerifyAliasBanner(
   'verify:server-next:shadow:destructive:preflight',
   'pnpm verify:replace-ready:shadow:destructive:preflight',
 );

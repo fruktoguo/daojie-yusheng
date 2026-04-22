@@ -1,16 +1,16 @@
-# server-next 替换运行手册
+# server 替换运行手册
 
 这份文件已从长版运行手册收口为包内兼容入口。
 
 说明：
 
 - 当前目录主线是 `packages/server`
-- `server-next` 主要保留为包名与兼容命令名
+- `server` 主要保留为包名与兼容命令名
 - 根级主入口现在是 `verify:replace-ready*`
 
-当前 `server-next` 的 shadow 演练、环境变量矩阵、replace-ready 五层门禁、`gm/database/*` 演练步骤，统一看：
+当前 `server` 的 shadow 演练、环境变量矩阵、replace-ready 五层门禁、`gm/database/*` 演练步骤，统一看：
 
-- [docs/server-next-operations.md](../../docs/server-next-operations.md)
+- [docs/server-operations.md](../../docs/server-operations.md)
 - [docs/next-plan/10-cutover-execution-checklist.md](../../docs/next-plan/10-cutover-execution-checklist.md)
 - [docs/next-plan/10-cutover-execution-log-template.md](../../docs/next-plan/10-cutover-execution-log-template.md)
 - [docs/next-plan/10-cutover-step-by-step-runbook.md](../../docs/next-plan/10-cutover-step-by-step-runbook.md)
@@ -46,5 +46,5 @@
 - 当前运行手册只服务于 shadow / replace-ready 线，不等于正式生产切换手册。
 - 旧后端正式流量、正式端口和正式部署链仍不以这份文档为准。
 - `local / with-db / acceptance / full / shadow-destructive` 是五层不同门禁，不能混读。
-- `verify:server-next*` 只保留为兼容别名。
+- `verify:server-next*` 只保留为兼容别名；`verify:replace-ready*` 是当前主入口。
 - 本地 shadow `.sh` 会自动加载本地 env；只有显式切远程 target 时，才需要手工覆盖 URL/密码。

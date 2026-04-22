@@ -3,12 +3,12 @@ import {
   GroundItemPileView,
   getTileTraversalCost,
   MonsterTier,
-  NEXT_S2C_TileDetail,
+  S2C_TileDetail,
   RenderEntity,
   Tile,
   TileType,
   VisibleBuffState,
-} from '@mud/shared-next';
+} from '@mud/shared';
 import { getEntityBadgeClassName, getMonsterPresentation } from './monster-presentation';
 import { getEntityKindLabel, getTileTypeLabel } from './domain-labels';
 import { FloatingTooltip, prefersPinnedTooltipInteraction } from './ui/floating-tooltip';
@@ -119,7 +119,7 @@ type ObserveEntityCardData = Pick<
   ObserveEntity,
   'id' | 'name' | 'kind' | 'monsterTier' | 'badge' | 'hp' | 'maxHp' | 'qi' | 'maxQi' | 'npcQuestMarker' | 'observation' | 'buffs'
 > & {
-  lootPreview?: NonNullable<NonNullable<NEXT_S2C_TileDetail['entities']>[number]['lootPreview']>;
+  lootPreview?: NonNullable<NonNullable<S2C_TileDetail['entities']>[number]['lootPreview']>;
 };
 /**
  * ActiveObservedTile：统一结构类型，保证协议与运行时一致性。
@@ -474,7 +474,7 @@ export function createMainObserveStateSource(options: MainObserveStateSourceOpti
   });
 
   let activeObservedTile: ActiveObservedTile = null;
-  let activeObservedTileDetail: NEXT_S2C_TileDetail | null = null;
+  let activeObservedTileDetail: S2C_TileDetail | null = null;
   let activeObservedTileError: string | null = null;  
   /**
  * isMatchingObservedTile：判断MatchingObservedTile是否满足条件。
@@ -674,12 +674,12 @@ export function createMainObserveStateSource(options: MainObserveStateSourceOpti
   }  
   /**
  * normalizeObserveEntityCardData：规范化或转换ObserveEntityCardData。
- * @param entity NonNullable<NEXT_S2C_TileDetail['entities']>[number] 参数说明。
+ * @param entity NonNullable<S2C_TileDetail['entities']>[number] 参数说明。
  * @returns 返回ObserveEntityCardData。
  */
 
 
-  function normalizeObserveEntityCardData(entity: NonNullable<NEXT_S2C_TileDetail['entities']>[number]): ObserveEntityCardData {
+  function normalizeObserveEntityCardData(entity: NonNullable<S2C_TileDetail['entities']>[number]): ObserveEntityCardData {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
     if (isCrowdEntityKind(entity.kind)) {
@@ -1184,11 +1184,11 @@ export function createMainObserveStateSource(options: MainObserveStateSourceOpti
     },    
     /**
  * handleTileDetail：处理Tile详情并更新相关状态。
- * @param data NEXT_S2C_TileDetail 原始数据。
+   * @param data S2C_TileDetail 原始数据。
  * @returns 无返回值，直接更新Tile详情相关状态。
  */
 
-    handleTileDetail(data: NEXT_S2C_TileDetail): void {
+    handleTileDetail(data: S2C_TileDetail): void {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
       const player = options.getPlayer();

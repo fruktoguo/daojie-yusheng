@@ -123,11 +123,11 @@ async function testClientEmitHelper() {
     const gateway = createGateway(log);
     const helper = new WorldGatewayClientEmitHelper(gateway);
     const client = { id: 'socket:1' };
-    helper.emitNextQuests(client, { quests: [] });
-    helper.emitNextMailSummary(client, { unread: 2 });
-    helper.emitNextNpcShop(client, { npcId: 'npc.a' });
+    helper.emitQuests(client, { quests: [] });
+    helper.emitProtocolMailSummary(client, { unread: 2 });
+    helper.emitNpcShop(client, { npcId: 'npc.a' });
     helper.flushMarketResult({ ok: true });
-    await helper.emitNextMailSummaryForPlayer(client, 'player:1');
+    await helper.emitMailSummaryForPlayer(client, 'player:1');
     helper.broadcastSuggestions();
     assert.deepEqual(log, [
         ['markProtocol', 'socket:1', 'next'],

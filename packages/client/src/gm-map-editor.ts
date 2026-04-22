@@ -36,7 +36,7 @@ import {
   isTileTypeWalkable,
   normalizeConfiguredAuraValue,
   parseQiResourceKey,
-} from '@mud/shared-next';
+} from '@mud/shared';
 import {
   AURA_BRUSH_LEVELS,
   EDITOR_BASE_CELL_SIZE,

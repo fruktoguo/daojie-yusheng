@@ -2,7 +2,7 @@
  * 背包面板相关常量。
  */
 
-import type { ItemType } from '@mud/shared-next';
+import type { ItemType } from '@mud/shared';
 
 /** 背包筛选标签的可选值。 */
 export type InventoryFilter = 'all' | ItemType;

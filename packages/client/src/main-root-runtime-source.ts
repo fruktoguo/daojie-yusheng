@@ -1,4 +1,4 @@
-import type { Direction, PlayerState } from '@mud/shared-next';
+import type { Direction, PlayerState } from '@mud/shared';
 import type { ObservedMapEntity } from './game-map/types';
 import type { MainRuntimeObservedEntity } from './main-runtime-view-types';
 /**

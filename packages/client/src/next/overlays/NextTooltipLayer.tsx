@@ -1,12 +1,12 @@
 import { useExternalStoreSnapshot } from '../hooks/use-external-store-snapshot';
 import { overlayStore } from './overlay-store';
 /**
- * NextTooltipLayer：渲染Next提示层组件。
+ * TooltipLayer：渲染Next提示层组件。
  * @returns 无返回值，直接更新Next提示层相关状态。
  */
 
 
-export function NextTooltipLayer() {
+export function TooltipLayer() {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
   const { tooltip } = useExternalStoreSnapshot(overlayStore);

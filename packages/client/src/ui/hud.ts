@@ -3,7 +3,7 @@
  * 显示名称、坐标、地图、境界、气血/灵力/修炼进度条及突破按钮
  */
 
-import { PlayerState, resolveCharacterAge } from '@mud/shared-next';
+import { PlayerState, resolveCharacterAge } from '@mud/shared';
 import { formatDisplayCurrentMax, formatDisplayInteger } from '../utils/number';
 
 /** HUDMeta：HUD 附加显示元数据。 */

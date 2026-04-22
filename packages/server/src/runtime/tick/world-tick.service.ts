@@ -1,5 +1,5 @@
 import { Inject, Injectable, Logger, type OnModuleDestroy, type OnModuleInit } from '@nestjs/common';
-import { gameplayConstants } from '@mud/shared-next';
+import { gameplayConstants } from '@mud/shared';
 
 import { WorldSyncService } from '../../network/world-sync.service';
 import { RuntimeGmStateService } from '../gm/runtime-gm-state.service';

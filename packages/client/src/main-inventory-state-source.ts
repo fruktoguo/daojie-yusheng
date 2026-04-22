@@ -1,4 +1,4 @@
-import { Inventory, PlayerState } from '@mud/shared-next';
+import { Inventory, PlayerState } from '@mud/shared';
 import type { MainMarketStateSource } from './main-market-state-source';
 import type { MainQuestStateSource } from './main-quest-state-source';
 import { CraftWorkbenchModal } from './ui/craft-workbench-modal';

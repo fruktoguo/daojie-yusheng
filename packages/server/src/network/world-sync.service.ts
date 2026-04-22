@@ -50,8 +50,8 @@ let WorldSyncService = class WorldSyncService {
         this.worldRuntimeService.refreshPlayerContextActions(playerId, view);
         const player = this.playerRuntimeService.syncFromWorldView(binding.playerId, binding.sessionId, view);
         const envelope = this.worldSyncEnvelopeService.createInitialEnvelope(playerId, binding, view, player);
-        this.emitNextEnvelope(socket, envelope);
-        this.emitNextInitialSync(binding.playerId, socket, view, player);
+        this.emitEnvelope(socket, envelope);
+        this.emitAuxInitialSync(binding.playerId, socket, view, player);
         this.worldSyncQuestLootService.emitQuestSync(socket, binding.playerId, player.quests.revision);
         this.emitPendingNotices(binding.playerId, socket);
     }
@@ -67,14 +67,14 @@ let WorldSyncService = class WorldSyncService {
             this.worldRuntimeService.refreshPlayerContextActions(binding.playerId, view);
             const player = this.playerRuntimeService.syncFromWorldView(binding.playerId, binding.sessionId, view);
             const envelope = this.worldSyncEnvelopeService.createDeltaEnvelope(binding.playerId, view, player);
-            this.emitNextEnvelope(socket, envelope);
-            this.emitNextDeltaSync(binding.playerId, socket, view, player);
+            this.emitEnvelope(socket, envelope);
+            this.emitAuxDeltaSync(binding.playerId, socket, view, player);
             this.worldSyncQuestLootService.emitQuestSyncIfChanged(socket, binding.playerId, player.quests.revision);
             this.emitPendingNotices(binding.playerId, socket);
         }
     }
-        emitNextEnvelope(socket, envelope) {
-        this.worldSyncProtocolService.sendNextEnvelope(socket, envelope);
+        emitEnvelope(socket, envelope) {
+        this.worldSyncProtocolService.sendEnvelope(socket, envelope);
     }
         clearDetachedPlayerCaches(playerId) {
         this.clearPlayerCaches(playerId, true);
@@ -101,11 +101,11 @@ let WorldSyncService = class WorldSyncService {
     openLootWindow(playerId, x, y) {
         return this.worldSyncQuestLootService.openLootWindow(playerId, x, y);
     }    
-    emitNextInitialSync(playerId, socket, view, player) {
-        this.worldSyncAuxStateService.emitNextInitialSync(playerId, socket, view, player);
+    emitAuxInitialSync(playerId, socket, view, player) {
+        this.worldSyncAuxStateService.emitAuxInitialSync(playerId, socket, view, player);
     }    
-    emitNextDeltaSync(playerId, socket, view, player) {
-        this.worldSyncAuxStateService.emitNextDeltaSync(playerId, socket, view, player);
+    emitAuxDeltaSync(playerId, socket, view, player) {
+        this.worldSyncAuxStateService.emitAuxDeltaSync(playerId, socket, view, player);
     }    
     emitPendingNotices(playerId, socket) {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。

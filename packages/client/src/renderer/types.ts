@@ -1,6 +1,6 @@
 /** 渲染器能力约束，确保 TextRenderer 与其他实现保持一致。 */
 
-import { GameTimeState, GridPoint, NpcQuestMarker, RenderEntity, TargetingShape, Tile, VisibleBuffState } from '@mud/shared-next';
+import { GameTimeState, GridPoint, NpcQuestMarker, RenderEntity, TargetingShape, Tile, VisibleBuffState } from '@mud/shared';
 import { Camera } from './camera';
 
 /** 浮动文本可选样式。 */

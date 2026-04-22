@@ -1,4 +1,4 @@
-export const NEXT_GM_HTTP_CONTRACT = Object.freeze({
+export const GM_HTTP_CONTRACT = Object.freeze({
   authBasePath: 'api/auth',
   gmBasePath: 'api/gm',
   controllerShape: 'thin_service_delegation',
@@ -7,17 +7,17 @@ export const NEXT_GM_HTTP_CONTRACT = Object.freeze({
   restoreSurface: 'next_native_http',
 });
 
-export const NEXT_GM_AUTH_CONTRACT = Object.freeze({
+export const GM_AUTH_CONTRACT = Object.freeze({
   passwordRecordScope: 'server_next_gm_auth_v1',
   passwordRecordKey: 'gm_auth',
   identityPersistedSource: 'native',
   tokenValidatorOwner: 'runtime_gm_auth_service',
   defaultInsecurePassword: 'admin123',
   allowInsecureLocalPasswordEnvNames: [
-    'SERVER_NEXT_ALLOW_INSECURE_LOCAL_GM_PASSWORD',
+    'SERVER_ALLOW_INSECURE_LOCAL_GM_PASSWORD',
     'GM_ALLOW_INSECURE_LOCAL_GM_PASSWORD',
   ],
-  explicitPasswordEnvNames: ['SERVER_NEXT_GM_PASSWORD', 'GM_PASSWORD'],
+  explicitPasswordEnvNames: ['SERVER_GM_PASSWORD', 'GM_PASSWORD'],
   insecureLocalPasswordRuntimeEnvs: ['development', 'dev', 'local', 'test'],
 });
 

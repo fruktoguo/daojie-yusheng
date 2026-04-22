@@ -2,7 +2,7 @@
 
 const fs = require("node:fs");
 const path = require("node:path");
-const { ELEMENT_KEYS, NUMERIC_STATS_KEYS } = require("@mud/shared-next");
+const { ELEMENT_KEYS, NUMERIC_STATS_KEYS } = require("@mud/shared");
 
 const packageRoot = path.resolve(__dirname, "..", "..");
 const contentRoot = path.join(packageRoot, "data", "content");

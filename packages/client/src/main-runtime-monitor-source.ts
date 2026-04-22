@@ -1,11 +1,11 @@
-import type { GameTimeState } from '@mud/shared-next';
+import type { GameTimeState } from '@mud/shared';
 import {
   CONNECTION_RECOVERY_RETRY_MS,
   CURRENT_TIME_REFRESH_MS,
   GAME_TIME_PHASES,
   SERVER_PING_INTERVAL_MS,
   SOCKET_PING_TIMEOUT_MS,
-} from '@mud/shared-next';
+} from '@mud/shared';
 import {
   MAP_FPS_SAMPLE_INTERVAL_MS,
   MAP_FPS_SAMPLE_WINDOW_SIZE,

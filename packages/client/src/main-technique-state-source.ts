@@ -1,4 +1,4 @@
-import { PlayerState, TechniqueState } from '@mud/shared-next';
+import { PlayerState, TechniqueState } from '@mud/shared';
 import type { SocketRuntimeSender } from './network/socket-send-runtime';
 import { TechniquePanel } from './ui/panels/technique-panel';
 /**

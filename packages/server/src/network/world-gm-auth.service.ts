@@ -42,7 +42,7 @@ let WorldGmAuthService = class WorldGmAuthService {
     validateSocketGmToken(token) {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
-        if (next_gm_contract_1.NEXT_GM_AUTH_CONTRACT.tokenValidatorOwner !== 'runtime_gm_auth_service') {
+        if (next_gm_contract_1.GM_AUTH_CONTRACT.tokenValidatorOwner !== 'runtime_gm_auth_service') {
             return false;
         }
         return this.gmAuthService.validateAccessToken(token);

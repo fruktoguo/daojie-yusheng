@@ -12,7 +12,7 @@ import { promises as fsPromises } from 'node:fs';
 import { join, resolve } from 'node:path';
 import { URL } from 'node:url';
 import { Pool } from 'pg';
-import { resolveServerNextDatabaseUrl } from '../../config/env-alias';
+import { resolveServerDatabaseUrl } from '../../config/env-alias';
 import { ensurePersistentDocumentsTable } from '../../persistence/persistent-document-table';
 import { NextDatabaseRestoreCoordinatorService } from './next-database-restore-coordinator.service';
 import { NEXT_GM_RESTORE_CONTRACT } from './next-gm-contract';
@@ -51,7 +51,7 @@ const DATABASE_BACKUP_METADATA_SCOPES = [DATABASE_BACKUP_METADATA_SCOPE];
 
 const DATABASE_JOB_STATE_SCOPES = [DATABASE_JOB_STATE_SCOPE];
 
-const BACKUP_FILE_PREFIX = 'server-next-persistent-documents';
+const BACKUP_FILE_PREFIX = 'server-persistent-documents';
 
 const BACKUP_FILE_KIND = 'server_next_persistent_documents_backup_v1';
 
@@ -175,7 +175,7 @@ export class NextGmAdminService {
 
         await fsPromises.mkdir(this.backupDirectory, { recursive: true });
 
-        const databaseUrl = resolveServerNextDatabaseUrl();
+        const databaseUrl = resolveServerDatabaseUrl();
         if (!databaseUrl.trim()) {
             return;
         }
@@ -225,7 +225,7 @@ export class NextGmAdminService {
             persistenceEnabled: this.persistenceEnabled,
             scope: NEXT_GM_RESTORE_CONTRACT.scope,
             restoreMode: NEXT_GM_RESTORE_CONTRACT.restoreMode,
-            note: '仅作用于 server-next persistent_documents，不会恢复旧后端 users/players 等正式业务表；当前 backup/restore 仍为手工触发，不存在自动定时备份或自动保留清理',
+            note: '仅作用于 server persistent_documents，不会恢复旧后端 users/players 等正式业务表；当前 backup/restore 仍为手工触发，不存在自动定时备份或自动保留清理',
         };
     }    
     /**
@@ -236,7 +236,7 @@ export class NextGmAdminService {
     isRuntimeMaintenanceActive() {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
-        if (readBooleanEnv('SERVER_NEXT_RUNTIME_MAINTENANCE') || readBooleanEnv('RUNTIME_MAINTENANCE')) {
+        if (readBooleanEnv('SERVER_RUNTIME_MAINTENANCE') || readBooleanEnv('RUNTIME_MAINTENANCE')) {
             return true;
         }
         return this.currentDatabaseJob?.status === 'running' && this.currentDatabaseJob?.type === 'restore';
@@ -344,7 +344,7 @@ export class NextGmAdminService {
                 job: null,
             });
             try {
-                process.env.SERVER_NEXT_RUNTIME_RESTORE_ACTIVE = '1';
+                process.env.SERVER_RUNTIME_RESTORE_ACTIVE = '1';
                 this.updateDatabaseJobPhase(job, RESTORE_JOB_PHASE.PREPARING_RUNTIME);
                 await this.databaseRestoreCoordinator.prepareForRestore();
 
@@ -367,7 +367,7 @@ export class NextGmAdminService {
                 }
             }
             finally {
-                delete process.env.SERVER_NEXT_RUNTIME_RESTORE_ACTIVE;
+                delete process.env.SERVER_RUNTIME_RESTORE_ACTIVE;
                 this.updateDatabaseJobPhase(job, RESTORE_JOB_PHASE.RELOADING_RUNTIME);
                 await this.reloadPersistentCompatibilityState();
                 await this.databaseRestoreCoordinator.reloadAfterRestore();
@@ -1370,10 +1370,10 @@ export class NextGmAdminService {
     assertRestoreMaintenanceEnabled() {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
-        if (readBooleanEnv('SERVER_NEXT_RUNTIME_MAINTENANCE') || readBooleanEnv('RUNTIME_MAINTENANCE')) {
+        if (readBooleanEnv('SERVER_RUNTIME_MAINTENANCE') || readBooleanEnv('RUNTIME_MAINTENANCE')) {
             return;
         }
-        throw new BadRequestException('执行兼容 restore 前必须先开启维护态（SERVER_NEXT_RUNTIME_MAINTENANCE=1 或 RUNTIME_MAINTENANCE=1）');
+        throw new BadRequestException('执行兼容 restore 前必须先开启维护态（SERVER_RUNTIME_MAINTENANCE=1 或 RUNTIME_MAINTENANCE=1）');
     }    
     /**
  * applyAfdianPersistentConfig：判断AfdianPersistent配置是否满足条件。
@@ -1431,7 +1431,7 @@ function resolveBackupDirectory() {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
 
-    const configured = process.env.SERVER_NEXT_GM_DATABASE_BACKUP_DIR?.trim()
+    const configured = process.env.SERVER_GM_DATABASE_BACKUP_DIR?.trim()
         || process.env.GM_DATABASE_BACKUP_DIR?.trim()
         || '';
     if (configured) {
@@ -1635,7 +1635,7 @@ function assertCompatibleBackupPayload(value) {
         throw new BadRequestException('兼容备份内容无效');
     }
     if (record.kind !== undefined && record.kind !== BACKUP_FILE_KIND) {
-        throw new BadRequestException('备份类型不受支持，当前仅支持 server-next 兼容 persistent_documents 备份');
+        throw new BadRequestException('备份类型不受支持，当前仅支持 server 兼容 persistent_documents 备份');
     }
     if (record.scope !== undefined && record.scope !== BACKUP_SCOPE_LABEL) {
         throw new BadRequestException('备份作用域不受支持，当前仅支持 persistent_documents 兼容备份');
@@ -1714,7 +1714,7 @@ function assertAfdianWebhookAuthorized(envelope, headers) {
     const headerRecord = asRecord(headers) ?? {};
 
     const headerCandidates = [
-        headerRecord['x-server-next-webhook-token'],
+        headerRecord['x-server-webhook-token'],
         headerRecord['x-afdian-webhook-token'],
         headerRecord['x-webhook-token'],
         extractBearerToken(headerRecord.authorization),
@@ -2025,7 +2025,7 @@ function normalizeEnvValue(value) {
  */
 
 function readAfdianWebhookSecret() {
-    return normalizeEnvValue(process.env.SERVER_NEXT_AFDIAN_WEBHOOK_SECRET)
+    return normalizeEnvValue(process.env.SERVER_AFDIAN_WEBHOOK_SECRET)
         ?? normalizeEnvValue(process.env.AFDIAN_WEBHOOK_SECRET)
         ?? null;
 }

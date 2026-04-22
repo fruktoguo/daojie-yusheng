@@ -15,14 +15,14 @@ exports.resolveRuntimeHttpAccessPolicy = resolveRuntimeHttpAccessPolicy;
 const common_1 = require("@nestjs/common");
 
 const RUNTIME_HTTP_ENABLE_ENV_KEYS = [
-    'SERVER_NEXT_RUNTIME_HTTP',
-    'SERVER_NEXT_RUNTIME_HTTP_ENABLED',
-    'SERVER_NEXT_ENABLE_RUNTIME_HTTP',
+    'SERVER_RUNTIME_HTTP',
+    'SERVER_RUNTIME_HTTP_ENABLED',
+    'SERVER_ENABLE_RUNTIME_HTTP',
 ];
 
 const RUNTIME_HTTP_TOKEN_ENV_KEYS = [
-    'SERVER_NEXT_RUNTIME_ADMIN_TOKEN',
-    'SERVER_NEXT_RUNTIME_HTTP_TOKEN',
+    'SERVER_RUNTIME_ADMIN_TOKEN',
+    'SERVER_RUNTIME_HTTP_TOKEN',
 ];
 
 const TRUE_FLAG_VALUES = new Set(['1', 'true', 'yes', 'on', 'enable', 'enabled']);
@@ -37,7 +37,7 @@ let RuntimeHttpAccessGuard = class RuntimeHttpAccessGuard {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
         if (!this.policy.enabled) {
-            throw new common_1.ServiceUnavailableException('runtime debug HTTP is disabled; set SERVER_NEXT_RUNTIME_HTTP=1 to enable it explicitly');
+            throw new common_1.ServiceUnavailableException('runtime debug HTTP is disabled; set SERVER_RUNTIME_HTTP=1 to enable it explicitly');
         }
         if (this.policy.token === null) {
             return true;

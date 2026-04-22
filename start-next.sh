@@ -1,16 +1,16 @@
 #!/bin/bash
-# 用途：启动 server-next 本地开发环境并按需拉起依赖服务。
+# 用途：启动 server 本地开发环境并按需拉起依赖服务。
 
 set -euo pipefail
 
 cd "$(dirname "$0")"
 
-# 保存启动模式参数，决定是否进入本地 server-next 开发流程。
+# 保存启动模式参数，决定是否进入本地 server 开发流程。
 MODE="${1:-local}"
-# 指定 server-next 本地基础设施使用的 Compose 配置文件。
-SERVER_NEXT_COMPOSE_FILE="${SERVER_NEXT_COMPOSE_FILE:-docker-compose.server-next.yml}"
-# 指定 server-next 本地 Compose 项目的隔离名称。
-SERVER_NEXT_COMPOSE_PROJECT="${SERVER_NEXT_COMPOSE_PROJECT:-mud-next-local}"
+# 指定 server 本地基础设施使用的 Compose 配置文件。
+SERVER_COMPOSE_FILE="${SERVER_COMPOSE_FILE:-docker-compose.server.yml}"
+# 指定 server 本地 Compose 项目的隔离名称。
+SERVER_COMPOSE_PROJECT="${SERVER_COMPOSE_PROJECT:-mud-local}"
 
 # 在脚本结束时回收 server-next、client-next 和 shared-next 监听进程。
 cleanup() {

@@ -124,7 +124,7 @@ function checkWorldSync() {
     expectAbsent("world-sync.service.ts", source, /nextAuxStateByPlayerId/, "raw aux cache");
     expectAbsent("world-sync.service.ts", source, /function isSame|function shallowEqual|function isPlainEqual/, "遗留 diff helper");
     expectPresent("world-sync.service.ts", source, /worldSyncEnvelopeService\.createInitialEnvelope/, "主 envelope seam");
-    expectPresent("world-sync.service.ts", source, /worldSyncAuxStateService\.emitNextInitialSync/, "aux-state seam");
+    expectPresent("world-sync.service.ts", source, /worldSyncAuxStateService\.emitAuxInitialSync/, "aux-state seam");
     return lines;
 }
 /**
@@ -136,7 +136,7 @@ function checkWorldSync() {
 function checkWorldProjector() {
     const { source } = readSource("network/world-projector.service.ts");
     const lines = expectLineCap("world-projector.service.ts", source, 1500);
-    expectAbsent("world-projector.service.ts", source, /worldClientEventService|emit\(|socket|sendNextEnvelope/, "projector 不应承担 socket 发包");
+    expectAbsent("world-projector.service.ts", source, /worldClientEventService|emit\(|socket|sendEnvelope/, "projector 不应承担 socket 发包");
     expectPresent("world-projector.service.ts", source, /createInitialEnvelope/, "initial envelope projection");
     expectPresent("world-projector.service.ts", source, /createDeltaEnvelope/, "delta envelope projection");
     return lines;

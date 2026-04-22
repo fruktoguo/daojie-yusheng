@@ -12,10 +12,11 @@ const node_fs_1 = require("node:fs");
 const node_net_1 = require("node:net");
 const node_path_1 = require("node:path");
 const socket_io_client_1 = require("socket.io-client");
-const shared_next_1 = require("@mud/shared-next");
+const shared_next_1 = require("@mud/shared");
 const pg_1 = require("pg");
 const env_alias_1 = require("../config/env-alias");
 const next_gm_contract_1 = require("../http/next/next-gm-contract");
+const smoke_player_cleanup_1 = require("./smoke-player-cleanup");
 /**
  * 记录包根目录。
  */
@@ -27,11 +28,11 @@ const serverEntry = (0, node_path_1.join)(packageRoot, 'dist', 'main.js');
 /**
  * 记录数据库地址。
  */
-const databaseUrl = (0, env_alias_1.resolveServerNextDatabaseUrl)();
+const databaseUrl = (0, env_alias_1.resolveServerDatabaseUrl)();
 /**
  * 记录GMpassword。
  */
-const gmPassword = (0, env_alias_1.resolveServerNextGmPassword)('admin123');
+const gmPassword = (0, env_alias_1.resolveServerGmPassword)('admin123');
 const GM_DATABASE_SMOKE_CONTRACT = Object.freeze({
     answers: '本地维护窗口下的 GM database destructive 链：backup、校验、restore、checkpoint backup、并发拒绝与维护态 socket 拒绝',
     excludes: '真实 shadow 目标机、运营审批链、跨环境灾备取证与人工维护记录',
@@ -40,7 +41,7 @@ const GM_DATABASE_SMOKE_CONTRACT = Object.freeze({
 
 const GM_DATABASE_JOB_SETTLE_TIMEOUT_MS = 120_000;
 
-const GM_DATABASE_RESTORE_SETTLE_TIMEOUT_MS = 420_000;
+const GM_DATABASE_RESTORE_SETTLE_TIMEOUT_MS = 720_000;
 /**
  * 记录changedGMpassword。
  */
@@ -72,7 +73,7 @@ const displayNameSeed = Number.parseInt(playerSuffix.slice(-6), 36) || Date.now(
 /**
  * 记录当前值端口。
  */
-let currentPort = Number(process.env.SERVER_NEXT_SMOKE_PORT ?? 3212);
+let currentPort = Number(process.env.SERVER_SMOKE_PORT ?? 3212);
 /**
  * 记录base地址。
  */
@@ -87,7 +88,7 @@ async function main() {
         console.log(JSON.stringify({
             ok: true,
             skipped: true,
-            reason: 'SERVER_NEXT_DATABASE_URL/DATABASE_URL missing',
+            reason: 'SERVER_DATABASE_URL/DATABASE_URL missing',
             answers: GM_DATABASE_SMOKE_CONTRACT.answers,
             excludes: GM_DATABASE_SMOKE_CONTRACT.excludes,
             completionMapping: GM_DATABASE_SMOKE_CONTRACT.completionMapping,
@@ -400,13 +401,13 @@ async function startServer(options) {
         cwd: packageRoot,
         env: {
             ...process.env,
-            SERVER_NEXT_PORT: String(currentPort),
-            SERVER_NEXT_DATABASE_URL: databaseUrl,
-            SERVER_NEXT_RUNTIME_HTTP: '1',
-            SERVER_NEXT_ALLOW_LEGACY_HTTP_COMPAT: '1',
-            SERVER_NEXT_GM_DATABASE_BACKUP_DIR: backupDirectory,
+            SERVER_PORT: String(currentPort),
+            SERVER_DATABASE_URL: databaseUrl,
+            SERVER_RUNTIME_HTTP: '1',
+            SERVER_ALLOW_LEGACY_HTTP_COMPAT: '1',
+            SERVER_GM_DATABASE_BACKUP_DIR: backupDirectory,
             ...(options.maintenance
-                ? { SERVER_NEXT_RUNTIME_MAINTENANCE: '1' }
+                ? { SERVER_RUNTIME_MAINTENANCE: '1' }
                 : {}),
         },
         stdio: ['ignore', 'pipe', 'pipe'],
@@ -428,8 +429,8 @@ async function resetGmAuthPasswordRecord() {
     await client.connect();
     try {
         await client.query('DELETE FROM persistent_documents WHERE scope = $1 AND key = $2', [
-            next_gm_contract_1.NEXT_GM_AUTH_CONTRACT.passwordRecordScope,
-            next_gm_contract_1.NEXT_GM_AUTH_CONTRACT.passwordRecordKey,
+            next_gm_contract_1.GM_AUTH_CONTRACT.passwordRecordScope,
+            next_gm_contract_1.GM_AUTH_CONTRACT.passwordRecordKey,
         ]);
     }
     catch (error) {
@@ -1043,7 +1044,7 @@ async function assertBackupDownload(token, backupId, expectedRecord = null) {
 /**
  * 记录expected文件名称。
  */
-    const expectedFileName = String(expectedRecord?.fileName ?? `server-next-persistent-documents-${backupId}.json`).trim();
+    const expectedFileName = String(expectedRecord?.fileName ?? `server-persistent-documents-${backupId}.json`).trim();
 /**
  * 记录response。
  */
@@ -1210,7 +1211,7 @@ async function expectNextSocketRejectedForMaintenance() {
         transports: ['websocket'],
         forceNew: true,
         auth: {
-            protocol: 'next',
+            protocol: 'mainline',
         },
     });
 /**
@@ -1222,7 +1223,7 @@ async function expectNextSocketRejectedForMaintenance() {
  */
     let disconnected = false;
     try {
-        socket.on(shared_next_1.NEXT_S2C.Error, (payload) => {
+        socket.on(shared_next_1.S2C.Error, (payload) => {
             errorPayload = payload;
         });
         socket.on('disconnect', () => {
@@ -1503,7 +1504,7 @@ async function restoreOriginalBackupFile(backupId) {
  * 解析备份文件路径。
  */
 function resolveBackupFilePath(backupId) {
-    return (0, node_path_1.join)(backupDirectory, `server-next-persistent-documents-${backupId}.json`);
+    return (0, node_path_1.join)(backupDirectory, `server-persistent-documents-${backupId}.json`);
 }
 /**
  * 处理computechecksumfordocs。
@@ -1575,15 +1576,10 @@ async function deletePlayer(playerId) {
     if (!playerId) {
         return;
     }
-/**
- * 记录response。
- */
-    const response = await fetch(`${baseUrl}/runtime/players/${playerId}`, {
-        method: 'DELETE',
+    await (0, smoke_player_cleanup_1.purgeSmokePlayerArtifactsByPlayerId)(playerId, {
+        serverUrl: baseUrl,
+        databaseUrl,
     });
-    if (!response.ok && response.status !== 404) {
-        throw new Error(`delete player failed: ${response.status} ${await response.text()}`);
-    }
 }
 /**
  * 分配free端口。

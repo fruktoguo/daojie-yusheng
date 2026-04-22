@@ -5,7 +5,7 @@ const path = require('node:path');
 
 const repoRoot = path.resolve(__dirname, '..');
 const candidateFiles = [
-  '.runtime/server-next.local.env',
+  '.runtime/server.local.env',
   '.env',
   '.env.local',
   'packages/server/.env',
@@ -54,7 +54,7 @@ function parseEnvFile(content) {
 }
 
 function loadLocalRuntimeEnv() {
-  if (normalizeBooleanEnv(process.env.SERVER_NEXT_SKIP_LOCAL_ENV_AUTOLOAD)) {
+  if (normalizeBooleanEnv(process.env.SERVER_SKIP_LOCAL_ENV_AUTOLOAD)) {
     return;
   }
   for (const relativePath of candidateFiles) {

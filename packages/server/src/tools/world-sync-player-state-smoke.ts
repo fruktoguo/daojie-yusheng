@@ -2,7 +2,7 @@
 
 const assert = require("node:assert/strict");
 
-const { createNumericStats, createNumericRatioDivisors } = require("@mud/shared-next");
+const { createNumericStats, createNumericRatioDivisors } = require("@mud/shared");
 const { WorldSyncPlayerStateService } = require("../network/world-sync-player-state.service");
 /**
  * createPlayer：构建并返回目标对象。

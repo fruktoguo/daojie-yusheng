@@ -93,7 +93,7 @@ UI 代码主要分布在：
 
 已经完成：
 
-- 把旧版 UI 公共化迁移到 `client-next`
+- 把旧版 UI 公共化迁移到 `packages/client`
 - 把公共样式从 `panels.css` 里拆出独立文件
 - 让 `inventory / quest / technique / body-training / mail` 等面板改成固定壳体 + 局部 patch
 

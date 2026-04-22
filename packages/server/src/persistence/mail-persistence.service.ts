@@ -49,9 +49,9 @@ let MailPersistenceService = MailPersistenceService_1 = class MailPersistenceSer
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
 
-        const databaseUrl = (0, env_alias_1.resolveServerNextDatabaseUrl)();
+        const databaseUrl = (0, env_alias_1.resolveServerDatabaseUrl)();
         if (!databaseUrl.trim()) {
-            this.logger.log('邮件持久化已禁用：未提供 SERVER_NEXT_DATABASE_URL/DATABASE_URL');
+            this.logger.log('邮件持久化已禁用：未提供 SERVER_DATABASE_URL/DATABASE_URL');
             return;
         }
         this.pool = new pg_1.Pool({
@@ -151,6 +151,9 @@ function normalizeMailbox(raw) {
     return {
         version: 1,
         revision: Number.isFinite(candidate.revision) ? Math.max(1, Math.trunc(Number(candidate.revision ?? 1))) : 1,
+        welcomeMailDeliveredAt: Number.isFinite(candidate.welcomeMailDeliveredAt)
+            ? Math.trunc(Number(candidate.welcomeMailDeliveredAt))
+            : null,
         mails: Array.isArray(candidate.mails)
             ? candidate.mails
                 .map((entry) => normalizeMailEntry(entry))
@@ -208,4 +211,3 @@ function normalizeMailEntry(raw) {
     };
 }
 //# sourceMappingURL=mail-persistence.service.js.map
-

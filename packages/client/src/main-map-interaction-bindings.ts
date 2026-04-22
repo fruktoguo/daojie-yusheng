@@ -1,4 +1,4 @@
-import { encodeTileTargetRef, isPointInRange, type ActionDef, type TargetingShape, type Tile } from '@mud/shared-next';
+import { encodeTileTargetRef, isPointInRange, type ActionDef, type TargetingShape, type Tile } from '@mud/shared';
 import type { MainNavigationObservedEntity } from './main-navigation-state-source';
 /**
  * PendingTargetedAction：统一结构类型，保证协议与运行时一致性。

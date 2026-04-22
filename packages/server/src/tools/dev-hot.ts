@@ -1,7 +1,7 @@
 // @ts-nocheck
 
 /**
- * 用途：监听编译结果并热重启 server-next 开发进程。
+ * 用途：监听编译结果并热重启 server 开发进程。
  */
 
 import { spawn } from "node:child_process";
@@ -15,6 +15,9 @@ let shuttingDown = false;
 let serverProcess: import("node:child_process").ChildProcess | null = null;
 let serverGeneration = 0;
 let watchReady = false;
+let expectedServerExitPid: number | null = null;
+let restartTimer: NodeJS.Timeout | null = null;
+const recentUnexpectedExitAt: number[] = [];
 /**
  * padDatePart：处理padDatePart并更新相关状态。
  * @param value number 参数说明。
@@ -49,7 +52,47 @@ function getTimestamp() {
 
 
 function log(message: string) {
-  process.stdout.write(`[${getTimestamp()}] [server-next dev] ${message}\n`);
+  process.stdout.write(`[${getTimestamp()}] [server dev] ${message}\n`);
+}
+
+/**
+ * clearRestartTimer：清理未执行的自动重启定时器。
+ */
+function clearRestartTimer() {
+  if (!restartTimer) {
+    return;
+  }
+  clearTimeout(restartTimer);
+  restartTimer = null;
+}
+
+/**
+ * computeRestartDelayMs：按近期异常退出频率给出重启退避时间。
+ */
+function computeRestartDelayMs() {
+  const now = Date.now();
+  while (recentUnexpectedExitAt.length > 0 && now - (recentUnexpectedExitAt[0] ?? now) > 30_000) {
+    recentUnexpectedExitAt.shift();
+  }
+  recentUnexpectedExitAt.push(now);
+  return recentUnexpectedExitAt.length >= 3 ? 5_000 : 1_000;
+}
+
+/**
+ * scheduleAutoRestart：为异常退出安排自动拉起，避免开发脚本挂死。
+ */
+function scheduleAutoRestart(reason: string) {
+  if (shuttingDown) {
+    return;
+  }
+  clearRestartTimer();
+  const delayMs = computeRestartDelayMs();
+  log(`${reason}，${delayMs}ms 后自动重启 server`);
+  restartTimer = setTimeout(() => {
+    restartTimer = null;
+    startServer();
+  }, delayMs);
+  restartTimer.unref();
 }
 /**
  * forwardWithCapture：执行forwardWithCapture相关逻辑。
@@ -79,9 +122,12 @@ function stopServer(onStopped?: () => void) {
   const child = serverProcess;
   if (!child || child.exitCode !== null) {
     serverProcess = null;
+    expectedServerExitPid = null;
     onStopped?.();
     return;
   }
+  clearRestartTimer();
+  expectedServerExitPid = child.pid ?? null;
 
   let finished = false;
   const done = () => {
@@ -117,8 +163,9 @@ function startServer() {
   if (shuttingDown) {
     return;
   }
+  clearRestartTimer();
   const generation = ++serverGeneration;
-  log(`启动 server-next 进程 #${generation}`);
+  log(`启动 server 进程 #${generation}`);
 
   const child = spawn(process.execPath, [distEntry], {
     cwd: projectRoot,
@@ -130,10 +177,17 @@ function startServer() {
     if (serverProcess === child) {
       serverProcess = null;
     }
+    const isExpectedExit = expectedServerExitPid !== null && expectedServerExitPid === (child.pid ?? null);
+    if (isExpectedExit) {
+      expectedServerExitPid = null;
+    }
     if (shuttingDown) {
       return;
     }
-    log(`server-next 进程 #${generation} 已退出 (code=${code ?? "null"}, signal=${signal ?? "none"})`);
+    log(`server 进程 #${generation} 已退出 (code=${code ?? "null"}, signal=${signal ?? "none"})`);
+    if (!isExpectedExit) {
+      scheduleAutoRestart(`server 进程 #${generation} 异常退出`);
+    }
   });
 }
 /**
@@ -149,7 +203,8 @@ function restartServer(reason: string) {
   if (shuttingDown) {
     return;
   }
-  log(`${reason}，重启 server-next...`);
+  clearRestartTimer();
+  log(`${reason}，重启 server...`);
   stopServer(() => startServer());
 }
 /**
@@ -166,6 +221,7 @@ function shutdown(tscWatcher: import("node:child_process").ChildProcess) {
     return;
   }
   shuttingDown = true;
+  clearRestartTimer();
   log("正在停止热更新进程...");
 
   if (tscWatcher.exitCode === null) {
@@ -188,7 +244,7 @@ const handleWatcherText = (text: string) => {
   }
   if (!watchReady) {
     watchReady = true;
-    log("TypeScript 监听已就绪，后续编译成功会自动重启 server-next");
+    log("TypeScript 监听已就绪，后续编译成功会自动重启 server");
     return;
   }
   restartServer("检测到源码编译完成");

@@ -1,12 +1,12 @@
 import { useExternalStoreSnapshot } from '../hooks/use-external-store-snapshot';
-import { closeNextDetailModal, overlayStore } from './overlay-store';
+import { closeDetailModal, overlayStore } from './overlay-store';
 /**
- * NextDetailModalLayer：渲染Next详情弹层层组件。
+ * DetailModalLayer：渲染Next详情弹层层组件。
  * @returns 无返回值，直接更新Next详情弹层层相关状态。
  */
 
 
-export function NextDetailModalLayer() {
+export function DetailModalLayer() {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
   const { detailModal } = useExternalStoreSnapshot(overlayStore);
@@ -19,7 +19,7 @@ export function NextDetailModalLayer() {
     <div
       className="next-ui-modal-layer next-ui-detail-modal-layer"
       aria-hidden="false"
-      onClick={closeNextDetailModal}
+      onClick={closeDetailModal}
     >
       <div
         className="next-ui-modal-card next-ui-modal-card--md next-ui-detail-modal-card"

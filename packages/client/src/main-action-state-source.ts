@@ -5,7 +5,7 @@ import {
   buildDefaultCombatTargetingRules,
   normalizeAutoBattleTargetingMode,
   normalizeCombatTargetingRules,
-} from '@mud/shared-next';
+} from '@mud/shared';
 import type { SocketRuntimeSender } from './network/socket-send-runtime';
 import type { ClientTechniqueActivityKind } from './technique-activity-client.helpers';
 import { ActionPanel } from './ui/panels/action-panel';

@@ -8,12 +8,12 @@ Object.defineProperty(exports, "__esModule", { value: true });
 const smoke_timeout_1 = require("./smoke-timeout");
 (0, smoke_timeout_1.installSmokeTimeout)(__filename);
 const socket_io_client_1 = require("socket.io-client");
-const shared_1 = require("@mud/shared-next");
+const shared_1 = require("@mud/shared");
 const env_alias_1 = require("../config/env-alias");
 /**
- * 记录 server-next 访问地址。
+ * 记录 server 访问地址。
  */
-const SERVER_NEXT_URL = (0, env_alias_1.resolveServerNextUrl)() || 'http://127.0.0.1:3111';
+const SERVER_URL = (0, env_alias_1.resolveServerUrl)() || 'http://127.0.0.1:3111';
 /**
  * 记录玩家ID。
  */
@@ -21,11 +21,11 @@ let playerId = '';
 /**
  * 记录instanceID。
  */
-const instanceId = process.env.SERVER_NEXT_SMOKE_INSTANCE_ID ?? 'public:wildlands';
+const instanceId = process.env.SERVER_SMOKE_INSTANCE_ID ?? 'public:wildlands';
 /**
  * 记录优先值怪物ID。
  */
-const preferredMonsterId = process.env.SERVER_NEXT_SMOKE_MONSTER_ID ?? 'm_swamp_lizard';
+const preferredMonsterId = process.env.SERVER_SMOKE_MONSTER_ID ?? 'm_swamp_lizard';
 /**
  * 记录boostedhp。
  */
@@ -39,7 +39,7 @@ async function main() {
 /**
  * 记录initialmonsters。
  */
-    const initialMonsters = await fetchJson(`${SERVER_NEXT_URL}/runtime/instances/${instanceId}/monsters`);
+    const initialMonsters = await fetchJson(`${SERVER_URL}/runtime/instances/${instanceId}/monsters`);
 /**
  * 记录目标。
  */
@@ -69,23 +69,26 @@ async function main() {
 /**
  * 记录socket。
  */
-    const socket = (0, socket_io_client_1.io)(SERVER_NEXT_URL, {
+    const socket = (0, socket_io_client_1.io)(SERVER_URL, {
         path: '/socket.io',
         transports: ['websocket'],
+        auth: {
+            protocol: 'mainline',
+        },
     });
     const worldEvents = [];
-    socket.on(shared_1.NEXT_S2C.Error, (payload) => {
+    socket.on(shared_1.S2C.Error, (payload) => {
         throw new Error(`socket error: ${JSON.stringify(payload)}`);
     });
-    socket.on(shared_1.NEXT_S2C.WorldDelta, (payload) => {
+    socket.on(shared_1.S2C.WorldDelta, (payload) => {
         worldEvents.push(payload);
     });
-    socket.on(shared_1.NEXT_S2C.InitSession, (payload) => {
+    socket.on(shared_1.S2C.InitSession, (payload) => {
         playerId = String(payload?.pid ?? '');
     });
     try {
         await onceConnected(socket);
-        socket.emit(shared_1.NEXT_C2S.Hello, {
+        socket.emit(shared_1.C2S.Hello, {
             mapId: instanceId.replace('public:', ''),
             // Spawn on the monster anchor and let runtime pick the nearest open tile.
             // This avoids brittle assumptions about fixed offset positions still being visible/in-range.
@@ -190,7 +193,7 @@ async function main() {
         }
         console.log(JSON.stringify({
             ok: true,
-            url: SERVER_NEXT_URL,
+            url: SERVER_URL,
             playerId,
             instanceId,
             runtimeId: resolvedTarget.runtimeId,
@@ -268,19 +271,19 @@ function resolveSkillRange(skill) {
  * 处理fetch玩家状态。
  */
 async function fetchPlayerState(playerIdValue) {
-    return fetchJson(`${SERVER_NEXT_URL}/runtime/players/${playerIdValue}/state`);
+    return fetchJson(`${SERVER_URL}/runtime/players/${playerIdValue}/state`);
 }
 /**
  * 处理fetch怪物。
  */
 async function fetchMonster(instanceIdValue, runtimeId) {
-    return fetchJson(`${SERVER_NEXT_URL}/runtime/instances/${instanceIdValue}/monsters/${runtimeId}`);
+    return fetchJson(`${SERVER_URL}/runtime/instances/${instanceIdValue}/monsters/${runtimeId}`);
 }
 /**
  * 处理fetch玩家view。
  */
 async function fetchPlayerView(playerIdValue) {
-    return fetchJson(`${SERVER_NEXT_URL}/runtime/players/${playerIdValue}/view`);
+    return fetchJson(`${SERVER_URL}/runtime/players/${playerIdValue}/view`);
 }
 /**
  * 处理fetchjson。
@@ -306,7 +309,7 @@ async function postJson(path, body) {
 /**
  * 记录response。
  */
-    const response = await fetch(`${SERVER_NEXT_URL}${path}`, {
+    const response = await fetch(`${SERVER_URL}${path}`, {
         method: 'POST',
         headers: {
             'content-type': 'application/json',
@@ -391,7 +394,7 @@ async function deletePlayer(playerIdValue) {
 /**
  * 记录response。
  */
-    const response = await fetch(`${SERVER_NEXT_URL}/runtime/players/${playerIdValue}`, {
+    const response = await fetch(`${SERVER_URL}/runtime/players/${playerIdValue}`, {
         method: 'DELETE',
     });
     if (!response.ok) {

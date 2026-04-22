@@ -1,14 +1,14 @@
 import {
   Inventory,
-  NEXT_S2C_MarketItemBook,
-  NEXT_S2C_MarketListings,
-  NEXT_S2C_MarketOrders,
-  NEXT_S2C_MarketStorage,
-  NEXT_S2C_MarketTradeHistory,
-  NEXT_S2C_MarketUpdate,
   PlayerState,
+  S2C_MarketItemBook,
+  S2C_MarketListings,
+  S2C_MarketOrders,
+  S2C_MarketStorage,
+  S2C_MarketTradeHistory,
+  S2C_MarketUpdate,
   SyncedItemStack,
-} from '@mud/shared-next';
+} from '@mud/shared';
 import type { SocketSocialEconomySender } from './network/socket-send-social-economy';
 import { MarketPanel } from './ui/panels/market-panel';
 /**
@@ -101,12 +101,12 @@ export function createMainMarketStateSource(options: MainMarketStateSourceOption
     },    
     /**
  * handleMarketUpdate：处理坊市Update并更新相关状态。
- * @param data NEXT_S2C_MarketUpdate 原始数据。
+ * @param data S2C_MarketUpdate 原始数据。
  * @returns 无返回值，直接更新坊市Update相关状态。
  */
 
 
-    handleMarketUpdate(data: NEXT_S2C_MarketUpdate): void {
+    handleMarketUpdate(data: S2C_MarketUpdate): void {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
       const player = options.getPlayer();
@@ -117,32 +117,32 @@ export function createMainMarketStateSource(options: MainMarketStateSourceOption
     },    
     /**
  * handleMarketListings：读取坊市Listing并返回结果。
- * @param data NEXT_S2C_MarketListings 原始数据。
+ * @param data S2C_MarketListings 原始数据。
  * @returns 无返回值，直接更新坊市Listing相关状态。
  */
 
 
-    handleMarketListings(data: NEXT_S2C_MarketListings): void {
+    handleMarketListings(data: S2C_MarketListings): void {
       marketPanel.updateListings(data);
     },    
     /**
  * handleMarketOrders：处理坊市订单并更新相关状态。
- * @param data NEXT_S2C_MarketOrders 原始数据。
+ * @param data S2C_MarketOrders 原始数据。
  * @returns 无返回值，直接更新坊市订单相关状态。
  */
 
 
-    handleMarketOrders(data: NEXT_S2C_MarketOrders): void {
+    handleMarketOrders(data: S2C_MarketOrders): void {
       marketPanel.updateOrders(data);
     },    
     /**
  * handleMarketStorage：处理坊市Storage并更新相关状态。
- * @param data NEXT_S2C_MarketStorage 原始数据。
+ * @param data S2C_MarketStorage 原始数据。
  * @returns 无返回值，直接更新坊市Storage相关状态。
  */
 
 
-    handleMarketStorage(data: NEXT_S2C_MarketStorage): void {
+    handleMarketStorage(data: S2C_MarketStorage): void {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
       const player = options.getPlayer();
@@ -155,22 +155,22 @@ export function createMainMarketStateSource(options: MainMarketStateSourceOption
     },    
     /**
  * handleMarketItemBook：处理坊市道具Book并更新相关状态。
- * @param data NEXT_S2C_MarketItemBook 原始数据。
+ * @param data S2C_MarketItemBook 原始数据。
  * @returns 无返回值，直接更新坊市道具Book相关状态。
  */
 
 
-    handleMarketItemBook(data: NEXT_S2C_MarketItemBook): void {
+    handleMarketItemBook(data: S2C_MarketItemBook): void {
       marketPanel.updateItemBook(data);
     },    
     /**
  * handleMarketTradeHistory：判断坊市Trade历史是否满足条件。
- * @param data NEXT_S2C_MarketTradeHistory 原始数据。
+ * @param data S2C_MarketTradeHistory 原始数据。
  * @returns 无返回值，直接更新坊市TradeHistory相关状态。
  */
 
 
-    handleMarketTradeHistory(data: NEXT_S2C_MarketTradeHistory): void {
+    handleMarketTradeHistory(data: S2C_MarketTradeHistory): void {
       marketPanel.updateTradeHistory(data);
     },
   };

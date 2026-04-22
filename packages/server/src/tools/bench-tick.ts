@@ -5,7 +5,7 @@
  */
 
 Object.defineProperty(exports, "__esModule", { value: true });
-const shared_1 = require("@mud/shared-next");
+const shared_1 = require("@mud/shared");
 const map_instance_runtime_1 = require("../runtime/instance/map-instance.runtime");
 /**
  * 记录width。

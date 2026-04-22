@@ -1,5 +1,5 @@
 import { Injectable } from '@nestjs/common';
-import { NEXT_S2C } from '@mud/shared-next';
+import { S2C } from '@mud/shared';
 
 const DEFAULT_SESSION_DETACH_EXPIRE_MS = 15_000;
 const MAX_REQUESTED_SESSION_ID_LENGTH = 128;
@@ -8,7 +8,7 @@ export const WORLD_SESSION_CONTRACT = Object.freeze({
   sourceOfTruth: 'single_process_memory',
   connectedReuse: 'reuse_current_session_only_when_allowConnectedSessionReuse',
   detachedResume: 'implicit_or_requested_within_detach_window',
-  detachExpireEnvKey: 'SERVER_NEXT_SESSION_DETACH_EXPIRE_MS',
+  detachExpireEnvKey: 'SERVER_SESSION_DETACH_EXPIRE_MS',
   zeroExpireBehavior: 'expire_immediately_and_enqueue_for_reaper',
 });
 
@@ -37,7 +37,7 @@ interface RegisterSocketOptions {
 type SessionTimer = ReturnType<typeof setTimeout>;
 
 function resolveSessionDetachExpireMs(): number {
-  const raw = process.env.SERVER_NEXT_SESSION_DETACH_EXPIRE_MS;
+  const raw = process.env.SERVER_SESSION_DETACH_EXPIRE_MS;
   const parsed = Number(raw);
   if (Number.isFinite(parsed)) {
     return Math.max(0, Math.trunc(parsed));
@@ -130,7 +130,7 @@ export class WorldSessionService {
       this.bindingBySocketId.delete(previous.socketId);
       const previousSocket = this.socketsById.get(previous.socketId);
       if (previousSocket) {
-        previousSocket.emit(NEXT_S2C.Kick, { reason: 'replaced' });
+        previousSocket.emit(S2C.Kick, { reason: 'replaced' });
         previousSocket.disconnect(true);
       }
     }
@@ -281,7 +281,7 @@ export class WorldSessionService {
       const socket = this.socketsById.get(binding.socketId) ?? null;
       this.socketsById.delete(binding.socketId);
       if (socket) {
-        socket.emit(NEXT_S2C.Kick, { reason });
+        socket.emit(S2C.Kick, { reason });
         socket.disconnect(true);
       }
     }

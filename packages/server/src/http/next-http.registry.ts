@@ -18,14 +18,14 @@ import { NextAccountController } from './next/next-account.controller';
 import { NextGmAuthController } from './next/next-gm-auth.controller';
 import { NextGmController } from './next/next-gm.controller';
 import { NextGmAdminController } from './next/next-gm-admin.controller';
-import { NEXT_GM_HTTP_CONTRACT } from './next/next-gm-contract';
+import { GM_HTTP_CONTRACT } from './next/next-gm-contract';
 
 /** Next 体系 HTTP 路由与依赖注册清单（控制器 + 服务）。 */
 export const NEXT_HTTP_CONTRACT = Object.freeze({
-  controllerShape: NEXT_GM_HTTP_CONTRACT.controllerShape,
-  authSurface: NEXT_GM_HTTP_CONTRACT.authSurface,
-  adminSurface: NEXT_GM_HTTP_CONTRACT.adminSurface,
-  restoreSurface: NEXT_GM_HTTP_CONTRACT.restoreSurface,
+  controllerShape: GM_HTTP_CONTRACT.controllerShape,
+  authSurface: GM_HTTP_CONTRACT.authSurface,
+  adminSurface: GM_HTTP_CONTRACT.adminSurface,
+  restoreSurface: GM_HTTP_CONTRACT.restoreSurface,
 });
 
 /** Next 体系 HTTP 路由与依赖注册清单（控制器 + 服务）。 */

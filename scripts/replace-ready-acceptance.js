@@ -4,7 +4,7 @@
 require('./load-local-runtime-env');
 
 /**
- * 用途：执行 server-next 替换链路的验收验证流程。
+ * 用途：执行 server 替换链路的验收验证流程。
  */
 
 const { spawnSync } = require('node:child_process');
@@ -12,36 +12,36 @@ const path = require('node:path');
 
 const repoRoot = path.resolve(__dirname, '..');
 const {
-  resolveServerNextGmPassword,
-  resolveServerNextGmPasswordEnvSource,
-  resolveServerNextShadowUrl,
-  resolveServerNextShadowUrlEnvSource,
-} = require('./server-next-env-alias');
+  resolveServerGmPassword,
+  resolveServerGmPasswordEnvSource,
+  resolveServerShadowUrl,
+  resolveServerShadowUrlEnvSource,
+} = require('./server-env-alias');
 
 /**
  * 记录shadow 环境地址。
  */
-const shadowUrl = resolveServerNextShadowUrl();
+const shadowUrl = resolveServerShadowUrl();
 /**
  * 记录shadow 环境环境变量来源地址。
  */
-const shadowUrlEnvSource = resolveServerNextShadowUrlEnvSource();
+const shadowUrlEnvSource = resolveServerShadowUrlEnvSource();
 /**
  * 记录GMpassword。
  */
-const gmPassword = resolveServerNextGmPassword();
+const gmPassword = resolveServerGmPassword();
 /**
  * 记录GMpassword环境变量来源。
  */
-const gmPasswordEnvSource = resolveServerNextGmPasswordEnvSource();
+const gmPasswordEnvSource = resolveServerGmPasswordEnvSource();
 
 if (!shadowUrl || !gmPassword) {
 /**
  * 记录missing。
  */
   const missing = [
-    shadowUrl ? null : 'SERVER_NEXT_SHADOW_URL/SERVER_NEXT_URL',
-    gmPassword ? null : 'SERVER_NEXT_GM_PASSWORD/GM_PASSWORD',
+    shadowUrl ? null : 'SERVER_SHADOW_URL/SERVER_URL',
+    gmPassword ? null : 'SERVER_GM_PASSWORD/GM_PASSWORD',
   ].filter(Boolean);
   process.stderr.write(`replace-ready acceptance requires shadow env: ${missing.join(' + ')}\n`);
   process.stderr.write('run pnpm verify:replace-ready:doctor first, then set the missing env and rerun pnpm verify:replace-ready:acceptance\n');
@@ -62,10 +62,10 @@ const steps = [
     args: ['scripts/replace-ready.js'],
     extraEnv: {
       DATABASE_URL: '',
-      SERVER_NEXT_DATABASE_URL: '',
-      SERVER_NEXT_ALLOW_UNREADY_TRAFFIC: '',
-      SERVER_NEXT_SMOKE_ALLOW_UNREADY: '',
-      SERVER_NEXT_SKIP_LOCAL_ENV_AUTOLOAD: '1',
+      SERVER_DATABASE_URL: '',
+      SERVER_ALLOW_UNREADY_TRAFFIC: '',
+      SERVER_SMOKE_ALLOW_UNREADY: '',
+      SERVER_SKIP_LOCAL_ENV_AUTOLOAD: '1',
     },
   },
   {
@@ -75,20 +75,20 @@ const steps = [
     extraEnv: null,
   },
   {
-    label: 'gm-next',
+    label: 'gm',
     kind: 'pnpm',
-    args: ['--filter', '@mud/server-next', 'smoke:gm-next'],
+    args: ['--filter', '@mud/server', 'smoke:gm'],
     extraEnv: {
       DATABASE_URL: '',
-      SERVER_NEXT_DATABASE_URL: '',
-      SERVER_NEXT_ALLOW_UNREADY_TRAFFIC: '',
-      SERVER_NEXT_SMOKE_ALLOW_UNREADY: '',
-      SERVER_NEXT_URL: shadowUrl,
+      SERVER_DATABASE_URL: '',
+      SERVER_ALLOW_UNREADY_TRAFFIC: '',
+      SERVER_SMOKE_ALLOW_UNREADY: '',
+      SERVER_URL: shadowUrl,
     },
   },
 ];
 
-process.stdout.write('[replace-ready:acceptance] steps=replace-ready -> shadow -> gm-next\n');
+process.stdout.write('[replace-ready:acceptance] steps=replace-ready -> shadow -> gm\n');
 
 for (const step of steps) {
 /**
@@ -105,8 +105,8 @@ for (const step of steps) {
     shell: step.kind === 'pnpm' ? process.platform === 'win32' : false,
     env: {
       ...process.env,
-      ...(shadowUrlEnvSource === 'SERVER_NEXT_SHADOW_URL' ? null : { SERVER_NEXT_SHADOW_URL: shadowUrl }),
-      ...(gmPasswordEnvSource === 'SERVER_NEXT_GM_PASSWORD' ? null : { SERVER_NEXT_GM_PASSWORD: gmPassword }),
+      ...(shadowUrlEnvSource === 'SERVER_SHADOW_URL' ? null : { SERVER_SHADOW_URL: shadowUrl }),
+      ...(gmPasswordEnvSource === 'SERVER_GM_PASSWORD' ? null : { SERVER_GM_PASSWORD: gmPassword }),
       ...(step.extraEnv ?? null),
     },
   });

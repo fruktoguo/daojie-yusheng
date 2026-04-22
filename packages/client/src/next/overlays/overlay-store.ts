@@ -1,17 +1,17 @@
 import type { ReactNode } from 'react';
 import { createExternalStore } from '../stores/create-external-store';
 /**
- * NextToastKind：统一结构类型，保证协议与运行时一致性。
+ * OverlayToastKind：统一结构类型，保证协议与运行时一致性。
  */
 
 
-export type NextToastKind = 'system' | 'quest' | 'combat' | 'loot' | 'grudge' | 'success' | 'warn' | 'travel';
+export type OverlayToastKind = 'system' | 'quest' | 'combat' | 'loot' | 'grudge' | 'success' | 'warn' | 'travel';
 /**
- * NextToastEntry：定义接口结构约束，明确可交付字段含义。
+ * OverlayToastEntry：定义接口结构约束，明确可交付字段含义。
  */
 
 
-export interface NextToastEntry {
+export interface OverlayToastEntry {
 /**
  * id：ID标识。
  */
@@ -21,7 +21,7 @@ export interface NextToastEntry {
  * kind：kind相关字段。
  */
 
-  kind: NextToastKind;  
+  kind: OverlayToastKind;  
   /**
  * message：message相关字段。
  */
@@ -29,11 +29,11 @@ export interface NextToastEntry {
   message: string;
 }
 /**
- * NextDetailModalState：定义接口结构约束，明确可交付字段含义。
+ * DetailModalState：定义接口结构约束，明确可交付字段含义。
  */
 
 
-export interface NextDetailModalState {
+export interface DetailModalState {
 /**
  * open：open相关字段。
  */
@@ -61,11 +61,11 @@ export interface NextDetailModalState {
   body?: ReactNode;
 }
 /**
- * NextTooltipState：定义接口结构约束，明确可交付字段含义。
+ * TooltipState：定义接口结构约束，明确可交付字段含义。
  */
 
 
-export interface NextTooltipState {
+export interface TooltipState {
 /**
  * visible：可见相关字段。
  */
@@ -93,29 +93,29 @@ export interface NextTooltipState {
   clientY: number;
 }
 /**
- * NextOverlayState：定义接口结构约束，明确可交付字段含义。
+ * OverlayState：定义接口结构约束，明确可交付字段含义。
  */
 
 
-export interface NextOverlayState {
+export interface OverlayState {
 /**
  * detailModal：详情弹层相关字段。
  */
 
-  detailModal: NextDetailModalState;  
+  detailModal: DetailModalState;  
   /**
  * tooltip：提示相关字段。
  */
 
-  tooltip: NextTooltipState;  
+  tooltip: TooltipState;  
   /**
  * toasts：toast相关字段。
  */
 
-  toasts: NextToastEntry[];
+  toasts: OverlayToastEntry[];
 }
 
-const INITIAL_OVERLAY_STATE: NextOverlayState = {
+const INITIAL_OVERLAY_STATE: OverlayState = {
   detailModal: {
     open: false,
     title: '',
@@ -132,15 +132,15 @@ const INITIAL_OVERLAY_STATE: NextOverlayState = {
 
 let toastIdSeed = 1;
 
-export const overlayStore = createExternalStore<NextOverlayState>(INITIAL_OVERLAY_STATE);
+export const overlayStore = createExternalStore<OverlayState>(INITIAL_OVERLAY_STATE);
 /**
- * openNextDetailModal：执行openNext详情弹层相关逻辑。
- * @param input Omit<NextDetailModalState, 'open'> 输入参数。
+ * openDetailModal：执行openNext详情弹层相关逻辑。
+ * @param input Omit<DetailModalState, 'open'> 输入参数。
  * @returns 无返回值，直接更新openNext详情弹层相关状态。
  */
 
 
-export function openNextDetailModal(input: Omit<NextDetailModalState, 'open'>): void {
+export function openDetailModal(input: Omit<DetailModalState, 'open'>): void {
   overlayStore.patchState({
     detailModal: {
       ...input,
@@ -149,12 +149,12 @@ export function openNextDetailModal(input: Omit<NextDetailModalState, 'open'>): 
   });
 }
 /**
- * closeNextDetailModal：执行closeNext详情弹层相关逻辑。
+ * closeDetailModal：执行closeNext详情弹层相关逻辑。
  * @returns 无返回值，直接更新closeNext详情弹层相关状态。
  */
 
 
-export function closeNextDetailModal(): void {
+export function closeDetailModal(): void {
   overlayStore.patchState({
     detailModal: {
       open: false,
@@ -163,7 +163,7 @@ export function closeNextDetailModal(): void {
   });
 }
 /**
- * showNextTooltip：执行showNext提示相关逻辑。
+ * showTooltip：执行showNext提示相关逻辑。
  * @param title string 参数说明。
  * @param lines string[] 参数说明。
  * @param clientX number 参数说明。
@@ -172,7 +172,7 @@ export function closeNextDetailModal(): void {
  */
 
 
-export function showNextTooltip(title: string, lines: string[], clientX: number, clientY: number): void {
+export function showTooltip(title: string, lines: string[], clientX: number, clientY: number): void {
   overlayStore.patchState({
     tooltip: {
       visible: true,
@@ -184,14 +184,14 @@ export function showNextTooltip(title: string, lines: string[], clientX: number,
   });
 }
 /**
- * moveNextTooltip：执行moveNext提示相关逻辑。
+ * moveTooltip：执行moveNext提示相关逻辑。
  * @param clientX number 参数说明。
  * @param clientY number 参数说明。
  * @returns 无返回值，直接更新moveNext提示相关状态。
  */
 
 
-export function moveNextTooltip(clientX: number, clientY: number): void {
+export function moveTooltip(clientX: number, clientY: number): void {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
   const { tooltip } = overlayStore.getState();
@@ -207,12 +207,12 @@ export function moveNextTooltip(clientX: number, clientY: number): void {
   });
 }
 /**
- * hideNextTooltip：执行hideNext提示相关逻辑。
+ * hideTooltip：执行hideNext提示相关逻辑。
  * @returns 无返回值，直接更新hideNext提示相关状态。
  */
 
 
-export function hideNextTooltip(): void {
+export function hideTooltip(): void {
   overlayStore.patchState({
     tooltip: {
       visible: false,
@@ -224,18 +224,18 @@ export function hideNextTooltip(): void {
   });
 }
 /**
- * showNextToast：执行showNextToast相关逻辑。
+ * showToast：执行showToast相关逻辑。
  * @param message string 参数说明。
- * @param kind NextToastKind 参数说明。
+ * @param kind OverlayToastKind 参数说明。
  * @param durationMs 参数说明。
- * @returns 无返回值，直接更新showNextToast相关状态。
+ * @returns 无返回值，直接更新showToast相关状态。
  */
 
 
-export function showNextToast(message: string, kind: NextToastKind = 'system', durationMs = 2500): void {
+export function showToast(message: string, kind: OverlayToastKind = 'system', durationMs = 2500): void {
   const id = toastIdSeed;
   toastIdSeed += 1;
-  const nextToast: NextToastEntry = { id, kind, message };
+  const nextToast: OverlayToastEntry = { id, kind, message };
   const previous = overlayStore.getState().toasts;
   overlayStore.patchState({ toasts: [...previous, nextToast] });
   window.setTimeout(() => {

@@ -2,7 +2,7 @@ import { getDisplayRangeX, getDisplayRangeY } from '../../display';
 import { Camera } from '../../renderer/camera';
 import { TextRenderer } from '../../renderer/text';
 import { isLocalDivineSkillName } from '../../content/local-templates';
-import type { CombatEffect } from '@mud/shared-next';
+import type { CombatEffect } from '@mud/shared';
 import type { CameraState } from '../camera/camera-controller';
 import type { TopdownProjection } from '../projection/topdown-projection';
 import type { MapEntityTransition, MapSceneSnapshot } from '../types';

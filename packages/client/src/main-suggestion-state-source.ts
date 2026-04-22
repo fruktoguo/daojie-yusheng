@@ -1,4 +1,4 @@
-import type { Suggestion } from '@mud/shared-next';
+import type { Suggestion } from '@mud/shared';
 import type { SocketSocialEconomySender } from './network/socket-send-social-economy';
 import { SuggestionPanel } from './ui/suggestion-panel';
 /**

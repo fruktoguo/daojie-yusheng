@@ -53,12 +53,12 @@ function main() {
 
   assertIncludes(
     localEnvLoader,
-    /candidateFiles = \[[\s\S]*'\.runtime\/server-next\.local\.env'[\s\S]*'packages\/server\/\.env\.local'/,
+    /candidateFiles = \[[\s\S]*'\.runtime\/server\.local\.env'[\s\S]*'packages\/server\/\.env\.local'/,
     'replace-ready 本地 env loader 必须继续覆盖 .runtime/.env/packages-server 这套默认文件顺序',
   );
   assertIncludes(
     localEnvLoader,
-    /SERVER_NEXT_SKIP_LOCAL_ENV_AUTOLOAD/,
+    /SERVER_SKIP_LOCAL_ENV_AUTOLOAD/,
     'replace-ready 本地 env loader 必须继续支持显式跳过自动加载',
   );
   for (const [scriptName, content] of [
@@ -121,7 +121,7 @@ function main() {
   );
   assertIncludes(
     shadowDestructivePreflightScript,
-    /SERVER_NEXT_SHADOW_ALLOW_DESTRUCTIVE=1/,
+    /SERVER_SHADOW_ALLOW_DESTRUCTIVE=1/,
     'shadow-destructive preflight 必须继续显式要求 destructive 开关',
   );
   assertIncludes(
@@ -158,17 +158,17 @@ function main() {
 
   assertIncludes(
     acceptanceScript,
-    /\[replace-ready:acceptance\] steps=replace-ready -> shadow -> gm-next/,
-    'acceptance 脚本必须继续固定为 replace-ready -> shadow -> gm-next',
+    /\[replace-ready:acceptance\] steps=replace-ready -> shadow -> gm/,
+    'acceptance 脚本必须继续固定为 replace-ready -> shadow -> gm',
   );
   assertIncludes(
     acceptanceScript,
-    /DATABASE_URL: ''[\s\S]*SERVER_NEXT_DATABASE_URL: ''/,
+    /DATABASE_URL: ''[\s\S]*SERVER_DATABASE_URL: ''/,
     'acceptance 脚本必须继续屏蔽 DB 环境，固定先跑 local gate',
   );
   assertIncludes(
     acceptanceScript,
-    /SERVER_NEXT_SKIP_LOCAL_ENV_AUTOLOAD: '1'/,
+    /SERVER_SKIP_LOCAL_ENV_AUTOLOAD: '1'/,
     'acceptance 脚本必须继续显式跳过 local gate 的本地 env 自动补齐',
   );
   assertIncludes(
@@ -179,7 +179,7 @@ function main() {
 
   assertIncludes(
     fullScript,
-    /\[replace-ready:full\] steps=with-db -> gm-database -> gm-database-backup-persistence -> shadow -> gm-next/,
+    /\[replace-ready:full\] steps=with-db -> gm-database -> gm-database-backup-persistence -> shadow -> gm/,
     'full 脚本必须继续固定严格自动化链路',
   );
   assertIncludes(
@@ -195,12 +195,12 @@ function main() {
 
   assertIncludes(
     plan09,
-    /\| `acceptance` \| `pnpm verify:replace-ready:acceptance` \| `local \+ shadow \+ gm-next` 是否一起通过 \|/,
+    /\| `acceptance` \| `pnpm verify:replace-ready:acceptance` \| `local \+ shadow \+ gm` 是否一起通过 \|/,
     '09 文档必须继续明确 acceptance 的组合链路',
   );
   assertIncludes(
     plan09,
-    /\| `full` \| `pnpm verify:replace-ready:full` \| `with-db -> gm-database -> backup-persistence -> shadow -> gm-next` 是否全绿 \|/,
+    /\| `full` \| `pnpm verify:replace-ready:full` \| `with-db -> gm-database -> backup-persistence -> shadow -> gm` 是否全绿 \|/,
     '09 文档必须继续明确 full 的组合链路',
   );
   assertIncludes(
@@ -228,8 +228,8 @@ function main() {
     [
       'replace-ready gate contract check passed',
       'checked=root scripts + doctor + shadow + acceptance + full + docs',
-      'acceptance=replace-ready -> shadow -> gm-next',
-      'full=with-db -> gm-database -> gm-database-backup-persistence -> shadow -> gm-next',
+      'acceptance=replace-ready -> shadow -> gm',
+      'full=with-db -> gm-database -> gm-database-backup-persistence -> shadow -> gm',
     ].join('\n') + '\n',
   );
 }

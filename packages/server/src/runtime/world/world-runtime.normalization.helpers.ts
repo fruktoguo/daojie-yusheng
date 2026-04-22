@@ -5,7 +5,7 @@ Object.defineProperty(exports, "__esModule", { value: true });
 
 const common_1 = require("@nestjs/common");
 
-const shared_1 = require("@mud/shared-next");
+const shared_1 = require("@mud/shared");
 /** 统一动作 ID。 */
 function normalizeRuntimeActionId(actionIdInput) {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。

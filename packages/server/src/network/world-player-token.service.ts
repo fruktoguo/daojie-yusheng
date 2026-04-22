@@ -4,7 +4,7 @@ import {
   getGraphemeCount,
   hasVisibleNameGrapheme,
   resolveDefaultVisibleDisplayName,
-} from '@mud/shared-next';
+} from '@mud/shared';
 import * as fs from 'node:fs';
 import * as path from 'node:path';
 
@@ -16,8 +16,8 @@ import {
 const TRACE_FILE_ENV_VAR = 'NEXT_AUTH_TRACE_FILE';
 const TRACE_RECORD_LIMIT = 256;
 const AUTH_TRACE_ENABLE_ENV_KEYS = [
-  'SERVER_NEXT_AUTH_TRACE_ENABLED',
-  'NEXT_AUTH_TRACE_ENABLED',
+  'SERVER_AUTH_TRACE_ENABLED',
+  'SERVER_AUTH_TRACE_ENABLED',
 ] as const;
 const AUTH_TRACE_TRUE_VALUES = new Set(['1', 'true', 'yes', 'on', 'enable', 'enabled']);
 const AUTH_TRACE_PURPOSE = 'debug_and_audit_summary';

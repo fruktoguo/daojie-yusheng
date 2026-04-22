@@ -5,7 +5,7 @@ import {
   type HeavenGateRootValues,
   type HeavenGateState,
   type PlayerState,
-} from '@mud/shared-next';
+} from '@mud/shared';
 import { detailModalHost } from './detail-modal-host';
 import { getElementKeyLabel } from '../domain-labels';
 import { formatDisplayInteger } from '../utils/number';

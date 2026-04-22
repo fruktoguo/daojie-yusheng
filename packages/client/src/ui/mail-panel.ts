@@ -6,7 +6,7 @@ import {
   MailSummaryView,
   renderMailBodyPlain,
   renderMailTitlePlain,
-} from '@mud/shared-next';
+} from '@mud/shared';
 import type { SocketSocialEconomySender } from '../network/socket-send-social-economy';
 import { getLocalItemTemplate } from '../content/local-templates';
 import { detailModalHost } from './detail-modal-host';

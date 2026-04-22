@@ -1,7 +1,7 @@
 // @ts-nocheck
 
 /**
- * 用途：审计 server-next 与 legacy 兼容边界依赖。
+ * 用途：审计 server 与 legacy 兼容边界依赖。
  */
 const fs = require("node:fs");
 const path = require("node:path");
@@ -286,7 +286,7 @@ function renderMarkdown(summary, results) {
  * 汇总输出行。
  */
   const lines = [];
-  lines.push("# server-next 剩余 legacy 边界自动审计");
+  lines.push("# server 剩余 legacy 边界自动审计");
   lines.push("");
   lines.push(`更新时间：${summary.generatedAt}`);
   lines.push("");
@@ -345,7 +345,7 @@ function renderMarkdown(summary, results) {
   lines.push("");
   lines.push("## 备注");
   lines.push("");
-  lines.push("- 运行命令：`pnpm audit:server-next-boundaries` 或 `pnpm --filter @mud/server-next audit:legacy-boundaries`。");
+  lines.push("- 运行命令：`pnpm audit:boundaries` 或 `pnpm --filter @mud/server audit:legacy-boundaries`。");
   lines.push("- 报告由 `packages/server/src/tools/audit/next-legacy-boundary-audit.ts` 自动生成。");
   lines.push("- 这份审计的定位是 inventory，不是 replace-ready 验收，也不会替代 `pnpm verify:replace-ready`、`with-db`、`shadow` 或协议审计。");
   lines.push("- 清单里若仍残留已迁移路径，脚本现在会 fail-soft 跳过并把原因写进报告，而不是直接中断。");

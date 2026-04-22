@@ -8,12 +8,12 @@ Object.defineProperty(exports, "__esModule", { value: true });
 const smoke_timeout_1 = require("./smoke-timeout");
 (0, smoke_timeout_1.installSmokeTimeout)(__filename);
 const socket_io_client_1 = require("socket.io-client");
-const shared_1 = require("@mud/shared-next");
+const shared_1 = require("@mud/shared");
 const env_alias_1 = require("../config/env-alias");
 /**
- * 记录 server-next 访问地址。
+ * 记录 server 访问地址。
  */
-const SERVER_NEXT_URL = (0, env_alias_1.resolveServerNextUrl)() || 'http://127.0.0.1:3111';
+const SERVER_URL = (0, env_alias_1.resolveServerUrl)() || 'http://127.0.0.1:3111';
 /**
  * 记录attackerID。
  */
@@ -63,16 +63,22 @@ async function main() {
 /**
  * 记录attacker。
  */
-    const attacker = (0, socket_io_client_1.io)(SERVER_NEXT_URL, {
+    const attacker = (0, socket_io_client_1.io)(SERVER_URL, {
         path: '/socket.io',
         transports: ['websocket'],
+        auth: {
+            protocol: 'mainline',
+        },
     });
 /**
  * 记录defender。
  */
-    const defender = (0, socket_io_client_1.io)(SERVER_NEXT_URL, {
+    const defender = (0, socket_io_client_1.io)(SERVER_URL, {
         path: '/socket.io',
         transports: ['websocket'],
+        auth: {
+            protocol: 'mainline',
+        },
     });
 /**
  * 记录attackerpanels。
@@ -91,40 +97,40 @@ async function main() {
  */
     const defenderSelf = [];
     const attackerWorld = [];
-    attacker.on(shared_1.NEXT_S2C.Error, (payload) => {
+    attacker.on(shared_1.S2C.Error, (payload) => {
         throw new Error(`attacker socket error: ${JSON.stringify(payload)}`);
     });
-    defender.on(shared_1.NEXT_S2C.Error, (payload) => {
+    defender.on(shared_1.S2C.Error, (payload) => {
         throw new Error(`defender socket error: ${JSON.stringify(payload)}`);
     });
-    attacker.on(shared_1.NEXT_S2C.PanelDelta, (payload) => {
+    attacker.on(shared_1.S2C.PanelDelta, (payload) => {
         attackerPanels.push(payload);
     });
-    defender.on(shared_1.NEXT_S2C.PanelDelta, (payload) => {
+    defender.on(shared_1.S2C.PanelDelta, (payload) => {
         defenderPanels.push(payload);
     });
-    attacker.on(shared_1.NEXT_S2C.SelfDelta, (payload) => {
+    attacker.on(shared_1.S2C.SelfDelta, (payload) => {
         attackerSelf.push(payload);
     });
-    defender.on(shared_1.NEXT_S2C.SelfDelta, (payload) => {
+    defender.on(shared_1.S2C.SelfDelta, (payload) => {
         defenderSelf.push(payload);
     });
-    attacker.on(shared_1.NEXT_S2C.WorldDelta, (payload) => {
+    attacker.on(shared_1.S2C.WorldDelta, (payload) => {
         attackerWorld.push(payload);
     });
-    attacker.on(shared_1.NEXT_S2C.InitSession, (payload) => {
+    attacker.on(shared_1.S2C.InitSession, (payload) => {
         attackerId = String(payload?.pid ?? '');
     });
-    defender.on(shared_1.NEXT_S2C.InitSession, (payload) => {
+    defender.on(shared_1.S2C.InitSession, (payload) => {
         defenderId = String(payload?.pid ?? '');
     });
     await Promise.all([onceConnected(attacker), onceConnected(defender)]);
-    attacker.emit(shared_1.NEXT_C2S.Hello, {
+    attacker.emit(shared_1.C2S.Hello, {
         mapId: 'wildlands',
         preferredX: 18,
         preferredY: 18,
     });
-    defender.emit(shared_1.NEXT_C2S.Hello, {
+    defender.emit(shared_1.C2S.Hello, {
         mapId: 'wildlands',
         preferredX: 19,
         preferredY: 18,
@@ -148,7 +154,7 @@ async function main() {
     if (bookSlot < 0) {
         throw new Error('combat smoke missing starter technique book');
     }
-    attacker.emit(shared_1.NEXT_C2S.UseItem, { slotIndex: bookSlot });
+    attacker.emit(shared_1.C2S.UseItem, { slotIndex: bookSlot });
     await waitFor(async () => {
 /**
  * 记录状态。
@@ -177,7 +183,7 @@ async function main() {
         const state = await fetchState(attackerId);
         return (state.player?.qi ?? 0) >= preparedQi;
     }, 5000);
-    attacker.emit(shared_1.NEXT_C2S.UseAction, { actionId: 'toggle:allow_aoe_player_hit' });
+    attacker.emit(shared_1.C2S.UseAction, { actionId: 'toggle:allow_aoe_player_hit' });
     await waitFor(async () => {
 /**
  * 记录状态。
@@ -208,7 +214,7 @@ async function main() {
     for (let attempt = 0; attempt < 3; attempt += 1) {
         attackerBeforeCast = await fetchState(attackerId);
         defenderBefore = await fetchState(defenderId);
-        attacker.emit(shared_1.NEXT_C2S.CastSkill, {
+        attacker.emit(shared_1.C2S.CastSkill, {
             skillId: learnedSkillId,
             targetPlayerId: defenderId,
         });
@@ -275,7 +281,7 @@ async function main() {
     }
     console.log(JSON.stringify({
         ok: true,
-        url: SERVER_NEXT_URL,
+        url: SERVER_URL,
         attackerId,
         defenderId,
         attackerQiSpent: attackerBeforeCast.player.qi - castStateAttacker.player.qi,
@@ -311,7 +317,7 @@ async function fetchState(playerId) {
 /**
  * 记录response。
  */
-    const response = await fetch(`${SERVER_NEXT_URL}/runtime/players/${playerId}/state`);
+    const response = await fetch(`${SERVER_URL}/runtime/players/${playerId}/state`);
     if (!response.ok) {
         throw new Error(`request failed: ${response.status} ${await response.text()}`);
     }
@@ -326,7 +332,7 @@ async function postJson(path, body) {
 /**
  * 记录response。
  */
-    const response = await fetch(`${SERVER_NEXT_URL}${path}`, {
+    const response = await fetch(`${SERVER_URL}${path}`, {
         method: 'POST',
         headers: {
             'content-type': 'application/json',
@@ -346,7 +352,7 @@ async function deletePlayer(playerId) {
 /**
  * 记录response。
  */
-    const response = await fetch(`${SERVER_NEXT_URL}/runtime/players/${playerId}`, {
+    const response = await fetch(`${SERVER_URL}/runtime/players/${playerId}`, {
         method: 'DELETE',
     });
     if (!response.ok) {
@@ -443,7 +449,7 @@ async function moveOneStepToward(socket, playerId, targetX, targetY) {
  */
     const directions = buildPreferredDirections(state.player.x, state.player.y, targetX, targetY);
     for (const direction of directions) {
-        socket.emit(shared_1.NEXT_C2S.Move, { d: direction });
+        socket.emit(shared_1.C2S.Move, { d: direction });
 /**
  * 记录moved。
  */

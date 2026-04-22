@@ -86,7 +86,7 @@
       "y": 42,
       "targetMapId": "guizang_vein_cavern",
       "targetX": 58,
-      "targetY": 28,
+      "targetY": 31,
       "kind": "portal",
       "trigger": "manual",
       "routeDomain": "inherit",

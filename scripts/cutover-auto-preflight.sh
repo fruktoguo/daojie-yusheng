@@ -73,7 +73,7 @@ cutover_log_step "proof:cutover-operations" shadow_run_pnpm proof:cutover-operat
 
 if [[ "${RUN_DESTRUCTIVE_PREFLIGHT:-0}" == "1" ]]; then
   cutover_log_step "verify:replace-ready:shadow:destructive:preflight" \
-    env SERVER_NEXT_SHADOW_ALLOW_DESTRUCTIVE="${SERVER_NEXT_SHADOW_ALLOW_DESTRUCTIVE:-1}" \
+    env SERVER_SHADOW_ALLOW_DESTRUCTIVE="${SERVER_SHADOW_ALLOW_DESTRUCTIVE:-1}" \
     bash -lc "source '${SCRIPT_DIR}/shadow-local-lib.sh' && shadow_run_pnpm verify:replace-ready:shadow:destructive:preflight"
 else
   echo "==> [cutover-auto-preflight] destructive preflight skipped (set RUN_DESTRUCTIVE_PREFLIGHT=1 to include it)"

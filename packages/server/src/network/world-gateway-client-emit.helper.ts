@@ -26,8 +26,8 @@ class WorldGatewayClientEmitHelper {
  * @returns 无返回值，直接更新Next相关状态。
  */
 
-    markNext(client) {
-        this.gateway.worldClientEventService.markProtocol(client, 'next');
+    markProtocolClient(client) {
+        this.gateway.worldClientEventService.markProtocol(client, 'mainline');
     }    
     /**
  * emitNextQuests：处理Next任务并更新相关状态。
@@ -36,8 +36,8 @@ class WorldGatewayClientEmitHelper {
  * @returns 无返回值，直接更新Next任务相关状态。
  */
 
-    emitNextQuests(client, payload) {
-        this.markNext(client);
+    emitQuests(client, payload) {
+        this.markProtocolClient(client);
         this.gateway.worldClientEventService.emitQuests(client, payload);
     }    
     /**
@@ -47,8 +47,8 @@ class WorldGatewayClientEmitHelper {
  * @returns 无返回值，直接更新NextSuggestionUpdate相关状态。
  */
 
-    emitNextSuggestionUpdate(client, suggestions) {
-        this.markNext(client);
+    emitSuggestionUpdate(client, suggestions) {
+        this.markProtocolClient(client);
         this.gateway.worldClientEventService.emitSuggestionUpdate(client, suggestions);
     }    
     /**
@@ -58,8 +58,8 @@ class WorldGatewayClientEmitHelper {
  * @returns 无返回值，直接更新Next邮件摘要相关状态。
  */
 
-    emitNextMailSummary(client, summary) {
-        this.markNext(client);
+    emitProtocolMailSummary(client, summary) {
+        this.markProtocolClient(client);
         this.gateway.worldClientEventService.emitMailSummary(client, summary);
     }    
     /**
@@ -69,8 +69,8 @@ class WorldGatewayClientEmitHelper {
  * @returns 无返回值，直接更新Next邮件摘要For玩家相关状态。
  */
 
-    async emitNextMailSummaryForPlayer(client, playerId) {
-        this.markNext(client);
+    async emitMailSummaryForPlayer(client, playerId) {
+        this.markProtocolClient(client);
         await this.gateway.worldClientEventService.emitMailSummaryForPlayer(client, playerId);
     }    
     /**
@@ -80,8 +80,8 @@ class WorldGatewayClientEmitHelper {
  * @returns 无返回值，直接更新Next邮件Page相关状态。
  */
 
-    emitNextMailPage(client, page) {
-        this.markNext(client);
+    emitMailPage(client, page) {
+        this.markProtocolClient(client);
         this.gateway.worldClientEventService.emitMailPage(client, page);
     }    
     /**
@@ -91,8 +91,8 @@ class WorldGatewayClientEmitHelper {
  * @returns 无返回值，直接更新Next邮件详情相关状态。
  */
 
-    emitNextMailDetail(client, detail) {
-        this.markNext(client);
+    emitMailDetail(client, detail) {
+        this.markProtocolClient(client);
         this.gateway.worldClientEventService.emitMailDetail(client, detail);
     }    
     /**
@@ -102,8 +102,8 @@ class WorldGatewayClientEmitHelper {
  * @returns 无返回值，直接更新Next邮件Operation结果相关状态。
  */
 
-    emitNextMailOperationResult(client, payload) {
-        this.markNext(client);
+    emitMailOperationResult(client, payload) {
+        this.markProtocolClient(client);
         this.gateway.worldClientEventService.emitMailOperationResult(client, payload);
     }    
     /**
@@ -113,8 +113,8 @@ class WorldGatewayClientEmitHelper {
  * @returns 无返回值，直接更新Next坊市Update相关状态。
  */
 
-    emitNextMarketUpdate(client, payload) {
-        this.markNext(client);
+    emitMarketUpdate(client, payload) {
+        this.markProtocolClient(client);
         this.gateway.worldClientEventService.emitMarketUpdate(client, payload);
     }    
     /**
@@ -124,8 +124,8 @@ class WorldGatewayClientEmitHelper {
  * @returns 无返回值，直接更新Next坊市Listing相关状态。
  */
 
-    emitNextMarketListings(client, payload) {
-        this.markNext(client);
+    emitMarketListings(client, payload) {
+        this.markProtocolClient(client);
         this.gateway.worldClientEventService.emitMarketListings(client, payload);
     }    
     /**
@@ -135,8 +135,8 @@ class WorldGatewayClientEmitHelper {
  * @returns 无返回值，直接更新Next坊市订单相关状态。
  */
 
-    emitNextMarketOrders(client, payload) {
-        this.markNext(client);
+    emitMarketOrders(client, payload) {
+        this.markProtocolClient(client);
         this.gateway.worldClientEventService.emitMarketOrders(client, payload);
     }    
     /**
@@ -146,8 +146,8 @@ class WorldGatewayClientEmitHelper {
  * @returns 无返回值，直接更新Next坊市Storage相关状态。
  */
 
-    emitNextMarketStorage(client, payload) {
-        this.markNext(client);
+    emitMarketStorage(client, payload) {
+        this.markProtocolClient(client);
         this.gateway.worldClientEventService.emitMarketStorage(client, payload);
     }    
     /**
@@ -157,8 +157,8 @@ class WorldGatewayClientEmitHelper {
  * @returns 无返回值，直接更新Next坊市道具Book相关状态。
  */
 
-    emitNextMarketItemBook(client, payload) {
-        this.markNext(client);
+    emitMarketItemBook(client, payload) {
+        this.markProtocolClient(client);
         this.gateway.worldClientEventService.emitMarketItemBook(client, payload);
     }    
     /**
@@ -168,8 +168,8 @@ class WorldGatewayClientEmitHelper {
  * @returns 无返回值，直接更新Next坊市TradeHistory相关状态。
  */
 
-    emitNextMarketTradeHistory(client, payload) {
-        this.markNext(client);
+    emitMarketTradeHistory(client, payload) {
+        this.markProtocolClient(client);
         this.gateway.worldClientEventService.emitMarketTradeHistory(client, payload);
     }    
     /**
@@ -179,8 +179,8 @@ class WorldGatewayClientEmitHelper {
  * @returns 无返回值，直接更新NextNPCShop相关状态。
  */
 
-    emitNextNpcShop(client, payload) {
-        this.markNext(client);
+    emitNpcShop(client, payload) {
+        this.markProtocolClient(client);
         this.gateway.worldClientEventService.emitNpcShop(client, payload);
     }    
     /**

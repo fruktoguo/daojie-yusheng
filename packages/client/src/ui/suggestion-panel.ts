@@ -1,4 +1,4 @@
-import { type Suggestion, type SuggestionReply } from '@mud/shared-next';
+import { type Suggestion, type SuggestionReply } from '@mud/shared';
 import type { SocketSocialEconomySender } from '../network/socket-send-social-economy';
 import { detailModalHost } from './detail-modal-host';
 import { SUGGESTION_PANEL_REFRESH_INTERVAL_MS } from '../constants/ui/suggestion';

@@ -26,7 +26,7 @@
 ## 盘点口径
 
 - 以 `packages/*` 为主线，扫描 `legacy` / `compat` / `persistent_documents_only` / `replace_persistent_documents` / `server_next_legacy_*` 等关键字。
-- 结合 [server-next 剩余 legacy 边界自动审计](../next-legacy-boundary-audit.md) 的现有结论，避免只靠手工猜测。
+- 结合 [server 剩余 legacy 边界自动审计](../next-legacy-boundary-audit.md) 的现有结论，避免只靠手工猜测。
 - 这里只盘“next 主线仍然直接触达 legacy/compat 的入口”，不把纯注释、历史文档和旧目录本身计入。
 
 ## 盘点结果

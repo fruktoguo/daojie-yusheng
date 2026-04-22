@@ -26,11 +26,11 @@ const serverEntry = (0, node_path_1.join)(packageRoot, 'dist', 'main.js');
 /**
  * 记录数据库地址。
  */
-const databaseUrl = (0, env_alias_1.resolveServerNextDatabaseUrl)();
+const databaseUrl = (0, env_alias_1.resolveServerDatabaseUrl)();
 /**
  * 记录GMpassword。
  */
-const gmPassword = (0, env_alias_1.resolveServerNextGmPassword)('admin123');
+const gmPassword = (0, env_alias_1.resolveServerGmPassword)('admin123');
 const GM_DATABASE_BACKUP_PERSISTENCE_CONTRACT = Object.freeze({
     answers: 'with-db 本地环境下的 GM backup 元数据持久化：进程重启后同一备份目录、下载路径与 lastJob 状态仍可恢复',
     excludes: '维护窗口 destructive restore、shadow 目标机取证、真实运营备份保留策略与人工审批链',
@@ -43,7 +43,7 @@ const backupDirectory = (0, node_path_1.join)(packageRoot, '.runtime', `gm-datab
 /**
  * 记录当前值端口。
  */
-let currentPort = Number(process.env.SERVER_NEXT_SMOKE_PORT ?? 3212);
+let currentPort = Number(process.env.SERVER_SMOKE_PORT ?? 3212);
 /**
  * 记录base地址。
  */
@@ -58,7 +58,7 @@ async function main() {
         console.log(JSON.stringify({
             ok: true,
             skipped: true,
-            reason: 'SERVER_NEXT_DATABASE_URL/DATABASE_URL missing',
+            reason: 'SERVER_DATABASE_URL/DATABASE_URL missing',
             answers: GM_DATABASE_BACKUP_PERSISTENCE_CONTRACT.answers,
             excludes: GM_DATABASE_BACKUP_PERSISTENCE_CONTRACT.excludes,
             completionMapping: GM_DATABASE_BACKUP_PERSISTENCE_CONTRACT.completionMapping,
@@ -177,10 +177,10 @@ async function startServer() {
         cwd: packageRoot,
         env: {
             ...process.env,
-            SERVER_NEXT_PORT: String(currentPort),
-            SERVER_NEXT_DATABASE_URL: databaseUrl,
-            SERVER_NEXT_RUNTIME_HTTP: '1',
-            SERVER_NEXT_GM_DATABASE_BACKUP_DIR: backupDirectory,
+            SERVER_PORT: String(currentPort),
+            SERVER_DATABASE_URL: databaseUrl,
+            SERVER_RUNTIME_HTTP: '1',
+            SERVER_GM_DATABASE_BACKUP_DIR: backupDirectory,
         },
         stdio: ['ignore', 'pipe', 'pipe'],
     });
@@ -228,8 +228,8 @@ async function resetGmAuthPasswordRecord() {
     await client.connect();
     try {
         await client.query('DELETE FROM persistent_documents WHERE scope = $1 AND key = $2', [
-            next_gm_contract_1.NEXT_GM_AUTH_CONTRACT.passwordRecordScope,
-            next_gm_contract_1.NEXT_GM_AUTH_CONTRACT.passwordRecordKey,
+            next_gm_contract_1.GM_AUTH_CONTRACT.passwordRecordScope,
+            next_gm_contract_1.GM_AUTH_CONTRACT.passwordRecordKey,
         ]);
     }
     catch (error) {

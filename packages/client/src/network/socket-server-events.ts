@@ -1,15 +1,15 @@
-import { NEXT_S2C, type NEXT_S2C_EventName, type NEXT_S2C_EventPayload } from '@mud/shared-next';
+import { S2C, type ServerToClientEventName, type ServerToClientEventPayload } from '@mud/shared';
 /**
  * BoundServerEventName：统一结构类型，保证协议与运行时一致性。
  */
 
 
-export type BoundServerEventName = Exclude<NEXT_S2C_EventName, typeof NEXT_S2C.Kick>;
+export type BoundServerEventName = Exclude<ServerToClientEventName, typeof S2C.Kick>;
 /**
  * ServerEventCallback：统一结构类型，保证协议与运行时一致性。
  */
 
-export type ServerEventCallback<TEvent extends BoundServerEventName> = (data: NEXT_S2C_EventPayload<TEvent>) => void;
+export type ServerEventCallback<TEvent extends BoundServerEventName> = (data: ServerToClientEventPayload<TEvent>) => void;
 /**
  * ServerEventCallbackBuckets：统一结构类型，保证协议与运行时一致性。
  */
@@ -19,44 +19,44 @@ export type ServerEventCallbackBuckets = {
 };
 
 export const SESSION_SERVER_EVENTS = [
-  NEXT_S2C.Bootstrap,
-  NEXT_S2C.InitSession,
-  NEXT_S2C.MapEnter,
-  NEXT_S2C.MapStatic,
-  NEXT_S2C.Realm,
-  NEXT_S2C.WorldDelta,
-  NEXT_S2C.SelfDelta,
-  NEXT_S2C.PanelDelta,
-  NEXT_S2C.Notice,
-  NEXT_S2C.Pong,
-  NEXT_S2C.Error,
+  S2C.Bootstrap,
+  S2C.InitSession,
+  S2C.MapEnter,
+  S2C.MapStatic,
+  S2C.Realm,
+  S2C.WorldDelta,
+  S2C.SelfDelta,
+  S2C.PanelDelta,
+  S2C.Notice,
+  S2C.Pong,
+  S2C.Error,
 ] as const satisfies BoundServerEventName[];
 
 export const GAMEPLAY_SERVER_EVENTS = [
-  NEXT_S2C.LootWindowUpdate,
-  NEXT_S2C.TileDetail,
-  NEXT_S2C.Detail,
-  NEXT_S2C.Quests,
-  NEXT_S2C.NpcQuests,
-  NEXT_S2C.QuestNavigateResult,
-  NEXT_S2C.SuggestionUpdate,
-  NEXT_S2C.MailSummary,
-  NEXT_S2C.MailPage,
-  NEXT_S2C.MailDetail,
-  NEXT_S2C.RedeemCodesResult,
-  NEXT_S2C.MailOpResult,
-  NEXT_S2C.MarketUpdate,
-  NEXT_S2C.MarketListings,
-  NEXT_S2C.MarketOrders,
-  NEXT_S2C.MarketStorage,
-  NEXT_S2C.MarketItemBook,
-  NEXT_S2C.MarketTradeHistory,
-  NEXT_S2C.AttrDetail,
-  NEXT_S2C.Leaderboard,
-  NEXT_S2C.LeaderboardPlayerLocations,
-  NEXT_S2C.WorldSummary,
-  NEXT_S2C.NpcShop,
-  NEXT_S2C.AlchemyPanel,
-  NEXT_S2C.EnhancementPanel,
-  NEXT_S2C.GmState,
+  S2C.LootWindowUpdate,
+  S2C.TileDetail,
+  S2C.Detail,
+  S2C.Quests,
+  S2C.NpcQuests,
+  S2C.QuestNavigateResult,
+  S2C.SuggestionUpdate,
+  S2C.MailSummary,
+  S2C.MailPage,
+  S2C.MailDetail,
+  S2C.RedeemCodesResult,
+  S2C.MailOpResult,
+  S2C.MarketUpdate,
+  S2C.MarketListings,
+  S2C.MarketOrders,
+  S2C.MarketStorage,
+  S2C.MarketItemBook,
+  S2C.MarketTradeHistory,
+  S2C.AttrDetail,
+  S2C.Leaderboard,
+  S2C.LeaderboardPlayerLocations,
+  S2C.WorldSummary,
+  S2C.NpcShop,
+  S2C.AlchemyPanel,
+  S2C.EnhancementPanel,
+  S2C.GmState,
 ] as const satisfies BoundServerEventName[];

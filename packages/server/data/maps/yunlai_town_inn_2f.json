@@ -30,7 +30,7 @@
       "y": 9,
       "targetMapId": "yunlai_town",
       "targetX": 16,
-      "targetY": 36,
+      "targetY": 39,
       "kind": "stairs",
       "trigger": "auto"
     }

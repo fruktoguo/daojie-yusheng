@@ -30,13 +30,13 @@ const persistent_document_table_1 = require("../../persistence/persistent-docume
 const env_alias_1 = require("../../config/env-alias");
 
 /** GM 鉴权作用域名，存放当前 next 体系的密码记录。 */
-const GM_AUTH_SCOPE = next_gm_contract_1.NEXT_GM_AUTH_CONTRACT.passwordRecordScope;
+const GM_AUTH_SCOPE = next_gm_contract_1.GM_AUTH_CONTRACT.passwordRecordScope;
 
 /** persistent_documents 里保存 GM 密码的 key。 */
-const GM_AUTH_KEY = next_gm_contract_1.NEXT_GM_AUTH_CONTRACT.passwordRecordKey;
+const GM_AUTH_KEY = next_gm_contract_1.GM_AUTH_CONTRACT.passwordRecordKey;
 
 /** 仅用于显式本地降级方案的默认 GM 密码。 */
-const DEFAULT_GM_PASSWORD = next_gm_contract_1.NEXT_GM_AUTH_CONTRACT.defaultInsecurePassword;
+const DEFAULT_GM_PASSWORD = next_gm_contract_1.GM_AUTH_CONTRACT.defaultInsecurePassword;
 const DEVELOPMENT_LIKE_ENVS = new Set(['', 'development', 'dev', 'local', 'test']);
 
 /** 默认 token 有效期。 */
@@ -61,7 +61,7 @@ let RuntimeGmAuthService = class RuntimeGmAuthService {
         assertConfiguredGmPassword();
         this.warnIfUsingInsecureLocalPassword();
 
-        const databaseUrl = (0, env_alias_1.resolveServerNextDatabaseUrl)();
+        const databaseUrl = (0, env_alias_1.resolveServerDatabaseUrl)();
         if (!databaseUrl.trim()) {
             return;
         }
@@ -126,7 +126,7 @@ let RuntimeGmAuthService = class RuntimeGmAuthService {
             throw new common_1.BadRequestException('GM 密码至少需要 6 位');
         }
         if (normalizedPassword === DEFAULT_GM_PASSWORD && !canUseInsecureLocalGmPassword()) {
-            throw new common_1.BadRequestException('禁止把 GM 密码设置为默认值 admin123；如需本地临时降级，必须在开发环境显式开启 SERVER_NEXT_ALLOW_INSECURE_LOCAL_GM_PASSWORD=1。');
+            throw new common_1.BadRequestException('禁止把 GM 密码设置为默认值 admin123；如需本地临时降级，必须在开发环境显式开启 SERVER_ALLOW_INSECURE_LOCAL_GM_PASSWORD=1。');
         }
         if (!this.persistenceEnabled || !this.pool) {
             throw new common_1.BadRequestException('未启用数据库持久化，当前不支持修改 GM 密码');
@@ -204,7 +204,7 @@ let RuntimeGmAuthService = class RuntimeGmAuthService {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
 
-        const configured = process.env.SERVER_NEXT_GM_AUTH_SECRET?.trim()
+        const configured = process.env.SERVER_GM_AUTH_SECRET?.trim()
             || process.env.GM_AUTH_SECRET?.trim()
             || '';
         if (configured) {
@@ -215,14 +215,14 @@ let RuntimeGmAuthService = class RuntimeGmAuthService {
         if (source) {
             return `${source.hash}:${source.salt}:${source.updatedAt}`;
         }
-        return 'server-next-gm-http-auth';
+        return 'server-gm-http-auth';
     }
     /** 读取 token 的有效期。 */
     getTokenTtlSec() {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
 
-        const configured = Number(process.env.SERVER_NEXT_GM_TOKEN_EXPIRES_IN ?? process.env.GM_TOKEN_EXPIRES_IN ?? Number.NaN);
+        const configured = Number(process.env.SERVER_GM_TOKEN_EXPIRES_IN ?? process.env.GM_TOKEN_EXPIRES_IN ?? Number.NaN);
         if (Number.isFinite(configured) && configured > 0) {
             return Math.max(60, Math.trunc(configured));
         }
@@ -276,7 +276,7 @@ let RuntimeGmAuthService = class RuntimeGmAuthService {
 
     getInitialPassword() {
         assertConfiguredGmPassword();
-        const configuredPassword = (0, env_alias_1.resolveServerNextGmPassword)('');
+        const configuredPassword = (0, env_alias_1.resolveServerGmPassword)('');
         if (configuredPassword) {
             return configuredPassword;
         }
@@ -467,11 +467,11 @@ function safeEqual(left, right) {
 function assertConfiguredGmPassword() {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
-    const envSource = (0, env_alias_1.resolveServerNextGmPasswordEnvSource)();
-    const password = (0, env_alias_1.resolveServerNextGmPassword)('');
-    const allowInsecureLocalPassword = (0, env_alias_1.resolveServerNextAllowInsecureLocalGmPassword)();
+    const envSource = (0, env_alias_1.resolveServerGmPasswordEnvSource)();
+    const password = (0, env_alias_1.resolveServerGmPassword)('');
+    const allowInsecureLocalPassword = (0, env_alias_1.resolveServerAllowInsecureLocalGmPassword)();
     if (allowInsecureLocalPassword && !isDevelopmentLikeEnv()) {
-        throw new Error('SERVER_NEXT_ALLOW_INSECURE_LOCAL_GM_PASSWORD 或 GM_ALLOW_INSECURE_LOCAL_GM_PASSWORD 只能在 development/dev/local/test 环境使用。');
+        throw new Error('SERVER_ALLOW_INSECURE_LOCAL_GM_PASSWORD 或 GM_ALLOW_INSECURE_LOCAL_GM_PASSWORD 只能在 development/dev/local/test 环境使用。');
     }
     if (password && password !== DEFAULT_GM_PASSWORD) {
         return;
@@ -481,12 +481,12 @@ function assertConfiguredGmPassword() {
             return;
         }
         if (envSource) {
-            throw new Error('禁止把 GM 密码显式配置为默认值 admin123；如需本地临时降级，必须删除显式密码并仅在开发环境设置 SERVER_NEXT_ALLOW_INSECURE_LOCAL_GM_PASSWORD=1。');
+            throw new Error('禁止把 GM 密码显式配置为默认值 admin123；如需本地临时降级，必须删除显式密码并仅在开发环境设置 SERVER_ALLOW_INSECURE_LOCAL_GM_PASSWORD=1。');
         }
-        throw new Error('必须显式配置 SERVER_NEXT_GM_PASSWORD 或 GM_PASSWORD；禁止默认回退到 admin123。仅本地开发可通过 SERVER_NEXT_ALLOW_INSECURE_LOCAL_GM_PASSWORD=1 临时启用默认密码。');
+        throw new Error('必须显式配置 SERVER_GM_PASSWORD 或 GM_PASSWORD；禁止默认回退到 admin123。仅本地开发可通过 SERVER_ALLOW_INSECURE_LOCAL_GM_PASSWORD=1 临时启用默认密码。');
     }
     if (!envSource && !allowInsecureLocalPassword) {
-        throw new Error('必须显式配置 SERVER_NEXT_GM_PASSWORD 或 GM_PASSWORD；如需本地开发临时使用默认密码，必须显式设置 SERVER_NEXT_ALLOW_INSECURE_LOCAL_GM_PASSWORD=1，且仅限 development/dev/local/test。');
+        throw new Error('必须显式配置 SERVER_GM_PASSWORD 或 GM_PASSWORD；如需本地开发临时使用默认密码，必须显式设置 SERVER_ALLOW_INSECURE_LOCAL_GM_PASSWORD=1，且仅限 development/dev/local/test。');
     }
 }
 /**
@@ -495,7 +495,7 @@ function assertConfiguredGmPassword() {
  */
 
 function isDevelopmentLikeEnv() {
-    const runtimeEnv = String(process.env.SERVER_NEXT_RUNTIME_ENV ?? process.env.APP_ENV ?? process.env.NODE_ENV ?? '').trim().toLowerCase();
+    const runtimeEnv = String(process.env.SERVER_RUNTIME_ENV ?? process.env.APP_ENV ?? process.env.NODE_ENV ?? '').trim().toLowerCase();
     return DEVELOPMENT_LIKE_ENVS.has(runtimeEnv);
 }
 /**
@@ -504,5 +504,5 @@ function isDevelopmentLikeEnv() {
  */
 
 function canUseInsecureLocalGmPassword() {
-    return isDevelopmentLikeEnv() && (0, env_alias_1.resolveServerNextAllowInsecureLocalGmPassword)();
+    return isDevelopmentLikeEnv() && (0, env_alias_1.resolveServerAllowInsecureLocalGmPassword)();
 }

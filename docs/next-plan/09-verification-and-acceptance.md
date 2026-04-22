@@ -7,10 +7,10 @@
 - 这份文档只管 next 主线 gate，不负责替代运维手册。
 - gate 口径以：
   - `packages/server/TESTING.md`
-  - `docs/server-next-operations.md`
-  - 根级 `verify:replace-ready*` / `verify:server-next*` wrapper
+  - `docs/server-operations.md`
+  - 根级 `verify:replace-ready*` wrapper
   为准。
-- `verify:server-next*` 现在只是兼容别名；主口径仍是 `verify:replace-ready*`。
+- `verify:replace-ready*` 是当前主口径；旧 verify 别名不再作为文档主入口。
 
 ## 任务
 
@@ -35,19 +35,19 @@
 | Gate | 主命令 | 回答什么 | 必要环境 | 不回答什么 |
 | --- | --- | --- | --- | --- |
 | `local` | `pnpm verify:replace-ready` | 本地 build、本地主证明链、协议审计是否通过 | 无 | shadow 实物验收、GM 运营面、维护窗口 destructive |
-| `with-db` | `pnpm verify:replace-ready:with-db` | 带库持久化 proof 是否成立 | `DATABASE_URL` 或 `SERVER_NEXT_DATABASE_URL` | shadow、GM 关键写路径、破坏性 proof |
-| `proof:with-db` | `pnpm verify:replace-ready:proof:with-db` | 最小 auth/token/bootstrap 带库证明链 | `DATABASE_URL` 或 `SERVER_NEXT_DATABASE_URL` | 完整 persistence / GM / shadow |
-| `shadow` | `pnpm verify:replace-ready:shadow` | 已部署实例的最小只读验收 | `SERVER_NEXT_SHADOW_URL` 或 `SERVER_NEXT_URL`，以及 GM 密码 | 数据库运营面、destructive |
-| `acceptance` | `pnpm verify:replace-ready:acceptance` | `local + shadow + gm-next` 是否一起通过 | DB 非必须，但 shadow URL 与 GM 密码必须齐 | destructive、完整人工运营回归 |
-| `full` | `pnpm verify:replace-ready:full` | `with-db -> gm-database -> backup-persistence -> shadow -> gm-next` 是否全绿 | DB + shadow URL + GM 密码 | destructive、真实维护窗口演练 |
-| `shadow-destructive` | `pnpm verify:replace-ready:shadow:destructive` | shadow 维护窗口下 `backup -> download -> restore` 是否可控 | shadow URL + GM 密码 + `SERVER_NEXT_SHADOW_ALLOW_DESTRUCTIVE=1` + 维护窗口 | 日常替换是否完成 |
-| `shadow-destructive:preflight` | `pnpm verify:replace-ready:shadow:destructive:preflight` | destructive 开关与 target maintenance-active 是否就绪 | shadow URL + GM 密码 + `SERVER_NEXT_SHADOW_ALLOW_DESTRUCTIVE=1` | destructive proof 本身是否已执行 |
+| `with-db` | `pnpm verify:replace-ready:with-db` | 带库持久化 proof 是否成立 | `DATABASE_URL` 或 `SERVER_DATABASE_URL` | shadow、GM 关键写路径、破坏性 proof |
+| `proof:with-db` | `pnpm verify:replace-ready:proof:with-db` | 最小 auth/token/bootstrap 带库证明链 | `DATABASE_URL` 或 `SERVER_DATABASE_URL` | 完整 persistence / GM / shadow |
+| `shadow` | `pnpm verify:replace-ready:shadow` | 已部署实例的最小只读验收 | shadow URL（兼容键：`SERVER_SHADOW_URL` / `SERVER_URL`）+ GM 密码 | 数据库运营面、destructive |
+| `acceptance` | `pnpm verify:replace-ready:acceptance` | `local + shadow + gm` 是否一起通过 | DB 非必须，但 shadow URL 与 GM 密码必须齐 | destructive、完整人工运营回归 |
+| `full` | `pnpm verify:replace-ready:full` | `with-db -> gm-database -> backup-persistence -> shadow -> gm` 是否全绿 | DB + shadow URL + GM 密码 | destructive、真实维护窗口演练 |
+| `shadow-destructive` | `pnpm verify:replace-ready:shadow:destructive` | shadow 维护窗口下 `backup -> download -> restore` 是否可控 | shadow URL + GM 密码 + destructive 开关（当前兼容键：`SERVER_SHADOW_ALLOW_DESTRUCTIVE=1`）+ 维护窗口 | 日常替换是否完成 |
+| `shadow-destructive:preflight` | `pnpm verify:replace-ready:shadow:destructive:preflight` | destructive 开关与 target maintenance-active 是否就绪 | shadow URL + GM 密码 + destructive 开关（当前兼容键：`SERVER_SHADOW_ALLOW_DESTRUCTIVE=1`） | destructive proof 本身是否已执行 |
 
 ## 当前环境就绪度
 
 当前这份计划只记录“如何判断环境 ready”，不把某一台机器的 env 文件路径当长期事实。根级 `verify:replace-ready*` 和 `packages/server` 包内直接执行的 `verify/smoke` 当前都会默认尝试加载：
 
-- `.runtime/server-next.local.env`
+- `.runtime/server.local.env`
 - `.env`
 - `.env.local`
 - `packages/server/.env`
@@ -66,7 +66,7 @@
 
 补充区分：
 
-- 默认 shell 下，`shadow-destructive` 仍不是常开 ready 状态；它必须显式进入 maintenance-active 窗口并设置 `SERVER_NEXT_SHADOW_ALLOW_DESTRUCTIVE=1`
+- 默认 shell 下，`shadow-destructive` 仍不是常开 ready 状态；它必须显式进入 maintenance-active 窗口并设置 destructive 开关（当前兼容键：`SERVER_SHADOW_ALLOW_DESTRUCTIVE=1`）
 - 但本轮已经补过一次本机 maintenance-active shadow destructive proof，见：
   - [10-cutover-execution-log-2026-04-20-local-shadow-destructive.md](./10-cutover-execution-log-2026-04-20-local-shadow-destructive.md)
 
@@ -109,9 +109,9 @@
 
 - 涉及 auth / bootstrap / identity / snapshot 时，补 `pnpm verify:replace-ready:proof:with-db`
 - 涉及 persistence / gm-database / restore 时，补 `pnpm verify:replace-ready:with-db`
-- 涉及协议字段 / 发包时，补 `pnpm --filter @mud/server-next audit:next-protocol`
-- 涉及 compat 删除时，补 `pnpm --filter @mud/server-next audit:legacy-boundaries`
-- 涉及 GM 管理面时，补 `pnpm --filter @mud/server-next smoke:gm-next`
+- 涉及协议字段 / 发包时，补 `pnpm audit:protocol`
+- 涉及 compat 删除时，补 `pnpm audit:boundaries`
+- 涉及 GM 管理面时，补 `pnpm --dir packages/server smoke:gm`
 
 ### 第 4 步：跑 `shadow`
 
@@ -145,7 +145,7 @@
 推荐命令：
 
 - `pnpm verify:replace-ready:shadow:destructive:preflight`
-- `SERVER_NEXT_SHADOW_ALLOW_DESTRUCTIVE=1 pnpm verify:replace-ready:shadow:destructive`
+- `SERVER_SHADOW_ALLOW_DESTRUCTIVE=1 pnpm verify:replace-ready:shadow:destructive`（当前兼容键）
 
 前提：
 
@@ -160,48 +160,48 @@
 
 - `pnpm build`
 - `pnpm verify:replace-ready`
-- `pnpm --filter @mud/server-next audit:next-protocol`
+- `pnpm audit:protocol`
 
 ### compat 删除 / legacy 边界收缩
 
 - `pnpm build`
-- `pnpm --filter @mud/server-next audit:legacy-boundaries`
-- `pnpm --filter @mud/server-next smoke:next-auth-bootstrap`
-- 如影响同步，再补 `pnpm --filter @mud/server-next smoke:runtime`
+- `pnpm audit:boundaries`
+- `pnpm --dir packages/server smoke:auth-bootstrap`
+- 如影响同步，再补 `pnpm --dir packages/server smoke:runtime`
 
 ### auth / bootstrap / identity / snapshot
 
 - `pnpm build`
-- `pnpm --filter @mud/server-next smoke:next-auth-bootstrap`
+- `pnpm --dir packages/server smoke:auth-bootstrap`
 - `pnpm verify:replace-ready:proof:with-db`
 - 如涉及持久化写入，再补 `pnpm verify:replace-ready:with-db`
 
 ### GM / admin / database / restore
 
 - `pnpm build`
-- `pnpm --filter @mud/server-next smoke:gm-next`
-- `pnpm --filter @mud/server-next smoke:gm-database`
-- `pnpm --filter @mud/server-next smoke:gm-database:backup-persistence`
+- `pnpm --dir packages/server smoke:gm`
+- `pnpm --dir packages/server smoke:gm-database`
+- `pnpm --dir packages/server smoke:gm-database:backup-persistence`
 - 如涉及已部署实例，再补 `pnpm verify:replace-ready:shadow` 或 `acceptance/full`
 
 ### runtime / combat / loot / monster / respawn
 
 - `pnpm build`
-- `pnpm --filter @mud/server-next smoke:runtime`
-- `pnpm --filter @mud/server-next smoke:combat`
-- `pnpm --filter @mud/server-next smoke:loot`
-- `pnpm --filter @mud/server-next smoke:monster-runtime`
-- `pnpm --filter @mud/server-next smoke:monster-combat`
-- `pnpm --filter @mud/server-next smoke:player-respawn`
+- `pnpm --dir packages/server smoke:runtime`
+- `pnpm --dir packages/server smoke:combat`
+- `pnpm --dir packages/server smoke:loot`
+- `pnpm --dir packages/server smoke:monster-runtime`
+- `pnpm --dir packages/server smoke:monster-combat`
+- `pnpm --dir packages/server smoke:player-respawn`
 
 ## 数据迁移 proof 链
 
 `04` 完成后，这里要补一条固定 proof，不能只靠 dry-run。
 
-- [x] 跑 `pnpm --filter @mud/server-next migrate:legacy-next:once` 的样本/真实转换
+- [x] 跑 `pnpm --filter @mud/server migrate:legacy-next:once` 的样本/真实转换
 - [x] 用迁移后的 next 真源重新跑 `pnpm verify:replace-ready:proof:with-db`
-- [x] 补 `pnpm --filter @mud/server-next smoke:persistence`
-- [x] 涉及 GM scope 迁移时，补 `pnpm --filter @mud/server-next smoke:gm-database`
+- [x] 补 `pnpm --filter @mud/server smoke:persistence`
+- [x] 涉及 GM scope 迁移时，补 `pnpm --filter @mud/server smoke:gm-database`
 - [x] 记录迁移前后摘要：
   - 迁了哪些域
   - 写入了哪些 next scope / 表
@@ -247,39 +247,39 @@
 
 1. 先确认是环境问题还是代码问题
 2. 单独定位 `with-db` 里的首个失败命令
-3. 如果失败点在 `next-auth-bootstrap-smoke.js`，继续拆成：
+3. 如果失败点在 `auth-bootstrap-smoke.js`，继续拆成：
    - 坏快照记录
    - auth trace 合同不一致
 4. 只有 `with-db` 过了，才继续看 `acceptance/full`
 
 - [x] `pnpm build` 本地通过
 - [x] `pnpm verify:replace-ready` 本地通过，已拿到 `[replace-ready] completed mode=local`
-- [x] `pnpm verify:server-next:doctor`
+- [x] `pnpm verify:replace-ready:doctor`
   - 历史别名命令仍可用，但当前主口径已切到 `pnpm verify:replace-ready:doctor`
 - [x] `pnpm verify:replace-ready:doctor`
   - 当前 shell 实跑结果：`local / with-db / proof with-db / shadow / acceptance / full` 为 `ready`
   - `shadow target probe` 当前为 `ready (reachable_with_nonready_health_503)`
   - 当前只剩 `shadow-destructive` 仍未就绪
-- [x] `pnpm --filter @mud/server-next audit:legacy-boundaries`
+- [x] `pnpm --filter @mud/server audit:legacy-boundaries`
   - 本轮实跑结果：`docs/next-legacy-boundary-audit.md` 已刷新为 `matched 0/18 checks, 0 code hits`
-- [x] `pnpm --filter @mud/server-next smoke:next-auth-bootstrap`
+- [x] `pnpm --filter @mud/server smoke:auth-bootstrap`
   - 本轮实跑结果：local 无库 profile 下通过，输出 `reason=no_db_legacy_http_memory_fallback_disabled`
-- [x] `pnpm --filter @mud/server-next smoke:gm-next`
+- [x] `pnpm --filter @mud/server smoke:gm`
   - 本轮实跑结果：local 无库 profile 下通过，输出 `reason=no_db_legacy_http_memory_fallback_disabled`
 - [x] `pnpm verify:replace-ready:with-db`
   - 本轮实跑结果：默认本地 env 自动加载后通过，输出 `[replace-ready:with-db] completed`
-  - 当前带库链路已覆盖到 `audit:server-next-protocol`，并刷新 `docs/next-protocol-audit.md`
+  - 当前带库链路已覆盖到 `audit:protocol`，并刷新 `docs/next-protocol-audit.md`
 - [x] `pnpm proof:replace-ready-gates`
   - 本轮实跑结果：`doctor / acceptance / full` 的脚本边界、root wrapper 和 `09/TESTING` 文档口径已固定一致
 - [x] `shadow target probe`
   - 当前口径已固定到 `doctor / shadow` wrapper：
-    - 不能只看 `SERVER_NEXT_SHADOW_URL/SERVER_NEXT_URL` 和 `GM_PASSWORD` 是否存在
+    - 不能只看 `SERVER_SHADOW_URL/SERVER_URL` 和 `GM_PASSWORD` 是否存在
     - 还要确认 `/health` 可达，且 `/api/auth/gm/login` 不是 `404`
     - 否则只能算“变量存在，但目标不是 next shadow 入口”
 - [x] `pnpm verify:replace-ready:acceptance`
   - 本轮先暴露出 gate 漂移：当前 shell 带 DB 时，`acceptance` 首段被偷偷升级成 `with-db`
   - 已修正为固定先跑 `local`
-  - 随后补齐了 shadow target probe、`shadow-smoke` 的 `503/liveness` 兼容、以及 `gm-next` 不再被 DB 变量误带偏
+  - 随后补齐了 shadow target probe、`shadow-smoke` 的 `503/liveness` 兼容、以及 `gm` 不再被 DB 变量误带偏
   - 当前已在本机 `127.0.0.1:11923` next shadow 实例上实跑通过
 - [x] `pnpm verify:replace-ready:shadow`
   - 本轮实跑结果：本机 `127.0.0.1:11923` next shadow 已通过 `/health`、GM 登录、`/gm/state`、`/gm/maps`、`/gm/editor-catalog`、`/gm/maps/:mapId/runtime` 与最小 next 会话链
@@ -288,11 +288,11 @@
   - 本地数据库 URL 指错到 `127.0.0.1:5432/mud_next`
   - `next-auth-bootstrap-smoke` 的 `token_seed` recovery trace 断言过时
   - `gm-next-smoke` 在本地带库 proof 环境里会被旧 GM 密码记录污染
-  - 最终 `with-db -> gm-database -> backup-persistence -> shadow -> gm-next` 已全链通过
-- [x] `SERVER_NEXT_SHADOW_ALLOW_DESTRUCTIVE=1 pnpm verify:replace-ready:shadow:destructive:preflight`
+  - 最终 `with-db -> gm-database -> backup-persistence -> shadow -> gm` 已全链通过
+- [x] `SERVER_SHADOW_ALLOW_DESTRUCTIVE=1 pnpm verify:replace-ready:shadow:destructive:preflight`
   - 本轮在本机 `127.0.0.1:11923` maintenance-active shadow 上通过
   - 当前阻塞已从“脚本/口径未固定”收敛成“只有进入 maintenance-active 时才允许继续 destructive”
-- [x] `SERVER_NEXT_SHADOW_ALLOW_DESTRUCTIVE=1 pnpm verify:replace-ready:shadow:destructive`
+- [x] `SERVER_SHADOW_ALLOW_DESTRUCTIVE=1 pnpm verify:replace-ready:shadow:destructive`
   - 本轮在本机 maintenance-active shadow 上通过
   - 已完成一次 `backup -> download -> restore` destructive proof
   - 关键证据：

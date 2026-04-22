@@ -5,7 +5,7 @@ const core = require("@nestjs/core");
 
 const { AppModule } = require("../app.module");
 const { NextGmAdminService } = require("../http/next/next-gm-admin.service");
-const { resolveServerNextDatabaseUrl } = require("../config/env-alias");
+const { resolveServerDatabaseUrl } = require("../config/env-alias");
 
 const NATIVE_CONFIG_SCOPE = "server_next_afdian_config_v1";
 const LEGACY_CONFIG_SCOPE = "server_next_legacy_afdian_config_v1";
@@ -21,9 +21,9 @@ const LEGACY_ORDER_SCOPE = "server_next_legacy_afdian_orders_v1";
 async function main() {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
-  const databaseUrl = resolveServerNextDatabaseUrl();
+  const databaseUrl = resolveServerDatabaseUrl();
   if (!databaseUrl.trim()) {
-    throw new Error("missing SERVER_NEXT_DATABASE_URL/DATABASE_URL");
+    throw new Error("missing SERVER_DATABASE_URL/DATABASE_URL");
   }
 
   const pool = new pg.Pool({ connectionString: databaseUrl });

@@ -69,9 +69,9 @@
 ### 第 1 批：先把“唯一真源”写死
 
 - [x] 在这份文档里把协议、共享类型、内容、地图、运行时、客户端入口的唯一真源表述固定
-- [x] 检查顶层文档是否还在用 `client-next/shared-next/server-next` 这种历史命名描述实际 `packages/*`
+- [x] 检查顶层文档是否还在用 `client-next/shared-next/server` 这种历史命名描述实际 `packages/*`
 - [x] 把“由 legacy 决定 next 行为”的情况视为 bug，不再视为正常桥接
-- [x] 用 `pnpm --filter @mud/server-next proof:next-content-map-sources` 固定内容 / 地图真源入口
+- [x] 用 `pnpm --filter @mud/server proof:content-map-sources` 固定内容 / 地图真源入口
 
 最小验证：
 
@@ -84,8 +84,8 @@
 - [x] 扫描 `packages/client/src/*`
 - [x] 扫描 `packages/shared/src/*`
 - [x] 只记录会影响 next 行为定义的入口，不把纯 inventory/audit 统计进来
-- [x] 用 `pnpm --filter @mud/server-next proof:next-runtime-network-no-legacy-source` 固定 server runtime/network 不 direct 读取 `legacy/*`
-- [x] 用 `pnpm proof:next-client-shared-no-legacy-source` 固定 client/shared 不 direct 读取 `legacy/*`
+- [x] 用 `pnpm --filter @mud/server proof:runtime-network-no-legacy-source` 固定 server runtime/network 不 direct 读取 `legacy/*`
+- [x] 用 `pnpm proof:client-shared-no-legacy-source` 固定 client/shared 不 direct 读取 `legacy/*`
 
 应优先记入清单的类型：
 
@@ -109,7 +109,7 @@
   - 已声明且已实现
   - 已声明但未实现
   - 服务端有处理但 shared 未声明
-- [x] 用 `pnpm --filter @mud/server-next audit:next-protocol` 固定 `EXPECTED_C2S` 与 gateway coverage，未覆盖事件直接失败
+- [x] 用 `pnpm --filter @mud/server audit:protocol` 固定 `EXPECTED_C2S` 与 gateway coverage，未覆盖事件直接失败
 
 重点优先看：
 
@@ -120,8 +120,8 @@
 
 最小验证：
 
-- `pnpm --filter @mud/server-next build`
-- `pnpm --filter @mud/server-next audit:next-protocol`
+- `pnpm --filter @mud/server build`
+- `pnpm --filter @mud/server audit:protocol`
 
 ### 第 4 批：对齐 `NEXT_S2C` 到客户端监听
 
@@ -132,7 +132,7 @@
   - 已声明且已监听
   - 已声明但客户端未消费
   - 客户端依赖了 shared 未声明的事件
-- [x] 用 `pnpm proof:next-client-s2c-consumption` 固定客户端监听面对齐，当前未消费事件为 `GmState`
+- [x] 用 `pnpm proof:client-s2c-consumption` 固定客户端监听面对齐，当前未消费事件为 `GmState`
 
 重点优先看：
 
@@ -142,8 +142,8 @@
 
 最小验证：
 
-- `pnpm --filter @mud/client-next build`
-- `pnpm --filter @mud/server-next audit:next-protocol`
+- `pnpm build:client`
+- `pnpm --filter @mud/server audit:protocol`
 
 ### 第 5 批：清掉“next 行为由 legacy 决定”的残留路径
 
@@ -171,7 +171,7 @@
 
 - `pnpm build`
 - `pnpm verify:replace-ready`
-- `pnpm --filter @mud/server-next audit:next-protocol`
+- `pnpm --filter @mud/server audit:protocol`
 
 ## 文件级检查表
 
@@ -183,9 +183,9 @@
 
 补充证明：
 
-- [x] 用 `pnpm proof:next-shared-types-source` 固定 `packages/shared/src/types.ts` 为共享类型唯一命名真源
-- [x] 用 `pnpm proof:next-protobuf-drift` 固定高频 protobuf payload、schema lookup、wire 函数与空事件集约束
-- [x] 用 `pnpm proof:next-protocol-source` 固定生产主链不再本地定义 `NEXT_C2S/NEXT_S2C` 或写死 `n:c:*` / `n:s:*` 事件字面量
+- [x] 用 `pnpm proof:shared-types-source` 固定 `packages/shared/src/types.ts` 为共享类型唯一命名真源
+- [x] 用 `pnpm proof:protobuf-drift` 固定高频 protobuf payload、schema lookup、wire 函数与空事件集约束
+- [x] 用 `pnpm proof:protocol-source` 固定生产主链不再本地定义 `NEXT_C2S/NEXT_S2C` 或写死 `n:c:*` / `n:s:*` 事件字面量
 
 ### server
 
@@ -193,8 +193,8 @@
 - [x] `runtime/*` 不再通过 legacy 文件决定 next 行为
 - [x] `server/data/*` 不再由 legacy 内容或地图目录兜底
 
-- [x] 用 `pnpm proof:next-server-runtime-mainline` 固定 runtime 只依赖显式允许的 next 适配边界，不再旁路到 legacy/compat/player-source 主链
-- [x] 用 `pnpm --filter @mud/server-next audit:next-protocol` 固定 gateway 只消费 shared 已声明且已覆盖的 next 事件
+- [x] 用 `pnpm proof:server-runtime-mainline` 固定 runtime 只依赖显式允许的 next 适配边界，不再旁路到 legacy/compat/player-source 主链
+- [x] 用 `pnpm --filter @mud/server audit:protocol` 固定 gateway 只消费 shared 已声明且已覆盖的 next 事件
 
 ### client
 
@@ -202,8 +202,8 @@
 - [x] `main.ts` 不再自己持有散落事件契约
 - [x] 主要 UI 更新都只消费 next 协议，不消费旧 alias
 
-- [x] 用 `pnpm proof:next-client-s2c-consumption` 固定 `socket.ts` / `main.ts` 的 next 监听面对齐
-- [x] 用 `pnpm proof:next-client-no-legacy-alias` 固定生产前台不再写死 legacy socket alias
+- [x] 用 `pnpm proof:client-s2c-consumption` 固定 `socket.ts` / `main.ts` 的 next 监听面对齐
+- [x] 用 `pnpm proof:client-no-legacy-alias` 固定生产前台不再写死 legacy socket alias
 
 ## 本阶段不做的事
 
@@ -216,4 +216,4 @@
 - [x] 不再存在“共享协议声明了但服务端没实现”的空洞
 - [x] 不再通过 legacy 文件决定 next 主链行为
 
-- [x] 用 `pnpm proof:next-no-legacy-file-behavior` 固定 client/server/shared 生产主链不再 direct 命中 `legacy/*` 文件路径（`tools/` 显式排除）
+- [x] 用 `pnpm proof:no-legacy-file-behavior` 固定 client/server/shared 生产主链不再 direct 命中 `legacy/*` 文件路径（`tools/` 显式排除）

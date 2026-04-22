@@ -6,7 +6,7 @@ import {
   SkillDef,
   TargetingGeometrySpec,
   TargetingShape,
-} from '@mud/shared-next';
+} from '@mud/shared';
 
 /** 记录当前待执行动作的目标参数，供落点、范围和目标解析复用。 */
 export type TargetingActionState = {

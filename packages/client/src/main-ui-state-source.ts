@@ -1,5 +1,5 @@
-import type { GameTimeState, MonsterTier, PlayerState, QuestState } from '@mud/shared-next';
-import { TechniqueRealm, VIEW_RADIUS } from '@mud/shared-next';
+import type { GameTimeState, MonsterTier, PlayerState, QuestState } from '@mud/shared';
+import { TechniqueRealm, VIEW_RADIUS } from '@mud/shared';
 import { getHeavenGateHudAction } from './ui/heaven-gate-modal';
 import type { HUD } from './ui/hud';
 import type { WorldPanel } from './ui/panels/world-panel';

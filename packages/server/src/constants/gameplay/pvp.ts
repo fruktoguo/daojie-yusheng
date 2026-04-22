@@ -1,4 +1,4 @@
-import { buildQiResourceKey } from '@mud/shared-next';
+import { buildQiResourceKey } from '@mud/shared';
 
 export const BLOOD_ESSENCE_ITEM_ID = 'stone.blood_essence';
 export const BLOOD_ESSENCE_SHA_GAIN = 10;

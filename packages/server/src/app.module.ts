@@ -126,7 +126,7 @@ import { WorldRuntimeController } from './runtime/world/world-runtime.controller
 import { RuntimeMaintenanceService } from './runtime/world/runtime-maintenance.service';
 import { WorldRuntimeService } from './runtime/world/world-runtime.service';
 
-/** server-next 主模块：统一注册 HTTP、Socket 入口和运行时/持久化服务。 */
+/** server 主模块：统一注册 HTTP、Socket 入口和运行时/持久化服务。 */
 @Module({
   imports: [
     ConfigModule.forRoot({ isGlobal: true }),

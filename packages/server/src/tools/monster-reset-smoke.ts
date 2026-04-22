@@ -7,17 +7,17 @@
 const smoke_timeout_1 = require("./smoke-timeout");
 (0, smoke_timeout_1.installSmokeTimeout)(__filename);
 const env_alias_1 = require("../config/env-alias");
-const SERVER_NEXT_URL = (0, env_alias_1.resolveServerNextUrl)() || 'http://127.0.0.1:3111';
-const instanceId = process.env.SERVER_NEXT_SMOKE_INSTANCE_ID ?? 'public:wildlands';
+const SERVER_URL = (0, env_alias_1.resolveServerUrl)() || 'http://127.0.0.1:3111';
+const instanceId = process.env.SERVER_SMOKE_INSTANCE_ID ?? 'public:wildlands';
 /**
  * 记录优先值怪物ID。
  */
-const preferredMonsterId = process.env.SERVER_NEXT_SMOKE_MONSTER_ID ?? 'm_dust_vulture';
+const preferredMonsterId = process.env.SERVER_SMOKE_MONSTER_ID ?? 'm_dust_vulture';
 /**
  * 记录damageamount。
  */
-const damageAmount = Number.isFinite(Number(process.env.SERVER_NEXT_SMOKE_DAMAGE))
-    ? Math.max(1, Math.trunc(Number(process.env.SERVER_NEXT_SMOKE_DAMAGE)))
+const damageAmount = Number.isFinite(Number(process.env.SERVER_SMOKE_DAMAGE))
+    ? Math.max(1, Math.trunc(Number(process.env.SERVER_SMOKE_DAMAGE)))
     : 12;
 /**
  * 串联执行脚本主流程。
@@ -28,7 +28,7 @@ async function main() {
 /**
  * 记录initialmonsters。
  */
-    const initialMonsters = await fetchJson(`${SERVER_NEXT_URL}/runtime/instances/${instanceId}/monsters`);
+    const initialMonsters = await fetchJson(`${SERVER_URL}/runtime/instances/${instanceId}/monsters`);
 /**
  * 记录目标。
  */
@@ -73,7 +73,7 @@ async function main() {
     const finalMonster = await fetchMonster(instanceId, target.runtimeId);
     console.log(JSON.stringify({
         ok: true,
-        url: SERVER_NEXT_URL,
+        url: SERVER_URL,
         instanceId,
         runtimeId: target.runtimeId,
         monsterId: target.monsterId,
@@ -87,7 +87,7 @@ async function main() {
  * 处理fetch怪物。
  */
 async function fetchMonster(instanceIdValue, runtimeId) {
-    return fetchJson(`${SERVER_NEXT_URL}/runtime/instances/${instanceIdValue}/monsters/${runtimeId}`);
+    return fetchJson(`${SERVER_URL}/runtime/instances/${instanceIdValue}/monsters/${runtimeId}`);
 }
 /**
  * 处理fetchjson。
@@ -113,7 +113,7 @@ async function postJson(path, body) {
 /**
  * 记录response。
  */
-    const response = await fetch(`${SERVER_NEXT_URL}${path}`, {
+    const response = await fetch(`${SERVER_URL}${path}`, {
         method: 'POST',
         headers: {
             'content-type': 'application/json',

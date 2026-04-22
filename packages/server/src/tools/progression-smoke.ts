@@ -8,12 +8,12 @@ Object.defineProperty(exports, "__esModule", { value: true });
 const smoke_timeout_1 = require("./smoke-timeout");
 (0, smoke_timeout_1.installSmokeTimeout)(__filename);
 const socket_io_client_1 = require("socket.io-client");
-const shared_1 = require("@mud/shared-next");
+const shared_1 = require("@mud/shared");
 const env_alias_1 = require("../config/env-alias");
 /**
- * 记录 server-next 访问地址。
+ * 记录 server 访问地址。
  */
-const SERVER_NEXT_URL = (0, env_alias_1.resolveServerNextUrl)() || 'http://127.0.0.1:3111';
+const SERVER_URL = (0, env_alias_1.resolveServerUrl)() || 'http://127.0.0.1:3111';
 /**
  * 记录玩家ID。
  */
@@ -27,9 +27,12 @@ async function main() {
 /**
  * 记录socket。
  */
-    const socket = (0, socket_io_client_1.io)(SERVER_NEXT_URL, {
+    const socket = (0, socket_io_client_1.io)(SERVER_URL, {
         path: '/socket.io',
         transports: ['websocket'],
+        auth: {
+            protocol: 'mainline',
+        },
     });
 /**
  * 记录panelevents。
@@ -39,20 +42,20 @@ async function main() {
  * 记录selfevents。
  */
     const selfEvents = [];
-    socket.on(shared_1.NEXT_S2C.Error, (payload) => {
+    socket.on(shared_1.S2C.Error, (payload) => {
         throw new Error(`socket error: ${JSON.stringify(payload)}`);
     });
-    socket.on(shared_1.NEXT_S2C.PanelDelta, (payload) => {
+    socket.on(shared_1.S2C.PanelDelta, (payload) => {
         panelEvents.push(payload);
     });
-    socket.on(shared_1.NEXT_S2C.SelfDelta, (payload) => {
+    socket.on(shared_1.S2C.SelfDelta, (payload) => {
         selfEvents.push(payload);
     });
-    socket.on(shared_1.NEXT_S2C.InitSession, (payload) => {
+    socket.on(shared_1.S2C.InitSession, (payload) => {
         playerId = String(payload?.pid ?? '');
     });
     await onceConnected(socket);
-    socket.emit(shared_1.NEXT_C2S.Hello, {
+    socket.emit(shared_1.C2S.Hello, {
         mapId: 'yunlai_town',
         preferredX: 32,
         preferredY: 5,
@@ -83,7 +86,7 @@ async function main() {
     if (bookSlot < 0) {
         throw new Error('starter technique book missing');
     }
-    socket.emit(shared_1.NEXT_C2S.UseItem, { slotIndex: bookSlot });
+    socket.emit(shared_1.C2S.UseItem, { slotIndex: bookSlot });
     await waitFor(async () => {
 /**
  * 记录状态。
@@ -101,7 +104,7 @@ async function main() {
     if (equipmentSlot < 0) {
         throw new Error('equipment item missing after learning');
     }
-    socket.emit(shared_1.NEXT_C2S.Equip, { slotIndex: equipmentSlot });
+    socket.emit(shared_1.C2S.Equip, { slotIndex: equipmentSlot });
     await waitFor(async () => {
 /**
  * 记录状态。
@@ -111,7 +114,7 @@ async function main() {
             && panelEvents.some(hasEquipPatch)
             && panelEvents.some(hasEquipmentAttrPatch);
     }, 5000);
-    socket.emit(shared_1.NEXT_C2S.Cultivate, { techId: 'qingmu_sword' });
+    socket.emit(shared_1.C2S.Cultivate, { techId: 'qingmu_sword' });
     await waitFor(async () => {
 /**
  * 记录状态。
@@ -120,7 +123,7 @@ async function main() {
         return state.player?.techniques?.cultivatingTechId === 'qingmu_sword'
             && panelEvents.some(hasCultivatePatch);
     }, 5000);
-    socket.emit(shared_1.NEXT_C2S.Unequip, { slot: 'weapon' });
+    socket.emit(shared_1.C2S.Unequip, { slot: 'weapon' });
     await waitFor(async () => {
 /**
  * 记录状态。
@@ -138,7 +141,7 @@ async function main() {
     if (healSlot < 0) {
         throw new Error('starter heal consumable missing');
     }
-    socket.emit(shared_1.NEXT_C2S.UseItem, { slotIndex: healSlot });
+    socket.emit(shared_1.C2S.UseItem, { slotIndex: healSlot });
     await waitFor(async () => {
 /**
  * 记录状态。
@@ -162,7 +165,7 @@ async function main() {
     if (buffSlot < 0) {
         throw new Error('windstride consumable missing');
     }
-    socket.emit(shared_1.NEXT_C2S.UseItem, { slotIndex: buffSlot });
+    socket.emit(shared_1.C2S.UseItem, { slotIndex: buffSlot });
     await waitFor(async () => {
 /**
  * 记录状态。
@@ -186,7 +189,7 @@ async function main() {
     if (mapSlot < 0) {
         throw new Error('bamboo map item missing');
     }
-    socket.emit(shared_1.NEXT_C2S.UseItem, { slotIndex: mapSlot });
+    socket.emit(shared_1.C2S.UseItem, { slotIndex: mapSlot });
     await waitFor(async () => {
 /**
  * 记录状态。
@@ -213,7 +216,7 @@ async function main() {
  * 记录灵气before。
  */
     const auraBefore = await fetchTileAura(currentState.player.instanceId, currentState.player.x, currentState.player.y);
-    socket.emit(shared_1.NEXT_C2S.UseItem, { slotIndex: spiritStoneSlot });
+    socket.emit(shared_1.C2S.UseItem, { slotIndex: spiritStoneSlot });
     await waitFor(async () => {
 /**
  * 记录状态。
@@ -237,7 +240,7 @@ async function main() {
     }
     console.log(JSON.stringify({
         ok: true,
-        url: SERVER_NEXT_URL,
+        url: SERVER_URL,
         playerId,
         panelEventCount: panelEvents.length,
         learnedTechniquePatched: panelEvents.some(hasLearnTechniquePatch),
@@ -365,7 +368,7 @@ async function fetchState() {
 /**
  * 记录response。
  */
-    const response = await fetch(`${SERVER_NEXT_URL}/runtime/players/${playerId}/state`);
+    const response = await fetch(`${SERVER_URL}/runtime/players/${playerId}/state`);
     if (!response.ok) {
         throw new Error(`request failed: ${response.status} ${await response.text()}`);
     }
@@ -380,7 +383,7 @@ async function postJson(path, body) {
 /**
  * 记录response。
  */
-    const response = await fetch(`${SERVER_NEXT_URL}${path}`, {
+    const response = await fetch(`${SERVER_URL}${path}`, {
         method: 'POST',
         headers: {
             'content-type': 'application/json',
@@ -400,7 +403,7 @@ async function deletePlayer(playerIdToDelete) {
 /**
  * 记录response。
  */
-    const response = await fetch(`${SERVER_NEXT_URL}/runtime/players/${playerIdToDelete}`, {
+    const response = await fetch(`${SERVER_URL}/runtime/players/${playerIdToDelete}`, {
         method: 'DELETE',
     });
     if (!response.ok) {
@@ -416,7 +419,7 @@ async function fetchTileAura(instanceId, x, y) {
 /**
  * 记录response。
  */
-    const response = await fetch(`${SERVER_NEXT_URL}/runtime/instances/${instanceId}/tiles/${x}/${y}`);
+    const response = await fetch(`${SERVER_URL}/runtime/instances/${instanceId}/tiles/${x}/${y}`);
     if (!response.ok) {
         throw new Error(`request failed: ${response.status} ${await response.text()}`);
     }

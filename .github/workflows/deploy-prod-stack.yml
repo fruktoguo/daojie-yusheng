@@ -71,9 +71,9 @@ jobs:
           DB_USERNAME: ${{ secrets.PROD_DB_USERNAME }}
           DB_PASSWORD: ${{ secrets.PROD_DB_PASSWORD }}
           DB_DATABASE: ${{ secrets.PROD_DB_DATABASE }}
-          SERVER_NEXT_PLAYER_TOKEN_SECRET: ${{ secrets.PROD_JWT_SECRET }}
+          PLAYER_TOKEN_SECRET: ${{ secrets.PROD_JWT_SECRET }}
         run: |
-          docker --context production stack deploy --with-registry-auth -c docker-stack.yml daojie-yusheng
+          SERVER_PLAYER_TOKEN_SECRET="$PLAYER_TOKEN_SECRET" docker --context production stack deploy --with-registry-auth -c docker-stack.yml daojie-yusheng
 
       - name: Verify backup worker
         env:

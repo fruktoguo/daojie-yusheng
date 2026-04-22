@@ -13,7 +13,7 @@ import {
   TileType,
   VisibleTile,
   VisibleTilePatch,
-} from '@mud/shared-next';
+} from '@mud/shared';
 
 /** 已探索地块的持久化字段。 */
 type RememberedTile = Pick<Tile, 'type' | 'walkable' | 'blocksSight' | 'aura' | 'resources'>;

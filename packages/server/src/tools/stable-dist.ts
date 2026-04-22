@@ -13,8 +13,8 @@ import path from 'node:path';
  * @returns 返回包根目录绝对路径。
  */
 export function resolveToolPackageRoot(defaultDirname: string) {
-  const override = typeof process.env.SERVER_NEXT_PACKAGE_ROOT === 'string'
-    ? process.env.SERVER_NEXT_PACKAGE_ROOT.trim()
+  const override = typeof process.env.SERVER_PACKAGE_ROOT === 'string'
+    ? process.env.SERVER_PACKAGE_ROOT.trim()
     : '';
   if (override) {
     return path.resolve(override);
@@ -29,8 +29,8 @@ export function resolveToolPackageRoot(defaultDirname: string) {
  * @returns 返回 dist 目录绝对路径。
  */
 export function resolveToolDistRoot(defaultDirname: string, packageRoot = resolveToolPackageRoot(defaultDirname)) {
-  const override = typeof process.env.SERVER_NEXT_TOOL_DIST_ROOT === 'string'
-    ? process.env.SERVER_NEXT_TOOL_DIST_ROOT.trim()
+  const override = typeof process.env.SERVER_TOOL_DIST_ROOT === 'string'
+    ? process.env.SERVER_TOOL_DIST_ROOT.trim()
     : '';
   if (override) {
     return path.resolve(override);

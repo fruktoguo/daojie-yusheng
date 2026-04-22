@@ -16,7 +16,7 @@ exports.WorldProtocolProjectionService = void 0;
 
 const common_1 = require("@nestjs/common");
 
-const shared_1 = require("@mud/shared-next");
+const shared_1 = require("@mud/shared");
 
 const world_client_event_service_1 = require("./world-client-event.service");
 
@@ -35,7 +35,7 @@ let WorldProtocolProjectionService = class WorldProtocolProjectionService {
     }
     /** 下发单个格子的详情数据。 */
     emitTileDetail(client, payload) {
-        client.emit(shared_1.NEXT_S2C.TileDetail, payload);
+        client.emit(shared_1.S2C.TileDetail, payload);
     }
     /** 下发格子详情并联动拾取窗口。 */
     emitTileLootInteraction(client, playerId, payload) {
@@ -45,7 +45,7 @@ let WorldProtocolProjectionService = class WorldProtocolProjectionService {
     /** 当前投影固定收敛到 next 协议。 */
     resolveProjectionEmission(client) {
         return {
-            protocol: 'next',
+            protocol: 'mainline',
             emitNext: true,
         };
     }

@@ -3,7 +3,7 @@ import {
   type GmManagedPlayerRecord,
   type GmManagedPlayerSummary,
   type RedeemCodeGroupRewardItem,
-} from '@mud/shared-next';
+} from '@mud/shared';
 
 /** GM 邮件草稿里单条附件的最小输入结构。 */
 interface GmMailAttachmentDraft {

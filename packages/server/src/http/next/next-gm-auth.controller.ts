@@ -2,7 +2,7 @@ import { Body, Controller, Inject, Post, Req, UseGuards } from '@nestjs/common';
 
 import { RuntimeGmAuthService } from '../../runtime/gm/runtime-gm-auth.service';
 import { NextAuthRateLimitService } from './next-auth-rate-limit.service';
-import { NEXT_GM_HTTP_CONTRACT } from './next-gm-contract';
+import { GM_HTTP_CONTRACT } from './next-gm-contract';
 import { NextGmAuthGuard } from './next-gm-auth.guard';
 /**
  * GmLoginBody：定义接口结构约束，明确可交付字段含义。
@@ -55,7 +55,7 @@ interface RuntimeGmAuthServicePort {
  */
 
 
-@Controller(NEXT_GM_HTTP_CONTRACT.authBasePath)
+@Controller(GM_HTTP_CONTRACT.authBasePath)
 @Reflect.metadata('design:paramtypes', [RuntimeGmAuthService, NextAuthRateLimitService])
 export class NextGmAuthController {
 /**

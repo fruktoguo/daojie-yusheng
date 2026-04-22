@@ -1,6 +1,6 @@
 import { getCurrentAccountName } from './ui/auth-api';
-import { DEFAULT_AURA_LEVEL_BASE_VALUE, type ActionDef, type Inventory, type NEXT_S2C_TileDetail, type SyncedItemStack } from '@mud/shared-next';
-import { nextUiBridge } from './next/bridge/next-ui-bridge';
+import { DEFAULT_AURA_LEVEL_BASE_VALUE, type ActionDef, type Inventory, type S2C_TileDetail, type SyncedItemStack } from '@mud/shared';
+import { reactUiBridge } from './next/bridge/next-ui-bridge';
 import { createMainActionStateSource } from './main-action-state-source';
 import { createMainAttrDetailStateSource } from './main-attr-detail-state-source';
 import { createMainBreakthroughStateSource } from './main-breakthrough-state-source';
@@ -59,7 +59,7 @@ type CreateMainPanelContextOptions = {
     getInfoRadius(): number;
     getCurrentActionDef(actionId: string): ActionDef | null;
     clearCurrentPath(): void;
-    handleTileDetailResult(data: NEXT_S2C_TileDetail): void;
+    handleTileDetailResult(data: S2C_TileDetail): void;
     resetGameState(): void;
     closeSettingsPanel(): void;
     resizeCanvas(): void;
@@ -156,8 +156,8 @@ export function createMainPanelContext(options: CreateMainPanelContextOptions) {
     sendRequestNpcQuests: (npcId) => runtimeSender.sendRequestNpcQuests(npcId),
     sendAcceptNpcQuest: (npcId, questId) => runtimeSender.sendAcceptNpcQuest(npcId, questId),
     sendSubmitNpcQuest: (npcId, questId) => runtimeSender.sendSubmitNpcQuest(npcId, questId),
-    syncQuestBridgeState: (quests) => nextUiBridge.syncQuests(quests),
-    syncPlayerBridgeState: (player) => nextUiBridge.syncPlayer(player),
+    syncQuestBridgeState: (quests) => reactUiBridge.syncQuests(quests),
+    syncPlayerBridgeState: (player) => reactUiBridge.syncPlayer(player),
     refreshUiChrome: () => uiStateSource.refreshUiChrome(),
   });
   const marketStateSource = createMainMarketStateSource({
@@ -207,8 +207,8 @@ export function createMainPanelContext(options: CreateMainPanelContextOptions) {
     marketStateSource,
     npcShopModal,
     craftWorkbenchModal,
-    syncInventoryBridgeState: (inventory) => nextUiBridge.syncInventory(inventory),
-    syncPlayerBridgeState: (player) => nextUiBridge.syncPlayer(player),
+    syncInventoryBridgeState: (inventory) => reactUiBridge.syncInventory(inventory),
+    syncPlayerBridgeState: (player) => reactUiBridge.syncPlayer(player),
     sendUseItem: (slotIndex, count) => panelSender.sendUseItem(slotIndex, count),
     sendDropItem: (slotIndex, count) => panelSender.sendDropItem(slotIndex, count),
     sendDestroyItem: (slotIndex, count) => panelSender.sendDestroyItem(slotIndex, count),
@@ -221,7 +221,7 @@ export function createMainPanelContext(options: CreateMainPanelContextOptions) {
     getPlayer: () => rootRuntimeSource.getPlayer(),
     applyVisibleDisplayName: (playerId, displayName) => rootRuntimeSource.applyVisibleDisplayName(playerId, displayName),
     applyVisibleRoleName: (playerId, roleName) => rootRuntimeSource.applyVisibleRoleName(playerId, roleName),
-    syncPlayerBridgeState: (player) => nextUiBridge.syncPlayer(player),
+    syncPlayerBridgeState: (player) => reactUiBridge.syncPlayer(player),
     refreshHudChrome: () => uiStateSource.refreshHudChrome(),
     showToast: (message) => uiStateSource.showToast(message),
     isSocketConnected: () => socket.connected,
@@ -233,7 +233,7 @@ export function createMainPanelContext(options: CreateMainPanelContextOptions) {
   });
   const panelRuntimeSource = createMainPanelRuntimeSource({
     store: panelSystem.store,
-    nextUiBridge,
+    reactUiBridge,
   });
   uiStateSource = createMainUiStateSource({
     hud,

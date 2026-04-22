@@ -1,4 +1,4 @@
-import { NEXT_S2C_Leaderboard, NEXT_S2C_LeaderboardPlayerLocations, NEXT_S2C_WorldSummary } from '@mud/shared-next';
+import { S2C_Leaderboard, S2C_LeaderboardPlayerLocations, S2C_WorldSummary } from '@mud/shared';
 import type { SocketPanelSender } from './network/socket-send-panel';
 import { detailModalHost } from './ui/detail-modal-host';
 import { preserveSelection } from './ui/selection-preserver';
@@ -98,9 +98,9 @@ export type MainWorldSummaryStateSource = ReturnType<typeof createMainWorldSumma
 
 
 export function createMainWorldSummaryStateSource(options: MainWorldSummaryStateSourceOptions) {
-  let latestLeaderboard: NEXT_S2C_Leaderboard | null = null;
-  let latestWorldSummary: NEXT_S2C_WorldSummary | null = null;  
-  let leaderboardPlayerLocationById = new Map<string, NEXT_S2C_LeaderboardPlayerLocations['entries'][number]>();
+  let latestLeaderboard: S2C_Leaderboard | null = null;
+  let latestWorldSummary: S2C_WorldSummary | null = null;  
+  let leaderboardPlayerLocationById = new Map<string, S2C_LeaderboardPlayerLocations['entries'][number]>();
   let leaderboardLocationTimer: number | null = null;
   let activeLeaderboardTab: LeaderboardTab = 'realm';
   let leaderboardLoading = false;
@@ -197,12 +197,12 @@ export function createMainWorldSummaryStateSource(options: MainWorldSummaryState
     },    
     /**
  * handleLeaderboard：处理Leaderboard并更新相关状态。
- * @param data NEXT_S2C_Leaderboard 原始数据。
+ * @param data S2C_Leaderboard 原始数据。
  * @returns 无返回值，直接更新Leaderboard相关状态。
  */
 
 
-    handleLeaderboard(data: NEXT_S2C_Leaderboard): void {
+    handleLeaderboard(data: S2C_Leaderboard): void {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
       latestLeaderboard = cloneJson(data);
@@ -213,11 +213,11 @@ export function createMainWorldSummaryStateSource(options: MainWorldSummaryState
     },    
     /**
  * handleLeaderboardPlayerLocations：处理玩家击杀榜坐标追索结果并更新相关状态。
- * @param data NEXT_S2C_LeaderboardPlayerLocations 原始数据。
+ * @param data S2C_LeaderboardPlayerLocations 原始数据。
  * @returns 无返回值，直接更新玩家击杀榜坐标追索结果相关状态。
  */
 
-    handleLeaderboardPlayerLocations(data: NEXT_S2C_LeaderboardPlayerLocations): void {
+    handleLeaderboardPlayerLocations(data: S2C_LeaderboardPlayerLocations): void {
       leaderboardPlayerLocationById = new Map(data.entries.map((entry) => [entry.playerId, cloneJson(entry)]));
       emitLeaderboardPlayerLocations();
       if (!detailModalHost.isOpenFor(LEADERBOARD_MODAL_OWNER)) {
@@ -229,12 +229,12 @@ export function createMainWorldSummaryStateSource(options: MainWorldSummaryState
     },    
     /**
  * handleWorldSummary：处理世界摘要并更新相关状态。
- * @param data NEXT_S2C_WorldSummary 原始数据。
+ * @param data S2C_WorldSummary 原始数据。
  * @returns 无返回值，直接更新世界摘要相关状态。
  */
 
 
-    handleWorldSummary(data: NEXT_S2C_WorldSummary): void {
+    handleWorldSummary(data: S2C_WorldSummary): void {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
       latestWorldSummary = cloneJson(data);
@@ -298,7 +298,7 @@ export function createMainWorldSummaryStateSource(options: MainWorldSummaryState
     options.socket.sendRequestWorldSummary();
   }
 
-  function renderActiveLeaderboardBoard(data: NEXT_S2C_Leaderboard | null): string {
+  function renderActiveLeaderboardBoard(data: S2C_Leaderboard | null): string {
     if (!data) {
       return '<div class="empty-hint">暂无榜册内容。</div>';
     }
@@ -360,7 +360,7 @@ export function createMainWorldSummaryStateSource(options: MainWorldSummaryState
     }
   }
 
-  function renderLeaderboardModalBody(data: NEXT_S2C_Leaderboard | null): string {
+  function renderLeaderboardModalBody(data: S2C_Leaderboard | null): string {
     const tabs = (Object.keys(LEADERBOARD_TAB_LABELS) as LeaderboardTab[])
       .map((tab) => `
         <button
@@ -387,7 +387,7 @@ export function createMainWorldSummaryStateSource(options: MainWorldSummaryState
     `;
   }
 
-  function renderWorldSummaryModalBody(data: NEXT_S2C_WorldSummary | null): string {
+  function renderWorldSummaryModalBody(data: S2C_WorldSummary | null): string {
     return `
       <div class="leaderboard-shell">
         <div class="leaderboard-toolbar">
@@ -508,7 +508,7 @@ export function createMainWorldSummaryStateSource(options: MainWorldSummaryState
     `;
   }
 
-  function renderSupremeAttrBoard(data: NEXT_S2C_Leaderboard): string {
+  function renderSupremeAttrBoard(data: S2C_Leaderboard): string {
     if (data.boards.supremeAttrs.length === 0) {
       return '<div class="empty-hint">暂无榜册内容。</div>';
     }
@@ -525,7 +525,7 @@ export function createMainWorldSummaryStateSource(options: MainWorldSummaryState
     `;
   }
 
-  function renderWorldSummaryBoard(data: NEXT_S2C_WorldSummary | null): string {
+  function renderWorldSummaryBoard(data: S2C_WorldSummary | null): string {
     if (!data) {
       return '<div class="empty-hint">暂无世界卷宗。</div>';
     }

@@ -5,7 +5,7 @@
  */
 
 Object.defineProperty(exports, "__esModule", { value: true });
-const shared_1 = require("@mud/shared-next");
+const shared_1 = require("@mud/shared");
 const player_combat_service_1 = require("../runtime/combat/player-combat.service");
 /**
  * 记录iterations。

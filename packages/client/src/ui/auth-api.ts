@@ -14,7 +14,7 @@ import {
   AuthTokenRes,
   DisplayNameAvailabilityRes,
   REFRESH_TOKEN_STORAGE_KEY,
-} from '@mud/shared-next';
+} from '@mud/shared';
 import {
   ACCOUNT_API_BASE_PATH,
   AUTH_API_BASE_PATH,

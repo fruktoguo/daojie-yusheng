@@ -25,7 +25,7 @@
 | `legacy/server` | 旧服务端 | 旧玩法、旧运行时、旧协议参考线 |
 | `legacy/shared` | 旧共享层 | 旧协议和旧共享类型参考线 |
 
-### 1.2 server-next 分层
+### 1.2 server 分层
 
 | 层 | 目录 | 说明 |
 | --- | --- | --- |
@@ -342,7 +342,7 @@ GM Admin：
 当前核对结果：
 
 - `NEXT_C2S` 共声明 `74` 个事件。
-- `server-next` 网关当前实际接入 `72` 个。
+- `server` 网关当前实际接入 `72` 个。
 - 当前协议清点下，这两条炼制预设事件已经补齐到 next 主链：`SaveAlchemyPreset`、`DeleteAlchemyPreset`。
 
 连接与探活：
@@ -578,7 +578,7 @@ GM：
 
 ### 5.5 运行期目录
 
-- `packages/server/.runtime/`：server-next 运行期文件、GM 备份目录
+- `packages/server/.runtime/`：server 运行期文件、GM 备份目录
 - `packages/.runtime/`：仓库级运行期目录
 
 ## 6. next 需要做的工作
@@ -654,6 +654,6 @@ GM：
 - `docs/next-plan/main.md`
 - `docs/next-in-place-hard-cut-plan.md`
 - `docs/next-plan/10-legacy-archive-and-cutover.md`
-- `docs/server-next-operations.md`
+- `docs/server-operations.md`
 - `docs/frontend-refactor/README.md`
 - `docs/frontend-refactor/module-inventory.md`

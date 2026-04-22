@@ -61,7 +61,7 @@
 
 执行：
 
-1. 显式设置 `SERVER_NEXT_SHADOW_ALLOW_DESTRUCTIVE=1`
+1. 显式设置 `SERVER_SHADOW_ALLOW_DESTRUCTIVE=1`
 2. 运行 `pnpm verify:replace-ready:shadow:destructive:preflight`
 
 如果是本地 shadow 演练，也可以直接改用：
@@ -160,7 +160,7 @@
 
 如果本轮暴露新故障，再回写到：
 
-- `docs/server-next-operations.md`
+- `docs/server-operations.md`
 - `packages/server/TESTING.md`
 - `docs/next-plan/09-verification-and-acceptance.md`
 

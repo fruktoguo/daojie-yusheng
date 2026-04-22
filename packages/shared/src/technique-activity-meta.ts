@@ -1,4 +1,4 @@
-import { NEXT_C2S, NEXT_S2C } from './protocol';
+import { C2S, S2C } from './protocol';
 import {
   type TechniqueActivityKind,
   RUNTIME_TECHNIQUE_ACTIVITY_KINDS,
@@ -6,20 +6,20 @@ import {
 } from './technique-activity-types';
 
 export type TechniqueActivityRequestEventName =
-  | typeof NEXT_C2S.RequestAlchemyPanel
-  | typeof NEXT_C2S.RequestEnhancementPanel;
+  | typeof C2S.RequestAlchemyPanel
+  | typeof C2S.RequestEnhancementPanel;
 
 export type TechniqueActivityStartEventName =
-  | typeof NEXT_C2S.StartAlchemy
-  | typeof NEXT_C2S.StartEnhancement;
+  | typeof C2S.StartAlchemy
+  | typeof C2S.StartEnhancement;
 
 export type TechniqueActivityCancelEventName =
-  | typeof NEXT_C2S.CancelAlchemy
-  | typeof NEXT_C2S.CancelEnhancement;
+  | typeof C2S.CancelAlchemy
+  | typeof C2S.CancelEnhancement;
 
 export type TechniqueActivityPanelEventName =
-  | typeof NEXT_S2C.AlchemyPanel
-  | typeof NEXT_S2C.EnhancementPanel;
+  | typeof S2C.AlchemyPanel
+  | typeof S2C.EnhancementPanel;
 
 export type TechniqueActivityCommandKind =
   | 'startAlchemy'
@@ -57,10 +57,10 @@ export interface TechniqueActivityMetadata {
 export const TECHNIQUE_ACTIVITY_METADATA = {
   alchemy: {
     kind: 'alchemy',
-    requestEvent: NEXT_C2S.RequestAlchemyPanel,
-    startEvent: NEXT_C2S.StartAlchemy,
-    cancelEvent: NEXT_C2S.CancelAlchemy,
-    panelEvent: NEXT_S2C.AlchemyPanel,
+    requestEvent: C2S.RequestAlchemyPanel,
+    startEvent: C2S.StartAlchemy,
+    cancelEvent: C2S.CancelAlchemy,
+    panelEvent: S2C.AlchemyPanel,
     startCommandKind: 'startAlchemy',
     cancelCommandKind: 'cancelAlchemy',
     requestPanelErrorCode: 'REQUEST_ALCHEMY_PANEL_FAILED',
@@ -69,10 +69,10 @@ export const TECHNIQUE_ACTIVITY_METADATA = {
   },
   enhancement: {
     kind: 'enhancement',
-    requestEvent: NEXT_C2S.RequestEnhancementPanel,
-    startEvent: NEXT_C2S.StartEnhancement,
-    cancelEvent: NEXT_C2S.CancelEnhancement,
-    panelEvent: NEXT_S2C.EnhancementPanel,
+    requestEvent: C2S.RequestEnhancementPanel,
+    startEvent: C2S.StartEnhancement,
+    cancelEvent: C2S.CancelEnhancement,
+    panelEvent: S2C.EnhancementPanel,
     startCommandKind: 'startEnhancement',
     cancelCommandKind: 'cancelEnhancement',
     requestPanelErrorCode: 'REQUEST_ENHANCEMENT_PANEL_FAILED',

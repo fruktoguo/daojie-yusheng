@@ -9,8 +9,8 @@ import {
   type TechniqueState,
   type Suggestion,
   type RedeemCodeCodeView,
-} from '@mud/shared-next';
-import { TECHNIQUE_REALM_LABELS, QUEST_LINE_LABELS, QUEST_STATUS_LABELS } from '@mud/shared-next';
+} from '@mud/shared';
+import { TECHNIQUE_REALM_LABELS, QUEST_LINE_LABELS, QUEST_STATUS_LABELS } from '@mud/shared';
 import { getInventoryRowMeta } from './catalog';
 import { escapeHtml, formatJson } from './pure';
 

@@ -5,15 +5,15 @@
 import { io, Socket } from 'socket.io-client';
 import {
   encodeClientEventPayload,
-  NEXT_C2S,
-  NEXT_C2S_EventName,
-  NEXT_C2S_EventPayload,
+  C2S,
+  ClientToServerEventName,
+  ClientToServerEventPayload,
   SOCKET_CONNECT_TIMEOUT_MS,
   SOCKET_RECONNECTION_ATTEMPTS,
   SOCKET_RECONNECTION_DELAY_MAX_MS,
   SOCKET_RECONNECTION_DELAY_MS,
   SOCKET_TRANSPORTS,
-} from '@mud/shared-next';
+} from '@mud/shared';
 import { createSocketAdminSender } from './socket-send-admin';
 import { createSocketPanelSender } from './socket-send-panel';
 import { createSocketRuntimeSender } from './socket-send-runtime';
@@ -73,7 +73,7 @@ export class SocketManager {
   /** 创建底层 Socket.IO 连接实例。 */
   private createSocketConnection(token: string): Socket {
     return io({
-      auth: { token, protocol: 'next' },
+      auth: { token, protocol: 'mainline' },
       // Swarm rolling updates and reverse proxies can route polling requests
       // to a different task, while a single WebSocket connection avoids SID drift.
       transports: [...SOCKET_TRANSPORTS],
@@ -94,9 +94,9 @@ export class SocketManager {
   }
 
   /** 向服务端发送事件，自动编码载荷。 */
-  private sendEvent<TEvent extends NEXT_C2S_EventName>(
+  private sendEvent<TEvent extends ClientToServerEventName>(
     event: TEvent,
-    payload: NEXT_C2S_EventPayload<TEvent>,
+    payload: ClientToServerEventPayload<TEvent>,
   ): void {
     this.socket?.emit(event, encodeClientEventPayload(event, payload));
   }
@@ -136,12 +136,12 @@ export class SocketManager {
 
   /** 向服务端发送心跳包。 */
   private sendHeartbeat(): void {
-    this.sendEvent(NEXT_C2S.Heartbeat, { clientAt: Date.now() });
+    this.sendEvent(C2S.Heartbeat, { clientAt: Date.now() });
   }
 
   /** 发送握手消息，完成客户端就绪声明。 */
   private sendHello(): void {
-    this.sendEvent(NEXT_C2S.Hello, {});
+    this.sendEvent(C2S.Hello, {});
   }  
   /**
  * onKick：执行onKick相关逻辑。
@@ -175,9 +175,9 @@ export class SocketManager {
   }
 
   /** 透传通用发包接口。 */
-  emit<TEvent extends NEXT_C2S_EventName>(
+  emit<TEvent extends ClientToServerEventName>(
     event: TEvent,
-    payload: NEXT_C2S_EventPayload<TEvent>,
+    payload: ClientToServerEventPayload<TEvent>,
   ): void {
     this.sendEvent(event, payload);
   }

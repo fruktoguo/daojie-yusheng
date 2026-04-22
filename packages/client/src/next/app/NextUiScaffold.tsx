@@ -4,22 +4,22 @@ import { UiPill } from '../primitives/UiPill';
 import { UiSection } from '../primitives/UiSection';
 import { useExternalStoreSnapshot } from '../hooks/use-external-store-snapshot';
 import {
-  closeNextDetailModal,
-  hideNextTooltip,
-  moveNextTooltip,
-  openNextDetailModal,
-  showNextToast,
-  showNextTooltip,
+  closeDetailModal,
+  hideTooltip,
+  moveTooltip,
+  openDetailModal,
+  showToast,
+  showTooltip,
 } from '../overlays/overlay-store';
 import { panelDataStore } from '../stores/panel-data-store';
 import { shellStore } from '../stores/shell-store';
 /**
- * NextUiScaffold：判断NextUiScaffold是否满足条件。
- * @returns 无返回值，直接更新NextUiScaffold相关状态。
+ * ReactUiScaffold：判断ReactUiScaffold是否满足条件。
+ * @returns 无返回值，直接更新ReactUiScaffold相关状态。
  */
 
 
-export function NextUiScaffold() {
+export function ReactUiScaffold() {
   const shellState = useExternalStoreSnapshot(shellStore);
   const panelState = useExternalStoreSnapshot(panelDataStore);
   const player = panelState.player;
@@ -63,7 +63,7 @@ export function NextUiScaffold() {
             type="button"
             variants={['ghost']}
             onClick={() => {
-              showNextToast('React UI 单实例 Toast 已接通。', 'success');
+              showToast('React UI 单实例 Toast 已接通。', 'success');
             }}
           >
             测试 Toast
@@ -72,14 +72,14 @@ export function NextUiScaffold() {
             type="button"
             variants={['ghost']}
             onClick={() => {
-              openNextDetailModal({
+              openDetailModal({
                 title: '详情弹层骨架',
                 subtitle: '单实例 React Host',
                 body: (
                   <div className="next-ui-detail-preview">
                     当前只打通 host 和关闭逻辑，后续面板详情会统一走这层。
                     <div className="next-ui-detail-preview-actions">
-                      <UiButton type="button" variants={['ghost']} onClick={closeNextDetailModal}>关闭</UiButton>
+                      <UiButton type="button" variants={['ghost']} onClick={closeDetailModal}>关闭</UiButton>
                     </div>
                   </div>
                 ),
@@ -103,15 +103,15 @@ export function NextUiScaffold() {
       <div
         className="next-ui-tooltip-probe next-ui-surface-pane next-ui-surface-pane--stack"
         onPointerMove={(event) => {
-          showNextTooltip(
+          showTooltip(
             'Tooltip 骨架',
             ['已接入单实例 hover 层。', '后续物品、技能、NPC 提示统一复用。'],
             event.clientX,
             event.clientY,
           );
-          moveNextTooltip(event.clientX, event.clientY);
+          moveTooltip(event.clientX, event.clientY);
         }}
-        onPointerLeave={hideNextTooltip}
+        onPointerLeave={hideTooltip}
       >
         悬停这里测试 React Tooltip Host
       </div>

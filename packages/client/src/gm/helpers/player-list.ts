@@ -1,4 +1,4 @@
-import type { GmManagedPlayerSummary, GmStateRes } from '@mud/shared-next';
+import type { GmManagedPlayerSummary, GmStateRes } from '@mud/shared';
 /**
  * PlayerListElements：统一结构类型，保证协议与运行时一致性。
  */

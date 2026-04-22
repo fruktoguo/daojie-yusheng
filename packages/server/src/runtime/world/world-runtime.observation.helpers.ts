@@ -3,7 +3,7 @@
 /** 观察构建工具：生成可见度、结论与实体观察详情。 */
 Object.defineProperty(exports, "__esModule", { value: true });
 
-const shared_1 = require("@mud/shared-next");
+const shared_1 = require("@mud/shared");
 
 /** 观察失真阈值：低于该比例时使用模糊文案。 */
 const OBSERVATION_BLIND_RATIO = 0.2;

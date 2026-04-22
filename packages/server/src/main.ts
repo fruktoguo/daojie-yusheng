@@ -3,7 +3,7 @@ import { spawnSync } from 'node:child_process';
 import { readFileSync } from 'node:fs';
 
 import { AppModule } from './app.module';
-import { resolveServerNextCorsOptions } from './config/server-cors';
+import { resolveServerCorsOptions } from './config/server-cors';
 import { DateConsoleLogger } from './logging/date-console-logger';
 
 /** 端口冲突诊断最多采样次数。 */
@@ -154,7 +154,7 @@ function resolveExcludedPortHint(port: number): string {
     return '';
   }
 
-  return `Detected Windows excluded TCP port range ${range.start}-${range.end}${range.managed ? ' (managed)' : ''} covering ${port}. If you are running inside WSL, choose another port such as SERVER_NEXT_PORT=13020.`;
+  return `Detected Windows excluded TCP port range ${range.start}-${range.end}${range.managed ? ' (managed)' : ''} covering ${port}. If you are running inside WSL, choose another port such as SERVER_PORT=13020.`;
 }
 
 /** 采集一次端口监听冲突快照，用于 EADDRINUSE 附加诊断。 */
@@ -222,13 +222,13 @@ async function bootstrap(): Promise<void> {
 
   app.enableShutdownHooks();
 
-  const corsOptions = resolveServerNextCorsOptions();
+  const corsOptions = resolveServerCorsOptions();
   if (corsOptions) {
     app.enableCors(corsOptions);
   }
 
-  const port = Number(process.env.SERVER_NEXT_PORT ?? 13001);
-  const host = process.env.SERVER_NEXT_HOST ?? '0.0.0.0';
+  const port = Number(process.env.SERVER_PORT ?? 13001);
+  const host = process.env.SERVER_HOST ?? '0.0.0.0';
 
   try {
     await app.listen(port, host);
@@ -236,7 +236,7 @@ async function bootstrap(): Promise<void> {
     if (hasErrorCode(error, 'EADDRINUSE')) {
       const diagnostics = await collectPortConflictDiagnostics(port);
       const excludedPortHint = resolveExcludedPortHint(port);
-      logger.error(`server-next 绑定 ${host}:${port} 时发生端口冲突${excludedPortHint ? `\n${excludedPortHint}` : ''}\n${diagnostics}`);
+      logger.error(`server 绑定 ${host}:${port} 时发生端口冲突${excludedPortHint ? `\n${excludedPortHint}` : ''}\n${diagnostics}`);
     }
 
     await app.close().catch(() => undefined);

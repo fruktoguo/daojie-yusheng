@@ -4,29 +4,29 @@ import './load-local-runtime-env';
  */
 
 
-type DatabaseEnvSource = 'SERVER_NEXT_DATABASE_URL' | 'DATABASE_URL';
+type DatabaseEnvSource = 'SERVER_DATABASE_URL' | 'DATABASE_URL';
 /**
  * GmPasswordEnvSource：统一结构类型，保证协议与运行时一致性。
  */
 
-type GmPasswordEnvSource = 'SERVER_NEXT_GM_PASSWORD' | 'GM_PASSWORD';
+type GmPasswordEnvSource = 'SERVER_GM_PASSWORD' | 'GM_PASSWORD';
 /**
  * GmInsecureDefaultPasswordEnvSource：统一结构类型，保证协议与运行时一致性。
  */
 
 type GmInsecureDefaultPasswordEnvSource =
-  | 'SERVER_NEXT_ALLOW_INSECURE_LOCAL_GM_PASSWORD'
+  | 'SERVER_ALLOW_INSECURE_LOCAL_GM_PASSWORD'
   | 'GM_ALLOW_INSECURE_LOCAL_GM_PASSWORD';
 /**
  * ServerUrlEnvSource：统一结构类型，保证协议与运行时一致性。
  */
 
-type ServerUrlEnvSource = 'SERVER_NEXT_URL';
+type ServerUrlEnvSource = 'SERVER_URL';
 /**
  * ShadowUrlEnvSource：统一结构类型，保证协议与运行时一致性。
  */
 
-type ShadowUrlEnvSource = 'SERVER_NEXT_SHADOW_URL' | 'SERVER_NEXT_URL';
+type ShadowUrlEnvSource = 'SERVER_SHADOW_URL' | 'SERVER_URL';
 /**
  * readTrimmedEnv：读取TrimmedEnv并返回结果。
  * @param names string[] 参数说明。
@@ -52,16 +52,16 @@ export function readTrimmedEnv(...names: string[]): string {
   return '';
 }
 /**
- * resolveServerNextDatabaseEnvSource：规范化或转换ServerNextDatabaseEnv来源。
+ * resolveServerDatabaseEnvSource：规范化或转换ServerNextDatabaseEnv来源。
  * @returns 返回ServerNextDatabaseEnv来源。
  */
 
 
-export function resolveServerNextDatabaseEnvSource(): DatabaseEnvSource | null {
+export function resolveServerDatabaseEnvSource(): DatabaseEnvSource | null {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
-  if (readTrimmedEnv('SERVER_NEXT_DATABASE_URL')) {
-    return 'SERVER_NEXT_DATABASE_URL';
+  if (readTrimmedEnv('SERVER_DATABASE_URL')) {
+    return 'SERVER_DATABASE_URL';
   }
 
   if (readTrimmedEnv('DATABASE_URL')) {
@@ -71,25 +71,25 @@ export function resolveServerNextDatabaseEnvSource(): DatabaseEnvSource | null {
   return null;
 }
 /**
- * resolveServerNextDatabaseUrl：规范化或转换ServerNextDatabaseUrl。
+ * resolveServerDatabaseUrl：规范化或转换ServerNextDatabaseUrl。
  * @returns 返回ServerNextDatabaseUrl。
  */
 
 
-export function resolveServerNextDatabaseUrl(): string {
-  return readTrimmedEnv('SERVER_NEXT_DATABASE_URL', 'DATABASE_URL');
+export function resolveServerDatabaseUrl(): string {
+  return readTrimmedEnv('SERVER_DATABASE_URL', 'DATABASE_URL');
 }
 /**
- * resolveServerNextGmPasswordEnvSource：规范化或转换ServerNextGMPasswordEnv来源。
+ * resolveServerGmPasswordEnvSource：规范化或转换ServerNextGMPasswordEnv来源。
  * @returns 返回ServerNextGMPasswordEnv来源。
  */
 
 
-export function resolveServerNextGmPasswordEnvSource(): GmPasswordEnvSource | null {
+export function resolveServerGmPasswordEnvSource(): GmPasswordEnvSource | null {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
-  if (readTrimmedEnv('SERVER_NEXT_GM_PASSWORD')) {
-    return 'SERVER_NEXT_GM_PASSWORD';
+  if (readTrimmedEnv('SERVER_GM_PASSWORD')) {
+    return 'SERVER_GM_PASSWORD';
   }
 
   if (readTrimmedEnv('GM_PASSWORD')) {
@@ -99,24 +99,24 @@ export function resolveServerNextGmPasswordEnvSource(): GmPasswordEnvSource | nu
   return null;
 }
 /**
- * resolveServerNextGmPassword：规范化或转换ServerNextGMPassword。
+ * resolveServerGmPassword：规范化或转换ServerNextGMPassword。
  * @param defaultValue 参数说明。
  * @returns 返回ServerNextGMPassword。
  */
 
 
-export function resolveServerNextGmPassword(defaultValue = ''): string {
-  return readTrimmedEnv('SERVER_NEXT_GM_PASSWORD', 'GM_PASSWORD') || defaultValue;
+export function resolveServerGmPassword(defaultValue = ''): string {
+  return readTrimmedEnv('SERVER_GM_PASSWORD', 'GM_PASSWORD') || defaultValue;
 }
 /**
- * resolveServerNextAllowInsecureLocalGmPasswordEnvSource：规范化或转换显式本地 GM 降级开关来源。
+ * resolveServerAllowInsecureLocalGmPasswordEnvSource：规范化或转换显式本地 GM 降级开关来源。
  * @returns 返回显式本地 GM 降级开关来源。
  */
 
 
-export function resolveServerNextAllowInsecureLocalGmPasswordEnvSource(): GmInsecureDefaultPasswordEnvSource | null {
-  if (readTrimmedEnv('SERVER_NEXT_ALLOW_INSECURE_LOCAL_GM_PASSWORD')) {
-    return 'SERVER_NEXT_ALLOW_INSECURE_LOCAL_GM_PASSWORD';
+export function resolveServerAllowInsecureLocalGmPasswordEnvSource(): GmInsecureDefaultPasswordEnvSource | null {
+  if (readTrimmedEnv('SERVER_ALLOW_INSECURE_LOCAL_GM_PASSWORD')) {
+    return 'SERVER_ALLOW_INSECURE_LOCAL_GM_PASSWORD';
   }
 
   if (readTrimmedEnv('GM_ALLOW_INSECURE_LOCAL_GM_PASSWORD')) {
@@ -126,65 +126,65 @@ export function resolveServerNextAllowInsecureLocalGmPasswordEnvSource(): GmInse
   return null;
 }
 /**
- * resolveServerNextAllowInsecureLocalGmPassword：解析显式本地 GM 降级开关。
+ * resolveServerAllowInsecureLocalGmPassword：解析显式本地 GM 降级开关。
  * @returns 返回是否开启显式本地 GM 降级。
  */
 
 
-export function resolveServerNextAllowInsecureLocalGmPassword(): boolean {
-  return readBooleanEnv('SERVER_NEXT_ALLOW_INSECURE_LOCAL_GM_PASSWORD', 'GM_ALLOW_INSECURE_LOCAL_GM_PASSWORD');
+export function resolveServerAllowInsecureLocalGmPassword(): boolean {
+  return readBooleanEnv('SERVER_ALLOW_INSECURE_LOCAL_GM_PASSWORD', 'GM_ALLOW_INSECURE_LOCAL_GM_PASSWORD');
 }
 /**
- * resolveServerNextUrlEnvSource：规范化或转换ServerNextUrlEnv来源。
+ * resolveServerUrlEnvSource：规范化或转换ServerNextUrlEnv来源。
  * @returns 返回ServerNextUrlEnv来源。
  */
 
 
-export function resolveServerNextUrlEnvSource(): ServerUrlEnvSource | null {
+export function resolveServerUrlEnvSource(): ServerUrlEnvSource | null {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
-  if (readTrimmedEnv('SERVER_NEXT_URL')) {
-    return 'SERVER_NEXT_URL';
+  if (readTrimmedEnv('SERVER_URL')) {
+    return 'SERVER_URL';
   }
 
   return null;
 }
 /**
- * resolveServerNextUrl：规范化或转换ServerNextUrl。
+ * resolveServerUrl：规范化或转换ServerNextUrl。
  * @returns 返回ServerNextUrl。
  */
 
 
-export function resolveServerNextUrl(): string {
-  return readTrimmedEnv('SERVER_NEXT_URL');
+export function resolveServerUrl(): string {
+  return readTrimmedEnv('SERVER_URL');
 }
 /**
- * resolveServerNextShadowUrlEnvSource：规范化或转换ServerNextShadowUrlEnv来源。
+ * resolveServerShadowUrlEnvSource：规范化或转换ServerNextShadowUrlEnv来源。
  * @returns 返回ServerNextShadowUrlEnv来源。
  */
 
 
-export function resolveServerNextShadowUrlEnvSource(): ShadowUrlEnvSource | null {
+export function resolveServerShadowUrlEnvSource(): ShadowUrlEnvSource | null {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
-  if (readTrimmedEnv('SERVER_NEXT_SHADOW_URL')) {
-    return 'SERVER_NEXT_SHADOW_URL';
+  if (readTrimmedEnv('SERVER_SHADOW_URL')) {
+    return 'SERVER_SHADOW_URL';
   }
 
-  if (readTrimmedEnv('SERVER_NEXT_URL')) {
-    return 'SERVER_NEXT_URL';
+  if (readTrimmedEnv('SERVER_URL')) {
+    return 'SERVER_URL';
   }
 
   return null;
 }
 /**
- * resolveServerNextShadowUrl：规范化或转换ServerNextShadowUrl。
+ * resolveServerShadowUrl：规范化或转换ServerNextShadowUrl。
  * @returns 返回ServerNextShadowUrl。
  */
 
 
-export function resolveServerNextShadowUrl(): string {
-  return readTrimmedEnv('SERVER_NEXT_SHADOW_URL', 'SERVER_NEXT_URL');
+export function resolveServerShadowUrl(): string {
+  return readTrimmedEnv('SERVER_SHADOW_URL', 'SERVER_URL');
 }
 /**
  * readBooleanEnv：读取布尔环境变量。

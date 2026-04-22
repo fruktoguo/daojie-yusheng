@@ -2,8 +2,8 @@ import * as fs from 'node:fs';
 import * as path from 'node:path';
 
 const packageRoot = (() => {
-  const override = typeof process.env.SERVER_NEXT_PACKAGE_ROOT === 'string'
-    ? process.env.SERVER_NEXT_PACKAGE_ROOT.trim()
+  const override = typeof process.env.SERVER_PACKAGE_ROOT === 'string'
+    ? process.env.SERVER_PACKAGE_ROOT.trim()
     : '';
   if (override) {
     return path.resolve(override);
@@ -14,7 +14,7 @@ const packageRoot = (() => {
 const repoRoot = path.resolve(packageRoot, '..', '..');
 
 const candidateFiles = [
-  path.join(repoRoot, '.runtime', 'server-next.local.env'),
+  path.join(repoRoot, '.runtime', 'server.local.env'),
   path.join(repoRoot, '.env'),
   path.join(repoRoot, '.env.local'),
   path.join(packageRoot, '.env'),
@@ -69,7 +69,7 @@ function parseEnvFile(content: string): Array<[string, string]> {
 }
 
 export function loadLocalRuntimeEnv(): void {
-  if (normalizeBooleanEnv(process.env.SERVER_NEXT_SKIP_LOCAL_ENV_AUTOLOAD)) {
+  if (normalizeBooleanEnv(process.env.SERVER_SKIP_LOCAL_ENV_AUTOLOAD)) {
     return;
   }
 

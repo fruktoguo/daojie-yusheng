@@ -1,8 +1,8 @@
 import { Injectable, Logger, type OnModuleDestroy, type OnModuleInit } from '@nestjs/common';
-import { DEFAULT_INVENTORY_CAPACITY } from '@mud/shared-next';
+import { DEFAULT_INVENTORY_CAPACITY } from '@mud/shared';
 import { Pool, type PoolClient } from 'pg';
 
-import { resolveServerNextDatabaseUrl } from '../config/env-alias';
+import { resolveServerDatabaseUrl } from '../config/env-alias';
 
 const PLAYER_SNAPSHOT_TABLE = 'server_next_player_snapshot';
 
@@ -202,9 +202,9 @@ export class PlayerPersistenceService implements OnModuleInit, OnModuleDestroy {
   private enabled = false;
 
   async onModuleInit(): Promise<void> {
-    const databaseUrl = resolveServerNextDatabaseUrl();
+    const databaseUrl = resolveServerDatabaseUrl();
     if (!databaseUrl.trim()) {
-      this.logger.log('玩家快照持久化已禁用：未提供 SERVER_NEXT_DATABASE_URL/DATABASE_URL');
+      this.logger.log('玩家快照持久化已禁用：未提供 SERVER_DATABASE_URL/DATABASE_URL');
       return;
     }
 

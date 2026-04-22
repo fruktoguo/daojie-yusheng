@@ -3,7 +3,7 @@
 /** 路径规划辅助：负责坐标判定、A* 寻路与移动方向计算。 */
 Object.defineProperty(exports, "__esModule", { value: true });
 
-const shared_1 = require("@mud/shared-next");
+const shared_1 = require("@mud/shared");
 
 const map_template_repository_1 = require("../map/map-template.repository");
 

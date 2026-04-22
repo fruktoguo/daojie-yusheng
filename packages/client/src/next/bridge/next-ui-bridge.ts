@@ -1,15 +1,15 @@
 import type {
   ActionDef,
   Inventory,
-  NEXT_S2C_AttrUpdate,
+  S2C_AttrUpdate,
   PlayerState,
   TechniqueState,
-} from '@mud/shared-next';
+} from '@mud/shared';
 import type { PanelCapabilities, PanelRuntimeState } from '../../ui/panel-system/types';
 import { panelDataStore } from '../stores/panel-data-store';
 import { shellStore } from '../stores/shell-store';
 
-export const nextUiBridge = {
+export const reactUiBridge = {
 /**
  * syncMounted：处理Mounted并更新相关状态。
  * @param mounted boolean 参数说明。
@@ -66,12 +66,12 @@ export const nextUiBridge = {
   },  
   /**
  * syncAttrUpdate：处理AttrUpdate并更新相关状态。
- * @param attrUpdate NEXT_S2C_AttrUpdate | null 参数说明。
+ * @param attrUpdate S2C_AttrUpdate | null 参数说明。
  * @returns 无返回值，直接更新AttrUpdate相关状态。
  */
 
 
-  syncAttrUpdate(attrUpdate: NEXT_S2C_AttrUpdate | null): void {
+  syncAttrUpdate(attrUpdate: S2C_AttrUpdate | null): void {
     panelDataStore.patchState({ attrUpdate });
   },  
   /**

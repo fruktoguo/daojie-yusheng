@@ -28,13 +28,15 @@ function main() {
   const cutoverPlan = read('docs/next-plan/10-legacy-archive-and-cutover.md');
   const serverReadme = read('packages/server/README.md');
   const serverTesting = read('packages/server/TESTING.md');
-  const serverOps = read('docs/server-next-operations.md');
+  const serverOps = read('docs/server-operations.md');
   const startNext = read('start-next.sh');
   const startLegacy = read('start.sh');
 
   const requiredScripts = [
     'build',
-    'build:next',
+    'build:mainline',
+    'build:client',
+    'build:server',
     'dev:client',
     'dev:server',
     'start:server',
@@ -81,8 +83,8 @@ function main() {
   );
   assertIncludes(
     startNext,
-    /启动 server-next 本地开发环境/,
-    'start-next.sh 必须继续明确自己服务于 next 主线本地开发环境',
+    /启动 server 本地开发环境/,
+    'start-next.sh 必须继续明确自己服务于主线本地开发环境',
   );
   assertIncludes(
     startLegacy,
@@ -113,13 +115,13 @@ function main() {
   );
   assertIncludes(
     serverTesting,
-    /根级主入口现在是 `verify:replace-ready\*`；`verify:server-next\*` 只保留为兼容别名。/,
+    /根级主入口现在是 `verify:replace-ready\*`。/,
     'packages/server TESTING 必须继续明确 replace-ready 是主 gate 入口',
   );
   assertIncludes(
     serverOps,
-    /根级主入口现在是 `verify:replace-ready\*`；`verify:server-next\*` 只保留为兼容别名。/,
-    'server-next-operations 必须继续明确 replace-ready 是主 gate 入口',
+    /根级主入口现在是 `verify:replace-ready\*`。/,
+    'server-operations 必须继续明确 replace-ready 是主 gate 入口',
   );
 
   assertIncludes(

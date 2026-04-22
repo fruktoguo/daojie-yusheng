@@ -52,7 +52,7 @@ export default defineConfig(({ mode }) => {
     plugins: [createBuildVersionPlugin(buildId, builtAt)],
     resolve: {
       alias: {
-        '@mud/shared-next': path.resolve(__dirname, '../shared/src'),
+        '@mud/shared': path.resolve(__dirname, '../shared/src'),
       },
     },
     build: {

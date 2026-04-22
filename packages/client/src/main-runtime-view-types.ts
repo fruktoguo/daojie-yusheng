@@ -1,4 +1,4 @@
-import type { MonsterTier, PlayerState, RenderEntity } from '@mud/shared-next';
+import type { MonsterTier, PlayerState, RenderEntity } from '@mud/shared';
 /**
  * MainRuntimeObservedEntity：统一结构类型，保证协议与运行时一致性。
  */

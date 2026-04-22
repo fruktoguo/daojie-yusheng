@@ -9,7 +9,7 @@ import {
   getQiResourceDisplayLabel,
   getTileTypeFromMapChar,
   isTileTypeWalkable,
-} from '@mud/shared-next';
+} from '@mud/shared';
 
 import { getTileIndex, MapTemplateRepository } from '../runtime/map/map-template.repository';
 import { RuntimeMapConfigService } from '../runtime/map/runtime-map-config.service';

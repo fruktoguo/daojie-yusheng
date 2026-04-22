@@ -7,7 +7,7 @@ import {
   calcTechniqueFinalAttrBonus,
   cloneNumericRatioDivisors,
   cloneNumericStats,
-} from '@mud/shared-next';
+} from '@mud/shared';
 
 /** player sync state 服务：承接 bootstrap self 状态与相关只读转换。 */
 @Injectable()

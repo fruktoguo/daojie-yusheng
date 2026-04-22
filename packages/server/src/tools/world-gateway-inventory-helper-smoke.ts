@@ -2,7 +2,7 @@
 
 const assert = require('node:assert/strict');
 
-const { NEXT_S2C } = require('@mud/shared-next');
+const { S2C } = require('@mud/shared');
 const { WorldGatewayInventoryHelper } = require('../network/world-gateway-inventory.helper');
 
 function createGateway(log = [], playerId = 'player:1') {
@@ -74,7 +74,7 @@ function testInventoryGatherRouting() {
     ['markProtocol', 'socket:1', 'next'],
     ['enqueueCancelTechniqueActivity', 'player:1', 'gather', true],
     ['clearLootWindow', 'player:1'],
-    ['emit', NEXT_S2C.LootWindowUpdate, { window: null }],
+    ['emit', S2C.LootWindowUpdate, { window: null }],
   ]);
 }
 

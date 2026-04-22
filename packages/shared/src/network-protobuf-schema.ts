@@ -326,8 +326,8 @@ export const actionsPayloadType = root.lookupType('ActionsUpdatePayload');
 /** 属性面板增量包的 protobuf 类型。 */
 export const attrPayloadType = root.lookupType('AttrUpdatePayload');
 
-/** 走 protobuf 二进制编码的 NEXT_S2C 事件集合；当前 next 主链未启用独立 protobuf 事件。 */
+/** 走 protobuf 二进制编码的 S2C 事件集合；当前 next 主链未启用独立 protobuf 事件。 */
 export const PROTOBUF_NEXT_S2C_EVENTS = new Set<string>();
 
-/** 走 protobuf 二进制编码的 NEXT_C2S 事件集合；如重新引入需同步更新 shared/server 校验脚本。 */
+/** 走 protobuf 二进制编码的 C2S 事件集合；如重新引入需同步更新 shared/server 校验脚本。 */
 export const PROTOBUF_NEXT_C2S_EVENTS = new Set<string>();

@@ -1,4 +1,4 @@
-import type { PlayerState } from '@mud/shared-next';
+import type { PlayerState } from '@mud/shared';
 import { LOCAL_EDITOR_CATALOG } from '../content/editor-catalog';
 
 /** 可用于危险评估的境界等级区间。 */

@@ -7,7 +7,7 @@ import {
   VIEW_RADIUS,
   getBodyTrainingExpToNext,
   normalizeBodyTrainingState,
-} from '@mud/shared-next';
+} from '@mud/shared';
 import { ContentTemplateRepository } from '../../content/content-template.repository';
 import { MapTemplateRepository } from '../../runtime/map/map-template.repository';
 import { PlayerPersistenceService } from '../../persistence/player-persistence.service';

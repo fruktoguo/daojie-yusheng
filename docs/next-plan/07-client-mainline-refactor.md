@@ -1,6 +1,6 @@
 # 07 客户端主链收口
 
-目标：把 client-next 收成稳定的 next 协议接线前台。
+目标：把 `packages/client` 收成稳定的 next 协议接线前台，构建主入口统一按 `build:client` 表述。
 
 当前补充口径：
 
@@ -252,7 +252,7 @@
 
 最小验证：
 
-- `pnpm --filter @mud/client-next build`
+- `pnpm build:client`
 - `pnpm build`
 
 ### 第 2 批：固定 `socket.ts` 为唯一消费层
@@ -274,8 +274,8 @@
 
 最小验证：
 
-- `pnpm --filter @mud/client-next build`
-- `pnpm --filter @mud/server-next audit:next-protocol`
+- `pnpm build:client`
+- `pnpm --filter @mud/server audit:protocol`
 
 当前进展：
 
@@ -347,7 +347,7 @@
 
 最小验证：
 
-- `pnpm --filter @mud/client-next build`
+- `pnpm build:client`
 - 手工回归：
   - 地图移动
   - 小地图路径
@@ -380,7 +380,7 @@
 
 最小验证：
 
-- `pnpm --filter @mud/client-next build`
+- `pnpm build:client`
 - 手工回归：
   - 打开面板后触发低频刷新
   - 确认协议返回能落到正确面板状态
@@ -398,7 +398,7 @@
 
 最小验证：
 
-- `pnpm --filter @mud/client-next build`
+- `pnpm build:client`
 - 手工回归：
   - 打开详情弹层
   - 触发一次低频刷新
@@ -417,6 +417,11 @@
   - 当前排序/筛选
   - 当前详情弹层打开目标
   - 响应式布局状态
+
+命令口径补充：
+
+- 根级客户端构建主入口统一使用 `pnpm build:client`
+- `pnpm build:client` 仅作为兼容别名保留，文档不再把它当主入口
 
 不允许本地派生替代服务端权威的：
 
@@ -459,7 +464,7 @@
 
 最小验证：
 
-- `pnpm --filter @mud/client-next build`
+- `pnpm build:client`
 - 参考 [docs/frontend-refactor/verification.md](../frontend-refactor/verification.md)
 
 ## 客户端保留/归档检查

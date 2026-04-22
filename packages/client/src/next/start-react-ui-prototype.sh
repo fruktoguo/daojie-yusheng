@@ -17,4 +17,4 @@ echo "  PORT=5174 ${0}"
 echo
 
 cd "${REPO_ROOT}"
-exec pnpm --filter @mud/client-next dev --host "${HOST}" --port "${PORT}"
+exec pnpm --dir packages/client dev --host "${HOST}" --port "${PORT}"

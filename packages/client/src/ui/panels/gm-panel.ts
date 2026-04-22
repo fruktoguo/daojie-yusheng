@@ -3,7 +3,7 @@
  * 提供服务端性能监控、在线玩家列表、玩家编辑、机器人控制与意见管理
  * 当前作为 GM 工具面板继续保留，由独立 GM 入口驱动，不并入玩家主线 main.ts。
  */
-import { NEXT_C2S_GmUpdatePlayer, GmPlayerSummary, NEXT_S2C_GmState, Suggestion } from '@mud/shared-next';
+import { C2S_GmUpdatePlayer, GmPlayerSummary, S2C_GmState, Suggestion } from '@mud/shared';
 
 /** createFragmentFromHtml：从 HTML 文本创建文档片段。 */
 function createFragmentFromHtml(html: string): DocumentFragment {
@@ -43,7 +43,7 @@ interface GmCallbacks {
  * onUpdatePlayer：onUpdate玩家引用。
  */
 
-  onUpdatePlayer: (payload: NEXT_C2S_GmUpdatePlayer) => void;  
+  onUpdatePlayer: (payload: C2S_GmUpdatePlayer) => void;  
   /**
  * onResetPlayer：onReset玩家引用。
  */
@@ -77,7 +77,7 @@ function getPlayerMapLabel(player: GmPlayerSummary): string {
 }
 
 /** 构建一份空的 GM 状态快照，作为首屏和清空时的基线。 */
-function createEmptyGmState(): NEXT_S2C_GmState {
+function createEmptyGmState(): S2C_GmState {
   return {
     players: [],
     mapIds: [],
@@ -152,7 +152,7 @@ export class GmPanel {
   /** 面板根节点。 */
   private pane = document.getElementById('pane-gm')!;
   /** 当前收到的 GM 状态快照。 */
-  private state: NEXT_S2C_GmState = createEmptyGmState();
+  private state: S2C_GmState = createEmptyGmState();
   /** 意见列表缓存。 */
   private suggestions: Suggestion[] = [];
   /** 当前选中的玩家 ID。 */
@@ -210,7 +210,7 @@ export class GmPanel {
   }
 
   /** 接收服务端 GM 状态并刷新所有子区域。 */
-  update(state: NEXT_S2C_GmState): void {
+  update(state: S2C_GmState): void {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
     this.state = state;

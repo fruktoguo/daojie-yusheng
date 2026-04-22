@@ -1,10 +1,10 @@
 import {
-  NEXT_C2S,
-  NEXT_S2C,
+  C2S,
+  S2C,
   parseTileTargetRef,
   type GridPoint,
-  type NEXT_C2S_EventPayload,
-} from '@mud/shared-next';
+  type ClientToServerEventPayload,
+} from '@mud/shared';
 import type { Socket } from 'socket.io';
 
 interface TileDetailPayload extends GridPoint {
@@ -22,13 +22,13 @@ interface WorldGatewayActionDeps {
     requirePlayerId(client: Socket): string | null | undefined;
   };
   worldClientEventService: {
-    markProtocol(client: Socket, protocol: 'next'): void;
+    markProtocol(client: Socket, protocol: 'mainline'): void;
     emitGatewayError(client: Socket, code: string, error: unknown): void;
-    getExplicitProtocol(client: Socket): 'next' | string;
+    getExplicitProtocol(client: Socket): 'mainline' | string;
   };
   gatewayClientEmitHelper: {
-    emitNextNpcShop(client: Socket, payload: unknown): void;
-    emitNextQuests(client: Socket, payload: unknown): void;
+    emitNpcShop(client: Socket, payload: unknown): void;
+    emitQuests(client: Socket, payload: unknown): void;
   };
   worldProtocolProjectionService: {
     emitTileLootInteraction(client: Socket, playerId: string, payload: TileDetailPayload): void;
@@ -72,23 +72,23 @@ interface WorldGatewayActionDeps {
 export class WorldGatewayActionHelper {
   constructor(private readonly gateway: WorldGatewayActionDeps) {}
 
-  handleNextRedeemCodes(
+  handleRedeemCodes(
     client: Socket,
-    payload: NEXT_C2S_EventPayload<typeof NEXT_C2S.RedeemCodes>,
+    payload: ClientToServerEventPayload<typeof C2S.RedeemCodes>,
   ): void {
     this.executeRedeemCodes(client, payload);
   }
 
   handleUseAction(
     client: Socket,
-    payload: NEXT_C2S_EventPayload<typeof NEXT_C2S.UseAction>,
+    payload: ClientToServerEventPayload<typeof C2S.UseAction>,
   ): void {
     const playerId = this.gateway.gatewayGuardHelper.requirePlayerId(client);
     if (!playerId) {
       return;
     }
 
-    this.gateway.worldClientEventService.markProtocol(client, 'next');
+    this.gateway.worldClientEventService.markProtocol(client, 'mainline');
     try {
       this.handleProtocolAction(client, playerId, payload);
     } catch (error) {
@@ -99,7 +99,7 @@ export class WorldGatewayActionHelper {
   private handleProtocolAction(
     client: Socket,
     playerId: string,
-    payload: NEXT_C2S_EventPayload<typeof NEXT_C2S.UseAction>,
+    payload: ClientToServerEventPayload<typeof C2S.UseAction>,
   ): void {
     const actionId = this.resolveActionId(payload);
     if (actionId === 'debug:reset_spawn' || actionId === 'travel:return_spawn') {
@@ -183,7 +183,7 @@ export class WorldGatewayActionHelper {
     );
   }
 
-  private resolveActionId(payload: NEXT_C2S_EventPayload<typeof NEXT_C2S.UseAction>): string {
+  private resolveActionId(payload: ClientToServerEventPayload<typeof C2S.UseAction>): string {
     const actionId =
       typeof payload?.actionId === 'string' && payload.actionId.trim()
         ? payload.actionId.trim()
@@ -202,7 +202,7 @@ export class WorldGatewayActionHelper {
     result: ProtocolActionResult,
   ): void {
     if (result.kind === 'npcShop' && result.npcShop) {
-      this.gateway.gatewayClientEmitHelper.emitNextNpcShop(client, result.npcShop);
+      this.gateway.gatewayClientEmitHelper.emitNpcShop(client, result.npcShop);
       return;
     }
 
@@ -210,10 +210,10 @@ export class WorldGatewayActionHelper {
       return;
     }
 
-    if (this.gateway.worldClientEventService.getExplicitProtocol(client) === 'next' && result.npcQuests) {
-      client.emit(NEXT_S2C.NpcQuests, result.npcQuests);
+    if (this.gateway.worldClientEventService.getExplicitProtocol(client) === 'mainline' && result.npcQuests) {
+      client.emit(S2C.NpcQuests, result.npcQuests);
     }
-    this.gateway.gatewayClientEmitHelper.emitNextQuests(
+    this.gateway.gatewayClientEmitHelper.emitQuests(
       client,
       this.gateway.worldRuntimeService.buildQuestListView(playerId),
     );
@@ -221,7 +221,7 @@ export class WorldGatewayActionHelper {
 
   private executeRedeemCodes(
     client: Socket,
-    payload: NEXT_C2S_EventPayload<typeof NEXT_C2S.RedeemCodes>,
+    payload: ClientToServerEventPayload<typeof C2S.RedeemCodes>,
   ): void {
     const playerId = this.gateway.gatewayGuardHelper.requirePlayerId(client);
     if (!playerId) {
@@ -250,7 +250,7 @@ export class WorldGatewayActionHelper {
 
   private executeCultivate(
     client: Socket,
-    payload: NEXT_C2S_EventPayload<typeof NEXT_C2S.Cultivate>,
+    payload: ClientToServerEventPayload<typeof C2S.Cultivate>,
   ): void {
     const playerId = this.gateway.gatewayGuardHelper.requirePlayerId(client);
     if (!playerId) {
@@ -264,16 +264,16 @@ export class WorldGatewayActionHelper {
     }
   }
 
-  handleNextCultivate(
+  handleCultivate(
     client: Socket,
-    payload: NEXT_C2S_EventPayload<typeof NEXT_C2S.Cultivate>,
+    payload: ClientToServerEventPayload<typeof C2S.Cultivate>,
   ): void {
     this.executeCultivate(client, payload);
   }
 
   handleCastSkill(
     client: Socket,
-    payload: NEXT_C2S_EventPayload<typeof NEXT_C2S.CastSkill>,
+    payload: ClientToServerEventPayload<typeof C2S.CastSkill>,
   ): void {
     const playerId = this.gateway.gatewayGuardHelper.requirePlayerId(client);
     if (!playerId) {

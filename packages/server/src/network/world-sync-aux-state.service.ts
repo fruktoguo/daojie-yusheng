@@ -14,7 +14,7 @@ import {
   type SyncedItemStack,
   type SyncedLootWindowState,
   type WorldDeltaView,
-} from '@mud/shared-next';
+} from '@mud/shared';
 
 import { MapTemplateRepository } from '../runtime/map/map-template.repository';
 import { WorldSyncMapSnapshotService } from './world-sync-map-snapshot.service';

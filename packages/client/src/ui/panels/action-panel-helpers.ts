@@ -1,4 +1,4 @@
-import { ActionDef, AutoBattleSkillConfig, ItemStack, PlayerState, SkillDef, type ElementKey, type SkillDamageKind } from '@mud/shared-next';
+import { ActionDef, AutoBattleSkillConfig, ItemStack, PlayerState, SkillDef, type ElementKey, type SkillDamageKind } from '@mud/shared';
 import { getElementKeyLabel } from '../../domain-labels';
 
 /** normalizeShortcutKey：规范化Shortcut Key。 */

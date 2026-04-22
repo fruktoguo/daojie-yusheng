@@ -9,9 +9,9 @@
 - 目录主线已经统一到 `packages/*`
 - `legacy/*` 当前只保留三类价值：查旧规则、查旧数据格式、迁移输入
 - 包名与部分命令仍保留历史名：
-  - `@mud/client-next`
-  - `@mud/shared-next`
-  - `@mud/server-next`
+  - `@mud/client`
+  - `@mud/shared`
+  - `@mud/server`
 - 这些历史名不再代表新的目录主线划分
 
 ## 当前定位
@@ -24,9 +24,9 @@
 
 ```text
 packages/
-  client/        next 前端主线（包名仍为 @mud/client-next）
-  shared/        next 协议与共享类型主线（包名仍为 @mud/shared-next）
-  server/        next 服务端与 replace-ready / shadow 验证主线（包名仍为 @mud/server-next）
+  client/        当前前端主线（包名仍为 @mud/client）
+  shared/        当前协议与共享类型主线（包名仍为 @mud/shared）
+  server/        当前服务端与 replace-ready / shadow 验证主线（包名仍为 @mud/server）
 legacy/
   client/        旧前端归档基线
   shared/        旧协议与共享类型归档基线
@@ -40,6 +40,7 @@ next-workspace/  next 分支专用工作区说明
 ```bash
 pnpm dev:client
 pnpm dev:server
+pnpm build:client
 pnpm build
 pnpm verify:replace-ready:doctor
 pnpm verify:replace-ready
@@ -52,13 +53,20 @@ pnpm verify:replace-ready:full
 
 兼容别名仍可用：
 
+- `verify:server-next*` 继续转发到 `verify:replace-ready*`
+- 旧 `prove-next-*` 入口继续转发到当前 `proof:*` 真源
+
+`build:client` 是当前前端构建主入口。
+
+当前主验证入口是 `verify:replace-ready*`：
+
 ```bash
-pnpm verify:server-next:doctor
-pnpm verify:server-next
-pnpm verify:server-next:with-db
-pnpm verify:server-next:shadow
-pnpm verify:server-next:acceptance
-pnpm verify:server-next:full
+pnpm verify:replace-ready:doctor
+pnpm verify:replace-ready
+pnpm verify:replace-ready:with-db
+pnpm verify:replace-ready:shadow
+pnpm verify:replace-ready:acceptance
+pnpm verify:replace-ready:full
 ```
 
 ## 先看哪些文档
@@ -73,7 +81,7 @@ pnpm verify:server-next:full
 
 ### 运维、门禁与审计
 
-- [docs/server-next-operations.md](./docs/server-next-operations.md)
+- [docs/server-operations.md](./docs/server-operations.md)
 - [docs/next-protocol-audit.md](./docs/next-protocol-audit.md)
 - [docs/next-legacy-boundary-audit.md](./docs/next-legacy-boundary-audit.md)
 - [docs/next-plan/10-legacy-archive-and-cutover.md](./docs/next-plan/10-legacy-archive-and-cutover.md)
@@ -90,7 +98,6 @@ pnpm verify:server-next:full
 
 - `local / with-db / acceptance / full / shadow-destructive` 是五层不同门禁，不能混读
 - 根级主验证入口是 `verify:replace-ready*`
-- `verify:server-next*` 只保留为兼容别名
 - `./start-next.sh` 是默认本地启动脚本；`./start.sh` 只保留给 `legacy/` 归档排查
 - 根级 `docker-compose.yml` 现在默认对应 next full-stack 本地入口；legacy Docker 归档入口改为 `docker-compose.legacy.yml`
 - 任何“可以删 legacy / 可以宣布完整替换”的结论，都应以文档、audit、smoke、verify 与真实环境证据共同成立为准

@@ -8,20 +8,20 @@ Object.defineProperty(exports, "__esModule", { value: true });
 const smoke_timeout_1 = require("./smoke-timeout");
 (0, smoke_timeout_1.installSmokeTimeout)(__filename);
 const socket_io_client_1 = require("socket.io-client");
-const shared_1 = require("@mud/shared-next");
+const shared_1 = require("@mud/shared");
 const env_alias_1 = require("../config/env-alias");
 /**
- * 记录 server-next 访问地址。
+ * 记录 server 访问地址。
  */
-const SERVER_NEXT_URL = (0, env_alias_1.resolveServerNextUrl)() || 'http://127.0.0.1:3111';
+const SERVER_URL = (0, env_alias_1.resolveServerUrl)() || 'http://127.0.0.1:3111';
 /**
  * 记录GMpassword。
  */
-const GM_PASSWORD = (0, env_alias_1.resolveServerNextGmPassword)('admin123');
+const GM_PASSWORD = (0, env_alias_1.resolveServerGmPassword)('admin123');
 /**
  * 记录数据库地址。
  */
-const databaseUrl = (0, env_alias_1.resolveServerNextDatabaseUrl)();
+const databaseUrl = (0, env_alias_1.resolveServerDatabaseUrl)();
 /**
  * 记录玩家ID。
  */
@@ -74,9 +74,12 @@ async function main() {
 /**
  * 记录socket。
  */
-    const socket = (0, socket_io_client_1.io)(SERVER_NEXT_URL, {
+    const socket = (0, socket_io_client_1.io)(SERVER_URL, {
         path: '/socket.io',
         transports: ['websocket'],
+        auth: {
+            protocol: 'mainline',
+        },
     });
 /**
  * 记录panelevents。
@@ -86,21 +89,21 @@ async function main() {
  * 汇总redeemresults。
  */
     const redeemResults = [];
-    socket.on(shared_1.NEXT_S2C.Error, (payload) => {
+    socket.on(shared_1.S2C.Error, (payload) => {
         throw new Error(`socket error: ${JSON.stringify(payload)}`);
     });
-    socket.on(shared_1.NEXT_S2C.PanelDelta, (payload) => {
+    socket.on(shared_1.S2C.PanelDelta, (payload) => {
         panelEvents.push(payload);
     });
-    socket.on(shared_1.NEXT_S2C.RedeemCodesResult, (payload) => {
+    socket.on(shared_1.S2C.RedeemCodesResult, (payload) => {
         redeemResults.push(payload);
     });
-    socket.on(shared_1.NEXT_S2C.InitSession, (payload) => {
+    socket.on(shared_1.S2C.InitSession, (payload) => {
         playerId = String(payload?.pid ?? '');
     });
     try {
         await onceConnected(socket);
-        socket.emit(shared_1.NEXT_C2S.Hello, {
+        socket.emit(shared_1.C2S.Hello, {
             mapId: 'yunlai_town',
             preferredX: 32,
             preferredY: 5,
@@ -123,7 +126,7 @@ async function main() {
  * 记录before数量。
  */
         const beforeCount = inventoryCount(before, REWARD_ITEM_ID);
-        socket.emit(shared_1.NEXT_C2S.RedeemCodes, { codes: [code] });
+        socket.emit(shared_1.C2S.RedeemCodes, { codes: [code] });
         await waitFor(async () => {
 /**
  * 记录latest。
@@ -206,7 +209,7 @@ async function main() {
         if (destroyedEntry?.status !== 'destroyed') {
             throw new Error(`destroyed code state mismatch: ${JSON.stringify(destroyedEntry)}`);
         }
-        socket.emit(shared_1.NEXT_C2S.RedeemCodes, { codes: [code] });
+        socket.emit(shared_1.C2S.RedeemCodes, { codes: [code] });
         await waitFor(async () => {
 /**
  * 记录latest。
@@ -221,7 +224,7 @@ async function main() {
         }, 5000);
         console.log(JSON.stringify({
             ok: true,
-            url: SERVER_NEXT_URL,
+            url: SERVER_URL,
             playerId,
             groupId,
             redeemedCode: code,
@@ -309,7 +312,7 @@ async function fetchState() {
 /**
  * 记录response。
  */
-    const response = await fetch(`${SERVER_NEXT_URL}/runtime/players/${playerId}/state`);
+    const response = await fetch(`${SERVER_URL}/runtime/players/${playerId}/state`);
     if (!response.ok) {
         throw new Error(`request failed: ${response.status} ${await response.text()}`);
     }
@@ -346,7 +349,7 @@ async function requestJson(path, init = {}) {
 /**
  * 记录response。
  */
-    const response = await fetch(`${SERVER_NEXT_URL}${path}`, {
+    const response = await fetch(`${SERVER_URL}${path}`, {
         method: init.method ?? 'GET',
         headers: {
             'content-type': 'application/json',
@@ -368,7 +371,7 @@ async function deletePlayer(playerIdToDelete) {
 /**
  * 记录response。
  */
-    const response = await fetch(`${SERVER_NEXT_URL}/runtime/players/${playerIdToDelete}`, {
+    const response = await fetch(`${SERVER_URL}/runtime/players/${playerIdToDelete}`, {
         method: 'DELETE',
     });
     if (!response.ok && response.status !== 404) {

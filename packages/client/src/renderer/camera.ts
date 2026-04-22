@@ -1,6 +1,6 @@
 /** 摄像机（兼容旧模块），支持延迟后平滑跟随玩家并提供世界/屏幕坐标转换。 */
 
-import { CAMERA_DELAY_SECONDS, CAMERA_SMOOTH_SPEED, PlayerState } from '@mud/shared-next';
+import { CAMERA_DELAY_SECONDS, CAMERA_SMOOTH_SPEED, PlayerState } from '@mud/shared';
 import { getCellSize } from '../display';
 
 /** 游戏摄像机状态，使用缓启动 + 指数衰减平滑。 */

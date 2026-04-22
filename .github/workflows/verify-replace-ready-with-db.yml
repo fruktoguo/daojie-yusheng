@@ -1,4 +1,4 @@
-name: Verify Server Next With DB
+name: Verify Replace-Ready With DB
 
 on:
   workflow_dispatch:
@@ -28,7 +28,7 @@ jobs:
 
     env:
       DATABASE_URL: postgresql://postgres:postgres@127.0.0.1:5432/mud_next_ci?schema=public
-      SERVER_NEXT_GM_PASSWORD: ci-verify-${{ github.run_id }}-${{ github.run_attempt }}
+      SERVER_GM_PASSWORD: ci-verify-${{ github.run_id }}-${{ github.run_attempt }}
 
     steps:
       - name: Checkout

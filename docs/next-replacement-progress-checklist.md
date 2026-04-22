@@ -1,16 +1,16 @@
 # next 替换进度清单
 
-更新时间：2026-04-20（基于实跑与审计，不再按 `TODO` 锚点计数）
+更新时间：2026-04-22（基于实跑与审计，不再按 `TODO` 锚点计数）
 
 ## 说明
 
 - 本页统计的是当前仍会阻断或延后 `next` 替换的 blocker 组，不再把 `TODO/FIXME` 清零视为完成。
 - 本轮已实跑：
   - `pnpm build`
-  - `pnpm verify:server-next`
-  - `pnpm --filter @mud/server-next verify:replace-ready`
-  - `pnpm audit:server-next-boundaries`
-  - `pnpm audit:server-next-protocol`
+  - `pnpm verify:replace-ready`
+  - `pnpm --dir packages/server verify:replace-ready`
+  - `pnpm audit:boundaries`
+  - `pnpm audit:protocol`
 
 ## 总览
 

@@ -19,7 +19,7 @@ import type {
   VisibleTilePatch,
   S2C_MapStatic,
   TickRenderEntity,
-} from '@mud/shared-next';
+} from '@mud/shared';
 
 /** 地图安全区边距。 */
 export interface MapSafeAreaInsets {

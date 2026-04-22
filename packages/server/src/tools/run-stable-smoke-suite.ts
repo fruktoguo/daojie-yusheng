@@ -21,8 +21,16 @@ async function main() {
     cwd: repoRoot,
     env: {
       ...process.env,
-      SERVER_NEXT_PACKAGE_ROOT: packageRoot,
-      SERVER_NEXT_TOOL_DIST_ROOT: snapshot.distRoot,
+      SERVER_PACKAGE_ROOT: packageRoot,
+      SERVER_TOOL_DIST_ROOT: snapshot.distRoot,
+      SERVER_ALLOW_INSECURE_LOCAL_GM_PASSWORD:
+        process.env.SERVER_ALLOW_INSECURE_LOCAL_GM_PASSWORD
+        || process.env.GM_ALLOW_INSECURE_LOCAL_GM_PASSWORD
+        || '1',
+      SERVER_GM_PASSWORD:
+        process.env.SERVER_GM_PASSWORD
+        || process.env.GM_PASSWORD
+        || 'admin123',
     },
     stdio: 'inherit',
   });

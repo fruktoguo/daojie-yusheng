@@ -1,9 +1,9 @@
 import {
-  type NEXT_C2S_EventPayload,
-  type NEXT_S2C_EventPayload,
+  type ClientToServerEventPayload,
+  type ServerToClientEventPayload,
   TECHNIQUE_ACTIVITY_METADATA,
   type RuntimeTechniqueActivityKind,
-} from '@mud/shared-next';
+} from '@mud/shared';
 import type { SocketManager } from './network/socket';
 import type { SocketEmitEvent } from './network/socket-send-types';
 import type { CraftWorkbenchModal } from './ui/craft-workbench-modal';
@@ -11,19 +11,19 @@ import type { CraftWorkbenchModal } from './ui/craft-workbench-modal';
 export type ClientTechniqueActivityKind = RuntimeTechniqueActivityKind;
 
 type TechniqueActivityPanelPayloadByKind = {
-  [K in ClientTechniqueActivityKind]: NEXT_S2C_EventPayload<
+  [K in ClientTechniqueActivityKind]: ServerToClientEventPayload<
     (typeof TECHNIQUE_ACTIVITY_METADATA)[K]['panelEvent']
   >;
 };
 
 type TechniqueActivityRequestPayloadByKind = {
-  [K in ClientTechniqueActivityKind]: NEXT_C2S_EventPayload<
+  [K in ClientTechniqueActivityKind]: ClientToServerEventPayload<
     (typeof TECHNIQUE_ACTIVITY_METADATA)[K]['requestEvent']
   >;
 };
 
 type TechniqueActivityStartPayloadByKind = {
-  [K in ClientTechniqueActivityKind]: NEXT_C2S_EventPayload<
+  [K in ClientTechniqueActivityKind]: ClientToServerEventPayload<
     (typeof TECHNIQUE_ACTIVITY_METADATA)[K]['startEvent']
   >;
 };

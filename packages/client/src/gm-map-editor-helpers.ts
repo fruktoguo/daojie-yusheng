@@ -8,7 +8,7 @@ import {
   getAuraLevel,
   normalizeConfiguredAuraValue,
   parseQiResourceKey,
-} from '@mud/shared-next';
+} from '@mud/shared';
 
 /** TileResourcePointLike：资源刷点记录的可选视图，用于通用格式化和读写。 */
 type TileResourcePointLike = Partial<GmMapResourceRecord>;

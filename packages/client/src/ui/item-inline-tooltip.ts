@@ -1,4 +1,4 @@
-import type { ItemStack } from '@mud/shared-next';
+import type { ItemStack } from '@mud/shared';
 import { LOCAL_EDITOR_CATALOG } from '../content/editor-catalog';
 import { getLocalItemTemplate } from '../content/local-templates';
 import { getMonsterLocationEntry, loadMonsterLocationEntry } from '../content/monster-locations';

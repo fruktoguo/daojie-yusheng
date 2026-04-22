@@ -7,8 +7,8 @@ import {
   type NpcQuestMarker,
   packDirections,
   type Tile,
-} from '@mud/shared-next';
-import { logNextMovement } from './debug/movement-debug';
+} from '@mud/shared';
+import { logMovement } from './debug/movement-debug';
 import { findPath } from './pathfinding';
 import type { MainRuntimeObservedEntity } from './main-runtime-view-types';
 /**
@@ -719,7 +719,7 @@ export function createMainNavigationStateSource(options: MainNavigationStateSour
       if (!player) {
         return;
       }
-      logNextMovement('client.intent.move', {
+      logMovement('client.intent.move', {
         playerId: player.id,
         from: { x: player.x, y: player.y, mapId: player.mapId },
         direction,
@@ -773,7 +773,7 @@ export function createMainNavigationStateSource(options: MainNavigationStateSour
       const preview = buildClientPreviewPath(player.x, player.y, target.x, target.y);
       pathCells = preview?.cells ?? [{ x: target.x, y: target.y }];
       options.setRuntimePathCells(pathCells);
-      logNextMovement('client.intent.moveTo', {
+      logMovement('client.intent.moveTo', {
         playerId: player.id,
         from: { x: player.x, y: player.y, mapId: player.mapId },
         target,

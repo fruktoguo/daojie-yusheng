@@ -7,7 +7,7 @@ import type {
   CombatTargetingRuleKey,
   CombatTargetingRuleScope,
   CombatTargetingRules,
-} from '@mud/shared-next';
+} from '@mud/shared';
 
 import {
   PVP_SHA_DEMONIZED_STACK_THRESHOLD,

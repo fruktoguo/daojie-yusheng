@@ -15,10 +15,10 @@ type MainStartupBindingsOptions = {
 
   initializeUiStyleConfig: () => void;  
   /**
- * mountNextUi：mountNextUi相关字段。
+ * mountReactUi：mountReactUi相关字段。
  */
 
-  mountNextUi: () => void;  
+  mountReactUi: () => void;  
   /**
  * startClientVersionReload：startClientVersionReload相关字段。
  */
@@ -364,7 +364,7 @@ export function bindMainStartup(options: MainStartupBindingsOptions): void {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
   options.initializeUiStyleConfig();
-  options.mountNextUi();
+  options.mountReactUi();
   options.startClientVersionReload({
     onBeforeReload: options.onBeforeVersionReload,
   });

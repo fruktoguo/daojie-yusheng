@@ -17,7 +17,7 @@ import {
   resolveSkillUnlockLevel,
   type ElementKey,
   type SkillDamageKind,
-} from '@mud/shared-next';
+} from '@mud/shared';
 import { detailModalHost } from '../detail-modal-host';
 import { FloatingTooltip, prefersPinnedTooltipInteraction } from '../floating-tooltip';
 import { buildSkillTooltipContent, type SkillPreviewMetrics, summarizeSkillPreviewMetrics } from '../skill-tooltip';

@@ -8,8 +8,8 @@ import {
   getQiResourceDisplayLabel,
   getTileTypeFromMapChar,
   isTileTypeWalkable,
-} from '@mud/shared-next';
-import type { GameTimeState, MapTimeConfig, TimePaletteEntry, TimePhaseId } from '@mud/shared-next';
+} from '@mud/shared';
+import type { GameTimeState, MapTimeConfig, TimePaletteEntry, TimePhaseId } from '@mud/shared';
 import { Inject, Injectable } from '@nestjs/common';
 import { getTileIndex, MapTemplateRepository } from '../../runtime/map/map-template.repository';
 import { RuntimeMapConfigService } from '../../runtime/map/runtime-map-config.service';

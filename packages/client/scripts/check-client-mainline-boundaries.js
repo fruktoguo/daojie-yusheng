@@ -135,7 +135,7 @@ function main() {
     /initializeMainApp\(/,
     'main.ts 必须通过 initializeMainApp 收口应用入口装配',
   );
-  assertMissing(mainTs, /@mud\/shared-next/, 'main.ts 不应继续直接依赖共享协议类型');
+  assertMissing(mainTs, /@mud\/shared/, 'main.ts 不应继续直接依赖共享协议类型');
   assertMissing(
     mainTs,
     /createMain[A-Z]\w+(StateSource|BridgeSource)\(/,

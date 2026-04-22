@@ -27,7 +27,7 @@
 要求：
 
 - `doctor` 必须只剩 `shadow-destructive` 未就绪，或在维护窗口内显式放开 destructive
-- 如果计划在本次窗口执行 destructive，再额外确认 `SERVER_NEXT_SHADOW_ALLOW_DESTRUCTIVE=1`
+- 如果计划在本次窗口执行 destructive，再额外确认 `SERVER_SHADOW_ALLOW_DESTRUCTIVE=1`
 - destructive 只能在 `preflight` 明确返回 `maintenance-active` 后继续
 
 ### 2. 环境与入口
@@ -96,7 +96,7 @@
   - 观察结果
   - 是否回滚
 - [ ] 如果本轮暴露出新的常见故障，把症状与处理写回：
-  - `docs/server-next-operations.md`
+  - `docs/server-operations.md`
   - `packages/server/TESTING.md`
   - `docs/next-plan/09-verification-and-acceptance.md`
 

@@ -102,8 +102,8 @@
   - `replace_persistent_documents`
 - 这属于 next GM 恢复合同展示，不属于旧 UI 兼容逻辑。
 - 已有证明链：
-  - `pnpm proof:next-client-no-legacy-alias`
-  - `pnpm proof:next-client-s2c-consumption`
+  - `pnpm proof:client-no-legacy-alias`
+  - `pnpm proof:client-s2c-consumption`
 
 ### `packages/shared/src/*`
 
@@ -134,8 +134,8 @@
 
 最小验证：
 
-- `pnpm --filter @mud/server-next build`
-- `pnpm --filter @mud/server-next smoke:next-auth-bootstrap`
+- `pnpm --filter @mud/server build`
+- `pnpm --filter @mud/server smoke:next-auth-bootstrap`
 - 本轮实际补跑：
   - `pnpm build`
   - `pnpm verify:replace-ready`
@@ -155,15 +155,15 @@
 
 最小验证：
 
-- `pnpm --filter @mud/server-next build`
-- `pnpm --filter @mud/server-next smoke:next-auth-bootstrap`
-- `pnpm --filter @mud/server-next smoke:persistence`
-- `pnpm --filter @mud/server-next audit:legacy-boundaries`
+- `pnpm --filter @mud/server build`
+- `pnpm --filter @mud/server smoke:next-auth-bootstrap`
+- `pnpm --filter @mud/server smoke:persistence`
+- `pnpm --filter @mud/server audit:legacy-boundaries`
 
 本轮实际补跑：
 
-- `pnpm --filter @mud/server-next smoke:next-auth-bootstrap`
-- `pnpm --filter @mud/server-next audit:legacy-boundaries`
+- `pnpm --filter @mud/server smoke:next-auth-bootstrap`
+- `pnpm --filter @mud/server audit:legacy-boundaries`
 - `pnpm build`
 - `pnpm verify:replace-ready`
 
@@ -188,22 +188,22 @@
 
 最小验证：
 
-- `pnpm --filter @mud/server-next build`
-- `pnpm --filter @mud/server-next smoke:runtime`
-- `pnpm --filter @mud/server-next smoke:session`
-- `pnpm --filter @mud/server-next smoke:progression`
-- `pnpm --filter @mud/server-next audit:legacy-boundaries`
+- `pnpm --filter @mud/server build`
+- `pnpm --filter @mud/server smoke:runtime`
+- `pnpm --filter @mud/server smoke:session`
+- `pnpm --filter @mud/server smoke:progression`
+- `pnpm --filter @mud/server audit:legacy-boundaries`
 
 本轮实际补跑：
 
 - `world-sync.service.ts` 当前只经 `appendNextCombatEffects()` → `collectNextCombatEffects()` 走 next 战斗特效主链
 - `player-runtime.service.ts` 已删除 `legacy:vitals_baseline` → `runtime:vitals_baseline` 的运行时兼容规范化。
 - `player-persistence.service.js` 与 `world-player-source.service.js` 上的 `legacy:vitals_baseline` 兼容点已不再存在；当前持久化侧剩余 compat 面不再属于该标签。
-- `pnpm --filter @mud/server-next smoke:runtime`
-- `pnpm --filter @mud/server-next smoke:progression`
+- `pnpm --filter @mud/server smoke:runtime`
+- `pnpm --filter @mud/server smoke:progression`
 - `pnpm build`
 - `pnpm verify:replace-ready`
-- `pnpm audit:server-next-boundaries`
+- `pnpm audit:boundaries`
 
 ### 第 4 批：删 GM 历史 scope fallback
 
@@ -220,16 +220,16 @@
 
 最小验证：
 
-- `pnpm --filter @mud/server-next build`
-- `pnpm --filter @mud/server-next smoke:gm-database`
-- `pnpm --filter @mud/server-next smoke:gm-database:backup-persistence`
-- `pnpm --filter @mud/server-next smoke:gm-next`
+- `pnpm --filter @mud/server build`
+- `pnpm --filter @mud/server smoke:gm-database`
+- `pnpm --filter @mud/server smoke:gm-database:backup-persistence`
+- `pnpm --filter @mud/server smoke:gm-next`
 
 本轮实际补跑：
 
-- `SERVER_NEXT_DATABASE_URL=postgres://mud:jiuzhou123@127.0.0.1:15432/mud_mmo_next DATABASE_URL=postgres://mud:jiuzhou123@127.0.0.1:15432/mud_mmo_next SERVER_NEXT_GM_PASSWORD=admin123 GM_PASSWORD=admin123 pnpm --filter @mud/server-next smoke:gm-database`
-- `SERVER_NEXT_DATABASE_URL=postgres://mud:jiuzhou123@127.0.0.1:15432/mud_mmo_next DATABASE_URL=postgres://mud:jiuzhou123@127.0.0.1:15432/mud_mmo_next SERVER_NEXT_GM_PASSWORD=admin123 GM_PASSWORD=admin123 pnpm --filter @mud/server-next smoke:gm-database:backup-persistence`
-- `SERVER_NEXT_DATABASE_URL=postgres://mud:jiuzhou123@127.0.0.1:15432/mud_mmo_next DATABASE_URL=postgres://mud:jiuzhou123@127.0.0.1:15432/mud_mmo_next pnpm --filter @mud/server-next smoke:afdian-persistence`
+- `SERVER_DATABASE_URL=postgres://mud:jiuzhou123@127.0.0.1:15432/mud_mmo_next DATABASE_URL=postgres://mud:jiuzhou123@127.0.0.1:15432/mud_mmo_next SERVER_GM_PASSWORD=admin123 GM_PASSWORD=admin123 pnpm --filter @mud/server smoke:gm-database`
+- `SERVER_DATABASE_URL=postgres://mud:jiuzhou123@127.0.0.1:15432/mud_mmo_next DATABASE_URL=postgres://mud:jiuzhou123@127.0.0.1:15432/mud_mmo_next SERVER_GM_PASSWORD=admin123 GM_PASSWORD=admin123 pnpm --filter @mud/server smoke:gm-database:backup-persistence`
+- `SERVER_DATABASE_URL=postgres://mud:jiuzhou123@127.0.0.1:15432/mud_mmo_next DATABASE_URL=postgres://mud:jiuzhou123@127.0.0.1:15432/mud_mmo_next pnpm --filter @mud/server smoke:afdian-persistence`
 
 ### 第 5 批：删协议 / 文档中的过时 compat 证明
 
@@ -257,9 +257,9 @@
 
 最小验证：
 
-- `pnpm --filter @mud/server-next build`
-- `pnpm --filter @mud/server-next audit:next-protocol`
-- `pnpm --filter @mud/server-next audit:legacy-boundaries`
+- `pnpm --filter @mud/server build`
+- `pnpm --filter @mud/server audit:protocol`
+- `pnpm --filter @mud/server audit:legacy-boundaries`
 - `pnpm verify:replace-ready`
 
 ## 本阶段不删的东西

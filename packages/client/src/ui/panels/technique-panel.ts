@@ -19,7 +19,7 @@ import {
   TechniqueLayerDef,
   TechniqueRealm,
   TechniqueState,
-} from '@mud/shared-next';
+} from '@mud/shared';
 import { ATTR_KEY_LABELS, getTechniqueCategoryLabel, getTechniqueGradeLabel, getTechniqueRealmLabel } from '../../domain-labels';
 import { getLocalRealmLevelEntry, resolvePreviewTechnique, resolvePreviewTechniques } from '../../content/local-templates';
 import { FloatingTooltip, prefersPinnedTooltipInteraction } from '../floating-tooltip';

@@ -1,5 +1,5 @@
 import type { Socket } from 'socket.io-client';
-import { decodeServerEventPayload, type NEXT_S2C_EventPayload } from '@mud/shared-next';
+import { decodeServerEventPayload, type ServerToClientEventPayload } from '@mud/shared';
 import {
   GAMEPLAY_SERVER_EVENTS,
   SESSION_SERVER_EVENTS,
@@ -57,7 +57,7 @@ export function createSocketServerEventRegistry(deps: SocketServerEventRegistryD
 
   function bindServerEvent<TEvent extends BoundServerEventName>(event: TEvent): void {
     const listener = ((raw: unknown) => {
-      const data = decodeServerEventPayload<NEXT_S2C_EventPayload<TEvent>>(event, raw);
+      const data = decodeServerEventPayload<ServerToClientEventPayload<TEvent>>(event, raw);
       for (const callback of getCallbacks(event)) {
         callback(data);
       }

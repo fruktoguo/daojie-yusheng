@@ -1,5 +1,5 @@
 import { Inject, Injectable } from '@nestjs/common';
-import { NEXT_S2C } from '@mud/shared-next';
+import { S2C } from '@mud/shared';
 import { MapTemplateRepository } from '../runtime/map/map-template.repository';
 
 import {
@@ -140,6 +140,6 @@ export class WorldProjectorService {
     }
 
     getEventNames() {
-        return NEXT_S2C;
+        return S2C;
     }
 }

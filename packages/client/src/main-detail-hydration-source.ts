@@ -4,11 +4,11 @@ import {
   type GroundItemPileView,
   type Inventory,
   type LootWindowState,
-  type NEXT_S2C_LootWindowUpdate,
-  type NEXT_S2C_NpcShop,
+  type S2C_LootWindowUpdate,
+  type S2C_NpcShop,
   type SyncedItemStack,
   type Tile,
-} from '@mud/shared-next';
+} from '@mud/shared';
 /**
  * MainDetailHydrationSourceOptions：统一结构类型，保证协议与运行时一致性。
  */
@@ -58,12 +58,12 @@ export function createMainDetailHydrationSource(options: MainDetailHydrationSour
     },    
     /**
  * hydrateLootWindowState：执行hydrate掉落窗口状态相关逻辑。
- * @param window NEXT_S2C_LootWindowUpdate['window'] 参数说明。
+   * @param window S2C_LootWindowUpdate['window'] 参数说明。
  * @returns 返回hydrate掉落窗口状态。
  */
 
 
-    hydrateLootWindowState(window: NEXT_S2C_LootWindowUpdate['window']): LootWindowState | null {
+    hydrateLootWindowState(window: S2C_LootWindowUpdate['window']): LootWindowState | null {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
       if (!window) {
@@ -94,12 +94,12 @@ export function createMainDetailHydrationSource(options: MainDetailHydrationSour
     },    
     /**
  * hydrateNpcShopResponse：执行hydrateNPCShopResponse相关逻辑。
- * @param data NEXT_S2C_NpcShop 原始数据。
+   * @param data S2C_NpcShop 原始数据。
  * @returns 无返回值，直接更新hydrateNPCShopResponse相关状态。
  */
 
 
-    hydrateNpcShopResponse(data: NEXT_S2C_NpcShop) {
+    hydrateNpcShopResponse(data: S2C_NpcShop) {
       return {
         npcId: data.npcId,
         error: data.error,

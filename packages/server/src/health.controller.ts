@@ -14,7 +14,7 @@ interface ResponseLike {
   status: (code: number) => unknown;
 }
 
-/** 健康检查控制器：统一返回 server-next 的 liveness/readiness 响应。 */
+/** 健康检查控制器：统一返回 server 的 liveness/readiness 响应。 */
 @Controller()
 export class HealthController {
 /**
@@ -34,10 +34,10 @@ export class HealthController {
 
     const health = this.healthReadinessService?.build() ?? {
       ok: false,
-      service: 'server-next',
+      service: 'server',
       alive: {
         ok: true,
-        service: 'server-next',
+        service: 'server',
       },
       readiness: {
         ok: false,

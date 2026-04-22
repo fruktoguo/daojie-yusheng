@@ -17,7 +17,7 @@ import {
   TECHNIQUE_LEARNING_HEAVY_DECAY_WARNING_DELTA,
   createItemStackSignature,
   shouldWarnTechniqueLearningDifficulty,
-} from '@mud/shared-next';
+} from '@mud/shared';
 import {
   getAttrKeyLabel,
   getEquipSlotLabel,

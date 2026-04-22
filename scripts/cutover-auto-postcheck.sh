@@ -17,12 +17,12 @@ echo "==> [cutover-auto-postcheck] collecting machine-checkable evidence"
 node <<'NODE'
 const fs = require('node:fs');
 
-const baseUrl = String(process.env.SERVER_NEXT_SHADOW_URL || process.env.SERVER_NEXT_URL || 'http://127.0.0.1:11923').trim();
-const password = String(process.env.SERVER_NEXT_GM_PASSWORD || process.env.GM_PASSWORD || '').trim();
+const baseUrl = String(process.env.SERVER_SHADOW_URL || process.env.SERVER_URL || 'http://127.0.0.1:11923').trim();
+const password = String(process.env.SERVER_GM_PASSWORD || process.env.GM_PASSWORD || '').trim();
 const reportPath = String(process.env.CUTOVER_POSTCHECK_REPORT || '').trim();
 
 if (!password) {
-  throw new Error('missing SERVER_NEXT_GM_PASSWORD/GM_PASSWORD');
+  throw new Error('missing SERVER_GM_PASSWORD/GM_PASSWORD');
 }
 if (!reportPath) {
   throw new Error('missing CUTOVER_POSTCHECK_REPORT');

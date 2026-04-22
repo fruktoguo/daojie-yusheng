@@ -16,7 +16,7 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.WorldRuntimeUseItemService = void 0;
 
 const common_1 = require("@nestjs/common");
-const shared_1 = require("@mud/shared-next");
+const shared_1 = require("@mud/shared");
 
 const content_template_repository_1 = require("../../content/content-template.repository");
 const map_template_repository_1 = require("../map/map-template.repository");

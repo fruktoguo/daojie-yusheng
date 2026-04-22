@@ -1,16 +1,16 @@
-import { NextDetailModalLayer } from '../overlays/NextDetailModalLayer';
-import { NextToastLayer } from '../overlays/NextToastLayer';
-import { NextTooltipLayer } from '../overlays/NextTooltipLayer';
+import { DetailModalLayer } from '../overlays/NextDetailModalLayer';
+import { ToastLayer } from '../overlays/NextToastLayer';
+import { TooltipLayer } from '../overlays/NextTooltipLayer';
 import { useExternalStoreSnapshot } from '../hooks/use-external-store-snapshot';
 import { shellStore } from '../stores/shell-store';
-import { NextUiScaffold } from './NextUiScaffold';
+import { ReactUiScaffold } from './NextUiScaffold';
 /**
- * NextUiRoot：渲染NextUi根容器组件。
+ * ReactUiRoot：渲染NextUi根容器组件。
  * @returns 无返回值，直接更新NextUi根容器相关状态。
  */
 
 
-export function NextUiRoot() {
+export function ReactUiRoot() {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
   const shellState = useExternalStoreSnapshot(shellStore);
@@ -21,10 +21,10 @@ export function NextUiRoot() {
 
   return (
     <div className="next-ui-root" data-shell-visible={shellState.runtime.shellVisible ? 'true' : 'false'}>
-      <NextUiScaffold />
-      <NextTooltipLayer />
-      <NextDetailModalLayer />
-      <NextToastLayer />
+      <ReactUiScaffold />
+      <TooltipLayer />
+      <DetailModalLayer />
+      <ToastLayer />
     </div>
   );
 }

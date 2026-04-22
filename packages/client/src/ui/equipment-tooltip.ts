@@ -11,7 +11,7 @@ import {
   ItemStack,
   parseQiResourceKey,
   TECHNIQUE_ATTR_KEYS,
-} from '@mud/shared-next';
+} from '@mud/shared';
 import {
   ATTR_KEY_LABELS,
   getEntityKindLabel,

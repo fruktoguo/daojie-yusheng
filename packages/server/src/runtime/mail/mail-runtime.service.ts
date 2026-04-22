@@ -17,7 +17,7 @@ exports.MailRuntimeService = void 0;
 
 const common_1 = require("@nestjs/common");
 
-const shared_1 = require("@mud/shared-next");
+const shared_1 = require("@mud/shared");
 
 const content_template_repository_1 = require("../../content/content-template.repository");
 
@@ -96,9 +96,14 @@ let MailRuntimeService = class MailRuntimeService {
 
 
         const mailbox = await this.ensurePlayerMailbox(playerId);
-        if (mailbox.mails.some((entry) => entry.templateId === MAIL_WELCOME_TEMPLATE_ID)) {
+        if (this.hasWelcomeMailHistory(mailbox)) {
+            if (mailbox.welcomeMailDeliveredAt == null) {
+                mailbox.welcomeMailDeliveredAt = resolveWelcomeMailHistoryTimestamp(mailbox) ?? Date.now();
+                await this.persistMailbox(playerId, mailbox);
+            }
             return;
         }
+        mailbox.welcomeMailDeliveredAt = Date.now();
         this.appendMail(mailbox, {
             templateId: MAIL_WELCOME_TEMPLATE_ID,
             attachments: [
@@ -532,12 +537,25 @@ let MailRuntimeService = class MailRuntimeService {
         await this.mailPersistenceService.saveMailbox(playerId, {
             version: 1,
             revision: Math.max(1, mailbox.revision),
+            welcomeMailDeliveredAt: Number.isFinite(mailbox.welcomeMailDeliveredAt)
+                ? Math.trunc(Number(mailbox.welcomeMailDeliveredAt))
+                : null,
             mails: mailbox.mails.map((entry) => ({
                 ...entry,
                 args: entry.args.map((arg) => ({ ...arg })),
                 attachments: entry.attachments.map((attachment) => ({ ...attachment })),
             })),
         });
+    }
+    /** 判断邮箱是否已经留下欢迎信投递记录。 */
+    hasWelcomeMailHistory(mailbox) {
+        if (Number.isFinite(mailbox.welcomeMailDeliveredAt)) {
+            return true;
+        }
+        if (mailbox.mails.some((entry) => entry.templateId === MAIL_WELCOME_TEMPLATE_ID)) {
+            return true;
+        }
+        return mailbox.mails.length === 0 && Number(mailbox.revision ?? 1) > 1;
     }
 };
 exports.MailRuntimeService = MailRuntimeService;
@@ -557,8 +575,22 @@ function createEmptyMailbox() {
     return {
         version: 1,
         revision: 1,
+        welcomeMailDeliveredAt: null,
         mails: [],
     };
+}
+
+/**
+ * resolveWelcomeMailHistoryTimestamp：从现有邮箱数据推断欢迎信首次投递时间。
+ * @param mailbox 参数说明。
+ * @returns 无返回值，直接更新欢迎信历史时间相关状态。
+ */
+function resolveWelcomeMailHistoryTimestamp(mailbox) {
+    const welcomeEntry = mailbox.mails.find((entry) => entry.templateId === MAIL_WELCOME_TEMPLATE_ID) ?? null;
+    if (welcomeEntry) {
+        return Number.isFinite(welcomeEntry.createdAt) ? Math.trunc(Number(welcomeEntry.createdAt)) : Date.now();
+    }
+    return Number(mailbox.revision ?? 1) > 1 ? Date.now() : null;
 }
 /**
  * normalizeArgs：规范化或转换Arg。

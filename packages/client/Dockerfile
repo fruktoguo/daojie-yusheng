@@ -11,7 +11,7 @@ COPY docs/tutorial-mechanics.md docs/tutorial-mechanics.md
 COPY packages/shared packages/shared
 COPY packages/client packages/client
 COPY packages/server/data packages/server/data
-RUN pnpm --filter @mud/client-next build
+RUN pnpm build:client
 
 FROM nginx:alpine
 ENV NGINX_WORKER_PROCESSES=auto

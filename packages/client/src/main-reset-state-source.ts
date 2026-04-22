@@ -138,10 +138,10 @@ type MainResetStateSourceOptions = {
 
   resetMapRuntime: () => void;  
   /**
- * resetNextUiBridge：resetNextUi桥接引用。
+ * resetReactUiBridge：resetReactUi桥接引用。
  */
 
-  resetNextUiBridge: () => void;  
+  resetReactUiBridge: () => void;  
   /**
  * resetPanelRuntime：reset面板运行态引用。
  */
@@ -206,7 +206,7 @@ export function createMainResetStateSource(options: MainResetStateSourceOptions)
       options.clearMailState();
       options.clearSuggestionState();
       options.resetMapRuntime();
-      options.resetNextUiBridge();
+      options.resetReactUiBridge();
       options.resetPanelRuntime();
       options.resizeCanvas();
       options.hideHud();

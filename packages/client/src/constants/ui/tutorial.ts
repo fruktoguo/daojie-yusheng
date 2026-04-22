@@ -1,4 +1,4 @@
-import { TUTORIAL_MECHANIC_TOPICS as SHARED_TUTORIAL_MECHANIC_TOPICS } from '@mud/shared-next';
+import { TUTORIAL_MECHANIC_TOPICS as SHARED_TUTORIAL_MECHANIC_TOPICS } from '@mud/shared';
 
 /** TutorialTopicSection：教程章节分段。 */
 export interface TutorialTopicSection {

@@ -5,7 +5,7 @@
  */
 
 import { io } from "socket.io-client";
-import { NEXT_C2S, NEXT_S2C } from "@mud/shared-next";
+import { C2S, S2C } from "@mud/shared";
 
 /** 调试脚本默认连接的本地服务地址。 */
 const base = "http://127.0.0.1:40111";
@@ -50,14 +50,14 @@ async function main() {
 
   const d = io(base, { path: "/socket.io", transports: ["websocket"] });
   const l = io(base, { path: "/socket.io", transports: ["websocket"] });
-  d.on(NEXT_S2C.Error, (payload) => console.log("dropper error", payload));
-  l.on(NEXT_S2C.Error, (payload) => console.log("looter error", payload));
+  d.on(S2C.Error, (payload) => console.log("dropper error", payload));
+  l.on(S2C.Error, (payload) => console.log("looter error", payload));
   await Promise.all([
     new Promise((resolve) => d.on("connect", resolve)),
     new Promise((resolve) => l.on("connect", resolve)),
   ]);
-  d.emit(NEXT_C2S.Hello, { playerId: dropperId, mapId: "yunlai_town", preferredX: 32, preferredY: 5 });
-  l.emit(NEXT_C2S.Hello, { playerId: looterId, mapId: "yunlai_town", preferredX: 33, preferredY: 5 });
+  d.emit(C2S.Hello, { playerId: dropperId, mapId: "yunlai_town", preferredX: 32, preferredY: 5 });
+  l.emit(C2S.Hello, { playerId: looterId, mapId: "yunlai_town", preferredX: 33, preferredY: 5 });
   await sleep(500);
   console.log("initial dropper", (await state(dropperId)).player.x, (await state(dropperId)).player.y);
   console.log("initial looter", (await state(looterId)).player.x, (await state(looterId)).player.y);
@@ -69,7 +69,7 @@ async function main() {
 
   const ds = await state(dropperId);
   console.log("after grant inv", ds.player.inventory.items);
-  d.emit(NEXT_C2S.DropItem, { slotIndex: 0, count: 2 });
+  d.emit(C2S.DropItem, { slotIndex: 0, count: 2 });
   await sleep(500);
 
   const ds2 = await state(dropperId);
@@ -79,7 +79,7 @@ async function main() {
   console.log("delete dropper", await fetchJson(`/runtime/players/${dropperId}`, { method: "DELETE" }));
   await sleep(300);
   console.log("looter before move", (await state(looterId)).player.x, (await state(looterId)).player.y);
-  l.emit(NEXT_C2S.MoveTo, { x: ds2.player.x, y: ds2.player.y, allowNearestReachable: false });
+  l.emit(C2S.MoveTo, { x: ds2.player.x, y: ds2.player.y, allowNearestReachable: false });
   for (let i = 0; i < 12; i += 1) {
     await sleep(400);
     const ls = await state(looterId);

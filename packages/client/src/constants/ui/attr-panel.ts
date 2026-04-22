@@ -2,7 +2,7 @@
  * 属性面板视觉与辅助常量。
  * 这里集中定义 tab 标签、颜色方案、提示 tooltip 细化文案等页面级常量，便于统一管理和未来扩展。
  */
-import { NumericStats, PlayerSpecialStats } from '@mud/shared-next';
+import { NumericStats, PlayerSpecialStats } from '@mud/shared';
 
 /** AttrTab：属性面板分页标识。 */
 export type AttrTab = 'base' | 'root' | 'vein' | 'combat' | 'qi' | 'special' | 'craft';

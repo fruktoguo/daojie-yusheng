@@ -12,8 +12,9 @@ const node_net_1 = require("node:net");
 const node_path_1 = require("node:path");
 const pg_1 = require("pg");
 const socket_io_client_1 = require("socket.io-client");
-const shared_1 = require("@mud/shared-next");
+const shared_1 = require("@mud/shared");
 const env_alias_1 = require("../config/env-alias");
+const smoke_player_cleanup_1 = require("./smoke-player-cleanup");
 /**
  * 记录包根目录。
  */
@@ -25,7 +26,7 @@ const serverEntry = (0, node_path_1.join)(packageRoot, 'dist', 'main.js');
 /**
  * 记录数据库地址。
  */
-const databaseUrl = (0, env_alias_1.resolveServerNextDatabaseUrl)();
+const databaseUrl = (0, env_alias_1.resolveServerDatabaseUrl)();
 const PERSISTENCE_SMOKE_CONTRACT = Object.freeze({
     answers: 'with-db 本地环境下的 next 持久化闭环：重启后玩家状态、掉落、灵气与地图解锁仍可从数据库真源恢复',
     excludes: 'shadow destructive、维护窗口 backup/restore、真实运营取证与跨环境灾备演练',
@@ -34,7 +35,7 @@ const PERSISTENCE_SMOKE_CONTRACT = Object.freeze({
 /**
  * 记录default端口。
  */
-const defaultPort = Number(process.env.SERVER_NEXT_SMOKE_PORT ?? 3112);
+const defaultPort = Number(process.env.SERVER_SMOKE_PORT ?? 3112);
 /**
  * 记录当前值端口。
  */
@@ -61,7 +62,7 @@ async function main() {
         console.log(JSON.stringify({
             ok: true,
             skipped: true,
-            reason: 'SERVER_NEXT_DATABASE_URL/DATABASE_URL missing',
+            reason: 'SERVER_DATABASE_URL/DATABASE_URL missing',
             answers: PERSISTENCE_SMOKE_CONTRACT.answers,
             excludes: PERSISTENCE_SMOKE_CONTRACT.excludes,
             completionMapping: PERSISTENCE_SMOKE_CONTRACT.completionMapping,
@@ -127,17 +128,17 @@ async function connectAndMutate(token) {
         forceNew: true,
         auth: {
             token,
-            protocol: 'next',
+            protocol: 'mainline',
         },
     });
 /**
  * 记录init会话。
  */
-    const initSession = waitForSocketEvent(socket, shared_1.NEXT_S2C.InitSession);
+    const initSession = waitForSocketEvent(socket, shared_1.S2C.InitSession);
 /**
  * 记录地图enter。
  */
-    const mapEnter = waitForSocketEvent(socket, shared_1.NEXT_S2C.MapEnter);
+    const mapEnter = waitForSocketEvent(socket, shared_1.S2C.MapEnter);
     await onceConnected(socket);
 /**
  * 记录initpayload。
@@ -176,7 +177,7 @@ async function connectAndMutate(token) {
     if (mapSlot < 0) {
         throw new Error('map unlock item missing before persistence mutation');
     }
-    socket.emit(shared_1.NEXT_C2S.UseItem, { slotIndex: mapSlot });
+    socket.emit(shared_1.C2S.UseItem, { slotIndex: mapSlot });
     await waitForCondition(async () => {
 /**
  * 记录玩家状态。
@@ -199,7 +200,7 @@ async function connectAndMutate(token) {
  * 记录灵气before。
  */
     const auraBefore = await fetchJson(`${baseUrl}/runtime/instances/${state.player.instanceId}/tiles/${state.player.x}/${state.player.y}`);
-    socket.emit(shared_1.NEXT_C2S.UseItem, { slotIndex: spiritStoneSlot });
+    socket.emit(shared_1.C2S.UseItem, { slotIndex: spiritStoneSlot });
     await waitForCondition(async () => {
 /**
  * 记录玩家状态。
@@ -225,7 +226,7 @@ async function connectAndMutate(token) {
     if (dropSlot < 0) {
         throw new Error('rat_tail missing before persistence drop');
     }
-    socket.emit(shared_1.NEXT_C2S.DropItem, {
+    socket.emit(shared_1.C2S.DropItem, {
         slotIndex: dropSlot,
         count: 3,
     });
@@ -287,7 +288,7 @@ async function ensureTravelToWildlands(socket, currentPlayerId) {
         const hasPortalAction = Array.isArray(state?.view?.contextActions)
             && state.view.contextActions.some((entry) => entry?.id === 'portal:travel');
         if (hasPortalAction) {
-            socket.emit(shared_1.NEXT_C2S.UsePortal, {});
+            socket.emit(shared_1.C2S.UsePortal, {});
         }
         if (attempt % 3 === 0) {
             await postJson(`/runtime/players/${currentPlayerId}/portal`, {}).catch(() => undefined);
@@ -314,7 +315,7 @@ async function reconnectAndRead(persistedTile) {
         forceNew: true,
         auth: {
             token: accessToken,
-            protocol: 'next',
+            protocol: 'mainline',
         },
     });
 /**
@@ -335,22 +336,22 @@ async function reconnectAndRead(persistedTile) {
             legacyEvents.push(event);
         }
     });
-    socket.on(shared_1.NEXT_S2C.MapEnter, (payload) => {
+    socket.on(shared_1.S2C.MapEnter, (payload) => {
         captured.mapEnter = payload;
     });
-    socket.on(shared_1.NEXT_S2C.SelfDelta, (payload) => {
+    socket.on(shared_1.S2C.SelfDelta, (payload) => {
         captured.selfDelta = payload;
     });
-    socket.on(shared_1.NEXT_S2C.PanelDelta, (payload) => {
+    socket.on(shared_1.S2C.PanelDelta, (payload) => {
         captured.panelDelta = payload;
     });
-    socket.on(shared_1.NEXT_S2C.WorldDelta, (payload) => {
+    socket.on(shared_1.S2C.WorldDelta, (payload) => {
         captured.worldDelta = payload;
     });
 /**
  * 记录init会话。
  */
-    const initSession = waitForSocketEvent(socket, shared_1.NEXT_S2C.InitSession);
+    const initSession = waitForSocketEvent(socket, shared_1.S2C.InitSession);
     await onceConnected(socket);
 /**
  * 记录reconnectinit。
@@ -523,10 +524,10 @@ async function startServer() {
         cwd: packageRoot,
         env: {
             ...process.env,
-            SERVER_NEXT_PORT: String(currentPort),
-            SERVER_NEXT_DATABASE_URL: databaseUrl,
-            SERVER_NEXT_RUNTIME_HTTP: '1',
-            SERVER_NEXT_ALLOW_LEGACY_HTTP_COMPAT: '1',
+            SERVER_PORT: String(currentPort),
+            SERVER_DATABASE_URL: databaseUrl,
+            SERVER_RUNTIME_HTTP: '1',
+            SERVER_ALLOW_LEGACY_HTTP_COMPAT: '1',
         },
         stdio: ['ignore', 'pipe', 'pipe'],
     });
@@ -907,16 +908,10 @@ async function waitForPersistedPlayerSnapshot(playerIdToCheck) {
  */
 async function deletePlayer(playerIdToDelete) {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
-
-/**
- * 记录response。
- */
-    const response = await fetch(`${baseUrl}/runtime/players/${playerIdToDelete}`, {
-        method: 'DELETE',
+    await (0, smoke_player_cleanup_1.purgeSmokePlayerArtifactsByPlayerId)(playerIdToDelete, {
+        serverUrl: baseUrl,
+        databaseUrl,
     });
-    if (!response.ok && response.status !== 404) {
-        throw new Error(`request failed: ${response.status} ${await response.text()}`);
-    }
 }
 /**
  * 等待forcondition。

@@ -17,7 +17,7 @@ const common_1 = require("@nestjs/common");
 
 const pg_1 = require("pg");
 
-const shared_1 = require("@mud/shared-next");
+const shared_1 = require("@mud/shared");
 
 const persistent_document_table_1 = require("./persistent-document-table");
 
@@ -55,9 +55,9 @@ let MarketPersistenceService = MarketPersistenceService_1 = class MarketPersiste
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
 
-        const databaseUrl = (0, env_alias_1.resolveServerNextDatabaseUrl)();
+        const databaseUrl = (0, env_alias_1.resolveServerDatabaseUrl)();
         if (!databaseUrl.trim()) {
-            this.logger.log('坊市持久化已禁用：未提供 SERVER_NEXT_DATABASE_URL/DATABASE_URL');
+            this.logger.log('坊市持久化已禁用：未提供 SERVER_DATABASE_URL/DATABASE_URL');
             return;
         }
         this.pool = new pg_1.Pool({

@@ -2,7 +2,7 @@
  * 小地图与大地图浏览器
  * 提供角落缩略图、全屏地图弹窗、地图目录切换、缩放平移、点击前往等功能
  */
-import { getTileTypeFromMapChar, GroundItemPileView, isTileTypeWalkable, MapMeta, MapMinimapMarker, MapMinimapSnapshot, MINIMAP_MARKER_COLORS, Tile, TILE_MINIMAP_COLORS, TileType } from '@mud/shared-next';
+import { getTileTypeFromMapChar, GroundItemPileView, isTileTypeWalkable, MapMeta, MapMinimapMarker, MapMinimapSnapshot, MINIMAP_MARKER_COLORS, Tile, TILE_MINIMAP_COLORS, TileType } from '@mud/shared';
 import { deleteRememberedMap, getRememberedMarkers, getRememberedTiles, listRememberedMapIds } from '../map-memory';
 import { getCachedMapMeta, getCachedMapSnapshot, listCachedUnlockedMapSummaries } from '../map-static-cache';
 import { getMinimapMarkerKindLabel, getTileTypeLabel } from '../domain-labels';

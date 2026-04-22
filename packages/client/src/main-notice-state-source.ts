@@ -1,4 +1,4 @@
-import { NEXT_S2C_Notice, NEXT_S2C_NoticeItem, NEXT_S2C_SystemMsg } from '@mud/shared-next';
+import { S2C_Notice, S2C_NoticeItem, S2C_SystemMsg } from '@mud/shared';
 import { ChatUI } from './ui/chat';
 /**
  * MainToastKind：统一结构类型，保证协议与运行时一致性。
@@ -34,13 +34,13 @@ type MainNoticeStateSourceOptions = {
   clearCurrentPath: () => void;
 };
 /**
- * resolveSystemMsgIdFromNextNotice：规范化或转换SystemMsgIDFromNextNotice。
- * @param item NEXT_S2C_NoticeItem 道具。
+ * resolveSystemMsgIdFromNotice：规范化或转换SystemMsgIDFromNextNotice。
+ * @param item S2C_NoticeItem 道具。
  * @returns 返回SystemMsgIDFromNextNotice。
  */
 
 
-function resolveSystemMsgIdFromNextNotice(item: NEXT_S2C_NoticeItem): string | undefined {
+function resolveSystemMsgIdFromNotice(item: S2C_NoticeItem): string | undefined {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
   if (typeof item.messageId === 'string' && item.messageId.length > 0) {
@@ -49,13 +49,13 @@ function resolveSystemMsgIdFromNextNotice(item: NEXT_S2C_NoticeItem): string | u
   return typeof item.id === 'number' ? String(item.id) : undefined;
 }
 /**
- * toSystemMsgFromNextNotice：执行toSystemMsgFromNextNotice相关逻辑。
- * @param item NEXT_S2C_NoticeItem 道具。
- * @returns 返回toSystemMsgFromNextNotice。
+ * toSystemMsgFromNotice：执行toSystemMsgFromNotice相关逻辑。
+ * @param item S2C_NoticeItem 道具。
+ * @returns 返回toSystemMsgFromNotice。
  */
 
 
-function toSystemMsgFromNextNotice(item: NEXT_S2C_NoticeItem): NEXT_S2C_SystemMsg {
+function toSystemMsgFromNotice(item: S2C_NoticeItem): S2C_SystemMsg {
   const kind = item.kind === 'chat'
     ? 'chat'
     : item.kind === 'grudge'
@@ -74,7 +74,7 @@ function toSystemMsgFromNextNotice(item: NEXT_S2C_NoticeItem): NEXT_S2C_SystemMs
                   ? 'travel'
                   : 'system';
   return {
-    id: resolveSystemMsgIdFromNextNotice(item),
+    id: resolveSystemMsgIdFromNotice(item),
     text: item.text,
     kind,
     from: item.from,
@@ -99,11 +99,11 @@ export function createMainNoticeStateSource(options: MainNoticeStateSourceOption
   return {  
   /**
  * handleSystemMsg：处理SystemMsg并更新相关状态。
- * @param data NEXT_S2C_SystemMsg 原始数据。
+ * @param data S2C_SystemMsg 原始数据。
  * @returns 无返回值，直接更新SystemMsg相关状态。
  */
 
-    handleSystemMsg(data: NEXT_S2C_SystemMsg): void {
+    handleSystemMsg(data: S2C_SystemMsg): void {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
       if (data.kind === 'chat') {
@@ -145,14 +145,14 @@ export function createMainNoticeStateSource(options: MainNoticeStateSourceOption
     },    
     /**
  * handleNotice：处理Notice并更新相关状态。
- * @param payload NEXT_S2C_Notice 载荷参数。
+ * @param payload S2C_Notice 载荷参数。
  * @returns 无返回值，直接更新Notice相关状态。
  */
 
 
-    handleNotice(payload: NEXT_S2C_Notice): void {
+    handleNotice(payload: S2C_Notice): void {
       for (const item of payload.items) {
-        this.handleSystemMsg(toSystemMsgFromNextNotice(item));
+        this.handleSystemMsg(toSystemMsgFromNotice(item));
       }
     },
   };

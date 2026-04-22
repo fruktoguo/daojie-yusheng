@@ -44,7 +44,7 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.MapTemplateRepository = void 0;
 exports.getTileIndex = getTileIndex;
 const common_1 = require("@nestjs/common");
-const shared_1 = require("@mud/shared-next");
+const shared_1 = require("@mud/shared");
 const fs = __importStar(require("fs"));
 const path = __importStar(require("path"));
 const project_path_1 = require("../../common/project-path");
@@ -159,14 +159,15 @@ let MapTemplateRepository = MapTemplateRepository_1 = class MapTemplateRepositor
         this.npcLocationById.clear();
         this.questSourceById.clear();
         const mapsDir = (0, project_path_1.resolveProjectPath)('packages', 'server', 'data', 'maps');
-        const files = fs.readdirSync(mapsDir)
-            .filter((file) => file.endsWith('.json'))
-            .sort((left, right) => left.localeCompare(right, 'zh-Hans-CN'));
+        const files = collectJsonFiles(mapsDir);
         const documents = [];
         for (const file of files) {
-            const fullPath = path.join(mapsDir, file);
-            const raw = JSON.parse(fs.readFileSync(fullPath, 'utf-8'));
+            const raw = JSON.parse(fs.readFileSync(file, 'utf-8'));
             documents.push((0, shared_1.normalizeEditableMapDocument)(raw));
+        }
+        const portalValidationError = (0, shared_1.validateEditableMapPortalReciprocity)(documents);
+        if (portalValidationError) {
+            throw new Error(`地图传送点校验失败: ${portalValidationError}`);
         }
         for (const document of documents) {
             indexDocumentNpcs(document, this.npcLocationById);
@@ -350,6 +351,28 @@ exports.MapTemplateRepository = MapTemplateRepository = MapTemplateRepository_1 
     (0, common_1.Injectable)()
 ], MapTemplateRepository);
 export { MapTemplateRepository, getTileIndex };
+/**
+ * collectJsonFiles：递归收集地图真源，包含 compose 子图。
+ * @param dirPath 参数说明。
+ * @returns 无返回值，完成 JSON 文件列表的读取/组装。
+ */
+
+function collectJsonFiles(dirPath) {
+    const entries = fs.readdirSync(dirPath, { withFileTypes: true })
+        .sort((left, right) => left.name.localeCompare(right.name, 'zh-Hans-CN'));
+    const files = [];
+    for (const entry of entries) {
+        const entryPath = path.join(dirPath, entry.name);
+        if (entry.isDirectory()) {
+            files.push(...collectJsonFiles(entryPath));
+            continue;
+        }
+        if (entry.isFile() && entry.name.endsWith('.json')) {
+            files.push(entryPath);
+        }
+    }
+    return files;
+}
 /**
  * normalizeSafeZones：规范化或转换SafeZone。
  * @param input 输入参数。

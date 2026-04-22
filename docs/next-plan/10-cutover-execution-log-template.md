@@ -69,7 +69,7 @@
 ## destructive / 备份恢复
 
 - 是否执行 destructive：
-- `SERVER_NEXT_SHADOW_ALLOW_DESTRUCTIVE=1`：
+- `SERVER_SHADOW_ALLOW_DESTRUCTIVE=1`：
 - destructive preflight 结果：
 - backup 结果：
 - download 结果：

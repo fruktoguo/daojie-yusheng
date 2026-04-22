@@ -1,8 +1,8 @@
 import { BadRequestException, Body, Controller, Delete, Get, Inject, Param, Post, Put, Query, UseGuards } from '@nestjs/common';
-import { type GmListPlayersQuery } from '@mud/shared-next';
+import { type GmListPlayersQuery } from '@mud/shared';
 
 import { RedeemCodeRuntimeService } from '../../runtime/redeem/redeem-code-runtime.service';
-import { NEXT_GM_HTTP_CONTRACT } from './next-gm-contract';
+import { GM_HTTP_CONTRACT } from './next-gm-contract';
 import { NextGmAuthGuard } from './next-gm-auth.guard';
 import { NextGmMailService } from './next-gm-mail.service';
 import { NextGmPlayerService } from './next-gm-player.service';
@@ -192,7 +192,7 @@ interface RedeemCodeRuntimeServicePort {
  */
 
 
-@Controller(NEXT_GM_HTTP_CONTRACT.gmBasePath)
+@Controller(GM_HTTP_CONTRACT.gmBasePath)
 @UseGuards(NextGmAuthGuard)
 @Reflect.metadata('design:paramtypes', [NextGmWorldService, NextManagedAccountService, NextGmPlayerService, NextGmMailService, RedeemCodeRuntimeService])
 export class NextGmController {

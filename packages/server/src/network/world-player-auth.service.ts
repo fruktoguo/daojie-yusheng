@@ -5,7 +5,7 @@ import { type ValidatedPlayerTokenPayload } from './world-player-token-codec.ser
 import { recordAuthTrace, WorldPlayerTokenService } from './world-player-token.service';
 
 const LEGACY_DATABASE_ENV_KEYS = [
-  'SERVER_NEXT_DATABASE_URL',
+  'SERVER_DATABASE_URL',
   'DATABASE_URL',
 ] as const;
 /**
@@ -273,13 +273,13 @@ function normalizePersistedSource(
   return null;
 }
 /**
- * resolvePersistedNextIdentityAuthSource：判断PersistedNextIdentity认证来源是否满足条件。
+ * resolvePersistedIdentityAuthSource：判断PersistedIdentity认证来源是否满足条件。
  * @param persistedSource PersistedSource 参数说明。
  * @returns 返回PersistedNextIdentity认证来源。
  */
 
 
-function resolvePersistedNextIdentityAuthSource(
+function resolvePersistedIdentityAuthSource(
   persistedSource: PersistedSource,
 ): Extract<AuthSource, 'next' | 'token'> {
   return persistedSource === 'token_seed' ? 'token' : 'next';
@@ -307,7 +307,7 @@ export class WorldPlayerAuthService {
   ) {}
 
   /** 加载 next 玩家身份，优先走 next 持久化来源。 */
-  async loadNextPlayerIdentity(userId: string): Promise<PlayerIdentityLike | null> {
+  async loadPersistedPlayerIdentity(userId: string): Promise<PlayerIdentityLike | null> {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
     return this.playerIdentityPersistenceService.loadPlayerIdentity(userId);
   }  
@@ -331,14 +331,14 @@ export class WorldPlayerAuthService {
     }
 
     const protocol = normalizeProtocol(options?.protocol);
-    const nextProtocolStrict = protocol === 'next';
+    const nextProtocolStrict = protocol === 'mainline';
     const explicitMigrationProtocol = isExplicitMigrationProtocol(protocol);
     const tokenIdentity = this.worldPlayerTokenService.resolvePlayerIdentityFromPayload(payload);
     const identityPersistenceEnabled = this.playerIdentityPersistenceService.isEnabled();
 
     let nextIdentity: PlayerIdentityLike | null = null;
     try {
-      nextIdentity = await this.loadNextPlayerIdentity(payload.sub);
+      nextIdentity = await this.loadPersistedPlayerIdentity(payload.sub);
     } catch (error) {
       const message = `Player identity next record load failed: userId=${payload.sub} error=${error instanceof Error ? error.message : String(error)}`;
       this.logger.error(message);
@@ -440,7 +440,7 @@ export class WorldPlayerAuthService {
         return null;
       }
 
-      const nextIdentityAuthSource = resolvePersistedNextIdentityAuthSource(nextPersistedSource);
+      const nextIdentityAuthSource = resolvePersistedIdentityAuthSource(nextPersistedSource);
       recordAuthTrace({
         type: 'identity',
         source: nextIdentityAuthSource,

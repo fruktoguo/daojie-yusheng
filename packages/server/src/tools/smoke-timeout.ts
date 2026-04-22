@@ -12,10 +12,12 @@ const node_path_1 = require("node:path");
  */
 const DEFAULT_SMOKE_TIMEOUT_MS = 10_000;
 const ENTRY_TIMEOUT_OVERRIDES_MS = new Map([
+    ['auth-bootstrap-smoke.js', 45_000],
+    ['gm-smoke.js', 45_000],
     ['next-auth-bootstrap-smoke.js', 45_000],
     ['gm-next-smoke.js', 45_000],
     ['persistence-smoke.js', 45_000],
-    ['gm-database-smoke.js', 420_000],
+    ['gm-database-smoke.js', 900_000],
     ['gm-database-backup-persistence-smoke.js', 60_000],
     ['shadow-gm-database-proof.js', 240_000],
 ]);
@@ -26,7 +28,7 @@ function isSmokeTimeoutDisabled() {
     /**
      * 读取原始开关值。
      */
-    const raw = process.env.SERVER_NEXT_DISABLE_SMOKE_TIMEOUT ?? process.env.NEXT_DISABLE_SMOKE_TIMEOUT;
+    const raw = process.env.SERVER_DISABLE_SMOKE_TIMEOUT ?? process.env.NEXT_DISABLE_SMOKE_TIMEOUT;
     return raw === '1' || raw === 'true';
 }
 /**
@@ -38,7 +40,7 @@ function resolveSmokeTimeoutMs() {
     /**
      * 读取原始超时配置。
      */
-    const raw = process.env.SERVER_NEXT_SMOKE_TIMEOUT_MS ?? process.env.NEXT_SMOKE_TIMEOUT_MS;
+    const raw = process.env.SERVER_SMOKE_TIMEOUT_MS ?? process.env.NEXT_SMOKE_TIMEOUT_MS;
     if (!raw) {
         return DEFAULT_SMOKE_TIMEOUT_MS;
     }

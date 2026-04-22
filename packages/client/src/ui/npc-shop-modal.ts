@@ -1,4 +1,4 @@
-import { Inventory, ItemStack, PlayerState } from '@mud/shared-next';
+import { Inventory, ItemStack, PlayerState } from '@mud/shared';
 import { buildItemTooltipPayload, describeItemEffectDetails } from './equipment-tooltip';
 import { FloatingTooltip, prefersPinnedTooltipInteraction } from './floating-tooltip';
 import { getItemTypeLabel } from '../domain-labels';

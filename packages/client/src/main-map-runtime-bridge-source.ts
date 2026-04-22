@@ -5,7 +5,7 @@ import type {
   GroundItemPileView,
   TargetingShape,
   Tile,
-} from '@mud/shared-next';
+} from '@mud/shared';
 import { KeyboardInput } from './input/keyboard';
 import type { MainNavigationObservedEntity } from './main-navigation-state-source';
 /**

@@ -1,8 +1,8 @@
 import * as fs from 'node:fs';
 import * as path from 'node:path';
 
-const packageRootOverride = typeof process.env.SERVER_NEXT_PACKAGE_ROOT === 'string'
-  ? process.env.SERVER_NEXT_PACKAGE_ROOT.trim()
+const packageRootOverride = typeof process.env.SERVER_PACKAGE_ROOT === 'string'
+  ? process.env.SERVER_PACKAGE_ROOT.trim()
   : '';
 
 const REPO_ROOT_CANDIDATES = [

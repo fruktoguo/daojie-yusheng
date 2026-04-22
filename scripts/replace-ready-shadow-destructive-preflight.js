@@ -4,33 +4,33 @@
 require('./load-local-runtime-env');
 
 const {
-  resolveServerNextGmPassword,
-  resolveServerNextGmPasswordEnvSource,
-  resolveServerNextShadowUrl,
-  resolveServerNextShadowUrlEnvSource,
-} = require('./server-next-env-alias');
+  resolveServerGmPassword,
+  resolveServerGmPasswordEnvSource,
+  resolveServerShadowUrl,
+  resolveServerShadowUrlEnvSource,
+} = require('./server-env-alias');
 const {
   fetchHealth,
   normalizeBooleanEnv,
 } = require('../packages/server/src/tools/gm-database-proof-lib');
 
-const shadowUrl = resolveServerNextShadowUrl();
-const shadowUrlEnvSource = resolveServerNextShadowUrlEnvSource();
-const gmPassword = resolveServerNextGmPassword();
-const gmPasswordEnvSource = resolveServerNextGmPasswordEnvSource();
-const allowDestructive = normalizeBooleanEnv(process.env.SERVER_NEXT_SHADOW_ALLOW_DESTRUCTIVE);
+const shadowUrl = resolveServerShadowUrl();
+const shadowUrlEnvSource = resolveServerShadowUrlEnvSource();
+const gmPassword = resolveServerGmPassword();
+const gmPasswordEnvSource = resolveServerGmPasswordEnvSource();
+const allowDestructive = normalizeBooleanEnv(process.env.SERVER_SHADOW_ALLOW_DESTRUCTIVE);
 
 async function main() {
   if (!shadowUrl) {
-    process.stderr.write('replace-ready shadow destructive preflight requires SERVER_NEXT_SHADOW_URL or SERVER_NEXT_URL\n');
+    process.stderr.write('replace-ready shadow destructive preflight requires SERVER_SHADOW_URL or SERVER_URL\n');
     process.exit(1);
   }
   if (!gmPassword) {
-    process.stderr.write('replace-ready shadow destructive preflight requires SERVER_NEXT_GM_PASSWORD or GM_PASSWORD\n');
+    process.stderr.write('replace-ready shadow destructive preflight requires SERVER_GM_PASSWORD or GM_PASSWORD\n');
     process.exit(1);
   }
   if (!allowDestructive) {
-    process.stderr.write('replace-ready shadow destructive preflight requires SERVER_NEXT_SHADOW_ALLOW_DESTRUCTIVE=1\n');
+    process.stderr.write('replace-ready shadow destructive preflight requires SERVER_SHADOW_ALLOW_DESTRUCTIVE=1\n');
     process.stderr.write('only run destructive proof during a maintenance window after explicit approval\n');
     process.exit(1);
   }

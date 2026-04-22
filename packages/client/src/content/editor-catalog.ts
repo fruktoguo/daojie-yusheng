@@ -1,6 +1,6 @@
 import type {
   GmEditorCatalogRes,
-} from '@mud/shared-next';
+} from '@mud/shared';
 import editorCatalog from '../constants/world/editor-catalog.generated.json';
 
 /** 本地 editor catalog 静态快照，只作为 fallback 与预览辅助，不是玩法真源。 */

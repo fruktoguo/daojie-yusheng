@@ -1,5 +1,5 @@
 import {
-  NEXT_C2S_RequestMarketListings,
+  C2S_RequestMarketListings,
   computeBestEnhancementExpectedCost,
   calculateMarketTradeTotalCost,
   createItemStackSignature,
@@ -18,17 +18,17 @@ import {
   MarketOwnOrderView,
   MarketStorage,
   PlayerState,
-  NEXT_S2C_MarketListings,
-  NEXT_S2C_MarketItemBook,
-  NEXT_S2C_MarketOrders,
-  NEXT_S2C_MarketStorage,
-  NEXT_S2C_MarketTradeHistory,
-  NEXT_S2C_MarketUpdate,
+  S2C_MarketListings,
+  S2C_MarketItemBook,
+  S2C_MarketOrders,
+  S2C_MarketStorage,
+  S2C_MarketTradeHistory,
+  S2C_MarketUpdate,
   TechniqueCategory,
   getMarketPriceStep,
   normalizeMarketPriceDown,
   normalizeMarketPriceUp,
-} from '@mud/shared-next';
+} from '@mud/shared';
 import { getLocalTechniqueCategoryForBookItem } from '../../content/local-templates';
 import { buildItemTooltipPayload } from '../equipment-tooltip';
 import { FloatingTooltip, prefersPinnedTooltipInteraction } from '../floating-tooltip';
@@ -77,7 +77,7 @@ interface MarketPanelCallbacks {
  * onRequestListings：onRequestListing相关字段。
  */
 
-  onRequestListings: (payload: NEXT_C2S_RequestMarketListings) => void;  
+  onRequestListings: (payload: C2S_RequestMarketListings) => void;  
   /**
  * onRequestItemBook：onRequest道具Book相关字段。
  */
@@ -225,11 +225,11 @@ export class MarketPanel {
   /** 市场面板对外回调，实际请求都交给外部处理。 */
   private callbacks: MarketPanelCallbacks | null = null;
   /** 当前市场主快照，列表、挂单和托管仓都从这里读。 */
-  private marketUpdate: NEXT_S2C_MarketUpdate | null = null;
+  private marketUpdate: S2C_MarketUpdate | null = null;
   /** 当前选中物品对应的书籍详情。 */
   private itemBook: MarketOrderBookView | null = null;
   /** 最近一次列表分页数据，供筛选和翻页回填。 */
-  private marketListings: NEXT_S2C_MarketListings | null = null;
+  private marketListings: S2C_MarketListings | null = null;
   /** 物品书籍本地缓存，避免重复请求同一份详情。 */
   private readonly itemBookCache = new Map<string, MarketOrderBookView>();
   /** 正在等待服务端回包的物品书籍 key。 */
@@ -255,7 +255,7 @@ export class MarketPanel {
   /** 当前交易弹窗状态。 */
   private tradeDialog: MarketTradeDialogState | null = null;
   /** 当前交易历史快照。 */
-  private tradeHistory: NEXT_S2C_MarketTradeHistory | null = null;
+  private tradeHistory: S2C_MarketTradeHistory | null = null;
   /** 当前玩家背包快照，用于判断能否挂售和买入。 */
   private inventory: Inventory = { items: [], capacity: 0 };
   /** 市场物品提示浮层，列表和详情共用。 */
@@ -296,7 +296,7 @@ export class MarketPanel {
   }
 
   /** 更新市场主视图。 */
-  updateMarket(data: NEXT_S2C_MarketUpdate): void {
+  updateMarket(data: S2C_MarketUpdate): void {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
     this.marketUpdate = data;
@@ -322,7 +322,7 @@ export class MarketPanel {
   }
 
   /** 更新列表分页数据。 */
-  updateListings(data: NEXT_S2C_MarketListings): void {
+  updateListings(data: S2C_MarketListings): void {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
     this.marketListings = data;
@@ -339,7 +339,7 @@ export class MarketPanel {
   }
 
   /** 更新我的订单数据。 */
-  updateOrders(data: NEXT_S2C_MarketOrders): void {
+  updateOrders(data: S2C_MarketOrders): void {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
     if (!this.marketUpdate) {
@@ -369,7 +369,7 @@ export class MarketPanel {
   }
 
   /** 同步坊市托管仓快照。 */
-  updateStorage(data: NEXT_S2C_MarketStorage): void {
+  updateStorage(data: S2C_MarketStorage): void {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
     if (!this.marketUpdate) {
@@ -388,7 +388,7 @@ export class MarketPanel {
   }
 
   /** 同步物品书籍缓存，并尽量只刷新当前选中的详情。 */
-  updateItemBook(data: NEXT_S2C_MarketItemBook): void {
+  updateItemBook(data: S2C_MarketItemBook): void {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
     if (data.book) {
@@ -413,7 +413,7 @@ export class MarketPanel {
   }
 
   /** 同步交易历史分页。 */
-  updateTradeHistory(data: NEXT_S2C_MarketTradeHistory): void {
+  updateTradeHistory(data: S2C_MarketTradeHistory): void {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
     this.tradeHistoryLoading = false;
@@ -637,7 +637,7 @@ export class MarketPanel {
   }
 
   /** 渲染市场弹层主体和右侧分栏。 */
-  private renderModalBody(update: NEXT_S2C_MarketUpdate): string {
+  private renderModalBody(update: S2C_MarketUpdate): string {
     const tabs = MARKET_MODAL_TABS
       .map((tab) => `<button class="market-side-tab ui-workspace-rail-tab ${this.modalTab === tab.id ? 'active' : ''}" data-market-modal-tab="${tab.id}" type="button">${tab.label}</button>`)
       .join('');
@@ -659,7 +659,7 @@ export class MarketPanel {
   }
 
   /** 渲染市场列表页和右侧书籍面板。 */
-  private renderMarketTab(update: NEXT_S2C_MarketUpdate): string {
+  private renderMarketTab(update: S2C_MarketUpdate): string {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
     const listedItems = this.getVisibleListedItems(update);
@@ -810,7 +810,7 @@ export class MarketPanel {
   }
 
   /** 渲染我的挂单、求购单和托管仓。 */
-  private renderMyOrdersTab(update: NEXT_S2C_MarketUpdate): string {
+  private renderMyOrdersTab(update: S2C_MarketUpdate): string {
     const buyOrders = update.myOrders.filter((order) => order.side === 'buy');
     const sellOrders = update.myOrders.filter((order) => order.side === 'sell');
     const storage = update.storage;
@@ -1219,7 +1219,7 @@ export class MarketPanel {
   }
 
   /** 读取当前选中的列表物品。 */
-  private getSelectedListedItem(update: NEXT_S2C_MarketUpdate | null): MarketListedItemView | null {
+  private getSelectedListedItem(update: S2C_MarketUpdate | null): MarketListedItemView | null {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
     const visibleItems = this.getVisibleListedItems(update);
@@ -1231,7 +1231,7 @@ export class MarketPanel {
   }
 
   /** 渲染主分类标签。 */
-  private renderCategoryTabs(update: NEXT_S2C_MarketUpdate): string {
+  private renderCategoryTabs(update: S2C_MarketUpdate): string {
     const categories: Array<{    
     /**
  * id：ID标识。
@@ -1264,7 +1264,7 @@ export class MarketPanel {
   }
 
   /** 渲染装备子分类标签。 */
-  private renderEquipmentTabs(update: NEXT_S2C_MarketUpdate): string {
+  private renderEquipmentTabs(update: S2C_MarketUpdate): string {
     const categories: Array<{    
     /**
  * id：ID标识。
@@ -1301,7 +1301,7 @@ export class MarketPanel {
   }
 
   /** 渲染功法书子分类标签。 */
-  private renderTechniqueTabs(update: NEXT_S2C_MarketUpdate): string {
+  private renderTechniqueTabs(update: S2C_MarketUpdate): string {
     const categories = MARKET_TECHNIQUE_FILTERS.map((category) => ({
       ...category,
       count: update.listedItems.filter((item) => (
@@ -1321,7 +1321,7 @@ export class MarketPanel {
   }
 
   /** 按当前分类筛选出可见列表物品。 */
-  private getVisibleListedItems(update: NEXT_S2C_MarketUpdate | null): MarketListedItemView[] {
+  private getVisibleListedItems(update: S2C_MarketUpdate | null): MarketListedItemView[] {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
     if (!update) {
@@ -1455,7 +1455,7 @@ export class MarketPanel {
   }
 
   /** 把列表分页回填进市场主快照。 */
-  private mergeListingsIntoMarketUpdate(update: NEXT_S2C_MarketUpdate | null, data: NEXT_S2C_MarketListings): NEXT_S2C_MarketUpdate | null {
+  private mergeListingsIntoMarketUpdate(update: S2C_MarketUpdate | null, data: S2C_MarketListings): S2C_MarketUpdate | null {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
     const entries = data.items.flatMap((entry) => entry.variants.map((variant) => ({
@@ -1525,7 +1525,7 @@ export class MarketPanel {
   private bindTradeDialogOverlayEvents(
     root: HTMLElement,
     selected: MarketListedItemView,
-    update: NEXT_S2C_MarketUpdate,
+    update: S2C_MarketUpdate,
   ): void {
     root.querySelectorAll<HTMLElement>('[data-market-close-dialog]').forEach((button) => button.addEventListener('click', () => {
       this.tradeDialog = null;

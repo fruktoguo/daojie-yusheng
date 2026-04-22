@@ -7,5 +7,5 @@ SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 # shellcheck disable=SC1091
 source "${SCRIPT_DIR}/shadow-local-lib.sh"
 
-export SERVER_NEXT_SHADOW_ALLOW_DESTRUCTIVE=1
+export SERVER_SHADOW_ALLOW_DESTRUCTIVE=1
 shadow_run_pnpm verify:replace-ready:shadow:destructive:preflight

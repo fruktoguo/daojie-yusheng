@@ -12,12 +12,12 @@ import { WorldPlayerSnapshotService } from './world-player-snapshot.service';
 import { recordAuthTrace } from './world-player-token.service';
 
 const STRICT_NATIVE_SNAPSHOT_ENV_KEYS = [
-    'SERVER_NEXT_AUTH_REQUIRE_NATIVE_SNAPSHOT',
+    'SERVER_AUTH_REQUIRE_NATIVE_SNAPSHOT',
     'NEXT_AUTH_REQUIRE_NATIVE_SNAPSHOT',
 ];
 
 const NATIVE_SNAPSHOT_RECOVERY_ENV_KEYS = [
-    'SERVER_NEXT_AUTH_ALLOW_NATIVE_SNAPSHOT_RECOVERY',
+    'SERVER_AUTH_ALLOW_NATIVE_SNAPSHOT_RECOVERY',
     'NEXT_AUTH_ALLOW_NATIVE_SNAPSHOT_RECOVERY',
 ];
 

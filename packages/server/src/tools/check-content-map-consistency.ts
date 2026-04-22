@@ -171,6 +171,20 @@ function validatePortals(errors, mapInfo, mapById, width, height) {
       targetMapInfo.map.width,
       targetMapInfo.map.height,
     );
+    const reciprocalPortal = (targetMapInfo.map.portals ?? []).find(
+      (entry) => entry?.x === portal.targetX && entry?.y === portal.targetY,
+    );
+    if (!reciprocalPortal) {
+      errors.push(`${mapInfo.map.id}: portal 目标坐标 ${portal.targetMapId}(${portal.targetX},${portal.targetY}) 不是对应传送点 @ ${mapInfo.relativePath}`);
+      continue;
+    }
+    if (
+      reciprocalPortal.targetMapId !== mapInfo.map.id
+      || reciprocalPortal.targetX !== portal.x
+      || reciprocalPortal.targetY !== portal.y
+    ) {
+      errors.push(`${mapInfo.map.id}: portal 与 ${portal.targetMapId}(${portal.targetX},${portal.targetY}) 不是一一对应 @ ${mapInfo.relativePath}`);
+    }
   }
 }
 /**

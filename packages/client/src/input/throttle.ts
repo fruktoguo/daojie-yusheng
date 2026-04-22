@@ -2,7 +2,7 @@
  * 输入节流 —— 限制玩家操作频率，每 tick 最多一次
  */
 
-import { TICK_INTERVAL } from '@mud/shared-next';
+import { TICK_INTERVAL } from '@mud/shared';
 
 /**
  * 输入频率节流器。

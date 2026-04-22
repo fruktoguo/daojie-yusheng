@@ -1,7 +1,7 @@
 // @ts-nocheck
 
 /**
- * 用途：编排执行 server-next smoke 冒烟验证套件。
+ * 用途：编排执行 server smoke 冒烟验证套件。
  */
 var __createBinding = (this && this.__createBinding) || (Object.create ? (function(o, m, k, k2) {
     if (k2 === undefined) k2 = k;
@@ -98,10 +98,14 @@ const smokeCases = [
     { name: 'progression', scriptFile: 'progression-smoke.js' },
     { name: 'combat', scriptFile: 'combat-smoke.js' },
     { name: 'loot', scriptFile: 'loot-smoke.js' },
-    { name: 'next-auth-bootstrap', scriptFile: 'next-auth-bootstrap-smoke.js' },
-    { name: 'next-auth-bootstrap-mainline', scriptFile: 'next-auth-bootstrap-smoke.js' },
-    { name: 'next-auth-bootstrap-migration', scriptFile: 'next-auth-bootstrap-smoke.js' },
-    { name: 'gm-next', scriptFile: 'gm-next-smoke.js' },
+    { name: 'auth-bootstrap', scriptFile: 'auth-bootstrap-smoke.js' },
+    { name: 'auth-bootstrap-mainline', scriptFile: 'auth-bootstrap-smoke.js' },
+    { name: 'auth-bootstrap-migration', scriptFile: 'auth-bootstrap-smoke.js' },
+    { name: 'gm', scriptFile: 'gm-smoke.js' },
+    { name: 'next-auth-bootstrap', scriptFile: 'auth-bootstrap-smoke.js' },
+    { name: 'next-auth-bootstrap-mainline', scriptFile: 'auth-bootstrap-smoke.js' },
+    { name: 'next-auth-bootstrap-migration', scriptFile: 'auth-bootstrap-smoke.js' },
+    { name: 'gm-next', scriptFile: 'gm-smoke.js' },
     { name: 'redeem-code', scriptFile: 'redeem-code-smoke.js' },
     { name: 'monster-runtime', scriptFile: 'monster-runtime-smoke.js' },
     { name: 'monster-combat', scriptFile: 'monster-combat-smoke.js' },
@@ -118,6 +122,9 @@ const LONG_RUNNING_SMOKE_TIMEOUT_MS = '20000';
 const LONG_RUNNING_SMOKE_CASES = new Set([
     'readiness-gate',
     'session',
+    'auth-bootstrap',
+    'auth-bootstrap-mainline',
+    'auth-bootstrap-migration',
     'next-auth-bootstrap',
     'next-auth-bootstrap-mainline',
     'next-auth-bootstrap-migration',
@@ -174,10 +181,10 @@ async function main() {
  * 汇总执行结果。
  */
     const results = [];
-    process.stdout.write(`[server-next smoke] gate=${gate}\n`);
-    process.stdout.write(`[server-next smoke] answers=${gateProfile.answers}\n`);
-    process.stdout.write(`[server-next smoke] excludes=${gateProfile.excludes}\n`);
-    process.stdout.write(`[server-next smoke] cases=${cases.map((entry) => entry.name).join(', ')}\n`);
+    process.stdout.write(`[server smoke] gate=${gate}\n`);
+    process.stdout.write(`[server smoke] answers=${gateProfile.answers}\n`);
+    process.stdout.write(`[server smoke] excludes=${gateProfile.excludes}\n`);
+    process.stdout.write(`[server smoke] cases=${cases.map((entry) => entry.name).join(', ')}\n`);
     for (const entry of cases) {
         if ((entry.name === 'persistence' || entry.name === 'gm-database') && !hasDatabaseUrl()) {
             results.push({
@@ -191,7 +198,7 @@ async function main() {
  * 记录casestartedat。
  */
         const caseStartedAt = Date.now();
-        process.stdout.write(`\n[server-next smoke] running ${entry.name}\n`);
+        process.stdout.write(`\n[server smoke] running ${entry.name}\n`);
         if (entry.standalone) {
             await runStandaloneSmoke(entry);
         }
@@ -203,13 +210,13 @@ async function main() {
             durationMs: Date.now() - caseStartedAt,
         });
     }
-    process.stdout.write(`\n[server-next smoke] summary\n`);
+    process.stdout.write(`\n[server smoke] summary\n`);
     for (const result of results) {
         process.stdout.write(`- ${result.name}: ${result.skipped ? 'skipped' : `${result.durationMs}ms`}\n`);
     }
-    process.stdout.write(`[server-next smoke] boundary=${gateProfile.answers}\n`);
-    process.stdout.write(`[server-next smoke] not_proved=${gateProfile.excludes}\n`);
-    process.stdout.write(`[server-next smoke] total ${Date.now() - startedAt}ms\n`);
+    process.stdout.write(`[server smoke] boundary=${gateProfile.answers}\n`);
+    process.stdout.write(`[server smoke] not_proved=${gateProfile.excludes}\n`);
+    process.stdout.write(`[server smoke] total ${Date.now() - startedAt}ms\n`);
 }
 /**
  * 运行isolatedsmoke 校验。
@@ -239,7 +246,7 @@ async function runIsolatedSmoke(entry) {
             requireReady,
         });
         await runNodeScript(path.join(distRoot, 'tools', entry.scriptFile), {
-            SERVER_NEXT_URL: baseUrl,
+            SERVER_URL: baseUrl,
             ...extraEnv,
         });
     }
@@ -264,7 +271,7 @@ async function runStandaloneSmoke(entry) {
     const extraEnv = resolveCaseExtraEnv(entry);
     try {
         await runNodeScript(path.join(distRoot, 'tools', entry.scriptFile), {
-            SERVER_NEXT_SMOKE_PORT: String(port),
+            SERVER_SMOKE_PORT: String(port),
             ...extraEnv,
         });
     }
@@ -288,12 +295,12 @@ async function startServer(port, extraEnv = {}) {
         env: {
             ...process.env,
             ...extraEnv,
-            SERVER_NEXT_PORT: String(port),
-            SERVER_NEXT_RUNTIME_HTTP: '1',
+            SERVER_PORT: String(port),
+            SERVER_RUNTIME_HTTP: '1',
             ...(allowUnreadyTraffic
                 ? {
-                    SERVER_NEXT_ALLOW_UNREADY_TRAFFIC: '1',
-                    SERVER_NEXT_SMOKE_ALLOW_UNREADY: '1',
+                    SERVER_ALLOW_UNREADY_TRAFFIC: '1',
+                    SERVER_SMOKE_ALLOW_UNREADY: '1',
                 }
                 : {}),
         },
@@ -301,7 +308,7 @@ async function startServer(port, extraEnv = {}) {
     });
     child.on('exit', (code, signal) => {
         if (code !== null && code !== 0) {
-            process.stderr.write(`[server-next smoke] server exited unexpectedly: code=${code} signal=${signal ?? 'none'}\n`);
+            process.stderr.write(`[server smoke] server exited unexpectedly: code=${code} signal=${signal ?? 'none'}\n`);
         }
     });
     return child;
@@ -419,44 +426,51 @@ function resolveCaseExtraEnv(entry) {
 /**
  * 记录数据库地址。
  */
-    const databaseUrl = (0, env_alias_1.resolveServerNextDatabaseUrl)();
+    const databaseUrl = (0, env_alias_1.resolveServerDatabaseUrl)();
     if (databaseUrl) {
-        extraEnv.SERVER_NEXT_DATABASE_URL = databaseUrl;
+        extraEnv.SERVER_DATABASE_URL = databaseUrl;
     }
-    if (entry.name === 'gm-next'
+    if (entry.name === 'gm'
+        || entry.name === 'gm-next'
         || entry.name === 'redeem-code'
         || entry.name === 'persistence'
         || entry.name === 'gm-database'
+        || entry.name === 'auth-bootstrap'
+        || entry.name === 'auth-bootstrap-mainline'
+        || entry.name === 'auth-bootstrap-migration'
         || entry.name === 'next-auth-bootstrap'
         || entry.name === 'next-auth-bootstrap-mainline'
         || entry.name === 'next-auth-bootstrap-migration') {
-        extraEnv.SERVER_NEXT_ALLOW_LEGACY_HTTP_COMPAT = '1';
+        extraEnv.SERVER_ALLOW_LEGACY_HTTP_COMPAT = '1';
     }
     if (entry.name === 'session') {
-        extraEnv.SERVER_NEXT_SESSION_DETACH_EXPIRE_MS = '4000';
+        extraEnv.SERVER_SESSION_DETACH_EXPIRE_MS = '4000';
     }
-    if (entry.name === 'next-auth-bootstrap'
+    if (entry.name === 'auth-bootstrap'
+        || entry.name === 'auth-bootstrap-mainline'
+        || entry.name === 'auth-bootstrap-migration'
+        || entry.name === 'next-auth-bootstrap'
         || entry.name === 'next-auth-bootstrap-mainline'
         || entry.name === 'next-auth-bootstrap-migration') {
-        extraEnv.SERVER_NEXT_SESSION_DETACH_EXPIRE_MS = '4000';
-        extraEnv.SERVER_NEXT_AUTH_ALLOW_COMPAT_IDENTITY_BACKFILL = '0';
+        extraEnv.SERVER_SESSION_DETACH_EXPIRE_MS = '4000';
+        extraEnv.SERVER_AUTH_ALLOW_COMPAT_IDENTITY_BACKFILL = '0';
         extraEnv.NEXT_AUTH_ALLOW_COMPAT_IDENTITY_BACKFILL = '0';
-        if (entry.name === 'next-auth-bootstrap-mainline') {
+        if (entry.name === 'auth-bootstrap-mainline' || entry.name === 'next-auth-bootstrap-mainline') {
             extraEnv.NEXT_AUTH_BOOTSTRAP_PROFILE = 'mainline';
         }
-        else if (entry.name === 'next-auth-bootstrap-migration') {
+        else if (entry.name === 'auth-bootstrap-migration' || entry.name === 'next-auth-bootstrap-migration') {
             extraEnv.NEXT_AUTH_BOOTSTRAP_PROFILE = 'migration';
         }
 /**
  * 记录tracesuffix。
  */
         const traceSuffix = `${process.pid}-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
-        extraEnv.NEXT_AUTH_TRACE_ENABLED = '1';
-        extraEnv.SERVER_NEXT_AUTH_TRACE_ENABLED = '1';
+        extraEnv.SERVER_AUTH_TRACE_ENABLED = '1';
+        extraEnv.SERVER_AUTH_TRACE_ENABLED = '1';
         extraEnv.NEXT_AUTH_TRACE_FILE = path.join(packageRoot, '.runtime', `next-auth-trace-${traceSuffix}.jsonl`);
     }
     if (LONG_RUNNING_SMOKE_CASES.has(entry.name)) {
-        extraEnv.SERVER_NEXT_SMOKE_TIMEOUT_MS = LONG_RUNNING_SMOKE_TIMEOUT_MS;
+        extraEnv.SERVER_SMOKE_TIMEOUT_MS = LONG_RUNNING_SMOKE_TIMEOUT_MS;
     }
     return extraEnv;
 }
@@ -518,7 +532,7 @@ async function waitForHealth(baseUrl, timeoutMs, options = {}) {
  * 判断是否已数据库URL。
  */
 function hasDatabaseUrl() {
-    return Boolean((0, env_alias_1.resolveServerNextDatabaseUrl)());
+    return Boolean((0, env_alias_1.resolveServerDatabaseUrl)());
 }
 /**
  * 读取optionvalues。

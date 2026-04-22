@@ -4,7 +4,7 @@ import { LOCAL_EDITOR_CATALOG } from '../../content/editor-catalog';
 import { getLocalItemTemplate } from '../../content/local-templates';
 import { getMonsterLocationEntry, loadMonsterLocationEntry } from '../../content/monster-locations';
 import { getItemTypeLabel } from '../../domain-labels';
-import { hideNextTooltip, moveNextTooltip, showNextTooltip } from '../overlays/overlay-store';
+import { hideTooltip, moveTooltip, showTooltip } from '../overlays/overlay-store';
 /**
  * UiInlineReferenceTone：统一结构类型，保证协议与运行时一致性。
  */
@@ -173,13 +173,13 @@ function UiInlineReferenceChip({
   const handlePointerMove = (event: React.PointerEvent<HTMLSpanElement>) => {
     const key = `${reference.kind}:${reference.id}`;
     activeReferenceKey = key;
-    moveNextTooltip(event.clientX, event.clientY);
+    moveTooltip(event.clientX, event.clientY);
     const requestToken = ++tooltipRequestToken;
     void resolveReferenceTooltip(reference).then((tooltip) => {
       if (activeReferenceKey !== key || requestToken !== tooltipRequestToken) {
         return;
       }
-      showNextTooltip(tooltip.title, tooltip.lines, event.clientX, event.clientY);
+      showTooltip(tooltip.title, tooltip.lines, event.clientX, event.clientY);
     });
   };
 
@@ -189,7 +189,7 @@ function UiInlineReferenceChip({
       onPointerMove={handlePointerMove}
       onPointerLeave={() => {
         activeReferenceKey = '';
-        hideNextTooltip();
+        hideTooltip();
       }}
     >
       {reference.label}

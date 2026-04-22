@@ -3,7 +3,7 @@
  * 统一管理颜色模式与字体等级，并持久化到本地存储
  */
 
-import { UI_STYLE_STORAGE_KEY } from '@mud/shared-next';
+import { UI_STYLE_STORAGE_KEY } from '@mud/shared';
 import {
   DEFAULT_UI_STYLE_CONFIG,
   UI_GLOBAL_FONT_OFFSET_RANGE,

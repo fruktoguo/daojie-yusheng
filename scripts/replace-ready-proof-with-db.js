@@ -4,7 +4,7 @@
 require('./load-local-runtime-env');
 
 /**
- * 用途：执行 server-next 替换链路的带数据库 proof流程。
+ * 用途：执行 server 替换链路的带数据库 proof流程。
  */
 
 const { spawnSync } = require('node:child_process');
@@ -12,26 +12,26 @@ const path = require('node:path');
 
 const repoRoot = path.resolve(__dirname, '..');
 const {
-  resolveServerNextDatabaseEnvSource,
-  resolveServerNextDatabaseUrl,
-} = require('./server-next-env-alias');
+  resolveServerDatabaseEnvSource,
+  resolveServerDatabaseUrl,
+} = require('./server-env-alias');
 
 /**
  * 记录数据库地址。
  */
-const databaseUrl = resolveServerNextDatabaseUrl();
+const databaseUrl = resolveServerDatabaseUrl();
 /**
  * 记录数据库环境变量来源。
  */
-const databaseEnvSource = resolveServerNextDatabaseEnvSource();
+const databaseEnvSource = resolveServerDatabaseEnvSource();
 /**
  * 记录traceenabled价值。
  */
-const traceEnabledValue = process.env.SERVER_NEXT_AUTH_TRACE_ENABLED || process.env.NEXT_AUTH_TRACE_ENABLED || '1';
+const traceEnabledValue = process.env.SERVER_AUTH_TRACE_ENABLED || process.env.SERVER_AUTH_TRACE_ENABLED || '1';
 
 if (!databaseUrl) {
-  process.stderr.write('replace-ready proof with-db requires DATABASE_URL or SERVER_NEXT_DATABASE_URL\n');
-  process.stderr.write('run pnpm verify:replace-ready:doctor first, then set DATABASE_URL or SERVER_NEXT_DATABASE_URL and rerun pnpm verify:replace-ready:proof:with-db\n');
+  process.stderr.write('replace-ready proof with-db requires DATABASE_URL or SERVER_DATABASE_URL\n');
+  process.stderr.write('run pnpm verify:replace-ready:doctor first, then set DATABASE_URL or SERVER_DATABASE_URL and rerun pnpm verify:replace-ready:proof:with-db\n');
   process.exit(1);
 }
 
@@ -40,11 +40,11 @@ if (!databaseUrl) {
  */
 const childEnv = {
   ...process.env,
-  NEXT_AUTH_TRACE_ENABLED: traceEnabledValue,
-  SERVER_NEXT_AUTH_TRACE_ENABLED: traceEnabledValue,
-  SERVER_NEXT_ALLOW_UNREADY_TRAFFIC: '',
-  SERVER_NEXT_SMOKE_ALLOW_UNREADY: '',
-  ...(databaseEnvSource === 'SERVER_NEXT_DATABASE_URL' ? null : { SERVER_NEXT_DATABASE_URL: databaseUrl }),
+  SERVER_AUTH_TRACE_ENABLED: traceEnabledValue,
+  SERVER_AUTH_TRACE_ENABLED: traceEnabledValue,
+  SERVER_ALLOW_UNREADY_TRAFFIC: '',
+  SERVER_SMOKE_ALLOW_UNREADY: '',
+  ...(databaseEnvSource === 'SERVER_DATABASE_URL' ? null : { SERVER_DATABASE_URL: databaseUrl }),
 };
 
 process.stdout.write('[replace-ready:proof:with-db] steps=verify:proof:with-db\n');
@@ -54,7 +54,7 @@ process.stdout.write('[replace-ready:proof:with-db] start step=verify:proof:with
 /**
  * 累计当前结果。
  */
-const result = spawnSync('pnpm', ['--filter', '@mud/server-next', 'verify:proof:with-db'], {
+const result = spawnSync('pnpm', ['--filter', '@mud/server', 'verify:proof:with-db'], {
   cwd: repoRoot,
   stdio: 'inherit',
   shell: process.platform === 'win32',

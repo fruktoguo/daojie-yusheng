@@ -28,10 +28,10 @@
 ## 环境确认
 
 - shadow URL：`http://127.0.0.1:11923`
-- 数据库目标：`.runtime/server-next.local.env` 中的本地 PostgreSQL
-- GM 凭据来源：`.runtime/server-next.local.env`
+- 数据库目标：`.runtime/server.local.env` 中的本地 PostgreSQL
+- GM 凭据来源：`.runtime/server.local.env`
 - 是否核对 `start-next.sh` / 默认入口：是
-- 是否核对维护窗口状态：是，本轮通过 `SERVER_NEXT_RUNTIME_MAINTENANCE=1` 拉起本地 shadow
+- 是否核对维护窗口状态：是，本轮通过 `SERVER_RUNTIME_MAINTENANCE=1` 拉起本地 shadow
 
 ## 切换中观察
 
@@ -64,7 +64,7 @@
 ## destructive / 备份恢复
 
 - 是否执行 destructive：是
-- `SERVER_NEXT_SHADOW_ALLOW_DESTRUCTIVE=1`：是
+- `SERVER_SHADOW_ALLOW_DESTRUCTIVE=1`：是
 - destructive preflight 结果：通过
 - backup 结果：成功，`backupId=mo610e6a-23df76bc`
 - download 结果：成功

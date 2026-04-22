@@ -17,7 +17,7 @@ exports.RuntimeGmStateService = void 0;
 
 const common_1 = require("@nestjs/common");
 
-const shared_1 = require("@mud/shared-next");
+const shared_1 = require("@mud/shared");
 
 const os = require("os");
 
@@ -147,7 +147,7 @@ let RuntimeGmStateService = class RuntimeGmStateService {
     /** GM 面板协议分支固定为 next-only。 */
     resolveGmStateEmission(client) {
         return {
-            protocol: 'next',
+            protocol: 'mainline',
             emitNext: true,
             emitLegacy: false,
         };
@@ -155,11 +155,11 @@ let RuntimeGmStateService = class RuntimeGmStateService {
     /** 读取客户端显式声明的协议版本，仅用于调试观测。 */
     getExplicitProtocol(client) {
         const protocol = client?.data?.protocol;
-        return protocol === 'next' || protocol === 'legacy' ? protocol : null;
+        return protocol === 'mainline' || protocol === 'legacy' ? protocol : null;
     }
     /** GM 状态最终协议固定收敛到 next。 */
     resolveEffectiveProtocol(client) {
-        return 'next';
+        return 'mainline';
     }
     /** 记录客户端 -> 服务端的 socket 事件流量。 */
     recordNetworkIn(event, payload) {

@@ -12,15 +12,15 @@ const gm_database_proof_lib_1 = require("./gm-database-proof-lib");
 /**
  * 记录服务端地址。
  */
-const serverUrl = (0, env_alias_1.resolveServerNextShadowUrl)() || 'http://127.0.0.1:11923';
+const serverUrl = (0, env_alias_1.resolveServerShadowUrl)() || 'http://127.0.0.1:11923';
 /**
  * 记录GMpassword。
  */
-const gmPassword = (0, env_alias_1.resolveServerNextGmPassword)('admin123');
+const gmPassword = (0, env_alias_1.resolveServerGmPassword)('admin123');
 /**
  * 记录allowdestructive。
  */
-const allowDestructive = (0, gm_database_proof_lib_1.normalizeBooleanEnv)(process.env.SERVER_NEXT_SHADOW_ALLOW_DESTRUCTIVE);
+const allowDestructive = (0, gm_database_proof_lib_1.normalizeBooleanEnv)(process.env.SERVER_SHADOW_ALLOW_DESTRUCTIVE);
 const SHADOW_GM_DATABASE_PROOF_CONTRACT = Object.freeze({
     answers: 'shadow 目标机上的 destructive proof：maintenance-active 条件下执行 backup -> download -> restore -> checkpoint backup',
     excludes: '未开启 destructive 开关的普通 shadow 检查、真实运营审批链、外部工单与人工风险复核记录',
@@ -36,7 +36,7 @@ async function main() {
         console.log(JSON.stringify({
             ok: true,
             skipped: true,
-            reason: 'SERVER_NEXT_SHADOW_ALLOW_DESTRUCTIVE not enabled',
+            reason: 'SERVER_SHADOW_ALLOW_DESTRUCTIVE not enabled',
             answers: SHADOW_GM_DATABASE_PROOF_CONTRACT.answers,
             excludes: SHADOW_GM_DATABASE_PROOF_CONTRACT.excludes,
             completionMapping: SHADOW_GM_DATABASE_PROOF_CONTRACT.completionMapping,

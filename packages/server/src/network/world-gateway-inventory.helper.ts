@@ -3,7 +3,7 @@
 
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.WorldGatewayInventoryHelper = void 0;
-const shared_1 = require("@mud/shared-next");
+const shared_1 = require("@mud/shared");
 
 /** 世界 socket 背包/装备 helper：只收敛 inventory/equipment 相关入口。 */
 class WorldGatewayInventoryHelper {
@@ -22,13 +22,13 @@ class WorldGatewayInventoryHelper {
         this.gateway = gateway;
     }    
     /**
- * handleNextDestroyItem：处理NextDestroy道具并更新相关状态。
+ * handleDestroyItem：处理销毁道具并更新相关状态。
  * @param client 参数说明。
  * @param payload 载荷参数。
- * @returns 无返回值，直接更新NextDestroy道具相关状态。
+ * @returns 无返回值，直接更新销毁道具相关状态。
  */
 
-    handleNextDestroyItem(client, payload) {
+    handleDestroyItem(client, payload) {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
         const playerId = this.gateway.gatewayGuardHelper.requirePlayerId(client);
@@ -47,13 +47,13 @@ class WorldGatewayInventoryHelper {
         }
     }    
     /**
- * handleNextSortInventory：处理NextSort背包并更新相关状态。
+ * handleSortInventory：处理整理背包并更新相关状态。
  * @param client 参数说明。
  * @param _payload 参数说明。
- * @returns 无返回值，直接更新NextSort背包相关状态。
+ * @returns 无返回值，直接更新整理背包相关状态。
  */
 
-    handleNextSortInventory(client, _payload) {
+    handleSortInventory(client, _payload) {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
         const playerId = this.gateway.gatewayGuardHelper.requirePlayerId(client);
@@ -93,13 +93,13 @@ class WorldGatewayInventoryHelper {
         }
     }    
     /**
- * handleNextUseItem：处理NextUse道具并更新相关状态。
+ * handleUseItem：处理使用道具并更新相关状态。
  * @param client 参数说明。
  * @param payload 载荷参数。
- * @returns 无返回值，直接更新NextUse道具相关状态。
+ * @returns 无返回值，直接更新使用道具相关状态。
  */
 
-    handleNextUseItem(client, payload) {
+    handleUseItem(client, payload) {
         this.executeUseItem(client, payload);
     }    
     /**
@@ -124,13 +124,13 @@ class WorldGatewayInventoryHelper {
         }
     }    
     /**
- * handleNextDropItem：处理NextDrop道具并更新相关状态。
+ * handleDropItem：处理丢弃道具并更新相关状态。
  * @param client 参数说明。
  * @param payload 载荷参数。
- * @returns 无返回值，直接更新NextDrop道具相关状态。
+ * @returns 无返回值，直接更新丢弃道具相关状态。
  */
 
-    handleNextDropItem(client, payload) {
+    handleDropItem(client, payload) {
         this.executeDropItem(client, payload);
     }    
     /**
@@ -173,7 +173,7 @@ class WorldGatewayInventoryHelper {
             return;
         }
         try {
-            this.gateway.worldClientEventService.markProtocol(client, 'next');
+            this.gateway.worldClientEventService.markProtocol(client, 'mainline');
             this.gateway.worldRuntimeService.worldRuntimeCommandIntakeFacadeService.enqueueStartTechniqueActivity(playerId, 'gather', payload, this.gateway.worldRuntimeService);
         }
         catch (error) {
@@ -195,7 +195,7 @@ class WorldGatewayInventoryHelper {
             return;
         }
         try {
-            this.gateway.worldClientEventService.markProtocol(client, 'next');
+            this.gateway.worldClientEventService.markProtocol(client, 'mainline');
             this.gateway.worldRuntimeService.worldRuntimeCommandIntakeFacadeService.enqueueCancelTechniqueActivity(playerId, 'gather', this.gateway.worldRuntimeService);
         }
         catch (error) {
@@ -218,7 +218,7 @@ class WorldGatewayInventoryHelper {
         }
         try {
             this.gateway.playerRuntimeService.clearLootWindow(playerId);
-            client.emit(shared_1.NEXT_S2C.LootWindowUpdate, { window: null });
+            client.emit(shared_1.S2C.LootWindowUpdate, { window: null });
         }
         catch (error) {
             this.gateway.worldClientEventService.emitGatewayError(client, 'STOP_LOOT_HARVEST_FAILED', error);
@@ -246,13 +246,13 @@ class WorldGatewayInventoryHelper {
         }
     }    
     /**
- * handleNextEquip：处理NextEquip并更新相关状态。
+ * handleEquip：处理装备并更新相关状态。
  * @param client 参数说明。
  * @param payload 载荷参数。
- * @returns 无返回值，直接更新NextEquip相关状态。
+ * @returns 无返回值，直接更新装备相关状态。
  */
 
-    handleNextEquip(client, payload) {
+    handleEquip(client, payload) {
         this.executeEquip(client, payload);
     }    
     /**
@@ -277,13 +277,13 @@ class WorldGatewayInventoryHelper {
         }
     }    
     /**
- * handleNextUnequip：处理NextUnequip并更新相关状态。
+ * handleUnequip：处理卸下装备并更新相关状态。
  * @param client 参数说明。
  * @param payload 载荷参数。
- * @returns 无返回值，直接更新NextUnequip相关状态。
+ * @returns 无返回值，直接更新卸下装备相关状态。
  */
 
-    handleNextUnequip(client, payload) {
+    handleUnequip(client, payload) {
         this.executeUnequip(client, payload);
     }
 }

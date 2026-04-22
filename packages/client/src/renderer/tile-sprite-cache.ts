@@ -3,7 +3,7 @@ import {
   TILE_VISUAL_GLYPHS,
   TILE_VISUAL_GLYPH_COLORS,
   type TileType,
-} from '@mud/shared-next';
+} from '@mud/shared';
 import { buildCanvasFont } from '../constants/ui/text';
 
 /** 地块精灵对象，用于命中率高的像素绘制缓存。 */

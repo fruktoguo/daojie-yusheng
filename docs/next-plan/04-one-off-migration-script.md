@@ -5,7 +5,7 @@
 当前脚本落点：
 
 - `packages/server/src/tools/migrate-next-mainline-once.ts`
-- 包内入口：`pnpm --filter @mud/server-next migrate:legacy-next:once`
+- 包内入口：`pnpm --filter @mud/server migrate:legacy-next:once`
 
 当前已落地能力：
 
@@ -16,9 +16,9 @@
 - 当前已覆盖 `auth / identity / snapshot / mail / market / redeem / suggestion / gm-auth / gm-database`
 - 样本 fixture：`packages/server/src/tools/fixtures/migrate-next-mainline-once/sample-legacy.json`
 - 已实际跑通样本 dry-run：
-  - `pnpm --filter @mud/server-next migrate:legacy-next:once -- --fixture=src/tools/fixtures/migrate-next-mainline-once/sample-legacy.json --domains=auth,identity,snapshot,mail,market,redeem,suggestion,gm-auth,gm-database`
+  - `pnpm --filter @mud/server migrate:legacy-next:once -- --fixture=src/tools/fixtures/migrate-next-mainline-once/sample-legacy.json --domains=auth,identity,snapshot,mail,market,redeem,suggestion,gm-auth,gm-database`
 - 已实际跑通样本正式转换：
-  - `pnpm --filter @mud/server-next migrate:legacy-next:once -- --fixture=src/tools/fixtures/migrate-next-mainline-once/sample-legacy.json --domains=auth,identity,snapshot,mail,market,redeem,suggestion,gm-auth,gm-database --write`
+  - `pnpm --filter @mud/server migrate:legacy-next:once -- --fixture=src/tools/fixtures/migrate-next-mainline-once/sample-legacy.json --domains=auth,identity,snapshot,mail,market,redeem,suggestion,gm-auth,gm-database --write`
   - `pnpm verify:replace-ready:proof:with-db`
 - 当前样本 `--write` 摘要：
   - `auth=1`
@@ -128,9 +128,9 @@
 
 最小验证：
 
-- `pnpm --filter @mud/server-next migrate:legacy-next:once -- --fixture=src/tools/fixtures/migrate-next-mainline-once/sample-legacy.json --domains=auth,identity,snapshot`
+- `pnpm --filter @mud/server migrate:legacy-next:once -- --fixture=src/tools/fixtures/migrate-next-mainline-once/sample-legacy.json --domains=auth,identity,snapshot`
 - `pnpm verify:replace-ready:proof:with-db`
-- `pnpm --filter @mud/server-next smoke:persistence`
+- `pnpm --filter @mud/server smoke:persistence`
 
 ### 第 2 批：补玩家核心进度与资产
 
@@ -143,9 +143,9 @@
 
 最小验证：
 
-- `pnpm --filter @mud/server-next migrate:legacy-next:once -- --fixture=src/tools/fixtures/migrate-next-mainline-once/sample-legacy.json --domains=progression,inventory,techniques,quests`
-- `pnpm --filter @mud/server-next smoke:progression`
-- `pnpm --filter @mud/server-next smoke:runtime`
+- `pnpm --filter @mud/server migrate:legacy-next:once -- --fixture=src/tools/fixtures/migrate-next-mainline-once/sample-legacy.json --domains=progression,inventory,techniques,quests`
+- `pnpm --filter @mud/server smoke:progression`
+- `pnpm --filter @mud/server smoke:runtime`
 
 ### 第 3 批：补社区与运营域
 
@@ -158,9 +158,9 @@
 
 最小验证：
 
-- `pnpm --filter @mud/server-next migrate:legacy-next:once -- --fixture=src/tools/fixtures/migrate-next-mainline-once/sample-legacy.json --domains=mail,market,redeem,suggestion,gm-auth,gm-database`
-- `pnpm --filter @mud/server-next smoke:gm-database`
-- `pnpm --filter @mud/server-next smoke:gm-database:backup-persistence`
+- `pnpm --filter @mud/server migrate:legacy-next:once -- --fixture=src/tools/fixtures/migrate-next-mainline-once/sample-legacy.json --domains=mail,market,redeem,suggestion,gm-auth,gm-database`
+- `pnpm --filter @mud/server smoke:gm-database`
+- `pnpm --filter @mud/server smoke:gm-database:backup-persistence`
 
 ### 第 4 批：跑正式写入 proof
 
@@ -171,7 +171,7 @@
 
 最小验证：
 
-- `pnpm --filter @mud/server-next migrate:legacy-next:once -- --fixture=... --domains=... --write`
+- `pnpm --filter @mud/server migrate:legacy-next:once -- --fixture=... --domains=... --write`
 - `pnpm verify:replace-ready:with-db`
 - `pnpm verify:replace-ready:acceptance`
 
@@ -190,8 +190,8 @@
   - dry-run 还是 write
   - 目标 scope / 表
 
-- [x] 用 `pnpm proof:next-migration-write-boundaries` 固定迁移脚本写入边界与失败条目结构
-- [x] 已用 `pnpm --filter @mud/server-next migrate:legacy-next:once -- --fixture=src/tools/fixtures/migrate-next-mainline-once/sample-legacy.json --domains=mail` 验证单 domain preflight + 摘要输出
+- [x] 用 `pnpm proof:migration-write-boundaries` 固定迁移脚本写入边界与失败条目结构
+- [x] 已用 `pnpm --filter @mud/server migrate:legacy-next:once -- --fixture=src/tools/fixtures/migrate-next-mainline-once/sample-legacy.json --domains=mail` 验证单 domain preflight + 摘要输出
 
 ## 每个 domain 完成前必须回答
 
@@ -207,7 +207,7 @@
 
 1. `migrate-next-mainline-once --write`
 2. `pnpm verify:replace-ready:proof:with-db`
-3. `pnpm --filter @mud/server-next smoke:persistence`
+3. `pnpm --filter @mud/server smoke:persistence`
 4. 视域补跑：
    - `smoke:gm-database`
    - `smoke:progression`
@@ -240,9 +240,9 @@
 
 本轮实跑记录：
 
-- `pnpm --filter @mud/server-next migrate:legacy-next:once -- --fixture=src/tools/fixtures/migrate-next-mainline-once/sample-legacy.json --domains=auth,identity,snapshot,progression,inventory,techniques,quests,mail,market,redeem,suggestion,gm-auth,gm-database --write`
+- `pnpm --filter @mud/server migrate:legacy-next:once -- --fixture=src/tools/fixtures/migrate-next-mainline-once/sample-legacy.json --domains=auth,identity,snapshot,progression,inventory,techniques,quests,mail,market,redeem,suggestion,gm-auth,gm-database --write`
 - `pnpm verify:replace-ready:proof:with-db`
-- `pnpm --filter @mud/server-next smoke:persistence`
-- `pnpm --filter @mud/server-next smoke:gm-database`
-- `pnpm --filter @mud/server-next smoke:progression`
-- `pnpm --filter @mud/server-next smoke:runtime`
+- `pnpm --filter @mud/server smoke:persistence`
+- `pnpm --filter @mud/server smoke:gm-database`
+- `pnpm --filter @mud/server smoke:progression`
+- `pnpm --filter @mud/server smoke:runtime`

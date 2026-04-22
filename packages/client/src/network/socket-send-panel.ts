@@ -1,4 +1,4 @@
-import { NEXT_C2S, type NEXT_C2S_EventPayload } from '@mud/shared-next';
+import { C2S, type ClientToServerEventPayload } from '@mud/shared';
 import type { SocketEmitEvent } from './socket-send-types';
 import {
   emitTechniqueActivityCancel,
@@ -28,17 +28,17 @@ type CancelGatherPayload = Record<string, never>;
 function sendTechniqueActivityRequest(
   deps: PanelSenderDeps,
   kind: 'alchemy',
-  payload: NEXT_C2S_EventPayload<typeof NEXT_C2S.RequestAlchemyPanel>,
+  payload: ClientToServerEventPayload<typeof C2S.RequestAlchemyPanel>,
 ): void;
 function sendTechniqueActivityRequest(
   deps: PanelSenderDeps,
   kind: 'enhancement',
-  payload: NEXT_C2S_EventPayload<typeof NEXT_C2S.RequestEnhancementPanel>,
+  payload: ClientToServerEventPayload<typeof C2S.RequestEnhancementPanel>,
 ): void;
 function sendTechniqueActivityRequest(
   deps: PanelSenderDeps,
   kind: 'alchemy' | 'enhancement',
-  payload: NEXT_C2S_EventPayload<typeof NEXT_C2S.RequestAlchemyPanel> | NEXT_C2S_EventPayload<typeof NEXT_C2S.RequestEnhancementPanel>,
+  payload: ClientToServerEventPayload<typeof C2S.RequestAlchemyPanel> | ClientToServerEventPayload<typeof C2S.RequestEnhancementPanel>,
 ): void {
   emitTechniqueActivityPanelRequest(deps.emitEvent, kind, payload as never);
 }
@@ -46,17 +46,17 @@ function sendTechniqueActivityRequest(
 function sendTechniqueActivityStart(
   deps: PanelSenderDeps,
   kind: 'alchemy',
-  payload: NEXT_C2S_EventPayload<typeof NEXT_C2S.StartAlchemy>,
+  payload: ClientToServerEventPayload<typeof C2S.StartAlchemy>,
 ): void;
 function sendTechniqueActivityStart(
   deps: PanelSenderDeps,
   kind: 'enhancement',
-  payload: NEXT_C2S_EventPayload<typeof NEXT_C2S.StartEnhancement>,
+  payload: ClientToServerEventPayload<typeof C2S.StartEnhancement>,
 ): void;
 function sendTechniqueActivityStart(
   deps: PanelSenderDeps,
   kind: 'alchemy' | 'enhancement',
-  payload: NEXT_C2S_EventPayload<typeof NEXT_C2S.StartAlchemy> | NEXT_C2S_EventPayload<typeof NEXT_C2S.StartEnhancement>,
+  payload: ClientToServerEventPayload<typeof C2S.StartAlchemy> | ClientToServerEventPayload<typeof C2S.StartEnhancement>,
 ): void {
   emitTechniqueActivityStart(deps.emitEvent, kind, payload as never);
 }
@@ -84,7 +84,7 @@ export function createSocketPanelSender(deps: PanelSenderDeps) {
  */
 
     sendUseItem(slotIndex: number, count?: number): void {
-      deps.emitEvent(NEXT_C2S.UseItem, { slotIndex, count });
+      deps.emitEvent(C2S.UseItem, { slotIndex, count });
     },    
     /**
  * sendDropItem：执行sendDrop道具相关逻辑。
@@ -95,7 +95,7 @@ export function createSocketPanelSender(deps: PanelSenderDeps) {
 
 
     sendDropItem(slotIndex: number, count: number): void {
-      deps.emitEvent(NEXT_C2S.DropItem, { slotIndex, count });
+      deps.emitEvent(C2S.DropItem, { slotIndex, count });
     },    
     /**
  * sendDestroyItem：执行sendDestroy道具相关逻辑。
@@ -106,7 +106,7 @@ export function createSocketPanelSender(deps: PanelSenderDeps) {
 
 
     sendDestroyItem(slotIndex: number, count: number): void {
-      deps.emitEvent(NEXT_C2S.DestroyItem, { slotIndex, count });
+      deps.emitEvent(C2S.DestroyItem, { slotIndex, count });
     },    
     /**
  * sendTakeLoot：执行sendTake掉落相关逻辑。
@@ -118,7 +118,7 @@ export function createSocketPanelSender(deps: PanelSenderDeps) {
 
 
     sendTakeLoot(sourceId: string, itemKey?: string, takeAll = false): void {
-      deps.emitEvent(NEXT_C2S.TakeGround, { sourceId, itemKey, takeAll });
+      deps.emitEvent(C2S.TakeGround, { sourceId, itemKey, takeAll });
     },    
     /**
  * sendStartGather：执行send开始采集相关逻辑。
@@ -128,7 +128,7 @@ export function createSocketPanelSender(deps: PanelSenderDeps) {
 
 
     sendStartGather(payload: StartGatherPayload): void {
-      deps.emitEvent((NEXT_C2S as Record<string, unknown>).StartGather as never, payload as never);
+      deps.emitEvent((C2S as Record<string, unknown>).StartGather as never, payload as never);
     },    
     /**
  * sendCancelGather：执行send取消采集相关逻辑。
@@ -136,7 +136,7 @@ export function createSocketPanelSender(deps: PanelSenderDeps) {
  */
 
     sendCancelGather(): void {
-      deps.emitEvent((NEXT_C2S as Record<string, unknown>).CancelGather as never, {} as CancelGatherPayload as never);
+      deps.emitEvent((C2S as Record<string, unknown>).CancelGather as never, {} as CancelGatherPayload as never);
     },    
     /**
  * sendStopLootHarvest：停止当前连续采摘。
@@ -144,7 +144,7 @@ export function createSocketPanelSender(deps: PanelSenderDeps) {
  */
 
     sendStopLootHarvest(): void {
-      deps.emitEvent(NEXT_C2S.StopLootHarvest, {});
+      deps.emitEvent(C2S.StopLootHarvest, {});
     },    
     /**
  * sendSortInventory：执行sendSort背包相关逻辑。
@@ -153,7 +153,7 @@ export function createSocketPanelSender(deps: PanelSenderDeps) {
 
 
     sendSortInventory(): void {
-      deps.emitEvent(NEXT_C2S.SortInventory, {});
+      deps.emitEvent(C2S.SortInventory, {});
     },    
     /**
  * sendEquip：执行sendEquip相关逻辑。
@@ -163,17 +163,17 @@ export function createSocketPanelSender(deps: PanelSenderDeps) {
 
 
     sendEquip(slotIndex: number): void {
-      deps.emitEvent(NEXT_C2S.Equip, { slotIndex });
+      deps.emitEvent(C2S.Equip, { slotIndex });
     },    
     /**
  * sendUnequip：执行sendUnequip相关逻辑。
- * @param slot NEXT_C2S_EventPayload<typeof NEXT_C2S.Unequip>['slot'] 参数说明。
+ * @param slot ClientToServerEventPayload<typeof C2S.Unequip>['slot'] 参数说明。
  * @returns 无返回值，直接更新sendUnequip相关状态。
  */
 
 
-    sendUnequip(slot: NEXT_C2S_EventPayload<typeof NEXT_C2S.Unequip>['slot']): void {
-      deps.emitEvent(NEXT_C2S.Unequip, { slot });
+    sendUnequip(slot: ClientToServerEventPayload<typeof C2S.Unequip>['slot']): void {
+      deps.emitEvent(C2S.Unequip, { slot });
     },    
     /**
  * sendRequestAttrDetail：执行sendRequestAttr详情相关逻辑。
@@ -182,17 +182,17 @@ export function createSocketPanelSender(deps: PanelSenderDeps) {
 
 
     sendRequestAttrDetail(): void {
-      deps.emitEvent(NEXT_C2S.RequestAttrDetail, {});
+      deps.emitEvent(C2S.RequestAttrDetail, {});
     },    
     /**
  * sendRequestLeaderboard：执行sendRequestLeaderboard相关逻辑。
- * @param limit NEXT_C2S_EventPayload<typeof NEXT_C2S.RequestLeaderboard>['limit'] 参数说明。
+ * @param limit ClientToServerEventPayload<typeof C2S.RequestLeaderboard>['limit'] 参数说明。
  * @returns 无返回值，直接更新sendRequestLeaderboard相关状态。
  */
 
 
-    sendRequestLeaderboard(limit?: NEXT_C2S_EventPayload<typeof NEXT_C2S.RequestLeaderboard>['limit']): void {
-      deps.emitEvent(NEXT_C2S.RequestLeaderboard, { limit });
+    sendRequestLeaderboard(limit?: ClientToServerEventPayload<typeof C2S.RequestLeaderboard>['limit']): void {
+      deps.emitEvent(C2S.RequestLeaderboard, { limit });
     },    
     /**
  * sendRequestLeaderboardPlayerLocations：执行sendRequestLeaderboard玩家坐标追索相关逻辑。
@@ -201,9 +201,9 @@ export function createSocketPanelSender(deps: PanelSenderDeps) {
  */
 
     sendRequestLeaderboardPlayerLocations(
-      playerIds: NEXT_C2S_EventPayload<typeof NEXT_C2S.RequestLeaderboardPlayerLocations>['playerIds'],
+      playerIds: ClientToServerEventPayload<typeof C2S.RequestLeaderboardPlayerLocations>['playerIds'],
     ): void {
-      deps.emitEvent(NEXT_C2S.RequestLeaderboardPlayerLocations, { playerIds });
+      deps.emitEvent(C2S.RequestLeaderboardPlayerLocations, { playerIds });
     },    
     /**
  * sendRequestWorldSummary：执行sendRequest世界摘要相关逻辑。
@@ -212,7 +212,7 @@ export function createSocketPanelSender(deps: PanelSenderDeps) {
 
 
     sendRequestWorldSummary(): void {
-      deps.emitEvent(NEXT_C2S.RequestWorldSummary, {});
+      deps.emitEvent(C2S.RequestWorldSummary, {});
     },    
     /**
  * sendRequestNpcShop：执行sendRequestNPCShop相关逻辑。
@@ -222,7 +222,7 @@ export function createSocketPanelSender(deps: PanelSenderDeps) {
 
 
     sendRequestNpcShop(npcId: string): void {
-      deps.emitEvent(NEXT_C2S.RequestNpcShop, { npcId });
+      deps.emitEvent(C2S.RequestNpcShop, { npcId });
     },    
     /**
  * sendBuyNpcShopItem：执行sendBuyNPCShop道具相关逻辑。
@@ -234,7 +234,7 @@ export function createSocketPanelSender(deps: PanelSenderDeps) {
 
 
     sendBuyNpcShopItem(npcId: string, itemId: string, quantity: number): void {
-      deps.emitEvent(NEXT_C2S.BuyNpcShopItem, { npcId, itemId, quantity });
+      deps.emitEvent(C2S.BuyNpcShopItem, { npcId, itemId, quantity });
     },    
     /**
  * sendRequestAlchemyPanel：执行sendRequest炼丹面板相关逻辑。
@@ -248,15 +248,15 @@ export function createSocketPanelSender(deps: PanelSenderDeps) {
     },    
     /**
  * sendSaveAlchemyPreset：执行sendSave炼丹Preset相关逻辑。
- * @param payload NEXT_C2S_EventPayload<typeof NEXT_C2S.SaveAlchemyPreset> 载荷参数。
+ * @param payload ClientToServerEventPayload<typeof C2S.SaveAlchemyPreset> 载荷参数。
  * @returns 无返回值，直接更新sendSave炼丹Preset相关状态。
  */
 
 
     sendSaveAlchemyPreset(
-      payload: NEXT_C2S_EventPayload<typeof NEXT_C2S.SaveAlchemyPreset>,
+      payload: ClientToServerEventPayload<typeof C2S.SaveAlchemyPreset>,
     ): void {
-      deps.emitEvent(NEXT_C2S.SaveAlchemyPreset, payload);
+      deps.emitEvent(C2S.SaveAlchemyPreset, payload);
     },    
     /**
  * sendDeleteAlchemyPreset：处理sendDelete炼丹Preset并更新相关状态。
@@ -266,17 +266,17 @@ export function createSocketPanelSender(deps: PanelSenderDeps) {
 
 
     sendDeleteAlchemyPreset(presetId: string): void {
-      deps.emitEvent(NEXT_C2S.DeleteAlchemyPreset, { presetId });
+      deps.emitEvent(C2S.DeleteAlchemyPreset, { presetId });
     },    
     /**
  * sendStartAlchemy：执行send开始炼丹相关逻辑。
- * @param payload NEXT_C2S_EventPayload<typeof NEXT_C2S.StartAlchemy> 载荷参数。
+ * @param payload ClientToServerEventPayload<typeof C2S.StartAlchemy> 载荷参数。
  * @returns 无返回值，直接更新sendStart炼丹相关状态。
  */
 
 
     sendStartAlchemy(
-      payload: NEXT_C2S_EventPayload<typeof NEXT_C2S.StartAlchemy>,
+      payload: ClientToServerEventPayload<typeof C2S.StartAlchemy>,
     ): void {
       sendTechniqueActivityStart(deps, 'alchemy', payload);
     },    
@@ -300,13 +300,13 @@ export function createSocketPanelSender(deps: PanelSenderDeps) {
     },    
     /**
  * sendStartEnhancement：执行send开始强化相关逻辑。
- * @param payload NEXT_C2S_EventPayload<typeof NEXT_C2S.StartEnhancement> 载荷参数。
+ * @param payload ClientToServerEventPayload<typeof C2S.StartEnhancement> 载荷参数。
  * @returns 无返回值，直接更新sendStart强化相关状态。
  */
 
 
     sendStartEnhancement(
-      payload: NEXT_C2S_EventPayload<typeof NEXT_C2S.StartEnhancement>,
+      payload: ClientToServerEventPayload<typeof C2S.StartEnhancement>,
     ): void {
       sendTechniqueActivityStart(deps, 'enhancement', payload);
     },    

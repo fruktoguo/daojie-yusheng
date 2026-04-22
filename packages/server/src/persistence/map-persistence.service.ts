@@ -14,7 +14,7 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.MapPersistenceService = void 0;
 
 const common_1 = require("@nestjs/common");
-const shared_1 = require("@mud/shared-next");
+const shared_1 = require("@mud/shared");
 
 const pg_1 = require("pg");
 
@@ -51,7 +51,7 @@ let MapPersistenceService = MapPersistenceService_1 = class MapPersistenceServic
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
 
-        const databaseUrl = (0, env_alias_1.resolveServerNextDatabaseUrl)();
+        const databaseUrl = (0, env_alias_1.resolveServerDatabaseUrl)();
         if (!databaseUrl.trim()) {
             return;
         }

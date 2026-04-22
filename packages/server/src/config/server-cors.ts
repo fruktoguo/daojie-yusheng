@@ -42,22 +42,22 @@ export interface ServerNextCorsOptions {
   credentials: boolean;
 }
 
-/** 统一解析 server-next 的 HTTP / Socket CORS 配置。 */
-export function resolveServerNextCorsOptions(): ServerNextCorsOptions | false {
+/** 统一解析 server 的 HTTP / Socket CORS 配置。 */
+export function resolveServerCorsOptions(): ServerNextCorsOptions | false {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
-  const enabled = readBooleanEnv(['SERVER_NEXT_CORS_ENABLED', 'NEXT_CORS_ENABLED'], true);
+  const enabled = readBooleanEnv(['SERVER_CORS_ENABLED', 'SERVER_CORS_ENABLED'], true);
   if (!enabled) {
     return false;
   }
 
-  const allowedOrigins = readCsvEnv(['SERVER_NEXT_CORS_ORIGINS', 'NEXT_CORS_ORIGINS']);
-  const methods = readCsvEnv(['SERVER_NEXT_CORS_METHODS', 'NEXT_CORS_METHODS'], DEFAULT_CORS_METHODS);
-  const allowedHeaders = readCsvEnv(['SERVER_NEXT_CORS_HEADERS', 'NEXT_CORS_HEADERS'], DEFAULT_CORS_HEADERS);
-  const credentials = readBooleanEnv(['SERVER_NEXT_CORS_CREDENTIALS', 'NEXT_CORS_CREDENTIALS'], false);
+  const allowedOrigins = readCsvEnv(['SERVER_CORS_ORIGINS', 'SERVER_CORS_ORIGINS']);
+  const methods = readCsvEnv(['SERVER_CORS_METHODS', 'SERVER_CORS_METHODS'], DEFAULT_CORS_METHODS);
+  const allowedHeaders = readCsvEnv(['SERVER_CORS_HEADERS', 'SERVER_CORS_HEADERS'], DEFAULT_CORS_HEADERS);
+  const credentials = readBooleanEnv(['SERVER_CORS_CREDENTIALS', 'SERVER_CORS_CREDENTIALS'], false);
 
   if (allowedOrigins.length === 0 && !isDevelopmentLikeEnv()) {
-    throw new Error('非开发环境必须显式配置 SERVER_NEXT_CORS_ORIGINS 或 NEXT_CORS_ORIGINS，禁止继续使用全开 CORS。');
+    throw new Error('非开发环境必须显式配置 SERVER_CORS_ORIGINS 或 SERVER_CORS_ORIGINS，禁止继续使用全开 CORS。');
   }
 
   const allowedOriginSet = new Set(allowedOrigins.map(normalizeOrigin).filter(Boolean));
@@ -93,7 +93,7 @@ function buildOriginResolver(allowedOriginSet: Set<string>): CorsOriginResolver 
       return;
     }
 
-    callback(new Error(`Origin ${origin} is not allowed by server-next CORS policy.`), false);
+    callback(new Error(`Origin ${origin} is not allowed by server CORS policy.`), false);
   };
 }
 /**
@@ -103,7 +103,7 @@ function buildOriginResolver(allowedOriginSet: Set<string>): CorsOriginResolver 
 
 
 function isDevelopmentLikeEnv(): boolean {
-  const runtimeEnv = readTrimmedEnv('SERVER_NEXT_RUNTIME_ENV', 'APP_ENV', 'NODE_ENV').toLowerCase();
+  const runtimeEnv = readTrimmedEnv('SERVER_RUNTIME_ENV', 'APP_ENV', 'NODE_ENV').toLowerCase();
   return DEVELOPMENT_LIKE_ENVS.has(runtimeEnv);
 }
 /**

@@ -5,7 +5,7 @@
  */
 
 Object.defineProperty(exports, "__esModule", { value: true });
-const shared_1 = require("@mud/shared-next");
+const shared_1 = require("@mud/shared");
 const world_projector_service_1 = require("../network/world-projector.service");
 /**
  * 记录iterations。
@@ -676,7 +676,7 @@ function resolveScenarioThresholds(name) {
     if (!defaults) {
         return null;
     }
-    const prefix = `SERVER_NEXT_BENCH_SYNC_${name.toUpperCase().replace(/[^A-Z0-9]+/g, '_')}`;
+    const prefix = `SERVER_BENCH_SYNC_${name.toUpperCase().replace(/[^A-Z0-9]+/g, '_')}`;
     return {
         avgMs: readThresholdOverride(`${prefix}_AVG_MS`) ?? defaults.avgMs,
         p95Ms: readThresholdOverride(`${prefix}_P95_MS`) ?? defaults.p95Ms,

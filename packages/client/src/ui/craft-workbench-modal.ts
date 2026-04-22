@@ -1,13 +1,13 @@
 import {
   type AlchemyRecipeCatalogEntry,
-  type NEXT_C2S_StartEnhancement,
+  type C2S_StartEnhancement,
   EQUIP_SLOTS,
   type EnhancementTargetRef,
   type PlayerState,
-  type NEXT_S2C_AlchemyPanel,
-  type NEXT_S2C_AttrUpdate,
-  type NEXT_S2C_EnhancementPanel,
-} from '@mud/shared-next';
+  type S2C_AlchemyPanel,
+  type S2C_AttrUpdate,
+  type S2C_EnhancementPanel,
+} from '@mud/shared';
 import { getEquipSlotLabel, getItemTypeLabel, getTechniqueGradeLabel } from '../domain-labels';
 import { formatDisplayInteger, formatDisplayPercent } from '../utils/number';
 import { detailModalHost } from './detail-modal-host';
@@ -134,7 +134,7 @@ type CraftWorkbenchCallbacks = {
  * onStartEnhancement：onStart强化相关字段。
  */
 
-  onStartEnhancement: (payload: NEXT_C2S_StartEnhancement) => void;  
+  onStartEnhancement: (payload: C2S_StartEnhancement) => void;  
   /**
  * onCancelEnhancement：onCancel强化相关字段。
  */
@@ -166,9 +166,9 @@ export class CraftWorkbenchModal {
   /** loading：loading。 */
   private loading = false;
   /** alchemyPanel：炼丹面板。 */
-  private alchemyPanel: NEXT_S2C_AlchemyPanel | null = null;
+  private alchemyPanel: S2C_AlchemyPanel | null = null;
   /** enhancementPanel：强化面板。 */
-  private enhancementPanel: NEXT_S2C_EnhancementPanel | null = null;
+  private enhancementPanel: S2C_EnhancementPanel | null = null;
   /** alchemyCatalogVersion：炼丹目录版本。 */
   private alchemyCatalogVersion = 0;
   /** alchemyCatalog：炼丹目录。 */
@@ -193,7 +193,7 @@ export class CraftWorkbenchModal {
   }
 
   /** syncAttrUpdate：同步属性更新。 */
-  syncAttrUpdate(update: NEXT_S2C_AttrUpdate): void {
+  syncAttrUpdate(update: S2C_AttrUpdate): void {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
     if (update.alchemySkill) {
@@ -231,7 +231,7 @@ export class CraftWorkbenchModal {
   }
 
   /** updateAlchemy：更新炼丹。 */
-  updateAlchemy(data: NEXT_S2C_AlchemyPanel): void {
+  updateAlchemy(data: S2C_AlchemyPanel): void {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
     this.alchemyPanel = data;
@@ -246,7 +246,7 @@ export class CraftWorkbenchModal {
   }
 
   /** updateEnhancement：更新强化。 */
-  updateEnhancement(data: NEXT_S2C_EnhancementPanel): void {
+  updateEnhancement(data: S2C_EnhancementPanel): void {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
     this.enhancementPanel = data;
@@ -400,7 +400,7 @@ export class CraftWorkbenchModal {
           const targetLevelInput = card?.querySelector<HTMLInputElement>('[data-enhancement-target-level]');
           const protectionStartInput = card?.querySelector<HTMLInputElement>('[data-enhancement-protection-start]');
           const protectionSelect = card?.querySelector<HTMLSelectElement>('[data-enhancement-protection-select]');
-          const payload: NEXT_C2S_StartEnhancement = {
+          const payload: C2S_StartEnhancement = {
             target: source === 'equipment'
               ? { source: 'equipment', slot: 'weapon' }
               : { source: 'inventory', slotIndex: 0 },

@@ -783,6 +783,9 @@ export function validateEditableMapDocument(document: GmMapDocument): string | n
     const error = ensureWalkablePoint(portal.x, portal.y, label);
     if (error) return error;
     if (!portal.targetMapId.trim()) return `${label} 的目标地图不能为空`;
+    if (!Number.isInteger(portal.targetX) || !Number.isInteger(portal.targetY)) {
+      return `${label} 的目标 X/Y 坐标必须为整数`;
+    }
     if (!portal.routeDomain) return `${label} 的路网域不能为空`;
     const key = `${portal.x},${portal.y}`;
     if (portalKeys.has(key)) return `${label} 与其他传送点坐标重复`;
@@ -1050,6 +1053,56 @@ export function validateEditableMapDocument(document: GmMapDocument): string | n
     }
     if (spawn.respawnTicks !== undefined && (!Number.isInteger(spawn.respawnTicks) || spawn.respawnTicks <= 0)) {
       return `${label} 的重生时间必须为正整数`;
+    }
+  }
+
+  return null;
+}
+
+/** 对整批地图执行跨图传送点一一对应校验，保证两端都存在且严格回指。 */
+export function validateEditableMapPortalReciprocity(documents: readonly GmMapDocument[]): string | null {
+  const documentById = new Map<string, GmMapDocument>();
+
+  for (const document of documents) {
+    const mapId = document.id.trim();
+    if (!mapId) {
+      return '地图 ID 不能为空';
+    }
+    if (documentById.has(mapId)) {
+      return `地图 ID 重复: ${mapId}`;
+    }
+    documentById.set(mapId, document);
+  }
+
+  for (const document of documents) {
+    const sourceMapId = document.id.trim();
+    for (let index = 0; index < document.portals.length; index += 1) {
+      const portal = document.portals[index]!;
+      const label = `${sourceMapId} 的传送点 ${index + 1}`;
+      const targetMapId = portal.targetMapId.trim();
+      const targetDocument = documentById.get(targetMapId);
+      if (!targetDocument) {
+        return `${label} 的目标地图不存在: ${targetMapId}`;
+      }
+      if (
+        portal.targetX < 0
+        || portal.targetX >= targetDocument.width
+        || portal.targetY < 0
+        || portal.targetY >= targetDocument.height
+      ) {
+        return `${label} 的目标坐标越界: ${targetMapId} (${portal.targetX}, ${portal.targetY})`;
+      }
+      const targetPortal = targetDocument.portals.find((entry) => entry.x === portal.targetX && entry.y === portal.targetY);
+      if (!targetPortal) {
+        return `${label} 的目标坐标 ${targetMapId} (${portal.targetX}, ${portal.targetY}) 不是对应传送点`;
+      }
+      if (
+        targetPortal.targetMapId.trim() !== sourceMapId
+        || targetPortal.targetX !== portal.x
+        || targetPortal.targetY !== portal.y
+      ) {
+        return `${label} 与目标传送点 ${targetMapId} (${portal.targetX}, ${portal.targetY}) 不是一一对应`;
+      }
     }
   }
 

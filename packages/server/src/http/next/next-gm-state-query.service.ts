@@ -5,7 +5,7 @@ import {
   type GmListPlayersQuery,
   type GmManagedPlayerSummary,
   type GmPlayerSortMode,
-} from '@mud/shared-next';
+} from '@mud/shared';
 import { MapTemplateRepository } from '../../runtime/map/map-template.repository';
 import { PlayerPersistenceService } from '../../persistence/player-persistence.service';
 import { PlayerProgressionService } from '../../runtime/player/player-progression.service';

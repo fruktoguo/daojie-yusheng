@@ -1,4 +1,4 @@
-import { resolveServerNextDatabaseEnvSource } from '../config/env-alias';
+import { resolveServerDatabaseEnvSource } from '../config/env-alias';
 /**
  * PersistenceServiceLike：定义接口结构约束，明确可交付字段含义。
  */
@@ -320,10 +320,10 @@ export function buildHealthResponse(dependencies: HealthReadinessDependencies): 
 
   return {
     ok: readinessOk,
-    service: 'server-next',
+    service: 'server',
     alive: {
       ok: true,
-      service: 'server-next',
+      service: 'server',
     },
     readiness: {
       ok: readinessOk,
@@ -367,7 +367,7 @@ function resolveDatabaseReadiness() {
 
 /** 读取数据库配置来源，统一从 env alias 解析。 */
 function resolveDatabaseSource(): string | null {
-  return resolveServerNextDatabaseEnvSource();
+  return resolveServerDatabaseEnvSource();
 }
 
 /** 读取服务级持久化开关，用于 readiness 中快速降级。 */

@@ -21,29 +21,29 @@ class WorldGatewaySuggestionHelper {
         this.gateway = gateway;
     }    
     /**
- * handleNextRequestSuggestions：处理NextRequestSuggestion并更新相关状态。
+ * handleRequestSuggestions：处理NextRequestSuggestion并更新相关状态。
  * @param client 参数说明。
  * @param payload 载荷参数。
  * @returns 无返回值，直接更新NextRequestSuggestion相关状态。
  */
 
-    handleNextRequestSuggestions(client, payload) {
+    handleRequestSuggestions(client, payload) {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
         const playerId = this.gateway.gatewayGuardHelper.requirePlayerId(client);
         if (!playerId) {
             return;
         }
-        this.gateway.gatewayClientEmitHelper.emitNextSuggestionUpdate(client, this.gateway.suggestionRuntimeService.getAll());
+        this.gateway.gatewayClientEmitHelper.emitSuggestionUpdate(client, this.gateway.suggestionRuntimeService.getAll());
     }    
     /**
- * handleNextCreateSuggestion：构建NextCreateSuggestion。
+ * handleCreateSuggestion：构建NextCreateSuggestion。
  * @param client 参数说明。
  * @param payload 载荷参数。
  * @returns 无返回值，直接更新NextCreateSuggestion相关状态。
  */
 
-    async handleNextCreateSuggestion(client, payload) {
+    async handleCreateSuggestion(client, payload) {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
         const playerId = this.gateway.gatewayGuardHelper.requirePlayerId(client);
@@ -59,13 +59,13 @@ class WorldGatewaySuggestionHelper {
         }
     }    
     /**
- * handleNextVoteSuggestion：处理NextVoteSuggestion并更新相关状态。
+ * handleVoteSuggestion：处理NextVoteSuggestion并更新相关状态。
  * @param client 参数说明。
  * @param payload 载荷参数。
  * @returns 无返回值，直接更新NextVoteSuggestion相关状态。
  */
 
-    async handleNextVoteSuggestion(client, payload) {
+    async handleVoteSuggestion(client, payload) {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
         const playerId = this.gateway.gatewayGuardHelper.requirePlayerId(client);
@@ -81,13 +81,13 @@ class WorldGatewaySuggestionHelper {
         }
     }    
     /**
- * handleNextReplySuggestion：处理NextReplySuggestion并更新相关状态。
+ * handleReplySuggestion：处理NextReplySuggestion并更新相关状态。
  * @param client 参数说明。
  * @param payload 载荷参数。
  * @returns 无返回值，直接更新NextReplySuggestion相关状态。
  */
 
-    async handleNextReplySuggestion(client, payload) {
+    async handleReplySuggestion(client, payload) {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
         const playerId = this.gateway.gatewayGuardHelper.requirePlayerId(client);
@@ -103,13 +103,13 @@ class WorldGatewaySuggestionHelper {
         }
     }    
     /**
- * handleNextMarkSuggestionRepliesRead：读取NextMarkSuggestionReplyRead并返回结果。
+ * handleMarkSuggestionRepliesRead：读取NextMarkSuggestionReplyRead并返回结果。
  * @param client 参数说明。
  * @param payload 载荷参数。
  * @returns 无返回值，直接更新NextMarkSuggestionReplyRead相关状态。
  */
 
-    async handleNextMarkSuggestionRepliesRead(client, payload) {
+    async handleMarkSuggestionRepliesRead(client, payload) {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
         const playerId = this.gateway.gatewayGuardHelper.requirePlayerId(client);

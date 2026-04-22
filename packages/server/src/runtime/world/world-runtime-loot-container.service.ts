@@ -15,7 +15,7 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.WorldRuntimeLootContainerService = void 0;
 
 const common_1 = require("@nestjs/common");
-const shared_1 = require("@mud/shared-next");
+const shared_1 = require("@mud/shared");
 const content_template_repository_1 = require("../../content/content-template.repository");
 const player_runtime_service_1 = require("../player/player-runtime.service");
 const world_runtime_normalization_helpers_1 = require("./world-runtime.normalization.helpers");

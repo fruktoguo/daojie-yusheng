@@ -69,7 +69,7 @@ export class WorldPlayerSnapshotService {
     return this.playerPersistenceService.isEnabled();
   }
 
-  async loadNextPlayerSnapshotRecord(playerId: string): Promise<PersistedPlayerSnapshotRecord | null> {
+  async loadPersistedPlayerSnapshotRecord(playerId: string): Promise<PersistedPlayerSnapshotRecord | null> {
     return this.playerPersistenceService.loadPlayerSnapshotRecord(playerId);
   }
 
@@ -83,7 +83,7 @@ export class WorldPlayerSnapshotService {
     }
 
     try {
-      const existingSnapshotRecord = await this.loadNextPlayerSnapshotRecord(normalizedPlayerId);
+      const existingSnapshotRecord = await this.loadPersistedPlayerSnapshotRecord(normalizedPlayerId);
       if (existingSnapshotRecord?.snapshot) {
         return {
           ok: true,
@@ -138,7 +138,7 @@ export class WorldPlayerSnapshotService {
   ): Promise<LoadPlayerSnapshotResult> {
     let nextSnapshotRecord: PersistedPlayerSnapshotRecord | null = null;
     try {
-      nextSnapshotRecord = await this.loadNextPlayerSnapshotRecord(playerId);
+      nextSnapshotRecord = await this.loadPersistedPlayerSnapshotRecord(playerId);
     } catch (error: unknown) {
       const message = `Player snapshot next record load failed: playerId=${playerId} error=${error instanceof Error ? error.message : String(error)}`;
       this.logger.error(message);
@@ -185,7 +185,7 @@ export class WorldPlayerSnapshotService {
         seedPersisted: false,
       };
     }
-    return buildNextOnlySnapshotMissResult(playerId, fallbackReason, this.logger);
+    return buildPersistedSnapshotMissResult(playerId, fallbackReason, this.logger);
   }
 
   async loadPlayerSnapshot(
@@ -197,7 +197,7 @@ export class WorldPlayerSnapshotService {
   }
 }
 
-function buildNextOnlySnapshotMissResult(
+function buildPersistedSnapshotMissResult(
   playerId: string,
   fallbackReason: string | null,
   logger: Logger,

@@ -23,14 +23,14 @@ class WorldGatewayCraftHelper {
         this.gateway = gateway;
     }    
     /**
- * handleNextRequestTechniqueActivityPanel：统一技艺面板请求入口。
+ * handleRequestTechniqueActivityPanel：统一技艺面板请求入口。
  * @param client 参数说明。
  * @param payload 载荷参数。
  * @param kind 参数说明。
  * @returns 无返回值，直接更新技艺面板请求相关状态。
  */
 
-    handleNextRequestTechniqueActivityPanel(client, payload, kind) {
+    handleRequestTechniqueActivityPanel(client, payload, kind) {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
         const playerId = this.gateway.gatewayGuardHelper.requirePlayerId(client);
@@ -42,7 +42,7 @@ class WorldGatewayCraftHelper {
             if (!player) {
                 return;
             }
-            this.gateway.worldClientEventService.markProtocol(client, 'next');
+            this.gateway.worldClientEventService.markProtocol(client, 'mainline');
             const panelPayload = this.gateway.craftPanelRuntimeService.buildTechniqueActivityPanelPayload(player, kind, payload?.knownCatalogVersion);
             (0, technique_activity_registry_helpers_1.emitTechniqueActivityPanel)(client, kind, panelPayload);
         }
@@ -51,14 +51,14 @@ class WorldGatewayCraftHelper {
         }
     }    
     /**
- * handleNextStartTechniqueActivity：统一技艺活动开始入口。
+ * handleStartTechniqueActivity：统一技艺活动开始入口。
  * @param client 参数说明。
  * @param payload 载荷参数。
  * @param kind 参数说明。
  * @returns 无返回值，直接更新技艺活动开始相关状态。
  */
 
-    handleNextStartTechniqueActivity(client, payload, kind) {
+    handleStartTechniqueActivity(client, payload, kind) {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
         const playerId = this.gateway.gatewayGuardHelper.requirePlayerId(client);
@@ -66,7 +66,7 @@ class WorldGatewayCraftHelper {
             return;
         }
         try {
-            this.gateway.worldClientEventService.markProtocol(client, 'next');
+            this.gateway.worldClientEventService.markProtocol(client, 'mainline');
             this.gateway.worldRuntimeService.worldRuntimeCommandIntakeFacadeService.enqueueStartTechniqueActivity(playerId, kind, payload, this.gateway.worldRuntimeService);
         }
         catch (error) {
@@ -74,13 +74,13 @@ class WorldGatewayCraftHelper {
         }
     }    
     /**
- * handleNextCancelTechniqueActivity：统一技艺活动取消入口。
+ * handleCancelTechniqueActivity：统一技艺活动取消入口。
  * @param client 参数说明。
  * @param kind 参数说明。
  * @returns 无返回值，直接更新技艺活动取消相关状态。
  */
 
-    handleNextCancelTechniqueActivity(client, kind) {
+    handleCancelTechniqueActivity(client, kind) {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
         const playerId = this.gateway.gatewayGuardHelper.requirePlayerId(client);
@@ -88,7 +88,7 @@ class WorldGatewayCraftHelper {
             return;
         }
         try {
-            this.gateway.worldClientEventService.markProtocol(client, 'next');
+            this.gateway.worldClientEventService.markProtocol(client, 'mainline');
             this.gateway.worldRuntimeService.worldRuntimeCommandIntakeFacadeService.enqueueCancelTechniqueActivity(playerId, kind, this.gateway.worldRuntimeService);
         }
         catch (error) {
@@ -96,54 +96,54 @@ class WorldGatewayCraftHelper {
         }
     }    
     /**
- * handleNextRequestAlchemyPanel：处理NextRequest炼丹面板并更新相关状态。
+ * handleRequestAlchemyPanel：处理炼丹面板请求并更新相关状态。
  * @param client 参数说明。
  * @param payload 载荷参数。
- * @returns 无返回值，直接更新NextRequest炼丹面板相关状态。
+ * @returns 无返回值，直接更新炼丹面板请求相关状态。
  */
 
-    handleNextRequestAlchemyPanel(client, payload) {
-        this.handleNextRequestTechniqueActivityPanel(client, payload, 'alchemy');
+    handleRequestAlchemyPanel(client, payload) {
+        this.handleRequestTechniqueActivityPanel(client, payload, 'alchemy');
     }    
     /**
- * handleNextRequestEnhancementPanel：处理NextRequest强化面板并更新相关状态。
+ * handleRequestEnhancementPanel：处理强化面板请求并更新相关状态。
  * @param client 参数说明。
  * @param _payload 参数说明。
- * @returns 无返回值，直接更新NextRequest强化面板相关状态。
+ * @returns 无返回值，直接更新强化面板请求相关状态。
  */
 
-    handleNextRequestEnhancementPanel(client, _payload) {
-        this.handleNextRequestTechniqueActivityPanel(client, _payload, 'enhancement');
+    handleRequestEnhancementPanel(client, _payload) {
+        this.handleRequestTechniqueActivityPanel(client, _payload, 'enhancement');
     }    
     /**
- * handleNextStartAlchemy：处理Next开始炼丹并更新相关状态。
+ * handleStartAlchemy：处理开始炼丹并更新相关状态。
  * @param client 参数说明。
  * @param payload 载荷参数。
- * @returns 无返回值，直接更新NextStart炼丹相关状态。
+ * @returns 无返回值，直接更新开始炼丹相关状态。
  */
 
-    handleNextStartAlchemy(client, payload) {
-        this.handleNextStartTechniqueActivity(client, payload, 'alchemy');
+    handleStartAlchemy(client, payload) {
+        this.handleStartTechniqueActivity(client, payload, 'alchemy');
     }    
     /**
- * handleNextCancelAlchemy：判断NextCancel炼丹是否满足条件。
+ * handleCancelAlchemy：判断取消炼丹是否满足条件。
  * @param client 参数说明。
  * @param _payload 参数说明。
- * @returns 无返回值，直接更新NextCancel炼丹相关状态。
+ * @returns 无返回值，直接更新取消炼丹相关状态。
  */
 
-    handleNextCancelAlchemy(client, _payload) {
+    handleCancelAlchemy(client, _payload) {
         void _payload;
-        this.handleNextCancelTechniqueActivity(client, 'alchemy');
+        this.handleCancelTechniqueActivity(client, 'alchemy');
     }    
     /**
- * handleNextSaveAlchemyPreset：处理NextSave炼丹Preset并更新相关状态。
+ * handleSaveAlchemyPreset：处理保存炼丹预设并更新相关状态。
  * @param client 参数说明。
  * @param payload 载荷参数。
- * @returns 无返回值，直接更新NextSave炼丹Preset相关状态。
+ * @returns 无返回值，直接更新保存炼丹预设相关状态。
  */
 
-    handleNextSaveAlchemyPreset(client, payload) {
+    handleSaveAlchemyPreset(client, payload) {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
         const playerId = this.gateway.gatewayGuardHelper.requirePlayerId(client);
@@ -151,7 +151,7 @@ class WorldGatewayCraftHelper {
             return;
         }
         try {
-            this.gateway.worldClientEventService.markProtocol(client, 'next');
+            this.gateway.worldClientEventService.markProtocol(client, 'mainline');
             this.gateway.worldRuntimeService.worldRuntimeCommandIntakeFacadeService.enqueueSaveAlchemyPreset(playerId, payload, this.gateway.worldRuntimeService);
         }
         catch (error) {
@@ -159,13 +159,13 @@ class WorldGatewayCraftHelper {
         }
     }    
     /**
- * handleNextDeleteAlchemyPreset：处理NextDelete炼丹Preset并更新相关状态。
+ * handleDeleteAlchemyPreset：处理删除炼丹预设并更新相关状态。
  * @param client 参数说明。
  * @param payload 载荷参数。
- * @returns 无返回值，直接更新NextDelete炼丹Preset相关状态。
+ * @returns 无返回值，直接更新删除炼丹预设相关状态。
  */
 
-    handleNextDeleteAlchemyPreset(client, payload) {
+    handleDeleteAlchemyPreset(client, payload) {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
         const playerId = this.gateway.gatewayGuardHelper.requirePlayerId(client);
@@ -173,7 +173,7 @@ class WorldGatewayCraftHelper {
             return;
         }
         try {
-            this.gateway.worldClientEventService.markProtocol(client, 'next');
+            this.gateway.worldClientEventService.markProtocol(client, 'mainline');
             this.gateway.worldRuntimeService.worldRuntimeCommandIntakeFacadeService.enqueueDeleteAlchemyPreset(playerId, payload?.presetId, this.gateway.worldRuntimeService);
         }
         catch (error) {
@@ -181,25 +181,25 @@ class WorldGatewayCraftHelper {
         }
     }    
     /**
- * handleNextStartEnhancement：处理Next开始强化并更新相关状态。
+ * handleStartEnhancement：处理开始强化并更新相关状态。
  * @param client 参数说明。
  * @param payload 载荷参数。
- * @returns 无返回值，直接更新NextStart强化相关状态。
+ * @returns 无返回值，直接更新开始强化相关状态。
  */
 
-    handleNextStartEnhancement(client, payload) {
-        this.handleNextStartTechniqueActivity(client, payload, 'enhancement');
+    handleStartEnhancement(client, payload) {
+        this.handleStartTechniqueActivity(client, payload, 'enhancement');
     }    
     /**
- * handleNextCancelEnhancement：判断NextCancel强化是否满足条件。
+ * handleCancelEnhancement：判断取消强化是否满足条件。
  * @param client 参数说明。
  * @param _payload 参数说明。
- * @returns 无返回值，直接更新NextCancel强化相关状态。
+ * @returns 无返回值，直接更新取消强化相关状态。
  */
 
-    handleNextCancelEnhancement(client, _payload) {
+    handleCancelEnhancement(client, _payload) {
         void _payload;
-        this.handleNextCancelTechniqueActivity(client, 'enhancement');
+        this.handleCancelTechniqueActivity(client, 'enhancement');
     }
 }
 exports.WorldGatewayCraftHelper = WorldGatewayCraftHelper;

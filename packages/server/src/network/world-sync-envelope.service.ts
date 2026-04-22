@@ -70,7 +70,7 @@ let WorldSyncEnvelopeService = class WorldSyncEnvelopeService {
  */
 
     createInitialEnvelope(playerId, binding, view, player) {
-        const envelope = this.appendNextCombatEffects(this.worldProjectorService.createInitialEnvelope(binding, view, player), view, player);
+        const envelope = this.appendCombatEffects(this.worldProjectorService.createInitialEnvelope(binding, view, player), view, player);
         this.logMovementEnvelope(playerId, 'initial', envelope);
         return envelope;
     }    
@@ -83,7 +83,7 @@ let WorldSyncEnvelopeService = class WorldSyncEnvelopeService {
  */
 
     createDeltaEnvelope(playerId, view, player) {
-        const envelope = this.appendNextCombatEffects(this.worldProjectorService.createDeltaEnvelope(view, player), view, player);
+        const envelope = this.appendCombatEffects(this.worldProjectorService.createDeltaEnvelope(view, player), view, player);
         this.logMovementEnvelope(playerId, 'delta', envelope);
         return envelope;
     }    
@@ -104,10 +104,10 @@ let WorldSyncEnvelopeService = class WorldSyncEnvelopeService {
  * @returns 无返回值，直接更新appendNext战斗Effect相关状态。
  */
 
-    appendNextCombatEffects(envelope, view, player) {
+    appendCombatEffects(envelope, view, player) {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
-        const effects = this.collectNextCombatEffects(view, player);
+        const effects = this.collectCombatEffects(view, player);
         if (effects.length === 0) {
             return envelope;
         }
@@ -128,7 +128,7 @@ let WorldSyncEnvelopeService = class WorldSyncEnvelopeService {
  * @returns 无返回值，直接更新Next战斗Effect相关状态。
  */
 
-    collectNextCombatEffects(view, player) {
+    collectCombatEffects(view, player) {
         const template = this.templateRepository.getOrThrow(view.instance.templateId);
         const visibleTileKeys = this.worldSyncMapSnapshotService.buildVisibleTileKeySet(view, player, template);
         return filterCombatEffects(this.worldRuntimeService.getCombatEffects(view.instance.instanceId), visibleTileKeys);

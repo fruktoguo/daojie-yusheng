@@ -1,27 +1,27 @@
-# server-next 运维与验证
+# server 运维与验证
 
 更新时间：2026-04-16
 
 这份文档收口原先分散在 `packages/server/TESTING.md`、`packages/server/REPLACE-RUNBOOK.md`
 与 workflow / wrapper 里的重复内容，统一回答四件事：
 
-1. `server-next` 现在的验证口径是什么
+1. `server` 现在的验证口径是什么
 2. `local / with-db / acceptance / full / shadow-destructive` 五层门禁分别怎么跑
 3. 自动 proof 和人工回归边界怎么切
 4. shadow / `gm/database/*` 演练时要注意什么
 
-如需看前端重构本身、`client-next` UI 状态与前端专属验证口径，统一看 [docs/frontend-refactor/verification.md](./frontend-refactor/verification.md) 与 [docs/frontend-refactor/README.md](./frontend-refactor/README.md)。
+如需看前端重构本身、`packages/client` UI 状态与前端专属验证口径，统一看 [docs/frontend-refactor/verification.md](./frontend-refactor/verification.md) 与 [docs/frontend-refactor/README.md](./frontend-refactor/README.md)。
 
 如需看 GM 凭据、默认密码禁用口径与本地显式降级规则，统一看 [docs/gm-security-baseline.md](./gm-security-baseline.md)。
 
 ## 当前定位
 
-- `server-next` 当前仍是独立 shadow / replace-ready 线，不是默认正式生产入口。
-- `packages/server` 是当前目录主线；`server-next` 主要保留为包名与历史命令名。
+- `packages/server` 当前仍是独立 shadow / replace-ready 线，不是默认正式生产入口。
+- `server` 现在主要只保留在兼容命名里，不再代表新的主线目录或主入口。
 - 所有 `verify:replace-ready*`、`shadow`、`gm/database` 相关命令，默认都只证明替换链路与运维链路可演练，不等于“已经可完整接班”。
-- 根级主入口现在是 `verify:replace-ready*`；`verify:server-next*` 只保留为兼容别名。
+- 根级主入口现在是 `verify:replace-ready*`。
 - 根级 `verify:replace-ready*` 和 `packages/server` 包内直接执行的 `verify/smoke` 现在都会默认尝试加载本地 env：
-  - `.runtime/server-next.local.env`
+  - `.runtime/server.local.env`
   - `.env`
   - `.env.local`
   - `packages/server/.env`
@@ -30,7 +30,7 @@
   - `local`：本地主证明链
   - `with-db`：本地主证明链 + 持久化带库 proof
   - `acceptance`：`local + shadow + shadow GM 关键写路径`
-  - `full`：`with-db + gm-database + backup-persistence + shadow + gm-next`
+  - `full`：`with-db + gm-database + backup-persistence + shadow + gm`
   - `shadow-destructive`：维护窗口内的破坏性数据库闭环，只允许显式开启
 - 这五层不是同一件事的不同叫法，不能混读。
 - `local` 只能回答“代码和主证明链是否绿”
@@ -50,8 +50,8 @@
 用途：
 
 - 先检查环境变量是否齐备
-- 再跑 `client-next build`、本地主证明链、协议审计
-- 如果存在 `DATABASE_URL` 或 `SERVER_NEXT_DATABASE_URL`，会自动转入带库链
+- 再跑 `build:client`、本地主证明链、协议审计
+- 如果存在数据库连接（兼容键：`DATABASE_URL` / `SERVER_DATABASE_URL`），会自动转入带库链
 
 ### 2. 最小带库证明
 
@@ -78,7 +78,7 @@
 用途：
 
 - 不自启本地服务
-- 直接打 `SERVER_NEXT_SHADOW_URL` 或 `SERVER_NEXT_URL`
+- 直接打 shadow URL（兼容键：`SERVER_SHADOW_URL` / `SERVER_URL`）
 - 验收 `/health`、GM 登录、`/gm/state`、`/gm/maps`、`/gm/editor-catalog`、`/gm/maps/:mapId/runtime`，以及最小 next 会话链
 
 ### 5. 增强验收
@@ -89,7 +89,7 @@
 
 - 先跑 `local`
 - 再跑 `shadow`
-- 再跑 shadow 上的 `pnpm --filter @mud/server-next smoke:gm-next`
+- 再跑 shadow 上的 `pnpm --dir packages/server smoke:gm`
 
 ### 6. 最严格自动化门禁
 
@@ -98,7 +98,7 @@
 用途：
 
 - 强制要求数据库、shadow、GM 密码环境齐备
-- 串行执行 `with-db -> gm-database -> gm-database-backup-persistence -> shadow -> gm-next`
+- 串行执行 `with-db -> gm-database -> gm-database-backup-persistence -> shadow -> gm`
 - 只证明自动化门禁，不代替人工运营回归
 
 ### 7. 维护窗口破坏性 proof
@@ -110,10 +110,10 @@
 
 - `preflight` 只回答 destructive 开关与 target `maintenance-active` 是否就绪
 - 只在维护窗口执行
-- 需要显式设置 `SERVER_NEXT_SHADOW_ALLOW_DESTRUCTIVE=1`
+- 需要显式设置 destructive 开关（当前兼容键：`SERVER_SHADOW_ALLOW_DESTRUCTIVE=1`）
 - 用于 shadow 上单独验证 `backup -> download -> restore`
 - 默认不应进入日常 deploy 链
-- `Deploy Server Next Shadow` workflow 现在只会在显式开启 `run-destructive-proof=true` 时进入这条链
+- `Deploy Replace-Ready Shadow` workflow 现在只会在显式开启 `run-destructive-proof=true` 时进入这条链
 - workflow dispatch 还会强制要求填写：
   - `destructive-maintenance-ticket`
   - `destructive-rollback-plan-ref`
@@ -126,38 +126,38 @@
 
 基础必填：
 
-- `SERVER_NEXT_PLAYER_TOKEN_SECRET` 或 `NEXT_PLAYER_TOKEN_SECRET`
-- `SERVER_NEXT_RUNTIME_TOKEN`
+- 玩家 token secret（兼容键：`SERVER_PLAYER_TOKEN_SECRET` / `NEXT_PLAYER_TOKEN_SECRET`）
+- runtime token（当前兼容键：`SERVER_RUNTIME_TOKEN`）
 
 带库链额外需要：
 
-- `SERVER_NEXT_DATABASE_URL` 或 `DATABASE_URL`
+- 数据库连接（兼容键：`SERVER_DATABASE_URL` / `DATABASE_URL`）
 
 shadow / acceptance / full 额外需要：
 
-- `SERVER_NEXT_SHADOW_URL` 或 `SERVER_NEXT_URL`
-- `SERVER_NEXT_GM_PASSWORD` 或 `GM_PASSWORD`
+- shadow URL（兼容键：`SERVER_SHADOW_URL` / `SERVER_URL`）
+- GM 密码（兼容键：`SERVER_GM_PASSWORD` / `GM_PASSWORD`）
 
 本地开发如需显式临时降级为默认 GM 密码，额外需要：
 
-- `SERVER_NEXT_ALLOW_INSECURE_LOCAL_GM_PASSWORD=1` 或 `GM_ALLOW_INSECURE_LOCAL_GM_PASSWORD=1`
-- `SERVER_NEXT_RUNTIME_ENV` / `APP_ENV` / `NODE_ENV` 必须是 `development`、`dev`、`local` 或 `test`
+- 允许本地不安全 GM 密码（兼容键：`SERVER_ALLOW_INSECURE_LOCAL_GM_PASSWORD=1` / `GM_ALLOW_INSECURE_LOCAL_GM_PASSWORD=1`）
+- 运行环境（兼容键：`SERVER_RUNTIME_ENV` / `APP_ENV` / `NODE_ENV`）必须是 `development`、`dev`、`local` 或 `test`
 - 该降级只允许本地开发；`shadow / acceptance / full / 生产` 一律禁止
 
 shadow-destructive 额外需要：
 
-- `SERVER_NEXT_SHADOW_ALLOW_DESTRUCTIVE=1`
+- destructive 开关（当前兼容键：`SERVER_SHADOW_ALLOW_DESTRUCTIVE=1`）
 - 维护窗口、回滚预案、操作人确认
 - 如果走 deploy workflow，还必须补齐 maintenance ticket / rollback plan / operator 三个输入
 
 按需：
 
-- `SERVER_NEXT_GM_DATABASE_BACKUP_DIR` 或 `GM_DATABASE_BACKUP_DIR`
-- `SERVER_NEXT_AUTH_TRACE_ENABLED=1` 或 `NEXT_AUTH_TRACE_ENABLED=1`
-- `SERVER_NEXT_ALLOW_UNREADY_TRAFFIC=1`
-- `SERVER_NEXT_SMOKE_ALLOW_UNREADY=1`
-- `SERVER_NEXT_RUNTIME_HTTP=1`
-- `SERVER_NEXT_RUNTIME_MAINTENANCE=1` 或 `RUNTIME_MAINTENANCE=1`
+- GM 数据库备份目录（兼容键：`SERVER_GM_DATABASE_BACKUP_DIR` / `GM_DATABASE_BACKUP_DIR`）
+- auth trace 开关（兼容键：`SERVER_AUTH_TRACE_ENABLED=1` / `NEXT_AUTH_TRACE_ENABLED=1`）
+- 允许未 ready 流量（当前兼容键：`SERVER_ALLOW_UNREADY_TRAFFIC=1`）
+- smoke 允许未 ready（当前兼容键：`SERVER_SMOKE_ALLOW_UNREADY=1`）
+- runtime HTTP 开关（当前兼容键：`SERVER_RUNTIME_HTTP=1`）
+- runtime maintenance 开关（兼容键：`SERVER_RUNTIME_MAINTENANCE=1` / `RUNTIME_MAINTENANCE=1`）
 
 ## 当前门禁口径
 
@@ -237,7 +237,7 @@ shadow-destructive 额外需要：
 
 - `shadow-destructive` 的维护窗口是否真的开放
 - `gm/database/*` 真实恢复后的业务态是否符合预期
-- `gm-next` 输出里需要人工核对的只读摘要
+- `gm` 输出里需要人工核对的只读摘要
 - 真实 shadow / GM 环境是否按 runbook 完成演练
 
 真实切换当天统一按下面两份文档执行与回写：
@@ -258,20 +258,20 @@ shadow-destructive 额外需要：
 
 需要局部排障时，再直接跑包内命令：
 
-- `pnpm --filter @mud/server-next verify:replace-ready`
-- `pnpm --filter @mud/server-next verify:proof:with-db`
-- `pnpm --filter @mud/server-next smoke:session`
-- `pnpm --filter @mud/server-next smoke:readiness-gate`
-- `pnpm --filter @mud/server-next smoke:next-auth-bootstrap`
-- `pnpm --filter @mud/server-next smoke:gm-next`
-- `pnpm --filter @mud/server-next smoke:gm-database`
-- `pnpm --filter @mud/server-next smoke:shadow`
-- `pnpm --filter @mud/server-next smoke:shadow:gm-database`
-- `pnpm --filter @mud/server-next smoke:gm-database:backup-persistence`
-- `pnpm audit:server-next-boundaries`
-- `pnpm audit:server-next-protocol`
+- `pnpm --dir packages/server verify:replace-ready`
+- `pnpm --dir packages/server verify:proof:with-db`
+- `pnpm --dir packages/server smoke:session`
+- `pnpm --dir packages/server smoke:readiness-gate`
+- `pnpm --dir packages/server smoke:auth-bootstrap`
+- `pnpm --dir packages/server smoke:gm`
+- `pnpm --dir packages/server smoke:gm-database`
+- `pnpm --dir packages/server smoke:shadow`
+- `pnpm --dir packages/server smoke:shadow:gm-database`
+- `pnpm --dir packages/server smoke:gm-database:backup-persistence`
+- `pnpm audit:boundaries`
+- `pnpm audit:protocol`
 
-如果工作区里其他包有未完成改动，导致 shared 编译阻塞，也可以只验证 `server-next` 自身：
+如果工作区里其他包有未完成改动，导致 shared 编译阻塞，也可以只验证 `packages/server` 自身：
 
 ```bash
 node node_modules/.pnpm/node_modules/typescript/bin/tsc -p packages/server/tsconfig.json
@@ -280,7 +280,7 @@ node node_modules/.pnpm/node_modules/typescript/bin/tsc -p packages/server/tscon
 说明：
 
 - `smoke:legacy-auth` 与 `smoke:legacy-player-compat` 已从 active 主包删除，不再是默认验证入口。
-- 旧兼容入口的剩余覆盖，当前统一收进 `smoke:next-auth-bootstrap`、`smoke:gm-next` 与 `next-legacy-boundary-audit`。
+- 旧兼容入口的剩余覆盖，当前统一收进 `smoke:auth-bootstrap`、`smoke:gm` 与 `next-legacy-boundary-audit`。
 
 ## shadow / 数据库演练要点
 
@@ -293,7 +293,7 @@ node node_modules/.pnpm/node_modules/typescript/bin/tsc -p packages/server/tscon
 3. `bash ./scripts/shadow-local-verify.sh`
 4. `bash ./scripts/shadow-local-acceptance.sh`
 5. `bash ./scripts/shadow-local-full.sh`
-6. 如需 GM 关键写路径：`SERVER_NEXT_URL=http://127.0.0.1:11923 pnpm --filter @mud/server-next smoke:gm-next`
+6. 如需 GM 关键写路径：`SERVER_URL=http://127.0.0.1:11923 pnpm --dir packages/server smoke:gm`
 7. 如需一键串起常用链：`bash ./scripts/shadow-local-all.sh`
 
 这些 `.sh` 会自动加载本地 env，不需要手工 `export` shadow URL、GM 密码或 destructive 开关。
@@ -332,19 +332,19 @@ node node_modules/.pnpm/node_modules/typescript/bin/tsc -p packages/server/tscon
 
 进入 `shadow-destructive` 前，至少要同时满足：
 
-1. `SERVER_NEXT_SHADOW_URL` 或 `SERVER_NEXT_URL` 已指向目标 shadow
-2. `SERVER_NEXT_GM_PASSWORD` 或 `GM_PASSWORD` 已就绪
-3. `SERVER_NEXT_SHADOW_ALLOW_DESTRUCTIVE=1` 已显式设置
+1. shadow URL（兼容键：`SERVER_SHADOW_URL` / `SERVER_URL`）已指向目标 shadow
+2. GM 密码（兼容键：`SERVER_GM_PASSWORD` / `GM_PASSWORD`）已就绪
+3. destructive 开关（当前兼容键：`SERVER_SHADOW_ALLOW_DESTRUCTIVE=1`）已显式设置
 4. `pnpm verify:replace-ready:shadow:destructive:preflight` 已确认 target `maintenance-active`
 5. 维护窗口、回滚预案、负责人已经确认
-6. 先执行非破坏性 `shadow` / `gm-next` 验证，再执行 destructive proof
+6. 先执行非破坏性 `shadow` / `gm` 验证，再执行 destructive proof
 7. destructive 结束后立刻检查 `backup / download / restore / checkpoint metadata`
 
 ### 已部署 shadow
 
-1. 先确保 `SERVER_NEXT_SHADOW_URL/SERVER_NEXT_URL` 与 `SERVER_NEXT_GM_PASSWORD/GM_PASSWORD` 已配置
+1. 先确保 shadow URL 与 GM 密码兼容键已配置
 2. 跑 `pnpm verify:replace-ready:shadow`
-3. 再跑 `pnpm --filter @mud/server-next smoke:gm-next`
+3. 再跑 `pnpm --dir packages/server smoke:gm`
 4. 如需破坏性数据库闭环，再进入维护窗口执行 `pnpm verify:replace-ready:shadow:destructive`
 
 ### `acceptance` 与 `full` 的边界

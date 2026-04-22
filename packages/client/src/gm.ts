@@ -75,7 +75,7 @@ import {
   type RedeemCodeCodeView,
   type RedeemCodeGroupRewardItem,
   type RedeemCodeGroupView,
-} from '@mud/shared-next';
+} from '@mud/shared';
 import {
   GM_FACING_OPTIONS,
   GM_QUEST_LINE_OPTIONS,
@@ -211,8 +211,20 @@ const summaryPathWorkersEl = document.getElementById('summary-path-workers') as 
 const summaryPathCancelledEl = document.getElementById('summary-path-cancelled') as HTMLDivElement;
 /** summaryNetInBreakdownEl：摘要Net In Breakdown El。 */
 const summaryNetInBreakdownEl = document.getElementById('summary-net-in-breakdown') as HTMLDivElement;
+/** networkInPrevPageBtn：网络上行上一页Btn。 */
+const networkInPrevPageBtn = document.getElementById('network-in-page-prev') as HTMLButtonElement;
+/** networkInNextPageBtn：网络上行下一页Btn。 */
+const networkInNextPageBtn = document.getElementById('network-in-page-next') as HTMLButtonElement;
+/** networkInPageMetaEl：网络上行分页元数据。 */
+const networkInPageMetaEl = document.getElementById('network-in-page-meta') as HTMLDivElement;
 /** summaryNetOutBreakdownEl：摘要Net Out Breakdown El。 */
 const summaryNetOutBreakdownEl = document.getElementById('summary-net-out-breakdown') as HTMLDivElement;
+/** networkOutPrevPageBtn：网络下行上一页Btn。 */
+const networkOutPrevPageBtn = document.getElementById('network-out-page-prev') as HTMLButtonElement;
+/** networkOutNextPageBtn：网络下行下一页Btn。 */
+const networkOutNextPageBtn = document.getElementById('network-out-page-next') as HTMLButtonElement;
+/** networkOutPageMetaEl：网络下行分页元数据。 */
+const networkOutPageMetaEl = document.getElementById('network-out-page-meta') as HTMLDivElement;
 /** serverSubtabOverviewBtn：服务端Subtab Overview Btn。 */
 const serverSubtabOverviewBtn = document.getElementById('server-subtab-overview') as HTMLButtonElement;
 /** serverSubtabTrafficBtn：服务端Subtab Traffic Btn。 */
@@ -514,6 +526,10 @@ let currentSuggestionTotal = 0;
 let currentSuggestionKeyword = '';
 /** suggestionSearchTimer：建议搜索Timer。 */
 let suggestionSearchTimer: number | null = null;
+/** currentNetworkInPage：当前上行榜分页。 */
+let currentNetworkInPage = 1;
+/** currentNetworkOutPage：当前下行榜分页。 */
+let currentNetworkOutPage = 1;
 /** lastPlayerListStructureKey：last玩家列表Structure Key。 */
 let lastPlayerListStructureKey: string | null = null;
 /** lastEditorStructureKey：last编辑器Structure Key。 */
@@ -1724,21 +1740,47 @@ function clearEditorRenderCache(): void {
 
 /** getVisibleNetworkBuckets：读取可见Network Buckets。 */
 function getVisibleNetworkBuckets(buckets: GmNetworkBucket[]): GmNetworkBucket[] {
-  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+  return buckets;
+}
 
-  const visibleBuckets = buckets.slice(0, 8);
-  const hiddenBuckets = buckets.slice(8);
-  if (hiddenBuckets.length > 0) {
-    const otherBytes = hiddenBuckets.reduce((sum, bucket) => sum + bucket.bytes, 0);
-    const otherCount = hiddenBuckets.reduce((sum, bucket) => sum + bucket.count, 0);
-    visibleBuckets.push({
-      key: 'other',
-      label: `其余 ${hiddenBuckets.length} 项`,
-      bytes: otherBytes,
-      count: otherCount,
-    });
-  }
-  return visibleBuckets;
+const NETWORK_BUCKET_PAGE_SIZE = 20;
+
+/** getSortedNetworkBuckets：读取按均秒字节排序后的网络记录。 */
+function getSortedNetworkBuckets(
+  buckets: GmNetworkBucket[],
+  elapsedSec: number,
+): GmNetworkBucket[] {
+  const safeElapsedSec = elapsedSec > 0 ? elapsedSec : 1;
+  return [...getVisibleNetworkBuckets(buckets)].sort((left, right) => {
+    const rightBytesPerSecond = right.bytes / safeElapsedSec;
+    const leftBytesPerSecond = left.bytes / safeElapsedSec;
+    if (rightBytesPerSecond !== leftBytesPerSecond) {
+      return rightBytesPerSecond - leftBytesPerSecond;
+    }
+    if (right.bytes !== left.bytes) {
+      return right.bytes - left.bytes;
+    }
+    return left.label.localeCompare(right.label, 'zh-CN');
+  });
+}
+
+/** paginateNetworkBuckets：分页切片网络记录。 */
+function paginateNetworkBuckets(
+  buckets: GmNetworkBucket[],
+  currentPage: number,
+): {
+  page: number;
+  totalPages: number;
+  items: GmNetworkBucket[];
+} {
+  const totalPages = Math.max(1, Math.ceil(buckets.length / NETWORK_BUCKET_PAGE_SIZE));
+  const page = Math.min(totalPages, Math.max(1, currentPage));
+  const start = (page - 1) * NETWORK_BUCKET_PAGE_SIZE;
+  return {
+    page,
+    totalPages,
+    items: buckets.slice(start, start + NETWORK_BUCKET_PAGE_SIZE),
+  };
 }
 
 /** getNetworkBucketMeta：读取Network Bucket元数据。 */
@@ -1862,15 +1904,27 @@ function getPathfindingFailureMeta(totalFailures: number, count: number): string
 /** renderPerfLists：渲染性能Lists。 */
 function renderPerfLists(data: GmStateRes): void {
   const elapsedSec = Math.max(0, data.perf.networkStatsElapsedSec);
+  const sortedNetworkInBuckets = getSortedNetworkBuckets(data.perf.networkInBuckets, elapsedSec);
+  const pagedNetworkInBuckets = paginateNetworkBuckets(sortedNetworkInBuckets, currentNetworkInPage);
+  currentNetworkInPage = pagedNetworkInBuckets.page;
+  networkInPageMetaEl.textContent = `第 ${pagedNetworkInBuckets.page} / ${pagedNetworkInBuckets.totalPages} 页 · 共 ${sortedNetworkInBuckets.length} 条`;
+  networkInPrevPageBtn.disabled = pagedNetworkInBuckets.page <= 1;
+  networkInNextPageBtn.disabled = pagedNetworkInBuckets.page >= pagedNetworkInBuckets.totalPages;
   const networkInItems = data.perf.networkInBytes > 0
-    ? getVisibleNetworkBuckets(data.perf.networkInBuckets).map((bucket) => ({
+    ? pagedNetworkInBuckets.items.map((bucket) => ({
         key: bucket.key,
         label: bucket.label,
         meta: getNetworkBucketMeta(data.perf.networkInBytes, bucket, elapsedSec),
       }))
     : [];
+  const sortedNetworkOutBuckets = getSortedNetworkBuckets(data.perf.networkOutBuckets, elapsedSec);
+  const pagedNetworkOutBuckets = paginateNetworkBuckets(sortedNetworkOutBuckets, currentNetworkOutPage);
+  currentNetworkOutPage = pagedNetworkOutBuckets.page;
+  networkOutPageMetaEl.textContent = `第 ${pagedNetworkOutBuckets.page} / ${pagedNetworkOutBuckets.totalPages} 页 · 共 ${sortedNetworkOutBuckets.length} 条`;
+  networkOutPrevPageBtn.disabled = pagedNetworkOutBuckets.page <= 1;
+  networkOutNextPageBtn.disabled = pagedNetworkOutBuckets.page >= pagedNetworkOutBuckets.totalPages;
   const networkOutItems = data.perf.networkOutBytes > 0
-    ? getVisibleNetworkBuckets(data.perf.networkOutBuckets).map((bucket) => ({
+    ? pagedNetworkOutBuckets.items.map((bucket) => ({
         key: bucket.key,
         label: bucket.label,
         meta: getNetworkBucketMeta(data.perf.networkOutBytes, bucket, elapsedSec),
@@ -4949,6 +5003,14 @@ function logout(message?: string): void {
   suggestionPageMetaEl.textContent = '第 1 / 1 页';
   suggestionPrevPageBtn.disabled = true;
   suggestionNextPageBtn.disabled = true;
+  currentNetworkInPage = 1;
+  currentNetworkOutPage = 1;
+  networkInPageMetaEl.textContent = '第 1 / 1 页 · 共 0 条';
+  networkOutPageMetaEl.textContent = '第 1 / 1 页 · 共 0 条';
+  networkInPrevPageBtn.disabled = true;
+  networkInNextPageBtn.disabled = true;
+  networkOutPrevPageBtn.disabled = true;
+  networkOutNextPageBtn.disabled = true;
   /** currentPlayerPage：当前玩家分页。 */
   currentPlayerPage = 1;
   /** currentPlayerTotalPages：当前玩家总量Pages。 */
@@ -5937,6 +5999,8 @@ async function resetNetworkStats(): Promise<void> {
 
   resetNetworkStatsBtn.disabled = true;
   try {
+    currentNetworkInPage = 1;
+    currentNetworkOutPage = 1;
     await request<{    
     /**
  * ok：ok相关字段。
@@ -6473,6 +6537,38 @@ suggestionNextPageBtn.addEventListener('click', () => {
   }
   currentSuggestionPage += 1;
   loadSuggestions().catch(() => {});
+});
+
+networkInPrevPageBtn.addEventListener('click', () => {
+  if (currentNetworkInPage <= 1 || !state) {
+    return;
+  }
+  currentNetworkInPage -= 1;
+  renderPerfLists(state);
+});
+
+networkInNextPageBtn.addEventListener('click', () => {
+  if (!state) {
+    return;
+  }
+  currentNetworkInPage += 1;
+  renderPerfLists(state);
+});
+
+networkOutPrevPageBtn.addEventListener('click', () => {
+  if (currentNetworkOutPage <= 1 || !state) {
+    return;
+  }
+  currentNetworkOutPage -= 1;
+  renderPerfLists(state);
+});
+
+networkOutNextPageBtn.addEventListener('click', () => {
+  if (!state) {
+    return;
+  }
+  currentNetworkOutPage += 1;
+  renderPerfLists(state);
 });
 
 playerSearchInput.addEventListener('input', () => {

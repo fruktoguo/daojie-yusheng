@@ -22,7 +22,7 @@ exports.LeaderboardRuntimeService = void 0;
 
 const common_1 = require("@nestjs/common");
 
-const shared_1 = require("@mud/shared-next");
+const shared_1 = require("@mud/shared");
 
 const next_gm_constants_1 = require("../../http/next/next-gm.constants");
 

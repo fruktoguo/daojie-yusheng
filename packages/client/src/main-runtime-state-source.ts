@@ -1,16 +1,16 @@
 import {
-  NEXT_S2C_Bootstrap,
-  NEXT_S2C_InitSession,
-  NEXT_S2C_MapEnter,
-  NEXT_S2C_MapStatic,
-  NEXT_S2C_PanelDelta,
-  NEXT_S2C_Realm,
-  NEXT_S2C_SelfDelta,
-  NEXT_S2C_WorldDelta,
+  S2C_Bootstrap,
+  S2C_InitSession,
+  S2C_MapEnter,
+  S2C_MapStatic,
+  S2C_PanelDelta,
+  S2C_Realm,
+  S2C_SelfDelta,
+  S2C_WorldDelta,
   PlayerState,
   TechniqueState,
   ActionDef,
-} from '@mud/shared-next';
+} from '@mud/shared';
 /**
  * MainRuntimeStateSourceOptions：统一结构类型，保证协议与运行时一致性。
  */
@@ -46,7 +46,7 @@ type MainRuntimeStateSourceOptions = {
  * syncCurrentTimeState：Current时间状态状态或数据块。
  */
 
-  syncCurrentTimeState: (state: NEXT_S2C_Bootstrap['time'] | null | undefined) => void;  
+  syncCurrentTimeState: (state: S2C_Bootstrap['time'] | null | undefined) => void;
   /**
  * resolvePreviewTechniques：Preview功法相关字段。
  */
@@ -56,7 +56,7 @@ type MainRuntimeStateSourceOptions = {
  * buildAttrStateFromPlayer：Attr状态From玩家引用。
  */
 
-  buildAttrStateFromPlayer: (player: PlayerState) => NEXT_S2C_Bootstrap['self'] extends infer _T ? any : never;  
+  buildAttrStateFromPlayer: (player: PlayerState) => S2C_Bootstrap['self'] extends infer _T ? any : never;
   /**
  * syncPlayerBridgeState：玩家桥接状态状态或数据块。
  */
@@ -116,12 +116,12 @@ type MainRuntimeStateSourceOptions = {
  * applyBootstrapToMapRuntime：BootstrapTo地图运行态引用。
  */
 
-  applyBootstrapToMapRuntime: (data: NEXT_S2C_Bootstrap) => void;  
+  applyBootstrapToMapRuntime: (data: S2C_Bootstrap) => void;
   /**
  * applyMapStaticToRuntime：地图StaticTo运行态引用。
  */
 
-  applyMapStaticToRuntime: (data: NEXT_S2C_MapStatic) => void;  
+  applyMapStaticToRuntime: (data: S2C_MapStatic) => void;
   /**
  * setRuntimePathCells：运行态路径Cell相关字段。
  */
@@ -257,17 +257,17 @@ type MainRuntimeStateSourceOptions = {
  * applyWorldDelta：世界Delta相关字段。
  */
 
-  applyWorldDelta: (data: NEXT_S2C_WorldDelta, mapIdHint?: string) => void;  
+  applyWorldDelta: (data: S2C_WorldDelta, mapIdHint?: string) => void;
   /**
  * applySelfDelta：SelfDelta相关字段。
  */
 
-  applySelfDelta: (data: NEXT_S2C_SelfDelta) => void;  
+  applySelfDelta: (data: S2C_SelfDelta) => void;
   /**
  * applyPanelDelta：面板Delta相关字段。
  */
 
-  applyPanelDelta: (data: NEXT_S2C_PanelDelta) => void;  
+  applyPanelDelta: (data: S2C_PanelDelta) => void;
   /**
  * inventorySyncPlayerContext：背包Sync玩家上下文状态或数据块。
  */
@@ -293,29 +293,29 @@ export type MainRuntimeStateSource = ReturnType<typeof createMainRuntimeStateSou
 
 
 export function createMainRuntimeStateSource(options: MainRuntimeStateSourceOptions) {
-  let latestNextInitSession: NEXT_S2C_InitSession | null = null;
-  let latestNextMapEnter: NEXT_S2C_MapEnter | null = null;
-  let pendingNextWorldDelta: NEXT_S2C_WorldDelta | null = null;
-  let pendingNextSelfDelta: NEXT_S2C_SelfDelta | null = null;
-  let pendingNextPanelDelta: NEXT_S2C_PanelDelta | null = null;
+  let latestInitSession: S2C_InitSession | null = null;
+  let latestMapEnter: S2C_MapEnter | null = null;
+  let pendingWorldDelta: S2C_WorldDelta | null = null;
+  let pendingSelfDelta: S2C_SelfDelta | null = null;
+  let pendingPanelDelta: S2C_PanelDelta | null = null;
 
-  const flushPendingNextBootstrapEnvelope = (): void => {
+  const flushPendingBootstrapEnvelope = (): void => {
     if (!options.getPlayer()) {
       return;
     }
-    if (pendingNextWorldDelta) {
-      const pending = pendingNextWorldDelta;
-      pendingNextWorldDelta = null;
+    if (pendingWorldDelta) {
+      const pending = pendingWorldDelta;
+      pendingWorldDelta = null;
       options.applyWorldDelta(pending);
     }
-    if (pendingNextSelfDelta) {
-      const pending = pendingNextSelfDelta;
-      pendingNextSelfDelta = null;
+    if (pendingSelfDelta) {
+      const pending = pendingSelfDelta;
+      pendingSelfDelta = null;
       options.applySelfDelta(pending);
     }
-    if (pendingNextPanelDelta) {
-      const pending = pendingNextPanelDelta;
-      pendingNextPanelDelta = null;
+    if (pendingPanelDelta) {
+      const pending = pendingPanelDelta;
+      pendingPanelDelta = null;
       options.applyPanelDelta(pending);
     }
   };
@@ -327,92 +327,92 @@ export function createMainRuntimeStateSource(options: MainRuntimeStateSourceOpti
  */
 
     clear(): void {
-      latestNextInitSession = null;
-      latestNextMapEnter = null;
-      pendingNextWorldDelta = null;
-      pendingNextSelfDelta = null;
-      pendingNextPanelDelta = null;
+      latestInitSession = null;
+      latestMapEnter = null;
+      pendingWorldDelta = null;
+      pendingSelfDelta = null;
+      pendingPanelDelta = null;
     },    
     /**
  * handleInitSession：处理InitSession并更新相关状态。
- * @param data NEXT_S2C_InitSession 原始数据。
+ * @param data S2C_InitSession 原始数据。
  * @returns 无返回值，直接更新InitSession相关状态。
  */
 
 
-    handleInitSession(data: NEXT_S2C_InitSession): void {
-      latestNextInitSession = data;
+    handleInitSession(data: S2C_InitSession): void {
+      latestInitSession = data;
     },    
     /**
  * handleMapEnter：处理地图进入并更新相关状态。
- * @param data NEXT_S2C_MapEnter 原始数据。
+ * @param data S2C_MapEnter 原始数据。
  * @returns 无返回值，直接更新地图Enter相关状态。
  */
 
 
-    handleMapEnter(data: NEXT_S2C_MapEnter): void {
-      latestNextMapEnter = data;
+    handleMapEnter(data: S2C_MapEnter): void {
+      latestMapEnter = data;
     },    
     /**
  * handleWorldDelta：处理世界增量并更新相关状态。
- * @param data NEXT_S2C_WorldDelta 原始数据。
+ * @param data S2C_WorldDelta 原始数据。
  * @returns 无返回值，直接更新世界Delta相关状态。
  */
 
 
-    handleWorldDelta(data: NEXT_S2C_WorldDelta): void {
+    handleWorldDelta(data: S2C_WorldDelta): void {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
       if (!options.getPlayer()) {
-        pendingNextWorldDelta = data;
+        pendingWorldDelta = data;
         return;
       }
       const player = options.getPlayer();
-      const mapIdHint = latestNextMapEnter?.mid && latestNextMapEnter.mid !== player?.mapId
-        ? latestNextMapEnter.mid
+      const mapIdHint = latestMapEnter?.mid && latestMapEnter.mid !== player?.mapId
+        ? latestMapEnter.mid
         : undefined;
       options.applyWorldDelta(data, mapIdHint);
     },    
     /**
  * handleSelfDelta：处理Self增量并更新相关状态。
- * @param data NEXT_S2C_SelfDelta 原始数据。
+ * @param data S2C_SelfDelta 原始数据。
  * @returns 无返回值，直接更新SelfDelta相关状态。
  */
 
 
-    handleSelfDelta(data: NEXT_S2C_SelfDelta): void {
+    handleSelfDelta(data: S2C_SelfDelta): void {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
       if (!options.getPlayer()) {
-        pendingNextSelfDelta = data;
+        pendingSelfDelta = data;
         return;
       }
       options.applySelfDelta(data);
     },    
     /**
  * handlePanelDelta：处理面板增量并更新相关状态。
- * @param data NEXT_S2C_PanelDelta 原始数据。
+ * @param data S2C_PanelDelta 原始数据。
  * @returns 无返回值，直接更新面板Delta相关状态。
  */
 
 
-    handlePanelDelta(data: NEXT_S2C_PanelDelta): void {
+    handlePanelDelta(data: S2C_PanelDelta): void {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
       if (!options.getPlayer()) {
-        pendingNextPanelDelta = data;
+        pendingPanelDelta = data;
         return;
       }
       options.applyPanelDelta(data);
     },    
     /**
  * handleRealm：处理Realm并更新相关状态。
- * @param data NEXT_S2C_Realm 原始数据。
+ * @param data S2C_Realm 原始数据。
  * @returns 无返回值，直接更新Realm相关状态。
  */
 
 
-    handleRealm(data: NEXT_S2C_Realm): void {
+    handleRealm(data: S2C_Realm): void {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
       const player = options.getPlayer();
@@ -442,12 +442,12 @@ export function createMainRuntimeStateSource(options: MainRuntimeStateSourceOpti
     },    
     /**
  * handleMapStatic：处理地图Static并更新相关状态。
- * @param data NEXT_S2C_MapStatic 原始数据。
+ * @param data S2C_MapStatic 原始数据。
  * @returns 无返回值，直接更新地图Static相关状态。
  */
 
 
-    handleMapStatic(data: NEXT_S2C_MapStatic): void {
+    handleMapStatic(data: S2C_MapStatic): void {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
       options.applyMapStaticToRuntime(data);
@@ -462,16 +462,16 @@ export function createMainRuntimeStateSource(options: MainRuntimeStateSourceOpti
     },    
     /**
  * handleBootstrap：处理引导并更新相关状态。
- * @param data NEXT_S2C_Bootstrap 原始数据。
+ * @param data S2C_Bootstrap 原始数据。
  * @returns 无返回值，直接更新Bootstrap相关状态。
  */
 
 
-    handleBootstrap(data: NEXT_S2C_Bootstrap): void {
+    handleBootstrap(data: S2C_Bootstrap): void {
       options.hideObserveModal();
       options.clearTargetingState();
-      latestNextInitSession = latestNextInitSession?.pid === data.self.id ? latestNextInitSession : null;
-      latestNextMapEnter = latestNextMapEnter?.mid === data.self.mapId ? latestNextMapEnter : null;
+      latestInitSession = latestInitSession?.pid === data.self.id ? latestInitSession : null;
+      latestMapEnter = latestMapEnter?.mid === data.self.mapId ? latestMapEnter : null;
       if (typeof data.auraLevelBaseValue === 'number') {
         options.syncAuraLevelBaseValue(data.auraLevelBaseValue);
       }
@@ -510,7 +510,7 @@ export function createMainRuntimeStateSource(options: MainRuntimeStateSourceOpti
       options.refreshZoomChrome();
       options.setPanelRuntime({
         connected: true,
-        playerId: latestNextInitSession?.pid ?? player.id,
+        playerId: latestInitSession?.pid ?? player.id,
         mapId: player.mapId,
         shellVisible: true,
       });
@@ -526,7 +526,7 @@ export function createMainRuntimeStateSource(options: MainRuntimeStateSourceOpti
       options.refreshUiChrome();
       options.initMailState(player.id);
       options.initSuggestionState(player.id);
-      flushPendingNextBootstrapEnvelope();
+      flushPendingBootstrapEnvelope();
     },
   };
 }

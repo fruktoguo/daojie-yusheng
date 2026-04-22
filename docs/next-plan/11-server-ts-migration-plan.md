@@ -18,7 +18,7 @@
 - 当前剩余 `.js` 分布：
   - `packages/server/src`：`0` 个文件，`0` 行
 - 当前 `packages/server/src` 已不再残留兼容壳；根级 replace-ready 环境解析已改为：
-  - [scripts/server-next-env-alias.js](/home/yuohira/mud-mmo-next/scripts/server-next-env-alias.js:1)
+  - [scripts/server-env-alias.js](/home/yuohira/mud-mmo-next/scripts/server-env-alias.js:1)
 
 ## 迁移原则
 
@@ -26,7 +26,7 @@
 - [x] 优先按职责簇迁移，不按随机文件数平均切
 - [x] 不为了 TS 化顺手改玩法、协议含义、GM 能力或持久化语义
 - [x] 可以保留极少量短期兼容壳，但必须写清为什么暂留、什么时候删
-- [x] 每轮至少补 `pnpm --filter @mud/server-next compile`
+- [x] 每轮至少补 `pnpm --filter @mud/server compile`
 
 ## 下一批建议
 
@@ -35,7 +35,7 @@
 原因：
 
 - 第 1-9 批已经把外围叶子、持久化、`runtime player / instance / world` 主链，以及大量 `network` 主链收到了 TS
-- `world-projector.service.ts`、`world-sync-aux-state.service.ts`、`world-sync-map-snapshot.service.ts`、`world-session-bootstrap.service.ts` 这批高风险文件已经回到真实 TS 主线，并补过 `compile + smoke:next-auth-bootstrap + audit:next-protocol`
+- `world-projector.service.ts`、`world-sync-aux-state.service.ts`、`world-sync-map-snapshot.service.ts`、`world-session-bootstrap.service.ts` 这批高风险文件已经回到真实 TS 主线，并补过 `compile + smoke:next-auth-bootstrap + audit:protocol`
 - `world-session-bootstrap` 已继续把 `context/contract`、`runtime/snapshot`、`post-bootstrap emit`、`player-init`、`finalize`、`session bind/preflight` 从编排层抽出到独立 helper/service，并保留 façade 口兼容 gateway 与 smoke proof
 - 下一轮不该回头做低价值扫尾，而是继续打 `acceptance/full` 实环境复证和剩余更深层的 `network/bootstrap` 编排拆分
 
@@ -86,8 +86,8 @@
 - [x] 迁移 `constants/gameplay/market.js`
 - [x] 迁移 `debug/movement-debug.js`
 - [x] 迁移 `logging/date-console-logger.js`
-- [x] 跑 `pnpm --filter @mud/server-next compile`
-- [x] 如动到 readiness/health，补 `pnpm --filter @mud/server-next smoke:readiness-gate`
+- [x] 跑 `pnpm --filter @mud/server compile`
+- [x] 如动到 readiness/health，补 `pnpm --filter @mud/server smoke:readiness-gate`
 
 ### 第 2 批：network session/bootstrap 残余簇
 
@@ -100,9 +100,9 @@
 - [x] 迁移 `world-session.service.js`
 - [x] 迁移 `world-session-reaper.service.js`
 - [x] 迁移 `world-session-bootstrap.service.js`
-- [x] 跑 `pnpm --filter @mud/server-next compile`
-- [x] 补 `pnpm --filter @mud/server-next smoke:next-auth-bootstrap`
-- [x] 视改动面补 `pnpm --filter @mud/server-next smoke:session`
+- [x] 跑 `pnpm --filter @mud/server compile`
+- [x] 补 `pnpm --filter @mud/server smoke:next-auth-bootstrap`
+- [x] 视改动面补 `pnpm --filter @mud/server smoke:session`
 
 当前这批规模：`9` 个文件，`2,718` 行。
 
@@ -111,9 +111,9 @@
 - [x] 迁移 `packages/server/src/persistence/*.js`
 - [x] 收口 `*.types.js` 到 TS
 - [x] 检查 `persistent-document-table` 与各 persistence service 的导入是否统一
-- [x] 跑 `pnpm --filter @mud/server-next compile`
-- [x] 补 `pnpm --filter @mud/server-next smoke:persistence`
-- [x] 必要时补 `pnpm --filter @mud/server-next smoke:gm-database`
+- [x] 跑 `pnpm --filter @mud/server compile`
+- [x] 补 `pnpm --filter @mud/server smoke:persistence`
+- [x] 必要时补 `pnpm --filter @mud/server smoke:gm-database`
 
 当前这批规模：`12` 个文件，`2,166` 行。
 
@@ -123,14 +123,14 @@
 - [x] 迁移 `runtime/map/*.js`
 - [x] 迁移 `runtime/instance/map-instance.types.js`
 - [x] 迁移与地图模板、地图配置、只读类型直接耦合的叶子文件
-- [x] 跑 `pnpm --filter @mud/server-next compile`
-- [x] 补 `pnpm --filter @mud/server-next smoke:runtime`
+- [x] 跑 `pnpm --filter @mud/server compile`
+- [x] 补 `pnpm --filter @mud/server smoke:runtime`
 
 补充说明：
 
 - [x] 顺手迁移 `runtime/world/runtime-http-access.guard.js -> runtime-http-access.guard.ts`
 - [x] 顺手迁移 `runtime/world/runtime-maintenance.service.js -> runtime-maintenance.service.ts`
-- [x] 同步更新 `packages/server/src/tools/prove-next-content-map-sources.js` 与地图架构文档中的显式 `.js` 路径引用
+- [x] 同步更新 `packages/server/src/tools/prove-content-map-sources.js` 与地图架构文档中的显式 `.js` 路径引用
 
 ### 第 5 批：network gateway/sync/projector 残余簇
 
@@ -140,10 +140,10 @@
 - [x] 迁移 `network/world-gateway-*.ts`
 - [x] 迁移 `network/world-protocol-projection.service.ts`
 - [x] 同步更新测试/审计/边界检查中的 network `.js` 显式路径
-- [x] 跑 `pnpm --filter @mud/server-next compile`
-- [x] 补 `pnpm --filter @mud/server-next smoke:session`
-- [x] 补 `pnpm --filter @mud/server-next smoke:runtime`
-- [x] 补 `pnpm --filter @mud/server-next audit:next-protocol`
+- [x] 跑 `pnpm --filter @mud/server compile`
+- [x] 补 `pnpm --filter @mud/server smoke:session`
+- [x] 补 `pnpm --filter @mud/server smoke:runtime`
+- [x] 补 `pnpm --filter @mud/server audit:protocol`
 
 ### 第 6 批：runtime 非 world 辅助域
 
@@ -154,7 +154,7 @@
 - [x] 迁移 `runtime/market/*.js`
 - [x] 迁移 `runtime/redeem/*.js`
 - [x] 迁移 `runtime/tick/world-tick.service.js`
-- [x] 跑 `pnpm --filter @mud/server-next compile`
+- [x] 跑 `pnpm --filter @mud/server compile`
 - [x] 按改动面补 `smoke:combat / smoke:loot / smoke:runtime / smoke:gm-next`
 
 ### 第 7 批：runtime player / instance / world 主链
@@ -167,11 +167,11 @@
 - [x] 顺手迁移 `runtime/world/world-runtime.normalization.helpers.js`
 - [x] 顺手迁移 `runtime/world/world-runtime.observation.helpers.js`
 - [x] 顺手迁移 `runtime/world/world-runtime.path-planning.helpers.js`
-- [x] 跑 `pnpm --filter @mud/server-next compile`
-- [x] 补 `pnpm --filter @mud/server-next smoke:runtime`
-- [x] 补 `pnpm --filter @mud/server-next smoke:combat`
-- [x] 补 `pnpm --filter @mud/server-next smoke:progression`
-- [x] 补 `pnpm --filter @mud/server-next smoke:player-respawn`
+- [x] 跑 `pnpm --filter @mud/server compile`
+- [x] 补 `pnpm --filter @mud/server smoke:runtime`
+- [x] 补 `pnpm --filter @mud/server smoke:combat`
+- [x] 补 `pnpm --filter @mud/server smoke:progression`
+- [x] 补 `pnpm --filter @mud/server smoke:player-respawn`
 
 ### 第 8 批：tools / smoke / audit / migration 链
 
@@ -181,7 +181,7 @@
 - [x] 迁移 `audit/next-legacy-boundary-audit.js`
 - [x] 迁移 `migrate-next-mainline-once.js`
 - [x] 迁移 `smoke-suite.js` 与各类 smoke helper
-- [x] 跑 `pnpm --filter @mud/server-next compile`
+- [x] 跑 `pnpm --filter @mud/server compile`
 - [x] 跑与本批改动相关的 smoke
 - [x] 跑 `pnpm verify:replace-ready`
 
@@ -190,17 +190,17 @@
 - [x] 删除 `env-alias.js` 兼容壳
 - [x] 确认 `packages/server/src` 不再残留手写 `.js` 真源
 - [x] 更新总表和相关迁移文档基线
-- [x] 跑 `pnpm --filter @mud/server-next compile`
+- [x] 跑 `pnpm --filter @mud/server compile`
 - [x] 跑 `pnpm verify:replace-ready`
 - [x] 跑 `pnpm verify:replace-ready:with-db`
 
 ## 每轮验证规则
 
-- [x] 默认至少跑 `pnpm --filter @mud/server-next compile`
+- [x] 默认至少跑 `pnpm --filter @mud/server compile`
 - [x] 动到 auth/session/bootstrap，补 `smoke:next-auth-bootstrap`
 - [x] 动到 runtime/world/network sync/gateway，补 `smoke:runtime`，必要时补 `smoke:session`
 - [x] 动到 persistence，补 `smoke:persistence`，必要时补 `smoke:gm-database`
-- [x] 动到协议/发包，补 `audit:next-protocol`
+- [x] 动到协议/发包，补 `audit:protocol`
 - [x] 只有在改动面确实触发时，才补根级 `verify:replace-ready*`
 
 ## 本轮补充
@@ -216,5 +216,5 @@
 - [x] `packages/server/src` 不再依赖手写 `.js` 真源文件
 - [x] `packages/server` 包内非 `dist` 脚本不再残留手写 `.js`
 - [x] 根级 `verify:replace-ready*` 不再依赖 `env-alias.js` 兼容壳
-- [x] `server-next` compile 与关键 smoke 在 TS 真源下稳定通过
+- [x] `server` compile 与关键 smoke 在 TS 真源下稳定通过
 - [x] `docs/next-plan/main.md` 与本计划文档中的剩余 `.js` 基线一致

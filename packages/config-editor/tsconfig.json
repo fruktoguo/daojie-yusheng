@@ -8,7 +8,7 @@
     "noEmit": true,
     "baseUrl": ".",
     "paths": {
-      "@mud/shared-next": ["../../packages/shared/src/index.ts"]
+      "@mud/shared": ["../../packages/shared/src/index.ts"]
     }
   },
   "include": ["src", "../../packages/client/src/gm-map-editor.ts"]

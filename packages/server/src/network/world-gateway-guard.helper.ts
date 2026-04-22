@@ -44,7 +44,7 @@ class WorldGatewayGuardHelper {
     rejectWhenNotReady(client) {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
-        if (readBooleanEnv('SERVER_NEXT_ALLOW_UNREADY_TRAFFIC') || readBooleanEnv('SERVER_NEXT_SMOKE_ALLOW_UNREADY')) {
+        if (readBooleanEnv('SERVER_ALLOW_UNREADY_TRAFFIC') || readBooleanEnv('SERVER_SMOKE_ALLOW_UNREADY')) {
             return false;
         }
         const health = this.gateway.healthReadinessService.build();

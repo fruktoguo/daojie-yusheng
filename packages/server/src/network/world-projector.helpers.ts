@@ -13,14 +13,14 @@ import {
   type EquipmentConditionGroup,
   type EquipmentSlotUpdateEntry,
   type InventorySlotUpdateEntry,
-  NEXT_S2C,
+  S2C,
   type GroundItemEntryView,
   type InitSessionView,
   type MapEnterView,
   type MonsterTier,
-  type NEXT_S2C_PanelActionDelta,
-  type NEXT_S2C_PanelAttrDelta,
-  type NEXT_S2C_PanelDelta,
+  type S2C_PanelActionDelta,
+  type S2C_PanelAttrDelta,
+  type S2C_PanelDelta,
   type NumericRatioDivisors,
   type NumericStats,
   type PartialNumericStats,
@@ -46,7 +46,7 @@ import {
   type WorldNpcPatchView,
   type WorldPlayerPatchView,
   type WorldPortalPatchView,
-} from '@mud/shared-next';
+} from '@mud/shared';
 import { cloneAutoUsePillList, cloneCombatTargetingRules, isSameAutoUsePillList, isSameCombatTargetingRules } from '../runtime/player/player-combat-config.helpers';
 const ATTR_DELTA_PATCH_THRESHOLD = 10;
 const ATTRIBUTE_KEYS = ['constitution', 'spirit', 'perception', 'talent', 'comprehension', 'luck'] as const;
@@ -245,9 +245,9 @@ type ProjectedNumericStats = ReturnType<typeof cloneNumericStats>;
 type ProjectedRatioDivisors = ReturnType<typeof cloneNumericRatioDivisors>;
 type ProjectedActionEntry = ActionDef;
 type ProjectedElementGroup = ProjectedNumericStats['elementDamageBonus'];
-type ProjectedAttrPatch = NonNullable<NEXT_S2C_PanelAttrDelta['baseAttrs']>;
-type ProjectedNumericStatsPatch = NonNullable<NEXT_S2C_PanelAttrDelta['numericStats']>;
-type ProjectedRatioDivisorsPatch = NonNullable<NEXT_S2C_PanelAttrDelta['ratioDivisors']>;
+type ProjectedAttrPatch = NonNullable<S2C_PanelAttrDelta['baseAttrs']>;
+type ProjectedNumericStatsPatch = NonNullable<S2C_PanelAttrDelta['numericStats']>;
+type ProjectedRatioDivisorsPatch = NonNullable<S2C_PanelAttrDelta['ratioDivisors']>;
 interface ProjectorPlayerLike {
   selfRevision: number;
   instanceId: string;
@@ -286,7 +286,7 @@ interface ProjectorPlayerLike {
   bodyTraining?: BodyTrainingState | null;
   attrs: {
     revision: number;
-    stage: NEXT_S2C_PanelAttrDelta['stage'];
+    stage: S2C_PanelAttrDelta['stage'];
     baseAttrs: Attributes;
     finalAttrs: Attributes;
     numericStats: ProjectedNumericStats;
@@ -320,7 +320,7 @@ interface ProjectorPlayerLike {
 }
 interface ProjectedAttrPanelState {
   revision: number;
-  stage: NEXT_S2C_PanelAttrDelta['stage'];
+  stage: S2C_PanelAttrDelta['stage'];
   baseAttrs: Attributes;
   bonuses: AttrBonus[];
   finalAttrs: Attributes;
@@ -352,7 +352,7 @@ interface ProjectedActionPanelState {
   cultivationActive?: boolean;
   senseQiActive?: boolean;
 }
-type ProjectedAttrDeltaView = NEXT_S2C_PanelAttrDelta;
+type ProjectedAttrDeltaView = S2C_PanelAttrDelta;
 interface ProjectedPanelState {
   inventory: {
     revision: number;
@@ -397,13 +397,13 @@ interface InitialEnvelope {
   mapEnter: MapEnterView;
   worldDelta: WorldDeltaView;
   selfDelta: SelfDeltaView;
-  panelDelta: NEXT_S2C_PanelDelta;
+  panelDelta: S2C_PanelDelta;
 }
 interface DeltaEnvelope {
   mapEnter?: MapEnterView;
   worldDelta?: WorldDeltaView;
   selfDelta?: SelfDeltaView;
-  panelDelta?: NEXT_S2C_PanelDelta;
+  panelDelta?: S2C_PanelDelta;
 }
 function buildMapEnter(view: ProjectorViewLike): MapEnterView {
     return {
@@ -504,7 +504,7 @@ function buildFullSelfDelta(player: ProjectorPlayerLike): SelfDeltaView {
         maxQi: player.maxQi,
     };
 }
-function buildFullPanelDelta(player: ProjectorPlayerLike): NEXT_S2C_PanelDelta {
+function buildFullPanelDelta(player: ProjectorPlayerLike): S2C_PanelDelta {
     return {
         inv: {
             r: player.inventory.revision,
@@ -536,7 +536,7 @@ function buildFullPanelDelta(player: ProjectorPlayerLike): NEXT_S2C_PanelDelta {
         buff: buildFullBuffDelta(player),
     };
 }
-function buildBootstrapPanelDelta(player: ProjectorPlayerLike): NEXT_S2C_PanelDelta {
+function buildBootstrapPanelDelta(player: ProjectorPlayerLike): S2C_PanelDelta {
     return {
         inv: {
             r: player.inventory.revision,
@@ -769,7 +769,7 @@ function buildFullAttrDelta(player: ProjectorPlayerLike): ProjectedAttrDeltaView
         realmBreakthroughReady: player.realm?.breakthroughReady,
     };
 }
-function buildFullActionDelta(player: ProjectorPlayerLike): NEXT_S2C_PanelActionDelta {
+function buildFullActionDelta(player: ProjectorPlayerLike): S2C_PanelActionDelta {
     return {
         r: player.actions.revision,
         full: 1,
@@ -791,7 +791,7 @@ function buildFullActionDelta(player: ProjectorPlayerLike): NEXT_S2C_PanelAction
         senseQiActive: player.combat.senseQiActive,
     };
 }
-function buildFullBuffDelta(player: ProjectorPlayerLike): NEXT_S2C_PanelDelta['buff'] {
+function buildFullBuffDelta(player: ProjectorPlayerLike): S2C_PanelDelta['buff'] {
     return {
         r: player.buffs.revision,
         full: 1,
@@ -880,9 +880,9 @@ function buildSelfDelta(previous: PlayerStateSlice, player: ProjectorPlayerLike)
     }
     return delta;
 }
-function buildPanelDelta(previous: PlayerStateSlice, player: ProjectorPlayerLike): NEXT_S2C_PanelDelta | null {
+function buildPanelDelta(previous: PlayerStateSlice, player: ProjectorPlayerLike): S2C_PanelDelta | null {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
-    const delta: NEXT_S2C_PanelDelta = {};
+    const delta: S2C_PanelDelta = {};
     const previousInventory = previous.panel.inventory;
     const previousEquipment = previous.panel.equipment;
     const previousTechnique = previous.panel.technique;

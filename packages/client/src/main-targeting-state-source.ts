@@ -4,7 +4,7 @@ import {
   type PlayerState,
   type TargetingShape,
   type Tile,
-} from '@mud/shared-next';
+} from '@mud/shared';
 import { isPlayerLikeEntityKind, type MainRuntimeObservedEntity } from './main-runtime-view-types';
 import {
   computeAffectedCellsForAction as computeAffectedCellsForActionHelper,

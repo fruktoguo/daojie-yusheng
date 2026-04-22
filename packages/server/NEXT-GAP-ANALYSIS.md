@@ -1,4 +1,4 @@
-# server-next 当前缺口分析
+# server 当前缺口分析
 
 更新时间：2026-04-11（当前轮次）
 
@@ -11,7 +11,7 @@
 - 当前最关键的阻塞仍是 `auth/token/bootstrap/snapshot/session` 真源主线
 - `GM/admin/restore/shadow` 目前更像证明链与运维门禁问题，不是单纯缺脚本
 - `首包 / projector / sync / shared-next` 仍是性能与稳定性尾项
-- `server-next` 的 `env-alias` 核心配置入口已迁入 TypeScript；后续 strict TS 收口仍是更宽范围的架构工作，不再把它停留为单独的 env alias 待办锚点。
+- `server` 的 `env-alias` 核心配置入口已迁入 TypeScript；后续 strict TS 收口仍是更宽范围的架构工作，不再把它停留为单独的 env alias 待办锚点。
 
 ## 文档分工
 
@@ -25,7 +25,7 @@
 
 这个文件只做两件事：
 
-1. 给 `server-next` 包内读文档的人提供一个最短入口。
+1. 给 `server` 包内读文档的人提供一个最短入口。
 2. 明确包内文档和仓库级主计划 / blocker 看板的分工，不再重复维护一份同内容长文。
 
 如果你要继续推进具体改造，优先看仓库级 `docs/next-plan/main.md` 和 blocker 看板，再回到具体代码链路。

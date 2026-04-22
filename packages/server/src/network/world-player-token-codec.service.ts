@@ -7,11 +7,11 @@ const ACCESS_KIND = 'access';
 const REFRESH_KIND = 'refresh';
 const ACCESS_EXPIRES_FALLBACK_SECONDS = 15 * 60;
 const REFRESH_EXPIRES_FALLBACK_SECONDS = 30 * 24 * 60 * 60;
-const NEXT_TOKEN_ISSUER = 'server-next';
-const NEXT_TOKEN_VERSION = 1;
+const TOKEN_ISSUER = 'server';
+const TOKEN_VERSION = 1;
 const PLAYER_TOKEN_SECRET_ENV_KEYS = [
-  'SERVER_NEXT_PLAYER_TOKEN_SECRET',
-  'NEXT_PLAYER_TOKEN_SECRET',
+  'SERVER_PLAYER_TOKEN_SECRET',
+  'SERVER_PLAYER_TOKEN_SECRET',
 ] as const;
 const DEFAULT_DEV_PLAYER_TOKEN_SECRET = 'daojie-yusheng-dev-secret';
 const DEVELOPMENT_LIKE_ENVS = new Set(['', 'development', 'dev', 'local', 'test']);
@@ -142,12 +142,12 @@ export class WorldPlayerTokenCodecService {
 
   /** 签发访问令牌。 */
   issueAccessToken(payload: TokenPayloadInput): string {
-    return this.issueToken(payload, ACCESS_KIND, readPositiveIntEnv('SERVER_NEXT_AUTH_ACCESS_TOKEN_EXPIRES_IN', ACCESS_EXPIRES_FALLBACK_SECONDS));
+    return this.issueToken(payload, ACCESS_KIND, readPositiveIntEnv('SERVER_AUTH_ACCESS_TOKEN_EXPIRES_IN', ACCESS_EXPIRES_FALLBACK_SECONDS));
   }
 
   /** 签发刷新令牌。 */
   issueRefreshToken(payload: TokenPayloadInput): string {
-    return this.issueToken(payload, REFRESH_KIND, readPositiveIntEnv('SERVER_NEXT_AUTH_REFRESH_TOKEN_EXPIRES_IN', REFRESH_EXPIRES_FALLBACK_SECONDS));
+    return this.issueToken(payload, REFRESH_KIND, readPositiveIntEnv('SERVER_AUTH_REFRESH_TOKEN_EXPIRES_IN', REFRESH_EXPIRES_FALLBACK_SECONDS));
   }
 
   /** 验证令牌签名和载荷类型。 */
@@ -191,9 +191,9 @@ export class WorldPlayerTokenCodecService {
     }), 'utf8'));
 
     const body = base64UrlEncode(Buffer.from(JSON.stringify({
-      iss: NEXT_TOKEN_ISSUER,
+      iss: TOKEN_ISSUER,
       aud: 'player',
-      ver: NEXT_TOKEN_VERSION,
+      ver: TOKEN_VERSION,
       kind,
       scope: kind,
       sub: normalizedSub,
@@ -238,7 +238,7 @@ function resolvePlayerTokenSecrets(): string[] {
   }
 
   if (!isDevelopmentLikeEnv()) {
-    throw new Error('非开发环境必须配置 SERVER_NEXT_PLAYER_TOKEN_SECRET / NEXT_PLAYER_TOKEN_SECRET，禁止回退内置开发密钥。');
+    throw new Error('非开发环境必须配置 SERVER_PLAYER_TOKEN_SECRET / SERVER_PLAYER_TOKEN_SECRET，禁止回退内置开发密钥。');
   }
 
   secrets.push(DEFAULT_DEV_PLAYER_TOKEN_SECRET);
@@ -251,7 +251,7 @@ function resolvePlayerTokenSecrets(): string[] {
 
 
 function isDevelopmentLikeEnv(): boolean {
-  const runtimeEnv = String(process.env.SERVER_NEXT_RUNTIME_ENV ?? process.env.APP_ENV ?? process.env.NODE_ENV ?? '').trim().toLowerCase();
+  const runtimeEnv = String(process.env.SERVER_RUNTIME_ENV ?? process.env.APP_ENV ?? process.env.NODE_ENV ?? '').trim().toLowerCase();
   return DEVELOPMENT_LIKE_ENVS.has(runtimeEnv);
 }
 /**
@@ -280,12 +280,12 @@ function normalizeValidatedPayload(payload: Record<string, unknown> | null, expe
   }
 
   const issuer = normalizeOptionalString(payload.iss);
-  if (issuer && issuer !== NEXT_TOKEN_ISSUER) {
+  if (issuer && issuer !== TOKEN_ISSUER) {
     return null;
   }
 
   const version = payload.ver;
-  if (version !== undefined && Math.trunc(Number(version)) !== NEXT_TOKEN_VERSION) {
+  if (version !== undefined && Math.trunc(Number(version)) !== TOKEN_VERSION) {
     return null;
   }
 

@@ -7,7 +7,7 @@
 - `architecture.md`
   - 前端入口、样式层、UI 目录、面板系统与弹层系统的整体结构。
 - `current-state.md`
-  - 当前 `client-next` 的真实定位、已完成收口与剩余短板。
+  - 当前 `packages/client` 的真实定位、已完成收口与剩余短板。
 - `style-system.md`
   - 当前样式分层、公共层职责、业务层残留原因，以及后续继续减量的方法。
 - `panel-status.md`
@@ -33,8 +33,8 @@
 
 ## 当前范围
 
-本目录只覆盖 `client-next` 前端，不覆盖：
+本目录只覆盖 `packages/client` 前端，不覆盖：
 
 - `legacy/client` 旧前端
-- `server-next` 运行时与协议设计
-- `shared-next` 类型与协议合同
+- `packages/server` 运行时与协议设计
+- `packages/shared` 类型与协议合同

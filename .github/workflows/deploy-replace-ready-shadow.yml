@@ -1,4 +1,4 @@
-name: Deploy Server Next Shadow
+name: Deploy Replace-Ready Shadow
 
 on:
   workflow_dispatch:
@@ -32,7 +32,7 @@ permissions:
   packages: write
 
 concurrency:
-  group: server-next-deploy
+  group: server-deploy
   cancel-in-progress: false
 
 jobs:
@@ -57,7 +57,7 @@ jobs:
 
     env:
       DATABASE_URL: postgresql://postgres:postgres@127.0.0.1:5432/mud_next_ci?schema=public
-      SERVER_NEXT_GM_PASSWORD: ci-shadow-${{ github.run_id }}-${{ github.run_attempt }}
+      SERVER_GM_PASSWORD: ci-shadow-${{ github.run_id }}-${{ github.run_attempt }}
 
     steps:
       - name: Checkout
@@ -77,7 +77,7 @@ jobs:
       - name: Verify default local/with-db replace-ready gate
         run: pnpm verify:replace-ready
 
-  build-server-next-image:
+  build-server-image:
     runs-on: ubuntu-latest
     needs: verify-replace-ready
 
@@ -99,25 +99,25 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Build and push server-next shadow image
+      - name: Build and push server shadow image
         uses: docker/build-push-action@v7
         with:
           context: .
           file: packages/server/Dockerfile
           push: true
           tags: |
-            ghcr.io/${{ steps.prep.outputs.owner }}/daojie-yusheng-server-next:shadow-latest
-            ghcr.io/${{ steps.prep.outputs.owner }}/daojie-yusheng-server-next:shadow-sha-${{ github.sha }}
+            ghcr.io/${{ steps.prep.outputs.owner }}/daojie-yusheng-server:shadow-latest
+            ghcr.io/${{ steps.prep.outputs.owner }}/daojie-yusheng-server:shadow-sha-${{ github.sha }}
           labels: |
             org.opencontainers.image.source=https://github.com/${{ github.repository }}
             org.opencontainers.image.revision=${{ github.sha }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
 
-  deploy-server-next:
+  deploy-shadow:
     runs-on: ubuntu-latest
-    needs: build-server-next-image
-    environment: server-next-shadow
+    needs: build-server-image
+    environment: server-shadow
 
     steps:
       - name: Checkout
@@ -162,35 +162,35 @@ jobs:
           DEPLOY_SSH_HOST: ${{ secrets.DEPLOY_SSH_HOST }}
           DEPLOY_SSH_PORT: ${{ secrets.DEPLOY_SSH_PORT }}
         run: |
-          docker context rm shadow-server-next >/dev/null 2>&1 || true
-          docker context create shadow-server-next --docker "host=ssh://${DEPLOY_SSH_USER}@${DEPLOY_SSH_HOST}:${DEPLOY_SSH_PORT:-22}"
+          docker context rm shadow-server >/dev/null 2>&1 || true
+          docker context create shadow-server --docker "host=ssh://${DEPLOY_SSH_USER}@${DEPLOY_SSH_HOST}:${DEPLOY_SSH_PORT:-22}"
 
-      - name: Deploy server-next shadow stack
+      - name: Deploy server shadow stack
         env:
-          SERVER_NEXT_IMAGE_REPOSITORY: ghcr.io/${{ steps.prep.outputs.owner }}/daojie-yusheng-server-next
-          SERVER_NEXT_IMAGE_TAG: shadow-sha-${{ github.sha }}
+          SERVER_IMAGE_REPOSITORY: ghcr.io/${{ steps.prep.outputs.owner }}/daojie-yusheng-server
+          SERVER_IMAGE_TAG: shadow-sha-${{ github.sha }}
           DB_USERNAME: ${{ secrets.PROD_DB_USERNAME }}
           DB_PASSWORD: ${{ secrets.PROD_DB_PASSWORD }}
           DB_DATABASE: ${{ secrets.PROD_DB_DATABASE }}
-          SERVER_NEXT_PLAYER_TOKEN_SECRET: ${{ secrets.PROD_JWT_SECRET }}
+          SERVER_PLAYER_TOKEN_SECRET: ${{ secrets.PROD_JWT_SECRET }}
           GM_PASSWORD: ${{ secrets.PROD_GM_PASSWORD }}
-          SERVER_NEXT_RUNTIME_TOKEN: ${{ secrets.PROD_SERVER_NEXT_RUNTIME_TOKEN }}
+          SERVER_RUNTIME_TOKEN: ${{ secrets.PROD_SERVER_RUNTIME_TOKEN }}
         run: |
-          docker --context shadow-server-next stack deploy --with-registry-auth -c docker-stack.server-next.yml daojie-yusheng-server-next
+          docker --context shadow-server stack deploy --with-registry-auth -c docker-stack.server.yml daojie-yusheng-server
 
       - name: Doctor deployed shadow env
         env:
           DEPLOY_SSH_HOST: ${{ secrets.DEPLOY_SSH_HOST }}
-          SERVER_NEXT_GM_PASSWORD: ${{ secrets.PROD_GM_PASSWORD }}
-          SERVER_NEXT_SHADOW_URL: http://${{ secrets.DEPLOY_SSH_HOST }}:11923
-        run: pnpm verify:replace-ready:doctor
+          GM_PASSWORD: ${{ secrets.PROD_GM_PASSWORD }}
+          SHADOW_URL: http://${{ secrets.DEPLOY_SSH_HOST }}:11923
+        run: SERVER_SHADOW_URL="$SHADOW_URL" GM_PASSWORD="$GM_PASSWORD" pnpm verify:replace-ready:doctor
 
       - name: Verify deployed shadow instance
         env:
           DEPLOY_SSH_HOST: ${{ secrets.DEPLOY_SSH_HOST }}
-          SERVER_NEXT_GM_PASSWORD: ${{ secrets.PROD_GM_PASSWORD }}
-          SERVER_NEXT_SHADOW_URL: http://${{ secrets.DEPLOY_SSH_HOST }}:11923
-        run: pnpm verify:replace-ready:shadow
+          GM_PASSWORD: ${{ secrets.PROD_GM_PASSWORD }}
+          SHADOW_URL: http://${{ secrets.DEPLOY_SSH_HOST }}:11923
+        run: SERVER_SHADOW_URL="$SHADOW_URL" GM_PASSWORD="$GM_PASSWORD" pnpm verify:replace-ready:shadow
 
       - name: Validate destructive proof preconditions
         if: ${{ github.event.inputs.run-destructive-proof == 'true' }}
@@ -216,11 +216,14 @@ jobs:
         if: ${{ github.event.inputs.run-destructive-proof == 'true' }}
         env:
           DEPLOY_SSH_HOST: ${{ secrets.DEPLOY_SSH_HOST }}
-          SERVER_NEXT_GM_PASSWORD: ${{ secrets.PROD_GM_PASSWORD }}
-          SERVER_NEXT_SHADOW_URL: http://${{ secrets.DEPLOY_SSH_HOST }}:11923
-          SERVER_NEXT_SHADOW_ALLOW_DESTRUCTIVE: '1'
+          GM_PASSWORD: ${{ secrets.PROD_GM_PASSWORD }}
+          SHADOW_URL: http://${{ secrets.DEPLOY_SSH_HOST }}:11923
+          ALLOW_DESTRUCTIVE: '1'
         run: |
           set -euo pipefail
+          SERVER_SHADOW_URL="$SHADOW_URL" \
+          GM_PASSWORD="$GM_PASSWORD" \
+          SERVER_SHADOW_ALLOW_DESTRUCTIVE="$ALLOW_DESTRUCTIVE" \
           pnpm verify:replace-ready:shadow:destructive 2>&1 | tee .artifacts/shadow-destructive-proof/output.log
 
       - name: Record destructive proof manifest
@@ -233,7 +236,7 @@ jobs:
           set -euo pipefail
           cat > .artifacts/shadow-destructive-proof/manifest.json <<EOF
           {
-            "workflow": "deploy-server-next",
+            "workflow": "deploy-replace-ready-shadow",
             "runId": "${{ github.run_id }}",
             "runAttempt": "${{ github.run_attempt }}",
             "sha": "${{ github.sha }}",
@@ -253,9 +256,9 @@ jobs:
           path: .artifacts/shadow-destructive-proof
           if-no-files-found: error
 
-      - name: Verify deployed shadow GM next
+      - name: Verify deployed shadow GM path
         env:
           DEPLOY_SSH_HOST: ${{ secrets.DEPLOY_SSH_HOST }}
-          SERVER_NEXT_GM_PASSWORD: ${{ secrets.PROD_GM_PASSWORD }}
-          SERVER_NEXT_URL: http://${{ secrets.DEPLOY_SSH_HOST }}:11923
-        run: pnpm --filter @mud/server-next smoke:gm-next
+          GM_PASSWORD: ${{ secrets.PROD_GM_PASSWORD }}
+          SERVER_URL: http://${{ secrets.DEPLOY_SSH_HOST }}:11923
+        run: SERVER_URL="$SERVER_URL" GM_PASSWORD="$GM_PASSWORD" pnpm --dir packages/server smoke:gm

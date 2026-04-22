@@ -1,17 +1,17 @@
 import type {
   ActionDef,
   Inventory,
-  NEXT_S2C_AttrUpdate,
+  S2C_AttrUpdate,
   PlayerState,
   TechniqueState,
-} from '@mud/shared-next';
+} from '@mud/shared';
 import { createExternalStore } from './create-external-store';
 /**
- * NextUiPanelDataState：定义接口结构约束，明确可交付字段含义。
+ * ReactUiPanelDataState：定义接口结构约束，明确可交付字段含义。
  */
 
 
-export interface NextUiPanelDataState {
+export interface ReactUiPanelDataState {
 /**
  * player：玩家引用。
  */
@@ -21,7 +21,7 @@ export interface NextUiPanelDataState {
  * attrUpdate：attrUpdate相关字段。
  */
 
-  attrUpdate: NEXT_S2C_AttrUpdate | null;  
+  attrUpdate: S2C_AttrUpdate | null;  
   /**
  * inventory：背包相关字段。
  */
@@ -64,7 +64,7 @@ export interface NextUiPanelDataState {
   quests: PlayerState['quests'] | null;
 }
 
-export const panelDataStore = createExternalStore<NextUiPanelDataState>({
+export const panelDataStore = createExternalStore<ReactUiPanelDataState>({
   player: null,
   attrUpdate: null,
   inventory: null,

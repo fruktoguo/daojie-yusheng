@@ -54,7 +54,7 @@ exports.ContentTemplateRepository = void 0;
 
 const common_1 = require("@nestjs/common");
 
-const shared_1 = require("@mud/shared-next");
+const shared_1 = require("@mud/shared");
 
 const fs = __importStar(require("fs"));
 

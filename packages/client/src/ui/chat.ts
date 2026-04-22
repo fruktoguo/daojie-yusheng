@@ -3,7 +3,7 @@
  * 管理多频道消息展示、角色级本地缓存与向上翻页加载历史
  */
 
-import { getDamageTrailColor, type ElementKey, type SkillDamageKind } from '@mud/shared-next';
+import { getDamageTrailColor, type ElementKey, type SkillDamageKind } from '@mud/shared';
 import {
   CHAT_CHANNELS,
   CHAT_LOG_LOAD_BATCH_SIZE,

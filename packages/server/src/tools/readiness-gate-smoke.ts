@@ -11,7 +11,7 @@ const node_child_process_1 = require("node:child_process");
 const node_net_1 = require("node:net");
 const node_path_1 = require("node:path");
 const socket_io_client_1 = require("socket.io-client");
-const shared_1 = require("@mud/shared-next");
+const shared_1 = require("@mud/shared");
 /**
  * 记录包根目录。
  */
@@ -23,7 +23,7 @@ const serverEntry = (0, node_path_1.join)(packageRoot, 'dist', 'main.js');
 /**
  * 记录当前值端口。
  */
-let currentPort = Number(process.env.SERVER_NEXT_SMOKE_PORT ?? 3312);
+let currentPort = Number(process.env.SERVER_SMOKE_PORT ?? 3312);
 /**
  * 记录base地址。
  */
@@ -45,7 +45,7 @@ async function main() {
 /**
  * 标记是否带库。
  */
-    const hasDatabase = (typeof process.env.SERVER_NEXT_DATABASE_URL === 'string' && process.env.SERVER_NEXT_DATABASE_URL.trim().length > 0)
+    const hasDatabase = (typeof process.env.SERVER_DATABASE_URL === 'string' && process.env.SERVER_DATABASE_URL.trim().length > 0)
         || (typeof process.env.DATABASE_URL === 'string' && process.env.DATABASE_URL.trim().length > 0);
     try {
         if (hasDatabase) {
@@ -171,16 +171,16 @@ async function startServer(options) {
         cwd: packageRoot,
         env: {
             ...process.env,
-            SERVER_NEXT_PORT: String(currentPort),
-            SERVER_NEXT_RUNTIME_HTTP: '1',
+            SERVER_PORT: String(currentPort),
+            SERVER_RUNTIME_HTTP: '1',
             ...(options.allowUnreadyTraffic
                 ? {
-                    SERVER_NEXT_ALLOW_UNREADY_TRAFFIC: '1',
-                    SERVER_NEXT_SMOKE_ALLOW_UNREADY: '1',
+                    SERVER_ALLOW_UNREADY_TRAFFIC: '1',
+                    SERVER_SMOKE_ALLOW_UNREADY: '1',
                 }
                 : {
-                    SERVER_NEXT_ALLOW_UNREADY_TRAFFIC: '0',
-                    SERVER_NEXT_SMOKE_ALLOW_UNREADY: '0',
+                    SERVER_ALLOW_UNREADY_TRAFFIC: '0',
+                    SERVER_SMOKE_ALLOW_UNREADY: '0',
                 }),
         },
         stdio: ['ignore', 'pipe', 'pipe'],
@@ -250,7 +250,7 @@ async function expectNextSocketRejected() {
         transports: ['websocket'],
         forceNew: true,
         auth: {
-            protocol: 'next',
+            protocol: 'mainline',
         },
     });
 /**
@@ -262,7 +262,7 @@ async function expectNextSocketRejected() {
  */
     let disconnected = false;
     try {
-        socket.on(shared_1.NEXT_S2C.Error, (payload) => {
+        socket.on(shared_1.S2C.Error, (payload) => {
             errorPayload = payload;
         });
         socket.on('disconnect', () => {
@@ -293,7 +293,7 @@ async function expectNextSocketBootstrapped() {
         transports: ['websocket'],
         forceNew: true,
         auth: {
-            protocol: 'next',
+            protocol: 'mainline',
         },
     });
 /**
@@ -309,22 +309,22 @@ async function expectNextSocketBootstrapped() {
  */
     let sessionId = '';
     try {
-        socket.on(shared_1.NEXT_S2C.Error, (payload) => {
+        socket.on(shared_1.S2C.Error, (payload) => {
             throw new Error(`unexpected next error under readiness bypass: ${JSON.stringify(payload)}`);
         });
-        socket.on(shared_1.NEXT_S2C.InitSession, (payload) => {
+        socket.on(shared_1.S2C.InitSession, (payload) => {
             playerId = String(payload?.pid ?? '');
             sessionId = String(payload?.sid ?? '');
             events.push('initSession');
         });
-        socket.on(shared_1.NEXT_S2C.MapEnter, () => {
+        socket.on(shared_1.S2C.MapEnter, () => {
             events.push('mapEnter');
         });
-        socket.on(shared_1.NEXT_S2C.Bootstrap, () => {
+        socket.on(shared_1.S2C.Bootstrap, () => {
             events.push('bootstrap');
         });
         await onceConnected(socket);
-        socket.emit(shared_1.NEXT_C2S.Hello, {
+        socket.emit(shared_1.C2S.Hello, {
             mapId: 'yunlai_town',
             preferredX: 32,
             preferredY: 5,

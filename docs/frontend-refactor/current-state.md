@@ -2,7 +2,7 @@
 
 ## 1. 当前定位
 
-`client-next` 现在更适合被描述为：
+`packages/client` 现在更适合被描述为：
 
 - 玩家主链已经基本 next-native
 - 已具备独立构建、独立协议消费、独立 UI 基座
@@ -101,7 +101,7 @@
 
 按前端侧单独看，当前更合理的描述是：
 
-- `client-next` 主链 ready 度：较高
+- `packages/client` 主链 ready 度：较高
 - 前端结构化程度：中高
 - 前端样式可复用性：已建立基座，但业务层还需继续压缩
 - 正式替换旧前端的主要阻塞：已经不主要在前端，而在后端 auth/session/bootstrap 和 replace-ready 证明链

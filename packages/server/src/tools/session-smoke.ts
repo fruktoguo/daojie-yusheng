@@ -8,19 +8,19 @@ Object.defineProperty(exports, "__esModule", { value: true });
 const smoke_timeout_1 = require("./smoke-timeout");
 (0, smoke_timeout_1.installSmokeTimeout)(__filename);
 const socket_io_client_1 = require("socket.io-client");
-const shared_1 = require("@mud/shared-next");
+const shared_1 = require("@mud/shared");
 const env_alias_1 = require("../config/env-alias");
 const world_session_reaper_service_1 = require("../network/world-session-reaper.service");
 const world_session_service_1 = require("../network/world-session.service");
 /**
- * 记录 server-next 访问地址。
+ * 记录 server 访问地址。
  */
-const SERVER_NEXT_URL = (0, env_alias_1.resolveServerNextUrl)() || 'http://127.0.0.1:3111';
+const SERVER_URL = (0, env_alias_1.resolveServerUrl)() || 'http://127.0.0.1:3111';
 /**
  * 记录会话断开后的保留时长。
  */
-const SESSION_DETACH_EXPIRE_MS = Number.isFinite(Number(process.env.SERVER_NEXT_SESSION_DETACH_EXPIRE_MS))
-    ? Math.max(0, Math.trunc(Number(process.env.SERVER_NEXT_SESSION_DETACH_EXPIRE_MS)))
+const SESSION_DETACH_EXPIRE_MS = Number.isFinite(Number(process.env.SERVER_SESSION_DETACH_EXPIRE_MS))
+    ? Math.max(0, Math.trunc(Number(process.env.SERVER_SESSION_DETACH_EXPIRE_MS)))
     : 15_000;
 const LEGACY_C2S_PING_EVENT = 'c:ping';
 const LEGACY_S2C_ERROR_EVENT = 's:error';
@@ -42,7 +42,7 @@ async function main() {
 /**
  * 记录invalidhello。
  */
-    const invalidHello = (0, socket_io_client_1.io)(SERVER_NEXT_URL, {
+    const invalidHello = (0, socket_io_client_1.io)(SERVER_URL, {
         path: '/socket.io',
         transports: ['websocket'],
     });
@@ -59,10 +59,10 @@ async function main() {
  */
     let invalidHelloInitCount = 0;
     await onceConnected(invalidHello);
-    invalidHello.on(shared_1.NEXT_S2C.Error, (payload) => {
+    invalidHello.on(shared_1.S2C.Error, (payload) => {
         invalidHelloError = payload;
     });
-    invalidHello.on(shared_1.NEXT_S2C.InitSession, () => {
+    invalidHello.on(shared_1.S2C.InitSession, () => {
         invalidHelloInitCount += 1;
     });
     invalidHello.on('disconnect', () => {
@@ -75,7 +75,7 @@ async function main() {
 /**
  * 记录隐式legacy。
  */
-    const implicitLegacy = (0, socket_io_client_1.io)(SERVER_NEXT_URL, {
+    const implicitLegacy = (0, socket_io_client_1.io)(SERVER_URL, {
         path: '/socket.io',
         transports: ['websocket'],
     });
@@ -96,13 +96,13 @@ async function main() {
  */
     let implicitLegacyNextPongCount = 0;
     await onceConnected(implicitLegacy);
-    implicitLegacy.on(shared_1.NEXT_S2C.Error, (payload) => {
+    implicitLegacy.on(shared_1.S2C.Error, (payload) => {
         implicitLegacyError = payload;
     });
     implicitLegacy.on(LEGACY_S2C_PONG_EVENT, () => {
         implicitLegacyLegacyPongCount += 1;
     });
-    implicitLegacy.on(shared_1.NEXT_S2C.Pong, () => {
+    implicitLegacy.on(shared_1.S2C.Pong, () => {
         implicitLegacyNextPongCount += 1;
     });
     implicitLegacy.on('disconnect', () => {
@@ -116,7 +116,7 @@ async function main() {
 /**
  * 记录显式legacy。
  */
-    const explicitLegacy = (0, socket_io_client_1.io)(SERVER_NEXT_URL, {
+    const explicitLegacy = (0, socket_io_client_1.io)(SERVER_URL, {
         path: '/socket.io',
         transports: ['websocket'],
         auth: {
@@ -139,7 +139,7 @@ async function main() {
  * 记录显式legacy断开。
  */
     let explicitLegacyDisconnected = false;
-    explicitLegacy.on(shared_1.NEXT_S2C.Error, (payload) => {
+    explicitLegacy.on(shared_1.S2C.Error, (payload) => {
         explicitLegacyError = payload;
     });
     explicitLegacy.on(LEGACY_S2C_ERROR_EVENT, (payload) => {
@@ -148,7 +148,7 @@ async function main() {
     explicitLegacy.on(LEGACY_S2C_PONG_EVENT, (payload) => {
         explicitLegacyLegacyPong = payload;
     });
-    explicitLegacy.on(shared_1.NEXT_S2C.Pong, () => {
+    explicitLegacy.on(shared_1.S2C.Pong, () => {
         explicitLegacyNextPongCount += 1;
     });
     explicitLegacy.on('disconnect', () => {
@@ -161,206 +161,54 @@ async function main() {
     await waitFor(() => explicitLegacyError !== null && explicitLegacyDisconnected, 4000);
     explicitLegacy.close();
 /**
- * 记录first。
+ * 记录guestdisabled。
  */
-    const first = (0, socket_io_client_1.io)(SERVER_NEXT_URL, {
+    const guestDisabled = (0, socket_io_client_1.io)(SERVER_URL, {
         path: '/socket.io',
         transports: ['websocket'],
     });
 /**
- * 记录ignoredrequested会话ID。
+ * 记录guestdisabled错误。
  */
-    const ignoredRequestedSessionId = `guest_requested_${Date.now().toString(36)}`;
+    let guestDisabledError = null;
 /**
- * 记录forgedresume会话ID。
+ * 记录guestdisabled断开。
  */
-    const forgedResumeSessionId = `forged_resume_${Date.now().toString(36)}`;
+    let guestDisabledDisconnected = false;
 /**
- * 记录运行态玩家ID。
+ * 记录guestdisabledinit数量。
  */
-    let runtimePlayerId = '';
-/**
- * 记录会话ID。
- */
-    let sessionId = '';
-/**
- * 记录resumedinit。
- */
-    let resumedInit = null;
-/**
- * 记录resumedmapenter。
- */
-    let resumedMapEnter = null;
-/**
- * 记录rejectedresumeinit。
- */
-    let rejectedResumeInit = null;
-/**
- * 记录rejected运行态玩家ID。
- */
-    let rejectedRuntimePlayerId = '';
-/**
- * 记录forged玩家错误。
- */
-    let forgedPlayerError = null;
-/**
- * 记录forged玩家断开。
- */
-    let forgedPlayerDisconnected = false;
+    let guestDisabledInitCount = 0;
 /**
  * 记录events。
  */
     const events = [];
-/**
- * 记录firstmapenter。
- */
-    let firstMapEnter = null;
-    await onceConnected(first);
-    first.on(shared_1.NEXT_S2C.InitSession, (payload) => {
-        runtimePlayerId = String(payload?.pid ?? '');
-        sessionId = payload.sid;
-        events.push(payload.resumed ? 'first:init:resumed' : 'first:init:new');
+    await onceConnected(guestDisabled);
+    guestDisabled.on(shared_1.S2C.Error, (payload) => {
+        guestDisabledError = payload;
     });
-    first.on(shared_1.NEXT_S2C.MapEnter, (payload) => {
-        firstMapEnter = payload;
-        events.push('first:mapEnter');
+    guestDisabled.on(shared_1.S2C.InitSession, () => {
+        guestDisabledInitCount += 1;
+        events.push('guestDisabled:init');
     });
-    first.emit('n:c:hello', {
-        sessionId: ignoredRequestedSessionId,
+    guestDisabled.on('disconnect', () => {
+        guestDisabledDisconnected = true;
+    });
+    guestDisabled.emit('n:c:hello', {
         mapId: 'yunlai_town',
         preferredX: 32,
         preferredY: 5,
     });
-    await waitFor(() => runtimePlayerId.length > 0 && sessionId.length > 0, 4000);
-    first.close();
-    await delay(1200);
-/**
- * 记录second。
- */
-    const second = (0, socket_io_client_1.io)(SERVER_NEXT_URL, {
-        path: '/socket.io',
-        transports: ['websocket'],
-    });
-    await onceConnected(second);
-    second.on(shared_1.NEXT_S2C.InitSession, (payload) => {
-        resumedInit = payload;
-        events.push(payload.resumed ? 'second:init:resumed' : 'second:init:new');
-    });
-    second.on(shared_1.NEXT_S2C.MapEnter, (payload) => {
-        resumedMapEnter = payload;
-        events.push('second:mapEnter');
-    });
-    second.emit('n:c:hello', {
-        sessionId,
-        mapId: 'wildlands',
-        preferredX: 6,
-        preferredY: 6,
-    });
-    await waitFor(() => resumedInit !== null && resumedMapEnter !== null, 4000);
-    second.close();
-    await delay(1200);
-/**
- * 记录third。
- */
-    const third = (0, socket_io_client_1.io)(SERVER_NEXT_URL, {
-        path: '/socket.io',
-        transports: ['websocket'],
-    });
-    await onceConnected(third);
-    third.on(shared_1.NEXT_S2C.InitSession, (payload) => {
-        rejectedResumeInit = payload;
-        rejectedRuntimePlayerId = String(payload?.pid ?? '');
-        events.push(payload.resumed ? 'third:init:resumed' : 'third:init:new');
-    });
-    third.emit('n:c:hello', {
-        sessionId: forgedResumeSessionId,
-    });
-    await waitFor(() => rejectedResumeInit !== null, 4000);
-    third.close();
-    await delay(1200);
-/**
- * 记录fourth。
- */
-    const fourth = (0, socket_io_client_1.io)(SERVER_NEXT_URL, {
-        path: '/socket.io',
-        transports: ['websocket'],
-    });
-    await onceConnected(fourth);
-    fourth.on(shared_1.NEXT_S2C.Error, (payload) => {
-        forgedPlayerError = payload;
-    });
-    fourth.on(shared_1.NEXT_S2C.InitSession, (payload) => {
-        events.push(payload.resumed ? 'fourth:init:resumed' : 'fourth:init:new');
-    });
-    fourth.on('disconnect', () => {
-        forgedPlayerDisconnected = true;
-    });
-    fourth.emit('n:c:hello', {
-        playerId: runtimePlayerId,
-        requestedPlayerId: runtimePlayerId,
-    });
-    await waitFor(() => forgedPlayerError !== null && forgedPlayerDisconnected, 4000);
-    fourth.close();
-    await delay(SESSION_DETACH_EXPIRE_MS + 1200);
-/**
- * 记录fifth。
- */
-    const fifth = (0, socket_io_client_1.io)(SERVER_NEXT_URL, {
-        path: '/socket.io',
-        transports: ['websocket'],
-    });
-/**
- * 记录expiredresumeinit。
- */
-    let expiredResumeInit = null;
-/**
- * 记录expiredresume玩家ID。
- */
-    let expiredResumePlayerId = '';
-    await onceConnected(fifth);
-    fifth.on(shared_1.NEXT_S2C.InitSession, (payload) => {
-        expiredResumeInit = payload;
-        expiredResumePlayerId = String(payload?.pid ?? '');
-        events.push(payload.resumed ? 'fifth:init:resumed' : 'fifth:init:new');
-    });
-    fifth.emit('n:c:hello', {
-        sessionId,
-    });
-    await waitFor(() => expiredResumeInit !== null, 4000);
-    fifth.close();
-    if (expiredResumePlayerId) {
-        await deletePlayer(expiredResumePlayerId);
-    }
-    if (rejectedRuntimePlayerId) {
-        await deletePlayer(rejectedRuntimePlayerId);
-    }
-    if (runtimePlayerId && runtimePlayerId !== rejectedRuntimePlayerId) {
-        await deletePlayer(runtimePlayerId);
-    }
-/**
- * 记录init。
- */
-    const init = resumedInit;
-/**
- * 记录rejectedinit。
- */
-    const rejectedInit = rejectedResumeInit;
-/**
- * 记录forged玩家payload。
- */
-    const forgedPlayerPayload = forgedPlayerError;
-/**
- * 记录expiredinit。
- */
-    const expiredInit = expiredResumeInit;
-    if ((invalidHelloError?.code ?? null) !== 'HELLO_SESSION_ID_INVALID') {
-        throw new Error(`expected invalid hello sessionId to be rejected with HELLO_SESSION_ID_INVALID, got ${JSON.stringify(invalidHelloError)}`);
+    await waitFor(() => guestDisabledError !== null && guestDisabledDisconnected, 4000);
+    guestDisabled.close();
+    if ((invalidHelloError?.code ?? null) !== 'AUTH_FAIL') {
+        throw new Error(`expected unauthenticated socket to be rejected with AUTH_FAIL before hello bootstrap, got ${JSON.stringify(invalidHelloError)}`);
     }
     if (invalidHelloInitCount !== 0) {
-        throw new Error(`expected invalid hello sessionId to avoid bootstrap init, got ${invalidHelloInitCount}`);
+        throw new Error(`expected unauthenticated socket to avoid bootstrap init, got ${invalidHelloInitCount}`);
     }
-    if (implicitLegacyError !== null) {
-        throw new Error(`expected implicit legacy ping to stay silent without next error emission, got ${JSON.stringify(implicitLegacyError)}`);
+    if ((implicitLegacyError?.code ?? null) !== 'AUTH_FAIL') {
+        throw new Error(`expected implicit unauthenticated legacy ping to be rejected with AUTH_FAIL, got ${JSON.stringify(implicitLegacyError)}`);
     }
     if (implicitLegacyLegacyPongCount !== 0 || implicitLegacyNextPongCount !== 0) {
         throw new Error(`expected implicit legacy ping to avoid pong emission, got legacy=${implicitLegacyLegacyPongCount} next=${implicitLegacyNextPongCount}`);
@@ -374,66 +222,16 @@ async function main() {
     if (explicitLegacyNextPongCount !== 0) {
         throw new Error(`expected explicit legacy ping to avoid next pong emission while disabled, got ${explicitLegacyNextPongCount}`);
     }
-    if (init.pid !== runtimePlayerId) {
-        throw new Error(`expected resumed init pid ${runtimePlayerId}, got ${JSON.stringify(init)}`);
+    if ((guestDisabledError?.code ?? null) !== 'AUTH_FAIL') {
+        throw new Error(`expected unauthenticated hello to be rejected with AUTH_FAIL, got ${JSON.stringify(guestDisabledError)}`);
     }
-    if (init.sid !== sessionId || init.resumed !== true) {
-        throw new Error(`expected resumed session ${sessionId}, got ${JSON.stringify(init)}`);
-    }
-    if (!firstMapEnter || !resumedMapEnter) {
-        throw new Error(`missing guest map-enter proof: first=${JSON.stringify(firstMapEnter)} resumed=${JSON.stringify(resumedMapEnter)}`);
-    }
-    if (resumedMapEnter.mid !== firstMapEnter.mid
-        || resumedMapEnter.x !== firstMapEnter.x
-        || resumedMapEnter.y !== firstMapEnter.y) {
-        throw new Error(`expected guest detached resume to keep previous placement instead of hello override, got first=${JSON.stringify(firstMapEnter)} resumed=${JSON.stringify(resumedMapEnter)}`);
-    }
-    if (resumedMapEnter.mid === 'wildlands' || resumedMapEnter.x === 6 || resumedMapEnter.y === 6) {
-        throw new Error(`expected guest detached resume to ignore forged placement override, got ${JSON.stringify(resumedMapEnter)}`);
-    }
-    if (sessionId === ignoredRequestedSessionId) {
-        throw new Error(`expected guest requested sessionId to be ignored on first bootstrap, got ${sessionId}`);
-    }
-    if (rejectedInit.sid === forgedResumeSessionId) {
-        throw new Error(`expected forged requested sessionId to be ignored after detach, got ${JSON.stringify(rejectedInit)}`);
-    }
-    if (rejectedRuntimePlayerId === runtimePlayerId) {
-        throw new Error(`expected forged sid without playerId to rotate guest player identity, got ${JSON.stringify(rejectedInit)}`);
-    }
-    if (rejectedInit.sid === sessionId) {
-        throw new Error(`expected forged sid without playerId to avoid canonical session reuse, got ${JSON.stringify(rejectedInit)}`);
-    }
-    if ((forgedPlayerPayload?.code ?? null) !== 'HELLO_IDENTITY_OVERRIDE_FORBIDDEN') {
-        throw new Error(`expected guest requested playerId to be rejected with HELLO_IDENTITY_OVERRIDE_FORBIDDEN, got ${JSON.stringify(forgedPlayerPayload)}`);
-    }
-    if (!expiredInit) {
-        throw new Error('missing expired detached session proof payload');
-    }
-    if (expiredInit.resumed === true) {
-        throw new Error(`expected expired detached sid to avoid resume, got ${JSON.stringify(expiredInit)}`);
-    }
-    if (expiredInit.sid === sessionId) {
-        throw new Error(`expected expired detached sid to rotate server sid, got ${JSON.stringify(expiredInit)}`);
-    }
-    if (expiredResumePlayerId === runtimePlayerId) {
-        throw new Error(`expected expired detached sid to rotate guest player identity, got ${JSON.stringify(expiredInit)}`);
+    if (guestDisabledInitCount !== 0) {
+        throw new Error(`expected unauthenticated hello to avoid bootstrap init, got ${guestDisabledInitCount}`);
     }
     console.log(JSON.stringify({
         ok: true,
-        url: SERVER_NEXT_URL,
-        playerId: runtimePlayerId,
-        rejectedPlayerId: rejectedRuntimePlayerId,
-        forgedPlayerIdAttempt: runtimePlayerId,
-        ignoredRequestedPlayerIdResult: null,
-        sessionId,
-        ignoredRequestedSessionId,
-        forgedResumeSessionId,
-        detachExpireMs: SESSION_DETACH_EXPIRE_MS,
-        resumedMapEnter,
-        rejectedResumeSid: rejectedInit.sid,
-        ignoredRequestedPlayerRejectedCode: forgedPlayerPayload?.code ?? null,
-        expiredResumeSid: expiredInit.sid,
-        expiredResumePlayerId,
+        url: SERVER_URL,
+        guestConnectRejectedCode: guestDisabledError?.code ?? null,
         serviceProof,
         reaperProof,
         invalidHelloRejectedCode: invalidHelloError?.code ?? null,
@@ -905,7 +703,7 @@ async function deletePlayer(playerIdToDelete) {
 /**
  * 记录response。
  */
-    const response = await fetch(`${SERVER_NEXT_URL}/runtime/players/${playerIdToDelete}`, {
+    const response = await fetch(`${SERVER_URL}/runtime/players/${playerIdToDelete}`, {
         method: 'DELETE',
     });
     if (!response.ok) {

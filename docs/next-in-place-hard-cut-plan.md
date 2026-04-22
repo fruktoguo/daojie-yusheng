@@ -410,4 +410,4 @@ legacy 之后只承担三种用途：
 
 - [next 系统模块 / API / 数据目录总盘点](./next-system-module-api-inventory.md)
 - [当前主计划总表](./next-plan/main.md)
-- [server-next 验证](../packages/server/TESTING.md)
+- [server 验证](../packages/server/TESTING.md)

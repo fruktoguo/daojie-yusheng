@@ -4,7 +4,7 @@
 require('./load-local-runtime-env');
 
 /**
- * 用途：执行 server-next 替换链路的shadow流程。
+ * 用途：执行 server 替换链路的shadow流程。
  */
 
 const { spawnSync } = require('node:child_process');
@@ -12,39 +12,39 @@ const path = require('node:path');
 
 const repoRoot = path.resolve(__dirname, '..');
 const {
-  resolveServerNextGmPassword,
-  resolveServerNextGmPasswordEnvSource,
-  resolveServerNextShadowUrl,
-  resolveServerNextShadowUrlEnvSource,
-} = require('./server-next-env-alias');
+  resolveServerGmPassword,
+  resolveServerGmPasswordEnvSource,
+  resolveServerShadowUrl,
+  resolveServerShadowUrlEnvSource,
+} = require('./server-env-alias');
 const { probeShadowTarget } = require('./shadow-target-probe');
 
 /**
  * 记录shadow 环境地址。
  */
-const shadowUrl = resolveServerNextShadowUrl();
+const shadowUrl = resolveServerShadowUrl();
 /**
  * 记录shadow 环境环境变量来源地址。
  */
-const shadowUrlEnvSource = resolveServerNextShadowUrlEnvSource();
+const shadowUrlEnvSource = resolveServerShadowUrlEnvSource();
 /**
  * 记录GMpassword。
  */
-const gmPassword = resolveServerNextGmPassword();
+const gmPassword = resolveServerGmPassword();
 /**
  * 记录GMpassword环境变量来源。
  */
-const gmPasswordEnvSource = resolveServerNextGmPasswordEnvSource();
+const gmPasswordEnvSource = resolveServerGmPasswordEnvSource();
 
 if (!shadowUrl) {
-  process.stderr.write('replace-ready shadow requires SERVER_NEXT_SHADOW_URL or SERVER_NEXT_URL\n');
-  process.stderr.write('run pnpm verify:replace-ready:doctor first, then set SERVER_NEXT_SHADOW_URL or SERVER_NEXT_URL and rerun pnpm verify:replace-ready:shadow\n');
+  process.stderr.write('replace-ready shadow requires SERVER_SHADOW_URL or SERVER_URL\n');
+  process.stderr.write('run pnpm verify:replace-ready:doctor first, then set SERVER_SHADOW_URL or SERVER_URL and rerun pnpm verify:replace-ready:shadow\n');
   process.exit(1);
 }
 
 if (!gmPassword) {
-  process.stderr.write('replace-ready shadow requires SERVER_NEXT_GM_PASSWORD or GM_PASSWORD\n');
-  process.stderr.write('run pnpm verify:replace-ready:doctor first, then set SERVER_NEXT_GM_PASSWORD or GM_PASSWORD and rerun pnpm verify:replace-ready:shadow\n');
+  process.stderr.write('replace-ready shadow requires SERVER_GM_PASSWORD or GM_PASSWORD\n');
+  process.stderr.write('run pnpm verify:replace-ready:doctor first, then set SERVER_GM_PASSWORD or GM_PASSWORD and rerun pnpm verify:replace-ready:shadow\n');
   process.exit(1);
 }
 
@@ -61,14 +61,14 @@ async function main() {
   /**
    * 累计当前结果。
    */
-  const result = spawnSync('pnpm', ['--filter', '@mud/server-next', 'smoke:shadow'], {
+  const result = spawnSync('pnpm', ['--filter', '@mud/server', 'smoke:shadow'], {
     cwd: repoRoot,
     stdio: 'inherit',
     shell: process.platform === 'win32',
     env: {
       ...process.env,
-      ...(shadowUrlEnvSource === 'SERVER_NEXT_SHADOW_URL' ? null : { SERVER_NEXT_SHADOW_URL: shadowUrl }),
-      ...(gmPasswordEnvSource === 'SERVER_NEXT_GM_PASSWORD' ? null : { SERVER_NEXT_GM_PASSWORD: gmPassword }),
+      ...(shadowUrlEnvSource === 'SERVER_SHADOW_URL' ? null : { SERVER_SHADOW_URL: shadowUrl }),
+      ...(gmPasswordEnvSource === 'SERVER_GM_PASSWORD' ? null : { SERVER_GM_PASSWORD: gmPassword }),
     },
   });
 
@@ -83,8 +83,8 @@ async function main() {
 
   process.stdout.write('[replace-ready:shadow] done step=smoke:shadow\n');
   process.stdout.write('[replace-ready:shadow] completed\n');
-  process.stdout.write('[replace-ready:shadow] boundary=shadow automated acceptance only; this does not include gm-next, full database regression, or destructive proof\n');
-  process.stdout.write('[replace-ready:shadow] next=run pnpm verify:replace-ready:acceptance for shadow + gm-next, or pnpm verify:replace-ready:shadow:destructive during a maintenance window\n');
+  process.stdout.write('[replace-ready:shadow] boundary=shadow automated acceptance only; this does not include gm, full database regression, or destructive proof\n');
+  process.stdout.write('[replace-ready:shadow] next=run pnpm verify:replace-ready:acceptance for shadow + gm, or pnpm verify:replace-ready:shadow:destructive during a maintenance window\n');
   process.exit(0);
 }
 

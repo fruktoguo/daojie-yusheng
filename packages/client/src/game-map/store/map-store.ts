@@ -15,7 +15,7 @@ import {
   type VisibleTilePatch,
   clonePlainValue,
   getFirstGrapheme,
-} from '@mud/shared-next';
+} from '@mud/shared';
 import {
   deleteRememberedMap,
   getRememberedMarkers,

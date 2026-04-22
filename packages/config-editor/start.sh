@@ -8,10 +8,10 @@ ROOT_DIR="$(cd "$(dirname "$0")/../.." && pwd)"
 cd "$ROOT_DIR"
 
 echo "[config-editor] 构建共享类型"
-pnpm --filter @mud/shared-next build
+pnpm --dir packages/shared build
 
 echo "[config-editor] 启动共享包监听构建"
-pnpm --filter @mud/shared-next build:watch &
+pnpm --dir packages/shared build:watch &
 # 记录共享包pid。
 SHARED_PID=$!
 

@@ -7,7 +7,7 @@ import {
   type RuntimeTechniqueActivityKind,
   type TechniqueActivityCommandKind,
   type TechniqueActivityMetadata,
-} from '@mud/shared-next';
+} from '@mud/shared';
 
 export function getTechniqueActivityMetadata(kind: RuntimeTechniqueActivityKind): TechniqueActivityMetadata {
   return TECHNIQUE_ACTIVITY_METADATA[kind];

@@ -4,7 +4,7 @@ import { normalizeUsername, resolveDisplayName, validatePassword, validateUserna
 import { hashPassword } from '../../auth/password-hash';
 import { PlayerIdentityPersistenceService } from '../../persistence/player-identity-persistence.service';
 import { PlayerRuntimeService } from '../../runtime/player/player-runtime.service';
-import { NEXT_GM_AUTH_CONTRACT } from './next-gm-contract';
+import { GM_AUTH_CONTRACT } from './next-gm-contract';
 import { NextPlayerAuthStoreService } from './next-player-auth-store.service';
 import type { NextPlayerAuthUser } from './next-player-auth-store.service';
 /**
@@ -269,7 +269,7 @@ export class NextManagedAccountService {
         displayName: resolveDisplayName(user.displayName, user.username),
         playerId: user.playerId,
         playerName: user.pendingRoleName?.trim() || user.username,
-        persistedSource: NEXT_GM_AUTH_CONTRACT.identityPersistedSource,
+        persistedSource: GM_AUTH_CONTRACT.identityPersistedSource,
         updatedAt: Date.now(),
       });
     } catch (error) {

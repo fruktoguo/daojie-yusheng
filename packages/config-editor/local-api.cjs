@@ -21,6 +21,7 @@ const {
   shouldPersistMonsterExpMultiplier,
   shouldPersistMonsterTier,
   validateEditableMapDocument,
+  validateEditableMapPortalReciprocity,
 } = require(path.join(ROOT_DIR, 'packages/shared/dist/index.js'));
 
 /**
@@ -88,7 +89,7 @@ const serverState = {
   lastRestartAt: undefined,
   lastRestartReason: MANAGE_GAME_SERVER ? '初始化启动' : '未启用编辑器托管',
   mode: MANAGE_GAME_SERVER
-    ? 'pnpm --filter @mud/server-next start:dev'
+    ? 'pnpm --dir packages/server start:dev'
     : '未托管（设置 CONFIG_EDITOR_MANAGE_GAME_SERVER=1 后启用）',
 };
 
@@ -940,6 +941,11 @@ function saveMapDocument(mapId, rawDocument) {
   if (validationError) {
     throw new Error(validationError);
   }
+  const allDocuments = getAllMapDocuments().map((document) => document.id === mapId ? normalized : document);
+  const portalValidationError = validateEditableMapPortalReciprocity(allDocuments);
+  if (portalValidationError) {
+    throw new Error(portalValidationError);
+  }
   const persisted = dehydrateMapDocument(normalized);
   const targetPath = findMapFilePath(mapId) || path.join(MAPS_DIR, `${mapId}.json`);
   fs.writeFileSync(targetPath, `${JSON.stringify(persisted, null, 2)}\n`, 'utf-8');
@@ -1061,7 +1067,7 @@ async function restartServer(reason) {
     return;
   }
 
-  const child = spawn('pnpm', ['--filter', '@mud/server-next', 'start:dev'], {
+  const child = spawn('pnpm', ['--dir', 'packages/server', 'start:dev'], {
     cwd: ROOT_DIR,
     detached: true,
     stdio: 'inherit',
@@ -1274,7 +1280,7 @@ async function bootstrap() {
   if (MANAGE_GAME_SERVER) {
     await restartServer('配置编辑器启动');
   } else {
-    console.log('[config-editor] 已以独立模式启动，不会自动拉起或重启 @mud/server-next');
+    console.log('[config-editor] 已以独立模式启动，不会自动拉起或重启 packages/server');
   }
 
   const server = http.createServer((req, res) => {

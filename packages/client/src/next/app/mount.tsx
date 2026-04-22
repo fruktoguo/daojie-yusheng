@@ -2,9 +2,9 @@ import { StrictMode } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
 import { getViewportRoot } from '../../ui/responsive-viewport';
 import { registerReactUiNextToggleApi, isReactUiNextEnabled } from '../bridge/feature-flag';
-import { nextUiBridge } from '../bridge/next-ui-bridge';
+import { reactUiBridge } from '../bridge/next-ui-bridge';
 import { shellStore } from '../stores/shell-store';
-import { NextUiRoot } from './NextUiRoot';
+import { ReactUiRoot } from './NextUiRoot';
 import '../styles/index.css';
 
 let root: Root | null = null;
@@ -29,13 +29,13 @@ function ensureHost(doc: Document): HTMLElement {
   return host;
 }
 /**
- * mountNextUi：执行mountNextUi相关逻辑。
+ * mountReactUi：执行mountReactUi相关逻辑。
  * @param win Window 参数说明。
- * @returns 无返回值，直接更新mountNextUi相关状态。
+ * @returns 无返回值，直接更新mountReactUi相关状态。
  */
 
 
-export function mountNextUi(win: Window = window): void {
+export function mountReactUi(win: Window = window): void {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
   if (root) {
@@ -50,9 +50,9 @@ export function mountNextUi(win: Window = window): void {
   root = createRoot(host);
   root.render(
     <StrictMode>
-      <NextUiRoot />
+      <ReactUiRoot />
     </StrictMode>,
   );
-  nextUiBridge.syncMounted(true);
-  nextUiBridge.syncEnabled(enabled);
+  reactUiBridge.syncMounted(true);
+  reactUiBridge.syncEnabled(enabled);
 }

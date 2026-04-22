@@ -23,7 +23,7 @@ import {
   TechniqueGrade,
   TimePhaseId,
   VisibleBuffState,
-} from '@mud/shared-next';
+} from '@mud/shared';
 import { Camera } from './camera';
 import { getCellSize } from '../display';
 import { formatDisplayInteger } from '../utils/number';

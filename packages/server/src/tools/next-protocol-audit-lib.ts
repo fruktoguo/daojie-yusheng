@@ -111,10 +111,10 @@ async function startIsolatedServer(port) {
       cwd: exports.repoRoot,
       env: {
         ...process.env,
-        SERVER_NEXT_PORT: String(port),
-        SERVER_NEXT_RUNTIME_HTTP: '1',
-        SERVER_NEXT_ALLOW_UNREADY_TRAFFIC: '1',
-        SERVER_NEXT_SMOKE_ALLOW_UNREADY: '1',
+        SERVER_PORT: String(port),
+        SERVER_RUNTIME_HTTP: '1',
+        SERVER_ALLOW_UNREADY_TRAFFIC: '1',
+        SERVER_SMOKE_ALLOW_UNREADY: '1',
       },
       stdio: ['ignore', 'pipe', 'pipe'],
     });
@@ -134,7 +134,7 @@ async function startIsolatedServer(port) {
         return;
       }
       settled = true;
-      reject(new Error('server-next isolated startup timeout'));
+      reject(new Error('server isolated startup timeout'));
     }, 20_000);
 /**
  * 刷新flush。
@@ -174,7 +174,7 @@ async function startIsolatedServer(port) {
       if (!settled) {
         settled = true;
         clearTimeout(timeout);
-        reject(new Error(`server-next isolated server exited before ready: code=${code} signal=${signal ?? 'none'}`));
+        reject(new Error(`server isolated server exited before ready: code=${code} signal=${signal ?? 'none'}`));
         return;
       }
       if (code !== null && code !== 0) {
@@ -803,7 +803,7 @@ function createRuntimeApi(baseUrl) {
     deletePlayer(playerId) {
       return (0, smoke_player_cleanup_1.purgeSmokePlayerArtifactsByPlayerId)(playerId, {
         serverUrl: baseUrl,
-        databaseUrl: (0, env_alias_1.resolveServerNextDatabaseUrl)(),
+        databaseUrl: (0, env_alias_1.resolveServerDatabaseUrl)(),
       });
     },
   };
@@ -852,7 +852,10 @@ function createCaseRuntime(options) {
         auditor: options.auditor,
         caseName: options.caseName,
         label,
-        auth,
+        auth: {
+          protocol: 'mainline',
+          ...(auth ?? {}),
+        },
       });
       sockets.push(socket);
       return socket;
@@ -978,7 +981,7 @@ function loadUniqueItemIds() {
   return result;
 }
 exports.loadUniqueItemIds = loadUniqueItemIds;
-const shared_next_compat = require('@mud/shared-next');
+const shared_next_compat = require('@mud/shared');
 /**
  * 记录rawstartisolated服务端。
  */
@@ -1287,7 +1290,7 @@ function hasDatabaseUrl() {
 /**
  * 记录数据库地址。
  */
-  const databaseUrl = (0, env_alias_1.resolveServerNextDatabaseUrl)();
+  const databaseUrl = (0, env_alias_1.resolveServerDatabaseUrl)();
   return databaseUrl.trim().length > 0;
 }
 

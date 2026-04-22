@@ -1,6 +1,6 @@
 /**
  * HTTP / GM API 合同层：定义账号、GM、数据库、地图编辑和管理面所用的请求/响应类型。
- * 这些结构不参与 NEXT_C2S / NEXT_S2C 事件映射，单独拆出以避免 protocol.ts 混入过多非 socket 合同。
+ * 这些结构不参与 C2S / S2C 事件映射，单独拆出以避免 protocol.ts 混入过多非 socket 合同。
  */
 import type {
   Attributes,

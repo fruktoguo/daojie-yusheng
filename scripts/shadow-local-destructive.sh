@@ -18,7 +18,7 @@ restore_shadow() {
 
 trap restore_shadow EXIT
 
-export SERVER_NEXT_SHADOW_ALLOW_DESTRUCTIVE=1
+export SERVER_SHADOW_ALLOW_DESTRUCTIVE=1
 
 bash "${SCRIPT_DIR}/shadow-local-maintenance-on.sh"
 shadow_run_pnpm verify:replace-ready:shadow:destructive:preflight

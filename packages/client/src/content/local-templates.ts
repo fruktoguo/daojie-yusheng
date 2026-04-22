@@ -9,7 +9,7 @@ import {
   type TechniqueCategory,
   type TechniqueGrade,
   type TechniqueState,
-} from '@mud/shared-next';
+} from '@mud/shared';
 import { LOCAL_EDITOR_CATALOG } from './editor-catalog';
 
 // 本地目录只用于预览补齐与离线辅助，不参与正式玩法真源判定。

@@ -3,8 +3,8 @@ const MOVEMENT_DEBUG_STORAGE_KEY = 'next.debug.movement';
 /** MOVEMENT_DEBUG_QUERY_KEY：移动调试查询KEY。 */
 const MOVEMENT_DEBUG_QUERY_KEY = 'debugMovement';
 
-/** NextMovementDebugWindow：挂载 next 移动调试开关的 window 扩展。 */
-type NextMovementDebugWindow = Window & {
+/** MovementDebugWindow：挂载 next 移动调试开关的 window 扩展。 */
+type MovementDebugWindow = Window & {
 /**
  * __NEXT_DEBUG_MOVEMENT__：NEXTDEBUGMOVEMENT相关字段。
  */
@@ -26,8 +26,8 @@ function normalizeDebugFlag(value: unknown): boolean {
   return normalized === '1' || normalized === 'true' || normalized === 'on' || normalized === 'yes';
 }
 
-/** isNextMovementDebugEnabled：判断是否新版移动调试启用。 */
-export function isNextMovementDebugEnabled(): boolean {
+/** isMovementDebugEnabled：判断是否新版移动调试启用。 */
+export function isMovementDebugEnabled(): boolean {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
   if (typeof window === 'undefined') {
@@ -36,7 +36,7 @@ export function isNextMovementDebugEnabled(): boolean {
   if (normalizeDebugFlag(import.meta.env.VITE_NEXT_DEBUG_MOVEMENT)) {
     return true;
   }
-  const debugWindow = window as NextMovementDebugWindow;
+  const debugWindow = window as MovementDebugWindow;
   if (normalizeDebugFlag(debugWindow.__NEXT_DEBUG_MOVEMENT__)) {
     return true;
   }
@@ -55,11 +55,11 @@ export function isNextMovementDebugEnabled(): boolean {
   }
 }
 
-/** logNextMovement：处理日志新版移动。 */
-export function logNextMovement(scope: string, payload?: unknown): void {
+/** logMovement：处理日志新版移动。 */
+export function logMovement(scope: string, payload?: unknown): void {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
-  if (!isNextMovementDebugEnabled()) {
+  if (!isMovementDebugEnabled()) {
     return;
   }
   const prefix = `[next-move][${scope}]`;

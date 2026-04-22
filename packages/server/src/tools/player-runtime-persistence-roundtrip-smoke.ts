@@ -8,7 +8,7 @@ const {
     DEFAULT_BONE_AGE_YEARS,
     DEFAULT_INVENTORY_CAPACITY,
     Direction,
-} = require("@mud/shared-next");
+} = require("@mud/shared");
 const { PlayerRuntimeService } = require("../runtime/player/player-runtime.service");
 
 function createPlayerRuntimeService() {

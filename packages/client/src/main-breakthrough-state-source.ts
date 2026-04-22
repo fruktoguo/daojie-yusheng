@@ -1,4 +1,4 @@
-import { NEXT_C2S, type BreakthroughRequirementView, type NEXT_C2S_EventPayload, type PlayerState } from '@mud/shared-next';
+import { C2S, type BreakthroughRequirementView, type ClientToServerEventPayload, type PlayerState } from '@mud/shared';
 import type { SocketRuntimeSender } from './network/socket-send-runtime';
 import { bindInlineItemTooltips, renderTextWithInlineItemHighlights } from './ui/item-inline-tooltip';
 import { detailModalHost } from './ui/detail-modal-host';

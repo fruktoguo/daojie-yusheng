@@ -11,7 +11,7 @@ COPY docs/tutorial-mechanics.md docs/tutorial-mechanics.md
 COPY packages/shared packages/shared
 COPY packages/server packages/server
 COPY packages/server/data packages/server/data
-RUN pnpm --filter @mud/shared-next build && pnpm --filter @mud/server-next compile
+RUN pnpm --filter @mud/shared build && pnpm --filter @mud/server compile
 
 FROM node:20-alpine
 RUN apk add --no-cache postgresql-client

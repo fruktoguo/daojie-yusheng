@@ -1,4 +1,4 @@
-import type { MonsterTier, RenderEntity } from '@mud/shared-next';
+import type { MonsterTier, RenderEntity } from '@mud/shared';
 
 /** 怪物在界面中的展示信息。 */
 export interface MonsterPresentation {

@@ -49,10 +49,10 @@ type MainPanelRuntimeSourceOptions = {
 
   store: PanelRuntimeStore;  
   /**
- * nextUiBridge：nextUi桥接引用。
+ * reactUiBridge：nextUi桥接引用。
  */
 
-  nextUiBridge: {  
+  reactUiBridge: {  
   /**
  * syncRuntime：运行态引用。
  */
@@ -87,8 +87,8 @@ export function createMainPanelRuntimeSource(options: MainPanelRuntimeSourceOpti
 
     syncInitialBridgeState(): void {
       const state = options.store.getState();
-      options.nextUiBridge.syncRuntime(state.runtime);
-      options.nextUiBridge.syncCapabilities(state.capabilities);
+      options.reactUiBridge.syncRuntime(state.runtime);
+      options.reactUiBridge.syncCapabilities(state.capabilities);
     },    
     /**
  * subscribeBridgeState：执行subscribe桥接状态相关逻辑。
@@ -98,8 +98,8 @@ export function createMainPanelRuntimeSource(options: MainPanelRuntimeSourceOpti
 
     subscribeBridgeState(): void {
       options.store.subscribe((state) => {
-        options.nextUiBridge.syncRuntime(state.runtime);
-        options.nextUiBridge.syncCapabilities(state.capabilities);
+        options.reactUiBridge.syncRuntime(state.runtime);
+        options.reactUiBridge.syncCapabilities(state.capabilities);
       });
     },    
     /**

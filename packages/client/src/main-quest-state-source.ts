@@ -1,10 +1,10 @@
 import {
   Inventory,
-  NEXT_S2C_NpcQuests,
-  NEXT_S2C_QuestNavigateResult,
-  NEXT_S2C_QuestUpdate,
   PlayerState,
-} from '@mud/shared-next';
+  S2C_NpcQuests,
+  S2C_QuestNavigateResult,
+  S2C_QuestUpdate,
+} from '@mud/shared';
 import { NpcQuestModal } from './ui/npc-quest-modal';
 import { QuestPanel } from './ui/panels/quest-panel';
 /**
@@ -148,23 +148,23 @@ export function createMainQuestStateSource(options: MainQuestStateSourceOptions)
     },    
     /**
  * handleNpcQuests：处理NPC任务并更新相关状态。
- * @param data NEXT_S2C_NpcQuests 原始数据。
+ * @param data S2C_NpcQuests 原始数据。
  * @returns 无返回值，直接更新NPC任务相关状态。
  */
 
 
-    handleNpcQuests(data: NEXT_S2C_NpcQuests): void {
+    handleNpcQuests(data: S2C_NpcQuests): void {
       options.npcQuestModal.updateQuests(data);
     },    
     /**
  * handleQuestUpdate：处理任务Update并更新相关状态。
- * @param data NEXT_S2C_QuestUpdate 原始数据。
+ * @param data S2C_QuestUpdate 原始数据。
  * @param player PlayerState | null 玩家对象。
  * @returns 无返回值，直接更新任务Update相关状态。
  */
 
 
-    handleQuestUpdate(data: NEXT_S2C_QuestUpdate, player: PlayerState | null): void {
+    handleQuestUpdate(data: S2C_QuestUpdate, player: PlayerState | null): void {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
       if (player) {
@@ -181,12 +181,12 @@ export function createMainQuestStateSource(options: MainQuestStateSourceOptions)
     },    
     /**
  * handleQuestNavigateResult：处理任务Navigate结果并更新相关状态。
- * @param data NEXT_S2C_QuestNavigateResult 原始数据。
+ * @param data S2C_QuestNavigateResult 原始数据。
  * @returns 无返回值，直接更新任务Navigate结果相关状态。
  */
 
 
-    handleQuestNavigateResult(data: NEXT_S2C_QuestNavigateResult): void {
+    handleQuestNavigateResult(data: S2C_QuestNavigateResult): void {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
       if (pendingQuestNavigateId !== data.questId) {

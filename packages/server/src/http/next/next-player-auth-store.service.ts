@@ -1,9 +1,9 @@
 import { BadRequestException, Injectable, Logger, OnModuleDestroy, OnModuleInit } from '@nestjs/common';
-import { isDuplicateFriendlyDisplayName } from '@mud/shared-next';
+import { isDuplicateFriendlyDisplayName } from '@mud/shared';
 import { Pool } from 'pg';
 
 import { buildDefaultRoleName, normalizeDisplayName, normalizeRoleName, normalizeUsername, resolveDisplayName } from '../../auth/account-validation';
-import { resolveServerNextDatabaseUrl } from '../../config/env-alias';
+import { resolveServerDatabaseUrl } from '../../config/env-alias';
 /**
  * AuthConflictKind：统一结构类型，保证协议与运行时一致性。
  */
@@ -329,9 +329,9 @@ export class NextPlayerAuthStoreService implements OnModuleInit, OnModuleDestroy
   async onModuleInit(): Promise<void> {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
-    const databaseUrl = resolveServerNextDatabaseUrl();
+    const databaseUrl = resolveServerDatabaseUrl();
     if (!databaseUrl.trim()) {
-      this.logger.log('Next 玩家鉴权存储运行在纯内存模式：未提供 SERVER_NEXT_DATABASE_URL/DATABASE_URL');
+      this.logger.log('Next 玩家鉴权存储运行在纯内存模式：未提供 SERVER_DATABASE_URL/DATABASE_URL');
       return;
     }
 

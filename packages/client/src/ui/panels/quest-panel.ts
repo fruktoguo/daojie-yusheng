@@ -1,6 +1,6 @@
 /** 任务面板：按任务线分类展示，并支持全局单实例详情弹层 */
 
-import { Inventory, PlayerState, QuestState } from '@mud/shared-next';
+import { Inventory, PlayerState, QuestState } from '@mud/shared';
 import { getLocalItemTemplate } from '../../content/local-templates';
 import { detailModalHost } from '../detail-modal-host';
 import {

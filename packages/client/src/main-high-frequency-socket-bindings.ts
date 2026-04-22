@@ -1,4 +1,4 @@
-import { NEXT_S2C, type NEXT_S2C_EventPayload } from '@mud/shared-next';
+import { S2C, type ServerToClientEventPayload } from '@mud/shared';
 import type { SocketManager } from './network/socket';
 /**
  * MainHighFrequencySocketBindingsOptions：统一结构类型，保证协议与运行时一致性。
@@ -15,42 +15,42 @@ type MainHighFrequencySocketBindingsOptions = {
  * onBootstrap：onBootstrap相关字段。
  */
 
-  onBootstrap: (data: NEXT_S2C_EventPayload<typeof NEXT_S2C.Bootstrap>) => void;  
+  onBootstrap: (data: ServerToClientEventPayload<typeof S2C.Bootstrap>) => void;  
   /**
  * onInitSession：onInitSession相关字段。
  */
 
-  onInitSession: (data: NEXT_S2C_EventPayload<typeof NEXT_S2C.InitSession>) => void;  
+  onInitSession: (data: ServerToClientEventPayload<typeof S2C.InitSession>) => void;  
   /**
  * onMapEnter：on地图Enter相关字段。
  */
 
-  onMapEnter: (data: NEXT_S2C_EventPayload<typeof NEXT_S2C.MapEnter>) => void;  
+  onMapEnter: (data: ServerToClientEventPayload<typeof S2C.MapEnter>) => void;  
   /**
  * onRealm：onRealm相关字段。
  */
 
-  onRealm: (data: NEXT_S2C_EventPayload<typeof NEXT_S2C.Realm>) => void;  
+  onRealm: (data: ServerToClientEventPayload<typeof S2C.Realm>) => void;  
   /**
  * onWorldDelta：on世界Delta相关字段。
  */
 
-  onWorldDelta: (data: NEXT_S2C_EventPayload<typeof NEXT_S2C.WorldDelta>) => void;  
+  onWorldDelta: (data: ServerToClientEventPayload<typeof S2C.WorldDelta>) => void;  
   /**
  * onSelfDelta：onSelfDelta相关字段。
  */
 
-  onSelfDelta: (data: NEXT_S2C_EventPayload<typeof NEXT_S2C.SelfDelta>) => void;  
+  onSelfDelta: (data: ServerToClientEventPayload<typeof S2C.SelfDelta>) => void;  
   /**
  * onPanelDelta：on面板Delta相关字段。
  */
 
-  onPanelDelta: (data: NEXT_S2C_EventPayload<typeof NEXT_S2C.PanelDelta>) => void;  
+  onPanelDelta: (data: ServerToClientEventPayload<typeof S2C.PanelDelta>) => void;  
   /**
  * onMapStatic：on地图Static相关字段。
  */
 
-  onMapStatic: (data: NEXT_S2C_EventPayload<typeof NEXT_S2C.MapStatic>) => void;
+  onMapStatic: (data: ServerToClientEventPayload<typeof S2C.MapStatic>) => void;
 };
 /**
  * bindMainHighFrequencySocketEvents：执行bindMainHighFrequencySocket事件相关逻辑。
@@ -60,12 +60,12 @@ type MainHighFrequencySocketBindingsOptions = {
 
 
 export function bindMainHighFrequencySocketEvents(options: MainHighFrequencySocketBindingsOptions): void {
-  options.socket.on(NEXT_S2C.Realm, options.onRealm);
-  options.socket.on(NEXT_S2C.InitSession, options.onInitSession);
-  options.socket.on(NEXT_S2C.MapEnter, options.onMapEnter);
-  options.socket.on(NEXT_S2C.WorldDelta, options.onWorldDelta);
-  options.socket.on(NEXT_S2C.SelfDelta, options.onSelfDelta);
-  options.socket.on(NEXT_S2C.PanelDelta, options.onPanelDelta);
-  options.socket.on(NEXT_S2C.MapStatic, options.onMapStatic);
-  options.socket.on(NEXT_S2C.Bootstrap, options.onBootstrap);
+  options.socket.on(S2C.Realm, options.onRealm);
+  options.socket.on(S2C.InitSession, options.onInitSession);
+  options.socket.on(S2C.MapEnter, options.onMapEnter);
+  options.socket.on(S2C.WorldDelta, options.onWorldDelta);
+  options.socket.on(S2C.SelfDelta, options.onSelfDelta);
+  options.socket.on(S2C.PanelDelta, options.onPanelDelta);
+  options.socket.on(S2C.MapStatic, options.onMapStatic);
+  options.socket.on(S2C.Bootstrap, options.onBootstrap);
 }

@@ -56,10 +56,10 @@
 
 主要抽出了前端相关部分：
 
-- `client-next` 当前定位
+- `packages/client` 当前定位
 - 前台剩余短板
 - 正式替换旧前台前的前端判断
-- replace-ready 与 `client-next build` 的关系
+- replace-ready 与 `build:client` 的关系
 
 对应输出：
 
@@ -82,7 +82,7 @@
 
 主要抽出了：
 
-- `client-next` 作为当前主线前端的定位
+- `packages/client` 作为当前主线前端的定位
 - 为什么不再继续扩张旧前端 compat
 
 对应输出：
@@ -90,7 +90,7 @@
 - `architecture.md`
 - `current-state.md`
 
-### `docs/server-next-operations.md`
+### `docs/server-operations.md`
 
 主要抽出了：
 
@@ -115,7 +115,12 @@
 
 它不负责：
 
-- `server-next` 认证 / bootstrap 真源细节
-- `shared-next` 协议合同全量定义
+- `packages/server` 认证 / bootstrap 真源细节
+- `packages/shared` 协议合同全量定义
 - GM/admin/backup/restore 运维细节
 - 旧前端 `legacy/client` 的运行细节
+
+命令口径补充：
+
+- 前端构建主入口统一按 `pnpm build:client` 记录
+- `pnpm build:client-next` 若被提及，只应标注为兼容别名

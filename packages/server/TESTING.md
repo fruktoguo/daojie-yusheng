@@ -1,4 +1,4 @@
-# server-next 验证
+# server 验证
 
 更新时间：2026-04-11（当前轮次）
 
@@ -6,7 +6,7 @@
 
 更完整的运维、shadow、`gm/database/*`、破坏性维护窗口说明，统一看：
 
-- [docs/server-next-operations.md](../../docs/server-next-operations.md)
+- [docs/server-operations.md](../../docs/server-operations.md)
 
 更完整的当前任务总表与 cutover 收尾，统一看：
 
@@ -15,21 +15,21 @@
 
 ## 当前口径
 
-- `server-next` 当前仍是独立 shadow / replace-ready 线，不是默认生产接班入口。
-- `packages/server` 是当前目录主线；`server-next` 主要保留为包名与兼容命令名。
+- `server` 当前仍是独立 shadow / replace-ready 线，不是默认生产接班入口。
+- `packages/server` 是当前目录主线；`server` 主要保留为包名与兼容命令名。
 - 当前任务账本按统一口径仍是 `25` 项。
 - 当前保守判断下，距离“完整替换游戏整体”仍约差 `35% - 40%`。
 - 这份文件只负责解释“跑什么、证明什么、不能证明什么”，不负责替代任务账本或运维手册。
 - README / TESTING / REPLACE-RUNBOOK / workflow / package wrapper 当前统一使用 `local / with-db / acceptance / full / shadow-destructive` 五层 gate 命名。
-- 根级主入口现在是 `verify:replace-ready*`；`verify:server-next*` 只保留为兼容别名。
+- 根级主入口现在是 `verify:replace-ready*`。
 - 根级 `verify:replace-ready*` 和 `packages/server` 包内直接执行的 `verify/smoke` 现在都会默认尝试加载本地 env：
-  - `.runtime/server-next.local.env`
+  - `.runtime/server.local.env`
   - `.env`
   - `.env.local`
   - `packages/server/.env`
   - `packages/server/.env.local`
 - `smoke-suite` 当前只承担 `local / with-db` 子集执行，并会在运行时打印自己回答什么、明确不回答什么。
-- 当前 `next-auth-bootstrap`、`gm-next` 和 `smoke-suite/readiness-gate` 都已经在脚本输出里显式打印 `answers / excludes / completionMapping`，不再只靠外部口头解释完成定义。
+- 当前 `auth-bootstrap`、`gm` 和 `smoke-suite/readiness-gate` 都已经在脚本输出里显式打印 `answers / excludes / completionMapping`，不再只靠外部口头解释完成定义。
 
 ## 五层 Gate
 
@@ -38,7 +38,7 @@
 ### `local`
 
 - 回答的问题：代码和主证明链是否绿。
-- 典型内容：`client-next build`、本地主证明链、协议审计。
+- 典型内容：根级 `build:client`、本地主证明链、协议审计。
 - 不回答的问题：shadow 实物验收、数据库补证、破坏性维护窗口是否可控。
 
 ### `with-db`
@@ -50,19 +50,19 @@
 ### `acceptance`
 
 - 回答的问题：`local` 之外，shadow 实物验收和 shadow GM 关键写路径是否也绿。
-- 典型内容：`local` + `shadow` + `gm-next`。
+- 典型内容：`local` + `shadow` + `gm`。
 - 不回答的问题：完整数据库运营面 proof、破坏性闭环、人工运营回归是否都已完成。
 
 ### `full`
 
 - 回答的问题：数据库、shadow、GM 密码都齐备时，自动化门禁是否全绿。
-- 典型内容：`with-db -> gm-database -> gm-database-backup-persistence -> shadow -> gm-next`。
+- 典型内容：`with-db -> gm-database -> gm-database-backup-persistence -> shadow -> gm`。
 - 不回答的问题：真实维护窗口 destructive 演练是否已执行、人工运营边界是否已彻底制度化。
 
 ### `shadow-destructive`
 
 - 回答的问题：维护窗口里的 destructive 闭环是否可控。
-- 典型内容：`SERVER_NEXT_SHADOW_ALLOW_DESTRUCTIVE=1` 下的 shadow `backup -> download -> restore`。
+- 典型内容：`SERVER_SHADOW_ALLOW_DESTRUCTIVE=1` 下的 shadow `backup -> download -> restore`。
 - 不回答的问题：日常替换是否完成、是否可以把 legacy/compat 直接删光。
 - 推荐先跑：`pnpm verify:replace-ready:shadow:destructive:preflight`
 
@@ -120,15 +120,15 @@
 | `T11` | 把 `local / with-db / acceptance / full / shadow-destructive` 五层 gate 的定义写死 | 已收口，当前脚本 / 文档 / workflow 统一使用同一套 gate 名称 |
 | `T12` | 把自动 proof 与人工回归边界写硬，避免把命令存在误读成运营已完成 | 已收口，shadow-smoke 与 ops 文档已明确只读 acceptance / destructive 分层 |
 | `T14` | 把 workflow 里的可选 destructive 补证和测试文档口径对齐 | 已支持，但真实维护窗口说明仍要补齐 |
-| `T25` | 把“完整替换完成”的判定标准逐条对应到 gate / smoke / runbook | 已收口到脚本输出和本文档口径：`next-auth-bootstrap -> local/proof:with-db`，`gm-next -> acceptance`，`readiness-gate/smoke-suite -> gate 边界说明` |
+| `T25` | 把“完整替换完成”的判定标准逐条对应到 gate / smoke / runbook | 已收口到脚本输出和本文档口径：`auth-bootstrap -> local/proof:with-db`，`gm -> acceptance`，`readiness-gate/smoke-suite -> gate 边界说明` |
 
 ## 关键 Smoke 到完成定义的绑定
 
 | 脚本 | 回答什么 | 不回答什么 | 对应 gate |
 | --- | --- | --- | --- |
-| `pnpm --filter @mud/server-next smoke:next-auth-bootstrap` | `auth/token/bootstrap/session` 主证明链、mainline/migration proof 矩阵、next socket 协议守卫 | 不回答 GM/admin/restore、shadow、full、destructive | `local` / `proof:with-db` |
-| `pnpm --filter @mud/server-next smoke:gm-next` | GM socket / HTTP 主链、玩家编辑、邮件、建议、地图控制等关键写路径 | 不回答 backup/restore、destructive、完整运营闭环 | `acceptance` |
-| `pnpm --filter @mud/server-next smoke:readiness-gate` | `local / with-db` 两层 gate 的边界声明是否一致 | 不回答任何业务 proof 是否已经完成 | gate 口径校准 |
+| `pnpm --filter @mud/server smoke:auth-bootstrap` | `auth/token/bootstrap/session` 主证明链、mainline/migration proof 矩阵、next socket 协议守卫 | 不回答 GM/admin/restore、shadow、full、destructive | `local` / `proof:with-db` |
+| `pnpm --filter @mud/server smoke:gm` | GM socket / HTTP 主链、玩家编辑、邮件、建议、地图控制等关键写路径 | 不回答 backup/restore、destructive、完整运营闭环 | `acceptance` |
+| `pnpm --filter @mud/server smoke:readiness-gate` | `local / with-db` 两层 gate 的边界声明是否一致 | 不回答任何业务 proof 是否已经完成 | gate 口径校准 |
 
 ## “完整替换完成”目前至少需要什么
 
@@ -160,8 +160,8 @@
 用途：
 
 - 先检查环境变量是否齐备
-- 再跑 `client-next build`、本地主证明链、协议审计
-- 如果存在 `DATABASE_URL` 或 `SERVER_NEXT_DATABASE_URL`，会自动转入带库链；但这仍属于 `local` 主入口，不等于显式 `with-db` 回归
+- 再跑根级 `build:client`、本地主证明链、协议审计
+- 如果存在 `DATABASE_URL` 或 `SERVER_DATABASE_URL`，会自动转入带库链；但这仍属于 `local` 主入口，不等于显式 `with-db` 回归
 
 ### 3. 最小带库证明
 
@@ -188,7 +188,7 @@
 用途：
 
 - 不自启本地服务
-- 直接打 `SERVER_NEXT_SHADOW_URL` 或 `SERVER_NEXT_URL`
+- 直接打 `SERVER_SHADOW_URL` 或 `SERVER_URL`
 - 验收 `/health`、GM 登录、`/gm/state`、`/gm/maps`、`/gm/editor-catalog`、`/gm/maps/:mapId/runtime`，以及最小 next 会话链
   - 若 shadow 前面有统一入口层，`/health` 允许只暴露外层 liveness；readiness 继续由 GM 只读面与最小 next 会话链补证
 
@@ -200,7 +200,7 @@
 
 - 先跑 `local`
 - 再跑 `shadow`
-- 再跑 shadow 上的 `pnpm --filter @mud/server-next smoke:gm-next`
+- 再跑 shadow 上的 `pnpm --filter @mud/server smoke:gm`
 
 ### 6. 最严格自动化门禁
 
@@ -209,7 +209,7 @@
 用途：
 
 - 强制要求数据库、shadow、GM 密码环境齐备
-- 串行执行 `with-db -> gm-database -> gm-database-backup-persistence -> shadow -> gm-next`
+- 串行执行 `with-db -> gm-database -> gm-database-backup-persistence -> shadow -> gm`
 - 只证明自动化门禁，不代替人工运营回归
 
 ### 7. 维护窗口破坏性 proof
@@ -219,7 +219,7 @@
 用途：
 
 - 只在维护窗口执行
-- 需要显式设置 `SERVER_NEXT_SHADOW_ALLOW_DESTRUCTIVE=1`
+- 需要显式设置 `SERVER_SHADOW_ALLOW_DESTRUCTIVE=1`
 - 用于 shadow 上单独验证 `backup -> download -> restore`
 - 默认不应进入日常 deploy 链
 
@@ -234,31 +234,31 @@
 
 - [docs/next-plan/main.md](../../docs/next-plan/main.md)
 - [docs/next-plan/10-legacy-archive-and-cutover.md](../../docs/next-plan/10-legacy-archive-and-cutover.md)
-- [docs/server-next-operations.md](../../docs/server-next-operations.md)
+- [docs/server-operations.md](../../docs/server-operations.md)
 
 ## 环境变量矩阵
 
 基础必填：
 
-- `SERVER_NEXT_PLAYER_TOKEN_SECRET` 或 `NEXT_PLAYER_TOKEN_SECRET`
-- `SERVER_NEXT_RUNTIME_TOKEN`
+- `SERVER_PLAYER_TOKEN_SECRET` 或 `SERVER_PLAYER_TOKEN_SECRET`
+- `SERVER_RUNTIME_TOKEN`
 
 带库链额外需要：
 
-- `SERVER_NEXT_DATABASE_URL` 或 `DATABASE_URL`
+- `SERVER_DATABASE_URL` 或 `DATABASE_URL`
 
 shadow / acceptance / full 额外需要：
 
-- `SERVER_NEXT_SHADOW_URL` 或 `SERVER_NEXT_URL`
-- `SERVER_NEXT_GM_PASSWORD` 或 `GM_PASSWORD`
+- `SERVER_SHADOW_URL` 或 `SERVER_URL`
+- `SERVER_GM_PASSWORD` 或 `GM_PASSWORD`
 
 shadow-destructive 额外需要：
 
-- `SERVER_NEXT_SHADOW_ALLOW_DESTRUCTIVE=1`
+- `SERVER_SHADOW_ALLOW_DESTRUCTIVE=1`
 - 维护窗口、回滚预案、操作人确认
 
 ## 目录关系
 
-- [docs/server-next-operations.md](../../docs/server-next-operations.md) 负责运维与维护窗口细则
+- [docs/server-operations.md](../../docs/server-operations.md) 负责运维与维护窗口细则
 - [docs/next-plan/main.md](../../docs/next-plan/main.md) 负责当前任务总表与完成定义
 - [docs/next-plan/10-legacy-archive-and-cutover.md](../../docs/next-plan/10-legacy-archive-and-cutover.md) 负责 cutover 与 legacy 归档收尾

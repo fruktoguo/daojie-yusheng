@@ -23,13 +23,13 @@ class WorldGatewayMovementHelper {
         this.gateway = gateway;
     }    
     /**
- * handleNextMoveTo：处理NextMoveTo并更新相关状态。
+ * handleMoveTo：处理 MoveTo 并更新相关状态。
  * @param client 参数说明。
  * @param payload 载荷参数。
- * @returns 无返回值，直接更新NextMoveTo相关状态。
+ * @returns 无返回值，直接更新 MoveTo 相关状态。
  */
 
-    handleNextMoveTo(client, payload) {
+    handleMoveTo(client, payload) {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
         const playerId = this.gateway.gatewayGuardHelper.requirePlayerId(client);
@@ -39,7 +39,7 @@ class WorldGatewayMovementHelper {
         (0, movement_debug_1.logServerNextMovement)(this.gateway.logger, 'gateway.recv.moveTo', {
             playerId,
             socketId: client.id,
-            protocol: 'next',
+            protocol: 'mainline',
             payload: {
                 x: payload?.x ?? null,
                 y: payload?.y ?? null,
@@ -59,13 +59,13 @@ class WorldGatewayMovementHelper {
         }
     }    
     /**
- * handleNextNavigateQuest：处理NextNavigate任务并更新相关状态。
+ * handleNavigateQuest：处理任务导航并更新相关状态。
  * @param client 参数说明。
  * @param payload 载荷参数。
- * @returns 无返回值，直接更新NextNavigate任务相关状态。
+ * @returns 无返回值，直接更新任务导航相关状态。
  */
 
-    handleNextNavigateQuest(client, payload) {
+    handleNavigateQuest(client, payload) {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
         const playerId = this.gateway.gatewayGuardHelper.requirePlayerId(client);
@@ -76,7 +76,7 @@ class WorldGatewayMovementHelper {
         (0, movement_debug_1.logServerNextMovement)(this.gateway.logger, 'gateway.recv.navigateQuest', {
             playerId,
             socketId: client.id,
-            protocol: 'next',
+            protocol: 'mainline',
             questId,
         });
         if (!questId) {
@@ -108,7 +108,7 @@ class WorldGatewayMovementHelper {
         (0, movement_debug_1.logServerNextMovement)(this.gateway.logger, 'gateway.recv.move', {
             playerId,
             socketId: client.id,
-            protocol: 'next',
+            protocol: 'mainline',
             direction: payload?.d ?? null,
         });
         try {

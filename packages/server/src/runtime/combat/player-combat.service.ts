@@ -17,7 +17,7 @@ exports.PlayerCombatService = void 0;
 
 const common_1 = require("@nestjs/common");
 
-const shared_1 = require("@mud/shared-next");
+const shared_1 = require("@mud/shared");
 
 const player_runtime_service_1 = require("../player/player-runtime.service");
 

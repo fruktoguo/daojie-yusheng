@@ -1,4 +1,4 @@
-import { NEXT_C2S, type NEXT_C2S_EventPayload } from '@mud/shared-next';
+import { C2S, type ClientToServerEventPayload } from '@mud/shared';
 import type { SocketEmitEvent } from './socket-send-types';
 /**
  * AdminSenderDeps：统一结构类型，保证协议与运行时一致性。
@@ -27,7 +27,7 @@ export function createSocketAdminSender(deps: AdminSenderDeps) {
  */
 
     sendGmGetState(): void {
-      deps.emitEvent(NEXT_C2S.GmGetState, {});
+      deps.emitEvent(C2S.GmGetState, {});
     },    
     /**
  * sendGmSpawnBots：执行sendGMSpawnBot相关逻辑。
@@ -37,7 +37,7 @@ export function createSocketAdminSender(deps: AdminSenderDeps) {
 
 
     sendGmSpawnBots(count: number): void {
-      deps.emitEvent(NEXT_C2S.GmSpawnBots, { count });
+      deps.emitEvent(C2S.GmSpawnBots, { count });
     },    
     /**
  * sendGmRemoveBots：处理sendGMRemoveBot并更新相关状态。
@@ -48,19 +48,19 @@ export function createSocketAdminSender(deps: AdminSenderDeps) {
 
 
     sendGmRemoveBots(playerIds?: string[], all = false): void {
-      deps.emitEvent(NEXT_C2S.GmRemoveBots, { playerIds, all });
+      deps.emitEvent(C2S.GmRemoveBots, { playerIds, all });
     },    
     /**
  * sendGmUpdatePlayer：处理sendGMUpdate玩家并更新相关状态。
- * @param payload NEXT_C2S_EventPayload<typeof NEXT_C2S.GmUpdatePlayer> 载荷参数。
+ * @param payload ClientToServerEventPayload<typeof C2S.GmUpdatePlayer> 载荷参数。
  * @returns 无返回值，直接更新sendGMUpdate玩家相关状态。
  */
 
 
     sendGmUpdatePlayer(
-      payload: NEXT_C2S_EventPayload<typeof NEXT_C2S.GmUpdatePlayer>,
+      payload: ClientToServerEventPayload<typeof C2S.GmUpdatePlayer>,
     ): void {
-      deps.emitEvent(NEXT_C2S.GmUpdatePlayer, payload);
+      deps.emitEvent(C2S.GmUpdatePlayer, payload);
     },    
     /**
  * sendGmResetPlayer：执行sendGMReset玩家相关逻辑。
@@ -70,7 +70,7 @@ export function createSocketAdminSender(deps: AdminSenderDeps) {
 
 
     sendGmResetPlayer(playerId: string): void {
-      deps.emitEvent(NEXT_C2S.GmResetPlayer, { playerId });
+      deps.emitEvent(C2S.GmResetPlayer, { playerId });
     },    
     /**
  * sendDebugResetSpawn：执行sendDebugResetSpawn相关逻辑。
@@ -79,7 +79,7 @@ export function createSocketAdminSender(deps: AdminSenderDeps) {
 
 
     sendDebugResetSpawn(): void {
-      deps.emitEvent(NEXT_C2S.DebugResetSpawn, { force: true });
+      deps.emitEvent(C2S.DebugResetSpawn, { force: true });
     },
   };
 }

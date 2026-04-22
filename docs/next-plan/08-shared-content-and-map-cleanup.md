@@ -105,15 +105,15 @@ shared 当前默认门禁入口：
   - `check-protocol-payload-shapes`
   - `check-network-protobuf-contract`
 - `packages/server/package.json -> compile`
-  - 默认先跑 `pnpm --filter @mud/shared-next build`
+  - 默认先跑 `pnpm --filter @mud/shared build`
 - `packages/client/package.json -> prebuild`
-  - 默认先跑 `pnpm --filter @mud/shared-next build`
+  - 默认先跑 `pnpm --filter @mud/shared build`
 - 根级 `pnpm build`
-  - 会经过 `client-next build`
-  - 会经过 `server-next compile`
+  - 会经过 `build:client`
+  - 会经过 `server compile`
 - 根级 `pnpm verify:replace-ready`
-  - 会经过 `build:client-next`
-  - 会经过 `@mud/server-next verify:replace-ready -> compile`
+  - 会经过 `build:client`
+  - 会经过 `@mud/server verify:replace-ready -> compile`
   - 因此 shared 四道检查默认都会参与 local / with-db gate
 
 内容与地图当前真源目录：
@@ -390,7 +390,7 @@ shared 当前默认门禁入口：
 
 最小验证：
 
-- `pnpm --filter @mud/server-next audit:next-protocol`
+- `pnpm --filter @mud/server audit:protocol`
 - `pnpm build`
 
 ### 第 2 批：把 shared 守卫补成默认门禁
@@ -405,17 +405,17 @@ shared 当前默认门禁入口：
 
 最小验证：
 
-- `pnpm --filter @mud/server-next audit:next-protocol`
+- `pnpm --filter @mud/server audit:protocol`
 - `pnpm verify:replace-ready`
 
 当前结论：
 
 - `packages/shared/package.json -> build` 已把四道 shared 守卫接成默认检查链
-- `packages/server/package.json -> compile` 与 `packages/client/package.json -> prebuild` 都会先跑 `@mud/shared-next build`
+- `packages/server/package.json -> compile` 与 `packages/client/package.json -> prebuild` 都会先跑 `@mud/shared build`
 - 根级 `pnpm build`、`pnpm verify:replace-ready`、`pnpm verify:replace-ready:with-db` 都会隐式覆盖 shared 四道检查
 - 这表示“新增协议字段 / 数值字段默认受 audit / check 保护”这一条当前已成立，不需要再额外补一套平行门禁
 
-以下 shared 变更仍必须额外补 `pnpm --filter @mud/server-next audit:next-protocol`：
+以下 shared 变更仍必须额外补 `pnpm --filter @mud/server audit:protocol`：
 
 - 修改 `packages/shared/src/protocol.ts` 的事件名、payload 结构、事件归属层
 - 修改 `packages/shared/src/network-protobuf.ts` 的 wire event、protobuf message、schema lookup 或编码映射
@@ -423,7 +423,7 @@ shared 当前默认门禁入口：
 - 修改 bootstrap / map static / detail / world delta / self delta / panel delta 的分层边界
 - 修改任何高频链路字段，尤其是 `WorldDelta` / `SelfDelta` / `PanelDelta`
 
-以下 shared 变更可以以 `@mud/shared-next build` 为最小默认检查，再按需要补更高门禁：
+以下 shared 变更可以以 `@mud/shared build` 为最小默认检查，再按需要补更高门禁：
 
 - 纯类型整理，不改变事件合同
 - 纯数值键补全或数值模板对齐
@@ -493,7 +493,7 @@ shared 当前默认门禁入口：
 
 当前已落地的最小自动检查：
 
-- `pnpm --filter @mud/server-next audit:content-reference-consistency`
+- `pnpm --filter @mud/server audit:content-reference-consistency`
   - 已覆盖：monster drops / equipment / skill 引用、item mapUnlockId、breakthrough item requirement、resource-node item/drop 引用
   - 已覆盖：map `monsterSpawns` 对 monster content 的模板引用，兼容旧地图直接写 monster `id` 和新地图 `id + templateId` 双格式
   - 已覆盖：item 的 `learnTechniqueId`、`mapUnlockIds`、`consumeBuffs.valueStats`、装备 `effects[].stats/valueStats/buff.valueStats` 外链与数值键合法性
@@ -519,7 +519,7 @@ shared 当前默认门禁入口：
 
 当前已落地的最小自动检查：
 
-- `pnpm --filter @mud/server-next audit:content-map-consistency`
+- `pnpm --filter @mud/server audit:content-map-consistency`
   - 已覆盖：map id 唯一性、地图文件名与 `map.id` 对齐、tiles 尺寸、spawnPoint、portal 源/目标坐标、NPC 锚点、landmark、monster spawn 坐标合法性
   - 已覆盖：compose 子图目录/命名前缀规范（`compose/<group>/<group>_*.json`）以及 compose 子图不直接承载 `parentMapId`
   - 已覆盖：室内图 `parentMapId / floorLevel / parentOrigin / 回到父图路径 / id 前缀` 基础规范
@@ -606,7 +606,7 @@ shared 当前默认门禁入口：
 
 - 当前 portal / NPC 锚点合法性已由 `audit:content-map-consistency` 做自动检查。
 - 当前 compose 子图命名、室内图 `parentMapId` 基础规范也已接入 `audit:content-map-consistency`。
-- 当前 `network-protobuf.ts` 与 `protocol.ts` 的漂移已由 shared build 内的 `check-network-protobuf-contract.cjs` 和既有 `proof:next-protobuf-drift` 双重覆盖。
+- 当前 `network-protobuf.ts` 与 `protocol.ts` 的漂移已由 shared build 内的 `check-network-protobuf-contract.cjs` 和既有 `proof:protobuf-drift` 双重覆盖。
 
 ## 本阶段不做的事
 

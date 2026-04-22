@@ -115,8 +115,8 @@ interface TileQiResourceState {
 
 最小验证：
 
-- `pnpm --filter @mud/shared-next build`
-- `pnpm --filter @mud/server-next compile`
+- `pnpm --filter @mud/shared build`
+- `pnpm --filter @mud/server compile`
 - 地块详情能同时看到多类资源
 - 感气视角在开启后不会因新增资源键崩掉
 - 持久化快照只保存偏离模板的资源条目

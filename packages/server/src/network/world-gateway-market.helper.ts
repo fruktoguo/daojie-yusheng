@@ -21,13 +21,13 @@ class WorldGatewayMarketHelper {
         this.gateway = gateway;
     }    
     /**
- * handleNextRequestMarket：处理NextRequest坊市并更新相关状态。
+ * handleRequestMarket：处理NextRequest坊市并更新相关状态。
  * @param client 参数说明。
  * @param _payload 参数说明。
  * @returns 无返回值，直接更新NextRequest坊市相关状态。
  */
 
-    handleNextRequestMarket(client, _payload) {
+    handleRequestMarket(client, _payload) {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
         const playerId = this.gateway.gatewayGuardHelper.requirePlayerId(client);
@@ -38,23 +38,23 @@ class WorldGatewayMarketHelper {
             this.gateway.gatewaySessionStateHelper.subscribeMarket(playerId);
             this.gateway.gatewaySessionStateHelper.setMarketListingsRequest(playerId, { page: 1 });
             const response = this.gateway.marketRuntimeService.buildMarketUpdate(playerId);
-            this.gateway.gatewayClientEmitHelper.emitNextMarketUpdate(client, response);
-            this.gateway.gatewayClientEmitHelper.emitNextMarketListings(client, this.gateway.marketRuntimeService.buildMarketListingsPage(this.gateway.gatewaySessionStateHelper.getMarketListingsRequest(playerId)));
-            this.gateway.gatewayClientEmitHelper.emitNextMarketOrders(client, this.gateway.marketRuntimeService.buildMarketOrders(playerId));
-            this.gateway.gatewayClientEmitHelper.emitNextMarketStorage(client, this.gateway.marketRuntimeService.buildMarketStorage(playerId));
+            this.gateway.gatewayClientEmitHelper.emitMarketUpdate(client, response);
+            this.gateway.gatewayClientEmitHelper.emitMarketListings(client, this.gateway.marketRuntimeService.buildMarketListingsPage(this.gateway.gatewaySessionStateHelper.getMarketListingsRequest(playerId)));
+            this.gateway.gatewayClientEmitHelper.emitMarketOrders(client, this.gateway.marketRuntimeService.buildMarketOrders(playerId));
+            this.gateway.gatewayClientEmitHelper.emitMarketStorage(client, this.gateway.marketRuntimeService.buildMarketStorage(playerId));
         }
         catch (error) {
             this.gateway.worldClientEventService.emitGatewayError(client, 'REQUEST_MARKET_FAILED', error);
         }
     }    
     /**
- * handleNextRequestMarketListings：读取NextRequest坊市Listing并返回结果。
+ * handleRequestMarketListings：读取NextRequest坊市Listing并返回结果。
  * @param client 参数说明。
  * @param payload 载荷参数。
  * @returns 无返回值，直接更新NextRequest坊市Listing相关状态。
  */
 
-    handleNextRequestMarketListings(client, payload) {
+    handleRequestMarketListings(client, payload) {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
         const playerId = this.gateway.gatewayGuardHelper.requirePlayerId(client);
@@ -64,7 +64,7 @@ class WorldGatewayMarketHelper {
         try {
             this.gateway.gatewaySessionStateHelper.subscribeMarket(playerId);
             this.gateway.gatewaySessionStateHelper.setMarketListingsRequest(playerId, payload ?? {});
-            this.gateway.worldClientEventService.markProtocol(client, 'next');
+            this.gateway.worldClientEventService.markProtocol(client, 'mainline');
             this.gateway.worldClientEventService.emitMarketListings(client, this.gateway.marketRuntimeService.buildMarketListingsPage(payload));
         }
         catch (error) {
@@ -72,13 +72,13 @@ class WorldGatewayMarketHelper {
         }
     }    
     /**
- * handleNextRequestMarketItemBook：处理NextRequest坊市道具Book并更新相关状态。
+ * handleRequestMarketItemBook：处理NextRequest坊市道具Book并更新相关状态。
  * @param client 参数说明。
  * @param payload 载荷参数。
  * @returns 无返回值，直接更新NextRequest坊市道具Book相关状态。
  */
 
-    handleNextRequestMarketItemBook(client, payload) {
+    handleRequestMarketItemBook(client, payload) {
         this.executeRequestMarketItemBook(client, payload);
     }    
     /**
@@ -97,20 +97,20 @@ class WorldGatewayMarketHelper {
         }
         try {
             const response = this.gateway.marketRuntimeService.buildItemBook(payload?.itemKey ?? '');
-            this.gateway.gatewayClientEmitHelper.emitNextMarketItemBook(client, response);
+            this.gateway.gatewayClientEmitHelper.emitMarketItemBook(client, response);
         }
         catch (error) {
             this.gateway.worldClientEventService.emitGatewayError(client, 'REQUEST_MARKET_ITEM_BOOK_FAILED', error);
         }
     }    
     /**
- * handleNextRequestMarketTradeHistory：判断NextRequest坊市Trade历史是否满足条件。
+ * handleRequestMarketTradeHistory：判断NextRequest坊市Trade历史是否满足条件。
  * @param client 参数说明。
  * @param payload 载荷参数。
  * @returns 无返回值，直接更新NextRequest坊市TradeHistory相关状态。
  */
 
-    handleNextRequestMarketTradeHistory(client, payload) {
+    handleRequestMarketTradeHistory(client, payload) {
         this.executeRequestMarketTradeHistory(client, payload);
     }    
     /**
@@ -130,7 +130,7 @@ class WorldGatewayMarketHelper {
         try {
             this.gateway.gatewaySessionStateHelper.setMarketTradeHistoryRequest(playerId, payload?.page);
             const response = this.gateway.marketRuntimeService.buildTradeHistoryPage(playerId, payload?.page);
-            this.gateway.gatewayClientEmitHelper.emitNextMarketTradeHistory(client, response);
+            this.gateway.gatewayClientEmitHelper.emitMarketTradeHistory(client, response);
         }
         catch (error) {
             this.gateway.worldClientEventService.emitGatewayError(client, 'REQUEST_MARKET_TRADE_HISTORY_FAILED', error);
@@ -163,13 +163,13 @@ class WorldGatewayMarketHelper {
         }
     }    
     /**
- * handleNextCreateMarketSellOrder：构建NextCreate坊市Sell订单。
+ * handleCreateMarketSellOrder：构建NextCreate坊市Sell订单。
  * @param client 参数说明。
  * @param payload 载荷参数。
  * @returns 无返回值，直接更新NextCreate坊市Sell订单相关状态。
  */
 
-    async handleNextCreateMarketSellOrder(client, payload) {
+    async handleCreateMarketSellOrder(client, payload) {
         await this.executeCreateMarketSellOrder(client, payload);
     }    
     /**
@@ -200,13 +200,13 @@ class WorldGatewayMarketHelper {
         }
     }    
     /**
- * handleNextCreateMarketBuyOrder：构建NextCreate坊市Buy订单。
+ * handleCreateMarketBuyOrder：构建NextCreate坊市Buy订单。
  * @param client 参数说明。
  * @param payload 载荷参数。
  * @returns 无返回值，直接更新NextCreate坊市Buy订单相关状态。
  */
 
-    async handleNextCreateMarketBuyOrder(client, payload) {
+    async handleCreateMarketBuyOrder(client, payload) {
         await this.executeCreateMarketBuyOrder(client, payload);
     }    
     /**
@@ -235,13 +235,13 @@ class WorldGatewayMarketHelper {
         }
     }    
     /**
- * handleNextBuyMarketItem：处理NextBuy坊市道具并更新相关状态。
+ * handleBuyMarketItem：处理NextBuy坊市道具并更新相关状态。
  * @param client 参数说明。
  * @param payload 载荷参数。
  * @returns 无返回值，直接更新NextBuy坊市道具相关状态。
  */
 
-    async handleNextBuyMarketItem(client, payload) {
+    async handleBuyMarketItem(client, payload) {
         await this.executeBuyMarketItem(client, payload);
     }    
     /**
@@ -270,13 +270,13 @@ class WorldGatewayMarketHelper {
         }
     }    
     /**
- * handleNextSellMarketItem：处理NextSell坊市道具并更新相关状态。
+ * handleSellMarketItem：处理NextSell坊市道具并更新相关状态。
  * @param client 参数说明。
  * @param payload 载荷参数。
  * @returns 无返回值，直接更新NextSell坊市道具相关状态。
  */
 
-    async handleNextSellMarketItem(client, payload) {
+    async handleSellMarketItem(client, payload) {
         await this.executeSellMarketItem(client, payload);
     }    
     /**
@@ -304,13 +304,13 @@ class WorldGatewayMarketHelper {
         }
     }    
     /**
- * handleNextCancelMarketOrder：判断NextCancel坊市订单是否满足条件。
+ * handleCancelMarketOrder：判断NextCancel坊市订单是否满足条件。
  * @param client 参数说明。
  * @param payload 载荷参数。
  * @returns 无返回值，直接更新NextCancel坊市订单相关状态。
  */
 
-    async handleNextCancelMarketOrder(client, payload) {
+    async handleCancelMarketOrder(client, payload) {
         await this.executeCancelMarketOrder(client, payload);
     }    
     /**
@@ -335,13 +335,13 @@ class WorldGatewayMarketHelper {
         }
     }    
     /**
- * handleNextClaimMarketStorage：处理NextClaim坊市Storage并更新相关状态。
+ * handleClaimMarketStorage：处理NextClaim坊市Storage并更新相关状态。
  * @param client 参数说明。
  * @param _payload 参数说明。
  * @returns 无返回值，直接更新NextClaim坊市Storage相关状态。
  */
 
-    async handleNextClaimMarketStorage(client, _payload) {
+    async handleClaimMarketStorage(client, _payload) {
         await this.executeClaimMarketStorage(client);
     }
 }

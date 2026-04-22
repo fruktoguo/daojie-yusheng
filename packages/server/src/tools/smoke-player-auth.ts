@@ -10,11 +10,11 @@ const ACCESS_KIND = 'access';
 /**
  * 记录next令牌issuer。
  */
-const NEXT_TOKEN_ISSUER = 'server-next';
+const TOKEN_ISSUER = 'server';
 /**
  * 记录next令牌version。
  */
-const NEXT_TOKEN_VERSION = 1;
+const TOKEN_VERSION = 1;
 /**
  * 记录accessexpiresseconds。
  */
@@ -23,8 +23,8 @@ const ACCESS_EXPIRES_SECONDS = 15 * 60;
  * 记录玩家令牌secret环境变量keys。
  */
 const PLAYER_TOKEN_SECRET_ENV_KEYS = [
-    'SERVER_NEXT_PLAYER_TOKEN_SECRET',
-    'NEXT_PLAYER_TOKEN_SECRET',
+    'SERVER_PLAYER_TOKEN_SECRET',
+    'SERVER_PLAYER_TOKEN_SECRET',
 ];
 /**
  * 创建smoke 校验玩家identity。
@@ -112,9 +112,9 @@ function issuePlayerAccessToken(payload) {
  * 记录请求体。
  */
     const body = base64UrlEncode(Buffer.from(JSON.stringify({
-        iss: NEXT_TOKEN_ISSUER,
+        iss: TOKEN_ISSUER,
         aud: 'player',
-        ver: NEXT_TOKEN_VERSION,
+        ver: TOKEN_VERSION,
         kind: ACCESS_KIND,
         scope: ACCESS_KIND,
         sub: payload.sub,

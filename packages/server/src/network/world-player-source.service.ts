@@ -1,6 +1,6 @@
 import { Inject, Injectable, Logger, Optional } from '@nestjs/common';
 
-import * as shared_1 from '@mud/shared-next';
+import * as shared_1 from '@mud/shared';
 
 import { NextPlayerAuthStoreService } from '../http/next/next-player-auth-store.service';
 import { PlayerIdentityPersistenceService } from '../persistence/player-identity-persistence.service';
@@ -17,7 +17,7 @@ interface PlayerSnapshotPersistencePort {
 }
 
 const DISABLE_MIGRATION_SOURCE_ENV_KEYS = [
-    'SERVER_NEXT_AUTH_DISABLE_COMPAT_MIGRATION_SOURCE',
+    'SERVER_AUTH_DISABLE_COMPAT_MIGRATION_SOURCE',
     'NEXT_AUTH_DISABLE_COMPAT_MIGRATION_SOURCE',
 ];
 /** 是否关闭 migration-only 源入口。 */
@@ -94,37 +94,37 @@ export class WorldPlayerSourceService {
         return;
     }
     /** next 身份持久化源是否可用。 */
-    isNextIdentitySourceEnabled() {
+    isPrimaryIdentitySourceEnabled() {
         return typeof this.playerIdentityPersistenceService?.isEnabled === 'function'
             && this.playerIdentityPersistenceService.isEnabled();
     }
     /** next 快照持久化源是否可用。 */
-    isNextSnapshotSourceEnabled() {
+    isPrimarySnapshotSourceEnabled() {
         return typeof this.playerPersistenceService?.isEnabled === 'function'
             && this.playerPersistenceService.isEnabled();
     }
     /** 直接从 next 身份持久化层读取玩家身份。 */
-    async loadNextPlayerIdentity(userId) {
+    async loadPersistedPlayerIdentity(userId) {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
-        if (!this.isNextIdentitySourceEnabled()) {
+        if (!this.isPrimaryIdentitySourceEnabled()) {
             return null;
         }
         return this.playerIdentityPersistenceService.loadPlayerIdentity(userId);
     }
     /** 直接从 next 快照持久化层读取玩家快照记录。 */
-    async loadNextPlayerSnapshotRecord(playerId) {
+    async loadPersistedPlayerSnapshotRecord(playerId) {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
-        if (!this.isNextSnapshotSourceEnabled()) {
+        if (!this.isPrimarySnapshotSourceEnabled()) {
             return null;
         }
         return this.playerPersistenceService.loadPlayerSnapshotRecord(playerId);
     }
     /** 直接从 next 快照持久化层读取玩家快照。 */
-    async loadNextPlayerSnapshot(playerId) {
+    async loadPersistedPlayerSnapshot(playerId) {
 
-        const record = await this.loadNextPlayerSnapshotRecord(playerId);
+        const record = await this.loadPersistedPlayerSnapshotRecord(playerId);
         return record?.snapshot ?? null;
     }
     /** 判断是否允许进入 migration-only 源。 */

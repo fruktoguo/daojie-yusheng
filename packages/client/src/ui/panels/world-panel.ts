@@ -2,7 +2,7 @@
  * 世界面板
  * 展示当前地图情报、附近实体、任务建议与可执行行动
  */
-import { ActionDef, gridDistance, MapMeta, MonsterTier, PlayerState, QuestState } from '@mud/shared-next';
+import { ActionDef, gridDistance, MapMeta, MonsterTier, PlayerState, QuestState } from '@mud/shared';
 import { preserveSelection } from '../selection-preserver';
 import { TECH_REALM_LABELS, TECH_REALM_NAME_BY_KEY, WORLD_GUIDE } from '../../constants/world/world-panel';
 import { formatDisplayCurrentMax, formatDisplayInteger } from '../../utils/number';

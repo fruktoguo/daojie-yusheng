@@ -1,4 +1,4 @@
-name: Verify Server Next Full
+name: Verify Replace-Ready Full
 
 on:
   workflow_dispatch:
@@ -10,7 +10,7 @@ jobs:
   verify-replace-ready-full:
     runs-on: ubuntu-latest
     timeout-minutes: 45
-    environment: server-next-shadow
+    environment: server-shadow
 
     services:
       postgres:
@@ -29,8 +29,8 @@ jobs:
 
     env:
       DATABASE_URL: postgresql://postgres:postgres@127.0.0.1:5432/mud_next_ci?schema=public
-      SERVER_NEXT_SHADOW_URL: http://${{ secrets.DEPLOY_SSH_HOST }}:11923
-      SERVER_NEXT_GM_PASSWORD: ${{ secrets.PROD_GM_PASSWORD }}
+      SHADOW_URL: http://${{ secrets.DEPLOY_SSH_HOST }}:11923
+      GM_PASSWORD: ${{ secrets.PROD_GM_PASSWORD }}
 
     steps:
       - name: Checkout
@@ -48,7 +48,7 @@ jobs:
         run: pnpm install --frozen-lockfile || pnpm install
 
       - name: Doctor
-        run: pnpm verify:replace-ready:doctor
+        run: SERVER_SHADOW_URL="$SHADOW_URL" GM_PASSWORD="$GM_PASSWORD" pnpm verify:replace-ready:doctor
 
       - name: Verify replace-ready full
-        run: pnpm verify:replace-ready:full
+        run: SERVER_SHADOW_URL="$SHADOW_URL" GM_PASSWORD="$GM_PASSWORD" pnpm verify:replace-ready:full

@@ -15,7 +15,7 @@ function normalizeDebugFlag(value: unknown): boolean {
 
 /** 判断是否开启服务端新版移动日志调试。 */
 export function isServerNextMovementDebugEnabled(): boolean {
-  return normalizeDebugFlag(process.env.SERVER_NEXT_DEBUG_MOVEMENT)
+  return normalizeDebugFlag(process.env.SERVER_DEBUG_MOVEMENT)
     || normalizeDebugFlag(process.env.NEXT_DEBUG_MOVEMENT);
 }
 

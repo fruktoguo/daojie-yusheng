@@ -3,7 +3,7 @@
  * 管理登录、注册表单切换，显示名称可用性检测，以及 token 会话恢复
  */
 
-import { AuthLoginReq, AuthRegisterReq, AuthTokenRes } from '@mud/shared-next';
+import { AuthLoginReq, AuthRegisterReq, AuthTokenRes } from '@mud/shared';
 import { SocketManager } from '../network/socket';
 import {
   checkDisplayNameAvailability,

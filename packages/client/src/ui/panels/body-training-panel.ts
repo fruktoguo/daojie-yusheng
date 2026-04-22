@@ -5,8 +5,8 @@ import {
   calcBodyTrainingAttrBonus,
   getBodyTrainingExpToNext,
   normalizeBodyTrainingState,
-} from '@mud/shared-next';
-import type { PlayerState } from '@mud/shared-next';
+} from '@mud/shared';
+import type { PlayerState } from '@mud/shared';
 import { detailModalHost } from '../detail-modal-host';
 import { preserveSelection } from '../selection-preserver';
 import { createSmallBtn } from '../ui-primitives';

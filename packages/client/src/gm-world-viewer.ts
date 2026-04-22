@@ -16,7 +16,7 @@ import {
   type TileType,
   ENTITY_KIND_LABELS,
   TILE_TYPE_LABELS,
-} from '@mud/shared-next';
+} from '@mud/shared';
 import { TextRenderer } from './renderer/text';
 import { Camera } from './renderer/camera';
 import { getCellSize, setZoom, updateDisplayMetrics } from './display';

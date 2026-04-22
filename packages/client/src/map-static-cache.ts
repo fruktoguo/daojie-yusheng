@@ -2,7 +2,7 @@
  * 地图静态缓存 —— 将地图元信息和小地图快照持久化到 localStorage，减少重复请求
  */
 
-import { MAP_STATIC_CACHE_STORAGE_KEY, MapMeta, MapMinimapArchiveEntry, MapMinimapSnapshot } from '@mud/shared-next';
+import { MAP_STATIC_CACHE_STORAGE_KEY, MapMeta, MapMinimapArchiveEntry, MapMinimapSnapshot } from '@mud/shared';
 
 /** 地图元信息的持久化字段集合。 */
 type CachedMapMeta = Pick<

@@ -16,7 +16,7 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.WorldRuntimeBasicAttackService = void 0;
 
 const common_1 = require("@nestjs/common");
-const shared_1 = require("@mud/shared-next");
+const shared_1 = require("@mud/shared");
 const player_runtime_service_1 = require("../player/player-runtime.service");
 const player_combat_config_helpers_1 = require("../player/player-combat-config.helpers");
 const world_runtime_path_planning_helpers_1 = require("./world-runtime.path-planning.helpers");

@@ -15,7 +15,7 @@ const AUTHENTICATED_BOOTSTRAP_ENTRY_PATHS = new Set([
     'connect_gm_token',
 ]);
 
-const AUTHENTICATED_NEXT_REUSE_PERSISTED_SOURCES = new Set([
+const AUTHENTICATED_REUSE_PERSISTED_SOURCES = new Set([
     'native',
 ]);
 
@@ -23,12 +23,12 @@ const AUTHENTICATED_TOKEN_REUSE_PERSISTED_SOURCES = new Set([
     'token_seed',
 ]);
 
-const NEXT_BOOTSTRAP_ALLOWED_IDENTITY_SOURCES = new Set([
+const BOOTSTRAP_ALLOWED_IDENTITY_SOURCES = new Set([
     'next',
     'token',
 ]);
 
-const NEXT_BOOTSTRAP_ALLOWED_NEXT_PERSISTED_SOURCES = new Set([
+const BOOTSTRAP_ALLOWED_NEXT_PERSISTED_SOURCES = new Set([
     'native',
 ]);
 
@@ -83,12 +83,12 @@ export class WorldSessionBootstrapContractService {
 
     resolveAuthenticatedBootstrapContractViolation(client: BootstrapClientLike, input: BootstrapSessionInput | undefined = undefined): BootstrapContractViolation | null {
         const contract = this.resolveBootstrapContractContext(client, input);
-        if (!contract.isAuthenticatedEntry || contract.protocol !== 'next') {
+        if (!contract.isAuthenticatedEntry || contract.protocol !== 'mainline') {
             return null;
         }
         const authSource = contract.identitySource;
         const persistedSource = contract.identityPersistedSource;
-        if (!NEXT_BOOTSTRAP_ALLOWED_IDENTITY_SOURCES.has(authSource ?? '')) {
+        if (!BOOTSTRAP_ALLOWED_IDENTITY_SOURCES.has(authSource ?? '')) {
             return {
                 stage: 'next_bootstrap_identity_source_blocked',
                 message: `NEXT 协议 bootstrap 不接受 ${authSource || 'unknown'} 身份来源`,
@@ -106,7 +106,7 @@ export class WorldSessionBootstrapContractService {
                 message: `NEXT 协议 token 身份不接受 ${persistedSource} 持久化来源`,
             };
         }
-        if (authSource === 'next' && !NEXT_BOOTSTRAP_ALLOWED_NEXT_PERSISTED_SOURCES.has(persistedSource)) {
+        if (authSource === 'next' && !BOOTSTRAP_ALLOWED_NEXT_PERSISTED_SOURCES.has(persistedSource)) {
             return {
                 stage: 'next_bootstrap_next_persisted_source_invalid',
                 message: `NEXT 协议 next 身份不接受 ${persistedSource} 持久化来源`,
@@ -126,7 +126,7 @@ export class WorldSessionBootstrapContractService {
         }
         if (contract.isAuthenticatedEntry) {
             const allowAuthenticatedReuse = contract.effectiveIdentitySource === 'next'
-                && AUTHENTICATED_NEXT_REUSE_PERSISTED_SOURCES.has(contract.identityPersistedSource ?? '');
+                && AUTHENTICATED_REUSE_PERSISTED_SOURCES.has(contract.identityPersistedSource ?? '');
             return {
                 allowImplicitDetachedResume: allowAuthenticatedReuse,
                 allowRequestedDetachedResume: allowAuthenticatedReuse,
