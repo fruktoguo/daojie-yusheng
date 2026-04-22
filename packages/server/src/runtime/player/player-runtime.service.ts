@@ -50,6 +50,8 @@ const PENDING_LOGBOOK_KINDS = new Set([
     'loot',
     'grudge',
 ]);
+const PLAYER_PERSISTENCE_DIRTY_FALLBACK_DOMAIN = 'snapshot';
+const PLAYER_PERSISTENCE_DIRTY_PRESENCE_DOMAIN = 'presence';
 let PlayerRuntimeService = class PlayerRuntimeService {
     /** 内容仓库，提供起始背包、默认装备和物品模板。 */
     contentTemplateRepository;
@@ -213,6 +215,7 @@ let PlayerRuntimeService = class PlayerRuntimeService {
             pendingLogbookMessages: [],
             vitalRecoveryDeferredUntilTick: -1,
             runtimeBonuses: [],
+            dirtyDomains: createPlayerDirtyDomainSet(),
         };
         this.playerProgressionService.initializePlayer(player);
         this.rebuildActionState(player, 0);
@@ -251,6 +254,7 @@ let PlayerRuntimeService = class PlayerRuntimeService {
             if (!Number.isFinite(player.offlineSinceAt)) {
                 player.offlineSinceAt = Date.now();
             }
+            markPlayerDirtyDomains(player, [PLAYER_PERSISTENCE_DIRTY_PRESENCE_DOMAIN]);
         }
     }
     /** 从运行时中移除玩家，通常用于注销或彻底清理。 */
@@ -392,6 +396,7 @@ let PlayerRuntimeService = class PlayerRuntimeService {
             return;
         }
         player.lastHeartbeatAt = Date.now();
+        markPlayerDirtyDomains(player, [PLAYER_PERSISTENCE_DIRTY_PRESENCE_DOMAIN]);
     }
     /**
  * replaceInventoryItems：用已提交的新背包快照替换运行态。
@@ -408,6 +413,7 @@ let PlayerRuntimeService = class PlayerRuntimeService {
         player.inventory.items = nextItems;
         player.inventory.revision += 1;
         this.playerProgressionService.refreshPreview(player);
+        markPlayerDirtyDomains(player, ['inventory']);
         this.bumpPersistentRevision(player);
         return player;
     }
@@ -588,6 +594,7 @@ let PlayerRuntimeService = class PlayerRuntimeService {
             changed = true;
         }
         if (changed) {
+            markPlayerDirtyDomains(player, ['world_anchor', 'position_checkpoint']);
             this.bumpPersistentRevision(player);
             player.selfRevision += 1;
         }
@@ -931,6 +938,7 @@ let PlayerRuntimeService = class PlayerRuntimeService {
 
         const player = this.getPlayerOrThrow(playerId);
         player.quests.revision += 1;
+        markPlayerDirtyDomains(player, ['quest']);
         this.bumpPersistentRevision(player);
         return player;
     }
@@ -1336,6 +1344,7 @@ let PlayerRuntimeService = class PlayerRuntimeService {
         player.inventory.revision += 1;
         player.equipment.revision += 1;
         this.playerAttributesService.recalculate(player);
+        markPlayerDirtyDomains(player, ['inventory', 'equipment']);
         this.bumpPersistentRevision(player);
         return player;
     }
@@ -1361,6 +1370,7 @@ let PlayerRuntimeService = class PlayerRuntimeService {
         player.inventory.revision += 1;
         player.equipment.revision += 1;
         this.playerAttributesService.recalculate(player);
+        markPlayerDirtyDomains(player, ['inventory', 'equipment']);
         this.bumpPersistentRevision(player);
         return player;
     }
@@ -1387,6 +1397,7 @@ let PlayerRuntimeService = class PlayerRuntimeService {
         player.techniques.cultivatingTechId = normalized;
         player.combat.cultivationActive = normalized !== null;
         player.techniques.revision += 1;
+        markPlayerDirtyDomains(player, ['technique', 'combat_pref']);
         this.bumpPersistentRevision(player);
         return player;
     }
@@ -1430,6 +1441,7 @@ let PlayerRuntimeService = class PlayerRuntimeService {
             this.playerAttributesService.markPanelDirty(player);
         }
         this.playerProgressionService.refreshPreview(player);
+        markPlayerDirtyDomains(player, ['body_training', 'progression']);
         this.bumpPersistentRevision(player);
         return {
             player,
@@ -1472,6 +1484,7 @@ let PlayerRuntimeService = class PlayerRuntimeService {
             this.playerAttributesService.markPanelDirty(player);
         }
         this.playerProgressionService.refreshPreview(player);
+        markPlayerDirtyDomains(player, ['body_training', 'progression']);
         this.bumpPersistentRevision(player);
         return player;
     }
@@ -1520,6 +1533,7 @@ let PlayerRuntimeService = class PlayerRuntimeService {
         }
         player.qi -= normalized;
         player.selfRevision += 1;
+        markPlayerDirtyDomains(player, ['vitals']);
         this.bumpPersistentRevision(player);
         return player;
     }
@@ -1542,6 +1556,7 @@ let PlayerRuntimeService = class PlayerRuntimeService {
         }
         player.hp = Math.max(0, player.hp - normalized);
         player.selfRevision += 1;
+        markPlayerDirtyDomains(player, ['vitals']);
         this.bumpPersistentRevision(player);
         return player;
     }
@@ -1580,6 +1595,7 @@ let PlayerRuntimeService = class PlayerRuntimeService {
         }
         player.combat.autoBattleSkills = normalized;
         this.rebuildActionState(player, 0);
+        markPlayerDirtyDomains(player, ['auto_battle_skill', 'combat_pref']);
         this.bumpPersistentRevision(player);
         return player;
     }
@@ -1601,6 +1617,7 @@ let PlayerRuntimeService = class PlayerRuntimeService {
             return player;
         }
         player.combat.autoUsePills = normalized;
+        markPlayerDirtyDomains(player, ['combat_pref']);
         this.bumpPersistentRevision(player);
         return player;
     }
@@ -1622,6 +1639,7 @@ let PlayerRuntimeService = class PlayerRuntimeService {
             return player;
         }
         player.combat.combatTargetingRules = normalized;
+        markPlayerDirtyDomains(player, ['combat_pref']);
         this.bumpPersistentRevision(player);
         return player;
     }
@@ -1643,6 +1661,7 @@ let PlayerRuntimeService = class PlayerRuntimeService {
             return player;
         }
         player.combat.autoBattleTargetingMode = normalized;
+        markPlayerDirtyDomains(player, ['combat_pref']);
         this.bumpPersistentRevision(player);
         return player;
     }
@@ -1695,6 +1714,7 @@ let PlayerRuntimeService = class PlayerRuntimeService {
         }
         player.combat.autoBattleSkills = normalized;
         this.rebuildActionState(player, 0);
+        markPlayerDirtyDomains(player, ['auto_battle_skill', 'combat_pref']);
         this.bumpPersistentRevision(player);
         return player;
     }
@@ -1749,6 +1769,7 @@ let PlayerRuntimeService = class PlayerRuntimeService {
             return player;
         }
         this.rebuildActionState(player, currentTick);
+        markPlayerDirtyDomains(player, ['combat_pref']);
         this.bumpPersistentRevision(player);
         return player;
     }
@@ -2138,8 +2159,30 @@ let PlayerRuntimeService = class PlayerRuntimeService {
     listDirtyPlayers() {
         return Array.from(this.players.values())
             .filter((player) => !(0, next_gm_constants_1.isNativeGmBotPlayerId)(player.playerId))
-            .filter((player) => player.persistentRevision > player.persistedRevision)
+            .filter((player) => isPlayerRuntimeDirty(player))
             .map((player) => player.playerId);
+    }
+    /**
+ * listDirtyPlayerDomains：读取Dirty玩家并返回对应域集合。
+ * @returns 无返回值，完成Dirty玩家域集合的读取/组装。
+ */
+
+    listDirtyPlayerDomains() {
+        const dirtyPlayers = new Map();
+        for (const player of this.players.values()) {
+            if ((0, next_gm_constants_1.isNativeGmBotPlayerId)(player.playerId)) {
+                continue;
+            }
+            const dirtyDomains = readPlayerDirtyDomains(player);
+            if (dirtyDomains && dirtyDomains.size > 0) {
+                dirtyPlayers.set(player.playerId, new Set(dirtyDomains));
+                continue;
+            }
+            if (player.persistentRevision > player.persistedRevision) {
+                dirtyPlayers.set(player.playerId, new Set([PLAYER_PERSISTENCE_DIRTY_FALLBACK_DOMAIN]));
+            }
+        }
+        return dirtyPlayers;
     }
     /**
  * buildFreshPersistenceSnapshot：构建并返回目标对象。
@@ -2227,6 +2270,7 @@ let PlayerRuntimeService = class PlayerRuntimeService {
             return;
         }
         player.persistedRevision = player.persistentRevision;
+        clearPlayerDirtyDomains(player);
     }
     /**
  * snapshot：执行快照相关逻辑。
@@ -2406,6 +2450,7 @@ let PlayerRuntimeService = class PlayerRuntimeService {
             runtimeBonuses: (Array.isArray(snapshot.runtimeBonuses) ? snapshot.runtimeBonuses : [])
                 .map((entry) => cloneRuntimeBonus(entry))
                 .filter((entry) => Boolean(entry)),
+            dirtyDomains: createPlayerDirtyDomainSet(),
         };
         player.enhancementSkillLevel = Math.max(1, Math.floor(Number(player.enhancementSkill?.level ?? player.enhancementSkillLevel) || 1));
         this.playerProgressionService.initializePlayer(player);
@@ -2425,6 +2470,7 @@ let PlayerRuntimeService = class PlayerRuntimeService {
 
     bumpPersistentRevision(player) {
         player.persistentRevision += 1;
+        markPlayerDirtyDomains(player, [PLAYER_PERSISTENCE_DIRTY_FALLBACK_DOMAIN]);
     }
     /**
  * bindRuntimeSession：为玩家生成新的运行时所有权 fencing。
@@ -2439,6 +2485,7 @@ let PlayerRuntimeService = class PlayerRuntimeService {
         player.runtimeOwnerId = buildRuntimeOwnerId(player.playerId, sessionId, player.sessionEpoch);
         player.lastHeartbeatAt = Date.now();
         player.offlineSinceAt = null;
+        markPlayerDirtyDomains(player, [PLAYER_PERSISTENCE_DIRTY_PRESENCE_DOMAIN]);
         return player;
     }
     refreshRuntimeSession(player, sessionId) {
@@ -2447,6 +2494,7 @@ let PlayerRuntimeService = class PlayerRuntimeService {
         if (normalizedSessionId && normalizedSessionId === existingSessionId && player.runtimeOwnerId) {
             player.lastHeartbeatAt = Date.now();
             player.offlineSinceAt = null;
+            markPlayerDirtyDomains(player, [PLAYER_PERSISTENCE_DIRTY_PRESENCE_DOMAIN]);
             return player;
         }
         return this.bindRuntimeSession(player, sessionId);
@@ -2560,6 +2608,34 @@ exports.PlayerRuntimeService = PlayerRuntimeService = __decorate([
         player_progression_service_1.PlayerProgressionService])
 ], PlayerRuntimeService);
 export { PlayerRuntimeService };
+function createPlayerDirtyDomainSet() {
+    return new Set();
+}
+function markPlayerDirtyDomains(player, domains) {
+    if (!player) {
+        return;
+    }
+    if (!(player.dirtyDomains instanceof Set)) {
+        player.dirtyDomains = createPlayerDirtyDomainSet();
+    }
+    for (const domain of Array.isArray(domains) ? domains : []) {
+        if (typeof domain === 'string' && domain.trim()) {
+            player.dirtyDomains.add(domain.trim());
+        }
+    }
+}
+function clearPlayerDirtyDomains(player) {
+    if (player?.dirtyDomains instanceof Set) {
+        player.dirtyDomains.clear();
+    }
+}
+function readPlayerDirtyDomains(player) {
+    return player?.dirtyDomains instanceof Set ? player.dirtyDomains : null;
+}
+function isPlayerRuntimeDirty(player) {
+    return (player?.dirtyDomains instanceof Set && player.dirtyDomains.size > 0)
+        || player.persistentRevision > player.persistedRevision;
+}
 /**
  * buildEquipmentSnapshot：构建并返回目标对象。
  * @param equipment 参数说明。
@@ -2670,6 +2746,7 @@ function cloneRuntimePlayerState(player) {
         pendingLogbookMessages: player.pendingLogbookMessages.map((entry) => ({ ...entry })),
         vitalRecoveryDeferredUntilTick: player.vitalRecoveryDeferredUntilTick,
         runtimeBonuses: player.runtimeBonuses.map((entry) => cloneRuntimeBonus(entry)),
+        dirtyDomains: createPlayerDirtyDomainSet(),
     };
 }
 /**

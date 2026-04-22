@@ -30,6 +30,7 @@ const MARKET_TRADE_SCOPE = 'server_market_trade_history_v1';
 const MARKET_STORAGE_SCOPE = 'server_market_storage_v1';
 
 const PLAYER_MARKET_STORAGE_ITEM_TABLE = 'player_market_storage_item';
+const PLAYER_RECOVERY_WATERMARK_TABLE = 'player_recovery_watermark';
 
 /** 坊市持久化服务：管理订单、交易历史和仓库数据的持久化一致性。 */
 let MarketPersistenceService = MarketPersistenceService_1 = class MarketPersistenceService {
@@ -285,6 +286,10 @@ let MarketPersistenceService = MarketPersistenceService_1 = class MarketPersiste
         const upsertPlayerIds = upserts
             .map((entry) => typeof entry?.playerId === 'string' ? entry.playerId.trim() : '')
             .filter((entry, index, list) => entry.length > 0 && list.indexOf(entry) === index);
+/**
+ * 记录affectedplayerids。
+ */
+        const affectedPlayerIds = Array.from(new Set([...upsertPlayerIds, ...deletions.filter((entry) => typeof entry === 'string' && entry.trim().length > 0)]));
         if (upsertPlayerIds.length > 0) {
             await client.query(`DELETE FROM ${PLAYER_MARKET_STORAGE_ITEM_TABLE} WHERE player_id = ANY($1::varchar[])`, [upsertPlayerIds]);
         }
@@ -330,6 +335,9 @@ let MarketPersistenceService = MarketPersistenceService_1 = class MarketPersiste
                     JSON.stringify(item),
                 ]);
             }
+        }
+        if (affectedPlayerIds.length > 0) {
+            await upsertMarketStorageWatermarks(client, affectedPlayerIds);
         }
     }
     /**
@@ -518,6 +526,44 @@ async function ensurePlayerMarketStorageItemTable(pool) {
     finally {
         client.release();
     }
+}
+
+/**
+ * upsertMarketStorageWatermarks：推进市场仓域的恢复水位。
+ * @param client 数据库事务客户端。
+ * @param playerIds 受影响的玩家列表。
+ * @returns 无返回值，直接更新 market_storage_version。
+ */
+async function upsertMarketStorageWatermarks(client, playerIds) {
+/**
+ * 记录normalizedplayerids。
+ */
+    const normalizedPlayerIds = playerIds
+        .map((entry) => typeof entry === 'string' ? entry.trim() : '')
+        .filter((entry, index, list) => entry.length > 0 && list.indexOf(entry) === index);
+    if (normalizedPlayerIds.length === 0) {
+        return;
+    }
+/**
+ * 记录versionseed。
+ */
+    const versionSeed = Date.now();
+    const placeholders = normalizedPlayerIds.map((_, index) => `($${index + 1}, $${normalizedPlayerIds.length + index + 1}, now())`);
+    await client.query(`
+      INSERT INTO ${PLAYER_RECOVERY_WATERMARK_TABLE}(
+        player_id,
+        market_storage_version,
+        updated_at
+      )
+      VALUES ${placeholders.join(',\n')}
+      ON CONFLICT (player_id)
+      DO UPDATE SET
+        market_storage_version = GREATEST(${PLAYER_RECOVERY_WATERMARK_TABLE}.market_storage_version, EXCLUDED.market_storage_version),
+        updated_at = now()
+    `, [
+        ...normalizedPlayerIds,
+        ...normalizedPlayerIds.map((_, index) => versionSeed + index),
+    ]);
 }
 
 /**

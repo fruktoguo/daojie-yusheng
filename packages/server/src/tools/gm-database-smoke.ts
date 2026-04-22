@@ -834,6 +834,7 @@ async function main() {
         assertStructuredTablePresent(backupPayload, 'player_progression_core');
         assertStructuredTablePresent(backupPayload, 'player_attr_state');
         assertStructuredTablePresent(backupPayload, 'player_body_training_state');
+        assertStructuredTablePresent(backupPayload, 'player_wallet');
         assertStructuredTablePresent(backupPayload, 'player_map_unlock');
         assertStructuredTablePresent(backupPayload, 'player_market_storage_item');
         assertStructuredTablePresent(backupPayload, 'player_equipment_slot');

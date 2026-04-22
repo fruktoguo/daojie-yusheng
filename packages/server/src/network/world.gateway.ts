@@ -21,6 +21,7 @@ const shared_1 = require("@mud/shared");
 const socket_io_1 = require("socket.io");
 const server_cors_1 = require("../config/server-cors");
 const health_readiness_service_1 = require("../health/health-readiness.service");
+const player_domain_persistence_service_1 = require("../persistence/player-domain-persistence.service");
 const player_persistence_flush_service_1 = require("../persistence/player-persistence-flush.service");
 const mail_runtime_service_1 = require("../runtime/mail/mail-runtime.service");
 const market_runtime_service_1 = require("../runtime/market/market-runtime.service");
@@ -72,6 +73,7 @@ let WorldGateway = WorldGateway_1 = class WorldGateway {
         worldProtocolProjectionService;
         sessionBootstrapService;
         healthReadinessService;
+        playerDomainPersistenceService;
         playerPersistenceFlushService;
         playerRuntimeService;
         mailRuntimeService;
@@ -101,11 +103,12 @@ let WorldGateway = WorldGateway_1 = class WorldGateway {
     gatewaySessionStateHelper;
         server;
         logger = new common_1.Logger(WorldGateway_1.name);    
-    constructor(worldGmSocketService, worldProtocolProjectionService, sessionBootstrapService, healthReadinessService, playerPersistenceFlushService, playerRuntimeService, mailRuntimeService, marketRuntimeService, craftPanelRuntimeService, suggestionRuntimeService, leaderboardRuntimeService, runtimeGmStateService, worldRuntimeService, worldClientEventService, worldSessionService) {
+    constructor(worldGmSocketService, worldProtocolProjectionService, sessionBootstrapService, healthReadinessService, playerDomainPersistenceService, playerPersistenceFlushService, playerRuntimeService, mailRuntimeService, marketRuntimeService, craftPanelRuntimeService, suggestionRuntimeService, leaderboardRuntimeService, runtimeGmStateService, worldRuntimeService, worldClientEventService, worldSessionService) {
         this.worldGmSocketService = worldGmSocketService;
         this.worldProtocolProjectionService = worldProtocolProjectionService;
         this.sessionBootstrapService = sessionBootstrapService;
         this.healthReadinessService = healthReadinessService;
+        this.playerDomainPersistenceService = playerDomainPersistenceService;
         this.playerPersistenceFlushService = playerPersistenceFlushService;
         this.playerRuntimeService = playerRuntimeService;
         this.mailRuntimeService = mailRuntimeService;
@@ -166,6 +169,20 @@ let WorldGateway = WorldGateway_1 = class WorldGateway {
         if (binding.connected) {
             return;
         }
+        const disconnectPresence = this.playerDomainPersistenceService?.isEnabled?.()
+            ? this.playerRuntimeService.describePersistencePresence(binding.playerId)
+            : null;
+        if (disconnectPresence) {
+            void this.playerDomainPersistenceService.savePlayerPresence(binding.playerId, {
+                ...disconnectPresence,
+                online: false,
+                inWorld: false,
+                offlineSinceAt: Date.now(),
+                versionSeed: Date.now(),
+            }).catch((error) => {
+                this.logger.error(`刷新脱机 presence 失败：${binding.playerId}`, error instanceof Error ? error.stack : String(error));
+            });
+        }
         await this.playerPersistenceFlushService.flushPlayer(binding.playerId).catch((error) => {
             this.logger.error(`刷新脱机玩家失败：${binding.playerId}`, error instanceof Error ? error.stack : String(error));
         });
@@ -181,6 +198,20 @@ let WorldGateway = WorldGateway_1 = class WorldGateway {
         const playerId = typeof client?.data?.playerId === 'string' ? client.data.playerId.trim() : '';
         if (playerId) {
             this.playerRuntimeService.markHeartbeat(playerId);
+            const heartbeatPresence = this.playerDomainPersistenceService?.isEnabled?.()
+                ? this.playerRuntimeService.describePersistencePresence(playerId)
+                : null;
+            if (heartbeatPresence) {
+                void this.playerDomainPersistenceService.savePlayerPresence(playerId, {
+                    ...heartbeatPresence,
+                    online: true,
+                    inWorld: Boolean(heartbeatPresence.inWorld),
+                    offlineSinceAt: null,
+                    versionSeed: Date.now(),
+                }).catch((error) => {
+                    this.logger.error(`刷新心跳 presence 失败：${playerId}`, error instanceof Error ? error.stack : String(error));
+                });
+            }
         }
     }    
     handleSocketGmGetState(client, _payload) {
@@ -1049,6 +1080,7 @@ exports.WorldGateway = WorldGateway = WorldGateway_1 = __decorate([
         world_protocol_projection_service_1.WorldProtocolProjectionService,
         world_session_bootstrap_service_1.WorldSessionBootstrapService,
         health_readiness_service_1.HealthReadinessService,
+        player_domain_persistence_service_1.PlayerDomainPersistenceService,
         player_persistence_flush_service_1.PlayerPersistenceFlushService,
         player_runtime_service_1.PlayerRuntimeService,
         mail_runtime_service_1.MailRuntimeService,

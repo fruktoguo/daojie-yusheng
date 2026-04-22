@@ -7,6 +7,7 @@ import { resolveServerDatabaseUrl } from '../config/env-alias';
 import type { PersistedPlayerSnapshot } from './player-persistence.service';
 
 const PLAYER_PRESENCE_TABLE = 'player_presence';
+const PLAYER_WALLET_TABLE = 'player_wallet';
 const PLAYER_WORLD_ANCHOR_TABLE = 'player_world_anchor';
 const PLAYER_POSITION_CHECKPOINT_TABLE = 'player_position_checkpoint';
 const PLAYER_VITALS_TABLE = 'player_vitals';
@@ -14,6 +15,7 @@ const PLAYER_PROGRESSION_CORE_TABLE = 'player_progression_core';
 const PLAYER_ATTR_STATE_TABLE = 'player_attr_state';
 const PLAYER_BODY_TRAINING_STATE_TABLE = 'player_body_training_state';
 const PLAYER_INVENTORY_ITEM_TABLE = 'player_inventory_item';
+const PLAYER_MARKET_STORAGE_ITEM_TABLE = 'player_market_storage_item';
 const PLAYER_MAP_UNLOCK_TABLE = 'player_map_unlock';
 const PLAYER_EQUIPMENT_SLOT_TABLE = 'player_equipment_slot';
 const PLAYER_TECHNIQUE_STATE_TABLE = 'player_technique_state';
@@ -31,6 +33,7 @@ const PLAYER_RECOVERY_WATERMARK_TABLE = 'player_recovery_watermark';
 
 export const PLAYER_DOMAIN_PROJECTED_TABLES = [
   PLAYER_PRESENCE_TABLE,
+  PLAYER_WALLET_TABLE,
   PLAYER_WORLD_ANCHOR_TABLE,
   PLAYER_POSITION_CHECKPOINT_TABLE,
   PLAYER_VITALS_TABLE,
@@ -38,6 +41,7 @@ export const PLAYER_DOMAIN_PROJECTED_TABLES = [
   PLAYER_ATTR_STATE_TABLE,
   PLAYER_BODY_TRAINING_STATE_TABLE,
   PLAYER_INVENTORY_ITEM_TABLE,
+  PLAYER_MARKET_STORAGE_ITEM_TABLE,
   PLAYER_MAP_UNLOCK_TABLE,
   PLAYER_EQUIPMENT_SLOT_TABLE,
   PLAYER_TECHNIQUE_STATE_TABLE,
@@ -98,6 +102,13 @@ export interface PlayerPresenceUpsertInput {
   versionSeed?: number | null;
 }
 
+export interface PlayerWalletUpsertInput {
+  walletType: string;
+  balance: number;
+  frozenBalance?: number | null;
+  version?: number | null;
+}
+
 export interface PlayerDomainWriteOptions {
   versionSeed?: number | null;
 }
@@ -149,6 +160,22 @@ export interface PlayerInventoryItemUpsertInput {
   count: number;
   slotIndex?: number | null;
   itemInstanceId?: string | null;
+  rawPayload?: Record<string, unknown> | null;
+}
+
+export interface PlayerWalletUpsertInput {
+  walletType: string;
+  balance: number;
+  frozenBalance?: number | null;
+  version?: number | null;
+}
+
+export interface PlayerMarketStorageItemUpsertInput {
+  itemId: string;
+  count: number;
+  slotIndex?: number | null;
+  storageItemId?: string | null;
+  enhanceLevel?: number | null;
   rawPayload?: Record<string, unknown> | null;
 }
 
@@ -626,6 +653,16 @@ export class PlayerDomainPersistenceService implements OnModuleInit, OnModuleDes
     });
   }
 
+  async savePlayerWallet(
+    playerId: string,
+    rows: readonly PlayerWalletUpsertInput[],
+    options: PlayerDomainWriteOptions = {},
+  ): Promise<void> {
+    await this.saveProjectedDomain(playerId, options.versionSeed, ['wallet_version'], (client, normalizedPlayerId, versionSeed) =>
+      replacePlayerWalletRows(client, normalizedPlayerId, rows, versionSeed),
+    );
+  }
+
   async savePlayerWorldAnchor(
     playerId: string,
     input: PlayerWorldAnchorUpsertInput,
@@ -679,6 +716,16 @@ export class PlayerDomainPersistenceService implements OnModuleInit, OnModuleDes
     );
   }
 
+  async savePlayerWallet(
+    playerId: string,
+    rows: readonly PlayerWalletUpsertInput[],
+    options: PlayerDomainWriteOptions = {},
+  ): Promise<void> {
+    await this.saveProjectedDomain(playerId, options.versionSeed, ['wallet_version'], (client, normalizedPlayerId, versionSeed) =>
+      replacePlayerWalletRows(client, normalizedPlayerId, [...rows], versionSeed),
+    );
+  }
+
   async savePlayerInventoryItems(
     playerId: string,
     items: readonly PlayerInventoryItemUpsertInput[],
@@ -686,6 +733,19 @@ export class PlayerDomainPersistenceService implements OnModuleInit, OnModuleDes
   ): Promise<void> {
     await this.saveProjectedDomain(playerId, options.versionSeed, ['inventory_version'], (client, normalizedPlayerId) =>
       replacePlayerInventoryItems(client, normalizedPlayerId, [...items]),
+    );
+  }
+
+  async savePlayerMarketStorageItems(
+    playerId: string,
+    items: readonly PlayerMarketStorageItemUpsertInput[],
+    options: PlayerDomainWriteOptions = {},
+  ): Promise<void> {
+    await this.saveProjectedDomain(
+      playerId,
+      options.versionSeed,
+      ['market_storage_version'],
+      (client, normalizedPlayerId) => replacePlayerMarketStorageItems(client, normalizedPlayerId, [...items]),
     );
   }
 
@@ -1719,6 +1779,41 @@ export async function ensurePlayerDomainTablesWithClient(client: PoolClient): Pr
     )
   `);
   await client.query(`
+    CREATE TABLE IF NOT EXISTS ${PLAYER_WALLET_TABLE} (
+      player_id varchar(100) NOT NULL,
+      wallet_type varchar(64) NOT NULL,
+      balance bigint NOT NULL DEFAULT 0,
+      frozen_balance bigint NOT NULL DEFAULT 0,
+      version bigint NOT NULL DEFAULT 1,
+      updated_at timestamptz NOT NULL DEFAULT now(),
+      PRIMARY KEY(player_id, wallet_type)
+    )
+  `);
+  await client.query(`
+    CREATE INDEX IF NOT EXISTS player_wallet_player_idx
+    ON ${PLAYER_WALLET_TABLE}(player_id, wallet_type ASC)
+  `);
+  await client.query(`
+    CREATE TABLE IF NOT EXISTS ${PLAYER_MARKET_STORAGE_ITEM_TABLE} (
+      storage_item_id varchar(160) PRIMARY KEY,
+      player_id varchar(100) NOT NULL,
+      slot_index integer NOT NULL,
+      item_id varchar(160) NOT NULL,
+      count integer NOT NULL DEFAULT 1,
+      enhance_level integer,
+      raw_payload jsonb NOT NULL DEFAULT '{}'::jsonb,
+      updated_at timestamptz NOT NULL DEFAULT now()
+    )
+  `);
+  await client.query(`
+    CREATE INDEX IF NOT EXISTS player_market_storage_item_player_idx
+    ON ${PLAYER_MARKET_STORAGE_ITEM_TABLE}(player_id, slot_index ASC)
+  `);
+  await client.query(`
+    CREATE INDEX IF NOT EXISTS player_market_storage_item_item_idx
+    ON ${PLAYER_MARKET_STORAGE_ITEM_TABLE}(item_id, player_id ASC)
+  `);
+  await client.query(`
     CREATE TABLE IF NOT EXISTS ${PLAYER_WORLD_ANCHOR_TABLE} (
       player_id varchar(100) PRIMARY KEY,
       respawn_template_id varchar(120) NOT NULL,
@@ -1792,20 +1887,19 @@ export async function ensurePlayerDomainTablesWithClient(client: PoolClient): Pr
     )
   `);
   await client.query(`
-    CREATE TABLE IF NOT EXISTS ${PLAYER_INVENTORY_ITEM_TABLE} (
-      item_instance_id varchar(180) PRIMARY KEY,
+    CREATE TABLE IF NOT EXISTS ${PLAYER_WALLET_TABLE} (
       player_id varchar(100) NOT NULL,
-      slot_index integer NOT NULL,
-      item_id varchar(120) NOT NULL,
-      count integer NOT NULL,
-      raw_payload jsonb NOT NULL,
+      wallet_type varchar(64) NOT NULL,
+      balance bigint NOT NULL DEFAULT 0,
+      frozen_balance bigint NOT NULL DEFAULT 0,
+      version bigint NOT NULL DEFAULT 1,
       updated_at timestamptz NOT NULL DEFAULT now(),
-      UNIQUE(player_id, slot_index)
+      PRIMARY KEY(player_id, wallet_type)
     )
   `);
   await client.query(`
-    CREATE INDEX IF NOT EXISTS player_inventory_item_player_idx
-    ON ${PLAYER_INVENTORY_ITEM_TABLE}(player_id)
+    CREATE INDEX IF NOT EXISTS player_wallet_player_idx
+    ON ${PLAYER_WALLET_TABLE}(player_id, wallet_type ASC)
   `);
   await client.query(`
     CREATE TABLE IF NOT EXISTS ${PLAYER_MAP_UNLOCK_TABLE} (
@@ -2134,6 +2228,55 @@ async function replacePlayerInventoryItems(
   );
 }
 
+async function replacePlayerWalletRows(
+  client: PoolClient,
+  playerId: string,
+  rows: readonly PlayerWalletUpsertInput[],
+  versionSeed: number,
+): Promise<void> {
+  await client.query(`DELETE FROM ${PLAYER_WALLET_TABLE} WHERE player_id = $1`, [playerId]);
+  if (!Array.isArray(rows) || rows.length === 0) {
+    return;
+  }
+
+  const values: unknown[] = [];
+  const placeholders: string[] = [];
+  let parameterIndex = 1;
+  for (const row of rows) {
+    const walletType = normalizeRequiredString(row?.walletType);
+    if (!walletType) {
+      continue;
+    }
+    const balance = normalizeMinimumInteger(row?.balance, 0, 0);
+    const frozenBalance = normalizeMinimumInteger(row?.frozenBalance, 0, 0);
+    const version = normalizeMinimumInteger(row?.version, versionSeed, 1);
+    placeholders.push(
+      `($${parameterIndex}, $${parameterIndex + 1}, $${parameterIndex + 2}, $${parameterIndex + 3}, $${parameterIndex + 4}, now())`,
+    );
+    values.push(playerId, walletType, balance, frozenBalance, version);
+    parameterIndex += 5;
+  }
+
+  if (placeholders.length === 0) {
+    return;
+  }
+
+  await client.query(
+    `
+      INSERT INTO ${PLAYER_WALLET_TABLE}(
+        player_id,
+        wallet_type,
+        balance,
+        frozen_balance,
+        version,
+        updated_at
+      )
+      VALUES ${placeholders.join(',\n')}
+    `,
+    values,
+  );
+}
+
 async function replacePlayerMapUnlocks(
   client: PoolClient,
   playerId: string,
@@ -2185,6 +2328,75 @@ async function replacePlayerMapUnlockRows(
         player_id,
         map_id,
         unlocked_at,
+        updated_at
+      )
+      VALUES ${placeholders.join(',\n')}
+    `,
+    values,
+  );
+}
+
+async function replacePlayerMarketStorageItems(
+  client: PoolClient,
+  playerId: string,
+  items: readonly PlayerMarketStorageItemUpsertInput[],
+): Promise<void> {
+  await client.query(`DELETE FROM ${PLAYER_MARKET_STORAGE_ITEM_TABLE} WHERE player_id = $1`, [playerId]);
+  if (!Array.isArray(items) || items.length === 0) {
+    return;
+  }
+
+  const values: unknown[] = [];
+  const placeholders: string[] = [];
+  let parameterIndex = 1;
+  for (let index = 0; index < items.length; index += 1) {
+    const entry = items[index];
+    const itemId = normalizeRequiredString(entry?.itemId);
+    if (!itemId) {
+      continue;
+    }
+    const slotIndex = normalizeOptionalInteger(entry?.slotIndex) ?? index;
+    const storageItemId =
+      normalizeOptionalString(entry?.storageItemId)
+      ?? `market_storage:${playerId}:${slotIndex}`;
+    const rawPayload = asRecord(entry?.rawPayload);
+    const count = normalizeMinimumInteger(entry?.count, rawPayload?.count, 1);
+    const enhanceLevel = normalizeOptionalInteger(entry?.enhanceLevel ?? rawPayload?.enhanceLevel ?? rawPayload?.enhancementLevel ?? rawPayload?.level);
+    const persistedPayload = {
+      ...(rawPayload ?? entry ?? {}),
+      itemId,
+      count,
+      ...(enhanceLevel == null ? {} : { enhanceLevel }),
+    };
+    placeholders.push(
+      `($${parameterIndex}, $${parameterIndex + 1}, $${parameterIndex + 2}, $${parameterIndex + 3}, $${parameterIndex + 4}, $${parameterIndex + 5}, $${parameterIndex + 6}::jsonb, now())`,
+    );
+    values.push(
+      storageItemId,
+      playerId,
+      slotIndex,
+      itemId,
+      count,
+      enhanceLevel,
+      JSON.stringify(persistedPayload),
+    );
+    parameterIndex += 7;
+  }
+
+  if (placeholders.length === 0) {
+    return;
+  }
+
+  await client.query(
+    `
+      INSERT INTO ${PLAYER_MARKET_STORAGE_ITEM_TABLE}(
+        storage_item_id,
+        player_id,
+        slot_index,
+        item_id,
+        count,
+        enhance_level,
+        raw_payload,
         updated_at
       )
       VALUES ${placeholders.join(',\n')}

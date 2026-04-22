@@ -77,6 +77,7 @@ const MAINLINE_BACKUP_TABLES = [
     'player_progression_core',
     'player_attr_state',
     'player_body_training_state',
+    'player_wallet',
     'player_inventory_item',
     'player_market_storage_item',
     'player_map_unlock',

@@ -11,9 +11,12 @@ const PLAYER_PERSISTENCE_FLUSH_INTERVAL_MS = 5000;
 const PLAYER_PERSISTENCE_FLUSH_BATCH_SIZE = 24;
 const PLAYER_PERSISTENCE_FLUSH_PARALLELISM = 4;
 const PLAYER_PERSISTENCE_FLUSH_RETRY_COUNT = 1;
+const PLAYER_PERSISTENCE_DIRTY_FALLBACK_DOMAIN = 'snapshot';
+const PLAYER_PERSISTENCE_DIRTY_PRESENCE_DOMAIN = 'presence';
 
 interface PlayerRuntimeFlushPort {
   listDirtyPlayers(): string[];
+  listDirtyPlayerDomains?(): Map<string, Set<string>>;
   buildPersistenceSnapshot(playerId: string): PersistedPlayerSnapshot | null;
   markPersisted(playerId: string): void;
   describePersistencePresence(playerId: string): {
@@ -109,7 +112,8 @@ export class PlayerPersistenceFlushService implements OnModuleInit, OnModuleDest
     }
 
     const promise = (async () => {
-      const dirtyPlayerIds = this.playerRuntimeService.listDirtyPlayers();
+      const dirtyPlayerDomains = this.resolveDirtyPlayerDomains();
+      const dirtyPlayerIds = Array.from(dirtyPlayerDomains.keys());
       if (dirtyPlayerIds.length === 0) {
         return;
       }
@@ -120,6 +124,18 @@ export class PlayerPersistenceFlushService implements OnModuleInit, OnModuleDest
           batch,
           PLAYER_PERSISTENCE_FLUSH_PARALLELISM,
           async (playerId) => {
+            const dirtyDomains = dirtyPlayerDomains.get(playerId) ?? new Set<string>();
+            if (domainEnabled && dirtyDomains.size === 1 && dirtyDomains.has(PLAYER_PERSISTENCE_DIRTY_PRESENCE_DOMAIN)) {
+              const presence = this.playerRuntimeService.describePersistencePresence(playerId);
+              if (!presence) {
+                return;
+              }
+              await retryFlush(PLAYER_PERSISTENCE_FLUSH_RETRY_COUNT, async () => {
+                await this.playerDomainPersistenceService.savePlayerPresence(playerId, presence);
+              });
+              this.playerRuntimeService.markPersisted(playerId);
+              return;
+            }
             const snapshot = this.playerRuntimeService.buildPersistenceSnapshot(playerId);
             if (!snapshot) {
               return;
@@ -171,6 +187,19 @@ export class PlayerPersistenceFlushService implements OnModuleInit, OnModuleDest
     if (presence) {
       await this.playerDomainPersistenceService.savePlayerPresence(playerId, presence);
     }
+  }
+
+  private resolveDirtyPlayerDomains(): Map<string, Set<string>> {
+    const dirtyPlayerDomains = this.playerRuntimeService.listDirtyPlayerDomains?.();
+    if (dirtyPlayerDomains && dirtyPlayerDomains.size > 0) {
+      return dirtyPlayerDomains;
+    }
+    return new Map(
+      this.playerRuntimeService.listDirtyPlayers().map((playerId) => [
+        playerId,
+        new Set([PLAYER_PERSISTENCE_DIRTY_FALLBACK_DOMAIN]),
+      ]),
+    );
   }
 }
 

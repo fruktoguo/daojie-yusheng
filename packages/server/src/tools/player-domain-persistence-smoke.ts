@@ -615,11 +615,47 @@ async function main(): Promise<void> {
       ],
       { versionSeed: directBaseVersion + 11 },
     );
+    await service.savePlayerWallet(
+      directPlayerId,
+      [
+        {
+          walletType: 'spirit_stone',
+          balance: 120,
+          frozenBalance: 8,
+          version: directBaseVersion + 12,
+        },
+        {
+          walletType: 'gourds',
+          balance: 3,
+          frozenBalance: 0,
+          version: directBaseVersion + 13,
+        },
+      ],
+      { versionSeed: directBaseVersion + 12 },
+    );
+    await service.savePlayerMarketStorageItems(
+      directPlayerId,
+      [
+        {
+          storageItemId: `market:${directPlayerId}:0`,
+          slotIndex: 0,
+          itemId: 'spirit_stone',
+          count: 9,
+          enhanceLevel: null,
+          rawPayload: {
+            itemId: 'spirit_stone',
+            count: 9,
+            label: '托管灵石',
+          },
+        },
+      ],
+      { versionSeed: directBaseVersion + 14 },
+    );
     await service.savePlayerCombatPreferences(directPlayerId, null, {
-      versionSeed: directBaseVersion + 12,
+      versionSeed: directBaseVersion + 15,
     });
     await service.savePlayerActiveJob(directPlayerId, null, {
-      versionSeed: directBaseVersion + 13,
+      versionSeed: directBaseVersion + 16,
     });
 
     const directAnchorRow = await fetchSingleRow(
@@ -682,9 +718,19 @@ async function main(): Promise<void> {
       'SELECT message_id, kind, text, acked_at FROM player_logbook_message WHERE player_id = $1 ORDER BY occurred_at ASC',
       [directPlayerId],
     );
+    const directWalletRows = await fetchRows(
+      pool,
+      'SELECT wallet_type, balance, frozen_balance, version FROM player_wallet WHERE player_id = $1 ORDER BY wallet_type ASC',
+      [directPlayerId],
+    );
+    const directMarketStorageRows = await fetchRows(
+      pool,
+      'SELECT storage_item_id, slot_index, item_id, count FROM player_market_storage_item WHERE player_id = $1 ORDER BY slot_index ASC, storage_item_id ASC',
+      [directPlayerId],
+    );
     const directWatermarkRow = await fetchSingleRow(
       pool,
-      'SELECT anchor_version, position_checkpoint_version, vitals_version, progression_version, inventory_version, map_unlock_version, equipment_version, combat_pref_version, profession_version, alchemy_preset_version, active_job_version, logbook_version FROM player_recovery_watermark WHERE player_id = $1',
+      'SELECT anchor_version, position_checkpoint_version, vitals_version, progression_version, inventory_version, market_storage_version, map_unlock_version, equipment_version, combat_pref_version, profession_version, alchemy_preset_version, active_job_version, logbook_version, wallet_version FROM player_recovery_watermark WHERE player_id = $1',
       [directPlayerId],
     );
 
@@ -762,19 +808,37 @@ async function main(): Promise<void> {
       throw new Error(`unexpected direct player_logbook_message rows: ${JSON.stringify(directLogbookRows)}`);
     }
     if (
+      directWalletRows.length !== 2
+      || directWalletRows[0]?.wallet_type !== 'gourds'
+      || Number(directWalletRows[1]?.balance ?? 0) !== 120
+      || Number(directWalletRows[1]?.frozen_balance ?? 0) !== 8
+    ) {
+      throw new Error(`unexpected direct player_wallet rows: ${JSON.stringify(directWalletRows)}`);
+    }
+    if (
+      directMarketStorageRows.length !== 1
+      || Number(directMarketStorageRows[0]?.slot_index ?? -1) !== 0
+      || directMarketStorageRows[0]?.item_id !== 'spirit_stone'
+      || Number(directMarketStorageRows[0]?.count ?? 0) !== 9
+    ) {
+      throw new Error(`unexpected direct player_market_storage_item rows: ${JSON.stringify(directMarketStorageRows)}`);
+    }
+    if (
       !directWatermarkRow
       || Number(directWatermarkRow.anchor_version) !== directBaseVersion
       || Number(directWatermarkRow.position_checkpoint_version) !== directBaseVersion + 1
       || Number(directWatermarkRow.vitals_version) !== directBaseVersion + 2
       || Number(directWatermarkRow.progression_version) !== directBaseVersion + 3
       || Number(directWatermarkRow.inventory_version) !== directBaseVersion + 4
+      || Number(directWatermarkRow.market_storage_version) !== directBaseVersion + 14
       || Number(directWatermarkRow.map_unlock_version) !== directBaseVersion + 5
       || Number(directWatermarkRow.equipment_version) !== directBaseVersion + 6
-      || Number(directWatermarkRow.combat_pref_version) !== directBaseVersion + 12
+      || Number(directWatermarkRow.combat_pref_version) !== directBaseVersion + 15
       || Number(directWatermarkRow.profession_version) !== directBaseVersion + 8
       || Number(directWatermarkRow.alchemy_preset_version) !== directBaseVersion + 9
-      || Number(directWatermarkRow.active_job_version) !== directBaseVersion + 13
+      || Number(directWatermarkRow.active_job_version) !== directBaseVersion + 16
       || Number(directWatermarkRow.logbook_version) !== directBaseVersion + 11
+      || Number(directWatermarkRow.wallet_version) !== directBaseVersion + 12
     ) {
       throw new Error(`unexpected direct player_recovery_watermark row: ${JSON.stringify(directWatermarkRow)}`);
     }
@@ -786,7 +850,7 @@ async function main(): Promise<void> {
           playerId,
           edgePlayerId,
           directPlayerId,
-          answers: 'with-db 下 PlayerDomainPersistenceService 已能把 presence、vitals、progression core、attr、body training、inventory、map unlock、equipment、technique、persistent buff、quest、combat/auto-*、强化记录与职业作业投影写入当前已落地的分域表，并支持单域直写接口推进对应 watermark',
+          answers: 'with-db 下 PlayerDomainPersistenceService 已能把 presence、wallet、vitals、progression core、attr、body training、inventory、market storage、map unlock、equipment、technique、persistent buff、quest、combat/auto-*、强化记录与职业作业投影写入当前已落地的分域表，并支持单域直写接口推进对应 watermark',
           excludes: '不证明 bootstrap 分域恢复、域级 dirty set、分域多 worker、完整玩家全域拆表都已落地',
           completionMapping: 'replace-ready:proof:with-db.player-domain-persistence',
           projectedTables: [...PLAYER_DOMAIN_PROJECTED_TABLES],
@@ -1151,6 +1215,7 @@ async function cleanupPlayer(pool: Pool, playerId: string): Promise<void> {
     for (const tableName of PLAYER_DOMAIN_PROJECTED_TABLES) {
       await client.query(`DELETE FROM ${quoteIdentifier(tableName)} WHERE player_id = $1`, [playerId]);
     }
+    await client.query('DELETE FROM player_market_storage_item WHERE player_id = $1', [playerId]);
     await client.query('COMMIT');
   } catch (error) {
     await client.query('ROLLBACK').catch(() => undefined);
