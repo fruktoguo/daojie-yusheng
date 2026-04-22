@@ -4348,6 +4348,13 @@
       align-items: flex-start;
       justify-content: space-between;
       gap: 12px;
+      padding: 10px;
+      margin-bottom: 6px;
+      background: var(--paper-white);
+      border: 1px solid var(--wash-ink);
+    }
+    .action-item[data-action-card] {
+      cursor: pointer;
     }
     .action-item.cooldown {
       opacity: 0.7;
@@ -5823,11 +5830,22 @@
       max-height: 280px;
     }
     .gm-player-row {
+      width: 100%;
       display: flex;
       align-items: center;
       justify-content: space-between;
       gap: 8px;
+      padding: 8px;
+      border: 1px solid var(--wash-ink);
+      background: var(--paper-white);
+      text-align: left;
+      cursor: pointer;
       color: var(--ink-dark);
+    }
+    .gm-player-row.active,
+    .gm-player-row.is-active {
+      border-color: var(--stamp-red);
+      background: rgba(197, 60, 60, 0.06);
     }
     .gm-player-name {
       font-family: var(--font-role-body);
