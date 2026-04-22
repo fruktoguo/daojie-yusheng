@@ -14,6 +14,7 @@ const pg_1 = require("pg");
 const socket_io_client_1 = require("socket.io-client");
 const shared_1 = require("@mud/shared");
 const env_alias_1 = require("../config/env-alias");
+const smoke_player_auth_1 = require("./smoke-player-auth");
 const smoke_player_cleanup_1 = require("./smoke-player-cleanup");
 /**
  * 记录包根目录。
@@ -503,8 +504,15 @@ async function registerAndLoginPlayer() {
             if (!nextAccessToken) {
                 throw new Error(`unexpected login payload: ${JSON.stringify(login)}`);
             }
+            const payload = parseJwtPayload(nextAccessToken);
+            const playerId = typeof payload?.playerId === 'string' ? payload.playerId.trim() : '';
+            (0, smoke_player_auth_1.registerSmokePlayerForCleanup)(playerId, {
+                serverUrl: baseUrl,
+                databaseUrl,
+            });
             return {
                 accessToken: nextAccessToken,
+                playerId,
             };
         }
         catch (error) {

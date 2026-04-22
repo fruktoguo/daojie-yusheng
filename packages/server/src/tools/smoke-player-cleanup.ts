@@ -1,7 +1,7 @@
 // @ts-nocheck
 
 /**
- * 用途：统一清理 smoke / audit 生成的临时玩家与游客快照残留。
+ * 用途：统一清理 smoke / audit 生成的临时玩家，以及历史 guest_* 快照残留。
  */
 
 Object.defineProperty(exports, "__esModule", { value: true });
@@ -16,6 +16,26 @@ const env_alias_1 = require("../config/env-alias");
 const PLAYER_AUTH_TABLE = 'server_next_player_auth';
 const PLAYER_IDENTITY_TABLE = 'server_next_player_identity';
 const PLAYER_SNAPSHOT_TABLE = 'server_next_player_snapshot';
+const PLAYER_SCOPED_NEXT_TABLES = [
+  'player_presence',
+  'player_world_anchor',
+  'player_position_checkpoint',
+  'player_vitals',
+  'player_progression_core',
+  'player_body_training_state',
+  'player_inventory_item',
+  'player_profession_state',
+  'player_alchemy_preset',
+  'player_active_job',
+  'player_logbook_message',
+  'player_recovery_watermark',
+  'player_mail_attachment',
+  'player_mail',
+  'player_mail_counter',
+  'durable_operation_log',
+  'asset_audit_log',
+  'outbox_event',
+];
 const LEGACY_USERS_TABLE = 'users';
 const LEGACY_PLAYERS_TABLE = 'players';
 
@@ -26,12 +46,28 @@ const DEFAULT_GUEST_PLAYER_PATTERNS = Object.freeze([
 
 exports.DEFAULT_SMOKE_ACCOUNT_PATTERNS = Object.freeze([
   'acct_%',
+  'atk_%',
+  'def_%',
+  'drp_%',
   'gc_%',
+  'gmv_%',
   'gdb_%',
+  'lot_%',
+  'mai_%',
+  'mcb_%',
+  'mlt_%',
+  'mrt_%',
+  'msk_%',
   'ps_%',
   'na_%',
   'na_seed_%',
+  'pg_%',
+  'prc_%',
+  'prs_%',
   'proof_%',
+  'rdm_%',
+  'rt_%',
+  'shd_%',
 ]);
 
 async function purgeSmokePlayerArtifactsByPlayerId(playerId, options = undefined) {
@@ -105,6 +141,7 @@ async function purgeSmokePlayerArtifactsByPlayerId(playerId, options = undefined
       result.deleted.snapshotRows = await deleteSnapshotRowsByPlayerIds(client, [normalizedPlayerId]);
       result.deleted.identityRows = await deleteIdentityRowsByPlayerIds(client, [normalizedPlayerId]);
       result.deleted.authRows = await deleteAuthRowsByPlayerIds(client, [normalizedPlayerId]);
+      await deleteNextPlayerScopedRows(client, [normalizedPlayerId]);
       result.deleted.legacyPlayerRows = await deleteLegacyPlayerRowsByPlayerIds(client, [normalizedPlayerId]);
       result.deleted.legacyUserRows = await deleteLegacyUserRowsByIds(client, [...userIds]);
 
@@ -190,6 +227,10 @@ async function purgeSmokeTestArtifacts(options = undefined) {
           : await deleteLegacyPlayerRows(client, playerIds, userIds),
       };
 
+      if (!dryRun) {
+        await deleteNextPlayerScopedRows(client, playerIds);
+      }
+
       if (dryRun) {
         await client.query('ROLLBACK');
       } else {
@@ -267,6 +308,18 @@ async function deleteSnapshotRowsByPlayerIds(client, playerIds) {
     RETURNING player_id
   `, [playerIds]);
   return result.rowCount ?? 0;
+}
+
+async function deleteNextPlayerScopedRows(client, playerIds) {
+  if (!Array.isArray(playerIds) || playerIds.length === 0) {
+    return;
+  }
+  for (const tableName of PLAYER_SCOPED_NEXT_TABLES) {
+    const sql = tableName === 'outbox_event'
+      ? `DELETE FROM ${tableName} WHERE partition_key = ANY($1::text[])`
+      : `DELETE FROM ${tableName} WHERE player_id = ANY($1::text[])`;
+    await safeQuery(client, sql, [playerIds]);
+  }
 }
 
 async function deleteIdentityRowsByPlayerIds(client, playerIds) {

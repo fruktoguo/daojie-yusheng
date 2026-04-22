@@ -7,6 +7,7 @@
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.installSmokeTimeout = installSmokeTimeout;
 const node_path_1 = require("node:path");
+const smoke_player_auth_1 = require("./smoke-player-auth");
 /**
  * 指定单个烟测默认超时时间。
  */
@@ -73,8 +74,14 @@ function installSmokeTimeout(entryPath) {
     /**
      * 创建硬超时定时器；若脚本挂起则直接退出。
      */
-    const timer = setTimeout(() => {
+    const timer = setTimeout(async () => {
         process.stderr.write(`[smoke-timeout] ${entryLabel} exceeded ${timeoutMs}ms and will exit\n`);
+        try {
+            await (0, smoke_player_auth_1.flushRegisteredSmokePlayers)();
+        }
+        catch (error) {
+            process.stderr.write(`[smoke-timeout] cleanup failed before exit: ${error instanceof Error ? (error.stack || error.message) : String(error)}\n`);
+        }
         process.exit(124);
     }, timeoutMs);
     timer.unref?.();

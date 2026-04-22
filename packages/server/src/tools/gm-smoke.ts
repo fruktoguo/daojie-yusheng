@@ -11,6 +11,7 @@ const socket_io_client_1 = require("socket.io-client");
 const shared_1 = require("@mud/shared");
 const env_alias_1 = require("../config/env-alias");
 const next_gm_contract_1 = require("../http/next/next-gm-contract");
+const smoke_player_auth_1 = require("./smoke-player-auth");
 const smoke_player_cleanup_1 = require("./smoke-player-cleanup");
 /**
  * 指定烟测要连接的 server 地址。
@@ -931,11 +932,11 @@ async function main() {
 /**
  * 记录relogindecoded。
  */
-        const reloginDecoded = parseJwtPayload(reloginAccessToken);
+    const reloginDecoded = parseJwtPayload(reloginAccessToken);
 /**
  * 记录relogin玩家ID。
  */
-        const reloginPlayerId = reloginDecoded?.sub ? `p_${String(reloginDecoded.sub).trim()}` : '';
+        const reloginPlayerId = resolveTokenPlayerId(reloginDecoded);
         if (reloginPlayerId !== auth.playerId) {
             throw new Error(`gm password change login player mismatch: expected ${auth.playerId} but got ${reloginPlayerId}`);
         }
@@ -1200,9 +1201,14 @@ async function registerAndLoginPlayer() {
         throw new Error(`unexpected login payload: ${JSON.stringify(login)}`);
     }
     await ensureNativeDocsForAccessToken(login.accessToken);
+    const playerId = resolveTokenPlayerId(payload);
+    (0, smoke_player_auth_1.registerSmokePlayerForCleanup)(playerId, {
+        serverUrl: SERVER_URL,
+        databaseUrl: SERVER_DATABASE_URL,
+    });
     return {
         accessToken: login.accessToken,
-        playerId: `p_${String(payload.sub).trim()}`,
+        playerId,
         loginName: registeredAccountName,
     };
 }
@@ -2269,6 +2275,18 @@ function parseJwtPayload(token) {
     catch {
         return null;
     }
+}
+/**
+ * 从 next 玩家令牌中解析 playerId，优先信任显式 playerId 字段。
+ */
+function resolveTokenPlayerId(payload) {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
+    const tokenPlayerId = normalizeNextPlayerId(typeof payload?.playerId === 'string' ? payload.playerId.trim() : '');
+    if (tokenPlayerId) {
+        return tokenPlayerId;
+    }
+    return normalizeNextPlayerId(typeof payload?.sub === 'string' ? payload.sub.trim() : '');
 }
 /**
  * 规范化 next 玩家ID，统一为 p_<uuid> 形态。
