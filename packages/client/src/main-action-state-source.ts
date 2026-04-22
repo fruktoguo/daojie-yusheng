@@ -69,6 +69,11 @@ type MainActionStateSourceOptions = {
 
   openTechniqueActivity: (kind: ClientTechniqueActivityKind) => void;  
   /**
+ * openWorldMigrationModal：打开世界迁移弹窗。
+ */
+
+  openWorldMigrationModal: () => void;  
+  /**
  * getInfoRadius：InfoRadiu相关字段。
  */
 
@@ -129,6 +134,12 @@ export function createMainActionStateSource(options: MainActionStateSourceOption
         options.cancelTargeting();
         options.hideObserveModal();
         options.openTechniqueActivity(techniqueActivityKind);
+        return;
+      }
+      if (actionId === 'world:migrate') {
+        options.cancelTargeting();
+        options.hideObserveModal();
+        options.openWorldMigrationModal();
         return;
       }
       if (requiresTarget) {

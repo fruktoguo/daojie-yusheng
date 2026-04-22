@@ -19,8 +19,9 @@ const common_1 = require("@nestjs/common");
 const player_runtime_service_1 = require("../player/player-runtime.service");
 const world_runtime_npc_quest_write_service_1 = require("./world-runtime-npc-quest-write.service");
 const world_runtime_normalization_helpers_1 = require("./world-runtime.normalization.helpers");
+const pvp_1 = require("../../constants/gameplay/pvp");
 
-const { normalizeRuntimeActionId } = world_runtime_normalization_helpers_1;
+const { normalizeRuntimeActionId, parseRuntimeInstanceDescriptor } = world_runtime_normalization_helpers_1;
 
 /** world-runtime action execution orchestration：承接动作入口分流与低频 toggle/交互编排。 */
 let WorldRuntimeActionExecutionService = class WorldRuntimeActionExecutionService {
@@ -75,6 +76,9 @@ let WorldRuntimeActionExecutionService = class WorldRuntimeActionExecutionServic
                 kind: 'queued',
                 view: deps.usePortal(playerId),
             };
+        }
+        if (actionId === 'world:migrate') {
+            return this.executeWorldMigration(playerId, targetInput, deps);
         }
         if (actionId === 'realm:breakthrough') {
             deps.enqueuePendingCommand(playerId, {
@@ -156,6 +160,61 @@ let WorldRuntimeActionExecutionService = class WorldRuntimeActionExecutionServic
         return this.worldRuntimeNpcQuestWriteService.executeNpcQuestAction(playerId, npcId, deps);
     }    
     /**
+ * executeWorldMigration：处理世界迁移动作，更新世界偏好并切换默认分线。
+ * @param playerId 玩家 ID。
+ * @param targetInput 目标分线。
+ * @param deps 运行时依赖。
+ * @returns 返回更新后的玩家视图。
+ */
+
+    executeWorldMigration(playerId, targetInput, deps) {
+        const linePreset = normalizeWorldMigrationTarget(targetInput);
+        if (!linePreset) {
+            throw new common_1.BadRequestException('world migration target is required');
+        }
+        const currentView = deps.getPlayerViewOrThrow(playerId);
+        if (!hasNearbyManualPortal(currentView)) {
+            throw new common_1.BadRequestException('需要站在界门附近才能进行世界迁移');
+        }
+        if (linePreset === 'peaceful' && (this.playerRuntimeService.hasActiveBuff?.(playerId, pvp_1.PVP_SHA_INFUSION_BUFF_ID)
+            || this.playerRuntimeService.hasActiveBuff?.(playerId, pvp_1.PVP_SHA_BACKLASH_BUFF_ID))) {
+            throw new common_1.BadRequestException('煞气入体或煞气反噬期间无法迁回虚境');
+        }
+        const player = this.playerRuntimeService.getPlayerOrThrow(playerId);
+        this.playerRuntimeService.updateWorldPreference?.(playerId, linePreset);
+        const currentLinePreset = resolveLinePresetFromInstanceId(currentView?.instance?.instanceId ?? player.instanceId);
+        if (currentLinePreset === linePreset) {
+            deps.queuePlayerNotice(playerId, buildWorldMigrationNotice(linePreset, true), 'success');
+            return {
+                kind: 'queued',
+                view: deps.getPlayerViewOrThrow(playerId),
+            };
+        }
+        const targetMapId = typeof player.templateId === 'string' && player.templateId.trim()
+            ? player.templateId.trim()
+            : currentView?.instance?.templateId;
+        if (!targetMapId) {
+            throw new common_1.BadRequestException('当前未处于有效地图，无法切换世界');
+        }
+        deps.worldRuntimeNavigationService?.clearNavigationIntent?.(playerId);
+        deps.clearPendingCommand?.(playerId);
+        const targetInstance = typeof deps.getOrCreateDefaultLineInstance === 'function'
+            ? deps.getOrCreateDefaultLineInstance(targetMapId, linePreset)
+            : deps.getOrCreatePublicInstance(targetMapId);
+        const nextView = deps.worldRuntimePlayerSessionService.connectPlayer({
+            playerId,
+            sessionId: player.sessionId ?? currentView?.sessionId ?? `session:${playerId}`,
+            instanceId: targetInstance.meta.instanceId,
+            preferredX: Number.isFinite(player.x) ? Math.trunc(player.x) : undefined,
+            preferredY: Number.isFinite(player.y) ? Math.trunc(player.y) : undefined,
+        }, deps);
+        deps.queuePlayerNotice(playerId, buildWorldMigrationNotice(linePreset, false), 'success');
+        return {
+            kind: 'queued',
+            view: nextView,
+        };
+    }    
+    /**
  * toggleCombatSetting：执行toggle战斗Setting相关逻辑。
  * @param playerId 玩家 ID。
  * @param currentTick 参数说明。
@@ -180,3 +239,36 @@ exports.WorldRuntimeActionExecutionService = WorldRuntimeActionExecutionService 
 ], WorldRuntimeActionExecutionService);
 
 export { WorldRuntimeActionExecutionService };
+
+function normalizeWorldMigrationTarget(targetInput) {
+    const normalized = typeof targetInput === 'string' ? targetInput.trim() : '';
+    return normalized === 'real' || normalized === 'peaceful' ? normalized : '';
+}
+
+function hasNearbyManualPortal(view) {
+    const self = view?.self;
+    const portals = Array.isArray(view?.localPortals) ? view.localPortals : [];
+    if (!self || !Number.isFinite(self.x) || !Number.isFinite(self.y)) {
+        return false;
+    }
+    return portals.some((portal) => portal?.trigger === 'manual'
+        && Number.isFinite(portal.x)
+        && Number.isFinite(portal.y)
+        && Math.max(Math.abs(portal.x - self.x), Math.abs(portal.y - self.y)) <= 1);
+}
+
+function resolveLinePresetFromInstanceId(instanceId) {
+    const descriptor = parseRuntimeInstanceDescriptor(typeof instanceId === 'string' ? instanceId : '');
+    return descriptor?.linePreset === 'real' ? 'real' : 'peaceful';
+}
+
+function buildWorldMigrationNotice(linePreset, alreadyThere) {
+    if (linePreset === 'real') {
+        return alreadyThere
+            ? '默认世界已保持为现世，后续跨图会继续进入现世线。'
+            : '你已切入现世，后续跨图会默认进入现世线。';
+    }
+    return alreadyThere
+        ? '默认世界已保持为虚境，后续跨图会继续进入虚境线。'
+        : '你已切入虚境，后续跨图会默认进入虚境线。';
+}

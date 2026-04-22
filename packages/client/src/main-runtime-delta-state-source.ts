@@ -815,6 +815,7 @@ export function createMainRuntimeDeltaStateSource(options: MainRuntimeDeltaState
         y: player.y,
         facing: player.facing,
       };
+      const previousInstanceId = player.instanceId;
       applySelfVitalsMetadata(data);
       const previousMapId = player.mapId;
       const playerPatch = buildSelfRuntimePlayerPatch(data);
@@ -872,6 +873,12 @@ export function createMainRuntimeDeltaStateSource(options: MainRuntimeDeltaState
           pathTarget: options.navigation.getPathTarget(),
           pathCells: options.navigation.getPathCells(),
         });
+      }
+      if (typeof data.iid === 'string' && data.iid.trim()) {
+        player.instanceId = data.iid.trim();
+      }
+      if (player.instanceId !== previousInstanceId) {
+        options.refreshUiChrome();
       }
       finalizeMovementFrame();
     },    

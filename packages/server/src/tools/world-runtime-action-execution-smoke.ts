@@ -3,6 +3,7 @@
 const assert = require("node:assert/strict");
 
 const { WorldRuntimeActionExecutionService } = require("../runtime/world/world-runtime-action-execution.service");
+const { PVP_SHA_BACKLASH_BUFF_ID, PVP_SHA_INFUSION_BUFF_ID } = require("../constants/gameplay/pvp");
 /**
  * createService：构建并返回目标对象。
  * @param player 玩家对象。
@@ -59,6 +60,13 @@ function createService(player, log = []) {
         infuseBodyTraining(playerId, foundationAmount) {
             log.push(['infuseBodyTraining', playerId, foundationAmount]);
             return { foundationSpent: foundationAmount, expGained: foundationAmount * 2 };
+        },
+        hasActiveBuff(playerId, buffId) {
+            log.push(['hasActiveBuff', playerId, buffId]);
+            return false;
+        },
+        updateWorldPreference(playerId, linePreset) {
+            log.push(['updateWorldPreference', playerId, linePreset]);
         },
     }, {    
     /**
@@ -131,7 +139,23 @@ function createDeps(log = []) {
 
         getPlayerViewOrThrow(playerId) {
             log.push(['getPlayerViewOrThrow', playerId]);
-            return { tick: 2 };
+            return {
+                tick: 2,
+                instance: {
+                    instanceId: 'public:yunlai_town',
+                    templateId: 'yunlai_town',
+                },
+                self: {
+                    x: 10,
+                    y: 10,
+                },
+                localPortals: [{
+                    x: 10,
+                    y: 11,
+                    trigger: 'manual',
+                    targetMapId: 'wildlands',
+                }],
+            };
         },        
         /**
  * queuePlayerNotice：执行queue玩家Notice相关逻辑。
@@ -155,7 +179,42 @@ function createDeps(log = []) {
             log.push(['buildNpcShopView', playerId, npcId]);
             return { npcId, items: [] };
         },
+        clearPendingCommand(playerId) {
+            log.push(['clearPendingCommand', playerId]);
+        },
+        getOrCreateDefaultLineInstance(mapId, linePreset) {
+            log.push(['getOrCreateDefaultLineInstance', mapId, linePreset]);
+            return {
+                meta: {
+                    instanceId: linePreset === 'real' ? `real:${mapId}` : `public:${mapId}`,
+                },
+            };
+        },
+        getOrCreatePublicInstance(mapId) {
+            log.push(['getOrCreatePublicInstance', mapId]);
+            return {
+                meta: {
+                    instanceId: `public:${mapId}`,
+                },
+            };
+        },
+        worldRuntimeNavigationService: {
+            clearNavigationIntent(playerId) {
+                log.push(['clearNavigationIntent', playerId]);
+            },
+        },
+        worldRuntimePlayerSessionService: {
+            connectPlayer(input) {
+                log.push(['connectPlayer', input]);
+                return { tick: 9 };
+            },
+        },
     };
+}
+
+function assertQueuedViewTick(result, tick) {
+    assert.equal(result?.kind, 'queued');
+    assert.equal(result?.view?.tick, tick);
 }
 /**
  * testPortalTravel：执行test传送门Travel相关逻辑。
@@ -171,10 +230,7 @@ function testPortalTravel() {
     }, log);
     const deps = createDeps(log);
     const result = service.executeAction('player:1', 'portal:travel', undefined, deps);
-    assert.deepEqual(result, {
-        kind: 'queued',
-        view: { tick: 1 },
-    });
+    assertQueuedViewTick(result, 1);
     assert.deepEqual(log, [
         ['getPlayerLocationOrThrow', 'player:1'],
         ['resolveCurrentTickForPlayerId', 'player:1'],
@@ -195,10 +251,7 @@ function testBreakthroughQueuesPendingCommand() {
     }, log);
     const deps = createDeps(log);
     const result = service.executeAction('player:1', 'realm:breakthrough', undefined, deps);
-    assert.deepEqual(result, {
-        kind: 'queued',
-        view: { tick: 2 },
-    });
+    assertQueuedViewTick(result, 2);
     assert.deepEqual(log, [
         ['getPlayerLocationOrThrow', 'player:1'],
         ['resolveCurrentTickForPlayerId', 'player:1'],
@@ -220,10 +273,7 @@ function testBodyTrainingInfuse() {
     }, log);
     const deps = createDeps(log);
     const result = service.executeAction('player:1', 'body_training:infuse', '12', deps);
-    assert.deepEqual(result, {
-        kind: 'queued',
-        view: { tick: 2 },
-    });
+    assertQueuedViewTick(result, 2);
     assert.deepEqual(log, [
         ['getPlayerLocationOrThrow', 'player:1'],
         ['resolveCurrentTickForPlayerId', 'player:1'],
@@ -248,16 +298,105 @@ function testToggleAutoBattle() {
     }, log);
     const deps = createDeps(log);
     const result = service.executeAction('player:1', 'toggle:auto_battle', undefined, deps);
-    assert.deepEqual(result, {
-        kind: 'queued',
-        view: { tick: 2 },
-    });
+    assertQueuedViewTick(result, 2);
     assert.deepEqual(log, [
         ['getPlayerLocationOrThrow', 'player:1'],
         ['resolveCurrentTickForPlayerId', 'player:1'],
         ['getPlayerOrThrow', 'player:1'],
         ['updateCombatSettings', 'player:1', { autoBattle: true }, 77],
         ['getPlayerViewOrThrow', 'player:1'],
+    ]);
+}
+
+function testWorldMigrationSwitchesToRealLine() {
+    const log = [];
+    const service = createService({
+        sessionId: 'session:1',
+        instanceId: 'public:yunlai_town',
+        templateId: 'yunlai_town',
+        x: 10,
+        y: 10,
+        combat: {},
+        techniques: {},
+    }, log);
+    const deps = createDeps(log);
+    const result = service.executeAction('player:1', 'world:migrate', 'real', deps);
+    assert.deepEqual(result, {
+        kind: 'queued',
+        view: { tick: 9 },
+    });
+    assert.deepEqual(log, [
+        ['getPlayerLocationOrThrow', 'player:1'],
+        ['resolveCurrentTickForPlayerId', 'player:1'],
+        ['getPlayerViewOrThrow', 'player:1'],
+        ['getPlayerOrThrow', 'player:1'],
+        ['updateWorldPreference', 'player:1', 'real'],
+        ['clearNavigationIntent', 'player:1'],
+        ['clearPendingCommand', 'player:1'],
+        ['getOrCreateDefaultLineInstance', 'yunlai_town', 'real'],
+        ['connectPlayer', {
+            playerId: 'player:1',
+            sessionId: 'session:1',
+            instanceId: 'real:yunlai_town',
+            preferredX: 10,
+            preferredY: 10,
+        }],
+        ['queuePlayerNotice', 'player:1', '你已切入现世，后续跨图会默认进入现世线。', 'success'],
+    ]);
+}
+
+function testWorldMigrationRejectsPeacefulWhenShaBuffActive() {
+    const log = [];
+    const service = createService({
+        sessionId: 'session:1',
+        instanceId: 'real:yunlai_town',
+        templateId: 'yunlai_town',
+        x: 10,
+        y: 10,
+        combat: {},
+        techniques: {},
+    }, log);
+    service.playerRuntimeService.hasActiveBuff = (playerId, buffId) => {
+        log.push(['hasActiveBuff', playerId, buffId]);
+        return buffId === PVP_SHA_INFUSION_BUFF_ID;
+    };
+    const deps = createDeps(log);
+    assert.throws(() => {
+        service.executeAction('player:1', 'world:migrate', 'peaceful', deps);
+    }, /无法迁回虚境/);
+    assert.deepEqual(log, [
+        ['getPlayerLocationOrThrow', 'player:1'],
+        ['resolveCurrentTickForPlayerId', 'player:1'],
+        ['getPlayerViewOrThrow', 'player:1'],
+        ['hasActiveBuff', 'player:1', PVP_SHA_INFUSION_BUFF_ID],
+    ]);
+}
+
+function testWorldMigrationRejectsBacklashWhenReturningPeaceful() {
+    const log = [];
+    const service = createService({
+        sessionId: 'session:1',
+        instanceId: 'real:yunlai_town',
+        templateId: 'yunlai_town',
+        x: 10,
+        y: 10,
+        combat: {},
+        techniques: {},
+    }, log);
+    service.playerRuntimeService.hasActiveBuff = (playerId, buffId) => {
+        log.push(['hasActiveBuff', playerId, buffId]);
+        return buffId === PVP_SHA_BACKLASH_BUFF_ID;
+    };
+    const deps = createDeps(log);
+    assert.throws(() => {
+        service.executeAction('player:1', 'world:migrate', 'peaceful', deps);
+    }, /无法迁回虚境/);
+    assert.deepEqual(log, [
+        ['getPlayerLocationOrThrow', 'player:1'],
+        ['resolveCurrentTickForPlayerId', 'player:1'],
+        ['getPlayerViewOrThrow', 'player:1'],
+        ['hasActiveBuff', 'player:1', PVP_SHA_INFUSION_BUFF_ID],
+        ['hasActiveBuff', 'player:1', PVP_SHA_BACKLASH_BUFF_ID],
     ]);
 }
 /**
@@ -278,10 +417,7 @@ function testCultivationToggle() {
     }, log);
     const deps = createDeps(log);
     const result = service.executeAction('player:1', 'cultivation:toggle', undefined, deps);
-    assert.deepEqual(result, {
-        kind: 'queued',
-        view: { tick: 2 },
-    });
+    assertQueuedViewTick(result, 2);
     assert.deepEqual(log, [
         ['getPlayerLocationOrThrow', 'player:1'],
         ['resolveCurrentTickForPlayerId', 'player:1'],
@@ -368,6 +504,9 @@ testPortalTravel();
 testBreakthroughQueuesPendingCommand();
 testBodyTrainingInfuse();
 testToggleAutoBattle();
+testWorldMigrationSwitchesToRealLine();
+testWorldMigrationRejectsPeacefulWhenShaBuffActive();
+testWorldMigrationRejectsBacklashWhenReturningPeaceful();
 testCultivationToggle();
 testNpcShopView();
 testNpcQuestActionDelegates();

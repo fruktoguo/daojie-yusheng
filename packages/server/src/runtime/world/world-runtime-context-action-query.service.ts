@@ -169,6 +169,15 @@ let WorldRuntimeContextActionQueryService = class WorldRuntimeContextActionQuery
                 desc: `踏入对应界门，前往 ${targetName}。`,
                 cooldownLeft: 0,
             });
+            if (!actions.some((entry) => entry.id === 'world:migrate')) {
+                actions.push({
+                    id: 'world:migrate',
+                    name: '世界迁移',
+                    type: 'interact',
+                    desc: '切换当前地图的虚境/现世，并同步更新后续跨图的默认分线。',
+                    cooldownLeft: 0,
+                });
+            }
         }
         for (const npc of view.localNpcs) {
             if (chebyshevDistance(view.self.x, view.self.y, npc.x, npc.y) <= 1) {
