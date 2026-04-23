@@ -9,7 +9,7 @@ const { WorldRuntimeTickDispatchService } = require("../runtime/world/world-runt
  */
 
 
-function testTickDispatchFacade() {
+async function testTickDispatchFacade() {
     const service = new WorldRuntimeTickDispatchService();
     const log = [];
     const deps = {    
@@ -286,10 +286,10 @@ function testTickDispatchFacade() {
     assert.deepEqual(service.resolveTrackedAutoCombatTarget({}, {}, [{ runtimeId: 'm:2' }], deps), { runtimeId: 'm:2' });
     assert.deepEqual(service.pickAutoBattleSkill({ playerId: 'player:1' }, 2, deps), { playerId: 'player:1', distance: 2 });
     assert.equal(service.resolveAutoBattleDesiredRange({ range: 3 }, deps), 3);
-    service.dispatchPendingCommands(deps);
+    await service.dispatchPendingCommands(deps);
     service.dispatchPendingSystemCommands(deps);
     service.dispatchInstanceCommand('player:1', { kind: 'move' }, deps);
-    service.dispatchPlayerCommand('player:1', { kind: 'use-item' }, deps);
+    await service.dispatchPlayerCommand('player:1', { kind: 'use-item' }, deps);
     service.dispatchSystemCommand({ kind: 'damage-player' }, deps);
     service.dispatchMoveTo('player:1', 10, 10, true, null, deps);
     service.applyMonsterAction({ kind: 'move' }, deps);
@@ -311,6 +311,8 @@ function testTickDispatchFacade() {
     );
 }
 
-testTickDispatchFacade();
-
-console.log(JSON.stringify({ ok: true, case: 'world-runtime-tick-dispatch' }, null, 2));
+Promise.resolve()
+    .then(() => testTickDispatchFacade())
+    .then(() => {
+    console.log(JSON.stringify({ ok: true, case: 'world-runtime-tick-dispatch' }, null, 2));
+});

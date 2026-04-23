@@ -59,6 +59,16 @@ let WorldRuntimeActionExecutionService = class WorldRuntimeActionExecutionServic
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
         deps.getPlayerLocationOrThrow(playerId);
+        if (typeof deps.isInstanceLeaseWritable === 'function') {
+            const location = deps.getPlayerLocation(playerId);
+            const instance = location ? deps.getInstanceRuntime(location.instanceId) : null;
+            if (instance && !deps.isInstanceLeaseWritable(instance)) {
+                if (typeof deps.fenceInstanceRuntime === 'function') {
+                    deps.fenceInstanceRuntime(instance.meta.instanceId, 'action_execution_lease_check_failed');
+                }
+                throw new common_1.ServiceUnavailableException(`instance ${instance.meta.instanceId} lease is not writable`);
+            }
+        }
 
         const currentTick = deps.resolveCurrentTickForPlayerId(playerId);
 

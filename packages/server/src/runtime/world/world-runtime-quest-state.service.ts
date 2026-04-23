@@ -182,6 +182,9 @@ let WorldRuntimeQuestStateService = class WorldRuntimeQuestStateService {
         let freeSlots = Math.max(0, player.inventory.capacity - player.inventory.items.length);
         const seenNewItemIds = new Set();
         for (const reward of rewards) {
+            if (isWalletRewardItemId(reward?.itemId)) {
+                continue;
+            }
             if (player.inventory.items.some((entry) => entry.itemId === reward.itemId) || seenNewItemIds.has(reward.itemId)) {
                 continue;
             }
@@ -194,6 +197,9 @@ let WorldRuntimeQuestStateService = class WorldRuntimeQuestStateService {
         return true;
     }
 };
+function isWalletRewardItemId(itemId) {
+    return typeof itemId === 'string' && itemId.trim() === 'spirit_stone';
+}
 exports.WorldRuntimeQuestStateService = WorldRuntimeQuestStateService;
 exports.WorldRuntimeQuestStateService = WorldRuntimeQuestStateService = __decorate([
     (0, common_1.Injectable)(),

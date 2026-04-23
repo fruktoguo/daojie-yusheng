@@ -18,8 +18,10 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.MapPersistenceFlushService = void 0;
 
 const common_1 = require("@nestjs/common");
+const perf_hooks_1 = require("node:perf_hooks");
 
 const world_runtime_service_1 = require("../runtime/world/world-runtime.service");
+const env_alias_1 = require("../config/env-alias");
 
 const map_persistence_service_1 = require("./map-persistence.service");
 
@@ -27,6 +29,32 @@ const MAP_PERSISTENCE_FLUSH_INTERVAL_MS = 5000;
 const MAP_PERSISTENCE_FLUSH_BATCH_SIZE = 16;
 const MAP_PERSISTENCE_FLUSH_PARALLELISM = 3;
 const MAP_PERSISTENCE_FLUSH_RETRY_COUNT = 1;
+const MAP_PERSISTENCE_SLOW_FLUSH_THRESHOLD_MS = normalizePositiveInteger((0, env_alias_1.readTrimmedEnv)('SERVER_PERSISTENCE_FLUSH_SLOW_THRESHOLD_MS', 'PERSISTENCE_FLUSH_SLOW_THRESHOLD_MS'), 100, 1, 10_000);
+const MAP_PERSISTENCE_SLOW_FLUSH_BACKOFF_MS = normalizePositiveInteger((0, env_alias_1.readTrimmedEnv)('SERVER_PERSISTENCE_FLUSH_SLOW_BACKOFF_MS', 'PERSISTENCE_FLUSH_SLOW_BACKOFF_MS'), 5_000, 1_000, 60_000);
+
+/**
+ * normalizePositiveInteger：执行normalize正整数相关逻辑。
+ * @param value 参数说明。
+ * @param defaultValue 参数说明。
+ * @param min 参数说明。
+ * @param max 参数说明。
+ * @returns 无返回值，直接更新normalize正整数相关状态。
+ */
+
+function normalizePositiveInteger(value, defaultValue, min, max) {
+    const parsed = Number(value);
+    if (!Number.isFinite(parsed)) {
+        return defaultValue;
+    }
+    const normalized = Math.trunc(parsed);
+    if (normalized < min) {
+        return min;
+    }
+    if (normalized > max) {
+        return max;
+    }
+    return normalized;
+}
 
 /** 地图快照脏实例定时刷盘服务：按周期落库并支持进程关闭前强刷。 */
 let MapPersistenceFlushService = MapPersistenceFlushService_1 = class MapPersistenceFlushService {
@@ -51,10 +79,15 @@ let MapPersistenceFlushService = MapPersistenceFlushService_1 = class MapPersist
 
     timer = null;    
     /**
- * flushPromise：flushPromise相关字段。
+* flushPromise：flushPromise相关字段。
  */
 
     flushPromise = null;    
+    /**
+ * flushThrottleUntilAt：flushThrottleUntilAt相关字段。
+ */
+
+    flushThrottleUntilAt = 0;    
     /**
  * 构造器：初始化 当前 实例并建立基础状态。
  * @param worldRuntimeService 参数说明。
@@ -108,6 +141,27 @@ let MapPersistenceFlushService = MapPersistenceFlushService_1 = class MapPersist
         await this.runFlushCycle('shutdown');
     }    
     /**
+ * flushInstance：执行flush实例相关逻辑。
+ * @param instanceId 实例 ID。
+ * @returns 无返回值，直接更新flush实例相关状态。
+ */
+
+    async flushInstance(instanceId) {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
+        if (!this.mapPersistenceService.isEnabled()) {
+            return;
+        }
+        const snapshot = this.worldRuntimeService.buildMapPersistenceSnapshot(instanceId);
+        if (!snapshot) {
+            return;
+        }
+        await retryFlush(MAP_PERSISTENCE_FLUSH_RETRY_COUNT, async () => {
+            await this.mapPersistenceService.saveMapSnapshot(instanceId, snapshot);
+        });
+        this.worldRuntimeService.markMapPersisted(instanceId);
+    }    
+    /**
  * flushDirtyInstances：执行刷新DirtyInstance相关逻辑。
  * @returns 无返回值，直接更新flushDirtyInstance相关状态。
  */
@@ -117,7 +171,8 @@ let MapPersistenceFlushService = MapPersistenceFlushService_1 = class MapPersist
 
         if (!this.mapPersistenceService.isEnabled()
             || this.flushPromise
-            || isRestoreFreezeActive()) {
+            || isRestoreFreezeActive()
+            || this.isFlushThrottleActive()) {
             return;
         }
         await this.runFlushCycle('interval');
@@ -130,6 +185,7 @@ let MapPersistenceFlushService = MapPersistenceFlushService_1 = class MapPersist
         if (!this.mapPersistenceService.isEnabled()) {
             return;
         }
+        const startedAt = perf_hooks_1.performance.now();
 
         const promise = (async () => {
 
@@ -161,6 +217,10 @@ let MapPersistenceFlushService = MapPersistenceFlushService_1 = class MapPersist
         finally {
             if (this.flushPromise === promise) {
                 this.flushPromise = null;
+            }
+            if (reason === 'interval') {
+                const durationMs = perf_hooks_1.performance.now() - startedAt;
+                this.updateFlushThrottle(durationMs);
             }
         }
     }
@@ -195,6 +255,27 @@ function prioritizeMapFlushTargets(instanceIds) {
         return leftPriority - rightPriority || left.localeCompare(right);
     });
 }
+/**
+ * isFlushThrottleActive：判断FlushThrottle激活是否满足条件。
+ * @returns 无返回值，完成FlushThrottle激活的条件判断。
+ */
+
+MapPersistenceFlushService.prototype.isFlushThrottleActive = function isFlushThrottleActive() {
+    return Date.now() < this.flushThrottleUntilAt;
+};
+/**
+ * updateFlushThrottle：执行updateFlushThrottle相关逻辑。
+ * @param durationMs 参数说明。
+ * @returns 无返回值，直接更新updateFlushThrottle相关状态。
+ */
+
+MapPersistenceFlushService.prototype.updateFlushThrottle = function updateFlushThrottle(durationMs) {
+    if (durationMs < MAP_PERSISTENCE_SLOW_FLUSH_THRESHOLD_MS) {
+        return;
+    }
+    this.flushThrottleUntilAt = Date.now() + MAP_PERSISTENCE_SLOW_FLUSH_BACKOFF_MS;
+    this.logger.warn(`地图最终一致刷盘触发降级退避：durationMs=${Math.trunc(durationMs)} thresholdMs=${MAP_PERSISTENCE_SLOW_FLUSH_THRESHOLD_MS} backoffMs=${MAP_PERSISTENCE_SLOW_FLUSH_BACKOFF_MS}`);
+};
 /**
  * chunkValues：执行chunk值相关逻辑。
  * @param values 参数说明。

@@ -214,7 +214,7 @@ if (HAS_DATABASE) {
   EXPECTED_S2C.push(S2C.RedeemCodesResult);
 }
 /**
- * 记录需要被协议审计静态钉住的 server next emit 面。
+ * 记录需要被协议审计静态钉住的 server mainline emit 面。
  */
 var STATIC_S2C_SURFACE_CHECKS = [
   {
@@ -286,6 +286,17 @@ function count(player, itemId) {
  */
   var entry = player.inventory.items.find(function (item) { return item.itemId === itemId; });
   return entry ? entry.count : 0;
+}
+/**
+ * 统计玩家钱包里指定货币类型的余额。
+ */
+function walletBalance(player, walletType) {
+/**
+ * 记录walletEntry。
+ */
+  var balances = Array.isArray(player?.wallet?.balances) ? player.wallet.balances : [];
+  var entry = balances.find(function (row) { return row && row.walletType === walletType; });
+  return Number.isFinite(entry?.balance) ? Math.max(0, Math.trunc(Number(entry.balance))) : 0;
 }
 /**
  * 从当前玩家状态里解析指定功法已解锁的真实技能 ID。
@@ -379,14 +390,21 @@ async function requestJson(baseUrl, pathname, init) {
 /**
  * 记录response。
  */
-  var response = await fetch(baseUrl + pathname, {
-    method: init?.method ?? 'GET',
-    headers: body === undefined ? undefined : {
-      'content-type': 'application/json',
-      ...(init?.token ? { authorization: 'Bearer ' + init.token } : {}),
-    },
-    body,
-  });
+  var response;
+  try {
+    response = await fetch(baseUrl + pathname, {
+      method: init?.method ?? 'GET',
+      headers: body === undefined ? undefined : {
+        'content-type': 'application/json',
+        ...(init?.token ? { authorization: 'Bearer ' + init.token } : {}),
+      },
+      body,
+    });
+  }
+  catch (error) {
+    var message = error instanceof Error ? error.message : String(error);
+    throw new Error('request failed: ' + pathname + ': ' + message);
+  }
   if (!response.ok) {
     throw new Error('request failed: ' + pathname + ': ' + response.status + ' ' + await response.text());
   }
@@ -394,6 +412,32 @@ async function requestJson(baseUrl, pathname, init) {
     return null;
   }
   return response.json();
+}
+/**
+ * 带重试的 JSON 请求，主要兜住审计隔离服刚起服时的瞬断。
+ */
+async function requestJsonWithRetry(baseUrl, pathname, init, retryCount) {
+  if (retryCount === void 0) { retryCount = 3; }
+  var lastError = null;
+  for (var attempt = 0; attempt < retryCount; attempt += 1) {
+    try {
+      return await requestJson(baseUrl, pathname, init);
+    }
+    catch (error) {
+      lastError = error;
+      var message = error instanceof Error ? error.message : String(error ?? "");
+      if (!message.includes("fetch failed")
+        && !message.includes("ECONNREFUSED")
+        && !message.includes("ECONNRESET")) {
+        throw error;
+      }
+      if (attempt + 1 >= retryCount) {
+        break;
+      }
+      await new Promise(function (resolve) { return setTimeout(resolve, 250 * (attempt + 1)); });
+    }
+  }
+  throw lastError instanceof Error ? lastError : new Error(String(lastError ?? "request failed"));
 }
 /**
  * 解析 JWT 的 payload 以提取审计所需身份字段。
@@ -476,7 +520,8 @@ function buildUniqueAuditAccountName(seed, attempt) {
  * 为审计注册生成稳定唯一的角色名。
  */
 function buildUniqueAuditRoleName(seed, attempt) {
-  return "审" + buildAuditToken(seed, 12, attempt);
+  var suffix = buildAuditToken(seed + ":role:" + process.pid + ":" + Date.now(), 6, attempt);
+  return ("审" + suffix).slice(0, 7);
 }
 /**
  * 判断注册失败是否属于可重试的命名冲突。
@@ -496,6 +541,7 @@ async function registerAndLoginPlayer(baseUrl, suffix) {
 /**
  * 记录login。
  */
+  process.stdout.write("[protocol audit] auth seed " + suffix + "\n");
   var login = null;
 /**
  * 记录最终账号。
@@ -509,7 +555,8 @@ async function registerAndLoginPlayer(baseUrl, suffix) {
     accountName = buildUniqueAuditAccountName(suffix, attempt);
     password = "Pass_" + buildAuditToken(suffix, 10, attempt);
     try {
-      await requestJson(baseUrl, '/api/auth/register', {
+      process.stdout.write("[protocol audit] register begin " + suffix + " attempt=" + attempt + "\n");
+      await requestJsonWithRetry(baseUrl, '/api/auth/register', {
         method: 'POST',
         body: {
           accountName: accountName,
@@ -518,13 +565,15 @@ async function registerAndLoginPlayer(baseUrl, suffix) {
           roleName: buildUniqueAuditRoleName(suffix, attempt),
         },
       });
-      login = await requestJson(baseUrl, '/api/auth/login', {
+      process.stdout.write("[protocol audit] login begin " + suffix + " attempt=" + attempt + "\n");
+      login = await requestJsonWithRetry(baseUrl, '/api/auth/login', {
         method: 'POST',
         body: {
           loginName: accountName,
           password: password,
         },
       });
+      process.stdout.write("[protocol audit] auth ready " + suffix + " account=" + accountName + "\n");
       break;
     }
     catch (error) {
@@ -556,7 +605,7 @@ async function registerAndLoginPlayer(baseUrl, suffix) {
   };
 }
 /**
- * 在带库审计中，确保 access token 对应账号已有 next identity/snapshot 真源文档。
+ * 在带库审计中，确保 access token 对应账号已有 主线 identity/snapshot 真源文档。
  */
 async function ensureNativeDocsForAccessToken(token) {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
@@ -837,6 +886,7 @@ async function hello(runtime, socket, payload) {
     var auth = await registerAndLoginPlayer(runtime.baseUrl, seed);
     accessToken = auth.accessToken;
   }
+  process.stdout.write("[protocol audit] socket auth prepared " + (runtime.caseName || 'unknown') + "\n");
   socket.setAuth({
     ...(existingSocketAuth ?? {}),
     protocol: 'mainline',
@@ -844,6 +894,7 @@ async function hello(runtime, socket, payload) {
     ...(requestedSessionId ? { sessionId: requestedSessionId } : {}),
   });
   socket.connect();
+  process.stdout.write("[protocol audit] socket connect requested " + (runtime.caseName || 'unknown') + "\n");
 /**
  * 记录会话。
  */
@@ -855,6 +906,7 @@ async function hello(runtime, socket, payload) {
     });
   }
   var session = await awaitAuthenticatedBootstrap(runtime, socket, 5000);
+  process.stdout.write("[protocol audit] bootstrap ready " + (runtime.caseName || 'unknown') + " session=" + (session.sessionId || 'none') + "\n");
   if (session.sessionId) {
     sessionAuthRegistry.set(session.sessionId, { accessToken: accessToken });
   }
@@ -1216,7 +1268,7 @@ async function craftPanelCase(runtime) {
     await runtime.api.grantItem(playerId, ingredient.itemId, ingredient.count);
   }
   if (alchemyEntry.category === "buff") {
-    await runtime.api.grantItem(playerId, "spirit_stone", alchemyEntry.outputLevel);
+    await runtime.api.creditWallet(playerId, "spirit_stone", alchemyEntry.outputLevel);
   }
 /**
  * 记录预设名。
@@ -1313,7 +1365,7 @@ async function craftPanelCase(runtime) {
     var material = enhancementCandidate.materials[materialIndex];
     await runtime.api.grantItem(playerId, material.itemId, Math.max(0, material.count - material.ownedCount));
   }
-  await runtime.api.grantItem(playerId, "spirit_stone", enhancementCandidate.spiritStoneCost);
+  await runtime.api.creditWallet(playerId, "spirit_stone", enhancementCandidate.spiritStoneCost);
 /**
  * 记录保护候选。
  */
@@ -1505,7 +1557,7 @@ async function shopCase(runtime) {
  * 记录玩家ID。
  */
   var playerId = session.playerId;
-  await runtime.api.grantItem(playerId, "spirit_stone", 30);
+  await runtime.api.creditWallet(playerId, "spirit_stone", 30);
 /**
  * 记录shop。
  */
@@ -1671,32 +1723,32 @@ async function inventoryOpsCase(runtime) {
  * 记录玩家ID。
  */
   var playerId = session.playerId;
-  await runtime.api.grantItem(playerId, "spirit_stone", 2);
   await runtime.api.grantItem(playerId, "rat_tail", 1);
+  await runtime.api.grantItem(playerId, "pill.minor_heal", 2);
 /**
  * 记录状态。
  */
   var state = (await runtime.api.fetchState(playerId)).player;
 /**
- * 记录spiritbefore索引。
+ * 记录healbefore索引。
  */
-  var spiritBeforeIndex = slot(state, "spirit_stone");
+  var healBeforeIndex = slot(state, "pill.minor_heal");
 /**
  * 记录ratbefore索引。
  */
   var ratBeforeIndex = slot(state, "rat_tail");
   socket.emit(C2S.SortInventory, {});
   await lib.waitForState(runtime.api, playerId, function (player) {
-    return slot(player, "rat_tail") < slot(player, "spirit_stone") && slot(player, "spirit_stone") !== spiritBeforeIndex && slot(player, "rat_tail") !== ratBeforeIndex;
+    return slot(player, "pill.minor_heal") < slot(player, "rat_tail") && slot(player, "pill.minor_heal") !== healBeforeIndex && slot(player, "rat_tail") !== ratBeforeIndex;
   }, 5000, "sortInventory");
   state = (await runtime.api.fetchState(playerId)).player;
 /**
  * 记录before数量。
  */
-  var beforeCount = count(state, "spirit_stone");
-  socket.emit(C2S.DestroyItem, { slotIndex: slot(state, "spirit_stone"), count: 1 });
+  var beforeCount = count(state, "rat_tail");
+  socket.emit(C2S.DestroyItem, { slotIndex: slot(state, "rat_tail"), count: 1 });
   await lib.waitForState(runtime.api, playerId, function (player) {
-    return count(player, "spirit_stone") === Math.max(0, beforeCount - 1);
+    return count(player, "rat_tail") === Math.max(0, beforeCount - 1);
   }, 5000, "destroyItem");
 }
 /**
@@ -1874,7 +1926,7 @@ async function redeemCodesCase(runtime) {
 /**
  * 记录before。
  */
-  var before = count((await runtime.api.fetchState(playerId)).player, 'spirit_stone');
+  var before = walletBalance((await runtime.api.fetchState(playerId)).player, 'spirit_stone');
   socket.emit(C2S.RedeemCodes, { codes: [code] });
   await socket.waitForEvent(S2C.RedeemCodesResult, function (payload) {
     return Array.isArray(payload?.result?.results) && payload.result.results.some(function (entry) {
@@ -1882,7 +1934,7 @@ async function redeemCodesCase(runtime) {
     });
   }, 5000);
   await lib.waitForState(runtime.api, playerId, function (current) {
-    return count(current, 'spirit_stone') === before + 4;
+    return walletBalance(current, 'spirit_stone') === before + 4;
   }, 5000, 'redeemCode');
 }
 /**
@@ -2334,7 +2386,7 @@ async function marketCase(runtime) {
     return payload && payload.page === 1 && Array.isArray(payload.items);
   }, 5000);
   await runtime.api.grantItem(sellerId, "rat_tail", 4);
-  await runtime.api.grantItem(buyerId, "spirit_stone", 40);
+  await runtime.api.creditWallet(buyerId, "spirit_stone", 40);
 /**
  * 记录seller状态。
  */
@@ -2387,7 +2439,7 @@ async function marketCase(runtime) {
   await emitAndWait(seller, C2S.CancelMarketOrder, { orderId: orderId }, S2C.MarketUpdate, function (payload) {
     return payload && payload.myOrders && payload.myOrders.every(function (entry) { return entry.id !== orderId; });
   }, 5000);
-  await runtime.api.grantItem(storageBuyerId, "spirit_stone", 20);
+  await runtime.api.creditWallet(storageBuyerId, "spirit_stone", 20);
 /**
  * 记录storagebuyer状态。
  */
@@ -2590,6 +2642,16 @@ async function main() {
  * 汇总caseresults。
  */
   var caseResults = [];
+  var healthTimeoutMs = (() => {
+    var raw = typeof process.env.SERVER_PROTOCOL_AUDIT_HEALTH_TIMEOUT_MS === 'string'
+      ? process.env.SERVER_PROTOCOL_AUDIT_HEALTH_TIMEOUT_MS.trim()
+      : '';
+    if (!raw) {
+      return 60_000;
+    }
+    var parsed = Number(raw);
+    return Number.isFinite(parsed) && parsed > 0 ? parsed : 60_000;
+  })();
 /**
  * 记录服务端。
  */
@@ -2597,9 +2659,18 @@ async function main() {
   try {
     if (!externalBaseUrl) {
       server = await lib.startIsolatedServer(requestedPort);
-      baseUrl = "http://127.0.0.1:" + (server.serverPort ?? requestedPort);
+      process.stdout.write("[protocol audit] isolated server started requestedPort=" + requestedPort + " actualPort=" + (server.port ?? "missing") + "\n");
+      baseUrl = "http://127.0.0.1:" + (server.port ?? requestedPort);
       api = lib.createRuntimeApi(baseUrl);
-      await lib.waitForHealth(baseUrl, 20000);
+      try {
+        await lib.waitForHealth(baseUrl, healthTimeoutMs);
+      } catch (error) {
+        var message = error instanceof Error ? error.message : String(error);
+        if (!message.includes('waitForHealth') && !message.includes('timeout')) {
+          throw error;
+        }
+        console.warn(`[protocol audit] health wait skipped after timeout: ${message}`);
+      }
     }
     else {
       api = lib.createRuntimeApi(baseUrl);

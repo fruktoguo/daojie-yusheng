@@ -97,7 +97,7 @@ function testDropItem() {
  */
 
 
-function testTakeGroundDelegation() {
+async function testTakeGroundDelegation() {
     const log = [];
     const service = new WorldRuntimeItemGroundService({});
     const deps = {
@@ -110,7 +110,7 @@ function testTakeGroundDelegation() {
  * @returns 无返回值，直接更新TakeGround相关状态。
  */
 
-            dispatchTakeGround(playerId, sourceId, itemKey) { log.push(['dispatchTakeGround', playerId, sourceId, itemKey]); },            
+            async dispatchTakeGround(playerId, sourceId, itemKey) { log.push(['dispatchTakeGround', playerId, sourceId, itemKey]); },            
             /**
  * dispatchTakeGroundAll：判断Take地面All是否满足条件。
  * @param playerId 玩家 ID。
@@ -118,11 +118,11 @@ function testTakeGroundDelegation() {
  * @returns 无返回值，直接更新TakeGroundAll相关状态。
  */
 
-            dispatchTakeGroundAll(playerId, sourceId) { log.push(['dispatchTakeGroundAll', playerId, sourceId]); },
+            async dispatchTakeGroundAll(playerId, sourceId) { log.push(['dispatchTakeGroundAll', playerId, sourceId]); },
         },
     };
-    service.dispatchTakeGround('player:1', 'ground:1', 'item:1', deps);
-    service.dispatchTakeGroundAll('player:1', 'ground:1', deps);
+    await service.dispatchTakeGround('player:1', 'ground:1', 'item:1', deps);
+    await service.dispatchTakeGroundAll('player:1', 'ground:1', deps);
     assert.deepEqual(log, [
         ['dispatchTakeGround', 'player:1', 'ground:1', 'item:1'],
         ['dispatchTakeGroundAll', 'player:1', 'ground:1'],
@@ -177,9 +177,11 @@ function testSpawnGroundItemFailure() {
     }, /Failed to spawn loot at 8,9/);
 }
 
-testDropItem();
-testTakeGroundDelegation();
-testSpawnGroundItem();
-testSpawnGroundItemFailure();
-
-console.log(JSON.stringify({ ok: true, case: 'world-runtime-item-ground' }, null, 2));
+Promise.resolve()
+    .then(() => testDropItem())
+    .then(() => testTakeGroundDelegation())
+    .then(() => testSpawnGroundItem())
+    .then(() => testSpawnGroundItemFailure())
+    .then(() => {
+    console.log(JSON.stringify({ ok: true, case: 'world-runtime-item-ground' }, null, 2));
+});

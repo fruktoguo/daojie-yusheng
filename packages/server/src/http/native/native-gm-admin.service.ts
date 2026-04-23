@@ -16,6 +16,7 @@ import { resolveServerDatabaseUrl } from '../../config/env-alias';
 import { ensurePersistentDocumentsTable } from '../../persistence/persistent-document-table';
 import { NativeDatabaseRestoreCoordinatorService } from './native-database-restore-coordinator.service';
 import { NATIVE_GM_RESTORE_CONTRACT } from './native-gm-contract';
+import { WorldRuntimeService } from '../../runtime/world/world-runtime.service';
 const DEFAULT_AFDIAN_API_BASE_URL = 'https://afdian.net';
 
 const DEFAULT_AFDIAN_WEBHOOK_PATH = '/integrations/afdian/webhook';
@@ -69,6 +70,7 @@ const BACKUP_EXCLUDED_SCOPES = new Set([
 const MAINLINE_BACKUP_TABLES = [
     'server_player_auth',
     'server_player_identity',
+    'player_identity',
     'server_player_snapshot',
     'player_presence',
     'player_world_anchor',
@@ -103,6 +105,9 @@ const MAINLINE_BACKUP_TABLES = [
 ];
 
 const MAINLINE_RESTORE_CLEAR_TABLES = [...MAINLINE_BACKUP_TABLES].reverse();
+const MAINLINE_RESTORE_DERIVED_MIRROR_TABLES = new Set([
+    'player_identity',
+]);
 
 const DEFAULT_DB_RETENTION = {
     hourly: 24,
@@ -210,7 +215,10 @@ export class NativeGmAdminService {
  * @returns 无返回值，完成实例初始化。
  */
 
-    constructor(@Inject(NativeDatabaseRestoreCoordinatorService) private readonly databaseRestoreCoordinator) {
+    constructor(
+        @Inject(NativeDatabaseRestoreCoordinatorService) private readonly databaseRestoreCoordinator,
+        @Inject(WorldRuntimeService) private readonly worldRuntimeService = null,
+    ) {
     }
     /**
  * onModuleInit：执行on模块Init相关逻辑。
@@ -272,6 +280,9 @@ export class NativeGmAdminService {
             persistenceEnabled: this.persistenceEnabled,
             scope: NATIVE_GM_RESTORE_CONTRACT.scope,
             restoreMode: NATIVE_GM_RESTORE_CONTRACT.restoreMode,
+            runtimeSummary: typeof this.worldRuntimeService?.getRuntimeSummary === 'function'
+                ? this.worldRuntimeService.getRuntimeSummary()
+                : null,
             note: '当前会导出并恢复 server 的主线持久化真源：persistent_documents 兼容域，以及 server_player_* / player_* / durable_* 这批原生表；旧后端 users/players 仍不在恢复范围内，且 backup/restore 依旧为手工触发',
         };
     }
@@ -1278,6 +1289,9 @@ export class NativeGmAdminService {
         for (const entry of normalizedTables) {
             const tableName = typeof entry?.tableName === 'string' ? entry.tableName.trim() : '';
             if (!tableName || !MAINLINE_BACKUP_TABLES.includes(tableName)) {
+                continue;
+            }
+            if (MAINLINE_RESTORE_DERIVED_MIRROR_TABLES.has(tableName)) {
                 continue;
             }
             const relation = await client.query(`SELECT to_regclass($1) AS relation_name`, [tableName]);

@@ -64,6 +64,12 @@ let WorldRuntimeWorldAccessService = class WorldRuntimeWorldAccessService {
 
     getRuntimeSummary(deps) {
         const instances = deps.listInstances();
+        const dirtyPlayerDomains = typeof deps.playerRuntimeService?.listDirtyPlayerDomains === 'function'
+            ? deps.playerRuntimeService.listDirtyPlayerDomains()
+            : new Map();
+        const dirtyInstanceIds = typeof deps.listDirtyPersistentInstances === 'function'
+            ? deps.listDirtyPersistentInstances()
+            : [];
         return this.worldRuntimeSummaryQueryService.buildRuntimeSummary({
             tick: deps.tick,
             lastTickDurationMs: deps.lastTickDurationMs,
@@ -77,6 +83,22 @@ let WorldRuntimeWorldAccessService = class WorldRuntimeWorldAccessService {
             lastTickPhaseDurations: deps.lastTickPhaseDurations,
             tickPhaseDurationHistoryMs: deps.tickPhaseDurationHistoryMs,
             instances,
+            dirtyBacklog: {
+                players: dirtyPlayerDomains.size,
+                playerDomains: Array.from(dirtyPlayerDomains.values()).reduce((total, domains) => total + (domains?.size ?? 0), 0),
+                instances: dirtyInstanceIds.length,
+            },
+            recoveryQueue: typeof deps.worldSessionRecoveryQueueService?.getSnapshot === 'function'
+                ? deps.worldSessionRecoveryQueueService.getSnapshot()
+                : null,
+            flushWakeup: typeof deps.flushWakeupService?.listWakeupKeys === 'function'
+                ? {
+                    concurrency: 0,
+                    inFlight: 0,
+                    queued: deps.flushWakeupService.listWakeupKeys().length,
+                    keys: deps.flushWakeupService.listWakeupKeys(),
+                }
+                : null,
         });
     }    
     /**

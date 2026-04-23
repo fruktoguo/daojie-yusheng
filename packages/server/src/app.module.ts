@@ -13,6 +13,7 @@ import { WorldSessionBootstrapContractService } from './network/world-session-bo
 import { WorldSessionBootstrapFinalizeService } from './network/world-session-bootstrap-finalize.service';
 import { WorldSessionBootstrapPostEmitService } from './network/world-session-bootstrap-post-emit.service';
 import { WorldSessionBootstrapPlayerInitService } from './network/world-session-bootstrap-player-init.service';
+import { WorldSessionRecoveryQueueService } from './network/world-session-recovery-queue.service';
 import { WorldSessionBootstrapRuntimeService } from './network/world-session-bootstrap-runtime.service';
 import { WorldSessionBootstrapSessionBindService } from './network/world-session-bootstrap-session-bind.service';
 import { WorldSessionBootstrapSnapshotService } from './network/world-session-bootstrap-snapshot.service';
@@ -110,17 +111,37 @@ import { PlayerProgressionService } from './runtime/player/player-progression.se
 import { MapPersistenceFlushService } from './persistence/map-persistence-flush.service';
 import { DurableOperationService } from './persistence/durable-operation.service';
 import { MapPersistenceService } from './persistence/map-persistence.service';
+import { DatabasePoolProvider } from './persistence/database-pool.provider';
+import { FlushWakeupService } from './persistence/flush-wakeup.service';
+import { InstanceCatalogService } from './persistence/instance-catalog.service';
+import { InstanceDomainPersistenceService } from './persistence/instance-domain-persistence.service';
 import { MailPersistenceService } from './persistence/mail-persistence.service';
 import { MarketPersistenceService } from './persistence/market-persistence.service';
 import { PlayerDomainPersistenceService } from './persistence/player-domain-persistence.service';
+import { FlushLedgerService } from './persistence/flush-ledger.service';
+import { PlayerFlushLedgerService } from './persistence/player-flush-ledger.service';
 import { PlayerIdentityPersistenceService } from './persistence/player-identity-persistence.service';
 import { PlayerPersistenceFlushService } from './persistence/player-persistence-flush.service';
 import { PlayerPersistenceService } from './persistence/player-persistence.service';
+import { NodeRegistryService } from './persistence/node-registry.service';
+import { NodeRegistryRuntimeService } from './persistence/node-registry-runtime.service';
+import { PlayerSessionRouteService } from './persistence/player-session-route.service';
+import { OutboxDispatcherService } from './persistence/outbox-dispatcher.service';
+import { OutboxEventConsumerRegistryService } from './persistence/outbox-event-consumer-registry.service';
+import { OutboxDispatcherRuntimeService } from './persistence/outbox-dispatcher-runtime.service';
 import { SuggestionPersistenceService } from './persistence/suggestion-persistence.service';
 import { RedeemCodePersistenceService } from './persistence/redeem-code-persistence.service';
 import { MailRuntimeService } from './runtime/mail/mail-runtime.service';
 import { MarketRuntimeService } from './runtime/market/market-runtime.service';
 import { PlayerRuntimeService } from './runtime/player/player-runtime.service';
+import { AssetAuditLogRetentionWorker } from './runtime/world/asset-audit-log-retention.worker';
+import { MailSoftDeletePurgeWorker } from './runtime/world/mail-soft-delete-purge.worker';
+import { PlayerAnchorCheckpointFlushWorker } from './runtime/world/player-anchor-checkpoint-flush.worker';
+import { PlayerStateFlushWorker } from './runtime/world/player-state-flush.worker';
+import { InstanceResourceFlushWorker } from './runtime/world/instance-resource-flush.worker';
+import { InstanceGroundItemFlushWorker } from './runtime/world/instance-ground-item-flush.worker';
+import { InstanceContainerFlushWorker } from './runtime/world/instance-container-flush.worker';
+import { CheckpointCompactionWorker } from './runtime/world/checkpoint-compaction.worker';
 import { SuggestionRuntimeService } from './runtime/suggestion/suggestion-runtime.service';
 import { RedeemCodeRuntimeService } from './runtime/redeem/redeem-code-runtime.service';
 import { WorldTickService } from './runtime/tick/world-tick.service';
@@ -215,11 +236,23 @@ import { WorldRuntimeService } from './runtime/world/world-runtime.service';
     RuntimeMapConfigService,
     PlayerCombatService,
     MapPersistenceService,
+    DatabasePoolProvider,
+    FlushWakeupService,
+    InstanceCatalogService,
+    InstanceDomainPersistenceService,
     MapPersistenceFlushService,
     DurableOperationService,
+    NodeRegistryService,
+    NodeRegistryRuntimeService,
+    PlayerSessionRouteService,
+    OutboxDispatcherService,
+    OutboxEventConsumerRegistryService,
+    OutboxDispatcherRuntimeService,
     MailPersistenceService,
     MarketPersistenceService,
     PlayerDomainPersistenceService,
+    FlushLedgerService,
+    PlayerFlushLedgerService,
     PlayerIdentityPersistenceService,
     PlayerPersistenceService,
     PlayerPersistenceFlushService,
@@ -229,8 +262,17 @@ import { WorldRuntimeService } from './runtime/world/world-runtime.service';
     LeaderboardRuntimeService,
     PlayerProgressionService,
     MailRuntimeService,
+    AssetAuditLogRetentionWorker,
+    MailSoftDeletePurgeWorker,
     MarketRuntimeService,
     PlayerRuntimeService,
+    AssetAuditLogRetentionWorker,
+    PlayerAnchorCheckpointFlushWorker,
+    PlayerStateFlushWorker,
+    InstanceResourceFlushWorker,
+    InstanceGroundItemFlushWorker,
+    InstanceContainerFlushWorker,
+    CheckpointCompactionWorker,
     SuggestionRuntimeService,
     RedeemCodeRuntimeService,
     ...WORLD_AUTH_PROVIDERS,
@@ -240,6 +282,7 @@ import { WorldRuntimeService } from './runtime/world/world-runtime.service';
     WorldSessionBootstrapFinalizeService,
     WorldSessionBootstrapPostEmitService,
     WorldSessionBootstrapPlayerInitService,
+    WorldSessionRecoveryQueueService,
     WorldSessionBootstrapRuntimeService,
     WorldSessionBootstrapSessionBindService,
     WorldSessionBootstrapSnapshotService,
@@ -260,6 +303,7 @@ import { WorldRuntimeService } from './runtime/world/world-runtime.service';
     WorldSyncPlayerStateService,
     WorldSyncService,
     RuntimeMaintenanceService,
+    { provide: 'WORLD_RUNTIME_SERVICE', useExisting: WorldRuntimeService },
     WorldRuntimeService,
     WorldTickService,
     WorldGateway,

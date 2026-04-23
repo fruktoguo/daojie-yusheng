@@ -174,6 +174,10 @@ interface SuggestionReplyBody {
 interface MapConfigBody {
   [key: string]: unknown;
 }
+
+interface NodeMigrationBody {
+  targetNodeId?: string;
+}
 /**
  * RedeemCodeRuntimeServicePort：定义接口结构约束，明确可交付字段含义。
  */
@@ -230,6 +234,157 @@ export class NativeGmController {
   @Get('state')
   getState(@Query() query: GmListPlayersQuery) {
     return this.nextGmWorldService.getState(query);
+  }  
+  /**
+ * getWorldSummary：读取世界运行态摘要。
+ * @returns 无返回值，完成世界运行态摘要的读取/组装。
+ */
+
+
+  @Get('world/summary')
+  getWorldSummary() {
+    return this.nextGmWorldService.getRuntimeSummary();
+  }  
+  /**
+ * getWorldDirtyBacklog：读取世界脏积压。
+ * @returns 无返回值，完成世界脏积压的读取/组装。
+ */
+
+
+  @Get('world/dirty-backlog')
+  getWorldDirtyBacklog() {
+    const summary = this.nextGmWorldService.getRuntimeSummary();
+    return typeof summary === 'object' && summary !== null ? (summary as { dirtyBacklog?: unknown }).dirtyBacklog ?? null : null;
+  }  
+  /**
+ * getWorldNodes：读取节点列表与健康状态。
+ * @returns 无返回值，完成节点列表与健康状态的读取/组装。
+ */
+
+
+  @Get('world/nodes')
+  getWorldNodes() {
+    return this.nextGmWorldService.getNodeRegistryHealth();
+  }  
+  /**
+ * getWorldOutboxRetryQueue：读取失败重试队列。
+ * @returns 无返回值，完成失败重试队列的读取/组装。
+ */
+
+
+  @Get('world/outbox/retry-queue')
+  getWorldOutboxRetryQueue() {
+    return this.nextGmWorldService.getOutboxRetryQueue();
+  }  
+  /**
+ * replayWorldOperation：重放单个 operation_id。
+ * @param operationId string operation ID。
+ * @returns 无返回值，完成 operation replay 的读取/组装。
+ */
+
+
+  @Get('world/operations/:operationId/replay')
+  replayWorldOperation(@Param('operationId') operationId: string) {
+    return this.nextGmWorldService.replayOperation(operationId);
+  }  
+  /**
+ * freezeWorldInstanceWriting：冻结实例写入。
+ * @param instanceId string 实例 ID。
+ * @returns 无返回值，完成实例写入冻结。
+ */
+
+
+  @Post('world/instances/:instanceId/freeze')
+  freezeWorldInstanceWriting(@Param('instanceId') instanceId: string) {
+    this.nextGmWorldService.freezeInstanceWriting(instanceId);
+    return { ok: true };
+  }  
+  /**
+ * unfreezeWorldInstanceWriting：解冻实例写入。
+ * @param instanceId string 实例 ID。
+ * @returns 无返回值，完成实例写入解冻。
+ */
+
+
+  @Post('world/instances/:instanceId/unfreeze')
+  unfreezeWorldInstanceWriting(@Param('instanceId') instanceId: string) {
+    return this.nextGmWorldService.unfreezeInstanceWriting(instanceId);
+  }  
+  /**
+ * getWorldInstanceLease：读取实例 lease / owner。
+ * @param instanceId string 实例 ID。
+ * @returns 无返回值，完成实例 lease / owner 的读取/组装。
+ */
+
+
+  @Get('world/instances/:instanceId/lease')
+  getWorldInstanceLease(@Param('instanceId') instanceId: string) {
+    return this.nextGmWorldService.getInstanceLeaseStatus(instanceId);
+  }  
+  /**
+ * flushWorldPlayer：强制刷单玩家。
+ * @param playerId string 玩家 ID。
+ * @returns 无返回值，完成单玩家刷盘。
+ */
+
+
+  @Post('world/players/:playerId/flush')
+  flushWorldPlayer(@Param('playerId') playerId: string) {
+    return this.nextGmWorldService.flushPlayerPersistence(playerId);
+  }  
+  /**
+ * flushWorldInstance：强制刷单实例。
+ * @param instanceId string 实例 ID。
+ * @returns 无返回值，完成单实例刷盘。
+ */
+
+
+  @Post('world/instances/:instanceId/flush')
+  flushWorldInstance(@Param('instanceId') instanceId: string) {
+    return this.nextGmWorldService.flushInstancePersistence(instanceId);
+  }  
+  /**
+ * rebuildWorldInstance：强制重建某实例。
+ * @param instanceId string 实例 ID。
+ * @returns 无返回值，完成单实例重建。
+ */
+
+
+  @Post('world/instances/:instanceId/rebuild')
+  rebuildWorldInstance(@Param('instanceId') instanceId: string) {
+    return this.nextGmWorldService.rebuildPersistentInstance(instanceId);
+  }  
+  /**
+ * migrateWorldInstance：手动迁移实例到指定节点。
+ * @param instanceId string 实例 ID。
+ * @param body NodeMigrationBody 参数说明。
+ * @returns 无返回值，完成实例节点迁移。
+ */
+
+
+  @Post('world/instances/:instanceId/migrate')
+  migrateWorldInstance(@Param('instanceId') instanceId: string, @Body() body: NodeMigrationBody) {
+    const targetNodeId = typeof body?.targetNodeId === 'string' ? body.targetNodeId.trim() : '';
+    if (!targetNodeId) {
+      throw new BadRequestException('targetNodeId is required');
+    }
+    return this.nextGmWorldService.migrateInstanceToNode(instanceId, targetNodeId);
+  }  
+  /**
+ * migrateWorldPlayer：手动迁移玩家到指定节点。
+ * @param playerId string 玩家 ID。
+ * @param body NodeMigrationBody 参数说明。
+ * @returns 无返回值，完成玩家节点迁移。
+ */
+
+
+  @Post('world/players/:playerId/migrate')
+  migrateWorldPlayer(@Param('playerId') playerId: string, @Body() body: NodeMigrationBody) {
+    const targetNodeId = typeof body?.targetNodeId === 'string' ? body.targetNodeId.trim() : '';
+    if (!targetNodeId) {
+      throw new BadRequestException('targetNodeId is required');
+    }
+    return this.nextGmWorldService.migratePlayerToNode(playerId, targetNodeId);
   }  
   /**
  * getEditorCatalog：读取Editor目录。

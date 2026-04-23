@@ -27,6 +27,8 @@ const durable_operation_service_1 = require("../../persistence/durable-operation
 
 const mail_persistence_service_1 = require("../../persistence/mail-persistence.service");
 
+const instance_catalog_service_1 = require("../../persistence/instance-catalog.service");
+
 const player_runtime_service_1 = require("../player/player-runtime.service");
 
 /** 邮件运行时：负责系统信件、附件领取和直接邮件的持久化读写。 */
@@ -61,6 +63,11 @@ let MailRuntimeService = class MailRuntimeService {
  */
 
     playerDomainPersistenceService;
+    /**
+ * instanceCatalogService：实例目录持久化服务引用。
+ */
+
+    instanceCatalogService;
     /** 玩家邮箱缓存，按 playerId 索引。 */
     mailboxByPlayerId = new Map();
     /** 正在加载中的邮箱任务，避免重复读库。 */
@@ -68,12 +75,13 @@ let MailRuntimeService = class MailRuntimeService {
     /** 正在串行执行的邮箱写任务，避免同玩家邮箱写链互相覆盖。 */
     mailboxWriteByPlayerId = new Map();
     /** 注入内容、玩家与邮件持久化服务。 */
-    constructor(contentTemplateRepository, playerRuntimeService, mailPersistenceService, durableOperationService, playerDomainPersistenceService) {
+    constructor(contentTemplateRepository, playerRuntimeService, mailPersistenceService, durableOperationService, playerDomainPersistenceService, instanceCatalogService) {
         this.contentTemplateRepository = contentTemplateRepository;
         this.playerRuntimeService = playerRuntimeService;
         this.mailPersistenceService = mailPersistenceService;
         this.durableOperationService = durableOperationService;
         this.playerDomainPersistenceService = playerDomainPersistenceService;
+        this.instanceCatalogService = instanceCatalogService;
     }
     /** 清空内存邮箱缓存，通常用于重载或测试。 */
     clearRuntimeCache() {
@@ -273,8 +281,8 @@ let MailRuntimeService = class MailRuntimeService {
                     message: '当前没有可领取附件的邮件。',
                 };
             }
-            const items = this.resolveAttachmentItems(visible);
-            if (!items) {
+            const resolution = this.resolveAttachmentItems(visible);
+            if (!resolution) {
                 return {
                     operation: 'claim',
                     ok: false,
@@ -282,7 +290,7 @@ let MailRuntimeService = class MailRuntimeService {
                     message: '邮件附件包含无效物品，暂时无法领取。',
                 };
             }
-            const nextInventoryItems = this.buildNextInventoryItems(playerId, items);
+            const nextInventoryItems = this.buildNextInventoryItems(playerId, resolution.inventoryItems);
             if (!nextInventoryItems) {
                 return {
                     operation: 'claim',
@@ -293,8 +301,11 @@ let MailRuntimeService = class MailRuntimeService {
             }
             if (this.durableOperationService?.isEnabled?.()) {
                 try {
-                    await this.claimAttachmentsDurably(playerId, normalizedIds, visible, nextInventoryItems);
+                    await this.claimAttachmentsDurably(playerId, normalizedIds, visible, nextInventoryItems, resolution.walletCredits);
                     this.playerRuntimeService.replaceInventoryItems(playerId, nextInventoryItems.map((entry) => ({ ...entry.rawPayload })));
+                    for (const credit of resolution.walletCredits) {
+                        this.playerRuntimeService.creditWallet(playerId, credit.walletType, credit.count);
+                    }
                     this.mailboxByPlayerId.delete(playerId);
                     this.loadingMailboxByPlayerId.delete(playerId);
                     await this.ensurePlayerMailbox(playerId);
@@ -314,7 +325,10 @@ let MailRuntimeService = class MailRuntimeService {
                     };
                 }
             }
-            for (const item of items) {
+            for (const credit of resolution.walletCredits) {
+                this.playerRuntimeService.creditWallet(playerId, credit.walletType, credit.count);
+            }
+            for (const item of resolution.inventoryItems) {
                 this.playerRuntimeService.receiveInventoryItem(playerId, item);
             }
             const now = Date.now();
@@ -336,7 +350,7 @@ let MailRuntimeService = class MailRuntimeService {
             };
         });
     }
-    async claimAttachmentsDurably(playerId, normalizedIds, visible, nextInventoryItems) {
+    async claimAttachmentsDurably(playerId, normalizedIds, visible, nextInventoryItems, walletCredits) {
         const attempt = async () => {
             const sessionFence = this.playerRuntimeService.getSessionFence?.(playerId) ?? null;
             const currentSnapshot = this.playerRuntimeService.buildPersistenceSnapshot?.(playerId) ?? null;
@@ -349,18 +363,27 @@ let MailRuntimeService = class MailRuntimeService {
                         revision: Math.max(1, Math.trunc(Number(currentSnapshot.inventory?.revision ?? 1)) + 1),
                         items: nextInventoryItems.map((entry) => ({ ...entry.rawPayload })),
                     },
+                    wallet: {
+                        ...currentSnapshot.wallet,
+                        balances: this.mergeWalletCredits(currentSnapshot.wallet?.balances, walletCredits),
+                    },
                 }
                 : null;
             if (!sessionFence?.runtimeOwnerId || !sessionFence?.sessionEpoch || !nextSnapshot) {
                 throw new Error('player_session_fencing_unavailable');
             }
+            const instanceLease = await this.resolveInstanceLeaseContext(currentSnapshot?.placement?.instanceId ?? null);
             await this.durableOperationService.claimMailAttachments({
                 operationId: buildMailClaimOperationId(playerId, sessionFence.sessionEpoch, normalizedIds),
                 playerId,
                 expectedRuntimeOwnerId: sessionFence.runtimeOwnerId,
                 expectedSessionEpoch: sessionFence.sessionEpoch,
+                expectedInstanceId: currentSnapshot?.placement?.instanceId ?? null,
+                expectedAssignedNodeId: instanceLease?.assignedNodeId ?? null,
+                expectedOwnershipEpoch: instanceLease?.ownershipEpoch ?? null,
                 mailIds: visible.map((entry) => entry.mailId),
                 nextInventoryItems,
+                nextWalletBalances: walletCredits.length > 0 ? this.mergeWalletCredits(currentSnapshot.wallet?.balances, walletCredits) : undefined,
                 nextPlayerSnapshot: nextSnapshot,
             });
         };
@@ -387,6 +410,26 @@ let MailRuntimeService = class MailRuntimeService {
             versionSeed: Date.now(),
         });
         return true;
+    }
+    async resolveInstanceLeaseContext(instanceId) {
+        const normalizedInstanceId = typeof instanceId === 'string' && instanceId.trim() ? instanceId.trim() : '';
+        if (!normalizedInstanceId || !this.instanceCatalogService?.isEnabled?.()) {
+            return null;
+        }
+        const catalog = await this.instanceCatalogService.loadInstanceCatalog(normalizedInstanceId);
+        if (!catalog) {
+            return null;
+        }
+        const assignedNodeId = typeof catalog.assigned_node_id === 'string' && catalog.assigned_node_id.trim()
+            ? catalog.assigned_node_id.trim()
+            : null;
+        const ownershipEpoch = Number.isFinite(Number(catalog.ownership_epoch))
+            ? Math.max(0, Math.trunc(Number(catalog.ownership_epoch)))
+            : null;
+        if (!assignedNodeId || ownershipEpoch == null) {
+            return null;
+        }
+        return { assignedNodeId, ownershipEpoch };
     }
     /** 批量删除已满足删除条件的邮件。 */
     async deleteMails(playerId, mailIds) {
@@ -420,7 +463,6 @@ let MailRuntimeService = class MailRuntimeService {
                 };
             }
             const now = Date.now();
-            const deletedEntries = visible.map((entry) => serializeMailboxEntry(entry));
             for (const entry of visible) {
                 entry.deletedAt = now;
                 entry.updatedAt = now;
@@ -428,7 +470,7 @@ let MailRuntimeService = class MailRuntimeService {
             }
             mailbox.revision += 1;
             this.compactMailbox(mailbox);
-            await this.persistMailboxMutation(playerId, mailbox, deletedEntries);
+            await this.persistMailboxMutation(playerId, mailbox, visible);
             return {
                 operation: 'delete',
                 ok: true,
@@ -559,14 +601,27 @@ let MailRuntimeService = class MailRuntimeService {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
 
-        const items = [];
+        const inventoryItems = [];
+        const walletCredits = [];
         for (const mail of mails) {
             for (const attachment of mail.attachments) {
-                const item = this.contentTemplateRepository.createItem(attachment.itemId, attachment.count);
+                const count = Math.max(0, Math.trunc(Number(attachment?.count ?? 0)));
+                const itemId = typeof attachment?.itemId === 'string' ? attachment.itemId.trim() : '';
+                if (!itemId || count <= 0) {
+                    return null;
+                }
+                if (itemId === 'spirit_stone') {
+                    walletCredits.push({
+                        walletType: itemId,
+                        count,
+                    });
+                    continue;
+                }
+                const item = this.contentTemplateRepository.createItem(itemId, count);
                 if (!item) {
                     return null;
                 }
-                items.push({
+                inventoryItems.push({
                     itemId: item.itemId,
                     name: item.name ?? item.itemId,
                     type: item.type ?? 'material',
@@ -593,7 +648,10 @@ let MailRuntimeService = class MailRuntimeService {
                 });
             }
         }
-        return items;
+        return {
+            inventoryItems,
+            walletCredits,
+        };
     }
     /** 检查玩家背包是否能一次性容纳全部附件。 */
     canReceiveAllAttachments(playerId, items) {
@@ -657,6 +715,35 @@ let MailRuntimeService = class MailRuntimeService {
             serializeMailboxEntries(affectedEntries),
         );
     }
+    mergeWalletCredits(existingBalances, walletCredits) {
+        const nextBalances = Array.isArray(existingBalances)
+            ? existingBalances.map((entry) => ({ ...entry }))
+            : [];
+        for (const credit of walletCredits ?? []) {
+            if (!credit || typeof credit.walletType !== 'string') {
+                continue;
+            }
+            const walletType = credit.walletType.trim();
+            const amount = Math.max(0, Math.trunc(Number(credit.count ?? 0)));
+            if (!walletType || amount <= 0) {
+                continue;
+            }
+            const entry = nextBalances.find((row) => row.walletType === walletType);
+            if (entry) {
+                entry.balance = Math.max(0, Math.trunc(Number(entry.balance ?? 0))) + amount;
+                entry.version = Math.max(1, Math.trunc(Number(entry.version ?? 1)) + 1);
+            }
+            else {
+                nextBalances.push({
+                    walletType,
+                    balance: amount,
+                    frozenBalance: 0,
+                    version: 1,
+                });
+            }
+        }
+        return nextBalances;
+    }
     /** 同一玩家的邮箱写链按序执行，避免并发写把缓存和持久化状态交叉覆盖。 */
     async runSerializedMailboxWrite(playerId, task) {
         const normalizedPlayerId = typeof playerId === 'string' ? playerId.trim() : '';
@@ -690,7 +777,9 @@ exports.MailRuntimeService = MailRuntimeService = __decorate([
     __metadata("design:paramtypes", [content_template_repository_1.ContentTemplateRepository,
         player_runtime_service_1.PlayerRuntimeService,
         mail_persistence_service_1.MailPersistenceService,
-        durable_operation_service_1.DurableOperationService])
+        durable_operation_service_1.DurableOperationService,
+        player_domain_persistence_service_1.PlayerDomainPersistenceService,
+        instance_catalog_service_1.InstanceCatalogService])
 ], MailRuntimeService);
 export { MailRuntimeService };
 /**

@@ -67,6 +67,16 @@ function createService(log = []) {
         },
     });
 }
+
+function createDeferred() {
+    let resolve;
+    let reject;
+    const promise = new Promise((innerResolve, innerReject) => {
+        resolve = innerResolve;
+        reject = innerReject;
+    });
+    return { promise, resolve, reject };
+}
 /**
  * testOutcomeDelegations：执行testOutcomeDelegation相关逻辑。
  * @returns 无返回值，直接更新testOutcomeDelegation相关状态。
@@ -91,6 +101,51 @@ function testOutcomeDelegations() {
     ]);
 }
 
-testOutcomeDelegations();
+async function testOutcomeAwaitHandlers() {
+    const log = [];
+    const service = createService(log);
+    const monsterKillDeferred = createDeferred();
+    const defeatDeferred = createDeferred();
+    service.worldRuntimePlayerCombatService.handlePlayerMonsterKill = async (instance, monster, killerPlayerId, deps) => {
+        log.push(['handlePlayerMonsterKill', instance.meta.instanceId, monster.runtimeId, killerPlayerId, deps.marker]);
+        await monsterKillDeferred.promise;
+        log.push(['handlePlayerMonsterKill:resolved', instance.meta.instanceId, monster.runtimeId, killerPlayerId, deps.marker]);
+    };
+    service.worldRuntimePlayerCombatService.handlePlayerDefeat = async (playerId, deps, killerPlayerId = null) => {
+        log.push(['handlePlayerDefeat', playerId, deps.marker, killerPlayerId]);
+        await defeatDeferred.promise;
+        log.push(['handlePlayerDefeat:resolved', playerId, deps.marker, killerPlayerId]);
+    };
+    const deps = { marker: 'deps' };
 
-console.log(JSON.stringify({ ok: true, case: 'world-runtime-player-combat-outcome' }, null, 2));
+    const pendingMonsterKill = service.handlePlayerMonsterKill({ meta: { instanceId: 'public:a' } }, { runtimeId: 'monster:1' }, 'player:1', deps);
+    await new Promise((resolve) => setImmediate(resolve));
+    assert.deepEqual(log, [
+        ['handlePlayerMonsterKill', 'public:a', 'monster:1', 'player:1', 'deps'],
+    ]);
+    monsterKillDeferred.resolve();
+    await pendingMonsterKill;
+
+    const pendingDefeat = service.handlePlayerDefeat('player:1', deps, 'player:2');
+    await new Promise((resolve) => setImmediate(resolve));
+    assert.deepEqual(log, [
+        ['handlePlayerMonsterKill', 'public:a', 'monster:1', 'player:1', 'deps'],
+        ['handlePlayerMonsterKill:resolved', 'public:a', 'monster:1', 'player:1', 'deps'],
+        ['handlePlayerDefeat', 'player:1', 'deps', 'player:2'],
+    ]);
+    defeatDeferred.resolve();
+    await pendingDefeat;
+    assert.deepEqual(log, [
+        ['handlePlayerMonsterKill', 'public:a', 'monster:1', 'player:1', 'deps'],
+        ['handlePlayerMonsterKill:resolved', 'public:a', 'monster:1', 'player:1', 'deps'],
+        ['handlePlayerDefeat', 'player:1', 'deps', 'player:2'],
+        ['handlePlayerDefeat:resolved', 'player:1', 'deps', 'player:2'],
+    ]);
+}
+
+Promise.resolve()
+    .then(() => testOutcomeDelegations())
+    .then(() => testOutcomeAwaitHandlers())
+    .then(() => {
+    console.log(JSON.stringify({ ok: true, case: 'world-runtime-player-combat-outcome' }, null, 2));
+});

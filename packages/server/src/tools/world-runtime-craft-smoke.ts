@@ -89,7 +89,7 @@ function testInterruptCraftForReason() {
  */
 
 
-function testAdvanceCraftJobs() {
+async function testAdvanceCraftJobs() {
     const log = [];
     const players = new Map([
         ['alchemy', { playerId: 'alchemy' }],
@@ -149,8 +149,16 @@ function testAdvanceCraftJobs() {
         flushCraftMutation(playerId, result, panel) {
             log.push(['flushCraftMutation', playerId, panel, result.messages?.[0]?.text ?? null]);
         },
+    }, {
+        tickAlchemy(playerId, player) {
+            log.push(['tickAlchemy', playerId, player.playerId]);
+        },
+    }, {
+        tickEnhancement(playerId, player) {
+            log.push(['tickEnhancement', playerId, player.playerId]);
+        },
     });
-    service.advanceCraftJobs(['alchemy', 'enhancement', 'both', 'gather', 'missing'], {
+    await service.advanceCraftJobs(['alchemy', 'enhancement', 'both', 'gather', 'missing'], {
         worldRuntimeLootContainerService: {
             tickGather(playerId) {
                 log.push(['tickGather', playerId]);
@@ -159,20 +167,20 @@ function testAdvanceCraftJobs() {
         },
     });
     assert.deepEqual(log, [
-        ['tickTechniqueActivity', 'alchemy', 'alchemy'],
-        ['flushCraftMutation', 'alchemy', 'alchemy', 'alchemy tick'],
-        ['tickTechniqueActivity', 'enhancement', 'enhancement'],
-        ['flushCraftMutation', 'enhancement', 'enhancement', 'enhancement tick'],
-        ['tickTechniqueActivity', 'both', 'alchemy'],
-        ['flushCraftMutation', 'both', 'alchemy', 'alchemy tick'],
-        ['tickTechniqueActivity', 'both', 'enhancement'],
-        ['flushCraftMutation', 'both', 'enhancement', 'enhancement tick'],
+        ['tickAlchemy', 'alchemy', 'alchemy'],
+        ['tickEnhancement', 'enhancement', 'enhancement'],
+        ['tickAlchemy', 'both', 'both'],
+        ['tickEnhancement', 'both', 'both'],
         ['tickGather', 'gather'],
         ['flushCraftMutation', 'gather', 'gather', 'gather tick'],
     ]);
 }
 
-testInterruptCraftForReason();
-testAdvanceCraftJobs();
-
-console.log(JSON.stringify({ ok: true, case: 'world-runtime-craft' }, null, 2));
+Promise.resolve()
+    .then(() => {
+    testInterruptCraftForReason();
+})
+    .then(() => testAdvanceCraftJobs())
+    .then(() => {
+    console.log(JSON.stringify({ ok: true, case: 'world-runtime-craft' }, null, 2));
+});

@@ -20,6 +20,8 @@ exports.WorldSessionReaperService = exports.WORLD_SESSION_REAPER_CONTRACT = void
 const common_1 = require("@nestjs/common");
 
 const player_persistence_flush_service_1 = require("../persistence/player-persistence-flush.service");
+const player_session_route_service_1 = require("../persistence/player-session-route.service");
+const player_runtime_service_1 = require("../runtime/player/player-runtime.service");
 
 const world_session_service_1 = require("./world-session.service");
 
@@ -29,6 +31,7 @@ const SESSION_REAPER_INTERVAL_MS = 1000;
 const WORLD_SESSION_REAPER_CONTRACT = Object.freeze({
     intervalMs: SESSION_REAPER_INTERVAL_MS,
     retryOnFlushFailure: true,
+    clearLocalRouteAfterFlush: true,
     clearDetachedCachesAfterFlush: true,
 });
 exports.WORLD_SESSION_REAPER_CONTRACT = WORLD_SESSION_REAPER_CONTRACT;
@@ -50,6 +53,16 @@ let WorldSessionReaperService = WorldSessionReaperService_1 = class WorldSession
 
     playerPersistenceFlushService;    
     /**
+ * playerSessionRouteService：玩家SessionRoute服务引用。
+ */
+
+    playerSessionRouteService;    
+    /**
+ * playerRuntimeService：玩家Runtime服务引用。
+ */
+
+    playerRuntimeService;    
+    /**
  * logger：日志器引用。
  */
 
@@ -69,13 +82,17 @@ let WorldSessionReaperService = WorldSessionReaperService_1 = class WorldSession
  * @param worldSessionService 参数说明。
  * @param worldSyncService 参数说明。
  * @param playerPersistenceFlushService 参数说明。
+ * @param playerSessionRouteService 参数说明。
+ * @param playerRuntimeService 参数说明。
  * @returns 无返回值，完成实例初始化。
  */
 
-    constructor(worldSessionService, worldSyncService, playerPersistenceFlushService) {
+    constructor(worldSessionService, worldSyncService, playerPersistenceFlushService, playerSessionRouteService, playerRuntimeService) {
         this.worldSessionService = worldSessionService;
         this.worldSyncService = worldSyncService;
         this.playerPersistenceFlushService = playerPersistenceFlushService;
+        this.playerSessionRouteService = playerSessionRouteService;
+        this.playerRuntimeService = playerRuntimeService;
     }    
     /**
  * onModuleInit：执行on模块Init相关逻辑。
@@ -118,6 +135,8 @@ let WorldSessionReaperService = WorldSessionReaperService_1 = class WorldSession
             for (const binding of expiredBindings) {
                 try {
                     await this.playerPersistenceFlushService.flushPlayer(binding.playerId);
+                    const routeSessionEpoch = resolveRouteSessionEpoch(binding, this.playerRuntimeService.getPlayer?.(binding.playerId));
+                    await this.playerSessionRouteService.clearLocalRoute(binding.playerId, routeSessionEpoch);
                     this.worldSyncService.clearDetachedPlayerCaches(binding.playerId);
                 }
                 catch (error) {
@@ -139,7 +158,17 @@ exports.WorldSessionReaperService = WorldSessionReaperService = WorldSessionReap
     (0, common_1.Injectable)(),
     __metadata("design:paramtypes", [world_session_service_1.WorldSessionService,
         world_sync_service_1.WorldSyncService,
-        player_persistence_flush_service_1.PlayerPersistenceFlushService])
+        player_persistence_flush_service_1.PlayerPersistenceFlushService,
+        player_session_route_service_1.PlayerSessionRouteService,
+        player_runtime_service_1.PlayerRuntimeService])
 ], WorldSessionReaperService);
 export { WORLD_SESSION_REAPER_CONTRACT, WorldSessionReaperService };
+
+function resolveRouteSessionEpoch(binding, player) {
+    const sessionEpoch = Number(player?.sessionEpoch ?? binding?.sessionEpoch ?? 0);
+    if (!Number.isFinite(sessionEpoch) || sessionEpoch <= 0) {
+        return undefined;
+    }
+    return Math.max(1, Math.trunc(sessionEpoch));
+}
 //# sourceMappingURL=world-session-reaper.service.js.map

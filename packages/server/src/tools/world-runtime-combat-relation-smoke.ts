@@ -166,7 +166,7 @@ function testResolveCombatRelation() {
   });
 }
 
-function testBasicAttackRejectsNeutralPlayer() {
+async function testBasicAttackRejectsNeutralPlayer() {
   const attacker = createPlayer();
   const target = createTarget('player:neutral');
   const service = new WorldRuntimeBasicAttackService({
@@ -177,12 +177,21 @@ function testBasicAttackRejectsNeutralPlayer() {
       return attacker;
     },
   });
-  assert.throws(() => {
-    service.dispatchBasicAttackToPlayer(attacker, target.playerId, 'spell', 12, 5, {});
-  }, /敌方判定规则/);
+  await assert.rejects(
+    () => service.dispatchBasicAttackToPlayer(attacker, target.playerId, 'spell', 12, 5, {
+      getInstanceRuntimeOrThrow() {
+        return {
+          meta: {
+            supportsPvp: true,
+          },
+        };
+      },
+    }),
+    /敌方判定规则/,
+  );
 }
 
-function testSkillDispatchRejectsNeutralPlayer() {
+async function testSkillDispatchRejectsNeutralPlayer() {
   const attacker = createPlayer({
     techniques: {
       techniques: [{
@@ -219,8 +228,8 @@ function testSkillDispatchRejectsNeutralPlayer() {
       throw new Error('castSkill should not run for neutral player target');
     },
   });
-  assert.throws(() => {
-    service.dispatchCastSkill(attacker.playerId, 'skill.alpha', target.playerId, null, null, {
+  await assert.rejects(
+    () => service.dispatchCastSkill(attacker.playerId, 'skill.alpha', target.playerId, null, null, {
       resolveCurrentTickForPlayerId() {
         return 8;
       },
@@ -232,8 +241,16 @@ function testSkillDispatchRejectsNeutralPlayer() {
       ensureAttackAllowed() {
         return undefined;
       },
-    });
-  }, /敌方判定规则/);
+      getInstanceRuntimeOrThrow() {
+        return {
+          meta: {
+            supportsPvp: true,
+          },
+        };
+      },
+    }),
+    /敌方判定规则/,
+  );
 }
 
 function testAutoCombatPrefersRetaliator() {
@@ -270,7 +287,7 @@ function testAutoCombatPrefersRetaliator() {
   assert.equal(result?.priority, 3);
 }
 
-function testEngageBattleRejectsNeutralPlayerBeforeLocking() {
+async function testEngageBattleRejectsNeutralPlayerBeforeLocking() {
   const log = [];
   const attacker = createPlayer();
   const target = createTarget('player:neutral');
@@ -291,10 +308,17 @@ function testEngageBattleRejectsNeutralPlayerBeforeLocking() {
       log.push(['setCombatTarget', playerId, targetRef, locked, tick]);
     },
   });
-  assert.throws(() => {
-    service.dispatchEngageBattle(attacker.playerId, target.playerId, null, null, null, true, {
+  await assert.rejects(
+    () => service.dispatchEngageBattle(attacker.playerId, target.playerId, null, null, null, true, {
       resolveCurrentTickForPlayerId() {
         return 12;
+      },
+      getInstanceRuntimeOrThrow() {
+        return {
+          meta: {
+            supportsPvp: true,
+          },
+        };
       },
       interruptManualCombat(playerId) {
         log.push(['interruptManualCombat', playerId]);
@@ -302,17 +326,20 @@ function testEngageBattleRejectsNeutralPlayerBeforeLocking() {
       dispatchBasicAttack() {
         log.push(['dispatchBasicAttack']);
       },
-    });
-  }, /敌方判定规则/);
+    }),
+    /敌方判定规则/,
+  );
   assert.deepEqual(log, [
     ['interruptManualCombat', attacker.playerId],
   ]);
 }
 
-testResolveCombatRelation();
-testBasicAttackRejectsNeutralPlayer();
-testSkillDispatchRejectsNeutralPlayer();
-testAutoCombatPrefersRetaliator();
-testEngageBattleRejectsNeutralPlayerBeforeLocking();
-
-console.log(JSON.stringify({ ok: true, case: 'world-runtime-combat-relation' }, null, 2));
+Promise.resolve()
+  .then(() => testResolveCombatRelation())
+  .then(() => testBasicAttackRejectsNeutralPlayer())
+  .then(() => testSkillDispatchRejectsNeutralPlayer())
+  .then(() => testAutoCombatPrefersRetaliator())
+  .then(() => testEngageBattleRejectsNeutralPlayerBeforeLocking())
+  .then(() => {
+    console.log(JSON.stringify({ ok: true, case: 'world-runtime-combat-relation' }, null, 2));
+  });

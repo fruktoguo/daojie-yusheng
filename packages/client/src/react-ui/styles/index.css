@@ -1,0 +1,517 @@
+.react-ui-root-host {
+  position: absolute;
+  inset: 0;
+  z-index: 900;
+  pointer-events: none;
+}
+
+.react-ui-root {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+}
+
+.react-ui-scaffold {
+  position: absolute;
+  top: 16px;
+  right: 16px;
+  width: min(360px, calc(100vw - 32px));
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  pointer-events: none;
+}
+
+.react-ui-scaffold-card,
+.react-ui-scaffold .react-ui-empty-hint {
+  pointer-events: auto;
+}
+
+.react-ui-scaffold-card {
+  margin-bottom: 0;
+  box-shadow: 10px 10px 0 rgba(0, 0, 0, 0.08);
+}
+
+.react-ui-scaffold-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px 12px;
+}
+
+.react-ui-scaffold-row {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.react-ui-scaffold-label {
+  color: var(--color-role-label);
+  font-size: var(--font-size-11);
+  font-weight: var(--font-weight-role-label);
+}
+
+.react-ui-scaffold-value {
+  color: var(--color-role-body-strong);
+  font-size: var(--font-size-13);
+  font-weight: var(--font-weight-strong);
+}
+
+.react-ui-scaffold-actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 8px;
+}
+
+.react-ui-slider-field {
+  gap: 8px;
+  min-width: 0;
+}
+
+.react-ui-slider-field-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.react-ui-slider-field-label {
+  color: var(--ink-grey);
+  font-size: var(--font-size-12);
+}
+
+.react-ui-slider-field-value {
+  color: var(--ink-black);
+  font-size: var(--font-size-13);
+  font-weight: var(--font-weight-strong);
+}
+
+.react-ui-slider-input {
+  width: 100%;
+}
+
+.react-ui-stepper {
+  display: grid;
+  gap: 8px;
+}
+
+.react-ui-stepper-label {
+  color: var(--ink-grey);
+  font-size: var(--font-size-12);
+}
+
+.react-ui-stepper-controls {
+  justify-content: flex-start;
+}
+
+.react-ui-stepper-input {
+  width: 88px;
+}
+
+.react-ui-item-card {
+  display: grid;
+  gap: 6px;
+  padding: 10px;
+}
+
+.react-ui-item-card-head {
+  gap: 8px;
+}
+
+.react-ui-price-editor {
+  display: grid;
+  gap: 8px;
+}
+
+.react-ui-price-editor-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.react-ui-price-editor-label {
+  color: var(--ink-grey);
+  font-size: var(--font-size-12);
+}
+
+.react-ui-price-editor-value {
+  color: var(--ink-black);
+  font-size: var(--font-size-13);
+  font-weight: var(--font-weight-strong);
+}
+
+.react-ui-price-editor-presets,
+.react-ui-price-editor-controls {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.react-ui-price-editor-input {
+  width: 112px;
+}
+
+.react-ui-game-item {
+  display: grid;
+  grid-template-rows: auto 1fr auto auto auto;
+  gap: 6px;
+  min-height: 84px;
+  aspect-ratio: 1 / 1;
+  width: 100%;
+  padding: 8px;
+  border: 1px solid var(--wash-ink);
+  background: var(--surface-gradient-entry, linear-gradient(180deg, var(--surface-elevated), var(--surface-muted)));
+  box-shadow: inset 0 0 0 1px rgba(255,255,255,0.5);
+  transition: transform 0.18s ease, box-shadow 0.18s ease, border-color 0.18s ease;
+  text-align: left;
+  cursor: pointer;
+  position: relative;
+  overflow: visible;
+  isolation: isolate;
+}
+
+.react-ui-game-item > * {
+  position: relative;
+  z-index: 2;
+}
+
+.react-ui-game-item--grade {
+  border-color: var(--react-ui-item-grade-border);
+  box-shadow:
+    inset 0 0 0 1px rgba(255,255,255,0.36),
+    inset 0 0 0 1px color-mix(in srgb, var(--react-ui-item-grade-border) 90%, rgba(255,255,255,0.08)),
+    0 0 0 1px rgba(var(--react-ui-item-grade-rgb), 0.05);
+}
+
+.react-ui-game-item--grade::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background:
+    linear-gradient(180deg, rgba(var(--react-ui-item-grade-rgb), 0.2), rgba(var(--react-ui-item-grade-rgb), 0) 72%) top / 100% 18px no-repeat,
+    linear-gradient(0deg, rgba(var(--react-ui-item-grade-rgb), 0.16), rgba(var(--react-ui-item-grade-rgb), 0) 70%) bottom / 100% 16px no-repeat,
+    linear-gradient(90deg, rgba(var(--react-ui-item-grade-rgb), 0.12), rgba(var(--react-ui-item-grade-rgb), 0) 68%) left / 14px 100% no-repeat,
+    linear-gradient(270deg, rgba(var(--react-ui-item-grade-rgb), 0.12), rgba(var(--react-ui-item-grade-rgb), 0) 68%) right / 14px 100% no-repeat;
+  opacity: 0.9;
+  z-index: 0;
+}
+
+.react-ui-game-item--grade::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  box-shadow:
+    inset 0 0 14px rgba(var(--react-ui-item-grade-rgb), 0.1),
+    inset 0 0 24px rgba(var(--react-ui-item-grade-rgb), 0.05);
+  z-index: 1;
+}
+
+.react-ui-game-item--grade-mortal {
+  --react-ui-item-grade-border: rgba(126, 116, 104, 0.52);
+  --react-ui-item-grade-rgb: 126, 116, 104;
+}
+
+.react-ui-game-item--grade-yellow {
+  --react-ui-item-grade-border: rgba(173, 143, 74, 0.58);
+  --react-ui-item-grade-rgb: 173, 143, 74;
+}
+
+.react-ui-game-item--grade-mystic {
+  --react-ui-item-grade-border: rgba(96, 126, 170, 0.6);
+  --react-ui-item-grade-rgb: 96, 126, 170;
+}
+
+.react-ui-game-item--grade-earth {
+  --react-ui-item-grade-border: rgba(82, 134, 96, 0.62);
+  --react-ui-item-grade-rgb: 82, 134, 96;
+}
+
+.react-ui-game-item--grade-heaven {
+  --react-ui-item-grade-border: rgba(105, 154, 191, 0.64);
+  --react-ui-item-grade-rgb: 105, 154, 191;
+}
+
+.react-ui-game-item--grade-spirit {
+  --react-ui-item-grade-border: rgba(76, 153, 142, 0.64);
+  --react-ui-item-grade-rgb: 76, 153, 142;
+}
+
+.react-ui-game-item--grade-saint {
+  --react-ui-item-grade-border: rgba(183, 106, 132, 0.66);
+  --react-ui-item-grade-rgb: 183, 106, 132;
+}
+
+.react-ui-game-item--grade-emperor {
+  --react-ui-item-grade-border: rgba(146, 104, 178, 0.7);
+  --react-ui-item-grade-rgb: 146, 104, 178;
+}
+
+.react-ui-game-item:hover,
+.react-ui-game-item.is-active {
+  transform: translateY(-1px);
+  border-color: color-mix(in srgb, var(--react-ui-item-grade-border, rgba(0,0,0,0.15)) 74%, rgba(0,0,0,0.12));
+  box-shadow:
+    inset 0 0 0 1px rgba(255,255,255,0.65),
+    inset 0 0 0 1px color-mix(in srgb, var(--react-ui-item-grade-border, transparent) 82%, transparent),
+    0 8px 18px rgba(0,0,0,0.08),
+    0 0 20px rgba(var(--react-ui-item-grade-rgb, 94, 94, 94), 0.1);
+}
+
+.react-ui-game-item-head,
+.react-ui-equipment-slot-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.react-ui-game-item-type {
+  font-size: var(--font-size-10);
+  line-height: 1.2;
+  color: var(--ink-grey);
+}
+
+.react-ui-game-item-count,
+.react-ui-equipment-slot-state {
+  font-size: var(--font-size-11);
+  font-weight: var(--font-weight-strong);
+  color: var(--ink-black);
+}
+
+.react-ui-game-item-name,
+.react-ui-equipment-slot-name {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  font-family: var(--font-role-body);
+  font-size: var(--font-size-role-body-15);
+  line-height: 1.28;
+  color: var(--ink-black);
+  min-height: 30px;
+}
+
+.react-ui-game-item--compact-name .react-ui-game-item-name {
+  font-size: var(--font-size-13);
+}
+
+.react-ui-game-item-chip-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  align-items: flex-end;
+}
+
+.react-ui-game-item-chip {
+  max-width: 100%;
+  padding: 1px 7px 2px;
+  border-radius: 999px;
+  border: 1px solid rgba(17, 17, 17, 0.14);
+  background: rgba(255, 255, 255, 0.58);
+  color: var(--ink-grey);
+  font-size: var(--font-size-10);
+  line-height: 1.1;
+  font-weight: var(--font-weight-strong);
+  white-space: nowrap;
+}
+
+.react-ui-game-item-grade,
+.react-ui-game-item-note,
+.react-ui-equipment-slot-item {
+  color: var(--ink-grey);
+  font-size: var(--font-size-11);
+  line-height: 1.5;
+}
+
+.react-ui-game-item-actions {
+  display: flex;
+  width: 100%;
+  min-width: 0;
+  justify-content: flex-start;
+  align-items: center;
+  gap: 6px;
+  min-height: 22px;
+}
+
+.react-ui-game-item-actions .react-ui-button {
+  flex: 0 1 auto;
+  min-width: 0;
+  max-width: calc(50% - 3px);
+  min-height: 22px;
+  padding: 1px 6px;
+  font-size: var(--font-size-11);
+  white-space: nowrap;
+}
+
+.react-ui-game-item-actions .react-ui-button--danger {
+  margin-left: auto;
+}
+
+.react-ui-quest-item,
+.react-ui-mail-item,
+.react-ui-technique-item,
+.react-ui-market-order-row,
+.react-ui-action-item,
+.react-ui-world-entity-row {
+  gap: 4px;
+  width: 100%;
+}
+
+.react-ui-quest-item-head,
+.react-ui-mail-item-head,
+.react-ui-technique-item-head,
+.react-ui-market-order-row-head,
+.react-ui-action-item-head,
+.react-ui-world-entity-row-head {
+  gap: 8px;
+}
+
+.react-ui-market-order-row-meta {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.react-ui-market-order-row--buy {
+  border-color: rgba(67, 112, 163, 0.24);
+}
+
+.react-ui-market-order-row--sell {
+  border-color: rgba(171, 89, 59, 0.24);
+}
+
+.react-ui-quest-detail-badges,
+.react-ui-technique-detail-badges {
+  align-items: center;
+}
+
+.react-ui-tooltip-probe {
+  margin-bottom: 0;
+  padding: 10px 12px;
+  color: var(--ink-grey);
+  font-size: var(--font-size-12);
+  pointer-events: auto;
+}
+
+.react-ui-tooltip-layer {
+  position: fixed;
+  z-index: 1400;
+  pointer-events: none;
+}
+
+.react-ui-tooltip-shell {
+  max-width: min(320px, calc(100vw - 24px));
+  padding: 10px 12px;
+  border: 1px solid var(--wash-ink);
+  background: var(--surface-base);
+  color: var(--ink-dark);
+  box-shadow: 8px 8px 0 rgba(0, 0, 0, 0.12);
+  font-size: var(--font-size-12);
+  line-height: 1.5;
+}
+
+.react-ui-tooltip-detail {
+  margin-top: 6px;
+  color: var(--ink-grey);
+}
+
+.react-ui-detail-modal-layer {
+  z-index: 1300;
+}
+
+.react-ui-detail-modal-card {
+  pointer-events: auto;
+}
+
+.react-ui-detail-modal-body {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.react-ui-detail-preview {
+  color: var(--ink-grey);
+  font-size: var(--font-size-13);
+  line-height: 1.6;
+}
+
+.react-ui-detail-preview-actions {
+  display: flex;
+  justify-content: flex-end;
+  margin-top: 4px;
+}
+
+.react-ui-toast-layer {
+  position: fixed;
+  top: 16px;
+  left: 50%;
+  z-index: 1350;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  transform: translateX(-50%);
+  pointer-events: none;
+}
+
+.react-ui-toast {
+  min-width: 180px;
+  max-width: min(88vw, 720px);
+  padding: 10px 20px;
+  border-radius: 12px;
+  background: rgba(0, 0, 0, 0.8);
+  color: #fff;
+  text-align: center;
+  box-shadow: 0 10px 28px rgba(0, 0, 0, 0.18);
+  font-size: var(--font-size-13);
+  line-height: 1.55;
+}
+
+.react-ui-toast--success {
+  background: rgba(53, 110, 56, 0.92);
+}
+
+.react-ui-toast--warn {
+  background: rgba(140, 79, 18, 0.94);
+}
+
+.react-ui-toast--quest {
+  background: rgba(102, 74, 35, 0.92);
+}
+
+.react-ui-toast--combat {
+  background: rgba(123, 38, 38, 0.92);
+}
+
+.react-ui-toast--loot {
+  background: rgba(41, 88, 54, 0.92);
+}
+
+.react-ui-toast--grudge {
+  background: rgba(104, 28, 52, 0.92);
+}
+
+.react-ui-toast--travel {
+  background: rgba(46, 79, 128, 0.92);
+}
+
+:root[data-color-mode="dark"] .react-ui-scaffold-card {
+  box-shadow: 10px 10px 0 rgba(0, 0, 0, 0.24);
+}
+
+@media (max-width: 920px), ((max-width: 1180px) and (pointer: coarse)), ((max-width: 1180px) and (hover: none)) {
+  .react-ui-scaffold {
+    top: auto;
+    right: 8px;
+    bottom: 8px;
+    width: min(340px, calc(100vw - 16px));
+  }
+
+  .react-ui-scaffold-grid {
+    grid-template-columns: 1fr;
+  }
+}

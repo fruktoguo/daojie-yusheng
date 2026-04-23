@@ -5,6 +5,17 @@ import './load-local-runtime-env';
 
 
 type DatabaseEnvSource = 'SERVER_DATABASE_URL' | 'DATABASE_URL';
+type DatabasePoolerEnvSource = 'SERVER_DATABASE_POOLER_URL' | 'DATABASE_POOLER_URL';
+/**
+ * RedisUrlEnvSource：统一结构类型，保证协议与运行时一致性。
+ */
+
+type RedisUrlEnvSource = 'SERVER_REDIS_URL' | 'REDIS_URL';
+/**
+ * RedisModeEnvSource：统一结构类型，保证协议与运行时一致性。
+ */
+
+type RedisModeEnvSource = 'SERVER_REDIS_MODE' | 'REDIS_MODE';
 /**
  * GmPasswordEnvSource：统一结构类型，保证协议与运行时一致性。
  */
@@ -78,6 +89,84 @@ export function resolveServerDatabaseEnvSource(): DatabaseEnvSource | null {
 
 export function resolveServerDatabaseUrl(): string {
   return readTrimmedEnv('SERVER_DATABASE_URL', 'DATABASE_URL');
+}
+/**
+ * resolveServerDatabasePoolerEnvSource：规范化或转换Pooler数据库来源。
+ * @returns 返回Pooler数据库来源。
+ */
+
+
+export function resolveServerDatabasePoolerEnvSource(): DatabasePoolerEnvSource | null {
+  if (readTrimmedEnv('SERVER_DATABASE_POOLER_URL')) {
+    return 'SERVER_DATABASE_POOLER_URL';
+  }
+
+  if (readTrimmedEnv('DATABASE_POOLER_URL')) {
+    return 'DATABASE_POOLER_URL';
+  }
+
+  return null;
+}
+/**
+ * resolveServerDatabasePoolerUrl：规范化或转换Pooler数据库URL。
+ * @returns 返回Pooler数据库URL。
+ */
+
+
+export function resolveServerDatabasePoolerUrl(): string {
+  return readTrimmedEnv('SERVER_DATABASE_POOLER_URL', 'DATABASE_POOLER_URL');
+}
+/**
+ * resolveServerRedisEnvSource：规范化或转换Redis来源。
+ * @returns 返回Redis来源。
+ */
+
+
+export function resolveServerRedisEnvSource(): RedisUrlEnvSource | null {
+  if (readTrimmedEnv('SERVER_REDIS_URL')) {
+    return 'SERVER_REDIS_URL';
+  }
+
+  if (readTrimmedEnv('REDIS_URL')) {
+    return 'REDIS_URL';
+  }
+
+  return null;
+}
+/**
+ * resolveServerRedisUrl：规范化或转换Redis URL。
+ * @returns 返回Redis URL。
+ */
+
+
+export function resolveServerRedisUrl(): string {
+  return readTrimmedEnv('SERVER_REDIS_URL', 'REDIS_URL');
+}
+/**
+ * resolveServerRedisModeEnvSource：规范化或转换Redis模式来源。
+ * @returns 返回Redis模式来源。
+ */
+
+
+export function resolveServerRedisModeEnvSource(): RedisModeEnvSource | null {
+  if (readTrimmedEnv('SERVER_REDIS_MODE')) {
+    return 'SERVER_REDIS_MODE';
+  }
+
+  if (readTrimmedEnv('REDIS_MODE')) {
+    return 'REDIS_MODE';
+  }
+
+  return null;
+}
+/**
+ * resolveServerRedisMode：规范化或转换Redis模式。
+ * @returns 返回Redis模式。
+ */
+
+
+export function resolveServerRedisMode(): string {
+  return readTrimmedEnv('SERVER_REDIS_MODE', 'REDIS_MODE');
 }
 /**
  * resolveServerGmPasswordEnvSource：规范化或转换ServerNextGMPasswordEnv来源。

@@ -18,10 +18,18 @@ const ENTRY_TIMEOUT_OVERRIDES_MS = new Map([
     ['persistence-smoke.js', 45_000],
     ['player-domain-persistence-smoke.js', 30_000],
     ['player-domain-recovery-smoke.js', 30_000],
-    ['durable-operation-smoke.js', 30_000],
-    ['gm-database-smoke.js', 900_000],
-    ['gm-database-backup-persistence-smoke.js', 60_000],
-    ['shadow-gm-database-proof.js', 240_000],
+    ['snapshot-retirement-report-smoke.js', 30_000],
+  ['durable-operation-smoke.js', 30_000],
+  ['outbox-dispatcher-worker-smoke.js', 30_000],
+  ['map-snapshot-retirement-report-smoke.js', 30_000],
+  ['player-session-route-handoff-smoke.js', 30_000],
+  ['world-runtime-player-migrate-route-db-smoke.js', 30_000],
+  ['world-runtime-player-migrate-handoff-db-smoke.js', 30_000],
+  ['world-runtime-player-migrate-gateway-redirect-smoke.js', 30_000],
+  ['gm-database-smoke.js', 900_000],
+  ['gm-database-backup-persistence-smoke.js', 60_000],
+  ['shadow-gm-database-proof.js', 240_000],
+  ['multi-worker-flush-stability-report.js', 120_000],
 ]);
 /**
  * 解析是否关闭统一烟测超时。
@@ -30,7 +38,7 @@ function isSmokeTimeoutDisabled() {
     /**
      * 读取原始开关值。
      */
-    const raw = process.env.SERVER_DISABLE_SMOKE_TIMEOUT ?? process.env.NEXT_DISABLE_SMOKE_TIMEOUT;
+    const raw = process.env.SERVER_DISABLE_SMOKE_TIMEOUT;
     return raw === '1' || raw === 'true';
 }
 /**
@@ -42,7 +50,7 @@ function resolveSmokeTimeoutMs() {
     /**
      * 读取原始超时配置。
      */
-    const raw = process.env.SERVER_SMOKE_TIMEOUT_MS ?? process.env.NEXT_SMOKE_TIMEOUT_MS;
+    const raw = process.env.SERVER_SMOKE_TIMEOUT_MS;
     if (!raw) {
         return DEFAULT_SMOKE_TIMEOUT_MS;
     }

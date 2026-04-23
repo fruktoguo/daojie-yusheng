@@ -182,7 +182,7 @@ function createBattleEngageDeps(instance, log = []) {
   };
 }
 
-function testPeacefulLineRejectsPlayerBasicAttack() {
+async function testPeacefulLineRejectsPlayerBasicAttack() {
   const attacker = createAttacker();
   const target = createTarget();
   const service = createBasicAttackService(attacker, target);
@@ -192,12 +192,13 @@ function testPeacefulLineRejectsPlayerBasicAttack() {
       canDamageTile: true,
     },
   }));
-  assert.throws(() => {
-    service.dispatchBasicAttackToPlayer(attacker, target.playerId, 'spell', 14, 8, deps);
-  }, /当前实例不允许玩家互攻/);
+  await assert.rejects(
+    () => service.dispatchBasicAttackToPlayer(attacker, target.playerId, 'spell', 14, 8, deps),
+    /当前实例不允许玩家互攻/,
+  );
 }
 
-function testRealLineAllowsPlayerBasicAttack() {
+async function testRealLineAllowsPlayerBasicAttack() {
   const log = [];
   const attacker = createAttacker({ instanceId: 'real:yunlai_town' });
   const target = createTarget({ instanceId: 'real:yunlai_town' });
@@ -209,7 +210,7 @@ function testRealLineAllowsPlayerBasicAttack() {
       canDamageTile: true,
     },
   }), log);
-  service.dispatchBasicAttackToPlayer(attacker, target.playerId, 'spell', 14, 8, deps);
+  await service.dispatchBasicAttackToPlayer(attacker, target.playerId, 'spell', 14, 8, deps);
   assert.deepEqual(log[0], ['getInstanceRuntimeOrThrow', 'real:yunlai_town']);
   assert.deepEqual(log[1], ['pushActionLabelEffect', 'real:yunlai_town', 10, 10, '攻击']);
   assert.deepEqual(log[2].slice(0, 6), ['pushAttackEffect', 'real:yunlai_town', 10, 10, 11, 10]);
@@ -284,7 +285,7 @@ function testRealLineAllowsTileAttack() {
   assert.match(log[5][2], /原始 12 - 实际 7 - 物理/);
 }
 
-function testPeacefulLineRejectsPlayerLockOn() {
+async function testPeacefulLineRejectsPlayerLockOn() {
   const log = [];
   const attacker = createAttacker();
   const target = createTarget();
@@ -295,16 +296,17 @@ function testPeacefulLineRejectsPlayerLockOn() {
       canDamageTile: true,
     },
   }), log);
-  assert.throws(() => {
-    service.dispatchEngageBattle(attacker.playerId, target.playerId, null, null, null, true, deps);
-  }, /当前实例不允许玩家互攻/);
+  await assert.rejects(
+    () => service.dispatchEngageBattle(attacker.playerId, target.playerId, null, null, null, true, deps),
+    /当前实例不允许玩家互攻/,
+  );
   assert.deepEqual(log, [
     ['getInstanceRuntimeOrThrow', 'public:yunlai_town'],
     ['interruptManualCombat', 'player:attacker'],
   ]);
 }
 
-function testRealLineAllowsTileLockOnAndDispatch() {
+async function testRealLineAllowsTileLockOnAndDispatch() {
   const log = [];
   const attacker = createAttacker({ instanceId: 'real:yunlai_town' });
   const service = createBattleEngageService(attacker, createTarget({ instanceId: 'real:yunlai_town' }), log);
@@ -315,7 +317,7 @@ function testRealLineAllowsTileLockOnAndDispatch() {
       canDamageTile: true,
     },
   }), log);
-  service.dispatchEngageBattle(attacker.playerId, null, null, 11, 10, true, deps);
+  await service.dispatchEngageBattle(attacker.playerId, null, null, 11, 10, true, deps);
   assert.deepEqual(log, [
     ['getInstanceRuntimeOrThrow', 'real:yunlai_town'],
     ['interruptManualCombat', 'player:attacker'],
@@ -325,11 +327,13 @@ function testRealLineAllowsTileLockOnAndDispatch() {
   ]);
 }
 
-testPeacefulLineRejectsPlayerBasicAttack();
-testRealLineAllowsPlayerBasicAttack();
-testPeacefulLineAllowsTileAttack();
-testRealLineAllowsTileAttack();
-testPeacefulLineRejectsPlayerLockOn();
-testRealLineAllowsTileLockOnAndDispatch();
-
-console.log(JSON.stringify({ ok: true, case: 'world-runtime-instance-capability-guard' }, null, 2));
+Promise.resolve()
+  .then(() => testPeacefulLineRejectsPlayerBasicAttack())
+  .then(() => testRealLineAllowsPlayerBasicAttack())
+  .then(() => testPeacefulLineAllowsTileAttack())
+  .then(() => testRealLineAllowsTileAttack())
+  .then(() => testPeacefulLineRejectsPlayerLockOn())
+  .then(() => testRealLineAllowsTileLockOnAndDispatch())
+  .then(() => {
+    console.log(JSON.stringify({ ok: true, case: 'world-runtime-instance-capability-guard' }, null, 2));
+  });

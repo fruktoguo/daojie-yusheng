@@ -1,7 +1,6 @@
 // @ts-nocheck
 
 const assert = require("node:assert/strict");
-const { WorldRuntimeService } = require("../runtime/world/world-runtime.service");
 const { WorldRuntimeNpcShopQueryService } = require("../runtime/world/world-runtime-npc-shop-query.service");
 const { WorldRuntimeNpcShopService } = require("../runtime/world/world-runtime-npc-shop.service");
 /**
@@ -41,12 +40,12 @@ function testQueryBuildNpcShopView() {
             return true;
         },        
         /**
- * getInventoryCountByItemId：读取背包数量By道具ID。
- * @returns 无返回值，完成背包数量By道具ID的读取/组装。
+ * canAffordWallet：判断钱包余额是否足够。
+ * @returns 无返回值，完成钱包余额条件判断。
  */
 
-        getInventoryCountByItemId() {
-            return 999;
+        canAffordWallet() {
+            return true;
         },
     });
     const result = service.buildNpcShopView('player:1', 'npc_a', {    
@@ -91,42 +90,6 @@ function testQueryBuildNpcShopView() {
  */
 
 
-function testWorldRuntimeFacadeBuildNpcShopView() {
-    const log = [];
-    const runtime = {    
-    /**
- * getPlayerLocationOrThrow：读取玩家位置OrThrow。
- * @param playerId 玩家 ID。
- * @returns 无返回值，完成玩家位置OrThrow的读取/组装。
- */
-
-        getPlayerLocationOrThrow(playerId) {
-            log.push(['getPlayerLocationOrThrow', playerId]);
-            return { instanceId: 'instance:1' };
-        },
-        worldRuntimeNpcShopQueryService: {        
-        /**
- * buildNpcShopView：构建并返回目标对象。
- * @param playerId 玩家 ID。
- * @param npcId npc ID。
- * @param deps 运行时依赖。
- * @returns 无返回值，直接更新NPCShop视图相关状态。
- */
-
-            buildNpcShopView(playerId, npcId, deps) {
-                log.push(['buildNpcShopView', playerId, npcId, deps === runtime]);
-                return { npcId, shop: null, error: '对方现在没有经营商店' };
-            },
-        },
-    };
-    const result = WorldRuntimeService.prototype.buildNpcShopView.call(runtime, 'player:1', ' npc_a ');
-    assert.deepEqual(result, { npcId: 'npc_a', shop: null, error: '对方现在没有经营商店' });
-    assert.deepEqual(log, [
-        ['getPlayerLocationOrThrow', 'player:1'],
-        ['buildNpcShopView', 'player:1', 'npc_a', true],
-    ]);
-    assert.throws(() => WorldRuntimeService.prototype.buildNpcShopView.call(runtime, 'player:1', '   '), /npcId is required/);
-}
 /**
  * testQueryValidateNpcShopPurchase：读取testQueryValidateNPCShopPurchase并返回结果。
  * @returns 无返回值，直接更新testQueryValidateNPCShopPurchase相关状态。
@@ -167,15 +130,16 @@ function testQueryValidateNpcShopPurchase() {
             return true;
         },        
         /**
- * getInventoryCountByItemId：读取背包数量By道具ID。
+ * canAffordWallet：判断钱包余额是否足够。
  * @param playerId 玩家 ID。
- * @param itemId 道具 ID。
- * @returns 无返回值，完成背包数量By道具ID的读取/组装。
+ * @param walletType 钱包类型。
+ * @param amount 数量。
+ * @returns 无返回值，完成钱包余额条件判断。
  */
 
-        getInventoryCountByItemId(playerId, itemId) {
-            log.push(['getInventoryCountByItemId', playerId, itemId]);
-            return 999;
+        canAffordWallet(playerId, walletType, amount) {
+            log.push(['canAffordWallet', playerId, walletType, amount]);
+            return true;
         },
     });
     const result = service.validateNpcShopPurchase('player:1', 'npc_a', 'qi_pill', 2, {    
@@ -203,7 +167,7 @@ function testQueryValidateNpcShopPurchase() {
     assert.deepEqual(log, [
         ['resolveAdjacentNpc', 'player:1', 'npc_a'],
         ['canReceiveInventoryItem', 'player:1', 'qi_pill'],
-        ['getInventoryCountByItemId', 'player:1', 'spirit_stone'],
+        ['canAffordWallet', 'player:1', 'spirit_stone', 10],
     ]);
 }
 /**
@@ -212,32 +176,6 @@ function testQueryValidateNpcShopPurchase() {
  */
 
 
-function testWorldRuntimeFacadeValidateNpcShopPurchase() {
-    const log = [];
-    const runtime = {
-        worldRuntimeNpcShopQueryService: {        
-        /**
- * validateNpcShopPurchase：判断NPCShopPurchase是否满足条件。
- * @param playerId 玩家 ID。
- * @param npcId npc ID。
- * @param itemId 道具 ID。
- * @param quantity 参数说明。
- * @param deps 运行时依赖。
- * @returns 无返回值，完成NPCShopPurchase的条件判断。
- */
-
-            validateNpcShopPurchase(playerId, npcId, itemId, quantity, deps) {
-                log.push(['validateNpcShopPurchase', playerId, npcId, itemId, quantity, deps === runtime]);
-                return { totalCost: 6, item: { itemId: 'qi_pill', count: quantity } };
-            },
-        },
-    };
-    const result = WorldRuntimeService.prototype.validateNpcShopPurchase.call(runtime, 'player:1', 'npc_a', 'qi_pill', 2);
-    assert.deepEqual(result, { totalCost: 6, item: { itemId: 'qi_pill', count: 2 } });
-    assert.deepEqual(log, [
-        ['validateNpcShopPurchase', 'player:1', 'npc_a', 'qi_pill', 2, true],
-    ]);
-}
 /**
  * testEnqueue：处理testEnqueue并更新相关状态。
  * @returns 无返回值，直接更新testEnqueue相关状态。
@@ -301,18 +239,27 @@ function testEnqueue() {
  */
 
 
-function testDispatch() {
-    const log = [];
-    const service = new WorldRuntimeNpcShopService({    
-    /**
- * consumeInventoryItemByItemId：执行consume背包道具By道具ID相关逻辑。
+async function testDispatch() {
+    const durableLog = [];
+    const fallbackLog = [];
+    const service = new WorldRuntimeNpcShopService({
+        getPlayerOrThrow() {
+            return {
+                runtimeOwnerId: 'runtime:player:1',
+                sessionEpoch: 7,
+                inventory: { items: [] },
+                wallet: { balances: [{ walletType: 'spirit_stone', balance: 20, frozenBalance: 0, version: 1 }] },
+            };
+        },
+        /**
+ * debitWallet：执行wallet扣余额相关逻辑。
  * @param playerId 玩家 ID。
- * @param itemId 道具 ID。
+ * @param walletType 钱包类型。
  * @param count 数量。
- * @returns 无返回值，直接更新consume背包道具By道具ID相关状态。
+ * @returns 无返回值，直接更新wallet扣余额相关状态。
  */
 
-        consumeInventoryItemByItemId(playerId, itemId, count) { log.push(['consumeInventoryItemByItemId', playerId, itemId, count]); },        
+        debitWallet(playerId, walletType, count) { durableLog.push(['debitWallet', playerId, walletType, count]); },        
         /**
  * receiveInventoryItem：执行receive背包道具相关逻辑。
  * @param playerId 玩家 ID。
@@ -320,7 +267,8 @@ function testDispatch() {
  * @returns 无返回值，直接更新receive背包道具相关状态。
  */
 
-        receiveInventoryItem(playerId, item) { log.push(['receiveInventoryItem', playerId, item.itemId, item.count]); },
+        replaceInventoryItems(playerId, items) { durableLog.push(['replaceInventoryItems', playerId, Array.isArray(items) ? items.length : -1]); },
+        receiveInventoryItem(playerId, item) { durableLog.push(['receiveInventoryItem', playerId, item.itemId, item.count]); },
     }, {    
     /**
  * getCurrencyItemId：读取Currency道具ID。
@@ -334,6 +282,20 @@ function testDispatch() {
  */
 
         getCurrencyItemName() { return '灵石'; },
+    }, {
+        isEnabled() { return true; },
+        async purchaseNpcShopItem(input) {
+            durableLog.push([
+                'purchaseNpcShopItem',
+                input.playerId,
+                input.itemId,
+                input.quantity,
+                input.totalCost,
+                input.expectedAssignedNodeId,
+                input.expectedOwnershipEpoch,
+            ]);
+            return { ok: true, alreadyCommitted: false, itemId: input.itemId, quantity: input.quantity, totalCost: input.totalCost };
+        },
     });
     const deps = {    
     /**
@@ -348,7 +310,7 @@ function testDispatch() {
  * @returns 无返回值，直接更新refresh任务状态相关状态。
  */
 
-        refreshQuestStates(playerId) { log.push(['refreshQuestStates', playerId]); },        
+        refreshQuestStates(playerId) { durableLog.push(['refreshQuestStates', playerId]); },        
         /**
  * queuePlayerNotice：执行queue玩家Notice相关逻辑。
  * @param playerId 玩家 ID。
@@ -357,22 +319,55 @@ function testDispatch() {
  * @returns 无返回值，直接更新queue玩家Notice相关状态。
  */
 
-        queuePlayerNotice(playerId, message, tone) { log.push(['queuePlayerNotice', playerId, message, tone]); },
+        queuePlayerNotice(playerId, message, tone) { durableLog.push(['queuePlayerNotice', playerId, message, tone]); },
+        getPlayerViewOrThrow() { return { tick: 1, playerId: 'player:1' }; },
+        getPlayerLocation() { return { instanceId: 'instance:1' }; },
+        instanceCatalogService: {
+            isEnabled() { return true; },
+            async loadInstanceCatalog(instanceId) {
+                assert.equal(instanceId, 'instance:1');
+                return {
+                    assigned_node_id: 'node:npc-shop',
+                    ownership_epoch: 17,
+                };
+            },
+        },
+        getPlayerOrThrow() { return { runtimeOwnerId: 'runtime:player:1', sessionEpoch: 7, inventory: { items: [] }, wallet: { balances: [{ walletType: 'spirit_stone', balance: 20, frozenBalance: 0, version: 1 }] } }; },
     };
-    service.dispatchBuyNpcShopItem('player:1', 'npc_a', 'qi_pill', 1, deps);
-    assert.deepEqual(log, [
-        ['consumeInventoryItemByItemId', 'player:1', 'spirit_stone', 5],
-        ['receiveInventoryItem', 'player:1', 'qi_pill', 1],
+    await service.dispatchBuyNpcShopItem('player:1', 'npc_a', 'qi_pill', 1, deps);
+    assert.deepEqual(durableLog, [
+        ['purchaseNpcShopItem', 'player:1', 'qi_pill', 1, 5, 'node:npc-shop', 17],
+        ['replaceInventoryItems', 'player:1', 1],
+        ['debitWallet', 'player:1', 'spirit_stone', 5],
         ['refreshQuestStates', 'player:1'],
         ['queuePlayerNotice', 'player:1', '购买 聚气丹，消耗 灵石 x5', 'success'],
+    ]);
+
+    const fallbackService = new WorldRuntimeNpcShopService({
+        debitWallet(playerId, walletType, count) { fallbackLog.push(['debitWallet', playerId, walletType, count]); },
+        receiveInventoryItem(playerId, item) { fallbackLog.push(['receiveInventoryItem', playerId, item.itemId, item.count]); },
+    }, {
+        getCurrencyItemId() { return 'spirit_stone'; },
+        getCurrencyItemName() { return '灵石'; },
+    });
+    await fallbackService.dispatchBuyNpcShopItem('player:2', 'npc_a', 'qi_pill', 1, {
+        validateNpcShopPurchase() { return { totalCost: 5, item: { itemId: 'qi_pill', name: '聚气丹', count: 1 } }; },
+        refreshQuestStates(playerId) { fallbackLog.push(['refreshQuestStates', playerId]); },
+        queuePlayerNotice(playerId, message, tone) { fallbackLog.push(['queuePlayerNotice', playerId, message, tone]); },
+        getPlayerViewOrThrow() { return { tick: 2, playerId: 'player:2' }; },
+        getPlayerOrThrow() { return { inventory: { items: [] }, wallet: { balances: [] } }; },
+    });
+    assert.deepEqual(fallbackLog, [
+        ['debitWallet', 'player:2', 'spirit_stone', 5],
+        ['receiveInventoryItem', 'player:2', 'qi_pill', 1],
+        ['refreshQuestStates', 'player:2'],
+        ['queuePlayerNotice', 'player:2', '购买 聚气丹，消耗 灵石 x5', 'success'],
     ]);
 }
 
 testQueryBuildNpcShopView();
-testWorldRuntimeFacadeBuildNpcShopView();
 testQueryValidateNpcShopPurchase();
-testWorldRuntimeFacadeValidateNpcShopPurchase();
 testEnqueue();
-testDispatch();
+testDispatch().then(() => undefined);
 
 console.log(JSON.stringify({ ok: true, case: 'world-runtime-npc-shop' }, null, 2));

@@ -4,10 +4,12 @@ import { Pool } from 'pg';
 import { resolveServerDatabaseUrl } from '../config/env-alias';
 import { ensurePersistentDocumentsTable } from './persistent-document-table';
 
-const MAILBOX_SCOPE = 'server_mailboxes_v1';
 const PLAYER_MAIL_TABLE = 'player_mail';
 const PLAYER_MAIL_ATTACHMENT_TABLE = 'player_mail_attachment';
+const PLAYER_MAIL_ARCHIVE_TABLE = 'player_mail_archive';
+const PLAYER_MAIL_ATTACHMENT_ARCHIVE_TABLE = 'player_mail_attachment_archive';
 const PLAYER_MAIL_COUNTER_TABLE = 'player_mail_counter';
+const PLAYER_RECOVERY_WATERMARK_TABLE = 'player_recovery_watermark';
 const SAVE_MAILBOX_RETRY_LIMIT = 3;
 const SAVE_MAILBOX_RETRY_BASE_DELAY_MS = 25;
 
@@ -78,7 +80,7 @@ interface StructuredCounterRow {
   welcome_mail_delivered_at?: unknown;
 }
 
-/** 邮件持久化服务：结构化表为主真源，persistent_documents 仅保留兼容镜像。 */
+/** 邮件持久化服务：结构化表为唯一真源。 */
 @Injectable()
 export class MailPersistenceService implements OnModuleInit, OnModuleDestroy {
   private readonly logger = new Logger(MailPersistenceService.name);
@@ -101,7 +103,7 @@ export class MailPersistenceService implements OnModuleInit, OnModuleDestroy {
       await ensureStructuredMailTables(pool);
       this.pool = pool;
       this.enabled = true;
-      this.logger.log('邮件持久化已启用（player_mail + persistent_documents compat）');
+      this.logger.log('邮件持久化已启用（player_mail + player_mail_attachment + player_mail_counter + player_recovery_watermark）');
     } catch (error: unknown) {
       this.logger.error(
         '邮件持久化初始化失败，已回退为禁用模式',
@@ -185,14 +187,7 @@ export class MailPersistenceService implements OnModuleInit, OnModuleDestroy {
         return buildMailboxFromStructuredRows(mailResult.rows, attachmentResult.rows, counterResult.rows[0] ?? null);
       }
 
-      const legacyResult = await client.query<{ payload?: unknown }>(
-        'SELECT payload FROM persistent_documents WHERE scope = $1 AND key = $2',
-        [MAILBOX_SCOPE, normalizedPlayerId],
-      );
-      if ((legacyResult.rowCount ?? 0) === 0) {
-        return null;
-      }
-      return normalizeMailbox(legacyResult.rows[0]?.payload);
+      return null;
     } finally {
       client.release();
     }
@@ -219,13 +214,19 @@ export class MailPersistenceService implements OnModuleInit, OnModuleDestroy {
         await client.query(`DELETE FROM ${PLAYER_MAIL_ATTACHMENT_TABLE} WHERE player_id = $1`, [normalizedPlayerId]);
         await client.query(`DELETE FROM ${PLAYER_MAIL_TABLE} WHERE player_id = $1`, [normalizedPlayerId]);
 
-        if (normalizedMailbox.mails.length > 0) {
-          await insertStructuredMails(client, normalizedPlayerId, normalizedMailbox.mails);
-          await insertStructuredAttachments(client, normalizedPlayerId, normalizedMailbox.mails);
+        const stableMailboxMails = sortMailsByStableKey(normalizedMailbox.mails);
+        if (stableMailboxMails.length > 0) {
+          await insertStructuredMails(client, normalizedPlayerId, stableMailboxMails);
+          await insertStructuredAttachments(client, normalizedPlayerId, stableMailboxMails);
         }
 
         await upsertStructuredMailCounter(client, normalizedPlayerId, normalizedMailbox.revision, summary);
-        await persistLegacyMailboxDocument(client, normalizedPlayerId, normalizedMailbox);
+        await upsertMailRecoveryWatermark(
+          client,
+          normalizedPlayerId,
+          computeMailboxMailVersion(normalizedMailbox.mails),
+          normalizedMailbox.revision,
+        );
         await client.query('COMMIT');
         return;
       } catch (error: unknown) {
@@ -258,7 +259,9 @@ export class MailPersistenceService implements OnModuleInit, OnModuleDestroy {
     }
 
     const summary = summarizeMailbox(normalizedMailbox);
-    const affectedMailIds = Array.from(new Set(normalizedAffectedEntries.map((entry) => entry.mailId)));
+    const affectedMailIds = Array.from(new Set(normalizedAffectedEntries.map((entry) => entry.mailId))).sort((left, right) =>
+      left.localeCompare(right, 'zh-Hans-CN'),
+    );
 
     for (let attempt = 1; attempt <= SAVE_MAILBOX_RETRY_LIMIT; attempt += 1) {
       const client = await this.pool.connect();
@@ -266,18 +269,24 @@ export class MailPersistenceService implements OnModuleInit, OnModuleDestroy {
         await client.query('BEGIN');
         await acquirePlayerMailLock(client, normalizedPlayerId);
 
-        if (normalizedAffectedEntries.length > 0) {
-          await upsertStructuredMails(client, normalizedPlayerId, normalizedAffectedEntries);
+        const stableAffectedEntries = sortMailsByStableKey(normalizedAffectedEntries);
+        if (stableAffectedEntries.length > 0) {
+          await upsertStructuredMails(client, normalizedPlayerId, stableAffectedEntries);
           await replaceStructuredAttachmentsForMailIds(
             client,
             normalizedPlayerId,
             affectedMailIds,
-            normalizedAffectedEntries,
+            stableAffectedEntries,
           );
         }
 
         await upsertStructuredMailCounter(client, normalizedPlayerId, normalizedMailbox.revision, summary);
-        await persistLegacyMailboxDocument(client, normalizedPlayerId, normalizedMailbox);
+        await upsertMailRecoveryWatermark(
+          client,
+          normalizedPlayerId,
+          computeMailboxMailVersion(normalizedMailbox.mails, normalizedAffectedEntries),
+          normalizedMailbox.revision,
+        );
         await client.query('COMMIT');
         return;
       } catch (error: unknown) {
@@ -291,6 +300,212 @@ export class MailPersistenceService implements OnModuleInit, OnModuleDestroy {
         client.release();
       }
     }
+  }
+
+  async cleanupExpiredMails(limit = 64): Promise<number> {
+    if (!this.pool || !this.enabled) {
+      return 0;
+    }
+    const normalizedLimit = Math.max(1, Math.trunc(Number(limit ?? 64)));
+    const now = Date.now();
+    const candidateRows = await this.pool.query<{ player_id?: unknown }>(
+      `
+        SELECT DISTINCT player_id
+        FROM ${PLAYER_MAIL_TABLE}
+        WHERE deleted_at IS NULL
+          AND expire_at IS NOT NULL
+          AND expire_at <= $1
+        ORDER BY player_id ASC
+        LIMIT $2
+      `,
+      [now, normalizedLimit],
+    );
+    let processed = 0;
+    for (const row of candidateRows.rows) {
+      const playerId = normalizeRequiredString(row.player_id);
+      if (!playerId) {
+        continue;
+      }
+      const mailbox = normalizeMailbox(await this.loadMailbox(playerId));
+      if (!mailbox) {
+        continue;
+      }
+      const client = await this.pool.connect();
+      try {
+        await client.query('BEGIN');
+        await acquirePlayerMailLock(client, playerId);
+        const expiredRows = await client.query<{ mail_id?: unknown; mail_version?: unknown }>(
+          `
+            SELECT mail_id, mail_version
+            FROM ${PLAYER_MAIL_TABLE}
+            WHERE player_id = $1
+              AND deleted_at IS NULL
+              AND expire_at IS NOT NULL
+              AND expire_at <= $2
+          `,
+          [playerId, now],
+        );
+        if ((expiredRows.rowCount ?? 0) === 0) {
+          await client.query('ROLLBACK');
+          continue;
+        }
+        const expiredMailIds = new Set(
+          expiredRows.rows
+            .map((entry) => normalizeRequiredString(entry.mail_id))
+            .filter((entry) => entry.length > 0),
+        );
+        const stableExpiredMailIds = Array.from(expiredMailIds).sort((left, right) => left.localeCompare(right, 'zh-Hans-CN'));
+        const archivePayload = mailbox.mails
+          .filter((entry) => expiredMailIds.has(entry.mailId))
+          .sort((left, right) => left.createdAt - right.createdAt || left.mailId.localeCompare(right.mailId, 'zh-Hans-CN'))
+          .map((entry) => ({
+            ...entry,
+            deletedAt: now,
+            updatedAt: now,
+            mailVersion: Math.max(1, Math.trunc(Number(entry.mailVersion ?? 1)) + 1),
+          }));
+        const cleanedMails = mailbox.mails.map((entry) => {
+          if (!expiredMailIds.has(entry.mailId)) {
+            return entry;
+          }
+          return {
+            ...entry,
+            deletedAt: now,
+            updatedAt: now,
+            mailVersion: Math.max(1, Math.trunc(Number(entry.mailVersion ?? 1)) + 1),
+          };
+        });
+        mailbox.mails = cleanedMails;
+        mailbox.revision += 1;
+        mailbox.mails = mailbox.mails
+          .filter((entry) => entry.deletedAt == null && (entry.expireAt == null || entry.expireAt > now))
+          .sort((left, right) => right.createdAt - left.createdAt || right.mailId.localeCompare(left.mailId));
+        const maxMailVersion = mailbox.mails.reduce(
+          (maxVersion, entry) => Math.max(maxVersion, Math.max(1, Math.trunc(Number(entry.mailVersion ?? 1)))),
+          1,
+        );
+        await client.query(
+          `
+            UPDATE ${PLAYER_MAIL_TABLE}
+            SET deleted_at = $2,
+                mail_version = GREATEST(mail_version, $3),
+                updated_at = now()
+            WHERE player_id = $1
+              AND deleted_at IS NULL
+              AND expire_at IS NOT NULL
+              AND expire_at <= $2
+          `,
+          [playerId, now, Math.max(1, maxMailVersion)],
+        );
+        if (archivePayload.length > 0) {
+          await archiveExpiredMailRows(client, playerId, archivePayload, now);
+        }
+        await client.query(
+          `
+            DELETE FROM ${PLAYER_MAIL_ATTACHMENT_TABLE}
+            WHERE player_id = $1
+              AND mail_id = ANY($2::varchar[])
+          `,
+          [playerId, stableExpiredMailIds],
+        );
+        const summary = summarizeMailbox(mailbox);
+        await upsertStructuredMailCounter(client, playerId, Math.max(1, maxMailVersion), {
+          unreadCount: summary.unreadCount,
+          unclaimedCount: summary.unclaimedCount,
+          latestMailAt: summary.latestMailAt,
+          welcomeMailDeliveredAt: summary.welcomeMailDeliveredAt,
+        });
+        await upsertMailRecoveryWatermark(
+          client,
+          playerId,
+          Math.max(1, maxMailVersion),
+          Math.max(1, mailbox.revision),
+        );
+        await client.query('COMMIT');
+        processed += 1;
+      } catch (error: unknown) {
+        await client.query('ROLLBACK').catch(() => undefined);
+        this.logger.warn(`邮件过期清理失败 playerId=${playerId}: ${error instanceof Error ? error.stack || error.message : String(error)}`);
+      } finally {
+        client.release();
+      }
+    }
+    return processed;
+  }
+
+  async purgeSoftDeletedMails(input?: { retentionDays?: number; limit?: number }): Promise<number> {
+    if (!this.pool || !this.enabled) {
+      return 0;
+    }
+    const retentionDays = Math.max(1, Math.min(3650, Math.trunc(Number(input?.retentionDays ?? 30)) || 30));
+    const limit = Math.max(1, Math.min(10_000, Math.trunc(Number(input?.limit ?? 500)) || 500));
+    const threshold = Date.now() - retentionDays * 24 * 60 * 60 * 1000;
+    const candidateRows = await this.pool.query<{ player_id?: unknown }>(
+      `
+        SELECT DISTINCT player_id
+        FROM ${PLAYER_MAIL_TABLE}
+        WHERE deleted_at IS NOT NULL
+          AND deleted_at <= $1
+        ORDER BY player_id ASC
+        LIMIT $2
+      `,
+      [threshold, limit],
+    );
+    let processed = 0;
+    for (const row of candidateRows.rows) {
+      const playerId = normalizeRequiredString(row.player_id);
+      if (!playerId) {
+        continue;
+      }
+      const client = await this.pool.connect();
+      try {
+        await client.query('BEGIN');
+        await acquirePlayerMailLock(client, playerId);
+        const mailRows = await client.query<{ mail_id?: unknown }>(
+          `
+            SELECT mail_id
+            FROM ${PLAYER_MAIL_TABLE}
+            WHERE player_id = $1
+              AND deleted_at IS NOT NULL
+              AND deleted_at <= $2
+            ORDER BY deleted_at ASC, mail_id ASC
+          `,
+          [playerId, threshold],
+        );
+        const mailIds = mailRows.rows
+          .map((entry) => normalizeRequiredString(entry.mail_id))
+          .filter((entry) => entry.length > 0)
+          .sort((left, right) => left.localeCompare(right, 'zh-Hans-CN'));
+        if (mailIds.length === 0) {
+          await client.query('ROLLBACK');
+          continue;
+        }
+        await client.query(
+          `
+            DELETE FROM ${PLAYER_MAIL_ATTACHMENT_TABLE}
+            WHERE player_id = $1
+              AND mail_id = ANY($2::varchar[])
+          `,
+          [playerId, mailIds],
+        );
+        await client.query(
+          `
+            DELETE FROM ${PLAYER_MAIL_TABLE}
+            WHERE player_id = $1
+              AND mail_id = ANY($2::varchar[])
+          `,
+          [playerId, mailIds],
+        );
+        processed += 1;
+        await client.query('COMMIT');
+      } catch (error: unknown) {
+        await client.query('ROLLBACK').catch(() => undefined);
+        this.logger.warn(`邮件软删清理失败 playerId=${playerId}: ${error instanceof Error ? error.stack || error.message : String(error)}`);
+      } finally {
+        client.release();
+      }
+    }
+    return processed;
   }
 
   private async safeClosePool(): Promise<void> {
@@ -367,6 +582,53 @@ async function ensureStructuredMailTables(pool: Pool): Promise<void> {
       ON ${PLAYER_MAIL_ATTACHMENT_TABLE}(player_id, mail_id)
     `);
     await client.query(`
+      CREATE TABLE IF NOT EXISTS ${PLAYER_MAIL_ARCHIVE_TABLE} (
+        mail_id varchar(180) PRIMARY KEY,
+        player_id varchar(100) NOT NULL,
+        sender_type varchar(32) NOT NULL DEFAULT 'system',
+        sender_label varchar(120) NOT NULL,
+        template_id varchar(120),
+        mail_type varchar(32) NOT NULL DEFAULT 'system',
+        title varchar(240),
+        body text,
+        source_type varchar(64),
+        source_ref_id varchar(180),
+        metadata_jsonb jsonb NOT NULL DEFAULT '{}'::jsonb,
+        mail_version bigint NOT NULL DEFAULT 1,
+        created_at bigint NOT NULL,
+        expire_at bigint,
+        first_seen_at bigint,
+        read_at bigint,
+        claimed_at bigint,
+        deleted_at bigint,
+        archived_at timestamptz NOT NULL DEFAULT now()
+      )
+    `);
+    await client.query(`
+      CREATE INDEX IF NOT EXISTS player_mail_archive_player_idx
+      ON ${PLAYER_MAIL_ARCHIVE_TABLE}(player_id, created_at DESC)
+    `);
+    await client.query(`
+      CREATE TABLE IF NOT EXISTS ${PLAYER_MAIL_ATTACHMENT_ARCHIVE_TABLE} (
+        attachment_id varchar(180) PRIMARY KEY,
+        mail_id varchar(180) NOT NULL,
+        player_id varchar(100) NOT NULL,
+        attachment_kind varchar(32) NOT NULL DEFAULT 'item',
+        item_id varchar(120),
+        count integer,
+        currency_type varchar(64),
+        amount bigint,
+        item_payload_jsonb jsonb NOT NULL DEFAULT '{}'::jsonb,
+        claim_operation_id varchar(180),
+        claimed_at bigint,
+        archived_at timestamptz NOT NULL DEFAULT now()
+      )
+    `);
+    await client.query(`
+      CREATE INDEX IF NOT EXISTS player_mail_attachment_archive_player_idx
+      ON ${PLAYER_MAIL_ATTACHMENT_ARCHIVE_TABLE}(player_id, mail_id)
+    `);
+    await client.query(`
       CREATE TABLE IF NOT EXISTS ${PLAYER_MAIL_COUNTER_TABLE} (
         player_id varchar(100) PRIMARY KEY,
         unread_count integer NOT NULL DEFAULT 0,
@@ -381,6 +643,22 @@ async function ensureStructuredMailTables(pool: Pool): Promise<void> {
       ALTER TABLE ${PLAYER_MAIL_COUNTER_TABLE}
       ADD COLUMN IF NOT EXISTS welcome_mail_delivered_at bigint
     `);
+    await client.query(`
+      CREATE TABLE IF NOT EXISTS ${PLAYER_RECOVERY_WATERMARK_TABLE} (
+        player_id varchar(100) PRIMARY KEY,
+        mail_version bigint NOT NULL DEFAULT 0,
+        mail_counter_version bigint NOT NULL DEFAULT 0,
+        updated_at timestamptz NOT NULL DEFAULT now()
+      )
+    `);
+    await client.query(`
+      ALTER TABLE ${PLAYER_RECOVERY_WATERMARK_TABLE}
+      ADD COLUMN IF NOT EXISTS mail_version bigint NOT NULL DEFAULT 0
+    `);
+    await client.query(`
+      ALTER TABLE ${PLAYER_RECOVERY_WATERMARK_TABLE}
+      ADD COLUMN IF NOT EXISTS mail_counter_version bigint NOT NULL DEFAULT 0
+    `);
     await client.query('COMMIT');
   } catch (error: unknown) {
     await client.query('ROLLBACK').catch(() => undefined);
@@ -388,6 +666,55 @@ async function ensureStructuredMailTables(pool: Pool): Promise<void> {
   } finally {
     client.release();
   }
+}
+
+async function archiveExpiredMailRows(
+  client: import('pg').PoolClient,
+  playerId: string,
+  expiredMailRows: Array<Record<string, unknown>>,
+  now: number,
+): Promise<void> {
+  if (expiredMailRows.length === 0) {
+    return;
+  }
+  const mailIds = expiredMailRows.map((entry) => normalizeRequiredString(entry.mailId)).filter((value) => value.length > 0);
+  if (mailIds.length === 0) {
+    return;
+  }
+  await client.query(
+    `
+      INSERT INTO ${PLAYER_MAIL_ARCHIVE_TABLE}(
+        mail_id, player_id, sender_type, sender_label, template_id, mail_type,
+        title, body, source_type, source_ref_id, metadata_jsonb, mail_version,
+        created_at, expire_at, first_seen_at, read_at, claimed_at, deleted_at, archived_at
+      )
+      SELECT
+        mail_id, player_id, sender_type, sender_label, template_id, mail_type,
+        title, body, source_type, source_ref_id, metadata_jsonb, mail_version,
+        created_at, expire_at, first_seen_at, read_at, claimed_at, deleted_at, now()
+      FROM ${PLAYER_MAIL_TABLE}
+      WHERE player_id = $1
+        AND mail_id = ANY($2::varchar[])
+      ON CONFLICT DO NOTHING
+    `,
+    [playerId, mailIds],
+  );
+  await client.query(
+    `
+      INSERT INTO ${PLAYER_MAIL_ATTACHMENT_ARCHIVE_TABLE}(
+        attachment_id, mail_id, player_id, attachment_kind, item_id, count,
+        currency_type, amount, item_payload_jsonb, claim_operation_id, claimed_at, archived_at
+      )
+      SELECT
+        attachment_id, mail_id, player_id, attachment_kind, item_id, count,
+        currency_type, amount, item_payload_jsonb, claim_operation_id, claimed_at, now()
+      FROM ${PLAYER_MAIL_ATTACHMENT_TABLE}
+      WHERE player_id = $1
+        AND mail_id = ANY($2::varchar[])
+      ON CONFLICT DO NOTHING
+    `,
+    [playerId, mailIds],
+  );
 }
 
 function summarizeMailbox(mailbox: MailboxPayload): {
@@ -420,6 +747,29 @@ function summarizeMailbox(mailbox: MailboxPayload): {
     latestMailAt,
     welcomeMailDeliveredAt,
   };
+}
+
+function compactMailbox(mailbox: MailboxPayload): void {
+  const normalized = normalizeMailbox(mailbox);
+  if (!normalized) {
+    mailbox.revision = Math.max(1, Math.trunc(Number(mailbox.revision ?? 1)));
+    mailbox.welcomeMailDeliveredAt = normalizeOptionalInteger(mailbox.welcomeMailDeliveredAt);
+    mailbox.mails = [];
+    return;
+  }
+  mailbox.revision = normalized.revision;
+  mailbox.welcomeMailDeliveredAt = normalized.welcomeMailDeliveredAt;
+  mailbox.mails = normalized.mails;
+}
+
+function computeMailboxMailVersion(
+  mails: MailEntryPayload[],
+  extraEntries: MailEntryPayload[] = [],
+): number {
+  const combined = [...mails, ...extraEntries];
+  return combined.reduce((maxVersion, entry) => {
+    return Math.max(maxVersion, Math.max(1, Math.trunc(Number(entry?.mailVersion ?? 1))));
+  }, 1);
 }
 
 async function upsertStructuredMailCounter(
@@ -465,19 +815,32 @@ async function upsertStructuredMailCounter(
   );
 }
 
-async function persistLegacyMailboxDocument(
+async function upsertMailRecoveryWatermark(
   client: import('pg').PoolClient,
   playerId: string,
-  mailbox: MailboxPayload,
+  mailVersion: number,
+  mailCounterVersion: number,
 ): Promise<void> {
   await client.query(
     `
-      INSERT INTO persistent_documents(scope, key, payload, "updatedAt")
-      VALUES ($1, $2, $3::jsonb, now())
-      ON CONFLICT (scope, key)
-      DO UPDATE SET payload = EXCLUDED.payload, "updatedAt" = now()
+      INSERT INTO ${PLAYER_RECOVERY_WATERMARK_TABLE}(
+        player_id,
+        mail_version,
+        mail_counter_version,
+        updated_at
+      )
+      VALUES ($1, $2, $3, now())
+      ON CONFLICT (player_id)
+      DO UPDATE SET
+        mail_version = GREATEST(${PLAYER_RECOVERY_WATERMARK_TABLE}.mail_version, EXCLUDED.mail_version),
+        mail_counter_version = GREATEST(${PLAYER_RECOVERY_WATERMARK_TABLE}.mail_counter_version, EXCLUDED.mail_counter_version),
+        updated_at = now()
     `,
-    [MAILBOX_SCOPE, playerId, JSON.stringify(mailbox)],
+    [
+      playerId,
+      Math.max(1, Math.trunc(Number(mailVersion ?? 1))),
+      Math.max(1, Math.trunc(Number(mailCounterVersion ?? 1))),
+    ],
   );
 }
 
@@ -724,6 +1087,12 @@ async function replaceStructuredAttachmentsForMailIds(
     return;
   }
   await insertStructuredAttachments(client, playerId, affectedMails);
+}
+
+function sortMailsByStableKey(mails: MailEntryPayload[]): MailEntryPayload[] {
+  return mails
+    .slice()
+    .sort((left, right) => left.createdAt - right.createdAt || left.mailId.localeCompare(right.mailId, 'zh-Hans-CN'));
 }
 
 function buildMailboxFromStructuredRows(

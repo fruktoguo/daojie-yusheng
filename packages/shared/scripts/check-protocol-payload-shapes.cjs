@@ -25,7 +25,7 @@ if (!sourceFile) {
 }
 
 const EXPECTED_INTERFACES = {
-  NEXT_S2C_Bootstrap: {
+  S2C_Bootstrap: {
     self: { type: 'PlayerState', optional: false },
     mapMeta: { type: 'MapMeta', optional: true },
     minimap: { type: 'MapMinimapSnapshot', optional: true },
@@ -36,7 +36,7 @@ const EXPECTED_INTERFACES = {
     time: { type: 'GameTimeState', optional: true },
     auraLevelBaseValue: { type: 'number', optional: true },
   },
-  NEXT_S2C_MapStatic: {
+  S2C_MapStatic: {
     mapId: { type: 'string', optional: false },
     mapMeta: { type: 'MapMeta', optional: true },
     minimap: { type: 'MapMinimapSnapshot', optional: true },
@@ -46,40 +46,40 @@ const EXPECTED_INTERFACES = {
     tilesOriginY: { type: 'number', optional: true },
     visibleMinimapMarkers: { type: 'MapMinimapMarker[]', optional: true },
   },
-  NEXT_S2C_PanelDelta: {
-    inv: { type: 'NEXT_S2C_PanelInventoryDelta', optional: true },
-    eq: { type: 'NEXT_S2C_PanelEquipmentDelta', optional: true },
-    tech: { type: 'NEXT_S2C_PanelTechniqueDelta', optional: true },
-    attr: { type: 'NEXT_S2C_PanelAttrDelta', optional: true },
-    act: { type: 'NEXT_S2C_PanelActionDelta', optional: true },
-    buff: { type: 'NEXT_S2C_PanelBuffDelta', optional: true },
+  S2C_PanelDelta: {
+    inv: { type: 'S2C_PanelInventoryDelta', optional: true },
+    eq: { type: 'S2C_PanelEquipmentDelta', optional: true },
+    tech: { type: 'S2C_PanelTechniqueDelta', optional: true },
+    attr: { type: 'S2C_PanelAttrDelta', optional: true },
+    act: { type: 'S2C_PanelActionDelta', optional: true },
+    buff: { type: 'S2C_PanelBuffDelta', optional: true },
   },
-  NEXT_S2C_Detail: {
+  S2C_Detail: {
     kind: { type: "'npc' | 'monster' | 'ground' | 'player' | 'portal' | 'container'", optional: false },
     id: { type: 'string', optional: false },
     error: { type: 'string', optional: true },
-    npc: { type: 'NEXT_S2C_NpcDetail', optional: true },
-    monster: { type: 'NEXT_S2C_MonsterDetail', optional: true },
-    player: { type: 'NEXT_S2C_PlayerDetail', optional: true },
-    portal: { type: 'NEXT_S2C_PortalDetail', optional: true },
-    ground: { type: 'NEXT_S2C_GroundDetail', optional: true },
-    container: { type: 'NEXT_S2C_ContainerDetail', optional: true },
+    npc: { type: 'S2C_NpcDetail', optional: true },
+    monster: { type: 'S2C_MonsterDetail', optional: true },
+    player: { type: 'S2C_PlayerDetail', optional: true },
+    portal: { type: 'S2C_PortalDetail', optional: true },
+    ground: { type: 'S2C_GroundDetail', optional: true },
+    container: { type: 'S2C_ContainerDetail', optional: true },
   },
-  NEXT_S2C_AlchemyPanel: {
+  S2C_AlchemyPanel: {
     state: { type: 'SyncedAlchemyPanelState | null', optional: false },
     catalogVersion: { type: 'number', optional: false },
     catalog: { type: 'AlchemyRecipeCatalogEntry[]', optional: true },
     error: { type: 'string', optional: true },
   },
-  NEXT_S2C_EnhancementPanel: {
+  S2C_EnhancementPanel: {
     state: { type: 'SyncedEnhancementPanelState | null', optional: false },
     error: { type: 'string', optional: true },
   },
-  NEXT_S2C_MailDetail: {
+  S2C_MailDetail: {
     detail: { type: 'MailDetailView | null', optional: false },
     error: { type: 'string', optional: true },
   },
-  NEXT_S2C_AttrDetail: {
+  S2C_AttrDetail: {
     baseAttrs: { type: 'Attributes', optional: false },
     bonuses: { type: 'AttrBonus[]', optional: false },
     finalAttrs: { type: 'Attributes', optional: false },

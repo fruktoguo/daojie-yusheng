@@ -140,8 +140,8 @@ let WorldRuntimeTickDispatchService = class WorldRuntimeTickDispatchService {
  * @returns 无返回值，直接更新PendingCommand相关状态。
  */
 
-    dispatchPendingCommands(deps) {
-        deps.worldRuntimePendingCommandService.dispatchPendingCommands(deps);
+    async dispatchPendingCommands(deps) {
+        return deps.worldRuntimePendingCommandService.dispatchPendingCommands(deps);
     }    
     /**
  * dispatchPendingSystemCommands：判断待处理SystemCommand是否满足条件。
@@ -171,8 +171,8 @@ let WorldRuntimeTickDispatchService = class WorldRuntimeTickDispatchService {
  * @returns 无返回值，直接更新玩家Command相关状态。
  */
 
-    dispatchPlayerCommand(playerId, command, deps) {
-        deps.worldRuntimePlayerCommandService.dispatchPlayerCommand(playerId, command, deps);
+    async dispatchPlayerCommand(playerId, command, deps) {
+        return deps.worldRuntimePlayerCommandService.dispatchPlayerCommand(playerId, command, deps);
     }    
     /**
  * dispatchSystemCommand：判断SystemCommand是否满足条件。

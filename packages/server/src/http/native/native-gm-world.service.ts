@@ -6,6 +6,10 @@ import { RuntimeMapConfigService } from '../../runtime/map/runtime-map-config.se
 import { RuntimeGmStateService } from '../../runtime/gm/runtime-gm-state.service';
 import { SuggestionRuntimeService } from '../../runtime/suggestion/suggestion-runtime.service';
 import { WorldRuntimeService } from '../../runtime/world/world-runtime.service';
+import { DurableOperationService } from '../../persistence/durable-operation.service';
+import { OutboxDispatcherService } from '../../persistence/outbox-dispatcher.service';
+import { MapPersistenceFlushService } from '../../persistence/map-persistence-flush.service';
+import { PlayerPersistenceFlushService } from '../../persistence/player-persistence-flush.service';
 import {
   buildManualLineInstanceId,
   buildRuntimeInstancePresetMeta,
@@ -16,6 +20,7 @@ import { NativeGmMapQueryService } from './native-gm-map-query.service';
 import { NativeGmMapRuntimeQueryService } from './native-gm-map-runtime-query.service';
 import { NativeGmStateQueryService } from './native-gm-state-query.service';
 import { NativeGmSuggestionQueryService } from './native-gm-suggestion-query.service';
+import { NodeRegistryService } from '../../persistence/node-registry.service';
 /**
  * ContentTemplateRepositoryLike：定义接口结构约束，明确可交付字段含义。
  */
@@ -143,6 +148,7 @@ interface WorldRuntimeCommandIntakeFacadeLike {
 
 interface PlayerRuntimeQueryLike {
   getPlayer(playerId: string): { hp?: number } | null;
+  beginTransfer?(player: Record<string, unknown>, targetNodeId: string): void;
 }
 
 interface WorldRuntimeGmQueueLike {
@@ -151,6 +157,13 @@ interface WorldRuntimeGmQueueLike {
 }
 
 interface WorldRuntimeServiceLike {
+  getRuntimeSummary(): unknown;
+  getInstanceLeaseStatus(instanceId: string): Promise<unknown>;
+  freezeInstanceWriting(instanceId: string, reason?: string): void;
+  unfreezeInstanceWriting(instanceId: string): { ok: boolean; reason?: string };
+  rebuildPersistentInstance(instanceId: string): Promise<unknown>;
+  migrateInstanceToNode(instanceId: string, targetNodeId: string): Promise<{ ok: boolean; reason?: string }>;
+  migratePlayerToNode(playerId: string, targetNodeId: string): Promise<{ ok: boolean; reason?: string }>;
   listInstances(): Array<{
     instanceId: string;
     displayName?: string;
@@ -175,6 +188,45 @@ interface WorldRuntimeServiceLike {
   playerRuntimeService: PlayerRuntimeQueryLike;
   worldRuntimeGmQueueService: WorldRuntimeGmQueueLike;
   worldRuntimeCommandIntakeFacadeService: WorldRuntimeCommandIntakeFacadeLike;
+}
+
+interface NodeRegistryServiceLike {
+  isEnabled(): boolean;
+  getNodeId(): string;
+  listNodes(): Promise<Array<{
+    nodeId: string;
+    address: string;
+    port: number;
+    status: string;
+    heartbeatAt: string | null;
+    startedAt: string;
+    capacityWeight: number;
+  }>>;
+}
+
+interface OutboxDispatcherServiceLike {
+  listRetryQueue(input?: { limit?: number; topicPrefixes?: string[] }): Promise<Array<Record<string, unknown>>>;
+}
+
+interface DurableOperationServiceLike {
+  getOperationReplay(operationId: string): Promise<{
+    operation: Record<string, unknown> | null;
+    outboxEvents: Array<Record<string, unknown>>;
+    assetAuditLogs: Array<Record<string, unknown>>;
+  }>;
+}
+
+interface PlayerRuntimeServiceLike {
+  getPlayer(playerId: string): Record<string, unknown> | null;
+  beginTransfer?(player: Record<string, unknown>, targetNodeId: string): void;
+}
+
+interface PlayerPersistenceFlushServiceLike {
+  flushPlayer(playerId: string): Promise<void>;
+}
+
+interface MapPersistenceFlushServiceLike {
+  flushInstance(instanceId: string): Promise<void>;
 }
 /**
  * NativeGmWorldService：封装该能力的入口与生命周期，承载运行时核心协作。
@@ -203,6 +255,30 @@ export class NativeGmWorldService {
  */
 
   private worldObserverIds = new Set<string>();  
+  /**
+ * outboxDispatcherService：outbox dispatcher service 引用。
+ */
+
+  private outboxDispatcherService: OutboxDispatcherServiceLike;  
+  /**
+ * durableOperationService：强持久化事务服务引用。
+ */
+
+  private durableOperationService: DurableOperationServiceLike;
+  /**
+ * playerPersistenceFlushService：玩家刷盘服务引用。
+ */
+
+  /**
+* playerPersistenceFlushService：玩家刷盘服务引用。
+ */
+
+  private playerPersistenceFlushService: PlayerPersistenceFlushServiceLike;
+  /**
+ * mapPersistenceFlushService：地图刷盘服务引用。
+ */
+
+  private mapPersistenceFlushService: MapPersistenceFlushServiceLike;
   /**
  * 构造器：初始化 当前 实例并建立基础状态。
  * @param contentTemplateRepository ContentTemplateRepositoryLike 参数说明。
@@ -241,9 +317,24 @@ export class NativeGmWorldService {
     private readonly nextGmMapRuntimeQueryService: NativeGmMapRuntimeQueryServiceLike,
     @Inject(NativeGmSuggestionQueryService)
     private readonly nextGmSuggestionQueryService: NativeGmSuggestionQueryServiceLike,
+    @Inject(NodeRegistryService)
+    private readonly nodeRegistryService: NodeRegistryServiceLike,
+    @Inject(OutboxDispatcherService)
+    outboxDispatcherService: OutboxDispatcherServiceLike,
+    @Inject(DurableOperationService)
+    durableOperationService: DurableOperationServiceLike,
+    @Inject(PlayerPersistenceFlushService)
+    playerPersistenceFlushService: PlayerPersistenceFlushServiceLike,
+    @Inject(MapPersistenceFlushService)
+    mapPersistenceFlushService: MapPersistenceFlushServiceLike,
     @Inject(WorldRuntimeService)
     private readonly worldRuntimeService: WorldRuntimeServiceLike,
-  ) {}  
+  ) {
+    this.outboxDispatcherService = outboxDispatcherService;
+    this.durableOperationService = durableOperationService;
+    this.playerPersistenceFlushService = playerPersistenceFlushService;
+    this.mapPersistenceFlushService = mapPersistenceFlushService;
+  }
   /**
  * getState：读取状态。
  * @returns 无返回值，完成状态的读取/组装。
@@ -256,6 +347,128 @@ export class NativeGmWorldService {
       cpuPerfStartedAt: this.cpuPerfStartedAt,
       pathfindingPerfStartedAt: this.pathfindingPerfStartedAt,
     });
+  }
+  /**
+ * getRuntimeSummary：读取运行态摘要。
+ * @returns 无返回值，完成运行态摘要的读取/组装。
+ */
+
+  getRuntimeSummary() {
+    return this.worldRuntimeService.getRuntimeSummary();
+  }
+  /**
+ * getInstanceLeaseStatus：读取实例 lease / owner。
+ * @param instanceId 实例 ID。
+ * @returns 无返回值，完成实例 lease / owner 的读取/组装。
+ */
+
+  async getInstanceLeaseStatus(instanceId: string) {
+    return this.worldRuntimeService.getInstanceLeaseStatus(instanceId);
+  }
+  /**
+ * freezeInstanceWriting：冻结实例写入。
+ * @param instanceId 实例 ID。
+ * @returns 无返回值，完成实例写入冻结。
+ */
+
+  freezeInstanceWriting(instanceId: string) {
+    this.worldRuntimeService.freezeInstanceWriting(instanceId);
+  }
+  /**
+ * unfreezeInstanceWriting：解冻实例写入。
+ * @param instanceId 实例 ID。
+ * @returns 无返回值，完成实例写入解冻。
+ */
+
+  unfreezeInstanceWriting(instanceId: string) {
+    return this.worldRuntimeService.unfreezeInstanceWriting(instanceId);
+  }
+  /**
+ * flushPlayerPersistence：强制刷单玩家。
+ * @param playerId 玩家 ID。
+ * @returns 无返回值，完成单玩家刷盘。
+ */
+
+  async flushPlayerPersistence(playerId: string) {
+    await this.playerPersistenceFlushService.flushPlayer(playerId);
+    return { ok: true };
+  }
+  /**
+ * flushInstancePersistence：强制刷单实例。
+ * @param instanceId 实例 ID。
+ * @returns 无返回值，完成单实例刷盘。
+ */
+
+  async flushInstancePersistence(instanceId: string) {
+    await this.mapPersistenceFlushService.flushInstance(instanceId);
+    return { ok: true };
+  }
+  /**
+ * rebuildPersistentInstance：强制重建某实例。
+ * @param instanceId 实例 ID。
+ * @returns 无返回值，完成单实例重建。
+ */
+
+  async rebuildPersistentInstance(instanceId: string) {
+    return this.worldRuntimeService.rebuildPersistentInstance(instanceId);
+  }
+  /**
+ * migrateInstanceToNode：手动迁移实例到指定节点。
+ * @param instanceId 实例 ID。
+ * @param targetNodeId 目标节点 ID。
+ * @returns 无返回值，完成实例迁移准备。
+ */
+
+  async migrateInstanceToNode(instanceId: string, targetNodeId: string) {
+    return this.worldRuntimeService.migrateInstanceToNode(instanceId, targetNodeId);
+  }
+  /**
+ * migratePlayerToNode：手动迁移玩家到指定节点。
+ * @param playerId 玩家 ID。
+ * @param targetNodeId 目标节点 ID。
+ * @returns 无返回值，完成玩家迁移准备。
+ */
+
+  async migratePlayerToNode(playerId: string, targetNodeId: string) {
+    return this.worldRuntimeService.migratePlayerToNode(playerId, targetNodeId);
+  }
+  /**
+ * getNodeRegistryHealth：读取节点列表与健康状态。
+ * @returns 无返回值，完成节点列表与健康状态的读取/组装。
+ */
+
+  async getNodeRegistryHealth() {
+    const nodes = await this.nodeRegistryService.listNodes();
+    return {
+      enabled: this.nodeRegistryService.isEnabled(),
+      selfNodeId: this.nodeRegistryService.getNodeId(),
+      nodes,
+      nodeCount: nodes.length,
+      healthyNodeCount: nodes.filter((node) => node.status === 'running').length,
+      suspectNodeCount: nodes.filter((node) => node.status === 'suspect').length,
+      deadNodeCount: nodes.filter((node) => node.status === 'dead').length,
+    };
+  }
+  /**
+ * getOutboxRetryQueue：读取失败重试队列。
+ * @returns 无返回值，完成失败重试队列的读取/组装。
+ */
+
+  async getOutboxRetryQueue() {
+    const rows = await this.outboxDispatcherService.listRetryQueue();
+    return {
+      queued: rows.length,
+      rows,
+    };
+  }
+  /**
+ * replayOperation：重放单个 operation_id。
+ * @param operationId operation ID。
+ * @returns 无返回值，完成 operation replay 的读取/组装。
+ */
+
+  async replayOperation(operationId: string) {
+    return this.durableOperationService.getOperationReplay(operationId);
   }
   /**
  * getEditorCatalog：读取Editor目录。

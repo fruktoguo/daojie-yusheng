@@ -35,6 +35,16 @@ let WorldRuntimeTransferService = class WorldRuntimeTransferService {
         if (!source) {
             return;
         }
+        if (typeof deps.isInstanceLeaseWritable === 'function' && !deps.isInstanceLeaseWritable(source)) {
+            if (typeof deps.fenceInstanceRuntime === 'function') {
+                deps.fenceInstanceRuntime(source.meta.instanceId, 'transfer_lease_check_failed');
+            }
+            return;
+        }
+        const runtimePlayer = deps.playerRuntimeService?.getPlayer?.(transfer.playerId) ?? null;
+        if (runtimePlayer && typeof deps.playerRuntimeService?.beginTransfer === 'function') {
+            deps.playerRuntimeService.beginTransfer(runtimePlayer, transfer.targetMapId);
+        }
         (0, movement_debug_1.logServerNextMovement)(this.logger, 'runtime.transfer.apply', {
             playerId: transfer.playerId,
             sessionId: transfer.sessionId,
@@ -45,7 +55,6 @@ let WorldRuntimeTransferService = class WorldRuntimeTransferService {
             reason: transfer.reason,
         });
         source.disconnectPlayer(transfer.playerId);
-        const runtimePlayer = deps.playerRuntimeService.getPlayer(transfer.playerId);
         const linePreset = runtimePlayer?.worldPreference?.linePreset === 'real' ? 'real' : 'peaceful';
         const target = typeof deps.getOrCreateDefaultLineInstance === 'function'
             ? deps.getOrCreateDefaultLineInstance(transfer.targetMapId, linePreset)
@@ -66,6 +75,9 @@ let WorldRuntimeTransferService = class WorldRuntimeTransferService {
             : null;
         if (view && typeof deps.playerRuntimeService.syncFromWorldView === 'function') {
             deps.playerRuntimeService.syncFromWorldView(transfer.playerId, transfer.sessionId, view);
+        }
+        if (runtimePlayer && typeof deps.playerRuntimeService?.completeTransfer === 'function') {
+            deps.playerRuntimeService.completeTransfer(runtimePlayer);
         }
         deps.worldRuntimeNavigationService.handleTransfer(transfer, deps);
     }

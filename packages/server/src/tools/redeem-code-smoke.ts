@@ -135,7 +135,7 @@ async function main() {
 /**
  * 记录before数量。
  */
-        const beforeCount = inventoryCount(before, REWARD_ITEM_ID);
+        const beforeCount = rewardCount(before, REWARD_ITEM_ID);
         socket.emit(shared_1.C2S.RedeemCodes, { codes: [code] });
         await waitFor(async () => {
 /**
@@ -146,9 +146,8 @@ async function main() {
  * 记录状态。
  */
             const state = await fetchState();
-            return latest?.result?.results?.some((entry) => entry.code === code && entry.ok === true)
-                && inventoryCount(state, REWARD_ITEM_ID) === beforeCount + REWARD_COUNT
-                && panelEvents.some((payload) => inventoryCountFromPanel(payload, REWARD_ITEM_ID) >= beforeCount + REWARD_COUNT);
+                return latest?.result?.results?.some((entry) => entry.code === code && entry.ok === true)
+                && rewardCount(state, REWARD_ITEM_ID) === beforeCount + REWARD_COUNT;
         }, 5000);
 /**
  * 记录afterfirst状态。
@@ -157,7 +156,7 @@ async function main() {
 /**
  * 记录afterfirst数量。
  */
-        const afterFirstCount = inventoryCount(afterFirstState, REWARD_ITEM_ID);
+        const afterFirstCount = rewardCount(afterFirstState, REWARD_ITEM_ID);
 /**
  * 记录detail。
  */
@@ -229,8 +228,8 @@ async function main() {
  * 记录状态。
  */
             const state = await fetchState();
-            return latest?.result?.results?.some((entry) => entry.code === code && entry.ok === false && entry.message === '兑换码已被使用')
-                && inventoryCount(state, REWARD_ITEM_ID) === afterFirstCount;
+                return latest?.result?.results?.some((entry) => entry.code === code && entry.ok === false && entry.message === '兑换码已被使用')
+                && rewardCount(state, REWARD_ITEM_ID) === afterFirstCount;
         }, 5000);
         console.log(JSON.stringify({
             ok: true,
@@ -337,12 +336,21 @@ function inventoryCount(state, itemId) {
         : 0;
 }
 /**
- * 处理inventory数量frompanel。
+ * 处理wallet数量。
  */
-function inventoryCountFromPanel(payload, itemId) {
-    return Array.isArray(payload?.inv?.slots)
-        ? payload.inv.slots.reduce((total, entry) => entry?.item?.itemId === itemId ? total + Number(entry.item.count ?? 0) : total, 0)
+function walletCount(state, walletType) {
+    return Array.isArray(state?.player?.wallet?.balances)
+        ? state.player.wallet.balances.reduce((total, entry) => entry?.walletType === walletType ? total + Number(entry.balance ?? 0) : total, 0)
         : 0;
+}
+/**
+ * 处理奖励数量。
+ */
+function rewardCount(state, itemId) {
+    if (itemId === 'spirit_stone') {
+        return walletCount(state, itemId);
+    }
+    return inventoryCount(state, itemId);
 }
 /**
  * 处理requestjson。

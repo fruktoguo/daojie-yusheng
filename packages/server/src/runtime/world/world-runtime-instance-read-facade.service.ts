@@ -137,6 +137,20 @@ let WorldRuntimeInstanceReadFacadeService = class WorldRuntimeInstanceReadFacade
             supportsPvp: presetMeta.supportsPvp,
             canDamageTile: presetMeta.canDamageTile,
             defaultEntry: presetMeta.defaultEntry,
+            ownerPlayerId: input.ownerPlayerId,
+            ownerSectId: input.ownerSectId,
+            partyId: input.partyId,
+            status: input.status,
+            runtimeStatus: input.runtimeStatus,
+            assignedNodeId: input.assignedNodeId,
+            leaseToken: input.leaseToken,
+            leaseExpireAt: input.leaseExpireAt,
+            ownershipEpoch: input.ownershipEpoch,
+            clusterId: input.clusterId,
+            shardKey: input.shardKey,
+            routeDomain: input.routeDomain,
+            lastActiveAt: input.lastActiveAt,
+            lastPersistedAt: input.lastPersistedAt,
         });
         deps.setInstanceRuntime(input.instanceId, instance);
         deps.worldRuntimeTickProgressService.initializeInstance(input.instanceId);

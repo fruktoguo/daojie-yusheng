@@ -83,7 +83,7 @@ let WorldRuntimePlayerSkillDispatchService = class WorldRuntimePlayerSkillDispat
  * @returns 无返回值，直接更新Cast技能相关状态。
  */
 
-    dispatchCastSkill(playerId, skillId, targetPlayerId, targetMonsterId, targetRef = null, deps) {
+    async dispatchCastSkill(playerId, skillId, targetPlayerId, targetMonsterId, targetRef = null, deps) {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
         const attacker = this.playerRuntimeService.getPlayerOrThrow(playerId);
@@ -104,19 +104,15 @@ let WorldRuntimePlayerSkillDispatchService = class WorldRuntimePlayerSkillDispat
                 throw new common_1.BadRequestException('没有可命中的目标');
             }
             if (resolvedTarget.kind === 'monster') {
-                this.dispatchCastSkillToMonster(attacker, skillId, resolvedTarget.monsterId, deps);
-                return;
+                return this.dispatchCastSkillToMonster(attacker, skillId, resolvedTarget.monsterId, deps);
             }
             if (resolvedTarget.kind === 'tile') {
-                this.dispatchCastSkillToTile(attacker, skillId, resolvedTarget.x, resolvedTarget.y, deps);
-                return;
+                return this.dispatchCastSkillToTile(attacker, skillId, resolvedTarget.x, resolvedTarget.y, deps);
             }
-            this.dispatchCastSkill(playerId, skillId, resolvedTarget.playerId, null, null, deps);
-            return;
+            return this.dispatchCastSkill(playerId, skillId, resolvedTarget.playerId, null, null, deps);
         }
         if (targetMonsterId) {
-            this.dispatchCastSkillToMonster(attacker, skillId, targetMonsterId, deps);
-            return;
+            return this.dispatchCastSkillToMonster(attacker, skillId, targetMonsterId, deps);
         }
         if (!targetPlayerId) {
             throw new common_1.BadRequestException('targetPlayerId or targetMonsterId is required');
@@ -142,7 +138,7 @@ let WorldRuntimePlayerSkillDispatchService = class WorldRuntimePlayerSkillDispat
         this.playerRuntimeService.recordActivity(target.playerId, currentTick, { interruptCultivation: true });
         const updatedTarget = this.playerRuntimeService.getPlayer(target.playerId);
         if (updatedTarget && updatedTarget.hp <= 0) {
-            deps.handlePlayerDefeat(updatedTarget.playerId, attacker.playerId);
+            await deps.handlePlayerDefeat(updatedTarget.playerId, attacker.playerId);
         }
     }    
     /**
@@ -262,7 +258,7 @@ let WorldRuntimePlayerSkillDispatchService = class WorldRuntimePlayerSkillDispat
  * @returns 无返回值，直接更新Cast技能To怪物相关状态。
  */
 
-    dispatchCastSkillToMonster(attacker, skillId, targetMonsterId, deps) {
+    async dispatchCastSkillToMonster(attacker, skillId, targetMonsterId, deps) {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
         const instance = deps.getInstanceRuntimeOrThrow(attacker.instanceId);
@@ -303,7 +299,7 @@ let WorldRuntimePlayerSkillDispatchService = class WorldRuntimePlayerSkillDispat
         if (!outcome?.defeated) {
             return;
         }
-        deps.handlePlayerMonsterKill(instance, outcome.monster, attacker.playerId);
+        await deps.handlePlayerMonsterKill(instance, outcome.monster, attacker.playerId);
     }    
     /**
  * dispatchCastSkillToTile：判断Cast技能ToTile是否满足条件。

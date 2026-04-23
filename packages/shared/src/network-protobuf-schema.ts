@@ -1,5 +1,5 @@
 /**
- * Protobuf schema 常量层：只负责声明 next 高频同步包的 message 结构与 lookup 结果。
+ * Protobuf schema 常量层：只负责声明 主线高频同步包的 message 结构与 lookup 结果。
  */
 import protobuf from 'protobufjs';
 
@@ -326,8 +326,8 @@ export const actionsPayloadType = root.lookupType('ActionsUpdatePayload');
 /** 属性面板增量包的 protobuf 类型。 */
 export const attrPayloadType = root.lookupType('AttrUpdatePayload');
 
-/** 走 protobuf 二进制编码的 S2C 事件集合；当前 next 主链未启用独立 protobuf 事件。 */
-export const PROTOBUF_NEXT_S2C_EVENTS = new Set<string>();
+/** 走 protobuf 二进制编码的 S2C 事件集合；当前主线未启用独立 protobuf 事件。 */
+export const PROTOBUF_S2C_EVENTS = new Set<string>();
 
 /** 走 protobuf 二进制编码的 C2S 事件集合；如重新引入需同步更新 shared/server 校验脚本。 */
-export const PROTOBUF_NEXT_C2S_EVENTS = new Set<string>();
+export const PROTOBUF_C2S_EVENTS = new Set<string>();

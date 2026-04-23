@@ -20,7 +20,7 @@ interface RuntimeMapConfigPort {
 }
 
 interface WorldRuntimePort {
-  advanceFrame(frameDurationMs: number, getMapTickSpeed: (mapId: string) => number): void;
+  advanceFrame(frameDurationMs: number, getMapTickSpeed: (mapId: string) => number): Promise<unknown> | unknown;
   recordSyncFlushDuration(durationMs: number): void;
 }
 
@@ -32,6 +32,7 @@ interface WorldSyncPort {
 export class WorldTickService implements OnModuleInit, OnModuleDestroy {
   private readonly logger = new Logger(WorldTickService.name);
   private timer: ReturnType<typeof setInterval> | null = null;
+  private tickInFlight = false;
 
   constructor(
     @Inject(RuntimeGmStateService)
@@ -50,28 +51,40 @@ export class WorldTickService implements OnModuleInit, OnModuleDestroy {
     return this.mapRuntimeConfigService.getMapTickSpeed(mapId);
   }
 
+  private async runTickOnce(): Promise<void> {
+    if (this.tickInFlight) {
+      return;
+    }
+
+    this.tickInFlight = true;
+
+    try {
+      if (this.runtimeMaintenanceService.isRuntimeMaintenanceActive()) {
+        return;
+      }
+
+      await this.worldRuntimeService.advanceFrame(
+        gameplayConstants.WORLD_TICK_INTERVAL_MS,
+        (mapId: string) => this.getMapTickSpeed(mapId),
+      );
+
+      const syncStartedAt = performance.now();
+      this.worldSyncService.flushConnectedPlayers();
+      this.worldRuntimeService.recordSyncFlushDuration(performance.now() - syncStartedAt);
+      this.runtimeGmStateService.flushQueuedStatePushes();
+    } catch (error: unknown) {
+      this.logger.error(
+        '世界 Tick 执行失败',
+        error instanceof Error ? error.stack : String(error),
+      );
+    } finally {
+      this.tickInFlight = false;
+    }
+  }
+
   onModuleInit(): void {
     this.timer = setInterval(() => {
-      try {
-        if (this.runtimeMaintenanceService.isRuntimeMaintenanceActive()) {
-          return;
-        }
-
-        this.worldRuntimeService.advanceFrame(
-          gameplayConstants.WORLD_TICK_INTERVAL_MS,
-          (mapId: string) => this.getMapTickSpeed(mapId),
-        );
-
-        const syncStartedAt = performance.now();
-        this.worldSyncService.flushConnectedPlayers();
-        this.worldRuntimeService.recordSyncFlushDuration(performance.now() - syncStartedAt);
-        this.runtimeGmStateService.flushQueuedStatePushes();
-      } catch (error: unknown) {
-        this.logger.error(
-          '世界 Tick 执行失败',
-          error instanceof Error ? error.stack : String(error),
-        );
-      }
+      void this.runTickOnce();
     }, gameplayConstants.WORLD_TICK_INTERVAL_MS);
 
     this.timer.unref();

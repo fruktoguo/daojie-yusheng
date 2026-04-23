@@ -29,7 +29,11 @@ const market_1 = require("../../constants/gameplay/market");
 
 const market_persistence_service_1 = require("../../persistence/market-persistence.service");
 
+const durable_operation_service_1 = require("../../persistence/durable-operation.service");
+
 const player_runtime_service_1 = require("../player/player-runtime.service");
+
+const instance_catalog_service_1 = require("../../persistence/instance-catalog.service");
 
 /** 坊市运行时：维护挂单、成交、仓库与交易历史。 */
 let MarketRuntimeService = MarketRuntimeService_1 = class MarketRuntimeService {
@@ -48,6 +52,16 @@ let MarketRuntimeService = MarketRuntimeService_1 = class MarketRuntimeService {
  */
 
     marketPersistenceService;
+    /**
+ * durableOperationService：强事务Persistence服务引用。
+ */
+
+    durableOperationService;
+    /**
+ * instanceCatalogService：实例目录持久化服务引用。
+ */
+
+    instanceCatalogService;
     /** 运行时日志器，记录加载、撮合与持久化异常。 */
     logger = new common_1.Logger(MarketRuntimeService_1.name);
     /** 当前仍然有效的求购/出售挂单。 */
@@ -59,14 +73,36 @@ let MarketRuntimeService = MarketRuntimeService_1 = class MarketRuntimeService {
     /** 串行化坊市写操作，避免并发修改同一份内存状态。 */
     marketOperationQueue = Promise.resolve();
     /** 注入内容、玩家与坊市持久化服务。 */
-    constructor(contentTemplateRepository, playerRuntimeService, marketPersistenceService) {
+    constructor(contentTemplateRepository, playerRuntimeService, marketPersistenceService, durableOperationService, instanceCatalogService) {
         this.contentTemplateRepository = contentTemplateRepository;
         this.playerRuntimeService = playerRuntimeService;
         this.marketPersistenceService = marketPersistenceService;
+        this.durableOperationService = durableOperationService;
+        this.instanceCatalogService = instanceCatalogService;
     }
     /** 应用完成启动后再回填坊市快照，避免早于持久化服务初始化导致空装载。 */
     async onApplicationBootstrap() {
         await this.reloadFromPersistence();
+    }
+    async resolveInstanceLeaseContext(instanceId) {
+        const normalizedInstanceId = typeof instanceId === 'string' && instanceId.trim() ? instanceId.trim() : '';
+        if (!normalizedInstanceId || !this.instanceCatalogService?.isEnabled?.()) {
+            return null;
+        }
+        const catalog = await this.instanceCatalogService.loadInstanceCatalog(normalizedInstanceId);
+        if (!catalog) {
+            return null;
+        }
+        const assignedNodeId = typeof catalog.assigned_node_id === 'string' && catalog.assigned_node_id.trim()
+            ? catalog.assigned_node_id.trim()
+            : null;
+        const ownershipEpoch = Number.isFinite(Number(catalog.ownership_epoch))
+            ? Math.max(0, Math.trunc(Number(catalog.ownership_epoch)))
+            : null;
+        if (!assignedNodeId || ownershipEpoch == null) {
+            return null;
+        }
+        return { assignedNodeId, ownershipEpoch };
     }
     /** 重新加载坊市快照，通常用于启动或 GM 恢复后重建内存态。 */
     async reloadFromPersistence() {
@@ -231,7 +267,7 @@ let MarketRuntimeService = MarketRuntimeService_1 = class MarketRuntimeService {
 
                 const tradePrice = buyOrder.unitPrice;
                 this.deliverItemToPlayer(buyOrder.ownerId, { ...orderItem, count: tradeQuantity }, context);
-                this.deliverItemToPlayer(playerId, this.createCurrencyItem(match.totalCost), context);
+                this.playerRuntimeService.creditWallet(playerId, market_1.MARKET_CURRENCY_ITEM_ID, match.totalCost);
                 this.recordTrade({
                     buyerId: buyOrder.ownerId,
                     sellerId: playerId,
@@ -308,11 +344,11 @@ let MarketRuntimeService = MarketRuntimeService_1 = class MarketRuntimeService {
             if (totalCost === null) {
                 return this.singleMessage(playerId, this.buildTradeQuantityError(unitPrice));
             }
-            if (this.playerRuntimeService.getInventoryCountByItemId(playerId, market_1.MARKET_CURRENCY_ITEM_ID) < totalCost) {
+            if (!this.playerRuntimeService.canAffordWallet(playerId, market_1.MARKET_CURRENCY_ITEM_ID, totalCost)) {
                 return this.singleMessage(playerId, `${this.getCurrencyItemName()}不足，无法挂出求购。`);
             }
             this.captureOnlinePlayerState(playerId, context);
-            this.playerRuntimeService.consumeInventoryItemByItemId(playerId, market_1.MARKET_CURRENCY_ITEM_ID, totalCost);
+            this.playerRuntimeService.debitWallet(playerId, market_1.MARKET_CURRENCY_ITEM_ID, totalCost);
 
             const result = this.createEmptyResult(playerId);
 
@@ -327,7 +363,7 @@ let MarketRuntimeService = MarketRuntimeService_1 = class MarketRuntimeService {
 
                 const tradePrice = sellOrder.unitPrice;
                 this.deliverItemToPlayer(playerId, { ...orderItem, count: tradeQuantity }, context);
-                this.deliverItemToPlayer(sellOrder.ownerId, this.createCurrencyItem(match.totalCost), context);
+                this.playerRuntimeService.creditWallet(sellOrder.ownerId, market_1.MARKET_CURRENCY_ITEM_ID, match.totalCost);
                 this.recordTrade({
                     buyerId: playerId,
                     sellerId: sellOrder.ownerId,
@@ -340,7 +376,7 @@ let MarketRuntimeService = MarketRuntimeService_1 = class MarketRuntimeService {
 
                 const refund = Math.max(0, reservedCost - match.totalCost);
                 if (refund > 0) {
-                    this.deliverItemToPlayer(playerId, this.createCurrencyItem(refund), context);
+                    this.playerRuntimeService.creditWallet(playerId, market_1.MARKET_CURRENCY_ITEM_ID, refund);
                 }
                 sellOrder.remainingQuantity -= tradeQuantity;
                 sellOrder.updatedAt = Date.now();
@@ -381,13 +417,13 @@ let MarketRuntimeService = MarketRuntimeService_1 = class MarketRuntimeService {
     /** 立即按当前市场挂单买入指定物品。 */
     async buyNow(playerId, payload) {
         return this.runExclusiveMarketMutation(playerId, async (context) => {
-
             const quantity = this.normalizeQuantity(payload.quantity);
             if (!quantity) {
                 return this.singleMessage(playerId, '买入数量无效。');
             }
 
-            const sells = this.getSortedOrders(String(payload.itemKey ?? '').trim(), 'sell').filter((order) => order.ownerId !== playerId);
+            const itemKey = String(payload.itemKey ?? '').trim();
+            const sells = this.getSortedOrders(itemKey, 'sell').filter((order) => order.ownerId !== playerId);
             if (sells.length === 0) {
                 return this.singleMessage(playerId, '当前没有可买入的挂售。');
             }
@@ -398,20 +434,114 @@ let MarketRuntimeService = MarketRuntimeService_1 = class MarketRuntimeService {
             }
 
             const totalCost = plan.totalCost;
-            if (this.playerRuntimeService.getInventoryCountByItemId(playerId, market_1.MARKET_CURRENCY_ITEM_ID) < totalCost) {
+            if (!this.playerRuntimeService.canAffordWallet(playerId, market_1.MARKET_CURRENCY_ITEM_ID, totalCost)) {
                 return this.singleMessage(playerId, `${this.getCurrencyItemName()}不足，无法完成买入。`);
             }
+
+            const buyerSnapshot = this.playerRuntimeService.snapshot(playerId);
+            const durableOperationService = this.durableOperationService;
+            const canUseDurableBuyNow = Boolean(durableOperationService?.isEnabled?.() && buyerSnapshot?.runtimeOwnerId && Number.isFinite(buyerSnapshot?.sessionEpoch) && buyerSnapshot?.sessionEpoch > 0);
+            const matchedSellerPlans = [];
+            if (canUseDurableBuyNow) {
+                for (const match of plan.matches) {
+                    const sellOrder = match.order;
+                    const sellerSnapshot = this.playerRuntimeService.snapshot(sellOrder.ownerId);
+                    if (!sellerSnapshot?.inventory || !sellerSnapshot?.wallet) {
+                        matchedSellerPlans.length = 0;
+                        break;
+                    }
+                    const nextSellerInventoryItems = applyMarketBuyNowToSellerInventory(sellerSnapshot.inventory.items ?? [], sellOrder.item, match.quantity);
+                    const nextSellerWalletBalances = applyMarketSellNowToWalletBalances(sellerSnapshot.wallet.balances ?? [], market_1.MARKET_CURRENCY_ITEM_ID, match.totalCost);
+                    if (!nextSellerInventoryItems || !nextSellerWalletBalances) {
+                        matchedSellerPlans.length = 0;
+                        break;
+                    }
+                    matchedSellerPlans.push({
+                        sellerId: sellOrder.ownerId,
+                        tradeQuantity: match.quantity,
+                        totalCost: match.totalCost,
+                        nextSellerInventoryItems,
+                        nextSellerWalletBalances,
+                    });
+                }
+            }
+
             this.captureOnlinePlayerState(playerId, context);
-            this.playerRuntimeService.consumeInventoryItemByItemId(playerId, market_1.MARKET_CURRENCY_ITEM_ID, totalCost);
+            this.playerRuntimeService.debitWallet(playerId, market_1.MARKET_CURRENCY_ITEM_ID, totalCost);
 
             const result = this.createEmptyResult(playerId);
-
             const item = { ...sells[0].item };
+            if (canUseDurableBuyNow && matchedSellerPlans.length === plan.matches.length && buyerSnapshot) {
+                const buyerRuntimeOwnerId = typeof buyerSnapshot.runtimeOwnerId === 'string' && buyerSnapshot.runtimeOwnerId.trim()
+                    ? buyerSnapshot.runtimeOwnerId.trim()
+                    : '';
+                const buyerSessionEpoch = Number.isFinite(buyerSnapshot.sessionEpoch)
+                    ? Math.max(1, Math.trunc(Number(buyerSnapshot.sessionEpoch)))
+                    : 0;
+                if (buyerRuntimeOwnerId && buyerSessionEpoch > 0) {
+                    const instanceLease = await this.resolveInstanceLeaseContext(buyerSnapshot.instanceId ?? null);
+                    const nextBuyerInventoryItems = applyMarketSellNowToInventory(buyerSnapshot.inventory.items ?? [], item, quantity);
+                    const nextBuyerWalletBalances = applyMarketBuyNowToBuyerWalletBalances(buyerSnapshot.wallet?.balances ?? [], market_1.MARKET_CURRENCY_ITEM_ID, totalCost);
+                    if (nextBuyerInventoryItems && nextBuyerWalletBalances) {
+                        const operationId = `market-buy-now:${playerId}:${Date.now()}:${(0, crypto_1.randomUUID)()}`;
+                        const durableResult = await durableOperationService.settleMarketBuyNow({
+                            operationId,
+                            buyerId: playerId,
+                            expectedRuntimeOwnerId: buyerRuntimeOwnerId,
+                            expectedSessionEpoch: buyerSessionEpoch,
+                            expectedInstanceId: buyerSnapshot.instanceId ?? null,
+                            expectedAssignedNodeId: instanceLease?.assignedNodeId ?? null,
+                            expectedOwnershipEpoch: instanceLease?.ownershipEpoch ?? null,
+                            itemId: item.itemId,
+                            itemName: item.name ?? item.itemId,
+                            quantity,
+                            totalCost,
+                            nextBuyerInventoryItems,
+                            nextBuyerWalletBalances,
+                            matches: matchedSellerPlans.map((entry) => ({ ...entry })),
+                        });
+                        if (durableResult?.ok) {
+                            this.playerRuntimeService.replaceInventoryItems(playerId, nextBuyerInventoryItems);
+                            for (let index = 0; index < plan.matches.length; index += 1) {
+                                const match = plan.matches[index];
+                                const sellerPlan = matchedSellerPlans[index];
+                                const sellOrder = match.order;
+                                const tradeQuantity = match.quantity;
+                                if (sellerPlan) {
+                                    this.playerRuntimeService.replaceInventoryItems(sellOrder.ownerId, sellerPlan.nextSellerInventoryItems);
+                                    this.playerRuntimeService.creditWallet(sellOrder.ownerId, market_1.MARKET_CURRENCY_ITEM_ID, sellerPlan.totalCost);
+                                }
+                                this.recordTrade({
+                                    buyerId: playerId,
+                                    sellerId: sellOrder.ownerId,
+                                    itemId: item.itemId,
+                                    quantity: tradeQuantity,
+                                    unitPrice: sellOrder.unitPrice,
+                                }, context);
+                                sellOrder.remainingQuantity -= tradeQuantity;
+                                sellOrder.updatedAt = Date.now();
+                                this.markOrderDirty(sellOrder.id, context);
+                                this.touchAffectedPlayer(result, sellOrder.ownerId);
+                                this.pushNotice(result, sellOrder.ownerId, `你的挂售已成交：${item.name} x${tradeQuantity}。`, 'loot');
+                                if (sellOrder.remainingQuantity <= 0) {
+                                    sellOrder.status = 'filled';
+                                    this.deleteOrder(sellOrder.id, context);
+                                }
+                            }
+                            context.skipPersistence = true;
+                            this.pushNotice(result, playerId, `你买入了 ${item.name} x${quantity}，共花费 ${this.getCurrencyItemName()} x${totalCost}。`, 'loot');
+                            this.compactOpenOrders();
+                            return result;
+                        }
+                    }
+                }
+            }
+
             for (const match of plan.matches) {
                 const sellOrder = match.order;
                 const tradeQuantity = match.quantity;
                 this.deliverItemToPlayer(playerId, { ...item, count: tradeQuantity }, context);
-                this.deliverItemToPlayer(sellOrder.ownerId, this.createCurrencyItem(match.totalCost), context);
+                this.playerRuntimeService.creditWallet(sellOrder.ownerId, market_1.MARKET_CURRENCY_ITEM_ID, match.totalCost);
                 this.recordTrade({
                     buyerId: playerId,
                     sellerId: sellOrder.ownerId,
@@ -429,6 +559,7 @@ let MarketRuntimeService = MarketRuntimeService_1 = class MarketRuntimeService {
                     this.deleteOrder(sellOrder.id, context);
                 }
             }
+            this.playerRuntimeService.debitWallet(playerId, market_1.MARKET_CURRENCY_ITEM_ID, totalCost);
             this.pushNotice(result, playerId, `你买入了 ${item.name} x${quantity}，共花费 ${this.getCurrencyItemName()} x${totalCost}。`, 'loot');
             this.compactOpenOrders();
             return result;
@@ -465,17 +596,100 @@ let MarketRuntimeService = MarketRuntimeService_1 = class MarketRuntimeService {
             if (plan.fulfilledQuantity < quantity) {
                 return this.singleMessage(playerId, `当前求购盘最多只能接下 ${plan.fulfilledQuantity} 件。`);
             }
+
+            const sellerSnapshot = this.playerRuntimeService.snapshot(playerId);
+            const durableOperationService = this.durableOperationService;
+            const canUseDurableSellNow = Boolean(durableOperationService?.isEnabled?.() && sellerSnapshot?.runtimeOwnerId && Number.isFinite(sellerSnapshot?.sessionEpoch) && sellerSnapshot?.sessionEpoch > 0);
+            const matchedBuyerPlans = [];
+            if (canUseDurableSellNow) {
+                for (const match of plan.matches) {
+                    const buyOrder = match.order;
+                    const buyerSnapshot = this.playerRuntimeService.snapshot(buyOrder.ownerId);
+                    if (!buyerSnapshot?.inventory) {
+                        matchedBuyerPlans.length = 0;
+                        break;
+                    }
+                    matchedBuyerPlans.push({
+                        buyerId: buyOrder.ownerId,
+                        tradeQuantity: match.quantity,
+                        totalCost: match.totalCost,
+                        nextBuyerInventoryItems: applyMarketSellNowToInventory(buyerSnapshot.inventory.items ?? [], orderItem, match.quantity),
+                    });
+                }
+            }
+
             this.captureOnlinePlayerState(playerId, context);
             this.playerRuntimeService.splitInventoryItem(playerId, payload.slotIndex, quantity);
 
             const result = this.createEmptyResult(playerId);
 
             const totalIncome = plan.totalCost;
+            if (canUseDurableSellNow && matchedBuyerPlans.length === plan.matches.length && sellerSnapshot) {
+                const sellerRuntimeOwnerId = typeof sellerSnapshot.runtimeOwnerId === 'string' && sellerSnapshot.runtimeOwnerId.trim()
+                    ? sellerSnapshot.runtimeOwnerId.trim()
+                    : '';
+                const sellerSessionEpoch = Number.isFinite(sellerSnapshot.sessionEpoch)
+                    ? Math.max(1, Math.trunc(Number(sellerSnapshot.sessionEpoch)))
+                    : 0;
+                if (sellerRuntimeOwnerId && sellerSessionEpoch > 0) {
+                    const instanceLease = await this.resolveInstanceLeaseContext(sellerSnapshot.instanceId ?? null);
+                    const nextSellerInventoryItems = cloneInventoryItems(this.playerRuntimeService.getPlayerOrThrow(playerId).inventory.items ?? []);
+                    const nextSellerWalletBalances = applyMarketSellNowToWalletBalances(sellerSnapshot.wallet?.balances ?? [], market_1.MARKET_CURRENCY_ITEM_ID, totalIncome);
+                    if (nextSellerInventoryItems && nextSellerWalletBalances) {
+                        const operationId = `market-sell-now:${playerId}:${Date.now()}:${(0, crypto_1.randomUUID)()}`;
+                        const durableResult = await durableOperationService.settleMarketSellNow({
+                            operationId,
+                            sellerId: playerId,
+                            expectedRuntimeOwnerId: sellerRuntimeOwnerId,
+                            expectedSessionEpoch: sellerSessionEpoch,
+                            expectedInstanceId: sellerSnapshot.instanceId ?? null,
+                            expectedAssignedNodeId: instanceLease?.assignedNodeId ?? null,
+                            expectedOwnershipEpoch: instanceLease?.ownershipEpoch ?? null,
+                            itemId: orderItem.itemId,
+                            itemName: orderItem.name ?? item.name ?? orderItem.itemId,
+                            quantity,
+                            totalIncome,
+                            nextSellerInventoryItems,
+                            nextSellerWalletBalances,
+                            matches: matchedBuyerPlans,
+                        });
+                        if (durableResult?.ok) {
+                            this.playerRuntimeService.creditWallet(playerId, market_1.MARKET_CURRENCY_ITEM_ID, totalIncome);
+                            for (const match of plan.matches) {
+                                const buyOrder = match.order;
+                                const tradeQuantity = match.quantity;
+                                this.deliverItemToPlayer(buyOrder.ownerId, { ...orderItem, count: tradeQuantity }, context);
+                                this.recordTrade({
+                                    buyerId: buyOrder.ownerId,
+                                    sellerId: playerId,
+                                    itemId: orderItem.itemId,
+                                    quantity: tradeQuantity,
+                                    unitPrice: buyOrder.unitPrice,
+                                }, context);
+                                buyOrder.remainingQuantity -= tradeQuantity;
+                                buyOrder.updatedAt = Date.now();
+                                this.markOrderDirty(buyOrder.id, context);
+                                this.touchAffectedPlayer(result, buyOrder.ownerId);
+                                this.pushNotice(result, buyOrder.ownerId, `你的求购已成交：${orderItem.name} x${tradeQuantity}。`, 'loot');
+                                if (buyOrder.remainingQuantity <= 0) {
+                                    buyOrder.status = 'filled';
+                                    this.deleteOrder(buyOrder.id, context);
+                                }
+                            }
+                            context.skipPersistence = true;
+                            this.pushNotice(result, playerId, `你卖出了 ${orderItem.name} x${quantity}，共入账 ${this.getCurrencyItemName()} x${totalIncome}。`, 'loot');
+                            this.compactOpenOrders();
+                            return result;
+                        }
+                    }
+                }
+            }
+
             for (const match of plan.matches) {
                 const buyOrder = match.order;
                 const tradeQuantity = match.quantity;
                 this.deliverItemToPlayer(buyOrder.ownerId, { ...orderItem, count: tradeQuantity }, context);
-                this.deliverItemToPlayer(playerId, this.createCurrencyItem(match.totalCost), context);
+                this.playerRuntimeService.creditWallet(playerId, market_1.MARKET_CURRENCY_ITEM_ID, match.totalCost);
                 this.recordTrade({
                     buyerId: buyOrder.ownerId,
                     sellerId: playerId,
@@ -500,6 +714,46 @@ let MarketRuntimeService = MarketRuntimeService_1 = class MarketRuntimeService {
     }
     /** 取消玩家自己的挂单。 */
     async cancelOrder(playerId, payload) {
+        if (this.durableOperationService?.isEnabled()) {
+            const orderId = String(payload.orderId ?? '').trim();
+            const order = this.openOrders.find((entry) => entry.id === orderId && entry.ownerId === playerId);
+            if (!order) {
+                return this.singleMessage(playerId, '未找到可取消的订单。');
+            }
+            const playerSnapshot = this.playerRuntimeService.snapshot(playerId);
+            if (playerSnapshot?.runtimeOwnerId && Number.isFinite(playerSnapshot.sessionEpoch) && playerSnapshot.sessionEpoch > 0) {
+                const operationId = `market-cancel-order:${playerId}:${Date.now()}:${(0, crypto_1.randomUUID)()}`;
+                const nextInventoryItems = order.side === 'sell'
+                    ? applyMarketSellNowToInventory(playerSnapshot.inventory.items ?? [], { ...order.item, count: order.remainingQuantity }, order.remainingQuantity)
+                    : cloneInventoryItems(playerSnapshot.inventory.items ?? []);
+                const nextWalletBalances = order.side === 'buy'
+                    ? applyMarketSellNowToWalletBalances(playerSnapshot.wallet?.balances ?? [], market_1.MARKET_CURRENCY_ITEM_ID, (0, shared_1.calculateMarketTradeTotalCost)(order.remainingQuantity, order.unitPrice))
+                    : cloneWalletBalances(playerSnapshot.wallet?.balances ?? []);
+                if (nextInventoryItems && nextWalletBalances) {
+                    const instanceLease = await this.resolveInstanceLeaseContext(playerSnapshot.instanceId ?? null);
+                    const durableResult = await this.durableOperationService.settleMarketCancelOrder({
+                        operationId,
+                        playerId,
+                        expectedRuntimeOwnerId: String(playerSnapshot.runtimeOwnerId),
+                        expectedSessionEpoch: Math.max(1, Math.trunc(Number(playerSnapshot.sessionEpoch))),
+                        expectedInstanceId: playerSnapshot.instanceId ?? null,
+                        expectedAssignedNodeId: instanceLease?.assignedNodeId ?? null,
+                        expectedOwnershipEpoch: instanceLease?.ownershipEpoch ?? null,
+                        orderId,
+                        side: order.side,
+                        nextInventoryItems,
+                        nextWalletBalances,
+                    });
+                    if (durableResult?.ok) {
+                        this.playerRuntimeService.replaceInventoryItems(playerId, nextInventoryItems);
+                        if (order.side === 'buy') {
+                            this.playerRuntimeService.creditWallet(playerId, market_1.MARKET_CURRENCY_ITEM_ID, (0, shared_1.calculateMarketTradeTotalCost)(order.remainingQuantity, order.unitPrice));
+                        }
+                        return this.singleMessage(playerId, '订单已取消，剩余托管物已退回。', 'success');
+                    }
+                }
+            }
+        }
         return this.runExclusiveMarketMutation(playerId, async (context) => {
 
             const orderId = String(payload.orderId ?? '').trim();
@@ -515,7 +769,7 @@ let MarketRuntimeService = MarketRuntimeService_1 = class MarketRuntimeService {
 
                 const refund = (0, shared_1.calculateMarketTradeTotalCost)(order.remainingQuantity, order.unitPrice);
                 if (refund) {
-                    this.deliverItemToPlayer(playerId, this.createCurrencyItem(refund), context);
+                    this.playerRuntimeService.creditWallet(playerId, market_1.MARKET_CURRENCY_ITEM_ID, refund);
                 }
             }
             order.status = 'cancelled';
@@ -528,33 +782,89 @@ let MarketRuntimeService = MarketRuntimeService_1 = class MarketRuntimeService {
     }
     /** 把仓库物品领取回背包，或在背包满时保留在仓库。 */
     async claimStorage(playerId) {
+        if (this.durableOperationService?.isEnabled()) {
+            return this.runExclusive(async () => {
+                const context = this.createMutationContext();
+                try {
+                    const storage = this.storageByPlayerId.get(playerId);
+                    if (!storage || storage.items.length === 0) {
+                        return this.singleMessage(playerId, '坊市托管仓里暂时没有可领取的物品。');
+                    }
+                    const playerSnapshot = this.playerRuntimeService.snapshot(playerId);
+                    if (!playerSnapshot) {
+                        return this.singleMessage(playerId, '玩家当前不在运行态，暂时无法领取坊市托管仓物品。', 'warn');
+                    }
+                    const plan = this.buildClaimStoragePlan(playerSnapshot.inventory, storage.items);
+                    if (plan.movedCount <= 0) {
+                        return this.singleMessage(playerId, '背包空间不足，托管仓物品暂时无法领取。');
+                    }
+                    const expectedRuntimeOwnerId = typeof playerSnapshot.runtimeOwnerId === 'string' && playerSnapshot.runtimeOwnerId.trim()
+                        ? playerSnapshot.runtimeOwnerId.trim()
+                        : '';
+                    const expectedSessionEpoch = Number.isFinite(playerSnapshot.sessionEpoch) ? Math.max(1, Math.trunc(Number(playerSnapshot.sessionEpoch))) : 0;
+                    if (!expectedRuntimeOwnerId || expectedSessionEpoch <= 0) {
+                        throw new Error('market_storage_claim_session_fence_missing');
+                    }
+                    const instanceLease = await this.resolveInstanceLeaseContext(playerSnapshot.instanceId ?? null);
+                    this.captureOnlinePlayerState(playerId, context);
+                    const operationId = `market-storage-claim:${playerId}:${Date.now()}:${(0, crypto_1.randomUUID)()}`;
+                    const result = await this.durableOperationService.claimMarketStorage({
+                        operationId,
+                        playerId,
+                        expectedRuntimeOwnerId,
+                        expectedSessionEpoch,
+                        expectedInstanceId: playerSnapshot.instanceId ?? null,
+                        expectedAssignedNodeId: instanceLease?.assignedNodeId ?? null,
+                        expectedOwnershipEpoch: instanceLease?.ownershipEpoch ?? null,
+                        movedCount: plan.movedCount,
+                        remainingCount: plan.remainingItems.length,
+                        nextInventoryItems: plan.nextInventoryItems,
+                        nextMarketStorageItems: plan.remainingItems,
+                    });
+                    if (!result.ok) {
+                        throw new Error('market_storage_claim_failed');
+                    }
+                    this.playerRuntimeService.replaceInventoryItems(playerId, plan.nextInventoryItems);
+                    this.setStorage(playerId, { items: plan.remainingItems }, context);
+                    context.skipPersistence = true;
+                    if (plan.remainingItems.length > 0) {
+                        return this.singleMessage(playerId, `已领取部分托管物，共 ${plan.movedCount} 件，其余仍保留在坊市托管仓。`, 'loot');
+                    }
+                    return this.singleMessage(playerId, `已领取坊市托管仓中的全部物品，共 ${plan.movedCount} 件。`, 'loot');
+                }
+                catch (error) {
+                    this.restoreMutationContext(context);
+                    throw error;
+                }
+            }).catch((error) => {
+                this.logger.error(`坊市托管仓领取失败，已回滚: ${error instanceof Error ? error.message : String(error)}`);
+                return this.singleMessage(playerId, '坊市结算失败，已回滚本次操作。', 'warn');
+            });
+        }
         return this.runExclusiveMarketMutation(playerId, async (context) => {
-
             const storage = this.storageByPlayerId.get(playerId);
             if (!storage || storage.items.length === 0) {
                 return this.singleMessage(playerId, '坊市托管仓里暂时没有可领取的物品。');
             }
+            const playerSnapshot = this.playerRuntimeService.snapshot(playerId);
+            if (!playerSnapshot) {
+                return this.singleMessage(playerId, '玩家当前不在运行态，暂时无法领取坊市托管仓物品。', 'warn');
+            }
+            const plan = this.buildClaimStoragePlan(playerSnapshot.inventory, storage.items);
+            if (plan.movedCount <= 0) {
+                return this.singleMessage(playerId, '背包空间不足，托管仓物品暂时无法领取。');
+            }
             this.captureOnlinePlayerState(playerId, context);
-
-            const nextItems = [];
-
-            let movedCount = 0;
             for (const item of storage.items) {
                 if (this.playerRuntimeService.canReceiveInventoryItem(playerId, item.itemId)) {
                     this.playerRuntimeService.receiveInventoryItem(playerId, item);
-                    movedCount += item.count;
-                    continue;
                 }
-                nextItems.push({ ...item });
             }
-            this.setStorage(playerId, { items: nextItems }, context);
-            if (movedCount <= 0) {
-                return this.singleMessage(playerId, '背包空间不足，托管仓物品暂时无法领取。');
+            this.setStorage(playerId, { items: plan.remainingItems }, context);
+            if (plan.remainingItems.length > 0) {
+                return this.singleMessage(playerId, `已领取部分托管物，共 ${plan.movedCount} 件，其余仍保留在坊市托管仓。`, 'loot');
             }
-            if (nextItems.length > 0) {
-                return this.singleMessage(playerId, `已领取部分托管物，共 ${movedCount} 件，其余仍保留在坊市托管仓。`, 'loot');
-            }
-            return this.singleMessage(playerId, `已领取坊市托管仓中的全部物品，共 ${movedCount} 件。`, 'loot');
+            return this.singleMessage(playerId, `已领取坊市托管仓中的全部物品，共 ${plan.movedCount} 件。`, 'loot');
         });
     }    
     /**
@@ -1327,6 +1637,46 @@ let MarketRuntimeService = MarketRuntimeService_1 = class MarketRuntimeService {
         return this.contentTemplateRepository.getItemName(market_1.MARKET_CURRENCY_ITEM_ID) ?? '灵石';
     }    
     /**
+ * buildClaimStoragePlan：构建领取托管仓的目标背包与剩余仓库。
+ * @param inventorySnapshot 背包快照。
+ * @param storageItems 托管仓条目。
+ * @returns 领取计划。
+ */
+
+    buildClaimStoragePlan(inventorySnapshot, storageItems) {
+        const nextInventoryItems = Array.isArray(inventorySnapshot?.items)
+            ? inventorySnapshot.items.map((entry) => ({ ...entry }))
+            : [];
+        const capacity = Number.isFinite(inventorySnapshot?.capacity)
+            ? Math.max(0, Math.trunc(Number(inventorySnapshot.capacity)))
+            : nextInventoryItems.length;
+        const remainingItems = [];
+        let movedCount = 0;
+        for (const item of Array.isArray(storageItems) ? storageItems : []) {
+            const normalized = this.contentTemplateRepository.normalizeItem(item);
+            if (!normalized) {
+                continue;
+            }
+            const existing = nextInventoryItems.find((entry) => entry.itemId === normalized.itemId);
+            if (existing) {
+                existing.count += normalized.count;
+                movedCount += normalized.count;
+                continue;
+            }
+            if (nextInventoryItems.length < capacity) {
+                nextInventoryItems.push({ ...normalized });
+                movedCount += normalized.count;
+                continue;
+            }
+            remainingItems.push({ ...normalized });
+        }
+        return {
+            nextInventoryItems,
+            remainingItems,
+            movedCount,
+        };
+    }    
+    /**
  * createMutationContext：构建并返回目标对象。
  * @returns 无返回值，直接更新Mutation上下文相关状态。
  */
@@ -1343,6 +1693,7 @@ let MarketRuntimeService = MarketRuntimeService_1 = class MarketRuntimeService {
             deletedOrderIds: new Set(),
             dirtyStoragePlayerIds: new Set(),
             newTradeRecords: [],
+            skipPersistence: false,
         };
     }    
     /**
@@ -1387,24 +1738,26 @@ let MarketRuntimeService = MarketRuntimeService_1 = class MarketRuntimeService {
                 if (context.newTradeRecords.length > 0 && result && typeof result === 'object') {
                     result.tradeHistoryPlayerIds = Array.from(new Set(context.newTradeRecords.flatMap((entry) => [entry.buyerId, entry.sellerId])));
                 }
-                await this.marketPersistenceService.persistMutation({
-                    upsertOrders: this.openOrders
-                        .filter((order) => context.dirtyOrderIds.has(order.id))
-                        .map((order) => ({
-                        ...order,
-                        item: { ...order.item },
-                    })),
-                    deleteOrderIds: Array.from(context.deletedOrderIds),
-                    upsertStorages: Array.from(context.dirtyStoragePlayerIds, (playerKey) => {
+                if (!context.skipPersistence) {
+                    await this.marketPersistenceService.persistMutation({
+                        upsertOrders: this.openOrders
+                            .filter((order) => context.dirtyOrderIds.has(order.id))
+                            .map((order) => ({
+                            ...order,
+                            item: { ...order.item },
+                        })),
+                        deleteOrderIds: Array.from(context.deletedOrderIds),
+                        upsertStorages: Array.from(context.dirtyStoragePlayerIds, (playerKey) => {
 
-                        const storage = this.storageByPlayerId.get(playerKey);
-                        return storage
-                            ? { playerId: playerKey, storage: cloneStorage(storage) }
-                            : null;
-                    }).filter((entry) => Boolean(entry)),
-                    deleteStoragePlayerIds: Array.from(context.dirtyStoragePlayerIds).filter((playerKey) => !this.storageByPlayerId.has(playerKey)),
-                    tradeRecords: context.newTradeRecords.map((entry) => ({ ...entry })),
-                });
+                            const storage = this.storageByPlayerId.get(playerKey);
+                            return storage
+                                ? { playerId: playerKey, storage: cloneStorage(storage) }
+                                : null;
+                        }).filter((entry) => Boolean(entry)),
+                        deleteStoragePlayerIds: Array.from(context.dirtyStoragePlayerIds).filter((playerKey) => !this.storageByPlayerId.has(playerKey)),
+                        tradeRecords: context.newTradeRecords.map((entry) => ({ ...entry })),
+                    });
+                }
                 if (context.newTradeRecords.length > 0) {
                     this.tradeHistory.unshift(...context.newTradeRecords.map((entry) => ({ ...entry })));
                     this.tradeHistory.sort((left, right) => right.createdAt - left.createdAt || left.id.localeCompare(right.id));
@@ -1450,7 +1803,9 @@ exports.MarketRuntimeService = MarketRuntimeService = MarketRuntimeService_1 = _
     (0, common_1.Injectable)(),
     __metadata("design:paramtypes", [content_template_repository_1.ContentTemplateRepository,
         player_runtime_service_1.PlayerRuntimeService,
-        market_persistence_service_1.MarketPersistenceService])
+        market_persistence_service_1.MarketPersistenceService,
+        durable_operation_service_1.DurableOperationService,
+        instance_catalog_service_1.InstanceCatalogService])
 ], MarketRuntimeService);
 export { MarketRuntimeService };
 /**
@@ -1463,4 +1818,101 @@ function cloneStorage(storage) {
     return {
         items: (storage?.items ?? []).map((item) => ({ ...item })),
     };
+}
+
+function cloneInventoryItems(items) {
+    return Array.isArray(items)
+        ? items.map((item) => ({ ...item }))
+        : [];
+}
+
+function applyMarketSellNowToInventory(existingItems, item, quantity) {
+    const nextItems = cloneInventoryItems(existingItems);
+    const normalizedQuantity = Math.max(1, Math.trunc(Number(quantity ?? 0)));
+    if (!item || normalizedQuantity <= 0) {
+        return nextItems;
+    }
+    const existing = nextItems.find((entry) => entry.itemId === item.itemId);
+    if (existing) {
+        existing.count += normalizedQuantity;
+        return nextItems;
+    }
+    nextItems.push({ ...item, count: normalizedQuantity });
+    return nextItems;
+}
+
+function applyMarketSellNowToWalletBalances(existingBalances, walletType, amount) {
+    const normalizedWalletType = typeof walletType === 'string' ? walletType.trim() : '';
+    const normalizedAmount = Math.max(0, Math.trunc(Number(amount ?? 0)));
+    if (!normalizedWalletType || normalizedAmount <= 0) {
+        return null;
+    }
+    const balances = Array.isArray(existingBalances)
+        ? existingBalances.map((entry) => ({
+            walletType: typeof entry?.walletType === 'string' ? entry.walletType.trim() : '',
+            balance: Math.max(0, Math.trunc(Number(entry?.balance ?? 0))),
+            frozenBalance: Math.max(0, Math.trunc(Number(entry?.frozenBalance ?? 0))),
+            version: Math.max(0, Math.trunc(Number(entry?.version ?? 0))),
+        })).filter((entry) => entry.walletType)
+        : [];
+    const entry = balances.find((row) => row.walletType === normalizedWalletType);
+    if (!entry) {
+        balances.push({
+            walletType: normalizedWalletType,
+            balance: normalizedAmount,
+            frozenBalance: 0,
+            version: 1,
+        });
+        return balances;
+    }
+    entry.balance += normalizedAmount;
+    entry.version += 1;
+    return balances;
+}
+
+function cloneWalletBalances(existingBalances) {
+    return Array.isArray(existingBalances)
+        ? existingBalances.map((entry) => ({
+            walletType: typeof entry?.walletType === 'string' ? entry.walletType.trim() : '',
+            balance: Math.max(0, Math.trunc(Number(entry?.balance ?? 0))),
+            frozenBalance: Math.max(0, Math.trunc(Number(entry?.frozenBalance ?? 0))),
+            version: Math.max(0, Math.trunc(Number(entry?.version ?? 0))),
+        })).filter((entry) => entry.walletType)
+        : [];
+}
+
+function applyMarketBuyNowToSellerInventory(existingItems, item, quantity) {
+    const nextItems = cloneInventoryItems(existingItems);
+    const normalizedQuantity = Math.max(1, Math.trunc(Number(quantity ?? 0)));
+    if (!item || normalizedQuantity <= 0) {
+        return null;
+    }
+    const existing = nextItems.find((entry) => entry.itemId === item.itemId);
+    if (!existing || Number(existing.count ?? 0) < normalizedQuantity) {
+        return null;
+    }
+    existing.count = Number(existing.count ?? 0) - normalizedQuantity;
+    if (existing.count <= 0) {
+        const index = nextItems.indexOf(existing);
+        if (index >= 0) {
+            nextItems.splice(index, 1);
+        }
+    }
+    return nextItems;
+}
+
+function applyMarketBuyNowToBuyerWalletBalances(existingBalances, walletType, amount) {
+    const normalizedWalletType = typeof walletType === 'string' ? walletType.trim() : '';
+    const normalizedAmount = Math.max(0, Math.trunc(Number(amount ?? 0)));
+    if (!normalizedWalletType || normalizedAmount <= 0) {
+        return null;
+    }
+    const balances = cloneWalletBalances(existingBalances);
+    const entry = balances.find((row) => row.walletType === normalizedWalletType);
+    if (!entry || entry.balance < normalizedAmount) {
+        return null;
+    }
+    entry.balance -= normalizedAmount;
+    entry.version += 1;
+    return balances;
 }

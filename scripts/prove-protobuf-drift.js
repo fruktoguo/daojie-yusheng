@@ -10,10 +10,10 @@ const networkProtobuf = require(path.join(repoRoot, "packages/shared/dist/networ
 const source = fs.readFileSync(networkProtobufPath, "utf8");
 
 const REQUIRED_PROTOCOL_TYPES = [
-  "NEXT_S2C_Tick",
-  "NEXT_S2C_AttrUpdate",
-  "NEXT_S2C_TechniqueUpdate",
-  "NEXT_S2C_ActionsUpdate",
+  "S2C_Tick",
+  "S2C_AttrUpdate",
+  "S2C_TechniqueUpdate",
+  "S2C_ActionsUpdate",
   "TickRenderEntity",
   "GroundItemPilePatch",
   "VisibleTilePatch",
@@ -60,19 +60,19 @@ function main() {
     }
   }
 
-  if (!(networkProtobuf.PROTOBUF_NEXT_S2C_EVENTS instanceof Set) || networkProtobuf.PROTOBUF_NEXT_S2C_EVENTS.size !== 0) {
-    failures.push("PROTOBUF_NEXT_S2C_EVENTS 不再为空，需同步主链与审计策略");
+  if (!(networkProtobuf.PROTOBUF_S2C_EVENTS instanceof Set) || networkProtobuf.PROTOBUF_S2C_EVENTS.size !== 0) {
+    failures.push("PROTOBUF_S2C_EVENTS 不再为空，需同步主链与审计策略");
   }
-  if (!(networkProtobuf.PROTOBUF_NEXT_C2S_EVENTS instanceof Set) || networkProtobuf.PROTOBUF_NEXT_C2S_EVENTS.size !== 0) {
-    failures.push("PROTOBUF_NEXT_C2S_EVENTS 不再为空，需同步主链与审计策略");
+  if (!(networkProtobuf.PROTOBUF_C2S_EVENTS instanceof Set) || networkProtobuf.PROTOBUF_C2S_EVENTS.size !== 0) {
+    failures.push("PROTOBUF_C2S_EVENTS 不再为空，需同步主链与审计策略");
   }
 
   process.stdout.write("[protobuf drift proof] summary\n");
   process.stdout.write(`- required_protocol_types: ${REQUIRED_PROTOCOL_TYPES.length}\n`);
   process.stdout.write(`- required_lookup_types: ${REQUIRED_LOOKUP_TYPES.length}\n`);
   process.stdout.write(`- required_wire_functions: ${REQUIRED_WIRE_FUNCTIONS.length}\n`);
-  process.stdout.write(`- protobuf_next_s2c_events: ${networkProtobuf.PROTOBUF_NEXT_S2C_EVENTS.size}\n`);
-  process.stdout.write(`- protobuf_next_c2s_events: ${networkProtobuf.PROTOBUF_NEXT_C2S_EVENTS.size}\n`);
+  process.stdout.write(`- protobuf_s2c_events: ${networkProtobuf.PROTOBUF_S2C_EVENTS.size}\n`);
+  process.stdout.write(`- protobuf_c2s_events: ${networkProtobuf.PROTOBUF_C2S_EVENTS.size}\n`);
 
   if (failures.length > 0) {
     process.stderr.write("[protobuf drift proof] failed\n");

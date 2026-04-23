@@ -273,6 +273,8 @@ function testCanReceiveRewardItems() {
     assert.equal(service.canReceiveRewardItems('player:1', [{ itemId: 'new-1' }]), true);
     assert.equal(service.canReceiveRewardItems('player:1', [{ itemId: 'new-1' }, { itemId: 'new-1' }]), true);
     assert.equal(service.canReceiveRewardItems('player:1', [{ itemId: 'new-1' }, { itemId: 'new-2' }]), false);
+    assert.equal(service.canReceiveRewardItems('player:1', [{ itemId: 'spirit_stone' }]), true);
+    assert.equal(service.canReceiveRewardItems('player:1', [{ itemId: 'new-1' }, { itemId: 'spirit_stone' }]), true);
 }
 
 testRefreshQuestStates();

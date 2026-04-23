@@ -29,6 +29,14 @@ function isRuntimeInstanceLinePreset(value) {
 function normalizeRuntimeInstanceLinePreset(value) {
     return isRuntimeInstanceLinePreset(value) ? value : 'peaceful';
 }
+/** 判断实例持久化策略是否有效。 */
+function isRuntimeInstancePersistentPolicy(value) {
+    return value === 'persistent' || value === 'long_lived' || value === 'session' || value === 'ephemeral';
+}
+/** 归一化实例持久化策略，非法值回退到 persistent。 */
+function normalizeRuntimeInstancePersistentPolicy(value) {
+    return isRuntimeInstancePersistentPolicy(value) ? value : 'persistent';
+}
 /** 生成默认真实线实例 ID。 */
 function buildRealInstanceId(templateId) {
     return `real:${templateId}`;
@@ -706,6 +714,7 @@ exports.normalizeRuntimeActionId = normalizeRuntimeActionId;
 exports.buildPublicInstanceId = buildPublicInstanceId;
 exports.isRuntimeInstanceLinePreset = isRuntimeInstanceLinePreset;
 exports.normalizeRuntimeInstanceLinePreset = normalizeRuntimeInstanceLinePreset;
+exports.normalizeRuntimeInstancePersistentPolicy = normalizeRuntimeInstancePersistentPolicy;
 exports.buildRealInstanceId = buildRealInstanceId;
 exports.buildManualLineInstanceId = buildManualLineInstanceId;
 exports.parseRuntimeInstanceDescriptor = parseRuntimeInstanceDescriptor;
@@ -762,6 +771,7 @@ export {
     buildPublicInstanceId,
     isRuntimeInstanceLinePreset,
     normalizeRuntimeInstanceLinePreset,
+    normalizeRuntimeInstancePersistentPolicy,
     buildRealInstanceId,
     buildManualLineInstanceId,
     parseRuntimeInstanceDescriptor,

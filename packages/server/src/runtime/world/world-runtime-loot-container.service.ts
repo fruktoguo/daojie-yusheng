@@ -53,6 +53,7 @@ const DEFAULT_CRAFT_EXP_TO_NEXT = 60;
 
 /** loot/container 状态域服务：承接容器状态、翻找推进、持久化与容器拿取。 */
 let WorldRuntimeLootContainerService = class WorldRuntimeLootContainerService {
+    logger = new common_1.Logger(WorldRuntimeLootContainerService.name);
 /**
  * contentTemplateRepository：内容Template仓储引用。
  */
@@ -99,6 +100,16 @@ let WorldRuntimeLootContainerService = class WorldRuntimeLootContainerService {
  */
 
     clearPersisted(instanceId) {
+        this.dirtyContainerPersistenceInstanceIds.delete(instanceId);
+    }    
+    /**
+ * removeInstanceState：删除单个实例的容器状态与脏标记。
+ * @param instanceId instance ID。
+ * @returns 无返回值，直接更新单个实例容器状态相关状态。
+ */
+
+    removeInstanceState(instanceId) {
+        this.containerStatesByInstanceId.delete(instanceId);
         this.dirtyContainerPersistenceInstanceIds.delete(instanceId);
     }    
     /**
@@ -587,7 +598,7 @@ let WorldRuntimeLootContainerService = class WorldRuntimeLootContainerService {
  * @returns 返回统一 tick 结果。
  */
 
-    tickGather(playerId, deps) {
+    async tickGather(playerId, deps) {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
         const player = this.playerRuntimeService.getPlayer(playerId);
@@ -638,6 +649,9 @@ let WorldRuntimeLootContainerService = class WorldRuntimeLootContainerService {
             job.totalTicks = totalTicks;
             job.remainingTicks = totalTicks;
         }
+        const gatherContainerRollbackState = cloneContainerState(state);
+        const gatherJobRollbackState = player?.gatherJob ? structuredClone(player.gatherJob) : player?.gatherJob ?? null;
+        const gatherDirtyBefore = this.dirtyContainerPersistenceInstanceIds.has(location.instanceId);
         state.activeSearch.remainingTicks -= 1;
         job.remainingTicks = Math.max(0, state.activeSearch.remainingTicks);
         this.markContainerPersistenceDirty(location.instanceId);
@@ -658,6 +672,21 @@ let WorldRuntimeLootContainerService = class WorldRuntimeLootContainerService {
         }
         removeContainerRowEntries(state.entries, harvestedRow.entries);
         state.activeSearch = undefined;
+        if (this.canUseDurableInventoryGrant(player, deps)) {
+            return await this.completeGatherDurably({
+                playerId,
+                player,
+                deps,
+                instanceId: location.instanceId,
+                state,
+                harvestedRow,
+                container,
+                job,
+                containerStateRollback: gatherContainerRollbackState,
+                gatherJobRollbackState,
+                dirtyBefore: gatherDirtyBefore,
+            });
+        }
         this.playerRuntimeService.receiveInventoryItem(playerId, harvestedRow.item);
         const skillChanged = applyGatherSkillExp(player.gatherSkill, harvestedRow.item.level, job.totalTicks);
         deps.refreshQuestStates(playerId);
@@ -681,6 +710,11 @@ let WorldRuntimeLootContainerService = class WorldRuntimeLootContainerService {
         else {
             player.gatherJob = null;
         }
+        const dirtyDomains = ['inventory'];
+        if (skillChanged) {
+            dirtyDomains.push('profession');
+        }
+        this.playerRuntimeService.markPersistenceDirtyDomains(player, dirtyDomains);
         this.playerRuntimeService.bumpPersistentRevision(player);
         return buildContainerTickResult(false, [{
                 kind: 'loot',
@@ -696,12 +730,29 @@ let WorldRuntimeLootContainerService = class WorldRuntimeLootContainerService {
  * @returns 无返回值，直接更新TakeGround相关状态。
  */
 
-    dispatchTakeGround(playerId, sourceId, itemKey, deps) {
+    async dispatchTakeGround(playerId, sourceId, itemKey, deps) {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
         const location = deps.getPlayerLocationOrThrow(playerId);
         const player = this.playerRuntimeService.getPlayerOrThrow(playerId);
         if (buildIsContainerSourceId(sourceId)) {
+            if (this.canUseDurableInventoryGrant(player, deps)) {
+                const containerRollbackState = this.captureContainerStateRollback(location.instanceId, playerId, player, sourceId, deps);
+                const item = this.takeContainerItem(location.instanceId, playerId, player, sourceId, itemKey, deps);
+                await this.grantLootItemsDurably({
+                    playerId,
+                    player,
+                    items: [item],
+                    deps,
+                    instance: null,
+                    sourceType: 'container_take',
+                    sourceRefId: `${sourceId}:${itemKey}`,
+                    successNotice: `获得 ${formatItemStackLabel(item)}`,
+                    restoreOnFailure: () => this.restoreContainerStateRollback(location.instanceId, containerRollbackState),
+                    failureNotice: '拿取失败，物品仍保留在容器中。',
+                });
+                return;
+            }
             const item = this.takeContainerItem(location.instanceId, playerId, player, sourceId, itemKey, deps);
             this.playerRuntimeService.receiveInventoryItem(playerId, item);
             deps.refreshQuestStates(playerId);
@@ -709,6 +760,31 @@ let WorldRuntimeLootContainerService = class WorldRuntimeLootContainerService {
             return;
         }
         const instance = deps.getInstanceRuntimeOrThrow(location.instanceId);
+        const pile = instance.getGroundPileBySourceId(sourceId);
+        if (this.canUseDurableInventoryGrant(player, deps) && pile) {
+            const targetEntry = Array.isArray(pile.items) ? pile.items.find((entry) => entry?.itemKey === itemKey) : null;
+            const originalX = Number.isFinite(Number(pile.x)) ? Math.trunc(Number(pile.x)) : player.x;
+            const originalY = Number.isFinite(Number(pile.y)) ? Math.trunc(Number(pile.y)) : player.y;
+            if (!targetEntry?.item) {
+                throw new common_1.NotFoundException(`Ground item ${itemKey} not found at ${sourceId}`);
+            }
+            const taken = instance.takeGroundItem(sourceId, itemKey, player.x, player.y);
+            if (!taken) {
+                throw new common_1.NotFoundException(`Ground item ${itemKey} not found at ${sourceId}`);
+            }
+            await this.grantLootItemsDurably({
+                playerId,
+                player,
+                items: [taken],
+                deps,
+                instance,
+                originalPosition: { x: originalX, y: originalY },
+                sourceType: 'ground_take',
+                sourceRefId: `${sourceId}:${itemKey}`,
+                successNotice: `获得 ${formatItemStackLabel(taken)}`,
+            });
+            return;
+        }
         const item = instance.takeGroundItem(sourceId, itemKey, player.x, player.y);
         if (!item) {
             throw new common_1.NotFoundException(`Ground item ${itemKey} not found at ${sourceId}`);
@@ -725,12 +801,32 @@ let WorldRuntimeLootContainerService = class WorldRuntimeLootContainerService {
  * @returns 无返回值，直接更新TakeGroundAll相关状态。
  */
 
-    dispatchTakeGroundAll(playerId, sourceId, deps) {
+    async dispatchTakeGroundAll(playerId, sourceId, deps) {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
         const location = deps.getPlayerLocationOrThrow(playerId);
         const player = this.playerRuntimeService.getPlayerOrThrow(playerId);
         if (buildIsContainerSourceId(sourceId)) {
+            if (this.canUseDurableInventoryGrant(player, deps)) {
+                const containerRollbackState = this.captureContainerStateRollback(location.instanceId, playerId, player, sourceId, deps);
+                const takenItems = this.takeAllContainerItems(location.instanceId, playerId, player, sourceId, deps);
+                if (takenItems.length === 0) {
+                    throw new common_1.BadRequestException('当前没有可拿取的物品');
+                }
+                await this.grantLootItemsDurably({
+                    playerId,
+                    player,
+                    items: takenItems,
+                    deps,
+                    instance: null,
+                    sourceType: 'container_take_all',
+                    sourceRefId: sourceId,
+                    successNotice: `获得 ${formatItemListSummary(takenItems)}`,
+                    restoreOnFailure: () => this.restoreContainerStateRollback(location.instanceId, containerRollbackState),
+                    failureNotice: '拿取失败，物品仍保留在容器中。',
+                });
+                return;
+            }
             const takenItems = this.takeAllContainerItems(location.instanceId, playerId, player, sourceId, deps);
             if (takenItems.length === 0) {
                 throw new common_1.BadRequestException('当前没有可拿取的物品');
@@ -747,6 +843,8 @@ let WorldRuntimeLootContainerService = class WorldRuntimeLootContainerService {
         if (!pile || pile.items.length === 0) {
             throw new common_1.NotFoundException(`Ground source ${sourceId} not found`);
         }
+        const originalX = Number.isFinite(Number(pile.x)) ? Math.trunc(Number(pile.x)) : player.x;
+        const originalY = Number.isFinite(Number(pile.y)) ? Math.trunc(Number(pile.y)) : player.y;
         const takenItems = [];
         for (const entry of pile.items) {
             if (!canReceiveItemStack(player, entry.item)) {
@@ -764,6 +862,21 @@ let WorldRuntimeLootContainerService = class WorldRuntimeLootContainerService {
         }
         if (takenItems.length === 0) {
             throw new common_1.BadRequestException('当前没有可拿取的物品');
+        }
+        if (this.canUseDurableInventoryGrant(player, deps)) {
+            await this.grantLootItemsDurably({
+                playerId,
+                player,
+                items: takenItems,
+                deps,
+                instance,
+                originalPosition: { x: originalX, y: originalY },
+                sourceType: 'ground_take_all',
+                sourceRefId: sourceId,
+                successNotice: `获得 ${formatItemListSummary(takenItems)}`,
+                partialNotice: takenItems.length < pile.items.length ? '背包空间不足，剩余物品暂时拿不下。' : '',
+            });
+            return;
         }
         deps.refreshQuestStates(playerId);
         deps.queuePlayerNotice(playerId, `获得 ${formatItemListSummary(takenItems)}`, 'loot');
@@ -842,6 +955,173 @@ let WorldRuntimeLootContainerService = class WorldRuntimeLootContainerService {
         }
         return takenItems;
     }    
+
+    canUseDurableInventoryGrant(player, deps) {
+        const durableOperationService = deps?.durableOperationService ?? null;
+        const runtimeOwnerId = typeof player?.runtimeOwnerId === 'string' ? player.runtimeOwnerId.trim() : '';
+        const sessionEpoch = Number.isFinite(player?.sessionEpoch) ? Math.max(1, Math.trunc(Number(player.sessionEpoch))) : 0;
+        return Boolean(durableOperationService?.isEnabled?.() && typeof durableOperationService?.grantInventoryItems === 'function' && runtimeOwnerId && sessionEpoch > 0);
+    }
+
+    captureContainerStateRollback(instanceId, playerId, player, sourceId, deps) {
+        const resolved = this.resolveContainerStateForPlayer(instanceId, playerId, player, sourceId, deps);
+        return {
+            dirtyBefore: this.dirtyContainerPersistenceInstanceIds.has(instanceId),
+            sourceId: resolved.state.sourceId,
+            state: cloneContainerState(resolved.state),
+        };
+    }
+
+    restoreContainerStateRollback(instanceId, rollbackState) {
+        let states = this.containerStatesByInstanceId.get(instanceId);
+        if (!states) {
+            states = new Map();
+            this.containerStatesByInstanceId.set(instanceId, states);
+        }
+        states.set(rollbackState.sourceId, cloneContainerState(rollbackState.state));
+        if (rollbackState.dirtyBefore) {
+            this.dirtyContainerPersistenceInstanceIds.add(instanceId);
+        }
+        else {
+            this.dirtyContainerPersistenceInstanceIds.delete(instanceId);
+        }
+    }
+
+    async grantLootItemsDurably(input) {
+        const rollbackState = captureInventoryGrantRollbackState(input.player);
+        input.player.suppressImmediateDomainPersistence = true;
+        try {
+            for (const item of input.items) {
+                this.playerRuntimeService.receiveInventoryItem(input.playerId, item);
+            }
+            const leaseContext = await resolveLootInstanceLeaseContext(input.player.instanceId, input.deps);
+            await input.deps.durableOperationService.grantInventoryItems({
+                operationId: buildLootInventoryGrantOperationId(input.playerId, input.sourceType, input.sourceRefId, input.items),
+                playerId: input.playerId,
+                expectedRuntimeOwnerId: input.player.runtimeOwnerId,
+                expectedSessionEpoch: Math.max(1, Math.trunc(Number(input.player.sessionEpoch ?? 1))),
+                expectedInstanceId: input.player.instanceId ?? null,
+                expectedAssignedNodeId: leaseContext?.assignedNodeId ?? null,
+                expectedOwnershipEpoch: leaseContext?.ownershipEpoch ?? null,
+                sourceType: input.sourceType,
+                sourceRefId: input.sourceRefId,
+                grantedItems: buildGrantedInventorySnapshots(input.items),
+                nextInventoryItems: buildNextInventorySnapshots(input.player.inventory?.items ?? []),
+            });
+        }
+        catch (error) {
+            restoreInventoryGrantRollbackState(input.player, rollbackState, this.playerRuntimeService);
+            if (typeof input.restoreOnFailure === 'function') {
+                try {
+                    input.restoreOnFailure();
+                }
+                catch (restoreError) {
+                    this.logger.warn(`容器/地面物品 durable 拿取回滚失败：${restoreError instanceof Error ? restoreError.message : String(restoreError)}`);
+                }
+            }
+            else if (input.instance && input.originalPosition) {
+                for (const item of input.items) {
+                    try {
+                        input.instance.dropGroundItem(input.originalPosition.x, input.originalPosition.y, item);
+                    }
+                    catch (restoreError) {
+                        this.logger.warn(`地面物品 durable 拿取回滚失败：${restoreError instanceof Error ? restoreError.message : String(restoreError)}`);
+                    }
+                }
+            }
+            input.deps.queuePlayerNotice(input.playerId, input.failureNotice ?? '拿取失败，物品已留在原地。', 'warn');
+            return;
+        }
+        finally {
+            input.player.suppressImmediateDomainPersistence = rollbackState.suppressImmediateDomainPersistence === true;
+        }
+        input.deps.refreshQuestStates(input.playerId);
+        input.deps.queuePlayerNotice(input.playerId, input.successNotice, 'loot');
+        if (input.partialNotice) {
+            input.deps.queuePlayerNotice(input.playerId, input.partialNotice, 'info');
+        }
+    }
+
+    async completeGatherDurably(input) {
+        const inventoryRollbackState = captureInventoryGrantRollbackState(input.player);
+        const gatherSkillRollbackState = input.player?.gatherSkill ? structuredClone(input.player.gatherSkill) : input.player?.gatherSkill ?? null;
+        input.player.suppressImmediateDomainPersistence = true;
+        let skillChanged = false;
+        try {
+            this.playerRuntimeService.receiveInventoryItem(input.playerId, input.harvestedRow.item);
+            skillChanged = applyGatherSkillExp(input.player.gatherSkill, input.harvestedRow.item.level, input.job.totalTicks);
+            const nextRow = groupContainerLootRows(input.state.entries)[0] ?? null;
+            if (nextRow) {
+                const totalTicks = CONTAINER_SEARCH_TICKS_BY_GRADE[input.container.grade] ?? 1;
+                input.state.activeSearch = {
+                    itemKey: nextRow.itemKey,
+                    totalTicks,
+                    remainingTicks: totalTicks,
+                };
+                input.player.gatherJob = {
+                    ...input.job,
+                    startedAt: Date.now(),
+                    totalTicks,
+                    remainingTicks: totalTicks,
+                    pausedTicks: 0,
+                    phase: 'gathering',
+                };
+            }
+            else {
+                input.player.gatherJob = null;
+            }
+            const dirtyDomains = ['inventory'];
+            if (skillChanged) {
+                dirtyDomains.push('profession');
+            }
+            this.playerRuntimeService.markPersistenceDirtyDomains(input.player, dirtyDomains);
+            this.playerRuntimeService.bumpPersistentRevision(input.player);
+            const leaseContext = await resolveLootInstanceLeaseContext(input.player.instanceId, input.deps);
+            await input.deps.durableOperationService.grantInventoryItems({
+                operationId: buildLootInventoryGrantOperationId(input.playerId, 'gather_completion', `${input.state.sourceId}:${input.harvestedRow.itemKey}`, [input.harvestedRow.item]),
+                playerId: input.playerId,
+                expectedRuntimeOwnerId: input.player.runtimeOwnerId,
+                expectedSessionEpoch: Math.max(1, Math.trunc(Number(input.player.sessionEpoch ?? 1))),
+                expectedInstanceId: input.player.instanceId ?? null,
+                expectedAssignedNodeId: leaseContext?.assignedNodeId ?? null,
+                expectedOwnershipEpoch: leaseContext?.ownershipEpoch ?? null,
+                sourceType: 'gather_completion',
+                sourceRefId: `${input.state.sourceId}:${input.harvestedRow.itemKey}`,
+                grantedItems: buildGrantedInventorySnapshots([input.harvestedRow.item]),
+                nextInventoryItems: buildNextInventorySnapshots(input.player.inventory?.items ?? []),
+            });
+        }
+        catch (_error) {
+            restoreInventoryGrantRollbackState(input.player, inventoryRollbackState, this.playerRuntimeService);
+            input.player.gatherSkill = gatherSkillRollbackState ? structuredClone(gatherSkillRollbackState) : gatherSkillRollbackState;
+            input.player.gatherJob = input.gatherJobRollbackState ? structuredClone(input.gatherJobRollbackState) : input.gatherJobRollbackState;
+            let states = this.containerStatesByInstanceId.get(input.instanceId);
+            if (!states) {
+                states = new Map();
+                this.containerStatesByInstanceId.set(input.instanceId, states);
+            }
+            states.set(input.containerStateRollback.sourceId, cloneContainerState(input.containerStateRollback));
+            if (input.dirtyBefore) {
+                this.dirtyContainerPersistenceInstanceIds.add(input.instanceId);
+            }
+            else {
+                this.dirtyContainerPersistenceInstanceIds.delete(input.instanceId);
+            }
+            return buildContainerTickResult(false, [{
+                    kind: 'warn',
+                    text: '采集失败，草药仍保留在原处。',
+                }]);
+        }
+        finally {
+            input.player.suppressImmediateDomainPersistence = inventoryRollbackState.suppressImmediateDomainPersistence === true;
+        }
+        input.deps.refreshQuestStates(input.playerId);
+        return buildContainerTickResult(false, [{
+                kind: 'loot',
+                text: `获得 ${formatItemStackLabel(input.harvestedRow.item)}`,
+            }], true, false, Boolean(skillChanged));
+    }
+
     /**
  * resolveContainerStateForPlayer：规范化或转换Container状态For玩家。
  * @param instanceId instance ID。
@@ -966,6 +1246,106 @@ function buildContainerTickResult(panelChanged = false, messages = [], inventory
         messages,
         groundDrops,
     };
+}
+
+function cloneContainerState(state) {
+    return {
+        sourceId: state.sourceId,
+        containerId: state.containerId,
+        generatedAtTick: state.generatedAtTick,
+        refreshAtTick: state.refreshAtTick,
+        entries: Array.isArray(state.entries)
+            ? state.entries.map((entry) => ({
+                item: entry?.item ? { ...entry.item } : entry.item,
+                createdTick: entry?.createdTick,
+                visible: entry?.visible,
+            }))
+            : [],
+        activeSearch: state.activeSearch
+            ? {
+                itemKey: state.activeSearch.itemKey,
+                totalTicks: state.activeSearch.totalTicks,
+                remainingTicks: state.activeSearch.remainingTicks,
+            }
+            : undefined,
+    };
+}
+
+function buildNextInventorySnapshots(items) {
+    return Array.isArray(items)
+        ? items.map((entry) => ({
+            itemId: typeof entry?.itemId === 'string' ? entry.itemId : '',
+            count: Math.max(1, Math.trunc(Number(entry?.count ?? 1))),
+            rawPayload: entry ? { ...entry } : {},
+        })).filter((entry) => entry.itemId)
+        : [];
+}
+
+function buildGrantedInventorySnapshots(items) {
+    return Array.isArray(items)
+        ? items.map((item) => ({
+            itemId: typeof item?.itemId === 'string' ? item.itemId : '',
+            count: Math.max(1, Math.trunc(Number(item?.count ?? 1))),
+            rawPayload: item ? { ...item } : {},
+        })).filter((entry) => entry.itemId)
+        : [];
+}
+
+function captureInventoryGrantRollbackState(player) {
+    return {
+        suppressImmediateDomainPersistence: player?.suppressImmediateDomainPersistence === true,
+        inventoryItems: buildNextInventorySnapshots(player.inventory?.items ?? []),
+        inventoryRevision: Math.max(0, Math.trunc(Number(player.inventory?.revision ?? 0))),
+        persistentRevision: Math.max(0, Math.trunc(Number(player?.persistentRevision ?? 0))),
+        selfRevision: Math.max(0, Math.trunc(Number(player?.selfRevision ?? 0))),
+        dirtyDomains: player?.dirtyDomains instanceof Set ? Array.from(player.dirtyDomains) : [],
+    };
+}
+
+function restoreInventoryGrantRollbackState(player, rollbackState, playerRuntimeService) {
+    player.inventory.items = Array.isArray(rollbackState.inventoryItems)
+        ? rollbackState.inventoryItems.map((entry) => ({ ...(entry.rawPayload ?? entry), itemId: entry.itemId, count: entry.count }))
+        : [];
+    player.inventory.revision = rollbackState.inventoryRevision;
+    player.persistentRevision = rollbackState.persistentRevision;
+    player.selfRevision = rollbackState.selfRevision;
+    player.suppressImmediateDomainPersistence = rollbackState.suppressImmediateDomainPersistence === true;
+    player.dirtyDomains = new Set(Array.isArray(rollbackState.dirtyDomains) ? rollbackState.dirtyDomains : []);
+    playerRuntimeService.playerProgressionService.refreshPreview(player);
+}
+
+async function resolveLootInstanceLeaseContext(instanceId, deps) {
+    const normalizedInstanceId = typeof instanceId === 'string' ? instanceId.trim() : '';
+    if (!normalizedInstanceId || !deps?.instanceCatalogService?.isEnabled?.()) {
+        return null;
+    }
+    const row = await deps.instanceCatalogService.loadInstanceCatalog(normalizedInstanceId);
+    if (!row) {
+        return null;
+    }
+    const assignedNodeId = typeof row.assigned_node_id === 'string' ? row.assigned_node_id.trim() : '';
+    const ownershipEpoch = Number.isFinite(Number(row.ownership_epoch)) ? Math.max(1, Math.trunc(Number(row.ownership_epoch))) : 0;
+    if (!assignedNodeId || ownershipEpoch <= 0) {
+        return null;
+    }
+    return {
+        assignedNodeId,
+        ownershipEpoch,
+    };
+}
+
+function buildLootInventoryGrantOperationId(playerId, sourceType, sourceRefId, items) {
+    const normalizedPlayerId = typeof playerId === 'string' && playerId.trim() ? playerId.trim() : 'player';
+    const normalizedSourceType = typeof sourceType === 'string' && sourceType.trim() ? sourceType.trim() : 'inventory';
+    const normalizedSourceRefId = typeof sourceRefId === 'string' && sourceRefId.trim() ? sourceRefId.trim() : 'source';
+    const normalizedItemSignature = Array.isArray(items)
+        ? items.map((item) => {
+            const itemId = typeof item?.itemId === 'string' && item.itemId.trim() ? item.itemId.trim() : 'item';
+            const count = Math.max(1, Math.trunc(Number(item?.count ?? 1)));
+            return `${itemId}:x${count}`;
+        }).join('|')
+        : 'items';
+    return `op:${normalizedPlayerId}:${normalizedSourceType}:${normalizedSourceRefId}:${normalizedItemSignature}`;
 }
 
 function getCraftSkillExpToNextByLevel(level) {

@@ -32,6 +32,8 @@ export class SocketManager {
   private socket: Socket | null = null;
   /** 连接使用的访问令牌，便于断线后重连。 */
   private accessToken: string | null = null;
+  /** 当前连接使用的目标服务地址，默认为当前 origin。 */
+  private serverUrlOverride: string | null = null;
   /** 导航、战斗和运行时动作发包 owner。 */
   private readonly runtimeSender = createSocketRuntimeSender({
     emitEvent: (event, payload) => this.sendEvent(event, payload),
@@ -61,8 +63,13 @@ export class SocketManager {
   });
 
   /** 建立 WebSocket 连接并绑定所有服务端事件。 */
-  connect(token: string): void {
+  connect(token: string, options: { serverUrl?: string | null } = {}): void {
     this.accessToken = token;
+    if (typeof options.serverUrl === 'string') {
+      this.serverUrlOverride = normalizeServerUrl(options.serverUrl);
+    } else if (options.serverUrl === null) {
+      this.serverUrlOverride = null;
+    }
     this.disposeSocket({ clearToken: false });
     this.socket = this.createSocketConnection(token);
     this.lifecycle.bind(this.socket);
@@ -72,7 +79,7 @@ export class SocketManager {
 
   /** 创建底层 Socket.IO 连接实例。 */
   private createSocketConnection(token: string): Socket {
-    return io({
+    return io(this.serverUrlOverride || undefined, {
       auth: { token, protocol: 'mainline' },
       // Swarm rolling updates and reverse proxies can route polling requests
       // to a different task, while a single WebSocket connection avoids SID drift.
@@ -115,6 +122,17 @@ export class SocketManager {
       return false;
     }
     this.connect(nextToken);
+    return true;
+  }
+
+  /** 切换到指定服务地址并复用已有 token 重连。 */
+  redirectToServer(serverUrl: string, token?: string): boolean {
+    const nextToken = token ?? this.accessToken;
+    const normalizedServerUrl = normalizeServerUrl(serverUrl);
+    if (!nextToken || !normalizedServerUrl) {
+      return false;
+    }
+    this.connect(nextToken, { serverUrl: normalizedServerUrl });
     return true;
   }
 
@@ -222,4 +240,12 @@ export class SocketManager {
   get admin(): SocketAdminSender {
     return this.adminSender;
   }
+}
+
+function normalizeServerUrl(serverUrl: string | null | undefined): string | null {
+  if (typeof serverUrl !== 'string') {
+    return null;
+  }
+  const normalized = serverUrl.trim();
+  return normalized.length > 0 ? normalized.replace(/\/+$/, '') : null;
 }

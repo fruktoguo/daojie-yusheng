@@ -130,14 +130,14 @@ async function testClientEmitHelper() {
     await helper.emitMailSummaryForPlayer(client, 'player:1');
     helper.broadcastSuggestions();
     assert.deepEqual(log, [
-        ['markProtocol', 'socket:1', 'next'],
+        ['markProtocol', 'socket:1', 'mainline'],
         ['emitQuests', 'socket:1', { quests: [] }],
-        ['markProtocol', 'socket:1', 'next'],
+        ['markProtocol', 'socket:1', 'mainline'],
         ['emitMailSummary', 'socket:1', { unread: 2 }],
-        ['markProtocol', 'socket:1', 'next'],
+        ['markProtocol', 'socket:1', 'mainline'],
         ['emitNpcShop', 'socket:1', { npcId: 'npc.a' }],
         ['flushMarketResult', ['player:1'], { ok: true }, 2, 3],
-        ['markProtocol', 'socket:1', 'next'],
+        ['markProtocol', 'socket:1', 'mainline'],
         ['emitMailSummaryForPlayer', 'socket:1', 'player:1'],
         ['broadcastSuggestionUpdate'],
     ]);

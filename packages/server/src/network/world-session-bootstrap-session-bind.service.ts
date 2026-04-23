@@ -11,6 +11,7 @@ import { WorldSessionBinding, WorldSessionService } from './world-session.servic
 interface BootstrapSessionBindResult {
     binding: WorldSessionBinding;
     requestedSessionId?: string;
+    forceRuntimeSessionRebind?: boolean;
 }
 
 interface BootstrapSocketLike extends BootstrapClientLike {
@@ -55,6 +56,7 @@ export class WorldSessionBootstrapSessionBindService {
         }
 
         const contractService = this.getContractService();
+        const previousBinding = this.worldSessionService.getBinding(input.playerId);
         const requestedSessionId = contractService.resolveBootstrapRequestedSessionId(client, input.requestedSessionId);
         const sessionReusePolicy = contractService.resolveBootstrapSessionReusePolicy(client);
         const binding = this.worldSessionService.registerSocket(client as BootstrapSocketLike, input.playerId, requestedSessionId, {
@@ -67,6 +69,9 @@ export class WorldSessionBootstrapSessionBindService {
         return {
             binding,
             requestedSessionId,
+            forceRuntimeSessionRebind: previousBinding?.connected === true
+                && typeof previousBinding.socketId === 'string'
+                && previousBinding.socketId !== client.id,
         };
     }
 }

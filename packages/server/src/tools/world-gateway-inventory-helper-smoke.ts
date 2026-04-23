@@ -69,9 +69,9 @@ function testInventoryGatherRouting() {
   assert.deepEqual(log, [
     ['enqueueTakeGround', 'player:1', 'ground:1', 'item:1', true],
     ['enqueueTakeGroundAll', 'player:1', 'container:1', true],
-    ['markProtocol', 'socket:1', 'next'],
+    ['markProtocol', 'socket:1', 'mainline'],
     ['enqueueStartTechniqueActivity', 'player:1', 'gather', { sourceId: 'container:inst:herb', itemKey: 'item:herb' }, true],
-    ['markProtocol', 'socket:1', 'next'],
+    ['markProtocol', 'socket:1', 'mainline'],
     ['enqueueCancelTechniqueActivity', 'player:1', 'gather', true],
     ['clearLootWindow', 'player:1'],
     ['emit', S2C.LootWindowUpdate, { window: null }],
@@ -94,9 +94,9 @@ function testInventoryGatewayErrors() {
   helper.handleCancelGather(client, {});
 
   assert.deepEqual(log, [
-    ['markProtocol', 'socket:1', 'next'],
+    ['markProtocol', 'socket:1', 'mainline'],
     ['emitGatewayError', 'socket:1', 'START_GATHER_FAILED', 'start gather failed'],
-    ['markProtocol', 'socket:1', 'next'],
+    ['markProtocol', 'socket:1', 'mainline'],
     ['emitGatewayError', 'socket:1', 'CANCEL_GATHER_FAILED', 'cancel gather failed'],
   ]);
 }

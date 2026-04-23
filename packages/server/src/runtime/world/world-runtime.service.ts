@@ -37,6 +37,11 @@ const world_client_event_service_1 = require("../../network/world-client-event.s
 
 const map_persistence_service_1 = require("../../persistence/map-persistence.service");
 
+const instance_domain_persistence_service_1 = require("../../persistence/instance-domain-persistence.service");
+
+const instance_catalog_service_1 = require("../../persistence/instance-catalog.service");
+const player_persistence_flush_service_1 = require("../../persistence/player-persistence-flush.service");
+
 const redeem_code_runtime_service_1 = require("../redeem/redeem-code-runtime.service");
 
 const craft_panel_runtime_service_1 = require("../craft/craft-panel-runtime.service");
@@ -83,6 +88,8 @@ const world_runtime_pending_command_service_1 = require("./world-runtime-pending
 const world_runtime_player_location_service_1 = require("./world-runtime-player-location.service");
 
 const world_runtime_tick_progress_service_1 = require("./world-runtime-tick-progress.service");
+
+const node_registry_service_1 = require("../../persistence/node-registry.service");
 
 const world_runtime_npc_quest_interaction_query_service_1 = require("./world-runtime-npc-quest-interaction-query.service");
 
@@ -159,8 +166,11 @@ const world_runtime_normalization_helpers_1 = require("./world-runtime.normaliza
 const world_runtime_observation_helpers_1 = require("./world-runtime.observation.helpers");
 
 const world_runtime_path_planning_helpers_1 = require("./world-runtime.path-planning.helpers");
+const world_runtime_instance_lease_helpers_1 = require("./world-runtime-instance-lease.helpers");
 const {
     buildPublicInstanceId,
+    parseRuntimeInstanceDescriptor,
+    normalizeRuntimeInstancePersistentPolicy,
     formatItemStackLabel,
     formatItemListSummary,
     cloneCombatEffect,
@@ -207,6 +217,7 @@ const {
     resolveRuntimeSkillRange,
     resolveAutoBattleSkillQiCost,
 } = world_runtime_normalization_helpers_1;
+const INSTANCE_LEASE_RENEW_SKEW_MS = 5_000;
 const {
     createTileCombatAttributes,
     createTileCombatNumericStats,
@@ -261,6 +272,8 @@ let WorldRuntimeService = WorldRuntimeService_1 = class WorldRuntimeService {
     templateRepository;    
     
     mapPersistenceService;    
+    
+    instanceDomainPersistenceService;    
     
     playerRuntimeService;    
     
@@ -391,15 +404,23 @@ let WorldRuntimeService = WorldRuntimeService_1 = class WorldRuntimeService {
     worldRuntimeActionExecutionService;    
     
     worldRuntimeSystemCommandEnqueueService;    
+
+    nodeRegistryService;    
+
+    playerPersistenceFlushService;    
+
+    instanceLeaseSyncTimer = null;    
     
     logger = new common_1.Logger(WorldRuntimeService_1.name);    
     
     tick = 0;    
     
-    constructor(contentTemplateRepository, templateRepository, mapPersistenceService, playerRuntimeService, playerCombatService, worldSessionService, worldClientEventService, redeemCodeRuntimeService, craftPanelRuntimeService, worldRuntimeNpcShopQueryService, worldRuntimeQuestQueryService, worldRuntimeQuestStateService, worldRuntimeDetailQueryService, worldRuntimeContextActionQueryService, worldRuntimePlayerViewQueryService, worldRuntimeMetricsService, worldRuntimeFrameService, worldRuntimeLifecycleService, worldRuntimePersistenceStateService, worldRuntimePlayerSessionService, worldRuntimeCommandIntakeFacadeService, worldRuntimeGameplayWriteFacadeService, worldRuntimeInstanceReadFacadeService, worldRuntimeQuestRuntimeFacadeService, worldRuntimeReadFacadeService, worldRuntimeStateFacadeService, worldRuntimeTickDispatchService, worldRuntimeWorldAccessService, worldRuntimeInstanceTickOrchestrationService, worldRuntimeMovementService, worldRuntimeSummaryQueryService, worldRuntimeInstanceStateService, worldRuntimeInstanceQueryService, worldRuntimePendingCommandService, worldRuntimePlayerLocationService, worldRuntimeTickProgressService, worldRuntimeNpcQuestInteractionQueryService, worldRuntimeNpcShopService, worldRuntimeGmQueueService, worldRuntimeSystemCommandService, worldRuntimeCraftTickService, worldRuntimeCraftMutationService, worldRuntimeCraftInterruptService, worldRuntimeAlchemyService, worldRuntimeNpcQuestWriteService, worldRuntimeLootContainerService, worldRuntimeNavigationService, worldRuntimeCombatEffectsService, worldRuntimeMonsterActionApplyService, worldRuntimeBasicAttackService, worldRuntimeMonsterSystemCommandService, worldRuntimePlayerCombatOutcomeService, worldRuntimePlayerCommandService, worldRuntimePlayerCommandEnqueueService, worldRuntimeItemGroundService, worldRuntimeTransferService, worldRuntimeNpcAccessService, worldRuntimeEquipmentService, worldRuntimeCultivationService, worldRuntimeProgressionService, worldRuntimeEnhancementService, worldRuntimeUseItemService, worldRuntimeRedeemCodeService, worldRuntimePlayerSkillDispatchService, worldRuntimeBattleEngageService, worldRuntimeAutoCombatService, worldRuntimeCombatCommandService, worldRuntimeActionExecutionService, worldRuntimeSystemCommandEnqueueService) {
+    constructor(contentTemplateRepository, templateRepository, mapPersistenceService, instanceDomainPersistenceService, instanceCatalogService, playerRuntimeService, playerCombatService, worldSessionService, worldClientEventService, redeemCodeRuntimeService, craftPanelRuntimeService, worldRuntimeNpcShopQueryService, worldRuntimeQuestQueryService, worldRuntimeQuestStateService, worldRuntimeDetailQueryService, worldRuntimeContextActionQueryService, worldRuntimePlayerViewQueryService, worldRuntimeMetricsService, worldRuntimeFrameService, worldRuntimeLifecycleService, worldRuntimePersistenceStateService, worldRuntimePlayerSessionService, worldRuntimeCommandIntakeFacadeService, worldRuntimeGameplayWriteFacadeService, worldRuntimeInstanceReadFacadeService, worldRuntimeQuestRuntimeFacadeService, worldRuntimeReadFacadeService, worldRuntimeStateFacadeService, worldRuntimeTickDispatchService, worldRuntimeWorldAccessService, worldRuntimeInstanceTickOrchestrationService, worldRuntimeMovementService, worldRuntimeSummaryQueryService, worldRuntimeInstanceStateService, worldRuntimeInstanceQueryService, worldRuntimePendingCommandService, worldRuntimePlayerLocationService, worldRuntimeTickProgressService, worldRuntimeNpcQuestInteractionQueryService, worldRuntimeNpcShopService, worldRuntimeGmQueueService, worldRuntimeSystemCommandService, worldRuntimeCraftTickService, worldRuntimeCraftMutationService, worldRuntimeCraftInterruptService, worldRuntimeAlchemyService, worldRuntimeNpcQuestWriteService, worldRuntimeLootContainerService, worldRuntimeNavigationService, worldRuntimeCombatEffectsService, worldRuntimeMonsterActionApplyService, worldRuntimeBasicAttackService, worldRuntimeMonsterSystemCommandService, worldRuntimePlayerCombatOutcomeService, worldRuntimePlayerCommandService, worldRuntimePlayerCommandEnqueueService, worldRuntimeItemGroundService, worldRuntimeTransferService, worldRuntimeNpcAccessService, worldRuntimeEquipmentService, worldRuntimeCultivationService, worldRuntimeProgressionService, worldRuntimeEnhancementService, worldRuntimeUseItemService, worldRuntimeRedeemCodeService, worldRuntimePlayerSkillDispatchService, worldRuntimeBattleEngageService, worldRuntimeAutoCombatService, worldRuntimeCombatCommandService, worldRuntimeActionExecutionService, worldRuntimeSystemCommandEnqueueService, nodeRegistryService, playerPersistenceFlushService) {
         this.contentTemplateRepository = contentTemplateRepository;
         this.templateRepository = templateRepository;
         this.mapPersistenceService = mapPersistenceService;
+        this.instanceDomainPersistenceService = instanceDomainPersistenceService;
+        this.instanceCatalogService = instanceCatalogService;
         this.playerRuntimeService = playerRuntimeService;
         this.playerCombatService = playerCombatService;
         this.worldSessionService = worldSessionService;
@@ -466,7 +487,9 @@ let WorldRuntimeService = WorldRuntimeService_1 = class WorldRuntimeService {
         this.worldRuntimeCombatCommandService = worldRuntimeCombatCommandService;
         this.worldRuntimeActionExecutionService = worldRuntimeActionExecutionService;
         this.worldRuntimeSystemCommandEnqueueService = worldRuntimeSystemCommandEnqueueService;
-    }    
+        this.nodeRegistryService = nodeRegistryService;
+        this.playerPersistenceFlushService = playerPersistenceFlushService;
+    }
     
     get lastTickDurationMs() {
         return this.worldRuntimeMetricsService.lastTickDurationMs;
@@ -542,11 +565,83 @@ let WorldRuntimeService = WorldRuntimeService_1 = class WorldRuntimeService {
     
     setInstanceRuntime(instanceId, instance) {
         this.worldRuntimeStateFacadeService.setInstanceRuntime(instanceId, instance, this);
+        (0, world_runtime_instance_lease_helpers_1.syncManagedInstanceRegistration)(this, instanceId, instance);
     }    
-    
+
+    isInstanceLeaseWritable(instance) {
+        return (0, world_runtime_instance_lease_helpers_1.isInstanceLeaseWritable)(this, instance);
+    }
+
+    fenceInstanceRuntime(instanceId, reason = 'lease_lost') {
+        (0, world_runtime_instance_lease_helpers_1.fenceInstanceRuntime)(this, instanceId, reason);
+    }
+
+    freezeInstanceWriting(instanceId, reason = 'gm_freeze') {
+        this.fenceInstanceRuntime(instanceId, reason);
+    }
+
+    unfreezeInstanceWriting(instanceId) {
+        return (0, world_runtime_instance_lease_helpers_1.unfreezeInstanceWriting)(this, instanceId);
+    }
+
+    async syncInstanceLease(instanceId) {
+        return (0, world_runtime_instance_lease_helpers_1.syncInstanceLease)(this, instanceId);
+    }
+
+    async rebuildPersistentInstance(instanceId) {
+        return (0, world_runtime_instance_lease_helpers_1.rebuildPersistentInstance)(this, instanceId);
+    }
+
+    async migrateInstanceToNode(instanceId, targetNodeId) {
+        return (0, world_runtime_instance_lease_helpers_1.migrateInstanceToNode)(this, instanceId, targetNodeId);
+    }
+
+    async migratePlayerToNode(playerId, targetNodeId) {
+        const normalizedPlayerId = typeof playerId === 'string' ? playerId.trim() : '';
+        const normalizedTargetNodeId = typeof targetNodeId === 'string' ? targetNodeId.trim() : '';
+        if (!normalizedPlayerId) {
+            return { ok: false, reason: 'player_required' };
+        }
+        if (!normalizedTargetNodeId) {
+            return { ok: false, reason: 'target_node_required' };
+        }
+        const player = this.playerRuntimeService?.getPlayer?.(normalizedPlayerId);
+        if (!player) {
+            return { ok: false, reason: 'player_not_found' };
+        }
+        if (typeof this.playerPersistenceFlushService?.flushPlayer === 'function') {
+            await this.playerPersistenceFlushService.flushPlayer(normalizedPlayerId);
+        }
+        if (!this.playerRuntimeService?.beginTransfer) {
+            player.transferState = 'in_transfer';
+            player.transferTargetNodeId = normalizedTargetNodeId;
+            player.transferStartedAt = new Date().toISOString();
+            return { ok: true };
+        }
+        this.playerRuntimeService.beginTransfer(player, normalizedTargetNodeId);
+        const routeSessionEpoch = Number.isFinite(player.sessionEpoch)
+            ? Math.max(1, Math.trunc(Number(player.sessionEpoch)))
+            : 0;
+        if (routeSessionEpoch > 0 && typeof this.worldSessionService?.rememberSessionEpoch === 'function') {
+            this.worldSessionService.rememberSessionEpoch(normalizedPlayerId, routeSessionEpoch);
+        }
+        if (routeSessionEpoch > 0 && typeof this.worldRuntimePlayerSessionService?.assignPlayerRoute === 'function') {
+            await this.worldRuntimePlayerSessionService.assignPlayerRoute({
+                playerId: normalizedPlayerId,
+                nodeId: normalizedTargetNodeId,
+                sessionEpoch: routeSessionEpoch,
+                routeStatus: 'assigned',
+            });
+        }
+        if (typeof this.playerRuntimeService?.beginTransfer === 'function') {
+            return { ok: true };
+        }
+        return { ok: true };
+    }
+
     listInstanceRuntimes() {
         return this.worldRuntimeStateFacadeService.listInstanceRuntimes(this);
-    }    
+    }
     
     listInstanceEntries() {
         return this.worldRuntimeStateFacadeService.listInstanceEntries(this);
@@ -558,8 +653,21 @@ let WorldRuntimeService = WorldRuntimeService_1 = class WorldRuntimeService {
         async onModuleInit() {
         this.bootstrapPublicInstances();
     }
-        async onApplicationBootstrap() {
+    async onApplicationBootstrap() {
         await this.rebuildPersistentRuntimeAfterRestore();
+        if (this.instanceLeaseSyncTimer) {
+            clearInterval(this.instanceLeaseSyncTimer);
+        }
+        this.instanceLeaseSyncTimer = setInterval(() => {
+            void this.syncAllInstanceLeases();
+        }, INSTANCE_LEASE_RENEW_SKEW_MS * 2);
+        this.instanceLeaseSyncTimer.unref?.();
+    }
+        async onModuleDestroy() {
+        if (this.instanceLeaseSyncTimer) {
+            clearInterval(this.instanceLeaseSyncTimer);
+            this.instanceLeaseSyncTimer = null;
+        }
     }
         listMapTemplates() {
         return this.worldRuntimeInstanceReadFacadeService.listMapTemplates(this);
@@ -615,6 +723,9 @@ let WorldRuntimeService = WorldRuntimeService_1 = class WorldRuntimeService {
         getRuntimeSummary() {
         return this.worldRuntimeWorldAccessService.getRuntimeSummary(this);
     }
+    async getInstanceLeaseStatus(instanceId) {
+        return (0, world_runtime_instance_lease_helpers_1.getInstanceLeaseStatus)(this, instanceId);
+    }
         listDirtyPersistentInstances() {
         return this.worldRuntimeStateFacadeService.listDirtyPersistentInstances(this);
     }
@@ -624,10 +735,10 @@ let WorldRuntimeService = WorldRuntimeService_1 = class WorldRuntimeService {
         markMapPersisted(instanceId) {
         this.worldRuntimeStateFacadeService.markMapPersisted(instanceId, this);
     }
-        tickAll() {
+        async tickAll() {
         return this.worldRuntimeStateFacadeService.tickAll(this);
     }
-        advanceFrame(frameDurationMs = 1000, getInstanceTickSpeed = null) {
+        async advanceFrame(frameDurationMs = 1000, getInstanceTickSpeed = null) {
         return this.worldRuntimeStateFacadeService.advanceFrame(frameDurationMs, getInstanceTickSpeed, this);
     }
         recordSyncFlushDuration(durationMs) {
@@ -641,6 +752,15 @@ let WorldRuntimeService = WorldRuntimeService_1 = class WorldRuntimeService {
     }
         async rebuildPersistentRuntimeAfterRestore() {
         await this.worldRuntimeStateFacadeService.rebuildPersistentRuntimeAfterRestore(this);
+    }
+    async syncAllInstanceLeases() {
+        return (0, world_runtime_instance_lease_helpers_1.syncAllInstanceLeases)(this);
+    }
+    async claimRecoverableCatalogInstances() {
+        return (0, world_runtime_instance_lease_helpers_1.claimRecoverableCatalogInstances)(this);
+    }
+    async hydratePersistentInstanceSnapshot(instanceId, instance) {
+        return (0, world_runtime_instance_lease_helpers_1.hydratePersistentInstanceSnapshot)(this, instanceId, instance);
     }
         createInstance(input) {
         return this.worldRuntimeInstanceReadFacadeService.createInstance(input, this);
@@ -705,8 +825,8 @@ let WorldRuntimeService = WorldRuntimeService_1 = class WorldRuntimeService {
         resolveAutoBattleDesiredRange(player) {
         return this.worldRuntimeTickDispatchService.resolveAutoBattleDesiredRange(player, this);
     }
-        dispatchPendingCommands() {
-        this.worldRuntimeTickDispatchService.dispatchPendingCommands(this);
+        async dispatchPendingCommands() {
+        return this.worldRuntimeTickDispatchService.dispatchPendingCommands(this);
     }
         dispatchPendingSystemCommands() {
         this.worldRuntimeTickDispatchService.dispatchPendingSystemCommands(this);
@@ -714,23 +834,23 @@ let WorldRuntimeService = WorldRuntimeService_1 = class WorldRuntimeService {
         dispatchInstanceCommand(playerId, command) {
         this.worldRuntimeTickDispatchService.dispatchInstanceCommand(playerId, command, this);
     }
-        dispatchPlayerCommand(playerId, command) {
-        this.worldRuntimeTickDispatchService.dispatchPlayerCommand(playerId, command, this);
+        async dispatchPlayerCommand(playerId, command) {
+        return this.worldRuntimeTickDispatchService.dispatchPlayerCommand(playerId, command, this);
     }
-        dispatchRedeemCodes(playerId, codes) {
-        this.worldRuntimeGameplayWriteFacadeService.dispatchRedeemCodes(playerId, codes, this);
+        async dispatchRedeemCodes(playerId, codes) {
+        return this.worldRuntimeGameplayWriteFacadeService.dispatchRedeemCodes(playerId, codes, this);
     }
-        dispatchCastSkill(playerId, skillId, targetPlayerId, targetMonsterId, targetRef = null) {
-        this.worldRuntimeGameplayWriteFacadeService.dispatchCastSkill(playerId, skillId, targetPlayerId, targetMonsterId, targetRef, this);
+        async dispatchCastSkill(playerId, skillId, targetPlayerId, targetMonsterId, targetRef = null) {
+        return this.worldRuntimeGameplayWriteFacadeService.dispatchCastSkill(playerId, skillId, targetPlayerId, targetMonsterId, targetRef, this);
     }
         resolveLegacySkillTargetRef(attacker, skill, targetRef) {
         return this.worldRuntimeGameplayWriteFacadeService.resolveLegacySkillTargetRef(attacker, skill, targetRef, this);
     }
-        dispatchEngageBattle(playerId, targetPlayerId, targetMonsterId, targetX, targetY, locked) {
-        this.worldRuntimeGameplayWriteFacadeService.dispatchEngageBattle(playerId, targetPlayerId, targetMonsterId, targetX, targetY, locked, this);
+        async dispatchEngageBattle(playerId, targetPlayerId, targetMonsterId, targetX, targetY, locked) {
+        return this.worldRuntimeGameplayWriteFacadeService.dispatchEngageBattle(playerId, targetPlayerId, targetMonsterId, targetX, targetY, locked, this);
     }
-        dispatchCastSkillToMonster(attacker, skillId, targetMonsterId) {
-        this.worldRuntimeGameplayWriteFacadeService.dispatchCastSkillToMonster(attacker, skillId, targetMonsterId, this);
+        async dispatchCastSkillToMonster(attacker, skillId, targetMonsterId) {
+        return this.worldRuntimeGameplayWriteFacadeService.dispatchCastSkillToMonster(attacker, skillId, targetMonsterId, this);
     }
         dispatchCastSkillToTile(attacker, skillId, targetX, targetY) {
         this.worldRuntimeGameplayWriteFacadeService.dispatchCastSkillToTile(attacker, skillId, targetX, targetY, this);
@@ -750,44 +870,44 @@ let WorldRuntimeService = WorldRuntimeService_1 = class WorldRuntimeService {
         dispatchMoveTo(playerId, x, y, allowNearestReachable, clientPathHint = null) {
         this.worldRuntimeTickDispatchService.dispatchMoveTo(playerId, x, y, allowNearestReachable, clientPathHint, this);
     }
-        dispatchBasicAttack(playerId, targetPlayerId, targetMonsterId, targetX, targetY) {
-        this.worldRuntimeGameplayWriteFacadeService.dispatchBasicAttack(playerId, targetPlayerId, targetMonsterId, targetX, targetY, this);
+        async dispatchBasicAttack(playerId, targetPlayerId, targetMonsterId, targetX, targetY) {
+        return this.worldRuntimeGameplayWriteFacadeService.dispatchBasicAttack(playerId, targetPlayerId, targetMonsterId, targetX, targetY, this);
     }
         dispatchDropItem(playerId, slotIndex, count) {
         this.worldRuntimeGameplayWriteFacadeService.dispatchDropItem(playerId, slotIndex, count, this);
     }
-        dispatchTakeGround(playerId, sourceId, itemKey) {
-        this.worldRuntimeGameplayWriteFacadeService.dispatchTakeGround(playerId, sourceId, itemKey, this);
+        async dispatchTakeGround(playerId, sourceId, itemKey) {
+        return this.worldRuntimeGameplayWriteFacadeService.dispatchTakeGround(playerId, sourceId, itemKey, this);
     }
-        dispatchTakeGroundAll(playerId, sourceId) {
-        this.worldRuntimeGameplayWriteFacadeService.dispatchTakeGroundAll(playerId, sourceId, this);
+        async dispatchTakeGroundAll(playerId, sourceId) {
+        return this.worldRuntimeGameplayWriteFacadeService.dispatchTakeGroundAll(playerId, sourceId, this);
     }
-        dispatchBuyNpcShopItem(playerId, npcId, itemId, quantity) {
-        this.worldRuntimeGameplayWriteFacadeService.dispatchBuyNpcShopItem(playerId, npcId, itemId, quantity, this);
+        async dispatchBuyNpcShopItem(playerId, npcId, itemId, quantity) {
+        return this.worldRuntimeGameplayWriteFacadeService.dispatchBuyNpcShopItem(playerId, npcId, itemId, quantity, this);
     }
-        dispatchNpcInteraction(playerId, npcId) {
-        this.worldRuntimeGameplayWriteFacadeService.dispatchNpcInteraction(playerId, npcId, this);
+        async dispatchNpcInteraction(playerId, npcId) {
+        return this.worldRuntimeGameplayWriteFacadeService.dispatchNpcInteraction(playerId, npcId, this);
     }
-        dispatchEquipItem(playerId, slotIndex) {
-        this.worldRuntimeGameplayWriteFacadeService.dispatchEquipItem(playerId, slotIndex, this);
+        async dispatchEquipItem(playerId, slotIndex) {
+        return this.worldRuntimeGameplayWriteFacadeService.dispatchEquipItem(playerId, slotIndex, this);
     }
-        dispatchUnequipItem(playerId, slot) {
-        this.worldRuntimeGameplayWriteFacadeService.dispatchUnequipItem(playerId, slot, this);
+        async dispatchUnequipItem(playerId, slot) {
+        return this.worldRuntimeGameplayWriteFacadeService.dispatchUnequipItem(playerId, slot, this);
     }
         dispatchCultivateTechnique(playerId, techniqueId) {
         this.worldRuntimeGameplayWriteFacadeService.dispatchCultivateTechnique(playerId, techniqueId, this);
     }
-        dispatchStartTechniqueActivity(playerId, kind, payload) {
-        this.worldRuntimeGameplayWriteFacadeService.dispatchStartTechniqueActivity(playerId, kind, payload, this);
+        async dispatchStartTechniqueActivity(playerId, kind, payload) {
+        return this.worldRuntimeGameplayWriteFacadeService.dispatchStartTechniqueActivity(playerId, kind, payload, this);
     }
-        dispatchCancelTechniqueActivity(playerId, kind) {
-        this.worldRuntimeGameplayWriteFacadeService.dispatchCancelTechniqueActivity(playerId, kind, this);
+        async dispatchCancelTechniqueActivity(playerId, kind) {
+        return this.worldRuntimeGameplayWriteFacadeService.dispatchCancelTechniqueActivity(playerId, kind, this);
     }
-        dispatchStartAlchemy(playerId, payload) {
-        this.worldRuntimeGameplayWriteFacadeService.dispatchStartAlchemy(playerId, payload, this);
+        async dispatchStartAlchemy(playerId, payload) {
+        return this.worldRuntimeGameplayWriteFacadeService.dispatchStartAlchemy(playerId, payload, this);
     }
-        dispatchCancelAlchemy(playerId) {
-        this.worldRuntimeGameplayWriteFacadeService.dispatchCancelAlchemy(playerId, this);
+        async dispatchCancelAlchemy(playerId) {
+        return this.worldRuntimeGameplayWriteFacadeService.dispatchCancelAlchemy(playerId, this);
     }
         dispatchSaveAlchemyPreset(playerId, payload) {
         this.worldRuntimeGameplayWriteFacadeService.dispatchSaveAlchemyPreset(playerId, payload, this);
@@ -795,11 +915,11 @@ let WorldRuntimeService = WorldRuntimeService_1 = class WorldRuntimeService {
         dispatchDeleteAlchemyPreset(playerId, presetId) {
         this.worldRuntimeGameplayWriteFacadeService.dispatchDeleteAlchemyPreset(playerId, presetId, this);
     }
-        dispatchStartEnhancement(playerId, payload) {
-        this.worldRuntimeGameplayWriteFacadeService.dispatchStartEnhancement(playerId, payload, this);
+        async dispatchStartEnhancement(playerId, payload) {
+        return this.worldRuntimeGameplayWriteFacadeService.dispatchStartEnhancement(playerId, payload, this);
     }
-        dispatchCancelEnhancement(playerId) {
-        this.worldRuntimeGameplayWriteFacadeService.dispatchCancelEnhancement(playerId, this);
+        async dispatchCancelEnhancement(playerId) {
+        return this.worldRuntimeGameplayWriteFacadeService.dispatchCancelEnhancement(playerId, this);
     }
         dispatchInteractNpcQuest(playerId, npcId) {
         this.worldRuntimeGameplayWriteFacadeService.dispatchInteractNpcQuest(playerId, npcId, this);
@@ -807,8 +927,8 @@ let WorldRuntimeService = WorldRuntimeService_1 = class WorldRuntimeService {
         dispatchAcceptNpcQuest(playerId, npcId, questId) {
         this.worldRuntimeGameplayWriteFacadeService.dispatchAcceptNpcQuest(playerId, npcId, questId, this);
     }
-        dispatchSubmitNpcQuest(playerId, npcId, questId) {
-        this.worldRuntimeGameplayWriteFacadeService.dispatchSubmitNpcQuest(playerId, npcId, questId, this);
+        async dispatchSubmitNpcQuest(playerId, npcId, questId) {
+        return this.worldRuntimeGameplayWriteFacadeService.dispatchSubmitNpcQuest(playerId, npcId, questId, this);
     }
         dispatchSpawnMonsterLoot(instanceId, x, y, monsterId, rolls) {
         this.worldRuntimeGameplayWriteFacadeService.dispatchSpawnMonsterLoot(instanceId, x, y, monsterId, rolls, this);
@@ -825,8 +945,8 @@ let WorldRuntimeService = WorldRuntimeService_1 = class WorldRuntimeService {
         spawnGroundItem(instance, x, y, item) {
         this.worldRuntimeTickDispatchService.spawnGroundItem(instance, x, y, item, this);
     }
-        handlePlayerMonsterKill(instance, monster, killerPlayerId) {
-        this.worldRuntimeGameplayWriteFacadeService.handlePlayerMonsterKill(instance, monster, killerPlayerId, this);
+        async handlePlayerMonsterKill(instance, monster, killerPlayerId) {
+        return this.worldRuntimeGameplayWriteFacadeService.handlePlayerMonsterKill(instance, monster, killerPlayerId, this);
     }
         resolveAdjacentNpc(playerId, npcId) {
         return this.worldRuntimeQuestRuntimeFacadeService.resolveAdjacentNpc(playerId, npcId, this);
@@ -885,8 +1005,8 @@ let WorldRuntimeService = WorldRuntimeService_1 = class WorldRuntimeService {
         applyMonsterSkill(action) {
         this.worldRuntimeTickDispatchService.applyMonsterSkill(action, this);
     }
-        handlePlayerDefeat(playerId, killerPlayerId = null) {
-        this.worldRuntimeGameplayWriteFacadeService.handlePlayerDefeat(playerId, this, killerPlayerId);
+        async handlePlayerDefeat(playerId, killerPlayerId = null) {
+        return this.worldRuntimeGameplayWriteFacadeService.handlePlayerDefeat(playerId, this, killerPlayerId);
     }
         processPendingRespawns() {
         this.worldRuntimeGameplayWriteFacadeService.processPendingRespawns(this);
@@ -916,10 +1036,13 @@ let WorldRuntimeService = WorldRuntimeService_1 = class WorldRuntimeService {
 exports.WorldRuntimeService = WorldRuntimeService;
 exports.WorldRuntimeService = WorldRuntimeService = WorldRuntimeService_1 = __decorate([
     (0, common_1.Injectable)(),
-        __param(6, (0, common_1.Inject)((0, common_1.forwardRef)(() => world_client_event_service_1.WorldClientEventService))),
+        __param(7, (0, common_1.Inject)(world_session_service_1.WorldSessionService)),
+        __param(8, (0, common_1.Inject)((0, common_1.forwardRef)(() => world_client_event_service_1.WorldClientEventService))),
         __metadata("design:paramtypes", [content_template_repository_1.ContentTemplateRepository,
         map_template_repository_1.MapTemplateRepository,
         map_persistence_service_1.MapPersistenceService,
+        instance_domain_persistence_service_1.InstanceDomainPersistenceService,
+        instance_catalog_service_1.InstanceCatalogService,
         player_runtime_service_1.PlayerRuntimeService,
         player_combat_service_1.PlayerCombatService,
         world_session_service_1.WorldSessionService,
@@ -985,7 +1108,9 @@ exports.WorldRuntimeService = WorldRuntimeService = WorldRuntimeService_1 = __de
         world_runtime_auto_combat_service_1.WorldRuntimeAutoCombatService,
         world_runtime_combat_command_service_1.WorldRuntimeCombatCommandService,
         world_runtime_action_execution_service_1.WorldRuntimeActionExecutionService,
-        world_runtime_system_command_enqueue_service_1.WorldRuntimeSystemCommandEnqueueService])
+        world_runtime_system_command_enqueue_service_1.WorldRuntimeSystemCommandEnqueueService,
+        node_registry_service_1.NodeRegistryService,
+        player_persistence_flush_service_1.PlayerPersistenceFlushService])
 ], WorldRuntimeService);
 // helper functions were split into dedicated helper modules for maintainability.
 

@@ -1,4 +1,4 @@
-import type { NEXT_S2C_Tick } from './protocol';
+import type { S2C_Tick } from './protocol';
 import type {
   GroundItemPilePatchView as GroundItemPilePatch,
   TickRenderEntityView as TickRenderEntity,
@@ -105,7 +105,7 @@ export function fromWireTickEntity(wire: Record<string, unknown>): TickRenderEnt
 }
 
 /** 将 Tick 高频包转换为 wire 结构。 */
-export function toWireTick(payload: NEXT_S2C_Tick): Record<string, unknown> {
+export function toWireTick(payload: S2C_Tick): Record<string, unknown> {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
   const wire: Record<string, unknown> = {
@@ -172,10 +172,10 @@ export function toWireTick(payload: NEXT_S2C_Tick): Record<string, unknown> {
 }
 
 /** 从 wire 结构还原 Tick 高频包。 */
-export function fromWireTick(wire: Record<string, unknown>): NEXT_S2C_Tick {
+export function fromWireTick(wire: Record<string, unknown>): S2C_Tick {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
-  const payload: NEXT_S2C_Tick = {
+  const payload: S2C_Tick = {
     p: Array.isArray(wire.p) ? wire.p.map((entry) => fromWireTickEntity(entry as Record<string, unknown>)) : [],
     e: Array.isArray(wire.e) ? wire.e.map((entry) => fromWireTickEntity(entry as Record<string, unknown>)) : [],
   };
@@ -237,7 +237,7 @@ export function fromWireTick(wire: Record<string, unknown>): NEXT_S2C_Tick {
       } as GroundItemPilePatch;
     });
   }
-  if (Array.isArray(wire.fx)) payload.fx = cloneJson(wire.fx) as NEXT_S2C_Tick['fx'];
+  if (Array.isArray(wire.fx)) payload.fx = cloneJson(wire.fx) as S2C_Tick['fx'];
   if (Array.isArray(wire.v)) {
     payload.v = wire.v.map((row) => {
       const rowWire = row as Record<string, unknown>;
@@ -255,7 +255,7 @@ export function fromWireTick(wire: Record<string, unknown>): NEXT_S2C_Tick {
   }
   if (hasOwn(wire, 'hp')) payload.hp = Number(wire.hp ?? 0);
   if (hasOwn(wire, 'qi')) payload.qi = Number(wire.qi ?? 0);
-  if (hasOwn(wire, 'f')) payload.f = Number(wire.f ?? 0) as NEXT_S2C_Tick['f'];
+  if (hasOwn(wire, 'f')) payload.f = Number(wire.f ?? 0) as S2C_Tick['f'];
   if (hasOwn(wire, 'time')) payload.time = fromWireGameTimeState(wire.time as Record<string, unknown>);
   if (hasOwn(wire, 'auraLevelBaseValue')) {
     payload.auraLevelBaseValue = Number(wire.auraLevelBaseValue ?? 0);

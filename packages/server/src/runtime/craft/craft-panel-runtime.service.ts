@@ -19,6 +19,7 @@ const fs = require("fs");
 const path = require("path");
 const shared_1 = require("@mud/shared");
 const content_template_repository_1 = require("../../content/content-template.repository");
+const player_domain_persistence_service_1 = require("../../persistence/player-domain-persistence.service");
 const project_path_1 = require("../../common/project-path");
 const player_runtime_service_1 = require("../player/player-runtime.service");
 const craft_panel_alchemy_query_service_1 = require("./craft-panel-alchemy-query.service");
@@ -98,6 +99,11 @@ let CraftPanelRuntimeService = class CraftPanelRuntimeService {
 
     playerRuntimeService;    
     /**
+ * playerDomainPersistenceService：玩家分域持久化服务引用。
+ */
+
+    playerDomainPersistenceService;    
+    /**
  * craftPanelAlchemyQueryService：炼制面板炼丹Query服务引用。
  */
 
@@ -114,9 +120,10 @@ let CraftPanelRuntimeService = class CraftPanelRuntimeService {
     /** 缓存强化配置，避免每次操作都重新查表。 */
     enhancementConfigs = new Map();
     /** 缓存依赖并初始化日志、配方与强化配置。 */
-    constructor(contentTemplateRepository, playerRuntimeService, craftPanelAlchemyQueryService, craftPanelEnhancementQueryService) {
+    constructor(contentTemplateRepository, playerRuntimeService, playerDomainPersistenceService, craftPanelAlchemyQueryService, craftPanelEnhancementQueryService) {
         this.contentTemplateRepository = contentTemplateRepository;
         this.playerRuntimeService = playerRuntimeService;
+        this.playerDomainPersistenceService = playerDomainPersistenceService;
         this.craftPanelAlchemyQueryService = craftPanelAlchemyQueryService;
         this.craftPanelEnhancementQueryService = craftPanelEnhancementQueryService;
     }
@@ -237,19 +244,21 @@ let CraftPanelRuntimeService = class CraftPanelRuntimeService {
         const spiritStoneCost = recipe.category === 'buff'
             ? Math.max(0, recipe.outputLevel * quantity)
             : 0;
-        if (spiritStoneCost > 0 && countInventoryItem(player, SPIRIT_STONE_ITEM_ID) < spiritStoneCost) {
+        if (spiritStoneCost > 0 && !this.playerRuntimeService.canAffordWallet(player.playerId, SPIRIT_STONE_ITEM_ID, spiritStoneCost)) {
             return buildCraftMutationResult(`灵石不足，需要 ${spiritStoneCost} 枚。`);
         }
         for (const ingredient of ingredients) {
             consumeInventoryItemByItemId(player, ingredient.itemId, ingredient.count * quantity);
         }
         if (spiritStoneCost > 0) {
-            consumeInventoryItemByItemId(player, SPIRIT_STONE_ITEM_ID, spiritStoneCost);
+            this.playerRuntimeService.debitWallet(player.playerId, SPIRIT_STONE_ITEM_ID, spiritStoneCost);
         }
         const batchBrewTicks = shared_1.computeAdjustedCraftTicks(recipe.baseBrewTicks, this.getWeapon(player)?.alchemySpeedRate ?? 0);
         const totalTicks = ALCHEMY_PREPARATION_TICKS + (batchBrewTicks * quantity);
         const successRate = Math.max(0.65, Math.min(1, 0.92 + ((player.alchemySkill?.level ?? 1) - recipe.outputLevel) * 0.03 + (this.getWeapon(player)?.alchemySuccessRate ?? 0)));
         player.alchemyJob = {
+            jobRunId: createCraftJobRunId(player.playerId, 'alchemy'),
+            jobType: 'alchemy',
             recipeId: recipe.recipeId,
             outputItemId: recipe.outputItemId,
             outputCount: Math.max(1, recipe.outputCount),
@@ -267,10 +276,15 @@ let CraftPanelRuntimeService = class CraftPanelRuntimeService {
             totalTicks,
             remainingTicks: totalTicks,
             successRate,
+            jobVersion: 1,
             exactRecipe: true,
             startedAt: Date.now(),
         };
-        this.finalizeMutation(player, { inventoryChanged: true, persistentOnly: true });
+        this.finalizeMutation(player, {
+            inventoryChanged: true,
+            persistentOnly: true,
+            dirtyDomains: ['active_job'],
+        });
         return {
             ok: true,
             panelChanged: true,
@@ -305,11 +319,14 @@ let CraftPanelRuntimeService = class CraftPanelRuntimeService {
                     itemId: ingredient.itemId,
                     count: refundCount,
                 });
-                if (canReceiveCraftItem(player, refundItem)) {
-                    receiveInventoryItem(player, this.contentTemplateRepository, refundItem);
+                if (refundItem.itemId === SPIRIT_STONE_ITEM_ID) {
+                    this.playerRuntimeService.creditWallet(player.playerId, SPIRIT_STONE_ITEM_ID, refundCount);
                     inventoryChanged = true;
                 }
-                else {
+                else if (canReceiveCraftItem(player, refundItem)) {
+                    receiveInventoryItem(player, this.contentTemplateRepository, refundItem);
+                    inventoryChanged = true;
+                } else {
                     groundDrops.push(refundItem);
                 }
             }
@@ -317,21 +334,16 @@ let CraftPanelRuntimeService = class CraftPanelRuntimeService {
         if (job.spiritStoneCost > 0 && refundableBatchCount > 0) {
             const refundableSpiritStones = Math.floor(job.spiritStoneCost * (refundableBatchCount / Math.max(1, job.quantity)));
             if (refundableSpiritStones > 0) {
-                const refundItem = this.contentTemplateRepository.normalizeItem({
-                    itemId: SPIRIT_STONE_ITEM_ID,
-                    count: refundableSpiritStones,
-                });
-                if (canReceiveCraftItem(player, refundItem)) {
-                    receiveInventoryItem(player, this.contentTemplateRepository, refundItem);
-                    inventoryChanged = true;
-                }
-                else {
-                    groundDrops.push(refundItem);
-                }
+                this.playerRuntimeService.creditWallet(player.playerId, SPIRIT_STONE_ITEM_ID, refundableSpiritStones);
+                inventoryChanged = true;
             }
         }
         player.alchemyJob = null;
-        this.finalizeMutation(player, { inventoryChanged, persistentOnly: true });
+        this.finalizeMutation(player, {
+            inventoryChanged,
+            persistentOnly: true,
+            dirtyDomains: ['active_job'],
+        });
         return {
             ok: true,
             panelChanged: true,
@@ -382,7 +394,13 @@ let CraftPanelRuntimeService = class CraftPanelRuntimeService {
         else {
             player.alchemyPresets.unshift(nextPreset);
         }
-        this.finalizeMutation(player, { persistentOnly: true });
+        this.finalizeMutation(player, {
+            persistentOnly: true,
+            dirtyDomains: ['alchemy_preset'],
+        });
+        void this.persistAlchemyPresets(player).catch((error) => {
+            console.warn(`炼丹预设直写失败：${error instanceof Error ? error.message : String(error)}`);
+        });
         return {
             ok: true,
             panelChanged: true,
@@ -412,7 +430,13 @@ let CraftPanelRuntimeService = class CraftPanelRuntimeService {
             return buildCraftMutationResult('对应炼制预设不存在。');
         }
         const [removed] = player.alchemyPresets.splice(index, 1);
-        this.finalizeMutation(player, { persistentOnly: true });
+        this.finalizeMutation(player, {
+            persistentOnly: true,
+            dirtyDomains: ['alchemy_preset'],
+        });
+        void this.persistAlchemyPresets(player).catch((error) => {
+            console.warn(`炼丹预设直写失败：${error instanceof Error ? error.message : String(error)}`);
+        });
         return {
             ok: true,
             panelChanged: true,
@@ -438,7 +462,10 @@ let CraftPanelRuntimeService = class CraftPanelRuntimeService {
         if (addedPauseTicks <= 0) {
             return buildCraftTickResult();
         }
-        this.finalizeMutation(player, { persistentOnly: true });
+        this.finalizeMutation(player, {
+            persistentOnly: true,
+            dirtyDomains: ['active_job'],
+        });
         return buildCraftTickResult(true, [{
                 kind: 'system',
                 text: (0, technique_activity_runtime_helpers_1.buildTechniqueActivityInterruptMessage)(
@@ -472,17 +499,33 @@ let CraftPanelRuntimeService = class CraftPanelRuntimeService {
                     : 'preparing',
             );
             if (!resumed.resumed) {
+                this.finalizeMutation(player, {
+                    persistentOnly: true,
+                    dirtyDomains: ['active_job'],
+                });
                 return buildCraftTickResult();
             }
+            this.finalizeMutation(player, {
+                persistentOnly: true,
+                dirtyDomains: ['active_job'],
+            });
             return buildCraftTickResult(true);
         }
         if (job.phase === 'preparing') {
             const brewTicksRemaining = Math.max(0, (job.quantity - job.completedCount) * job.batchBrewTicks);
             if (job.remainingTicks > brewTicksRemaining) {
+                this.finalizeMutation(player, {
+                    persistentOnly: true,
+                    dirtyDomains: ['active_job'],
+                });
                 return buildCraftTickResult();
             }
             job.phase = 'brewing';
             job.currentBatchRemainingTicks = job.batchBrewTicks;
+            this.finalizeMutation(player, {
+                persistentOnly: true,
+                dirtyDomains: ['active_job'],
+            });
             return buildCraftTickResult(true, [{
                     kind: 'quest',
                     text: `${this.contentTemplateRepository.getItemName(job.outputItemId) ?? job.outputItemId} 炉火已稳，开始正式炼制。`,
@@ -490,6 +533,10 @@ let CraftPanelRuntimeService = class CraftPanelRuntimeService {
         }
         job.currentBatchRemainingTicks = Math.max(0, job.currentBatchRemainingTicks - 1);
         if (job.currentBatchRemainingTicks > 0 && job.remainingTicks > 0) {
+            this.finalizeMutation(player, {
+                persistentOnly: true,
+                dirtyDomains: ['active_job'],
+            });
             return buildCraftTickResult();
         }
         const successCount = resolveAlchemyBatchSuccess(job.outputCount, job.successRate);
@@ -517,14 +564,14 @@ let CraftPanelRuntimeService = class CraftPanelRuntimeService {
             inventoryChanged,
             attrChanged: skillChanged,
             persistentOnly: true,
+            dirtyDomains: [
+                'active_job',
+                ...(skillChanged ? ['profession'] : []),
+            ],
         });
         if (job.completedCount >= job.quantity || job.remainingTicks <= 0) {
             player.alchemyJob = null;
-            this.finalizeMutation(player, {
-                inventoryChanged: false,
-                attrChanged: false,
-                persistentOnly: true,
-            });
+            this.finalizeMutation(player, { persistentOnly: true, dirtyDomains: ['active_job'] });
             return buildCraftTickResult(true, [{
                     kind: 'quest',
                     text: `${this.contentTemplateRepository.getItemName(job.outputItemId) ?? job.outputItemId} 炼制完成，成丹 ${job.successCount} 枚。`,
@@ -604,6 +651,8 @@ let CraftPanelRuntimeService = class CraftPanelRuntimeService {
             ? (0, shared_1.createItemStackSignature)(protection.item)
             : undefined;
         player.enhancementJob = {
+            jobRunId: createCraftJobRunId(player.playerId, 'enhancement'),
+            jobType: 'enhancement',
             target: cloneTargetRef(target.ref),
             item: {
                 ...cloneItem(workingItem),
@@ -630,6 +679,7 @@ let CraftPanelRuntimeService = class CraftPanelRuntimeService {
             startedAt: Date.now(),
             roleEnhancementLevel,
             totalSpeedRate,
+            jobVersion: 1,
         };
         this.touchEnhancementRecord(player, {
             itemId: target.item.itemId,
@@ -644,6 +694,7 @@ let CraftPanelRuntimeService = class CraftPanelRuntimeService {
             inventoryChanged: true,
             equipmentChanged: false,
             persistentOnly: true,
+            dirtyDomains: ['active_job', 'enhancement_record'],
         });
         return {
             ok: true,
@@ -701,7 +752,10 @@ let CraftPanelRuntimeService = class CraftPanelRuntimeService {
         if (addedPauseTicks <= 0) {
             return buildCraftTickResult();
         }
-        this.finalizeMutation(player, { persistentOnly: true });
+        this.finalizeMutation(player, {
+            persistentOnly: true,
+            dirtyDomains: ['active_job'],
+        });
         return buildCraftTickResult(true, [{
                 kind: 'system',
                 text: (0, technique_activity_runtime_helpers_1.buildTechniqueActivityInterruptMessage)(
@@ -730,17 +784,29 @@ let CraftPanelRuntimeService = class CraftPanelRuntimeService {
         if (job.phase === 'paused') {
             const resumed = (0, technique_activity_runtime_helpers_1.advanceTechniqueActivityPause)(job, 'enhancing');
             if (!resumed.resumed) {
+                this.finalizeMutation(player, {
+                    persistentOnly: true,
+                    dirtyDomains: ['active_job'],
+                });
                 return buildCraftTickResult();
             }
+            this.finalizeMutation(player, {
+                persistentOnly: true,
+                dirtyDomains: ['active_job'],
+            });
             return buildCraftTickResult(true);
         }
         if (job.remainingTicks > 0) {
+            this.finalizeMutation(player, {
+                persistentOnly: true,
+                dirtyDomains: ['active_job'],
+            });
             return buildCraftTickResult();
         }
         const success = Math.random() < job.successRate;
         if (success) {
             try {
-                consumeInventoryItemByItemId(player, SPIRIT_STONE_ITEM_ID, job.spiritStoneCost);
+                this.playerRuntimeService.debitWallet(player.playerId, SPIRIT_STONE_ITEM_ID, job.spiritStoneCost);
             }
             catch {
                 const finishResult = this.finishEnhancementJob(player, job.currentLevel, 'stopped');
@@ -766,6 +832,13 @@ let CraftPanelRuntimeService = class CraftPanelRuntimeService {
         this.touchEnhancementLevelRecord(player, job.targetItemId, job.targetLevel, success, resultingLevel);
         const skillChanged = applyCraftSkillExp(player.enhancementSkill, success ? Math.max(2, job.targetLevel) : 1);
         player.enhancementSkillLevel = player.enhancementSkill.level;
+        if (skillChanged) {
+            this.finalizeMutation(player, {
+                attrChanged: true,
+                persistentOnly: true,
+                dirtyDomains: ['profession'],
+            });
+        }
         if (resultingLevel < job.desiredTargetLevel) {
             const continueResult = this.advanceEnhancementJob(player, resultingLevel);
             if (continueResult) {
@@ -1160,6 +1233,7 @@ let CraftPanelRuntimeService = class CraftPanelRuntimeService {
             existing.desiredTargetLevel = input.desiredTargetLevel;
             existing.protectionStartLevel = input.protectionStartLevel;
             existing.status = input.status;
+            this.playerRuntimeService.markPersistenceDirtyDomains(player, ['enhancement_record']);
             return existing;
         }
         const created = {
@@ -1174,6 +1248,7 @@ let CraftPanelRuntimeService = class CraftPanelRuntimeService {
             status: input.status,
         };
         player.enhancementRecords.push(created);
+        this.playerRuntimeService.markPersistenceDirtyDomains(player, ['enhancement_record']);
         return created;
     }    
     /**
@@ -1278,6 +1353,7 @@ let CraftPanelRuntimeService = class CraftPanelRuntimeService {
         this.finalizeMutation(player, {
             inventoryChanged: true,
             persistentOnly: true,
+            dirtyDomains: ['active_job'],
         });
         return {
             continued: true,
@@ -1343,7 +1419,16 @@ let CraftPanelRuntimeService = class CraftPanelRuntimeService {
             equipmentChanged,
             attrChanged,
             persistentOnly: true,
+            dirtyDomains: [
+                'active_job',
+                'enhancement_record',
+            ],
         });
+        if (player?.suppressImmediateDomainPersistence !== true) {
+            void this.persistEnhancementRecords(player).catch((error) => {
+                this.logger.warn(`强化记录直写失败：${error instanceof Error ? error.message : String(error)}`);
+            });
+        }
         return {
             inventoryChanged,
             equipmentChanged,
@@ -1375,7 +1460,7 @@ let CraftPanelRuntimeService = class CraftPanelRuntimeService {
         if (protectionRequired && protection?.ref?.source === 'inventory') {
             counts.set(protection.item.itemId, (counts.get(protection.item.itemId) ?? 0) - 1);
         }
-        if ((counts.get(SPIRIT_STONE_ITEM_ID) ?? 0) < spiritStoneCost) {
+        if (!this.playerRuntimeService.canAffordWallet(player.playerId, SPIRIT_STONE_ITEM_ID, spiritStoneCost)) {
             return false;
         }
         return materials.every((entry) => (counts.get(entry.itemId) ?? 0) >= entry.count);
@@ -1397,7 +1482,7 @@ let CraftPanelRuntimeService = class CraftPanelRuntimeService {
         for (const item of player.inventory.items) {
             counts.set(item.itemId, (counts.get(item.itemId) ?? 0) + Math.max(0, Math.floor(Number(item.count) || 0)));
         }
-        if ((counts.get(SPIRIT_STONE_ITEM_ID) ?? 0) < spiritStoneCost) {
+        if (!this.playerRuntimeService.canAffordWallet(player.playerId, SPIRIT_STONE_ITEM_ID, spiritStoneCost)) {
             return false;
         }
         if (protectionItemId && this.getEligibleProtectionCount(player, protectionItemId, targetItemId) < 1) {
@@ -1501,6 +1586,88 @@ let CraftPanelRuntimeService = class CraftPanelRuntimeService {
         return total;
     }    
     /**
+ * persistEnhancementRecords：执行persist强化Records相关逻辑。
+ * @param player 玩家对象。
+ * @returns 无返回值，直接更新persist强化Records相关状态。
+ */
+
+    async persistEnhancementRecords(player) {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
+        if (!this.playerDomainPersistenceService?.isEnabled?.()) {
+            return;
+        }
+        const playerId = typeof player?.playerId === 'string' ? player.playerId.trim() : '';
+        if (!playerId) {
+            return;
+        }
+        await this.playerDomainPersistenceService.savePlayerEnhancementRecords(playerId, [...(player.enhancementRecords ?? [])], {
+            versionSeed: player.persistentRevision,
+        });
+    }    
+    /**
+ * persistAlchemyPresets：执行persist炼丹Presets相关逻辑。
+ * @param player 玩家对象。
+ * @returns 无返回值，直接更新persist炼丹Presets相关状态。
+ */
+
+    async persistAlchemyPresets(player) {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
+        if (!this.playerDomainPersistenceService?.isEnabled?.()) {
+            return;
+        }
+        const playerId = typeof player?.playerId === 'string' ? player.playerId.trim() : '';
+        if (!playerId) {
+            return;
+        }
+        await this.playerDomainPersistenceService.savePlayerAlchemyPresets(playerId, [...(player.alchemyPresets ?? [])], {
+            versionSeed: player.persistentRevision,
+        });
+    }    
+    /**
+ * persistActiveJob：执行persist活跃Job相关逻辑。
+ * @param player 玩家对象。
+ * @returns 无返回值，直接更新persist活跃Job相关状态。
+ */
+
+    async persistActiveJob(player) {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
+        if (!this.playerDomainPersistenceService?.isEnabled?.()) {
+            return;
+        }
+        const playerId = typeof player?.playerId === 'string' ? player.playerId.trim() : '';
+        if (!playerId) {
+            return;
+        }
+        const activeJob = buildActiveJobSnapshotFromPlayer(player);
+        await this.playerDomainPersistenceService.savePlayerActiveJob(playerId, activeJob, {
+            versionSeed: player.persistentRevision,
+        });
+    }    
+    /**
+ * persistTechniqueActivitySnapshot：执行persist技艺活动Snapshot相关逻辑。
+ * @param player 玩家对象。
+ * @returns 无返回值，直接更新persist技艺活动Snapshot相关状态。
+ */
+
+    async persistTechniqueActivitySnapshot(player) {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
+        if (!this.playerDomainPersistenceService?.isEnabled?.()) {
+            return;
+        }
+        const playerId = typeof player?.playerId === 'string' ? player.playerId.trim() : '';
+        if (!playerId) {
+            return;
+        }
+        const activeJob = buildActiveJobSnapshotFromPlayer(player);
+        await this.playerDomainPersistenceService.savePlayerActiveJob(playerId, activeJob, {
+            versionSeed: player.persistentRevision,
+        });
+    }    
+    /**
  * finalizeMutation：执行finalizeMutation相关逻辑。
  * @param player 玩家对象。
  * @param options 选项参数。
@@ -1510,14 +1677,17 @@ let CraftPanelRuntimeService = class CraftPanelRuntimeService {
     finalizeMutation(player, options = {}) {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
+        const dirtyDomains = [];
         if (options.inventoryChanged) {
             player.inventory.revision += 1;
             this.playerRuntimeService.playerProgressionService.refreshPreview(player);
+            dirtyDomains.push('inventory');
         }
         if (options.equipmentChanged) {
             player.equipment.revision += 1;
             this.playerRuntimeService.playerAttributesService.recalculate(player);
             this.playerRuntimeService.rebuildActionState(player, 0);
+            dirtyDomains.push('equipment', 'attr');
         }
         else if (options.attrChanged) {
             player.enhancementSkillLevel = Math.max(1, Math.floor(Number(player.enhancementSkill?.level ?? player.enhancementSkillLevel) || 1));
@@ -1525,8 +1695,24 @@ let CraftPanelRuntimeService = class CraftPanelRuntimeService {
         if (options.attrChanged && !options.equipmentChanged) {
             player.enhancementSkillLevel = Math.max(1, Math.floor(Number(player.enhancementSkill?.level ?? player.enhancementSkillLevel) || 1));
         }
-        if (options.inventoryChanged || options.equipmentChanged || options.attrChanged || options.persistentOnly) {
+        for (const domain of Array.isArray(options.dirtyDomains) ? options.dirtyDomains : []) {
+            if (typeof domain === 'string' && domain.trim()) {
+                dirtyDomains.push(domain.trim());
+            }
+        }
+        if (dirtyDomains.includes('active_job')) {
+            bumpActiveJobVersion(player);
+        }
+        if (dirtyDomains.length > 0) {
+            this.playerRuntimeService.markPersistenceDirtyDomains(player, dirtyDomains);
+        }
+        if (options.inventoryChanged || options.equipmentChanged || options.attrChanged || options.persistentOnly || dirtyDomains.length > 0) {
             this.playerRuntimeService.bumpPersistentRevision(player);
+        }
+        if (dirtyDomains.includes('active_job') && !player?.suppressImmediateDomainPersistence) {
+            void this.persistTechniqueActivitySnapshot(player).catch((error) => {
+                console.warn(`活跃任务直写失败：${error instanceof Error ? error.message : String(error)}`);
+            });
         }
     }    
     /**
@@ -1621,6 +1807,7 @@ exports.CraftPanelRuntimeService = CraftPanelRuntimeService = __decorate([
     (0, common_1.Injectable)(),
     __metadata("design:paramtypes", [content_template_repository_1.ContentTemplateRepository,
         player_runtime_service_1.PlayerRuntimeService,
+        player_domain_persistence_service_1.PlayerDomainPersistenceService,
         craft_panel_alchemy_query_service_1.CraftPanelAlchemyQueryService,
         craft_panel_enhancement_query_service_1.CraftPanelEnhancementQueryService])
 ], CraftPanelRuntimeService);
@@ -1861,6 +2048,61 @@ function cloneEnhancementJob(entry) {
         materials: Array.isArray(entry.materials) ? entry.materials.map((material) => ({ ...material })) : [],
     };
 }
+
+function createCraftJobRunId(playerId, jobType) {
+    const normalizedPlayerId = typeof playerId === 'string' ? playerId.trim() : '';
+    const normalizedJobType = jobType === 'enhancement' ? 'enhancement' : 'alchemy';
+    return `job:${normalizedPlayerId || 'player'}:${normalizedJobType}:${Date.now().toString(36)}`;
+}
+
+function buildActiveJobSnapshotFromPlayer(player) {
+    if (player?.enhancementJob) {
+        return buildActiveJobSnapshot(player.enhancementJob, 'enhancement');
+    }
+    if (player?.alchemyJob) {
+        return buildActiveJobSnapshot(player.alchemyJob, 'alchemy');
+    }
+    return null;
+}
+
+function buildActiveJobSnapshot(job, jobType) {
+    if (!job || typeof job !== 'object') {
+        return null;
+    }
+    const normalizedJobType = jobType === 'enhancement' ? 'enhancement' : 'alchemy';
+    const jobRunId = typeof job.jobRunId === 'string' && job.jobRunId.trim()
+        ? job.jobRunId.trim()
+        : createCraftJobRunId(typeof job.playerId === 'string' ? job.playerId : '', normalizedJobType);
+    const jobVersion = Math.max(1, Math.trunc(Number(job.jobVersion ?? 1)));
+    return {
+        jobRunId,
+        jobType: normalizedJobType,
+        status: typeof job.status === 'string' && job.status.trim() ? job.status.trim() : 'running',
+        phase: typeof job.phase === 'string' && job.phase.trim() ? job.phase.trim() : 'running',
+        startedAt: Math.max(1, Math.trunc(Number(job.startedAt ?? Date.now()))),
+        finishedAt: job.finishedAt == null ? null : Math.max(1, Math.trunc(Number(job.finishedAt))),
+        pausedTicks: Math.max(0, Math.trunc(Number(job.pausedTicks ?? 0))),
+        totalTicks: Math.max(0, Math.trunc(Number(job.totalTicks ?? 0))),
+        remainingTicks: Math.max(0, Math.trunc(Number(job.remainingTicks ?? 0))),
+        successRate: Number.isFinite(Number(job.successRate ?? 0)) ? Number(job.successRate ?? 0) : 0,
+        speedRate: Number.isFinite(Number(job.speedRate ?? job.totalSpeedRate ?? 1)) ? Number(job.speedRate ?? job.totalSpeedRate ?? 1) : 1,
+        jobVersion,
+        detailJson: {
+            ...job,
+            jobRunId,
+            jobType: normalizedJobType,
+            jobVersion,
+        },
+    };
+}
+
+function bumpActiveJobVersion(player) {
+    const activeJob = player?.enhancementJob ?? player?.alchemyJob ?? null;
+    if (!activeJob || typeof activeJob !== 'object') {
+        return;
+    }
+    activeJob.jobVersion = Math.max(1, Math.trunc(Number(activeJob.jobVersion ?? 1))) + 1;
+}
 /**
  * countInventoryItem：执行数量背包道具相关逻辑。
  * @param player 玩家对象。
@@ -1869,6 +2111,12 @@ function cloneEnhancementJob(entry) {
  */
 
 function countInventoryItem(player, itemId) {
+    if (itemId === SPIRIT_STONE_ITEM_ID) {
+        const balances = Array.isArray(player.wallet?.balances) ? player.wallet.balances : [];
+        const walletCount = balances.reduce((total, entry) => total + (entry?.walletType === itemId ? Math.max(0, Math.trunc(Number(entry?.balance ?? 0))) : 0), 0);
+        const inventoryCount = player.inventory.items.reduce((total, entry) => entry.itemId === itemId ? total + entry.count : total, 0);
+        return walletCount + inventoryCount;
+    }
     return player.inventory.items.reduce((total, entry) => entry.itemId === itemId ? total + entry.count : total, 0);
 }
 /**

@@ -23,6 +23,7 @@ const next_gm_constants_1 = require("../../http/native/native-gm.constants");
 const pvp_1 = require("../../constants/gameplay/pvp");
 
 const content_template_repository_1 = require("../../content/content-template.repository");
+const player_domain_persistence_service_1 = require("../../persistence/player-domain-persistence.service");
 
 const map_template_repository_1 = require("../map/map-template.repository");
 
@@ -37,9 +38,16 @@ const DEFAULT_PLAYER_STARTER_MAP_ID = 'yunlai_town';
 
 /** 等待写入 logbook 的消息上限，避免队列无限膨胀。 */
 const MAX_PENDING_LOGBOOK_MESSAGES = 200;
+/** 玩家跨节点转移超时时间，超时后自动回滚 transfer 态。 */
+const PLAYER_TRANSFER_TIMEOUT_MS = 120_000;
 
 /** 体能下限来源标记，用于把基础生命回填到运行时。 */
 const VITAL_BASELINE_BONUS_SOURCE = 'runtime:vitals_baseline';
+
+/** 当前钱包查询/扣费需要兼容库存回退的货币物品 ID。 */
+const WALLET_ITEM_IDS = new Set([
+    'spirit_stone',
+]);
 
 /** 可以进入待写 logbook 队列的消息种类。 */
 const PENDING_LOGBOOK_KINDS = new Set([
@@ -61,6 +69,8 @@ let PlayerRuntimeService = class PlayerRuntimeService {
     playerAttributesService;
     /** 成长结算器，负责境界、经验和修炼态推进。 */
     playerProgressionService;
+    /** 玩家分域持久化服务，承接低频改动即写。 */
+    playerDomainPersistenceService;
     /** 玩家在线态 store，集中托管运行时拥有的热状态。 */
     runtimeState = (0, player_runtime_state_1.createPlayerRuntimeStateStore)();
     /** 在线玩家运行时实例，按 playerId 直接索引。 */
@@ -68,25 +78,54 @@ let PlayerRuntimeService = class PlayerRuntimeService {
     /** 断线重连或死亡切换时，暂存的战斗副作用。 */
     pendingCombatEffectsByPlayerId = this.runtimeState.pendingCombatEffectsByPlayerId;
     /** 注入基础仓库与成长/属性结算器，供玩家在线态统一管理。 */
-    constructor(contentTemplateRepository, mapTemplateRepository, playerAttributesService, playerProgressionService) {
+    constructor(contentTemplateRepository, mapTemplateRepository, playerAttributesService, playerProgressionService, playerDomainPersistenceService = undefined) {
         this.contentTemplateRepository = contentTemplateRepository;
         this.mapTemplateRepository = mapTemplateRepository;
         this.playerAttributesService = playerAttributesService;
         this.playerProgressionService = playerProgressionService;
+        this.playerDomainPersistenceService = playerDomainPersistenceService;
     }
     /** 读取或创建玩家在线态快照，首次连接时从持久化状态回填。 */
-    async loadOrCreatePlayer(playerId, sessionId, loader) {
+    async loadOrCreatePlayer(playerId, sessionId, loader, options = undefined) {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
 
         const existing = this.players.get(playerId);
         if (existing) {
-            this.refreshRuntimeSession(existing, sessionId);
+            if (options?.forceRebind === true) {
+                this.bindRuntimeSession(existing, sessionId);
+            } else {
+                this.refreshRuntimeSession(existing, sessionId);
+            }
             this.pendingCombatEffectsByPlayerId.delete(playerId);
             return existing;
         }
 
-        const snapshot = await loader();
+        let snapshot = null;
+        const buildStarterSnapshot = typeof options?.buildStarterSnapshot === 'function'
+            ? options.buildStarterSnapshot
+            : null;
+        const projectionEnabled = typeof this.playerDomainPersistenceService?.isEnabled === 'function'
+            && this.playerDomainPersistenceService.isEnabled();
+        if (projectionEnabled && buildStarterSnapshot) {
+            snapshot = await this.playerDomainPersistenceService.loadProjectedSnapshot(playerId, buildStarterSnapshot);
+        }
+        if (!snapshot) {
+            snapshot = await loader();
+        }
+        if (typeof options?.onSnapshotLoaded === 'function') {
+            options.onSnapshotLoaded(snapshot);
+        }
+        const lateExisting = this.players.get(playerId);
+        if (lateExisting) {
+            if (options?.forceRebind === true) {
+                this.bindRuntimeSession(lateExisting, sessionId);
+            } else {
+                this.refreshRuntimeSession(lateExisting, sessionId);
+            }
+            this.pendingCombatEffectsByPlayerId.delete(playerId);
+            return lateExisting;
+        }
 
         const player = snapshot
             ? this.hydrateFromSnapshot(playerId, sessionId, snapshot)
@@ -124,6 +163,12 @@ let PlayerRuntimeService = class PlayerRuntimeService {
             sessionEpoch: 0,
             lastHeartbeatAt: null,
             offlineSinceAt: null,
+            transferState: null,
+            transferTargetNodeId: null,
+            transferStartedAt: null,
+            transferDeadlineAt: null,
+            transferWriteBlocked: false,
+            transferBufferedNotices: [],
             name: playerId,
             displayName: playerId,
             persistentRevision: 1,
@@ -155,6 +200,12 @@ let PlayerRuntimeService = class PlayerRuntimeService {
                 revision: 1,
                 capacity: starterInventory.capacity,
                 items: starterInventory.items,
+            },
+            wallet: {
+                balances: [],
+            },
+            marketStorage: {
+                items: [],
             },
             equipment: {
                 revision: 1,
@@ -241,6 +292,8 @@ let PlayerRuntimeService = class PlayerRuntimeService {
         player.name = nextName;
         player.displayName = nextDisplayName;
         player.selfRevision += 1;
+        markPlayerDirtyDomains(player, [PLAYER_PERSISTENCE_DIRTY_FALLBACK_DOMAIN]);
+        this.bumpPersistentRevision(player);
         return player;
     }
     /** 断开当前会话引用，但保留玩家运行时对象供重连复用。 */
@@ -366,6 +419,7 @@ let PlayerRuntimeService = class PlayerRuntimeService {
         if (!player) {
             return null;
         }
+        this.rollbackExpiredTransfer(player);
         const sessionFence = this.getSessionFence(playerId);
         const online = typeof player.sessionId === 'string' && player.sessionId.trim().length > 0;
         return {
@@ -379,8 +433,18 @@ let PlayerRuntimeService = class PlayerRuntimeService {
                 : (Number.isFinite(player.offlineSinceAt) ? Math.trunc(Number(player.offlineSinceAt)) : Date.now()),
             runtimeOwnerId: sessionFence?.runtimeOwnerId ?? null,
             sessionEpoch: sessionFence?.sessionEpoch ?? null,
-            transferState: null,
-            transferTargetNodeId: null,
+            transferState: typeof player.transferState === 'string' && player.transferState.trim()
+                ? player.transferState.trim()
+                : null,
+            transferTargetNodeId: typeof player.transferTargetNodeId === 'string' && player.transferTargetNodeId.trim()
+                ? player.transferTargetNodeId.trim()
+                : null,
+            transferStartedAt: Number.isFinite(player.transferStartedAt)
+                ? Math.trunc(Number(player.transferStartedAt))
+                : null,
+            transferDeadlineAt: Number.isFinite(player.transferDeadlineAt)
+                ? Math.trunc(Number(player.transferDeadlineAt))
+                : null,
             versionSeed: Date.now(),
         };
     }
@@ -395,6 +459,7 @@ let PlayerRuntimeService = class PlayerRuntimeService {
         if (!player) {
             return;
         }
+        this.rollbackExpiredTransfer(player);
         player.lastHeartbeatAt = Date.now();
         markPlayerDirtyDomains(player, [PLAYER_PERSISTENCE_DIRTY_PRESENCE_DOMAIN]);
     }
@@ -414,6 +479,63 @@ let PlayerRuntimeService = class PlayerRuntimeService {
         player.inventory.revision += 1;
         this.playerProgressionService.refreshPreview(player);
         markPlayerDirtyDomains(player, ['inventory']);
+        this.bumpPersistentRevision(player);
+        return player;
+    }
+    /**
+ * replaceWalletBalances：用已提交的钱包快照替换运行态。
+ * @param playerId 玩家 ID。
+ * @param balances 新钱包条目。
+ * @returns 无返回值，直接更新运行态钱包。
+ */
+
+    replaceWalletBalances(playerId, balances) {
+        const player = this.getPlayerOrThrow(playerId);
+        player.wallet = {
+            balances: Array.isArray(balances)
+                ? balances
+                    .map((entry) => ({
+                        walletType: normalizeWalletType(entry?.walletType),
+                        balance: Math.max(0, Math.trunc(Number(entry?.balance ?? 0))),
+                        frozenBalance: Math.max(0, Math.trunc(Number(entry?.frozenBalance ?? 0))),
+                        version: Math.max(0, Math.trunc(Number(entry?.version ?? 0))),
+                    }))
+                    .filter((entry) => entry.walletType)
+                : [],
+        };
+        player.selfRevision += 1;
+        markPlayerDirtyDomains(player, ['wallet']);
+        this.bumpPersistentRevision(player);
+        return player;
+    }
+    /**
+ * replaceEquipmentSlots：用已提交的新装备快照替换运行态。
+ * @param playerId 玩家 ID。
+ * @param slots 新装备条目。
+ * @returns 无返回值，直接更新运行态装备。
+ */
+
+    replaceEquipmentSlots(playerId, slots) {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
+
+        const player = this.getPlayerOrThrow(playerId);
+        const slotMap = new Map(Array.isArray(slots)
+            ? slots.filter((entry) => typeof entry?.slot === 'string' && entry.slot.trim()).map((entry) => [
+                entry.slot.trim(),
+                entry,
+            ])
+            : []);
+        player.equipment.slots = shared_1.EQUIP_SLOTS.map((slot) => {
+            const entry = slotMap.get(slot) ?? null;
+            return {
+                slot,
+                item: entry?.item ? this.contentTemplateRepository.normalizeItem(entry.item) : null,
+            };
+        });
+        player.equipment.revision += 1;
+        this.playerAttributesService.recalculate(player);
+        markPlayerDirtyDomains(player, ['equipment', 'attr']);
         this.bumpPersistentRevision(player);
         return player;
     }
@@ -669,6 +791,7 @@ let PlayerRuntimeService = class PlayerRuntimeService {
             }
         }
         if (changed) {
+            markPlayerDirtyDomains(player, ['vitals']);
             this.bumpPersistentRevision(player);
             player.selfRevision += 1;
         }
@@ -687,10 +810,10 @@ let PlayerRuntimeService = class PlayerRuntimeService {
 
 
         const player = this.getPlayerOrThrow(playerId);
-
-        const item = this.contentTemplateRepository.createItem(itemId, count);
+        const normalizedItemId = typeof itemId === 'string' ? itemId.trim() : '';
+        const item = this.contentTemplateRepository.createItem(normalizedItemId, count);
         if (!item) {
-            throw new common_1.NotFoundException(`Item ${itemId} not found`);
+            throw new common_1.NotFoundException(`Item ${normalizedItemId} not found`);
         }
 
         const existing = player.inventory.items.find((entry) => entry.itemId === item.itemId);
@@ -702,7 +825,142 @@ let PlayerRuntimeService = class PlayerRuntimeService {
         }
         player.inventory.revision += 1;
         this.playerProgressionService.refreshPreview(player);
+        markPlayerDirtyDomains(player, ['inventory']);
         this.bumpPersistentRevision(player);
+        return player;
+    }
+    /**
+ * getWalletBalanceByType：读取指定钱包类型余额。
+ * @param playerId 玩家 ID。
+ * @param walletType 钱包类型。
+ * @returns 无返回值，完成钱包余额读取/组装。
+ */
+
+    getWalletBalanceByType(playerId, walletType) {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
+
+        const player = this.getPlayerOrThrow(playerId);
+        const normalizedWalletType = normalizeWalletType(walletType);
+        if (!normalizedWalletType) {
+            return 0;
+        }
+        return readWalletBalance(player, normalizedWalletType) + this.getInventoryFallbackWalletBalance(player, normalizedWalletType);
+    }
+    /**
+ * canAffordWallet：判断钱包余额是否足够。
+ * @param playerId 玩家 ID。
+ * @param walletType 钱包类型。
+ * @param amount 数量。
+ * @returns 无返回值，完成钱包余额条件判断。
+ */
+
+    canAffordWallet(playerId, walletType, amount) {
+        return this.getWalletBalanceByType(playerId, walletType) >= Math.max(0, Math.trunc(amount || 0));
+    }
+    /**
+ * creditWallet：执行wallet加余额相关逻辑。
+ * @param playerId 玩家 ID。
+ * @param walletType 钱包类型。
+ * @param amount 数量。
+ * @returns 无返回值，直接更新wallet相关状态。
+ */
+
+    creditWallet(playerId, walletType, amount = 1) {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
+
+        const player = this.getPlayerOrThrow(playerId);
+        const normalizedWalletType = normalizeWalletType(walletType);
+        const normalizedAmount = Math.max(0, Math.trunc(amount));
+        if (!normalizedWalletType || normalizedAmount <= 0) {
+            return player;
+        }
+        const balances = ensureWalletBalances(player);
+        const entry = balances.find((row) => row.walletType === normalizedWalletType);
+        if (entry) {
+            entry.balance += normalizedAmount;
+            entry.version += 1;
+        }
+        else {
+            balances.push({
+                walletType: normalizedWalletType,
+                balance: normalizedAmount,
+                frozenBalance: 0,
+                version: 1,
+            });
+        }
+        player.selfRevision += 1;
+        markPlayerDirtyDomains(player, ['wallet']);
+        this.bumpPersistentRevision(player);
+        if (!isImmediateDomainPersistenceSuppressed(player)) {
+            void this.persistWallet(player).catch((error) => {
+                console.warn(`钱包直写失败：${error instanceof Error ? error.message : String(error)}`);
+            });
+        }
+        return player;
+    }
+    /**
+ * debitWallet：执行wallet扣余额相关逻辑。
+ * @param playerId 玩家 ID。
+ * @param walletType 钱包类型。
+ * @param amount 数量。
+ * @returns 无返回值，直接更新wallet相关状态。
+ */
+
+    debitWallet(playerId, walletType, amount = 1) {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
+
+        const player = this.getPlayerOrThrow(playerId);
+        const normalizedWalletType = normalizeWalletType(walletType);
+        const normalizedAmount = Math.max(0, Math.trunc(amount));
+        if (!normalizedWalletType || normalizedAmount <= 0) {
+            return player;
+        }
+        const balances = ensureWalletBalances(player);
+        const entry = balances.find((row) => row.walletType === normalizedWalletType);
+        const walletBalance = entry ? Math.max(0, Math.trunc(Number(entry.balance ?? 0))) : 0;
+        const inventoryBalance = this.getInventoryFallbackWalletBalance(player, normalizedWalletType);
+        if (walletBalance + inventoryBalance < normalizedAmount) {
+            throw new common_1.NotFoundException(`Wallet ${normalizedWalletType} insufficient`);
+        }
+        let remaining = normalizedAmount;
+        let touchedWallet = false;
+        let touchedInventory = false;
+        if (entry && walletBalance > 0) {
+            const debitFromWallet = Math.min(walletBalance, remaining);
+            if (debitFromWallet > 0) {
+                entry.balance -= debitFromWallet;
+                entry.version += 1;
+                remaining -= debitFromWallet;
+                touchedWallet = true;
+            }
+        }
+        if (remaining > 0 && WALLET_ITEM_IDS.has(normalizedWalletType)) {
+            this.consumeInventoryWalletFallback(player, normalizedWalletType, remaining);
+            touchedInventory = true;
+            remaining = 0;
+        }
+        player.selfRevision += 1;
+        if (touchedInventory) {
+            player.inventory.revision += 1;
+            this.playerProgressionService.refreshPreview(player);
+        }
+        const dirtyDomains = [];
+        if (touchedWallet) {
+            dirtyDomains.push('wallet');
+        }
+        if (touchedInventory) {
+            dirtyDomains.push('inventory');
+        }
+        markPlayerDirtyDomains(player, dirtyDomains.length > 0 ? dirtyDomains : ['wallet']);
+        this.bumpPersistentRevision(player);
+        if (!isImmediateDomainPersistenceSuppressed(player)) {
+            void this.persistWallet(player).catch((error) => {
+                console.warn(`钱包直写失败：${error instanceof Error ? error.message : String(error)}`);
+            });
+        }
         return player;
     }
     /**
@@ -738,7 +996,8 @@ let PlayerRuntimeService = class PlayerRuntimeService {
 
 
         const player = this.getPlayerOrThrow(playerId);
-        if (player.inventory.items.some((entry) => entry.itemId === itemId)) {
+        const normalizedItemId = typeof itemId === 'string' ? itemId.trim() : '';
+        if (player.inventory.items.some((entry) => entry.itemId === normalizedItemId)) {
             return true;
         }
         return player.inventory.items.length < player.inventory.capacity;
@@ -822,6 +1081,10 @@ let PlayerRuntimeService = class PlayerRuntimeService {
 
 
         const player = this.getPlayerOrThrow(playerId);
+        this.rollbackExpiredTransfer(player);
+        if (player.transferWriteBlocked) {
+            return player;
+        }
 
         const normalized = normalizePendingLogbookMessage(message);
         if (!normalized) {
@@ -843,7 +1106,11 @@ let PlayerRuntimeService = class PlayerRuntimeService {
             return player;
         }
         player.pendingLogbookMessages = limited;
+        markPlayerDirtyDomains(player, ['logbook']);
         this.bumpPersistentRevision(player);
+        void this.persistLogbookMessages(player).catch((error) => {
+            console.warn(`日志本直写失败：${error instanceof Error ? error.message : String(error)}`);
+        });
         return player;
     }
     /**
@@ -898,6 +1165,10 @@ let PlayerRuntimeService = class PlayerRuntimeService {
 
 
         const player = this.getPlayerOrThrow(playerId);
+        this.rollbackExpiredTransfer(player);
+        if (player.transferWriteBlocked) {
+            return player;
+        }
         if (ids.length === 0 || player.pendingLogbookMessages.length === 0) {
             return player;
         }
@@ -915,7 +1186,11 @@ let PlayerRuntimeService = class PlayerRuntimeService {
             return player;
         }
         player.pendingLogbookMessages = next;
+        markPlayerDirtyDomains(player, ['logbook']);
         this.bumpPersistentRevision(player);
+        void this.persistLogbookMessages(player).catch((error) => {
+            console.warn(`日志本直写失败：${error instanceof Error ? error.message : String(error)}`);
+        });
         return player;
     }
     /**
@@ -954,17 +1229,26 @@ let PlayerRuntimeService = class PlayerRuntimeService {
 
 
         const player = this.getPlayerOrThrow(playerId);
+        this.rollbackExpiredTransfer(player);
+        if (player.transferWriteBlocked) {
+            return player;
+        }
 
         const text = input.text.trim();
         if (!text) {
             return player;
         }
-        player.notices.queue.push({
+        const notice = {
             id: player.notices.nextId,
             kind: input.kind,
             text,
-        });
+        };
         player.notices.nextId += 1;
+        if (player.transferState === 'in_transfer') {
+            player.transferBufferedNotices.push(notice);
+            return player;
+        }
+        player.notices.queue.push(notice);
         return player;
     }
     /**
@@ -1067,6 +1351,7 @@ let PlayerRuntimeService = class PlayerRuntimeService {
         };
         consumeInventoryItemAt(player.inventory.items, slotIndex, nextCount);
         player.inventory.revision += 1;
+        markPlayerDirtyDomains(player, ['inventory']);
         this.bumpPersistentRevision(player);
         return extracted;
     }
@@ -1084,7 +1369,6 @@ let PlayerRuntimeService = class PlayerRuntimeService {
         const player = this.getPlayerOrThrow(playerId);
 
         const normalized = this.contentTemplateRepository.normalizeItem(item);
-
         const existing = player.inventory.items.find((entry) => entry.itemId === normalized.itemId);
         if (existing) {
             existing.count += normalized.count;
@@ -1094,8 +1378,33 @@ let PlayerRuntimeService = class PlayerRuntimeService {
         }
         player.inventory.revision += 1;
         this.playerProgressionService.refreshPreview(player);
+        markPlayerDirtyDomains(player, ['inventory']);
         this.bumpPersistentRevision(player);
         return player;
+    }
+    getInventoryFallbackWalletBalance(player, walletType) {
+        if (!WALLET_ITEM_IDS.has(walletType)) {
+            return 0;
+        }
+        return player.inventory.items.reduce((total, entry) => entry.itemId === walletType ? total + Math.max(0, Math.trunc(Number(entry.count ?? 0))) : total, 0);
+    }
+    consumeInventoryWalletFallback(player, walletType, amount) {
+        let remaining = Math.max(0, Math.trunc(amount));
+        for (let slotIndex = player.inventory.items.length - 1; slotIndex >= 0 && remaining > 0; slotIndex -= 1) {
+            const item = player.inventory.items[slotIndex];
+            if (!item || item.itemId !== walletType) {
+                continue;
+            }
+            const consumed = Math.min(Math.max(0, Math.trunc(Number(item.count ?? 0))), remaining);
+            if (consumed <= 0) {
+                continue;
+            }
+            consumeInventoryItemAt(player.inventory.items, slotIndex, consumed);
+            remaining -= consumed;
+        }
+        if (remaining > 0) {
+            throw new common_1.NotFoundException(`Inventory wallet item ${walletType} insufficient`);
+        }
     }
     /**
  * useItem：执行use道具相关逻辑。
@@ -1147,6 +1456,7 @@ let PlayerRuntimeService = class PlayerRuntimeService {
         consumeInventoryItemAt(player.inventory.items, slotIndex, 1);
         player.inventory.revision += 1;
         this.playerProgressionService.refreshPreview(player);
+        markPlayerDirtyDomains(player, learnTechniqueId ? ['inventory', 'technique', 'combat_pref', 'attr'] : ['inventory']);
         this.bumpPersistentRevision(player);
         return player;
     }
@@ -1171,6 +1481,7 @@ let PlayerRuntimeService = class PlayerRuntimeService {
         consumeInventoryItemAt(player.inventory.items, slotIndex, Math.max(1, Math.trunc(count)));
         player.inventory.revision += 1;
         this.playerProgressionService.refreshPreview(player);
+        markPlayerDirtyDomains(player, ['inventory']);
         this.bumpPersistentRevision(player);
         return player;
     }
@@ -1207,6 +1518,7 @@ let PlayerRuntimeService = class PlayerRuntimeService {
         }
         player.inventory.revision += 1;
         this.playerProgressionService.refreshPreview(player);
+        markPlayerDirtyDomains(player, ['inventory']);
         this.bumpPersistentRevision(player);
         return player;
     }
@@ -1238,6 +1550,7 @@ let PlayerRuntimeService = class PlayerRuntimeService {
         consumeInventoryItemAt(player.inventory.items, slotIndex, destroyed.count);
         player.inventory.revision += 1;
         this.playerProgressionService.refreshPreview(player);
+        markPlayerDirtyDomains(player, ['inventory']);
         this.bumpPersistentRevision(player);
         return destroyed;
     }
@@ -1273,6 +1586,7 @@ let PlayerRuntimeService = class PlayerRuntimeService {
             return player;
         }
         player.inventory.revision += 1;
+        markPlayerDirtyDomains(player, ['inventory']);
         this.bumpPersistentRevision(player);
         return player;
     }
@@ -1293,7 +1607,11 @@ let PlayerRuntimeService = class PlayerRuntimeService {
         }
         player.unlockedMapIds = [...player.unlockedMapIds, mapId]
             .sort((left, right) => left.localeCompare(right, 'zh-Hans-CN'));
+        markPlayerDirtyDomains(player, ['map_unlock']);
         this.bumpPersistentRevision(player);
+        void this.persistMapUnlocks(player).catch((error) => {
+            console.warn(`地图解锁直写失败：${error instanceof Error ? error.message : String(error)}`);
+        });
         return player;
     }
     /**
@@ -1307,7 +1625,59 @@ let PlayerRuntimeService = class PlayerRuntimeService {
         return this.getPlayerOrThrow(playerId).unlockedMapIds.includes(mapId);
     }
     /**
- * equipItem：执行equip道具相关逻辑。
+ * persistMapUnlocks：执行persist地图Unlocks相关逻辑。
+ * @param player 玩家对象。
+ * @returns 无返回值，直接更新persist地图Unlocks相关状态。
+ */
+
+    async persistMapUnlocks(player) {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
+        if (!this.playerDomainPersistenceService?.isEnabled?.()) {
+            return;
+        }
+        const playerId = typeof player?.playerId === 'string' ? player.playerId.trim() : '';
+        if (!playerId) {
+            return;
+        }
+        await this.playerDomainPersistenceService.savePlayerMapUnlocks(playerId, [...(player.unlockedMapIds ?? [])], {
+            versionSeed: player.persistentRevision,
+        });
+    }
+    async persistWallet(player) {
+        if (!this.playerDomainPersistenceService?.isEnabled?.()) {
+            return;
+        }
+        const playerId = typeof player?.playerId === 'string' ? player.playerId.trim() : '';
+        if (!playerId) {
+            return;
+        }
+        await this.playerDomainPersistenceService.savePlayerWallet(playerId, Array.isArray(player.wallet?.balances) ? player.wallet.balances : [], {
+            versionSeed: player.persistentRevision,
+        });
+    }
+    /**
+ * persistLogbookMessages：执行persist日志本Messages相关逻辑。
+ * @param player 玩家对象。
+ * @returns 无返回值，直接更新persist日志本Messages相关状态。
+ */
+
+    async persistLogbookMessages(player) {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
+        if (!this.playerDomainPersistenceService?.isEnabled?.()) {
+            return;
+        }
+        const playerId = typeof player?.playerId === 'string' ? player.playerId.trim() : '';
+        if (!playerId) {
+            return;
+        }
+        await this.playerDomainPersistenceService.savePlayerLogbookMessages(playerId, [...(player.pendingLogbookMessages ?? [])], {
+            versionSeed: player.persistentRevision,
+        });
+    }
+    /**
+* equipItem：执行equip道具相关逻辑。
  * @param playerId 玩家 ID。
  * @param slotIndex 参数说明。
  * @returns 无返回值，直接更新equip道具相关状态。
@@ -1344,7 +1714,7 @@ let PlayerRuntimeService = class PlayerRuntimeService {
         player.inventory.revision += 1;
         player.equipment.revision += 1;
         this.playerAttributesService.recalculate(player);
-        markPlayerDirtyDomains(player, ['inventory', 'equipment']);
+        markPlayerDirtyDomains(player, ['inventory', 'equipment', 'attr']);
         this.bumpPersistentRevision(player);
         return player;
     }
@@ -1370,7 +1740,7 @@ let PlayerRuntimeService = class PlayerRuntimeService {
         player.inventory.revision += 1;
         player.equipment.revision += 1;
         this.playerAttributesService.recalculate(player);
-        markPlayerDirtyDomains(player, ['inventory', 'equipment']);
+        markPlayerDirtyDomains(player, ['inventory', 'equipment', 'attr']);
         this.bumpPersistentRevision(player);
         return player;
     }
@@ -1436,6 +1806,7 @@ let PlayerRuntimeService = class PlayerRuntimeService {
         player.techniques.revision += 1;
         if (nextBodyTraining.level !== previousBodyTraining.level) {
             this.playerAttributesService.recalculate(player);
+            markPlayerDirtyDomains(player, ['attr']);
         }
         else {
             this.playerAttributesService.markPanelDirty(player);
@@ -1479,6 +1850,7 @@ let PlayerRuntimeService = class PlayerRuntimeService {
         player.techniques.revision += 1;
         if (nextBodyTraining.level !== currentBodyTraining.level) {
             this.playerAttributesService.recalculate(player);
+            markPlayerDirtyDomains(player, ['attr']);
         }
         else {
             this.playerAttributesService.markPanelDirty(player);
@@ -1595,8 +1967,11 @@ let PlayerRuntimeService = class PlayerRuntimeService {
         }
         player.combat.autoBattleSkills = normalized;
         this.rebuildActionState(player, 0);
-        markPlayerDirtyDomains(player, ['auto_battle_skill', 'combat_pref']);
+        markPlayerDirtyDomains(player, ['technique', 'auto_battle_skill']);
         this.bumpPersistentRevision(player);
+        void this.persistAutoBattleSkills(player).catch((error) => {
+            console.warn(`自动战斗技能直写失败：${error instanceof Error ? error.message : String(error)}`);
+        });
         return player;
     }
     /**
@@ -1617,8 +1992,11 @@ let PlayerRuntimeService = class PlayerRuntimeService {
             return player;
         }
         player.combat.autoUsePills = normalized;
-        markPlayerDirtyDomains(player, ['combat_pref']);
+        markPlayerDirtyDomains(player, ['auto_use_item_rule']);
         this.bumpPersistentRevision(player);
+        void this.persistAutoUseItemRules(player).catch((error) => {
+            console.warn(`自动使用规则直写失败：${error instanceof Error ? error.message : String(error)}`);
+        });
         return player;
     }
     /**
@@ -1714,7 +2092,7 @@ let PlayerRuntimeService = class PlayerRuntimeService {
         }
         player.combat.autoBattleSkills = normalized;
         this.rebuildActionState(player, 0);
-        markPlayerDirtyDomains(player, ['auto_battle_skill', 'combat_pref']);
+        markPlayerDirtyDomains(player, ['auto_battle_skill']);
         this.bumpPersistentRevision(player);
         return player;
     }
@@ -1789,6 +2167,7 @@ let PlayerRuntimeService = class PlayerRuntimeService {
         player.worldPreference = {
             linePreset: nextLinePreset,
         };
+        markPlayerDirtyDomains(player, ['world_anchor']);
         this.bumpPersistentRevision(player);
         return player;
     }
@@ -1817,6 +2196,7 @@ let PlayerRuntimeService = class PlayerRuntimeService {
         player.combat.combatTargetId = normalizedTargetId;
         player.combat.combatTargetLocked = normalizedLocked;
         this.rebuildActionState(player, currentTick);
+        markPlayerDirtyDomains(player, ['combat_pref']);
         this.bumpPersistentRevision(player);
         return player;
     }
@@ -1849,6 +2229,7 @@ let PlayerRuntimeService = class PlayerRuntimeService {
         }
         player.combat.retaliatePlayerTargetId = normalizedTargetId;
         this.rebuildActionState(player, currentTick);
+        markPlayerDirtyDomains(player, ['combat_pref']);
         this.bumpPersistentRevision(player);
         return player;
     }
@@ -1883,6 +2264,8 @@ let PlayerRuntimeService = class PlayerRuntimeService {
         player.buffs.buffs.sort((left, right) => left.buffId.localeCompare(right.buffId, 'zh-Hans-CN'));
         player.buffs.revision += 1;
         this.playerAttributesService.recalculate(player);
+        markPlayerDirtyDomains(player, ['buff', 'attr']);
+        this.bumpPersistentRevision(player);
         return player;
     }
     /** 施加神魂受损 Debuff。 */
@@ -1946,6 +2329,9 @@ let PlayerRuntimeService = class PlayerRuntimeService {
             };
         }
         const consumed = this.playerProgressionService.consumeRealmProgressAndFoundation(player, loss);
+        if (Array.isArray(consumed.dirtyDomains) && consumed.dirtyDomains.length > 0) {
+            markPlayerDirtyDomains(player, consumed.dirtyDomains);
+        }
         return {
             stacks,
             loss,
@@ -1989,6 +2375,7 @@ let PlayerRuntimeService = class PlayerRuntimeService {
         player.buffs.buffs.sort((left, right) => left.buffId.localeCompare(right.buffId, 'zh-Hans-CN'));
         player.buffs.revision += 1;
         this.playerAttributesService.recalculate(player);
+        markPlayerDirtyDomains(player, ['buff', 'attr']);
         this.bumpPersistentRevision(player);
         return player.buffs.buffs.find((entry) => entry.buffId === buff.buffId);
     }
@@ -2008,6 +2395,7 @@ let PlayerRuntimeService = class PlayerRuntimeService {
             player.buffs.buffs.splice(index, 1);
             player.buffs.revision += 1;
             this.playerAttributesService.recalculate(player);
+            markPlayerDirtyDomains(player, ['buff', 'attr']);
             this.bumpPersistentRevision(player);
             return 0;
         }
@@ -2015,6 +2403,7 @@ let PlayerRuntimeService = class PlayerRuntimeService {
         existing.remainingTicks = Math.max(1, Math.round(existing.duration || 1));
         player.buffs.revision += 1;
         this.playerAttributesService.recalculate(player);
+        markPlayerDirtyDomains(player, ['buff', 'attr']);
         this.bumpPersistentRevision(player);
         return nextStacks;
     }
@@ -2066,9 +2455,12 @@ let PlayerRuntimeService = class PlayerRuntimeService {
             if (tickTemporaryBuffs(player.buffs.buffs)) {
                 player.buffs.revision += 1;
                 this.playerAttributesService.recalculate(player);
+                markPlayerDirtyDomains(player, ['buff', 'attr']);
+                this.bumpPersistentRevision(player);
             }
             if (recoverPlayerVitals(player, currentTick)) {
                 player.selfRevision += 1;
+                markPlayerDirtyDomains(player, ['vitals']);
                 this.bumpPersistentRevision(player);
             }
             if (player.hp > 0 && shouldResumeIdleCultivation(player, currentTick, options.idleCultivationBlockedPlayerIds)) {
@@ -2147,6 +2539,7 @@ let PlayerRuntimeService = class PlayerRuntimeService {
         player.combat.lastActiveTick = Math.max(player.combat.lastActiveTick, Math.trunc(input.currentTick));
         if (changed) {
             player.selfRevision += 1;
+            markPlayerDirtyDomains(player, ['position_checkpoint', 'vitals', 'buff', 'combat_pref', 'attr']);
             this.bumpPersistentRevision(player);
         }
         return player;
@@ -2161,6 +2554,16 @@ let PlayerRuntimeService = class PlayerRuntimeService {
             .filter((player) => !(0, next_gm_constants_1.isNativeGmBotPlayerId)(player.playerId))
             .filter((player) => isPlayerRuntimeDirty(player))
             .map((player) => player.playerId);
+    }
+    /** getPersistenceRevision：读取玩家持久化版本。 */
+    getPersistenceRevision(playerId) {
+        const player = this.players.get(playerId);
+        if (!player) {
+            return null;
+        }
+        return Number.isFinite(Number(player.persistentRevision))
+            ? Math.trunc(Number(player.persistentRevision))
+            : null;
     }
     /**
  * listDirtyPlayerDomains：读取Dirty玩家并返回对应域集合。
@@ -2369,6 +2772,16 @@ let PlayerRuntimeService = class PlayerRuntimeService {
                 capacity: Math.max(shared_1.DEFAULT_INVENTORY_CAPACITY, snapshot.inventory.capacity),
                 items: snapshot.inventory.items.map((entry) => this.contentTemplateRepository.normalizeItem(entry)),
             },
+            wallet: {
+                balances: Array.isArray(snapshot.wallet?.balances)
+                    ? snapshot.wallet.balances.map((entry) => ({ ...entry }))
+                    : [],
+            },
+            marketStorage: {
+                items: Array.isArray(snapshot.marketStorage?.items)
+                    ? snapshot.marketStorage.items.map((entry) => ({ ...entry }))
+                    : [],
+            },
             equipment: {
                 revision: Math.max(1, snapshot.equipment.revision),
                 slots: snapshot.equipment.slots.length > 0
@@ -2456,6 +2869,7 @@ let PlayerRuntimeService = class PlayerRuntimeService {
         this.playerProgressionService.initializePlayer(player);
         if (ensureVitalBaselineBonus(player, snapshot.vitals)) {
             this.playerAttributesService.recalculate(player);
+            markPlayerDirtyDomains(player, ['attr']);
             player.hp = clamp(snapshot.vitals.hp, 0, player.maxHp);
             player.qi = clamp(snapshot.vitals.qi, 0, player.maxQi);
         }
@@ -2470,16 +2884,55 @@ let PlayerRuntimeService = class PlayerRuntimeService {
 
     bumpPersistentRevision(player) {
         player.persistentRevision += 1;
-        markPlayerDirtyDomains(player, [PLAYER_PERSISTENCE_DIRTY_FALLBACK_DOMAIN]);
     }
     /**
- * bindRuntimeSession：为玩家生成新的运行时所有权 fencing。
+ * markPersistenceDirtyDomains：为玩家补记持久化脏域。
+ * @param player 玩家对象。
+ * @param domains 脏域列表。
+ * @returns 无返回值，直接更新持久化脏域。
+ */
+
+    markPersistenceDirtyDomains(player, domains) {
+        markPlayerDirtyDomains(player, domains);
+    }
+    async persistAutoBattleSkills(player) {
+        if (!this.playerDomainPersistenceService?.isEnabled?.()) {
+            return;
+        }
+        const playerId = typeof player?.playerId === 'string' ? player.playerId.trim() : '';
+        if (!playerId) {
+            return;
+        }
+        await this.playerDomainPersistenceService.savePlayerAutoBattleSkills(
+            playerId,
+            Array.isArray(player.combat?.autoBattleSkills) ? player.combat.autoBattleSkills : [],
+            { versionSeed: player.persistentRevision },
+        );
+    }
+    async persistAutoUseItemRules(player) {
+        if (!this.playerDomainPersistenceService?.isEnabled?.()) {
+            return;
+        }
+        const playerId = typeof player?.playerId === 'string' ? player.playerId.trim() : '';
+        if (!playerId) {
+            return;
+        }
+        await this.playerDomainPersistenceService.savePlayerAutoUseItemRules(
+            playerId,
+            Array.isArray(player.combat?.autoUsePills) ? player.combat.autoUsePills : [],
+            { versionSeed: player.persistentRevision },
+        );
+    }
+    /**
+* bindRuntimeSession：为玩家生成新的运行时所有权 fencing。
  * @param player 玩家对象。
  * @param sessionId session ID。
  * @returns 无返回值，直接更新会话所有权。
  */
 
     bindRuntimeSession(player, sessionId) {
+        this.rollbackExpiredTransfer(player);
+        player.transferWriteBlocked = false;
         player.sessionId = sessionId;
         player.sessionEpoch = Math.max(1, Math.trunc(Number(player.sessionEpoch ?? 0)) + 1);
         player.runtimeOwnerId = buildRuntimeOwnerId(player.playerId, sessionId, player.sessionEpoch);
@@ -2489,6 +2942,8 @@ let PlayerRuntimeService = class PlayerRuntimeService {
         return player;
     }
     refreshRuntimeSession(player, sessionId) {
+        this.rollbackExpiredTransfer(player);
+        player.transferWriteBlocked = false;
         const normalizedSessionId = typeof sessionId === 'string' ? sessionId.trim() : '';
         const existingSessionId = typeof player.sessionId === 'string' ? player.sessionId.trim() : '';
         if (normalizedSessionId && normalizedSessionId === existingSessionId && player.runtimeOwnerId) {
@@ -2498,6 +2953,63 @@ let PlayerRuntimeService = class PlayerRuntimeService {
             return player;
         }
         return this.bindRuntimeSession(player, sessionId);
+    }
+    beginTransfer(player, targetNodeId) {
+        const normalizedTargetNodeId = typeof targetNodeId === 'string' ? targetNodeId.trim() : '';
+        const now = Date.now();
+        const normalizedSessionId = typeof player?.sessionId === 'string' && player.sessionId.trim()
+            ? player.sessionId.trim()
+            : 'transfer';
+        player.sessionEpoch = Math.max(1, Math.trunc(Number(player.sessionEpoch ?? 0)) + 1);
+        player.runtimeOwnerId = buildRuntimeOwnerId(player.playerId, normalizedSessionId, player.sessionEpoch);
+        player.lastHeartbeatAt = now;
+        player.offlineSinceAt = null;
+        player.transferState = 'in_transfer';
+        player.transferTargetNodeId = normalizedTargetNodeId || null;
+        player.transferStartedAt = now;
+        player.transferDeadlineAt = now + PLAYER_TRANSFER_TIMEOUT_MS;
+        player.transferWriteBlocked = false;
+        markPlayerDirtyDomains(player, [PLAYER_PERSISTENCE_DIRTY_PRESENCE_DOMAIN]);
+        return player;
+    }
+    completeTransfer(player) {
+        player.transferState = null;
+        player.transferTargetNodeId = null;
+        player.transferStartedAt = null;
+        player.transferDeadlineAt = null;
+        player.transferWriteBlocked = false;
+        this.flushTransferBufferedNotices(player);
+        markPlayerDirtyDomains(player, [PLAYER_PERSISTENCE_DIRTY_PRESENCE_DOMAIN]);
+        return player;
+    }
+    rollbackExpiredTransfer(player, now = Date.now()) {
+        if (!player || player.transferState !== 'in_transfer') {
+            return false;
+        }
+        if (!Number.isFinite(player.transferDeadlineAt) || now < Number(player.transferDeadlineAt)) {
+            return false;
+        }
+        player.transferState = null;
+        player.transferTargetNodeId = null;
+        player.transferStartedAt = null;
+        player.transferDeadlineAt = null;
+        player.transferWriteBlocked = true;
+        player.transferBufferedNotices.length = 0;
+        this.flushTransferBufferedNotices(player);
+        markPlayerDirtyDomains(player, [PLAYER_PERSISTENCE_DIRTY_PRESENCE_DOMAIN]);
+        return true;
+    }
+    flushTransferBufferedNotices(player) {
+        if (!player || !Array.isArray(player.transferBufferedNotices) || player.transferBufferedNotices.length === 0) {
+            return player;
+        }
+        const buffered = player.transferBufferedNotices.map((entry) => ({ ...entry }));
+        player.transferBufferedNotices.length = 0;
+        if (buffered.length === 0) {
+            return player;
+        }
+        player.notices.queue.push(...buffered);
+        return player;
     }
     /**
  * applyProgressionResult：处理修炼进度结果并更新相关状态。
@@ -2528,6 +3040,12 @@ let PlayerRuntimeService = class PlayerRuntimeService {
         if (result.changed && (rebuildActions || result.actionsDirty === true)) {
             this.rebuildActionState(player, currentTick);
         }
+        if (result.changed) {
+            const dirtyDomains = Array.isArray(result.dirtyDomains) && result.dirtyDomains.length > 0
+                ? result.dirtyDomains
+                : ['progression'];
+            markPlayerDirtyDomains(player, dirtyDomains);
+        }
         return player;
     }
     /**
@@ -2553,6 +3071,7 @@ let PlayerRuntimeService = class PlayerRuntimeService {
         }
         if (techniqueFlagsChanged) {
             player.techniques.revision += 1;
+            markPlayerDirtyDomains(player, ['technique']);
         }
     }
     /**
@@ -2594,6 +3113,7 @@ let PlayerRuntimeService = class PlayerRuntimeService {
             consumed = true;
         }
         if (selfChanged) {
+            markPlayerDirtyDomains(player, ['vitals']);
             player.selfRevision += 1;
         }
         return consumed;
@@ -2605,7 +3125,8 @@ exports.PlayerRuntimeService = PlayerRuntimeService = __decorate([
     __metadata("design:paramtypes", [content_template_repository_1.ContentTemplateRepository,
         map_template_repository_1.MapTemplateRepository,
         player_attributes_service_1.PlayerAttributesService,
-        player_progression_service_1.PlayerProgressionService])
+        player_progression_service_1.PlayerProgressionService,
+        player_domain_persistence_service_1.PlayerDomainPersistenceService])
 ], PlayerRuntimeService);
 export { PlayerRuntimeService };
 function createPlayerDirtyDomainSet() {
@@ -2631,6 +3152,9 @@ function clearPlayerDirtyDomains(player) {
 }
 function readPlayerDirtyDomains(player) {
     return player?.dirtyDomains instanceof Set ? player.dirtyDomains : null;
+}
+function isImmediateDomainPersistenceSuppressed(player) {
+    return Boolean(player?.suppressImmediateDomainPersistence);
 }
 function isPlayerRuntimeDirty(player) {
     return (player?.dirtyDomains instanceof Set && player.dirtyDomains.size > 0)
@@ -2677,6 +3201,16 @@ function cloneRuntimePlayerState(player) {
             revision: player.inventory.revision,
             capacity: player.inventory.capacity,
             items: player.inventory.items.map((entry) => ({ ...entry })),
+        },
+        wallet: {
+            balances: Array.isArray(player.wallet?.balances)
+                ? player.wallet.balances.map((entry) => ({ ...entry }))
+                : [],
+        },
+        marketStorage: {
+            items: Array.isArray(player.marketStorage?.items)
+                ? player.marketStorage.items.map((entry) => ({ ...entry }))
+                : [],
         },
         equipment: {
             revision: player.equipment.revision,
@@ -2748,6 +3282,22 @@ function cloneRuntimePlayerState(player) {
         runtimeBonuses: player.runtimeBonuses.map((entry) => cloneRuntimeBonus(entry)),
         dirtyDomains: createPlayerDirtyDomainSet(),
     };
+}
+function normalizeWalletType(walletType) {
+    const value = typeof walletType === 'string' ? walletType.trim() : '';
+    return value.length > 0 ? value : '';
+}
+function ensureWalletBalances(player) {
+    if (!player.wallet || !Array.isArray(player.wallet.balances)) {
+        player.wallet = {
+            balances: [],
+        };
+    }
+    return player.wallet.balances;
+}
+function readWalletBalance(player, walletType) {
+    const balances = Array.isArray(player.wallet?.balances) ? player.wallet.balances : [];
+    return balances.reduce((total, entry) => total + (entry?.walletType === walletType ? Math.max(0, Math.trunc(Number(entry?.balance ?? 0))) : 0), 0);
 }
 /**
  * createDefaultRealmState：构建并返回目标对象。

@@ -195,11 +195,7 @@ let PlayerProgressionService = PlayerProgressionService_1 = class PlayerProgress
 
         const result = this.gainRealmProgressInternal(player, amount, options);
         this.finalizeProgressionMutation(player, result);
-        return {
-            changed: result.changed,
-            notices: result.notices,
-            actionsDirty: result.actionsDirty,
-        };
+        return toProgressionMutationResult(result);
     }
     /** 增加基础修为值。 */
     gainFoundation(player, amount) {
@@ -212,22 +208,20 @@ let PlayerProgressionService = PlayerProgressionService_1 = class PlayerProgress
                 changed: false,
                 notices: [],
                 actionsDirty: false,
+                dirtyDomains: [],
             };
         }
         player.foundation += normalized;
-        this.finalizeProgressionMutation(player, {
+        const mutation = {
             changed: true,
             panelDirty: true,
             attrRecalculated: false,
             techniquesDirty: false,
             actionsDirty: false,
             notices: [],
-        });
-        return {
-            changed: true,
-            notices: [],
-            actionsDirty: false,
         };
+        this.finalizeProgressionMutation(player, mutation);
+        return toProgressionMutationResult(mutation);
     }
     /** 消耗当前境界修为与底蕴，优先扣进度，不足再扣底蕴。 */
     consumeRealmProgressAndFoundation(player, amount) {
@@ -270,6 +264,14 @@ let PlayerProgressionService = PlayerProgressionService_1 = class PlayerProgress
             changed,
             consumedProgress,
             consumedFoundation,
+            dirtyDomains: changed ? describeProgressionDirtyDomains({
+                changed,
+                panelDirty: !attrRecalculated && consumedFoundation > 0,
+                attrRecalculated,
+                techniquesDirty: false,
+                actionsDirty: nextRealm.breakthroughReady !== currentRealm.breakthroughReady,
+                notices: [],
+            }) : [],
         };
     }
     /** 增加战斗经验。 */
@@ -283,22 +285,20 @@ let PlayerProgressionService = PlayerProgressionService_1 = class PlayerProgress
                 changed: false,
                 notices: [],
                 actionsDirty: false,
+                dirtyDomains: [],
             };
         }
         player.combatExp += normalized;
-        this.finalizeProgressionMutation(player, {
+        const mutation = {
             changed: true,
             panelDirty: true,
             attrRecalculated: false,
             techniquesDirty: false,
             actionsDirty: false,
             notices: [],
-        });
-        return {
-            changed: true,
-            notices: [],
-            actionsDirty: false,
         };
+        this.finalizeProgressionMutation(player, mutation);
+        return toProgressionMutationResult(mutation);
     }
     /** 推进修炼 tick，处理境界经验、战斗经验和功法经验。 */
     advanceProgressionTick(player, elapsedTicks = 1, options = {}) {
@@ -354,6 +354,7 @@ let PlayerProgressionService = PlayerProgressionService_1 = class PlayerProgress
                 changed: false,
                 notices: [],
                 actionsDirty: false,
+                dirtyDomains: [],
             };
         }
         this.finalizeProgressionMutation(player, {
@@ -364,11 +365,14 @@ let PlayerProgressionService = PlayerProgressionService_1 = class PlayerProgress
             actionsDirty,
             notices,
         });
-        return {
-            changed: true,
-            notices,
+        return toProgressionMutationResult({
+            changed,
+            panelDirty,
+            attrRecalculated,
+            techniquesDirty,
             actionsDirty,
-        };
+            notices,
+        });
     }
     /** 推进闭关修炼 tick。 */
     advanceCultivation(player, elapsedTicks = 1) {
@@ -381,6 +385,7 @@ let PlayerProgressionService = PlayerProgressionService_1 = class PlayerProgress
                 changed: false,
                 notices: [],
                 actionsDirty: false,
+                dirtyDomains: [],
             };
         }
 
@@ -393,6 +398,7 @@ let PlayerProgressionService = PlayerProgressionService_1 = class PlayerProgress
                 changed: resolved.changed,
                 notices: resolved.notices,
                 actionsDirty: resolved.actionsDirty,
+                dirtyDomains: resolved.changed ? describeProgressionDirtyDomains(resolved) : [],
             };
         }
 
@@ -419,14 +425,11 @@ let PlayerProgressionService = PlayerProgressionService_1 = class PlayerProgress
                 changed: false,
                 notices: [],
                 actionsDirty: false,
+                dirtyDomains: [],
             };
         }
         this.finalizeProgressionMutation(player, mutation);
-        return {
-            changed: true,
-            notices: mutation.notices,
-            actionsDirty: mutation.actionsDirty,
-        };
+        return toProgressionMutationResult(mutation);
     }
     /** 统计击杀妖兽后获得的境界和功法经验。 */
     grantMonsterKillProgress(player, input = {}) {
@@ -506,14 +509,11 @@ let PlayerProgressionService = PlayerProgressionService_1 = class PlayerProgress
                 changed: false,
                 notices: [],
                 actionsDirty: false,
+                dirtyDomains: [],
             };
         }
         this.finalizeProgressionMutation(player, mutation);
-        return {
-            changed: true,
-            notices: mutation.notices,
-            actionsDirty: mutation.actionsDirty,
-        };
+        return toProgressionMutationResult(mutation);
     }
     /** 处理天门界面的斩根、重掷和抽灵根操作。 */
     handleHeavenGateAction(player, action, element) {
@@ -525,6 +525,7 @@ let PlayerProgressionService = PlayerProgressionService_1 = class PlayerProgress
             return {
                 changed: false,
                 notices: [{ text: '当前境界不可开天门', kind: 'warn' }],
+                dirtyDomains: [],
             };
         }
 
@@ -533,6 +534,7 @@ let PlayerProgressionService = PlayerProgressionService_1 = class PlayerProgress
             return {
                 changed: false,
                 notices: [{ text: '当前尚未叩开仙门，暂时不能开天门', kind: 'warn' }],
+                dirtyDomains: [],
             };
         }
         if (action === 'sever' || action === 'restore') {
@@ -540,12 +542,14 @@ let PlayerProgressionService = PlayerProgressionService_1 = class PlayerProgress
                 return {
                     changed: false,
                     notices: [{ text: '当前已入天门，无法再改动灵根', kind: 'warn' }],
+                    dirtyDomains: [],
                 };
             }
             if (!element || !ELEMENT_KEYS.includes(element)) {
                 return {
                     changed: false,
                     notices: [{ text: '灵根目标无效', kind: 'warn' }],
+                    dirtyDomains: [],
                 };
             }
 
@@ -554,6 +558,7 @@ let PlayerProgressionService = PlayerProgressionService_1 = class PlayerProgress
                 return {
                     changed: false,
                     notices: [{ text: '当前境界修为不足', kind: 'warn' }],
+                    dirtyDomains: [],
                 };
             }
 
@@ -563,12 +568,14 @@ let PlayerProgressionService = PlayerProgressionService_1 = class PlayerProgress
                     return {
                         changed: false,
                         notices: [{ text: `${ELEMENT_KEY_LABELS[element]}灵根已被斩断`, kind: 'warn' }],
+                        dirtyDomains: [],
                     };
                 }
                 if (severed.size >= HEAVEN_GATE_MAX_SEVERED) {
                     return {
                         changed: false,
                         notices: [{ text: '最多只能斩断四条灵根', kind: 'warn' }],
+                        dirtyDomains: [],
                     };
                 }
                 severed.add(element);
@@ -577,6 +584,7 @@ let PlayerProgressionService = PlayerProgressionService_1 = class PlayerProgress
                 return {
                     changed: false,
                     notices: [{ text: `${ELEMENT_KEY_LABELS[element]}灵根尚未斩断`, kind: 'warn' }],
+                    dirtyDomains: [],
                 };
             }
             else {
@@ -597,6 +605,7 @@ let PlayerProgressionService = PlayerProgressionService_1 = class PlayerProgress
                         text: `${action === 'sever' ? '斩断' : '补回'}${ELEMENT_KEY_LABELS[element]}灵根，消耗 ${cost} 点境界修为。`,
                         kind: 'success',
                     }],
+                dirtyDomains: ['progression', 'attr'],
             };
         }
         if (action === 'open') {
@@ -604,6 +613,7 @@ let PlayerProgressionService = PlayerProgressionService_1 = class PlayerProgress
                 return {
                     changed: false,
                     notices: [{ text: '当前已入天门，无法再重开天门', kind: 'warn' }],
+                    dirtyDomains: [],
                 };
             }
 
@@ -625,6 +635,7 @@ let PlayerProgressionService = PlayerProgressionService_1 = class PlayerProgress
                         text: `天门已开，本次灵根总值为 ${total}。`,
                         kind: 'success',
                     }],
+                dirtyDomains: ['attr'],
             };
         }
         if (action === 'reroll') {
@@ -632,12 +643,14 @@ let PlayerProgressionService = PlayerProgressionService_1 = class PlayerProgress
                 return {
                     changed: false,
                     notices: [{ text: '当前已入天门，无法再逆天改命', kind: 'warn' }],
+                    dirtyDomains: [],
                 };
             }
             if (!heavenGate.roots) {
                 return {
                     changed: false,
                     notices: [{ text: '当前尚未开天门，无法逆天改命', kind: 'warn' }],
+                    dirtyDomains: [],
                 };
             }
 
@@ -646,6 +659,7 @@ let PlayerProgressionService = PlayerProgressionService_1 = class PlayerProgress
                 return {
                     changed: false,
                     notices: [{ text: '当前境界修为不足，无法逆天改命', kind: 'warn' }],
+                    dirtyDomains: [],
                 };
             }
 
@@ -664,18 +678,21 @@ let PlayerProgressionService = PlayerProgressionService_1 = class PlayerProgress
                         text: `逆天改命消耗 ${cost} 点境界修为，后续开天门平均品质加成提升至 +${nextAverageBonus}。`,
                         kind: 'success',
                     }],
+                dirtyDomains: ['progression', 'attr'],
             };
         }
         if (!heavenGate.roots) {
             return {
                 changed: false,
                 notices: [{ text: '尚未开天门，无法入天门', kind: 'warn' }],
+                dirtyDomains: [],
             };
         }
         if (heavenGate.entered) {
             return {
                 changed: false,
                 notices: [{ text: '当前已入天门，无需重复确认', kind: 'warn' }],
+                dirtyDomains: [],
             };
         }
 
@@ -695,6 +712,7 @@ let PlayerProgressionService = PlayerProgressionService_1 = class PlayerProgress
                     text: '你已入天门，灵根结果已定。后续仍需按原本条件突破至练气。',
                     kind: 'success',
                 }],
+            dirtyDomains: ['attr'],
         };
     }
     /** 尝试完成一次境界突破。 */
@@ -707,6 +725,7 @@ let PlayerProgressionService = PlayerProgressionService_1 = class PlayerProgress
             return {
                 changed: false,
                 notices: [{ text: '你的境界火候未到，尚不能突破', kind: 'warn' }],
+                dirtyDomains: [],
             };
         }
 
@@ -715,6 +734,7 @@ let PlayerProgressionService = PlayerProgressionService_1 = class PlayerProgress
             return {
                 changed: false,
                 notices: [{ text: preview.blockedReason ?? '突破条件尚未满足', kind: 'warn' }],
+                dirtyDomains: [],
             };
         }
         if (realm.breakthroughItems.length > 0) {
@@ -734,6 +754,7 @@ let PlayerProgressionService = PlayerProgressionService_1 = class PlayerProgress
                     text: `你已成功突破至 ${targetRealm.displayName}。`,
                     kind: 'success',
                 }],
+            dirtyDomains: ['inventory', 'progression', 'attr', 'vitals'],
         };
     }
     /** 读取并缓存境界配置文件。 */
@@ -1737,6 +1758,29 @@ function createEmptyMutation() {
         techniquesDirty: false,
         actionsDirty: false,
         notices: [],
+    };
+}
+
+function describeProgressionDirtyDomains(mutation) {
+    if (!mutation?.changed) {
+        return [];
+    }
+    const domains = ['progression'];
+    if (mutation.attrRecalculated) {
+        domains.push('attr');
+    }
+    if (mutation.techniquesDirty) {
+        domains.push('technique');
+    }
+    return domains;
+}
+
+function toProgressionMutationResult(mutation) {
+    return {
+        changed: mutation?.changed === true,
+        notices: Array.isArray(mutation?.notices) ? mutation.notices : [],
+        actionsDirty: mutation?.actionsDirty === true,
+        dirtyDomains: describeProgressionDirtyDomains(mutation),
     };
 }
 /**

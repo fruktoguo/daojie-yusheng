@@ -134,7 +134,7 @@ function createDeps(log) {
  * @returns 无返回值，直接更新PendingCommand相关状态。
  */
 
-        dispatchPendingCommands() { log.push('dispatchPendingCommands'); },        
+        async dispatchPendingCommands() { log.push('dispatchPendingCommands'); },        
         /**
  * dispatchPendingSystemCommands：判断待处理SystemCommand是否满足条件。
  * @returns 无返回值，直接更新PendingSystemCommand相关状态。
@@ -204,11 +204,11 @@ function createDeps(log) {
  */
 
 
-function verifyNormalPath() {
+async function verifyNormalPath() {
     const log = [];
     const deps = createDeps(log);
     const service = new WorldRuntimeInstanceTickOrchestrationService();
-    const ticks = service.advanceFrame(deps, 1000, null);
+    const ticks = await service.advanceFrame(deps, 1000, null);
     assert.equal(ticks, 1);
     assert.equal(deps.tick, 1);
     assert.equal(deps.worldRuntimeMetricsService.frameCalled, true);
@@ -240,19 +240,72 @@ function verifyNormalPath() {
  */
 
 
-function verifyZeroTickPath() {
+async function verifyZeroTickPath() {
     const log = [];
     const deps = createDeps(log);
     deps.worldRuntimeTickProgressService.getProgress = () => 0;
     const service = new WorldRuntimeInstanceTickOrchestrationService();
-    const ticks = service.advanceFrame(deps, 0, null);
+    const ticks = await service.advanceFrame(deps, 0, null);
     assert.equal(ticks, 0);
     assert.equal(deps.worldRuntimeMetricsService.idleCalled, true);
     assert.equal(deps.worldRuntimeMetricsService.frameCalled, false);
     assert.deepEqual(log, ['resetFrameEffects', 'setProgress:instance:1', 'recordIdleFrame']);
 }
 
-verifyNormalPath();
-verifyZeroTickPath();
+async function verifyAwaitsPendingCommandsBeforeSystemAndTicks() {
+    const log = [];
+    let resolvePendingCommands = () => {};
+    const deps = createDeps(log);
+    deps.dispatchPendingCommands = async () => {
+        log.push('dispatchPendingCommands:start');
+        await new Promise((resolve) => {
+            resolvePendingCommands = () => {
+                log.push('dispatchPendingCommands:resolved');
+                resolve(undefined);
+            };
+        });
+    };
+    const service = new WorldRuntimeInstanceTickOrchestrationService();
+    const pendingAdvance = service.advanceFrame(deps, 1000, null);
+    await new Promise((resolve) => setImmediate(resolve));
+    assert.deepEqual(log, [
+        'resetFrameEffects',
+        'getProgress:instance:1',
+        'setProgress:instance:1',
+        'processPendingRespawns',
+        'materializeNavigationCommands',
+        'materializeAutoCombatCommands',
+        'dispatchPendingCommands:start',
+    ]);
+    resolvePendingCommands();
+    await pendingAdvance;
+    assert.deepEqual(log, [
+        'resetFrameEffects',
+        'getProgress:instance:1',
+        'setProgress:instance:1',
+        'processPendingRespawns',
+        'materializeNavigationCommands',
+        'materializeAutoCombatCommands',
+        'dispatchPendingCommands:start',
+        'dispatchPendingCommands:resolved',
+        'dispatchPendingSystemCommands',
+        'getBlockedPlayerIds',
+        'instance.tickOnce',
+        'applyTransfer',
+        'applyMonsterAction',
+        'instance.listPlayerIds',
+        'advanceTickForPlayerIds',
+        'advanceCraftJobs',
+        'advanceContainerSearches',
+        'refreshQuestStates:player:1',
+        'recordFrameResult',
+    ]);
+}
 
-console.log(JSON.stringify({ ok: true, case: 'world-runtime-instance-tick-orchestration' }, null, 2));
+Promise.resolve()
+    .then(() => verifyNormalPath())
+    .then(() => verifyZeroTickPath())
+    .then(() => verifyAwaitsPendingCommandsBeforeSystemAndTicks())
+    .then(() => {
+    console.log(JSON.stringify({ ok: true, case: 'world-runtime-instance-tick-orchestration' }, null, 2));
+});

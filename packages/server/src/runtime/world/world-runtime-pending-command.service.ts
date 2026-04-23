@@ -71,16 +71,16 @@ let WorldRuntimePendingCommandService = class WorldRuntimePendingCommandService 
  * @returns 无返回值，直接更新PendingCommand相关状态。
  */
 
-    dispatchPendingCommands(deps) {
+    async dispatchPendingCommands(deps) {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
         for (const [playerId, command] of this.pendingCommands) {
             try {
                 if (command.kind === 'move' || command.kind === 'portal') {
-                    deps.dispatchInstanceCommand(playerId, command);
+                    await deps.dispatchInstanceCommand(playerId, command);
                 }
                 else {
-                    deps.dispatchPlayerCommand(playerId, command);
+                    await deps.dispatchPlayerCommand(playerId, command);
                 }
             }
             catch (error) {

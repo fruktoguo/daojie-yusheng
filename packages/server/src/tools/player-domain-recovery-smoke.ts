@@ -13,6 +13,11 @@ import { WorldPlayerSnapshotService } from '../network/world-player-snapshot.ser
 const databaseUrl = resolveServerDatabaseUrl();
 
 const STARTER_TEMPLATE_ID = 'yunlai_town';
+type ProjectedRecoverySnapshot = PersistedPlayerSnapshot & {
+  marketStorage?: {
+    items: unknown[];
+  };
+};
 
 async function main(): Promise<void> {
   if (!databaseUrl.trim()) {
@@ -143,6 +148,43 @@ async function main(): Promise<void> {
     if (snapshot.inventory.items.length !== 2 || snapshot.inventory.items[0]?.['itemId'] !== 'rat_tail') {
       throw new Error(`unexpected recovered inventory: ${JSON.stringify(snapshot.inventory)}`);
     }
+    const recoveredWalletBalances = Array.isArray(snapshot.wallet?.balances)
+      ? snapshot.wallet.balances.map((entry) => ({
+          walletType: String((entry as Record<string, unknown> | null | undefined)?.['walletType'] ?? ''),
+          balance: Number((entry as Record<string, unknown> | null | undefined)?.['balance'] ?? 0),
+          frozenBalance: Number((entry as Record<string, unknown> | null | undefined)?.['frozenBalance'] ?? 0),
+        }))
+      : [];
+    if (
+      recoveredWalletBalances.length !== 2
+      || recoveredWalletBalances[0]?.walletType !== 'bound_gold'
+      || recoveredWalletBalances[0]?.balance !== 9
+      || recoveredWalletBalances[1]?.walletType !== 'spirit_stone'
+      || recoveredWalletBalances[1]?.balance !== 123
+    ) {
+      throw new Error(`unexpected recovered wallet: ${JSON.stringify(snapshot.wallet)}`);
+    }
+    const recoveredMarketStorageItems = Array.isArray((snapshot as ProjectedRecoverySnapshot).marketStorage?.items)
+      ? (snapshot as ProjectedRecoverySnapshot).marketStorage!.items.map((entry) => {
+          const item = entry as Record<string, unknown> | null | undefined;
+          return {
+            storageItemId: String(item?.['storageItemId'] ?? ''),
+            itemId: String(item?.['itemId'] ?? ''),
+            count: Number(item?.['count'] ?? 0),
+            slotIndex: Number(item?.['slotIndex'] ?? -1),
+            enhanceLevel: Number(item?.['enhanceLevel'] ?? 0),
+          };
+        })
+      : [];
+    if (
+      recoveredMarketStorageItems.length !== 2
+      || recoveredMarketStorageItems[0]?.storageItemId !== 'storage:qi-pill'
+      || recoveredMarketStorageItems[0]?.itemId !== 'qi_pill'
+      || recoveredMarketStorageItems[1]?.storageItemId !== 'storage:furnace'
+      || recoveredMarketStorageItems[1]?.itemId !== 'equip.copper_pill_furnace'
+    ) {
+      throw new Error(`unexpected recovered market storage: ${JSON.stringify((snapshot as ProjectedRecoverySnapshot).marketStorage)}`);
+    }
     if (
       snapshot.unlockedMapIds.slice().sort().join(',') !== 'bamboo_forest,wildlands,yunlai_town'
     ) {
@@ -248,7 +290,7 @@ async function main(): Promise<void> {
   }
 }
 
-function buildStarterSnapshot(playerId: string): PersistedPlayerSnapshot {
+function buildStarterSnapshot(playerId: string): ProjectedRecoverySnapshot {
   return {
     version: 1,
     savedAt: Date.now(),
@@ -305,6 +347,12 @@ function buildStarterSnapshot(playerId: string): PersistedPlayerSnapshot {
       capacity: 24,
       items: [],
     },
+    wallet: {
+      balances: [],
+    },
+    marketStorage: {
+      items: [],
+    },
     equipment: {
       revision: 1,
       slots: [],
@@ -343,7 +391,7 @@ function buildStarterSnapshot(playerId: string): PersistedPlayerSnapshot {
   };
 }
 
-function buildSnapshot(now: number): PersistedPlayerSnapshot {
+function buildSnapshot(now: number): ProjectedRecoverySnapshot {
   return {
     ...buildStarterSnapshot(`starter:${now}`),
     savedAt: now,
@@ -472,6 +520,32 @@ function buildSnapshot(now: number): PersistedPlayerSnapshot {
       items: [
         { itemId: 'rat_tail', count: 3 },
         { itemId: 'spirit_stone', count: 5 },
+      ],
+    },
+    wallet: {
+      balances: [
+        { walletType: 'bound_gold', balance: 9, frozenBalance: 1 },
+        { walletType: 'spirit_stone', balance: 123, frozenBalance: 7 },
+      ],
+    },
+    marketStorage: {
+      items: [
+        {
+          storageItemId: 'storage:qi-pill',
+          itemId: 'qi_pill',
+          count: 2,
+          slotIndex: 0,
+          enhanceLevel: null,
+          rawPayload: { tag: 'recovery-proof' },
+        },
+        {
+          storageItemId: 'storage:furnace',
+          itemId: 'equip.copper_pill_furnace',
+          count: 1,
+          slotIndex: 1,
+          enhanceLevel: 2,
+          rawPayload: { quality: 'rare' },
+        },
       ],
     },
     equipment: {
@@ -624,6 +698,8 @@ function assertProjectedSubsetParity(
         count: Number(item?.count ?? 0),
       };
     }),
+    wallet: normalizeComparableWallet((originalSnapshot as ProjectedRecoverySnapshot).wallet),
+    marketStorage: normalizeComparableMarketStorage((originalSnapshot as ProjectedRecoverySnapshot).marketStorage),
     unlockedMapIds: originalSnapshot.unlockedMapIds.slice().sort(),
     equipment: normalizeComparableEquipment(originalSnapshot.equipment.slots),
     techniques: normalizeComparableTechniques(originalSnapshot.techniques),
@@ -668,6 +744,8 @@ function assertProjectedSubsetParity(
         count: Number(item?.count ?? 0),
       };
     }),
+    wallet: normalizeComparableWallet((recoveredSnapshot as ProjectedRecoverySnapshot).wallet),
+    marketStorage: normalizeComparableMarketStorage((recoveredSnapshot as ProjectedRecoverySnapshot).marketStorage),
     unlockedMapIds: recoveredSnapshot.unlockedMapIds.slice().sort(),
     equipment: normalizeComparableEquipment(recoveredSnapshot.equipment.slots),
     techniques: normalizeComparableTechniques(recoveredSnapshot.techniques),
@@ -701,6 +779,42 @@ function assertProjectedSubsetParity(
       })}`,
     );
   }
+}
+
+function normalizeComparableWallet(wallet: unknown): Array<Record<string, unknown>> {
+  const balances = Array.isArray((wallet as { balances?: unknown[] } | null | undefined)?.balances)
+    ? (wallet as { balances: unknown[] }).balances
+    : [];
+  return balances
+    .map((entry) => {
+      const balance = entry as Record<string, unknown> | null | undefined;
+      return {
+        walletType: String(balance?.walletType ?? ''),
+        balance: Number(balance?.balance ?? 0),
+        frozenBalance: Number(balance?.frozenBalance ?? 0),
+      };
+    })
+    .filter((entry) => entry.walletType.length > 0)
+    .sort((left, right) => left.walletType.localeCompare(right.walletType, 'zh-Hans-CN'));
+}
+
+function normalizeComparableMarketStorage(marketStorage: unknown): Array<Record<string, unknown>> {
+  const items = Array.isArray((marketStorage as { items?: unknown[] } | null | undefined)?.items)
+    ? (marketStorage as { items: unknown[] }).items
+    : [];
+  return items
+    .map((entry) => {
+      const item = entry as Record<string, unknown> | null | undefined;
+      return {
+        storageItemId: String(item?.storageItemId ?? ''),
+        itemId: String(item?.itemId ?? ''),
+        count: Number(item?.count ?? 0),
+        slotIndex: Number(item?.slotIndex ?? -1),
+        enhanceLevel: item?.enhanceLevel == null ? null : Number(item.enhanceLevel),
+      };
+    })
+    .filter((entry) => entry.storageItemId.length > 0 && entry.itemId.length > 0)
+    .sort((left, right) => left.slotIndex - right.slotIndex || left.storageItemId.localeCompare(right.storageItemId, 'zh-Hans-CN'));
 }
 
 function normalizeComparableJson(value: unknown): unknown {

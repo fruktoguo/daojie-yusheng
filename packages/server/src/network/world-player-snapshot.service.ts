@@ -17,7 +17,7 @@ const ALLOWED_SNAPSHOT_PERSISTED_SOURCES = new Set([
 ] as const);
 
 type SnapshotPersistedSource = 'native' | 'legacy_sync' | 'legacy_backfill' | 'token_seed';
-type SnapshotResultSource = 'mainline' | 'miss';
+type SnapshotResultSource = 'mainline' | 'backup' | 'miss';
 type NativeStarterFailureStage =
   | 'native_snapshot_recovery_persistence_disabled'
   | 'native_snapshot_recovery_load_failed'
@@ -78,7 +78,8 @@ export class WorldPlayerSnapshotService {
   }
 
   isPersistenceEnabled(): boolean {
-    return this.playerPersistenceService.isEnabled() || this.playerDomainPersistenceService?.isEnabled() === true;
+    return this.playerPersistenceService.isEnabled()
+      || (typeof this.playerDomainPersistenceService?.isEnabled === 'function' && this.playerDomainPersistenceService.isEnabled());
   }
 
   async loadPersistedPlayerSnapshotRecord(playerId: string): Promise<PersistedPlayerSnapshotRecord | null> {
@@ -148,57 +149,8 @@ export class WorldPlayerSnapshotService {
     playerId: string,
     fallbackReason: string | null = null,
   ): Promise<LoadPlayerSnapshotResult> {
-    let nextSnapshotRecord: PersistedPlayerSnapshotRecord | null = null;
-    try {
-      nextSnapshotRecord = await this.loadPersistedPlayerSnapshotRecord(playerId);
-    } catch (error: unknown) {
-      const message = `Player snapshot mainline record load failed: playerId=${playerId} error=${error instanceof Error ? error.message : String(error)}`;
-      this.logger.error(message);
-      recordAuthTrace({
-        type: 'snapshot',
-        playerId,
-        source: 'mainline_invalid',
-        persistedSource: null,
-        fallbackReason,
-        fallbackHit: false,
-      });
-      throw new Error(message);
-    }
-
-    if (nextSnapshotRecord?.snapshot) {
-      const normalizedPersistedSource = normalizeSnapshotPersistedSource(nextSnapshotRecord.persistedSource);
-      if (!normalizedPersistedSource) {
-        const message = `Player snapshot mainline record persistedSource invalid: playerId=${playerId} persistedSource=${typeof nextSnapshotRecord.persistedSource === 'string' ? nextSnapshotRecord.persistedSource : 'unknown'}`;
-        this.logger.error(message);
-        recordAuthTrace({
-          type: 'snapshot',
-          playerId,
-          source: 'mainline_invalid',
-          persistedSource: null,
-          fallbackReason,
-          fallbackHit: false,
-        });
-        throw new Error(message);
-      }
-      this.logger.debug(`玩家快照来源=主线 persistedSource=${normalizedPersistedSource} playerId=${playerId}`);
-      recordAuthTrace({
-        type: 'snapshot',
-        playerId,
-        source: 'mainline',
-        persistedSource: normalizedPersistedSource,
-        fallbackReason,
-        fallbackHit: false,
-      });
-      return {
-        snapshot: nextSnapshotRecord.snapshot,
-        source: 'mainline',
-        persistedSource: normalizedPersistedSource,
-        fallbackReason,
-        seedPersisted: false,
-      };
-    }
-
-    if (this.playerDomainPersistenceService?.isEnabled()) {
+    if (typeof this.playerDomainPersistenceService?.isEnabled === 'function'
+      && this.playerDomainPersistenceService.isEnabled()) {
       const projectedSnapshot = await this.playerDomainPersistenceService.loadProjectedSnapshot(
         playerId,
         (targetPlayerId) => this.playerRuntimeService.buildStarterPersistenceSnapshot(targetPlayerId),
@@ -223,6 +175,7 @@ export class WorldPlayerSnapshotService {
         };
       }
     }
+
     return buildPersistedSnapshotMissResult(playerId, fallbackReason, this.logger);
   }
 

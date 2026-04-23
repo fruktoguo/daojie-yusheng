@@ -9,7 +9,7 @@ const { WorldRuntimeFrameService } = require("../runtime/world/world-runtime-fra
  */
 
 
-function testFrameDelegations() {
+async function testFrameDelegations() {
     const log = [];
     const service = new WorldRuntimeFrameService({    
     /**
@@ -36,8 +36,8 @@ function testFrameDelegations() {
         },
     });
     const deps = { marker: 'deps' };
-    assert.equal(service.tickAll(deps), 7);
-    assert.equal(service.advanceFrame(deps, 250, null), 7);
+    assert.equal(await service.tickAll(deps), 7);
+    assert.equal(await service.advanceFrame(deps, 250, null), 7);
     service.recordSyncFlushDuration(18.5);
     assert.deepEqual(log, [
         ['advanceFrame', 'deps', 1000, 'object'],
@@ -46,6 +46,8 @@ function testFrameDelegations() {
     ]);
 }
 
-testFrameDelegations();
-
-console.log(JSON.stringify({ ok: true, case: 'world-runtime-frame' }, null, 2));
+Promise.resolve()
+    .then(() => testFrameDelegations())
+    .then(() => {
+    console.log(JSON.stringify({ ok: true, case: 'world-runtime-frame' }, null, 2));
+});

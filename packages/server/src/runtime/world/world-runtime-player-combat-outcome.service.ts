@@ -62,8 +62,8 @@ let WorldRuntimePlayerCombatOutcomeService = class WorldRuntimePlayerCombatOutco
  * @returns 无返回值，直接更新玩家怪物Kill相关状态。
  */
 
-    handlePlayerMonsterKill(instance, monster, killerPlayerId, deps) {
-        this.worldRuntimePlayerCombatService.handlePlayerMonsterKill(instance, monster, killerPlayerId, deps);
+    async handlePlayerMonsterKill(instance, monster, killerPlayerId, deps) {
+        return this.worldRuntimePlayerCombatService.handlePlayerMonsterKill(instance, monster, killerPlayerId, deps);
     }    
     /**
  * handlePlayerDefeat：处理玩家Defeat并更新相关状态。
@@ -72,8 +72,8 @@ let WorldRuntimePlayerCombatOutcomeService = class WorldRuntimePlayerCombatOutco
  * @returns 无返回值，直接更新玩家Defeat相关状态。
  */
 
-    handlePlayerDefeat(playerId, deps, killerPlayerId = null) {
-        this.worldRuntimePlayerCombatService.handlePlayerDefeat(playerId, deps, killerPlayerId);
+    async handlePlayerDefeat(playerId, deps, killerPlayerId = null) {
+        return this.worldRuntimePlayerCombatService.handlePlayerDefeat(playerId, deps, killerPlayerId);
     }    
     /**
  * processPendingRespawns：处理待处理重生并更新相关状态。

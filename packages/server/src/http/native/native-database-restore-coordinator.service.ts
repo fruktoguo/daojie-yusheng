@@ -3,6 +3,7 @@ import { WorldSessionService } from '../../network/world-session.service';
 import { WorldSyncService } from '../../network/world-sync.service';
 import { MapPersistenceFlushService } from '../../persistence/map-persistence-flush.service';
 import { PlayerPersistenceFlushService } from '../../persistence/player-persistence-flush.service';
+import { PlayerSessionRouteService } from '../../persistence/player-session-route.service';
 import { RuntimeGmAuthService } from '../../runtime/gm/runtime-gm-auth.service';
 import { MailRuntimeService } from '../../runtime/mail/mail-runtime.service';
 import { MarketRuntimeService } from '../../runtime/market/market-runtime.service';
@@ -23,12 +24,52 @@ interface PlayerSnapshotLike {
   playerId: string;
 }
 /**
+ * ExpiredBindingLike：定义接口结构约束，明确可交付字段含义。
+ */
+
+
+interface ExpiredBindingLike {
+/**
+ * playerId：玩家ID标识。
+ */
+
+  playerId: string;
+/**
+ * sessionId：会话ID标识。
+ */
+
+  sessionId?: string | null;
+/**
+ * sessionEpoch：会话 epoch。
+ */
+
+  sessionEpoch?: number | null;
+/**
+ * connected：连接状态标记。
+ */
+
+  connected?: boolean;
+/**
+ * detachedAt：脱机时间戳。
+ */
+
+  detachedAt?: number | null;
+/**
+ * expireAt：过期时间戳。
+ */
+
+  expireAt?: number | null;
+}
+/**
  * WorldSessionServiceLike：定义接口结构约束，明确可交付字段含义。
  */
 
 
 interface WorldSessionServiceLike {
-  purgeAllSessions(reason: string): void;
+  purgeAllSessions(reason: string): string[];
+  consumeExpiredBindings?(): ExpiredBindingLike[];
+  requeueExpiredBinding?(binding: ExpiredBindingLike | null | undefined): boolean;
+  acknowledgePurgedPlayerIds?(playerIds: string[]): void;
 }
 /**
  * WorldRuntimeServiceLike：定义接口结构约束，明确可交付字段含义。
@@ -126,6 +167,7 @@ export class NativeDatabaseRestoreCoordinatorService {
     @Inject(PlayerPersistenceFlushService) private readonly playerPersistenceFlushService: FlushServiceLike,
     @Inject(MapPersistenceFlushService) private readonly mapPersistenceFlushService: FlushServiceLike,
     @Inject(PlayerRuntimeService) private readonly playerRuntimeService: PlayerRuntimeServiceLike,
+    @Inject(PlayerSessionRouteService) private readonly playerSessionRouteService: PlayerSessionRouteService,
     @Inject(MailRuntimeService) private readonly mailRuntimeService: MailRuntimeServiceLike,
     @Inject(MarketRuntimeService) private readonly marketRuntimeService: MarketRuntimeServiceLike,
     @Inject(SuggestionRuntimeService) private readonly suggestionRuntimeService: SuggestionRuntimeServiceLike,
@@ -148,8 +190,45 @@ export class NativeDatabaseRestoreCoordinatorService {
     }
 
     const runtimePlayerIds = this.playerRuntimeService.listPlayerSnapshots().map((entry) => entry.playerId);
-    if (NATIVE_GM_RESTORE_CONTRACT.purgeSessionsBeforeRestore) {
-      this.worldSessionService.purgeAllSessions('database_restore');
+    const runtimePlayerIdSet = new Set(runtimePlayerIds);
+    const purgedPlayerIds = NATIVE_GM_RESTORE_CONTRACT.purgeSessionsBeforeRestore
+      ? this.worldSessionService.purgeAllSessions('database_restore')
+      : [];
+    const expiredDetachedBindings = (this.worldSessionService.consumeExpiredBindings?.() ?? [])
+      .map((binding) => ({
+        playerId: typeof binding?.playerId === 'string' ? binding.playerId.trim() : '',
+        sessionId: typeof binding?.sessionId === 'string' ? binding.sessionId.trim() : '',
+        sessionEpoch: Number.isFinite(binding?.sessionEpoch) ? Math.max(1, Math.trunc(Number(binding?.sessionEpoch))) : null,
+        connected: Boolean(binding?.connected),
+        detachedAt: Number.isFinite(binding?.detachedAt) ? Number(binding?.detachedAt) : null,
+        expireAt: Number.isFinite(binding?.expireAt) ? Number(binding?.expireAt) : null,
+      }))
+      .filter((binding) => binding.playerId.length > 0 && !runtimePlayerIdSet.has(binding.playerId));
+    const expiredDetachedPlayerIds = expiredDetachedBindings.map((binding) => binding.playerId);
+    const detachedOnlyPurgedPlayerIds = purgedPlayerIds.filter((playerId) => !runtimePlayerIdSet.has(playerId));
+    const detachedCleanupPlayerIds = Array.from(new Set([
+      ...detachedOnlyPurgedPlayerIds,
+      ...expiredDetachedPlayerIds,
+    ]));
+    if (detachedOnlyPurgedPlayerIds.length > 0 || expiredDetachedBindings.length > 0) {
+      try {
+        if (detachedOnlyPurgedPlayerIds.length > 0) {
+          await this.playerSessionRouteService.clearLocalRoutes(detachedOnlyPurgedPlayerIds);
+        }
+        for (const binding of expiredDetachedBindings) {
+          await this.playerSessionRouteService.clearLocalRoute(binding.playerId, binding.sessionEpoch);
+        }
+        if (NATIVE_GM_RESTORE_CONTRACT.clearDetachedCachesBeforeRestore) {
+          for (const playerId of detachedCleanupPlayerIds) {
+            this.worldSyncService.clearDetachedPlayerCaches(playerId);
+          }
+        }
+      } catch (error) {
+        for (const binding of expiredDetachedBindings) {
+          this.worldSessionService.requeueExpiredBinding?.(binding);
+        }
+        throw error;
+      }
     }
 
     for (const playerId of runtimePlayerIds) {
@@ -157,6 +236,11 @@ export class NativeDatabaseRestoreCoordinatorService {
       if (NATIVE_GM_RESTORE_CONTRACT.clearDetachedCachesBeforeRestore) {
         this.worldSyncService.clearDetachedPlayerCaches(playerId);
       }
+    }
+    if (NATIVE_GM_RESTORE_CONTRACT.clearDetachedCachesBeforeRestore) {
+      this.worldSessionService.acknowledgePurgedPlayerIds?.(
+        Array.from(new Set([...detachedOnlyPurgedPlayerIds, ...runtimePlayerIds])),
+      );
     }
 
     this.mailRuntimeService.clearRuntimeCache();

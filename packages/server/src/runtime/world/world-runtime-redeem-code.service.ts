@@ -58,19 +58,19 @@ let WorldRuntimeRedeemCodeService = class WorldRuntimeRedeemCodeService {
  * @returns 无返回值，直接更新RedeemCode相关状态。
  */
 
-    dispatchRedeemCodes(playerId, codes, deps) {
-        this.redeemCodeRuntimeService.redeemCodes(playerId, codes)
-            .then((payload) => {
+    async dispatchRedeemCodes(playerId, codes, deps) {
+        try {
+            const payload = await this.redeemCodeRuntimeService.redeemCodes(playerId, codes);
             const socket = this.worldSessionService.getSocketByPlayerId(playerId);
             if (socket) {
                 this.worldClientEventService.emitRedeemCodesResult(socket, { result: payload });
             }
-        })
-            .catch((error) => {
+        }
+        catch (error) {
             const message = error instanceof Error ? error.message : String(error);
             deps.logger.warn(`处理玩家 ${playerId} 的兑换码失败：${message}`);
             deps.queuePlayerNotice(playerId, message, 'warn');
-        });
+        }
     }
 };
 exports.WorldRuntimeRedeemCodeService = WorldRuntimeRedeemCodeService;

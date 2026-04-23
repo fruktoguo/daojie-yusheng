@@ -23,6 +23,7 @@ const server_cors_1 = require("../config/server-cors");
 const health_readiness_service_1 = require("../health/health-readiness.service");
 const player_domain_persistence_service_1 = require("../persistence/player-domain-persistence.service");
 const player_persistence_flush_service_1 = require("../persistence/player-persistence-flush.service");
+const player_session_route_service_1 = require("../persistence/player-session-route.service");
 const mail_runtime_service_1 = require("../runtime/mail/mail-runtime.service");
 const market_runtime_service_1 = require("../runtime/market/market-runtime.service");
 const craft_panel_runtime_service_1 = require("../runtime/craft/craft-panel-runtime.service");
@@ -68,42 +69,18 @@ const GM_CONNECT_CONTRACT = Object.freeze({
     playerAuthRequiredCode: 'GM_PLAYER_AUTH_REQUIRED',
     sessionIdForbiddenCode: 'GM_SESSION_ID_FORBIDDEN',
 });
+const PLAYER_PRESENCE_HEARTBEAT_FLUSH_INTERVAL_MS = 5_000;
 let WorldGateway = WorldGateway_1 = class WorldGateway {
-        worldGmSocketService;
-        worldProtocolProjectionService;
-        sessionBootstrapService;
-        healthReadinessService;
-        playerDomainPersistenceService;
-        playerPersistenceFlushService;
-        playerRuntimeService;
-        mailRuntimeService;
-        marketRuntimeService;
-        craftPanelRuntimeService;
-        suggestionRuntimeService;
-        leaderboardRuntimeService;
-        runtimeGmStateService;
-        worldRuntimeService;
-        worldClientEventService;
-        worldSessionService;
-        gatewayBootstrapHelper;
-        gatewayGmCommandHelper;    
-    gatewayGmSuggestionHelper;    
-    gatewaySuggestionHelper;    
-    gatewayMovementHelper;    
-    gatewayInventoryHelper;    
-    gatewayMailHelper;    
-    gatewayPlayerControlsHelper;    
-    gatewayNpcHelper;    
-    gatewayCraftHelper;    
-    gatewayMarketHelper;    
-    gatewayReadModelHelper;    
-    gatewayActionHelper;    
-    gatewayClientEmitHelper;    
-    gatewayGuardHelper;    
-    gatewaySessionStateHelper;
-        server;
-        logger = new common_1.Logger(WorldGateway_1.name);    
-    constructor(worldGmSocketService, worldProtocolProjectionService, sessionBootstrapService, healthReadinessService, playerDomainPersistenceService, playerPersistenceFlushService, playerRuntimeService, mailRuntimeService, marketRuntimeService, craftPanelRuntimeService, suggestionRuntimeService, leaderboardRuntimeService, runtimeGmStateService, worldRuntimeService, worldClientEventService, worldSessionService) {
+        worldGmSocketService; worldProtocolProjectionService; sessionBootstrapService; healthReadinessService;
+        playerDomainPersistenceService; playerPersistenceFlushService; playerRuntimeService; mailRuntimeService;
+        marketRuntimeService; craftPanelRuntimeService; suggestionRuntimeService; leaderboardRuntimeService;
+        runtimeGmStateService; worldRuntimeService; worldClientEventService; worldSessionService; playerSessionRouteService;
+        gatewayBootstrapHelper; gatewayGmCommandHelper; gatewayGmSuggestionHelper; gatewaySuggestionHelper;
+        gatewayMovementHelper; gatewayInventoryHelper; gatewayMailHelper; gatewayPlayerControlsHelper;
+        gatewayNpcHelper; gatewayCraftHelper; gatewayMarketHelper; gatewayReadModelHelper; gatewayActionHelper;
+        gatewayClientEmitHelper; gatewayGuardHelper; gatewaySessionStateHelper;
+        presenceHeartbeatPersistedAtByPlayerId = new Map(); server; logger = new common_1.Logger(WorldGateway_1.name);    
+    constructor(worldGmSocketService, worldProtocolProjectionService, sessionBootstrapService, healthReadinessService, playerDomainPersistenceService, playerPersistenceFlushService, playerRuntimeService, mailRuntimeService, marketRuntimeService, craftPanelRuntimeService, suggestionRuntimeService, leaderboardRuntimeService, runtimeGmStateService, worldRuntimeService, worldClientEventService, worldSessionService, playerSessionRouteService) {
         this.worldGmSocketService = worldGmSocketService;
         this.worldProtocolProjectionService = worldProtocolProjectionService;
         this.sessionBootstrapService = sessionBootstrapService;
@@ -120,6 +97,7 @@ let WorldGateway = WorldGateway_1 = class WorldGateway {
         this.worldRuntimeService = worldRuntimeService;
         this.worldClientEventService = worldClientEventService;
         this.worldSessionService = worldSessionService;
+        this.playerSessionRouteService = playerSessionRouteService;
         this.gatewayBootstrapHelper = new world_gateway_bootstrap_helper_1.WorldGatewayBootstrapHelper(this);
         this.gatewayGmCommandHelper = new world_gateway_gm_command_helper_1.WorldGatewayGmCommandHelper(this);
         this.gatewayGmSuggestionHelper = new world_gateway_gm_suggestion_helper_1.WorldGatewayGmSuggestionHelper(this);
@@ -169,6 +147,7 @@ let WorldGateway = WorldGateway_1 = class WorldGateway {
         if (binding.connected) {
             return;
         }
+        this.presenceHeartbeatPersistedAtByPlayerId.delete(binding.playerId);
         const disconnectPresence = this.playerDomainPersistenceService?.isEnabled?.()
             ? this.playerRuntimeService.describePersistencePresence(binding.playerId)
             : null;
@@ -201,19 +180,40 @@ let WorldGateway = WorldGateway_1 = class WorldGateway {
             const heartbeatPresence = this.playerDomainPersistenceService?.isEnabled?.()
                 ? this.playerRuntimeService.describePersistencePresence(playerId)
                 : null;
-            if (heartbeatPresence) {
+            const now = Date.now();
+            if (heartbeatPresence && this.shouldPersistHeartbeatPresence(playerId, now)) {
                 void this.playerDomainPersistenceService.savePlayerPresence(playerId, {
                     ...heartbeatPresence,
                     online: true,
                     inWorld: Boolean(heartbeatPresence.inWorld),
                     offlineSinceAt: null,
-                    versionSeed: Date.now(),
+                    versionSeed: now,
                 }).catch((error) => {
                     this.logger.error(`刷新心跳 presence 失败：${playerId}`, error instanceof Error ? error.stack : String(error));
                 });
+                this.presenceHeartbeatPersistedAtByPlayerId.set(playerId, now);
+                this.playerRuntimeService.markPersisted?.(playerId);
             }
         }
     }    
+    shouldPersistHeartbeatPresence(playerId, now = Date.now()) {
+        const normalizedPlayerId = typeof playerId === 'string' ? playerId.trim() : '';
+        if (!normalizedPlayerId) {
+            return false;
+        }
+        const lastPersistedAt = Number(this.presenceHeartbeatPersistedAtByPlayerId.get(normalizedPlayerId) ?? 0);
+        if (!Number.isFinite(lastPersistedAt) || lastPersistedAt <= 0) {
+            return true;
+        }
+        return now - lastPersistedAt >= PLAYER_PRESENCE_HEARTBEAT_FLUSH_INTERVAL_MS;
+    }
+    clearHeartbeatPresencePersistThrottle(playerId) {
+        const normalizedPlayerId = typeof playerId === 'string' ? playerId.trim() : '';
+        if (!normalizedPlayerId) {
+            return;
+        }
+        this.presenceHeartbeatPersistedAtByPlayerId.delete(normalizedPlayerId);
+    }
     handleSocketGmGetState(client, _payload) {
         return this.gatewayGmCommandHelper.handleGmGetState(client, _payload);
     }    
@@ -1091,7 +1091,8 @@ exports.WorldGateway = WorldGateway = WorldGateway_1 = __decorate([
         runtime_gm_state_service_1.RuntimeGmStateService,
         world_runtime_service_1.WorldRuntimeService,
         world_client_event_service_1.WorldClientEventService,
-        world_session_service_1.WorldSessionService])
+        world_session_service_1.WorldSessionService,
+        player_session_route_service_1.PlayerSessionRouteService])
 ], WorldGateway);
 function buildAttrDetailBonuses(player) {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。

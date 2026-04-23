@@ -916,7 +916,7 @@ async function main() {
 /**
  * 记录maintenancesocketerrorcode。
  */
-        const maintenanceSocketErrorCode = await expectNextSocketRejectedForMaintenance();
+        const maintenanceSocketErrorCode = await expectMainlineSocketRejectedForMaintenance();
         if (maintenanceSocketErrorCode !== 'SERVER_BUSY') {
             throw new Error(`expected maintenance socket rejection code SERVER_BUSY, got ${maintenanceSocketErrorCode}`);
         }
@@ -949,7 +949,7 @@ async function main() {
 /**
  * 记录恢复状态。
  */
-        const restoreState = await waitForRestoreSettledAfterPasswordRollback(restoreJobId);
+        const restoreState = await waitForRestoreSettledAfterPasswordRollback(restoreJobId, token);
         logStage('restore:completed', {
             jobId: restoreJobId,
         });
@@ -2439,7 +2439,7 @@ async function expectRestoreRejectedForInvalidDocumentsCount(token, backupId) {
 /**
  * 处理expectnextsocketrejectedformaintenance。
  */
-async function expectNextSocketRejectedForMaintenance() {
+async function expectMainlineSocketRejectedForMaintenance() {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
 /**
@@ -2517,10 +2517,22 @@ async function waitForJobSettled(token, jobId, type) {
 /**
  * 等待for恢复settledafterpasswordrollback。
  */
-async function waitForRestoreSettledAfterPasswordRollback(jobId) {
+async function waitForRestoreSettledAfterPasswordRollback(jobId, token) {
     await waitForCondition(async () => {
-        const state = await readPersistedDatabaseJobState();
-        if (state.currentJob?.id === jobId) {
+        let state;
+        try {
+            state = await authedGetJson('/api/gm/database/state', token);
+        }
+        catch (error) {
+            const message = error instanceof Error ? error.message : String(error);
+            if (message.includes('GET /api/gm/database/state -> 401')) {
+                return {
+                    reauthRequired: true,
+                };
+            }
+            throw error;
+        }
+        if (state.runningJob?.id === jobId) {
             return false;
         }
         if (state.lastJob?.id !== jobId) {

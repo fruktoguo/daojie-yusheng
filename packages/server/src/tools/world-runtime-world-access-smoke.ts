@@ -18,7 +18,14 @@ function createService() {
  */
 
         buildRuntimeSummary(input) {
-            return { tick: input.tick, instanceCount: input.instances.length, pendingSystemCommandCount: input.pendingSystemCommandCount };
+            return {
+                tick: input.tick,
+                instanceCount: input.instances.length,
+                pendingSystemCommandCount: input.pendingSystemCommandCount,
+                dirtyBacklog: input.dirtyBacklog,
+                recoveryQueue: input.recoveryQueue,
+                flushWakeup: input.flushWakeup,
+            };
         },
     });
 }
@@ -71,12 +78,28 @@ function testAccessorsAndSummary() {
  */
 
         getPendingCommandCount() { return 2; },
+        listDirtyPersistentInstances() { return ['instance:1', 'instance:2']; },
         worldRuntimeGmQueueService: {        
         /**
  * getPendingSystemCommandCount：读取待处理SystemCommand数量。
  * @returns 无返回值，完成PendingSystemCommand数量的读取/组装。
  */
- getPendingSystemCommandCount() { return 4; } },
+            getPendingSystemCommandCount() { return 4; } },
+        worldSessionRecoveryQueueService: {
+            getSnapshot() {
+                return {
+                    concurrency: 4,
+                    inFlight: 1,
+                    queued: 2,
+                    keys: ['bootstrap:player:1'],
+                };
+            },
+        },
+        flushWakeupService: {
+            listWakeupKeys() {
+                return ['flush:wakeup:player:player:1'];
+            },
+        },
         worldRuntimeNavigationService: {        
         /**
  * findMapRoute：读取地图路线并返回结果。
@@ -157,7 +180,28 @@ function testAccessorsAndSummary() {
     service.interruptManualNavigation('player:1', deps);
     service.interruptManualCombat('player:1', deps);
     assert.deepEqual(service.getPlayerViewOrThrow('player:1', deps), { playerId: 'player:1' });
-    assert.deepEqual(service.getRuntimeSummary(deps), { tick: 3, instanceCount: 1, pendingSystemCommandCount: 4 });
+    assert.deepEqual(service.getRuntimeSummary(deps), {
+        tick: 3,
+        instanceCount: 1,
+        pendingSystemCommandCount: 4,
+        dirtyBacklog: {
+            players: 0,
+            playerDomains: 0,
+            instances: 2,
+        },
+        recoveryQueue: {
+            concurrency: 4,
+            inFlight: 1,
+            queued: 2,
+            keys: ['bootstrap:player:1'],
+        },
+        flushWakeup: {
+            concurrency: 0,
+            inFlight: 0,
+            queued: 1,
+            keys: ['flush:wakeup:player:player:1'],
+        },
+    });
 }
 
 testAccessorsAndSummary();

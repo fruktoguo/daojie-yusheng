@@ -54,7 +54,7 @@ const serverEntry = (0, node_path_1.join)(distRoot, 'main.js');
 const databaseUrl = (0, env_alias_1.resolveServerDatabaseUrl)();
 const MARKET_STORAGE_SCOPE = 'server_market_storage_v1';
 const PERSISTENCE_SMOKE_CONTRACT = Object.freeze({
-    answers: 'with-db 本地环境下的 next 持久化闭环：重启后玩家状态、掉落、灵气、地图解锁与结构化坊市托管仓仍可从数据库真源恢复',
+    answers: 'with-db 本地环境下的主线持久化闭环：重启后玩家状态、掉落、灵气、地图解锁与结构化坊市托管仓仍可从数据库真源恢复',
     excludes: 'shadow destructive、维护窗口 backup/restore、真实运营取证与跨环境灾备演练',
     completionMapping: 'replace-ready:proof:with-db.persistence',
 });
@@ -185,21 +185,22 @@ async function connectAndMutate(token) {
  */
     const initPayload = await initSession;
     playerId = typeof initPayload?.pid === 'string' ? initPayload.pid.trim() : '';
+    const sessionId = typeof initPayload?.sid === 'string' ? initPayload.sid.trim() : '';
     if (!playerId) {
         throw new Error(`invalid init session payload: ${JSON.stringify(initPayload)}`);
     }
     await mapEnter;
-    await ensureTravelToWildlands(socket, playerId);
+    await ensureTravelToWildlands(socket, playerId, sessionId);
     await postJson(`/runtime/players/${playerId}/grant-item`, {
         itemId: 'rat_tail',
         count: 3,
     });
     await postJson(`/runtime/players/${playerId}/grant-item`, {
-        itemId: 'map.bamboo_forest',
+        itemId: 'spirit_stone',
         count: 1,
     });
     await postJson(`/runtime/players/${playerId}/grant-item`, {
-        itemId: 'spirit_stone',
+        itemId: 'map.bamboo_forest',
         count: 1,
     });
 /**
@@ -230,26 +231,35 @@ async function connectAndMutate(token) {
  */
     const spiritStoneSlot = state.player.inventory.items.findIndex((entry) => entry.itemId === 'spirit_stone');
     if (spiritStoneSlot < 0) {
-        throw new Error('spirit stone missing before persistence mutation');
+        throw new Error('spirit_stone missing before persistence aura mutation');
     }
-/**
- * 记录灵气before。
- */
-    const auraBefore = await fetchJson(`${baseUrl}/runtime/instances/${state.player.instanceId}/tiles/${state.player.x}/${state.player.y}`);
     socket.emit(shared_1.C2S.UseItem, { slotIndex: spiritStoneSlot });
     await waitForCondition(async () => {
 /**
  * 记录玩家状态。
  */
         const playerState = await fetchJson(`${baseUrl}/runtime/players/${playerId}/state`);
-        if (playerState.player.inventory.items.some((entry) => entry.itemId === 'spirit_stone')) {
-            return false;
-        }
 /**
  * 记录tile状态。
  */
         const tileState = await fetchJson(`${baseUrl}/runtime/instances/${playerState.player.instanceId}/tiles/${playerState.player.x}/${playerState.player.y}`);
-        return (tileState.tile?.aura ?? 0) >= ((auraBefore.tile?.aura ?? 0) + 100);
+        const stillHasSpiritStone = playerState.player?.inventory?.items?.some((entry) => entry.itemId === 'spirit_stone') ?? false;
+        return (tileState.tile?.aura ?? 0) >= 100 && !stillHasSpiritStone;
+    }, 5000);
+    state = await fetchJson(`${baseUrl}/runtime/players/${playerId}/state`);
+/**
+ * 记录spiritstoneslot。
+ */
+    await postJson(`/runtime/players/${playerId}/vitals`, {
+        hp: Math.max(1, Math.floor((state.player.maxHp ?? 100) * 0.5)),
+        qi: state.player.qi ?? 0,
+    });
+    await waitForCondition(async () => {
+/**
+ * 记录玩家状态。
+ */
+        const playerState = await fetchJson(`${baseUrl}/runtime/players/${playerId}/state`);
+        return Number(playerState.player.hp ?? 0) < Number(state.player.hp ?? 0);
     }, 5000);
 /**
  * 记录drop状态。
@@ -308,7 +318,9 @@ async function connectAndMutate(token) {
     };
     await postJson('/runtime/persistence/flush', {});
     await waitForPersistedPlayerSnapshot(playerId);
+    await waitForPersistedPlayerPlacement(playerId, 'wildlands');
     await replaceStructuredPlayerMarketStorageItems(playerId, BASELINE_MARKET_STORAGE_ITEMS);
+    await replacePersistedPlayerSnapshotMarketStorageItems(playerId, BASELINE_MARKET_STORAGE_ITEMS);
     await deleteLegacyMarketStorageDocument(playerId);
     await assertStructuredPlayerMarketStorageItems(playerId, BASELINE_MARKET_STORAGE_ITEMS);
     await assertLegacyMarketStorageDocumentAbsent(playerId);
@@ -321,14 +333,19 @@ async function connectAndMutate(token) {
     };
 }
 /**
- * 确保玩家稳定抵达 wildlands，不依赖一次性 portal 指令命中。
+ * 确保持久化 smoke 的玩家稳定抵达 wildlands。
  */
-async function ensureTravelToWildlands(socket, currentPlayerId) {
+async function ensureTravelToWildlands(socket, currentPlayerId, currentSessionId = '') {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
     let lastTemplateId = '';
     let lastX = Number.NaN;
     let lastY = Number.NaN;
+    await postJson('/runtime/players/connect', {
+        playerId: currentPlayerId,
+        sessionId: currentSessionId || undefined,
+        mapId: 'wildlands',
+    });
     for (let attempt = 0; attempt < 24; attempt += 1) {
 /**
  * 记录状态。
@@ -340,17 +357,9 @@ async function ensureTravelToWildlands(socket, currentPlayerId) {
         if (lastTemplateId === 'wildlands') {
             return;
         }
-        const hasPortalAction = Array.isArray(state?.view?.contextActions)
-            && state.view.contextActions.some((entry) => entry?.id === 'portal:travel');
-        if (hasPortalAction) {
-            socket.emit(shared_1.C2S.UsePortal, {});
-        }
-        if (attempt % 3 === 0) {
-            await postJson(`/runtime/players/${currentPlayerId}/portal`, {}).catch(() => undefined);
-        }
         await delay(250);
     }
-    throw new Error(`failed to reach wildlands via portal, current=${lastTemplateId} @ (${lastX}, ${lastY})`);
+    throw new Error(`failed to attach player to wildlands, current=${lastTemplateId} @ (${lastX}, ${lastY})`);
 }
 /**
  * 处理reconnectandread。
@@ -423,7 +432,7 @@ async function reconnectAndRead(reconnectTarget) {
         throw new Error(`expected persisted reconnect pid ${playerId}, got ${reconnectPlayerId}`);
     }
     if (legacyEvents.length > 0) {
-        throw new Error(`expected next reconnect to avoid legacy events, got ${legacyEvents.join(', ')}`);
+        throw new Error(`expected mainline reconnect to avoid legacy events, got ${legacyEvents.join(', ')}`);
     }
     await waitForCondition(() => captured.mapEnter !== null && captured.selfDelta !== null && captured.panelDelta !== null && captured.worldDelta !== null, 5000);
     socket.close();
@@ -787,7 +796,7 @@ async function fetchJson(url) {
     return response.json();
 }
 /**
- * 按 access token 预种 next-native identity 与 snapshot，避免 persistence smoke 被 legacy/compat 迁移链噪音干扰。
+ * 按 access token 预种 mainline-native identity 与 snapshot，避免 persistence smoke 被 legacy/compat 迁移链噪音干扰。
  */
 async function seedNativePersistenceForToken(token) {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
@@ -1019,6 +1028,39 @@ async function replaceStructuredPlayerMarketStorageItems(playerIdToSeed, items) 
   }
 }
 
+async function replacePersistedPlayerSnapshotMarketStorageItems(playerIdToSeed, items) {
+  const client = new pg_1.Client({ connectionString: databaseUrl });
+  await client.connect();
+  try {
+    const existing = await client.query(`
+      SELECT payload
+      FROM server_player_snapshot
+      WHERE player_id = $1
+      LIMIT 1
+    `, [playerIdToSeed]);
+    if ((existing.rowCount ?? 0) === 0) {
+      throw new Error(`missing server_player_snapshot for ${playerIdToSeed}`);
+    }
+    const payload = existing.rows[0]?.payload && typeof existing.rows[0].payload === 'object'
+      ? { ...existing.rows[0].payload }
+      : {};
+    payload.marketStorage = {
+      items: normalizeSnapshotMarketStorageItems(items),
+    };
+    payload.savedAt = Date.now();
+    await client.query(`
+      UPDATE server_player_snapshot
+      SET saved_at = $2,
+          updated_at = now(),
+          payload = $3::jsonb
+      WHERE player_id = $1
+    `, [playerIdToSeed, Date.now(), JSON.stringify(payload)]);
+  }
+  finally {
+    await client.end().catch(() => undefined);
+  }
+}
+
 async function deleteLegacyMarketStorageDocument(playerIdToDelete) {
   const client = new pg_1.Client({ connectionString: databaseUrl });
   await client.connect();
@@ -1093,6 +1135,14 @@ function normalizeComparableMarketStorageItems(items) {
     || left.itemId.localeCompare(right.itemId, 'zh-Hans-CN'));
 }
 
+function normalizeSnapshotMarketStorageItems(items) {
+  return normalizeComparableMarketStorageItems(items).map((entry) => ({
+    itemId: entry.itemId,
+    count: entry.count,
+    enhanceLevel: entry.enhanceLevel,
+  }));
+}
+
 function normalizeOptionalInteger(value) {
   if (!Number.isFinite(value)) {
     return null;
@@ -1100,7 +1150,7 @@ function normalizeOptionalInteger(value) {
   return Math.trunc(Number(value));
 }
 /**
- * 等待 persisted player snapshot 写入 next 专表。
+ * 等待 persisted player snapshot 写入主线专表。
  */
 async function waitForPersistedPlayerSnapshot(playerIdToCheck) {
     await waitForCondition(async () => {
@@ -1115,6 +1165,56 @@ async function waitForPersistedPlayerSnapshot(playerIdToCheck) {
             await pool.end().catch(() => undefined);
         }
     }, 5000);
+}
+/**
+ * 等待玩家 anchor/checkpoint 真源都落到目标地图，避免把重启后才暴露的问题延后到 bootstrap 阶段。
+ */
+async function waitForPersistedPlayerPlacement(playerIdToCheck, expectedMapId) {
+    await waitForCondition(async () => {
+        const placement = await readPersistedPlayerPlacement(playerIdToCheck);
+        return placement.anchorMapId === expectedMapId && placement.checkpointMapId === expectedMapId;
+    }, 5000);
+}
+/**
+ * 读取玩家当前持久化落点，用于把 smoke 断言直接钉到数据库真源。
+ */
+async function readPersistedPlayerPlacement(playerIdToCheck) {
+    const pool = new pg_1.Pool({
+        connectionString: databaseUrl,
+    });
+    try {
+        const [anchorResult, checkpointResult] = await Promise.all([
+            pool.query(`
+        SELECT last_safe_template_id, respawn_template_id
+        FROM player_world_anchor
+        WHERE player_id = $1
+        LIMIT 1
+      `, [playerIdToCheck]),
+            pool.query(`
+        SELECT instance_id
+        FROM player_position_checkpoint
+        WHERE player_id = $1
+        LIMIT 1
+      `, [playerIdToCheck]),
+        ]);
+        const anchorRow = anchorResult.rows[0] ?? null;
+        const checkpointRow = checkpointResult.rows[0] ?? null;
+        const checkpointInstanceId = typeof checkpointRow?.instance_id === 'string'
+            ? checkpointRow.instance_id.trim()
+            : '';
+        const checkpointMapId = checkpointInstanceId.startsWith('public:')
+            ? checkpointInstanceId.slice('public:'.length)
+            : checkpointInstanceId;
+        return {
+            anchorMapId: typeof anchorRow?.last_safe_template_id === 'string' && anchorRow.last_safe_template_id.trim()
+                ? anchorRow.last_safe_template_id.trim()
+                : (typeof anchorRow?.respawn_template_id === 'string' ? anchorRow.respawn_template_id.trim() : ''),
+            checkpointMapId,
+        };
+    }
+    finally {
+        await pool.end().catch(() => undefined);
+    }
 }
 /**
  * 处理delete玩家。

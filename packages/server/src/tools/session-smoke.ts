@@ -90,7 +90,7 @@ async function main() {
  */
     let implicitLegacyLegacyPongCount = 0;
 /**
- * 记录隐式legacy next pong数量。
+ * 记录隐式legacy 主线 pong数量。
  */
     let implicitLegacyNextPongCount = 0;
     await onceConnected(implicitLegacy);
@@ -130,7 +130,7 @@ async function main() {
  */
     let explicitLegacyLegacyPong = null;
 /**
- * 记录显式legacy next pong数量。
+ * 记录显式legacy 主线 pong数量。
  */
     let explicitLegacyNextPongCount = 0;
 /**
@@ -204,7 +204,7 @@ async function main() {
         throw new Error(`expected implicit unauthenticated legacy ping to be rejected with AUTH_FAIL, got ${JSON.stringify(implicitLegacyError)}`);
     }
     if (implicitLegacyLegacyPongCount !== 0 || implicitLegacyNextPongCount !== 0) {
-        throw new Error(`expected implicit legacy ping to avoid pong emission, got legacy=${implicitLegacyLegacyPongCount} next=${implicitLegacyNextPongCount}`);
+        throw new Error(`expected implicit legacy ping to avoid pong emission, got legacy=${implicitLegacyLegacyPongCount} mainline=${implicitLegacyNextPongCount}`);
     }
     if ((explicitLegacyError?.code ?? null) !== 'LEGACY_PROTOCOL_DISABLED') {
         throw new Error(`expected explicit legacy ping to be rejected with LEGACY_PROTOCOL_DISABLED, got ${JSON.stringify(explicitLegacyError)}`);
@@ -213,7 +213,7 @@ async function main() {
         throw new Error(`expected explicit legacy ping to avoid legacy pong emission while disabled, got ${JSON.stringify(explicitLegacyLegacyPong)}`);
     }
     if (explicitLegacyNextPongCount !== 0) {
-        throw new Error(`expected explicit legacy ping to avoid next pong emission while disabled, got ${explicitLegacyNextPongCount}`);
+        throw new Error(`expected explicit legacy ping to avoid mainline pong emission while disabled, got ${explicitLegacyNextPongCount}`);
     }
     if ((unauthenticatedConnectError?.code ?? null) !== 'AUTH_FAIL') {
         throw new Error(`expected unauthenticated socket connect to be rejected with AUTH_FAIL, got ${JSON.stringify(unauthenticatedConnectError)}`);
@@ -464,6 +464,7 @@ async function runWorldSessionReaperSuccessProof() {
  * 记录binding。
  */
     const binding = service.registerSocket(socket, playerId);
+    service.rememberSessionEpoch(playerId, 7);
 /**
  * 记录detachedbinding。
  */
@@ -484,6 +485,14 @@ async function runWorldSessionReaperSuccessProof() {
  */
     const cleared = [];
 /**
+ * 记录routecleared。
+ */
+    const routeCleared = [];
+/**
+ * 记录steps。
+ */
+    const steps = [];
+/**
  * 记录reaper。
  */
     const reaper = new world_session_reaper_service_1.WorldSessionReaperService(service, {    
@@ -494,6 +503,7 @@ async function runWorldSessionReaperSuccessProof() {
  */
 
         clearDetachedPlayerCaches(targetPlayerId) {
+            steps.push(['clearDetachedPlayerCaches', targetPlayerId]);
             cleared.push(targetPlayerId);
         },
     }, {    
@@ -504,20 +514,39 @@ async function runWorldSessionReaperSuccessProof() {
  */
 
         async flushPlayer(targetPlayerId) {
+            steps.push(['flushPlayer', targetPlayerId]);
             flushed.push(targetPlayerId);
+        },
+    }, {
+        async clearLocalRoute(targetPlayerId, sessionEpoch) {
+            steps.push(['clearLocalRoute', targetPlayerId, sessionEpoch ?? null]);
+            routeCleared.push([targetPlayerId, sessionEpoch ?? null]);
+        },
+    }, {
+        getPlayer() {
+            return null;
         },
     });
     await reaper.reapExpiredSessions();
     if (flushed.length !== 1 || flushed[0] !== playerId) {
         throw new Error(`expected reaper success proof to flush detached player once, got ${JSON.stringify(flushed)}`);
     }
+    if (routeCleared.length !== 1 || routeCleared[0]?.[0] !== playerId || routeCleared[0]?.[1] !== 7) {
+        throw new Error(`expected reaper success proof to clear detached local route once with sessionEpoch=7, got ${JSON.stringify(routeCleared)}`);
+    }
     if (cleared.length !== 1 || cleared[0] !== playerId) {
         throw new Error(`expected reaper success proof to clear detached caches once, got ${JSON.stringify(cleared)}`);
     }
+    assertStepOrder(steps, [
+        ['flushPlayer', playerId],
+        ['clearLocalRoute', playerId, 7],
+        ['clearDetachedPlayerCaches', playerId],
+    ], 'reaper success proof');
     return {
         playerId,
         initialSid: binding.sessionId,
         flushed,
+        routeCleared,
         cleared,
     };
 }
@@ -544,6 +573,7 @@ async function runWorldSessionReaperRetryProof() {
  * 记录binding。
  */
     const binding = service.registerSocket(socket, playerId);
+    service.rememberSessionEpoch(playerId, 11);
 /**
  * 记录detachedbinding。
  */
@@ -561,6 +591,14 @@ async function runWorldSessionReaperRetryProof() {
  */
     const cleared = [];
 /**
+ * 记录routecleared。
+ */
+    const routeCleared = [];
+/**
+ * 记录steps。
+ */
+    const steps = [];
+/**
  * 记录reaper。
  */
     const reaper = new world_session_reaper_service_1.WorldSessionReaperService(service, {    
@@ -571,6 +609,7 @@ async function runWorldSessionReaperRetryProof() {
  */
 
         clearDetachedPlayerCaches(targetPlayerId) {
+            steps.push(['clearDetachedPlayerCaches', targetPlayerId]);
             cleared.push(targetPlayerId);
         },
     }, {    
@@ -583,6 +622,7 @@ async function runWorldSessionReaperRetryProof() {
         async flushPlayer(targetPlayerId) {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
+            steps.push(['flushPlayer', targetPlayerId]);
             flushAttempts += 1;
             if (targetPlayerId !== playerId) {
                 throw new Error(`unexpected reaper retry flush target: ${targetPlayerId}`);
@@ -591,10 +631,22 @@ async function runWorldSessionReaperRetryProof() {
                 throw new Error('simulated_flush_failure');
             }
         },
+    }, {
+        async clearLocalRoute(targetPlayerId, sessionEpoch) {
+            steps.push(['clearLocalRoute', targetPlayerId, sessionEpoch ?? null]);
+            routeCleared.push([targetPlayerId, sessionEpoch ?? null]);
+        },
+    }, {
+        getPlayer() {
+            return null;
+        },
     });
     await reaper.reapExpiredSessions();
     if (flushAttempts !== 1) {
         throw new Error(`expected first reaper retry pass to attempt flush once, got ${flushAttempts}`);
+    }
+    if (routeCleared.length !== 0) {
+        throw new Error(`expected failed reaper retry pass to avoid route clear, got ${JSON.stringify(routeCleared)}`);
     }
     if (cleared.length !== 0) {
         throw new Error(`expected failed reaper retry pass to avoid cache clear, got ${JSON.stringify(cleared)}`);
@@ -603,9 +655,18 @@ async function runWorldSessionReaperRetryProof() {
     if (flushAttempts !== 2) {
         throw new Error(`expected requeued binding to be retried once more, got ${flushAttempts}`);
     }
+    if (routeCleared.length !== 1 || routeCleared[0]?.[0] !== playerId || routeCleared[0]?.[1] !== 11) {
+        throw new Error(`expected reaper retry proof to clear detached local route after retry, got ${JSON.stringify(routeCleared)}`);
+    }
     if (cleared.length !== 1 || cleared[0] !== playerId) {
         throw new Error(`expected reaper retry proof to clear detached caches after retry, got ${JSON.stringify(cleared)}`);
     }
+    assertStepOrder(steps, [
+        ['flushPlayer', playerId],
+        ['flushPlayer', playerId],
+        ['clearLocalRoute', playerId, 11],
+        ['clearDetachedPlayerCaches', playerId],
+    ], 'reaper retry proof');
     if (world_session_reaper_service_1.WORLD_SESSION_REAPER_CONTRACT.retryOnFlushFailure !== true) {
         throw new Error(`unexpected reaper retry contract: ${JSON.stringify(world_session_reaper_service_1.WORLD_SESSION_REAPER_CONTRACT)}`);
     }
@@ -613,8 +674,15 @@ async function runWorldSessionReaperRetryProof() {
         playerId,
         initialSid: binding.sessionId,
         flushAttempts,
+        routeCleared,
         cleared,
     };
+}
+
+function assertStepOrder(actualSteps, expectedSteps, label) {
+    if (JSON.stringify(actualSteps) !== JSON.stringify(expectedSteps)) {
+        throw new Error(`expected ${label} order ${JSON.stringify(expectedSteps)}, got ${JSON.stringify(actualSteps)}`);
+    }
 }
 /**
  * 创建mocksocket。

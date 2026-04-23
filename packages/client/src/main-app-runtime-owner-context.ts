@@ -3,7 +3,8 @@ import { resolvePreviewTechniques } from './content/local-templates';
 import { FloatingTooltip } from './ui/floating-tooltip';
 import { refreshHeavenGateModal } from './ui/heaven-gate-modal';
 import { getDisplayRangeX, getDisplayRangeY } from './display';
-import { reactUiBridge } from './next/bridge/next-ui-bridge';
+import { reactUiBridge } from './react-ui/bridge/react-ui-bridge';
+import { getAccessToken } from './ui/auth-api';
 import { createMainConnectionStateSource } from './main-connection-state-source';
 import { createMainMapRuntimeBridgeSource } from './main-map-runtime-bridge-source';
 import { createMainNavigationStateSource } from './main-navigation-state-source';
@@ -364,6 +365,10 @@ export function createMainRuntimeOwnerContext(options: CreateMainRuntimeOwnerCon
   const connectionStateSource = createMainConnectionStateSource({
     socket,
     restoreSession: () => loginUI.restoreSession(),
+    redirectConnection: (redirectUrl) => {
+      const accessToken = getAccessToken();
+      return accessToken ? socket.redirectToServer(redirectUrl, accessToken) : false;
+    },
     hasRefreshToken: () => loginUI.hasRefreshToken(),
     resetGameState: () => resetStateSource.reset(),
     showLogin: (message) => loginUI.show(message),

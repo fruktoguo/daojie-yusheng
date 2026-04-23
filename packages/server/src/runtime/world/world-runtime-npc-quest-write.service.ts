@@ -17,6 +17,7 @@ exports.WorldRuntimeNpcQuestWriteService = void 0;
 
 const common_1 = require("@nestjs/common");
 const player_runtime_service_1 = require("../player/player-runtime.service");
+const world_runtime_quest_query_service_1 = require("./world-runtime-quest-query.service");
 const world_runtime_normalization_helpers_1 = require("./world-runtime.normalization.helpers");
 
 const { cloneQuestState, buildNpcQuestProgressText } = world_runtime_normalization_helpers_1;
@@ -28,14 +29,16 @@ let WorldRuntimeNpcQuestWriteService = class WorldRuntimeNpcQuestWriteService {
  */
 
     playerRuntimeService;    
+    worldRuntimeQuestQueryService;    
     /**
  * 构造器：初始化 当前 实例并建立基础状态。
  * @param playerRuntimeService 参数说明。
  * @returns 无返回值，完成实例初始化。
  */
 
-    constructor(playerRuntimeService) {
+    constructor(playerRuntimeService, worldRuntimeQuestQueryService) {
         this.playerRuntimeService = playerRuntimeService;
+        this.worldRuntimeQuestQueryService = worldRuntimeQuestQueryService;
     }    
     /**
  * dispatchInteractNpcQuest：判断InteractNPC任务是否满足条件。
@@ -110,7 +113,7 @@ let WorldRuntimeNpcQuestWriteService = class WorldRuntimeNpcQuestWriteService {
  * @returns 无返回值，直接更新SubmitNPC任务相关状态。
  */
 
-    dispatchSubmitNpcQuest(playerId, npcId, questId, deps) {
+    async dispatchSubmitNpcQuest(playerId, npcId, questId, deps) {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
         const npc = deps.resolveAdjacentNpc(playerId, npcId);
@@ -123,19 +126,54 @@ let WorldRuntimeNpcQuestWriteService = class WorldRuntimeNpcQuestWriteService {
             throw new common_1.BadRequestException('当前不是该任务的提交目标');
         }
         const rewards = deps.buildQuestRewardItems(quest);
-        if (!deps.canReceiveRewardItems(playerId, rewards)) {
+        const walletRewards = rewards.filter((reward) => isWalletRewardItemId(reward.itemId));
+        const inventoryRewards = rewards.filter((reward) => !isWalletRewardItemId(reward.itemId));
+        const requiredItemId = typeof quest.requiredItemId === 'string' ? quest.requiredItemId.trim() : '';
+        const requiredItemCount = Math.max(0, Math.trunc(Number(quest.requiredItemCount ?? 0)));
+        const nextInventoryItems = buildNextQuestInventorySnapshots(player.inventory.items, player.inventory.capacity, requiredItemId, requiredItemCount, inventoryRewards);
+        if (nextInventoryItems == null) {
             throw new common_1.BadRequestException('背包空间不足，无法领取奖励');
         }
-        if (quest.requiredItemId && (quest.requiredItemCount ?? 1) > 0) {
-            this.playerRuntimeService.consumeInventoryItemByItemId(playerId, quest.requiredItemId, quest.requiredItemCount ?? 1);
+        const nextWalletBalances = buildNextQuestWalletBalances(player.wallet?.balances ?? [], walletRewards);
+        const nextQuestEntries = this.buildNextQuestEntries(playerId, player.quests.quests, quest.id, quest.nextQuestId);
+        if (this.canUseDurableQuestSubmit(player, deps, requiredItemId, requiredItemCount, inventoryRewards, walletRewards)) {
+            const leaseContext = await resolveQuestLeaseContext(player.instanceId, deps);
+            await deps.durableOperationService.submitNpcQuestRewards({
+                operationId: buildQuestInventoryGrantOperationId(playerId, quest.id),
+                playerId,
+                expectedRuntimeOwnerId: player.runtimeOwnerId,
+                expectedSessionEpoch: Math.max(1, Math.trunc(Number(player.sessionEpoch ?? 1))),
+                expectedInstanceId: player.instanceId ?? null,
+                expectedAssignedNodeId: leaseContext?.assignedNodeId ?? null,
+                expectedOwnershipEpoch: leaseContext?.ownershipEpoch ?? null,
+                questId: quest.id,
+                nextInventoryItems,
+                nextWalletBalances,
+                nextQuestEntries: buildDurableQuestProgressSnapshots(nextQuestEntries),
+            });
+            applyCommittedQuestSubmitState(player, nextInventoryItems, nextWalletBalances, nextQuestEntries, this.playerRuntimeService);
+            deps.refreshQuestStates(playerId, true);
+        } else {
+            if (requiredItemId && requiredItemCount > 0) {
+                this.playerRuntimeService.consumeInventoryItemByItemId(playerId, requiredItemId, requiredItemCount);
+            }
+            for (const reward of inventoryRewards) {
+                this.playerRuntimeService.receiveInventoryItem(playerId, reward);
+            }
+            for (const reward of walletRewards) {
+                this.playerRuntimeService.creditWallet(playerId, reward.itemId, reward.count);
+            }
+            quest.status = 'completed';
+            this.playerRuntimeService.markQuestStateDirty(playerId);
+            const nextQuest = deps.tryAcceptNextQuest(playerId, quest.nextQuestId);
+            deps.refreshQuestStates(playerId, true);
+            deps.queuePlayerNotice(playerId, `${npc.name}：做得不错，这是你的奖励 ${quest.rewardText || '。'}`, 'success');
+            if (nextQuest) {
+                deps.queuePlayerNotice(playerId, `新的任务《${nextQuest.title}》已自动接取`, 'info');
+            }
+            return;
         }
-        for (const reward of rewards) {
-            this.playerRuntimeService.receiveInventoryItem(playerId, reward);
-        }
-        quest.status = 'completed';
-        this.playerRuntimeService.markQuestStateDirty(playerId);
-        const nextQuest = deps.tryAcceptNextQuest(playerId, quest.nextQuestId);
-        deps.refreshQuestStates(playerId, true);
+        const nextQuest = nextQuestEntries.find((entry) => entry.id === quest.nextQuestId) ?? null;
         deps.queuePlayerNotice(playerId, `${npc.name}：做得不错，这是你的奖励 ${quest.rewardText || '。'}`, 'success');
         if (nextQuest) {
             deps.queuePlayerNotice(playerId, `新的任务《${nextQuest.title}》已自动接取`, 'info');
@@ -278,7 +316,7 @@ let WorldRuntimeNpcQuestWriteService = class WorldRuntimeNpcQuestWriteService {
  * @returns 无返回值，直接更新NPCInteraction相关状态。
  */
 
-    dispatchNpcInteraction(playerId, npcId, deps) {
+    async dispatchNpcInteraction(playerId, npcId, deps) {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
         const npc = deps.resolveAdjacentNpc(playerId, npcId);
@@ -286,7 +324,7 @@ let WorldRuntimeNpcQuestWriteService = class WorldRuntimeNpcQuestWriteService {
         const player = this.playerRuntimeService.getPlayerOrThrow(playerId);
         const readyQuest = player.quests.quests.find((entry) => (entry.status === 'ready' && entry.submitNpcId === npcId && (!entry.submitMapId || entry.submitMapId === player.templateId)));
         if (readyQuest) {
-            this.dispatchSubmitNpcQuest(playerId, npcId, readyQuest.id, deps);
+            await this.dispatchSubmitNpcQuest(playerId, npcId, readyQuest.id, deps);
             return;
         }
         const talkQuest = player.quests.quests.find((entry) => (entry.status === 'active' && entry.objectiveType === 'talk' && entry.targetNpcId === npcId && (!entry.targetMapId || entry.targetMapId === player.templateId)));
@@ -307,11 +345,183 @@ let WorldRuntimeNpcQuestWriteService = class WorldRuntimeNpcQuestWriteService {
         }
         deps.queuePlayerNotice(playerId, `${npc.name}：${npc.dialogue}`, 'info');
     }
+    canUseDurableQuestSubmit(player, deps, requiredItemId, requiredItemCount, inventoryRewards, walletRewards) {
+        const durableOperationService = deps?.durableOperationService ?? null;
+        const runtimeOwnerId = typeof player?.runtimeOwnerId === 'string' ? player.runtimeOwnerId.trim() : '';
+        const sessionEpoch = Number.isFinite(player?.sessionEpoch) ? Math.max(1, Math.trunc(Number(player.sessionEpoch))) : 0;
+        const hasQuestMutation = (requiredItemId && requiredItemCount > 0)
+            || (Array.isArray(inventoryRewards) && inventoryRewards.length > 0)
+            || (Array.isArray(walletRewards) && walletRewards.length > 0);
+        return Boolean(hasQuestMutation
+            && durableOperationService?.isEnabled?.()
+            && typeof durableOperationService?.submitNpcQuestRewards === 'function'
+            && runtimeOwnerId
+            && sessionEpoch > 0);
+    }
+
+    buildNextQuestEntries(playerId, questEntries, questId, nextQuestId) {
+        const nextEntries = Array.isArray(questEntries)
+            ? questEntries.map((entry) => structuredClone(entry))
+            : [];
+        const targetQuest = nextEntries.find((entry) => entry?.id === questId);
+        if (targetQuest) {
+            targetQuest.status = 'completed';
+        }
+        const normalizedNextQuestId = typeof nextQuestId === 'string' ? nextQuestId.trim() : '';
+        if (normalizedNextQuestId && !nextEntries.some((entry) => entry?.id === normalizedNextQuestId)) {
+            nextEntries.push(this.worldRuntimeQuestQueryService.createQuestStateFromSource(playerId, normalizedNextQuestId, 'active'));
+        }
+        return nextEntries;
+    }
 };
 exports.WorldRuntimeNpcQuestWriteService = WorldRuntimeNpcQuestWriteService;
 exports.WorldRuntimeNpcQuestWriteService = WorldRuntimeNpcQuestWriteService = __decorate([
     (0, common_1.Injectable)(),
-    __metadata("design:paramtypes", [player_runtime_service_1.PlayerRuntimeService])
+    __metadata("design:paramtypes", [player_runtime_service_1.PlayerRuntimeService,
+        world_runtime_quest_query_service_1.WorldRuntimeQuestQueryService])
 ], WorldRuntimeNpcQuestWriteService);
 
 export { WorldRuntimeNpcQuestWriteService };
+function isWalletRewardItemId(itemId) {
+    return typeof itemId === 'string' && itemId.trim() === 'spirit_stone';
+}
+function buildNextQuestInventorySnapshots(currentItems, capacity, requiredItemId, requiredItemCount, grantedItems) {
+    const snapshot = Array.isArray(currentItems)
+        ? currentItems.map((entry) => ({
+            itemId: typeof entry?.itemId === 'string' ? entry.itemId : '',
+            count: Math.max(0, Math.trunc(Number(entry?.count ?? 0))),
+            rawPayload: entry ? { ...entry } : {},
+        })).filter((entry) => entry.itemId && entry.count > 0)
+        : [];
+    const normalizedRequiredItemId = typeof requiredItemId === 'string' ? requiredItemId.trim() : '';
+    let remainingToConsume = Math.max(0, Math.trunc(Number(requiredItemCount ?? 0)));
+    if (normalizedRequiredItemId && remainingToConsume > 0) {
+        for (let index = snapshot.length - 1; index >= 0 && remainingToConsume > 0; index -= 1) {
+            const entry = snapshot[index];
+            if (entry.itemId !== normalizedRequiredItemId) {
+                continue;
+            }
+            const consumed = Math.min(entry.count, remainingToConsume);
+            entry.count -= consumed;
+            remainingToConsume -= consumed;
+            entry.rawPayload = entry.count > 0
+                ? { ...(entry.rawPayload ?? entry), itemId: entry.itemId, count: entry.count }
+                : null;
+        }
+        if (remainingToConsume > 0) {
+            throw new common_1.BadRequestException('任务提交物品不足');
+        }
+    }
+    const compacted = snapshot.filter((entry) => entry.count > 0);
+    for (const reward of Array.isArray(grantedItems) ? grantedItems : []) {
+        const itemId = typeof reward?.itemId === 'string' ? reward.itemId.trim() : '';
+        const count = Math.max(1, Math.trunc(Number(reward?.count ?? 1)));
+        if (!itemId || count <= 0) {
+            continue;
+        }
+        const existing = compacted.find((entry) => entry.itemId === itemId);
+        if (existing) {
+            existing.count += count;
+            existing.rawPayload = { ...(existing.rawPayload ?? existing), itemId, count: existing.count };
+            continue;
+        }
+        if (compacted.length >= Math.max(0, Math.trunc(Number(capacity ?? 0)))) {
+            return null;
+        }
+        compacted.push({
+            itemId,
+            count,
+            rawPayload: reward ? { ...reward, itemId, count } : { itemId, count },
+        });
+    }
+    return compacted;
+}
+
+function buildNextQuestWalletBalances(currentBalances, rewards) {
+    const balances = Array.isArray(currentBalances)
+        ? currentBalances.map((entry) => ({
+            walletType: typeof entry?.walletType === 'string' ? entry.walletType : '',
+            balance: Math.max(0, Math.trunc(Number(entry?.balance ?? 0))),
+            frozenBalance: Math.max(0, Math.trunc(Number(entry?.frozenBalance ?? 0))),
+            version: Math.max(0, Math.trunc(Number(entry?.version ?? 0))),
+        })).filter((entry) => entry.walletType)
+        : [];
+    for (const reward of Array.isArray(rewards) ? rewards : []) {
+        const walletType = typeof reward?.itemId === 'string' ? reward.itemId.trim() : '';
+        const amount = Math.max(0, Math.trunc(Number(reward?.count ?? 0)));
+        if (!walletType || amount <= 0) {
+            continue;
+        }
+        const existing = balances.find((entry) => entry.walletType === walletType);
+        if (existing) {
+            existing.balance += amount;
+            existing.version += 1;
+        } else {
+            balances.push({
+                walletType,
+                balance: amount,
+                frozenBalance: 0,
+                version: 1,
+            });
+        }
+    }
+    return balances;
+}
+
+function applyCommittedQuestSubmitState(player, nextInventoryItems, nextWalletBalances, nextQuestEntries, playerRuntimeService) {
+    playerRuntimeService.replaceInventoryItems(player.playerId, nextInventoryItems.map((entry) => ({
+        ...(entry.rawPayload ?? entry),
+        itemId: entry.itemId,
+        count: entry.count,
+    })));
+    playerRuntimeService.replaceWalletBalances(player.playerId, nextWalletBalances);
+    player.quests.quests = Array.isArray(nextQuestEntries)
+        ? nextQuestEntries.map((entry) => structuredClone(entry))
+        : [];
+    playerRuntimeService.markQuestStateDirty(player.playerId);
+}
+
+function cloneWalletBalances(balances) {
+    return Array.isArray(balances)
+        ? balances.map((entry) => ({
+            walletType: typeof entry?.walletType === 'string' ? entry.walletType : '',
+            balance: Math.max(0, Math.trunc(Number(entry?.balance ?? 0))),
+            frozenBalance: Math.max(0, Math.trunc(Number(entry?.frozenBalance ?? 0))),
+            version: Math.max(0, Math.trunc(Number(entry?.version ?? 0))),
+        })).filter((entry) => entry.walletType)
+        : [];
+}
+function buildDurableQuestProgressSnapshots(entries) {
+    return Array.isArray(entries)
+        ? entries.map((entry) => ({
+            questId: typeof entry?.id === 'string' ? entry.id : '',
+            status: typeof entry?.status === 'string' ? entry.status : 'active',
+            progressPayload: entry?.progress ?? null,
+            rawPayload: entry ? { ...entry } : null,
+        })).filter((entry) => entry.questId)
+        : [];
+}
+async function resolveQuestLeaseContext(instanceId, deps) {
+    const normalizedInstanceId = typeof instanceId === 'string' ? instanceId.trim() : '';
+    if (!normalizedInstanceId || !deps?.instanceCatalogService?.isEnabled?.()) {
+        return null;
+    }
+    const row = await deps.instanceCatalogService.loadInstanceCatalog(normalizedInstanceId);
+    if (!row) {
+        return null;
+    }
+    const assignedNodeId = typeof row.assigned_node_id === 'string' ? row.assigned_node_id.trim() : '';
+    const ownershipEpoch = Number.isFinite(Number(row.ownership_epoch)) ? Math.max(1, Math.trunc(Number(row.ownership_epoch))) : 0;
+    if (!assignedNodeId || ownershipEpoch <= 0) {
+        return null;
+    }
+    return {
+        assignedNodeId,
+        ownershipEpoch,
+    };
+}
+function buildQuestInventoryGrantOperationId(playerId, questId) {
+    const normalizedPlayerId = typeof playerId === 'string' && playerId.trim() ? playerId.trim() : 'player';
+    const normalizedQuestId = typeof questId === 'string' && questId.trim() ? questId.trim() : 'quest';
+    return `op:${normalizedPlayerId}:npc-quest-submit:${normalizedQuestId}`;
+}

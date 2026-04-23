@@ -83,7 +83,7 @@ let WorldRuntimeBasicAttackService = class WorldRuntimeBasicAttackService {
  * @returns 无返回值，直接更新BasicAttack相关状态。
  */
 
-    dispatchBasicAttack(playerId, targetPlayerId, targetMonsterId, targetX, targetY, deps) {
+    async dispatchBasicAttack(playerId, targetPlayerId, targetMonsterId, targetX, targetY, deps) {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
         const attacker = this.playerRuntimeService.getPlayerOrThrow(playerId);
@@ -121,7 +121,7 @@ let WorldRuntimeBasicAttackService = class WorldRuntimeBasicAttackService {
  * @returns 无返回值，直接更新BasicAttackTo怪物相关状态。
  */
 
-    dispatchBasicAttackToMonster(attacker, targetMonsterId, damageKind, baseDamage, deps) {
+    async dispatchBasicAttackToMonster(attacker, targetMonsterId, damageKind, baseDamage, deps) {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
         const instance = deps.getInstanceRuntimeOrThrow(attacker.instanceId);
@@ -140,7 +140,7 @@ let WorldRuntimeBasicAttackService = class WorldRuntimeBasicAttackService {
         deps.pushDamageFloatEffect(attacker.instanceId, monster.x, monster.y, resolvedDamage.damage, effectColor);
         const outcome = instance.applyDamageToMonster(targetMonsterId, resolvedDamage.damage, attacker.playerId);
         if (outcome?.defeated) {
-            deps.handlePlayerMonsterKill(instance, outcome.monster, attacker.playerId);
+            await deps.handlePlayerMonsterKill(instance, outcome.monster, attacker.playerId);
         }
         deps.queuePlayerNotice(attacker.playerId, `${formatCombatActionClause('你', monster.name, '攻击')}，造成 ${formatCombatDamageBreakdown(resolvedDamage.rawDamage, resolvedDamage.damage, damageKind)} 伤害`, 'combat');
     }    
@@ -155,7 +155,7 @@ let WorldRuntimeBasicAttackService = class WorldRuntimeBasicAttackService {
  * @returns 无返回值，直接更新BasicAttackTo玩家相关状态。
  */
 
-    dispatchBasicAttackToPlayer(attacker, targetPlayerId, damageKind, baseDamage, currentTick, deps) {
+    async dispatchBasicAttackToPlayer(attacker, targetPlayerId, damageKind, baseDamage, currentTick, deps) {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
         const instance = deps.getInstanceRuntimeOrThrow(attacker.instanceId);
@@ -182,7 +182,7 @@ let WorldRuntimeBasicAttackService = class WorldRuntimeBasicAttackService {
             interruptCultivation: true,
         });
         if (updated.hp <= 0) {
-            deps.handlePlayerDefeat(updated.playerId, attacker.playerId);
+            await deps.handlePlayerDefeat(updated.playerId, attacker.playerId);
         }
         deps.queuePlayerNotice(attacker.playerId, `${formatCombatActionClause('你', target.name ?? target.playerId, '攻击')}，造成 ${formatCombatDamageBreakdown(resolvedDamage.rawDamage, resolvedDamage.damage, damageKind)} 伤害`, 'combat');
         deps.queuePlayerNotice(target.playerId, `${formatCombatActionClause(attacker.name ?? attacker.playerId, '你', '攻击')}，造成 ${formatCombatDamageBreakdown(resolvedDamage.rawDamage, resolvedDamage.damage, damageKind)} 伤害`, 'combat');

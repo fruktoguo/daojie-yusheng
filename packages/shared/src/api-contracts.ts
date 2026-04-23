@@ -442,6 +442,25 @@ export interface GmManagedAccountRecord {
 }
 
 /** GM 管理的玩家完整记录（含快照） */
+export interface GmPlayerDatabaseTableView {
+/**
+ * table：table相关字段。
+ */
+
+  table: string;
+  /**
+ * rowCount：数量或计量字段。
+ */
+
+  rowCount: number;
+  /**
+ * payload：payload相关字段。
+ */
+
+  payload: unknown;
+}
+
+/** GM 管理的玩家完整记录（含快照） */
 export interface GmManagedPlayerRecord extends GmManagedPlayerSummary {
 /**
  * account：数量或计量字段。
@@ -453,11 +472,16 @@ export interface GmManagedPlayerRecord extends GmManagedPlayerSummary {
  */
 
   snapshot: PlayerState;  
-  /**
+ /**
  * persistedSnapshot：persisted快照状态或数据块。
  */
 
   persistedSnapshot: unknown;
+  /**
+ * databaseTables：数据库按表视图。
+ */
+
+  databaseTables: GmPlayerDatabaseTableView[];
 }
 
 /** GM 玩家列表的排序方式。 */

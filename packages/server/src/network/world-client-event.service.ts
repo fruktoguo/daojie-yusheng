@@ -109,8 +109,8 @@ let WorldClientEventService = class WorldClientEventService {
         client.emit(event, payload);
     }
     /** 发送标准错误包。 */
-    emitError(client, code, message) {
-        this.emit(client, shared_1.S2C.Error, { code, message });
+    emitError(client, code, message, extra = undefined) {
+        this.emit(client, shared_1.S2C.Error, { code, message, ...(extra ?? {}) });
     }
     /** 发送由异常对象转换来的错误包。 */
     emitGatewayError(client, code, error) {

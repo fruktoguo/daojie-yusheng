@@ -1,7 +1,12 @@
 import { Inject, Injectable, Logger, type OnModuleDestroy, type OnModuleInit } from '@nestjs/common';
+import { performance } from 'node:perf_hooks';
 
+import { readTrimmedEnv } from '../config/env-alias';
 import { PlayerRuntimeService } from '../runtime/player/player-runtime.service';
-import { PlayerDomainPersistenceService } from './player-domain-persistence.service';
+import {
+  PLAYER_SNAPSHOT_PROJECTABLE_DIRTY_DOMAINS,
+  PlayerDomainPersistenceService,
+} from './player-domain-persistence.service';
 import {
   PlayerPersistenceService,
   type PersistedPlayerSnapshot,
@@ -11,8 +16,24 @@ const PLAYER_PERSISTENCE_FLUSH_INTERVAL_MS = 5000;
 const PLAYER_PERSISTENCE_FLUSH_BATCH_SIZE = 24;
 const PLAYER_PERSISTENCE_FLUSH_PARALLELISM = 4;
 const PLAYER_PERSISTENCE_FLUSH_RETRY_COUNT = 1;
+const PLAYER_PERSISTENCE_SLOW_FLUSH_THRESHOLD_MS = normalizePositiveInteger(
+  readTrimmedEnv('SERVER_PERSISTENCE_FLUSH_SLOW_THRESHOLD_MS', 'PERSISTENCE_FLUSH_SLOW_THRESHOLD_MS'),
+  120,
+  1,
+  10_000,
+);
+const PLAYER_PERSISTENCE_SLOW_FLUSH_BACKOFF_MS = normalizePositiveInteger(
+  readTrimmedEnv('SERVER_PERSISTENCE_FLUSH_SLOW_BACKOFF_MS', 'PERSISTENCE_FLUSH_SLOW_BACKOFF_MS'),
+  5_000,
+  1_000,
+  60_000,
+);
 const PLAYER_PERSISTENCE_DIRTY_FALLBACK_DOMAIN = 'snapshot';
 const PLAYER_PERSISTENCE_DIRTY_PRESENCE_DOMAIN = 'presence';
+const PLAYER_PERSISTENCE_SNAPSHOT_CHECKPOINT_INTERVAL_MS = 30_000;
+const PLAYER_PERSISTENCE_SNAPSHOT_PROJECTABLE_DOMAIN_SET = new Set<string>(
+  PLAYER_SNAPSHOT_PROJECTABLE_DIRTY_DOMAINS,
+);
 
 interface PlayerRuntimeFlushPort {
   listDirtyPlayers(): string[];
@@ -32,12 +53,19 @@ interface PlayerRuntimeFlushPort {
   } | null;
 }
 
+interface LeaseGuardPort {
+  isPlayerPersistenceWritable(playerId: string): boolean;
+}
+
 /** 玩家快照刷盘服务：保留 snapshot 兼容真源，同时双写玩家分域表。 */
 @Injectable()
 export class PlayerPersistenceFlushService implements OnModuleInit, OnModuleDestroy {
   private readonly logger = new Logger(PlayerPersistenceFlushService.name);
   private timer: NodeJS.Timeout | null = null;
   private flushPromise: Promise<void> | null = null;
+  private readonly lastSnapshotCheckpointAtByPlayerId = new Map<string, number>();
+  private leaseGuard: LeaseGuardPort | null = null;
+  private flushThrottleUntilAt = 0;
 
   constructor(
     @Inject(PlayerRuntimeService)
@@ -45,6 +73,10 @@ export class PlayerPersistenceFlushService implements OnModuleInit, OnModuleDest
     private readonly playerPersistenceService: PlayerPersistenceService,
     private readonly playerDomainPersistenceService: PlayerDomainPersistenceService,
   ) {}
+
+  setLeaseGuard(leaseGuard: LeaseGuardPort | null): void {
+    this.leaseGuard = leaseGuard;
+  }
 
   onModuleInit(): void {
     this.timer = setInterval(() => {
@@ -59,6 +91,7 @@ export class PlayerPersistenceFlushService implements OnModuleInit, OnModuleDest
       clearInterval(this.timer);
       this.timer = null;
     }
+    this.lastSnapshotCheckpointAtByPlayerId.clear();
   }
 
   /** 应用关闭前 flush 全量脏玩家，保证关键状态落库。 */
@@ -74,12 +107,42 @@ export class PlayerPersistenceFlushService implements OnModuleInit, OnModuleDest
       return;
     }
 
+    const dirtyDomains = this.resolveDirtyPlayerDomains().get(playerId) ?? new Set<string>();
+    if (dirtyDomains.size === 0) {
+      return;
+    }
+
+    if (domainEnabled && dirtyDomains.size === 1 && dirtyDomains.has(PLAYER_PERSISTENCE_DIRTY_PRESENCE_DOMAIN)) {
+      const presence = this.playerRuntimeService.describePersistencePresence(playerId);
+      if (!presence) {
+        return;
+      }
+      if (!this.isPlayerPersistenceWritable(playerId)) {
+        this.logger.warn(`跳过玩家 presence 刷盘：lease 已失效 playerId=${playerId}`);
+        return;
+      }
+      await this.playerDomainPersistenceService.savePlayerPresence(playerId, presence);
+      this.playerRuntimeService.markPersisted(playerId);
+      return;
+    }
+
     const snapshot = this.playerRuntimeService.buildPersistenceSnapshot(playerId);
     if (!snapshot) {
       return;
     }
+    if (!this.isPlayerPersistenceWritable(playerId)) {
+      this.logger.warn(`跳过玩家持久化刷盘：lease 已失效 playerId=${playerId}`);
+      return;
+    }
 
-    await this.flushPlayerSnapshotProjection(playerId, snapshot, snapshotEnabled, domainEnabled);
+    await this.flushPlayerDirtyDomains(
+      playerId,
+      snapshot,
+      dirtyDomains,
+      'manual',
+      snapshotEnabled,
+      domainEnabled,
+    );
     this.playerRuntimeService.markPersisted(playerId);
   }
 
@@ -98,7 +161,7 @@ export class PlayerPersistenceFlushService implements OnModuleInit, OnModuleDest
   async flushDirtyPlayers(): Promise<void> {
     const snapshotEnabled = this.playerPersistenceService.isEnabled();
     const domainEnabled = this.playerDomainPersistenceService.isEnabled();
-    if ((!snapshotEnabled && !domainEnabled) || this.flushPromise || isRestoreFreezeActive()) {
+    if ((!snapshotEnabled && !domainEnabled) || this.flushPromise || isRestoreFreezeActive() || this.isFlushThrottleActive()) {
       return;
     }
     await this.runFlushCycle('interval');
@@ -110,6 +173,7 @@ export class PlayerPersistenceFlushService implements OnModuleInit, OnModuleDest
     if (!snapshotEnabled && !domainEnabled) {
       return;
     }
+    const startedAt = performance.now();
 
     const promise = (async () => {
       const dirtyPlayerDomains = this.resolveDirtyPlayerDomains();
@@ -130,6 +194,10 @@ export class PlayerPersistenceFlushService implements OnModuleInit, OnModuleDest
               if (!presence) {
                 return;
               }
+              if (!this.isPlayerPersistenceWritable(playerId)) {
+                this.logger.warn(`跳过玩家 presence 刷盘：lease 已失效 playerId=${playerId}`);
+                return;
+              }
               await retryFlush(PLAYER_PERSISTENCE_FLUSH_RETRY_COUNT, async () => {
                 await this.playerDomainPersistenceService.savePlayerPresence(playerId, presence);
               });
@@ -140,10 +208,16 @@ export class PlayerPersistenceFlushService implements OnModuleInit, OnModuleDest
             if (!snapshot) {
               return;
             }
+            if (!this.isPlayerPersistenceWritable(playerId)) {
+              this.logger.warn(`跳过玩家快照刷盘：lease 已失效 playerId=${playerId}`);
+              return;
+            }
             await retryFlush(PLAYER_PERSISTENCE_FLUSH_RETRY_COUNT, async () => {
-              await this.flushPlayerSnapshotProjection(
+              await this.flushPlayerDirtyDomains(
                 playerId,
                 snapshot,
+                dirtyDomains,
+                reason,
                 snapshotEnabled,
                 domainEnabled,
               );
@@ -167,6 +241,10 @@ export class PlayerPersistenceFlushService implements OnModuleInit, OnModuleDest
       if (this.flushPromise === promise) {
         this.flushPromise = null;
       }
+      if (reason === 'interval') {
+        const durationMs = performance.now() - startedAt;
+        this.updateFlushThrottle(durationMs);
+      }
     }
   }
 
@@ -189,6 +267,111 @@ export class PlayerPersistenceFlushService implements OnModuleInit, OnModuleDest
     }
   }
 
+  private async flushPlayerDirtyDomains(
+    playerId: string,
+    snapshot: PersistedPlayerSnapshot,
+    dirtyDomains: ReadonlySet<string>,
+    reason: string,
+    snapshotEnabled: boolean,
+    domainEnabled: boolean,
+  ): Promise<void> {
+    const normalizedDirtyDomains = normalizeDirtyDomains(dirtyDomains);
+    const nonPresenceDirtyDomains = new Set(
+      Array.from(normalizedDirtyDomains).filter(
+        (domain) => domain !== PLAYER_PERSISTENCE_DIRTY_PRESENCE_DOMAIN,
+      ),
+    );
+    const walletOnlyDirty =
+      nonPresenceDirtyDomains.size === 1 && nonPresenceDirtyDomains.has('wallet');
+    if (!domainEnabled) {
+      if (snapshotEnabled) {
+        await this.playerPersistenceService.savePlayerSnapshot(playerId, snapshot);
+        this.markSnapshotCheckpoint(playerId, snapshot.savedAt);
+      }
+      return;
+    }
+
+    const shouldSaveSnapshot =
+      snapshotEnabled
+      && (
+        reason === 'shutdown'
+        || nonPresenceDirtyDomains.size === 0
+        || nonPresenceDirtyDomains.has(PLAYER_PERSISTENCE_DIRTY_FALLBACK_DOMAIN)
+        || Array.from(nonPresenceDirtyDomains).some((domain) => !isProjectableDirtyDomain(domain))
+        || (!walletOnlyDirty && this.isSnapshotCheckpointDue(playerId, snapshot.savedAt))
+      );
+
+    if (shouldSaveSnapshot) {
+      if (!this.isPlayerPersistenceWritable(playerId)) {
+        this.logger.warn(`跳过玩家快照提交：lease 已失效 playerId=${playerId}`);
+        return;
+      }
+      await this.playerPersistenceService.savePlayerSnapshot(playerId, snapshot);
+      this.markSnapshotCheckpoint(playerId, snapshot.savedAt);
+    }
+
+    const projectedDomains = nonPresenceDirtyDomains;
+    if (
+      projectedDomains.size === 0
+      || projectedDomains.has(PLAYER_PERSISTENCE_DIRTY_FALLBACK_DOMAIN)
+      || Array.from(projectedDomains).some((domain) => !isProjectableDirtyDomain(domain))
+    ) {
+      if (!this.isPlayerPersistenceWritable(playerId)) {
+        this.logger.warn(`跳过玩家分域提交：lease 已失效 playerId=${playerId}`);
+        return;
+      }
+      await this.playerDomainPersistenceService.savePlayerSnapshotProjection(playerId, snapshot);
+    } else {
+      if (!this.isPlayerPersistenceWritable(playerId)) {
+        this.logger.warn(`跳过玩家分域增量提交：lease 已失效 playerId=${playerId}`);
+        return;
+      }
+      await this.playerDomainPersistenceService.savePlayerSnapshotProjectionDomains(
+        playerId,
+        snapshot,
+        projectedDomains,
+      );
+    }
+
+    if (normalizedDirtyDomains.has(PLAYER_PERSISTENCE_DIRTY_PRESENCE_DOMAIN)) {
+      const presence = this.playerRuntimeService.describePersistencePresence(playerId);
+      if (presence) {
+        if (!this.isPlayerPersistenceWritable(playerId)) {
+          this.logger.warn(`跳过玩家 presence 提交：lease 已失效 playerId=${playerId}`);
+          return;
+        }
+        await this.playerDomainPersistenceService.savePlayerPresence(playerId, presence);
+      }
+    }
+  }
+
+  private isPlayerPersistenceWritable(playerId: string): boolean {
+    return this.leaseGuard?.isPlayerPersistenceWritable(playerId) ?? true;
+  }
+
+  private isSnapshotCheckpointDue(playerId: string, versionSeed: number): boolean {
+    const lastCheckpointAt = this.lastSnapshotCheckpointAtByPlayerId.get(playerId) ?? 0;
+    return versionSeed - lastCheckpointAt >= PLAYER_PERSISTENCE_SNAPSHOT_CHECKPOINT_INTERVAL_MS;
+  }
+
+  private markSnapshotCheckpoint(playerId: string, versionSeed: number): void {
+    this.lastSnapshotCheckpointAtByPlayerId.set(playerId, Math.max(0, Math.trunc(versionSeed)));
+  }
+
+  private isFlushThrottleActive(): boolean {
+    return Date.now() < this.flushThrottleUntilAt;
+  }
+
+  private updateFlushThrottle(durationMs: number): void {
+    if (durationMs < PLAYER_PERSISTENCE_SLOW_FLUSH_THRESHOLD_MS) {
+      return;
+    }
+    this.flushThrottleUntilAt = Date.now() + PLAYER_PERSISTENCE_SLOW_FLUSH_BACKOFF_MS;
+    this.logger.warn(
+      `玩家最终一致刷盘触发降级退避：durationMs=${Math.trunc(durationMs)} thresholdMs=${PLAYER_PERSISTENCE_SLOW_FLUSH_THRESHOLD_MS} backoffMs=${PLAYER_PERSISTENCE_SLOW_FLUSH_BACKOFF_MS}`,
+    );
+  }
+
   private resolveDirtyPlayerDomains(): Map<string, Set<string>> {
     const dirtyPlayerDomains = this.playerRuntimeService.listDirtyPlayerDomains?.();
     if (dirtyPlayerDomains && dirtyPlayerDomains.size > 0) {
@@ -201,6 +384,20 @@ export class PlayerPersistenceFlushService implements OnModuleInit, OnModuleDest
       ]),
     );
   }
+}
+
+function normalizeDirtyDomains(domains: ReadonlySet<string> | Iterable<string>): Set<string> {
+  const normalized = new Set<string>();
+  for (const domain of domains ?? []) {
+    if (typeof domain === 'string' && domain.trim()) {
+      normalized.add(domain.trim());
+    }
+  }
+  return normalized;
+}
+
+function isProjectableDirtyDomain(domain: string): boolean {
+  return PLAYER_PERSISTENCE_SNAPSHOT_PROJECTABLE_DOMAIN_SET.has(domain);
 }
 
 function isRestoreFreezeActive(): boolean {
@@ -218,6 +415,23 @@ function chunkValues<T>(values: T[], chunkSize: number): T[][] {
     chunks.push(values.slice(index, index + normalizedChunkSize));
   }
   return chunks;
+}
+
+function normalizePositiveInteger(
+  value: string | number | null | undefined,
+  defaultValue: number,
+  min: number,
+  max: number,
+): number {
+  const numericValue = Number(value);
+  if (!Number.isFinite(numericValue)) {
+    return defaultValue;
+  }
+  const normalized = Math.trunc(numericValue);
+  if (normalized < min || normalized > max) {
+    return defaultValue;
+  }
+  return normalized;
 }
 
 async function runConcurrent<T>(

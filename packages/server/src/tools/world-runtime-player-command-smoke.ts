@@ -3,6 +3,16 @@
 const assert = require("node:assert/strict");
 
 const { WorldRuntimePlayerCommandService } = require("../runtime/world/world-runtime-player-command.service");
+
+function createDeferred() {
+    let resolve;
+    let reject;
+    const promise = new Promise((innerResolve, innerReject) => {
+        resolve = innerResolve;
+        reject = innerReject;
+    });
+    return { promise, resolve, reject };
+}
 /**
  * createService：构建并返回目标对象。
  * @param log 参数说明。
@@ -310,10 +320,10 @@ function createService(log = [], player = { hp: 10 }) {
  */
 
 
-function testUseItemDelegates() {
+async function testUseItemDelegates() {
     const log = [];
     const service = createService(log);
-    service.dispatchPlayerCommand('player:1', { kind: 'useItem', slotIndex: 2 }, {});
+    await service.dispatchPlayerCommand('player:1', { kind: 'useItem', slotIndex: 2 }, {});
     assert.deepEqual(log, [
         ['getPlayer', 'player:1'],
         ['dispatchUseItem', 'player:1', 2],
@@ -325,10 +335,10 @@ function testUseItemDelegates() {
  */
 
 
-function testCastSkillDelegates() {
+async function testCastSkillDelegates() {
     const log = [];
     const service = createService(log);
-    service.dispatchPlayerCommand('player:1', {
+    await service.dispatchPlayerCommand('player:1', {
         kind: 'castSkill',
         skillId: 'skill.a',
         targetPlayerId: null,
@@ -346,11 +356,11 @@ function testCastSkillDelegates() {
  */
 
 
-function testDeadPlayerOnlyAllowsRedeemCodes() {
+async function testDeadPlayerOnlyAllowsRedeemCodes() {
     const deadLog = [];
     const deadService = createService(deadLog, { hp: 0 });
-    deadService.dispatchPlayerCommand('player:1', { kind: 'useItem', slotIndex: 1 }, {});
-    deadService.dispatchPlayerCommand('player:1', { kind: 'redeemCodes', codes: ['A'] }, {});
+    await deadService.dispatchPlayerCommand('player:1', { kind: 'useItem', slotIndex: 1 }, {});
+    await deadService.dispatchPlayerCommand('player:1', { kind: 'redeemCodes', codes: ['A'] }, {});
     assert.deepEqual(deadLog, [
         ['getPlayer', 'player:1'],
         ['getPlayer', 'player:1'],
@@ -363,13 +373,13 @@ function testDeadPlayerOnlyAllowsRedeemCodes() {
  */
 
 
-function testTechniqueActivityRoutes() {
+async function testTechniqueActivityRoutes() {
     const log = [];
     const service = createService(log);
-    service.dispatchStartTechniqueActivity('player:1', 'alchemy', { recipeId: 'recipe.a' }, {});
-    service.dispatchCancelTechniqueActivity('player:1', 'enhancement', {});
-    service.dispatchPlayerCommand('player:1', { kind: 'startEnhancement', payload: { itemId: 'item.a' } }, {});
-    service.dispatchPlayerCommand('player:1', { kind: 'cancelAlchemy' }, {});
+    await service.dispatchStartTechniqueActivity('player:1', 'alchemy', { recipeId: 'recipe.a' }, {});
+    await service.dispatchCancelTechniqueActivity('player:1', 'enhancement', {});
+    await service.dispatchPlayerCommand('player:1', { kind: 'startEnhancement', payload: { itemId: 'item.a' } }, {});
+    await service.dispatchPlayerCommand('player:1', { kind: 'cancelAlchemy' }, {});
     assert.deepEqual(log, [
         ['dispatchStartAlchemy', 'player:1', { recipeId: 'recipe.a' }],
         ['dispatchCancelEnhancement', 'player:1'],
@@ -385,11 +395,11 @@ function testTechniqueActivityRoutes() {
  */
 
 
-function testNpcQuestRoutes() {
+async function testNpcQuestRoutes() {
     const log = [];
     const service = createService(log);
-    service.dispatchPlayerCommand('player:1', { kind: 'acceptNpcQuest', npcId: 'npc.a', questId: 'quest.a' }, {});
-    service.dispatchPlayerCommand('player:1', { kind: 'submitNpcQuest', npcId: 'npc.a', questId: 'quest.a' }, {});
+    await service.dispatchPlayerCommand('player:1', { kind: 'acceptNpcQuest', npcId: 'npc.a', questId: 'quest.a' }, {});
+    await service.dispatchPlayerCommand('player:1', { kind: 'submitNpcQuest', npcId: 'npc.a', questId: 'quest.a' }, {});
     assert.deepEqual(log, [
         ['getPlayer', 'player:1'],
         ['dispatchAcceptNpcQuest', 'player:1', 'npc.a', 'quest.a'],
@@ -398,10 +408,294 @@ function testNpcQuestRoutes() {
     ]);
 }
 
-testUseItemDelegates();
-testCastSkillDelegates();
-testDeadPlayerOnlyAllowsRedeemCodes();
-testTechniqueActivityRoutes();
-testNpcQuestRoutes();
+async function testNpcInteractionRouteAwaitsSubmitPath() {
+    const log = [];
+    const deferred = [];
+    const service = createService(log);
+    service.worldRuntimeNpcQuestWriteService.dispatchNpcInteraction = async (playerId, npcId) => {
+        log.push(['dispatchNpcInteraction', playerId, npcId]);
+        await new Promise((resolve) => {
+            deferred.push(resolve);
+        });
+        log.push(['dispatchNpcInteraction:resolved', playerId, npcId]);
+    };
+    const pending = service.dispatchPlayerCommand('player:1', { kind: 'npcInteraction', npcId: 'npc.a' }, {});
+    await new Promise((resolve) => setImmediate(resolve));
+    assert.deepEqual(log, [
+        ['getPlayer', 'player:1'],
+        ['dispatchNpcInteraction', 'player:1', 'npc.a'],
+    ]);
+    deferred.pop()();
+    await pending;
+    assert.deepEqual(log, [
+        ['getPlayer', 'player:1'],
+        ['dispatchNpcInteraction', 'player:1', 'npc.a'],
+        ['dispatchNpcInteraction:resolved', 'player:1', 'npc.a'],
+    ]);
+}
 
-console.log(JSON.stringify({ ok: true, case: 'world-runtime-player-command' }, null, 2));
+async function testShopAndEquipmentRoutesAwaitAsyncHandlers() {
+    const log = [];
+    const service = createService(log);
+    const engageBattleDeferred = createDeferred();
+    const basicAttackDeferred = createDeferred();
+    const castSkillDeferred = createDeferred();
+    const takeGroundDeferred = createDeferred();
+    const takeGroundAllDeferred = createDeferred();
+    const shopDeferred = createDeferred();
+    const equipDeferred = createDeferred();
+    const unequipDeferred = createDeferred();
+    service.worldRuntimeCombatCommandService.dispatchBasicAttack = async (playerId, targetPlayerId, targetMonsterId, targetX, targetY) => {
+        log.push(['dispatchBasicAttack', playerId, targetPlayerId, targetMonsterId, targetX, targetY]);
+        await basicAttackDeferred.promise;
+        log.push(['dispatchBasicAttack:resolved', playerId, targetPlayerId, targetMonsterId, targetX, targetY]);
+    };
+    service.worldRuntimeCombatCommandService.dispatchEngageBattle = async (playerId, targetPlayerId, targetMonsterId, targetX, targetY, locked) => {
+        log.push(['dispatchEngageBattle', playerId, targetPlayerId, targetMonsterId, targetX, targetY, locked]);
+        await engageBattleDeferred.promise;
+        log.push(['dispatchEngageBattle:resolved', playerId, targetPlayerId, targetMonsterId, targetX, targetY, locked]);
+    };
+    service.worldRuntimeCombatCommandService.dispatchCastSkill = async (playerId, skillId, targetPlayerId, targetMonsterId, targetRef) => {
+        log.push(['dispatchCastSkill', playerId, skillId, targetPlayerId, targetMonsterId, targetRef]);
+        await castSkillDeferred.promise;
+        log.push(['dispatchCastSkill:resolved', playerId, skillId, targetPlayerId, targetMonsterId, targetRef]);
+    };
+    service.worldRuntimeItemGroundService.dispatchTakeGround = async (playerId, sourceId, itemKey) => {
+        log.push(['dispatchTakeGround', playerId, sourceId, itemKey]);
+        await takeGroundDeferred.promise;
+        log.push(['dispatchTakeGround:resolved', playerId, sourceId, itemKey]);
+    };
+    service.worldRuntimeItemGroundService.dispatchTakeGroundAll = async (playerId, sourceId) => {
+        log.push(['dispatchTakeGroundAll', playerId, sourceId]);
+        await takeGroundAllDeferred.promise;
+        log.push(['dispatchTakeGroundAll:resolved', playerId, sourceId]);
+    };
+    service.worldRuntimeNpcShopService.dispatchBuyNpcShopItem = async (playerId, npcId, itemId, quantity) => {
+        log.push(['dispatchBuyNpcShopItem', playerId, npcId, itemId, quantity]);
+        await shopDeferred.promise;
+        log.push(['dispatchBuyNpcShopItem:resolved', playerId]);
+    };
+    service.worldRuntimeEquipmentService.dispatchEquipItem = async (playerId, slotIndex) => {
+        log.push(['dispatchEquipItem', playerId, slotIndex]);
+        await equipDeferred.promise;
+        log.push(['dispatchEquipItem:resolved', playerId, slotIndex]);
+    };
+    service.worldRuntimeEquipmentService.dispatchUnequipItem = async (playerId, slot) => {
+        log.push(['dispatchUnequipItem', playerId, slot]);
+        await unequipDeferred.promise;
+        log.push(['dispatchUnequipItem:resolved', playerId, slot]);
+    };
+
+    const pendingTakeGround = service.dispatchPlayerCommand('player:1', { kind: 'takeGround', sourceId: 'ground:1', itemKey: 'item.a' }, {});
+    await new Promise((resolve) => setImmediate(resolve));
+    assert.deepEqual(log, [
+        ['getPlayer', 'player:1'],
+        ['dispatchTakeGround', 'player:1', 'ground:1', 'item.a'],
+    ]);
+    takeGroundDeferred.resolve();
+    await pendingTakeGround;
+
+    const pendingTakeGroundAll = service.dispatchPlayerCommand('player:1', { kind: 'takeGroundAll', sourceId: 'ground:1' }, {});
+    await new Promise((resolve) => setImmediate(resolve));
+    assert.deepEqual(log, [
+        ['getPlayer', 'player:1'],
+        ['dispatchTakeGround', 'player:1', 'ground:1', 'item.a'],
+        ['dispatchTakeGround:resolved', 'player:1', 'ground:1', 'item.a'],
+        ['getPlayer', 'player:1'],
+        ['dispatchTakeGroundAll', 'player:1', 'ground:1'],
+    ]);
+    takeGroundAllDeferred.resolve();
+    await pendingTakeGroundAll;
+
+    const pendingEngageBattle = service.dispatchPlayerCommand('player:1', {
+        kind: 'engageBattle',
+        targetPlayerId: null,
+        targetMonsterId: 'monster:1',
+        targetX: 10,
+        targetY: 11,
+        locked: true,
+    }, {});
+    await new Promise((resolve) => setImmediate(resolve));
+    assert.deepEqual(log, [
+        ['getPlayer', 'player:1'],
+        ['dispatchTakeGround', 'player:1', 'ground:1', 'item.a'],
+        ['dispatchTakeGround:resolved', 'player:1', 'ground:1', 'item.a'],
+        ['getPlayer', 'player:1'],
+        ['dispatchTakeGroundAll', 'player:1', 'ground:1'],
+        ['dispatchTakeGroundAll:resolved', 'player:1', 'ground:1'],
+        ['getPlayer', 'player:1'],
+        ['dispatchEngageBattle', 'player:1', null, 'monster:1', 10, 11, true],
+    ]);
+    engageBattleDeferred.resolve();
+    await pendingEngageBattle;
+
+    const pendingBasicAttack = service.dispatchPlayerCommand('player:1', {
+        kind: 'basicAttack',
+        targetPlayerId: null,
+        targetMonsterId: 'monster:1',
+        targetX: null,
+        targetY: null,
+    }, {});
+    await new Promise((resolve) => setImmediate(resolve));
+    assert.deepEqual(log, [
+        ['getPlayer', 'player:1'],
+        ['dispatchTakeGround', 'player:1', 'ground:1', 'item.a'],
+        ['dispatchTakeGround:resolved', 'player:1', 'ground:1', 'item.a'],
+        ['getPlayer', 'player:1'],
+        ['dispatchTakeGroundAll', 'player:1', 'ground:1'],
+        ['dispatchTakeGroundAll:resolved', 'player:1', 'ground:1'],
+        ['getPlayer', 'player:1'],
+        ['dispatchEngageBattle', 'player:1', null, 'monster:1', 10, 11, true],
+        ['dispatchEngageBattle:resolved', 'player:1', null, 'monster:1', 10, 11, true],
+        ['getPlayer', 'player:1'],
+        ['dispatchBasicAttack', 'player:1', null, 'monster:1', null, null],
+    ]);
+    basicAttackDeferred.resolve();
+    await pendingBasicAttack;
+
+    const pendingCastSkill = service.dispatchPlayerCommand('player:1', {
+        kind: 'castSkill',
+        skillId: 'skill.a',
+        targetPlayerId: null,
+        targetMonsterId: 'monster:1',
+        targetRef: null,
+    }, {});
+    await new Promise((resolve) => setImmediate(resolve));
+    assert.deepEqual(log, [
+        ['getPlayer', 'player:1'],
+        ['dispatchTakeGround', 'player:1', 'ground:1', 'item.a'],
+        ['dispatchTakeGround:resolved', 'player:1', 'ground:1', 'item.a'],
+        ['getPlayer', 'player:1'],
+        ['dispatchTakeGroundAll', 'player:1', 'ground:1'],
+        ['dispatchTakeGroundAll:resolved', 'player:1', 'ground:1'],
+        ['getPlayer', 'player:1'],
+        ['dispatchEngageBattle', 'player:1', null, 'monster:1', 10, 11, true],
+        ['dispatchEngageBattle:resolved', 'player:1', null, 'monster:1', 10, 11, true],
+        ['getPlayer', 'player:1'],
+        ['dispatchBasicAttack', 'player:1', null, 'monster:1', null, null],
+        ['dispatchBasicAttack:resolved', 'player:1', null, 'monster:1', null, null],
+        ['getPlayer', 'player:1'],
+        ['dispatchCastSkill', 'player:1', 'skill.a', null, 'monster:1', null],
+    ]);
+    castSkillDeferred.resolve();
+    await pendingCastSkill;
+
+    const pendingShop = service.dispatchPlayerCommand('player:1', { kind: 'buyNpcShopItem', npcId: 'npc.shop', itemId: 'item.a', quantity: 2 }, {});
+    await new Promise((resolve) => setImmediate(resolve));
+    assert.deepEqual(log, [
+        ['getPlayer', 'player:1'],
+        ['dispatchTakeGround', 'player:1', 'ground:1', 'item.a'],
+        ['dispatchTakeGround:resolved', 'player:1', 'ground:1', 'item.a'],
+        ['getPlayer', 'player:1'],
+        ['dispatchTakeGroundAll', 'player:1', 'ground:1'],
+        ['dispatchTakeGroundAll:resolved', 'player:1', 'ground:1'],
+        ['getPlayer', 'player:1'],
+        ['dispatchEngageBattle', 'player:1', null, 'monster:1', 10, 11, true],
+        ['dispatchEngageBattle:resolved', 'player:1', null, 'monster:1', 10, 11, true],
+        ['getPlayer', 'player:1'],
+        ['dispatchBasicAttack', 'player:1', null, 'monster:1', null, null],
+        ['dispatchBasicAttack:resolved', 'player:1', null, 'monster:1', null, null],
+        ['getPlayer', 'player:1'],
+        ['dispatchCastSkill', 'player:1', 'skill.a', null, 'monster:1', null],
+        ['dispatchCastSkill:resolved', 'player:1', 'skill.a', null, 'monster:1', null],
+        ['getPlayer', 'player:1'],
+        ['dispatchBuyNpcShopItem', 'player:1', 'npc.shop', 'item.a', 2],
+    ]);
+    shopDeferred.resolve();
+    await pendingShop;
+
+    const pendingEquip = service.dispatchPlayerCommand('player:1', { kind: 'equip', slotIndex: 3 }, {});
+    await new Promise((resolve) => setImmediate(resolve));
+    assert.deepEqual(log, [
+        ['getPlayer', 'player:1'],
+        ['dispatchTakeGround', 'player:1', 'ground:1', 'item.a'],
+        ['dispatchTakeGround:resolved', 'player:1', 'ground:1', 'item.a'],
+        ['getPlayer', 'player:1'],
+        ['dispatchTakeGroundAll', 'player:1', 'ground:1'],
+        ['dispatchTakeGroundAll:resolved', 'player:1', 'ground:1'],
+        ['getPlayer', 'player:1'],
+        ['dispatchEngageBattle', 'player:1', null, 'monster:1', 10, 11, true],
+        ['dispatchEngageBattle:resolved', 'player:1', null, 'monster:1', 10, 11, true],
+        ['getPlayer', 'player:1'],
+        ['dispatchBasicAttack', 'player:1', null, 'monster:1', null, null],
+        ['dispatchBasicAttack:resolved', 'player:1', null, 'monster:1', null, null],
+        ['getPlayer', 'player:1'],
+        ['dispatchCastSkill', 'player:1', 'skill.a', null, 'monster:1', null],
+        ['dispatchCastSkill:resolved', 'player:1', 'skill.a', null, 'monster:1', null],
+        ['getPlayer', 'player:1'],
+        ['dispatchBuyNpcShopItem', 'player:1', 'npc.shop', 'item.a', 2],
+        ['dispatchBuyNpcShopItem:resolved', 'player:1'],
+        ['getPlayer', 'player:1'],
+        ['dispatchEquipItem', 'player:1', 3],
+    ]);
+    equipDeferred.resolve();
+    await pendingEquip;
+
+    const pendingUnequip = service.dispatchPlayerCommand('player:1', { kind: 'unequip', slot: 'weapon' }, {});
+    await new Promise((resolve) => setImmediate(resolve));
+    assert.deepEqual(log, [
+        ['getPlayer', 'player:1'],
+        ['dispatchTakeGround', 'player:1', 'ground:1', 'item.a'],
+        ['dispatchTakeGround:resolved', 'player:1', 'ground:1', 'item.a'],
+        ['getPlayer', 'player:1'],
+        ['dispatchTakeGroundAll', 'player:1', 'ground:1'],
+        ['dispatchTakeGroundAll:resolved', 'player:1', 'ground:1'],
+        ['getPlayer', 'player:1'],
+        ['dispatchEngageBattle', 'player:1', null, 'monster:1', 10, 11, true],
+        ['dispatchEngageBattle:resolved', 'player:1', null, 'monster:1', 10, 11, true],
+        ['getPlayer', 'player:1'],
+        ['dispatchBasicAttack', 'player:1', null, 'monster:1', null, null],
+        ['dispatchBasicAttack:resolved', 'player:1', null, 'monster:1', null, null],
+        ['getPlayer', 'player:1'],
+        ['dispatchCastSkill', 'player:1', 'skill.a', null, 'monster:1', null],
+        ['dispatchCastSkill:resolved', 'player:1', 'skill.a', null, 'monster:1', null],
+        ['getPlayer', 'player:1'],
+        ['dispatchBuyNpcShopItem', 'player:1', 'npc.shop', 'item.a', 2],
+        ['dispatchBuyNpcShopItem:resolved', 'player:1'],
+        ['getPlayer', 'player:1'],
+        ['dispatchEquipItem', 'player:1', 3],
+        ['dispatchEquipItem:resolved', 'player:1', 3],
+        ['getPlayer', 'player:1'],
+        ['dispatchUnequipItem', 'player:1', 'weapon'],
+    ]);
+    unequipDeferred.resolve();
+    await pendingUnequip;
+    assert.deepEqual(log, [
+        ['getPlayer', 'player:1'],
+        ['dispatchTakeGround', 'player:1', 'ground:1', 'item.a'],
+        ['dispatchTakeGround:resolved', 'player:1', 'ground:1', 'item.a'],
+        ['getPlayer', 'player:1'],
+        ['dispatchTakeGroundAll', 'player:1', 'ground:1'],
+        ['dispatchTakeGroundAll:resolved', 'player:1', 'ground:1'],
+        ['getPlayer', 'player:1'],
+        ['dispatchEngageBattle', 'player:1', null, 'monster:1', 10, 11, true],
+        ['dispatchEngageBattle:resolved', 'player:1', null, 'monster:1', 10, 11, true],
+        ['getPlayer', 'player:1'],
+        ['dispatchBasicAttack', 'player:1', null, 'monster:1', null, null],
+        ['dispatchBasicAttack:resolved', 'player:1', null, 'monster:1', null, null],
+        ['getPlayer', 'player:1'],
+        ['dispatchCastSkill', 'player:1', 'skill.a', null, 'monster:1', null],
+        ['dispatchCastSkill:resolved', 'player:1', 'skill.a', null, 'monster:1', null],
+        ['getPlayer', 'player:1'],
+        ['dispatchBuyNpcShopItem', 'player:1', 'npc.shop', 'item.a', 2],
+        ['dispatchBuyNpcShopItem:resolved', 'player:1'],
+        ['getPlayer', 'player:1'],
+        ['dispatchEquipItem', 'player:1', 3],
+        ['dispatchEquipItem:resolved', 'player:1', 3],
+        ['getPlayer', 'player:1'],
+        ['dispatchUnequipItem', 'player:1', 'weapon'],
+        ['dispatchUnequipItem:resolved', 'player:1', 'weapon'],
+    ]);
+}
+
+Promise.resolve()
+    .then(() => testUseItemDelegates())
+    .then(() => testCastSkillDelegates())
+    .then(() => testDeadPlayerOnlyAllowsRedeemCodes())
+    .then(() => testTechniqueActivityRoutes())
+    .then(() => testNpcQuestRoutes())
+    .then(() => testNpcInteractionRouteAwaitsSubmitPath())
+    .then(() => testShopAndEquipmentRoutesAwaitAsyncHandlers())
+    .then(() => {
+    console.log(JSON.stringify({ ok: true, case: 'world-runtime-player-command' }, null, 2));
+});

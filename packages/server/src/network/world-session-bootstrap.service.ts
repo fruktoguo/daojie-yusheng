@@ -46,6 +46,11 @@ interface PlayerRuntimeInitPort {
         playerId: string,
         sessionId: string,
         loadSnapshot: () => Promise<PersistedPlayerSnapshot | null>,
+        options?: {
+            forceRebind?: boolean;
+            buildStarterSnapshot?: (playerId: string) => PersistedPlayerSnapshot | null;
+            onSnapshotLoaded?: (snapshot: PersistedPlayerSnapshot | null) => void;
+        },
     ): Promise<{
         instanceId?: string | null;
         templateId?: string | null;
@@ -56,7 +61,7 @@ interface PlayerRuntimeInitPort {
         name?: string | null;
         displayName?: string | null;
     }): void;
-    describePersistencePresence(playerId: string): {
+    describePersistencePresence?(playerId: string): {
         online: boolean;
         inWorld: boolean;
         lastHeartbeatAt?: number | null;
@@ -200,6 +205,7 @@ export class WorldSessionBootstrapService {
         this.playerInitBootstrapService = playerInitBootstrapService ?? new WorldSessionBootstrapPlayerInitService(
             playerRuntimeService as PlayerRuntimeInitPort,
             null,
+            null,
             mailRuntimeService as MailRuntimeInitPort,
         );
         this.finalizeBootstrapService = finalizeBootstrapService ?? new WorldSessionBootstrapFinalizeService();
@@ -224,7 +230,7 @@ export class WorldSessionBootstrapService {
     pickSocketRequestedSessionId(client: BootstrapClientLike) {
         return this.contractService.pickSocketRequestedSessionId(client);
     }
-    /** 普通玩家 token 走 next 鉴权实现。 */
+    /** 普通玩家 token 走 主线鉴权实现。 */
     authenticateSocketToken(token, options = undefined) {
         return this.worldPlayerAuthService.authenticatePlayerToken(token, options);
     }
@@ -272,7 +278,7 @@ export class WorldSessionBootstrapService {
     resolveBootstrapContractContext(client: BootstrapClientLike, input: BootstrapSessionInput | undefined = undefined) {
         return this.contractService.resolveBootstrapContractContext(client, input);
     }
-    /** 校验 next 协议 bootstrap 是否越权使用了旧身份来源。 */
+    /** 校验 主线协议 bootstrap 是否越权使用了旧身份来源。 */
     resolveAuthenticatedBootstrapContractViolation(client: BootstrapClientLike, input: BootstrapSessionInput | undefined = undefined) {
         return this.contractService.resolveAuthenticatedBootstrapContractViolation(client, input);
     }
@@ -339,6 +345,7 @@ export class WorldSessionBootstrapService {
         name?: string | null;
         displayName?: string | null;
         loadSnapshot: () => Promise<PersistedPlayerSnapshot | null>;
+        forceRuntimeSessionRebind?: boolean;
     }) {
         return this.playerInitBootstrapService.initializeBootstrapPlayer(input);
     }
@@ -409,6 +416,10 @@ export class WorldSessionBootstrapService {
             displayName: input.displayName,
             loadSnapshot: input.loadSnapshot,
         });
+        const bindingSessionEpoch = Number(this.playerRuntimeService.describePersistencePresence?.(binding.playerId)?.sessionEpoch ?? 0);
+        if (Number.isFinite(bindingSessionEpoch) && bindingSessionEpoch > 0) {
+            this.worldSessionService.rememberSessionEpoch(binding.playerId, bindingSessionEpoch);
+        }
         this.connectBootstrapRuntimePlayer({
             playerId: binding.playerId,
             sessionId: binding.sessionId,
@@ -446,7 +457,7 @@ export class WorldSessionBootstrapService {
             bootstrapRecovery,
         });
     }
-    /** 读取玩家快照；authenticated 主链只记录 next-only miss，不再做 runtime compat 回退。 */
+    /** 读取玩家快照；authenticated 主链只记录 主线专用 miss，不再做 runtime compat 回退。 */
     async loadPlayerSnapshot(playerId: string): Promise<PersistedPlayerSnapshot | null> {
         return this.snapshotBootstrapService.loadPlayerSnapshot(playerId);
     }
@@ -454,7 +465,7 @@ export class WorldSessionBootstrapService {
     async loadPlayerSnapshotWithTrace(playerId: string, fallbackReason: string | null = null): Promise<BootstrapSnapshotTraceResult> {
         return this.snapshotBootstrapService.loadPlayerSnapshotWithTrace(playerId, fallbackReason);
     }
-    /** 计算 authenticated 主链的 next-only 快照策略。 */
+    /** 计算 authenticated 主链的 主线专用快照策略。 */
     resolveAuthenticatedSnapshotPolicy(identity: BootstrapIdentityLike, client: BootstrapClientLike | undefined = undefined) {
         return this.snapshotBootstrapService.resolveAuthenticatedSnapshotPolicy(identity, client);
     }
@@ -466,7 +477,7 @@ export class WorldSessionBootstrapService {
     async promoteAuthenticatedTokenSeedIdentity(identity: BootstrapIdentityLike, client: BootstrapClientLike) {
         return this.snapshotBootstrapService.promoteAuthenticatedTokenSeedIdentity(identity, client);
     }
-    /** 当 bootstrap 已选择 native 快照时，要求 token_seed 身份必须同步归一到 next/native。 */
+    /** 当 bootstrap 已选择 native 快照时，要求 token_seed 身份必须同步归一到主线/native。 */
     async requireAuthenticatedTokenSeedNativeNormalization(identity: BootstrapIdentityLike, client: BootstrapClientLike, recoveryReason = 'unknown') {
         return this.snapshotBootstrapService.requireAuthenticatedTokenSeedNativeNormalization(identity, client, recoveryReason);
     }

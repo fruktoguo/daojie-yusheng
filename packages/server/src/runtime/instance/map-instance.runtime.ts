@@ -263,6 +263,11 @@ class MapInstanceRuntime {
 
     changedTileResourceEntryCountByKey = new Map();    
     /**
+ * dirtyDomains：实例域级脏标记。
+ */
+
+    dirtyDomains = createMapInstanceDirtyDomainSet();    
+    /**
  * 构造器：初始化 当前 实例并建立基础状态。
  * @param request 请求参数。
  * @returns 无返回值，完成实例初始化。
@@ -276,6 +281,7 @@ class MapInstanceRuntime {
             templateId: request.template.id,
             kind: request.kind,
             persistent: request.persistent,
+            persistentPolicy: request.persistentPolicy ?? (request.persistent === false ? 'ephemeral' : 'persistent'),
             createdAt: request.createdAt,
             displayName: request.displayName,
             linePreset: request.linePreset,
@@ -287,6 +293,17 @@ class MapInstanceRuntime {
             ownerPlayerId: request.ownerPlayerId,
             ownerSectId: request.ownerSectId,
             partyId: request.partyId,
+            assignedNodeId: request.assignedNodeId ?? null,
+            leaseToken: request.leaseToken ?? null,
+            leaseExpireAt: request.leaseExpireAt ?? null,
+            ownershipEpoch: Number.isFinite(Number(request.ownershipEpoch)) ? Math.max(0, Math.trunc(Number(request.ownershipEpoch))) : 0,
+            runtimeStatus: request.runtimeStatus ?? 'running',
+            status: request.status ?? 'active',
+            clusterId: request.clusterId ?? null,
+            shardKey: request.shardKey ?? request.instanceId,
+            routeDomain: request.routeDomain ?? null,
+            lastActiveAt: request.lastActiveAt ?? null,
+            lastPersistedAt: request.lastPersistedAt ?? null,
         };
         this.template = request.template;
         this.occupancy = new Uint32Array(request.template.width * request.template.height);
@@ -1130,6 +1147,7 @@ class MapInstanceRuntime {
         this.changedAuraTileCount = 0;
         this.changedTileResourceEntryCount = 0;
         this.changedTileResourceEntryCountByKey.clear();
+        this.clearDirtyDomains();
         for (const entry of entries) {
             if (!entry
                 || typeof entry.resourceKey !== 'string'
@@ -1155,6 +1173,39 @@ class MapInstanceRuntime {
         }
         this.persistentRevision = 1;
         this.persistedRevision = 1;
+        this.clearDirtyDomains();
+    }
+    /** patchTileResources：在现有地块资源上叠加差量持久化条目，不重置未覆盖资源。 */
+    patchTileResources(entries) {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
+        for (const entry of entries) {
+            if (!entry
+                || typeof entry.resourceKey !== 'string'
+                || !entry.resourceKey
+                || !Number.isFinite(entry.tileIndex)
+                || !Number.isFinite(entry.value)) {
+                continue;
+            }
+
+            const tileIndex = Math.trunc(entry.tileIndex);
+            if (tileIndex < 0 || tileIndex >= this.auraByTile.length) {
+                continue;
+            }
+
+            const next = Math.max(0, Math.trunc(entry.value));
+            if (entry.resourceKey !== DEFAULT_TILE_AURA_RESOURCE_KEY && next <= 0) {
+                continue;
+            }
+            const bucket = this.getOrCreateTileResourceBucket(entry.resourceKey);
+            bucket[tileIndex] = next;
+        }
+        this.changedAuraTileCount = 0;
+        this.changedTileResourceEntryCount = 0;
+        this.changedTileResourceEntryCountByKey.clear();
+        this.persistentRevision = 1;
+        this.persistedRevision = 1;
+        this.clearDirtyDomains();
     }
     /** hydrateGroundPiles：用持久化数据回填地面物品堆。 */
     hydrateGroundPiles(entries) {
@@ -1197,6 +1248,77 @@ class MapInstanceRuntime {
         }
         this.persistentRevision = 1;
         this.persistedRevision = 1;
+    }
+    /** hydrateMonsterRuntimeStates：用持久化数据回填高价值妖兽运行态。 */
+    hydrateMonsterRuntimeStates(entries) {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
+        if (!Array.isArray(entries) || entries.length === 0) {
+            return;
+        }
+        for (const entry of entries) {
+            if (!entry) {
+                continue;
+            }
+            const runtimeId = typeof entry.runtimeId === 'string' ? entry.runtimeId.trim() : '';
+            const monsterId = typeof entry.monsterId === 'string' ? entry.monsterId.trim() : '';
+            const monster = (runtimeId ? this.monstersByRuntimeId.get(runtimeId) : null)
+                ?? Array.from(this.monstersByRuntimeId.values()).find((candidate) => candidate.monsterId === monsterId && candidate.tier !== 'mortal_blood');
+            if (!monster) {
+                continue;
+            }
+            if (typeof entry.monsterName === 'string' && entry.monsterName.trim()) {
+                monster.name = entry.monsterName.trim();
+            }
+            if (typeof entry.monsterTier === 'string' && entry.monsterTier.trim()) {
+                monster.tier = entry.monsterTier.trim();
+            }
+            if (Number.isFinite(Number(entry.monsterLevel))) {
+                monster.level = Math.max(1, Math.trunc(Number(entry.monsterLevel)));
+            }
+            if (Number.isFinite(Number(entry.tileIndex))) {
+                const tileIndex = Math.trunc(Number(entry.tileIndex));
+                if (tileIndex >= 0 && tileIndex < this.auraByTile.length) {
+                    this.monsterRuntimeIdByTile.set(tileIndex, monster.runtimeId);
+                }
+            }
+            if (Number.isFinite(Number(entry.x))) {
+                monster.x = Math.trunc(Number(entry.x));
+            }
+            if (Number.isFinite(Number(entry.y))) {
+                monster.y = Math.trunc(Number(entry.y));
+            }
+            if (Number.isFinite(Number(entry.hp))) {
+                monster.hp = Math.max(0, Math.trunc(Number(entry.hp)));
+            }
+            if (Number.isFinite(Number(entry.maxHp))) {
+                monster.maxHp = Math.max(1, Math.trunc(Number(entry.maxHp)));
+            }
+            if (typeof entry.alive === 'boolean') {
+                monster.alive = entry.alive;
+            }
+            if (Number.isFinite(Number(entry.respawnLeft))) {
+                monster.respawnLeft = Math.max(0, Math.trunc(Number(entry.respawnLeft)));
+            }
+            if (Number.isFinite(Number(entry.respawnTicks))) {
+                monster.respawnTicks = Math.max(0, Math.trunc(Number(entry.respawnTicks)));
+            }
+            if (entry.statePayload && typeof entry.statePayload === 'object') {
+                const payload = entry.statePayload;
+                if (Array.isArray(payload.buffs)) {
+                    monster.buffs = payload.buffs.map((buff) => ({ ...buff }));
+                }
+                if (Number.isFinite(Number(payload.attackReadyTick))) {
+                    monster.attackReadyTick = Math.max(0, Math.trunc(Number(payload.attackReadyTick)));
+                }
+                if (payload.cooldownReadyTickBySkillId && typeof payload.cooldownReadyTickBySkillId === 'object') {
+                    monster.cooldownReadyTickBySkillId = { ...payload.cooldownReadyTickBySkillId };
+                }
+                if (payload.damageContributors && typeof payload.damageContributors === 'object') {
+                    monster.damageContributors = { ...payload.damageContributors };
+                }
+            }
+        }
     }
     /** buildAuraPersistenceEntries：导出灵气持久化条目。 */
     buildAuraPersistenceEntries() {
@@ -1263,11 +1385,29 @@ class MapInstanceRuntime {
     }
     /** isPersistentDirty：判断实例是否还有未落盘的持久化变更。 */
     isPersistentDirty() {
-        return this.persistentRevision > this.persistedRevision;
+        return this.getDirtyDomains().size > 0
+            || this.persistentRevision > this.persistedRevision;
+    }
+    /** getPersistenceRevision：读取实例持久化版本。 */
+    getPersistenceRevision() {
+        return this.persistentRevision;
+    }
+    /** getDirtyDomains：读取实例脏域集合。 */
+    getDirtyDomains() {
+        return this.dirtyDomains instanceof Set ? this.dirtyDomains : createMapInstanceDirtyDomainSet();
+    }
+    /** markPersistenceDirtyDomains：记录实例脏域。 */
+    markPersistenceDirtyDomains(domains) {
+        markMapInstanceDirtyDomains(this, domains);
+    }
+    /** clearDirtyDomains：清空实例脏域集合。 */
+    clearDirtyDomains() {
+        clearMapInstanceDirtyDomains(this);
     }
     /** markAuraPersisted：标记灵气状态已完成持久化。 */
     markAuraPersisted() {
         this.persistedRevision = this.persistentRevision;
+        this.clearDirtyDomains();
     }
     /** dropGroundItem：把物品丢到地面堆中。 */
     dropGroundItem(x, y, item) {
@@ -1304,6 +1444,7 @@ class MapInstanceRuntime {
             }
             changed = true;
             if (changed) {
+                this.markPersistenceDirtyDomains(['ground_item']);
                 this.persistentRevision += 1;
                 this.worldRevision += 1;
             }
@@ -1324,6 +1465,7 @@ class MapInstanceRuntime {
                 }],
         };
         this.groundPilesByTile.set(tileIndex, pile);
+        this.markPersistenceDirtyDomains(['ground_item']);
         this.persistentRevision += 1;
         this.worldRevision += 1;
         return toGroundPileView(pile);
@@ -1360,6 +1502,7 @@ class MapInstanceRuntime {
         if (pile.items.length === 0) {
             this.groundPilesByTile.delete(tileIndex);
         }
+        this.markPersistenceDirtyDomains(['ground_item']);
         this.persistentRevision += 1;
         this.worldRevision += 1;
         return {
@@ -2046,6 +2189,7 @@ class MapInstanceRuntime {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
         this.applyTileResourceDirtyCounter(DEFAULT_TILE_AURA_RESOURCE_KEY, tileIndex, previous, next);
+        this.markPersistenceDirtyDomains(['tile_resource']);
         this.persistentRevision += 1;
     }
     /** getOrCreateTileResourceBucket：读取或初始化地块资源桶。 */
@@ -2087,6 +2231,7 @@ class MapInstanceRuntime {
         if (resourceKey !== DEFAULT_TILE_AURA_RESOURCE_KEY && (this.changedTileResourceEntryCountByKey.get(resourceKey) ?? 0) <= 0) {
             this.tileResourceBuckets.delete(resourceKey);
         }
+        this.markPersistenceDirtyDomains(['tile_resource']);
         this.persistentRevision += 1;
     }
     /** applyTileResourceDirtyCounter：维护地块资源脏条目统计。 */
@@ -2149,6 +2294,7 @@ class MapInstanceRuntime {
         monster.buffs.length = 0;
         /** recalculateMonsterDerivedState：重算妖兽派生状态。 */
         recalculateMonsterDerivedState(monster);
+        this.markPersistenceDirtyDomains(['monster_runtime']);
         this.worldRevision += 1;
     }
     /** respawnMonster：在重生点复生妖兽。 */
@@ -2168,6 +2314,7 @@ class MapInstanceRuntime {
         recalculateMonsterDerivedState(monster);
         monster.hp = monster.maxHp;
         this.monsterRuntimeIdByTile.set(this.toTileIndex(monster.x, monster.y), monster.runtimeId);
+        this.markPersistenceDirtyDomains(['monster_runtime']);
     }
     /** resolveMonsterTarget：解析妖兽的当前目标。 */
     resolveMonsterTarget(monster) {
@@ -2217,6 +2364,7 @@ class MapInstanceRuntime {
             monster.y = candidate.y;
             monster.facing = candidate.facing;
             this.monsterRuntimeIdByTile.set(this.toTileIndex(monster.x, monster.y), monster.runtimeId);
+            this.markPersistenceDirtyDomains(['monster_runtime']);
             return true;
         }
         return false;
@@ -2258,6 +2406,30 @@ const DIRECTION_OFFSET = {
 /** buildGroundSourceId：构建地面物品堆来源 ID。 */
 function buildGroundSourceId(tileIndex) {
     return `g:${tileIndex}`;
+}
+/** createMapInstanceDirtyDomainSet：构建实例脏域集合。 */
+function createMapInstanceDirtyDomainSet() {
+    return new Set();
+}
+/** markMapInstanceDirtyDomains：记录实例脏域。 */
+function markMapInstanceDirtyDomains(instance, domains) {
+    if (!instance) {
+        return;
+    }
+    if (!(instance.dirtyDomains instanceof Set)) {
+        instance.dirtyDomains = createMapInstanceDirtyDomainSet();
+    }
+    for (const domain of Array.isArray(domains) ? domains : []) {
+        if (typeof domain === 'string' && domain.trim()) {
+            instance.dirtyDomains.add(domain.trim());
+        }
+    }
+}
+/** clearMapInstanceDirtyDomains：清空实例脏域。 */
+function clearMapInstanceDirtyDomains(instance) {
+    if (instance?.dirtyDomains instanceof Set) {
+        instance.dirtyDomains.clear();
+    }
 }
 /** parseGroundSourceId：解析地面物品堆来源 ID。 */
 function parseGroundSourceId(sourceId) {

@@ -23,7 +23,7 @@ let WorldRuntimeInstanceTickOrchestrationService = class WorldRuntimeInstanceTic
  * @returns 无返回值，直接更新advance帧相关状态。
  */
 
-    advanceFrame(deps, frameDurationMs = 1000, getInstanceTickSpeed = null) {
+    async advanceFrame(deps, frameDurationMs = 1000, getInstanceTickSpeed = null) {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
         const startedAt = performance.now();
@@ -31,6 +31,12 @@ let WorldRuntimeInstanceTickOrchestrationService = class WorldRuntimeInstanceTic
         const instanceStepPlans = [];
         let plannedLogicalTicks = 0;
         for (const instance of deps.listInstanceRuntimes()) {
+            if (typeof deps.isInstanceLeaseWritable === 'function' && !deps.isInstanceLeaseWritable(instance)) {
+                if (typeof deps.fenceInstanceRuntime === 'function') {
+                    deps.fenceInstanceRuntime(instance.meta.instanceId, 'advance_frame_lease_check_failed');
+                }
+                continue;
+            }
             const speed = getInstanceTickSpeed
                 ? Math.max(0, Number(getInstanceTickSpeed(instance.template.id) ?? 1))
                 : 1;
@@ -55,7 +61,7 @@ let WorldRuntimeInstanceTickOrchestrationService = class WorldRuntimeInstanceTic
         deps.materializeNavigationCommands();
         deps.materializeAutoCombatCommands();
         const pendingCommandsStartedAt = performance.now();
-        deps.dispatchPendingCommands();
+        await deps.dispatchPendingCommands();
         const pendingCommandsMs = performance.now() - pendingCommandsStartedAt;
         const systemCommandsStartedAt = performance.now();
         deps.dispatchPendingSystemCommands();
@@ -68,6 +74,12 @@ let WorldRuntimeInstanceTickOrchestrationService = class WorldRuntimeInstanceTic
             for (let index = 0; index < steps; index += 1) {
                 deps.tick += 1;
                 totalLogicalTicks += 1;
+                if (typeof deps.isInstanceLeaseWritable === 'function' && !deps.isInstanceLeaseWritable(instance)) {
+                    if (typeof deps.fenceInstanceRuntime === 'function') {
+                        deps.fenceInstanceRuntime(instance.meta.instanceId, 'instance_tick_lease_check_failed');
+                    }
+                    break;
+                }
                 const result = instance.tickOnce();
                 for (const transfer of result.transfers) {
                     deps.applyTransfer(transfer);
@@ -80,7 +92,7 @@ let WorldRuntimeInstanceTickOrchestrationService = class WorldRuntimeInstanceTic
                     deps.playerRuntimeService.advanceTickForPlayerIds(currentPlayerIds, instance.tick, {
                         idleCultivationBlockedPlayerIds: blockedPlayerIds,
                     });
-                    deps.worldRuntimeCraftTickService.advanceCraftJobs(currentPlayerIds, deps);
+                    await deps.worldRuntimeCraftTickService.advanceCraftJobs(currentPlayerIds, deps);
                     for (const playerId of currentPlayerIds) {
                         steppedPlayerIds.add(playerId);
                     }

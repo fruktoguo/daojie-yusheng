@@ -80,7 +80,7 @@ async function main() {
       configUserId: config.config.userId,
       apiBaseUrl: config.status.apiBaseUrl,
       orderIds,
-      completionMapping: "05.gm-afdian-scopes.next-only",
+      completionMapping: "05.gm-afdian-scopes.mainline-only",
     }, null, 2));
   }
   finally {

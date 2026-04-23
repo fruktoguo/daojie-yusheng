@@ -76,20 +76,20 @@ function testRequestAndCommandDelegation() {
 
     assert.deepEqual(log, [
         ['getPlayer', 'player:1'],
-        ['markProtocol', 'socket:1', 'next'],
+        ['markProtocol', 'socket:1', 'mainline'],
         ['buildTechniqueActivityPanelPayload', 'player:1', 'alchemy', 7],
         ['emit', S2C.AlchemyPanel, { kind: 'alchemy', knownCatalogVersion: 7 }],
         ['getPlayer', 'player:1'],
-        ['markProtocol', 'socket:1', 'next'],
+        ['markProtocol', 'socket:1', 'mainline'],
         ['buildTechniqueActivityPanelPayload', 'player:1', 'enhancement', null],
         ['emit', S2C.EnhancementPanel, { kind: 'enhancement', knownCatalogVersion: null }],
-        ['markProtocol', 'socket:1', 'next'],
+        ['markProtocol', 'socket:1', 'mainline'],
         ['enqueueStartTechniqueActivity', 'player:1', 'alchemy', { recipeId: 'recipe:1' }, true],
-        ['markProtocol', 'socket:1', 'next'],
+        ['markProtocol', 'socket:1', 'mainline'],
         ['enqueueCancelTechniqueActivity', 'player:1', 'enhancement', true],
-        ['markProtocol', 'socket:1', 'next'],
+        ['markProtocol', 'socket:1', 'mainline'],
         ['enqueueSaveAlchemyPreset', 'player:1', { presetId: 'preset:1' }, true],
-        ['markProtocol', 'socket:1', 'next'],
+        ['markProtocol', 'socket:1', 'mainline'],
         ['enqueueDeleteAlchemyPreset', 'player:1', 'preset:2', true],
     ]);
 }
@@ -137,15 +137,15 @@ function testGatewayErrorCodes() {
 
     assert.deepEqual(log, [
         ['getPlayer', 'player:1'],
-        ['markProtocol', 'socket:1', 'next'],
+        ['markProtocol', 'socket:1', 'mainline'],
         ['emitGatewayError', 'socket:1', 'REQUEST_ENHANCEMENT_PANEL_FAILED', 'panel failed'],
-        ['markProtocol', 'socket:1', 'next'],
+        ['markProtocol', 'socket:1', 'mainline'],
         ['emitGatewayError', 'socket:1', 'START_ENHANCEMENT_FAILED', 'start failed'],
-        ['markProtocol', 'socket:1', 'next'],
+        ['markProtocol', 'socket:1', 'mainline'],
         ['emitGatewayError', 'socket:1', 'CANCEL_ALCHEMY_FAILED', 'cancel failed'],
-        ['markProtocol', 'socket:1', 'next'],
+        ['markProtocol', 'socket:1', 'mainline'],
         ['emitGatewayError', 'socket:1', 'SAVE_ALCHEMY_PRESET_FAILED', 'save failed'],
-        ['markProtocol', 'socket:1', 'next'],
+        ['markProtocol', 'socket:1', 'mainline'],
         ['emitGatewayError', 'socket:1', 'DELETE_ALCHEMY_PRESET_FAILED', 'delete failed'],
     ]);
 }

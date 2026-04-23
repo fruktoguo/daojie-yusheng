@@ -3,6 +3,7 @@
 
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.WorldGatewayBootstrapHelper = void 0;
+const shared_1 = require("@mud/shared");
 
 const AUTHENTICATED_REQUESTED_SESSION_ID_AUTH_SOURCES = new Set([
     'mainline',
@@ -229,10 +230,18 @@ class WorldGatewayBootstrapHelper {
         if (existing) {
             return existing;
         }
-        this.setBootstrapTraceContext(client, entryPath, identity);
-        client.data.authenticatedSnapshotRecovery = null;
-        client.data.authenticatedSnapshotRecoveryFallback = null;
         const promise = (async () => {
+            const routeTarget = await this.resolvePlayerRouteTarget(identity.playerId);
+            if (routeTarget && !routeTarget.isLocalTarget) {
+                this.rejectAuthenticatedConnect(client, AUTHENTICATED_CONNECT_CONTRACT.authFailCode, `玩家会话应连接节点 ${routeTarget.targetNodeId}`, {
+                    redirectNodeId: routeTarget.targetNodeId,
+                    redirectUrl: routeTarget.targetServerUrl,
+                });
+                return;
+            }
+            this.setBootstrapTraceContext(client, entryPath, identity);
+            client.data.authenticatedSnapshotRecovery = null;
+            client.data.authenticatedSnapshotRecoveryFallback = null;
             await this.gateway.sessionBootstrapService.bootstrapPlayerSession(client, this.buildAuthenticatedBootstrapInput(client, identity));
             client.data.userId = identity.userId;
         })();
@@ -246,8 +255,8 @@ class WorldGatewayBootstrapHelper {
  * @returns 无返回值，直接更新rejectAuthenticatedConnect相关状态。
  */
 
-    rejectAuthenticatedConnect(client, code, message) {
-        this.gateway.worldClientEventService.emitError(client, code, message);
+    rejectAuthenticatedConnect(client, code, message, extra = undefined) {
+        this.emitSocketError(client, code, message, extra);
         client.disconnect(true);
         return null;
     }    
@@ -270,9 +279,29 @@ class WorldGatewayBootstrapHelper {
  */
 
     rejectGmConnect(client, code, message) {
-        this.gateway.worldClientEventService.emitError(client, code, message);
+        this.emitSocketError(client, code, message);
         client.disconnect(true);
         return null;
+    }    
+    /** 兼容 stub / 旧实例的错误下发。 */
+    emitSocketError(client, code, message, extra = undefined) {
+        const emitter = this.gateway.worldClientEventService?.emitError;
+        if (typeof emitter === 'function') {
+            emitter.call(this.gateway.worldClientEventService, client, code, message, extra);
+            return;
+        }
+        if (typeof client?.emit === 'function') {
+            client.emit(shared_1.S2C.Error, { code, message, ...(extra ?? {}) });
+        }
+    }    
+    /** 兼容 stub / 旧实例的 gateway error 下发。 */
+    emitGatewayError(client, code, error) {
+        const emitter = this.gateway.worldClientEventService?.emitGatewayError;
+        if (typeof emitter === 'function') {
+            emitter.call(this.gateway.worldClientEventService, client, code, error);
+            return;
+        }
+        this.emitSocketError(client, code, error instanceof Error ? error.message : 'unknown error');
     }    
     /**
  * resolveBootstrapAuthContext：规范化或转换引导认证上下文。
@@ -338,7 +367,7 @@ class WorldGatewayBootstrapHelper {
             : '';
         const hasAuthHint = this.hasSocketAuthHint(client);
         if (handshakeProtocol === 'mainline') {
-            this.gateway.worldClientEventService.markProtocol(client, handshakeProtocol);
+            this.markClientProtocol(client, handshakeProtocol);
             return true;
         }
         if (handshakeProtocol === 'legacy') {
@@ -384,8 +413,32 @@ class WorldGatewayBootstrapHelper {
         if (currentProtocol && currentProtocol !== 'mainline') {
             return this.rejectAuthenticatedConnect(client, AUTHENTICATED_CONNECT_CONTRACT.unsupportedProtocolCode, `不支持的 hello 协议上下文: ${currentProtocol}`) !== null;
         }
-        this.gateway.worldClientEventService.markProtocol(client, 'mainline');
+        this.markClientProtocol(client, 'mainline');
         return true;
+    }    
+    /** 写入客户端协议标记，兼容缺失 markProtocol 的测试/运行态。 */
+    markClientProtocol(client, protocol) {
+        const marker = this.gateway.worldClientEventService?.markProtocol;
+        if (typeof marker === 'function') {
+            marker.call(this.gateway.worldClientEventService, client, protocol);
+            return;
+        }
+        if (client?.data && protocol === 'mainline') {
+            client.data.protocol = protocol;
+        }
+    }    
+    /**
+ * resolvePlayerRouteTarget：读取并返回玩家路由解析结果。
+ * @param playerId 参数说明。
+ * @returns 无返回值，完成玩家路由解析。
+ */
+
+    async resolvePlayerRouteTarget(playerId) {
+        const resolver = this.gateway.playerSessionRouteService?.resolveBootstrapTarget;
+        if (typeof resolver !== 'function') {
+            return null;
+        }
+        return resolver.call(this.gateway.playerSessionRouteService, playerId);
     }    
     /**
  * handleConnection：处理Connection并更新相关状态。
@@ -414,7 +467,7 @@ class WorldGatewayBootstrapHelper {
             await this.startConnectionBootstrap(client);
         }
         catch (error) {
-            this.gateway.worldClientEventService.emitGatewayError(client, AUTHENTICATED_CONNECT_CONTRACT.authFailCode, error);
+            this.emitGatewayError(client, AUTHENTICATED_CONNECT_CONTRACT.authFailCode, error);
             client.disconnect(true);
         }
     }    
@@ -448,7 +501,7 @@ class WorldGatewayBootstrapHelper {
             await this.startConnectionBootstrap(client);
         }
         catch (error) {
-            this.gateway.worldClientEventService.emitGatewayError(client, AUTHENTICATED_CONNECT_CONTRACT.authFailCode, error);
+            this.emitGatewayError(client, AUTHENTICATED_CONNECT_CONTRACT.authFailCode, error);
             client.disconnect(true);
         }
     }

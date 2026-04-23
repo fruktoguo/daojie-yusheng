@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 /**
- * 用途：检查 next 协议事件常量与 payload map 是否一一对应。
+ * 用途：检查 主线协议事件常量与 payload map 是否一一对应。
  */
 
 const fs = require('node:fs');
@@ -99,14 +99,14 @@ function assertSameKeys(label, expected, actual) {
 }
 
 assertSameKeys(
-  'NEXT_C2S_PayloadMap',
-  extractObjectLiteralKeys('NEXT_C2S'),
-  extractPayloadMapKeys('NEXT_C2S_PayloadMap', 'NEXT_C2S'),
+  'C2S_PayloadMap',
+  extractObjectLiteralKeys('C2S'),
+  extractPayloadMapKeys('C2S_PayloadMap', 'C2S'),
 );
 assertSameKeys(
-  'NEXT_S2C_PayloadMap',
-  extractObjectLiteralKeys('NEXT_S2C'),
-  extractPayloadMapKeys('NEXT_S2C_PayloadMap', 'NEXT_S2C'),
+  'S2C_PayloadMap',
+  extractObjectLiteralKeys('S2C'),
+  extractPayloadMapKeys('S2C_PayloadMap', 'S2C'),
 );
 
 console.log('protocol event payload map check passed');

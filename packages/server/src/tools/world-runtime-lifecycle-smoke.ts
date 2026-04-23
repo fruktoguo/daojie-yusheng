@@ -107,230 +107,292 @@ async function testRestoreAndRebuild() {
     const log = [];
     const persistentInstance = {
         meta: { persistent: true },
-        template: { id: 'yunlai_town' },        
-        /**
- * hydrateTileResources：执行hydrateTile资源相关逻辑。
- * @param entries 参数说明。
- * @returns 无返回值，直接更新hydrateTile资源相关状态。
- */
-
+        template: { id: 'yunlai_town' },
         hydrateTileResources(entries) {
             log.push(['hydrateTileResources', entries]);
-        },        
-        /**
- * hydrateGroundPiles：执行hydrate地面Pile相关逻辑。
- * @param entries 参数说明。
- * @returns 无返回值，直接更新hydrateGroundPile相关状态。
- */
-
+        },
+        patchTileResources(entries) {
+            log.push(['patchTileResources', entries]);
+        },
         hydrateGroundPiles(entries) {
             log.push(['hydrateGroundPiles', entries]);
+        },
+        hydrateMonsterRuntimeStates(entries) {
+            log.push(['hydrateMonsterRuntimeStates', entries]);
         },
     };
     const volatileInstance = {
         meta: { persistent: false },
-        template: { id: 'forest_1' },        
-        /**
- * hydrateTileResources：执行hydrateTile资源相关逻辑。
- * @returns 无返回值，直接更新hydrateTile资源相关状态。
- */
-
+        template: { id: 'forest_1' },
         hydrateTileResources() {
             log.push(['volatileHydrateTileResources']);
-        },        
-        /**
- * hydrateGroundPiles：执行hydrate地面Pile相关逻辑。
- * @returns 无返回值，直接更新hydrateGroundPile相关状态。
- */
-
+        },
         hydrateGroundPiles() {
             log.push(['volatileHydrateGroundPiles']);
         },
     };
     await service.restorePublicInstancePersistence({
-        mapPersistenceService: {        
-        /**
- * isEnabled：判断启用是否满足条件。
- * @returns 无返回值，完成启用的条件判断。
- */
-
+        mapPersistenceService: {
             isEnabled() {
-                return true;
-            },            
-            /**
- * loadMapSnapshot：读取地图快照并返回结果。
- * @param instanceId instance ID。
- * @returns 无返回值，完成地图快照的读取/组装。
- */
-
-            async loadMapSnapshot(instanceId) {
-  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
-
-                log.push(['loadMapSnapshot', instanceId]);
-                if (instanceId === 'public:yunlai_town') {
-                    return {
-                        templateId: 'yunlai_town',
-                        auraEntries: ['aura:1'],
-                        tileResourceEntries: ['tile-resource:1'],
-                        groundPileEntries: ['ground:1'],
-                        containerStates: [{ id: 'container:1' }],
-                    };
-                }
-                return null;
+                return false;
             },
-        },        
-        /**
- * listInstanceEntries：读取Instance条目并返回结果。
- * @returns 无返回值，完成Instance条目的读取/组装。
- */
-
+        },
+        logger: {
+            log(message) {
+                log.push(['log', message]);
+            },
+        },
         listInstanceEntries() {
             return [
                 ['public:yunlai_town', persistentInstance],
                 ['public:forest_1', volatileInstance],
             ];
         },
-        worldRuntimeLootContainerService: {        
-        /**
- * hydrateContainerStates：执行hydrateContainer状态相关逻辑。
- * @param instanceId instance ID。
- * @param states 参数说明。
- * @returns 无返回值，直接更新hydrateContainer状态相关状态。
- */
-
+        worldRuntimeLootContainerService: {
             hydrateContainerStates(instanceId, states) {
                 log.push(['hydrateContainerStates', instanceId, states]);
             },
         },
+        instanceDomainPersistenceService: {
+            isEnabled() {
+                return true;
+            },
+            async loadInstanceRecoveryWatermark(instanceId) {
+                log.push(['loadInstanceRecoveryWatermark', instanceId]);
+                return { checkpointKind: 'cold_start' };
+            },
+            async loadTileResourceDiffs(instanceId) {
+                log.push(['loadTileResourceDiffs', instanceId]);
+                return [{ resourceKey: 'aura.refined.neutral', tileIndex: 1, value: 7 }];
+            },
+            async loadInstanceCheckpoint(instanceId) {
+                log.push(['loadInstanceCheckpoint', instanceId]);
+                return {
+                    tileResourceEntries: [{ resourceKey: 'aura.refined.neutral', tileIndex: 5, value: 3 }],
+                    groundPileEntries: [{ tileIndex: 11, items: [{ itemKey: 'checkpoint:ground:1', item: { itemId: 'checkpoint_stone', count: 2 } }] }],
+                    containerStates: [{ instanceId, containerId: 'checkpoint:container:1', sourceId: 'checkpoint:source:1', statePayload: { sealed: true } }],
+                };
+            },
+            async loadGroundItems(instanceId) {
+                log.push(['loadGroundItems', instanceId]);
+                return [{ groundItemId: 'ground:1', instanceId, tileIndex: 9, itemPayload: { itemId: 'spirit_stone', count: 3 }, expireAt: null }];
+            },
+            async loadContainerStates(instanceId) {
+                log.push(['loadContainerStates', instanceId]);
+                return [{ instanceId, containerId: 'container:1', sourceId: 'source:1', statePayload: { locked: true } }];
+            },
+            async loadMonsterRuntimeStates(instanceId) {
+                log.push(['loadMonsterRuntimeStates', instanceId]);
+                return [{
+                    runtimeId: 'monster:1',
+                    monsterId: 'm_demon_king_guard',
+                    monsterName: '镇渊妖将',
+                    monsterTier: 'demon_king',
+                    monsterLevel: 88,
+                    tileIndex: 27,
+                    x: 3,
+                    y: 4,
+                    hp: 9000,
+                    maxHp: 12000,
+                    alive: true,
+                    respawnLeft: 0,
+                    respawnTicks: 0,
+                    statePayload: { attackReadyTick: 77 },
+                }];
+            },
+            async loadEventStates() {
+                return [];
+            },
+            async loadOverlayChunks() {
+                return [];
+            },
+        },
     });
-    assert.deepEqual(log, [
-        ['loadMapSnapshot', 'public:yunlai_town'],
-        ['hydrateTileResources', ['tile-resource:1']],
-        ['hydrateGroundPiles', ['ground:1']],
-        ['hydrateContainerStates', 'public:yunlai_town', [{ id: 'container:1' }]],
-    ]);
+    assert.ok(!log.some((entry) => Array.isArray(entry) && entry[0] === 'loadMapSnapshot'));
+    assert.ok(log.some((entry) => Array.isArray(entry) && entry[0] === 'loadInstanceRecoveryWatermark'));
+    assert.ok(log.some((entry) => Array.isArray(entry) && entry[0] === 'loadTileResourceDiffs'));
+    assert.ok(log.some((entry) => Array.isArray(entry) && entry[0] === 'loadGroundItems'));
+    assert.ok(log.some((entry) => Array.isArray(entry) && entry[0] === 'loadContainerStates'));
+    assert.ok(log.some((entry) => Array.isArray(entry) && entry[0] === 'loadMonsterRuntimeStates'));
+    assert.ok(log.some((entry) => Array.isArray(entry) && entry[0] === 'loadInstanceCheckpoint'));
+    assert.ok(log.some((entry) => Array.isArray(entry) && entry[0] === 'hydrateTileResources'));
+    assert.ok(log.some((entry) => Array.isArray(entry) && entry[0] === 'hydrateGroundPiles'));
+    assert.ok(log.some((entry) => Array.isArray(entry) && entry[0] === 'hydrateContainerStates'));
+
+    const domainRestoreLog = [];
+    const domainInstance = {
+        meta: { persistent: true, instanceId: 'public:yunlai_town' },
+        template: { id: 'yunlai_town' },
+        hydrateTileResources(entries) {
+            domainRestoreLog.push(['hydrateTileResources', entries]);
+        },
+        patchTileResources(entries) {
+            domainRestoreLog.push(['patchTileResources', entries]);
+        },
+        hydrateGroundPiles(entries) {
+            domainRestoreLog.push(['hydrateGroundPiles', entries]);
+        },
+        hydrateMonsterRuntimeStates(entries) {
+            domainRestoreLog.push(['hydrateMonsterRuntimeStates', entries]);
+        },
+    };
+    await service.restorePublicInstancePersistence({
+        mapPersistenceService: {
+            isEnabled() {
+                return false;
+            },
+        },
+        logger: {
+            log(message) {
+                domainRestoreLog.push(['log', message]);
+            },
+        },
+        instanceDomainPersistenceService: {
+            isEnabled() {
+                return true;
+            },
+            async loadInstanceRecoveryWatermark(instanceId) {
+                domainRestoreLog.push(['loadInstanceRecoveryWatermark', instanceId]);
+                return { checkpointKind: 'cold_start' };
+            },
+            async loadTileResourceDiffs(instanceId) {
+                domainRestoreLog.push(['loadTileResourceDiffs', instanceId]);
+                return [
+                    { resourceKey: 'aura.refined.neutral', tileIndex: 1, value: 7 },
+                ];
+            },
+            async loadInstanceCheckpoint(instanceId) {
+                domainRestoreLog.push(['loadInstanceCheckpoint', instanceId]);
+                return {
+                    tileResourceEntries: [
+                        { resourceKey: 'aura.refined.neutral', tileIndex: 5, value: 3 },
+                    ],
+                    groundPileEntries: [
+                        {
+                            tileIndex: 11,
+                            items: [{ itemKey: 'checkpoint:ground:1', item: { itemId: 'checkpoint_stone', count: 2 } }],
+                        },
+                    ],
+                    containerStates: [
+                        { instanceId, containerId: 'checkpoint:container:1', sourceId: 'checkpoint:source:1', statePayload: { sealed: true } },
+                    ],
+                };
+            },
+            async loadGroundItems(instanceId) {
+                domainRestoreLog.push(['loadGroundItems', instanceId]);
+                return [
+                    {
+                        groundItemId: 'ground:1',
+                        instanceId,
+                        tileIndex: 9,
+                        itemPayload: { itemId: 'spirit_stone', count: 3 },
+                        expireAt: null,
+                    },
+                ];
+            },
+            async loadContainerStates(instanceId) {
+                domainRestoreLog.push(['loadContainerStates', instanceId]);
+                return [{ instanceId, containerId: 'container:1', sourceId: 'source:1', statePayload: { locked: true } }];
+            },
+            async loadMonsterRuntimeStates(instanceId) {
+                domainRestoreLog.push(['loadMonsterRuntimeStates', instanceId]);
+                return [{
+                    runtimeId: 'monster:1',
+                    monsterId: 'm_demon_king_guard',
+                    monsterName: '镇渊妖将',
+                    monsterTier: 'demon_king',
+                    monsterLevel: 88,
+                    tileIndex: 27,
+                    x: 3,
+                    y: 4,
+                    hp: 9000,
+                    maxHp: 12000,
+                    alive: true,
+                    respawnLeft: 0,
+                    respawnTicks: 0,
+                    statePayload: { attackReadyTick: 77 },
+                }];
+            },
+            async loadEventStates() {
+                return [];
+            },
+            async loadOverlayChunks() {
+                return [];
+            },
+        },
+        listInstanceEntries() {
+            return [
+                ['public:yunlai_town', domainInstance],
+            ];
+        },
+        worldRuntimeLootContainerService: {
+            hydrateContainerStates(instanceId, states) {
+                domainRestoreLog.push(['hydrateContainerStates', instanceId, states]);
+            },
+        },
+    });
+    assert.ok(domainRestoreLog.some((entry) => Array.isArray(entry) && entry[0] === 'loadInstanceRecoveryWatermark'));
+    assert.ok(domainRestoreLog.some((entry) => Array.isArray(entry) && entry[0] === 'loadTileResourceDiffs'));
+    assert.ok(domainRestoreLog.some((entry) => Array.isArray(entry) && entry[0] === 'patchTileResources' && Array.isArray(entry[1]) && entry[1][0]?.tileIndex === 1));
+    assert.ok(domainRestoreLog.some((entry) => Array.isArray(entry) && entry[0] === 'loadGroundItems'));
+    assert.ok(domainRestoreLog.some((entry) => Array.isArray(entry) && entry[0] === 'hydrateGroundPiles' && Array.isArray(entry[1]) && entry[1][0]?.tileIndex === 9));
+    assert.ok(domainRestoreLog.some((entry) => Array.isArray(entry) && entry[0] === 'loadContainerStates'));
+    assert.ok(domainRestoreLog.some((entry) => Array.isArray(entry) && entry[0] === 'hydrateContainerStates' && entry[1] === 'public:yunlai_town'));
+    assert.ok(domainRestoreLog.some((entry) => Array.isArray(entry) && entry[0] === 'loadMonsterRuntimeStates'));
+    assert.ok(domainRestoreLog.some((entry) => Array.isArray(entry) && entry[0] === 'hydrateMonsterRuntimeStates'));
+    assert.ok(domainRestoreLog.some((entry) => Array.isArray(entry) && entry[0] === 'loadInstanceCheckpoint'));
+    assert.ok(domainRestoreLog.some((entry) => Array.isArray(entry) && entry[0] === 'hydrateTileResources' && Array.isArray(entry[1]) && entry[1][0]?.tileIndex === 5));
+    assert.ok(domainRestoreLog.some((entry) => Array.isArray(entry) && entry[0] === 'hydrateGroundPiles' && Array.isArray(entry[1]) && entry[1][0]?.tileIndex === 11));
+    assert.ok(domainRestoreLog.some((entry) => Array.isArray(entry) && entry[0] === 'log' && entry[1] === '实例分域恢复已回填：public:yunlai_town'));
 
     const resetLog = [];
     await service.rebuildPersistentRuntimeAfterRestore({
-        worldRuntimeInstanceStateService: {        
-        /**
- * resetState：执行reset状态相关逻辑。
- * @returns 无返回值，直接更新reset状态相关状态。
- */
- resetState() { resetLog.push('instance'); } },
-        worldRuntimePlayerLocationService: {        
-        /**
- * resetState：执行reset状态相关逻辑。
- * @returns 无返回值，直接更新reset状态相关状态。
- */
- resetState() { resetLog.push('playerLocation'); } },
-        worldRuntimePendingCommandService: {        
-        /**
- * resetState：执行reset状态相关逻辑。
- * @returns 无返回值，直接更新reset状态相关状态。
- */
- resetState() { resetLog.push('pending'); } },
-        worldRuntimeGmQueueService: {        
-        /**
- * resetState：执行reset状态相关逻辑。
- * @returns 无返回值，直接更新reset状态相关状态。
- */
- resetState() { resetLog.push('gmQueue'); } },
-        worldRuntimeNavigationService: {        
-        /**
- * reset：执行reset相关逻辑。
- * @returns 无返回值，直接更新reset相关状态。
- */
- reset() { resetLog.push('navigation'); } },
-        worldRuntimeTickProgressService: {        
-        /**
- * resetState：执行reset状态相关逻辑。
- * @returns 无返回值，直接更新reset状态相关状态。
- */
- resetState() { resetLog.push('tickProgress'); } },
-        worldRuntimeLootContainerService: {        
-        /**
- * reset：执行reset相关逻辑。
- * @returns 无返回值，直接更新reset相关状态。
- */
-
-            reset() { resetLog.push('lootContainer'); },            
-            /**
- * hydrateContainerStates：执行hydrateContainer状态相关逻辑。
- * @param instanceId instance ID。
- * @param states 参数说明。
- * @returns 无返回值，直接更新hydrateContainer状态相关状态。
- */
-
+        worldRuntimeInstanceStateService: {
+            resetState() { resetLog.push('instance'); }
+        },
+        worldRuntimePlayerLocationService: {
+            resetState() { resetLog.push('playerLocation'); }
+        },
+        worldRuntimePendingCommandService: {
+            resetState() { resetLog.push('pending'); }
+        },
+        worldRuntimeGmQueueService: {
+            resetState() { resetLog.push('gmQueue'); }
+        },
+        worldRuntimeNavigationService: {
+            reset() { resetLog.push('navigation'); }
+        },
+        worldRuntimeTickProgressService: {
+            resetState() { resetLog.push('tickProgress'); }
+        },
+        worldRuntimeLootContainerService: {
+            reset() { resetLog.push('lootContainer'); },
             hydrateContainerStates(instanceId, states) { resetLog.push(['hydrateContainerStates', instanceId, states]); },
         },
-        worldRuntimeCombatEffectsService: {        
-        /**
- * resetAll：执行resetAll相关逻辑。
- * @returns 无返回值，直接更新resetAll相关状态。
- */
- resetAll() { resetLog.push('combatEffects'); } },
-        templateRepository: {        
-        /**
- * list：读取列表并返回结果。
- * @returns 无返回值，完成结果的读取/组装。
- */
-
+        worldRuntimeCombatEffectsService: {
+            resetAll() { resetLog.push('combatEffects'); }
+        },
+        templateRepository: {
             list() {
                 return [{ id: 'yunlai_town' }];
             },
-        },        
-        /**
- * createInstance：构建并返回目标对象。
- * @param input 输入参数。
- * @returns 无返回值，直接更新Instance相关状态。
- */
-
+        },
         createInstance(input) {
             resetLog.push(['createInstance', input.instanceId]);
-        },        
-        /**
- * getInstanceCount：读取Instance数量。
- * @returns 无返回值，完成Instance数量的读取/组装。
- */
-
+        },
         getInstanceCount() {
             return 2;
         },
-        logger: {        
-        /**
- * log：执行log相关逻辑。
- * @param message 参数说明。
- * @returns 无返回值，直接更新log相关状态。
- */
-
+        logger: {
             log(message) {
                 resetLog.push(['log', message]);
             },
         },
-        mapPersistenceService: {        
-        /**
- * isEnabled：判断启用是否满足条件。
- * @returns 无返回值，完成启用的条件判断。
- */
-
+        mapPersistenceService: {
             isEnabled() {
                 return false;
-            },            
-            /**
- * loadMapSnapshot：读取地图快照并返回结果。
- * @returns 无返回值，完成地图快照的读取/组装。
- */
-
-            async loadMapSnapshot() {
-                throw new Error('unreachable');
             },
-        },        
-        /**
- * listInstanceEntries：读取Instance条目并返回结果。
- * @returns 无返回值，完成Instance条目的读取/组装。
- */
-
+        },
         listInstanceEntries() {
             return [];
         },
@@ -349,11 +411,6 @@ async function testRestoreAndRebuild() {
         ['log', '已初始化 2 个默认地图实例'],
     ]);
 }
-/**
- * main：执行main相关逻辑。
- * @returns 无返回值，直接更新main相关状态。
- */
-
 
 async function main() {
     testBootstrapPublicInstances();

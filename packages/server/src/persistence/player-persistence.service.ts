@@ -97,6 +97,14 @@ interface PlayerSnapshotInventory {
   items: unknown[];
 }
 
+interface PlayerSnapshotWallet {
+  balances: unknown[];
+}
+
+interface PlayerSnapshotMarketStorage {
+  items: unknown[];
+}
+
 interface PlayerSnapshotEquipment {
   revision: number;
   slots: unknown[];
@@ -166,6 +174,8 @@ export interface PersistedPlayerSnapshot {
   attrState?: PlayerSnapshotAttrState;
   unlockedMapIds: string[];
   inventory: PlayerSnapshotInventory;
+  wallet?: PlayerSnapshotWallet;
+  marketStorage?: PlayerSnapshotMarketStorage;
   equipment: PlayerSnapshotEquipment;
   techniques: PlayerSnapshotTechniques;
   buffs: PlayerSnapshotBuffs;

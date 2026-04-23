@@ -24,6 +24,7 @@ const common_1 = require("@nestjs/common");
 const map_persistence_flush_service_1 = require("../../persistence/map-persistence-flush.service");
 
 const player_persistence_flush_service_1 = require("../../persistence/player-persistence-flush.service");
+const durable_operation_service_1 = require("../../persistence/durable-operation.service");
 
 const mail_runtime_service_1 = require("../mail/mail-runtime.service");
 
@@ -76,6 +77,11 @@ let WorldRuntimeController = class WorldRuntimeController {
 
     mapPersistenceFlushService;    
     /**
+ * durableOperationService：强持久化事务服务引用。
+ */
+
+    durableOperationService;
+    /**
  * 构造器：初始化 当前 实例并建立基础状态。
  * @param worldRuntimeService 参数说明。
  * @param mailRuntimeService 参数说明。
@@ -84,10 +90,11 @@ let WorldRuntimeController = class WorldRuntimeController {
  * @param suggestionRuntimeService 参数说明。
  * @param playerPersistenceFlushService 参数说明。
  * @param mapPersistenceFlushService 参数说明。
+ * @param durableOperationService 参数说明。
  * @returns 无返回值，完成实例初始化。
  */
 
-    constructor(worldRuntimeService, mailRuntimeService, marketRuntimeService, playerRuntimeService, suggestionRuntimeService, playerPersistenceFlushService, mapPersistenceFlushService) {
+    constructor(worldRuntimeService, mailRuntimeService, marketRuntimeService, playerRuntimeService, suggestionRuntimeService, playerPersistenceFlushService, mapPersistenceFlushService, durableOperationService) {
         this.worldRuntimeService = worldRuntimeService;
         this.mailRuntimeService = mailRuntimeService;
         this.marketRuntimeService = marketRuntimeService;
@@ -95,6 +102,21 @@ let WorldRuntimeController = class WorldRuntimeController {
         this.suggestionRuntimeService = suggestionRuntimeService;
         this.playerPersistenceFlushService = playerPersistenceFlushService;
         this.mapPersistenceFlushService = mapPersistenceFlushService;
+        this.durableOperationService = durableOperationService;
+    }
+    onModuleInit() {
+        if (typeof this.playerPersistenceFlushService?.setLeaseGuard === 'function') {
+            this.playerPersistenceFlushService.setLeaseGuard({
+                isPlayerPersistenceWritable: (playerId) => {
+                    const location = this.worldRuntimeService.worldRuntimePlayerLocationService.getPlayerLocation(playerId);
+                    if (!location) {
+                        return true;
+                    }
+                    const instance = this.worldRuntimeService.getInstance(location.instanceId);
+                    return instance ? this.worldRuntimeService.isInstanceLeaseWritable(instance) : true;
+                },
+            });
+        }
     }
     /** getSummary：读取世界运行时摘要。 */
     getSummary() {
@@ -153,14 +175,19 @@ let WorldRuntimeController = class WorldRuntimeController {
         return this.worldRuntimeService.worldRuntimeCommandIntakeFacadeService.enqueueDamageMonster(instanceId, runtimeId, Number.isFinite(body.amount) ? Number(body.amount) : Number.NaN, this.worldRuntimeService);
     }
     /** connectPlayer：将玩家接入当前实例，并同步初始移动速度与位置。 */
-    connectPlayer(body) {
-        return this.worldRuntimeService.worldRuntimePlayerSessionService.connectPlayer({
+    async connectPlayer(body) {
+        const view = this.worldRuntimeService.worldRuntimePlayerSessionService.connectPlayer({
             playerId: body.playerId ?? '',
             sessionId: body.sessionId,
             mapId: body.mapId,
             preferredX: body.preferredX,
             preferredY: body.preferredY,
         }, this.worldRuntimeService);
+        const playerId = typeof body?.playerId === 'string' ? body.playerId.trim() : '';
+        if (playerId) {
+            await this.playerPersistenceFlushService.flushPlayer(playerId);
+        }
+        return view;
     }
     /** removePlayer：注销玩家运行态，先清会话再断开实例。 */
     removePlayer(playerId) {
@@ -313,9 +340,9 @@ let WorldRuntimeController = class WorldRuntimeController {
         return this.worldRuntimeService.worldRuntimeCommandIntakeFacadeService.enqueueRespawnPlayer(playerId, this.worldRuntimeService);
     }
     /** grantItem：直接给玩家发放物品并同步运行态。 */
-    grantItem(playerId, body) {
+    async grantItem(playerId, body) {
         return {
-            player: this.playerRuntimeService.grantItem(playerId, String(body.itemId ?? ''), Number.isFinite(body.count) ? Number(body.count) : 1),
+            player: await this.applyDurableInventoryGrant(playerId, body),
         };
     }
     /** useItem：提交使用物品请求，由世界运行时处理消耗和效果。 */
@@ -509,8 +536,207 @@ let WorldRuntimeController = class WorldRuntimeController {
     async claimMarketStorage(playerId) {
         return this.marketRuntimeService.claimStorage(playerId);
     }
+    /** creditWallet：给玩家钱包加余额。 */
+    async creditWallet(playerId, body) {
+        return {
+            player: await this.applyDurableWalletMutation(playerId, body, 'credit'),
+        };
+    }
+    /** debitWallet：给玩家钱包扣余额。 */
+    async debitWallet(playerId, body) {
+        return {
+            player: await this.applyDurableWalletMutation(playerId, body, 'debit'),
+        };
+    }
+
+    async applyDurableWalletMutation(playerId, body, action) {
+        const normalizedPlayerId = typeof playerId === 'string' ? playerId.trim() : '';
+        const walletType = typeof body?.walletType === 'string' ? body.walletType.trim() : '';
+        const amount = Number.isFinite(body?.amount) ? Math.max(1, Math.trunc(Number(body.amount))) : 1;
+        if (!normalizedPlayerId || !walletType || amount <= 0) {
+            throw new common_1.BadRequestException('invalid wallet mutation input');
+        }
+        const player = this.playerRuntimeService.getPlayerOrThrow(normalizedPlayerId);
+        const runtimeOwnerId = typeof player.runtimeOwnerId === 'string' && player.runtimeOwnerId.trim() ? player.runtimeOwnerId.trim() : '';
+        const sessionEpoch = Number.isFinite(player.sessionEpoch) ? Math.max(1, Math.trunc(Number(player.sessionEpoch))) : 0;
+        if (!runtimeOwnerId || sessionEpoch <= 0) {
+            throw new common_1.ServiceUnavailableException('player session is not ready for durable wallet mutation');
+        }
+        const nextWalletBalances = buildNextWalletBalances(player.wallet?.balances, walletType, amount, action);
+        if (!nextWalletBalances) {
+            throw new common_1.NotFoundException(`Wallet ${walletType} insufficient`);
+        }
+        const location = this.worldRuntimeService.worldRuntimePlayerLocationService.getPlayerLocation(normalizedPlayerId);
+        const expectedInstanceId = location?.instanceId ?? null;
+        const instanceLease = await this.resolveInstanceLeaseContext(expectedInstanceId);
+        const operationId = `op:${normalizedPlayerId}:wallet:${action}:${walletType}:${Date.now().toString(36)}`;
+        if (typeof this.durableOperationService?.mutatePlayerWallet === 'function') {
+            await this.durableOperationService.mutatePlayerWallet({
+                operationId,
+                playerId: normalizedPlayerId,
+                expectedRuntimeOwnerId: runtimeOwnerId,
+                expectedSessionEpoch: sessionEpoch,
+                expectedInstanceId,
+                expectedAssignedNodeId: instanceLease?.assignedNodeId ?? null,
+                expectedOwnershipEpoch: instanceLease?.ownershipEpoch ?? null,
+                walletType,
+                action,
+                delta: amount,
+                nextWalletBalances,
+            });
+        }
+        if (action === 'credit') {
+            return this.playerRuntimeService.creditWallet(normalizedPlayerId, walletType, amount);
+        }
+        return this.playerRuntimeService.debitWallet(normalizedPlayerId, walletType, amount);
+    }
+
+    async applyDurableInventoryGrant(playerId, body) {
+        const normalizedPlayerId = typeof playerId === 'string' ? playerId.trim() : '';
+        const itemId = typeof body?.itemId === 'string' ? body.itemId.trim() : '';
+        const count = Number.isFinite(body?.count) ? Math.max(1, Math.trunc(Number(body.count))) : 1;
+        if (!normalizedPlayerId || !itemId || count <= 0) {
+            throw new common_1.BadRequestException('invalid inventory grant input');
+        }
+        const player = this.playerRuntimeService.getPlayerOrThrow(normalizedPlayerId);
+        const runtimeOwnerId = typeof player.runtimeOwnerId === 'string' && player.runtimeOwnerId.trim() ? player.runtimeOwnerId.trim() : '';
+        const sessionEpoch = Number.isFinite(player.sessionEpoch) ? Math.max(1, Math.trunc(Number(player.sessionEpoch))) : 0;
+        if (!runtimeOwnerId || sessionEpoch <= 0) {
+            throw new common_1.ServiceUnavailableException('player session is not ready for durable inventory grant');
+        }
+        const rollbackState = captureInventoryGrantRollbackState(player);
+        player.suppressImmediateDomainPersistence = true;
+        try {
+            this.playerRuntimeService.grantItem(normalizedPlayerId, itemId, count);
+            const grantedItem = buildGrantedInventorySnapshot(itemId, count, player, rollbackState.inventoryItems.length);
+            const location = this.worldRuntimeService.worldRuntimePlayerLocationService.getPlayerLocation(normalizedPlayerId);
+            const expectedInstanceId = location?.instanceId ?? null;
+            const instanceLease = await this.resolveInstanceLeaseContext(expectedInstanceId);
+            const operationId = `op:${normalizedPlayerId}:inventory-grant:${itemId}:x${count}:${Date.now().toString(36)}`;
+            if (typeof this.durableOperationService?.grantInventoryItems === 'function') {
+                await this.durableOperationService.grantInventoryItems({
+                    operationId,
+                    playerId: normalizedPlayerId,
+                    expectedRuntimeOwnerId: runtimeOwnerId,
+                    expectedSessionEpoch: sessionEpoch,
+                    expectedInstanceId,
+                    expectedAssignedNodeId: instanceLease?.assignedNodeId ?? null,
+                    expectedOwnershipEpoch: instanceLease?.ownershipEpoch ?? null,
+                    sourceType: 'gm_grant',
+                    sourceRefId: `gm:${itemId}`,
+                    grantedItems: [grantedItem],
+                    nextInventoryItems: buildNextInventorySnapshots(player.inventory?.items ?? []),
+                });
+            }
+            return player;
+        }
+        catch (error) {
+            restoreInventoryGrantRollbackState(player, rollbackState, this.playerRuntimeService);
+            throw error;
+        }
+        finally {
+            player.suppressImmediateDomainPersistence = rollbackState.suppressImmediateDomainPersistence === true;
+        }
+    }
+    async resolveInstanceLeaseContext(instanceId) {
+        const normalizedInstanceId = typeof instanceId === 'string' && instanceId.trim() ? instanceId.trim() : '';
+        if (!normalizedInstanceId || !this.worldRuntimeService.instanceCatalogService?.isEnabled?.()) {
+            return null;
+        }
+        const catalog = await this.worldRuntimeService.instanceCatalogService.loadInstanceCatalog(normalizedInstanceId);
+        if (!catalog) {
+            return null;
+        }
+        const assignedNodeId = typeof catalog.assigned_node_id === 'string' && catalog.assigned_node_id.trim()
+            ? catalog.assigned_node_id.trim()
+            : null;
+        const ownershipEpoch = Number.isFinite(Number(catalog.ownership_epoch))
+            ? Math.max(0, Math.trunc(Number(catalog.ownership_epoch)))
+            : null;
+        if (!assignedNodeId || ownershipEpoch == null) {
+            return null;
+        }
+        return { assignedNodeId, ownershipEpoch };
+    }
 };
 exports.WorldRuntimeController = WorldRuntimeController;
+
+function buildNextWalletBalances(existingBalances, walletType, amount, action) {
+    const balances = Array.isArray(existingBalances)
+        ? existingBalances.map((entry) => ({
+            walletType: typeof entry?.walletType === 'string' ? entry.walletType.trim() : '',
+            balance: Math.max(0, Math.trunc(Number(entry?.balance ?? 0))),
+            frozenBalance: Math.max(0, Math.trunc(Number(entry?.frozenBalance ?? 0))),
+            version: Math.max(0, Math.trunc(Number(entry?.version ?? 0))),
+        })).filter((entry) => entry.walletType)
+        : [];
+    const entry = balances.find((row) => row.walletType === walletType);
+    if (action === 'credit') {
+        if (entry) {
+            entry.balance += amount;
+            entry.version += 1;
+        } else {
+            balances.push({
+                walletType,
+                balance: amount,
+                frozenBalance: 0,
+                version: 1,
+            });
+        }
+        return balances;
+    }
+    if (!entry || entry.balance < amount) {
+        return null;
+    }
+    entry.balance -= amount;
+    entry.version += 1;
+    return balances;
+}
+
+function buildNextInventorySnapshots(items) {
+    return Array.isArray(items)
+        ? items.map((entry) => ({
+            itemId: typeof entry?.itemId === 'string' ? entry.itemId : '',
+            count: Math.max(1, Math.trunc(Number(entry?.count ?? 1))),
+            rawPayload: entry ? { ...entry } : {},
+        })).filter((entry) => entry.itemId)
+        : [];
+}
+
+function captureInventoryGrantRollbackState(player) {
+    return {
+        suppressImmediateDomainPersistence: player?.suppressImmediateDomainPersistence === true,
+        inventoryItems: buildNextInventorySnapshots(player.inventory?.items ?? []),
+        inventoryRevision: Math.max(0, Math.trunc(Number(player.inventory?.revision ?? 0))),
+        persistentRevision: Math.max(0, Math.trunc(Number(player?.persistentRevision ?? 0))),
+        selfRevision: Math.max(0, Math.trunc(Number(player?.selfRevision ?? 0))),
+        dirtyDomains: player?.dirtyDomains instanceof Set ? Array.from(player.dirtyDomains) : [],
+    };
+}
+
+function restoreInventoryGrantRollbackState(player, rollbackState, playerRuntimeService) {
+    player.inventory.items = Array.isArray(rollbackState.inventoryItems)
+        ? rollbackState.inventoryItems.map((entry) => ({ ...(entry.rawPayload ?? entry), itemId: entry.itemId, count: entry.count }))
+        : [];
+    player.inventory.revision = rollbackState.inventoryRevision;
+    player.persistentRevision = rollbackState.persistentRevision;
+    player.selfRevision = rollbackState.selfRevision;
+    player.suppressImmediateDomainPersistence = rollbackState.suppressImmediateDomainPersistence === true;
+    player.dirtyDomains = new Set(Array.isArray(rollbackState.dirtyDomains) ? rollbackState.dirtyDomains : []);
+    playerRuntimeService.playerProgressionService.refreshPreview(player);
+}
+
+function buildGrantedInventorySnapshot(itemId, count, player, previousLength) {
+    const nextItems = Array.isArray(player?.inventory?.items) ? player.inventory.items : [];
+    const preferred = nextItems.find((entry, index) => index >= previousLength && entry?.itemId === itemId)
+        ?? nextItems.find((entry) => entry?.itemId === itemId);
+    return {
+        itemId,
+        count: Math.max(1, Math.trunc(Number(count ?? 1))),
+        rawPayload: preferred ? { ...preferred } : { itemId, count: Math.max(1, Math.trunc(Number(count ?? 1))) },
+    };
+}
+
 /** __decorate：decorate。 */
 __decorate([
     (0, common_1.Get)('summary'),
@@ -1383,6 +1609,34 @@ __decorate([
     /** __metadata：metadata。 */
     __metadata("design:returntype", Promise)
 ], WorldRuntimeController.prototype, "claimMarketStorage", null);
+/** __decorate：decorate。 */
+__decorate([
+    (0, common_1.Post)('players/:playerId/wallet/credit'),
+    /** __param：param。 */
+    __param(0, (0, common_1.Param)('playerId')),
+    /** __param：param。 */
+    __param(1, (0, common_1.Body)()),
+    /** __metadata：metadata。 */
+    __metadata("design:type", Function),
+    /** __metadata：metadata。 */
+    __metadata("design:paramtypes", [String, Object]),
+    /** __metadata：metadata。 */
+    __metadata("design:returntype", void 0)
+], WorldRuntimeController.prototype, "creditWallet", null);
+/** __decorate：decorate。 */
+__decorate([
+    (0, common_1.Post)('players/:playerId/wallet/debit'),
+    /** __param：param。 */
+    __param(0, (0, common_1.Param)('playerId')),
+    /** __param：param。 */
+    __param(1, (0, common_1.Body)()),
+    /** __metadata：metadata。 */
+    __metadata("design:type", Function),
+    /** __metadata：metadata。 */
+    __metadata("design:paramtypes", [String, Object]),
+    /** __metadata：metadata。 */
+    __metadata("design:returntype", void 0)
+], WorldRuntimeController.prototype, "debitWallet", null);
 exports.WorldRuntimeController = WorldRuntimeController = __decorate([
     (0, common_1.Controller)('runtime'),
     (0, common_1.UseGuards)(new runtime_http_access_guard_1.RuntimeHttpAccessGuard()),
@@ -1393,6 +1647,7 @@ exports.WorldRuntimeController = WorldRuntimeController = __decorate([
         player_runtime_service_1.PlayerRuntimeService,
         suggestion_runtime_service_1.SuggestionRuntimeService,
         player_persistence_flush_service_1.PlayerPersistenceFlushService,
-        map_persistence_flush_service_1.MapPersistenceFlushService])
+        map_persistence_flush_service_1.MapPersistenceFlushService,
+        durable_operation_service_1.DurableOperationService])
 ], WorldRuntimeController);
 export { WorldRuntimeController };

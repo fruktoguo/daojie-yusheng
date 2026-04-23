@@ -20,7 +20,8 @@ const common_1 = require("@nestjs/common");
 const node_crypto_1 = require("node:crypto");
 
 const content_template_repository_1 = require("../../content/content-template.repository");
-
+const durable_operation_service_1 = require("../../persistence/durable-operation.service");
+const instance_catalog_service_1 = require("../../persistence/instance-catalog.service");
 const redeem_code_persistence_service_1 = require("../../persistence/redeem-code-persistence.service");
 
 const player_runtime_service_1 = require("../player/player-runtime.service");
@@ -53,6 +54,10 @@ let RedeemCodeRuntimeService = class RedeemCodeRuntimeService {
  */
 
     redeemCodePersistenceService;
+    /** durableOperationService：库存强事务服务引用。 */
+    durableOperationService;
+    /** instanceCatalogService：实例 lease 查询服务引用。 */
+    instanceCatalogService;
     /** 当前全部兑换码分组。 */
     groups = [];
     /** 当前全部兑换码。 */
@@ -62,10 +67,12 @@ let RedeemCodeRuntimeService = class RedeemCodeRuntimeService {
     /** 串行化分组/码表写操作。 */
     mutationQueue = Promise.resolve();
     /** 注入内容、玩家与兑换码持久化服务。 */
-    constructor(contentTemplateRepository, playerRuntimeService, redeemCodePersistenceService) {
+    constructor(contentTemplateRepository, playerRuntimeService, redeemCodePersistenceService, durableOperationService = null, instanceCatalogService = null) {
         this.contentTemplateRepository = contentTemplateRepository;
         this.playerRuntimeService = playerRuntimeService;
         this.redeemCodePersistenceService = redeemCodePersistenceService;
+        this.durableOperationService = durableOperationService;
+        this.instanceCatalogService = instanceCatalogService;
     }
     /** 模块初始化时从持久化回填兑换码数据。 */
     async onModuleInit() {
@@ -315,8 +322,20 @@ let RedeemCodeRuntimeService = class RedeemCodeRuntimeService {
                     });
                     continue;
                 }
+                const walletItems = [];
+                const inventoryItems = [];
                 for (const item of items) {
-                    this.playerRuntimeService.receiveInventoryItem(playerId, item);
+                    if (isWalletRewardItemId(item.itemId)) {
+                        walletItems.push(item);
+                        continue;
+                    }
+                    inventoryItems.push(item);
+                }
+                if (inventoryItems.length > 0) {
+                    await this.grantInventoryRewards(player, inventoryItems, submittedCode);
+                }
+                for (const item of walletItems) {
+                    this.playerRuntimeService.creditWallet(playerId, item.itemId, item.count);
                 }
                 codeEntry.status = 'used';
                 codeEntry.usedByPlayerId = player.playerId;
@@ -503,6 +522,70 @@ let RedeemCodeRuntimeService = class RedeemCodeRuntimeService {
             updatedAt: code.updatedAt,
         };
     }
+    /** 尝试把兑换码的非钱包奖励走 grantInventoryItems durable 主链。 */
+    async grantInventoryRewards(player, items, submittedCode) {
+        const normalizedItems = Array.isArray(items)
+            ? items.map((entry) => this.contentTemplateRepository.normalizeItem(entry))
+            : [];
+        if (normalizedItems.length === 0) {
+            return;
+        }
+        const durableContext = await this.resolveDurableInventoryGrantContext(player);
+        if (!durableContext) {
+            for (const item of normalizedItems) {
+                this.playerRuntimeService.receiveInventoryItem(player.playerId, item);
+            }
+            return;
+        }
+        const nextInventoryItems = buildNextInventorySnapshots(player.inventory?.items ?? [], normalizedItems);
+        const rollbackState = captureInventoryGrantRollbackState(player);
+        player.suppressImmediateDomainPersistence = true;
+        try {
+            await this.durableOperationService.grantInventoryItems({
+                operationId: `op:${player.playerId}:redeem-code:${submittedCode}`,
+                playerId: player.playerId,
+                expectedRuntimeOwnerId: durableContext.runtimeOwnerId,
+                expectedSessionEpoch: durableContext.sessionEpoch,
+                expectedInstanceId: durableContext.expectedInstanceId,
+                expectedAssignedNodeId: durableContext.expectedAssignedNodeId,
+                expectedOwnershipEpoch: durableContext.expectedOwnershipEpoch,
+                sourceType: 'redeem_code',
+                sourceRefId: submittedCode,
+                grantedItems: buildGrantedInventorySnapshots(normalizedItems),
+                nextInventoryItems,
+            });
+        }
+        catch (error) {
+            restoreInventoryGrantRollbackState(player, rollbackState, this.playerRuntimeService);
+            throw error;
+        }
+        finally {
+            player.suppressImmediateDomainPersistence = rollbackState.suppressImmediateDomainPersistence === true;
+        }
+        this.playerRuntimeService.replaceInventoryItems(player.playerId, nextInventoryItems.map((entry) => ({ ...(entry.rawPayload ?? entry), itemId: entry.itemId, count: entry.count })));
+    }
+    /** 解析兑换码 durable 发物所需的 session/lease 上下文。 */
+    async resolveDurableInventoryGrantContext(player) {
+        const runtimeOwnerId = typeof player?.runtimeOwnerId === 'string' ? player.runtimeOwnerId.trim() : '';
+        const sessionEpoch = Number.isFinite(player?.sessionEpoch) ? Math.max(1, Math.trunc(Number(player.sessionEpoch))) : 0;
+        if (!runtimeOwnerId || sessionEpoch <= 0) {
+            return null;
+        }
+        if (!this.durableOperationService?.isEnabled?.() || typeof this.durableOperationService?.grantInventoryItems !== 'function') {
+            return null;
+        }
+        const expectedInstanceId = typeof player?.instanceId === 'string' && player.instanceId.trim()
+            ? player.instanceId.trim()
+            : null;
+        const leaseContext = await resolveInstanceLeaseContext(expectedInstanceId, this.instanceCatalogService);
+        return {
+            runtimeOwnerId,
+            sessionEpoch,
+            expectedInstanceId,
+            expectedAssignedNodeId: leaseContext?.assignedNodeId ?? null,
+            expectedOwnershipEpoch: leaseContext?.ownershipEpoch ?? null,
+        };
+    }
     /** 持久化当前分组和码表快照。 */
     async persist() {
         this.revision += 1;
@@ -538,7 +621,9 @@ exports.RedeemCodeRuntimeService = RedeemCodeRuntimeService = __decorate([
     (0, common_1.Injectable)(),
     __metadata("design:paramtypes", [content_template_repository_1.ContentTemplateRepository,
         player_runtime_service_1.PlayerRuntimeService,
-        redeem_code_persistence_service_1.RedeemCodePersistenceService])
+        redeem_code_persistence_service_1.RedeemCodePersistenceService,
+        durable_operation_service_1.DurableOperationService,
+        instance_catalog_service_1.InstanceCatalogService])
 ], RedeemCodeRuntimeService);
 export { RedeemCodeRuntimeService };
 /**
@@ -662,6 +747,9 @@ function canReceiveAllRewards(currentItems, capacity, items) {
 
     const snapshot = Array.isArray(currentItems) ? currentItems.map((entry) => ({ ...entry })) : [];
     for (const item of items) {
+        if (isWalletRewardItemId(item?.itemId)) {
+            continue;
+        }
         const existing = snapshot.find((entry) => entry.itemId === item.itemId);
         if (existing) {
             existing.count += item.count;
@@ -673,6 +761,86 @@ function canReceiveAllRewards(currentItems, capacity, items) {
         snapshot.push({ ...item });
     }
     return true;
+}
+function buildNextInventorySnapshots(currentItems, grantedItems) {
+    const snapshot = Array.isArray(currentItems)
+        ? currentItems.map((entry) => ({
+            itemId: typeof entry?.itemId === 'string' ? entry.itemId : '',
+            count: Math.max(1, Math.trunc(Number(entry?.count ?? 1))),
+            rawPayload: entry ? { ...entry } : {},
+        })).filter((entry) => entry.itemId)
+        : [];
+    for (const grantedItem of Array.isArray(grantedItems) ? grantedItems : []) {
+        const itemId = typeof grantedItem?.itemId === 'string' ? grantedItem.itemId.trim() : '';
+        const count = Math.max(1, Math.trunc(Number(grantedItem?.count ?? 1)));
+        if (!itemId || count <= 0) {
+            continue;
+        }
+        const existing = snapshot.find((entry) => entry.itemId === itemId);
+        if (existing) {
+            existing.count += count;
+            existing.rawPayload = { ...(existing.rawPayload ?? existing), itemId, count: existing.count };
+            continue;
+        }
+        snapshot.push({
+            itemId,
+            count,
+            rawPayload: grantedItem ? { ...grantedItem, itemId, count } : { itemId, count },
+        });
+    }
+    return snapshot;
+}
+function buildGrantedInventorySnapshots(items) {
+    return Array.isArray(items)
+        ? items.map((item) => ({
+            itemId: typeof item?.itemId === 'string' ? item.itemId : '',
+            count: Math.max(1, Math.trunc(Number(item?.count ?? 1))),
+            rawPayload: item ? { ...item } : {},
+        })).filter((entry) => entry.itemId)
+        : [];
+}
+function captureInventoryGrantRollbackState(player) {
+    return {
+        suppressImmediateDomainPersistence: player?.suppressImmediateDomainPersistence === true,
+        inventoryItems: buildNextInventorySnapshots(player?.inventory?.items ?? [], []),
+        inventoryRevision: Math.max(0, Math.trunc(Number(player?.inventory?.revision ?? 0))),
+        persistentRevision: Math.max(0, Math.trunc(Number(player?.persistentRevision ?? 0))),
+        selfRevision: Math.max(0, Math.trunc(Number(player?.selfRevision ?? 0))),
+        dirtyDomains: player?.dirtyDomains instanceof Set ? Array.from(player.dirtyDomains) : [],
+    };
+}
+function restoreInventoryGrantRollbackState(player, rollbackState, playerRuntimeService) {
+    player.inventory.items = Array.isArray(rollbackState.inventoryItems)
+        ? rollbackState.inventoryItems.map((entry) => ({ ...(entry.rawPayload ?? entry), itemId: entry.itemId, count: entry.count }))
+        : [];
+    player.inventory.revision = rollbackState.inventoryRevision;
+    player.persistentRevision = rollbackState.persistentRevision;
+    player.selfRevision = rollbackState.selfRevision;
+    player.suppressImmediateDomainPersistence = rollbackState.suppressImmediateDomainPersistence === true;
+    player.dirtyDomains = new Set(Array.isArray(rollbackState.dirtyDomains) ? rollbackState.dirtyDomains : []);
+    playerRuntimeService.playerProgressionService.refreshPreview(player);
+}
+async function resolveInstanceLeaseContext(instanceId, instanceCatalogService) {
+    const normalizedInstanceId = typeof instanceId === 'string' ? instanceId.trim() : '';
+    if (!normalizedInstanceId || !instanceCatalogService?.isEnabled?.()) {
+        return null;
+    }
+    const row = await instanceCatalogService.loadInstanceCatalog(normalizedInstanceId);
+    if (!row) {
+        return null;
+    }
+    const assignedNodeId = typeof row.assigned_node_id === 'string' ? row.assigned_node_id.trim() : '';
+    const ownershipEpoch = Number.isFinite(Number(row.ownership_epoch)) ? Math.max(1, Math.trunc(Number(row.ownership_epoch))) : 0;
+    if (!assignedNodeId || ownershipEpoch <= 0) {
+        return null;
+    }
+    return {
+        assignedNodeId,
+        ownershipEpoch,
+    };
+}
+function isWalletRewardItemId(itemId) {
+    return typeof itemId === 'string' && itemId.trim() === 'spirit_stone';
 }
 /**
  * generateRedeemCode：执行generateRedeemCode相关逻辑。

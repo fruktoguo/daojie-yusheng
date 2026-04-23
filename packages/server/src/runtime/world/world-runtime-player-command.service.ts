@@ -139,14 +139,12 @@ let WorldRuntimePlayerCommandService = class WorldRuntimePlayerCommandService {
  * @returns 无返回值，直接更新技艺活动相关状态。
  */
 
-    dispatchStartTechniqueActivity(playerId, kind, payload, deps) {
+    async dispatchStartTechniqueActivity(playerId, kind, payload, deps) {
         switch (kind) {
             case 'alchemy':
-                this.worldRuntimeAlchemyService.dispatchStartAlchemy(playerId, payload, deps);
-                return;
+                return this.worldRuntimeAlchemyService.dispatchStartAlchemy(playerId, payload, deps);
             case 'enhancement':
-                this.worldRuntimeEnhancementService.dispatchStartEnhancement(playerId, payload, deps);
-                return;
+                return this.worldRuntimeEnhancementService.dispatchStartEnhancement(playerId, payload, deps);
             case 'gather':
                 deps.worldRuntimeCraftMutationService.flushCraftMutation(
                     playerId,
@@ -165,14 +163,12 @@ let WorldRuntimePlayerCommandService = class WorldRuntimePlayerCommandService {
  * @returns 无返回值，直接更新技艺活动相关状态。
  */
 
-    dispatchCancelTechniqueActivity(playerId, kind, deps) {
+    async dispatchCancelTechniqueActivity(playerId, kind, deps) {
         switch (kind) {
             case 'alchemy':
-                this.worldRuntimeAlchemyService.dispatchCancelAlchemy(playerId, deps);
-                return;
+                return this.worldRuntimeAlchemyService.dispatchCancelAlchemy(playerId, deps);
             case 'enhancement':
-                this.worldRuntimeEnhancementService.dispatchCancelEnhancement(playerId, deps);
-                return;
+                return this.worldRuntimeEnhancementService.dispatchCancelEnhancement(playerId, deps);
             case 'gather':
                 deps.worldRuntimeCraftMutationService.flushCraftMutation(
                     playerId,
@@ -191,7 +187,7 @@ let WorldRuntimePlayerCommandService = class WorldRuntimePlayerCommandService {
  * @returns 无返回值，直接更新玩家Command相关状态。
  */
 
-    dispatchPlayerCommand(playerId, command, deps) {
+    async dispatchPlayerCommand(playerId, command, deps) {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
         const player = this.playerRuntimeService.getPlayer(playerId);
@@ -206,7 +202,7 @@ let WorldRuntimePlayerCommandService = class WorldRuntimePlayerCommandService {
                 this.worldRuntimeUseItemService.dispatchUseItem(playerId, command.slotIndex, deps);
                 return;
             case 'equip':
-                this.worldRuntimeEquipmentService.dispatchEquipItem(playerId, command.slotIndex, deps);
+                return this.worldRuntimeEquipmentService.dispatchEquipItem(playerId, command.slotIndex, deps);
                 return;
             case 'dropItem':
                 this.worldRuntimeItemGroundService.dispatchDropItem(playerId, command.slotIndex, command.count, deps);
@@ -215,29 +211,23 @@ let WorldRuntimePlayerCommandService = class WorldRuntimePlayerCommandService {
                 this.worldRuntimeNavigationService.dispatchMoveTo(playerId, command.x, command.y, command.allowNearestReachable, command.clientPathHint, deps);
                 return;
             case 'basicAttack':
-                this.worldRuntimeCombatCommandService.dispatchBasicAttack(playerId, command.targetPlayerId, command.targetMonsterId, command.targetX, command.targetY, deps);
-                return;
+                return this.worldRuntimeCombatCommandService.dispatchBasicAttack(playerId, command.targetPlayerId, command.targetMonsterId, command.targetX, command.targetY, deps);
             case 'engageBattle':
-                this.worldRuntimeCombatCommandService.dispatchEngageBattle(playerId, command.targetPlayerId, command.targetMonsterId, command.targetX, command.targetY, command.locked, deps);
-                return;
+                return this.worldRuntimeCombatCommandService.dispatchEngageBattle(playerId, command.targetPlayerId, command.targetMonsterId, command.targetX, command.targetY, command.locked, deps);
             case 'takeGround':
-                this.worldRuntimeItemGroundService.dispatchTakeGround(playerId, command.sourceId, command.itemKey, deps);
-                return;
+                return this.worldRuntimeItemGroundService.dispatchTakeGround(playerId, command.sourceId, command.itemKey, deps);
             case 'takeGroundAll':
-                this.worldRuntimeItemGroundService.dispatchTakeGroundAll(playerId, command.sourceId, deps);
-                return;
+                return this.worldRuntimeItemGroundService.dispatchTakeGroundAll(playerId, command.sourceId, deps);
             case 'unequip':
-                this.worldRuntimeEquipmentService.dispatchUnequipItem(playerId, command.slot, deps);
+                return this.worldRuntimeEquipmentService.dispatchUnequipItem(playerId, command.slot, deps);
                 return;
             case 'cultivate':
                 this.worldRuntimeCultivationService.dispatchCultivateTechnique(playerId, command.techniqueId, deps);
                 return;
             case 'startAlchemy':
-                this.dispatchStartTechniqueActivity(playerId, 'alchemy', command.payload, deps);
-                return;
+                return this.dispatchStartTechniqueActivity(playerId, 'alchemy', command.payload, deps);
             case 'cancelAlchemy':
-                this.dispatchCancelTechniqueActivity(playerId, 'alchemy', deps);
-                return;
+                return this.dispatchCancelTechniqueActivity(playerId, 'alchemy', deps);
             case 'saveAlchemyPreset':
                 this.worldRuntimeAlchemyService.dispatchSaveAlchemyPreset(playerId, command.payload, deps);
                 return;
@@ -245,11 +235,9 @@ let WorldRuntimePlayerCommandService = class WorldRuntimePlayerCommandService {
                 this.worldRuntimeAlchemyService.dispatchDeleteAlchemyPreset(playerId, command.presetId, deps);
                 return;
             case 'startEnhancement':
-                this.dispatchStartTechniqueActivity(playerId, 'enhancement', command.payload, deps);
-                return;
+                return this.dispatchStartTechniqueActivity(playerId, 'enhancement', command.payload, deps);
             case 'cancelEnhancement':
-                this.dispatchCancelTechniqueActivity(playerId, 'enhancement', deps);
-                return;
+                return this.dispatchCancelTechniqueActivity(playerId, 'enhancement', deps);
             case 'startGather':
                 this.dispatchStartTechniqueActivity(playerId, 'gather', command.payload, deps);
                 return;
@@ -257,8 +245,7 @@ let WorldRuntimePlayerCommandService = class WorldRuntimePlayerCommandService {
                 this.dispatchCancelTechniqueActivity(playerId, 'gather', deps);
                 return;
             case 'redeemCodes':
-                this.worldRuntimeRedeemCodeService.dispatchRedeemCodes(playerId, command.codes, deps);
-                return;
+                return this.worldRuntimeRedeemCodeService.dispatchRedeemCodes(playerId, command.codes, deps);
             case 'breakthrough':
                 this.worldRuntimeProgressionService.dispatchBreakthrough(playerId, deps);
                 return;
@@ -266,13 +253,12 @@ let WorldRuntimePlayerCommandService = class WorldRuntimePlayerCommandService {
                 this.worldRuntimeProgressionService.dispatchHeavenGateAction(playerId, command.action, command.element, deps);
                 return;
             case 'castSkill':
-                this.worldRuntimeCombatCommandService.dispatchCastSkill(playerId, command.skillId, command.targetPlayerId, command.targetMonsterId, command.targetRef, deps);
-                return;
+                return this.worldRuntimeCombatCommandService.dispatchCastSkill(playerId, command.skillId, command.targetPlayerId, command.targetMonsterId, command.targetRef, deps);
             case 'buyNpcShopItem':
-                this.worldRuntimeNpcShopService.dispatchBuyNpcShopItem(playerId, command.npcId, command.itemId, command.quantity, deps);
+                return this.worldRuntimeNpcShopService.dispatchBuyNpcShopItem(playerId, command.npcId, command.itemId, command.quantity, deps);
                 return;
             case 'npcInteraction':
-                this.worldRuntimeNpcQuestWriteService.dispatchNpcInteraction(playerId, command.npcId, deps);
+                return this.worldRuntimeNpcQuestWriteService.dispatchNpcInteraction(playerId, command.npcId, deps);
                 return;
             case 'interactNpcQuest':
                 this.worldRuntimeNpcQuestWriteService.dispatchInteractNpcQuest(playerId, command.npcId, deps);
@@ -281,7 +267,7 @@ let WorldRuntimePlayerCommandService = class WorldRuntimePlayerCommandService {
                 this.worldRuntimeNpcQuestWriteService.dispatchAcceptNpcQuest(playerId, command.npcId, command.questId, deps);
                 return;
             case 'submitNpcQuest':
-                this.worldRuntimeNpcQuestWriteService.dispatchSubmitNpcQuest(playerId, command.npcId, command.questId, deps);
+                return this.worldRuntimeNpcQuestWriteService.dispatchSubmitNpcQuest(playerId, command.npcId, command.questId, deps);
                 return;
         }
     }

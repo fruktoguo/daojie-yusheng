@@ -16,6 +16,11 @@ type MainConnectionStateSourceOptions = {
 
   restoreSession: () => Promise<boolean>;  
   /**
+ * redirectConnection：重定向到指定服务地址。
+ */
+
+  redirectConnection: (redirectUrl: string) => boolean;  
+  /**
  * hasRefreshToken：启用开关或状态标识。
  */
 
@@ -99,6 +104,7 @@ export type MainConnectionStateSource = ReturnType<typeof createMainConnectionSt
 
 
 export function createMainConnectionStateSource(options: MainConnectionStateSourceOptions) {
+  let redirectInProgress = false;
   return {  
   /**
  * handleError：处理Error并更新相关状态。
@@ -111,13 +117,27 @@ export function createMainConnectionStateSource(options: MainConnectionStateSour
  * code：code相关字段。
  */
  code?: string;    
- /**
+/**
  * message：message相关字段。
  */
- message: string }): Promise<void> {
+ message: string;
+ /**
+ * redirectNodeId：redirectNodeId相关字段。
+ */
+ redirectNodeId?: string | null;
+ /**
+ * redirectUrl：redirectUrl相关字段。
+ */
+ redirectUrl?: string | null; }): Promise<void> {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
+      const redirectUrl = typeof data.redirectUrl === 'string' ? data.redirectUrl.trim() : '';
       if (data.code === 'AUTH_FAIL') {
+        if (redirectUrl && options.redirectConnection(redirectUrl)) {
+          redirectInProgress = true;
+          options.renderPingLatency(null, '迁移');
+          return;
+        }
         const restored = await options.restoreSession();
         if (restored) {
           return;
@@ -169,6 +189,10 @@ export function createMainConnectionStateSource(options: MainConnectionStateSour
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
       if (reason === 'io client disconnect') {
+        return;
+      }
+      if (redirectInProgress) {
+        redirectInProgress = false;
         return;
       }
       options.rejectPendingRedeemCodes('连接已断开，兑换结果未返回');

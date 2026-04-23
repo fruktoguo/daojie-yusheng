@@ -11,7 +11,6 @@ const fs = require("node:fs");
 const net = require("node:net");
 const path = require("node:path");
 const socket_io_client_1 = require("socket.io-client");
-const env_alias_1 = require("../config/env-alias");
 const stable_dist_1 = require("./stable-dist");
 const smoke_player_cleanup_1 = require("./smoke-player-cleanup");
 exports.packageRoot = (0, stable_dist_1.resolveToolPackageRoot)(__dirname);
@@ -129,13 +128,21 @@ async function startIsolatedServer(port) {
 /**
  * 记录超时时间。
  */
+    const timeoutMs = (() => {
+      const raw = process.env.SERVER_ISOLATED_STARTUP_TIMEOUT_MS;
+      if (!raw) {
+        return 60_000;
+      }
+      const parsed = Number(raw);
+      return Number.isFinite(parsed) && parsed > 0 ? parsed : 60_000;
+    })();
     const timeout = setTimeout(() => {
       if (settled) {
         return;
       }
       settled = true;
       reject(new Error('server isolated startup timeout'));
-    }, 20_000);
+    }, timeoutMs);
 /**
  * 刷新flush。
  */
@@ -151,14 +158,13 @@ async function startIsolatedServer(port) {
 /**
  * 记录match。
  */
-      const match = buffer.match(/Server Next running on http:\/\/[^:]+:(\d+)/);
+      const match = buffer.match(/(?:Server Next running on|服务端已运行于)\s+http:\/\/[^:]+:(\d+)/);
       if (!match || settled) {
         return;
       }
       settled = true;
       clearTimeout(timeout);
-      child.serverPort = Number(match[1]);
-      resolve(child);
+      resolve({ child, port: Number(match[1]) });
     }
     child.stdout.on('data', (chunk) => flush('stdout', chunk));
     child.stderr.on('data', (chunk) => flush('stderr', chunk));
@@ -750,6 +756,43 @@ function createRuntimeApi(baseUrl) {
       return request(`/runtime/players/${playerId}/state`);
     },    
     /**
+ * fetchPlayerWallet：读取玩家钱包并返回结果。
+ * @param playerId 玩家 ID。
+ * @returns 无返回值，完成钱包状态的读取/组装。
+ */
+
+    fetchPlayerWallet(playerId) {
+      return request(`/runtime/players/${playerId}/state`).then((state) => state?.player?.wallet ?? null);
+    },    
+    /**
+ * creditWallet：执行creditWallet相关逻辑。
+ * @param playerId 玩家 ID。
+ * @param walletType 钱包类型。
+ * @param amount 变更数量。
+ * @returns 无返回值，直接更新钱包相关状态。
+ */
+
+    creditWallet(playerId, walletType, amount = 1) {
+      return request(`/runtime/players/${playerId}/wallet/credit`, {
+        method: 'POST',
+        body: { walletType, amount },
+      });
+    },    
+    /**
+ * debitWallet：执行debitWallet相关逻辑。
+ * @param playerId 玩家 ID。
+ * @param walletType 钱包类型。
+ * @param amount 变更数量。
+ * @returns 无返回值，直接更新钱包相关状态。
+ */
+
+    debitWallet(playerId, walletType, amount = 1) {
+      return request(`/runtime/players/${playerId}/wallet/debit`, {
+        method: 'POST',
+        body: { walletType, amount },
+      });
+    },    
+    /**
  * fetchMarket：读取坊市并返回结果。
  * @param playerId 玩家 ID。
  * @returns 无返回值，完成坊市的读取/组装。
@@ -818,9 +861,23 @@ function createRuntimeApi(baseUrl) {
  */
 
     deletePlayer(playerId) {
-      return (0, smoke_player_cleanup_1.purgeSmokePlayerArtifactsByPlayerId)(playerId, {
-        serverUrl: baseUrl,
-        databaseUrl: (0, env_alias_1.resolveServerDatabaseUrl)(),
+      return request(`/runtime/players/${playerId}`, {
+        method: 'DELETE',
+      }).then((runtimeResult) => {
+        if (runtimeResult?.ok !== true) {
+          throw new Error(`runtime delete player returned ok=${String(runtimeResult?.ok ?? 'undefined')}`);
+        }
+        return (0, smoke_player_cleanup_1.purgeSmokePlayerArtifactsByPlayerId)(playerId, {
+          serverUrl: baseUrl,
+          databaseUrl: resolveAuditDatabaseUrl(),
+        });
+      }).then((cleanupResult) => {
+        if (cleanupResult?.runtimeDeleteError) {
+          throw new Error(cleanupResult.runtimeDeleteError);
+        }
+        return cleanupResult;
+      }).catch((error) => {
+        throw error instanceof Error ? error : new Error(String(error));
       });
     },
   };
@@ -1308,8 +1365,23 @@ function hasDatabaseUrl() {
 /**
  * 记录数据库地址。
  */
-  const databaseUrl = (0, env_alias_1.resolveServerDatabaseUrl)();
+  const databaseUrl = resolveAuditDatabaseUrl();
   return databaseUrl.trim().length > 0;
+}
+
+function resolveAuditDatabaseUrl() {
+  const candidates = [
+    process.env.SERVER_DATABASE_URL,
+    process.env.DATABASE_URL,
+    process.env.SERVER_NEXT_DATABASE_URL,
+  ];
+  for (const value of candidates) {
+    const normalized = typeof value === 'string' ? value.trim() : '';
+    if (normalized) {
+      return normalized;
+    }
+  }
+  return '';
 }
 
 exports.AuditCollector = AuditCollector;

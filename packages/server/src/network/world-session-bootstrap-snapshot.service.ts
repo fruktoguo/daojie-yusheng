@@ -280,7 +280,9 @@ export class WorldSessionBootstrapSnapshotService {
         const normalizedUserId = typeof identity?.userId === 'string' ? identity.userId.trim() : '';
         const normalizedPlayerId = typeof identity?.playerId === 'string' ? identity.playerId.trim() : '';
         const persistenceService = this.getPlayerIdentityPersistenceService();
-        if (persistedSource !== 'token_seed' || !persistenceService?.isEnabled || !persistenceService.isEnabled()) {
+        const persistenceEnabled = typeof persistenceService?.isEnabled === 'function'
+            && persistenceService.isEnabled();
+        if (persistedSource !== 'token_seed' || !persistenceEnabled) {
             return identity;
         }
         const normalizedPlayerName = typeof identity?.playerName === 'string' && identity.playerName.trim()
@@ -338,7 +340,7 @@ export class WorldSessionBootstrapSnapshotService {
             return identity;
         }
         const persistenceService = this.getPlayerIdentityPersistenceService();
-        const persistenceEnabled = Boolean(persistenceService?.isEnabled && persistenceService.isEnabled());
+        const persistenceEnabled = Boolean(typeof persistenceService?.isEnabled === 'function' && persistenceService.isEnabled());
         const promotedIdentity = await this.promoteAuthenticatedTokenSeedIdentity(identity, client);
         const promotedPersistedSource = typeof promotedIdentity?.persistedSource === 'string' ? promotedIdentity.persistedSource.trim() : '';
         const promotedAuthSource = typeof promotedIdentity?.authSource === 'string' ? promotedIdentity.authSource.trim() : '';
@@ -373,7 +375,9 @@ export class WorldSessionBootstrapSnapshotService {
         const shouldRememberPreseededRecovery = Boolean(snapshot)
             && identityPersistedSource === 'token_seed'
             && snapshotPersistedSource === 'native';
-        if (snapshot || !this.worldPlayerSnapshotService?.isPersistenceEnabled?.()) {
+        const playerSnapshotPersistenceEnabled = typeof this.worldPlayerSnapshotService?.isPersistenceEnabled === 'function'
+            && this.worldPlayerSnapshotService.isPersistenceEnabled();
+        if (snapshot || !playerSnapshotPersistenceEnabled) {
             if (shouldRememberPreseededRecovery) {
                 await this.requireAuthenticatedTokenSeedNativeNormalization(identity, client, `persisted_source:${identityPersistedSource}`);
                 contextHelper.rememberAuthenticatedSnapshotRecovery(client, {

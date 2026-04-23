@@ -13,5 +13,6 @@
 
 - [mmo商业级邮件系统设计.md](./mmo商业级邮件系统设计.md)
 - [mmo商业级数据落盘方案.md](./mmo商业级数据落盘方案.md)
+- [main主线落盘剩余旧链路与fallback清单.md](./main主线落盘剩余旧链路与fallback清单.md)
 - [参考main分支真实玩家存档盘点.md](./参考main分支真实玩家存档盘点.md)
 - [main主线玩家数据分表方案.md](./main主线玩家数据分表方案.md)

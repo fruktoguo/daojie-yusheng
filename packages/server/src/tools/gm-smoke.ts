@@ -221,7 +221,7 @@ async function main() {
  */
         let nonGmSocketError = null;
 /**
- * 记录非GM next GM状态数量。
+ * 记录非GM 主线 GM 状态数量。
  */
         let nonGmMainlineGmStateCount = 0;
 /**
@@ -250,7 +250,7 @@ async function main() {
         }, 5000, 'non-gm socket gmGetState forbidden');
         if (nonGmMainlineGmStateCount > 0 || nonGmLegacyGmStateCount > 0) {
             throw new Error(`non-gm socket unexpectedly received gm state: ${JSON.stringify({
-                next: nonGmMainlineGmStateCount,
+                mainline: nonGmMainlineGmStateCount,
                 legacy: nonGmLegacyGmStateCount,
             })}`);
         }
@@ -1213,7 +1213,7 @@ async function registerAndLoginPlayer() {
     };
 }
 /**
- * 在带库 smoke 中，确保 access token 对应账号已有 next identity/snapshot 真源文档。
+ * 在带库 smoke 中，确保 access token 对应账号已有 主线 identity/snapshot 真源文档。
  */
 async function ensureNativeDocsForAccessToken(token) {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
@@ -1959,7 +1959,8 @@ function assertGmPlayerDetailShape(payload, label) {
         || typeof payload?.player?.snapshot !== 'object'
         || payload.player.snapshot === null
         || typeof payload?.player?.name !== 'string'
-        || typeof payload?.player?.roleName !== 'string') {
+        || typeof payload?.player?.roleName !== 'string'
+        || !Array.isArray(payload?.player?.databaseTables)) {
         throw new Error(`unexpected ${label} payload: ${JSON.stringify(payload)}`);
     }
     return payload;

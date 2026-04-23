@@ -27,13 +27,13 @@ function testQueueOwnershipMethods() {
  */
 
 
-function testDispatchRoutesAndClearsQueue() {
+async function testDispatchRoutesAndClearsQueue() {
     const service = new WorldRuntimePendingCommandService();
     const log = [];
     service.enqueuePendingCommand('player:1', { kind: 'move', direction: 'east' });
     service.enqueuePendingCommand('player:2', { kind: 'basicAttack', targetPlayerId: null, targetMonsterId: 'monster:2', targetX: null, targetY: null });
     service.enqueuePendingCommand('player:3', { kind: 'portal' });
-    service.dispatchPendingCommands({    
+    await service.dispatchPendingCommands({    
     /**
  * dispatchInstanceCommand：判断InstanceCommand是否满足条件。
  * @param playerId 玩家 ID。
@@ -91,7 +91,51 @@ function testDispatchRoutesAndClearsQueue() {
     assert.equal(service.getPendingCommandCount(), 0);
 }
 
-testQueueOwnershipMethods();
-testDispatchRoutesAndClearsQueue();
+async function testAsyncPlayerCommandIsAwaitedBeforeQueueClear() {
+    const service = new WorldRuntimePendingCommandService();
+    const log = [];
+    let resolvePlayerCommand = () => {};
+    service.enqueuePendingCommand('player:1', { kind: 'startAlchemy', payload: { presetId: 'p1' } });
+    const pendingDispatch = service.dispatchPendingCommands({
+        dispatchInstanceCommand() {
+            throw new Error('unexpected dispatchInstanceCommand');
+        },
+        dispatchPlayerCommand(playerId, command) {
+            log.push(['dispatchPlayerCommand', playerId, command.kind]);
+            return new Promise((resolve) => {
+                resolvePlayerCommand = () => {
+                    log.push(['dispatchPlayerCommand:resolved', playerId, command.kind]);
+                    resolve(undefined);
+                };
+            });
+        },
+        logger: {
+            warn(message) {
+                log.push(['warn', message]);
+            },
+        },
+        queuePlayerNotice(playerId, message, tone) {
+            log.push(['queuePlayerNotice', playerId, message, tone]);
+        },
+    });
+    await new Promise((resolve) => setImmediate(resolve));
+    assert.deepEqual(log, [
+        ['dispatchPlayerCommand', 'player:1', 'startAlchemy'],
+    ]);
+    assert.equal(service.getPendingCommandCount(), 1);
+    resolvePlayerCommand();
+    await pendingDispatch;
+    assert.deepEqual(log, [
+        ['dispatchPlayerCommand', 'player:1', 'startAlchemy'],
+        ['dispatchPlayerCommand:resolved', 'player:1', 'startAlchemy'],
+    ]);
+    assert.equal(service.getPendingCommandCount(), 0);
+}
 
-console.log(JSON.stringify({ ok: true, case: 'world-runtime-pending-command' }, null, 2));
+testQueueOwnershipMethods();
+Promise.resolve()
+    .then(() => testDispatchRoutesAndClearsQueue())
+    .then(() => testAsyncPlayerCommandIsAwaitedBeforeQueueClear())
+    .then(() => {
+    console.log(JSON.stringify({ ok: true, case: 'world-runtime-pending-command' }, null, 2));
+});

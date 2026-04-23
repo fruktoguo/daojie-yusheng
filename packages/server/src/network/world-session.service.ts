@@ -22,6 +22,7 @@ export interface WorldSessionBinding {
   playerId: string;
   sessionId: string;
   socketId: string | null;
+  sessionEpoch: number | null;
   resumed: boolean;
   connected: boolean;
   detachedAt: number | null;
@@ -110,6 +111,7 @@ export class WorldSessionService {
       playerId,
       sessionId,
       socketId: client.id,
+      sessionEpoch: previous?.sessionEpoch ?? null,
       resumed: resumeMatched,
       connected: true,
       detachedAt: null,
@@ -159,6 +161,7 @@ export class WorldSessionService {
       playerId: binding.playerId,
       sessionId: binding.sessionId,
       socketId: null,
+      sessionEpoch: binding.sessionEpoch ?? null,
       resumed: false,
       connected: false,
       detachedAt,
@@ -235,6 +238,7 @@ export class WorldSessionService {
       playerId,
       sessionId,
       socketId: null,
+      sessionEpoch: normalizeSessionEpoch(binding?.sessionEpoch),
       resumed: false,
       connected: false,
       detachedAt: Number.isFinite(binding?.detachedAt) ? binding.detachedAt : Date.now(),
@@ -243,10 +247,44 @@ export class WorldSessionService {
     return true;
   }
 
+  rememberSessionEpoch(playerId: string, sessionEpoch: number | null | undefined): void {
+    const normalizedPlayerId = typeof playerId === 'string' ? playerId.trim() : '';
+    const normalizedSessionEpoch = normalizeSessionEpoch(sessionEpoch);
+    if (!normalizedPlayerId || normalizedSessionEpoch <= 0) {
+      return;
+    }
+
+    const activeBinding = this.bindingByPlayerId.get(normalizedPlayerId);
+    if (activeBinding) {
+      activeBinding.sessionEpoch = normalizedSessionEpoch;
+      if (activeBinding.sessionId) {
+        const sessionBinding = this.bindingBySessionId.get(activeBinding.sessionId);
+        if (sessionBinding) {
+          sessionBinding.sessionEpoch = normalizedSessionEpoch;
+        }
+      }
+    }
+
+    const expiredBinding = this.expiredBindings.get(normalizedPlayerId);
+    if (expiredBinding) {
+      expiredBinding.sessionEpoch = normalizedSessionEpoch;
+    }
+  }
+
   consumePurgedPlayerIds(): string[] {
     const playerIds = Array.from(this.purgedPlayerIds);
     this.purgedPlayerIds.clear();
     return playerIds;
+  }
+
+  acknowledgePurgedPlayerIds(playerIds: string[]): void {
+    for (const playerId of playerIds) {
+      const normalizedPlayerId = typeof playerId === 'string' ? playerId.trim() : '';
+      if (!normalizedPlayerId) {
+        continue;
+      }
+      this.purgedPlayerIds.delete(normalizedPlayerId);
+    }
   }
 
   purgePlayerSession(playerId: string, reason = 'removed'): boolean {
@@ -316,4 +354,12 @@ export class WorldSessionService {
       this.expiryTimerByPlayerId.delete(playerId);
     }
   }
+}
+
+function normalizeSessionEpoch(sessionEpoch: unknown): number | null {
+  const normalizedSessionEpoch = Number(sessionEpoch);
+  if (!Number.isFinite(normalizedSessionEpoch) || normalizedSessionEpoch <= 0) {
+    return null;
+  }
+  return Math.max(1, Math.trunc(normalizedSessionEpoch));
 }

@@ -56,7 +56,7 @@ async function main() {
 /**
  * 记录rejection。
  */
-            const rejection = await expectNextSocketRejected();
+            const rejection = await expectMainlineSocketRejected();
             if (health?.readiness?.database?.configured !== true) {
                 throw new Error(`expected database.configured=true when db env exists, got ${JSON.stringify(health?.readiness?.database ?? null)}`);
             }
@@ -78,7 +78,7 @@ async function main() {
 /**
  * 记录rejection。
  */
-            const rejection = await expectNextSocketRejected();
+            const rejection = await expectMainlineSocketRejected();
             if (health?.readiness?.maintenance?.active === true) {
                 throw new Error(`expected maintenance inactive for not-ready gate, got ${JSON.stringify(health.readiness.maintenance)}`);
             }
@@ -103,7 +103,7 @@ async function main() {
 /**
  * 记录rejection。
  */
-            const rejection = await expectNextSocketRejected();
+            const rejection = await expectMainlineSocketRejected();
             if (health?.readiness?.ok !== true) {
                 throw new Error(`expected readiness.ok=true under with-db gate, got ${JSON.stringify(health?.readiness ?? null)}`);
             }
@@ -130,7 +130,7 @@ async function main() {
 /**
  * 记录rejection。
  */
-            const rejection = await expectNextSocketRejected();
+            const rejection = await expectMainlineSocketRejected();
             if (health?.readiness?.ok !== false) {
                 throw new Error(`expected readiness.ok=false under bypass, got ${JSON.stringify(health?.readiness ?? null)}`);
             }
@@ -241,7 +241,7 @@ async function waitForHealth(expectedStatus) {
 /**
  * 处理expectnextsocketrejected。
  */
-async function expectNextSocketRejected() {
+async function expectMainlineSocketRejected() {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
 /**
@@ -284,7 +284,7 @@ async function expectNextSocketRejected() {
 /**
  * 处理expectnextsocketbootstrapped。
  */
-async function expectNextSocketBootstrapped() {
+async function expectMainlineSocketBootstrapped() {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
 /**
@@ -312,7 +312,7 @@ async function expectNextSocketBootstrapped() {
     let sessionId = '';
     try {
         socket.on(shared_1.S2C.Error, (payload) => {
-            throw new Error(`unexpected next error under readiness bypass: ${JSON.stringify(payload)}`);
+            throw new Error(`unexpected mainline error under readiness bypass: ${JSON.stringify(payload)}`);
         });
         socket.on(shared_1.S2C.InitSession, (payload) => {
             playerId = String(payload?.pid ?? '');

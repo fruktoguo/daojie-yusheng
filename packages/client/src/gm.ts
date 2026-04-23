@@ -1,6 +1,6 @@
 /**
  * GM 管理后台前端 —— 登录鉴权、角色列表/编辑器、机器人管理、建议反馈
- * 当前作为 GM 独立工具入口继续保留，不并入玩家主线 main.ts，也不作为 next cutover 的前台阻塞项。
+ * 当前作为 GM 独立工具入口继续保留，不并入玩家主线 main.ts，也不作为主线硬切的前台阻塞项。
  */
 
 import {
@@ -18,6 +18,7 @@ import {
   type GmCreateRedeemCodeGroupReq,
   type GmCreateRedeemCodeGroupRes,
   type GmDatabaseBackupRecord,
+  type GmPlayerDatabaseTableView,
   type GmDatabaseStateRes,
   type GmCreateMailReq,
   type GmRedeemCodeGroupDetailRes,
@@ -162,12 +163,12 @@ const editorTabQuestsBtn = document.getElementById('editor-tab-quests') as HTMLB
 const editorTabMailBtn = document.getElementById('editor-tab-mail') as HTMLButtonElement;
 /** editorTabPersistedBtn：编辑器Tab Persisted Btn。 */
 const editorTabPersistedBtn = document.getElementById('editor-tab-persisted') as HTMLButtonElement;
-/** playerJsonEl：玩家JSON El。 */
-const playerJsonEl = document.getElementById('player-json') as HTMLTextAreaElement;
 /** playerPersistedJsonEl：玩家Persisted JSON El。 */
 const playerPersistedJsonEl = document.getElementById('player-persisted-json') as HTMLTextAreaElement;
-/** applyRawJsonBtn：apply Raw JSON Btn。 */
-const applyRawJsonBtn = document.getElementById('apply-raw-json') as HTMLButtonElement;
+/** playerDatabaseTabsEl：玩家数据库Tabs。 */
+const playerDatabaseTabsEl = document.getElementById('player-database-tabs') as HTMLDivElement;
+/** playerDatabaseMetaEl：玩家数据库元数据。 */
+const playerDatabaseMetaEl = document.getElementById('player-database-meta') as HTMLDivElement;
 /** savePlayerBtn：保存玩家Btn。 */
 const savePlayerBtn = document.getElementById('save-player') as HTMLButtonElement;
 /** refreshPlayerBtn：refresh玩家Btn。 */
@@ -505,6 +506,8 @@ let currentServerTab: 'overview' | 'traffic' | 'cpu' | 'database' = 'overview';
 let currentCpuBreakdownSort: 'total' | 'count' | 'avg' = 'total';
 /** currentEditorTab：当前编辑器Tab。 */
 let currentEditorTab: GmEditorTab = 'basic';
+/** currentDatabaseTable：当前数据库表标签。 */
+let currentDatabaseTable = 'server_player_snapshot';
 let currentInventoryAddType: (typeof ITEM_TYPES)[number] = 'material';
 /** currentPlayerSort：当前玩家排序。 */
 let currentPlayerSort: GmPlayerSortMode = (playerSortSelect.value as GmPlayerSortMode) || 'realm-desc';
@@ -2000,7 +2003,7 @@ function getEditorTabLabel(tab: GmEditorTab): string {
     case 'mail':
       return '邮件';
     case 'persisted':
-      return '持久化 JSON';
+      return '数据库';
   }
 }
 
@@ -2026,13 +2029,19 @@ function switchEditorTab(tab: GmEditorTab): void {
     section.classList.toggle('hidden', section.dataset.editorTab !== tab);
   });
   if (tab === 'persisted') {
-    savePlayerBtn.textContent = '高级区不直接保存';
+    savePlayerBtn.textContent = '数据库标签不直接保存';
   } else if (tab === 'mail') {
     savePlayerBtn.textContent = '邮件标签不直接保存';
   } else if (tab === 'shortcuts') {
     savePlayerBtn.textContent = '快捷标签按钮会直接提交';
   } else {
     savePlayerBtn.textContent = `保存${getEditorTabLabel(tab)}`;
+  }
+  if (tab === 'persisted') {
+    const detail = getSelectedPlayerDetail();
+    if (detail) {
+      renderPlayerDatabasePanel(detail);
+    }
   }
   savePlayerBtn.disabled = tab === 'persisted'
     || tab === 'mail'
@@ -2185,7 +2194,7 @@ function renderDatabasePanel(): void {
   const scopeLine = databaseState?.scope === 'persistent_documents_only'
     ? '作用范围：仅持久化文档。'
     : databaseState?.scope === 'mainline_persistence'
-    ? '作用范围：主线持久化真源（persistent_documents + next-native 结构化表）。'
+    ? '作用范围：主线持久化真源（persistent_documents + 原生结构化表）。'
     : '作用范围：以服务端返回说明为准。';
   const restoreModeLine = databaseState?.restoreMode === 'replace_persistent_documents'
     ? '恢复方式：覆盖持久化文档。'
@@ -3215,6 +3224,43 @@ function getSelectedPlayerDetail(): GmManagedPlayerRecord | null {
     : null;
 }
 
+function getPlayerDatabaseTables(detail: GmManagedPlayerRecord | null): GmPlayerDatabaseTableView[] {
+  return Array.isArray(detail?.databaseTables) ? detail.databaseTables : [];
+}
+
+function clearPlayerDatabasePanel(message = '当前还没有数据库表数据。'): void {
+  playerDatabaseTabsEl.innerHTML = '';
+  playerDatabaseMetaEl.textContent = message;
+  playerPersistedJsonEl.value = '';
+}
+
+function renderPlayerDatabasePanel(detail: GmManagedPlayerRecord): void {
+  const tables = getPlayerDatabaseTables(detail);
+  if (tables.length === 0) {
+    currentDatabaseTable = '';
+    clearPlayerDatabasePanel('当前数据库未启用，或该玩家还没有可展示的分表记录。');
+    return;
+  }
+
+  if (!tables.some((entry) => entry.table === currentDatabaseTable)) {
+    currentDatabaseTable = tables[0]?.table ?? '';
+  }
+  const activeEntry = tables.find((entry) => entry.table === currentDatabaseTable) ?? tables[0];
+  if (!activeEntry) {
+    clearPlayerDatabasePanel();
+    return;
+  }
+
+  playerDatabaseTabsEl.innerHTML = tables.map((entry) => {
+    const countLabel = entry.rowCount > 0 ? ` (${entry.rowCount})` : '';
+    return `<button class="workspace-tab ${entry.table === activeEntry.table ? 'active' : ''}" data-database-table="${escapeHtml(entry.table)}" type="button">${escapeHtml(entry.table)}${countLabel}</button>`;
+  }).join('');
+  playerDatabaseMetaEl.textContent = activeEntry.rowCount > 0
+    ? `当前查看 ${activeEntry.table} · ${activeEntry.rowCount} 行数据库记录。`
+    : `当前查看 ${activeEntry.table} · 该表当前没有该玩家记录。`;
+  setTextLikeValue(playerPersistedJsonEl, formatJson(activeEntry.payload ?? null));
+}
+
 /** createDefaultItem：创建默认物品。 */
 function createDefaultItem(equipSlot?: string): ItemStack {
   return {
@@ -4059,14 +4105,14 @@ function renderVisualEditor(player: GmManagedPlayerRecord, draft: PlayerState): 
       <div class="editor-grid compact" style="margin-top: 10px;">
         <label class="editor-field">
           <span>新密码</span>
-          <input id="player-password-next" type="text" autocomplete="off" spellcheck="false" placeholder="输入新的账号密码" />
+          <input id="player-password-input" type="text" autocomplete="off" spellcheck="false" placeholder="输入新的账号密码" />
         </label>
       </div>
       <div class="button-row" style="margin-top: 10px;">
         <button class="small-btn" type="button" data-action="save-player-account">修改账号</button>
         <button class="small-btn" type="button" data-action="save-player-password">修改账号密码</button>
       </div>
-      <div class="editor-note">密码只会提交到服务端，并由服务端写入 next scrypt 哈希，不会以明文落库。</div>
+      <div class="editor-note">密码只会提交到服务端，并由服务端写入 scrypt 哈希，不会以明文落库。</div>
       ${activity.note ? `<div class="editor-note">${escapeHtml(activity.note)}</div>` : ''}
       ${catalogFallbackNote ? `<div class="editor-note">${escapeHtml(catalogFallbackNote)}</div>` : ''}
       ` : '<div class="editor-note">当前目标没有可编辑的账号信息，通常是机器人或异常存档。</div>'}
@@ -4542,8 +4588,7 @@ function renderEditor(data: GmStateRes): void {
     selectedPlayerDetailError = null;
     /** loadingPlayerDetailId：loading玩家详情ID。 */
     loadingPlayerDetailId = null;
-    playerJsonEl.value = '';
-    playerPersistedJsonEl.value = '';
+    clearPlayerDatabasePanel();
     savePlayerBtn.disabled = true;
     refreshPlayerBtn.disabled = true;
     openPlayerMailBtn.disabled = true;
@@ -4560,8 +4605,9 @@ function renderEditor(data: GmStateRes): void {
       ? '正在加载角色详情…'
       : (selectedPlayerDetailError?.trim() || '当前角色详情暂不可用。');
     editorPanelEl.classList.add('hidden');
-    playerJsonEl.value = '';
-    playerPersistedJsonEl.value = '';
+    clearPlayerDatabasePanel(loadingPlayerDetailId === selected.id
+      ? '正在加载数据库详情…'
+      : '当前数据库详情暂不可用。');
     savePlayerBtn.disabled = true;
     refreshPlayerBtn.disabled = true;
     openPlayerMailBtn.disabled = true;
@@ -4617,8 +4663,7 @@ function renderEditor(data: GmStateRes): void {
   updateInventoryAddControls(false);
   syncSearchableItemFields(editorContentEl);
 
-  setTextLikeValue(playerJsonEl, formatJson(draftSnapshot));
-  setTextLikeValue(playerPersistedJsonEl, formatJson(detail.persistedSnapshot));
+  renderPlayerDatabasePanel(detail);
   switchEditorTab(currentEditorTab);
   refreshPlayerBtn.disabled = false;
   openPlayerMailBtn.disabled = false;
@@ -4715,7 +4760,6 @@ function syncVisualEditorToDraft(scope?: ParentNode): {
   draftSnapshot = next;
   /** editorDirty：编辑器Dirty。 */
   editorDirty = true;
-  playerJsonEl.value = formatJson(draftSnapshot);
   return { ok: true };
 }
 
@@ -5033,8 +5077,7 @@ function logout(message?: string): void {
   summaryNetInBreakdownEl.innerHTML = '';
   summaryNetOutBreakdownEl.innerHTML = '';
   cpuBreakdownListEl.innerHTML = '';
-  playerJsonEl.value = '';
-  playerPersistedJsonEl.value = '';
+  clearPlayerDatabasePanel();
   worldViewer.stopPolling();
   renderShortcutMailComposer();
   switchTab('server');
@@ -5118,33 +5161,6 @@ async function changeGmPassword(): Promise<void> {
     setStatus(error instanceof Error ? error.message : 'GM 密码修改失败', true);
   } finally {
     gmPasswordSaveBtn.disabled = false;
-  }
-}
-
-/** applyRawJson：应用Raw JSON。 */
-async function applyRawJson(): Promise<void> {
-  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
-
-  const selected = getSelectedPlayer();
-  if (!selected) {
-    setStatus('请先选择角色', true);
-    return;
-  }
-
-  try {
-    /** draftSnapshot：draft快照。 */
-    draftSnapshot = JSON.parse(playerJsonEl.value) as PlayerState;
-    /** draftSourcePlayerId：draft来源玩家ID。 */
-    draftSourcePlayerId = selected.id;
-    /** editorDirty：编辑器Dirty。 */
-    editorDirty = true;
-    /** lastEditorStructureKey：last编辑器Structure Key。 */
-    lastEditorStructureKey = null;
-    renderEditor(state!);
-    switchEditorTab('basic');
-    setStatus('原始 JSON 已应用到可视化编辑区');
-  } catch {
-    setStatus('原始 JSON 解析失败', true);
   }
 }
 
@@ -5651,9 +5667,9 @@ async function saveSelectedPlayerPassword(): Promise<void> {
     return;
   }
 
-  const nextInput = editorContentEl.querySelector<HTMLInputElement>('#player-password-next');
+  const passwordInput = editorContentEl.querySelector<HTMLInputElement>('#player-password-input');
   const button = editorContentEl.querySelector<HTMLButtonElement>('[data-action="save-player-password"]');
-  const newPassword = nextInput?.value.trim() ?? '';
+  const newPassword = passwordInput?.value.trim() ?? '';
 
   if (!newPassword) {
     setStatus('请填写新密码', true);
@@ -5673,8 +5689,8 @@ async function saveSelectedPlayerPassword(): Promise<void> {
       method: 'POST',
       body: JSON.stringify({ newPassword } satisfies GmUpdateManagedPlayerPasswordReq),
     });
-    if (nextInput) {
-      nextInput.value = '';
+    if (passwordInput) {
+      passwordInput.value = '';
     }
     setStatus(`已修改账号 ${detail.account.username} 的密码，服务端已按哈希保存`);
   } catch (error) {
@@ -6633,10 +6649,6 @@ loginForm.addEventListener('submit', (event) => {
   event.preventDefault();
   login().catch(() => {});
 });
-
-applyRawJsonBtn.addEventListener('click', () => {
-  applyRawJson().catch(() => {});
-});
 editorTabBasicBtn.addEventListener('click', () => switchEditorTab('basic'));
 editorTabPositionBtn.addEventListener('click', () => switchEditorTab('position'));
 editorTabRealmBtn.addEventListener('click', () => switchEditorTab('realm'));
@@ -6647,6 +6659,20 @@ editorTabItemsBtn.addEventListener('click', () => switchEditorTab('items'));
 editorTabQuestsBtn.addEventListener('click', () => switchEditorTab('quests'));
 editorTabMailBtn.addEventListener('click', () => switchEditorTab('mail'));
 editorTabPersistedBtn.addEventListener('click', () => switchEditorTab('persisted'));
+playerDatabaseTabsEl.addEventListener('click', (event) => {
+  const target = event.target instanceof HTMLElement
+    ? event.target.closest<HTMLElement>('[data-database-table]')
+    : null;
+  const nextTable = target?.dataset.databaseTable?.trim() ?? '';
+  if (!nextTable) {
+    return;
+  }
+  currentDatabaseTable = nextTable;
+  const detail = getSelectedPlayerDetail();
+  if (detail) {
+    renderPlayerDatabasePanel(detail);
+  }
+});
 
 document.getElementById('refresh-state')?.addEventListener('click', () => {
   loadState(false, true).catch((error: unknown) => {

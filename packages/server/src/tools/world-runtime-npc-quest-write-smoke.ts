@@ -3,6 +3,20 @@
 const assert = require("node:assert/strict");
 
 const { WorldRuntimeNpcQuestWriteService } = require("../runtime/world/world-runtime-npc-quest-write.service");
+
+function createDeferred() {
+    let resolve;
+    let reject;
+    const promise = new Promise((innerResolve, innerReject) => {
+        resolve = innerResolve;
+        reject = innerReject;
+    });
+    return { promise, resolve, reject };
+}
+
+function nextTick() {
+    return new Promise((resolve) => setImmediate(resolve));
+}
 /**
  * createService：构建并返回目标对象。
  * @param player 玩家对象。
@@ -55,6 +69,31 @@ function createService(player, log = []) {
 
         receiveInventoryItem(playerId, item) {
             log.push(['receiveInventoryItem', playerId, item.itemId, item.count ?? 1]);
+        },
+        replaceInventoryItems(playerId, items) {
+            player.inventory = player.inventory ?? { items: [] };
+            player.inventory.items = items.map((entry) => ({ ...entry }));
+            log.push(['replaceInventoryItems', playerId, items.map((entry) => [entry.itemId, entry.count])]);
+        },
+        replaceWalletBalances(playerId, balances) {
+            player.wallet = {
+                balances: balances.map((entry) => ({ ...entry })),
+            };
+            log.push(['replaceWalletBalances', playerId, balances.map((entry) => [entry.walletType, entry.balance, entry.version])]);
+        },
+        creditWallet(playerId, walletType, amount) {
+            log.push(['creditWallet', playerId, walletType, amount]);
+        },
+    }, {
+        createQuestStateFromSource(playerId, questId, status = 'active') {
+            log.push(['createQuestStateFromSource', playerId, questId, status]);
+            return {
+                id: questId,
+                title: questId === 'quest:next' ? '后续任务' : questId,
+                status,
+                progress: 0,
+                required: 1,
+            };
         },
     });
 }
@@ -314,7 +353,7 @@ function testExecuteNpcQuestActionQueuesTalkInteract() {
  */
 
 
-function testDispatchNpcInteractionPrioritizesSubmit() {
+async function testDispatchNpcInteractionPrioritizesSubmit() {
     const log = [];
     const player = {
         templateId: 'map_a',
@@ -326,8 +365,10 @@ function testDispatchNpcInteractionPrioritizesSubmit() {
         },
     };
     const service = createService(player, log);
+    const deferred = createDeferred();
     service.dispatchSubmitNpcQuest = (playerId, npcId, questId) => {
         log.push(['dispatchSubmitNpcQuest', playerId, npcId, questId]);
+        return deferred.promise;
     };
     service.dispatchInteractNpcQuest = () => {
         log.push(['dispatchInteractNpcQuest']);
@@ -335,7 +376,7 @@ function testDispatchNpcInteractionPrioritizesSubmit() {
     service.dispatchAcceptNpcQuest = () => {
         log.push(['dispatchAcceptNpcQuest']);
     };
-    service.dispatchNpcInteraction('player:1', 'npc_a', {    
+    const pendingDispatch = service.dispatchNpcInteraction('player:1', 'npc_a', {    
     /**
  * resolveAdjacentNpc：规范化或转换AdjacentNPC。
  * @returns 无返回值，直接更新AdjacentNPC相关状态。
@@ -373,10 +414,13 @@ function testDispatchNpcInteractionPrioritizesSubmit() {
             log.push(['queuePlayerNotice', playerId, message, tone]);
         },
     });
+    await nextTick();
     assert.deepEqual(log, [
         ['refreshQuestStates', 'player:1'],
         ['dispatchSubmitNpcQuest', 'player:1', 'npc_a', 'quest:ready'],
     ]);
+    deferred.resolve();
+    await pendingDispatch;
 }
 /**
  * testDispatchNpcInteractionFallsBackToDialogueNotice：判断testDispatchNPCInteractionFallBackToDialogueNotice是否满足条件。
@@ -437,13 +481,117 @@ function testDispatchNpcInteractionFallsBackToDialogueNotice() {
     ]);
 }
 
-testEnqueueNpcInteraction();
-testEnqueueAcceptAndSubmitNpcQuest();
-testEnqueueLegacyNpcInteractionDelegates();
-testExecuteNpcQuestActionQueuesSubmit();
-testExecuteNpcQuestActionQueuesAccept();
-testExecuteNpcQuestActionQueuesTalkInteract();
-testDispatchNpcInteractionPrioritizesSubmit();
-testDispatchNpcInteractionFallsBackToDialogueNotice();
+async function testDispatchSubmitNpcQuestUsesDurableInventoryGrant() {
+    const log = [];
+    const player = {
+        playerId: 'player:1',
+        name: '阿一',
+        templateId: 'map_a',
+        instanceId: 'instance:quest-smoke',
+        runtimeOwnerId: 'runtime-owner:quest-smoke',
+        sessionEpoch: 6,
+        inventory: {
+            items: [{ itemId: 'quest_token', count: 1, name: '信物' }],
+            capacity: 8,
+        },
+        quests: {
+            quests: [{
+                id: 'quest:ready',
+                status: 'ready',
+                submitNpcId: 'npc_a',
+                rewardText: '奖励到手',
+                nextQuestId: 'quest:next',
+                requiredItemId: 'quest_token',
+                requiredItemCount: 1,
+            }],
+        },
+    };
+    const service = createService(player, log);
+    const deferred = createDeferred();
+    const deps = {
+        resolveAdjacentNpc() {
+            return { npcId: 'npc_a', name: '阿青' };
+        },
+        buildQuestRewardItems() {
+            return [
+                { itemId: 'rat_tail', count: 2 },
+                { itemId: 'spirit_stone', count: 3 },
+            ];
+        },
+        durableOperationService: {
+            isEnabled() {
+                return true;
+            },
+            async submitNpcQuestRewards(input) {
+                log.push(['submitNpcQuestRewards', input.questId, input.expectedInstanceId, input.expectedAssignedNodeId, input.expectedOwnershipEpoch]);
+                return deferred.promise;
+            },
+        },
+        instanceCatalogService: {
+            isEnabled() {
+                return true;
+            },
+            async loadInstanceCatalog(instanceId) {
+                assert.equal(instanceId, 'instance:quest-smoke');
+                return {
+                    assigned_node_id: 'node:quest-smoke',
+                    ownership_epoch: 11,
+                };
+            },
+        },
+        tryAcceptNextQuest() {
+            return null;
+        },
+        refreshQuestStates(playerId) {
+            log.push(['refreshQuestStates', playerId]);
+        },
+        queuePlayerNotice(playerId, message, tone) {
+            log.push(['queuePlayerNotice', playerId, message, tone]);
+        },
+    };
+    const promise = service.dispatchSubmitNpcQuest('player:1', 'npc_a', 'quest:ready', deps);
+    await nextTick();
+    assert.deepEqual(log, [
+        ['createQuestStateFromSource', 'player:1', 'quest:next', 'active'],
+        ['submitNpcQuestRewards', 'quest:ready', 'instance:quest-smoke', 'node:quest-smoke', 11],
+    ]);
+    assert.equal(player.quests.quests[0].status, 'ready');
+    deferred.resolve({
+        ok: true,
+        alreadyCommitted: false,
+        questId: 'quest:ready',
+    });
+    await promise;
+    assert.deepEqual(log, [
+        ['createQuestStateFromSource', 'player:1', 'quest:next', 'active'],
+        ['submitNpcQuestRewards', 'quest:ready', 'instance:quest-smoke', 'node:quest-smoke', 11],
+        ['replaceInventoryItems', 'player:1', [['rat_tail', 2]]],
+        ['replaceWalletBalances', 'player:1', [['spirit_stone', 3, 1]]],
+        ['markQuestStateDirty', 'player:1'],
+        ['refreshQuestStates', 'player:1'],
+        ['queuePlayerNotice', 'player:1', '阿青：做得不错，这是你的奖励 奖励到手', 'success'],
+        ['queuePlayerNotice', 'player:1', '新的任务《后续任务》已自动接取', 'info'],
+    ]);
+    assert.equal(player.quests.quests[0].status, 'completed');
+    assert.equal(player.quests.quests[1].id, 'quest:next');
+    assert.equal(player.wallet.balances[0].walletType, 'spirit_stone');
+    assert.equal(player.wallet.balances[0].balance, 3);
+}
 
-console.log(JSON.stringify({ ok: true, case: 'world-runtime-npc-quest-write' }, null, 2));
+async function main() {
+    testEnqueueNpcInteraction();
+    testEnqueueAcceptAndSubmitNpcQuest();
+    testEnqueueLegacyNpcInteractionDelegates();
+    testExecuteNpcQuestActionQueuesSubmit();
+    testExecuteNpcQuestActionQueuesAccept();
+    testExecuteNpcQuestActionQueuesTalkInteract();
+    await testDispatchNpcInteractionPrioritizesSubmit();
+    testDispatchNpcInteractionFallsBackToDialogueNotice();
+    await testDispatchSubmitNpcQuestUsesDurableInventoryGrant();
+    console.log(JSON.stringify({ ok: true, case: 'world-runtime-npc-quest-write' }, null, 2));
+}
+
+main().catch((error) => {
+    console.error(error);
+    process.exitCode = 1;
+});

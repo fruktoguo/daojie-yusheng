@@ -12,13 +12,13 @@ const MAIN_FILE = path.join(repoRoot, "packages/client/src/main.ts");
 const socketSource = fs.readFileSync(SOCKET_FILE, "utf8");
 const mainSource = fs.readFileSync(MAIN_FILE, "utf8");
 
-const declaredEvents = Object.keys(protocol.S2C ?? protocol.NEXT_S2C);
-const bindMatches = [...socketSource.matchAll(/bindServerEvent\((?:S2C|NEXT_S2C)\.([A-Za-z0-9_]+)\)/g)].map((match) => match[1]);
-const exposedMatches = [...socketSource.matchAll(/^\s{2}on([A-Z][A-Za-z0-9]+)\([^\n]*(?:S2C|NEXT_S2C)\.([A-Za-z0-9_]+)/gm)];
+const declaredEvents = Object.keys(protocol.S2C);
+const bindMatches = [...socketSource.matchAll(/bindServerEvent\(S2C\.([A-Za-z0-9_]+)\)/g)].map((match) => match[1]);
+const exposedMatches = [...socketSource.matchAll(/^\s{2}on([A-Z][A-Za-z0-9]+)\([^\n]*S2C\.([A-Za-z0-9_]+)/gm)];
 const mainMethodMatches = [...mainSource.matchAll(/socket\.(on[A-Z][A-Za-z0-9]+)\(/g)].map((match) => match[1]);
 
 const boundEvents = new Set(bindMatches);
-if (/socket\.on\((?:S2C|NEXT_S2C)\.Kick,/.test(socketSource)) {
+if (/socket\.on\(S2C\.Kick,/.test(socketSource)) {
   boundEvents.add("Kick");
 }
 
@@ -57,7 +57,7 @@ function printList(label, items) {
 }
 
 function main() {
-  process.stdout.write("[next client s2c consumption proof] summary\n");
+  process.stdout.write("[client s2c consumption proof] summary\n");
   printList("declared_and_consumed", consumedEvents);
   printList("declared_but_not_consumed", unconsumedEvents);
   printList("main_depends_on_undeclared", unknownMainMethods);
@@ -80,7 +80,7 @@ function main() {
   }
 
   if (failures.length > 0) {
-    process.stderr.write("[next client s2c consumption proof] failed\n");
+    process.stderr.write("[client s2c consumption proof] failed\n");
     for (const failure of failures) {
       process.stderr.write(`- ${failure}\n`);
     }
@@ -88,7 +88,7 @@ function main() {
     return;
   }
 
-  process.stdout.write("[next client s2c consumption proof] passed\n");
+  process.stdout.write("[client s2c consumption proof] passed\n");
 }
 
 main();

@@ -97,6 +97,10 @@ async function main() {
  */
     const databaseState = assertGmDatabaseStateShape(await authedGetJson('/api/gm/database/state', token));
 /**
+ * 记录世界运行态摘要。
+ */
+    const worldSummary = assertWorldSummaryShape(await authedGetJson('/api/gm/world/summary', token));
+/**
  * 记录编辑器目录。
  */
     const editorCatalog = assertEditorCatalogShape(await authedGetJson('/api/gm/editor-catalog', token));
@@ -296,6 +300,7 @@ async function main() {
                 height: currentMap.height,
             },
             databaseState,
+            worldSummary,
             editorCatalog,
             runtimeInspection,
         },
@@ -719,6 +724,37 @@ function assertGmDatabaseStateShape(payload) {
         lastJobPhase: lastJob?.phase ?? null,
         lastJobSourceBackupId: lastJob?.sourceBackupId ?? null,
         lastJobCheckpointBackupId: lastJob?.checkpointBackupId ?? null,
+    };
+}
+/**
+ * 断言世界运行态摘要shape。
+ */
+function assertWorldSummaryShape(payload) {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
+    if (!payload || typeof payload !== 'object' || Array.isArray(payload)) {
+        throw new Error(`unexpected gm world summary payload: ${JSON.stringify(payload)}`);
+    }
+    if (!Number.isFinite(payload.tick) || !Number.isFinite(payload.instanceCount) || !Number.isFinite(payload.playerCount)) {
+        throw new Error(`unexpected gm world summary counters: ${JSON.stringify(payload)}`);
+    }
+    if (!payload.dirtyBacklog || typeof payload.dirtyBacklog !== 'object') {
+        throw new Error(`unexpected gm world summary dirtyBacklog: ${JSON.stringify(payload.dirtyBacklog)}`);
+    }
+    if (!payload.recoveryQueue || typeof payload.recoveryQueue !== 'object') {
+        throw new Error(`unexpected gm world summary recoveryQueue: ${JSON.stringify(payload.recoveryQueue)}`);
+    }
+    if (!payload.flushWakeup || typeof payload.flushWakeup !== 'object') {
+        throw new Error(`unexpected gm world summary flushWakeup: ${JSON.stringify(payload.flushWakeup)}`);
+    }
+    return {
+        tick: payload.tick,
+        instanceCount: payload.instanceCount,
+        playerCount: payload.playerCount,
+        dirtyPlayers: Number(payload.dirtyBacklog.players ?? 0),
+        dirtyInstances: Number(payload.dirtyBacklog.instances ?? 0),
+        recoveryQueued: Number(payload.recoveryQueue.queued ?? 0),
+        wakeupQueued: Number(payload.flushWakeup.queued ?? 0),
     };
 }
 /**

@@ -49,7 +49,7 @@ let WorldRuntimeFrameService = class WorldRuntimeFrameService {
  * @returns 无返回值，直接更新tickAll相关状态。
  */
 
-    tickAll(deps) {
+    async tickAll(deps) {
         return this.advanceFrame(deps, 1000);
     }    
     /**
@@ -60,7 +60,7 @@ let WorldRuntimeFrameService = class WorldRuntimeFrameService {
  * @returns 无返回值，直接更新advance帧相关状态。
  */
 
-    advanceFrame(deps, frameDurationMs = 1000, getInstanceTickSpeed = null) {
+    async advanceFrame(deps, frameDurationMs = 1000, getInstanceTickSpeed = null) {
         return this.worldRuntimeInstanceTickOrchestrationService.advanceFrame(deps, frameDurationMs, getInstanceTickSpeed);
     }    
     /**

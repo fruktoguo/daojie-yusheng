@@ -116,7 +116,111 @@ function testUnequip() {
     ]);
 }
 
-testEquip();
-testUnequip();
+async function testDurableEquipPath() {
+    const log = [];
+    const playerState = {
+        playerId: 'player:1',
+        runtimeOwnerId: 'owner-a',
+        sessionEpoch: 7,
+        inventory: {
+            items: [
+                { itemId: 'sword_1', name: '铁剑', equipSlot: 'weapon' },
+                { itemId: 'gem_1', name: '宝石', count: 2 },
+            ],
+        },
+        equipment: {
+            slots: [
+                { slot: 'weapon', item: null },
+                { slot: 'armor', item: { itemId: 'armor_1', name: '布甲', equipSlot: 'armor' } },
+            ],
+        },
+    };
+    const playerRuntimeService = {
+        peekInventoryItem() { return playerState.inventory.items[0]; },
+        peekEquippedItem() { return null; },
+        getPlayerOrThrow() { return playerState; },
+        snapshot() {
+            return JSON.parse(JSON.stringify(playerState));
+        },
+        replaceInventoryItems(playerId, items) {
+            log.push(['replaceInventoryItems', playerId, items.map((entry) => entry.itemId)]);
+            playerState.inventory.items = items.map((entry) => ({ ...entry }));
+        },
+        replaceEquipmentSlots(playerId, slots) {
+            log.push(['replaceEquipmentSlots', playerId, slots.map((entry) => `${entry.slot}:${entry.item ? entry.item.itemId : 'null'}`)]);
+            playerState.equipment.slots = slots.map((entry) => ({
+                slot: entry.slot,
+                item: entry.item ? { ...entry.item } : null,
+            }));
+        },
+        equipItem() {
+            throw new Error('equipItem should not be used on durable path');
+        },
+        unequipItem() {
+            throw new Error('unequipItem should not be used on durable path');
+        },
+    };
+    const service = new WorldRuntimeEquipmentService(playerRuntimeService, {
+        isEnabled() { return true; },
+        updateEquipmentLoadout(input) {
+            log.push([
+                'updateEquipmentLoadout',
+                input.action,
+                input.slot,
+                input.expectedRuntimeOwnerId,
+                input.expectedSessionEpoch,
+                input.expectedAssignedNodeId,
+                input.expectedOwnershipEpoch,
+            ]);
+            return Promise.resolve({ ok: true, alreadyCommitted: false, action: input.action, slot: input.slot });
+        },
+    });
+    await service.dispatchEquipItem('player:1', 0, {
+        craftPanelRuntimeService: {
+            getLockedSlotReason() { return null; },
+        },
+        queuePlayerNotice(playerId, message, tone) {
+            log.push(['queuePlayerNotice', playerId, message, tone]);
+        },
+        worldRuntimeCraftMutationService: {
+            emitAllTechniqueActivityPanelUpdates(playerId) {
+                log.push(['emitAllTechniqueActivityPanelUpdates', playerId]);
+            },
+        },
+        getPlayerLocation() {
+            return { instanceId: 'instance:1' };
+        },
+        instanceCatalogService: {
+            isEnabled() { return true; },
+            async loadInstanceCatalog(instanceId) {
+                assert.equal(instanceId, 'instance:1');
+                return {
+                    assigned_node_id: 'node:equipment',
+                    ownership_epoch: 23,
+                };
+            },
+        },
+        getPlayerViewOrThrow() {
+            return { ok: true };
+        },
+    });
+    assert.deepEqual(log, [
+        ['updateEquipmentLoadout', 'equip', 'weapon', 'owner-a', 7, 'node:equipment', 23],
+        ['replaceInventoryItems', 'player:1', ['gem_1']],
+        ['replaceEquipmentSlots', 'player:1', ['weapon:sword_1', 'armor:armor_1']],
+        ['queuePlayerNotice', 'player:1', '装备 铁剑', 'success'],
+        ['emitAllTechniqueActivityPanelUpdates', 'player:1'],
+    ]);
+}
 
-console.log(JSON.stringify({ ok: true, case: 'world-runtime-equipment' }, null, 2));
+async function main() {
+    testEquip();
+    testUnequip();
+    await testDurableEquipPath();
+    console.log(JSON.stringify({ ok: true, case: 'world-runtime-equipment' }, null, 2));
+}
+
+main().catch((error) => {
+    console.error(error);
+    process.exitCode = 1;
+});

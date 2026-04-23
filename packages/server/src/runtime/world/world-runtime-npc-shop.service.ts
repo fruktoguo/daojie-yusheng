@@ -19,6 +19,7 @@ const common_1 = require("@nestjs/common");
 const player_runtime_service_1 = require("../player/player-runtime.service");
 const world_runtime_npc_shop_query_service_1 = require("./world-runtime-npc-shop-query.service");
 const world_runtime_normalization_helpers_1 = require("./world-runtime.normalization.helpers");
+const durable_operation_service_1 = require("../../persistence/durable-operation.service");
 
 const { normalizeShopQuantity, formatItemStackLabel } = world_runtime_normalization_helpers_1;
 
@@ -29,10 +30,11 @@ let WorldRuntimeNpcShopService = class WorldRuntimeNpcShopService {
  */
 
     playerRuntimeService;    
+    durableOperationService;
     /**
- * worldRuntimeNpcShopQueryService：世界运行态NPCShopQuery服务引用。
- */
-
+     * worldRuntimeNpcShopQueryService：世界运行态NPCShopQuery服务引用。
+     */
+    
     worldRuntimeNpcShopQueryService;    
     /**
  * 构造器：初始化 当前 实例并建立基础状态。
@@ -41,9 +43,10 @@ let WorldRuntimeNpcShopService = class WorldRuntimeNpcShopService {
  * @returns 无返回值，完成实例初始化。
  */
 
-    constructor(playerRuntimeService, worldRuntimeNpcShopQueryService) {
+    constructor(playerRuntimeService, worldRuntimeNpcShopQueryService, durableOperationService = null) {
         this.playerRuntimeService = playerRuntimeService;
         this.worldRuntimeNpcShopQueryService = worldRuntimeNpcShopQueryService;
+        this.durableOperationService = durableOperationService;
     }    
     /**
  * enqueueBuyNpcShopItem：处理BuyNPCShop道具并更新相关状态。
@@ -82,12 +85,52 @@ let WorldRuntimeNpcShopService = class WorldRuntimeNpcShopService {
  * @returns 无返回值，直接更新BuyNPCShop道具相关状态。
  */
 
-    dispatchBuyNpcShopItem(playerId, npcId, itemId, quantity, deps) {
+    async dispatchBuyNpcShopItem(playerId, npcId, itemId, quantity, deps) {
         const validated = deps.validateNpcShopPurchase(playerId, npcId, itemId, quantity);
-        this.playerRuntimeService.consumeInventoryItemByItemId(playerId, this.worldRuntimeNpcShopQueryService.getCurrencyItemId(), validated.totalCost);
+        const durableOperationService = this.durableOperationService ?? deps?.durableOperationService ?? null;
+        const player = typeof deps?.getPlayerOrThrow === 'function'
+            ? deps.getPlayerOrThrow(playerId)
+            : this.playerRuntimeService.getPlayerOrThrow(playerId);
+        const runtimeOwnerId = typeof player.runtimeOwnerId === 'string' && player.runtimeOwnerId.trim()
+            ? player.runtimeOwnerId.trim()
+            : '';
+        const sessionEpoch = Number.isFinite(player.sessionEpoch)
+            ? Math.max(1, Math.trunc(Number(player.sessionEpoch)))
+            : 0;
+        if (durableOperationService?.isEnabled?.() && runtimeOwnerId && sessionEpoch > 0) {
+            const nextInventoryItems = applyNpcShopPurchaseToInventory(player.inventory?.items ?? [], validated.item);
+            const nextWalletBalances = applyNpcShopPurchaseToWallet(player.wallet?.balances ?? [], this.worldRuntimeNpcShopQueryService.getCurrencyItemId(), validated.totalCost);
+            if (nextInventoryItems && nextWalletBalances) {
+                const location = typeof deps?.getPlayerLocation === 'function' ? deps.getPlayerLocation(playerId) : null;
+                const leaseContext = await resolveInstanceLeaseContext(location?.instanceId ?? null, deps);
+                const operationId = `op:${playerId}:npc-shop:${Date.now().toString(36)}`;
+                return durableOperationService.purchaseNpcShopItem({
+                    operationId,
+                    playerId,
+                    expectedRuntimeOwnerId: runtimeOwnerId,
+                    expectedSessionEpoch: sessionEpoch,
+                    expectedInstanceId: location?.instanceId ?? null,
+                    expectedAssignedNodeId: leaseContext?.assignedNodeId ?? null,
+                    expectedOwnershipEpoch: leaseContext?.ownershipEpoch ?? null,
+                    itemId: validated.item.itemId,
+                    quantity,
+                    totalCost: validated.totalCost,
+                    nextInventoryItems,
+                    nextWalletBalances,
+                }).then(() => {
+                    this.playerRuntimeService.replaceInventoryItems(playerId, nextInventoryItems);
+                    this.playerRuntimeService.debitWallet(playerId, this.worldRuntimeNpcShopQueryService.getCurrencyItemId(), validated.totalCost);
+                    deps.refreshQuestStates(playerId);
+                    deps.queuePlayerNotice(playerId, `购买 ${formatItemStackLabel(validated.item)}，消耗 ${this.worldRuntimeNpcShopQueryService.getCurrencyItemName()} x${validated.totalCost}`, 'success');
+                    return deps.getPlayerViewOrThrow(playerId);
+                });
+            }
+        }
+        this.playerRuntimeService.debitWallet(playerId, this.worldRuntimeNpcShopQueryService.getCurrencyItemId(), validated.totalCost);
         this.playerRuntimeService.receiveInventoryItem(playerId, validated.item);
         deps.refreshQuestStates(playerId);
         deps.queuePlayerNotice(playerId, `购买 ${formatItemStackLabel(validated.item)}，消耗 ${this.worldRuntimeNpcShopQueryService.getCurrencyItemName()} x${validated.totalCost}`, 'success');
+        return deps.getPlayerViewOrThrow(playerId);
     }
 };
 exports.WorldRuntimeNpcShopService = WorldRuntimeNpcShopService;
@@ -98,3 +141,61 @@ exports.WorldRuntimeNpcShopService = WorldRuntimeNpcShopService = __decorate([
 ], WorldRuntimeNpcShopService);
 
 export { WorldRuntimeNpcShopService };
+
+function applyNpcShopPurchaseToInventory(existingItems, item) {
+    const nextItems = Array.isArray(existingItems)
+        ? existingItems.map((entry) => ({ ...entry }))
+        : [];
+    const existing = nextItems.find((entry) => entry.itemId === item.itemId);
+    if (existing) {
+        existing.count += item.count;
+        return nextItems;
+    }
+    nextItems.push({ ...item });
+    return nextItems;
+}
+
+function applyNpcShopPurchaseToWallet(existingBalances, walletType, amount) {
+    const normalizedWalletType = typeof walletType === 'string' ? walletType.trim() : '';
+    const normalizedAmount = Math.max(0, Math.trunc(Number(amount ?? 0)));
+    if (!normalizedWalletType || normalizedAmount <= 0) {
+        return null;
+    }
+    const balances = Array.isArray(existingBalances)
+        ? existingBalances.map((entry) => ({
+            walletType: typeof entry?.walletType === 'string' ? entry.walletType.trim() : '',
+            balance: Math.max(0, Math.trunc(Number(entry?.balance ?? 0))),
+            frozenBalance: Math.max(0, Math.trunc(Number(entry?.frozenBalance ?? 0))),
+            version: Math.max(0, Math.trunc(Number(entry?.version ?? 0))),
+        })).filter((entry) => entry.walletType)
+        : [];
+    const entry = balances.find((row) => row.walletType === normalizedWalletType);
+    if (!entry || entry.balance < normalizedAmount) {
+        return null;
+    }
+    entry.balance -= normalizedAmount;
+    entry.version += 1;
+    return balances;
+}
+
+async function resolveInstanceLeaseContext(instanceId, deps) {
+    const normalizedInstanceId = typeof instanceId === 'string' ? instanceId.trim() : '';
+    const instanceCatalogService = deps?.instanceCatalogService ?? null;
+    if (!normalizedInstanceId || !instanceCatalogService?.isEnabled?.()) {
+        return null;
+    }
+    const catalog = await instanceCatalogService.loadInstanceCatalog?.(normalizedInstanceId);
+    const assignedNodeId = typeof catalog?.assigned_node_id === 'string' && catalog.assigned_node_id.trim()
+        ? catalog.assigned_node_id.trim()
+        : '';
+    const ownershipEpoch = Number.isFinite(Number(catalog?.ownership_epoch))
+        ? Math.max(1, Math.trunc(Number(catalog.ownership_epoch)))
+        : 0;
+    if (!assignedNodeId || ownershipEpoch <= 0) {
+        return null;
+    }
+    return {
+        assignedNodeId,
+        ownershipEpoch,
+    };
+}

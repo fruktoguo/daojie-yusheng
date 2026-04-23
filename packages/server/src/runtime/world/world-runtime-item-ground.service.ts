@@ -70,8 +70,8 @@ let WorldRuntimeItemGroundService = class WorldRuntimeItemGroundService {
  * @returns 无返回值，直接更新TakeGround相关状态。
  */
 
-    dispatchTakeGround(playerId, sourceId, itemKey, deps) {
-        deps.worldRuntimeLootContainerService.dispatchTakeGround(playerId, sourceId, itemKey, deps);
+    async dispatchTakeGround(playerId, sourceId, itemKey, deps) {
+        return deps.worldRuntimeLootContainerService.dispatchTakeGround(playerId, sourceId, itemKey, deps);
     }    
     /**
  * dispatchTakeGroundAll：判断Take地面All是否满足条件。
@@ -81,8 +81,8 @@ let WorldRuntimeItemGroundService = class WorldRuntimeItemGroundService {
  * @returns 无返回值，直接更新TakeGroundAll相关状态。
  */
 
-    dispatchTakeGroundAll(playerId, sourceId, deps) {
-        deps.worldRuntimeLootContainerService.dispatchTakeGroundAll(playerId, sourceId, deps);
+    async dispatchTakeGroundAll(playerId, sourceId, deps) {
+        return deps.worldRuntimeLootContainerService.dispatchTakeGroundAll(playerId, sourceId, deps);
     }    
     /**
  * spawnGroundItem：执行spawn地面道具相关逻辑。

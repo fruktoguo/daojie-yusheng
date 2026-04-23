@@ -218,7 +218,7 @@ let LeaderboardRuntimeService = class LeaderboardRuntimeService {
             monsterKillCount: toNonNegativeInteger(player.monsterKillCount, 0),
             eliteMonsterKillCount: toNonNegativeInteger(player.eliteMonsterKillCount, 0),
             bossMonsterKillCount: toNonNegativeInteger(player.bossMonsterKillCount, 0),
-            spiritStoneCount: this.getInventoryItemCount(player, market_1.MARKET_CURRENCY_ITEM_ID),
+            spiritStoneCount: this.getWalletBalance(player.playerId, market_1.MARKET_CURRENCY_ITEM_ID),
             marketStorageSpiritStoneCount: this.getMarketStorageItemCount(player.playerId, market_1.MARKET_CURRENCY_ITEM_ID),
             playerKillCount: toNonNegativeInteger(player.playerKillCount, 0),
             deathCount: toNonNegativeInteger(player.deathCount, 0),
@@ -396,9 +396,9 @@ let LeaderboardRuntimeService = class LeaderboardRuntimeService {
         }
         return total;
     }
-    /** 读取玩家背包里某个物品的持有数量。 */
-    getInventoryItemCount(player, itemId) {
-        return (player.inventory?.items ?? []).reduce((total, item) => item?.itemId === itemId ? total + toNonNegativeInteger(item.count, 0) : total, 0);
+    /** 读取玩家钱包里某个货币类型的持有数量。 */
+    getWalletBalance(playerId, walletType) {
+        return this.playerRuntimeService.getWalletBalanceByType(playerId, walletType);
     }
     /** 读取玩家坊市仓库里某个物品的持有数量。 */
     getMarketStorageItemCount(playerId, itemId) {

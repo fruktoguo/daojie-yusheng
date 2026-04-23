@@ -297,20 +297,20 @@ function extractStaticSurfaceChecks(sourceFile) {
 }
 
 function assertNoLegacyHighFrequencyEvents() {
-  const nextS2CKeys = extractObjectLiteralKeys(protocolFile, 'NEXT_S2C');
-  const payloadMapKeys = extractPayloadMapKeys(protocolFile, 'NEXT_S2C_PayloadMap', 'NEXT_S2C');
+  const nextS2CKeys = extractObjectLiteralKeys(protocolFile, 'S2C');
+  const payloadMapKeys = extractPayloadMapKeys(protocolFile, 'S2C_PayloadMap', 'S2C');
   for (const key of LEGACY_HIGH_FREQ_EVENT_KEYS) {
     if (nextS2CKeys.includes(key)) {
-      throw new Error(`NEXT_S2C should not expose legacy high-frequency event key: ${key}`);
+      throw new Error(`S2C should not expose legacy high-frequency event key: ${key}`);
     }
     if (payloadMapKeys.includes(key)) {
-      throw new Error(`NEXT_S2C_PayloadMap should not expose legacy high-frequency event key: ${key}`);
+      throw new Error(`S2C_PayloadMap should not expose legacy high-frequency event key: ${key}`);
     }
   }
 }
 
 function assertHelperInterfacesExist() {
-  for (const name of ['NEXT_S2C_Tick', 'NEXT_S2C_AttrUpdate', 'NEXT_S2C_TechniqueUpdate', 'NEXT_S2C_ActionsUpdate']) {
+  for (const name of ['S2C_Tick', 'S2C_AttrUpdate', 'S2C_TechniqueUpdate', 'S2C_ActionsUpdate']) {
     if (!findInterface(protocolFile, name)) {
       throw new Error(`protocol helper interface missing: ${name}`);
     }
@@ -330,8 +330,8 @@ function assertNetworkProtobufSchema() {
 }
 
 function assertProtobufEventWhitelists() {
-  const s2cEvents = extractSetMembers(protobufSchemaFile, 'PROTOBUF_NEXT_S2C_EVENTS', 'NEXT_S2C');
-  const c2sEvents = extractSetMembers(protobufSchemaFile, 'PROTOBUF_NEXT_C2S_EVENTS', 'NEXT_C2S');
+  const s2cEvents = extractSetMembers(protobufSchemaFile, 'PROTOBUF_S2C_EVENTS', 'S2C');
+  const c2sEvents = extractSetMembers(protobufSchemaFile, 'PROTOBUF_C2S_EVENTS', 'C2S');
   if (s2cEvents.length > 0 || c2sEvents.length > 0) {
     throw new Error(`protobuf event whitelist drifted. s2c=${s2cEvents.join(', ') || 'none'} c2s=${c2sEvents.join(', ') || 'none'}`);
   }

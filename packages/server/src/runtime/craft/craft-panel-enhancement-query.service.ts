@@ -322,6 +322,12 @@ function cloneEnhancementJob(entry) {
  */
 
 function countInventoryItem(player, itemId) {
+    if (itemId === 'spirit_stone') {
+        const balances = Array.isArray(player.wallet?.balances) ? player.wallet.balances : [];
+        const walletCount = balances.reduce((total, entry) => total + (entry?.walletType === itemId ? Math.max(0, Math.trunc(Number(entry?.balance ?? 0))) : 0), 0);
+        const inventoryCount = player.inventory.items.reduce((total, entry) => entry.itemId === itemId ? total + entry.count : total, 0);
+        return walletCount + inventoryCount;
+    }
     return player.inventory.items.reduce((total, entry) => entry.itemId === itemId ? total + entry.count : total, 0);
 }
 /**

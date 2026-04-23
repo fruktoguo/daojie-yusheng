@@ -20,8 +20,8 @@ const ALLOWED_FILES = new Set([
 ]);
 
 const SOURCE_EXTENSIONS = [".ts", ".tsx", ".js", ".jsx", ".mjs", ".cjs"];
-const LOCAL_EVENT_TABLE_PATTERN = /(?:^|\n)\s*(?:export\s+)?const\s+NEXT_(?:C2S|S2C)\s*=/m;
-const NEXT_EVENT_LITERAL_PATTERN = /['\"]n:[cs]:[A-Za-z0-9]+['\"]/g;
+const LOCAL_EVENT_TABLE_PATTERN = /(?:^|\n)\s*(?:export\s+)?const\s+(?:C2S|S2C)\s*=/m;
+const EVENT_LITERAL_PATTERN = /['\"]n:[cs]:[A-Za-z0-9]+['\"]/g;
 
 function collectFiles(relativeDir) {
   const root = path.join(repoRoot, relativeDir);
@@ -74,16 +74,16 @@ function main() {
 
       const tableLine = firstLineNumberForPattern(source, LOCAL_EVENT_TABLE_PATTERN);
       if (tableLine !== null) {
-        failures.push(`${relativePath}:${tableLine} 定义了本地 NEXT_C2S/NEXT_S2C 事件表`);
+        failures.push(`${relativePath}:${tableLine} 定义了本地 C2S/S2C 事件表`);
       }
 
-      const literalMatches = [...source.matchAll(NEXT_EVENT_LITERAL_PATTERN)];
+      const literalMatches = [...source.matchAll(EVENT_LITERAL_PATTERN)];
       for (const match of literalMatches) {
         if (typeof match.index !== "number") {
           continue;
         }
         const line = source.slice(0, match.index).split(/\r?\n/).length;
-        failures.push(`${relativePath}:${line} 直接写死 next 事件字面量 ${match[0]}`);
+        failures.push(`${relativePath}:${line} 直接写死协议事件字面量 ${match[0]}`);
       }
     }
   }

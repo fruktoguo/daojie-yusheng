@@ -1,5 +1,6 @@
-import { BadRequestException, Inject, Injectable, NotFoundException } from '@nestjs/common';
+import { BadRequestException, Inject, Injectable, Logger, NotFoundException, Optional } from '@nestjs/common';
 
+import { PlayerSessionRouteService } from '../../persistence/player-session-route.service';
 import { WorldRuntimeWorldAccessService } from './world-runtime-world-access.service';
 import { parseRuntimeInstanceDescriptor } from './world-runtime.normalization.helpers';
 
@@ -99,9 +100,14 @@ interface WorldRuntimeWorldAccessPort {
 
 @Injectable()
 export class WorldRuntimePlayerSessionService {
+  private readonly logger = new Logger(WorldRuntimePlayerSessionService.name);
+
   constructor(
     @Inject(WorldRuntimeWorldAccessService)
     private readonly worldRuntimeWorldAccessService: WorldRuntimeWorldAccessPort,
+    @Optional()
+    @Inject(PlayerSessionRouteService)
+    private readonly playerSessionRouteService: PlayerSessionRouteService | null = null,
   ) {}
 
   connectPlayer(input: ConnectPlayerInput, deps: WorldRuntimePlayerSessionDeps): unknown {
@@ -164,6 +170,24 @@ export class WorldRuntimePlayerSessionService {
     return disconnected;
   }
 
+  async assignPlayerRoute(input: {
+    playerId: string;
+    nodeId: string;
+    sessionEpoch: number;
+    routeStatus?: string | null;
+  }): Promise<void> {
+    if (!this.playerSessionRouteService) {
+      return;
+    }
+
+    await this.playerSessionRouteService.registerRoute({
+      playerId: input.playerId,
+      nodeId: input.nodeId,
+      sessionEpoch: input.sessionEpoch,
+      routeStatus: input.routeStatus ?? 'assigned',
+    });
+  }
+
   removePlayer(
     playerId: string,
     reason: string = 'removed',
@@ -174,7 +198,21 @@ export class WorldRuntimePlayerSessionService {
       return false;
     }
 
-    deps.worldSessionService.purgePlayerSession(normalizedPlayerId, reason);
+    const routeSessionEpoch = resolveSessionEpoch(
+      deps.playerRuntimeService.getPlayer(normalizedPlayerId) as { sessionEpoch?: number | null } | null | undefined,
+    );
+
+    if (typeof deps.worldSessionService?.purgePlayerSession === 'function') {
+      deps.worldSessionService.purgePlayerSession(normalizedPlayerId, reason);
+    }
+    if (this.playerSessionRouteService) {
+      void this.playerSessionRouteService.clearLocalRoute(normalizedPlayerId, routeSessionEpoch).catch((error) => {
+        this.logger.error(
+          `清理玩家会话路由失败：${normalizedPlayerId}`,
+          error instanceof Error ? error.stack : String(error),
+        );
+      });
+    }
     deps.worldRuntimeNavigationService.clearNavigationIntent(normalizedPlayerId);
     deps.clearPendingCommand(normalizedPlayerId);
     deps.worldRuntimeGmQueueService.clearPendingRespawn(normalizedPlayerId);
@@ -261,4 +299,12 @@ function resolvePlayerWorldPreferenceLinePreset(
     | { worldPreference?: { linePreset?: unknown } }
     | null;
   return player?.worldPreference?.linePreset === 'real' ? 'real' : 'peaceful';
+}
+
+function resolveSessionEpoch(player: { sessionEpoch?: number | null } | null | undefined): number | undefined {
+  const sessionEpoch = Number(player?.sessionEpoch ?? 0);
+  if (!Number.isFinite(sessionEpoch) || sessionEpoch <= 0) {
+    return undefined;
+  }
+  return Math.max(1, Math.trunc(sessionEpoch));
 }

@@ -10,7 +10,7 @@ const CHECKS = [
   {
     id: "content.source",
     file: "packages/server/src/content/content-template.repository.ts",
-    description: "ContentTemplateRepository 只从 packages/server/data/content 读取 next 内容真源",
+    description: "ContentTemplateRepository 只从 packages/server/data/content 读取 主线内容真源",
     requiredPatterns: [
       /resolveProjectPath\)?\(['"]packages['"], ['"]server['"], ['"]data['"], ['"]content['"], ['"]items['"]\)/,
       /resolveProjectPath\)?\(['"]packages['"], ['"]server['"], ['"]data['"], ['"]content['"], ['"]techniques['"]\)/,
@@ -20,7 +20,7 @@ const CHECKS = [
   {
     id: "map.source",
     file: "packages/server/src/runtime/map/map-template.repository.ts",
-    description: "MapTemplateRepository 只从 packages/server/data/maps 读取 next 地图真源",
+    description: "MapTemplateRepository 只从 packages/server/data/maps 读取 主线地图真源",
     requiredPatterns: [
       /resolveProjectPath\)?\(['"]packages['"], ['"]server['"], ['"]data['"], ['"]maps['"]\)/,
     ],

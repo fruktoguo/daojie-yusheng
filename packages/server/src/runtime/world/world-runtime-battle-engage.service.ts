@@ -69,7 +69,7 @@ let WorldRuntimeBattleEngageService = class WorldRuntimeBattleEngageService {
  * @returns 无返回值，直接更新EngageBattle相关状态。
  */
 
-    dispatchEngageBattle(playerId, targetPlayerId, targetMonsterId, targetX, targetY, locked, deps) {
+    async dispatchEngageBattle(playerId, targetPlayerId, targetMonsterId, targetX, targetY, locked, deps) {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
         const currentTick = deps.resolveCurrentTickForPlayerId(playerId);
@@ -105,8 +105,7 @@ let WorldRuntimeBattleEngageService = class WorldRuntimeBattleEngageService {
                     return;
                 }
             }
-            deps.dispatchBasicAttack(playerId, targetPlayerId, null, targetX, targetY);
-            return;
+            return deps.dispatchBasicAttack(playerId, targetPlayerId, null, targetX, targetY);
         }
         const player = this.playerRuntimeService.getPlayerOrThrow(playerId);
         if (!player.instanceId) {
@@ -133,7 +132,7 @@ let WorldRuntimeBattleEngageService = class WorldRuntimeBattleEngageService {
             deps.dispatchInstanceCommand(playerId, nextCommand);
             return;
         }
-        deps.dispatchPlayerCommand(playerId, nextCommand);
+        return deps.dispatchPlayerCommand(playerId, nextCommand);
     }
 };
 exports.WorldRuntimeBattleEngageService = WorldRuntimeBattleEngageService;

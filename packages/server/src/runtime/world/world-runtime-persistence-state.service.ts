@@ -26,6 +26,13 @@ let WorldRuntimePersistenceStateService = class WorldRuntimePersistenceStateServ
 
         const dirty = new Set(deps.worldRuntimeLootContainerService.getDirtyInstanceIds());
         for (const [instanceId, instance] of deps.listInstanceEntries()) {
+            if (typeof deps.isInstanceLeaseWritable === 'function' && !deps.isInstanceLeaseWritable(instance)) {
+                if (typeof deps.fenceInstanceRuntime === 'function') {
+                    deps.fenceInstanceRuntime(instanceId, 'persistence_dirty_scan_lease_check_failed');
+                }
+                dirty.delete(instanceId);
+                continue;
+            }
             if (instance.meta.persistent && instance.isPersistentDirty()) {
                 dirty.add(instanceId);
             }
@@ -44,6 +51,12 @@ let WorldRuntimePersistenceStateService = class WorldRuntimePersistenceStateServ
 
         const instance = deps.getInstanceRuntime(instanceId);
         if (!instance || !instance.meta.persistent) {
+            return null;
+        }
+        if (typeof deps.isInstanceLeaseWritable === 'function' && !deps.isInstanceLeaseWritable(instance)) {
+            if (typeof deps.fenceInstanceRuntime === 'function') {
+                deps.fenceInstanceRuntime(instanceId, 'build_map_persistence_snapshot_lease_check_failed');
+            }
             return null;
         }
         return {

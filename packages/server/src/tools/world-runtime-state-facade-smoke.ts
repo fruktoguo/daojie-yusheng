@@ -205,8 +205,8 @@ async function testStateFacade() {
     assert.deepEqual(service.listDirtyPersistentInstances(deps), ['public:yunlai_town']);
     assert.deepEqual(service.buildMapPersistenceSnapshot('public:yunlai_town', deps), { instanceId: 'public:yunlai_town' });
     service.markMapPersisted('public:yunlai_town', deps);
-    assert.equal(service.tickAll(deps), 1);
-    assert.deepEqual(service.advanceFrame(1000, null, deps), { frameDurationMs: 1000 });
+    assert.equal(await service.tickAll(deps), 1);
+    assert.deepEqual(await service.advanceFrame(1000, null, deps), { frameDurationMs: 1000 });
     service.recordSyncFlushDuration(12, deps);
     service.bootstrapPublicInstances(deps);
     await service.restorePublicInstancePersistence(deps);

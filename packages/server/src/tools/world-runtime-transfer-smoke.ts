@@ -88,6 +88,7 @@ function testApplyTransfer() {
     const log = [];
     const service = new WorldRuntimeTransferService();
     const playerLocations = new Map();
+    const transferStates = [];
     const source = {    
     /**
  * disconnectPlayer：判断disconnect玩家是否满足条件。
@@ -160,7 +161,19 @@ function testApplyTransfer() {
 
             getPlayer(playerId) {
                 log.push(['getPlayer', playerId]);
-                return { attrs: { numericStats: { moveSpeed: 12 } } };
+                return {
+                    playerId,
+                    sessionId: 'session:1',
+                    sessionEpoch: 1,
+                    runtimeOwnerId: 'runtime:transfer:1',
+                    attrs: { numericStats: { moveSpeed: 12 } },
+                };
+            },
+            beginTransfer(player, target) {
+                transferStates.push(['beginTransfer', player.playerId, target]);
+            },
+            completeTransfer(player) {
+                transferStates.push(['completeTransfer', player.playerId]);
             },
         },        
         /**
@@ -191,8 +204,8 @@ function testApplyTransfer() {
         },
     });
     assert.deepEqual(log, [
-        ['disconnectPlayer', 'player:1'],
         ['getPlayer', 'player:1'],
+        ['disconnectPlayer', 'player:1'],
         ['getOrCreateDefaultLineInstance', 'yunlai_town', 'peaceful'],
         ['connectPlayer', {
             playerId: 'player:1',
@@ -202,6 +215,10 @@ function testApplyTransfer() {
         }],
         ['setPlayerMoveSpeed', 'player:1', 12],
         ['handleTransfer', 'auto_portal'],
+    ]);
+    assert.deepEqual(transferStates, [
+        ['beginTransfer', 'player:1', 'yunlai_town'],
+        ['completeTransfer', 'player:1'],
     ]);
     assert.deepEqual(playerLocations.get('player:1'), {
         instanceId: 'public:yunlai_town',
@@ -252,9 +269,19 @@ function testApplyTransferUsesRealPreference() {
             getPlayer(playerId) {
                 log.push(['getPlayer', playerId]);
                 return {
+                    playerId,
+                    sessionId: 'session:real',
+                    sessionEpoch: 2,
+                    runtimeOwnerId: 'runtime:transfer:real',
                     worldPreference: { linePreset: 'real' },
                     attrs: { numericStats: { moveSpeed: 20 } },
                 };
+            },
+            beginTransfer(player, target) {
+                log.push(['beginTransfer', player.playerId, target]);
+            },
+            completeTransfer(player) {
+                log.push(['completeTransfer', player.playerId]);
             },
         },
         worldRuntimeNavigationService: {
@@ -264,8 +291,9 @@ function testApplyTransferUsesRealPreference() {
         },
     });
     assert.deepEqual(log, [
-        ['disconnectPlayer', 'player:real'],
         ['getPlayer', 'player:real'],
+        ['beginTransfer', 'player:real', 'yunlai_town'],
+        ['disconnectPlayer', 'player:real'],
         ['getOrCreateDefaultLineInstance', 'yunlai_town', 'real'],
         ['connectPlayer', {
             playerId: 'player:real',
@@ -275,12 +303,92 @@ function testApplyTransferUsesRealPreference() {
         }],
         ['setPlayerMoveSpeed', 'player:real', 20],
         ['setPlayerLocation', 'player:real', 'real:yunlai_town'],
+        ['completeTransfer', 'player:real'],
         ['handleTransfer', 'manual_portal'],
     ]);
+}
+
+function testLeaseFenceBlocksTransfer() {
+    const log = [];
+    const service = new WorldRuntimeTransferService();
+    const playerLocations = new Map();
+    let fencedReason = '';
+    const source = {
+        meta: { instanceId: 'instance:stale' },
+        disconnectPlayer(playerId) {
+            log.push(['disconnectPlayer', playerId]);
+        },
+    };
+
+    service.applyTransfer({
+        playerId: 'player:lease',
+        sessionId: 'session:lease',
+        fromInstanceId: 'instance:stale',
+        targetMapId: 'yunlai_town',
+        targetX: 1,
+        targetY: 2,
+        reason: 'portal',
+    }, {
+        getInstanceRuntime(instanceId) {
+            return instanceId === 'instance:stale' ? source : null;
+        },
+        isInstanceLeaseWritable() {
+            return false;
+        },
+        fenceInstanceRuntime(instanceId, reason) {
+            log.push(['fenceInstanceRuntime', instanceId, reason]);
+            fencedReason = reason;
+        },
+        setPlayerLocation(playerId, location) {
+            playerLocations.set(playerId, location);
+        },
+        playerRuntimeService: {
+            getPlayer() {
+                log.push('getPlayer');
+                return { attrs: { numericStats: { moveSpeed: 12 } } };
+            },
+        },
+        getOrCreateDefaultLineInstance() {
+            log.push('getOrCreateDefaultLineInstance');
+            return {
+                meta: { instanceId: 'public:yunlai_town' },
+                connectPlayer() {
+                    log.push('connectPlayer');
+                },
+                setPlayerMoveSpeed() {
+                    log.push('setPlayerMoveSpeed');
+                },
+            };
+        },
+        getOrCreatePublicInstance() {
+            log.push('getOrCreatePublicInstance');
+            return {
+                meta: { instanceId: 'public:yunlai_town' },
+                connectPlayer() {
+                    log.push('connectPlayer');
+                },
+                setPlayerMoveSpeed() {
+                    log.push('setPlayerMoveSpeed');
+                },
+            };
+        },
+        worldRuntimeNavigationService: {
+            handleTransfer() {
+                log.push('handleTransfer');
+            },
+        },
+    });
+
+    assert.deepEqual(log, [
+        ['fenceInstanceRuntime', 'instance:stale', 'transfer_lease_check_failed'],
+    ]);
+    assert.equal(playerLocations.size, 0);
+    assert.equal(fencedReason, 'transfer_lease_check_failed');
 }
 
 testMissingSourceIsNoop();
 testApplyTransfer();
 testApplyTransferUsesRealPreference();
+testLeaseFenceBlocksTransfer();
 
 console.log(JSON.stringify({ ok: true, case: 'world-runtime-transfer' }, null, 2));

@@ -15,6 +15,26 @@ const common_1 = require("@nestjs/common");
 
 /** world-runtime gameplay-write facade：承接高层写侧 gameplay facade。 */
 let WorldRuntimeGameplayWriteFacadeService = class WorldRuntimeGameplayWriteFacadeService {
+    assertPlayerInstanceLeaseWritable(playerId, deps) {
+        const location = deps.getPlayerLocation?.(playerId);
+        const instance = location ? deps.getInstanceRuntime?.(location.instanceId) : null;
+        if (instance && typeof deps.isInstanceLeaseWritable === 'function' && !deps.isInstanceLeaseWritable(instance)) {
+            if (typeof deps.fenceInstanceRuntime === 'function') {
+                deps.fenceInstanceRuntime(instance.meta.instanceId, 'player_write_lease_check_failed');
+            }
+            throw new common_1.ServiceUnavailableException(`instance ${instance.meta.instanceId} lease is not writable`);
+        }
+    }
+
+    assertInstanceLeaseWritable(instanceId, deps) {
+        const instance = deps.getInstanceRuntime?.(instanceId);
+        if (instance && typeof deps.isInstanceLeaseWritable === 'function' && !deps.isInstanceLeaseWritable(instance)) {
+            if (typeof deps.fenceInstanceRuntime === 'function') {
+                deps.fenceInstanceRuntime(instance.meta.instanceId, 'instance_write_lease_check_failed');
+            }
+            throw new common_1.ServiceUnavailableException(`instance ${instance.meta.instanceId} lease is not writable`);
+        }
+    }
 /**
  * dispatchRedeemCodes：判断RedeemCode是否满足条件。
  * @param playerId 玩家 ID。
@@ -23,8 +43,9 @@ let WorldRuntimeGameplayWriteFacadeService = class WorldRuntimeGameplayWriteFaca
  * @returns 无返回值，直接更新RedeemCode相关状态。
  */
 
-    dispatchRedeemCodes(playerId, codes, deps) {
-        deps.worldRuntimeRedeemCodeService.dispatchRedeemCodes(playerId, codes, deps);
+    async dispatchRedeemCodes(playerId, codes, deps) {
+        this.assertPlayerInstanceLeaseWritable(playerId, deps);
+        return deps.worldRuntimeRedeemCodeService.dispatchRedeemCodes(playerId, codes, deps);
     }    
     /**
  * dispatchCastSkill：判断Cast技能是否满足条件。
@@ -37,8 +58,9 @@ let WorldRuntimeGameplayWriteFacadeService = class WorldRuntimeGameplayWriteFaca
  * @returns 无返回值，直接更新Cast技能相关状态。
  */
 
-    dispatchCastSkill(playerId, skillId, targetPlayerId, targetMonsterId, targetRef, deps) {
-        deps.worldRuntimeCombatCommandService.dispatchCastSkill(playerId, skillId, targetPlayerId, targetMonsterId, targetRef, deps);
+    async dispatchCastSkill(playerId, skillId, targetPlayerId, targetMonsterId, targetRef, deps) {
+        this.assertPlayerInstanceLeaseWritable(playerId, deps);
+        return deps.worldRuntimeCombatCommandService.dispatchCastSkill(playerId, skillId, targetPlayerId, targetMonsterId, targetRef, deps);
     }    
     /**
  * resolveLegacySkillTargetRef：读取Legacy技能目标Ref并返回结果。
@@ -64,8 +86,9 @@ let WorldRuntimeGameplayWriteFacadeService = class WorldRuntimeGameplayWriteFaca
  * @returns 无返回值，直接更新EngageBattle相关状态。
  */
 
-    dispatchEngageBattle(playerId, targetPlayerId, targetMonsterId, targetX, targetY, locked, deps) {
-        deps.worldRuntimeCombatCommandService.dispatchEngageBattle(playerId, targetPlayerId, targetMonsterId, targetX, targetY, locked, deps);
+    async dispatchEngageBattle(playerId, targetPlayerId, targetMonsterId, targetX, targetY, locked, deps) {
+        this.assertPlayerInstanceLeaseWritable(playerId, deps);
+        return deps.worldRuntimeCombatCommandService.dispatchEngageBattle(playerId, targetPlayerId, targetMonsterId, targetX, targetY, locked, deps);
     }    
     /**
  * dispatchCastSkillToMonster：判断Cast技能To怪物是否满足条件。
@@ -76,8 +99,9 @@ let WorldRuntimeGameplayWriteFacadeService = class WorldRuntimeGameplayWriteFaca
  * @returns 无返回值，直接更新Cast技能To怪物相关状态。
  */
 
-    dispatchCastSkillToMonster(attacker, skillId, targetMonsterId, deps) {
-        deps.worldRuntimeCombatCommandService.dispatchCastSkillToMonster(attacker, skillId, targetMonsterId, deps);
+    async dispatchCastSkillToMonster(attacker, skillId, targetMonsterId, deps) {
+        this.assertPlayerInstanceLeaseWritable(attacker.playerId, deps);
+        return deps.worldRuntimeCombatCommandService.dispatchCastSkillToMonster(attacker, skillId, targetMonsterId, deps);
     }    
     /**
  * dispatchCastSkillToTile：判断Cast技能ToTile是否满足条件。
@@ -90,6 +114,7 @@ let WorldRuntimeGameplayWriteFacadeService = class WorldRuntimeGameplayWriteFaca
  */
 
     dispatchCastSkillToTile(attacker, skillId, targetX, targetY, deps) {
+        this.assertPlayerInstanceLeaseWritable(attacker.playerId, deps);
         deps.worldRuntimeCombatCommandService.dispatchCastSkillToTile(attacker, skillId, targetX, targetY, deps);
     }    
     /**
@@ -101,6 +126,7 @@ let WorldRuntimeGameplayWriteFacadeService = class WorldRuntimeGameplayWriteFaca
  */
 
     dispatchUseItem(playerId, slotIndex, deps) {
+        this.assertPlayerInstanceLeaseWritable(playerId, deps);
         deps.worldRuntimeUseItemService.dispatchUseItem(playerId, slotIndex, deps);
     }    
     /**
@@ -111,6 +137,7 @@ let WorldRuntimeGameplayWriteFacadeService = class WorldRuntimeGameplayWriteFaca
  */
 
     dispatchBreakthrough(playerId, deps) {
+        this.assertPlayerInstanceLeaseWritable(playerId, deps);
         deps.worldRuntimeProgressionService.dispatchBreakthrough(playerId, deps);
     }    
     /**
@@ -123,6 +150,7 @@ let WorldRuntimeGameplayWriteFacadeService = class WorldRuntimeGameplayWriteFaca
  */
 
     dispatchHeavenGateAction(playerId, action, element, deps) {
+        this.assertPlayerInstanceLeaseWritable(playerId, deps);
         deps.worldRuntimeProgressionService.dispatchHeavenGateAction(playerId, action, element, deps);
     }    
     /**
@@ -136,8 +164,9 @@ let WorldRuntimeGameplayWriteFacadeService = class WorldRuntimeGameplayWriteFaca
  * @returns 无返回值，直接更新BasicAttack相关状态。
  */
 
-    dispatchBasicAttack(playerId, targetPlayerId, targetMonsterId, targetX, targetY, deps) {
-        deps.worldRuntimeCombatCommandService.dispatchBasicAttack(playerId, targetPlayerId, targetMonsterId, targetX, targetY, deps);
+    async dispatchBasicAttack(playerId, targetPlayerId, targetMonsterId, targetX, targetY, deps) {
+        this.assertPlayerInstanceLeaseWritable(playerId, deps);
+        return deps.worldRuntimeCombatCommandService.dispatchBasicAttack(playerId, targetPlayerId, targetMonsterId, targetX, targetY, deps);
     }    
     /**
  * dispatchDropItem：判断Drop道具是否满足条件。
@@ -149,6 +178,7 @@ let WorldRuntimeGameplayWriteFacadeService = class WorldRuntimeGameplayWriteFaca
  */
 
     dispatchDropItem(playerId, slotIndex, count, deps) {
+        this.assertPlayerInstanceLeaseWritable(playerId, deps);
         deps.worldRuntimeItemGroundService.dispatchDropItem(playerId, slotIndex, count, deps);
     }    
     /**
@@ -160,8 +190,9 @@ let WorldRuntimeGameplayWriteFacadeService = class WorldRuntimeGameplayWriteFaca
  * @returns 无返回值，直接更新TakeGround相关状态。
  */
 
-    dispatchTakeGround(playerId, sourceId, itemKey, deps) {
-        deps.worldRuntimeItemGroundService.dispatchTakeGround(playerId, sourceId, itemKey, deps);
+    async dispatchTakeGround(playerId, sourceId, itemKey, deps) {
+        this.assertPlayerInstanceLeaseWritable(playerId, deps);
+        return deps.worldRuntimeItemGroundService.dispatchTakeGround(playerId, sourceId, itemKey, deps);
     }    
     /**
  * dispatchTakeGroundAll：判断Take地面All是否满足条件。
@@ -171,8 +202,9 @@ let WorldRuntimeGameplayWriteFacadeService = class WorldRuntimeGameplayWriteFaca
  * @returns 无返回值，直接更新TakeGroundAll相关状态。
  */
 
-    dispatchTakeGroundAll(playerId, sourceId, deps) {
-        deps.worldRuntimeItemGroundService.dispatchTakeGroundAll(playerId, sourceId, deps);
+    async dispatchTakeGroundAll(playerId, sourceId, deps) {
+        this.assertPlayerInstanceLeaseWritable(playerId, deps);
+        return deps.worldRuntimeItemGroundService.dispatchTakeGroundAll(playerId, sourceId, deps);
     }    
     /**
  * dispatchBuyNpcShopItem：判断BuyNPCShop道具是否满足条件。
@@ -184,8 +216,9 @@ let WorldRuntimeGameplayWriteFacadeService = class WorldRuntimeGameplayWriteFaca
  * @returns 无返回值，直接更新BuyNPCShop道具相关状态。
  */
 
-    dispatchBuyNpcShopItem(playerId, npcId, itemId, quantity, deps) {
-        deps.worldRuntimeNpcShopService.dispatchBuyNpcShopItem(playerId, npcId, itemId, quantity, deps);
+    async dispatchBuyNpcShopItem(playerId, npcId, itemId, quantity, deps) {
+        this.assertPlayerInstanceLeaseWritable(playerId, deps);
+        return deps.worldRuntimeNpcShopService.dispatchBuyNpcShopItem(playerId, npcId, itemId, quantity, deps);
     }    
     /**
  * dispatchNpcInteraction：判断NPCInteraction是否满足条件。
@@ -195,8 +228,9 @@ let WorldRuntimeGameplayWriteFacadeService = class WorldRuntimeGameplayWriteFaca
  * @returns 无返回值，直接更新NPCInteraction相关状态。
  */
 
-    dispatchNpcInteraction(playerId, npcId, deps) {
-        deps.worldRuntimeNpcQuestWriteService.dispatchNpcInteraction(playerId, npcId, deps);
+    async dispatchNpcInteraction(playerId, npcId, deps) {
+        this.assertPlayerInstanceLeaseWritable(playerId, deps);
+        return deps.worldRuntimeNpcQuestWriteService.dispatchNpcInteraction(playerId, npcId, deps);
     }    
     /**
  * dispatchEquipItem：判断Equip道具是否满足条件。
@@ -206,8 +240,9 @@ let WorldRuntimeGameplayWriteFacadeService = class WorldRuntimeGameplayWriteFaca
  * @returns 无返回值，直接更新Equip道具相关状态。
  */
 
-    dispatchEquipItem(playerId, slotIndex, deps) {
-        deps.worldRuntimeEquipmentService.dispatchEquipItem(playerId, slotIndex, deps);
+    async dispatchEquipItem(playerId, slotIndex, deps) {
+        this.assertPlayerInstanceLeaseWritable(playerId, deps);
+        return deps.worldRuntimeEquipmentService.dispatchEquipItem(playerId, slotIndex, deps);
     }    
     /**
  * dispatchUnequipItem：判断Unequip道具是否满足条件。
@@ -217,8 +252,9 @@ let WorldRuntimeGameplayWriteFacadeService = class WorldRuntimeGameplayWriteFaca
  * @returns 无返回值，直接更新Unequip道具相关状态。
  */
 
-    dispatchUnequipItem(playerId, slot, deps) {
-        deps.worldRuntimeEquipmentService.dispatchUnequipItem(playerId, slot, deps);
+    async dispatchUnequipItem(playerId, slot, deps) {
+        this.assertPlayerInstanceLeaseWritable(playerId, deps);
+        return deps.worldRuntimeEquipmentService.dispatchUnequipItem(playerId, slot, deps);
     }    
     /**
  * dispatchCultivateTechnique：判断Cultivate功法是否满足条件。
@@ -229,6 +265,7 @@ let WorldRuntimeGameplayWriteFacadeService = class WorldRuntimeGameplayWriteFaca
  */
 
     dispatchCultivateTechnique(playerId, techniqueId, deps) {
+        this.assertPlayerInstanceLeaseWritable(playerId, deps);
         deps.worldRuntimeCultivationService.dispatchCultivateTechnique(playerId, techniqueId, deps);
     }    
     /**
@@ -240,14 +277,13 @@ let WorldRuntimeGameplayWriteFacadeService = class WorldRuntimeGameplayWriteFaca
  * @returns 无返回值，直接更新技艺活动相关状态。
  */
 
-    dispatchStartTechniqueActivity(playerId, kind, payload, deps) {
+    async dispatchStartTechniqueActivity(playerId, kind, payload, deps) {
+        this.assertPlayerInstanceLeaseWritable(playerId, deps);
         switch (kind) {
             case 'alchemy':
-                deps.worldRuntimeAlchemyService.dispatchStartAlchemy(playerId, payload, deps);
-                return;
+                return deps.worldRuntimeAlchemyService.dispatchStartAlchemy(playerId, payload, deps);
             case 'enhancement':
-                deps.worldRuntimeEnhancementService.dispatchStartEnhancement(playerId, payload, deps);
-                return;
+                return deps.worldRuntimeEnhancementService.dispatchStartEnhancement(playerId, payload, deps);
             case 'gather':
                 deps.worldRuntimeCraftMutationService.flushCraftMutation(
                     playerId,
@@ -266,14 +302,13 @@ let WorldRuntimeGameplayWriteFacadeService = class WorldRuntimeGameplayWriteFaca
  * @returns 无返回值，直接更新技艺活动相关状态。
  */
 
-    dispatchCancelTechniqueActivity(playerId, kind, deps) {
+    async dispatchCancelTechniqueActivity(playerId, kind, deps) {
+        this.assertPlayerInstanceLeaseWritable(playerId, deps);
         switch (kind) {
             case 'alchemy':
-                deps.worldRuntimeAlchemyService.dispatchCancelAlchemy(playerId, deps);
-                return;
+                return deps.worldRuntimeAlchemyService.dispatchCancelAlchemy(playerId, deps);
             case 'enhancement':
-                deps.worldRuntimeEnhancementService.dispatchCancelEnhancement(playerId, deps);
-                return;
+                return deps.worldRuntimeEnhancementService.dispatchCancelEnhancement(playerId, deps);
             case 'gather':
                 deps.worldRuntimeCraftMutationService.flushCraftMutation(
                     playerId,
@@ -292,8 +327,8 @@ let WorldRuntimeGameplayWriteFacadeService = class WorldRuntimeGameplayWriteFaca
  * @returns 无返回值，直接更新Start炼丹相关状态。
  */
 
-    dispatchStartAlchemy(playerId, payload, deps) {
-        this.dispatchStartTechniqueActivity(playerId, 'alchemy', payload, deps);
+    async dispatchStartAlchemy(playerId, payload, deps) {
+        return this.dispatchStartTechniqueActivity(playerId, 'alchemy', payload, deps);
     }    
     /**
  * dispatchCancelAlchemy：判断Cancel炼丹是否满足条件。
@@ -302,8 +337,8 @@ let WorldRuntimeGameplayWriteFacadeService = class WorldRuntimeGameplayWriteFaca
  * @returns 无返回值，直接更新Cancel炼丹相关状态。
  */
 
-    dispatchCancelAlchemy(playerId, deps) {
-        this.dispatchCancelTechniqueActivity(playerId, 'alchemy', deps);
+    async dispatchCancelAlchemy(playerId, deps) {
+        return this.dispatchCancelTechniqueActivity(playerId, 'alchemy', deps);
     }    
     /**
  * dispatchSaveAlchemyPreset：判断Save炼丹Preset是否满足条件。
@@ -314,6 +349,7 @@ let WorldRuntimeGameplayWriteFacadeService = class WorldRuntimeGameplayWriteFaca
  */
 
     dispatchSaveAlchemyPreset(playerId, payload, deps) {
+        this.assertPlayerInstanceLeaseWritable(playerId, deps);
         deps.worldRuntimeAlchemyService.dispatchSaveAlchemyPreset(playerId, payload, deps);
     }    
     /**
@@ -325,6 +361,7 @@ let WorldRuntimeGameplayWriteFacadeService = class WorldRuntimeGameplayWriteFaca
  */
 
     dispatchDeleteAlchemyPreset(playerId, presetId, deps) {
+        this.assertPlayerInstanceLeaseWritable(playerId, deps);
         deps.worldRuntimeAlchemyService.dispatchDeleteAlchemyPreset(playerId, presetId, deps);
     }    
     /**
@@ -335,8 +372,8 @@ let WorldRuntimeGameplayWriteFacadeService = class WorldRuntimeGameplayWriteFaca
  * @returns 无返回值，直接更新Start强化相关状态。
  */
 
-    dispatchStartEnhancement(playerId, payload, deps) {
-        this.dispatchStartTechniqueActivity(playerId, 'enhancement', payload, deps);
+    async dispatchStartEnhancement(playerId, payload, deps) {
+        return this.dispatchStartTechniqueActivity(playerId, 'enhancement', payload, deps);
     }    
     /**
  * dispatchCancelEnhancement：判断Cancel强化是否满足条件。
@@ -345,8 +382,8 @@ let WorldRuntimeGameplayWriteFacadeService = class WorldRuntimeGameplayWriteFaca
  * @returns 无返回值，直接更新Cancel强化相关状态。
  */
 
-    dispatchCancelEnhancement(playerId, deps) {
-        this.dispatchCancelTechniqueActivity(playerId, 'enhancement', deps);
+    async dispatchCancelEnhancement(playerId, deps) {
+        return this.dispatchCancelTechniqueActivity(playerId, 'enhancement', deps);
     }    
     /**
  * dispatchInteractNpcQuest：判断InteractNPC任务是否满足条件。
@@ -357,6 +394,7 @@ let WorldRuntimeGameplayWriteFacadeService = class WorldRuntimeGameplayWriteFaca
  */
 
     dispatchInteractNpcQuest(playerId, npcId, deps) {
+        this.assertPlayerInstanceLeaseWritable(playerId, deps);
         deps.worldRuntimeNpcQuestWriteService.dispatchInteractNpcQuest(playerId, npcId, deps);
     }    
     /**
@@ -369,6 +407,7 @@ let WorldRuntimeGameplayWriteFacadeService = class WorldRuntimeGameplayWriteFaca
  */
 
     dispatchAcceptNpcQuest(playerId, npcId, questId, deps) {
+        this.assertPlayerInstanceLeaseWritable(playerId, deps);
         deps.worldRuntimeNpcQuestWriteService.dispatchAcceptNpcQuest(playerId, npcId, questId, deps);
     }    
     /**
@@ -380,8 +419,9 @@ let WorldRuntimeGameplayWriteFacadeService = class WorldRuntimeGameplayWriteFaca
  * @returns 无返回值，直接更新SubmitNPC任务相关状态。
  */
 
-    dispatchSubmitNpcQuest(playerId, npcId, questId, deps) {
-        deps.worldRuntimeNpcQuestWriteService.dispatchSubmitNpcQuest(playerId, npcId, questId, deps);
+    async dispatchSubmitNpcQuest(playerId, npcId, questId, deps) {
+        this.assertPlayerInstanceLeaseWritable(playerId, deps);
+        return deps.worldRuntimeNpcQuestWriteService.dispatchSubmitNpcQuest(playerId, npcId, questId, deps);
     }    
     /**
  * dispatchSpawnMonsterLoot：判断Spawn怪物掉落是否满足条件。
@@ -395,6 +435,7 @@ let WorldRuntimeGameplayWriteFacadeService = class WorldRuntimeGameplayWriteFaca
  */
 
     dispatchSpawnMonsterLoot(instanceId, x, y, monsterId, rolls, deps) {
+        this.assertInstanceLeaseWritable(instanceId, deps);
         deps.worldRuntimeMonsterSystemCommandService.dispatchSpawnMonsterLoot(instanceId, x, y, monsterId, rolls, deps);
     }    
     /**
@@ -406,6 +447,7 @@ let WorldRuntimeGameplayWriteFacadeService = class WorldRuntimeGameplayWriteFaca
  */
 
     dispatchDefeatMonster(instanceId, runtimeId, deps) {
+        this.assertInstanceLeaseWritable(instanceId, deps);
         deps.worldRuntimeMonsterSystemCommandService.dispatchDefeatMonster(instanceId, runtimeId, deps);
     }    
     /**
@@ -417,6 +459,7 @@ let WorldRuntimeGameplayWriteFacadeService = class WorldRuntimeGameplayWriteFaca
  */
 
     dispatchDamagePlayer(playerId, amount, deps) {
+        this.assertPlayerInstanceLeaseWritable(playerId, deps);
         deps.worldRuntimePlayerCombatOutcomeService.dispatchDamagePlayer(playerId, amount, deps);
     }    
     /**
@@ -440,8 +483,8 @@ let WorldRuntimeGameplayWriteFacadeService = class WorldRuntimeGameplayWriteFaca
  * @returns 无返回值，直接更新玩家怪物Kill相关状态。
  */
 
-    handlePlayerMonsterKill(instance, monster, killerPlayerId, deps) {
-        deps.worldRuntimePlayerCombatOutcomeService.handlePlayerMonsterKill(instance, monster, killerPlayerId, deps);
+    async handlePlayerMonsterKill(instance, monster, killerPlayerId, deps) {
+        return deps.worldRuntimePlayerCombatOutcomeService.handlePlayerMonsterKill(instance, monster, killerPlayerId, deps);
     }    
     /**
  * handlePlayerDefeat：处理玩家Defeat并更新相关状态。
@@ -450,8 +493,8 @@ let WorldRuntimeGameplayWriteFacadeService = class WorldRuntimeGameplayWriteFaca
  * @returns 无返回值，直接更新玩家Defeat相关状态。
  */
 
-    handlePlayerDefeat(playerId, deps, killerPlayerId = null) {
-        deps.worldRuntimePlayerCombatOutcomeService.handlePlayerDefeat(playerId, deps, killerPlayerId);
+    async handlePlayerDefeat(playerId, deps, killerPlayerId = null) {
+        return deps.worldRuntimePlayerCombatOutcomeService.handlePlayerDefeat(playerId, deps, killerPlayerId);
     }    
     /**
  * processPendingRespawns：处理待处理重生并更新相关状态。

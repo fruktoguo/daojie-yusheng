@@ -38,6 +38,9 @@ let WorldRuntimeSummaryQueryService = class WorldRuntimeSummaryQueryService {
             playerCount: input.playerCount,
             pendingCommandCount: input.pendingCommandCount,
             pendingSystemCommandCount: input.pendingSystemCommandCount,
+            dirtyBacklog: normalizeDirtyBacklog(input.dirtyBacklog),
+            recoveryQueue: normalizeSummaryObject(input.recoveryQueue),
+            flushWakeup: normalizeSummaryObject(input.flushWakeup),
             tickPerf: {
                 totalMs: summarizeDurations(input.lastTickDurationMs, input.tickDurationHistoryMs),
                 syncFlushMs: summarizeDurations(input.lastSyncFlushDurationMs, input.syncFlushDurationHistoryMs),
@@ -89,6 +92,46 @@ function summarizePhaseDurations(historyByKey) {
 
 function roundDurationMs(value) {
     return Math.round(value * 1000) / 1000;
+}
+
+function normalizeDirtyBacklog(input) {
+    if (!input || typeof input !== 'object') {
+        return {
+            players: 0,
+            playerDomains: 0,
+            instances: 0,
+        };
+    }
+    return {
+        players: normalizeCount(input.players),
+        playerDomains: normalizeCount(input.playerDomains),
+        instances: normalizeCount(input.instances),
+    };
+}
+
+function normalizeSummaryObject(input) {
+    if (!input || typeof input !== 'object') {
+        return {
+            concurrency: 0,
+            inFlight: 0,
+            queued: 0,
+            keys: [],
+        };
+    }
+    return {
+        concurrency: normalizeCount(input.concurrency),
+        inFlight: normalizeCount(input.inFlight),
+        queued: normalizeCount(input.queued),
+        keys: Array.isArray(input.keys) ? input.keys.filter((entry) => typeof entry === 'string' && entry.trim()) : [],
+    };
+}
+
+function normalizeCount(value) {
+    const parsed = Number(value);
+    if (!Number.isFinite(parsed)) {
+        return 0;
+    }
+    return Math.max(0, Math.trunc(parsed));
 }
 
 export { WorldRuntimeSummaryQueryService };

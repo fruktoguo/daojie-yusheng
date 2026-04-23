@@ -10,6 +10,7 @@ import {
 } from '@mud/shared';
 import { ContentTemplateRepository } from '../../content/content-template.repository';
 import { MapTemplateRepository } from '../../runtime/map/map-template.repository';
+import { DatabasePoolProvider } from '../../persistence/database-pool.provider';
 import { PlayerPersistenceService } from '../../persistence/player-persistence.service';
 import { MarketRuntimeService } from '../../runtime/market/market-runtime.service';
 import { PlayerProgressionService } from '../../runtime/player/player-progression.service';
@@ -148,6 +149,62 @@ interface WorldRuntimeServiceLike {
 interface NativeManagedAccountServiceLike {
   getManagedAccountIndex(playerIds: string[]): Promise<Map<string, ManagedAccountEntryLike>>;
 }
+
+interface GmPlayerDatabaseTableViewLike {
+  table: string;
+  rowCount: number;
+  payload: unknown;
+}
+
+const GM_PLAYER_DATABASE_TABLES = [
+  'server_player_snapshot',
+  'player_presence',
+  'player_world_anchor',
+  'player_position_checkpoint',
+  'player_vitals',
+  'player_progression_core',
+  'player_attr_state',
+  'player_body_training_state',
+  'player_wallet',
+  'player_inventory_item',
+  'player_market_storage_item',
+  'player_map_unlock',
+  'player_equipment_slot',
+  'player_technique_state',
+  'player_persistent_buff_state',
+  'player_quest_progress',
+  'player_combat_preferences',
+  'player_auto_battle_skill',
+  'player_auto_use_item_rule',
+  'player_profession_state',
+  'player_alchemy_preset',
+  'player_active_job',
+  'player_enhancement_record',
+  'player_logbook_message',
+  'player_recovery_watermark',
+  'player_mail',
+  'player_mail_attachment',
+  'player_mail_counter',
+] as const;
+
+const GM_PLAYER_DATABASE_TABLE_ORDER_BY: Partial<Record<(typeof GM_PLAYER_DATABASE_TABLES)[number], string>> = {
+  player_wallet: 'ORDER BY wallet_type ASC',
+  player_inventory_item: 'ORDER BY slot_index ASC NULLS LAST, item_id ASC',
+  player_market_storage_item: 'ORDER BY slot_index ASC NULLS LAST, storage_item_id ASC NULLS LAST, item_id ASC',
+  player_map_unlock: 'ORDER BY unlocked_at ASC NULLS LAST, map_id ASC',
+  player_equipment_slot: 'ORDER BY slot_type ASC',
+  player_technique_state: 'ORDER BY realm_lv ASC NULLS LAST, tech_id ASC',
+  player_persistent_buff_state: 'ORDER BY buff_id ASC',
+  player_quest_progress: 'ORDER BY quest_id ASC',
+  player_auto_battle_skill: 'ORDER BY auto_battle_order ASC, skill_id ASC',
+  player_auto_use_item_rule: 'ORDER BY item_id ASC',
+  player_profession_state: 'ORDER BY profession_type ASC',
+  player_alchemy_preset: 'ORDER BY preset_id ASC',
+  player_enhancement_record: 'ORDER BY item_id ASC, record_id ASC',
+  player_logbook_message: 'ORDER BY occurred_at DESC, message_id ASC',
+  player_mail: 'ORDER BY created_at DESC NULLS LAST, mail_id ASC',
+  player_mail_attachment: 'ORDER BY mail_id ASC, attachment_id ASC',
+};
 /**
  * NativeGmPlayerService：封装该能力的入口与生命周期，承载运行时核心协作。
  */
@@ -184,6 +241,7 @@ export class NativeGmPlayerService {
     private readonly worldRuntimeService: WorldRuntimeServiceLike,
     @Inject(NativeManagedAccountService)
     private readonly nextManagedAccountService: NativeManagedAccountServiceLike,
+    private readonly databasePoolProvider: DatabasePoolProvider | null = null,
   ) {}  
   /**
  * hasRuntimePlayer：判断运行态玩家是否满足条件。
@@ -206,11 +264,17 @@ export class NativeGmPlayerService {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
     const account = (await this.nextManagedAccountService.getManagedAccountIndex([playerId])).get(playerId);
+    const databaseTables = await this.loadPlayerDatabaseTables(playerId);
 
     const runtime = this.playerRuntimeService.snapshot(playerId);
     if (runtime) {
       return {
-        player: this.toManagedPlayerRecord(runtime, this.playerRuntimeService.buildPersistenceSnapshot(playerId), account),
+        player: this.toManagedPlayerRecord(
+          runtime,
+          this.playerRuntimeService.buildPersistenceSnapshot(playerId),
+          account,
+          databaseTables,
+        ),
       };
     }
 
@@ -220,7 +284,7 @@ export class NativeGmPlayerService {
     }
 
     return {
-      player: this.toManagedPlayerRecordFromPersistence(playerId, persisted, account),
+      player: this.toManagedPlayerRecordFromPersistence(playerId, persisted, account, databaseTables),
     };
   }
   /**
@@ -1450,7 +1514,7 @@ export class NativeGmPlayerService {
  */
 
 
-  private toManagedPlayerRecord(snapshot, persistedSnapshot, account = null) {
+  private toManagedPlayerRecord(snapshot, persistedSnapshot, account = null, databaseTables: GmPlayerDatabaseTableViewLike[] = []) {
     const summary = this.toManagedPlayerSummary(snapshot, account);
 
     return {
@@ -1458,6 +1522,7 @@ export class NativeGmPlayerService {
       account: buildManagedAccountView(account, summary.meta.online === true),
       snapshot: this.toLegacyPlayerState(snapshot),
       persistedSnapshot: persistedSnapshot ?? null,
+      databaseTables,
     };
   }  
   /**
@@ -1469,7 +1534,12 @@ export class NativeGmPlayerService {
  */
 
 
-  private toManagedPlayerRecordFromPersistence(playerId, persistedSnapshot, account = null) {
+  private toManagedPlayerRecordFromPersistence(
+    playerId,
+    persistedSnapshot,
+    account = null,
+    databaseTables: GmPlayerDatabaseTableViewLike[] = [],
+  ) {
     const player = this.toLegacyPlayerStateFromPersistence(playerId, persistedSnapshot);
 
     return {
@@ -1501,8 +1571,53 @@ export class NativeGmPlayerService {
       account: buildManagedAccountView(account, false),
       snapshot: player,
       persistedSnapshot,
+      databaseTables,
     };
   }  
+
+  private async loadPlayerDatabaseTables(playerId: string): Promise<GmPlayerDatabaseTableViewLike[]> {
+    const pool = this.databasePoolProvider?.getPool('gm-player-detail');
+    if (!pool) {
+      return [];
+    }
+
+    const databaseTables: GmPlayerDatabaseTableViewLike[] = [];
+    for (const table of GM_PLAYER_DATABASE_TABLES) {
+      const orderByClause = GM_PLAYER_DATABASE_TABLE_ORDER_BY[table] ?? '';
+      try {
+        const result = await pool.query<{ payload?: unknown }>(
+          `
+            SELECT to_jsonb(t) AS payload
+            FROM (
+              SELECT *
+              FROM ${table}
+              WHERE player_id = $1
+              ${orderByClause}
+            ) AS t
+          `,
+          [playerId],
+        );
+        const rows = Array.isArray(result.rows)
+          ? result.rows.map((row) => row?.payload ?? null)
+          : [];
+        databaseTables.push({
+          table,
+          rowCount: rows.length,
+          payload: rows.length === 0 ? null : rows.length === 1 ? rows[0] : rows,
+        });
+      } catch (error: unknown) {
+        databaseTables.push({
+          table,
+          rowCount: 0,
+          payload: {
+            error: error instanceof Error ? error.message : String(error),
+          },
+        });
+      }
+    }
+
+    return databaseTables;
+  }
   /**
  * toLegacyPlayerState：执行toLegacy玩家状态相关逻辑。
  * @param snapshot 参数说明。

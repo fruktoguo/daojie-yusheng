@@ -187,7 +187,7 @@ let WorldRuntimeNpcShopQueryService = class WorldRuntimeNpcShopQueryService {
         if (!this.playerRuntimeService.canReceiveInventoryItem(playerId, item.itemId)) {
             throw new common_1.BadRequestException('背包空间不足，无法购买');
         }
-        if (this.playerRuntimeService.getInventoryCountByItemId(playerId, NPC_SHOP_CURRENCY_ITEM_ID) < totalCost) {
+        if (!this.playerRuntimeService.canAffordWallet(playerId, NPC_SHOP_CURRENCY_ITEM_ID, totalCost)) {
             throw new common_1.BadRequestException(`${this.getCurrencyItemName()}不足`);
         }
         return {

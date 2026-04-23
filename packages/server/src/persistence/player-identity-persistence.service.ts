@@ -27,9 +27,23 @@ const env_alias_1 = require("../config/env-alias");
 const PLAYER_IDENTITY_SCOPE = 'server_player_identities_v1';
 
 const PLAYER_IDENTITY_TABLE = 'server_player_identity';
+const PLAYER_IDENTITY_MIRROR_TABLE = 'player_identity';
 
 const CREATE_PLAYER_IDENTITY_TABLE_SQL = `
   CREATE TABLE IF NOT EXISTS ${PLAYER_IDENTITY_TABLE} (
+    user_id varchar(100) PRIMARY KEY,
+    username varchar(80) NOT NULL UNIQUE,
+    player_id varchar(100) NOT NULL UNIQUE,
+    display_name varchar(32),
+    player_name varchar(120) NOT NULL,
+    persisted_source varchar(32) NOT NULL,
+    updated_at timestamptz NOT NULL DEFAULT now(),
+    payload jsonb NOT NULL
+  )
+`;
+
+const CREATE_PLAYER_IDENTITY_MIRROR_TABLE_SQL = `
+  CREATE TABLE IF NOT EXISTS ${PLAYER_IDENTITY_MIRROR_TABLE} (
     user_id varchar(100) PRIMARY KEY,
     username varchar(80) NOT NULL UNIQUE,
     player_id varchar(100) NOT NULL UNIQUE,
@@ -54,6 +68,75 @@ const CREATE_PLAYER_IDENTITY_PLAYER_INDEX_SQL = `
 const CREATE_PLAYER_IDENTITY_DISPLAY_INDEX_SQL = `
   CREATE INDEX IF NOT EXISTS server_player_identity_display_idx
   ON ${PLAYER_IDENTITY_TABLE}(display_name)
+`;
+
+const CREATE_PLAYER_IDENTITY_MIRROR_USERNAME_INDEX_SQL = `
+  CREATE INDEX IF NOT EXISTS player_identity_username_idx
+  ON ${PLAYER_IDENTITY_MIRROR_TABLE}(username)
+`;
+
+const CREATE_PLAYER_IDENTITY_MIRROR_PLAYER_INDEX_SQL = `
+  CREATE INDEX IF NOT EXISTS player_identity_player_idx
+  ON ${PLAYER_IDENTITY_MIRROR_TABLE}(player_id)
+`;
+
+const CREATE_PLAYER_IDENTITY_MIRROR_DISPLAY_INDEX_SQL = `
+  CREATE INDEX IF NOT EXISTS player_identity_display_idx
+  ON ${PLAYER_IDENTITY_MIRROR_TABLE}(display_name)
+`;
+
+const CREATE_PLAYER_IDENTITY_MIRROR_SYNC_FUNCTION_SQL = `
+  CREATE OR REPLACE FUNCTION sync_server_player_identity_to_player_identity()
+  RETURNS trigger
+  LANGUAGE plpgsql
+  AS $$
+  BEGIN
+    IF TG_OP = 'DELETE' THEN
+      DELETE FROM ${PLAYER_IDENTITY_MIRROR_TABLE}
+      WHERE user_id = OLD.user_id;
+      RETURN OLD;
+    END IF;
+
+    INSERT INTO ${PLAYER_IDENTITY_MIRROR_TABLE} (
+      user_id,
+      username,
+      player_id,
+      display_name,
+      player_name,
+      persisted_source,
+      updated_at,
+      payload
+    )
+    VALUES (
+      NEW.user_id,
+      NEW.username,
+      NEW.player_id,
+      NEW.display_name,
+      NEW.player_name,
+      NEW.persisted_source,
+      NEW.updated_at,
+      NEW.payload
+    )
+    ON CONFLICT (user_id)
+    DO UPDATE SET
+      username = EXCLUDED.username,
+      player_id = EXCLUDED.player_id,
+      display_name = EXCLUDED.display_name,
+      player_name = EXCLUDED.player_name,
+      persisted_source = EXCLUDED.persisted_source,
+      updated_at = EXCLUDED.updated_at,
+      payload = EXCLUDED.payload;
+    RETURN NEW;
+  END;
+  $$;
+`;
+
+const CREATE_PLAYER_IDENTITY_MIRROR_TRIGGER_SQL = `
+  DROP TRIGGER IF EXISTS server_player_identity_to_player_identity_sync ON ${PLAYER_IDENTITY_TABLE};
+  CREATE TRIGGER server_player_identity_to_player_identity_sync
+  AFTER INSERT OR UPDATE OR DELETE ON ${PLAYER_IDENTITY_TABLE}
+  FOR EACH ROW
+  EXECUTE FUNCTION sync_server_player_identity_to_player_identity();
 `;
 
 const PLAYER_IDENTITY_PERSISTED_SOURCE_NATIVE = 'native';
@@ -101,7 +184,7 @@ let PlayerIdentityPersistenceService = PlayerIdentityPersistenceService_1 = clas
         try {
             await ensurePlayerIdentityTable(this.pool);
             this.enabled = true;
-            this.logger.log('玩家身份持久化已启用（server_player_identity）');
+            this.logger.log('玩家身份持久化已启用（server_player_identity + player_identity mirror）');
         }
         catch (error) {
             this.logger.error('玩家身份持久化初始化失败，已回退为禁用模式', error instanceof Error ? error.stack : String(error));
@@ -237,9 +320,15 @@ async function ensurePlayerIdentityTable(pool) {
     try {
         await client.query('BEGIN');
         await client.query(CREATE_PLAYER_IDENTITY_TABLE_SQL);
+        await client.query(CREATE_PLAYER_IDENTITY_MIRROR_TABLE_SQL);
         await client.query(CREATE_PLAYER_IDENTITY_USERNAME_INDEX_SQL);
         await client.query(CREATE_PLAYER_IDENTITY_PLAYER_INDEX_SQL);
         await client.query(CREATE_PLAYER_IDENTITY_DISPLAY_INDEX_SQL);
+        await client.query(CREATE_PLAYER_IDENTITY_MIRROR_USERNAME_INDEX_SQL);
+        await client.query(CREATE_PLAYER_IDENTITY_MIRROR_PLAYER_INDEX_SQL);
+        await client.query(CREATE_PLAYER_IDENTITY_MIRROR_DISPLAY_INDEX_SQL);
+        await client.query(CREATE_PLAYER_IDENTITY_MIRROR_SYNC_FUNCTION_SQL);
+        await client.query(CREATE_PLAYER_IDENTITY_MIRROR_TRIGGER_SQL);
         await client.query('COMMIT');
     }
     catch (error) {

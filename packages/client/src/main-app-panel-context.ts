@@ -1,6 +1,6 @@
 import { getCurrentAccountName } from './ui/auth-api';
 import { DEFAULT_AURA_LEVEL_BASE_VALUE, type ActionDef, type Inventory, type S2C_TileDetail, type SyncedItemStack } from '@mud/shared';
-import { reactUiBridge } from './next/bridge/next-ui-bridge';
+import { reactUiBridge } from './react-ui/bridge/react-ui-bridge';
 import { createMainActionStateSource } from './main-action-state-source';
 import { createMainAttrDetailStateSource } from './main-attr-detail-state-source';
 import { createMainBreakthroughStateSource } from './main-breakthrough-state-source';

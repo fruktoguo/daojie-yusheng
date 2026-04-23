@@ -91,6 +91,16 @@ function createService(log) {
         },
     });
 }
+
+function createDeferred() {
+    let resolve;
+    let reject;
+    const promise = new Promise((innerResolve, innerReject) => {
+        resolve = innerResolve;
+        reject = innerReject;
+    });
+    return { promise, resolve, reject };
+}
 /**
  * testDispatchBasicAttackDelegates：判断testDispatchBasicAttackDelegate是否满足条件。
  * @returns 无返回值，直接更新testDispatchBasicAttackDelegate相关状态。
@@ -177,11 +187,98 @@ function testDispatchEngageBattleDelegates() {
     ]);
 }
 
-testDispatchBasicAttackDelegates();
-testDispatchCastSkillDelegates();
-testResolveLegacySkillTargetRefDelegates();
-testDispatchCastSkillToMonsterDelegates();
-testDispatchCastSkillToTileDelegates();
-testDispatchEngageBattleDelegates();
+async function testDispatchEngageBattleAwaitsAsyncHandler() {
+    const log = [];
+    const service = createService(log);
+    const deferred = createDeferred();
+    service.worldRuntimeBattleEngageService.dispatchEngageBattle = async (playerId, targetPlayerId, targetMonsterId, targetX, targetY, locked) => {
+        log.push(['dispatchEngageBattle', playerId, targetPlayerId, targetMonsterId, targetX, targetY, locked]);
+        await deferred.promise;
+        log.push(['dispatchEngageBattle:resolved', playerId, targetPlayerId, targetMonsterId, targetX, targetY, locked]);
+    };
+    const pending = service.dispatchEngageBattle('player:1', null, 'monster:9', 7, 8, true, {});
+    await new Promise((resolve) => setImmediate(resolve));
+    assert.deepEqual(log, [
+        ['dispatchEngageBattle', 'player:1', null, 'monster:9', 7, 8, true],
+    ]);
+    deferred.resolve();
+    await pending;
+    assert.deepEqual(log, [
+        ['dispatchEngageBattle', 'player:1', null, 'monster:9', 7, 8, true],
+        ['dispatchEngageBattle:resolved', 'player:1', null, 'monster:9', 7, 8, true],
+    ]);
+}
 
-console.log(JSON.stringify({ ok: true, case: 'world-runtime-combat-command' }, null, 2));
+async function testCombatRoutesAwaitAsyncHandlers() {
+    const log = [];
+    const service = createService(log);
+    const basicAttackDeferred = createDeferred();
+    const castSkillDeferred = createDeferred();
+    const castSkillToMonsterDeferred = createDeferred();
+    service.worldRuntimeBasicAttackService.dispatchBasicAttack = async (playerId, targetPlayerId, targetMonsterId, targetX, targetY) => {
+        log.push(['dispatchBasicAttack', playerId, targetPlayerId, targetMonsterId, targetX, targetY]);
+        await basicAttackDeferred.promise;
+        log.push(['dispatchBasicAttack:resolved', playerId, targetPlayerId, targetMonsterId, targetX, targetY]);
+    };
+    service.worldRuntimePlayerSkillDispatchService.dispatchCastSkill = async (playerId, skillId, targetPlayerId, targetMonsterId, targetRef) => {
+        log.push(['dispatchCastSkill', playerId, skillId, targetPlayerId, targetMonsterId, targetRef]);
+        await castSkillDeferred.promise;
+        log.push(['dispatchCastSkill:resolved', playerId, skillId, targetPlayerId, targetMonsterId, targetRef]);
+    };
+    service.worldRuntimePlayerSkillDispatchService.dispatchCastSkillToMonster = async (attacker, skillId, targetMonsterId) => {
+        log.push(['dispatchCastSkillToMonster', attacker.playerId, skillId, targetMonsterId]);
+        await castSkillToMonsterDeferred.promise;
+        log.push(['dispatchCastSkillToMonster:resolved', attacker.playerId, skillId, targetMonsterId]);
+    };
+
+    const pendingBasicAttack = service.dispatchBasicAttack('player:1', 'player:2', null, null, null, {});
+    await new Promise((resolve) => setImmediate(resolve));
+    assert.deepEqual(log, [
+        ['dispatchBasicAttack', 'player:1', 'player:2', null, null, null],
+    ]);
+    basicAttackDeferred.resolve();
+    await pendingBasicAttack;
+
+    const pendingCastSkill = service.dispatchCastSkill('player:1', 'skill.a', null, 'monster:9', 'tile:1:2', {});
+    await new Promise((resolve) => setImmediate(resolve));
+    assert.deepEqual(log, [
+        ['dispatchBasicAttack', 'player:1', 'player:2', null, null, null],
+        ['dispatchBasicAttack:resolved', 'player:1', 'player:2', null, null, null],
+        ['dispatchCastSkill', 'player:1', 'skill.a', null, 'monster:9', 'tile:1:2'],
+    ]);
+    castSkillDeferred.resolve();
+    await pendingCastSkill;
+
+    const pendingCastSkillToMonster = service.dispatchCastSkillToMonster({ playerId: 'player:1' }, 'skill.a', 'monster:9', {});
+    await new Promise((resolve) => setImmediate(resolve));
+    assert.deepEqual(log, [
+        ['dispatchBasicAttack', 'player:1', 'player:2', null, null, null],
+        ['dispatchBasicAttack:resolved', 'player:1', 'player:2', null, null, null],
+        ['dispatchCastSkill', 'player:1', 'skill.a', null, 'monster:9', 'tile:1:2'],
+        ['dispatchCastSkill:resolved', 'player:1', 'skill.a', null, 'monster:9', 'tile:1:2'],
+        ['dispatchCastSkillToMonster', 'player:1', 'skill.a', 'monster:9'],
+    ]);
+    castSkillToMonsterDeferred.resolve();
+    await pendingCastSkillToMonster;
+    assert.deepEqual(log, [
+        ['dispatchBasicAttack', 'player:1', 'player:2', null, null, null],
+        ['dispatchBasicAttack:resolved', 'player:1', 'player:2', null, null, null],
+        ['dispatchCastSkill', 'player:1', 'skill.a', null, 'monster:9', 'tile:1:2'],
+        ['dispatchCastSkill:resolved', 'player:1', 'skill.a', null, 'monster:9', 'tile:1:2'],
+        ['dispatchCastSkillToMonster', 'player:1', 'skill.a', 'monster:9'],
+        ['dispatchCastSkillToMonster:resolved', 'player:1', 'skill.a', 'monster:9'],
+    ]);
+}
+
+Promise.resolve()
+    .then(() => testDispatchBasicAttackDelegates())
+    .then(() => testDispatchCastSkillDelegates())
+    .then(() => testResolveLegacySkillTargetRefDelegates())
+    .then(() => testDispatchCastSkillToMonsterDelegates())
+    .then(() => testDispatchCastSkillToTileDelegates())
+    .then(() => testDispatchEngageBattleDelegates())
+    .then(() => testDispatchEngageBattleAwaitsAsyncHandler())
+    .then(() => testCombatRoutesAwaitAsyncHandlers())
+    .then(() => {
+    console.log(JSON.stringify({ ok: true, case: 'world-runtime-combat-command' }, null, 2));
+});

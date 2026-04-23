@@ -29,7 +29,7 @@ import type { MainUiStateSource } from './main-ui-state-source';
 import { ChangelogPanel } from './ui/changelog-panel';
 import { TutorialPanel } from './ui/tutorial-panel';
 import { startClientVersionReload } from './version-reload';
-import { mountReactUi } from './next/app/mount';
+import { mountReactUi } from './react-ui/app/mount';
 import { initializeUiStyleConfig } from './ui/ui-style-config';
 import { bindMainHighFrequencySocketEvents } from './main-high-frequency-socket-bindings';
 import { bindMainLowFrequencySocketEvents } from './main-low-frequency-socket-bindings';

@@ -1842,7 +1842,7 @@
             <button id="editor-tab-quests" class="workspace-tab" type="button">任务</button>
             <button id="editor-tab-mail" class="workspace-tab" type="button">邮件</button>
             <button id="editor-tab-risk" class="workspace-tab" type="button">风险检测</button>
-            <button id="editor-tab-persisted" class="workspace-tab" type="button">持久化 JSON</button>
+            <button id="editor-tab-persisted" class="workspace-tab" type="button">数据库</button>
           </div>
           <div id="editor-visual-panel" class="editor-tab-panel">
             <div id="editor-content" class="editor-stack"></div>
@@ -1851,20 +1851,14 @@
             <div class="editor-section">
               <div class="editor-section-head">
                 <div>
-                  <div class="editor-section-title">完整持久化 JSON</div>
-                  <div class="editor-section-note">用于核对真实落盘结构，不直接参与可视化编辑。</div>
+                  <div class="editor-section-title">数据库真源</div>
+                  <div class="editor-section-note">按表查看当前数据库中的玩家真源，不直接参与可视化编辑。</div>
                 </div>
               </div>
+              <div id="player-database-tabs" class="workspace-tabs editor-tabs" style="margin: 12px 0 8px;"></div>
+              <div id="player-database-meta" class="editor-note" style="margin-bottom: 8px;">当前还没有数据库表数据。</div>
               <textarea id="player-persisted-json" class="editor-textarea" spellcheck="false" readonly></textarea>
             </div>
-            <details class="editor-section editor-advanced">
-              <summary class="editor-section-title">高级模式 · 运行态 JSON 导入</summary>
-              <div class="editor-note" style="margin-top:8px;">运行态 JSON 用于导入、兜底修改或核对完整快照。应用后会同步到上方可视化标签。</div>
-              <div class="button-row" style="margin: 10px 0;">
-                <button id="apply-raw-json" class="small-btn" type="button">应用运行态 JSON 到可视化</button>
-              </div>
-              <textarea id="player-json" class="editor-textarea" spellcheck="false"></textarea>
-            </details>
           </div>
         </div>
       </div>

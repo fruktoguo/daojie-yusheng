@@ -58,6 +58,31 @@ export const PLAYER_DOMAIN_PROJECTED_TABLES = [
   PLAYER_RECOVERY_WATERMARK_TABLE,
 ] as const;
 
+export const PLAYER_SNAPSHOT_PROJECTABLE_DIRTY_DOMAINS = [
+  'world_anchor',
+  'position_checkpoint',
+  'vitals',
+  'progression',
+  'attr',
+  'wallet',
+  'market_storage',
+  'inventory',
+  'map_unlock',
+  'equipment',
+  'technique',
+  'body_training',
+  'buff',
+  'quest',
+  'combat_pref',
+  'auto_battle_skill',
+  'auto_use_item_rule',
+  'profession',
+  'alchemy_preset',
+  'active_job',
+  'enhancement_record',
+  'logbook',
+] as const;
+
 const WATERMARK_COLUMNS = [
   'identity_version',
   'presence_version',
@@ -161,13 +186,6 @@ export interface PlayerInventoryItemUpsertInput {
   slotIndex?: number | null;
   itemInstanceId?: string | null;
   rawPayload?: Record<string, unknown> | null;
-}
-
-export interface PlayerWalletUpsertInput {
-  walletType: string;
-  balance: number;
-  frozenBalance?: number | null;
-  version?: number | null;
 }
 
 export interface PlayerMarketStorageItemUpsertInput {
@@ -373,10 +391,26 @@ interface PlayerBodyTrainingLoadRow {
   exp_to_next?: unknown;
 }
 
+interface PlayerWalletLoadRow {
+  wallet_type?: unknown;
+  balance?: unknown;
+  frozen_balance?: unknown;
+  version?: unknown;
+}
+
 interface PlayerInventoryItemLoadRow {
   item_id?: unknown;
   count?: unknown;
   slot_index?: unknown;
+  raw_payload?: unknown;
+}
+
+interface PlayerMarketStorageItemLoadRow {
+  storage_item_id?: unknown;
+  item_id?: unknown;
+  count?: unknown;
+  slot_index?: unknown;
+  enhance_level?: unknown;
   raw_payload?: unknown;
 }
 
@@ -514,7 +548,9 @@ export interface LoadedPlayerDomains {
   progressionCore: PlayerProgressionCoreLoadRow | null;
   attrState: PlayerAttrStateLoadRow | null;
   bodyTraining: PlayerBodyTrainingLoadRow | null;
+  walletRows: PlayerWalletLoadRow[];
   inventoryItems: PlayerInventoryItemLoadRow[];
+  marketStorageItems: PlayerMarketStorageItemLoadRow[];
   mapUnlocks: PlayerMapUnlockLoadRow[];
   equipmentSlots: PlayerEquipmentSlotLoadRow[];
   techniqueStates: PlayerTechniqueStateLoadRow[];
@@ -651,16 +687,6 @@ export class PlayerDomainPersistenceService implements OnModuleInit, OnModuleDes
         presence_version: versionSeed,
       });
     });
-  }
-
-  async savePlayerWallet(
-    playerId: string,
-    rows: readonly PlayerWalletUpsertInput[],
-    options: PlayerDomainWriteOptions = {},
-  ): Promise<void> {
-    await this.saveProjectedDomain(playerId, options.versionSeed, ['wallet_version'], (client, normalizedPlayerId, versionSeed) =>
-      replacePlayerWalletRows(client, normalizedPlayerId, rows, versionSeed),
-    );
   }
 
   async savePlayerWorldAnchor(
@@ -907,6 +933,22 @@ export class PlayerDomainPersistenceService implements OnModuleInit, OnModuleDes
     });
   }
 
+  async savePlayerSnapshotProjectionDomains(
+    playerId: string,
+    snapshot: PersistedPlayerSnapshot | null | undefined,
+    domains: Iterable<string>,
+  ): Promise<void> {
+    const normalizedPlayerId = normalizeRequiredString(playerId);
+    if (!this.pool || !this.enabled || !normalizedPlayerId || !snapshot?.placement?.templateId) {
+      return;
+    }
+
+    await this.withTransaction(async (client) => {
+      await acquirePlayerPersistenceLock(client, normalizedPlayerId);
+      await savePlayerSnapshotProjectionDomainsWithClient(client, normalizedPlayerId, snapshot, domains);
+    });
+  }
+
   async loadPlayerDomains(playerId: string): Promise<LoadedPlayerDomains | null> {
     const normalizedPlayerId = normalizeRequiredString(playerId);
     if (!this.pool || !this.enabled || !normalizedPlayerId) {
@@ -1002,6 +1044,20 @@ export class PlayerDomainPersistenceService implements OnModuleInit, OnModuleDes
         `,
         [normalizedPlayerId],
       );
+      const walletRows = await queryRows<PlayerWalletLoadRow>(
+        client,
+        `
+          SELECT
+            wallet_type,
+            balance,
+            frozen_balance,
+            version
+          FROM ${PLAYER_WALLET_TABLE}
+          WHERE player_id = $1
+          ORDER BY wallet_type ASC
+        `,
+        [normalizedPlayerId],
+      );
       const inventoryItems = await queryRows<PlayerInventoryItemLoadRow>(
         client,
         `
@@ -1013,6 +1069,22 @@ export class PlayerDomainPersistenceService implements OnModuleInit, OnModuleDes
           FROM ${PLAYER_INVENTORY_ITEM_TABLE}
           WHERE player_id = $1
           ORDER BY slot_index ASC
+        `,
+        [normalizedPlayerId],
+      );
+      const marketStorageItems = await queryRows<PlayerMarketStorageItemLoadRow>(
+        client,
+        `
+          SELECT
+            storage_item_id,
+            item_id,
+            count,
+            slot_index,
+            enhance_level,
+            raw_payload
+          FROM ${PLAYER_MARKET_STORAGE_ITEM_TABLE}
+          WHERE player_id = $1
+          ORDER BY slot_index ASC, storage_item_id ASC
         `,
         [normalizedPlayerId],
       );
@@ -1240,7 +1312,34 @@ export class PlayerDomainPersistenceService implements OnModuleInit, OnModuleDes
         progressionCore,
         attrState,
         bodyTraining,
+        walletRows,
         inventoryItems,
+        marketStorageItems,
+        mapUnlocks,
+        equipmentSlots,
+        techniqueStates,
+        persistentBuffStates,
+        questProgressRows,
+        combatPreferences,
+        autoBattleSkills,
+        autoUseItemRules,
+        professionStates,
+        alchemyPresets,
+        activeJob,
+        enhancementRecords,
+        logbookMessages,
+        recoveryWatermark,
+      });
+      const hasAnyLoadedState = hasAnyLoadedPlayerDomainState({
+        worldAnchor,
+        positionCheckpoint,
+        vitals,
+        progressionCore,
+        attrState,
+        bodyTraining,
+        walletRows,
+        inventoryItems,
+        marketStorageItems,
         mapUnlocks,
         equipmentSlots,
         techniqueStates,
@@ -1257,7 +1356,7 @@ export class PlayerDomainPersistenceService implements OnModuleInit, OnModuleDes
         recoveryWatermark,
       });
 
-      if (!hasProjectedState) {
+      if (!hasAnyLoadedState) {
         return null;
       }
 
@@ -1268,7 +1367,9 @@ export class PlayerDomainPersistenceService implements OnModuleInit, OnModuleDes
         progressionCore,
         attrState,
         bodyTraining,
+        walletRows,
         inventoryItems,
+        marketStorageItems,
         mapUnlocks,
         equipmentSlots,
         techniqueStates,
@@ -1383,6 +1484,8 @@ export async function savePlayerSnapshotProjectionWithClient(
   const attrState = buildAttrStateRow(snapshot);
   const bodyTraining = asRecord(progression?.bodyTraining);
   const inventoryItems = Array.isArray(snapshot.inventory?.items) ? snapshot.inventory.items : [];
+  const walletBalances = Array.isArray(snapshot.wallet?.balances) ? snapshot.wallet.balances : [];
+  const marketStorageItems = Array.isArray(snapshot.marketStorage?.items) ? snapshot.marketStorage.items : [];
   const mapUnlockIds = Array.isArray(snapshot.unlockedMapIds) ? snapshot.unlockedMapIds : [];
   const equipmentSlots = Array.isArray(snapshot.equipment?.slots) ? snapshot.equipment.slots : [];
   const techniqueStates = buildTechniqueStateRows(snapshot);
@@ -1550,6 +1653,17 @@ export async function savePlayerSnapshotProjectionWithClient(
   await replacePlayerAttrState(client, normalizedPlayerId, attrState);
 
   await replacePlayerInventoryItems(client, normalizedPlayerId, inventoryItems);
+  await replacePlayerWalletRows(
+    client,
+    normalizedPlayerId,
+    walletBalances as readonly PlayerWalletUpsertInput[],
+    versionSeed,
+  );
+  await replacePlayerMarketStorageItems(
+    client,
+    normalizedPlayerId,
+    marketStorageItems as readonly PlayerMarketStorageItemUpsertInput[],
+  );
   await replacePlayerMapUnlocks(client, normalizedPlayerId, mapUnlockIds, versionSeed);
   await replacePlayerEquipmentSlots(client, normalizedPlayerId, equipmentSlots);
   await replacePlayerTechniqueStates(client, normalizedPlayerId, techniqueStates);
@@ -1569,23 +1683,242 @@ export async function savePlayerSnapshotProjectionWithClient(
     position_checkpoint_version: versionSeed,
     vitals_version: versionSeed,
     progression_version: versionSeed,
-    attr_version: attrState ? versionSeed : undefined,
-    body_training_version: bodyTraining ? versionSeed : undefined,
+    attr_version: versionSeed,
+    body_training_version: versionSeed,
     inventory_version: versionSeed,
+    wallet_version: versionSeed,
+    market_storage_version: versionSeed,
     map_unlock_version: versionSeed,
     equipment_version: versionSeed,
-    technique_version: techniqueStates.length > 0 ? versionSeed : undefined,
+    technique_version: versionSeed,
     buff_version: versionSeed,
-    quest_version: questProgressRows.length > 0 ? versionSeed : undefined,
-    combat_pref_version: combatPreferences ? versionSeed : undefined,
-    auto_battle_skill_version: autoBattleSkills.length > 0 ? versionSeed : undefined,
-    auto_use_item_rule_version: autoUseItemRules.length > 0 ? versionSeed : undefined,
-    profession_version: professions.length > 0 ? versionSeed : undefined,
-    alchemy_preset_version: presets.length > 0 ? versionSeed : undefined,
-    active_job_version: activeJob ? versionSeed : undefined,
+    quest_version: versionSeed,
+    combat_pref_version: versionSeed,
+    auto_battle_skill_version: versionSeed,
+    auto_use_item_rule_version: versionSeed,
+    profession_version: versionSeed,
+    alchemy_preset_version: versionSeed,
+    active_job_version: versionSeed,
     enhancement_record_version: versionSeed,
     logbook_version: versionSeed,
   });
+}
+
+const PLAYER_SNAPSHOT_PROJECTION_FALLBACK_DOMAIN = 'snapshot';
+const PLAYER_SNAPSHOT_PROJECTABLE_DIRTY_DOMAIN_SET = new Set<string>(PLAYER_SNAPSHOT_PROJECTABLE_DIRTY_DOMAINS);
+
+export async function savePlayerSnapshotProjectionDomainsWithClient(
+  client: PoolClient,
+  playerId: string,
+  snapshot: PersistedPlayerSnapshot,
+  domains: Iterable<string>,
+): Promise<void> {
+  const normalizedPlayerId = normalizeRequiredString(playerId);
+  if (!normalizedPlayerId || !snapshot?.placement?.templateId) {
+    return;
+  }
+
+  const rawDomains = normalizeProjectedDirtyDomains(domains);
+  if (
+    rawDomains.size === 0
+    || rawDomains.has(PLAYER_SNAPSHOT_PROJECTION_FALLBACK_DOMAIN)
+    || Array.from(rawDomains).some((domain) => !PLAYER_SNAPSHOT_PROJECTABLE_DIRTY_DOMAIN_SET.has(domain))
+  ) {
+    await savePlayerSnapshotProjectionWithClient(client, normalizedPlayerId, snapshot);
+    return;
+  }
+
+  const versionSeed = normalizeVersionSeed(snapshot.savedAt);
+  const placement = snapshot.placement;
+  const progression = asRecord(snapshot.progression);
+  const watermarkPatch: RecoveryWatermarkPatch = {};
+
+  if (rawDomains.has('world_anchor')) {
+    await replacePlayerWorldAnchor(client, normalizedPlayerId, {
+      respawnTemplateId: normalizeRequiredString(placement.templateId),
+      respawnInstanceId: normalizeOptionalString(placement.instanceId),
+      respawnX: normalizeIntegerWithFallback(placement.x, 0),
+      respawnY: normalizeIntegerWithFallback(placement.y, 0),
+      lastSafeTemplateId: normalizeRequiredString(placement.templateId),
+      lastSafeInstanceId: normalizeOptionalString(placement.instanceId),
+      lastSafeX: normalizeIntegerWithFallback(placement.x, 0),
+      lastSafeY: normalizeIntegerWithFallback(placement.y, 0),
+      preferredLinePreset: normalizeWorldPreferenceLinePreset(snapshot.worldPreference?.linePreset),
+      lastTransferAt: versionSeed,
+    });
+    watermarkPatch.anchor_version = versionSeed;
+  }
+
+  if (rawDomains.has('position_checkpoint')) {
+    await replacePlayerPositionCheckpoint(client, normalizedPlayerId, {
+      instanceId: normalizeOptionalString(placement.instanceId) ?? `public:${placement.templateId}`,
+      x: normalizeIntegerWithFallback(placement.x, 0),
+      y: normalizeIntegerWithFallback(placement.y, 0),
+      facing: normalizeIntegerWithFallback(placement.facing, 1),
+      checkpointKind: 'runtime',
+    });
+    watermarkPatch.position_checkpoint_version = versionSeed;
+  }
+
+  if (rawDomains.has('vitals')) {
+    await replacePlayerVitals(client, normalizedPlayerId, {
+      hp: normalizeMinimumInteger(snapshot.vitals?.hp, 0, 0),
+      maxHp: normalizeMinimumInteger(snapshot.vitals?.maxHp, 1, 1),
+      qi: normalizeMinimumInteger(snapshot.vitals?.qi, 0, 0),
+      maxQi: normalizeMinimumInteger(snapshot.vitals?.maxQi, 0, 0),
+    });
+    watermarkPatch.vitals_version = versionSeed;
+  }
+
+  if (rawDomains.has('progression')) {
+    await replacePlayerProgressionCore(client, normalizedPlayerId, {
+      foundation: normalizeMinimumInteger(progression?.foundation, 0, 0),
+      combatExp: normalizeMinimumInteger(progression?.combatExp, 0, 0),
+      boneAgeBaseYears: normalizeMinimumInteger(progression?.boneAgeBaseYears, 18, 0),
+      lifeElapsedTicks: normalizeMinimumInteger(progression?.lifeElapsedTicks, 0, 0),
+      lifespanYears: normalizeOptionalInteger(progression?.lifespanYears),
+    });
+    watermarkPatch.progression_version = versionSeed;
+  }
+
+  if (rawDomains.has('attr')) {
+    await replacePlayerAttrState(client, normalizedPlayerId, buildAttrStateRow(snapshot));
+    watermarkPatch.attr_version = versionSeed;
+  }
+
+  if (rawDomains.has('wallet')) {
+    const walletBalances = Array.isArray(snapshot.wallet?.balances)
+      ? (snapshot.wallet.balances as readonly PlayerWalletUpsertInput[])
+      : [];
+    await replacePlayerWalletRows(
+      client,
+      normalizedPlayerId,
+      walletBalances,
+      versionSeed,
+    );
+    watermarkPatch.wallet_version = versionSeed;
+  }
+
+  if (rawDomains.has('market_storage')) {
+    await replacePlayerMarketStorageItems(
+      client,
+      normalizedPlayerId,
+      Array.isArray(snapshot.marketStorage?.items)
+        ? (snapshot.marketStorage.items as readonly PlayerMarketStorageItemUpsertInput[])
+        : [],
+    );
+    watermarkPatch.market_storage_version = versionSeed;
+  }
+
+  if (rawDomains.has('body_training')) {
+    await replacePlayerBodyTrainingState(client, normalizedPlayerId, asRecord(progression?.bodyTraining));
+    watermarkPatch.body_training_version = versionSeed;
+  }
+
+  if (rawDomains.has('inventory')) {
+    await replacePlayerInventoryItems(
+      client,
+      normalizedPlayerId,
+      Array.isArray(snapshot.inventory?.items) ? snapshot.inventory.items : [],
+    );
+    watermarkPatch.inventory_version = versionSeed;
+  }
+
+  if (rawDomains.has('map_unlock')) {
+    await replacePlayerMapUnlocks(
+      client,
+      normalizedPlayerId,
+      Array.isArray(snapshot.unlockedMapIds) ? snapshot.unlockedMapIds : [],
+      versionSeed,
+    );
+    watermarkPatch.map_unlock_version = versionSeed;
+  }
+
+  if (rawDomains.has('equipment')) {
+    await replacePlayerEquipmentSlots(
+      client,
+      normalizedPlayerId,
+      Array.isArray(snapshot.equipment?.slots) ? snapshot.equipment.slots : [],
+    );
+    watermarkPatch.equipment_version = versionSeed;
+  }
+
+  if (rawDomains.has('technique')) {
+    await replacePlayerTechniqueStates(client, normalizedPlayerId, buildTechniqueStateRows(snapshot));
+    watermarkPatch.technique_version = versionSeed;
+  }
+
+  if (rawDomains.has('buff')) {
+    await replacePlayerPersistentBuffStates(client, normalizedPlayerId, buildPersistentBuffStateRows(snapshot));
+    watermarkPatch.buff_version = versionSeed;
+  }
+
+  if (rawDomains.has('quest')) {
+    await replacePlayerQuestProgressRows(client, normalizedPlayerId, buildQuestProgressRows(snapshot));
+    watermarkPatch.quest_version = versionSeed;
+  }
+
+  if (rawDomains.has('combat_pref')) {
+    await replacePlayerCombatPreferences(client, normalizedPlayerId, buildCombatPreferencesRow(snapshot));
+    watermarkPatch.combat_pref_version = versionSeed;
+  }
+
+  if (rawDomains.has('auto_battle_skill')) {
+    await replacePlayerAutoBattleSkills(client, normalizedPlayerId, buildAutoBattleSkillRows(snapshot));
+    watermarkPatch.auto_battle_skill_version = versionSeed;
+  }
+
+  if (rawDomains.has('auto_use_item_rule')) {
+    await replacePlayerAutoUseItemRules(client, normalizedPlayerId, buildAutoUseItemRuleRows(snapshot));
+    watermarkPatch.auto_use_item_rule_version = versionSeed;
+  }
+
+  if (rawDomains.has('profession')) {
+    await replacePlayerProfessionStates(client, normalizedPlayerId, buildProfessionStateRows(snapshot));
+    watermarkPatch.profession_version = versionSeed;
+  }
+
+  if (rawDomains.has('alchemy_preset')) {
+    await replacePlayerAlchemyPresets(client, normalizedPlayerId, buildAlchemyPresetRows(snapshot));
+    watermarkPatch.alchemy_preset_version = versionSeed;
+  }
+
+  if (rawDomains.has('active_job')) {
+    await replacePlayerActiveJob(client, normalizedPlayerId, buildActiveJobRow(normalizedPlayerId, snapshot, versionSeed));
+    watermarkPatch.active_job_version = versionSeed;
+  }
+
+  if (rawDomains.has('enhancement_record')) {
+    await replacePlayerEnhancementRecords(
+      client,
+      normalizedPlayerId,
+      buildEnhancementRecordRows(normalizedPlayerId, snapshot),
+    );
+    watermarkPatch.enhancement_record_version = versionSeed;
+  }
+
+  if (rawDomains.has('logbook')) {
+    await replacePlayerLogbookMessages(
+      client,
+      normalizedPlayerId,
+      Array.isArray(snapshot.pendingLogbookMessages) ? snapshot.pendingLogbookMessages : [],
+    );
+    watermarkPatch.logbook_version = versionSeed;
+  }
+
+  if (Object.keys(watermarkPatch).length > 0) {
+    await upsertRecoveryWatermark(client, normalizedPlayerId, watermarkPatch);
+  }
+}
+
+function normalizeProjectedDirtyDomains(domains: Iterable<string>): Set<string> {
+  const normalized = new Set<string>();
+  for (const domain of domains ?? []) {
+    if (typeof domain === 'string' && domain.trim()) {
+      normalized.add(domain.trim());
+    }
+  }
+  return normalized;
 }
 
 async function replacePlayerWorldAnchor(
@@ -1779,41 +2112,6 @@ export async function ensurePlayerDomainTablesWithClient(client: PoolClient): Pr
     )
   `);
   await client.query(`
-    CREATE TABLE IF NOT EXISTS ${PLAYER_WALLET_TABLE} (
-      player_id varchar(100) NOT NULL,
-      wallet_type varchar(64) NOT NULL,
-      balance bigint NOT NULL DEFAULT 0,
-      frozen_balance bigint NOT NULL DEFAULT 0,
-      version bigint NOT NULL DEFAULT 1,
-      updated_at timestamptz NOT NULL DEFAULT now(),
-      PRIMARY KEY(player_id, wallet_type)
-    )
-  `);
-  await client.query(`
-    CREATE INDEX IF NOT EXISTS player_wallet_player_idx
-    ON ${PLAYER_WALLET_TABLE}(player_id, wallet_type ASC)
-  `);
-  await client.query(`
-    CREATE TABLE IF NOT EXISTS ${PLAYER_MARKET_STORAGE_ITEM_TABLE} (
-      storage_item_id varchar(160) PRIMARY KEY,
-      player_id varchar(100) NOT NULL,
-      slot_index integer NOT NULL,
-      item_id varchar(160) NOT NULL,
-      count integer NOT NULL DEFAULT 1,
-      enhance_level integer,
-      raw_payload jsonb NOT NULL DEFAULT '{}'::jsonb,
-      updated_at timestamptz NOT NULL DEFAULT now()
-    )
-  `);
-  await client.query(`
-    CREATE INDEX IF NOT EXISTS player_market_storage_item_player_idx
-    ON ${PLAYER_MARKET_STORAGE_ITEM_TABLE}(player_id, slot_index ASC)
-  `);
-  await client.query(`
-    CREATE INDEX IF NOT EXISTS player_market_storage_item_item_idx
-    ON ${PLAYER_MARKET_STORAGE_ITEM_TABLE}(item_id, player_id ASC)
-  `);
-  await client.query(`
     CREATE TABLE IF NOT EXISTS ${PLAYER_WORLD_ANCHOR_TABLE} (
       player_id varchar(100) PRIMARY KEY,
       respawn_template_id varchar(120) NOT NULL,
@@ -1892,7 +2190,7 @@ export async function ensurePlayerDomainTablesWithClient(client: PoolClient): Pr
       wallet_type varchar(64) NOT NULL,
       balance bigint NOT NULL DEFAULT 0,
       frozen_balance bigint NOT NULL DEFAULT 0,
-      version bigint NOT NULL DEFAULT 1,
+      version bigint NOT NULL DEFAULT 0,
       updated_at timestamptz NOT NULL DEFAULT now(),
       PRIMARY KEY(player_id, wallet_type)
     )
@@ -1900,6 +2198,27 @@ export async function ensurePlayerDomainTablesWithClient(client: PoolClient): Pr
   await client.query(`
     CREATE INDEX IF NOT EXISTS player_wallet_player_idx
     ON ${PLAYER_WALLET_TABLE}(player_id, wallet_type ASC)
+  `);
+  await client.query(`
+    CREATE TABLE IF NOT EXISTS ${PLAYER_MARKET_STORAGE_ITEM_TABLE} (
+      storage_item_id varchar(160) PRIMARY KEY,
+      player_id varchar(100) NOT NULL,
+      slot_index integer NOT NULL,
+      item_id varchar(160) NOT NULL,
+      count integer NOT NULL DEFAULT 1,
+      enhance_level integer,
+      raw_payload jsonb NOT NULL DEFAULT '{}'::jsonb,
+      updated_at timestamptz NOT NULL DEFAULT now(),
+      UNIQUE(player_id, slot_index)
+    )
+  `);
+  await client.query(`
+    CREATE INDEX IF NOT EXISTS player_market_storage_item_player_idx
+    ON ${PLAYER_MARKET_STORAGE_ITEM_TABLE}(player_id, slot_index ASC)
+  `);
+  await client.query(`
+    CREATE INDEX IF NOT EXISTS player_market_storage_item_item_idx
+    ON ${PLAYER_MARKET_STORAGE_ITEM_TABLE}(item_id, player_id ASC)
   `);
   await client.query(`
     CREATE TABLE IF NOT EXISTS ${PLAYER_MAP_UNLOCK_TABLE} (
@@ -2043,6 +2362,10 @@ export async function ensurePlayerDomainTablesWithClient(client: PoolClient): Pr
     )
   `);
   await client.query(`
+    CREATE INDEX IF NOT EXISTS player_profession_state_player_idx
+    ON ${PLAYER_PROFESSION_STATE_TABLE}(player_id, profession_type ASC)
+  `);
+  await client.query(`
     CREATE TABLE IF NOT EXISTS ${PLAYER_ALCHEMY_PRESET_TABLE} (
       player_id varchar(100) NOT NULL,
       preset_id varchar(180) NOT NULL,
@@ -2083,6 +2406,10 @@ export async function ensurePlayerDomainTablesWithClient(client: PoolClient): Pr
       detail_jsonb jsonb NOT NULL,
       updated_at timestamptz NOT NULL DEFAULT now()
     )
+  `);
+  await client.query(`
+    CREATE INDEX IF NOT EXISTS player_active_job_job_idx
+    ON ${PLAYER_ACTIVE_JOB_TABLE}(job_type, status ASC, player_id ASC)
   `);
   await client.query(`
     CREATE TABLE IF NOT EXISTS ${PLAYER_ENHANCEMENT_RECORD_TABLE} (
@@ -3535,11 +3862,27 @@ function hasProjectedPlayerDomainState(domains: Omit<LoadedPlayerDomains, 'hasPr
   ].some((column) => (normalizeOptionalInteger(watermark[column]) ?? 0) > 0);
 }
 
+function hasAnyLoadedPlayerDomainState(domains: Omit<LoadedPlayerDomains, 'hasProjectedState'>): boolean {
+  if (hasProjectedPlayerDomainState(domains)) {
+    return true;
+  }
+  if (domains.walletRows.length > 0 || domains.marketStorageItems.length > 0) {
+    return true;
+  }
+  const watermark = domains.recoveryWatermark;
+  if (!watermark) {
+    return false;
+  }
+  return ['wallet_version', 'market_storage_version'].some(
+    (column) => (normalizeOptionalInteger(watermark[column]) ?? 0) > 0,
+  );
+}
+
 function buildProjectedSnapshotFromDomains(
   starterSnapshot: PersistedPlayerSnapshot,
   domains: LoadedPlayerDomains,
 ): PersistedPlayerSnapshot {
-  const snapshot: PersistedPlayerSnapshot = {
+  const snapshot = {
     ...starterSnapshot,
     placement: {
       ...starterSnapshot.placement,
@@ -3620,6 +3963,12 @@ function buildProjectedSnapshotFromDomains(
     pendingLogbookMessages: [...starterSnapshot.pendingLogbookMessages],
     runtimeBonuses: normalizeRuntimeBonuses(starterSnapshot.runtimeBonuses),
     unlockedMapIds: [...starterSnapshot.unlockedMapIds],
+    wallet: {
+      balances: normalizeProjectedWalletRows(domains.walletRows) ?? [],
+    },
+    marketStorage: {
+      items: normalizeProjectedMarketStorageRows(domains.marketStorageItems) ?? [],
+    },
   };
 
   applyProjectedPlacement(snapshot, domains.worldAnchor, domains.positionCheckpoint);
@@ -3654,6 +4003,56 @@ function buildProjectedSnapshotFromDomains(
   }
 
   return snapshot;
+}
+
+function normalizeProjectedWalletRows(
+  rows: readonly PlayerWalletLoadRow[],
+): PlayerWalletUpsertInput[] | undefined {
+  if (!Array.isArray(rows) || rows.length === 0) {
+    return undefined;
+  }
+
+  const normalized: PlayerWalletUpsertInput[] = [];
+  for (const row of rows) {
+    const walletType = normalizeRequiredString(row.wallet_type);
+    if (!walletType) {
+      continue;
+    }
+    normalized.push({
+      walletType,
+      balance: normalizeMinimumInteger(row.balance, 0, 0),
+      frozenBalance: normalizeOptionalInteger(row.frozen_balance),
+      version: normalizeOptionalInteger(row.version),
+    });
+  }
+
+  return normalized.length > 0 ? normalized : undefined;
+}
+
+function normalizeProjectedMarketStorageRows(
+  rows: readonly PlayerMarketStorageItemLoadRow[],
+): PlayerMarketStorageItemUpsertInput[] | undefined {
+  if (!Array.isArray(rows) || rows.length === 0) {
+    return undefined;
+  }
+
+  const normalized: PlayerMarketStorageItemUpsertInput[] = [];
+  rows.forEach((row, index) => {
+    const itemId = normalizeRequiredString(row.item_id);
+    if (!itemId) {
+      return;
+    }
+    normalized.push({
+      itemId,
+      count: normalizeMinimumInteger(row.count, 0, 0),
+      slotIndex: normalizeOptionalInteger(row.slot_index) ?? index,
+      storageItemId: normalizeOptionalString(row.storage_item_id),
+      enhanceLevel: normalizeOptionalInteger(row.enhance_level),
+      rawPayload: cloneJsonValue(row.raw_payload),
+    });
+  });
+
+  return normalized.length > 0 ? normalized : undefined;
 }
 
 function applyProjectedPlacement(

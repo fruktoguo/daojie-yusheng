@@ -197,7 +197,7 @@ let WorldRuntimeStateFacadeService = class WorldRuntimeStateFacadeService {
  * @returns 无返回值，直接更新tickAll相关状态。
  */
 
-    tickAll(deps) {
+    async tickAll(deps) {
         return deps.worldRuntimeFrameService.tickAll(deps);
     }    
     /**
@@ -208,7 +208,7 @@ let WorldRuntimeStateFacadeService = class WorldRuntimeStateFacadeService {
  * @returns 无返回值，直接更新advance帧相关状态。
  */
 
-    advanceFrame(frameDurationMs, getInstanceTickSpeed, deps) {
+    async advanceFrame(frameDurationMs, getInstanceTickSpeed, deps) {
         return deps.worldRuntimeFrameService.advanceFrame(deps, frameDurationMs, getInstanceTickSpeed);
     }    
     /**

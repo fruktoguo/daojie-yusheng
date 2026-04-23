@@ -35,6 +35,7 @@ async function main(): Promise<void> {
   const playerId = `pd_${Date.now().toString(36)}`;
   const edgePlayerId = `${playerId}_edge`;
   const directPlayerId = `${playerId}_direct`;
+  const walletOnlyPlayerId = `${playerId}_wallet`;
   const now = Date.now();
   const service = new PlayerDomainPersistenceService();
   const pool = new Pool({ connectionString: databaseUrl });
@@ -48,6 +49,7 @@ async function main(): Promise<void> {
     await cleanupPlayer(pool, playerId);
     await cleanupPlayer(pool, edgePlayerId);
     await cleanupPlayer(pool, directPlayerId);
+    await cleanupPlayer(pool, walletOnlyPlayerId);
 
     await service.savePlayerPresence(playerId, {
       online: true,
@@ -657,6 +659,18 @@ async function main(): Promise<void> {
     await service.savePlayerActiveJob(directPlayerId, null, {
       versionSeed: directBaseVersion + 16,
     });
+    await service.savePlayerWallet(
+      walletOnlyPlayerId,
+      [
+        {
+          walletType: 'spirit_stone',
+          balance: 66,
+          frozenBalance: 4,
+          version: directBaseVersion + 17,
+        },
+      ],
+      { versionSeed: directBaseVersion + 17 },
+    );
 
     const directAnchorRow = await fetchSingleRow(
       pool,
@@ -733,6 +747,8 @@ async function main(): Promise<void> {
       'SELECT anchor_version, position_checkpoint_version, vitals_version, progression_version, inventory_version, market_storage_version, map_unlock_version, equipment_version, combat_pref_version, profession_version, alchemy_preset_version, active_job_version, logbook_version, wallet_version FROM player_recovery_watermark WHERE player_id = $1',
       [directPlayerId],
     );
+    const directLoadedDomains = await service.loadPlayerDomains(directPlayerId);
+    const walletOnlyDomains = await service.loadPlayerDomains(walletOnlyPlayerId);
 
     if (!directAnchorRow || directAnchorRow.respawn_template_id !== 'direct_valley' || directAnchorRow.last_safe_template_id !== 'safe_harbor') {
       throw new Error(`unexpected direct player_world_anchor row: ${JSON.stringify(directAnchorRow)}`);
@@ -842,6 +858,27 @@ async function main(): Promise<void> {
     ) {
       throw new Error(`unexpected direct player_recovery_watermark row: ${JSON.stringify(directWatermarkRow)}`);
     }
+    if (
+      !directLoadedDomains
+      || directLoadedDomains.hasProjectedState !== true
+      || directLoadedDomains.walletRows.length !== 2
+      || String(directLoadedDomains.walletRows[1]?.wallet_type ?? '') !== 'spirit_stone'
+      || Number(directLoadedDomains.walletRows[1]?.balance ?? 0) !== 120
+      || directLoadedDomains.marketStorageItems.length !== 1
+      || String(directLoadedDomains.marketStorageItems[0]?.item_id ?? '') !== 'spirit_stone'
+    ) {
+      throw new Error(`unexpected loadPlayerDomains direct result: ${JSON.stringify(directLoadedDomains)}`);
+    }
+    if (
+      !walletOnlyDomains
+      || walletOnlyDomains.hasProjectedState !== false
+      || walletOnlyDomains.walletRows.length !== 1
+      || String(walletOnlyDomains.walletRows[0]?.wallet_type ?? '') !== 'spirit_stone'
+      || Number(walletOnlyDomains.walletRows[0]?.balance ?? 0) !== 66
+      || walletOnlyDomains.marketStorageItems.length !== 0
+    ) {
+      throw new Error(`unexpected loadPlayerDomains wallet-only result: ${JSON.stringify(walletOnlyDomains)}`);
+    }
 
     console.log(
       JSON.stringify(
@@ -850,7 +887,7 @@ async function main(): Promise<void> {
           playerId,
           edgePlayerId,
           directPlayerId,
-          answers: 'with-db 下 PlayerDomainPersistenceService 已能把 presence、wallet、vitals、progression core、attr、body training、inventory、market storage、map unlock、equipment、technique、persistent buff、quest、combat/auto-*、强化记录与职业作业投影写入当前已落地的分域表，并支持单域直写接口推进对应 watermark',
+          answers: 'with-db 下 PlayerDomainPersistenceService 已能把 presence、wallet、vitals、progression core、attr、body training、inventory、market storage、map unlock、equipment、technique、persistent buff、quest、combat/auto-*、强化记录与职业作业投影写入当前已落地的分域表，并支持 wallet/market storage 的 loadPlayerDomains 读链与对应 watermark 推进',
           excludes: '不证明 bootstrap 分域恢复、域级 dirty set、分域多 worker、完整玩家全域拆表都已落地',
           completionMapping: 'replace-ready:proof:with-db.player-domain-persistence',
           projectedTables: [...PLAYER_DOMAIN_PROJECTED_TABLES],
@@ -878,6 +915,7 @@ async function main(): Promise<void> {
     await cleanupPlayer(pool, playerId).catch(() => undefined);
     await cleanupPlayer(pool, edgePlayerId).catch(() => undefined);
     await cleanupPlayer(pool, directPlayerId).catch(() => undefined);
+    await cleanupPlayer(pool, walletOnlyPlayerId).catch(() => undefined);
     await pool.end().catch(() => undefined);
     await service.onModuleDestroy().catch(() => undefined);
   }

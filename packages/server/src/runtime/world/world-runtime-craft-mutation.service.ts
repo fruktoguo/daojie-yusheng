@@ -24,6 +24,7 @@ const technique_activity_registry_helpers_1 = require("../craft/technique-activi
 
 /** craft shared mutation orchestration：承接 panel 更新、掉地兜底与 mutation flush。 */
 let WorldRuntimeCraftMutationService = class WorldRuntimeCraftMutationService {
+    logger = new common_1.Logger(WorldRuntimeCraftMutationService.name);
 /**
  * playerRuntimeService：玩家运行态服务引用。
  */
@@ -99,11 +100,16 @@ let WorldRuntimeCraftMutationService = class WorldRuntimeCraftMutationService {
  * @returns 无返回值，直接更新flush炼制Mutation相关状态。
  */
 
-    flushCraftMutation(playerId, result, panel, deps) {
+    flushCraftMutation(playerId, result, panel, deps, options = {}) {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
         if (!result?.ok) {
             return;
+        }
+        if (!options.skipActiveJobPersistence) {
+            void this.persistActiveJobIfNeeded(playerId, deps).catch((error) => {
+                this.logger.warn(`活跃任务 durable 记账失败：${error instanceof Error ? error.message : String(error)}`);
+            });
         }
         if (Array.isArray(result.groundDrops) && result.groundDrops.length > 0) {
             this.dropCraftGroundItems(playerId, result.groundDrops, deps);
@@ -116,6 +122,94 @@ let WorldRuntimeCraftMutationService = class WorldRuntimeCraftMutationService {
         if (result.panelChanged) {
             this.emitCraftPanelUpdate(playerId, panel, deps);
         }
+    }    
+    /**
+ * persistActiveJobIfNeeded：处理活跃Job持久化相关逻辑。
+ * @param playerId 玩家 ID。
+ * @param deps 运行时依赖。
+ * @returns 无返回值，直接更新活跃Job持久化相关状态。
+ */
+
+    async persistActiveJobIfNeeded(playerId, deps) {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
+        const durableOperationService = deps?.durableOperationService ?? null;
+        if (!durableOperationService?.isEnabled?.()) {
+            return;
+        }
+        const player = this.playerRuntimeService.getPlayer(playerId);
+        if (!player || !player.playerId) {
+            return;
+        }
+        const activeJob = player.enhancementJob ?? player.alchemyJob;
+        if (!activeJob || !activeJob.jobRunId) {
+            return;
+        }
+        const runtimeOwnerId = typeof player.runtimeOwnerId === 'string' && player.runtimeOwnerId.trim()
+            ? player.runtimeOwnerId.trim()
+            : '';
+        const sessionEpoch = Number.isFinite(player.sessionEpoch)
+            ? Math.max(1, Math.trunc(Number(player.sessionEpoch)))
+            : 0;
+        if (!runtimeOwnerId || sessionEpoch <= 0) {
+            return;
+        }
+        const nextActiveJob = buildActiveJobSnapshot(activeJob, player.enhancementJob ? 'enhancement' : 'alchemy');
+        if (!nextActiveJob) {
+            return;
+        }
+        const expectedInstanceId = typeof player.instanceId === 'string' && player.instanceId.trim() ? player.instanceId.trim() : '';
+        const leaseContext = await this.resolveActiveJobLeaseContext(player, deps);
+        if (expectedInstanceId && !leaseContext) {
+            this.logger.warn(`活跃任务 durable 记账跳过：instance lease 缺失 playerId=${playerId} instanceId=${expectedInstanceId}`);
+            return;
+        }
+        const operationId = buildActiveJobOperationId(playerId, nextActiveJob);
+        await durableOperationService.updateActiveJobState({
+            operationId,
+            playerId,
+            expectedRuntimeOwnerId: runtimeOwnerId,
+            expectedSessionEpoch: sessionEpoch,
+            expectedInstanceId: expectedInstanceId || null,
+            expectedAssignedNodeId: leaseContext?.assignedNodeId ?? null,
+            expectedOwnershipEpoch: leaseContext?.ownershipEpoch ?? null,
+            action: activeJob.phase === 'paused' ? 'update' : (activeJob.jobType === 'enhancement' ? 'start' : 'start'),
+            expectedJobRunId: activeJob.jobRunId,
+            expectedJobVersion: activeJob.jobVersion ?? 1,
+            nextActiveJob,
+        });
+    }    
+    /**
+ * resolveActiveJobLeaseContext：解析活跃作业 durable 记账的实例 lease 上下文。
+ * @param player 玩家对象。
+ * @param deps 运行时依赖。
+ * @returns 返回 assignedNodeId / ownershipEpoch，无法解析时返回 null。
+ */
+
+    async resolveActiveJobLeaseContext(player, deps) {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
+        const instanceId = typeof player?.instanceId === 'string' && player.instanceId.trim()
+            ? player.instanceId.trim()
+            : '';
+        const instanceCatalogService = deps?.instanceCatalogService ?? null;
+        if (!instanceId || !instanceCatalogService?.isEnabled?.()) {
+            return null;
+        }
+        const catalog = await instanceCatalogService.loadInstanceCatalog?.(instanceId);
+        const assignedNodeId = typeof catalog?.assigned_node_id === 'string' && catalog.assigned_node_id.trim()
+            ? catalog.assigned_node_id.trim()
+            : '';
+        const ownershipEpoch = Number.isFinite(Number(catalog?.ownership_epoch))
+            ? Math.max(1, Math.trunc(Number(catalog.ownership_epoch)))
+            : 0;
+        if (!assignedNodeId || ownershipEpoch <= 0) {
+            return null;
+        }
+        return {
+            assignedNodeId,
+            ownershipEpoch,
+        };
     }    
     /**
  * dropCraftGroundItems：执行drop炼制地面道具相关逻辑。
@@ -162,6 +256,47 @@ exports.WorldRuntimeCraftMutationService = WorldRuntimeCraftMutationService = __
 
 function formatItemStackLabel(item) {
     return `${item.name ?? item.itemId} x${Math.max(1, Math.floor(Number(item.count) || 1))}`;
+}
+
+function buildActiveJobSnapshot(job, jobType) {
+    if (!job || typeof job !== 'object') {
+        return null;
+    }
+    const normalizedJobType = jobType === 'enhancement' ? 'enhancement' : 'alchemy';
+    const jobRunId = typeof job.jobRunId === 'string' && job.jobRunId.trim() ? job.jobRunId.trim() : '';
+    const jobVersion = Math.max(1, Math.trunc(Number(job.jobVersion ?? 1)));
+    return {
+        jobRunId,
+        jobType: normalizedJobType,
+        status: typeof job.status === 'string' && job.status.trim() ? job.status.trim() : 'running',
+        phase: typeof job.phase === 'string' && job.phase.trim() ? job.phase.trim() : 'running',
+        startedAt: Math.max(1, Math.trunc(Number(job.startedAt ?? Date.now()))),
+        finishedAt: job.finishedAt == null ? null : Math.max(1, Math.trunc(Number(job.finishedAt))),
+        pausedTicks: Math.max(0, Math.trunc(Number(job.pausedTicks ?? 0))),
+        totalTicks: Math.max(0, Math.trunc(Number(job.totalTicks ?? 0))),
+        remainingTicks: Math.max(0, Math.trunc(Number(job.remainingTicks ?? 0))),
+        successRate: Number.isFinite(Number(job.successRate ?? 0)) ? Number(job.successRate ?? 0) : 0,
+        speedRate: Number.isFinite(Number(job.speedRate ?? job.totalSpeedRate ?? 1)) ? Number(job.speedRate ?? job.totalSpeedRate ?? 1) : 1,
+        jobVersion,
+        detailJson: {
+            ...job,
+            jobRunId,
+            jobType: normalizedJobType,
+            jobVersion,
+        },
+    };
+}
+
+function buildActiveJobOperationId(playerId, activeJob) {
+    const normalizedPlayerId = typeof playerId === 'string' && playerId.trim() ? playerId.trim() : 'player';
+    const normalizedJobRunId = typeof activeJob?.jobRunId === 'string' && activeJob.jobRunId.trim()
+        ? activeJob.jobRunId.trim()
+        : 'job';
+    const normalizedJobVersion = Math.max(1, Math.trunc(Number(activeJob?.jobVersion ?? 1)));
+    const normalizedPhase = typeof activeJob?.phase === 'string' && activeJob.phase.trim()
+        ? activeJob.phase.trim()
+        : 'running';
+    return `op:${normalizedPlayerId}:active-job:${normalizedJobRunId}:v${normalizedJobVersion}:${normalizedPhase}`;
 }
 
 export { WorldRuntimeCraftMutationService };

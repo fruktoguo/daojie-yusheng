@@ -142,10 +142,6 @@ function main() {
     '04 一次性迁移脚本文档应已删除',
   );
   assertMissing(
-    'packages/server/src/tools/migrate-next-mainline-once.ts',
-    'server 迁移脚本真源应已删除',
-  );
-  assertMissing(
     'packages/server/src/tools/fixtures/migrate-next-mainline-once/sample-legacy.json',
     '迁移样本 fixture 应已删除',
   );

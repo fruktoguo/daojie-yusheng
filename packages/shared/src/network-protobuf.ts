@@ -2,11 +2,11 @@
  * Protobuf 网络编解码入口：聚合 wire helper、payload codec 与二进制入口判断。
  * 当前 encode/decode 入口仍保持现有行为，不在这一轮改变协议启用策略。
  */
-import { PROTOBUF_NEXT_C2S_EVENTS, PROTOBUF_NEXT_S2C_EVENTS } from './network-protobuf-schema';
+import { PROTOBUF_C2S_EVENTS, PROTOBUF_S2C_EVENTS } from './network-protobuf-schema';
 import type { BinaryPayload } from './network-protobuf-wire-helpers';
 import { normalizeBinaryPayload } from './network-protobuf-wire-helpers';
 
-export { PROTOBUF_NEXT_S2C_EVENTS, PROTOBUF_NEXT_C2S_EVENTS } from './network-protobuf-schema';
+export { PROTOBUF_S2C_EVENTS, PROTOBUF_C2S_EVENTS } from './network-protobuf-schema';
 export type { BinaryPayload } from './network-protobuf-wire-helpers';
 export {
   decodeMessage,
@@ -60,7 +60,7 @@ export {
 export function encodeServerEventPayload<T>(event: string, payload: T): T | Uint8Array {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
-  if (PROTOBUF_NEXT_S2C_EVENTS.has(event)) {
+  if (PROTOBUF_S2C_EVENTS.has(event)) {
     return payload;
   }
   return payload;
@@ -71,7 +71,7 @@ export function decodeServerEventPayload<T>(event: string, payload: unknown): T 
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
   const binary = normalizeBinaryPayload(payload);
-  if (!binary || !PROTOBUF_NEXT_S2C_EVENTS.has(event)) {
+  if (!binary || !PROTOBUF_S2C_EVENTS.has(event)) {
     return payload as T;
   }
   return payload as T;
@@ -81,7 +81,7 @@ export function decodeServerEventPayload<T>(event: string, payload: unknown): T 
 export function encodeClientEventPayload<T>(event: string, payload: T): T {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
-  if (PROTOBUF_NEXT_C2S_EVENTS.has(event)) {
+  if (PROTOBUF_C2S_EVENTS.has(event)) {
     return payload;
   }
   return payload;

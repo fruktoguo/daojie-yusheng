@@ -15,8 +15,9 @@ const env_alias_1 = require("../config/env-alias");
 
 const PLAYER_AUTH_TABLE = 'server_player_auth';
 const PLAYER_IDENTITY_TABLE = 'server_player_identity';
+const PLAYER_IDENTITY_MIRROR_TABLE = 'player_identity';
 const PLAYER_SNAPSHOT_TABLE = 'server_player_snapshot';
-const PLAYER_SCOPED_NEXT_TABLES = [
+const PLAYER_SCOPED_MAINLINE_TABLES = [
   'player_presence',
   'player_world_anchor',
   'player_position_checkpoint',
@@ -156,8 +157,9 @@ async function purgeSmokePlayerArtifactsByPlayerId(playerId, options = undefined
 
       result.deleted.snapshotRows = await deleteSnapshotRowsByPlayerIds(client, [normalizedPlayerId]);
       result.deleted.identityRows = await deleteIdentityRowsByPlayerIds(client, [normalizedPlayerId]);
+      await deleteIdentityMirrorRowsByPlayerIds(client, [normalizedPlayerId]);
       result.deleted.authRows = await deleteAuthRowsByPlayerIds(client, [normalizedPlayerId]);
-      await deleteNextPlayerScopedRows(client, [normalizedPlayerId]);
+      await deleteMainlinePlayerScopedRows(client, [normalizedPlayerId]);
       result.deleted.legacyPlayerRows = await deleteLegacyPlayerRowsByPlayerIds(client, [normalizedPlayerId]);
       result.deleted.legacyUserRows = await deleteLegacyUserRowsByIds(client, [...userIds]);
 
@@ -244,7 +246,8 @@ async function purgeSmokeTestArtifacts(options = undefined) {
       };
 
       if (!dryRun) {
-        await deleteNextPlayerScopedRows(client, playerIds);
+        await deleteIdentityMirrorRowsByUsernamePatterns(client, accountPatterns);
+        await deleteMainlinePlayerScopedRows(client, playerIds);
       }
 
       if (dryRun) {
@@ -326,11 +329,11 @@ async function deleteSnapshotRowsByPlayerIds(client, playerIds) {
   return result.rowCount ?? 0;
 }
 
-async function deleteNextPlayerScopedRows(client, playerIds) {
+async function deleteMainlinePlayerScopedRows(client, playerIds) {
   if (!Array.isArray(playerIds) || playerIds.length === 0) {
     return;
   }
-  for (const tableName of PLAYER_SCOPED_NEXT_TABLES) {
+  for (const tableName of PLAYER_SCOPED_MAINLINE_TABLES) {
     const sql = tableName === 'outbox_event'
       ? `DELETE FROM ${tableName} WHERE partition_key = ANY($1::text[])`
       : `DELETE FROM ${tableName} WHERE player_id = ANY($1::text[])`;
@@ -398,6 +401,27 @@ async function deleteAuthRowsByUsernamePatterns(client, accountPatterns) {
 async function deleteIdentityRowsByUsernamePatterns(client, accountPatterns) {
   const result = await safeQuery(client, `
     DELETE FROM ${PLAYER_IDENTITY_TABLE}
+    WHERE username LIKE ANY($1::text[])
+    RETURNING user_id
+  `, [accountPatterns]);
+  return result.rowCount ?? 0;
+}
+
+async function deleteIdentityMirrorRowsByPlayerIds(client, playerIds) {
+  if (!Array.isArray(playerIds) || playerIds.length === 0) {
+    return 0;
+  }
+  const result = await safeQuery(client, `
+    DELETE FROM ${PLAYER_IDENTITY_MIRROR_TABLE}
+    WHERE player_id = ANY($1::text[])
+    RETURNING player_id
+  `, [playerIds]);
+  return result.rowCount ?? 0;
+}
+
+async function deleteIdentityMirrorRowsByUsernamePatterns(client, accountPatterns) {
+  const result = await safeQuery(client, `
+    DELETE FROM ${PLAYER_IDENTITY_MIRROR_TABLE}
     WHERE username LIKE ANY($1::text[])
     RETURNING user_id
   `, [accountPatterns]);

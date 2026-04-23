@@ -61,8 +61,8 @@ let WorldRuntimeCombatCommandService = class WorldRuntimeCombatCommandService {
  * @returns 无返回值，直接更新BasicAttack相关状态。
  */
 
-    dispatchBasicAttack(playerId, targetPlayerId, targetMonsterId, targetX, targetY, deps) {
-        this.worldRuntimeBasicAttackService.dispatchBasicAttack(playerId, targetPlayerId, targetMonsterId, targetX, targetY, deps);
+    async dispatchBasicAttack(playerId, targetPlayerId, targetMonsterId, targetX, targetY, deps) {
+        return this.worldRuntimeBasicAttackService.dispatchBasicAttack(playerId, targetPlayerId, targetMonsterId, targetX, targetY, deps);
     }    
     /**
  * dispatchCastSkill：判断Cast技能是否满足条件。
@@ -75,8 +75,8 @@ let WorldRuntimeCombatCommandService = class WorldRuntimeCombatCommandService {
  * @returns 无返回值，直接更新Cast技能相关状态。
  */
 
-    dispatchCastSkill(playerId, skillId, targetPlayerId, targetMonsterId, targetRef, deps) {
-        this.worldRuntimePlayerSkillDispatchService.dispatchCastSkill(playerId, skillId, targetPlayerId, targetMonsterId, targetRef, deps);
+    async dispatchCastSkill(playerId, skillId, targetPlayerId, targetMonsterId, targetRef, deps) {
+        return this.worldRuntimePlayerSkillDispatchService.dispatchCastSkill(playerId, skillId, targetPlayerId, targetMonsterId, targetRef, deps);
     }    
     /**
  * resolveLegacySkillTargetRef：读取Legacy技能目标Ref并返回结果。
@@ -99,8 +99,8 @@ let WorldRuntimeCombatCommandService = class WorldRuntimeCombatCommandService {
  * @returns 无返回值，直接更新Cast技能To怪物相关状态。
  */
 
-    dispatchCastSkillToMonster(attacker, skillId, targetMonsterId, deps) {
-        this.worldRuntimePlayerSkillDispatchService.dispatchCastSkillToMonster(attacker, skillId, targetMonsterId, deps);
+    async dispatchCastSkillToMonster(attacker, skillId, targetMonsterId, deps) {
+        return this.worldRuntimePlayerSkillDispatchService.dispatchCastSkillToMonster(attacker, skillId, targetMonsterId, deps);
     }    
     /**
  * dispatchCastSkillToTile：判断Cast技能ToTile是否满足条件。
@@ -127,8 +127,8 @@ let WorldRuntimeCombatCommandService = class WorldRuntimeCombatCommandService {
  * @returns 无返回值，直接更新EngageBattle相关状态。
  */
 
-    dispatchEngageBattle(playerId, targetPlayerId, targetMonsterId, targetX, targetY, locked, deps) {
-        this.worldRuntimeBattleEngageService.dispatchEngageBattle(playerId, targetPlayerId, targetMonsterId, targetX, targetY, locked, deps);
+    async dispatchEngageBattle(playerId, targetPlayerId, targetMonsterId, targetX, targetY, locked, deps) {
+        return this.worldRuntimeBattleEngageService.dispatchEngageBattle(playerId, targetPlayerId, targetMonsterId, targetX, targetY, locked, deps);
     }
 };
 exports.WorldRuntimeCombatCommandService = WorldRuntimeCombatCommandService;

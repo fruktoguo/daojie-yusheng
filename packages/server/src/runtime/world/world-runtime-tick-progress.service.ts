@@ -49,6 +49,15 @@ let WorldRuntimeTickProgressService = class WorldRuntimeTickProgressService {
         this.instanceTickProgressById.set(instanceId, 0);
     }    
     /**
+ * clearInstance：执行clear单个Instance相关逻辑。
+ * @param instanceId instance ID。
+ * @returns 无返回值，直接更新clear单个Instance相关状态。
+ */
+
+    clearInstance(instanceId) {
+        this.instanceTickProgressById.delete(instanceId);
+    }    
+    /**
  * resetState：执行reset状态相关逻辑。
  * @returns 无返回值，直接更新reset状态相关状态。
  */

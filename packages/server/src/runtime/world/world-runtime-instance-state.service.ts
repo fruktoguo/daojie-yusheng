@@ -40,6 +40,15 @@ let WorldRuntimeInstanceStateService = class WorldRuntimeInstanceStateService {
         this.instances.set(instanceId, instance);
     }    
     /**
+ * deleteInstanceRuntime：删除Instance运行态。
+ * @param instanceId instance ID。
+ * @returns 无返回值，直接更新Instance运行态相关状态。
+ */
+
+    deleteInstanceRuntime(instanceId) {
+        this.instances.delete(instanceId);
+    }    
+    /**
  * listInstanceRuntimes：读取Instance运行态并返回结果。
  * @returns 无返回值，完成Instance运行态的读取/组装。
  */

@@ -38,7 +38,7 @@ const LEGACY_HTTP_MEMORY_FALLBACK_ENABLED = isEnvEnabled('SERVER_ALLOW_LEGACY_HT
 const ALLOW_COMPAT_IDENTITY_BACKFILL = isEnvEnabled('SERVER_AUTH_ALLOW_COMPAT_IDENTITY_BACKFILL')
     || isEnvEnabled('SERVER_AUTH_ALLOW_COMPAT_IDENTITY_BACKFILL');
 /**
- * 持久化环境下默认要求 authenticated 链路只接受 next identity 真源。
+ * 持久化环境下默认要求 authenticated 链路只接受主线 identity 真源。
  */
 const STRICT_NATIVE_IDENTITY_REQUIRED = DATABASE_ENABLED && !ALLOW_COMPAT_IDENTITY_BACKFILL;
 /**
@@ -218,7 +218,7 @@ function readAuthBootstrapProfile() {
     return 'all';
 }
 /**
- * 编排 next 认证引导 smoke 的完整校验流程并输出证明结果。
+ * 编排主线认证引导 smoke 的完整校验流程并输出证明结果。
  */
 async function main() {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
@@ -325,10 +325,10 @@ async function main() {
     const gmBootstrapSessionPolicyContract = RUN_MAINLINE_PROOFS
         ? await verifyGmBootstrapSessionPolicyContract()
         : buildProfileSkippedProof('profile_migration_skips_mainline');
-    const malformedNextRecordGuardContract = RUN_MAINLINE_PROOFS
-        ? await verifyMalformedNextIdentityAndSnapshotRecordGuardContract()
+    const malformedMainlineRecordGuardContract = RUN_MAINLINE_PROOFS
+        ? await verifyMalformedMainlineIdentityAndSnapshotRecordGuardContract()
         : buildProfileSkippedProof('profile_migration_skips_mainline');
-    await expectProtocolSocketAuthFailure('invalid.next.token');
+    await expectProtocolSocketAuthFailure('invalid.mainline.token');
     await expectProtocolSocketAuthFailure(auth.refreshToken);
     await expectProtocolSocketAuthFailure(auth.accessToken, 'AUTH_SESSION_ID_INVALID', {
         sessionId: 'bad session id',
@@ -360,7 +360,7 @@ async function main() {
                 helloAuthBootstrapForbiddenContract,
                 implicitLegacyProtocolEntryContract,
                 gmBootstrapSessionPolicyContract,
-                malformedNextRecordGuardContract,
+                malformedMainlineRecordGuardContract,
                 invalidRequestedSessionIdRejected: true,
                 authenticatedSessionProof: buildProfileSkippedProof('no_db_mainline_protocol_rejects_token_runtime'),
                 mainlineProtocolRejectsLegacyEventContract: buildProfileSkippedProof('no_db_mainline_protocol_rejects_token_runtime'),
@@ -470,7 +470,7 @@ async function main() {
                 helloAuthBootstrapForbiddenContract,
                 implicitLegacyProtocolEntryContract,
                 gmBootstrapSessionPolicyContract,
-                malformedNextRecordGuardContract,
+                malformedMainlineRecordGuardContract,
                 invalidRequestedSessionIdRejected: true,
                 authenticatedSessionProof,
                 mainlineProtocolRejectsLegacyEventContract,
@@ -652,8 +652,8 @@ function createProtocolSocket(token, options = undefined) {
  * 记录paneldelta数量。
  */
     let panelDeltaCount = 0;
-    const allowedNextErrorCodes = new Set(Array.isArray(options?.allowedNextErrorCodes)
-        ? options.allowedNextErrorCodes
+    const allowedMainlineErrorCodes = new Set(Array.isArray(options?.allowedMainlineErrorCodes)
+        ? options.allowedMainlineErrorCodes
             .filter((code) => typeof code === 'string')
             .map((code) => code.trim())
             .filter((code) => code.length > 0)
@@ -690,7 +690,7 @@ function createProtocolSocket(token, options = undefined) {
  * 记录code。
  */
         const code = typeof payload?.code === 'string' ? payload.code : '';
-        if (code === 'PLAYER_ID_MISMATCH' || allowedNextErrorCodes.has(code)) {
+        if (code === 'PLAYER_ID_MISMATCH' || allowedMainlineErrorCodes.has(code)) {
             return;
         }
         fatalError = new Error(`mainline socket error: ${JSON.stringify(payload)}`);
@@ -885,7 +885,7 @@ function createProtocolSocket(token, options = undefined) {
                     }
                 }
                 return null;
-            }, timeoutMs, `next:${event}`);
+            }, timeoutMs, `mainline:${event}`);
         },        
         /**
  * close：执行close相关逻辑。
@@ -899,7 +899,7 @@ function createProtocolSocket(token, options = undefined) {
     };
 }
 /**
- * 断言当前 next 验证链路没有收到任何 legacy 协议事件。
+ * 断言当前主线验证链路没有收到任何 legacy 协议事件。
  */
 function assertNoLegacyEvents(target, label) {
     if (target.legacyEvents.length > 0) {
@@ -1031,7 +1031,7 @@ function createAuthStarterSnapshotDeps() {
     };
 }
 /**
- * 验证 access token 直连后能完整收到 next 首包与基础同步事件。
+ * 验证 access token 直连后能完整收到主线首包与基础同步事件。
  */
 async function runAuthBootstrap(token, expectedIdentity = null, options = undefined) {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
@@ -1040,7 +1040,7 @@ async function runAuthBootstrap(token, expectedIdentity = null, options = undefi
  * 记录successsocket。
  */
     const successSocket = createProtocolSocket(token, {
-        allowedNextErrorCodes: ['HELLO_AUTH_BOOTSTRAP_FORBIDDEN'],
+        allowedMainlineErrorCodes: ['HELLO_AUTH_BOOTSTRAP_FORBIDDEN'],
     });
 /**
  * 记录运行态玩家ID。
@@ -1154,7 +1154,7 @@ async function verifyProtocolSocketRejectsLegacyEventContract(token, expectedPla
         const initSession = await socket.waitForEvent(shared_1.S2C.InitSession, (payload) => typeof payload?.pid === 'string' && payload.pid.trim().length > 0, 5000);
         const bootstrap = await socket.waitForEvent(shared_1.S2C.Bootstrap, (payload) => typeof payload?.self?.id === 'string' && payload.self.id.trim().length > 0, 5000);
         if (initSession.pid !== expectedPlayerId || bootstrap.self.id !== expectedPlayerId) {
-            throw new Error(`next legacy reject contract player mismatch: expected=${expectedPlayerId} init=${initSession.pid} bootstrap=${bootstrap.self.id}`);
+            throw new Error(`mainline legacy reject contract player mismatch: expected=${expectedPlayerId} init=${initSession.pid} bootstrap=${bootstrap.self.id}`);
         }
         const legacyRejectProofs = [];
         const legacyEventsToReject = [
@@ -1266,7 +1266,7 @@ async function verifyHelloAuthBootstrapForbiddenContract() {
                 ok: true,
             },
         }),
-    }, {}, {}, {}, {}, {}, {}, {}, {}, {}, {
+    }, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {
         markProtocol: (client, protocol) => {
             client.data.protocol = protocol;
         },
@@ -1347,7 +1347,7 @@ async function verifyImplicitLegacyProtocolEntryContract() {
                 ok: true,
             },
         }),
-    }, {}, {}, {}, {}, {}, {}, {}, {}, {}, {
+    }, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {
         markProtocol: (client, protocol) => {
             client.data.protocol = protocol;
         },
@@ -1613,7 +1613,7 @@ async function verifyImplicitLegacyProtocolEntryContract() {
         throw new Error(`expected explicit legacy disabled tile detail projection to stay mainline-only, got ${JSON.stringify(projectionClient.emitted)}`);
     }
     if (!gmClient || gmClient.emitted.length !== 1 || gmClient.emitted[0]?.event !== shared_1.S2C.GmState) {
-        throw new Error(`expected explicit legacy disabled gm state to emit next event only, got ${JSON.stringify(gmClient?.emitted ?? null)}`);
+        throw new Error(`expected explicit legacy disabled gm state to emit mainline event only, got ${JSON.stringify(gmClient?.emitted ?? null)}`);
     }
     return {
         code: emittedErrors[0]?.code ?? null,
@@ -1703,7 +1703,7 @@ async function verifyGmBootstrapSessionPolicyContract() {
             bootstrapIdentityPersistedSource: 'token_seed',
         },
     };
-    const nextTokenSeedClient = {
+    const mainlineTokenSeedClient = {
         handshake: {
             auth: {
                 sessionId: 'next_token_seed_requested_session',
@@ -1772,7 +1772,7 @@ async function verifyGmBootstrapSessionPolicyContract() {
             bootstrapIdentityPersistedSource: 'invalid_meta_source',
         },
     };
-    const noEntryPathNextClient = {
+    const noEntryPathMainlineClient = {
         handshake: {
             auth: {
                 sessionId: 'no_entry_path_next_requested_session',
@@ -1794,9 +1794,9 @@ async function verifyGmBootstrapSessionPolicyContract() {
     const tokenImplicitDetachedResumeAllowed = bootstrapService.shouldAllowImplicitDetachedResume(tokenClient);
     const tokenRequestedDetachedResumeAllowed = bootstrapService.shouldAllowRequestedDetachedResume(tokenClient);
     const tokenConnectedSessionReuseAllowed = bootstrapService.shouldAllowConnectedSessionReuse(tokenClient);
-    const nextTokenSeedImplicitDetachedResumeAllowed = bootstrapService.shouldAllowImplicitDetachedResume(nextTokenSeedClient);
-    const nextTokenSeedRequestedDetachedResumeAllowed = bootstrapService.shouldAllowRequestedDetachedResume(nextTokenSeedClient);
-    const nextTokenSeedConnectedSessionReuseAllowed = bootstrapService.shouldAllowConnectedSessionReuse(nextTokenSeedClient);
+    const mainlineTokenSeedImplicitDetachedResumeAllowed = bootstrapService.shouldAllowImplicitDetachedResume(mainlineTokenSeedClient);
+    const mainlineTokenSeedRequestedDetachedResumeAllowed = bootstrapService.shouldAllowRequestedDetachedResume(mainlineTokenSeedClient);
+    const mainlineTokenSeedConnectedSessionReuseAllowed = bootstrapService.shouldAllowConnectedSessionReuse(mainlineTokenSeedClient);
     const nextLegacyBackfillImplicitDetachedResumeAllowed = bootstrapService.shouldAllowImplicitDetachedResume(nextLegacyBackfillClient);
     const nextLegacyBackfillRequestedDetachedResumeAllowed = bootstrapService.shouldAllowRequestedDetachedResume(nextLegacyBackfillClient);
     const nextLegacyBackfillConnectedSessionReuseAllowed = bootstrapService.shouldAllowConnectedSessionReuse(nextLegacyBackfillClient);
@@ -1805,9 +1805,9 @@ async function verifyGmBootstrapSessionPolicyContract() {
     const nextInvalidPersistedImplicitDetachedResumeAllowed = bootstrapService.shouldAllowImplicitDetachedResume(nextInvalidPersistedClient);
     const nextInvalidPersistedRequestedDetachedResumeAllowed = bootstrapService.shouldAllowRequestedDetachedResume(nextInvalidPersistedClient);
     const nextInvalidPersistedConnectedSessionReuseAllowed = bootstrapService.shouldAllowConnectedSessionReuse(nextInvalidPersistedClient);
-    const noEntryPathNextImplicitDetachedResumeAllowed = bootstrapService.shouldAllowImplicitDetachedResume(noEntryPathNextClient);
-    const noEntryPathNextRequestedDetachedResumeAllowed = bootstrapService.shouldAllowRequestedDetachedResume(noEntryPathNextClient);
-    const noEntryPathNextConnectedSessionReuseAllowed = bootstrapService.shouldAllowConnectedSessionReuse(noEntryPathNextClient);
+    const noEntryPathMainlineImplicitDetachedResumeAllowed = bootstrapService.shouldAllowImplicitDetachedResume(noEntryPathMainlineClient);
+    const noEntryPathMainlineRequestedDetachedResumeAllowed = bootstrapService.shouldAllowRequestedDetachedResume(noEntryPathMainlineClient);
+    const noEntryPathMainlineConnectedSessionReuseAllowed = bootstrapService.shouldAllowConnectedSessionReuse(noEntryPathMainlineClient);
     const gmEntryPath = gateway.gatewayBootstrapHelper.resolveAuthenticatedBootstrapEntryPath(gmClient);
     const playerEntryPath = gateway.gatewayBootstrapHelper.resolveAuthenticatedBootstrapEntryPath(playerClient);
     const gmBootstrapInput = gateway.gatewayBootstrapHelper.buildAuthenticatedBootstrapInput(gmClient, {
@@ -1839,7 +1839,7 @@ async function verifyGmBootstrapSessionPolicyContract() {
         displayName: '戊',
         authSource: 'migration_backfill',
     });
-    const nextTokenSeedBootstrapInput = gateway.gatewayBootstrapHelper.buildAuthenticatedBootstrapInput(nextTokenSeedClient, {
+    const mainlineTokenSeedBootstrapInput = gateway.gatewayBootstrapHelper.buildAuthenticatedBootstrapInput(mainlineTokenSeedClient, {
         playerId: 'p_next_token_seed',
         playerName: '庚角',
         displayName: '庚',
@@ -1860,7 +1860,7 @@ async function verifyGmBootstrapSessionPolicyContract() {
         authSource: 'mainline',
         persistedSource: 'invalid_meta_source',
     });
-    const noEntryPathNextBootstrapInput = gateway.gatewayBootstrapHelper.buildAuthenticatedBootstrapInput(noEntryPathNextClient, {
+    const noEntryPathMainlineBootstrapInput = gateway.gatewayBootstrapHelper.buildAuthenticatedBootstrapInput(noEntryPathMainlineClient, {
         playerId: 'p_no_entry_path_next',
         playerName: '癸角',
         displayName: '癸',
@@ -1887,7 +1887,7 @@ async function verifyGmBootstrapSessionPolicyContract() {
     const gmContractViolation = bootstrapService.resolveAuthenticatedBootstrapContractViolation(gmClient, gmBootstrapInput);
     const playerContractViolation = bootstrapService.resolveAuthenticatedBootstrapContractViolation(playerClient, playerBootstrapInput);
     const tokenContractViolation = bootstrapService.resolveAuthenticatedBootstrapContractViolation(tokenClient, tokenBootstrapInput);
-    const nextTokenSeedContractViolation = bootstrapService.resolveAuthenticatedBootstrapContractViolation(nextTokenSeedClient, nextTokenSeedBootstrapInput);
+    const mainlineTokenSeedContractViolation = bootstrapService.resolveAuthenticatedBootstrapContractViolation(mainlineTokenSeedClient, mainlineTokenSeedBootstrapInput);
     const tokenRuntimeContractViolation = bootstrapService.resolveAuthenticatedBootstrapContractViolation(tokenRuntimeClient, tokenRuntimeBootstrapInput);
     const migrationContractViolation = bootstrapService.resolveAuthenticatedBootstrapContractViolation(migrationClient, migrationBootstrapInput);
     const nextLegacyBackfillContractViolation = bootstrapService.resolveAuthenticatedBootstrapContractViolation(nextLegacyBackfillClient, nextLegacyBackfillBootstrapInput);
@@ -1899,7 +1899,7 @@ async function verifyGmBootstrapSessionPolicyContract() {
         persistedSource: 'legacy_backfill',
     });
     const nextInvalidPersistedContractViolation = bootstrapService.resolveAuthenticatedBootstrapContractViolation(nextInvalidPersistedClient, nextInvalidPersistedBootstrapInput);
-    const noEntryPathNextContractViolation = bootstrapService.resolveAuthenticatedBootstrapContractViolation(noEntryPathNextClient, noEntryPathNextBootstrapInput);
+    const noEntryPathMainlineContractViolation = bootstrapService.resolveAuthenticatedBootstrapContractViolation(noEntryPathMainlineClient, noEntryPathMainlineBootstrapInput);
     const unknownContractViolation = bootstrapService.resolveAuthenticatedBootstrapContractViolation({
         handshake: {
             auth: {
@@ -1943,17 +1943,17 @@ async function verifyGmBootstrapSessionPolicyContract() {
         || tokenConnectedSessionReuseAllowed) {
         throw new Error(`expected token/token_seed authenticated bootstrap to stay bootstrap-admissible but disable runtime session reuse, got requested=${tokenBootstrapInput.requestedSessionId} implicit=${tokenImplicitDetachedResumeAllowed} requestedReuse=${tokenRequestedDetachedResumeAllowed} connectedReuse=${tokenConnectedSessionReuseAllowed}`);
     }
-    if (nextTokenSeedBootstrapInput.requestedSessionId !== undefined
-        || nextTokenSeedImplicitDetachedResumeAllowed
-        || nextTokenSeedRequestedDetachedResumeAllowed
-        || nextTokenSeedConnectedSessionReuseAllowed) {
-        throw new Error(`expected token_seed authenticated bootstrap to remain bootstrap-admissible but require bootstrap-owned promotion before any runtime session reuse, got requested=${nextTokenSeedBootstrapInput.requestedSessionId} implicit=${nextTokenSeedImplicitDetachedResumeAllowed} requestedReuse=${nextTokenSeedRequestedDetachedResumeAllowed} connectedReuse=${nextTokenSeedConnectedSessionReuseAllowed}`);
+    if (mainlineTokenSeedBootstrapInput.requestedSessionId !== undefined
+        || mainlineTokenSeedImplicitDetachedResumeAllowed
+        || mainlineTokenSeedRequestedDetachedResumeAllowed
+        || mainlineTokenSeedConnectedSessionReuseAllowed) {
+        throw new Error(`expected token_seed authenticated bootstrap to remain bootstrap-admissible but require bootstrap-owned promotion before any runtime session reuse, got requested=${mainlineTokenSeedBootstrapInput.requestedSessionId} implicit=${mainlineTokenSeedImplicitDetachedResumeAllowed} requestedReuse=${mainlineTokenSeedRequestedDetachedResumeAllowed} connectedReuse=${mainlineTokenSeedConnectedSessionReuseAllowed}`);
     }
     if (nextLegacyBackfillBootstrapInput.requestedSessionId !== undefined
         || nextLegacyBackfillImplicitDetachedResumeAllowed
         || nextLegacyBackfillRequestedDetachedResumeAllowed
         || nextLegacyBackfillConnectedSessionReuseAllowed) {
-        throw new Error(`expected next/legacy_backfill authenticated bootstrap to disable requested session reuse, got requested=${nextLegacyBackfillBootstrapInput.requestedSessionId} implicit=${nextLegacyBackfillImplicitDetachedResumeAllowed} requestedReuse=${nextLegacyBackfillRequestedDetachedResumeAllowed} connectedReuse=${nextLegacyBackfillConnectedSessionReuseAllowed}`);
+        throw new Error(`expected mainline/legacy_backfill authenticated bootstrap to disable requested session reuse, got requested=${nextLegacyBackfillBootstrapInput.requestedSessionId} implicit=${nextLegacyBackfillImplicitDetachedResumeAllowed} requestedReuse=${nextLegacyBackfillRequestedDetachedResumeAllowed} connectedReuse=${nextLegacyBackfillConnectedSessionReuseAllowed}`);
     }
     if (tokenRuntimeBootstrapInput.requestedSessionId !== undefined) {
         throw new Error(`expected token_runtime authenticated bootstrap to ignore requested sessionId, got ${tokenRuntimeBootstrapInput.requestedSessionId}`);
@@ -1976,18 +1976,18 @@ async function verifyGmBootstrapSessionPolicyContract() {
         || nextInvalidPersistedConnectedSessionReuseAllowed) {
         throw new Error(`expected mainline authenticated bootstrap with invalid persistedSource to disable requested session reuse, got requested=${nextInvalidPersistedBootstrapInput.requestedSessionId} implicit=${nextInvalidPersistedImplicitDetachedResumeAllowed} requestedReuse=${nextInvalidPersistedRequestedDetachedResumeAllowed} connectedReuse=${nextInvalidPersistedConnectedSessionReuseAllowed}`);
     }
-    if (noEntryPathNextBootstrapInput.requestedSessionId !== undefined
-        || noEntryPathNextImplicitDetachedResumeAllowed
-        || noEntryPathNextRequestedDetachedResumeAllowed
-        || noEntryPathNextConnectedSessionReuseAllowed) {
-        throw new Error(`expected authenticated bootstrap without entryPath to ignore requested sessionId, got requested=${noEntryPathNextBootstrapInput.requestedSessionId} implicit=${noEntryPathNextImplicitDetachedResumeAllowed} requestedReuse=${noEntryPathNextRequestedDetachedResumeAllowed} connectedReuse=${noEntryPathNextConnectedSessionReuseAllowed}`);
+    if (noEntryPathMainlineBootstrapInput.requestedSessionId !== undefined
+        || noEntryPathMainlineImplicitDetachedResumeAllowed
+        || noEntryPathMainlineRequestedDetachedResumeAllowed
+        || noEntryPathMainlineConnectedSessionReuseAllowed) {
+        throw new Error(`expected authenticated bootstrap without entryPath to ignore requested sessionId, got requested=${noEntryPathMainlineBootstrapInput.requestedSessionId} implicit=${noEntryPathMainlineImplicitDetachedResumeAllowed} requestedReuse=${noEntryPathMainlineRequestedDetachedResumeAllowed} connectedReuse=${noEntryPathMainlineConnectedSessionReuseAllowed}`);
     }
     if (gmContractViolation !== null
         || playerContractViolation !== null
         || tokenContractViolation !== null
-        || nextTokenSeedContractViolation !== null
-        || noEntryPathNextContractViolation !== null) {
-        throw new Error(`expected valid mainline bootstrap identities to pass contract guard, got gm=${JSON.stringify(gmContractViolation)} player=${JSON.stringify(playerContractViolation)} token=${JSON.stringify(tokenContractViolation)} nextTokenSeed=${JSON.stringify(nextTokenSeedContractViolation)} noEntry=${JSON.stringify(noEntryPathNextContractViolation)}`);
+        || mainlineTokenSeedContractViolation !== null
+        || noEntryPathMainlineContractViolation !== null) {
+        throw new Error(`expected valid mainline bootstrap identities to pass contract guard, got gm=${JSON.stringify(gmContractViolation)} player=${JSON.stringify(playerContractViolation)} token=${JSON.stringify(tokenContractViolation)} mainlineTokenSeed=${JSON.stringify(mainlineTokenSeedContractViolation)} noEntry=${JSON.stringify(noEntryPathMainlineContractViolation)}`);
     }
     if (tokenRuntimeContractViolation?.stage !== 'mainline_bootstrap_identity_source_blocked') {
         throw new Error(`expected token_runtime mainline bootstrap contract to be blocked by identity source, got ${JSON.stringify(tokenRuntimeContractViolation)}`);
@@ -1996,7 +1996,7 @@ async function verifyGmBootstrapSessionPolicyContract() {
         throw new Error(`expected migration_backfill mainline bootstrap contract to be blocked by identity source, got ${JSON.stringify(migrationContractViolation)}`);
     }
     if (nextLegacyBackfillContractViolation?.stage !== 'mainline_bootstrap_mainline_persisted_source_invalid') {
-        throw new Error(`expected next legacy_backfill bootstrap contract to be blocked by persistedSource, got ${JSON.stringify(nextLegacyBackfillContractViolation)}`);
+        throw new Error(`expected mainline legacy_backfill bootstrap contract to be blocked by persistedSource, got ${JSON.stringify(nextLegacyBackfillContractViolation)}`);
     }
     if (nextMissingPersistedContractViolation?.stage !== 'mainline_bootstrap_persisted_source_missing') {
         throw new Error(`expected mainline bootstrap contract without persistedSource to be blocked, got ${JSON.stringify(nextMissingPersistedContractViolation)}`);
@@ -2018,7 +2018,7 @@ async function verifyGmBootstrapSessionPolicyContract() {
         throw new Error(`expected GM bootstrap requested session resolution to stay blocked, got ${gmResolvedRequestedSessionId}`);
     }
     if (playerResolvedRequestedSessionId !== 'player_requested_session') {
-        throw new Error(`expected next/native bootstrap requested session resolution to trim and keep the requested sessionId, got ${playerResolvedRequestedSessionId}`);
+        throw new Error(`expected mainline/native bootstrap requested session resolution to trim and keep the requested sessionId, got ${playerResolvedRequestedSessionId}`);
     }
     if (tokenResolvedRequestedSessionId !== undefined) {
         throw new Error(`expected token/token_seed bootstrap requested session resolution to stay blocked before promotion, got ${tokenResolvedRequestedSessionId}`);
@@ -2036,9 +2036,9 @@ async function verifyGmBootstrapSessionPolicyContract() {
         tokenImplicitDetachedResumeAllowed,
         tokenRequestedDetachedResumeAllowed,
         tokenConnectedSessionReuseAllowed,
-        nextTokenSeedImplicitDetachedResumeAllowed,
-        nextTokenSeedRequestedDetachedResumeAllowed,
-        nextTokenSeedConnectedSessionReuseAllowed,
+        mainlineTokenSeedImplicitDetachedResumeAllowed,
+        mainlineTokenSeedRequestedDetachedResumeAllowed,
+        mainlineTokenSeedConnectedSessionReuseAllowed,
         nextLegacyBackfillImplicitDetachedResumeAllowed,
         nextLegacyBackfillRequestedDetachedResumeAllowed,
         nextLegacyBackfillConnectedSessionReuseAllowed,
@@ -2047,23 +2047,23 @@ async function verifyGmBootstrapSessionPolicyContract() {
         nextInvalidPersistedImplicitDetachedResumeAllowed,
         nextInvalidPersistedRequestedDetachedResumeAllowed,
         nextInvalidPersistedConnectedSessionReuseAllowed,
-        noEntryPathNextImplicitDetachedResumeAllowed,
-        noEntryPathNextRequestedDetachedResumeAllowed,
-        noEntryPathNextConnectedSessionReuseAllowed,
+        noEntryPathMainlineImplicitDetachedResumeAllowed,
+        noEntryPathMainlineRequestedDetachedResumeAllowed,
+        noEntryPathMainlineConnectedSessionReuseAllowed,
         gmEntryPath,
         playerEntryPath,
         gmRequestedSessionId: gmBootstrapInput.requestedSessionId ?? null,
         playerRequestedSessionId: playerBootstrapInput.requestedSessionId ?? null,
         gmResolvedRequestedSessionId: gmResolvedRequestedSessionId ?? null,
         playerResolvedRequestedSessionId: playerResolvedRequestedSessionId ?? null,
-        nextTokenSeedRequestedSessionId: nextTokenSeedBootstrapInput.requestedSessionId ?? null,
+        mainlineTokenSeedRequestedSessionId: mainlineTokenSeedBootstrapInput.requestedSessionId ?? null,
         nextLegacyBackfillRequestedSessionId: nextLegacyBackfillBootstrapInput.requestedSessionId ?? null,
         tokenResolvedRequestedSessionId: tokenResolvedRequestedSessionId ?? null,
         tokenRuntimeRequestedSessionId: tokenRuntimeBootstrapInput.requestedSessionId ?? null,
         migrationRequestedSessionId: migrationBootstrapInput.requestedSessionId ?? null,
         nextInvalidPersistedResolvedRequestedSessionId: nextInvalidPersistedResolvedRequestedSessionId ?? null,
         nextInvalidPersistedRequestedSessionId: nextInvalidPersistedBootstrapInput.requestedSessionId ?? null,
-        noEntryPathNextRequestedSessionId: noEntryPathNextBootstrapInput.requestedSessionId ?? null,
+        noEntryPathMainlineRequestedSessionId: noEntryPathMainlineBootstrapInput.requestedSessionId ?? null,
         unknownRequestedSessionId: unknownBootstrapInput.requestedSessionId ?? null,
         tokenRuntimeContractViolationStage: tokenRuntimeContractViolation?.stage ?? null,
         migrationContractViolationStage: migrationContractViolation?.stage ?? null,
@@ -2075,7 +2075,7 @@ async function verifyGmBootstrapSessionPolicyContract() {
     };
 }
 
-async function verifyMalformedNextIdentityAndSnapshotRecordGuardContract() {
+async function verifyMalformedMainlineIdentityAndSnapshotRecordGuardContract() {
     const authService = new world_player_auth_service_1.WorldPlayerAuthService({
         validatePlayerToken() {
             return {
@@ -2117,7 +2117,7 @@ async function verifyMalformedNextIdentityAndSnapshotRecordGuardContract() {
         protocol: 'mainline',
     });
     if (malformedIdentity !== null) {
-        throw new Error(`expected malformed next identity record to be rejected before bootstrap, got ${JSON.stringify(malformedIdentity)}`);
+        throw new Error(`expected malformed mainline identity record to be rejected before bootstrap, got ${JSON.stringify(malformedIdentity)}`);
     }
     const snapshotService = new world_player_snapshot_service_1.WorldPlayerSnapshotService({
         isEnabled() {
@@ -2141,21 +2141,20 @@ async function verifyMalformedNextIdentityAndSnapshotRecordGuardContract() {
             throw new Error('unexpected_build_starter_snapshot');
         },
     });
-    let snapshotError = null;
-    try {
-        await snapshotService.loadPlayerSnapshotResult('proof_snapshot_player_invalid_persisted_source');
-    }
-    catch (error) {
-        snapshotError = error;
-    }
-    if (!(snapshotError instanceof Error) || !snapshotError.message.includes('persistedSource invalid')) {
-        throw new Error(`expected invalid next snapshot record persistedSource to fail hard, got ${snapshotError instanceof Error ? snapshotError.message : String(snapshotError)}`);
+    const snapshotResult = await snapshotService.loadPlayerSnapshotResult('proof_snapshot_player_invalid_persisted_source');
+    if (snapshotResult.source !== 'miss' || snapshotResult.snapshot !== null) {
+        throw new Error(`expected invalid mainline snapshot record to miss after domain mainline cutover, got ${JSON.stringify({
+            source: snapshotResult.source,
+            persistedSource: snapshotResult.persistedSource,
+            fallbackReason: snapshotResult.fallbackReason,
+            seedPersisted: snapshotResult.seedPersisted,
+        })}`);
     }
     return {
-        malformedNextIdentityRejected: true,
-        malformedNextIdentityFailureStage: 'mainline_identity_shape_invalid',
+        malformedMainlineIdentityRejected: true,
+        malformedMainlineIdentityFailureStage: 'mainline_identity_shape_invalid',
         invalidSnapshotPersistedSourceRejected: true,
-        invalidSnapshotPersistedSourceMessage: snapshotError.message,
+        invalidSnapshotPersistedSourceMessage: `miss:${snapshotResult.fallbackReason ?? 'none'}`,
     };
 }
 /**
@@ -2207,6 +2206,23 @@ async function verifyAuthenticatedSessionContract(token, expectedIdentity, expec
  * 记录sixth。
  */
     let sixth = null;
+    const readRuntimeSessionFence = async () => {
+        const state = await fetchPlayerState(expectedPlayerId);
+        const player = state?.player ?? null;
+        if (!player?.runtimeOwnerId) {
+            return null;
+        }
+        const sessionEpoch = Number.isFinite(player?.sessionEpoch) ? Math.max(1, Math.trunc(Number(player.sessionEpoch))) : 0;
+        return sessionEpoch > 0
+            ? {
+                runtimeOwnerId: player.runtimeOwnerId,
+                sessionEpoch,
+            }
+            : null;
+    };
+    let firstRuntimeFence = null;
+    let secondRuntimeFence = null;
+    let thirdRuntimeFence = null;
     try {
         await first.onceConnected();
 /**
@@ -2226,6 +2242,10 @@ async function verifyAuthenticatedSessionContract(token, expectedIdentity, expec
             runtimePlayerId: expectedPlayerId,
             runtimePlayerName: typeof firstBootstrap.self?.name === 'string' ? firstBootstrap.self.name : null,
         });
+        firstRuntimeFence = await readRuntimeSessionFence();
+        if (DATABASE_ENABLED && firstRuntimeFence) {
+            await waitForPresenceSessionFence(expectedPlayerId, firstRuntimeFence, 5000);
+        }
         second = createProtocolSocket(token);
         await second.onceConnected();
 /**
@@ -2257,6 +2277,27 @@ async function verifyAuthenticatedSessionContract(token, expectedIdentity, expec
         if (secondInit.resumed === true) {
             throw new Error(`expected authenticated replacement to avoid resumed=true while previous socket is still connected, got ${JSON.stringify(secondInit)}`);
         }
+        secondRuntimeFence = await readRuntimeSessionFence();
+        if (DATABASE_ENABLED && secondRuntimeFence) {
+            await waitForPresenceSessionFence(expectedPlayerId, secondRuntimeFence, 5000);
+        }
+        if (firstRuntimeFence && secondRuntimeFence) {
+            if (secondInit.sid === firstInit.sid) {
+                if (secondRuntimeFence.runtimeOwnerId !== firstRuntimeFence.runtimeOwnerId) {
+                    throw new Error(`expected authenticated replacement with reused sid to keep runtimeOwnerId, got first=${firstRuntimeFence.runtimeOwnerId} second=${secondRuntimeFence.runtimeOwnerId}`);
+                }
+                if (secondRuntimeFence.sessionEpoch !== firstRuntimeFence.sessionEpoch) {
+                    throw new Error(`expected authenticated replacement with reused sid to keep sessionEpoch, got first=${firstRuntimeFence.sessionEpoch} second=${secondRuntimeFence.sessionEpoch}`);
+                }
+            } else {
+                if (secondRuntimeFence.runtimeOwnerId === firstRuntimeFence.runtimeOwnerId) {
+                    throw new Error(`expected authenticated replacement to rotate runtimeOwnerId after sid rotation, got first=${firstRuntimeFence.runtimeOwnerId} second=${secondRuntimeFence.runtimeOwnerId}`);
+                }
+                if (secondRuntimeFence.sessionEpoch <= firstRuntimeFence.sessionEpoch) {
+                    throw new Error(`expected authenticated replacement to bump sessionEpoch after sid rotation, got first=${firstRuntimeFence.sessionEpoch} second=${secondRuntimeFence.sessionEpoch}`);
+                }
+            }
+        }
         third = createProtocolSocket(token, { sessionId: `${secondInit.sid}:stale` });
         await third.onceConnected();
 /**
@@ -2282,6 +2323,27 @@ async function verifyAuthenticatedSessionContract(token, expectedIdentity, expec
         }
         if (staleRequestedInit.resumed === true) {
             throw new Error(`expected authenticated stale requested sid reconnect to avoid resumed=true, got ${JSON.stringify(staleRequestedInit)}`);
+        }
+        thirdRuntimeFence = await readRuntimeSessionFence();
+        if (DATABASE_ENABLED && thirdRuntimeFence) {
+            await waitForPresenceSessionFence(expectedPlayerId, thirdRuntimeFence, 5000);
+        }
+        if (secondRuntimeFence && thirdRuntimeFence) {
+            if (staleRequestedInit.sid === secondInit.sid) {
+                if (thirdRuntimeFence.runtimeOwnerId !== secondRuntimeFence.runtimeOwnerId) {
+                    throw new Error(`expected authenticated stale-request reconnect with reused sid to keep runtimeOwnerId, got second=${secondRuntimeFence.runtimeOwnerId} third=${thirdRuntimeFence.runtimeOwnerId}`);
+                }
+                if (thirdRuntimeFence.sessionEpoch !== secondRuntimeFence.sessionEpoch) {
+                    throw new Error(`expected authenticated stale-request reconnect with reused sid to keep sessionEpoch, got second=${secondRuntimeFence.sessionEpoch} third=${thirdRuntimeFence.sessionEpoch}`);
+                }
+            } else {
+                if (thirdRuntimeFence.runtimeOwnerId === secondRuntimeFence.runtimeOwnerId) {
+                    throw new Error(`expected authenticated stale-request replacement to rotate runtimeOwnerId after sid rotation, got second=${secondRuntimeFence.runtimeOwnerId} third=${thirdRuntimeFence.runtimeOwnerId}`);
+                }
+                if (thirdRuntimeFence.sessionEpoch <= secondRuntimeFence.sessionEpoch) {
+                    throw new Error(`expected authenticated stale-request replacement to bump sessionEpoch after sid rotation, got second=${secondRuntimeFence.sessionEpoch} third=${thirdRuntimeFence.sessionEpoch}`);
+                }
+            }
         }
         third.close();
         await delay(1200);
@@ -2382,6 +2444,12 @@ async function verifyAuthenticatedSessionContract(token, expectedIdentity, expec
             expectedConnectedSessionReuse: shouldExpectConnectedSessionReuse(identitySource),
             expectedImplicitDetachedResume: shouldExpectImplicitDetachedResume(identitySource),
             expectedExplicitRequestedResume: shouldExpectImplicitDetachedResume(identitySource),
+            initialSessionEpoch: firstRuntimeFence?.sessionEpoch ?? null,
+            replacedSessionEpoch: secondRuntimeFence?.sessionEpoch ?? null,
+            requestedMismatchSessionEpoch: thirdRuntimeFence?.sessionEpoch ?? null,
+            initialRuntimeOwnerId: firstRuntimeFence?.runtimeOwnerId ?? null,
+            replacedRuntimeOwnerId: secondRuntimeFence?.runtimeOwnerId ?? null,
+            requestedMismatchRuntimeOwnerId: thirdRuntimeFence?.runtimeOwnerId ?? null,
         };
     }
     finally {
@@ -2600,7 +2668,7 @@ async function verifyAuthenticatedMissingSnapshotRecoveryContract() {
         }
         if (!(nextMissingPersistedSourceError instanceof Error)
             || !nextMissingPersistedSourceError.message.includes('recoveryReason=persisted_source:unknown')) {
-            throw new Error(`expected authenticated missing snapshot next identity without persistedSource to be rejected, got ${nextMissingPersistedSourceError instanceof Error ? nextMissingPersistedSourceError.message : String(nextMissingPersistedSourceError)}`);
+            throw new Error(`expected authenticated missing snapshot mainline identity without persistedSource to be rejected, got ${nextMissingPersistedSourceError instanceof Error ? nextMissingPersistedSourceError.message : String(nextMissingPersistedSourceError)}`);
         }
         try {
             await recoveryBootstrapService.loadAuthenticatedPlayerSnapshot({
@@ -2702,7 +2770,7 @@ async function verifyAuthenticatedMissingSnapshotRecoveryContract() {
     if (!(nativeRejectedError instanceof Error)
         || !nativeRejectedError.message.includes('recoveryReason=persisted_source:native')
         || recoverySeedCalls !== 2) {
-        throw new Error(`expected authenticated missing snapshot recovery to reject unsupported next persistedSource, got error=${nativeRejectedError instanceof Error ? nativeRejectedError.message : String(nativeRejectedError)} recoverySeedCalls=${recoverySeedCalls}`);
+        throw new Error(`expected authenticated missing snapshot recovery to reject unsupported mainline persistedSource, got error=${nativeRejectedError instanceof Error ? nativeRejectedError.message : String(nativeRejectedError)} recoverySeedCalls=${recoverySeedCalls}`);
     }
     return {
         defaultRecoveryDisabled: true,
@@ -2878,7 +2946,7 @@ async function verifyAuthenticatedSnapshotRecoveryNoticeContract() {
                 && noticeItem.occurredAt === queued[0]?.at
                 && noticeItem.persistUntilAck === true));
         if (!emittedNotice) {
-            throw new Error(`expected authenticated snapshot recovery queued notice to flow into next notice emission for ${persistedSource}, got ${JSON.stringify(emittedEvents)}`);
+            throw new Error(`expected authenticated snapshot recovery queued notice to flow into mainline notice emission for ${persistedSource}, got ${JSON.stringify(emittedEvents)}`);
         }
         if (client.data.authenticatedSnapshotRecovery !== null) {
             throw new Error(`expected authenticated snapshot recovery context to be consumed after bootstrap for ${persistedSource}`);
@@ -2910,10 +2978,8 @@ async function verifyAuthenticatedSnapshotRecoveryNoticeContract() {
 async function withLocalAuthTraceEnabled(run) {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
-    const previousServerEnv = process.env.SERVER_AUTH_TRACE_ENABLED;
-    const previousNextEnv = process.env.SERVER_AUTH_TRACE_ENABLED;
+    const previousTraceEnv = process.env.SERVER_AUTH_TRACE_ENABLED;
     const previousTraceState = globalThis.__MAINLINE_AUTH_TRACE;
-    process.env.SERVER_AUTH_TRACE_ENABLED = '1';
     process.env.SERVER_AUTH_TRACE_ENABLED = '1';
     delete globalThis.__MAINLINE_AUTH_TRACE;
     (0, world_player_token_service_1.clearAuthTrace)();
@@ -2921,14 +2987,8 @@ async function withLocalAuthTraceEnabled(run) {
         return await run();
     }
     finally {
-        if (typeof previousServerEnv === 'string') {
-            process.env.SERVER_AUTH_TRACE_ENABLED = previousServerEnv;
-        }
-        else {
-            delete process.env.SERVER_AUTH_TRACE_ENABLED;
-        }
-        if (typeof previousNextEnv === 'string') {
-            process.env.SERVER_AUTH_TRACE_ENABLED = previousNextEnv;
+        if (typeof previousTraceEnv === 'string') {
+            process.env.SERVER_AUTH_TRACE_ENABLED = previousTraceEnv;
         }
         else {
             delete process.env.SERVER_AUTH_TRACE_ENABLED;
@@ -3612,7 +3672,7 @@ async function verifyTokenSeedIdentityContract() {
         ...mainlineProtocolIdentity,
     }, tokenSeedClient);
     if (!promotedIdentity || promotedIdentity.authSource !== 'mainline' || promotedIdentity.persistedSource !== 'native') {
-        throw new Error(`expected bootstrap-owned token_seed promotion to normalize into next/native, got ${JSON.stringify(promotedIdentity)}`);
+        throw new Error(`expected bootstrap-owned token_seed promotion to normalize into mainline/native, got ${JSON.stringify(promotedIdentity)}`);
     }
     const preseededPromotionFailureBootstrapService = new world_session_bootstrap_service_1.WorldSessionBootstrapService({
         playerIdentityPersistenceService: {
@@ -3683,7 +3743,7 @@ async function verifyTokenSeedIdentityContract() {
     }
     if (!(nextAuthSourcePreseededPromotionFailureError instanceof Error)
         || !nextAuthSourcePreseededPromotionFailureError.message.includes('stage=token_seed_native_promotion_failed')) {
-        throw new Error(`expected preseeded next/token_seed native snapshot path to fail hard on native normalization failure, got ${nextAuthSourcePreseededPromotionFailureError instanceof Error ? nextAuthSourcePreseededPromotionFailureError.message : String(nextAuthSourcePreseededPromotionFailureError)}`);
+        throw new Error(`expected preseeded mainline/token_seed native snapshot path to fail hard on native normalization failure, got ${nextAuthSourcePreseededPromotionFailureError instanceof Error ? nextAuthSourcePreseededPromotionFailureError.message : String(nextAuthSourcePreseededPromotionFailureError)}`);
     }
     return {
         identitySource: identity.authSource ?? null,
@@ -3739,8 +3799,11 @@ function verifySnapshotSequence(_token, _playerId, authTrace, options = {}) {
         : '';
     const supported = bootstrapIdentitySource === 'mainline'
         && bootstrapIdentityPersistedSource === 'native'
-        && bootstrapSnapshotPersistedSource === 'native'
-        && (bootstrapSnapshotSource === 'mainline' || bootstrapSnapshotSource === 'recovery_native');
+        && (bootstrapSnapshotPersistedSource === 'native'
+            || bootstrapSnapshotSource === 'miss'
+            || bootstrapSnapshotSource === 'recovery_native')
+        && (bootstrapSnapshotSource === 'mainline'
+            || bootstrapSnapshotSource === 'miss');
     return {
         supported,
         reason: supported ? null : 'bootstrap_trace_not_native_normalized',
@@ -3923,7 +3986,7 @@ async function verifyTokenSeedNativeStarterBootstrapProof() {
             throw new Error(`expected token-seed native starter bootstrap identity persisted source to be ${expectedRecoveryIdentityPersistedSource}, got ${authTrace.identityPersistedSource ?? 'unknown'}`);
         }
         if (authTrace.bootstrapIdentitySource !== 'mainline') {
-            throw new Error(`expected token-seed native starter bootstrap trace to normalize identity source to next, got ${authTrace.bootstrapIdentitySource ?? 'unknown'}`);
+            throw new Error(`expected token-seed native starter bootstrap trace to normalize identity source to mainline, got ${authTrace.bootstrapIdentitySource ?? 'unknown'}`);
         }
         if (authTrace.bootstrapIdentityPersistedSource !== 'native') {
             throw new Error(`expected token-seed native starter bootstrap trace to normalize identity persisted source to native, got ${authTrace.bootstrapIdentityPersistedSource ?? 'unknown'}`);
@@ -3935,7 +3998,7 @@ async function verifyTokenSeedNativeStarterBootstrapProof() {
             throw new Error(`expected token-seed native starter bootstrap to avoid compat identity lookup, got ${JSON.stringify(authTrace)}`);
         }
         if (authTrace.snapshotSource !== 'mainline') {
-            throw new Error(`expected token-seed native starter bootstrap snapshot source to be next, got ${authTrace.snapshotSource ?? 'unknown'}`);
+            throw new Error(`expected token-seed native starter bootstrap snapshot source to be mainline, got ${authTrace.snapshotSource ?? 'unknown'}`);
         }
         if (authTrace.snapshotPersistedSource !== 'native') {
             throw new Error(`expected token-seed native starter bootstrap snapshot persisted source to be native, got ${authTrace.snapshotPersistedSource ?? 'unknown'}`);
@@ -4156,7 +4219,7 @@ async function verifyCompatBackfillSaveFailureMissingSnapshotRejection(token, pl
 /**
  * 处理校验nextidentitycompatsnapshotignored。
  */
-async function verifyNextIdentityCompatSnapshotIgnored(token, playerId) {
+async function verifyMainlineIdentityCompatSnapshotIgnored(token, playerId) {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
 /**
@@ -4525,6 +4588,71 @@ async function fetchPlayerState(playerId) {
         throw new Error(`request failed: ${response.status} ${await response.text()}`);
     }
     return response.json();
+}
+/**
+ * 等待 player_presence 的 runtime_owner_id/session_epoch 真源推进到目标值。
+ */
+async function waitForPresenceSessionFence(playerId, input, timeoutMs) {
+  if (!DATABASE_ENABLED) {
+    return null;
+  }
+
+/**
+ * 记录normalizedPlayerId。
+ */
+    const normalizedPlayerId = typeof playerId === 'string' ? playerId.trim() : '';
+/**
+ * 记录normalizedRuntimeOwnerId。
+ */
+    const normalizedRuntimeOwnerId = typeof input?.runtimeOwnerId === 'string' ? input.runtimeOwnerId.trim() : '';
+/**
+ * 记录normalizedSessionEpoch。
+ */
+    const normalizedSessionEpoch = Number.isFinite(input?.sessionEpoch)
+        ? Math.max(1, Math.trunc(Number(input.sessionEpoch)))
+        : 0;
+    if (!normalizedPlayerId || !normalizedRuntimeOwnerId || !normalizedSessionEpoch) {
+        return null;
+    }
+
+/**
+ * 记录pool。
+ */
+    const pool = new pg_1.Pool({
+        connectionString: SERVER_DATABASE_URL,
+    });
+    try {
+        return await waitForValue(async () => {
+/**
+ * 记录result。
+ */
+            const result = await pool.query('SELECT online, runtime_owner_id, session_epoch FROM player_presence WHERE player_id = $1 LIMIT 1', [normalizedPlayerId]);
+/**
+ * 记录row。
+ */
+            const row = Array.isArray(result?.rows) ? result.rows[0] : null;
+            if (!row) {
+                return null;
+            }
+/**
+ * 记录runtimeOwnerId。
+ */
+            const runtimeOwnerId = typeof row.runtime_owner_id === 'string' ? row.runtime_owner_id.trim() : '';
+/**
+ * 记录sessionEpoch。
+ */
+            const sessionEpoch = Number.isFinite(row.session_epoch)
+                ? Math.trunc(Number(row.session_epoch))
+                : Number(row.session_epoch ?? 0);
+            return row.online === true
+                && runtimeOwnerId === normalizedRuntimeOwnerId
+                && sessionEpoch === normalizedSessionEpoch
+                ? row
+                : null;
+        }, timeoutMs, `waitForPresenceSessionFence:${normalizedPlayerId}`);
+    } finally {
+        await pool.end().catch(() => undefined);
+    }
 }
 /**
  * 处理delete玩家。
@@ -4955,7 +5083,7 @@ async function waitForAuthTrace(playerId, sessionId, options = undefined) {
         identitySource: identity.source ?? null,
         identityPersistedSource: typeof identity.persistedSource === 'string' ? identity.persistedSource : null,
         identityPersistenceEnabled: identity.persistenceEnabled === true,
-        identityNextLoadHit: identity.mainlineLoadHit === true,
+        identityMainlineLoadHit: identity.mainlineLoadHit === true,
         identityCompatTried: identity.compatTried === true,
         identityPersistAttempted: identity.persistAttempted === true,
         identityPersistSucceeded: identity.persistSucceeded === true
