@@ -69,6 +69,7 @@
     "smoke:worker-backlog-alert-report": "pnpm compile && node dist/tools/worker-backlog-alert-report.js",
     "smoke:worker-backlog-alert": "pnpm compile && node dist/tools/worker-backlog-alert-smoke.js",
     "smoke:gm-world-instance": "pnpm compile && node dist/tools/gm-world-instance-smoke.js",
+    "smoke:gm-world-runtime-query": "pnpm compile && node dist/tools/gm-world-runtime-query-smoke.js",
     "smoke:world-gateway-client-emit-helper": "pnpm compile && node dist/tools/world-gateway-client-emit-helper-smoke.js",
     "smoke:world-gateway-craft-helper": "pnpm compile && node dist/tools/world-gateway-craft-helper-smoke.js",
     "smoke:world-gateway-inventory-helper": "pnpm compile && node dist/tools/world-gateway-inventory-helper-smoke.js",

@@ -349,6 +349,7 @@ interface WorldRuntimeServiceLike {
 
   instances?: Map<string, InternalRuntimeInstanceLike>;
   getInstance(instanceId: string): RuntimeInstanceLike | null | undefined;
+  getInstanceRuntime?(instanceId: string): InternalRuntimeInstanceLike | null | undefined;
   getRuntimeSummary(): {  
   /**
  * tick：tick相关字段。
@@ -574,7 +575,9 @@ export class NativeGmMapRuntimeQueryService {
     const startY = clamp(Math.trunc(Number(y) || 0), 0, Math.max(0, template.height - 1));
     const endX = Math.min(template.width, startX + clampedW);
     const endY = Math.min(template.height, startY + clampedH);
-    const internalInstance = this.worldRuntimeService.instances?.get(instanceId) ?? null;
+    const internalInstance = this.worldRuntimeService.getInstanceRuntime?.(instanceId)
+      ?? this.worldRuntimeService.instances?.get(instanceId)
+      ?? null;
     const tiles: Array<Array<{    
     /**
  * type：type相关字段。
