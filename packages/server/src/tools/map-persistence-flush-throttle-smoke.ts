@@ -36,7 +36,7 @@ async function main(): Promise<void> {
       },
       async saveMapSnapshot(instanceId: string) {
         saveCalls.push(instanceId);
-        await sleep(8);
+        await sleep(120);
       },
     } as never,
   );

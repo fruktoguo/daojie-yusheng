@@ -37,6 +37,8 @@ export * from './terrain';
 export * from './craft-duration';
 export * from './craft-skill';
 export * from './craft-success';
+export * from './alchemy';
+export * from './enhancement';
 export * from './technique-activity-types';
 export * from './technique-activity-meta';
 export * from './enhancement-cost';

@@ -353,8 +353,8 @@ export class LoginUI {
     this.registerAccountGroup.classList.toggle('hidden', !isRegister);
     this.roleNameGroup.classList.toggle('hidden', !isRegister);
     this.displayNameGroup.classList.toggle('hidden', !isRegister);
-    this.loginNameLabel.textContent = '账号';
-    this.loginNameInput.placeholder = '输入账号';
+    this.loginNameLabel.textContent = '账号 / 角色名';
+    this.loginNameInput.placeholder = '输入账号或角色名';
     this.submitText.textContent = isRegister ? '注册' : '登录';
     this.setError('');
     if (!isRegister) {

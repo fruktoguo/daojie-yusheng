@@ -13,137 +13,137 @@ export interface SyncedItemStack {
  * itemId：道具ID标识。
  */
 
-  itemId: string;  
+  itemId: string;
   /**
  * count：数量或计量字段。
  */
 
-  count: number;  
+  count: number;
   /**
  * name：名称名称或显示文本。
  */
 
-  name?: string;  
+  name?: string;
   /**
  * type：type相关字段。
  */
 
-  type?: ItemType;  
+  type?: ItemType;
   /**
  * desc：desc相关字段。
  */
 
-  desc?: string;  
+  desc?: string;
   /**
  * groundLabel：groundLabel名称或显示文本。
  */
 
-  groundLabel?: string;  
+  groundLabel?: string;
   /**
  * grade：grade相关字段。
  */
 
-  grade?: TechniqueGrade;  
+  grade?: TechniqueGrade;
   /**
  * level：等级数值。
  */
 
-  level?: number;  
+  level?: number;
   /**
  * equipSlot：equipSlot相关字段。
  */
 
-  equipSlot?: EquipSlot;  
+  equipSlot?: EquipSlot;
   /**
  * equipAttrs：equipAttr相关字段。
  */
 
-  equipAttrs?: ItemStack['equipAttrs'];  
+  equipAttrs?: ItemStack['equipAttrs'];
   /**
  * equipStats：equipStat相关字段。
  */
 
-  equipStats?: ItemStack['equipStats'];  
+  equipStats?: ItemStack['equipStats'];
   /**
  * equipValueStats：equip值Stat相关字段。
  */
 
-  equipValueStats?: ItemStack['equipValueStats'];  
+  equipValueStats?: ItemStack['equipValueStats'];
   /**
  * effects：effect相关字段。
  */
 
-  effects?: EquipmentEffectDef[];  
+  effects?: EquipmentEffectDef[];
   /**
  * healAmount：数量或计量字段。
  */
 
-  healAmount?: number;  
+  healAmount?: number;
   /**
  * healPercent：healPercent相关字段。
  */
 
-  healPercent?: number;  
+  healPercent?: number;
   /**
  * qiPercent：qiPercent相关字段。
  */
 
-  qiPercent?: number;  
+  qiPercent?: number;
   /**
  * cooldown：冷却相关字段。
  */
 
-  cooldown?: number;  
+  cooldown?: number;
   /**
  * consumeBuffs：consumeBuff相关字段。
  */
 
-  consumeBuffs?: ConsumableBuffDef[];  
+  consumeBuffs?: ConsumableBuffDef[];
   /**
  * tags：tag相关字段。
  */
 
-  tags?: string[];  
+  tags?: string[];
   /**
  * enhanceLevel：enhance等级数值。
  */
 
-  enhanceLevel?: number;  
+  enhanceLevel?: number;
   /**
  * alchemySuccessRate：炼丹SuccessRate数值。
  */
 
-  alchemySuccessRate?: number;  
+  alchemySuccessRate?: number;
   /**
  * alchemySpeedRate：炼丹SpeedRate数值。
  */
 
-  alchemySpeedRate?: number;  
+  alchemySpeedRate?: number;
   /**
  * enhancementSuccessRate：强化SuccessRate数值。
  */
 
-  enhancementSuccessRate?: number;  
+  enhancementSuccessRate?: number;
   /**
  * enhancementSpeedRate：强化SpeedRate数值。
  */
 
-  enhancementSpeedRate?: number;  
+  enhancementSpeedRate?: number;
   /**
  * mapUnlockId：地图UnlockID标识。
  */
 
-  mapUnlockId?: string;  
+  mapUnlockId?: string;
   /**
  * mapUnlockIds：地图UnlockID相关字段。
  */
 
-  mapUnlockIds?: string[];  
+  mapUnlockIds?: string[];
   /**
  * tileAuraGainAmount：数量或计量字段。
  */
 
-  tileAuraGainAmount?: number;  
+  tileAuraGainAmount?: number;
   /**
  * tileResourceGains：集合字段。
  */
@@ -162,17 +162,17 @@ export interface SyncedInventorySnapshot {
  * items：集合字段。
  */
 
-  items: SyncedItemStack[];  
+  items: SyncedItemStack[];
   /**
  * capacity：capacity相关字段。
  */
 
-  capacity: number;  
+  capacity: number;
   /**
  * cooldowns：冷却相关字段。
  */
 
-  cooldowns?: SyncedInventoryCooldownState[];  
+  cooldowns?: SyncedInventoryCooldownState[];
   /**
  * serverTick：servertick相关字段。
  */
@@ -186,12 +186,12 @@ export interface SyncedInventoryCooldownState {
  * itemId：道具ID标识。
  */
 
-  itemId: string;  
+  itemId: string;
   /**
  * cooldown：冷却相关字段。
  */
 
-  cooldown: number;  
+  cooldown: number;
   /**
  * startedAtTick：startedAttick相关字段。
  */
@@ -205,7 +205,7 @@ export interface InventorySlotUpdateEntry {
  * slotIndex：slotIndex相关字段。
  */
 
-  slotIndex: number;  
+  slotIndex: number;
   /**
  * item：道具相关字段。
  */
@@ -219,7 +219,7 @@ export interface EquipmentSlotUpdateEntry {
  * slot：slot相关字段。
  */
 
-  slot: EquipSlot;  
+  slot: EquipSlot;
   /**
  * item：道具相关字段。
  */
@@ -233,22 +233,22 @@ export interface PanelInventoryDeltaView {
  * r：r相关字段。
  */
 
-  r: number;  
+  r: number;
   /**
  * full：full相关字段。
  */
 
-  full?: 1;  
+  full?: 1;
   /**
  * capacity：capacity相关字段。
  */
 
-  capacity?: number;  
+  capacity?: number;
   /**
  * size：数量或计量字段。
  */
 
-  size?: number;  
+  size?: number;
   /**
  * slots：slot相关字段。
  */
@@ -262,12 +262,12 @@ export interface PanelEquipmentDeltaView {
  * r：r相关字段。
  */
 
-  r: number;  
+  r: number;
   /**
  * full：full相关字段。
  */
 
-  full?: 1;  
+  full?: 1;
   /**
  * slots：slot相关字段。
  */
@@ -281,7 +281,7 @@ export interface SyncedLootWindowItemView {
  * itemKey：道具Key标识。
  */
 
-  itemKey: string;  
+  itemKey: string;
   /**
  * item：道具相关字段。
  */
@@ -295,42 +295,42 @@ export interface SyncedLootWindowSourceView {
  * sourceId：来源ID标识。
  */
 
-  sourceId: string;  
+  sourceId: string;
   /**
  * kind：kind相关字段。
  */
 
-  kind: LootSourceKind;  
+  kind: LootSourceKind;
   /**
  * title：title名称或显示文本。
  */
 
-  title: string;  
+  title: string;
   /**
  * desc：desc相关字段。
  */
 
-  desc?: string;  
+  desc?: string;
   /**
  * grade：grade相关字段。
  */
 
-  grade?: TechniqueGrade;  
+  grade?: TechniqueGrade;
   /**
  * searchable：searchable相关字段。
  */
 
-  searchable: boolean;  
+  searchable: boolean;
   /**
  * search：search相关字段。
  */
 
-  search?: LootSearchProgressView;  
+  search?: LootSearchProgressView;
   /**
  * items：集合字段。
  */
 
-  items: SyncedLootWindowItemView[];  
+  items: SyncedLootWindowItemView[];
   /**
  * emptyText：emptyText名称或显示文本。
  */
@@ -348,6 +348,7 @@ export interface SyncedLootWindowSourceView {
   herb?: {
     grade?: TechniqueGrade;
     level?: number;
+    nativeGatherTicks?: number;
     gatherTicks?: number;
   };
   /**
@@ -363,17 +364,17 @@ export interface SyncedLootWindowState {
  * tileX：tileX相关字段。
  */
 
-  tileX: number;  
+  tileX: number;
   /**
  * tileY：tileY相关字段。
  */
 
-  tileY: number;  
+  tileY: number;
   /**
  * title：title名称或显示文本。
  */
 
-  title: string;  
+  title: string;
   /**
  * sources：来源相关字段。
  */
@@ -381,82 +382,48 @@ export interface SyncedLootWindowState {
   sources: SyncedLootWindowSourceView[];
 }
 
-/** 坊市分页里某个物品的变体统计。 */
-export interface MarketListingVariantEntry {
-/**
- * itemKey：道具Key标识。
- */
-
-  itemKey: string;  
-  /**
- * item：道具相关字段。
- */
-
-  item: ItemStack;  
-  /**
- * lowestSellPrice：lowestSell价格数值。
- */
-
-  lowestSellPrice?: number;  
-  /**
- * highestBuyPrice：highestBuy价格数值。
- */
-
-  highestBuyPrice?: number;  
-  /**
- * sellOrderCount：数量或计量字段。
- */
-
-  sellOrderCount: number;  
-  /**
- * sellQuantity：sellQuantity相关字段。
- */
-
-  sellQuantity: number;  
-  /**
- * buyOrderCount：数量或计量字段。
- */
-
-  buyOrderCount: number;  
-  /**
- * buyQuantity：buyQuantity相关字段。
- */
-
-  buyQuantity: number;
-}
+/** 坊市材料细分类型。 */
+export type MarketMaterialSubType = 'herb' | 'special' | 'other';
+/** 坊市列表条目的二级分类。 */
+export type MarketListingSubType = EquipSlot | TechniqueCategory | MarketMaterialSubType | 'other';
 
 /** 坊市分页里的一条商品摘要。 */
 export interface MarketListingPageEntry {
 /**
+ * itemKey：客户端使用的坊市条目 key。
+ */
+
+  itemKey: string;
+  /**
  * itemId：道具ID标识。
  */
 
-  itemId: string;  
+  itemId: string;
   /**
- * item：道具相关字段。
+ * itemType：道具大类。
  */
 
-  item: ItemStack;  
+  itemType: ItemType;
+  /**
+ * itemSubType：道具二级分类。
+ */
+
+  itemSubType?: MarketListingSubType;
+  /**
+ * enhanceLevel：强化等级；不同强化等级视为不同条目。
+ */
+
+  enhanceLevel?: number;
   /**
  * lowestSellPrice：lowestSell价格数值。
  */
 
-  lowestSellPrice?: number;  
+  lowestSellPrice?: number;
   /**
  * highestBuyPrice：highestBuy价格数值。
  */
 
-  highestBuyPrice?: number;  
-  /**
- * canEnhance：canEnhance相关字段。
- */
-
-  canEnhance: boolean;  
-  /**
- * variants：variant相关字段。
- */
-
-  variants: MarketListingVariantEntry[];
+  highestBuyPrice?: number;
 }
 
 /** 玩家自己的坊市订单条目。 */
@@ -465,37 +432,37 @@ export interface MarketOwnOrderSyncEntry {
  * id：ID标识。
  */
 
-  id: string;  
+  id: string;
   /**
  * side：side相关字段。
  */
 
-  side: 'buy' | 'sell';  
+  side: 'buy' | 'sell';
   /**
  * status：statu状态或数据块。
  */
 
-  status: 'open' | 'filled' | 'cancelled';  
+  status: 'open' | 'filled' | 'cancelled';
   /**
  * itemKey：道具Key标识。
  */
 
-  itemKey: string;  
+  itemKey: string;
   /**
  * item：道具相关字段。
  */
 
-  item: ItemStack;  
+  item: ItemStack;
   /**
  * remainingQuantity：remainingQuantity相关字段。
  */
 
-  remainingQuantity: number;  
+  remainingQuantity: number;
   /**
  * unitPrice：unit价格数值。
  */
 
-  unitPrice: number;  
+  unitPrice: number;
   /**
  * createdAt：createdAt相关字段。
  */
@@ -509,12 +476,12 @@ export interface MarketStorageSyncEntry {
  * itemKey：道具Key标识。
  */
 
-  itemKey: string;  
+  itemKey: string;
   /**
  * item：道具相关字段。
  */
 
-  item: ItemStack;  
+  item: ItemStack;
   /**
  * count：数量或计量字段。
  */
@@ -528,27 +495,27 @@ export interface SyncedNpcShopItemView {
  * itemId：道具ID标识。
  */
 
-  itemId: string;  
+  itemId: string;
   /**
  * item：道具相关字段。
  */
 
-  item: SyncedItemStack;  
+  item: SyncedItemStack;
   /**
  * unitPrice：unit价格数值。
  */
 
-  unitPrice: number;  
+  unitPrice: number;
   /**
  * remainingQuantity：remainingQuantity相关字段。
  */
 
-  remainingQuantity?: number;  
+  remainingQuantity?: number;
   /**
  * stockLimit：stockLimit相关字段。
  */
 
-  stockLimit?: number;  
+  stockLimit?: number;
   /**
  * refreshAt：refreshAt相关字段。
  */
@@ -562,27 +529,27 @@ export interface SyncedNpcShopView {
  * npcId：NPCID标识。
  */
 
-  npcId: string;  
+  npcId: string;
   /**
  * npcName：NPC名称名称或显示文本。
  */
 
-  npcName: string;  
+  npcName: string;
   /**
  * dialogue：dialogue相关字段。
  */
 
-  dialogue: string;  
+  dialogue: string;
   /**
  * currencyItemId：currency道具ID标识。
  */
 
-  currencyItemId: string;  
+  currencyItemId: string;
   /**
  * currencyItemName：currency道具名称名称或显示文本。
  */
 
-  currencyItemName: string;  
+  currencyItemName: string;
   /**
  * items：集合字段。
  */

@@ -14,6 +14,7 @@ import {
   buildManualLineInstanceId,
   buildRuntimeInstancePresetMeta,
   isRuntimeInstanceLinePreset,
+  normalizeRuntimeInstancePersistentPolicy,
 } from '../../runtime/world/world-runtime.normalization.helpers';
 import { NativeGmEditorQueryService } from './native-gm-editor-query.service';
 import { NativeGmMapQueryService } from './native-gm-map-query.service';
@@ -37,6 +38,7 @@ interface ContentTemplateRepositoryLike {
 interface RuntimeGmStateServiceLike {
   buildPerformanceSnapshot(): Record<string, unknown>;
   resetNetworkPerfCounters(): void;
+  resetCpuPerfCounters(): void;
 }
 /**
  * MapTemplateRepositoryLike：定义接口结构约束，明确可交付字段含义。
@@ -622,6 +624,8 @@ export class NativeGmWorldService {
     }
     const template = this.mapTemplateRepository.getOrThrow(templateId);
     const linePreset = parseRequiredLinePreset(body?.linePreset);
+    const persistentPolicy = normalizeRuntimeInstancePersistentPolicy(body?.persistentPolicy);
+    const expireAt = normalizeOptionalFutureTimestamp(body?.expireAt);
     const lineIndex = resolveManualLineIndex(this.worldRuntimeService.listInstances(), templateId, linePreset);
     const presetMeta = buildRuntimeInstancePresetMeta({
       templateName: template.name,
@@ -635,12 +639,14 @@ export class NativeGmWorldService {
       instanceId: buildManualLineInstanceId(templateId, linePreset, lineIndex),
       templateId,
       kind: 'public',
-      persistent: false,
+      persistent: persistentPolicy !== 'ephemeral',
+      persistentPolicy,
       displayName: presetMeta.displayName,
       linePreset: presetMeta.linePreset,
       lineIndex: presetMeta.lineIndex,
       instanceOrigin: presetMeta.instanceOrigin,
       defaultEntry: presetMeta.defaultEntry,
+      ...(expireAt ? { destroyAt: new Date(expireAt).toISOString() } : {}),
     });
     return {
       instance: created.snapshot(),
@@ -759,6 +765,7 @@ export class NativeGmWorldService {
 
   resetCpuPerf() {
     this.cpuPerfStartedAt = Date.now();
+    this.runtimeGmStateService.resetCpuPerfCounters();
   }  
   /**
  * resetPathfindingPerf：读取resetPathfindingPerf并返回结果。
@@ -794,6 +801,17 @@ function resolveManualLineIndex(
     }
   }
   return nextIndex;
+}
+
+function normalizeOptionalFutureTimestamp(input: unknown): number | null {
+  if (!Number.isFinite(Number(input))) {
+    return null;
+  }
+  const timestamp = Math.trunc(Number(input));
+  if (timestamp <= Date.now()) {
+    throw new BadRequestException('expireAt must be a future timestamp');
+  }
+  return timestamp;
 }
 
 function compareWorldInstanceSummary(

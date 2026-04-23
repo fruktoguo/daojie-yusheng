@@ -12,137 +12,147 @@ export enum TileType {
  * Floor：枚举成员常量定义。
  */
 
-  Floor = 'floor',  
+  Floor = 'floor',
   /**
  * Road：枚举成员常量定义。
  */
 
-  Road = 'road',  
+  Road = 'road',
   /**
  * Trail：枚举成员常量定义。
  */
 
-  Trail = 'trail',  
+  Trail = 'trail',
   /**
  * Wall：枚举成员常量定义。
  */
 
-  Wall = 'wall',  
+  Wall = 'wall',
   /**
  * Door：枚举成员常量定义。
  */
 
-  Door = 'door',  
+  Door = 'door',
   /**
  * Window：枚举成员常量定义。
  */
 
-  Window = 'window',  
+  Window = 'window',
   /**
  * BrokenWindow：枚举成员常量定义。
  */
 
-  BrokenWindow = 'broken_window',  
+  BrokenWindow = 'broken_window',
   /**
  * HouseEave：枚举成员常量定义。
  */
 
-  HouseEave = 'house_eave',  
+  HouseEave = 'house_eave',
   /**
  * HouseCorner：枚举成员常量定义。
  */
 
-  HouseCorner = 'house_corner',  
+  HouseCorner = 'house_corner',
   /**
  * ScreenWall：枚举成员常量定义。
  */
 
-  ScreenWall = 'screen_wall',  
+  ScreenWall = 'screen_wall',
   /**
  * Veranda：枚举成员常量定义。
  */
 
-  Veranda = 'veranda',  
+  Veranda = 'veranda',
   /**
  * Portal：枚举成员常量定义。
  */
 
-  Portal = 'portal',  
+  Portal = 'portal',
   /**
  * Stairs：枚举成员常量定义。
  */
 
-  Stairs = 'stairs',  
+  Stairs = 'stairs',
   /**
  * Grass：枚举成员常量定义。
  */
 
-  Grass = 'grass',  
+  Grass = 'grass',
   /**
  * Hill：枚举成员常量定义。
  */
 
-  Hill = 'hill',  
+  Hill = 'hill',
   /**
  * Cliff：枚举成员常量定义。
  */
 
-  Cliff = 'cliff',  
+  Cliff = 'cliff',
   /**
  * Mud：枚举成员常量定义。
  */
 
-  Mud = 'mud',  
+  Mud = 'mud',
   /**
  * Swamp：枚举成员常量定义。
  */
 
-  Swamp = 'swamp',  
+  Swamp = 'swamp',
+  /**
+ * ColdBog：寒沼地形。
+ */
+
+  ColdBog = 'cold_bog',
+  /**
+ * MoltenPool：熔池地形。
+ */
+
+  MoltenPool = 'molten_pool',
   /**
  * Water：枚举成员常量定义。
  */
 
-  Water = 'water',  
+  Water = 'water',
   /**
  * Cloud：枚举成员常量定义。
  */
 
-  Cloud = 'cloud',  
+  Cloud = 'cloud',
   /**
  * CloudFloor：枚举成员常量定义。
  */
 
-  CloudFloor = 'cloud_floor',  
+  CloudFloor = 'cloud_floor',
   /**
  * Void：枚举成员常量定义。
  */
 
-  Void = 'void',  
+  Void = 'void',
   /**
  * Tree：枚举成员常量定义。
  */
 
-  Tree = 'tree',  
+  Tree = 'tree',
   /**
  * Bamboo：枚举成员常量定义。
  */
 
-  Bamboo = 'bamboo',  
+  Bamboo = 'bamboo',
   /**
  * Stone：枚举成员常量定义。
  */
 
-  Stone = 'stone',  
+  Stone = 'stone',
   /**
  * SpiritOre：枚举成员常量定义。
  */
 
-  SpiritOre = 'spirit_ore',  
+  SpiritOre = 'spirit_ore',
   /**
  * BlackIronOre：枚举成员常量定义。
  */
 
-  BlackIronOre = 'black_iron_ore',  
+  BlackIronOre = 'black_iron_ore',
   /**
  * BrokenSwordHeap：枚举成员常量定义。
  */
@@ -156,17 +166,17 @@ export enum Direction {
  * North：枚举成员常量定义。
  */
 
-  North = 0,  
+  North = 0,
   /**
  * South：枚举成员常量定义。
  */
 
-  South = 1,  
+  South = 1,
   /**
  * East：枚举成员常量定义。
  */
 
-  East = 2,  
+  East = 2,
   /**
  * West：枚举成员常量定义。
  */
@@ -180,7 +190,7 @@ export interface HiddenEntranceObservation {
  * title：title名称或显示文本。
  */
 
-  title: string;  
+  title: string;
   /**
  * desc：desc相关字段。
  */
@@ -194,52 +204,52 @@ export interface Tile {
  * type：type相关字段。
  */
 
-  type: TileType;  
+  type: TileType;
   /**
  * walkable：walkable相关字段。
  */
 
-  walkable: boolean;  
+  walkable: boolean;
   /**
  * blocksSight：blockSight相关字段。
  */
 
-  blocksSight: boolean;  
+  blocksSight: boolean;
   /**
  * aura：aura相关字段。
  */
 
-  aura: number;  
+  aura: number;
   /**
  * resources：resource相关字段。
  */
 
-  resources?: TileRuntimeResourceView[];  
+  resources?: TileRuntimeResourceView[];
   /**
  * occupiedBy：occupiedBy相关字段。
  */
 
-  occupiedBy: string | null;  
+  occupiedBy: string | null;
   /**
  * modifiedAt：modifiedAt相关字段。
  */
 
-  modifiedAt: number | null;  
+  modifiedAt: number | null;
   /**
  * hp：hp相关字段。
  */
 
-  hp?: number;  
+  hp?: number;
   /**
  * maxHp：maxHp相关字段。
  */
 
-  maxHp?: number;  
+  maxHp?: number;
   /**
  * hpVisible：hp可见相关字段。
  */
 
-  hpVisible?: boolean;  
+  hpVisible?: boolean;
   /**
  * hiddenEntrance：hiddenEntrance相关字段。
  */
@@ -265,72 +275,72 @@ export interface MapMeta {
  * id：ID标识。
  */
 
-  id: string;  
+  id: string;
   /**
  * name：名称名称或显示文本。
  */
 
-  name: string;  
+  name: string;
   /**
  * width：width相关字段。
  */
 
-  width: number;  
+  width: number;
   /**
  * height：height相关字段。
  */
 
-  height: number;  
+  height: number;
   /**
  * playerOverlapPoints：玩家OverlapPoint相关字段。
  */
 
-  playerOverlapPoints?: GridPoint[];  
+  playerOverlapPoints?: GridPoint[];
   /**
  * routeDomain：路线Domain相关字段。
  */
 
-  routeDomain?: MapRouteDomain;  
+  routeDomain?: MapRouteDomain;
   /**
  * parentMapId：parent地图ID标识。
  */
 
-  parentMapId?: string;  
+  parentMapId?: string;
   /**
  * parentOriginX：parentOriginX相关字段。
  */
 
-  parentOriginX?: number;  
+  parentOriginX?: number;
   /**
  * parentOriginY：parentOriginY相关字段。
  */
 
-  parentOriginY?: number;  
+  parentOriginY?: number;
   /**
  * floorLevel：floor等级数值。
  */
 
-  floorLevel?: number;  
+  floorLevel?: number;
   /**
  * floorName：floor名称名称或显示文本。
  */
 
-  floorName?: string;  
+  floorName?: string;
   /**
  * spaceVisionMode：spaceVisionMode相关字段。
  */
 
-  spaceVisionMode?: MapSpaceVisionMode;  
+  spaceVisionMode?: MapSpaceVisionMode;
   /**
  * dangerLevel：danger等级数值。
  */
 
-  dangerLevel?: number;  
+  dangerLevel?: number;
   /**
  * recommendedRealm：recommendedRealm相关字段。
  */
 
-  recommendedRealm?: string;  
+  recommendedRealm?: string;
   /**
  * description：description相关字段。
  */
@@ -350,57 +360,57 @@ export interface Portal {
  * x：x相关字段。
  */
 
-  x: number;  
+  x: number;
   /**
  * y：y相关字段。
  */
 
-  y: number;  
+  y: number;
   /**
  * targetMapId：目标地图ID标识。
  */
 
-  targetMapId: string;  
+  targetMapId: string;
   /**
  * targetX：目标X相关字段。
  */
 
-  targetX: number;  
+  targetX: number;
   /**
  * targetY：目标Y相关字段。
  */
 
-  targetY: number;  
+  targetY: number;
   /**
  * kind：kind相关字段。
  */
 
-  kind: PortalKind;  
+  kind: PortalKind;
   /**
  * trigger：trigger相关字段。
  */
 
-  trigger: PortalTrigger;  
+  trigger: PortalTrigger;
   /**
  * routeDomain：路线Domain相关字段。
  */
 
-  routeDomain: MapRouteDomain;  
+  routeDomain: MapRouteDomain;
   /**
  * allowPlayerOverlap：allow玩家Overlap相关字段。
  */
 
-  allowPlayerOverlap?: boolean;  
+  allowPlayerOverlap?: boolean;
   /**
  * hidden：hidden相关字段。
  */
 
-  hidden?: boolean;  
+  hidden?: boolean;
   /**
  * observeTitle：observeTitle名称或显示文本。
  */
 
-  observeTitle?: string;  
+  observeTitle?: string;
   /**
  * observeDesc：observeDesc相关字段。
  */
@@ -432,82 +442,82 @@ export interface VisibleBuffState {
  * buffId：buffID标识。
  */
 
-  buffId: string;  
+  buffId: string;
   /**
  * name：名称名称或显示文本。
  */
 
-  name: string;  
+  name: string;
   /**
  * desc：desc相关字段。
  */
 
-  desc?: string;  
+  desc?: string;
   /**
  * shortMark：shortMark相关字段。
  */
 
-  shortMark: string;  
+  shortMark: string;
   /**
  * category：category相关字段。
  */
 
-  category: BuffCategory;  
+  category: BuffCategory;
   /**
  * visibility：可见性相关字段。
  */
 
-  visibility: BuffVisibility;  
+  visibility: BuffVisibility;
   /**
  * remainingTicks：remainingtick相关字段。
  */
 
-  remainingTicks: number;  
+  remainingTicks: number;
   /**
  * duration：duration相关字段。
  */
 
-  duration: number;  
+  duration: number;
   /**
  * stacks：stack相关字段。
  */
 
-  stacks: number;  
+  stacks: number;
   /**
  * maxStacks：maxStack相关字段。
  */
 
-  maxStacks: number;  
+  maxStacks: number;
   /**
  * sourceSkillId：来源技能ID标识。
  */
 
-  sourceSkillId: string;  
+  sourceSkillId: string;
   /**
  * sourceSkillName：来源技能名称名称或显示文本。
  */
 
-  sourceSkillName?: string;  
+  sourceSkillName?: string;
   /**
  * color：color相关字段。
  */
 
-  color?: string;  
+  color?: string;
   /**
  * attrs：attr相关字段。
  */
 
-  attrs?: Partial<Attributes>;  
+  attrs?: Partial<Attributes>;
   /**
  * stats：stat相关字段。
  */
 
-  stats?: PartialNumericStats;  
+  stats?: PartialNumericStats;
   /**
  * qiProjection：qiProjection相关字段。
  */
 
-  qiProjection?: QiProjectionModifier[];  
+  qiProjection?: QiProjectionModifier[];
   /**
  * infiniteDuration：infiniteDuration相关字段。
  */
@@ -521,27 +531,27 @@ export interface RenderEntity {
  * id：ID标识。
  */
 
-  id: string;  
+  id: string;
   /**
  * x：x相关字段。
  */
 
-  x: number;  
+  x: number;
   /**
  * y：y相关字段。
  */
 
-  y: number;  
+  y: number;
   /**
  * char：char相关字段。
  */
 
-  char: string;  
+  char: string;
   /**
  * color：color相关字段。
  */
 
-  color: string;  
+  color: string;
   /**
  * badge：badge相关字段。
  */
@@ -549,57 +559,57 @@ export interface RenderEntity {
   badge?: {
     text: string;
     tone?: 'variant' | 'boss' | 'demonic';
-  };  
+  };
   /**
  * name：名称名称或显示文本。
  */
 
-  name?: string;  
+  name?: string;
   /**
  * kind：kind相关字段。
  */
 
-  kind?: EntityKind | 'player';  
+  kind?: EntityKind | 'player';
   /**
  * monsterTier：怪物Tier相关字段。
  */
 
-  monsterTier?: MonsterTier;  
+  monsterTier?: MonsterTier;
   /**
  * monsterScale：怪物Scale相关字段。
  */
 
-  monsterScale?: number;  
+  monsterScale?: number;
   /**
  * hp：hp相关字段。
  */
 
-  hp?: number;  
+  hp?: number;
   /**
  * maxHp：maxHp相关字段。
  */
 
-  maxHp?: number;  
+  maxHp?: number;
   /**
  * qi：qi相关字段。
  */
 
-  qi?: number;  
+  qi?: number;
   /**
  * maxQi：maxQi相关字段。
  */
 
-  maxQi?: number;  
+  maxQi?: number;
   /**
  * npcQuestMarker：NPC任务Marker相关字段。
  */
 
-  npcQuestMarker?: NpcQuestMarker;  
+  npcQuestMarker?: NpcQuestMarker;
   /**
  * observation：observation相关字段。
  */
 
-  observation?: ObservationInsight;  
+  observation?: ObservationInsight;
   /**
  * buffs：buff相关字段。
  */
@@ -625,7 +635,7 @@ export interface TimePaletteEntry {
  * tint：tint相关字段。
  */
 
-  tint?: string;  
+  tint?: string;
   /**
  * alpha：alpha相关字段。
  */
@@ -639,7 +649,7 @@ export interface MapLightConfig {
  * base：base相关字段。
  */
 
-  base?: number;  
+  base?: number;
   /**
  * timeInfluence：时间Influence相关字段。
  */
@@ -653,17 +663,17 @@ export interface MapTimeConfig {
  * offsetTicks：offsettick相关字段。
  */
 
-  offsetTicks?: number;  
+  offsetTicks?: number;
   /**
  * scale：scale相关字段。
  */
 
-  scale?: number;  
+  scale?: number;
   /**
  * light：light相关字段。
  */
 
-  light?: MapLightConfig;  
+  light?: MapLightConfig;
   /**
  * palette：palette相关字段。
  */
@@ -677,57 +687,57 @@ export interface GameTimeState {
  * totalTicks：totaltick相关字段。
  */
 
-  totalTicks: number;  
+  totalTicks: number;
   /**
  * localTicks：localtick相关字段。
  */
 
-  localTicks: number;  
+  localTicks: number;
   /**
  * dayLength：数量或计量字段。
  */
 
-  dayLength: number;  
+  dayLength: number;
   /**
  * timeScale：时间Scale相关字段。
  */
 
-  timeScale: number;  
+  timeScale: number;
   /**
  * phase：phase相关字段。
  */
 
-  phase: TimePhaseId;  
+  phase: TimePhaseId;
   /**
  * phaseLabel：phaseLabel名称或显示文本。
  */
 
-  phaseLabel: string;  
+  phaseLabel: string;
   /**
  * darknessStacks：darknessStack相关字段。
  */
 
-  darknessStacks: number;  
+  darknessStacks: number;
   /**
  * visionMultiplier：visionMultiplier相关字段。
  */
 
-  visionMultiplier: number;  
+  visionMultiplier: number;
   /**
  * lightPercent：lightPercent相关字段。
  */
 
-  lightPercent: number;  
+  lightPercent: number;
   /**
  * effectiveViewRange：effective视图范围相关字段。
  */
 
-  effectiveViewRange: number;  
+  effectiveViewRange: number;
   /**
  * tint：tint相关字段。
  */
 
-  tint: string;  
+  tint: string;
   /**
  * overlayAlpha：overlayAlpha相关字段。
  */
@@ -741,17 +751,17 @@ export interface Viewport {
  * x：x相关字段。
  */
 
-  x: number;  
+  x: number;
   /**
  * y：y相关字段。
  */
 
-  y: number;  
+  y: number;
   /**
  * width：width相关字段。
  */
 
-  width: number;  
+  width: number;
   /**
  * height：height相关字段。
  */

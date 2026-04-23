@@ -1,6 +1,7 @@
 // @ts-nocheck
 
 const assert = require('node:assert/strict');
+const { Direction } = require('@mud/shared');
 
 const {
   resolveCombatRelation,
@@ -287,6 +288,95 @@ function testAutoCombatPrefersRetaliator() {
   assert.equal(result?.priority, 3);
 }
 
+function testAutoCombatMoveIsSingleStepLikeMainline() {
+  const player = createPlayer({
+    x: 2,
+    y: 2,
+    combat: {
+      allowAoePlayerHit: false,
+      retaliatePlayerTargetId: null,
+      combatTargetingRules: undefined,
+      autoBattle: true,
+      autoRetaliate: true,
+      autoBattleStationary: false,
+      combatTargetId: null,
+      combatTargetLocked: false,
+    },
+  });
+  const log = [];
+  const service = new WorldRuntimeAutoCombatService({
+    getPlayer() {
+      return null;
+    },
+    setCombatTarget(playerId, targetRef, locked, tick) {
+      log.push(['setCombatTarget', playerId, targetRef, locked, tick]);
+    },
+  });
+  const instance = {
+    template: {
+      width: 12,
+      height: 12,
+      walkableMask: new Uint8Array(12 * 12).fill(1),
+    },
+    isPointInSafeZone() {
+      return false;
+    },
+    buildPlayerView() {
+      return {
+        self: { x: player.x, y: player.y },
+        instance: { width: 12, height: 12 },
+        visibleTileIndices: [],
+        visiblePlayers: [],
+        localMonsters: [{
+          runtimeId: 'monster:runtime:1',
+          x: 6,
+          y: 2,
+          hp: 50,
+        }],
+        localNpcs: [],
+        localPortals: [],
+        localGroundPiles: [],
+      };
+    },
+    getMonster(runtimeId) {
+      assert.equal(runtimeId, 'monster:runtime:1');
+      return {
+        runtimeId,
+        alive: true,
+        x: 6,
+        y: 2,
+        hp: 50,
+      };
+    },
+    forEachPathingBlocker(_excludePlayerId, _visitor) {
+      return undefined;
+    },
+    getTileTraversalCost() {
+      return 1;
+    },
+  };
+  const command = service.buildAutoCombatCommand(instance, player, {
+    resolveCurrentTickForPlayerId() {
+      return 33;
+    },
+  });
+  assert.deepEqual(command, {
+    kind: 'move',
+    direction: Direction.East,
+    continuous: true,
+    maxSteps: 3,
+    path: [
+      { x: 3, y: 2 },
+      { x: 4, y: 2 },
+      { x: 5, y: 2 },
+    ],
+    autoCombat: true,
+  });
+  assert.deepEqual(log, [
+    ['setCombatTarget', 'player:attacker', 'monster:runtime:1', false, 33],
+  ]);
+}
+
 async function testEngageBattleRejectsNeutralPlayerBeforeLocking() {
   const log = [];
   const attacker = createPlayer();
@@ -339,6 +429,7 @@ Promise.resolve()
   .then(() => testBasicAttackRejectsNeutralPlayer())
   .then(() => testSkillDispatchRejectsNeutralPlayer())
   .then(() => testAutoCombatPrefersRetaliator())
+  .then(() => testAutoCombatMoveIsSingleStepLikeMainline())
   .then(() => testEngageBattleRejectsNeutralPlayerBeforeLocking())
   .then(() => {
     console.log(JSON.stringify({ ok: true, case: 'world-runtime-combat-relation' }, null, 2));

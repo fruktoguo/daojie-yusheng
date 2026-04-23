@@ -38,6 +38,10 @@ interface AuthBody {
  */
 
   refreshToken?: unknown;
+  /**
+ * deviceId：客户端设备标识。
+ */
+  deviceId?: unknown;
 }
 /**
  * RequestLike：定义接口结构约束，明确可交付字段含义。
@@ -46,6 +50,10 @@ interface AuthBody {
 
 interface RequestLike {
   [key: string]: unknown;
+}
+
+interface AuthRequestContext {
+  deviceId?: string;
 }
 
 /** Next 登录鉴权 HTTP 控制器：负责注册、登录、刷新和显示名可用性检查。 */
@@ -71,6 +79,7 @@ export class NativeAuthController {
         pickString(body?.password),
         pickString(body?.displayName),
         pickString(body?.roleName),
+        pickAuthRequestContext(request, body),
       );
       this.rateLimitService.recordSuccess('register', request, accountName);
       return result;
@@ -88,7 +97,7 @@ export class NativeAuthController {
     const loginName = pickString(body?.loginName);
     this.rateLimitService.assertAllowed('login', request, loginName);
     try {
-      const result = await this.authService.login(loginName, pickString(body?.password));
+      const result = await this.authService.login(loginName, pickString(body?.password), pickAuthRequestContext(request, body));
       this.rateLimitService.recordSuccess('login', request, loginName);
       return result;
     } catch (error) {
@@ -105,7 +114,7 @@ export class NativeAuthController {
     const refreshToken = pickString(body?.refreshToken);
     this.rateLimitService.assertAllowed('refresh', request, refreshToken);
     try {
-      const result = await this.authService.refresh(refreshToken);
+      const result = await this.authService.refresh(refreshToken, pickAuthRequestContext(request, body));
       this.rateLimitService.recordSuccess('refresh', request, refreshToken);
       return result;
     } catch (error) {
@@ -124,4 +133,12 @@ export class NativeAuthController {
 /** 仅接受字符串入参，避免把对象或数字直接传给服务层。 */
 function pickString(value: unknown) {
   return typeof value === 'string' ? value : '';
+}
+
+/** 从 body 与请求头恢复参考 main 的设备标识上下文。 */
+function pickAuthRequestContext(request: RequestLike, body: AuthBody): AuthRequestContext {
+  const headers = request.headers as Record<string, unknown> | undefined;
+  const headerDeviceId = headers?.['x-device-id'] ?? headers?.['X-Device-Id'];
+  const deviceId = pickString(body?.deviceId) || pickString(headerDeviceId);
+  return deviceId ? { deviceId } : {};
 }

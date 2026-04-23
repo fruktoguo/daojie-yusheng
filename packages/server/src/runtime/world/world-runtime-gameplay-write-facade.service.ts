@@ -113,9 +113,9 @@ let WorldRuntimeGameplayWriteFacadeService = class WorldRuntimeGameplayWriteFaca
  * @returns 无返回值，直接更新Cast技能ToTile相关状态。
  */
 
-    dispatchCastSkillToTile(attacker, skillId, targetX, targetY, deps) {
+    async dispatchCastSkillToTile(attacker, skillId, targetX, targetY, deps) {
         this.assertPlayerInstanceLeaseWritable(attacker.playerId, deps);
-        deps.worldRuntimeCombatCommandService.dispatchCastSkillToTile(attacker, skillId, targetX, targetY, deps);
+        return deps.worldRuntimeCombatCommandService.dispatchCastSkillToTile(attacker, skillId, targetX, targetY, deps);
     }    
     /**
  * dispatchUseItem：判断Use道具是否满足条件。

@@ -351,6 +351,7 @@ let MailRuntimeService = class MailRuntimeService {
         });
     }
     async claimAttachmentsDurably(playerId, normalizedIds, visible, nextInventoryItems, walletCredits) {
+        await this.syncCurrentPresenceFence(playerId);
         const attempt = async () => {
             const sessionFence = this.playerRuntimeService.getSessionFence?.(playerId) ?? null;
             const currentSnapshot = this.playerRuntimeService.buildPersistenceSnapshot?.(playerId) ?? null;
@@ -401,7 +402,32 @@ let MailRuntimeService = class MailRuntimeService {
         if (!this.playerDomainPersistenceService?.isEnabled?.()) {
             return false;
         }
-        const presence = this.playerRuntimeService.describePersistencePresence?.(playerId) ?? null;
+        const persistedPresence = typeof this.playerDomainPersistenceService?.loadPlayerPresence === 'function'
+            ? await this.playerDomainPersistenceService.loadPlayerPresence(playerId)
+            : null;
+        let presence = this.playerRuntimeService.describePersistencePresence?.(playerId) ?? null;
+        if (!presence?.runtimeOwnerId || !presence?.sessionEpoch) {
+            return false;
+        }
+        const persistedSessionEpoch = Number.isFinite(persistedPresence?.sessionEpoch)
+            ? Math.max(0, Math.trunc(Number(persistedPresence.sessionEpoch)))
+            : 0;
+        const persistedRuntimeOwnerId = typeof persistedPresence?.runtimeOwnerId === 'string'
+            ? persistedPresence.runtimeOwnerId.trim()
+            : '';
+        const runtimeSessionEpoch = Math.max(0, Math.trunc(Number(presence.sessionEpoch ?? 0)));
+        const runtimeOwnerId = typeof presence.runtimeOwnerId === 'string' ? presence.runtimeOwnerId.trim() : '';
+        if (
+            typeof this.playerRuntimeService.ensureRuntimeSessionFenceAtLeast === 'function'
+            && persistedSessionEpoch > 0
+            && (
+                runtimeSessionEpoch <= persistedSessionEpoch
+                || (persistedRuntimeOwnerId && persistedRuntimeOwnerId !== runtimeOwnerId)
+            )
+        ) {
+            this.playerRuntimeService.ensureRuntimeSessionFenceAtLeast(playerId, persistedSessionEpoch);
+            presence = this.playerRuntimeService.describePersistencePresence?.(playerId) ?? null;
+        }
         if (!presence?.runtimeOwnerId || !presence?.sessionEpoch) {
             return false;
         }
@@ -602,20 +628,12 @@ let MailRuntimeService = class MailRuntimeService {
 
 
         const inventoryItems = [];
-        const walletCredits = [];
         for (const mail of mails) {
             for (const attachment of mail.attachments) {
                 const count = Math.max(0, Math.trunc(Number(attachment?.count ?? 0)));
                 const itemId = typeof attachment?.itemId === 'string' ? attachment.itemId.trim() : '';
                 if (!itemId || count <= 0) {
                     return null;
-                }
-                if (itemId === 'spirit_stone') {
-                    walletCredits.push({
-                        walletType: itemId,
-                        count,
-                    });
-                    continue;
                 }
                 const item = this.contentTemplateRepository.createItem(itemId, count);
                 if (!item) {
@@ -650,7 +668,7 @@ let MailRuntimeService = class MailRuntimeService {
         }
         return {
             inventoryItems,
-            walletCredits,
+            walletCredits: [],
         };
     }
     /** 检查玩家背包是否能一次性容纳全部附件。 */

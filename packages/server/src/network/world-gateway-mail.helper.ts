@@ -30,7 +30,7 @@ class WorldGatewayMailHelper {
     async handleRequestMailSummary(client, _payload) {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
-        const playerId = this.gateway.gatewayGuardHelper.requirePlayerId(client);
+        const playerId = this.gateway.gatewayGuardHelper.requireActivePlayerId(client);
         if (!playerId) {
             return;
         }
@@ -51,7 +51,7 @@ class WorldGatewayMailHelper {
     async handleRequestMailPage(client, payload) {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
-        const playerId = this.gateway.gatewayGuardHelper.requirePlayerId(client);
+        const playerId = this.gateway.gatewayGuardHelper.requireActivePlayerId(client);
         if (!playerId) {
             return;
         }
@@ -73,7 +73,7 @@ class WorldGatewayMailHelper {
     async handleRequestMailDetail(client, payload) {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
-        const playerId = this.gateway.gatewayGuardHelper.requirePlayerId(client);
+        const playerId = this.gateway.gatewayGuardHelper.requireActivePlayerId(client);
         if (!playerId) {
             return;
         }
@@ -95,7 +95,7 @@ class WorldGatewayMailHelper {
     async handleMarkMailRead(client, payload) {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
-        const playerId = this.gateway.gatewayGuardHelper.requirePlayerId(client);
+        const playerId = this.gateway.gatewayGuardHelper.requireActivePlayerId(client);
         if (!playerId) {
             return;
         }
@@ -118,13 +118,16 @@ class WorldGatewayMailHelper {
     async handleClaimMailAttachments(client, payload) {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
-        const playerId = this.gateway.gatewayGuardHelper.requirePlayerId(client);
+        const playerId = this.gateway.gatewayGuardHelper.requireActivePlayerId(client);
         if (!playerId) {
             return;
         }
         try {
             const response = await this.gateway.mailRuntimeService.claimAttachments(playerId, payload?.mailIds ?? []);
             this.gateway.gatewayClientEmitHelper.emitMailOperationResult(client, response);
+            if (response?.ok) {
+                this.gateway.worldSyncService?.emitDeltaSync?.(playerId, client);
+            }
             await this.gateway.gatewayClientEmitHelper.emitMailSummaryForPlayer(client, playerId);
         }
         catch (error) {
@@ -141,7 +144,7 @@ class WorldGatewayMailHelper {
     async handleDeleteMail(client, payload) {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
-        const playerId = this.gateway.gatewayGuardHelper.requirePlayerId(client);
+        const playerId = this.gateway.gatewayGuardHelper.requireActivePlayerId(client);
         if (!playerId) {
             return;
         }

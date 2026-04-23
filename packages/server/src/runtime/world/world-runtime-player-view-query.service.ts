@@ -139,7 +139,7 @@ let WorldRuntimePlayerViewQueryService = class WorldRuntimePlayerViewQueryServic
         }
         const container = instance.getContainerAtTile(tileX, tileY);
         if (container) {
-            const containerSource = this.worldRuntimeLootContainerService.getPreparedContainerLootSource(instance.meta.instanceId, container);
+            const containerSource = this.worldRuntimeLootContainerService.getPreparedContainerLootSource(instance.meta.instanceId, container, player);
             if (containerSource) {
                 sources.push(containerSource);
             }

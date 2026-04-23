@@ -29,7 +29,8 @@ const MAP_PERSISTENCE_FLUSH_INTERVAL_MS = 5000;
 const MAP_PERSISTENCE_FLUSH_BATCH_SIZE = 16;
 const MAP_PERSISTENCE_FLUSH_PARALLELISM = 3;
 const MAP_PERSISTENCE_FLUSH_RETRY_COUNT = 1;
-const MAP_PERSISTENCE_SLOW_FLUSH_THRESHOLD_MS = normalizePositiveInteger((0, env_alias_1.readTrimmedEnv)('SERVER_PERSISTENCE_FLUSH_SLOW_THRESHOLD_MS', 'PERSISTENCE_FLUSH_SLOW_THRESHOLD_MS'), 100, 1, 10_000);
+const PERSISTENCE_SLOW_FLUSH_THRESHOLD_MIN_MS = 100;
+const MAP_PERSISTENCE_SLOW_FLUSH_THRESHOLD_MS = normalizePositiveInteger((0, env_alias_1.readTrimmedEnv)('SERVER_PERSISTENCE_FLUSH_SLOW_THRESHOLD_MS', 'PERSISTENCE_FLUSH_SLOW_THRESHOLD_MS'), 100, PERSISTENCE_SLOW_FLUSH_THRESHOLD_MIN_MS, 10_000);
 const MAP_PERSISTENCE_SLOW_FLUSH_BACKOFF_MS = normalizePositiveInteger((0, env_alias_1.readTrimmedEnv)('SERVER_PERSISTENCE_FLUSH_SLOW_BACKOFF_MS', 'PERSISTENCE_FLUSH_SLOW_BACKOFF_MS'), 5_000, 1_000, 60_000);
 
 /**
@@ -186,10 +187,13 @@ let MapPersistenceFlushService = MapPersistenceFlushService_1 = class MapPersist
             return;
         }
         const startedAt = perf_hooks_1.performance.now();
+        let dirtyInstanceCount = 0;
+        let persistedInstanceCount = 0;
 
         const promise = (async () => {
 
             const dirtyInstanceIds = this.worldRuntimeService.listDirtyPersistentInstances();
+            dirtyInstanceCount = dirtyInstanceIds.length;
             if (dirtyInstanceIds.length === 0) {
                 return;
             }
@@ -205,6 +209,7 @@ let MapPersistenceFlushService = MapPersistenceFlushService_1 = class MapPersist
                         await this.mapPersistenceService.saveMapSnapshot(instanceId, snapshot);
                     });
                     this.worldRuntimeService.markMapPersisted(instanceId);
+                    persistedInstanceCount += 1;
                 }, (instanceId, error) => {
                     this.logger.error(`地图持久化刷新失败（${reason}） instanceId=${instanceId}`, error instanceof Error ? error.stack : String(error));
                 });
@@ -220,7 +225,7 @@ let MapPersistenceFlushService = MapPersistenceFlushService_1 = class MapPersist
             }
             if (reason === 'interval') {
                 const durationMs = perf_hooks_1.performance.now() - startedAt;
-                this.updateFlushThrottle(durationMs);
+                this.updateFlushThrottle(durationMs, dirtyInstanceCount, persistedInstanceCount);
             }
         }
     }
@@ -269,12 +274,12 @@ MapPersistenceFlushService.prototype.isFlushThrottleActive = function isFlushThr
  * @returns 无返回值，直接更新updateFlushThrottle相关状态。
  */
 
-MapPersistenceFlushService.prototype.updateFlushThrottle = function updateFlushThrottle(durationMs) {
+MapPersistenceFlushService.prototype.updateFlushThrottle = function updateFlushThrottle(durationMs, dirtyInstanceCount = 0, persistedInstanceCount = 0) {
     if (durationMs < MAP_PERSISTENCE_SLOW_FLUSH_THRESHOLD_MS) {
         return;
     }
     this.flushThrottleUntilAt = Date.now() + MAP_PERSISTENCE_SLOW_FLUSH_BACKOFF_MS;
-    this.logger.warn(`地图最终一致刷盘触发降级退避：durationMs=${Math.trunc(durationMs)} thresholdMs=${MAP_PERSISTENCE_SLOW_FLUSH_THRESHOLD_MS} backoffMs=${MAP_PERSISTENCE_SLOW_FLUSH_BACKOFF_MS}`);
+    this.logger.warn(`地图最终一致刷盘触发降级退避：durationMs=${Math.trunc(durationMs)} thresholdMs=${MAP_PERSISTENCE_SLOW_FLUSH_THRESHOLD_MS} backoffMs=${MAP_PERSISTENCE_SLOW_FLUSH_BACKOFF_MS} dirtyInstanceCount=${dirtyInstanceCount} persistedInstanceCount=${persistedInstanceCount}`);
 };
 /**
  * chunkValues：执行chunk值相关逻辑。

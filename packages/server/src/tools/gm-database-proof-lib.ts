@@ -6,8 +6,10 @@
 
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.buildBackupFilePath = exports.requireBackupRecord = exports.assertBackupDownload = exports.waitForJobSettled = exports.triggerRestore = exports.triggerBackup = exports.triggerRestoreWithConcurrentRejection = exports.triggerBackupWithConcurrentRejection = exports.authedPost = exports.authedPostJson = exports.authedGetJson = exports.fetchHealth = exports.fetchJson = exports.loginGm = exports.waitForHealth = exports.waitForCondition = exports.normalizeBooleanEnv = void 0;
+const node_crypto_1 = require("node:crypto");
 const node_fs_1 = require("node:fs");
 const node_path_1 = require("node:path");
+const POSTGRES_DUMP_MAGIC = Buffer.from('PGDMP');
 /**
  * 规范化boolean环境变量。
  */
@@ -318,7 +320,8 @@ async function assertBackupDownload(baseUrl, token, backupId, expectedRecord = n
 /**
  * 记录expected文件名称。
  */
-    const expectedFileName = String(expectedRecord?.fileName ?? `server-persistent-documents-${backupId}.json`).trim();
+    const expectedFileName = String(expectedRecord?.fileName ?? `server-database-backup-${backupId}.dump`).trim();
+    const expectedFormat = normalizeBackupFormat(expectedRecord?.format, expectedFileName);
 /**
  * 记录response。
  */
@@ -337,10 +340,35 @@ async function assertBackupDownload(baseUrl, token, backupId, expectedRecord = n
     if (!contentDisposition.includes(expectedFileName)) {
         throw new Error(`expected content-disposition to include ${expectedFileName}, got ${contentDisposition || '<empty>'}`);
     }
+    const downloadedBytes = Buffer.from(await response.arrayBuffer());
+    if (expectedFormat === 'postgres_custom_dump') {
+        if (!isPostgresCustomDumpBuffer(downloadedBytes)) {
+            throw new Error(`expected downloaded backup to be PostgreSQL custom dump, got ${downloadedBytes.subarray(0, POSTGRES_DUMP_MAGIC.length).toString('utf8') || '<empty>'}`);
+        }
+        const downloadedChecksum = computeBufferSha256(downloadedBytes);
+        if (options.expectedFilePath) {
+            const diskBytes = await node_fs_1.promises.readFile(options.expectedFilePath);
+            if (computeBufferSha256(diskBytes) !== downloadedChecksum) {
+                throw new Error(`expected downloaded PostgreSQL backup checksum to match on-disk backup for ${backupId}`);
+            }
+        }
+        if (expectedRecord) {
+            const expectedChecksum = String(expectedRecord?.checksumSha256 ?? '').trim();
+            if (expectedChecksum && expectedChecksum !== downloadedChecksum) {
+                throw new Error(`expected metadata checksumSha256=${expectedChecksum}, got ${downloadedChecksum}`);
+            }
+        }
+        return {
+            backupId,
+            format: 'postgres_custom_dump',
+            checksumSha256: downloadedChecksum,
+            sizeBytes: downloadedBytes.length,
+        };
+    }
 /**
  * 记录payload。
  */
-    const payload = JSON.parse(await response.text());
+    const payload = JSON.parse(downloadedBytes.toString('utf8'));
     if (payload?.backupId !== backupId) {
         throw new Error(`expected downloaded backupId=${backupId}, got ${JSON.stringify(payload)}`);
     }
@@ -439,21 +467,40 @@ exports.requireBackupRecord = requireBackupRecord;
  * 构建备份文件路径。
  */
 function buildBackupFilePath(backupDirectory, backupId) {
-    return (0, node_path_1.join)(backupDirectory, `server-persistent-documents-${backupId}.json`);
+    return (0, node_path_1.join)(backupDirectory, `server-database-backup-${backupId}.dump`);
 }
 exports.buildBackupFilePath = buildBackupFilePath;
+
+function normalizeBackupFormat(format, fileName) {
+    if (format === 'postgres_custom_dump' || format === 'mainline_json_snapshot') {
+        return format;
+    }
+    const normalizedFileName = typeof fileName === 'string' ? fileName.trim().toLowerCase() : '';
+    if (normalizedFileName.endsWith('.json')) {
+        return 'mainline_json_snapshot';
+    }
+    return 'postgres_custom_dump';
+}
+
+function isPostgresCustomDumpBuffer(buffer) {
+    return Buffer.isBuffer(buffer)
+        && buffer.length >= POSTGRES_DUMP_MAGIC.length
+        && buffer.subarray(0, POSTGRES_DUMP_MAGIC.length).equals(POSTGRES_DUMP_MAGIC);
+}
+
+function computeBufferSha256(buffer) {
+    return (0, node_crypto_1.createHash)('sha256').update(buffer).digest('hex');
+}
 /**
  * 处理computechecksumfordocs。
  */
 function computeChecksumForDocs(docs) {
-    const crypto = require('node:crypto');
-    return crypto.createHash('sha256').update(JSON.stringify(docs)).digest('hex');
+    return computeBufferSha256(Buffer.from(JSON.stringify(docs)));
 }
 /**
  * 处理computchecksumfortables。
  */
 function computeChecksumForTables(tables) {
-    const crypto = require('node:crypto');
     const normalized = Array.isArray(tables)
         ? tables.map((entry) => ({
             tableName: typeof entry?.tableName === 'string' ? entry.tableName : '',
@@ -461,7 +508,7 @@ function computeChecksumForTables(tables) {
             checksumSha256: typeof entry?.checksumSha256 === 'string' ? entry.checksumSha256 : '',
         }))
         : [];
-    return crypto.createHash('sha256').update(JSON.stringify(normalized)).digest('hex');
+    return computeBufferSha256(Buffer.from(JSON.stringify(normalized)));
 }
 /**
  * 处理delay。

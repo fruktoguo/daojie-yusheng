@@ -4,7 +4,7 @@
  */
 import { getTileTypeFromMapChar, GroundItemPileView, isTileTypeWalkable, MapMeta, MapMinimapMarker, MapMinimapSnapshot, MINIMAP_MARKER_COLORS, Tile, TILE_MINIMAP_COLORS, TileType } from '@mud/shared';
 import { deleteRememberedMap, getRememberedMarkers, getRememberedTiles, listRememberedMapIds } from '../map-memory';
-import { getCachedMapMeta, getCachedMapSnapshot, listCachedUnlockedMapSummaries } from '../map-static-cache';
+import { getCachedMapMeta, getCachedUnlockedMapSnapshot, listCachedUnlockedMapSummaries } from '../map-static-cache';
 import { getMinimapMarkerKindLabel, getTileTypeLabel } from '../domain-labels';
 import { detailModalHost } from './detail-modal-host';
 import { getViewportRoot } from './responsive-viewport';
@@ -1358,7 +1358,7 @@ export class Minimap {
         hasUnlock: current.hasUnlock,
       };
     }
-    const snapshot = getCachedMapSnapshot(selectedMapId);
+    const snapshot = getCachedUnlockedMapSnapshot(selectedMapId);
     const rememberedMarkers = getRememberedMarkers(selectedMapId);
     const tileCache = getRememberedTiles(selectedMapId);
     return {
@@ -1481,7 +1481,7 @@ export class Minimap {
       };
     }
 
-    const snapshot = getCachedMapSnapshot(selectedMapId);
+    const snapshot = getCachedUnlockedMapSnapshot(selectedMapId);
     const rememberedMarkers = getRememberedMarkers(selectedMapId);
     const tileCache = getRememberedTiles(selectedMapId);
     const hasMemory = tileCache.size > 0 || rememberedMarkers.length > 0;

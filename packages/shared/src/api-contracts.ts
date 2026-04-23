@@ -29,17 +29,17 @@ export interface AuthRegisterReq {
  * accountName：account名称名称或显示文本。
  */
 
-  accountName: string;  
+  accountName: string;
   /**
  * password：password相关字段。
  */
 
-  password: string;  
+  password: string;
   /**
  * displayName：显示名称名称或显示文本。
  */
 
-  displayName: string;  
+  displayName: string;
   /**
  * roleName：role名称名称或显示文本。
  */
@@ -53,7 +53,7 @@ export interface AuthLoginReq {
  * loginName：login名称名称或显示文本。
  */
 
-  loginName: string;  
+  loginName: string;
   /**
  * password：password相关字段。
  */
@@ -68,6 +68,10 @@ export interface AuthRefreshReq {
  */
 
   refreshToken: string;
+  /**
+ * deviceId：客户端设备标识。
+ */
+  deviceId?: string;
 }
 
 /** 令牌响应 */
@@ -76,7 +80,7 @@ export interface AuthTokenRes {
  * accessToken：accessToken标识。
  */
 
-  accessToken: string;  
+  accessToken: string;
   /**
  * refreshToken：refreshToken标识。
  */
@@ -90,12 +94,12 @@ export interface GmListSuggestionsQuery {
  * page：page相关字段。
  */
 
-  page?: number;  
+  page?: number;
   /**
  * pageSize：数量或计量字段。
  */
 
-  pageSize?: number;  
+  pageSize?: number;
   /**
  * keyword：keyword相关字段。
  */
@@ -118,27 +122,27 @@ export interface GmSuggestionListRes {
  * items：集合字段。
  */
 
-  items: Suggestion[];  
+  items: Suggestion[];
   /**
  * total：数量或计量字段。
  */
 
-  total: number;  
+  total: number;
   /**
  * page：page相关字段。
  */
 
-  page: number;  
+  page: number;
   /**
  * pageSize：数量或计量字段。
  */
 
-  pageSize: number;  
+  pageSize: number;
   /**
  * totalPages：totalPage相关字段。
  */
 
-  totalPages: number;  
+  totalPages: number;
   /**
  * keyword：keyword相关字段。
  */
@@ -152,7 +156,7 @@ export interface DisplayNameAvailabilityRes {
  * available：available相关字段。
  */
 
-  available: boolean;  
+  available: boolean;
   /**
  * message：message相关字段。
  */
@@ -166,7 +170,7 @@ export interface AccountUpdatePasswordReq {
  * currentPassword：currentPassword相关字段。
  */
 
-  currentPassword: string;  
+  currentPassword: string;
   /**
  * newPassword：newPassword相关字段。
  */
@@ -234,7 +238,7 @@ export interface GmLoginRes {
  * accessToken：accessToken标识。
  */
 
-  accessToken: string;  
+  accessToken: string;
   /**
  * expiresInSec：expireInSec相关字段。
  */
@@ -248,7 +252,7 @@ export interface GmChangePasswordReq {
  * currentPassword：currentPassword相关字段。
  */
 
-  currentPassword: string;  
+  currentPassword: string;
   /**
  * newPassword：newPassword相关字段。
  */
@@ -280,37 +284,37 @@ export interface GmManagedPlayerMeta {
  * userId：userID标识。
  */
 
-  userId?: string;  
+  userId?: string;
   /**
  * isBot：启用开关或状态标识。
  */
 
-  isBot: boolean;  
+  isBot: boolean;
   /**
  * online：online相关字段。
  */
 
-  online: boolean;  
+  online: boolean;
   /**
  * inWorld：in世界相关字段。
  */
 
-  inWorld: boolean;  
+  inWorld: boolean;
   /**
  * lastHeartbeatAt：lastHeartbeatAt相关字段。
  */
 
-  lastHeartbeatAt?: string;  
+  lastHeartbeatAt?: string;
   /**
  * offlineSinceAt：offlineSinceAt相关字段。
  */
 
-  offlineSinceAt?: string;  
+  offlineSinceAt?: string;
   /**
  * updatedAt：updatedAt相关字段。
  */
 
-  updatedAt?: string;  
+  updatedAt?: string;
   /**
  * dirtyFlags：dirtyFlag相关字段。
  */
@@ -324,92 +328,92 @@ export interface GmManagedPlayerSummary {
  * id：ID标识。
  */
 
-  id: string;  
+  id: string;
   /**
  * name：名称名称或显示文本。
  */
 
-  name: string;  
+  name: string;
   /**
  * roleName：role名称名称或显示文本。
  */
 
-  roleName: string;  
+  roleName: string;
   /**
  * displayName：显示名称名称或显示文本。
  */
 
-  displayName: string;  
+  displayName: string;
   /**
  * accountName：account名称名称或显示文本。
  */
 
-  accountName?: string;  
+  accountName?: string;
   /**
  * realmLv：realmLv相关字段。
  */
 
-  realmLv: number;  
+  realmLv: number;
   /**
  * realmLabel：realmLabel名称或显示文本。
  */
 
-  realmLabel: string;  
+  realmLabel: string;
   /**
  * mapId：地图ID标识。
  */
 
-  mapId: string;  
+  mapId: string;
   /**
  * mapName：地图名称名称或显示文本。
  */
 
-  mapName: string;  
+  mapName: string;
   /**
  * x：x相关字段。
  */
 
-  x: number;  
+  x: number;
   /**
  * y：y相关字段。
  */
 
-  y: number;  
+  y: number;
   /**
  * hp：hp相关字段。
  */
 
-  hp: number;  
+  hp: number;
   /**
  * maxHp：maxHp相关字段。
  */
 
-  maxHp: number;  
+  maxHp: number;
   /**
  * qi：qi相关字段。
  */
 
-  qi: number;  
+  qi: number;
   /**
  * dead：dead相关字段。
  */
 
-  dead: boolean;  
+  dead: boolean;
   /**
  * autoBattle：autoBattle相关字段。
  */
 
-  autoBattle: boolean;  
+  autoBattle: boolean;
   /**
  * autoBattleStationary：autoBattleStationary相关字段。
  */
 
-  autoBattleStationary?: boolean;  
+  autoBattleStationary?: boolean;
   /**
  * autoRetaliate：autoRetaliate相关字段。
  */
 
-  autoRetaliate: boolean;  
+  autoRetaliate: boolean;
   /**
  * meta：meta相关字段。
  */
@@ -423,17 +427,17 @@ export interface GmManagedAccountRecord {
  * userId：userID标识。
  */
 
-  userId: string;  
+  userId: string;
   /**
  * username：username名称或显示文本。
  */
 
-  username: string;  
+  username: string;
   /**
  * createdAt：createdAt相关字段。
  */
 
-  createdAt: string;  
+  createdAt: string;
   /**
  * totalOnlineSeconds：totalOnlineSecond相关字段。
  */
@@ -466,12 +470,12 @@ export interface GmManagedPlayerRecord extends GmManagedPlayerSummary {
  * account：数量或计量字段。
  */
 
-  account?: GmManagedAccountRecord;  
+  account?: GmManagedAccountRecord;
   /**
  * snapshot：快照状态或数据块。
  */
 
-  snapshot: PlayerState;  
+  snapshot: PlayerState;
  /**
  * persistedSnapshot：persisted快照状态或数据块。
  */
@@ -493,17 +497,17 @@ export interface GmListPlayersQuery {
  * page：page相关字段。
  */
 
-  page?: number;  
+  page?: number;
   /**
  * pageSize：数量或计量字段。
  */
 
-  pageSize?: number;  
+  pageSize?: number;
   /**
  * keyword：keyword相关字段。
  */
 
-  keyword?: string;  
+  keyword?: string;
   /**
  * sort：sort相关字段。
  */
@@ -517,27 +521,27 @@ export interface GmPlayerListPage {
  * page：page相关字段。
  */
 
-  page: number;  
+  page: number;
   /**
  * pageSize：数量或计量字段。
  */
 
-  pageSize: number;  
+  pageSize: number;
   /**
  * total：数量或计量字段。
  */
 
-  total: number;  
+  total: number;
   /**
  * totalPages：totalPage相关字段。
  */
 
-  totalPages: number;  
+  totalPages: number;
   /**
  * keyword：keyword相关字段。
  */
 
-  keyword: string;  
+  keyword: string;
   /**
  * sort：sort相关字段。
  */
@@ -551,17 +555,17 @@ export interface GmPlayerSummaryStats {
  * totalPlayers：集合字段。
  */
 
-  totalPlayers: number;  
+  totalPlayers: number;
   /**
  * onlinePlayers：集合字段。
  */
 
-  onlinePlayers: number;  
+  onlinePlayers: number;
   /**
  * offlineHangingPlayers：集合字段。
  */
 
-  offlineHangingPlayers: number;  
+  offlineHangingPlayers: number;
   /**
  * offlinePlayers：集合字段。
  */
@@ -575,27 +579,27 @@ export interface GmStateRes {
  * players：集合字段。
  */
 
-  players: GmManagedPlayerSummary[];  
+  players: GmManagedPlayerSummary[];
   /**
  * playerPage：玩家Page相关字段。
  */
 
-  playerPage: GmPlayerListPage;  
+  playerPage: GmPlayerListPage;
   /**
  * playerStats：玩家Stat相关字段。
  */
 
-  playerStats: GmPlayerSummaryStats;  
+  playerStats: GmPlayerSummaryStats;
   /**
  * mapIds：地图ID相关字段。
  */
 
-  mapIds: string[];  
+  mapIds: string[];
   /**
  * botCount：数量或计量字段。
  */
 
-  botCount: number;  
+  botCount: number;
   /**
  * perf：perf相关字段。
  */
@@ -609,7 +613,7 @@ export interface RedeemCodeGroupRewardItem {
  * itemId：道具ID标识。
  */
 
-  itemId: string;  
+  itemId: string;
   /**
  * count：数量或计量字段。
  */
@@ -623,37 +627,37 @@ export interface RedeemCodeGroupView {
  * id：ID标识。
  */
 
-  id: string;  
+  id: string;
   /**
  * name：名称名称或显示文本。
  */
 
-  name: string;  
+  name: string;
   /**
  * rewards：reward相关字段。
  */
 
-  rewards: RedeemCodeGroupRewardItem[];  
+  rewards: RedeemCodeGroupRewardItem[];
   /**
  * totalCodeCount：数量或计量字段。
  */
 
-  totalCodeCount: number;  
+  totalCodeCount: number;
   /**
  * usedCodeCount：数量或计量字段。
  */
 
-  usedCodeCount: number;  
+  usedCodeCount: number;
   /**
  * activeCodeCount：数量或计量字段。
  */
 
-  activeCodeCount: number;  
+  activeCodeCount: number;
   /**
  * createdAt：createdAt相关字段。
  */
 
-  createdAt: string;  
+  createdAt: string;
   /**
  * updatedAt：updatedAt相关字段。
  */
@@ -667,47 +671,47 @@ export interface RedeemCodeCodeView {
  * id：ID标识。
  */
 
-  id: string;  
+  id: string;
   /**
  * groupId：groupID标识。
  */
 
-  groupId: string;  
+  groupId: string;
   /**
  * code：code相关字段。
  */
 
-  code: string;  
+  code: string;
   /**
  * status：statu状态或数据块。
  */
 
-  status: 'active' | 'used' | 'destroyed';  
+  status: 'active' | 'used' | 'destroyed';
   /**
  * usedByPlayerId：usedBy玩家ID标识。
  */
 
-  usedByPlayerId: string | null;  
+  usedByPlayerId: string | null;
   /**
  * usedByRoleName：usedByRole名称名称或显示文本。
  */
 
-  usedByRoleName: string | null;  
+  usedByRoleName: string | null;
   /**
  * usedAt：usedAt相关字段。
  */
 
-  usedAt: string | null;  
+  usedAt: string | null;
   /**
  * destroyedAt：destroyedAt相关字段。
  */
 
-  destroyedAt: string | null;  
+  destroyedAt: string | null;
   /**
  * createdAt：createdAt相关字段。
  */
 
-  createdAt: string;  
+  createdAt: string;
   /**
  * updatedAt：updatedAt相关字段。
  */
@@ -730,7 +734,7 @@ export interface GmRedeemCodeGroupDetailRes {
  * group：group相关字段。
  */
 
-  group: RedeemCodeGroupView;  
+  group: RedeemCodeGroupView;
   /**
  * codes：code相关字段。
  */
@@ -744,12 +748,12 @@ export interface GmCreateRedeemCodeGroupReq {
  * name：名称名称或显示文本。
  */
 
-  name: string;  
+  name: string;
   /**
  * rewards：reward相关字段。
  */
 
-  rewards: RedeemCodeGroupRewardItem[];  
+  rewards: RedeemCodeGroupRewardItem[];
   /**
  * count：数量或计量字段。
  */
@@ -763,7 +767,7 @@ export interface GmUpdateRedeemCodeGroupReq {
  * name：名称名称或显示文本。
  */
 
-  name: string;  
+  name: string;
   /**
  * rewards：reward相关字段。
  */
@@ -777,7 +781,7 @@ export interface GmCreateRedeemCodeGroupRes {
  * group：group相关字段。
  */
 
-  group: RedeemCodeGroupView;  
+  group: RedeemCodeGroupView;
   /**
  * codes：code相关字段。
  */
@@ -800,7 +804,7 @@ export interface GmAppendRedeemCodesRes {
  * group：group相关字段。
  */
 
-  group: RedeemCodeGroupView;  
+  group: RedeemCodeGroupView;
   /**
  * codes：code相关字段。
  */
@@ -823,22 +827,22 @@ export interface AccountRedeemCodeResult {
  * code：code相关字段。
  */
 
-  code: string;  
+  code: string;
   /**
  * ok：ok相关字段。
  */
 
-  ok: boolean;  
+  ok: boolean;
   /**
  * message：message相关字段。
  */
 
-  message: string;  
+  message: string;
   /**
  * groupName：group名称名称或显示文本。
  */
 
-  groupName?: string;  
+  groupName?: string;
   /**
  * rewards：reward相关字段。
  */
@@ -864,33 +868,41 @@ export type GmDatabaseJobType = 'backup' | 'restore';
 /** 数据库作业状态。 */
 export type GmDatabaseJobStatus = 'running' | 'completed' | 'failed';
 
+/** 数据库备份文件格式。 */
+export type GmDatabaseBackupFormat = 'postgres_custom_dump' | 'mainline_json_snapshot';
+
 /** 单个数据库备份记录。 */
 export interface GmDatabaseBackupRecord {
 /**
  * id：ID标识。
  */
 
-  id: string;  
+  id: string;
   /**
  * kind：kind相关字段。
  */
 
-  kind: GmDatabaseBackupKind;  
+  kind: GmDatabaseBackupKind;
   /**
  * fileName：file名称名称或显示文本。
  */
 
-  fileName: string;  
+  fileName: string;
   /**
  * createdAt：createdAt相关字段。
  */
 
-  createdAt: string;  
+  createdAt: string;
   /**
  * sizeBytes：规模Byte相关字段。
  */
 
   sizeBytes: number;
+  /**
+ * format：备份文件格式。
+ */
+
+  format?: GmDatabaseBackupFormat;
   /**
  * documentsCount：数量或计量字段。
  */
@@ -919,42 +931,42 @@ export interface GmDatabaseJobSnapshot {
  * id：ID标识。
  */
 
-  id: string;  
+  id: string;
   /**
  * type：type相关字段。
  */
 
-  type: GmDatabaseJobType;  
+  type: GmDatabaseJobType;
   /**
  * status：statu状态或数据块。
  */
 
-  status: GmDatabaseJobStatus;  
+  status: GmDatabaseJobStatus;
   /**
  * startedAt：startedAt相关字段。
  */
 
-  startedAt: string;  
+  startedAt: string;
   /**
  * finishedAt：finishedAt相关字段。
  */
 
-  finishedAt?: string;  
+  finishedAt?: string;
   /**
  * kind：kind相关字段。
  */
 
-  kind?: GmDatabaseBackupKind;  
+  kind?: GmDatabaseBackupKind;
   /**
  * backupId：backupID标识。
  */
 
-  backupId?: string;  
+  backupId?: string;
   /**
  * sourceBackupId：来源BackupID标识。
  */
 
-  sourceBackupId?: string;  
+  sourceBackupId?: string;
   /**
  * error：error相关字段。
  */
@@ -968,17 +980,17 @@ export interface GmDatabaseStateRes {
  * backups：backup相关字段。
  */
 
-  backups: GmDatabaseBackupRecord[];  
+  backups: GmDatabaseBackupRecord[];
   /**
  * runningJob：runningJob相关字段。
  */
 
-  runningJob?: GmDatabaseJobSnapshot;  
+  runningJob?: GmDatabaseJobSnapshot;
   /**
  * lastJob：lastJob相关字段。
  */
 
-  lastJob?: GmDatabaseJobSnapshot;  
+  lastJob?: GmDatabaseJobSnapshot;
   /**
  * persistenceEnabled：启用开关或状态标识。
  */
@@ -1102,32 +1114,32 @@ export interface GmEditorTechniqueOption {
  * id：ID标识。
  */
 
-  id: string;  
+  id: string;
   /**
  * name：名称名称或显示文本。
  */
 
-  name: string;  
+  name: string;
   /**
  * grade：grade相关字段。
  */
 
-  grade?: TechniqueGrade;  
+  grade?: TechniqueGrade;
   /**
  * category：category相关字段。
  */
 
-  category?: TechniqueCategory;  
+  category?: TechniqueCategory;
   /**
  * realmLv：realmLv相关字段。
  */
 
-  realmLv?: number;  
+  realmLv?: number;
   /**
  * skills：技能相关字段。
  */
 
-  skills?: SkillDef[];  
+  skills?: SkillDef[];
   /**
  * layers：层相关字段。
  */
@@ -1141,122 +1153,122 @@ export interface GmEditorItemOption {
  * itemId：道具ID标识。
  */
 
-  itemId: string;  
+  itemId: string;
   /**
  * name：名称名称或显示文本。
  */
 
-  name: string;  
+  name: string;
   /**
  * type：type相关字段。
  */
 
-  type: ItemType;  
+  type: ItemType;
   /**
  * groundLabel：groundLabel名称或显示文本。
  */
 
-  groundLabel?: string;  
+  groundLabel?: string;
   /**
  * grade：grade相关字段。
  */
 
-  grade?: TechniqueGrade;  
+  grade?: TechniqueGrade;
   /**
  * level：等级数值。
  */
 
-  level?: number;  
+  level?: number;
   /**
  * equipSlot：equipSlot相关字段。
  */
 
-  equipSlot?: EquipSlot;  
+  equipSlot?: EquipSlot;
   /**
  * desc：desc相关字段。
  */
 
-  desc?: string;  
+  desc?: string;
   /**
  * equipAttrs：equipAttr相关字段。
  */
 
-  equipAttrs?: ItemStack['equipAttrs'];  
+  equipAttrs?: ItemStack['equipAttrs'];
   /**
  * equipStats：equipStat相关字段。
  */
 
-  equipStats?: ItemStack['equipStats'];  
+  equipStats?: ItemStack['equipStats'];
   /**
  * equipValueStats：equip值Stat相关字段。
  */
 
-  equipValueStats?: ItemStack['equipValueStats'];  
+  equipValueStats?: ItemStack['equipValueStats'];
   /**
  * tags：tag相关字段。
  */
 
-  tags?: string[];  
+  tags?: string[];
   /**
  * effects：effect相关字段。
  */
 
-  effects?: EquipmentEffectDef[];  
+  effects?: EquipmentEffectDef[];
   /**
  * healAmount：数量或计量字段。
  */
 
-  healAmount?: number;  
+  healAmount?: number;
   /**
  * healPercent：healPercent相关字段。
  */
 
-  healPercent?: number;  
+  healPercent?: number;
   /**
  * qiPercent：qiPercent相关字段。
  */
 
-  qiPercent?: number;  
+  qiPercent?: number;
   /**
  * cooldown：冷却相关字段。
  */
 
-  cooldown?: number;  
+  cooldown?: number;
   /**
  * consumeBuffs：consumeBuff相关字段。
  */
 
-  consumeBuffs?: ConsumableBuffDef[];  
+  consumeBuffs?: ConsumableBuffDef[];
   /**
  * enhanceLevel：enhance等级数值。
  */
 
-  enhanceLevel?: number;  
+  enhanceLevel?: number;
   /**
  * alchemySuccessRate：炼丹SuccessRate数值。
  */
 
-  alchemySuccessRate?: number;  
+  alchemySuccessRate?: number;
   /**
  * alchemySpeedRate：炼丹SpeedRate数值。
  */
 
-  alchemySpeedRate?: number;  
+  alchemySpeedRate?: number;
   /**
  * mapUnlockId：地图UnlockID标识。
  */
 
-  mapUnlockId?: string;  
+  mapUnlockId?: string;
   /**
  * mapUnlockIds：地图UnlockID相关字段。
  */
 
-  mapUnlockIds?: string[];  
+  mapUnlockIds?: string[];
   /**
  * tileAuraGainAmount：数量或计量字段。
  */
 
-  tileAuraGainAmount?: number;  
+  tileAuraGainAmount?: number;
   /**
  * tileResourceGains：集合字段。
  */
@@ -1275,22 +1287,22 @@ export interface GmEditorRealmOption {
  * realmLv：realmLv相关字段。
  */
 
-  realmLv: number;  
+  realmLv: number;
   /**
  * displayName：显示名称名称或显示文本。
  */
 
-  displayName: string;  
+  displayName: string;
   /**
  * name：名称名称或显示文本。
  */
 
-  name: string;  
+  name: string;
   /**
  * phaseName：phase名称名称或显示文本。
  */
 
-  phaseName?: string;  
+  phaseName?: string;
   /**
  * review：review相关字段。
  */
@@ -1307,17 +1319,17 @@ export interface GmEditorCatalogRes {
  * techniques：功法相关字段。
  */
 
-  techniques: GmEditorTechniqueOption[];  
+  techniques: GmEditorTechniqueOption[];
   /**
  * items：集合字段。
  */
 
-  items: GmEditorItemOption[];  
+  items: GmEditorItemOption[];
   /**
  * realmLevels：realm等级相关字段。
  */
 
-  realmLevels: GmEditorRealmOption[];  
+  realmLevels: GmEditorRealmOption[];
   /**
  * buffs：buff相关字段。
  */
@@ -1341,7 +1353,7 @@ export interface GmUpdatePlayerReq {
  * snapshot：快照状态或数据块。
  */
 
-  snapshot: Partial<PlayerState>;  
+  snapshot: Partial<PlayerState>;
   /**
  * section：section相关字段。
  */
@@ -1382,7 +1394,7 @@ export interface GmSpawnBotsReq {
  * anchorPlayerId：anchor玩家ID标识。
  */
 
-  anchorPlayerId: string;  
+  anchorPlayerId: string;
   /**
  * count：数量或计量字段。
  */
@@ -1396,7 +1408,7 @@ export interface GmRemoveBotsReq {
  * playerIds：玩家ID相关字段。
  */
 
-  playerIds?: string[];  
+  playerIds?: string[];
   /**
  * all：all相关字段。
  */
@@ -1410,57 +1422,57 @@ export interface GmShortcutRunRes {
  * ok：ok相关字段。
  */
 
-  ok: true;  
+  ok: true;
   /**
  * totalPlayers：集合字段。
  */
 
-  totalPlayers: number;  
+  totalPlayers: number;
   /**
  * queuedRuntimePlayers：集合字段。
  */
 
-  queuedRuntimePlayers: number;  
+  queuedRuntimePlayers: number;
   /**
  * updatedOfflinePlayers：集合字段。
  */
 
-  updatedOfflinePlayers: number;  
+  updatedOfflinePlayers: number;
   /**
  * totalInvalidInventoryStacksRemoved：totalInvalid背包StackRemoved相关字段。
  */
 
-  totalInvalidInventoryStacksRemoved?: number;  
+  totalInvalidInventoryStacksRemoved?: number;
   /**
  * totalInvalidMarketStorageStacksRemoved：totalInvalid坊市StorageStackRemoved相关字段。
  */
 
-  totalInvalidMarketStorageStacksRemoved?: number;  
+  totalInvalidMarketStorageStacksRemoved?: number;
   /**
  * totalInvalidEquipmentRemoved：totalInvalid装备Removed相关字段。
  */
 
-  totalInvalidEquipmentRemoved?: number;  
+  totalInvalidEquipmentRemoved?: number;
   /**
  * totalCombatExpGranted：total战斗ExpGranted相关字段。
  */
 
-  totalCombatExpGranted?: number;  
+  totalCombatExpGranted?: number;
   /**
  * totalFoundationGranted：totalFoundationGranted相关字段。
  */
 
-  totalFoundationGranted?: number;  
+  totalFoundationGranted?: number;
   /**
  * targetMapId：目标地图ID标识。
  */
 
-  targetMapId?: string;  
+  targetMapId?: string;
   /**
  * targetX：目标X相关字段。
  */
 
-  targetX?: number;  
+  targetX?: number;
   /**
  * targetY：目标Y相关字段。
  */
@@ -1474,57 +1486,57 @@ export interface GmMapPortalRecord {
  * x：x相关字段。
  */
 
-  x: number;  
+  x: number;
   /**
  * y：y相关字段。
  */
 
-  y: number;  
+  y: number;
   /**
  * targetMapId：目标地图ID标识。
  */
 
-  targetMapId: string;  
+  targetMapId: string;
   /**
  * targetX：目标X相关字段。
  */
 
-  targetX: number;  
+  targetX: number;
   /**
  * targetY：目标Y相关字段。
  */
 
-  targetY: number;  
+  targetY: number;
   /**
  * kind：kind相关字段。
  */
 
-  kind?: 'portal' | 'stairs';  
+  kind?: 'portal' | 'stairs';
   /**
  * trigger：trigger相关字段。
  */
 
-  trigger?: 'manual' | 'auto';  
+  trigger?: 'manual' | 'auto';
   /**
  * routeDomain：路线Domain相关字段。
  */
 
-  routeDomain?: PortalRouteDomain;  
+  routeDomain?: PortalRouteDomain;
   /**
  * allowPlayerOverlap：allow玩家Overlap相关字段。
  */
 
-  allowPlayerOverlap?: boolean;  
+  allowPlayerOverlap?: boolean;
   /**
  * hidden：hidden相关字段。
  */
 
-  hidden?: boolean;  
+  hidden?: boolean;
   /**
  * observeTitle：observeTitle名称或显示文本。
  */
 
-  observeTitle?: string;  
+  observeTitle?: string;
   /**
  * observeDesc：observeDesc相关字段。
  */
@@ -1538,12 +1550,12 @@ export interface GmMapAuraRecord {
  * x：x相关字段。
  */
 
-  x: number;  
+  x: number;
   /**
  * y：y相关字段。
  */
 
-  y: number;  
+  y: number;
   /**
  * value：值数值。
  */
@@ -1557,17 +1569,17 @@ export interface GmMapResourceRecord {
  * x：x相关字段。
  */
 
-  x: number;  
+  x: number;
   /**
  * y：y相关字段。
  */
 
-  y: number;  
+  y: number;
   /**
  * resourceKey：resourceKey标识。
  */
 
-  resourceKey: string;  
+  resourceKey: string;
   /**
  * value：值数值。
  */
@@ -1581,17 +1593,55 @@ export interface GmMapSafeZoneRecord {
  * x：x相关字段。
  */
 
-  x: number;  
+  x: number;
   /**
  * y：y相关字段。
  */
 
-  y: number;  
+  y: number;
   /**
  * radius：radiu相关字段。
  */
 
   radius: number;
+}
+
+/** GM 地图资源节点布点记录。 */
+export interface GmMapResourceNodePlacementRecord {
+/**
+ * x：x相关字段。
+ */
+
+  x: number;
+  /**
+ * y：y相关字段。
+ */
+
+  y: number;
+}
+
+/** GM 地图资源节点分组记录。 */
+export interface GmMapResourceNodeGroupRecord {
+/**
+ * resourceNodeId：资源节点 ID。
+ */
+
+  resourceNodeId: string;
+  /**
+ * idPrefix：生成地标 ID 的前缀。
+ */
+
+  idPrefix: string;
+  /**
+ * name：布点显示名称。
+ */
+
+  name: string;
+  /**
+ * placements：布点坐标列表。
+ */
+
+  placements: GmMapResourceNodePlacementRecord[];
 }
 
 /** GM 地图地标记录。 */
@@ -1600,32 +1650,32 @@ export interface GmMapLandmarkRecord {
  * id：ID标识。
  */
 
-  id: string;  
+  id: string;
   /**
  * name：名称名称或显示文本。
  */
 
-  name: string;  
+  name: string;
   /**
  * x：x相关字段。
  */
 
-  x: number;  
+  x: number;
   /**
  * y：y相关字段。
  */
 
-  y: number;  
+  y: number;
   /**
  * desc：desc相关字段。
  */
 
-  desc?: string;  
+  desc?: string;
   /**
  * resourceNodeId：resourceNodeID标识。
  */
 
-  resourceNodeId?: string;  
+  resourceNodeId?: string;
   /**
  * container：container相关字段。
  */
@@ -1639,22 +1689,22 @@ export interface GmMapDropRecord {
  * itemId：道具ID标识。
  */
 
-  itemId: string;  
+  itemId: string;
   /**
  * name：名称名称或显示文本。
  */
 
-  name: string;  
+  name: string;
   /**
  * type：type相关字段。
  */
 
-  type: ItemType;  
+  type: ItemType;
   /**
  * count：数量或计量字段。
  */
 
-  count: number;  
+  count: number;
   /**
  * chance：chance相关字段。
  */
@@ -1668,47 +1718,47 @@ export interface GmMapContainerLootPoolRecord {
  * rolls：roll相关字段。
  */
 
-  rolls?: number;  
+  rolls?: number;
   /**
  * chance：chance相关字段。
  */
 
-  chance?: number;  
+  chance?: number;
   /**
  * minLevel：min等级数值。
  */
 
-  minLevel?: number;  
+  minLevel?: number;
   /**
  * maxLevel：max等级数值。
  */
 
-  maxLevel?: number;  
+  maxLevel?: number;
   /**
  * minGrade：minGrade相关字段。
  */
 
-  minGrade?: TechniqueGrade;  
+  minGrade?: TechniqueGrade;
   /**
  * maxGrade：maxGrade相关字段。
  */
 
-  maxGrade?: TechniqueGrade;  
+  maxGrade?: TechniqueGrade;
   /**
  * tagGroups：tagGroup相关字段。
  */
 
-  tagGroups?: string[][];  
+  tagGroups?: string[][];
   /**
  * countMin：数量Min相关字段。
  */
 
-  countMin?: number;  
+  countMin?: number;
   /**
  * countMax：数量Max相关字段。
  */
 
-  countMax?: number;  
+  countMax?: number;
   /**
  * allowDuplicates：allowDuplicate相关字段。
  */
@@ -1727,12 +1777,12 @@ export interface GmMapContainerRecord {
  * grade：grade相关字段。
  */
 
-  grade?: TechniqueGrade;  
+  grade?: TechniqueGrade;
   /**
  * refreshTicks：refreshtick相关字段。
  */
 
-  refreshTicks?: number;  
+  refreshTicks?: number;
   /**
  * refreshTicksMin：刷新最小 tick。
  */
@@ -1747,17 +1797,17 @@ export interface GmMapContainerRecord {
  * char：char相关字段。
  */
 
-  char?: string;  
+  char?: string;
   /**
  * color：color相关字段。
  */
 
-  color?: string;  
+  color?: string;
   /**
  * drops：drop相关字段。
  */
 
-  drops?: GmMapDropRecord[];  
+  drops?: GmMapDropRecord[];
   /**
  * lootPools：掉落Pool相关字段。
  */
@@ -1771,157 +1821,157 @@ export interface GmMapQuestRecord {
  * id：ID标识。
  */
 
-  id: string;  
+  id: string;
   /**
  * title：title名称或显示文本。
  */
 
-  title: string;  
+  title: string;
   /**
  * desc：desc相关字段。
  */
 
-  desc: string;  
+  desc: string;
   /**
  * line：line相关字段。
  */
 
-  line?: QuestLine;  
+  line?: QuestLine;
   /**
  * chapter：chapter相关字段。
  */
 
-  chapter?: string;  
+  chapter?: string;
   /**
  * story：story相关字段。
  */
 
-  story?: string;  
+  story?: string;
   /**
  * objectiveType：objectiveType相关字段。
  */
 
-  objectiveType?: QuestObjectiveType;  
+  objectiveType?: QuestObjectiveType;
   /**
  * objectiveText：objectiveText名称或显示文本。
  */
 
-  objectiveText?: string;  
+  objectiveText?: string;
   /**
  * targetName：目标名称名称或显示文本。
  */
 
-  targetName?: string;  
+  targetName?: string;
   /**
  * targetMapId：目标地图ID标识。
  */
 
-  targetMapId?: string;  
+  targetMapId?: string;
   /**
  * targetX：目标X相关字段。
  */
 
-  targetX?: number;  
+  targetX?: number;
   /**
  * targetY：目标Y相关字段。
  */
 
-  targetY?: number;  
+  targetY?: number;
   /**
  * targetNpcId：目标NPCID标识。
  */
 
-  targetNpcId?: string;  
+  targetNpcId?: string;
   /**
  * targetNpcName：目标NPC名称名称或显示文本。
  */
 
-  targetNpcName?: string;  
+  targetNpcName?: string;
   /**
  * targetMonsterId：目标怪物ID标识。
  */
 
-  targetMonsterId?: string;  
+  targetMonsterId?: string;
   /**
  * targetTechniqueId：目标功法ID标识。
  */
 
-  targetTechniqueId?: string;  
+  targetTechniqueId?: string;
   /**
  * targetRealmStage：目标RealmStage相关字段。
  */
 
-  targetRealmStage?: string | number;  
+  targetRealmStage?: string | number;
   /**
  * required：required相关字段。
  */
 
-  required?: number;  
+  required?: number;
   /**
  * targetCount：数量或计量字段。
  */
 
-  targetCount?: number;  
+  targetCount?: number;
   /**
  * rewardItemId：reward道具ID标识。
  */
 
-  rewardItemId?: string;  
+  rewardItemId?: string;
   /**
  * rewardText：rewardText名称或显示文本。
  */
 
-  rewardText?: string;  
+  rewardText?: string;
   /**
  * reward：reward相关字段。
  */
 
-  reward?: GmMapDropRecord[];  
+  reward?: GmMapDropRecord[];
   /**
  * nextQuestId：next任务ID标识。
  */
 
-  nextQuestId?: string;  
+  nextQuestId?: string;
   /**
  * requiredItemId：required道具ID标识。
  */
 
-  requiredItemId?: string;  
+  requiredItemId?: string;
   /**
  * requiredItemCount：数量或计量字段。
  */
 
-  requiredItemCount?: number;  
+  requiredItemCount?: number;
   /**
  * submitNpcId：submitNPCID标识。
  */
 
-  submitNpcId?: string;  
+  submitNpcId?: string;
   /**
  * submitNpcName：submitNPC名称名称或显示文本。
  */
 
-  submitNpcName?: string;  
+  submitNpcName?: string;
   /**
  * submitMapId：submit地图ID标识。
  */
 
-  submitMapId?: string;  
+  submitMapId?: string;
   /**
  * submitX：submitX相关字段。
  */
 
-  submitX?: number;  
+  submitX?: number;
   /**
  * submitY：submitY相关字段。
  */
 
-  submitY?: number;  
+  submitY?: number;
   /**
  * relayMessage：relayMessage相关字段。
  */
 
-  relayMessage?: string;  
+  relayMessage?: string;
   /**
  * unlockBreakthroughRequirementIds：unlockBreakthroughRequirementID相关字段。
  */
@@ -1935,22 +1985,22 @@ export interface GmMapNpcShopItemRecord {
  * itemId：道具ID标识。
  */
 
-  itemId: string;  
+  itemId: string;
   /**
  * price：价格数值。
  */
 
-  price?: number;  
+  price?: number;
   /**
  * stockLimit：stockLimit相关字段。
  */
 
-  stockLimit?: number;  
+  stockLimit?: number;
   /**
  * refreshSeconds：refreshSecond相关字段。
  */
 
-  refreshSeconds?: number;  
+  refreshSeconds?: number;
   /**
  * priceFormula：价格Formula相关字段。
  */
@@ -1964,47 +2014,47 @@ export interface GmMapNpcRecord {
  * id：ID标识。
  */
 
-  id: string;  
+  id: string;
   /**
  * name：名称名称或显示文本。
  */
 
-  name: string;  
+  name: string;
   /**
  * x：x相关字段。
  */
 
-  x: number;  
+  x: number;
   /**
  * y：y相关字段。
  */
 
-  y: number;  
+  y: number;
   /**
  * char：char相关字段。
  */
 
-  char: string;  
+  char: string;
   /**
  * color：color相关字段。
  */
 
-  color: string;  
+  color: string;
   /**
  * dialogue：dialogue相关字段。
  */
 
-  dialogue: string;  
+  dialogue: string;
   /**
  * role：role相关字段。
  */
 
-  role?: string;  
+  role?: string;
   /**
  * shopItems：集合字段。
  */
 
-  shopItems?: GmMapNpcShopItemRecord[];  
+  shopItems?: GmMapNpcShopItemRecord[];
   /**
  * quests：集合字段。
  */
@@ -2018,132 +2068,132 @@ export interface GmMapMonsterSpawnRecord {
  * id：ID标识。
  */
 
-  id: string;  
+  id: string;
   /**
  * templateId：templateID标识。
  */
 
-  templateId?: string;  
+  templateId?: string;
   /**
  * name：名称名称或显示文本。
  */
 
-  name?: string;  
+  name?: string;
   /**
  * x：x相关字段。
  */
 
-  x: number;  
+  x: number;
   /**
  * y：y相关字段。
  */
 
-  y: number;  
+  y: number;
   /**
  * char：char相关字段。
  */
 
-  char?: string;  
+  char?: string;
   /**
  * color：color相关字段。
  */
 
-  color?: string;  
+  color?: string;
   /**
  * grade：grade相关字段。
  */
 
-  grade?: TechniqueGrade;  
+  grade?: TechniqueGrade;
   /**
  * hp：hp相关字段。
  */
 
-  hp?: number;  
+  hp?: number;
   /**
  * maxHp：maxHp相关字段。
  */
 
-  maxHp?: number;  
+  maxHp?: number;
   /**
  * attack：attack相关字段。
  */
 
-  attack?: number;  
+  attack?: number;
   /**
  * count：数量或计量字段。
  */
 
-  count?: number;  
+  count?: number;
   /**
  * radius：radiu相关字段。
  */
 
-  radius?: number;  
+  radius?: number;
   /**
  * maxAlive：maxAlive相关字段。
  */
 
-  maxAlive?: number;  
+  maxAlive?: number;
   /**
  * wanderRadius：wanderRadiu相关字段。
  */
 
-  wanderRadius?: number;  
+  wanderRadius?: number;
   /**
  * aggroRange：aggro范围相关字段。
  */
 
-  aggroRange?: number;  
+  aggroRange?: number;
   /**
  * viewRange：视图范围相关字段。
  */
 
-  viewRange?: number;  
+  viewRange?: number;
   /**
  * aggroMode：aggroMode相关字段。
  */
 
-  aggroMode?: MonsterAggroMode;  
+  aggroMode?: MonsterAggroMode;
   /**
  * respawnSec：重生Sec相关字段。
  */
 
-  respawnSec?: number;  
+  respawnSec?: number;
   /**
  * respawnTicks：重生tick相关字段。
  */
 
-  respawnTicks?: number;  
+  respawnTicks?: number;
   /**
  * level：等级数值。
  */
 
-  level?: number;  
+  level?: number;
   /**
  * attrs：attr相关字段。
  */
 
-  attrs?: Partial<Attributes>;  
+  attrs?: Partial<Attributes>;
   /**
  * statPercents：statPercent相关字段。
  */
 
-  statPercents?: NumericStatPercentages;  
+  statPercents?: NumericStatPercentages;
   /**
  * skills：技能相关字段。
  */
 
-  skills?: string[];  
+  skills?: string[];
   /**
  * tier：tier相关字段。
  */
 
-  tier?: MonsterTier;  
+  tier?: MonsterTier;
   /**
  * expMultiplier：expMultiplier相关字段。
  */
 
-  expMultiplier?: number;  
+  expMultiplier?: number;
   /**
  * drops：drop相关字段。
  */
@@ -2157,138 +2207,143 @@ export interface GmMapDocument {
  * id：ID标识。
  */
 
-  id: string;  
+  id: string;
   /**
  * name：名称名称或显示文本。
  */
 
-  name: string;  
+  name: string;
   /**
  * width：width相关字段。
  */
 
-  width: number;  
+  width: number;
   /**
  * height：height相关字段。
  */
 
-  height: number;  
+  height: number;
   /**
  * routeDomain：路线Domain相关字段。
  */
 
-  routeDomain?: MapRouteDomain;  
+  routeDomain?: MapRouteDomain;
   /**
  * terrainProfileId：terrainProfileID标识。
  */
 
-  terrainProfileId?: string;  
+  terrainProfileId?: string;
   /**
  * terrainRealmLv：terrainRealmLv相关字段。
  */
 
-  terrainRealmLv?: number;  
+  terrainRealmLv?: number;
   /**
  * parentMapId：parent地图ID标识。
  */
 
-  parentMapId?: string;  
+  parentMapId?: string;
   /**
  * parentOriginX：parentOriginX相关字段。
  */
 
-  parentOriginX?: number;  
+  parentOriginX?: number;
   /**
  * parentOriginY：parentOriginY相关字段。
  */
 
-  parentOriginY?: number;  
+  parentOriginY?: number;
   /**
  * floorLevel：floor等级数值。
  */
 
-  floorLevel?: number;  
+  floorLevel?: number;
   /**
  * floorName：floor名称名称或显示文本。
  */
 
-  floorName?: string;  
+  floorName?: string;
   /**
  * spaceVisionMode：spaceVisionMode相关字段。
  */
 
-  spaceVisionMode?: 'isolated' | 'parent_overlay';  
+  spaceVisionMode?: 'isolated' | 'parent_overlay';
   /**
  * description：description相关字段。
  */
 
-  description?: string;  
+  description?: string;
   /**
  * dangerLevel：danger等级数值。
  */
 
-  dangerLevel?: number;  
+  dangerLevel?: number;
   /**
  * recommendedRealm：recommendedRealm相关字段。
  */
 
-  recommendedRealm?: string;  
+  recommendedRealm?: string;
   /**
  * tiles：tile相关字段。
  */
 
-  tiles: string[];  
+  tiles: string[];
   /**
  * portals：portal相关字段。
  */
 
-  portals: GmMapPortalRecord[];  
+  portals: GmMapPortalRecord[];
   /**
  * spawnPoint：spawnPoint相关字段。
  */
 
-  spawnPoint: {  
+  spawnPoint: {
   /**
  * x：x相关字段。
  */
 
-    x: number;    
+    x: number;
     /**
  * y：y相关字段。
  */
 
     y: number;
-  };  
+  };
   /**
  * time：时间相关字段。
  */
 
-  time?: MapTimeConfig;  
+  time?: MapTimeConfig;
   /**
  * auras：aura相关字段。
  */
 
-  auras?: GmMapAuraRecord[];  
+  auras?: GmMapAuraRecord[];
   /**
  * resources：resource相关字段。
  */
 
-  resources?: GmMapResourceRecord[];  
+  resources?: GmMapResourceRecord[];
   /**
  * safeZones：safeZone相关字段。
  */
 
-  safeZones?: GmMapSafeZoneRecord[];  
+  safeZones?: GmMapSafeZoneRecord[];
+  /**
+ * resourceNodeGroups：资源节点分组布点。
+ */
+
+  resourceNodeGroups?: GmMapResourceNodeGroupRecord[];
   /**
  * landmarks：landmark相关字段。
  */
 
-  landmarks?: GmMapLandmarkRecord[];  
+  landmarks?: GmMapLandmarkRecord[];
   /**
  * npcs：NPC相关字段。
  */
 
-  npcs: GmMapNpcRecord[];  
+  npcs: GmMapNpcRecord[];
   /**
  * monsterSpawns：怪物Spawn相关字段。
  */
@@ -2302,52 +2357,52 @@ export interface GmMapSummary {
  * id：ID标识。
  */
 
-  id: string;  
+  id: string;
   /**
  * name：名称名称或显示文本。
  */
 
-  name: string;  
+  name: string;
   /**
  * width：width相关字段。
  */
 
-  width: number;  
+  width: number;
   /**
  * height：height相关字段。
  */
 
-  height: number;  
+  height: number;
   /**
  * description：description相关字段。
  */
 
-  description?: string;  
+  description?: string;
   /**
  * terrainRealmLv：terrainRealmLv相关字段。
  */
 
-  terrainRealmLv?: number;  
+  terrainRealmLv?: number;
   /**
  * dangerLevel：danger等级数值。
  */
 
-  dangerLevel?: number;  
+  dangerLevel?: number;
   /**
  * recommendedRealm：recommendedRealm相关字段。
  */
 
-  recommendedRealm?: string;  
+  recommendedRealm?: string;
   /**
  * portalCount：数量或计量字段。
  */
 
-  portalCount: number;  
+  portalCount: number;
   /**
  * npcCount：数量或计量字段。
  */
 
-  npcCount: number;  
+  npcCount: number;
   /**
  * monsterSpawnCount：数量或计量字段。
  */
@@ -2384,6 +2439,8 @@ export interface GmUpdateMapReq {
 
 /** GM 世界实例分线预设。 */
 export type GmWorldInstanceLinePreset = 'peaceful' | 'real';
+
+export type GmWorldInstancePersistentPolicy = 'persistent' | 'long_lived' | 'session' | 'ephemeral';
 
 /** GM 世界实例来源。 */
 export type GmWorldInstanceOrigin = 'bootstrap' | 'gm_manual';
@@ -2446,6 +2503,11 @@ export interface GmWorldInstanceSummary {
 
   persistent: boolean;
   /**
+ * persistentPolicy：实例持久化策略。
+ */
+
+  persistentPolicy?: GmWorldInstancePersistentPolicy;
+  /**
  * supportsPvp：是否支持 PVP。
  */
 
@@ -2455,6 +2517,11 @@ export interface GmWorldInstanceSummary {
  */
 
   canDamageTile: boolean;
+  /**
+ * destroyAt：计划销毁时间。
+ */
+
+  destroyAt?: string | null;
   /**
  * playerCount：在线人数。
  */
@@ -2489,77 +2556,77 @@ export interface GmRuntimeEntity {
  * id：ID标识。
  */
 
-  id: string;  
+  id: string;
   /**
  * x：x相关字段。
  */
 
-  x: number;  
+  x: number;
   /**
  * y：y相关字段。
  */
 
-  y: number;  
+  y: number;
   /**
  * char：char相关字段。
  */
 
-  char: string;  
+  char: string;
   /**
  * color：color相关字段。
  */
 
-  color: string;  
+  color: string;
   /**
  * name：名称名称或显示文本。
  */
 
-  name: string;  
+  name: string;
   /**
  * kind：kind相关字段。
  */
 
-  kind: 'player' | 'monster' | 'npc' | 'container';  
+  kind: 'player' | 'monster' | 'npc' | 'container';
   /**
  * hp：hp相关字段。
  */
 
-  hp?: number;  
+  hp?: number;
   /**
  * maxHp：maxHp相关字段。
  */
 
-  maxHp?: number;  
+  maxHp?: number;
   /**
  * dead：dead相关字段。
  */
 
-  dead?: boolean;  
+  dead?: boolean;
   /**
  * alive：alive相关字段。
  */
 
-  alive?: boolean;  
+  alive?: boolean;
   /**
  * targetPlayerId：目标玩家ID标识。
  */
 
-  targetPlayerId?: string;  
+  targetPlayerId?: string;
   /**
  * respawnLeft：重生Left相关字段。
  */
 
-  respawnLeft?: number;  
+  respawnLeft?: number;
   /**
  * online：online相关字段。
  */
 
-  online?: boolean;  
+  online?: boolean;
   /**
  * autoBattle：autoBattle相关字段。
  */
 
-  autoBattle?: boolean;  
+  autoBattle?: boolean;
   /**
  * isBot：启用开关或状态标识。
  */
@@ -2573,17 +2640,17 @@ export interface GmMapRuntimeRes {
  * mapId：地图ID标识。
  */
 
-  mapId: string;  
+  mapId: string;
   /**
  * mapName：地图名称名称或显示文本。
  */
 
-  mapName: string;  
+  mapName: string;
   /**
  * width：width相关字段。
  */
 
-  width: number;  
+  width: number;
   /**
  * height：height相关字段。
  */
@@ -2646,6 +2713,11 @@ export interface GmWorldInstanceRuntimeRes extends GmMapRuntimeRes {
 
   defaultEntry: boolean;
   /**
+ * persistentPolicy：实例持久化策略。
+ */
+
+  persistentPolicy?: GmWorldInstancePersistentPolicy;
+  /**
  * supportsPvp：是否支持 PVP。
  */
 
@@ -2655,6 +2727,11 @@ export interface GmWorldInstanceRuntimeRes extends GmMapRuntimeRes {
  */
 
   canDamageTile: boolean;
+  /**
+ * destroyAt：计划销毁时间。
+ */
+
+  destroyAt?: string | null;
   /**
  * playerCount：在线人数。
  */
@@ -2684,6 +2761,16 @@ export interface GmCreateWorldInstanceReq {
  */
 
   displayName?: string;
+  /**
+ * persistentPolicy：实例持久化策略。
+ */
+
+  persistentPolicy?: GmWorldInstancePersistentPolicy;
+  /**
+ * expireAt：计划销毁时间戳，毫秒。
+ */
+
+  expireAt?: number | null;
 }
 
 /** GM 创建世界实例响应。 */
@@ -2725,7 +2812,7 @@ export interface GmUpdateMapTickReq {
  * speed：speed数值。
  */
 
-  speed?: number;  
+  speed?: number;
   /**
  * paused：paused相关字段。
  */
@@ -2739,7 +2826,7 @@ export interface GmUpdateMapTimeReq {
  * scale：scale相关字段。
  */
 
-  scale?: number;  
+  scale?: number;
   /**
  * offsetTicks：offsettick相关字段。
  */
@@ -2753,12 +2840,12 @@ export interface GmMapRuntimeQuery {
  * x：x相关字段。
  */
 
-  x?: number;  
+  x?: number;
   /**
  * y：y相关字段。
  */
 
-  y?: number;  
+  y?: number;
   /**
  * radius：radiu相关字段。
  */
@@ -2772,32 +2859,32 @@ export interface GmCreateMailReq {
  * templateId：templateID标识。
  */
 
-  templateId?: string;  
+  templateId?: string;
   /**
  * args：arg相关字段。
  */
 
-  args?: MailTemplateArg[];  
+  args?: MailTemplateArg[];
   /**
  * fallbackTitle：fallbackTitle名称或显示文本。
  */
 
-  fallbackTitle?: string;  
+  fallbackTitle?: string;
   /**
  * fallbackBody：fallbackBody相关字段。
  */
 
-  fallbackBody?: string;  
+  fallbackBody?: string;
   /**
  * attachments：attachment相关字段。
  */
 
-  attachments?: MailAttachment[];  
+  attachments?: MailAttachment[];
   /**
  * senderLabel：senderLabel名称或显示文本。
  */
 
-  senderLabel?: string;  
+  senderLabel?: string;
   /**
  * expireAt：expireAt相关字段。
  */
@@ -2832,7 +2919,7 @@ export interface GmSendPlayerMailRes {
  * ok：ok相关字段。
  */
 
-  ok: true;  
+  ok: true;
   /**
  * mailId：邮件ID相关字段。
  */
@@ -2846,17 +2933,17 @@ export interface GmBroadcastMailRes {
  * ok：ok相关字段。
  */
 
-  ok: true;  
+  ok: true;
   /**
  * mailId：邮件ID相关字段。
  */
 
-  mailId: string;  
+  mailId: string;
   /**
  * batchId：batchID标识。
  */
 
-  batchId: string;  
+  batchId: string;
   /**
  * recipientCount：数量或计量字段。
  */

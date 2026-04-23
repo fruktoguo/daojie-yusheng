@@ -3,7 +3,76 @@
  * 跟随鼠标显示标题、多行文本及可选的侧栏卡片
  */
 
-import { clientToViewportPoint, getResponsiveViewportMetrics, getViewportRoot } from './responsive-viewport';
+import {
+  clientToViewportPoint,
+  getResponsiveViewportMetrics,
+  getViewportRoot,
+  RESPONSIVE_VIEWPORT_CHANGE_EVENT,
+} from './responsive-viewport';
+
+const FLOATING_TOOLTIP_ROOT_ID = 'floating-tooltip-root';
+const FLOATING_TOOLTIP_ROOT_Z_INDEX = '4000';
+
+let floatingTooltipRoot: HTMLDivElement | null = null;
+let floatingTooltipRootBound = false;
+
+/** syncFloatingTooltipRoot：同步 tooltip 顶层容器，确保其位于详情弹层之上。 */
+function syncFloatingTooltipRoot(win: Window = window): HTMLDivElement | null {
+  const doc = win.document;
+  if (!doc.body) {
+    return null;
+  }
+  if (!floatingTooltipRoot || !floatingTooltipRoot.isConnected) {
+    const existing = doc.getElementById(FLOATING_TOOLTIP_ROOT_ID);
+    floatingTooltipRoot = existing instanceof HTMLDivElement ? existing : doc.createElement('div');
+    floatingTooltipRoot.id = FLOATING_TOOLTIP_ROOT_ID;
+    if (!floatingTooltipRoot.isConnected) {
+      doc.body.appendChild(floatingTooltipRoot);
+    }
+  }
+  const root = floatingTooltipRoot;
+  const metrics = getResponsiveViewportMetrics(win);
+  root.style.position = 'fixed';
+  root.style.pointerEvents = 'none';
+  root.style.overflow = 'visible';
+  root.style.background = 'transparent';
+  root.style.transformOrigin = 'center center';
+  root.style.zIndex = FLOATING_TOOLTIP_ROOT_Z_INDEX;
+  root.style.margin = '0';
+  root.style.padding = '0';
+
+  if (!metrics.locked) {
+    root.style.right = '0';
+    root.style.bottom = '0';
+    root.style.left = '0';
+    root.style.top = '0';
+    root.style.width = '100vw';
+    root.style.height = '100dvh';
+    root.style.transform = 'none';
+    return root;
+  }
+
+  root.style.right = 'auto';
+  root.style.bottom = 'auto';
+  root.style.left = '50%';
+  root.style.top = '50%';
+  root.style.width = `${metrics.viewportWidth}px`;
+  root.style.height = `${metrics.viewportHeight}px`;
+  root.style.transform = `translate(-50%, -50%) scale(${metrics.scale.toFixed(6)})`;
+  return root;
+}
+
+/** getFloatingTooltipRoot：读取或创建专用 tooltip 顶层容器。 */
+function getFloatingTooltipRoot(doc: Document = document): HTMLElement | null {
+  const root = syncFloatingTooltipRoot(doc.defaultView ?? window);
+  if (!floatingTooltipRootBound) {
+    floatingTooltipRootBound = true;
+    window.addEventListener(RESPONSIVE_VIEWPORT_CHANGE_EVENT, () => {
+      syncFloatingTooltipRoot(window);
+    });
+  }
+  return root;
+}
 
 /** escapeHtml：转义 HTML 文本中的危险字符。 */
 function escapeHtml(value: string): string {
@@ -80,7 +149,7 @@ export class FloatingTooltip {
   constructor(className = 'floating-tooltip') {
     this.el = document.createElement('div');
     this.el.className = className;
-    (getViewportRoot(document) ?? document.body).appendChild(this.el);
+    (getFloatingTooltipRoot(document) ?? getViewportRoot(document) ?? document.body).appendChild(this.el);
     document.addEventListener('pointerdown', (event) => {
       if (!this.pinned) {
         return;
@@ -199,5 +268,4 @@ export class FloatingTooltip {
     this.move(this.lastPoint.x, this.lastPoint.y);
   }
 }
-
 

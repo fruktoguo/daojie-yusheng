@@ -14,57 +14,57 @@ type MainInventoryStateSourceOptions = {
  * inventoryPanel：背包面板相关字段。
  */
 
-  inventoryPanel: InventoryPanel;  
+  inventoryPanel: InventoryPanel;
   /**
  * questStateSource：任务状态来源相关字段。
  */
 
-  questStateSource: Pick<MainQuestStateSource, 'syncInventory'>;  
+  questStateSource: Pick<MainQuestStateSource, 'syncInventory'>;
   /**
  * marketStateSource：坊市状态来源相关字段。
  */
 
-  marketStateSource: Pick<MainMarketStateSource, 'initFromPlayer' | 'syncInventory' | 'clear'>;  
+  marketStateSource: Pick<MainMarketStateSource, 'initFromPlayer' | 'syncInventory' | 'syncPlayerContext' | 'clear'>;
   /**
  * npcShopModal：NPCShop弹层相关字段。
  */
 
-  npcShopModal: NpcShopModal;  
+  npcShopModal: NpcShopModal;
   /**
  * craftWorkbenchModal：炼制Workbench弹层相关字段。
  */
 
-  craftWorkbenchModal: CraftWorkbenchModal;  
+  craftWorkbenchModal: CraftWorkbenchModal;
   /**
  * syncInventoryBridgeState：背包桥接状态状态或数据块。
  */
 
-  syncInventoryBridgeState: (inventory: Inventory | null) => void;  
+  syncInventoryBridgeState: (inventory: Inventory | null) => void;
   /**
  * syncPlayerBridgeState：玩家桥接状态状态或数据块。
  */
 
-  syncPlayerBridgeState: (player: PlayerState | null) => void;  
+  syncPlayerBridgeState: (player: PlayerState | null) => void;
   /**
  * sendUseItem：sendUse道具相关字段。
  */
 
-  sendUseItem: (slotIndex: number, count?: number) => void;  
+  sendUseItem: (slotIndex: number, count?: number) => void;
   /**
  * sendDropItem：sendDrop道具相关字段。
  */
 
-  sendDropItem: (slotIndex: number, count: number) => void;  
+  sendDropItem: (slotIndex: number, count: number) => void;
   /**
  * sendDestroyItem：sendDestroy道具相关字段。
  */
 
-  sendDestroyItem: (slotIndex: number, count: number) => void;  
+  sendDestroyItem: (slotIndex: number, count: number) => void;
   /**
  * sendEquip：sendEquip相关字段。
  */
 
-  sendEquip: (slotIndex: number) => void;  
+  sendEquip: (slotIndex: number) => void;
   /**
  * sendSortInventory：sendSort背包相关字段。
  */
@@ -99,7 +99,7 @@ export function createMainInventoryStateSource(options: MainInventoryStateSource
     () => options.sendSortInventory(),
   );
 
-  return {  
+  return {
   /**
  * initFromPlayer：执行initFrom玩家相关逻辑。
  * @param player PlayerState 玩家对象。
@@ -111,7 +111,7 @@ export function createMainInventoryStateSource(options: MainInventoryStateSource
       options.marketStateSource.initFromPlayer(player);
       options.npcShopModal.initFromPlayer(player);
       options.craftWorkbenchModal.initFromPlayer(player);
-    },    
+    },
     /**
  * syncPlayerContext：处理玩家上下文并更新相关状态。
  * @param player InventoryPlayerContext 玩家对象。
@@ -121,7 +121,9 @@ export function createMainInventoryStateSource(options: MainInventoryStateSource
 
     syncPlayerContext(player?: InventoryPlayerContext): void {
       options.inventoryPanel.syncPlayerContext(player);
-    },    
+      options.marketStateSource.syncPlayerContext(player as PlayerState | undefined);
+      options.npcShopModal.syncPlayerContext(player as PlayerState | undefined);
+    },
     /**
  * syncInventory：处理背包并更新相关状态。
  * @param inventory Inventory 参数说明。
@@ -136,10 +138,10 @@ export function createMainInventoryStateSource(options: MainInventoryStateSource
       options.questStateSource.syncInventory(inventory);
       options.marketStateSource.syncInventory(inventory);
       options.npcShopModal.syncInventory(inventory);
-      options.craftWorkbenchModal.syncInventory();
+      options.craftWorkbenchModal.syncInventory(inventory);
       options.syncInventoryBridgeState(inventory);
       options.syncPlayerBridgeState(player);
-    },    
+    },
     /**
  * clear：执行clear相关逻辑。
  * @returns 无返回值，直接更新clear相关状态。

@@ -10,6 +10,7 @@ import { Pool } from 'pg';
 
 import { Direction } from '@mud/shared';
 
+const smoke_player_cleanup_1 = require('./smoke-player-cleanup');
 import { AppModule } from '../app.module';
 import { resolveServerDatabaseUrl } from '../config/env-alias';
 import { DurableOperationService } from '../persistence/durable-operation.service';
@@ -106,9 +107,19 @@ async function main(): Promise<void> {
     }, null, 2));
   } finally {
     await cleanupRows(pool, playerIds, operationIds).catch(() => undefined);
+    await purgeDurableOperationBenchmarkArtifacts().catch(() => undefined);
     await app.close().catch(() => undefined);
     await pool.end().catch(() => undefined);
   }
+}
+
+async function purgeDurableOperationBenchmarkArtifacts(): Promise<void> {
+  await (0, smoke_player_cleanup_1.purgeSmokeTestArtifacts)({
+    dryRun: false,
+    accountPatterns: ['do_bench_%'],
+    playerPatterns: ['do_bench_%'],
+    instancePatterns: ['instance:%:lease'],
+  });
 }
 
 async function cleanupRows(pool: Pool, playerIds: string[], operationIds: string[]): Promise<void> {

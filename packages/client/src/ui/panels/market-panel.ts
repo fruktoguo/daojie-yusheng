@@ -11,6 +11,7 @@ import {
   ITEM_TYPES,
   ItemStack,
   ItemType,
+  MAX_ENHANCE_LEVEL,
   MARKET_MAX_UNIT_PRICE,
   MARKET_PRICE_PRESET_VALUES,
   MarketListedItemView,
@@ -29,19 +30,21 @@ import {
   normalizeMarketPriceDown,
   normalizeMarketPriceUp,
 } from '@mud/shared';
-import { getLocalTechniqueCategoryForBookItem } from '../../content/local-templates';
+import { getLocalItemTemplate, getLocalTechniqueCategoryForBookItem, resolvePreviewItem, resolveTechniqueIdFromBookItemId } from '../../content/local-templates';
 import { buildItemTooltipPayload } from '../equipment-tooltip';
 import { FloatingTooltip, prefersPinnedTooltipInteraction } from '../floating-tooltip';
 import { getViewportRoot } from '../responsive-viewport';
 import { detailModalHost } from '../detail-modal-host';
+import { confirmModalHost } from '../confirm-modal-host';
 import { preserveSelection } from '../selection-preserver';
 import { MARKET_MODAL_TABS, MARKET_PANE_HINT, MarketModalTab } from '../../constants/ui/market';
+import { getPlayerOwnedItemCount } from '../../utils/player-wallet';
 import { formatDisplayCountBadge, formatDisplayInteger, formatDisplayNumber } from '../../utils/number';
 import { getEquipSlotLabel, getItemTypeLabel, getTechniqueCategoryLabel } from '../../domain-labels';
 
 /** 把普通文本转成可安全插入 HTML 的内容。 */
-function escapeHtml(value: string): string {
-  return value
+function escapeHtml(value: unknown): string {
+  return String(value ?? '')
     .replaceAll('&', '&amp;')
     .replaceAll('<', '&lt;')
     .replaceAll('>', '&gt;')
@@ -50,7 +53,7 @@ function escapeHtml(value: string): string {
 }
 
 /** 复用同一套转义逻辑，避免属性值注入。 */
-function escapeHtmlAttr(value: string): string {
+function escapeHtmlAttr(value: unknown): string {
   return escapeHtml(value);
 }
 
@@ -72,37 +75,37 @@ interface MarketPanelCallbacks {
  * onRequestMarket：onRequest坊市相关字段。
  */
 
-  onRequestMarket: () => void;  
+  onRequestMarket: () => void;
   /**
  * onRequestListings：onRequestListing相关字段。
  */
 
-  onRequestListings: (payload: C2S_RequestMarketListings) => void;  
+  onRequestListings: (payload: C2S_RequestMarketListings) => void;
   /**
  * onRequestItemBook：onRequest道具Book相关字段。
  */
 
-  onRequestItemBook: (itemKey: string) => void;  
+  onRequestItemBook: (itemKey: string) => void;
   /**
  * onRequestTradeHistory：onRequestTradeHistory相关字段。
  */
 
-  onRequestTradeHistory: (page: number) => void;  
+  onRequestTradeHistory: (page: number) => void;
   /**
  * onCreateSellOrder：onCreateSell订单相关字段。
  */
 
-  onCreateSellOrder: (slotIndex: number, quantity: number, unitPrice: number) => void;  
+  onCreateSellOrder: (slotIndex: number, quantity: number, unitPrice: number) => void;
   /**
  * onCreateBuyOrder：onCreateBuy订单相关字段。
  */
 
-  onCreateBuyOrder: (itemKey: string, quantity: number, unitPrice: number) => void;  
+  onCreateBuyOrder: (itemKey: string, quantity: number, unitPrice: number) => void;
   /**
  * onCancelOrder：onCancel订单相关字段。
  */
 
-  onCancelOrder: (orderId: string) => void;  
+  onCancelOrder: (orderId: string) => void;
   /**
  * onClaimStorage：onClaimStorage相关字段。
  */
@@ -127,12 +130,12 @@ interface MarketTradeDialogState {
  * kind：kind相关字段。
  */
 
-  kind: MarketTradeDialogKind;  
+  kind: MarketTradeDialogKind;
   /**
  * quantity：quantity相关字段。
  */
 
-  quantity: number;  
+  quantity: number;
   /**
  * unitPrice：unit价格数值。
  */
@@ -146,37 +149,45 @@ interface MarketEnhancementEstimateView {
  * strategy：strategy相关字段。
  */
 
-  strategy: EnhancementExpectedCostStrategy;  
+  strategy: EnhancementExpectedCostStrategy;
   /**
  * costLine：消耗Line相关字段。
  */
 
-  costLine: string;  
+  costLine: string;
   /**
  * attemptsLine：attemptLine相关字段。
  */
 
-  attemptsLine: string;  
+  attemptsLine: string;
   /**
  * timeLine：时间Line相关字段。
  */
 
-  timeLine: string;  
+  timeLine: string;
   /**
  * baseUnitPrice：baseUnit价格数值。
  */
 
-  baseUnitPrice?: number;  
+  baseUnitPrice?: number;
   /**
  * usesMarketBasePrice：use坊市Base价格数值。
  */
 
-  usesMarketBasePrice: boolean;  
+  usesMarketBasePrice: boolean;
   /**
  * basePricePending：base价格Pending相关字段。
  */
 
   basePricePending: boolean;
+}
+
+/** 当前页里按物品 id 聚合后的列表分组。 */
+interface MarketListingGroupView {
+  itemId: string;
+  item: ItemStack;
+  canEnhance: boolean;
+  variants: MarketListedItemView[];
 }
 
 /** 桌面端市场列表的默认分页大小。 */
@@ -220,6 +231,8 @@ export class MarketPanel {
   private static readonly MODAL_OWNER = 'market-panel';
   /** 交易弹窗根节点的 id。 */
   private static readonly TRADE_MODAL_ID = 'market-trade-modal-root';
+  /** 买入确认弹层的归属标识。 */
+  private static readonly CONFIRM_MODAL_OWNER = 'market-buy-confirm';
   /** 面板根节点，只负责首屏摘要和打开入口。 */
   private readonly pane = document.getElementById('pane-market')!;
   /** 市场面板对外回调，实际请求都交给外部处理。 */
@@ -236,6 +249,10 @@ export class MarketPanel {
   private readonly pendingItemBookKeys = new Set<string>();
   /** 当前在市场列表里选中的物品 key。 */
   private selectedItemKey: string | null = null;
+  /** 当前高亮的物品组。 */
+  private selectedGroupItemId: string | null = null;
+  /** 当前正在查看的强化等级列表归属物品。 */
+  private enhancementBrowseItemId: string | null = null;
   /** 弹窗当前标签页。 */
   private modalTab: MarketModalTab = 'market';
   /** 当前市场主分类筛选。 */
@@ -254,14 +271,19 @@ export class MarketPanel {
   private tradeHistoryLoading = false;
   /** 当前交易弹窗状态。 */
   private tradeDialog: MarketTradeDialogState | null = null;
+  /** 待确认的买入请求。 */
+  private buyConfirmState: { itemKey: string; quantity: number; unitPrice: number } | null = null;
   /** 当前交易历史快照。 */
   private tradeHistory: S2C_MarketTradeHistory | null = null;
   /** 当前玩家背包快照，用于判断能否挂售和买入。 */
   private inventory: Inventory = { items: [], capacity: 0 };
+  private player: PlayerState | null = null;
+  /** 当前登录会话是否已经预取过坊市摘要。 */
+  private hasRequestedMarketBootstrap = false;
   /** 市场物品提示浮层，列表和详情共用。 */
   private tooltip = new FloatingTooltip('floating-tooltip market-item-tooltip');
   /** 当前正在显示提示的节点。 */
-  private tooltipNode: HTMLElement | null = null;  
+  private tooltipNode: HTMLElement | null = null;
   /**
  * 构造器：初始化 当前 实例并建立基础状态。
  * @returns 无返回值，完成实例初始化。
@@ -280,8 +302,19 @@ export class MarketPanel {
 
   /** 从玩家快照初始化背包和首屏。 */
   initFromPlayer(player: PlayerState): void {
+    this.player = player;
     this.inventory = player.inventory;
     this.renderPane();
+    this.requestMarketBootstrap();
+  }
+
+  /** 同步玩家上下文，供钱包类货币展示直接读取。 */
+  syncPlayerContext(player?: PlayerState): void {
+    this.player = player ?? null;
+    if (detailModalHost.isOpenFor(MarketPanel.MODAL_OWNER)) {
+      this.syncVisibleMarketInventoryState();
+      this.syncTradeDialogOverlay();
+    }
   }
 
   /** 同步背包快照，并刷新依赖弹窗。 */
@@ -299,16 +332,17 @@ export class MarketPanel {
   updateMarket(data: S2C_MarketUpdate): void {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
-    this.marketUpdate = data;
-    if (!this.selectedItemKey && data.listedItems.length > 0) {
-      this.selectedItemKey = data.listedItems[0].itemKey;
-    }
-    if (this.selectedItemKey && !data.listedItems.some((item) => item.itemKey === this.selectedItemKey)) {
-      this.selectedItemKey = data.listedItems[0]?.itemKey ?? null;
+    const knownListedItems = data.listedItems.length > 0 ? data.listedItems : this.getKnownListedItems(this.marketUpdate);
+    this.marketUpdate = {
+      ...data,
+      listedItems: knownListedItems,
+    };
+    if (this.selectedItemKey && !knownListedItems.some((item) => item.itemKey === this.selectedItemKey)) {
+      this.selectedItemKey = null;
       this.itemBook = null;
       this.tradeDialog = null;
     }
-    this.currentPage = this.clampPage(this.currentPage, this.getVisibleListedItems(data).length);
+    this.currentPage = this.clampPage(this.currentPage, this.getVisibleMarketTotalItems(this.marketUpdate));
     this.syncPageSelection();
     this.renderPane();
     if (detailModalHost.isOpenFor(MarketPanel.MODAL_OWNER)) {
@@ -426,10 +460,13 @@ export class MarketPanel {
 
   /** 清空市场面板状态、缓存和临时弹窗。 */
   clear(): void {
+    this.player = null;
     this.marketUpdate = null;
     this.itemBook = null;
     this.marketListings = null;
     this.selectedItemKey = null;
+    this.selectedGroupItemId = null;
+    this.enhancementBrowseItemId = null;
     this.modalTab = 'market';
     this.activeCategory = 'all';
     this.activeEquipmentCategory = 'all';
@@ -439,18 +476,21 @@ export class MarketPanel {
     this.itemBookLoading = false;
     this.tradeHistoryLoading = false;
     this.tradeDialog = null;
+    this.buyConfirmState = null;
     this.tradeHistory = null;
     this.inventory = { items: [], capacity: 0 };
+    this.hasRequestedMarketBootstrap = false;
     this.tooltipNode = null;
     this.tooltip.hide(true);
     this.syncTradeDialogOverlay();
     this.renderPane();
+    confirmModalHost.close(MarketPanel.CONFIRM_MODAL_OWNER);
     detailModalHost.close(MarketPanel.MODAL_OWNER);
   }
 
   /** 渲染面板首屏摘要，只保留打开坊市的入口。 */
   private renderPane(): void {
-    const listedCount = this.marketUpdate?.listedItems.length ?? 0;
+    const listedCount = this.marketListings?.total ?? this.marketUpdate?.listedItems.length ?? 0;
     const orderCount = this.marketUpdate?.myOrders.length ?? 0;
     const storageCount = this.marketUpdate?.storage.items.reduce((sum, item) => sum + item.count, 0) ?? 0;
     preserveSelection(this.pane, () => {
@@ -477,19 +517,28 @@ export class MarketPanel {
         return;
       }
       if (target.closest('[data-market-open]')) {
-        this.callbacks?.onRequestMarket();
+        if (!this.requestMarketBootstrap()) {
+          this.callbacks?.onRequestMarket();
+        }
         this.openModal();
       }
     });
+  }
+
+  /** 预取坊市摘要，避免侧边面板首次进入始终显示本地空态。 */
+  private requestMarketBootstrap(): boolean {
+    if (this.hasRequestedMarketBootstrap) {
+      return false;
+    }
+    this.hasRequestedMarketBootstrap = true;
+    this.callbacks?.onRequestMarket();
+    return true;
   }
 
   /** 打开市场详情弹层，并按当前标签请求需要的数据。 */
   private openModal(): void {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
-    if (!this.selectedItemKey && this.marketUpdate?.listedItems.length) {
-      this.selectedItemKey = this.marketUpdate.listedItems[0].itemKey;
-    }
     this.syncPageSelection();
     this.requestListings(this.currentPage);
     if (this.modalTab === 'market' && this.selectedItemKey) {
@@ -551,7 +600,11 @@ export class MarketPanel {
             this.activeTechniqueCategory = 'all';
           }
           this.currentPage = 1;
+          this.selectedGroupItemId = null;
+          this.enhancementBrowseItemId = null;
+          this.selectedItemKey = null;
           this.tradeDialog = null;
+          this.itemBook = null;
           this.syncPageSelection();
           this.requestListings(this.currentPage);
           this.renderModal();
@@ -564,7 +617,11 @@ export class MarketPanel {
           }
           this.activeEquipmentCategory = category;
           this.currentPage = 1;
+          this.selectedGroupItemId = null;
+          this.enhancementBrowseItemId = null;
+          this.selectedItemKey = null;
           this.tradeDialog = null;
+          this.itemBook = null;
           this.syncPageSelection();
           this.requestListings(this.currentPage);
           this.renderModal();
@@ -577,7 +634,11 @@ export class MarketPanel {
           }
           this.activeTechniqueCategory = category;
           this.currentPage = 1;
+          this.selectedGroupItemId = null;
+          this.enhancementBrowseItemId = null;
+          this.selectedItemKey = null;
           this.tradeDialog = null;
+          this.itemBook = null;
           this.syncPageSelection();
           this.requestListings(this.currentPage);
           this.renderModal();
@@ -588,8 +649,12 @@ export class MarketPanel {
           if (!Number.isFinite(nextPage) || nextPage === this.currentPage) {
             return;
           }
-          this.currentPage = this.clampPage(nextPage, this.getVisibleListedItems(this.marketUpdate).length);
+          this.currentPage = this.clampPage(nextPage, this.getVisibleMarketTotalItems(this.marketUpdate));
+          this.selectedGroupItemId = null;
+          this.enhancementBrowseItemId = null;
+          this.selectedItemKey = null;
           this.tradeDialog = null;
+          this.itemBook = null;
           this.syncPageSelection();
           this.requestListings(this.currentPage);
           this.renderModal();
@@ -606,8 +671,13 @@ export class MarketPanel {
 
         body.querySelectorAll<HTMLElement>('[data-market-select-item]').forEach((button) => button.addEventListener('click', () => {
           const itemKey = button.dataset.marketSelectItem;
+          const groupItemId = button.dataset.marketSelectItemGroup;
           if (!itemKey) {
             return;
+          }
+          if (groupItemId) {
+            this.selectedGroupItemId = groupItemId;
+            this.enhancementBrowseItemId = groupItemId;
           }
           this.selectedItemKey = itemKey;
           this.itemBook = null;
@@ -615,6 +685,39 @@ export class MarketPanel {
           this.requestItemBook(itemKey);
           this.renderModal();
         }));
+
+        body.querySelectorAll<HTMLElement>('[data-market-select-group]').forEach((button) => button.addEventListener('click', () => {
+          const groupItemId = button.dataset.marketSelectGroup;
+          const group = groupItemId
+            ? this.getVisibleListingGroups(this.marketUpdate).find((entry) => entry.itemId === groupItemId) ?? null
+            : null;
+          if (!group || !groupItemId) {
+            return;
+          }
+          this.selectedGroupItemId = groupItemId;
+          this.itemBook = null;
+          this.tradeDialog = null;
+          if (group.canEnhance) {
+            this.enhancementBrowseItemId = groupItemId;
+            this.selectedItemKey = null;
+            this.renderModal();
+            return;
+          }
+          this.enhancementBrowseItemId = null;
+          this.selectedItemKey = group.variants[0]?.itemKey ?? null;
+          if (this.selectedItemKey) {
+            this.requestItemBook(this.selectedItemKey);
+          }
+          this.renderModal();
+        }));
+
+        body.querySelector<HTMLElement>('[data-market-back-to-groups]')?.addEventListener('click', () => {
+          this.enhancementBrowseItemId = null;
+          this.selectedItemKey = null;
+          this.itemBook = null;
+          this.tradeDialog = null;
+          this.renderModal();
+        });
 
         this.bindBookPanelActionEvents(body);
 
@@ -666,10 +769,19 @@ export class MarketPanel {
     if (listedItems.length === 0) {
       return '<div class="empty-hint">当前分类下暂时没有物品。</div>';
     }
-    const pagination = this.getPaginationState(listedItems);
-    const selectedItem = pagination.items.find((item) => item.itemKey === this.selectedItemKey) ?? pagination.items[0];
-    const cards = pagination.items.map((entry) => this.renderListedItem(entry, selectedItem.itemKey)).join('');
-    const orderBook = this.itemBook && this.itemBook.itemKey === selectedItem.itemKey ? this.itemBook : null;
+    const groups = this.getVisibleListingGroups(update);
+    const pagination = this.getPaginationState(groups);
+    const selectedGroup = pagination.items.find((item) => item.itemId === this.selectedGroupItemId) ?? pagination.items[0] ?? null;
+    const browsingEnhancementVariants = Boolean(selectedGroup?.canEnhance && this.enhancementBrowseItemId === selectedGroup.itemId);
+    const selectedItem = browsingEnhancementVariants
+      ? selectedGroup?.variants.find((item) => item.itemKey === this.selectedItemKey) ?? null
+      : selectedGroup?.canEnhance
+        ? null
+        : selectedGroup?.variants[0] ?? null;
+    const cards = browsingEnhancementVariants
+      ? (selectedGroup?.variants ?? []).map((entry) => this.renderListedItem(entry, selectedItem?.itemKey ?? '', selectedGroup?.itemId ?? '')).join('')
+      : pagination.items.map((entry) => this.renderGroupItem(entry, selectedGroup?.itemId ?? '')).join('');
+    const orderBook = selectedItem && this.itemBook && this.itemBook.itemKey === selectedItem.itemKey ? this.itemBook : null;
     const categoryTabs = this.renderCategoryTabs(update);
     const subcategoryTabs = this.activeCategory === 'equipment'
       ? this.renderEquipmentTabs(update)
@@ -677,17 +789,22 @@ export class MarketPanel {
         ? this.renderTechniqueTabs(update)
         : '';
     const compactList = this.hasCompactCategoryLayout();
+    const listToolbar = browsingEnhancementVariants && selectedGroup
+      ? this.renderVariantToolbar(selectedGroup, selectedGroup.variants.length)
+      : this.renderListToolbar(pagination.page, pagination.totalPages, pagination.totalItems);
     return `
       <div class="market-market-tab">
         <div class="market-category-tabs">${categoryTabs}</div>
         ${subcategoryTabs ? `<div class="market-category-tabs market-category-tabs--sub">${subcategoryTabs}</div>` : ''}
         <div class="market-board">
           <div class="market-board-list-wrap ui-surface-pane ui-surface-pane--stack">
-            ${this.renderListToolbar(pagination.page, pagination.totalPages, listedItems.length)}
+            ${listToolbar}
             <div class="market-board-list ${compactList ? 'market-board-list--compact' : ''}">${cards}</div>
           </div>
           <div class="market-book-panel ui-surface-pane ui-surface-pane--stack">
-            ${this.renderBookPanel(selectedItem, orderBook, update.currencyItemName)}
+            ${selectedItem
+              ? this.renderBookPanel(selectedItem, orderBook, update.currencyItemName)
+              : this.renderMarketBrowsePlaceholder(selectedGroup, browsingEnhancementVariants)}
           </div>
         </div>
       </div>
@@ -695,15 +812,22 @@ export class MarketPanel {
   }
 
   /** 渲染一张市场列表卡片。 */
-  private renderListedItem(entry: MarketListedItemView, activeItemKey: string): string {
+  private renderListedItem(entry: MarketListedItemView, activeItemKey: string, groupItemId?: string): string {
     const ownedCount = this.findMatchingInventoryCount(entry.item);
+    const status = this.getItemStatusState(entry.item);
     const ownedLabel = ownedCount > 0
       ? `<span class="market-item-cell-owned">${formatDisplayCountBadge(ownedCount)}</span>`
       : '';
+    const itemName = this.getMarketDisplayName(entry.item);
+    const statusClass = status ? ` market-item-cell--status market-item-cell--status-${status.kind}` : '';
+    const statusRibbon = status
+      ? `<span class="market-item-cell-ribbon" aria-hidden="true"><span>${escapeHtml(status.label)}</span></span>`
+      : '';
     return `
-      <button class="market-item-cell ui-surface-card ui-surface-card--compact ${entry.itemKey === activeItemKey ? 'active' : ''}" data-market-select-item="${escapeHtmlAttr(entry.itemKey)}" data-market-item-tooltip="${escapeHtmlAttr(entry.itemKey)}" type="button">
-        <div class="market-item-cell-name" title="${escapeHtmlAttr(entry.item.name)}">
-          <span class="market-item-cell-name-text">${escapeHtml(entry.item.name)}</span>
+      <button class="market-item-cell ui-surface-card ui-surface-card--compact ${entry.itemKey === activeItemKey ? 'active' : ''}${statusClass}" data-market-select-item="${escapeHtmlAttr(entry.itemKey)}" ${groupItemId ? `data-market-select-item-group="${escapeHtmlAttr(groupItemId)}"` : ''} data-market-item-tooltip="${escapeHtmlAttr(entry.itemKey)}" type="button">
+        ${statusRibbon}
+        <div class="market-item-cell-name" title="${escapeHtmlAttr(itemName)}">
+          <span class="market-item-cell-name-text">${escapeHtml(itemName)}</span>
           ${ownedLabel}
         </div>
         <div class="market-item-cell-prices">
@@ -714,16 +838,49 @@ export class MarketPanel {
     `;
   }
 
+  /** 渲染物品组入口，可强化装备会先进入强化等级列表。 */
+  private renderGroupItem(entry: MarketListingGroupView, activeItemId: string): string {
+    const ownedCount = this.findInventoryItemCountByItemId(entry.itemId);
+    const status = this.getItemStatusState(entry.item);
+    const ownedLabel = ownedCount > 0
+      ? `<span class="market-item-cell-owned">${formatDisplayCountBadge(ownedCount)}</span>`
+      : '';
+    const referenceEntry = this.getGroupReferenceEntry(entry);
+    const itemName = typeof entry.item.name === 'string' && entry.item.name.trim()
+      ? entry.item.name
+      : entry.item.itemId;
+    const statusClass = status ? ` market-item-cell--status market-item-cell--status-${status.kind}` : '';
+    const statusRibbon = status
+      ? `<span class="market-item-cell-ribbon" aria-hidden="true"><span>${escapeHtml(status.label)}</span></span>`
+      : '';
+    return `
+      <button class="market-item-cell ui-surface-card ui-surface-card--compact ${entry.itemId === activeItemId ? 'active' : ''}${statusClass}" data-market-select-group="${escapeHtmlAttr(entry.itemId)}" ${referenceEntry ? `data-market-item-tooltip="${escapeHtmlAttr(referenceEntry.itemKey)}"` : ''} type="button">
+        ${statusRibbon}
+        <div class="market-item-cell-name" title="${escapeHtmlAttr(itemName)}">
+          <span class="market-item-cell-name-text">${escapeHtml(itemName)}</span>
+          ${ownedLabel}
+        </div>
+        <div class="market-item-cell-prices">
+          <span>卖 ${referenceEntry?.lowestSellPrice !== undefined ? this.formatMarketUnitPrice(referenceEntry.lowestSellPrice) : '--'}</span>
+          <span>买 ${referenceEntry?.highestBuyPrice !== undefined ? this.formatMarketUnitPrice(referenceEntry.highestBuyPrice) : '--'}</span>
+        </div>
+      </button>
+    `;
+  }
+
   /** 渲染选中物品的卖盘、买盘和快捷操作。 */
   private renderBookPanel(entry: MarketListedItemView, book: MarketOrderBookView | null, currencyName: string): string {
     const matchedInventoryCount = this.findMatchingInventoryCount(entry.item);
     const sellConflict = this.findConflictingOwnOrder(entry.itemKey, 'sell');
     const buyConflict = this.findConflictingOwnOrder(entry.itemKey, 'buy');
+    const itemName = this.getMarketDisplayName(entry.item);
+    const itemDesc = typeof entry.item.desc === 'string' ? entry.item.desc : '';
+    const showOrderBook = book !== null || !this.itemBookLoading;
     return `
       <div class="market-book-header">
         <div>
-          <div class="market-item-title market-item-title--interactive" data-market-item-tooltip="selected">${escapeHtml(entry.item.name)}</div>
-          <div class="market-book-subtitle">${escapeHtml(getItemTypeLabel(entry.item.type))} · ${escapeHtml(entry.item.desc)}</div>
+          <div class="market-item-title market-item-title--interactive" data-market-item-tooltip="selected">${escapeHtml(itemName)}</div>
+          <div class="market-book-subtitle">${escapeHtml(getItemTypeLabel(entry.item.type))}${itemDesc ? ` · ${escapeHtml(itemDesc)}` : ''}</div>
         </div>
       </div>
       <div class="market-book-columns">
@@ -733,13 +890,13 @@ export class MarketPanel {
             <button class="small-btn ghost" data-market-open-dialog="sell" type="button" ${(matchedInventoryCount > 0 && !sellConflict) ? '' : 'disabled'}>挂售</button>
           </div>
           ${sellConflict ? '<div class="market-action-hint">你已在求购这件物品，不能再挂售。</div>' : ''}
-          ${book
-            ? this.renderPriceLevels(book.sells, currencyName, '当前还没有卖盘。', {
+          ${showOrderBook
+            ? this.renderPriceLevels(book?.sells ?? [], currencyName, '当前还没有卖盘。', {
               kind: 'buy',
               label: '购买',
               disabled: Boolean(buyConflict),
             })
-            : this.renderBookLoading(this.itemBookLoading ? '卖盘同步中……' : '当前盘面已更新，请重新选择物品。')}
+            : this.renderBookLoading('卖盘同步中……')}
         </div>
         <div class="market-book-column ui-surface-pane ui-surface-pane--stack ui-surface-pane--muted ui-scroll-panel">
           <div class="market-book-column-head">
@@ -747,13 +904,63 @@ export class MarketPanel {
             <button class="small-btn ghost" data-market-open-dialog="buy" type="button" ${buyConflict ? 'disabled' : ''}>求购</button>
           </div>
           ${buyConflict ? '<div class="market-action-hint">你已在挂售这件物品，不能再求购。</div>' : ''}
-          ${book ? this.renderPriceLevels(book.buys, currencyName, '当前还没有求购。', {
+          ${showOrderBook ? this.renderPriceLevels(book?.buys ?? [], currencyName, '当前还没有求购。', {
             kind: 'sell',
             label: '出售',
             disabled: matchedInventoryCount <= 0 || Boolean(sellConflict),
-          }) : this.renderBookLoading(this.itemBookLoading ? '买盘同步中……' : '当前还没有求购。')}
+          }) : this.renderBookLoading('买盘同步中……')}
         </div>
       </div>
+    `;
+  }
+
+  /** 读取市场物品的已学/已阅状态。 */
+  private getItemStatusState(item: ItemStack): { label: string; kind: 'learned' | 'unlocked' } | null {
+    if (item.type === 'skill_book') {
+      const techniqueId = resolveTechniqueIdFromBookItemId(item.itemId);
+      if (techniqueId && this.player?.techniques.some((technique) => technique.techId === techniqueId)) {
+        return { label: '已学', kind: 'learned' };
+      }
+    }
+    const mapIds = item.mapUnlockIds && item.mapUnlockIds.length > 0
+      ? item.mapUnlockIds
+      : item.mapUnlockId
+        ? [item.mapUnlockId]
+        : [];
+    const unlockedMinimapIds = new Set(this.player?.unlockedMinimapIds ?? []);
+    if (mapIds.length > 0 && mapIds.every((mapId) => unlockedMinimapIds.has(mapId))) {
+      return { label: '已阅', kind: 'unlocked' };
+    }
+    return null;
+  }
+
+  /** 右侧未选中具体盘口时的占位说明。 */
+  private renderMarketBrowsePlaceholder(group: MarketListingGroupView | null, browsingEnhancementVariants: boolean): string {
+    if (!group) {
+      return '<div class="empty-hint">请选择左侧物品。</div>';
+    }
+    const itemName = typeof group.item.name === 'string' && group.item.name.trim()
+      ? group.item.name
+      : group.item.itemId;
+    if (browsingEnhancementVariants) {
+      return `
+        <div class="market-book-header">
+          <div>
+            <div class="market-item-title">${escapeHtml(itemName)}</div>
+            <div class="market-book-subtitle">该装备支持强化，请先从左侧选择要交易的强化等级。</div>
+          </div>
+        </div>
+        <div class="empty-hint">选定具体强化等级后，这里会显示该等级的挂售、求购和快捷交易入口。</div>
+      `;
+    }
+    return `
+      <div class="market-book-header">
+        <div>
+          <div class="market-item-title">${escapeHtml(itemName)}</div>
+          <div class="market-book-subtitle">${escapeHtml(getItemTypeLabel(group.item.type))} · 点击左侧物品查看具体盘面</div>
+        </div>
+      </div>
+      <div class="empty-hint">${group.canEnhance ? '该装备有强化等级区分，点击左侧条目后会先进入强化等级列表。' : '点击左侧物品后，这里会显示当前挂售、求购和快捷交易入口。'}</div>
     `;
   }
 
@@ -762,17 +969,17 @@ export class MarketPanel {
     levels: MarketOrderBookView['sells'],
     currencyName: string,
     emptyText: string,
-    quickAction?: {    
+    quickAction?: {
     /**
  * kind：kind相关字段。
  */
 
-      kind: MarketTradeDialogKind;      
+      kind: MarketTradeDialogKind;
       /**
  * label：label名称或显示文本。
  */
 
-      label: string;      
+      label: string;
       /**
  * disabled：disabled相关字段。
  */
@@ -923,6 +1130,21 @@ export class MarketPanel {
     `;
   }
 
+  /** 渲染强化等级二级列表顶部的返回工具条。 */
+  private renderVariantToolbar(group: MarketListingGroupView, totalVariants: number): string {
+    const itemName = typeof group.item.name === 'string' && group.item.name.trim()
+      ? group.item.name
+      : group.item.itemId;
+    return `
+      <div class="market-list-toolbar ui-action-row">
+        <div class="market-list-toolbar-meta">${escapeHtml(itemName)} · 共 ${formatDisplayInteger(totalVariants)} 个强化等级</div>
+        <div class="market-list-toolbar-actions">
+          <button class="small-btn ghost" data-market-back-to-groups type="button">返回物品列表</button>
+        </div>
+      </div>
+    `;
+  }
+
   /** 渲染交易弹窗，只保存临时输入状态。 */
   private renderTradeDialog(entry: MarketListedItemView, currencyItemId: string, currencyName: string): string {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
@@ -952,7 +1174,7 @@ export class MarketPanel {
         <div class="market-trade-dialog-head">
           <div class="market-trade-dialog-title ui-title-block">
             <div class="panel-section-title">${title}</div>
-            <div class="market-trade-dialog-item market-trade-dialog-item--interactive ui-title-block-subtitle" data-market-item-tooltip="selected">${escapeHtml(entry.item.name)}</div>
+            <div class="market-trade-dialog-item market-trade-dialog-item--interactive ui-title-block-subtitle" data-market-item-tooltip="selected">${escapeHtml(this.getMarketDisplayName(entry.item))}</div>
           </div>
           <button class="small-btn ghost" data-market-close-dialog type="button">关闭</button>
         </div>
@@ -1138,10 +1360,17 @@ export class MarketPanel {
     if (!body) {
       return;
     }
+    body.querySelectorAll<HTMLElement>('[data-market-select-group]').forEach((button) => {
+      const itemId = button.dataset.marketSelectGroup;
+      if (!itemId) {
+        return;
+      }
+      this.syncOwnedBadge(button, this.findInventoryItemCountByItemId(itemId));
+    });
     body.querySelectorAll<HTMLElement>('[data-market-select-item]').forEach((button) => {
       const itemKey = button.dataset.marketSelectItem;
       const entry = itemKey
-        ? this.marketUpdate?.listedItems.find((item) => item.itemKey === itemKey) ?? null
+        ? this.getKnownListedItems(this.marketUpdate).find((item) => item.itemKey === itemKey) ?? null
         : null;
       if (!entry) {
         return;
@@ -1222,34 +1451,33 @@ export class MarketPanel {
   private getSelectedListedItem(update: S2C_MarketUpdate | null): MarketListedItemView | null {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
-    const visibleItems = this.getVisibleListedItems(update);
-    if (visibleItems.length === 0) {
+    if (!this.selectedItemKey) {
       return null;
     }
-    const pagination = this.getPaginationState(visibleItems);
-    return pagination.items.find((item) => item.itemKey === this.selectedItemKey) ?? pagination.items[0] ?? null;
+    return this.getVisibleListedItems(update).find((item) => item.itemKey === this.selectedItemKey) ?? null;
   }
 
   /** 渲染主分类标签。 */
   private renderCategoryTabs(update: S2C_MarketUpdate): string {
-    const categories: Array<{    
+    const listedItems = this.getKnownListedItems(update);
+    const categories: Array<{
     /**
  * id：ID标识。
  */
- id: MarketCategoryFilter;    
+ id: MarketCategoryFilter;
  /**
  * label：label名称或显示文本。
  */
- label: string;    
+ label: string;
  /**
  * count：数量或计量字段。
  */
  count: number }> = [
-      { id: 'all', label: '全部', count: update.listedItems.length },
+      { id: 'all', label: '全部', count: listedItems.length },
       ...ITEM_TYPES.map((type) => ({
         id: type,
         label: getItemTypeLabel(type),
-        count: update.listedItems.filter((item) => item.item.type === type).length,
+        count: listedItems.filter((item) => item.item.type === type).length,
       })),
     ];
     return categories
@@ -1265,15 +1493,16 @@ export class MarketPanel {
 
   /** 渲染装备子分类标签。 */
   private renderEquipmentTabs(update: S2C_MarketUpdate): string {
-    const categories: Array<{    
+    const listedItems = this.getKnownListedItems(update);
+    const categories: Array<{
     /**
  * id：ID标识。
  */
- id: MarketEquipmentFilter;    
+ id: MarketEquipmentFilter;
  /**
  * label：label名称或显示文本。
  */
- label: string;    
+ label: string;
  /**
  * count：数量或计量字段。
  */
@@ -1281,12 +1510,12 @@ export class MarketPanel {
       {
         id: 'all',
         label: '全部装备',
-        count: update.listedItems.filter((item) => item.item.type === 'equipment').length,
+        count: listedItems.filter((item) => item.item.type === 'equipment').length,
       },
       ...EQUIP_SLOTS.map((slot) => ({
         id: slot,
         label: getEquipSlotLabel(slot),
-        count: update.listedItems.filter((item) => item.item.type === 'equipment' && item.item.equipSlot === slot).length,
+        count: listedItems.filter((item) => item.item.type === 'equipment' && item.item.equipSlot === slot).length,
       })),
     ];
     return categories
@@ -1302,9 +1531,10 @@ export class MarketPanel {
 
   /** 渲染功法书子分类标签。 */
   private renderTechniqueTabs(update: S2C_MarketUpdate): string {
+    const listedItems = this.getKnownListedItems(update);
     const categories = MARKET_TECHNIQUE_FILTERS.map((category) => ({
       ...category,
-      count: update.listedItems.filter((item) => (
+      count: listedItems.filter((item) => (
         item.item.type === 'skill_book'
         && (category.id === 'all' || this.resolveTechniqueCategoryForItem(item.item) === category.id)
       )).length,
@@ -1327,7 +1557,10 @@ export class MarketPanel {
     if (!update) {
       return [];
     }
-    let items = update.listedItems;
+    let items = this.getCurrentListingsPageItems();
+    if (items.length <= 0) {
+      items = this.getKnownListedItems(update);
+    }
     if (this.activeCategory !== 'all') {
       items = items.filter((item) => item.item.type === this.activeCategory);
     }
@@ -1341,33 +1574,112 @@ export class MarketPanel {
   }
 
   /** 计算当前列表分页状态。 */
-  private getPaginationState(items: MarketListedItemView[]): {  
+  private getPaginationState<T>(items: T[]): {
   /**
  * page：page相关字段。
  */
 
-    page: number;    
+    page: number;
     /**
  * totalPages：totalPage相关字段。
  */
 
-    totalPages: number;    
+    totalPages: number;
+    /**
+ * totalItems：数量或计量字段。
+ */
+
+    totalItems: number;
     /**
  * items：集合字段。
  */
 
-    items: MarketListedItemView[];
+    items: T[];
   } {
-    const pageSize = this.getMarketPageSize();
-    const totalPages = Math.max(1, Math.ceil(items.length / pageSize));
-    const page = this.clampPage(this.currentPage, items.length);
+    const totalItems = this.getVisibleMarketTotalItems(this.marketUpdate, items);
+    const pageSize = this.marketListings?.pageSize ?? this.getMarketPageSize();
+    const totalPages = Math.max(1, Math.ceil(totalItems / pageSize));
+    const page = this.marketListings?.page ?? this.clampPage(this.currentPage, totalItems);
     this.currentPage = page;
-    const start = (page - 1) * pageSize;
     return {
       page,
       totalPages,
-      items: items.slice(start, start + pageSize),
+      totalItems,
+      items,
     };
+  }
+
+  /** 把当前页平铺条目按物品 id 聚合成分组视图。 */
+  private getVisibleListingGroups(update: S2C_MarketUpdate | null): MarketListingGroupView[] {
+    const items = this.getVisibleListedItems(update);
+    const groups = new Map<string, MarketListingGroupView>();
+    const orderedItemIds: string[] = [];
+    for (const entry of items) {
+      const existing = groups.get(entry.item.itemId);
+      if (existing) {
+        existing.variants.push(entry);
+        continue;
+      }
+      orderedItemIds.push(entry.item.itemId);
+      groups.set(entry.item.itemId, {
+        itemId: entry.item.itemId,
+        item: { ...entry.item },
+        canEnhance: entry.item.type === 'equipment',
+        variants: [entry],
+      });
+    }
+    return orderedItemIds.map((itemId) => {
+      const group = groups.get(itemId)!;
+      if (group.canEnhance) {
+        const variantsByLevel = new Map<number, MarketListedItemView>();
+        for (const entry of group.variants) {
+          const level = this.getMarketEnhanceLevel(entry.item);
+          if (level < 0 || level > MAX_ENHANCE_LEVEL) {
+            continue;
+          }
+          variantsByLevel.set(level, entry);
+        }
+        const filledVariants: MarketListedItemView[] = [];
+        for (let level = 0; level <= MAX_ENHANCE_LEVEL; level += 1) {
+          const existing = variantsByLevel.get(level);
+          if (existing) {
+            filledVariants.push(existing);
+            continue;
+          }
+          const item = this.buildLocalMarketItem(group.itemId, 1, level);
+          filledVariants.push({
+            itemKey: createItemStackSignature({ ...item, count: 1 }),
+            item,
+            sellOrderCount: 0,
+            sellQuantity: 0,
+            lowestSellPrice: undefined,
+            buyOrderCount: 0,
+            buyQuantity: 0,
+            highestBuyPrice: undefined,
+          });
+        }
+        group.variants = filledVariants;
+      } else {
+        group.variants.sort((left, right) => {
+          const leftLevel = this.getMarketEnhanceLevel(left.item);
+          const rightLevel = this.getMarketEnhanceLevel(right.item);
+          if (leftLevel !== rightLevel) {
+            return leftLevel - rightLevel;
+          }
+          return left.itemKey.localeCompare(right.itemKey);
+        });
+      }
+      const referenceEntry = this.getGroupReferenceEntry(group);
+      if (referenceEntry) {
+        group.item = { ...referenceEntry.item };
+      }
+      return group;
+    });
+  }
+
+  /** 分组展示优先用 +0 条目，没有再退到当前第一条。 */
+  private getGroupReferenceEntry(group: MarketListingGroupView): MarketListedItemView | null {
+    return group.variants.find((entry) => this.getMarketEnhanceLevel(entry.item) === 0) ?? group.variants[0] ?? null;
   }
 
   /** 把页码夹到合法范围内。 */
@@ -1379,6 +1691,89 @@ export class MarketPanel {
       return 1;
     }
     return Math.max(1, Math.min(totalPages, Math.floor(page)));
+  }
+
+  /** 读取服务端当前页已经分页好的坊市条目。 */
+  private getCurrentListingsPageItems(): MarketListedItemView[] {
+    return (this.marketListings?.items ?? []).map((entry) => this.inflateMarketListingEntry(entry));
+  }
+
+  /** 用本地静态模板补一个市场预览物品，供缺失盘口的强化档位占位。 */
+  private buildLocalMarketItem(itemId: string, count = 1, enhanceLevel?: number): ItemStack {
+    const template = getLocalItemTemplate(itemId);
+    if (!template) {
+      return {
+        itemId,
+        count,
+        name: itemId,
+        type: 'material',
+        desc: '',
+        enhanceLevel,
+      };
+    }
+    return {
+      itemId,
+      count,
+      name: template.name,
+      type: template.type,
+      desc: template.desc ?? '',
+      groundLabel: template.groundLabel,
+      grade: template.grade,
+      level: template.level,
+      equipSlot: template.equipSlot,
+      equipAttrs: template.equipAttrs,
+      equipStats: template.equipStats,
+      equipValueStats: template.equipValueStats,
+      effects: template.effects,
+      healAmount: template.healAmount,
+      healPercent: template.healPercent,
+      qiPercent: template.qiPercent,
+      cooldown: template.cooldown,
+      consumeBuffs: template.consumeBuffs,
+      tags: template.tags,
+      enhanceLevel: enhanceLevel ?? template.enhanceLevel,
+      mapUnlockId: template.mapUnlockId,
+      mapUnlockIds: template.mapUnlockIds,
+      tileAuraGainAmount: template.tileAuraGainAmount,
+      tileResourceGains: template.tileResourceGains,
+      allowBatchUse: template.allowBatchUse,
+    };
+  }
+
+  /** 把列表摘要恢复成客户端可直接渲染的预览物品。 */
+  private inflateMarketListingEntry(entry: S2C_MarketListings['items'][number]): MarketListedItemView {
+    const previewItem = resolvePreviewItem({
+      itemId: entry.itemId,
+      count: 1,
+      name: '',
+      desc: '',
+      type: entry.itemType,
+      equipSlot: entry.itemType === 'equipment' ? entry.itemSubType as EquipSlot | undefined : undefined,
+      enhanceLevel: entry.enhanceLevel,
+    });
+    return {
+      itemKey: entry.itemKey,
+      item: previewItem,
+      sellOrderCount: 0,
+      sellQuantity: 0,
+      lowestSellPrice: entry.lowestSellPrice,
+      buyOrderCount: 0,
+      buyQuantity: 0,
+      highestBuyPrice: entry.highestBuyPrice,
+    };
+  }
+
+  /** 读取当前分类下的总条目数，优先使用服务端分页总量。 */
+  private getVisibleMarketTotalItems(
+    update: S2C_MarketUpdate | null,
+    currentPageItems?: ArrayLike<unknown>,
+  ): number {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
+    if (this.marketListings) {
+      return Math.max(0, Math.floor(Number.isFinite(this.marketListings.total) ? this.marketListings.total : 0));
+    }
+    return (currentPageItems ?? this.getVisibleListedItems(update)).length;
   }
 
   /** 根据视口和布局模式选择分页大小。 */
@@ -1416,11 +1811,25 @@ export class MarketPanel {
   private syncPageSelection(): void {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
-    const visibleItems = this.getVisibleListedItems(this.marketUpdate);
-    const pagination = this.getPaginationState(visibleItems);
-    const currentItems = pagination.items;
-    const hasSelected = currentItems.some((item) => item.itemKey === this.selectedItemKey);
-    const nextSelected = hasSelected ? this.selectedItemKey : currentItems[0]?.itemKey ?? null;
+    const visibleGroups = this.getVisibleListingGroups(this.marketUpdate);
+    const pagination = this.getPaginationState(visibleGroups);
+    const currentGroups = pagination.items;
+    const hasSelectedGroup = currentGroups.some((item) => item.itemId === this.selectedGroupItemId);
+    this.selectedGroupItemId = hasSelectedGroup ? this.selectedGroupItemId : currentGroups[0]?.itemId ?? null;
+    const selectedGroup = currentGroups.find((item) => item.itemId === this.selectedGroupItemId) ?? currentGroups[0] ?? null;
+    if (!selectedGroup) {
+      this.enhancementBrowseItemId = null;
+      this.selectedItemKey = null;
+      this.itemBook = null;
+      return;
+    }
+    const browsingEnhancementVariants = selectedGroup.canEnhance && this.enhancementBrowseItemId === selectedGroup.itemId;
+    if (!selectedGroup.canEnhance) {
+      this.enhancementBrowseItemId = null;
+    }
+    const nextSelected = browsingEnhancementVariants
+      ? (selectedGroup.variants.some((item) => item.itemKey === this.selectedItemKey) ? this.selectedItemKey : null)
+      : (selectedGroup.canEnhance ? null : selectedGroup.variants[0]?.itemKey ?? null);
     if (nextSelected !== this.selectedItemKey) {
       this.selectedItemKey = nextSelected;
       this.itemBook = null;
@@ -1458,16 +1867,7 @@ export class MarketPanel {
   private mergeListingsIntoMarketUpdate(update: S2C_MarketUpdate | null, data: S2C_MarketListings): S2C_MarketUpdate | null {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
-    const entries = data.items.flatMap((entry) => entry.variants.map((variant) => ({
-      itemKey: variant.itemKey,
-      item: { ...variant.item },
-      sellOrderCount: variant.sellOrderCount,
-      sellQuantity: variant.sellQuantity,
-      lowestSellPrice: variant.lowestSellPrice,
-      buyOrderCount: variant.buyOrderCount,
-      buyQuantity: variant.buyQuantity,
-      highestBuyPrice: variant.highestBuyPrice,
-    })));
+    const entries = data.items.map((entry) => this.inflateMarketListingEntry(entry));
     if (!update) {
       return {
         currencyItemId: data.currencyItemId,
@@ -1596,9 +1996,7 @@ export class MarketPanel {
       const quantity = this.normalizeTradeDialogQuantity(this.tradeDialog.quantity, selected, kind, this.tradeDialog.unitPrice);
       const unitPrice = this.normalizeTradeDialogPrice(this.tradeDialog.unitPrice, kind === 'buy' ? 'up' : 'down');
       if (kind === 'buy') {
-        this.callbacks?.onCreateBuyOrder(selected.itemKey, quantity, unitPrice);
-        this.tradeDialog = null;
-        this.syncTradeDialogOverlay();
+        this.openBuyConfirm(selected, quantity, unitPrice);
         return;
       }
       const slotIndex = this.findMatchingInventorySlot(selected.item);
@@ -1609,6 +2007,39 @@ export class MarketPanel {
       this.tradeDialog = null;
       this.syncTradeDialogOverlay();
     }));
+  }
+
+  /** 打开市场买入二次确认弹层。 */
+  private openBuyConfirm(entry: MarketListedItemView, quantity: number, unitPrice: number): void {
+    const totalCost = this.getMarketTradeTotalCost(quantity, unitPrice);
+    const itemName = this.getMarketDisplayName(entry.item);
+    this.buyConfirmState = { itemKey: entry.itemKey, quantity, unitPrice };
+    confirmModalHost.open({
+      ownerId: MarketPanel.CONFIRM_MODAL_OWNER,
+      title: '确认求购',
+      subtitle: itemName,
+      bodyHtml: `
+        <div class="confirm-modal-line"><span>物品</span><strong>${escapeHtml(itemName)}</strong></div>
+        <div class="confirm-modal-line"><span>数量</span><strong>${formatDisplayInteger(quantity)}</strong></div>
+        <div class="confirm-modal-line"><span>单价</span><strong>${this.formatMarketUnitPrice(unitPrice)}</strong></div>
+        <div class="confirm-modal-line"><span>总额</span><strong>${totalCost === null ? '--' : formatDisplayInteger(totalCost)}</strong></div>
+      `,
+      confirmLabel: '确认求购',
+      confirmButtonClass: 'danger',
+      onConfirm: () => {
+        const latest = this.buyConfirmState;
+        this.buyConfirmState = null;
+        if (!latest) {
+          return;
+        }
+        this.callbacks?.onCreateBuyOrder(latest.itemKey, latest.quantity, latest.unitPrice);
+        this.tradeDialog = null;
+        this.syncTradeDialogOverlay();
+      },
+      onClose: () => {
+        this.buyConfirmState = null;
+      },
+    });
   }
 
   /** 读取交易弹窗的挂载根节点，没有就现建一个。 */
@@ -1836,9 +2267,18 @@ export class MarketPanel {
       : 0;
   }
 
+  /** 把装备条目显示成带强化等级前缀的名字。 */
+  private getMarketDisplayName(item: ItemStack): string {
+    const baseName = typeof item.name === 'string' && item.name.trim()
+      ? item.name
+      : item.itemId;
+    const enhanceLevel = this.getMarketEnhanceLevel(item);
+    return enhanceLevel > 0 ? `+${formatDisplayInteger(enhanceLevel)} ${baseName}` : baseName;
+  }
+
   /** 读取本地盘面里 +0 同款装备的最低卖价。 */
   private getLocalZeroEnhancementLowestSellPrice(itemId: string): number | undefined {
-    return this.marketUpdate?.listedItems.find((entry) =>
+    return this.getKnownListedItems(this.marketUpdate).find((entry) =>
       entry.item.itemId === itemId
       && this.getMarketEnhanceLevel(entry.item) === 0
     )?.lowestSellPrice;
@@ -1876,8 +2316,13 @@ export class MarketPanel {
       const selected = this.getSelectedListedItem(this.marketUpdate);
       return selected ? this.buildMarketItemTooltipPayload(selected.item) : null;
     }
-    const listed = this.marketUpdate?.listedItems.find((entry) => entry.itemKey === key) ?? null;
+    const listed = this.getKnownListedItems(this.marketUpdate).find((entry) => entry.itemKey === key) ?? null;
     return listed ? this.buildMarketItemTooltipPayload(listed.item) : null;
+  }
+
+  /** 读取当前已经缓存到面板内的列表项。 */
+  private getKnownListedItems(update: S2C_MarketUpdate | null): MarketListedItemView[] {
+    return update?.listedItems ?? [];
   }
 
   /** 根据市场盘面和当前物品推一版强化预估。 */
@@ -1892,16 +2337,9 @@ export class MarketPanel {
       return null;
     }
     const itemLevel = Math.max(1, Math.floor(Number(item.level) || 1));
-    const zeroItemKey = this.getZeroEnhancementItemKey(item);
-    const cachedBaseUnitPrice = zeroItemKey
-      ? this.itemBookCache.get(zeroItemKey)?.sells[0]?.unitPrice
-      : undefined;
     const localBaseUnitPrice = this.getLocalZeroEnhancementLowestSellPrice(item.itemId);
-    const baseUnitPrice = localBaseUnitPrice ?? cachedBaseUnitPrice;
-    const basePricePending = localBaseUnitPrice === undefined && cachedBaseUnitPrice === undefined;
-    if (basePricePending && zeroItemKey) {
-      this.ensureItemBookCached(zeroItemKey);
-    }
+    const baseUnitPrice = localBaseUnitPrice;
+    const basePricePending = false;
     const analysis = computeBestEnhancementExpectedCost({
       targetLevel,
       itemLevel,
@@ -1938,27 +2376,6 @@ export class MarketPanel {
     };
   }
 
-  /** 把装备归一成 +0 版本的物品 key。 */
-  private getZeroEnhancementItemKey(item: ItemStack): string {
-    return createItemStackSignature({
-      ...item,
-      count: 1,
-      enhanceLevel: 0,
-      name: item.name.replace(/^\+\d+\s+/, ''),
-    });
-  }
-
-  /** 确保某个物品书籍已进入缓存请求流程。 */
-  private ensureItemBookCached(itemKey: string): void {
-  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
-
-    if (this.itemBookCache.has(itemKey) || this.pendingItemBookKeys.has(itemKey)) {
-      return;
-    }
-    this.pendingItemBookKeys.add(itemKey);
-    this.callbacks?.onRequestItemBook(itemKey);
-  }
-
   /** 在背包里找一格能对应当前物品的槽位。 */
   private findMatchingInventorySlot(item: ItemStack): number | null {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
@@ -1988,8 +2405,6 @@ export class MarketPanel {
 
   /** 按物品 id 统计背包里的总数量。 */
   private findInventoryItemCountByItemId(itemId: string): number {
-    return this.inventory.items
-      .filter((entry) => entry.itemId === itemId)
-      .reduce((sum, entry) => sum + entry.count, 0);
+    return getPlayerOwnedItemCount(this.player, this.inventory, itemId);
   }
 }

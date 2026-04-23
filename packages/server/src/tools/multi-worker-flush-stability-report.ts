@@ -8,6 +8,7 @@ import { performance } from 'node:perf_hooks';
 import { NestFactory } from '@nestjs/core';
 import { Pool } from 'pg';
 
+const smoke_player_cleanup_1 = require('./smoke-player-cleanup');
 import { AppModule } from '../app.module';
 import { resolveServerDatabaseUrl } from '../config/env-alias';
 import { DatabasePoolProvider } from '../persistence/database-pool.provider';
@@ -157,6 +158,7 @@ async function main(): Promise<void> {
 
   try {
     await cleanupBenchmarkRows(pool, playerIds, instanceIds);
+    await purgeMultiWorkerBenchmarkArtifacts();
     await seedBenchmarkRows(playerFlushLedger, ledger, playerIds, instanceIds);
 
     const startedAt = performance.now();
@@ -220,8 +222,18 @@ async function main(): Promise<void> {
     );
   } finally {
     await cleanupBenchmarkRows(pool, playerIds, instanceIds).catch(() => undefined);
+    await purgeMultiWorkerBenchmarkArtifacts().catch(() => undefined);
     await app.close().catch(() => undefined);
   }
+}
+
+async function purgeMultiWorkerBenchmarkArtifacts(): Promise<void> {
+  await (0, smoke_player_cleanup_1.purgeSmokeTestArtifacts)({
+    dryRun: false,
+    accountPatterns: ['bench_multi_%'],
+    playerPatterns: ['bench_multi_player_%'],
+    instancePatterns: ['public:bench_multi_%', 'public:bench_%', 'instance:%:lease'],
+  });
 }
 
 async function runBatchedJobs<T>(

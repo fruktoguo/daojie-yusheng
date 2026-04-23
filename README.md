@@ -8,6 +8,8 @@
 
 - 目录主线已经统一到 `packages/*`
 - `legacy/*` 当前只保留三类价值：查旧规则、查旧数据格式、迁移输入
+- 正式版行为差异默认对照 `main` 分支下同名 `packages/client`、`packages/shared`、`packages/server`
+- `legacy/*` 不再作为默认行为对照源；只在旧数据格式、极老实现或历史排查时查看
 - 包名与部分命令仍保留历史名：
   - `@mud/client`
   - `@mud/shared`
@@ -48,10 +50,23 @@ pnpm verify:replace-ready:with-db
 pnpm verify:replace-ready:shadow
 pnpm verify:replace-ready:acceptance
 pnpm verify:replace-ready:full
+pnpm diff:main:stat
+pnpm diff:main:client
+pnpm diff:main:shared
+pnpm diff:main:server
 ./start.sh
 ```
 
 `build:client` 是当前前端构建主入口。
+
+对照正式版补差时，默认先看：
+
+```bash
+pnpm diff:main:stat
+pnpm diff:main:client
+pnpm diff:main:shared
+pnpm diff:main:server
+```
 
 当前主验证入口是 `verify:replace-ready*`：
 

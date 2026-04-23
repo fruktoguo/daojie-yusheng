@@ -13,78 +13,78 @@ type MainStartupBindingsOptions = {
  * initializeUiStyleConfig：initializeUiStyle配置状态或数据块。
  */
 
-  initializeUiStyleConfig: () => void;  
+  initializeUiStyleConfig: () => void;
   /**
  * mountReactUi：mountReactUi相关字段。
  */
 
-  mountReactUi: () => void;  
+  mountReactUi: () => void;
   /**
  * startClientVersionReload：startClientVersionReload相关字段。
  */
 
-  startClientVersionReload: (options: {  
+  startClientVersionReload: (options: {
   /**
  * onBeforeReload：onBeforeReload相关字段。
  */
- onBeforeReload: () => void }) => void;  
+ onBeforeReload: () => void }) => void;
  /**
  * onBeforeVersionReload：onBeforeVersionReload相关字段。
  */
 
-  onBeforeVersionReload: () => void;  
+  onBeforeVersionReload: () => void;
   /**
  * createChangelogPanel：Changelog面板相关字段。
  */
 
-  createChangelogPanel: () => void;  
+  createChangelogPanel: () => void;
   /**
  * createTutorialPanel：Tutorial面板相关字段。
  */
 
-  createTutorialPanel: () => void;  
+  createTutorialPanel: () => void;
   /**
  * syncInitialPanelRuntime：Initial面板运行态引用。
  */
 
-  syncInitialPanelRuntime: () => void;  
+  syncInitialPanelRuntime: () => void;
   /**
  * subscribePanelStore：subscribe面板存储引用。
  */
 
-  subscribePanelStore: () => void;  
+  subscribePanelStore: () => void;
   /**
  * attachMapRuntime：attach地图运行态引用。
  */
 
-  attachMapRuntime: () => void;  
+  attachMapRuntime: () => void;
   /**
  * bodyTrainingPanel：bodyTraining面板相关字段。
  */
 
-  bodyTrainingPanel: {  
+  bodyTrainingPanel: {
   /**
  * setInfusionHandler：InfusionHandler相关字段。
  */
 
     setInfusionHandler: (handler: (foundationSpent: number) => void) => void;
-  };  
+  };
   /**
  * hud：hud相关字段。
  */
 
-  hud: {  
+  hud: {
   /**
  * setCallbacks：Callback相关字段。
  */
 
     setCallbacks: (callback: () => void) => void;
-  };  
+  };
   /**
  * lootPanel：掉落面板相关字段。
  */
 
-  lootPanel: {  
+  lootPanel: {
   /**
  * setCallbacks：Callback相关字段。
  */
@@ -96,183 +96,193 @@ type MainStartupBindingsOptions = {
       onCancelGather?: () => void,
       onStopHarvest?: () => void,
     ) => void;
-  };  
+  };
   /**
  * equipmentPanel：装备面板相关字段。
  */
 
-  equipmentPanel: {  
+  equipmentPanel: {
   /**
  * setCallbacks：Callback相关字段。
  */
 
     setCallbacks: (onUnequip: Parameters<SocketPanelSender['sendUnequip']>[0] extends infer T ? (slot: T) => void : never) => void;
-  };  
+  };
   /**
  * npcShopModal：NPCShop弹层相关字段。
  */
 
-  npcShopModal: {  
+  npcShopModal: {
   /**
  * setCallbacks：Callback相关字段。
  */
 
-    setCallbacks: (callbacks: {    
+    setCallbacks: (callbacks: {
     /**
  * onRequestShop：onRequestShop相关字段。
  */
 
-      onRequestShop: (npcId: string) => void;      
+      onRequestShop: (npcId: string) => void;
       /**
  * onBuyItem：onBuy道具相关字段。
  */
 
       onBuyItem: (npcId: string, itemId: string, quantity: number) => void;
     }) => void;
-  };  
+  };
   /**
  * craftWorkbenchModal：炼制Workbench弹层相关字段。
  */
 
-  craftWorkbenchModal: {  
+  craftWorkbenchModal: {
   /**
  * setCallbacks：Callback相关字段。
  */
 
-    setCallbacks: (callbacks: {    
+    setCallbacks: (callbacks: {
     /**
  * onRequestAlchemy：onRequest炼丹相关字段。
  */
 
-      onRequestAlchemy: (knownCatalogVersion?: number) => void;      
+      onRequestAlchemy: (knownCatalogVersion?: number) => void;
+      /**
+ * onSaveAlchemyPreset：onSave炼丹预设相关字段。
+ */
+
+      onSaveAlchemyPreset: (payload: Parameters<SocketPanelSender['sendSaveAlchemyPreset']>[0]) => void;
+      /**
+ * onDeleteAlchemyPreset：onDelete炼丹预设相关字段。
+ */
+
+      onDeleteAlchemyPreset: (presetId: string) => void;
       /**
  * onRequestEnhancement：onRequest强化相关字段。
  */
 
-      onRequestEnhancement: () => void;      
+      onRequestEnhancement: () => void;
       /**
  * onStartAlchemy：onStart炼丹相关字段。
  */
 
-      onStartAlchemy: (recipeId: string, ingredients: Array<{      
+      onStartAlchemy: (recipeId: string, ingredients: Array<{
       /**
  * itemId：道具ID标识。
  */
- itemId: string;      
+ itemId: string;
  /**
  * count：数量或计量字段。
  */
- count: number }>, quantity: number) => void;      
+ count: number }>, quantity: number) => void;
  /**
  * onCancelAlchemy：onCancel炼丹相关字段。
  */
 
-      onCancelAlchemy: () => void;      
+      onCancelAlchemy: () => void;
       /**
  * onStartEnhancement：onStart强化相关字段。
  */
 
-      onStartEnhancement: (payload: Parameters<SocketPanelSender['sendStartEnhancement']>[0]) => void;      
+      onStartEnhancement: (payload: Parameters<SocketPanelSender['sendStartEnhancement']>[0]) => void;
       /**
  * onCancelEnhancement：onCancel强化相关字段。
  */
 
       onCancelEnhancement: () => void;
     }) => void;
-  };  
+  };
   /**
  * debugPanel：debug面板相关字段。
  */
 
-  debugPanel: {  
+  debugPanel: {
   /**
  * setCallbacks：Callback相关字段。
  */
 
     setCallbacks: (onResetSpawn: () => void) => void;
-  };  
+  };
   /**
  * chatUI：chatUI相关字段。
  */
 
-  chatUI: {  
+  chatUI: {
   /**
  * setCallback：Callback相关字段。
  */
 
     setCallback: (handler: (message: string) => void) => void;
-  };  
+  };
   /**
  * zoom：zoom相关字段。
  */
 
-  zoom: {  
+  zoom: {
   /**
  * zoomSlider：zoomSlider相关字段。
  */
 
-    zoomSlider: HTMLInputElement | null;    
+    zoomSlider: HTMLInputElement | null;
     /**
  * zoomResetBtn：zoomResetBtn相关字段。
  */
 
-    zoomResetBtn: HTMLButtonElement | null;    
+    zoomResetBtn: HTMLButtonElement | null;
     /**
  * minZoom：minZoom相关字段。
  */
 
-    minZoom: number;    
+    minZoom: number;
     /**
  * maxZoom：maxZoom相关字段。
  */
 
-    maxZoom: number;    
+    maxZoom: number;
     /**
  * applyZoomChange：ZoomChange相关字段。
  */
 
     applyZoomChange: (nextZoom: number) => number;
-  };  
+  };
   /**
  * showToast：showToast相关字段。
  */
 
-  showToast: (message: string) => void;  
+  showToast: (message: string) => void;
   /**
  * joinQqGroupBtns：joinQqGroupBtn相关字段。
  */
 
-  joinQqGroupBtns: Iterable<HTMLAnchorElement>;  
+  joinQqGroupBtns: Iterable<HTMLAnchorElement>;
   /**
  * qqGroupNumber：qqGroupNumber相关字段。
  */
 
-  qqGroupNumber: string;  
+  qqGroupNumber: string;
   /**
  * qqGroupMobileDeepLink：qqGroupMobileDeepLink相关字段。
  */
 
-  qqGroupMobileDeepLink: string;  
+  qqGroupMobileDeepLink: string;
   /**
  * qqGroupDesktopDeepLink：qqGroupDesktopDeepLink相关字段。
  */
 
-  qqGroupDesktopDeepLink: string;  
+  qqGroupDesktopDeepLink: string;
   /**
  * registerAutoBattleButtons：registerAutoBattleButton相关字段。
  */
 
-  registerAutoBattleButtons: () => void;  
+  registerAutoBattleButtons: () => void;
   /**
  * onOpenRealmAction：onOpenRealmAction相关字段。
  */
 
-  onOpenRealmAction: () => void;  
+  onOpenRealmAction: () => void;
   /**
  * runtimeSender：运行态Sender相关字段。
  */
 
-  runtimeSender: Pick<SocketRuntimeSender, 'sendAction'>;  
+  runtimeSender: Pick<SocketRuntimeSender, 'sendAction'>;
   /**
  * panelSender：面板Sender相关字段。
  */
@@ -287,17 +297,19 @@ type MainStartupBindingsOptions = {
     | 'sendRequestNpcShop'
     | 'sendBuyNpcShopItem'
     | 'sendRequestAlchemyPanel'
+    | 'sendSaveAlchemyPreset'
+    | 'sendDeleteAlchemyPreset'
     | 'sendRequestEnhancementPanel'
     | 'sendStartAlchemy'
     | 'sendCancelAlchemy'
     | 'sendStartEnhancement'
     | 'sendCancelEnhancement'
-  >;  
+  >;
   /**
  * socialEconomySender：socialEconomySender相关字段。
  */
 
-  socialEconomySender: Pick<SocketSocialEconomySender, 'sendChat'>;  
+  socialEconomySender: Pick<SocketSocialEconomySender, 'sendChat'>;
   /**
  * adminSender：adminSender相关字段。
  */
@@ -412,6 +424,8 @@ export function bindMainStartup(options: MainStartupBindingsOptions): void {
 
   options.craftWorkbenchModal.setCallbacks({
     onRequestAlchemy: (knownCatalogVersion) => options.panelSender.sendRequestAlchemyPanel(knownCatalogVersion),
+    onSaveAlchemyPreset: (payload) => options.panelSender.sendSaveAlchemyPreset(payload),
+    onDeleteAlchemyPreset: (presetId) => options.panelSender.sendDeleteAlchemyPreset(presetId),
     onRequestEnhancement: () => options.panelSender.sendRequestEnhancementPanel(),
     onStartAlchemy: (recipeId, ingredients, quantity) => options.panelSender.sendStartAlchemy({ recipeId, ingredients, quantity }),
     onCancelAlchemy: () => options.panelSender.sendCancelAlchemy(),

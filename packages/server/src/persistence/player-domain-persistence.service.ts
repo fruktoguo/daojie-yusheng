@@ -1,9 +1,15 @@
-import { Injectable, Logger, type OnModuleDestroy, type OnModuleInit } from '@nestjs/common';
+import { Inject, Injectable, Logger, Optional, type OnModuleDestroy, type OnModuleInit } from '@nestjs/common';
 import { EQUIP_SLOTS } from '@mud/shared';
 import type { PoolClient } from 'pg';
 import { Pool } from 'pg';
 
+import { ContentTemplateRepository } from '../content/content-template.repository';
 import { resolveServerDatabaseUrl } from '../config/env-alias';
+import {
+  buildPersistedInventoryItemRawPayload,
+  hydratePersistedInventoryItem,
+  type InventoryItemTemplateRepository,
+} from './inventory-item-persistence';
 import type { PersistedPlayerSnapshot } from './player-persistence.service';
 
 const PLAYER_PRESENCE_TABLE = 'player_presence';
@@ -125,6 +131,18 @@ export interface PlayerPresenceUpsertInput {
   transferState?: string | null;
   transferTargetNodeId?: string | null;
   versionSeed?: number | null;
+}
+
+export interface PersistedPlayerPresence {
+  playerId: string;
+  online: boolean;
+  inWorld: boolean;
+  lastHeartbeatAt: number | null;
+  offlineSinceAt: number | null;
+  runtimeOwnerId: string | null;
+  sessionEpoch: number | null;
+  transferState: string | null;
+  transferTargetNodeId: string | null;
 }
 
 export interface PlayerWalletUpsertInput {
@@ -574,6 +592,12 @@ export class PlayerDomainPersistenceService implements OnModuleInit, OnModuleDes
   private pool: Pool | null = null;
   private enabled = false;
 
+  constructor(
+    @Optional()
+    @Inject(ContentTemplateRepository)
+    private readonly contentTemplateRepository: InventoryItemTemplateRepository | null = null,
+  ) {}
+
   async onModuleInit(): Promise<void> {
     const databaseUrl = resolveServerDatabaseUrl();
     if (!databaseUrl.trim()) {
@@ -687,6 +711,56 @@ export class PlayerDomainPersistenceService implements OnModuleInit, OnModuleDes
         presence_version: versionSeed,
       });
     });
+  }
+
+  async loadPlayerPresence(playerId: string): Promise<PersistedPlayerPresence | null> {
+    const normalizedPlayerId = normalizeRequiredString(playerId);
+    if (!this.pool || !this.enabled || !normalizedPlayerId) {
+      return null;
+    }
+
+    const result = await this.pool.query<{
+      player_id?: string;
+      online?: boolean;
+      in_world?: boolean;
+      last_heartbeat_at?: string | number | null;
+      offline_since_at?: string | number | null;
+      runtime_owner_id?: string | null;
+      session_epoch?: string | number | null;
+      transfer_state?: string | null;
+      transfer_target_node_id?: string | null;
+    }>(
+      `
+        SELECT
+          player_id,
+          online,
+          in_world,
+          last_heartbeat_at,
+          offline_since_at,
+          runtime_owner_id,
+          session_epoch,
+          transfer_state,
+          transfer_target_node_id
+        FROM ${PLAYER_PRESENCE_TABLE}
+        WHERE player_id = $1
+      `,
+      [normalizedPlayerId],
+    );
+    const row = result.rows[0];
+    if (!row) {
+      return null;
+    }
+    return {
+      playerId: normalizeRequiredString(row.player_id) || normalizedPlayerId,
+      online: row.online === true,
+      inWorld: row.in_world === true,
+      lastHeartbeatAt: normalizeOptionalInteger(row.last_heartbeat_at),
+      offlineSinceAt: normalizeOptionalInteger(row.offline_since_at),
+      runtimeOwnerId: normalizeOptionalString(row.runtime_owner_id),
+      sessionEpoch: normalizeOptionalInteger(row.session_epoch),
+      transferState: normalizeOptionalString(row.transfer_state),
+      transferTargetNodeId: normalizeOptionalString(row.transfer_target_node_id),
+    };
   }
 
   async savePlayerWorldAnchor(
@@ -1410,7 +1484,7 @@ export class PlayerDomainPersistenceService implements OnModuleInit, OnModuleDes
       return null;
     }
 
-    return buildProjectedSnapshotFromDomains(starterSnapshot, domains);
+    return buildProjectedSnapshotFromDomains(starterSnapshot, domains, this.contentTemplateRepository);
   }
 
   async withTransaction<T>(work: (client: PoolClient) => Promise<T>): Promise<T> {
@@ -1479,6 +1553,7 @@ export async function savePlayerSnapshotProjectionWithClient(
 
   const versionSeed = normalizeVersionSeed(snapshot.savedAt);
   const placement = snapshot.placement;
+  const respawn = snapshot.respawn ?? placement;
   const vitals = snapshot.vitals;
   const progression = asRecord(snapshot.progression);
   const attrState = buildAttrStateRow(snapshot);
@@ -1730,15 +1805,16 @@ export async function savePlayerSnapshotProjectionDomainsWithClient(
 
   const versionSeed = normalizeVersionSeed(snapshot.savedAt);
   const placement = snapshot.placement;
+  const respawn = snapshot.respawn ?? placement;
   const progression = asRecord(snapshot.progression);
   const watermarkPatch: RecoveryWatermarkPatch = {};
 
   if (rawDomains.has('world_anchor')) {
     await replacePlayerWorldAnchor(client, normalizedPlayerId, {
-      respawnTemplateId: normalizeRequiredString(placement.templateId),
-      respawnInstanceId: normalizeOptionalString(placement.instanceId),
-      respawnX: normalizeIntegerWithFallback(placement.x, 0),
-      respawnY: normalizeIntegerWithFallback(placement.y, 0),
+      respawnTemplateId: normalizeRequiredString(respawn.templateId),
+      respawnInstanceId: normalizeOptionalString(respawn.instanceId),
+      respawnX: normalizeIntegerWithFallback(respawn.x, 0),
+      respawnY: normalizeIntegerWithFallback(respawn.y, 0),
       lastSafeTemplateId: normalizeRequiredString(placement.templateId),
       lastSafeInstanceId: normalizeOptionalString(placement.instanceId),
       lastSafeX: normalizeIntegerWithFallback(placement.x, 0),
@@ -2515,11 +2591,12 @@ async function replacePlayerInventoryItems(
       normalizeOptionalString(entry?.itemInstanceId)
       ?? `inv:${playerId}:${slotIndex}`;
     const rawPayload = asRecord(entry?.rawPayload);
-    const persistedPayload = {
-      ...(rawPayload ?? entry ?? {}),
+    const count = normalizeMinimumInteger(entry?.count, rawPayload?.count, 1);
+    const persistedPayload = buildPersistedInventoryItemRawPayload({
       itemId,
-      count: normalizeMinimumInteger(entry?.count, rawPayload?.count, 1),
-    };
+      count,
+      rawPayload,
+    });
     placeholders.push(
       `($${parameterIndex}, $${parameterIndex + 1}, $${parameterIndex + 2}, $${parameterIndex + 3}, $${parameterIndex + 4}, $${parameterIndex + 5}::jsonb, now())`,
     );
@@ -2528,7 +2605,7 @@ async function replacePlayerInventoryItems(
       playerId,
       slotIndex,
       itemId,
-      persistedPayload.count,
+      count,
       JSON.stringify(persistedPayload),
     );
     parameterIndex += 6;
@@ -3881,6 +3958,7 @@ function hasAnyLoadedPlayerDomainState(domains: Omit<LoadedPlayerDomains, 'hasPr
 function buildProjectedSnapshotFromDomains(
   starterSnapshot: PersistedPlayerSnapshot,
   domains: LoadedPlayerDomains,
+  contentTemplateRepository?: InventoryItemTemplateRepository | null,
 ): PersistedPlayerSnapshot {
   const snapshot = {
     ...starterSnapshot,
@@ -3970,6 +4048,16 @@ function buildProjectedSnapshotFromDomains(
       items: normalizeProjectedMarketStorageRows(domains.marketStorageItems) ?? [],
     },
   };
+  if (domains.worldAnchor) {
+    snapshot.respawn = {
+      instanceId: normalizeOptionalString(domains.worldAnchor.respawn_instance_id)
+        ?? `public:${normalizeRequiredString(domains.worldAnchor.respawn_template_id)}`,
+      templateId: normalizeRequiredString(domains.worldAnchor.respawn_template_id),
+      x: normalizeIntegerWithFallback(domains.worldAnchor.respawn_x, 0),
+      y: normalizeIntegerWithFallback(domains.worldAnchor.respawn_y, 0),
+      facing: starterSnapshot.placement.facing,
+    };
+  }
 
   applyProjectedPlacement(snapshot, domains.worldAnchor, domains.positionCheckpoint);
   applyProjectedWorldPreference(snapshot, domains.worldAnchor);
@@ -3977,7 +4065,7 @@ function buildProjectedSnapshotFromDomains(
   applyProjectedProgressionCore(snapshot, domains.progressionCore);
   applyProjectedAttrState(snapshot, domains.attrState);
   applyProjectedBodyTraining(snapshot, domains.bodyTraining);
-  applyProjectedInventory(snapshot, domains.inventoryItems);
+  applyProjectedInventory(snapshot, domains.inventoryItems, contentTemplateRepository);
   applyProjectedMapUnlocks(snapshot, domains.mapUnlocks);
   applyProjectedEquipment(snapshot, domains.equipmentSlots);
   applyProjectedTechniques(snapshot, domains.techniqueStates);
@@ -4106,18 +4194,18 @@ function applyProjectedWorldPreference(
 function applyProjectedInventory(
   snapshot: PersistedPlayerSnapshot,
   rows: PlayerInventoryItemLoadRow[],
+  contentTemplateRepository?: InventoryItemTemplateRepository | null,
 ): void {
   if (rows.length === 0) {
     return;
   }
   snapshot.inventory = {
     ...snapshot.inventory,
-    items: rows.map((row) => {
-      const rawPayload = asRecord(decodeJsonValue(row.raw_payload));
-      const itemId = normalizeOptionalString(rawPayload?.itemId) ?? normalizeOptionalString(row.item_id) ?? 'unknown_item';
-      const count = normalizeMinimumInteger(rawPayload?.count ?? row.count, 1, 1);
-      return rawPayload ? { ...rawPayload, itemId, count } : { itemId, count };
-    }),
+    items: rows.map((row) => hydratePersistedInventoryItem({
+      itemId: row.item_id,
+      count: row.count,
+      rawPayload: decodeJsonValue(row.raw_payload),
+    }, contentTemplateRepository)),
   };
 }
 

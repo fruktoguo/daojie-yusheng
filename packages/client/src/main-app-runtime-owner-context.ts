@@ -280,6 +280,7 @@ export function createMainRuntimeOwnerContext(options: CreateMainRuntimeOwnerCon
       cancelTargeting: () => targetingStateSource.cancelTargeting(),
     },
     refreshHudChrome: () => panelContext.uiStateSource.refreshHudChrome(),
+    syncPlayerContext: (player) => panelContext.inventoryStateSource.syncPlayerContext(player),
     hideObserveModal: () => mapRuntimeBridgeSource.hideObserveModal(),
     clearLootPanel: () => panelContext.panelDeps.lootPanel.clear(),
     setPanelRuntimeMapId: (mapId) => panelContext.panelRuntimeSource.setRuntimeMapId(mapId),

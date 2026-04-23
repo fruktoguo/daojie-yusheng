@@ -810,8 +810,8 @@ let WorldRuntimeService = WorldRuntimeService_1 = class WorldRuntimeService {
         materializeAutoCombatCommands() {
         this.worldRuntimeTickDispatchService.materializeAutoCombatCommands(this);
     }
-        buildAutoCombatCommand(instance, player) {
-        return this.worldRuntimeTickDispatchService.buildAutoCombatCommand(instance, player, this);
+        buildAutoCombatCommand(instance, player, options = undefined) {
+        return this.worldRuntimeTickDispatchService.buildAutoCombatCommand(instance, player, this, options);
     }
         selectAutoCombatTarget(instance, player, visibleMonsters) {
         return this.worldRuntimeTickDispatchService.selectAutoCombatTarget(instance, player, visibleMonsters, this);
@@ -852,8 +852,8 @@ let WorldRuntimeService = WorldRuntimeService_1 = class WorldRuntimeService {
         async dispatchCastSkillToMonster(attacker, skillId, targetMonsterId) {
         return this.worldRuntimeGameplayWriteFacadeService.dispatchCastSkillToMonster(attacker, skillId, targetMonsterId, this);
     }
-        dispatchCastSkillToTile(attacker, skillId, targetX, targetY) {
-        this.worldRuntimeGameplayWriteFacadeService.dispatchCastSkillToTile(attacker, skillId, targetX, targetY, this);
+        async dispatchCastSkillToTile(attacker, skillId, targetX, targetY) {
+        return this.worldRuntimeGameplayWriteFacadeService.dispatchCastSkillToTile(attacker, skillId, targetX, targetY, this);
     }
         dispatchSystemCommand(command) {
         this.worldRuntimeTickDispatchService.dispatchSystemCommand(command, this);

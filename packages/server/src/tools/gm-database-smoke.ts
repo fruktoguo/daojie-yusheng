@@ -8,6 +8,7 @@ Object.defineProperty(exports, "__esModule", { value: true });
 const smoke_timeout_1 = require("./smoke-timeout");
 (0, smoke_timeout_1.installSmokeTimeout)(__filename);
 const node_child_process_1 = require("node:child_process");
+const node_crypto_1 = require("node:crypto");
 const node_fs_1 = require("node:fs");
 const node_net_1 = require("node:net");
 const node_path_1 = require("node:path");
@@ -71,6 +72,10 @@ const GM_DATABASE_RESTORE_SETTLE_TIMEOUT_MS = 720_000;
 const GM_DATABASE_JOB_STATE_SCOPE = 'server_db_jobs_v1';
 
 const GM_DATABASE_JOB_STATE_KEY = 'gm_database';
+
+const POSTGRES_DUMP_MAGIC = Buffer.from('PGDMP');
+
+const backupFileSnapshots = new Map();
 /**
  * 记录changedGMpassword。
  */
@@ -749,6 +754,10 @@ async function main() {
  */
     let backupGmAuthPayload = null;
 /**
+ * 记录原始备份record。
+ */
+    let originalBackupRecord = null;
+/**
  * 记录mailpagetotalbaseline。
  */
     let mailPageTotalBaseline = 0;
@@ -828,27 +837,12 @@ async function main() {
             backupId: originalBackupId,
             jobId: String(backupResult?.job?.id ?? ''),
         });
-        const backupPayload = await assertBackupDownload(token, originalBackupId, requireBackupRecord(backupState, originalBackupId, 'manual backup'));
-        assertStructuredTablePresent(backupPayload, 'player_presence');
-        assertStructuredTablePresent(backupPayload, 'player_vitals');
-        assertStructuredTablePresent(backupPayload, 'player_progression_core');
-        assertStructuredTablePresent(backupPayload, 'player_attr_state');
-        assertStructuredTablePresent(backupPayload, 'player_body_training_state');
-        assertStructuredTablePresent(backupPayload, 'player_wallet');
-        assertStructuredTablePresent(backupPayload, 'player_map_unlock');
-        assertStructuredTablePresent(backupPayload, 'player_market_storage_item');
-        assertStructuredTablePresent(backupPayload, 'player_equipment_slot');
-        assertStructuredTablePresent(backupPayload, 'player_technique_state');
-        assertStructuredTablePresent(backupPayload, 'player_persistent_buff_state');
-        assertStructuredTablePresent(backupPayload, 'player_quest_progress');
-        assertStructuredTablePresent(backupPayload, 'player_combat_preferences');
-        assertStructuredTablePresent(backupPayload, 'player_auto_battle_skill');
-        assertStructuredTablePresent(backupPayload, 'player_auto_use_item_rule');
-        assertStructuredTablePresent(backupPayload, 'player_enhancement_record');
-        assertStructuredTablePresent(backupPayload, 'player_mail');
-        assertStructuredTablePresent(backupPayload, 'player_mail_attachment');
-        assertStructuredTablePresent(backupPayload, 'player_mail_counter');
-        backupGmAuthPayload = requireBackupDocumentPayload(backupPayload, next_gm_contract_1.GM_AUTH_CONTRACT.passwordRecordScope, next_gm_contract_1.GM_AUTH_CONTRACT.passwordRecordKey);
+        originalBackupRecord = requireBackupRecord(backupState, originalBackupId, 'manual backup');
+        await assertBackupDownload(token, originalBackupId, originalBackupRecord);
+        backupGmAuthPayload = await readGmAuthPasswordRecordPayload();
+        if (!backupGmAuthPayload) {
+            throw new Error('expected GM auth password record to exist before backup mutation');
+        }
         await upsertStructuredPlayerVitals(playerId, POST_BACKUP_VITALS_STATE);
         await assertStructuredPlayerVitals(playerId, POST_BACKUP_VITALS_STATE);
         await upsertStructuredPlayerProgressionCore(playerId, POST_BACKUP_PROGRESSION_CORE_STATE);
@@ -924,12 +918,20 @@ async function main() {
  * 记录令牌。
  */
         const token = await login(changedGmPassword);
-        await corruptBackupChecksum(originalBackupId);
+        await corruptBackupChecksum(originalBackupRecord);
         await expectRestoreRejectedForInvalidBackup(token, originalBackupId);
-        await restoreOriginalBackupFile(originalBackupId);
-        await corruptBackupDocumentsCount(originalBackupId);
-        await expectRestoreRejectedForInvalidDocumentsCount(token, originalBackupId);
-        await restoreOriginalBackupFile(originalBackupId);
+        await restoreOriginalBackupFile(originalBackupRecord);
+        if (normalizeBackupFormat(originalBackupRecord?.format, originalBackupRecord?.fileName) === 'mainline_json_snapshot') {
+            await corruptBackupDocumentsCount(originalBackupRecord);
+            await expectRestoreRejectedForInvalidDocumentsCount(token, originalBackupId);
+            await restoreOriginalBackupFile(originalBackupRecord);
+        }
+        else {
+            logStage('restore:skip-invalid-documents-count-test', {
+                backupId: originalBackupId,
+                format: normalizeBackupFormat(originalBackupRecord?.format, originalBackupRecord?.fileName),
+            });
+        }
 /**
  * 记录恢复结果。
  */
@@ -1159,6 +1161,30 @@ async function resetGmAuthPasswordRecord() {
     finally {
         await client.end().catch(() => undefined);
     }
+}
+
+async function readGmAuthPasswordRecordPayload() {
+  const client = new pg_1.Client({ connectionString: databaseUrl });
+  await client.connect();
+  try {
+    const result = await client.query('SELECT payload FROM persistent_documents WHERE scope = $1 AND key = $2 LIMIT 1', [
+      next_gm_contract_1.GM_AUTH_CONTRACT.passwordRecordScope,
+      next_gm_contract_1.GM_AUTH_CONTRACT.passwordRecordKey,
+    ]);
+    if ((result.rowCount ?? 0) === 0) {
+      return null;
+    }
+    return result.rows[0]?.payload ?? null;
+  }
+  catch (error) {
+    if (error && typeof error === 'object' && error.code === '42P01') {
+      return null;
+    }
+    throw error;
+  }
+  finally {
+    await client.end().catch(() => undefined);
+  }
 }
 /**
  * 处理waitforstructuredmailpresent。
@@ -2254,7 +2280,8 @@ async function assertBackupDownload(token, backupId, expectedRecord = null) {
 /**
  * 记录expected文件名称。
  */
-    const expectedFileName = String(expectedRecord?.fileName ?? `server-persistent-documents-${backupId}.json`).trim();
+    const expectedFileName = String(expectedRecord?.fileName ?? `server-database-backup-${backupId}.dump`).trim();
+    const expectedFormat = normalizeBackupFormat(expectedRecord?.format, expectedFileName);
 /**
  * 记录response。
  */
@@ -2273,10 +2300,33 @@ async function assertBackupDownload(token, backupId, expectedRecord = null) {
     if (!contentDisposition.includes(expectedFileName)) {
         throw new Error(`expected content-disposition to include ${expectedFileName}, got ${contentDisposition || '<empty>'}`);
     }
+    const downloadedBytes = Buffer.from(await response.arrayBuffer());
+    if (expectedFormat === 'postgres_custom_dump') {
+        if (!isPostgresCustomDumpBuffer(downloadedBytes)) {
+            throw new Error(`expected downloaded backup to be PostgreSQL custom dump, got ${downloadedBytes.subarray(0, POSTGRES_DUMP_MAGIC.length).toString('utf8') || '<empty>'}`);
+        }
+        const downloadedChecksum = computeBufferSha256(downloadedBytes);
+        const diskBytes = await node_fs_1.promises.readFile(resolveBackupFilePath(expectedRecord ?? backupId));
+        if (computeBufferSha256(diskBytes) !== downloadedChecksum) {
+            throw new Error(`expected downloaded PostgreSQL backup checksum to match on-disk backup for ${backupId}`);
+        }
+        if (expectedRecord) {
+            const expectedChecksum = String(expectedRecord?.checksumSha256 ?? '').trim();
+            if (expectedChecksum && expectedChecksum !== downloadedChecksum) {
+                throw new Error(`expected metadata checksumSha256=${expectedChecksum}, got ${downloadedChecksum}`);
+            }
+        }
+        return {
+            backupId,
+            format: 'postgres_custom_dump',
+            checksumSha256: downloadedChecksum,
+            sizeBytes: downloadedBytes.length,
+        };
+    }
 /**
  * 记录payload。
  */
-    const payload = JSON.parse(await response.text());
+    const payload = JSON.parse(downloadedBytes.toString('utf8'));
     if (payload?.backupId !== backupId) {
         throw new Error(`expected downloaded backupId=${backupId}, got ${JSON.stringify(payload)}`);
     }
@@ -2318,7 +2368,7 @@ async function assertBackupDownload(token, backupId, expectedRecord = null) {
 /**
  * 记录diskpayload。
  */
-    const diskPayload = JSON.parse(await node_fs_1.promises.readFile(resolveBackupFilePath(backupId), 'utf8'));
+    const diskPayload = JSON.parse(await node_fs_1.promises.readFile(resolveBackupFilePath(expectedRecord ?? backupId), 'utf8'));
     if (computeChecksumForDocs(diskPayload?.docs ?? []) !== downloadedChecksum) {
         throw new Error(`expected downloaded backup checksum to match on-disk backup for ${backupId}`);
     }
@@ -2708,38 +2758,40 @@ async function assertInterruptedRestoreFailedAfterRestart(token, input) {
 /**
  * 处理corrupt备份checksum。
  */
-async function corruptBackupChecksum(backupId) {
+async function corruptBackupChecksum(backupRecord) {
 /**
  * 记录文件路径。
  */
-    const filePath = resolveBackupFilePath(backupId);
-/**
- * 记录raw。
- */
-    const raw = await node_fs_1.promises.readFile(filePath, 'utf8');
-/**
- * 记录parsed。
- */
-    const parsed = JSON.parse(raw);
+    const filePath = resolveBackupFilePath(backupRecord);
+    const raw = await node_fs_1.promises.readFile(filePath);
+    rememberOriginalBackupFile(filePath, raw);
+    if (normalizeBackupFormat(backupRecord?.format, backupRecord?.fileName) === 'postgres_custom_dump') {
+        if (raw.length === 0) {
+            throw new Error(`cannot corrupt empty PostgreSQL backup file: ${filePath}`);
+        }
+        const corrupted = Buffer.from(raw);
+        corrupted[0] = corrupted[0] ^ 0xff;
+        await node_fs_1.promises.writeFile(filePath, corrupted);
+        return;
+    }
+    const parsed = JSON.parse(raw.toString('utf8'));
     parsed.checksumSha256 = 'broken-checksum';
     await node_fs_1.promises.writeFile(filePath, JSON.stringify(parsed, null, 2), 'utf8');
 }
 /**
  * 处理corrupt备份documents数量。
  */
-async function corruptBackupDocumentsCount(backupId) {
+async function corruptBackupDocumentsCount(backupRecord) {
 /**
  * 记录文件路径。
  */
-    const filePath = resolveBackupFilePath(backupId);
-/**
- * 记录raw。
- */
-    const raw = await node_fs_1.promises.readFile(filePath, 'utf8');
-/**
- * 记录parsed。
- */
-    const parsed = JSON.parse(raw);
+    if (normalizeBackupFormat(backupRecord?.format, backupRecord?.fileName) === 'postgres_custom_dump') {
+        throw new Error('PostgreSQL custom dump 不支持 documentsCount 篡改测试');
+    }
+    const filePath = resolveBackupFilePath(backupRecord);
+    const raw = await node_fs_1.promises.readFile(filePath);
+    rememberOriginalBackupFile(filePath, raw);
+    const parsed = JSON.parse(raw.toString('utf8'));
 /**
  * 记录当前值数量。
  */
@@ -2756,18 +2808,21 @@ async function corruptBackupDocumentsCount(backupId) {
 /**
  * 处理恢复original备份文件。
  */
-async function restoreOriginalBackupFile(backupId) {
+async function restoreOriginalBackupFile(backupRecord) {
 /**
  * 记录文件路径。
  */
-    const filePath = resolveBackupFilePath(backupId);
-/**
- * 记录raw。
- */
+    const filePath = resolveBackupFilePath(backupRecord);
+    const original = backupFileSnapshots.get(filePath);
+    if (original) {
+        await node_fs_1.promises.writeFile(filePath, original);
+        backupFileSnapshots.delete(filePath);
+        return;
+    }
+    if (normalizeBackupFormat(backupRecord?.format, backupRecord?.fileName) === 'postgres_custom_dump') {
+        throw new Error(`missing original PostgreSQL backup snapshot for restore: ${filePath}`);
+    }
     const raw = await node_fs_1.promises.readFile(filePath, 'utf8');
-/**
- * 记录parsed。
- */
     const parsed = JSON.parse(raw);
     parsed.documentsCount = Array.isArray(parsed?.docs) ? parsed.docs.length : 0;
     parsed.checksumSha256 = computeChecksumForDocs(parsed.docs ?? []);
@@ -2776,21 +2831,27 @@ async function restoreOriginalBackupFile(backupId) {
 /**
  * 解析备份文件路径。
  */
-function resolveBackupFilePath(backupId) {
-    return (0, node_path_1.join)(backupDirectory, `server-persistent-documents-${backupId}.json`);
+function resolveBackupFilePath(backupRecordOrId) {
+    const fileName = typeof backupRecordOrId?.fileName === 'string' && backupRecordOrId.fileName.trim()
+        ? backupRecordOrId.fileName.trim()
+        : typeof backupRecordOrId === 'string' && backupRecordOrId.trim()
+            ? `server-database-backup-${backupRecordOrId.trim()}.dump`
+            : '';
+    if (!fileName) {
+        throw new Error(`cannot resolve backup file path from ${JSON.stringify(backupRecordOrId)}`);
+    }
+    return (0, node_path_1.join)(backupDirectory, fileName);
 }
 /**
  * 处理computechecksumfordocs。
  */
 function computeChecksumForDocs(docs) {
-    const crypto = require('node:crypto');
-    return crypto.createHash('sha256').update(JSON.stringify(docs)).digest('hex');
+    return computeBufferSha256(Buffer.from(JSON.stringify(docs)));
 }
 /**
  * 处理computechecksumfortables。
  */
 function computeChecksumForTables(tables) {
-    const crypto = require('node:crypto');
     const normalized = Array.isArray(tables)
         ? tables.map((entry) => ({
             tableName: typeof entry?.tableName === 'string' ? entry.tableName : '',
@@ -2798,7 +2859,34 @@ function computeChecksumForTables(tables) {
             checksumSha256: typeof entry?.checksumSha256 === 'string' ? entry.checksumSha256 : '',
         }))
         : [];
-    return crypto.createHash('sha256').update(JSON.stringify(normalized)).digest('hex');
+    return computeBufferSha256(Buffer.from(JSON.stringify(normalized)));
+}
+
+function normalizeBackupFormat(format, fileName) {
+    if (format === 'postgres_custom_dump' || format === 'mainline_json_snapshot') {
+        return format;
+    }
+    const normalizedFileName = typeof fileName === 'string' ? fileName.trim().toLowerCase() : '';
+    if (normalizedFileName.endsWith('.json')) {
+        return 'mainline_json_snapshot';
+    }
+    return 'postgres_custom_dump';
+}
+
+function rememberOriginalBackupFile(filePath, raw) {
+    if (!backupFileSnapshots.has(filePath)) {
+        backupFileSnapshots.set(filePath, Buffer.from(raw));
+    }
+}
+
+function isPostgresCustomDumpBuffer(buffer) {
+    return Buffer.isBuffer(buffer)
+        && buffer.length >= POSTGRES_DUMP_MAGIC.length
+        && buffer.subarray(0, POSTGRES_DUMP_MAGIC.length).equals(POSTGRES_DUMP_MAGIC);
+}
+
+function computeBufferSha256(buffer) {
+    return (0, node_crypto_1.createHash)('sha256').update(buffer).digest('hex');
 }
 /**
  * 等待forcondition。

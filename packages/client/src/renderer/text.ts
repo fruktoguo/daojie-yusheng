@@ -969,7 +969,13 @@ export class TextRenderer implements IRenderer {
             this.drawPathCellHighlight(ctx, sx, sy, cellSize, key === this.pathTargetKey, 1);
           }
 
-          if ((tile.maxHp ?? 0) > 0 && tile.hpVisible) {
+          const tileHpVisible = tile.hpVisible ?? (
+            typeof tile.hp === 'number'
+            && typeof tile.maxHp === 'number'
+            && tile.hp > 0
+            && tile.hp < tile.maxHp
+          );
+          if ((tile.maxHp ?? 0) > 0 && tileHpVisible) {
             const ratio = Math.max(0, Math.min(1, (tile.hp ?? 0) / Math.max(tile.maxHp ?? 1, 1)));
             const barX = sx + 3;
             const barY = sy + 2;

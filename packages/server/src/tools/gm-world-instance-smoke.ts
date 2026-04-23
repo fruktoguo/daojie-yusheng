@@ -33,6 +33,7 @@ function createService(log = [], overrides = {}) {
       instanceOrigin: 'gm_manual',
       defaultEntry: false,
       persistent: false,
+      persistentPolicy: 'ephemeral',
       supportsPvp: true,
       canDamageTile: true,
       playerCount: 1,
@@ -61,6 +62,7 @@ function createService(log = [], overrides = {}) {
       instanceOrigin: 'gm_manual',
       defaultEntry: false,
       persistent: false,
+      persistentPolicy: 'ephemeral',
       supportsPvp: false,
       canDamageTile: true,
       playerCount: 2,
@@ -176,6 +178,11 @@ function createService(log = [], overrides = {}) {
       },
     },
     { getSuggestions() { return {}; } },
+    { listNodes() { return []; }, isEnabled() { return true; }, getNodeId() { return 'node:test'; } },
+    { listRetryQueue() { return []; } },
+    { getOperationReplay() { return {}; } },
+    { flushPlayer() {} },
+    { flushInstance() {} },
     worldRuntimeService,
   );
 }
@@ -217,7 +224,8 @@ function testCreateWorldInstanceBuildsNextManualLine() {
       instanceId: 'line:yunlai_town:real:3',
       templateId: 'yunlai_town',
       kind: 'public',
-      persistent: false,
+      persistent: true,
+      persistentPolicy: 'persistent',
       displayName: '云来镇·真实三线',
       linePreset: 'real',
       lineIndex: 3,
@@ -235,7 +243,8 @@ function testCreateWorldInstanceBuildsNextManualLine() {
       instanceId: 'line:yunlai_town:real:3',
       templateId: 'yunlai_town',
       kind: 'public',
-      persistent: false,
+      persistent: true,
+      persistentPolicy: 'persistent',
       displayName: '云来镇·真实三线',
       linePreset: 'real',
       lineIndex: 3,
@@ -243,6 +252,21 @@ function testCreateWorldInstanceBuildsNextManualLine() {
       defaultEntry: false,
     }],
   ]);
+}
+
+function testCreateWorldInstanceSupportsLifecycleOptions() {
+  const log = [];
+  const service = createService(log);
+  const expireAt = Date.now() + 60_000;
+  const result = service.createWorldInstance({
+    templateId: 'yunlai_town',
+    linePreset: 'peaceful',
+    persistentPolicy: 'session',
+    expireAt,
+  });
+  assert.equal(result.instance.persistent, true);
+  assert.equal(result.instance.persistentPolicy, 'session');
+  assert.equal(result.instance.destroyAt, new Date(expireAt).toISOString());
 }
 
 function testTransferPlayerToInstanceEnqueuesExplicitInstanceId() {
@@ -289,6 +313,7 @@ function testTransferPlayerToInstanceRejectsOfflinePlayer() {
 testGetWorldInstancesSortsByPresetAndIndex();
 testGetWorldInstanceRuntimeDelegatesToInstanceQuery();
 testCreateWorldInstanceBuildsNextManualLine();
+testCreateWorldInstanceSupportsLifecycleOptions();
 testTransferPlayerToInstanceEnqueuesExplicitInstanceId();
 testCreateWorldInstanceRejectsInvalidInput();
 testTransferPlayerToInstanceRejectsOfflinePlayer();

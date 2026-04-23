@@ -27,6 +27,8 @@ import {
   type GmSetPlayerBodyTrainingLevelReq,
   type GmSuggestionListRes,
   type GmCpuSectionSnapshot,
+  type GmMemoryDomainEstimateSnapshot,
+  type GmMemoryInstanceEstimateSnapshot,
   type GmEditorBuffOption,
   type GmEditorCatalogRes,
   type GmEditorItemOption,
@@ -232,6 +234,8 @@ const serverSubtabOverviewBtn = document.getElementById('server-subtab-overview'
 const serverSubtabTrafficBtn = document.getElementById('server-subtab-traffic') as HTMLButtonElement;
 /** serverSubtabCpuBtn：服务端Subtab Cpu Btn。 */
 const serverSubtabCpuBtn = document.getElementById('server-subtab-cpu') as HTMLButtonElement;
+/** serverSubtabMemoryBtn：服务端Subtab Memory Btn。 */
+const serverSubtabMemoryBtn = document.getElementById('server-subtab-memory') as HTMLButtonElement;
 /** serverSubtabDatabaseBtn：服务端Subtab数据库Btn。 */
 const serverSubtabDatabaseBtn = document.getElementById('server-subtab-database') as HTMLButtonElement;
 /** serverPanelOverviewEl：服务端面板Overview El。 */
@@ -240,6 +244,8 @@ const serverPanelOverviewEl = document.getElementById('server-panel-overview') a
 const serverPanelTrafficEl = document.getElementById('server-panel-traffic') as HTMLElement;
 /** serverPanelCpuEl：服务端面板Cpu El。 */
 const serverPanelCpuEl = document.getElementById('server-panel-cpu') as HTMLElement;
+/** serverPanelMemoryEl：服务端面板Memory El。 */
+const serverPanelMemoryEl = document.getElementById('server-panel-memory') as HTMLElement;
 /** serverPanelDatabaseEl：服务端面板数据库El。 */
 const serverPanelDatabaseEl = document.getElementById('server-panel-database') as HTMLElement;
 /** trafficResetMetaEl：traffic Reset元数据El。 */
@@ -282,14 +288,34 @@ const cpuLoad15mEl = document.getElementById('cpu-load-15m') as HTMLDivElement;
 const cpuProcessUptimeEl = document.getElementById('cpu-process-uptime') as HTMLDivElement;
 /** cpuSystemUptimeEl：cpu系统Uptime El。 */
 const cpuSystemUptimeEl = document.getElementById('cpu-system-uptime') as HTMLDivElement;
-/** cpuRssMemoryEl：cpu Rss Memory El。 */
-const cpuRssMemoryEl = document.getElementById('cpu-rss-memory') as HTMLDivElement;
-/** cpuHeapUsedEl：cpu Heap Used El。 */
-const cpuHeapUsedEl = document.getElementById('cpu-heap-used') as HTMLDivElement;
-/** cpuHeapTotalEl：cpu Heap总量El。 */
-const cpuHeapTotalEl = document.getElementById('cpu-heap-total') as HTMLDivElement;
-/** cpuExternalMemoryEl：cpu External Memory El。 */
-const cpuExternalMemoryEl = document.getElementById('cpu-external-memory') as HTMLDivElement;
+/** memorySnapshotMetaEl：内存快照说明。 */
+const memorySnapshotMetaEl = document.getElementById('memory-snapshot-meta') as HTMLDivElement;
+/** memoryRssEl：memory Rss El。 */
+const memoryRssEl = document.getElementById('memory-rss') as HTMLDivElement;
+/** memoryHeapUsedEl：memory Heap Used El。 */
+const memoryHeapUsedEl = document.getElementById('memory-heap-used') as HTMLDivElement;
+/** memoryHeapTotalEl：memory Heap总量El。 */
+const memoryHeapTotalEl = document.getElementById('memory-heap-total') as HTMLDivElement;
+/** memoryExternalEl：memory External El。 */
+const memoryExternalEl = document.getElementById('memory-external') as HTMLDivElement;
+/** memoryHeapUsagePercentEl：memory Heap使用率El。 */
+const memoryHeapUsagePercentEl = document.getElementById('memory-heap-usage-percent') as HTMLDivElement;
+/** memoryHeapUsageNoteEl：memory Heap使用率说明。 */
+const memoryHeapUsageNoteEl = document.getElementById('memory-heap-usage-note') as HTMLDivElement;
+/** memoryHeapFreeEl：memory Heap空闲El。 */
+const memoryHeapFreeEl = document.getElementById('memory-heap-free') as HTMLDivElement;
+/** memoryResidentGapEl：memory 常驻差额El。 */
+const memoryResidentGapEl = document.getElementById('memory-resident-gap') as HTMLDivElement;
+/** memoryRssHeapRatioEl：memory Rss/Heap 比值El。 */
+const memoryRssHeapRatioEl = document.getElementById('memory-rss-heap-ratio') as HTMLDivElement;
+/** memoryRssHeapRatioNoteEl：memory Rss/Heap 比值说明。 */
+const memoryRssHeapRatioNoteEl = document.getElementById('memory-rss-heap-ratio-note') as HTMLDivElement;
+/** memoryEstimateMetaEl：内存估算说明。 */
+const memoryEstimateMetaEl = document.getElementById('memory-estimate-meta') as HTMLDivElement;
+/** memoryDomainListEl：内存域画像列表。 */
+const memoryDomainListEl = document.getElementById('memory-domain-list') as HTMLDivElement;
+/** memoryInstanceListEl：实例内存画像列表。 */
+const memoryInstanceListEl = document.getElementById('memory-instance-list') as HTMLDivElement;
 /** pathfindingResetMetaEl：pathfinding Reset元数据El。 */
 const pathfindingResetMetaEl = document.getElementById('pathfinding-reset-meta') as HTMLDivElement;
 /** pathfindingAvgQueueMsEl：pathfinding Avg队列Ms El。 */
@@ -501,7 +527,7 @@ let pollTimer: number | null = null;
 /** currentTab：当前Tab。 */
 let currentTab: 'server' | 'redeem' | 'players' | 'suggestions' | 'world' | 'shortcuts' = 'server';
 /** currentServerTab：当前服务端Tab。 */
-let currentServerTab: 'overview' | 'traffic' | 'cpu' | 'database' = 'overview';
+let currentServerTab: 'overview' | 'traffic' | 'cpu' | 'memory' | 'database' = 'overview';
 /** currentCpuBreakdownSort：当前Cpu Breakdown排序。 */
 let currentCpuBreakdownSort: 'total' | 'count' | 'avg' = 'total';
 /** currentEditorTab：当前编辑器Tab。 */
@@ -586,6 +612,10 @@ let lastNetworkInStructureKey: string | null = null;
 let lastNetworkOutStructureKey: string | null = null;
 /** lastCpuBreakdownStructureKey：last Cpu Breakdown Structure Key。 */
 let lastCpuBreakdownStructureKey: string | null = null;
+/** lastMemoryDomainStructureKey：last Memory Domain Structure Key。 */
+let lastMemoryDomainStructureKey: string | null = null;
+/** lastMemoryInstanceStructureKey：last Memory Instance Structure Key。 */
+let lastMemoryInstanceStructureKey: string | null = null;
 /** lastPathfindingFailureStructureKey：last Pathfinding Failure Structure Key。 */
 let lastPathfindingFailureStructureKey: string | null = null;
 /** lastShortcutMailComposerStructureKey：last Shortcut邮件Composer Structure Key。 */
@@ -1899,6 +1929,17 @@ function getCpuSectionMeta(section: GmCpuSectionSnapshot): string {
   return `${section.totalMs.toFixed(2)} ms · ${section.percent.toFixed(1)}% · ${section.count} 次 · 均次 ${section.avgMs.toFixed(3)} ms`;
 }
 
+/** getMemoryDomainMeta：读取Memory Domain元数据。 */
+function getMemoryDomainMeta(totalRssBytes: number, domain: GmMemoryDomainEstimateSnapshot): string {
+  const average = domain.count > 0 ? ` · 均值 ${formatBytes(domain.avgBytes)}` : '';
+  return `${formatBytes(domain.bytes)} · 占 RSS ${formatPercent(domain.bytes, totalRssBytes)}${domain.count > 0 ? ` · ${domain.count} 个` : ''}${average}`;
+}
+
+/** getMemoryInstanceMeta：读取Memory Instance元数据。 */
+function getMemoryInstanceMeta(totalRssBytes: number, instance: GmMemoryInstanceEstimateSnapshot): string {
+  return `${formatBytes(instance.bytes)} · 占 RSS ${formatPercent(instance.bytes, totalRssBytes)} · 玩家 ${instance.playerCount} · 怪物 ${instance.monsterCount} · 玩家容器 ${formatBytes(instance.playerBytes)} · 怪物容器 ${formatBytes(instance.monsterBytes)} · 其余实例容器 ${formatBytes(instance.instanceBytes)}`;
+}
+
 /** getPathfindingFailureMeta：读取Pathfinding Failure元数据。 */
 function getPathfindingFailureMeta(totalFailures: number, count: number): string {
   return `${count} 次 · 占失败 ${formatPercent(count, totalFailures)}`;
@@ -1938,6 +1979,21 @@ function renderPerfLists(data: GmStateRes): void {
     label: section.label,
     meta: getCpuSectionMeta(section),
   }));
+  const totalRssBytes = Math.max(0, data.perf.memoryEstimate?.rssBytes ?? 0);
+  const memoryDomainItems = Array.isArray(data.perf.memoryEstimate?.domains)
+    ? data.perf.memoryEstimate.domains.map((domain) => ({
+        key: domain.key,
+        label: domain.label,
+        meta: getMemoryDomainMeta(totalRssBytes, domain),
+      }))
+    : [];
+  const memoryInstanceItems = Array.isArray(data.perf.memoryEstimate?.topInstances)
+    ? data.perf.memoryEstimate.topInstances.map((instance) => ({
+        key: instance.instanceId,
+        label: instance.label,
+        meta: getMemoryInstanceMeta(totalRssBytes, instance),
+      }))
+    : [];
   const totalFailures = data.perf.pathfinding.failed + data.perf.pathfinding.cancelled;
   const pathfindingFailureItems = data.perf.pathfinding.failureReasons.map((bucket) => ({
     key: bucket.reason,
@@ -1962,6 +2018,18 @@ function renderPerfLists(data: GmStateRes): void {
     lastCpuBreakdownStructureKey,
     cpuItems,
     '当前还没有 CPU 分项数据。',
+  );
+  lastMemoryDomainStructureKey = renderStructuredStatList(
+    memoryDomainListEl,
+    lastMemoryDomainStructureKey,
+    memoryDomainItems,
+    '当前还没有运行态内存画像。',
+  );
+  lastMemoryInstanceStructureKey = renderStructuredStatList(
+    memoryInstanceListEl,
+    lastMemoryInstanceStructureKey,
+    memoryInstanceItems,
+    '当前还没有实例内存画像。',
   );
   lastPathfindingFailureStructureKey = renderStructuredStatList(
     pathfindingFailureListEl,
@@ -2120,7 +2188,7 @@ function setStatus(message: string, isError = false): void {
 const worldViewer = new GmWorldViewer(request, setStatus);
 
 /** switchServerTab：处理switch服务端Tab。 */
-function switchServerTab(tab: 'overview' | 'traffic' | 'cpu' | 'database'): void {
+function switchServerTab(tab: 'overview' | 'traffic' | 'cpu' | 'memory' | 'database'): void {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
   /** currentServerTab：当前服务端Tab。 */
@@ -2128,10 +2196,12 @@ function switchServerTab(tab: 'overview' | 'traffic' | 'cpu' | 'database'): void
   serverSubtabOverviewBtn.classList.toggle('active', tab === 'overview');
   serverSubtabTrafficBtn.classList.toggle('active', tab === 'traffic');
   serverSubtabCpuBtn.classList.toggle('active', tab === 'cpu');
+  serverSubtabMemoryBtn.classList.toggle('active', tab === 'memory');
   serverSubtabDatabaseBtn.classList.toggle('active', tab === 'database');
   serverPanelOverviewEl.classList.toggle('hidden', tab !== 'overview');
   serverPanelTrafficEl.classList.toggle('hidden', tab !== 'traffic');
   serverPanelCpuEl.classList.toggle('hidden', tab !== 'cpu');
+  serverPanelMemoryEl.classList.toggle('hidden', tab !== 'memory');
   serverPanelDatabaseEl.classList.toggle('hidden', tab !== 'database');
   if (tab === 'database' && !databaseStateLoading) {
     loadDatabaseState(true).catch((error: unknown) => {
@@ -2153,6 +2223,18 @@ function formatDatabaseBackupKind(kind: GmDatabaseBackupRecord['kind']): string 
       return '导入前备份';
     default:
       return kind;
+  }
+}
+
+/** formatDatabaseBackupFormat：格式化数据库备份格式。 */
+function formatDatabaseBackupFormat(format: GmDatabaseBackupRecord['format']): string {
+  switch (format) {
+    case 'postgres_custom_dump':
+      return 'PostgreSQL custom dump';
+    case 'mainline_json_snapshot':
+      return '历史 JSON 快照';
+    default:
+      return '未知格式';
   }
 }
 
@@ -2203,17 +2285,17 @@ function renderDatabasePanel(): void {
     : '恢复方式：以服务端返回说明为准。';
   const persistenceLine = databaseState?.persistenceEnabled === false
     ? '当前未启用数据库持久化，此面板仅供查看主线持久化说明。'
-    : '当前持久化已启用，可手工导出或恢复其快照。';
+    : '当前数据库持久化已启用，可手工导出或恢复真实数据库备份。';
   const rows = backups.length > 0
     ? backups.map((backup) => `
         <div class="network-row">
           <div class="network-row-label">${escapeHtml(backup.fileName)}</div>
           <div class="network-row-meta">
-            ${escapeHtml(formatDatabaseBackupKind(backup.kind))} · ${escapeHtml(formatDateTime(backup.createdAt))} · ${escapeHtml(formatBytes(backup.sizeBytes))}
+            ${escapeHtml(formatDatabaseBackupKind(backup.kind))} · ${escapeHtml(formatDatabaseBackupFormat(backup.format))} · ${escapeHtml(formatDateTime(backup.createdAt))} · ${escapeHtml(formatBytes(backup.sizeBytes))}
           </div>
           <div class="button-row" style="margin-top:8px;">
             <button class="small-btn" data-db-download="${escapeHtml(backup.id)}" type="button">下载备份</button>
-            <button class="small-btn danger" data-db-restore="${escapeHtml(backup.id)}" type="button" ${busy ? 'disabled' : ''}>恢复持久化快照</button>
+            <button class="small-btn danger" data-db-restore="${escapeHtml(backup.id)}" type="button" ${busy ? 'disabled' : ''}>恢复数据库备份</button>
           </div>
         </div>
       `).join('')
@@ -2222,7 +2304,7 @@ function renderDatabasePanel(): void {
   serverPanelDatabaseEl.innerHTML = `
     <div class="button-row">
       <button id="database-refresh" class="small-btn" type="button">刷新持久化状态</button>
-      <button id="database-export-current" class="small-btn primary" type="button" ${busy ? 'disabled' : ''}>导出持久化快照</button>
+      <button id="database-export-current" class="small-btn primary" type="button" ${busy ? 'disabled' : ''}>导出数据库备份</button>
     </div>
     <div class="note-card">${escapeHtml(summary)}</div>
     <div class="note-card">
@@ -2237,7 +2319,7 @@ function renderDatabasePanel(): void {
     <div class="network-breakdown">
       <div class="network-breakdown-head">
         <div class="panel-title">历史持久化备份</div>
-        <div class="network-breakdown-subtitle">支持下载任意历史备份，也支持把某份备份重新恢复为当前持久化文档</div>
+        <div class="network-breakdown-subtitle">支持下载任意历史备份，也支持把某份备份重新恢复到当前主线数据库</div>
       </div>
       <div class="network-breakdown-list">${rows}</div>
     </div>
@@ -2662,7 +2744,7 @@ async function downloadDatabaseBackup(backupId: string): Promise<void> {
   anchor.click();
   anchor.remove();
   window.setTimeout(() => URL.revokeObjectURL(objectUrl), 1_000);
-  setStatus(`已下载兼容持久化备份 ${fileName}`);
+  setStatus(`已下载数据库备份 ${fileName}`);
 }
 
 /** restoreDatabaseBackup：处理restore数据库备份。 */
@@ -2674,7 +2756,7 @@ async function restoreDatabaseBackup(backupId: string): Promise<void> {
     setStatus('目标备份不存在', true);
     return;
   }
-  const confirmed = window.confirm(`将使用备份 ${backup.fileName} 覆盖当前兼容持久化。\n服务端会先自动生成一份导入前备份，并断开在线玩家连接。是否继续？`);
+  const confirmed = window.confirm(`将使用备份 ${backup.fileName} 覆盖当前主线数据库。\n服务端会先自动生成一份导入前备份，并断开在线玩家连接。是否继续？`);
   if (!confirmed) {
     return;
   }
@@ -2683,7 +2765,7 @@ async function restoreDatabaseBackup(backupId: string): Promise<void> {
     method: 'POST',
     body: JSON.stringify(body),
   });
-  setStatus(`已开始恢复兼容持久化备份：${result.job.sourceBackupId ?? backup.fileName}`);
+  setStatus(`已开始恢复数据库备份：${result.job.sourceBackupId ?? backup.fileName}`);
   await loadDatabaseState(true);
 }
 
@@ -4510,10 +4592,29 @@ function renderSummary(data: GmStateRes): void {
   cpuLoad15mEl.textContent = `${data.perf.cpu.loadAvg15m.toFixed(2)}`;
   cpuProcessUptimeEl.textContent = formatDurationSeconds(data.perf.cpu.processUptimeSec);
   cpuSystemUptimeEl.textContent = formatDurationSeconds(data.perf.cpu.systemUptimeSec);
-  cpuRssMemoryEl.textContent = `${Math.round(data.perf.cpu.rssMb)} MB`;
-  cpuHeapUsedEl.textContent = `${Math.round(data.perf.cpu.heapUsedMb)} MB`;
-  cpuHeapTotalEl.textContent = `${Math.round(data.perf.cpu.heapTotalMb)} MB`;
-  cpuExternalMemoryEl.textContent = `${Math.round(data.perf.cpu.externalMb)} MB`;
+  const rssMb = Math.max(0, data.perf.cpu.rssMb);
+  const heapUsedMb = Math.max(0, data.perf.cpu.heapUsedMb);
+  const heapTotalMb = Math.max(0, data.perf.cpu.heapTotalMb);
+  const externalMb = Math.max(0, data.perf.cpu.externalMb);
+  const heapFreeMb = Math.max(0, heapTotalMb - heapUsedMb);
+  const residentGapMb = Math.max(0, rssMb - heapTotalMb - externalMb);
+  memorySnapshotMetaEl.textContent = `当前快照：进程常驻 ${Math.round(rssMb)} MB · Heap 已用 ${Math.round(heapUsedMb)} MB · 外部内存 ${Math.round(externalMb)} MB`;
+  memoryRssEl.textContent = `${Math.round(rssMb)} MB`;
+  memoryHeapUsedEl.textContent = `${Math.round(heapUsedMb)} MB`;
+  memoryHeapTotalEl.textContent = `${Math.round(heapTotalMb)} MB`;
+  memoryExternalEl.textContent = `${Math.round(externalMb)} MB`;
+  memoryHeapUsagePercentEl.textContent = formatPercent(heapUsedMb, heapTotalMb);
+  memoryHeapUsageNoteEl.textContent = `已用 ${Math.round(heapUsedMb)} MB / 总量 ${Math.round(heapTotalMb)} MB`;
+  memoryHeapFreeEl.textContent = `${Math.round(heapFreeMb)} MB`;
+  memoryResidentGapEl.textContent = `${Math.round(residentGapMb)} MB`;
+  memoryRssHeapRatioEl.textContent = heapUsedMb > 0 ? `${(rssMb / heapUsedMb).toFixed(2)}x` : '0x';
+  memoryRssHeapRatioNoteEl.textContent = heapUsedMb > 0
+    ? `RSS ${Math.round(rssMb)} MB / Heap 已用 ${Math.round(heapUsedMb)} MB`
+    : '当前 Heap 已用接近 0，暂不计算倍率';
+  const memoryEstimate = data.perf.memoryEstimate;
+  memoryEstimateMetaEl.textContent = memoryEstimate?.generatedAt > 0
+    ? `运行态画像：${new Date(memoryEstimate.generatedAt).toLocaleString()} · 快照估算覆盖 ${formatBytes(memoryEstimate.coveredBytes)} / RSS ${formatBytes(memoryEstimate.rssBytes)} · 覆盖 ${memoryEstimate.coveragePercent.toFixed(1)}% · 缓存 ${Math.round(memoryEstimate.cacheTtlMs / 1000)} 秒`
+    : '运行态内存画像尚未生成。';
   pathfindingResetMetaEl.textContent = data.perf.pathfinding.statsStartedAt > 0
     ? `寻路统计起点：${new Date(data.perf.pathfinding.statsStartedAt).toLocaleString()} · 已累计 ${formatDurationSeconds(data.perf.pathfinding.statsElapsedSec)}`
     : '寻路统计区间尚未开始。';
@@ -5073,10 +5174,16 @@ function logout(message?: string): void {
   lastNetworkOutStructureKey = null;
   /** lastCpuBreakdownStructureKey：last Cpu Breakdown Structure Key。 */
   lastCpuBreakdownStructureKey = null;
+  /** lastMemoryDomainStructureKey：last Memory Domain Structure Key。 */
+  lastMemoryDomainStructureKey = null;
+  /** lastMemoryInstanceStructureKey：last Memory Instance Structure Key。 */
+  lastMemoryInstanceStructureKey = null;
   suggestionListEl.innerHTML = '';
   summaryNetInBreakdownEl.innerHTML = '';
   summaryNetOutBreakdownEl.innerHTML = '';
   cpuBreakdownListEl.innerHTML = '';
+  memoryDomainListEl.innerHTML = '';
+  memoryInstanceListEl.innerHTML = '';
   clearPlayerDatabasePanel();
   worldViewer.stopPolling();
   renderShortcutMailComposer();
@@ -6641,6 +6748,7 @@ shortcutTabBtn.addEventListener('click', () => switchTab('shortcuts'));
 serverSubtabOverviewBtn.addEventListener('click', () => switchServerTab('overview'));
 serverSubtabTrafficBtn.addEventListener('click', () => switchServerTab('traffic'));
 serverSubtabCpuBtn.addEventListener('click', () => switchServerTab('cpu'));
+serverSubtabMemoryBtn.addEventListener('click', () => switchServerTab('memory'));
 serverSubtabDatabaseBtn.addEventListener('click', () => switchServerTab('database'));
 cpuBreakdownSortTotalBtn.addEventListener('click', () => setCpuBreakdownSort('total'));
 cpuBreakdownSortCountBtn.addEventListener('click', () => setCpuBreakdownSort('count'));

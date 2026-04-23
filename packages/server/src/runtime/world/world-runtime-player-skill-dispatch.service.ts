@@ -49,6 +49,39 @@ function ensureInstanceSupportsTileDamage(instance) {
     throw new common_1.BadRequestException('当前实例不允许攻击地块');
 }
 
+function buildEffectivePlayerSkillGeometry(attacker, skill) {
+    return (0, shared_1.buildEffectiveTargetingGeometry)({
+        range: resolveRuntimeSkillRange(skill),
+        shape: skill.targeting?.shape ?? 'single',
+        radius: skill.targeting?.radius,
+        innerRadius: skill.targeting?.innerRadius,
+        width: skill.targeting?.width,
+        height: skill.targeting?.height,
+        checkerParity: skill.targeting?.checkerParity,
+    }, {
+        extraRange: Math.max(0, Math.floor(attacker.attrs?.numericStats?.extraRange ?? 0)),
+        extraArea: Math.max(0, Math.floor(attacker.attrs?.numericStats?.extraArea ?? 0)),
+    });
+}
+
+function resolveSkillTargetLimit(skill) {
+    const configuredMaxTargets = skill.targeting?.maxTargets;
+    if (!Number.isFinite(configuredMaxTargets) || (configuredMaxTargets ?? 0) <= 0) {
+        return 99;
+    }
+    return Math.max(1, Math.round(configuredMaxTargets));
+}
+
+function getResolvedSkillTargetKey(target) {
+    if (target.kind === 'monster') {
+        return `monster:${target.monsterId}`;
+    }
+    if (target.kind === 'player') {
+        return `player:${target.playerId}`;
+    }
+    return `tile:${target.x}:${target.y}`;
+}
+
 /** 玩家技能派发服务：承接 player skill dispatch 与 legacy target 解析。 */
 let WorldRuntimePlayerSkillDispatchService = class WorldRuntimePlayerSkillDispatchService {
 /**
@@ -127,19 +160,16 @@ let WorldRuntimePlayerSkillDispatchService = class WorldRuntimePlayerSkillDispat
             kind: 'player',
             target,
         }));
-        const distance = chebyshevDistance(attacker.x, attacker.y, target.x, target.y);
-        const result = this.playerCombatService.castSkill(attacker, target, skillId, currentTick, distance);
-        const effectColor = getSkillEffectColor(skill);
-        deps.pushActionLabelEffect(attacker.instanceId, attacker.x, attacker.y, skill.name);
-        deps.pushAttackEffect(attacker.instanceId, attacker.x, attacker.y, target.x, target.y, effectColor);
-        if (result.totalDamage > 0) {
-            deps.pushDamageFloatEffect(attacker.instanceId, target.x, target.y, result.totalDamage, effectColor);
+        const targets = this.collectSkillTargetsFromAnchor(attacker, skill, { x: target.x, y: target.y }, deps, {
+            kind: 'player',
+            playerId: target.playerId,
+            x: target.x,
+            y: target.y,
+        });
+        if (targets.length === 0) {
+            throw new common_1.BadRequestException('没有可命中的目标');
         }
-        this.playerRuntimeService.recordActivity(target.playerId, currentTick, { interruptCultivation: true });
-        const updatedTarget = this.playerRuntimeService.getPlayer(target.playerId);
-        if (updatedTarget && updatedTarget.hp <= 0) {
-            await deps.handlePlayerDefeat(updatedTarget.playerId, attacker.playerId);
-        }
+        await this.dispatchSkillTargets(attacker, skillId, skill, targets, deps);
     }    
     /**
  * resolveLegacySkillTargetRef：读取Legacy技能目标Ref并返回结果。
@@ -188,24 +218,19 @@ let WorldRuntimePlayerSkillDispatchService = class WorldRuntimePlayerSkillDispat
         if (!tile) {
             return null;
         }
+        const geometry = buildEffectivePlayerSkillGeometry(attacker, skill);
         const directDistance = chebyshevDistance(attacker.x, attacker.y, tile.x, tile.y);
         if (
             instance?.meta?.canDamageTile === true
             && (
-            directDistance <= resolveRuntimeSkillRange(skill)
+            directDistance <= geometry.range
             && instance.getTileCombatState(tile.x, tile.y)
             && (0, player_combat_config_helpers_1.isHostileCombatRelationResolution)((0, player_combat_config_helpers_1.resolveCombatRelation)(attacker, { kind: 'terrain' }))
             )
         ) {
             return { kind: 'tile', x: tile.x, y: tile.y };
         }
-        const affectedCells = (0, shared_1.computeAffectedCellsFromAnchor)({ x: attacker.x, y: attacker.y }, { x: tile.x, y: tile.y }, {
-            range: resolveRuntimeSkillRange(skill),
-            shape: skill.targeting?.shape,
-            radius: skill.targeting?.radius,
-            width: skill.targeting?.width,
-            height: skill.targeting?.height,
-        });
+        const affectedCells = (0, shared_1.computeAffectedCellsFromAnchor)({ x: attacker.x, y: attacker.y }, { x: tile.x, y: tile.y }, geometry);
         if (affectedCells.length === 0) {
             return null;
         }
@@ -248,6 +273,170 @@ let WorldRuntimePlayerSkillDispatchService = class WorldRuntimePlayerSkillDispat
             }
         }
         return null;
+    }
+
+    collectSkillTargetsFromAnchor(attacker, skill, anchor, deps, primaryTarget = null) {
+        const instance = deps.getInstanceRuntimeOrThrow(attacker.instanceId);
+        const geometry = buildEffectivePlayerSkillGeometry(attacker, skill);
+        const shape = geometry.shape ?? 'single';
+        const cells = shape === 'single'
+            ? (chebyshevDistance(attacker.x, attacker.y, anchor.x, anchor.y) <= geometry.range ? [{ x: anchor.x, y: anchor.y }] : [])
+            : (0, shared_1.computeAffectedCellsFromAnchor)({ x: attacker.x, y: attacker.y }, { x: anchor.x, y: anchor.y }, geometry);
+        if (cells.length === 0) {
+            return [];
+        }
+        const maxTargets = resolveSkillTargetLimit(skill);
+        const targets = [];
+        const seen = new Set();
+        const pushTarget = (target) => {
+            if (targets.length >= maxTargets) {
+                return;
+            }
+            const key = getResolvedSkillTargetKey(target);
+            if (seen.has(key)) {
+                return;
+            }
+            seen.add(key);
+            targets.push(target);
+        };
+        if (primaryTarget) {
+            pushTarget(primaryTarget);
+        }
+        const hostileMonster = (0, player_combat_config_helpers_1.isHostileCombatRelationResolution)((0, player_combat_config_helpers_1.resolveCombatRelation)(attacker, { kind: 'monster' }));
+        const hostileTerrain = instance?.meta?.canDamageTile === true
+            && (0, player_combat_config_helpers_1.isHostileCombatRelationResolution)((0, player_combat_config_helpers_1.resolveCombatRelation)(attacker, { kind: 'terrain' }));
+        const monsters = instance.listMonsters().filter((entry) => entry.alive);
+        const players = this.playerRuntimeService.listPlayerSnapshots()
+            .filter((entry) => entry.instanceId === attacker.instanceId && entry.playerId !== attacker.playerId && entry.hp > 0);
+        for (const cell of cells) {
+            if (targets.length >= maxTargets) {
+                break;
+            }
+            if (hostileMonster) {
+                const monster = monsters.find((entry) => entry.x === cell.x && entry.y === cell.y);
+                if (monster) {
+                    pushTarget({ kind: 'monster', monsterId: monster.runtimeId, x: monster.x, y: monster.y });
+                }
+            }
+            if (instance?.meta?.supportsPvp === true) {
+                const targetPlayer = players.find((entry) => entry.x === cell.x && entry.y === cell.y);
+                if (
+                    targetPlayer
+                    && (0, player_combat_config_helpers_1.isHostileCombatRelationResolution)((0, player_combat_config_helpers_1.resolveCombatRelation)(attacker, {
+                        kind: 'player',
+                        target: targetPlayer,
+                    }))
+                ) {
+                    pushTarget({ kind: 'player', playerId: targetPlayer.playerId, x: targetPlayer.x, y: targetPlayer.y });
+                }
+            }
+            if (hostileTerrain) {
+                const tileState = instance.getTileCombatState(cell.x, cell.y);
+                if (tileState && !tileState.destroyed) {
+                    pushTarget({ kind: 'tile', x: cell.x, y: cell.y });
+                }
+            }
+        }
+        return targets;
+    }
+
+    async dispatchSkillTargets(attacker, skillId, skill, targets, deps) {
+        if (targets.length === 0) {
+            throw new common_1.BadRequestException('没有可命中的目标');
+        }
+        const instance = deps.getInstanceRuntimeOrThrow(attacker.instanceId);
+        const currentTick = deps.resolveCurrentTickForPlayerId(attacker.playerId);
+        const effectColor = getSkillEffectColor(skill);
+        deps.pushActionLabelEffect(attacker.instanceId, attacker.x, attacker.y, skill.name);
+        let castIndex = 0;
+        for (const target of targets) {
+            const options = {
+                targetCount: targets.length,
+                skipResourceAndCooldown: castIndex > 0,
+            };
+            if (target.kind === 'monster') {
+                const monster = instance.getMonster(target.monsterId);
+                if (!monster?.alive) {
+                    continue;
+                }
+                const distance = chebyshevDistance(attacker.x, attacker.y, monster.x, monster.y);
+                const result = this.playerCombatService.castSkillToMonster(attacker, {
+                    runtimeId: monster.runtimeId,
+                    monsterId: monster.monsterId,
+                    hp: monster.hp,
+                    maxHp: monster.maxHp,
+                    qi: 0,
+                    maxQi: 0,
+                    attrs: {
+                        finalAttrs: monster.attrs,
+                        numericStats: monster.numericStats,
+                        ratioDivisors: monster.ratioDivisors,
+                    },
+                    buffs: monster.buffs,
+                }, skillId, currentTick, distance, (buff) => {
+                    instance.applyTemporaryBuffToMonster(monster.runtimeId, buff);
+                }, options);
+                castIndex += 1;
+                deps.pushAttackEffect(attacker.instanceId, attacker.x, attacker.y, monster.x, monster.y, effectColor);
+                if (result.totalDamage <= 0) {
+                    continue;
+                }
+                deps.pushDamageFloatEffect(attacker.instanceId, monster.x, monster.y, result.totalDamage, effectColor);
+                const outcome = instance.applyDamageToMonster(monster.runtimeId, result.totalDamage, attacker.playerId);
+                if (outcome?.defeated) {
+                    await deps.handlePlayerMonsterKill(instance, outcome.monster, attacker.playerId);
+                }
+                continue;
+            }
+            if (target.kind === 'player') {
+                const targetPlayer = this.playerRuntimeService.getPlayer(target.playerId);
+                if (!targetPlayer || targetPlayer.instanceId !== attacker.instanceId || targetPlayer.hp <= 0) {
+                    continue;
+                }
+                const distance = chebyshevDistance(attacker.x, attacker.y, targetPlayer.x, targetPlayer.y);
+                const result = this.playerCombatService.castSkill(attacker, targetPlayer, skillId, currentTick, distance, options);
+                castIndex += 1;
+                deps.pushAttackEffect(attacker.instanceId, attacker.x, attacker.y, targetPlayer.x, targetPlayer.y, effectColor);
+                if (result.totalDamage > 0) {
+                    deps.pushDamageFloatEffect(attacker.instanceId, targetPlayer.x, targetPlayer.y, result.totalDamage, effectColor);
+                }
+                this.playerRuntimeService.recordActivity(targetPlayer.playerId, currentTick, { interruptCultivation: true });
+                const updatedTarget = this.playerRuntimeService.getPlayer(targetPlayer.playerId);
+                if (updatedTarget && updatedTarget.hp <= 0) {
+                    await deps.handlePlayerDefeat(updatedTarget.playerId, attacker.playerId);
+                }
+                continue;
+            }
+            const tileState = instance.getTileCombatState(target.x, target.y);
+            if (!tileState || tileState.destroyed) {
+                continue;
+            }
+            const distance = chebyshevDistance(attacker.x, attacker.y, target.x, target.y);
+            const result = this.playerCombatService.castSkillToMonster(attacker, {
+                runtimeId: `tile:${target.x}:${target.y}`,
+                monsterId: `tile:${tileState.tileType}`,
+                hp: tileState.hp,
+                maxHp: tileState.maxHp,
+                qi: 0,
+                maxQi: 0,
+                attrs: {
+                    finalAttrs: createTileCombatAttributes(),
+                    numericStats: createTileCombatNumericStats(tileState.maxHp),
+                    ratioDivisors: createTileCombatRatioDivisors(),
+                },
+                buffs: [],
+            }, skillId, currentTick, distance, () => undefined, options);
+            castIndex += 1;
+            deps.pushAttackEffect(attacker.instanceId, attacker.x, attacker.y, target.x, target.y, effectColor);
+            if (result.totalDamage <= 0) {
+                continue;
+            }
+            deps.pushDamageFloatEffect(attacker.instanceId, target.x, target.y, result.totalDamage, effectColor);
+            instance.damageTile(target.x, target.y, result.totalDamage);
+        }
+        if (castIndex === 0) {
+            throw new common_1.BadRequestException('没有可命中的目标');
+        }
     }    
     /**
  * dispatchCastSkillToMonster：判断Cast技能To怪物是否满足条件。
@@ -267,39 +456,20 @@ let WorldRuntimePlayerSkillDispatchService = class WorldRuntimePlayerSkillDispat
             throw new common_1.NotFoundException(`Monster ${targetMonsterId} not found`);
         }
         ensureHostileRelation((0, player_combat_config_helpers_1.resolveCombatRelation)(attacker, { kind: 'monster' }));
-        const distance = chebyshevDistance(attacker.x, attacker.y, target.x, target.y);
-        const currentTick = deps.resolveCurrentTickForPlayerId(attacker.playerId);
-        const result = this.playerCombatService.castSkillToMonster(attacker, {
-            runtimeId: target.runtimeId,
-            monsterId: target.monsterId,
-            hp: target.hp,
-            maxHp: target.maxHp,
-            qi: 0,
-            maxQi: 0,
-            attrs: {
-                finalAttrs: target.attrs,
-                numericStats: target.numericStats,
-                ratioDivisors: target.ratioDivisors,
-            },
-            buffs: target.buffs,
-        }, skillId, currentTick, distance, (buff) => {
-            instance.applyTemporaryBuffToMonster(targetMonsterId, buff);
-        });
         const skill = findPlayerSkill(attacker, skillId);
-        const effectColor = skill ? getSkillEffectColor(skill) : (0, shared_1.getDamageTrailColor)('spell');
-        if (skill) {
-            deps.pushActionLabelEffect(attacker.instanceId, attacker.x, attacker.y, skill.name);
+        if (!skill) {
+            throw new common_1.NotFoundException(`Skill ${skillId} not found`);
         }
-        deps.pushAttackEffect(attacker.instanceId, attacker.x, attacker.y, target.x, target.y, effectColor);
-        if (result.totalDamage <= 0) {
-            return;
+        const targets = this.collectSkillTargetsFromAnchor(attacker, skill, { x: target.x, y: target.y }, deps, {
+            kind: 'monster',
+            monsterId: target.runtimeId,
+            x: target.x,
+            y: target.y,
+        });
+        if (targets.length === 0) {
+            throw new common_1.BadRequestException('没有可命中的目标');
         }
-        deps.pushDamageFloatEffect(attacker.instanceId, target.x, target.y, result.totalDamage, effectColor);
-        const outcome = instance.applyDamageToMonster(targetMonsterId, result.totalDamage, attacker.playerId);
-        if (!outcome?.defeated) {
-            return;
-        }
-        await deps.handlePlayerMonsterKill(instance, outcome.monster, attacker.playerId);
+        await this.dispatchSkillTargets(attacker, skillId, skill, targets, deps);
     }    
     /**
  * dispatchCastSkillToTile：判断Cast技能ToTile是否满足条件。
@@ -311,7 +481,7 @@ let WorldRuntimePlayerSkillDispatchService = class WorldRuntimePlayerSkillDispat
  * @returns 无返回值，直接更新Cast技能ToTile相关状态。
  */
 
-    dispatchCastSkillToTile(attacker, skillId, targetX, targetY, deps) {
+    async dispatchCastSkillToTile(attacker, skillId, targetX, targetY, deps) {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
         const instance = deps.getInstanceRuntimeOrThrow(attacker.instanceId);
@@ -321,33 +491,19 @@ let WorldRuntimePlayerSkillDispatchService = class WorldRuntimePlayerSkillDispat
             throw new common_1.BadRequestException('该目标无法被攻击');
         }
         ensureHostileRelation((0, player_combat_config_helpers_1.resolveCombatRelation)(attacker, { kind: 'terrain' }));
-        const distance = chebyshevDistance(attacker.x, attacker.y, targetX, targetY);
-        const currentTick = deps.resolveCurrentTickForPlayerId(attacker.playerId);
-        const result = this.playerCombatService.castSkillToMonster(attacker, {
-            runtimeId: `tile:${targetX}:${targetY}`,
-            monsterId: `tile:${tileState.tileType}`,
-            hp: tileState.hp,
-            maxHp: tileState.maxHp,
-            qi: 0,
-            maxQi: 0,
-            attrs: {
-                finalAttrs: createTileCombatAttributes(),
-                numericStats: createTileCombatNumericStats(tileState.maxHp),
-                ratioDivisors: createTileCombatRatioDivisors(),
-            },
-            buffs: [],
-        }, skillId, currentTick, distance, () => undefined);
         const skill = findPlayerSkill(attacker, skillId);
-        const effectColor = skill ? getSkillEffectColor(skill) : (0, shared_1.getDamageTrailColor)('spell');
-        if (skill) {
-            deps.pushActionLabelEffect(attacker.instanceId, attacker.x, attacker.y, skill.name);
+        if (!skill) {
+            throw new common_1.NotFoundException(`Skill ${skillId} not found`);
         }
-        deps.pushAttackEffect(attacker.instanceId, attacker.x, attacker.y, targetX, targetY, effectColor);
-        if (result.totalDamage <= 0) {
-            return;
+        const targets = this.collectSkillTargetsFromAnchor(attacker, skill, { x: targetX, y: targetY }, deps, {
+            kind: 'tile',
+            x: targetX,
+            y: targetY,
+        });
+        if (targets.length === 0) {
+            throw new common_1.BadRequestException('没有可命中的目标');
         }
-        deps.pushDamageFloatEffect(attacker.instanceId, targetX, targetY, result.totalDamage, effectColor);
-        instance.damageTile(targetX, targetY, result.totalDamage);
+        await this.dispatchSkillTargets(attacker, skillId, skill, targets, deps);
     }
 };
 exports.WorldRuntimePlayerSkillDispatchService = WorldRuntimePlayerSkillDispatchService;

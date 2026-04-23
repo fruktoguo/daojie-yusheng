@@ -20,6 +20,7 @@ const common_1 = require("@nestjs/common");
 const shared_1 = require("@mud/shared");
 
 const os = require("os");
+const v8 = require("v8");
 
 const next_gm_contract_1 = require("../../http/native/native-gm-contract");
 
@@ -38,6 +39,10 @@ const EMPTY_CPU_BREAKDOWN = [];
 const EMPTY_NETWORK_BUCKETS = [];
 
 const EMPTY_PATHFINDING_FAILURES = [];
+const EMPTY_MEMORY_ESTIMATE_DOMAINS = [];
+const EMPTY_MEMORY_ESTIMATE_INSTANCES = [];
+const MEMORY_ESTIMATE_CACHE_TTL_MS = 5000;
+const MEMORY_ESTIMATE_TOP_INSTANCE_LIMIT = 8;
 const WORLD_DELTA_ENTITY_KEYS = Object.freeze(['p', 'm', 'n', 'o', 'g', 'c']);
 const CPU_BREAKDOWN_LABELS = Object.freeze({
     pendingCommandsMs: '待处理命令',
@@ -67,6 +72,14 @@ let RuntimeGmStateService = class RuntimeGmStateService {
     networkInBucketByKey = new Map();
     /** 网络下行事件累计桶。 */
     networkOutBucketByKey = new Map();
+    /** 最近一次 CPU 百分比采样的进程用时基线。 */
+    lastCpuUsage = process.cpuUsage();
+    /** 最近一次 CPU 百分比采样的单调时钟基线。 */
+    lastCpuTime = process.hrtime.bigint();
+    /** 最近一次运行态内存画像缓存。 */
+    lastMemoryEstimate = null;
+    /** 运行态内存画像缓存过期时间。 */
+    lastMemoryEstimateExpiresAt = 0;
     /** 缓存依赖并接入 GM 状态推送链路。 */
     constructor(mapTemplateRepository, playerRuntimeService, worldRuntimeService, worldSessionService) {
         this.mapTemplateRepository = mapTemplateRepository;
@@ -174,6 +187,149 @@ let RuntimeGmStateService = class RuntimeGmStateService {
         this.networkInBucketByKey.clear();
         this.networkOutBucketByKey.clear();
     }
+    /** 重置 CPU 百分比采样基线，供 GM 面板重新起算。 */
+    resetCpuPerfCounters() {
+        this.lastCpuUsage = process.cpuUsage();
+        this.lastCpuTime = process.hrtime.bigint();
+    }
+    /** 构建运行态内存估算画像，供 GM 面板定位主要占用来源。 */
+    buildMemoryEstimate(summary, rssBytes) {
+
+        const now = Date.now();
+        if (this.lastMemoryEstimate && now < this.lastMemoryEstimateExpiresAt) {
+            return this.lastMemoryEstimate;
+        }
+
+        const runtimePlayers = this.playerRuntimeService?.players instanceof Map
+            ? this.playerRuntimeService.players
+            : null;
+        const pendingCombatEffectsByPlayerId = this.playerRuntimeService?.pendingCombatEffectsByPlayerId instanceof Map
+            ? this.playerRuntimeService.pendingCombatEffectsByPlayerId
+            : null;
+        const playerLocations = this.worldRuntimeService?.worldRuntimePlayerLocationService?.playerLocations instanceof Map
+            ? this.worldRuntimeService.worldRuntimePlayerLocationService.playerLocations
+            : null;
+        const sessionBindingsByPlayerId = this.worldSessionService?.bindingByPlayerId instanceof Map
+            ? this.worldSessionService.bindingByPlayerId
+            : null;
+        const sessionBindingsBySessionId = this.worldSessionService?.bindingBySessionId instanceof Map
+            ? this.worldSessionService.bindingBySessionId
+            : null;
+        const sessionBindingsBySocketId = this.worldSessionService?.bindingBySocketId instanceof Map
+            ? this.worldSessionService.bindingBySocketId
+            : null;
+        const expiredBindings = this.worldSessionService?.expiredBindings instanceof Map
+            ? this.worldSessionService.expiredBindings
+            : null;
+        const purgedPlayerIds = this.worldSessionService?.purgedPlayerIds instanceof Set
+            ? this.worldSessionService.purgedPlayerIds
+            : null;
+        const instances = Array.from(this.worldRuntimeService?.listInstanceRuntimes?.() ?? []);
+
+        const domains = [];
+        const topInstances = [];
+        let instancePlayerBytes = 0;
+        let instanceMonsterBytes = 0;
+        let instanceTerrainBytes = 0;
+        let instanceObjectBytes = 0;
+        let totalPlayerCount = normalizeNonNegativeCount(runtimePlayers?.size);
+        let monsterCount = 0;
+
+        for (const instance of instances) {
+            const instanceId = typeof instance?.meta?.instanceId === 'string'
+                ? instance.meta.instanceId.trim()
+                : typeof instance?.snapshot === 'function'
+                    ? (instance.snapshot()?.instanceId ?? '').trim()
+                    : '';
+            if (!instanceId) {
+                continue;
+            }
+            const playerBytes = estimateSerializedBytes(instance?.playersById) + estimateSerializedBytes(instance?.playersByHandle);
+            const monsterBytes = estimateSerializedBytes(instance?.monstersByRuntimeId) + estimateSerializedBytes(instance?.monsterRuntimeIdByTile);
+            const terrainBytes = estimateSerializedBytes(instance?.occupancy)
+                + estimateSerializedBytes(instance?.auraByTile)
+                + estimateSerializedBytes(instance?.tileResourceBuckets)
+                + estimateSerializedBytes(instance?.baseTileResourceBuckets)
+                + estimateSerializedBytes(instance?.tileDamageByTile)
+                + estimateSerializedBytes(instance?.changedTileResourceEntryCountByKey);
+            const objectBytes = estimateSerializedBytes(instance?.npcsById)
+                + estimateSerializedBytes(instance?.npcIdByTile)
+                + estimateSerializedBytes(instance?.landmarksById)
+                + estimateSerializedBytes(instance?.landmarkIdByTile)
+                + estimateSerializedBytes(instance?.containersById)
+                + estimateSerializedBytes(instance?.containerIdByTile)
+                + estimateSerializedBytes(instance?.groundPilesByTile)
+                + estimateSerializedBytes(instance?.pendingCommands)
+                + estimateSerializedBytes(instance?.freeHandles);
+            instancePlayerBytes += playerBytes;
+            instanceMonsterBytes += monsterBytes;
+            instanceTerrainBytes += terrainBytes;
+            instanceObjectBytes += objectBytes;
+            const playerCount = normalizeNonNegativeCount(instance?.playersById?.size ?? instance?.playerCount);
+            const currentMonsterCount = normalizeNonNegativeCount(instance?.monstersByRuntimeId?.size ?? instance?.monsterCount);
+            monsterCount += currentMonsterCount;
+            topInstances.push({
+                instanceId,
+                label: buildMemoryEstimateInstanceLabel(typeof instance?.snapshot === 'function' ? instance.snapshot() : instance?.meta ?? instance),
+                bytes: playerBytes + monsterBytes + terrainBytes + objectBytes,
+                playerBytes,
+                monsterBytes,
+                instanceBytes: terrainBytes + objectBytes,
+                playerCount,
+                monsterCount: currentMonsterCount,
+            });
+        }
+
+        domains.push(buildMemoryDomainEstimate('player_runtime', '玩家运行态主存储', estimateSerializedBytes(runtimePlayers), totalPlayerCount));
+        domains.push(buildMemoryDomainEstimate('player_effects', '玩家待发战斗效果队列', estimateSerializedBytes(pendingCombatEffectsByPlayerId), normalizeNonNegativeCount(pendingCombatEffectsByPlayerId?.size)));
+        domains.push(buildMemoryDomainEstimate('player_locations', '玩家位置索引', estimateSerializedBytes(playerLocations), normalizeNonNegativeCount(playerLocations?.size)));
+        domains.push(buildMemoryDomainEstimate('session_bindings', '会话绑定索引', estimateSerializedBytes(sessionBindingsByPlayerId)
+            + estimateSerializedBytes(sessionBindingsBySessionId)
+            + estimateSerializedBytes(sessionBindingsBySocketId)
+            + estimateSerializedBytes(expiredBindings)
+            + estimateSerializedBytes(purgedPlayerIds), normalizeNonNegativeCount(sessionBindingsByPlayerId?.size)));
+        domains.push(buildMemoryDomainEstimate('instance_players', '实例内玩家索引', instancePlayerBytes, totalPlayerCount));
+        domains.push(buildMemoryDomainEstimate('instance_monsters', '实例内怪物运行态与占位索引', instanceMonsterBytes, monsterCount));
+        domains.push(buildMemoryDomainEstimate('instance_terrain', '实例地块占位与资源桶', instanceTerrainBytes, instances.length));
+        domains.push(buildMemoryDomainEstimate('instance_objects', '实例容器、掉落与命令队列', instanceObjectBytes, instances.length));
+
+        const coveredBytes = domains.reduce((sum, entry) => sum + entry.bytes, 0);
+        const uncoveredBytes = Math.max(0, rssBytes - coveredBytes);
+        domains.push(buildMemoryDomainEstimate('uncovered', '未归类常驻差额', uncoveredBytes, 0));
+        domains.sort((left, right) => {
+            if (right.bytes !== left.bytes) {
+                return right.bytes - left.bytes;
+            }
+            return left.label.localeCompare(right.label, 'zh-Hans-CN');
+        });
+
+        topInstances.sort((left, right) => {
+            if (right.bytes !== left.bytes) {
+                return right.bytes - left.bytes;
+            }
+            if (right.monsterBytes !== left.monsterBytes) {
+                return right.monsterBytes - left.monsterBytes;
+            }
+            return left.label.localeCompare(right.label, 'zh-Hans-CN');
+        });
+
+        const nextEstimate = {
+            mode: 'snapshot_estimate',
+            generatedAt: now,
+            cacheTtlMs: MEMORY_ESTIMATE_CACHE_TTL_MS,
+            rssBytes: roundMetric(rssBytes),
+            coveredBytes: roundMetric(coveredBytes),
+            uncoveredBytes: roundMetric(uncoveredBytes),
+            coveragePercent: rssBytes > 0 ? roundMetric((coveredBytes / rssBytes) * 100) : 0,
+            domains: domains.length > 0 ? domains : EMPTY_MEMORY_ESTIMATE_DOMAINS,
+            topInstances: topInstances.length > 0
+                ? topInstances.slice(0, MEMORY_ESTIMATE_TOP_INSTANCE_LIMIT)
+                : EMPTY_MEMORY_ESTIMATE_INSTANCES,
+        };
+        this.lastMemoryEstimate = nextEstimate;
+        this.lastMemoryEstimateExpiresAt = now + MEMORY_ESTIMATE_CACHE_TTL_MS;
+        return nextEstimate;
+    }
     /** 汇总在线玩家、地图列表和性能数据，生成 GM 面板快照。 */
     buildState() {
 
@@ -231,10 +387,15 @@ let RuntimeGmStateService = class RuntimeGmStateService {
         const loadAvg = os.loadavg();
 
         const memoryUsage = process.memoryUsage();
+        const rssBytes = Number(memoryUsage.rss ?? 0);
 
         const resourceUsage = process.resourceUsage();
 
         const processUptimeSec = process.uptime();
+        const cpuNow = process.hrtime.bigint();
+        const cpuUsage = process.cpuUsage(this.lastCpuUsage);
+        const elapsedMicros = Number(cpuNow - this.lastCpuTime) / 1000;
+        const cpuMicros = cpuUsage.user + cpuUsage.system;
 
         const now = Date.now();
 
@@ -244,14 +405,18 @@ let RuntimeGmStateService = class RuntimeGmStateService {
         const networkInBytes = sumBucketBytes(networkInBuckets);
         const networkOutBytes = sumBucketBytes(networkOutBuckets);
         const cpuBreakdown = buildCpuBreakdown(summary);
-        const cpuPercent = cpuBreakdown.length > 0
-            ? roundMetric(Math.max(0, Math.min(100, cpuBreakdown.reduce((sum, entry) => sum + entry.percent, 0))))
+        const memoryEstimate = this.buildMemoryEstimate(summary, rssBytes);
+        const cpuPercent = elapsedMicros > 0
+            ? roundMetric(Math.max(0, Math.min(100, (cpuMicros / elapsedMicros) * 100)))
             : 0;
+
+        this.lastCpuUsage = process.cpuUsage();
+        this.lastCpuTime = cpuNow;
 
         const tickAvgMs = summary.tickPerf?.totalMs?.avg60 ?? summary.lastTickDurationMs;
         return {
             cpuPercent,
-            memoryMb: bytesToMb(memoryUsage.rss),
+            memoryMb: bytesToMb(rssBytes),
             tickMs: summary.lastTickDurationMs,
             tick: {
                 lastMapId: null,
@@ -279,6 +444,7 @@ let RuntimeGmStateService = class RuntimeGmStateService {
                 profileElapsedSec: roundMetric(processUptimeSec),
                 breakdown: cpuBreakdown.length > 0 ? cpuBreakdown : EMPTY_CPU_BREAKDOWN,
             },
+            memoryEstimate,
             pathfinding: {
                 statsStartedAt: now,
                 statsElapsedSec: 0,
@@ -372,6 +538,55 @@ function roundMetric(value) {
 
 function bytesToMb(value) {
     return roundMetric(value / (1024 * 1024));
+}
+
+function normalizeNonNegativeCount(value) {
+    const normalized = Number(value);
+    if (!Number.isFinite(normalized) || normalized <= 0) {
+        return 0;
+    }
+    return Math.max(0, Math.trunc(normalized));
+}
+
+function buildMemoryDomainEstimate(key, label, bytes, count) {
+    const normalizedBytes = roundMetric(Math.max(0, Number(bytes) || 0));
+    const normalizedCount = normalizeNonNegativeCount(count);
+    return {
+        key,
+        label,
+        bytes: normalizedBytes,
+        count: normalizedCount,
+        avgBytes: normalizedCount > 0 ? roundMetric(normalizedBytes / normalizedCount) : 0,
+    };
+}
+
+function buildMemoryEstimateInstanceLabel(instance) {
+    const displayName = typeof instance?.displayName === 'string' && instance.displayName.trim()
+        ? instance.displayName.trim()
+        : typeof instance?.templateName === 'string' && instance.templateName.trim()
+            ? instance.templateName.trim()
+            : typeof instance?.instanceId === 'string' && instance.instanceId.trim()
+                ? instance.instanceId.trim()
+                : '未知实例';
+    const instanceId = typeof instance?.instanceId === 'string' ? instance.instanceId.trim() : '';
+    return instanceId && instanceId !== displayName ? `${displayName} · ${instanceId}` : displayName;
+}
+
+function estimateSerializedBytes(value) {
+    if (value == null) {
+        return 0;
+    }
+    try {
+        return roundMetric(v8.serialize(value).byteLength);
+    }
+    catch (_error) {
+        try {
+            return roundMetric(Buffer.byteLength(JSON.stringify(value), 'utf8'));
+        }
+        catch (_jsonError) {
+            return 0;
+        }
+    }
 }
 
 function buildSortedNetworkBuckets(bucketByKey) {

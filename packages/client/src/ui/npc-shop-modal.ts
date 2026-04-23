@@ -2,8 +2,11 @@ import { Inventory, ItemStack, PlayerState } from '@mud/shared';
 import { buildItemTooltipPayload, describeItemEffectDetails } from './equipment-tooltip';
 import { FloatingTooltip, prefersPinnedTooltipInteraction } from './floating-tooltip';
 import { getItemTypeLabel } from '../domain-labels';
+import { getPlayerOwnedItemCount } from '../utils/player-wallet';
 import { formatDisplayCountBadge, formatDisplayInteger } from '../utils/number';
 import { detailModalHost } from './detail-modal-host';
+import { confirmModalHost } from './confirm-modal-host';
+import { resolveTechniqueIdFromBookItemId } from '../content/local-templates';
 
 /** escapeHtml：转义 HTML 文本中的危险字符。 */
 function escapeHtml(value: string): string {
@@ -168,10 +171,14 @@ interface NpcShopRenderState {
 export class NpcShopModal {
   /** MODAL_OWNER：弹窗OWNER。 */
   private static readonly MODAL_OWNER = 'npc-shop-modal';
+  /** CONFIRM_MODAL_OWNER：购买确认弹层OWNER。 */
+  private static readonly CONFIRM_MODAL_OWNER = 'npc-shop-buy-confirm';
   /** callbacks：callbacks。 */
   private callbacks: NpcShopModalCallbacks | null = null;
   /** inventory：背包。 */
   private inventory: Inventory = { items: [], capacity: 0 };
+  /** player：玩家上下文。 */
+  private player: PlayerState | null = null;
   /** activeNpcId：活跃NPC ID。 */
   private activeNpcId: string | null = null;
   /** loading：loading。 */
@@ -186,6 +193,8 @@ export class NpcShopModal {
   private tooltip = new FloatingTooltip('floating-tooltip market-item-tooltip');
   /** tooltipNode：提示节点。 */
   private tooltipNode: HTMLElement | null = null;
+  /** buyConfirmState：待确认购买请求。 */
+  private buyConfirmState: { npcId: string; itemId: string; quantity: number } | null = null;
   /** delegatedEventsBound：delegated事件Bound。 */
   private delegatedEventsBound = false;
 
@@ -196,7 +205,16 @@ export class NpcShopModal {
 
   /** initFromPlayer：初始化From玩家。 */
   initFromPlayer(player: PlayerState): void {
+    this.player = player;
     this.inventory = player.inventory;
+  }
+
+  /** syncPlayerContext：同步玩家上下文。 */
+  syncPlayerContext(player?: PlayerState): void {
+    this.player = player ?? null;
+    if (detailModalHost.isOpenFor(NpcShopModal.MODAL_OWNER)) {
+      this.render();
+    }
   }
 
   /** syncInventory：同步背包。 */
@@ -252,6 +270,7 @@ export class NpcShopModal {
 
   /** clear：清理clear。 */
   clear(): void {
+    this.player = null;
     this.inventory = { items: [], capacity: 0 };
     this.activeNpcId = null;
     this.loading = false;
@@ -259,7 +278,9 @@ export class NpcShopModal {
     this.selectedItemId = null;
     this.quantityDrafts.clear();
     this.tooltipNode = null;
+    this.buyConfirmState = null;
     this.tooltip.hide(true);
+    confirmModalHost.close(NpcShopModal.CONFIRM_MODAL_OWNER);
     detailModalHost.close(NpcShopModal.MODAL_OWNER);
   }
 
@@ -291,7 +312,9 @@ export class NpcShopModal {
         this.activeNpcId = null;
         this.loading = false;
         this.tooltipNode = null;
+        this.buyConfirmState = null;
         this.tooltip.hide(true);
+        confirmModalHost.close(NpcShopModal.CONFIRM_MODAL_OWNER);
       },
       onAfterRender: (body) => {
         this.bindEvents(body);
@@ -405,6 +428,11 @@ export class NpcShopModal {
 
     name.append(nameText, owned);
 
+    const ribbon = document.createElement('span');
+    ribbon.className = 'market-item-cell-ribbon';
+    ribbon.setAttribute('aria-hidden', 'true');
+    ribbon.dataset.npcShopStatusRibbon = 'true';
+
     const prices = document.createElement('div');
     prices.className = 'market-item-cell-prices';
 
@@ -415,7 +443,7 @@ export class NpcShopModal {
     stock.dataset.npcShopStock = 'true';
 
     prices.append(price, stock);
-    button.append(name, prices);
+    button.append(ribbon, name, prices);
     return button;
   }
 
@@ -426,13 +454,15 @@ export class NpcShopModal {
     const nameWrap = button.querySelector<HTMLElement>('[data-npc-shop-item-name-wrap="true"]');
     const nameText = button.querySelector<HTMLElement>('[data-npc-shop-item-tooltip]');
     const ownedNode = button.querySelector<HTMLElement>('[data-npc-shop-owned="true"]');
+    const ribbonNode = button.querySelector<HTMLElement>('[data-npc-shop-status-ribbon="true"]');
     const priceNode = button.querySelector<HTMLElement>('[data-npc-shop-price="true"]');
     const stockNode = button.querySelector<HTMLElement>('[data-npc-shop-stock="true"]');
-    if (!nameWrap || !nameText || !ownedNode || !priceNode || !stockNode) {
+    if (!nameWrap || !nameText || !ownedNode || !ribbonNode || !priceNode || !stockNode) {
       return false;
     }
 
     const ownedCount = this.findInventoryItemCount(item.itemId);
+    const status = this.getItemStatusState(item.item);
     const stockLabel = item.remainingQuantity === undefined
       ? getItemTypeLabel(item.item.type)
       : item.remainingQuantity > 0
@@ -441,14 +471,39 @@ export class NpcShopModal {
 
     button.dataset.npcShopSelectItem = item.itemId;
     button.classList.toggle('active', active);
+    button.classList.toggle('market-item-cell--status', status !== null);
+    button.classList.toggle('market-item-cell--status-learned', status?.kind === 'learned');
+    button.classList.toggle('market-item-cell--status-unlocked', status?.kind === 'unlocked');
     nameWrap.title = item.item.name;
     nameText.textContent = item.item.name;
     nameText.dataset.npcShopItemTooltip = item.itemId;
     ownedNode.textContent = ownedCount > 0 ? formatDisplayCountBadge(ownedCount) : '';
     ownedNode.classList.toggle('hidden', ownedCount <= 0);
+    ribbonNode.innerHTML = status ? `<span>${escapeHtml(status.label)}</span>` : '';
+    ribbonNode.classList.toggle('hidden', status === null);
     priceNode.textContent = `售价 ${formatDisplayInteger(item.unitPrice)}`;
     stockNode.textContent = stockLabel;
     return true;
+  }
+
+  /** getItemStatusState：读取已学/已阅状态。 */
+  private getItemStatusState(item: ItemStack): { label: string; kind: 'learned' | 'unlocked' } | null {
+    if (item.type === 'skill_book') {
+      const techniqueId = resolveTechniqueIdFromBookItemId(item.itemId);
+      if (techniqueId && this.player?.techniques.some((technique) => technique.techId === techniqueId)) {
+        return { label: '已学', kind: 'learned' };
+      }
+    }
+    const mapIds = item.mapUnlockIds && item.mapUnlockIds.length > 0
+      ? item.mapUnlockIds
+      : item.mapUnlockId
+        ? [item.mapUnlockId]
+        : [];
+    const unlockedMinimapIds = new Set(this.player?.unlockedMinimapIds ?? []);
+    if (mapIds.length > 0 && mapIds.every((mapId) => unlockedMinimapIds.has(mapId))) {
+      return { label: '已阅', kind: 'unlocked' };
+    }
+    return null;
   }
 
   /** syncToolbarMeta：同步列表顶部摘要。 */
@@ -694,7 +749,42 @@ export class NpcShopModal {
     if (!npcId || !itemId || quantity === null) {
       return;
     }
-    this.callbacks?.onBuyItem(npcId, itemId, quantity);
+    this.openBuyConfirm(npcId, itemId, quantity);
+  }
+
+  /** openBuyConfirm：打开购买二次确认。 */
+  private openBuyConfirm(npcId: string, itemId: string, quantity: number): void {
+    const shop = this.shopState?.shop ?? null;
+    const entry = shop?.items.find((item) => item.itemId === itemId) ?? null;
+    if (!shop || !entry) {
+      return;
+    }
+    const totalCost = quantity * entry.unitPrice;
+    this.buyConfirmState = { npcId, itemId, quantity };
+    confirmModalHost.open({
+      ownerId: NpcShopModal.CONFIRM_MODAL_OWNER,
+      title: '确认购买',
+      subtitle: shop.npcName,
+      bodyHtml: `
+        <div class="confirm-modal-line"><span>物品</span><strong>${escapeHtml(entry.item.name)}</strong></div>
+        <div class="confirm-modal-line"><span>数量</span><strong>${formatDisplayInteger(quantity)}</strong></div>
+        <div class="confirm-modal-line"><span>单价</span><strong>${formatDisplayInteger(entry.unitPrice)} ${escapeHtml(shop.currencyItemName)}</strong></div>
+        <div class="confirm-modal-line"><span>总额</span><strong>${formatDisplayInteger(totalCost)} ${escapeHtml(shop.currencyItemName)}</strong></div>
+      `,
+      confirmLabel: '确认购买',
+      confirmButtonClass: 'danger',
+      onConfirm: () => {
+        const latest = this.buyConfirmState;
+        this.buyConfirmState = null;
+        if (!latest) {
+          return;
+        }
+        this.callbacks?.onBuyItem(latest.npcId, latest.itemId, latest.quantity);
+      },
+      onClose: () => {
+        this.buyConfirmState = null;
+      },
+    });
   }
 
   /** handleBodyInput：处理身体输入。 */
@@ -932,11 +1022,6 @@ export class NpcShopModal {
   private findInventoryItemCount(itemId: string): number {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
-    if (!itemId) {
-      return 0;
-    }
-    return this.inventory.items
-      .filter((item) => item.itemId === itemId)
-      .reduce((total, item) => total + item.count, 0);
+    return getPlayerOwnedItemCount(this.player, this.inventory, itemId);
   }
 }

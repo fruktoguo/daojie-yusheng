@@ -162,6 +162,7 @@ export interface LootWindowSourceView {
   herb?: {
     grade?: TechniqueGrade;
     level?: number;
+    nativeGatherTicks?: number;
     gatherTicks?: number;
   };
   /**

@@ -24,10 +24,13 @@ const persistent_document_table_1 = require("./persistent-document-table");
 const env_alias_1 = require("../config/env-alias");
 
 const MARKET_ORDER_SCOPE = 'server_market_orders_v1';
+const LEGACY_MARKET_ORDER_SCOPE = 'server_next_market_orders_v1';
 
 const MARKET_TRADE_SCOPE = 'server_market_trade_history_v1';
+const LEGACY_MARKET_TRADE_SCOPE = 'server_next_market_trade_history_v1';
 
 const MARKET_STORAGE_SCOPE = 'server_market_storage_v1';
+const LEGACY_MARKET_STORAGE_SCOPE = 'server_next_market_storage_v1';
 
 const PLAYER_MARKET_STORAGE_ITEM_TABLE = 'player_market_storage_item';
 const PLAYER_RECOVERY_WATERMARK_TABLE = 'player_recovery_watermark';
@@ -38,17 +41,17 @@ let MarketPersistenceService = MarketPersistenceService_1 = class MarketPersiste
  * logger：日志器引用。
  */
 
-    logger = new common_1.Logger(MarketPersistenceService_1.name);    
+    logger = new common_1.Logger(MarketPersistenceService_1.name);
     /**
  * pool：缓存或索引容器。
  */
 
-    pool = null;    
+    pool = null;
     /**
  * enabled：启用开关或状态标识。
  */
 
-    enabled = false;    
+    enabled = false;
     /**
  * onModuleInit：执行on模块Init相关逻辑。
  * @returns 无返回值，直接更新on模块Init相关状态。
@@ -94,7 +97,7 @@ let MarketPersistenceService = MarketPersistenceService_1 = class MarketPersiste
     /** 加载活跃订单列表，按创建时间+ID排序。 */
     async loadOpenOrders() {
 
-        const rows = await this.loadScopeRows(MARKET_ORDER_SCOPE);
+        const rows = await this.loadCompatScopeRows([MARKET_ORDER_SCOPE, LEGACY_MARKET_ORDER_SCOPE]);
         return rows
             .map((row) => normalizeMarketOrder(row.payload))
             .filter((entry) => Boolean(entry))
@@ -107,7 +110,7 @@ let MarketPersistenceService = MarketPersistenceService_1 = class MarketPersiste
 
     async loadTradeHistory() {
 
-        const rows = await this.loadScopeRows(MARKET_TRADE_SCOPE);
+        const rows = await this.loadCompatScopeRows([MARKET_TRADE_SCOPE, LEGACY_MARKET_TRADE_SCOPE]);
         return rows
             .map((row) => normalizeTradeRecord(row.payload))
             .filter((entry) => Boolean(entry))
@@ -124,7 +127,7 @@ let MarketPersistenceService = MarketPersistenceService_1 = class MarketPersiste
             return structuredStorages;
         }
 
-        const rows = await this.loadScopeRows(MARKET_STORAGE_SCOPE);
+        const rows = await this.loadCompatScopeRows([MARKET_STORAGE_SCOPE, LEGACY_MARKET_STORAGE_SCOPE]);
         return rows
             .map((row) => ({
             playerId: row.key,
@@ -173,7 +176,33 @@ let MarketPersistenceService = MarketPersistenceService_1 = class MarketPersiste
 
         const result = await this.pool.query('SELECT key, payload FROM persistent_documents WHERE scope = $1', [scope]);
         return result.rows;
-    }    
+    }
+    /**
+ * loadCompatScopeRows：按 scope 优先级回读兼容持久化文档，并按 key 去重。
+ * @param scopes 参数说明。
+ * @returns 无返回值，完成兼容Scope文档的读取/组装。
+ */
+
+    async loadCompatScopeRows(scopes) {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
+        const merged = new Map();
+        for (const scope of Array.isArray(scopes) ? scopes : []) {
+            const normalizedScope = typeof scope === 'string' ? scope.trim() : '';
+            if (!normalizedScope) {
+                continue;
+            }
+            const rows = await this.loadScopeRows(normalizedScope);
+            for (const row of rows) {
+                const key = typeof row?.key === 'string' ? row.key : '';
+                if (!key || merged.has(key)) {
+                    continue;
+                }
+                merged.set(key, row);
+            }
+        }
+        return Array.from(merged.values());
+    }
     /**
  * loadStructuredStorages：读取结构化Storage并返回结果。
  * @returns 无返回值，完成结构化Storage的读取/组装。
@@ -243,7 +272,7 @@ let MarketPersistenceService = MarketPersistenceService_1 = class MarketPersiste
         if (deletions.length > 0) {
             await client.query('DELETE FROM persistent_documents WHERE scope = $1 AND key = ANY($2::varchar[])', [MARKET_ORDER_SCOPE, deletions]);
         }
-    }    
+    }
     /**
  * persistStorages：判断persistStorage是否满足条件。
  * @param client 参数说明。
@@ -268,7 +297,7 @@ let MarketPersistenceService = MarketPersistenceService_1 = class MarketPersiste
         if (deletions.length > 0) {
             await client.query('DELETE FROM persistent_documents WHERE scope = $1 AND key = ANY($2::varchar[])', [MARKET_STORAGE_SCOPE, deletions]);
         }
-    }    
+    }
     /**
  * persistStructuredStorages：判断persistStructuredStorage是否满足条件。
  * @param client 参数说明。
@@ -356,7 +385,7 @@ let MarketPersistenceService = MarketPersistenceService_1 = class MarketPersiste
           DO UPDATE SET payload = EXCLUDED.payload, "updatedAt" = now()
         `, [MARKET_TRADE_SCOPE, trade.id, JSON.stringify(trade)]);
         }
-    }    
+    }
     /**
  * safeClosePool：执行safeClosePool相关逻辑。
  * @returns 无返回值，直接更新safeClosePool相关状态。

@@ -146,6 +146,16 @@ export function createMainConnectionStateSource(options: MainConnectionStateSour
         options.showLogin('登录已失效，请重新登录');
         return;
       }
+      if (data.code === 'SESSION_EXPIRED') {
+        const restored = await options.restoreSession();
+        if (restored) {
+          options.showToast('会话已恢复，正在重连...');
+          return;
+        }
+        options.resetGameState();
+        options.showLogin('会话已失效，请重新登录');
+        return;
+      }
       options.showToast(data.message);
     },    
     /**

@@ -101,7 +101,7 @@ type MainPanelDeltaStateSourceOptions = {
  * syncEquipment：装备相关字段。
  */
 
-    syncEquipment: () => void;
+    syncEquipment: (equipment?: PlayerState['equipment']) => void;
   };  
   /**
  * inventoryStateSource：背包状态来源相关字段。
@@ -456,7 +456,7 @@ export function createMainPanelDeltaStateSource(options: MainPanelDeltaStateSour
       numericStats: mergeNumericStatsPatch((previous?.numericStats as NumericStats | undefined) ?? player?.numericStats, patch.numericStats),
       ratioDivisors: mergeRatioDivisorsPatch((previous?.ratioDivisors as NumericRatioDivisors | undefined) ?? player?.ratioDivisors, patch.ratioDivisors),
       maxHp: patch.maxHp ?? previous?.maxHp ?? player?.maxHp ?? 0,
-      qi: patch.qi ?? previous?.qi ?? player?.qi ?? 0,
+      qi: patch.qi,
       specialStats: {
         foundation: patch.specialStats?.foundation
           ?? previous?.specialStats?.foundation
@@ -954,7 +954,9 @@ export function createMainPanelDeltaStateSource(options: MainPanelDeltaStateSour
         player.numericStats = (latestAttrUpdate.numericStats as NumericStats | undefined) ?? player.numericStats;
         player.ratioDivisors = (latestAttrUpdate.ratioDivisors as NumericRatioDivisors | undefined) ?? player.ratioDivisors;
         player.maxHp = latestAttrUpdate.maxHp ?? player.maxHp;
-        player.qi = latestAttrUpdate.qi ?? player.qi;
+        if (typeof data.qi === 'number') {
+          player.qi = data.qi;
+        }
         player.foundation = latestAttrUpdate.specialStats?.foundation ?? player.foundation;
         player.combatExp = latestAttrUpdate.specialStats?.combatExp ?? player.combatExp;
         player.boneAgeBaseYears = latestAttrUpdate.boneAgeBaseYears ?? player.boneAgeBaseYears;
@@ -1019,7 +1021,7 @@ export function createMainPanelDeltaStateSource(options: MainPanelDeltaStateSour
         options.inventoryStateSource.syncPlayerContext(player);
       }
       options.equipmentPanel.update(mergedEquipment);
-      options.craftWorkbenchModal.syncEquipment();
+      options.craftWorkbenchModal.syncEquipment(mergedEquipment);
       options.syncEquipmentBridgeState(mergedEquipment);
       options.syncPlayerBridgeState(player);
     },    

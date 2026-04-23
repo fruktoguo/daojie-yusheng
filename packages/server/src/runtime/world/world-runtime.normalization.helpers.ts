@@ -176,7 +176,7 @@ function parseContainerSourceId(sourceId) {
 
     const prefixLength = 'container:'.length;
 
-    const splitIndex = sourceId.indexOf(':', prefixLength);
+    const splitIndex = sourceId.lastIndexOf(':');
     if (splitIndex < 0) {
         return null;
     }
@@ -705,10 +705,7 @@ function resolveAutoBattleSkillQiCost(baseCost, maxQiOutputPerTick) {
     }
 
     const outputCap = Number.isFinite(maxQiOutputPerTick) ? Math.max(0, Math.round(maxQiOutputPerTick)) : 0;
-    if (outputCap <= 0) {
-        return normalizedBaseCost;
-    }
-    return Math.min(normalizedBaseCost, outputCap);
+    return Math.round((0, shared_1.calcQiCostWithOutputLimit)(normalizedBaseCost, outputCap));
 }
 exports.normalizeRuntimeActionId = normalizeRuntimeActionId;
 exports.buildPublicInstanceId = buildPublicInstanceId;

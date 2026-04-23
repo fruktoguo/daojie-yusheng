@@ -10,52 +10,52 @@ type PendingTargetedAction = {
  * actionId：actionID标识。
  */
 
-  actionId: string;  
+  actionId: string;
   /**
  * actionName：action名称名称或显示文本。
  */
 
-  actionName: string;  
+  actionName: string;
   /**
  * targetMode：目标Mode相关字段。
  */
 
-  targetMode?: string;  
+  targetMode?: string;
   /**
  * range：范围相关字段。
  */
 
-  range: number;  
+  range: number;
   /**
  * shape：shape相关字段。
  */
 
-  shape?: TargetingShape;  
+  shape?: TargetingShape;
   /**
  * radius：radiu相关字段。
  */
 
-  radius?: number;  
+  radius?: number;
   /**
  * width：width相关字段。
  */
 
-  width?: number;  
+  width?: number;
   /**
  * height：height相关字段。
  */
 
-  height?: number;  
+  height?: number;
   /**
  * maxTargets：max目标相关字段。
  */
 
-  maxTargets?: number;  
+  maxTargets?: number;
   /**
  * hoverX：hoverX相关字段。
  */
 
-  hoverX?: number;  
+  hoverX?: number;
   /**
  * hoverY：hoverY相关字段。
  */
@@ -72,17 +72,17 @@ type HoveredMapTile = {
  * x：x相关字段。
  */
 
-  x: number;  
+  x: number;
   /**
  * y：y相关字段。
  */
 
-  y: number;  
+  y: number;
   /**
  * clientX：clientX相关字段。
  */
 
-  clientX: number;  
+  clientX: number;
   /**
  * clientY：clientY相关字段。
  */
@@ -99,247 +99,252 @@ type MainMapInteractionBindingsOptions = {
  * mapRuntime：地图运行态引用。
  */
 
-  mapRuntime: {  
+  mapRuntime: {
   /**
  * setMoveHandler：MoveHandler相关字段。
  */
 
-    setMoveHandler: (handler: (x: number, y: number) => void) => void;    
+    setMoveHandler: (handler: (x: number, y: number) => void) => void;
     /**
  * setInteractionCallbacks：InteractionCallback相关字段。
  */
 
-    setInteractionCallbacks: (callbacks: {    
+    setInteractionCallbacks: (callbacks: {
     /**
  * onTarget：on目标相关字段。
  */
 
-      onTarget: (target: {      
+      onTarget: (target: {
       /**
  * x：x相关字段。
  */
- x: number;      
+ x: number;
  /**
  * y：y相关字段。
  */
- y: number;      
+ y: number;
  /**
  * clientX：clientX相关字段。
  */
- clientX?: number;      
+ clientX?: number;
  /**
  * clientY：clientY相关字段。
  */
- clientY?: number;      
+ clientY?: number;
  /**
  * entityId：entityID标识。
  */
- entityId?: string;      
+ entityId?: string;
  /**
  * entityKind：entityKind相关字段。
  */
- entityKind?: string }) => void;      
+ entityKind?: string }) => void;
  /**
  * onHover：onHover相关字段。
  */
 
-      onHover: (target: {      
+      onHover: (target: {
       /**
  * x：x相关字段。
  */
- x: number;      
+ x: number;
  /**
  * y：y相关字段。
  */
- y: number;      
+ y: number;
  /**
  * clientX：clientX相关字段。
  */
- clientX?: number;      
+ clientX?: number;
  /**
  * clientY：clientY相关字段。
  */
  clientY?: number } | null) => void;
     }) => void;
-  };  
+  };
   /**
  * planPathTo：plan路径To相关字段。
  */
 
-  planPathTo: (target: {  
+  planPathTo: (target: {
   /**
  * x：x相关字段。
  */
- x: number;  
+ x: number;
  /**
  * y：y相关字段。
  */
- y: number }, options?: {  
+ y: number }, options?: {
  /**
  * ignoreVisibilityLimit：ignore可见性Limit相关字段。
  */
- ignoreVisibilityLimit?: boolean;  
+ ignoreVisibilityLimit?: boolean;
  /**
  * allowNearestReachable：allowNearestReachable相关字段。
  */
- allowNearestReachable?: boolean;  
+ allowNearestReachable?: boolean;
  /**
  * preserveAutoInteraction：preserveAutoInteraction相关字段。
  */
- preserveAutoInteraction?: boolean }) => void;  
+ preserveAutoInteraction?: boolean }) => void;
  /**
  * findObservedEntityAt：ObservedEntityAt相关字段。
  */
 
-  findObservedEntityAt: (x: number, y: number, kind?: string) => MainNavigationObservedEntity | null;  
+  findObservedEntityAt: (x: number, y: number, kind?: string) => MainNavigationObservedEntity | null;
   /**
  * getPendingTargetedAction：PendingTargetedAction相关字段。
  */
 
-  getPendingTargetedAction: () => PendingTargetedAction;  
+  getPendingTargetedAction: () => PendingTargetedAction;
   /**
  * setPendingTargetedActionHover：PendingTargetedActionHover相关字段。
  */
 
-  setPendingTargetedActionHover: (target: {  
+  setPendingTargetedActionHover: (target: {
   /**
  * x：x相关字段。
  */
- x?: number;  
+ x?: number;
  /**
  * y：y相关字段。
  */
- y?: number } | null) => void;  
+ y?: number } | null) => void;
  /**
  * resolveCurrentTargetingRange：CurrentTargeting范围相关字段。
  */
 
-  resolveCurrentTargetingRange: (action: NonNullable<PendingTargetedAction>) => number;  
+  resolveCurrentTargetingRange: (action: NonNullable<PendingTargetedAction>) => number;
   /**
  * isPointInsideCurrentMap：启用开关或状态标识。
  */
 
-  isPointInsideCurrentMap: (x: number, y: number) => boolean;  
+  isPointInsideCurrentMap: (x: number, y: number) => boolean;
   /**
  * getVisibleTileAt：可见TileAt相关字段。
  */
 
-  getVisibleTileAt: (x: number, y: number) => Tile | null;  
+  getVisibleTileAt: (x: number, y: number) => Tile | null;
   /**
  * showToast：showToast相关字段。
  */
 
-  showToast: (message: string) => void;  
+  showToast: (message: string) => void;
   /**
  * showObserveModal：showObserve弹层相关字段。
  */
 
-  showObserveModal: (x: number, y: number) => void;  
+  showObserveModal: (x: number, y: number) => void;
   /**
  * cancelTargeting：cancelTargeting相关字段。
  */
 
-  cancelTargeting: () => void;  
+  cancelTargeting: () => void;
   /**
  * getPlayer：玩家引用。
  */
 
-  getPlayer: () => {  
+  getPlayer: () => {
   /**
  * x：x相关字段。
  */
- x: number;  
+ x: number;
  /**
  * y：y相关字段。
  */
- y: number } | null;  
- /**
+ y: number } | null;
+  /**
  * sendAction：sendAction相关字段。
  */
 
-  sendAction: (actionId: string, target?: string) => void;  
+  sendAction: (actionId: string, target?: string) => void;
+  /**
+ * resetLootPanelManualCloseSuppression：显式重新拿取前解除手动关闭抑制。
+ */
+
+  resetLootPanelManualCloseSuppression: () => void;
   /**
  * sendCastSkill：sendCast技能相关字段。
  */
 
-  sendCastSkill: (actionId: string, target?: string) => void;  
+  sendCastSkill: (actionId: string, target?: string) => void;
   /**
  * hasAffectableTargetInArea：启用开关或状态标识。
  */
 
-  hasAffectableTargetInArea: (action: NonNullable<PendingTargetedAction>, anchorX: number, anchorY: number) => boolean;  
+  hasAffectableTargetInArea: (action: NonNullable<PendingTargetedAction>, anchorX: number, anchorY: number) => boolean;
   /**
  * resolveTargetRefForAction：目标RefForAction相关字段。
  */
 
   resolveTargetRefForAction: (
     action: NonNullable<PendingTargetedAction>,
-    target: {    
+    target: {
     /**
  * x：x相关字段。
  */
- x: number;    
+ x: number;
  /**
  * y：y相关字段。
  */
- y: number;    
+ y: number;
  /**
  * entityId：entityID标识。
  */
- entityId?: string;    
+ entityId?: string;
  /**
  * entityKind：entityKind相关字段。
  */
  entityKind?: string },
-  ) => string | null;  
+  ) => string | null;
   /**
  * getCurrentActionDef：CurrentActionDef相关字段。
  */
 
-  getCurrentActionDef: (actionId: string) => ActionDef | null;  
+  getCurrentActionDef: (actionId: string) => ActionDef | null;
   /**
  * isWithinDisplayedMemoryBounds：启用开关或状态标识。
  */
 
-  isWithinDisplayedMemoryBounds: (x: number, y: number) => boolean;  
+  isWithinDisplayedMemoryBounds: (x: number, y: number) => boolean;
   /**
  * getKnownTileAt：KnownTileAt相关字段。
  */
 
-  getKnownTileAt: (x: number, y: number) => Tile | null;  
+  getKnownTileAt: (x: number, y: number) => Tile | null;
   /**
  * handleNpcClickTarget：NPCClick目标相关字段。
  */
 
-  handleNpcClickTarget: (npc: MainNavigationObservedEntity) => boolean;  
+  handleNpcClickTarget: (npc: MainNavigationObservedEntity) => boolean;
   /**
  * handlePortalClickTarget：PortalClick目标相关字段。
  */
 
-  handlePortalClickTarget: (target: {  
+  handlePortalClickTarget: (target: {
   /**
  * x：x相关字段。
  */
- x: number;  
+ x: number;
  /**
  * y：y相关字段。
  */
- y: number }, tile: Tile) => boolean;  
+ y: number }, tile: Tile) => boolean;
  /**
  * clearCurrentPath：clearCurrent路径相关字段。
  */
 
-  clearCurrentPath: () => void;  
+  clearCurrentPath: () => void;
   /**
  * syncTargetingOverlay：TargetingOverlay相关字段。
  */
 
-  syncTargetingOverlay: () => void;  
+  syncTargetingOverlay: () => void;
   /**
  * syncSenseQiOverlay：SenseQiOverlay相关字段。
  */
 
-  syncSenseQiOverlay: () => void;  
+  syncSenseQiOverlay: () => void;
   /**
  * setHoveredMapTile：Hovered地图Tile相关字段。
  */
@@ -385,6 +390,7 @@ export function bindMainMapInteractions(options: MainMapInteractionBindingsOptio
             options.showToast(`超出拿取范围，最多 ${pendingTargetedAction.range} 格`);
             return;
           }
+          options.resetLootPanelManualCloseSuppression();
           options.sendAction('loot:open', encodeTileTargetRef({ x: target.x, y: target.y }));
           options.cancelTargeting();
           return;

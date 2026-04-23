@@ -30,6 +30,8 @@ import {
   cacheUnlockedMinimapLibrary,
   getCachedMapMeta,
   getCachedMapSnapshot,
+  getCachedUnlockedMapSnapshot,
+  syncCachedUnlockedMapIds,
 } from '../../map-static-cache';
 import type {
   MapBootstrapInput,
@@ -302,7 +304,7 @@ export class MapStore {
 
   private tickTiming = {
     startedAt: performance.now(),
-    durationMs: 500,
+    durationMs: 1000,
   };
   /** 本地实体运动过渡信息，用于下一次插值渲染。 */
   private entityTransition: MapEntityTransition | null = null;
@@ -336,9 +338,10 @@ export class MapStore {
     if (!Array.isArray(player.unlockedMinimapIds)) {
       player.unlockedMinimapIds = [];
     }
+    syncCachedUnlockedMapIds(player.unlockedMinimapIds);
     this.minimapSnapshot = data.minimap ?? (
       player.unlockedMinimapIds.includes(player.mapId)
-        ? getCachedMapSnapshot(player.mapId)
+        ? getCachedUnlockedMapSnapshot(player.mapId)
         : null
     );
     if (data.minimap) {
@@ -406,8 +409,9 @@ export class MapStore {
     if (data.minimapLibrary) {
       cacheUnlockedMinimapLibrary(data.minimapLibrary);
       this.player.unlockedMinimapIds = data.minimapLibrary.map((entry) => entry.mapId).sort();
+      syncCachedUnlockedMapIds(this.player.unlockedMinimapIds);
       if (data.mapId === this.player.mapId && !this.minimapSnapshot && this.player.unlockedMinimapIds.includes(this.player.mapId)) {
-        this.minimapSnapshot = getCachedMapSnapshot(this.player.mapId);
+        this.minimapSnapshot = getCachedUnlockedMapSnapshot(this.player.mapId);
       }
     }
     if (data.visibleMinimapMarkers !== undefined && data.mapId === this.player.mapId) {
@@ -508,7 +512,7 @@ export class MapStore {
           }
         : { settleMotion: true };
       if (typeof data.tickDurationMs === 'number' && Number.isFinite(data.tickDurationMs) && data.tickDurationMs > 0) {
-        this.tickTiming.durationMs = Math.max(1, Math.round(data.tickDurationMs * 0.5));
+        this.tickTiming.durationMs = Math.max(1, Math.round(data.tickDurationMs));
       }
       this.tickTiming.startedAt = performance.now();
     }
@@ -541,7 +545,7 @@ export class MapStore {
       }
       this.player.mapId = nextMapId;
       this.minimapSnapshot = (this.player.unlockedMinimapIds ?? []).includes(this.player.mapId)
-        ? getCachedMapSnapshot(this.player.mapId)
+        ? getCachedUnlockedMapSnapshot(this.player.mapId)
         : null;
       hydrateTileCacheFromMemory(this.player.mapId, this.tileCache);
       this.awaitingFullVisibilityMapId = this.player.mapId;
@@ -644,7 +648,7 @@ export class MapStore {
     this.entityTransition = null;
     publishLatestObservedEntitiesSnapshot([]);
     this.tickTiming.startedAt = performance.now();
-    this.tickTiming.durationMs = 500;
+    this.tickTiming.durationMs = 1000;
     this.visibleTileRevision += 1;
   }
 

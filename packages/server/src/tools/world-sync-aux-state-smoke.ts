@@ -2,7 +2,12 @@ import assert from 'node:assert/strict';
 
 import { WorldSyncAuxStateService } from '../network/world-sync-aux-state.service';
 
-function createService(log: unknown[] = []) {
+function createService(
+  log: unknown[] = [],
+  options: {
+    deltaMapChanged?: boolean;
+  } = {},
+) {
   let lootWindow = {
     tileX: 4,
     tileY: 5,
@@ -21,8 +26,8 @@ function createService(log: unknown[] = []) {
       buildRenderEntitiesSnapshot() {
         return new Map([['player:1', { id: 'player:1', x: 3, y: 4 }]]);
       },
-      buildMinimapLibrarySync() {
-        return [{ mapId: 'map.a' }];
+      buildMinimapLibrarySync(player: { unlockedMapIds?: string[] }) {
+        return (player.unlockedMapIds ?? []).map((mapId) => ({ mapId }));
       },
       buildGameTimeState() {
         return {
@@ -79,7 +84,7 @@ function createService(log: unknown[] = []) {
         const visibleTiles = new Map([['3,4', { type: 'floor' }]]);
         const visibleMinimapMarkers = [{ id: 'marker.a', kind: 'npc', x: 3, y: 4, label: '甲', detail: '乙' }];
         return {
-          mapChanged: false,
+          mapChanged: options.deltaMapChanged === true,
           visibleTiles: { matrix: [[{ type: 'floor' }]], byKey: visibleTiles },
           visibleMinimapMarkers,
           tilePatches: [{ x: 3, y: 4, tile: { type: 'wall' } }],
@@ -116,8 +121,17 @@ function createService(log: unknown[] = []) {
       sendBootstrap(socket: { id: string }, payload: { self: { unlockedMinimapIds: string[] } }) {
         log.push(['sendBootstrap', socket.id, payload.self.unlockedMinimapIds]);
       },
-      sendMapStatic(socket: { id: string }, payload: { tiles?: unknown }) {
-        log.push(['sendMapStatic', socket.id, Boolean(payload.tiles)]);
+      sendMapStatic(
+        socket: { id: string },
+        payload: { tiles?: unknown; minimap?: unknown; minimapLibrary?: Array<{ mapId: string }> },
+      ) {
+        log.push([
+          'sendMapStatic',
+          socket.id,
+          Boolean(payload.tiles),
+          Boolean(payload.minimap),
+          Array.isArray(payload.minimapLibrary) ? payload.minimapLibrary.map((entry) => entry.mapId) : [],
+        ]);
       },
       sendWorldDelta(socket: { id: string }, payload: { tp?: unknown; vma?: unknown; vmr?: unknown }) {
         log.push(['sendWorldDelta', socket.id, Boolean(payload.tp), Boolean(payload.vma), Boolean(payload.vmr)]);
@@ -285,6 +299,7 @@ function createService(log: unknown[] = []) {
 
 function createPlayer(stage = '炼气', progress = 10) {
   return {
+    unlockedMapIds: ['map.unlocked'],
     attrs: { numericStats: { viewRange: 2 } },
     realm: {
       stage,
@@ -335,8 +350,8 @@ function testAuxStateSync() {
 
   assert.deepEqual(log, [
     ['getTemplate', 'map.a'],
-    ['sendBootstrap', 'socket:1', ['map.a']],
-    ['sendMapStatic', 'socket:1', true],
+    ['sendBootstrap', 'socket:1', ['map.unlocked']],
+    ['sendMapStatic', 'socket:1', true, false, []],
     ['sendRealm', 'socket:1', '炼气'],
     ['sendLootWindow', 'socket:1', '初始拾取'],
     ['emitInitialThreatSync', 'socket:1', 10, 1],
@@ -351,7 +366,31 @@ function testAuxStateSync() {
   ]);
 }
 
+function testMapChangeDoesNotAutoUnlockCurrentMap() {
+  const log: unknown[] = [];
+  const { service } = createService(log, { deltaMapChanged: true });
+  const socket = { id: 'socket:2', emit() {} };
+
+  service.emitAuxInitialSync('player:2', socket, createView(20), createPlayer('炼气', 10));
+  service.emitAuxDeltaSync('player:2', socket, createView(21), createPlayer('炼气', 10));
+
+  assert.deepEqual(log, [
+    ['getTemplate', 'map.a'],
+    ['sendBootstrap', 'socket:2', ['map.unlocked']],
+    ['sendMapStatic', 'socket:2', true, false, []],
+    ['sendRealm', 'socket:2', '炼气'],
+    ['sendLootWindow', 'socket:2', '初始拾取'],
+    ['emitInitialThreatSync', 'socket:2', 20, 1],
+    ['commitPlayerCache', 'player:2', 'initial'],
+    ['getTemplate', 'map.a'],
+    ['sendMapStatic', 'socket:2', true, false, ['map.unlocked']],
+    ['emitDeltaThreatSync', 'socket:2', 21, 1, true],
+    ['commitPlayerCache', 'player:2', 'delta'],
+  ]);
+}
+
 testAuxStateSync();
+testMapChangeDoesNotAutoUnlockCurrentMap();
 console.log(
   JSON.stringify({
     ok: true,

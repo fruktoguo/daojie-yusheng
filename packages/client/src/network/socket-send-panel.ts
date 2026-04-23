@@ -18,13 +18,6 @@ type PanelSenderDeps = {
   emitEvent: SocketEmitEvent;
 };
 
-type StartGatherPayload = {
-  sourceId: string;
-  itemKey: string;
-};
-
-type CancelGatherPayload = Record<string, never>;
-
 function sendTechniqueActivityRequest(
   deps: PanelSenderDeps,
   kind: 'alchemy',
@@ -127,8 +120,8 @@ export function createSocketPanelSender(deps: PanelSenderDeps) {
  */
 
 
-    sendStartGather(payload: StartGatherPayload): void {
-      deps.emitEvent((C2S as Record<string, unknown>).StartGather as never, payload as never);
+    sendStartGather(payload: ClientToServerEventPayload<typeof C2S.StartGather>): void {
+      deps.emitEvent(C2S.StartGather, payload);
     },    
     /**
  * sendCancelGather：执行send取消采集相关逻辑。
@@ -136,7 +129,7 @@ export function createSocketPanelSender(deps: PanelSenderDeps) {
  */
 
     sendCancelGather(): void {
-      deps.emitEvent((C2S as Record<string, unknown>).CancelGather as never, {} as CancelGatherPayload as never);
+      deps.emitEvent(C2S.CancelGather, {});
     },    
     /**
  * sendStopLootHarvest：停止当前连续采摘。

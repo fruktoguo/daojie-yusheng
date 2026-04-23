@@ -164,7 +164,7 @@ async function main(): Promise<void> {
 
     const inventoryRows = await fetchRows(
       pool,
-      'SELECT item_id, count FROM player_inventory_item WHERE player_id = $1 ORDER BY slot_index ASC',
+      'SELECT item_id, count, raw_payload FROM player_inventory_item WHERE player_id = $1 ORDER BY slot_index ASC',
       [playerId],
     );
     const operationRow = await fetchSingleRow(
@@ -194,6 +194,8 @@ async function main(): Promise<void> {
       || Number(inventoryRows[0]?.count) !== 1
       || inventoryRows[1]?.item_id !== 'rat_tail'
       || Number(inventoryRows[1]?.count) !== 2
+      || JSON.stringify(inventoryRows[0]?.raw_payload ?? null) !== '{}'
+      || JSON.stringify(inventoryRows[1]?.raw_payload ?? null) !== '{}'
     ) {
       throw new Error(`unexpected granted inventory rows: ${JSON.stringify(inventoryRows)}`);
     }

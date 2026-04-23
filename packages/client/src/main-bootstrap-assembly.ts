@@ -63,7 +63,7 @@ type ToastKind =
   | 'grudge'
   | 'success'
   | 'warn'
-  | 'travel';  
+  | 'travel';
   /**
  * MainBootstrapAssemblyOptions：统一结构类型，保证协议与运行时一致性。
  */
@@ -74,52 +74,52 @@ type MainBootstrapAssemblyOptions = {
  * windowRef：窗口Ref相关字段。
  */
 
-  windowRef: Window;  
+  windowRef: Window;
   /**
  * documentRef：documentRef相关字段。
  */
 
-  documentRef: Document;  
+  documentRef: Document;
   /**
  * canvasHost：canvaHost相关字段。
  */
 
-  canvasHost: HTMLElement;  
+  canvasHost: HTMLElement;
   /**
  * joinQqGroupBtns：joinQqGroupBtn相关字段。
  */
 
-  joinQqGroupBtns: Iterable<HTMLAnchorElement>;  
+  joinQqGroupBtns: Iterable<HTMLAnchorElement>;
   /**
  * observeModalEl：observe弹层El相关字段。
  */
 
-  observeModalEl: HTMLElement | null;  
+  observeModalEl: HTMLElement | null;
   /**
  * observeModalShellEl：observe弹层ShellEl相关字段。
  */
 
-  observeModalShellEl: HTMLElement | null;  
+  observeModalShellEl: HTMLElement | null;
   /**
  * qqGroupNumber：qqGroupNumber相关字段。
  */
 
-  qqGroupNumber: string;  
+  qqGroupNumber: string;
   /**
  * qqGroupMobileDeepLink：qqGroupMobileDeepLink相关字段。
  */
 
-  qqGroupMobileDeepLink: string;  
+  qqGroupMobileDeepLink: string;
   /**
  * qqGroupDesktopDeepLink：qqGroupDesktopDeepLink相关字段。
  */
 
-  qqGroupDesktopDeepLink: string;  
+  qqGroupDesktopDeepLink: string;
   /**
  * initialMapPerformanceConfig：initial地图Performance配置状态或数据块。
  */
 
-  initialMapPerformanceConfig: {  
+  initialMapPerformanceConfig: {
   /**
  * showFpsMonitor：showFpMonitor相关字段。
  */
@@ -130,7 +130,7 @@ type MainBootstrapAssemblyOptions = {
  */
 
     targetFps: number;
-  };  
+  };
   /**
  * runtimeMonitorSource：运行态Monitor来源相关字段。
  */
@@ -146,7 +146,7 @@ type MainBootstrapAssemblyOptions = {
     | 'stopPingLoop'
     | 'clearPendingSocketPing'
     | 'renderPingLatency'
-  >;  
+  >;
   /**
  * panelRuntimeSource：面板运行态来源相关字段。
  */
@@ -156,7 +156,7 @@ type MainBootstrapAssemblyOptions = {
     | 'syncInitialBridgeState'
     | 'subscribeBridgeState'
     | 'setRuntimeShellVisible'
-  >;  
+  >;
   /**
  * mapRuntimeBridgeSource：地图运行态桥接来源相关字段。
  */
@@ -186,12 +186,12 @@ type MainBootstrapAssemblyOptions = {
     | 'syncSenseQiOverlay'
     | 'setHoveredMapTile'
     | 'bindKeyboardInput'
-  >;  
+  >;
   /**
  * breakthroughStateSource：breakthrough状态来源相关字段。
  */
 
-  breakthroughStateSource: Pick<MainBreakthroughStateSource, 'openBreakthroughModal'>;  
+  breakthroughStateSource: Pick<MainBreakthroughStateSource, 'openBreakthroughModal'>;
   /**
  * uiStateSource：ui状态来源相关字段。
  */
@@ -202,22 +202,22 @@ type MainBootstrapAssemblyOptions = {
     | 'refreshZoomChrome'
     | 'applyZoomChange'
     | 'scheduleLayoutViewportSync'
-  >;  
+  >;
   /**
  * attrDetailStateSource：attr详情状态来源相关字段。
  */
 
-  attrDetailStateSource: Pick<MainAttrDetailStateSource, 'requestDetail'>;  
+  attrDetailStateSource: Pick<MainAttrDetailStateSource, 'requestDetail'>;
   /**
  * targetingStateSource：targeting状态来源相关字段。
  */
 
-  targetingStateSource: Pick<MainTargetingStateSource, 'hasPendingTargetedAction'>;  
+  targetingStateSource: Pick<MainTargetingStateSource, 'hasPendingTargetedAction'>;
   /**
  * getPlayer：玩家引用。
  */
 
-  getPlayer: () => PlayerState | null;  
+  getPlayer: () => PlayerState | null;
   /**
  * runtimeStateSource：运行态状态来源相关字段。
  */
@@ -232,7 +232,7 @@ type MainBootstrapAssemblyOptions = {
     | 'handleSelfDelta'
     | 'handlePanelDelta'
     | 'handleMapStatic'
-  >;  
+  >;
   /**
  * detailStateSource：详情状态来源相关字段。
  */
@@ -252,12 +252,12 @@ type MainBootstrapAssemblyOptions = {
     | 'handleQuests'
     | 'handleQuestNavigateResult'
     | 'handleNpcShop'
-  >;  
+  >;
   /**
  * suggestionStateSource：suggestion状态来源相关字段。
  */
 
-  suggestionStateSource: Pick<MainSuggestionStateSource, 'handleSuggestionUpdate'>;  
+  suggestionStateSource: Pick<MainSuggestionStateSource, 'handleSuggestionUpdate'>;
   /**
  * mailStateSource：邮件状态来源相关字段。
  */
@@ -268,12 +268,12 @@ type MainBootstrapAssemblyOptions = {
     | 'handleMailPage'
     | 'handleMailDetail'
     | 'handleMailOpResult'
-  >;  
+  >;
   /**
  * settingsStateSource：setting状态来源相关字段。
  */
 
-  settingsStateSource: Pick<MainSettingsStateSource, 'handleRedeemCodesResult'>;  
+  settingsStateSource: Pick<MainSettingsStateSource, 'handleRedeemCodesResult'>;
   /**
  * marketStateSource：坊市状态来源相关字段。
  */
@@ -286,12 +286,12 @@ type MainBootstrapAssemblyOptions = {
     | 'handleMarketStorage'
     | 'handleMarketItemBook'
     | 'handleMarketTradeHistory'
-  >;  
+  >;
   /**
  * noticeStateSource：notice状态来源相关字段。
  */
 
-  noticeStateSource: Pick<MainNoticeStateSource, 'handleNotice'>;  
+  noticeStateSource: Pick<MainNoticeStateSource, 'handleNotice'>;
   /**
  * connectionStateSource：connection状态来源相关字段。
  */
@@ -303,7 +303,7 @@ type MainBootstrapAssemblyOptions = {
     | 'handleConnectError'
     | 'handleDisconnect'
     | 'handlePong'
-  >;  
+  >;
   /**
  * sidePanel：side面板相关字段。
  */
@@ -314,57 +314,57 @@ type MainBootstrapAssemblyOptions = {
     | 'setLayoutChangeCallback'
     | 'setTabChangeCallback'
     | 'isVisible'
-  >;  
+  >;
   /**
  * chatUI：chatUI相关字段。
  */
 
-  chatUI: Pick<ChatUI, 'setLogbookVisible' | 'setCallback'>;  
+  chatUI: Pick<ChatUI, 'setLogbookVisible' | 'setCallback'>;
   /**
  * bodyTrainingPanel：bodyTraining面板相关字段。
  */
 
-  bodyTrainingPanel: Pick<BodyTrainingPanel, 'setInfusionHandler'>;  
+  bodyTrainingPanel: Pick<BodyTrainingPanel, 'setInfusionHandler'>;
   /**
  * hud：hud相关字段。
  */
 
-  hud: Pick<HUD, 'setCallbacks'>;  
+  hud: Pick<HUD, 'setCallbacks'>;
   /**
  * lootPanel：掉落面板相关字段。
  */
 
-  lootPanel: Pick<LootPanel, 'setCallbacks' | 'clear'>;  
+  lootPanel: Pick<LootPanel, 'setCallbacks' | 'clear' | 'resetManualCloseSuppression'>;
   /**
  * equipmentPanel：装备面板相关字段。
  */
 
-  equipmentPanel: Pick<EquipmentPanel, 'setCallbacks'>;  
+  equipmentPanel: Pick<EquipmentPanel, 'setCallbacks'>;
   /**
  * npcShopModal：NPCShop弹层相关字段。
  */
 
-  npcShopModal: Pick<NpcShopModal, 'setCallbacks' | 'open'>;  
+  npcShopModal: Pick<NpcShopModal, 'setCallbacks' | 'open'>;
   /**
  * craftWorkbenchModal：炼制Workbench弹层相关字段。
  */
 
-  craftWorkbenchModal: Pick<CraftWorkbenchModal, 'setCallbacks' | 'openAlchemy' | 'openEnhancement'>;  
+  craftWorkbenchModal: Pick<CraftWorkbenchModal, 'setCallbacks' | 'openAlchemy' | 'openEnhancement'>;
   /**
  * debugPanel：debug面板相关字段。
  */
 
-  debugPanel: Pick<DebugPanel, 'setCallbacks'>;  
+  debugPanel: Pick<DebugPanel, 'setCallbacks'>;
   /**
  * mapRuntime：地图运行态引用。
  */
 
-  mapRuntime: {  
+  mapRuntime: {
   /**
  * attach：attach相关字段。
  */
 
-    attach: (host: HTMLElement) => void;    
+    attach: (host: HTMLElement) => void;
     /**
  * setRenderFrameObserver：渲染帧观察器。
  */
@@ -379,74 +379,74 @@ type MainBootstrapAssemblyOptions = {
  * setMoveHandler：MoveHandler相关字段。
  */
 
-    setMoveHandler: (handler: (x: number, y: number) => void) => void;    
+    setMoveHandler: (handler: (x: number, y: number) => void) => void;
     /**
  * setInteractionCallbacks：InteractionCallback相关字段。
  */
 
-    setInteractionCallbacks: (callbacks: {    
+    setInteractionCallbacks: (callbacks: {
     /**
  * onTarget：on目标相关字段。
  */
 
-      onTarget: (target: {      
+      onTarget: (target: {
       /**
  * x：x相关字段。
  */
- x: number;      
+ x: number;
  /**
  * y：y相关字段。
  */
- y: number;      
+ y: number;
  /**
  * clientX：clientX相关字段。
  */
- clientX?: number;      
+ clientX?: number;
  /**
  * clientY：clientY相关字段。
  */
- clientY?: number;      
+ clientY?: number;
  /**
  * entityId：entityID标识。
  */
- entityId?: string;      
+ entityId?: string;
  /**
  * entityKind：entityKind相关字段。
  */
- entityKind?: string }) => void;      
+ entityKind?: string }) => void;
  /**
  * onHover：onHover相关字段。
  */
 
-      onHover: (target: {      
+      onHover: (target: {
       /**
  * x：x相关字段。
  */
- x: number;      
+ x: number;
  /**
  * y：y相关字段。
  */
- y: number;      
+ y: number;
  /**
  * clientX：clientX相关字段。
  */
- clientX?: number;      
+ clientX?: number;
  /**
  * clientY：clientY相关字段。
  */
  clientY?: number } | null) => void;
     }) => void;
-  };  
+  };
   /**
  * socket：socket相关字段。
  */
 
-  socket: Pick<SocketManager, 'on' | 'onKick' | 'onConnectError' | 'onDisconnect'>;  
+  socket: Pick<SocketManager, 'on' | 'onKick' | 'onConnectError' | 'onDisconnect'>;
   /**
  * runtimeSender：运行态Sender相关字段。
  */
 
-  runtimeSender: Pick<SocketRuntimeSender, 'sendAction' | 'sendCastSkill'>;  
+  runtimeSender: Pick<SocketRuntimeSender, 'sendAction' | 'sendCastSkill'>;
   /**
  * panelSender：面板Sender相关字段。
  */
@@ -461,6 +461,8 @@ type MainBootstrapAssemblyOptions = {
     | 'sendRequestNpcShop'
     | 'sendBuyNpcShopItem'
     | 'sendRequestAlchemyPanel'
+    | 'sendSaveAlchemyPreset'
+    | 'sendDeleteAlchemyPreset'
     | 'sendRequestEnhancementPanel'
     | 'sendStartAlchemy'
     | 'sendCancelAlchemy'
@@ -468,27 +470,27 @@ type MainBootstrapAssemblyOptions = {
     | 'sendCancelEnhancement'
     | 'sendRequestLeaderboard'
     | 'sendRequestWorldSummary'
-  >;  
+  >;
   /**
  * socialEconomySender：socialEconomySender相关字段。
  */
 
-  socialEconomySender: Pick<SocketSocialEconomySender, 'sendChat'>;  
+  socialEconomySender: Pick<SocketSocialEconomySender, 'sendChat'>;
   /**
  * adminSender：adminSender相关字段。
  */
 
-  adminSender: Pick<SocketAdminSender, 'sendDebugResetSpawn'>;  
+  adminSender: Pick<SocketAdminSender, 'sendDebugResetSpawn'>;
   /**
  * loginUI：loginUI相关字段。
  */
 
-  loginUI: Pick<LoginUI, 'restoreSession'>;  
+  loginUI: Pick<LoginUI, 'restoreSession'>;
   /**
  * showToast：showToast相关字段。
  */
 
-  showToast: (message: string, kind?: ToastKind) => void;  
+  showToast: (message: string, kind?: ToastKind) => void;
   /**
  * syncTargetingOverlay：TargetingOverlay相关字段。
  */
@@ -620,6 +622,7 @@ export function bootstrapMainApp(options: MainBootstrapAssemblyOptions): void {
     cancelTargeting: () => options.mapRuntimeBridgeSource.cancelTargeting(),
     getPlayer: () => options.getPlayer(),
     sendAction: (actionId, target) => options.runtimeSender.sendAction(actionId, target),
+    resetLootPanelManualCloseSuppression: () => options.lootPanel.resetManualCloseSuppression(),
     sendCastSkill: (actionId, target) => options.runtimeSender.sendCastSkill(actionId, target),
     hasAffectableTargetInArea: (action, x, y) => options.mapRuntimeBridgeSource.hasAffectableTargetInArea(action, x, y),
     resolveTargetRefForAction: (action, target) => options.mapRuntimeBridgeSource.resolveTargetRefForAction(action, target),

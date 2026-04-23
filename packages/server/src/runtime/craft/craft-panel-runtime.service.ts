@@ -230,43 +230,58 @@ let CraftPanelRuntimeService = class CraftPanelRuntimeService {
         if (!recipe) {
             return buildCraftMutationResult('对应丹方不存在。');
         }
-        const ingredients = normalizeIngredientSelections(payload?.ingredients);
-        if (!isExactSubmittedIngredients(recipe.ingredients, ingredients)) {
-            return buildCraftMutationResult('当前最小实现仅支持按目录原方炼制。');
+        const normalizedSelection = validateAlchemySelection(recipe, normalizeIngredientSelections(payload?.ingredients));
+        if ('error' in normalizedSelection) {
+            return buildCraftMutationResult(normalizedSelection.error);
         }
         const quantity = normalizeQuantity(payload?.quantity, 1, 99);
-        for (const ingredient of ingredients) {
+        for (const ingredient of normalizedSelection.ingredients) {
             const requiredCount = ingredient.count * quantity;
             if (countInventoryItem(player, ingredient.itemId) < requiredCount) {
                 return buildCraftMutationResult(`${this.contentTemplateRepository.getItemName(ingredient.itemId) ?? ingredient.itemId} 数量不足。`);
             }
         }
-        const spiritStoneCost = recipe.category === 'buff'
-            ? Math.max(0, recipe.outputLevel * quantity)
-            : 0;
+        const spiritStoneCost = shared_1.getAlchemySpiritStoneCost(recipe.outputLevel, recipe.category === 'buff') * quantity;
         if (spiritStoneCost > 0 && !this.playerRuntimeService.canAffordWallet(player.playerId, SPIRIT_STONE_ITEM_ID, spiritStoneCost)) {
             return buildCraftMutationResult(`灵石不足，需要 ${spiritStoneCost} 枚。`);
         }
-        for (const ingredient of ingredients) {
+        for (const ingredient of normalizedSelection.ingredients) {
             consumeInventoryItemByItemId(player, ingredient.itemId, ingredient.count * quantity);
         }
         if (spiritStoneCost > 0) {
             this.playerRuntimeService.debitWallet(player.playerId, SPIRIT_STONE_ITEM_ID, spiritStoneCost);
         }
-        const batchBrewTicks = shared_1.computeAdjustedCraftTicks(recipe.baseBrewTicks, this.getWeapon(player)?.alchemySpeedRate ?? 0);
-        const totalTicks = ALCHEMY_PREPARATION_TICKS + (batchBrewTicks * quantity);
-        const successRate = Math.max(0.65, Math.min(1, 0.92 + ((player.alchemySkill?.level ?? 1) - recipe.outputLevel) * 0.03 + (this.getWeapon(player)?.alchemySuccessRate ?? 0)));
+        const furnaceOutputCount = recipe.category === 'buff' ? 1 : shared_1.ALCHEMY_FURNACE_OUTPUT_COUNT;
+        const baseSuccessRate = shared_1.computeAlchemySuccessRate(recipe, normalizedSelection.ingredients);
+        const batchBrewTicks = shared_1.computeAlchemyAdjustedBrewTicks(
+            recipe.baseBrewTicks,
+            recipe,
+            normalizedSelection.ingredients,
+            recipe.outputLevel,
+            player.alchemySkill?.level ?? 1,
+            this.getWeapon(player)?.alchemySpeedRate ?? 0,
+            furnaceOutputCount
+        );
+        const totalTicks = shared_1.computeAlchemyTotalJobTicks(batchBrewTicks, quantity, ALCHEMY_PREPARATION_TICKS);
+        const exactRecipe = shared_1.isExactAlchemyRecipe(recipe, normalizedSelection.ingredients);
+        const successRate = shared_1.computeAlchemyAdjustedSuccessRate(
+            baseSuccessRate,
+            recipe.outputLevel,
+            player.alchemySkill?.level ?? 1,
+            this.getWeapon(player)?.alchemySuccessRate ?? 0
+        );
+        const batchOutputCount = shared_1.computeAlchemyBatchOutputCountWithSize(recipe.outputCount, furnaceOutputCount);
         player.alchemyJob = {
             jobRunId: createCraftJobRunId(player.playerId, 'alchemy'),
             jobType: 'alchemy',
             recipeId: recipe.recipeId,
             outputItemId: recipe.outputItemId,
-            outputCount: Math.max(1, recipe.outputCount),
+            outputCount: batchOutputCount,
             quantity,
             completedCount: 0,
             successCount: 0,
             failureCount: 0,
-            ingredients: ingredients.map((entry) => ({ ...entry })),
+            ingredients: normalizedSelection.ingredients.map((entry) => ({ ...entry })),
             phase: 'preparing',
             preparationTicks: ALCHEMY_PREPARATION_TICKS,
             batchBrewTicks,
@@ -277,7 +292,7 @@ let CraftPanelRuntimeService = class CraftPanelRuntimeService {
             remainingTicks: totalTicks,
             successRate,
             jobVersion: 1,
-            exactRecipe: true,
+            exactRecipe,
             startedAt: Date.now(),
         };
         this.finalizeMutation(player, {
@@ -291,7 +306,7 @@ let CraftPanelRuntimeService = class CraftPanelRuntimeService {
             inventoryChanged: true,
             messages: [{
                     kind: 'quest',
-                    text: `开始炼制 ${recipe.outputName}${quantity > 1 ? `，共 ${quantity} 炉` : ''}，总计 ${totalTicks} 息。`,
+                    text: `开始准备炼制 ${recipe.outputName}${quantity > 1 ? `，共 ${quantity} 炉` : ''}${spiritStoneCost > 0 ? `，消耗灵石 x${spiritStoneCost}` : ''}；${ALCHEMY_PREPARATION_TICKS} 息后自动开炼，总计 ${totalTicks} 息。单炉固定 ${batchOutputCount} 枚，每枚成丹率 ${(successRate * 100).toFixed(successRate === 1 ? 0 : 1)}%。`,
                 }],
         };
     }    
@@ -373,9 +388,9 @@ let CraftPanelRuntimeService = class CraftPanelRuntimeService {
         if (!recipe) {
             return buildCraftMutationResult('对应丹方不存在。');
         }
-        const ingredients = normalizeIngredientSelections(payload?.ingredients);
-        if (!isExactSubmittedIngredients(recipe.ingredients, ingredients)) {
-            return buildCraftMutationResult('当前仅支持保存目录里已定义的原方预设。');
+        const normalizedSelection = validateAlchemySelection(recipe, normalizeIngredientSelections(payload?.ingredients));
+        if ('error' in normalizedSelection) {
+            return buildCraftMutationResult(normalizedSelection.error);
         }
         const requestedPresetId = normalizeText(payload?.presetId);
         const presetName = normalizeAlchemyPresetName(payload?.name, recipe.outputName || recipe.recipeId);
@@ -385,7 +400,7 @@ let CraftPanelRuntimeService = class CraftPanelRuntimeService {
             presetId,
             recipeId: recipe.recipeId,
             name: presetName,
-            ingredients: ingredients.map((entry) => ({ ...entry })),
+            ingredients: normalizedSelection.ingredients.map((entry) => ({ ...entry })),
             updatedAt: Date.now(),
         };
         if (existingIndex >= 0) {
@@ -2300,6 +2315,39 @@ function isExactSubmittedIngredients(recipeIngredients, submitted) {
         }
     }
     return true;
+}
+
+function validateAlchemySelection(recipe, submitted) {
+  const recipeIngredientMap = new Map();
+  for (const ingredient of recipe.ingredients ?? []) {
+    recipeIngredientMap.set(ingredient.itemId, ingredient);
+  }
+  const submittedMap = new Map(submitted.map((entry) => [entry.itemId, entry.count]));
+  for (const entry of submitted) {
+    if (!recipeIngredientMap.has(entry.itemId)) {
+      return { error: '投料中包含当前丹方未收录的药材。' };
+    }
+  }
+  const normalizedIngredients = [];
+  for (const ingredient of recipe.ingredients ?? []) {
+    const submittedCount = submittedMap.get(ingredient.itemId) ?? 0;
+    if (ingredient.role === 'main') {
+      if (submittedCount !== ingredient.count) {
+        return { error: `${ingredient.name ?? ingredient.itemId} 属于主药，数量必须为 ${ingredient.count}。` };
+      }
+      normalizedIngredients.push({ itemId: ingredient.itemId, count: ingredient.count });
+      continue;
+    }
+    if (submittedCount < 0 || submittedCount > ingredient.count) {
+      return { error: `${ingredient.name ?? ingredient.itemId} 的辅药数量必须在 0 到 ${ingredient.count} 之间。` };
+    }
+    if (submittedCount > 0) {
+      normalizedIngredients.push({ itemId: ingredient.itemId, count: submittedCount });
+    }
+  }
+  return {
+    ingredients: normalizedIngredients.sort((left, right) => left.itemId.localeCompare(right.itemId, 'zh-Hans-CN')),
+  };
 }
 /**
  * applyCraftSkillExp：处理炼制技能Exp并更新相关状态。

@@ -149,7 +149,7 @@ export class WorldSyncAuxStateService {
     const template = this.templateRepository.getOrThrow(view.instance.templateId);
     const mapStaticState = this.worldSyncMapStaticAuxService.buildInitialMapStaticState(view, player, template);
     const visibleTiles = mapStaticState.visibleTiles;
-    const minimapLibrary = this.worldSyncMapSnapshotService.buildMinimapLibrarySync(player, template.id);
+    const minimapLibrary = this.worldSyncMapSnapshotService.buildMinimapLibrarySync(player);
     const timeState = this.worldSyncMapSnapshotService.buildGameTimeState(template, view, player);
     const threatArrows = this.worldSyncThreatService.buildThreatArrows(view);
     const bootstrapPayload = this.buildBootstrapSyncPayload(
@@ -202,17 +202,18 @@ export class WorldSyncAuxStateService {
     const mapChanged = mapStaticPlan.mapChanged;
 
     if (mapChanged) {
-      const minimapLibrary = this.worldSyncMapSnapshotService.buildMinimapLibrarySync(player, template.id);
+      const minimapLibrary = this.worldSyncMapSnapshotService.buildMinimapLibrarySync(player);
+      const mapUnlocked = Array.isArray(player.unlockedMapIds) && player.unlockedMapIds.includes(template.id);
       this.worldSyncProtocolService.sendMapStatic(
         socket,
         this.buildMapStaticSyncPayload(template, {
           mapMeta: this.worldSyncMapSnapshotService.buildMapMetaSync(template),
-          minimap: this.worldSyncMinimapService.buildMinimapSnapshotSync(template),
+          minimap: mapUnlocked ? this.worldSyncMinimapService.buildMinimapSnapshotSync(template) : undefined,
           tiles: visibleTiles.matrix,
           tilesOriginX: resolveVisibleTilesOriginX(view, player),
           tilesOriginY: resolveVisibleTilesOriginY(view, player),
           visibleMinimapMarkers: currentVisibleMinimapMarkers,
-          minimapLibrary,
+          minimapLibrary: minimapLibrary.length > 0 ? minimapLibrary : undefined,
         }),
       );
     } else if (

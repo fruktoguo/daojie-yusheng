@@ -14,8 +14,9 @@ import {
   MONSTER_GLOBAL_STAT_PERCENTS,
   MONSTER_GRADE_STAT_PERCENTS,
   MONSTER_KILL_EXP_LEVEL_DELTA_CAP,
+  MONSTER_OVERLEVEL_EXP_MULTIPLIER,
   MONSTER_TIER_EXP_MULTIPLIERS,
-  MONSTER_TIER_OVERLEVEL_EXP_REDUCTION_RATES,
+  MONSTER_TIER_UNDERLEVEL_EXP_BONUS_RATES,
   MONSTER_TIER_STAT_PERCENTS,
   NUMERIC_SCALAR_STAT_KEYS,
   PLAYER_REALM_ORDER,
@@ -654,11 +655,11 @@ export function getMonsterKillExpLevelAdjustment(
     Math.abs(normalizedMonsterLevel - normalizedPlayerLevel),
   );
   if (normalizedPlayerLevel < normalizedMonsterLevel) {
-    return 1.5 ** levelDelta;
+    const bonusRate = MONSTER_TIER_UNDERLEVEL_EXP_BONUS_RATES[normalizeMonsterTier(tier)] ?? 0.1;
+    return (1 + bonusRate) ** levelDelta;
   }
   if (normalizedPlayerLevel > normalizedMonsterLevel) {
-    const reductionRate = MONSTER_TIER_OVERLEVEL_EXP_REDUCTION_RATES[normalizeMonsterTier(tier)] ?? 0.5;
-    return Math.max(0, 1 - reductionRate) ** levelDelta;
+    return Math.max(0, MONSTER_OVERLEVEL_EXP_MULTIPLIER) ** levelDelta;
   }
   return 1;
 }

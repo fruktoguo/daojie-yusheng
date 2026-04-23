@@ -56,6 +56,16 @@ function buildPlayerSyncState(player, view, unlockedMinimapIds) {
       capacity: player.inventory.capacity,
       items: player.inventory.items.map((entry) => toItemStackState(entry)),
     },
+    wallet: {
+      balances: Array.isArray(player.wallet?.balances)
+        ? player.wallet.balances.map((entry) => ({
+          walletType: typeof entry?.walletType === 'string' ? entry.walletType.trim() : '',
+          balance: Math.max(0, Math.trunc(Number(entry?.balance ?? 0))),
+          frozenBalance: Math.max(0, Math.trunc(Number(entry?.frozenBalance ?? 0))),
+          version: Math.max(1, Math.trunc(Number(entry?.version ?? 1))),
+        })).filter((entry) => entry.walletType)
+        : [],
+    },
     marketStorage: {
       items: [],
     },

@@ -168,6 +168,7 @@ export interface PersistedPlayerSnapshot {
   version: 1;
   savedAt: number;
   placement: PlayerSnapshotPlacement;
+  respawn?: PlayerSnapshotPlacement;
   worldPreference?: PlayerSnapshotWorldPreference;
   vitals: PlayerSnapshotVitals;
   progression: PlayerSnapshotProgression;

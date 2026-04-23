@@ -2,6 +2,7 @@ import { Injectable, Logger, type OnModuleDestroy, type OnModuleInit } from '@ne
 import { Pool } from 'pg';
 
 import { resolveServerDatabaseUrl } from '../config/env-alias';
+import { buildPersistedInventoryItemRawPayload } from './inventory-item-persistence';
 import { NodeRegistryService } from './node-registry.service';
 import type { PersistedPlayerSnapshot } from './player-persistence.service';
 
@@ -3225,6 +3226,12 @@ async function replacePlayerInventoryItems(
     if (!itemId) {
       continue;
     }
+    const count = Math.max(1, Math.trunc(Number(item.count ?? 1)));
+    const rawPayload = buildPersistedInventoryItemRawPayload({
+      itemId,
+      count,
+      rawPayload: item.rawPayload,
+    });
     placeholders.push(
       `($${parameterIndex}, $${parameterIndex + 1}, $${parameterIndex + 2}, $${parameterIndex + 3}, $${parameterIndex + 4}, $${parameterIndex + 5}::jsonb, now())`,
     );
@@ -3233,8 +3240,8 @@ async function replacePlayerInventoryItems(
       playerId,
       index,
       itemId,
-      Math.max(1, Math.trunc(Number(item.count ?? 1))),
-      JSON.stringify(item.rawPayload ?? item),
+      count,
+      JSON.stringify(rawPayload),
     );
     parameterIndex += 6;
   }
@@ -3959,5 +3966,11 @@ function resolveCurrentNodeId(): string {
   if (explicit) {
     return explicit;
   }
-  return `${require('node:os').hostname().trim() || 'node'}:${process.pid}:${require('node:crypto').randomUUID().slice(0, 8)}`;
+  const publicPort = Number(
+    typeof process.env.SERVER_PUBLIC_PORT === 'string' && process.env.SERVER_PUBLIC_PORT.trim()
+      ? process.env.SERVER_PUBLIC_PORT.trim()
+      : process.env.SERVER_PORT,
+  );
+  const stablePort = Number.isFinite(publicPort) ? Math.max(1, Math.trunc(publicPort)) : 13001;
+  return `${require('node:os').hostname().trim() || 'node'}:${stablePort}`;
 }

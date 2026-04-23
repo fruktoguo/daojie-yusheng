@@ -21,6 +21,7 @@ import {
 import { FloatingTooltip, prefersPinnedTooltipInteraction } from './floating-tooltip';
 import {
   appendChannelMessages,
+  clearLegacyChatStorage,
   loadOlderChannelMessages,
   loadRecentChannelMessages,
 } from './chat-storage';
@@ -425,6 +426,7 @@ export class ChatUI {
 
 
   constructor() {
+    clearLegacyChatStorage();
     this.sendBtn.addEventListener('click', () => this.submit());
     this.input.addEventListener('keydown', (event) => {
       if (event.key === 'Enter') {

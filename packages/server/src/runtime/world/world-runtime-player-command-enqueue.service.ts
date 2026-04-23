@@ -447,6 +447,25 @@ let WorldRuntimePlayerCommandEnqueueService = class WorldRuntimePlayerCommandEnq
         const targetMonsterId = typeof target.targetMonsterIdInput === 'string' ? target.targetMonsterIdInput.trim() : '';
         const hasTileTarget = Number.isFinite(target.targetXInput) && Number.isFinite(target.targetYInput);
         if (!targetPlayerId && !targetMonsterId && !hasTileTarget) {
+            if (kind === 'engageBattle' && target.locked === true) {
+                const player = this.playerRuntimeService.getPlayerOrThrow(playerId);
+                const hadLockedCombatState = player?.combat?.autoBattle === true
+                    || player?.combat?.combatTargetLocked === true
+                    || player?.combat?.combatTargetId !== null;
+                if (hadLockedCombatState) {
+                    const currentTick = typeof deps.resolveCurrentTickForPlayerId === 'function'
+                        ? deps.resolveCurrentTickForPlayerId(playerId)
+                        : 0;
+                    this.playerRuntimeService.updateCombatSettings(playerId, {
+                        autoBattle: false,
+                    }, currentTick);
+                    this.playerRuntimeService.clearCombatTarget(playerId, currentTick);
+                    if (typeof deps.queuePlayerNotice === 'function') {
+                        deps.queuePlayerNotice(playerId, '强制攻击目标已经失效，已停止锁定。', 'combat');
+                    }
+                }
+                return deps.getPlayerViewOrThrow(playerId);
+            }
             throw new common_1.BadRequestException('target is required');
         }
         deps.enqueuePendingCommand(playerId, {

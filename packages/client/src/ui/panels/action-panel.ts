@@ -146,6 +146,7 @@ interface AutoUsePillViewEntry {
 
 interface CombatTargetingCardOption {
   key?: CombatTargetingRuleKey;
+  scope?: 'hostile' | 'friendly';
   label: string;
   summary: string;
   active?: boolean;
@@ -2688,19 +2689,19 @@ export class ActionPanel {
   private renderCombatTargetingSection(): string {
     const draft = this.syncCombatTargetingDraft();
     const hostileOptions: CombatTargetingCardOption[] = [
-      { key: 'monster', label: '妖兽单位', summary: '把野外与副本中的妖兽视为敌方目标。', active: draft.hostile?.includes('monster') === true },
-      { key: 'demonized_players', label: '入魔玩家', summary: '把煞气入体超过 20 层的玩家纳入敌方目标。', active: draft.hostile?.includes('demonized_players') === true },
-      { key: 'retaliators', label: '反击对象', summary: '把主动攻击过你的玩家纳入敌方目标。', active: draft.hostile?.includes('retaliators') === true },
-      { key: 'party', label: '协同行列', summary: '预留给队伍、同行等协作关系的敌友识别。', disabled: true },
-      { key: 'sect', label: '同道关系', summary: '预留给宗门、阵营等长期关系的敌友识别。', disabled: true },
-      { key: 'terrain', label: '场景地块', summary: '把墙体、山崖、容器等场景地块纳入敌方目标。', active: draft.hostile?.includes('terrain') === true },
+      { key: 'monster', scope: 'hostile', label: '妖兽单位', summary: '把野外与副本中的妖兽视为敌方目标。', active: draft.hostile?.includes('monster') === true },
+      { key: 'demonized_players', scope: 'hostile', label: '入魔玩家', summary: '把煞气入体超过 20 层的玩家纳入敌方目标。', active: draft.hostile?.includes('demonized_players') === true },
+      { key: 'retaliators', scope: 'hostile', label: '反击对象', summary: '把主动攻击过你的玩家纳入敌方目标。', active: draft.hostile?.includes('retaliators') === true },
+      { key: 'party', scope: 'hostile', label: '协同行列', summary: '预留给队伍、同行等协作关系的敌友识别。', disabled: true },
+      { key: 'sect', scope: 'hostile', label: '同道关系', summary: '预留给宗门、阵营等长期关系的敌友识别。', disabled: true },
+      { key: 'terrain', scope: 'hostile', label: '场景地块', summary: '把墙体、山崖、容器等场景地块纳入敌方目标。', active: draft.hostile?.includes('terrain') === true },
     ];
     const friendlyOptions: CombatTargetingCardOption[] = [
-      { key: 'non_hostile_players', label: '非敌对玩家', summary: '把当前不属于敌对范围的玩家视为友方目标。', active: draft.friendly?.includes('non_hostile_players') === true },
-      { key: 'all_players', label: '全部玩家', summary: '把所有玩家都纳入友方目标。', active: draft.friendly?.includes('all_players') === true },
-      { key: 'retaliators', label: '反击对象', summary: '把主动攻击过你的玩家也纳入友方目标。', active: draft.friendly?.includes('retaliators') === true },
-      { key: 'party', label: '协同行列', summary: '预留给队伍、同行等协作关系的敌友识别。', disabled: true },
-      { key: 'sect', label: '同道关系', summary: '预留给宗门、阵营等长期关系的敌友识别。', disabled: true },
+      { key: 'non_hostile_players', scope: 'friendly', label: '非敌对玩家', summary: '把当前不属于敌对范围的玩家视为友方目标。', active: draft.friendly?.includes('non_hostile_players') === true },
+      { key: 'all_players', scope: 'friendly', label: '全部玩家', summary: '把所有玩家都纳入友方目标。', active: draft.friendly?.includes('all_players') === true },
+      { key: 'retaliators', scope: 'friendly', label: '反击对象', summary: '把主动攻击过你的玩家也纳入友方目标。', active: draft.friendly?.includes('retaliators') === true },
+      { key: 'party', scope: 'friendly', label: '协同行列', summary: '预留给队伍、同行等协作关系的敌友识别。', disabled: true },
+      { key: 'sect', scope: 'friendly', label: '同道关系', summary: '预留给宗门、阵营等长期关系的敌友识别。', disabled: true },
     ];
     return `
       <div class="combat-settings-targeting-shell">
@@ -2741,7 +2742,7 @@ export class ActionPanel {
       <button
         class="combat-settings-toggle-chip ${option.active ? 'active' : ''}"
         type="button"
-        ${option.disabled ? 'disabled' : `data-combat-targeting-toggle="${escapeHtml(option.key ?? '')}"`}
+        ${option.disabled ? 'disabled' : `data-combat-targeting-toggle="${escapeHtml(`${option.scope ?? 'hostile'}:${option.key ?? ''}`)}"`}
       >
         <span class="combat-settings-toggle-chip-box" aria-hidden="true"></span>
         <span class="combat-settings-toggle-chip-content">
@@ -3168,14 +3169,15 @@ export class ActionPanel {
     });
     root.querySelectorAll<HTMLElement>('[data-combat-targeting-toggle]').forEach((button) => {
       button.addEventListener('click', () => {
-        const key = button.dataset.combatTargetingToggle as CombatTargetingRuleKey | undefined;
-        if (!key) {
+        const raw = button.dataset.combatTargetingToggle;
+        const [scopeRaw, keyRaw] = typeof raw === 'string' ? raw.split(':', 2) : [];
+        const scope = scopeRaw === 'friendly' ? 'friendly' : scopeRaw === 'hostile' ? 'hostile' : null;
+        const key = keyRaw as CombatTargetingRuleKey | undefined;
+        if (!scope || !key) {
           return;
         }
         this.resetCombatSettingsCloseConfirm();
         const draft = this.syncCombatTargetingDraft();
-        const isHostile = HOSTILE_TARGETING_KEYS.has(key);
-        const scope = isHostile ? 'hostile' : 'friendly';
         const current = new Set(draft[scope] ?? []);
         if (current.has(key)) {
           current.delete(key);

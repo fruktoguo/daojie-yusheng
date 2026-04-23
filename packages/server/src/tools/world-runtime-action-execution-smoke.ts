@@ -3,6 +3,7 @@
 const assert = require("node:assert/strict");
 
 const { WorldRuntimeActionExecutionService } = require("../runtime/world/world-runtime-action-execution.service");
+const { WorldRuntimePendingCommandService } = require("../runtime/world/world-runtime-pending-command.service");
 const { PVP_SHA_BACKLASH_BUFF_ID, PVP_SHA_INFUSION_BUFF_ID } = require("../constants/gameplay/pvp");
 /**
  * createService：构建并返回目标对象。
@@ -500,16 +501,77 @@ function testLegacyNpcActionDelegates() {
     ]);
 }
 
-testPortalTravel();
-testBreakthroughQueuesPendingCommand();
-testBodyTrainingInfuse();
-testToggleAutoBattle();
-testWorldMigrationSwitchesToRealLine();
-testWorldMigrationRejectsPeacefulWhenShaBuffActive();
-testWorldMigrationRejectsBacklashWhenReturningPeaceful();
-testCultivationToggle();
-testNpcShopView();
-testNpcQuestActionDelegates();
-testLegacyNpcActionDelegates();
+async function testInvalidManualCastClearsPendingCommand() {
+    const log = [];
+    const service = new WorldRuntimePendingCommandService();
+    service.enqueuePendingCommand('player:1', {
+        kind: 'castSkill',
+        skillId: 'skill.test',
+        targetRef: 'tile:999:999',
+        manualEngage: true,
+    });
+    await service.dispatchPendingCommands({
+        async dispatchInstanceCommand(playerId, command) {
+            log.push(['dispatchInstanceCommand', playerId, command]);
+        },
+        async dispatchPlayerCommand(playerId, command) {
+            log.push(['dispatchPlayerCommand', playerId, command]);
+            throw new Error('目标无效');
+        },
+        logger: {
+            warn(message) {
+                log.push(['warn', message]);
+            },
+        },
+        queuePlayerNotice(playerId, message, kind) {
+            log.push(['queuePlayerNotice', playerId, message, kind]);
+        },
+        resolveCurrentTickForPlayerId(playerId) {
+            log.push(['resolveCurrentTickForPlayerId', playerId]);
+            return 88;
+        },
+        playerRuntimeService: {
+            clearManualEngagePending(playerId) {
+                log.push(['clearManualEngagePending', playerId]);
+            },
+            clearCombatTarget(playerId, tick) {
+                log.push(['clearCombatTarget', playerId, tick]);
+            },
+        },
+    });
+    assert.equal(service.hasPendingCommand('player:1'), false);
+    assert.deepEqual(log, [
+        ['dispatchPlayerCommand', 'player:1', {
+            kind: 'castSkill',
+            skillId: 'skill.test',
+            targetRef: 'tile:999:999',
+            manualEngage: true,
+        }],
+        ['resolveCurrentTickForPlayerId', 'player:1'],
+        ['clearManualEngagePending', 'player:1'],
+        ['clearCombatTarget', 'player:1', 88],
+        ['warn', '处理玩家 player:1 的待执行指令失败：castSkill（目标无效）'],
+        ['queuePlayerNotice', 'player:1', '目标无效', 'warn'],
+    ]);
+}
 
-console.log(JSON.stringify({ ok: true, case: 'world-runtime-action-execution' }, null, 2));
+async function run() {
+    testPortalTravel();
+    testBreakthroughQueuesPendingCommand();
+    testBodyTrainingInfuse();
+    testToggleAutoBattle();
+    testWorldMigrationSwitchesToRealLine();
+    testWorldMigrationRejectsPeacefulWhenShaBuffActive();
+    testWorldMigrationRejectsBacklashWhenReturningPeaceful();
+    testCultivationToggle();
+    testNpcShopView();
+    testNpcQuestActionDelegates();
+    testLegacyNpcActionDelegates();
+    await testInvalidManualCastClearsPendingCommand();
+    console.log(JSON.stringify({ ok: true, case: 'world-runtime-action-execution' }, null, 2));
+}
+
+run().catch((error) => {
+    console.error(error);
+    process.exitCode = 1;
+});

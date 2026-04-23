@@ -183,6 +183,15 @@ type MailDetailRefs = {
   attachmentEmpty: HTMLElement;
 };
 
+type MailOperationKind = 'markRead' | 'claim' | 'delete';
+
+type PendingMailOperation = {
+  operation: MailOperationKind;
+  mailIds: string[];
+  retriedAfterSessionRecovery: boolean;
+  awaitingReplayAfterSessionRestore: boolean;
+};
+
 /** 邮件面板实现，负责列表、详情与附件分页。 */
 export class MailPanel {
   /** 详情弹窗的归属标识。 */
@@ -205,6 +214,8 @@ export class MailPanel {
   private attachmentPage = 1;
   /** 面板底部状态提示。 */
   private statusMessage = '';
+  /** 待恢复后重放的邮件操作。 */
+  private pendingOperation: PendingMailOperation | null = null;
   /** 是否已绑定事件代理。 */
   private delegatedEventsBound = false;
   /** 邮件详情区缓存的节点引用。 */
@@ -224,7 +235,8 @@ export class MailPanel {
  */
 
 
-  constructor(private readonly socket: Pick<
+  constructor(
+    private readonly socket: Pick<
     SocketSocialEconomySender,
     | 'sendRequestMailSummary'
     | 'sendRequestMailPage'
@@ -232,7 +244,11 @@ export class MailPanel {
     | 'sendMarkMailRead'
     | 'sendClaimMailAttachments'
     | 'sendDeleteMail'
-  >) {
+  >,
+    private readonly options: {
+      recoverSession?: () => Promise<boolean>;
+    } = {},
+  ) {
     document.getElementById('hud-open-mail')?.addEventListener('click', () => this.open());
   }
 
@@ -240,6 +256,9 @@ export class MailPanel {
   setPlayerId(playerId: string): void {
     this.playerId = playerId;
     this.updateHudUnreadState();
+    if (this.replayPendingOperationAfterSessionRestore()) {
+      return;
+    }
   }
 
   /** 清空面板状态并关闭弹窗。 */
@@ -252,8 +271,35 @@ export class MailPanel {
     this.detail = null;
     this.attachmentPage = 1;
     this.statusMessage = '';
+    this.pendingOperation = null;
     this.updateHudUnreadState();
     detailModalHost.close(MailPanel.MODAL_OWNER);
+  }
+
+  /** 读取当前本地已知的邮件状态，避免晚到旧包把状态回退。 */
+  private resolveLocalMailFlags(mailId: string): { read: boolean; claimed: boolean } | null {
+    const pageEntry = this.pageData.items.find((item) => item.mailId === mailId) ?? null;
+    const detailEntry = this.detail?.mailId === mailId ? this.detail : null;
+    if (!pageEntry && !detailEntry) {
+      return null;
+    }
+    return {
+      read: Boolean(pageEntry?.read || detailEntry?.read),
+      claimed: Boolean(pageEntry?.claimed || detailEntry?.claimed),
+    };
+  }
+
+  /** 合并服务端列表条目，禁止把本地已读/已领取状态回退。 */
+  private mergeIncomingListEntry(item: MailPageView['items'][number]): MailPageView['items'][number] {
+    const localFlags = this.resolveLocalMailFlags(item.mailId);
+    if (!localFlags) {
+      return item;
+    }
+    return {
+      ...item,
+      read: item.read || localFlags.read,
+      claimed: item.claimed || localFlags.claimed,
+    };
   }
 
   /** 更新邮件摘要并同步角标。 */
@@ -267,7 +313,10 @@ export class MailPanel {
   updatePage(page: MailPageView): void {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
-    this.pageData = page;
+    this.pageData = {
+      ...page,
+      items: page.items.map((item) => this.mergeIncomingListEntry(item)),
+    };
     this.activeFilter = page.filter;
     const visibleIds = new Set(page.items.map((item) => item.mailId));
     this.selectedMailIds = new Set([...this.selectedMailIds].filter((mailId) => visibleIds.has(mailId)));
@@ -305,7 +354,22 @@ export class MailPanel {
     if (!this.detail || this.detail.mailId !== detail.mailId) {
       this.attachmentPage = 1;
     }
-    this.detail = detail;
+    const localFlags = this.resolveLocalMailFlags(detail.mailId);
+    this.detail = {
+      ...detail,
+      read: detail.read || localFlags?.read === true,
+      claimed: detail.claimed || localFlags?.claimed === true,
+    };
+    this.pageData = {
+      ...this.pageData,
+      items: this.pageData.items.map((item) => item.mailId === detail.mailId
+        ? {
+          ...item,
+          read: detail.read || localFlags?.read === true,
+          claimed: detail.claimed || localFlags?.claimed === true,
+        }
+        : item),
+    };
     this.render();
   }
 
@@ -326,11 +390,68 @@ export class MailPanel {
  /**
  * message：message相关字段。
  */
- message?: string }): void {
+  message?: string }): void {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
     this.statusMessage = result.message ?? (result.ok ? '操作已提交。' : '操作失败。');
+    if (!result.ok) {
+      if (this.shouldRecoverExpiredSession(result)) {
+        void this.recoverSessionAndReplayPendingOperation();
+      } else if (this.pendingOperation?.operation === result.operation) {
+        this.pendingOperation = null;
+      }
+      this.render();
+      return;
+    }
     if (result.ok) {
+      if (this.pendingOperation?.operation === result.operation) {
+        this.pendingOperation = null;
+      }
+      const affectedIds = new Set(result.mailIds);
+      const affectedEntries = this.pageData.items.filter((item) => affectedIds.has(item.mailId));
+      const detailOnlyAffected = this.detail
+        && affectedIds.has(this.detail.mailId)
+        && affectedEntries.every((item) => item.mailId !== this.detail!.mailId)
+        ? this.detail
+        : null;
+      const unreadResolved = result.operation === 'markRead' || result.operation === 'claim' || result.operation === 'delete'
+        ? affectedEntries.reduce((count, item) => count + (item.read ? 0 : 1), 0) + (detailOnlyAffected && !detailOnlyAffected.read ? 1 : 0)
+        : 0;
+      const claimableResolved = result.operation === 'claim' || result.operation === 'delete'
+        ? affectedEntries.reduce((count, item) => count + (item.hasAttachments && !item.claimed ? 1 : 0), 0)
+          + (detailOnlyAffected && detailOnlyAffected.attachments.length > 0 && !detailOnlyAffected.claimed ? 1 : 0)
+        : 0;
+      this.summary = {
+        ...this.summary,
+        unreadCount: Math.max(0, this.summary.unreadCount - unreadResolved),
+        claimableCount: Math.max(0, this.summary.claimableCount - claimableResolved),
+      };
+      this.updateHudUnreadState();
+      if (affectedIds.size > 0) {
+        this.pageData = {
+          ...this.pageData,
+          items: this.pageData.items.filter((item) => !(result.operation === 'delete' && affectedIds.has(item.mailId))).map((item) => {
+            if (!affectedIds.has(item.mailId)) {
+              return item;
+            }
+            return {
+              ...item,
+              read: result.operation === 'markRead' || result.operation === 'claim' ? true : item.read,
+              claimed: result.operation === 'claim' ? true : item.claimed,
+            };
+          }),
+          total: result.operation === 'delete'
+            ? Math.max(0, this.pageData.total - result.mailIds.length)
+            : this.pageData.total,
+        };
+        if (this.detail && affectedIds.has(this.detail.mailId)) {
+          this.detail = {
+            ...this.detail,
+            read: result.operation === 'markRead' || result.operation === 'claim' ? true : this.detail.read,
+            claimed: result.operation === 'claim' ? true : this.detail.claimed,
+          };
+        }
+      }
       if (result.operation === 'delete' && this.selectedMailId && result.mailIds.includes(this.selectedMailId)) {
         this.selectedMailId = null;
         this.detail = null;
@@ -370,6 +491,99 @@ export class MailPanel {
     this.socket.sendRequestMailDetail(mailId);
   }
 
+  /** 统一发起邮件变更操作，并为会话恢复保留一次重放机会。 */
+  private dispatchMailOperation(operation: MailOperationKind, mailIds: string[]): void {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
+    const normalizedIds = Array.from(new Set(mailIds.map((mailId) => String(mailId ?? '').trim()).filter(Boolean)));
+    if (normalizedIds.length === 0) {
+      return;
+    }
+    this.pendingOperation = {
+      operation,
+      mailIds: normalizedIds,
+      retriedAfterSessionRecovery: false,
+      awaitingReplayAfterSessionRestore: false,
+    };
+    this.emitMailOperation(operation, normalizedIds);
+  }
+
+  /** 底层发包，不修改待重放状态。 */
+  private emitMailOperation(operation: MailOperationKind, mailIds: string[]): void {
+    switch (operation) {
+      case 'markRead':
+        this.socket.sendMarkMailRead(mailIds);
+        return;
+      case 'claim':
+        this.socket.sendClaimMailAttachments(mailIds);
+        return;
+      case 'delete':
+        this.socket.sendDeleteMail(mailIds);
+        return;
+    }
+  }
+
+  /** 判断这次失败是否命中了可恢复的会话失效场景。 */
+  private shouldRecoverExpiredSession(result: {
+    operation: MailOperationKind;
+    ok: boolean;
+    message?: string;
+  }): boolean {
+    const message = typeof result.message === 'string' ? result.message : '';
+    if (!message.includes('当前会话已失效')) {
+      return false;
+    }
+    return Boolean(
+      this.pendingOperation
+      && this.pendingOperation.operation === result.operation
+      && this.pendingOperation.retriedAfterSessionRecovery === false
+      && typeof this.options.recoverSession === 'function',
+    );
+  }
+
+  /** 会话失效时尝试恢复并自动重放一次当前邮件操作。 */
+  private async recoverSessionAndReplayPendingOperation(): Promise<void> {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
+    const pendingOperation = this.pendingOperation;
+    const recoverSession = this.options.recoverSession;
+    if (!pendingOperation || pendingOperation.retriedAfterSessionRecovery || typeof recoverSession !== 'function') {
+      return;
+    }
+    pendingOperation.retriedAfterSessionRecovery = true;
+    pendingOperation.awaitingReplayAfterSessionRestore = true;
+    this.playerId = '';
+    this.statusMessage = '当前会话已失效，正在恢复并重试...';
+    this.render();
+    const restored = await recoverSession();
+    if (!restored) {
+      this.pendingOperation = null;
+      this.statusMessage = '会话恢复失败，请重新登录后重试。';
+      this.render();
+      return;
+    }
+    if (this.replayPendingOperationAfterSessionRestore()) {
+      return;
+    }
+    this.statusMessage = '会话已恢复，正在等待角色数据...';
+    this.render();
+  }
+
+  /** 在 bootstrap 回到邮件面板后重放一次待恢复操作。 */
+  private replayPendingOperationAfterSessionRestore(): boolean {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
+    const pendingOperation = this.pendingOperation;
+    if (!pendingOperation?.awaitingReplayAfterSessionRestore || !this.playerId) {
+      return false;
+    }
+    pendingOperation.awaitingReplayAfterSessionRestore = false;
+    this.statusMessage = '会话已恢复，正在重试邮件操作...';
+    this.render();
+    this.emitMailOperation(pendingOperation.operation, pendingOperation.mailIds);
+    return true;
+  }
+
   /** 在邮件未读时主动补一次已读标记。 */
   private markReadIfNeeded(mailId: string): void {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
@@ -378,7 +592,7 @@ export class MailPanel {
     if (!item || item.read) {
       return;
     }
-    this.socket.sendMarkMailRead([mailId]);
+    this.dispatchMailOperation('markRead', [mailId]);
   }
 
   /** 刷新邮件详情弹窗。 */
@@ -738,8 +952,10 @@ export class MailPanel {
       return true;
     }
     const orderedNodes = this.pageData.items.map((item) => {
-      const node = existing.get(item.mailId) ?? this.createMailEntryNode(item);
-      this.patchMailEntryNode(node, item);
+      const reused = existing.get(item.mailId) ?? null;
+      const node = reused && this.patchMailEntryNode(reused, item)
+        ? reused
+        : this.createMailEntryNode(item);
       existing.delete(item.mailId);
       return node;
     });
@@ -764,17 +980,17 @@ export class MailPanel {
         <div class="mail-entry-main">
           <div class="mail-entry-head">
             <div class="mail-entry-title-row">
-              <div class="mail-entry-title">${escapeHtml(item.title)}</div>
-              ${!item.read ? '<span class="suggestion-inline-dot" aria-hidden="true"></span>' : ''}
+              <div class="mail-entry-title" data-mail-entry-title="true">${escapeHtml(item.title)}</div>
+              <span class="suggestion-inline-dot" aria-hidden="true" data-mail-entry-unread-dot="true" ${item.read ? 'hidden' : ''}></span>
             </div>
-            <div class="mail-entry-time">${new Date(item.createdAt).toLocaleString()}</div>
+            <div class="mail-entry-time" data-mail-entry-time="true">${new Date(item.createdAt).toLocaleString()}</div>
           </div>
-          <div class="mail-entry-meta">
+          <div class="mail-entry-meta" data-mail-entry-meta="true">
             <span>${escapeHtml(item.senderLabel)}</span>
             ${stateChips.map((chip) => `<span>${escapeHtml(chip)}</span>`).join('')}
             ${item.expireAt ? `<span>至 ${escapeHtml(new Date(item.expireAt).toLocaleString())}</span>` : ''}
           </div>
-          <div class="mail-entry-summary">${escapeHtml(item.summary || '这封邮件没有额外说明。')}</div>
+          <div class="mail-entry-summary" data-mail-entry-summary="true">${escapeHtml(item.summary || '这封邮件没有额外说明。')}</div>
         </div>
       </article>
     `;
@@ -907,14 +1123,14 @@ export class MailPanel {
     if (target.closest('[data-mail-batch-claim]')) {
       const ids = [...this.selectedMailIds];
       if (ids.length > 0) {
-        this.socket.sendClaimMailAttachments(ids);
+        this.dispatchMailOperation('claim', ids);
       }
       return;
     }
     if (target.closest('[data-mail-batch-delete]')) {
       const ids = [...this.selectedMailIds];
       if (ids.length > 0) {
-        this.socket.sendDeleteMail(ids);
+        this.dispatchMailOperation('delete', ids);
       }
       return;
     }
@@ -923,7 +1139,7 @@ export class MailPanel {
     if (markReadButton) {
       const mailId = markReadButton.dataset.mailMarkRead;
       if (mailId) {
-        this.socket.sendMarkMailRead([mailId]);
+        this.dispatchMailOperation('markRead', [mailId]);
       }
       return;
     }
@@ -931,7 +1147,7 @@ export class MailPanel {
     if (claimButton) {
       const mailId = claimButton.dataset.mailClaim;
       if (mailId) {
-        this.socket.sendClaimMailAttachments([mailId]);
+        this.dispatchMailOperation('claim', [mailId]);
       }
       return;
     }
@@ -939,7 +1155,7 @@ export class MailPanel {
     if (deleteButton) {
       const mailId = deleteButton.dataset.mailDelete;
       if (mailId) {
-        this.socket.sendDeleteMail([mailId]);
+        this.dispatchMailOperation('delete', [mailId]);
       }
       return;
     }
@@ -1135,7 +1351,7 @@ export class MailPanel {
     if (!(button instanceof HTMLButtonElement)) {
       return;
     }
-    const hasUnread = this.summary.unreadCount > 0 || this.summary.claimableCount > 0;
+    const hasUnread = this.summary.unreadCount > 0;
     button.dataset.hasUnread = hasUnread ? 'true' : 'false';
   }
 }

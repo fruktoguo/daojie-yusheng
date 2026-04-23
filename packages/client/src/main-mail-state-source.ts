@@ -45,6 +45,7 @@ type MainMailStateSourceOptions = {
     | 'sendClaimMailAttachments'
     | 'sendDeleteMail'
   >;
+  recoverSession?: () => Promise<boolean>;
 };
 /**
  * MainMailStateSource：统一结构类型，保证协议与运行时一致性。
@@ -60,7 +61,9 @@ export type MainMailStateSource = ReturnType<typeof createMainMailStateSource>;
 
 
 export function createMainMailStateSource(options: MainMailStateSourceOptions) {
-  const mailPanel = new MailPanel(options.socket);
+  const mailPanel = new MailPanel(options.socket, {
+    recoverSession: options.recoverSession,
+  });
 
   return {  
   /**

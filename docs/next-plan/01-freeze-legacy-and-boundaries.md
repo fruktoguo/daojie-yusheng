@@ -6,6 +6,7 @@
 
 - `packages/*` 已在 [next 原地硬切执行文档](../next-in-place-hard-cut-plan.md) 和 [main](./main.md) 中明确为唯一活跃主线。
 - `legacy/*` 已明确退化为参考、迁移来源、归档，不再承担默认开发职责。
+- 需要逐项追正式版差异时，默认对照 `main` 分支下同名 `packages/client`、`packages/shared`、`packages/server`，而不是把 `legacy/*` 当默认行为基线。
 - 这一阶段现在完成的是“边界钉死 + 入口盘点”，不是代码层面的 compat 删除；真正删除动作继续放在 `05`、`06`、`09`。
 
 ## 任务
@@ -26,6 +27,7 @@
 ## 盘点口径
 
 - 以 `packages/*` 为主线，扫描 `legacy` / `compat` / `persistent_documents_only` / `replace_persistent_documents` / `server_next_legacy_*` 等关键字。
+- 需要核对正式版当前行为时，优先对照 `main` 分支同名 `packages/*`，不要再把 `legacy/*` 当默认同步来源。
 - 结合 [server 剩余 legacy 边界自动审计](../next-legacy-boundary-audit.md) 的现有结论，避免只靠手工猜测。
 - 这里只盘“next 主线仍然直接触达 legacy/compat 的入口”，不把纯注释、历史文档和旧目录本身计入。
 

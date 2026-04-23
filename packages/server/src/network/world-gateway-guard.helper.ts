@@ -25,7 +25,7 @@ class WorldGatewayGuardHelper {
  * gateway：gateway相关字段。
  */
 
-    gateway;    
+    gateway;
     /**
  * 构造器：初始化 当前 实例并建立基础状态。
  * @param gateway 参数说明。
@@ -34,7 +34,7 @@ class WorldGatewayGuardHelper {
 
     constructor(gateway) {
         this.gateway = gateway;
-    }    
+    }
     /**
  * rejectWhenNotReady：读取rejectWhenNotReady并返回结果。
  * @param client 参数说明。
@@ -55,7 +55,7 @@ class WorldGatewayGuardHelper {
         this.gateway.worldClientEventService.emitError(client, isMaintenance ? 'SERVER_BUSY' : 'SERVER_NOT_READY', isMaintenance ? '数据库维护中，请稍后重连' : '服务未就绪，请稍后重连');
         client.disconnect(true);
         return true;
-    }    
+    }
     /**
  * requirePlayerId：执行require玩家ID相关逻辑。
  * @param client 参数说明。
@@ -71,7 +71,30 @@ class WorldGatewayGuardHelper {
         }
         this.gateway.worldClientEventService.emitNotReady(client);
         return null;
-    }    
+    }
+    /**
+ * requireActivePlayerId：要求当前 socket 仍绑定在该玩家的有效 session 上。
+ * @param client 参数说明。
+ * @returns 无返回值，直接更新有效玩家会话相关状态。
+ */
+
+    requireActivePlayerId(client) {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
+        const playerId = this.requirePlayerId(client);
+        if (!playerId) {
+            return null;
+        }
+        const binding = this.gateway.worldSessionService?.getBinding?.(playerId) ?? null;
+        if (binding?.connected === true && binding.socketId === client.id) {
+            return playerId;
+        }
+        this.gateway.worldClientEventService.emitError(client, 'SESSION_EXPIRED', '当前会话已失效，请重新连接。');
+        if (typeof client?.disconnect === 'function') {
+            client.disconnect(true);
+        }
+        return null;
+    }
     /**
  * requireGm：执行requireGM相关逻辑。
  * @param client 参数说明。

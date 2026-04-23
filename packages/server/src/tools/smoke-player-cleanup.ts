@@ -6,8 +6,8 @@
 
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.DEFAULT_SMOKE_ACCOUNT_PATTERNS = void 0;
-exports.purgeSmokePlayerArtifactsByPlayerId = purgeSmokePlayerArtifactsByPlayerId;
 exports.purgeSmokeTestArtifacts = purgeSmokeTestArtifacts;
+exports.purgeSmokePlayerArtifactsByPlayerId = purgeSmokePlayerArtifactsByPlayerId;
 
 const pg_1 = require("pg");
 
@@ -17,8 +17,13 @@ const PLAYER_AUTH_TABLE = 'server_player_auth';
 const PLAYER_IDENTITY_TABLE = 'server_player_identity';
 const PLAYER_IDENTITY_MIRROR_TABLE = 'player_identity';
 const PLAYER_SNAPSHOT_TABLE = 'server_player_snapshot';
+const INSTANCE_CATALOG_TABLE = 'instance_catalog';
+const INSTANCE_FLUSH_LEDGER_TABLE = 'instance_flush_ledger';
+const PERSISTENT_DOCUMENTS_TABLE = 'persistent_documents';
 const PLAYER_SCOPED_MAINLINE_TABLES = [
+  'player_flush_ledger',
   'player_presence',
+  'player_session_route',
   'player_world_anchor',
   'player_position_checkpoint',
   'player_vitals',
@@ -53,12 +58,21 @@ const LEGACY_PLAYERS_TABLE = 'players';
 const DEFAULT_GUEST_PLAYER_PATTERNS = Object.freeze([
   'guest_%',
   'proof_%',
+  'bench_player_%',
+  'bench_player',
+  'bench_attacker',
+  'bench_defender',
+  'do_bench_%',
+  'bench_multi_player_%',
+  'bench_transfer_player_%',
 ]);
 
 exports.DEFAULT_SMOKE_ACCOUNT_PATTERNS = Object.freeze([
   'acct_%',
   'atk_%',
+  'bench_%',
   'def_%',
+  'do_bench_%',
   'drp_%',
   'gc_%',
   'gmv_%',
@@ -79,6 +93,11 @@ exports.DEFAULT_SMOKE_ACCOUNT_PATTERNS = Object.freeze([
   'rdm_%',
   'rt_%',
   'shd_%',
+]);
+
+const DEFAULT_SMOKE_INSTANCE_PATTERNS = Object.freeze([
+  'instance:%:lease',
+  'public:bench_%',
 ]);
 
 async function purgeSmokePlayerArtifactsByPlayerId(playerId, options = undefined) {
@@ -199,8 +218,12 @@ async function purgeSmokeTestArtifacts(options = undefined) {
     exports.DEFAULT_SMOKE_ACCOUNT_PATTERNS,
   );
   const guestPlayerPatterns = normalizeLikePatterns(
-    options?.guestPlayerPatterns,
+    options?.playerPatterns ?? options?.guestPlayerPatterns,
     DEFAULT_GUEST_PLAYER_PATTERNS,
+  );
+  const instancePatterns = normalizeLikePatterns(
+    options?.instancePatterns,
+    DEFAULT_SMOKE_INSTANCE_PATTERNS,
   );
   const dryRun = options?.dryRun === true;
 
@@ -223,9 +246,11 @@ async function purgeSmokeTestArtifacts(options = undefined) {
         FROM ${PLAYER_IDENTITY_TABLE}
         WHERE username LIKE ANY($1::text[])
       `, [accountPatterns]);
+      const directPlayerTargets = await findPlayerIdsByPatterns(client, guestPlayerPatterns);
+      const orphanNativeTargets = await findOrphanNativePlayerIds(client);
 
       const userIds = collectDistinctStrings('user_id', authTargets.rows, identityTargets.rows);
-      const playerIds = collectDistinctStrings('player_id', authTargets.rows, identityTargets.rows);
+      const playerIds = collectDistinctStrings('player_id', authTargets.rows, identityTargets.rows, directPlayerTargets.rows, orphanNativeTargets.rows);
 
       const deleted = {
         authRows: dryRun
@@ -243,6 +268,9 @@ async function purgeSmokeTestArtifacts(options = undefined) {
         legacyPlayerRows: dryRun
           ? await countLegacyPlayerRows(client, playerIds, userIds)
           : await deleteLegacyPlayerRows(client, playerIds, userIds),
+        instanceRows: dryRun
+          ? await countInstanceScopedRows(client, playerIds, instancePatterns)
+          : await deleteInstanceScopedRows(client, playerIds, instancePatterns),
       };
 
       if (!dryRun) {
@@ -261,9 +289,11 @@ async function purgeSmokeTestArtifacts(options = undefined) {
         dryRun,
         accountPatterns,
         guestPlayerPatterns,
+        instancePatterns,
         matched: {
           authPlayers: authTargets.rowCount ?? 0,
           identityPlayers: identityTargets.rowCount ?? 0,
+          orphanNativePlayers: orphanNativeTargets.rowCount ?? 0,
           distinctUserIds: userIds.length,
           distinctPlayerIds: playerIds.length,
         },
@@ -339,6 +369,108 @@ async function deleteMainlinePlayerScopedRows(client, playerIds) {
       : `DELETE FROM ${tableName} WHERE player_id = ANY($1::text[])`;
     await safeQuery(client, sql, [playerIds]);
   }
+}
+
+async function findPlayerIdsByPatterns(client, playerPatterns) {
+  if (!Array.isArray(playerPatterns) || playerPatterns.length === 0) {
+    return { rows: [] };
+  }
+  return safeQuery(client, `
+    SELECT DISTINCT player_id
+    FROM (
+      SELECT player_id FROM ${PLAYER_SNAPSHOT_TABLE} WHERE player_id LIKE ANY($1::text[])
+      UNION
+      SELECT player_id FROM player_presence WHERE player_id LIKE ANY($1::text[])
+      UNION
+      SELECT player_id FROM player_mail WHERE player_id LIKE ANY($1::text[])
+      UNION
+      SELECT player_id FROM player_mail_attachment WHERE player_id LIKE ANY($1::text[])
+      UNION
+      SELECT player_id FROM player_position_checkpoint WHERE player_id LIKE ANY($1::text[])
+      UNION
+      SELECT player_id FROM player_world_anchor WHERE player_id LIKE ANY($1::text[])
+    ) AS matched_players
+  `, [playerPatterns]);
+}
+
+async function findOrphanNativePlayerIds(client) {
+  return safeQuery(client, `
+    SELECT DISTINCT player_id
+    FROM ${PLAYER_SNAPSHOT_TABLE} snapshot
+    WHERE snapshot.player_id ~ '^p_[0-9a-fA-F-]{36}$'
+      AND NOT EXISTS (
+        SELECT 1
+        FROM ${PLAYER_IDENTITY_TABLE} identity
+        WHERE identity.player_id = snapshot.player_id
+      )
+      AND NOT EXISTS (
+        SELECT 1
+        FROM ${PLAYER_AUTH_TABLE} auth
+        WHERE auth.player_id = snapshot.player_id
+      )
+  `);
+}
+
+function buildDerivedLeaseInstanceKeys(playerIds) {
+  if (!Array.isArray(playerIds) || playerIds.length === 0) {
+    return [];
+  }
+  return playerIds
+    .map((playerId) => typeof playerId === 'string' ? playerId.trim() : '')
+    .filter((playerId) => playerId.length > 0)
+    .map((playerId) => `instance:${playerId}:lease`);
+}
+
+async function countInstanceScopedRows(client, playerIds, instancePatterns) {
+  const derivedKeys = buildDerivedLeaseInstanceKeys(playerIds);
+  const catalogRows = await safeQuery(client, `
+    SELECT COUNT(*)::int AS count
+    FROM ${INSTANCE_CATALOG_TABLE}
+    WHERE instance_id LIKE ANY($1::text[])
+      OR shard_key LIKE ANY($1::text[])
+      OR instance_id = ANY($2::text[])
+      OR shard_key = ANY($2::text[])
+  `, [instancePatterns, derivedKeys]);
+  const flushLedgerRows = await safeQuery(client, `
+    SELECT COUNT(*)::int AS count
+    FROM ${INSTANCE_FLUSH_LEDGER_TABLE}
+    WHERE instance_id LIKE ANY($1::text[])
+      OR instance_id = ANY($2::text[])
+  `, [instancePatterns, derivedKeys]);
+  const documentRows = await safeQuery(client, `
+    SELECT COUNT(*)::int AS count
+    FROM ${PERSISTENT_DOCUMENTS_TABLE}
+    WHERE key LIKE ANY($1::text[])
+      OR key = ANY($2::text[])
+  `, [instancePatterns, derivedKeys]);
+  return Number(catalogRows.rows?.[0]?.count ?? 0)
+    + Number(flushLedgerRows.rows?.[0]?.count ?? 0)
+    + Number(documentRows.rows?.[0]?.count ?? 0);
+}
+
+async function deleteInstanceScopedRows(client, playerIds, instancePatterns) {
+  const derivedKeys = buildDerivedLeaseInstanceKeys(playerIds);
+  const catalogRows = await safeQuery(client, `
+    DELETE FROM ${INSTANCE_CATALOG_TABLE}
+    WHERE instance_id LIKE ANY($1::text[])
+      OR shard_key LIKE ANY($1::text[])
+      OR instance_id = ANY($2::text[])
+      OR shard_key = ANY($2::text[])
+    RETURNING instance_id
+  `, [instancePatterns, derivedKeys]);
+  const flushLedgerRows = await safeQuery(client, `
+    DELETE FROM ${INSTANCE_FLUSH_LEDGER_TABLE}
+    WHERE instance_id LIKE ANY($1::text[])
+      OR instance_id = ANY($2::text[])
+    RETURNING instance_id
+  `, [instancePatterns, derivedKeys]);
+  const documentRows = await safeQuery(client, `
+    DELETE FROM ${PERSISTENT_DOCUMENTS_TABLE}
+    WHERE key LIKE ANY($1::text[])
+      OR key = ANY($2::text[])
+    RETURNING key
+  `, [instancePatterns, derivedKeys]);
+  return (catalogRows.rowCount ?? 0) + (flushLedgerRows.rowCount ?? 0) + (documentRows.rowCount ?? 0);
 }
 
 async function deleteIdentityRowsByPlayerIds(client, playerIds) {

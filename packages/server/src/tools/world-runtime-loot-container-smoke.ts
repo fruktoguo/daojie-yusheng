@@ -7,6 +7,8 @@ async function main(): Promise<void> {
   await testGroundTakeAllDurableGrant();
   await testContainerTakeDurableGrant();
   await testContainerTakeAllDurableGrant();
+  await testStartGatherSupportsColonInstanceId();
+  await testHerbRefreshRegeneratesEntries();
   await testGatherCompletionDurableGrant();
   await testGatherCompletionDurableRollback();
   await testGatherCompletionDirtyDomains();
@@ -416,6 +418,100 @@ async function testContainerTakeAllDurableGrant() {
     ['refreshQuestStates', 'player:container:all'],
     ['queuePlayerNotice', 'player:container:all', '获得 鼠尾 x2、狼牙', 'loot'],
   ]);
+}
+
+async function testStartGatherSupportsColonInstanceId() {
+  const instanceId = 'public:yunlai_town';
+  const player = buildPlayer('player:gather:start', instanceId, 'runtime:gather:start', 23);
+  player.x = 5;
+  player.y = 6;
+  const service = new WorldRuntimeLootContainerService({
+    createItem(itemId: string, count: number) {
+      return { itemId, count, name: '月露草', type: 'material', level: 10, grade: 'earth' };
+    },
+  } as never, buildPlayerRuntimeService(player, {
+    lootWindowTarget: { tileX: 5, tileY: 6 },
+  }) as never);
+  player.gatherSkill = {
+    level: 20,
+    exp: 0,
+    expToNext: 60,
+  };
+  const container = {
+    id: 'lm_yunlai_moondew_5_6',
+    name: '月露草',
+    x: 5,
+    y: 6,
+    variant: 'herb',
+    grade: 'earth',
+    desc: '可采集草药',
+    drops: [{ itemId: 'mat.moondew_grass', name: '月露草', count: 1, type: 'material' }],
+    lootPools: [],
+  };
+  service.prepareContainerLootSource(instanceId, container as never, 10);
+  const prepared = service.getPreparedContainerLootSource(instanceId, container as never, player as never);
+  const itemKey = Array.isArray(prepared?.items) ? prepared.items[0]?.itemKey : '';
+  assert.equal(typeof itemKey, 'string');
+  assert.ok(itemKey);
+  assert.equal(prepared?.sourceId, `container:${instanceId}:${container.id}`);
+  assert.equal(prepared?.herb?.nativeGatherTicks, 7);
+  assert.equal(prepared?.herb?.gatherTicks, 5);
+  const deps = {
+    tick: 10,
+    getPlayerLocationOrThrow() {
+      return { instanceId };
+    },
+    getInstanceRuntimeOrThrow() {
+      return {
+        getContainerById(containerId: string) {
+          assert.equal(containerId, container.id);
+          return container;
+        },
+      };
+    },
+  };
+
+  const result = service.dispatchStartGather(player.playerId, { sourceId: prepared?.sourceId, itemKey }, deps as never);
+  assert.equal(result.ok, true);
+  assert.deepEqual(result.messages, [{ kind: 'info', text: '你开始采集 月露草。' }]);
+  assert.equal(player.gatherJob?.resourceNodeId, container.id);
+  assert.equal(player.gatherJob?.remainingTicks, 5);
+}
+
+async function testHerbRefreshRegeneratesEntries() {
+  const instanceId = 'public:yunlai_town';
+  const service = new WorldRuntimeLootContainerService({
+    createItem(itemId: string, count: number) {
+      return { itemId, count, name: '月露草', type: 'material', level: 1 };
+    },
+  } as never, buildPlayerRuntimeService(buildPlayer('player:gather:refresh', instanceId, 'runtime:gather:refresh', 24)) as never);
+  const container = {
+    id: 'lm_yunlai_moondew_5_6',
+    name: '月露草',
+    x: 5,
+    y: 6,
+    variant: 'herb',
+    grade: 'mortal',
+    desc: '可采集草药',
+    refreshTicksMin: 5,
+    refreshTicksMax: 5,
+    drops: [{ itemId: 'mat.moondew_grass', name: '月露草', count: 1, type: 'material' }],
+    lootPools: [],
+  };
+  service.hydrateContainerStates(instanceId, [{
+    sourceId: `container:${instanceId}:${container.id}`,
+    containerId: container.id,
+    generatedAtTick: 1,
+    refreshAtTick: 5,
+    entries: [],
+    activeSearch: undefined,
+  }]);
+
+  service.prepareContainerLootSource(instanceId, container as never, 5);
+  const refreshed = service.getPreparedContainerLootSource(instanceId, container as never);
+  assert.ok(refreshed);
+  assert.equal(refreshed?.items.length, 1);
+  assert.equal(refreshed?.items[0]?.item.itemId, 'mat.moondew_grass');
 }
 
 async function testGatherCompletionDurableGrant() {

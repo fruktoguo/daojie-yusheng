@@ -1,6 +1,6 @@
 # server 剩余 legacy 边界自动审计
 
-更新时间：2026-04-22
+更新时间：2026-04-23
 
 ## 一句话结论
 
@@ -21,7 +21,7 @@
 ## P1 runtime/persistence compat
 
 - WorldPlayerSource 仍保留 migration-only snapshot 占位入口
-  - 文件：`packages/server/src/network/world-player-source.service.ts:157`
+  - 文件：`packages/server/src/network/world-player-source.service.ts:156`
   - 命中次数：1
   - 首个证据：`async loadPlayerSnapshotForMigration(playerId, options = undefined) {`
 

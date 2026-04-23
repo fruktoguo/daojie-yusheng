@@ -66,8 +66,8 @@
         <button class="login-mode-tab" id="tab-register" type="button" role="tab" aria-selected="false">注册</button>
       </div>
       <div class="form-group" id="login-name-group">
-        <label id="login-name-label">账号</label>
-        <input id="input-login-name" type="text" placeholder="输入账号" />
+        <label id="login-name-label">账号 / 角色名</label>
+        <input id="input-login-name" type="text" placeholder="输入账号或角色名" />
       </div>
       <div class="form-group">
         <label>口令</label>
@@ -85,7 +85,7 @@
       </div>
       <div class="form-group hidden" id="register-display-name-group">
         <label>显示名</label>
-        <input id="input-display-name" type="text" maxlength="1" placeholder="注册时必填，仅 1 个字" />
+        <input id="input-display-name" type="text" placeholder="注册时必填，仅 1 个字" />
         <div class="form-help">注册时必须选择 1 个可见显示字。除“人”外，显示名仍按唯一性校验；未设置的旧账号默认取账号首个可见字。</div>
         <div class="field-status" id="display-name-status">注册时必填</div>
       </div>
@@ -414,10 +414,14 @@
               <div class="merged-pane-shell" data-tab-group="center-intel">
                 <div class="section-tabs">
                   <button class="tab-btn active" data-tab="map-intel" type="button">地图信息</button>
+                  <button class="tab-btn" data-tab="nearby" type="button">附近动态</button>
+                  <button class="tab-btn" data-tab="suggestions" type="button">行动建议</button>
                   <button class="tab-btn" data-tab="tianji" type="button">天机阁</button>
                 </div>
                 <div class="section-body">
                   <div class="tab-pane active" id="pane-map-intel" data-pane="map-intel"></div>
+                  <div class="tab-pane" id="pane-nearby" data-pane="nearby"></div>
+                  <div class="tab-pane" id="pane-suggestions" data-pane="suggestions"></div>
                   <div class="tab-pane" id="pane-tianji" data-pane="tianji"></div>
                 </div>
               </div>

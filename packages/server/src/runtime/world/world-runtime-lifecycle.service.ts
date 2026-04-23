@@ -156,6 +156,7 @@ let WorldRuntimeLifecycleService = class WorldRuntimeLifecycleService {
                     clusterId: typeof entry.cluster_id === 'string' ? entry.cluster_id : null,
                     shardKey: typeof entry.shard_key === 'string' && entry.shard_key.trim() ? entry.shard_key.trim() : instanceId,
                     routeDomain: typeof entry.route_domain === 'string' ? entry.route_domain : null,
+                    destroyAt: entry.destroy_at ? new Date(entry.destroy_at).toISOString() : null,
                     lastActiveAt: entry.last_active_at ? new Date(entry.last_active_at).toISOString() : null,
                     lastPersistedAt: entry.last_persisted_at ? new Date(entry.last_persisted_at).toISOString() : null,
                 });
@@ -186,6 +187,7 @@ let WorldRuntimeLifecycleService = class WorldRuntimeLifecycleService {
                     clusterId: instance?.meta?.clusterId ?? null,
                     shardKey,
                     routeDomain: instance?.meta?.routeDomain ?? null,
+                    destroyAt: instance?.meta?.destroyAt ?? null,
                     lastActiveAt: instance?.meta?.lastActiveAt ?? null,
                     lastPersistedAt: instance?.meta?.lastPersistedAt ?? null,
                 });
@@ -210,6 +212,10 @@ exports.WorldRuntimeLifecycleService = WorldRuntimeLifecycleService = __decorate
 
 export { WorldRuntimeLifecycleService };
 function shouldRestoreCatalogEntry(entry) {
+    const destroyAt = entry?.destroy_at ? new Date(entry.destroy_at).getTime() : 0;
+    if (Number.isFinite(destroyAt) && destroyAt > 0 && destroyAt <= Date.now()) {
+        return false;
+    }
     const persistentPolicy = normalizePersistentPolicy(entry?.persistent_policy);
     if (persistentPolicy === 'persistent') {
         return true;

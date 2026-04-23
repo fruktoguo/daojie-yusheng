@@ -83,7 +83,7 @@ export interface MarketUpdateView {
 
   currencyItemName: string;  
   /**
- * listedItems：集合字段。
+ * listedItems：列表占位字段；完整盘面统一走 MarketListings 分页通道。
  */
 
   listedItems: MarketListedItemView[];  

@@ -37,6 +37,7 @@ const world_gm_socket_service_1 = require("./world-gm-socket.service");
 const world_protocol_projection_service_1 = require("./world-protocol-projection.service");
 const world_session_bootstrap_service_1 = require("./world-session-bootstrap.service");
 const world_session_service_1 = require("./world-session.service");
+const world_sync_service_1 = require("./world-sync.service");
 const world_gateway_bootstrap_helper_1 = require("./world-gateway-bootstrap.helper");
 const world_gateway_gm_command_helper_1 = require("./world-gateway-gm-command.helper");
 const world_gateway_gm_suggestion_helper_1 = require("./world-gateway-gm-suggestion.helper");
@@ -75,12 +76,13 @@ let WorldGateway = WorldGateway_1 = class WorldGateway {
         playerDomainPersistenceService; playerPersistenceFlushService; playerRuntimeService; mailRuntimeService;
         marketRuntimeService; craftPanelRuntimeService; suggestionRuntimeService; leaderboardRuntimeService;
         runtimeGmStateService; worldRuntimeService; worldClientEventService; worldSessionService; playerSessionRouteService;
+        worldSyncService;
         gatewayBootstrapHelper; gatewayGmCommandHelper; gatewayGmSuggestionHelper; gatewaySuggestionHelper;
         gatewayMovementHelper; gatewayInventoryHelper; gatewayMailHelper; gatewayPlayerControlsHelper;
         gatewayNpcHelper; gatewayCraftHelper; gatewayMarketHelper; gatewayReadModelHelper; gatewayActionHelper;
         gatewayClientEmitHelper; gatewayGuardHelper; gatewaySessionStateHelper;
         presenceHeartbeatPersistedAtByPlayerId = new Map(); server; logger = new common_1.Logger(WorldGateway_1.name);    
-    constructor(worldGmSocketService, worldProtocolProjectionService, sessionBootstrapService, healthReadinessService, playerDomainPersistenceService, playerPersistenceFlushService, playerRuntimeService, mailRuntimeService, marketRuntimeService, craftPanelRuntimeService, suggestionRuntimeService, leaderboardRuntimeService, runtimeGmStateService, worldRuntimeService, worldClientEventService, worldSessionService, playerSessionRouteService) {
+    constructor(worldGmSocketService, worldProtocolProjectionService, sessionBootstrapService, healthReadinessService, playerDomainPersistenceService, playerPersistenceFlushService, playerRuntimeService, mailRuntimeService, marketRuntimeService, craftPanelRuntimeService, suggestionRuntimeService, leaderboardRuntimeService, runtimeGmStateService, worldRuntimeService, worldClientEventService, worldSessionService, playerSessionRouteService, worldSyncService) {
         this.worldGmSocketService = worldGmSocketService;
         this.worldProtocolProjectionService = worldProtocolProjectionService;
         this.sessionBootstrapService = sessionBootstrapService;
@@ -98,6 +100,7 @@ let WorldGateway = WorldGateway_1 = class WorldGateway {
         this.worldClientEventService = worldClientEventService;
         this.worldSessionService = worldSessionService;
         this.playerSessionRouteService = playerSessionRouteService;
+        this.worldSyncService = worldSyncService;
         this.gatewayBootstrapHelper = new world_gateway_bootstrap_helper_1.WorldGatewayBootstrapHelper(this);
         this.gatewayGmCommandHelper = new world_gateway_gm_command_helper_1.WorldGatewayGmCommandHelper(this);
         this.gatewayGmSuggestionHelper = new world_gateway_gm_suggestion_helper_1.WorldGatewayGmSuggestionHelper(this);
@@ -1092,7 +1095,8 @@ exports.WorldGateway = WorldGateway = WorldGateway_1 = __decorate([
         world_runtime_service_1.WorldRuntimeService,
         world_client_event_service_1.WorldClientEventService,
         world_session_service_1.WorldSessionService,
-        player_session_route_service_1.PlayerSessionRouteService])
+        player_session_route_service_1.PlayerSessionRouteService,
+        world_sync_service_1.WorldSyncService])
 ], WorldGateway);
 function buildAttrDetailBonuses(player) {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。

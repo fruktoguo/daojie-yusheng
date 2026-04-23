@@ -41,12 +41,12 @@ let MarketRuntimeService = MarketRuntimeService_1 = class MarketRuntimeService {
  * contentTemplateRepository：内容Template仓储引用。
  */
 
-    contentTemplateRepository;    
+    contentTemplateRepository;
     /**
  * playerRuntimeService：玩家运行态服务引用。
  */
 
-    playerRuntimeService;    
+    playerRuntimeService;
     /**
  * marketPersistenceService：坊市Persistence服务引用。
  */
@@ -108,7 +108,10 @@ let MarketRuntimeService = MarketRuntimeService_1 = class MarketRuntimeService {
     async reloadFromPersistence() {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
-        this.openOrders = await this.marketPersistenceService.loadOpenOrders();
+        this.openOrders = (await this.marketPersistenceService.loadOpenOrders()).map((order) => ({
+            ...order,
+            item: this.toFullItem(order.item),
+        }));
         this.tradeHistory = await this.marketPersistenceService.loadTradeHistory();
         this.storageByPlayerId.clear();
         for (const entry of await this.marketPersistenceService.loadStorages()) {
@@ -121,7 +124,7 @@ let MarketRuntimeService = MarketRuntimeService_1 = class MarketRuntimeService {
         return {
             currencyItemId: market_1.MARKET_CURRENCY_ITEM_ID,
             currencyItemName: this.getCurrencyItemName(),
-            listedItems: this.buildListedItems(),
+            listedItems: [],
             myOrders: this.buildOwnOrders(playerId),
             storage: this.getStorage(playerId),
         };
@@ -140,13 +143,19 @@ let MarketRuntimeService = MarketRuntimeService_1 = class MarketRuntimeService {
         const techniqueCategory = typeof payload?.techniqueCategory === 'string' ? payload.techniqueCategory : 'all';
 
         const filtered = this.buildMarketListingEntries().filter((entry) => {
-            if (category !== 'all' && entry.item.type !== category) {
+            if (category !== 'all' && entry.itemType !== category) {
                 return false;
             }
-            if (equipmentSlot !== 'all' && entry.item.equipSlot !== equipmentSlot) {
+            if (equipmentSlot !== 'all' && (
+                entry.itemType !== 'equipment'
+                || entry.itemSubType !== equipmentSlot
+            )) {
                 return false;
             }
-            if (techniqueCategory !== 'all' && entry.item.type !== 'skill_book') {
+            if (techniqueCategory !== 'all' && (
+                entry.itemType !== 'skill_book'
+                || entry.itemSubType !== techniqueCategory
+            )) {
                 return false;
             }
             return true;
@@ -188,11 +197,11 @@ let MarketRuntimeService = MarketRuntimeService_1 = class MarketRuntimeService {
     /** 构造某件物品的坊市图鉴页，供查看价格和挂单情况。 */
     buildItemBook(itemKey) {
 
-        const normalizedItemKey = String(itemKey ?? '').trim();
+        const normalizedItemKey = this.resolveInternalMarketItemKey(itemKey);
         return {
             currencyItemId: market_1.MARKET_CURRENCY_ITEM_ID,
             currencyItemName: this.getCurrencyItemName(),
-            itemKey: normalizedItemKey,
+            itemKey: this.buildClientMarketKey(normalizedItemKey),
             book: this.buildItemBookView(normalizedItemKey),
         };
     }
@@ -866,7 +875,7 @@ let MarketRuntimeService = MarketRuntimeService_1 = class MarketRuntimeService {
             }
             return this.singleMessage(playerId, `已领取坊市托管仓中的全部物品，共 ${plan.movedCount} 件。`, 'loot');
         });
-    }    
+    }
     /**
  * buildListedItems：构建并返回目标对象。
  * @returns 无返回值，直接更新Listed道具相关状态。
@@ -877,6 +886,23 @@ let MarketRuntimeService = MarketRuntimeService_1 = class MarketRuntimeService {
 
 
         const grouped = new Map();
+        for (const template of this.contentTemplateRepository.listItemTemplates()) {
+            const item = this.contentTemplateRepository.createItem(template.itemId, 1);
+            if (!item) {
+                continue;
+            }
+            const orderItem = this.toOrderItem(item);
+            if (!this.canTradeItemOnMarket(orderItem)) {
+                continue;
+            }
+            grouped.set(this.buildItemKey(orderItem), {
+                item: orderItem,
+                sellOrderCount: 0,
+                sellQuantity: 0,
+                buyOrderCount: 0,
+                buyQuantity: 0,
+            });
+        }
         for (const order of this.openOrders) {
             if (order.remainingQuantity <= 0 || order.status !== 'open' || !this.canTradeItemOnMarket(order.item)) {
                 continue;
@@ -940,7 +966,7 @@ let MarketRuntimeService = MarketRuntimeService_1 = class MarketRuntimeService {
             }
             return left.item.name.localeCompare(right.item.name, 'zh-Hans-CN');
         });
-    }    
+    }
     /**
  * buildMarketListingEntries：构建并返回目标对象。
  * @returns 无返回值，直接更新坊市Listing条目相关状态。
@@ -950,56 +976,18 @@ let MarketRuntimeService = MarketRuntimeService_1 = class MarketRuntimeService {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
 
-        const grouped = new Map();
-        for (const order of this.openOrders) {
-            if (order.remainingQuantity <= 0 || order.status !== 'open' || !this.canTradeItemOnMarket(order.item)) {
-                continue;
-            }
-
-            const current = grouped.get(order.itemKey) ?? {
-                item: { ...order.item },
-                sellOrderCount: 0,
-                sellQuantity: 0,
-                buyOrderCount: 0,
-                buyQuantity: 0,
-            };
-            if (order.side === 'sell') {
-                current.sellOrderCount += 1;
-                current.sellQuantity += order.remainingQuantity;
-                current.lowestSellPrice = current.lowestSellPrice === undefined
-                    ? order.unitPrice
-                    : Math.min(current.lowestSellPrice, order.unitPrice);
-            }
-            else {
-                current.buyOrderCount += 1;
-                current.buyQuantity += order.remainingQuantity;
-                current.highestBuyPrice = current.highestBuyPrice === undefined
-                    ? order.unitPrice
-                    : Math.max(current.highestBuyPrice, order.unitPrice);
-            }
-            grouped.set(order.itemKey, current);
-        }
-        return Array.from(grouped.entries())
-            .map(([itemKey, entry]) => ({
-            itemKey,
+        return this.buildListedItems().map((entry) => ({
+            itemKey: this.buildClientMarketKey(entry.itemKey),
             itemId: entry.item.itemId,
-            item: { ...entry.item },
+            itemType: entry.item.type ?? 'material',
+            itemSubType: this.buildMarketListingSubType(entry.item),
+            enhanceLevel: Number.isFinite(Number(entry.item.enhanceLevel))
+                ? Math.max(0, Math.trunc(Number(entry.item.enhanceLevel)))
+                : undefined,
             lowestSellPrice: entry.lowestSellPrice,
             highestBuyPrice: entry.highestBuyPrice,
-            canEnhance: Boolean(entry.item.equipSlot),
-            variants: [{
-                    itemKey,
-                    item: { ...entry.item },
-                    lowestSellPrice: entry.lowestSellPrice,
-                    highestBuyPrice: entry.highestBuyPrice,
-                    sellOrderCount: entry.sellOrderCount,
-                    sellQuantity: entry.sellQuantity,
-                    buyOrderCount: entry.buyOrderCount,
-                    buyQuantity: entry.buyQuantity,
-                }],
-        }))
-            .sort((left, right) => left.item.name.localeCompare(right.item.name, 'zh-Hans-CN'));
-    }    
+        }));
+    }
     /**
  * buildOwnOrders：构建并返回目标对象。
  * @param playerId 玩家 ID。
@@ -1014,13 +1002,13 @@ let MarketRuntimeService = MarketRuntimeService_1 = class MarketRuntimeService {
             id: order.id,
             side: order.side,
             status: order.status,
-            itemKey: order.itemKey,
+            itemKey: this.buildClientMarketKey(order.itemKey),
             item: { ...order.item },
             remainingQuantity: order.remainingQuantity,
             unitPrice: order.unitPrice,
             createdAt: order.createdAt,
         }));
-    }    
+    }
     /**
  * buildItemBookView：构建并返回目标对象。
  * @param itemKey 参数说明。
@@ -1031,7 +1019,7 @@ let MarketRuntimeService = MarketRuntimeService_1 = class MarketRuntimeService {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
 
-        const normalizedItemKey = itemKey.trim();
+        const normalizedItemKey = this.resolveInternalMarketItemKey(itemKey);
         if (!normalizedItemKey) {
             return null;
         }
@@ -1041,12 +1029,11 @@ let MarketRuntimeService = MarketRuntimeService_1 = class MarketRuntimeService {
             return null;
         }
         return {
-            itemKey: normalizedItemKey,
-            item: { ...orders[0].item },
+            itemKey: this.buildClientMarketKey(normalizedItemKey),
             sells: this.buildPriceLevels(normalizedItemKey, 'sell'),
             buys: this.buildPriceLevels(normalizedItemKey, 'buy'),
         };
-    }    
+    }
     /**
  * buildPriceLevels：构建并返回目标对象。
  * @param itemKey 参数说明。
@@ -1077,7 +1064,7 @@ let MarketRuntimeService = MarketRuntimeService_1 = class MarketRuntimeService {
         }));
         levels.sort((left, right) => side === 'sell' ? left.unitPrice - right.unitPrice : right.unitPrice - left.unitPrice);
         return levels;
-    }    
+    }
     /**
  * getSortedOrders：读取Sorted订单。
  * @param itemKey 参数说明。
@@ -1097,7 +1084,7 @@ let MarketRuntimeService = MarketRuntimeService_1 = class MarketRuntimeService {
             }
             return left.createdAt - right.createdAt || left.id.localeCompare(right.id);
         });
-    }    
+    }
     /**
  * hasConflictingOpenOrder：判断ConflictingOpen订单是否满足条件。
  * @param ownerId owner ID。
@@ -1114,7 +1101,7 @@ let MarketRuntimeService = MarketRuntimeService_1 = class MarketRuntimeService {
             && order.side === oppositeSide
             && order.status === 'open'
             && order.remainingQuantity > 0);
-    }    
+    }
     /**
  * planOrderMatches：执行plan订单Matche相关逻辑。
  * @param orders 参数说明。
@@ -1162,7 +1149,7 @@ let MarketRuntimeService = MarketRuntimeService_1 = class MarketRuntimeService {
             remainingQuantity: remaining,
             totalCost: total,
         };
-    }    
+    }
     /**
  * getCompatibleTradeQuantity：读取CompatibleTradeQuantity。
  * @param maxQuantity 参数说明。
@@ -1185,7 +1172,7 @@ let MarketRuntimeService = MarketRuntimeService_1 = class MarketRuntimeService {
             quantityStep = this.leastCommonMultiple(quantityStep, (0, shared_1.getMarketMinimumTradeQuantity)(unitPrice));
         }
         return Math.floor(maxQuantity / quantityStep) * quantityStep;
-    }    
+    }
     /**
  * leastCommonMultiple：执行leastCommonMultiple相关逻辑。
  * @param left 参数说明。
@@ -1200,7 +1187,7 @@ let MarketRuntimeService = MarketRuntimeService_1 = class MarketRuntimeService {
             return 0;
         }
         return (left / this.greatestCommonDivisor(left, right)) * right;
-    }    
+    }
     /**
  * greatestCommonDivisor：判断greatestCommonDivisor是否满足条件。
  * @param left 参数说明。
@@ -1222,7 +1209,7 @@ let MarketRuntimeService = MarketRuntimeService_1 = class MarketRuntimeService {
             currentRight = next;
         }
         return Math.max(1, currentLeft);
-    }    
+    }
     /**
  * buildItemKey：构建并返回目标对象。
  * @param item 道具。
@@ -1234,7 +1221,58 @@ let MarketRuntimeService = MarketRuntimeService_1 = class MarketRuntimeService {
             ...item,
             count: 1,
         });
-    }    
+    }
+    /**
+ * buildClientMarketKey：把内部长签名压成客户端可传输的短 key。
+ * @param itemKey 内部长签名。
+ * @returns 无返回值，直接更新客户端坊市 key 相关状态。
+ */
+
+    buildClientMarketKey(itemKey) {
+        const normalizedItemKey = typeof itemKey === 'string' ? itemKey.trim() : '';
+        if (!normalizedItemKey) {
+            return '';
+        }
+        return (0, crypto_1.createHash)('sha1').update(normalizedItemKey).digest('base64url').replace(/[-_]/g, '').slice(0, 18);
+    }
+    /**
+ * resolveInternalMarketItemKey：把客户端短 key 还原成内部完整签名。
+ * @param itemKey 客户端或内部 key。
+ * @returns 无返回值，直接更新内部坊市 key 相关状态。
+ */
+
+    resolveInternalMarketItemKey(itemKey) {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
+
+        const normalizedItemKey = typeof itemKey === 'string' ? itemKey.trim() : '';
+        if (!normalizedItemKey) {
+            return '';
+        }
+        if (normalizedItemKey.startsWith('{')) {
+            return normalizedItemKey;
+        }
+        const listed = this.buildListedItems().find((entry) => this.buildClientMarketKey(entry.itemKey) === normalizedItemKey);
+        return listed?.itemKey ?? normalizedItemKey;
+    }
+    /**
+ * buildMarketListingSubType：按大类提炼列表所需的二级分类。
+ * @param item 道具。
+ * @returns 无返回值，直接更新坊市条目子类型相关状态。
+ */
+
+    buildMarketListingSubType(item) {
+        if (item.type === 'equipment') {
+            return item.equipSlot ?? 'other';
+        }
+        if (item.type === 'skill_book') {
+            return this.contentTemplateRepository.getTechniqueCategoryForBookItem(item.itemId) ?? 'other';
+        }
+        if (item.type === 'material') {
+            return item.itemId.startsWith('mat.') ? 'herb' : 'special';
+        }
+        return 'other';
+    }
     /**
  * resolveMarketItemForBuy：规范化或转换坊市道具ForBuy。
  * @param payload 载荷参数。
@@ -1245,18 +1283,18 @@ let MarketRuntimeService = MarketRuntimeService_1 = class MarketRuntimeService {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
 
-        const itemKey = typeof payload?.itemKey === 'string' ? payload.itemKey.trim() : '';
+        const itemKey = this.resolveInternalMarketItemKey(payload?.itemKey);
         if (itemKey) {
 
-            const orderItem = this.openOrders.find((entry) => entry.itemKey === itemKey)?.item;
-            if (orderItem) {
-                return { ...orderItem, count: 1 };
+            const listedItem = this.buildListedItems().find((entry) => entry.itemKey === itemKey)?.item;
+            if (listedItem) {
+                return { ...listedItem, count: 1 };
             }
         }
 
         const itemId = typeof payload?.itemId === 'string' ? payload.itemId.trim() : '';
         return itemId ? this.contentTemplateRepository.createItem(itemId, 1) : null;
-    }    
+    }
     /**
  * toOrderItem：执行to订单道具相关逻辑。
  * @param item 道具。
@@ -1270,7 +1308,7 @@ let MarketRuntimeService = MarketRuntimeService_1 = class MarketRuntimeService {
             ...normalized,
             count: 1,
         };
-    }    
+    }
     /**
  * createCurrencyItem：构建并返回目标对象。
  * @param count 数量。
@@ -1295,7 +1333,7 @@ let MarketRuntimeService = MarketRuntimeService_1 = class MarketRuntimeService {
             count,
             desc: '坊市通行货币。',
         };
-    }    
+    }
     /**
  * toFullItem：执行toFull道具相关逻辑。
  * @param item 道具。
@@ -1330,7 +1368,7 @@ let MarketRuntimeService = MarketRuntimeService_1 = class MarketRuntimeService {
             tileResourceGains: Array.isArray(normalized.tileResourceGains) ? normalized.tileResourceGains.map((entry) => ({ ...entry })) : undefined,
             allowBatchUse: normalized.allowBatchUse,
         };
-    }    
+    }
     /**
  * canTradeItemOnMarket：判断Trade道具On坊市是否满足条件。
  * @param item 道具。
@@ -1339,7 +1377,7 @@ let MarketRuntimeService = MarketRuntimeService_1 = class MarketRuntimeService {
 
     canTradeItemOnMarket(item) {
         return item.itemId !== market_1.MARKET_CURRENCY_ITEM_ID;
-    }    
+    }
     /**
  * normalizeQuantity：规范化或转换Quantity。
  * @param value 参数说明。
@@ -1358,7 +1396,7 @@ let MarketRuntimeService = MarketRuntimeService_1 = class MarketRuntimeService {
             return null;
         }
         return quantity;
-    }    
+    }
     /**
  * normalizeUnitPrice：规范化或转换Unit价格。
  * @param value 参数说明。
@@ -1377,7 +1415,7 @@ let MarketRuntimeService = MarketRuntimeService_1 = class MarketRuntimeService {
             return null;
         }
         return unitPrice;
-    }    
+    }
     /**
  * buildTradeQuantityError：构建并返回目标对象。
  * @param unitPrice 参数说明。
@@ -1393,7 +1431,7 @@ let MarketRuntimeService = MarketRuntimeService_1 = class MarketRuntimeService {
             return '挂售数量或单价无效。';
         }
         return `当前单价 ${this.formatUnitPrice(unitPrice)} ${this.getCurrencyItemName()} 时，数量必须是 ${minimumQuantity} 的倍数，才能按整灵石结算。`;
-    }    
+    }
     /**
  * formatUnitPrice：规范化或转换Unit价格。
  * @param value 参数说明。
@@ -1402,7 +1440,7 @@ let MarketRuntimeService = MarketRuntimeService_1 = class MarketRuntimeService {
 
     formatUnitPrice(value) {
         return Number.isInteger(value) ? String(value) : value.toFixed(2).replace(/\.0+$/, '');
-    }    
+    }
     /**
  * deliverItemToPlayer：执行deliver道具To玩家相关逻辑。
  * @param playerId 玩家 ID。
@@ -1427,7 +1465,7 @@ let MarketRuntimeService = MarketRuntimeService_1 = class MarketRuntimeService {
             return;
         }
         this.mergeStorageItem(playerId, item, context);
-    }    
+    }
     /**
  * mergeStorageItem：处理Storage道具并更新相关状态。
  * @param playerId 玩家 ID。
@@ -1455,7 +1493,7 @@ let MarketRuntimeService = MarketRuntimeService_1 = class MarketRuntimeService {
             next.items.sort((left, right) => left.itemId.localeCompare(right.itemId, 'zh-Hans-CN'));
         }
         this.setStorage(playerId, next, context);
-    }    
+    }
     /**
  * setStorage：写入Storage。
  * @param playerId 玩家 ID。
@@ -1479,7 +1517,7 @@ let MarketRuntimeService = MarketRuntimeService_1 = class MarketRuntimeService {
             this.storageByPlayerId.delete(playerId);
         }
         context.dirtyStoragePlayerIds.add(playerId);
-    }    
+    }
     /**
  * recordTrade：执行recordTrade相关逻辑。
  * @param payload 载荷参数。
@@ -1498,7 +1536,7 @@ let MarketRuntimeService = MarketRuntimeService_1 = class MarketRuntimeService {
             unitPrice: payload.unitPrice,
             createdAt: Date.now(),
         });
-    }    
+    }
     /**
  * toTradeHistoryView：判断toTrade历史视图是否满足条件。
  * @param playerId 玩家 ID。
@@ -1517,7 +1555,7 @@ let MarketRuntimeService = MarketRuntimeService_1 = class MarketRuntimeService {
             unitPrice: record.unitPrice,
             createdAt: record.createdAt,
         };
-    }    
+    }
     /**
  * createEmptyResult：构建并返回目标对象。
  * @param playerId 玩家 ID。
@@ -1529,7 +1567,7 @@ let MarketRuntimeService = MarketRuntimeService_1 = class MarketRuntimeService {
             affectedPlayerIds: [playerId],
             notices: [],
         };
-    }    
+    }
     /**
  * singleMessage：执行singleMessage相关逻辑。
  * @param playerId 玩家 ID。
@@ -1543,7 +1581,7 @@ let MarketRuntimeService = MarketRuntimeService_1 = class MarketRuntimeService {
             affectedPlayerIds: [playerId],
             notices: [{ playerId, text, kind }],
         };
-    }    
+    }
     /**
  * touchAffectedPlayer：执行touchAffected玩家相关逻辑。
  * @param result 返回结果。
@@ -1555,7 +1593,7 @@ let MarketRuntimeService = MarketRuntimeService_1 = class MarketRuntimeService {
         if (!result.affectedPlayerIds.includes(playerId)) {
             result.affectedPlayerIds.push(playerId);
         }
-    }    
+    }
     /**
  * pushNotice：处理Notice并更新相关状态。
  * @param result 返回结果。
@@ -1568,7 +1606,7 @@ let MarketRuntimeService = MarketRuntimeService_1 = class MarketRuntimeService {
     pushNotice(result, playerId, text, kind = 'info') {
         result.notices.push({ playerId, text, kind });
         this.touchAffectedPlayer(result, playerId);
-    }    
+    }
     /**
  * markOrderDirty：处理订单Dirty并更新相关状态。
  * @param orderId order ID。
@@ -1579,7 +1617,7 @@ let MarketRuntimeService = MarketRuntimeService_1 = class MarketRuntimeService {
     markOrderDirty(orderId, context) {
         context.dirtyOrderIds.add(orderId);
         context.deletedOrderIds.delete(orderId);
-    }    
+    }
     /**
  * deleteOrder：处理订单并更新相关状态。
  * @param orderId order ID。
@@ -1590,7 +1628,7 @@ let MarketRuntimeService = MarketRuntimeService_1 = class MarketRuntimeService {
     deleteOrder(orderId, context) {
         context.deletedOrderIds.add(orderId);
         context.dirtyOrderIds.delete(orderId);
-    }    
+    }
     /**
  * compactOpenOrders：执行compactOpen订单相关逻辑。
  * @returns 无返回值，直接更新compactOpen订单相关状态。
@@ -1598,7 +1636,7 @@ let MarketRuntimeService = MarketRuntimeService_1 = class MarketRuntimeService {
 
     compactOpenOrders() {
         this.openOrders = this.openOrders.filter((order) => order.status === 'open' && order.remainingQuantity > 0);
-    }    
+    }
     /**
  * captureOnlinePlayerState：执行captureOnline玩家状态相关逻辑。
  * @param playerId 玩家 ID。
@@ -1618,7 +1656,7 @@ let MarketRuntimeService = MarketRuntimeService_1 = class MarketRuntimeService {
             return;
         }
         context.onlinePlayerSnapshots.set(playerId, snapshot);
-    }    
+    }
     /**
  * getStorage：读取Storage。
  * @param playerId 玩家 ID。
@@ -1627,7 +1665,7 @@ let MarketRuntimeService = MarketRuntimeService_1 = class MarketRuntimeService {
 
     getStorage(playerId) {
         return cloneStorage(this.storageByPlayerId.get(playerId));
-    }    
+    }
     /**
  * getCurrencyItemName：读取Currency道具名称。
  * @returns 无返回值，完成Currency道具名称的读取/组装。
@@ -1635,7 +1673,7 @@ let MarketRuntimeService = MarketRuntimeService_1 = class MarketRuntimeService {
 
     getCurrencyItemName() {
         return this.contentTemplateRepository.getItemName(market_1.MARKET_CURRENCY_ITEM_ID) ?? '灵石';
-    }    
+    }
     /**
  * buildClaimStoragePlan：构建领取托管仓的目标背包与剩余仓库。
  * @param inventorySnapshot 背包快照。
@@ -1675,7 +1713,7 @@ let MarketRuntimeService = MarketRuntimeService_1 = class MarketRuntimeService {
             remainingItems,
             movedCount,
         };
-    }    
+    }
     /**
  * createMutationContext：构建并返回目标对象。
  * @returns 无返回值，直接更新Mutation上下文相关状态。
@@ -1695,7 +1733,7 @@ let MarketRuntimeService = MarketRuntimeService_1 = class MarketRuntimeService {
             newTradeRecords: [],
             skipPersistence: false,
         };
-    }    
+    }
     /**
  * restoreMutationContext：执行restoreMutation上下文相关逻辑。
  * @param context 上下文信息。
@@ -1720,7 +1758,7 @@ let MarketRuntimeService = MarketRuntimeService_1 = class MarketRuntimeService {
         for (const snapshot of context.onlinePlayerSnapshots.values()) {
             this.playerRuntimeService.restoreSnapshot(snapshot);
         }
-    }    
+    }
     /**
  * runExclusiveMarketMutation：处理runExclusive坊市Mutation并更新相关状态。
  * @param playerId 玩家 ID。
@@ -1772,7 +1810,7 @@ let MarketRuntimeService = MarketRuntimeService_1 = class MarketRuntimeService {
                 return this.singleMessage(playerId, '坊市结算失败，已回滚本次操作。', 'warn');
             }
         });
-    }    
+    }
     /**
  * runExclusive：执行runExclusive相关逻辑。
  * @param action 参数说明。

@@ -89,11 +89,6 @@ export interface MarketOrderBookView {
 
   itemKey: string;  
   /**
- * item：道具相关字段。
- */
-
-  item: ItemStack;  
-  /**
  * sells：sell相关字段。
  */
 

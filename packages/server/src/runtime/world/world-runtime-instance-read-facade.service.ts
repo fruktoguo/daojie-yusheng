@@ -149,6 +149,7 @@ let WorldRuntimeInstanceReadFacadeService = class WorldRuntimeInstanceReadFacade
             clusterId: input.clusterId,
             shardKey: input.shardKey,
             routeDomain: input.routeDomain,
+            destroyAt: input.destroyAt,
             lastActiveAt: input.lastActiveAt,
             lastPersistedAt: input.lastPersistedAt,
         });

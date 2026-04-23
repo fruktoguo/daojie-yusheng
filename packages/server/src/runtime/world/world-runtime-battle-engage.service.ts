@@ -117,22 +117,40 @@ let WorldRuntimeBattleEngageService = class WorldRuntimeBattleEngageService {
             throw new common_1.NotFoundException(`Monster ${targetMonsterId} not found`);
         }
         ensureHostileRelation((0, player_combat_config_helpers_1.resolveCombatRelation)(player, { kind: 'monster' }));
-        this.playerRuntimeService.updateCombatSettings(playerId, {
-            autoBattle: true,
-        }, currentTick);
-        this.playerRuntimeService.setCombatTarget(playerId, monster.runtimeId, locked, currentTick);
-        if (wasAutoBattleActive) {
-            return;
+        if (locked) {
+            this.playerRuntimeService.updateCombatSettings(playerId, {
+                autoBattle: true,
+            }, currentTick);
+            this.playerRuntimeService.setCombatTarget(playerId, monster.runtimeId, true, currentTick);
+            if (wasAutoBattleActive) {
+                return;
+            }
+        }
+        else {
+            this.playerRuntimeService.setCombatTarget(playerId, monster.runtimeId, false, currentTick);
+            this.playerRuntimeService.setManualEngagePending(playerId, true);
         }
         const nextCommand = deps.buildAutoCombatCommand(monsterInstance, player);
         if (!nextCommand) {
             return;
         }
-        if (nextCommand.kind === 'move' || nextCommand.kind === 'portal') {
-            deps.dispatchInstanceCommand(playerId, nextCommand);
+        const command = locked ? nextCommand : {
+            ...nextCommand,
+            manualEngage: true,
+        };
+        if (command.kind === 'move' || command.kind === 'portal') {
+            deps.dispatchInstanceCommand(playerId, command);
             return;
         }
-        return deps.dispatchPlayerCommand(playerId, nextCommand);
+        try {
+            return await deps.dispatchPlayerCommand(playerId, command);
+        }
+        finally {
+            if (!locked) {
+                this.playerRuntimeService.clearManualEngagePending(playerId);
+                this.playerRuntimeService.clearCombatTarget(playerId, currentTick);
+            }
+        }
     }
 };
 exports.WorldRuntimeBattleEngageService = WorldRuntimeBattleEngageService;

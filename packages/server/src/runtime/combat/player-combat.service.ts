@@ -38,7 +38,7 @@ let PlayerCombatService = class PlayerCombatService {
         this.playerRuntimeService = playerRuntimeService;
     }
     /** 玩家对目标执行技能，先做合法性校验，再落到元气、冷却和伤害结算。 */
-    castSkill(attacker, target, skillId, currentTick, distance) {
+    castSkill(attacker, target, skillId, currentTick, distance, options = undefined) {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
         if (attacker.playerId === target.playerId) {
@@ -49,9 +49,15 @@ let PlayerCombatService = class PlayerCombatService {
 
         const result = this.executeResolvedSkillCast(toCombatPlayerState(attacker), toCombatPlayerState(target), resolved, currentTick, distance, {
             spendQi: (amount) => {
+                if (options?.skipResourceAndCooldown === true) {
+                    return;
+                }
                 this.playerRuntimeService.spendQi(attacker.playerId, amount);
             },
             setCooldownReadyTick: (readyTick) => {
+                if (options?.skipResourceAndCooldown === true) {
+                    return;
+                }
                 this.playerRuntimeService.setSkillCooldownReadyTick(attacker.playerId, skillId, readyTick, currentTick);
             },
             applySelfBuff: (buff) => {
@@ -60,7 +66,7 @@ let PlayerCombatService = class PlayerCombatService {
             applyTargetBuff: (buff) => {
                 this.playerRuntimeService.applyTemporaryBuff(target.playerId, buff);
             },
-        });
+        }, options);
         this.playerRuntimeService.setRetaliatePlayerTarget(target.playerId, attacker.playerId, currentTick);
         if (result.totalDamage > 0) {
             this.playerRuntimeService.applyDamage(target.playerId, result.totalDamage);
@@ -71,22 +77,28 @@ let PlayerCombatService = class PlayerCombatService {
         };
     }
     /** 玩家对妖兽施放技能，复用同一条施放流水线并允许写入目标 buff。 */
-    castSkillToMonster(attacker, target, skillId, currentTick, distance, applyTargetBuff) {
+    castSkillToMonster(attacker, target, skillId, currentTick, distance, applyTargetBuff, options = undefined) {
 
         const resolved = resolvePlayerSkill(attacker.techniques.techniques, attacker.combat.cooldownReadyTickBySkillId, skillId);
 
         const result = this.executeResolvedSkillCast(toCombatPlayerState(attacker), target, resolved, currentTick, distance, {
             spendQi: (amount) => {
+                if (options?.skipResourceAndCooldown === true) {
+                    return;
+                }
                 this.playerRuntimeService.spendQi(attacker.playerId, amount);
             },
             setCooldownReadyTick: (readyTick) => {
+                if (options?.skipResourceAndCooldown === true) {
+                    return;
+                }
                 this.playerRuntimeService.setSkillCooldownReadyTick(attacker.playerId, skillId, readyTick, currentTick);
             },
             applySelfBuff: (buff) => {
                 this.playerRuntimeService.applyTemporaryBuff(attacker.playerId, buff);
             },
             applyTargetBuff,
-        });
+        }, options);
         return {
             ...result,
             targetMonsterId: target.runtimeId,
@@ -115,7 +127,7 @@ let PlayerCombatService = class PlayerCombatService {
         };
     }
     /** 执行已解析技能：判定范围、冷却、元气消耗以及伤害和 buff。 */
-    executeResolvedSkillCast(attacker, target, resolved, currentTick, distance, handlers) {
+    executeResolvedSkillCast(attacker, target, resolved, currentTick, distance, handlers, options = undefined) {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
         if (attacker.hp <= 0) {
@@ -129,12 +141,12 @@ let PlayerCombatService = class PlayerCombatService {
         if (distance > range) {
             throw new common_1.BadRequestException(`Skill ${resolved.skill.id} out of range`);
         }
-        if (!resolved.skipCooldownCheck && currentTick < resolved.readyTick) {
+        if (options?.skipResourceAndCooldown !== true && !resolved.skipCooldownCheck && currentTick < resolved.readyTick) {
             throw new common_1.BadRequestException(`Skill ${resolved.skill.id} cooling down`);
         }
 
         let qiCost = 0;
-        if (!resolved.skipQiCost) {
+        if (options?.skipResourceAndCooldown !== true && !resolved.skipQiCost) {
 
             const plannedCost = normalizeSkillQiCost(resolved.skill.cost);
             qiCost = Math.round((0, shared_1.calcQiCostWithOutputLimit)(plannedCost, Math.max(0, attacker.attrs.numericStats.maxQiOutputPerTick)));
@@ -156,7 +168,7 @@ let PlayerCombatService = class PlayerCombatService {
                     attacker,
                     target,
                     techLevel: resolved.level,
-                    targetCount: 1,
+                    targetCount: Math.max(1, Math.round(options?.targetCount ?? 1)),
                 })));
 
                 const damage = resolveDamage(attacker, target, effect, baseDamage);

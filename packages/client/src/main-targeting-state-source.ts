@@ -8,6 +8,7 @@ import {
 import { isPlayerLikeEntityKind, type MainRuntimeObservedEntity } from './main-runtime-view-types';
 import {
   computeAffectedCellsForAction as computeAffectedCellsForActionHelper,
+  getEffectiveTargetingGeometry,
   getSkillDefByActionId as getSkillDefByActionIdHelper,
   hasAffectableTargetInArea as hasAffectableTargetInAreaHelper,
   resolveCurrentTargetingRange as resolveCurrentTargetingRangeHelper,
@@ -23,52 +24,57 @@ export type MainTargetingPendingAction = {
  * actionId：actionID标识。
  */
 
-  actionId: string;  
+  actionId: string;
   /**
  * actionName：action名称名称或显示文本。
  */
 
-  actionName: string;  
+  actionName: string;
   /**
  * targetMode：目标Mode相关字段。
  */
 
-  targetMode?: string;  
+  targetMode?: string;
   /**
  * range：范围相关字段。
  */
 
-  range: number;  
+  range: number;
   /**
  * shape：shape相关字段。
  */
 
-  shape?: TargetingShape;  
+  shape?: TargetingShape;
   /**
  * radius：radiu相关字段。
  */
 
-  radius?: number;  
+  radius?: number;
+  /**
+ * innerRadius：环带内半径。
+ */
+
+  innerRadius?: number;
   /**
  * width：width相关字段。
  */
 
-  width?: number;  
+  width?: number;
   /**
  * height：height相关字段。
  */
 
-  height?: number;  
+  height?: number;
   /**
  * maxTargets：max目标相关字段。
  */
 
-  maxTargets?: number;  
+  maxTargets?: number;
   /**
  * hoverX：hoverX相关字段。
  */
 
-  hoverX?: number;  
+  hoverX?: number;
   /**
  * hoverY：hoverY相关字段。
  */
@@ -85,17 +91,17 @@ export type MainTargetingHoveredTile = {
  * x：x相关字段。
  */
 
-  x: number;  
+  x: number;
   /**
  * y：y相关字段。
  */
 
-  y: number;  
+  y: number;
   /**
  * clientX：clientX相关字段。
  */
 
-  clientX: number;  
+  clientX: number;
   /**
  * clientY：clientY相关字段。
  */
@@ -118,103 +124,103 @@ type MainTargetingStateSourceOptions = {
  * getPlayer：玩家引用。
  */
 
-  getPlayer: () => PlayerState | null;  
+  getPlayer: () => PlayerState | null;
   /**
  * getInfoRadius：InfoRadiu相关字段。
  */
 
-  getInfoRadius: () => number;  
+  getInfoRadius: () => number;
   /**
  * getLatestEntities：LatestEntity相关字段。
  */
 
-  getLatestEntities: () => MainTargetingObservedEntity[];  
+  getLatestEntities: () => MainTargetingObservedEntity[];
   /**
  * getVisibleTileAt：可见TileAt相关字段。
  */
 
-  getVisibleTileAt: (x: number, y: number) => Tile | null;  
+  getVisibleTileAt: (x: number, y: number) => Tile | null;
   /**
  * setTargetingOverlay：TargetingOverlay相关字段。
  */
 
-  setTargetingOverlay: (overlay: {  
+  setTargetingOverlay: (overlay: {
   /**
  * originX：originX相关字段。
  */
 
-    originX: number;    
+    originX: number;
     /**
  * originY：originY相关字段。
  */
 
-    originY: number;    
+    originY: number;
     /**
  * range：范围相关字段。
  */
 
-    range: number;    
+    range: number;
     /**
  * visibleOnly：可见Only相关字段。
  */
 
-    visibleOnly: boolean;    
+    visibleOnly: boolean;
     /**
  * shape：shape相关字段。
  */
 
-    shape?: TargetingShape;    
+    shape?: TargetingShape;
     /**
  * radius：radiu相关字段。
  */
 
-    radius?: number;    
+    radius?: number;
     /**
  * affectedCells：affectedCell相关字段。
  */
 
-    affectedCells: Array<{    
+    affectedCells: Array<{
     /**
  * x：x相关字段。
  */
- x: number;    
+ x: number;
  /**
  * y：y相关字段。
  */
- y: number }>;    
+ y: number }>;
  /**
  * hoverX：hoverX相关字段。
  */
 
-    hoverX?: number;    
+    hoverX?: number;
     /**
  * hoverY：hoverY相关字段。
  */
 
     hoverY?: number;
-  } | null) => void;  
+  } | null) => void;
   /**
  * setSenseQiOverlay：SenseQiOverlay相关字段。
  */
 
-  setSenseQiOverlay: (overlay: {  
+  setSenseQiOverlay: (overlay: {
   /**
  * hoverX：hoverX相关字段。
  */
- hoverX?: number;  
+ hoverX?: number;
  /**
  * hoverY：hoverY相关字段。
  */
- hoverY?: number;  
+ hoverY?: number;
  /**
  * levelBaseValue：等级Base值数值。
  */
- levelBaseValue: number } | null) => void;  
+ levelBaseValue: number } | null) => void;
  /**
  * targetingBadgeEl：targetingBadgeEl相关字段。
  */
 
-  targetingBadgeEl: HTMLElement | null;  
+  targetingBadgeEl: HTMLElement | null;
   /**
  * senseQiTooltip：senseQi提示相关字段。
  */
@@ -222,17 +228,17 @@ type MainTargetingStateSourceOptions = {
   senseQiTooltip: Pick<
     import('./ui/floating-tooltip').FloatingTooltip,
     'show' | 'hide'
-  >;  
+  >;
   /**
  * getAuraLevelBaseValue：Aura等级Base值数值。
  */
 
-  getAuraLevelBaseValue: () => number;  
+  getAuraLevelBaseValue: () => number;
   /**
  * formatAuraLevelText：Aura等级Text名称或显示文本。
  */
 
-  formatAuraLevelText: (auraValue: number) => string;  
+  formatAuraLevelText: (auraValue: number) => string;
   /**
  * showToast：showToast相关字段。
  */
@@ -281,7 +287,7 @@ export type MainTargetingStateSource = ReturnType<typeof createMainTargetingStat
 
 export function createMainTargetingStateSource(options: MainTargetingStateSourceOptions) {
   let pendingTargetedAction: MainTargetingPendingAction = null;
-  let hoveredMapTile: MainTargetingHoveredTile = null;  
+  let hoveredMapTile: MainTargetingHoveredTile = null;
   /**
  * computeAffectedCells：执行AffectedCell相关逻辑。
  * @param action NonNullable<MainTargetingPendingAction> 参数说明。
@@ -289,11 +295,11 @@ export function createMainTargetingStateSource(options: MainTargetingStateSource
  */
 
 
-  function computeAffectedCells(action: NonNullable<MainTargetingPendingAction>): Array<{  
+  function computeAffectedCells(action: NonNullable<MainTargetingPendingAction>): Array<{
   /**
  * x：x相关字段。
  */
- x: number;  
+ x: number;
  /**
  * y：y相关字段。
  */
@@ -306,7 +312,7 @@ export function createMainTargetingStateSource(options: MainTargetingStateSource
     return computeAffectedCellsForActionHelper(action, { x: action.hoverX, y: action.hoverY }, options.getPlayer());
   }
 
-  return {  
+  return {
   /**
  * getPendingTargetedAction：读取待处理TargetedAction。
  * @returns 返回PendingTargetedAction。
@@ -314,7 +320,7 @@ export function createMainTargetingStateSource(options: MainTargetingStateSource
 
     getPendingTargetedAction(): MainTargetingPendingAction {
       return pendingTargetedAction;
-    },    
+    },
     /**
  * hasPendingTargetedAction：读取待处理TargetedAction并返回结果。
  * @returns 返回是否满足PendingTargetedAction条件。
@@ -323,7 +329,7 @@ export function createMainTargetingStateSource(options: MainTargetingStateSource
 
     hasPendingTargetedAction(): boolean {
       return Boolean(pendingTargetedAction);
-    },    
+    },
     /**
  * getHoveredMapTile：读取Hovered地图Tile。
  * @returns 返回Hovered地图Tile。
@@ -332,7 +338,7 @@ export function createMainTargetingStateSource(options: MainTargetingStateSource
 
     getHoveredMapTile(): MainTargetingHoveredTile {
       return hoveredMapTile;
-    },    
+    },
     /**
  * setHoveredMapTile：写入Hovered地图Tile。
  * @param value MainTargetingHoveredTile 参数说明。
@@ -342,7 +348,7 @@ export function createMainTargetingStateSource(options: MainTargetingStateSource
 
     setHoveredMapTile(value: MainTargetingHoveredTile): void {
       hoveredMapTile = value;
-    },    
+    },
     /**
  * setPendingTargetedActionHover：写入待处理TargetedActionHover。
  * @param target { x?: number; y?: number } | null 目标对象。
@@ -350,11 +356,11 @@ export function createMainTargetingStateSource(options: MainTargetingStateSource
  */
 
 
-    setPendingTargetedActionHover(target: {    
+    setPendingTargetedActionHover(target: {
     /**
  * x：x相关字段。
  */
- x?: number;    
+ x?: number;
  /**
  * y：y相关字段。
  */
@@ -366,7 +372,7 @@ export function createMainTargetingStateSource(options: MainTargetingStateSource
       }
       pendingTargetedAction.hoverX = target?.x;
       pendingTargetedAction.hoverY = target?.y;
-    },    
+    },
     /**
  * clear：执行clear相关逻辑。
  * @returns 无返回值，直接更新clear相关状态。
@@ -376,7 +382,7 @@ export function createMainTargetingStateSource(options: MainTargetingStateSource
     clear(): void {
       pendingTargetedAction = null;
       hoveredMapTile = null;
-    },    
+    },
     /**
  * getCurrentActionDef：读取当前ActionDef。
  * @param actionId string action ID。
@@ -386,7 +392,7 @@ export function createMainTargetingStateSource(options: MainTargetingStateSource
 
     getCurrentActionDef(actionId: string): ActionDef | null {
       return options.getPlayer()?.actions.find((entry) => entry.id === actionId) ?? null;
-    },    
+    },
     /**
  * resolveCurrentTargetingRange：读取当前Targeting范围并返回结果。
  * @param action Pick<NonNullable<MainTargetingPendingAction>, 'actionId' | 'range'> 参数说明。
@@ -395,10 +401,10 @@ export function createMainTargetingStateSource(options: MainTargetingStateSource
 
 
     resolveCurrentTargetingRange(
-      action: Pick<NonNullable<MainTargetingPendingAction>, 'actionId' | 'range'>,
+      action: Pick<NonNullable<MainTargetingPendingAction>, 'actionId' | 'range' | 'shape' | 'radius' | 'innerRadius' | 'width' | 'height'>,
     ): number {
-      return resolveCurrentTargetingRangeHelper(action, options.getInfoRadius());
-    },    
+      return resolveCurrentTargetingRangeHelper(action, options.getPlayer(), options.getInfoRadius());
+    },
     /**
  * beginTargeting：读取开始Targeting并返回结果。
  * @param actionId string action ID。
@@ -424,6 +430,7 @@ export function createMainTargetingStateSource(options: MainTargetingStateSource
         range: Math.max(1, range),
         shape: skill?.targeting?.shape ?? 'single',
         radius: skill?.targeting?.radius,
+        innerRadius: skill?.targeting?.innerRadius,
         width: skill?.targeting?.width,
         height: skill?.targeting?.height,
         maxTargets: skill?.targeting?.maxTargets,
@@ -435,7 +442,7 @@ export function createMainTargetingStateSource(options: MainTargetingStateSource
         return;
       }
       options.showToast(`请选择 ${pendingTargetedAction.range} 格内目标，Esc 或右键取消`);
-    },    
+    },
     /**
  * cancelTargeting：读取cancelTargeting并返回结果。
  * @param showMessage 参数说明。
@@ -454,7 +461,7 @@ export function createMainTargetingStateSource(options: MainTargetingStateSource
       if (showMessage) {
         options.showToast('已取消目标选择');
       }
-    },    
+    },
     /**
  * syncTargetingOverlay：读取TargetingOverlay并返回结果。
  * @returns 无返回值，直接更新TargetingOverlay相关状态。
@@ -472,14 +479,15 @@ export function createMainTargetingStateSource(options: MainTargetingStateSource
         return;
       }
       pendingTargetedAction.range = this.resolveCurrentTargetingRange(pendingTargetedAction);
+      const geometry = getEffectiveTargetingGeometry(pendingTargetedAction, player);
       const affectedCells = computeAffectedCells(pendingTargetedAction);
       options.setTargetingOverlay({
         originX: player.x,
         originY: player.y,
-        range: pendingTargetedAction.range,
+        range: geometry.range,
         visibleOnly: doesTargetingRequireVision(pendingTargetedAction.actionId),
-        shape: pendingTargetedAction.shape,
-        radius: pendingTargetedAction.radius,
+        shape: geometry.shape,
+        radius: geometry.radius,
         affectedCells,
         hoverX: pendingTargetedAction.hoverX,
         hoverY: pendingTargetedAction.hoverY,
@@ -487,19 +495,25 @@ export function createMainTargetingStateSource(options: MainTargetingStateSource
       if (options.targetingBadgeEl) {
         const rangeLabel = pendingTargetedAction.actionId === 'client:observe'
           ? `视野 ${pendingTargetedAction.range}`
-          : `射程 ${pendingTargetedAction.range}`;
-        const shapeLabel = pendingTargetedAction.shape === 'line'
+          : `射程 ${geometry.range}`;
+        const shapeLabel = geometry.shape === 'line'
           ? ` · 直线${pendingTargetedAction.maxTargets ? ` ${pendingTargetedAction.maxTargets}目标` : ''}`
-          : pendingTargetedAction.shape === 'box'
-            ? ` · 矩形 ${Math.max(1, pendingTargetedAction.width ?? 1)}x${Math.max(1, pendingTargetedAction.height ?? pendingTargetedAction.width ?? 1)}${pendingTargetedAction.maxTargets ? ` · 最多 ${pendingTargetedAction.maxTargets} 目标` : ''}`
-            : pendingTargetedAction.shape === 'area'
-              ? ` · 范围半径 ${Math.max(0, pendingTargetedAction.radius ?? 1)}${pendingTargetedAction.maxTargets ? ` · 最多 ${pendingTargetedAction.maxTargets} 目标` : ''}`
-              : '';
+          : geometry.shape === 'ring'
+            ? ` · 环带 ${Math.max(0, geometry.innerRadius ?? Math.max((geometry.radius ?? 1) - 1, 0))}-${Math.max(0, geometry.radius ?? 1)}${pendingTargetedAction.maxTargets ? ` · 最多 ${pendingTargetedAction.maxTargets} 目标` : ''}`
+            : geometry.shape === 'checkerboard'
+              ? ` · 棋盘 ${Math.max(1, geometry.width ?? 1)}x${Math.max(1, geometry.height ?? geometry.width ?? 1)}${pendingTargetedAction.maxTargets ? ` · 最多 ${pendingTargetedAction.maxTargets} 目标` : ''}`
+              : geometry.shape === 'box'
+                ? ` · 矩形 ${Math.max(1, geometry.width ?? 1)}x${Math.max(1, geometry.height ?? geometry.width ?? 1)}${pendingTargetedAction.maxTargets ? ` · 最多 ${pendingTargetedAction.maxTargets} 目标` : ''}`
+                : geometry.shape === 'orientedBox'
+                  ? ` · 定向矩形 ${Math.max(1, geometry.width ?? 1)}x${Math.max(1, geometry.height ?? geometry.width ?? 1)}${pendingTargetedAction.maxTargets ? ` · 最多 ${pendingTargetedAction.maxTargets} 目标` : ''}`
+                  : geometry.shape === 'area'
+                    ? ` · 范围半径 ${Math.max(0, geometry.radius ?? 1)}${pendingTargetedAction.maxTargets ? ` · 最多 ${pendingTargetedAction.maxTargets} 目标` : ''}`
+                    : '';
         options.targetingBadgeEl.textContent = `选定 ${pendingTargetedAction.actionName} 目标 · ${rangeLabel}${shapeLabel}`;
         options.targetingBadgeEl.classList.remove('hidden');
       }
       this.syncSenseQiOverlay();
-    },    
+    },
     /**
  * syncSenseQiOverlay：处理SenseQiOverlay并更新相关状态。
  * @returns 无返回值，直接更新SenseQiOverlay相关状态。
@@ -539,7 +553,7 @@ export function createMainTargetingStateSource(options: MainTargetingStateSource
         hoveredMapTile.clientX,
         hoveredMapTile.clientY,
       );
-    },    
+    },
     /**
  * computeAffectedCellsForAction：执行AffectedCellForAction相关逻辑。
  * @param action Pick<NonNullable<MainTargetingPendingAction>, 'actionId' | 'range' | 'shape' | 'radius' | 'width' | 'height'> 参数说明。
@@ -549,11 +563,11 @@ export function createMainTargetingStateSource(options: MainTargetingStateSource
 
 
     computeAffectedCellsForAction(
-      action: Pick<NonNullable<MainTargetingPendingAction>, 'actionId' | 'range' | 'shape' | 'radius' | 'width' | 'height'>,
+      action: Pick<NonNullable<MainTargetingPendingAction>, 'actionId' | 'range' | 'shape' | 'radius' | 'innerRadius' | 'width' | 'height'>,
       anchor: GridPoint,
     ): GridPoint[] {
       return computeAffectedCellsForActionHelper(action, anchor, options.getPlayer());
-    },    
+    },
     /**
  * resolveTargetRefForAction：读取目标RefForAction并返回结果。
  * @param action Pick<NonNullable<MainTargetingPendingAction>, 'actionId' | 'range' | 'shape' | 'radius' | 'width' | 'height' | 'targetMode'> 参数说明。
@@ -563,27 +577,27 @@ export function createMainTargetingStateSource(options: MainTargetingStateSource
 
 
     resolveTargetRefForAction(
-      action: Pick<NonNullable<MainTargetingPendingAction>, 'actionId' | 'range' | 'shape' | 'radius' | 'width' | 'height' | 'targetMode'>,
-      target: {      
+      action: Pick<NonNullable<MainTargetingPendingAction>, 'actionId' | 'range' | 'shape' | 'radius' | 'innerRadius' | 'width' | 'height' | 'targetMode'>,
+      target: {
       /**
  * x：x相关字段。
  */
- x: number;      
+ x: number;
  /**
  * y：y相关字段。
  */
- y: number;      
+ y: number;
  /**
  * entityId：entityID标识。
  */
- entityId?: string;      
+ entityId?: string;
  /**
  * entityKind：entityKind相关字段。
  */
  entityKind?: string },
     ): string | null {
       return resolveTargetRefForActionHelper(action, target, options.getPlayer());
-    },    
+    },
     /**
  * hasAffectableTargetInArea：读取Affectable目标InArea并返回结果。
  * @param action Pick<NonNullable<MainTargetingPendingAction>, 'actionId' | 'shape' | 'range' | 'radius' | 'width' | 'height'> 参数说明。
@@ -594,7 +608,7 @@ export function createMainTargetingStateSource(options: MainTargetingStateSource
 
 
     hasAffectableTargetInArea(
-      action: Pick<NonNullable<MainTargetingPendingAction>, 'actionId' | 'shape' | 'range' | 'radius' | 'width' | 'height'>,
+      action: Pick<NonNullable<MainTargetingPendingAction>, 'actionId' | 'shape' | 'range' | 'radius' | 'innerRadius' | 'width' | 'height'>,
       anchorX: number,
       anchorY: number,
     ): boolean {

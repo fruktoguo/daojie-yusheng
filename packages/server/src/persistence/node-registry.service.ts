@@ -1,7 +1,6 @@
 import { Injectable, Logger, type OnModuleDestroy, type OnModuleInit } from '@nestjs/common';
 import { Pool } from 'pg';
 import { hostname } from 'node:os';
-import { randomUUID } from 'node:crypto';
 
 import { DatabasePoolProvider } from './database-pool.provider';
 
@@ -223,5 +222,11 @@ function resolveNodeId(): string {
   if (explicit) {
     return explicit;
   }
-  return `${hostname().trim() || 'node'}:${process.pid}:${randomUUID().slice(0, 8)}`;
+  const publicPort = Number(
+    typeof process.env.SERVER_PUBLIC_PORT === 'string' && process.env.SERVER_PUBLIC_PORT.trim()
+      ? process.env.SERVER_PUBLIC_PORT.trim()
+      : process.env.SERVER_PORT,
+  );
+  const stablePort = Number.isFinite(publicPort) ? Math.max(1, Math.trunc(publicPort)) : 13001;
+  return `${hostname().trim() || 'node'}:${stablePort}`;
 }

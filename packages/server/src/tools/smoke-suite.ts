@@ -57,6 +57,7 @@ const net = __importStar(require("node:net"));
 const path = __importStar(require("node:path"));
 const env_alias_1 = require("../config/env-alias");
 const stable_dist_1 = require("./stable-dist");
+const smoke_player_cleanup_1 = require("./smoke-player-cleanup");
 /**
  * 记录包根目录。
  */
@@ -191,6 +192,7 @@ async function main() {
     process.stdout.write(`[server smoke] answers=${gateProfile.answers}\n`);
     process.stdout.write(`[server smoke] excludes=${gateProfile.excludes}\n`);
     process.stdout.write(`[server smoke] cases=${cases.map((entry) => entry.name).join(', ')}\n`);
+    await autoCleanupSmokeArtifacts('suite-start');
     for (const entry of cases) {
         if ((entry.name === 'persistence'
             || entry.name === 'player-domain-persistence'
@@ -209,11 +211,16 @@ async function main() {
  */
         const caseStartedAt = Date.now();
         process.stdout.write(`\n[server smoke] running ${entry.name}\n`);
-        if (entry.standalone) {
-            await runStandaloneSmoke(entry);
+        try {
+            if (entry.standalone) {
+                await runStandaloneSmoke(entry);
+            }
+            else {
+                await runIsolatedSmoke(entry);
+            }
         }
-        else {
-            await runIsolatedSmoke(entry);
+        finally {
+            await autoCleanupSmokeArtifacts(`case:${entry.name}`);
         }
         results.push({
             name: entry.name,
@@ -383,6 +390,40 @@ async function runNodeScript(scriptPath, extraEnv) {
             reject(new Error(`script ${path.basename(scriptPath)} failed: code=${code ?? 'null'} signal=${signal ?? 'none'}`));
         });
     });
+}
+
+async function autoCleanupSmokeArtifacts(stage) {
+  if (!hasDatabaseUrl()) {
+    return;
+  }
+  if (process.env.SERVER_SMOKE_AUTO_CLEANUP === '0') {
+    return;
+  }
+  const summary = await (0, smoke_player_cleanup_1.purgeSmokeTestArtifacts)({
+    dryRun: false,
+  });
+  if (!summary || summary.skipped) {
+    return;
+  }
+  const deleted = summary.deleted ?? {};
+  const deletedTotal = Number(deleted.authRows ?? 0)
+    + Number(deleted.identityRows ?? 0)
+    + Number(deleted.snapshotRows ?? 0)
+    + Number(deleted.legacyUserRows ?? 0)
+    + Number(deleted.legacyPlayerRows ?? 0)
+    + Number(deleted.instanceRows ?? 0);
+  if (deletedTotal <= 0) {
+    return;
+  }
+  process.stdout.write(
+    `[server smoke] auto-cleanup ${stage}: `
+    + `auth=${deleted.authRows ?? 0} `
+    + `identity=${deleted.identityRows ?? 0} `
+    + `snapshot=${deleted.snapshotRows ?? 0} `
+    + `legacyUser=${deleted.legacyUserRows ?? 0} `
+    + `legacyPlayer=${deleted.legacyPlayerRows ?? 0} `
+    + `instance=${deleted.instanceRows ?? 0}\n`,
+  );
 }
 /**
  * 解析已选值cases。

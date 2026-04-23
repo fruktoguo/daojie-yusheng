@@ -37,6 +37,8 @@ export const TILE_TYPE_LABELS: Record<TileType, string> = {
   [TileType.Cliff]: '山崖',
   [TileType.Mud]: '泥地',
   [TileType.Swamp]: '沼泽',
+  [TileType.ColdBog]: '寒沼',
+  [TileType.MoltenPool]: '熔池',
   [TileType.Water]: '水域',
   [TileType.Cloud]: '云墙',
   [TileType.CloudFloor]: '云地',

@@ -127,25 +127,85 @@ function cloneVisibleBuff(source) {
         qiProjection: source.qiProjection ? source.qiProjection.map((entry) => ({ ...entry })) : undefined,
     };
 }
+/** 输出整数展示文本，保持观察面板与主线口径一致。 */
+function formatWholeObservation(value) {
+    return `${Math.max(0, Math.round(value))}`;
+}
+/** 输出百分比展示文本，供回复/速率等属性复用。 */
+function formatRateObservation(value) {
+    const percent = value / 100;
+    return `${percent.toFixed(percent % 1 === 0 ? 0 : percent % 0.1 === 0 ? 1 : 2)}%`;
+}
+/** 输出暴伤展示文本，沿用主线 200% 基底口径。 */
+function formatCritDamageObservation(value) {
+    const total = 200 + Math.max(0, value) / 10;
+    return `${total.toFixed(total % 1 === 0 ? 0 : total % 0.1 === 0 ? 1 : 2)}%`;
+}
+/** 构建观察面板属性行，恢复与 main 一致的可见属性集合。 */
+function buildObservationLineSpecs(snapshot, includeResources) {
+    const lines = [];
+    if (includeResources) {
+        lines.push(
+            { threshold: 0.18, label: '生命', value: formatCurrentMaxObservation(snapshot.hp, snapshot.maxHp) },
+            { threshold: 0.24, label: '灵力', value: formatCurrentMaxObservation(snapshot.qi, snapshot.maxQi) },
+        );
+    }
+    lines.push(
+        { threshold: 0.32, label: '物理攻击', value: formatWholeObservation(snapshot.stats.physAtk) },
+        { threshold: 0.36, label: '物理防御', value: formatWholeObservation(snapshot.stats.physDef) },
+        { threshold: 0.4, label: '法术攻击', value: formatWholeObservation(snapshot.stats.spellAtk) },
+        { threshold: 0.44, label: '法术防御', value: formatWholeObservation(snapshot.stats.spellDef) },
+        { threshold: 0.52, label: '命中', value: formatWholeObservation(snapshot.stats.hit) },
+        { threshold: 0.56, label: '闪避', value: formatWholeObservation(snapshot.stats.dodge) },
+        { threshold: 0.62, label: '暴击', value: formatWholeObservation(snapshot.stats.crit) },
+        { threshold: 0.66, label: '免爆', value: formatWholeObservation(snapshot.stats.antiCrit) },
+        { threshold: 0.7, label: '暴击伤害', value: formatCritDamageObservation(snapshot.stats.critDamage) },
+        { threshold: 0.76, label: '破招', value: formatWholeObservation(snapshot.stats.breakPower) },
+        { threshold: 0.8, label: '化解', value: formatWholeObservation(snapshot.stats.resolvePower) },
+        { threshold: 0.84, label: '最大灵力输出速率', value: `${formatWholeObservation(snapshot.stats.maxQiOutputPerTick)} / 息` },
+        { threshold: 0.87, label: '灵力回复', value: `${formatRateObservation(snapshot.stats.qiRegenRate)} / 息` },
+        { threshold: 0.89, label: '生命回复', value: `${formatRateObservation(snapshot.stats.hpRegenRate)} / 息` },
+    );
+    if (snapshot.realmLabel) {
+        lines.push({ threshold: 0.9, label: '境界', value: snapshot.realmLabel });
+    }
+    if (snapshot.attrs) {
+        lines.push(
+            { threshold: 0.92, label: '体魄', value: formatWholeObservation(snapshot.attrs.constitution) },
+            { threshold: 0.94, label: '神识', value: formatWholeObservation(snapshot.attrs.spirit) },
+            { threshold: 0.96, label: '身法', value: formatWholeObservation(snapshot.attrs.perception) },
+            { threshold: 0.98, label: '根骨', value: formatWholeObservation(snapshot.attrs.talent) },
+            { threshold: 0.99, label: '悟性', value: formatWholeObservation(snapshot.attrs.comprehension) },
+            { threshold: 1, label: '气运', value: formatWholeObservation(snapshot.attrs.luck) },
+        );
+    }
+    return lines;
+}
 /** 构建玩家观察面板的属性项与可见度信息。 */
 function buildPlayerObservation(viewerSpirit, target, selfView = false) {
-    return buildObservationInsight(viewerSpirit, target.attrs.finalAttrs.spirit, [
-        { threshold: 0.08, label: '形象', value: target.displayName?.trim() || target.name },
-        { threshold: 0.15, label: '气血', value: formatCurrentMaxObservation(target.hp, target.maxHp) },
-        { threshold: 0.28, label: '灵力', value: formatCurrentMaxObservation(target.qi, target.maxQi) },
-        { threshold: 0.42, label: '体魄', value: String(target.attrs.finalAttrs.constitution) },
-        { threshold: 0.58, label: '神识', value: String(target.attrs.finalAttrs.spirit) },
-        { threshold: 0.74, label: '感知', value: String(target.attrs.finalAttrs.perception) },
-        { threshold: 0.88, label: '悟性', value: String(target.attrs.finalAttrs.comprehension) },
-    ], selfView);
+    return buildObservationInsight(viewerSpirit, target.attrs.finalAttrs.spirit, buildObservationLineSpecs({
+        hp: target.hp,
+        maxHp: target.maxHp,
+        qi: target.qi,
+        maxQi: target.maxQi,
+        stats: target.attrs.numericStats,
+        attrs: target.attrs.finalAttrs,
+        realmLabel: target.realm?.displayName,
+    }, true), selfView);
 }
 /** 构建妖兽观察面板的属性项与清晰度。 */
 function buildMonsterObservation(viewerSpirit, monster) {
     return buildObservationInsight(viewerSpirit, monster.attrs.spirit, [
-        { threshold: 0.16, label: '气血', value: formatCurrentMaxObservation(monster.hp, monster.maxHp) },
-        { threshold: 0.34, label: '体魄', value: String(monster.attrs.constitution) },
-        { threshold: 0.58, label: '神识', value: String(monster.attrs.spirit) },
-        { threshold: 0.78, label: '境界', value: `等级 ${monster.level}` },
+        ...buildObservationLineSpecs({
+            hp: monster.hp,
+            maxHp: monster.maxHp,
+            qi: 0,
+            maxQi: 0,
+            stats: monster.numericStats,
+            attrs: monster.attrs,
+        }, false),
+        { threshold: 0.28, label: '血脉层次', value: shared_1.MONSTER_TIER_LABELS[monster.tier] ?? '凡血' },
+        { threshold: 0.9, label: '境界', value: `等级 ${monster.level}` },
     ]);
 }
 /** 生成妖兽战利品预览列表与命中概率。 */

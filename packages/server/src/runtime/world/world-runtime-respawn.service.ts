@@ -74,9 +74,12 @@ let WorldRuntimeRespawnService = class WorldRuntimeRespawnService {
         const previous = deps.getPlayerLocation(playerId);
         const previousInstance = previous ? deps.getInstanceRuntime(previous.instanceId) : null;
         const previousMapId = previousInstance?.template?.id ?? player.templateId ?? '';
+        const boundRespawnMapId = typeof player.respawnTemplateId === 'string' && player.respawnTemplateId.trim()
+            ? player.respawnTemplateId.trim()
+            : '';
         const targetMapId = previousMapId === PRISON_MAP_ID
             ? PRISON_MAP_ID
-            : deps.resolveDefaultRespawnMapId();
+            : boundRespawnMapId || deps.resolveDefaultRespawnMapId();
         const targetInstance = deps.getOrCreatePublicInstance(targetMapId);
         if (previous) {
             previousInstance?.disconnectPlayer(playerId);
@@ -84,8 +87,8 @@ let WorldRuntimeRespawnService = class WorldRuntimeRespawnService {
         const runtimePlayer = targetInstance.connectPlayer({
             playerId,
             sessionId: player.sessionId ?? previous?.sessionId ?? `session:${playerId}`,
-            preferredX: targetInstance.template.spawnX,
-            preferredY: targetInstance.template.spawnY,
+            preferredX: targetMapId === boundRespawnMapId && Number.isFinite(player.respawnX) ? player.respawnX : targetInstance.template.spawnX,
+            preferredY: targetMapId === boundRespawnMapId && Number.isFinite(player.respawnY) ? player.respawnY : targetInstance.template.spawnY,
         });
         targetInstance.setPlayerMoveSpeed(playerId, player.attrs.numericStats.moveSpeed);
         deps.setPlayerLocation(playerId, {

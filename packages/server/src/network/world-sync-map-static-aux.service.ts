@@ -257,6 +257,7 @@ function isSameTile(left, right) {
         && left.modifiedAt === right.modifiedAt
         && left.hp === right.hp
         && left.maxHp === right.maxHp
+        && left.hpVisible === right.hpVisible
         && left.hiddenEntrance?.portalId === right.hiddenEntrance?.portalId
         && left.hiddenEntrance?.portalKind === right.hiddenEntrance?.portalKind
         && left.hiddenEntrance?.portalTargetMapId === right.hiddenEntrance?.portalTargetMapId;

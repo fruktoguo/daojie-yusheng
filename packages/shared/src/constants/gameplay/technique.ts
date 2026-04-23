@@ -6,10 +6,10 @@ import type { AttrKey, Attributes, TechniqueGrade } from '../../types';
  */
 
 /** 修炼每 tick 获得经验 */
-export const CULTIVATE_EXP_PER_TICK = 10;
+export const CULTIVATE_EXP_PER_TICK = 5;
 
 /** 修炼每 tick 获得境界修为 */
-export const CULTIVATION_REALM_EXP_PER_TICK = 2;
+export const CULTIVATION_REALM_EXP_PER_TICK = 1;
 
 /** 闲置自动修炼延迟（息） */
 export const AUTO_IDLE_CULTIVATION_DELAY_TICKS = 10;

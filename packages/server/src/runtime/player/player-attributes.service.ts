@@ -76,6 +76,8 @@ let PlayerAttributesService = class PlayerAttributesService {
 
         const stage = player.realm?.stage ?? shared_1.DEFAULT_PLAYER_REALM_STAGE;
 
+        const realmLv = Math.max(1, Math.floor(Number(player.realm?.realmLv ?? 1) || 1));
+
         const template = shared_1.PLAYER_REALM_NUMERIC_TEMPLATES[stage];
 
         const runtimeBonuses = Array.isArray(player.runtimeBonuses) ? player.runtimeBonuses : [];
@@ -135,6 +137,7 @@ let PlayerAttributesService = class PlayerAttributesService {
             (0, shared_1.addPartialNumericStats)(numericStats, bonus.stats);
         }
         applyPercentBonuses(numericStats, percentBonuses);
+        applyRealmNumericScaling(numericStats, realmLv);
         applySpiritualRoots(numericStats, player.spiritualRoots);
         if (vitalBaselineBonus?.stats) {
             (0, shared_1.addPartialNumericStats)(numericStats, vitalBaselineBonus.stats);
@@ -198,13 +201,34 @@ function createBaseAttributes() {
  */
 
 function createPercentBonusAccumulator() {
-    return {
-        maxHp: 0,
-        maxQi: 0,
-        physAtk: 0,
-        spellAtk: 0,
-    };
+    return (0, shared_1.createNumericStats)();
 }
+
+const REALM_EXPONENTIAL_NUMERIC_KEYS = [
+    'maxHp',
+    'maxQi',
+    'physAtk',
+    'spellAtk',
+    'physDef',
+    'spellDef',
+    'hit',
+    'dodge',
+    'crit',
+    'antiCrit',
+    'breakPower',
+    'resolvePower',
+];
+
+const REALM_LINEAR_NUMERIC_GROWTH_RATES = {
+    critDamage: 0.1,
+    maxQiOutputPerTick: 0.1,
+    qiRegenRate: 0.02,
+    hpRegenRate: 0.02,
+    realmExpPerTick: 0.1,
+    techniqueExpPerTick: 0.1,
+};
+
+const REALM_LINEAR_NUMERIC_KEYS = Object.keys(REALM_LINEAR_NUMERIC_GROWTH_RATES);
 /**
  * cloneAttributes：构建Attribute。
  * @param source 来源对象。
@@ -286,14 +310,7 @@ function accumulateAttrPercentBonus(target, key, value) {
     if (!weight) {
         return;
     }
-    if (weight.maxHp !== undefined)
-        target.maxHp += weight.maxHp * value;
-    if (weight.maxQi !== undefined)
-        target.maxQi += weight.maxQi * value;
-    if (weight.physAtk !== undefined)
-        target.physAtk += weight.physAtk * value;
-    if (weight.spellAtk !== undefined)
-        target.spellAtk += weight.spellAtk * value;
+    (0, shared_1.addPartialNumericStats)(target, scalePartialNumericStats(weight, value));
 }
 /**
  * applyPercentBonuses：处理PercentBonuse并更新相关状态。
@@ -305,14 +322,45 @@ function accumulateAttrPercentBonus(target, key, value) {
 function applyPercentBonuses(target, bonuses) {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
-    if (bonuses.maxHp !== 0)
-        target.maxHp *= 1 + bonuses.maxHp / 100;
-    if (bonuses.maxQi !== 0)
-        target.maxQi *= 1 + bonuses.maxQi / 100;
-    if (bonuses.physAtk !== 0)
-        target.physAtk *= 1 + bonuses.physAtk / 100;
-    if (bonuses.spellAtk !== 0)
-        target.spellAtk *= 1 + bonuses.spellAtk / 100;
+    for (const key of shared_1.NUMERIC_SCALAR_STAT_KEYS) {
+        const bonus = bonuses[key];
+        if (!Number.isFinite(bonus) || bonus === 0) {
+            continue;
+        }
+        const floor = shared_1.NUMERIC_STAT_MULTIPLIER_FLOORS[key] ?? 0;
+        const base = Math.max(target[key], floor);
+        target[key] = Math.round(base * (1 + bonus / 100));
+    }
+    for (const element of shared_1.ELEMENT_KEYS) {
+        const damageBonus = bonuses.elementDamageBonus?.[element] ?? 0;
+        if (damageBonus !== 0) {
+            const floor = shared_1.NUMERIC_STAT_MULTIPLIER_FLOORS.elementDamageBonus[element] ?? 0;
+            target.elementDamageBonus[element] = Math.round(Math.max(target.elementDamageBonus[element], floor) * (1 + damageBonus / 100));
+        }
+        const damageReduce = bonuses.elementDamageReduce?.[element] ?? 0;
+        if (damageReduce !== 0) {
+            const floor = shared_1.NUMERIC_STAT_MULTIPLIER_FLOORS.elementDamageReduce[element] ?? 0;
+            target.elementDamageReduce[element] = Math.round(Math.max(target.elementDamageReduce[element], floor) * (1 + damageReduce / 100));
+        }
+    }
+}
+
+function applyRealmNumericScaling(target, realmLv) {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
+    const exponentialMultiplier = (0, shared_1.getRealmAttributeMultiplier)(realmLv);
+    if (exponentialMultiplier !== 1) {
+        for (const key of REALM_EXPONENTIAL_NUMERIC_KEYS) {
+            target[key] = Math.max(0, Math.round(target[key] * exponentialMultiplier));
+        }
+    }
+    for (const key of REALM_LINEAR_NUMERIC_KEYS) {
+        const linearMultiplier = (0, shared_1.getRealmLinearGrowthMultiplier)(realmLv, REALM_LINEAR_NUMERIC_GROWTH_RATES[key]);
+        if (linearMultiplier === 1) {
+            continue;
+        }
+        target[key] = Math.max(0, Math.round(target[key] * linearMultiplier));
+    }
 }
 /**
  * resolveItemStats：规范化或转换道具Stat。
@@ -415,13 +463,6 @@ function collectProjectedRuntimeBonuses(bonuses) {
 function resolveTechniqueAttrBonus(techniques, runtimeBonuses) {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
-
-    const aggregateBonus = Array.isArray(runtimeBonuses)
-        ? runtimeBonuses.find((entry) => entry?.source === 'runtime:technique_aggregate' && entry.attrs && typeof entry.attrs === 'object')
-        : null;
-    if (aggregateBonus?.attrs) {
-        return aggregateBonus.attrs;
-    }
     return (0, shared_1.calcTechniqueFinalAttrBonus)(techniques.map(toTechniqueState));
 }
 /**

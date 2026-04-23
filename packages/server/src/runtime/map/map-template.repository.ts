@@ -159,6 +159,7 @@ let MapTemplateRepository = MapTemplateRepository_1 = class MapTemplateRepositor
         this.npcLocationById.clear();
         this.questSourceById.clear();
         const mapsDir = (0, project_path_1.resolveProjectPath)('packages', 'server', 'data', 'maps');
+        const resourceNodeById = loadLandmarkResourceNodeDefinitions();
         const files = collectJsonFiles(mapsDir);
         const documents = [];
         for (const file of files) {
@@ -173,7 +174,7 @@ let MapTemplateRepository = MapTemplateRepository_1 = class MapTemplateRepositor
             indexDocumentNpcs(document, this.npcLocationById);
         }
         for (const document of documents) {
-            const template = this.buildTemplate(document);
+            const template = this.buildTemplate(document, resourceNodeById);
             this.templates.set(template.id, template);
             for (const npc of template.npcs) {
                 for (const quest of npc.quests) {
@@ -198,10 +199,11 @@ let MapTemplateRepository = MapTemplateRepository_1 = class MapTemplateRepositor
     /**
  * buildTemplate：构建并返回目标对象。
  * @param document 参数说明。
+ * @param resourceNodeById 资源节点模板表。
  * @returns 无返回值，直接更新Template相关状态。
  */
 
-    buildTemplate(document) {
+    buildTemplate(document, resourceNodeById) {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
         const width = document.width;
@@ -227,7 +229,7 @@ let MapTemplateRepository = MapTemplateRepository_1 = class MapTemplateRepositor
         for (const safeZone of safeZones) {
             fillSafeZoneMask(safeZoneMask, width, height, safeZone);
         }
-        const landmarks = normalizeLandmarks(document.landmarks, width, height);
+        const landmarks = normalizeLandmarks(expandResourceNodeGroupLandmarks(document, resourceNodeById), width, height);
         const containers = landmarks
             .flatMap((landmark) => landmark.container ? [landmark.container] : [])
             .sort(compareContainers);
@@ -372,6 +374,68 @@ function collectJsonFiles(dirPath) {
         }
     }
     return files;
+}
+
+function loadLandmarkResourceNodeDefinitions() {
+    const filePath = (0, project_path_1.resolveProjectPath)('packages', 'server', 'data', 'content', 'resource-nodes.json');
+    const raw = JSON.parse(fs.readFileSync(filePath, 'utf-8'));
+    const definitions = new Map();
+    for (const entry of raw?.resourceNodes ?? []) {
+        const id = typeof entry?.id === 'string' ? entry.id.trim() : '';
+        const kind = entry?.kind === 'landmark_marker' || entry?.kind === 'landmark_container'
+            ? entry.kind
+            : null;
+        const name = typeof entry?.name === 'string' ? entry.name.trim() : '';
+        if (!id || !kind || !name) {
+            continue;
+        }
+        definitions.set(id, {
+            id,
+            kind,
+            name,
+            container: kind === 'landmark_container' && entry.container && typeof entry.container === 'object'
+                ? entry.container
+                : undefined,
+        });
+    }
+    return definitions;
+}
+
+function expandResourceNodeGroupLandmarks(document, resourceNodeById) {
+    const rawLandmarks = Array.isArray(document.landmarks) ? document.landmarks.slice() : [];
+    const groups = Array.isArray(document.resourceNodeGroups) ? document.resourceNodeGroups : [];
+    if (groups.length <= 0) {
+        return rawLandmarks;
+    }
+    const expandedLandmarks = [];
+    for (const group of groups) {
+        const resourceNodeId = typeof group?.resourceNodeId === 'string' ? group.resourceNodeId.trim() : '';
+        const idPrefix = typeof group?.idPrefix === 'string' ? group.idPrefix.trim() : '';
+        const groupName = typeof group?.name === 'string' ? group.name.trim() : '';
+        if (!resourceNodeId || !idPrefix) {
+            continue;
+        }
+        const definition = resourceNodeById.get(resourceNodeId);
+        if (!definition) {
+            continue;
+        }
+        for (const placement of group.placements ?? []) {
+            if (!Number.isFinite(placement?.x) || !Number.isFinite(placement?.y)) {
+                continue;
+            }
+            const x = Math.trunc(placement.x);
+            const y = Math.trunc(placement.y);
+            expandedLandmarks.push({
+                id: `${idPrefix}_${x}_${y}`,
+                name: groupName || definition.name,
+                x,
+                y,
+                resourceNodeId,
+                container: definition.container,
+            });
+        }
+    }
+    return rawLandmarks.concat(expandedLandmarks);
 }
 /**
  * normalizeSafeZones：规范化或转换SafeZone。

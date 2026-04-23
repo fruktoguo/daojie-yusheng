@@ -65,7 +65,7 @@
     "smoke:persistence-benchmark-report": "pnpm compile && node dist/tools/persistence-benchmark-report.js",
     "smoke:transfer-pressure-benchmark": "pnpm compile && node dist/tools/transfer-pressure-benchmark.js",
     "smoke:lease-failover-benchmark": "pnpm compile && node dist/tools/lease-failover-benchmark.js",
-    "smoke:map-persistence-flush-throttle": "SERVER_PERSISTENCE_FLUSH_SLOW_THRESHOLD_MS=1 SERVER_PERSISTENCE_FLUSH_SLOW_BACKOFF_MS=5000 pnpm compile && SERVER_PERSISTENCE_FLUSH_SLOW_THRESHOLD_MS=1 SERVER_PERSISTENCE_FLUSH_SLOW_BACKOFF_MS=5000 node dist/tools/map-persistence-flush-throttle-smoke.js",
+    "smoke:map-persistence-flush-throttle": "SERVER_PERSISTENCE_FLUSH_SLOW_THRESHOLD_MS=100 SERVER_PERSISTENCE_FLUSH_SLOW_BACKOFF_MS=5000 pnpm compile && SERVER_PERSISTENCE_FLUSH_SLOW_THRESHOLD_MS=100 SERVER_PERSISTENCE_FLUSH_SLOW_BACKOFF_MS=5000 node dist/tools/map-persistence-flush-throttle-smoke.js",
     "smoke:worker-backlog-alert-report": "pnpm compile && node dist/tools/worker-backlog-alert-report.js",
     "smoke:worker-backlog-alert": "pnpm compile && node dist/tools/worker-backlog-alert-smoke.js",
     "smoke:gm-world-instance": "pnpm compile && node dist/tools/gm-world-instance-smoke.js",

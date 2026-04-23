@@ -82,6 +82,11 @@ export class LootPanel {
     detailModalHost.close(LootPanel.MODAL_OWNER);
   }
 
+  /** 显式再次拿取时，允许服务端回包重新打开窗口。 */
+  resetManualCloseSuppression(): void {
+    this.suppressAutoOpen = false;
+  }
+
   /** 更新拾取窗口状态，null 时关闭弹层 */
   update(windowState: LootWindowState | null): void {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。

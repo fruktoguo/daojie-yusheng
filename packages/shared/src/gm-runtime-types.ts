@@ -4,67 +4,67 @@ export interface GmPlayerSummary {
  * id：ID标识。
  */
 
-  id: string;  
+  id: string;
   /**
  * name：名称名称或显示文本。
  */
 
-  name: string;  
+  name: string;
   /**
  * roleName：role名称名称或显示文本。
  */
 
-  roleName: string;  
+  roleName: string;
   /**
  * displayName：显示名称名称或显示文本。
  */
 
-  displayName: string;  
+  displayName: string;
   /**
  * accountName：account名称名称或显示文本。
  */
 
-  accountName?: string;  
+  accountName?: string;
   /**
  * mapId：地图ID标识。
  */
 
-  mapId: string;  
+  mapId: string;
   /**
  * mapName：地图名称名称或显示文本。
  */
 
-  mapName: string;  
+  mapName: string;
   /**
  * x：x相关字段。
  */
 
-  x: number;  
+  x: number;
   /**
  * y：y相关字段。
  */
 
-  y: number;  
+  y: number;
   /**
  * hp：hp相关字段。
  */
 
-  hp: number;  
+  hp: number;
   /**
  * maxHp：maxHp相关字段。
  */
 
-  maxHp: number;  
+  maxHp: number;
   /**
  * dead：dead相关字段。
  */
 
-  dead: boolean;  
+  dead: boolean;
   /**
  * autoBattle：autoBattle相关字段。
  */
 
-  autoBattle: boolean;  
+  autoBattle: boolean;
   /**
  * isBot：启用开关或状态标识。
  */
@@ -78,17 +78,17 @@ export interface GmNetworkBucket {
  * key：key标识。
  */
 
-  key: string;  
+  key: string;
   /**
  * label：label名称或显示文本。
  */
 
-  label: string;  
+  label: string;
   /**
  * bytes：byte相关字段。
  */
 
-  bytes: number;  
+  bytes: number;
   /**
  * count：数量或计量字段。
  */
@@ -102,27 +102,27 @@ export interface GmCpuSectionSnapshot {
  * key：key标识。
  */
 
-  key: string;  
+  key: string;
   /**
  * label：label名称或显示文本。
  */
 
-  label: string;  
+  label: string;
   /**
  * totalMs：totalM相关字段。
  */
 
-  totalMs: number;  
+  totalMs: number;
   /**
  * percent：percent相关字段。
  */
 
-  percent: number;  
+  percent: number;
   /**
  * count：数量或计量字段。
  */
 
-  count: number;  
+  count: number;
   /**
  * avgMs：avgM相关字段。
  */
@@ -136,77 +136,199 @@ export interface GmCpuSnapshot {
  * cores：core相关字段。
  */
 
-  cores: number;  
+  cores: number;
   /**
  * loadAvg1m：loadAvg1m相关字段。
  */
 
-  loadAvg1m: number;  
+  loadAvg1m: number;
   /**
  * loadAvg5m：loadAvg5m相关字段。
  */
 
-  loadAvg5m: number;  
+  loadAvg5m: number;
   /**
  * loadAvg15m：loadAvg15m相关字段。
  */
 
-  loadAvg15m: number;  
+  loadAvg15m: number;
   /**
  * processUptimeSec：processUptimeSec相关字段。
  */
 
-  processUptimeSec: number;  
+  processUptimeSec: number;
   /**
  * systemUptimeSec：systemUptimeSec相关字段。
  */
 
-  systemUptimeSec: number;  
+  systemUptimeSec: number;
   /**
  * userCpuMs：userCpuM相关字段。
  */
 
-  userCpuMs: number;  
+  userCpuMs: number;
   /**
  * systemCpuMs：systemCpuM相关字段。
  */
 
-  systemCpuMs: number;  
+  systemCpuMs: number;
   /**
  * rssMb：rssMb相关字段。
  */
 
-  rssMb: number;  
+  rssMb: number;
   /**
  * heapUsedMb：heapUsedMb相关字段。
  */
 
-  heapUsedMb: number;  
+  heapUsedMb: number;
   /**
  * heapTotalMb：heapTotalMb相关字段。
  */
 
-  heapTotalMb: number;  
+  heapTotalMb: number;
   /**
  * externalMb：externalMb相关字段。
  */
 
-  externalMb: number;  
+  externalMb: number;
   /**
  * profileStartedAt：profileStartedAt相关字段。
  */
 
-  profileStartedAt: number;  
+  profileStartedAt: number;
   /**
  * profileElapsedSec：profileElapsedSec相关字段。
  */
 
-  profileElapsedSec: number;  
+  profileElapsedSec: number;
   /**
  * breakdown：breakdown相关字段。
  */
 
   breakdown: GmCpuSectionSnapshot[];
+}
+
+/** GM 运行态内存域估算项。 */
+export interface GmMemoryDomainEstimateSnapshot {
+/**
+ * key：key标识。
+ */
+
+  key: string;
+  /**
+ * label：label名称或显示文本。
+ */
+
+  label: string;
+  /**
+ * bytes：byte相关字段。
+ */
+
+  bytes: number;
+  /**
+ * count：数量或计量字段。
+ */
+
+  count: number;
+  /**
+ * avgBytes：avgByte相关字段。
+ */
+
+  avgBytes: number;
+}
+
+/** GM 实例内存估算项。 */
+export interface GmMemoryInstanceEstimateSnapshot {
+/**
+ * instanceId：instanceID标识。
+ */
+
+  instanceId: string;
+  /**
+ * label：label名称或显示文本。
+ */
+
+  label: string;
+  /**
+ * bytes：byte相关字段。
+ */
+
+  bytes: number;
+  /**
+ * playerBytes：playerByte相关字段。
+ */
+
+  playerBytes: number;
+  /**
+ * monsterBytes：monsterByte相关字段。
+ */
+
+  monsterBytes: number;
+  /**
+ * instanceBytes：instanceByte相关字段。
+ */
+
+  instanceBytes: number;
+  /**
+ * playerCount：数量或计量字段。
+ */
+
+  playerCount: number;
+  /**
+ * monsterCount：数量或计量字段。
+ */
+
+  monsterCount: number;
+}
+
+/** GM 运行态内存画像快照。 */
+export interface GmMemoryEstimateSnapshot {
+/**
+ * mode：mode相关字段。
+ */
+
+  mode: string;
+  /**
+ * generatedAt：generatedAt相关字段。
+ */
+
+  generatedAt: number;
+  /**
+ * cacheTtlMs：cacheTtlM相关字段。
+ */
+
+  cacheTtlMs: number;
+  /**
+ * rssBytes：rssByte相关字段。
+ */
+
+  rssBytes: number;
+  /**
+ * coveredBytes：coveredByte相关字段。
+ */
+
+  coveredBytes: number;
+  /**
+ * uncoveredBytes：uncoveredByte相关字段。
+ */
+
+  uncoveredBytes: number;
+  /**
+ * coveragePercent：coveragePercent相关字段。
+ */
+
+  coveragePercent: number;
+  /**
+ * domains：集合字段。
+ */
+
+  domains: GmMemoryDomainEstimateSnapshot[];
+  /**
+ * topInstances：集合字段。
+ */
+
+  topInstances: GmMemoryInstanceEstimateSnapshot[];
 }
 
 /** 路径搜索失败原因统计。 */
@@ -215,12 +337,12 @@ export interface GmPathfindingFailureBucket {
  * reason：reason相关字段。
  */
 
-  reason: string;  
+  reason: string;
   /**
  * label：label名称或显示文本。
  */
 
-  label: string;  
+  label: string;
   /**
  * count：数量或计量字段。
  */
@@ -234,112 +356,112 @@ export interface GmPathfindingSnapshot {
  * statsStartedAt：statStartedAt相关字段。
  */
 
-  statsStartedAt: number;  
+  statsStartedAt: number;
   /**
  * statsElapsedSec：statElapsedSec相关字段。
  */
 
-  statsElapsedSec: number;  
+  statsElapsedSec: number;
   /**
  * workerCount：数量或计量字段。
  */
 
-  workerCount: number;  
+  workerCount: number;
   /**
  * runningWorkers：runningWorker相关字段。
  */
 
-  runningWorkers: number;  
+  runningWorkers: number;
   /**
  * idleWorkers：idleWorker相关字段。
  */
 
-  idleWorkers: number;  
+  idleWorkers: number;
   /**
  * peakRunningWorkers：peakRunningWorker相关字段。
  */
 
-  peakRunningWorkers: number;  
+  peakRunningWorkers: number;
   /**
  * queueDepth：queueDepth相关字段。
  */
 
-  queueDepth: number;  
+  queueDepth: number;
   /**
  * peakQueueDepth：peakQueueDepth相关字段。
  */
 
-  peakQueueDepth: number;  
+  peakQueueDepth: number;
   /**
  * enqueued：enqueued相关字段。
  */
 
-  enqueued: number;  
+  enqueued: number;
   /**
  * dispatched：dispatched相关字段。
  */
 
-  dispatched: number;  
+  dispatched: number;
   /**
  * completed：completed相关字段。
  */
 
-  completed: number;  
+  completed: number;
   /**
  * succeeded：succeeded相关字段。
  */
 
-  succeeded: number;  
+  succeeded: number;
   /**
  * failed：failed相关字段。
  */
 
-  failed: number;  
+  failed: number;
   /**
  * cancelled：cancelled相关字段。
  */
 
-  cancelled: number;  
+  cancelled: number;
   /**
  * droppedPending：droppedPending相关字段。
  */
 
-  droppedPending: number;  
+  droppedPending: number;
   /**
  * droppedStaleResults：droppedStale结果相关字段。
  */
 
-  droppedStaleResults: number;  
+  droppedStaleResults: number;
   /**
  * avgQueueMs：avgQueueM相关字段。
  */
 
-  avgQueueMs: number;  
+  avgQueueMs: number;
   /**
  * maxQueueMs：maxQueueM相关字段。
  */
 
-  maxQueueMs: number;  
+  maxQueueMs: number;
   /**
  * avgRunMs：avgRunM相关字段。
  */
 
-  avgRunMs: number;  
+  avgRunMs: number;
   /**
  * maxRunMs：maxRunM相关字段。
  */
 
-  maxRunMs: number;  
+  maxRunMs: number;
   /**
  * avgExpandedNodes：avgExpandedNode相关字段。
  */
 
-  avgExpandedNodes: number;  
+  avgExpandedNodes: number;
   /**
  * maxExpandedNodes：maxExpandedNode相关字段。
  */
 
-  maxExpandedNodes: number;  
+  maxExpandedNodes: number;
   /**
  * failureReasons：failureReason相关字段。
  */
@@ -353,32 +475,32 @@ export interface GmTickSnapshot {
  * lastMapId：last地图ID标识。
  */
 
-  lastMapId: string | null;  
+  lastMapId: string | null;
   /**
  * lastMs：lastM相关字段。
  */
 
-  lastMs: number;  
+  lastMs: number;
   /**
  * windowElapsedSec：窗口ElapsedSec相关字段。
  */
 
-  windowElapsedSec: number;  
+  windowElapsedSec: number;
   /**
  * windowTickCount：数量或计量字段。
  */
 
-  windowTickCount: number;  
+  windowTickCount: number;
   /**
  * windowTotalMs：窗口TotalM相关字段。
  */
 
-  windowTotalMs: number;  
+  windowTotalMs: number;
   /**
  * windowAvgMs：窗口AvgM相关字段。
  */
 
-  windowAvgMs: number;  
+  windowAvgMs: number;
   /**
  * windowBusyPercent：窗口BusyPercent相关字段。
  */
@@ -392,57 +514,62 @@ export interface GmPerformanceSnapshot {
  * cpuPercent：cpuPercent相关字段。
  */
 
-  cpuPercent: number;  
+  cpuPercent: number;
   /**
  * memoryMb：memoryMb相关字段。
  */
 
-  memoryMb: number;  
+  memoryMb: number;
   /**
  * tickMs：tickM相关字段。
  */
 
-  tickMs: number;  
+  tickMs: number;
   /**
  * tick：tick相关字段。
  */
 
-  tick: GmTickSnapshot;  
+  tick: GmTickSnapshot;
   /**
  * cpu：cpu相关字段。
  */
 
-  cpu: GmCpuSnapshot;  
+  cpu: GmCpuSnapshot;
+  /**
+ * memoryEstimate：memoryEstimate相关字段。
+ */
+
+  memoryEstimate: GmMemoryEstimateSnapshot;
   /**
  * pathfinding：pathfinding相关字段。
  */
 
-  pathfinding: GmPathfindingSnapshot;  
+  pathfinding: GmPathfindingSnapshot;
   /**
  * networkStatsStartedAt：networkStatStartedAt相关字段。
  */
 
-  networkStatsStartedAt: number;  
+  networkStatsStartedAt: number;
   /**
  * networkStatsElapsedSec：networkStatElapsedSec相关字段。
  */
 
-  networkStatsElapsedSec: number;  
+  networkStatsElapsedSec: number;
   /**
  * networkInBytes：networkInByte相关字段。
  */
 
-  networkInBytes: number;  
+  networkInBytes: number;
   /**
  * networkOutBytes：networkOutByte相关字段。
  */
 
-  networkOutBytes: number;  
+  networkOutBytes: number;
   /**
  * networkInBuckets：networkInBucket相关字段。
  */
 
-  networkInBuckets: GmNetworkBucket[];  
+  networkInBuckets: GmNetworkBucket[];
   /**
  * networkOutBuckets：networkOutBucket相关字段。
  */
@@ -456,17 +583,17 @@ export interface GmStateView {
  * players：集合字段。
  */
 
-  players: GmPlayerSummary[];  
+  players: GmPlayerSummary[];
   /**
  * mapIds：地图ID相关字段。
  */
 
-  mapIds: string[];  
+  mapIds: string[];
   /**
  * botCount：数量或计量字段。
  */
 
-  botCount: number;  
+  botCount: number;
   /**
  * perf：perf相关字段。
  */

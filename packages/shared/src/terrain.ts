@@ -62,6 +62,8 @@ export function isTileTypeWalkable(type: TileType): boolean {
     type === TileType.Hill ||
     type === TileType.Mud ||
     type === TileType.Swamp ||
+    type === TileType.ColdBog ||
+    type === TileType.MoltenPool ||
     type === TileType.CloudFloor ||
     HOUSE_DECOR_WALKABLE_TILE_TYPES.has(type)
   );
@@ -83,7 +85,7 @@ export function doesTileTypeBlockSight(type: TileType): boolean {
 
 /** 根据移速属性计算每 tick 实际移动点数 */
 export function getMovePointsPerTick(moveSpeed: number): number {
-  return BASE_MOVE_POINTS_PER_TICK + (Number.isFinite(moveSpeed) ? Math.max(0, moveSpeed) : 0);
+  return Math.max(1, BASE_MOVE_POINTS_PER_TICK + (Number.isFinite(moveSpeed) ? moveSpeed : 0));
 }
 
 /** 地形耐久度材质类型 */

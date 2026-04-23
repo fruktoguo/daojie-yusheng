@@ -36,7 +36,7 @@ let WorldSyncService = class WorldSyncService {
         this.worldSyncAuxStateService = worldSyncAuxStateService;
         this.worldSyncEnvelopeService = worldSyncEnvelopeService;
     }
-        emitInitialSync(playerId, socketOverride = undefined) {
+    emitInitialSync(playerId, socketOverride = undefined) {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
         const binding = this.worldSessionService.getBinding(playerId);
         if (!binding) {
@@ -53,6 +53,25 @@ let WorldSyncService = class WorldSyncService {
         this.emitEnvelope(socket, envelope);
         this.emitAuxInitialSync(binding.playerId, socket, view, player);
         this.worldSyncQuestLootService.emitQuestSync(socket, binding.playerId, player.quests.revision);
+        this.emitPendingNotices(binding.playerId, socket);
+    }
+        emitDeltaSync(playerId, socketOverride = undefined) {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+        const binding = this.worldSessionService.getBinding(playerId);
+        if (!binding) {
+            return;
+        }
+        const socket = socketOverride ?? this.worldSessionService.getSocketByPlayerId(playerId);
+        const view = this.worldRuntimeService.getPlayerView(playerId);
+        if (!socket || !view) {
+            return;
+        }
+        this.worldRuntimeService.refreshPlayerContextActions(playerId, view);
+        const player = this.playerRuntimeService.syncFromWorldView(binding.playerId, binding.sessionId, view);
+        const envelope = this.worldSyncEnvelopeService.createDeltaEnvelope(binding.playerId, view, player);
+        this.emitEnvelope(socket, envelope);
+        this.emitAuxDeltaSync(binding.playerId, socket, view, player);
+        this.worldSyncQuestLootService.emitQuestSyncIfChanged(socket, binding.playerId, player.quests.revision);
         this.emitPendingNotices(binding.playerId, socket);
     }
         flushConnectedPlayers() {

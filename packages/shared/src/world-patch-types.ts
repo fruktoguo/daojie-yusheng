@@ -2,6 +2,7 @@ import type { Direction, EntityKind, GameTimeState, MonsterTier, VisibleBuffStat
 import type { CombatEffect } from './action-combat-types';
 import type { GroundItemEntryView } from './loot-view-types';
 import type { ObservationInsight } from './observation-types';
+import type { PlayerWalletState } from './player-runtime-types';
 import type { MapMinimapMarker, NpcQuestMarker } from './world-view-types';
 
 /**
@@ -555,6 +556,11 @@ export interface SelfDeltaView {
  */
 
   maxQi?: number;
+  /**
+ * wallet：钱包相关字段。
+ */
+
+  wallet?: PlayerWalletState | null;
 }
 
 /** 高频 tick 增量主体视图。 */

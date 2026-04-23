@@ -4,6 +4,7 @@ import {
   GAME_DAY_TICKS,
   GAME_TIME_PHASES,
   DEFAULT_AURA_LEVEL_BASE_VALUE,
+  TileType,
   doesTileTypeBlockSight,
   getQiResourceDefaultLevel,
   getQiResourceDisplayLabel,
@@ -177,8 +178,11 @@ export class WorldSyncMapSnapshotService {
     return entities;
   }
 
-  buildMinimapLibrarySync(player, currentMapId): any[] {
-    const mapIds = Array.from(new Set([...player.unlockedMapIds, currentMapId]))
+  buildMinimapLibrarySync(player): any[] {
+    const unlockedMapIds: string[] = Array.isArray(player.unlockedMapIds)
+      ? player.unlockedMapIds.filter((entry): entry is string => typeof entry === 'string' && entry.length > 0)
+      : [];
+    const mapIds = Array.from(new Set<string>(unlockedMapIds))
       .filter((entry) => this.templateRepository.has(entry))
       .sort(compareStableStrings);
     return mapIds.map((mapId) => {
@@ -215,7 +219,10 @@ export class WorldSyncMapSnapshotService {
       return null;
     }
 
-    const tileType = getTileTypeFromMapChar(template.terrainRows[y]?.[x] ?? '#');
+    const destroyed = state.combat?.destroyed === true;
+    const tileType = destroyed
+      ? TileType.Floor
+      : getTileTypeFromMapChar(template.terrainRows[y]?.[x] ?? '#');
     return {
       type: tileType,
       walkable: isTileTypeWalkable(tileType),
@@ -235,8 +242,14 @@ export class WorldSyncMapSnapshotService {
         : undefined,
       occupiedBy: null,
       modifiedAt: state.combat?.modifiedAt ?? null,
-      hp: state.combat?.hp,
-      maxHp: state.combat?.maxHp,
+      hp: destroyed ? undefined : state.combat?.hp,
+      maxHp: destroyed ? undefined : state.combat?.maxHp,
+      hpVisible: destroyed
+        ? undefined
+        : state.combat?.maxHp > 0
+          && typeof state.combat?.hp === 'number'
+          && state.combat.hp > 0
+          && state.combat.hp < state.combat.maxHp,
     };
   }
 }

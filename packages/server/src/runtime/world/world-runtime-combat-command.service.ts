@@ -112,8 +112,8 @@ let WorldRuntimeCombatCommandService = class WorldRuntimeCombatCommandService {
  * @returns 无返回值，直接更新Cast技能ToTile相关状态。
  */
 
-    dispatchCastSkillToTile(attacker, skillId, targetX, targetY, deps) {
-        this.worldRuntimePlayerSkillDispatchService.dispatchCastSkillToTile(attacker, skillId, targetX, targetY, deps);
+    async dispatchCastSkillToTile(attacker, skillId, targetX, targetY, deps) {
+        return this.worldRuntimePlayerSkillDispatchService.dispatchCastSkillToTile(attacker, skillId, targetX, targetY, deps);
     }    
     /**
  * dispatchEngageBattle：判断EngageBattle是否满足条件。

@@ -27,6 +27,7 @@ import {
   type NpcQuestMarker,
   type PlayerSpecialStats,
   type QiProjectionModifier,
+  type PlayerWalletState,
   type SelfDeltaView,
   type SkillDef,
   type SkillEffectDef,
@@ -240,6 +241,7 @@ interface ProjectedSelfState {
   maxHp: number;
   qi: number;
   maxQi: number;
+  wallet: PlayerWalletState | null;
 }
 type ProjectedNumericStats = ReturnType<typeof cloneNumericStats>;
 type ProjectedRatioDivisors = ReturnType<typeof cloneNumericRatioDivisors>;
@@ -274,6 +276,7 @@ interface ProjectorPlayerLike {
     capacity: number;
     items: SyncedItemStack[];
   };
+  wallet?: PlayerWalletState | null;
   equipment: {
     revision: number;
     slots: EquipmentSlotUpdateEntry[];
@@ -502,6 +505,7 @@ function buildFullSelfDelta(player: ProjectorPlayerLike): SelfDeltaView {
         maxHp: player.maxHp,
         qi: player.qi,
         maxQi: player.maxQi,
+        wallet: cloneWalletState(player.wallet),
     };
 }
 function buildFullPanelDelta(player: ProjectorPlayerLike): S2C_PanelDelta {
@@ -643,6 +647,7 @@ function capturePlayerState(player: ProjectorPlayerLike): PlayerStateSlice {
             maxHp: player.maxHp,
             qi: player.qi,
             maxQi: player.maxQi,
+            wallet: cloneWalletState(player.wallet),
         },
         panel: {
             inventory: captureInventoryPanelSlice(player),
@@ -877,6 +882,9 @@ function buildSelfDelta(previous: PlayerStateSlice, player: ProjectorPlayerLike)
     }
     if (previous.self.maxQi !== player.maxQi) {
         delta.maxQi = player.maxQi;
+    }
+    if (!isSameWalletState(previous.self.wallet, player.wallet)) {
+        delta.wallet = cloneWalletState(player.wallet);
     }
     return delta;
 }
@@ -1987,6 +1995,42 @@ function cloneSpecialStats(source: PlayerSpecialStats): PlayerSpecialStats {
         foundation: source.foundation,
         combatExp: source.combatExp,
     };
+}
+function cloneWalletState(source: PlayerWalletState | null | undefined): PlayerWalletState | null {
+    if (!source || !Array.isArray(source.balances)) {
+        return null;
+    }
+    return {
+        balances: source.balances
+            .map((entry) => ({
+            walletType: typeof entry?.walletType === 'string' ? entry.walletType.trim() : '',
+            balance: Math.max(0, Math.trunc(Number(entry?.balance ?? 0))),
+            frozenBalance: Math.max(0, Math.trunc(Number(entry?.frozenBalance ?? 0))),
+            version: Math.max(1, Math.trunc(Number(entry?.version ?? 1))),
+        }))
+            .filter((entry) => entry.walletType),
+    };
+}
+function isSameWalletState(left: PlayerWalletState | null | undefined, right: PlayerWalletState | null | undefined): boolean {
+    const leftBalances = Array.isArray(left?.balances) ? left.balances : [];
+    const rightBalances = Array.isArray(right?.balances) ? right.balances : [];
+    if (leftBalances.length !== rightBalances.length) {
+        return false;
+    }
+    for (let index = 0; index < leftBalances.length; index += 1) {
+        const leftEntry = leftBalances[index];
+        const rightEntry = rightBalances[index];
+        if (!leftEntry || !rightEntry) {
+            return false;
+        }
+        if (leftEntry.walletType !== rightEntry.walletType
+            || Number(leftEntry.balance ?? 0) !== Number(rightEntry.balance ?? 0)
+            || Number(leftEntry.frozenBalance ?? 0) !== Number(rightEntry.frozenBalance ?? 0)
+            || Number(leftEntry.version ?? 0) !== Number(rightEntry.version ?? 0)) {
+            return false;
+        }
+    }
+    return true;
 }
 function buildSpecialStatsPatch(previous: PlayerSpecialStats, current: PlayerSpecialStats): Partial<PlayerSpecialStats> | undefined {
     const patch: Partial<PlayerSpecialStats> = {};

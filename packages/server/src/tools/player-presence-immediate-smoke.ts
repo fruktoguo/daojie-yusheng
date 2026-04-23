@@ -173,6 +173,7 @@ async function verifyGatewayHeartbeatAndDisconnectWrites(): Promise<{
         return undefined;
       },
     } as never,
+    {} as never,
   );
 
   const client = {

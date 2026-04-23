@@ -186,6 +186,11 @@ interface RuntimeInstanceLike {
 
   defaultEntry?: boolean;
   /**
+ * persistentPolicy：实例持久化策略。
+ */
+
+  persistentPolicy?: 'persistent' | 'long_lived' | 'session' | 'ephemeral';
+  /**
  * supportsPvp：是否支持 PVP。
  */
 
@@ -195,6 +200,11 @@ interface RuntimeInstanceLike {
  */
 
   canDamageTile?: boolean;
+  /**
+ * destroyAt：计划销毁时间。
+ */
+
+  destroyAt?: string | null;
   /**
  * playerCount：在线人数。
  */
@@ -733,8 +743,10 @@ export class NativeGmMapRuntimeQueryService {
       lineIndex: runtimeInstance.lineIndex ?? 1,
       instanceOrigin: runtimeInstance.instanceOrigin ?? 'bootstrap',
       defaultEntry: runtimeInstance.defaultEntry === true,
+      persistentPolicy: runtimeInstance.persistentPolicy,
       supportsPvp: runtimeInstance.supportsPvp === true,
       canDamageTile: runtimeInstance.canDamageTile === true,
+      destroyAt: typeof runtimeInstance.destroyAt === 'string' ? runtimeInstance.destroyAt : null,
       playerCount: Number.isFinite(runtimeInstance.playerCount) ? Number(runtimeInstance.playerCount) : runtimeInstance.players.length,
       worldRevision: Number.isFinite(runtimeInstance.worldRevision) ? Number(runtimeInstance.worldRevision) : 0,
       width: template.width,

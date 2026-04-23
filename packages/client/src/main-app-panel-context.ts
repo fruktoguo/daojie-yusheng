@@ -109,7 +109,10 @@ export function createMainPanelContext(options: CreateMainPanelContextOptions) {
     callbacks,
   } = options;
 
-  const mailStateSource = createMainMailStateSource({ socket: socialEconomySender });
+  const mailStateSource = createMainMailStateSource({
+    socket: socialEconomySender,
+    recoverSession: () => loginUI.restoreSession(),
+  });
   const suggestionStateSource = createMainSuggestionStateSource({
     socket: socialEconomySender,
     isSocketConnected: () => socket.connected,

@@ -253,37 +253,58 @@ let PlayerIdentityPersistenceService = PlayerIdentityPersistenceService_1 = clas
         if (!this.pool || !this.enabled || !normalized) {
             return null;
         }
-        await this.pool.query(`
-        INSERT INTO ${PLAYER_IDENTITY_TABLE}(
-          user_id,
-          username,
-          player_id,
-          display_name,
-          player_name,
-          persisted_source,
-          updated_at,
-          payload
-        )
-        VALUES ($1, $2, $3, $4, $5, $6, now(), $7::jsonb)
-        ON CONFLICT (user_id)
-        DO UPDATE SET
-          username = EXCLUDED.username,
-          player_id = EXCLUDED.player_id,
-          display_name = EXCLUDED.display_name,
-          player_name = EXCLUDED.player_name,
-          persisted_source = EXCLUDED.persisted_source,
-          updated_at = now(),
-          payload = EXCLUDED.payload
-      `, [
-            normalized.userId,
-            normalized.username,
-            normalized.playerId,
-            normalized.displayName,
-            normalized.playerName,
-            normalizePlayerIdentityPersistedSource(normalized.persistedSource)
-                ?? PLAYER_IDENTITY_PERSISTED_SOURCE_NATIVE,
-            JSON.stringify(normalized),
-        ]);
+        const client = await this.pool.connect();
+        try {
+            await client.query('BEGIN');
+            await client.query(`
+          DELETE FROM ${PLAYER_IDENTITY_TABLE}
+          WHERE user_id <> $1
+            AND (username = $2 OR player_id = $3)
+        `, [
+                normalized.userId,
+                normalized.username,
+                normalized.playerId,
+            ]);
+            await client.query(`
+          INSERT INTO ${PLAYER_IDENTITY_TABLE}(
+            user_id,
+            username,
+            player_id,
+            display_name,
+            player_name,
+            persisted_source,
+            updated_at,
+            payload
+          )
+          VALUES ($1, $2, $3, $4, $5, $6, now(), $7::jsonb)
+          ON CONFLICT (user_id)
+          DO UPDATE SET
+            username = EXCLUDED.username,
+            player_id = EXCLUDED.player_id,
+            display_name = EXCLUDED.display_name,
+            player_name = EXCLUDED.player_name,
+            persisted_source = EXCLUDED.persisted_source,
+            updated_at = now(),
+            payload = EXCLUDED.payload
+        `, [
+                normalized.userId,
+                normalized.username,
+                normalized.playerId,
+                normalized.displayName,
+                normalized.playerName,
+                normalizePlayerIdentityPersistedSource(normalized.persistedSource)
+                    ?? PLAYER_IDENTITY_PERSISTED_SOURCE_NATIVE,
+                JSON.stringify(normalized),
+            ]);
+            await client.query('COMMIT');
+        }
+        catch (error) {
+            await client.query('ROLLBACK').catch(() => undefined);
+            throw error;
+        }
+        finally {
+            client.release();
+        }
         return normalized;
     }    
     /**

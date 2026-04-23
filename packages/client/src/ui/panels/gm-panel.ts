@@ -112,6 +112,17 @@ function createEmptyGmState(): S2C_GmState {
         profileElapsedSec: 0,
         breakdown: [],
       },
+      memoryEstimate: {
+        mode: 'snapshot_estimate',
+        generatedAt: 0,
+        cacheTtlMs: 0,
+        rssBytes: 0,
+        coveredBytes: 0,
+        uncoveredBytes: 0,
+        coveragePercent: 0,
+        domains: [],
+        topInstances: [],
+      },
       pathfinding: {
         statsStartedAt: 0,
         statsElapsedSec: 0,

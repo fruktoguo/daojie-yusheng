@@ -17,6 +17,13 @@ import { ensurePersistentDocumentsTable } from '../../persistence/persistent-doc
 import { NativeDatabaseRestoreCoordinatorService } from './native-database-restore-coordinator.service';
 import { NATIVE_GM_RESTORE_CONTRACT } from './native-gm-contract';
 import { WorldRuntimeService } from '../../runtime/world/world-runtime.service';
+import {
+    buildPostgresDumpFileName,
+    computeDatabaseBackupFileSha256,
+    createPostgresCustomDump,
+    detectDatabaseBackupFormat,
+    restorePostgresCustomDump,
+} from './native-postgres-backup';
 const DEFAULT_AFDIAN_API_BASE_URL = 'https://afdian.net';
 
 const DEFAULT_AFDIAN_WEBHOOK_PATH = '/integrations/afdian/webhook';
@@ -52,11 +59,12 @@ const DATABASE_BACKUP_METADATA_SCOPES = [DATABASE_BACKUP_METADATA_SCOPE];
 
 const DATABASE_JOB_STATE_SCOPES = [DATABASE_JOB_STATE_SCOPE];
 
-const BACKUP_FILE_PREFIX = 'server-persistent-documents';
+const BACKUP_FILE_PREFIX = 'server-database-backup';
+const LEGACY_BACKUP_FILE_PREFIX = 'server-persistent-documents';
 
 const LEGACY_BACKUP_FILE_KIND = 'server_persistent_documents_backup_v1';
 
-const BACKUP_FILE_KIND = 'server_persistence_backup_v2';
+const LEGACY_MAINLINE_BACKUP_FILE_KIND = 'server_persistence_backup_v2';
 
 const LEGACY_BACKUP_SCOPE_LABEL = 'persistent_documents_only';
 
@@ -283,7 +291,7 @@ export class NativeGmAdminService {
             runtimeSummary: typeof this.worldRuntimeService?.getRuntimeSummary === 'function'
                 ? this.worldRuntimeService.getRuntimeSummary()
                 : null,
-            note: '当前会导出并恢复 server 的主线持久化真源：persistent_documents 兼容域，以及 server_player_* / player_* / durable_* 这批原生表；旧后端 users/players 仍不在恢复范围内，且 backup/restore 依旧为手工触发',
+            note: '当前手工导出会生成 PostgreSQL custom dump，覆盖整个主线数据库真源；恢复时优先按原生数据库备份走 pg_restore，历史 JSON 持久化快照仍保持兼容导入。旧后端 users/players 仍不在当前主线 restore 合同内。',
         };
     }
     /**
@@ -369,13 +377,23 @@ export class NativeGmAdminService {
         if (!record) {
             throw new BadRequestException('目标备份不存在');
         }
+        if (!record.filePath) {
+            throw new BadRequestException('目标备份文件不存在，请检查备份卷或目录配置');
+        }
         if (!this.pool || !this.persistenceEnabled) {
             throw new BadRequestException('当前未启用数据库持久化，暂不支持导入兼容备份');
         }
-
-        const payload = await this.readBackupPayload(record.filePath);
-
-        const validatedPayload = assertCompatibleBackupPayload(payload);
+        const backupFormat = await resolveBackupRecordFormat(record);
+        if (backupFormat === 'postgres_custom_dump') {
+            const recordedChecksum = typeof record.checksumSha256 === 'string' ? record.checksumSha256.trim() : '';
+            if (!recordedChecksum) {
+                throw new BadRequestException('目标备份缺少 checksumSha256，无法校验 PostgreSQL 数据库归档完整性');
+            }
+            const actualChecksum = await computeDatabaseBackupFileSha256(record.filePath);
+            if (actualChecksum !== recordedChecksum) {
+                throw new BadRequestException('目标备份 checksumSha256 校验失败，PostgreSQL 数据库归档可能已损坏或被篡改');
+            }
+        }
 
         const client = await this.pool.connect();
 
@@ -405,26 +423,36 @@ export class NativeGmAdminService {
                 process.env.SERVER_RUNTIME_RESTORE_ACTIVE = '1';
                 this.updateDatabaseJobPhase(job, RESTORE_JOB_PHASE.PREPARING_RUNTIME);
                 await this.databaseRestoreCoordinator.prepareForRestore();
-
-                const restoreClient = await this.pool.connect();
-                try {
-                    this.updateDatabaseJobPhase(job, RESTORE_JOB_PHASE.APPLYING_DOCUMENTS);
-                    await restoreClient.query('BEGIN');
-                    await this.clearStructuredBackupTables(restoreClient);
-                    await restoreClient.query('DELETE FROM persistent_documents WHERE NOT (scope = ANY($1::varchar[]))', [Array.from(BACKUP_EXCLUDED_SCOPES)]);
-                    await this.insertBackupDocumentsInBatches(restoreClient, validatedPayload.docs);
-                    await this.insertBackupTablesInBatches(restoreClient, validatedPayload.tables);
-                    await restoreClient.query('COMMIT');
-                    job.appliedAt = new Date().toISOString();
-                    this.updateDatabaseJobPhase(job, RESTORE_JOB_PHASE.COMMITTED);
+                this.updateDatabaseJobPhase(job, RESTORE_JOB_PHASE.APPLYING_DOCUMENTS);
+                if (backupFormat === 'postgres_custom_dump') {
+                    const databaseUrl = resolveServerDatabaseUrl();
+                    if (!databaseUrl.trim()) {
+                        throw new BadRequestException('当前未提供 SERVER_DATABASE_URL/DATABASE_URL，无法执行 PostgreSQL 数据库恢复');
+                    }
+                    await restorePostgresCustomDump(record.filePath, databaseUrl);
                 }
-                catch (error) {
-                    await restoreClient.query('ROLLBACK').catch(() => undefined);
-                    throw error;
+                else {
+                    const payload = await this.readBackupPayload(record.filePath);
+                    const validatedPayload = assertCompatibleBackupPayload(payload);
+                    const restoreClient = await this.pool.connect();
+                    try {
+                        await restoreClient.query('BEGIN');
+                        await this.clearStructuredBackupTables(restoreClient);
+                        await restoreClient.query('DELETE FROM persistent_documents WHERE NOT (scope = ANY($1::varchar[]))', [Array.from(BACKUP_EXCLUDED_SCOPES)]);
+                        await this.insertBackupDocumentsInBatches(restoreClient, validatedPayload.docs);
+                        await this.insertBackupTablesInBatches(restoreClient, validatedPayload.tables);
+                        await restoreClient.query('COMMIT');
+                    }
+                    catch (error) {
+                        await restoreClient.query('ROLLBACK').catch(() => undefined);
+                        throw error;
+                    }
+                    finally {
+                        restoreClient.release();
+                    }
                 }
-                finally {
-                    restoreClient.release();
-                }
+                job.appliedAt = new Date().toISOString();
+                this.updateDatabaseJobPhase(job, RESTORE_JOB_PHASE.COMMITTED);
             }
             finally {
                 delete process.env.SERVER_RUNTIME_RESTORE_ACTIVE;
@@ -761,57 +789,34 @@ export class NativeGmAdminService {
 
     async createDatabaseBackupSnapshot(input) {
         input.job && this.updateDatabaseJobPhase(input.job, BACKUP_JOB_PHASE.VALIDATING);
-
-        const docs = await this.readAllPersistentDocuments();
-        const tables = await this.readStructuredBackupTables();
+        const databaseUrl = resolveServerDatabaseUrl();
+        if (!databaseUrl.trim()) {
+            throw new BadRequestException('当前未提供 SERVER_DATABASE_URL/DATABASE_URL，无法生成 PostgreSQL 数据库备份');
+        }
         input.job && this.updateDatabaseJobPhase(input.job, BACKUP_JOB_PHASE.WRITING_FILE);
 
-        const checksumSha256 = computeBackupChecksum(docs);
-        const tablesChecksumSha256 = computeStructuredTablesChecksum(tables);
-
-        const payload = {
-            kind: BACKUP_FILE_KIND,
-            version: 2,
-            scope: BACKUP_SCOPE_LABEL,
-            backupId: input.backupId,
-            createdAt: input.createdAt,
-            documentsCount: docs.length,
-            checksumSha256,
-            docs,
-            tablesCount: tables.length,
-            tablesChecksumSha256,
-            tables,
-        };
-
-        const fileName = `${BACKUP_FILE_PREFIX}-${input.backupId}.json`;
-
+        const fileName = buildPostgresDumpFileName(input.backupId);
         const filePath = join(this.backupDirectory, fileName);
-
-        const serialized = JSON.stringify(payload, null, 2);
-        await fsPromises.mkdir(this.backupDirectory, { recursive: true });
-        await fsPromises.writeFile(filePath, serialized, 'utf8');
+        const artifact = await createPostgresCustomDump(filePath, databaseUrl);
         input.job && this.updateDatabaseJobPhase(input.job, BACKUP_JOB_PHASE.PERSISTING_METADATA);
         await this.persistBackupMetadata({
             id: input.backupId,
             kind: input.kind,
             fileName,
             createdAt: input.createdAt,
-            sizeBytes: Buffer.byteLength(serialized, 'utf8'),
+            sizeBytes: artifact.sizeBytes,
             scope: BACKUP_SCOPE_LABEL,
-            documentsCount: docs.length,
-            checksumSha256,
-            tablesCount: tables.length,
-            tablesChecksumSha256,
+            checksumSha256: artifact.checksumSha256,
+            format: 'postgres_custom_dump',
         });
         input.job && this.updateDatabaseJobPhase(input.job, BACKUP_JOB_PHASE.COMPLETED);
         return {
             backupId: input.backupId,
             fileName,
             filePath,
-            documentsCount: docs.length,
-            checksumSha256,
-            tablesCount: tables.length,
-            tablesChecksumSha256,
+            sizeBytes: artifact.sizeBytes,
+            checksumSha256: artifact.checksumSha256,
+            format: 'postgres_custom_dump',
         };
     }    
     /**
@@ -885,14 +890,29 @@ export class NativeGmAdminService {
     async backfillBackupMetadataFromFilesystem() {
 
         const records = await this.listFilesystemBackups();
-        await Promise.all(records.map((record) => this.persistBackupMetadata({
-            id: record.id,
-            kind: record.kind,
-            fileName: record.fileName,
-            createdAt: record.createdAt,
-            sizeBytes: record.sizeBytes,
-            scope: BACKUP_SCOPE_LABEL,
-        })));
+        const persistedRecords = await this.loadPersistedBackupMetadataRecords();
+        const persistedById = new Map(persistedRecords.map((record) => [record.id, record]));
+        await Promise.all(records.map(async (record) => {
+            const existing = persistedById.get(record.id);
+            const format = existing?.format ?? record.format;
+            const checksumSha256 = existing?.checksumSha256
+                ?? (format === 'postgres_custom_dump' && record.filePath
+                    ? await computeDatabaseBackupFileSha256(record.filePath).catch(() => undefined)
+                    : undefined);
+            await this.persistBackupMetadata({
+                id: record.id,
+                kind: existing?.kind ?? record.kind,
+                fileName: record.fileName,
+                createdAt: existing?.createdAt ?? record.createdAt,
+                sizeBytes: record.sizeBytes,
+                scope: existing?.scope ?? BACKUP_SCOPE_LABEL,
+                documentsCount: existing?.documentsCount,
+                checksumSha256,
+                tablesCount: existing?.tablesCount,
+                tablesChecksumSha256: existing?.tablesChecksumSha256,
+                format,
+            });
+        }));
     }    
     /**
  * loadAfdianPersistentConfig：读取AfdianPersistent配置并返回结果。
@@ -1322,7 +1342,12 @@ export class NativeGmAdminService {
 
         const records = [];
         for (const entry of entries) {
-            if (!entry.isFile() || !entry.name.startsWith(`${BACKUP_FILE_PREFIX}-`) || !entry.name.endsWith('.json')) {
+            if (!entry.isFile()) {
+                continue;
+            }
+            const isPostgresDump = entry.name.startsWith(`${BACKUP_FILE_PREFIX}-`) && entry.name.endsWith('.dump');
+            const isLegacyJsonBackup = entry.name.startsWith(`${LEGACY_BACKUP_FILE_PREFIX}-`) && entry.name.endsWith('.json');
+            if (!isPostgresDump && !isLegacyJsonBackup) {
                 continue;
             }
 
@@ -1333,7 +1358,9 @@ export class NativeGmAdminService {
                 continue;
             }
 
-            const backupId = entry.name.slice(`${BACKUP_FILE_PREFIX}-`.length, -'.json'.length);
+            const backupId = isPostgresDump
+                ? entry.name.slice(`${BACKUP_FILE_PREFIX}-`.length, -'.dump'.length)
+                : entry.name.slice(`${LEGACY_BACKUP_FILE_PREFIX}-`.length, -'.json'.length);
             records.push({
                 id: backupId,
                 kind: 'manual',
@@ -1341,6 +1368,7 @@ export class NativeGmAdminService {
                 createdAt: stats.mtime.toISOString(),
                 sizeBytes: stats.size,
                 filePath,
+                format: isPostgresDump ? 'postgres_custom_dump' : 'mainline_json_snapshot',
             });
         }
         return records;
@@ -1375,6 +1403,7 @@ export class NativeGmAdminService {
                 checksumSha256: record.checksumSha256,
                 tablesCount: record.tablesCount,
                 tablesChecksumSha256: record.tablesChecksumSha256,
+                format: existing?.format ?? record.format,
                 filePath: existing?.filePath ?? await resolveExistingBackupFilePath(filePath),
             });
         }
@@ -1662,6 +1691,48 @@ async function resolveExistingBackupFilePath(filePath) {
     return stats?.isFile() ? filePath : null;
 }
 /**
+ * resolveBackupRecordFormat：读取BackupRecord格式并返回结果。
+ * @param record 参数说明。
+ * @returns 无返回值，完成BackupRecord格式的读取/组装。
+ */
+
+async function resolveBackupRecordFormat(record) {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
+    const explicitFormat = record?.format === 'postgres_custom_dump' || record?.format === 'mainline_json_snapshot'
+        ? record.format
+        : inferBackupFormatFromFileName(typeof record?.fileName === 'string' ? record.fileName : '');
+    if (explicitFormat !== 'unknown') {
+        return explicitFormat;
+    }
+    const filePath = typeof record?.filePath === 'string' ? record.filePath.trim() : '';
+    if (!filePath) {
+        return 'unknown';
+    }
+    return detectDatabaseBackupFormat(filePath, typeof record?.fileName === 'string' ? record.fileName : '');
+}
+/**
+ * inferBackupFormatFromFileName：按文件名推断备份格式。
+ * @param fileName 参数说明。
+ * @returns 无返回值，完成备份格式推断。
+ */
+
+function inferBackupFormatFromFileName(fileName) {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
+    const normalized = typeof fileName === 'string' ? fileName.trim().toLowerCase() : '';
+    if (!normalized) {
+        return 'unknown';
+    }
+    if (normalized.endsWith('.dump')) {
+        return 'postgres_custom_dump';
+    }
+    if (normalized.endsWith('.json')) {
+        return 'mainline_json_snapshot';
+    }
+    return 'unknown';
+}
+/**
  * normalizeStoredDatabaseJobState：规范化或转换StoredDatabaseJob状态。
  * @param value 参数说明。
  * @returns 无返回值，直接更新StoredDatabaseJob状态相关状态。
@@ -1788,6 +1859,9 @@ function normalizeStoredBackupMetadata(value) {
     const tablesChecksumSha256 = typeof record?.tablesChecksumSha256 === 'string' && record.tablesChecksumSha256.trim()
         ? record.tablesChecksumSha256.trim()
         : undefined;
+    const format = record?.format === 'postgres_custom_dump' || record?.format === 'mainline_json_snapshot'
+        ? record.format
+        : inferBackupFormatFromFileName(fileName);
     if (!id || !fileName || !createdAt || !Number.isFinite(sizeBytes) || sizeBytes < 0 || !kind) {
         return null;
     }
@@ -1802,6 +1876,7 @@ function normalizeStoredBackupMetadata(value) {
         checksumSha256,
         tablesCount: Number.isFinite(tablesCount) && tablesCount >= 0 ? Math.trunc(tablesCount) : undefined,
         tablesChecksumSha256,
+        format,
     };
 }
 /**
@@ -1819,7 +1894,7 @@ function assertCompatibleBackupPayload(value) {
         throw new BadRequestException('兼容备份内容无效');
     }
     const rawKind = typeof record.kind === 'string' ? record.kind.trim() : '';
-    if (rawKind && rawKind !== BACKUP_FILE_KIND && rawKind !== LEGACY_BACKUP_FILE_KIND) {
+    if (rawKind && rawKind !== LEGACY_MAINLINE_BACKUP_FILE_KIND && rawKind !== LEGACY_BACKUP_FILE_KIND) {
         throw new BadRequestException('备份类型不受支持，当前仅支持 server 主线持久化备份');
     }
     const rawScope = typeof record.scope === 'string' ? record.scope.trim() : '';
@@ -1879,7 +1954,7 @@ function assertCompatibleBackupPayload(value) {
         }
     }
     return {
-        kind: version >= 2 ? BACKUP_FILE_KIND : LEGACY_BACKUP_FILE_KIND,
+        kind: version >= 2 ? LEGACY_MAINLINE_BACKUP_FILE_KIND : LEGACY_BACKUP_FILE_KIND,
         version: version >= 2 ? 2 : 1,
         scope: version >= 2 ? BACKUP_SCOPE_LABEL : LEGACY_BACKUP_SCOPE_LABEL,
         backupId,
@@ -1890,6 +1965,7 @@ function assertCompatibleBackupPayload(value) {
         tablesCount: tables.length,
         tablesChecksumSha256: computeStructuredTablesChecksum(tables),
         tables,
+        format: 'mainline_json_snapshot',
     };
 }
 

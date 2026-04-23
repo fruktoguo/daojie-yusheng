@@ -10,6 +10,7 @@ import { Pool } from 'pg';
 
 import { Direction } from '@mud/shared';
 
+const smoke_player_cleanup_1 = require('./smoke-player-cleanup');
 import { AppModule } from '../app.module';
 import { resolveServerDatabaseUrl } from '../config/env-alias';
 import { MapPersistenceFlushService } from '../persistence/map-persistence-flush.service';
@@ -93,6 +94,7 @@ async function main(): Promise<void> {
     assert(mapPersistenceService.isEnabled(), 'map persistence should be enabled for benchmark');
     assert(durableOperation.isEnabled(), 'durable operation service should be enabled for benchmark');
     await cleanupBenchmarkRows(pool, playerIds, instanceIds, walletOperationIds);
+    await purgePersistenceBenchmarkArtifacts();
 
     const playerFlushDurations: number[] = [];
     const mapFlushDurations: number[] = [];
@@ -226,9 +228,19 @@ async function main(): Promise<void> {
     );
   } finally {
     await cleanupBenchmarkRows(pool, playerIds, instanceIds, walletOperationIds).catch(() => undefined);
+    await purgePersistenceBenchmarkArtifacts().catch(() => undefined);
     await app.close().catch(() => undefined);
     await pool.end().catch(() => undefined);
   }
+}
+
+async function purgePersistenceBenchmarkArtifacts(): Promise<void> {
+  await (0, smoke_player_cleanup_1.purgeSmokeTestArtifacts)({
+    dryRun: false,
+    accountPatterns: ['bench_%'],
+    playerPatterns: ['bench_player_%', 'bench_player'],
+    instancePatterns: ['public:bench_%', 'instance:%:lease'],
+  });
 }
 
 function buildMapSnapshot(instanceId: string): Record<string, unknown> {

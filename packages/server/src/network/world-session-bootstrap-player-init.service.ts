@@ -24,6 +24,7 @@ interface PlayerRuntimePort {
             forceRebind?: boolean;
             buildStarterSnapshot?: (playerId: string) => PersistedPlayerSnapshot | null;
             onSnapshotLoaded?: (snapshot: PersistedPlayerSnapshot | null) => void;
+            sessionEpochFloor?: number | null;
         },
     ): Promise<BootstrapRuntimePlayer>;
     setIdentity(playerId: string, input: {
@@ -91,6 +92,12 @@ export class WorldSessionBootstrapPlayerInitService {
             throw new Error('bootstrap_player_runtime_service_unavailable');
         }
         const recoveryPriority = classifyRecoveryPriority(input.playerId);
+        const persistedPresence = typeof this.playerDomainPersistenceService?.loadPlayerPresence === 'function'
+            ? await this.playerDomainPersistenceService.loadPlayerPresence(input.playerId)
+            : null;
+        const sessionEpochFloor = Number.isFinite(persistedPresence?.sessionEpoch)
+            ? Math.max(0, Math.trunc(Number(persistedPresence.sessionEpoch)))
+            : 0;
         const starterSnapshotBuilder = this.playerRuntimeService?.buildStarterPersistenceSnapshot
             ? (playerId: string) => this.playerRuntimeService!.buildStarterPersistenceSnapshot!(playerId)
             : null;
@@ -112,6 +119,7 @@ export class WorldSessionBootstrapPlayerInitService {
                         onSnapshotLoaded: (snapshot) => {
                             loadedSnapshot = snapshot;
                         },
+                        sessionEpochFloor: sessionEpochFloor > 0 ? sessionEpochFloor : undefined,
                     }),
             );
         } catch (error: unknown) {
@@ -131,6 +139,7 @@ export class WorldSessionBootstrapPlayerInitService {
                         onSnapshotLoaded: (snapshot) => {
                             loadedSnapshot = snapshot;
                         },
+                        sessionEpochFloor: sessionEpochFloor > 0 ? sessionEpochFloor : undefined,
                     },
                 );
             }
@@ -150,6 +159,7 @@ export class WorldSessionBootstrapPlayerInitService {
                         onSnapshotLoaded: (snapshot) => {
                             loadedSnapshot = snapshot;
                         },
+                        sessionEpochFloor: sessionEpochFloor > 0 ? sessionEpochFloor : undefined,
                     },
                 );
                 if (typeof this.playerDomainPersistenceService?.isEnabled === 'function'

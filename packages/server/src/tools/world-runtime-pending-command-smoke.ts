@@ -132,10 +132,207 @@ async function testAsyncPlayerCommandIsAwaitedBeforeQueueClear() {
     assert.equal(service.getPendingCommandCount(), 0);
 }
 
+async function testAutoCombatStaleTargetRetriesImmediately() {
+    const service = new WorldRuntimePendingCommandService();
+    const log = [];
+    const player = {
+        playerId: 'player:1',
+        instanceId: 'public:yunlai_town',
+        hp: 100,
+        combat: {
+            autoBattle: true,
+        },
+    };
+    service.enqueuePendingCommand('player:1', {
+        kind: 'basicAttack',
+        targetPlayerId: null,
+        targetMonsterId: 'monster:stale',
+        targetX: null,
+        targetY: null,
+        autoCombat: true,
+    });
+    await service.dispatchPendingCommands({
+        dispatchInstanceCommand(playerId, command) {
+            log.push(['dispatchInstanceCommand', playerId, command.kind, command.direction ?? null]);
+        },
+        dispatchPlayerCommand(playerId, command) {
+            log.push(['dispatchPlayerCommand', playerId, command.kind, command.targetMonsterId ?? null]);
+            if (command.targetMonsterId === 'monster:stale') {
+                throw new Error('Monster monster:stale not found');
+            }
+        },
+        buildAutoCombatCommand(instance, runtimePlayer) {
+            log.push(['buildAutoCombatCommand', instance.meta.instanceId, runtimePlayer.playerId]);
+            return {
+                kind: 'move',
+                direction: 'east',
+                continuous: false,
+                maxSteps: 1,
+                autoCombat: true,
+            };
+        },
+        getInstanceRuntime(instanceId) {
+            assert.equal(instanceId, 'public:yunlai_town');
+            return {
+                meta: {
+                    instanceId,
+                },
+            };
+        },
+        playerRuntimeService: {
+            getPlayer(playerId) {
+                return playerId === player.playerId ? player : null;
+            },
+        },
+        logger: {
+            warn(message) {
+                log.push(['warn', message]);
+            },
+        },
+        queuePlayerNotice(playerId, message, tone) {
+            log.push(['queuePlayerNotice', playerId, message, tone]);
+        },
+    });
+    assert.deepEqual(log, [
+        ['dispatchPlayerCommand', 'player:1', 'basicAttack', 'monster:stale'],
+        ['buildAutoCombatCommand', 'public:yunlai_town', 'player:1'],
+        ['dispatchInstanceCommand', 'player:1', 'move', 'east'],
+    ]);
+    assert.equal(service.getPendingCommandCount(), 0);
+}
+
+async function testAutoCombatFailedSkillFallsBackToAlternativeCommand() {
+    const service = new WorldRuntimePendingCommandService();
+    const log = [];
+    const player = {
+        playerId: 'player:1',
+        instanceId: 'public:yunlai_town',
+        hp: 100,
+        combat: {
+            autoBattle: true,
+        },
+    };
+    service.enqueuePendingCommand('player:1', {
+        kind: 'castSkill',
+        skillId: 'skill:expensive',
+        targetPlayerId: null,
+        targetMonsterId: 'monster:1',
+        targetRef: null,
+        autoCombat: true,
+    });
+    await service.dispatchPendingCommands({
+        dispatchInstanceCommand() {
+            throw new Error('unexpected dispatchInstanceCommand');
+        },
+        dispatchPlayerCommand(playerId, command) {
+            log.push([
+                'dispatchPlayerCommand',
+                playerId,
+                command.kind,
+                command.kind === 'castSkill' ? command.skillId : (command.targetMonsterId ?? null),
+            ]);
+            if (command.kind === 'castSkill' && command.skillId === 'skill:expensive') {
+                throw new Error('Skill skill:expensive qi insufficient');
+            }
+        },
+        buildAutoCombatCommand(instance, runtimePlayer, options) {
+            const excludedSkillIds = [...(options?.excludedSkillIds ?? [])].sort();
+            log.push(['buildAutoCombatCommand', instance.meta.instanceId, runtimePlayer.playerId, excludedSkillIds.join(',')]);
+            assert.deepEqual(excludedSkillIds, ['skill:expensive']);
+            return {
+                kind: 'basicAttack',
+                targetPlayerId: null,
+                targetMonsterId: 'monster:1',
+                targetX: null,
+                targetY: null,
+                autoCombat: true,
+            };
+        },
+        getInstanceRuntime(instanceId) {
+            assert.equal(instanceId, 'public:yunlai_town');
+            return {
+                meta: {
+                    instanceId,
+                },
+            };
+        },
+        playerRuntimeService: {
+            getPlayer(playerId) {
+                return playerId === player.playerId ? player : null;
+            },
+        },
+        logger: {
+            warn(message) {
+                log.push(['warn', message]);
+            },
+        },
+        queuePlayerNotice(playerId, message, tone) {
+            log.push(['queuePlayerNotice', playerId, message, tone]);
+        },
+    });
+    assert.deepEqual(log, [
+        ['dispatchPlayerCommand', 'player:1', 'castSkill', 'skill:expensive'],
+        ['buildAutoCombatCommand', 'public:yunlai_town', 'player:1', 'skill:expensive'],
+        ['dispatchPlayerCommand', 'player:1', 'basicAttack', 'monster:1'],
+    ]);
+    assert.equal(service.getPendingCommandCount(), 0);
+}
+
+async function testManualEngageAttackClearsServerOnlyEngageState() {
+    const service = new WorldRuntimePendingCommandService();
+    const log = [];
+    service.enqueuePendingCommand('player:1', {
+        kind: 'basicAttack',
+        targetPlayerId: null,
+        targetMonsterId: 'monster:1',
+        targetX: null,
+        targetY: null,
+        manualEngage: true,
+    });
+    await service.dispatchPendingCommands({
+        dispatchInstanceCommand() {
+            throw new Error('unexpected dispatchInstanceCommand');
+        },
+        dispatchPlayerCommand(playerId, command) {
+            log.push(['dispatchPlayerCommand', playerId, command.kind, command.targetMonsterId ?? null]);
+        },
+        resolveCurrentTickForPlayerId(playerId) {
+            log.push(['resolveCurrentTickForPlayerId', playerId]);
+            return 17;
+        },
+        playerRuntimeService: {
+            clearManualEngagePending(playerId) {
+                log.push(['clearManualEngagePending', playerId]);
+            },
+            clearCombatTarget(playerId, currentTick) {
+                log.push(['clearCombatTarget', playerId, currentTick]);
+            },
+        },
+        logger: {
+            warn(message) {
+                log.push(['warn', message]);
+            },
+        },
+        queuePlayerNotice(playerId, message, tone) {
+            log.push(['queuePlayerNotice', playerId, message, tone]);
+        },
+    });
+    assert.deepEqual(log, [
+        ['dispatchPlayerCommand', 'player:1', 'basicAttack', 'monster:1'],
+        ['resolveCurrentTickForPlayerId', 'player:1'],
+        ['clearManualEngagePending', 'player:1'],
+        ['clearCombatTarget', 'player:1', 17],
+    ]);
+    assert.equal(service.getPendingCommandCount(), 0);
+}
+
 testQueueOwnershipMethods();
 Promise.resolve()
     .then(() => testDispatchRoutesAndClearsQueue())
     .then(() => testAsyncPlayerCommandIsAwaitedBeforeQueueClear())
+    .then(() => testAutoCombatStaleTargetRetriesImmediately())
+    .then(() => testAutoCombatFailedSkillFallsBackToAlternativeCommand())
+    .then(() => testManualEngageAttackClearsServerOnlyEngageState())
     .then(() => {
     console.log(JSON.stringify({ ok: true, case: 'world-runtime-pending-command' }, null, 2));
 });

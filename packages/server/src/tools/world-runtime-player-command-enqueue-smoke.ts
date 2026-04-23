@@ -51,6 +51,13 @@ function createDeps(log = []) {
             log.push(['getPlayerViewOrThrow', playerId]);
             return { playerId, tick: 9 };
         },
+        resolveCurrentTickForPlayerId(playerId) {
+            log.push(['resolveCurrentTickForPlayerId', playerId]);
+            return 9;
+        },
+        queuePlayerNotice(playerId, text, kind) {
+            log.push(['queuePlayerNotice', playerId, text, kind]);
+        },
     };
 }
 /**
@@ -71,11 +78,18 @@ function createService(actions = []) {
         getPlayerOrThrow(playerId) {
             return {
                 playerId,
+                combat: {
+                    autoBattle: false,
+                    combatTargetId: null,
+                    combatTargetLocked: false,
+                },
                 actions: {
                     actions,
                 },
             };
         },
+        updateCombatSettings() {},
+        clearCombatTarget() {},
     });
 }
 /**
@@ -233,11 +247,65 @@ function testTechniqueActivityGenericQueueHelpers() {
     ]);
 }
 
+function testLockedBattleWithoutTargetStopsCombatCleanly() {
+    const log = [];
+    const players = new Map([
+        ['player:1', {
+            playerId: 'player:1',
+            combat: {
+                autoBattle: true,
+                combatTargetId: 'monster:dead',
+                combatTargetLocked: true,
+            },
+            actions: {
+                actions: [],
+            },
+        }],
+    ]);
+    const service = new WorldRuntimePlayerCommandEnqueueService({
+        getPlayerOrThrow(playerId) {
+            const player = players.get(playerId);
+            if (!player) {
+                throw new Error(`missing player ${playerId}`);
+            }
+            return player;
+        },
+        updateCombatSettings(playerId, input, currentTick) {
+            log.push(['updateCombatSettings', playerId, input, currentTick]);
+            const player = players.get(playerId);
+            if (player && input.autoBattle === false) {
+                player.combat.autoBattle = false;
+            }
+        },
+        clearCombatTarget(playerId, currentTick) {
+            log.push(['clearCombatTarget', playerId, currentTick]);
+            const player = players.get(playerId);
+            if (player) {
+                player.combat.combatTargetId = null;
+                player.combat.combatTargetLocked = false;
+            }
+        },
+    });
+    const deps = createDeps(log);
+    const result = service.enqueueBattleTarget('player:1', true, null, null, undefined, undefined, deps);
+    assert.deepEqual(result, { playerId: 'player:1', tick: 9 });
+    assert.deepEqual(log, [
+        ['getPlayerLocationOrThrow', 'player:1'],
+        ['interruptManualCombat', 'player:1'],
+        ['resolveCurrentTickForPlayerId', 'player:1'],
+        ['updateCombatSettings', 'player:1', { autoBattle: false }, 9],
+        ['clearCombatTarget', 'player:1', 9],
+        ['queuePlayerNotice', 'player:1', '强制攻击目标已经失效，已停止锁定。', 'combat'],
+        ['getPlayerViewOrThrow', 'player:1'],
+    ]);
+}
+
 testBasicAttackQueue();
 testStartAlchemyClonesIngredients();
 testCastSkillRequiresKnownAction();
 testHeavenGateActionNormalizesElement();
 testStartEnhancementClonesNestedPayload();
 testTechniqueActivityGenericQueueHelpers();
+testLockedBattleWithoutTargetStopsCombatCleanly();
 
 console.log(JSON.stringify({ ok: true, case: 'world-runtime-player-command-enqueue' }, null, 2));

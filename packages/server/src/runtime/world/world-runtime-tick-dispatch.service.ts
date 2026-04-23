@@ -86,8 +86,8 @@ let WorldRuntimeTickDispatchService = class WorldRuntimeTickDispatchService {
  * @returns 无返回值，直接更新Auto战斗Command相关状态。
  */
 
-    buildAutoCombatCommand(instance, player, deps) {
-        return deps.worldRuntimeAutoCombatService.buildAutoCombatCommand(instance, player, deps);
+    buildAutoCombatCommand(instance, player, deps, options = undefined) {
+        return deps.worldRuntimeAutoCombatService.buildAutoCombatCommand(instance, player, deps, options);
     }    
     /**
  * selectAutoCombatTarget：读取selectAuto战斗目标并返回结果。

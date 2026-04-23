@@ -304,6 +304,16 @@ export function getCachedMapSnapshot(mapId: string): MapMinimapSnapshot | null {
   return snapshot ? cloneSnapshot(snapshot) : null;
 }
 
+/** 仅在该地图仍被权威标记为已解锁时，读取完整地图快照。 */
+export function getCachedUnlockedMapSnapshot(mapId: string): MapMinimapSnapshot | null {
+  ensureLoaded();
+  const entry = cachedEntries.get(mapId);
+  if (entry?.unlocked !== true || !entry.snapshot) {
+    return null;
+  }
+  return cloneSnapshot(entry.snapshot);
+}
+
 /** 缓存小地图快照，并可同步元信息和解锁状态。 */
 export function cacheMapSnapshot(
   mapId: string,
@@ -343,6 +353,27 @@ export function cacheUnlockedMinimapLibrary(entries: MapMinimapArchiveEntry[]): 
     cached.unlocked = true;
   }
   persist();
+}
+
+/** 用服务端真源回写已解锁地图集合，清除旧缓存残留的假解锁标记。 */
+export function syncCachedUnlockedMapIds(mapIds: string[]): void {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
+  ensureLoaded();
+  const unlockedMapIds = new Set(
+    mapIds.filter((mapId): mapId is string => typeof mapId === 'string' && mapId.length > 0),
+  );
+  let changed = false;
+  for (const [mapId, entry] of cachedEntries.entries()) {
+    const nextUnlocked = unlockedMapIds.has(mapId);
+    if ((entry.unlocked === true) !== nextUnlocked) {
+      entry.unlocked = nextUnlocked;
+      changed = true;
+    }
+  }
+  if (changed) {
+    persist();
+  }
 }
 
 /** 列出可直接展示摘要和小地图的已解锁地图。 */
@@ -431,5 +462,4 @@ export function listCachedUnlockedMapSummaries(): Array<{
   });
   return result;
 }
-
 

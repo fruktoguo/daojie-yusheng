@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict';
 
 import {
+  countEnabledSkillEntries,
   createNumericRatioDivisors,
   createNumericStats,
   DEFAULT_BONE_AGE_YEARS,
@@ -38,6 +39,12 @@ function createPlayerRuntimeService() {
         return itemId === 'manual.tech_book' ? 'manual.tech' : null;
       },
       createTechniqueState(techId: string) {
+        const skills = techId === 'manual.tech'
+          ? [
+              { id: 'manual.tech.skill.1', unlockLevel: 1 },
+              { id: 'manual.tech.skill.2', unlockLevel: 1 },
+            ]
+          : [];
         return {
           techId,
           level: 1,
@@ -45,7 +52,7 @@ function createPlayerRuntimeService() {
           expToNext: 10,
           realmLv: 1,
           skillsEnabled: true,
-          skills: [],
+          skills,
         };
       },
       normalizeItem(item: unknown) {
@@ -434,7 +441,67 @@ function testUseTechniqueBookDirtyDomain(): void {
 
   service.useItem(playerId, 0);
 
-  assertDirtyDomains(service, playerId, ['inventory', 'technique', 'combat_pref'], ['snapshot']);
+  assertDirtyDomains(service, playerId, ['inventory', 'technique', 'auto_battle_skill'], ['snapshot']);
+}
+
+function testUseTechniqueBookRespectsSkillLimit(): void {
+  const playerId = 'player:use-technique-book-skill-limit';
+  const service = createHydratedService(playerId);
+  const player = service.getPlayerOrThrow(playerId);
+  player.techniques.techniques.push(
+    {
+      techId: 'starter.tech.1',
+      level: 1,
+      exp: 0,
+      expToNext: 10,
+      realmLv: 1,
+      skillsEnabled: true,
+      skills: [
+        { id: 'starter.skill.1', unlockLevel: 1 },
+        { id: 'starter.skill.2', unlockLevel: 1 },
+      ],
+    } as never,
+    {
+      techId: 'starter.tech.2',
+      level: 1,
+      exp: 0,
+      expToNext: 10,
+      realmLv: 1,
+      skillsEnabled: true,
+      skills: [
+        { id: 'starter.skill.3', unlockLevel: 1 },
+        { id: 'starter.skill.4', unlockLevel: 1 },
+      ],
+    } as never,
+  );
+  player.techniques.revision += 1;
+  player.combat.autoBattleSkills = [
+    { skillId: 'starter.skill.1', enabled: true, skillEnabled: true, autoBattleOrder: 0 },
+    { skillId: 'starter.skill.2', enabled: true, skillEnabled: true, autoBattleOrder: 1 },
+    { skillId: 'starter.skill.3', enabled: true, skillEnabled: true, autoBattleOrder: 2 },
+    { skillId: 'starter.skill.4', enabled: true, skillEnabled: true, autoBattleOrder: 3 },
+  ];
+  player.inventory.items.push({
+    itemId: 'manual.tech_book',
+    count: 1,
+  });
+  player.inventory.revision += 1;
+  service.markPersisted(playerId);
+
+  service.useItem(playerId, 0);
+
+  assert.equal(countEnabledSkillEntries(player.combat.autoBattleSkills), 4);
+  assert.deepEqual(
+    player.combat.autoBattleSkills.map((entry) => [entry.skillId, entry.skillEnabled !== false]),
+    [
+      ['starter.skill.1', true],
+      ['starter.skill.2', true],
+      ['starter.skill.3', true],
+      ['starter.skill.4', true],
+      ['manual.tech.skill.1', false],
+      ['manual.tech.skill.2', false],
+    ],
+  );
 }
 
 function testUseConsumableItemDirtyDomain(): void {
@@ -620,6 +687,7 @@ testLogbookDirtyDomain();
   testSplitInventoryItemDirtyDomain();
   testSetVitalsDirtyDomain();
   testUseTechniqueBookDirtyDomain();
+  testUseTechniqueBookRespectsSkillLimit();
   testUseConsumableItemDirtyDomain();
   testEquipItemDirtyDomain();
   testBodyTrainingRecalculateDirtyDomain();

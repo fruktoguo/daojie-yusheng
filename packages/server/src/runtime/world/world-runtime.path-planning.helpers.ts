@@ -44,7 +44,29 @@ function selectNearestPortal(portals, targetMapId, fromX, fromY) {
 }
 /** 按目标点构建可达目标列表，必要时返回最近可替代坐标。 */
 function buildGoalPoints(instance, targetX, targetY, allowNearestReachable) {
-    return buildGoalPointsFromTemplate(instance.template, targetX, targetY, allowNearestReachable);
+    const template = instance.template;
+    const goals = [];
+    if (isInBounds(targetX, targetY, template.width, template.height) && instance.isWalkable(targetX, targetY)) {
+        goals.push({ x: targetX, y: targetY });
+    }
+    if (goals.length > 0 || !allowNearestReachable) {
+        return goals;
+    }
+    for (let radius = 1; radius <= 8; radius += 1) {
+        for (let y = targetY - radius; y <= targetY + radius; y += 1) {
+            for (let x = targetX - radius; x <= targetX + radius; x += 1) {
+                if (!isInBounds(x, y, template.width, template.height) || !instance.isWalkable(x, y)) {
+                    continue;
+                }
+                goals.push({ x, y });
+            }
+        }
+        if (goals.length > 0) {
+            goals.sort((left, right) => (Math.abs(left.x - targetX) + Math.abs(left.y - targetY)) - (Math.abs(right.x - targetX) + Math.abs(right.y - targetY)));
+            return dedupeGoalPoints(goals);
+        }
+    }
+    return [];
 }
 /** 按地图模板从目标坐标推导可达目标点集合。 */
 function buildGoalPointsFromTemplate(template, targetX, targetY, allowNearestReachable) {
@@ -299,7 +321,7 @@ function resolvePreferredClientPathHint(instance, playerId, currentX, currentY, 
         }
 
         const tileIndex = (0, map_template_repository_1.getTileIndex)(point.x, point.y, template.width);
-        if (template.walkableMask[tileIndex] !== 1 || blocked[tileIndex] === 1) {
+        if (!instance.isWalkable(point.x, point.y) || blocked[tileIndex] === 1) {
             return null;
         }
 
@@ -386,7 +408,7 @@ function findOptimalPathOnMap(instance, playerId, startX, startY, goals, allowOc
             }
 
             const nextIndex = (0, map_template_repository_1.getTileIndex)(nextX, nextY, template.width);
-            if (template.walkableMask[nextIndex] !== 1 || blocked[nextIndex] === 1) {
+            if (!instance.isWalkable(nextX, nextY) || blocked[nextIndex] === 1) {
                 continue;
             }
 

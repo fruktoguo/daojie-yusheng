@@ -131,6 +131,13 @@ interface WorldPlayerSnapshotPort {
  failureStage?: string | null }>;
 }
 
+interface AuthRequestContext {
+/**
+ * deviceId：客户端设备标识。
+ */
+  deviceId?: string;
+}
+
 /** 主线玩家鉴权编排服务：负责注册、登录、刷新和身份同步。 */
 @Injectable()
 export class NativePlayerAuthService {
@@ -180,9 +187,10 @@ export class NativePlayerAuthService {
   }
 
   /** 注册新账号，并完成建档、持久化与令牌签发。 */
-  async register(accountName: string, password: string, displayName: string, roleName: string): Promise<AuthTokens> {
+  async register(accountName: string, password: string, displayName: string, roleName: string, context: AuthRequestContext = {}): Promise<AuthTokens> {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
+    void context;
     const normalizedUsername = normalizeUsername(accountName);
     const normalizedDisplayName = normalizeDisplayName(displayName);
     const normalizedRoleName = normalizeRoleName(roleName) || buildDefaultRoleName(normalizedUsername);
@@ -244,18 +252,44 @@ export class NativePlayerAuthService {
     return this.issueTokens(user);
   }
 
-  /** 登录现有账号，只接受账号名入口。 */
-  async login(loginName: string, password: string): Promise<AuthTokens> {
+  /** 登录现有账号，兼容账号名、角色名和旧 username 入口。 */
+  async login(loginName: string, password: string, context: AuthRequestContext = {}): Promise<AuthTokens> {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
+    void context;
     const normalizedLoginName = normalizeUsername(loginName).trim();
-    const user = await this.authStore.findUserByUsername(normalizedLoginName);
-    if (!user) {
+    const directUser = await this.authStore.findUserByUsername(normalizedLoginName);
+    const roleMatchedUsers = await this.authStore.findUsersByRoleName(normalizedLoginName);
+    const candidates = new Map<string, NativePlayerAuthUser>();
+    if (directUser) {
+      candidates.set(directUser.id, directUser);
+    }
+    for (const user of roleMatchedUsers) {
+      candidates.set(user.id, user);
+    }
+
+    if (candidates.size === 0) {
       throw new UnauthorizedException('用户不存在');
     }
 
-    if (!await verifyPassword(password, user.passwordHash)) {
+    const matchedUsers: NativePlayerAuthUser[] = [];
+    for (const user of candidates.values()) {
+      if (await verifyPassword(password, user.passwordHash)) {
+        matchedUsers.push(user);
+      }
+    }
+
+    if (matchedUsers.length === 0) {
       throw new UnauthorizedException('密码错误');
+    }
+
+    const user = directUser && matchedUsers.some((entry) => entry.id === directUser.id)
+      ? directUser
+      : matchedUsers.length === 1
+        ? matchedUsers[0]
+        : null;
+    if (!user) {
+      throw new BadRequestException('该角色名对应多个账号，请改用账号登录');
     }
 
     await this.persistIdentity(user);
@@ -264,9 +298,10 @@ export class NativePlayerAuthService {
   }
 
   /** 刷新登录态，但只接受普通玩家令牌。 */
-  async refresh(refreshToken: string): Promise<AuthTokens> {
+  async refresh(refreshToken: string, context: AuthRequestContext = {}): Promise<AuthTokens> {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
+    void context;
     const payload = this.worldPlayerTokenCodecService.validateRefreshToken(typeof refreshToken === 'string' ? refreshToken.trim() : '');
     if (!payload || payload.role === 'gm' || typeof payload.sub !== 'string' || typeof payload.username !== 'string') {
       throw new UnauthorizedException('刷新令牌无效或已过期');

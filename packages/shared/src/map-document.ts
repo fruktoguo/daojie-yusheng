@@ -14,6 +14,8 @@ import {
   GmMapNpcShopItemRecord,
   GmMapPortalRecord,
   GmMapQuestRecord,
+  GmMapResourceNodeGroupRecord,
+  GmMapResourceNodePlacementRecord,
   GmMapResourceRecord,
   GmMapSafeZoneRecord,
   GmMapSummary,
@@ -107,6 +109,45 @@ function normalizeEditableNpcShopItemRecord(raw: unknown): GmMapNpcShopItemRecor
     stockLimit: normalizeOptionalInteger(item.stockLimit),
     refreshSeconds: normalizeOptionalInteger(item.refreshSeconds),
     priceFormula,
+  };
+}
+
+/** 清洗资源节点布点坐标，确保只保留整数网格点。 */
+function normalizeEditableResourceNodePlacementRecord(raw: unknown): GmMapResourceNodePlacementRecord | undefined {
+  if (!raw || typeof raw !== 'object') {
+    return undefined;
+  }
+  const placement = raw as Partial<GmMapResourceNodePlacementRecord>;
+  if (!Number.isFinite(placement.x) || !Number.isFinite(placement.y)) {
+    return undefined;
+  }
+  return {
+    x: Math.trunc(Number(placement.x)),
+    y: Math.trunc(Number(placement.y)),
+  };
+}
+
+/** 清洗资源节点分组，保留主线地图运行时需要的最小字段。 */
+function normalizeEditableResourceNodeGroupRecord(raw: unknown): GmMapResourceNodeGroupRecord | undefined {
+  if (!raw || typeof raw !== 'object') {
+    return undefined;
+  }
+  const group = raw as Partial<GmMapResourceNodeGroupRecord>;
+  const resourceNodeId = normalizeOptionalTrimmedString(group.resourceNodeId);
+  const idPrefix = normalizeOptionalTrimmedString(group.idPrefix);
+  const name = normalizeOptionalTrimmedString(group.name);
+  if (!resourceNodeId || !idPrefix || !name) {
+    return undefined;
+  }
+  return {
+    resourceNodeId,
+    idPrefix,
+    name,
+    placements: Array.isArray(group.placements)
+      ? group.placements
+        .map((placement) => normalizeEditableResourceNodePlacementRecord(placement))
+        .filter((placement): placement is GmMapResourceNodePlacementRecord => Boolean(placement))
+      : [],
   };
 }
 
@@ -461,6 +502,19 @@ export function normalizeEditableMapDocument(raw: unknown): GmMapDocument {
  */
  safeZones: unknown[] }).safeZones
     : [];
+  const resourceNodeGroups = Array.isArray((source as {
+    /**
+ * resourceNodeGroups：resourceNodeGroup相关字段。
+ */
+    resourceNodeGroups?: unknown[];
+  }).resourceNodeGroups)
+    ? (source as {
+      /**
+ * resourceNodeGroups：resourceNodeGroup相关字段。
+ */
+      resourceNodeGroups: unknown[];
+    }).resourceNodeGroups
+    : [];
   const landmarks = Array.isArray((source as {  
   /**
  * landmarks：landmark相关字段。
@@ -571,6 +625,9 @@ export function normalizeEditableMapDocument(raw: unknown): GmMapDocument {
       y: Number((zone as GmMapSafeZoneRecord).y ?? 0),
       radius: Number((zone as GmMapSafeZoneRecord).radius ?? 0),
     })),
+    resourceNodeGroups: resourceNodeGroups
+      .map((group) => normalizeEditableResourceNodeGroupRecord(group))
+      .filter((group): group is GmMapResourceNodeGroupRecord => Boolean(group)),
     landmarks: landmarks.map((landmark) => ({
       id: String((landmark as GmMapLandmarkRecord).id ?? ''),
       name: String((landmark as GmMapLandmarkRecord).name ?? ''),
@@ -824,6 +881,29 @@ export function validateEditableMapDocument(document: GmMapDocument): string | n
     if (error) return error;
     if (!Number.isInteger(zone.radius) || zone.radius < 0) {
       return `${label} 的半径必须为非负整数`;
+    }
+  }
+
+  for (let index = 0; index < (document.resourceNodeGroups?.length ?? 0); index += 1) {
+    const group = document.resourceNodeGroups![index]!;
+    const label = `资源节点分组 ${group.idPrefix || index + 1}`;
+    if (!group.resourceNodeId.trim()) return `${label} 的资源节点 ID 不能为空`;
+    if (!group.idPrefix.trim()) return `${label} 的 ID 前缀不能为空`;
+    if (!group.name.trim()) return `${label} 的名称不能为空`;
+    if (!Array.isArray(group.placements) || group.placements.length <= 0) {
+      return `${label} 至少需要一个布点`;
+    }
+    const placementKeys = new Set<string>();
+    for (let placementIndex = 0; placementIndex < group.placements.length; placementIndex += 1) {
+      const placement = group.placements[placementIndex]!;
+      const placementLabel = `${label} 的布点 ${placementIndex + 1}`;
+      const error = ensureWalkablePoint(placement.x, placement.y, placementLabel);
+      if (error) return error;
+      const placementKey = `${placement.x},${placement.y}`;
+      if (placementKeys.has(placementKey)) {
+        return `${placementLabel} 与同组其他布点坐标重复`;
+      }
+      placementKeys.add(placementKey);
     }
   }
 

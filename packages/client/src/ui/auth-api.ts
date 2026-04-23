@@ -25,6 +25,8 @@ export {
   REFRESH_TOKEN_STORAGE_KEY as REFRESH_TOKEN_KEY,
 };
 
+export const DEVICE_ID_STORAGE_KEY = 'mud:device-id:v1';
+
 /** HTTP 请求失败时抛出，携带状态码 */
 export class RequestError extends Error {
 /**
@@ -65,6 +67,7 @@ type RequestOptions = {
 
 let memoryAccessToken: string | null = null;
 let memoryRefreshToken: string | null = null;
+let memoryDeviceId: string | null = null;
 
 /** 读取当前可用的 sessionStorage；受限环境下回退到内存态。 */
 function getSessionStorage(): Storage | null {
@@ -78,6 +81,34 @@ function getSessionStorage(): Storage | null {
   } catch {
     return null;
   }
+}
+
+/** 读取可长期保存设备标识的 localStorage；受限环境下回退到内存态。 */
+function getLocalStorage(): Storage | null {
+  if (typeof window === 'undefined') {
+    return null;
+  }
+  try {
+    return window.localStorage;
+  } catch {
+    return null;
+  }
+}
+
+/** 获取客户端设备标识，用于鉴权请求归因；token 仍只放 sessionStorage。 */
+export function getClientDeviceId(): string {
+  const storage = getLocalStorage();
+  const existing = storage?.getItem(DEVICE_ID_STORAGE_KEY)?.trim() || memoryDeviceId;
+  if (existing) {
+    memoryDeviceId = existing;
+    return existing;
+  }
+  const next = typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function'
+    ? crypto.randomUUID()
+    : `dev_${Date.now()}_${Math.random().toString(36).slice(2, 10)}`;
+  memoryDeviceId = next;
+  storage?.setItem(DEVICE_ID_STORAGE_KEY, next);
+  return next;
 }
 
 /** 从 sessionStorage 读取 accessToken */
@@ -137,6 +168,7 @@ export async function requestJson<TResponse>(url: string, options: RequestOption
   if (options.accessToken) {
     headers.Authorization = `Bearer ${options.accessToken}`;
   }
+  headers['X-Device-Id'] = getClientDeviceId();
 
   const res = await fetch(url, {
     method: options.method ?? 'GET',
@@ -159,7 +191,7 @@ export async function requestJson<TResponse>(url: string, options: RequestOption
 export function restoreTokens(refreshToken: string): Promise<AuthTokenRes> {
   return requestJson<AuthTokenRes>(`${AUTH_API_BASE_PATH}/refresh`, {
     method: 'POST',
-    body: { refreshToken } satisfies AuthRefreshReq,
+    body: { refreshToken, deviceId: getClientDeviceId() } satisfies AuthRefreshReq,
   });
 }
 

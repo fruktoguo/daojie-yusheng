@@ -1,0 +1,47 @@
+{
+  "rounds_used": 6,
+  "status": "done",
+  "task": "完成 docs/开发/计划/参考main功能与UI差异收口计划.md 中列出的全部任务：按 /home/yuohira/mud-mmo 参考 main 对齐必须同步项，保留已拍板 next 主链，更新计划文档 checklist/验证记录，并给出高效继续提示词。注意,未完成时绝对不能提及done_token",
+  "done_token": "MAIN_UI_PARITY_DONE",
+  "required_sections": [
+    "完成了什么",
+    "验证结果",
+    "剩余风险"
+  ],
+  "required_paths_modified": [
+    "docs/开发/计划/参考main功能与UI差异收口计划.md"
+  ],
+  "required_paths_exist": [],
+  "missing_sections": [],
+  "missing_paths_modified": [],
+  "missing_paths_exist": [],
+  "has_done_token": true,
+  "done_token_contains": true,
+  "done_token_last_index": 662,
+  "done_token_min_start": 408,
+  "command_results": [
+    {
+      "label": "build",
+      "command": "pnpm build",
+      "cwd": "/home/yuohira/mud-mmo-next",
+      "expect_exit_code": 0,
+      "exit_code": 0,
+      "passed": true,
+      "stdout": "ated.json 无变更\nmonster-locations.generated.json 无变更\n\n> @mud/client@0.0.1 build /home/yuohira/mud-mmo-next/packages/client\n> tsc --noEmit && vite build && pnpm run proof:mainline-boundaries\n\nvite v5.4.21 building for production...\ntransforming...\n✓ 497 modules transformed.\nrendering chunks...\ncomputing gzip size...\ndist/version.json                                  0.07 kB │ gzip:   0.08 kB\ndist/react-ui-prototype.html                       1.22 kB │ gzip:   0.58 kB\ndist/index.html                                   30.43 kB │ gzip:   6.47 kB\ndist/gm.html                                      64.65 kB │ gzip:  12.31 kB\ndist/assets/logo-BDKqQ5Up.png                    108.91 kB\ndist/assets/react-ui-prototype-BCqDO1Kc.css       19.48 kB │ gzip:   3.76 kB\ndist/assets/index-CMCKkMDD.css                    31.97 kB │ gzip:   6.68 kB\ndist/assets/main-DuhqaTR3.css                    239.05 kB │ gzip:  36.62 kB\ndist/assets/modulepreload-polyfill-B5Qt9EMX.js     0.71 kB │ gzip:   0.40 kB\ndist/assets/index-ChblHySY.js                      3.47 kB │ gzip:   1.26 kB\ndist/assets/world-monster-locations-CRuD4yLp.js   13.40 kB │ gzip:   3.57 kB\ndist/assets/version-reload-D3YSJu-d.js            41.80 kB │ gzip:  14.08 kB\ndist/assets/react-ui-prototype-KZDPswJR.js        44.03 kB │ gzip:  12.94 kB\ndist/assets/shared-M44rh_EZ.js                    65.93 kB │ gzip:  26.06 kB\ndist/assets/world-item-sources-Cn4qt0sc.js        74.39 kB │ gzip:   9.87 kB\ndist/assets/world-editor-catalog-icTg2JJM.js     144.68 kB │ gzip:  36.95 kB\ndist/assets/gm-CNphthgJ.js                       166.86 kB │ gzip:  47.23 kB\ndist/assets/vendor-DRqUmYKQ.js                   414.24 kB │ gzip: 108.98 kB\ndist/assets/main-panels-DNBpjMeY.js              435.11 kB │ gzip: 119.93 kB\ndist/assets/main-CQ6KKH11.js                     468.58 kB │ gzip: 137.03 kB\n✓ built in 3.39s\n\n> @mud/client@0.0.1 proof:mainline-boundaries /home/yuohira/mud-mmo-next/packages/client\n> node ./scripts/check-client-mainline-boundaries.js\n\nclient mainline boundary check passed\nmain.ts=28\nsocket.ts=251\ngm toolchain retained as isolated tooling\n\n> daojie-yusheng@ build:server /home/yuohira/mud-mmo-next\n> pnpm --filter @mud/server compile\n\n\n> @mud/server@0.0.1 compile /home/yuohira/mud-mmo-next/packages/server\n> node -e \"require('node:fs').rmSync('dist',{recursive:true,force:true,maxRetries:10,retryDelay:100})\" && pnpm --filter @mud/shared build && node ../../node_modules/.pnpm/node_modules/typescript/bin/tsc -p tsconfig.json\n\n\n> @mud/shared@0.0.1 build /home/yuohira/mud-mmo-next/packages/shared\n> node ../../scripts/sync-tutorial-mechanics.mjs && tsc && node scripts/check-numeric-stats.cjs && node scripts/check-protocol-event-maps.cjs && node scripts/check-protocol-payload-shapes.cjs && node scripts/check-network-protobuf-contract.cjs && node scripts/check-shared-entry-boundaries.cjs\n\n已同步教程机制文档到 1 个 shared 产物。\nnumeric stats consistency check passed\nprotocol event payload map check passed\nprotocol payload shape check passed\nnetwork protobuf contract check passed\nshared entry boundary check passed\n\n> daojie-yusheng@ proof:cutover-readiness /home/yuohira/mud-mmo-next\n> node scripts/check-cutover-readiness.js\n\ncutover readiness contract check passed\nchecked=root scripts + README/docs + server ops/testing + workflows\ndefault mainline=packages/*\nlegacy role=archive/reference only\n\n> daojie-yusheng@ proof:cutover-preflight /home/yuohira/mud-mmo-next\n> node scripts/check-cutover-preflight.js\n\ncutover preflight contract check passed\n03/04 retired; 05/06/07/08 completed-by-doc\n09 default gates passed; only shadow-destructive remains optional/maintenance-gated\n10 repository-side cutover checks fixed; remaining blockers are manual cutover operations\n\n> daojie-yusheng@ proof:cutover-operations /home/yuohira/mud-mmo-next\n> node scripts/check-cutover-operations.js\n\ncutover operations contract check passed\nmanual cutover checklist + execution log template are wired\n10 still blocked only by real pre/post cutover execution\n",
+      "stderr": "\u001b[33mThe CJS build of Vite's Node API is deprecated. See https://vite.dev/guide/troubleshooting.html#vite-cjs-node-api-deprecated for more details.\u001b[39m\n../../node_modules/.pnpm/@protobufjs+inquire@1.1.0/node_modules/@protobufjs/inquire/index.js (12:18): Use of eval in \"../../node_modules/.pnpm/@protobufjs+inquire@1.1.0/node_modules/@protobufjs/inquire/index.js\" is strongly discouraged as it poses security risks and may cause issues with minification.\n"
+    },
+    {
+      "label": "replace-ready doctor",
+      "command": "pnpm verify:replace-ready:doctor",
+      "cwd": "/home/yuohira/mud-mmo-next",
+      "expect_exit_code": 0,
+      "exit_code": 0,
+      "passed": true,
+      "stdout": "\n> daojie-yusheng@ verify:replace-ready:doctor /home/yuohira/mud-mmo-next\n> node scripts/replace-ready-doctor.js\n\nreplace-ready doctor\n\n说明: doctor 只回答环境是否齐备，不回答门禁已经通过，更不代表完整替换完成。\n\n- local replace-ready: ready\n- with-db replace-ready: ready\n- proof with-db: ready (minimal auth/token/bootstrap proof chain)\n- shadow target probe: missing SERVER_SHADOW_URL/SERVER_URL\n- shadow replace-ready: missing SERVER_SHADOW_URL/SERVER_URL\n- shadow destructive gm-database proof: missing SERVER_SHADOW_URL/SERVER_URL + SERVER_SHADOW_ALLOW_DESTRUCTIVE=1 + maintenance-active shadow target\n- acceptance replace-ready: missing SERVER_SHADOW_URL/SERVER_URL\n- full replace-ready: missing SERVER_SHADOW_URL/SERVER_URL\n\nrecommended commands:\n- local: pnpm verify:replace-ready\n- with-db: pnpm verify:replace-ready:with-db\n- proof with-db: pnpm verify:replace-ready:proof:with-db  # minimal auth/token/bootstrap proof chain\n- shadow: fix SERVER_SHADOW_URL/SERVER_URL so /health is reachable and /api/auth/gm/login is not 404, then run pnpm verify:replace-ready:shadow\n- shadow destructive preflight: after the shadow target is correct, export SERVER_SHADOW_ALLOW_DESTRUCTIVE=1 during a maintenance window, then run pnpm verify:replace-ready:shadow:destructive:preflight\n- shadow destructive: only after preflight says maintenance-active, run pnpm verify:replace-ready:shadow:destructive\n- acceptance: fix the shadow target first, then run pnpm verify:replace-ready:acceptance\n- full: export DATABASE_URL/SERVER_DATABASE_URL, SERVER_SHADOW_URL/SERVER_URL and SERVER_GM_PASSWORD/GM_PASSWORD first, then run pnpm verify:replace-ready:full\n\npackage-level current commands:\n- pnpm verify:replace-ready\n- pnpm verify:replace-ready:doctor\n- pnpm verify:replace-ready:with-db\n- pnpm verify:replace-ready:proof:with-db\n- pnpm verify:replace-ready:shadow\n- pnpm verify:replace-ready:shadow:destructive:preflight\n- pnpm verify:replace-ready:shadow:destructive\n- pnpm verify:replace-ready:acceptance\n- pnpm verify:replace-ready:full\n\nboundary summary:\n- local/with-db: 自动 proof\n- acceptance: local + shadow + gm\n- full: with-db + gm-database + backup-persistence + shadow + gm\n- shadow-destructive: 维护窗口 destructive proof；不等于日常替换完成\n",
+      "stderr": ""
+    }
+  ],
+  "command_failures": [],
+  "completed": true,
+  "archived_spec_path": ".codex-loop/history/20260423T195031Z-019dbbb1-d175-7cd2-9cbb-59bc85969390.json"
+}

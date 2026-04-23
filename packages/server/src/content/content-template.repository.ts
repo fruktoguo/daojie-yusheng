@@ -153,7 +153,7 @@ let ContentTemplateRepository = ContentTemplateRepository_1 = class ContentTempl
             tileResourceGains: Array.isArray(template.tileResourceGains) ? template.tileResourceGains.map((entry) => ({ ...entry })) : undefined,
             allowBatchUse: template.allowBatchUse,
         })).sort((left, right) => left.itemId.localeCompare(right.itemId, 'zh-Hans-CN'));
-    }    
+    }
     /**
  * rollLootPoolItems：执行roll掉落Pool道具相关逻辑。
  * @param query 参数说明。
@@ -209,7 +209,7 @@ let ContentTemplateRepository = ContentTemplateRepository_1 = class ContentTempl
             }
         }
         return result;
-    }    
+    }
     /**
  * normalizeItem：规范化或转换道具。
  * @param item 道具。
@@ -232,7 +232,7 @@ let ContentTemplateRepository = ContentTemplateRepository_1 = class ContentTempl
             ...item,
             count: Math.max(1, Math.trunc(item.count)),
         };
-    }    
+    }
     /**
  * getLearnTechniqueId：读取Learn功法ID。
  * @param itemId 道具 ID。
@@ -241,7 +241,7 @@ let ContentTemplateRepository = ContentTemplateRepository_1 = class ContentTempl
 
     getLearnTechniqueId(itemId) {
         return this.itemTemplates.get(itemId)?.learnTechniqueId ?? null;
-    }    
+    }
     /**
  * getItemSortLevel：读取道具Sort等级。
  * @param item 道具。
@@ -267,7 +267,7 @@ let ContentTemplateRepository = ContentTemplateRepository_1 = class ContentTempl
             return 1;
         }
         return resolveItemTemplateLevel(template);
-    }    
+    }
     /**
  * createTechniqueState：构建并返回目标对象。
  * @param techniqueId technique ID。
@@ -300,7 +300,7 @@ let ContentTemplateRepository = ContentTemplateRepository_1 = class ContentTempl
             })),
             attrCurves: template.attrCurves ? { ...template.attrCurves } : undefined,
         };
-    }    
+    }
     /**
  * getTechniqueName：读取功法名称。
  * @param techniqueId technique ID。
@@ -309,7 +309,20 @@ let ContentTemplateRepository = ContentTemplateRepository_1 = class ContentTempl
 
     getTechniqueName(techniqueId) {
         return this.techniqueTemplates.get(techniqueId)?.name ?? null;
-    }    
+    }
+    /**
+ * getTechniqueCategoryForBookItem：按功法书物品 ID 读取功法分类。
+ * @param itemId 道具 ID。
+ * @returns 无返回值，完成功法分类的读取/组装。
+ */
+
+    getTechniqueCategoryForBookItem(itemId) {
+        const techniqueId = this.itemTemplates.get(itemId)?.learnTechniqueId;
+        if (!techniqueId) {
+            return null;
+        }
+        return this.techniqueTemplates.get(techniqueId)?.category ?? null;
+    }
     /**
  * hydrateTechniqueState：执行hydrate功法状态相关逻辑。
  * @param input 输入参数。
@@ -379,7 +392,7 @@ let ContentTemplateRepository = ContentTemplateRepository_1 = class ContentTempl
             layers,
             attrCurves,
         };
-    }    
+    }
     /**
  * listTechniqueTemplates：读取功法Template并返回结果。
  * @returns 无返回值，完成功法Template的读取/组装。
@@ -399,7 +412,7 @@ let ContentTemplateRepository = ContentTemplateRepository_1 = class ContentTempl
                 attrs: entry.attrs ? { ...entry.attrs } : undefined,
             })),
         })).sort((left, right) => left.id.localeCompare(right.id, 'zh-Hans-CN'));
-    }    
+    }
     /**
  * rollMonsterDrops：执行roll怪物Drop相关逻辑。
  * @param monsterId monster ID。
@@ -457,7 +470,7 @@ let ContentTemplateRepository = ContentTemplateRepository_1 = class ContentTempl
             }
         }
         return Array.from(result.values()).sort((left, right) => left.itemId.localeCompare(right.itemId, 'zh-Hans-CN'));
-    }    
+    }
     /**
  * createRuntimeMonstersForMap：构建并返回目标对象。
  * @param mapId 地图 ID。
@@ -489,6 +502,8 @@ let ContentTemplateRepository = ContentTemplateRepository_1 = class ContentTempl
                 monsterId,
                 x: state.x,
                 y: state.y,
+                spawnOriginX: Number.isFinite(Number(state.spawnOriginX)) ? Math.trunc(Number(state.spawnOriginX)) : state.x,
+                spawnOriginY: Number.isFinite(Number(state.spawnOriginY)) ? Math.trunc(Number(state.spawnOriginY)) : state.y,
                 hp: Math.max(0, Math.min(state.hp, template.maxHp)),
                 maxHp: template.maxHp,
                 respawnTicks: template.respawnTicks,
@@ -508,10 +523,11 @@ let ContentTemplateRepository = ContentTemplateRepository_1 = class ContentTempl
                 leashRange: template.leashRange,
                 attackRange: template.attackRange,
                 attackCooldownTicks: template.attackCooldownTicks,
+                wanderRadius: Number.isFinite(Number(state.wanderRadius)) ? Math.max(0, Math.trunc(Number(state.wanderRadius))) : 0,
             });
         }
         return spawns;
-    }    
+    }
     /**
  * buildFallbackMonsterRuntimeStatesForMap：构建并返回目标对象。
  * @param mapId 地图 ID。
@@ -555,6 +571,9 @@ let ContentTemplateRepository = ContentTemplateRepository_1 = class ContentTempl
             }
 
             const count = plannedCounts[spawnIndex] ?? 1;
+            const wanderRadius = Number.isFinite(spawn.wanderRadius)
+                ? Math.max(0, Math.trunc(spawn.wanderRadius))
+                : (Number.isFinite(spawn.radius) ? Math.max(0, Math.trunc(spawn.radius)) : 0);
 
             const positions = resolveFallbackSpawnPositions(document, spawn, count, occupied);
             for (const position of positions) {
@@ -562,12 +581,15 @@ let ContentTemplateRepository = ContentTemplateRepository_1 = class ContentTempl
                 nextIndexByMonsterId.set(monsterId, nextIndex + 1);
                 runtimeStates.push({
                     runtimeId: `monster:${mapId}:${monsterId}:${nextIndex}`,
+                    spawnOriginX: Math.trunc(spawn.x),
+                    spawnOriginY: Math.trunc(spawn.y),
                     x: position.x,
                     y: position.y,
                     hp: template.maxHp,
                     alive: true,
                     respawnLeft: 0,
                     facing: shared_1.Direction.South,
+                    wanderRadius,
                 });
             }
         }
@@ -576,7 +598,7 @@ let ContentTemplateRepository = ContentTemplateRepository_1 = class ContentTempl
         }
         this.monsterRuntimeStatesByMapId.set(mapId, runtimeStates);
         return runtimeStates;
-    }    
+    }
     /**
  * getMonsterCombatProfile：读取怪物战斗Profile。
  * @param monsterId monster ID。
@@ -596,7 +618,7 @@ let ContentTemplateRepository = ContentTemplateRepository_1 = class ContentTempl
             numericStats: (0, shared_1.cloneNumericStats)(template.numericStats),
             ratioDivisors: (0, shared_1.cloneNumericRatioDivisors)(template.ratioDivisors),
         };
-    }    
+    }
     /**
  * getSkill：读取技能。
  * @param skillId skill ID。
@@ -613,7 +635,7 @@ let ContentTemplateRepository = ContentTemplateRepository_1 = class ContentTempl
             }
         }
         return null;
-    }    
+    }
     /**
  * loadSharedTechniqueBuffs：读取Shared功法Buff并返回结果。
  * @returns 无返回值，完成Shared功法Buff的读取/组装。
@@ -637,7 +659,7 @@ let ContentTemplateRepository = ContentTemplateRepository_1 = class ContentTempl
                 this.sharedTechniqueBuffs.set(effect.id, effect);
             }
         }
-    }    
+    }
     /**
  * loadAll：读取All并返回结果。
  * @returns 无返回值，完成All的读取/组装。
@@ -695,7 +717,7 @@ let ContentTemplateRepository = ContentTemplateRepository_1 = class ContentTempl
             : [];
         this.loadMonsterDrops();
         this.logger.log(`已加载 ${this.itemTemplates.size} 个物品模板、${this.techniqueTemplates.size} 个功法、${this.monsterDropsByMonsterId.size} 张妖兽掉落表和 ${this.starterInventoryEntries.length} 条初始物品记录`);
-    }    
+    }
     /**
  * loadMonsterDrops：读取怪物Drop并返回结果。
  * @returns 无返回值，完成怪物Drop的读取/组装。
@@ -742,7 +764,7 @@ let ContentTemplateRepository = ContentTemplateRepository_1 = class ContentTempl
             }
         }
         this.loadMonsterRuntimeStates();
-    }    
+    }
     /**
  * buildMonsterDrops：构建并返回目标对象。
  * @param rawDrops 参数说明。
@@ -801,7 +823,7 @@ let ContentTemplateRepository = ContentTemplateRepository_1 = class ContentTempl
             drops.push(spiritStoneDrop);
         }
         return drops;
-    }    
+    }
     /**
  * resolveMonsterDropChance：规范化或转换怪物DropChance。
  * @param drop 参数说明。
@@ -822,7 +844,7 @@ let ContentTemplateRepository = ContentTemplateRepository_1 = class ContentTempl
             ...drop,
             chance: this.computeDefaultMonsterDropChance(drop, context),
         };
-    }    
+    }
     /**
  * computeDefaultMonsterDropChance：执行默认怪物DropChance相关逻辑。
  * @param drop 参数说明。
@@ -852,7 +874,7 @@ let ContentTemplateRepository = ContentTemplateRepository_1 = class ContentTempl
 
         const chance = 0.01 * categoryBase * (3 ** gradeDelta) * this.getMonsterTierDropFactor(context.tier);
         return Math.max(Number.MIN_VALUE, Math.min(1, chance));
-    }    
+    }
     /**
  * getMaterialBaseDropChance：读取MaterialBaseDropChance。
  * @param tier 参数说明。
@@ -868,7 +890,7 @@ let ContentTemplateRepository = ContentTemplateRepository_1 = class ContentTempl
             default:
                 return 0.05;
         }
-    }    
+    }
     /**
  * getMonsterDropCategoryBase：读取怪物DropCategoryBase。
  * @param drop 参数说明。
@@ -895,7 +917,7 @@ let ContentTemplateRepository = ContentTemplateRepository_1 = class ContentTempl
             default:
                 return 1;
         }
-    }    
+    }
     /**
  * getMonsterTierDropFactor：读取怪物TierDropFactor。
  * @param tier 参数说明。
@@ -911,7 +933,7 @@ let ContentTemplateRepository = ContentTemplateRepository_1 = class ContentTempl
             default:
                 return 0.1;
         }
-    }    
+    }
     /**
  * getMonsterDropItemGrade：读取怪物Drop道具Grade。
  * @param drop 参数说明。
@@ -933,7 +955,7 @@ let ContentTemplateRepository = ContentTemplateRepository_1 = class ContentTempl
             return inferTechniqueGradeFromItemLevel(item.level);
         }
         return 'mortal';
-    }    
+    }
     /**
  * buildSpiritStoneMonsterDrop：构建并返回目标对象。
  * @param context 上下文信息。
@@ -964,7 +986,7 @@ let ContentTemplateRepository = ContentTemplateRepository_1 = class ContentTempl
             count,
             chance,
         };
-    }    
+    }
     /**
  * computeSpiritStoneDropChance：执行SpiritStoneDropChance相关逻辑。
  * @param tier 参数说明。
@@ -980,7 +1002,7 @@ let ContentTemplateRepository = ContentTemplateRepository_1 = class ContentTempl
             default:
                 return 0.01;
         }
-    }    
+    }
     /**
  * computeSpiritStoneDropCount：执行SpiritStoneDrop数量相关逻辑。
  * @param context 上下文信息。
@@ -995,7 +1017,7 @@ let ContentTemplateRepository = ContentTemplateRepository_1 = class ContentTempl
             ? Math.max(1, Math.trunc(context.level))
             : 1;
         return Math.max(1, Math.floor(1 + (gradeIndex * 0.5) + (Math.floor(level / 12) * 0.5)));
-    }    
+    }
     /**
  * resolveRawEquipmentItemId：规范化或转换Raw装备道具ID。
  * @param entry 参数说明。
@@ -1012,7 +1034,7 @@ let ContentTemplateRepository = ContentTemplateRepository_1 = class ContentTempl
             return entry.itemId.trim();
         }
         return '';
-    }    
+    }
     /**
  * normalizeMonsterDropEntry：规范化或转换怪物Drop条目。
  * @param raw 参数说明。
@@ -1049,7 +1071,7 @@ let ContentTemplateRepository = ContentTemplateRepository_1 = class ContentTempl
             count: Number.isFinite(candidate.count) ? Math.max(1, Math.trunc(candidate.count ?? 1)) : 1,
             chance: Number.isFinite(candidate.chance) ? Math.max(0, Math.min(1, Number(candidate.chance))) : undefined,
         };
-    }    
+    }
     /**
  * getLootPoolCandidateIds：读取掉落PoolCandidateID。
  * @param query 参数说明。
@@ -1069,7 +1091,7 @@ let ContentTemplateRepository = ContentTemplateRepository_1 = class ContentTempl
         }
         result.sort((left, right) => left.localeCompare(right, 'zh-Hans-CN'));
         return result;
-    }    
+    }
     /**
  * normalizeMonsterRuntimeTemplate：规范化或转换怪物运行态Template。
  * @param raw 参数说明。
@@ -1134,7 +1156,7 @@ let ContentTemplateRepository = ContentTemplateRepository_1 = class ContentTempl
             attackRange: 1,
             attackCooldownTicks: 2,
         };
-    }    
+    }
     /**
  * normalizeMonsterSkills：规范化或转换怪物技能。
  * @param raw 参数说明。
@@ -1184,7 +1206,7 @@ let ContentTemplateRepository = ContentTemplateRepository_1 = class ContentTempl
             return left.id.localeCompare(right.id, 'zh-Hans-CN');
         });
         return normalized;
-    }    
+    }
     /**
  * loadMonsterRuntimeStates：读取怪物运行态状态并返回结果。
  * @returns 无返回值，完成怪物运行态状态的读取/组装。

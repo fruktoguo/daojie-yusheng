@@ -170,6 +170,7 @@ async function verifyHookWiring(): Promise<{
         clearCalls.push(playerId);
       },
     } as never,
+    {} as never,
   );
 
   await gateway.handleDisconnect({ id: 'socket:route-smoke' } as never);

@@ -302,6 +302,7 @@ class MapInstanceRuntime {
             clusterId: request.clusterId ?? null,
             shardKey: request.shardKey ?? request.instanceId,
             routeDomain: request.routeDomain ?? null,
+            destroyAt: request.destroyAt ?? null,
             lastActiveAt: request.lastActiveAt ?? null,
             lastPersistedAt: request.lastPersistedAt ?? null,
         };
@@ -367,8 +368,8 @@ class MapInstanceRuntime {
             this.monstersByRuntimeId.set(monster.runtimeId, {
                 runtimeId: monster.runtimeId,
                 monsterId: monster.monsterId,
-                spawnX: monster.x,
-                spawnY: monster.y,
+                spawnX: Number.isFinite(Number(monster.spawnOriginX)) ? Math.trunc(Number(monster.spawnOriginX)) : monster.x,
+                spawnY: Number.isFinite(Number(monster.spawnOriginY)) ? Math.trunc(Number(monster.spawnOriginY)) : monster.y,
                 x: monster.x,
                 y: monster.y,
                 hp: monster.alive ? Math.max(1, Math.min(monster.hp, monster.maxHp)) : 0,
@@ -394,6 +395,7 @@ class MapInstanceRuntime {
                 aggroTargetPlayerId: null,
                 aggroRange: monster.aggroRange,
                 leashRange: monster.leashRange,
+                wanderRadius: Number.isFinite(Number(monster.wanderRadius)) ? Math.max(0, Math.trunc(Number(monster.wanderRadius))) : 0,
                 attackRange: monster.attackRange,
                 attackCooldownTicks: monster.attackCooldownTicks,
                 attackReadyTick: 0,
@@ -684,7 +686,7 @@ class MapInstanceRuntime {
     }
     /** snapshot：构建地图实例快照。 */
     snapshot() {
-        return {
+        const snapshot: Record<string, unknown> = {
             instanceId: this.meta.instanceId,
             displayName: this.meta.displayName,
             templateId: this.meta.templateId,
@@ -695,6 +697,7 @@ class MapInstanceRuntime {
             instanceOrigin: this.meta.instanceOrigin,
             defaultEntry: this.meta.defaultEntry === true,
             persistent: this.meta.persistent === true,
+            persistentPolicy: this.meta.persistentPolicy,
             supportsPvp: this.meta.supportsPvp === true,
             canDamageTile: this.meta.canDamageTile === true,
             tick: this.tick,
@@ -716,6 +719,10 @@ class MapInstanceRuntime {
                 y: player.y,
             })),
         };
+        if (typeof this.meta.destroyAt === 'string' && this.meta.destroyAt.trim()) {
+            snapshot.destroyAt = this.meta.destroyAt;
+        }
+        return snapshot;
     }
     /** forEachPathingBlocker：遍历当前实例里的寻路阻挡地块。 */
     forEachPathingBlocker(excludePlayerId, visitor) {
@@ -807,8 +814,7 @@ class MapInstanceRuntime {
         }
 
         const tileIndex = this.toTileIndex(x, y);
-
-        const tileType = (0, shared_1.getTileTypeFromMapChar)(this.template.terrainRows[y]?.[x] ?? '#');
+        const tileType = this.getBaseTileType(x, y);
 
         const maxHp = resolveTileDurability(this.template, tileType);
         if (maxHp <= 0) {
@@ -870,6 +876,28 @@ class MapInstanceRuntime {
             appliedDamage,
             targetType: current.tileType,
         };
+    }
+    /** getBaseTileType：读取模板原始地块类型。 */
+    getBaseTileType(x, y) {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
+        if (!this.isInBounds(x, y)) {
+            return shared_1.TileType.Floor;
+        }
+        return (0, shared_1.getTileTypeFromMapChar)(this.template.terrainRows[y]?.[x] ?? '#');
+    }
+    /** getEffectiveTileType：读取地块当前生效类型，已摧毁地块按空地处理。 */
+    getEffectiveTileType(x, y) {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
+        if (!this.isInBounds(x, y)) {
+            return shared_1.TileType.Floor;
+        }
+        const current = this.tileDamageByTile.get(this.toTileIndex(x, y));
+        if (current?.destroyed === true) {
+            return shared_1.TileType.Floor;
+        }
+        return this.getBaseTileType(x, y);
     }
     /** getGroundPileBySourceId：按来源 ID 读取地面物品堆。 */
     getGroundPileBySourceId(sourceId) {
@@ -1643,7 +1671,7 @@ class MapInstanceRuntime {
             return Number.POSITIVE_INFINITY;
         }
 
-        const tileType = (0, shared_1.getTileTypeFromMapChar)(this.template.terrainRows[y]?.[x] ?? '#');
+        const tileType = this.getEffectiveTileType(x, y);
         if (!(0, shared_1.isTileTypeWalkable)(tileType)) {
             return Number.POSITIVE_INFINITY;
         }
@@ -1944,8 +1972,11 @@ class MapInstanceRuntime {
 
             const target = this.resolveMonsterTarget(monster);
             if (!target) {
-                if (monster.x !== monster.spawnX || monster.y !== monster.spawnY) {
+                if (!this.isMonsterWithinWanderRange(monster, monster.x, monster.y)) {
                     changed = this.tryMoveMonsterToward(monster, monster.spawnX, monster.spawnY) || changed;
+                }
+                else if (monster.wanderRadius > 0 && Math.random() < 0.35) {
+                    changed = this.stepMonsterIdleRoam(monster) || changed;
                 }
                 continue;
             }
@@ -2058,7 +2089,7 @@ class MapInstanceRuntime {
         if (!this.isInBounds(x, y)) {
             return false;
         }
-        return this.template.walkableMask[this.toTileIndex(x, y)] === 1;
+        return (0, shared_1.isTileTypeWalkable)(this.getEffectiveTileType(x, y));
     }
     /** isTileSightBlocked：判断地块是否阻挡视线。 */
     isTileSightBlocked(x, y) {
@@ -2067,7 +2098,7 @@ class MapInstanceRuntime {
         if (!this.isInBounds(x, y)) {
             return true;
         }
-        return this.template.blocksSightMask[this.toTileIndex(x, y)] === 1;
+        return (0, shared_1.doesTileTypeBlockSight)(this.getEffectiveTileType(x, y));
     }
     /** collectVisibleTileIndices：收集视野内可见地块索引。 */
     collectVisibleTileIndices(originX, originY, radius) {
@@ -2349,6 +2380,53 @@ class MapInstanceRuntime {
         monster.aggroTargetPlayerId = best?.playerId ?? null;
         return best;
     }
+    /** isMonsterWithinWanderRange：判断妖兽是否仍在活动范围内。 */
+    isMonsterWithinWanderRange(monster, x, y) {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
+
+        const radius = Math.max(0, Math.trunc(Number(monster.wanderRadius) || 0));
+        return (0, shared_1.isOffsetInRange)(x - monster.spawnX, y - monster.spawnY, radius);
+    }
+    /** stepMonsterIdleRoam：让无目标妖兽在活动范围内随机闲逛一步。 */
+    stepMonsterIdleRoam(monster) {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
+
+        const radius = Math.max(0, Math.trunc(Number(monster.wanderRadius) || 0));
+        if (radius <= 0) {
+            return false;
+        }
+        const directions = [
+            { dx: 1, dy: 0, facing: shared_1.Direction.East },
+            { dx: -1, dy: 0, facing: shared_1.Direction.West },
+            { dx: 0, dy: 1, facing: shared_1.Direction.South },
+            { dx: 0, dy: -1, facing: shared_1.Direction.North },
+        ];
+        const startIndex = Math.floor(Math.random() * directions.length);
+        for (let offset = 0; offset < directions.length; offset += 1) {
+            const direction = directions[(startIndex + offset) % directions.length];
+            if (!direction) {
+                continue;
+            }
+            const nextX = monster.x + direction.dx;
+            const nextY = monster.y + direction.dy;
+            if (!this.isMonsterWithinWanderRange(monster, nextX, nextY)) {
+                continue;
+            }
+            if (!this.isOpenTile(nextX, nextY)) {
+                continue;
+            }
+            this.monsterRuntimeIdByTile.delete(this.toTileIndex(monster.x, monster.y));
+            monster.x = nextX;
+            monster.y = nextY;
+            monster.facing = direction.facing;
+            this.monsterRuntimeIdByTile.set(this.toTileIndex(monster.x, monster.y), monster.runtimeId);
+            this.markPersistenceDirtyDomains(['monster_runtime']);
+            return true;
+        }
+        return false;
+    }
     /** tryMoveMonsterToward：尝试让妖兽朝目标移动。 */
     tryMoveMonsterToward(monster, targetX, targetY) {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
@@ -2386,7 +2464,10 @@ function resolveTileDurability(template, tileType) {
         return 0;
     }
 
-    const baseDurability = (0, shared_1.calculateTerrainDurability)(1, profile.multiplier);
+    const terrainRealmLv = Number.isFinite(template.source?.terrainRealmLv)
+        ? Math.max(1, Math.floor(Number(template.source.terrainRealmLv)))
+        : 1;
+    const baseDurability = (0, shared_1.calculateTerrainDurability)(terrainRealmLv, profile.multiplier);
 
     const multiplier = SPECIAL_TILE_DURABILITY_MULTIPLIERS[tileType] ?? 1;
     return Math.max(1, Math.round(baseDurability * multiplier));

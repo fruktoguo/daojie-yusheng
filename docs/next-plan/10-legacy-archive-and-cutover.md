@@ -23,6 +23,8 @@
 
 当前这一步的重点，不再是发现“README 和运维文档哪里写错了”，而是把已经修过的入口文档彻底纳入切换前/切换后检查。
 
+当前仓库进入查缺补漏阶段后，正式版行为对照默认改看 `main` 分支下同名 `packages/*`；`legacy/*` 只继续承担归档、旧数据格式和历史排查职责。
+
 真实切换当天的人工执行单和记录模板固定在：
 
 - [10-cutover-execution-checklist.md](./10-cutover-execution-checklist.md)

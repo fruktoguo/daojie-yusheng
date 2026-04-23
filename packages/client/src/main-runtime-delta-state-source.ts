@@ -299,6 +299,11 @@ type MainRuntimeDeltaStateSourceOptions = {
 
   refreshHudChrome: () => void;  
   /**
+ * syncPlayerContext：同步玩家上下文给依赖玩家钱包的面板。
+ */
+
+  syncPlayerContext: (player?: PlayerState) => void;
+  /**
  * hideObserveModal：hideObserve弹层相关字段。
  */
 
@@ -844,6 +849,17 @@ export function createMainRuntimeDeltaStateSource(options: MainRuntimeDeltaState
       }
       if (typeof data.qi === 'number') {
         player.qi = data.qi;
+      }
+      if (data.wallet !== undefined) {
+        player.wallet = data.wallet
+          ? {
+            balances: Array.isArray(data.wallet.balances)
+              ? data.wallet.balances.map((entry) => ({ ...entry }))
+              : [],
+          }
+          : undefined;
+        options.syncPlayerContext(player);
+        options.refreshUiChrome();
       }
       if (data.f !== undefined) {
         player.facing = data.f;

@@ -37,6 +37,7 @@ export function syncManagedInstanceRegistration(runtime, instanceId, instance) {
         clusterId: instance?.meta?.clusterId ?? null,
         shardKey: instance?.meta?.shardKey ?? instanceId,
         routeDomain: instance?.meta?.routeDomain ?? null,
+        destroyAt: instance?.meta?.destroyAt ?? null,
         lastActiveAt: instance?.meta?.lastActiveAt ?? null,
         lastPersistedAt: instance?.meta?.lastPersistedAt ?? null,
         preserveExistingLease: persistentPolicy === 'persistent' || persistentPolicy === 'long_lived',
@@ -90,6 +91,51 @@ export function fenceInstanceRuntime(runtime, instanceId, reason = 'lease_lost')
   runtime.logger.error(`实例 ${instanceId} lease fencing 命中但仍有在线玩家，已停止写入：${reason} players=${activePlayers.join(',')}`);
 }
 
+export async function destroyManagedInstance(runtime, instanceId, reason = 'scheduled_destroy') {
+  const instance = runtime.getInstanceRuntime(instanceId);
+  if (!instance) {
+    return { ok: false, reason: 'instance_not_found' };
+  }
+  const activePlayers = typeof instance.listPlayerIds === 'function' ? instance.listPlayerIds() : [];
+  if (Array.isArray(activePlayers) && activePlayers.length > 0) {
+    return { ok: false, reason: 'players_present', players: activePlayers };
+  }
+  instance.meta.runtimeStatus = 'stopped';
+  instance.meta.status = 'destroyed';
+  instance.meta.leaseToken = null;
+  instance.meta.leaseExpireAt = null;
+  instance.meta.destroyAt = instance.meta.destroyAt ?? new Date().toISOString();
+  runtime.worldRuntimeInstanceStateService.deleteInstanceRuntime(instanceId);
+  runtime.worldRuntimeTickProgressService.clearInstance(instanceId);
+  runtime.worldRuntimeLootContainerService.removeInstanceState(instanceId);
+  if (runtime.instanceCatalogService?.isEnabled?.()) {
+    await runtime.instanceCatalogService.upsertInstanceCatalog({
+      instanceId,
+      templateId: instance?.template?.id ?? instance?.templateId ?? '',
+      instanceType: typeof instance?.kind === 'string' ? instance.kind : 'public',
+      persistentPolicy: typeof instance?.meta?.persistentPolicy === 'string' ? instance.meta.persistentPolicy : 'persistent',
+      ownerPlayerId: instance?.meta?.ownerPlayerId ?? null,
+      ownerSectId: instance?.meta?.ownerSectId ?? null,
+      partyId: instance?.meta?.partyId ?? null,
+      lineId: instance?.meta?.lineId ?? null,
+      status: 'destroyed',
+      runtimeStatus: 'stopped',
+      assignedNodeId: null,
+      leaseToken: null,
+      leaseExpireAt: null,
+      ownershipEpoch: instance?.meta?.ownershipEpoch ?? 0,
+      clusterId: instance?.meta?.clusterId ?? null,
+      shardKey: instance?.meta?.shardKey ?? instanceId,
+      routeDomain: instance?.meta?.routeDomain ?? null,
+      destroyAt: instance?.meta?.destroyAt ?? new Date().toISOString(),
+      lastActiveAt: instance?.meta?.lastActiveAt ?? null,
+      lastPersistedAt: instance?.meta?.lastPersistedAt ?? null,
+    });
+  }
+  runtime.logger.log(`实例 ${instanceId} 已按生命周期销毁：${reason}`);
+  return { ok: true };
+}
+
 export function unfreezeInstanceWriting(runtime, instanceId) {
   const instance = runtime.getInstanceRuntime(instanceId);
   if (!instance) {
@@ -120,11 +166,32 @@ export async function syncInstanceLease(runtime, instanceId) {
   const nodeId = runtime.nodeRegistryService.getNodeId();
   const leaseToken = `${nodeId}:${instanceId}:${Date.now()}:${Math.random().toString(36).slice(2, 10)}`;
   const leaseExpireAt = new Date(Date.now() + INSTANCE_LEASE_TTL_MS);
-  const assignedNodeId = typeof instance.meta.assignedNodeId === 'string' ? instance.meta.assignedNodeId.trim() : '';
-  const currentLeaseToken = typeof instance.meta.leaseToken === 'string' ? instance.meta.leaseToken.trim() : '';
-  const expectedOwnershipEpoch = Number.isFinite(Number(instance.meta.ownershipEpoch))
+  let assignedNodeId = typeof instance.meta.assignedNodeId === 'string' ? instance.meta.assignedNodeId.trim() : '';
+  let currentLeaseToken = typeof instance.meta.leaseToken === 'string' ? instance.meta.leaseToken.trim() : '';
+  let expectedOwnershipEpoch = Number.isFinite(Number(instance.meta.ownershipEpoch))
     ? Math.trunc(Number(instance.meta.ownershipEpoch))
     : 0;
+  if ((!assignedNodeId || !currentLeaseToken) && runtime.instanceCatalogService?.isEnabled?.()) {
+    const catalog = await runtime.instanceCatalogService.loadInstanceCatalog(instanceId);
+    const catalogAssignedNodeId = typeof catalog?.assigned_node_id === 'string' ? catalog.assigned_node_id.trim() : '';
+    const catalogLeaseToken = typeof catalog?.lease_token === 'string' ? catalog.lease_token.trim() : '';
+    const catalogLeaseExpireAt = catalog?.lease_expire_at ? new Date(catalog.lease_expire_at).getTime() : 0;
+    const catalogOwnershipEpoch = Number.isFinite(Number(catalog?.ownership_epoch))
+      ? Math.trunc(Number(catalog.ownership_epoch))
+      : 0;
+    if (catalogAssignedNodeId === nodeId
+      && catalogLeaseToken
+      && Number.isFinite(catalogLeaseExpireAt)
+      && catalogLeaseExpireAt > Date.now() - INSTANCE_LEASE_RENEW_SKEW_MS) {
+      assignedNodeId = catalogAssignedNodeId;
+      currentLeaseToken = catalogLeaseToken;
+      expectedOwnershipEpoch = catalogOwnershipEpoch;
+      instance.meta.assignedNodeId = catalogAssignedNodeId;
+      instance.meta.leaseToken = catalogLeaseToken;
+      instance.meta.leaseExpireAt = new Date(catalogLeaseExpireAt).toISOString();
+      instance.meta.ownershipEpoch = catalogOwnershipEpoch;
+    }
+  }
   const renewResult = assignedNodeId && currentLeaseToken
     ? await runtime.instanceCatalogService.renewInstanceLease({
       instanceId,
@@ -193,6 +260,7 @@ export async function rebuildPersistentInstance(runtime, instanceId) {
     clusterId: currentMeta.clusterId ?? null,
     shardKey: currentMeta.shardKey ?? instanceId,
     routeDomain: currentMeta.routeDomain ?? null,
+    destroyAt: currentMeta.destroyAt ?? null,
     lastActiveAt: currentMeta.lastActiveAt ?? null,
     lastPersistedAt: currentMeta.lastPersistedAt ?? null,
   });
@@ -237,6 +305,7 @@ export async function migrateInstanceToNode(runtime, instanceId, targetNodeId) {
       clusterId: current.meta?.clusterId ?? null,
       shardKey: current.meta?.shardKey ?? instanceId,
       routeDomain: current.meta?.routeDomain ?? null,
+      destroyAt: current.meta?.destroyAt ?? null,
       lastActiveAt: current.meta?.lastActiveAt ?? null,
       lastPersistedAt: current.meta?.lastPersistedAt ?? null,
     });
@@ -280,7 +349,21 @@ export async function getInstanceLeaseStatus(runtime, instanceId) {
   };
 }
 
+export async function destroyExpiredManagedInstances(runtime) {
+  const now = Date.now();
+  for (const [instanceId, instance] of runtime.listInstanceEntries()) {
+    const destroyAt = typeof instance?.meta?.destroyAt === 'string' && instance.meta.destroyAt.trim()
+      ? Date.parse(instance.meta.destroyAt)
+      : NaN;
+    if (!Number.isFinite(destroyAt) || destroyAt > now) {
+      continue;
+    }
+    await destroyManagedInstance(runtime, instanceId, 'expire_at_reached');
+  }
+}
+
 export async function syncAllInstanceLeases(runtime) {
+  await destroyExpiredManagedInstances(runtime);
   if (!runtime.instanceCatalogService?.isEnabled?.()) {
     return;
   }
@@ -338,6 +421,7 @@ export async function claimRecoverableCatalogInstances(runtime) {
       clusterId: typeof entry.cluster_id === 'string' ? entry.cluster_id : null,
       shardKey: typeof entry.shard_key === 'string' && entry.shard_key.trim() ? entry.shard_key.trim() : instanceId,
       routeDomain: typeof entry.route_domain === 'string' ? entry.route_domain : null,
+      destroyAt: entry.destroy_at ? new Date(entry.destroy_at).toISOString() : null,
       lastActiveAt: entry.last_active_at ? new Date(entry.last_active_at).toISOString() : null,
       lastPersistedAt: entry.last_persisted_at ? new Date(entry.last_persisted_at).toISOString() : null,
     });
@@ -382,6 +466,10 @@ export async function hydratePersistentInstanceSnapshot(runtime, instanceId, ins
 }
 
 function shouldRestoreCatalogEntry(entry) {
+  const destroyAt = entry?.destroy_at ? new Date(entry.destroy_at).getTime() : 0;
+  if (Number.isFinite(destroyAt) && destroyAt > 0 && destroyAt <= Date.now()) {
+    return false;
+  }
   const persistentPolicy = normalizeRuntimeInstancePersistentPolicy(entry?.persistent_policy);
   if (persistentPolicy === 'persistent') {
     return true;

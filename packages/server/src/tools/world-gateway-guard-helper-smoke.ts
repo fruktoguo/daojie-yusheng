@@ -44,6 +44,25 @@ function testGuardHelper() {
                 log.push(['emitNotReady', client.id]);
             },
         },
+        worldSessionService: {
+            getBinding(playerId) {
+                if (playerId === 'player:active') {
+                    return {
+                        playerId,
+                        socketId: 'socket:active',
+                        connected: true,
+                    };
+                }
+                if (playerId === 'player:stale') {
+                    return {
+                        playerId,
+                        socketId: 'socket:active',
+                        connected: true,
+                    };
+                }
+                return null;
+            },
+        },
     };
     const helper = new WorldGatewayGuardHelper(gateway);
     const client = {
@@ -62,12 +81,21 @@ function testGuardHelper() {
     assert.equal(helper.requirePlayerId(client), null);
     client.data.playerId = 'player:1';
     assert.equal(helper.requirePlayerId(client), 'player:1');
+    client.data.playerId = 'player:stale';
+    assert.equal(helper.requireActivePlayerId(client), null);
+    client.id = 'socket:active';
+    client.data.playerId = 'player:active';
+    assert.equal(helper.requireActivePlayerId(client), 'player:active');
+    client.id = 'socket:1';
+    client.data.playerId = 'player:1';
     assert.equal(helper.requireGm(client), null);
     client.data.isGm = true;
     assert.equal(helper.requireGm(client), 'player:1');
     assert.equal(helper.rejectWhenNotReady(client), true);
     assert.deepEqual(log, [
         ['emitNotReady', 'socket:1'],
+        ['emitError', 'socket:1', 'SESSION_EXPIRED', '当前会话已失效，请重新连接。'],
+        ['disconnect', true],
         ['emitError', 'socket:1', 'GM_FORBIDDEN', 'GM 权限不足'],
         ['emitError', 'socket:1', 'SERVER_BUSY', '数据库维护中，请稍后重连'],
         ['disconnect', true],

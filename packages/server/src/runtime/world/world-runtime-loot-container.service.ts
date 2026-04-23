@@ -49,7 +49,27 @@ const CONTAINER_SEARCH_TICKS_BY_GRADE = {
     emperor: 4,
 };
 
+const HERB_GATHER_TIME_RATE = 0.5;
+const GATHER_SPEED_PER_LEVEL = 0.02;
 const DEFAULT_CRAFT_EXP_TO_NEXT = 60;
+
+function normalizeHerbLevel(level) {
+    return Math.max(1, Math.floor(Number(level) || 1));
+}
+
+function computeHerbNativeGatherTicks(container, row) {
+    const item = row?.item ?? row;
+    const grade = item?.grade ?? container?.grade;
+    const level = normalizeHerbLevel(item?.level);
+    const baseTicks = level + (0, shared_1.resolveAlchemyGradeValue)(grade) - 1;
+    return Math.max(1, Math.ceil(baseTicks * HERB_GATHER_TIME_RATE));
+}
+
+function computeEffectiveHerbGatherTicks(player, container, row) {
+    const nativeGatherTicks = computeHerbNativeGatherTicks(container, row);
+    const gatherLevel = Math.max(1, Math.floor(Number(player?.gatherSkill?.level) || 1));
+    return (0, shared_1.computeAdjustedCraftTicks)(nativeGatherTicks, gatherLevel * GATHER_SPEED_PER_LEVEL);
+}
 
 /** loot/container 状态域服务：承接容器状态、翻找推进、持久化与容器拿取。 */
 let WorldRuntimeLootContainerService = class WorldRuntimeLootContainerService {
@@ -219,7 +239,7 @@ let WorldRuntimeLootContainerService = class WorldRuntimeLootContainerService {
  * @returns 无返回值，完成PreparedContainer掉落来源的读取/组装。
  */
 
-    getPreparedContainerLootSource(instanceId, container) {
+    getPreparedContainerLootSource(instanceId, container, player = null) {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
         const containerState = this.containerStatesByInstanceId.get(instanceId)?.get(buildContainerSourceId(instanceId, container.id));
@@ -254,7 +274,8 @@ let WorldRuntimeLootContainerService = class WorldRuntimeLootContainerService {
                 herb: {
                     grade: container.grade,
                     level: Math.max(1, Math.floor(Number(primaryItem?.level) || 1)),
-                    gatherTicks: CONTAINER_SEARCH_TICKS_BY_GRADE[container.grade] ?? 1,
+                    nativeGatherTicks: primaryItem ? computeHerbNativeGatherTicks(container, primaryItem) : undefined,
+                    gatherTicks: primaryItem ? computeEffectiveHerbGatherTicks(player, container, primaryItem) : undefined,
                 },
                 destroyed: herbRows.length <= 0,
             };
@@ -506,7 +527,7 @@ let WorldRuntimeLootContainerService = class WorldRuntimeLootContainerService {
         if (!nextRow) {
             return buildContainerMutationResult('当前没有可采集的草药。');
         }
-        const totalTicks = CONTAINER_SEARCH_TICKS_BY_GRADE[resolved.container.grade] ?? 1;
+        const totalTicks = computeEffectiveHerbGatherTicks(player, resolved.container, nextRow);
         resolved.state.activeSearch = {
             itemKey: nextRow.itemKey,
             totalTicks,
@@ -640,7 +661,7 @@ let WorldRuntimeLootContainerService = class WorldRuntimeLootContainerService {
                         text: `${container.name} 已经采尽。`,
                     }]);
             }
-            const totalTicks = CONTAINER_SEARCH_TICKS_BY_GRADE[container.grade] ?? 1;
+            const totalTicks = computeEffectiveHerbGatherTicks(player, container, nextRow);
             state.activeSearch = {
                 itemKey: nextRow.itemKey,
                 totalTicks,
@@ -692,7 +713,7 @@ let WorldRuntimeLootContainerService = class WorldRuntimeLootContainerService {
         deps.refreshQuestStates(playerId);
         const nextRow = groupContainerLootRows(state.entries)[0] ?? null;
         if (nextRow) {
-            const totalTicks = CONTAINER_SEARCH_TICKS_BY_GRADE[container.grade] ?? 1;
+            const totalTicks = computeEffectiveHerbGatherTicks(player, container, nextRow);
             state.activeSearch = {
                 itemKey: nextRow.itemKey,
                 totalTicks,
@@ -1052,7 +1073,7 @@ let WorldRuntimeLootContainerService = class WorldRuntimeLootContainerService {
             skillChanged = applyGatherSkillExp(input.player.gatherSkill, input.harvestedRow.item.level, input.job.totalTicks);
             const nextRow = groupContainerLootRows(input.state.entries)[0] ?? null;
             if (nextRow) {
-                const totalTicks = CONTAINER_SEARCH_TICKS_BY_GRADE[input.container.grade] ?? 1;
+                const totalTicks = computeEffectiveHerbGatherTicks(input.player, input.container, nextRow);
                 input.state.activeSearch = {
                     itemKey: nextRow.itemKey,
                     totalTicks,

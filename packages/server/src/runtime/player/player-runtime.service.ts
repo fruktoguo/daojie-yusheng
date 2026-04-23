@@ -130,6 +130,15 @@ let PlayerRuntimeService = class PlayerRuntimeService {
         const player = snapshot
             ? this.hydrateFromSnapshot(playerId, sessionId, snapshot)
             : this.createFreshPlayer(playerId, sessionId);
+        const sessionEpochFloor = Number.isFinite(options?.sessionEpochFloor)
+            ? Math.max(0, Math.trunc(Number(options.sessionEpochFloor)))
+            : 0;
+        if (sessionEpochFloor > 0) {
+            player.sessionEpoch = Math.max(
+                Math.max(0, Math.trunc(Number(player.sessionEpoch ?? 0))),
+                sessionEpochFloor,
+            );
+        }
         this.bindRuntimeSession(player, sessionId);
         this.players.set(playerId, player);
         return player;
@@ -175,6 +184,10 @@ let PlayerRuntimeService = class PlayerRuntimeService {
             persistedRevision: 0,
             instanceId: '',
             templateId: '',
+            respawnTemplateId: '',
+            respawnInstanceId: null,
+            respawnX: 0,
+            respawnY: 0,
             worldPreference: {
                 linePreset: 'peaceful',
             },
@@ -237,6 +250,7 @@ let PlayerRuntimeService = class PlayerRuntimeService {
                 retaliatePlayerTargetId: null,
                 combatTargetId: null,
                 combatTargetLocked: false,
+                manualEngagePending: false,
                 allowAoePlayerHit: false,
                 autoIdleCultivation: true,
                 autoSwitchCultivation: false,
@@ -1456,7 +1470,7 @@ let PlayerRuntimeService = class PlayerRuntimeService {
         consumeInventoryItemAt(player.inventory.items, slotIndex, 1);
         player.inventory.revision += 1;
         this.playerProgressionService.refreshPreview(player);
-        markPlayerDirtyDomains(player, learnTechniqueId ? ['inventory', 'technique', 'combat_pref', 'attr'] : ['inventory']);
+        markPlayerDirtyDomains(player, learnTechniqueId ? ['inventory', 'technique', 'auto_battle_skill', 'attr'] : ['inventory']);
         this.bumpPersistentRevision(player);
         return player;
     }
@@ -1961,7 +1975,7 @@ let PlayerRuntimeService = class PlayerRuntimeService {
 
         const player = this.getPlayerOrThrow(playerId);
 
-        const normalized = normalizeAutoBattleSkills(collectUnlockedSkillIds(player), input);
+        const normalized = normalizePlayerAutoBattleSkills(player, input);
         if (isSameAutoBattleSkillList(player.combat.autoBattleSkills, normalized)) {
             return player;
         }
@@ -2074,7 +2088,7 @@ let PlayerRuntimeService = class PlayerRuntimeService {
             return player;
         }
 
-        const normalized = normalizeAutoBattleSkills(collectUnlockedSkillIds(player), player.combat.autoBattleSkills);
+        const normalized = normalizePlayerAutoBattleSkills(player, player.combat.autoBattleSkills);
 
         let changed = false;
         for (const entry of normalized) {
@@ -2087,10 +2101,11 @@ let PlayerRuntimeService = class PlayerRuntimeService {
             entry.skillEnabled = enabled !== false;
             changed = true;
         }
-        if (!changed) {
+        const limited = enforcePlayerSkillEnabledLimit(player, normalized);
+        if (!changed && isSameAutoBattleSkillList(player.combat.autoBattleSkills, limited)) {
             return player;
         }
-        player.combat.autoBattleSkills = normalized;
+        player.combat.autoBattleSkills = limited;
         this.rebuildActionState(player, 0);
         markPlayerDirtyDomains(player, ['auto_battle_skill']);
         this.bumpPersistentRevision(player);
@@ -2111,6 +2126,9 @@ let PlayerRuntimeService = class PlayerRuntimeService {
         const player = this.getPlayerOrThrow(playerId);
 
         let changed = false;
+        if (input.autoBattle === false) {
+            player.combat.manualEngagePending = false;
+        }
         if (input.autoBattle !== undefined && player.combat.autoBattle !== input.autoBattle) {
             player.combat.autoBattle = input.autoBattle;
             changed = true;
@@ -2209,6 +2227,33 @@ let PlayerRuntimeService = class PlayerRuntimeService {
 
     clearCombatTarget(playerId, currentTick = 0) {
         return this.setCombatTarget(playerId, null, false, currentTick);
+    }
+    /**
+ * setManualEngagePending：写入一次性接战待完成状态。
+ * @param playerId 玩家 ID。
+ * @param pending 是否仍需追击并完成一次出手。
+ * @returns 返回更新后的玩家运行态。
+ */
+
+    setManualEngagePending(playerId, pending) {
+  // 一次性接战只在服务端运行时生效，不投影到客户端，也不进入持久化。
+
+        const player = this.getPlayerOrThrow(playerId);
+        const normalizedPending = pending === true;
+        if (player.combat.manualEngagePending === normalizedPending) {
+            return player;
+        }
+        player.combat.manualEngagePending = normalizedPending;
+        return player;
+    }
+    /**
+ * clearManualEngagePending：清空一次性接战待完成状态。
+ * @param playerId 玩家 ID。
+ * @returns 返回更新后的玩家运行态。
+ */
+
+    clearManualEngagePending(playerId) {
+        return this.setManualEngagePending(playerId, false);
     }
     /**
  * setRetaliatePlayerTarget：写入当前反击锁定的玩家目标。
@@ -2535,6 +2580,7 @@ let PlayerRuntimeService = class PlayerRuntimeService {
         player.combat.retaliatePlayerTargetId = null;
         player.combat.combatTargetId = null;
         player.combat.combatTargetLocked = false;
+        player.combat.manualEngagePending = false;
         player.combat.cultivationActive = false;
         player.combat.lastActiveTick = Math.max(player.combat.lastActiveTick, Math.trunc(input.currentTick));
         if (changed) {
@@ -2609,6 +2655,10 @@ let PlayerRuntimeService = class PlayerRuntimeService {
         player.instanceId = normalizePlayerPlacementInstanceId(placement?.instanceId)
             ?? buildPublicPlayerInstanceId(templateId);
         player.templateId = templateId;
+        player.respawnTemplateId = templateId;
+        player.respawnInstanceId = player.instanceId;
+        player.respawnX = Number.isFinite(placement?.x) ? Math.trunc(placement.x) : 0;
+        player.respawnY = Number.isFinite(placement?.y) ? Math.trunc(placement.y) : 0;
         player.x = Number.isFinite(placement?.x) ? Math.trunc(placement.x) : 0;
         player.y = Number.isFinite(placement?.y) ? Math.trunc(placement.y) : 0;
         player.facing = Number.isFinite(placement?.facing)
@@ -2737,6 +2787,10 @@ let PlayerRuntimeService = class PlayerRuntimeService {
             instanceId: normalizePlayerPlacementInstanceId(snapshot.placement.instanceId)
                 ?? buildPublicPlayerInstanceId(snapshot.placement.templateId),
             templateId: snapshot.placement.templateId,
+            respawnTemplateId: snapshot.respawn?.templateId ?? snapshot.placement.templateId,
+            respawnInstanceId: normalizePlayerPlacementInstanceId(snapshot.respawn?.instanceId) ?? null,
+            respawnX: Number.isFinite(snapshot.respawn?.x) ? Math.trunc(snapshot.respawn.x) : snapshot.placement.x,
+            respawnY: Number.isFinite(snapshot.respawn?.y) ? Math.trunc(snapshot.respawn.y) : snapshot.placement.y,
             worldPreference: {
                 linePreset: normalizePlayerWorldPreferenceLinePreset(snapshot.worldPreference?.linePreset),
             },
@@ -2832,6 +2886,7 @@ let PlayerRuntimeService = class PlayerRuntimeService {
                 combatTargetLocked: snapshot.combat?.combatTargetLocked === true
                     && typeof snapshot.combat?.combatTargetId === 'string'
                     && snapshot.combat.combatTargetId.trim().length > 0,
+                manualEngagePending: false,
 
                 allowAoePlayerHit: snapshot.combat?.allowAoePlayerHit === true,
 
@@ -2953,6 +3008,27 @@ let PlayerRuntimeService = class PlayerRuntimeService {
             return player;
         }
         return this.bindRuntimeSession(player, sessionId);
+    }
+    ensureRuntimeSessionFenceAtLeast(playerId, sessionEpochFloor) {
+        const player = this.getPlayer(playerId);
+        if (!player) {
+            return null;
+        }
+        const normalizedFloor = Number.isFinite(sessionEpochFloor)
+            ? Math.max(0, Math.trunc(Number(sessionEpochFloor)))
+            : 0;
+        const currentEpoch = Number.isFinite(player.sessionEpoch)
+            ? Math.max(0, Math.trunc(Number(player.sessionEpoch)))
+            : 0;
+        if (normalizedFloor <= 0 || (currentEpoch > normalizedFloor && player.runtimeOwnerId)) {
+            return this.getSessionFence(playerId);
+        }
+        player.sessionEpoch = Math.max(currentEpoch, normalizedFloor);
+        const normalizedSessionId = typeof player.sessionId === 'string' && player.sessionId.trim()
+            ? player.sessionId.trim()
+            : `session:${player.playerId}`;
+        this.bindRuntimeSession(player, normalizedSessionId);
+        return this.getSessionFence(playerId);
     }
     beginTransfer(player, targetNodeId) {
         const normalizedTargetNodeId = typeof targetNodeId === 'string' ? targetNodeId.trim() : '';
@@ -3424,6 +3500,14 @@ function buildRuntimePlayerPersistenceSnapshot(player) {
             templateId,
             x: player.x,
             y: player.y,
+            facing: player.facing,
+        },
+        respawn: {
+            instanceId: normalizePlayerPlacementInstanceId(player.respawnInstanceId)
+                ?? (player.respawnTemplateId ? buildPublicPlayerInstanceId(player.respawnTemplateId) : ''),
+            templateId: player.respawnTemplateId || templateId,
+            x: Number.isFinite(player.respawnX) ? Math.trunc(player.respawnX) : player.x,
+            y: Number.isFinite(player.respawnY) ? Math.trunc(player.respawnY) : player.y,
             facing: player.facing,
         },
         worldPreference: {
@@ -4032,9 +4116,7 @@ function buildActionEntries(player, currentTick) {
 
     const actions = [];
 
-    const unlockedSkillIds = collectUnlockedSkillIds(player);
-
-    const autoBattleSkills = normalizeAutoBattleSkills(unlockedSkillIds, player.combat.autoBattleSkills);
+    const autoBattleSkills = normalizePlayerAutoBattleSkills(player, player.combat.autoBattleSkills);
 
     const skillOrder = new Map(autoBattleSkills.map((entry, index) => [entry.skillId, index]));
 
@@ -4172,6 +4254,26 @@ function normalizeAutoBattleSkills(skillIds, input) {
         });
     }
     return normalized;
+}
+/**
+ * enforcePlayerSkillEnabledLimit：按玩家当前技能槽位上限规整技能启用状态。
+ * @param player 玩家对象。
+ * @param entries 技能配置列表。
+ * @returns 返回已按槽位上限裁剪的技能配置列表。
+ */
+
+function enforcePlayerSkillEnabledLimit(player, entries) {
+    return (0, shared_1.enforceSkillEnabledLimit)(entries, (0, shared_1.resolvePlayerSkillSlotLimit)(player));
+}
+/**
+ * normalizePlayerAutoBattleSkills：按玩家当前可用技能与槽位上限规整自动战斗技能配置。
+ * @param player 玩家对象。
+ * @param input 原始技能配置列表。
+ * @returns 返回已按技能可见性和槽位上限规整后的配置列表。
+ */
+
+function normalizePlayerAutoBattleSkills(player, input) {
+    return enforcePlayerSkillEnabledLimit(player, normalizeAutoBattleSkills(collectUnlockedSkillIds(player), input));
 }
 /**
  * normalizePersistedAutoBattleTargetingMode：读取PersistedAutoBattleTargetingMode并返回结果。

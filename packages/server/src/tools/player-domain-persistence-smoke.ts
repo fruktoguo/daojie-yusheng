@@ -97,7 +97,7 @@ async function main(): Promise<void> {
     );
     const inventoryRows = await fetchRows(
       pool,
-      'SELECT item_id, count, slot_index FROM player_inventory_item WHERE player_id = $1 ORDER BY slot_index ASC',
+      'SELECT item_id, count, slot_index, raw_payload FROM player_inventory_item WHERE player_id = $1 ORDER BY slot_index ASC',
       [playerId],
     );
     const mapUnlockRows = await fetchRows(
@@ -219,7 +219,13 @@ async function main(): Promise<void> {
     ) {
       throw new Error(`unexpected player_body_training_state row: ${JSON.stringify(bodyTrainingRow)}`);
     }
-    if (inventoryRows.length !== 2 || inventoryRows[0]?.item_id !== 'rat_tail' || Number(inventoryRows[1]?.count) !== 5) {
+    if (
+      inventoryRows.length !== 2
+      || inventoryRows[0]?.item_id !== 'rat_tail'
+      || Number(inventoryRows[1]?.count) !== 5
+      || JSON.stringify(inventoryRows[0]?.raw_payload ?? null) !== '{}'
+      || JSON.stringify(inventoryRows[1]?.raw_payload ?? null) !== '{}'
+    ) {
       throw new Error(`unexpected player_inventory_item rows: ${JSON.stringify(inventoryRows)}`);
     }
     if (

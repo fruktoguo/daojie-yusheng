@@ -93,16 +93,18 @@ export const MONSTER_TIER_EXP_MULTIPLIERS: Record<MonsterTier, number> = {
   demon_king: 100,
 };
 
-/** 玩家等级高于怪物时，各血脉层次每级削减的击杀经验比例。 */
-export const MONSTER_TIER_OVERLEVEL_EXP_REDUCTION_RATES: Record<MonsterTier, number> = {
-  mortal_blood: 0.2,
-  variant: 0.4,
-  demon_king: 0.6,
+/** 玩家等级高于怪物时，所有怪物通用的每级经验保留倍率。 */
+export const MONSTER_OVERLEVEL_EXP_MULTIPLIER = 0.5;
+
+/** 玩家等级低于怪物时，各血脉层次每级增加的击杀经验比例。 */
+export const MONSTER_TIER_UNDERLEVEL_EXP_BONUS_RATES: Record<MonsterTier, number> = {
+  mortal_blood: 0.1,
+  variant: 0.25,
+  demon_king: 0.4,
 };
 
 /** 击杀经验的等级差修正最多只按 10 级计算，避免极端越级导致收益爆炸。 */
 export const MONSTER_KILL_EXP_LEVEL_DELTA_CAP = 10;
-
 
 
 

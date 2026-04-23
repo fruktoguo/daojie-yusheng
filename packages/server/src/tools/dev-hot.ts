@@ -18,6 +18,8 @@ let watchReady = false;
 let expectedServerExitPid: number | null = null;
 let restartTimer: NodeJS.Timeout | null = null;
 const recentUnexpectedExitAt: number[] = [];
+const shouldClearConsoleOnRestart =
+  process.stdout.isTTY && process.env.SERVER_DEV_CLEAR_CONSOLE_ON_RESTART !== "0";
 /**
  * padDatePart：处理padDatePart并更新相关状态。
  * @param value number 参数说明。
@@ -53,6 +55,26 @@ function getTimestamp() {
 
 function log(message: string) {
   process.stdout.write(`[${getTimestamp()}] [server dev] ${message}\n`);
+}
+
+/**
+ * clearConsoleForRestart：在交互终端下清理当前控制台和滚动回溯。
+ */
+function clearConsoleForRestart() {
+  if (!shouldClearConsoleOnRestart) {
+    return;
+  }
+  process.stdout.write("\x1b[2J\x1b[3J\x1b[H");
+}
+
+/**
+ * printServerSessionBanner：打印当前 server 会话头，避免多次重启日志混在一起。
+ */
+function printServerSessionBanner(generation: number) {
+  log("=========================================");
+  log(`server 热更新会话 #${generation}`);
+  log(`entry: ${distEntry}`);
+  log("=========================================");
 }
 
 /**
@@ -165,6 +187,8 @@ function startServer() {
   }
   clearRestartTimer();
   const generation = ++serverGeneration;
+  clearConsoleForRestart();
+  printServerSessionBanner(generation);
   log(`启动 server 进程 #${generation}`);
 
   const child = spawn(process.execPath, [distEntry], {

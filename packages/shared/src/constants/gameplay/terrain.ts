@@ -21,7 +21,7 @@ export const MOVE_POINT_UNIT = 100;
 export const BASE_MOVE_POINTS_PER_TICK = MOVE_POINT_UNIT;
 
 /** 最大可累积移动点数 */
-export const MAX_STORED_MOVE_POINTS = MOVE_POINT_UNIT * 4;
+export const MAX_STORED_MOVE_POINTS = MOVE_POINT_UNIT * 8;
 
 /** 各地形类型的移动消耗 */
 export const TILE_TRAVERSAL_COST: Record<TileType, number> = {
@@ -40,6 +40,8 @@ export const TILE_TRAVERSAL_COST: Record<TileType, number> = {
   cliff: 400,
   mud: 200,
   swamp: 300,
+  cold_bog: 360,
+  molten_pool: 800,
   water: 400,
   cloud: 400,
   cloud_floor: 90,
@@ -69,6 +71,8 @@ export const TILE_TYPE_TO_MAP_CHAR: Record<TileType, string> = {
   cliff: '崖',
   mud: ';',
   swamp: '%',
+  cold_bog: '寒',
+  molten_pool: '熔',
   water: '~',
   cloud: '云',
   cloud_floor: '霞',

@@ -82,13 +82,6 @@ function formatItemBonuses(item: EquipmentSlots[EquipSlot]): string {
   return parts.length > 0 ? parts.join(' / ') : '暂无词条';
 }
 
-/** createFragmentFromHtml：从 HTML 文本创建文档片段。 */
-function createFragmentFromHtml(html: string): DocumentFragment {
-  const template = document.createElement('template');
-  template.innerHTML = html.trim();
-  return template.content.cloneNode(true) as DocumentFragment;
-}
-
 /** EquipmentSlotView：装备槽位的渲染引用集合。 */
 type EquipmentSlotView = {
 /**
@@ -137,10 +130,10 @@ export class EquipmentPanel {
   private tooltipSlot: EquipSlot | null = null;
   /** slotViews：槽位Views。 */
   private slotViews = new Map<EquipSlot, EquipmentSlotView>();
-  /** emptyStateEl：empty状态元素。 */
-  private emptyStateEl: HTMLDivElement | null = null;
   /** sectionEl：section元素。 */
   private sectionEl: HTMLDivElement | null = null;  
+  /** emptyStateEl：装备总空态提示。 */
+  private emptyStateEl: HTMLDivElement | null = null;
   /**
  * 构造器：初始化 当前 实例并建立基础状态。
  * @returns 无返回值，完成实例初始化。
@@ -161,7 +154,7 @@ export class EquipmentPanel {
     this.slotViews.clear();
     this.sectionEl = null;
     this.emptyStateEl = null;
-    this.pane.replaceChildren(createFragmentFromHtml('<div class="empty-hint">尚未装备任何物品</div>'));
+    this.pane.replaceChildren();
   }  
   /**
  * setCallbacks：写入Callback。
@@ -191,13 +184,11 @@ export class EquipmentPanel {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
     this.ensureStructure();
-    if (!this.sectionEl || !this.emptyStateEl) {
+    if (!this.sectionEl) {
       return;
     }
 
-    const hasAnyEquipment = EQUIP_SLOTS.some((slot) => !!equipment[slot]);
-    this.emptyStateEl.hidden = hasAnyEquipment;
-
+    let hasAnyEquipment = false;
     for (const slot of EQUIP_SLOTS) {
       const slotView = this.slotViews.get(slot);
       if (!slotView) {
@@ -205,6 +196,7 @@ export class EquipmentPanel {
       }
       const item = equipment[slot];
       const hasItem = !!item;
+      hasAnyEquipment ||= hasItem;
       slotView.root.toggleAttribute('data-equip-tooltip-slot', hasItem);
       if (hasItem) {
         slotView.root.dataset.equipTooltipSlot = slot;
@@ -220,6 +212,9 @@ export class EquipmentPanel {
       slotView.action.hidden = !hasItem;
       slotView.action.disabled = !hasItem;
       slotView.action.dataset.unequip = slot;
+    }
+    if (this.emptyStateEl) {
+      this.emptyStateEl.hidden = hasAnyEquipment;
     }
   }
 

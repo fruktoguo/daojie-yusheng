@@ -91,6 +91,7 @@ function buildAttrDetailNumericStatBreakdowns(player) {
 
     const stage = player.realm?.stage ?? player.attrs?.stage ?? shared_1.DEFAULT_PLAYER_REALM_STAGE;
     const template = shared_1.PLAYER_REALM_NUMERIC_TEMPLATES[stage] ?? shared_1.PLAYER_REALM_NUMERIC_TEMPLATES[shared_1.DEFAULT_PLAYER_REALM_STAGE];
+    const realmLv = Math.max(1, Math.floor(Number(player.realm?.realmLv ?? 1) || 1));
     const realmBaseStats = template?.stats ? (0, shared_1.cloneNumericStats)(template.stats) : (0, shared_1.createNumericStats)();
     const baseStats = (0, shared_1.cloneNumericStats)(realmBaseStats);
     const flatBuffStats = (0, shared_1.createNumericStats)();
@@ -142,7 +143,7 @@ function buildAttrDetailNumericStatBreakdowns(player) {
             flatBuffValue,
             preMultiplierValue: getNumericStatValue(preMultiplierStats, key),
             attrMultiplierPct: getNumericStatValue(attrMultipliers, key),
-            realmMultiplier: 1,
+            realmMultiplier: getRealmNumericMultiplier(key, realmLv),
             buffMultiplierPct: 0,
             pillMultiplierPct: 0,
             finalValue: getNumericStatValue(finalStats, key),
@@ -162,6 +163,41 @@ exports.buildAttrDetailNumericStatBreakdowns = buildAttrDetailNumericStatBreakdo
 function getNumericStatValue(stats, key) {
     const value = stats?.[key];
     return typeof value === 'number' ? value : 0;
+}
+
+const REALM_EXPONENTIAL_NUMERIC_KEY_SET = new Set([
+    'maxHp',
+    'maxQi',
+    'physAtk',
+    'spellAtk',
+    'physDef',
+    'spellDef',
+    'hit',
+    'dodge',
+    'crit',
+    'antiCrit',
+    'breakPower',
+    'resolvePower',
+]);
+
+const REALM_LINEAR_NUMERIC_GROWTH_RATES = {
+    critDamage: 0.1,
+    maxQiOutputPerTick: 0.1,
+    qiRegenRate: 0.02,
+    hpRegenRate: 0.02,
+    realmExpPerTick: 0.1,
+    techniqueExpPerTick: 0.1,
+};
+
+function getRealmNumericMultiplier(key, realmLv) {
+    if (REALM_EXPONENTIAL_NUMERIC_KEY_SET.has(key)) {
+        return (0, shared_1.getRealmAttributeMultiplier)(realmLv);
+    }
+    const linearGrowthRate = REALM_LINEAR_NUMERIC_GROWTH_RATES[key];
+    if (typeof linearGrowthRate === 'number') {
+        return (0, shared_1.getRealmLinearGrowthMultiplier)(realmLv, linearGrowthRate);
+    }
+    return 1;
 }
 /**
  * scalePartialNumericStats：执行scalePartialNumericStat相关逻辑。
