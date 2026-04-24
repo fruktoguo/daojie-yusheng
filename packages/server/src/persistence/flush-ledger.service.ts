@@ -388,6 +388,25 @@ async function ensurePlayerFlushLedgerTable(pool: Pool): Promise<void> {
       )
     `);
     await client.query(`
+      DO $$
+      BEGIN
+        IF EXISTS (
+          SELECT 1
+          FROM information_schema.columns
+          WHERE table_name = '${PLAYER_FLUSH_LEDGER_TABLE}'
+            AND column_name = 'dirty_since_at'
+            AND data_type = 'bigint'
+        ) THEN
+          ALTER TABLE ${PLAYER_FLUSH_LEDGER_TABLE}
+          ALTER COLUMN dirty_since_at TYPE timestamptz
+          USING CASE
+            WHEN dirty_since_at IS NULL THEN NULL
+            ELSE to_timestamp(dirty_since_at::double precision / 1000)
+          END;
+        END IF;
+      END $$;
+    `);
+    await client.query(`
       CREATE INDEX IF NOT EXISTS player_flush_ledger_domain_pending_idx
       ON ${PLAYER_FLUSH_LEDGER_TABLE}(domain, latest_version, flushed_version, claim_until, dirty_since_at, updated_at DESC)
     `);

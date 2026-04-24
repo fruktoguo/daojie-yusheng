@@ -10,7 +10,7 @@ MODE="${1:-local}"
 # 指定本地基础设施使用的 Compose 配置文件。
 MAINLINE_COMPOSE_FILE="${MAINLINE_COMPOSE_FILE:-${SERVER_COMPOSE_FILE:-docker-compose.yml}}"
 # 指定本地 Compose 项目的隔离名称。
-MAINLINE_COMPOSE_PROJECT="${MAINLINE_COMPOSE_PROJECT:-${SERVER_COMPOSE_PROJECT:-mud-local}}"
+MAINLINE_COMPOSE_PROJECT="${MAINLINE_COMPOSE_PROJECT:-${SERVER_COMPOSE_PROJECT:-daojie-local}}"
 SERVER_COMPOSE_FILE="${SERVER_COMPOSE_FILE:-$MAINLINE_COMPOSE_FILE}"
 SERVER_COMPOSE_PROJECT="${SERVER_COMPOSE_PROJECT:-$MAINLINE_COMPOSE_PROJECT}"
 
@@ -115,6 +115,113 @@ docker_compose_service_container_id() {
 # 记录服务名称。
   local service_name="$1"
   docker_compose_mainline ps -a -q "$service_name" 2>/dev/null | head -n 1 || true
+}
+
+# 读取 Compose 配置中某个服务显式声明的 container_name。
+docker_compose_service_container_name() {
+# 记录服务名称。
+  local service_name="$1"
+  docker_compose_mainline config 2>/dev/null | awk -v service_name="$service_name" '
+    $0 ~ "^  " service_name ":" {
+      in_service = 1
+      next
+    }
+
+    in_service && /^  [A-Za-z0-9_.-]+:/ {
+      exit
+    }
+
+    in_service && /^[[:space:]]+container_name:/ {
+      sub(/^[[:space:]]+container_name:[[:space:]]*/, "")
+      gsub(/^["'\''"]|["'\''"]$/, "")
+      print
+      exit
+    }
+  '
+}
+
+# 按 Docker 精确容器名查找容器，避免 name 子串匹配误伤。
+docker_container_id_by_exact_name() {
+# 记录容器名称。
+  local container_name="$1"
+  docker ps -aq --filter "name=^/${container_name}$" | head -n 1 || true
+}
+
+# 确认已开放的本地端口来自当前正式 Compose 服务，避免误连旧 mud-local 容器。
+guard_local_port_matches_service_container() {
+# 记录服务名称。
+  local service_name="$1"
+# 记录显示信息名称。
+  local display_name="$2"
+# 记录端口。
+  local port="$3"
+# 记录当前compose容器id。
+  local compose_container_id=""
+# 记录端口占用容器id。
+  local published_container_id=""
+
+  compose_container_id="$(docker_compose_service_container_id "$service_name")"
+  if [[ -z "$compose_container_id" ]]; then
+    published_container_id="$(docker ps -q --filter "publish=${port}" | head -n 1 || true)"
+    if [[ -n "$published_container_id" ]]; then
+      echo "!! localhost:${port} 已被非当前正式 Compose 项目的 ${display_name} 端口占用：${published_container_id}"
+      docker inspect --format '   容器：{{.Name}}；项目：{{index .Config.Labels "com.docker.compose.project"}}；服务：{{index .Config.Labels "com.docker.compose.service"}}' "$published_container_id" 2>/dev/null || true
+      echo "   当前正式项目应为：${MAINLINE_COMPOSE_PROJECT}，服务：${service_name}。"
+      echo "   为避免误连旧数据库，start.sh 不会继续。若你有意使用外部服务，请用 SKIP_LOCAL_INFRA=1 bash ./start.sh。"
+      exit 1
+    fi
+    return 0
+  fi
+
+  if docker ps -q --filter "id=${compose_container_id}" --filter "publish=${port}" | grep -q .; then
+    return 0
+  fi
+}
+
+# 拦截历史同名容器，避免固定 container_name 阻塞当前 Compose 重建。
+guard_conflicting_service_container() {
+# 记录服务名称。
+  local service_name="$1"
+# 记录显示信息名称。
+  local display_name="$2"
+# 记录当前compose容器id。
+  local compose_container_id=""
+# 记录固定容器名。
+  local container_name=""
+# 记录冲突容器id。
+  local conflicting_container_id=""
+# 记录冲突容器挂载卷。
+  local conflicting_mounts=""
+
+  compose_container_id="$(docker_compose_service_container_id "$service_name")"
+  if [[ -n "$compose_container_id" ]]; then
+    return 0
+  fi
+
+  container_name="$(docker_compose_service_container_name "$service_name")"
+  if [[ -z "$container_name" ]]; then
+    return 0
+  fi
+
+  conflicting_container_id="$(docker_container_id_by_exact_name "$container_name")"
+  if [[ -z "$conflicting_container_id" ]]; then
+    return 0
+  fi
+
+# 记录容器运行状态。
+  local status=""
+  status="$(docker inspect --format '{{.State.Status}}' "$conflicting_container_id" 2>/dev/null || true)"
+  conflicting_mounts="$(docker inspect --format '{{range .Mounts}}{{println .Name "->" .Destination}}{{end}}' "$conflicting_container_id" 2>/dev/null | sed '/^$/d' || true)"
+
+  echo "!! ${display_name} 容器名 ${container_name} 被非当前 Compose 项目容器占用: ${conflicting_container_id} (${status:-unknown})"
+  if [[ -n "$conflicting_mounts" ]]; then
+    echo "   该容器挂载卷："
+    echo "$conflicting_mounts" | sed 's/^/   - /'
+  fi
+  echo "   为避免误删本地数据库，start.sh 不会自动删除历史容器或卷。"
+  echo "   如果确认该容器不再需要，请手动执行：docker rm ${conflicting_container_id}"
+  echo "   然后重新执行：bash ./start.sh"
+  exit 1
 }
 
 # 清理主线服务端或客户端端口上的残留监听进程。
@@ -246,11 +353,63 @@ ensure_server_local_secret_env() {
   echo "==> 已写入本地主线密钥缓存 ${local_env_file}"
 }
 
+# 从显式数据库 URL 补齐本地基础设施需要的 DB_* 变量。
+derive_db_env_from_database_url() {
+# 记录数据库连接串。
+  local database_url="${1:-}"
+  if [[ -z "$database_url" ]]; then
+    return 0
+  fi
+
+# 记录派生项名称。
+  local name=""
+# 记录派生项值。
+  local value=""
+  while IFS=$'\t' read -r name value; do
+    case "$name" in
+      DB_USERNAME|DB_PASSWORD|DB_HOST|DB_PORT|DB_DATABASE)
+        if [[ -z "${!name:-}" && -n "$value" ]]; then
+          export "$name=$value"
+        fi
+        ;;
+    esac
+  done < <(node - "$database_url" <<'NODE'
+const databaseUrl = process.argv[2];
+
+try {
+  const parsed = new URL(databaseUrl);
+  if (parsed.protocol !== 'postgres:' && parsed.protocol !== 'postgresql:') {
+    process.exit(0);
+  }
+
+  const database = decodeURIComponent(parsed.pathname.replace(/^\/+/u, ''));
+  const entries = [
+    ['DB_USERNAME', decodeURIComponent(parsed.username || '')],
+    ['DB_PASSWORD', decodeURIComponent(parsed.password || '')],
+    ['DB_HOST', parsed.hostname],
+    ['DB_PORT', parsed.port],
+    ['DB_DATABASE', database],
+  ];
+
+  for (const [name, value] of entries) {
+    if (value) {
+      process.stdout.write(`${name}\t${value}\n`);
+    }
+  }
+} catch {
+  process.exit(0);
+}
+NODE
+  )
+}
+
 # 准备与线上部署一致的主线基础环境变量，宿主机或容器网络差异由调用方补充。
 prepare_server_base_env() {
   load_server_local_env
   ensure_server_local_secret_env
   load_server_local_env
+
+  derive_db_env_from_database_url "${SERVER_DATABASE_URL:-${DATABASE_URL:-}}"
 
   export SERVER_HOST="${SERVER_HOST:-0.0.0.0}"
   export SERVER_PORT="${SERVER_PORT:-3000}"
@@ -334,14 +493,21 @@ ensure_local_postgres_env_matches() {
 # 记录容器中的数据库用户。
   local container_db_user=""
   container_db_user="$(docker inspect --format '{{range .Config.Env}}{{println .}}{{end}}' "$postgres_container_id" 2>/dev/null | awk -F= '/^POSTGRES_USER=/{print $2; exit}')"
+# 记录容器中的初始化数据库。
+  local container_db_name=""
+  container_db_name="$(docker inspect --format '{{range .Config.Env}}{{println .}}{{end}}' "$postgres_container_id" 2>/dev/null | awk -F= '/^POSTGRES_DB=/{print $2; exit}')"
 
-  if [[ -z "$container_db_user" || "$container_db_user" == "$DB_USERNAME" ]]; then
+  if [[ -z "$container_db_user" && -z "$container_db_name" ]]; then
+    return 0
+  fi
+
+  if [[ "$container_db_user" == "$DB_USERNAME" && "$container_db_name" == "$DB_DATABASE" ]]; then
     return 0
   fi
 
 # 记录数据库卷名。
   local postgres_volume_name="${MAINLINE_COMPOSE_PROJECT}_pgdata_server"
-  echo "!! 现有本地 PostgreSQL 初始化账号与当前配置不一致：容器 POSTGRES_USER=${container_db_user}，当前 DB_USERNAME=${DB_USERNAME}。"
+  echo "!! 现有本地 PostgreSQL 初始化配置与当前配置不一致：容器 POSTGRES_USER=${container_db_user:-unknown}，POSTGRES_DB=${container_db_name:-unknown}；当前 DB_USERNAME=${DB_USERNAME}，DB_DATABASE=${DB_DATABASE}。"
   echo "   请按当前配置重建本地数据库后再重新启动："
   echo "   docker compose -p ${MAINLINE_COMPOSE_PROJECT} -f ${MAINLINE_COMPOSE_FILE} stop postgres"
   echo "   docker compose -p ${MAINLINE_COMPOSE_PROJECT} -f ${MAINLINE_COMPOSE_FILE} rm -sf postgres"
@@ -423,6 +589,12 @@ ensure_local_infra() {
   fi
 
   if (( needs_postgres == 0 && needs_redis == 0 )); then
+    if is_local_host "${DB_HOST:-localhost}"; then
+      guard_local_port_matches_service_container "postgres" "PostgreSQL" "${DB_PORT:-5432}"
+    fi
+    if is_local_host "${REDIS_HOST:-localhost}"; then
+      guard_local_port_matches_service_container "redis" "Redis" "${REDIS_PORT:-6379}"
+    fi
     echo "==> 本地 PostgreSQL / Redis 已可用，跳过容器启动"
     return 0
   fi
@@ -447,6 +619,14 @@ ensure_local_infra() {
 # 记录needsredis。
       needs_redis=0
     fi
+  fi
+
+  if (( needs_postgres == 1 )); then
+    guard_conflicting_service_container "postgres" "PostgreSQL"
+  fi
+
+  if (( needs_redis == 1 )); then
+    guard_conflicting_service_container "redis" "Redis"
   fi
 
 # 记录services。

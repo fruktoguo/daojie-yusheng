@@ -4,6 +4,8 @@ import { Pool } from 'pg';
 import { DatabasePoolProvider } from './database-pool.provider';
 
 const PLAYER_FLUSH_LEDGER_TABLE = 'player_flush_ledger';
+const FLUSH_LEDGER_LOCK_NAMESPACE = 42871;
+const FLUSH_LEDGER_LOCK_KEY = 4001;
 
 const CREATE_PLAYER_FLUSH_LEDGER_TABLE_SQL = `
   CREATE TABLE IF NOT EXISTS ${PLAYER_FLUSH_LEDGER_TABLE} (
@@ -11,7 +13,7 @@ const CREATE_PLAYER_FLUSH_LEDGER_TABLE_SQL = `
     domain varchar(64) NOT NULL,
     latest_version bigint NOT NULL DEFAULT 0,
     flushed_version bigint NOT NULL DEFAULT 0,
-    dirty_since_at bigint,
+    dirty_since_at timestamptz,
     next_attempt_at timestamptz,
     claimed_by varchar(120),
     claim_until timestamptz,
@@ -92,7 +94,7 @@ export class PlayerFlushLedgerService implements OnModuleInit, OnModuleDestroy {
           player_id, domain, latest_version, flushed_version, dirty_since_at,
           next_attempt_at, claimed_by, claim_until, updated_at
         )
-        SELECT player_id, $2, $3, 0, $4, now(), NULL, NULL, now()
+        SELECT player_id, $2, $3, 0, now(), now(), NULL, NULL, now()
         FROM unnest($1::varchar[]) AS player_id
         ON CONFLICT (player_id, domain) DO UPDATE
         SET
@@ -105,7 +107,7 @@ export class PlayerFlushLedgerService implements OnModuleInit, OnModuleDestroy {
           updated_at = now()
         RETURNING player_id
       `,
-      [playerIds, domain, latestVersion, Date.now()],
+      [playerIds, domain, latestVersion],
     );
     return result.rowCount ?? 0;
   }
@@ -258,7 +260,27 @@ async function ensurePlayerFlushLedgerTable(pool: Pool): Promise<void> {
   const client = await pool.connect();
   try {
     await client.query('BEGIN');
+    await client.query('SELECT pg_advisory_lock($1, $2)', [FLUSH_LEDGER_LOCK_NAMESPACE, FLUSH_LEDGER_LOCK_KEY]);
     await client.query(CREATE_PLAYER_FLUSH_LEDGER_TABLE_SQL);
+    await client.query(`
+      DO $$
+      BEGIN
+        IF EXISTS (
+          SELECT 1
+          FROM information_schema.columns
+          WHERE table_name = '${PLAYER_FLUSH_LEDGER_TABLE}'
+            AND column_name = 'dirty_since_at'
+            AND data_type = 'bigint'
+        ) THEN
+          ALTER TABLE ${PLAYER_FLUSH_LEDGER_TABLE}
+          ALTER COLUMN dirty_since_at TYPE timestamptz
+          USING CASE
+            WHEN dirty_since_at IS NULL THEN NULL
+            ELSE to_timestamp(dirty_since_at::double precision / 1000)
+          END;
+        END IF;
+      END $$;
+    `);
     await client.query(CREATE_PLAYER_FLUSH_LEDGER_DOMAIN_INDEX_SQL);
     await client.query(CREATE_PLAYER_FLUSH_LEDGER_DIRTY_INDEX_SQL);
     await client.query('COMMIT');
@@ -266,6 +288,7 @@ async function ensurePlayerFlushLedgerTable(pool: Pool): Promise<void> {
     await client.query('ROLLBACK').catch(() => undefined);
     throw error;
   } finally {
+    await client.query('SELECT pg_advisory_unlock($1, $2)', [FLUSH_LEDGER_LOCK_NAMESPACE, FLUSH_LEDGER_LOCK_KEY]).catch(() => undefined);
     client.release();
   }
 }

@@ -1,7 +1,7 @@
 services:
   postgres:
     image: postgres:16-alpine
-    container_name: mud-local-postgres
+    container_name: daojie-local-postgres
     environment:
       POSTGRES_USER: ${DB_USERNAME:-mud}
       POSTGRES_PASSWORD: ${DB_PASSWORD:-jiuzhou123}
@@ -18,7 +18,7 @@ services:
 
   redis:
     image: redis:7-alpine
-    container_name: mud-local-redis
+    container_name: daojie-local-redis
     ports:
       - "${REDIS_PORT:-16379}:6379"
     healthcheck:
