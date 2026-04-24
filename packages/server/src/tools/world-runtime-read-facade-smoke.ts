@@ -13,7 +13,7 @@ function testReadFacade() {
     const service = new WorldRuntimeReadFacadeService();
     const log = [];
     const deps = {
-        tick: 7,        
+        tick: 999,
         /**
  * getPlayerLocationOrThrow：读取玩家位置OrThrow。
  * @param playerId 玩家 ID。
@@ -43,7 +43,8 @@ function testReadFacade() {
         getInstanceRuntimeOrThrow(instanceId) {
             log.push(['getInstanceRuntimeOrThrow', instanceId]);
             return {
-                meta: { instanceId },                
+                meta: { instanceId },
+                tick: 7,
                 /**
  * getContainerAtTile：读取ContainerAtTile。
  * @param x X 坐标。
@@ -304,6 +305,7 @@ function testReadFacade() {
     assert.deepEqual(service.buildDetail('player:1', { kind: 'npc', id: 'npc:1' }, deps), { kind: 'npc', id: 'npc:1', instanceId: 'public:yunlai_town' });
     assert.deepEqual(service.buildTileDetail('player:1', { x: 10, y: 11 }, deps), { x: 10, y: 11, playerId: 'player:1' });
     assert.deepEqual(service.buildLootWindowSyncState('player:1', 10, 10, deps), { tileX: 10, tileY: 10 });
+    assert.deepEqual(log.find((entry) => entry[0] === 'prepareContainerLootSource'), ['prepareContainerLootSource', 'public:yunlai_town', 'crate:1', 7]);
     assert.deepEqual(service.refreshPlayerContextActions('player:1', null, deps), { tick: 9 });
     assert.deepEqual(service.createNpcQuestsEnvelope('player:1', 'npc:quest', deps), { playerId: 'player:1', npcId: 'npc:quest' });
     assert.equal(service.resolveQuestProgress('player:1', { id: 'quest:1' }, deps), 'player:1:quest:1');

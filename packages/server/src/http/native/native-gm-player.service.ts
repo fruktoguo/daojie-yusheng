@@ -59,6 +59,7 @@ interface ManagedAccountEntryLike {
 interface ContentTemplateRepositoryLike {
   getItemName(itemId: string): string | null;
   normalizeItem(input: unknown): unknown;
+  hydrateTechniqueState(input: unknown): unknown;
 }
 /**
  * MapTemplateRepositoryLike：定义接口结构约束，明确可交付字段含义。
@@ -344,7 +345,7 @@ export class NativeGmPlayerService {
     refreshedRuntime.selfRevision += 1;
     refreshedRuntime.persistentRevision += 1;
     this.playerRuntimeService.restoreSnapshot(refreshedRuntime);
-  }  
+  }
   /**
  * resetPlayer：执行reset玩家相关逻辑。
  * @param playerId string 玩家 ID。
@@ -869,7 +870,7 @@ export class NativeGmPlayerService {
       if (Array.isArray(snapshot.techniques)) {
         next.techniques.techniques = snapshot.techniques
           .filter((entry) => Boolean(entry && typeof entry.techId === 'string' && entry.techId.trim()))
-          .map((entry) => ({ ...entry, techId: entry.techId.trim() }))
+          .map((entry) => this.hydrateGmTechniqueSnapshot(entry))
           .sort((left, right) => left.techId.localeCompare(right.techId, 'zh-Hans-CN'));
         next.techniques.revision += 1;
       }
@@ -1073,7 +1074,7 @@ export class NativeGmPlayerService {
       if (Array.isArray(snapshot.techniques)) {
         persisted.techniques.techniques = snapshot.techniques
           .filter((entry) => Boolean(entry && typeof entry.techId === 'string' && entry.techId.trim()))
-          .map((entry) => ({ ...entry, techId: entry.techId.trim() }))
+          .map((entry) => this.hydrateGmTechniqueSnapshot(entry))
           .sort((left, right) => left.techId.localeCompare(right.techId, 'zh-Hans-CN'));
         persisted.techniques.revision = Math.max(1, (persisted.techniques.revision ?? 1) + 1);
       }
@@ -1168,6 +1169,27 @@ export class NativeGmPlayerService {
     this.playerProgressionService.initializePlayer(snapshot);
     this.playerRuntimeService.rebuildActionState(snapshot, 0);
   }  
+  /**
+ * hydrateGmTechniqueSnapshot：用服务端模板补全 GM 低频功法快照。
+ * @param entry 功法快照。
+ * @returns 补全后的功法运行态。
+ */
+
+
+  private hydrateGmTechniqueSnapshot(entry) {
+  // GM 前端保存时会裁掉 layers/skills/attrCurves，属性重算必须在服务端补回模板定义。
+
+    const techId = typeof entry?.techId === 'string' ? entry.techId.trim() : '';
+    if (!techId) {
+      return { ...entry, techId };
+    }
+    const normalized = { ...entry, techId };
+    const hydrated = this.contentTemplateRepository.hydrateTechniqueState(normalized);
+    if (hydrated && typeof hydrated === 'object') {
+      return hydrated;
+    }
+    return normalized;
+  }
   /**
  * mutateManagedPlayer：统一处理玩家快照的持久化与运行态回写。
  * @param playerId string 玩家 ID。

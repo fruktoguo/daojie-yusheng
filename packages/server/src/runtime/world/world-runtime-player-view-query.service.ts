@@ -139,7 +139,7 @@ let WorldRuntimePlayerViewQueryService = class WorldRuntimePlayerViewQueryServic
         }
         const container = instance.getContainerAtTile(tileX, tileY);
         if (container) {
-            const containerSource = this.worldRuntimeLootContainerService.getPreparedContainerLootSource(instance.meta.instanceId, container, player);
+            const containerSource = this.worldRuntimeLootContainerService.getPreparedContainerLootSource(instance.meta.instanceId, container, player, instance.tick);
             if (containerSource) {
                 sources.push(containerSource);
             }
@@ -150,7 +150,7 @@ let WorldRuntimePlayerViewQueryService = class WorldRuntimePlayerViewQueryServic
         return {
             tileX,
             tileY,
-            title: `拿取 · (${tileX}, ${tileY})`,
+            title: sources.some((source) => source.variant === 'herb') ? `采集 · (${tileX}, ${tileY})` : `搜索 · (${tileX}, ${tileY})`,
             sources,
         };
     }    

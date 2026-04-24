@@ -1,4 +1,4 @@
-import type { GameTimeState, MonsterTier, PlayerState, QuestState } from '@mud/shared';
+import type { GameTimeState, PlayerState } from '@mud/shared';
 import { TechniqueRealm, VIEW_RADIUS } from '@mud/shared';
 import { getHeavenGateHudAction } from './ui/heaven-gate-modal';
 import type { HUD } from './ui/hud';
@@ -77,52 +77,6 @@ type MainUiStateSourceOptions = {
  */
 
   getPlayer: () => PlayerState | null;  
-  /**
- * getLatestEntities：LatestEntity相关字段。
- */
-
-  getLatestEntities: () => Array<{  
-  /**
- * id：ID标识。
- */
-
-    id: string;    
-    /**
- * wx：wx相关字段。
- */
-
-    wx: number;    
-    /**
- * wy：wy相关字段。
- */
-
-    wy: number;    
-    /**
- * name：名称名称或显示文本。
- */
-
-    name?: string;    
-    /**
- * kind：kind相关字段。
- */
-
-    kind?: string;    
-    /**
- * monsterTier：怪物Tier相关字段。
- */
-
-    monsterTier?: MonsterTier;    
-    /**
- * hp：hp相关字段。
- */
-
-    hp?: number;    
-    /**
- * maxHp：maxHp相关字段。
- */
-
-    maxHp?: number;
-  }>;
 };
 /**
  * MainUiStateSource：统一结构类型，保证协议与运行时一致性。
@@ -329,9 +283,6 @@ export function createMainUiStateSource(options: MainUiStateSourceOptions) {
       options.worldPanel.update({
         player,
         mapMeta: options.mapRuntime.getMapMeta() as never,
-        entities: options.getLatestEntities(),
-        actions: player.actions,
-        quests: player.quests as QuestState[],
       });
     },    
     /**

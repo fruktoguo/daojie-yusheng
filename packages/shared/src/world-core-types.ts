@@ -591,6 +591,16 @@ export interface RenderEntity {
 
   maxHp?: number;
   /**
+ * respawnRemainingTicks：回生/重生剩余 tick。
+ */
+
+  respawnRemainingTicks?: number;
+  /**
+ * respawnTotalTicks：回生/重生总 tick。
+ */
+
+  respawnTotalTicks?: number;
+  /**
  * qi：qi相关字段。
  */
 

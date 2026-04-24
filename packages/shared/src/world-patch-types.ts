@@ -67,6 +67,16 @@ export interface TickRenderEntityView {
 
   maxHp?: number | null;  
   /**
+ * respawnRemainingTicks：回生/重生剩余 tick。
+ */
+
+  respawnRemainingTicks?: number | null;
+  /**
+ * respawnTotalTicks：回生/重生总 tick。
+ */
+
+  respawnTotalTicks?: number | null;
+  /**
  * qi：qi相关字段。
  */
 
@@ -383,6 +393,11 @@ export interface WorldContainerPatchView {
  */
 
   c?: string;  
+  /**
+ * rr：容器回生剩余 tick。
+ */
+
+  rr?: number | null;
   /**
  * rm：rm相关字段。
  */

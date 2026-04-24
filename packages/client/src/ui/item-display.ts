@@ -6,6 +6,7 @@ import type {
   TechniqueCategory,
   TechniqueGrade,
 } from '@mud/shared';
+import { applyEnhancementToItemStack, normalizeEnhanceLevel } from '@mud/shared';
 import {
   getLocalRealmLevelEntry,
   getLocalTechniqueTemplate,
@@ -168,10 +169,11 @@ function getTechniqueBookTemplate(item: ItemStack) {
 
 /** getItemDisplayMeta：读取物品显示元数据。 */
 export function getItemDisplayMeta(item: ItemStack): ItemDisplayMeta {
-  const displayItem = resolvePreviewItem(item);
+  const displayItem = applyEnhancementToItemStack(resolvePreviewItem(item));
   const techniqueTemplate = getTechniqueBookTemplate(displayItem);
   const grade = techniqueTemplate?.grade ?? displayItem.grade ?? null;
   const level = Number.isFinite(displayItem.level) ? Math.max(0, Math.floor(displayItem.level ?? 0)) : 0;
+  const enhanceLevel = displayItem.type === 'equipment' ? normalizeEnhanceLevel(displayItem.enhanceLevel) : 0;
   const techniqueRealmLv = Number.isFinite(techniqueTemplate?.realmLv)
     ? Math.max(1, Math.floor(techniqueTemplate?.realmLv ?? 1))
     : null;
@@ -182,7 +184,7 @@ export function getItemDisplayMeta(item: ItemStack): ItemDisplayMeta {
     gradeLabel: grade ? getTechniqueGradeLabel(grade) : null,
     levelLabel: displayItem.type === 'skill_book'
       ? (realmEntry?.displayName ?? (techniqueRealmLv ? `境${formatDisplayInteger(techniqueRealmLv)}` : null))
-      : (level > 0 ? `Lv.${formatDisplayInteger(level)}` : null),
+      : (enhanceLevel > 0 ? `+${formatDisplayInteger(enhanceLevel)}` : (level > 0 ? `Lv.${formatDisplayInteger(level)}` : null)),
     affinityBadge: getItemAffinityBadge(displayItem),
   };
 }
@@ -233,7 +235,6 @@ export function getItemAffinityBadge(item: ItemStack): ItemAffinityBadge | null 
     element,
   };
 }
-
 
 
 

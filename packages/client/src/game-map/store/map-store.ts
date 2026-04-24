@@ -47,6 +47,10 @@ import type {
 let latestObservedEntitiesSnapshot: readonly ObservedMapEntity[] = [];
 const PVP_SHA_INFUSION_BUFF_ID = 'pvp.sha_infusion';
 const PVP_SHA_DEMONIZED_STACK_THRESHOLD = 20;
+const DEFAULT_MOTION_DURATION_MS = 320;
+const MIN_MOTION_DURATION_MS = 180;
+const MAX_MOTION_DURATION_MS = 420;
+const TICK_MOTION_DURATION_RATIO = 0.34;
 
 /** 获取最近一次刷新后的可见实体快照，供 UI 和交互层读取。 */
 export function getLatestObservedEntitiesSnapshot(): readonly ObservedMapEntity[] {
@@ -61,6 +65,14 @@ function publishLatestObservedEntitiesSnapshot(entities: readonly ObservedMapEnt
 /** 克隆对象，确保状态快照不共享引用。 */
 function cloneJson<T>(value: T): T {
   return clonePlainValue(value);
+}
+
+function normalizeMotionDurationMs(durationMs: number): number {
+  if (!Number.isFinite(durationMs) || durationMs <= 0) {
+    return DEFAULT_MOTION_DURATION_MS;
+  }
+  const scaled = Math.round(durationMs * TICK_MOTION_DURATION_RATIO);
+  return Math.max(MIN_MOTION_DURATION_MS, Math.min(MAX_MOTION_DURATION_MS, scaled));
 }
 
 /** 按值优先级处理补丁：null 表示清空，undefined 表示不更新。 */
@@ -116,6 +128,8 @@ function toObservedEntity(entity: RenderEntity): ObservedMapEntity {
     monsterScale: entity.monsterScale,
     hp: entity.hp,
     maxHp: entity.maxHp,
+    respawnRemainingTicks: entity.respawnRemainingTicks,
+    respawnTotalTicks: entity.respawnTotalTicks,
     qi: entity.qi,
     maxQi: entity.maxQi,
     npcQuestMarker: entity.npcQuestMarker,
@@ -140,6 +154,8 @@ function mergeObservedEntityPatch(patch: TickRenderEntity, previous?: ObservedMa
     monsterScale: applyNullablePatch(patch.monsterScale, previous?.monsterScale),
     hp: applyNullablePatch(patch.hp, previous?.hp),
     maxHp: applyNullablePatch(patch.maxHp, previous?.maxHp),
+    respawnRemainingTicks: applyNullablePatch(patch.respawnRemainingTicks, previous?.respawnRemainingTicks),
+    respawnTotalTicks: applyNullablePatch(patch.respawnTotalTicks, previous?.respawnTotalTicks),
     qi: applyNullablePatch(patch.qi, previous?.qi),
     maxQi: applyNullablePatch(patch.maxQi, previous?.maxQi),
     npcQuestMarker: applyNullablePatch(patch.npcQuestMarker, previous?.npcQuestMarker),
@@ -304,7 +320,7 @@ export class MapStore {
 
   private tickTiming = {
     startedAt: performance.now(),
-    durationMs: 1000,
+    durationMs: DEFAULT_MOTION_DURATION_MS,
   };
   /** 本地实体运动过渡信息，用于下一次插值渲染。 */
   private entityTransition: MapEntityTransition | null = null;
@@ -512,7 +528,7 @@ export class MapStore {
           }
         : { settleMotion: true };
       if (typeof data.tickDurationMs === 'number' && Number.isFinite(data.tickDurationMs) && data.tickDurationMs > 0) {
-        this.tickTiming.durationMs = Math.max(1, Math.round(data.tickDurationMs));
+        this.tickTiming.durationMs = normalizeMotionDurationMs(data.tickDurationMs);
       }
       this.tickTiming.startedAt = performance.now();
     }
@@ -648,7 +664,7 @@ export class MapStore {
     this.entityTransition = null;
     publishLatestObservedEntitiesSnapshot([]);
     this.tickTiming.startedAt = performance.now();
-    this.tickTiming.durationMs = 1000;
+    this.tickTiming.durationMs = DEFAULT_MOTION_DURATION_MS;
     this.visibleTileRevision += 1;
   }
 
@@ -659,7 +675,7 @@ export class MapStore {
     if (!Number.isFinite(durationMs) || durationMs <= 0) {
       return;
     }
-    this.tickTiming.durationMs = Math.max(1, Math.round(durationMs));
+    this.tickTiming.durationMs = normalizeMotionDurationMs(durationMs);
   }
 
   /** 读取当前视域半径（时间状态 > 玩家设置 > 默认常量）。 */

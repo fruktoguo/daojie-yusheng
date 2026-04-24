@@ -37,7 +37,7 @@ function createDeps(log, blockReason = null) {
  */
 
 
-function testStopCultivation() {
+function testClearMainTechnique() {
     const log = [];
     const playerRuntimeService = {    
     /**
@@ -65,7 +65,7 @@ function testStopCultivation() {
     service.dispatchCultivateTechnique('player:1', null, createDeps(log));
     assert.deepEqual(log, [
         ['cultivateTechnique', 'player:1', null],
-        ['queuePlayerNotice', 'player:1', '已停止当前修炼', 'info'],
+        ['queuePlayerNotice', 'player:1', '已取消主修功法', 'info'],
     ]);
 }
 /**
@@ -74,7 +74,7 @@ function testStopCultivation() {
  */
 
 
-function testStartCultivation() {
+function testSetMainTechnique() {
     const log = [];
     const playerRuntimeService = {    
     /**
@@ -102,11 +102,11 @@ function testStartCultivation() {
     service.dispatchCultivateTechnique('player:1', 'qingmu_sword', createDeps(log));
     assert.deepEqual(log, [
         ['cultivateTechnique', 'player:1', 'qingmu_sword'],
-        ['queuePlayerNotice', 'player:1', '开始修炼 青木剑诀', 'success'],
+        ['queuePlayerNotice', 'player:1', '已设为主修 青木剑诀', 'success'],
     ]);
 }
 
-testStopCultivation();
-testStartCultivation();
+testClearMainTechnique();
+testSetMainTechnique();
 
 console.log(JSON.stringify({ ok: true, case: 'world-runtime-cultivation' }, null, 2));

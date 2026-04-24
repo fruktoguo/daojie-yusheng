@@ -164,6 +164,7 @@ export interface LootWindowSourceView {
     level?: number;
     nativeGatherTicks?: number;
     gatherTicks?: number;
+    respawnRemainingTicks?: number;
   };
   /**
  * destroyed：资源点是否已被摧毁。

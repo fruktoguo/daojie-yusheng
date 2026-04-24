@@ -23,6 +23,7 @@ type LootHerbExtras = {
     grade?: string;
     level?: number;
     gatherTicks?: number;
+    respawnRemainingTicks?: number;
   };
   destroyed?: boolean;
 };
@@ -276,6 +277,9 @@ export class LootPanel {
 
   /** getSearchHeading：读取搜索态标题。 */
   private getSearchHeading(source: LootWindowState['sources'][number]): string {
+    if (readLootHerbExtras(source).variant === 'herb') {
+      return '采集中';
+    }
     return this.isHarvestSource(source) ? '连续采摘中' : '搜索中';
   }
 
@@ -295,7 +299,7 @@ export class LootPanel {
       createElement('div', 'loot-source-subtitle', this.getSourceSubtitle(source)),
     );
     const actions = createElement('div', 'loot-source-actions');
-    if (source.items.length > 0 && !harvestSource) {
+    if (source.items.length > 0 && !harvestSource && !isHerb) {
       const takeAllButton = createElement('button', 'small-btn', '全部拿取');
       takeAllButton.type = 'button';
       takeAllButton.dataset.lootTakeAll = 'true';
@@ -335,6 +339,9 @@ export class LootPanel {
     const totalCount = source.items.reduce((sum, entry) => sum + Math.max(0, Math.floor(entry.item.count || 0)), 0);
     const gradeLabel = extras.herb.grade ? getTechniqueGradeLabel(extras.herb.grade, extras.herb.grade) : '';
     const harvesting = Boolean(source.search && source.search.remainingTicks > 0);
+    const respawnRemainingTicks = typeof extras.herb.respawnRemainingTicks === 'number'
+      ? Math.max(0, Math.floor(extras.herb.respawnRemainingTicks))
+      : undefined;
     const summary = createElement('div', 'herb-gather-summary');
     const meta = createElement('div', 'herb-gather-summary-meta');
     if (gradeLabel) {
@@ -344,7 +351,9 @@ export class LootPanel {
       createElement('span', '', `LV ${formatDisplayInteger(extras.herb.level ?? 1)}`),
       createElement('span', '', `采集 ${formatDisplayInteger(extras.herb.gatherTicks ?? 0)} 息`),
       createElement('span', '', `存量 ${formatDisplayInteger(totalCount)} 朵`),
-      createElement('span', '', extras.destroyed ? '已摧毁' : '可采集'),
+      createElement('span', '', respawnRemainingTicks !== undefined
+        ? `回生 ${formatDisplayInteger(Math.max(1, respawnRemainingTicks))} 息`
+        : extras.destroyed ? '回生中' : '可采集'),
     );
     summary.append(meta);
     if (harvesting) {

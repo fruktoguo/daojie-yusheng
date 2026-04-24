@@ -579,6 +579,7 @@ function isSameLootWindow(left: LootWindowState, right: LootWindowState): boolea
         leftSource.herb.grade !== rightSource.herb.grade
         || leftSource.herb.level !== rightSource.herb.level
         || leftSource.herb.gatherTicks !== rightSource.herb.gatherTicks
+        || leftSource.herb.respawnRemainingTicks !== rightSource.herb.respawnRemainingTicks
       ) {
         return false;
       }
@@ -624,6 +625,7 @@ function isSameSyncedItem(left: SyncedItemStack | null | undefined, right: Synce
     && left.groundLabel === right.groundLabel
     && left.grade === right.grade
     && left.level === right.level
+    && left.enhanceLevel === right.enhanceLevel
     && left.equipSlot === right.equipSlot
     && shallowEqualRecord(left.equipAttrs, right.equipAttrs)
     && shallowEqualRecord(left.equipStats, right.equipStats)
@@ -638,6 +640,10 @@ function isSameSyncedItem(left: SyncedItemStack | null | undefined, right: Synce
     && shallowEqualArray(left.mapUnlockIds, right.mapUnlockIds)
     && left.tileAuraGainAmount === right.tileAuraGainAmount
     && shallowEqualTileResourceGainArray(left.tileResourceGains, right.tileResourceGains)
+    && left.alchemySuccessRate === right.alchemySuccessRate
+    && left.alchemySpeedRate === right.alchemySpeedRate
+    && left.enhancementSuccessRate === right.enhancementSuccessRate
+    && left.enhancementSpeedRate === right.enhancementSpeedRate
     && left.allowBatchUse === right.allowBatchUse;
 }
 

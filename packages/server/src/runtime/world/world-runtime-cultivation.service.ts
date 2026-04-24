@@ -52,11 +52,11 @@ let WorldRuntimeCultivationService = class WorldRuntimeCultivationService {
         }
         this.playerRuntimeService.cultivateTechnique(playerId, techniqueId);
         if (!techniqueId) {
-            deps.queuePlayerNotice(playerId, '已停止当前修炼', 'info');
+            deps.queuePlayerNotice(playerId, '已取消主修功法', 'info');
             return;
         }
         const techniqueName = this.playerRuntimeService.getTechniqueName(playerId, techniqueId) ?? techniqueId;
-        deps.queuePlayerNotice(playerId, `开始修炼 ${techniqueName}`, 'success');
+        deps.queuePlayerNotice(playerId, `已设为主修 ${techniqueName}`, 'success');
     }
 };
 exports.WorldRuntimeCultivationService = WorldRuntimeCultivationService;

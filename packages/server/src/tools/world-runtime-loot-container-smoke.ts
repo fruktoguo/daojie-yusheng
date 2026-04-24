@@ -9,13 +9,16 @@ async function main(): Promise<void> {
   await testContainerTakeAllDurableGrant();
   await testStartGatherSupportsColonInstanceId();
   await testHerbRefreshRegeneratesEntries();
+  await testHerbRefreshAccumulatesExistingStock();
+  await testHerbAttackConsumesSingleStockAndShowsRegrowthCountdown();
   await testGatherCompletionDurableGrant();
   await testGatherCompletionDurableRollback();
+  await testGatherCompletionConsumesSingleAccumulatedStock();
   await testGatherCompletionDirtyDomains();
   console.log(JSON.stringify({
     ok: true,
     case: 'world-runtime-loot-container',
-    answers: '地面 pile 与容器 source 的单个拿取/全部拿取现在都会先走 grantInventoryItems durable 主链，成功提交后才刷新任务状态并补发 loot notice，同时透传 runtimeOwnerId/sessionEpoch/instanceId/assignedNodeId/ownershipEpoch；草药采集完成现在也会在 durable 提交成功后才返回 loot 结果，并在失败时回滚玩家运行态与容器状态',
+    answers: '地面 pile 与容器 source 的单个拿取/全部拿取现在都会先走 grantInventoryItems durable 主链，成功提交后才刷新任务状态并补发 loot notice，同时透传 runtimeOwnerId/sessionEpoch/instanceId/assignedNodeId/ownershipEpoch；草药采集完成现在也会在 durable 提交成功后才返回 loot 结果，并在失败时回滚玩家运行态与容器状态；草药刷新会积攒库存，地块攻击草药会扣 1 朵并在空库存时显示回生倒计时',
     excludes: '不证明草药采集的 profession 变更已经并入同一资产事务，也不证明更泛化的 tick 资产 intent 编排',
   }, null, 2));
 }
@@ -514,6 +517,112 @@ async function testHerbRefreshRegeneratesEntries() {
   assert.equal(refreshed?.items[0]?.item.itemId, 'mat.moondew_grass');
 }
 
+async function testHerbRefreshAccumulatesExistingStock() {
+  const instanceId = 'public:yunlai_town';
+  const service = new WorldRuntimeLootContainerService({
+    createItem(itemId: string, count: number) {
+      return { itemId, count, name: '月露草', type: 'material', level: 1 };
+    },
+  } as never, buildPlayerRuntimeService(buildPlayer('player:gather:stock', instanceId, 'runtime:gather:stock', 24)) as never);
+  const container = {
+    id: 'lm_yunlai_moondew_5_6',
+    name: '月露草',
+    x: 5,
+    y: 6,
+    variant: 'herb',
+    grade: 'mortal',
+    desc: '可采集草药',
+    refreshTicksMin: 5,
+    refreshTicksMax: 5,
+    drops: [{ itemId: 'mat.moondew_grass', name: '月露草', count: 1, type: 'material' }],
+    lootPools: [],
+  };
+  service.hydrateContainerStates(instanceId, [{
+    sourceId: `container:${instanceId}:${container.id}`,
+    containerId: container.id,
+    generatedAtTick: 1,
+    refreshAtTick: 5,
+    entries: [
+      {
+        item: { itemId: 'mat.moondew_grass', name: '月露草', count: 1, type: 'material', level: 1 },
+        createdTick: 1,
+        visible: false,
+      },
+    ],
+    activeSearch: undefined,
+  }]);
+
+  service.prepareContainerLootSource(instanceId, container as never, 5);
+  const refreshed = service.getPreparedContainerLootSource(instanceId, container as never, null, 5);
+  assert.ok(refreshed);
+  assert.equal(refreshed?.items.length, 1);
+  assert.equal(refreshed?.items[0]?.item.itemId, 'mat.moondew_grass');
+  assert.equal(refreshed?.items[0]?.item.count, 2);
+  assert.equal(refreshed?.herb?.respawnRemainingTicks, 5);
+  assert.equal(refreshed?.destroyed, false);
+  const persisted = service.buildContainerPersistenceStates(instanceId);
+  assert.equal(persisted[0]?.entries.length, 1);
+  assert.equal(persisted[0]?.entries[0]?.item.count, 2);
+  assert.equal(persisted[0]?.refreshAtTick, 10);
+
+  service.prepareContainerLootSource(instanceId, container as never, 6);
+  const unchanged = service.getPreparedContainerLootSource(instanceId, container as never);
+  assert.equal(unchanged?.items[0]?.item.count, 2);
+  const unchangedPersisted = service.buildContainerPersistenceStates(instanceId);
+  assert.equal(unchangedPersisted[0]?.refreshAtTick, 10);
+}
+
+async function testHerbAttackConsumesSingleStockAndShowsRegrowthCountdown() {
+  const instanceId = 'public:yunlai_town';
+  const service = new WorldRuntimeLootContainerService({} as never, buildPlayerRuntimeService(buildPlayer('player:gather:attack', instanceId, 'runtime:gather:attack', 24)) as never);
+  const container = {
+    id: 'lm_yunlai_moondew_5_6',
+    name: '月露草',
+    x: 5,
+    y: 6,
+    variant: 'herb',
+    grade: 'mortal',
+    desc: '可采集草药',
+    refreshTicksMin: 5,
+    refreshTicksMax: 5,
+    drops: [],
+    lootPools: [],
+  };
+  service.hydrateContainerStates(instanceId, [{
+    sourceId: `container:${instanceId}:${container.id}`,
+    containerId: container.id,
+    generatedAtTick: 1,
+    refreshAtTick: 12,
+    entries: [
+      {
+        item: { itemId: 'mat.moondew_grass', name: '月露草', count: 1, type: 'material', level: 1 },
+        createdTick: 1,
+        visible: false,
+      },
+    ],
+    activeSearch: {
+      itemKey: 'will-be-cleared',
+      totalTicks: 3,
+      remainingTicks: 2,
+    },
+  }]);
+
+  const result = service.damageHerbContainerAtTile(instanceId, container as never, 10);
+  assert.ok(result);
+  assert.equal(result?.title, '月露草');
+  assert.equal(result?.appliedDamage, 1);
+  assert.equal(result?.remainingCount, 0);
+  assert.equal(result?.respawnRemainingTicks, 2);
+  const source = service.getPreparedContainerLootSource(instanceId, container as never, null, 10);
+  assert.equal(source?.items.length, 0);
+  assert.equal(source?.emptyText, '这处草药药性回生中，还需 2 息。');
+  assert.equal(source?.herb?.respawnRemainingTicks, 2);
+  const persisted = service.buildContainerPersistenceStates(instanceId);
+  assert.equal(persisted[0]?.entries.length, 0);
+  assert.equal(persisted[0]?.activeSearch, undefined);
+  assert.equal(persisted[0]?.refreshAtTick, 12);
+}
+
 async function testGatherCompletionDurableGrant() {
   const durableCalls: Array<Record<string, unknown>> = [];
   let resolveDurable = () => {};
@@ -741,6 +850,94 @@ async function testGatherCompletionDurableRollback() {
   assert.equal(Number(player.gatherJob?.remainingTicks), 1);
   const restored = service.getPreparedContainerLootSource('inst-gather-rollback', container as never);
   assert.equal(Array.isArray(restored?.items) ? restored.items.length : 0, 1);
+}
+
+async function testGatherCompletionConsumesSingleAccumulatedStock() {
+  const player = buildPlayer('player:gather:single-stock', 'inst:gather:single-stock', 'runtime:gather:single-stock', 26);
+  player.x = 5;
+  player.y = 6;
+  player.gatherSkill = {
+    level: 1,
+    exp: 0,
+    expToNext: 60,
+  };
+  player.gatherJob = {
+    resourceNodeId: 'herb1',
+    resourceNodeName: '凝露草',
+    startedAt: Date.now(),
+    totalTicks: 720,
+    remainingTicks: 1,
+    pausedTicks: 0,
+    successRate: 1,
+    spiritStoneCost: 0,
+    phase: 'gathering',
+  };
+  const service = new WorldRuntimeLootContainerService({} as never, buildPlayerRuntimeService(player, {
+    lootWindowTarget: { tileX: 5, tileY: 6 },
+  }) as never);
+  const container = {
+    id: 'herb1',
+    variant: 'herb',
+    grade: 'mortal',
+    x: 5,
+    y: 6,
+    lootPools: [],
+    drops: [],
+    name: '凝露草',
+  };
+  const state = {
+    sourceId: 'container:inst:gather:single-stock:herb1',
+    containerId: 'herb1',
+    generatedAtTick: 1,
+    refreshAtTick: 50,
+    entries: [
+      {
+        item: { itemId: 'herb.lingdew_grass', name: '凝露草', count: 3, level: 5, type: 'material' },
+        createdTick: 1,
+        visible: true,
+      },
+    ],
+    activeSearch: undefined,
+  };
+  service.hydrateContainerStates('inst:gather:single-stock', [state]);
+  const prepared = service.getPreparedContainerLootSource('inst:gather:single-stock', container as never);
+  const itemKey = Array.isArray(prepared?.items) ? prepared.items[0]?.itemKey : '';
+  assert.equal(typeof itemKey, 'string');
+  assert.ok(itemKey);
+  service.hydrateContainerStates('inst:gather:single-stock', [{
+    ...state,
+    activeSearch: {
+      itemKey,
+      totalTicks: 720,
+      remainingTicks: 1,
+    },
+  }]);
+  const deps = {
+    tick: 2,
+    getPlayerLocationOrThrow() {
+      return { instanceId: 'inst:gather:single-stock' };
+    },
+    getInstanceRuntimeOrThrow() {
+      return {
+        getContainerById(containerId: string) {
+          assert.equal(containerId, 'herb1');
+          return container;
+        },
+      };
+    },
+    refreshQuestStates() {},
+  };
+
+  const result = await service.tickGather(player.playerId, deps as never);
+  assert.equal(result.ok, true);
+  assert.deepEqual(result.messages, [{ kind: 'loot', text: '获得 凝露草' }]);
+  assert.equal(player.inventory.items.length, 1);
+  assert.equal(player.inventory.items[0]?.count, 1);
+  assert.equal(Number(player.gatherJob?.remainingTicks), 3);
+  const remaining = service.getPreparedContainerLootSource('inst:gather:single-stock', container as never, player as never);
+  assert.equal(remaining?.items.length, 1);
+  assert.equal(remaining?.items[0]?.item.count, 2);
+  assert.equal(remaining?.destroyed, false);
 }
 
 async function testGatherCompletionDirtyDomains() {

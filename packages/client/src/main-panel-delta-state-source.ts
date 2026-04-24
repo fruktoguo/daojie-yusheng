@@ -582,8 +582,11 @@ export function createMainPanelDeltaStateSource(options: MainPanelDeltaStateSour
             ? [...template.tags]
             : undefined,
       cooldown: item.cooldown ?? previousSameItem?.cooldown ?? template?.cooldown,
+      enhanceLevel: item.enhanceLevel ?? previousSameItem?.enhanceLevel ?? template?.enhanceLevel,
       alchemySuccessRate: item.alchemySuccessRate ?? previousSameItem?.alchemySuccessRate ?? template?.alchemySuccessRate,
       alchemySpeedRate: item.alchemySpeedRate ?? previousSameItem?.alchemySpeedRate ?? template?.alchemySpeedRate,
+      enhancementSuccessRate: item.enhancementSuccessRate ?? previousSameItem?.enhancementSuccessRate,
+      enhancementSpeedRate: item.enhancementSpeedRate ?? previousSameItem?.enhancementSpeedRate,
       mapUnlockId: item.mapUnlockId ?? previousSameItem?.mapUnlockId,
       mapUnlockIds: item.mapUnlockIds ?? previousSameItem?.mapUnlockIds ?? template?.mapUnlockIds,
       tileAuraGainAmount: item.tileAuraGainAmount ?? previousSameItem?.tileAuraGainAmount,

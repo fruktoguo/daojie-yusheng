@@ -9,7 +9,6 @@ import {
 import { detailModalHost } from './detail-modal-host';
 import { getElementKeyLabel } from '../domain-labels';
 import { formatDisplayInteger } from '../utils/number';
-import { clientToViewportPoint } from './responsive-viewport';
 import { describeSpiritualRoots, normalizeSpiritualRoots } from '../utils/spiritual-roots';
 
 /** HEAVEN_GATE_OWNER：HEAVEN关卡OWNER。 */
@@ -90,6 +89,12 @@ interface HeavenGateModalOptions {
   sendAction: (action: 'sever' | 'restore' | 'open' | 'reroll' | 'enter', element?: ElementKey) => void;
 }
 
+interface HeavenGateEventContext {
+  player: PlayerState;
+  session: HeavenGateSession;
+  options: HeavenGateModalOptions;
+}
+
 /** pendingAction：待处理动作。 */
 let pendingAction: PendingAction | null = null;
 /** cursorCleanup：用于恢复天门拖拽态光标的清理函数。 */
@@ -102,6 +107,7 @@ let animationToken = 0;
 let lastAnimatedRootsKey: string | null = null;
 /** lastRenderedSessionKey：last Rendered会话Key。 */
 let lastRenderedSessionKey: string | null = null;
+let activeEventContext: HeavenGateEventContext | null = null;
 
 /** escapeHtml：转义 HTML 文本中的危险字符。 */
 function escapeHtml(input: string): string {
@@ -441,11 +447,15 @@ function bindCursor(body: HTMLElement): void {
   }
   /** syncCursor：同步Cursor。 */
   const syncCursor = (event: MouseEvent, label: string) => {
-    const point = clientToViewportPoint(window, event.clientX, event.clientY);
+    const rect = board.getBoundingClientRect();
+    const width = Math.max(1, rect.width);
+    const height = Math.max(1, rect.height);
+    const x = ((event.clientX - rect.left) / width) * board.offsetWidth;
+    const y = ((event.clientY - rect.top) / height) * board.offsetHeight;
     cursor.classList.remove('hidden');
     cursor.textContent = label;
-    cursor.style.left = `${point.x}px`;
-    cursor.style.top = `${point.y}px`;
+    cursor.style.left = `${x}px`;
+    cursor.style.top = `${y}px`;
     document.body.classList.add('heaven-gate-brush-cursor');
   };
   /** hideCursor：处理hide Cursor。 */
@@ -514,6 +524,7 @@ function renderHeavenGateModal(player: PlayerState, session: HeavenGateSession, 
     },
     onClose: () => {
       clearPendingAction();
+      activeEventContext = null;
       cursorCleanup?.();
       cursorCleanup = null;
       stopValueAnimation();
@@ -631,9 +642,14 @@ function bindHeavenGateEvents(
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
   bindCursor(body);
+  activeEventContext = { player, session, options };
   if (body.dataset.heavenGateBound !== 'true') {
     body.dataset.heavenGateBound = 'true';
     body.addEventListener('click', (event) => {
+      const context = activeEventContext;
+      if (!context || !detailModalHost.isOpenFor(HEAVEN_GATE_OWNER)) {
+        return;
+      }
       const target = event.target instanceof HTMLElement
         ? event.target.closest<HTMLElement>('[data-heaven-gate-path],[data-heaven-gate-core],[data-heaven-gate-reroll],[data-heaven-gate-cancel],[data-heaven-gate-confirm],[data-heaven-gate-popup-overlay],[data-heaven-gate-popup]')
         : null;
@@ -649,12 +665,12 @@ function bindHeavenGateEvents(
           return;
         }
         clearPendingAction();
-        renderHeavenGateModal(player, session, options);
+        renderHeavenGateModal(context.player, context.session, context.options);
         return;
       }
       if (target.hasAttribute('data-heaven-gate-cancel')) {
         clearPendingAction();
-        renderHeavenGateModal(player, session, options);
+        renderHeavenGateModal(context.player, context.session, context.options);
         return;
       }
       if (target.hasAttribute('data-heaven-gate-confirm')) {
@@ -663,31 +679,31 @@ function bindHeavenGateEvents(
         }
         const action = pendingAction;
         clearPendingAction();
-        options.sendAction(action.kind === 'restore' ? 'restore' : action.kind, 'element' in action ? action.element : undefined);
+        context.options.sendAction(action.kind === 'restore' ? 'restore' : action.kind, 'element' in action ? action.element : undefined);
         return;
       }
       if (target.hasAttribute('data-heaven-gate-reroll')) {
         pendingAction = { kind: 'reroll' };
-        renderHeavenGateModal(player, session, options);
+        renderHeavenGateModal(context.player, context.session, context.options);
         return;
       }
       if (target.hasAttribute('data-heaven-gate-core')) {
-        pendingAction = session.roots ? { kind: 'enter' } : { kind: 'open' };
-        renderHeavenGateModal(player, session, options);
+        pendingAction = context.session.roots ? { kind: 'enter' } : { kind: 'open' };
+        renderHeavenGateModal(context.player, context.session, context.options);
         return;
       }
       const element = target.dataset.heavenGatePath as ElementKey | undefined;
       if (!element) {
         return;
       }
-      if (!session.severed.has(element) && session.severed.size >= 4) {
-        options.showToast('最多只能斩断四条灵根。');
+      if (!context.session.severed.has(element) && context.session.severed.size >= 4) {
+        context.options.showToast('最多只能斩断四条灵根。');
         return;
       }
-      pendingAction = session.severed.has(element)
+      pendingAction = context.session.severed.has(element)
         ? { kind: 'restore', element }
         : { kind: 'sever', element };
-      renderHeavenGateModal(player, session, options);
+      renderHeavenGateModal(context.player, context.session, context.options);
     });
   }
   if (shouldAnimate && rootsKey) {

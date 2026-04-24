@@ -26,18 +26,21 @@ function buildAttrDetailBonuses(player) {
         });
     }
     for (const technique of player.techniques?.techniques ?? []) {
-        const techniqueAttrs = (0, shared_1.calcTechniqueFinalAttrBonus)([toTechniqueState(technique)]);
-        if (!hasNonZeroAttributes(techniqueAttrs)) {
+        const techniqueState = toTechniqueState(technique);
+        const techniqueAttrs = (0, shared_1.calcTechniqueFinalAttrBonus)([techniqueState]);
+        const qiProjection = (0, shared_1.calcTechniqueQiProjectionModifiers)(techniqueState.level, techniqueState.layers);
+        if (!hasNonZeroAttributes(techniqueAttrs) && qiProjection.length === 0) {
             continue;
         }
         bonuses.push({
             source: `technique:${technique.techId}`,
-            label: technique.techId,
-            attrs: clonePartialAttributes(techniqueAttrs),
+            label: technique.name ?? technique.techId,
+            attrs: clonePartialAttributes(techniqueAttrs) ?? {},
+            qiProjection: cloneQiProjectionModifiers(qiProjection),
         });
     }
     for (const entry of player.equipment?.slots ?? []) {
-        const item = entry.item;
+        const item = entry.item ? (0, shared_1.applyEnhancementToItemStack)(entry.item) : null;
         if (!item || (!hasNonZeroAttributes(item.equipAttrs) && !hasNonZeroPartialNumericStats(resolveItemNumericStats(item)))) {
             continue;
         }
@@ -108,7 +111,7 @@ function buildAttrDetailNumericStatBreakdowns(player) {
         }
     }
     for (const entry of player.equipment?.slots ?? []) {
-        const item = entry.item;
+        const item = entry.item ? (0, shared_1.applyEnhancementToItemStack)(entry.item) : null;
         if (!item) {
             continue;
         }
@@ -424,6 +427,7 @@ function toTechniqueState(entry) {
             level: layer.level,
             expToNext: layer.expToNext,
             attrs: layer.attrs ? { ...layer.attrs } : undefined,
+            qiProjection: cloneQiProjectionModifiers(layer.qiProjection),
         })),
         attrCurves: entry.attrCurves ? { ...entry.attrCurves } : undefined,
     };

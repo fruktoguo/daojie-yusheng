@@ -846,9 +846,7 @@ export class MarketPanel {
       ? `<span class="market-item-cell-owned">${formatDisplayCountBadge(ownedCount)}</span>`
       : '';
     const referenceEntry = this.getGroupReferenceEntry(entry);
-    const itemName = typeof entry.item.name === 'string' && entry.item.name.trim()
-      ? entry.item.name
-      : entry.item.itemId;
+    const itemName = this.getMarketDisplayName(referenceEntry?.item ?? entry.item);
     const statusClass = status ? ` market-item-cell--status market-item-cell--status-${status.kind}` : '';
     const statusRibbon = status
       ? `<span class="market-item-cell-ribbon" aria-hidden="true"><span>${escapeHtml(status.label)}</span></span>`
@@ -939,14 +937,15 @@ export class MarketPanel {
     if (!group) {
       return '<div class="empty-hint">请选择左侧物品。</div>';
     }
-    const itemName = typeof group.item.name === 'string' && group.item.name.trim()
-      ? group.item.name
-      : group.item.itemId;
+    const referenceEntry = this.getGroupReferenceEntry(group);
+    const titleClass = `market-item-title${referenceEntry ? ' market-item-title--interactive' : ''}`;
+    const titleTooltipAttr = referenceEntry ? ` data-market-item-tooltip="${escapeHtmlAttr(referenceEntry.itemKey)}"` : '';
+    const itemName = this.getMarketDisplayName(referenceEntry?.item ?? group.item);
     if (browsingEnhancementVariants) {
       return `
         <div class="market-book-header">
           <div>
-            <div class="market-item-title">${escapeHtml(itemName)}</div>
+            <div class="${titleClass}"${titleTooltipAttr}>${escapeHtml(itemName)}</div>
             <div class="market-book-subtitle">该装备支持强化，请先从左侧选择要交易的强化等级。</div>
           </div>
         </div>
@@ -956,7 +955,7 @@ export class MarketPanel {
     return `
       <div class="market-book-header">
         <div>
-          <div class="market-item-title">${escapeHtml(itemName)}</div>
+          <div class="${titleClass}"${titleTooltipAttr}>${escapeHtml(itemName)}</div>
           <div class="market-book-subtitle">${escapeHtml(getItemTypeLabel(group.item.type))} · 点击左侧物品查看具体盘面</div>
         </div>
       </div>
@@ -1089,7 +1088,7 @@ export class MarketPanel {
     return `
       <div class="market-order-card ui-surface-card ui-surface-card--compact">
         <div class="market-order-card-head">
-          <span class="market-order-name">${escapeHtml(order.item.name)}</span>
+          <span class="market-order-name">${escapeHtml(this.getMarketDisplayName(order.item))}</span>
           <span class="market-order-side ${order.side === 'buy' ? 'buy' : 'sell'}">${order.side === 'buy' ? '求购' : '挂售'}</span>
         </div>
         <div class="market-order-meta">剩余 ${formatDisplayCountBadge(order.remainingQuantity)} · 单价 ${this.formatMarketUnitPrice(order.unitPrice)} ${escapeHtml(currencyName)}</div>
@@ -1109,7 +1108,7 @@ export class MarketPanel {
       <div class="market-storage-list">
         ${storage.items.map((item) => `
           <div class="market-storage-item ui-surface-card ui-surface-card--compact">
-            <span>${escapeHtml(item.name)}</span>
+            <span>${escapeHtml(this.getMarketDisplayName(item))}</span>
             <span>${formatDisplayCountBadge(item.count)}</span>
           </div>
         `).join('')}
@@ -1132,9 +1131,7 @@ export class MarketPanel {
 
   /** 渲染强化等级二级列表顶部的返回工具条。 */
   private renderVariantToolbar(group: MarketListingGroupView, totalVariants: number): string {
-    const itemName = typeof group.item.name === 'string' && group.item.name.trim()
-      ? group.item.name
-      : group.item.itemId;
+    const itemName = this.getMarketDisplayName(group.item);
     return `
       <div class="market-list-toolbar ui-action-row">
         <div class="market-list-toolbar-meta">${escapeHtml(itemName)} · 共 ${formatDisplayInteger(totalVariants)} 个强化等级</div>
@@ -2273,7 +2270,8 @@ export class MarketPanel {
       ? item.name
       : item.itemId;
     const enhanceLevel = this.getMarketEnhanceLevel(item);
-    return enhanceLevel > 0 ? `+${formatDisplayInteger(enhanceLevel)} ${baseName}` : baseName;
+    const cleanName = baseName.replace(/^\+\d+\s+/, '');
+    return enhanceLevel > 0 ? `+${formatDisplayInteger(enhanceLevel)} ${cleanName}` : cleanName;
   }
 
   /** 读取本地盘面里 +0 同款装备的最低卖价。 */
@@ -2289,12 +2287,17 @@ export class MarketPanel {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
     const tooltip = buildItemTooltipPayload(item);
+    const title = this.getMarketDisplayName(item);
     const estimate = this.buildEnhancementEstimate(item);
     if (!estimate) {
-      return tooltip;
+      return {
+        ...tooltip,
+        title,
+      };
     }
     return {
       ...tooltip,
+      title,
       lines: [
         ...tooltip.lines,
         renderPlainTooltipLine('强化估算', estimate.costLine),
@@ -2313,11 +2316,27 @@ export class MarketPanel {
       return null;
     }
     if (key === 'selected') {
-      const selected = this.getSelectedListedItem(this.marketUpdate);
+      const selected = this.getSelectedListedItem(this.marketUpdate)
+        ?? (this.selectedItemKey ? this.resolveMarketTooltipEntry(this.selectedItemKey) : null);
       return selected ? this.buildMarketItemTooltipPayload(selected.item) : null;
     }
-    const listed = this.getKnownListedItems(this.marketUpdate).find((entry) => entry.itemKey === key) ?? null;
+    const listed = this.resolveMarketTooltipEntry(key);
     return listed ? this.buildMarketItemTooltipPayload(listed.item) : null;
+  }
+
+  /** 按 key 读取 tooltip 用的市场条目，包含本地补出的强化档位。 */
+  private resolveMarketTooltipEntry(itemKey: string): MarketListedItemView | null {
+    const listed = this.getKnownListedItems(this.marketUpdate).find((entry) => entry.itemKey === itemKey) ?? null;
+    if (listed) {
+      return listed;
+    }
+    for (const group of this.getVisibleListingGroups(this.marketUpdate)) {
+      const variant = group.variants.find((entry) => entry.itemKey === itemKey) ?? null;
+      if (variant) {
+        return variant;
+      }
+    }
+    return null;
   }
 
   /** 读取当前已经缓存到面板内的列表项。 */

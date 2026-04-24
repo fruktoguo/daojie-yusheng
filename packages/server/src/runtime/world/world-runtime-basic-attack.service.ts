@@ -107,7 +107,7 @@ let WorldRuntimeBasicAttackService = class WorldRuntimeBasicAttackService {
             return this.dispatchBasicAttackToPlayer(attacker, targetPlayerId, damageKind, baseDamage, currentTick, deps);
         }
         if (targetX !== null && targetY !== null) {
-            return this.dispatchBasicAttackToTile(attacker, targetX, targetY, damageKind, baseDamage, deps);
+            return this.dispatchBasicAttackToTile(attacker, targetX, targetY, damageKind, baseDamage, deps, currentTick);
         }
         throw new common_1.BadRequestException('target is required');
     }    
@@ -198,7 +198,7 @@ let WorldRuntimeBasicAttackService = class WorldRuntimeBasicAttackService {
  * @returns 无返回值，直接更新BasicAttackToTile相关状态。
  */
 
-    dispatchBasicAttackToTile(attacker, targetX, targetY, damageKind, baseDamage, deps) {
+    dispatchBasicAttackToTile(attacker, targetX, targetY, damageKind, baseDamage, deps, currentTick = undefined) {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
         const instance = deps.getInstanceRuntimeOrThrow(attacker.instanceId);
@@ -206,6 +206,30 @@ let WorldRuntimeBasicAttackService = class WorldRuntimeBasicAttackService {
         ensureHostileRelation((0, player_combat_config_helpers_1.resolveCombatRelation)(attacker, { kind: 'terrain' }));
         if (chebyshevDistance(attacker.x, attacker.y, targetX, targetY) > 1) {
             throw new common_1.BadRequestException('目标超出攻击距离');
+        }
+        const container = typeof instance.getContainerAtTile === 'function' ? instance.getContainerAtTile(targetX, targetY) : null;
+        const herbResult = deps.worldRuntimeLootContainerService?.damageHerbContainerAtTile?.(
+            attacker.instanceId,
+            container,
+            currentTick ?? deps.tick ?? 0,
+        ) ?? null;
+        if (herbResult) {
+            const effectColor = (0, shared_1.getDamageTrailColor)(damageKind);
+            deps.pushActionLabelEffect(attacker.instanceId, attacker.x, attacker.y, '攻击');
+            deps.pushAttackEffect(attacker.instanceId, attacker.x, attacker.y, targetX, targetY, effectColor);
+            if (herbResult.appliedDamage > 0) {
+                deps.pushDamageFloatEffect(attacker.instanceId, targetX, targetY, herbResult.appliedDamage, effectColor);
+                const countdown = herbResult.remainingCount <= 0 && herbResult.respawnRemainingTicks !== undefined
+                    ? `，药性回生还需 ${Math.max(1, herbResult.respawnRemainingTicks)} 息`
+                    : '';
+                deps.queuePlayerNotice(attacker.playerId, `你攻击 ${herbResult.title}，打落 1 朵，剩余 ${Math.max(0, herbResult.remainingCount)} 朵${countdown}`, 'combat');
+                return;
+            }
+            const countdown = herbResult.respawnRemainingTicks !== undefined
+                ? `还需 ${Math.max(1, herbResult.respawnRemainingTicks)} 息。`
+                : '暂时无法再生。';
+            deps.queuePlayerNotice(attacker.playerId, `${herbResult.title} 当前没有可打落的草药，${countdown}`, 'combat');
+            return;
         }
         const result = instance.damageTile(targetX, targetY, baseDamage);
         if (!result) {

@@ -49,6 +49,7 @@ import {
   type WorldPortalPatchView,
 } from '@mud/shared';
 import { cloneAutoUsePillList, cloneCombatTargetingRules, isSameAutoUsePillList, isSameCombatTargetingRules } from '../runtime/player/player-combat-config.helpers';
+import { cloneVisibleBuffProjection, projectVisiblePlayerBuffs } from './player-buff-projection.helpers';
 const ATTR_DELTA_PATCH_THRESHOLD = 10;
 const ATTRIBUTE_KEYS = ['constitution', 'spirit', 'perception', 'talent', 'comprehension', 'luck'] as const;
 const NUMERIC_STAT_KEYS = [
@@ -166,6 +167,7 @@ interface ProjectorContainerLike {
   name: string;
   char: string;
   color: string;
+  respawnRemainingTicks?: number;
 }
 interface ProjectorViewLike {
   playerId: string;
@@ -230,6 +232,7 @@ interface ProjectedContainerEntry {
   n: string;
   ch: string;
   c: string;
+  rr?: number;
 }
 interface ProjectedSelfState {
   instanceId: string;
@@ -420,6 +423,9 @@ function buildMapEnter(view: ProjectorViewLike): MapEnterView {
         y: view.self.y,
     };
 }
+function resolvePortalRenderChar(portal: ProjectorPortalLike): string {
+    return portal.kind === 'stairs' ? '' : '阵';
+}
 function buildFullWorldDelta(
     view: ProjectorViewLike,
     resolveMapName?: ((mapId: string | null | undefined) => string | null) | null,
@@ -461,7 +467,7 @@ function buildFullWorldDelta(
     const portals: WorldPortalPatchView[] = Array.from(view.localPortals, (entry) => ({
         id: buildPortalId(entry.x, entry.y),
         n: resolvePortalDisplayName(entry, resolveMapName),
-        ch: entry.kind === 'stairs' ? '梯' : '阵',
+        ch: resolvePortalRenderChar(entry),
         x: entry.x,
         y: entry.y,
         tm: entry.targetMapId,
@@ -480,6 +486,7 @@ function buildFullWorldDelta(
         n: entry.name,
         ch: entry.char,
         c: entry.color,
+        rr: normalizeOptionalNonNegativeInteger(entry.respawnRemainingTicks),
     }));
     return {
         t: view.tick,
@@ -591,7 +598,7 @@ function captureWorldState(
     }]);
     const portals: Array<[string, ProjectedPortalEntry]> = view.localPortals.map((entry): [string, ProjectedPortalEntry] => [buildPortalId(entry.x, entry.y), {
         n: resolvePortalDisplayName(entry, resolveMapName),
-        ch: entry.kind === 'stairs' ? '梯' : '阵',
+        ch: resolvePortalRenderChar(entry),
         x: entry.x,
         y: entry.y,
         tm: entry.targetMapId,
@@ -608,6 +615,7 @@ function captureWorldState(
         n: entry.name,
         ch: entry.char,
         c: entry.color,
+        rr: normalizeOptionalNonNegativeInteger(entry.respawnRemainingTicks),
     }]);
     players.set(view.playerId, {
         n: view.self.displayName ?? view.self.name,
@@ -727,7 +735,7 @@ function captureActionPanelSlice(player: ProjectorPlayerLike): ProjectedActionPa
 function captureBuffPanelSlice(player: ProjectorPlayerLike): ProjectedPanelState['buff'] {
     return {
         revision: player.buffs.revision,
-        buffs: player.buffs.buffs.map((entry) => cloneVisibleBuff(entry)),
+        buffs: projectVisiblePlayerBuffs(player),
     };
 }
 function combineProjectorState(worldState: WorldStateSlice, playerState: PlayerStateSlice): ProjectorState {
@@ -800,7 +808,7 @@ function buildFullBuffDelta(player: ProjectorPlayerLike): S2C_PanelDelta['buff']
     return {
         r: player.buffs.revision,
         full: 1,
-        buffs: player.buffs.buffs.map((entry) => cloneVisibleBuff(entry)),
+        buffs: projectVisiblePlayerBuffs(player),
     };
 }
 function buildAttrDelta(previousAttr: ProjectedAttrPanelState, player: ProjectorPlayerLike): ProjectedAttrDeltaView {
@@ -986,9 +994,10 @@ function buildPanelDelta(previous: PlayerStateSlice, player: ProjectorPlayerLike
             senseQiActive: player.combat.senseQiActive,
         };
     }
-    if (previousBuff.revision !== player.buffs.revision) {
-        const buffPatch = diffBuffEntries(previousBuff.buffs, player.buffs.buffs);
-        const removedBuffIds = diffRemovedBuffIds(previousBuff.buffs, player.buffs.buffs);
+    const currentBuffs = projectVisiblePlayerBuffs(player);
+    if (previousBuff.revision !== player.buffs.revision || !isSameBuffList(previousBuff.buffs, currentBuffs)) {
+        const buffPatch = diffBuffEntries(previousBuff.buffs, currentBuffs);
+        const removedBuffIds = diffRemovedBuffIds(previousBuff.buffs, currentBuffs);
         delta.buff = {
             r: player.buffs.revision,
             buffs: buffPatch,
@@ -1093,6 +1102,13 @@ function diffNpcEntries(previous: Map<string, ProjectedNpcEntry>, current: Map<s
         }
     }
     return result;
+}
+
+function normalizeOptionalNonNegativeInteger(value: unknown): number | undefined {
+    if (!Number.isFinite(Number(value))) {
+        return undefined;
+    }
+    return Math.max(0, Math.trunc(Number(value)));
 }
 function isSameNpcQuestMarker(left: NpcQuestMarker | null | undefined, right: NpcQuestMarker | null | undefined) {
     return left?.line === right?.line && left?.state === right?.state;
@@ -1246,6 +1262,7 @@ function diffContainerEntries(previous: Map<string, ProjectedContainerEntry>, cu
                 n: entry.n,
                 ch: entry.ch,
                 c: entry.c,
+                rr: entry.rr,
             });
             continue;
         }
@@ -1269,6 +1286,10 @@ function diffContainerEntries(previous: Map<string, ProjectedContainerEntry>, cu
         }
         if (prev.c !== entry.c) {
             delta.c = entry.c;
+            changed = true;
+        }
+        if (prev.rr !== entry.rr) {
+            delta.rr = entry.rr ?? null;
             changed = true;
         }
         if (changed) {
@@ -1348,6 +1369,18 @@ function diffRemovedBuffIds(previous: VisibleBuffState[], current: VisibleBuffSt
     return previous
         .map((entry) => entry.buffId)
         .filter((buffId) => !currentIds.has(buffId));
+}
+
+function isSameBuffList(left: VisibleBuffState[], right: VisibleBuffState[]): boolean {
+    if (left.length !== right.length) {
+        return false;
+    }
+    for (let index = 0; index < left.length; index += 1) {
+        if (!isSameBuffEntry(left[index], right[index])) {
+            return false;
+        }
+    }
+    return true;
 }
 function diffAttributes(previous: Attributes, current: Attributes): ProjectedPatchResult<ProjectedAttrPatch> {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
@@ -1435,6 +1468,7 @@ function isSameItem(left: SyncedItemStack | null | undefined, right: SyncedItemS
         && left.groundLabel === right.groundLabel
         && left.grade === right.grade
         && left.level === right.level
+        && left.enhanceLevel === right.enhanceLevel
         && left.equipSlot === right.equipSlot
         && isSameAttributes(left.equipAttrs, right.equipAttrs)
         && isSamePartialNumericStats(left.equipStats, right.equipStats)
@@ -1449,6 +1483,8 @@ function isSameItem(left: SyncedItemStack | null | undefined, right: SyncedItemS
         && isSameStringList(left.mapUnlockIds, right.mapUnlockIds)
         && left.tileAuraGainAmount === right.tileAuraGainAmount
         && isSameTileResourceGainList(left.tileResourceGains, right.tileResourceGains)
+        && left.alchemySuccessRate === right.alchemySuccessRate
+        && left.alchemySpeedRate === right.alchemySpeedRate
         && left.enhancementSuccessRate === right.enhancementSuccessRate
         && left.enhancementSpeedRate === right.enhancementSpeedRate
         && left.allowBatchUse === right.allowBatchUse;
@@ -1644,6 +1680,7 @@ function cloneTechniqueLayerDef(source: TechniqueLayerDef): TechniqueLayerDef {
         level: source.level,
         expToNext: source.expToNext,
         attrs: source.attrs ? clonePartialAttributes(source.attrs) : undefined,
+        qiProjection: source.qiProjection?.map((entry) => cloneQiProjectionModifier(entry)),
     };
 }
 function cloneTechniqueAttrCurves(source: TechniqueAttrCurves): TechniqueAttrCurves {
@@ -2458,7 +2495,8 @@ function isSameTechniqueLayerDef(left: TechniqueLayerDef | null | undefined, rig
     }
     return left.level === right.level
         && left.expToNext === right.expToNext
-        && isSameAttributes(left.attrs, right.attrs);
+        && isSameAttributes(left.attrs, right.attrs)
+        && isSameQiProjectionModifierList(left.qiProjection, right.qiProjection);
 }
 function isSameTechniqueAttrCurveSegmentList(
     left: TechniqueAttrCurveSegment[] | null | undefined,
@@ -2585,12 +2623,7 @@ function cloneQiProjectionModifier(source: QiProjectionModifier): QiProjectionMo
     };
 }
 function cloneVisibleBuff(source: VisibleBuffState): VisibleBuffState {
-    return {
-        ...source,
-        attrs: source.attrs ? { ...source.attrs } : undefined,
-        stats: source.stats ? { ...source.stats } : undefined,
-        qiProjection: source.qiProjection ? source.qiProjection.map((entry) => cloneQiProjectionModifier(entry)) : undefined,
-    };
+    return cloneVisibleBuffProjection(source);
 }
 function buildPortalId(x: number, y: number) {
     return `${x}:${y}`;

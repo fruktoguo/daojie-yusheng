@@ -11,6 +11,7 @@ import {
   AttrKey,
   Attributes,
   BASE_MOVE_POINTS_PER_TICK,
+  DEFAULT_QI_EFFICIENCY_BP,
   ELEMENT_KEYS,
   HeavenGateRootValues,
   NumericStatBreakdownMap,
@@ -19,9 +20,14 @@ import {
   S2C_AttrDetail,
   PlayerState,
   PlayerSpecialStats,
+  type QiElementKey,
+  type QiFamilyKey,
+  type QiFormKey,
+  type QiProjectionModifier,
   ratioValue,
   S2C_AttrUpdate,
   TileType,
+  applyQiEfficiencyBp,
   getTileTraversalCost,
 } from '@mud/shared';
 import { ATTR_KEY_LABELS, ELEMENT_KEY_LABELS } from '../../domain-labels';
@@ -53,6 +59,23 @@ type AttrPanelCallbacks = {
   onRequestDetail?: () => void;
 };
 
+type DisplayQiDescriptor = {
+  family: QiFamilyKey;
+  form: QiFormKey;
+  element: QiElementKey;
+};
+
+type DisplayQiProjection = {
+  visibility: 'hidden' | 'observable' | 'absorbable';
+  efficiencyBp: number;
+  sources: string[];
+};
+
+const QI_VISIBILITY_RANK: Record<DisplayQiProjection['visibility'], number> = {
+  hidden: 0,
+  observable: 1,
+  absorbable: 2,
+};
 
 /** formatRateBp：格式化速率Bp。 */
 function formatRateBp(value: number): string {
@@ -78,6 +101,64 @@ function getCraftProgressRatio(exp: number, expToNext: number): number {
 /** formatAuraAbsorptionRate：格式化灵气Absorption速率。 */
 function formatAuraAbsorptionRate(value: number): string {
   return formatDisplayPercent(value, { maximumFractionDigits: 2 });
+}
+
+function formatQiEfficiencyBp(value: number): string {
+  return formatAuraAbsorptionRate(value / 100);
+}
+
+function resolveQiProjectionDisplay(
+  descriptor: DisplayQiDescriptor,
+  bonuses: AttrBonus[],
+  defaultVisibility: DisplayQiProjection['visibility'],
+): DisplayQiProjection {
+  let visibility = defaultVisibility;
+  let efficiencyBp = defaultVisibility === 'hidden' ? 0 : DEFAULT_QI_EFFICIENCY_BP;
+  const sources = new Set<string>();
+  for (const bonus of bonuses) {
+    for (const modifier of bonus.qiProjection ?? []) {
+      if (!matchesQiProjectionModifier(descriptor, modifier)) {
+        continue;
+      }
+      if (modifier.visibility && QI_VISIBILITY_RANK[modifier.visibility] > QI_VISIBILITY_RANK[visibility]) {
+        visibility = modifier.visibility;
+      }
+      if (modifier.efficiencyBpMultiplier !== undefined) {
+        efficiencyBp = defaultVisibility === 'hidden'
+          ? Math.max(0, efficiencyBp + modifier.efficiencyBpMultiplier - DEFAULT_QI_EFFICIENCY_BP)
+          : applyQiEfficiencyBp(efficiencyBp, modifier.efficiencyBpMultiplier);
+      }
+      sources.add(bonus.label ?? bonus.source);
+    }
+  }
+  return { visibility, efficiencyBp, sources: [...sources] };
+}
+
+function matchesQiProjectionModifier(descriptor: DisplayQiDescriptor, modifier: QiProjectionModifier): boolean {
+  const selector = modifier.selector;
+  if (!selector) {
+    return true;
+  }
+  if (selector.families && selector.families.length > 0 && !selector.families.includes(descriptor.family)) {
+    return false;
+  }
+  if (selector.forms && selector.forms.length > 0 && !selector.forms.includes(descriptor.form)) {
+    return false;
+  }
+  if (selector.elements && selector.elements.length > 0 && !selector.elements.includes(descriptor.element)) {
+    return false;
+  }
+  if (selector.resourceKeys && selector.resourceKeys.length > 0) {
+    const resourceKey = `${descriptor.family}.${descriptor.form}.${descriptor.element}`;
+    return selector.resourceKeys.includes(resourceKey);
+  }
+  return true;
+}
+
+function buildQiProjectionSourceLines(projection: DisplayQiProjection): string[] {
+  return projection.sources.length > 0
+    ? [`来源：${projection.sources.join('、')}`]
+    : [];
 }
 
 /** formatCritDamageBonus：格式化Crit Damage Bonus。 */
@@ -1011,15 +1092,43 @@ export class AttrPanel {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
     const roots = this.resolveDisplaySpiritualRoots(stats, bonuses);
+    const neutralAuraProjection = resolveQiProjectionDisplay(
+      { family: 'aura', form: 'refined', element: 'neutral' },
+      bonuses,
+      'absorbable',
+    );
+    const neutralShaProjection = resolveQiProjectionDisplay(
+      { family: 'sha', form: 'refined', element: 'neutral' },
+      bonuses,
+      'hidden',
+    );
     const cards: AttrNumericCardSnapshot[] = [{
       key: 'neutral-aura',
       label: '无属性灵气',
-      value: formatAuraAbsorptionRate(100),
+      value: formatQiEfficiencyBp(neutralAuraProjection.efficiencyBp),
       tooltipTitle: '无属性灵气',
       tooltipDetail: [
-        '对无属性灵气吸收效率为 100%。',
+        `对无属性灵气吸收效率为 ${formatQiEfficiencyBp(neutralAuraProjection.efficiencyBp)}。`,
+        ...buildQiProjectionSourceLines(neutralAuraProjection),
       ].join('\n'),
     }];
+
+    if (neutralShaProjection.visibility !== 'hidden') {
+      cards.push({
+        key: 'sha',
+        label: '煞气',
+        value: neutralShaProjection.visibility === 'absorbable'
+          ? formatQiEfficiencyBp(neutralShaProjection.efficiencyBp)
+          : '可感知',
+        tooltipTitle: '煞气',
+        tooltipDetail: [
+          neutralShaProjection.visibility === 'absorbable'
+            ? `对煞气吸收效率为 ${formatQiEfficiencyBp(neutralShaProjection.efficiencyBp)}。`
+            : '可感知煞气。',
+          ...buildQiProjectionSourceLines(neutralShaProjection),
+        ].join('\n'),
+      });
+    }
 
     for (const key of ELEMENT_KEYS) {
       const rootValue = roots?.[key] ?? 0;

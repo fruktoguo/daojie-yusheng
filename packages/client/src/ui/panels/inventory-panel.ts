@@ -791,6 +791,7 @@ export class InventoryPanel {
     }
 
     const itemMeta = getItemDisplayMeta(item);
+    const displayName = itemMeta.displayItem.name;
     const primaryAction = this.getPrimaryAction(item);
     let primaryButton = actionsNode.querySelector<HTMLButtonElement>('[data-item-primary="true"]');
     const dropButton = actionsNode.querySelector<HTMLButtonElement>('[data-inline-drop]');
@@ -850,9 +851,9 @@ export class InventoryPanel {
 
     typeNode.textContent = getItemAffixTypeLabel(item, getItemTypeLabel(item.type));
     countNode.textContent = formatDisplayCountBadge(item.count);
-    nameNode.textContent = item.name;
-    nameNode.title = item.name;
-    nameNode.className = `inventory-cell-name ${this.getNameClass(item.name)}`.trim();
+    nameNode.textContent = displayName;
+    nameNode.title = displayName;
+    nameNode.className = `inventory-cell-name ${this.getNameClass(displayName)}`.trim();
     dropButton.dataset.inlineDrop = String(slotIndex);
 
     cooldownNode.hidden = cooldownState === null;
@@ -893,6 +894,7 @@ export class InventoryPanel {
     }
 
     const previewItem = resolvePreviewItem(item);
+    const displayItem = getItemDisplayMeta(item).displayItem;
     if (!hasLoadedItemSourceCatalog()) {
       const pendingItemKey = this.selectedItemKey;
       void preloadItemSourceCatalog().then(() => {
@@ -923,7 +925,7 @@ export class InventoryPanel {
 
     detailModalHost.open({
       ownerId: InventoryPanel.MODAL_OWNER,
-      title: item.name,
+      title: displayItem.name,
       subtitle: `${getItemTypeLabel(item.type)} · 数量 ${formatDisplayCountBadge(item.count)}`,
       renderBody: (body) => {
         this.renderItemDetailBody(body, item, sourceListHtml, sourceEntryCount, canToggleSourceList, primaryAction, canBatchUse, canBatchDropOrDestroy, bonusLines, effectLines, statusLabel);
@@ -977,12 +979,13 @@ export class InventoryPanel {
     const halfCount = Math.max(1, Math.ceil(maxCount / 2));
     const selectedCount = Math.max(1, Math.min(maxCount, dialog.defaultCount));
     const specialUseSummary = dialog.kind === 'use' ? this.getSpecialUseConfirmSummary(item) : null;
+    const displayName = getItemDisplayMeta(item).displayItem.name;
 
     if (dialog.confirmDestroy) {
       detailModalHost.open({
         ownerId: InventoryPanel.MODAL_OWNER,
         title: '确认摧毁',
-        subtitle: `${item.name} · 数量 ${formatDisplayCountBadge(selectedCount)}`,
+        subtitle: `${displayName} · 数量 ${formatDisplayCountBadge(selectedCount)}`,
         hint: '点击空白处取消',
         renderBody: (body) => {
           this.renderDestroyConfirmBody(body);
@@ -1014,7 +1017,7 @@ export class InventoryPanel {
       detailModalHost.open({
         ownerId: InventoryPanel.MODAL_OWNER,
         title: specialUseSummary.title,
-        subtitle: `${item.name} · 数量 ${formatDisplayCountBadge(1)}`,
+        subtitle: `${displayName} · 数量 ${formatDisplayCountBadge(1)}`,
         hint: '点击空白处取消',
         renderBody: (body) => {
           this.renderSpecialUseConfirmBody(body, specialUseSummary);
@@ -1042,7 +1045,7 @@ export class InventoryPanel {
     detailModalHost.open({
       ownerId: InventoryPanel.MODAL_OWNER,
       title: labels.title,
-      subtitle: `${item.name} · 当前最多 ${formatDisplayInteger(maxCount)} 个`,
+      subtitle: `${displayName} · 当前最多 ${formatDisplayInteger(maxCount)} 个`,
       hint: '点击空白处取消',
       renderBody: (body) => {
         this.renderActionDialogBody(body, labels, selectedCount, halfCount, maxCount);

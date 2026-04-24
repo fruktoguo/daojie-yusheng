@@ -40,6 +40,9 @@ function createService(player, log = []) {
 
         updateCombatSettings(playerId, patch, tick) {
             log.push(['updateCombatSettings', playerId, patch, tick]);
+            if (player?.combat && patch.cultivationActive !== undefined) {
+                player.combat.cultivationActive = patch.cultivationActive;
+            }
         },        
         /**
  * cultivateTechnique：执行cultivate功法相关逻辑。
@@ -423,8 +426,64 @@ function testCultivationToggle() {
         ['getPlayerLocationOrThrow', 'player:1'],
         ['resolveCurrentTickForPlayerId', 'player:1'],
         ['getPlayerOrThrow', 'player:1'],
-        ['cultivateTechnique', 'player:1', 'technique.alpha'],
+        ['updateCombatSettings', 'player:1', { cultivationActive: true }, 77],
         ['queuePlayerNotice', 'player:1', '已恢复当前修炼', 'info'],
+        ['getPlayerViewOrThrow', 'player:1'],
+    ]);
+}
+/**
+ * testCultivationToggleWithoutMainTechnique：执行无主修修炼开关测试。
+ * @returns 无返回值，直接更新测试断言。
+ */
+
+
+function testCultivationToggleWithoutMainTechnique() {
+    const log = [];
+    const service = createService({
+        combat: {
+            cultivationActive: false,
+        },
+        techniques: {
+            cultivatingTechId: null,
+        },
+    }, log);
+    const deps = createDeps(log);
+    const result = service.executeAction('player:1', 'cultivation:toggle', undefined, deps);
+    assertQueuedViewTick(result, 2);
+    assert.deepEqual(log, [
+        ['getPlayerLocationOrThrow', 'player:1'],
+        ['resolveCurrentTickForPlayerId', 'player:1'],
+        ['getPlayerOrThrow', 'player:1'],
+        ['updateCombatSettings', 'player:1', { cultivationActive: true }, 77],
+        ['queuePlayerNotice', 'player:1', '已恢复当前修炼', 'info'],
+        ['getPlayerViewOrThrow', 'player:1'],
+    ]);
+}
+/**
+ * testStopCultivationKeepsMainTechnique：执行停止修炼但保留主修测试。
+ * @returns 无返回值，直接更新测试断言。
+ */
+
+
+function testStopCultivationKeepsMainTechnique() {
+    const log = [];
+    const service = createService({
+        combat: {
+            cultivationActive: true,
+        },
+        techniques: {
+            cultivatingTechId: 'technique.alpha',
+        },
+    }, log);
+    const deps = createDeps(log);
+    const result = service.executeAction('player:1', 'cultivation:toggle', undefined, deps);
+    assertQueuedViewTick(result, 2);
+    assert.deepEqual(log, [
+        ['getPlayerLocationOrThrow', 'player:1'],
+        ['resolveCurrentTickForPlayerId', 'player:1'],
+        ['getPlayerOrThrow', 'player:1'],
+        ['updateCombatSettings', 'player:1', { cultivationActive: false }, 77],
+        ['queuePlayerNotice', 'player:1', '已停止当前修炼', 'info'],
         ['getPlayerViewOrThrow', 'player:1'],
     ]);
 }
@@ -564,6 +623,8 @@ async function run() {
     testWorldMigrationRejectsPeacefulWhenShaBuffActive();
     testWorldMigrationRejectsBacklashWhenReturningPeaceful();
     testCultivationToggle();
+    testCultivationToggleWithoutMainTechnique();
+    testStopCultivationKeepsMainTechnique();
     testNpcShopView();
     testNpcQuestActionDelegates();
     testLegacyNpcActionDelegates();

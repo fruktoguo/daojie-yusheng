@@ -10,6 +10,7 @@ import {
   getQiResourceDisplayLabel,
   getTileTypeFromMapChar,
   isTileTypeWalkable,
+  parseQiResourceKey,
 } from '@mud/shared';
 
 import { getTileIndex, MapTemplateRepository } from '../runtime/map/map-template.repository';
@@ -17,9 +18,15 @@ import { RuntimeMapConfigService } from '../runtime/map/runtime-map-config.servi
 import { PlayerRuntimeService } from '../runtime/player/player-runtime.service';
 import { WorldRuntimeService } from '../runtime/world/world-runtime.service';
 import { WorldSyncMinimapService } from './world-sync-minimap.service';
+import { projectVisiblePlayerBuffs } from './player-buff-projection.helpers';
+import { projectPlayerQiResourceValue, resolvePlayerQiResourceProjection } from '../runtime/world/world-runtime-qi-projection.helpers';
 
 interface WorldRuntimePort {
   getInstanceTileState(instanceId: string, x: number, y: number): any;
+  getInstanceRuntime?(instanceId: string): any;
+  worldRuntimeLootContainerService?: {
+    getHerbContainerWorldProjection?(instanceId: string, container: any, currentTick: number): any;
+  };
 }
 
 interface PlayerRuntimePort {
@@ -86,7 +93,7 @@ export class WorldSyncMapSnapshotService {
 
         const tile = visibleTileIndices.size > 0 && !visibleTileIndices.has(tileIndex)
           ? null
-          : this.buildTileSyncState(template, view.instance.instanceId, x, y);
+          : this.buildTileSyncState(template, view.instance.instanceId, x, y, player);
         line.push(tile);
         if (tile) {
           byKey.set(buildCoordKey(x, y), tile);
@@ -162,9 +169,20 @@ export class WorldSyncMapSnapshotService {
         monsterScale: getBuffPresentationScale(monster.buffs),
         hp: monster.hp,
         maxHp: monster.maxHp,
+        buffs: Array.isArray(monster.buffs) ? monster.buffs.map((buff) => ({ ...buff })) : undefined,
       });
     }
     for (const container of view.localContainers) {
+      const runtimeInstance = this.worldRuntimeService.getInstanceRuntime?.(view.instance?.instanceId) ?? null;
+      const runtimeContainer = runtimeInstance?.getContainerById?.(container.id) ?? null;
+      const projection = this.worldRuntimeService.worldRuntimeLootContainerService?.getHerbContainerWorldProjection?.(
+        view.instance.instanceId,
+        runtimeContainer,
+        runtimeInstance?.tick ?? view.tick,
+      ) ?? null;
+      const respawnRemainingTicks = projection?.remainingCount === 0 && projection.respawnRemainingTicks !== undefined
+        ? Math.max(0, Math.trunc(Number(projection.respawnRemainingTicks) || 0))
+        : undefined;
       entities.set(`container:${view.instance.templateId}:${container.id}`, {
         id: `container:${view.instance.templateId}:${container.id}`,
         x: container.x,
@@ -173,6 +191,7 @@ export class WorldSyncMapSnapshotService {
         color: container.color,
         name: container.name,
         kind: 'container',
+        respawnRemainingTicks,
       });
     }
     return entities;
@@ -209,7 +228,7 @@ export class WorldSyncMapSnapshotService {
     );
   }
 
-  buildTileSyncState(template, instanceId, x, y) {
+  buildTileSyncState(template, instanceId, x, y, player = null) {
     if (x < 0 || y < 0 || x >= template.width || y >= template.height) {
       return null;
     }
@@ -223,23 +242,19 @@ export class WorldSyncMapSnapshotService {
     const tileType = destroyed
       ? TileType.Floor
       : getTileTypeFromMapChar(template.terrainRows[y]?.[x] ?? '#');
+    const resources = Array.isArray(state.resources)
+      ? state.resources
+        .filter((entry) => entry && typeof entry.resourceKey === 'string' && Number.isFinite(entry.value) && entry.value > 0)
+        .map((entry) => buildProjectedTileResource(entry, player))
+        .filter((entry) => entry !== null)
+      : undefined;
+    const aura = buildProjectedTileAura(state.aura, resources, player);
     return {
       type: tileType,
       walkable: isTileTypeWalkable(tileType),
       blocksSight: doesTileTypeBlockSight(tileType),
-      aura: state.aura,
-      resources: Array.isArray(state.resources)
-        ? state.resources
-          .filter((entry) => entry && typeof entry.resourceKey === 'string' && Number.isFinite(entry.value) && entry.value > 0)
-          .map((entry) => ({
-            key: entry.resourceKey,
-            label: getQiResourceDisplayLabel(entry.resourceKey),
-            value: Math.max(0, Math.trunc(entry.value)),
-            effectiveValue: Math.max(0, Math.trunc(entry.value)),
-            level: getQiResourceDefaultLevel(entry.resourceKey, entry.value, DEFAULT_AURA_LEVEL_BASE_VALUE),
-            sourceValue: Number.isFinite(entry.sourceValue) ? Math.max(0, Math.trunc(entry.sourceValue)) : undefined,
-          }))
-        : undefined,
+      aura,
+      resources,
       occupiedBy: null,
       modifiedAt: state.combat?.modifiedAt ?? null,
       hp: destroyed ? undefined : state.combat?.hp,
@@ -252,6 +267,53 @@ export class WorldSyncMapSnapshotService {
           && state.combat.hp < state.combat.maxHp,
     };
   }
+}
+
+function buildProjectedTileResource(entry, player) {
+  const value = Math.max(0, Math.trunc(entry.value));
+  const projection = player ? resolvePlayerQiResourceProjection(player, entry.resourceKey) : null;
+  if (projection?.visibility === 'hidden') {
+    return null;
+  }
+  const effectiveValue = projection
+    ? (projection.visibility === 'absorbable'
+      ? projectPlayerQiResourceValue(player, entry.resourceKey, value)
+      : 0)
+    : value;
+  return {
+    key: entry.resourceKey,
+    label: getQiResourceDisplayLabel(entry.resourceKey),
+    value,
+    effectiveValue,
+    level: projection?.descriptor?.family === 'aura'
+      ? getQiResourceDefaultLevel(entry.resourceKey, effectiveValue, DEFAULT_AURA_LEVEL_BASE_VALUE)
+      : getQiResourceDefaultLevel(entry.resourceKey, value, DEFAULT_AURA_LEVEL_BASE_VALUE),
+    sourceValue: Number.isFinite(entry.sourceValue) ? Math.max(0, Math.trunc(entry.sourceValue)) : undefined,
+  };
+}
+
+function buildProjectedTileAura(rawAura, resources, player) {
+  const value = Math.max(0, Math.trunc(Number.isFinite(rawAura) ? rawAura : 0));
+  if (!player) {
+    return value;
+  }
+  if (Array.isArray(resources) && resources.length > 0) {
+    let projectedAuraValue = 0;
+    let hasAuraResource = false;
+    for (const resource of resources) {
+      const parsed = parseQiResourceKey(resource.key);
+      if (parsed?.family !== 'aura') {
+        continue;
+      }
+      hasAuraResource = true;
+      projectedAuraValue += Math.max(0, Math.trunc(resource.effectiveValue ?? resource.value ?? 0));
+    }
+    if (hasAuraResource) {
+      return getQiResourceDefaultLevel('aura.refined.neutral', projectedAuraValue, DEFAULT_AURA_LEVEL_BASE_VALUE) ?? 0;
+    }
+  }
+  const effectiveValue = projectPlayerQiResourceValue(player, 'aura.refined.neutral', value);
+  return getQiResourceDefaultLevel('aura.refined.neutral', effectiveValue, DEFAULT_AURA_LEVEL_BASE_VALUE) ?? 0;
 }
 
 function buildCoordKey(x, y) {
@@ -344,6 +406,7 @@ function buildPlayerRenderEntity(player, color) {
     monsterScale: getBuffPresentationScale(player.buffs?.buffs),
     hp: player.hp,
     maxHp: player.maxHp,
+    buffs: projectVisiblePlayerBuffs(player),
   };
 }
 

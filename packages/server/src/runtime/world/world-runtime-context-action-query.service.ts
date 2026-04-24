@@ -74,7 +74,7 @@ const STATIC_TOGGLE_CONTEXT_ACTIONS = [{
         id: 'cultivation:toggle',
         name: '当前修炼',
         type: 'toggle',
-        desc: '切换当前主修功法的修炼状态。',
+        desc: '切换角色修炼状态；没有主修时只推进境界修为。',
     }, {
         id: 'toggle:auto_switch_cultivation',
         name: '修满自动切换',

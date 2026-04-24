@@ -4,10 +4,13 @@ import {
   EQUIP_SLOTS,
   PLAYER_REALM_CONFIG,
   TechniqueRealm,
+  applyEnhancementToItemStack,
   calcTechniqueFinalAttrBonus,
+  calcTechniqueQiProjectionModifiers,
   cloneNumericRatioDivisors,
   cloneNumericStats,
 } from '@mud/shared';
+import { projectVisiblePlayerBuffs } from './player-buff-projection.helpers';
 
 /** player sync state 服务：承接 bootstrap self 状态与相关只读转换。 */
 @Injectable()
@@ -48,7 +51,7 @@ function buildPlayerSyncState(player, view, unlockedMinimapIds) {
     lifespanYears: player.lifespanYears,
     baseAttrs: cloneAttributes(player.attrs.baseAttrs),
     bonuses: buildAttrBonuses(player),
-    temporaryBuffs: player.buffs.buffs.map((entry) => cloneTemporaryBuff(entry)),
+    temporaryBuffs: projectVisiblePlayerBuffs(player),
     finalAttrs: cloneAttributes(player.attrs.finalAttrs),
     numericStats: cloneNumericStats(player.attrs.numericStats),
     ratioDivisors: cloneNumericRatioDivisors(player.attrs.ratioDivisors),
@@ -147,9 +150,25 @@ function toTechniqueState(entry) {
       level: layer.level,
       expToNext: layer.expToNext,
       attrs: layer.attrs ? { ...layer.attrs } : undefined,
+      qiProjection: cloneQiProjectionModifiers(layer.qiProjection),
     })),
     attrCurves: entry.attrCurves ? { ...entry.attrCurves } : undefined,
   };
+}
+
+function cloneQiProjectionModifiers(source) {
+  return source?.map((entry) => ({
+    ...entry,
+    selector: entry.selector
+      ? {
+        ...entry.selector,
+        resourceKeys: entry.selector.resourceKeys ? entry.selector.resourceKeys.slice() : undefined,
+        families: entry.selector.families ? entry.selector.families.slice() : undefined,
+        forms: entry.selector.forms ? entry.selector.forms.slice() : undefined,
+        elements: entry.selector.elements ? entry.selector.elements.slice() : undefined,
+      }
+      : undefined,
+  }));
 }
 
 function toActionDefinition(entry) {
@@ -187,6 +206,12 @@ function toItemStackState(entry) {
     healAmount: entry.healAmount,
     healPercent: entry.healPercent,
     qiPercent: entry.qiPercent,
+    cooldown: entry.cooldown,
+    enhanceLevel: entry.enhanceLevel,
+    alchemySuccessRate: entry.alchemySuccessRate,
+    alchemySpeedRate: entry.alchemySpeedRate,
+    enhancementSuccessRate: entry.enhancementSuccessRate,
+    enhancementSpeedRate: entry.enhancementSpeedRate,
     consumeBuffs: entry.consumeBuffs?.map((buff) => ({ ...buff })),
     tags: entry.tags?.slice(),
     mapUnlockId: entry.mapUnlockId,
@@ -221,18 +246,21 @@ function buildAttrBonuses(player) {
     });
   }
   for (const technique of player.techniques.techniques) {
-    const techniqueAttrs = calcTechniqueFinalAttrBonus([toTechniqueState(technique)]);
-    if (!hasNonZeroAttributes(techniqueAttrs)) {
+    const techniqueState = toTechniqueState(technique);
+    const techniqueAttrs = calcTechniqueFinalAttrBonus([techniqueState]);
+    const qiProjection = calcTechniqueQiProjectionModifiers(techniqueState.level, techniqueState.layers);
+    if (!hasNonZeroAttributes(techniqueAttrs) && qiProjection.length === 0) {
       continue;
     }
     bonuses.push({
       source: `technique:${technique.techId}`,
-      label: technique.techId,
-      attrs: clonePartialAttributes(techniqueAttrs),
+      label: technique.name ?? technique.techId,
+      attrs: clonePartialAttributes(techniqueAttrs) ?? {},
+      qiProjection: cloneQiProjectionModifiers(qiProjection),
     });
   }
   for (const slot of player.equipment.slots) {
-    const item = slot.item;
+    const item = slot.item ? applyEnhancementToItemStack(slot.item) : null;
     if (!item || (!hasNonZeroAttributes(item.equipAttrs) && !hasNonZeroPartialNumericStats(item.equipStats))) {
       continue;
     }

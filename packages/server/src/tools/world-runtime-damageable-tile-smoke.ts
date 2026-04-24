@@ -84,11 +84,14 @@ function createInstance(template = createTemplate()) {
   });
 }
 
-function createSnapshotService(instance: MapInstanceRuntime) {
+function createSnapshotService(instance: MapInstanceRuntime, tileStateFactory?: (x: number, y: number) => any) {
   return new WorldSyncMapSnapshotService(
     {
       getInstanceTileState(instanceId: string, x: number, y: number) {
         assert.equal(instanceId, 'instance:tile-smoke');
+        if (tileStateFactory) {
+          return tileStateFactory(x, y);
+        }
         return {
           aura: 0,
           resources: [],
@@ -165,9 +168,66 @@ function testStoneDurabilityScalesWithTerrainRealmLv() {
   assert.ok(highRealmHp > lowRealmHp);
 }
 
+function createXueshaLevelNinePlayer() {
+  const layerProjection = [{
+    selector: { families: ['aura'], elements: ['neutral'] },
+    visibility: 'absorbable',
+    efficiencyBpMultiplier: 9000,
+  }, {
+    selector: { families: ['sha'], elements: ['neutral'] },
+    visibility: 'absorbable',
+    efficiencyBpMultiplier: 12000,
+  }];
+  return {
+    combat: { senseQiActive: true },
+    techniques: {
+      techniques: [{
+        techId: 'xuesha_huanling_jue',
+        name: '血煞唤灵决',
+        level: 9,
+        exp: 0,
+        expToNext: 0,
+        realmLv: 42,
+        realm: 0,
+        grade: 'heaven',
+        category: 'secret',
+        skills: [],
+        layers: Array.from({ length: 9 }, (_, index) => ({
+          level: index + 1,
+          expToNext: 0,
+          qiProjection: layerProjection,
+        })),
+      }],
+    },
+    buffs: { buffs: [] },
+    attrBonuses: [],
+    runtimeBonuses: [],
+  };
+}
+
+function testProjectedAuraLevelUsesEffectiveResourceValue() {
+  const template = createTemplate();
+  const instance = createInstance(template);
+  const snapshotService = createSnapshotService(instance, () => ({
+    aura: 2250,
+    resources: [{
+      resourceKey: 'aura.refined.neutral',
+      value: 2250,
+    }],
+    combat: undefined,
+  }));
+  const tile = snapshotService.buildTileSyncState(template, 'instance:tile-smoke', 1, 1, createXueshaLevelNinePlayer());
+
+  assert.equal(tile?.resources?.[0]?.value, 2250);
+  assert.equal(tile?.resources?.[0]?.effectiveValue, 225);
+  assert.equal(tile?.resources?.[0]?.level, 0);
+  assert.equal(tile?.aura, 0);
+}
+
 testDamagedTileShowsHpBarPayload();
 testDestroyedTileTurnsIntoFloorProjection();
 testDestroyedTileBecomesPathReachable();
 testStoneDurabilityScalesWithTerrainRealmLv();
+testProjectedAuraLevelUsesEffectiveResourceValue();
 
 console.log(JSON.stringify({ ok: true, case: 'world-runtime-damageable-tile' }, null, 2));

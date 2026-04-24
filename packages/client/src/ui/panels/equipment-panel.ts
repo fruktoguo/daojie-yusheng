@@ -8,6 +8,7 @@ import { resolvePreviewItem } from '../../content/local-templates';
 import { preserveSelection } from '../selection-preserver';
 import { FloatingTooltip, prefersPinnedTooltipInteraction } from '../floating-tooltip';
 import { buildItemTooltipPayload, describeEquipmentBonuses, formatEquipmentConditionText } from '../equipment-tooltip';
+import { getItemDisplayMeta } from '../item-display';
 import { describePreviewBonuses } from '../stat-preview';
 import { formatDisplayInteger, formatDisplayPercent } from '../../utils/number';
 
@@ -204,7 +205,7 @@ export class EquipmentPanel {
         delete slotView.root.dataset.equipTooltipSlot;
       }
       slotView.name.textContent = getEquipSlotLabel(slot);
-      slotView.item.textContent = item?.name ?? '';
+      slotView.item.textContent = item ? getItemDisplayMeta(item).displayItem.name : '';
       slotView.item.hidden = !hasItem;
       slotView.empty.textContent = '空';
       slotView.empty.hidden = hasItem;

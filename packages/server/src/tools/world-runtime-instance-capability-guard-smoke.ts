@@ -132,6 +132,20 @@ function createBasicAttackDeps(instance, log = []) {
     handlePlayerDefeat(playerId, sourcePlayerId) {
       log.push(['handlePlayerDefeat', playerId, sourcePlayerId]);
     },
+    worldRuntimeLootContainerService: {
+      damageHerbContainerAtTile(instanceId, container, currentTick) {
+        if (!container || container.variant !== 'herb') {
+          return null;
+        }
+        log.push(['damageHerbContainerAtTile', instanceId, container.id, currentTick]);
+        return {
+          title: container.name,
+          appliedDamage: 1,
+          remainingCount: 0,
+          respawnRemainingTicks: 5,
+        };
+      },
+    },
   };
 }
 
@@ -256,6 +270,66 @@ function testPeacefulLineAllowsTileAttack() {
   assert.match(log[5][2], /原始 12 - 实际 5 - 物理/);
 }
 
+function testTileAttackHitsHerbContainerBeforeTerrainDamage() {
+  const log = [];
+  const attacker = createAttacker();
+  const instance = createInstance({
+    getContainerAtTile(x, y) {
+      log.push(['getContainerAtTile', x, y]);
+      return {
+        id: 'herb1',
+        name: '月露草',
+        x,
+        y,
+        variant: 'herb',
+      };
+    },
+    damageTile(x, y, amount) {
+      log.push(['damageTile', x, y, amount]);
+      return { appliedDamage: amount };
+    },
+  });
+  const service = createBasicAttackService(attacker, createTarget(), log);
+  const deps = createBasicAttackDeps(instance, log);
+  service.dispatchBasicAttackToTile(attacker, 11, 10, 'physical', 12, deps, 22);
+  assert.deepEqual(log[0], ['getInstanceRuntimeOrThrow', 'public:yunlai_town']);
+  assert.deepEqual(log[1], ['getContainerAtTile', 11, 10]);
+  assert.deepEqual(log[2], ['damageHerbContainerAtTile', 'public:yunlai_town', 'herb1', 22]);
+  assert.deepEqual(log[3], ['pushActionLabelEffect', 'public:yunlai_town', 10, 10, '攻击']);
+  assert.deepEqual(log[4].slice(0, 6), ['pushAttackEffect', 'public:yunlai_town', 10, 10, 11, 10]);
+  assert.deepEqual(log[5].slice(0, 5), ['pushDamageFloatEffect', 'public:yunlai_town', 11, 10, 1]);
+  assert.deepEqual(log[6].slice(0, 2), ['queuePlayerNotice', 'player:attacker']);
+  assert.match(log[6][2], /打落 1 朵/);
+  assert.match(log[6][2], /还需 5 息/);
+  assert.equal(log.some((entry) => entry[0] === 'damageTile'), false);
+}
+
+function testTileAttackFallsBackToTerrainWhenContainerIsNotHerb() {
+  const log = [];
+  const attacker = createAttacker();
+  const instance = createInstance({
+    getContainerAtTile(x, y) {
+      log.push(['getContainerAtTile', x, y]);
+      return {
+        id: 'box1',
+        name: '木箱',
+        x,
+        y,
+      };
+    },
+    damageTile(x, y, amount) {
+      log.push(['damageTile', x, y, amount]);
+      return { appliedDamage: 5 };
+    },
+  });
+  const service = createBasicAttackService(attacker, createTarget(), log);
+  const deps = createBasicAttackDeps(instance, log);
+  service.dispatchBasicAttackToTile(attacker, 11, 10, 'physical', 12, deps, 22);
+  assert.deepEqual(log[0], ['getInstanceRuntimeOrThrow', 'public:yunlai_town']);
+  assert.deepEqual(log[1], ['getContainerAtTile', 11, 10]);
+  assert.deepEqual(log[2], ['damageTile', 11, 10, 12]);
+}
+
 function testRealLineAllowsTileAttack() {
   const log = [];
   const attacker = createAttacker({ instanceId: 'real:yunlai_town' });
@@ -331,6 +405,8 @@ Promise.resolve()
   .then(() => testPeacefulLineRejectsPlayerBasicAttack())
   .then(() => testRealLineAllowsPlayerBasicAttack())
   .then(() => testPeacefulLineAllowsTileAttack())
+  .then(() => testTileAttackHitsHerbContainerBeforeTerrainDamage())
+  .then(() => testTileAttackFallsBackToTerrainWhenContainerIsNotHerb())
   .then(() => testRealLineAllowsTileAttack())
   .then(() => testPeacefulLineRejectsPlayerLockOn())
   .then(() => testRealLineAllowsTileLockOnAndDispatch())

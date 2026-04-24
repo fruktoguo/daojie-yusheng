@@ -315,6 +315,45 @@ function testAutoBattleSkillDirtyDomain(): void {
   assert.equal(writes[0].skills.length, 1);
 }
 
+function testClearMainTechniquePreservesCultivationActive(): void {
+  const playerId = 'player:clear-main-technique';
+  const service = createHydratedService(playerId);
+  const player = service.getPlayerOrThrow(playerId);
+  player.techniques.techniques.push({
+    techId: 'manual.tech',
+    level: 1,
+    exp: 0,
+    expToNext: 10,
+    realmLv: 1,
+    skillsEnabled: true,
+    skills: [],
+  } as never);
+  player.techniques.cultivatingTechId = 'manual.tech';
+  player.combat.cultivationActive = true;
+  service.markPersisted(playerId);
+
+  service.cultivateTechnique(playerId, null);
+
+  assert.equal(player.techniques.cultivatingTechId, null);
+  assert.equal(player.combat.cultivationActive, true);
+  assertDirtyDomains(service, playerId, ['technique'], ['combat_pref', 'snapshot']);
+}
+
+function testCultivationActiveWithoutMainTechnique(): void {
+  const playerId = 'player:cultivation-no-main';
+  const service = createHydratedService(playerId);
+  const player = service.getPlayerOrThrow(playerId);
+  player.techniques.cultivatingTechId = null;
+  player.combat.cultivationActive = false;
+  service.markPersisted(playerId);
+
+  service.updateCombatSettings(playerId, { cultivationActive: true } as never, 0);
+
+  assert.equal(player.techniques.cultivatingTechId, null);
+  assert.equal(player.combat.cultivationActive, true);
+  assertDirtyDomains(service, playerId, ['combat_pref'], ['technique', 'snapshot']);
+}
+
 function testLogbookDirtyDomain(): void {
   const playerId = 'player:logbook';
   const service = createHydratedService(playerId);
@@ -603,6 +642,79 @@ function testProgressionServiceDirtyDomains(): void {
 
   const realm = service.gainRealmProgress(player, 5);
   assert.ok(realm.dirtyDomains.includes('progression'), `expected progression dirty domain, got ${realm.dirtyDomains.join(',')}`);
+
+  const noMainCultivator = runtime.createFreshPlayer(`${playerId}:no-main`, null);
+  noMainCultivator.realm = {
+    stage: '炼气',
+    realmLv: 1,
+    progress: 0,
+    progressToNext: 100,
+    breakthroughReady: false,
+    nextStage: undefined,
+    breakthroughItems: [],
+    minTechniqueLevel: 1,
+    minTechniqueRealm: 1,
+  } as never;
+  noMainCultivator.techniques.cultivatingTechId = null;
+  noMainCultivator.combat.cultivationActive = true;
+
+  const cultivation = service.advanceCultivation(noMainCultivator, 1);
+
+  assert.ok(noMainCultivator.realm.progress > 0, 'expected no-main cultivation to advance realm progress');
+  assert.equal(noMainCultivator.techniques.cultivatingTechId, null);
+  assert.ok(cultivation.dirtyDomains.includes('progression'), `expected progression dirty domain, got ${cultivation.dirtyDomains.join(',')}`);
+}
+
+function testHeavenGateEnterRecalculatesAttributes(): void {
+  const playerId = 'player:heaven-gate-enter';
+  const runtime = createPlayerRuntimeService();
+  const player = runtime.createFreshPlayer(playerId, null);
+  let recalculated = 0;
+  const service = new PlayerProgressionService(
+    {} as never,
+    {
+      recalculate(target: typeof player) {
+        recalculated += 1;
+        target.attrs.revision += 1;
+        target.selfRevision += 1;
+        return true;
+      },
+      markPanelDirty() {
+        return undefined;
+      },
+    } as never,
+  );
+  service.onModuleInit();
+  player.realm = {
+    stage: 'kou_xianmen',
+    name: '叩仙门',
+    displayName: '叩仙门',
+    realmLv: 18,
+    progress: 100,
+    progressToNext: 1000,
+    breakthroughReady: false,
+    nextStage: undefined,
+    breakthroughItems: [],
+    minTechniqueLevel: 1,
+    minTechniqueRealm: 1,
+  } as never;
+  player.heavenGate = {
+    unlocked: true,
+    severed: ['wood'],
+    roots: { metal: 80, wood: 0, water: 12, fire: 6, earth: 2 },
+    entered: false,
+    averageBonus: 0,
+  };
+  player.spiritualRoots = null;
+
+  const result = service.handleHeavenGateAction(player, 'enter', undefined);
+
+  assert.equal(result.changed, true);
+  assert.equal(recalculated, 1, 'expected entering heaven gate to recalculate attributes immediately');
+  assert.deepEqual(player.spiritualRoots, { metal: 80, wood: 0, water: 12, fire: 6, earth: 2 });
+  assert.equal(player.heavenGate?.entered, true);
+  assert.ok(result.dirtyDomains.includes('progression'), `expected progression dirty domain, got ${result.dirtyDomains.join(',')}`);
+  assert.ok(result.dirtyDomains.includes('attr'), `expected attr dirty domain, got ${result.dirtyDomains.join(',')}`);
 }
 
 function testAdvanceSinglePlayerTickDirtyDomain(): void {
@@ -688,12 +800,15 @@ testLogbookDirtyDomain();
   testSetVitalsDirtyDomain();
   testUseTechniqueBookDirtyDomain();
   testUseTechniqueBookRespectsSkillLimit();
+  testClearMainTechniquePreservesCultivationActive();
+  testCultivationActiveWithoutMainTechnique();
   testUseConsumableItemDirtyDomain();
   testEquipItemDirtyDomain();
   testBodyTrainingRecalculateDirtyDomain();
   testInfuseBodyTrainingDirtyDomain();
   testApplyTemporaryBuffDirtyDomain();
   testProgressionServiceDirtyDomains();
+  testHeavenGateEnterRecalculatesAttributes();
   testAdvanceSinglePlayerTickDirtyDomain();
   testRespawnDirtyDomains();
   testApplyProgressionResultDirtyDomains();

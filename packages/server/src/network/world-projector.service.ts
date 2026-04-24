@@ -86,10 +86,12 @@ export class WorldProjectorService {
                 panelDelta: buildFullPanelDelta(player),
             };
         }
-        const currentWorld = previous.worldRevision === view.worldRevision ? previous : captureWorldState(view, (mapId) => this.resolveMapName(mapId));
+        const currentWorld = previous.worldRevision === view.worldRevision && !hasDynamicContainerCountdown(view, previous.containers)
+            ? previous
+            : captureWorldState(view, (mapId) => this.resolveMapName(mapId));
         const current = combineProjectorState(currentWorld, capturePlayerState(player));
         this.cacheByPlayerId.set(view.playerId, current);
-        const worldChanged = previous.worldRevision !== current.worldRevision;
+        const worldChanged = previous.worldRevision !== current.worldRevision || currentWorld !== previous;
         const playerPatch = worldChanged ? diffPlayerEntries(previous.players, current.players) : [];
         const monsterPatch = worldChanged ? diffMonsterEntries(previous.monsters, current.monsters) : [];
         const npcPatch = worldChanged ? diffNpcEntries(previous.npcs, current.npcs) : [];
@@ -142,4 +144,16 @@ export class WorldProjectorService {
     getEventNames() {
         return S2C;
     }
+}
+
+function hasDynamicContainerCountdown(view: any, previousContainers: Map<string, any>): boolean {
+    if (Array.isArray(view?.localContainers) && view.localContainers.some((entry: any) => entry?.respawnRemainingTicks !== undefined)) {
+        return true;
+    }
+    for (const entry of previousContainers.values()) {
+        if (entry?.rr !== undefined) {
+            return true;
+        }
+    }
+    return false;
 }

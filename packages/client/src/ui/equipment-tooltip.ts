@@ -7,6 +7,7 @@ import {
   calcTechniqueAttrValues,
   EquipmentEffectDef,
   GAME_TIME_PHASES,
+  applyEnhancementToItemStack,
   formatBuffMaxStacks,
   ItemStack,
   parseQiResourceKey,
@@ -549,7 +550,7 @@ export function describeEquipmentUtilityBonuses(item: ItemStack): string[] {
 
 /** describeEquipmentBonuses：整理装备词条。 */
 export function describeEquipmentBonuses(item: ItemStack): string[] {
-  const previewItem = resolvePreviewItem(item);
+  const previewItem = applyEnhancementToItemStack(resolvePreviewItem(item));
   return [
     ...describeBuffStats(previewItem.equipAttrs, previewItem.equipStats, previewItem.equipValueStats),
     ...describeEquipmentUtilityBonuses(previewItem),
@@ -559,14 +560,15 @@ export function describeEquipmentBonuses(item: ItemStack): string[] {
 /** buildEquipmentComparisonAsideCard：构建Equipment Comparison Aside卡片。 */
 function buildEquipmentComparisonAsideCard(item: ItemStack): SkillTooltipAsideCard {
   const previewItem = resolvePreviewItem(item);
+  const enhancedPreviewItem = applyEnhancementToItemStack(previewItem);
   const propertyLines = describeEquipmentBonuses(previewItem);
-  const effectLines = (previewItem.effects ?? []).flatMap((effect) => buildPlainEffectSummary(effect));
+  const effectLines = (enhancedPreviewItem.effects ?? []).flatMap((effect) => buildPlainEffectSummary(effect));
   return {
     mark: '装',
     title: '已装备',
     lines: [
-      previewItem.name,
-      ...(previewItem.equipSlot ? [`部位：${getEquipSlotLabel(previewItem.equipSlot)}`] : []),
+      enhancedPreviewItem.name,
+      ...(enhancedPreviewItem.equipSlot ? [`部位：${getEquipSlotLabel(enhancedPreviewItem.equipSlot)}`] : []),
       ...(propertyLines.length > 0 ? [`装备属性：${propertyLines.join('，')}`] : []),
       ...effectLines,
     ],
@@ -656,12 +658,13 @@ export function buildItemTooltipPayload(item: ItemStack, context?: ItemTooltipCo
     };
   }
 
+  const enhancedPreviewItem = applyEnhancementToItemStack(previewItem);
   const propertyLines = describeEquipmentBonuses(previewItem);
-  const effectSummaries = (previewItem.effects ?? []).map((effect) => buildEffectSummary(effect));
+  const effectSummaries = (enhancedPreviewItem.effects ?? []).map((effect) => buildEffectSummary(effect));
   const lines: string[] = [
-    `<span class="skill-tooltip-desc">${escapeHtml(previewItem.desc ?? '')}</span>`,
-    renderPlainLine('类型', getItemTypeLabel(previewItem.type)),
-    ...(previewItem.equipSlot ? [renderPlainLine('部位', getEquipSlotLabel(previewItem.equipSlot))] : []),
+    `<span class="skill-tooltip-desc">${escapeHtml(enhancedPreviewItem.desc ?? '')}</span>`,
+    renderPlainLine('类型', getItemTypeLabel(enhancedPreviewItem.type)),
+    ...(enhancedPreviewItem.equipSlot ? [renderPlainLine('部位', getEquipSlotLabel(enhancedPreviewItem.equipSlot))] : []),
     ...(statusLabel ? [renderPlainLine('状态', statusLabel)] : []),
     ...(propertyLines.length > 0 ? [renderPlainLine('装备属性', propertyLines.join('，'))] : []),
     ...effectSummaries.flatMap((entry) => entry.lines),
@@ -675,7 +678,7 @@ export function buildItemTooltipPayload(item: ItemStack, context?: ItemTooltipCo
   }
 
   return {
-    title: previewItem.name,
+    title: enhancedPreviewItem.name,
     lines,
     asideCards,
     allowHtml: true,

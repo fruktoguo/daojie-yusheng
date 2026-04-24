@@ -1775,13 +1775,14 @@ let PlayerRuntimeService = class PlayerRuntimeService {
         if (normalized && !player.techniques.techniques.some((entry) => entry.techId === normalized)) {
             throw new common_1.NotFoundException(`Technique ${normalized} not learned`);
         }
-        if (player.techniques.cultivatingTechId === normalized) {
+        const previousCultivatingTechId = player.techniques.cultivatingTechId;
+        player.techniques.cultivatingTechId = normalized;
+        const techniqueChanged = previousCultivatingTechId !== player.techniques.cultivatingTechId;
+        if (!techniqueChanged) {
             return player;
         }
-        player.techniques.cultivatingTechId = normalized;
-        player.combat.cultivationActive = normalized !== null;
         player.techniques.revision += 1;
-        markPlayerDirtyDomains(player, ['technique', 'combat_pref']);
+        markPlayerDirtyDomains(player, ['technique']);
         this.bumpPersistentRevision(player);
         return player;
     }
@@ -2161,6 +2162,10 @@ let PlayerRuntimeService = class PlayerRuntimeService {
             player.combat.senseQiActive = input.senseQiActive;
             changed = true;
         }
+        if (input.cultivationActive !== undefined && player.combat.cultivationActive !== input.cultivationActive) {
+            player.combat.cultivationActive = input.cultivationActive;
+            changed = true;
+        }
         if (!changed) {
             return player;
         }
@@ -2511,7 +2516,7 @@ let PlayerRuntimeService = class PlayerRuntimeService {
             if (player.hp > 0 && shouldResumeIdleCultivation(player, currentTick, options.idleCultivationBlockedPlayerIds)) {
                 player.combat.cultivationActive = true;
             }
-            if (player.hp > 0 && player.combat.cultivationActive && player.techniques.cultivatingTechId) {
+            if (player.hp > 0 && player.combat.cultivationActive) {
 
                 const result = this.playerProgressionService.advanceCultivation(player, 1);
                 this.applyProgressionResult(player, result, currentTick);
@@ -2897,7 +2902,8 @@ let PlayerRuntimeService = class PlayerRuntimeService {
                 senseQiActive: snapshot.combat?.senseQiActive === true,
                 autoBattleSkills: normalizePersistedAutoBattleSkills(snapshot.combat?.autoBattleSkills),
 
-                cultivationActive: snapshot.techniques.cultivatingTechId !== null,
+                cultivationActive: snapshot.combat?.cultivationActive === true
+                    || (snapshot.combat?.cultivationActive === undefined && snapshot.techniques.cultivatingTechId !== null),
                 lastActiveTick: 0,
             },
             notices: {
@@ -4099,6 +4105,18 @@ function toTechniqueUpdateEntry(technique) {
             level: entry.level,
             expToNext: entry.expToNext,
             attrs: entry.attrs ? { ...entry.attrs } : undefined,
+            qiProjection: entry.qiProjection ? entry.qiProjection.map((modifier) => ({
+                ...modifier,
+                selector: modifier.selector
+                    ? {
+                        ...modifier.selector,
+                        resourceKeys: modifier.selector.resourceKeys ? modifier.selector.resourceKeys.slice() : undefined,
+                        families: modifier.selector.families ? modifier.selector.families.slice() : undefined,
+                        forms: modifier.selector.forms ? modifier.selector.forms.slice() : undefined,
+                        elements: modifier.selector.elements ? modifier.selector.elements.slice() : undefined,
+                    }
+                    : undefined,
+            })) : undefined,
         })) ?? null,
         attrCurves: technique.attrCurves ? { ...technique.attrCurves } : null,
     };
@@ -4506,7 +4524,6 @@ function shouldResumeIdleCultivation(player, currentTick, blockedPlayerIds) {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
     if (player.hp <= 0
-        || player.techniques.cultivatingTechId === null
         || player.combat.cultivationActive
         || player.combat.autoIdleCultivation === false) {
         return false;

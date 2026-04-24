@@ -297,6 +297,7 @@ let ContentTemplateRepository = ContentTemplateRepository_1 = class ContentTempl
                 level: entry.level,
                 expToNext: entry.expToNext,
                 attrs: entry.attrs ? { ...entry.attrs } : undefined,
+                qiProjection: cloneQiProjectionModifiers(entry.qiProjection),
             })),
             attrCurves: template.attrCurves ? { ...template.attrCurves } : undefined,
         };
@@ -349,17 +350,20 @@ let ContentTemplateRepository = ContentTemplateRepository_1 = class ContentTempl
             ? Math.max(1, Math.trunc(Number(input.realmLv)))
             : (template?.realmLv ?? 1);
 
+        const templateLayerByLevel = new Map((template?.layers ?? []).map((entry) => [entry.level, entry]));
         const layers = Array.isArray(input.layers) && input.layers.length > 0
             ? input.layers.map((entry) => ({
                 level: Number.isFinite(entry?.level) ? Math.max(1, Math.trunc(Number(entry.level))) : 1,
                 expToNext: Number.isFinite(entry?.expToNext) ? Math.max(0, Math.trunc(Number(entry.expToNext))) : 0,
 
                 attrs: entry?.attrs && typeof entry.attrs === 'object' ? { ...entry.attrs } : undefined,
+                qiProjection: cloneQiProjectionModifiers(entry?.qiProjection ?? templateLayerByLevel.get(Number.isFinite(entry?.level) ? Math.max(1, Math.trunc(Number(entry.level))) : 1)?.qiProjection),
             }))
             : (template?.layers.map((entry) => ({
                 level: entry.level,
                 expToNext: entry.expToNext,
                 attrs: entry.attrs ? { ...entry.attrs } : undefined,
+                qiProjection: cloneQiProjectionModifiers(entry.qiProjection),
             })) ?? []);
 
         const expToNext = Number.isFinite(input.expToNext)
@@ -410,6 +414,7 @@ let ContentTemplateRepository = ContentTemplateRepository_1 = class ContentTempl
                 level: entry.level,
                 expToNext: entry.expToNext,
                 attrs: entry.attrs ? { ...entry.attrs } : undefined,
+                qiProjection: cloneQiProjectionModifiers(entry.qiProjection),
             })),
         })).sort((left, right) => left.id.localeCompare(right.id, 'zh-Hans-CN'));
     }
@@ -2060,7 +2065,27 @@ function normalizeTechniqueLayer(raw, realmLv) {
             ? scaleTechniqueExpCompat(Number(candidate.expFactor), realmLv)
             : Math.max(0, Math.trunc(Number(candidate.expToNext ?? 0))),
         attrs: normalizeTechniqueLayerAttrs(candidate.attrs),
+        qiProjection: cloneQiProjectionModifiers(candidate.qiProjection),
     };
+}
+
+function cloneQiProjectionModifiers(source) {
+    return Array.isArray(source)
+        ? source
+            .filter((modifier) => isRecord(modifier))
+            .map((modifier) => ({
+                ...modifier,
+                selector: isRecord(modifier.selector)
+                    ? {
+                        ...modifier.selector,
+                        resourceKeys: Array.isArray(modifier.selector.resourceKeys) ? modifier.selector.resourceKeys.slice() : undefined,
+                        families: Array.isArray(modifier.selector.families) ? modifier.selector.families.slice() : undefined,
+                        forms: Array.isArray(modifier.selector.forms) ? modifier.selector.forms.slice() : undefined,
+                        elements: Array.isArray(modifier.selector.elements) ? modifier.selector.elements.slice() : undefined,
+                    }
+                    : undefined,
+            }))
+        : undefined;
 }
 
 function scaleTechniqueExpCompat(expFactor, realmLv) {

@@ -2,6 +2,7 @@ import type { ElementKey } from './numeric';
 import type { BreakthroughItemRequirement, BreakthroughPreviewState } from './progression-view-types';
 import type { AttrKey, Attributes } from './attribute-types';
 import type { SkillDef } from './skill-types';
+import type { QiProjectionModifier } from './qi';
 
 /** 功法境界。 */
 export enum TechniqueRealm {
@@ -72,6 +73,11 @@ export interface TechniqueLayerDef {
  */
 
   attrs?: Partial<Attributes>;
+  /**
+ * qiProjection：气机投影修正规则。
+ */
+
+  qiProjection?: QiProjectionModifier[];
 }
 
 /** 玩家大境界。 */

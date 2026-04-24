@@ -150,6 +150,12 @@ function resolveTechniqueCategory(tech: TechniqueState): TechniqueCategory {
   return tech.category ?? (tech.skills.length > 0 ? 'arts' : 'internal');
 }
 
+/** shouldShowTechniqueSkillToggle：判断功法列表项是否需要显示技能开关。 */
+function shouldShowTechniqueSkillToggle(tech: TechniqueState): boolean {
+  const category = resolveTechniqueCategory(tech);
+  return tech.skills.length > 0 && (category === 'arts' || category === 'divine');
+}
+
 /** areTechniqueSkillsEnabled：处理are Technique技能启用。 */
 function areTechniqueSkillsEnabled(tech: TechniqueState, previewPlayer?: PlayerState): boolean {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
@@ -547,7 +553,8 @@ export class TechniquePanel {
   private renderTechniqueCard(tech: TechniqueState): string {
     const maxLevel = getTechniqueMaxLevel(tech.layers, tech.level);
     const isCultivating = this.lastState.cultivatingTechId === tech.techId;
-    const skillsEnabled = areTechniqueSkillsEnabled(tech, this.lastState.previewPlayer);
+    const showSkillToggle = shouldShowTechniqueSkillToggle(tech);
+    const skillsEnabled = showSkillToggle ? areTechniqueSkillsEnabled(tech, this.lastState.previewPlayer) : false;
     const progressRatio = getTechniqueProgressRatio(tech);
     const progressText = formatTechniqueProgressText(tech);
     const remainText = formatTechniqueRemainText(tech);
@@ -571,12 +578,12 @@ export class TechniquePanel {
         <span class="tech-progress-remain" data-tech-progress-remain="${tech.techId}">${remainText}</span>
       </button>
       <div class="tech-card-actions">
-        <button
+        ${showSkillToggle ? `<button
           class="small-btn ghost ${skillsEnabled ? 'active' : ''}"
           data-tech-skills-toggle="${tech.techId}"
           data-tech-skills-enabled="${skillsEnabled ? '1' : '0'}"
           type="button"
-        >技能 ${skillsEnabled ? '开' : '关'}</button>
+        >技能 ${skillsEnabled ? '开' : '关'}</button>` : ''}
         <button
           class="small-btn ${isCultivating ? 'danger' : ''}"
           data-tech-cultivate-button="${tech.techId}"
@@ -1009,9 +1016,11 @@ export class TechniquePanel {
         }
         if (cultivateButton.dataset.cultivateStop) {
           this.lastState.cultivatingTechId = undefined;
+          if (this.lastState.previewPlayer) this.lastState.previewPlayer.cultivatingTechId = undefined;
           this.onCultivate?.(null);
         } else {
           this.lastState.cultivatingTechId = techId;
+          if (this.lastState.previewPlayer) this.lastState.previewPlayer.cultivatingTechId = techId;
           this.onCultivate?.(techId);
         }
         this.renderList();
@@ -1288,13 +1297,17 @@ export class TechniquePanel {
       const remainNode = listRoot.querySelector<HTMLElement>(`[data-tech-progress-remain="${CSS.escape(tech.techId)}"]`);
       const cultivateButton = listRoot.querySelector<HTMLButtonElement>(`[data-tech-cultivate-button="${CSS.escape(tech.techId)}"]`);
       const skillToggleButton = listRoot.querySelector<HTMLButtonElement>(`[data-tech-skills-toggle="${CSS.escape(tech.techId)}"]`);
-      if (!card || !realmLevelNode || !realmNode || !layerNode || !progressTextNode || !progressFillNode || !remainNode || !cultivateButton || !skillToggleButton) {
+      const showSkillToggle = shouldShowTechniqueSkillToggle(tech);
+      if (!card || !realmLevelNode || !realmNode || !layerNode || !progressTextNode || !progressFillNode || !remainNode || !cultivateButton) {
+        return false;
+      }
+      if (showSkillToggle !== Boolean(skillToggleButton)) {
         return false;
       }
 
       const maxLevel = getTechniqueMaxLevel(tech.layers, tech.level);
       const isCultivating = cultivatingTechId === tech.techId;
-      const skillsEnabled = areTechniqueSkillsEnabled(tech, this.lastState.previewPlayer);
+      const skillsEnabled = showSkillToggle ? areTechniqueSkillsEnabled(tech, this.lastState.previewPlayer) : false;
       const progressRatio = getTechniqueProgressRatio(tech);
       const progressText = formatTechniqueProgressText(tech);
       const remainText = formatTechniqueRemainText(tech);
@@ -1308,9 +1321,11 @@ export class TechniquePanel {
       progressTextNode.textContent = progressText;
       progressFillNode.style.width = `${(progressRatio * 100).toFixed(2)}%`;
       remainNode.textContent = remainText;
-      skillToggleButton.textContent = `技能 ${skillsEnabled ? '开' : '关'}`;
-      skillToggleButton.classList.toggle('active', skillsEnabled);
-      skillToggleButton.dataset.techSkillsEnabled = skillsEnabled ? '1' : '0';
+      if (showSkillToggle && skillToggleButton) {
+        skillToggleButton.textContent = `技能 ${skillsEnabled ? '开' : '关'}`;
+        skillToggleButton.classList.toggle('active', skillsEnabled);
+        skillToggleButton.dataset.techSkillsEnabled = skillsEnabled ? '1' : '0';
+      }
       cultivateButton.textContent = isCultivating ? '取消主修' : '设为主修';
       cultivateButton.classList.toggle('danger', isCultivating);
       cultivateButton.dataset.cultivate = isCultivating ? '' : tech.techId;

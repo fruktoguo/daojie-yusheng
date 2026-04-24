@@ -8,6 +8,7 @@ import {
   GameTimeState,
   GroundItemEntryView,
   GroundItemPileView,
+  getAuraLevel,
   isOffsetInRange,
   ItemType,
   NpcQuestMarker,
@@ -259,16 +260,6 @@ function easeOutCubic(t: number): number {
   return 1 - Math.pow(1 - t, 3);
 }
 
-/** 对称入场/离场的 easeInOut 缓动。 */
-function easeInOutCubic(t: number): number {
-  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
-
-  if (t < 0.5) {
-    return 4 * t * t * t;
-  }
-  return 1 - Math.pow(-2 * t + 2, 3) / 2;
-}
-
 /** 依据感气值计算叠加层 RGBA 样式。 */
 function getSenseQiOverlayStyle(
   aura: number,
@@ -303,7 +294,7 @@ function getSenseQiOverlayStyle(
   return `rgba(${red}, ${green}, ${blue}, ${alpha.toFixed(3)})`;
 }
 
-function resolveSenseQiOverlaySignal(tile: Tile | null | undefined): {
+function resolveSenseQiOverlaySignal(tile: Tile | null | undefined, levelBaseValue = DEFAULT_AURA_LEVEL_BASE_VALUE): {
   family: 'aura' | 'sha' | 'demonic';
   value: number;
 } {
@@ -316,7 +307,10 @@ function resolveSenseQiOverlaySignal(tile: Tile | null | undefined): {
   let strongestFamily: 'aura' | 'sha' | 'demonic' = 'aura';
   let strongestValue = Math.max(0, tile.aura ?? 0);
   for (const resource of tile.resources) {
-    const candidate = resource.effectiveValue ?? resource.value;
+    const resourceValue = resource.effectiveValue ?? resource.value;
+    const candidate = typeof resource.level === 'number' && Number.isFinite(resource.level)
+      ? resource.level
+      : getAuraLevel(resourceValue, levelBaseValue);
     if (typeof candidate !== 'number' || !Number.isFinite(candidate) || candidate <= strongestValue) {
       continue;
     }
@@ -415,6 +409,16 @@ interface AnimEntity {
  */
 
   maxHp?: number;  
+  /**
+ * respawnRemainingTicks：回生/重生剩余 tick。
+ */
+
+  respawnRemainingTicks?: number;
+  /**
+ * respawnTotalTicks：回生/重生总 tick。
+ */
+
+  respawnTotalTicks?: number;
   /**
  * npcQuestMarker：NPC任务Marker相关字段。
  */
@@ -1027,7 +1031,7 @@ export class TextRenderer implements IRenderer {
 
         if (tile && this.senseQiOverlay) {
           const signal: ReturnType<typeof resolveSenseQiOverlaySignal> = isVisible
-            ? resolveSenseQiOverlaySignal(tile)
+            ? resolveSenseQiOverlaySignal(tile, senseQiLevelBaseValue)
             : { family: 'aura', value: 0 };
           ctx.fillStyle = getSenseQiOverlayStyle(signal.value, senseQiLevelBaseValue, signal.family);
           ctx.fillRect(sx, sy, cellSize, cellSize);
@@ -1153,6 +1157,14 @@ export class TextRenderer implements IRenderer {
  */
  maxHp?: number;    
  /**
+ * respawnRemainingTicks：回生/重生剩余 tick。
+ */
+ respawnRemainingTicks?: number;
+ /**
+ * respawnTotalTicks：回生/重生总 tick。
+ */
+ respawnTotalTicks?: number;
+ /**
  * npcQuestMarker：NPC任务Marker相关字段。
  */
  npcQuestMarker?: NpcQuestMarker | null;    
@@ -1228,6 +1240,8 @@ export class TextRenderer implements IRenderer {
         anim.monsterScale = e.monsterScale;
         anim.hp = e.hp;
         anim.maxHp = e.maxHp;
+        anim.respawnRemainingTicks = e.respawnRemainingTicks;
+        anim.respawnTotalTicks = e.respawnTotalTicks;
         anim.npcQuestMarker = e.npcQuestMarker ?? undefined;
         anim.hostile = e.hostile;
         anim.buffs = e.buffs;
@@ -1249,6 +1263,8 @@ export class TextRenderer implements IRenderer {
           monsterScale: e.monsterScale,
           hp: e.hp,
           maxHp: e.maxHp,
+          respawnRemainingTicks: e.respawnRemainingTicks,
+          respawnTotalTicks: e.respawnTotalTicks,
           npcQuestMarker: e.npcQuestMarker ?? undefined,
           hostile: e.hostile,
           buffs: e.buffs,
@@ -1274,7 +1290,7 @@ export class TextRenderer implements IRenderer {
     const cellSize = getCellSize();
     const renderedEntities: RenderedAnimEntity[] = [];
     const motionProgress = Math.max(0, Math.min(1, progress));
-    const t = easeInOutCubic(motionProgress);
+    const t = easeOutCubic(motionProgress);
 
     for (const anim of this.entities.values()) {
       const wx = anim.oldWX + (anim.targetWX - anim.oldWX) * t;
@@ -1350,16 +1366,46 @@ export class TextRenderer implements IRenderer {
         continue;
       }
 
+      const motionDx = anim.targetWX - anim.oldWX;
+      const motionDy = anim.targetWY - anim.oldWY;
+      const motionDistance = Math.hypot(motionDx, motionDy);
+      const isMoving = motionDistance > 0.5 && motionProgress < 1;
+      const travelPulse = isMoving ? Math.sin(Math.PI * motionProgress) : 0;
+      const landPhase = isMoving && motionProgress > 0.62
+        ? Math.max(0, Math.min(1, (motionProgress - 0.62) / 0.38))
+        : 0;
+      const landPulse = landPhase > 0 ? Math.sin(Math.PI * landPhase) : 0;
+      const motionUnitX = motionDistance > 0 ? motionDx / motionDistance : 0;
+      const motionUnitY = motionDistance > 0 ? motionDy / motionDistance : 0;
+      const glyphLift = travelPulse * renderedCellSize * 0.08;
+      const glyphLean = (motionUnitX - motionUnitY) * travelPulse * 0.1;
+      const impactScaleX = 1 + travelPulse * 0.08 + landPulse * 0.1;
+      const impactScaleY = 1 - travelPulse * 0.06 - landPulse * 0.12;
+
+      ctx.save();
+      if (isMoving) {
+        ctx.translate(sx + renderedCellSize / 2, sy + renderedCellSize - 3);
+        ctx.scale(1 + travelPulse * 0.24, 1 - travelPulse * 0.16);
+        ctx.translate(-(sx + renderedCellSize / 2), -(sy + renderedCellSize - 3));
+      }
       ctx.fillStyle = 'rgba(0,0,0,0.3)';
       ctx.beginPath();
       ctx.ellipse(sx + renderedCellSize / 2, sy + renderedCellSize - 3, visualCellSize * 0.32, Math.max(2, visualCellSize * 0.1), 0, 0, Math.PI * 2);
       ctx.fill();
+      ctx.restore();
 
       ctx.fillStyle = anim.color;
       ctx.font = buildCanvasFont('entityGlyph', visualCellSize * 0.75);
       ctx.textAlign = 'center';
       ctx.textBaseline = 'middle';
-      this.drawOutlinedText(anim.char, visualSx + visualCellSize / 2, visualSy + visualCellSize / 2, anim.color, 'rgba(15,12,10,0.9)');
+      ctx.save();
+      ctx.translate(visualSx + visualCellSize / 2, visualSy + visualCellSize / 2 - glyphLift);
+      if (isMoving) {
+        ctx.rotate(glyphLean);
+        ctx.scale(impactScaleX, impactScaleY);
+      }
+      this.drawOutlinedText(anim.char, 0, 0, anim.color, 'rgba(15,12,10,0.9)');
+      ctx.restore();
 
       if (anim.kind) {
         const isMonster = anim.kind === 'monster';
@@ -1412,6 +1458,18 @@ export class TextRenderer implements IRenderer {
                   ? '#c18b46'
                   : '#63c46b';
           ctx.fillRect(barX, barY, barW * ratio, 3);
+        }
+
+        if (isContainer && (anim.respawnRemainingTicks ?? 0) > 0) {
+          ctx.textBaseline = 'top';
+          ctx.font = buildCanvasFont('label', renderedCellSize * 0.22);
+          this.drawOutlinedText(
+            `回生 ${this.formatRespawnCountdown(anim.respawnRemainingTicks)}`,
+            sx + renderedCellSize / 2,
+            visualSy + visualCellSize + 1,
+            '#e7d5a7',
+            'rgba(15,12,10,0.92)',
+          );
         }
 
         if (isNpc && anim.npcQuestMarker) {
@@ -1514,6 +1572,16 @@ export class TextRenderer implements IRenderer {
     ctx.lineTo(baseX - (-arrowUy) * headWidth, baseY - arrowUx * headWidth);
     ctx.closePath();
     ctx.fill();
+  }
+
+  private formatRespawnCountdown(ticks: number | undefined): string {
+    const totalSeconds = Math.max(0, Math.round(Number(ticks) || 0));
+    const minutes = Math.floor(totalSeconds / 60);
+    const seconds = totalSeconds % 60;
+    if (minutes <= 0) {
+      return `${Math.max(1, seconds)}息`;
+    }
+    return `${minutes}:${seconds.toString().padStart(2, '0')}`;
   }
 
   /** 计算二次贝塞尔曲线上的点。 */

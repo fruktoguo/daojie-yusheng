@@ -2565,6 +2565,16 @@ export async function ensurePlayerDomainTablesWithClient(client: PoolClient): Pr
       updated_at timestamptz NOT NULL DEFAULT now()
     )
   `);
+  await ensureRecoveryWatermarkColumnsWithClient(client);
+}
+
+async function ensureRecoveryWatermarkColumnsWithClient(client: PoolClient): Promise<void> {
+  for (const column of WATERMARK_COLUMNS) {
+    await client.query(`
+      ALTER TABLE ${PLAYER_RECOVERY_WATERMARK_TABLE}
+      ADD COLUMN IF NOT EXISTS ${column} bigint NOT NULL DEFAULT 0
+    `);
+  }
 }
 
 async function replacePlayerInventoryItems(

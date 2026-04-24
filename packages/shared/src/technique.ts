@@ -7,6 +7,8 @@ import type {
 import type { BodyTrainingState, TechniqueGrade, TechniqueLayerDef, TechniqueRealm, TechniqueState } from './cultivation-types';
 import type { SkillDef } from './skill-types';
 import { TechniqueRealm as TechniqueRealmEnum } from './cultivation-types';
+import type { QiProjectionModifier } from './qi';
+import { DEFAULT_QI_EFFICIENCY_BP } from './constants/gameplay/qi';
 import {
   BODY_TRAINING_ATTR_KEYS,
   BODY_TRAINING_EXP_BASE,
@@ -40,6 +42,53 @@ function normalizeLayers(layers?: TechniqueLayerDef[]): TechniqueLayerDef[] {
 
   if (!layers || layers.length === 0) return [];
   return [...layers].sort((left, right) => left.level - right.level);
+}
+
+function cloneQiProjectionSelector(
+  selector: QiProjectionModifier['selector'],
+): QiProjectionModifier['selector'] {
+  if (!selector) {
+    return undefined;
+  }
+  return {
+    resourceKeys: selector.resourceKeys ? [...selector.resourceKeys].sort() : undefined,
+    families: selector.families ? [...selector.families].sort() : undefined,
+    forms: selector.forms ? [...selector.forms].sort() : undefined,
+    elements: selector.elements ? [...selector.elements].sort() : undefined,
+  };
+}
+
+function buildQiProjectionModifierKey(modifier: QiProjectionModifier): string {
+  return JSON.stringify({
+    selector: cloneQiProjectionSelector(modifier.selector),
+    visibility: modifier.visibility,
+  });
+}
+
+function accumulateQiProjectionModifiers(
+  target: Map<string, QiProjectionModifier>,
+  modifiers?: readonly QiProjectionModifier[],
+): void {
+  for (const modifier of modifiers ?? []) {
+    const key = buildQiProjectionModifierKey(modifier);
+    const existing = target.get(key);
+    if (!existing) {
+      target.set(key, {
+        selector: cloneQiProjectionSelector(modifier.selector),
+        visibility: modifier.visibility,
+        efficiencyBpMultiplier: modifier.efficiencyBpMultiplier,
+      });
+      continue;
+    }
+    if (modifier.visibility === 'absorbable' || (!existing.visibility && modifier.visibility)) {
+      existing.visibility = modifier.visibility;
+    }
+    if (modifier.efficiencyBpMultiplier !== undefined) {
+      const existingDelta = (existing.efficiencyBpMultiplier ?? DEFAULT_QI_EFFICIENCY_BP) - DEFAULT_QI_EFFICIENCY_BP;
+      const incomingDelta = modifier.efficiencyBpMultiplier - DEFAULT_QI_EFFICIENCY_BP;
+      existing.efficiencyBpMultiplier = Math.max(0, DEFAULT_QI_EFFICIENCY_BP + existingDelta + incomingDelta);
+    }
+  }
 }
 
 /** 获取功法最大层数 */
@@ -235,6 +284,25 @@ export function calcTechniqueNextLevelGains(level: number, layers?: TechniqueLay
   return result;
 }
 
+/** 计算功法在指定层数时累计提供的气机投影修正。 */
+export function calcTechniqueQiProjectionModifiers(level: number, layers?: TechniqueLayerDef[]): QiProjectionModifier[] {
+  if (level <= 0) {
+    return [];
+  }
+  const normalized = normalizeLayers(layers);
+  if (normalized.length === 0) {
+    return [];
+  }
+  const aggregated = new Map<string, QiProjectionModifier>();
+  for (const layer of normalized) {
+    if (layer.level > level) {
+      break;
+    }
+    accumulateQiProjectionModifiers(aggregated, layer.qiProjection);
+  }
+  return [...aggregated.values()];
+}
+
 /** calcTechniqueSoftDecayedPool：处理calc Technique Soft Decayed池。 */
 function calcTechniqueSoftDecayedPool(rawPool: number, freeLimit: number, decaySpan: number): number {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
@@ -275,4 +343,14 @@ export function calcTechniqueFinalAttrBonus(techniques: readonly TechniqueState[
   return result;
 }
 
-
+/** 汇总所有已学功法的最终气机投影修正。 */
+export function calcTechniqueFinalQiProjection(techniques: readonly TechniqueState[]): QiProjectionModifier[] {
+  const aggregated = new Map<string, QiProjectionModifier>();
+  for (const technique of techniques) {
+    accumulateQiProjectionModifiers(
+      aggregated,
+      calcTechniqueQiProjectionModifiers(technique.level, technique.layers),
+    );
+  }
+  return [...aggregated.values()];
+}

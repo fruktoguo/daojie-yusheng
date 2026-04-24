@@ -39,6 +39,8 @@ export function toWireTickEntity(entity: TickRenderEntity): Record<string, unkno
   setNullableWireValue(wire, 'monsterScale', 'clearMonsterScale', entity.monsterScale);
   setNullableWireValue(wire, 'hp', 'clearHp', entity.hp);
   setNullableWireValue(wire, 'maxHp', 'clearMaxHp', entity.maxHp);
+  setNullableWireValue(wire, 'respawnRemainingTicks', 'clearRespawnRemainingTicks', entity.respawnRemainingTicks);
+  setNullableWireValue(wire, 'respawnTotalTicks', 'clearRespawnTotalTicks', entity.respawnTotalTicks);
   setNullableWireValue(wire, 'qi', 'clearQi', entity.qi);
   setNullableWireValue(wire, 'maxQi', 'clearMaxQi', entity.maxQi);
   if (entity.npcQuestMarker === null) {
@@ -82,6 +84,10 @@ export function fromWireTickEntity(wire: Record<string, unknown>): TickRenderEnt
   if (hp !== undefined) patch.hp = hp === null ? null : Number(hp);
   const maxHp = readNullableWireValue<number>(wire, 'maxHp', 'clearMaxHp');
   if (maxHp !== undefined) patch.maxHp = maxHp === null ? null : Number(maxHp);
+  const respawnRemainingTicks = readNullableWireValue<number>(wire, 'respawnRemainingTicks', 'clearRespawnRemainingTicks');
+  if (respawnRemainingTicks !== undefined) patch.respawnRemainingTicks = respawnRemainingTicks === null ? null : Number(respawnRemainingTicks);
+  const respawnTotalTicks = readNullableWireValue<number>(wire, 'respawnTotalTicks', 'clearRespawnTotalTicks');
+  if (respawnTotalTicks !== undefined) patch.respawnTotalTicks = respawnTotalTicks === null ? null : Number(respawnTotalTicks);
   const qi = readNullableWireValue<number>(wire, 'qi', 'clearQi');
   if (qi !== undefined) patch.qi = qi === null ? null : Number(qi);
   const maxQi = readNullableWireValue<number>(wire, 'maxQi', 'clearMaxQi');

@@ -1356,6 +1356,9 @@ let MarketRuntimeService = MarketRuntimeService_1 = class MarketRuntimeService {
             equipAttrs: normalized.equipAttrs,
             equipStats: normalized.equipStats,
             equipValueStats: normalized.equipValueStats,
+            enhanceLevel: Number.isFinite(Number(normalized.enhanceLevel))
+                ? Math.max(0, Math.trunc(Number(normalized.enhanceLevel)))
+                : undefined,
             effects: normalized.effects,
             healAmount: normalized.healAmount,
             healPercent: normalized.healPercent,

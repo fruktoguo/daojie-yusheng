@@ -566,7 +566,7 @@ export function createMainRuntimeMonitorSource(
     }
     currentTimeTickIntervalMs = dtMs;
     options.syncEstimatedServerTickInterval(dtMs);
-    options.mapRuntime.setTickDurationMs(Math.max(1, Math.round(dtMs * 0.5)));
+    options.mapRuntime.setTickDurationMs(dtMs);
   }  
   /**
  * renderPingLatency：执行PingLatency相关逻辑。

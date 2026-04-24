@@ -390,18 +390,6 @@ let PlayerProgressionService = PlayerProgressionService_1 = class PlayerProgress
         }
 
         const resolved = this.resolveActiveCultivatingTechnique(player);
-        if (!resolved.technique) {
-            if (resolved.changed) {
-                this.finalizeProgressionMutation(player, resolved);
-            }
-            return {
-                changed: resolved.changed,
-                notices: resolved.notices,
-                actionsDirty: resolved.actionsDirty,
-                dirtyDomains: resolved.changed ? describeProgressionDirtyDomains(resolved) : [],
-            };
-        }
-
         let mutation = resolved;
 
         const realmBasePerTick = Math.max(0, shared_1.CULTIVATION_REALM_EXP_PER_TICK + Math.round(player.attrs.numericStats.realmExpPerTick));
@@ -417,7 +405,7 @@ let PlayerProgressionService = PlayerProgressionService_1 = class PlayerProgress
                 overflowToFoundation: true,
             }));
         }
-        if (techniqueGain > 0) {
+        if (resolved.technique && techniqueGain > 0) {
             mutation = mergeProgressionMutation(mutation, this.advanceTechniqueProgressInternal(player, techniqueGain));
         }
         if (!mutation.changed) {
@@ -635,7 +623,7 @@ let PlayerProgressionService = PlayerProgressionService_1 = class PlayerProgress
                         text: `天门已开，本次灵根总值为 ${total}。`,
                         kind: 'success',
                     }],
-                dirtyDomains: ['attr'],
+                dirtyDomains: ['progression', 'attr'],
             };
         }
         if (action === 'reroll') {
@@ -705,14 +693,14 @@ let PlayerProgressionService = PlayerProgressionService_1 = class PlayerProgress
             entered: true,
             averageBonus: heavenGate.averageBonus,
         };
-        this.applyResolvedRealmState(player, realm);
+        this.applyResolvedRealmState(player, realm, { forceAttrRecalculate: true });
         return {
             changed: true,
             notices: [{
                     text: '你已入天门，灵根结果已定。后续仍需按原本条件突破至练气。',
                     kind: 'success',
                 }],
-            dirtyDomains: ['attr'],
+            dirtyDomains: ['progression', 'attr'],
         };
     }
     /** 尝试完成一次境界突破。 */
@@ -897,7 +885,8 @@ let PlayerProgressionService = PlayerProgressionService_1 = class PlayerProgress
         const previousRoots = cloneHeavenGateRoots(player.spiritualRoots);
         this.applyRealmPresentation(player, realm);
 
-        const attrRecalculated = previousStage !== player.realm?.stage
+        const attrRecalculated = options?.forceAttrRecalculate === true
+            || previousStage !== player.realm?.stage
             || !isSameHeavenGateRoots(previousRoots, player.spiritualRoots);
         if (attrRecalculated) {
             this.playerAttributesService.recalculate(player);

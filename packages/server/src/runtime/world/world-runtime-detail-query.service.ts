@@ -27,6 +27,8 @@ const player_runtime_service_1 = require("../player/player-runtime.service");
 const world_runtime_observation_helpers_1 = require("./world-runtime.observation.helpers");
 
 const world_runtime_path_planning_helpers_1 = require("./world-runtime.path-planning.helpers");
+const player_buff_projection_helpers_1 = require("../../network/player-buff-projection.helpers");
+const world_runtime_qi_projection_helpers_1 = require("./world-runtime-qi-projection.helpers");
 
 const {
     cloneVisibleBuff,
@@ -166,7 +168,7 @@ let WorldRuntimeDetailQueryService = class WorldRuntimeDetailQueryService {
                     qi: target.qi,
                     maxQi: target.maxQi,
                     observation: buildPlayerObservation(viewer.attrs.finalAttrs.spirit, target, viewer.playerId === target.playerId),
-                    buffs: target.buffs.buffs.map((entry) => cloneVisibleBuff(entry)),
+                    buffs: (0, player_buff_projection_helpers_1.projectVisiblePlayerBuffs)(target),
                 },
             };
         }
@@ -271,7 +273,7 @@ let WorldRuntimeDetailQueryService = class WorldRuntimeDetailQueryService {
             };
         }
 
-        const resources = buildTileRuntimeResources(instance.listTileResources?.(x, y) ?? [], aura);
+        const resources = buildTileRuntimeResources(instance.listTileResources?.(x, y) ?? [], aura, viewer);
         const groundPile = instance.getTileGroundPile(x, y);
         const portal = instance.getPortalAtTile(x, y);
         const safeZone = instance.getSafeZoneAtTile(x, y);
@@ -309,7 +311,7 @@ let WorldRuntimeDetailQueryService = class WorldRuntimeDetailQueryService {
                 qi: target.qi,
                 maxQi: target.maxQi,
                 observation: buildPlayerObservation(viewer.attrs.finalAttrs.spirit, target, viewer.playerId === target.playerId),
-                buffs: target.buffs.buffs.map((entry) => cloneVisibleBuff(entry)),
+                buffs: (0, player_buff_projection_helpers_1.projectVisiblePlayerBuffs)(target),
             });
         }
         for (const monsterView of monsters) {
@@ -349,7 +351,7 @@ let WorldRuntimeDetailQueryService = class WorldRuntimeDetailQueryService {
         return {
             x,
             y,
-            aura,
+            aura: buildTileRuntimeAuraLevel(resources, aura, viewer),
             resources: resources.length > 0 ? resources : undefined,
             safeZone: safeZone
                 ? {
@@ -395,7 +397,7 @@ exports.WorldRuntimeDetailQueryService = WorldRuntimeDetailQueryService = __deco
 
 export { WorldRuntimeDetailQueryService };
 
-function buildTileRuntimeResources(entries, aura) {
+function buildTileRuntimeResources(entries, aura, viewer) {
     const resources = entries
         .filter((entry) => entry
         && typeof entry.resourceKey === 'string'
@@ -403,30 +405,71 @@ function buildTileRuntimeResources(entries, aura) {
         && entry.value > 0)
         .map((entry) => {
         const parsed = (0, shared_1.parseQiResourceKey)(entry.resourceKey);
+        const projection = parsed && viewer
+            ? (0, world_runtime_qi_projection_helpers_1.resolvePlayerQiResourceProjection)(viewer, entry.resourceKey)
+            : null;
+        if (projection?.visibility === 'hidden') {
+            return null;
+        }
+        const value = Math.max(0, Math.trunc(entry.value));
+        const effectiveValue = projection
+            ? (projection.visibility === 'absorbable'
+                ? (0, world_runtime_qi_projection_helpers_1.projectPlayerQiResourceValue)(viewer, entry.resourceKey, value)
+                : 0)
+            : value;
         return {
             key: entry.resourceKey,
             label: resolveTileResourceLabel(entry.resourceKey, parsed),
-            value: Math.max(0, Math.trunc(entry.value)),
-            effectiveValue: Math.max(0, Math.trunc(entry.value)),
+            value,
+            effectiveValue,
             level: parsed?.family === 'aura'
-                ? (0, shared_1.getAuraLevel)(Math.max(0, Math.trunc(entry.value)), shared_1.DEFAULT_AURA_LEVEL_BASE_VALUE)
+                ? (0, shared_1.getAuraLevel)(effectiveValue, shared_1.DEFAULT_AURA_LEVEL_BASE_VALUE)
                 : undefined,
             sourceValue: Number.isFinite(entry.sourceValue) ? Math.max(0, Math.trunc(entry.sourceValue)) : undefined,
         };
-    });
+    }).filter((entry) => entry !== null);
     if (resources.length > 0) {
         return resources;
     }
     if (!Number.isFinite(aura) || aura <= 0) {
         return [];
     }
+    const resourceKey = 'aura.refined.neutral';
+    const value = Math.max(0, Math.trunc(aura));
+    const effectiveValue = viewer
+        ? (0, world_runtime_qi_projection_helpers_1.projectPlayerQiResourceValue)(viewer, resourceKey, value)
+        : value;
     return [{
-        key: 'aura.refined.neutral',
+        key: resourceKey,
         label: '灵气',
-        value: Math.max(0, Math.trunc(aura)),
-        effectiveValue: Math.max(0, Math.trunc(aura)),
-        level: (0, shared_1.getAuraLevel)(Math.max(0, Math.trunc(aura)), shared_1.DEFAULT_AURA_LEVEL_BASE_VALUE),
+        value,
+        effectiveValue,
+        level: (0, shared_1.getAuraLevel)(effectiveValue, shared_1.DEFAULT_AURA_LEVEL_BASE_VALUE),
     }];
+}
+
+function buildTileRuntimeAuraLevel(resources, aura, viewer) {
+    const rawAura = Number.isFinite(aura) ? Math.max(0, Math.trunc(aura)) : 0;
+    if (Array.isArray(resources) && resources.length > 0) {
+        let projectedAuraValue = 0;
+        let hasAuraResource = false;
+        for (const resource of resources) {
+            const parsed = (0, shared_1.parseQiResourceKey)(resource.key);
+            if (parsed?.family !== 'aura') {
+                continue;
+            }
+            hasAuraResource = true;
+            projectedAuraValue += Math.max(0, Math.trunc(resource.effectiveValue ?? resource.value ?? 0));
+        }
+        if (hasAuraResource) {
+            return (0, shared_1.getAuraLevel)(projectedAuraValue, shared_1.DEFAULT_AURA_LEVEL_BASE_VALUE);
+        }
+    }
+    if (!viewer) {
+        return (0, shared_1.getAuraLevel)(rawAura, shared_1.DEFAULT_AURA_LEVEL_BASE_VALUE);
+    }
+    const effectiveValue = (0, world_runtime_qi_projection_helpers_1.projectPlayerQiResourceValue)(viewer, 'aura.refined.neutral', rawAura);
+    return (0, shared_1.getAuraLevel)(effectiveValue, shared_1.DEFAULT_AURA_LEVEL_BASE_VALUE);
 }
 
 function resolveTileResourceLabel(resourceKey, parsed) {

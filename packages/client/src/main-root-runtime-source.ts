@@ -1,4 +1,4 @@
-import type { Direction, PlayerState } from '@mud/shared';
+import { clonePlainValue, type Direction, type PlayerState } from '@mud/shared';
 import type { ObservedMapEntity } from './game-map/types';
 import type { MainRuntimeObservedEntity } from './main-runtime-view-types';
 /**
@@ -30,15 +30,22 @@ function isDemonizedPlayerEntity(entity: Pick<MainRuntimeObservedEntity, 'kind' 
 }
 
 function decorateObservedEntity(entity: MainRuntimeObservedEntity, player: PlayerState | null): MainRuntimeObservedEntity {
-  const badge = entity.badge ?? (isDemonizedPlayerEntity(entity)
+  const buffs = player !== null && entity.id === player.id
+    ? (Array.isArray(player.temporaryBuffs) ? clonePlainValue(player.temporaryBuffs) : undefined)
+    : entity.buffs;
+  const nextEntity = {
+    ...entity,
+    buffs,
+  };
+  const badge = nextEntity.badge ?? (isDemonizedPlayerEntity(nextEntity)
     ? { text: '魔', tone: 'demonic' as const }
     : undefined);
-  const hostile = entity.kind === 'player'
+  const hostile = nextEntity.kind === 'player'
     && player !== null
-    && entity.id !== player.id
-    && (player.allowAoePlayerHit === true || player.retaliatePlayerTargetId === entity.id);
+    && nextEntity.id !== player.id
+    && (player.allowAoePlayerHit === true || player.retaliatePlayerTargetId === nextEntity.id);
   return {
-    ...entity,
+    ...nextEntity,
     badge,
     hostile,
   };

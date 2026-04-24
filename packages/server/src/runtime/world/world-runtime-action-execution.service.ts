@@ -129,11 +129,8 @@ let WorldRuntimeActionExecutionService = class WorldRuntimeActionExecutionServic
         }
         if (actionId === 'cultivation:toggle') {
             const player = this.playerRuntimeService.getPlayerOrThrow(playerId);
-            if (!player.techniques.cultivatingTechId) {
-                throw new common_1.BadRequestException('当前没有主修功法');
-            }
             const nextActive = !player.combat.cultivationActive;
-            this.playerRuntimeService.cultivateTechnique(playerId, nextActive ? player.techniques.cultivatingTechId : null);
+            this.playerRuntimeService.updateCombatSettings(playerId, { cultivationActive: nextActive }, currentTick);
             deps.queuePlayerNotice(playerId, nextActive ? '已恢复当前修炼' : '已停止当前修炼', 'info');
             return { kind: 'queued', view: deps.getPlayerViewOrThrow(playerId) };
         }

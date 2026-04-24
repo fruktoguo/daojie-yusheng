@@ -105,7 +105,8 @@ let PlayerAttributesService = class PlayerAttributesService {
             if (!item) {
                 continue;
             }
-            addAttributes(finalAttrs, item.equipAttrs);
+            const enhancedItem = (0, shared_1.applyEnhancementToItemStack)(item);
+            addAttributes(finalAttrs, enhancedItem.equipAttrs);
         }
         for (const buff of player.buffs.buffs) {
             addAttributes(finalAttrs, buff.attrs);
@@ -128,7 +129,8 @@ let PlayerAttributesService = class PlayerAttributesService {
             if (!item) {
                 continue;
             }
-            (0, shared_1.addPartialNumericStats)(numericStats, resolveItemStats(item.equipStats, item.equipValueStats));
+            const enhancedItem = (0, shared_1.applyEnhancementToItemStack)(item);
+            (0, shared_1.addPartialNumericStats)(numericStats, resolveItemStats(enhancedItem.equipStats, enhancedItem.equipValueStats));
         }
         for (const buff of player.buffs.buffs) {
             (0, shared_1.addPartialNumericStats)(numericStats, buff.stats);

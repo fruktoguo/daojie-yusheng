@@ -2,9 +2,10 @@
 
 const assert = require("node:assert/strict");
 
-const { DEFAULT_BASE_ATTRS, calcTechniqueFinalAttrBonus, getRealmAttributeMultiplier, getRealmLinearGrowthMultiplier } = require("@mud/shared");
+const { DEFAULT_BASE_ATTRS, applyEnhancementToItemStack, calcTechniqueFinalAttrBonus, calcTechniqueFinalQiProjection, getRealmAttributeMultiplier, getRealmLinearGrowthMultiplier } = require("@mud/shared");
 const { PlayerAttributesService } = require("../runtime/player/player-attributes.service");
 const { buildAttrDetailBonuses, buildAttrDetailNumericStatBreakdowns } = require("../network/world-gateway-attr-detail.helper");
+const { projectPlayerQiResourceValue, resolvePlayerQiResourceProjection } = require("../runtime/world/world-runtime-qi-projection.helpers");
 /**
  * testAttrDetailBuilders：构建testAttr详情Builder。
  * @returns 无返回值，直接更新testAttr详情Builder相关状态。
@@ -138,6 +139,103 @@ function testTechniqueAttrCalculationIgnoresStaleRuntimeAggregate() {
     assert.equal(player.attrs.finalAttrs.spirit, DEFAULT_BASE_ATTRS.spirit + techniqueBonus.spirit);
 }
 
+function testTechniqueQiProjectionAppearsInAttrDetail() {
+    const player = {
+        realm: {
+            stage: 0,
+        },
+        attrs: {
+            stage: 0,
+            baseAttrs: DEFAULT_BASE_ATTRS,
+            finalAttrs: DEFAULT_BASE_ATTRS,
+            numericStats: {},
+        },
+        techniques: {
+            techniques: [{
+                    techId: 'xuesha_huanling_jue',
+                    name: '血煞唤灵决',
+                    level: 1,
+                    exp: 0,
+                    expToNext: 0,
+                    realmLv: 31,
+                    realm: 0,
+                    grade: 'heaven',
+                    category: 'internal',
+                    skills: [],
+                    layers: [{
+                            level: 1,
+                            expToNext: 0,
+                            qiProjection: [{
+                                    selector: { families: ['aura'], elements: ['neutral'] },
+                                    visibility: 'absorbable',
+                                    efficiencyBpMultiplier: 9000,
+                                }, {
+                                    selector: { families: ['sha'], elements: ['neutral'] },
+                                    visibility: 'absorbable',
+                                    efficiencyBpMultiplier: 12000,
+                                }],
+                        }],
+                }],
+        },
+        equipment: { slots: [] },
+        buffs: { buffs: [] },
+        runtimeBonuses: [],
+    };
+    const projected = calcTechniqueFinalQiProjection(player.techniques.techniques);
+    assert.equal(projected.length, 2);
+    const bonuses = buildAttrDetailBonuses(player);
+    const techniqueBonus = bonuses.find((entry) => entry.source === 'technique:xuesha_huanling_jue');
+    assert.equal(techniqueBonus?.label, '血煞唤灵决');
+    assert.equal(Array.isArray(techniqueBonus?.qiProjection), true);
+    assert.equal(techniqueBonus.qiProjection.length, 2);
+    assert.equal(techniqueBonus.qiProjection.find((entry) => entry.selector?.families?.includes('aura'))?.efficiencyBpMultiplier, 9000);
+    assert.equal(techniqueBonus.qiProjection.find((entry) => entry.selector?.families?.includes('sha'))?.efficiencyBpMultiplier, 12000);
+}
+
+function testXueshaLevelNineQiProjectionUsesHiddenResourceZeroBaseline() {
+    const layerProjection = [{
+            selector: { families: ['aura'], elements: ['neutral'] },
+            visibility: 'absorbable',
+            efficiencyBpMultiplier: 9000,
+        }, {
+            selector: { families: ['sha'], elements: ['neutral'] },
+            visibility: 'absorbable',
+            efficiencyBpMultiplier: 12000,
+        }];
+    const player = {
+        techniques: {
+            techniques: [{
+                    techId: 'xuesha_huanling_jue',
+                    name: '血煞唤灵决',
+                    level: 9,
+                    exp: 0,
+                    expToNext: 0,
+                    realmLv: 42,
+                    realm: 0,
+                    grade: 'heaven',
+                    category: 'secret',
+                    skills: [],
+                    layers: Array.from({ length: 9 }, (_, index) => ({
+                        level: index + 1,
+                        expToNext: 0,
+                        qiProjection: layerProjection,
+                    })),
+                }],
+        },
+        buffs: { buffs: [] },
+        attrBonuses: [],
+        runtimeBonuses: [],
+    };
+    const auraProjection = resolvePlayerQiResourceProjection(player, 'aura.refined.neutral');
+    const shaProjection = resolvePlayerQiResourceProjection(player, 'sha.refined.neutral');
+    assert.equal(auraProjection?.visibility, 'absorbable');
+    assert.equal(auraProjection?.efficiencyBp, 1000);
+    assert.equal(shaProjection?.visibility, 'absorbable');
+    assert.equal(shaProjection?.efficiencyBp, 18000);
+    assert.equal(projectPlayerQiResourceValue(player, 'aura.refined.neutral', 1000), 100);
+    assert.equal(projectPlayerQiResourceValue(player, 'sha.refined.neutral', 1000), 1800);
+}
+
 function testRealmLevelScalesNumericStats() {
     const service = new PlayerAttributesService();
     const createPlayer = (realmLv) => ({
@@ -172,8 +270,68 @@ function testRealmLevelScalesNumericStats() {
     assert.equal(breakdowns.maxHp?.finalValue, realmLv3Player.attrs.numericStats.maxHp);
 }
 
+function testEnhancedEquipmentScalesLiveAndDetailStats() {
+    const service = new PlayerAttributesService();
+    const createPlayer = (enhanceLevel) => ({
+        realm: {
+            stage: 0,
+            realmLv: 1,
+        },
+        attrs: service.createInitialState(),
+        maxHp: 10,
+        maxQi: 10,
+        hp: 10,
+        qi: 10,
+        selfRevision: 1,
+        runtimeBonuses: [],
+        techniques: { techniques: [] },
+        bodyTraining: { level: 0 },
+        equipment: {
+            slots: [{
+                    slot: 'weapon',
+                    item: {
+                        itemId: 'smoke.sword',
+                        name: '测试剑',
+                        type: 'equipment',
+                        count: 1,
+                        equipSlot: 'weapon',
+                        enhanceLevel,
+                        equipAttrs: {
+                            constitution: 10,
+                            spirit: 5,
+                        },
+                        equipStats: {
+                            physAtk: 100,
+                            spellAtk: 20,
+                        },
+                    },
+                }],
+        },
+        buffs: { buffs: [] },
+        spiritualRoots: null,
+    });
+    const plus0Player = createPlayer(0);
+    const plus2Player = createPlayer(2);
+    service.recalculate(plus0Player);
+    service.recalculate(plus2Player);
+    const enhancedItem = applyEnhancementToItemStack(plus2Player.equipment.slots[0].item);
+    assert.equal(plus2Player.attrs.finalAttrs.constitution, DEFAULT_BASE_ATTRS.constitution + enhancedItem.equipAttrs.constitution);
+    assert.equal(plus2Player.attrs.finalAttrs.spirit, DEFAULT_BASE_ATTRS.spirit + enhancedItem.equipAttrs.spirit);
+    assert.ok(plus2Player.attrs.finalAttrs.constitution > plus0Player.attrs.finalAttrs.constitution);
+    assert.ok(plus2Player.attrs.numericStats.physAtk > plus0Player.attrs.numericStats.physAtk);
+    const equipmentBonus = buildAttrDetailBonuses(plus2Player).find((entry) => entry.source === 'equipment:weapon');
+    assert.equal(equipmentBonus?.attrs?.constitution, enhancedItem.equipAttrs.constitution);
+    assert.equal(equipmentBonus?.stats?.physAtk, enhancedItem.equipStats.physAtk);
+    const breakdowns = buildAttrDetailNumericStatBreakdowns(plus2Player);
+    assert.equal(breakdowns.physAtk?.finalValue, plus2Player.attrs.numericStats.physAtk);
+    assert.ok(breakdowns.physAtk?.bonusBaseValue > buildAttrDetailNumericStatBreakdowns(plus0Player).physAtk.bonusBaseValue);
+}
+
 testAttrDetailBuilders();
 testTechniqueAttrCalculationIgnoresStaleRuntimeAggregate();
+testTechniqueQiProjectionAppearsInAttrDetail();
+testXueshaLevelNineQiProjectionUsesHiddenResourceZeroBaseline();
 testRealmLevelScalesNumericStats();
+testEnhancedEquipmentScalesLiveAndDetailStats();
 
 console.log(JSON.stringify({ ok: true, case: 'world-gateway-attr-detail-helper' }, null, 2));

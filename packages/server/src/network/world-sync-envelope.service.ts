@@ -70,7 +70,8 @@ let WorldSyncEnvelopeService = class WorldSyncEnvelopeService {
  */
 
     createInitialEnvelope(playerId, binding, view, player) {
-        const envelope = this.appendCombatEffects(this.worldProjectorService.createInitialEnvelope(binding, view, player), view, player);
+        const projectedView = this.withContainerRespawnProjection(view);
+        const envelope = this.appendCombatEffects(this.worldProjectorService.createInitialEnvelope(binding, projectedView, player), projectedView, player);
         this.logMovementEnvelope(playerId, 'initial', envelope);
         return envelope;
     }    
@@ -83,7 +84,8 @@ let WorldSyncEnvelopeService = class WorldSyncEnvelopeService {
  */
 
     createDeltaEnvelope(playerId, view, player) {
-        const envelope = this.appendCombatEffects(this.worldProjectorService.createDeltaEnvelope(view, player), view, player);
+        const projectedView = this.withContainerRespawnProjection(view);
+        const envelope = this.appendCombatEffects(this.worldProjectorService.createDeltaEnvelope(projectedView, player), projectedView, player);
         this.logMovementEnvelope(playerId, 'delta', envelope);
         return envelope;
     }    
@@ -96,6 +98,32 @@ let WorldSyncEnvelopeService = class WorldSyncEnvelopeService {
     clearPlayerCache(playerId) {
         this.worldProjectorService.clear(playerId);
     }    
+
+    withContainerRespawnProjection(view) {
+        if (!view || !Array.isArray(view.localContainers) || view.localContainers.length === 0) {
+            return view;
+        }
+        const instanceId = view.instance?.instanceId;
+        const instance = this.worldRuntimeService.getInstanceRuntime?.(instanceId) ?? null;
+        const lootContainerService = this.worldRuntimeService.worldRuntimeLootContainerService;
+        if (!instance || !lootContainerService || typeof lootContainerService.getHerbContainerWorldProjection !== 'function') {
+            return view;
+        }
+        let changed = false;
+        const localContainers = view.localContainers.map((entry) => {
+            const container = instance.getContainerById?.(entry.id) ?? null;
+            const projection = lootContainerService.getHerbContainerWorldProjection(instanceId, container, instance.tick);
+            const respawnRemainingTicks = projection?.remainingCount === 0 && projection.respawnRemainingTicks !== undefined
+                ? Math.max(0, Math.trunc(Number(projection.respawnRemainingTicks) || 0))
+                : undefined;
+            if (respawnRemainingTicks === entry.respawnRemainingTicks) {
+                return entry;
+            }
+            changed = true;
+            return { ...entry, respawnRemainingTicks };
+        });
+        return changed ? { ...view, localContainers } : view;
+    }
     /**
  * appendNextCombatEffects：执行appendNext战斗Effect相关逻辑。
  * @param envelope 参数说明。

@@ -514,6 +514,8 @@ export function createMainRuntimeDeltaStateSource(options: MainRuntimeDeltaState
       kind: 'container',
       hp: previous?.hp,
       maxHp: previous?.maxHp,
+      respawnRemainingTicks: patch.rr === null ? null : patch.rr ?? previous?.respawnRemainingTicks,
+      respawnTotalTicks: previous?.respawnTotalTicks,
       qi: previous?.qi,
       maxQi: previous?.maxQi,
       npcQuestMarker: previous?.npcQuestMarker,
@@ -769,7 +771,9 @@ export function createMainRuntimeDeltaStateSource(options: MainRuntimeDeltaState
       const runtimeInput = buildWorldDeltaRuntimeInput(data, mapIdHint);
       const selfPatch = runtimeInput.playerPatches.find((patch) => patch.id === player.id);
       options.syncAuraLevelBaseValue(data.auraLevelBaseValue);
-      options.syncCurrentTimeState(data.time ?? null);
+      if (data.time) {
+        options.syncCurrentTimeState(data.time);
+      }
       options.applyWorldDeltaToRuntime(runtimeInput);
       if (selfPatch?.name) {
         player.name = selfPatch.name;

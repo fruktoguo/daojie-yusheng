@@ -254,7 +254,6 @@ export function createMainPanelContext(options: CreateMainPanelContextOptions) {
     documentRef,
     showToastEl: documentRef.getElementById('toast'),
     getPlayer: () => rootRuntimeSource.getPlayer(),
-    getLatestEntities: () => rootRuntimeSource.getLatestEntities(),
   });
 
   return {

@@ -56,6 +56,10 @@ message TickRenderEntityPayload {
   optional bool clearObservation = 25;
   optional string buffsJson = 26;
   optional bool clearBuffs = 27;
+  optional sint32 respawnRemainingTicks = 28;
+  optional bool clearRespawnRemainingTicks = 29;
+  optional sint32 respawnTotalTicks = 30;
+  optional bool clearRespawnTotalTicks = 31;
 }
 
 message NpcQuestMarkerPayload {
