@@ -16,9 +16,12 @@ import './styles/panels.css';
 import './styles/ui-responsive.css';
 import './styles/responsive.css';
 
+import { bindExternalLinkGuard } from './ui/external-link-guard';
 import { collectMainDomElements } from './main-dom-elements';
 import { createMainFrontendModules } from './main-frontend-modules';
 import { initializeMainApp } from './main-app-composition';
+
+bindExternalLinkGuard(document);
 
 initializeMainApp({
   windowRef: window,
