@@ -141,6 +141,9 @@ import { PlayerStateFlushWorker } from './runtime/world/player-state-flush.worke
 import { InstanceResourceFlushWorker } from './runtime/world/instance-resource-flush.worker';
 import { InstanceGroundItemFlushWorker } from './runtime/world/instance-ground-item-flush.worker';
 import { InstanceContainerFlushWorker } from './runtime/world/instance-container-flush.worker';
+import { InstanceTileDamageFlushWorker } from './runtime/world/instance-tile-damage-flush.worker';
+import { InstanceOverlayFlushWorker } from './runtime/world/instance-overlay-flush.worker';
+import { InstanceMonsterRuntimeFlushWorker } from './runtime/world/instance-monster-runtime-flush.worker';
 import { CheckpointCompactionWorker } from './runtime/world/checkpoint-compaction.worker';
 import { SuggestionRuntimeService } from './runtime/suggestion/suggestion-runtime.service';
 import { RedeemCodeRuntimeService } from './runtime/redeem/redeem-code-runtime.service';
@@ -272,6 +275,9 @@ import { WorldRuntimeService } from './runtime/world/world-runtime.service';
     InstanceResourceFlushWorker,
     InstanceGroundItemFlushWorker,
     InstanceContainerFlushWorker,
+    InstanceTileDamageFlushWorker,
+    InstanceOverlayFlushWorker,
+    InstanceMonsterRuntimeFlushWorker,
     CheckpointCompactionWorker,
     SuggestionRuntimeService,
     RedeemCodeRuntimeService,

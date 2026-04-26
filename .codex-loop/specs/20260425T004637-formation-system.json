@@ -1,0 +1,29 @@
+{
+  "enabled": true,
+  "completed": true,
+  "task": "实现阵法系统，按照 docs/开发/阵法系统设计方案.md 完整落地 V1：阵盘/阵法配置、聚灵阵、固脉阵、服务端 tick 权威运行时、协议/客户端入口、验证通过。",
+  "done_token": "FORMATION_SYSTEM_DONE",
+  "required_sections": [
+    "完成了什么",
+    "验证结果",
+    "剩余风险"
+  ],
+  "required_paths_modified": [
+    "packages/shared/src",
+    "packages/server/src",
+    "packages/server/data/content",
+    "packages/client/src"
+  ],
+  "required_paths_exist": [
+    "packages/server/data/content/formations.json"
+  ],
+  "commands": [
+    {
+      "label": "build",
+      "command": "pnpm build",
+      "cwd": ".",
+      "expect_exit_code": 0
+    }
+  ],
+  "max_rounds": 99
+}

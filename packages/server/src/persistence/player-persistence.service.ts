@@ -68,6 +68,8 @@ interface PlayerSnapshotVitals {
 interface PlayerSnapshotProgression {
   foundation: number;
   combatExp: number;
+  comprehension?: number;
+  luck?: number;
   bodyTraining: Record<string, unknown> | null;
   alchemySkill: Record<string, unknown> | null;
   gatherSkill: Record<string, unknown> | null;
@@ -170,6 +172,7 @@ export interface PersistedPlayerSnapshot {
   placement: PlayerSnapshotPlacement;
   respawn?: PlayerSnapshotPlacement;
   worldPreference?: PlayerSnapshotWorldPreference;
+  sectId?: string | null;
   vitals: PlayerSnapshotVitals;
   progression: PlayerSnapshotProgression;
   attrState?: PlayerSnapshotAttrState;
@@ -498,6 +501,22 @@ function normalizePlayerSnapshotPayload(raw: unknown): PersistedPlayerSnapshot |
   const normalizedInstanceId =
     normalizePlayerSnapshotPlacementInstanceId(placementInput.instanceId)
     ?? buildPublicPlayerInstanceId(normalizedTemplateId);
+  const respawnInput = asRecord(snapshot.respawn);
+  const normalizedRespawnTemplateId =
+    typeof respawnInput?.templateId === 'string' && respawnInput.templateId.trim()
+      ? respawnInput.templateId.trim()
+      : '';
+  const normalizedRespawn = normalizedRespawnTemplateId
+    ? {
+        instanceId:
+          normalizePlayerSnapshotPlacementInstanceId(respawnInput?.instanceId)
+          ?? buildPublicPlayerInstanceId(normalizedRespawnTemplateId),
+        templateId: normalizedRespawnTemplateId,
+        x: isFiniteNumber(respawnInput?.x) ? Math.trunc(respawnInput.x) : 0,
+        y: isFiniteNumber(respawnInput?.y) ? Math.trunc(respawnInput.y) : 0,
+        facing: isFiniteNumber(respawnInput?.facing) ? Math.trunc(respawnInput.facing) : 1,
+      }
+    : undefined;
 
   const vitals = asRecord(snapshot.vitals);
   const inventory = asRecord(snapshot.inventory);
@@ -520,6 +539,11 @@ function normalizePlayerSnapshotPayload(raw: unknown): PersistedPlayerSnapshot |
       y: isFiniteNumber(placementInput.y) ? Math.trunc(placementInput.y) : 0,
       facing: isFiniteNumber(placementInput.facing) ? Math.trunc(placementInput.facing) : 1,
     },
+    ...(normalizedRespawn ? { respawn: normalizedRespawn } : {}),
+    sectId:
+      typeof snapshot.sectId === 'string' && snapshot.sectId.trim()
+        ? snapshot.sectId.trim()
+        : null,
     worldPreference: {
       linePreset: normalizePlayerWorldPreferenceLinePreset(worldPreference?.linePreset),
     },
@@ -532,6 +556,8 @@ function normalizePlayerSnapshotPayload(raw: unknown): PersistedPlayerSnapshot |
     progression: {
       foundation: isFiniteNumber(progression?.foundation) ? Math.trunc(progression.foundation) : 0,
       combatExp: isFiniteNumber(progression?.combatExp) ? Math.trunc(progression.combatExp) : 0,
+      comprehension: isFiniteNumber(progression?.comprehension) ? Math.max(0, Math.trunc(progression.comprehension)) : 0,
+      luck: isFiniteNumber(progression?.luck) ? Math.max(0, Math.trunc(progression.luck)) : 0,
       bodyTraining: asRecordOrNull(progression?.bodyTraining),
       alchemySkill: asRecordOrNull(progression?.alchemySkill),
       gatherSkill: asRecordOrNull(progression?.gatherSkill),

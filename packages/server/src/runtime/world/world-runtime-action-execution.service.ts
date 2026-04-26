@@ -140,6 +140,27 @@ let WorldRuntimeActionExecutionService = class WorldRuntimeActionExecutionServic
         if (actionId === 'sense_qi:toggle') {
             return this.toggleCombatSetting(playerId, currentTick, 'senseQiActive', deps);
         }
+        if (actionId.startsWith('formation:toggle:')) {
+            const formationInstanceId = actionId.slice('formation:toggle:'.length).trim();
+            const formation = deps.worldRuntimeFormationService.findOwnedFormation(playerId, formationInstanceId);
+            deps.worldRuntimeFormationService.dispatchSetFormationActive(playerId, {
+                formationInstanceId,
+                active: !formation.active,
+            }, deps);
+            deps.refreshPlayerContextActions(playerId);
+            return { kind: 'queued', view: deps.getPlayerViewOrThrow(playerId) };
+        }
+        if (actionId.startsWith('formation:refill:')) {
+            const formationInstanceId = actionId.slice('formation:refill:'.length).trim();
+            deps.worldRuntimeFormationService.dispatchRefillFormation(playerId, {
+                formationInstanceId,
+            }, deps);
+            deps.refreshPlayerContextActions(playerId);
+            return { kind: 'queued', view: deps.getPlayerViewOrThrow(playerId) };
+        }
+        if (actionId.startsWith('sect:')) {
+            return deps.worldRuntimeSectService.executeSectAction(playerId, actionId, deps);
+        }
         if (actionId.startsWith('npc_shop:')) {
             return {
                 kind: 'npcShop',

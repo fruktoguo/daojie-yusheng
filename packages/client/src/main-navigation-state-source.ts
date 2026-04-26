@@ -18,7 +18,19 @@ import type { MainRuntimeObservedEntity } from './main-runtime-view-types';
 
 export type MainNavigationObservedEntity = Pick<
   MainRuntimeObservedEntity,
-  'id' | 'wx' | 'wy' | 'char' | 'color' | 'name' | 'kind' | 'npcQuestMarker'
+  | 'id'
+  | 'wx'
+  | 'wy'
+  | 'char'
+  | 'color'
+  | 'name'
+  | 'kind'
+  | 'npcQuestMarker'
+  | 'formationRadius'
+  | 'formationRangeShape'
+  | 'formationBlocksBoundary'
+  | 'formationOwnerSectId'
+  | 'formationOwnerPlayerId'
 > & {
 /**
  * npcQuestMarker：NPC任务Marker相关字段。
@@ -113,6 +125,10 @@ type MainNavigationStateSourceOptions = {
  * mapId：地图ID标识。
  */
  mapId: string;  
+ /**
+ * sectId：所属宗门 ID。
+ */
+ sectId?: string | null;
  /**
  * actions：action相关字段。
  */
@@ -367,6 +383,9 @@ export function createMainNavigationStateSource(options: MainNavigationStateSour
     if (!tile?.walkable) {
       return false;
     }
+    if (isFormationBoundaryBlockedAt(x, y)) {
+      return false;
+    }
     return !isVisibleBlockingEntityAt(x, y, { allowSelf: true, mapMeta });
   }  
   /**
@@ -417,6 +436,9 @@ export function createMainNavigationStateSource(options: MainNavigationStateSour
     const playerOverlapPointKeys = createPlayerOverlapPointKeySet(mapMeta);
     const visibleBlockingPositions = new Set<string>();
     for (const entity of options.getLatestEntities()) {
+      if (entity.kind === 'formation' && entity.formationBlocksBoundary === true && !canCurrentPlayerPassFormationBoundary(entity)) {
+        appendFormationBoundaryPositions(visibleBlockingPositions, entity, mapMeta);
+      }
       if (!isPathPreviewBlockingEntity(entity)) {
         continue;
       }
@@ -567,6 +589,67 @@ export function createMainNavigationStateSource(options: MainNavigationStateSour
     return bestCandidate ? { x: bestCandidate.x, y: bestCandidate.y } : null;
   }
 
+  function isFormationBoundaryBlockedAt(x: number, y: number): boolean {
+    return options.getLatestEntities().some((entity) => (
+      entity.kind === 'formation'
+      && entity.formationBlocksBoundary === true
+      && !canCurrentPlayerPassFormationBoundary(entity)
+      && isCellOnFormationBoundary(entity, x, y)
+    ));
+  }
+
+  function canCurrentPlayerPassFormationBoundary(entity: MainNavigationObservedEntity): boolean {
+    const playerId = options.getPlayer()?.id;
+    if (playerId && normalizePlayerId(entity.formationOwnerPlayerId) === playerId) {
+      return true;
+    }
+    const playerSectId = normalizeSectId(options.getPlayer()?.sectId);
+    const ownerSectId = normalizeSectId(entity.formationOwnerSectId);
+    return Boolean(playerSectId && ownerSectId && playerSectId === ownerSectId);
+  }
+
+  function normalizePlayerId(value: string | null | undefined): string | null {
+    return typeof value === 'string' && value.trim() ? value.trim() : null;
+  }
+
+  function normalizeSectId(value: string | null | undefined): string | null {
+    return typeof value === 'string' && value.trim() ? value.trim() : null;
+  }
+
+  function appendFormationBoundaryPositions(target: Set<string>, entity: MainNavigationObservedEntity, mapMeta: MapMeta): void {
+    const radius = Math.max(1, Math.trunc(Number(entity.formationRadius) || 0));
+    const minX = Math.max(0, entity.wx - radius);
+    const maxX = Math.min(mapMeta.width - 1, entity.wx + radius);
+    const minY = Math.max(0, entity.wy - radius);
+    const maxY = Math.min(mapMeta.height - 1, entity.wy + radius);
+    for (let y = minY; y <= maxY; y += 1) {
+      for (let x = minX; x <= maxX; x += 1) {
+        if (isCellOnFormationBoundary(entity, x, y)) {
+          target.add(`${x},${y}`);
+        }
+      }
+    }
+  }
+
+  function isCellOnFormationBoundary(entity: MainNavigationObservedEntity, x: number, y: number): boolean {
+    const radius = Math.max(1, Math.trunc(Number(entity.formationRadius) || 0));
+    const dx = x - entity.wx;
+    const dy = y - entity.wy;
+    if (Math.abs(dx) > radius || Math.abs(dy) > radius) {
+      return false;
+    }
+    if (entity.formationRangeShape === 'circle') {
+      return (dx * dx) + (dy * dy) <= radius * radius
+        && (
+          ((dx + 1) * (dx + 1)) + (dy * dy) > radius * radius
+          || ((dx - 1) * (dx - 1)) + (dy * dy) > radius * radius
+          || (dx * dx) + ((dy + 1) * (dy + 1)) > radius * radius
+          || (dx * dx) + ((dy - 1) * (dy - 1)) > radius * radius
+        );
+    }
+    return Math.abs(dx) === radius || Math.abs(dy) === radius;
+  }
+
   return {  
   /**
  * getPathCells：读取路径Cell。
@@ -617,6 +700,19 @@ export function createMainNavigationStateSource(options: MainNavigationStateSour
 
 
     syncPathCellsToRuntime(): void {
+      options.setRuntimePathCells(pathCells);
+    },    
+    /**
+ * setCurrentPathCells：写入当前路径高亮。
+ * @param cells 路径格子列表。
+ * @returns 无返回值，直接更新当前路径高亮。
+ */
+
+
+    setCurrentPathCells(cells: Array<{ x: number; y: number }>): void {
+      pathCells = cells.map((cell) => ({ x: cell.x, y: cell.y }));
+      pathTarget = pathCells[pathCells.length - 1] ?? null;
+      pendingAutoInteraction = null;
       options.setRuntimePathCells(pathCells);
     },    
     /**
@@ -803,7 +899,6 @@ export function createMainNavigationStateSource(options: MainNavigationStateSour
         return true;
       }
       if (actionId.startsWith('npc_quests:')) {
-        options.openNpcQuestPending(actionId.slice('npc_quests:'.length));
         options.sendAction(actionId);
         return true;
       }
@@ -833,7 +928,6 @@ export function createMainNavigationStateSource(options: MainNavigationStateSour
             return true;
           }
           if (actionId.startsWith('npc_quests:')) {
-            options.openNpcQuestPending(actionId.slice('npc_quests:'.length));
             options.sendAction(actionId);
             return true;
           }

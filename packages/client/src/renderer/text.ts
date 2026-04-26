@@ -2,7 +2,7 @@
  * 文字渲染器——基于 Canvas 2D 的地图、实体与特效绘制，默认 IRenderer 实现。
  */
 
-import { IRenderer, SenseQiOverlayState, TargetingOverlayState, type FloatingActionTextStyle } from './types';
+import { FormationRangeOverlayState, IRenderer, SenseQiOverlayState, TargetingOverlayState, type FloatingActionTextStyle } from './types';
 import {
   DEFAULT_AURA_LEVEL_BASE_VALUE,
   GameTimeState,
@@ -20,6 +20,7 @@ import {
   RenderEntity,
   SENSE_QI_OVERLAY_STYLE,
   Tile,
+  type FormationRangeShape,
   type MonsterTier,
   TechniqueGrade,
   TimePhaseId,
@@ -434,6 +435,30 @@ interface AnimEntity {
  */
 
   buffs?: VisibleBuffState[];
+  /** 阵法影响半径。 */
+  formationRadius?: number;
+  /** 阵法范围形状。 */
+  formationRangeShape?: FormationRangeShape;
+  /** 感气范围高亮颜色。 */
+  formationRangeHighlightColor?: string;
+  /** 阵法边界专用字符。 */
+  formationBoundaryChar?: string;
+  /** 阵法边界专用颜色。 */
+  formationBoundaryColor?: string;
+  /** 阵法边界专用范围高亮色。 */
+  formationBoundaryRangeHighlightColor?: string;
+  /** 阵眼是否无需感气即可直接看见。 */
+  formationEyeVisibleWithoutSenseQi?: boolean;
+  /** 阵法范围是否无需感气即可直接看见。 */
+  formationRangeVisibleWithoutSenseQi?: boolean;
+  /** 阵法边界是否无需感气即可直接看见。 */
+  formationBoundaryVisibleWithoutSenseQi?: boolean;
+  /** 阵法实体是否显示名称文本。 */
+  formationShowText?: boolean;
+  /** 阵法边界是否阻挡通行。 */
+  formationBlocksBoundary?: boolean;
+  /** 阵法是否处于开启状态。 */
+  formationActive?: boolean;
 }
 
 /** 渲染输出实体快照，包含屏幕坐标。 */
@@ -488,6 +513,88 @@ interface RenderedAnimEntity {
  */
 
   visualCellSize: number;
+}
+
+function getEntityRenderLayer(kind: string | null | undefined): number {
+  if (kind === 'formation') {
+    return 0;
+  }
+  if (kind === 'container') {
+    return 1;
+  }
+  if (kind === 'npc') {
+    return 2;
+  }
+  if (kind === 'monster') {
+    return 3;
+  }
+  if (kind === 'crowd') {
+    return 4;
+  }
+  if (kind === 'player') {
+    return 5;
+  }
+  return 2;
+}
+
+function isTileInsideFormationRange(anim: AnimEntity, gx: number, gy: number): boolean {
+  const radius = Math.max(1, Math.trunc(Number(anim.formationRadius) || 0));
+  const dx = gx - anim.gridX;
+  const dy = gy - anim.gridY;
+  if (Math.abs(dx) > radius || Math.abs(dy) > radius) {
+    return false;
+  }
+  if (anim.formationRangeShape === 'circle') {
+    return (dx * dx) + (dy * dy) <= radius * radius;
+  }
+  if (anim.formationRangeShape === 'checkerboard') {
+    return ((gx + gy) % 2) === 0;
+  }
+  return true;
+}
+
+function isTileOnFormationBoundary(anim: AnimEntity, gx: number, gy: number): boolean {
+  if (!isTileInsideFormationRange(anim, gx, gy)) {
+    return false;
+  }
+  const radius = Math.max(1, Math.trunc(Number(anim.formationRadius) || 0));
+  const dx = gx - anim.gridX;
+  const dy = gy - anim.gridY;
+  if (anim.formationRangeShape === 'circle') {
+    return (dx * dx) + (dy * dy) <= radius * radius
+      && (
+        ((dx + 1) * (dx + 1)) + (dy * dy) > radius * radius
+        || ((dx - 1) * (dx - 1)) + (dy * dy) > radius * radius
+        || (dx * dx) + ((dy + 1) * (dy + 1)) > radius * radius
+        || (dx * dx) + ((dy - 1) * (dy - 1)) > radius * radius
+      );
+  }
+  return Math.abs(dx) === radius || Math.abs(dy) === radius;
+}
+
+function colorWithAlpha(color: string | undefined, alpha: number): string {
+  const fallback = `rgba(59, 130, 246, ${alpha})`;
+  const value = typeof color === 'string' ? color.trim() : '';
+  if (!value) {
+    return fallback;
+  }
+  if (/^rgba?\(/i.test(value) || /^hsla?\(/i.test(value)) {
+    return value;
+  }
+  const hex = value.startsWith('#') ? value.slice(1) : '';
+  if (hex.length === 3 || hex.length === 6) {
+    const expanded = hex.length === 3
+      ? hex.split('').map((entry) => `${entry}${entry}`).join('')
+      : hex;
+    const numeric = Number.parseInt(expanded, 16);
+    if (Number.isFinite(numeric)) {
+      const r = (numeric >> 16) & 255;
+      const g = (numeric >> 8) & 255;
+      const b = numeric & 255;
+      return `rgba(${r}, ${g}, ${b}, ${alpha})`;
+    }
+  }
+  return value;
 }
 
 /** 浮动文字实例。 */
@@ -759,10 +866,14 @@ export class TextRenderer implements IRenderer {
   private fadingPath: FadingPathState | null = null;
   /** 瞄准叠加层状态。 */
   private targetingOverlay: TargetingOverlayState | null = null;
+  /** 阵法范围叠加层状态。 */
+  private formationRangeOverlay: FormationRangeOverlayState | null = null;
   /** 感气叠加层状态。 */
   private senseQiOverlay: SenseQiOverlayState | null = null;
   /** 受到影响的瞄准格子。 */
   private targetingAffectedKeys = new Set<string>();
+  /** 受到影响的阵法范围格子。 */
+  private formationRangeAffectedKeys = new Set<string>();
   /** 当前浮动文字列表。 */
   private floatingTexts: FloatingText[] = [];
   /** 当前攻击拖尾列表。 */
@@ -828,6 +939,11 @@ export class TextRenderer implements IRenderer {
     this.floatingTexts = [];
     this.attackTrails = [];
     this.warningZones = [];
+    this.targetingOverlay = null;
+    this.targetingAffectedKeys.clear();
+    this.formationRangeOverlay = null;
+    this.formationRangeAffectedKeys.clear();
+    this.senseQiOverlay = null;
     this.lastMotionSyncToken = undefined;
     this.previousVisibleTileKeys.clear();
     this.previousVisibleTileRevision = -1;
@@ -883,6 +999,12 @@ export class TextRenderer implements IRenderer {
   setTargetingOverlay(state: TargetingOverlayState | null) {
     this.targetingOverlay = state;
     this.targetingAffectedKeys = new Set((state?.affectedCells ?? []).map((cell) => `${cell.x},${cell.y}`));
+  }
+
+  /** 设置阵法范围叠加层，并同步受影响格子索引。 */
+  setFormationRangeOverlay(state: FormationRangeOverlayState | null) {
+    this.formationRangeOverlay = state;
+    this.formationRangeAffectedKeys = new Set((state?.affectedCells ?? []).map((cell) => `${cell.x},${cell.y}`));
   }
 
   /** 设置感气视角叠加层。 */
@@ -1015,6 +1137,21 @@ export class TextRenderer implements IRenderer {
               ctx.strokeRect(sx + 1.5, sy + 1.5, cellSize - 3, cellSize - 3);
             }
           }
+
+          if (this.formationRangeOverlay && this.formationRangeAffectedKeys.has(key)) {
+            const rangeColor = this.formationRangeOverlay.rangeHighlightColor;
+            ctx.fillStyle = colorWithAlpha(rangeColor, 0.22);
+            ctx.fillRect(sx + 1, sy + 1, cellSize - 2, cellSize - 2);
+            ctx.strokeStyle = colorWithAlpha(rangeColor, 0.86);
+            ctx.lineWidth = 2;
+            ctx.strokeRect(sx + 1.5, sy + 1.5, cellSize - 3, cellSize - 3);
+          }
+          if (tile && !this.senseQiOverlay && isVisible) {
+            const visibleFormationRangeVisual = this.resolveFormationRangeVisual(gx, gy, false);
+            if (visibleFormationRangeVisual) {
+              this.drawFormationRangeVisual(ctx, sx, sy, cellSize, visibleFormationRangeVisual);
+            }
+          }
         }
 
         if (!isVisible) {
@@ -1035,6 +1172,10 @@ export class TextRenderer implements IRenderer {
             : { family: 'aura', value: 0 };
           ctx.fillStyle = getSenseQiOverlayStyle(signal.value, senseQiLevelBaseValue, signal.family);
           ctx.fillRect(sx, sy, cellSize, cellSize);
+          const formationRangeVisual = this.resolveFormationRangeVisual(gx, gy, true);
+          if (formationRangeVisual) {
+            this.drawFormationRangeVisual(ctx, sx, sy, cellSize, formationRangeVisual);
+          }
           if (isVisible && gx === this.senseQiOverlay.hoverX && gy === this.senseQiOverlay.hoverY) {
             ctx.strokeStyle = SENSE_QI_OVERLAY_STYLE.hoverStroke;
             ctx.lineWidth = 2;
@@ -1175,7 +1316,19 @@ export class TextRenderer implements IRenderer {
  /**
  * buffs：buff相关字段。
  */
- buffs?: VisibleBuffState[] }[],
+ buffs?: VisibleBuffState[];
+ formationRadius?: number;
+ formationRangeShape?: FormationRangeShape;
+ formationRangeHighlightColor?: string;
+ formationBoundaryChar?: string;
+ formationBoundaryColor?: string;
+ formationBoundaryRangeHighlightColor?: string;
+ formationEyeVisibleWithoutSenseQi?: boolean;
+ formationRangeVisibleWithoutSenseQi?: boolean;
+ formationBoundaryVisibleWithoutSenseQi?: boolean;
+ formationShowText?: boolean;
+ formationBlocksBoundary?: boolean;
+ formationActive?: boolean }[],
     movedId?: string,
     shiftX = 0,
     shiftY = 0,
@@ -1245,6 +1398,18 @@ export class TextRenderer implements IRenderer {
         anim.npcQuestMarker = e.npcQuestMarker ?? undefined;
         anim.hostile = e.hostile;
         anim.buffs = e.buffs;
+        anim.formationRadius = e.formationRadius;
+        anim.formationRangeShape = e.formationRangeShape;
+        anim.formationRangeHighlightColor = e.formationRangeHighlightColor;
+        anim.formationBoundaryChar = e.formationBoundaryChar;
+        anim.formationBoundaryColor = e.formationBoundaryColor;
+        anim.formationBoundaryRangeHighlightColor = e.formationBoundaryRangeHighlightColor;
+        anim.formationEyeVisibleWithoutSenseQi = e.formationEyeVisibleWithoutSenseQi;
+        anim.formationRangeVisibleWithoutSenseQi = e.formationRangeVisibleWithoutSenseQi;
+        anim.formationBoundaryVisibleWithoutSenseQi = e.formationBoundaryVisibleWithoutSenseQi;
+        anim.formationShowText = e.formationShowText;
+        anim.formationBlocksBoundary = e.formationBlocksBoundary;
+        anim.formationActive = e.formationActive;
       } else {
         this.entities.set(e.id, {
           id: e.id,
@@ -1268,6 +1433,18 @@ export class TextRenderer implements IRenderer {
           npcQuestMarker: e.npcQuestMarker ?? undefined,
           hostile: e.hostile,
           buffs: e.buffs,
+          formationRadius: e.formationRadius,
+          formationRangeShape: e.formationRangeShape,
+          formationRangeHighlightColor: e.formationRangeHighlightColor,
+          formationBoundaryChar: e.formationBoundaryChar,
+          formationBoundaryColor: e.formationBoundaryColor,
+          formationBoundaryRangeHighlightColor: e.formationBoundaryRangeHighlightColor,
+          formationEyeVisibleWithoutSenseQi: e.formationEyeVisibleWithoutSenseQi,
+          formationRangeVisibleWithoutSenseQi: e.formationRangeVisibleWithoutSenseQi,
+          formationBoundaryVisibleWithoutSenseQi: e.formationBoundaryVisibleWithoutSenseQi,
+          formationShowText: e.formationShowText,
+          formationBlocksBoundary: e.formationBlocksBoundary,
+          formationActive: e.formationActive,
         });
       }
     }
@@ -1291,8 +1468,12 @@ export class TextRenderer implements IRenderer {
     const renderedEntities: RenderedAnimEntity[] = [];
     const motionProgress = Math.max(0, Math.min(1, progress));
     const t = easeOutCubic(motionProgress);
-
     for (const anim of this.entities.values()) {
+      if (anim.kind === 'formation'
+        && this.senseQiOverlay === null
+        && anim.formationEyeVisibleWithoutSenseQi !== true) {
+        continue;
+      }
       const wx = anim.oldWX + (anim.targetWX - anim.oldWX) * t;
       const wy = anim.oldWY + (anim.targetWY - anim.oldWY) * t;
 
@@ -1324,7 +1505,6 @@ export class TextRenderer implements IRenderer {
         .filter((entry) => entry.anim.kind === 'crowd')
         .map((entry) => `${entry.anim.gridX},${entry.anim.gridY}`),
     );
-
     let localPlayerRendered: RenderedAnimEntity | undefined;
     if (localPlayerId !== undefined
       && Number.isFinite(localPlayerX)
@@ -1358,7 +1538,10 @@ export class TextRenderer implements IRenderer {
 
     this.renderThreatTargetArrows(renderedEntities, localPlayerId, localPlayerRendered);
 
-    for (const rendered of renderedEntities) {
+    const orderedRenderedEntities = [...renderedEntities].sort((left, right) => (
+      getEntityRenderLayer(left.anim.kind) - getEntityRenderLayer(right.anim.kind)
+    ));
+    for (const rendered of orderedRenderedEntities) {
       const { anim, presentation: monsterPresentation, sx, sy, cellSize: renderedCellSize, visualSx, visualSy, visualCellSize } = rendered;
       const isCrowd = anim.kind === 'crowd';
 
@@ -1412,29 +1595,32 @@ export class TextRenderer implements IRenderer {
         const isPlayer = anim.kind === 'player';
         const isNpc = anim.kind === 'npc';
         const isContainer = anim.kind === 'container';
-        const label = monsterPresentation?.label ?? anim.name ?? (isCrowd ? '人群' : isMonster ? '妖兽' : isPlayer ? '修士' : isContainer ? '箱具' : '道人');
+        const isFormation = anim.kind === 'formation';
+        const label = monsterPresentation?.label ?? anim.name ?? (isCrowd ? '人群' : isMonster ? '妖兽' : isPlayer ? '修士' : isContainer ? '箱具' : isFormation ? '阵法' : '道人');
         ctx.textBaseline = 'alphabetic';
         ctx.font = buildCanvasFont('label', renderedCellSize * (isCrowd ? 0.24 : 0.3));
         const labelY = visualSy - Math.max(6, renderedCellSize * 0.18);
-        const labelColor = isCrowd ? '#f4dfaf' : isMonster ? '#ffddcc' : isPlayer ? '#d8f3c3' : isContainer ? '#ffe3b8' : '#cce7ff';
+        const labelColor = isCrowd ? '#f4dfaf' : isMonster ? '#ffddcc' : isPlayer ? '#d8f3c3' : isContainer ? '#ffe3b8' : isFormation ? '#9cc8ff' : '#cce7ff';
         const badge = anim.badge ?? monsterPresentation?.badge;
-        if (badge) {
-          this.drawEntityBadgeLabel(
-            label,
-            badge,
-            sx + renderedCellSize / 2,
-            labelY,
-            renderedCellSize,
-            labelColor,
-          );
-        } else {
-          this.drawOutlinedText(
-            label,
-            sx + renderedCellSize / 2,
-            labelY,
-            labelColor,
-            'rgba(15,12,10,0.9)',
-          );
+        if (!isFormation || anim.formationShowText !== false) {
+          if (badge) {
+            this.drawEntityBadgeLabel(
+              label,
+              badge,
+              sx + renderedCellSize / 2,
+              labelY,
+              renderedCellSize,
+              labelColor,
+            );
+          } else {
+            this.drawOutlinedText(
+              label,
+              sx + renderedCellSize / 2,
+              labelY,
+              labelColor,
+              'rgba(15,12,10,0.9)',
+            );
+          }
         }
 
         if (!isCrowd) {
@@ -1477,6 +1663,109 @@ export class TextRenderer implements IRenderer {
         }
       }
     }
+    this.drawFormationTileMarkers(ctx, renderedEntities);
+  }
+
+  /** 绘制阵法地面标记，使阵法和玩家同格时仍然可见。 */
+  private drawFormationTileMarkers(ctx: CanvasRenderingContext2D, renderedEntities: RenderedAnimEntity[]): void {
+    for (const rendered of renderedEntities) {
+      if (rendered.anim.kind !== 'formation') {
+        continue;
+      }
+      const { sx, sy, cellSize } = rendered;
+      const centerX = sx + cellSize / 2;
+      const centerY = sy + cellSize / 2;
+      const radius = Math.max(5, cellSize * 0.36);
+      const markerColor = rendered.anim.formationRangeHighlightColor ?? rendered.anim.color;
+      ctx.save();
+      ctx.fillStyle = colorWithAlpha(markerColor, 0.18);
+      ctx.strokeStyle = colorWithAlpha(markerColor, 0.9);
+      ctx.lineWidth = Math.max(1.5, cellSize * 0.055);
+      ctx.beginPath();
+      ctx.arc(centerX, centerY, radius, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.stroke();
+      ctx.strokeStyle = colorWithAlpha(markerColor, 0.72);
+      ctx.lineWidth = Math.max(1, cellSize * 0.035);
+      ctx.beginPath();
+      ctx.moveTo(centerX - radius * 0.66, centerY);
+      ctx.lineTo(centerX + radius * 0.66, centerY);
+      ctx.moveTo(centerX, centerY - radius * 0.66);
+      ctx.lineTo(centerX, centerY + radius * 0.66);
+      ctx.stroke();
+      ctx.restore();
+    }
+  }
+
+  /** 绘制单格阵法范围表现。 */
+  private drawFormationRangeVisual(
+    ctx: CanvasRenderingContext2D,
+    sx: number,
+    sy: number,
+    cellSize: number,
+    visual: {
+      highlightColor: string;
+      boundary: boolean;
+      boundaryChar?: string;
+      boundaryColor: string;
+    },
+  ): void {
+    ctx.fillStyle = colorWithAlpha(visual.highlightColor, visual.boundary ? 0.34 : 0.24);
+    ctx.fillRect(sx + 1, sy + 1, cellSize - 2, cellSize - 2);
+    ctx.strokeStyle = colorWithAlpha(visual.highlightColor, visual.boundary ? 0.92 : 0.72);
+    ctx.lineWidth = visual.boundary ? 2.25 : 1.5;
+    ctx.strokeRect(sx + 1.5, sy + 1.5, cellSize - 3, cellSize - 3);
+    if (visual.boundary && visual.boundaryChar) {
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      ctx.font = buildCanvasFont('tileGlyph', cellSize * 0.42);
+      this.drawOutlinedText(
+        visual.boundaryChar,
+        sx + cellSize / 2,
+        sy + cellSize / 2,
+        visual.boundaryColor,
+        'rgba(5, 18, 26, 0.86)',
+      );
+    }
+  }
+
+  /** 根据当前可见阵法实体解析某格子的范围高亮表现。 */
+  private resolveFormationRangeVisual(gx: number, gy: number, senseQiVisible: boolean): {
+    highlightColor: string;
+    boundary: boolean;
+    boundaryChar?: string;
+    boundaryColor: string;
+  } | null {
+    let rangeVisual: { highlightColor: string; boundary: boolean; boundaryChar?: string; boundaryColor: string } | null = null;
+    for (const anim of this.entities.values()) {
+      if (anim.kind !== 'formation' || !Number.isFinite(Number(anim.formationRadius))) {
+        continue;
+      }
+      if (anim.formationActive === false) {
+        continue;
+      }
+      if (isTileInsideFormationRange(anim, gx, gy)) {
+        if (anim.formationBlocksBoundary === true && isTileOnFormationBoundary(anim, gx, gy)) {
+          if (senseQiVisible || anim.formationBoundaryVisibleWithoutSenseQi === true) {
+            return {
+              highlightColor: anim.formationBoundaryRangeHighlightColor ?? anim.formationBoundaryColor ?? anim.formationRangeHighlightColor ?? anim.color,
+              boundary: true,
+              boundaryChar: anim.formationBoundaryChar,
+              boundaryColor: anim.formationBoundaryColor ?? anim.color,
+            };
+          }
+        }
+        if (!senseQiVisible && anim.formationRangeVisibleWithoutSenseQi !== true) {
+          continue;
+        }
+        rangeVisual = rangeVisual ?? {
+          highlightColor: anim.formationRangeHighlightColor ?? anim.color,
+          boundary: false,
+          boundaryColor: anim.color,
+        };
+      }
+    }
+    return rangeVisual;
   }
 
   /** 绘制威胁关系箭头。 */

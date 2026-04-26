@@ -140,27 +140,57 @@ export class InstanceCatalogService implements OnModuleInit {
           party_id = EXCLUDED.party_id,
           line_id = EXCLUDED.line_id,
           status = CASE
-            WHEN $21 AND ${INSTANCE_CATALOG_TABLE}.assigned_node_id IS NOT NULL THEN ${INSTANCE_CATALOG_TABLE}.status
+            WHEN $21
+              AND ${INSTANCE_CATALOG_TABLE}.assigned_node_id IS NOT NULL
+              AND ${INSTANCE_CATALOG_TABLE}.lease_token IS NOT NULL
+              AND ${INSTANCE_CATALOG_TABLE}.lease_expire_at IS NOT NULL
+              AND ${INSTANCE_CATALOG_TABLE}.lease_expire_at > now()
+            THEN ${INSTANCE_CATALOG_TABLE}.status
             ELSE EXCLUDED.status
           END,
           runtime_status = CASE
-            WHEN $21 AND ${INSTANCE_CATALOG_TABLE}.assigned_node_id IS NOT NULL THEN ${INSTANCE_CATALOG_TABLE}.runtime_status
+            WHEN $21
+              AND ${INSTANCE_CATALOG_TABLE}.assigned_node_id IS NOT NULL
+              AND ${INSTANCE_CATALOG_TABLE}.lease_token IS NOT NULL
+              AND ${INSTANCE_CATALOG_TABLE}.lease_expire_at IS NOT NULL
+              AND ${INSTANCE_CATALOG_TABLE}.lease_expire_at > now()
+            THEN ${INSTANCE_CATALOG_TABLE}.runtime_status
             ELSE EXCLUDED.runtime_status
           END,
           assigned_node_id = CASE
-            WHEN $21 AND ${INSTANCE_CATALOG_TABLE}.assigned_node_id IS NOT NULL THEN ${INSTANCE_CATALOG_TABLE}.assigned_node_id
+            WHEN $21
+              AND ${INSTANCE_CATALOG_TABLE}.assigned_node_id IS NOT NULL
+              AND ${INSTANCE_CATALOG_TABLE}.lease_token IS NOT NULL
+              AND ${INSTANCE_CATALOG_TABLE}.lease_expire_at IS NOT NULL
+              AND ${INSTANCE_CATALOG_TABLE}.lease_expire_at > now()
+            THEN ${INSTANCE_CATALOG_TABLE}.assigned_node_id
             ELSE EXCLUDED.assigned_node_id
           END,
           lease_token = CASE
-            WHEN $21 AND ${INSTANCE_CATALOG_TABLE}.assigned_node_id IS NOT NULL THEN ${INSTANCE_CATALOG_TABLE}.lease_token
+            WHEN $21
+              AND ${INSTANCE_CATALOG_TABLE}.assigned_node_id IS NOT NULL
+              AND ${INSTANCE_CATALOG_TABLE}.lease_token IS NOT NULL
+              AND ${INSTANCE_CATALOG_TABLE}.lease_expire_at IS NOT NULL
+              AND ${INSTANCE_CATALOG_TABLE}.lease_expire_at > now()
+            THEN ${INSTANCE_CATALOG_TABLE}.lease_token
             ELSE EXCLUDED.lease_token
           END,
           lease_expire_at = CASE
-            WHEN $21 AND ${INSTANCE_CATALOG_TABLE}.assigned_node_id IS NOT NULL THEN ${INSTANCE_CATALOG_TABLE}.lease_expire_at
+            WHEN $21
+              AND ${INSTANCE_CATALOG_TABLE}.assigned_node_id IS NOT NULL
+              AND ${INSTANCE_CATALOG_TABLE}.lease_token IS NOT NULL
+              AND ${INSTANCE_CATALOG_TABLE}.lease_expire_at IS NOT NULL
+              AND ${INSTANCE_CATALOG_TABLE}.lease_expire_at > now()
+            THEN ${INSTANCE_CATALOG_TABLE}.lease_expire_at
             ELSE EXCLUDED.lease_expire_at
           END,
           ownership_epoch = CASE
-            WHEN $21 AND ${INSTANCE_CATALOG_TABLE}.assigned_node_id IS NOT NULL THEN ${INSTANCE_CATALOG_TABLE}.ownership_epoch
+            WHEN $21
+              AND ${INSTANCE_CATALOG_TABLE}.assigned_node_id IS NOT NULL
+              AND ${INSTANCE_CATALOG_TABLE}.lease_token IS NOT NULL
+              AND ${INSTANCE_CATALOG_TABLE}.lease_expire_at IS NOT NULL
+              AND ${INSTANCE_CATALOG_TABLE}.lease_expire_at > now()
+            THEN ${INSTANCE_CATALOG_TABLE}.ownership_epoch
             ELSE EXCLUDED.ownership_epoch
           END,
           cluster_id = EXCLUDED.cluster_id,
@@ -245,10 +275,16 @@ export class InstanceCatalogService implements OnModuleInit {
             lease_token = $3,
             lease_expire_at = $4,
             ownership_epoch = ownership_epoch + 1,
+            status = 'active',
             runtime_status = 'leased',
             last_active_at = now()
         WHERE instance_id = $1
-          AND (assigned_node_id IS NULL OR lease_expire_at < now())
+          AND (
+            assigned_node_id IS NULL
+            OR lease_token IS NULL
+            OR lease_expire_at IS NULL
+            OR lease_expire_at < now()
+          )
         RETURNING ownership_epoch
       `,
       [input.instanceId.trim(), input.nodeId.trim(), input.leaseToken.trim(), input.leaseExpireAt],
@@ -273,6 +309,8 @@ export class InstanceCatalogService implements OnModuleInit {
       `
         UPDATE ${INSTANCE_CATALOG_TABLE}
         SET lease_expire_at = $4,
+            status = 'active',
+            runtime_status = 'leased',
             last_active_at = now()
         WHERE instance_id = $1
           AND assigned_node_id = $2

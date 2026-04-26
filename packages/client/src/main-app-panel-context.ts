@@ -1,10 +1,17 @@
 import { getCurrentAccountName } from './ui/auth-api';
-import { DEFAULT_AURA_LEVEL_BASE_VALUE, type ActionDef, type Inventory, type S2C_TileDetail, type SyncedItemStack } from '@mud/shared';
+import {
+  DEFAULT_AURA_LEVEL_BASE_VALUE,
+  type ActionDef,
+  type Inventory,
+  type S2C_TileDetail,
+  type SyncedItemStack,
+} from '@mud/shared';
 import { reactUiBridge } from './react-ui/bridge/react-ui-bridge';
 import { createMainActionStateSource } from './main-action-state-source';
 import { createMainAttrDetailStateSource } from './main-attr-detail-state-source';
 import { createMainBreakthroughStateSource } from './main-breakthrough-state-source';
 import { createMainDetailHydrationSource } from './main-detail-hydration-source';
+import { createMainFormationPreviewSource } from './main-formation-preview-source';
 import { createMainDetailStateSource } from './main-detail-state-source';
 import { createMainInventoryStateSource } from './main-inventory-state-source';
 import { createMainMailStateSource } from './main-mail-state-source';
@@ -60,6 +67,7 @@ type CreateMainPanelContextOptions = {
     getInfoRadius(): number;
     getCurrentActionDef(actionId: string): ActionDef | null;
     clearCurrentPath(): void;
+    setCurrentPathCells(cells: Array<{ x: number; y: number }>): void;
     handleTileDetailResult(data: S2C_TileDetail): void;
     resetGameState(): void;
     closeSettingsPanel(): void;
@@ -160,6 +168,7 @@ export function createMainPanelContext(options: CreateMainPanelContextOptions) {
     questPanel,
     npcQuestModal,
     clearCurrentPath: callbacks.clearCurrentPath,
+    setCurrentPathCells: callbacks.setCurrentPathCells,
     sendNavigateQuest: (questId) => runtimeSender.sendNavigateQuest(questId),
     sendRequestQuests: () => runtimeSender.sendRequestQuests(),
     sendRequestNpcQuests: (npcId) => runtimeSender.sendRequestNpcQuests(npcId),
@@ -210,6 +219,11 @@ export function createMainPanelContext(options: CreateMainPanelContextOptions) {
     showToast: (message, kind) => uiStateSource.showToast(message, kind),
     clearCurrentPath: callbacks.clearCurrentPath,
   });
+  const formationPreviewSource = createMainFormationPreviewSource({
+    getPlayer: () => rootRuntimeSource.getPlayer(),
+    getMapMeta: () => mapRuntime.getMapMeta(),
+    setFormationRangeOverlay: (overlay) => mapRuntime.setFormationRangeOverlay(overlay),
+  });
   const inventoryStateSource = createMainInventoryStateSource({
     inventoryPanel,
     questStateSource,
@@ -219,6 +233,8 @@ export function createMainPanelContext(options: CreateMainPanelContextOptions) {
     syncInventoryBridgeState: (inventory) => reactUiBridge.syncInventory(inventory),
     syncPlayerBridgeState: (player) => reactUiBridge.syncPlayer(player),
     sendUseItem: (slotIndex, count) => panelSender.sendUseItem(slotIndex, count),
+    sendCreateFormation: (payload) => panelSender.sendCreateFormation(payload),
+    previewFormationRange: (payload) => formationPreviewSource.preview(payload),
     sendDropItem: (slotIndex, count) => panelSender.sendDropItem(slotIndex, count),
     sendDestroyItem: (slotIndex, count) => panelSender.sendDestroyItem(slotIndex, count),
     sendEquip: (slotIndex) => panelSender.sendEquip(slotIndex),

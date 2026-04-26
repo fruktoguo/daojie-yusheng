@@ -358,6 +358,24 @@ interface WorldRuntimeServiceLike {
  */
 
   instances?: Map<string, InternalRuntimeInstanceLike>;
+  worldRuntimeFormationService?: {
+    listRuntimeFormations(instanceId: string): Array<{
+      id: string;
+      x: number;
+      y: number;
+      name: string;
+      active?: boolean;
+      radius?: number;
+      rangeShape?: string;
+      char?: string;
+      color?: string;
+      showText?: boolean;
+      rangeHighlightColor?: string;
+      remainingAuraBudget?: number;
+      ownerPlayerId?: string;
+      formationId?: string;
+    }>;
+  };
   getInstance(instanceId: string): RuntimeInstanceLike | null | undefined;
   getInstanceRuntime?(instanceId: string): InternalRuntimeInstanceLike | null | undefined;
   getRuntimeSummary(): {  
@@ -725,6 +743,32 @@ export class NativeGmMapRuntimeQueryService {
         color: container.color,
         name: container.name,
         kind: 'container',
+      });
+    }
+
+    const formations = typeof this.worldRuntimeService.worldRuntimeFormationService?.listRuntimeFormations === 'function'
+      ? this.worldRuntimeService.worldRuntimeFormationService.listRuntimeFormations(instanceId)
+      : [];
+    for (const formation of formations) {
+      if (!isInRect(formation.x, formation.y, startX, startY, endX, endY)) {
+        continue;
+      }
+      entities.push({
+        id: formation.id,
+        x: formation.x,
+        y: formation.y,
+        char: formation.char ?? '◎',
+        color: formation.active === false ? '#9aa0a6' : formation.color ?? '#4da3ff',
+        name: formation.name,
+        kind: 'formation',
+        active: formation.active !== false,
+        radius: formation.radius,
+        rangeShape: formation.rangeShape,
+        showText: formation.showText !== false,
+        rangeHighlightColor: formation.rangeHighlightColor,
+        remainingAuraBudget: formation.remainingAuraBudget,
+        ownerPlayerId: formation.ownerPlayerId,
+        formationId: formation.formationId,
       });
     }
 

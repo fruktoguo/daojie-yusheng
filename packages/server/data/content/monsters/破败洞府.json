@@ -19,8 +19,8 @@
       "spirit": 2000,
       "perception": 2000,
       "talent": 2000,
-      "comprehension": 100,
-      "luck": 100
+      "strength": 100,
+      "meridians": 100
     },
     "initialBuffs": [
       {

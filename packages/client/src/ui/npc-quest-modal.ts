@@ -38,6 +38,8 @@ interface NpcQuestModalCallbacks {
   onNavigateQuest: (questId: string) => void;
 }
 
+type HydratedNpcQuests = Omit<S2C_NpcQuests, 'quests'> & { quests: QuestState[] };
+
 /** NpcQuestModalMeta：任务弹窗标题元数据。 */
 type NpcQuestModalMeta = {
 /**
@@ -86,7 +88,7 @@ export class NpcQuestModal {
   /** inventory：背包。 */
   private inventory: Inventory = { items: [], capacity: 0 };
   /** state：状态。 */
-  private state: S2C_NpcQuests | null = null;
+  private state: HydratedNpcQuests | null = null;
   /** selectedQuestId：selected任务ID。 */
   private selectedQuestId: string | null = null;
   /** delegatedEventsBound：delegated事件Bound。 */
@@ -143,7 +145,7 @@ export class NpcQuestModal {
   }
 
   /** updateQuests：更新Quests。 */
-  updateQuests(data: S2C_NpcQuests): void {
+  updateQuests(data: HydratedNpcQuests): void {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
     if (this.activeNpcId && this.activeNpcId !== data.npcId && detailModalHost.isOpenFor(NpcQuestModal.MODAL_OWNER)) {
@@ -742,21 +744,13 @@ export class NpcQuestModal {
         tone: 'reward',
       }))
       .join('');
-    const fallbackText = quest.rewards.map((reward) => `${reward.name} x${reward.count}`).join('、');
-    const showRewardText = quest.rewardText.trim().length > 0
-      && quest.rewardText.trim() !== '无'
-      && quest.rewardText.trim() !== fallbackText;
-    const sections: string[] = [];
     if (rewardChips) {
-      sections.push(`<div class="ui-requirement-entry ui-surface-card ui-surface-card--compact"><div class="inline-item-flow">${rewardChips}</div></div>`);
+      return `<div class="inline-item-flow">${rewardChips}</div>`;
     }
-    if (showRewardText) {
-      sections.push(`<div class="inline-rich-text">${renderTextWithInlineItemHighlights(quest.rewardText)}</div>`);
+    if (quest.rewardText.trim().length > 0 && quest.rewardText.trim() !== '无') {
+      return `<div class="inline-rich-text">${renderTextWithInlineItemHighlights(quest.rewardText)}</div>`;
     }
-    if (sections.length === 0) {
-      sections.push('<div class="inline-rich-text">暂无额外奖励说明</div>');
-    }
-    return sections.join('');
+    return '<div class="inline-rich-text">暂无额外奖励说明</div>';
   }
 
   /** renderRequiredItemContent：渲染Required物品Content。 */

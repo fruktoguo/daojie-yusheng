@@ -20,8 +20,6 @@ import type { ToastKind } from './main-app-assembly-types';
 /**
  * CreateMainRuntimeOwnerContextOptions：统一结构类型，保证协议与运行时一致性。
  */
-
-
 type CreateMainRuntimeOwnerContextOptions = {
 /**
  * documentRef：documentRef相关字段。
@@ -129,6 +127,7 @@ export function createMainRuntimeOwnerContext(options: CreateMainRuntimeOwnerCon
     getDisplayRangeY: () => getDisplayRangeY(),
     navigation: {
       clearCurrentPath: () => navigationStateSource.clearCurrentPath(),
+      setCurrentPathCells: (cells) => navigationStateSource.setCurrentPathCells(cells),
       trimCurrentPathProgress: () => navigationStateSource.trimCurrentPathProgress(),
       sendMoveCommand: (direction) => navigationStateSource.sendMoveCommand(direction),
       planPathTo: (target, opts) => navigationStateSource.planPathTo(target, opts),
@@ -218,6 +217,7 @@ export function createMainRuntimeOwnerContext(options: CreateMainRuntimeOwnerCon
     getAuraLevelBaseValue: () => panelContext.breakthroughStateSource.getAuraLevelBaseValue(),
     formatAuraLevelText: (auraValue) => panelContext.breakthroughStateSource.formatAuraLevelText(auraValue),
     showToast: helpers.showToast,
+    sendAction: (actionId, target) => runtimeSender.sendAction(actionId, target),
   });
 
   panelDeltaStateSource = createMainPanelDeltaStateSource({
@@ -263,6 +263,7 @@ export function createMainRuntimeOwnerContext(options: CreateMainRuntimeOwnerCon
     mergeAttrUpdatePatch: (current, patch) => panelDeltaStateSource.mergeAttrUpdatePatch(current, patch),
     syncAuraLevelBaseValue: (nextValue) => panelContext.breakthroughStateSource.syncAuraLevelBaseValue(nextValue),
     syncCurrentTimeState: (state) => runtimeMonitorSource.syncCurrentTimeState(state ?? null),
+    syncCurrentTimeTickInterval: (dtMs) => runtimeMonitorSource.syncCurrentTimeTickInterval(dtMs),
     applyWorldDeltaToRuntime: (input) => mapRuntime.applyWorldDelta(input),
     applySelfDeltaToRuntime: (input) => mapRuntime.applySelfDelta(input),
     navigation: {

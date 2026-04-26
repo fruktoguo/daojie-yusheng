@@ -151,6 +151,8 @@ const world_runtime_battle_engage_service_1 = require("./world-runtime-battle-en
 const world_runtime_auto_combat_service_1 = require("./world-runtime-auto-combat.service");
 const world_runtime_combat_command_service_1 = require("./world-runtime-combat-command.service");
 const world_runtime_action_execution_service_1 = require("./world-runtime-action-execution.service");
+const world_runtime_formation_service_1 = require("./world-runtime-formation.service");
+const world_runtime_sect_service_1 = require("./world-runtime-sect.service");
 const world_runtime_system_command_enqueue_service_1 = require("./world-runtime-system-command-enqueue.service");
 
 const player_combat_service_1 = require("../combat/player-combat.service");
@@ -402,6 +404,8 @@ let WorldRuntimeService = WorldRuntimeService_1 = class WorldRuntimeService {
     worldRuntimeCombatCommandService;    
     
     worldRuntimeActionExecutionService;    
+
+    worldRuntimeFormationService;    
     
     worldRuntimeSystemCommandEnqueueService;    
 
@@ -486,6 +490,8 @@ let WorldRuntimeService = WorldRuntimeService_1 = class WorldRuntimeService {
         this.worldRuntimeAutoCombatService = worldRuntimeAutoCombatService;
         this.worldRuntimeCombatCommandService = worldRuntimeCombatCommandService;
         this.worldRuntimeActionExecutionService = worldRuntimeActionExecutionService;
+        this.worldRuntimeFormationService = new world_runtime_formation_service_1.WorldRuntimeFormationService(contentTemplateRepository, playerRuntimeService);
+        this.worldRuntimeSectService = new world_runtime_sect_service_1.WorldRuntimeSectService(contentTemplateRepository, templateRepository, playerRuntimeService);
         this.worldRuntimeSystemCommandEnqueueService = worldRuntimeSystemCommandEnqueueService;
         this.nodeRegistryService = nodeRegistryService;
         this.playerPersistenceFlushService = playerPersistenceFlushService;
@@ -663,10 +669,16 @@ let WorldRuntimeService = WorldRuntimeService_1 = class WorldRuntimeService {
         }, INSTANCE_LEASE_RENEW_SKEW_MS * 2);
         this.instanceLeaseSyncTimer.unref?.();
     }
-        async onModuleDestroy() {
+    async onModuleDestroy() {
         if (this.instanceLeaseSyncTimer) {
             clearInterval(this.instanceLeaseSyncTimer);
             this.instanceLeaseSyncTimer = null;
+        }
+        if (typeof this.worldRuntimeFormationService?.closePersistencePool === 'function') {
+            await this.worldRuntimeFormationService.closePersistencePool();
+        }
+        if (typeof this.worldRuntimeSectService?.closePersistencePool === 'function') {
+            await this.worldRuntimeSectService.closePersistencePool();
         }
     }
         listMapTemplates() {
@@ -729,11 +741,20 @@ let WorldRuntimeService = WorldRuntimeService_1 = class WorldRuntimeService {
         listDirtyPersistentInstances() {
         return this.worldRuntimeStateFacadeService.listDirtyPersistentInstances(this);
     }
+        listDirtyPersistentInstanceDomains() {
+        return this.worldRuntimeStateFacadeService.listDirtyPersistentInstanceDomains(this);
+    }
         buildMapPersistenceSnapshot(instanceId) {
         return this.worldRuntimeStateFacadeService.buildMapPersistenceSnapshot(instanceId, this);
     }
         markMapPersisted(instanceId) {
         this.worldRuntimeStateFacadeService.markMapPersisted(instanceId, this);
+    }
+        markMapDomainsPersisted(instanceId, domains) {
+        this.worldRuntimeStateFacadeService.markMapDomainsPersisted(instanceId, domains, this);
+    }
+        async flushInstanceDomains(instanceId, domains = null) {
+        return this.worldRuntimeStateFacadeService.flushInstanceDomains(instanceId, domains, this);
     }
         async tickAll() {
         return this.worldRuntimeStateFacadeService.tickAll(this);

@@ -81,6 +81,15 @@ let WorldRuntimeInstanceTickOrchestrationService = class WorldRuntimeInstanceTic
                     break;
                 }
                 const result = instance.tickOnce();
+                if (typeof deps.worldRuntimeFormationService?.advanceInstanceFormations === 'function') {
+                    deps.worldRuntimeFormationService.advanceInstanceFormations(instance, deps.tick, deps);
+                }
+                if (typeof instance.advanceTileRecovery === 'function') {
+                    instance.advanceTileRecovery((x, y) => (
+                        deps.worldRuntimeFormationService?.isTerrainStabilized?.(instance.meta.instanceId, x, y) === true
+                        || deps.worldRuntimeSectService?.isSectInnateStabilized?.(instance.meta.instanceId, x, y) === true
+                    ));
+                }
                 for (const transfer of result.transfers) {
                     deps.applyTransfer(transfer);
                 }

@@ -15,6 +15,33 @@ function resolveAuditGmPassword() {
   return process.env.SERVER_GM_PASSWORD || process.env.GM_PASSWORD || "admin123";
 }
 
+async function snapshotLocalGmPasswordRecordIfNeeded() {
+  const databaseUrl = process.env.SERVER_DATABASE_URL || process.env.DATABASE_URL || "";
+  if (!databaseUrl.trim()) {
+    return null;
+  }
+
+  const pool = new pg.Pool({
+    connectionString: databaseUrl,
+  });
+
+  try {
+    const result = await pool.query('SELECT payload, "updatedAt" FROM persistent_documents WHERE scope = $1 AND key = $2', [
+      nextGmContract.GM_AUTH_CONTRACT.passwordRecordScope,
+      nextGmContract.GM_AUTH_CONTRACT.passwordRecordKey,
+    ]);
+    const row = result.rows[0] ?? null;
+    return {
+      databaseUrl,
+      existed: Boolean(row),
+      payload: row?.payload ?? null,
+      updatedAt: row?.updatedAt ?? null,
+    };
+  } finally {
+    await pool.end().catch(() => undefined);
+  }
+}
+
 async function resetLocalGmPasswordRecordIfNeeded() {
   const databaseUrl = process.env.SERVER_DATABASE_URL || process.env.DATABASE_URL || "";
   if (!databaseUrl.trim()) {
@@ -29,6 +56,40 @@ async function resetLocalGmPasswordRecordIfNeeded() {
     await pool.query('DELETE FROM persistent_documents WHERE scope = $1 AND key = $2', [
       nextGmContract.GM_AUTH_CONTRACT.passwordRecordScope,
       nextGmContract.GM_AUTH_CONTRACT.passwordRecordKey,
+    ]);
+  } finally {
+    await pool.end().catch(() => undefined);
+  }
+}
+
+async function restoreLocalGmPasswordRecordIfNeeded(snapshot) {
+  if (!snapshot?.databaseUrl) {
+    return;
+  }
+
+  const pool = new pg.Pool({
+    connectionString: snapshot.databaseUrl,
+  });
+
+  try {
+    if (!snapshot.existed) {
+      await pool.query('DELETE FROM persistent_documents WHERE scope = $1 AND key = $2', [
+        nextGmContract.GM_AUTH_CONTRACT.passwordRecordScope,
+        nextGmContract.GM_AUTH_CONTRACT.passwordRecordKey,
+      ]);
+      return;
+    }
+
+    await pool.query(`
+      INSERT INTO persistent_documents(scope, key, payload, "updatedAt")
+      VALUES ($1, $2, $3::jsonb, $4)
+      ON CONFLICT (scope, key)
+      DO UPDATE SET payload = EXCLUDED.payload, "updatedAt" = EXCLUDED."updatedAt"
+    `, [
+      nextGmContract.GM_AUTH_CONTRACT.passwordRecordScope,
+      nextGmContract.GM_AUTH_CONTRACT.passwordRecordKey,
+      JSON.stringify(snapshot.payload),
+      snapshot.updatedAt,
     ]);
   } finally {
     await pool.end().catch(() => undefined);
@@ -164,6 +225,7 @@ async function main() {
  * 记录服务端。
  */
   let server = null;
+  const gmPasswordRecordSnapshot = await snapshotLocalGmPasswordRecordIfNeeded();
   try {
     await resetLocalGmPasswordRecordIfNeeded();
     server = await startAuditServer(desiredPort, gmPassword);
@@ -175,6 +237,7 @@ async function main() {
     process.exitCode = await runAudit(baseUrl, gmPassword);
   } finally {
     await lib.stopServer(server && server.child ? server.child : null);
+    await restoreLocalGmPasswordRecordIfNeeded(gmPasswordRecordSnapshot);
   }
 }
 void main().catch((error) => {

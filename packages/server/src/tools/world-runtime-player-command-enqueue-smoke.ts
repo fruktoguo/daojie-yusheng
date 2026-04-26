@@ -160,6 +160,19 @@ function testCastSkillRequiresKnownAction() {
         ['getPlayerViewOrThrow', 'player:1'],
     ]);
 }
+
+function testCastSkillRejectsDisabledSkillAction() {
+    const log = [];
+    const service = createService([{ id: 'skill.disabled', type: 'skill', requiresTarget: false, skillEnabled: false }]);
+    const deps = createDeps(log);
+    assert.throws(
+        () => service.enqueueCastSkill('player:1', 'skill.disabled', '', '', null, deps),
+        /技能未启用，无法释放/,
+    );
+    assert.deepEqual(log, [
+        ['getPlayerLocationOrThrow', 'player:1'],
+    ]);
+}
 /**
  * testHeavenGateActionNormalizesElement：规范化或转换testHeavenGateActionNormalizeElement。
  * @returns 无返回值，直接更新testHeavenGateActionNormalizeElement相关状态。
@@ -303,6 +316,7 @@ function testLockedBattleWithoutTargetStopsCombatCleanly() {
 testBasicAttackQueue();
 testStartAlchemyClonesIngredients();
 testCastSkillRequiresKnownAction();
+testCastSkillRejectsDisabledSkillAction();
 testHeavenGateActionNormalizesElement();
 testStartEnhancementClonesNestedPayload();
 testTechniqueActivityGenericQueueHelpers();

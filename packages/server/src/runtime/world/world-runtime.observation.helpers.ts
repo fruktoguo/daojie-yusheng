@@ -17,8 +17,8 @@ function createTileCombatAttributes() {
         spirit: 0,
         perception: 0,
         talent: 0,
-        comprehension: 0,
-        luck: 0,
+        strength: 0,
+        meridians: 0,
     };
 }
 /** 生成可用于战斗计算的地块数值面板。 */
@@ -175,8 +175,8 @@ function buildObservationLineSpecs(snapshot, includeResources) {
             { threshold: 0.94, label: '神识', value: formatWholeObservation(snapshot.attrs.spirit) },
             { threshold: 0.96, label: '身法', value: formatWholeObservation(snapshot.attrs.perception) },
             { threshold: 0.98, label: '根骨', value: formatWholeObservation(snapshot.attrs.talent) },
-            { threshold: 0.99, label: '悟性', value: formatWholeObservation(snapshot.attrs.comprehension) },
-            { threshold: 1, label: '气运', value: formatWholeObservation(snapshot.attrs.luck) },
+            { threshold: 0.99, label: '力道', value: formatWholeObservation(snapshot.attrs.strength) },
+            { threshold: 1, label: '经脉', value: formatWholeObservation(snapshot.attrs.meridians) },
         );
     }
     return lines;

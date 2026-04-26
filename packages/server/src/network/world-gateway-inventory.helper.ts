@@ -86,7 +86,7 @@ class WorldGatewayInventoryHelper {
             return;
         }
         try {
-            this.gateway.worldRuntimeService.worldRuntimeCommandIntakeFacadeService.enqueueUseItem(playerId, payload?.slotIndex, this.gateway.worldRuntimeService);
+            this.gateway.worldRuntimeService.worldRuntimeCommandIntakeFacadeService.enqueueUseItem(playerId, payload, this.gateway.worldRuntimeService);
         }
         catch (error) {
             this.gateway.worldClientEventService.emitGatewayError(client, 'USE_ITEM_FAILED', error);
@@ -102,6 +102,42 @@ class WorldGatewayInventoryHelper {
     handleUseItem(client, payload) {
         this.executeUseItem(client, payload);
     }    
+    handleCreateFormation(client, payload) {
+        const playerId = this.gateway.gatewayGuardHelper.requirePlayerId(client);
+        if (!playerId) {
+            return;
+        }
+        try {
+            this.gateway.worldRuntimeService.worldRuntimeCommandIntakeFacadeService.enqueueCreateFormation(playerId, payload, this.gateway.worldRuntimeService);
+        }
+        catch (error) {
+            this.gateway.worldClientEventService.emitGatewayError(client, 'CREATE_FORMATION_FAILED', error);
+        }
+    }
+    handleSetFormationActive(client, payload) {
+        const playerId = this.gateway.gatewayGuardHelper.requirePlayerId(client);
+        if (!playerId) {
+            return;
+        }
+        try {
+            this.gateway.worldRuntimeService.worldRuntimeCommandIntakeFacadeService.enqueueSetFormationActive(playerId, payload, this.gateway.worldRuntimeService);
+        }
+        catch (error) {
+            this.gateway.worldClientEventService.emitGatewayError(client, 'SET_FORMATION_ACTIVE_FAILED', error);
+        }
+    }
+    handleRefillFormation(client, payload) {
+        const playerId = this.gateway.gatewayGuardHelper.requirePlayerId(client);
+        if (!playerId) {
+            return;
+        }
+        try {
+            this.gateway.worldRuntimeService.worldRuntimeCommandIntakeFacadeService.enqueueRefillFormation(playerId, payload, this.gateway.worldRuntimeService);
+        }
+        catch (error) {
+            this.gateway.worldClientEventService.emitGatewayError(client, 'REFILL_FORMATION_FAILED', error);
+        }
+    }
     /**
  * executeDropItem：执行executeDrop道具相关逻辑。
  * @param client 参数说明。

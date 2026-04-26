@@ -622,6 +622,11 @@ interface AttrRadarPaneSnapshot {
  */
 
   nodes: AttrRadarNodeSnapshot[];
+  /**
+ * cards：雷达下方附加卡片。
+ */
+
+  cards?: AttrNumericCardSnapshot[];
 }
 
 /** 数值卡片的渲染快照，包含展示值、附加说明和提示内容。 */
@@ -847,6 +852,8 @@ export class AttrPanel {
       specialStats: {
         foundation: Math.max(0, Math.floor(player.foundation ?? 0)),
         combatExp: Math.max(0, Math.floor(player.combatExp ?? 0)),
+        comprehension: Math.max(0, Math.floor(player.comprehension ?? 0)),
+        luck: Math.max(0, Math.floor(player.luck ?? 0)),
       },
       alchemySkill: player.alchemySkill,
       gatherSkill: player.gatherSkill,
@@ -863,6 +870,8 @@ export class AttrPanel {
       {
         foundation: Math.max(0, Math.floor(player.foundation ?? 0)),
         combatExp: Math.max(0, Math.floor(player.combatExp ?? 0)),
+        comprehension: Math.max(0, Math.floor(player.comprehension ?? 0)),
+        luck: Math.max(0, Math.floor(player.luck ?? 0)),
       },
       player.alchemySkill,
       player.gatherSkill,
@@ -969,7 +978,7 @@ export class AttrPanel {
 
     return {
       panes: {
-        base: this.buildBaseRadarSnapshot(base, final, totalBonus),
+        base: this.buildBaseRadarSnapshot(base, final, totalBonus, specialStats),
         root: stats && ratioDivisors
           ? this.buildRootRadarSnapshot(stats, ratioDivisors, bonuses)
           : { kind: 'placeholder', message: '灵根信息尚未同步' },
@@ -977,7 +986,7 @@ export class AttrPanel {
           ? this.buildVeinPaneSnapshot(stats, bonuses)
           : { kind: 'placeholder', message: '灵脉信息尚未同步' },
         combat: this.buildNumericPaneSnapshot('斗法数值', stats, ratioDivisors, {
-          keys: ['maxHp', 'physAtk', 'spellAtk', 'physDef', 'spellDef', 'hit', 'dodge', 'crit', 'antiCrit', 'critDamage', 'breakPower', 'resolvePower'],
+          keys: ['maxHp', 'physAtk', 'spellAtk', 'physDef', 'spellDef', 'hit', 'dodge', 'crit', 'antiCrit', 'critDamage', 'breakPower', 'resolvePower', 'actionsPerTurn'],
           ratioKeys: [],
           legends: {
             maxHp: '最大生命值',
@@ -992,6 +1001,7 @@ export class AttrPanel {
             critDamage: '暴击伤害',
             breakPower: '破招',
             resolvePower: '化解',
+            actionsPerTurn: '每回合行动次数',
           },
         }, final, numericStatBreakdowns),
         qi: this.buildNumericPaneSnapshot('灵力运转', stats, ratioDivisors, {
@@ -1014,7 +1024,12 @@ export class AttrPanel {
   }
 
   /** buildBaseRadarSnapshot：构建基础Radar快照。 */
-  private buildBaseRadarSnapshot(base: Attributes, final: Attributes, totalBonus: Partial<Attributes>): AttrRadarPaneSnapshot {
+  private buildBaseRadarSnapshot(
+    base: Attributes,
+    final: Attributes,
+    totalBonus: Partial<Attributes>,
+    specialStats?: PlayerSpecialStats,
+  ): AttrRadarPaneSnapshot {
     const maxValue = Math.max(20, ...ATTR_KEYS.map((key) => final[key]));
     const radarMax = Math.ceil(maxValue / 5) * 5 || 20;
     const entries: RadarEntry[] = ATTR_KEYS.map((key, index) => {
@@ -1038,7 +1053,9 @@ export class AttrPanel {
       };
     });
 
-    return this.buildRadarPaneSnapshot('六维轮图', radarMax, entries, 'base');
+    const snapshot = this.buildRadarPaneSnapshot('六维轮图', radarMax, entries, 'base');
+    snapshot.cards = this.buildBaseSpecialStatCards(specialStats);
+    return snapshot;
   }  
   /**
  * buildRootRadarSnapshot：构建并返回目标对象。
@@ -1340,21 +1357,7 @@ export class AttrPanel {
       return { kind: 'placeholder', message: '特殊属性尚未同步' };
     }
 
-    const specialCards: AttrNumericCardSnapshot[] = (['foundation', 'combatExp'] as PlayerSpecialCardKey[]).map((key) => {
-      const numericValue = Math.max(0, Math.floor(specialStats?.[key] ?? 0));
-      const label = PLAYER_SPECIAL_TOOLTIP_LABELS[key];
-      const detail = [
-        PLAYER_SPECIAL_TOOLTIP_DESCRIPTIONS[key],
-        `当前数值：${formatDisplayInteger(numericValue)}`,
-      ].join('\n');
-      return {
-        key,
-        label,
-        value: formatDisplayInteger(numericValue),
-        tooltipTitle: label,
-        tooltipDetail: detail,
-      };
-    });
+    const specialCards = this.buildSpecialStatCards(['foundation', 'combatExp'], specialStats);
 
     const numericPane = this.buildNumericPaneSnapshot('特殊属性', stats, ratios, {
       keys: ['viewRange', 'moveSpeed', 'playerExpRate', 'techniqueExpRate', 'realmExpPerTick', 'techniqueExpPerTick', 'lootRate', 'rareLootRate'],
@@ -1380,6 +1383,55 @@ export class AttrPanel {
       cards: [...specialCards, ...numericPane.cards],
     };
   }  
+
+  /** buildSpecialStatCards：构建特殊属性卡片。 */
+  private buildSpecialStatCards(keys: PlayerSpecialCardKey[], specialStats?: PlayerSpecialStats): AttrNumericCardSnapshot[] {
+    return keys.map((key) => {
+      const numericValue = Math.max(0, Math.floor(specialStats?.[key] ?? 0));
+      const label = PLAYER_SPECIAL_TOOLTIP_LABELS[key];
+      const detail = [
+        PLAYER_SPECIAL_TOOLTIP_DESCRIPTIONS[key],
+        `当前数值：${formatDisplayInteger(numericValue)}`,
+      ].join('\n');
+      return {
+        key,
+        label,
+        value: formatDisplayInteger(numericValue),
+        tooltipTitle: label,
+        tooltipDetail: detail,
+      };
+    });
+  }
+
+  /** buildBaseSpecialStatCards：构建六维页底部特殊属性卡片。 */
+  private buildBaseSpecialStatCards(specialStats?: PlayerSpecialStats): AttrNumericCardSnapshot[] {
+    return (['comprehension', 'luck'] as PlayerSpecialCardKey[]).map((key) => {
+      const numericValue = Math.max(0, Math.floor(specialStats?.[key] ?? 0));
+      const label = PLAYER_SPECIAL_TOOLTIP_LABELS[key];
+      const conversionLines = key === 'comprehension'
+        ? [
+            `境界修为 +${formatSimplePercent(numericValue)}`,
+            `功法经验 +${formatSimplePercent(numericValue)}`,
+          ]
+        : [
+            `掉落增幅 +${formatSimplePercent(numericValue)}`,
+            `稀有掉落 +${formatSimplePercent(numericValue)}`,
+          ];
+      return {
+        key,
+        label,
+        value: formatDisplayInteger(numericValue),
+        tooltipTitle: label,
+        tooltipDetail: [
+          `当前：${formatDisplayInteger(numericValue)}`,
+          `基础：${formatDisplayInteger(numericValue)}`,
+          '增益：+0',
+          '实际转化：',
+          ...conversionLines,
+        ].join('\n'),
+      };
+    });
+  }
   /**
  * buildCraftSkillSnapshot：构建并返回目标对象。
  * @param key string 参数说明。
@@ -1531,6 +1583,17 @@ export class AttrPanel {
           `).join('')}
         </svg>
       </div>
+      ${snapshot.cards?.length ? `
+        <div class="attr-grid wide attr-radar-extra-grid" data-radar-extra-grid="true">
+          ${snapshot.cards.map((card) => `
+            <div class="attr-mini" data-radar-extra-card="${card.key}" data-tooltip-title="${escapeHtml(card.tooltipTitle)}" data-tooltip-detail="${escapeHtml(card.tooltipDetail)}">
+              <div class="attr-mini-label" data-radar-extra-label="true">${card.label}</div>
+              <div class="attr-mini-value" data-radar-extra-value="true">${card.value}</div>
+              <div class="attr-mini-sub ${card.sub ? '' : 'hidden'}" data-radar-extra-sub="true">${card.sub ?? ''}</div>
+            </div>
+          `).join('')}
+        </div>
+      ` : ''}
     </div>`;
   }
 
@@ -1653,6 +1716,34 @@ export class AttrPanel {
       value.setAttribute('x', node.valueX);
       value.setAttribute('y', node.valueY);
     }
+    const extraGridNode = pane.querySelector<HTMLElement>('[data-radar-extra-grid="true"]');
+    const extraCards = snapshot.cards ?? [];
+    if (extraCards.length > 0) {
+      const extraCardNodes = pane.querySelectorAll<HTMLElement>('[data-radar-extra-card]');
+      if (!extraGridNode || extraCardNodes.length !== extraCards.length) {
+        return false;
+      }
+      for (const card of extraCards) {
+        const cardNode = pane.querySelector<HTMLElement>(`[data-radar-extra-card="${card.key}"]`);
+        if (!cardNode) {
+          return false;
+        }
+        const labelNode = cardNode.querySelector<HTMLElement>('[data-radar-extra-label="true"]');
+        const valueNode = cardNode.querySelector<HTMLElement>('[data-radar-extra-value="true"]');
+        const subNode = cardNode.querySelector<HTMLElement>('[data-radar-extra-sub="true"]');
+        if (!labelNode || !valueNode || !subNode) {
+          return false;
+        }
+        cardNode.setAttribute('data-tooltip-title', card.tooltipTitle);
+        cardNode.setAttribute('data-tooltip-detail', card.tooltipDetail);
+        labelNode.textContent = card.label;
+        valueNode.textContent = card.value;
+        subNode.textContent = card.sub ?? '';
+        subNode.classList.toggle('hidden', !card.sub);
+      }
+    } else if (extraGridNode) {
+      return false;
+    }
     return true;
   }
 
@@ -1663,7 +1754,7 @@ export class AttrPanel {
         return [tab, { kind: pane.kind, cards: pane.cards.map((card) => card.key) }];
       }
       if (pane.kind === 'radar') {
-        return [tab, { kind: pane.kind, nodes: pane.nodes.length }];
+        return [tab, { kind: pane.kind, nodes: pane.nodes.length, cards: pane.cards?.map((card) => card.key) ?? [] }];
       }
       if (pane.kind === 'craft') {
         return [tab, { kind: pane.kind, skills: pane.skills.map((skill) => skill.key) }];
@@ -1838,6 +1929,9 @@ export class AttrPanel {
         margin: 0 auto;
         display: block;
         overflow: visible;
+      }
+      .attr-radar-extra-grid {
+        margin-top: 12px;
       }
       .attr-radar-ring {
         fill: none;

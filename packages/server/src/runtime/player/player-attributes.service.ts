@@ -24,6 +24,7 @@ let PlayerAttributesService = class PlayerAttributesService {
         return {
             revision: 1,
             stage: shared_1.DEFAULT_PLAYER_REALM_STAGE,
+            rawBaseAttrs: createBaseAttributes(),
             baseAttrs: createBaseAttributes(),
             finalAttrs: createBaseAttributes(),
             numericStats: (0, shared_1.cloneNumericStats)(template.stats),
@@ -44,6 +45,7 @@ let PlayerAttributesService = class PlayerAttributesService {
             return false;
         }
         player.attrs.stage = next.stage;
+        player.attrs.rawBaseAttrs = next.rawBaseAttrs;
         player.attrs.baseAttrs = next.baseAttrs;
         player.attrs.finalAttrs = next.finalAttrs;
         player.attrs.numericStats = next.numericStats;
@@ -86,7 +88,9 @@ let PlayerAttributesService = class PlayerAttributesService {
 
         const vitalBaselineBonus = resolveVitalBaselineBonus(runtimeBonuses);
 
-        const baseAttrs = createBaseAttributes();
+        const rawBaseAttrs = normalizeRawBaseAttributes(player.attrs?.rawBaseAttrs);
+
+        const baseAttrs = cloneAttributes(rawBaseAttrs);
 
         const techniqueAttrBonus = resolveTechniqueAttrBonus(player.techniques.techniques, runtimeBonuses);
 
@@ -124,6 +128,7 @@ let PlayerAttributesService = class PlayerAttributesService {
             applyAttrWeight(numericStats, key, value);
             accumulateAttrPercentBonus(percentBonuses, key, value);
         }
+        applySpecialStatWeights(numericStats, player, resolveTechniqueSpecialStatBonus(player.techniques.techniques));
         for (const entry of player.equipment.slots) {
             const item = entry.item;
             if (!item) {
@@ -146,6 +151,7 @@ let PlayerAttributesService = class PlayerAttributesService {
         }
         return {
             stage,
+            rawBaseAttrs,
             baseAttrs,
             finalAttrs,
             numericStats,
@@ -193,9 +199,31 @@ function createBaseAttributes() {
         spirit: shared_1.DEFAULT_BASE_ATTRS.spirit,
         perception: shared_1.DEFAULT_BASE_ATTRS.perception,
         talent: shared_1.DEFAULT_BASE_ATTRS.talent,
-        comprehension: shared_1.DEFAULT_BASE_ATTRS.comprehension,
-        luck: shared_1.DEFAULT_BASE_ATTRS.luck,
+        strength: shared_1.DEFAULT_BASE_ATTRS.strength,
+        meridians: shared_1.DEFAULT_BASE_ATTRS.meridians,
     };
+}
+
+function normalizeRawBaseAttributes(source) {
+    const attrs = createBaseAttributes();
+    if (!source || typeof source !== 'object') {
+        return attrs;
+    }
+    for (const key of shared_1.ATTR_KEYS) {
+        const value = Number(source[key]);
+        if (Number.isFinite(value)) {
+            attrs[key] = Math.max(0, Math.trunc(value));
+        }
+    }
+    const legacyStrength = Number(source.comprehension);
+    if (!Number.isFinite(Number(source.strength)) && Number.isFinite(legacyStrength)) {
+        attrs.strength = Math.max(0, Math.trunc(legacyStrength));
+    }
+    const legacyMeridians = Number(source.luck);
+    if (!Number.isFinite(Number(source.meridians)) && Number.isFinite(legacyMeridians)) {
+        attrs.meridians = Math.max(0, Math.trunc(legacyMeridians));
+    }
+    return attrs;
 }
 /**
  * createPercentBonusAccumulator：构建并返回目标对象。
@@ -219,11 +247,11 @@ const REALM_EXPONENTIAL_NUMERIC_KEYS = [
     'antiCrit',
     'breakPower',
     'resolvePower',
+    'maxQiOutputPerTick',
 ];
 
 const REALM_LINEAR_NUMERIC_GROWTH_RATES = {
     critDamage: 0.1,
-    maxQiOutputPerTick: 0.1,
     qiRegenRate: 0.02,
     hpRegenRate: 0.02,
     realmExpPerTick: 0.1,
@@ -243,8 +271,8 @@ function cloneAttributes(source) {
         spirit: source.spirit,
         perception: source.perception,
         talent: source.talent,
-        comprehension: source.comprehension,
-        luck: source.luck,
+        strength: source.strength ?? source.comprehension ?? 0,
+        meridians: source.meridians ?? source.luck ?? 0,
     };
 }
 /**
@@ -313,6 +341,21 @@ function accumulateAttrPercentBonus(target, key, value) {
         return;
     }
     (0, shared_1.addPartialNumericStats)(target, scalePartialNumericStats(weight, value));
+}
+
+function applySpecialStatWeights(target, player, techniqueSpecialStats) {
+    const comprehension = Math.max(0, Math.trunc(Number(player.comprehension ?? 0) || 0))
+        + Math.max(0, Math.trunc(Number(techniqueSpecialStats?.comprehension ?? 0) || 0));
+    const luck = Math.max(0, Math.trunc(Number(player.luck ?? 0) || 0))
+        + Math.max(0, Math.trunc(Number(techniqueSpecialStats?.luck ?? 0) || 0));
+    if (comprehension > 0) {
+        target.playerExpRate += comprehension * 100;
+        target.techniqueExpRate += comprehension * 100;
+    }
+    if (luck > 0) {
+        target.lootRate += luck * 100;
+        target.rareLootRate += luck * 100;
+    }
 }
 /**
  * applyPercentBonuses：处理PercentBonuse并更新相关状态。
@@ -467,6 +510,10 @@ function resolveTechniqueAttrBonus(techniques, runtimeBonuses) {
 
     return (0, shared_1.calcTechniqueFinalAttrBonus)(techniques.map(toTechniqueState));
 }
+
+function resolveTechniqueSpecialStatBonus(techniques) {
+    return (0, shared_1.calcTechniqueFinalSpecialStatBonus)(techniques.map(toTechniqueState));
+}
 /**
  * resolveVitalBaselineBonus：规范化或转换VitalBaselineBonu。
  * @param runtimeBonuses 参数说明。
@@ -503,6 +550,7 @@ function isDerivedRuntimeBonusSource(source) {
 
 function hasAttrStateChanged(previous, next) {
     return previous.stage !== next.stage
+        || !isSameAttributes(previous.rawBaseAttrs ?? createBaseAttributes(), next.rawBaseAttrs)
         || !isSameAttributes(previous.baseAttrs, next.baseAttrs)
         || !isSameAttributes(previous.finalAttrs, next.finalAttrs)
         || !isSameNumericStats(previous.numericStats, next.numericStats)
@@ -560,6 +608,9 @@ function isSameNumericStats(left, right) {
         && left.viewRange === right.viewRange
         && left.moveSpeed === right.moveSpeed
         && left.extraAggroRate === right.extraAggroRate
+        && left.extraRange === right.extraRange
+        && left.extraArea === right.extraArea
+        && left.actionsPerTurn === right.actionsPerTurn
         && left.elementDamageBonus.metal === right.elementDamageBonus.metal
         && left.elementDamageBonus.wood === right.elementDamageBonus.wood
         && left.elementDamageBonus.water === right.elementDamageBonus.water

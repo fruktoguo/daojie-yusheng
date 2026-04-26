@@ -43,6 +43,9 @@ const EMPTY_MEMORY_ESTIMATE_DOMAINS = [];
 const EMPTY_MEMORY_ESTIMATE_INSTANCES = [];
 const MEMORY_ESTIMATE_CACHE_TTL_MS = 5000;
 const MEMORY_ESTIMATE_TOP_INSTANCE_LIMIT = 8;
+const LARGE_NETWORK_PAYLOAD_CAPTURE_THRESHOLD_BYTES = 1024;
+const LARGE_NETWORK_PAYLOAD_SAMPLE_LIMIT = 5;
+const DEVELOPMENT_LIKE_ENVS = new Set(['', 'development', 'dev', 'local', 'test']);
 const WORLD_DELTA_ENTITY_KEYS = Object.freeze(['p', 'm', 'n', 'o', 'g', 'c']);
 const CPU_BREAKDOWN_LABELS = Object.freeze({
     pendingCommandsMs: '待处理命令',
@@ -494,22 +497,26 @@ let RuntimeGmStateService = class RuntimeGmStateService {
         if (!label) {
             return;
         }
-        const bytes = measureNetworkPayloadBytes(event, payload);
-        if (bytes <= 0) {
+        const measurement = measureNetworkPayload(event, payload);
+        if (measurement.packetBytes <= 0) {
             return;
         }
         const current = bucketByKey.get(label);
+        const sample = buildNetworkLargePayloadSample(direction, event, measurement);
         if (current) {
-            current.bytes += bytes;
+            current.bytes += measurement.packetBytes;
             current.count += 1;
+            appendNetworkLargePayloadSample(current, sample);
             return;
         }
-        bucketByKey.set(label, {
+        const next = {
             key: label,
             label,
-            bytes,
+            bytes: measurement.packetBytes,
             count: 1,
-        });
+        };
+        appendNetworkLargePayloadSample(next, sample);
+        bucketByKey.set(label, next);
     }
 };
 exports.RuntimeGmStateService = RuntimeGmStateService;
@@ -598,12 +605,26 @@ function buildSortedNetworkBuckets(bucketByKey) {
             return right.count - left.count;
         }
         return left.label.localeCompare(right.label, 'zh-Hans-CN');
-    }).map((entry) => ({
-        key: entry.key,
-        label: entry.label,
-        bytes: roundMetric(entry.bytes),
-        count: entry.count,
-    }));
+    }).map((entry) => {
+        const bucket = {
+            key: entry.key,
+            label: entry.label,
+            bytes: roundMetric(entry.bytes),
+            count: entry.count,
+        };
+        if (Array.isArray(entry.largePayloadSamples) && entry.largePayloadSamples.length > 0) {
+            bucket.largePayloadCount = normalizeNonNegativeCount(entry.largePayloadCount);
+            bucket.largePayloadBytes = roundMetric(Math.max(0, Number(entry.largePayloadBytes) || 0));
+            bucket.largePayloadSamples = entry.largePayloadSamples.map((sample) => ({
+                event: String(sample.event ?? ''),
+                bytes: roundMetric(Math.max(0, Number(sample.bytes) || 0)),
+                packetBytes: roundMetric(Math.max(0, Number(sample.packetBytes) || 0)),
+                recordedAt: Math.max(0, Number(sample.recordedAt) || 0),
+                body: String(sample.body ?? ''),
+            }));
+        }
+        return bucket;
+    });
 }
 
 function sumBucketBytes(buckets) {
@@ -683,18 +704,82 @@ function hasNonEmptyArray(value) {
     return Array.isArray(value) && value.length > 0;
 }
 
-function measureNetworkPayloadBytes(event, payload) {
+function measureNetworkPayload(event, payload) {
     const eventKey = normalizeNetworkEventKey(event);
     if (!eventKey) {
-        return 0;
+        return {
+            eventKey: '',
+            packetBytes: 0,
+            payloadBytes: 0,
+            serializedPayload: '',
+        };
     }
     try {
         const serialized = JSON.stringify(payload ?? null);
-        return Buffer.byteLength(eventKey, 'utf8') + Buffer.byteLength(serialized ?? 'null', 'utf8');
+        const serializedPayload = serialized ?? 'null';
+        const payloadBytes = Buffer.byteLength(serializedPayload, 'utf8');
+        return {
+            eventKey,
+            packetBytes: Buffer.byteLength(eventKey, 'utf8') + payloadBytes,
+            payloadBytes,
+            serializedPayload,
+        };
     }
     catch (_error) {
-        return Buffer.byteLength(eventKey, 'utf8');
+        return {
+            eventKey,
+            packetBytes: Buffer.byteLength(eventKey, 'utf8'),
+            payloadBytes: 0,
+            serializedPayload: '',
+        };
     }
+}
+
+function buildNetworkLargePayloadSample(direction, event, measurement) {
+    if (!isDevelopmentLikeEnv()) {
+        return null;
+    }
+    if (direction === 's2c' && measurement.eventKey === shared_1.S2C.GmState) {
+        return null;
+    }
+    if (measurement.payloadBytes <= LARGE_NETWORK_PAYLOAD_CAPTURE_THRESHOLD_BYTES) {
+        return null;
+    }
+    return {
+        event: normalizeNetworkEventKey(event),
+        bytes: measurement.payloadBytes,
+        packetBytes: measurement.packetBytes,
+        recordedAt: Date.now(),
+        body: formatNetworkPayloadBody(measurement.serializedPayload),
+    };
+}
+
+function appendNetworkLargePayloadSample(bucket, sample) {
+    if (!sample) {
+        return;
+    }
+    bucket.largePayloadCount = normalizeNonNegativeCount(bucket.largePayloadCount) + 1;
+    bucket.largePayloadBytes = Math.max(0, Number(bucket.largePayloadBytes) || 0) + sample.bytes;
+    const samples = Array.isArray(bucket.largePayloadSamples) ? bucket.largePayloadSamples : [];
+    samples.unshift(sample);
+    bucket.largePayloadSamples = samples.slice(0, LARGE_NETWORK_PAYLOAD_SAMPLE_LIMIT);
+}
+
+function formatNetworkPayloadBody(serializedPayload) {
+    if (!serializedPayload) {
+        return '';
+    }
+    try {
+        return JSON.stringify(JSON.parse(serializedPayload), null, 2);
+    }
+    catch (_error) {
+        return serializedPayload;
+    }
+}
+
+function isDevelopmentLikeEnv() {
+    const runtimeEnv = String(process.env.SERVER_RUNTIME_ENV ?? process.env.APP_ENV ?? process.env.NODE_ENV ?? '').trim().toLowerCase();
+    return DEVELOPMENT_LIKE_ENVS.has(runtimeEnv);
 }
 
 function buildCpuBreakdown(summary) {

@@ -110,6 +110,10 @@ let WorldRuntimeMonsterActionApplyService = class WorldRuntimeMonsterActionApply
         if (distance > monster.attackRange) {
             return;
         }
+        if (typeof instance.canSeeTileFrom === 'function'
+            && !instance.canSeeTileFrom(monster.x, monster.y, runtimeTargetPosition.x, runtimeTargetPosition.y, distance)) {
+            return;
+        }
         const damage = typeof action.damage === 'number' ? Math.max(0, Math.round(action.damage)) : 0;
         if (damage <= 0) {
             return;
@@ -156,6 +160,10 @@ let WorldRuntimeMonsterActionApplyService = class WorldRuntimeMonsterActionApply
             return;
         }
         const distance = chebyshevDistance(monster.x, monster.y, runtimeTargetPosition.x, runtimeTargetPosition.y);
+        if (typeof instance.canSeeTileFrom === 'function'
+            && !instance.canSeeTileFrom(monster.x, monster.y, runtimeTargetPosition.x, runtimeTargetPosition.y, distance)) {
+            return;
+        }
         try {
             const currentTick = instance.tick;
             const result = this.playerCombatService.castMonsterSkill({

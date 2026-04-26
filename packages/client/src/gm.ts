@@ -36,6 +36,7 @@ import {
   type GmPlayerUpdateSection,
   ATTR_KEYS,
   ATTR_KEY_LABELS,
+  DEFAULT_BASE_ATTRS,
   type AutoBattleSkillConfig,
   type EquipmentSlots,
   type EquipSlot,
@@ -559,6 +560,7 @@ let suggestionSearchTimer: number | null = null;
 let currentNetworkInPage = 1;
 /** currentNetworkOutPage：当前下行榜分页。 */
 let currentNetworkOutPage = 1;
+const networkLargePayloadBucketByKey = new Map<string, GmNetworkBucket>();
 /** lastPlayerListStructureKey：last玩家列表Structure Key。 */
 let lastPlayerListStructureKey: string | null = null;
 /** lastEditorStructureKey：last编辑器Structure Key。 */
@@ -1757,6 +1759,13 @@ function patchEditorPreview(detail: GmManagedPlayerRecord, draft: PlayerState): 
   if (chipListEl) {
     chipListEl.innerHTML = getEditorBodyChipMarkup(detail, draft);
   }
+  for (const key of ATTR_KEYS) {
+    const totalValue = draft.finalAttrs?.[key] ?? draft.baseAttrs?.[key] ?? DEFAULT_BASE_ATTRS[key];
+    const totalEl = editorContentEl.querySelector<HTMLElement>(`[data-preview="attr-total"][data-key="${key}"]`);
+    if (totalEl) {
+      totalEl.textContent = getAttrDisplayNumber(totalValue, DEFAULT_BASE_ATTRS[key]);
+    }
+  }
   editorContentEl.querySelectorAll<HTMLElement>('[data-preview="readonly"]').forEach((element) => {
     const path = element.dataset.path;
     if (!path) return;
@@ -1822,7 +1831,10 @@ function getNetworkBucketMeta(
   bucket: GmNetworkBucket,
   elapsedSec: number,
 ): string {
-  return `${formatBytes(bucket.bytes)} · ${formatPercent(bucket.bytes, totalBytes)} · ${bucket.count} 次 · 均次 ${formatAverageBytesPerEvent(bucket.bytes, bucket.count)} · 均秒 ${formatBytesPerSecond(bucket.bytes, elapsedSec)}`;
+  const largePayloadMeta = (bucket.largePayloadCount ?? 0) > 0
+    ? ` · 大包 ${bucket.largePayloadCount} 次 / ${formatBytes(bucket.largePayloadBytes ?? 0)}`
+    : '';
+  return `${formatBytes(bucket.bytes)} · ${formatPercent(bucket.bytes, totalBytes)} · ${bucket.count} 次 · 均次 ${formatAverageBytesPerEvent(bucket.bytes, bucket.count)} · 均秒 ${formatBytesPerSecond(bucket.bytes, elapsedSec)}${largePayloadMeta}`;
 }
 
 /** getTickPerf：读取Tick性能。 */
@@ -1843,29 +1855,40 @@ function getStatRowMarkup(key: string): string {
   return gmMarkupHelpers.getStatRowMarkup(key);
 }
 
+type StructuredStatListItem = {
+  key: string;
+  label: string;
+  meta: string;
+  largePayloadSamples?: GmNetworkBucket['largePayloadSamples'];
+};
+
 /** patchStatRow：处理patch Stat Row。 */
-function patchStatRow(row: HTMLElement, label: string, meta: string): void {
+function patchStatRow(row: HTMLElement, item: StructuredStatListItem): void {
+  const { label, meta } = item;
   row.querySelector<HTMLElement>('[data-role="label"]')!.textContent = label;
   row.querySelector<HTMLElement>('[data-role="meta"]')!.textContent = meta;
+  const actionsEl = row.querySelector<HTMLElement>('[data-role="actions"]');
+  if (!actionsEl) {
+    return;
+  }
+  if (!Array.isArray(item.largePayloadSamples) || item.largePayloadSamples.length === 0) {
+    actionsEl.innerHTML = '';
+    actionsEl.hidden = true;
+    return;
+  }
+  actionsEl.hidden = false;
+  const currentKey = actionsEl.querySelector<HTMLButtonElement>('[data-network-large-payload-key]')?.dataset.networkLargePayloadKey;
+  if (currentKey === item.key) {
+    return;
+  }
+  actionsEl.innerHTML = `<button class="small-btn network-payload-btn" type="button" data-network-large-payload-key="${escapeHtml(item.key)}">查看包体</button>`;
 }
 
 /** renderStructuredStatList：渲染Structured Stat列表。 */
 function renderStructuredStatList(
   container: HTMLElement,
   structureKey: string | null,
-  items: Array<{  
-  /**
- * key：key标识。
- */
- key: string;  
- /**
- * label：label名称或显示文本。
- */
- label: string;  
- /**
- * meta：meta相关字段。
- */
- meta: string }>,
+  items: StructuredStatListItem[],
   emptyText: string,
 ): string {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
@@ -1886,9 +1909,70 @@ function renderStructuredStatList(
     if (!(row instanceof HTMLElement)) {
       return;
     }
-    patchStatRow(row, item.label, item.meta);
+    patchStatRow(row, item);
   });
   return nextStructureKey;
+}
+
+function rememberNetworkLargePayloadBuckets(buckets: GmNetworkBucket[]): void {
+  for (const bucket of buckets) {
+    if (Array.isArray(bucket.largePayloadSamples) && bucket.largePayloadSamples.length > 0) {
+      networkLargePayloadBucketByKey.set(bucket.key, bucket);
+    }
+  }
+}
+
+function renderNetworkLargePayloadSample(sample: NonNullable<GmNetworkBucket['largePayloadSamples']>[number], index: number): string {
+  const recordedAt = sample.recordedAt > 0 ? new Date(sample.recordedAt).toLocaleString() : '未知时间';
+  return `
+    <section class="network-payload-sample">
+      <div class="network-payload-sample-head">
+        <div>样本 ${index + 1}</div>
+        <div>${escapeHtml(sample.event)} · ${escapeHtml(recordedAt)} · payload ${escapeHtml(formatBytes(sample.bytes))} · packet ${escapeHtml(formatBytes(sample.packetBytes))}</div>
+      </div>
+      <textarea class="network-payload-body" readonly spellcheck="false">${escapeHtml(sample.body)}</textarea>
+    </section>
+  `;
+}
+
+function closeNetworkPayloadModal(): void {
+  const modal = document.getElementById('network-payload-modal');
+  if (modal) {
+    modal.remove();
+  }
+}
+
+function openNetworkPayloadModal(bucket: GmNetworkBucket): void {
+  const samples = Array.isArray(bucket.largePayloadSamples) ? bucket.largePayloadSamples : [];
+  if (samples.length === 0) {
+    setStatus('这个流量项当前没有可查看的大包样本', true);
+    return;
+  }
+  closeNetworkPayloadModal();
+  const modal = document.createElement('div');
+  modal.id = 'network-payload-modal';
+  modal.className = 'network-payload-modal';
+  modal.innerHTML = `
+    <div class="network-payload-dialog" role="dialog" aria-modal="true" aria-label="网络包体内容">
+      <div class="network-payload-dialog-head">
+        <div>
+          <div class="panel-title">${escapeHtml(bucket.label)}</div>
+          <div class="network-breakdown-subtitle">仅开发态记录最近 ${samples.length} 个超过 1 KB 的实际包体</div>
+        </div>
+        <button class="small-btn" type="button" data-network-payload-close>关闭</button>
+      </div>
+      <div class="network-payload-sample-list">
+        ${samples.map((sample, index) => renderNetworkLargePayloadSample(sample, index)).join('')}
+      </div>
+    </div>
+  `;
+  modal.addEventListener('click', (event) => {
+    const target = event.target;
+    if (target === modal || (target instanceof Element && target.closest('[data-network-payload-close]'))) {
+      closeNetworkPayloadModal();
+    }
+  });
+  document.body.appendChild(modal);
 }
 
 /** getSortedCpuSections：读取Sorted Cpu Sections。 */
@@ -1951,6 +2035,8 @@ function renderPerfLists(data: GmStateRes): void {
   const sortedNetworkInBuckets = getSortedNetworkBuckets(data.perf.networkInBuckets, elapsedSec);
   const pagedNetworkInBuckets = paginateNetworkBuckets(sortedNetworkInBuckets, currentNetworkInPage);
   currentNetworkInPage = pagedNetworkInBuckets.page;
+  networkLargePayloadBucketByKey.clear();
+  rememberNetworkLargePayloadBuckets(sortedNetworkInBuckets);
   networkInPageMetaEl.textContent = `第 ${pagedNetworkInBuckets.page} / ${pagedNetworkInBuckets.totalPages} 页 · 共 ${sortedNetworkInBuckets.length} 条`;
   networkInPrevPageBtn.disabled = pagedNetworkInBuckets.page <= 1;
   networkInNextPageBtn.disabled = pagedNetworkInBuckets.page >= pagedNetworkInBuckets.totalPages;
@@ -1959,11 +2045,13 @@ function renderPerfLists(data: GmStateRes): void {
         key: bucket.key,
         label: bucket.label,
         meta: getNetworkBucketMeta(data.perf.networkInBytes, bucket, elapsedSec),
+        largePayloadSamples: bucket.largePayloadSamples,
       }))
     : [];
   const sortedNetworkOutBuckets = getSortedNetworkBuckets(data.perf.networkOutBuckets, elapsedSec);
   const pagedNetworkOutBuckets = paginateNetworkBuckets(sortedNetworkOutBuckets, currentNetworkOutPage);
   currentNetworkOutPage = pagedNetworkOutBuckets.page;
+  rememberNetworkLargePayloadBuckets(sortedNetworkOutBuckets);
   networkOutPageMetaEl.textContent = `第 ${pagedNetworkOutBuckets.page} / ${pagedNetworkOutBuckets.totalPages} 页 · 共 ${sortedNetworkOutBuckets.length} 条`;
   networkOutPrevPageBtn.disabled = pagedNetworkOutBuckets.page <= 1;
   networkOutNextPageBtn.disabled = pagedNetworkOutBuckets.page >= pagedNetworkOutBuckets.totalPages;
@@ -1972,6 +2060,7 @@ function renderPerfLists(data: GmStateRes): void {
         key: bucket.key,
         label: bucket.label,
         meta: getNetworkBucketMeta(data.perf.networkOutBytes, bucket, elapsedSec),
+        largePayloadSamples: bucket.largePayloadSamples,
       }))
     : [];
   const cpuItems = getSortedCpuSections(data).map((section) => ({
@@ -3441,14 +3530,10 @@ function createDefaultPlayerSnapshot(source?: PlayerState): PlayerState {
     qi: 0,
     dead: false,
     foundation: 0,
-    baseAttrs: {
-      constitution: 1,
-      spirit: 1,
-      perception: 1,
-      talent: 1,
-      comprehension: 0,
-      luck: 0,
-    },
+    combatExp: 0,
+    comprehension: 0,
+    luck: 0,
+    baseAttrs: { ...DEFAULT_BASE_ATTRS },
     bonuses: [],
     temporaryBuffs: [],
     inventory: { items: [], capacity: 24 },
@@ -3951,6 +4036,28 @@ function readonlyCodeBlock(title: string, path: string, value: unknown): string 
   `;
 }
 
+/** getAttrDisplayNumber：读取属性展示数值。 */
+function getAttrDisplayNumber(value: number | undefined, fallback = 0): string {
+  return String(Number.isFinite(value) ? value : fallback);
+}
+
+/** renderAttributeSummaryGrid：渲染六维基础/总属性摘要。 */
+function renderAttributeSummaryGrid(draft: PlayerState): string {
+  return `
+    <div class="editor-attr-summary-grid">
+      ${ATTR_KEYS.map((key) => {
+        const totalValue = draft.finalAttrs?.[key] ?? draft.baseAttrs?.[key] ?? DEFAULT_BASE_ATTRS[key];
+        return `
+          <div class="editor-attr-summary-card">
+            <div class="editor-attr-summary-label">${escapeHtml(ATTR_KEY_LABELS[key])}</div>
+            <div class="editor-attr-summary-value" data-preview="attr-total" data-key="${escapeHtml(key)}">${escapeHtml(getAttrDisplayNumber(totalValue, DEFAULT_BASE_ATTRS[key]))}</div>
+          </div>
+        `;
+      }).join('')}
+    </div>
+  `;
+}
+
 /** renderEditorTabSection：渲染编辑器Tab Section。 */
 function renderEditorTabSection(tab: GmEditorTab, content: string): string {
   return `<div data-editor-tab="${tab}">${content}</div>`;
@@ -4259,9 +4366,14 @@ function renderVisualEditor(player: GmManagedPlayerRecord, draft: PlayerState): 
         ${selectField('当前境界', 'realmLv', typeof draft.realmLv === 'number' ? draft.realmLv : 1, getRealmCatalogOptions())}
         ${numberField('当前境界修为', 'realm.progress', draft.realm?.progress)}
         ${numberField('底蕴', 'foundation', draft.foundation)}
+        ${numberField('悟性', 'comprehension', draft.comprehension)}
+        ${numberField('幸运', 'luck', draft.luck)}
       </div>
       <div class="editor-stat-grid" style="margin-top: 10px;">
         ${ATTR_KEYS.map((key) => numberField(ATTR_KEY_LABELS[key], `baseAttrs.${key}`, draft.baseAttrs[key])).join('')}
+      </div>
+      <div style="margin-top: 10px;">
+        ${renderAttributeSummaryGrid(draft)}
       </div>
       <div class="editor-grid compact" style="margin-top: 10px;">
         ${stringArrayField('已揭示突破条件 ID', 'revealedBreakthroughRequirementIds', draft.revealedBreakthroughRequirementIds, 'wide')}
@@ -4290,7 +4402,7 @@ function renderVisualEditor(player: GmManagedPlayerRecord, draft: PlayerState): 
         </div>
       </div>
       <div class="editor-grid compact">
-        ${readonlyCodeBlock('最终属性', 'finalAttrs', draft.finalAttrs ?? {})}
+        ${readonlyCodeBlock('总属性（最终属性）', 'finalAttrs', draft.finalAttrs ?? {})}
         ${readonlyCodeBlock('数值属性', 'numericStats', draft.numericStats ?? {})}
         ${readonlyCodeBlock('比率分母', 'ratioDivisors', draft.ratioDivisors ?? {})}
         ${readonlyCodeBlock('动作列表', 'actions', draft.actions ?? [])}
@@ -5372,6 +5484,8 @@ function buildSectionSnapshot(section: GmPlayerUpdateSection, draft: PlayerState
           ? { progress: draft.realm.progress } as PlayerState['realm']
           : undefined,
         foundation: draft.foundation,
+        comprehension: draft.comprehension,
+        luck: draft.luck,
         revealedBreakthroughRequirementIds: [...(draft.revealedBreakthroughRequirementIds ?? [])],
         bonuses: clone(ensureArray(draft.bonuses)),
       };
@@ -6994,6 +7108,24 @@ redeemWorkspaceEl?.addEventListener('change', (event) => {
 });
 resetNetworkStatsBtn.addEventListener('click', () => {
   resetNetworkStats().catch(() => {});
+});
+serverPanelTrafficEl.addEventListener('click', (event) => {
+  const target = event.target;
+  if (!(target instanceof Element)) {
+    return;
+  }
+  const button = target.closest<HTMLButtonElement>('[data-network-large-payload-key]');
+  const key = button?.dataset.networkLargePayloadKey;
+  if (!key) {
+    return;
+  }
+  event.preventDefault();
+  const bucket = networkLargePayloadBucketByKey.get(key);
+  if (!bucket) {
+    setStatus('这个流量项的大包样本已经过期，请等待下一次刷新', true);
+    return;
+  }
+  openNetworkPayloadModal(bucket);
 });
 resetCpuStatsBtn.addEventListener('click', () => {
   resetCpuStats().catch(() => {});

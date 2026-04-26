@@ -1,7 +1,7 @@
 import type { EquipSlot, ItemType } from './item-runtime-types';
 import type { TechniqueCategory } from './cultivation-types';
 import type { MailFilter } from './mail-types';
-import type { AlchemyIngredientSelection, EnhancementTargetRef } from './crafting-types';
+import type { AlchemyIngredientSelection, CraftQueueStartMode, EnhancementTargetRef } from './crafting-types';
 
 /** 请求坊市首页。 */
 export interface RequestMarketView {}
@@ -371,6 +371,11 @@ export interface StartAlchemyView {
  */
 
   quantity: number;
+  /**
+ * queueMode：制造队列启动方式。
+ */
+
+  queueMode?: CraftQueueStartMode;
 }
 
 /** 取消炼制。 */
@@ -401,6 +406,11 @@ export interface StartEnhancementView {
  */
 
   protectionStartLevel?: number | null;
+  /**
+ * queueMode：制造队列启动方式。
+ */
+
+  queueMode?: CraftQueueStartMode;
 }
 
 /** 取消强化。 */
@@ -418,6 +428,16 @@ export interface UseItemView {
  */
 
   count?: number;
+  /**
+ * sectName：使用建宗令时提交的宗门名称。
+ */
+
+  sectName?: string;
+  /**
+ * sectMark：使用建宗令时提交的单字宗门印记。
+ */
+
+  sectMark?: string;
 }
 
 /** 丢弃背包物品。 */

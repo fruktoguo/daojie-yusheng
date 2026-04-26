@@ -4,6 +4,8 @@ import type {
   AlchemyRecipeCategory,
   C2S_SaveAlchemyPreset,
   C2S_StartEnhancement,
+  CraftQueueItemView,
+  CraftQueueStartMode,
   EnhancementTargetRef,
   EquipmentSlots,
   PlayerEnhancementRecord,
@@ -39,14 +41,15 @@ type CraftWorkbenchCallbacks = {
   onRequestEnhancement: () => void;
   onSaveAlchemyPreset: (payload: C2S_SaveAlchemyPreset) => void;
   onDeleteAlchemyPreset: (presetId: string) => void;
-  onStartAlchemy: (recipeId: string, ingredients: Array<{ itemId: string; count: number }>, quantity: number) => void;
+  onStartAlchemy: (recipeId: string, ingredients: Array<{ itemId: string; count: number }>, quantity: number, queueMode: CraftQueueStartMode) => void;
   onCancelAlchemy: () => void;
   onStartEnhancement: (payload: C2S_StartEnhancement) => void;
   onCancelEnhancement: () => void;
 };
 
-type CraftMode = 'alchemy' | 'enhancement' | null;
+type CraftMode = 'alchemy' | 'forging' | 'enhancement' | null;
 type AlchemyTab = 'full' | 'simple';
+type AlchemyRealmTab = 'mortal' | 'qi' | 'foundation';
 
 type AlchemyViewState = {
   recipeListTop: number;
@@ -133,6 +136,31 @@ function cloneAlchemyIngredients(
   return ingredients.map((ingredient) => ({ ...ingredient }));
 }
 
+function getAlchemyRealmTab(level: number): AlchemyRealmTab {
+  const normalizedLevel = Math.max(1, Math.floor(Number(level) || 1));
+  if (normalizedLevel >= 31) {
+    return 'foundation';
+  }
+  if (normalizedLevel >= 19) {
+    return 'qi';
+  }
+  return 'mortal';
+}
+
+function normalizeAlchemyRealm(value: string | undefined): AlchemyRealmTab {
+  if (value === 'qi' || value === 'foundation') {
+    return value;
+  }
+  return 'mortal';
+}
+
+function normalizeAlchemyCategory(value: string | undefined): AlchemyRecipeCategory {
+  if (value === 'buff' || value === 'special') {
+    return value;
+  }
+  return 'recovery';
+}
+
 export class CraftWorkbenchModal {
   private static readonly MODAL_OWNER = 'craft-workbench-modal';
   private static readonly ALCHEMY_CONFIRM_OWNER = 'craft-workbench-modal:alchemy-confirm';
@@ -151,6 +179,7 @@ export class CraftWorkbenchModal {
   private inventory: PlayerState['inventory'] = { items: [], capacity: 0 };
   private equipment: EquipmentSlots = { weapon: null, head: null, body: null, legs: null, accessory: null };
   private activeAlchemyCategory: AlchemyRecipeCategory = 'recovery';
+  private activeAlchemyRealm: AlchemyRealmTab = 'mortal';
   private activeAlchemyTab: AlchemyTab = 'full';
   private selectedAlchemyRecipeId: string | null = null;
   private selectedAlchemyPresetId: string | null = null;
@@ -212,6 +241,14 @@ export class CraftWorkbenchModal {
     this.confirmStartRequest = null;
     this.render();
     this.callbacks?.onRequestAlchemy(this.alchemyCatalogVersion || undefined);
+  }
+
+  openForging(): void {
+    this.activeMode = 'forging';
+    this.loading = false;
+    this.confirmStartRequest = null;
+    confirmModalHost.close(CraftWorkbenchModal.ALCHEMY_CONFIRM_OWNER);
+    this.render();
   }
 
   openEnhancement(): void {
@@ -277,28 +314,33 @@ export class CraftWorkbenchModal {
     }
     if (this.activeMode === 'alchemy') {
       this.callbacks?.onRequestAlchemy(this.alchemyCatalogVersion || undefined);
+    } else if (this.activeMode === 'forging') {
+      this.render();
     } else if (this.activeMode === 'enhancement') {
       this.callbacks?.onRequestEnhancement();
     }
   }
 
   private ensureAlchemySelection(): void {
-    const visibleRecipeIds = new Set(this.alchemyCatalog.map((entry) => entry.recipeId));
     if (this.alchemyPanel?.state?.job) {
       this.selectedAlchemyRecipeId = this.alchemyPanel.state.job.recipeId;
       const jobRecipe = this.alchemyCatalog.find((entry) => entry.recipeId === this.alchemyPanel?.state?.job?.recipeId);
       if (jobRecipe) {
         this.activeAlchemyCategory = jobRecipe.category;
+        this.activeAlchemyRealm = getAlchemyRealmTab(jobRecipe.outputLevel);
       }
       return;
     }
+    const visibleRecipes = this.getVisibleAlchemyRecipes();
+    const visibleRecipeIds = new Set(visibleRecipes.map((entry) => entry.recipeId));
     if (this.selectedAlchemyRecipeId && visibleRecipeIds.has(this.selectedAlchemyRecipeId)) {
       return;
     }
-    const nextRecipe = this.alchemyCatalog[0] ?? null;
+    const nextRecipe = visibleRecipes[0] ?? this.alchemyCatalog[0] ?? null;
     this.selectedAlchemyRecipeId = nextRecipe?.recipeId ?? null;
     this.selectedAlchemyPresetId = null;
     this.activeAlchemyCategory = nextRecipe?.category ?? 'recovery';
+    this.activeAlchemyRealm = nextRecipe ? getAlchemyRealmTab(nextRecipe.outputLevel) : 'mortal';
   }
 
   private ensureAlchemyDraft(): void {
@@ -373,6 +415,22 @@ export class CraftWorkbenchModal {
     })) {
       return false;
     }
+    const craftHeader = body.querySelector<HTMLElement>('[data-craft-workbench-header="true"]');
+    const craftTabs = body.querySelector<HTMLElement>('[data-craft-workbench-tabs="true"]');
+    if (craftHeader) {
+      const headerKey = this.buildCraftHeaderKey();
+      if (craftHeader.dataset.craftHeaderKey !== headerKey) {
+        craftHeader.innerHTML = this.renderCraftHeader();
+        craftHeader.dataset.craftHeaderKey = headerKey;
+      }
+    }
+    if (craftTabs) {
+      const tabsKey = this.buildCraftTabsKey();
+      if (craftTabs.dataset.craftTabsKey !== tabsKey) {
+        craftTabs.innerHTML = this.renderCraftModeTabs();
+        craftTabs.dataset.craftTabsKey = tabsKey;
+      }
+    }
     if (this.activeMode === 'alchemy' && this.tryPatchAlchemyBody(body)) {
       return true;
     }
@@ -398,21 +456,197 @@ export class CraftWorkbenchModal {
   private getCurrentModalDefinition(): { title: string; subtitle: string; variantClass: string; body: string } | null {
     if (this.activeMode === 'alchemy') {
       return {
-        title: '炉中炼丹',
-        subtitle: this.getAlchemySubtitle(),
-        variantClass: 'detail-modal--alchemy',
-        body: this.renderAlchemyBody(),
+        title: '制造技艺',
+        subtitle: this.getCraftSubtitle(),
+        variantClass: 'detail-modal--craft',
+        body: this.renderCraftBody(),
+      };
+    }
+    if (this.activeMode === 'forging') {
+      return {
+        title: '制造技艺',
+        subtitle: this.getCraftSubtitle(),
+        variantClass: 'detail-modal--craft',
+        body: this.renderCraftBody(),
       };
     }
     if (this.activeMode === 'enhancement') {
       return {
-        title: '装备强化',
-        subtitle: `强化 Lv.${formatDisplayInteger(this.enhancementSkillLevel)}`,
-        variantClass: 'detail-modal--enhancement',
-        body: this.renderEnhancementBody(),
+        title: '制造技艺',
+        subtitle: this.getCraftSubtitle(),
+        variantClass: 'detail-modal--craft',
+        body: this.renderCraftBody(),
       };
     }
     return null;
+  }
+
+  private getCraftSubtitle(): string {
+    if (this.activeMode === 'alchemy') {
+      return `炼丹 Lv.${formatDisplayInteger(this.alchemySkillLevel)}`;
+    }
+    if (this.activeMode === 'forging') {
+      return '炼器 · 尚未接入配方';
+    }
+    if (this.activeMode === 'enhancement') {
+      return `强化 Lv.${formatDisplayInteger(this.enhancementSkillLevel)}`;
+    }
+    return '制造型技艺';
+  }
+
+  private renderCraftBody(): string {
+    return `
+      <div class="craft-workbench-shell" data-craft-workbench-shell="true">
+        <aside class="craft-workbench-sidebar">
+          <nav class="craft-workbench-tabs" data-craft-workbench-tabs="true">
+            ${this.renderCraftModeTabs()}
+          </nav>
+        </aside>
+        <section class="craft-workbench-main" data-craft-workbench-main="true">
+          <div class="craft-workbench-header" data-craft-workbench-header="true">
+            ${this.renderCraftHeader()}
+          </div>
+          <div class="craft-workbench-content" data-craft-workbench-content="true">
+            ${this.renderCraftActiveBody()}
+          </div>
+        </section>
+      </div>
+    `;
+  }
+
+  private renderCraftActiveBody(): string {
+    if (this.activeMode === 'alchemy') {
+      return this.renderAlchemyBody();
+    }
+    if (this.activeMode === 'enhancement') {
+      return this.renderEnhancementBody();
+    }
+    return this.renderForgingPlaceholder();
+  }
+
+  private renderCraftHeader(): string {
+    const queue = this.getCraftQueueSnapshot();
+    return `
+      <div class="craft-profession-summary">
+        <div class="craft-workbench-title">${escapeHtml(this.getCraftProfessionTitle())}</div>
+        <div class="craft-workbench-desc">${escapeHtml(this.getCraftProfessionDescription())}</div>
+      </div>
+      <div class="craft-queue-panel">
+        <div class="craft-queue-head">
+          <span>当前任务队列</span>
+          <strong>${formatDisplayInteger(queue.length)}</strong>
+        </div>
+        <div class="craft-queue-list">
+          ${queue.length > 0
+            ? queue.map((entry, index) => `
+              <div class="craft-queue-item ${index === 0 ? 'active' : ''}">
+                <span>${index === 0 ? '进行中' : `排队 ${formatDisplayInteger(index)}`}</span>
+                <strong>${escapeHtml(entry.label)}</strong>
+                ${entry.quantity ? `<em>x${formatDisplayInteger(entry.quantity)}</em>` : ''}
+              </div>
+            `).join('')
+            : '<div class="craft-queue-empty">暂无制造任务。</div>'}
+        </div>
+      </div>
+    `;
+  }
+
+  private buildCraftHeaderKey(): string {
+    return [
+      this.activeMode ?? 'none',
+      this.alchemySkillLevel,
+      this.enhancementSkillLevel,
+      this.getCraftQueueSnapshot()
+        .map((entry) => `${entry.queueId}:${entry.kind}:${entry.label}:${entry.quantity ?? ''}`)
+        .join('|'),
+    ].join('::');
+  }
+
+  private buildCraftTabsKey(): string {
+    return [
+      this.activeMode ?? 'none',
+      this.alchemySkillLevel,
+      this.enhancementSkillLevel,
+    ].join(':');
+  }
+
+  private renderCraftModeTabs(): string {
+    const tabs: Array<{ mode: Exclude<CraftMode, null>; label: string; note: string }> = [
+      { mode: 'alchemy', label: '炼丹', note: `Lv.${formatDisplayInteger(this.alchemySkillLevel)}` },
+      { mode: 'forging', label: '炼器', note: '待接入' },
+      { mode: 'enhancement', label: '强化', note: `Lv.${formatDisplayInteger(this.enhancementSkillLevel)}` },
+    ];
+    return tabs.map((tab) => `
+      <button class="craft-mode-tab ${this.activeMode === tab.mode ? 'active' : ''}" type="button" data-craft-action="switch-craft-mode" data-mode="${tab.mode}">
+        <span>${escapeHtml(tab.label)}</span>
+        <em>${escapeHtml(tab.note)}</em>
+      </button>
+    `).join('');
+  }
+
+  private renderForgingPlaceholder(): string {
+    return `
+      <div class="craft-placeholder-panel">
+        <div class="craft-placeholder-title">炼器配方尚未接入</div>
+        <div class="craft-placeholder-text">通用制造界面已经预留炼器入口；后续炼器会复用左侧职业说明、当前任务队列和三种启动队列方式。</div>
+      </div>
+    `;
+  }
+
+  private getCraftProfessionTitle(): string {
+    if (this.activeMode === 'alchemy') {
+      return '炼丹';
+    }
+    if (this.activeMode === 'forging') {
+      return '炼器';
+    }
+    if (this.activeMode === 'enhancement') {
+      return '强化';
+    }
+    return '制造';
+  }
+
+  private getCraftProfessionDescription(): string {
+    if (this.activeMode === 'alchemy') {
+      return '以丹方、主药和辅药炼成丹药，可批量制造并接入后续任务队列。';
+    }
+    if (this.activeMode === 'forging') {
+      return '以器方、主材和辅材制造装备本体，当前只预留通用入口。';
+    }
+    if (this.activeMode === 'enhancement') {
+      return '以强化锤、材料和保护物提升装备强化等级，操作区复用现有强化规则。';
+    }
+    return '制造型技艺共用任务队列。';
+  }
+
+  private getCraftQueueSnapshot(): CraftQueueItemView[] {
+    const activeAlchemyJob = this.alchemyPanel?.state?.job ?? null;
+    const activeEnhancementJob = this.enhancementPanel?.state?.job ?? null;
+    const queue = activeAlchemyJob?.queuedJobs
+      ?? activeEnhancementJob?.queuedJobs
+      ?? this.alchemyPanel?.state?.queue
+      ?? this.enhancementPanel?.state?.queue
+      ?? [];
+    const active: CraftQueueItemView[] = [];
+    if (activeAlchemyJob) {
+      const recipe = this.alchemyCatalog.find((entry) => entry.recipeId === activeAlchemyJob.recipeId);
+      active.push({
+        queueId: activeAlchemyJob.jobRunId ?? `active:alchemy:${activeAlchemyJob.startedAt}`,
+        kind: 'alchemy',
+        label: recipe?.outputName ?? activeAlchemyJob.outputItemId,
+        quantity: Math.max(1, activeAlchemyJob.quantity - activeAlchemyJob.completedCount),
+        createdAt: activeAlchemyJob.startedAt,
+      });
+    } else if (activeEnhancementJob) {
+      active.push({
+        queueId: activeEnhancementJob.jobRunId ?? `active:enhancement:${activeEnhancementJob.startedAt}`,
+        kind: 'enhancement',
+        label: activeEnhancementJob.targetItemName,
+        quantity: activeEnhancementJob.desiredTargetLevel,
+        createdAt: activeEnhancementJob.startedAt,
+      });
+    }
+    return [...active, ...queue];
   }
 
   private bindActions(body: HTMLElement): void {
@@ -426,12 +660,39 @@ export class CraftWorkbenchModal {
         return;
       }
       const action = target.dataset.craftAction ?? '';
+      if (action === 'switch-craft-mode') {
+        const mode = target.dataset.mode;
+        if (mode === 'alchemy') {
+          this.openAlchemy();
+        } else if (mode === 'forging') {
+          this.openForging();
+        } else if (mode === 'enhancement') {
+          this.openEnhancement();
+        }
+        return;
+      }
       if (action === 'alchemy-switch-category') {
-        const category = target.dataset.category === 'buff' ? 'buff' : 'recovery';
+        const category = normalizeAlchemyCategory(target.dataset.category);
         this.activeAlchemyCategory = category;
         const firstRecipe = this.getVisibleAlchemyRecipes()[0] ?? null;
         if (firstRecipe) {
           this.selectedAlchemyRecipeId = firstRecipe.recipeId;
+        } else {
+          this.selectedAlchemyRecipeId = null;
+        }
+        this.selectedAlchemyPresetId = null;
+        this.ensureAlchemyDraft();
+        this.render();
+        return;
+      }
+      if (action === 'alchemy-switch-realm') {
+        const realm = normalizeAlchemyRealm(target.dataset.realm);
+        this.activeAlchemyRealm = realm;
+        const firstRecipe = this.getVisibleAlchemyRecipes()[0] ?? null;
+        if (firstRecipe) {
+          this.selectedAlchemyRecipeId = firstRecipe.recipeId;
+        } else {
+          this.selectedAlchemyRecipeId = null;
         }
         this.selectedAlchemyPresetId = null;
         this.ensureAlchemyDraft();
@@ -564,10 +825,13 @@ export class CraftWorkbenchModal {
         if (!selected) {
           return;
         }
-        const payload = this.buildEnhancementPayload(body, selected, target.dataset.protection === 'true');
+        const selectedProtection = body.querySelector<HTMLInputElement>('input[name="enhancement-protection"]:checked');
+        const useProtection = target.dataset.protection === 'true' || Boolean((selectedProtection?.value ?? '').trim());
+        const payload = this.buildEnhancementPayload(body, selected, useProtection);
         if (!payload) {
           return;
         }
+        payload.queueMode = this.normalizeQueueStartMode(target.dataset.queueMode);
         this.callbacks?.onStartEnhancement(payload);
         return;
       }
@@ -632,11 +896,20 @@ export class CraftWorkbenchModal {
   }
 
   private getVisibleAlchemyRecipes(): AlchemyRecipeCatalogEntry[] {
-    return this.alchemyCatalog.filter((entry) => entry.category === this.activeAlchemyCategory);
+    return this.alchemyCatalog.filter((entry) => (
+      entry.category === this.activeAlchemyCategory
+      && getAlchemyRealmTab(entry.outputLevel) === this.activeAlchemyRealm
+    ));
   }
 
   private getSelectedAlchemyRecipe(): AlchemyRecipeCatalogEntry | null {
-    return this.alchemyCatalog.find((entry) => entry.recipeId === this.selectedAlchemyRecipeId) ?? null;
+    const recipe = this.alchemyCatalog.find((entry) => entry.recipeId === this.selectedAlchemyRecipeId) ?? null;
+    if (!recipe) {
+      return null;
+    }
+    return recipe.category === this.activeAlchemyCategory && getAlchemyRealmTab(recipe.outputLevel) === this.activeAlchemyRealm
+      ? recipe
+      : null;
   }
 
   private getSelectedEnhancementCandidate(): SyncedEnhancementCandidateView | null {
@@ -680,27 +953,107 @@ export class CraftWorkbenchModal {
     const jobHost = body.querySelector<HTMLElement>('[data-alchemy-job-card-host="true"]');
     const topbar = body.querySelector<HTMLElement>('[data-alchemy-topbar="true"]');
     const categoryTabs = body.querySelector<HTMLElement>('[data-alchemy-category-tabs="true"]');
+    const realmTabs = body.querySelector<HTMLElement>('[data-alchemy-realm-tabs="true"]');
     const tabHost = body.querySelector<HTMLElement>('[data-alchemy-tab-host="true"]');
     const recipeList = body.querySelector<HTMLElement>('[data-alchemy-recipe-list="true"]');
     const detailPanel = body.querySelector<HTMLElement>('[data-alchemy-detail-panel="true"]');
-    if (!shell || !jobHost || !topbar || !categoryTabs || !tabHost || !recipeList || !detailPanel) {
+    if (!shell || !jobHost || !topbar || !categoryTabs || !realmTabs || !tabHost || !recipeList || !detailPanel) {
       return false;
     }
     const viewState = this.captureAlchemyViewState(body);
     const selectedRecipe = this.getSelectedAlchemyRecipe();
     const nextDetailKey = selectedRecipe ? `${selectedRecipe.recipeId}:${this.activeAlchemyTab}` : 'empty';
     const preserveDetail = viewState.detailKey === nextDetailKey;
+    const stableKey = this.buildAlchemyStableRenderKey();
 
-    jobHost.innerHTML = this.renderAlchemyJobCard(this.alchemyPanel?.state?.job ?? null);
+    this.patchAlchemyJobHost(jobHost);
     topbar.innerHTML = this.renderAlchemyTopbar();
+    if (shell.dataset.alchemyStableRenderKey === stableKey && preserveDetail) {
+      this.restoreAlchemyViewState(body, viewState, true);
+      return true;
+    }
     categoryTabs.innerHTML = this.renderAlchemyCategoryTabs();
+    realmTabs.innerHTML = this.renderAlchemyRealmTabs();
     tabHost.innerHTML = this.renderAlchemyTabButtons();
     recipeList.innerHTML = this.renderAlchemyRecipeList();
     detailPanel.dataset.detailKey = nextDetailKey;
     detailPanel.innerHTML = this.renderAlchemyDetailPanel();
+    shell.dataset.alchemyStableRenderKey = stableKey;
     bindInlineItemTooltips(body);
     this.restoreAlchemyViewState(body, viewState, preserveDetail);
     return true;
+  }
+
+  private buildAlchemyStableRenderKey(): string {
+    const selectedRecipe = this.getSelectedAlchemyRecipe();
+    const presets = this.alchemyPanel?.state?.presets ?? [];
+    const presetVersion = presets
+      .map((preset) => `${preset.presetId}:${preset.updatedAt}`)
+      .join('|');
+    const inventoryRevision = Number((this.inventory as { revision?: number })?.revision ?? this.inventory.items.length);
+    const equipmentRevision = Number((this.equipment as { revision?: number })?.revision ?? 0);
+    return [
+      this.alchemyCatalogVersion,
+      this.activeAlchemyRealm,
+      this.activeAlchemyCategory,
+      this.activeAlchemyTab,
+      selectedRecipe?.recipeId ?? 'empty',
+      this.alchemySkillLevel,
+      this.gatherSkillLevel,
+      inventoryRevision,
+      equipmentRevision,
+      Boolean(this.alchemyPanel?.state?.job),
+      this.alchemyPanel?.error ?? '',
+      presetVersion,
+    ].join('::');
+  }
+
+  private patchAlchemyJobHost(jobHost: HTMLElement): void {
+    const job = this.alchemyPanel?.state?.job ?? null;
+    const nextJobKey = this.getAlchemyJobPatchKey(job);
+    const card = jobHost.querySelector<HTMLElement>('[data-alchemy-job-card="true"]');
+    if (!card || card.dataset.alchemyJobKey !== nextJobKey) {
+      jobHost.innerHTML = this.renderAlchemyJobCard(job);
+      return;
+    }
+    if (!job) {
+      return;
+    }
+    const progressPercent = Math.max(0, Math.min(100, (1 - (job.remainingTicks / Math.max(1, job.totalTicks))) * 100));
+    const progressLabel = card.querySelector<HTMLElement>('.alchemy-job-progress-head strong');
+    const progressFill = card.querySelector<HTMLElement>('.alchemy-job-progress-fill');
+    const phaseChip = card.querySelector<HTMLElement>('.alchemy-job-phase-chip');
+    const metaSpans = card.querySelectorAll<HTMLElement>(':scope .alchemy-job-meta > span');
+    if (progressLabel) {
+      progressLabel.textContent = `${formatDisplayInteger(job.completedCount)} / ${formatDisplayInteger(job.quantity)} 炉`;
+    }
+    if (progressFill) {
+      progressFill.style.width = `${progressPercent.toFixed(2)}%`;
+    }
+    if (phaseChip) {
+      phaseChip.textContent = getAlchemyPhaseLabel(job.phase);
+      phaseChip.classList.toggle('is-preparing', job.phase === 'preparing');
+      phaseChip.classList.toggle('is-paused', job.phase === 'paused');
+      phaseChip.classList.toggle('is-brewing', job.phase === 'brewing');
+    }
+    const metaText = [
+      `剩余 ${formatTicks(job.remainingTicks)}`,
+      `成功 ${formatDisplayInteger(job.successCount)}`,
+      `失败 ${formatDisplayInteger(job.failureCount)}`,
+      getAlchemyPhaseLabel(job.phase),
+    ];
+    metaSpans.forEach((span, index) => {
+      if (metaText[index]) {
+        span.textContent = metaText[index];
+      }
+    });
+  }
+
+  private getAlchemyJobPatchKey(job: NonNullable<NonNullable<S2C_AlchemyPanel['state']>['job']> | null): string {
+    if (!job) {
+      return 'empty';
+    }
+    return `${job.jobRunId ?? job.startedAt}:${job.recipeId}:${job.quantity}:${job.totalTicks}:${job.outputItemId}`;
   }
 
   private renderAlchemyTopbar(): string {
@@ -793,19 +1146,73 @@ export class CraftWorkbenchModal {
       return false;
     }
     const viewState = this.captureEnhancementViewState(body);
-    toolbar.innerHTML = this.renderEnhancementToolbar();
+    this.patchEnhancementToolbar(toolbar);
+    const activeJob = this.enhancementPanel?.state?.job ?? null;
+    const currentJobCard = workbench.querySelector<HTMLElement>('[data-enhancement-job-key]');
+    const nextJobKey = this.getEnhancementJobPatchKey(activeJob);
+    if (activeJob && currentJobCard?.dataset.enhancementJobKey === nextJobKey) {
+      this.patchEnhancementActiveJob(workbench, activeJob);
+      this.restoreEnhancementViewState(body, viewState);
+      return true;
+    }
     workbench.innerHTML = this.renderEnhancementWorkbenchSection();
     historyPanel.innerHTML = this.renderEnhancementHistory(this.enhancementPanel?.state?.records ?? []);
     this.restoreEnhancementViewState(body, viewState);
     return true;
   }
 
-  private renderEnhancementToolbar(): string {
+  private patchEnhancementToolbar(toolbar: HTMLElement): void {
+    const note = toolbar.querySelector<HTMLElement>('[data-enhancement-toolbar-note="true"]');
+    const nextText = this.getEnhancementToolbarNoteText();
+    if (note) {
+      note.textContent = nextText;
+      return;
+    }
+    toolbar.innerHTML = this.renderEnhancementToolbar();
+  }
+
+  private getEnhancementToolbarNoteText(): string {
     const state = this.enhancementPanel?.state ?? null;
+    return state?.job
+      ? `强化队列进行中，剩余 ${formatTicks(state.job.remainingTicks)} / ${formatTicks(state.job.totalTicks)}`
+      : `角色强化等级 Lv.${formatDisplayInteger(state?.enhancementSkillLevel ?? this.enhancementSkillLevel)} · 当前可强化装备 ${formatDisplayInteger(state?.candidates.length ?? 0)} 件`;
+  }
+
+  private patchEnhancementActiveJob(workbench: HTMLElement, job: NonNullable<NonNullable<S2C_EnhancementPanel['state']>['job']>): void {
+    const runningCard = workbench.querySelector<HTMLElement>('.enhancement-summary-card--running');
+    const subtitle = runningCard?.querySelector<HTMLElement>('.enhancement-summary-subtitle');
+    const rate = runningCard?.querySelector<HTMLElement>('.enhancement-summary-rate');
+    const metrics = runningCard?.querySelectorAll<HTMLElement>('.enhancement-summary-metric strong');
+    if (subtitle) {
+      subtitle.textContent = `进行中：+${formatDisplayInteger(job.currentLevel)} → +${formatDisplayInteger(job.targetLevel)}${job.desiredTargetLevel > job.targetLevel ? ` · 最终目标 +${formatDisplayInteger(job.desiredTargetLevel)}` : ''}`;
+    }
+    if (rate) {
+      rate.textContent = formatRate(job.successRate);
+    }
+    if (metrics && metrics.length >= 3) {
+      metrics[0].textContent = formatDisplayInteger(job.remainingTicks);
+      metrics[1].textContent = `${formatDisplayInteger(job.totalTicks)} 息`;
+      metrics[2].textContent = formatRate(job.successRate);
+    }
+    const previewLines = workbench.querySelectorAll<HTMLElement>('.enhancement-preview-lines div');
+    if (previewLines.length >= 6) {
+      previewLines[0].textContent = job.phase === 'paused' ? '暂停中' : '强化中';
+      previewLines[1].textContent = `当前 +${formatDisplayInteger(job.currentLevel)}`;
+      previewLines[2].textContent = `冲击 +${formatDisplayInteger(job.targetLevel)}`;
+      previewLines[5].textContent = `剩余 ${formatDisplayInteger(job.remainingTicks)} 息`;
+    }
+  }
+
+  private getEnhancementJobPatchKey(job: NonNullable<NonNullable<S2C_EnhancementPanel['state']>['job']> | null): string {
+    if (!job) {
+      return 'empty';
+    }
+    return `${job.jobRunId ?? job.startedAt}:${job.targetItemId}:${job.currentLevel}:${job.targetLevel}:${job.desiredTargetLevel}:${job.totalTicks}`;
+  }
+
+  private renderEnhancementToolbar(): string {
     return `
-      <div class="enhancement-toolbar-note">${state?.job
-        ? `强化队列进行中，剩余 ${formatTicks(state.job.remainingTicks)} / ${formatTicks(state.job.totalTicks)}`
-        : `角色强化等级 Lv.${formatDisplayInteger(state?.enhancementSkillLevel ?? this.enhancementSkillLevel)} · 当前可强化装备 ${formatDisplayInteger(state?.candidates.length ?? 0)} 件`}</div>
+      <div class="enhancement-toolbar-note" data-enhancement-toolbar-note="true">${escapeHtml(this.getEnhancementToolbarNoteText())}</div>
       <button class="small-btn ghost" type="button" data-craft-action="enhancement-refresh">刷新</button>
     `;
   }
@@ -830,10 +1237,10 @@ export class CraftWorkbenchModal {
           ${this.renderAlchemyTopbar()}
         </div>
         <div class="alchemy-control-row" data-alchemy-control-row="true">
-          <div class="alchemy-control-group">
-            <span class="alchemy-control-label">丹药类型</span>
-            <div class="alchemy-category-tabs" data-alchemy-category-tabs="true">
-              ${this.renderAlchemyCategoryTabs()}
+          <div class="alchemy-control-group alchemy-control-group--realms">
+            <span class="alchemy-control-label">境界</span>
+            <div class="alchemy-realm-tabs" data-alchemy-realm-tabs="true">
+              ${this.renderAlchemyRealmTabs()}
             </div>
           </div>
           <div class="alchemy-control-group alchemy-control-group--tabs">
@@ -845,6 +1252,9 @@ export class CraftWorkbenchModal {
         </div>
         <div class="alchemy-layout">
           <aside class="alchemy-recipe-sidebar">
+            <div class="alchemy-category-tabs" data-alchemy-category-tabs="true">
+              ${this.renderAlchemyCategoryTabs()}
+            </div>
             <div class="alchemy-recipe-list" data-alchemy-recipe-list="true">
               ${this.renderAlchemyRecipeList()}
             </div>
@@ -861,11 +1271,32 @@ export class CraftWorkbenchModal {
     const categories: Array<{ category: AlchemyRecipeCategory; label: string }> = [
       { category: 'recovery', label: '回复' },
       { category: 'buff', label: '增益' },
+      { category: 'special', label: '特殊' },
     ];
     return categories.map((tab) => {
-      const count = this.alchemyCatalog.filter((entry) => entry.category === tab.category).length;
+      const count = this.alchemyCatalog.filter((entry) => (
+        entry.category === tab.category
+        && getAlchemyRealmTab(entry.outputLevel) === this.activeAlchemyRealm
+      )).length;
       return `
         <button class="alchemy-category-btn ${this.activeAlchemyCategory === tab.category ? 'active' : ''}" type="button" data-craft-action="alchemy-switch-category" data-category="${tab.category}">
+          ${escapeHtml(tab.label)}
+          <span class="alchemy-category-count">${formatDisplayInteger(count)}</span>
+        </button>
+      `;
+    }).join('');
+  }
+
+  private renderAlchemyRealmTabs(): string {
+    const realms: Array<{ realm: AlchemyRealmTab; label: string }> = [
+      { realm: 'mortal', label: '凡俗' },
+      { realm: 'qi', label: '练气' },
+      { realm: 'foundation', label: '筑基' },
+    ];
+    return realms.map((tab) => {
+      const count = this.alchemyCatalog.filter((entry) => getAlchemyRealmTab(entry.outputLevel) === tab.realm).length;
+      return `
+        <button class="alchemy-category-btn ${this.activeAlchemyRealm === tab.realm ? 'active' : ''}" type="button" data-craft-action="alchemy-switch-realm" data-realm="${tab.realm}">
           ${escapeHtml(tab.label)}
           <span class="alchemy-category-count">${formatDisplayInteger(count)}</span>
         </button>
@@ -887,13 +1318,13 @@ export class CraftWorkbenchModal {
 
   private renderAlchemyJobCard(job: NonNullable<NonNullable<S2C_AlchemyPanel['state']>['job']> | null): string {
     if (!job) {
-      return '<section class="alchemy-job-card empty" data-alchemy-job-card="true"><div class="alchemy-job-title">当前炉火</div><div class="alchemy-job-text">当前没有进行中的炼丹任务。</div></section>';
+      return '<section class="alchemy-job-card empty" data-alchemy-job-card="true" data-alchemy-job-key="empty"><div class="alchemy-job-title">当前炉火</div><div class="alchemy-job-text">当前没有进行中的炼丹任务。</div></section>';
     }
     const recipe = this.alchemyCatalog.find((entry) => entry.recipeId === job.recipeId) ?? null;
     const progressPercent = Math.max(0, Math.min(100, (1 - (job.remainingTicks / Math.max(1, job.totalTicks))) * 100));
     const phaseClass = job.phase === 'preparing' ? 'is-preparing' : (job.phase === 'paused' ? 'is-paused' : 'is-brewing');
     return `
-      <section class="alchemy-job-card" data-alchemy-job-card="true">
+      <section class="alchemy-job-card" data-alchemy-job-card="true" data-alchemy-job-key="${escapeHtml(this.getAlchemyJobPatchKey(job))}">
         <div class="alchemy-job-head">
           <div>
             <div class="alchemy-job-title">当前炉火</div>
@@ -1081,7 +1512,7 @@ export class CraftWorkbenchModal {
         </div>
         <div class="alchemy-action-note">${escapeHtml(
           state?.job
-            ? '当前已有炼丹任务在进行中。'
+            ? '当前已有炼丹任务在进行中；新任务可通过确认弹窗加入当前制造队列。'
             : maxQuantity > 0
               ? `点击炼制后选择数量，当前最多可炼 ${maxQuantity} 炉；每炉固定 ${this.getAlchemyBatchOutputCount(recipe)} 枚，起炉 ${ALCHEMY_PREPARATION_TICKS} 息后自动开炼。`
               : '材料或灵石不足，当前无法开炉。',
@@ -1243,8 +1674,10 @@ export class CraftWorkbenchModal {
               <div class="enhancement-target-level-note">保护最低从 +2 开始生效。达到这个目标等级后，失败才会消耗保护并只降低一级。</div>
             </div>
             <div class="enhancement-action-row enhancement-action-row--stacked">
-              <button class="small-btn" type="button" data-craft-action="start-enhancement">开始强化</button>
-              ${protectionOptions.length > 0 ? '<button class="small-btn ghost" type="button" data-craft-action="start-enhancement" data-protection="true">保护强化</button>' : ''}
+              <button class="small-btn" type="button" data-craft-action="start-enhancement" data-queue-mode="replace">开始</button>
+              <button class="small-btn ghost" type="button" data-craft-action="start-enhancement" data-queue-mode="preserve">开始(保留现有队列)</button>
+              <button class="small-btn ghost" type="button" data-craft-action="start-enhancement" data-queue-mode="append">加入队列末尾</button>
+              ${protectionOptions.length > 0 ? '<button class="small-btn ghost" type="button" data-craft-action="start-enhancement" data-protection="true" data-queue-mode="replace">保护开始</button>' : ''}
             </div>
           </div>
         </div>
@@ -1314,7 +1747,7 @@ export class CraftWorkbenchModal {
 
   private renderEnhancementActiveJob(job: NonNullable<NonNullable<S2C_EnhancementPanel['state']>['job']>): string {
     return `
-      <div class="enhancement-workbench-grid">
+      <div class="enhancement-workbench-grid" data-enhancement-job-key="${escapeHtml(this.getEnhancementJobPatchKey(job))}">
         <div class="enhancement-workbench-side">
           <div class="enhancement-target-slot-card">
             <div class="enhancement-target-slot-head">
@@ -1747,6 +2180,11 @@ export class CraftWorkbenchModal {
           </div>
         </div>
         <div class="market-action-hint" data-alchemy-confirm-hint="true">当前最多可炼 ${escapeHtml(String(state.maxQuantity))} 炉；每炉固定 ${escapeHtml(String(this.getAlchemyBatchOutputCount(recipe)))} 枚并按单枚独立判定，确认后会先准备 ${ALCHEMY_PREPARATION_TICKS} 息；移动或出手都会打断炼丹。</div>
+        <div class="craft-start-mode-row">
+          <button class="small-btn" data-alchemy-confirm-start-mode="replace" type="button" ${state.startDisabled ? 'disabled' : ''}>开始</button>
+          <button class="small-btn ghost" data-alchemy-confirm-start-mode="preserve" type="button" ${state.startDisabled ? 'disabled' : ''}>开始(保留现有队列)</button>
+          <button class="small-btn ghost" data-alchemy-confirm-start-mode="append" type="button" ${state.startDisabled ? 'disabled' : ''}>加入队列末尾</button>
+        </div>
         <div class="market-action-hint market-action-hint--error" data-alchemy-confirm-error="true" ${state.errorText ? '' : 'hidden'}>${escapeHtml(state.errorText ?? '')}</div>
       </div>
     `;
@@ -1766,6 +2204,12 @@ export class CraftWorkbenchModal {
         return;
       }
       const quickQtyButton = target.closest<HTMLElement>('[data-alchemy-confirm-quick-qty]');
+      const startModeButton = target.closest<HTMLButtonElement>('[data-alchemy-confirm-start-mode]');
+      if (startModeButton) {
+        const mode = this.normalizeQueueStartMode(startModeButton.dataset.alchemyConfirmStartMode);
+        this.submitAlchemyConfirm(mode);
+        return;
+      }
       if (!quickQtyButton) {
         return;
       }
@@ -1810,6 +2254,7 @@ export class CraftWorkbenchModal {
     const errorNode = document.querySelector<HTMLElement>('[data-alchemy-confirm-error="true"]');
     const maxButton = document.querySelector<HTMLButtonElement>('[data-alchemy-confirm-quick-qty-max="true"]');
     const confirmButton = document.querySelector<HTMLButtonElement>('[data-confirm-modal-confirm="true"]');
+    const modeButtons = document.querySelectorAll<HTMLButtonElement>('[data-alchemy-confirm-start-mode]');
     if (totalCostNode) {
       totalCostNode.textContent = `${state.spiritStoneCost === null ? '--' : state.spiritStoneCost} 灵石`;
       totalCostNode.parentElement?.classList.toggle('error', Boolean(state.errorText));
@@ -1832,6 +2277,39 @@ export class CraftWorkbenchModal {
     if (confirmButton) {
       confirmButton.disabled = state.startDisabled;
     }
+    modeButtons.forEach((button) => {
+      button.disabled = state.startDisabled;
+    });
+  }
+
+  private normalizeQueueStartMode(value: string | undefined): CraftQueueStartMode {
+    if (value === 'preserve' || value === 'append') {
+      return value;
+    }
+    return 'replace';
+  }
+
+  private submitAlchemyConfirm(queueMode: CraftQueueStartMode): void {
+    const latestRequest = this.confirmStartRequest;
+    const latestRecipe = latestRequest ? this.alchemyCatalog.find((entry) => entry.recipeId === latestRequest.recipeId) ?? null : null;
+    if (!latestRequest || !latestRecipe) {
+      this.confirmStartRequest = null;
+      return;
+    }
+    const latestState = this.buildAlchemyConfirmState(latestRecipe, latestRequest.ingredients);
+    if (latestState.startDisabled || latestState.quantity === null) {
+      this.syncAlchemyConfirmModal();
+      return;
+    }
+    this.setAlchemySelectedQuantity(latestRecipe, latestRequest.ingredients, latestState.quantity);
+    this.confirmStartRequest = null;
+    this.callbacks?.onStartAlchemy(
+      latestRequest.recipeId,
+      latestRequest.ingredients.map((entry) => ({ itemId: entry.itemId, count: entry.count })),
+      latestState.quantity,
+      queueMode,
+    );
+    confirmModalHost.close(CraftWorkbenchModal.ALCHEMY_CONFIRM_OWNER);
   }
 
   private syncAlchemyConfirmModal(): void {
@@ -1851,24 +2329,7 @@ export class CraftWorkbenchModal {
       confirmLabel: '开始炼制',
       confirmDisabled: state.startDisabled,
       onConfirm: () => {
-        const latestRequest = this.confirmStartRequest;
-        const latestRecipe = latestRequest ? this.alchemyCatalog.find((entry) => entry.recipeId === latestRequest.recipeId) ?? null : null;
-        if (!latestRequest || !latestRecipe) {
-          this.confirmStartRequest = null;
-          return;
-        }
-        const latestState = this.buildAlchemyConfirmState(latestRecipe, latestRequest.ingredients);
-        if (latestState.startDisabled || latestState.quantity === null) {
-          this.syncAlchemyConfirmModal();
-          return;
-        }
-        this.setAlchemySelectedQuantity(latestRecipe, latestRequest.ingredients, latestState.quantity);
-        this.confirmStartRequest = null;
-        this.callbacks?.onStartAlchemy(
-          latestRequest.recipeId,
-          latestRequest.ingredients.map((entry) => ({ itemId: entry.itemId, count: entry.count })),
-          latestState.quantity,
-        );
+        this.submitAlchemyConfirm('replace');
       },
       onClose: () => {
         this.confirmStartRequest = null;

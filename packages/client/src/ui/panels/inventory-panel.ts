@@ -3,7 +3,6 @@
  * 展示物品网格列表，支持分类筛选、使用/装备/丢弃操作与物品详情弹层
  */
 import {
-  calcTechniqueAttrValues,
   EquipSlot,
   HeavenGateState,
   HEAVEN_GATE_REROLL_COST_RATIO,
@@ -12,14 +11,29 @@ import {
   ItemStack,
   PlayerState,
   PlayerRealmState,
+  BUILTIN_FORMATION_TEMPLATES,
+  FORMATION_ALLOCATION_MAX_PERCENT,
+  FORMATION_ALLOCATION_MIN_PERCENT,
+  FORMATION_DEFAULT_ALLOCATION_PERCENT,
+  FORMATION_DEFAULT_QI_COST_PER_SPIRIT_STONE,
+  FORMATION_DISK_TIER_LABELS,
+  FormationAllocation,
+  FormationCreatePayload,
+  normalizeFormationAllocation,
+  resolveFormationMinSpiritStoneCount,
+  resolveFormationQiCost,
+  resolveFormationStats,
+  resolveFormationVisual,
+  type FormationTemplate,
+  type FormationRangeShape,
   SHATTER_SPIRIT_PILL_COST_RATIO,
-  TECHNIQUE_ATTR_KEYS,
   TECHNIQUE_LEARNING_HEAVY_DECAY_WARNING_DELTA,
   createItemStackSignature,
+  getFirstGrapheme,
+  getGraphemeCount,
   shouldWarnTechniqueLearningDifficulty,
 } from '@mud/shared';
 import {
-  getAttrKeyLabel,
   getEquipSlotLabel,
   getItemTypeLabel,
   getTechniqueGradeLabel,
@@ -49,6 +63,7 @@ import { getItemAffixTypeLabel, getItemDecorClassName, getItemDisplayMeta } from
 import { preserveSelection } from '../selection-preserver';
 import { createEmptyHint, createPanelSectionWithTitle, createSmallBtn } from '../ui-primitives';
 import { describePreviewBonuses } from '../stat-preview';
+import { formatTechniqueCumulativeBonusSummary } from '../technique-bonus-summary';
 import { INVENTORY_FILTER_TABS, InventoryFilter } from '../../constants/ui/inventory';
 import { formatDisplayCountBadge, formatDisplayInteger, formatDisplayNumber } from '../../utils/number';
 import { resolveInventoryCooldownLeft } from '../../runtime/server-tick';
@@ -59,6 +74,19 @@ import {
 
 /** InventoryActionKind：分类枚举。 */
 type InventoryActionKind = 'use' | 'drop' | 'destroy';
+
+type FormationRatioKey = 'effect' | 'range' | 'duration';
+
+type FormationRangePreviewPayload = {
+  shape: FormationRangeShape;
+  radius: number;
+  rangeHighlightColor?: string;
+} | null;
+
+type UseItemOptions = {
+  sectName?: string;
+  sectMark?: string;
+};
 
 /** InventoryActionDialogState：背包物品操作对话框状态。 */
 interface InventoryActionDialogState {
@@ -167,6 +195,18 @@ const HEAVEN_SPIRITUAL_ROOT_SEED_ITEM_ID = 'root_seed.heaven';
 const DIVINE_SPIRITUAL_ROOT_SEED_ITEM_ID = 'root_seed.divine';
 /** SHATTER_SPIRIT_PILL_ITEM_ID：SHATTER灵石PILL物品ID。 */
 const SHATTER_SPIRIT_PILL_ITEM_ID = 'pill.shatter_spirit';
+const FORMATION_DISK_MULTIPLIER_BY_ITEM_ID: Record<string, number> = {
+  'formation_disk.mortal': 1,
+  'formation_disk.yellow': 2,
+  'formation_disk.mystic': 4,
+  'formation_disk.earth': 8,
+};
+const FORMATION_DISK_TIER_BY_ITEM_ID: Record<string, keyof typeof FORMATION_DISK_TIER_LABELS> = {
+  'formation_disk.mortal': 'mortal',
+  'formation_disk.yellow': 'yellow',
+  'formation_disk.mystic': 'mystic',
+  'formation_disk.earth': 'earth',
+};
 /** HEAVEN_GATE_REROLL_AVERAGE_BONUS：HEAVEN关卡REROLL AVERAGE BONUS。 */
 const HEAVEN_GATE_REROLL_AVERAGE_BONUS = 2;
 /** INVENTORY_INITIAL_RENDER_COUNT：背包初始渲染数量。 */
@@ -195,7 +235,7 @@ export class InventoryPanel {
   /** pane：pane。 */
   private pane = document.getElementById('pane-inventory')!;
   /** onUseItem：on使用物品。 */
-  private onUseItem: ((slotIndex: number, count?: number) => void) | null = null;
+  private onUseItem: ((slotIndex: number, count?: number, options?: UseItemOptions) => void) | null = null;
   /** onDropItem：on掉落物品。 */
   private onDropItem: ((slotIndex: number, count: number) => void) | null = null;
   /** onDestroyItem：on Destroy物品。 */
@@ -204,6 +244,10 @@ export class InventoryPanel {
   private onEquipItem: ((slotIndex: number) => void) | null = null;
   /** onSortInventory：on排序背包。 */
   private onSortInventory: (() => void) | null = null;
+  /** onCreateFormation：on布阵。 */
+  private onCreateFormation: ((payload: FormationCreatePayload) => void) | null = null;
+  /** onPreviewFormationRange：on预览阵法范围。 */
+  private onPreviewFormationRange: ((payload: FormationRangePreviewPayload) => void) | null = null;
   /** tooltip：提示。 */
   private tooltip = new FloatingTooltip('floating-tooltip inventory-tooltip');
   /** activeFilter：活跃筛选。 */
@@ -218,6 +262,10 @@ export class InventoryPanel {
   private selectedItemKey: string | null = null;
   /** actionDialog：动作对话。 */
   private actionDialog: InventoryActionDialogState | null = null;
+  /** formationDialogSlotIndex：布阵对话槽位。 */
+  private formationDialogSlotIndex: number | null = null;
+  /** sectFoundingDialogSlotIndex：建宗令建宗面板槽位。 */
+  private sectFoundingDialogSlotIndex: number | null = null;
   /** lastModalRenderKey：last弹窗渲染Key。 */
   private lastModalRenderKey: string | null = null;
   /** tooltipCell：提示格子。 */
@@ -238,6 +286,8 @@ export class InventoryPanel {
   private playerHeavenGate: HeavenGateState | null = null;
   /** playerFoundation：玩家Foundation。 */
   private playerFoundation = 0;
+  /** playerQi：玩家当前灵气/灵力。 */
+  private playerQi = 0;
   /** renderedVisibleCount：rendered可见数量。 */
   private renderedVisibleCount = INVENTORY_INITIAL_RENDER_COUNT;
   /** pendingLoadMoreFrame：待处理Load More帧。 */
@@ -280,6 +330,8 @@ export class InventoryPanel {
     this.selectedSlotIndex = null;
     this.selectedItemKey = null;
     this.actionDialog = null;
+    this.formationDialogSlotIndex = null;
+    this.sectFoundingDialogSlotIndex = null;
     this.lastModalRenderKey = null;
     this.tooltipCell = null;
     this.sourceExpanded = false;
@@ -316,17 +368,21 @@ export class InventoryPanel {
 
 
   setCallbacks(
-    onUse: (slotIndex: number, count?: number) => void,
+    onUse: (slotIndex: number, count?: number, options?: UseItemOptions) => void,
     onDrop: (slotIndex: number, count: number) => void,
     onDestroy: (slotIndex: number, count: number) => void,
     onEquip: (slotIndex: number) => void,
     onSort: () => void,
+    onCreateFormation?: (payload: FormationCreatePayload) => void,
+    onPreviewFormationRange?: (payload: FormationRangePreviewPayload) => void,
   ): void {
     this.onUseItem = onUse;
     this.onDropItem = onDrop;
     this.onDestroyItem = onDestroy;
     this.onEquipItem = onEquip;
     this.onSortInventory = onSort;
+    this.onCreateFormation = onCreateFormation ?? null;
+    this.onPreviewFormationRange = onPreviewFormationRange ?? null;
   }
 
   /** 更新背包数据并刷新列表与弹层 */
@@ -353,13 +409,13 @@ export class InventoryPanel {
   }  
   /**
  * syncPlayerContext：处理玩家上下文并更新相关状态。
- * @param player Pick<PlayerState, 'techniques' | 'equipment' | 'unlockedMinimapIds' | 'realm' | 'heavenGate' | 'foundation'> 玩家对象。
+ * @param player Pick<PlayerState, 'techniques' | 'equipment' | 'unlockedMinimapIds' | 'realm' | 'heavenGate' | 'foundation' | 'qi'> 玩家对象。
  * @returns 无返回值，直接更新玩家上下文相关状态。
  */
 
 
   syncPlayerContext(
-    player?: Pick<PlayerState, 'techniques' | 'equipment' | 'unlockedMinimapIds' | 'realm' | 'heavenGate' | 'foundation'>,
+    player?: Pick<PlayerState, 'techniques' | 'equipment' | 'unlockedMinimapIds' | 'realm' | 'heavenGate' | 'foundation' | 'qi'>,
   ): void {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
@@ -370,6 +426,7 @@ export class InventoryPanel {
       this.playerRealm = null;
       this.playerHeavenGate = null;
       this.playerFoundation = 0;
+      this.playerQi = 0;
     } else {
       this.learnedTechniqueIds = new Set(
         (player.techniques ?? [])
@@ -390,6 +447,7 @@ export class InventoryPanel {
       this.playerRealm = player.realm ?? null;
       this.playerHeavenGate = player.realm?.heavenGate ?? player.heavenGate ?? null;
       this.playerFoundation = Math.max(0, Math.floor(player.foundation ?? 0));
+      this.playerQi = Math.max(0, Math.floor(player.qi ?? 0));
     }
     if (this.lastInventory) {
       this.update(this.lastInventory);
@@ -449,6 +507,14 @@ export class InventoryPanel {
           this.onEquipItem?.(slotIndex);
           return;
         }
+        if (item && this.isFormationDiskItem(item)) {
+          this.openFormationDialog(slotIndex);
+          return;
+        }
+        if (item && this.isSectFoundingTokenItem(item)) {
+          this.openSectFoundingDialog(slotIndex);
+          return;
+        }
         if (item && this.requiresUseConfirmation(item)) {
           this.selectedSlotIndex = slotIndex;
           this.selectedItemKey = this.getItemIdentity(item);
@@ -483,6 +549,10 @@ export class InventoryPanel {
       this.selectedItemKey = item ? this.getItemIdentity(item) : null;
       this.tooltip.hide();
       this.tooltipCell = null;
+      if (item && this.isFormationDiskItem(item)) {
+        this.openFormationDialog(this.selectedSlotIndex);
+        return;
+      }
       this.renderModal();
     });
   }
@@ -888,6 +958,20 @@ export class InventoryPanel {
     if (this.actionDialog && this.actionDialog.slotIndex !== slotIndex) {
       this.actionDialog = null;
     }
+    if (this.formationDialogSlotIndex !== null && this.formationDialogSlotIndex !== slotIndex) {
+      this.formationDialogSlotIndex = null;
+    }
+    if (this.sectFoundingDialogSlotIndex !== null && this.sectFoundingDialogSlotIndex !== slotIndex) {
+      this.sectFoundingDialogSlotIndex = null;
+    }
+    if (this.formationDialogSlotIndex === slotIndex && this.isFormationDiskItem(item)) {
+      this.renderFormationDialog(item, slotIndex);
+      return;
+    }
+    if (this.sectFoundingDialogSlotIndex === slotIndex && this.isSectFoundingTokenItem(item)) {
+      this.renderSectFoundingDialog(item, slotIndex);
+      return;
+    }
     if (this.actionDialog) {
       this.renderActionDialog(item, slotIndex, this.actionDialog);
       return;
@@ -931,6 +1015,7 @@ export class InventoryPanel {
         this.renderItemDetailBody(body, item, sourceListHtml, sourceEntryCount, canToggleSourceList, primaryAction, canBatchUse, canBatchDropOrDestroy, bonusLines, effectLines, statusLabel);
       },
       onClose: () => {
+        this.clearFormationWorldPreview();
         this.resetModalState();
       },
       onAfterRender: (body) => {
@@ -942,6 +1027,14 @@ export class InventoryPanel {
           if (primaryAction.kind === 'equip') {
             this.onEquipItem?.(slotIndex);
             this.closeModal();
+            return;
+          }
+          if (this.isFormationDiskItem(item)) {
+            this.openFormationDialog(slotIndex);
+            return;
+          }
+          if (this.isSectFoundingTokenItem(item)) {
+            this.openSectFoundingDialog(slotIndex);
             return;
           }
           if (this.requiresUseConfirmation(item)) {
@@ -964,6 +1057,415 @@ export class InventoryPanel {
           event.stopPropagation();
           this.sourceExpanded = !this.sourceExpanded;
           this.renderModal();
+        });
+      },
+    });
+    this.lastModalRenderKey = this.buildModalRenderKey(item);
+  }
+
+  /** renderFormationDialog：渲染布阵对话。 */
+  private renderFormationDialog(item: ItemStack, slotIndex: number): void {
+    const displayName = getItemDisplayMeta(item).displayItem.name;
+    const diskMultiplier = this.resolveFormationDiskMultiplier(item);
+    const diskTier = this.resolveFormationDiskTier(item);
+    detailModalHost.open({
+      ownerId: InventoryPanel.MODAL_OWNER,
+      title: '布置阵法',
+      subtitle: `${displayName} · ${FORMATION_DISK_TIER_LABELS[diskTier] ?? '阵盘'} · ${diskMultiplier} 倍灵力`,
+      hint: '点击空白处取消',
+      renderBody: (body) => {
+        this.renderFormationDialogBody(body, item);
+      },
+      onClose: () => {
+        this.clearFormationWorldPreview();
+        this.resetModalState();
+      },
+      onAfterRender: (body) => {
+        body.querySelectorAll<HTMLInputElement | HTMLSelectElement>('[data-formation-input]').forEach((input) => {
+          const onInput = () => this.handleFormationInputChange(body, item, input);
+          input.addEventListener('input', onInput);
+          input.addEventListener('change', onInput);
+        });
+        this.syncFormationRatioSliders(body, null);
+        this.syncFormationPreview(body, item);
+        this.bindFormationRangePreviewButton(body);
+        body.querySelector<HTMLElement>('[data-formation-cancel]')?.addEventListener('click', (event) => {
+          event.stopPropagation();
+          this.clearFormationWorldPreview();
+          this.formationDialogSlotIndex = null;
+          this.renderModal();
+        });
+        body.querySelector<HTMLElement>('[data-formation-confirm]')?.addEventListener('click', (event) => {
+          event.stopPropagation();
+          const payload = this.readFormationPayload(body, slotIndex);
+          if (!payload) {
+            return;
+          }
+          this.clearFormationWorldPreview();
+          this.onCreateFormation?.(payload);
+          this.closeModal();
+        });
+      },
+    });
+    this.lastModalRenderKey = this.buildModalRenderKey(item);
+  }
+
+  private renderFormationDialogBody(body: HTMLElement, item: ItemStack): void {
+    const diskMultiplier = this.resolveFormationDiskMultiplier(item);
+    body.replaceChildren(createFragmentFromHtml(`
+      <div class="formation-dialog-layout">
+      <div class="formation-config-grid">
+        <label class="formation-config-field formation-config-field--select ui-detail-field">
+          <strong>阵法</strong>
+          <select class="ui-input formation-config-input" data-formation-input data-formation-id>
+            ${BUILTIN_FORMATION_TEMPLATES.filter((template) => template.placeableByDisk !== false).map((template) => `<option value="${this.escapeHtml(template.id)}">${this.escapeHtml(template.name)}</option>`).join('')}
+          </select>
+        </label>
+        <label class="formation-config-field ui-detail-field">
+          <strong>灵石 <span>最低 <output data-formation-min-stones>100</output></span></strong>
+          <input class="ui-input formation-config-input" data-formation-input data-formation-stones type="number" min="100" step="1" value="100">
+        </label>
+        <div class="formation-cost-card ui-detail-field" data-formation-cost-state>
+          <strong>消耗灵气</strong>
+          <output data-formation-qi-cost>${formatDisplayInteger(FORMATION_DEFAULT_QI_COST_PER_SPIRIT_STONE * 100)}</output>
+          <span>当前 <output data-formation-current-qi>${formatDisplayInteger(this.playerQi)}</output></span>
+        </div>
+      </div>
+      <div class="formation-allocation-control formation-config-grid--ratios" data-formation-allocation>
+        <div class="formation-section-heading">
+          <strong>灵力配比</strong>
+          <span>按三项总和折算</span>
+        </div>
+        <label class="formation-allocation-row">
+          <span><strong>效果</strong><output data-formation-ratio-value="effect">33</output></span>
+          <input class="formation-config-slider" data-formation-input data-formation-effect data-formation-ratio="effect" type="range" min="${FORMATION_ALLOCATION_MIN_PERCENT}" max="${FORMATION_ALLOCATION_MAX_PERCENT}" step="1" value="33">
+        </label>
+        <label class="formation-allocation-row">
+          <span><strong>范围</strong><output data-formation-ratio-value="range">33</output></span>
+          <input class="formation-config-slider" data-formation-input data-formation-range data-formation-ratio="range" type="range" min="${FORMATION_ALLOCATION_MIN_PERCENT}" max="${FORMATION_ALLOCATION_MAX_PERCENT}" step="1" value="33">
+        </label>
+        <label class="formation-allocation-row">
+          <span><strong>持续</strong><output data-formation-ratio-value="duration">33</output></span>
+          <input class="formation-config-slider" data-formation-input data-formation-duration data-formation-ratio="duration" type="range" min="${FORMATION_ALLOCATION_MIN_PERCENT}" max="${FORMATION_ALLOCATION_MAX_PERCENT}" step="1" value="33">
+        </label>
+      </div>
+      <div class="formation-preview">
+        <div class="formation-section-heading">
+          <strong>预览</strong>
+          <span data-formation-preview-summary>阵盘增幅 ${formatDisplayNumber(diskMultiplier)} 倍</span>
+        </div>
+        <div class="formation-preview-metrics">
+          <span><em>总灵力</em><output data-formation-stat="totalAura">-</output></span>
+          <span><em>强度</em><output data-formation-stat="effectValue">-</output></span>
+          <span><em>半径</em><output data-formation-stat="radius">-</output></span>
+          <span><em>开启/日</em><output data-formation-stat="activeCost">-</output></span>
+          <span><em>关闭/日</em><output data-formation-stat="inactiveCost">-</output></span>
+        </div>
+      </div>
+      <button class="small-btn ghost formation-range-preview-btn" type="button" data-formation-range-preview>预览范围</button>
+      <div class="inventory-detail-actions">
+        <div class="inventory-detail-actions-group inventory-detail-actions-group--right inventory-detail-actions-group--stretch">
+          <button class="small-btn ghost" type="button" data-formation-cancel>返回详情</button>
+          <button class="small-btn" type="button" data-formation-confirm>确认布阵</button>
+        </div>
+      </div>
+      </div>
+    `));
+  }
+
+  private syncFormationPreview(body: HTMLElement, item: ItemStack): void {
+    this.syncFormationAllocationLabels(body);
+    const previewSummary = body.querySelector<HTMLElement>('[data-formation-preview-summary]');
+    const template = this.getSelectedFormationTemplate(body);
+    const spiritStoneCount = this.syncFormationSpiritStoneInput(body, template);
+    const allocation = this.readFormationAllocation(body);
+    const diskMultiplier = this.resolveFormationDiskMultiplier(item);
+    const stats = resolveFormationStats(template, spiritStoneCount, diskMultiplier, allocation);
+    const qiCost = resolveFormationQiCost(spiritStoneCount);
+    const hasEnoughQi = this.playerQi >= qiCost;
+    const costState = body.querySelector<HTMLElement>('[data-formation-cost-state]');
+    const qiCostOutput = body.querySelector<HTMLOutputElement>('[data-formation-qi-cost]');
+    if (qiCostOutput) {
+      qiCostOutput.value = formatDisplayInteger(qiCost);
+      qiCostOutput.textContent = formatDisplayInteger(qiCost);
+      qiCostOutput.title = `当前 ${formatDisplayInteger(this.playerQi)}，需要 ${formatDisplayInteger(qiCost)}`;
+    }
+    const currentQiOutput = body.querySelector<HTMLOutputElement>('[data-formation-current-qi]');
+    if (currentQiOutput) {
+      currentQiOutput.value = formatDisplayInteger(this.playerQi);
+      currentQiOutput.textContent = formatDisplayInteger(this.playerQi);
+    }
+    if (costState) {
+      costState.dataset.formationCostState = hasEnoughQi ? 'ready' : 'insufficient';
+    }
+    if (previewSummary) {
+      previewSummary.textContent = hasEnoughQi
+        ? `阵盘增幅 ${formatDisplayNumber(diskMultiplier)} 倍`
+        : `灵气不足 ${formatDisplayInteger(qiCost - this.playerQi)}`;
+    }
+    this.setFormationStatText(body, 'totalAura', stats.totalAuraBudget);
+    this.setFormationStatText(body, 'effectValue', stats.effectValue);
+    this.setFormationStatText(body, 'radius', stats.radius);
+    this.setFormationStatText(body, 'activeCost', stats.dailyActiveCost);
+    this.setFormationStatText(body, 'inactiveCost', stats.dailyInactiveCost);
+    const confirmButton = body.querySelector<HTMLButtonElement>('[data-formation-confirm]');
+    if (confirmButton) {
+      confirmButton.disabled = !hasEnoughQi;
+      confirmButton.title = hasEnoughQi
+        ? ''
+        : `灵气不足：当前 ${formatDisplayInteger(this.playerQi)}，需要 ${formatDisplayInteger(qiCost)}`;
+      confirmButton.textContent = hasEnoughQi ? '确认布阵' : '灵气不足';
+    }
+    const previewButton = body.querySelector<HTMLButtonElement>('[data-formation-range-preview]');
+    if (previewButton) {
+      const shapeLabel = template.range.shape === 'circle'
+        ? '圆形'
+        : template.range.shape === 'square'
+          ? '方形'
+          : '棋盘';
+      previewButton.textContent = `预览范围：${shapeLabel}半径 ${formatDisplayInteger(stats.radius)}`;
+    }
+    this.onPreviewFormationRange?.({
+      shape: template.range.shape,
+      radius: stats.radius,
+      rangeHighlightColor: resolveFormationVisual(template).rangeHighlightColor,
+    });
+  }
+
+  private setFormationStatText(body: HTMLElement, key: string, value: number): void {
+    const node = body.querySelector<HTMLOutputElement>(`[data-formation-stat="${key}"]`);
+    if (!node) {
+      return;
+    }
+    node.value = formatDisplayInteger(value);
+    node.textContent = formatDisplayInteger(value);
+  }
+
+  private getSelectedFormationTemplate(body: HTMLElement): FormationTemplate {
+    const formationId = body.querySelector<HTMLSelectElement>('[data-formation-id]')?.value ?? BUILTIN_FORMATION_TEMPLATES[0]?.id ?? '';
+    return BUILTIN_FORMATION_TEMPLATES.find((entry) => entry.id === formationId && entry.placeableByDisk !== false)
+      ?? BUILTIN_FORMATION_TEMPLATES.find((entry) => entry.placeableByDisk !== false)
+      ?? BUILTIN_FORMATION_TEMPLATES[0]!;
+  }
+
+  private syncFormationSpiritStoneInput(body: HTMLElement, template: FormationTemplate): number {
+    const input = body.querySelector<HTMLInputElement>('[data-formation-stones]');
+    const minSpiritStoneCount = resolveFormationMinSpiritStoneCount(template);
+    const rawValue = input ? Number.parseInt(input.value, 10) : minSpiritStoneCount;
+    const spiritStoneCount = Math.max(minSpiritStoneCount, Number.isFinite(rawValue) ? rawValue : minSpiritStoneCount);
+    if (input) {
+      input.min = String(minSpiritStoneCount);
+      input.value = String(spiritStoneCount);
+    }
+    const minOutput = body.querySelector<HTMLOutputElement>('[data-formation-min-stones]');
+    if (minOutput) {
+      minOutput.value = formatDisplayInteger(minSpiritStoneCount);
+      minOutput.textContent = formatDisplayInteger(minSpiritStoneCount);
+    }
+    return spiritStoneCount;
+  }
+
+  private setFormationPreviewFocusMode(visible: boolean): void {
+    const modal = document.getElementById('detail-modal');
+    const modalCard = document.getElementById('detail-modal-card');
+    modal?.classList.toggle('formation-range-preview-active', visible);
+    modalCard?.classList.toggle('formation-range-preview-active', visible);
+  }
+
+  private bindFormationRangePreviewButton(body: HTMLElement): void {
+    const button = body.querySelector<HTMLButtonElement>('[data-formation-range-preview]');
+    if (!button) {
+      return;
+    }
+    const show = () => this.setFormationPreviewFocusMode(true);
+    const hide = () => this.setFormationPreviewFocusMode(false);
+    button.addEventListener('mouseenter', show);
+    button.addEventListener('mouseleave', hide);
+    button.addEventListener('focus', show);
+    button.addEventListener('blur', hide);
+    button.addEventListener('pointerdown', show);
+    button.addEventListener('pointerup', hide);
+    button.addEventListener('pointercancel', hide);
+  }
+
+  private clearFormationWorldPreview(): void {
+    document.getElementById('detail-modal')?.classList.remove('formation-range-preview-active');
+    document.getElementById('detail-modal-card')?.classList.remove('formation-range-preview-active');
+    this.onPreviewFormationRange?.(null);
+  }
+
+  private handleFormationInputChange(
+    body: HTMLElement,
+    item: ItemStack,
+    input: HTMLInputElement | HTMLSelectElement,
+  ): void {
+    if (input instanceof HTMLInputElement && input.dataset.formationRatio) {
+      this.syncFormationRatioSliders(body, input.dataset.formationRatio as FormationRatioKey);
+    }
+    this.syncFormationPreview(body, item);
+  }
+
+  private syncFormationRatioSliders(body: HTMLElement, changedKey: FormationRatioKey | null): void {
+    const sliders = this.getFormationRatioSliders(body);
+    if (!sliders) {
+      return;
+    }
+    if (changedKey) {
+      sliders[changedKey].value = String(this.clampFormationRatio(Number.parseInt(sliders[changedKey].value, 10)));
+    }
+    this.syncFormationAllocationLabels(body);
+  }
+
+  private getFormationRatioSliders(body: HTMLElement): Record<FormationRatioKey, HTMLInputElement> | null {
+    const effect = body.querySelector<HTMLInputElement>('[data-formation-effect]');
+    const range = body.querySelector<HTMLInputElement>('[data-formation-range]');
+    const duration = body.querySelector<HTMLInputElement>('[data-formation-duration]');
+    if (!effect || !range || !duration) {
+      return null;
+    }
+    return { effect, range, duration };
+  }
+
+  private syncFormationAllocationLabels(body: HTMLElement): void {
+    const sliders = this.getFormationRatioSliders(body);
+    if (!sliders) {
+      return;
+    }
+    (['effect', 'range', 'duration'] as FormationRatioKey[]).forEach((key) => {
+      const value = this.clampFormationRatio(Number.parseInt(sliders[key].value, 10));
+      sliders[key].value = String(value);
+      const label = body.querySelector<HTMLOutputElement>(`[data-formation-ratio-value="${key}"]`);
+      if (label) {
+        label.value = String(value);
+        label.textContent = String(value);
+      }
+    });
+  }
+
+  private readFormationAllocation(body: HTMLElement): FormationAllocation {
+    const sliders = this.getFormationRatioSliders(body);
+    if (!sliders) {
+      return {
+        effectPercent: FORMATION_DEFAULT_ALLOCATION_PERCENT,
+        rangePercent: FORMATION_DEFAULT_ALLOCATION_PERCENT,
+        durationPercent: FORMATION_DEFAULT_ALLOCATION_PERCENT,
+      };
+    }
+    return normalizeFormationAllocation({
+      effectPercent: Number.parseInt(sliders.effect.value, 10),
+      rangePercent: Number.parseInt(sliders.range.value, 10),
+      durationPercent: Number.parseInt(sliders.duration.value, 10),
+    });
+  }
+
+  private clampFormationRatio(value: number): number {
+    if (!Number.isFinite(value)) {
+      return FORMATION_ALLOCATION_MIN_PERCENT;
+    }
+    return Math.max(
+      FORMATION_ALLOCATION_MIN_PERCENT,
+      Math.min(FORMATION_ALLOCATION_MAX_PERCENT, Math.trunc(value)),
+    );
+  }
+
+  private readFormationPayload(body: HTMLElement, slotIndex: number, enforceQi = true): FormationCreatePayload | null {
+    const template = this.getSelectedFormationTemplate(body);
+    const formationId = template.id;
+    const spiritStoneCount = this.syncFormationSpiritStoneInput(body, template);
+    const qiCost = resolveFormationQiCost(spiritStoneCount);
+    if (enforceQi && this.playerQi < qiCost) {
+      return null;
+    }
+    const allocation = this.readFormationAllocation(body);
+    return { slotIndex, formationId, spiritStoneCount, qiCost, allocation };
+  }
+
+  private readPositiveFormNumber(body: HTMLElement, selector: string, fallback: number, allowZero = false): number {
+    const raw = body.querySelector<HTMLInputElement>(selector)?.value ?? String(fallback);
+    const parsed = Number.parseInt(raw, 10);
+    if (!Number.isFinite(parsed)) {
+      return fallback;
+    }
+    return allowZero ? Math.max(0, parsed) : Math.max(1, parsed);
+  }
+
+  private openFormationDialog(slotIndex: number): void {
+    this.selectedSlotIndex = slotIndex;
+    const item = this.lastInventory?.items[slotIndex];
+    this.selectedItemKey = item ? this.getItemIdentity(item) : null;
+    this.actionDialog = null;
+    this.sectFoundingDialogSlotIndex = null;
+    this.formationDialogSlotIndex = slotIndex;
+    this.renderModal();
+  }
+
+  private openSectFoundingDialog(slotIndex: number): void {
+    this.selectedSlotIndex = slotIndex;
+    const item = this.lastInventory?.items[slotIndex];
+    this.selectedItemKey = item ? this.getItemIdentity(item) : null;
+    this.actionDialog = null;
+    this.formationDialogSlotIndex = null;
+    this.sectFoundingDialogSlotIndex = slotIndex;
+    this.renderModal();
+  }
+
+  private renderSectFoundingDialog(item: ItemStack, slotIndex: number): void {
+    const displayName = getItemDisplayMeta(item).displayItem.name;
+    detailModalHost.open({
+      ownerId: InventoryPanel.MODAL_OWNER,
+      title: '建立宗门',
+      subtitle: `${displayName} · 当前位置开辟山门`,
+      hint: '点击空白处取消',
+      renderBody: (body) => {
+        this.renderSectFoundingDialogBody(body);
+      },
+      onClose: () => {
+        this.resetModalState();
+      },
+      onAfterRender: (body) => {
+        const nameInput = body.querySelector<HTMLInputElement>('[data-sect-name-input]');
+        const markInput = body.querySelector<HTMLInputElement>('[data-sect-mark-input]');
+        const statusNode = body.querySelector<HTMLElement>('[data-sect-founding-status]');
+        const syncMark = () => {
+          if (!markInput || !nameInput) return;
+          const normalizedMark = this.normalizeSectMark(markInput.value);
+          if (markInput.value !== normalizedMark) {
+            markInput.value = normalizedMark;
+          }
+          if (!markInput.value.trim()) {
+            markInput.value = getFirstGrapheme(nameInput.value.trim());
+          }
+        };
+        nameInput?.addEventListener('input', () => {
+          if (statusNode) statusNode.textContent = '';
+          if (markInput && !markInput.dataset.touched) {
+            markInput.value = getFirstGrapheme(nameInput.value.trim());
+          }
+        });
+        markInput?.addEventListener('input', () => {
+          markInput.dataset.touched = 'true';
+          syncMark();
+          if (statusNode) statusNode.textContent = '';
+        });
+        body.querySelector<HTMLElement>('[data-sect-founding-cancel]')?.addEventListener('click', (event) => {
+          event.stopPropagation();
+          this.sectFoundingDialogSlotIndex = null;
+          this.renderModal();
+        });
+        body.querySelector<HTMLElement>('[data-sect-founding-confirm]')?.addEventListener('click', (event) => {
+          event.stopPropagation();
+          const sectName = this.normalizeSectName(nameInput?.value ?? '');
+          const sectMark = this.normalizeSectMark(markInput?.value ?? '');
+          if (!sectName) {
+            if (statusNode) statusNode.textContent = '宗门名称需为 2 到 12 个字。';
+            return;
+          }
+          if (!sectMark) {
+            if (statusNode) statusNode.textContent = '宗门印记只能是一个字。';
+            return;
+          }
+          this.onUseItem?.(slotIndex, 1, { sectName, sectMark });
+          this.closeModal();
         });
       },
     });
@@ -1219,6 +1721,44 @@ export class InventoryPanel {
     `));
   }
 
+  private renderSectFoundingDialogBody(body: HTMLElement): void {
+    body.replaceChildren(createFragmentFromHtml(`
+      <div class="ui-detail-field ui-detail-field--section">
+        <strong>宗门名称</strong>
+        <input class="gm-inline-input" data-sect-name-input type="text" maxlength="24" autocomplete="off" placeholder="例如：青玄宗">
+      </div>
+      <div class="ui-detail-field ui-detail-field--section">
+        <strong>宗门印记</strong>
+        <input class="gm-inline-input" data-sect-mark-input type="text" maxlength="4" autocomplete="off" placeholder="单字">
+      </div>
+      <div class="empty-hint" data-sect-founding-status></div>
+      <div class="inventory-detail-actions">
+        <div class="inventory-detail-actions-group inventory-detail-actions-group--right inventory-detail-actions-group--stretch">
+          <button class="small-btn ghost" type="button" data-sect-founding-cancel>返回详情</button>
+          <button class="small-btn" type="button" data-sect-founding-confirm>建立宗门</button>
+        </div>
+      </div>
+    `));
+  }
+
+  private normalizeSectName(input: string): string {
+    const normalized = input.replace(/\s+/g, '').trim();
+    const count = getGraphemeCount(normalized);
+    if (count < 2 || count > 12 || /[<>`"'\\]/.test(normalized)) {
+      return '';
+    }
+    return normalized;
+  }
+
+  private normalizeSectMark(input: string): string {
+    const normalized = input.replace(/\s+/g, '').trim();
+    const first = getFirstGrapheme(normalized);
+    if (!first || getGraphemeCount(normalized) !== 1 || /[\s<>`"'\\]/.test(first)) {
+      return '';
+    }
+    return first;
+  }
+
   /** renderActionDialogBody：渲染动作对话主体。 */
   private renderActionDialogBody(
     body: HTMLElement,
@@ -1397,7 +1937,7 @@ export class InventoryPanel {
 
   /** canBatchUseItem：判断是否Batch使用物品。 */
   private canBatchUseItem(item: ItemStack): boolean {
-    return item.allowBatchUse === true && this.canUseItem(item) && item.count > 1;
+    return item.allowBatchUse === true && this.canUseItem(item) && !this.isFormationDiskItem(item) && !this.isSectFoundingTokenItem(item) && item.count > 1;
   }
 
   /** getUseCountFromInput：读取使用数量From输入。 */
@@ -1445,9 +1985,10 @@ export class InventoryPanel {
 
   /** requiresUseConfirmation：处理requires使用Confirmation。 */
   private requiresUseConfirmation(item: ItemStack): boolean {
-    return this.getSpiritualRootSeedTier(item) !== null
+    return !this.isFormationDiskItem(item)
+      && (this.getSpiritualRootSeedTier(item) !== null
       || item.itemId === SHATTER_SPIRIT_PILL_ITEM_ID
-      || this.getTechniqueLearningWarningSummary(item) !== null;
+      || this.getTechniqueLearningWarningSummary(item) !== null);
   }
 
   /** getHeavenGateRerollCount：读取Heaven关卡Reroll数量。 */
@@ -1601,17 +2142,7 @@ export class InventoryPanel {
       1,
       ...((item.layers ?? []).map((layer) => Math.max(1, Math.floor(layer.level)))),
     );
-    const totalAttrs = calcTechniqueAttrValues(maxLevel, item.layers);
-    const parts = TECHNIQUE_ATTR_KEYS
-      .map((key) => {
-        const value = totalAttrs[key] ?? 0;
-        if (value <= 0) {
-          return null;
-        }
-        return `${getAttrKeyLabel(key)}+${formatDisplayNumber(value)}`;
-      })
-      .filter((entry): entry is string => entry !== null);
-    return parts.length > 0 ? parts.join(' / ') : '无属性提升';
+    return formatTechniqueCumulativeBonusSummary(maxLevel, item.layers);
   }
 
   /** buildTechniqueBookSummaryFields：构建功法书概要。 */
@@ -1694,6 +2225,12 @@ export class InventoryPanel {
     if (item.type === 'equipment') {
       return { label: '装备', kind: 'equip' };
     }
+    if (this.isFormationDiskItem(item)) {
+      return { label: '布阵', kind: 'use' };
+    }
+    if (this.isSectFoundingTokenItem(item)) {
+      return { label: '建立宗门', kind: 'use' };
+    }
     if (item.type === 'skill_book') {
       return { label: '学习', kind: 'use' };
     }
@@ -1701,6 +2238,29 @@ export class InventoryPanel {
       return { label: '使用', kind: 'use' };
     }
     return null;
+  }
+
+  private isFormationDiskItem(item: ItemStack): boolean {
+    return (typeof item.formationDiskTier === 'string' && item.formationDiskTier.length > 0)
+      || item.itemId.startsWith('formation_disk.');
+  }
+
+  private isSectFoundingTokenItem(item: ItemStack): boolean {
+    return item.useBehavior === 'create_sect' || item.itemId === 'sect_founding_token';
+  }
+
+  private resolveFormationDiskMultiplier(item: ItemStack): number {
+    if (Number.isFinite(item.formationDiskMultiplier)) {
+      return Math.max(1, Number(item.formationDiskMultiplier));
+    }
+    return FORMATION_DISK_MULTIPLIER_BY_ITEM_ID[item.itemId] ?? 1;
+  }
+
+  private resolveFormationDiskTier(item: ItemStack): keyof typeof FORMATION_DISK_TIER_LABELS {
+    if (typeof item.formationDiskTier === 'string' && item.formationDiskTier in FORMATION_DISK_TIER_LABELS) {
+      return item.formationDiskTier as keyof typeof FORMATION_DISK_TIER_LABELS;
+    }
+    return FORMATION_DISK_TIER_BY_ITEM_ID[item.itemId] ?? 'mortal';
   }
 
   /** getItemStatusLabel：读取物品状态标签。 */
@@ -2061,6 +2621,8 @@ export class InventoryPanel {
     this.selectedSlotIndex = null;
     this.selectedItemKey = null;
     this.actionDialog = null;
+    this.formationDialogSlotIndex = null;
+    this.sectFoundingDialogSlotIndex = null;
     this.lastModalRenderKey = null;
     this.sourceExpanded = false;
     this.sourceExpandedItemKey = null;
@@ -2078,6 +2640,22 @@ export class InventoryPanel {
         this.actionDialog.kind,
         this.actionDialog.confirmDestroy ? '1' : '0',
         String(this.actionDialog.defaultCount),
+      ].join('|');
+    }
+
+    if (this.formationDialogSlotIndex !== null && this.isFormationDiskItem(item)) {
+      return [
+        'formation',
+        this.getItemIdentity(item),
+        String(this.playerQi),
+      ].join('|');
+    }
+
+    if (this.sectFoundingDialogSlotIndex !== null && this.isSectFoundingTokenItem(item)) {
+      return [
+        'sect-founding',
+        this.getItemIdentity(item),
+        String(item.count),
       ].join('|');
     }
 

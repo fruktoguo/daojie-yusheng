@@ -2,6 +2,7 @@
 
 const assert = require("node:assert/strict");
 
+const { MapTemplateRepository } = require("../runtime/map/map-template.repository");
 const { WorldRuntimeService } = require("../runtime/world/world-runtime.service");
 const { WorldRuntimeQuestQueryService } = require("../runtime/world/world-runtime-quest-query.service");
 /**
@@ -153,15 +154,17 @@ function testWorldRuntimeFacadeBuildQuestListView() {
         refreshQuestStates(playerId) {
             log.push(['refreshQuestStates', playerId]);
         },
-        worldRuntimeQuestQueryService: {        
+        worldRuntimeReadFacadeService: {        
         /**
  * buildQuestListView：构建并返回目标对象。
  * @param playerId 玩家 ID。
+ * @param _input 参数说明。
+ * @param deps 运行时依赖。
  * @returns 无返回值，直接更新任务列表视图相关状态。
  */
 
-            buildQuestListView(playerId) {
-                log.push(['buildQuestListView', playerId]);
+            buildQuestListView(playerId, _input, deps) {
+                log.push(['buildQuestListView', playerId, deps === runtime]);
                 return { quests: [{ id: 'quest:2', title: '归宗试炼', rewards: [] }] };
             },
         },
@@ -171,9 +174,7 @@ function testWorldRuntimeFacadeBuildQuestListView() {
         quests: [{ id: 'quest:2', title: '归宗试炼', rewards: [] }],
     });
     assert.deepEqual(log, [
-        ['getPlayerLocationOrThrow', 'player:2'],
-        ['refreshQuestStates', 'player:2'],
-        ['buildQuestListView', 'player:2'],
+        ['buildQuestListView', 'player:2', true],
     ]);
 }
 /**
@@ -240,7 +241,7 @@ function testWorldRuntimeFacadeBuildNpcQuestsView() {
         refreshQuestStates(playerId) {
             log.push(['refreshQuestStates', playerId]);
         },
-        worldRuntimeQuestQueryService: {        
+        worldRuntimeReadFacadeService: {        
         /**
  * buildNpcQuestsView：构建并返回目标对象。
  * @param playerId 玩家 ID。
@@ -249,7 +250,11 @@ function testWorldRuntimeFacadeBuildNpcQuestsView() {
  * @returns 无返回值，直接更新NPC任务视图相关状态。
  */
 
-            buildNpcQuestsView(playerId, npcId, deps) {
+            buildNpcQuestsView(playerId, npcIdInput, deps) {
+                const npcId = typeof npcIdInput === 'string' ? npcIdInput.trim() : '';
+                if (!npcId) {
+                    throw new Error('npcId is required');
+                }
                 log.push(['buildNpcQuestsView', playerId, npcId, deps === runtime]);
                 return { npcId, npcName: '阿青', quests: [] };
             },
@@ -262,16 +267,29 @@ function testWorldRuntimeFacadeBuildNpcQuestsView() {
         quests: [],
     });
     assert.deepEqual(log, [
-        ['getPlayerLocationOrThrow', 'player:4'],
-        ['refreshQuestStates', 'player:4'],
         ['buildNpcQuestsView', 'player:4', 'npc_a', true],
     ]);
     assert.throws(() => WorldRuntimeService.prototype.buildNpcQuestsView.call(runtime, 'player:4', '   '), /npcId is required/);
+}
+
+function testContentQuestFilesBindToNpcTemplates() {
+    const repository = new MapTemplateRepository();
+    repository.loadAll();
+    const questSource = repository.getQuestSource('q_intro_south_gate_rollcall');
+    assert.ok(questSource, 'content quest should be indexed by quest id');
+    assert.equal(questSource.giverNpcId, 'npc_old_gate_guard');
+    assert.equal(questSource.giverMapId, 'yunlai_town');
+    assert.equal(questSource.quest.title, '先进镇里');
+    const totalQuestBindings = repository.list()
+        .flatMap((template) => template.npcs)
+        .reduce((sum, npc) => sum + npc.quests.length, 0);
+    assert.ok(totalQuestBindings > 0, 'content quests should be attached to NPC templates');
 }
 
 testQuestQueryServiceBuildQuestListView();
 testWorldRuntimeFacadeBuildQuestListView();
 testQuestQueryServiceBuildNpcQuestsView();
 testWorldRuntimeFacadeBuildNpcQuestsView();
+testContentQuestFilesBindToNpcTemplates();
 
 console.log(JSON.stringify({ ok: true, case: 'world-runtime-quest-list-view' }, null, 2));

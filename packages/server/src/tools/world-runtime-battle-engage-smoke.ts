@@ -60,6 +60,14 @@ async function testTileEngageAwaitsBasicAttack(): Promise<void> {
           supportsPvp: true,
           canDamageTile: true,
         },
+        getTileCombatState(x: number, y: number) {
+          assert.deepEqual([x, y], [11, 10]);
+          return {
+            hp: 100,
+            maxHp: 100,
+            destroyed: false,
+          };
+        },
       };
     },
     interruptManualCombat(playerId: string) {

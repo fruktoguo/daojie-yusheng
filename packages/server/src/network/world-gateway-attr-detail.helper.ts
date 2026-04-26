@@ -110,6 +110,7 @@ function buildAttrDetailNumericStatBreakdowns(player) {
             (0, shared_1.addPartialNumericStats)(attrMultipliers, scalePartialNumericStats(shared_1.ATTR_TO_PERCENT_NUMERIC_WEIGHTS[key], value));
         }
     }
+    applySpecialStatWeights(baseStats, player, resolveTechniqueSpecialStatBonus(player.techniques?.techniques ?? []));
     for (const entry of player.equipment?.slots ?? []) {
         const item = entry.item ? (0, shared_1.applyEnhancementToItemStack)(entry.item) : null;
         if (!item) {
@@ -155,6 +156,25 @@ function buildAttrDetailNumericStatBreakdowns(player) {
     return breakdowns;
 }
 exports.buildAttrDetailNumericStatBreakdowns = buildAttrDetailNumericStatBreakdowns;
+
+function applySpecialStatWeights(target, player, techniqueSpecialStats) {
+    const comprehension = Math.max(0, Math.trunc(Number(player.comprehension ?? 0) || 0))
+        + Math.max(0, Math.trunc(Number(techniqueSpecialStats?.comprehension ?? 0) || 0));
+    const luck = Math.max(0, Math.trunc(Number(player.luck ?? 0) || 0))
+        + Math.max(0, Math.trunc(Number(techniqueSpecialStats?.luck ?? 0) || 0));
+    if (comprehension > 0) {
+        target.playerExpRate += comprehension * 100;
+        target.techniqueExpRate += comprehension * 100;
+    }
+    if (luck > 0) {
+        target.lootRate += luck * 100;
+        target.rareLootRate += luck * 100;
+    }
+}
+
+function resolveTechniqueSpecialStatBonus(techniques) {
+    return (0, shared_1.calcTechniqueFinalSpecialStatBonus)(techniques.map(toTechniqueState));
+}
 /**
  * getNumericStatValue：读取NumericStat值。
  * @param stats 参数说明。
@@ -181,11 +201,11 @@ const REALM_EXPONENTIAL_NUMERIC_KEY_SET = new Set([
     'antiCrit',
     'breakPower',
     'resolvePower',
+    'maxQiOutputPerTick',
 ]);
 
 const REALM_LINEAR_NUMERIC_GROWTH_RATES = {
     critDamage: 0.1,
-    maxQiOutputPerTick: 0.1,
     qiRegenRate: 0.02,
     hpRegenRate: 0.02,
     realmExpPerTick: 0.1,
@@ -427,6 +447,7 @@ function toTechniqueState(entry) {
             level: layer.level,
             expToNext: layer.expToNext,
             attrs: layer.attrs ? { ...layer.attrs } : undefined,
+            specialStats: layer.specialStats ? { ...layer.specialStats } : undefined,
             qiProjection: cloneQiProjectionModifiers(layer.qiProjection),
         })),
         attrCurves: entry.attrCurves ? { ...entry.attrCurves } : undefined,

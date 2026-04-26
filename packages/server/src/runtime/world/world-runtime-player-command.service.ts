@@ -30,6 +30,47 @@ const world_runtime_progression_service_1 = require("./world-runtime-progression
 const world_runtime_npc_shop_service_1 = require("./world-runtime-npc-shop.service");
 const world_runtime_npc_quest_write_service_1 = require("./world-runtime-npc-quest-write.service");
 
+const PLAYER_COMBAT_COMMAND_KINDS = new Set(['basicAttack', 'castSkill']);
+
+function resolveActionsPerTurn(player) {
+    const rawValue = Number(player?.attrs?.numericStats?.actionsPerTurn ?? 1);
+    if (!Number.isFinite(rawValue)) {
+        return 1;
+    }
+    return Math.max(1, Math.trunc(rawValue));
+}
+
+function normalizeCombatActionCounter(player, currentTick) {
+    if (!player.combat) {
+        player.combat = {};
+    }
+    const combat = player.combat;
+    if (combat.combatActionTick !== currentTick) {
+        combat.combatActionTick = currentTick;
+        combat.combatActionsUsedThisTick = 0;
+    }
+    return Math.max(0, Math.trunc(Number(combat.combatActionsUsedThisTick ?? 0)));
+}
+
+function assertCombatActionReady(player, currentTick) {
+    if (currentTick <= 0) {
+        return;
+    }
+    const actionsPerTurn = resolveActionsPerTurn(player);
+    const used = normalizeCombatActionCounter(player, currentTick);
+    if (used >= actionsPerTurn) {
+        throw new common_1.BadRequestException('本回合行动次数已用尽');
+    }
+}
+
+function recordCombatAction(player, currentTick) {
+    if (currentTick <= 0) {
+        return;
+    }
+    const used = normalizeCombatActionCounter(player, currentTick);
+    player.combat.combatActionsUsedThisTick = used + 1;
+}
+
 /** world-runtime player-command orchestration：承接玩家命令路由与门禁。 */
 let WorldRuntimePlayerCommandService = class WorldRuntimePlayerCommandService {
 /**
@@ -199,7 +240,16 @@ let WorldRuntimePlayerCommandService = class WorldRuntimePlayerCommandService {
         }
         switch (command.kind) {
             case 'useItem':
-                this.worldRuntimeUseItemService.dispatchUseItem(playerId, command.slotIndex, deps);
+                this.worldRuntimeUseItemService.dispatchUseItem(playerId, command.slotIndex, deps, command.payload);
+                return;
+            case 'createFormation':
+                deps.worldRuntimeFormationService.dispatchCreateFormation(playerId, command.payload, deps);
+                return;
+            case 'setFormationActive':
+                deps.worldRuntimeFormationService.dispatchSetFormationActive(playerId, command.payload, deps);
+                return;
+            case 'refillFormation':
+                deps.worldRuntimeFormationService.dispatchRefillFormation(playerId, command.payload, deps);
                 return;
             case 'equip':
                 return this.worldRuntimeEquipmentService.dispatchEquipItem(playerId, command.slotIndex, deps);
@@ -211,9 +261,9 @@ let WorldRuntimePlayerCommandService = class WorldRuntimePlayerCommandService {
                 this.worldRuntimeNavigationService.dispatchMoveTo(playerId, command.x, command.y, command.allowNearestReachable, command.clientPathHint, deps);
                 return;
             case 'basicAttack':
-                return this.worldRuntimeCombatCommandService.dispatchBasicAttack(playerId, command.targetPlayerId, command.targetMonsterId, command.targetX, command.targetY, deps);
+                return this.dispatchCombatCommand(playerId, player, command, deps, () => this.worldRuntimeCombatCommandService.dispatchBasicAttack(playerId, command.targetPlayerId, command.targetMonsterId, command.targetX, command.targetY, deps));
             case 'engageBattle':
-                return this.worldRuntimeCombatCommandService.dispatchEngageBattle(playerId, command.targetPlayerId, command.targetMonsterId, command.targetX, command.targetY, command.locked, deps);
+                return this.dispatchCombatCommand(playerId, player, command, deps, () => this.worldRuntimeCombatCommandService.dispatchEngageBattle(playerId, command.targetPlayerId, command.targetMonsterId, command.targetX, command.targetY, command.locked, deps));
             case 'takeGround':
                 return this.worldRuntimeItemGroundService.dispatchTakeGround(playerId, command.sourceId, command.itemKey, deps);
             case 'takeGroundAll':
@@ -253,7 +303,7 @@ let WorldRuntimePlayerCommandService = class WorldRuntimePlayerCommandService {
                 this.worldRuntimeProgressionService.dispatchHeavenGateAction(playerId, command.action, command.element, deps);
                 return;
             case 'castSkill':
-                return this.worldRuntimeCombatCommandService.dispatchCastSkill(playerId, command.skillId, command.targetPlayerId, command.targetMonsterId, command.targetRef, deps);
+                return this.dispatchCombatCommand(playerId, player, command, deps, () => this.worldRuntimeCombatCommandService.dispatchCastSkill(playerId, command.skillId, command.targetPlayerId, command.targetMonsterId, command.targetRef, deps));
             case 'buyNpcShopItem':
                 return this.worldRuntimeNpcShopService.dispatchBuyNpcShopItem(playerId, command.npcId, command.itemId, command.quantity, deps);
                 return;
@@ -270,6 +320,20 @@ let WorldRuntimePlayerCommandService = class WorldRuntimePlayerCommandService {
                 return this.worldRuntimeNpcQuestWriteService.dispatchSubmitNpcQuest(playerId, command.npcId, command.questId, deps);
                 return;
         }
+    }
+    async dispatchCombatCommand(playerId, player, command, deps, executor) {
+        const shouldCheckActionReady = PLAYER_COMBAT_COMMAND_KINDS.has(command.kind) && command.skipActionReadyCheck !== true;
+        const currentTick = shouldCheckActionReady && typeof deps.resolveCurrentTickForPlayerId === 'function'
+            ? Math.max(0, Math.trunc(deps.resolveCurrentTickForPlayerId(playerId)))
+            : 0;
+        if (shouldCheckActionReady) {
+            assertCombatActionReady(player, currentTick);
+        }
+        const result = await executor();
+        if (shouldCheckActionReady) {
+            recordCombatAction(player, currentTick);
+        }
+        return result;
     }
 };
 exports.WorldRuntimePlayerCommandService = WorldRuntimePlayerCommandService;

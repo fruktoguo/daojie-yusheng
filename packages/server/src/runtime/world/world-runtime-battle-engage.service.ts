@@ -16,29 +16,37 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.WorldRuntimeBattleEngageService = void 0;
 
 const common_1 = require("@nestjs/common");
-const player_combat_config_helpers_1 = require("../player/player-combat-config.helpers");
 const player_runtime_service_1 = require("../player/player-runtime.service");
+const world_runtime_attack_target_helpers_1 = require("./world-runtime.attack-target.helpers");
 
-function ensureHostileRelation(resolution) {
-    if ((0, player_combat_config_helpers_1.isHostileCombatRelationResolution)(resolution)) {
-        return;
-    }
-    if (resolution?.blockedReason === 'self_target') {
-        throw new common_1.BadRequestException('不能攻击自己');
-    }
-    throw new common_1.BadRequestException('当前目标不在敌方判定规则内');
-}
-function ensureInstanceSupportsPlayerCombat(instance) {
+function assertInstanceSupportsPlayerCombat(instance) {
     if (instance?.meta?.supportsPvp === true) {
         return;
     }
     throw new common_1.BadRequestException('当前实例不允许玩家互攻');
 }
-function ensureInstanceSupportsTileDamage(instance) {
+
+function assertInstanceSupportsTileDamage(instance, player, targetX, targetY, deps) {
     if (instance?.meta?.canDamageTile === true) {
         return;
     }
+    const attackableTile = typeof deps.worldRuntimeFormationService?.getAttackableTileCombatState === 'function'
+        ? deps.worldRuntimeFormationService.getAttackableTileCombatState(player.instanceId, targetX, targetY)
+        : null;
+    if (attackableTile) {
+        return;
+    }
     throw new common_1.BadRequestException('当前实例不允许攻击地块');
+}
+
+function dispatchResolvedBasicAttack(playerId, target, deps) {
+    return deps.dispatchBasicAttack(
+        playerId,
+        target.targetPlayerId ?? null,
+        target.targetMonsterId ?? null,
+        target.targetX ?? null,
+        target.targetY ?? null,
+    );
 }
 
 /** 玩家战斗接敌编排服务：承接锁定目标、autoBattle 切换与首个命令 handoff。 */
@@ -78,56 +86,66 @@ let WorldRuntimeBattleEngageService = class WorldRuntimeBattleEngageService {
         const instance = currentPlayer.instanceId ? deps.getInstanceRuntimeOrThrow(currentPlayer.instanceId) : null;
         deps.interruptManualCombat(playerId);
         if (!targetMonsterId) {
-            if (targetPlayerId) {
-                ensureInstanceSupportsPlayerCombat(instance);
-                const target = this.playerRuntimeService.getPlayerOrThrow(targetPlayerId);
-                if (target.instanceId !== currentPlayer.instanceId) {
-                    throw new common_1.BadRequestException('目标不在同一地图');
-                }
-                ensureHostileRelation((0, player_combat_config_helpers_1.resolveCombatRelation)(currentPlayer, {
-                    kind: 'player',
-                    target,
-                }));
-            }
-            if (targetX !== null && targetY !== null) {
-                ensureInstanceSupportsTileDamage(instance);
-                ensureHostileRelation((0, player_combat_config_helpers_1.resolveCombatRelation)(currentPlayer, { kind: 'terrain' }));
-            }
             const targetRef = targetPlayerId
                 ? `player:${targetPlayerId}`
                 : (targetX !== null && targetY !== null ? `tile:${targetX}:${targetY}` : null);
+            if (targetPlayerId) {
+                assertInstanceSupportsPlayerCombat(instance);
+            }
+            if (targetX !== null && targetY !== null) {
+                assertInstanceSupportsTileDamage(instance, currentPlayer, targetX, targetY, deps);
+            }
+            const resolvedTarget = targetRef
+                ? (0, world_runtime_attack_target_helpers_1.resolveAttackableTargetRef)(
+                    instance,
+                    this.playerRuntimeService,
+                    currentPlayer,
+                    targetRef,
+                    deps,
+                    { currentTick },
+                )
+                : null;
+            if (!resolvedTarget) {
+                throw new common_1.BadRequestException('该目标无法被攻击');
+            }
             if (locked && targetRef) {
                 this.playerRuntimeService.updateCombatSettings(playerId, {
                     autoBattle: true,
                 }, currentTick);
-                this.playerRuntimeService.setCombatTarget(playerId, targetRef, true, currentTick);
+                this.playerRuntimeService.setCombatTarget(playerId, resolvedTarget.targetRef, true, currentTick);
                 if (wasAutoBattleActive) {
                     return;
                 }
             }
-            return deps.dispatchBasicAttack(playerId, targetPlayerId, null, targetX, targetY);
+            return dispatchResolvedBasicAttack(playerId, resolvedTarget, deps);
         }
         const player = this.playerRuntimeService.getPlayerOrThrow(playerId);
         if (!player.instanceId) {
             throw new common_1.BadRequestException(`Player ${playerId} not attached to instance`);
         }
         const monsterInstance = deps.getInstanceRuntimeOrThrow(player.instanceId);
-        const monster = monsterInstance.getMonster(targetMonsterId);
-        if (!monster?.alive) {
-            throw new common_1.NotFoundException(`Monster ${targetMonsterId} not found`);
+        const resolvedTarget = (0, world_runtime_attack_target_helpers_1.resolveAttackableTargetRef)(
+            monsterInstance,
+            this.playerRuntimeService,
+            player,
+            targetMonsterId,
+            deps,
+            { currentTick },
+        );
+        if (!resolvedTarget) {
+            throw new common_1.NotFoundException(`Target ${targetMonsterId} not found or cannot be attacked`);
         }
-        ensureHostileRelation((0, player_combat_config_helpers_1.resolveCombatRelation)(player, { kind: 'monster' }));
         if (locked) {
             this.playerRuntimeService.updateCombatSettings(playerId, {
                 autoBattle: true,
             }, currentTick);
-            this.playerRuntimeService.setCombatTarget(playerId, monster.runtimeId, true, currentTick);
+            this.playerRuntimeService.setCombatTarget(playerId, resolvedTarget.targetRef, true, currentTick);
             if (wasAutoBattleActive) {
                 return;
             }
         }
         else {
-            this.playerRuntimeService.setCombatTarget(playerId, monster.runtimeId, false, currentTick);
+            this.playerRuntimeService.setCombatTarget(playerId, resolvedTarget.targetRef, false, currentTick);
             this.playerRuntimeService.setManualEngagePending(playerId, true);
         }
         const nextCommand = deps.buildAutoCombatCommand(monsterInstance, player);

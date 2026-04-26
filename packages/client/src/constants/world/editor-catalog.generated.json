@@ -58,7 +58,9 @@
           "level": 1,
           "expToNext": 403200,
           "attrs": {
-            "constitution": 2,
+            "constitution": 2
+          },
+          "specialStats": {
             "comprehension": 1
           }
         },
@@ -67,7 +69,9 @@
           "expToNext": 441600,
           "attrs": {
             "constitution": 2,
-            "perception": 1,
+            "perception": 1
+          },
+          "specialStats": {
             "comprehension": 1
           }
         },
@@ -75,7 +79,9 @@
           "level": 3,
           "expToNext": 480000,
           "attrs": {
-            "constitution": 2,
+            "constitution": 2
+          },
+          "specialStats": {
             "comprehension": 1
           }
         },
@@ -84,7 +90,9 @@
           "expToNext": 528000,
           "attrs": {
             "constitution": 2,
-            "perception": 1,
+            "perception": 1
+          },
+          "specialStats": {
             "comprehension": 1
           }
         },
@@ -92,7 +100,9 @@
           "level": 5,
           "expToNext": 576000,
           "attrs": {
-            "constitution": 2,
+            "constitution": 2
+          },
+          "specialStats": {
             "comprehension": 1
           }
         },
@@ -101,7 +111,9 @@
           "expToNext": 633600,
           "attrs": {
             "constitution": 2,
-            "perception": 1,
+            "perception": 1
+          },
+          "specialStats": {
             "comprehension": 1
           }
         },
@@ -109,7 +121,9 @@
           "level": 7,
           "expToNext": 700800,
           "attrs": {
-            "constitution": 2,
+            "constitution": 2
+          },
+          "specialStats": {
             "comprehension": 1
           }
         },
@@ -118,7 +132,9 @@
           "expToNext": 777600,
           "attrs": {
             "constitution": 2,
-            "perception": 1,
+            "perception": 1
+          },
+          "specialStats": {
             "comprehension": 1
           }
         },
@@ -126,7 +142,9 @@
           "level": 9,
           "expToNext": 864000,
           "attrs": {
-            "constitution": 2,
+            "constitution": 2
+          },
+          "specialStats": {
             "comprehension": 1
           }
         },
@@ -135,7 +153,9 @@
           "expToNext": 0,
           "attrs": {
             "constitution": 2,
-            "perception": 1,
+            "perception": 1
+          },
+          "specialStats": {
             "comprehension": 1
           }
         }
@@ -1295,70 +1315,70 @@
         {
           "level": 1,
           "expToNext": 153400,
-          "attrs": {
+          "specialStats": {
             "luck": 2
           }
         },
         {
           "level": 2,
           "expToNext": 165100,
-          "attrs": {
+          "specialStats": {
             "luck": 2
           }
         },
         {
           "level": 3,
           "expToNext": 178100,
-          "attrs": {
+          "specialStats": {
             "luck": 2
           }
         },
         {
           "level": 4,
           "expToNext": 192400,
-          "attrs": {
+          "specialStats": {
             "luck": 2
           }
         },
         {
           "level": 5,
           "expToNext": 208000,
-          "attrs": {
+          "specialStats": {
             "luck": 2
           }
         },
         {
           "level": 6,
           "expToNext": 224900,
-          "attrs": {
+          "specialStats": {
             "luck": 2
           }
         },
         {
           "level": 7,
           "expToNext": 243100,
-          "attrs": {
+          "specialStats": {
             "luck": 2
           }
         },
         {
           "level": 8,
           "expToNext": 262600,
-          "attrs": {
+          "specialStats": {
             "luck": 2
           }
         },
         {
           "level": 9,
           "expToNext": 283400,
-          "attrs": {
+          "specialStats": {
             "luck": 2
           }
         },
         {
           "level": 10,
           "expToNext": 0,
-          "attrs": {
+          "specialStats": {
             "luck": 2
           }
         }
@@ -6405,7 +6425,9 @@
           "level": 1,
           "expToNext": 403200,
           "attrs": {
-            "spirit": 2,
+            "spirit": 2
+          },
+          "specialStats": {
             "comprehension": 1
           }
         },
@@ -6414,7 +6436,9 @@
           "expToNext": 441600,
           "attrs": {
             "spirit": 2,
-            "talent": 1,
+            "talent": 1
+          },
+          "specialStats": {
             "comprehension": 1
           }
         },
@@ -6422,7 +6446,9 @@
           "level": 3,
           "expToNext": 480000,
           "attrs": {
-            "spirit": 2,
+            "spirit": 2
+          },
+          "specialStats": {
             "comprehension": 1
           }
         },
@@ -6431,7 +6457,9 @@
           "expToNext": 528000,
           "attrs": {
             "spirit": 2,
-            "talent": 1,
+            "talent": 1
+          },
+          "specialStats": {
             "comprehension": 1
           }
         },
@@ -6439,7 +6467,9 @@
           "level": 5,
           "expToNext": 576000,
           "attrs": {
-            "spirit": 2,
+            "spirit": 2
+          },
+          "specialStats": {
             "comprehension": 1
           }
         },
@@ -6448,7 +6478,9 @@
           "expToNext": 633600,
           "attrs": {
             "spirit": 2,
-            "talent": 1,
+            "talent": 1
+          },
+          "specialStats": {
             "comprehension": 1
           }
         },
@@ -6456,7 +6488,9 @@
           "level": 7,
           "expToNext": 700800,
           "attrs": {
-            "spirit": 2,
+            "spirit": 2
+          },
+          "specialStats": {
             "comprehension": 1
           }
         },
@@ -6465,7 +6499,9 @@
           "expToNext": 777600,
           "attrs": {
             "spirit": 2,
-            "talent": 1,
+            "talent": 1
+          },
+          "specialStats": {
             "comprehension": 1
           }
         },
@@ -6473,7 +6509,9 @@
           "level": 9,
           "expToNext": 864000,
           "attrs": {
-            "spirit": 2,
+            "spirit": 2
+          },
+          "specialStats": {
             "comprehension": 1
           }
         },
@@ -6482,7 +6520,9 @@
           "expToNext": 0,
           "attrs": {
             "spirit": 2,
-            "talent": 1,
+            "talent": 1
+          },
+          "specialStats": {
             "comprehension": 1
           }
         }
@@ -7331,56 +7371,56 @@
         {
           "level": 1,
           "expToNext": 99200,
-          "attrs": {
+          "specialStats": {
             "comprehension": 2
           }
         },
         {
           "level": 2,
           "expToNext": 109600,
-          "attrs": {
+          "specialStats": {
             "comprehension": 2
           }
         },
         {
           "level": 3,
           "expToNext": 120800,
-          "attrs": {
+          "specialStats": {
             "comprehension": 2
           }
         },
         {
           "level": 4,
           "expToNext": 132800,
-          "attrs": {
+          "specialStats": {
             "comprehension": 2
           }
         },
         {
           "level": 5,
           "expToNext": 145600,
-          "attrs": {
+          "specialStats": {
             "comprehension": 3
           }
         },
         {
           "level": 6,
           "expToNext": 159200,
-          "attrs": {
+          "specialStats": {
             "comprehension": 3
           }
         },
         {
           "level": 7,
           "expToNext": 173600,
-          "attrs": {
+          "specialStats": {
             "comprehension": 3
           }
         },
         {
           "level": 8,
           "expToNext": 0,
-          "attrs": {
+          "specialStats": {
             "comprehension": 4
           }
         }
@@ -10272,7 +10312,7 @@
       "itemId": "book.mountain_insight_chart",
       "name": "《玄照图》",
       "type": "skill_book",
-      "desc": "借图谱内观气血、筋膜与心念流转的秘术，偏重悟性。",
+      "desc": "借图谱内观气血、筋膜与心念流转的秘术，偏重力道。",
       "learnTechniqueId": "mountain_insight_chart"
     },
     {
@@ -10563,6 +10603,15 @@
       "qiPercent": 0.32
     },
     {
+      "itemId": "formation_disk.earth",
+      "name": "地阶阵盘",
+      "type": "consumable",
+      "grade": "地阶",
+      "desc": "通用布阵载体。布阵时消耗 1 个，可承载任意阵法，灵力增幅 8 倍。",
+      "formationDiskTier": "earth",
+      "formationDiskMultiplier": 8
+    },
+    {
       "itemId": "equip.broken_rune_blade",
       "name": "断碑纹剑",
       "type": "equipment",
@@ -10584,6 +10633,15 @@
       "desc": "遗迹傀儡体内剥落的残纹。"
     },
     {
+      "itemId": "formation_disk.mortal",
+      "name": "凡品阵盘",
+      "type": "consumable",
+      "grade": "凡品",
+      "desc": "通用布阵载体。布阵时消耗 1 个，可承载任意阵法，灵力增幅 1 倍。",
+      "formationDiskTier": "mortal",
+      "formationDiskMultiplier": 1
+    },
+    {
       "itemId": "bandit_insignia",
       "name": "匪徒腰牌",
       "type": "material",
@@ -10599,7 +10657,7 @@
       "desc": "旧时封山闭路的令牌，修炼时有股强行把气机压回主脉的蛮劲。",
       "equipSlot": "accessory",
       "equipAttrs": {
-        "comprehension": 2
+        "strength": 2
       },
       "equipValueStats": {
         "maxQi": 6.5,
@@ -10879,7 +10937,7 @@
       "desc": "像一枚被地气反复压实的脉核，行功时很会往主脉里聚劲。",
       "equipSlot": "accessory",
       "equipAttrs": {
-        "comprehension": 2
+        "strength": 2
       },
       "equipValueStats": {
         "maxQi": 6.5,
@@ -10978,6 +11036,15 @@
       "mapUnlockId": "wildlands"
     },
     {
+      "itemId": "formation_disk.yellow",
+      "name": "黄阶阵盘",
+      "type": "consumable",
+      "grade": "黄阶",
+      "desc": "通用布阵载体。布阵时消耗 1 个，可承载任意阵法，灵力增幅 2 倍。",
+      "formationDiskTier": "yellow",
+      "formationDiskMultiplier": 2
+    },
+    {
       "itemId": "pill.minor_heal",
       "name": "回春散",
       "type": "consumable",
@@ -11042,6 +11109,14 @@
       "tags": [
         "药材"
       ]
+    },
+    {
+      "itemId": "sect_founding_token",
+      "name": "建宗令",
+      "type": "consumable",
+      "grade": "玄阶",
+      "desc": "持令可在当前地点开辟宗门山门，并生成独立宗门地图。",
+      "useBehavior": "create_sect"
     },
     {
       "itemId": "sword_pellet",
@@ -11580,8 +11655,8 @@
             "spirit": 20,
             "perception": 20,
             "talent": 20,
-            "comprehension": 20,
-            "luck": 20
+            "strength": 20,
+            "meridians": 20
           },
           "attrMode": "percent",
           "stats": {
@@ -12116,6 +12191,15 @@
       "type": "material",
       "level": 14,
       "desc": "虚空妖物躯壳剥落的暗晶。"
+    },
+    {
+      "itemId": "formation_disk.mystic",
+      "name": "玄阶阵盘",
+      "type": "consumable",
+      "grade": "玄阶",
+      "desc": "通用布阵载体。布阵时消耗 1 个，可承载任意阵法，灵力增幅 4 倍。",
+      "formationDiskTier": "mystic",
+      "formationDiskMultiplier": 4
     },
     {
       "itemId": "black_iron_chunk",
@@ -13959,8 +14043,8 @@
         "spirit": 20,
         "perception": 20,
         "talent": 20,
-        "comprehension": 20,
-        "luck": 20
+        "strength": 20,
+        "meridians": 20
       },
       "attrMode": "percent",
       "stats": {
@@ -14367,6 +14451,4029 @@
       "realmLv": 1,
       "color": "#ef6b3b",
       "statMode": "percent"
+    }
+  ],
+  "quests": [
+    {
+      "id": "q_wildlands_bone_forging",
+      "title": "把骨头练硬些",
+      "desc": "继续在荒野历练，迈入锻骨境，为深入青竹林做准备。",
+      "line": "main",
+      "chapter": "第一章·粮路讨生",
+      "story": "清玄听完你带回来的话，没有继续深问，只把你往更远的路上推。现在的你还只配在镇外跑腿，若想碰那口井背后的东西，就先把身子练到能扛住荒野的下一层恶意。",
+      "status": "available",
+      "objectiveType": "realm_stage",
+      "objectiveText": "历练至锻骨境",
+      "progress": 0,
+      "required": 1,
+      "targetName": "锻骨境",
+      "rewardText": "《踏风步》 x1、《壮身功》 x1、青竹林野图 x1、轻身丹 x1",
+      "targetMonsterId": "",
+      "rewardItemId": "book_wind_step",
+      "rewardItemIds": [
+        "book_wind_step",
+        "book.hundred_temper_body",
+        "map.bamboo_forest",
+        "pill.windstride_elixir"
+      ],
+      "rewards": [
+        {
+          "itemId": "book_wind_step",
+          "name": "《踏风步》",
+          "type": "skill_book",
+          "desc": "轻身挪步之法，可在战斗中快速切入。",
+          "learnTechniqueId": "wind_step",
+          "count": 1
+        },
+        {
+          "itemId": "book.hundred_temper_body",
+          "name": "《壮身功》",
+          "type": "skill_book",
+          "desc": "把皮肉筋骨一遍遍熬出来的炼体功，胜在体魄长得实。",
+          "learnTechniqueId": "hundred_temper_body",
+          "count": 1
+        },
+        {
+          "itemId": "map.bamboo_forest",
+          "name": "青竹林野图",
+          "type": "consumable",
+          "level": 3,
+          "desc": "记载青竹林野地势与出入口。使用后可永久解锁竹林地图。",
+          "mapUnlockId": "bamboo_forest",
+          "count": 1
+        },
+        {
+          "itemId": "pill.windstride_elixir",
+          "name": "轻身丹",
+          "type": "consumable",
+          "level": 11,
+          "tags": [
+            "战斗丹药"
+          ],
+          "desc": "药劲顺着经脉卸到脚下，2400 息内移动速度 +22%、闪避 +7%，死亡不消失。",
+          "consumeBuffs": [
+            {
+              "buffId": "item_buff.windstride",
+              "name": "踏风",
+              "desc": "脚下更轻，2400 息内移动速度 +22%、闪避 +7%；这股药劲即使身死也不会立刻散去。",
+              "shortMark": "疾",
+              "duration": 2400,
+              "persistOnDeath": true,
+              "stats": {
+                "moveSpeed": 22,
+                "dodge": 7
+              },
+              "statMode": "percent"
+            }
+          ],
+          "count": 1
+        }
+      ],
+      "nextQuestId": "q_bamboo_scouting",
+      "giverId": "npc_qingxuan",
+      "giverName": "清玄执事",
+      "giverMapId": "yunlai_town",
+      "giverMapName": "云来镇",
+      "giverX": 31,
+      "giverY": 24,
+      "targetMapId": "wildlands",
+      "targetMapName": "荒野",
+      "submitNpcId": "npc_qingxuan",
+      "submitNpcName": "清玄执事",
+      "submitMapId": "yunlai_town",
+      "submitMapName": "云来镇",
+      "submitX": 31,
+      "submitY": 24
+    },
+    {
+      "id": "q_ruin_keystone_main",
+      "title": "把门钥从死人手里拿走",
+      "desc": "击败符阵看守，取回遗迹钥石。",
+      "line": "main",
+      "chapter": "第三章·矿洞遗火",
+      "story": "守纹残念承认自己只是守门的壳，真正能解释那段断裂历史的，是门后还没散干净的东西。你得先把遗迹钥石拿到手，让它没法继续把故事藏在门里。",
+      "status": "available",
+      "objectiveType": "kill",
+      "objectiveText": "击败符阵看守并取回遗迹钥石",
+      "progress": 0,
+      "required": 2,
+      "targetName": "符阵看守",
+      "rewardText": "镇煞护心甲 x1",
+      "targetMonsterId": "m_rune_watcher",
+      "rewardItemId": "equip.rift_guard_armor",
+      "rewardItemIds": [
+        "equip.rift_guard_armor"
+      ],
+      "rewards": [
+        {
+          "itemId": "equip.rift_guard_armor",
+          "name": "镇煞护心甲",
+          "type": "equipment",
+          "grade": "mystic",
+          "level": 4,
+          "desc": "甲心嵌着旧镇煞片，护得住胸口那一口气，也护得住人不乱。",
+          "equipSlot": "body",
+          "equipValueStats": {
+            "maxHp": 3.5,
+            "physDef": 7,
+            "spellDef": 5,
+            "resolvePower": 3
+          },
+          "count": 1
+        }
+      ],
+      "nextQuestId": "q_ruin_shard_trace",
+      "requiredItemId": "ruin_keystone",
+      "requiredItemCount": 1,
+      "giverId": "npc_rune_keeper",
+      "giverName": "守纹残念",
+      "giverMapId": "ancient_ruins",
+      "giverMapName": "断碑遗迹",
+      "giverX": 19,
+      "giverY": 21,
+      "targetMapId": "ancient_ruins",
+      "targetMapName": "断碑遗迹",
+      "submitNpcId": "npc_qingxuan",
+      "submitNpcName": "清玄执事",
+      "submitMapId": "yunlai_town",
+      "submitMapName": "云来镇",
+      "submitX": 31,
+      "submitY": 24
+    },
+    {
+      "id": "q_sky_seal_core_main",
+      "title": "把那颗封柱核心带走",
+      "desc": "击败噬星兽，取回天封核心。",
+      "line": "main",
+      "chapter": "第五章·残宫封天",
+      "story": "星陨金到手后，观星残影终于让开最后那段路。它说天穹残宫剩下的不是宝藏，而是一块卡在天门和人间之间的碎骨。你得杀进最深处，把天封核心拿回来，替云来镇争下继续活到下一卷的资格。",
+      "status": "available",
+      "objectiveType": "kill",
+      "objectiveText": "击败噬星兽并取回天封核心",
+      "progress": 0,
+      "required": 2,
+      "targetName": "噬星兽",
+      "rewardText": "《陨星枪诀》 x1、纯阳丹 x2",
+      "targetMonsterId": "m_star_devourer",
+      "rewardItemId": "book.starfall_spear",
+      "rewardItemIds": [
+        "book.starfall_spear",
+        "pure_yang_pill"
+      ],
+      "rewards": [
+        {
+          "itemId": "book.starfall_spear",
+          "name": "《陨星枪诀》",
+          "type": "skill_book",
+          "desc": "残破星纹玉简中记载的高阶枪诀。",
+          "learnTechniqueId": "starfall_spear",
+          "count": 1
+        },
+        {
+          "itemId": "pure_yang_pill",
+          "name": "纯阳丹",
+          "type": "consumable",
+          "level": 16,
+          "desc": "烈阳药引直入气海，立刻恢复 72% 真气。",
+          "qiPercent": 0.72,
+          "count": 2
+        }
+      ],
+      "nextQuestId": "q_foundation_oath",
+      "requiredItemId": "sky_seal_core",
+      "requiredItemCount": 1,
+      "giverId": "npc_sky_observer",
+      "giverName": "观星残影",
+      "giverMapId": "sky_ruins",
+      "giverMapName": "天穹残宫",
+      "giverX": 24,
+      "giverY": 25,
+      "targetMapId": "sky_ruins",
+      "targetMapName": "天穹残宫",
+      "submitNpcId": "npc_qingxuan",
+      "submitNpcName": "清玄执事",
+      "submitMapId": "yunlai_town",
+      "submitMapName": "云来镇",
+      "submitX": 31,
+      "submitY": 24
+    },
+    {
+      "id": "q_mine_signal_core",
+      "title": "把失落信标抢回来",
+      "desc": "击退矿洞活尸，抢回失落信标核心。",
+      "line": "main",
+      "chapter": "第三章·矿洞遗火",
+      "story": "锻炉余火说矿路不是自己死的，是有人让它死的。若想知道当年矿道和镇里到底断在什么地方，就先去把那枚失落信标核心抢回来。矿路若还能亮一回，很多旧事都会自己浮出来。",
+      "status": "available",
+      "objectiveType": "kill",
+      "objectiveText": "击退矿洞活尸并夺回失落信标核心",
+      "progress": 0,
+      "required": 6,
+      "targetName": "矿洞活尸",
+      "rewardText": "《惊雷掌》残卷 x1、大还灵丹 x2",
+      "targetMonsterId": "m_mine_ghoul",
+      "rewardItemId": "book_thunder_palm",
+      "rewardItemIds": [
+        "book_thunder_palm",
+        "major_qi_pill"
+      ],
+      "rewards": [
+        {
+          "itemId": "book_thunder_palm",
+          "name": "《惊雷掌》残卷",
+          "type": "skill_book",
+          "desc": "残存雷纹的掌法札记，威力不俗。",
+          "learnTechniqueId": "thunder_palm",
+          "count": 1
+        },
+        {
+          "itemId": "major_qi_pill",
+          "name": "大还灵丹",
+          "type": "consumable",
+          "level": 8,
+          "desc": "药力更浑厚，立刻恢复 32% 真气。",
+          "qiPercent": 0.32,
+          "count": 2
+        }
+      ],
+      "nextQuestId": "q_ruin_keeper_talk",
+      "requiredItemId": "mine_signal_core",
+      "requiredItemCount": 1,
+      "giverId": "npc_mine_smith",
+      "giverName": "锻炉余火",
+      "giverMapId": "black_iron_mine",
+      "giverMapName": "玄铁矿洞",
+      "giverX": 26,
+      "giverY": 23,
+      "targetMapId": "black_iron_mine",
+      "targetMapName": "玄铁矿洞",
+      "submitNpcId": "npc_qingxuan",
+      "submitNpcName": "清玄执事",
+      "submitMapId": "yunlai_town",
+      "submitMapName": "云来镇",
+      "submitX": 31,
+      "submitY": 24
+    },
+    {
+      "id": "q_ruin_scholar_echo",
+      "title": "碑灵要你认字",
+      "desc": "碑灵学士不肯直接说遗迹里埋了什么，只让你先替他清一圈会动的石卫，再回来听下一句。",
+      "line": "side",
+      "story": "活人怕鬼，鬼怕遗忘。碑灵学士更怕的是，连愿意听它说话的人都没了。",
+      "status": "available",
+      "objectiveType": "kill",
+      "objectiveText": "清掉遗迹石卫并收回断纹石片",
+      "progress": 0,
+      "required": 6,
+      "targetName": "石卫傀儡",
+      "rewardText": "明目丹 x1",
+      "targetMonsterId": "m_ruin_guardian",
+      "rewardItemId": "pill.clear_eye_elixir",
+      "rewardItemIds": [
+        "pill.clear_eye_elixir"
+      ],
+      "rewards": [
+        {
+          "itemId": "pill.clear_eye_elixir",
+          "name": "明目丹",
+          "type": "consumable",
+          "level": 13,
+          "tags": [
+            "战斗丹药"
+          ],
+          "desc": "服后心神澄明，2400 息内命中 +9%、视野 +14%，死亡不消失。",
+          "consumeBuffs": [
+            {
+              "buffId": "item_buff.clear_eye",
+              "name": "澄目",
+              "desc": "目力与判断更清楚，2400 息内命中 +9%、视野 +14%；身死也不会立刻散去。",
+              "shortMark": "明",
+              "duration": 2400,
+              "persistOnDeath": true,
+              "stats": {
+                "hit": 9,
+                "viewRange": 14
+              },
+              "statMode": "percent"
+            }
+          ],
+          "count": 1
+        }
+      ],
+      "nextQuestId": "q_ruin_keeper_side",
+      "requiredItemId": "rune_shard",
+      "requiredItemCount": 6,
+      "giverId": "npc_ruin_scholar_spirit",
+      "giverName": "碑灵学士",
+      "giverMapId": "ancient_ruins",
+      "giverMapName": "断碑遗迹",
+      "giverX": 6,
+      "giverY": 23,
+      "targetMapId": "ancient_ruins",
+      "targetMapName": "断碑遗迹",
+      "submitNpcId": "npc_ruin_scholar_spirit",
+      "submitNpcName": "碑灵学士",
+      "submitMapId": "ancient_ruins",
+      "submitMapName": "断碑遗迹",
+      "submitX": 6,
+      "submitY": 23
+    },
+    {
+      "id": "q_ruin_owl_watch",
+      "title": "碑上夜枭",
+      "desc": "碑灵学士烦死了那些绕着残碑盘旋的骨枭。它要你先把它们清了，省得它每说半句旧话，就被怪叫声打断。",
+      "line": "side",
+      "story": "有些死人比活人更爱讲话，可要让它们开口，也得先替它们把环境收拾干净。",
+      "status": "available",
+      "objectiveType": "kill",
+      "objectiveText": "清掉遗迹骨枭",
+      "progress": 0,
+      "required": 6,
+      "targetName": "遗迹骨枭",
+      "rewardText": "大还灵丹 x1、苦修丹 x1、明目丹 x1",
+      "targetMonsterId": "m_bone_owl",
+      "rewardItemId": "major_qi_pill",
+      "rewardItemIds": [
+        "major_qi_pill",
+        "pill.bitter_cultivation_elixir",
+        "pill.clear_eye_elixir"
+      ],
+      "rewards": [
+        {
+          "itemId": "major_qi_pill",
+          "name": "大还灵丹",
+          "type": "consumable",
+          "level": 8,
+          "desc": "药力更浑厚，立刻恢复 32% 真气。",
+          "qiPercent": 0.32,
+          "count": 1
+        },
+        {
+          "itemId": "pill.bitter_cultivation_elixir",
+          "name": "苦修丹",
+          "type": "consumable",
+          "level": 18,
+          "desc": "强行催运行功，3000 息内境界修为 +25%、功法经验 +25%，但移动速度 -12%。",
+          "consumeBuffs": [
+            {
+              "buffId": "item_buff.bitter_cultivation",
+              "name": "苦修",
+              "desc": "境界修为与功法经验获取效率提高，但经脉始终带着涩滞感；3000 息内移动速度 -12%。",
+              "shortMark": "苦",
+              "duration": 3000,
+              "stats": {
+                "playerExpRate": 25,
+                "techniqueExpRate": 25,
+                "moveSpeed": -12
+              },
+              "statMode": "percent"
+            }
+          ],
+          "count": 1
+        },
+        {
+          "itemId": "pill.clear_eye_elixir",
+          "name": "明目丹",
+          "type": "consumable",
+          "level": 13,
+          "tags": [
+            "战斗丹药"
+          ],
+          "desc": "服后心神澄明，2400 息内命中 +9%、视野 +14%，死亡不消失。",
+          "consumeBuffs": [
+            {
+              "buffId": "item_buff.clear_eye",
+              "name": "澄目",
+              "desc": "目力与判断更清楚，2400 息内命中 +9%、视野 +14%；身死也不会立刻散去。",
+              "shortMark": "明",
+              "duration": 2400,
+              "persistOnDeath": true,
+              "stats": {
+                "hit": 9,
+                "viewRange": 14
+              },
+              "statMode": "percent"
+            }
+          ],
+          "count": 1
+        }
+      ],
+      "giverId": "npc_ruin_scholar_spirit",
+      "giverName": "碑灵学士",
+      "giverMapId": "ancient_ruins",
+      "giverMapName": "断碑遗迹",
+      "giverX": 6,
+      "giverY": 23,
+      "targetMapId": "ancient_ruins",
+      "targetMapName": "断碑遗迹",
+      "submitNpcId": "npc_ruin_scholar_spirit",
+      "submitNpcName": "碑灵学士",
+      "submitMapId": "ancient_ruins",
+      "submitMapName": "断碑遗迹",
+      "submitX": 6,
+      "submitY": 23
+    },
+    {
+      "id": "q_intro_old_well_watch",
+      "title": "北井别回头",
+      "desc": "去问守夜人北井夜里的异动，再回清玄处复命。",
+      "line": "main",
+      "chapter": "序章·断道入镇",
+      "story": "清玄听完那句呓语后，脸色也沉了下来。他不打算现在追查，只让你先去问守夜人，确认北井旧坊最近夜里是不是又出了怪事。这个镇子还撑得住，可有些东西显然比匪患更早就在里面扎了根。",
+      "status": "available",
+      "objectiveType": "talk",
+      "objectiveText": "向守夜人打听北井夜里的异动",
+      "progress": 0,
+      "required": 1,
+      "targetName": "守夜人",
+      "rewardText": "《玄照图》 x1、《站桩功》 x1、荒原游猎图 x1",
+      "targetMonsterId": "",
+      "rewardItemId": "book.mountain_insight_chart",
+      "rewardItemIds": [
+        "book.mountain_insight_chart",
+        "book.standing_stake_art",
+        "map.wildlands"
+      ],
+      "rewards": [
+        {
+          "itemId": "book.mountain_insight_chart",
+          "name": "《玄照图》",
+          "type": "skill_book",
+          "desc": "借图谱内观气血、筋膜与心念流转的秘术，偏重力道。",
+          "learnTechniqueId": "mountain_insight_chart",
+          "count": 1
+        },
+        {
+          "itemId": "book.standing_stake_art",
+          "name": "《站桩功》",
+          "type": "skill_book",
+          "desc": "最朴素的入门锻体法，讲究沉肩立胯，把筋骨先站稳。",
+          "learnTechniqueId": "standing_stake_art",
+          "count": 1
+        },
+        {
+          "itemId": "map.wildlands",
+          "name": "荒原游猎图",
+          "type": "consumable",
+          "level": 2,
+          "desc": "标注荒原地貌、营地遗迹与危险通路。使用后可永久解锁荒原地图。",
+          "mapUnlockId": "wildlands",
+          "count": 1
+        }
+      ],
+      "nextQuestId": "q_intro_body_tempering",
+      "giverId": "npc_qingxuan",
+      "giverName": "清玄执事",
+      "giverMapId": "yunlai_town",
+      "giverMapName": "云来镇",
+      "giverX": 31,
+      "giverY": 24,
+      "targetMapId": "yunlai_town",
+      "targetMapName": "云来镇",
+      "targetX": 18,
+      "targetY": 20,
+      "targetNpcId": "npc_watchman",
+      "targetNpcName": "守夜人",
+      "submitNpcId": "npc_qingxuan",
+      "submitNpcName": "清玄执事",
+      "submitMapId": "yunlai_town",
+      "submitMapName": "云来镇",
+      "submitX": 31,
+      "submitY": 24
+    },
+    {
+      "id": "q_sky_puppet_scrap",
+      "title": "残宫傀壳",
+      "desc": "观星残影说封柱边那些天宫傀壳比真正的怪物更烦。去把它们拆一轮，省得下一批人还没见到天门，就先被这些旧壳耗死。",
+      "line": "side",
+      "story": "有些地方会把过去留下来，不是为了纪念，是因为连清理它们的人都死在了半路上。",
+      "status": "available",
+      "objectiveType": "kill",
+      "objectiveText": "清掉天宫傀壳",
+      "progress": 0,
+      "required": 6,
+      "targetName": "天宫傀壳",
+      "rewardText": "明目丹 x1",
+      "targetMonsterId": "m_sky_puppet",
+      "rewardItemId": "pill.clear_eye_elixir",
+      "rewardItemIds": [
+        "pill.clear_eye_elixir"
+      ],
+      "rewards": [
+        {
+          "itemId": "pill.clear_eye_elixir",
+          "name": "明目丹",
+          "type": "consumable",
+          "level": 13,
+          "tags": [
+            "战斗丹药"
+          ],
+          "desc": "服后心神澄明，2400 息内命中 +9%、视野 +14%，死亡不消失。",
+          "consumeBuffs": [
+            {
+              "buffId": "item_buff.clear_eye",
+              "name": "澄目",
+              "desc": "目力与判断更清楚，2400 息内命中 +9%、视野 +14%；身死也不会立刻散去。",
+              "shortMark": "明",
+              "duration": 2400,
+              "persistOnDeath": true,
+              "stats": {
+                "hit": 9,
+                "viewRange": 14
+              },
+              "statMode": "percent"
+            }
+          ],
+          "count": 1
+        }
+      ],
+      "nextQuestId": "q_sky_hunter_spoil",
+      "giverId": "npc_sky_observer",
+      "giverName": "观星残影",
+      "giverMapId": "sky_ruins",
+      "giverMapName": "天穹残宫",
+      "giverX": 24,
+      "giverY": 25,
+      "targetMapId": "sky_ruins",
+      "targetMapName": "天穹残宫",
+      "submitNpcId": "npc_sky_observer",
+      "submitNpcName": "观星残影",
+      "submitMapId": "sky_ruins",
+      "submitMapName": "天穹残宫",
+      "submitX": 24,
+      "submitY": 25
+    },
+    {
+      "id": "q_sky_observer_talk",
+      "title": "残宫里先听一句实话",
+      "desc": "前往天穹残宫，与观星残影对话。",
+      "line": "main",
+      "chapter": "第五章·残宫封天",
+      "story": "练气之后，清玄终于肯让你去碰天穹残宫。那地方比矿洞、遗迹和兽谷都更像真相的正面，可也是凡人篇里最容易把人直接碾死的一段路。先去见观星残影，让它告诉你封柱究竟塌在什么地方。",
+      "status": "available",
+      "objectiveType": "talk",
+      "objectiveText": "去天穹残宫见观星残影",
+      "progress": 0,
+      "required": 1,
+      "targetName": "观星残影",
+      "rewardText": "纯阳丹 x1",
+      "targetMonsterId": "",
+      "rewardItemId": "pure_yang_pill",
+      "rewardItemIds": [
+        "pure_yang_pill"
+      ],
+      "rewards": [
+        {
+          "itemId": "pure_yang_pill",
+          "name": "纯阳丹",
+          "type": "consumable",
+          "level": 16,
+          "desc": "烈阳药引直入气海，立刻恢复 72% 真气。",
+          "qiPercent": 0.72,
+          "count": 1
+        }
+      ],
+      "nextQuestId": "q_sky_star_metal_main",
+      "giverId": "npc_qingxuan",
+      "giverName": "清玄执事",
+      "giverMapId": "yunlai_town",
+      "giverMapName": "云来镇",
+      "giverX": 31,
+      "giverY": 24,
+      "targetMapId": "sky_ruins",
+      "targetMapName": "天穹残宫",
+      "targetX": 24,
+      "targetY": 25,
+      "targetNpcId": "npc_sky_observer",
+      "targetNpcName": "观星残影",
+      "submitNpcId": "npc_sky_observer",
+      "submitNpcName": "观星残影",
+      "submitMapId": "sky_ruins",
+      "submitMapName": "天穹残宫",
+      "submitX": 24,
+      "submitY": 25
+    },
+    {
+      "id": "q_bamboo_meridian",
+      "title": "从林路走到矿路",
+      "desc": "继续历练，迈入通脉境，准备正式进入矿路和遗迹。",
+      "line": "main",
+      "chapter": "第二章·青竹追线",
+      "story": "竹隐客没把真相说满，但给了你足够往下走的方向: 玄铁矿洞和断碑遗迹里，埋着比匪患和兽祸更早的东西。现在你要做的不是回头，而是把经脉和胆气都练到能踏进去的程度。",
+      "status": "available",
+      "objectiveType": "realm_stage",
+      "objectiveText": "历练至通脉境",
+      "progress": 0,
+      "required": 1,
+      "targetName": "通脉境",
+      "rewardText": "黑铁矿脉图 x1、古遗迹残图 x1、苦修丹 x1",
+      "targetMonsterId": "",
+      "rewardItemId": "map.black_iron_mine",
+      "rewardItemIds": [
+        "map.black_iron_mine",
+        "map.ancient_ruins",
+        "pill.bitter_cultivation_elixir"
+      ],
+      "rewards": [
+        {
+          "itemId": "map.black_iron_mine",
+          "name": "黑铁矿脉图",
+          "type": "consumable",
+          "level": 4,
+          "desc": "矿道分布与竖井方位都被誊录其上。使用后可永久解锁黑铁矿洞地图。",
+          "mapUnlockId": "black_iron_mine",
+          "count": 1
+        },
+        {
+          "itemId": "map.ancient_ruins",
+          "name": "古遗迹残图",
+          "type": "consumable",
+          "level": 4,
+          "desc": "残缺却仍可辨认主要遗迹轮廓。使用后可永久解锁古遗迹地图。",
+          "mapUnlockId": "ancient_ruins",
+          "count": 1
+        },
+        {
+          "itemId": "pill.bitter_cultivation_elixir",
+          "name": "苦修丹",
+          "type": "consumable",
+          "level": 18,
+          "desc": "强行催运行功，3000 息内境界修为 +25%、功法经验 +25%，但移动速度 -12%。",
+          "consumeBuffs": [
+            {
+              "buffId": "item_buff.bitter_cultivation",
+              "name": "苦修",
+              "desc": "境界修为与功法经验获取效率提高，但经脉始终带着涩滞感；3000 息内移动速度 -12%。",
+              "shortMark": "苦",
+              "duration": 3000,
+              "stats": {
+                "playerExpRate": 25,
+                "techniqueExpRate": 25,
+                "moveSpeed": -12
+              },
+              "statMode": "percent"
+            }
+          ],
+          "count": 1
+        }
+      ],
+      "nextQuestId": "q_mine_signal_talk",
+      "giverId": "npc_qingxuan",
+      "giverName": "清玄执事",
+      "giverMapId": "yunlai_town",
+      "giverMapName": "云来镇",
+      "giverX": 31,
+      "giverY": 24,
+      "targetMapId": "bamboo_forest",
+      "targetMapName": "青竹林",
+      "submitNpcId": "npc_qingxuan",
+      "submitNpcName": "清玄执事",
+      "submitMapId": "yunlai_town",
+      "submitMapName": "云来镇",
+      "submitX": 31,
+      "submitY": 24
+    },
+    {
+      "id": "q_foundation_oath",
+      "title": "道基初誓",
+      "desc": "继续历练，达到半步筑基，完成当前版本主线。",
+      "line": "main",
+      "chapter": "终章·道劫未尽",
+      "story": "天封核心带回后，云来镇总算没有立刻塌进下一场夜里。清玄也终于把该说的话说清了: 你看到的只是旧灾往人间漏出的第一层皮，真正的道劫还远远没完。若想继续追下去，就先把道基立住。",
+      "status": "available",
+      "objectiveType": "realm_stage",
+      "objectiveText": "历练至半步筑基",
+      "progress": 0,
+      "required": 1,
+      "targetName": "半步筑基",
+      "rewardText": "纯阳丹 x2、苦修丹 x1",
+      "targetMonsterId": "",
+      "rewardItemId": "pure_yang_pill",
+      "rewardItemIds": [
+        "pure_yang_pill",
+        "pill.bitter_cultivation_elixir"
+      ],
+      "rewards": [
+        {
+          "itemId": "pure_yang_pill",
+          "name": "纯阳丹",
+          "type": "consumable",
+          "level": 16,
+          "desc": "烈阳药引直入气海，立刻恢复 72% 真气。",
+          "qiPercent": 0.72,
+          "count": 2
+        },
+        {
+          "itemId": "pill.bitter_cultivation_elixir",
+          "name": "苦修丹",
+          "type": "consumable",
+          "level": 18,
+          "desc": "强行催运行功，3000 息内境界修为 +25%、功法经验 +25%，但移动速度 -12%。",
+          "consumeBuffs": [
+            {
+              "buffId": "item_buff.bitter_cultivation",
+              "name": "苦修",
+              "desc": "境界修为与功法经验获取效率提高，但经脉始终带着涩滞感；3000 息内移动速度 -12%。",
+              "shortMark": "苦",
+              "duration": 3000,
+              "stats": {
+                "playerExpRate": 25,
+                "techniqueExpRate": 25,
+                "moveSpeed": -12
+              },
+              "statMode": "percent"
+            }
+          ],
+          "count": 1
+        }
+      ],
+      "giverId": "npc_qingxuan",
+      "giverName": "清玄执事",
+      "giverMapId": "yunlai_town",
+      "giverMapName": "云来镇",
+      "giverX": 31,
+      "giverY": 24,
+      "targetMapId": "sky_ruins",
+      "targetMapName": "天穹残宫",
+      "submitNpcId": "npc_qingxuan",
+      "submitNpcName": "清玄执事",
+      "submitMapId": "yunlai_town",
+      "submitMapName": "云来镇",
+      "submitX": 31,
+      "submitY": 24
+    },
+    {
+      "id": "q_intro_old_road_witness",
+      "title": "断道见闻",
+      "desc": "去南门外找赵老六问清断道上的情况，再回脚店交代。",
+      "line": "main",
+      "chapter": "序章·断道入镇",
+      "story": "沈七娘不收只会喊苦的人。她让你先去问赵老六，确认门外那批人到底还能剩下多少活口，也顺便看看你是不是个跑得动腿、带得回话的人。",
+      "status": "available",
+      "objectiveType": "talk",
+      "objectiveText": "和赵老六对话，问清断道上的见闻",
+      "progress": 0,
+      "required": 1,
+      "targetName": "赵老六",
+      "rewardText": "越沟快靴 x1、采气木坠 x1、药烟轻袍 x1",
+      "targetMonsterId": "",
+      "rewardItemId": "equip.trench_runner_boots",
+      "rewardItemIds": [
+        "equip.trench_runner_boots",
+        "equip.gather_qi_pendant",
+        "equip.herb_mist_robe"
+      ],
+      "rewards": [
+        {
+          "itemId": "equip.trench_runner_boots",
+          "name": "越沟快靴",
+          "type": "equipment",
+          "grade": "yellow",
+          "level": 2,
+          "desc": "鞋跟窄而硬，踩沟跃坎时比寻常鞋更利索。",
+          "equipSlot": "legs",
+          "equipValueStats": {
+            "moveSpeed": 14,
+            "hit": 2
+          },
+          "effects": [
+            {
+              "effectId": "runner-step",
+              "type": "timed_buff",
+              "trigger": "on_move",
+              "target": "self",
+              "cooldown": 2,
+              "buff": {
+                "buffId": "equip.runner_step",
+                "name": "借步",
+                "desc": "借着余势调整步点，短时间内更易抢到先手。",
+                "duration": 2,
+                "shortMark": "步",
+                "category": "buff",
+                "visibility": "public",
+                "color": "#8aa06d",
+                "valueStats": {
+                  "dodge": 2,
+                  "hit": 2
+                }
+              }
+            }
+          ],
+          "count": 1
+        },
+        {
+          "itemId": "equip.gather_qi_pendant",
+          "name": "采气木坠",
+          "type": "equipment",
+          "grade": "yellow",
+          "level": 3,
+          "desc": "刻着简陋聚气纹的木坠，聊胜于无。",
+          "equipSlot": "accessory",
+          "equipValueStats": {
+            "maxQi": 1.5,
+            "techniqueExpPerTick": 5
+          },
+          "count": 1
+        },
+        {
+          "itemId": "equip.herb_mist_robe",
+          "name": "药烟轻袍",
+          "type": "equipment",
+          "grade": "yellow",
+          "level": 3,
+          "desc": "晒药时沾过苦烟的薄袍，能稍稍护住气海。",
+          "equipSlot": "body",
+          "equipValueStats": {
+            "maxQi": 2.25,
+            "spellDef": 4,
+            "qiRegenRate": 0.4
+          },
+          "count": 1
+        }
+      ],
+      "nextQuestId": "q_intro_manual",
+      "giverId": "npc_shen_qiniang",
+      "giverName": "沈七娘",
+      "giverMapId": "yunlai_town",
+      "giverMapName": "云来镇",
+      "giverX": 16,
+      "giverY": 34,
+      "targetMapId": "yunlai_town",
+      "targetMapName": "云来镇",
+      "targetX": 25,
+      "targetY": 47,
+      "targetNpcId": "npc_zhao_laoliu",
+      "targetNpcName": "赵老六",
+      "submitNpcId": "npc_shen_qiniang",
+      "submitNpcName": "沈七娘",
+      "submitMapId": "yunlai_town",
+      "submitMapName": "云来镇",
+      "submitX": 16,
+      "submitY": 34
+    },
+    {
+      "id": "q_han_gate_scrap",
+      "title": "断墙捡铁",
+      "desc": "韩铁匠盯上了城边那批流匪手里的破兵器。把人清掉，腰牌交上来，能融的铁都能给你和门楼派上用场。",
+      "line": "side",
+      "story": "这镇子剩下来的东西不多，铁器算其中最值钱的一种。韩铁匠不在乎来路，只在乎还能不能敲。",
+      "status": "available",
+      "objectiveType": "kill",
+      "objectiveText": "清掉城边流匪，并交回匪徒腰牌",
+      "progress": 0,
+      "required": 6,
+      "targetName": "城边流匪",
+      "rewardText": "小还灵丹 x2、破阵丹 x1",
+      "targetMonsterId": "m_gate_thug",
+      "rewardItemId": "minor_qi_pill",
+      "rewardItemIds": [
+        "minor_qi_pill",
+        "pill.break_array_elixir"
+      ],
+      "rewards": [
+        {
+          "itemId": "minor_qi_pill",
+          "name": "小还灵丹",
+          "type": "consumable",
+          "level": 4,
+          "desc": "药力柔和，立刻恢复 22% 真气。",
+          "qiPercent": 0.22,
+          "count": 2
+        },
+        {
+          "itemId": "pill.break_array_elixir",
+          "name": "破阵丹",
+          "type": "consumable",
+          "level": 12,
+          "tags": [
+            "战斗丹药"
+          ],
+          "desc": "药力凝在手眼与发力节点，2400 息内破招 +14%、命中 +7%，身死不散。",
+          "consumeBuffs": [
+            {
+              "buffId": "item_buff.break_array",
+              "name": "破阵劲",
+              "desc": "下手更刁钻，2400 息内破招 +14%、命中 +7%；此药势即使身死也不会立刻散去。",
+              "shortMark": "破",
+              "duration": 2400,
+              "persistOnDeath": true,
+              "stats": {
+                "breakPower": 14,
+                "hit": 7
+              },
+              "statMode": "percent"
+            }
+          ],
+          "count": 1
+        }
+      ],
+      "requiredItemId": "bandit_insignia",
+      "requiredItemCount": 3,
+      "giverId": "npc_blacksmith_han",
+      "giverName": "韩铁匠",
+      "giverMapId": "yunlai_town",
+      "giverMapName": "云来镇",
+      "giverX": 47,
+      "giverY": 26,
+      "targetMapId": "yunlai_town",
+      "targetMapName": "云来镇",
+      "submitNpcId": "npc_blacksmith_han",
+      "submitNpcName": "韩铁匠",
+      "submitMapId": "yunlai_town",
+      "submitMapName": "云来镇",
+      "submitX": 47,
+      "submitY": 26
+    },
+    {
+      "id": "q_bamboo_broken_cart",
+      "title": "翻车留下的东西",
+      "desc": "去查看翻倒的运材车，再把看到的痕迹带回阿栖。",
+      "line": "main",
+      "chapter": "第二章·青竹追线",
+      "story": "林路稍稍稳住后，阿栖让你去看那辆翻倒的运材车。车上本该只有木料和绳具，却偏偏留下了几处不太像野兽啃咬的裂口。青竹林和北井的那点怪话，似乎开始往一处拢了。",
+      "status": "available",
+      "objectiveType": "talk",
+      "objectiveText": "调查翻倒的运材车",
+      "progress": 0,
+      "required": 1,
+      "targetName": "翻倒的运材车",
+      "rewardText": "《明目经》 x1",
+      "targetMonsterId": "",
+      "rewardItemId": "book.bright_eye_sutra",
+      "rewardItemIds": [
+        "book.bright_eye_sutra"
+      ],
+      "rewards": [
+        {
+          "itemId": "book.bright_eye_sutra",
+          "name": "《明目经》",
+          "type": "skill_book",
+          "desc": "专修目力与感知的内功，久练后耳目心识会一起清亮。",
+          "learnTechniqueId": "bright_eye_sutra",
+          "count": 1
+        }
+      ],
+      "nextQuestId": "q_bamboo_serpent_gall",
+      "giverId": "npc_bamboo_scout",
+      "giverName": "巡林弟子·阿栖",
+      "giverMapId": "bamboo_forest",
+      "giverMapName": "青竹林",
+      "giverX": 6,
+      "giverY": 9,
+      "targetMapId": "bamboo_forest",
+      "targetMapName": "青竹林",
+      "targetX": 25,
+      "targetY": 21,
+      "targetNpcId": "npc_broken_cart",
+      "targetNpcName": "翻倒的运材车",
+      "submitNpcId": "npc_bamboo_scout",
+      "submitNpcName": "巡林弟子·阿栖",
+      "submitMapId": "bamboo_forest",
+      "submitMapName": "青竹林",
+      "submitX": 6,
+      "submitY": 9
+    },
+    {
+      "id": "q_valley_bone_heap",
+      "title": "谷边埋骨",
+      "desc": "重伤巡山弟子不想让同门的尸骨继续烂在谷边。去把裂齿妖狼再压一轮，把还能辨认的妖狼骨带回来，也算给活着的人留点交代。",
+      "line": "side",
+      "story": "兽谷里没什么体面活法，能给同门收回几根骨头，已经算恩情。",
+      "status": "available",
+      "objectiveType": "kill",
+      "objectiveText": "清掉裂齿妖狼并收回妖狼骨",
+      "progress": 0,
+      "required": 6,
+      "targetName": "裂齿妖狼",
+      "rewardText": "赤芽丹 x1",
+      "targetMonsterId": "m_valley_wolf",
+      "rewardItemId": "pill.crimson_bud_elixir",
+      "rewardItemIds": [
+        "pill.crimson_bud_elixir"
+      ],
+      "rewards": [
+        {
+          "itemId": "pill.crimson_bud_elixir",
+          "name": "赤芽丹",
+          "type": "consumable",
+          "level": 7,
+          "tags": [
+            "战斗丹药"
+          ],
+          "desc": "服后 2400 息内血勇更盛，即使身死药势也不会散，暴击 +9%。",
+          "consumeBuffs": [
+            {
+              "buffId": "item_buff.crimson_bud",
+              "name": "赤芽生锋",
+              "desc": "药力催得血气躁动，2400 息内暴击 +9%；即使身死，药势仍会残留到药尽为止。",
+              "shortMark": "赤",
+              "duration": 2400,
+              "persistOnDeath": true,
+              "stats": {
+                "crit": 9
+              },
+              "statMode": "percent"
+            }
+          ],
+          "count": 1
+        }
+      ],
+      "requiredItemId": "demon_wolf_bone",
+      "requiredItemCount": 8,
+      "giverId": "npc_wounded_patrol",
+      "giverName": "重伤巡山弟子",
+      "giverMapId": "beast_valley",
+      "giverMapName": "噬魂兽谷",
+      "giverX": 8,
+      "giverY": 8,
+      "targetMapId": "beast_valley",
+      "targetMapName": "噬魂兽谷",
+      "submitNpcId": "npc_wounded_patrol",
+      "submitNpcName": "重伤巡山弟子",
+      "submitMapId": "beast_valley",
+      "submitMapName": "噬魂兽谷",
+      "submitX": 8,
+      "submitY": 8
+    },
+    {
+      "id": "q_valley_core_main",
+      "title": "谷底那颗心",
+      "desc": "深入兽谷，击败谷主并带回兽谷核心。",
+      "line": "main",
+      "chapter": "第四章·兽谷问门",
+      "story": "巡山弟子说谷底那团东西不是妖兽自己长成的，更像是被什么从更深处“喂”出来的。你要做的很简单: 杀进去，把那颗兽谷核心拿回来，让云来镇终于有一样真凭实据可看。",
+      "status": "available",
+      "objectiveType": "kill",
+      "objectiveText": "击败谷主并带回兽谷核心",
+      "progress": 0,
+      "required": 1,
+      "targetName": "谷主妖兽",
+      "rewardText": "赤芽丹 x1",
+      "targetMonsterId": "m_valley_alpha",
+      "rewardItemId": "pill.crimson_bud_elixir",
+      "rewardItemIds": [
+        "pill.crimson_bud_elixir"
+      ],
+      "rewards": [
+        {
+          "itemId": "pill.crimson_bud_elixir",
+          "name": "赤芽丹",
+          "type": "consumable",
+          "level": 7,
+          "tags": [
+            "战斗丹药"
+          ],
+          "desc": "服后 2400 息内血勇更盛，即使身死药势也不会散，暴击 +9%。",
+          "consumeBuffs": [
+            {
+              "buffId": "item_buff.crimson_bud",
+              "name": "赤芽生锋",
+              "desc": "药力催得血气躁动，2400 息内暴击 +9%；即使身死，药势仍会残留到药尽为止。",
+              "shortMark": "赤",
+              "duration": 2400,
+              "persistOnDeath": true,
+              "stats": {
+                "crit": 9
+              },
+              "statMode": "percent"
+            }
+          ],
+          "count": 1
+        }
+      ],
+      "nextQuestId": "q_valley_blood_feather_main",
+      "requiredItemId": "valley_core",
+      "requiredItemCount": 1,
+      "giverId": "npc_wounded_patrol",
+      "giverName": "重伤巡山弟子",
+      "giverMapId": "beast_valley",
+      "giverMapName": "噬魂兽谷",
+      "giverX": 8,
+      "giverY": 8,
+      "targetMapId": "beast_valley",
+      "targetMapName": "噬魂兽谷",
+      "submitNpcId": "npc_qingxuan",
+      "submitNpcName": "清玄执事",
+      "submitMapId": "yunlai_town",
+      "submitMapName": "云来镇",
+      "submitX": 31,
+      "submitY": 24
+    },
+    {
+      "id": "q_recluse_first_meet",
+      "title": "荒野怪人",
+      "desc": "洛猎户说荒野深处常有个不合群的野修客出没。先去见见他，看看这人是能说话，还是该提前防着。",
+      "line": "side",
+      "story": "边镇靠规矩活，荒野靠眼色活。真想在外头多走几步，就得认识那些不写在门牌上的人。",
+      "status": "available",
+      "objectiveType": "talk",
+      "objectiveText": "去荒野找野修客",
+      "progress": 0,
+      "required": 1,
+      "targetName": "野修客",
+      "rewardText": "明目丹 x1",
+      "targetMonsterId": "",
+      "rewardItemId": "pill.clear_eye_elixir",
+      "rewardItemIds": [
+        "pill.clear_eye_elixir"
+      ],
+      "rewards": [
+        {
+          "itemId": "pill.clear_eye_elixir",
+          "name": "明目丹",
+          "type": "consumable",
+          "level": 13,
+          "tags": [
+            "战斗丹药"
+          ],
+          "desc": "服后心神澄明，2400 息内命中 +9%、视野 +14%，死亡不消失。",
+          "consumeBuffs": [
+            {
+              "buffId": "item_buff.clear_eye",
+              "name": "澄目",
+              "desc": "目力与判断更清楚，2400 息内命中 +9%、视野 +14%；身死也不会立刻散去。",
+              "shortMark": "明",
+              "duration": 2400,
+              "persistOnDeath": true,
+              "stats": {
+                "hit": 9,
+                "viewRange": 14
+              },
+              "statMode": "percent"
+            }
+          ],
+          "count": 1
+        }
+      ],
+      "nextQuestId": "q_recluse_spider_silk_rewrite",
+      "giverId": "npc_hunter_luo",
+      "giverName": "洛猎户",
+      "giverMapId": "wildlands",
+      "giverMapName": "荒野",
+      "giverX": 20,
+      "giverY": 41,
+      "targetMapId": "wildlands",
+      "targetMapName": "荒野",
+      "targetX": 36,
+      "targetY": 10,
+      "targetNpcId": "npc_wild_recluse",
+      "targetNpcName": "野修客",
+      "submitNpcId": "npc_wild_recluse",
+      "submitNpcName": "野修客",
+      "submitMapId": "wildlands",
+      "submitMapName": "荒野",
+      "submitX": 36,
+      "submitY": 10
+    },
+    {
+      "id": "q_wildlands_roadhouse",
+      "title": "荒野先认路",
+      "desc": "去荒野找洛猎户，先把南门外的活路和死路认明白。",
+      "line": "main",
+      "chapter": "第一章·粮路讨生",
+      "story": "在云来镇站住脚后，沈七娘立刻把你往镇外使。南门通荒野，那条路决定了脚店有没有粮、药铺有没有货。她让你先去见洛猎户，认清这条粮路如今是谁在说话。",
+      "status": "available",
+      "objectiveType": "talk",
+      "objectiveText": "去荒野找洛猎户",
+      "progress": 0,
+      "required": 1,
+      "targetName": "洛猎户",
+      "rewardText": "回春散 x2",
+      "targetMonsterId": "",
+      "rewardItemId": "pill.minor_heal",
+      "rewardItemIds": [
+        "pill.minor_heal"
+      ],
+      "rewards": [
+        {
+          "itemId": "pill.minor_heal",
+          "name": "回春散",
+          "type": "consumable",
+          "level": 2,
+          "tags": [
+            "战斗丹药"
+          ],
+          "desc": "草木药气温和，服下后立刻恢复 22% 气血。",
+          "healPercent": 0.22,
+          "count": 2
+        }
+      ],
+      "nextQuestId": "q_wildlands_boar_meat",
+      "giverId": "npc_shen_qiniang",
+      "giverName": "沈七娘",
+      "giverMapId": "yunlai_town",
+      "giverMapName": "云来镇",
+      "giverX": 16,
+      "giverY": 34,
+      "targetMapId": "wildlands",
+      "targetMapName": "荒野",
+      "targetX": 20,
+      "targetY": 41,
+      "targetNpcId": "npc_hunter_luo",
+      "targetNpcName": "洛猎户",
+      "submitNpcId": "npc_hunter_luo",
+      "submitNpcName": "洛猎户",
+      "submitMapId": "wildlands",
+      "submitMapName": "荒野",
+      "submitX": 20,
+      "submitY": 41
+    },
+    {
+      "id": "q_guizang_beast_test",
+      "title": "混脉试手",
+      "desc": "击败双相脉兽，证明自己已经能在混脉压力里稳住呼吸和走位。",
+      "line": "side",
+      "chapter": "终章·归藏压基",
+      "story": "岑止听完闻烬那边的残录，只回了你一句: 纸上补全了不算，气海里装得住才算。它要你去把心庭外那几头双相脉兽压下去，让它看看你是不是真能扛住混行冲撞。",
+      "status": "available",
+      "objectiveType": "kill",
+      "objectiveText": "击败双相脉兽",
+      "progress": 0,
+      "required": 2,
+      "targetName": "双相脉兽",
+      "rewardText": "引基散 x2、纯阳丹 x1、破阵丹 x1",
+      "targetMonsterId": "m_guizang_dualphase_beast",
+      "rewardItemId": "pill.guiding_powder",
+      "rewardItemIds": [
+        "pill.guiding_powder",
+        "pure_yang_pill",
+        "pill.break_array_elixir"
+      ],
+      "rewards": [
+        {
+          "itemId": "pill.guiding_powder",
+          "name": "引基散",
+          "type": "consumable",
+          "level": 20,
+          "desc": "药散入腹后会把乱气往气海底部慢慢拢住，3600 息内让境界修为 +30%、功法经验 +30%。",
+          "consumeBuffs": [
+            {
+              "buffId": "item_buff.guiding_powder",
+              "name": "引基",
+              "desc": "气机被药势往下拢住，3600 息内境界修为与功法经验获取效率各提高 30%。",
+              "shortMark": "引",
+              "duration": 3600,
+              "stats": {
+                "playerExpRate": 30,
+                "techniqueExpRate": 30
+              },
+              "statMode": "percent"
+            }
+          ],
+          "grade": "yellow",
+          "count": 2
+        },
+        {
+          "itemId": "pure_yang_pill",
+          "name": "纯阳丹",
+          "type": "consumable",
+          "level": 16,
+          "desc": "烈阳药引直入气海，立刻恢复 72% 真气。",
+          "qiPercent": 0.72,
+          "count": 1
+        },
+        {
+          "itemId": "pill.break_array_elixir",
+          "name": "破阵丹",
+          "type": "consumable",
+          "level": 12,
+          "tags": [
+            "战斗丹药"
+          ],
+          "desc": "药力凝在手眼与发力节点，2400 息内破招 +14%、命中 +7%，身死不散。",
+          "consumeBuffs": [
+            {
+              "buffId": "item_buff.break_array",
+              "name": "破阵劲",
+              "desc": "下手更刁钻，2400 息内破招 +14%、命中 +7%；此药势即使身死也不会立刻散去。",
+              "shortMark": "破",
+              "duration": 2400,
+              "persistOnDeath": true,
+              "stats": {
+                "breakPower": 14,
+                "hit": 7
+              },
+              "statMode": "percent"
+            }
+          ],
+          "count": 1
+        }
+      ],
+      "giverId": "npc_guizang_gate_watcher",
+      "giverName": "守口旧修·岑止",
+      "giverMapId": "guizang_vein_cavern",
+      "giverMapName": "归藏脉窟",
+      "giverX": 57,
+      "giverY": 34,
+      "targetMapId": "guizang_vein_cavern",
+      "targetMapName": "归藏脉窟",
+      "submitNpcId": "npc_guizang_gate_watcher",
+      "submitNpcName": "守口旧修·岑止",
+      "submitMapId": "guizang_vein_cavern",
+      "submitMapName": "归藏脉窟",
+      "submitX": 57,
+      "submitY": 34
+    },
+    {
+      "id": "q_intro_manual",
+      "title": "活命先练气",
+      "desc": "打开背包，先学会《青木剑诀》护身。",
+      "line": "main",
+      "chapter": "序章·断道入镇",
+      "story": "赵老六提了一句你身上还带着书卷，沈七娘便把你推给了清玄执事。清玄不关心你从哪来，只说在这个镇子里，没点护身的本事，迟早会死在替别人跑腿的路上。",
+      "status": "available",
+      "objectiveType": "learn_technique",
+      "objectiveText": "打开背包并学会《青木剑诀》",
+      "progress": 0,
+      "required": 1,
+      "targetName": "青木剑诀",
+      "targetTechniqueId": "qingmu_sword",
+      "rewardText": "小还灵丹 x2、云来初境图 x1",
+      "targetMonsterId": "",
+      "rewardItemId": "minor_qi_pill",
+      "rewardItemIds": [
+        "minor_qi_pill",
+        "map.yunlai_town"
+      ],
+      "rewards": [
+        {
+          "itemId": "minor_qi_pill",
+          "name": "小还灵丹",
+          "type": "consumable",
+          "level": 4,
+          "desc": "药力柔和，立刻恢复 22% 真气。",
+          "qiPercent": 0.22,
+          "count": 2
+        },
+        {
+          "itemId": "map.yunlai_town",
+          "name": "云来初境图",
+          "type": "consumable",
+          "level": 1,
+          "desc": "描摹新手区域的基础地图。使用后可永久解锁云来初境的完整舆图。",
+          "mapUnlockId": "yunlai_town",
+          "count": 1
+        }
+      ],
+      "nextQuestId": "q_intro_clear_south_gate",
+      "giverId": "npc_qingxuan",
+      "giverName": "清玄执事",
+      "giverMapId": "yunlai_town",
+      "giverMapName": "云来镇",
+      "giverX": 31,
+      "giverY": 24,
+      "submitNpcId": "npc_qingxuan",
+      "submitNpcName": "清玄执事",
+      "submitMapId": "yunlai_town",
+      "submitMapName": "云来镇",
+      "submitX": 31,
+      "submitY": 24
+    },
+    {
+      "id": "q_shen_bunk_deposit",
+      "title": "脚店押铺钱",
+      "desc": "沈七娘说想在她这儿把名头挂稳，光会喘气不够。去把赵老六托来的路上旧物送回，再把话带回来。",
+      "line": "side",
+      "story": "脚店不是善堂，但在这镇里，能让你记住自己还算个人的地方，也就这么几处。",
+      "status": "available",
+      "objectiveType": "talk",
+      "objectiveText": "去找赵老六，把脚店的话带到",
+      "progress": 0,
+      "required": 1,
+      "targetName": "赵老六",
+      "rewardText": "小还灵丹 x1、回春散 x2",
+      "targetMonsterId": "",
+      "rewardItemId": "minor_qi_pill",
+      "rewardItemIds": [
+        "minor_qi_pill",
+        "pill.minor_heal"
+      ],
+      "rewards": [
+        {
+          "itemId": "minor_qi_pill",
+          "name": "小还灵丹",
+          "type": "consumable",
+          "level": 4,
+          "desc": "药力柔和，立刻恢复 22% 真气。",
+          "qiPercent": 0.22,
+          "count": 1
+        },
+        {
+          "itemId": "pill.minor_heal",
+          "name": "回春散",
+          "type": "consumable",
+          "level": 2,
+          "tags": [
+            "战斗丹药"
+          ],
+          "desc": "草木药气温和，服下后立刻恢复 22% 气血。",
+          "healPercent": 0.22,
+          "count": 2
+        }
+      ],
+      "giverId": "npc_shen_qiniang",
+      "giverName": "沈七娘",
+      "giverMapId": "yunlai_town",
+      "giverMapName": "云来镇",
+      "giverX": 16,
+      "giverY": 34,
+      "targetMapId": "yunlai_town",
+      "targetMapName": "云来镇",
+      "targetX": 25,
+      "targetY": 47,
+      "targetNpcId": "npc_zhao_laoliu",
+      "targetNpcName": "赵老六",
+      "submitNpcId": "npc_shen_qiniang",
+      "submitNpcName": "沈七娘",
+      "submitMapId": "yunlai_town",
+      "submitMapName": "云来镇",
+      "submitX": 16,
+      "submitY": 34
+    },
+    {
+      "id": "q_mine_overseer_cleanup",
+      "title": "旧矿册上的名字",
+      "desc": "矿监残魂说矿册上有一批人从未“出矿”，但名字也没算死。你先替它把洞里乱晃的活尸清掉，再把矿晶核带回来，它才肯继续往下说。",
+      "line": "side",
+      "story": "被记在账上的人未必活着，不在账上的人也未必真死了。",
+      "status": "available",
+      "objectiveType": "kill",
+      "objectiveText": "清掉矿洞活尸并带回矿晶核",
+      "progress": 0,
+      "required": 6,
+      "targetName": "矿洞活尸",
+      "rewardText": "破阵丹 x1",
+      "targetMonsterId": "m_mine_ghoul",
+      "rewardItemId": "pill.break_array_elixir",
+      "rewardItemIds": [
+        "pill.break_array_elixir"
+      ],
+      "rewards": [
+        {
+          "itemId": "pill.break_array_elixir",
+          "name": "破阵丹",
+          "type": "consumable",
+          "level": 12,
+          "tags": [
+            "战斗丹药"
+          ],
+          "desc": "药力凝在手眼与发力节点，2400 息内破招 +14%、命中 +7%，身死不散。",
+          "consumeBuffs": [
+            {
+              "buffId": "item_buff.break_array",
+              "name": "破阵劲",
+              "desc": "下手更刁钻，2400 息内破招 +14%、命中 +7%；此药势即使身死也不会立刻散去。",
+              "shortMark": "破",
+              "duration": 2400,
+              "persistOnDeath": true,
+              "stats": {
+                "breakPower": 14,
+                "hit": 7
+              },
+              "statMode": "percent"
+            }
+          ],
+          "count": 1
+        }
+      ],
+      "requiredItemId": "mine_crystal_core",
+      "requiredItemCount": 1,
+      "giverId": "npc_mine_overseer_ghost",
+      "giverName": "矿监残魂",
+      "giverMapId": "black_iron_mine",
+      "giverMapName": "玄铁矿洞",
+      "giverX": 24,
+      "giverY": 13,
+      "targetMapId": "black_iron_mine",
+      "targetMapName": "玄铁矿洞",
+      "submitNpcId": "npc_mine_overseer_ghost",
+      "submitNpcName": "矿监残魂",
+      "submitMapId": "black_iron_mine",
+      "submitMapName": "玄铁矿洞",
+      "submitX": 24,
+      "submitY": 13
+    },
+    {
+      "id": "q_ridge_qi_refining",
+      "title": "叩门之前先成其身",
+      "desc": "继续历练，迈入练气境，准备直面天穹残宫。",
+      "line": "main",
+      "chapter": "第四章·兽谷问门",
+      "story": "灵岭行令到手，清玄终于不再拿你当纯粹跑腿的人看。他把话说得很明白: 你眼下已经站在凡武尽头，若还想再往前，就得跨过真正意义上的第一道修行门槛。先把自己练到练气，再谈门后是什么。",
+      "status": "available",
+      "objectiveType": "realm_stage",
+      "objectiveText": "历练至练气境",
+      "progress": 0,
+      "required": 1,
+      "targetName": "练气境",
+      "rewardText": "《听脉定息诀》 x1、归息铜佩 x1、《折影提气诀》 x1、天阙遗墟图 x1、纯阳丹 x2",
+      "targetMonsterId": "",
+      "rewardItemId": "book.tingmai_dingxi",
+      "rewardItemIds": [
+        "book.tingmai_dingxi",
+        "equip.returnbreath_copper_pendant",
+        "book.lightshadow_art",
+        "map.sky_ruins",
+        "pure_yang_pill"
+      ],
+      "rewards": [
+        {
+          "itemId": "book.tingmai_dingxi",
+          "name": "《听脉定息诀》",
+          "type": "skill_book",
+          "desc": "记载听脉定息诀的修行法门，使用后学会听脉定息诀。",
+          "learnTechniqueId": "tingmai_dingxi",
+          "count": 1
+        },
+        {
+          "itemId": "equip.returnbreath_copper_pendant",
+          "name": "归息铜佩",
+          "type": "equipment",
+          "grade": "yellow",
+          "level": 19,
+          "desc": "听脉之后发下来的小铜佩，佩口虽旧，却很会把散出去的真气慢慢拢回来。",
+          "equipSlot": "accessory",
+          "equipValueStats": {
+            "maxQi": 4.5,
+            "qiRegenRate": 0.5,
+            "maxQiOutputPerTick": 6
+          },
+          "effects": [
+            {
+              "effectId": "returnbreath-cultivate",
+              "type": "progress_boost",
+              "statMode": "flat",
+              "conditions": {
+                "mode": "all",
+                "items": [
+                  {
+                    "type": "is_cultivating",
+                    "value": true
+                  }
+                ]
+              },
+              "valueStats": {
+                "techniqueExpPerTick": 7
+              }
+            }
+          ],
+          "count": 1
+        },
+        {
+          "itemId": "book.lightshadow_art",
+          "name": "《折影提气诀》",
+          "type": "skill_book",
+          "desc": "把一口气提到脚下的身法，讲究起落和折返都更快。",
+          "learnTechniqueId": "lightshadow_art",
+          "count": 1
+        },
+        {
+          "itemId": "map.sky_ruins",
+          "name": "天阙遗墟图",
+          "type": "consumable",
+          "level": 6,
+          "desc": "记载高阶遗墟的主要路径与坍塌区域。使用后可永久解锁天阙遗墟地图。",
+          "mapUnlockId": "sky_ruins",
+          "count": 1
+        },
+        {
+          "itemId": "pure_yang_pill",
+          "name": "纯阳丹",
+          "type": "consumable",
+          "level": 16,
+          "desc": "烈阳药引直入气海，立刻恢复 72% 真气。",
+          "qiPercent": 0.72,
+          "count": 2
+        }
+      ],
+      "nextQuestId": "q_sky_observer_talk",
+      "giverId": "npc_qingxuan",
+      "giverName": "清玄执事",
+      "giverMapId": "yunlai_town",
+      "giverMapName": "云来镇",
+      "giverX": 31,
+      "giverY": 24,
+      "targetMapId": "spirit_ridge",
+      "targetMapName": "灵脊岭",
+      "submitNpcId": "npc_qingxuan",
+      "submitNpcName": "清玄执事",
+      "submitMapId": "yunlai_town",
+      "submitMapName": "云来镇",
+      "submitX": 31,
+      "submitY": 24
+    },
+    {
+      "id": "q_mine_embers",
+      "title": "矿火余烬",
+      "desc": "锻炉余火不愿承认自己已经死透，它要你去深矿区再取一批玄铁矿块回来，看看旧炉还能不能把最后一口火续上。",
+      "line": "side",
+      "story": "矿洞里剩下的不只是矿，也有一群不肯散干净的旧念头。",
+      "status": "available",
+      "objectiveType": "kill",
+      "objectiveText": "清掉矿洞活尸，并带回玄铁矿块",
+      "progress": 0,
+      "required": 6,
+      "targetName": "矿洞活尸",
+      "rewardText": "大还灵丹 x1、破阵丹 x1",
+      "targetMonsterId": "m_mine_ghoul",
+      "rewardItemId": "major_qi_pill",
+      "rewardItemIds": [
+        "major_qi_pill",
+        "pill.break_array_elixir"
+      ],
+      "rewards": [
+        {
+          "itemId": "major_qi_pill",
+          "name": "大还灵丹",
+          "type": "consumable",
+          "level": 8,
+          "desc": "药力更浑厚，立刻恢复 32% 真气。",
+          "qiPercent": 0.32,
+          "count": 1
+        },
+        {
+          "itemId": "pill.break_array_elixir",
+          "name": "破阵丹",
+          "type": "consumable",
+          "level": 12,
+          "tags": [
+            "战斗丹药"
+          ],
+          "desc": "药力凝在手眼与发力节点，2400 息内破招 +14%、命中 +7%，身死不散。",
+          "consumeBuffs": [
+            {
+              "buffId": "item_buff.break_array",
+              "name": "破阵劲",
+              "desc": "下手更刁钻，2400 息内破招 +14%、命中 +7%；此药势即使身死也不会立刻散去。",
+              "shortMark": "破",
+              "duration": 2400,
+              "persistOnDeath": true,
+              "stats": {
+                "breakPower": 14,
+                "hit": 7
+              },
+              "statMode": "percent"
+            }
+          ],
+          "count": 1
+        }
+      ],
+      "nextQuestId": "q_mine_colossus_side",
+      "requiredItemId": "black_iron_chunk",
+      "requiredItemCount": 4,
+      "giverId": "npc_mine_smith",
+      "giverName": "锻炉余火",
+      "giverMapId": "black_iron_mine",
+      "giverMapName": "玄铁矿洞",
+      "giverX": 26,
+      "giverY": 23,
+      "targetMapId": "black_iron_mine",
+      "targetMapName": "玄铁矿洞",
+      "submitNpcId": "npc_mine_smith",
+      "submitNpcName": "锻炉余火",
+      "submitMapId": "black_iron_mine",
+      "submitMapName": "玄铁矿洞",
+      "submitX": 26,
+      "submitY": 23
+    },
+    {
+      "id": "q_mine_overseer_echo",
+      "title": "矿监残魂",
+      "desc": "矿监残魂仍把自己当成值夜的人。它要你先把洞里乱窜的晶蝠和活尸压下去，再回来听它念那份过时的矿册。",
+      "line": "side",
+      "story": "最可怕的不是死了还不走的人，而是死了还以为自己没出事的人。",
+      "status": "available",
+      "objectiveType": "talk",
+      "objectiveText": "先去见矿监残魂，再决定要不要接它的活",
+      "progress": 0,
+      "required": 1,
+      "targetName": "矿监残魂",
+      "rewardText": "回春散 x2",
+      "targetMonsterId": "",
+      "rewardItemId": "pill.minor_heal",
+      "rewardItemIds": [
+        "pill.minor_heal"
+      ],
+      "rewards": [
+        {
+          "itemId": "pill.minor_heal",
+          "name": "回春散",
+          "type": "consumable",
+          "level": 2,
+          "tags": [
+            "战斗丹药"
+          ],
+          "desc": "草木药气温和，服下后立刻恢复 22% 气血。",
+          "healPercent": 0.22,
+          "count": 2
+        }
+      ],
+      "nextQuestId": "q_mine_overseer_cleanup",
+      "giverId": "npc_mine_overseer_ghost",
+      "giverName": "矿监残魂",
+      "giverMapId": "black_iron_mine",
+      "giverMapName": "玄铁矿洞",
+      "giverX": 24,
+      "giverY": 13,
+      "targetMapId": "black_iron_mine",
+      "targetMapName": "玄铁矿洞",
+      "targetX": 24,
+      "targetY": 13,
+      "targetNpcId": "npc_mine_overseer_ghost",
+      "targetNpcName": "矿监残魂",
+      "submitNpcId": "npc_mine_overseer_ghost",
+      "submitNpcName": "矿监残魂",
+      "submitMapId": "black_iron_mine",
+      "submitMapName": "玄铁矿洞",
+      "submitX": 24,
+      "submitY": 13
+    },
+    {
+      "id": "q_mine_signal_talk",
+      "title": "矿路先问还剩什么",
+      "desc": "进入玄铁矿洞，先与锻炉余火对话。",
+      "line": "main",
+      "chapter": "第三章·矿洞遗火",
+      "story": "青竹林给了你方向，真正的答案却埋在矿洞和断碑遗迹里。清玄要你先去见锻炉余火，看那条早该断掉的矿路如今还剩下什么能用、什么不能碰。",
+      "status": "available",
+      "objectiveType": "talk",
+      "objectiveText": "去玄铁矿洞找锻炉余火",
+      "progress": 0,
+      "required": 1,
+      "targetName": "锻炉余火",
+      "rewardText": "《赤焰诀》 x1、回春散 x2",
+      "targetMonsterId": "",
+      "rewardItemId": "book.redflame_art",
+      "rewardItemIds": [
+        "book.redflame_art",
+        "pill.minor_heal"
+      ],
+      "rewards": [
+        {
+          "itemId": "book.redflame_art",
+          "name": "《赤焰诀》",
+          "type": "skill_book",
+          "desc": "残缺的火行法门，能御使离火符。",
+          "learnTechniqueId": "redflame_art",
+          "count": 1
+        },
+        {
+          "itemId": "pill.minor_heal",
+          "name": "回春散",
+          "type": "consumable",
+          "level": 2,
+          "tags": [
+            "战斗丹药"
+          ],
+          "desc": "草木药气温和，服下后立刻恢复 22% 气血。",
+          "healPercent": 0.22,
+          "count": 2
+        }
+      ],
+      "nextQuestId": "q_mine_signal_core",
+      "giverId": "npc_qingxuan",
+      "giverName": "清玄执事",
+      "giverMapId": "yunlai_town",
+      "giverMapName": "云来镇",
+      "giverX": 31,
+      "giverY": 24,
+      "targetMapId": "black_iron_mine",
+      "targetMapName": "玄铁矿洞",
+      "targetX": 26,
+      "targetY": 23,
+      "targetNpcId": "npc_mine_smith",
+      "targetNpcName": "锻炉余火",
+      "submitNpcId": "npc_mine_smith",
+      "submitNpcName": "锻炉余火",
+      "submitMapId": "black_iron_mine",
+      "submitMapName": "玄铁矿洞",
+      "submitX": 26,
+      "submitY": 23
+    },
+    {
+      "id": "q_wildlands_old_gate_words",
+      "title": "老关卒记得的事",
+      "desc": "去北井旧坊找老关卒问旧事，再回清玄处复命。",
+      "line": "main",
+      "chapter": "第一章·粮路讨生",
+      "story": "药吊住了人，井边那句怪话却始终卡在你心里。文籍师叔让你去找老关卒，他说旧北关当年不是单纯守不住，而是“里头的人先不对了”。你得把这口风带回清玄。",
+      "status": "available",
+      "objectiveType": "talk",
+      "objectiveText": "向老关卒打听旧北关的旧事",
+      "progress": 0,
+      "required": 1,
+      "targetName": "老关卒",
+      "rewardText": "《铁骨功》 x1",
+      "targetMonsterId": "",
+      "rewardItemId": "book.iron_bone_art",
+      "rewardItemIds": [
+        "book.iron_bone_art"
+      ],
+      "rewards": [
+        {
+          "itemId": "book.iron_bone_art",
+          "name": "《铁骨功》",
+          "type": "skill_book",
+          "desc": "武者锻体法门，强调硬桥硬马之道。",
+          "learnTechniqueId": "iron_bone_art",
+          "count": 1
+        }
+      ],
+      "nextQuestId": "q_wildlands_bone_forging",
+      "giverId": "npc_wenji",
+      "giverName": "文籍师叔",
+      "giverMapId": "yunlai_town",
+      "giverMapName": "云来镇",
+      "giverX": 13,
+      "giverY": 45,
+      "targetMapId": "yunlai_town",
+      "targetMapName": "云来镇",
+      "targetX": 31,
+      "targetY": 9,
+      "targetNpcId": "npc_old_gate_guard",
+      "targetNpcName": "老关卒",
+      "submitNpcId": "npc_qingxuan",
+      "submitNpcName": "清玄执事",
+      "submitMapId": "yunlai_town",
+      "submitMapName": "云来镇",
+      "submitX": 31,
+      "submitY": 24
+    },
+    {
+      "id": "q_sky_hunter_spoil",
+      "title": "猎者遗物",
+      "desc": "既然你已经能在残宫站住，观星残影便要你顺手多收一批天宫猎者的遗物。它说这些东西留给人间，比继续烂在天上有用得多。",
+      "line": "side",
+      "story": "凡人篇走到这里，已经不是活着就算赢，而是终于能从天上抢一点东西回地上用。",
+      "status": "available",
+      "objectiveType": "kill",
+      "objectiveText": "击败天宫猎者并收回星陨金",
+      "progress": 0,
+      "required": 6,
+      "targetName": "天宫猎者",
+      "rewardText": "赤芽丹 x1、轻身丹 x1",
+      "targetMonsterId": "m_void_hunter",
+      "rewardItemId": "pill.crimson_bud_elixir",
+      "rewardItemIds": [
+        "pill.crimson_bud_elixir",
+        "pill.windstride_elixir"
+      ],
+      "rewards": [
+        {
+          "itemId": "pill.crimson_bud_elixir",
+          "name": "赤芽丹",
+          "type": "consumable",
+          "level": 7,
+          "tags": [
+            "战斗丹药"
+          ],
+          "desc": "服后 2400 息内血勇更盛，即使身死药势也不会散，暴击 +9%。",
+          "consumeBuffs": [
+            {
+              "buffId": "item_buff.crimson_bud",
+              "name": "赤芽生锋",
+              "desc": "药力催得血气躁动，2400 息内暴击 +9%；即使身死，药势仍会残留到药尽为止。",
+              "shortMark": "赤",
+              "duration": 2400,
+              "persistOnDeath": true,
+              "stats": {
+                "crit": 9
+              },
+              "statMode": "percent"
+            }
+          ],
+          "count": 1
+        },
+        {
+          "itemId": "pill.windstride_elixir",
+          "name": "轻身丹",
+          "type": "consumable",
+          "level": 11,
+          "tags": [
+            "战斗丹药"
+          ],
+          "desc": "药劲顺着经脉卸到脚下，2400 息内移动速度 +22%、闪避 +7%，死亡不消失。",
+          "consumeBuffs": [
+            {
+              "buffId": "item_buff.windstride",
+              "name": "踏风",
+              "desc": "脚下更轻，2400 息内移动速度 +22%、闪避 +7%；这股药劲即使身死也不会立刻散去。",
+              "shortMark": "疾",
+              "duration": 2400,
+              "persistOnDeath": true,
+              "stats": {
+                "moveSpeed": 22,
+                "dodge": 7
+              },
+              "statMode": "percent"
+            }
+          ],
+          "count": 1
+        }
+      ],
+      "requiredItemId": "star_metal",
+      "requiredItemCount": 6,
+      "giverId": "npc_sky_observer",
+      "giverName": "观星残影",
+      "giverMapId": "sky_ruins",
+      "giverMapName": "天穹残宫",
+      "giverX": 24,
+      "giverY": 25,
+      "targetMapId": "sky_ruins",
+      "targetMapName": "天穹残宫",
+      "submitNpcId": "npc_sky_observer",
+      "submitNpcName": "观星残影",
+      "submitMapId": "sky_ruins",
+      "submitMapName": "天穹残宫",
+      "submitX": 24,
+      "submitY": 25
+    },
+    {
+      "id": "q_valley_patrol_talk",
+      "title": "裂谷里还有活人",
+      "desc": "进入噬魂兽谷，找到重伤巡山弟子。",
+      "line": "main",
+      "chapter": "第四章·兽谷问门",
+      "story": "矿洞和遗迹都指向了同一个地方: 噬魂兽谷。清玄说那是旧阵崩坏后最先往外漏的一道口子。先去见谷口那名重伤巡山弟子，看看如今还能从活人嘴里问出多少事。",
+      "status": "available",
+      "objectiveType": "talk",
+      "objectiveText": "去兽谷找重伤巡山弟子",
+      "progress": 0,
+      "required": 1,
+      "targetName": "重伤巡山弟子",
+      "rewardText": "《寒魄经》 x1、大还灵丹 x2",
+      "targetMonsterId": "",
+      "rewardItemId": "book.frost_sutra",
+      "rewardItemIds": [
+        "book.frost_sutra",
+        "major_qi_pill"
+      ],
+      "rewards": [
+        {
+          "itemId": "book.frost_sutra",
+          "name": "《寒魄经》",
+          "type": "skill_book",
+          "desc": "引寒入脉的残篇，兼具杀伐与凝神。",
+          "learnTechniqueId": "frost_sutra",
+          "count": 1
+        },
+        {
+          "itemId": "major_qi_pill",
+          "name": "大还灵丹",
+          "type": "consumable",
+          "level": 8,
+          "desc": "药力更浑厚，立刻恢复 32% 真气。",
+          "qiPercent": 0.32,
+          "count": 2
+        }
+      ],
+      "nextQuestId": "q_valley_core_main",
+      "giverId": "npc_qingxuan",
+      "giverName": "清玄执事",
+      "giverMapId": "yunlai_town",
+      "giverMapName": "云来镇",
+      "giverX": 31,
+      "giverY": 24,
+      "targetMapId": "beast_valley",
+      "targetMapName": "噬魂兽谷",
+      "targetX": 8,
+      "targetY": 8,
+      "targetNpcId": "npc_wounded_patrol",
+      "targetNpcName": "重伤巡山弟子",
+      "submitNpcId": "npc_wounded_patrol",
+      "submitNpcName": "重伤巡山弟子",
+      "submitMapId": "beast_valley",
+      "submitMapName": "噬魂兽谷",
+      "submitX": 8,
+      "submitY": 8
+    },
+    {
+      "id": "q_bamboo_scouting",
+      "title": "林口有人等你",
+      "desc": "前往青竹林，找到巡林弟子阿栖。",
+      "line": "main",
+      "chapter": "第二章·青竹追线",
+      "story": "清玄终于把你往东门外放。青竹林不是单纯练功的地方，那里原本是云来镇最稳的运材路，如今林里人少怪多，只剩巡林弟子阿栖还在硬撑。先去见他，再谈后头的事。",
+      "status": "available",
+      "objectiveType": "talk",
+      "objectiveText": "去青竹林找巡林弟子阿栖",
+      "progress": 0,
+      "required": 1,
+      "targetName": "巡林弟子·阿栖",
+      "rewardText": "回春散 x2",
+      "targetMonsterId": "",
+      "rewardItemId": "pill.minor_heal",
+      "rewardItemIds": [
+        "pill.minor_heal"
+      ],
+      "rewards": [
+        {
+          "itemId": "pill.minor_heal",
+          "name": "回春散",
+          "type": "consumable",
+          "level": 2,
+          "tags": [
+            "战斗丹药"
+          ],
+          "desc": "草木药气温和，服下后立刻恢复 22% 气血。",
+          "healPercent": 0.22,
+          "count": 2
+        }
+      ],
+      "nextQuestId": "q_bamboo_wolf_fangs",
+      "giverId": "npc_qingxuan",
+      "giverName": "清玄执事",
+      "giverMapId": "yunlai_town",
+      "giverMapName": "云来镇",
+      "giverX": 31,
+      "giverY": 24,
+      "targetMapId": "bamboo_forest",
+      "targetMapName": "青竹林",
+      "targetX": 6,
+      "targetY": 9,
+      "targetNpcId": "npc_bamboo_scout",
+      "targetNpcName": "巡林弟子·阿栖",
+      "submitNpcId": "npc_bamboo_scout",
+      "submitNpcName": "巡林弟子·阿栖",
+      "submitMapId": "bamboo_forest",
+      "submitMapName": "青竹林",
+      "submitX": 6,
+      "submitY": 9
+    },
+    {
+      "id": "q_wildlands_bandit_toll",
+      "title": "路上要过买命钱",
+      "desc": "清掉荒野匪徒并收回腰牌，让南门外的粮路暂时通起来。",
+      "line": "main",
+      "chapter": "第一章·粮路讨生",
+      "story": "食材带回来了，真正麻烦的却是路上那群收“买命钱”的匪徒。马会头懒得带人出门，韩铁匠更直接: 你若真想让这条路能走，就把匪营那几张熟脸剁干净。",
+      "status": "available",
+      "objectiveType": "kill",
+      "objectiveText": "击退荒野匪徒并收回腰牌",
+      "progress": 0,
+      "required": 6,
+      "targetName": "荒野匪徒",
+      "rewardText": "破阵丹 x1",
+      "targetMonsterId": "m_wild_bandit",
+      "rewardItemId": "pill.break_array_elixir",
+      "rewardItemIds": [
+        "pill.break_array_elixir"
+      ],
+      "rewards": [
+        {
+          "itemId": "pill.break_array_elixir",
+          "name": "破阵丹",
+          "type": "consumable",
+          "level": 12,
+          "tags": [
+            "战斗丹药"
+          ],
+          "desc": "药力凝在手眼与发力节点，2400 息内破招 +14%、命中 +7%，身死不散。",
+          "consumeBuffs": [
+            {
+              "buffId": "item_buff.break_array",
+              "name": "破阵劲",
+              "desc": "下手更刁钻，2400 息内破招 +14%、命中 +7%；此药势即使身死也不会立刻散去。",
+              "shortMark": "破",
+              "duration": 2400,
+              "persistOnDeath": true,
+              "stats": {
+                "breakPower": 14,
+                "hit": 7
+              },
+              "statMode": "percent"
+            }
+          ],
+          "count": 1
+        }
+      ],
+      "nextQuestId": "q_wildlands_swamp_medicine",
+      "requiredItemId": "bandit_insignia",
+      "requiredItemCount": 4,
+      "giverId": "npc_ma_huitou",
+      "giverName": "马会头",
+      "giverMapId": "yunlai_town",
+      "giverMapName": "云来镇",
+      "giverX": 32,
+      "giverY": 47,
+      "targetMapId": "wildlands",
+      "targetMapName": "荒野",
+      "submitNpcId": "npc_blacksmith_han",
+      "submitNpcName": "韩铁匠",
+      "submitMapId": "yunlai_town",
+      "submitMapName": "云来镇",
+      "submitX": 47,
+      "submitY": 26
+    },
+    {
+      "id": "q_ruin_keeper_talk",
+      "title": "轮到遗迹开口",
+      "desc": "前往断碑遗迹，与守纹残念对话。",
+      "line": "main",
+      "chapter": "第三章·矿洞遗火",
+      "story": "信标核心回到手里，清玄却只看了一眼就把你赶去断碑遗迹。他说矿路告诉你的只是“怎么坏的”，而遗迹里还埋着“为什么会坏”。去见守纹残念，那地方现在只剩死人肯说旧话。",
+      "status": "available",
+      "objectiveType": "talk",
+      "objectiveText": "去断碑遗迹找守纹残念",
+      "progress": 0,
+      "required": 1,
+      "targetName": "守纹残念",
+      "rewardText": "《藏运录》 x1、《镇灵篇》 x1、明目丹 x1",
+      "targetMonsterId": "",
+      "rewardItemId": "book.hidden_fortune_record",
+      "rewardItemIds": [
+        "book.hidden_fortune_record",
+        "book.spirit_anchor",
+        "pill.clear_eye_elixir"
+      ],
+      "rewards": [
+        {
+          "itemId": "book.hidden_fortune_record",
+          "name": "《藏运录》",
+          "type": "skill_book",
+          "desc": "专记敛锋藏运的小术，修久了总会多撞上几分偏门福气。",
+          "learnTechniqueId": "hidden_fortune_record",
+          "count": 1
+        },
+        {
+          "itemId": "book.spirit_anchor",
+          "name": "《镇灵篇》",
+          "type": "skill_book",
+          "desc": "古修遗留的御神法门，可压制异兽灵识。",
+          "learnTechniqueId": "spirit_anchor",
+          "count": 1
+        },
+        {
+          "itemId": "pill.clear_eye_elixir",
+          "name": "明目丹",
+          "type": "consumable",
+          "level": 13,
+          "tags": [
+            "战斗丹药"
+          ],
+          "desc": "服后心神澄明，2400 息内命中 +9%、视野 +14%，死亡不消失。",
+          "consumeBuffs": [
+            {
+              "buffId": "item_buff.clear_eye",
+              "name": "澄目",
+              "desc": "目力与判断更清楚，2400 息内命中 +9%、视野 +14%；身死也不会立刻散去。",
+              "shortMark": "明",
+              "duration": 2400,
+              "persistOnDeath": true,
+              "stats": {
+                "hit": 9,
+                "viewRange": 14
+              },
+              "statMode": "percent"
+            }
+          ],
+          "count": 1
+        }
+      ],
+      "nextQuestId": "q_ruin_keystone_main",
+      "giverId": "npc_qingxuan",
+      "giverName": "清玄执事",
+      "giverMapId": "yunlai_town",
+      "giverMapName": "云来镇",
+      "giverX": 31,
+      "giverY": 24,
+      "targetMapId": "ancient_ruins",
+      "targetMapName": "断碑遗迹",
+      "targetX": 19,
+      "targetY": 21,
+      "targetNpcId": "npc_rune_keeper",
+      "targetNpcName": "守纹残念",
+      "submitNpcId": "npc_rune_keeper",
+      "submitNpcName": "守纹残念",
+      "submitMapId": "ancient_ruins",
+      "submitMapName": "断碑遗迹",
+      "submitX": 19,
+      "submitY": 21
+    },
+    {
+      "id": "q_han_gate_steel",
+      "title": "门楼旧铁",
+      "desc": "韩铁匠让你去收拾城边流匪，把还像样的铁件和腰牌一并带回来，他好给门楼和你各打一件能用的家伙。",
+      "line": "side",
+      "story": "云来镇不缺会抱怨的人，缺的是能把死人和匪徒身上那点东西重新敲成活路的人。",
+      "status": "available",
+      "objectiveType": "kill",
+      "objectiveText": "清掉城边流匪，并交回匪徒腰牌",
+      "progress": 0,
+      "required": 6,
+      "targetName": "城边流匪",
+      "rewardText": "破阵丹 x1",
+      "targetMonsterId": "m_gate_thug",
+      "rewardItemId": "pill.break_array_elixir",
+      "rewardItemIds": [
+        "pill.break_array_elixir"
+      ],
+      "rewards": [
+        {
+          "itemId": "pill.break_array_elixir",
+          "name": "破阵丹",
+          "type": "consumable",
+          "level": 12,
+          "tags": [
+            "战斗丹药"
+          ],
+          "desc": "药力凝在手眼与发力节点，2400 息内破招 +14%、命中 +7%，身死不散。",
+          "consumeBuffs": [
+            {
+              "buffId": "item_buff.break_array",
+              "name": "破阵劲",
+              "desc": "下手更刁钻，2400 息内破招 +14%、命中 +7%；此药势即使身死也不会立刻散去。",
+              "shortMark": "破",
+              "duration": 2400,
+              "persistOnDeath": true,
+              "stats": {
+                "breakPower": 14,
+                "hit": 7
+              },
+              "statMode": "percent"
+            }
+          ],
+          "count": 1
+        }
+      ],
+      "requiredItemId": "bandit_insignia",
+      "requiredItemCount": 3,
+      "giverId": "npc_blacksmith_han",
+      "giverName": "韩铁匠",
+      "giverMapId": "yunlai_town",
+      "giverMapName": "云来镇",
+      "giverX": 47,
+      "giverY": 26,
+      "targetMapId": "yunlai_town",
+      "targetMapName": "云来镇",
+      "submitNpcId": "npc_blacksmith_han",
+      "submitNpcName": "韩铁匠",
+      "submitMapId": "yunlai_town",
+      "submitMapName": "云来镇",
+      "submitX": 47,
+      "submitY": 26
+    },
+    {
+      "id": "q_intro_clear_south_gate",
+      "title": "门外先清一圈",
+      "desc": "清掉南门外与废料堆附近的灰尾鼠，证明你不是白吃脚店饭的人。",
+      "line": "main",
+      "chapter": "序章·断道入镇",
+      "story": "马会头不愿多给你一句好话，但他也确实不想让南门外继续烂下去。粮袋边、垃圾堆旁都是灰尾鼠，再拖下去，流民和守兵今晚都别想睡安稳。",
+      "status": "available",
+      "objectiveType": "kill",
+      "objectiveText": "击退南门外的灰尾鼠",
+      "progress": 0,
+      "required": 6,
+      "targetName": "灰尾鼠",
+      "rewardText": "回春散 x3",
+      "targetMonsterId": "m_town_rat_south",
+      "rewardItemId": "pill.minor_heal",
+      "rewardItemIds": [
+        "pill.minor_heal"
+      ],
+      "rewards": [
+        {
+          "itemId": "pill.minor_heal",
+          "name": "回春散",
+          "type": "consumable",
+          "level": 2,
+          "tags": [
+            "战斗丹药"
+          ],
+          "desc": "草木药气温和，服下后立刻恢复 22% 气血。",
+          "healPercent": 0.22,
+          "count": 3
+        }
+      ],
+      "nextQuestId": "q_intro_medicine_fee",
+      "giverId": "npc_ma_huitou",
+      "giverName": "马会头",
+      "giverMapId": "yunlai_town",
+      "giverMapName": "云来镇",
+      "giverX": 32,
+      "giverY": 47,
+      "targetMapId": "yunlai_town",
+      "targetMapName": "云来镇",
+      "submitNpcId": "npc_ma_huitou",
+      "submitNpcName": "马会头",
+      "submitMapId": "yunlai_town",
+      "submitMapName": "云来镇",
+      "submitX": 32,
+      "submitY": 47
+    },
+    {
+      "id": "q_ridge_sigil_main",
+      "title": "拿到那块行令",
+      "desc": "清掉守关残魂，带回灵岭行令。",
+      "line": "main",
+      "chapter": "第四章·兽谷问门",
+      "story": "守岭老修不认嘴上的决心，只认你敢不敢在灵脊岭把守关残魂打散。那枚灵岭行令不是通关奖励，而是一张门票，证明你已经够资格去碰凡人不该碰的第一层东西。",
+      "status": "available",
+      "objectiveType": "kill",
+      "objectiveText": "清掉守关残魂并带回灵岭行令",
+      "progress": 0,
+      "required": 2,
+      "targetName": "守关残魂",
+      "rewardText": "青萝束冠 x1",
+      "targetMonsterId": "m_ridge_ghost",
+      "rewardItemId": "equip.verdant_crown",
+      "rewardItemIds": [
+        "equip.verdant_crown"
+      ],
+      "rewards": [
+        {
+          "itemId": "equip.verdant_crown",
+          "name": "青萝束冠",
+          "type": "equipment",
+          "grade": "yellow",
+          "level": 19,
+          "desc": "细藤束成的浅冠，戴久了能让人下意识放缓呼吸。",
+          "equipSlot": "head",
+          "equipAttrs": {
+            "spirit": 2
+          },
+          "equipValueStats": {
+            "spellDef": 9,
+            "viewRange": 1,
+            "resolvePower": 5
+          },
+          "effects": [
+            {
+              "effectId": "verdant-crown-study",
+              "type": "progress_boost",
+              "statMode": "flat",
+              "conditions": {
+                "mode": "all",
+                "items": [
+                  {
+                    "type": "is_cultivating",
+                    "value": true
+                  }
+                ]
+              },
+              "valueStats": {
+                "techniqueExpPerTick": 7
+              }
+            }
+          ],
+          "count": 1
+        }
+      ],
+      "nextQuestId": "q_ridge_qi_refining",
+      "requiredItemId": "spirit_ridge_sigil",
+      "requiredItemCount": 1,
+      "giverId": "npc_ridge_sage",
+      "giverName": "守岭老修",
+      "giverMapId": "spirit_ridge",
+      "giverMapName": "灵脊岭",
+      "giverX": 24,
+      "giverY": 24,
+      "targetMapId": "spirit_ridge",
+      "targetMapName": "灵脊岭",
+      "submitNpcId": "npc_qingxuan",
+      "submitNpcName": "清玄执事",
+      "submitMapId": "yunlai_town",
+      "submitMapName": "云来镇",
+      "submitX": 31,
+      "submitY": 24
+    },
+    {
+      "id": "q_ridge_tiger_claw",
+      "title": "拿爪换路",
+      "desc": "守岭老修嘴上不说，实际上一直在靠岭兽爪修补山路上的旧桩。你去多收些回来，他便肯把更像样的轻身靴交给你。",
+      "line": "side",
+      "story": "灵脊岭不是讲道理的地方，想在这里留条路，靠的是一件件捡回来的硬东西。",
+      "status": "available",
+      "objectiveType": "kill",
+      "objectiveText": "击败灵脊虎并收回岭兽爪",
+      "progress": 0,
+      "required": 6,
+      "targetName": "灵脊虎",
+      "rewardText": "轻身丹 x1",
+      "targetMonsterId": "m_spirit_tiger",
+      "rewardItemId": "pill.windstride_elixir",
+      "rewardItemIds": [
+        "pill.windstride_elixir"
+      ],
+      "rewards": [
+        {
+          "itemId": "pill.windstride_elixir",
+          "name": "轻身丹",
+          "type": "consumable",
+          "level": 11,
+          "tags": [
+            "战斗丹药"
+          ],
+          "desc": "药劲顺着经脉卸到脚下，2400 息内移动速度 +22%、闪避 +7%，死亡不消失。",
+          "consumeBuffs": [
+            {
+              "buffId": "item_buff.windstride",
+              "name": "踏风",
+              "desc": "脚下更轻，2400 息内移动速度 +22%、闪避 +7%；这股药劲即使身死也不会立刻散去。",
+              "shortMark": "疾",
+              "duration": 2400,
+              "persistOnDeath": true,
+              "stats": {
+                "moveSpeed": 22,
+                "dodge": 7
+              },
+              "statMode": "percent"
+            }
+          ],
+          "count": 1
+        }
+      ],
+      "nextQuestId": "q_ridge_frost_essence_side",
+      "requiredItemId": "ridge_beast_claw",
+      "requiredItemCount": 6,
+      "giverId": "npc_ridge_sage",
+      "giverName": "守岭老修",
+      "giverMapId": "spirit_ridge",
+      "giverMapName": "灵脊岭",
+      "giverX": 24,
+      "giverY": 24,
+      "targetMapId": "spirit_ridge",
+      "targetMapName": "灵脊岭",
+      "submitNpcId": "npc_ridge_sage",
+      "submitNpcName": "守岭老修",
+      "submitMapId": "spirit_ridge",
+      "submitMapName": "灵脊岭",
+      "submitX": 24,
+      "submitY": 24
+    },
+    {
+      "id": "q_ruin_shard_trace",
+      "title": "散开的旧纹",
+      "desc": "清掉遗迹石卫，带回断纹石片让清玄确认旧阵残痕。",
+      "line": "main",
+      "chapter": "第三章·矿洞遗火",
+      "story": "矿洞的信标和遗迹的钥石拼在一起后，事情已经很清楚了: 云来镇外的那些怪事不是偶然，是旧阵崩坏以后一路往人间漏出来的余波。清玄让你再收一批断纹石片，把最后能辨认的线索都带回来。",
+      "status": "available",
+      "objectiveType": "kill",
+      "objectiveText": "清掉遗迹石卫并带回断纹石片",
+      "progress": 0,
+      "required": 6,
+      "targetName": "石卫傀儡",
+      "rewardText": "《止念诀》 x1、群兽谷行图 x1",
+      "targetMonsterId": "m_ruin_guardian",
+      "rewardItemId": "book_stillheart",
+      "rewardItemIds": [
+        "book_stillheart",
+        "map.beast_valley"
+      ],
+      "rewards": [
+        {
+          "itemId": "book_stillheart",
+          "name": "《止念诀》",
+          "type": "skill_book",
+          "desc": "收束心神、以念压敌的法门。",
+          "learnTechniqueId": "stillheart",
+          "count": 1
+        },
+        {
+          "itemId": "map.beast_valley",
+          "name": "群兽谷行图",
+          "type": "consumable",
+          "level": 5,
+          "desc": "专为猎妖者整理的谷地行图。使用后可永久解锁群兽谷地图。",
+          "mapUnlockId": "beast_valley",
+          "count": 1
+        }
+      ],
+      "nextQuestId": "q_ruin_innate",
+      "requiredItemId": "rune_shard",
+      "requiredItemCount": 6,
+      "giverId": "npc_qingxuan",
+      "giverName": "清玄执事",
+      "giverMapId": "yunlai_town",
+      "giverMapName": "云来镇",
+      "giverX": 31,
+      "giverY": 24,
+      "targetMapId": "ancient_ruins",
+      "targetMapName": "断碑遗迹",
+      "submitNpcId": "npc_qingxuan",
+      "submitNpcName": "清玄执事",
+      "submitMapId": "yunlai_town",
+      "submitMapName": "云来镇",
+      "submitX": 31,
+      "submitY": 24
+    },
+    {
+      "id": "q_intro_medicine_fee",
+      "title": "伤药要拿命换",
+      "desc": "击退南门外流匪，并带回足够的匪徒腰牌交给沈七娘。",
+      "line": "main",
+      "chapter": "序章·断道入镇",
+      "story": "脚店里那名无名伤者快撑不住了，沈七娘却不打算倒贴药。她让你去收拾几名趁夜摸到城边的流匪，把他们身上的腰牌带回来，算作今晚那锅药汤的钱。",
+      "status": "available",
+      "objectiveType": "kill",
+      "objectiveText": "清掉城边流匪并带回腰牌",
+      "progress": 0,
+      "required": 4,
+      "targetName": "趁火打劫的流匪",
+      "rewardText": "小还灵丹 x2、赤芽丹 x1",
+      "targetMonsterId": "m_gate_thug",
+      "rewardItemId": "minor_qi_pill",
+      "rewardItemIds": [
+        "minor_qi_pill",
+        "pill.crimson_bud_elixir"
+      ],
+      "rewards": [
+        {
+          "itemId": "minor_qi_pill",
+          "name": "小还灵丹",
+          "type": "consumable",
+          "level": 4,
+          "desc": "药力柔和，立刻恢复 22% 真气。",
+          "qiPercent": 0.22,
+          "count": 2
+        },
+        {
+          "itemId": "pill.crimson_bud_elixir",
+          "name": "赤芽丹",
+          "type": "consumable",
+          "level": 7,
+          "tags": [
+            "战斗丹药"
+          ],
+          "desc": "服后 2400 息内血勇更盛，即使身死药势也不会散，暴击 +9%。",
+          "consumeBuffs": [
+            {
+              "buffId": "item_buff.crimson_bud",
+              "name": "赤芽生锋",
+              "desc": "药力催得血气躁动，2400 息内暴击 +9%；即使身死，药势仍会残留到药尽为止。",
+              "shortMark": "赤",
+              "duration": 2400,
+              "persistOnDeath": true,
+              "stats": {
+                "crit": 9
+              },
+              "statMode": "percent"
+            }
+          ],
+          "count": 1
+        }
+      ],
+      "nextQuestId": "q_intro_wounded_words",
+      "requiredItemId": "bandit_insignia",
+      "requiredItemCount": 2,
+      "giverId": "npc_shen_qiniang",
+      "giverName": "沈七娘",
+      "giverMapId": "yunlai_town",
+      "giverMapName": "云来镇",
+      "giverX": 16,
+      "giverY": 34,
+      "targetMapId": "yunlai_town",
+      "targetMapName": "云来镇",
+      "submitNpcId": "npc_shen_qiniang",
+      "submitNpcName": "沈七娘",
+      "submitMapId": "yunlai_town",
+      "submitMapName": "云来镇",
+      "submitX": 16,
+      "submitY": 34
+    },
+    {
+      "id": "q_guizang_gate_warning",
+      "title": "守口旧话",
+      "desc": "去和残录人·闻烬谈谈，听清归藏脉窟到底在压什么。",
+      "line": "side",
+      "chapter": "终章·归藏压基",
+      "story": "岑止守在归藏外口，看上去像是在劝人回头，实际上是在找还肯听旧话的人。它让你先去见闻烬，说那人记得这座旧阵是怎么一步步歪掉的。",
+      "status": "available",
+      "objectiveType": "talk",
+      "objectiveText": "去找残录人·闻烬，听它把旧阵残录说完",
+      "progress": 0,
+      "required": 1,
+      "targetName": "残录人·闻烬",
+      "rewardText": "大还灵丹 x1",
+      "targetMonsterId": "",
+      "rewardItemId": "major_qi_pill",
+      "rewardItemIds": [
+        "major_qi_pill"
+      ],
+      "rewards": [
+        {
+          "itemId": "major_qi_pill",
+          "name": "大还灵丹",
+          "type": "consumable",
+          "level": 8,
+          "desc": "药力更浑厚，立刻恢复 32% 真气。",
+          "qiPercent": 0.32,
+          "count": 1
+        }
+      ],
+      "nextQuestId": "q_guizang_dust_record",
+      "giverId": "npc_guizang_gate_watcher",
+      "giverName": "守口旧修·岑止",
+      "giverMapId": "guizang_vein_cavern",
+      "giverMapName": "归藏脉窟",
+      "giverX": 57,
+      "giverY": 34,
+      "targetMapId": "guizang_vein_cavern",
+      "targetMapName": "归藏脉窟",
+      "targetX": 41,
+      "targetY": 33,
+      "targetNpcId": "npc_guizang_broken_recorder",
+      "targetNpcName": "残录人·闻烬",
+      "submitNpcId": "npc_guizang_broken_recorder",
+      "submitNpcName": "残录人·闻烬",
+      "submitMapId": "guizang_vein_cavern",
+      "submitMapName": "归藏脉窟",
+      "submitX": 41,
+      "submitY": 33
+    },
+    {
+      "id": "q_ridge_sage_talk",
+      "title": "守岭的人没睡",
+      "desc": "与守岭老修对话，听清灵脊岭守的到底是什么。",
+      "line": "main",
+      "chapter": "第四章·兽谷问门",
+      "story": "守岭老修看完血羽，认得那不是第一次从兽谷里飞出来的东西。他告诉你，灵脊岭守的不是山路，是凡人和修士之间那条还没彻底断掉的窄门。若想往前走，你得先拿到灵岭行令。",
+      "status": "available",
+      "objectiveType": "talk",
+      "objectiveText": "向守岭老修问清灵脊岭的旧事",
+      "progress": 0,
+      "required": 1,
+      "targetName": "守岭老修",
+      "rewardText": "炉心赤戒 x1",
+      "targetMonsterId": "",
+      "rewardItemId": "equip.furnace_red_ring",
+      "rewardItemIds": [
+        "equip.furnace_red_ring"
+      ],
+      "rewards": [
+        {
+          "itemId": "equip.furnace_red_ring",
+          "name": "炉心赤戒",
+          "type": "equipment",
+          "grade": "mystic",
+          "level": 26,
+          "desc": "戒心里封着一粒炉心赤晶，真正开打时会把人的火劲再往上顶半截。",
+          "equipSlot": "accessory",
+          "equipValueStats": {
+            "spellAtk": 8,
+            "crit": 4,
+            "maxQiOutputPerTick": 8
+          },
+          "effects": [
+            {
+              "effectId": "furnace-red-burst",
+              "type": "stat_aura",
+              "conditions": {
+                "mode": "all",
+                "items": [
+                  {
+                    "type": "hp_ratio",
+                    "op": "<=",
+                    "value": 0.6
+                  }
+                ]
+              },
+              "valueStats": {
+                "spellAtk": 5,
+                "crit": 5,
+                "breakPower": 5
+              }
+            }
+          ],
+          "count": 1
+        }
+      ],
+      "nextQuestId": "q_ridge_sigil_main",
+      "giverId": "npc_ridge_sage",
+      "giverName": "守岭老修",
+      "giverMapId": "spirit_ridge",
+      "giverMapName": "灵脊岭",
+      "giverX": 24,
+      "giverY": 24,
+      "targetMapId": "spirit_ridge",
+      "targetMapName": "灵脊岭",
+      "targetX": 24,
+      "targetY": 24,
+      "targetNpcId": "npc_ridge_sage",
+      "targetNpcName": "守岭老修",
+      "submitNpcId": "npc_ridge_sage",
+      "submitNpcName": "守岭老修",
+      "submitMapId": "spirit_ridge",
+      "submitMapName": "灵脊岭",
+      "submitX": 24,
+      "submitY": 24
+    },
+    {
+      "id": "q_ruin_keeper_side",
+      "title": "守纹残念",
+      "desc": "碑灵学士把你推给守纹残念，说真正还能开门的人不是它。去把遗迹钥石拿回来，再看看这地方到底是被什么东西熬成现在这副样子。",
+      "line": "side",
+      "story": "一处遗迹若还守着门，往往不是为了拦外人，而是为了把门里的东西再关久一点。",
+      "status": "available",
+      "objectiveType": "kill",
+      "objectiveText": "击败符阵看守并取回遗迹钥石",
+      "progress": 0,
+      "required": 2,
+      "targetName": "符阵看守",
+      "rewardText": "大还灵丹 x1、噬元骨牌 x1",
+      "targetMonsterId": "m_rune_watcher",
+      "rewardItemId": "major_qi_pill",
+      "rewardItemIds": [
+        "major_qi_pill",
+        "equip.soul_devour_token"
+      ],
+      "rewards": [
+        {
+          "itemId": "major_qi_pill",
+          "name": "大还灵丹",
+          "type": "consumable",
+          "level": 8,
+          "desc": "药力更浑厚，立刻恢复 32% 真气。",
+          "qiPercent": 0.32,
+          "count": 1
+        },
+        {
+          "itemId": "equip.soul_devour_token",
+          "name": "噬元骨牌",
+          "type": "equipment",
+          "grade": "mystic",
+          "level": 4,
+          "desc": "骨牌内封着一缕不肯散去的残意，静修时残意会层层侵体，杀敌时反能回涌一口浊气。",
+          "equipSlot": "accessory",
+          "tags": [
+            "fanren",
+            "evil_path",
+            "cultivation"
+          ],
+          "effects": [
+            {
+              "effectId": "soul-devour-erosion",
+              "type": "timed_buff",
+              "trigger": "on_cultivation_tick",
+              "target": "self",
+              "conditions": {
+                "mode": "all",
+                "items": [
+                  {
+                    "type": "is_cultivating",
+                    "value": true
+                  }
+                ]
+              },
+              "buff": {
+                "buffId": "equip.soul_devour_erosion",
+                "name": "噬元侵骨",
+                "desc": "每息叠一层，四维压制会随着层数不断加深；当前实际降幅会直接显示在状态说明里。",
+                "duration": 3600,
+                "shortMark": "蚀",
+                "category": "debuff",
+                "visibility": "public",
+                "persistOnDeath": true,
+                "color": "#6e4a3f",
+                "maxStacks": 6442450941
+              }
+            },
+            {
+              "effectId": "soul-devour-growth",
+              "type": "progress_boost",
+              "statMode": "flat",
+              "conditions": {
+                "mode": "all",
+                "items": [
+                  {
+                    "type": "is_cultivating",
+                    "value": true
+                  }
+                ]
+              },
+              "stats": {
+                "realmExpPerTick": 4,
+                "techniqueExpPerTick": 5
+              }
+            },
+            {
+              "effectId": "soul-devour-feast",
+              "type": "timed_buff",
+              "trigger": "on_kill",
+              "target": "self",
+              "cooldown": 6,
+              "buff": {
+                "buffId": "equip.soul_devour_feast",
+                "name": "食煞回元",
+                "desc": "斩杀后残意反涌，短时间内灵力回复与功法运转更快。",
+                "duration": 8,
+                "shortMark": "煞",
+                "category": "buff",
+                "visibility": "public",
+                "color": "#8a3f2d",
+                "statMode": "flat",
+                "valueStats": {
+                  "qiRegenRate": 0.5,
+                  "techniqueExpPerTick": 6
+                }
+              }
+            }
+          ],
+          "count": 1
+        }
+      ],
+      "requiredItemId": "ruin_keystone",
+      "requiredItemCount": 1,
+      "giverId": "npc_rune_keeper",
+      "giverName": "守纹残念",
+      "giverMapId": "ancient_ruins",
+      "giverMapName": "断碑遗迹",
+      "giverX": 19,
+      "giverY": 21,
+      "targetMapId": "ancient_ruins",
+      "targetMapName": "断碑遗迹",
+      "submitNpcId": "npc_rune_keeper",
+      "submitNpcName": "守纹残念",
+      "submitMapId": "ancient_ruins",
+      "submitMapName": "断碑遗迹",
+      "submitX": 19,
+      "submitY": 21
+    },
+    {
+      "id": "q_ridge_frost_essence_side",
+      "title": "霜华照脉",
+      "desc": "守岭老修让你顺手再收些霜华精粹。他说你既然准备叩门，就该学会先把经脉里的躁气压下去。",
+      "line": "side",
+      "story": "越临近门槛，越要知道什么时候该快，什么时候该停。",
+      "status": "available",
+      "objectiveType": "kill",
+      "objectiveText": "猎杀寒翎鹤并收回霜华精粹",
+      "progress": 0,
+      "required": 6,
+      "targetName": "寒翎鹤",
+      "rewardText": "大还灵丹 x2、破阵丹 x1、寒心膏 x2",
+      "targetMonsterId": "m_frost_crane",
+      "rewardItemId": "major_qi_pill",
+      "rewardItemIds": [
+        "major_qi_pill",
+        "pill.break_array_elixir",
+        "frost_heart_paste"
+      ],
+      "rewards": [
+        {
+          "itemId": "major_qi_pill",
+          "name": "大还灵丹",
+          "type": "consumable",
+          "level": 8,
+          "desc": "药力更浑厚，立刻恢复 32% 真气。",
+          "qiPercent": 0.32,
+          "count": 2
+        },
+        {
+          "itemId": "pill.break_array_elixir",
+          "name": "破阵丹",
+          "type": "consumable",
+          "level": 12,
+          "tags": [
+            "战斗丹药"
+          ],
+          "desc": "药力凝在手眼与发力节点，2400 息内破招 +14%、命中 +7%，身死不散。",
+          "consumeBuffs": [
+            {
+              "buffId": "item_buff.break_array",
+              "name": "破阵劲",
+              "desc": "下手更刁钻，2400 息内破招 +14%、命中 +7%；此药势即使身死也不会立刻散去。",
+              "shortMark": "破",
+              "duration": 2400,
+              "persistOnDeath": true,
+              "stats": {
+                "breakPower": 14,
+                "hit": 7
+              },
+              "statMode": "percent"
+            }
+          ],
+          "count": 1
+        },
+        {
+          "itemId": "frost_heart_paste",
+          "name": "寒心膏",
+          "type": "consumable",
+          "level": 10,
+          "desc": "寒性药膏可稳住伤处，立刻恢复 42% 气血。",
+          "healPercent": 0.42,
+          "count": 2
+        }
+      ],
+      "requiredItemId": "frost_essence",
+      "requiredItemCount": 4,
+      "giverId": "npc_ridge_sage",
+      "giverName": "守岭老修",
+      "giverMapId": "spirit_ridge",
+      "giverMapName": "灵脊岭",
+      "giverX": 24,
+      "giverY": 24,
+      "targetMapId": "spirit_ridge",
+      "targetMapName": "灵脊岭",
+      "submitNpcId": "npc_ridge_sage",
+      "submitNpcName": "守岭老修",
+      "submitMapId": "spirit_ridge",
+      "submitMapName": "灵脊岭",
+      "submitX": 24,
+      "submitY": 24
+    },
+    {
+      "id": "q_recluse_spider_silk_rewrite",
+      "title": "丝里藏火",
+      "desc": "野修客要你去阴沼收完整蛛丝。他说自己手里那卷《赤焰诀》残篇，只有给肯自己找活路的人才算没白留。",
+      "line": "side",
+      "story": "这世上总有人不肯认命，可他们教人的方式，也从来不会比世道更温柔。",
+      "status": "available",
+      "objectiveType": "kill",
+      "objectiveText": "猎杀阴沼毒蛛并收回阴沼丝",
+      "progress": 0,
+      "required": 2,
+      "targetName": "阴沼毒蛛",
+      "rewardText": "大还灵丹 x1、轻身丹 x1、苦修丹 x1",
+      "targetMonsterId": "m_mire_spider",
+      "rewardItemId": "major_qi_pill",
+      "rewardItemIds": [
+        "major_qi_pill",
+        "pill.windstride_elixir",
+        "pill.bitter_cultivation_elixir"
+      ],
+      "rewards": [
+        {
+          "itemId": "major_qi_pill",
+          "name": "大还灵丹",
+          "type": "consumable",
+          "level": 8,
+          "desc": "药力更浑厚，立刻恢复 32% 真气。",
+          "qiPercent": 0.32,
+          "count": 1
+        },
+        {
+          "itemId": "pill.windstride_elixir",
+          "name": "轻身丹",
+          "type": "consumable",
+          "level": 11,
+          "tags": [
+            "战斗丹药"
+          ],
+          "desc": "药劲顺着经脉卸到脚下，2400 息内移动速度 +22%、闪避 +7%，死亡不消失。",
+          "consumeBuffs": [
+            {
+              "buffId": "item_buff.windstride",
+              "name": "踏风",
+              "desc": "脚下更轻，2400 息内移动速度 +22%、闪避 +7%；这股药劲即使身死也不会立刻散去。",
+              "shortMark": "疾",
+              "duration": 2400,
+              "persistOnDeath": true,
+              "stats": {
+                "moveSpeed": 22,
+                "dodge": 7
+              },
+              "statMode": "percent"
+            }
+          ],
+          "count": 1
+        },
+        {
+          "itemId": "pill.bitter_cultivation_elixir",
+          "name": "苦修丹",
+          "type": "consumable",
+          "level": 18,
+          "desc": "强行催运行功，3000 息内境界修为 +25%、功法经验 +25%，但移动速度 -12%。",
+          "consumeBuffs": [
+            {
+              "buffId": "item_buff.bitter_cultivation",
+              "name": "苦修",
+              "desc": "境界修为与功法经验获取效率提高，但经脉始终带着涩滞感；3000 息内移动速度 -12%。",
+              "shortMark": "苦",
+              "duration": 3000,
+              "stats": {
+                "playerExpRate": 25,
+                "techniqueExpRate": 25,
+                "moveSpeed": -12
+              },
+              "statMode": "percent"
+            }
+          ],
+          "count": 1
+        }
+      ],
+      "requiredItemId": "spider_silk",
+      "requiredItemCount": 4,
+      "giverId": "npc_wild_recluse",
+      "giverName": "野修客",
+      "giverMapId": "wildlands",
+      "giverMapName": "荒野",
+      "giverX": 36,
+      "giverY": 10,
+      "targetMapId": "wildlands",
+      "targetMapName": "荒野",
+      "submitNpcId": "npc_wild_recluse",
+      "submitNpcName": "野修客",
+      "submitMapId": "wildlands",
+      "submitMapName": "荒野",
+      "submitX": 36,
+      "submitY": 10
+    },
+    {
+      "id": "q_lan_tail_medicine",
+      "title": "尾药驱秽",
+      "desc": "兰药师让你把后巷鼠患再清一轮，多收些鼠尾回来。她要给药铺和脚店都熬一锅驱秽药，省得夏天一到又是烂疮和瘟味。",
+      "line": "side",
+      "story": "药铺能稳住几条命，不是靠仙丹，是靠有人把最脏最细碎的活做完。",
+      "status": "available",
+      "objectiveType": "kill",
+      "objectiveText": "清掉后巷鼠患，并收回鼠尾",
+      "progress": 0,
+      "required": 6,
+      "targetName": "后巷灰尾鼠",
+      "rewardText": "寒心膏 x2、赤芽丹 x1",
+      "targetMonsterId": "m_town_rat_refuse",
+      "rewardItemId": "frost_heart_paste",
+      "rewardItemIds": [
+        "frost_heart_paste",
+        "pill.crimson_bud_elixir"
+      ],
+      "rewards": [
+        {
+          "itemId": "frost_heart_paste",
+          "name": "寒心膏",
+          "type": "consumable",
+          "level": 10,
+          "desc": "寒性药膏可稳住伤处，立刻恢复 42% 气血。",
+          "healPercent": 0.42,
+          "count": 2
+        },
+        {
+          "itemId": "pill.crimson_bud_elixir",
+          "name": "赤芽丹",
+          "type": "consumable",
+          "level": 7,
+          "tags": [
+            "战斗丹药"
+          ],
+          "desc": "服后 2400 息内血勇更盛，即使身死药势也不会散，暴击 +9%。",
+          "consumeBuffs": [
+            {
+              "buffId": "item_buff.crimson_bud",
+              "name": "赤芽生锋",
+              "desc": "药力催得血气躁动，2400 息内暴击 +9%；即使身死，药势仍会残留到药尽为止。",
+              "shortMark": "赤",
+              "duration": 2400,
+              "persistOnDeath": true,
+              "stats": {
+                "crit": 9
+              },
+              "statMode": "percent"
+            }
+          ],
+          "count": 1
+        }
+      ],
+      "requiredItemId": "rat_tail",
+      "requiredItemCount": 6,
+      "giverId": "npc_herbalist_lan",
+      "giverName": "兰药师",
+      "giverMapId": "yunlai_town",
+      "giverMapName": "云来镇",
+      "giverX": 39,
+      "giverY": 34,
+      "targetMapId": "yunlai_town",
+      "targetMapName": "云来镇",
+      "submitNpcId": "npc_herbalist_lan",
+      "submitNpcName": "兰药师",
+      "submitMapId": "yunlai_town",
+      "submitMapName": "云来镇",
+      "submitX": 39,
+      "submitY": 34
+    },
+    {
+      "id": "q_guizang_dust_record",
+      "title": "五炁落账",
+      "desc": "收集五炁尘，帮闻烬把归藏残录里缺掉的那一段补上。",
+      "line": "side",
+      "chapter": "终章·归藏压基",
+      "story": "闻烬手里的残录缺了最关键的几页，它说纸页早没了，能补上记录的只有那些在乱流里磨出来的五炁尘。你得去外环和折廊里把尘收回来，它才能把缺口补齐。",
+      "status": "available",
+      "objectiveType": "submit_item",
+      "objectiveText": "收集五炁尘并交给残录人·闻烬",
+      "progress": 0,
+      "required": 8,
+      "targetName": "五炁尘",
+      "rewardText": "引基散 x2、明目丹 x1",
+      "targetMonsterId": "",
+      "rewardItemId": "pill.guiding_powder",
+      "rewardItemIds": [
+        "pill.guiding_powder",
+        "pill.clear_eye_elixir"
+      ],
+      "rewards": [
+        {
+          "itemId": "pill.guiding_powder",
+          "name": "引基散",
+          "type": "consumable",
+          "level": 20,
+          "desc": "药散入腹后会把乱气往气海底部慢慢拢住，3600 息内让境界修为 +30%、功法经验 +30%。",
+          "consumeBuffs": [
+            {
+              "buffId": "item_buff.guiding_powder",
+              "name": "引基",
+              "desc": "气机被药势往下拢住，3600 息内境界修为与功法经验获取效率各提高 30%。",
+              "shortMark": "引",
+              "duration": 3600,
+              "stats": {
+                "playerExpRate": 30,
+                "techniqueExpRate": 30
+              },
+              "statMode": "percent"
+            }
+          ],
+          "grade": "yellow",
+          "count": 2
+        },
+        {
+          "itemId": "pill.clear_eye_elixir",
+          "name": "明目丹",
+          "type": "consumable",
+          "level": 13,
+          "tags": [
+            "战斗丹药"
+          ],
+          "desc": "服后心神澄明，2400 息内命中 +9%、视野 +14%，死亡不消失。",
+          "consumeBuffs": [
+            {
+              "buffId": "item_buff.clear_eye",
+              "name": "澄目",
+              "desc": "目力与判断更清楚，2400 息内命中 +9%、视野 +14%；身死也不会立刻散去。",
+              "shortMark": "明",
+              "duration": 2400,
+              "persistOnDeath": true,
+              "stats": {
+                "hit": 9,
+                "viewRange": 14
+              },
+              "statMode": "percent"
+            }
+          ],
+          "count": 1
+        }
+      ],
+      "nextQuestId": "q_guizang_beast_test",
+      "requiredItemId": "fivephase_dust",
+      "requiredItemCount": 8,
+      "giverId": "npc_guizang_broken_recorder",
+      "giverName": "残录人·闻烬",
+      "giverMapId": "guizang_vein_cavern",
+      "giverMapName": "归藏脉窟",
+      "giverX": 41,
+      "giverY": 33,
+      "targetMapId": "guizang_vein_cavern",
+      "targetMapName": "归藏脉窟",
+      "submitNpcId": "npc_guizang_broken_recorder",
+      "submitNpcName": "残录人·闻烬",
+      "submitMapId": "guizang_vein_cavern",
+      "submitMapName": "归藏脉窟",
+      "submitX": 41,
+      "submitY": 33
+    },
+    {
+      "id": "q_mine_colossus_side",
+      "title": "熄掉那颗炉心",
+      "desc": "既然旧炉还想再烧，先得把矿脉巨像的那颗心挖出来。锻炉余火说那东西要么毁掉你，要么把你送上更硬的一步。",
+      "line": "side",
+      "story": "有些地方的门，不是靠钥匙开的，是靠你敢不敢把门里最大的东西先打烂。",
+      "status": "available",
+      "objectiveType": "kill",
+      "objectiveText": "击败矿脉巨像并取回巨像核心",
+      "progress": 0,
+      "required": 2,
+      "targetName": "矿脉巨像",
+      "rewardText": "大还灵丹 x2",
+      "targetMonsterId": "m_ore_colossus",
+      "rewardItemId": "major_qi_pill",
+      "rewardItemIds": [
+        "major_qi_pill"
+      ],
+      "rewards": [
+        {
+          "itemId": "major_qi_pill",
+          "name": "大还灵丹",
+          "type": "consumable",
+          "level": 8,
+          "desc": "药力更浑厚，立刻恢复 32% 真气。",
+          "qiPercent": 0.32,
+          "count": 2
+        }
+      ],
+      "requiredItemId": "colossus_heart",
+      "requiredItemCount": 1,
+      "giverId": "npc_mine_smith",
+      "giverName": "锻炉余火",
+      "giverMapId": "black_iron_mine",
+      "giverMapName": "玄铁矿洞",
+      "giverX": 26,
+      "giverY": 23,
+      "targetMapId": "black_iron_mine",
+      "targetMapName": "玄铁矿洞",
+      "submitNpcId": "npc_mine_smith",
+      "submitNpcName": "锻炉余火",
+      "submitMapId": "black_iron_mine",
+      "submitMapName": "玄铁矿洞",
+      "submitX": 26,
+      "submitY": 23
+    },
+    {
+      "id": "q_intro_body_tempering",
+      "title": "先把脚跟站住",
+      "desc": "继续在镇外历练，先学好《站桩功》，备齐突破要的鼠尾并把体魄练够，再突破到炼皮境。",
+      "line": "main",
+      "chapter": "序章·断道入镇",
+      "story": "清玄不打算现在就替你掀开北井那层盖子。他给你的要求更现实: 先把境界练到能在云来镇外活着回来。等你真正撑住第一口内息，这镇子里的话你才有资格继续往下听。",
+      "status": "available",
+      "objectiveType": "realm_stage",
+      "objectiveText": "查看突破要求，备齐鼠尾并达到体魄门槛后突破至炼皮境",
+      "progress": 0,
+      "required": 1,
+      "targetName": "炼体境",
+      "rewardText": "《固元功》 x1、轻身丹 x1、大还灵丹 x1",
+      "targetMonsterId": "",
+      "rewardItemId": "book.golden_lock_body",
+      "rewardItemIds": [
+        "book.golden_lock_body",
+        "pill.windstride_elixir",
+        "major_qi_pill"
+      ],
+      "rewards": [
+        {
+          "itemId": "book.golden_lock_body",
+          "name": "《固元功》",
+          "type": "skill_book",
+          "desc": "靠收束气血慢慢稳住筋骨经脉的苦功，偏重根骨。",
+          "learnTechniqueId": "golden_lock_body",
+          "count": 1
+        },
+        {
+          "itemId": "pill.windstride_elixir",
+          "name": "轻身丹",
+          "type": "consumable",
+          "level": 11,
+          "tags": [
+            "战斗丹药"
+          ],
+          "desc": "药劲顺着经脉卸到脚下，2400 息内移动速度 +22%、闪避 +7%，死亡不消失。",
+          "consumeBuffs": [
+            {
+              "buffId": "item_buff.windstride",
+              "name": "踏风",
+              "desc": "脚下更轻，2400 息内移动速度 +22%、闪避 +7%；这股药劲即使身死也不会立刻散去。",
+              "shortMark": "疾",
+              "duration": 2400,
+              "persistOnDeath": true,
+              "stats": {
+                "moveSpeed": 22,
+                "dodge": 7
+              },
+              "statMode": "percent"
+            }
+          ],
+          "count": 1
+        },
+        {
+          "itemId": "major_qi_pill",
+          "name": "大还灵丹",
+          "type": "consumable",
+          "level": 8,
+          "desc": "药力更浑厚，立刻恢复 32% 真气。",
+          "qiPercent": 0.32,
+          "count": 1
+        }
+      ],
+      "nextQuestId": "q_wildlands_roadhouse",
+      "giverId": "npc_qingxuan",
+      "giverName": "清玄执事",
+      "giverMapId": "yunlai_town",
+      "giverMapName": "云来镇",
+      "giverX": 31,
+      "giverY": 24,
+      "targetMapId": "wildlands",
+      "targetMapName": "荒野",
+      "submitNpcId": "npc_qingxuan",
+      "submitNpcName": "清玄执事",
+      "submitMapId": "yunlai_town",
+      "submitMapName": "云来镇",
+      "submitX": 31,
+      "submitY": 24
+    },
+    {
+      "id": "q_bamboo_wolf_fangs",
+      "title": "先把林路咬开的口子堵上",
+      "desc": "清掉林道上的噬灵狼，并收集足够的狼牙给阿栖回报。",
+      "line": "main",
+      "chapter": "第二章·青竹追线",
+      "story": "阿栖告诉你，青竹林这阵子最烦人的不是深处的怪东西，而是反复扑到路上的噬灵狼。只要它们还在咬人、拖尸、断路，运材车就进不了林，东门那条命脉就等于半死。",
+      "status": "available",
+      "objectiveType": "kill",
+      "objectiveText": "清掉林道噬灵狼并带回狼牙",
+      "progress": 0,
+      "required": 6,
+      "targetName": "噬灵狼",
+      "rewardText": "轻身丹 x1",
+      "targetMonsterId": "m_spirit_wolf",
+      "rewardItemId": "pill.windstride_elixir",
+      "rewardItemIds": [
+        "pill.windstride_elixir"
+      ],
+      "rewards": [
+        {
+          "itemId": "pill.windstride_elixir",
+          "name": "轻身丹",
+          "type": "consumable",
+          "level": 11,
+          "tags": [
+            "战斗丹药"
+          ],
+          "desc": "药劲顺着经脉卸到脚下，2400 息内移动速度 +22%、闪避 +7%，死亡不消失。",
+          "consumeBuffs": [
+            {
+              "buffId": "item_buff.windstride",
+              "name": "踏风",
+              "desc": "脚下更轻，2400 息内移动速度 +22%、闪避 +7%；这股药劲即使身死也不会立刻散去。",
+              "shortMark": "疾",
+              "duration": 2400,
+              "persistOnDeath": true,
+              "stats": {
+                "moveSpeed": 22,
+                "dodge": 7
+              },
+              "statMode": "percent"
+            }
+          ],
+          "count": 1
+        }
+      ],
+      "nextQuestId": "q_bamboo_broken_cart",
+      "requiredItemId": "wolf_fang",
+      "requiredItemCount": 4,
+      "giverId": "npc_bamboo_scout",
+      "giverName": "巡林弟子·阿栖",
+      "giverMapId": "bamboo_forest",
+      "giverMapName": "青竹林",
+      "giverX": 6,
+      "giverY": 9,
+      "targetMapId": "bamboo_forest",
+      "targetMapName": "青竹林",
+      "submitNpcId": "npc_bamboo_scout",
+      "submitNpcName": "巡林弟子·阿栖",
+      "submitMapId": "bamboo_forest",
+      "submitMapName": "青竹林",
+      "submitX": 6,
+      "submitY": 9
+    },
+    {
+      "id": "q_sky_star_metal_main",
+      "title": "先把坠星铁拿回来",
+      "desc": "击败天宫猎者，收回足够的星陨金。",
+      "line": "main",
+      "chapter": "第五章·残宫封天",
+      "story": "观星残影告诉你，封柱真正崩断前，天穹残宫先下过一场“星铁雨”。若想补上那道口子，你至少得先从宫里猎者手里夺回足够的星陨金，让凡人的手上也有一件能碰天门的东西。",
+      "status": "available",
+      "objectiveType": "kill",
+      "objectiveText": "击败天宫猎者并收回星陨金",
+      "progress": 0,
+      "required": 6,
+      "targetName": "天宫猎者",
+      "rewardText": "破阵丹 x1",
+      "targetMonsterId": "m_void_hunter",
+      "rewardItemId": "pill.break_array_elixir",
+      "rewardItemIds": [
+        "pill.break_array_elixir"
+      ],
+      "rewards": [
+        {
+          "itemId": "pill.break_array_elixir",
+          "name": "破阵丹",
+          "type": "consumable",
+          "level": 12,
+          "tags": [
+            "战斗丹药"
+          ],
+          "desc": "药力凝在手眼与发力节点，2400 息内破招 +14%、命中 +7%，身死不散。",
+          "consumeBuffs": [
+            {
+              "buffId": "item_buff.break_array",
+              "name": "破阵劲",
+              "desc": "下手更刁钻，2400 息内破招 +14%、命中 +7%；此药势即使身死也不会立刻散去。",
+              "shortMark": "破",
+              "duration": 2400,
+              "persistOnDeath": true,
+              "stats": {
+                "breakPower": 14,
+                "hit": 7
+              },
+              "statMode": "percent"
+            }
+          ],
+          "count": 1
+        }
+      ],
+      "nextQuestId": "q_sky_seal_core_main",
+      "requiredItemId": "star_metal",
+      "requiredItemCount": 4,
+      "giverId": "npc_sky_observer",
+      "giverName": "观星残影",
+      "giverMapId": "sky_ruins",
+      "giverMapName": "天穹残宫",
+      "giverX": 24,
+      "giverY": 25,
+      "targetMapId": "sky_ruins",
+      "targetMapName": "天穹残宫",
+      "submitNpcId": "npc_sky_observer",
+      "submitNpcName": "观星残影",
+      "submitMapId": "sky_ruins",
+      "submitMapName": "天穹残宫",
+      "submitX": 24,
+      "submitY": 25
+    },
+    {
+      "id": "q_ruin_innate",
+      "title": "先把自己练到能扛真相",
+      "desc": "继续历练，迈入先天境，为进入噬魂兽谷做准备。",
+      "line": "main",
+      "chapter": "第三章·矿洞遗火",
+      "story": "清玄终于承认，你已经摸到云来镇这场烂局的一角。但他还是那句话: 现在知道太多，对你只有死得更快一个下场。先把内外一炁练到先天，再去碰兽谷里真正往外冒的那股东西。",
+      "status": "available",
+      "objectiveType": "realm_stage",
+      "objectiveText": "历练至先天境",
+      "progress": 0,
+      "required": 1,
+      "targetName": "先天境",
+      "rewardText": "苦修丹 x1、灵铁碎片 x6",
+      "targetMonsterId": "",
+      "rewardItemId": "pill.bitter_cultivation_elixir",
+      "rewardItemIds": [
+        "pill.bitter_cultivation_elixir",
+        "spirit_iron_fragment"
+      ],
+      "rewards": [
+        {
+          "itemId": "pill.bitter_cultivation_elixir",
+          "name": "苦修丹",
+          "type": "consumable",
+          "level": 18,
+          "desc": "强行催运行功，3000 息内境界修为 +25%、功法经验 +25%，但移动速度 -12%。",
+          "consumeBuffs": [
+            {
+              "buffId": "item_buff.bitter_cultivation",
+              "name": "苦修",
+              "desc": "境界修为与功法经验获取效率提高，但经脉始终带着涩滞感；3000 息内移动速度 -12%。",
+              "shortMark": "苦",
+              "duration": 3000,
+              "stats": {
+                "playerExpRate": 25,
+                "techniqueExpRate": 25,
+                "moveSpeed": -12
+              },
+              "statMode": "percent"
+            }
+          ],
+          "count": 1
+        },
+        {
+          "itemId": "spirit_iron_fragment",
+          "name": "灵铁碎片",
+          "type": "material",
+          "level": 14,
+          "desc": "蕴灵玄铁的碎片。",
+          "count": 6
+        }
+      ],
+      "nextQuestId": "q_valley_patrol_talk",
+      "giverId": "npc_qingxuan",
+      "giverName": "清玄执事",
+      "giverMapId": "yunlai_town",
+      "giverMapName": "云来镇",
+      "giverX": 31,
+      "giverY": 24,
+      "targetMapId": "ancient_ruins",
+      "targetMapName": "断碑遗迹",
+      "submitNpcId": "npc_qingxuan",
+      "submitNpcName": "清玄执事",
+      "submitMapId": "yunlai_town",
+      "submitMapName": "云来镇",
+      "submitX": 31,
+      "submitY": 24
+    },
+    {
+      "id": "q_wildlands_boar_meat",
+      "title": "先保锅里有肉",
+      "desc": "猎杀荒野獠牙野彘，带回足够的彘牙给脚店换粮。",
+      "line": "main",
+      "chapter": "第一章·粮路讨生",
+      "story": "洛猎户不谈侠义，只谈肚子。野外最近猎物少、人却多，若想让镇里少几个饿死鬼，就得先把獠牙野彘打下来，把还能卖的牙和能下锅的肉都带回去。",
+      "status": "available",
+      "objectiveType": "kill",
+      "objectiveText": "猎杀獠牙野彘并带回彘牙",
+      "progress": 0,
+      "required": 6,
+      "targetName": "獠牙野彘",
+      "rewardText": "大还灵丹 x1",
+      "targetMonsterId": "m_wild_boar",
+      "rewardItemId": "major_qi_pill",
+      "rewardItemIds": [
+        "major_qi_pill"
+      ],
+      "rewards": [
+        {
+          "itemId": "major_qi_pill",
+          "name": "大还灵丹",
+          "type": "consumable",
+          "level": 8,
+          "desc": "药力更浑厚，立刻恢复 32% 真气。",
+          "qiPercent": 0.32,
+          "count": 1
+        }
+      ],
+      "nextQuestId": "q_wildlands_bandit_toll",
+      "requiredItemId": "boar_tusk",
+      "requiredItemCount": 4,
+      "giverId": "npc_hunter_luo",
+      "giverName": "洛猎户",
+      "giverMapId": "wildlands",
+      "giverMapName": "荒野",
+      "giverX": 20,
+      "giverY": 41,
+      "targetMapId": "wildlands",
+      "targetMapName": "荒野",
+      "submitNpcId": "npc_shen_qiniang",
+      "submitNpcName": "沈七娘",
+      "submitMapId": "yunlai_town",
+      "submitMapName": "云来镇",
+      "submitX": 16,
+      "submitY": 34
+    },
+    {
+      "id": "q_intro_south_gate_rollcall",
+      "title": "先进镇里",
+      "desc": "顺着镇路往里走，去南市脚店找沈七娘，先拿到今晚的落脚资格。",
+      "line": "main",
+      "chapter": "序章·断道入镇",
+      "story": "你从北关残墙边醒来时，老关卒正守着那段早已废掉的旧路。他见你还能站，没问来历，只让你别继续在北井旧坊磨蹭，先顺着镇路往里走，去南市脚店找沈七娘挂个名，不然天一黑，连个能缩身子的炕角都轮不到你。",
+      "status": "available",
+      "objectiveType": "talk",
+      "objectiveText": "去沈记脚店见沈七娘",
+      "progress": 0,
+      "required": 1,
+      "targetName": "沈七娘",
+      "rewardText": "回春散 x2",
+      "targetMonsterId": "",
+      "rewardItemId": "pill.minor_heal",
+      "rewardItemIds": [
+        "pill.minor_heal"
+      ],
+      "rewards": [
+        {
+          "itemId": "pill.minor_heal",
+          "name": "回春散",
+          "type": "consumable",
+          "level": 2,
+          "tags": [
+            "战斗丹药"
+          ],
+          "desc": "草木药气温和，服下后立刻恢复 22% 气血。",
+          "healPercent": 0.22,
+          "count": 2
+        }
+      ],
+      "nextQuestId": "q_intro_old_road_witness",
+      "giverId": "npc_old_gate_guard",
+      "giverName": "老关卒",
+      "giverMapId": "yunlai_town",
+      "giverMapName": "云来镇",
+      "giverX": 31,
+      "giverY": 9,
+      "targetMapId": "yunlai_town",
+      "targetMapName": "云来镇",
+      "targetX": 16,
+      "targetY": 34,
+      "targetNpcId": "npc_shen_qiniang",
+      "targetNpcName": "沈七娘",
+      "submitNpcId": "npc_shen_qiniang",
+      "submitNpcName": "沈七娘",
+      "submitMapId": "yunlai_town",
+      "submitMapName": "云来镇",
+      "submitX": 16,
+      "submitY": 34
+    },
+    {
+      "id": "q_bamboo_serpent_gall",
+      "title": "先救人，再追问",
+      "desc": "猎杀青鳞竹蛇，带回竹蛇胆给兰药师。",
+      "line": "main",
+      "chapter": "第二章·青竹追线",
+      "story": "你把车上的痕迹说给清玄和兰药师听后，兰药师还是先把注意力放回伤者身上。她要你去竹林深处取竹蛇胆，好把那人命先吊住。云来镇现在还没资格追真相，只能先把能活的人留下来。",
+      "status": "available",
+      "objectiveType": "kill",
+      "objectiveText": "猎杀青鳞竹蛇并带回竹蛇胆",
+      "progress": 0,
+      "required": 6,
+      "targetName": "青鳞竹蛇",
+      "rewardText": "大还灵丹 x2、明目丹 x1",
+      "targetMonsterId": "m_bamboo_serpent",
+      "rewardItemId": "major_qi_pill",
+      "rewardItemIds": [
+        "major_qi_pill",
+        "pill.clear_eye_elixir"
+      ],
+      "rewards": [
+        {
+          "itemId": "major_qi_pill",
+          "name": "大还灵丹",
+          "type": "consumable",
+          "level": 8,
+          "desc": "药力更浑厚，立刻恢复 32% 真气。",
+          "qiPercent": 0.32,
+          "count": 2
+        },
+        {
+          "itemId": "pill.clear_eye_elixir",
+          "name": "明目丹",
+          "type": "consumable",
+          "level": 13,
+          "tags": [
+            "战斗丹药"
+          ],
+          "desc": "服后心神澄明，2400 息内命中 +9%、视野 +14%，死亡不消失。",
+          "consumeBuffs": [
+            {
+              "buffId": "item_buff.clear_eye",
+              "name": "澄目",
+              "desc": "目力与判断更清楚，2400 息内命中 +9%、视野 +14%；身死也不会立刻散去。",
+              "shortMark": "明",
+              "duration": 2400,
+              "persistOnDeath": true,
+              "stats": {
+                "hit": 9,
+                "viewRange": 14
+              },
+              "statMode": "percent"
+            }
+          ],
+          "count": 1
+        }
+      ],
+      "nextQuestId": "q_bamboo_hermit_path",
+      "requiredItemId": "serpent_gall",
+      "requiredItemCount": 2,
+      "giverId": "npc_herbalist_lan",
+      "giverName": "兰药师",
+      "giverMapId": "yunlai_town",
+      "giverMapName": "云来镇",
+      "giverX": 39,
+      "giverY": 34,
+      "targetMapId": "bamboo_forest",
+      "targetMapName": "青竹林",
+      "submitNpcId": "npc_herbalist_lan",
+      "submitNpcName": "兰药师",
+      "submitMapId": "yunlai_town",
+      "submitMapName": "云来镇",
+      "submitX": 39,
+      "submitY": 34
+    },
+    {
+      "id": "q_intro_wounded_words",
+      "title": "醒来的那一句话",
+      "desc": "去脚店内与无名伤者交谈，再把听见的话转告清玄执事。",
+      "line": "main",
+      "chapter": "序章·断道入镇",
+      "story": "伤药熬下去后，那无名伤者终于醒过一次。沈七娘让你去听听他还能吐出什么话，再把能记住的东西带去告诉清玄。她不想惹麻烦，但也知道这人身上的伤不像普通刀口。",
+      "status": "available",
+      "objectiveType": "talk",
+      "objectiveText": "与无名伤者交谈",
+      "progress": 0,
+      "required": 1,
+      "targetName": "无名伤者",
+      "rewardText": "明目丹 x1",
+      "targetMonsterId": "",
+      "rewardItemId": "pill.clear_eye_elixir",
+      "rewardItemIds": [
+        "pill.clear_eye_elixir"
+      ],
+      "rewards": [
+        {
+          "itemId": "pill.clear_eye_elixir",
+          "name": "明目丹",
+          "type": "consumable",
+          "level": 13,
+          "tags": [
+            "战斗丹药"
+          ],
+          "desc": "服后心神澄明，2400 息内命中 +9%、视野 +14%，死亡不消失。",
+          "consumeBuffs": [
+            {
+              "buffId": "item_buff.clear_eye",
+              "name": "澄目",
+              "desc": "目力与判断更清楚，2400 息内命中 +9%、视野 +14%；身死也不会立刻散去。",
+              "shortMark": "明",
+              "duration": 2400,
+              "persistOnDeath": true,
+              "stats": {
+                "hit": 9,
+                "viewRange": 14
+              },
+              "statMode": "percent"
+            }
+          ],
+          "count": 1
+        }
+      ],
+      "nextQuestId": "q_intro_old_well_watch",
+      "giverId": "npc_shen_qiniang",
+      "giverName": "沈七娘",
+      "giverMapId": "yunlai_town",
+      "giverMapName": "云来镇",
+      "giverX": 16,
+      "giverY": 34,
+      "targetMapId": "yunlai_town",
+      "targetMapName": "云来镇",
+      "targetX": 20,
+      "targetY": 35,
+      "targetNpcId": "npc_wounded_stranger",
+      "targetNpcName": "无名伤者",
+      "submitNpcId": "npc_qingxuan",
+      "submitNpcName": "清玄执事",
+      "submitMapId": "yunlai_town",
+      "submitMapName": "云来镇",
+      "submitX": 31,
+      "submitY": 24
+    },
+    {
+      "id": "q_valley_blood_feather_main",
+      "title": "血羽落在门前",
+      "desc": "清掉兽谷中的血羽鸦，带回血羽去见守岭老修。",
+      "line": "main",
+      "chapter": "第四章·兽谷问门",
+      "story": "兽谷核心带回后，清玄终于承认云来镇眼下不是单纯的边镇倒霉，而是整条旧线都在往下塌。他让你再去兽谷收血羽，然后去灵脊岭见守岭老修。若凡武尽头真还有门，那就是最后一道门缝。",
+      "status": "available",
+      "objectiveType": "kill",
+      "objectiveText": "清掉血羽鸦并收回血羽",
+      "progress": 0,
+      "required": 6,
+      "targetName": "血羽鸦",
+      "rewardText": "灵脉山岭图 x1",
+      "targetMonsterId": "m_blood_crow",
+      "rewardItemId": "map.spirit_ridge",
+      "rewardItemIds": [
+        "map.spirit_ridge"
+      ],
+      "rewards": [
+        {
+          "itemId": "map.spirit_ridge",
+          "name": "灵脉山岭图",
+          "type": "consumable",
+          "level": 5,
+          "desc": "绘有山脊、灵穴与险峻通路。使用后可永久解锁灵脉山岭地图。",
+          "mapUnlockId": "spirit_ridge",
+          "count": 1
+        }
+      ],
+      "nextQuestId": "q_ridge_sage_talk",
+      "requiredItemId": "blood_feather",
+      "requiredItemCount": 4,
+      "giverId": "npc_qingxuan",
+      "giverName": "清玄执事",
+      "giverMapId": "yunlai_town",
+      "giverMapName": "云来镇",
+      "giverX": 31,
+      "giverY": 24,
+      "targetMapId": "beast_valley",
+      "targetMapName": "噬魂兽谷",
+      "submitNpcId": "npc_ridge_sage",
+      "submitNpcName": "守岭老修",
+      "submitMapId": "spirit_ridge",
+      "submitMapName": "灵脊岭",
+      "submitX": 24,
+      "submitY": 24
+    },
+    {
+      "id": "q_lan_refuse_tail",
+      "title": "药铺清秽",
+      "desc": "药铺后的废料堆总招灰尾鼠，兰药师让你先把那一片清干净，再收些鼠尾回来给她配驱虫药。",
+      "line": "side",
+      "story": "兰药师嘴上说着“药不轻给”，可谁真替她把脏活做了，她也从不让人白跑。",
+      "status": "available",
+      "objectiveType": "kill",
+      "objectiveText": "清掉药铺后巷鼠患，并带回鼠尾",
+      "progress": 0,
+      "required": 6,
+      "targetName": "后巷灰尾鼠",
+      "rewardText": "小还灵丹 x1、寒心膏 x2、明目丹 x1",
+      "targetMonsterId": "m_town_rat_refuse",
+      "rewardItemId": "minor_qi_pill",
+      "rewardItemIds": [
+        "minor_qi_pill",
+        "frost_heart_paste",
+        "pill.clear_eye_elixir"
+      ],
+      "rewards": [
+        {
+          "itemId": "minor_qi_pill",
+          "name": "小还灵丹",
+          "type": "consumable",
+          "level": 4,
+          "desc": "药力柔和，立刻恢复 22% 真气。",
+          "qiPercent": 0.22,
+          "count": 1
+        },
+        {
+          "itemId": "frost_heart_paste",
+          "name": "寒心膏",
+          "type": "consumable",
+          "level": 10,
+          "desc": "寒性药膏可稳住伤处，立刻恢复 42% 气血。",
+          "healPercent": 0.42,
+          "count": 2
+        },
+        {
+          "itemId": "pill.clear_eye_elixir",
+          "name": "明目丹",
+          "type": "consumable",
+          "level": 13,
+          "tags": [
+            "战斗丹药"
+          ],
+          "desc": "服后心神澄明，2400 息内命中 +9%、视野 +14%，死亡不消失。",
+          "consumeBuffs": [
+            {
+              "buffId": "item_buff.clear_eye",
+              "name": "澄目",
+              "desc": "目力与判断更清楚，2400 息内命中 +9%、视野 +14%；身死也不会立刻散去。",
+              "shortMark": "明",
+              "duration": 2400,
+              "persistOnDeath": true,
+              "stats": {
+                "hit": 9,
+                "viewRange": 14
+              },
+              "statMode": "percent"
+            }
+          ],
+          "count": 1
+        }
+      ],
+      "requiredItemId": "rat_tail",
+      "requiredItemCount": 5,
+      "giverId": "npc_herbalist_lan",
+      "giverName": "兰药师",
+      "giverMapId": "yunlai_town",
+      "giverMapName": "云来镇",
+      "giverX": 39,
+      "giverY": 34,
+      "targetMapId": "yunlai_town",
+      "targetMapName": "云来镇",
+      "submitNpcId": "npc_herbalist_lan",
+      "submitNpcName": "兰药师",
+      "submitMapId": "yunlai_town",
+      "submitMapName": "云来镇",
+      "submitX": 39,
+      "submitY": 34
+    },
+    {
+      "id": "q_wildlands_swamp_medicine",
+      "title": "药铺要的不是可怜",
+      "desc": "猎杀阴沼毒蛛，收回足够的阴沼丝给兰药师配药。",
+      "line": "main",
+      "chapter": "第一章·粮路讨生",
+      "story": "南门安稳不过是暂时。兰药师看着脚店那名无名伤者一天比一天虚，终于松口给你开了方子: 去荒野阴沼杀掉毒蛛，把还算完整的阴沼丝带回来，她才愿意把更像样的药拿出来。",
+      "status": "available",
+      "objectiveType": "kill",
+      "objectiveText": "猎杀阴沼毒蛛并收回阴沼丝",
+      "progress": 0,
+      "required": 2,
+      "targetName": "阴沼毒蛛",
+      "rewardText": "《养气诀》 x1、寒心膏 x2、明目丹 x1",
+      "targetMonsterId": "m_mire_spider",
+      "rewardItemId": "book.nourishing_qi_art",
+      "rewardItemIds": [
+        "book.nourishing_qi_art",
+        "frost_heart_paste",
+        "pill.clear_eye_elixir"
+      ],
+      "rewards": [
+        {
+          "itemId": "book.nourishing_qi_art",
+          "name": "《养气诀》",
+          "type": "skill_book",
+          "desc": "只管稳气养神的内功，不讲花巧，胜在灵力根底厚。",
+          "learnTechniqueId": "nourishing_qi_art",
+          "count": 1
+        },
+        {
+          "itemId": "frost_heart_paste",
+          "name": "寒心膏",
+          "type": "consumable",
+          "level": 10,
+          "desc": "寒性药膏可稳住伤处，立刻恢复 42% 气血。",
+          "healPercent": 0.42,
+          "count": 2
+        },
+        {
+          "itemId": "pill.clear_eye_elixir",
+          "name": "明目丹",
+          "type": "consumable",
+          "level": 13,
+          "tags": [
+            "战斗丹药"
+          ],
+          "desc": "服后心神澄明，2400 息内命中 +9%、视野 +14%，死亡不消失。",
+          "consumeBuffs": [
+            {
+              "buffId": "item_buff.clear_eye",
+              "name": "澄目",
+              "desc": "目力与判断更清楚，2400 息内命中 +9%、视野 +14%；身死也不会立刻散去。",
+              "shortMark": "明",
+              "duration": 2400,
+              "persistOnDeath": true,
+              "stats": {
+                "hit": 9,
+                "viewRange": 14
+              },
+              "statMode": "percent"
+            }
+          ],
+          "count": 1
+        }
+      ],
+      "nextQuestId": "q_wildlands_old_gate_words",
+      "requiredItemId": "spider_silk",
+      "requiredItemCount": 3,
+      "giverId": "npc_herbalist_lan",
+      "giverName": "兰药师",
+      "giverMapId": "yunlai_town",
+      "giverMapName": "云来镇",
+      "giverX": 39,
+      "giverY": 34,
+      "targetMapId": "wildlands",
+      "targetMapName": "荒野",
+      "submitNpcId": "npc_herbalist_lan",
+      "submitNpcName": "兰药师",
+      "submitMapId": "yunlai_town",
+      "submitMapName": "云来镇",
+      "submitX": 39,
+      "submitY": 34
+    },
+    {
+      "id": "q_bamboo_hermit_path",
+      "title": "竹隐客的路",
+      "desc": "去见竹隐客，问清林后矿路的入口。",
+      "line": "main",
+      "chapter": "第二章·青竹追线",
+      "story": "清玄让你去见竹隐客。这个人不替镇子做事，却知道林路更深处都藏着什么。若矿路和遗迹真跟镇里的暗线牵在一起，那么进矿洞前，你必须先从他嘴里拿到一句实话。",
+      "status": "available",
+      "objectiveType": "talk",
+      "objectiveText": "去找竹隐客问路",
+      "progress": 0,
+      "required": 1,
+      "targetName": "竹隐客",
+      "rewardText": "《流云刀谱》 x1、《分光步》 x1",
+      "targetMonsterId": "",
+      "rewardItemId": "book.cloud_blade",
+      "rewardItemIds": [
+        "book.cloud_blade",
+        "book.cloudchase_steps"
+      ],
+      "rewards": [
+        {
+          "itemId": "book.cloud_blade",
+          "name": "《流云刀谱》",
+          "type": "skill_book",
+          "desc": "从江湖刀法演化而来的灵动刀谱。",
+          "learnTechniqueId": "cloud_blade",
+          "count": 1
+        },
+        {
+          "itemId": "book.cloudchase_steps",
+          "name": "《分光步》",
+          "type": "skill_book",
+          "desc": "一门讲究换气和步点的身法，擅长把移速滚成节奏。",
+          "learnTechniqueId": "cloudchase_steps",
+          "count": 1
+        }
+      ],
+      "nextQuestId": "q_bamboo_meridian",
+      "giverId": "npc_qingxuan",
+      "giverName": "清玄执事",
+      "giverMapId": "yunlai_town",
+      "giverMapName": "云来镇",
+      "giverX": 31,
+      "giverY": 24,
+      "targetMapId": "bamboo_forest",
+      "targetMapName": "青竹林",
+      "targetX": 36,
+      "targetY": 35,
+      "targetNpcId": "npc_bamboo_hermit",
+      "targetNpcName": "竹隐客",
+      "submitNpcId": "npc_bamboo_hermit",
+      "submitNpcName": "竹隐客",
+      "submitMapId": "bamboo_forest",
+      "submitMapName": "青竹林",
+      "submitX": 36,
+      "submitY": 35
     }
   ]
 }

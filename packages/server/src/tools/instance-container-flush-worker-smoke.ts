@@ -5,7 +5,7 @@ import { Pool } from 'pg';
 import { resolveServerDatabaseUrl } from '../config/env-alias';
 import { FlushLedgerService } from '../persistence/flush-ledger.service';
 import { FlushWakeupService } from '../persistence/flush-wakeup.service';
-import { MapPersistenceService } from '../persistence/map-persistence.service';
+import { InstanceDomainPersistenceService } from '../persistence/instance-domain-persistence.service';
 import { InstanceContainerFlushWorker } from '../runtime/world/instance-container-flush.worker';
 
 const databaseUrl = resolveServerDatabaseUrl();
@@ -18,7 +18,7 @@ async function main(): Promise<void> {
           ok: true,
           skipped: true,
           reason: 'SERVER_DATABASE_URL/DATABASE_URL missing',
-          answers: 'with-db 下可验证 instance container worker 会独立认领 instance_flush_ledger，并驱动现有 map snapshot 刷盘',
+          answers: 'with-db 下可验证 instance container worker 会独立认领 instance_flush_ledger，并写入 instance_container_state/entry/timer',
           excludes: '不证明多节点 worker 竞争、完整 dead-letter 或 Redis 唤醒',
           completionMapping: 'replace-ready:proof:with-db.instance-container-flush-worker',
         },
@@ -36,7 +36,11 @@ async function main(): Promise<void> {
     },
   } as never);
   const wakeup = new FlushWakeupService();
-  const mapPersistenceService = new MapPersistenceService();
+  const instanceDomainPersistenceService = new InstanceDomainPersistenceService({
+    getPool() {
+      return pool;
+    },
+  } as never);
   const instanceId = `instance:${Date.now().toString(36)}`;
   const instanceRevision = 73;
   const runtimeSnapshot = {
@@ -51,7 +55,18 @@ async function main(): Promise<void> {
         containerId: 'legacy:container:1',
         generatedAtTick: 1,
         refreshAtTick: 2,
-        entries: [],
+        entries: [
+          {
+            item: { itemId: 'spirit_grass', count: 1 },
+            createdTick: 1,
+            visible: true,
+          },
+        ],
+        activeSearch: {
+          itemKey: 'spirit_grass',
+          totalTicks: 6,
+          remainingTicks: 4,
+        },
       },
     ],
   };
@@ -60,11 +75,12 @@ async function main(): Promise<void> {
       listDirtyPersistentInstances() {
         return [instanceId];
       },
-      buildMapPersistenceSnapshot() {
-        return runtimeSnapshot;
-      },
-      markMapPersisted() {
-        return;
+      async flushInstanceDomains() {
+        await instanceDomainPersistenceService.replaceContainerStates(
+          instanceId,
+          runtimeSnapshot.containerStates,
+        );
+        return { skipped: false };
       },
       getInstanceRuntime() {
         return {
@@ -78,14 +94,13 @@ async function main(): Promise<void> {
         };
       },
     } as never,
-    mapPersistenceService,
     ledger,
     wakeup,
   );
 
   try {
     await ledger.onModuleInit();
-    await mapPersistenceService.onModuleInit();
+    await instanceDomainPersistenceService.onModuleInit();
     await cleanupRows(pool, [instanceId]);
     await ledger.upsertInstanceFlushLedger({
       instanceId,
@@ -97,12 +112,26 @@ async function main(): Promise<void> {
     const processedCount = await worker.runOnce('instance-container-worker-smoke');
     assert.ok(wakeup.listWakeupKeys().some((key) => key.includes(instanceId)));
 
-    const snapshot = await mapPersistenceService.loadMapSnapshot(instanceId);
-    assert(snapshot);
-    const containerStates = Array.isArray((snapshot as Record<string, unknown>).containerStates)
-      ? ((snapshot as Record<string, unknown>).containerStates as Array<Record<string, unknown>>)
-      : [];
+    const containerStates = await instanceDomainPersistenceService.loadContainerStates(instanceId);
     assert.equal(containerStates.length > 0, true);
+    assert.deepEqual(containerStates[0]?.statePayload, {
+      sourceId: 'legacy:container:1',
+      containerId: 'legacy:container:1',
+      generatedAtTick: 1,
+      refreshAtTick: 2,
+      entries: [
+        {
+          item: { itemId: 'spirit_grass', count: 1 },
+          createdTick: 1,
+          visible: true,
+        },
+      ],
+      activeSearch: {
+        itemKey: 'spirit_grass',
+        totalTicks: 6,
+        remainingTicks: 4,
+      },
+    });
     const ledgerRows = await ledger.claimInstanceFlushLedger({
       workerId: 'instance-container-worker-smoke:probe-version',
       domain: 'container_state',
@@ -118,7 +147,7 @@ async function main(): Promise<void> {
           processedCount,
           instanceId,
           containerStateCount: containerStates.length,
-          answers: 'instance container worker 可独立认领 instance_flush_ledger，并驱动现有 map snapshot 刷盘',
+          answers: 'instance container worker 可独立认领 instance_flush_ledger，并拆表写入 instance_container_state/entry/timer',
           excludes: '不证明多节点 worker 竞争、完整 dead-letter 或 Redis 唤醒',
           completionMapping: 'replace-ready:proof:with-db.instance-container-flush-worker',
         },
@@ -129,14 +158,16 @@ async function main(): Promise<void> {
   } finally {
     await cleanupRows(pool, [instanceId]).catch(() => undefined);
     await ledger.onModuleDestroy().catch(() => undefined);
-    await mapPersistenceService.onModuleDestroy().catch(() => undefined);
+    await instanceDomainPersistenceService.onModuleDestroy().catch(() => undefined);
     await pool.end().catch(() => undefined);
   }
 }
 
 async function cleanupRows(pool: Pool, instanceIds: string[]): Promise<void> {
   await pool.query('DELETE FROM instance_flush_ledger WHERE instance_id = ANY($1::varchar[])', [instanceIds]);
-  await pool.query('DELETE FROM persistent_documents WHERE key = ANY($1::varchar[])', [instanceIds]);
+  await pool.query('DELETE FROM instance_container_entry WHERE instance_id = ANY($1::varchar[])', [instanceIds]).catch(() => undefined);
+  await pool.query('DELETE FROM instance_container_timer WHERE instance_id = ANY($1::varchar[])', [instanceIds]).catch(() => undefined);
+  await pool.query('DELETE FROM instance_container_state WHERE instance_id = ANY($1::varchar[])', [instanceIds]);
 }
 
 main().catch((error) => {

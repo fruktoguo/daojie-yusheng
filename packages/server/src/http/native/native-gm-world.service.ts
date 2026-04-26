@@ -583,6 +583,7 @@ export class NativeGmWorldService {
     return {
       instances: this.worldRuntimeService
         .listInstances()
+        .filter((instance) => !isNonSectRuntimeLineForSectTemplate(instance))
         .slice()
         .sort(compareWorldInstanceSummary),
     };
@@ -621,6 +622,9 @@ export class NativeGmWorldService {
     const templateId = typeof body?.templateId === 'string' ? body.templateId.trim() : '';
     if (!templateId) {
       throw new BadRequestException('templateId is required');
+    }
+    if (isSectTemplateId(templateId)) {
+      throw new BadRequestException('宗门地图由宗门运行时创建，不能按和平/真实线手动扩线');
     }
     const template = this.mapTemplateRepository.getOrThrow(templateId);
     const linePreset = parseRequiredLinePreset(body?.linePreset);
@@ -783,6 +787,18 @@ function parseRequiredLinePreset(input: unknown): GmWorldInstanceLinePreset {
     throw new BadRequestException('linePreset must be peaceful or real');
   }
   return input as GmWorldInstanceLinePreset;
+}
+
+function isSectTemplateId(templateId: unknown): boolean {
+  return typeof templateId === 'string' && templateId.trim().startsWith('sect_domain:');
+}
+
+function isSectRuntimeInstanceId(instanceId: unknown): boolean {
+  return typeof instanceId === 'string' && instanceId.trim().startsWith('sect:');
+}
+
+function isNonSectRuntimeLineForSectTemplate(instance: { templateId?: unknown; instanceId?: unknown }): boolean {
+  return isSectTemplateId(instance.templateId) && !isSectRuntimeInstanceId(instance.instanceId);
 }
 
 function resolveManualLineIndex(

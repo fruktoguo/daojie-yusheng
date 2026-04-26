@@ -62,12 +62,20 @@ let WorldRuntimeUseItemService = class WorldRuntimeUseItemService {
  * @returns 无返回值，直接更新Use道具相关状态。
  */
 
-    dispatchUseItem(playerId, slotIndex, deps) {
+    dispatchUseItem(playerId, slotIndex, deps, payload = null) {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
         const item = this.playerRuntimeService.peekInventoryItem(playerId, slotIndex);
         if (!item) {
             throw new common_1.NotFoundException(`Inventory slot ${slotIndex} not found`);
+        }
+        if (typeof item.formationDiskTier === 'string' && item.formationDiskTier.length > 0) {
+            deps.queuePlayerNotice(playerId, '阵盘需要通过背包中的布阵页面使用。', 'info');
+            return;
+        }
+        if (item.useBehavior === 'create_sect') {
+            deps.worldRuntimeSectService.dispatchCreateSect(playerId, slotIndex, item, deps, payload);
+            return;
         }
         const learnedTechniqueId = this.contentTemplateRepository.getLearnTechniqueId(item.itemId);
         const mapUnlockIds = Array.isArray(item.mapUnlockIds) && item.mapUnlockIds.length > 0
@@ -77,6 +85,10 @@ let WorldRuntimeUseItemService = class WorldRuntimeUseItemService {
                 : [];
         if (mapUnlockIds.length > 0) {
             this.handleMapUnlockItem(playerId, slotIndex, item, mapUnlockIds, deps);
+            return;
+        }
+        if (typeof item.respawnBindMapId === 'string' && item.respawnBindMapId.trim()) {
+            this.handleRespawnBindItem(playerId, slotIndex, item, item.respawnBindMapId, deps);
             return;
         }
         if (this.resolveTileResourceGains(item).length > 0) {
@@ -125,6 +137,32 @@ let WorldRuntimeUseItemService = class WorldRuntimeUseItemService {
             : `${item.name ?? '地图'}记载的区域`;
         deps.queuePlayerNotice(playerId, `已解锁地图：${targetLabel}`, 'success');
     }    
+    /**
+ * handleRespawnBindItem：处理复活点绑定道具。
+ * @param playerId 玩家 ID。
+ * @param slotIndex 参数说明。
+ * @param item 道具。
+ * @param mapId 地图 ID。
+ * @param deps 运行时依赖。
+ * @returns 无返回值，直接更新复活绑定相关状态。
+ */
+
+    handleRespawnBindItem(playerId, slotIndex, item, mapId, deps) {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
+        const normalizedMapId = typeof mapId === 'string' ? mapId.trim() : '';
+        if (!normalizedMapId || !this.templateRepository.has(normalizedMapId)) {
+            throw new common_1.BadRequestException(`Unknown respawn bind target: ${normalizedMapId || mapId}`);
+        }
+        const changed = this.playerRuntimeService.bindRespawnPoint(playerId, normalizedMapId);
+        if (!changed) {
+            throw new common_1.BadRequestException('Respawn point already bound');
+        }
+        this.playerRuntimeService.consumeInventoryItem(playerId, slotIndex, 1);
+        deps.refreshQuestStates(playerId);
+        const targetLabel = this.templateRepository.getOrThrow(normalizedMapId).name;
+        deps.queuePlayerNotice(playerId, `复活点与遁返落点已绑定：${targetLabel}`, 'success');
+    }
     /**
  * handleTileResourceItem：处理Tile资源道具并更新相关状态。
  * @param playerId 玩家 ID。

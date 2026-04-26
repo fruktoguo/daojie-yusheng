@@ -249,6 +249,10 @@ let WorldRuntimeWorldAccessService = class WorldRuntimeWorldAccessService {
     interruptManualCombat(playerId, deps) {
         deps.worldRuntimeNavigationService.clearNavigationIntent(playerId);
         this.cancelPendingInstanceCommand(playerId, deps);
+        if (typeof deps.clearPendingCommand === 'function') {
+            deps.clearPendingCommand(playerId);
+        }
+        deps.playerRuntimeService?.clearManualEngagePending?.(playerId);
     }    
     /**
  * getPlayerViewOrThrow：读取玩家视图OrThrow。

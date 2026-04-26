@@ -303,6 +303,8 @@ interface ViewportMetrics {
  */
 
   mapHeight: number;  
+  minX: number;
+  minY: number;
   /**
  * padding：padding相关字段。
  */
@@ -460,6 +462,75 @@ function buildFallbackMapMeta(mapId: string, snapshot: MapMinimapSnapshot | null
     name: mapId,
     width,
     height,
+  };
+}
+
+interface MinimapDrawExtent {
+  minX: number;
+  minY: number;
+  maxX: number;
+  maxY: number;
+  width: number;
+  height: number;
+}
+
+function buildMinimapDrawExtent(display: DisplayMapScene): MinimapDrawExtent {
+  let minX = 0;
+  let minY = 0;
+  let maxX = Math.max(0, Math.trunc(Number(display.mapMeta.width) || 1) - 1);
+  let maxY = Math.max(0, Math.trunc(Number(display.mapMeta.height) || 1) - 1);
+  const include = (x: number, y: number): void => {
+    if (!Number.isFinite(x) || !Number.isFinite(y)) {
+      return;
+    }
+    const tx = Math.trunc(x);
+    const ty = Math.trunc(y);
+    minX = Math.min(minX, tx);
+    minY = Math.min(minY, ty);
+    maxX = Math.max(maxX, tx);
+    maxY = Math.max(maxY, ty);
+  };
+  if (display.snapshot) {
+    maxX = Math.max(maxX, Math.max(0, Math.trunc(Number(display.snapshot.width) || 1) - 1));
+    maxY = Math.max(maxY, Math.max(0, Math.trunc(Number(display.snapshot.height) || 1) - 1));
+    for (const marker of display.snapshot.markers ?? []) {
+      include(marker.x, marker.y);
+    }
+  }
+  for (const key of display.tileCache.keys()) {
+    const point = parseTileKey(key);
+    if (point) {
+      include(point.x, point.y);
+    }
+  }
+  for (const key of display.visibleTiles.values()) {
+    const point = parseTileKey(key);
+    if (point) {
+      include(point.x, point.y);
+    }
+  }
+  for (const marker of display.rememberedMarkers) {
+    include(marker.x, marker.y);
+  }
+  for (const marker of display.visibleMarkers) {
+    include(marker.x, marker.y);
+  }
+  for (const entity of display.visibleEntities) {
+    include(entity.wx, entity.wy);
+  }
+  for (const pile of display.groundPiles.values()) {
+    include(pile.x, pile.y);
+  }
+  if (display.player) {
+    include(display.player.x, display.player.y);
+  }
+  return {
+    minX,
+    minY,
+    maxX,
+    maxY,
+    width: Math.max(1, maxX - minX + 1),
+    height: Math.max(1, maxY - minY + 1),
   };
 }
 
@@ -1533,13 +1604,14 @@ export class Minimap {
   private buildBaseKey(display: DisplayMapScene): string {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
+    const extent = buildMinimapDrawExtent(display);
     if (display.snapshot) {
-      return `snapshot:${display.mapId}:${display.snapshot.width}:${display.snapshot.height}:${display.snapshot.terrainRows.length}:${display.snapshot.markers.length}`;
+      return `snapshot:${display.mapId}:${display.snapshot.width}:${display.snapshot.height}:${display.snapshot.terrainRows.length}:${display.snapshot.markers.length}:${extent.minX},${extent.minY},${extent.maxX},${extent.maxY}:${this.buildTileCacheHash(display.tileCache)}`;
     }
     if (display.isCurrent) {
-      return `memory:${display.mapId}:${display.memoryVersion}`;
+      return `memory:${display.mapId}:${display.memoryVersion}:${extent.minX},${extent.minY},${extent.maxX},${extent.maxY}`;
     }
-    return `memory:${display.mapId}:${this.buildTileCacheHash(display.tileCache)}`;
+    return `memory:${display.mapId}:${this.buildTileCacheHash(display.tileCache)}:${extent.minX},${extent.minY},${extent.maxX},${extent.maxY}`;
   }
 
   /** ensureBaseCanvas：确保基础Canvas。 */
@@ -1556,8 +1628,9 @@ export class Minimap {
     }
     this.baseKey = nextKey;
 
-    this.baseCanvas.width = Math.max(1, display.mapMeta.width);
-    this.baseCanvas.height = Math.max(1, display.mapMeta.height);
+    const extent = buildMinimapDrawExtent(display);
+    this.baseCanvas.width = extent.width;
+    this.baseCanvas.height = extent.height;
     this.baseCtx.clearRect(0, 0, this.baseCanvas.width, this.baseCanvas.height);
     this.baseCtx.fillStyle = '#0d0f12';
     this.baseCtx.fillRect(0, 0, this.baseCanvas.width, this.baseCanvas.height);
@@ -1568,10 +1641,9 @@ export class Minimap {
         for (let x = 0; x < row.length; x += 1) {
           const type = getTileTypeFromMapChar(row[x] ?? '.');
           this.baseCtx.fillStyle = TILE_MINIMAP_COLORS[type] ?? '#888';
-          this.baseCtx.fillRect(x, y, 1, 1);
+          this.baseCtx.fillRect(x - extent.minX, y - extent.minY, 1, 1);
         }
       }
-      return;
     }
 
     for (const [key, tile] of display.tileCache.entries()) {
@@ -1580,14 +1652,13 @@ export class Minimap {
         continue;
       }
       if (
-        point.x < 0 || point.y < 0
-        || point.x >= this.baseCanvas.width
-        || point.y >= this.baseCanvas.height
+        point.x < extent.minX || point.y < extent.minY
+        || point.x > extent.maxX || point.y > extent.maxY
       ) {
         continue;
       }
       this.baseCtx.fillStyle = TILE_MINIMAP_COLORS[tile.type] ?? '#888';
-      this.baseCtx.fillRect(point.x, point.y, 1, 1);
+      this.baseCtx.fillRect(point.x - extent.minX, point.y - extent.minY, 1, 1);
     }
   }
 
@@ -1812,8 +1883,9 @@ export class Minimap {
   ): ViewportMetrics {
     const width = Math.max(1, canvas.width);
     const height = Math.max(1, canvas.height);
-    const mapWidth = Math.max(1, display.mapMeta.width);
-    const mapHeight = Math.max(1, display.mapMeta.height);
+    const extent = buildMinimapDrawExtent(display);
+    const mapWidth = extent.width;
+    const mapHeight = extent.height;
     const padding = isModal
       ? Math.max(18, Math.round(Math.min(width, height) * 0.022))
       : Math.max(8, Math.round(Math.min(width, height) * 0.06));
@@ -1836,6 +1908,8 @@ export class Minimap {
       innerHeight,
       mapWidth,
       mapHeight,
+      minX: extent.minX,
+      minY: extent.minY,
       padding,
       scale,
       drawWidth,
@@ -1872,8 +1946,8 @@ export class Minimap {
       return null;
     }
     return {
-      x: (px - metrics.offsetX) / metrics.scale,
-      y: (py - metrics.offsetY) / metrics.scale,
+      x: metrics.minX + (px - metrics.offsetX) / metrics.scale,
+      y: metrics.minY + (py - metrics.offsetY) / metrics.scale,
     };
   }  
   /**
@@ -1914,8 +1988,8 @@ export class Minimap {
       return null;
     }
     return {
-      x: clamp(Math.floor(world.x), 0, metrics.mapWidth - 1),
-      y: clamp(Math.floor(world.y), 0, metrics.mapHeight - 1),
+      x: clamp(Math.floor(world.x), metrics.minX, metrics.minX + metrics.mapWidth - 1),
+      y: clamp(Math.floor(world.y), metrics.minY, metrics.minY + metrics.mapHeight - 1),
     };
   }  
   /**
@@ -2140,8 +2214,8 @@ export class Minimap {
         }
         ctx.fillStyle = TILE_MINIMAP_COLORS[tile.type] ?? '#888';
         ctx.fillRect(
-          metrics.offsetX + point.x * metrics.scale,
-          metrics.offsetY + point.y * metrics.scale,
+          metrics.offsetX + (point.x - metrics.minX) * metrics.scale,
+          metrics.offsetY + (point.y - metrics.minY) * metrics.scale,
           Math.ceil(metrics.scale),
           Math.ceil(metrics.scale),
         );
@@ -2156,8 +2230,8 @@ export class Minimap {
           continue;
         }
         ctx.fillRect(
-          metrics.offsetX + point.x * metrics.scale,
-          metrics.offsetY + point.y * metrics.scale,
+          metrics.offsetX + (point.x - metrics.minX) * metrics.scale,
+          metrics.offsetY + (point.y - metrics.minY) * metrics.scale,
           Math.ceil(metrics.scale),
           Math.ceil(metrics.scale),
         );
@@ -2184,21 +2258,21 @@ export class Minimap {
     }
 
     if (display.isCurrent && display.player) {
-      const playerLeft = clamp(display.player.x - display.viewRadius, 0, metrics.mapWidth);
-      const playerTop = clamp(display.player.y - display.viewRadius, 0, metrics.mapHeight);
-      const playerRight = clamp(display.player.x + display.viewRadius + 1, 0, metrics.mapWidth);
-      const playerBottom = clamp(display.player.y + display.viewRadius + 1, 0, metrics.mapHeight);
+      const playerLeft = clamp(display.player.x - display.viewRadius, metrics.minX, metrics.minX + metrics.mapWidth);
+      const playerTop = clamp(display.player.y - display.viewRadius, metrics.minY, metrics.minY + metrics.mapHeight);
+      const playerRight = clamp(display.player.x + display.viewRadius + 1, metrics.minX, metrics.minX + metrics.mapWidth);
+      const playerBottom = clamp(display.player.y + display.viewRadius + 1, metrics.minY, metrics.minY + metrics.mapHeight);
       ctx.strokeStyle = isModal ? 'rgba(255, 241, 186, 0.84)' : 'rgba(247, 233, 180, 0.72)';
       ctx.lineWidth = Math.max(1, metrics.scale * 0.18);
       ctx.strokeRect(
-        metrics.offsetX + playerLeft * metrics.scale,
-        metrics.offsetY + playerTop * metrics.scale,
+        metrics.offsetX + (playerLeft - metrics.minX) * metrics.scale,
+        metrics.offsetY + (playerTop - metrics.minY) * metrics.scale,
         Math.max(metrics.scale, (playerRight - playerLeft) * metrics.scale),
         Math.max(metrics.scale, (playerBottom - playerTop) * metrics.scale),
       );
 
-      const playerCenterX = metrics.offsetX + (display.player.x + 0.5) * metrics.scale;
-      const playerCenterY = metrics.offsetY + (display.player.y + 0.5) * metrics.scale;
+      const playerCenterX = metrics.offsetX + (display.player.x - metrics.minX + 0.5) * metrics.scale;
+      const playerCenterY = metrics.offsetY + (display.player.y - metrics.minY + 0.5) * metrics.scale;
       ctx.fillStyle = '#fff7ce';
       ctx.beginPath();
       ctx.arc(playerCenterX, playerCenterY, clamp(metrics.scale * (isModal ? 0.58 : 0.48), 3, isModal ? 10 : 8), 0, Math.PI * 2);
@@ -2238,8 +2312,8 @@ export class Minimap {
   ): void {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
-    const centerX = metrics.offsetX + (marker.x + 0.5) * metrics.scale;
-    const centerY = metrics.offsetY + (marker.y + 0.5) * metrics.scale;
+    const centerX = metrics.offsetX + (marker.x - metrics.minX + 0.5) * metrics.scale;
+    const centerY = metrics.offsetY + (marker.y - metrics.minY + 0.5) * metrics.scale;
     const half = markerSize / 2;
 
     ctx.save();
@@ -2329,8 +2403,8 @@ export class Minimap {
   ): void {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
-    const centerX = metrics.offsetX + (marker.x + 0.5) * metrics.scale;
-    const centerY = metrics.offsetY + (marker.y + 0.5) * metrics.scale;
+    const centerX = metrics.offsetX + (marker.x - metrics.minX + 0.5) * metrics.scale;
+    const centerY = metrics.offsetY + (marker.y - metrics.minY + 0.5) * metrics.scale;
     const label = marker.label.trim();
     if (!label) {
       return;
@@ -2405,8 +2479,8 @@ export class Minimap {
     metrics: ViewportMetrics,
     pileSize: number,
   ): void {
-    const centerX = metrics.offsetX + (pile.x + 0.5) * metrics.scale;
-    const centerY = metrics.offsetY + (pile.y + 0.5) * metrics.scale;
+    const centerX = metrics.offsetX + (pile.x - metrics.minX + 0.5) * metrics.scale;
+    const centerY = metrics.offsetY + (pile.y - metrics.minY + 0.5) * metrics.scale;
     const half = pileSize / 2;
     ctx.save();
     ctx.fillStyle = '#f7e39a';

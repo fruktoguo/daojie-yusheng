@@ -129,6 +129,14 @@ let MapTemplateRepository = MapTemplateRepository_1 = class MapTemplateRepositor
     has(templateId) {
         return this.templates.has(templateId);
     }    
+    /** registerRuntimeMapTemplate：注册运行时生成地图模板。 */
+    registerRuntimeMapTemplate(document) {
+        const normalized = (0, shared_1.normalizeEditableMapDocument)(document);
+        copyRuntimeMapMetadata(document, normalized);
+        const template = this.buildTemplate(normalized, new Map(), new Map());
+        this.templates.set(template.id, template);
+        return template;
+    }
     /**
  * getNpcLocation：读取NPC位置。
  * @param npcId npc ID。
@@ -173,8 +181,9 @@ let MapTemplateRepository = MapTemplateRepository_1 = class MapTemplateRepositor
         for (const document of documents) {
             indexDocumentNpcs(document, this.npcLocationById);
         }
+        const contentQuestEntriesByGiver = loadContentQuestEntriesByGiver(this.npcLocationById);
         for (const document of documents) {
-            const template = this.buildTemplate(document, resourceNodeById);
+            const template = this.buildTemplate(document, resourceNodeById, contentQuestEntriesByGiver);
             this.templates.set(template.id, template);
             for (const npc of template.npcs) {
                 for (const quest of npc.quests) {
@@ -203,7 +212,7 @@ let MapTemplateRepository = MapTemplateRepository_1 = class MapTemplateRepositor
  * @returns 无返回值，直接更新Template相关状态。
  */
 
-    buildTemplate(document, resourceNodeById) {
+    buildTemplate(document, resourceNodeById, contentQuestEntriesByGiver = new Map()) {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
         const width = document.width;
@@ -246,6 +255,8 @@ let MapTemplateRepository = MapTemplateRepository_1 = class MapTemplateRepositor
             const shopItems = normalizeNpcShopItems(npc.shopItems);
             const fallbackChar = name[0] ?? '人';
             const rawChar = typeof npc.char === 'string' ? npc.char.trim() : '';
+            const inlineQuests = normalizeNpcQuests(npc.quests);
+            const contentQuests = contentQuestEntriesByGiver.get(buildNpcQuestGiverKey(document.id, npcId)) ?? [];
             npcs.push({
                 id: npcId,
                 name,
@@ -257,7 +268,7 @@ let MapTemplateRepository = MapTemplateRepository_1 = class MapTemplateRepositor
                 role: typeof npc.role === 'string' && npc.role.trim() ? npc.role.trim() : null,
                 hasShop: shopItems.length > 0,
                 shopItems,
-                quests: normalizeNpcQuests(npc.quests),
+                quests: mergeNpcQuestLists(inlineQuests, contentQuests),
             });
         }
         npcs.sort(compareNpcs);
@@ -374,6 +385,49 @@ function collectJsonFiles(dirPath) {
         }
     }
     return files;
+}
+
+function buildNpcQuestGiverKey(mapId, npcId) {
+    return `${String(mapId).trim()}:${String(npcId).trim()}`;
+}
+
+function loadContentQuestEntriesByGiver(npcLocationById) {
+    const questsDir = (0, project_path_1.resolveProjectPath)('packages', 'server', 'data', 'content', 'quests');
+    const entriesByGiver = new Map();
+    if (!fs.existsSync(questsDir)) {
+        return entriesByGiver;
+    }
+    for (const filePath of collectJsonFiles(questsDir)) {
+        const raw = JSON.parse(fs.readFileSync(filePath, 'utf-8'));
+        for (const entry of raw?.quests ?? []) {
+            if (!entry || typeof entry !== 'object') {
+                continue;
+            }
+            const quest = entry;
+            const giverNpcId = typeof quest.giverNpcId === 'string' ? quest.giverNpcId.trim() : '';
+            if (!giverNpcId) {
+                continue;
+            }
+            const location = npcLocationById.get(giverNpcId);
+            if (!location) {
+                continue;
+            }
+            const configuredMapId = typeof quest.giverMapId === 'string' ? quest.giverMapId.trim() : '';
+            const giverMapId = configuredMapId || location.mapId;
+            if (giverMapId !== location.mapId) {
+                continue;
+            }
+            const key = buildNpcQuestGiverKey(giverMapId, giverNpcId);
+            const list = entriesByGiver.get(key) ?? [];
+            list.push({
+                ...quest,
+                giverMapId,
+                giverNpcId,
+            });
+            entriesByGiver.set(key, list);
+        }
+    }
+    return entriesByGiver;
 }
 
 function loadLandmarkResourceNodeDefinitions() {
@@ -635,6 +689,20 @@ function normalizeNpcQuests(input) {
     }
     return result;
 }
+
+function mergeNpcQuestLists(primary, secondary) {
+    const result = [];
+    const seenQuestIds = new Set();
+    for (const quest of [...primary, ...secondary]) {
+        const questId = typeof quest?.id === 'string' ? quest.id.trim() : '';
+        if (!questId || seenQuestIds.has(questId)) {
+            continue;
+        }
+        seenQuestIds.add(questId);
+        result.push(quest);
+    }
+    return result;
+}
 /**
  * normalizeContainerDrops：规范化或转换ContainerDrop。
  * @param input 输入参数。
@@ -751,6 +819,30 @@ function indexDocumentNpcs(document, target) {
             x: npc.x,
             y: npc.y,
         });
+    }
+}
+/** copyRuntimeMapMetadata：保留运行时动态地图的扩展元数据。 */
+function copyRuntimeMapMetadata(source, target) {
+    if (!source || !target) {
+        return;
+    }
+    const metadataKeys = [
+        'terrainProfileId',
+        'terrainRealmLv',
+        'sectMap',
+        'sectId',
+        'sectMark',
+        'sectCoreX',
+        'sectCoreY',
+        'sectMapMinX',
+        'sectMapMaxX',
+        'sectMapMinY',
+        'sectMapMaxY',
+    ];
+    for (const key of metadataKeys) {
+        if (Object.prototype.hasOwnProperty.call(source, key)) {
+            target[key] = source[key];
+        }
     }
 }
 /**

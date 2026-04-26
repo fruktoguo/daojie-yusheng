@@ -124,8 +124,6 @@ export function createMainActionStateSource(options: MainActionStateSourceOption
       if (actionId.startsWith('npc_quests:')) {
         options.cancelTargeting();
         options.hideObserveModal();
-        const npcId = actionId.slice('npc_quests:'.length);
-        options.openNpcQuestPending(npcId);
         options.socket.sendAction(actionId);
         return;
       }

@@ -211,6 +211,10 @@ export async function syncInstanceLease(runtime, instanceId) {
     : null;
   const ok = renewResult === true || claimResult?.ok === true;
   if (!ok) {
+    const adopted = await adoptLocalCatalogLeaseAndRenew(runtime, instance, instanceId, nodeId, leaseExpireAt);
+    if (adopted) {
+      return;
+    }
     fenceInstanceRuntime(runtime, instanceId, 'lease_sync_failed');
     return;
   }
@@ -222,6 +226,42 @@ export async function syncInstanceLease(runtime, instanceId) {
     : Number.isFinite(Number(claimResult?.ownershipEpoch)) ? Math.trunc(Number(claimResult.ownershipEpoch)) : expectedOwnershipEpoch + 1;
   instance.meta.runtimeStatus = 'leased';
   instance.meta.status = 'active';
+}
+
+async function adoptLocalCatalogLeaseAndRenew(runtime, instance, instanceId, nodeId, leaseExpireAt) {
+  if (!runtime.instanceCatalogService?.isEnabled?.()) {
+    return false;
+  }
+  const catalog = await runtime.instanceCatalogService.loadInstanceCatalog(instanceId);
+  const catalogAssignedNodeId = typeof catalog?.assigned_node_id === 'string' ? catalog.assigned_node_id.trim() : '';
+  const catalogLeaseToken = typeof catalog?.lease_token === 'string' ? catalog.lease_token.trim() : '';
+  const catalogLeaseExpireAt = catalog?.lease_expire_at ? new Date(catalog.lease_expire_at).getTime() : 0;
+  const catalogOwnershipEpoch = Number.isFinite(Number(catalog?.ownership_epoch))
+    ? Math.trunc(Number(catalog.ownership_epoch))
+    : 0;
+  if (catalogAssignedNodeId !== nodeId
+    || !catalogLeaseToken
+    || !Number.isFinite(catalogLeaseExpireAt)
+    || catalogLeaseExpireAt <= Date.now() - INSTANCE_LEASE_RENEW_SKEW_MS) {
+    return false;
+  }
+  const renewed = await runtime.instanceCatalogService.renewInstanceLease({
+    instanceId,
+    nodeId,
+    leaseToken: catalogLeaseToken,
+    leaseExpireAt,
+    expectedOwnershipEpoch: catalogOwnershipEpoch,
+  });
+  if (renewed !== true) {
+    return false;
+  }
+  instance.meta.assignedNodeId = nodeId;
+  instance.meta.leaseToken = catalogLeaseToken;
+  instance.meta.leaseExpireAt = leaseExpireAt.toISOString();
+  instance.meta.ownershipEpoch = catalogOwnershipEpoch;
+  instance.meta.runtimeStatus = 'leased';
+  instance.meta.status = 'active';
+  return true;
 }
 
 export async function rebuildPersistentInstance(runtime, instanceId) {
@@ -434,14 +474,21 @@ export async function hydratePersistentInstanceSnapshot(runtime, instanceId, ins
   const domainPersistenceService = runtime.instanceDomainPersistenceService;
   const domainPersistenceEnabled = typeof domainPersistenceService?.isEnabled === 'function'
     && domainPersistenceService.isEnabled();
-  const legacySnapshot = runtime.mapPersistenceService?.isEnabled?.()
+  const legacySnapshot = runtime.mapPersistenceService?.isEnabled?.() && isLegacyMapSnapshotRestoreEnabled()
     ? await runtime.mapPersistenceService.loadMapSnapshot(instanceId)
     : null;
   if (legacySnapshot) {
     hydrateInstanceFromCheckpoint(instance, legacySnapshot, runtime, instanceId);
   }
   if (!domainPersistenceEnabled) {
+    await restorePersistentInstanceFormations(runtime, instanceId);
     return;
+  }
+  const runtimeTileCells = typeof domainPersistenceService.loadRuntimeTileCells === 'function'
+    ? await domainPersistenceService.loadRuntimeTileCells(instanceId)
+    : [];
+  if (Array.isArray(runtimeTileCells) && runtimeTileCells.length > 0 && typeof instance.hydrateRuntimeTiles === 'function') {
+    instance.hydrateRuntimeTiles(runtimeTileCells);
   }
   const tileDiffs = await domainPersistenceService.loadTileResourceDiffs(instanceId);
   if (Array.isArray(tileDiffs) && tileDiffs.length > 0) {
@@ -451,17 +498,38 @@ export async function hydratePersistentInstanceSnapshot(runtime, instanceId, ins
       value: entry.value,
     })));
   }
+  const tileDamageStates = typeof domainPersistenceService.loadTileDamageStates === 'function'
+    ? await domainPersistenceService.loadTileDamageStates(instanceId)
+    : [];
+  if (Array.isArray(tileDamageStates) && tileDamageStates.length > 0) {
+    instance.hydrateTileDamage(tileDamageStates);
+  }
   const groundItems = await domainPersistenceService.loadGroundItems(instanceId);
   if (Array.isArray(groundItems) && groundItems.length > 0) {
     instance.hydrateGroundPiles(groupGroundItemsByTile(groundItems));
   }
   const containerStates = await domainPersistenceService.loadContainerStates(instanceId);
-  runtime.worldRuntimeLootContainerService.hydrateContainerStates(instanceId, containerStates ?? []);
+  runtime.worldRuntimeLootContainerService.hydrateContainerStates(instanceId, normalizeLoadedContainerStates(containerStates ?? []));
   const monsterStates = await domainPersistenceService.loadMonsterRuntimeStates(instanceId);
   instance.hydrateMonsterRuntimeStates(monsterStates ?? []);
+  const overlayChunks = await domainPersistenceService.loadOverlayChunks(instanceId);
+  if (Array.isArray(overlayChunks) && overlayChunks.length > 0 && typeof instance.hydrateOverlayChunks === 'function') {
+    instance.hydrateOverlayChunks(overlayChunks);
+  }
   const checkpoint = await domainPersistenceService.loadInstanceCheckpoint(instanceId);
   if (checkpoint) {
     hydrateInstanceFromCheckpoint(instance, checkpoint, runtime, instanceId);
+  }
+  await restorePersistentInstanceFormations(runtime, instanceId);
+}
+
+async function restorePersistentInstanceFormations(runtime, instanceId) {
+  if (typeof runtime.worldRuntimeFormationService?.restoreInstanceFormations !== 'function') {
+    return;
+  }
+  const restoredFormations = await runtime.worldRuntimeFormationService.restoreInstanceFormations(instanceId);
+  if (restoredFormations > 0) {
+    runtime.logger.log(`实例阵法已恢复：${instanceId} x${restoredFormations}`);
   }
 }
 
@@ -482,6 +550,23 @@ function shouldRestoreCatalogEntry(entry) {
     return false;
   }
   return Date.now() - lastActiveAt <= LONG_LIVED_INSTANCE_TTL_MS;
+}
+
+function isLegacyMapSnapshotRestoreEnabled() {
+  const value = process.env.SERVER_MAP_LEGACY_SNAPSHOT_RESTORE;
+  return typeof value === 'string' && /^(1|true|yes|on)$/iu.test(value.trim());
+}
+
+function normalizeLoadedContainerStates(rows) {
+  return (Array.isArray(rows) ? rows : [])
+    .map((row) => {
+      const payload = row?.statePayload && typeof row.statePayload === 'object' ? row.statePayload : {};
+      return {
+        ...payload,
+        sourceId: typeof row?.sourceId === 'string' && row.sourceId.trim() ? row.sourceId : payload.sourceId,
+        containerId: typeof row?.containerId === 'string' && row.containerId.trim() ? row.containerId : payload.containerId,
+      };
+    });
 }
 
 function groupGroundItemsByTile(items) {
@@ -515,6 +600,12 @@ function hydrateInstanceFromCheckpoint(instance, checkpoint, runtime, instanceId
     return;
   }
   const snapshot = checkpoint;
+  if (typeof instance.hydrateTime === 'function') {
+    instance.hydrateTime(snapshot.tick);
+  }
+  if (Array.isArray(snapshot.runtimeTileEntries) && typeof instance.hydrateRuntimeTiles === 'function') {
+    instance.hydrateRuntimeTiles(snapshot.runtimeTileEntries);
+  }
   if (Array.isArray(snapshot.tileResourceEntries) && snapshot.tileResourceEntries.length > 0) {
     instance.hydrateTileResources(snapshot.tileResourceEntries.map((entry) => ({
       resourceKey: typeof entry?.resourceKey === 'string' ? entry.resourceKey : '',
@@ -527,6 +618,9 @@ function hydrateInstanceFromCheckpoint(instance, checkpoint, runtime, instanceId
       tileIndex: Number.isFinite(Number(entry?.tileIndex)) ? Math.trunc(Number(entry.tileIndex)) : 0,
       value: Number.isFinite(Number(entry?.value)) ? Math.max(0, Math.trunc(Number(entry.value))) : 0,
     })).filter((entry) => entry.value > 0));
+  }
+  if (Array.isArray(snapshot.tileDamageEntries) && typeof instance.hydrateTileDamage === 'function') {
+    instance.hydrateTileDamage(snapshot.tileDamageEntries);
   }
   if (Array.isArray(snapshot.groundPileEntries) && snapshot.groundPileEntries.length > 0) {
     instance.hydrateGroundPiles(snapshot.groundPileEntries);

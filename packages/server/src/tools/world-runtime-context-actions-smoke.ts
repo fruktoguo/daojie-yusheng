@@ -12,6 +12,11 @@ const { WorldRuntimeContextActionQueryService } = require("../runtime/world/worl
 
 
 function createService(player, log) {
+    const mapNames = new Map([
+        ['wildlands', '荒原'],
+        ['yunlai_town', '云来镇'],
+        ['sect_domain_alpha', '青玄宗'],
+    ]);
     return new WorldRuntimeContextActionQueryService({    
     /**
  * has：判断ha是否满足条件。
@@ -20,15 +25,15 @@ function createService(player, log) {
  */
 
         has(mapId) {
-            return mapId === 'wildlands';
+            return mapNames.has(mapId);
         },        
         /**
  * getOrThrow：读取OrThrow。
  * @returns 无返回值，完成OrThrow的读取/组装。
  */
 
-        getOrThrow() {
-            return { name: '荒原' };
+        getOrThrow(mapId) {
+            return { name: mapNames.get(mapId) ?? mapId };
         },
     }, {    
     /**
@@ -120,6 +125,7 @@ function testBuildContextActions() {
         'toggle:auto_retaliate',
         'toggle:auto_switch_cultivation',
         'travel:return_spawn',
+        'world:migrate',
     ]);
     assert.deepEqual(actions.find((entry) => entry.id === 'battle:force_attack'), {
         id: 'battle:force_attack',
@@ -132,6 +138,8 @@ function testBuildContextActions() {
         targetMode: 'any',
     });
     assert.equal(actions.find((entry) => entry.id === 'portal:travel')?.name, '传送至：荒原');
+    assert.equal(actions.find((entry) => entry.id === 'travel:return_spawn')?.name, '遁返');
+    assert.equal(actions.find((entry) => entry.id === 'travel:return_spawn')?.desc, '催动归引灵符，遁返回 云来镇。');
     assert.equal(actions.find((entry) => entry.id === 'npc:npc_a')?.desc, '问道于心。');
     assert.deepEqual(log, [
         ['getPlayer', 'player:1'],
@@ -164,7 +172,30 @@ function testJobFallbackWithoutWeapon() {
     assert.ok(actions.some((entry) => entry.id === 'enhancement:open'));
 }
 
+function testReturnActionShowsBoundRespawnTarget() {
+    const log = [];
+    const service = createService({
+        respawnTemplateId: 'sect_domain_alpha',
+        attrs: { numericStats: { viewRange: 3 } },
+        realm: { breakthroughReady: false },
+        equipment: { slots: [] },
+        alchemyJob: null,
+        enhancementJob: null,
+    }, log);
+    const actions = service.buildContextActions({
+        playerId: 'player:3',
+        self: { x: 1, y: 1 },
+        instance: { instanceId: 'public:yunlai_town' },
+        localPortals: [],
+        localNpcs: [],
+    });
+    assert.equal(actions.find((entry) => entry.id === 'travel:return_spawn')?.name, '遁返');
+    assert.equal(actions.find((entry) => entry.id === 'travel:return_spawn')?.desc, '催动归引灵符，遁返回 青玄宗。');
+    assert.ok(!actions.some((entry) => entry.id === 'travel:return_sect'));
+}
+
 testBuildContextActions();
 testJobFallbackWithoutWeapon();
+testReturnActionShowsBoundRespawnTarget();
 
 console.log(JSON.stringify({ ok: true, case: 'world-runtime-context-actions' }, null, 2));

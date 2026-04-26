@@ -95,6 +95,14 @@ function createService(overrides = {}) {
 
         unlockMap(playerId, mapId) { overrides.log.push(['unlockMap', playerId, mapId]); },        
         /**
+ * bindRespawnPoint：绑定玩家复活点。
+ * @param playerId 玩家 ID。
+ * @param mapId 地图 ID。
+ * @returns 返回是否发生变化。
+ */
+
+        bindRespawnPoint(playerId, mapId) { overrides.log.push(['bindRespawnPoint', playerId, mapId]); return true; },        
+        /**
  * consumeInventoryItem：执行consume背包道具相关逻辑。
  * @param playerId 玩家 ID。
  * @param slotIndex 参数说明。
@@ -142,7 +150,7 @@ function createService(overrides = {}) {
  * @returns 无返回值，完成OrThrow的读取/组装。
  */
 
-        getOrThrow() { return { name: '荒原' }; },
+        getOrThrow(mapId) { return { name: mapId === 'wildlands' ? '荒原' : '云来镇' }; },
     };
     return new WorldRuntimeUseItemService(contentTemplateRepository, templateRepository, playerRuntimeService);
 }
@@ -187,6 +195,25 @@ function testTileAuraBranch() {
     ]);
 }
 /**
+ * testRespawnBindBranch：执行test复活绑定Branch相关逻辑。
+ * @returns 无返回值，直接更新test复活绑定Branch相关状态。
+ */
+
+
+function testRespawnBindBranch() {
+    const log = [];
+    const service = createService({ log });
+    service.templateRepository.has = (mapId) => mapId === 'yunlai_town';
+    service.playerRuntimeService.peekInventoryItem = () => ({ itemId: 'fate_stone.yunlai_town', name: '命石-云来镇', respawnBindMapId: 'yunlai_town' });
+    service.dispatchUseItem('player:1', 4, createDeps(log));
+    assert.deepEqual(log, [
+        ['bindRespawnPoint', 'player:1', 'yunlai_town'],
+        ['consumeInventoryItem', 'player:1', 4, 1],
+        ['refreshQuestStates', 'player:1'],
+        ['queuePlayerNotice', 'player:1', '复活点与遁返落点已绑定：云来镇', 'success'],
+    ]);
+}
+/**
  * testLegacyTileAuraBranch：执行test旧TileAuraBranch相关逻辑。
  * @returns 无返回值，直接更新test旧TileAuraBranch相关状态。
  */
@@ -224,6 +251,7 @@ function testNormalUseBranch() {
 
 testMapUnlockBranch();
 testTileAuraBranch();
+testRespawnBindBranch();
 testLegacyTileAuraBranch();
 testNormalUseBranch();
 

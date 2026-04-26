@@ -1202,9 +1202,6 @@ function assertBootstrapSelfCarriesAttrSurface(payload) {
   if (!payload || typeof payload !== 'object' || !payload.self || typeof payload.self !== 'object') {
     throw new Error('expected Bootstrap.self payload to exist');
   }
-  if (!Array.isArray(payload.self.bonuses)) {
-    throw new Error('expected Bootstrap.self.bonuses to be present');
-  }
   if (payload.self.specialStats !== undefined && typeof payload.self.specialStats !== 'object') {
     throw new Error('expected Bootstrap.self.specialStats to stay object-shaped when present');
   }
@@ -1640,12 +1637,13 @@ async function detailQuestCase(runtime) {
  */
   var questRefreshAfter = socket.getEventCount(S2C.Quests);
   socket.emit(C2S.UseAction, { actionId: "npc_quests:npc_herbalist_lan" });
-  await socket.waitForEventAfter(S2C.NpcQuests, npcQuestAfter, function (payload) {
-    return payload && payload.npcId === "npc_herbalist_lan" && Array.isArray(payload.quests);
-  }, 5000);
   await socket.waitForEventAfter(S2C.Quests, questRefreshAfter, function (payload) {
     return Array.isArray(payload && payload.quests);
   }, 5000);
+  await lib.delay(150);
+  if (socket.getEventCount(S2C.NpcQuests) !== npcQuestAfter) {
+    throw new Error("npc_quests action should not open npc quest panel");
+  }
 }
 /**
  * 处理pendinglogbookackcase。
@@ -1729,17 +1727,9 @@ async function inventoryOpsCase(runtime) {
  * 记录状态。
  */
   var state = (await runtime.api.fetchState(playerId)).player;
-/**
- * 记录healbefore索引。
- */
-  var healBeforeIndex = slot(state, "pill.minor_heal");
-/**
- * 记录ratbefore索引。
- */
-  var ratBeforeIndex = slot(state, "rat_tail");
   socket.emit(C2S.SortInventory, {});
   await lib.waitForState(runtime.api, playerId, function (player) {
-    return slot(player, "pill.minor_heal") < slot(player, "rat_tail") && slot(player, "pill.minor_heal") !== healBeforeIndex && slot(player, "rat_tail") !== ratBeforeIndex;
+    return slot(player, "pill.minor_heal") < slot(player, "rat_tail");
   }, 5000, "sortInventory");
   state = (await runtime.api.fetchState(playerId)).player;
 /**

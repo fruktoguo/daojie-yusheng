@@ -1,15 +1,141 @@
 import type { PlayerRealmState } from './cultivation-types';
+import type { QuestRuntimeStateView } from './quest-types';
 import type { PlayerState } from './player-runtime-types';
 import type { MapMinimapArchiveEntry, MapMinimapMarker, MapMinimapSnapshot } from './world-view-types';
 import type { MapMeta, GameTimeState, RenderEntity, VisibleTile } from './world-core-types';
 
-/** 首次连接引导包视图。玩家完整面板状态以 self 为真源，避免再由首连 PanelDelta 重复整包下发。 */
+/** 首包物品实例态：静态说明、装备模板、效果等由客户端本地资源补齐。 */
+export interface BootstrapItemStackView {
+/**
+ * itemId：道具ID标识。
+ */
+
+  itemId: string;
+  /**
+ * count：数量或计量字段。
+ */
+
+  count: number;
+  /**
+ * enhanceLevel：强化等级属于实例态，仅非零时下发。
+ */
+
+  enhanceLevel?: number;
+}
+
+/** 首包背包只承载实例态，道具静态说明走本地模板资源。 */
+export interface BootstrapInventoryView {
+/**
+ * capacity：capacity相关字段。
+ */
+
+  capacity: number;
+  /**
+ * items：集合字段。
+ */
+
+  items: BootstrapItemStackView[];
+}
+
+/** 首包装备只承载实例态，道具静态说明走本地模板资源。 */
+export type BootstrapEquipmentView = {
+  [K in keyof PlayerState['equipment']]: BootstrapItemStackView | null;
+};
+
+/** 首包功法实例态：功法模板、层配置、属性曲线等由客户端本地资源补齐。 */
+export interface BootstrapTechniqueView {
+/**
+ * techId：功法ID标识。
+ */
+
+  techId: string;
+  /**
+ * level：等级数值。
+ */
+
+  level?: number;
+  /**
+ * exp：exp相关字段。
+ */
+
+  exp?: number;
+  /**
+ * expToNext：进度上限，用于首屏进度展示。
+ */
+
+  expToNext?: number;
+  /**
+ * skillsEnabled：启用开关或状态标识。
+ */
+
+  skillsEnabled?: boolean | null;
+}
+
+/** 首包技能行动实例态：技能模板说明、范围、目标模式等由客户端本地资源补齐。 */
+export interface BootstrapActionView {
+/**
+ * id：ID标识。
+ */
+
+  id: string;
+  /**
+ * cooldownLeft：冷却Left相关字段。
+ */
+
+  cooldownLeft?: number;
+  /**
+ * autoBattleEnabled：启用开关或状态标识。
+ */
+
+  autoBattleEnabled?: boolean | null;
+  /**
+ * autoBattleOrder：autoBattle订单相关字段。
+ */
+
+  autoBattleOrder?: number | null;
+  /**
+ * skillEnabled：启用开关或状态标识。
+ */
+
+  skillEnabled?: boolean | null;
+}
+
+/** 首包玩家视图：保留运行态字段，面板静态描述由客户端模板补齐。 */
+export interface BootstrapSelfView extends Omit<PlayerState, 'inventory' | 'equipment' | 'techniques' | 'actions' | 'bonuses' | 'quests'> {
+/**
+ * inventory：背包相关字段。
+ */
+
+  inventory: BootstrapInventoryView;
+  /**
+ * equipment：装备相关字段。
+ */
+
+  equipment: BootstrapEquipmentView;
+  /**
+ * techniques：功法相关字段。
+ */
+
+  techniques: BootstrapTechniqueView[];
+  /**
+ * actions：action相关字段。
+ */
+
+  actions: BootstrapActionView[];
+  /**
+ * quests：任务运行态，静态任务内容由客户端模板补齐。
+ */
+
+  quests: QuestRuntimeStateView[];
+}
+
+/** 首次连接引导包视图。玩家面板静态字段由客户端模板补齐，避免首包重复下发。 */
 export interface BootstrapView {
 /**
  * self：self相关字段。
  */
 
-  self: PlayerState;  
+  self: BootstrapSelfView;  
   /**
  * mapMeta：地图Meta相关字段。
  */
@@ -204,6 +330,11 @@ export interface QuestNavigateResultView {
  */
 
   error?: string;
+  /**
+ * path：当前地图首段导航路径。
+ */
+
+  path?: [number, number][];
 }
 
 /** 高频地图静态同步视图。 */

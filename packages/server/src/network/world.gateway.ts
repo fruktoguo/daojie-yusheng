@@ -382,6 +382,15 @@ let WorldGateway = WorldGateway_1 = class WorldGateway {
     handleUseItem(client, payload) {
         return this.gatewayInventoryHelper.handleUseItem(client, payload);
     }    
+    handleCreateFormation(client, payload) {
+        return this.gatewayInventoryHelper.handleCreateFormation(client, payload);
+    }
+    handleSetFormationActive(client, payload) {
+        return this.gatewayInventoryHelper.handleSetFormationActive(client, payload);
+    }
+    handleRefillFormation(client, payload) {
+        return this.gatewayInventoryHelper.handleRefillFormation(client, payload);
+    }
     handleDropItem(client, payload) {
         return this.gatewayInventoryHelper.handleDropItem(client, payload);
     }    
@@ -906,6 +915,30 @@ __decorate([
     __metadata("design:paramtypes", [socket_io_1.Socket, Object]),
     __metadata("design:returntype", void 0)
 ], WorldGateway.prototype, "handleUseItem", null);
+__decorate([
+    (0, websockets_1.SubscribeMessage)(shared_1.C2S.CreateFormation),
+    __param(0, (0, websockets_1.ConnectedSocket)()),
+    __param(1, (0, websockets_1.MessageBody)()),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [socket_io_1.Socket, Object]),
+    __metadata("design:returntype", void 0)
+], WorldGateway.prototype, "handleCreateFormation", null);
+__decorate([
+    (0, websockets_1.SubscribeMessage)(shared_1.C2S.SetFormationActive),
+    __param(0, (0, websockets_1.ConnectedSocket)()),
+    __param(1, (0, websockets_1.MessageBody)()),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [socket_io_1.Socket, Object]),
+    __metadata("design:returntype", void 0)
+], WorldGateway.prototype, "handleSetFormationActive", null);
+__decorate([
+    (0, websockets_1.SubscribeMessage)(shared_1.C2S.RefillFormation),
+    __param(0, (0, websockets_1.ConnectedSocket)()),
+    __param(1, (0, websockets_1.MessageBody)()),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [socket_io_1.Socket, Object]),
+    __metadata("design:returntype", void 0)
+], WorldGateway.prototype, "handleRefillFormation", null);
 __decorate([
     (0, websockets_1.SubscribeMessage)(shared_1.C2S.DropItem),
     __param(0, (0, websockets_1.ConnectedSocket)()),

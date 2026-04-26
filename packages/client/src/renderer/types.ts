@@ -55,6 +55,17 @@ export interface TargetingOverlayState {
   hoverY?: number;
 }
 
+/** 阵法布置范围叠加层状态。 */
+export interface FormationRangeOverlayState {
+/**
+ * affectedCells：affectedCell相关字段。
+ */
+
+  affectedCells: GridPoint[];
+  /** rangeHighlightColor：范围高亮颜色。 */
+  rangeHighlightColor?: string;
+}
+
 /** 感气视角叠加层状态。 */
 export interface SenseQiOverlayState {
 /**
@@ -90,6 +101,7 @@ export interface IRenderer {
  targetId: string }>): void;
   setPathHighlight(cells: GridPoint[], fadeDurationMs?: number): void;
   setTargetingOverlay(state: TargetingOverlayState | null): void;
+  setFormationRangeOverlay(state: FormationRangeOverlayState | null): void;
   setSenseQiOverlay(state: SenseQiOverlayState | null): void;
   renderWorld(
     camera: Camera,
@@ -179,6 +191,18 @@ export interface IRenderer {
  */
 
       buffs?: VisibleBuffState[];
+      formationRadius?: RenderEntity['formationRadius'];
+      formationRangeShape?: RenderEntity['formationRangeShape'];
+      formationRangeHighlightColor?: RenderEntity['formationRangeHighlightColor'];
+      formationBoundaryChar?: RenderEntity['formationBoundaryChar'];
+      formationBoundaryColor?: RenderEntity['formationBoundaryColor'];
+      formationBoundaryRangeHighlightColor?: RenderEntity['formationBoundaryRangeHighlightColor'];
+      formationEyeVisibleWithoutSenseQi?: RenderEntity['formationEyeVisibleWithoutSenseQi'];
+      formationRangeVisibleWithoutSenseQi?: RenderEntity['formationRangeVisibleWithoutSenseQi'];
+      formationBoundaryVisibleWithoutSenseQi?: RenderEntity['formationBoundaryVisibleWithoutSenseQi'];
+      formationShowText?: RenderEntity['formationShowText'];
+      formationBlocksBoundary?: RenderEntity['formationBlocksBoundary'];
+      formationActive?: RenderEntity['formationActive'];
     }[],
     movedId?: string,
     shiftX?: number,
@@ -202,4 +226,3 @@ export interface IRenderer {
   renderAttackTrails(camera: Camera): void;
   destroy(): void;
 }
-

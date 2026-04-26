@@ -51,6 +51,7 @@ import type {
   VisibleTilePatchView,
   WorldContainerPatchView,
   WorldDeltaView,
+  WorldFormationPatchView,
   WorldGroundPatchView,
   WorldMonsterPatchView,
   WorldNpcPatchView,
@@ -103,6 +104,8 @@ export interface S2C_WorldPortalPatch extends WorldPortalPatchView {}
 export interface S2C_WorldGroundPatch extends WorldGroundPatchView {}
 /** 世界增量中的容器实体补丁。 */
 export interface S2C_WorldContainerPatch extends WorldContainerPatchView {}
+/** 世界阵法补丁。 */
+export interface S2C_WorldFormationPatch extends WorldFormationPatchView {}
 /** 世界增量包：同步可见实体、战斗特效、路径、时间和地图局部补丁。 */
 export interface S2C_WorldDelta extends WorldDeltaView {
 /**
@@ -135,6 +138,11 @@ export interface S2C_WorldDelta extends WorldDeltaView {
  */
 
   c?: S2C_WorldContainerPatch[];  
+  /**
+ * fmn：阵法实体补丁。
+ */
+
+  fmn?: S2C_WorldFormationPatch[];
   /**
  * tp：tp相关字段。
  */

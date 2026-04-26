@@ -48,6 +48,7 @@ function parseArgs(argv) {
     instanceIds: [],
     mailboxIds: [],
     apply: false,
+    limit: null,
   };
   for (const arg of argv) {
     if (arg === '--dry-run') {
@@ -86,12 +87,19 @@ function parseArgs(argv) {
       }
       continue;
     }
+    if (arg.startsWith('--limit=')) {
+      const parsed = Number(arg.slice('--limit='.length));
+      if (Number.isFinite(parsed)) {
+        options.limit = Math.max(0, Math.trunc(parsed));
+      }
+      continue;
+    }
   }
   return options;
 }
 
 async function main() {
-  const { dryRun, apply, domains, playerIds, instanceIds, mailboxIds } = parseArgs(process.argv.slice(2));
+  const { dryRun, apply, domains, playerIds, instanceIds, mailboxIds, limit } = parseArgs(process.argv.slice(2));
   const databaseUrl = resolveServerDatabaseUrl();
   if (!databaseUrl.trim()) {
     throw new Error('missing SERVER_DATABASE_URL/DATABASE_URL');
@@ -108,14 +116,20 @@ async function main() {
     const domainService = app.get(PlayerDomainPersistenceService);
     const instanceDomainService = app.get(InstanceDomainPersistenceService);
     const mailService = app.get(MailPersistenceService);
-    const snapshots = playerIds.length > 0
+    const snapshots = applyLimit(playerIds.length > 0
       ? (await Promise.all(playerIds.map(async (playerId) => {
           const snapshot = await snapshotService.loadPlayerSnapshot(playerId);
           return snapshot ? { playerId, snapshot, updatedAt: snapshot.savedAt ?? Date.now() } : null;
         }))).filter(Boolean)
-      : await snapshotService.listPlayerSnapshots();
-    const instanceSnapshots = await listInstanceSnapshots(poolProvider.getPool('migrate-next-mainline-instance') ?? new Pool({ connectionString: databaseUrl }), instanceIds);
-    const mailboxSnapshots = await listMailboxSnapshots(poolProvider.getPool('migrate-next-mainline-mail') ?? new Pool({ connectionString: databaseUrl }), mailboxIds);
+      : await snapshotService.listPlayerSnapshots(), limit);
+    const instanceSnapshots = applyLimit(
+      await listInstanceSnapshots(poolProvider.getPool('migrate-next-mainline-instance') ?? new Pool({ connectionString: databaseUrl }), instanceIds),
+      limit,
+    );
+    const mailboxSnapshots = applyLimit(
+      await listMailboxSnapshots(poolProvider.getPool('migrate-next-mainline-mail') ?? new Pool({ connectionString: databaseUrl }), mailboxIds),
+      limit,
+    );
 
     if (!dryRun && !apply) {
       throw new Error('migration must pass either --dry-run or --apply');
@@ -156,7 +170,7 @@ async function main() {
             instanceId: entry.instanceId,
             templateId: entry.snapshot.templateId ?? null,
             snapshotSavedAt: entry.snapshot.savedAt ?? null,
-            projectedDomains: ['tile_resource', 'ground_item', 'container_state', 'monster_runtime', 'event_state', 'overlay_chunk', 'checkpoint', 'recovery_watermark'],
+            projectedDomains: ['tile_resource', 'tile_damage', 'ground_item', 'container_state', 'monster_runtime', 'event_state', 'overlay_chunk', 'checkpoint', 'recovery_watermark'],
           });
           continue;
         }
@@ -194,6 +208,7 @@ async function main() {
       dryRun,
       apply,
       domains,
+      limit,
       processed: dryRun ? dryRunChecks.length : migrated.length,
       totalSnapshots: snapshots.length,
       projectedDomains: PLAYER_DOMAIN_PROJECTION_TARGETS,
@@ -209,6 +224,13 @@ async function main() {
   } finally {
     await app.close();
   }
+}
+
+function applyLimit(entries, limit) {
+  if (limit === null || limit === undefined || !Number.isFinite(Number(limit))) {
+    return entries;
+  }
+  return entries.slice(0, Math.max(0, Math.trunc(Number(limit))));
 }
 
 async function listMailboxSnapshots(pool, mailboxIds) {
@@ -258,13 +280,28 @@ async function migrateInstanceSnapshot(service, instanceId, snapshot, apply) {
       tileIndex: Math.trunc(Number(entry.tileIndex)),
       value: Math.max(0, Math.trunc(Number(entry.value))),
     }));
+  const tileDamageEntries = Array.isArray(snapshot.tileDamageEntries) ? snapshot.tileDamageEntries : [];
+  const normalizedTileDamageEntries = tileDamageEntries
+    .filter((entry) => entry && Number.isFinite(Number(entry.tileIndex)))
+    .map((entry) => ({
+      tileIndex: Math.max(0, Math.trunc(Number(entry.tileIndex))),
+      hp: Math.max(0, Math.trunc(Number(entry.hp) || 0)),
+      maxHp: Math.max(1, Math.trunc(Number(entry.maxHp) || 1)),
+      destroyed: entry.destroyed === true,
+      respawnLeft: Math.max(0, Math.trunc(Number(entry.respawnLeft) || 0)),
+      modifiedAt: Number.isFinite(Number(entry.modifiedAt)) ? Math.max(0, Math.trunc(Number(entry.modifiedAt))) : Date.now(),
+    }));
   if (apply) {
     await service.saveTileResourceDiffs(instanceId, normalizedTileResourceEntries);
+    await service.saveTileDamageStates(instanceId, normalizedTileDamageEntries);
+    await service.replaceGroundItems(instanceId, Array.isArray(snapshot.groundPileEntries) ? snapshot.groundPileEntries : []);
+    await service.replaceContainerStates(instanceId, Array.isArray(snapshot.containerStates) ? snapshot.containerStates : []);
     await service.saveInstanceCheckpoint(instanceId, {
       kind: 'migrated_from_map_snapshot',
       templateId: snapshot.templateId ?? null,
       savedAt: snapshot.savedAt ?? null,
       tileResourceEntries: normalizedTileResourceEntries,
+      tileDamageEntries: normalizedTileDamageEntries,
       groundPileEntries: Array.isArray(snapshot.groundPileEntries) ? snapshot.groundPileEntries : [],
       containerStates: Array.isArray(snapshot.containerStates) ? snapshot.containerStates : [],
     });
@@ -273,39 +310,6 @@ async function migrateInstanceSnapshot(service, instanceId, snapshot, apply) {
       recoveryVersion: Number.isFinite(Number(snapshot.savedAt)) ? Math.trunc(Number(snapshot.savedAt)) : Date.now(),
       checkpointKind: 'migrated_from_map_snapshot',
     });
-  }
-  if (Array.isArray(snapshot.groundPileEntries) && snapshot.groundPileEntries.length > 0) {
-    for (const pile of snapshot.groundPileEntries) {
-      if (!pile || !Number.isFinite(Number(pile.tileIndex)) || !Array.isArray(pile.items)) {
-        continue;
-      }
-      for (const item of pile.items) {
-        const normalizedItem = normalizePersistedGroundItem(item);
-        if (!normalizedItem) {
-          continue;
-        }
-        await service.saveGroundItem({
-          groundItemId: `ground:${instanceId}:${Math.trunc(Number(pile.tileIndex))}:${normalizedItem.itemId}`,
-          instanceId,
-          tileIndex: Math.trunc(Number(pile.tileIndex)),
-          itemPayload: normalizedItem,
-          expireAt: null,
-        });
-      }
-    }
-  }
-  if (Array.isArray(snapshot.containerStates)) {
-    for (const container of snapshot.containerStates) {
-      if (!container || typeof container.id !== 'string') {
-        continue;
-      }
-      await service.saveContainerState({
-        instanceId,
-        containerId: container.id,
-        sourceId: container.sourceId ?? container.id,
-        statePayload: container,
-      });
-    }
   }
 }
 
@@ -319,6 +323,7 @@ function normalizeInstanceSnapshot(raw) {
     savedAt: Number.isFinite(Number(payload.savedAt)) ? Math.trunc(Number(payload.savedAt)) : Date.now(),
     templateId: typeof payload.templateId === 'string' ? payload.templateId : '',
     tileResourceEntries: Array.isArray(payload.tileResourceEntries) ? payload.tileResourceEntries : [],
+    tileDamageEntries: Array.isArray(payload.tileDamageEntries) ? payload.tileDamageEntries : [],
     groundPileEntries: Array.isArray(payload.groundPileEntries) ? payload.groundPileEntries : [],
     containerStates: Array.isArray(payload.containerStates) ? payload.containerStates : [],
   };

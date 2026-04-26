@@ -262,6 +262,8 @@ function toPlayerSnapshotFromMigrationRow(row) {
         progression: {
             foundation: Math.max(0, toFiniteInt(row.foundation, 0)),
             combatExp: Math.max(0, toFiniteInt(row.combatExp, 0)),
+            comprehension: Math.max(0, toFiniteInt(row.comprehension, 0)),
+            luck: Math.max(0, toFiniteInt(row.luck, 0)),
 
             bodyTraining: typeof row.bodyTraining === 'object' && row.bodyTraining ? row.bodyTraining : null,
             boneAgeBaseYears: Math.max(1, toFiniteInt(row.boneAgeBaseYears, shared_1.DEFAULT_BONE_AGE_YEARS)),

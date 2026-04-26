@@ -72,6 +72,35 @@ export interface GmPlayerSummary {
   isBot: boolean;
 }
 
+/** GM 网络大包开发态样本。 */
+export interface GmNetworkLargePayloadSample {
+/**
+ * event：socket事件名称。
+ */
+
+  event: string;
+  /**
+ * bytes：payload字节数。
+ */
+
+  bytes: number;
+  /**
+ * packetBytes：事件名+payload的估算字节数。
+ */
+
+  packetBytes: number;
+  /**
+ * recordedAt：记录时间戳。
+ */
+
+  recordedAt: number;
+  /**
+ * body：JSON序列化后的包体内容。
+ */
+
+  body: string;
+}
+
 /** GM 网络流量按业务桶拆分的统计项。 */
 export interface GmNetworkBucket {
 /**
@@ -94,6 +123,21 @@ export interface GmNetworkBucket {
  */
 
   count: number;
+  /**
+ * largePayloadCount：开发态捕获到的大包数量。
+ */
+
+  largePayloadCount?: number;
+  /**
+ * largePayloadBytes：开发态捕获到的大包payload总字节。
+ */
+
+  largePayloadBytes?: number;
+  /**
+ * largePayloadSamples：开发态捕获到的最近大包样本。
+ */
+
+  largePayloadSamples?: GmNetworkLargePayloadSample[];
 }
 
 /** GM CPU 分段统计项。 */

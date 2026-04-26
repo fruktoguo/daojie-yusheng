@@ -1731,6 +1731,7 @@ export class MarketPanel {
       enhanceLevel: enhanceLevel ?? template.enhanceLevel,
       mapUnlockId: template.mapUnlockId,
       mapUnlockIds: template.mapUnlockIds,
+      respawnBindMapId: template.respawnBindMapId,
       tileAuraGainAmount: template.tileAuraGainAmount,
       tileResourceGains: template.tileResourceGains,
       allowBatchUse: template.allowBatchUse,

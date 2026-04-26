@@ -174,8 +174,9 @@ async function main(): Promise<void> {
     }
     if (
       !anchorRow
-      || anchorRow.respawn_template_id !== 'yunlai_town'
-      || Number(anchorRow.respawn_x) !== 11
+      || anchorRow.respawn_template_id !== 'bound_respawn_peak'
+      || Number(anchorRow.respawn_x) !== 3
+      || anchorRow.last_safe_template_id !== 'yunlai_town'
       || anchorRow.preferred_line_preset !== 'real'
     ) {
       throw new Error(`unexpected player_world_anchor row: ${JSON.stringify(anchorRow)}`);
@@ -938,6 +939,13 @@ function buildSnapshot(now: number): PersistedPlayerSnapshot {
       y: 22,
       facing: 2,
     },
+    respawn: {
+      instanceId: 'public:bound_respawn_peak',
+      templateId: 'bound_respawn_peak',
+      x: 3,
+      y: 4,
+      facing: 2,
+    },
     worldPreference: {
       linePreset: 'real',
     },
@@ -1047,8 +1055,8 @@ function buildSnapshot(now: number): PersistedPlayerSnapshot {
         spirit: 10,
         perception: 8,
         talent: 9,
-        comprehension: 7,
-        luck: 6,
+        strength: 7,
+        meridians: 6,
       },
       revealedBreakthroughRequirementIds: ['realm.req.technique', 'realm.req.item'],
     },

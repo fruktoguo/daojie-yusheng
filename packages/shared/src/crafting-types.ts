@@ -5,6 +5,19 @@ import type { TechniqueActivityJobBase } from './technique-activity-types';
 import type { TechniqueGrade } from './cultivation-types';
 import type { EquipSlot, ItemStack } from './item-runtime-types';
 
+/** 制造型技艺任务的启动排队策略。 */
+export type CraftQueueStartMode = 'replace' | 'preserve' | 'append';
+
+/** 制造型技艺任务队列条目。 */
+export interface CraftQueueItemView {
+  queueId: string;
+  kind: 'alchemy' | 'forging' | 'enhancement';
+  label: string;
+  quantity?: number;
+  createdAt: number;
+  payload?: unknown;
+}
+
 /** 炼制技能的经验与等级运行态。 */
 export interface AlchemySkillState {
 /**
@@ -71,7 +84,7 @@ export interface AlchemyRecipeIngredientDef extends AlchemyIngredientSelection {
 }
 
 /** 炼制配方类别。 */
-export type AlchemyRecipeCategory = 'recovery' | 'buff';
+export type AlchemyRecipeCategory = 'recovery' | 'buff' | 'special';
 
 /** 炼制配方目录条目。 */
 export interface AlchemyRecipeCatalogEntry {
@@ -153,6 +166,21 @@ export interface PlayerAlchemyPreset {
 
 /** 玩家当前炼制任务的运行态。 */
 export interface PlayerAlchemyJob {
+/**
+ * jobRunId：活跃任务运行 ID。
+ */
+
+  jobRunId?: string;
+  /**
+ * jobType：任务类型。
+ */
+
+  jobType?: 'alchemy';
+  /**
+ * jobVersion：活跃任务版本。
+ */
+
+  jobVersion?: number;
 /**
  * recipeId：recipeID标识。
  */
@@ -248,6 +276,11 @@ export interface PlayerAlchemyJob {
  */
 
   startedAt: number;
+  /**
+ * queuedJobs：等待中的后续制造任务。
+ */
+
+  queuedJobs?: CraftQueueItemView[];
 }
 
 /** 炼制面板的完整同步状态。 */
@@ -267,6 +300,11 @@ export interface SyncedAlchemyPanelState {
  */
 
   job: PlayerAlchemyJob | null;
+  /**
+ * queue：制造任务队列快照。
+ */
+
+  queue?: CraftQueueItemView[];
 }
 
 /** 强化目标引用，指向背包槽位或装备槽位。 */
@@ -304,6 +342,21 @@ export interface EnhancementMaterialRequirement {
 
 /** 玩家当前强化任务的运行态。 */
 export interface PlayerEnhancementJob {
+/**
+ * jobRunId：活跃任务运行 ID。
+ */
+
+  jobRunId?: string;
+  /**
+ * jobType：任务类型。
+ */
+
+  jobType?: 'enhancement';
+  /**
+ * jobVersion：活跃任务版本。
+ */
+
+  jobVersion?: number;
 /**
  * target：目标相关字段。
  */
@@ -419,6 +472,11 @@ export interface PlayerEnhancementJob {
  */
 
   totalSpeedRate: number;
+  /**
+ * queuedJobs：等待中的后续制造任务。
+ */
+
+  queuedJobs?: CraftQueueItemView[];
 }
 
 /** 玩家当前采集任务的最小持久化运行态。 */
@@ -645,4 +703,9 @@ export interface SyncedEnhancementPanelState {
  */
 
   job: PlayerEnhancementJob | null;
+  /**
+ * queue：制造任务队列快照。
+ */
+
+  queue?: CraftQueueItemView[];
 }

@@ -182,7 +182,10 @@ function buildEquipMutation(snapshot, slotIndex) {
     if (!equipmentEntry) {
         return null;
     }
-    const equippedItem = inventoryItems.splice(slotIndex, 1)[0];
+    const equippedItem = takeSingleInventoryItemForEquipment(inventoryItems, slotIndex);
+    if (!equippedItem) {
+        return null;
+    }
     const previousEquipped = equipmentEntry.item ? { ...equipmentEntry.item } : null;
     equipmentEntry.item = { ...equippedItem };
     if (previousEquipped) {
@@ -220,6 +223,26 @@ function buildUnequipMutation(snapshot, slot) {
             slot: entry.slot,
             item: entry.item ? { ...entry.item } : null,
         })),
+    };
+}
+
+function takeSingleInventoryItemForEquipment(items, slotIndex) {
+    const item = items[slotIndex];
+    if (!item) {
+        return null;
+    }
+    const itemCount = Math.max(1, Math.trunc(Number(item.count ?? 1)));
+    if (itemCount <= 1) {
+        const [removed] = items.splice(slotIndex, 1);
+        return {
+            ...removed,
+            count: 1,
+        };
+    }
+    item.count = itemCount - 1;
+    return {
+        ...item,
+        count: 1,
     };
 }
 

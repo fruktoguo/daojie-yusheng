@@ -53,6 +53,7 @@ const MONSTER_EXPONENTIAL_NUMERIC_KEYS = [
   'antiCrit',
   'breakPower',
   'resolvePower',
+  'maxQiOutputPerTick',
   'cooldownSpeed',
   'moveSpeed',
   'extraAggroRate',
@@ -61,14 +62,12 @@ const MONSTER_EXPONENTIAL_NUMERIC_KEYS = [
 /** 怪物线性成长的数值键，随等级按线性曲线放大。 */
 const MONSTER_LINEAR_NUMERIC_KEYS = [
   'critDamage',
-  'maxQiOutputPerTick',
   'qiRegenRate',
   'hpRegenRate',
 ] as const satisfies readonly NumericScalarStatKey[];
 /** 各线性数值键对应的等级成长倍率。 */
 const MONSTER_LINEAR_NUMERIC_GROWTH_RATES: Record<typeof MONSTER_LINEAR_NUMERIC_KEYS[number], number> = {
   critDamage: 0.1,
-  maxQiOutputPerTick: 0.1,
   qiRegenRate: 0.02,
   hpRegenRate: 0.02,
 };
@@ -341,6 +340,11 @@ export interface MonsterTemplateEditorItem {
 
   mapUnlockIds?: string[];  
   /**
+ * respawnBindMapId：使用后绑定的复活地图 ID。
+ */
+
+  respawnBindMapId?: string;  
+  /**
  * tileAuraGainAmount：数量或计量字段。
  */
 
@@ -591,8 +595,8 @@ export function createMonsterAttributes(initial = 0): Attributes {
     spirit: initial,
     perception: initial,
     talent: initial,
-    comprehension: initial,
-    luck: initial,
+    strength: initial,
+    meridians: initial,
   };
 }
 
@@ -917,12 +921,12 @@ export function inferMonsterAttrsFromNumericStats(stats: NumericStats): Attribut
     stats.maxHp / 42,
     stats.maxQi / 32,
   )));
-  const comprehension = Math.max(0, Math.round(Math.max(
+  const strength = Math.max(0, Math.round(Math.max(
     stats.breakPower,
     stats.maxQiOutputPerTick,
     stats.qiRegenRate / 16,
   ) * MONSTER_SECONDARY_ATTR_RATIO));
-  const luck = Math.max(0, Math.round(Math.max(
+  const meridians = Math.max(0, Math.round(Math.max(
     stats.crit,
     stats.antiCrit,
     Math.min(stats.hit, stats.dodge),
@@ -932,8 +936,8 @@ export function inferMonsterAttrsFromNumericStats(stats: NumericStats): Attribut
     spirit,
     perception,
     talent,
-    comprehension,
-    luck,
+    strength,
+    meridians,
   };
 }
 
@@ -1069,6 +1073,7 @@ function createMonsterTemplateEquipmentItem(item: MonsterTemplateEditorItem): It
     tags: item.tags,
     mapUnlockId: item.mapUnlockId,
     mapUnlockIds: item.mapUnlockIds ? [...item.mapUnlockIds] : undefined,
+    respawnBindMapId: item.respawnBindMapId,
     tileAuraGainAmount: item.tileAuraGainAmount,
     tileResourceGains: item.tileResourceGains ? item.tileResourceGains.map((entry) => ({ ...entry })) : undefined,
     allowBatchUse: item.allowBatchUse,

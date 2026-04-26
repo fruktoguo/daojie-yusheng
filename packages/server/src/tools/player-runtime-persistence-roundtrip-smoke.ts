@@ -50,8 +50,8 @@ function createPlayerRuntimeService() {
         createInitialState() {
             return {
                 stage: '炼气',
-                baseAttrs: { constitution: 1, spirit: 1, perception: 1, talent: 1, comprehension: 1, luck: 1 },
-                finalAttrs: { constitution: 1, spirit: 1, perception: 1, talent: 1, comprehension: 1, luck: 1 },
+                baseAttrs: { constitution: 1, spirit: 1, perception: 1, talent: 1, strength: 1, meridians: 1 },
+                finalAttrs: { constitution: 1, spirit: 1, perception: 1, talent: 1, strength: 1, meridians: 1 },
                 numericStats: createNumericStats(),
                 ratioDivisors: createNumericRatioDivisors(),
             };
@@ -193,8 +193,40 @@ function testFreshSnapshotKeepsGatherJobEmpty() {
     assert.deepEqual(snapshot.worldPreference, { linePreset: 'peaceful' });
 }
 
+function testMissingRespawnFallsBackToStarterMap() {
+    const service = createPlayerRuntimeService();
+    const snapshot = createSnapshot(null);
+    snapshot.placement = {
+        instanceId: 'public:yunlai_town_ore_basement',
+        templateId: 'yunlai_town_ore_basement',
+        x: 8,
+        y: 5,
+        facing: Direction.South,
+    };
+    delete snapshot.respawn;
+    const player = service.hydrateFromSnapshot('player:4', 'session:4', snapshot);
+    assert.equal(player.templateId, 'yunlai_town_ore_basement');
+    assert.equal(player.respawnTemplateId, 'yunlai_town');
+    assert.equal(player.respawnInstanceId, 'public:yunlai_town');
+    assert.equal(player.respawnX, 32);
+    assert.equal(player.respawnY, 5);
+}
+
+function testSectIdRoundtrip() {
+    const service = createPlayerRuntimeService();
+    const snapshot = createSnapshot(null);
+    snapshot.sectId = 'sect:player:alpha';
+    const player = service.hydrateFromSnapshot('player:5', 'session:5', snapshot);
+    assert.equal(player.sectId, 'sect:player:alpha');
+    service.players.set('player:5', player);
+    const persisted = service.buildPersistenceSnapshot('player:5');
+    assert.equal(persisted.sectId, 'sect:player:alpha');
+}
+
 testGatherJobRoundtrip();
 testInvalidGatherJobFallsBackToNull();
 testFreshSnapshotKeepsGatherJobEmpty();
+testMissingRespawnFallsBackToStarterMap();
+testSectIdRoundtrip();
 
 console.log(JSON.stringify({ ok: true, case: 'player-runtime-persistence-roundtrip' }, null, 2));

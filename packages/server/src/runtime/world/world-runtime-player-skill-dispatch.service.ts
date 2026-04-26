@@ -76,10 +76,26 @@ function getResolvedSkillTargetKey(target) {
     if (target.kind === 'monster') {
         return `monster:${target.monsterId}`;
     }
+    if (target.kind === 'formation') {
+        return `formation:${target.formationId}`;
+    }
+    if (target.kind === 'formation_boundary') {
+        return `formation-boundary:${target.formationId}:${target.x}:${target.y}`;
+    }
     if (target.kind === 'player') {
         return `player:${target.playerId}`;
     }
     return `tile:${target.x}:${target.y}`;
+}
+
+function ensurePlayerSkillActionEnabled(player, skillId) {
+    const action = player.actions?.actions?.find((entry) => entry.id === skillId && entry.type === 'skill');
+    if (!action) {
+        throw new common_1.NotFoundException(`Skill action ${skillId} not found`);
+    }
+    if (action.skillEnabled === false) {
+        throw new common_1.BadRequestException('技能未启用，无法释放');
+    }
 }
 
 /** 玩家技能派发服务：承接 player skill dispatch 与 legacy target 解析。 */
@@ -120,6 +136,7 @@ let WorldRuntimePlayerSkillDispatchService = class WorldRuntimePlayerSkillDispat
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
         const attacker = this.playerRuntimeService.getPlayerOrThrow(playerId);
+        ensurePlayerSkillActionEnabled(attacker, skillId);
         const currentTick = deps.resolveCurrentTickForPlayerId(playerId);
         this.playerRuntimeService.recordActivity(playerId, currentTick, { interruptCultivation: true });
         deps.worldRuntimeCraftInterruptService.interruptCraftForReason(playerId, attacker, 'attack', deps);
@@ -142,9 +159,21 @@ let WorldRuntimePlayerSkillDispatchService = class WorldRuntimePlayerSkillDispat
             if (resolvedTarget.kind === 'tile') {
                 return this.dispatchCastSkillToTile(attacker, skillId, resolvedTarget.x, resolvedTarget.y, deps);
             }
+            if (resolvedTarget.kind === 'formation') {
+                return this.dispatchCastSkillToFormation(attacker, skillId, resolvedTarget.formationId, deps);
+            }
+            if (resolvedTarget.kind === 'formation_boundary') {
+                return this.dispatchCastSkillToTile(attacker, skillId, resolvedTarget.x, resolvedTarget.y, deps);
+            }
             return this.dispatchCastSkill(playerId, skillId, resolvedTarget.playerId, null, null, deps);
         }
         if (targetMonsterId) {
+            const formation = typeof deps.worldRuntimeFormationService?.getFormationCombatState === 'function'
+                ? deps.worldRuntimeFormationService.getFormationCombatState(attacker.instanceId, targetMonsterId)
+                : null;
+            if (formation) {
+                return this.dispatchCastSkillToFormation(attacker, skillId, targetMonsterId, deps);
+            }
             return this.dispatchCastSkillToMonster(attacker, skillId, targetMonsterId, deps);
         }
         if (!targetPlayerId) {
@@ -205,6 +234,15 @@ let WorldRuntimePlayerSkillDispatchService = class WorldRuntimePlayerSkillDispat
             return { kind: 'player', playerId: target.playerId };
         }
         if (!targetRef.startsWith('tile:')) {
+            const formation = typeof deps.worldRuntimeFormationService?.getFormationCombatState === 'function'
+                ? deps.worldRuntimeFormationService.getFormationCombatState(attacker.instanceId, targetRef)
+                : null;
+            if (formation) {
+                if (!(0, player_combat_config_helpers_1.isHostileCombatRelationResolution)((0, player_combat_config_helpers_1.resolveCombatRelation)(attacker, { kind: 'terrain' }))) {
+                    return null;
+                }
+                return { kind: 'formation', formationId: formation.id };
+            }
             const monster = instance.getMonster(targetRef);
             if (!monster?.alive) {
                 return null;
@@ -220,12 +258,21 @@ let WorldRuntimePlayerSkillDispatchService = class WorldRuntimePlayerSkillDispat
         }
         const geometry = buildEffectivePlayerSkillGeometry(attacker, skill);
         const directDistance = chebyshevDistance(attacker.x, attacker.y, tile.x, tile.y);
+        const terrainHostile = (0, player_combat_config_helpers_1.isHostileCombatRelationResolution)((0, player_combat_config_helpers_1.resolveCombatRelation)(attacker, { kind: 'terrain' }));
+        const directBoundary = typeof deps.worldRuntimeFormationService?.getBoundaryBarrierCombatState === 'function'
+            ? deps.worldRuntimeFormationService.getBoundaryBarrierCombatState(attacker.instanceId, tile.x, tile.y)
+            : null;
+        if (directDistance <= geometry.range && directBoundary && terrainHostile) {
+            return { kind: 'formation_boundary', formationId: directBoundary.formationId, x: tile.x, y: tile.y };
+        }
+        const directTileState = instance.getTileCombatState(tile.x, tile.y);
         if (
             instance?.meta?.canDamageTile === true
             && (
             directDistance <= geometry.range
-            && instance.getTileCombatState(tile.x, tile.y)
-            && (0, player_combat_config_helpers_1.isHostileCombatRelationResolution)((0, player_combat_config_helpers_1.resolveCombatRelation)(attacker, { kind: 'terrain' }))
+            && directTileState
+            && directTileState.destroyed !== true
+            && terrainHostile
             )
         ) {
             return { kind: 'tile', x: tile.x, y: tile.y };
@@ -244,6 +291,28 @@ let WorldRuntimePlayerSkillDispatchService = class WorldRuntimePlayerSkillDispat
                 && (0, player_combat_config_helpers_1.isHostileCombatRelationResolution)((0, player_combat_config_helpers_1.resolveCombatRelation)(attacker, { kind: 'monster' }))
             ) {
                 return { kind: 'monster', monsterId: monster.runtimeId };
+            }
+        }
+        const formations = typeof deps.worldRuntimeFormationService?.listRuntimeFormations === 'function'
+            ? deps.worldRuntimeFormationService.listRuntimeFormations(attacker.instanceId)
+                .filter((entry) => Number(entry.remainingAuraBudget) > 0)
+                .sort((left, right) => chebyshevDistance(tile.x, tile.y, left.x, left.y) - chebyshevDistance(tile.x, tile.y, right.x, right.y))
+            : [];
+        for (const cell of affectedCells) {
+            const formation = formations.find((entry) => entry.x === cell.x && entry.y === cell.y);
+            if (
+                formation
+                && terrainHostile
+            ) {
+                return { kind: 'formation', formationId: formation.id };
+            }
+        }
+        for (const cell of affectedCells) {
+            const boundary = typeof deps.worldRuntimeFormationService?.getBoundaryBarrierCombatState === 'function'
+                ? deps.worldRuntimeFormationService.getBoundaryBarrierCombatState(attacker.instanceId, cell.x, cell.y)
+                : null;
+            if (boundary && terrainHostile) {
+                return { kind: 'formation_boundary', formationId: boundary.formationId, x: cell.x, y: cell.y };
             }
         }
         const players = this.playerRuntimeService.listPlayerSnapshots()
@@ -265,9 +334,11 @@ let WorldRuntimePlayerSkillDispatchService = class WorldRuntimePlayerSkillDispat
             }
         }
         for (const cell of affectedCells) {
+            const tileState = instance.getTileCombatState(cell.x, cell.y);
             if (
-                instance.getTileCombatState(cell.x, cell.y)
-                && (0, player_combat_config_helpers_1.isHostileCombatRelationResolution)((0, player_combat_config_helpers_1.resolveCombatRelation)(attacker, { kind: 'terrain' }))
+                tileState
+                && tileState.destroyed !== true
+                && terrainHostile
             ) {
                 return { kind: 'tile', x: cell.x, y: cell.y };
             }
@@ -303,9 +374,13 @@ let WorldRuntimePlayerSkillDispatchService = class WorldRuntimePlayerSkillDispat
             pushTarget(primaryTarget);
         }
         const hostileMonster = (0, player_combat_config_helpers_1.isHostileCombatRelationResolution)((0, player_combat_config_helpers_1.resolveCombatRelation)(attacker, { kind: 'monster' }));
+        const hostileFormation = (0, player_combat_config_helpers_1.isHostileCombatRelationResolution)((0, player_combat_config_helpers_1.resolveCombatRelation)(attacker, { kind: 'terrain' }));
         const hostileTerrain = instance?.meta?.canDamageTile === true
             && (0, player_combat_config_helpers_1.isHostileCombatRelationResolution)((0, player_combat_config_helpers_1.resolveCombatRelation)(attacker, { kind: 'terrain' }));
         const monsters = instance.listMonsters().filter((entry) => entry.alive);
+        const formations = typeof deps.worldRuntimeFormationService?.listRuntimeFormations === 'function'
+            ? deps.worldRuntimeFormationService.listRuntimeFormations(attacker.instanceId).filter((entry) => Number(entry.remainingAuraBudget) > 0)
+            : [];
         const players = this.playerRuntimeService.listPlayerSnapshots()
             .filter((entry) => entry.instanceId === attacker.instanceId && entry.playerId !== attacker.playerId && entry.hp > 0);
         for (const cell of cells) {
@@ -316,6 +391,18 @@ let WorldRuntimePlayerSkillDispatchService = class WorldRuntimePlayerSkillDispat
                 const monster = monsters.find((entry) => entry.x === cell.x && entry.y === cell.y);
                 if (monster) {
                     pushTarget({ kind: 'monster', monsterId: monster.runtimeId, x: monster.x, y: monster.y });
+                }
+            }
+            if (hostileFormation) {
+                const formation = formations.find((entry) => entry.x === cell.x && entry.y === cell.y);
+                if (formation) {
+                    pushTarget({ kind: 'formation', formationId: formation.id, x: formation.x, y: formation.y });
+                }
+                const boundary = typeof deps.worldRuntimeFormationService?.getBoundaryBarrierCombatState === 'function'
+                    ? deps.worldRuntimeFormationService.getBoundaryBarrierCombatState(attacker.instanceId, cell.x, cell.y)
+                    : null;
+                if (boundary) {
+                    pushTarget({ kind: 'formation_boundary', formationId: boundary.formationId, x: cell.x, y: cell.y });
                 }
             }
             if (instance?.meta?.supportsPvp === true) {
@@ -349,6 +436,7 @@ let WorldRuntimePlayerSkillDispatchService = class WorldRuntimePlayerSkillDispat
         const effectColor = getSkillEffectColor(skill);
         deps.pushActionLabelEffect(attacker.instanceId, attacker.x, attacker.y, skill.name);
         let castIndex = 0;
+        const destroyedTiles = [];
         for (const target of targets) {
             const options = {
                 targetCount: targets.length,
@@ -407,6 +495,89 @@ let WorldRuntimePlayerSkillDispatchService = class WorldRuntimePlayerSkillDispat
                 }
                 continue;
             }
+            if (target.kind === 'formation') {
+                const formation = typeof deps.worldRuntimeFormationService?.getFormationCombatState === 'function'
+                    ? deps.worldRuntimeFormationService.getFormationCombatState(attacker.instanceId, target.formationId)
+                    : null;
+                if (!formation) {
+                    continue;
+                }
+                const distance = chebyshevDistance(attacker.x, attacker.y, formation.x, formation.y);
+                const effectiveDurability = Math.max(1, Math.min(Number.MAX_SAFE_INTEGER, Math.ceil(formation.remainingAuraBudget * formation.damagePerAura)));
+                const result = this.playerCombatService.castSkillToMonster(attacker, {
+                    runtimeId: formation.id,
+                    monsterId: formation.id,
+                    hp: effectiveDurability,
+                    maxHp: effectiveDurability,
+                    qi: 0,
+                    maxQi: 0,
+                    attrs: {
+                        finalAttrs: createTileCombatAttributes(),
+                        numericStats: createTileCombatNumericStats(effectiveDurability),
+                        ratioDivisors: createTileCombatRatioDivisors(),
+                    },
+                    buffs: [],
+                }, skillId, currentTick, distance, () => undefined, options);
+                castIndex += 1;
+                deps.pushAttackEffect(attacker.instanceId, attacker.x, attacker.y, formation.x, formation.y, effectColor);
+                if (result.totalDamage <= 0) {
+                    continue;
+                }
+                const outcome = deps.worldRuntimeFormationService.applyDamageToFormation(
+                    attacker.instanceId,
+                    formation.id,
+                    result.totalDamage,
+                    attacker.playerId,
+                    deps,
+                );
+                const appliedDamage = Number.isFinite(outcome?.appliedDamage) ? Math.max(0, Math.round(outcome.appliedDamage)) : 0;
+                if (appliedDamage > 0) {
+                    deps.pushDamageFloatEffect(attacker.instanceId, formation.x, formation.y, appliedDamage, effectColor);
+                }
+                continue;
+            }
+            if (target.kind === 'formation_boundary') {
+                const boundary = typeof deps.worldRuntimeFormationService?.getBoundaryBarrierCombatState === 'function'
+                    ? deps.worldRuntimeFormationService.getBoundaryBarrierCombatState(attacker.instanceId, target.x, target.y)
+                    : null;
+                if (!boundary) {
+                    continue;
+                }
+                const distance = chebyshevDistance(attacker.x, attacker.y, target.x, target.y);
+                const effectiveDurability = Math.max(1, Math.min(Number.MAX_SAFE_INTEGER, Math.ceil(boundary.remainingAuraBudget * boundary.damagePerAura)));
+                const result = this.playerCombatService.castSkillToMonster(attacker, {
+                    runtimeId: `formation-boundary:${boundary.formationId}:${target.x}:${target.y}`,
+                    monsterId: boundary.formationId,
+                    hp: effectiveDurability,
+                    maxHp: effectiveDurability,
+                    qi: 0,
+                    maxQi: 0,
+                    attrs: {
+                        finalAttrs: createTileCombatAttributes(),
+                        numericStats: createTileCombatNumericStats(effectiveDurability),
+                        ratioDivisors: createTileCombatRatioDivisors(),
+                    },
+                    buffs: [],
+                }, skillId, currentTick, distance, () => undefined, options);
+                castIndex += 1;
+                deps.pushAttackEffect(attacker.instanceId, attacker.x, attacker.y, target.x, target.y, effectColor);
+                if (result.totalDamage <= 0) {
+                    continue;
+                }
+                const outcome = deps.worldRuntimeFormationService.applyDamageToBoundaryBarrier(
+                    attacker.instanceId,
+                    target.x,
+                    target.y,
+                    result.totalDamage,
+                    attacker.playerId,
+                    deps,
+                );
+                const appliedDamage = Number.isFinite(outcome?.appliedDamage) ? Math.max(0, Math.round(outcome.appliedDamage)) : 0;
+                if (appliedDamage > 0) {
+                    deps.pushDamageFloatEffect(attacker.instanceId, target.x, target.y, appliedDamage, effectColor);
+                }
+                continue;
+            }
             const tileState = instance.getTileCombatState(target.x, target.y);
             if (!tileState || tileState.destroyed) {
                 continue;
@@ -431,12 +602,50 @@ let WorldRuntimePlayerSkillDispatchService = class WorldRuntimePlayerSkillDispat
             if (result.totalDamage <= 0) {
                 continue;
             }
-            deps.pushDamageFloatEffect(attacker.instanceId, target.x, target.y, result.totalDamage, effectColor);
-            instance.damageTile(target.x, target.y, result.totalDamage);
+            const mitigatedDamage = typeof deps.worldRuntimeFormationService?.mitigateTerrainDamage === 'function'
+                ? deps.worldRuntimeFormationService.mitigateTerrainDamage(attacker.instanceId, target.x, target.y, result.totalDamage)
+                : result.totalDamage;
+            const tileDamageResult = instance.damageTile(target.x, target.y, mitigatedDamage);
+            const appliedDamage = Number.isFinite(tileDamageResult?.appliedDamage) ? Math.max(0, Math.round(tileDamageResult.appliedDamage)) : 0;
+            if (appliedDamage > 0) {
+                deps.pushDamageFloatEffect(attacker.instanceId, target.x, target.y, appliedDamage, effectColor);
+            }
+            if (tileDamageResult?.destroyed === true) {
+                destroyedTiles.push({ x: target.x, y: target.y });
+            }
         }
         if (castIndex === 0) {
             throw new common_1.BadRequestException('没有可命中的目标');
         }
+        for (const tile of destroyedTiles) {
+            deps.worldRuntimeSectService?.expandSectForDestroyedTile?.(attacker.instanceId, tile.x, tile.y, deps);
+        }
+    }    
+    async dispatchCastSkillToFormation(attacker, skillId, formationInstanceId, deps) {
+  // 阵法按地形敌对规则承受技能，伤害折算为阵眼剩余灵力扣减。
+
+        ensurePlayerSkillActionEnabled(attacker, skillId);
+        const formation = typeof deps.worldRuntimeFormationService?.getFormationCombatState === 'function'
+            ? deps.worldRuntimeFormationService.getFormationCombatState(attacker.instanceId, formationInstanceId)
+            : null;
+        if (!formation) {
+            throw new common_1.NotFoundException(`Formation ${formationInstanceId} not found`);
+        }
+        ensureHostileRelation((0, player_combat_config_helpers_1.resolveCombatRelation)(attacker, { kind: 'terrain' }));
+        const skill = findPlayerSkill(attacker, skillId);
+        if (!skill) {
+            throw new common_1.NotFoundException(`Skill ${skillId} not found`);
+        }
+        const targets = this.collectSkillTargetsFromAnchor(attacker, skill, { x: formation.x, y: formation.y }, deps, {
+            kind: 'formation',
+            formationId: formation.id,
+            x: formation.x,
+            y: formation.y,
+        });
+        if (targets.length === 0) {
+            throw new common_1.BadRequestException('没有可命中的目标');
+        }
+        await this.dispatchSkillTargets(attacker, skillId, skill, targets, deps);
     }    
     /**
  * dispatchCastSkillToMonster：判断Cast技能To怪物是否满足条件。
@@ -450,6 +659,7 @@ let WorldRuntimePlayerSkillDispatchService = class WorldRuntimePlayerSkillDispat
     async dispatchCastSkillToMonster(attacker, skillId, targetMonsterId, deps) {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
+        ensurePlayerSkillActionEnabled(attacker, skillId);
         const instance = deps.getInstanceRuntimeOrThrow(attacker.instanceId);
         const target = instance.getMonster(targetMonsterId);
         if (!target) {
@@ -484,7 +694,29 @@ let WorldRuntimePlayerSkillDispatchService = class WorldRuntimePlayerSkillDispat
     async dispatchCastSkillToTile(attacker, skillId, targetX, targetY, deps) {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
+        ensurePlayerSkillActionEnabled(attacker, skillId);
         const instance = deps.getInstanceRuntimeOrThrow(attacker.instanceId);
+        const boundary = typeof deps.worldRuntimeFormationService?.getBoundaryBarrierCombatState === 'function'
+            ? deps.worldRuntimeFormationService.getBoundaryBarrierCombatState(attacker.instanceId, targetX, targetY)
+            : null;
+        if (boundary) {
+            ensureHostileRelation((0, player_combat_config_helpers_1.resolveCombatRelation)(attacker, { kind: 'terrain' }));
+            const skill = findPlayerSkill(attacker, skillId);
+            if (!skill) {
+                throw new common_1.NotFoundException(`Skill ${skillId} not found`);
+            }
+            const targets = this.collectSkillTargetsFromAnchor(attacker, skill, { x: targetX, y: targetY }, deps, {
+                kind: 'formation_boundary',
+                formationId: boundary.formationId,
+                x: targetX,
+                y: targetY,
+            });
+            if (targets.length === 0) {
+                throw new common_1.BadRequestException('没有可命中的目标');
+            }
+            await this.dispatchSkillTargets(attacker, skillId, skill, targets, deps);
+            return;
+        }
         ensureInstanceSupportsTileDamage(instance);
         const tileState = instance.getTileCombatState(targetX, targetY);
         if (!tileState || tileState.destroyed) {

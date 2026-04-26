@@ -38,7 +38,7 @@ class WorldGatewayClientEmitHelper {
 
     emitQuests(client, payload) {
         this.markProtocolClient(client);
-        this.gateway.worldClientEventService.emitQuests(client, payload);
+        this.gateway.worldClientEventService.emitQuests(client, toQuestSyncPayload(payload));
     }    
     /**
  * emitMainlineSuggestionUpdate：处理主线 SuggestionUpdate 并更新相关状态。
@@ -215,5 +215,22 @@ class WorldGatewayClientEmitHelper {
     }
 }
 exports.WorldGatewayClientEmitHelper = WorldGatewayClientEmitHelper;
+
+function toQuestSyncPayload(payload) {
+    return {
+        ...payload,
+        quests: Array.isArray(payload?.quests)
+            ? payload.quests.map((entry) => toQuestRuntimeState(entry))
+            : [],
+    };
+}
+
+function toQuestRuntimeState(source) {
+    return {
+        id: source.id,
+        status: source.status,
+        progress: Math.max(0, Math.trunc(Number(source.progress ?? 0))),
+    };
+}
 
 export { WorldGatewayClientEmitHelper };

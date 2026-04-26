@@ -163,6 +163,13 @@ function normalizeMapSnapshot(raw) {
 
         savedAt: typeof snapshot.savedAt === 'number' && Number.isFinite(snapshot.savedAt) ? Math.trunc(snapshot.savedAt) : Date.now(),
         templateId: snapshot.templateId,
+        tick: Number.isFinite(Number(snapshot.tick)) ? Math.max(0, Math.trunc(Number(snapshot.tick))) : 0,
+        persistenceRevision: Number.isFinite(Number(snapshot.persistenceRevision)) ? Math.max(0, Math.trunc(Number(snapshot.persistenceRevision))) : undefined,
+        runtimeTileEntries: Array.isArray(snapshot.runtimeTileEntries)
+            ? snapshot.runtimeTileEntries
+                .map((entry) => normalizeRuntimeTileEntry(entry))
+                .filter((entry) => Boolean(entry))
+            : [],
         auraEntries: normalizedAuraEntries.length > 0
             ? normalizedAuraEntries
             : normalizedTileResourceEntries
@@ -172,6 +179,11 @@ function normalizeMapSnapshot(raw) {
                 value: entry.value,
             })),
         tileResourceEntries: normalizedTileResourceEntries,
+        tileDamageEntries: Array.isArray(snapshot.tileDamageEntries)
+            ? snapshot.tileDamageEntries
+                .map((entry) => normalizeTileDamageEntry(entry))
+                .filter((entry) => Boolean(entry))
+            : [],
         groundPileEntries: Array.isArray(snapshot.groundPileEntries)
             ? snapshot.groundPileEntries
                 .filter((entry) => Boolean(entry)
@@ -191,6 +203,24 @@ function normalizeMapSnapshot(raw) {
                 .map((entry) => normalizeContainerState(entry))
                 .filter((entry) => Boolean(entry))
             : [],
+    };
+}
+function normalizeRuntimeTileEntry(raw) {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
+    if (!raw || typeof raw !== 'object' || !Number.isFinite(Number(raw.x)) || !Number.isFinite(Number(raw.y))) {
+        return null;
+    }
+    const tileType = typeof raw.tileType === 'string' && raw.tileType.trim().length > 0
+        ? raw.tileType.trim()
+        : '';
+    if (!tileType) {
+        return null;
+    }
+    return {
+        x: Math.trunc(Number(raw.x)),
+        y: Math.trunc(Number(raw.y)),
+        tileType,
     };
 }
 /** normalizeTileResourceEntries：规范化或转换地块资源持久化条目。 */
@@ -225,6 +255,34 @@ function normalizeTileResourceEntries(rawTileResourceEntries, rawAuraEntries) {
         tileIndex: Math.trunc(entry.tileIndex),
         value: Math.max(0, Math.trunc(entry.value)),
     }));
+}
+/** normalizeTileDamageEntry：规范化可破坏地块持久化条目。 */
+function normalizeTileDamageEntry(raw) {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
+    if (!raw || typeof raw !== 'object' || !Number.isFinite(Number(raw.tileIndex))) {
+        return null;
+    }
+    const tileIndex = Math.trunc(Number(raw.tileIndex));
+    if (tileIndex < 0) {
+        return null;
+    }
+    const destroyed = raw.destroyed === true;
+    const maxHp = Math.max(1, Math.trunc(Number(raw.maxHp) || 1));
+    const hp = destroyed
+        ? 0
+        : Math.max(0, Math.min(maxHp, Math.trunc(Number(raw.hp) || maxHp)));
+    if (!destroyed && hp >= maxHp) {
+        return null;
+    }
+    return {
+        tileIndex,
+        hp,
+        maxHp,
+        destroyed,
+        respawnLeft: destroyed ? Math.max(0, Math.trunc(Number(raw.respawnLeft) || 0)) : 0,
+        modifiedAt: Number.isFinite(Number(raw.modifiedAt)) ? Math.max(0, Math.trunc(Number(raw.modifiedAt))) : 0,
+    };
 }
 export { MapPersistenceService };
 /**

@@ -55,6 +55,8 @@ export * from './network-protobuf-payload-codecs';
 export * from './map-document';
 export * from './aura';
 export * from './qi';
+export * from './formation-types';
+export * from './sect-types';
 export * from './age';
 export * from './mail-types';
 export * from './mail';

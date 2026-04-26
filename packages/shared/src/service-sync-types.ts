@@ -3,7 +3,7 @@ import type { AlchemyRecipeCatalogEntry, SyncedAlchemyPanelState, SyncedEnhancem
 import type { ObservedTileEntityDetail } from './detail-view-types';
 import type { MarketListedItemView, MarketOrderBookView, MarketOwnOrderView, MarketStorage, MarketTradeHistoryEntryView } from './market-types';
 import type { MailDetailView, MailPageView, MailSummaryView } from './mail-types';
-import type { QuestState } from './quest-types';
+import type { QuestRuntimeStateView } from './quest-types';
 import type { Suggestion } from './world-view-types';
 import type { EquipSlot, ItemType } from './item-runtime-types';
 import type { TechniqueCategory } from './cultivation-types';
@@ -297,7 +297,7 @@ export interface NpcQuestsView {
  * quests：集合字段。
  */
 
-  quests: QuestState[];
+  quests: QuestRuntimeStateView[];
 }
 
 /** 地块运行时资源项视图。 */
@@ -389,7 +389,7 @@ export interface QuestUpdateView {
  * quests：集合字段。
  */
 
-  quests: QuestState[];
+  quests: QuestRuntimeStateView[];
 }
 
 /** 邮件摘要同步视图。 */

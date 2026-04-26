@@ -1,11 +1,12 @@
-"use strict";
 // @ts-nocheck
+"use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.MapInstanceRuntime = void 0;
 
 const shared_1 = require("@mud/shared");
 
 const map_template_repository_1 = require("../map/map-template.repository");
+const runtime_tile_plane_1 = require("../map/runtime-tile-plane");
 
 const DEFAULT_TILE_AURA_RESOURCE_KEY = (0, shared_1.buildQiResourceKey)(shared_1.DEFAULT_QI_RESOURCE_DESCRIPTOR);
 
@@ -14,6 +15,9 @@ const INVALID_OCCUPANCY = 0;
 
 /** DEFAULT_VIEW_RADIUS：默认视野半径。 */
 const DEFAULT_VIEW_RADIUS = 10;
+
+/** MONSTER_LOST_SIGHT_CHASE_TICKS：妖兽丢失视野后只追击最后目击点的短暂记忆窗口。 */
+const MONSTER_LOST_SIGHT_CHASE_TICKS = 3;
 
 /** DEFAULT_TERRAIN_DURABILITY_BY_TILE：默认地形耐久配置。 */
 const DEFAULT_TERRAIN_DURABILITY_BY_TILE = {
@@ -108,6 +112,11 @@ const SPECIAL_TILE_DURABILITY_MULTIPLIERS = {
     [shared_1.TileType.BrokenSwordHeap]: 0.02,
 };
 
+/** SPECIAL_TILE_RESTORE_SPEED_MULTIPLIERS：特殊地形恢复速度倍率，越高表示复原越快。 */
+const SPECIAL_TILE_RESTORE_SPEED_MULTIPLIERS = {
+    [shared_1.TileType.Cloud]: 100,
+};
+
 /** LEGACY_MAP_TERRAIN_PROFILE_IDS：旧版地图到地形耐久配置的兼容映射。 */
 const LEGACY_MAP_TERRAIN_PROFILE_IDS = {
     spawn: 'mortal_settlement',
@@ -132,6 +141,11 @@ class MapInstanceRuntime {
  */
 
     template;    
+    /**
+ * tilePlane：运行时稀疏坐标地块平面。
+ */
+
+    tilePlane;    
     /**
  * occupancy：occupancy相关字段。
  */
@@ -268,6 +282,18 @@ class MapInstanceRuntime {
 
     dirtyDomains = createMapInstanceDirtyDomainSet();    
     /**
+     * dynamicTileBlocker：运行时动态阻挡判断，例如阵法边界。
+     */
+
+    dynamicTileBlocker = null;    
+    /**
+     * compositeSightResolver：跨地图视觉叠加查询，例如二楼窗口外投影到父地图。
+     */
+
+    compositeSightResolver = null;    
+    /** runtimePortals：运行时动态传送点，例如宗门入口。 */
+    runtimePortals = [];
+    /**
  * 构造器：初始化 当前 实例并建立基础状态。
  * @param request 请求参数。
  * @returns 无返回值，完成实例初始化。
@@ -307,10 +333,15 @@ class MapInstanceRuntime {
             lastPersistedAt: request.lastPersistedAt ?? null,
         };
         this.template = request.template;
-        this.occupancy = new Uint32Array(request.template.width * request.template.height);
-        this.auraByTile = new Int32Array(request.template.baseAuraByTile);
+        this.tilePlane = runtime_tile_plane_1.RuntimeTilePlane.fromTemplate(request.template);
+        const initialCellCapacity = this.tilePlane.getCellCapacity();
+        this.occupancy = new Uint32Array(initialCellCapacity);
+        this.auraByTile = new Int32Array(initialCellCapacity);
+        this.auraByTile.set(request.template.baseAuraByTile);
         this.tileResourceBuckets.set(DEFAULT_TILE_AURA_RESOURCE_KEY, this.auraByTile);
-        this.baseTileResourceBuckets.set(DEFAULT_TILE_AURA_RESOURCE_KEY, request.template.baseAuraByTile);
+        const baseAuraByTile = new Int32Array(initialCellCapacity);
+        baseAuraByTile.set(request.template.baseAuraByTile);
+        this.baseTileResourceBuckets.set(DEFAULT_TILE_AURA_RESOURCE_KEY, baseAuraByTile);
         for (const entry of request.template.baseTileResourceEntries ?? []) {
             if (!entry
                 || entry.resourceKey === DEFAULT_TILE_AURA_RESOURCE_KEY
@@ -393,6 +424,9 @@ class MapInstanceRuntime {
                 cooldownReadyTickBySkillId: {},
                 damageContributors: {},
                 aggroTargetPlayerId: null,
+                lastSeenTargetX: undefined,
+                lastSeenTargetY: undefined,
+                lastSeenTargetTick: undefined,
                 aggroRange: monster.aggroRange,
                 leashRange: monster.leashRange,
                 wanderRadius: Number.isFinite(Number(monster.wanderRadius)) ? Math.max(0, Math.trunc(Number(monster.wanderRadius))) : 0,
@@ -536,6 +570,144 @@ class MapInstanceRuntime {
         });
         return true;
     }
+    /** setDynamicTileBlocker：设置运行期动态地块阻挡回调。 */
+    setDynamicTileBlocker(blocker) {
+        this.dynamicTileBlocker = typeof blocker === 'function' ? blocker : null;
+    }
+    /** addRuntimePortal：添加或替换运行时动态传送点。 */
+    addRuntimePortal(portal) {
+        if (!portal || !Number.isFinite(Number(portal.x)) || !Number.isFinite(Number(portal.y))) {
+            return false;
+        }
+        const x = Math.trunc(Number(portal.x));
+        const y = Math.trunc(Number(portal.y));
+        if (!this.isInBounds(x, y)) {
+            return false;
+        }
+        const normalized = {
+            x,
+            y,
+            targetMapId: typeof portal.targetMapId === 'string' && portal.targetMapId.trim() ? portal.targetMapId.trim() : this.template.id,
+            targetInstanceId: typeof portal.targetInstanceId === 'string' && portal.targetInstanceId.trim() ? portal.targetInstanceId.trim() : null,
+            targetX: Number.isFinite(Number(portal.targetX)) ? Math.trunc(Number(portal.targetX)) : this.template.spawnX,
+            targetY: Number.isFinite(Number(portal.targetY)) ? Math.trunc(Number(portal.targetY)) : this.template.spawnY,
+            kind: typeof portal.kind === 'string' && portal.kind.trim() ? portal.kind.trim() : 'portal',
+            trigger: portal.trigger === 'auto' ? 'auto' : 'manual',
+            hidden: portal.hidden === true,
+            name: typeof portal.name === 'string' && portal.name.trim() ? portal.name.trim() : undefined,
+            char: typeof portal.char === 'string' && portal.char.trim() ? portal.char.trim() : undefined,
+            color: typeof portal.color === 'string' && portal.color.trim() ? portal.color.trim() : undefined,
+            sectId: typeof portal.sectId === 'string' && portal.sectId.trim() ? portal.sectId.trim() : undefined,
+        };
+        const index = this.runtimePortals.findIndex((entry) => entry.x === x && entry.y === y);
+        if (index >= 0) {
+            this.runtimePortals[index] = normalized;
+        }
+        else {
+            this.runtimePortals.push(normalized);
+            this.runtimePortals.sort((left, right) => left.y - right.y || left.x - right.x);
+        }
+        this.worldRevision += 1;
+        this.markPersistenceDirtyDomains(['overlay']);
+        this.persistentRevision += 1;
+        return true;
+    }
+    /** replaceTemplateForSectExpansion：宗门地图扩圈时替换模板并迁移运行态坐标。 */
+    replaceTemplateForSectExpansion(nextTemplate) {
+        if (!nextTemplate || !Number.isFinite(Number(nextTemplate.width)) || !Number.isFinite(Number(nextTemplate.height))) {
+            return false;
+        }
+        const previousTemplate = this.template;
+        const previousWidth = previousTemplate.width;
+        const previousCenterX = Number.isFinite(Number(previousTemplate.source?.sectCoreX)) ? Math.trunc(Number(previousTemplate.source.sectCoreX)) : Math.trunc(previousTemplate.width / 2);
+        const previousCenterY = Number.isFinite(Number(previousTemplate.source?.sectCoreY)) ? Math.trunc(Number(previousTemplate.source.sectCoreY)) : Math.trunc(previousTemplate.height / 2);
+        const nextCenterX = Number.isFinite(Number(nextTemplate.source?.sectCoreX)) ? Math.trunc(Number(nextTemplate.source.sectCoreX)) : Math.trunc(nextTemplate.width / 2);
+        const nextCenterY = Number.isFinite(Number(nextTemplate.source?.sectCoreY)) ? Math.trunc(Number(nextTemplate.source.sectCoreY)) : Math.trunc(nextTemplate.height / 2);
+        const offsetX = nextCenterX - previousCenterX;
+        const offsetY = nextCenterY - previousCenterY;
+        const players = Array.from(this.playersById.values());
+        const tileDamageEntries = Array.from(this.tileDamageByTile.entries());
+        this.template = nextTemplate;
+        this.tilePlane = runtime_tile_plane_1.RuntimeTilePlane.fromTemplate(nextTemplate);
+        this.meta.templateId = nextTemplate.id;
+        const nextCellCapacity = this.tilePlane.getCellCapacity();
+        this.occupancy = new Uint32Array(nextCellCapacity);
+        this.auraByTile = new Int32Array(nextCellCapacity);
+        this.auraByTile.set(nextTemplate.baseAuraByTile);
+        this.tileResourceBuckets = new Map([[DEFAULT_TILE_AURA_RESOURCE_KEY, this.auraByTile]]);
+        const baseAuraByTile = new Int32Array(nextCellCapacity);
+        baseAuraByTile.set(nextTemplate.baseAuraByTile);
+        this.baseTileResourceBuckets = new Map([[DEFAULT_TILE_AURA_RESOURCE_KEY, baseAuraByTile]]);
+        this.changedTileResourceEntryCountByKey = new Map();
+        this.changedAuraTileCount = 0;
+        this.changedTileResourceEntryCount = 0;
+        this.npcIdByTile.clear();
+        this.npcsById.clear();
+        this.landmarkIdByTile.clear();
+        this.landmarksById.clear();
+        this.containerIdByTile.clear();
+        this.containersById.clear();
+        this.runtimePortals = [];
+        for (const player of players) {
+            const nextX = Math.max(0, Math.min(nextTemplate.width - 1, Math.trunc(Number(player.x) || 0) + offsetX));
+            const nextY = Math.max(0, Math.min(nextTemplate.height - 1, Math.trunc(Number(player.y) || 0) + offsetY));
+            player.x = nextX;
+            player.y = nextY;
+            player.selfRevision += 1;
+            this.setOccupied(nextX, nextY, player.handle);
+        }
+        this.tileDamageByTile.clear();
+        for (const [tileIndex, state] of tileDamageEntries) {
+            const oldIndex = Math.trunc(Number(tileIndex));
+            const oldX = oldIndex % previousWidth;
+            const oldY = Math.trunc(oldIndex / previousWidth);
+            const nextX = oldX + offsetX;
+            const nextY = oldY + offsetY;
+            if (!this.isInBounds(nextX, nextY)) {
+                continue;
+            }
+            this.tileDamageByTile.set(this.toTileIndex(nextX, nextY), { ...state });
+        }
+        this.worldRevision += 1;
+        this.persistentRevision += 1;
+        this.markPersistenceDirtyDomains(['overlay', 'tile_damage']);
+        return true;
+    }
+    /** activateRuntimeTile：按坐标激活一个运行时地块，已存在坐标不会被覆盖。 */
+    activateRuntimeTile(x, y, tileType, options = {}) {
+        if (!Number.isFinite(Number(x)) || !Number.isFinite(Number(y))) {
+            return { created: false, tileIndex: -1 };
+        }
+        const normalizedX = Math.trunc(Number(x));
+        const normalizedY = Math.trunc(Number(y));
+        const existing = this.toTileIndex(normalizedX, normalizedY);
+        if (existing >= 0) {
+            return { created: false, tileIndex: existing };
+        }
+        const tileIndex = this.tilePlane.activateCell(normalizedX, normalizedY, tileType);
+        this.ensureCellStorageCapacity(tileIndex + 1);
+        if (Number.isFinite(Number(options?.aura))) {
+            this.auraByTile[tileIndex] = Math.max(0, Math.trunc(Number(options.aura)));
+            const baseAura = this.baseTileResourceBuckets.get(DEFAULT_TILE_AURA_RESOURCE_KEY);
+            if (baseAura) {
+                baseAura[tileIndex] = this.auraByTile[tileIndex];
+            }
+        }
+        this.worldRevision += 1;
+        this.persistentRevision += 1;
+        this.markPersistenceDirtyDomains(['tile_cell']);
+        return { created: true, tileIndex };
+    }
+    /** forEachRuntimeTile：遍历当前运行时真实存在的地块坐标。 */
+    forEachRuntimeTile(visitor) {
+        if (typeof visitor !== 'function' || !this.tilePlane || typeof this.tilePlane.getCellCount !== 'function') {
+            return;
+        }
+        const count = this.tilePlane.getCellCount();
+        for (let tileIndex = 0; tileIndex < count; tileIndex += 1) {
+            visitor(this.tilePlane.getX(tileIndex), this.tilePlane.getY(tileIndex), tileIndex);
+        }
+    }
     /** setPlayerMoveSpeed：设置玩家移动速度。 */
     setPlayerMoveSpeed(playerId, moveSpeed) {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
@@ -635,7 +807,8 @@ class MapInstanceRuntime {
             return null;
         }
 
-        const visibleTileIndices = this.collectVisibleTileIndices(player.x, player.y, radius);
+        const visibleTileVisibility = this.collectVisibleTileVisibility(player.x, player.y, radius);
+        const visibleTileIndices = visibleTileVisibility.indices;
 
         const visiblePlayers = this.collectVisiblePlayers(player, radius, visibleTileIndices);
 
@@ -674,6 +847,7 @@ class MapInstanceRuntime {
                 facing: player.facing,
             },
             visibleTileIndices: Array.from(visibleTileIndices),
+            visibleTileKeys: Array.from(visibleTileVisibility.keys),
             visiblePlayers,
             localMonsters,
             localNpcs,
@@ -702,6 +876,7 @@ class MapInstanceRuntime {
             canDamageTile: this.meta.canDamageTile === true,
             tick: this.tick,
             worldRevision: this.worldRevision,
+            persistenceRevision: this.persistentRevision,
             playerCount: this.playersById.size,
             width: this.template.width,
             height: this.template.height,
@@ -816,7 +991,7 @@ class MapInstanceRuntime {
         const tileIndex = this.toTileIndex(x, y);
         const tileType = this.getBaseTileType(x, y);
 
-        const maxHp = resolveTileDurability(this.template, tileType);
+        const maxHp = resolveTileDurability(this.template, tileType, x, y);
         if (maxHp <= 0) {
             return null;
         }
@@ -827,6 +1002,7 @@ class MapInstanceRuntime {
             hp: current?.hp ?? maxHp,
             maxHp,
             modifiedAt: current?.modifiedAt ?? null,
+            respawnLeft: current?.destroyed === true ? Math.max(0, Math.trunc(Number(current?.respawnLeft) || 0)) : 0,
 
             destroyed: current?.destroyed === true,
         };
@@ -841,6 +1017,9 @@ class MapInstanceRuntime {
 
         const current = this.getTileCombatState(x, y);
         if (!current) {
+            return null;
+        }
+        if (current.destroyed === true) {
             return null;
         }
 
@@ -860,31 +1039,132 @@ class MapInstanceRuntime {
         const appliedDamage = Math.min(current.hp, normalizedDamage);
 
         const nextHp = Math.max(0, current.hp - appliedDamage);
+        const destroyed = nextHp <= 0;
         this.tileDamageByTile.set(tileIndex, {
             hp: nextHp,
             maxHp: current.maxHp,
 
-            destroyed: nextHp <= 0,
+            destroyed,
+            respawnLeft: destroyed ? calculateTileRestoreTicks(current.tileType) : 0,
             modifiedAt: Date.now(),
         });
         this.worldRevision += 1;
+        this.markPersistenceDirtyDomains(['tile_damage']);
+        this.persistentRevision += 1;
         return {
 
-            destroyed: nextHp <= 0,
+            destroyed,
             hp: nextHp,
             maxHp: current.maxHp,
             appliedDamage,
             targetType: current.tileType,
         };
     }
+    /** advanceTileRecovery：推进可破坏地块的自然修复与复生。 */
+    advanceTileRecovery(isTerrainStabilized) {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
+        if (this.tileDamageByTile.size === 0) {
+            return false;
+        }
+
+        const now = Date.now();
+        let changed = false;
+        for (const [tileIndex, current] of Array.from(this.tileDamageByTile.entries())) {
+            if (!Number.isFinite(Number(tileIndex))) {
+                continue;
+            }
+            const normalizedTileIndex = Math.trunc(Number(tileIndex));
+            const x = this.tilePlane.getX(normalizedTileIndex);
+            const y = this.tilePlane.getY(normalizedTileIndex);
+            const tileType = this.getBaseTileType(x, y);
+            const maxHp = Math.max(1, Math.trunc(Number(current?.maxHp) || resolveTileDurability(this.template, tileType)));
+            if (current?.destroyed === true) {
+                if (typeof isTerrainStabilized === 'function' && isTerrainStabilized(x, y) === true) {
+                    continue;
+                }
+                const rawRespawnLeft = Math.trunc(Number(current.respawnLeft));
+                const respawnLeft = Number.isFinite(rawRespawnLeft)
+                    ? Math.max(0, rawRespawnLeft)
+                    : calculateTileRestoreTicks(tileType);
+                if (respawnLeft <= 1) {
+                    if (this.hasBlockingEntityAt(x, y)) {
+                        this.tileDamageByTile.set(tileIndex, {
+                            hp: 0,
+                            maxHp,
+                            destroyed: true,
+                            respawnLeft: calculateTileRestoreRetryTicks(tileType),
+                            modifiedAt: now,
+                        });
+                    }
+                    else {
+                        this.tileDamageByTile.delete(tileIndex);
+                    }
+                }
+                else {
+                    this.tileDamageByTile.set(tileIndex, {
+                        hp: 0,
+                        maxHp,
+                        destroyed: true,
+                        respawnLeft: respawnLeft - 1,
+                        modifiedAt: now,
+                    });
+                }
+                changed = true;
+                continue;
+            }
+
+            const hp = Math.max(0, Math.min(maxHp, Math.trunc(Number(current?.hp) || maxHp)));
+            if (hp >= maxHp) {
+                this.tileDamageByTile.delete(tileIndex);
+                changed = true;
+                continue;
+            }
+            const repairAmount = Math.max(1, Math.floor(maxHp * shared_1.TERRAIN_REGEN_RATE_PER_TICK));
+            const nextHp = Math.min(maxHp, hp + repairAmount);
+            if (nextHp >= maxHp) {
+                this.tileDamageByTile.delete(tileIndex);
+            }
+            else {
+                this.tileDamageByTile.set(tileIndex, {
+                    hp: nextHp,
+                    maxHp,
+                    destroyed: false,
+                    respawnLeft: 0,
+                    modifiedAt: now,
+                });
+            }
+            changed = true;
+        }
+
+        if (changed) {
+            this.worldRevision += 1;
+            this.markPersistenceDirtyDomains(['tile_damage']);
+            this.persistentRevision += 1;
+        }
+        return changed;
+    }
+    /** hasBlockingEntityAt：判断指定地块上是否已有会阻挡地形复生的单位。 */
+    hasBlockingEntityAt(x, y) {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
+        if (!this.isInBounds(x, y)) {
+            return true;
+        }
+        const tileIndex = this.toTileIndex(x, y);
+        return this.occupancy[tileIndex] !== INVALID_OCCUPANCY
+            || this.monsterRuntimeIdByTile.has(tileIndex)
+            || this.npcIdByTile.has(tileIndex);
+    }
     /** getBaseTileType：读取模板原始地块类型。 */
     getBaseTileType(x, y) {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
-        if (!this.isInBounds(x, y)) {
+        const tileIndex = this.toTileIndex(x, y);
+        if (tileIndex < 0) {
             return shared_1.TileType.Floor;
         }
-        return (0, shared_1.getTileTypeFromMapChar)(this.template.terrainRows[y]?.[x] ?? '#');
+        return this.tilePlane.getTileType(tileIndex);
     }
     /** getEffectiveTileType：读取地块当前生效类型，已摧毁地块按空地处理。 */
     getEffectiveTileType(x, y) {
@@ -1203,6 +1483,80 @@ class MapInstanceRuntime {
         this.persistedRevision = 1;
         this.clearDirtyDomains();
     }
+    /** hydrateTileDamage：用持久化数据回填可破坏地块状态。 */
+    hydrateTileDamage(entries) {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
+        this.tileDamageByTile.clear();
+        if (!Array.isArray(entries)) {
+            this.persistentRevision = 1;
+            this.persistedRevision = 1;
+            this.clearDirtyDomains();
+            return;
+        }
+        for (const entry of entries) {
+            if (!entry || !Number.isFinite(Number(entry.tileIndex))) {
+                continue;
+            }
+            const tileIndex = Math.trunc(Number(entry.tileIndex));
+            if (tileIndex < 0 || tileIndex >= this.auraByTile.length) {
+                continue;
+            }
+            const x = this.tilePlane.getX(tileIndex);
+            const y = this.tilePlane.getY(tileIndex);
+            const tileType = this.getBaseTileType(x, y);
+            const resolvedMaxHp = resolveTileDurability(this.template, tileType, x, y);
+            if (resolvedMaxHp <= 0) {
+                continue;
+            }
+            const maxHp = Math.max(1, Math.trunc(Number(entry.maxHp) || resolvedMaxHp));
+            const destroyed = entry.destroyed === true;
+            const hp = destroyed
+                ? 0
+                : Math.max(1, Math.min(maxHp - 1, Math.trunc(Number(entry.hp) || maxHp)));
+            const respawnLeft = destroyed
+                ? normalizeTileRestoreTicksLeft(entry.respawnLeft, tileType)
+                : 0;
+            if (!destroyed && hp >= maxHp) {
+                continue;
+            }
+            this.tileDamageByTile.set(tileIndex, {
+                hp,
+                maxHp,
+                destroyed,
+                respawnLeft,
+                modifiedAt: Number.isFinite(Number(entry.modifiedAt)) ? Math.max(0, Math.trunc(Number(entry.modifiedAt))) : Date.now(),
+            });
+        }
+        this.persistentRevision = 1;
+        this.persistedRevision = 1;
+        this.clearDirtyDomains();
+    }
+    /** hydrateRuntimeTiles：用持久化动态地块回填稀疏地块平面。 */
+    hydrateRuntimeTiles(entries) {
+        if (!Array.isArray(entries) || entries.length === 0) {
+            return;
+        }
+        for (const entry of entries) {
+            if (!entry || !Number.isFinite(Number(entry.x)) || !Number.isFinite(Number(entry.y))) {
+                continue;
+            }
+            const x = Math.trunc(Number(entry.x));
+            const y = Math.trunc(Number(entry.y));
+            const tileType = typeof entry.tileType === 'string' && entry.tileType.length > 0
+                ? entry.tileType
+                : shared_1.TileType.Stone;
+            const tileIndex = this.toTileIndex(x, y);
+            if (tileIndex >= 0) {
+                this.tilePlane.setTileType(tileIndex, tileType);
+                continue;
+            }
+            this.activateRuntimeTile(x, y, tileType);
+        }
+        this.persistentRevision = 1;
+        this.persistedRevision = 1;
+        this.clearDirtyDomains();
+    }
     /** patchTileResources：在现有地块资源上叠加差量持久化条目，不重置未覆盖资源。 */
     patchTileResources(entries) {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
@@ -1250,9 +1604,9 @@ class MapInstanceRuntime {
                 continue;
             }
 
-            const x = tileIndex % this.template.width;
+            const x = this.tilePlane.getX(tileIndex);
 
-            const y = Math.trunc(tileIndex / this.template.width);
+            const y = this.tilePlane.getY(tileIndex);
 
             const items = entry.items
                 .map((item) => normalizePersistedGroundItem(item))
@@ -1276,6 +1630,18 @@ class MapInstanceRuntime {
         }
         this.persistentRevision = 1;
         this.persistedRevision = 1;
+    }
+    /** hydrateTime：用持久化数据回填实例时间。 */
+    hydrateTime(tick) {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
+        if (!Number.isFinite(Number(tick))) {
+            return;
+        }
+        this.tick = Math.max(0, Math.trunc(Number(tick)));
+        this.persistentRevision = 1;
+        this.persistedRevision = 1;
+        this.clearDirtyDomains();
     }
     /** hydrateMonsterRuntimeStates：用持久化数据回填高价值妖兽运行态。 */
     hydrateMonsterRuntimeStates(entries) {
@@ -1348,6 +1714,54 @@ class MapInstanceRuntime {
             }
         }
     }
+    /** hydrateOverlayChunks：用分域 overlay chunk 回填运行期动态覆盖物。 */
+    hydrateOverlayChunks(entries) {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
+        if (!Array.isArray(entries) || entries.length === 0) {
+            return;
+        }
+        const portals = [];
+        let sawPortalChunk = false;
+        for (const entry of entries) {
+            if (!entry || entry.patchKind !== 'portal') {
+                continue;
+            }
+            const payload = entry.patchPayload && typeof entry.patchPayload === 'object' ? entry.patchPayload : null;
+            const portalEntries = Array.isArray(payload?.portals) ? payload.portals : [];
+            sawPortalChunk = true;
+            for (const portal of portalEntries) {
+                if (!portal || !Number.isFinite(Number(portal.x)) || !Number.isFinite(Number(portal.y))) {
+                    continue;
+                }
+                const x = Math.trunc(Number(portal.x));
+                const y = Math.trunc(Number(portal.y));
+                if (!this.isInBounds(x, y)) {
+                    continue;
+                }
+                portals.push({
+                    x,
+                    y,
+                    targetMapId: typeof portal.targetMapId === 'string' && portal.targetMapId.trim() ? portal.targetMapId.trim() : this.template.id,
+                    targetInstanceId: typeof portal.targetInstanceId === 'string' && portal.targetInstanceId.trim() ? portal.targetInstanceId.trim() : null,
+                    targetX: Number.isFinite(Number(portal.targetX)) ? Math.trunc(Number(portal.targetX)) : this.template.spawnX,
+                    targetY: Number.isFinite(Number(portal.targetY)) ? Math.trunc(Number(portal.targetY)) : this.template.spawnY,
+                    kind: typeof portal.kind === 'string' && portal.kind.trim() ? portal.kind.trim() : 'portal',
+                    trigger: portal.trigger === 'auto' ? 'auto' : 'manual',
+                    hidden: portal.hidden === true,
+                    name: typeof portal.name === 'string' && portal.name.trim() ? portal.name.trim() : undefined,
+                    char: typeof portal.char === 'string' && portal.char.trim() ? portal.char.trim() : undefined,
+                    color: typeof portal.color === 'string' && portal.color.trim() ? portal.color.trim() : undefined,
+                    sectId: typeof portal.sectId === 'string' && portal.sectId.trim() ? portal.sectId.trim() : undefined,
+                });
+            }
+        }
+        if (sawPortalChunk) {
+            portals.sort((left, right) => left.y - right.y || left.x - right.x);
+            this.runtimePortals = portals;
+            this.worldRevision += 1;
+        }
+    }
     /** buildAuraPersistenceEntries：导出灵气持久化条目。 */
     buildAuraPersistenceEntries() {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
@@ -1411,10 +1825,112 @@ class MapInstanceRuntime {
         entries.sort((left, right) => left.tileIndex - right.tileIndex);
         return entries;
     }
+    /** buildTileDamagePersistenceEntries：导出可破坏地块持久化条目。 */
+    buildTileDamagePersistenceEntries() {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
+        if (this.tileDamageByTile.size === 0) {
+            return [];
+        }
+
+        const entries = [];
+        for (const [tileIndex, state] of this.tileDamageByTile.entries()) {
+            if (!Number.isFinite(Number(tileIndex)) || !state) {
+                continue;
+            }
+            entries.push({
+                tileIndex: Math.trunc(Number(tileIndex)),
+                hp: Math.max(0, Math.trunc(Number(state.hp) || 0)),
+                maxHp: Math.max(1, Math.trunc(Number(state.maxHp) || 1)),
+                destroyed: state.destroyed === true,
+                respawnLeft: Math.max(0, Math.trunc(Number(state.respawnLeft) || 0)),
+                modifiedAt: Number.isFinite(Number(state.modifiedAt)) ? Math.max(0, Math.trunc(Number(state.modifiedAt))) : Date.now(),
+            });
+        }
+        entries.sort((left, right) => left.tileIndex - right.tileIndex);
+        return entries;
+    }
+    /** buildRuntimeTilePersistenceEntries：导出模板外或运行时改写的动态地块。 */
+    buildRuntimeTilePersistenceEntries() {
+        if (!this.tilePlane || typeof this.tilePlane.getCellCount !== 'function') {
+            return [];
+        }
+        const entries = [];
+        const count = this.tilePlane.getCellCount();
+        for (let tileIndex = 0; tileIndex < count; tileIndex += 1) {
+            const x = this.tilePlane.getX(tileIndex);
+            const y = this.tilePlane.getY(tileIndex);
+            const tileType = this.tilePlane.getTileType(tileIndex);
+            const inTemplateBounds = x >= 0 && y >= 0 && x < this.template.width && y < this.template.height;
+            if (inTemplateBounds) {
+                const staticType = (0, shared_1.getTileTypeFromMapChar)(this.template.terrainRows[y]?.[x] ?? '#');
+                if (tileType === staticType) {
+                    continue;
+                }
+            }
+            entries.push({ x, y, tileType });
+        }
+        entries.sort((left, right) => left.y - right.y || left.x - right.x || String(left.tileType).localeCompare(String(right.tileType), 'zh-Hans-CN'));
+        return entries;
+    }
+    /** buildOverlayPersistenceChunks：导出动态 overlay 分域持久化 chunk。 */
+    buildOverlayPersistenceChunks() {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
+        const portals = this.runtimePortals
+            .map((portal) => ({ ...portal }))
+            .sort((left, right) => left.y - right.y || left.x - right.x);
+        if (portals.length === 0) {
+            return [];
+        }
+        return [{
+            patchKind: 'portal',
+            chunkKey: 'runtime_portals',
+            patchVersion: this.getPersistenceRevision(),
+            patchPayload: {
+                version: 1,
+                portals,
+            },
+        }];
+    }
+    /** buildMonsterRuntimePersistenceEntries：导出高价值妖兽运行态持久化条目。 */
+    buildMonsterRuntimePersistenceEntries() {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
+        const entries = [];
+        for (const monster of this.monstersByRuntimeId.values()) {
+            if (!monster || monster.tier === 'mortal_blood') {
+                continue;
+            }
+            entries.push({
+                monsterRuntimeId: monster.runtimeId,
+                monsterId: monster.monsterId,
+                monsterName: monster.name,
+                monsterTier: monster.tier,
+                monsterLevel: monster.level,
+                tileIndex: this.toTileIndex(monster.x, monster.y),
+                x: monster.x,
+                y: monster.y,
+                hp: monster.hp,
+                maxHp: monster.maxHp,
+                alive: monster.alive === true,
+                respawnLeft: monster.respawnLeft,
+                respawnTicks: monster.respawnTicks,
+                aggroTargetPlayerId: monster.aggroTargetPlayerId ?? null,
+                statePayload: {
+                    attackReadyTick: monster.attackReadyTick,
+                    cooldownReadyTickBySkillId: { ...(monster.cooldownReadyTickBySkillId ?? {}) },
+                    damageContributors: { ...(monster.damageContributors ?? {}) },
+                    buffs: Array.isArray(monster.buffs) ? monster.buffs.map((buff) => ({ ...buff })) : [],
+                },
+            });
+        }
+        entries.sort((left, right) => left.monsterRuntimeId.localeCompare(right.monsterRuntimeId, 'zh-Hans-CN'));
+        return entries;
+    }
     /** isPersistentDirty：判断实例是否还有未落盘的持久化变更。 */
     isPersistentDirty() {
-        return this.getDirtyDomains().size > 0
-            || this.persistentRevision > this.persistedRevision;
+        return this.getDirtyDomains().size > 0;
     }
     /** getPersistenceRevision：读取实例持久化版本。 */
     getPersistenceRevision() {
@@ -1427,6 +1943,18 @@ class MapInstanceRuntime {
     /** markPersistenceDirtyDomains：记录实例脏域。 */
     markPersistenceDirtyDomains(domains) {
         markMapInstanceDirtyDomains(this, domains);
+    }
+    /** markPersistenceDomainsPersisted：标记指定实例域已完成持久化。 */
+    markPersistenceDomainsPersisted(domains) {
+        const dirtyDomains = this.getDirtyDomains();
+        for (const domain of Array.isArray(domains) ? domains : []) {
+            if (typeof domain === 'string' && domain.trim()) {
+                dirtyDomains.delete(domain.trim());
+            }
+        }
+        if (dirtyDomains.size === 0) {
+            this.persistedRevision = this.persistentRevision;
+        }
     }
     /** clearDirtyDomains：清空实例脏域集合。 */
     clearDirtyDomains() {
@@ -1588,14 +2116,14 @@ class MapInstanceRuntime {
                 nextY = player.y + offset.y;
             }
 
-            const stepCost = this.getTileTraversalCost(nextX, nextY);
+            const stepCost = this.getTileTraversalCost(nextX, nextY, player.playerId);
             if (!Number.isFinite(stepCost) || stepCost <= 0 || movePoints < stepCost) {
                 break;
             }
             if (Math.abs(nextX - player.x) + Math.abs(nextY - player.y) !== 1) {
                 break;
             }
-            if (!this.isWalkable(nextX, nextY)) {
+            if (!this.isWalkable(nextX, nextY, player.playerId)) {
                 break;
             }
             if (this.npcIdByTile.has(this.toTileIndex(nextX, nextY))) {
@@ -1646,6 +2174,7 @@ class MapInstanceRuntime {
             sessionId: player.sessionId,
             fromInstanceId: this.meta.instanceId,
             targetMapId: portal.targetMapId,
+            targetInstanceId: portal.targetInstanceId ?? null,
             targetX: portal.targetX,
             targetY: portal.targetY,
             reason,
@@ -1664,13 +2193,16 @@ class MapInstanceRuntime {
         return player.movePoints;
     }
     /** getTileTraversalCost：读取地块通行代价。 */
-    getTileTraversalCost(x, y) {
+    getTileTraversalCost(x, y, playerId = null) {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
-        if (x < 0 || y < 0 || x >= this.template.width || y >= this.template.height) {
+        if (!this.isInBounds(x, y)) {
             return Number.POSITIVE_INFINITY;
         }
 
+        if (this.isDynamicallyBlockedTile(x, y, playerId)) {
+            return Number.POSITIVE_INFINITY;
+        }
         const tileType = this.getEffectiveTileType(x, y);
         if (!(0, shared_1.isTileTypeWalkable)(tileType)) {
             return Number.POSITIVE_INFINITY;
@@ -1733,7 +2265,7 @@ class MapInstanceRuntime {
         const minY = Math.max(0, centerY - radius);
 
         const maxY = Math.min(this.template.height - 1, centerY + radius);
-        return this.template.portals
+        return this.listAllPortals()
             .filter((portal) => !portal.hidden
             && portal.x >= minX
             && portal.x <= maxX
@@ -1746,6 +2278,10 @@ class MapInstanceRuntime {
             kind: portal.kind,
             trigger: portal.trigger,
             targetMapId: portal.targetMapId,
+            targetInstanceId: portal.targetInstanceId ?? null,
+            name: portal.name,
+            char: portal.char,
+            color: portal.color,
         }));
     }
     /** collectLocalGroundPiles：收集当前视野内可见地面物品堆。 */
@@ -1972,6 +2508,12 @@ class MapInstanceRuntime {
 
             const target = this.resolveMonsterTarget(monster);
             if (!target) {
+                const lostSightTarget = this.resolveMonsterLostSightChaseTarget(monster);
+                if (lostSightTarget) {
+                    changed = this.tryMoveMonsterToward(monster, lostSightTarget.x, lostSightTarget.y) || changed;
+                    continue;
+                }
+                this.clearMonsterTargetPursuit(monster);
                 if (!this.isMonsterWithinWanderRange(monster, monster.x, monster.y)) {
                     changed = this.tryMoveMonsterToward(monster, monster.spawnX, monster.spawnY) || changed;
                 }
@@ -2083,33 +2625,91 @@ class MapInstanceRuntime {
             && !this.npcIdByTile.has(tileIndex);
     }
     /** isWalkable：判断地块是否可行走。 */
-    isWalkable(x, y) {
+    isWalkable(x, y, playerId = null) {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
         if (!this.isInBounds(x, y)) {
             return false;
         }
+        if (this.isDynamicallyBlockedTile(x, y, playerId)) {
+            return false;
+        }
         return (0, shared_1.isTileTypeWalkable)(this.getEffectiveTileType(x, y));
     }
-    /** isTileSightBlocked：判断地块是否阻挡视线。 */
+    /** isDynamicallyBlockedTile：判断运行期动态阻挡是否覆盖目标地块。 */
+    isDynamicallyBlockedTile(x, y, playerId = null) {
+        if (typeof this.dynamicTileBlocker !== 'function') {
+            return false;
+        }
+        try {
+            return this.dynamicTileBlocker(Math.trunc(x), Math.trunc(y), {
+                playerId: typeof playerId === 'string' && playerId.trim() ? playerId.trim() : null,
+            }) === true;
+        }
+        catch (_error) {
+            return false;
+        }
+    }
+    /** setCompositeSightResolver：设置跨地图视觉叠加查询。 */
+    setCompositeSightResolver(resolver) {
+        this.compositeSightResolver = typeof resolver === 'function' ? resolver : null;
+    }
+    /** resolveCompositeSightBlocked：查询非本图坐标的视觉遮挡。 */
+    resolveCompositeSightBlocked(x, y) {
+        if (typeof this.compositeSightResolver !== 'function') {
+            return null;
+        }
+        try {
+            const result = this.compositeSightResolver(Math.trunc(x), Math.trunc(y));
+            return typeof result === 'boolean' ? result : null;
+        }
+        catch (_error) {
+            return null;
+        }
+    }
+    /** canResolveSightCoordinate：判断坐标是否存在可用于视野计算的地块。 */
+    canResolveSightCoordinate(x, y) {
+        return this.isInBounds(x, y) || this.resolveCompositeSightBlocked(x, y) !== null;
+    }
+    /** isTileSightBlocked：判断地块是否阻挡视线。动态阵法边界只挡通行，不挡视线。 */
     isTileSightBlocked(x, y) {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
         if (!this.isInBounds(x, y)) {
-            return true;
+            const compositeBlocked = this.resolveCompositeSightBlocked(x, y);
+            return compositeBlocked === null ? true : compositeBlocked;
         }
         return (0, shared_1.doesTileTypeBlockSight)(this.getEffectiveTileType(x, y));
     }
+    /** canSeeTileFrom：判断 origin 在指定半径内是否能看见目标地块。 */
+    canSeeTileFrom(originX, originY, targetX, targetY, radius) {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
+        if (!this.isInBounds(originX, originY) || !this.isInBounds(targetX, targetY)) {
+            return false;
+        }
+        const normalizedRadius = Math.max(0, Math.trunc(Number(radius) || 0));
+        if (chebyshevDistance(originX, originY, targetX, targetY) > normalizedRadius) {
+            return false;
+        }
+        return this.collectVisibleTileIndices(originX, originY, normalizedRadius).has(this.toTileIndex(targetX, targetY));
+    }
     /** collectVisibleTileIndices：收集视野内可见地块索引。 */
     collectVisibleTileIndices(originX, originY, radius) {
+        return this.collectVisibleTileVisibility(originX, originY, radius).indices;
+    }
+    /** collectVisibleTileVisibility：收集本图索引和跨图坐标视野。 */
+    collectVisibleTileVisibility(originX, originY, radius) {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
 
         const visibleTileIndices = new Set();
+        const visibleTileKeys = new Set();
         if (!this.isInBounds(originX, originY)) {
-            return visibleTileIndices;
+            return { indices: visibleTileIndices, keys: visibleTileKeys };
         }
         visibleTileIndices.add(this.toTileIndex(originX, originY));
+        visibleTileKeys.add(`${originX},${originY}`);
 
         const octants = [
             [1, 0, 0, 1],
@@ -2122,12 +2722,12 @@ class MapInstanceRuntime {
             [1, 0, 0, -1],
         ];
         for (const [xx, xy, yx, yy] of octants) {
-            this.castLight(originX, originY, 1, 1, 0, radius, xx, xy, yx, yy, visibleTileIndices);
+            this.castLight(originX, originY, 1, 1, 0, radius, xx, xy, yx, yy, visibleTileIndices, visibleTileKeys);
         }
-        return visibleTileIndices;
+        return { indices: visibleTileIndices, keys: visibleTileKeys };
     }
     /** castLight：把视野光照落到地图上。 */
-    castLight(originX, originY, row, startSlope, endSlope, radius, xx, xy, yx, yy, visibleTileIndices) {
+    castLight(originX, originY, row, startSlope, endSlope, radius, xx, xy, yx, yy, visibleTileIndices, visibleTileKeys = null) {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
         if (startSlope < endSlope) {
@@ -2150,8 +2750,13 @@ class MapInstanceRuntime {
                 if (endSlope > leftSlope) {
                     break;
                 }
-                if (this.isInBounds(currentX, currentY) && (0, shared_1.isOffsetInRange)(deltaX, deltaY, radius)) {
-                    visibleTileIndices.add(this.toTileIndex(currentX, currentY));
+                if ((0, shared_1.isOffsetInRange)(deltaX, deltaY, radius) && this.canResolveSightCoordinate(currentX, currentY)) {
+                    if (this.isInBounds(currentX, currentY)) {
+                        visibleTileIndices.add(this.toTileIndex(currentX, currentY));
+                    }
+                    if (visibleTileKeys) {
+                        visibleTileKeys.add(`${currentX},${currentY}`);
+                    }
                 }
 
                 const blocksSight = this.isTileSightBlocked(currentX, currentY);
@@ -2166,7 +2771,7 @@ class MapInstanceRuntime {
                 }
                 if (blocksSight && distance < radius) {
                     blocked = true;
-                    this.castLight(originX, originY, distance + 1, startSlope, leftSlope, radius, xx, xy, yx, yy, visibleTileIndices);
+                    this.castLight(originX, originY, distance + 1, startSlope, leftSlope, radius, xx, xy, yx, yy, visibleTileIndices, visibleTileKeys);
                     nextStartSlope = rightSlope;
                 }
             }
@@ -2199,8 +2804,15 @@ class MapInstanceRuntime {
             return null;
         }
 
+        const runtimePortal = this.runtimePortals.find((portal) => portal.x === x && portal.y === y);
+        if (runtimePortal) {
+            return runtimePortal;
+        }
         const portalIndex = this.template.portalIndexByTile[this.toTileIndex(x, y)];
         return portalIndex >= 0 ? this.template.portals[portalIndex] ?? null : null;
+    }
+    listAllPortals() {
+        return this.template.portals.concat(this.runtimePortals);
     }
     getInteractablePortalNear(x, y) {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
@@ -2229,7 +2841,7 @@ class MapInstanceRuntime {
         if (existing) {
             return existing;
         }
-        const bucket = new Int32Array(this.template.width * this.template.height);
+        const bucket = new Int32Array(Math.max(this.tilePlane.getCellCapacity(), this.occupancy.length));
         this.tileResourceBuckets.set(resourceKey, bucket);
         return bucket;
     }
@@ -2239,7 +2851,7 @@ class MapInstanceRuntime {
         if (existing) {
             return existing;
         }
-        const bucket = new Int32Array(this.template.width * this.template.height);
+        const bucket = new Int32Array(Math.max(this.tilePlane.getCellCapacity(), this.occupancy.length));
         this.baseTileResourceBuckets.set(resourceKey, bucket);
         return bucket;
     }
@@ -2256,6 +2868,7 @@ class MapInstanceRuntime {
     }
     /** setTileResourceValueByIndex：写入资源值并维护脏标记。 */
     setTileResourceValueByIndex(resourceKey, tileIndex, next, previous = this.getTileResourceValueByIndex(resourceKey, tileIndex)) {
+        this.ensureCellStorageCapacity(tileIndex + 1);
         const bucket = this.getOrCreateTileResourceBucket(resourceKey);
         bucket[tileIndex] = next;
         this.applyTileResourceDirtyCounter(resourceKey, tileIndex, previous, next);
@@ -2264,6 +2877,36 @@ class MapInstanceRuntime {
         }
         this.markPersistenceDirtyDomains(['tile_resource']);
         this.persistentRevision += 1;
+    }
+    /** ensureCellStorageCapacity：保证按 cell index 寻址的运行时列容量足够。 */
+    ensureCellStorageCapacity(required) {
+        const normalizedRequired = Math.max(0, Math.trunc(Number(required) || 0));
+        if (normalizedRequired <= this.occupancy.length) {
+            return;
+        }
+        const nextCapacity = nextPowerOfTwo(normalizedRequired);
+        const nextOccupancy = new Uint32Array(nextCapacity);
+        nextOccupancy.set(this.occupancy);
+        this.occupancy = nextOccupancy;
+        for (const [resourceKey, bucket] of Array.from(this.tileResourceBuckets.entries())) {
+            if (bucket.length >= nextCapacity) {
+                continue;
+            }
+            const nextBucket = new Int32Array(nextCapacity);
+            nextBucket.set(bucket);
+            this.tileResourceBuckets.set(resourceKey, nextBucket);
+            if (resourceKey === DEFAULT_TILE_AURA_RESOURCE_KEY) {
+                this.auraByTile = nextBucket;
+            }
+        }
+        for (const [resourceKey, bucket] of Array.from(this.baseTileResourceBuckets.entries())) {
+            if (bucket.length >= nextCapacity) {
+                continue;
+            }
+            const nextBucket = new Int32Array(nextCapacity);
+            nextBucket.set(bucket);
+            this.baseTileResourceBuckets.set(resourceKey, nextBucket);
+        }
     }
     /** applyTileResourceDirtyCounter：维护地块资源脏条目统计。 */
     applyTileResourceDirtyCounter(resourceKey, tileIndex, previous, next) {
@@ -2298,16 +2941,21 @@ class MapInstanceRuntime {
     }
     /** isInBounds：判断坐标是否在地图范围内。 */
     isInBounds(x, y) {
-        return x >= 0 && y >= 0 && x < this.template.width && y < this.template.height;
+        return this.tilePlane.getCellIndex(x, y) >= 0;
     }
     /** setOccupied：设置地块占用状态。 */
     setOccupied(x, y, handle) {
-        this.occupancy[this.toTileIndex(x, y)] = handle;
+        const tileIndex = this.toTileIndex(x, y);
+        if (tileIndex < 0) {
+            return false;
+        }
+        this.ensureCellStorageCapacity(tileIndex + 1);
+        this.occupancy[tileIndex] = handle;
+        return true;
     }
     /** toTileIndex：把坐标转换成地块索引。 */
     toTileIndex(x, y) {
-        /** return：return。 */
-        return (0, map_template_repository_1.getTileIndex)(x, y, this.template.width);
+        return this.tilePlane.getCellIndex(x, y);
     }
     /** allocateHandle：分配一个可复用句柄。 */
     allocateHandle() {
@@ -2322,6 +2970,9 @@ class MapInstanceRuntime {
         monster.attackReadyTick = 0;
         monster.cooldownReadyTickBySkillId = {};
         monster.aggroTargetPlayerId = null;
+        monster.lastSeenTargetX = undefined;
+        monster.lastSeenTargetY = undefined;
+        monster.lastSeenTargetTick = undefined;
         monster.buffs.length = 0;
         /** recalculateMonsterDerivedState：重算妖兽派生状态。 */
         recalculateMonsterDerivedState(monster);
@@ -2339,6 +2990,9 @@ class MapInstanceRuntime {
         monster.attackReadyTick = 0;
         monster.cooldownReadyTickBySkillId = {};
         monster.aggroTargetPlayerId = null;
+        monster.lastSeenTargetX = undefined;
+        monster.lastSeenTargetY = undefined;
+        monster.lastSeenTargetTick = undefined;
         monster.buffs.length = 0;
         monster.damageContributors = {};
         /** recalculateMonsterDerivedState：重算妖兽派生状态。 */
@@ -2351,15 +3005,21 @@ class MapInstanceRuntime {
     resolveMonsterTarget(monster) {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
+        const aggroRange = Math.max(0, Math.trunc(Number(monster.aggroRange) || 0));
+        const visibleTileIndices = this.collectVisibleTileIndices(monster.x, monster.y, aggroRange);
         if (monster.aggroTargetPlayerId) {
 
             const current = this.playersById.get(monster.aggroTargetPlayerId);
             if (current
                 && chebyshevDistance(monster.spawnX, monster.spawnY, current.x, current.y) <= monster.leashRange
-                && chebyshevDistance(monster.x, monster.y, current.x, current.y) <= monster.aggroRange) {
+                && chebyshevDistance(monster.x, monster.y, current.x, current.y) <= aggroRange
+                && visibleTileIndices.has(this.toTileIndex(current.x, current.y))) {
+                this.rememberMonsterTargetSight(monster, current);
                 return current;
             }
-            monster.aggroTargetPlayerId = null;
+            if (!current || chebyshevDistance(monster.spawnX, monster.spawnY, current.x, current.y) > monster.leashRange) {
+                this.clearMonsterTargetPursuit(monster);
+            }
         }
 
         let best = null;
@@ -2371,14 +3031,61 @@ class MapInstanceRuntime {
             }
 
             const distance = chebyshevDistance(monster.x, monster.y, player.x, player.y);
-            if (distance > monster.aggroRange || distance >= bestDistance) {
+            if (distance > aggroRange || distance >= bestDistance) {
+                continue;
+            }
+            if (!visibleTileIndices.has(this.toTileIndex(player.x, player.y))) {
                 continue;
             }
             best = player;
             bestDistance = distance;
         }
-        monster.aggroTargetPlayerId = best?.playerId ?? null;
+        if (best) {
+            this.rememberMonsterTargetSight(monster, best);
+        }
         return best;
+    }
+    /** rememberMonsterTargetSight：记录妖兽最后一次真正看见目标的位置。 */
+    rememberMonsterTargetSight(monster, target) {
+        monster.aggroTargetPlayerId = target.playerId;
+        monster.lastSeenTargetX = target.x;
+        monster.lastSeenTargetY = target.y;
+        monster.lastSeenTargetTick = this.tick;
+    }
+    /** clearMonsterTargetPursuit：清理妖兽追击状态。 */
+    clearMonsterTargetPursuit(monster) {
+        monster.aggroTargetPlayerId = null;
+        monster.lastSeenTargetX = undefined;
+        monster.lastSeenTargetY = undefined;
+        monster.lastSeenTargetTick = undefined;
+    }
+    /** resolveMonsterLostSightChaseTarget：解析妖兽丢视野后的短暂追击落点。 */
+    resolveMonsterLostSightChaseTarget(monster) {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
+        const targetPlayerId = monster.aggroTargetPlayerId;
+        const lastSeenTick = monster.lastSeenTargetTick;
+        const lastSeenX = monster.lastSeenTargetX;
+        const lastSeenY = monster.lastSeenTargetY;
+        if (typeof targetPlayerId !== 'string'
+            || !Number.isInteger(lastSeenTick)
+            || !Number.isInteger(lastSeenX)
+            || !Number.isInteger(lastSeenY)) {
+            return null;
+        }
+        if (this.tick > Number(lastSeenTick) + MONSTER_LOST_SIGHT_CHASE_TICKS) {
+            return null;
+        }
+        const target = this.playersById.get(targetPlayerId);
+        if (!target || chebyshevDistance(monster.spawnX, monster.spawnY, target.x, target.y) > monster.leashRange) {
+            return null;
+        }
+        const normalizedLastSeenX = Math.trunc(Number(lastSeenX));
+        const normalizedLastSeenY = Math.trunc(Number(lastSeenY));
+        if (chebyshevDistance(monster.x, monster.y, normalizedLastSeenX, normalizedLastSeenY) <= 1) {
+            return null;
+        }
+        return { x: normalizedLastSeenX, y: normalizedLastSeenY };
     }
     /** isMonsterWithinWanderRange：判断妖兽是否仍在活动范围内。 */
     isMonsterWithinWanderRange(monster, x, y) {
@@ -2450,10 +3157,44 @@ class MapInstanceRuntime {
 }
 exports.MapInstanceRuntime = MapInstanceRuntime;
 export { MapInstanceRuntime };
-/** resolveTileDurability：解析地形耐久配置。 */
-function resolveTileDurability(template, tileType) {
+/** getTileRestoreSpeedMultiplier：读取地形恢复速度倍率。 */
+function getTileRestoreSpeedMultiplier(tileType) {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
+    const configured = SPECIAL_TILE_RESTORE_SPEED_MULTIPLIERS[tileType] ?? 1;
+    return Number.isFinite(configured) && configured > 0 ? configured : 1;
+}
+/** calculateTileRestoreTicks：按 main 口径计算摧毁地块复生时间。 */
+function calculateTileRestoreTicks(tileType) {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
+    return Math.max(1, Math.ceil(shared_1.TERRAIN_DESTROYED_RESTORE_TICKS / getTileRestoreSpeedMultiplier(tileType)));
+}
+/** calculateTileRestoreRetryTicks：按 main 口径计算复生受阻后的重试时间。 */
+function calculateTileRestoreRetryTicks(tileType) {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
+    return Math.max(1, Math.ceil(shared_1.TERRAIN_RESTORE_RETRY_DELAY_TICKS / getTileRestoreSpeedMultiplier(tileType)));
+}
+/** normalizeTileRestoreTicksLeft：恢复持久化地块复生倒计时。 */
+function normalizeTileRestoreTicksLeft(value, tileType) {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
+    const normalized = Math.trunc(Number(value));
+    return Number.isFinite(normalized) && normalized > 0 ? normalized : calculateTileRestoreTicks(tileType);
+}
+/** resolveTileDurability：解析地形耐久配置。 */
+function resolveTileDurability(template, tileType, x = null, y = null) {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
+    if (template?.source?.sectMap === true && tileType === shared_1.TileType.Stone) {
+        const centerX = Number.isFinite(Number(template.source.sectCoreX)) ? Math.trunc(Number(template.source.sectCoreX)) : Math.trunc(template.width / 2);
+        const centerY = Number.isFinite(Number(template.source.sectCoreY)) ? Math.trunc(Number(template.source.sectCoreY)) : Math.trunc(template.height / 2);
+        const dx = Number.isFinite(Number(x)) ? Math.abs(Math.trunc(Number(x)) - centerX) : 1;
+        const dy = Number.isFinite(Number(y)) ? Math.abs(Math.trunc(Number(y)) - centerY) : 1;
+        const ring = Math.max(1, dx, dy);
+        return Math.max(1, Math.trunc(100000 * Math.pow(2, Math.max(0, ring - 1))));
+    }
 
     const profileId = template.source.terrainProfileId
         ?? LEGACY_MAP_TERRAIN_PROFILE_IDS[template.id]
@@ -2522,6 +3263,14 @@ function parseGroundSourceId(sourceId) {
 
     const tileIndex = Number(sourceId.slice(2));
     return Number.isInteger(tileIndex) && tileIndex >= 0 ? tileIndex : null;
+}
+function nextPowerOfTwo(value) {
+    let result = 1;
+    const target = Math.max(1, Math.trunc(Number(value) || 1));
+    while (result < target) {
+        result <<= 1;
+    }
+    return result;
 }
 /** toGroundPileView：把地面物品堆转换成视图对象。 */
 function toGroundPileView(pile) {
@@ -2667,8 +3416,8 @@ function cloneAttributes(source) {
         spirit: source.spirit,
         perception: source.perception,
         talent: source.talent,
-        comprehension: source.comprehension,
-        luck: source.luck,
+        strength: source.strength ?? source.comprehension ?? 0,
+        meridians: source.meridians ?? source.luck ?? 0,
     };
 }
 /** cloneNumericStats：克隆数值属性。 */
@@ -2701,6 +3450,9 @@ function cloneNumericStats(source) {
         viewRange: source.viewRange,
         moveSpeed: source.moveSpeed,
         extraAggroRate: source.extraAggroRate,
+        extraRange: source.extraRange ?? 0,
+        extraArea: source.extraArea ?? 0,
+        actionsPerTurn: source.actionsPerTurn ?? 1,
         elementDamageBonus: { ...source.elementDamageBonus },
         elementDamageReduce: { ...source.elementDamageReduce },
     };
@@ -2779,8 +3531,8 @@ function recalculateMonsterDerivedState(monster) {
             nextAttrs.spirit += (buff.attrs.spirit ?? 0) * stacks;
             nextAttrs.perception += (buff.attrs.perception ?? 0) * stacks;
             nextAttrs.talent += (buff.attrs.talent ?? 0) * stacks;
-            nextAttrs.comprehension += (buff.attrs.comprehension ?? 0) * stacks;
-            nextAttrs.luck += (buff.attrs.luck ?? 0) * stacks;
+            nextAttrs.strength += (buff.attrs.strength ?? buff.attrs.comprehension ?? 0) * stacks;
+            nextAttrs.meridians += (buff.attrs.meridians ?? buff.attrs.luck ?? 0) * stacks;
         }
         if (buff.stats) {
             nextStats.maxHp += (buff.stats.maxHp ?? 0) * stacks;
@@ -2810,6 +3562,9 @@ function recalculateMonsterDerivedState(monster) {
             nextStats.viewRange += (buff.stats.viewRange ?? 0) * stacks;
             nextStats.moveSpeed += (buff.stats.moveSpeed ?? 0) * stacks;
             nextStats.extraAggroRate += (buff.stats.extraAggroRate ?? 0) * stacks;
+            nextStats.extraRange += (buff.stats.extraRange ?? 0) * stacks;
+            nextStats.extraArea += (buff.stats.extraArea ?? 0) * stacks;
+            nextStats.actionsPerTurn += (buff.stats.actionsPerTurn ?? 0) * stacks;
             nextStats.elementDamageBonus.metal += (buff.stats.elementDamageBonus?.metal ?? 0) * stacks;
             nextStats.elementDamageBonus.wood += (buff.stats.elementDamageBonus?.wood ?? 0) * stacks;
             nextStats.elementDamageBonus.water += (buff.stats.elementDamageBonus?.water ?? 0) * stacks;
@@ -2854,8 +3609,8 @@ function isSameAttributes(left, right) {
         && left.spirit === right.spirit
         && left.perception === right.perception
         && left.talent === right.talent
-        && left.comprehension === right.comprehension
-        && left.luck === right.luck;
+        && left.strength === right.strength
+        && left.meridians === right.meridians;
 }
 /** isSameNumericStats：判断数值属性是否一致。 */
 function isSameNumericStats(left, right) {
@@ -2886,6 +3641,9 @@ function isSameNumericStats(left, right) {
         && left.viewRange === right.viewRange
         && left.moveSpeed === right.moveSpeed
         && left.extraAggroRate === right.extraAggroRate
+        && left.extraRange === right.extraRange
+        && left.extraArea === right.extraArea
+        && left.actionsPerTurn === right.actionsPerTurn
         && left.elementDamageBonus.metal === right.elementDamageBonus.metal
         && left.elementDamageBonus.wood === right.elementDamageBonus.wood
         && left.elementDamageBonus.water === right.elementDamageBonus.water

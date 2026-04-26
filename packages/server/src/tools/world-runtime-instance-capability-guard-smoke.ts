@@ -80,6 +80,15 @@ function createInstance(overrides = {}) {
     damageTile(x, y, amount) {
       return { x, y, appliedDamage: amount };
     },
+    getTileCombatState(x, y) {
+      return {
+        x,
+        y,
+        hp: 100,
+        maxHp: 100,
+        destroyed: false,
+      };
+    },
     ...overrides,
   };
 }
@@ -330,6 +339,33 @@ function testTileAttackFallsBackToTerrainWhenContainerIsNotHerb() {
   assert.deepEqual(log[2], ['damageTile', 11, 10, 12]);
 }
 
+function testTileAttackWithoutLootContainerServiceFallsBackToTerrain() {
+  const log = [];
+  const attacker = createAttacker();
+  const instance = createInstance({
+    getContainerAtTile(x, y) {
+      log.push(['getContainerAtTile', x, y]);
+      return {
+        id: 'box1',
+        name: '木箱',
+        x,
+        y,
+      };
+    },
+    damageTile(x, y, amount) {
+      log.push(['damageTile', x, y, amount]);
+      return { appliedDamage: 5 };
+    },
+  });
+  const service = createBasicAttackService(attacker, createTarget(), log);
+  const deps = createBasicAttackDeps(instance, log);
+  delete deps.worldRuntimeLootContainerService;
+  service.dispatchBasicAttackToTile(attacker, 11, 10, 'physical', 12, deps, 22);
+  assert.deepEqual(log[0], ['getInstanceRuntimeOrThrow', 'public:yunlai_town']);
+  assert.deepEqual(log[1], ['getContainerAtTile', 11, 10]);
+  assert.deepEqual(log[2], ['damageTile', 11, 10, 12]);
+}
+
 function testRealLineAllowsTileAttack() {
   const log = [];
   const attacker = createAttacker({ instanceId: 'real:yunlai_town' });
@@ -407,6 +443,7 @@ Promise.resolve()
   .then(() => testPeacefulLineAllowsTileAttack())
   .then(() => testTileAttackHitsHerbContainerBeforeTerrainDamage())
   .then(() => testTileAttackFallsBackToTerrainWhenContainerIsNotHerb())
+  .then(() => testTileAttackWithoutLootContainerServiceFallsBackToTerrain())
   .then(() => testRealLineAllowsTileAttack())
   .then(() => testPeacefulLineRejectsPlayerLockOn())
   .then(() => testRealLineAllowsTileLockOnAndDispatch())

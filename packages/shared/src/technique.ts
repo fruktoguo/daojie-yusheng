@@ -4,7 +4,7 @@
 import type {
   Attributes,
 } from './attribute-types';
-import type { BodyTrainingState, TechniqueGrade, TechniqueLayerDef, TechniqueRealm, TechniqueState } from './cultivation-types';
+import type { BodyTrainingState, PlayerSpecialStats, TechniqueGrade, TechniqueLayerDef, TechniqueRealm, TechniqueState } from './cultivation-types';
 import type { SkillDef } from './skill-types';
 import { TechniqueRealm as TechniqueRealmEnum } from './cultivation-types';
 import type { QiProjectionModifier } from './qi';
@@ -31,8 +31,8 @@ export function createZeroAttributes(): Attributes {
     spirit: 0,
     perception: 0,
     talent: 0,
-    comprehension: 0,
-    luck: 0,
+    strength: 0,
+    meridians: 0,
   };
 }
 
@@ -268,6 +268,26 @@ export function calcTechniqueAttrValues(level: number, layers?: TechniqueLayerDe
   return result;
 }
 
+/** 计算功法在指定层数时累计提供的特殊属性加成 */
+export function calcTechniqueSpecialStatValues(level: number, layers?: TechniqueLayerDef[]): Partial<PlayerSpecialStats> {
+  const result: Partial<PlayerSpecialStats> = {};
+  if (level <= 0) return result;
+  const normalized = normalizeLayers(layers);
+  for (const layer of normalized) {
+    if (layer.level > level) break;
+    const legacyAttrs = layer.attrs as (TechniqueLayerDef['attrs'] & { comprehension?: number; luck?: number }) | undefined;
+    const comprehension = layer.specialStats?.comprehension ?? legacyAttrs?.comprehension ?? 0;
+    if (comprehension > 0) {
+      result.comprehension = (result.comprehension ?? 0) + comprehension;
+    }
+    const luck = layer.specialStats?.luck ?? legacyAttrs?.luck ?? 0;
+    if (luck > 0) {
+      result.luck = (result.luck ?? 0) + luck;
+    }
+  }
+  return result;
+}
+
 /** 计算下一层升级时各属性的增量 */
 export function calcTechniqueNextLevelGains(level: number, layers?: TechniqueLayerDef[]): Partial<Attributes> {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
@@ -280,6 +300,24 @@ export function calcTechniqueNextLevelGains(level: number, layers?: TechniqueLay
     const gain = nextLayer.attrs[key] ?? 0;
     if (gain <= 0) continue;
     result[key] = gain;
+  }
+  return result;
+}
+
+/** 计算下一层升级时各特殊属性的增量 */
+export function calcTechniqueNextLevelSpecialStatGains(level: number, layers?: TechniqueLayerDef[]): Partial<PlayerSpecialStats> {
+  const normalized = normalizeLayers(layers);
+  const nextLayer = normalized.find((entry) => entry.level === level + 1);
+  if (!nextLayer?.specialStats && !nextLayer?.attrs) return {};
+  const result: Partial<PlayerSpecialStats> = {};
+  const legacyAttrs = nextLayer.attrs as (TechniqueLayerDef['attrs'] & { comprehension?: number; luck?: number }) | undefined;
+  const comprehension = nextLayer.specialStats?.comprehension ?? legacyAttrs?.comprehension ?? 0;
+  if (comprehension > 0) {
+    result.comprehension = comprehension;
+  }
+  const luck = nextLayer.specialStats?.luck ?? legacyAttrs?.luck ?? 0;
+  if (luck > 0) {
+    result.luck = luck;
   }
   return result;
 }
@@ -340,6 +378,20 @@ export function calcTechniqueFinalAttrBonus(techniques: readonly TechniqueState[
     result[key] = Math.floor(finalValue);
   }
 
+  return result;
+}
+
+/** 汇总所有已学功法的最终特殊属性加成 */
+export function calcTechniqueFinalSpecialStatBonus(techniques: readonly TechniqueState[]): Pick<PlayerSpecialStats, 'comprehension' | 'luck'> {
+  const result = {
+    comprehension: 0,
+    luck: 0,
+  };
+  for (const technique of techniques) {
+    const values = calcTechniqueSpecialStatValues(technique.level, technique.layers);
+    result.comprehension += Math.max(0, Math.floor(values.comprehension ?? 0));
+    result.luck += Math.max(0, Math.floor(values.luck ?? 0));
+  }
   return result;
 }
 

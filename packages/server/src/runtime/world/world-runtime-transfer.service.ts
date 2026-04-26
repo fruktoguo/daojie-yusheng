@@ -56,9 +56,21 @@ let WorldRuntimeTransferService = class WorldRuntimeTransferService {
         });
         source.disconnectPlayer(transfer.playerId);
         const linePreset = runtimePlayer?.worldPreference?.linePreset === 'real' ? 'real' : 'peaceful';
-        const target = typeof deps.getOrCreateDefaultLineInstance === 'function'
-            ? deps.getOrCreateDefaultLineInstance(transfer.targetMapId, linePreset)
-            : deps.getOrCreatePublicInstance(transfer.targetMapId);
+        let target = null;
+        const targetInstanceId = typeof transfer.targetInstanceId === 'string' && transfer.targetInstanceId.trim()
+            ? transfer.targetInstanceId.trim()
+            : '';
+        if (targetInstanceId) {
+            target = deps.getInstanceRuntime(targetInstanceId);
+            if (!target && typeof deps.worldRuntimeSectService?.ensureSectRuntimeInstanceById === 'function') {
+                target = deps.worldRuntimeSectService.ensureSectRuntimeInstanceById(targetInstanceId, deps);
+            }
+        }
+        if (!target) {
+            target = typeof deps.getOrCreateDefaultLineInstance === 'function'
+                ? deps.getOrCreateDefaultLineInstance(transfer.targetMapId, linePreset)
+                : deps.getOrCreatePublicInstance(transfer.targetMapId);
+        }
         target.connectPlayer({
             playerId: transfer.playerId,
             sessionId: transfer.sessionId,

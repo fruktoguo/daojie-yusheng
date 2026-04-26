@@ -74,6 +74,11 @@ export interface TechniqueLayerDef {
 
   attrs?: Partial<Attributes>;
   /**
+ * specialStats：悟性、幸运等非六维特殊属性加成。
+ */
+
+  specialStats?: Partial<Pick<PlayerSpecialStats, 'comprehension' | 'luck'>>;
+  /**
  * qiProjection：气机投影修正规则。
  */
 
@@ -256,7 +261,17 @@ export interface PlayerSpecialStats {
  * combatExp：战斗Exp相关字段。
  */
 
-  combatExp: number;
+  combatExp: number;  
+  /**
+ * comprehension：悟性，已从六维移入特殊属性。
+ */
+
+  comprehension?: number;  
+  /**
+ * luck：幸运，已从六维移入特殊属性。
+ */
+
+  luck?: number;
 }
 
 /** 功法状态。 */

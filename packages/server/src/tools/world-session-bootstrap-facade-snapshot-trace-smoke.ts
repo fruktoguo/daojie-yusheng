@@ -99,11 +99,23 @@ function buildStarterSnapshot(playerId: string): PersistedPlayerSnapshot {
 function createBootstrapService(loadProjectedSnapshot: (
   playerId: string,
   buildStarter: (playerId: string) => PersistedPlayerSnapshot | null,
-) => Promise<PersistedPlayerSnapshot | null>) {
+) => Promise<PersistedPlayerSnapshot | null>, nativeSectId: string | null = null) {
   const worldPlayerSnapshotService = new WorldPlayerSnapshotService(
     {
       isEnabled() {
         return false;
+      },
+      async loadPlayerSnapshotRecord(playerId: string) {
+        return nativeSectId
+          ? {
+              snapshot: {
+                ...buildStarterSnapshot(playerId),
+                sectId: nativeSectId,
+              },
+              persistedSource: 'native',
+              seededAt: null,
+            }
+          : null;
       },
     } as never,
     {
@@ -160,7 +172,7 @@ async function main(): Promise<void> {
         y: 9,
       },
     };
-  });
+  }, 'sect:facade-native');
   const projectionResult = await projectionBootstrapService.loadPlayerSnapshotWithTrace(
     'player:bootstrap-facade-trace-projection',
     'proof:bootstrap-facade-trace',
@@ -170,6 +182,7 @@ async function main(): Promise<void> {
   assert.equal(projectionResult.persistedSource, 'native');
   assert.equal(projectionResult.fallbackReason, 'proof:bootstrap-facade-trace|player_domain_projection');
   assert.equal(projectionResult.snapshot?.placement.templateId, 'projected_recovery_map');
+  assert.equal(projectionResult.snapshot?.sectId, 'sect:facade-native');
 
   const missBootstrapService = createBootstrapService(async () => null);
   const missResult = await missBootstrapService.loadPlayerSnapshotWithTrace(

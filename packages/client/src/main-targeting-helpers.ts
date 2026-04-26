@@ -1,6 +1,7 @@
 import {
   computeAffectedCellsFromAnchor,
   encodeTileTargetRef,
+  FormationRangeShape,
   GridPoint,
   PlayerState,
   resolveTargetingGeometry,
@@ -104,6 +105,11 @@ export type TargetingEntityLike = {
  */
 
   maxHp?: number;
+  formationRadius?: number;
+  formationRangeShape?: FormationRangeShape;
+  formationBlocksBoundary?: boolean;
+  formationOwnerSectId?: string | null;
+  formationOwnerPlayerId?: string | null;
 };
 
 /** 用于判断格子上是否存在可作用地块的轻量对象。 */
@@ -210,7 +216,7 @@ export function resolveTargetRefForAction(
 
   const entityTargetRef = target.entityKind === 'player' && target.entityId
     ? `player:${target.entityId}`
-    : target.entityKind === 'monster' && target.entityId
+    : (target.entityKind === 'monster' || target.entityKind === 'formation') && target.entityId
       ? target.entityId
       : null;
   const geometry = getEffectiveTargetingGeometry(action, myPlayer);
@@ -266,8 +272,18 @@ export function hasAffectableTargetInArea(
   }
   return affectedCells.some((cell) => {
     const hasMonster = args.entities.some((entity) => entity.kind === 'monster' && entity.wx === cell.x && entity.wy === cell.y);
+    const hasFormation = args.entities.some((entity) => entity.kind === 'formation' && entity.wx === cell.x && entity.wy === cell.y);
     const hasPlayer = args.entities.some((entity) => args.isPlayerLikeEntityKind(entity.kind) && entity.wx === cell.x && entity.wy === cell.y);
-    if (hasMonster || hasPlayer) {
+    if (hasMonster || hasFormation || hasPlayer) {
+      return true;
+    }
+    const hasFormationBoundary = args.entities.some((entity) => (
+      entity.kind === 'formation'
+      && entity.formationBlocksBoundary === true
+      && !canPlayerPassFormationBoundary(myPlayer, entity)
+      && isCellOnFormationBoundary(entity, cell.x, cell.y)
+    ));
+    if (hasFormationBoundary) {
       return true;
     }
     const hasAttackableContainer = args.entities.some((entity) => (
@@ -285,3 +301,41 @@ export function hasAffectableTargetInArea(
   });
 }
 
+function isCellOnFormationBoundary(entity: TargetingEntityLike, x: number, y: number): boolean {
+  const radius = Math.max(1, Math.trunc(Number(entity.formationRadius) || 0));
+  const dx = x - entity.wx;
+  const dy = y - entity.wy;
+  if (Math.abs(dx) > radius || Math.abs(dy) > radius) {
+    return false;
+  }
+  if (entity.formationRangeShape === 'circle') {
+    return (dx * dx) + (dy * dy) <= radius * radius
+      && (
+        ((dx + 1) * (dx + 1)) + (dy * dy) > radius * radius
+        || ((dx - 1) * (dx - 1)) + (dy * dy) > radius * radius
+        || (dx * dx) + ((dy + 1) * (dy + 1)) > radius * radius
+        || (dx * dx) + ((dy - 1) * (dy - 1)) > radius * radius
+      );
+  }
+  return Math.abs(dx) === radius || Math.abs(dy) === radius;
+}
+
+function canPlayerPassFormationBoundary(
+  player: Pick<PlayerState, 'id' | 'sectId'> | null | undefined,
+  entity: Pick<TargetingEntityLike, 'formationOwnerSectId' | 'formationOwnerPlayerId'>,
+): boolean {
+  if (player?.id && normalizePlayerId(entity.formationOwnerPlayerId) === player.id) {
+    return true;
+  }
+  const playerSectId = normalizeSectId(player?.sectId);
+  const ownerSectId = normalizeSectId(entity.formationOwnerSectId);
+  return Boolean(playerSectId && ownerSectId && playerSectId === ownerSectId);
+}
+
+function normalizePlayerId(value: string | null | undefined): string | null {
+  return typeof value === 'string' && value.trim() ? value.trim() : null;
+}
+
+function normalizeSectId(value: string | null | undefined): string | null {
+  return typeof value === 'string' && value.trim() ? value.trim() : null;
+}

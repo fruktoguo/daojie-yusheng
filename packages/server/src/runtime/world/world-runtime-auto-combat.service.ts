@@ -16,13 +16,13 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.WorldRuntimeAutoCombatService = void 0;
 
 const common_1 = require("@nestjs/common");
-const shared_1 = require("@mud/shared");
 const player_combat_config_helpers_1 = require("../player/player-combat-config.helpers");
 const player_runtime_service_1 = require("../player/player-runtime.service");
 const world_runtime_normalization_helpers_1 = require("./world-runtime.normalization.helpers");
 const { findPlayerSkill, resolveAutoBattleSkillQiCost } = world_runtime_normalization_helpers_1;
 const world_runtime_path_planning_helpers_1 = require("./world-runtime.path-planning.helpers");
 const { chebyshevDistance, findOptimalPathOnMap, directionFromStep, resolveInitialRunLength, buildAutoBattleGoalPoints } = world_runtime_path_planning_helpers_1;
+const world_runtime_attack_target_helpers_1 = require("./world-runtime.attack-target.helpers");
 
 function isHostileRelation(resolution) {
     return (0, player_combat_config_helpers_1.isHostileCombatRelationResolution)(resolution);
@@ -42,6 +42,38 @@ function resolveAutoCombatPlayerPriority(resolution) {
 }
 
 const AUTO_TARGETING_PREFERENCE_MULTIPLIER = 5;
+const AUTO_COMBAT_ACTION_COMMAND_KINDS = new Set(['basicAttack', 'castSkill']);
+
+function resolveActionsPerTurn(player) {
+    const rawValue = Number(player?.attrs?.numericStats?.actionsPerTurn ?? 1);
+    if (!Number.isFinite(rawValue)) {
+        return 1;
+    }
+    return Math.max(1, Math.trunc(rawValue));
+}
+
+function resolveCombatActionsUsedThisTick(player, currentTick) {
+    const combat = player?.combat;
+    if (!combat || combat.combatActionTick !== currentTick) {
+        return 0;
+    }
+    const rawValue = Number(combat.combatActionsUsedThisTick ?? 0);
+    if (!Number.isFinite(rawValue)) {
+        return 0;
+    }
+    return Math.max(0, Math.trunc(rawValue));
+}
+
+function hasCombatActionBudget(player, currentTick) {
+    if (!Number.isFinite(currentTick) || currentTick <= 0) {
+        return true;
+    }
+    return resolveCombatActionsUsedThisTick(player, currentTick) < resolveActionsPerTurn(player);
+}
+
+function isAutoCombatActionCommand(command) {
+    return AUTO_COMBAT_ACTION_COMMAND_KINDS.has(command?.kind);
+}
 
 function getAutoTargetHpRatio(candidate) {
     if (!Number.isFinite(candidate.maxHp) || candidate.maxHp <= 0) {
@@ -128,6 +160,12 @@ let WorldRuntimeAutoCombatService = class WorldRuntimeAutoCombatService {
             }
             const command = this.buildAutoCombatCommand(instance, player, deps);
             if (command) {
+                if (isAutoCombatActionCommand(command)) {
+                    const currentTick = deps.resolveCurrentTickForPlayerId(playerId);
+                    if (!hasCombatActionBudget(player, currentTick)) {
+                        continue;
+                    }
+                }
                 deps.enqueuePendingCommand(playerId, manualEngagePending ? {
                     ...command,
                     manualEngage: true,
@@ -165,14 +203,14 @@ let WorldRuntimeAutoCombatService = class WorldRuntimeAutoCombatService {
             return null;
         }
         const distance = chebyshevDistance(player.x, player.y, target.x, target.y);
-        const skillId = this.pickAutoBattleSkill(player, distance, options);
+        const skillId = target.supportsSkill === false ? null : this.pickAutoBattleSkill(player, distance, options);
         if (skillId) {
-            if (target.kind === 'monster') {
+            if (target.targetMonsterId) {
                 return {
                     kind: 'castSkill',
                     skillId,
                     targetPlayerId: null,
-                    targetMonsterId: target.runtimeId,
+                    targetMonsterId: target.targetMonsterId,
                     targetRef: null,
                     autoCombat: true,
                 };
@@ -187,14 +225,7 @@ let WorldRuntimeAutoCombatService = class WorldRuntimeAutoCombatService {
             };
         }
         if (distance <= 1) {
-            return {
-                kind: 'basicAttack',
-                targetPlayerId: target.kind === 'player' ? target.playerId : null,
-                targetMonsterId: target.kind === 'monster' ? target.runtimeId : null,
-                targetX: target.kind === 'tile' ? target.x : null,
-                targetY: target.kind === 'tile' ? target.y : null,
-                autoCombat: true,
-            };
+            return (0, world_runtime_attack_target_helpers_1.buildBasicAttackCommandFromAttackableTarget)(target);
         }
         if (player.combat.autoBattleStationary) {
             return null;
@@ -344,75 +375,19 @@ let WorldRuntimeAutoCombatService = class WorldRuntimeAutoCombatService {
             return null;
         }
         const radius = Math.max(1, Math.round(player.attrs.numericStats.viewRange));
-        if (targetRuntimeId.startsWith('player:')) {
-            const targetPlayerId = targetRuntimeId.slice('player:'.length).trim();
-            if (!targetPlayerId) {
-                return null;
-            }
-            const trackedPlayer = this.playerRuntimeService.getPlayer(targetPlayerId);
-            const relation = (0, player_combat_config_helpers_1.resolveCombatRelation)(player, {
-                kind: 'player',
-                target: trackedPlayer,
-            });
-            if (trackedPlayer?.instanceId === player.instanceId
-                && trackedPlayer.playerId !== player.playerId
-                && trackedPlayer.hp > 0
-                && isHostileRelation(relation)
-                && chebyshevDistance(player.x, player.y, trackedPlayer.x, trackedPlayer.y) <= radius) {
-                return {
-                    kind: 'player',
-                    playerId: trackedPlayer.playerId,
-                    targetRef: `player:${trackedPlayer.playerId}`,
-                    x: trackedPlayer.x,
-                    y: trackedPlayer.y,
-                    hp: trackedPlayer.hp,
-                };
-            }
-            return this.handleMissingTrackedTarget(player, deps);
-        }
-        if (targetRuntimeId.startsWith('tile:')) {
-            const tile = shared_1.parseTileTargetRef(targetRuntimeId);
-            if (
-                !tile
-                || !instance.getTileCombatState(tile.x, tile.y)
-                || chebyshevDistance(player.x, player.y, tile.x, tile.y) > radius
-                || !isHostileRelation((0, player_combat_config_helpers_1.resolveCombatRelation)(player, { kind: 'terrain' }))
-            ) {
-                return this.handleMissingTrackedTarget(player, deps);
-            }
-            return {
-                kind: 'tile',
-                targetRef: targetRuntimeId,
-                x: tile.x,
-                y: tile.y,
-                hp: Number.MAX_SAFE_INTEGER,
-            };
-        }
-        const visibleTarget = view.localMonsters.find((entry) => entry.runtimeId === targetRuntimeId);
-        if (visibleTarget && isHostileRelation((0, player_combat_config_helpers_1.resolveCombatRelation)(player, { kind: 'monster' }))) {
-            return {
-                kind: 'monster',
-                runtimeId: visibleTarget.runtimeId,
-                targetRef: visibleTarget.runtimeId,
-                x: visibleTarget.x,
-                y: visibleTarget.y,
-                hp: visibleTarget.hp,
-            };
-        }
-        const trackedTarget = instance.getMonster(targetRuntimeId);
-        if (
-            trackedTarget?.alive
-            && chebyshevDistance(player.x, player.y, trackedTarget.x, trackedTarget.y) <= radius
-            && isHostileRelation((0, player_combat_config_helpers_1.resolveCombatRelation)(player, { kind: 'monster' }))
-        ) {
-            return {
-                kind: 'monster',
-                runtimeId: trackedTarget.runtimeId,
-                targetRef: trackedTarget.runtimeId,
-                x: trackedTarget.x,
-                y: trackedTarget.y,
-                hp: trackedTarget.hp,
-            };
+        const trackedTarget = (0, world_runtime_attack_target_helpers_1.resolveAttackableTargetRef)(
+            instance,
+            this.playerRuntimeService,
+            player,
+            targetRuntimeId,
+            deps,
+            {
+                currentTick: deps.resolveCurrentTickForPlayerId(player.playerId),
+                maxDistance: radius,
+            },
+        );
+        if (trackedTarget) {
+            return trackedTarget;
         }
         return this.handleMissingTrackedTarget(player, deps);
     }
@@ -428,6 +403,7 @@ let WorldRuntimeAutoCombatService = class WorldRuntimeAutoCombatService {
         if (locked) {
             const currentTick = deps.resolveCurrentTickForPlayerId(player.playerId);
             this.playerRuntimeService.updateCombatSettings(player.playerId, { autoBattle: false }, currentTick);
+            this.playerRuntimeService.clearCombatTarget(player.playerId, currentTick);
             deps.queuePlayerNotice(player.playerId, '强制攻击目标已经失去踪迹，自动战斗已停止。', 'combat');
             return null;
         }

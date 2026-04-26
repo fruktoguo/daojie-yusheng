@@ -227,7 +227,7 @@
     "desc": "旧时封山闭路的令牌，修炼时有股强行把气机压回主脉的蛮劲。",
     "equipSlot": "accessory",
     "equipAttrs": {
-      "comprehension": 2
+      "strength": 2
     },
     "equipValueStats": {
       "maxQi": 6.5,
@@ -500,7 +500,7 @@
     "desc": "像一枚被地气反复压实的脉核，行功时很会往主脉里聚劲。",
     "equipSlot": "accessory",
     "equipAttrs": {
-      "comprehension": 2
+      "strength": 2
     },
     "equipValueStats": {
       "maxQi": 6.5,

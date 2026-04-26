@@ -19,6 +19,7 @@ import { WorldRuntimeService } from '../../runtime/world/world-runtime.service';
 import { NativeManagedAccountService } from './native-managed-account.service';
 import { NATIVE_GM_PLAYER_MUTATION_CONTRACT } from './native-gm-contract';
 import { isNativeGmBotPlayerId } from './native-gm.constants';
+const RAW_BASE_ATTRS_PERSISTENCE_MARKER = '__rawBaseAttrs';
 /**
  * ManagedAccountEntryLike：定义接口结构约束，明确可交付字段含义。
  */
@@ -849,13 +850,19 @@ export class NativeGmPlayerService {
 
     if (section === 'realm') {
       if (snapshot.baseAttrs && typeof snapshot.baseAttrs === 'object') {
-        next.attrs.baseAttrs = { ...DEFAULT_BASE_ATTRS, ...snapshot.baseAttrs };
+        next.attrs.rawBaseAttrs = normalizeRawBaseAttrs(snapshot.baseAttrs);
       }
       if (Number.isFinite(snapshot.foundation)) {
         next.foundation = Math.max(0, Math.trunc(snapshot.foundation));
       }
       if (Number.isFinite(snapshot.combatExp)) {
         next.combatExp = Math.max(0, Math.trunc(snapshot.combatExp));
+      }
+      if (Number.isFinite(snapshot.comprehension)) {
+        next.comprehension = Math.max(0, Math.trunc(snapshot.comprehension));
+      }
+      if (Number.isFinite(snapshot.luck)) {
+        next.luck = Math.max(0, Math.trunc(snapshot.luck));
       }
 
       const realmLv = Number.isFinite(snapshot.realmLv) ? Math.trunc(snapshot.realmLv) : next.realm?.realmLv ?? 1;
@@ -1053,11 +1060,21 @@ export class NativeGmPlayerService {
     }
 
     if (section === 'realm') {
+      if (snapshot.baseAttrs && typeof snapshot.baseAttrs === 'object') {
+        persisted.attrState = persisted.attrState ?? {};
+        persisted.attrState.baseAttrs = encodePersistedRawBaseAttrs(snapshot.baseAttrs);
+      }
       if (Number.isFinite(snapshot.foundation)) {
         persisted.progression.foundation = Math.max(0, Math.trunc(snapshot.foundation));
       }
       if (Number.isFinite(snapshot.combatExp)) {
         persisted.progression.combatExp = Math.max(0, Math.trunc(snapshot.combatExp));
+      }
+      if (Number.isFinite(snapshot.comprehension)) {
+        persisted.progression.comprehension = Math.max(0, Math.trunc(snapshot.comprehension));
+      }
+      if (Number.isFinite(snapshot.luck)) {
+        persisted.progression.luck = Math.max(0, Math.trunc(snapshot.luck));
       }
 
       const realmLv = Number.isFinite(snapshot.realmLv)
@@ -1683,8 +1700,10 @@ export class NativeGmPlayerService {
       dead: snapshot.hp <= 0,
       foundation: snapshot.foundation,
       combatExp: snapshot.combatExp,
+      comprehension: snapshot.comprehension ?? 0,
+      luck: snapshot.luck ?? 0,
       bodyTraining: normalizeBodyTrainingState(snapshot.bodyTraining),
-      baseAttrs: { ...snapshot.attrs.baseAttrs },
+      baseAttrs: normalizeRawBaseAttrs(snapshot.attrs.rawBaseAttrs),
       bonuses: [],
       temporaryBuffs: snapshot.buffs.buffs.map((entry) => cloneTemporaryBuff(entry)),
       finalAttrs: { ...snapshot.attrs.finalAttrs },
@@ -1773,8 +1792,10 @@ export class NativeGmPlayerService {
       lifespanYears: snapshot.progression.lifespanYears,
       foundation: snapshot.progression.foundation,
       combatExp: snapshot.progression.combatExp,
+      comprehension: snapshot.progression.comprehension ?? 0,
+      luck: snapshot.progression.luck ?? 0,
       bodyTraining: normalizeBodyTrainingState(snapshot.progression.bodyTraining),
-      baseAttrs: { ...DEFAULT_BASE_ATTRS },
+      baseAttrs: decodePersistedRawBaseAttrs(snapshot.attrState?.baseAttrs),
       bonuses: [],
       temporaryBuffs: snapshot.buffs.buffs.map((entry) => cloneTemporaryBuff(entry)),
       inventory: {
@@ -1857,6 +1878,34 @@ function buildManagedAccountView(account, online) {
 
 function clamp(value, min, max) {
   return Math.max(min, Math.min(max, value));
+}
+
+function normalizeRawBaseAttrs(source) {
+  const attrs = { ...DEFAULT_BASE_ATTRS };
+  if (!source || typeof source !== 'object') {
+    return attrs;
+  }
+  for (const key of Object.keys(DEFAULT_BASE_ATTRS)) {
+    const value = Number(source[key]);
+    if (Number.isFinite(value)) {
+      attrs[key] = Math.max(0, Math.trunc(value));
+    }
+  }
+  return attrs;
+}
+
+function encodePersistedRawBaseAttrs(source) {
+  return {
+    ...normalizeRawBaseAttrs(source),
+    [RAW_BASE_ATTRS_PERSISTENCE_MARKER]: true,
+  };
+}
+
+function decodePersistedRawBaseAttrs(source) {
+  if (!source || typeof source !== 'object' || source[RAW_BASE_ATTRS_PERSISTENCE_MARKER] !== true) {
+    return { ...DEFAULT_BASE_ATTRS };
+  }
+  return normalizeRawBaseAttrs(source);
 }
 /**
  * toLegacyEquipmentSlots：执行toLegacy装备Slot相关逻辑。

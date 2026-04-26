@@ -176,12 +176,16 @@ let WorldClientEventService = class WorldClientEventService {
         });
     }
     /** 返回任务导航结果。 */
-    emitQuestNavigateResult(client, questId, ok, error) {
-        this.emit(client, shared_1.S2C.QuestNavigateResult, {
+    emitQuestNavigateResult(client, questId, ok, error, path) {
+        const payload = {
             questId,
             ok,
             error,
-        });
+        };
+        if (Array.isArray(path)) {
+            payload.path = path;
+        }
+        this.emit(client, shared_1.S2C.QuestNavigateResult, payload);
     }
     /** 打开或刷新拾取窗口。 */
     emitLootWindowUpdate(client, playerId, x, y) {

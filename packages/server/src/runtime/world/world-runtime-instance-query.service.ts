@@ -70,6 +70,7 @@ let WorldRuntimeInstanceQueryService = class WorldRuntimeInstanceQueryService {
             return null;
         }
         return {
+            tileType: typeof instance.getEffectiveTileType === 'function' ? instance.getEffectiveTileType(x, y) : undefined,
             aura,
             resources: instance.listTileResources?.(x, y) ?? [],
             safeZone: instance.getSafeZoneAtTile(x, y),

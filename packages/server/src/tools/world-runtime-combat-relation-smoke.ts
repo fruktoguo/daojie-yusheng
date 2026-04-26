@@ -194,6 +194,9 @@ async function testBasicAttackRejectsNeutralPlayer() {
 
 async function testSkillDispatchRejectsNeutralPlayer() {
   const attacker = createPlayer({
+    actions: {
+      actions: [{ id: 'skill.alpha', type: 'skill', requiresTarget: true }],
+    },
     techniques: {
       techniques: [{
         skills: [{
@@ -252,6 +255,60 @@ async function testSkillDispatchRejectsNeutralPlayer() {
     }),
     /敌方判定规则/,
   );
+}
+
+async function testSkillDispatchRejectsDisabledSkillAction() {
+  const attacker = createPlayer({
+    actions: {
+      actions: [{ id: 'skill.alpha', type: 'skill', requiresTarget: true, skillEnabled: false }],
+    },
+    techniques: {
+      techniques: [{
+        skills: [{
+          id: 'skill.alpha',
+          name: '青木剑',
+          effects: [{ type: 'damage', damageKind: 'spell' }],
+          targeting: { range: 3 },
+          range: 3,
+        }],
+      }],
+    },
+  });
+  const log = [];
+  const playerRuntimeService = {
+    getPlayerOrThrow(playerId) {
+      if (playerId === attacker.playerId) {
+        return attacker;
+      }
+      throw new Error(`unexpected playerId ${playerId}`);
+    },
+    recordActivity() {
+      log.push('recordActivity');
+    },
+  };
+  const service = new WorldRuntimePlayerSkillDispatchService(playerRuntimeService, {
+    castSkill() {
+      throw new Error('castSkill should not run for disabled skill');
+    },
+  });
+  await assert.rejects(
+    () => service.dispatchCastSkill(attacker.playerId, 'skill.alpha', 'player:target', null, null, {
+      resolveCurrentTickForPlayerId() {
+        log.push('resolveCurrentTickForPlayerId');
+        return 8;
+      },
+      worldRuntimeCraftInterruptService: {
+        interruptCraftForReason() {
+          log.push('interruptCraftForReason');
+        },
+      },
+      ensureAttackAllowed() {
+        log.push('ensureAttackAllowed');
+      },
+    }),
+    /技能未启用，无法释放/,
+  );
+  assert.deepEqual(log, []);
 }
 
 function testAutoCombatPrefersRetaliator() {
@@ -351,6 +408,9 @@ function testAutoCombatMoveIsSingleStepLikeMainline() {
     forEachPathingBlocker(_excludePlayerId, _visitor) {
       return undefined;
     },
+    isWalkable() {
+      return true;
+    },
     getTileTraversalCost() {
       return 1;
     },
@@ -428,6 +488,7 @@ Promise.resolve()
   .then(() => testResolveCombatRelation())
   .then(() => testBasicAttackRejectsNeutralPlayer())
   .then(() => testSkillDispatchRejectsNeutralPlayer())
+  .then(() => testSkillDispatchRejectsDisabledSkillAction())
   .then(() => testAutoCombatPrefersRetaliator())
   .then(() => testAutoCombatMoveIsSingleStepLikeMainline())
   .then(() => testEngageBattleRejectsNeutralPlayerBeforeLocking())

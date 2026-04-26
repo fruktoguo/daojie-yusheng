@@ -113,7 +113,10 @@ export type MainTargetingHoveredTile = {
  */
 
 
-type MainTargetingObservedEntity = Pick<MainRuntimeObservedEntity, 'id' | 'wx' | 'wy' | 'kind'>;
+type MainTargetingObservedEntity = Pick<
+  MainRuntimeObservedEntity,
+  'id' | 'wx' | 'wy' | 'kind' | 'name' | 'formationRadius' | 'formationRangeShape' | 'formationBlocksBoundary' | 'formationOwnerSectId' | 'formationOwnerPlayerId'
+>;
 /**
  * MainTargetingStateSourceOptions：统一结构类型，保证协议与运行时一致性。
  */
@@ -244,6 +247,7 @@ type MainTargetingStateSourceOptions = {
  */
 
   showToast: (message: string) => void;
+  sendAction?: (actionId: string, target?: string) => void;
 };
 
 function buildSenseQiTooltipLines(tile: Tile, x: number, y: number, formatAuraLevelText: (auraValue: number) => string): string[] {
@@ -261,6 +265,32 @@ function buildSenseQiTooltipLines(tile: Tile, x: number, y: number, formatAuraLe
   }
   lines.push(formatAuraLevelText(tile.aura ?? 0));
   return lines;
+}
+
+function appendSenseQiFormationLines(lines: string[], entities: readonly MainTargetingObservedEntity[], x: number, y: number): void {
+  for (const entity of entities) {
+    if (entity.kind !== 'formation' || !isTileInsideFormationRange(entity, x, y)) {
+      continue;
+    }
+    const radius = Math.max(1, Math.trunc(Number(entity.formationRadius) || 0));
+    lines.push(`${entity.name ?? '阵法'} · 中心 (${entity.wx}, ${entity.wy}) · 半径 ${radius}`);
+  }
+}
+
+function isTileInsideFormationRange(entity: MainTargetingObservedEntity, x: number, y: number): boolean {
+  const radius = Math.max(1, Math.trunc(Number(entity.formationRadius) || 0));
+  const dx = x - entity.wx;
+  const dy = y - entity.wy;
+  if (Math.abs(dx) > radius || Math.abs(dy) > radius) {
+    return false;
+  }
+  if (entity.formationRangeShape === 'circle') {
+    return (dx * dx) + (dy * dy) <= radius * radius;
+  }
+  if (entity.formationRangeShape === 'checkerboard') {
+    return ((x + y) % 2) === 0;
+  }
+  return true;
 }
 /**
  * doesTargetingRequireVision：读取doeTargetingRequireVision并返回结果。
@@ -456,8 +486,12 @@ export function createMainTargetingStateSource(options: MainTargetingStateSource
       if (!pendingTargetedAction) {
         return;
       }
+      const canceledActionId = pendingTargetedAction.actionId;
       pendingTargetedAction = null;
       this.syncTargetingOverlay();
+      if (showMessage && canceledActionId === 'battle:force_attack') {
+        options.sendAction?.('battle:force_attack');
+      }
       if (showMessage) {
         options.showToast('已取消目标选择');
       }
@@ -547,9 +581,11 @@ export function createMainTargetingStateSource(options: MainTargetingStateSource
         return;
       }
 
+      const lines = buildSenseQiTooltipLines(tile, hoveredMapTile.x, hoveredMapTile.y, options.formatAuraLevelText);
+      appendSenseQiFormationLines(lines, options.getLatestEntities(), hoveredMapTile.x, hoveredMapTile.y);
       options.senseQiTooltip.show(
         '感气视角',
-        buildSenseQiTooltipLines(tile, hoveredMapTile.x, hoveredMapTile.y, options.formatAuraLevelText),
+        lines,
         hoveredMapTile.clientX,
         hoveredMapTile.clientY,
       );

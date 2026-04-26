@@ -13,6 +13,7 @@ import { PlayerRuntimeService } from '../../runtime/player/player-runtime.servic
 import { RuntimeGmStateService } from '../../runtime/gm/runtime-gm-state.service';
 import { isNativeGmBotPlayerId } from './native-gm.constants';
 import { NativeManagedAccountService } from './native-managed-account.service';
+const RAW_BASE_ATTRS_PERSISTENCE_MARKER = '__rawBaseAttrs';
 /**
  * ManagedAccountEntryLike：定义接口结构约束，明确可交付字段含义。
  */
@@ -415,7 +416,9 @@ export class NativeGmStateQueryService {
       dead: snapshot.hp <= 0,
       foundation: snapshot.foundation,
       combatExp: snapshot.combatExp,
-      baseAttrs: { ...snapshot.attrs.baseAttrs },
+      comprehension: snapshot.comprehension ?? 0,
+      luck: snapshot.luck ?? 0,
+      baseAttrs: normalizeRawBaseAttrs(snapshot.attrs.rawBaseAttrs),
       bonuses: [],
       temporaryBuffs: snapshot.buffs.buffs.map((entry) => cloneTemporaryBuff(entry)),
       finalAttrs: { ...snapshot.attrs.finalAttrs },
@@ -504,7 +507,9 @@ export class NativeGmStateQueryService {
       lifespanYears: snapshot.progression.lifespanYears,
       foundation: snapshot.progression.foundation,
       combatExp: snapshot.progression.combatExp,
-      baseAttrs: { ...DEFAULT_BASE_ATTRS },
+      comprehension: snapshot.progression.comprehension ?? 0,
+      luck: snapshot.progression.luck ?? 0,
+      baseAttrs: decodePersistedRawBaseAttrs(snapshot.attrState?.baseAttrs),
       bonuses: [],
       temporaryBuffs: snapshot.buffs.buffs.map((entry) => cloneTemporaryBuff(entry)),
       inventory: {
@@ -771,6 +776,27 @@ function compareName(left, right) {
 
 function roundMetric(value) {
   return Math.round(value * 100) / 100;
+}
+
+function normalizeRawBaseAttrs(source) {
+  const attrs = { ...DEFAULT_BASE_ATTRS };
+  if (!source || typeof source !== 'object') {
+    return attrs;
+  }
+  for (const key of Object.keys(DEFAULT_BASE_ATTRS)) {
+    const value = Number(source[key]);
+    if (Number.isFinite(value)) {
+      attrs[key] = Math.max(0, Math.trunc(value));
+    }
+  }
+  return attrs;
+}
+
+function decodePersistedRawBaseAttrs(source) {
+  if (!source || typeof source !== 'object' || source[RAW_BASE_ATTRS_PERSISTENCE_MARKER] !== true) {
+    return { ...DEFAULT_BASE_ATTRS };
+  }
+  return normalizeRawBaseAttrs(source);
 }
 /**
  * toLegacyEquipmentSlots：执行toLegacy装备Slot相关逻辑。

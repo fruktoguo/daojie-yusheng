@@ -26,7 +26,7 @@ if (!sourceFile) {
 
 const EXPECTED_INTERFACES = {
   S2C_Bootstrap: {
-    self: { type: 'PlayerState', optional: false },
+    self: { type: 'BootstrapSelfView', optional: false },
     mapMeta: { type: 'MapMeta', optional: true },
     minimap: { type: 'MapMinimapSnapshot', optional: true },
     visibleMinimapMarkers: { type: 'MapMinimapMarker[]', optional: true },

@@ -5,6 +5,7 @@ import {
   S2C_QuestNavigateResult,
   S2C_QuestUpdate,
 } from '@mud/shared';
+import { resolvePreviewQuests } from './content/local-templates';
 import { NpcQuestModal } from './ui/npc-quest-modal';
 import { QuestPanel } from './ui/panels/quest-panel';
 /**
@@ -28,6 +29,11 @@ type MainQuestStateSourceOptions = {
  */
 
   clearCurrentPath: () => void;  
+  /**
+ * setCurrentPathCells：set当前路径Cell相关字段。
+ */
+
+  setCurrentPathCells: (cells: Array<{ x: number; y: number }>) => void;  
   /**
  * sendNavigateQuest：sendNavigate任务相关字段。
  */
@@ -154,7 +160,13 @@ export function createMainQuestStateSource(options: MainQuestStateSourceOptions)
 
 
     handleNpcQuests(data: S2C_NpcQuests): void {
-      options.npcQuestModal.updateQuests(data);
+      if (!options.npcQuestModal.getActiveNpcId()) {
+        return;
+      }
+      options.npcQuestModal.updateQuests({
+        ...data,
+        quests: resolvePreviewQuests(data.quests as PlayerState['quests']),
+      });
     },    
     /**
  * handleQuestUpdate：处理任务Update并更新相关状态。
@@ -168,14 +180,15 @@ export function createMainQuestStateSource(options: MainQuestStateSourceOptions)
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
       if (player) {
-        player.quests = data.quests;
+        player.quests = resolvePreviewQuests(data.quests as PlayerState['quests']);
       }
       syncMapId(player?.mapId);
-      options.questPanel.update(data.quests);
+      const quests = player?.quests ?? resolvePreviewQuests(data.quests as PlayerState['quests']);
+      options.questPanel.update(quests);
       if (options.npcQuestModal.getActiveNpcId()) {
         options.npcQuestModal.refreshActive();
       }
-      options.syncQuestBridgeState(data.quests);
+      options.syncQuestBridgeState(quests);
       options.syncPlayerBridgeState(player);
       options.refreshUiChrome();
     },    
@@ -195,6 +208,9 @@ export function createMainQuestStateSource(options: MainQuestStateSourceOptions)
       pendingQuestNavigateId = null;
       if (!data.ok) {
         return;
+      }
+      if (Array.isArray(data.path)) {
+        options.setCurrentPathCells(data.path.map(([x, y]) => ({ x, y })));
       }
       options.questPanel.closeDetail();
     },    

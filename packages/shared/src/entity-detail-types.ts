@@ -343,6 +343,16 @@ export interface TileDetailView {
 
   aura?: number;  
   /**
+ * hp：地块剩余生命值。
+ */
+
+  hp?: number;  
+  /**
+ * maxHp：地块最大生命值。
+ */
+
+  maxHp?: number;  
+  /**
  * resources：resource相关字段。
  */
 

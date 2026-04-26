@@ -176,8 +176,8 @@ export class HUD {
   private buildBoneAgeLabel(player: PlayerState): string {
     const age = resolveCharacterAge(player);
     return age.days > 0
-      ? `${formatDisplayInteger(age.years)} 岁零 ${formatDisplayInteger(age.days)} 天`
-      : `${formatDisplayInteger(age.years)} 岁`;
+      ? `${formatDisplayInteger(age.years)}载${formatDisplayInteger(age.days)}日`
+      : `${formatDisplayInteger(age.years)}载`;
   }
 
   /** buildLifespanLabel：构建Lifespan标签。 */
@@ -188,8 +188,7 @@ export class HUD {
     if (lifespanYears == null || lifespanYears <= 0) {
       return '???';
     }
-    return `${formatDisplayInteger(lifespanYears)} 岁`;
+    return `${formatDisplayInteger(lifespanYears)}载`;
   }
 }
-
 

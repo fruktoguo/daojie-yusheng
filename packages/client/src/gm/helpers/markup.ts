@@ -178,6 +178,7 @@ export function getStatRowMarkup(key: string): string {
         <div class="network-row-label" data-role="label"></div>
         <div class="network-row-meta" data-role="meta"></div>
       </div>
+      <div class="network-row-actions" data-role="actions"></div>
     </div>
   `;
 }
@@ -185,6 +186,8 @@ export function getStatRowMarkup(key: string): string {
 /** getReadonlyPreviewValue：读取Readonly Preview值。 */
 export function getReadonlyPreviewValue(draft: PlayerState, path: string): string {
   switch (path) {
+    case 'baseAttrs':
+      return formatJson(draft.baseAttrs ?? {});
     case 'finalAttrs':
       return formatJson(draft.finalAttrs ?? {});
     case 'numericStats':

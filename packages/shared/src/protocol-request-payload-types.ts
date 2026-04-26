@@ -82,6 +82,11 @@ import type {
   RequestSuggestionsView,
   VoteSuggestionRequestView,
 } from './client-social-admin-request-types';
+import type {
+  FormationControlPayload,
+  FormationCreatePayload,
+  FormationRefillPayload,
+} from './formation-types';
 
 /** 握手就绪声明：当前仅允许已登录主线会话进入引导链路。 */
 export interface C2S_Hello extends HelloRequestView {}
@@ -207,6 +212,14 @@ export interface C2S_CancelEnhancement extends CancelEnhancementView {}
 export interface C2S_HeavenGateAction extends HeavenGateActionRequestView {}
 /** 使用背包物品。 */
 export interface C2S_UseItem extends UseItemView {}
+/** 布置阵法。 */
+export interface C2S_CreateFormation extends FormationCreatePayload {}
+/** 开启/关闭阵法。 */
+export interface C2S_SetFormationActive extends FormationControlPayload {
+  active: boolean;
+}
+/** 补充阵法灵力。 */
+export interface C2S_RefillFormation extends FormationRefillPayload {}
 /** 丢弃背包物品。 */
 export interface C2S_DropItem extends DropItemView {}
 /** 彻底摧毁背包物品。 */

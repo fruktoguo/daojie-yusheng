@@ -68,6 +68,8 @@ function testBuildAndMarkSnapshot() {
     const instance = {
         meta: { persistent: true },
         template: { id: 'yunlai_town' },        
+        tick: 4321,
+        getPersistenceRevision() { return 9; },
         /**
  * buildAuraPersistenceEntries：构建并返回目标对象。
  * @returns 无返回值，直接更新AuraPersistence条目相关状态。
@@ -80,6 +82,12 @@ function testBuildAndMarkSnapshot() {
  */
 
         buildTileResourcePersistenceEntries() { return ['tile-resource:1']; },        
+        /**
+ * buildTileDamagePersistenceEntries：构建并返回目标对象。
+ * @returns 无返回值，直接更新Tile破坏Persistence条目相关状态。
+ */
+
+        buildTileDamagePersistenceEntries() { return ['tile-damage:1']; },        
         /**
  * buildGroundPersistenceEntries：构建并返回目标对象。
  * @returns 无返回值，直接更新GroundPersistence条目相关状态。
@@ -127,8 +135,11 @@ function testBuildAndMarkSnapshot() {
     };
     const snapshot = service.buildMapPersistenceSnapshot('public:yunlai_town', deps);
     assert.equal(snapshot.templateId, 'yunlai_town');
+    assert.equal(snapshot.tick, 4321);
+    assert.equal(snapshot.persistenceRevision, 9);
     assert.deepEqual(snapshot.auraEntries, ['aura:1']);
     assert.deepEqual(snapshot.tileResourceEntries, ['tile-resource:1']);
+    assert.deepEqual(snapshot.tileDamageEntries, ['tile-damage:1']);
     assert.deepEqual(snapshot.groundPileEntries, ['ground:1']);
     assert.deepEqual(snapshot.containerStates, [{ id: 'container:1' }]);
     service.markMapPersisted('public:yunlai_town', deps);
@@ -139,7 +150,55 @@ function testBuildAndMarkSnapshot() {
     ]);
 }
 
+async function testFlushOverlayAndMonsterDomains() {
+    const log = [];
+    const service = new WorldRuntimePersistenceStateService();
+    const instance = {
+        meta: { persistent: true },
+        template: { id: 'yunlai_town' },
+        buildOverlayPersistenceChunks() {
+            log.push('buildOverlayPersistenceChunks');
+            return [{ patchKind: 'portal', chunkKey: 'runtime_portals', patchVersion: 1, patchPayload: { portals: [] } }];
+        },
+        buildMonsterRuntimePersistenceEntries() {
+            log.push('buildMonsterRuntimePersistenceEntries');
+            return [{ monsterRuntimeId: 'monster:1', monsterTier: 'demon_king' }];
+        },
+        markPersistenceDomainsPersisted(domains) {
+            log.push(['markPersistenceDomainsPersisted', domains]);
+        },
+    };
+    await service.flushInstanceDomains('public:yunlai_town', ['overlay', 'monster_runtime'], {
+        getInstanceRuntime(instanceId) {
+            return instanceId === 'public:yunlai_town' ? instance : null;
+        },
+        instanceDomainPersistenceService: {
+            isEnabled() { return true; },
+            async replaceOverlayChunks(instanceId, entries) {
+                log.push(['replaceOverlayChunks', instanceId, entries.length]);
+            },
+            async replaceMonsterRuntimeStates(instanceId, entries) {
+                log.push(['replaceMonsterRuntimeStates', instanceId, entries.length]);
+            },
+        },
+        worldRuntimeLootContainerService: {
+            clearPersisted() {},
+        },
+    });
+    assert.deepEqual(log, [
+        'buildOverlayPersistenceChunks',
+        ['replaceOverlayChunks', 'public:yunlai_town', 1],
+        'buildMonsterRuntimePersistenceEntries',
+        ['replaceMonsterRuntimeStates', 'public:yunlai_town', 1],
+        ['markPersistenceDomainsPersisted', ['overlay', 'monster_runtime']],
+    ]);
+}
+
 testListDirtyPersistentInstances();
 testBuildAndMarkSnapshot();
-
-console.log(JSON.stringify({ ok: true, case: 'world-runtime-persistence-state' }, null, 2));
+testFlushOverlayAndMonsterDomains().then(() => {
+    console.log(JSON.stringify({ ok: true, case: 'world-runtime-persistence-state' }, null, 2));
+}).catch((error) => {
+    console.error(error instanceof Error ? error.stack : String(error));
+    process.exit(1);
+});

@@ -254,6 +254,8 @@ message AttrUpdatePayload {
 message PlayerSpecialStatsPayload {
   optional uint32 foundation = 1;
   optional uint32 combatExp = 2;
+  optional uint32 comprehension = 3;
+  optional uint32 luck = 4;
 }
 
 message AttributesPayload {
@@ -261,8 +263,8 @@ message AttributesPayload {
   optional sint32 spirit = 2;
   optional sint32 perception = 3;
   optional sint32 talent = 4;
-  optional sint32 comprehension = 5;
-  optional sint32 luck = 6;
+  optional sint32 strength = 5;
+  optional sint32 meridians = 6;
 }
 
 message NumericStatsPayload {
@@ -298,6 +300,7 @@ message NumericStatsPayload {
   optional ElementStatGroupPayload elementDamageBonus = 30;
   optional ElementStatGroupPayload elementDamageReduce = 31;
   optional sint32 antiCrit = 32;
+  optional sint32 actionsPerTurn = 33;
 }
 
 message NumericRatioDivisorsPayload {

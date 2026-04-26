@@ -43,6 +43,7 @@ const PLAYER_TRANSFER_TIMEOUT_MS = 120_000;
 
 /** 体能下限来源标记，用于把基础生命回填到运行时。 */
 const VITAL_BASELINE_BONUS_SOURCE = 'runtime:vitals_baseline';
+const RAW_BASE_ATTRS_PERSISTENCE_MARKER = '__rawBaseAttrs';
 
 /** 当前钱包查询/扣费需要兼容库存回退的货币物品 ID。 */
 const WALLET_ITEM_IDS = new Set([
@@ -180,6 +181,7 @@ let PlayerRuntimeService = class PlayerRuntimeService {
             transferBufferedNotices: [],
             name: playerId,
             displayName: playerId,
+            sectId: null,
             persistentRevision: 1,
             persistedRevision: 0,
             instanceId: '',
@@ -200,6 +202,8 @@ let PlayerRuntimeService = class PlayerRuntimeService {
             maxQi: 100,
             foundation: 0,
             combatExp: 0,
+            comprehension: 0,
+            luck: 0,
             bodyTraining: (0, shared_1.normalizeBodyTrainingState)(),
             boneAgeBaseYears: shared_1.DEFAULT_BONE_AGE_YEARS,
             lifeElapsedTicks: 0,
@@ -258,6 +262,8 @@ let PlayerRuntimeService = class PlayerRuntimeService {
                 autoBattleSkills: [],
                 cultivationActive: false,
                 lastActiveTick: 0,
+                combatActionTick: 0,
+                combatActionsUsedThisTick: 0,
             },
             notices: {
                 nextId: 1,
@@ -1639,6 +1645,41 @@ let PlayerRuntimeService = class PlayerRuntimeService {
         return this.getPlayerOrThrow(playerId).unlockedMapIds.includes(mapId);
     }
     /**
+ * bindRespawnPoint：绑定玩家复活点。
+ * @param playerId 玩家 ID。
+ * @param mapId 地图 ID。
+ * @returns 返回是否发生变化。
+ */
+
+    bindRespawnPoint(playerId, mapId) {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
+        const normalizedMapId = typeof mapId === 'string' ? mapId.trim() : '';
+        if (!normalizedMapId) {
+            throw new common_1.BadRequestException('Respawn bind map id is required');
+        }
+        const template = this.mapTemplateRepository.getOrThrow(normalizedMapId);
+        const player = this.getPlayerOrThrow(playerId);
+        const nextInstanceId = buildPublicPlayerInstanceId(normalizedMapId);
+        const nextX = Number.isFinite(template.spawnX) ? Math.trunc(template.spawnX) : 0;
+        const nextY = Number.isFinite(template.spawnY) ? Math.trunc(template.spawnY) : 0;
+        const changed = player.respawnTemplateId !== normalizedMapId
+            || player.respawnInstanceId !== nextInstanceId
+            || player.respawnX !== nextX
+            || player.respawnY !== nextY;
+        if (!changed) {
+            return false;
+        }
+        player.respawnTemplateId = normalizedMapId;
+        player.respawnInstanceId = nextInstanceId;
+        player.respawnX = nextX;
+        player.respawnY = nextY;
+        player.selfRevision += 1;
+        markPlayerDirtyDomains(player, ['position_checkpoint']);
+        this.bumpPersistentRevision(player);
+        return true;
+    }
+    /**
  * persistMapUnlocks：执行persist地图Unlocks相关逻辑。
  * @param player 玩家对象。
  * @returns 无返回值，直接更新persist地图Unlocks相关状态。
@@ -1718,7 +1759,10 @@ let PlayerRuntimeService = class PlayerRuntimeService {
             throw new common_1.NotFoundException(`Equipment slot ${slot} not found`);
         }
 
-        const equippedItem = player.inventory.items.splice(slotIndex, 1)[0];
+        const equippedItem = takeSingleInventoryItemForEquipment(player.inventory.items, slotIndex);
+        if (!equippedItem) {
+            throw new common_1.NotFoundException(`Inventory slot ${slotIndex} not found`);
+        }
 
         const previousEquipped = equipmentEntry.item ? { ...equipmentEntry.item } : null;
         equipmentEntry.item = { ...equippedItem };
@@ -2194,6 +2238,19 @@ let PlayerRuntimeService = class PlayerRuntimeService {
         this.bumpPersistentRevision(player);
         return player;
     }
+    /** setPlayerSectId：设置玩家所属宗门。 */
+    setPlayerSectId(playerId, sectId) {
+        const player = this.getPlayerOrThrow(playerId);
+        const normalized = typeof sectId === 'string' && sectId.trim() ? sectId.trim() : null;
+        if ((player.sectId ?? null) === normalized) {
+            return player;
+        }
+        player.sectId = normalized;
+        player.selfRevision += 1;
+        markPlayerDirtyDomains(player, ['snapshot']);
+        this.bumpPersistentRevision(player);
+        return player;
+    }
     /**
  * setCombatTarget：写入战斗目标。
  * @param playerId 玩家 ID。
@@ -2502,6 +2559,10 @@ let PlayerRuntimeService = class PlayerRuntimeService {
     advanceSinglePlayerTick(player, currentTick, options = {}) {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
+            if (advancePlayerChronology(player)) {
+                markPlayerDirtyDomains(player, ['progression']);
+                this.bumpPersistentRevision(player);
+            }
             if (tickTemporaryBuffs(player.buffs.buffs)) {
                 player.buffs.revision += 1;
                 this.playerAttributesService.recalculate(player);
@@ -2777,6 +2838,23 @@ let PlayerRuntimeService = class PlayerRuntimeService {
 
 
         const defaultEquipment = buildEquipmentSnapshot(this.contentTemplateRepository.createDefaultEquipment());
+        const fallbackRespawnTemplateId = this.mapTemplateRepository.has(DEFAULT_PLAYER_STARTER_MAP_ID)
+            ? DEFAULT_PLAYER_STARTER_MAP_ID
+            : snapshot.placement.templateId;
+        const snapshotRespawnTemplateId = typeof snapshot.respawn?.templateId === 'string' && snapshot.respawn.templateId.trim()
+            ? snapshot.respawn.templateId.trim()
+            : fallbackRespawnTemplateId;
+        const snapshotRespawnTemplate = snapshotRespawnTemplateId && this.mapTemplateRepository.has(snapshotRespawnTemplateId)
+            ? this.mapTemplateRepository.getOrThrow(snapshotRespawnTemplateId)
+            : null;
+        const snapshotRespawnInstanceId = normalizePlayerPlacementInstanceId(snapshot.respawn?.instanceId)
+            ?? (snapshotRespawnTemplateId ? buildPublicPlayerInstanceId(snapshotRespawnTemplateId) : null);
+        const snapshotRespawnX = Number.isFinite(snapshot.respawn?.x)
+            ? Math.trunc(snapshot.respawn.x)
+            : (snapshotRespawnTemplate ? Math.trunc(snapshotRespawnTemplate.spawnX) : 0);
+        const snapshotRespawnY = Number.isFinite(snapshot.respawn?.y)
+            ? Math.trunc(snapshot.respawn.y)
+            : (snapshotRespawnTemplate ? Math.trunc(snapshotRespawnTemplate.spawnY) : 0);
 
         const player = {
             playerId,
@@ -2787,15 +2865,16 @@ let PlayerRuntimeService = class PlayerRuntimeService {
             offlineSinceAt: null,
             name: playerId,
             displayName: playerId,
+            sectId: typeof snapshot.sectId === 'string' && snapshot.sectId.trim() ? snapshot.sectId.trim() : null,
             persistentRevision: 1,
             persistedRevision: 1,
             instanceId: normalizePlayerPlacementInstanceId(snapshot.placement.instanceId)
                 ?? buildPublicPlayerInstanceId(snapshot.placement.templateId),
             templateId: snapshot.placement.templateId,
-            respawnTemplateId: snapshot.respawn?.templateId ?? snapshot.placement.templateId,
-            respawnInstanceId: normalizePlayerPlacementInstanceId(snapshot.respawn?.instanceId) ?? null,
-            respawnX: Number.isFinite(snapshot.respawn?.x) ? Math.trunc(snapshot.respawn.x) : snapshot.placement.x,
-            respawnY: Number.isFinite(snapshot.respawn?.y) ? Math.trunc(snapshot.respawn.y) : snapshot.placement.y,
+            respawnTemplateId: snapshotRespawnTemplateId,
+            respawnInstanceId: snapshotRespawnInstanceId,
+            respawnX: snapshotRespawnX,
+            respawnY: snapshotRespawnY,
             worldPreference: {
                 linePreset: normalizePlayerWorldPreferenceLinePreset(snapshot.worldPreference?.linePreset),
             },
@@ -2808,6 +2887,8 @@ let PlayerRuntimeService = class PlayerRuntimeService {
             maxQi: snapshot.vitals.maxQi,
             foundation: normalizeCounter(snapshot.progression?.foundation),
             combatExp: normalizeCounter(snapshot.progression?.combatExp),
+            comprehension: normalizeCounter(snapshot.progression?.comprehension),
+            luck: normalizeCounter(snapshot.progression?.luck),
             bodyTraining: (0, shared_1.normalizeBodyTrainingState)(snapshot.progression?.bodyTraining),
             boneAgeBaseYears: normalizeBoneAgeBaseYears(snapshot.progression?.boneAgeBaseYears),
             lifeElapsedTicks: normalizeLifeElapsedTicks(snapshot.progression?.lifeElapsedTicks),
@@ -2905,6 +2986,8 @@ let PlayerRuntimeService = class PlayerRuntimeService {
                 cultivationActive: snapshot.combat?.cultivationActive === true
                     || (snapshot.combat?.cultivationActive === undefined && snapshot.techniques.cultivatingTechId !== null),
                 lastActiveTick: 0,
+                combatActionTick: 0,
+                combatActionsUsedThisTick: 0,
             },
             notices: {
                 nextId: 1,
@@ -2926,6 +3009,7 @@ let PlayerRuntimeService = class PlayerRuntimeService {
                 .filter((entry) => Boolean(entry)),
             dirtyDomains: createPlayerDirtyDomainSet(),
         };
+        player.attrs.rawBaseAttrs = decodePersistedRawBaseAttrs(snapshot.attrState?.baseAttrs);
         player.enhancementSkillLevel = Math.max(1, Math.floor(Number(player.enhancementSkill?.level ?? player.enhancementSkillLevel) || 1));
         this.playerProgressionService.initializePlayer(player);
         if (ensureVitalBaselineBonus(player, snapshot.vitals)) {
@@ -3334,6 +3418,8 @@ function cloneRuntimePlayerState(player) {
             autoBattleSkills: player.combat.autoBattleSkills.map((entry) => ({ ...entry })),
             cultivationActive: player.combat.cultivationActive,
             lastActiveTick: player.combat.lastActiveTick,
+            combatActionTick: player.combat.combatActionTick ?? 0,
+            combatActionsUsedThisTick: player.combat.combatActionsUsedThisTick ?? 0,
         },
         notices: {
             nextId: player.notices.nextId,
@@ -3497,6 +3583,11 @@ function buildRuntimeOwnerId(playerId, sessionId, sessionEpoch) {
 
 function buildRuntimePlayerPersistenceSnapshot(player) {
     const templateId = typeof player.templateId === 'string' ? player.templateId.trim() : '';
+    const respawnTemplateId = typeof player.respawnTemplateId === 'string' && player.respawnTemplateId.trim()
+        ? player.respawnTemplateId.trim()
+        : DEFAULT_PLAYER_STARTER_MAP_ID;
+    const respawnInstanceId = normalizePlayerPlacementInstanceId(player.respawnInstanceId)
+        ?? (respawnTemplateId ? buildPublicPlayerInstanceId(respawnTemplateId) : '');
     return {
         version: 1,
         savedAt: Date.now(),
@@ -3509,16 +3600,16 @@ function buildRuntimePlayerPersistenceSnapshot(player) {
             facing: player.facing,
         },
         respawn: {
-            instanceId: normalizePlayerPlacementInstanceId(player.respawnInstanceId)
-                ?? (player.respawnTemplateId ? buildPublicPlayerInstanceId(player.respawnTemplateId) : ''),
-            templateId: player.respawnTemplateId || templateId,
-            x: Number.isFinite(player.respawnX) ? Math.trunc(player.respawnX) : player.x,
-            y: Number.isFinite(player.respawnY) ? Math.trunc(player.respawnY) : player.y,
+            instanceId: respawnInstanceId,
+            templateId: respawnTemplateId,
+            x: Number.isFinite(player.respawnX) ? Math.trunc(player.respawnX) : 0,
+            y: Number.isFinite(player.respawnY) ? Math.trunc(player.respawnY) : 0,
             facing: player.facing,
         },
         worldPreference: {
             linePreset: normalizePlayerWorldPreferenceLinePreset(player.worldPreference?.linePreset),
         },
+        sectId: typeof player.sectId === 'string' && player.sectId.trim() ? player.sectId.trim() : null,
         vitals: {
             hp: player.hp,
             maxHp: player.maxHp,
@@ -3528,6 +3619,8 @@ function buildRuntimePlayerPersistenceSnapshot(player) {
         progression: {
             foundation: player.foundation,
             combatExp: player.combatExp,
+            comprehension: normalizeCounter(player.comprehension),
+            luck: normalizeCounter(player.luck),
             bodyTraining: player.bodyTraining ? { ...player.bodyTraining } : null,
             boneAgeBaseYears: player.boneAgeBaseYears,
             lifeElapsedTicks: player.lifeElapsedTicks,
@@ -3546,7 +3639,7 @@ function buildRuntimePlayerPersistenceSnapshot(player) {
             enhancementRecords: (player.enhancementRecords ?? []).map((entry) => cloneEnhancementRecord(entry)),
         },
         attrState: {
-            baseAttrs: player.attrs?.baseAttrs ? cloneAttributes(player.attrs.baseAttrs) : null,
+            baseAttrs: player.attrs?.rawBaseAttrs ? encodePersistedRawBaseAttrs(player.attrs.rawBaseAttrs) : null,
             revealedBreakthroughRequirementIds: resolveRevealedBreakthroughRequirementIds(player.realm),
         },
         unlockedMapIds: player.unlockedMapIds.slice(),
@@ -3923,6 +4016,17 @@ function normalizeCounter(value) {
 function normalizeBoneAgeBaseYears(value) {
     return Number.isFinite(value) ? Math.max(1, Math.trunc(value ?? shared_1.DEFAULT_BONE_AGE_YEARS)) : shared_1.DEFAULT_BONE_AGE_YEARS;
 }
+function advancePlayerChronology(player) {
+    const previous = Number.isFinite(Number(player.lifeElapsedTicks))
+        ? Math.max(0, Number(player.lifeElapsedTicks))
+        : 0;
+    const next = previous + 1;
+    if (!Number.isFinite(next) || next <= previous) {
+        return false;
+    }
+    player.lifeElapsedTicks = next;
+    return true;
+}
 /**
  * normalizeLifeElapsedTicks：规范化或转换LifeElapsedtick。
  * @param value 参数说明。
@@ -4080,6 +4184,26 @@ function consumeInventoryItemAt(items, slotIndex, count) {
         return;
     }
     item.count -= count;
+}
+
+function takeSingleInventoryItemForEquipment(items, slotIndex) {
+    const item = items[slotIndex];
+    if (!item) {
+        return null;
+    }
+    const itemCount = Math.max(1, Math.trunc(Number(item.count ?? 1)));
+    if (itemCount <= 1) {
+        const [removed] = items.splice(slotIndex, 1);
+        return {
+            ...removed,
+            count: 1,
+        };
+    }
+    item.count = itemCount - 1;
+    return {
+        ...item,
+        count: 1,
+    };
 }
 /**
  * toTechniqueUpdateEntry：处理to功法Update条目并更新相关状态。
@@ -4697,6 +4821,7 @@ function cloneRuntimeAttrState(source) {
     return {
         revision: source.revision,
         stage: source.stage,
+        rawBaseAttrs: cloneAttributes(source.rawBaseAttrs ?? createDefaultBaseAttributes()),
         baseAttrs: cloneAttributes(source.baseAttrs),
         finalAttrs: cloneAttributes(source.finalAttrs),
         numericStats: cloneNumericStats(source.numericStats),
@@ -4715,9 +4840,56 @@ function cloneAttributes(source) {
         spirit: source.spirit,
         perception: source.perception,
         talent: source.talent,
-        comprehension: source.comprehension,
-        luck: source.luck,
+        strength: source.strength ?? source.comprehension ?? 0,
+        meridians: source.meridians ?? source.luck ?? 0,
     };
+}
+
+function createDefaultBaseAttributes() {
+    return {
+        constitution: shared_1.DEFAULT_BASE_ATTRS.constitution,
+        spirit: shared_1.DEFAULT_BASE_ATTRS.spirit,
+        perception: shared_1.DEFAULT_BASE_ATTRS.perception,
+        talent: shared_1.DEFAULT_BASE_ATTRS.talent,
+        strength: shared_1.DEFAULT_BASE_ATTRS.strength,
+        meridians: shared_1.DEFAULT_BASE_ATTRS.meridians,
+    };
+}
+
+function normalizeRawBaseAttributes(source) {
+    const attrs = createDefaultBaseAttributes();
+    if (!source || typeof source !== 'object') {
+        return attrs;
+    }
+    for (const key of shared_1.ATTR_KEYS) {
+        const value = Number(source[key]);
+        if (Number.isFinite(value)) {
+            attrs[key] = Math.max(0, Math.trunc(value));
+        }
+    }
+    const legacyStrength = Number(source.comprehension);
+    if (!Number.isFinite(Number(source.strength)) && Number.isFinite(legacyStrength)) {
+        attrs.strength = Math.max(0, Math.trunc(legacyStrength));
+    }
+    const legacyMeridians = Number(source.luck);
+    if (!Number.isFinite(Number(source.meridians)) && Number.isFinite(legacyMeridians)) {
+        attrs.meridians = Math.max(0, Math.trunc(legacyMeridians));
+    }
+    return attrs;
+}
+
+function encodePersistedRawBaseAttrs(source) {
+    return {
+        ...normalizeRawBaseAttributes(source),
+        [RAW_BASE_ATTRS_PERSISTENCE_MARKER]: true,
+    };
+}
+
+function decodePersistedRawBaseAttrs(source) {
+    if (!source || typeof source !== 'object' || source[RAW_BASE_ATTRS_PERSISTENCE_MARKER] !== true) {
+        return createDefaultBaseAttributes();
+    }
+    return normalizeRawBaseAttributes(source);
 }
 /**
  * cloneNumericStats：构建NumericStat。
@@ -4754,6 +4926,9 @@ function cloneNumericStats(source) {
         viewRange: source.viewRange,
         moveSpeed: source.moveSpeed,
         extraAggroRate: source.extraAggroRate,
+        extraRange: source.extraRange ?? 0,
+        extraArea: source.extraArea ?? 0,
+        actionsPerTurn: source.actionsPerTurn ?? 1,
         elementDamageBonus: {
             metal: source.elementDamageBonus.metal,
             wood: source.elementDamageBonus.wood,

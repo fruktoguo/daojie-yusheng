@@ -112,25 +112,7 @@ async function main(): Promise<void> {
         },
       };
     },
-    buildMapPersistenceSnapshot(instanceId: string) {
-      return {
-        version: 1,
-        templateId: 'yunlai_town',
-        instanceId,
-        tileResourceEntries: [
-          { resourceKey: 'qi', tileIndex: 2, value: 9 },
-        ],
-        groundPileEntries: [],
-        containerStates: [],
-      };
-    },
-    markMapPersisted() {
-      return;
-    },
-  };
-
-  const mockMapPersistenceService = {
-    async saveMapSnapshot(instanceId: string, snapshot: Record<string, unknown>): Promise<void> {
+    async flushInstanceDomains(instanceId: string): Promise<{ skipped: boolean }> {
       trackCall(instanceFlushCalls, instanceId);
       activeFlushCalls += 1;
       maxActiveFlushCalls = Math.max(maxActiveFlushCalls, activeFlushCalls);
@@ -139,7 +121,7 @@ async function main(): Promise<void> {
       } finally {
         activeFlushCalls -= 1;
       }
-      assert(snapshot && typeof snapshot === 'object');
+      return { skipped: false };
     },
   };
 
@@ -151,7 +133,6 @@ async function main(): Promise<void> {
   ));
   const instanceWorkersList = Array.from({ length: instanceWorkers }, () => new InstanceResourceFlushWorker(
     mockInstanceRuntimeService as never,
-    mockMapPersistenceService as never,
     ledger,
     mockWakeupService as never,
   ));

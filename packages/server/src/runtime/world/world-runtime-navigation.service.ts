@@ -150,7 +150,7 @@ let WorldRuntimeNavigationService = class WorldRuntimeNavigationService {
         const instance = deps.getInstanceRuntimeOrThrow(location.instanceId);
         const x = normalizeCoordinate(xInput, 'x');
         const y = normalizeCoordinate(yInput, 'y');
-        if (!isInBounds(x, y, instance.template.width, instance.template.height)) {
+        if (instance.isInBounds?.(x, y) !== true) {
             throw new common_1.BadRequestException('目标超出地图范围');
         }
         const player = this.playerRuntimeService.getPlayer(playerId);
@@ -207,8 +207,16 @@ let WorldRuntimeNavigationService = class WorldRuntimeNavigationService {
         if (!questId) {
             throw new common_1.BadRequestException('questId is required');
         }
-        this.navigationIntents.set(playerId, { kind: 'quest', questId });
-        return deps.getPlayerViewOrThrow(playerId);
+        const intent = { kind: 'quest', questId };
+        this.navigationIntents.set(playerId, intent);
+        const initialStep = this.resolveNavigationStep(playerId, intent, deps);
+        const path = initialStep.kind === 'move' && Array.isArray(initialStep.path)
+            ? initialStep.path.map((entry) => [entry.x, entry.y])
+            : [];
+        return {
+            view: deps.getPlayerViewOrThrow(playerId),
+            path,
+        };
     }    
     /**
  * interruptManualNavigation：执行interruptManual导航相关逻辑。
@@ -280,9 +288,12 @@ let WorldRuntimeNavigationService = class WorldRuntimeNavigationService {
         }
         const runtimePlayer = this.playerRuntimeService.getPlayer(transfer.playerId);
         const linePreset = runtimePlayer?.worldPreference?.linePreset === 'real' ? 'real' : 'peaceful';
-        const targetInstance = typeof deps.getOrCreateDefaultLineInstance === 'function'
-            ? deps.getOrCreateDefaultLineInstance(transfer.targetMapId, linePreset)
-            : deps.getOrCreatePublicInstance(transfer.targetMapId);
+        const targetInstance = (typeof transfer.targetInstanceId === 'string' && transfer.targetInstanceId.trim()
+            ? deps.getInstanceRuntime(transfer.targetInstanceId.trim())
+            : null)
+            ?? (typeof deps.getOrCreateDefaultLineInstance === 'function'
+                ? deps.getOrCreateDefaultLineInstance(transfer.targetMapId, linePreset)
+                : deps.getOrCreatePublicInstance(transfer.targetMapId));
         deps.queuePlayerNotice(transfer.playerId, `${transfer.reason === 'manual_portal' ? '通过界门' : '穿过灵脉'}抵达 ${targetInstance.template.name}`, 'travel');
     }    
     /**
@@ -473,7 +484,7 @@ let WorldRuntimeNavigationService = class WorldRuntimeNavigationService {
         if (intent.kind === 'point') {
             const location = deps.getPlayerLocationOrThrow(playerId);
             const instance = deps.getInstanceRuntimeOrThrow(location.instanceId);
-            const goals = buildGoalPoints(instance, intent.x, intent.y, intent.allowNearestReachable);
+            const goals = buildGoalPoints(instance, intent.x, intent.y, intent.allowNearestReachable, playerId);
             if (goals.length === 0) {
                 throw new common_1.BadRequestException('无法到达该位置');
             }

@@ -17,6 +17,50 @@
     "allowBatchUse": true
   },
   {
+    "itemId": "formation_disk.mortal",
+    "name": "凡品阵盘",
+    "type": "consumable",
+    "grade": "凡品",
+    "desc": "通用布阵载体。布阵时消耗 1 个，可承载任意阵法，灵力增幅 1 倍。",
+    "formationDiskTier": "mortal",
+    "formationDiskMultiplier": 1
+  },
+  {
+    "itemId": "formation_disk.yellow",
+    "name": "黄阶阵盘",
+    "type": "consumable",
+    "grade": "黄阶",
+    "desc": "通用布阵载体。布阵时消耗 1 个，可承载任意阵法，灵力增幅 2 倍。",
+    "formationDiskTier": "yellow",
+    "formationDiskMultiplier": 2
+  },
+  {
+    "itemId": "formation_disk.mystic",
+    "name": "玄阶阵盘",
+    "type": "consumable",
+    "grade": "玄阶",
+    "desc": "通用布阵载体。布阵时消耗 1 个，可承载任意阵法，灵力增幅 4 倍。",
+    "formationDiskTier": "mystic",
+    "formationDiskMultiplier": 4
+  },
+  {
+    "itemId": "formation_disk.earth",
+    "name": "地阶阵盘",
+    "type": "consumable",
+    "grade": "地阶",
+    "desc": "通用布阵载体。布阵时消耗 1 个，可承载任意阵法，灵力增幅 8 倍。",
+    "formationDiskTier": "earth",
+    "formationDiskMultiplier": 8
+  },
+  {
+    "itemId": "sect_founding_token",
+    "name": "建宗令",
+    "type": "consumable",
+    "grade": "玄阶",
+    "desc": "持令可在当前地点开辟宗门山门，并生成独立宗门地图。",
+    "useBehavior": "create_sect"
+  },
+  {
     "itemId": "cloud_puff",
     "name": "云朵",
     "type": "consumable",

@@ -54,6 +54,7 @@ interface WorldSyncMapSnapshotServicePort {
   buildRenderEntitiesSnapshot: WorldSyncMapSnapshotServiceInstance['buildRenderEntitiesSnapshot'];
   buildMinimapLibrarySync: WorldSyncMapSnapshotServiceInstance['buildMinimapLibrarySync'];
   buildGameTimeState: WorldSyncMapSnapshotServiceInstance['buildGameTimeState'];
+  buildMapTickIntervalMs: WorldSyncMapSnapshotServiceInstance['buildMapTickIntervalMs'];
   buildMapMetaSync: WorldSyncMapSnapshotServiceInstance['buildMapMetaSync'];
 }
 
@@ -92,8 +93,15 @@ interface WorldSyncPlayerStateServicePort {
 
 interface ProtocolAuxState {
   realm: PlayerRealmState | null;
+  time: TimeSyncState;
   threatArrows: ThreatArrow;
   lootWindow: LootWindowState;
+}
+
+interface TimeSyncState {
+  mapId: string;
+  tickIntervalMs: number;
+  time: GameTimeState;
 }
 
 interface MapStaticSyncOptions {
@@ -108,6 +116,8 @@ interface MapStaticSyncOptions {
 
 interface WorldDeltaMapPatchSyncOptions {
   tilePatches?: WorldDeltaView['tp'];
+  time?: WorldDeltaView['time'];
+  tickIntervalMs?: WorldDeltaView['dt'];
   visibleMinimapMarkerAdds?: WorldDeltaView['vma'];
   visibleMinimapMarkerRemoves?: WorldDeltaView['vmr'];
 }
@@ -151,6 +161,7 @@ export class WorldSyncAuxStateService {
     const visibleTiles = mapStaticState.visibleTiles;
     const minimapLibrary = this.worldSyncMapSnapshotService.buildMinimapLibrarySync(player);
     const timeState = this.worldSyncMapSnapshotService.buildGameTimeState(template, view, player);
+    const timeSyncState = this.buildTimeSyncState(template.id, timeState);
     const threatArrows = this.worldSyncThreatService.buildThreatArrows(view);
     const bootstrapPayload = this.buildBootstrapSyncPayload(
       this.worldSyncPlayerStateService.buildPlayerSyncState(
@@ -170,6 +181,15 @@ export class WorldSyncAuxStateService {
         tilesOriginY: resolveVisibleTilesOriginY(view, player),
       }),
     );
+    if (timeSyncState.tickIntervalMs !== 1000) {
+      this.worldSyncProtocolService.sendWorldDelta(
+        socket,
+        this.buildWorldDeltaMapPatchPayload(view, {
+          time: cloneGameTimeState(timeSyncState.time),
+          tickIntervalMs: timeSyncState.tickIntervalMs,
+        }),
+      );
+    }
     this.worldSyncProtocolService.sendRealm(socket, this.buildRealmSyncPayload(player));
 
     const lootWindow = this.worldSyncQuestLootService.buildLootWindowSyncState(playerId);
@@ -178,6 +198,7 @@ export class WorldSyncAuxStateService {
     this.worldSyncMapStaticAuxService.commitPlayerCache(playerId, mapStaticState.cacheState);
     this.protocolAuxStateByPlayerId.set(playerId, {
       realm: cloneRealmState(player.realm),
+      time: cloneTimeSyncState(timeSyncState),
       threatArrows: cloneThreatArrows(threatArrows),
       lootWindow: cloneLootWindow(lootWindow),
     });
@@ -200,6 +221,11 @@ export class WorldSyncAuxStateService {
     const visibleTiles = mapStaticPlan.visibleTiles;
     const currentVisibleMinimapMarkers = mapStaticPlan.visibleMinimapMarkers;
     const mapChanged = mapStaticPlan.mapChanged;
+    const currentTimeSyncState = this.buildTimeSyncState(
+      template.id,
+      this.worldSyncMapSnapshotService.buildGameTimeState(template, view, player),
+    );
+    const shouldEmitTimeSync = !isSameTimeSyncState(previous.time, currentTimeSyncState);
 
     if (mapChanged) {
       const minimapLibrary = this.worldSyncMapSnapshotService.buildMinimapLibrarySync(player);
@@ -216,21 +242,28 @@ export class WorldSyncAuxStateService {
           minimapLibrary: minimapLibrary.length > 0 ? minimapLibrary : undefined,
         }),
       );
-    } else if (
-      mapStaticPlan.visibleMinimapMarkerAdds.length > 0
-      || mapStaticPlan.visibleMinimapMarkerRemoves.length > 0
-      || mapStaticPlan.tilePatches.length > 0
-    ) {
+    }
+
+    const hasMapPatch =
+      !mapChanged
+      && (
+        mapStaticPlan.visibleMinimapMarkerAdds.length > 0
+        || mapStaticPlan.visibleMinimapMarkerRemoves.length > 0
+        || mapStaticPlan.tilePatches.length > 0
+      );
+    if (hasMapPatch || shouldEmitTimeSync) {
       this.worldSyncProtocolService.sendWorldDelta(
         socket,
         this.buildWorldDeltaMapPatchPayload(view, {
-          tilePatches: mapStaticPlan.tilePatches.length > 0 ? mapStaticPlan.tilePatches : undefined,
+          tilePatches: hasMapPatch && mapStaticPlan.tilePatches.length > 0 ? mapStaticPlan.tilePatches : undefined,
+          time: shouldEmitTimeSync ? cloneGameTimeState(currentTimeSyncState.time) : undefined,
+          tickIntervalMs: shouldEmitTimeSync ? currentTimeSyncState.tickIntervalMs : undefined,
           visibleMinimapMarkerAdds:
-            mapStaticPlan.visibleMinimapMarkerAdds.length > 0
+            hasMapPatch && mapStaticPlan.visibleMinimapMarkerAdds.length > 0
               ? mapStaticPlan.visibleMinimapMarkerAdds
               : undefined,
           visibleMinimapMarkerRemoves:
-            mapStaticPlan.visibleMinimapMarkerRemoves.length > 0
+            hasMapPatch && mapStaticPlan.visibleMinimapMarkerRemoves.length > 0
               ? mapStaticPlan.visibleMinimapMarkerRemoves
               : undefined,
         }),
@@ -257,9 +290,18 @@ export class WorldSyncAuxStateService {
     this.worldSyncMapStaticAuxService.commitPlayerCache(playerId, mapStaticPlan.cacheState);
     this.protocolAuxStateByPlayerId.set(playerId, {
       realm: currentRealm,
+      time: cloneTimeSyncState(currentTimeSyncState),
       threatArrows: cloneThreatArrows(currentThreatArrows),
       lootWindow: cloneLootWindow(lootWindow),
     });
+  }
+
+  private buildTimeSyncState(mapId: string, time: GameTimeState): TimeSyncState {
+    return {
+      mapId,
+      tickIntervalMs: this.worldSyncMapSnapshotService.buildMapTickIntervalMs(mapId),
+      time: cloneGameTimeState(time),
+    };
   }
 
   private buildBootstrapSyncPayload(
@@ -298,6 +340,8 @@ export class WorldSyncAuxStateService {
       wr: view.worldRevision,
       sr: view.selfRevision,
       tp: options.tilePatches,
+      dt: options.tickIntervalMs,
+      time: options.time,
       vma: options.visibleMinimapMarkerAdds,
       vmr: options.visibleMinimapMarkerRemoves,
     };
@@ -321,6 +365,61 @@ function resolveVisibleTilesOriginY(view: PlayerView, player: RuntimePlayer): nu
 
 function cloneGameTimeState(source: GameTimeState): GameTimeState {
   return { ...source };
+}
+
+function cloneTimeSyncState(source: TimeSyncState): TimeSyncState {
+  return {
+    mapId: source.mapId,
+    tickIntervalMs: source.tickIntervalMs,
+    time: cloneGameTimeState(source.time),
+  };
+}
+
+function isSameTimeSyncState(left: TimeSyncState | null | undefined, right: TimeSyncState): boolean {
+  if (!left) {
+    return false;
+  }
+  return left.mapId === right.mapId
+    && left.tickIntervalMs === right.tickIntervalMs
+    && isSameGameTimeProjection(left.time, right.time);
+}
+
+function isSameGameTimeProjection(left: GameTimeState, right: GameTimeState): boolean {
+  return left.dayLength === right.dayLength
+    && left.timeScale === right.timeScale
+    && left.phase === right.phase
+    && left.phaseLabel === right.phaseLabel
+    && left.darknessStacks === right.darknessStacks
+    && left.visionMultiplier === right.visionMultiplier
+    && left.lightPercent === right.lightPercent
+    && left.effectiveViewRange === right.effectiveViewRange
+    && left.tint === right.tint
+    && left.overlayAlpha === right.overlayAlpha
+    && hasExpectedLocalTimeProgression(left, right);
+}
+
+function hasExpectedLocalTimeProgression(left: GameTimeState, right: GameTimeState): boolean {
+  if (
+    left.dayLength <= 0
+    || right.dayLength <= 0
+    || left.dayLength !== right.dayLength
+    || !Number.isFinite(left.totalTicks)
+    || !Number.isFinite(right.totalTicks)
+    || !Number.isFinite(left.localTicks)
+    || !Number.isFinite(right.localTicks)
+    || !Number.isFinite(right.timeScale)
+  ) {
+    return false;
+  }
+  const expected = wrapLocalTicks(left.localTicks + (right.totalTicks - left.totalTicks) * right.timeScale, right.dayLength);
+  const actual = wrapLocalTicks(right.localTicks, right.dayLength);
+  const directDistance = Math.abs(expected - actual);
+  const wrappedDistance = right.dayLength - directDistance;
+  return Math.min(directDistance, wrappedDistance) < 0.5;
+}
+
+function wrapLocalTicks(value: number, dayLength: number): number {
+  return ((value % dayLength) + dayLength) % dayLength;
 }
 
 function cloneThreatArrows(source: ThreatArrow): ThreatArrow {
@@ -638,6 +737,7 @@ function isSameSyncedItem(left: SyncedItemStack | null | undefined, right: Synce
     && shallowEqualArray(left.tags, right.tags)
     && left.mapUnlockId === right.mapUnlockId
     && shallowEqualArray(left.mapUnlockIds, right.mapUnlockIds)
+    && left.respawnBindMapId === right.respawnBindMapId
     && left.tileAuraGainAmount === right.tileAuraGainAmount
     && shallowEqualTileResourceGainArray(left.tileResourceGains, right.tileResourceGains)
     && left.alchemySuccessRate === right.alchemySuccessRate

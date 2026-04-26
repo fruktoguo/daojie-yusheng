@@ -172,7 +172,7 @@ type MainStartupBindingsOptions = {
  /**
  * count：数量或计量字段。
  */
- count: number }>, quantity: number) => void;
+ count: number }>, quantity: number, queueMode?: Parameters<SocketPanelSender['sendStartAlchemy']>[0]['queueMode']) => void;
  /**
  * onCancelAlchemy：onCancel炼丹相关字段。
  */
@@ -427,7 +427,7 @@ export function bindMainStartup(options: MainStartupBindingsOptions): void {
     onSaveAlchemyPreset: (payload) => options.panelSender.sendSaveAlchemyPreset(payload),
     onDeleteAlchemyPreset: (presetId) => options.panelSender.sendDeleteAlchemyPreset(presetId),
     onRequestEnhancement: () => options.panelSender.sendRequestEnhancementPanel(),
-    onStartAlchemy: (recipeId, ingredients, quantity) => options.panelSender.sendStartAlchemy({ recipeId, ingredients, quantity }),
+    onStartAlchemy: (recipeId, ingredients, quantity, queueMode) => options.panelSender.sendStartAlchemy({ recipeId, ingredients, quantity, queueMode }),
     onCancelAlchemy: () => options.panelSender.sendCancelAlchemy(),
     onStartEnhancement: (payload) => options.panelSender.sendStartEnhancement(payload),
     onCancelEnhancement: () => options.panelSender.sendCancelEnhancement(),

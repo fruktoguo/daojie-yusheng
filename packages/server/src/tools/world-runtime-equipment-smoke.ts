@@ -124,7 +124,7 @@ async function testDurableEquipPath() {
         sessionEpoch: 7,
         inventory: {
             items: [
-                { itemId: 'sword_1', name: '铁剑', equipSlot: 'weapon' },
+                { itemId: 'sword_1', name: '铁剑', equipSlot: 'weapon', count: 3 },
                 { itemId: 'gem_1', name: '宝石', count: 2 },
             ],
         },
@@ -143,11 +143,11 @@ async function testDurableEquipPath() {
             return JSON.parse(JSON.stringify(playerState));
         },
         replaceInventoryItems(playerId, items) {
-            log.push(['replaceInventoryItems', playerId, items.map((entry) => entry.itemId)]);
+            log.push(['replaceInventoryItems', playerId, items.map((entry) => `${entry.itemId}:${entry.count ?? 1}`)]);
             playerState.inventory.items = items.map((entry) => ({ ...entry }));
         },
         replaceEquipmentSlots(playerId, slots) {
-            log.push(['replaceEquipmentSlots', playerId, slots.map((entry) => `${entry.slot}:${entry.item ? entry.item.itemId : 'null'}`)]);
+            log.push(['replaceEquipmentSlots', playerId, slots.map((entry) => `${entry.slot}:${entry.item ? `${entry.item.itemId}:${entry.item.count ?? 1}` : 'null'}`)]);
             playerState.equipment.slots = slots.map((entry) => ({
                 slot: entry.slot,
                 item: entry.item ? { ...entry.item } : null,
@@ -206,8 +206,8 @@ async function testDurableEquipPath() {
     });
     assert.deepEqual(log, [
         ['updateEquipmentLoadout', 'equip', 'weapon', 'owner-a', 7, 'node:equipment', 23],
-        ['replaceInventoryItems', 'player:1', ['gem_1']],
-        ['replaceEquipmentSlots', 'player:1', ['weapon:sword_1', 'armor:armor_1']],
+        ['replaceInventoryItems', 'player:1', ['sword_1:2', 'gem_1:2']],
+        ['replaceEquipmentSlots', 'player:1', ['weapon:sword_1:1', 'armor:armor_1:1']],
         ['queuePlayerNotice', 'player:1', '装备 铁剑', 'success'],
         ['emitAllTechniqueActivityPanelUpdates', 'player:1'],
     ]);

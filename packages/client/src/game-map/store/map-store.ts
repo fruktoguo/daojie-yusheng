@@ -11,10 +11,13 @@ import {
   type S2C_MapStatic,
   type TickRenderEntity,
   type Tile,
+  TileType,
   type VisibleTile,
   type VisibleTilePatch,
   clonePlainValue,
+  doesTileTypeBlockSight,
   getFirstGrapheme,
+  isTileTypeWalkable,
 } from '@mud/shared';
 import {
   deleteRememberedMap,
@@ -36,6 +39,7 @@ import {
 import type {
   MapBootstrapInput,
   MapEntityTransition,
+  MapFormationRangeOverlayState,
   MapSelfDeltaInput,
   MapWorldDeltaInput,
   MapSenseQiOverlayState,
@@ -135,6 +139,20 @@ function toObservedEntity(entity: RenderEntity): ObservedMapEntity {
     npcQuestMarker: entity.npcQuestMarker,
     observation: entity.observation,
     buffs: entity.buffs ? cloneJson(entity.buffs) : undefined,
+    formationRadius: entity.formationRadius,
+    formationRangeShape: entity.formationRangeShape,
+    formationRangeHighlightColor: entity.formationRangeHighlightColor,
+    formationBoundaryChar: entity.formationBoundaryChar,
+    formationBoundaryColor: entity.formationBoundaryColor,
+    formationBoundaryRangeHighlightColor: entity.formationBoundaryRangeHighlightColor,
+    formationEyeVisibleWithoutSenseQi: entity.formationEyeVisibleWithoutSenseQi,
+    formationRangeVisibleWithoutSenseQi: entity.formationRangeVisibleWithoutSenseQi,
+    formationBoundaryVisibleWithoutSenseQi: entity.formationBoundaryVisibleWithoutSenseQi,
+    formationShowText: entity.formationShowText,
+    formationBlocksBoundary: entity.formationBlocksBoundary,
+    formationOwnerSectId: entity.formationOwnerSectId,
+    formationOwnerPlayerId: entity.formationOwnerPlayerId,
+    formationActive: entity.formationActive,
   };
 }
 
@@ -161,6 +179,20 @@ function mergeObservedEntityPatch(patch: TickRenderEntity, previous?: ObservedMa
     npcQuestMarker: applyNullablePatch(patch.npcQuestMarker, previous?.npcQuestMarker),
     observation: applyNullablePatch(patch.observation, previous?.observation),
     buffs: applyNullablePatch(patch.buffs, previous?.buffs),
+    formationRadius: applyNullablePatch(patch.formationRadius, previous?.formationRadius),
+    formationRangeShape: applyNullablePatch(patch.formationRangeShape, previous?.formationRangeShape),
+    formationRangeHighlightColor: applyNullablePatch(patch.formationRangeHighlightColor, previous?.formationRangeHighlightColor),
+    formationBoundaryChar: applyNullablePatch(patch.formationBoundaryChar, previous?.formationBoundaryChar),
+    formationBoundaryColor: applyNullablePatch(patch.formationBoundaryColor, previous?.formationBoundaryColor),
+    formationBoundaryRangeHighlightColor: applyNullablePatch(patch.formationBoundaryRangeHighlightColor, previous?.formationBoundaryRangeHighlightColor),
+    formationEyeVisibleWithoutSenseQi: applyNullablePatch(patch.formationEyeVisibleWithoutSenseQi, previous?.formationEyeVisibleWithoutSenseQi),
+    formationRangeVisibleWithoutSenseQi: applyNullablePatch(patch.formationRangeVisibleWithoutSenseQi, previous?.formationRangeVisibleWithoutSenseQi),
+    formationBoundaryVisibleWithoutSenseQi: applyNullablePatch(patch.formationBoundaryVisibleWithoutSenseQi, previous?.formationBoundaryVisibleWithoutSenseQi),
+    formationShowText: applyNullablePatch(patch.formationShowText, previous?.formationShowText),
+    formationBlocksBoundary: applyNullablePatch(patch.formationBlocksBoundary, previous?.formationBlocksBoundary),
+    formationOwnerSectId: applyNullablePatch(patch.formationOwnerSectId, previous?.formationOwnerSectId),
+    formationOwnerPlayerId: applyNullablePatch(patch.formationOwnerPlayerId, previous?.formationOwnerPlayerId),
+    formationActive: applyNullablePatch(patch.formationActive, previous?.formationActive),
   };
 }
 
@@ -295,6 +327,7 @@ export class MapStore {
  y: number }> = [];
   /** 当前寻路/施法叠加层状态。 */
   private targeting: MapTargetingOverlayState | null = null;
+  private formationRange: MapFormationRangeOverlayState | null = null;
   /** 感气视角叠加层状态。 */
   private senseQi: MapSenseQiOverlayState | null = null;  
   /**
@@ -638,6 +671,11 @@ export class MapStore {
     this.targeting = state ? cloneJson(state) : null;
   }
 
+  /** 更新阵法布置范围叠加层状态。 */
+  setFormationRangeOverlay(state: MapFormationRangeOverlayState | null): void {
+    this.formationRange = state ? cloneJson(state) : null;
+  }
+
   /** 更新感气叠加层状态。 */
   setSenseQiOverlay(state: MapSenseQiOverlayState | null): void {
     this.senseQi = state ? { ...state } : null;
@@ -657,6 +695,7 @@ export class MapStore {
     this.groundPiles.clear();
     this.pathCells = [];
     this.targeting = null;
+    this.formationRange = null;
     this.senseQi = null;
     this.threatArrows = [];
     this.minimapMemoryVersion = 0;
@@ -733,6 +772,7 @@ export class MapStore {
       overlays: {
         pathCells: this.pathCells,
         targeting: this.targeting,
+        formationRange: this.formationRange,
         senseQi: this.senseQi,
         threatArrows: this.threatArrows,
       },
@@ -895,8 +935,12 @@ export class MapStore {
   private applyVisibleTilePatches(mapId: string, patches: VisibleTilePatch[]): void {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
-    rememberVisibleTilePatches(mapId, patches);
-    for (const patch of patches) {
+    const normalizedPatches = patches.map((patch) => ({
+      ...patch,
+      tile: normalizeVisibleTile(patch.tile),
+    }));
+    rememberVisibleTilePatches(mapId, normalizedPatches);
+    for (const patch of normalizedPatches) {
       const key = `${patch.x},${patch.y}`;
       if (patch.tile) {
         this.visibleTiles.add(key);
@@ -914,10 +958,11 @@ export class MapStore {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
     this.visibleTiles.clear();
-    rememberVisibleTiles(mapId, tiles, originX, originY);
-    for (let rowIndex = 0; rowIndex < tiles.length; rowIndex += 1) {
-      for (let columnIndex = 0; columnIndex < tiles[rowIndex].length; columnIndex += 1) {
-        const tile = tiles[rowIndex][columnIndex];
+    const normalizedTiles = tiles.map((row) => row.map((tile) => normalizeVisibleTile(tile)));
+    rememberVisibleTiles(mapId, normalizedTiles, originX, originY);
+    for (let rowIndex = 0; rowIndex < normalizedTiles.length; rowIndex += 1) {
+      for (let columnIndex = 0; columnIndex < normalizedTiles[rowIndex].length; columnIndex += 1) {
+        const tile = normalizedTiles[rowIndex][columnIndex];
         const key = `${originX + columnIndex},${originY + rowIndex}`;
         if (!tile) {
           continue;
@@ -932,4 +977,29 @@ export class MapStore {
       this.awaitingFullVisibilityMapId = null;
     }
   }
+}
+
+function normalizeVisibleTile(tile: VisibleTile): VisibleTile {
+  if (!tile) {
+    return null;
+  }
+  const type = tile.type ?? TileType.Floor;
+  const resources = Array.isArray(tile.resources) && tile.resources.length > 0
+    ? tile.resources.map((entry) => ({ ...entry }))
+    : undefined;
+  const normalized: Tile = {
+    ...tile,
+    type,
+    walkable: typeof tile.walkable === 'boolean' ? tile.walkable : isTileTypeWalkable(type),
+    blocksSight: typeof tile.blocksSight === 'boolean' ? tile.blocksSight : doesTileTypeBlockSight(type),
+    aura: Number.isFinite(tile.aura) ? tile.aura : 0,
+    occupiedBy: typeof tile.occupiedBy === 'string' && tile.occupiedBy.length > 0 ? tile.occupiedBy : null,
+    modifiedAt: typeof tile.modifiedAt === 'number' && Number.isFinite(tile.modifiedAt) ? tile.modifiedAt : null,
+    resources,
+    hp: typeof tile.hp === 'number' && Number.isFinite(tile.hp) ? tile.hp : undefined,
+    maxHp: typeof tile.maxHp === 'number' && Number.isFinite(tile.maxHp) ? tile.maxHp : undefined,
+    hpVisible: tile.hpVisible === true ? true : undefined,
+    hiddenEntrance: tile.hiddenEntrance ? { ...tile.hiddenEntrance } : undefined,
+  };
+  return normalized;
 }

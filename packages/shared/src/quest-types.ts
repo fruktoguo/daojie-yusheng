@@ -223,6 +223,25 @@ export interface QuestState {
   relayMessage?: string;
 }
 
+/** 任务同步运行态：静态文本、奖励、位置等由客户端本地任务模板按 id 补齐。 */
+export interface QuestRuntimeStateView {
+/**
+ * id：任务ID标识。
+ */
+
+  id: string;
+  /**
+ * status：任务状态。
+ */
+
+  status: QuestStatus;
+  /**
+ * progress：服务端裁定的当前进度。
+ */
+
+  progress: number;
+}
+
 /** 任务自动导航的运行状态。 */
 export interface QuestNavigationState {
 /**

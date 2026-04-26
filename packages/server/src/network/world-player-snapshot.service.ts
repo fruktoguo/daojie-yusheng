@@ -156,6 +156,15 @@ export class WorldPlayerSnapshotService {
         (targetPlayerId) => this.playerRuntimeService.buildStarterPersistenceSnapshot(targetPlayerId),
       );
       if (projectedSnapshot) {
+        const nativeSnapshotRecord = typeof this.playerPersistenceService.loadPlayerSnapshotRecord === 'function'
+          ? await this.playerPersistenceService.loadPlayerSnapshotRecord(playerId).catch((error: unknown) => {
+            this.logger.warn(
+              `玩家分域投影补充原生快照字段失败：playerId=${playerId} error=${error instanceof Error ? error.message : String(error)}`,
+            );
+            return null;
+          })
+          : null;
+        const mergedSnapshot = mergeProjectedSnapshotWithNativeSnapshot(projectedSnapshot, nativeSnapshotRecord?.snapshot ?? null);
         const projectedFallbackReason = appendProjectionFallbackReason(fallbackReason);
         this.logger.debug(`玩家快照来源=主线 persistedSource=native projection=player-domain playerId=${playerId}`);
         recordAuthTrace({
@@ -167,7 +176,7 @@ export class WorldPlayerSnapshotService {
           fallbackHit: true,
         });
         return {
-          snapshot: projectedSnapshot,
+          snapshot: mergedSnapshot,
           source: 'mainline',
           persistedSource: 'native',
           fallbackReason: projectedFallbackReason,
@@ -186,6 +195,25 @@ export class WorldPlayerSnapshotService {
     const result = await this.loadPlayerSnapshotResult(playerId, fallbackReason);
     return result.snapshot;
   }
+}
+
+function mergeProjectedSnapshotWithNativeSnapshot(
+  projectedSnapshot: PersistedPlayerSnapshot,
+  nativeSnapshot: PersistedPlayerSnapshot | null,
+): PersistedPlayerSnapshot {
+  if (!nativeSnapshot) {
+    return projectedSnapshot;
+  }
+  const nativeSectId = typeof nativeSnapshot.sectId === 'string' && nativeSnapshot.sectId.trim()
+    ? nativeSnapshot.sectId.trim()
+    : null;
+  if (!nativeSectId || (typeof projectedSnapshot.sectId === 'string' && projectedSnapshot.sectId.trim())) {
+    return projectedSnapshot;
+  }
+  return {
+    ...projectedSnapshot,
+    sectId: nativeSectId,
+  };
 }
 
 function appendProjectionFallbackReason(fallbackReason: string | null): string {

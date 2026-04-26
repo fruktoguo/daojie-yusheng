@@ -159,11 +159,11 @@
                   <span class="hud-value" id="hud-pos">(0, 0)</span>
                 </div>
                 <div class="hud-row">
-                  <span class="hud-label">骨龄</span>
+                  <span class="hud-label">岁</span>
                   <span class="hud-value" id="hud-objective">暂无</span>
                 </div>
                 <div class="hud-row">
-                  <span class="hud-label">寿元</span>
+                  <span class="hud-label">寿</span>
                   <span class="hud-value" id="hud-threat">平稳</span>
                 </div>
               </div>
@@ -280,7 +280,7 @@
               </div>
             </div>
             <div class="map-side-tool-center">
-              <div>
+              <div class="map-zoom-stack">
                 <div class="map-tool-controls">
                   <div id="zoom-level" class="map-zoom-value"><span>x</span><span>1</span></div>
                   <input
@@ -294,7 +294,10 @@
                     aria-label="地图缩放"
                   />
                 </div>
-                <button id="zoom-reset" class="map-zoom-reset" type="button">重置 2x</button>
+                <button id="zoom-reset" class="map-zoom-reset" type="button" title="重置缩放到 2x">
+                  <span class="map-zoom-reset-label">重置</span>
+                  <span class="map-zoom-reset-value">2x</span>
+                </button>
               </div>
             </div>
           </div>

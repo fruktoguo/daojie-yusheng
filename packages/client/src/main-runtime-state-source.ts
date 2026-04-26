@@ -11,6 +11,8 @@ import {
   TechniqueState,
   ActionDef,
 } from '@mud/shared';
+import { getLocalSkillTemplate, resolvePreviewItem, resolvePreviewQuests } from './content/local-templates';
+import { getStaticClientActionDef } from './constants/ui/action';
 /**
  * MainRuntimeStateSourceOptions：统一结构类型，保证协议与运行时一致性。
  */
@@ -116,7 +118,7 @@ type MainRuntimeStateSourceOptions = {
  * applyBootstrapToMapRuntime：BootstrapTo地图运行态引用。
  */
 
-  applyBootstrapToMapRuntime: (data: S2C_Bootstrap) => void;
+  applyBootstrapToMapRuntime: (data: HydratedBootstrap) => void;
   /**
  * applyMapStaticToRuntime：地图StaticTo运行态引用。
  */
@@ -285,6 +287,63 @@ type MainRuntimeStateSourceOptions = {
 
 
 export type MainRuntimeStateSource = ReturnType<typeof createMainRuntimeStateSource>;
+type HydratedBootstrap = Omit<S2C_Bootstrap, 'self'> & { self: PlayerState };
+
+function hydrateBootstrapItem(item: PlayerState['inventory']['items'][number]): PlayerState['inventory']['items'][number] {
+  return resolvePreviewItem(item);
+}
+
+function hydrateBootstrapEquipment(equipment: PlayerState['equipment']): PlayerState['equipment'] {
+  return {
+    weapon: equipment.weapon ? hydrateBootstrapItem(equipment.weapon) : null,
+    head: equipment.head ? hydrateBootstrapItem(equipment.head) : null,
+    body: equipment.body ? hydrateBootstrapItem(equipment.body) : null,
+    legs: equipment.legs ? hydrateBootstrapItem(equipment.legs) : null,
+    accessory: equipment.accessory ? hydrateBootstrapItem(equipment.accessory) : null,
+  };
+}
+
+function hydrateBootstrapAction(action: Partial<ActionDef> & { id: string }): ActionDef {
+  const skillTemplate = getLocalSkillTemplate(action.id);
+  const staticAction = getStaticClientActionDef(action.id);
+  const nextType = action.type ?? staticAction?.type ?? (skillTemplate ? 'skill' : 'interact');
+  return {
+    id: action.id,
+    name: action.name ?? staticAction?.name ?? skillTemplate?.name ?? action.id,
+    type: nextType,
+    desc: action.desc ?? staticAction?.desc ?? skillTemplate?.desc ?? '',
+    cooldownLeft: action.cooldownLeft ?? 0,
+    range: action.range ?? staticAction?.range ?? skillTemplate?.range,
+    requiresTarget: action.requiresTarget ?? staticAction?.requiresTarget ?? skillTemplate?.requiresTarget ?? (nextType === 'skill' ? true : undefined),
+    targetMode: action.targetMode ?? staticAction?.targetMode ?? skillTemplate?.targetMode ?? (nextType === 'skill' ? 'any' : undefined),
+    autoBattleEnabled: action.autoBattleEnabled,
+    autoBattleOrder: action.autoBattleOrder,
+    skillEnabled: action.skillEnabled,
+  };
+}
+
+function hydrateBootstrapPlayer(rawPlayer: S2C_Bootstrap['self']): PlayerState {
+  const player = rawPlayer as unknown as PlayerState;
+  return {
+    ...player,
+    inventory: {
+      ...player.inventory,
+      items: (player.inventory?.items ?? []).map((item) => hydrateBootstrapItem(item)),
+    },
+    equipment: hydrateBootstrapEquipment(player.equipment),
+    techniques: optionsResolvePreviewTechniquesSafe(player.techniques),
+    actions: (player.actions ?? []).map((action) => hydrateBootstrapAction(action as Partial<ActionDef> & { id: string })),
+    bonuses: [],
+    quests: resolvePreviewQuests(player.quests),
+  };
+}
+
+function optionsResolvePreviewTechniquesSafe(techniques: PlayerState['techniques']): PlayerState['techniques'] {
+  return (techniques ?? []).map((technique) => ({
+    ...technique,
+    skills: Array.isArray(technique.skills) ? technique.skills : [],
+  }));
+}
 /**
  * createMainRuntimeStateSource：构建并返回目标对象。
  * @param options MainRuntimeStateSourceOptions 选项参数。
@@ -476,7 +535,7 @@ export function createMainRuntimeStateSource(options: MainRuntimeStateSourceOpti
         options.syncAuraLevelBaseValue(data.auraLevelBaseValue);
       }
 
-      const player = data.self;
+      const player = hydrateBootstrapPlayer(data.self);
       player.techniques = options.resolvePreviewTechniques(player.techniques);
       options.syncCurrentTimeState(data.time ?? null);
       options.setLatestAttrUpdate(options.buildAttrStateFromPlayer(player));
@@ -497,7 +556,7 @@ export function createMainRuntimeStateSource(options: MainRuntimeStateSourceOpti
       options.syncActionsBridgeState(player.actions, player.autoBattle, player.autoRetaliate !== false);
       options.syncBootstrapQuestState(player);
       options.syncTargetingOverlay();
-      options.applyBootstrapToMapRuntime(data);
+      options.applyBootstrapToMapRuntime({ ...data, self: player });
       options.syncSenseQiOverlay();
       options.resetObservedBaselinesFromPlayer(player);
       options.clearCurrentPath();

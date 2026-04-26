@@ -63,6 +63,11 @@ export interface PlayerState {
 
   displayName?: string;
   /**
+ * sectId：所属宗门 ID，用于护宗大阵等宗门权限判定。
+ */
+
+  sectId?: string | null;
+  /**
  * isBot：启用开关或状态标识。
  */
 
@@ -242,6 +247,16 @@ export interface PlayerState {
  */
 
   combatExp?: number;
+  /**
+ * comprehension：悟性，特殊属性。
+ */
+
+  comprehension?: number;
+  /**
+ * luck：幸运，特殊属性。
+ */
+
+  luck?: number;
   /**
  * baseAttrs：baseAttr相关字段。
  */

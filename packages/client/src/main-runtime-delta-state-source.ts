@@ -73,6 +73,11 @@ type MainRuntimeDeltaStateSourceOptions = {
 
   syncCurrentTimeState: (state: S2C_WorldDelta['time'] | null | undefined) => void;
   /**
+ * syncCurrentTimeTickInterval：同步当前地图流转间隔。
+ */
+
+  syncCurrentTimeTickInterval: (dtMs: S2C_WorldDelta['dt'] | null | undefined) => void;
+  /**
  * applyWorldDeltaToRuntime：世界DeltaTo运行态引用。
  */
 
@@ -365,6 +370,7 @@ const MONSTER_ENTITY_COLOR = '#ff9b73';
 const NPC_ENTITY_COLOR = '#f3d27a';
 const PORTAL_ENTITY_COLOR = '#b9a7ff';
 const CONTAINER_ENTITY_COLOR = '#c18b46';
+const FORMATION_ENTITY_COLOR = '#4da3ff';
 /**
  * getFirstGrapheme：读取首个Grapheme。
  * @param input string | undefined 输入参数。
@@ -524,6 +530,44 @@ export function createMainRuntimeDeltaStateSource(options: MainRuntimeDeltaState
     };
   }  
   /**
+ * buildFormationTickEntity：构建并返回目标对象。
+ * @param patch NonNullable<S2C_WorldDelta['fmn']>[number] 参数说明。
+ * @returns 返回阵法 tick 实体。
+ */
+  function buildFormationTickEntity(patch: NonNullable<S2C_WorldDelta['fmn']>[number]): TickRenderEntity {
+    const previous = options.getLatestEntityById(patch.id);
+    return {
+      id: patch.id,
+      x: patch.x ?? previous?.wx ?? 0,
+      y: patch.y ?? previous?.wy ?? 0,
+      char: patch.ch ?? previous?.char ?? (patch.ac === 0 ? '○' : '◎'),
+      color: patch.c ?? previous?.color ?? FORMATION_ENTITY_COLOR,
+      name: patch.n ?? previous?.name ?? '阵法',
+      kind: 'formation',
+      hp: previous?.hp,
+      maxHp: previous?.maxHp,
+      qi: previous?.qi,
+      maxQi: previous?.maxQi,
+      npcQuestMarker: previous?.npcQuestMarker,
+      observation: previous?.observation,
+      buffs: previous?.buffs,
+      formationRadius: patch.rs ?? previous?.formationRadius,
+      formationRangeShape: patch.sh ?? previous?.formationRangeShape,
+      formationRangeHighlightColor: patch.hl ?? previous?.formationRangeHighlightColor,
+      formationBoundaryChar: patch.bch ?? previous?.formationBoundaryChar,
+      formationBoundaryColor: patch.bc ?? previous?.formationBoundaryColor,
+      formationBoundaryRangeHighlightColor: patch.bhl ?? previous?.formationBoundaryRangeHighlightColor,
+      formationEyeVisibleWithoutSenseQi: patch.ev === 0 ? false : patch.ev === 1 ? true : previous?.formationEyeVisibleWithoutSenseQi,
+      formationRangeVisibleWithoutSenseQi: patch.rv === 0 ? false : patch.rv === 1 ? true : previous?.formationRangeVisibleWithoutSenseQi,
+      formationBoundaryVisibleWithoutSenseQi: patch.bv === 0 ? false : patch.bv === 1 ? true : previous?.formationBoundaryVisibleWithoutSenseQi,
+      formationShowText: patch.tx === 0 ? false : patch.tx === 1 ? true : previous?.formationShowText,
+      formationBlocksBoundary: patch.bd === 0 ? false : patch.bd === 1 ? true : previous?.formationBlocksBoundary,
+      formationOwnerSectId: patch.os !== undefined ? patch.os : previous?.formationOwnerSectId,
+      formationOwnerPlayerId: patch.op !== undefined ? patch.op : previous?.formationOwnerPlayerId,
+      formationActive: patch.ac === 0 ? false : patch.ac === 1 ? true : previous?.formationActive,
+    };
+  }
+  /**
  * buildWorldDeltaRuntimeInput：构建并返回目标对象。
  * @param data S2C_WorldDelta 原始数据。
  * @returns 返回世界 Delta 运行态输入。
@@ -583,6 +627,14 @@ export function createMainRuntimeDeltaStateSource(options: MainRuntimeDeltaState
         continue;
       }
       entityPatches.push(buildContainerTickEntity(patch));
+    }
+
+    for (const patch of data.fmn ?? []) {
+      if (patch.rm) {
+        removedEntityIds.push(patch.id);
+        continue;
+      }
+      entityPatches.push(buildFormationTickEntity(patch));
     }
 
     return {
@@ -771,6 +823,9 @@ export function createMainRuntimeDeltaStateSource(options: MainRuntimeDeltaState
       const runtimeInput = buildWorldDeltaRuntimeInput(data, mapIdHint);
       const selfPatch = runtimeInput.playerPatches.find((patch) => patch.id === player.id);
       options.syncAuraLevelBaseValue(data.auraLevelBaseValue);
+      if (typeof data.dt === 'number') {
+        options.syncCurrentTimeTickInterval(data.dt);
+      }
       if (data.time) {
         options.syncCurrentTimeState(data.time);
       }

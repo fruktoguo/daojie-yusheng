@@ -163,13 +163,19 @@ let WorldRuntimePlayerViewQueryService = class WorldRuntimePlayerViewQueryServic
  */
 
     decoratePlayerViewNpcs(runtime, playerId, view) {
-        return {
+        const localFormations = typeof runtime.worldRuntimeFormationService?.listRuntimeFormations === 'function'
+            ? runtime.worldRuntimeFormationService.listRuntimeFormations(view.instance.instanceId)
+                .filter((entry) => isFormationVisibleInView(view, entry))
+            : [];
+        const decorated = {
             ...view,
             localNpcs: view.localNpcs.map((entry) => ({
                 ...entry,
                 questMarker: this.worldRuntimeNpcQuestInteractionQueryService.resolveNpcQuestMarker(playerId, entry.npcId, runtime),
             })),
+            localFormations,
         };
+        return decorateOverlayParentView(runtime, decorated);
     }
 };
 exports.WorldRuntimePlayerViewQueryService = WorldRuntimePlayerViewQueryService;
@@ -181,3 +187,140 @@ exports.WorldRuntimePlayerViewQueryService = WorldRuntimePlayerViewQueryService 
 ], WorldRuntimePlayerViewQueryService);
 
 export { WorldRuntimePlayerViewQueryService };
+
+function isFormationVisibleInView(view, formation) {
+    const x = Math.trunc(Number(formation?.x));
+    const y = Math.trunc(Number(formation?.y));
+    if (!Number.isFinite(x) || !Number.isFinite(y)) {
+        return false;
+    }
+    const width = Math.max(1, Math.trunc(Number(view?.instance?.width ?? 1)));
+    const index = y * width + x;
+    return Array.isArray(view?.visibleTileIndices) && view.visibleTileIndices.includes(index);
+}
+
+function decorateOverlayParentView(runtime, view) {
+    const sourceInstance = runtime.getInstanceRuntime?.(view?.instance?.instanceId) ?? null;
+    const context = buildOverlayParentContext(runtime, sourceInstance, view);
+    if (!context) {
+        return view;
+    }
+    const { parentInstance, parentVisibleTileIndices, parentCenterX, parentCenterY, radius, originX, originY } = context;
+    const project = (entry) => ({
+        ...entry,
+        x: Math.trunc(Number(entry.x)) - originX,
+        y: Math.trunc(Number(entry.y)) - originY,
+        instanceId: parentInstance.meta?.instanceId,
+        templateId: parentInstance.template?.id,
+        projectedFromParentMap: true,
+    });
+    return {
+        ...view,
+        visiblePlayers: view.visiblePlayers.concat(
+            parentInstance.collectVisiblePlayers(
+                { playerId: '', x: parentCenterX, y: parentCenterY },
+                radius,
+                parentVisibleTileIndices,
+            ).map(project),
+        ),
+        localMonsters: view.localMonsters.concat(
+            parentInstance.collectLocalMonsters(parentCenterX, parentCenterY, radius, parentVisibleTileIndices).map(project),
+        ),
+        localNpcs: view.localNpcs.concat(
+            parentInstance.collectLocalNpcs(parentCenterX, parentCenterY, radius, parentVisibleTileIndices).map(project),
+        ),
+        localPortals: view.localPortals.concat(
+            parentInstance.collectLocalPortals(parentCenterX, parentCenterY, radius, parentVisibleTileIndices).map(project),
+        ),
+        localLandmarks: view.localLandmarks.concat(
+            parentInstance.collectLocalLandmarks(parentCenterX, parentCenterY, radius, parentVisibleTileIndices).map(project),
+        ),
+        localContainers: view.localContainers.concat(
+            parentInstance.collectLocalContainers(parentCenterX, parentCenterY, radius, parentVisibleTileIndices).map(project),
+        ),
+        localGroundPiles: view.localGroundPiles.concat(
+            parentInstance.collectLocalGroundPiles(parentCenterX, parentCenterY, radius, parentVisibleTileIndices).map(project),
+        ),
+    };
+}
+
+function buildOverlayParentContext(runtime, sourceInstance, view) {
+    const source = sourceInstance?.template?.source ?? {};
+    if (source.spaceVisionMode !== 'parent_overlay') {
+        return null;
+    }
+    const parentMapId = typeof source.parentMapId === 'string' ? source.parentMapId.trim() : '';
+    if (!parentMapId || !Number.isInteger(source.parentOriginX) || !Number.isInteger(source.parentOriginY)) {
+        return null;
+    }
+    const originX = Number(source.parentOriginX);
+    const originY = Number(source.parentOriginY);
+    const parentInstanceId = buildOverlayParentInstanceId(sourceInstance.meta ?? {}, parentMapId);
+    const parentInstance = runtime.getInstanceRuntime?.(parentInstanceId) ?? null;
+    if (!parentInstance) {
+        return null;
+    }
+    const visibleKeys = Array.isArray(view.visibleTileKeys) ? view.visibleTileKeys : [];
+    if (visibleKeys.length === 0) {
+        return null;
+    }
+    const parentVisibleTileIndices = new Set();
+    let radius = 1;
+    const parentCenterX = Math.trunc(Number(view.self.x)) + originX;
+    const parentCenterY = Math.trunc(Number(view.self.y)) + originY;
+    for (const key of visibleKeys) {
+        const point = parseCoordKey(key);
+        if (!point) {
+            continue;
+        }
+        if (sourceInstance.isInBounds?.(point.x, point.y) === true) {
+            continue;
+        }
+        const parentX = point.x + originX;
+        const parentY = point.y + originY;
+        if (!parentInstance.isInBounds?.(parentX, parentY)) {
+            continue;
+        }
+        parentVisibleTileIndices.add(parentInstance.toTileIndex(parentX, parentY));
+        radius = Math.max(radius, Math.abs(parentX - parentCenterX), Math.abs(parentY - parentCenterY));
+    }
+    if (parentVisibleTileIndices.size === 0) {
+        return null;
+    }
+    return {
+        parentInstance,
+        parentVisibleTileIndices,
+        parentCenterX,
+        parentCenterY,
+        radius,
+        originX,
+        originY,
+    };
+}
+
+function parseCoordKey(key) {
+    if (typeof key !== 'string') {
+        return null;
+    }
+    const separatorIndex = key.indexOf(',');
+    if (separatorIndex < 0) {
+        return null;
+    }
+    const x = Number(key.slice(0, separatorIndex));
+    const y = Number(key.slice(separatorIndex + 1));
+    if (!Number.isInteger(x) || !Number.isInteger(y)) {
+        return null;
+    }
+    return { x, y };
+}
+
+function buildOverlayParentInstanceId(sourceMeta, parentTemplateId) {
+    const preset = sourceMeta?.linePreset === 'real' ? 'real' : 'peaceful';
+    const lineIndex = Number.isFinite(Number(sourceMeta?.lineIndex))
+        ? Math.max(1, Math.trunc(Number(sourceMeta.lineIndex)))
+        : 1;
+    if (lineIndex > 1) {
+        return `line:${parentTemplateId}:${preset}:${lineIndex}`;
+    }
+    return preset === 'real' ? `real:${parentTemplateId}` : `public:${parentTemplateId}`;
+}

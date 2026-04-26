@@ -28,8 +28,8 @@ function createPlayer() {
         lifespanYears: 60,
         attrs: {
             stage: '炼气',
-            baseAttrs: { constitution: 1, spirit: 2, perception: 3, talent: 4, comprehension: 5, luck: 6 },
-            finalAttrs: { constitution: 2, spirit: 3, perception: 4, talent: 5, comprehension: 6, luck: 7 },
+            baseAttrs: { constitution: 1, spirit: 2, perception: 3, talent: 4, strength: 5, meridians: 6 },
+            finalAttrs: { constitution: 2, spirit: 3, perception: 4, talent: 5, strength: 6, meridians: 7 },
             numericStats: { ...createNumericStats(), viewRange: 2 },
             ratioDivisors: createNumericRatioDivisors(),
         },

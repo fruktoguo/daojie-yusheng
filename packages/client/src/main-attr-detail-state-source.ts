@@ -97,6 +97,8 @@ export function createMainAttrDetailStateSource(options: MainAttrDetailStateSour
         : {
             foundation: Math.max(0, Math.floor(player.foundation ?? 0)),
             combatExp: Math.max(0, Math.floor(player.combatExp ?? 0)),
+            comprehension: Math.max(0, Math.floor(player.comprehension ?? 0)),
+            luck: Math.max(0, Math.floor(player.luck ?? 0)),
           };
       const attrUpdateBase = options.mergeAttrUpdatePatch(latestAttrUpdate, {
         baseAttrs: options.cloneJson(detail.baseAttrs),

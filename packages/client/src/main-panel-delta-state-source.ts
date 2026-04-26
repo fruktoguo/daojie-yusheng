@@ -28,6 +28,7 @@ import {
   getLocalTechniqueTemplate,
   resolvePreviewTechnique,
 } from './content/local-templates';
+import { getStaticClientActionDef } from './constants/ui/action';
 /**
  * MainPanelDeltaStateSourceOptions：统一结构类型，保证协议与运行时一致性。
  */
@@ -261,8 +262,8 @@ function mergeAttrValuePatch(base: Partial<Attributes> | undefined, patch: Parti
     spirit: patch?.spirit ?? base?.spirit ?? fallback.spirit,
     perception: patch?.perception ?? base?.perception ?? fallback.perception,
     talent: patch?.talent ?? base?.talent ?? fallback.talent,
-    comprehension: patch?.comprehension ?? base?.comprehension ?? fallback.comprehension,
-    luck: patch?.luck ?? base?.luck ?? fallback.luck,
+    strength: patch?.strength ?? base?.strength ?? fallback.strength,
+    meridians: patch?.meridians ?? base?.meridians ?? fallback.meridians,
   };
 }
 
@@ -317,6 +318,7 @@ function mergeNumericStatsPatch(base: PartialNumericStats | undefined, patch: Pa
     extraAggroRate: base?.extraAggroRate ?? 0,
     extraRange: base?.extraRange ?? 0,
     extraArea: base?.extraArea ?? 0,
+    actionsPerTurn: base?.actionsPerTurn ?? 1,
     elementDamageBonus: mergeElementGroupPatch(undefined, base?.elementDamageBonus) ?? { metal: 0, wood: 0, water: 0, fire: 0, earth: 0 },
     elementDamageReduce: mergeElementGroupPatch(undefined, base?.elementDamageReduce) ?? { metal: 0, wood: 0, water: 0, fire: 0, earth: 0 },
   };
@@ -351,6 +353,7 @@ function mergeNumericStatsPatch(base: PartialNumericStats | undefined, patch: Pa
     extraAggroRate: patch?.extraAggroRate ?? previous.extraAggroRate,
     extraRange: patch?.extraRange ?? previous.extraRange,
     extraArea: patch?.extraArea ?? previous.extraArea,
+    actionsPerTurn: patch?.actionsPerTurn ?? previous.actionsPerTurn,
     elementDamageBonus: mergeElementGroupPatch(previous.elementDamageBonus, patch?.elementDamageBonus) ?? previous.elementDamageBonus,
     elementDamageReduce: mergeElementGroupPatch(previous.elementDamageReduce, patch?.elementDamageReduce) ?? previous.elementDamageReduce,
   } as NumericStats;
@@ -418,6 +421,8 @@ export function createMainPanelDeltaStateSource(options: MainPanelDeltaStateSour
       specialStats: {
         foundation: Math.max(0, Math.floor(player.foundation ?? 0)),
         combatExp: Math.max(0, Math.floor(player.combatExp ?? 0)),
+        comprehension: Math.max(0, Math.floor(player.comprehension ?? 0)),
+        luck: Math.max(0, Math.floor(player.luck ?? 0)),
       },
       boneAgeBaseYears: player.boneAgeBaseYears,
       lifeElapsedTicks: player.lifeElapsedTicks,
@@ -445,8 +450,8 @@ export function createMainPanelDeltaStateSource(options: MainPanelDeltaStateSour
       spirit: 0,
       perception: 0,
       talent: 0,
-      comprehension: 0,
-      luck: 0,
+      strength: 0,
+      meridians: 0,
     };
     const fallbackFinalAttrs = (player?.finalAttrs ?? player?.baseAttrs ?? fallbackBaseAttrs) as Attributes;
     return {
@@ -464,6 +469,12 @@ export function createMainPanelDeltaStateSource(options: MainPanelDeltaStateSour
         combatExp: patch.specialStats?.combatExp
           ?? previous?.specialStats?.combatExp
           ?? Math.max(0, Math.floor(player?.combatExp ?? 0)),
+        comprehension: patch.specialStats?.comprehension
+          ?? previous?.specialStats?.comprehension
+          ?? Math.max(0, Math.floor(player?.comprehension ?? 0)),
+        luck: patch.specialStats?.luck
+          ?? previous?.specialStats?.luck
+          ?? Math.max(0, Math.floor(player?.luck ?? 0)),
       },
       boneAgeBaseYears: patch.boneAgeBaseYears ?? previous?.boneAgeBaseYears ?? player?.boneAgeBaseYears ?? undefined,
       lifeElapsedTicks: patch.lifeElapsedTicks ?? previous?.lifeElapsedTicks ?? player?.lifeElapsedTicks ?? undefined,
@@ -589,6 +600,7 @@ export function createMainPanelDeltaStateSource(options: MainPanelDeltaStateSour
       enhancementSpeedRate: item.enhancementSpeedRate ?? previousSameItem?.enhancementSpeedRate,
       mapUnlockId: item.mapUnlockId ?? previousSameItem?.mapUnlockId,
       mapUnlockIds: item.mapUnlockIds ?? previousSameItem?.mapUnlockIds ?? template?.mapUnlockIds,
+      respawnBindMapId: item.respawnBindMapId ?? previousSameItem?.respawnBindMapId ?? template?.respawnBindMapId,
       tileAuraGainAmount: item.tileAuraGainAmount ?? previousSameItem?.tileAuraGainAmount,
       tileResourceGains: item.tileResourceGains
         ? cloneJson(item.tileResourceGains)
@@ -726,22 +738,23 @@ export function createMainPanelDeltaStateSource(options: MainPanelDeltaStateSour
   function mergeActionPatch(patch: ActionUpdateEntry, previous?: ActionDef): ActionDef {
     const previousSameAction = previous?.id === patch.id ? previous : undefined;
     const skillTemplate = getLocalSkillTemplate(patch.id);
-    const nextType = applyNullablePatch(patch.type, previousSameAction?.type) ?? (skillTemplate ? 'skill' : 'interact');
+    const staticAction = getStaticClientActionDef(patch.id);
+    const nextType = applyNullablePatch(patch.type, previousSameAction?.type ?? staticAction?.type) ?? (skillTemplate ? 'skill' : 'interact');
     const isSkillAction = nextType === 'skill';
     return {
       id: patch.id,
-      cooldownLeft: patch.cooldownLeft ?? previousSameAction?.cooldownLeft ?? 0,
+      cooldownLeft: patch.cooldownLeft ?? previousSameAction?.cooldownLeft ?? staticAction?.cooldownLeft ?? 0,
       autoBattleEnabled: applyNullablePatch(patch.autoBattleEnabled, previousSameAction?.autoBattleEnabled),
       autoBattleOrder: applyNullablePatch(patch.autoBattleOrder, previousSameAction?.autoBattleOrder),
       skillEnabled: applyNullablePatch(patch.skillEnabled, previousSameAction?.skillEnabled),
-      name: applyNullablePatch(patch.name, previousSameAction?.name) ?? skillTemplate?.name ?? patch.id,
+      name: applyNullablePatch(patch.name, previousSameAction?.name ?? staticAction?.name) ?? skillTemplate?.name ?? patch.id,
       type: nextType,
-      desc: applyNullablePatch(patch.desc, previousSameAction?.desc) ?? skillTemplate?.desc ?? '',
-      range: applyNullablePatch(patch.range, previousSameAction?.range) ?? skillTemplate?.range,
-      requiresTarget: applyNullablePatch(patch.requiresTarget, previousSameAction?.requiresTarget)
+      desc: applyNullablePatch(patch.desc, previousSameAction?.desc ?? staticAction?.desc) ?? skillTemplate?.desc ?? '',
+      range: applyNullablePatch(patch.range, previousSameAction?.range ?? staticAction?.range) ?? skillTemplate?.range,
+      requiresTarget: applyNullablePatch(patch.requiresTarget, previousSameAction?.requiresTarget ?? staticAction?.requiresTarget)
         ?? skillTemplate?.requiresTarget
         ?? (isSkillAction ? true : undefined),
-      targetMode: applyNullablePatch(patch.targetMode, previousSameAction?.targetMode)
+      targetMode: applyNullablePatch(patch.targetMode, previousSameAction?.targetMode ?? staticAction?.targetMode)
         ?? skillTemplate?.targetMode
         ?? (isSkillAction ? 'any' : undefined),
     };
@@ -962,6 +975,8 @@ export function createMainPanelDeltaStateSource(options: MainPanelDeltaStateSour
         }
         player.foundation = latestAttrUpdate.specialStats?.foundation ?? player.foundation;
         player.combatExp = latestAttrUpdate.specialStats?.combatExp ?? player.combatExp;
+        player.comprehension = latestAttrUpdate.specialStats?.comprehension ?? player.comprehension;
+        player.luck = latestAttrUpdate.specialStats?.luck ?? player.luck;
         player.boneAgeBaseYears = latestAttrUpdate.boneAgeBaseYears ?? player.boneAgeBaseYears;
         player.lifeElapsedTicks = latestAttrUpdate.lifeElapsedTicks ?? player.lifeElapsedTicks;
         player.lifespanYears = latestAttrUpdate.lifespanYears === undefined

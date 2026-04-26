@@ -18,8 +18,8 @@
       "spirit": 176,
       "perception": 292,
       "talent": 172,
-      "comprehension": 24,
-      "luck": 28
+      "strength": 24,
+      "meridians": 28
     },
     "statPercents": {
       "maxHp": 200,
@@ -103,8 +103,8 @@
       "spirit": 156,
       "perception": 304,
       "talent": 196,
-      "comprehension": 26,
-      "luck": 26
+      "strength": 26,
+      "meridians": 26
     },
     "statPercents": {
       "maxHp": 230,
@@ -188,8 +188,8 @@
       "spirit": 192,
       "perception": 364,
       "talent": 248,
-      "comprehension": 34,
-      "luck": 32
+      "strength": 34,
+      "meridians": 32
     },
     "statPercents": {
       "maxHp": 260,
@@ -292,8 +292,8 @@
       "spirit": 216,
       "perception": 388,
       "talent": 296,
-      "comprehension": 36,
-      "luck": 36
+      "strength": 36,
+      "meridians": 36
     },
     "statPercents": {
       "maxHp": 290,
@@ -378,8 +378,8 @@
       "spirit": 255,
       "perception": 470,
       "talent": 315,
-      "comprehension": 45,
-      "luck": 42
+      "strength": 45,
+      "meridians": 42
     },
     "statPercents": {
       "maxHp": 250,
@@ -466,8 +466,8 @@
       "spirit": 290,
       "perception": 545,
       "talent": 380,
-      "comprehension": 52,
-      "luck": 48
+      "strength": 52,
+      "meridians": 48
     },
     "statPercents": {
       "maxHp": 290,
@@ -572,8 +572,8 @@
       "spirit": 444,
       "perception": 672,
       "talent": 528,
-      "comprehension": 72,
-      "luck": 66
+      "strength": 72,
+      "meridians": 66
     },
     "statPercents": {
       "maxHp": 290,

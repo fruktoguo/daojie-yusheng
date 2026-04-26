@@ -101,6 +101,16 @@ async function main(): Promise<void> {
       isEnabled() {
         return false;
       },
+      async loadPlayerSnapshotRecord(playerId: string) {
+        return {
+          snapshot: {
+            ...buildStarterSnapshot(playerId),
+            sectId: 'sect:projection-native',
+          },
+          persistedSource: 'native',
+          seededAt: null,
+        };
+      },
     } as never,
     {
       isEnabled() {
@@ -145,6 +155,7 @@ async function main(): Promise<void> {
   assert.equal(projectionResult.persistedSource, 'native');
   assert.equal(projectionResult.fallbackReason, 'proof:bootstrap-snapshot-trace|player_domain_projection');
   assert.equal(projectionResult.snapshot?.placement.templateId, 'projected_recovery_map');
+  assert.equal(projectionResult.snapshot?.sectId, 'sect:projection-native');
 
   const missWorldPlayerSnapshotService = new WorldPlayerSnapshotService(
     {

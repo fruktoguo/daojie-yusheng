@@ -7,6 +7,7 @@ import {
   calcTechniqueAttrValues,
   calcTechniqueFinalAttrBonus,
   calcTechniqueNextLevelGains,
+  calcTechniqueNextLevelSpecialStatGains,
   deriveTechniqueRealm,
   getTechniqueExpLevelAdjustment,
   getTechniqueMaxLevel,
@@ -20,13 +21,19 @@ import {
   TechniqueRealm,
   TechniqueState,
 } from '@mud/shared';
-import { ATTR_KEY_LABELS, getTechniqueCategoryLabel, getTechniqueGradeLabel, getTechniqueRealmLabel } from '../../domain-labels';
+import { getTechniqueCategoryLabel, getTechniqueGradeLabel, getTechniqueRealmLabel } from '../../domain-labels';
 import { getLocalRealmLevelEntry, resolvePreviewTechnique, resolvePreviewTechniques } from '../../content/local-templates';
 import { FloatingTooltip, prefersPinnedTooltipInteraction } from '../floating-tooltip';
 import { detailModalHost } from '../detail-modal-host';
 import { buildSkillTooltipContent } from '../skill-tooltip';
 import { preserveSelection } from '../selection-preserver';
 import { createEmptyHint } from '../ui-primitives';
+import {
+  calcTechniqueSpecialStatContribution,
+  formatTechniqueBonusSummary,
+  formatTechniqueCumulativeBonusSummary,
+  formatTechniqueLayerBonusSummary,
+} from '../technique-bonus-summary';
 import { TechniqueConstellationCanvas, TechniqueConstellationCanvasData, TechniqueConstellationHoverPayload } from './technique-constellation-canvas';
 import { formatDisplayInteger, formatDisplayNumber } from '../../utils/number';
 
@@ -106,19 +113,6 @@ function createFragmentFromHtml(html: string): DocumentFragment {
   return template.content.cloneNode(true) as DocumentFragment;
 }
 
-/** formatAttrMap：格式化属性地图。 */
-function formatAttrMap(attrs: Partial<Attributes>, fallback = '无属性提升'): string {
-  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
-
-  const entries = TECHNIQUE_ATTR_KEYS
-    .map((key) => [key, attrs[key] ?? 0] as const)
-    .filter(([, value]) => value > 0);
-  if (entries.length === 0) {
-    return fallback;
-  }
-  return entries.map(([key, value]) => `${ATTR_KEY_LABELS[key]}+${formatDisplayNumber(value)}`).join(' / ');
-}
-
 /** subtractAttrMap：处理subtract属性地图。 */
 function subtractAttrMap(left: Partial<Attributes>, right: Partial<Attributes>): Partial<Attributes> {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
@@ -141,8 +135,13 @@ function calcTechniqueEffectiveContribution(techniques: TechniqueState[], techId
 }
 
 /** formatTechniqueContributionSummary：格式化Technique Contribution摘要。 */
-function formatTechniqueContributionSummary(totalAttrs: Partial<Attributes>, rawAttrs: Partial<Attributes>): string {
-  return `${formatAttrMap(totalAttrs)}（原始：${formatAttrMap(rawAttrs)}）`;
+function formatTechniqueContributionSummary(
+  totalAttrs: Partial<Attributes>,
+  rawAttrs: Partial<Attributes>,
+  totalSpecialStats?: ReturnType<typeof calcTechniqueSpecialStatContribution>,
+  rawSpecialStats?: ReturnType<typeof calcTechniqueSpecialStatContribution>,
+): string {
+  return `${formatTechniqueBonusSummary(totalAttrs, totalSpecialStats)}（原始：${formatTechniqueBonusSummary(rawAttrs, rawSpecialStats)}）`;
 }
 
 /** resolveTechniqueCategory：解析Technique Category。 */
@@ -732,6 +731,7 @@ export class TechniquePanel {
     const previewTechniques = resolvePreviewTechniques(this.lastState.techniques);
     const currentAttrs = calcTechniqueAttrValues(tech.level, tech.layers);
     const effectiveAttrs = calcTechniqueEffectiveContribution(previewTechniques, tech.techId);
+    const currentSpecialStats = calcTechniqueSpecialStatContribution(tech.level, tech.layers);
     const skillsByLevel = new Map<number, TechniqueState['skills']>();
     const milestones = buildTechniqueMilestones(tech, maxLevel);
     for (const skill of tech.skills) {
@@ -768,7 +768,7 @@ export class TechniquePanel {
           </div>
           <div class="tech-modal-stat">
             <span class="tech-modal-label">当前总加成</span>
-            <span data-tech-modal-current-attrs="true">${escapeHtml(formatTechniqueContributionSummary(effectiveAttrs, currentAttrs))}</span>
+            <span data-tech-modal-current-attrs="true">${escapeHtml(formatTechniqueContributionSummary(effectiveAttrs, currentAttrs, currentSpecialStats, currentSpecialStats))}</span>
           </div>
         </section>
         <section class="tech-modal-pane tech-modal-pane--constellation">
@@ -805,6 +805,7 @@ export class TechniquePanel {
         level,
         expToNext: level >= maxLevel ? 0 : 0,
         attrs: calcTechniqueNextLevelGains(level - 1, tech.layers),
+        specialStats: calcTechniqueNextLevelSpecialStatGains(level - 1, tech.layers),
       });
     }
     return rows;
@@ -873,8 +874,8 @@ export class TechniquePanel {
       }).join('')
       : '<span class="tech-layer-empty">此层未解锁新技能</span>';
 
-    const layerAttrs = formatAttrMap(layer.attrs ?? {}, '本层不增加六维');
-    const totalAttrs = formatAttrMap(calcTechniqueAttrValues(layer.level, tech.layers));
+    const layerAttrs = formatTechniqueLayerBonusSummary(layer, '本层不增加属性');
+    const totalAttrs = formatTechniqueCumulativeBonusSummary(layer.level, tech.layers);
     const milestone = milestones.get(layer.level);
     const stateLabel = layer.level < tech.level ? '已贯通' : layer.level === tech.level ? '当前停驻' : '尚未抵达';
     const expText = layer.expToNext > 0 ? `升下一层需 ${formatDisplayInteger(layer.expToNext)} 功法经验` : '此层已是终点';
@@ -1365,6 +1366,7 @@ export class TechniquePanel {
     const previewTechniques = resolvePreviewTechniques(this.lastState.techniques);
     const currentAttrs = calcTechniqueAttrValues(tech.level, tech.layers);
     const effectiveAttrs = calcTechniqueEffectiveContribution(previewTechniques, tech.techId);
+    const currentSpecialStats = calcTechniqueSpecialStatContribution(tech.level, tech.layers);
     const skillsByLevel = new Map<number, TechniqueState['skills']>();
     for (const skill of tech.skills) {
       const unlockLevel = resolveSkillUnlockLevel(skill);
@@ -1382,7 +1384,7 @@ export class TechniquePanel {
     subtitleNode.textContent = `${getTechniqueRealmLevelLabel(tech)} · ${getTechniqueGradeLabel(tech.grade)} · ${getTechniqueRealmLabel(getResolvedTechniqueRealm(tech))} · 第 ${formatDisplayInteger(tech.level)}/${formatDisplayInteger(maxLevel)} 层`;
     expNode.textContent = formatTechniqueProgressText(tech);
     totalExpNode.textContent = formatDisplayInteger(calcTechniqueTotalExp(tech));
-    currentAttrsNode.textContent = formatTechniqueContributionSummary(effectiveAttrs, currentAttrs);
+    currentAttrsNode.textContent = formatTechniqueContributionSummary(effectiveAttrs, currentAttrs, currentSpecialStats, currentSpecialStats);
 
     if (!focusShell.querySelector('[data-tech-focus-card="true"]')) {
       focusShell.replaceChildren(createFragmentFromHtml(this.renderLayerFocus(tech, layers, selectedLevel, skillsByLevel, milestones)));
@@ -1457,8 +1459,8 @@ export class TechniquePanel {
       selectedLevel,
       nodes: layers.map((layer) => {
         const layerRealm = deriveTechniqueRealm(layer.level, tech.layers);
-        const layerAttrs = formatAttrMap(layer.attrs ?? {}, '本层不增加六维');
-        const totalAttrs = formatAttrMap(calcTechniqueAttrValues(layer.level, tech.layers));
+        const layerAttrs = formatTechniqueLayerBonusSummary(layer, '本层不增加属性');
+        const totalAttrs = formatTechniqueCumulativeBonusSummary(layer.level, tech.layers);
         const progressText = layer.level < tech.level
           ? '进度：已贯通'
           : layer.level === tech.level
@@ -1549,8 +1551,8 @@ export class TechniquePanel {
     const stateLabel = layer.level < tech.level ? '已贯通' : layer.level === tech.level ? '当前停驻' : '尚未抵达';
     const expText = layer.expToNext > 0 ? `升下一层需 ${formatDisplayInteger(layer.expToNext)} 功法经验` : '此层已是终点';
     const milestoneText = milestone ? `此层踏入${getTechniqueRealmLabel(milestone)}` : `此层属${getTechniqueRealmLabel(selectedRealm)}阶段`;
-    const layerAttrs = formatAttrMap(layer.attrs ?? {}, '本层不增加六维');
-    const totalAttrs = formatAttrMap(calcTechniqueAttrValues(layer.level, tech.layers));
+    const layerAttrs = formatTechniqueLayerBonusSummary(layer, '本层不增加属性');
+    const totalAttrs = formatTechniqueCumulativeBonusSummary(layer.level, tech.layers);
 
     card.classList.toggle('passed', layer.level < tech.level);
     card.classList.toggle('current', layer.level === tech.level);

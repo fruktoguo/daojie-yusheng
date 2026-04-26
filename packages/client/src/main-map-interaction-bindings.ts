@@ -252,7 +252,11 @@ type MainMapInteractionBindingsOptions = {
  /**
  * y：y相关字段。
  */
- y: number } | null;
+ y: number;
+ /**
+ * senseQiActive：感气启用状态。
+ */
+ senseQiActive?: boolean } | null;
   /**
  * sendAction：sendAction相关字段。
  */
@@ -367,6 +371,10 @@ export function bindMainMapInteractions(options: MainMapInteractionBindingsOptio
     onTarget: (target) => {
       const clickedMonster = options.findObservedEntityAt(target.x, target.y, 'monster');
       const clickedNpc = options.findObservedEntityAt(target.x, target.y, 'npc');
+      const player = options.getPlayer();
+      const clickedFormation = player?.senseQiActive === true
+        ? options.findObservedEntityAt(target.x, target.y, 'formation')
+        : null;
       const pendingTargetedAction = options.getPendingTargetedAction();
 
       if (pendingTargetedAction) {
@@ -385,17 +393,15 @@ export function bindMainMapInteractions(options: MainMapInteractionBindingsOptio
           return;
         }
         if (pendingTargetedAction.actionId === 'loot:open') {
-          const player = options.getPlayer();
-          if (!player || !isPointInRange({ x: player.x, y: player.y }, { x: target.x, y: target.y }, pendingTargetedAction.range)) {
-            options.showToast(`超出拿取范围，最多 ${pendingTargetedAction.range} 格`);
-            return;
+        if (!player || !isPointInRange({ x: player.x, y: player.y }, { x: target.x, y: target.y }, pendingTargetedAction.range)) {
+          options.showToast(`超出拿取范围，最多 ${pendingTargetedAction.range} 格`);
+          return;
           }
           options.resetLootPanelManualCloseSuppression();
           options.sendAction('loot:open', encodeTileTargetRef({ x: target.x, y: target.y }));
           options.cancelTargeting();
           return;
         }
-        const player = options.getPlayer();
         if (!player || !isPointInRange({ x: player.x, y: player.y }, { x: target.x, y: target.y }, pendingTargetedAction.range)) {
           options.showToast(`超出施法范围，最多 ${pendingTargetedAction.range} 格`);
           return;
@@ -438,6 +444,14 @@ export function bindMainMapInteractions(options: MainMapInteractionBindingsOptio
         return;
       }
       if (clickedNpc && options.handleNpcClickTarget(clickedNpc)) {
+        return;
+      }
+      if (clickedFormation) {
+        if (player && player.x === target.x && player.y === target.y) {
+          options.sendAction(`formation:toggle:${clickedFormation.id}`);
+          return;
+        }
+        options.planPathTo(target);
         return;
       }
       if (options.handlePortalClickTarget(target, knownTile)) {

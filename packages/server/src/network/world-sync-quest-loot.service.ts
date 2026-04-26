@@ -62,7 +62,7 @@ let WorldSyncQuestLootService = class WorldSyncQuestLootService {
     emitQuestSync(socket, playerId, revision) {
 
         const payload = {
-            quests: this.playerRuntimeService.listQuests(playerId),
+            quests: this.playerRuntimeService.listQuests(playerId).map((entry) => toQuestRuntimeState(entry)),
         };
         this.worldSyncProtocolService.sendQuestSync(socket, payload);
         this.lastQuestRevisionByPlayerId.set(playerId, revision);
@@ -132,6 +132,14 @@ let WorldSyncQuestLootService = class WorldSyncQuestLootService {
         this.lootWindowByPlayerId.delete(playerId);
     }
 };
+
+function toQuestRuntimeState(source) {
+    return {
+        id: source.id,
+        status: source.status,
+        progress: Math.max(0, Math.trunc(Number(source.progress ?? 0))),
+    };
+}
 exports.WorldSyncQuestLootService = WorldSyncQuestLootService;
 exports.WorldSyncQuestLootService = WorldSyncQuestLootService = __decorate([
     (0, common_1.Injectable)(),

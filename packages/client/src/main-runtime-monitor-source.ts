@@ -561,12 +561,27 @@ export function createMainRuntimeMonitorSource(
   function syncCurrentTimeTickInterval(dtMs: number | null | undefined): void {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
-    if (typeof dtMs !== 'number' || !Number.isFinite(dtMs) || dtMs <= 0) {
+    if (typeof dtMs !== 'number' || !Number.isFinite(dtMs) || dtMs < 0) {
+      return;
+    }
+    const now = performance.now();
+    const displayedLocalTicks = resolveDisplayedLocalTicks(currentTimeState, now);
+    if (currentTimeState && displayedLocalTicks !== null) {
+      currentTimeState = {
+        ...currentTimeState,
+        localTicks: displayedLocalTicks,
+      };
+      currentTimeStateSyncedAt = now;
+    }
+    renderTickRate(dtMs / 1000);
+    if (dtMs === 0) {
+      renderCurrentTime(currentTimeState, now);
       return;
     }
     currentTimeTickIntervalMs = dtMs;
     options.syncEstimatedServerTickInterval(dtMs);
     options.mapRuntime.setTickDurationMs(dtMs);
+    renderCurrentTime(currentTimeState, now);
   }  
   /**
  * renderPingLatency：执行PingLatency相关逻辑。

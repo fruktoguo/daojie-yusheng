@@ -140,6 +140,11 @@ export interface SyncedItemStack {
 
   mapUnlockIds?: string[];
   /**
+ * respawnBindMapId：使用后绑定的复活地图 ID。
+ */
+
+  respawnBindMapId?: string;
+  /**
  * tileAuraGainAmount：数量或计量字段。
  */
 

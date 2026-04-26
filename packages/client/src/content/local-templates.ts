@@ -5,9 +5,11 @@ import {
   type GmEditorTechniqueOption,
   type GmEditorRealmOption,
   type ItemStack,
+  type QuestState,
   type SkillDef,
   type TechniqueCategory,
   type TechniqueGrade,
+  type TechniqueLayerDef,
   type TechniqueState,
 } from '@mud/shared';
 import { LOCAL_EDITOR_CATALOG } from './editor-catalog';
@@ -16,6 +18,7 @@ import { LOCAL_EDITOR_CATALOG } from './editor-catalog';
 const itemTemplateMap = new Map(LOCAL_EDITOR_CATALOG.items.map((item) => [item.itemId, item] as const));
 const techniqueTemplateMap = new Map(LOCAL_EDITOR_CATALOG.techniques.map((technique) => [technique.id, technique] as const));
 const realmLevelMap = new Map(LOCAL_EDITOR_CATALOG.realmLevels.map((realm) => [realm.realmLv, realm] as const));
+const questTemplateMap = new Map((LOCAL_EDITOR_CATALOG.quests ?? []).map((quest) => [quest.id, quest] as const));
 /** 按技能 ID 建立的本地技能模板索引。 */
 const skillTemplateMap = new Map(
   LOCAL_EDITOR_CATALOG.techniques.flatMap((technique) =>
@@ -167,6 +170,12 @@ export function getLocalBuffTemplate(buffId: string): LocalBuffTemplate | null {
   return template ? { ...template } : null;
 }
 
+/** 读取本地任务模板副本。 */
+export function getLocalQuestTemplate(questId: string): QuestState | null {
+  const template = questTemplateMap.get(questId);
+  return template ? clone(template as QuestState) : null;
+}
+
 /** 判断某个技能名是否属于本地神通系技能。 */
 export function isLocalDivineSkillName(skillName: string): boolean {
   const normalizedName = skillName.trim();
@@ -220,10 +229,36 @@ export function resolvePreviewItem(item: ItemStack): ItemStack {
     tags: item.tags ?? template.tags,
     mapUnlockId: item.mapUnlockId ?? template.mapUnlockId,
     mapUnlockIds: item.mapUnlockIds ?? template.mapUnlockIds,
+    respawnBindMapId: item.respawnBindMapId ?? template.respawnBindMapId,
     tileAuraGainAmount: item.tileAuraGainAmount ?? template.tileAuraGainAmount,
     tileResourceGains: item.tileResourceGains ?? template.tileResourceGains,
+    useBehavior: item.useBehavior ?? template.useBehavior,
     allowBatchUse: item.allowBatchUse ?? template.allowBatchUse,
   };
+}
+
+/** 用本地模板补齐任务展示字段，保留服务端运行态字段。 */
+export function resolvePreviewQuest(quest: QuestState): QuestState {
+  const template = getLocalQuestTemplate(quest.id);
+  const merged = template
+    ? {
+      ...template,
+      ...quest,
+      status: quest.status ?? template.status,
+      progress: quest.progress ?? template.progress,
+      required: quest.required ?? template.required,
+    }
+    : quest;
+  return {
+    ...merged,
+    rewardItemIds: Array.isArray(merged.rewardItemIds) ? merged.rewardItemIds.slice() : [],
+    rewards: (merged.rewards ?? []).map((item) => resolvePreviewItem(item)),
+  };
+}
+
+/** 批量补齐任务展示字段。 */
+export function resolvePreviewQuests(quests: QuestState[] | undefined): QuestState[] {
+  return (quests ?? []).map((quest) => resolvePreviewQuest(quest));
 }
 
 /** 用本地模板补齐技能预览字段。 */
@@ -299,9 +334,7 @@ export function resolvePreviewTechnique(technique: TechniqueState): TechniqueSta
       category: technique.category ?? (technique.skills.length > 0 ? 'arts' : 'internal'),
     };
   }
-  const resolvedLayers = technique.layers && technique.layers.length > 0
-    ? technique.layers
-    : clone(template.layers ?? []);
+  const resolvedLayers = resolvePreviewTechniqueLayers(technique.layers, template.layers);
   const templateSkills = clone(template.skills ?? []);
   const sourceSkills = technique.skills.length > 0 ? technique.skills : templateSkills;
   const realmLv = resolveTechniqueRealmLevel(technique.realmLv, technique.grade ?? template.grade);
@@ -322,6 +355,53 @@ export function resolvePreviewTechnique(technique: TechniqueState): TechniqueSta
     )),
     layers: resolvedLayers,
   };
+}
+
+function resolvePreviewTechniqueLayers(
+  sourceLayers: TechniqueState['layers'] | undefined,
+  templateLayers: TechniqueLayerDef[] | undefined,
+): TechniqueLayerDef[] {
+  const templateByLevel = new Map((templateLayers ?? []).map((entry) => [entry.level, entry] as const));
+  const baseLayers = sourceLayers && sourceLayers.length > 0
+    ? sourceLayers
+    : clone(templateLayers ?? []);
+  return baseLayers.map((layer) => {
+    const templateLayer = templateByLevel.get(layer.level);
+    const legacySpecialStats = resolveLegacyLayerSpecialStats(layer.attrs);
+    return {
+      ...layer,
+      attrs: cloneLayerAttrsWithoutSpecialStats(layer.attrs),
+      specialStats: layer.specialStats
+        ? { ...layer.specialStats }
+        : legacySpecialStats ?? (templateLayer?.specialStats ? { ...templateLayer.specialStats } : undefined),
+    };
+  });
+}
+
+function cloneLayerAttrsWithoutSpecialStats(attrs: TechniqueLayerDef['attrs'] | undefined): TechniqueLayerDef['attrs'] | undefined {
+  if (!attrs) {
+    return undefined;
+  }
+  const { comprehension: _comprehension, luck: _luck, ...rest } = attrs as TechniqueLayerDef['attrs'] & {
+    comprehension?: number;
+    luck?: number;
+  };
+  return Object.keys(rest).length > 0 ? rest : undefined;
+}
+
+function resolveLegacyLayerSpecialStats(attrs: TechniqueLayerDef['attrs'] | undefined): TechniqueLayerDef['specialStats'] | undefined {
+  const source = attrs as (TechniqueLayerDef['attrs'] & { comprehension?: number; luck?: number }) | undefined;
+  if (!source) {
+    return undefined;
+  }
+  const specialStats: TechniqueLayerDef['specialStats'] = {};
+  if (typeof source.comprehension === 'number' && Number.isFinite(source.comprehension) && source.comprehension > 0) {
+    specialStats.comprehension = source.comprehension;
+  }
+  if (typeof source.luck === 'number' && Number.isFinite(source.luck) && source.luck > 0) {
+    specialStats.luck = source.luck;
+  }
+  return Object.keys(specialStats).length > 0 ? specialStats : undefined;
 }
 
 /** 批量补齐功法预览数据。 */

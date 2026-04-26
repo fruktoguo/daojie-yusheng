@@ -701,11 +701,19 @@ async function countTableRowsByLikePatterns(client, tableName, columnName, patte
   return Number(result.rows?.[0]?.count ?? 0);
 }
 
+let safeQuerySavepointSerial = 0;
+
 async function safeQuery(client, sql, params = undefined) {
+  const savepointName = `smoke_player_cleanup_safe_${++safeQuerySavepointSerial}`;
+  await client.query(`SAVEPOINT ${savepointName}`);
   try {
-    return await client.query(sql, params);
+    const result = await client.query(sql, params);
+    await client.query(`RELEASE SAVEPOINT ${savepointName}`);
+    return result;
   } catch (error) {
     if (isMissingTableError(error)) {
+      await client.query(`ROLLBACK TO SAVEPOINT ${savepointName}`).catch(() => undefined);
+      await client.query(`RELEASE SAVEPOINT ${savepointName}`).catch(() => undefined);
       return {
         rowCount: 0,
         rows: [],

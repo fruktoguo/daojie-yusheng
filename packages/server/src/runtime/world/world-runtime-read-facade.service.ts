@@ -267,7 +267,7 @@ let WorldRuntimeReadFacadeService = class WorldRuntimeReadFacadeService {
  */
 
     buildContextActions(view, deps) {
-        return deps.worldRuntimeContextActionQueryService.buildContextActions(view);
+        return deps.worldRuntimeContextActionQueryService.buildContextActions(view, deps);
     }
 };
 exports.WorldRuntimeReadFacadeService = WorldRuntimeReadFacadeService;

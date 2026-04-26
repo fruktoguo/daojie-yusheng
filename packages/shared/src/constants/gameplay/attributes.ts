@@ -11,8 +11,8 @@ export const ATTR_KEYS: AttrKey[] = [
   'spirit',
   'perception',
   'talent',
-  'comprehension',
-  'luck',
+  'strength',
+  'meridians',
 ];
 
 /** 默认六维属性 */
@@ -21,8 +21,8 @@ export const DEFAULT_BASE_ATTRS = {
   spirit: 10,
   perception: 10,
   talent: 10,
-  comprehension: 0,
-  luck: 0,
+  strength: 10,
+  meridians: 10,
 } as const;
 
 /** 基础最大灵力 */
@@ -93,6 +93,7 @@ export const NUMERIC_SCALAR_STAT_KEYS = [
   'extraAggroRate',
   'extraRange',
   'extraArea',
+  'actionsPerTurn',
 ] as const;
 
 /** 六维提供的原始点数加成 */
@@ -101,14 +102,8 @@ export const ATTR_TO_NUMERIC_WEIGHTS: Record<AttrKey, PartialNumericStats> = {
   spirit: {},
   perception: {},
   talent: {},
-  comprehension: {
-    auraPowerRate: 100,
-    playerExpRate: 100,
-    techniqueExpRate: 100,
-  },
-  luck: {
-    lootRate: 100,
-  },
+  strength: {},
+  meridians: {},
 };
 
 /** 六维提供的百分比加成，按最终汇总值乘算 */
@@ -119,27 +114,29 @@ export const ATTR_TO_PERCENT_NUMERIC_WEIGHTS: Record<AttrKey, PartialNumericStat
     physDef: 1,
   },
   spirit: {
-    maxQi: 1,
     spellAtk: 1,
     spellDef: 1,
+    hit: 1,
   },
   perception: {
-    hit: 1,
     dodge: 1,
     moveSpeed: 0.5,
+    antiCrit: 1,
   },
   talent: {
     maxHp: 1,
     maxQi: 1,
     resolvePower: 1,
   },
-  comprehension: {
+  strength: {
+    physAtk: 1,
+    crit: 1,
     breakPower: 1,
   },
-  luck: {
-    crit: 1,
-    hit: 1,
-    dodge: 1,
+  meridians: {
+    maxQi: 1,
+    maxQiOutputPerTick: 1,
+    spellAtk: 1,
   },
 };
 
@@ -190,6 +187,7 @@ export const NUMERIC_SCALAR_STAT_VALUE_TYPES = {
   extraAggroRate: 'flat',
   extraRange: 'flat',
   extraArea: 'flat',
+  actionsPerTurn: 'flat',
 } satisfies Record<typeof NUMERIC_SCALAR_STAT_KEYS[number], NumericValueType>;
 
 /** 默认 RatioValue 除数 */
@@ -227,6 +225,7 @@ function createScalarMultiplierFloorStats(): Omit<NumericStats, 'elementDamageBo
     extraAggroRate: 10000,
     extraRange: 0,
     extraArea: 0,
+    actionsPerTurn: 1,
   };
 }
 

@@ -5,7 +5,7 @@ import { Pool } from 'pg';
 import { resolveServerDatabaseUrl } from '../config/env-alias';
 import { FlushLedgerService } from '../persistence/flush-ledger.service';
 import { FlushWakeupService } from '../persistence/flush-wakeup.service';
-import { MapPersistenceService } from '../persistence/map-persistence.service';
+import { InstanceDomainPersistenceService } from '../persistence/instance-domain-persistence.service';
 import { InstanceGroundItemFlushWorker } from '../runtime/world/instance-ground-item-flush.worker';
 
 const databaseUrl = resolveServerDatabaseUrl();
@@ -18,7 +18,7 @@ async function main(): Promise<void> {
           ok: true,
           skipped: true,
           reason: 'SERVER_DATABASE_URL/DATABASE_URL missing',
-          answers: 'with-db 下可验证 instance ground worker 会独立认领 instance_flush_ledger，并驱动现有 map snapshot 刷盘',
+          answers: 'with-db 下可验证 instance ground worker 会独立认领 instance_flush_ledger，并写入 instance_ground_item',
           excludes: '不证明多节点 worker 竞争、完整 dead-letter 或 Redis 唤醒',
           completionMapping: 'replace-ready:proof:with-db.instance-ground-item-flush-worker',
         },
@@ -36,7 +36,11 @@ async function main(): Promise<void> {
     },
   } as never);
   const wakeup = new FlushWakeupService();
-  const mapPersistenceService = new MapPersistenceService();
+  const instanceDomainPersistenceService = new InstanceDomainPersistenceService({
+    getPool() {
+      return pool;
+    },
+  } as never);
   const instanceId = `instance:${Date.now().toString(36)}`;
   const instanceRevision = 71;
   const runtimeSnapshot = {
@@ -57,11 +61,12 @@ async function main(): Promise<void> {
       listDirtyPersistentInstances() {
         return [instanceId];
       },
-      buildMapPersistenceSnapshot() {
-        return runtimeSnapshot;
-      },
-      markMapPersisted() {
-        return;
+      async flushInstanceDomains() {
+        await instanceDomainPersistenceService.replaceGroundItems(
+          instanceId,
+          runtimeSnapshot.groundPileEntries,
+        );
+        return { skipped: false };
       },
       getInstanceRuntime() {
         return {
@@ -75,14 +80,13 @@ async function main(): Promise<void> {
         };
       },
     } as never,
-    mapPersistenceService,
     ledger,
     wakeup,
   );
 
   try {
     await ledger.onModuleInit();
-    await mapPersistenceService.onModuleInit();
+    await instanceDomainPersistenceService.onModuleInit();
     await cleanupRows(pool, [instanceId]);
     await ledger.upsertInstanceFlushLedger({
       instanceId,
@@ -94,11 +98,7 @@ async function main(): Promise<void> {
     const processedCount = await worker.runOnce('instance-ground-worker-smoke');
     assert.ok(wakeup.listWakeupKeys().some((key) => key.includes(instanceId)));
 
-    const snapshot = await mapPersistenceService.loadMapSnapshot(instanceId);
-    assert(snapshot);
-    const groundEntries = Array.isArray((snapshot as Record<string, unknown>).groundPileEntries)
-      ? ((snapshot as Record<string, unknown>).groundPileEntries as Array<Record<string, unknown>>)
-      : [];
+    const groundEntries = await instanceDomainPersistenceService.loadGroundItems(instanceId);
     assert.equal(groundEntries.length > 0, true);
     const ledgerRows = await ledger.claimInstanceFlushLedger({
       workerId: 'instance-ground-worker-smoke:probe-version',
@@ -115,7 +115,7 @@ async function main(): Promise<void> {
           processedCount,
           instanceId,
           groundPileCount: groundEntries.length,
-          answers: 'instance ground worker 可独立认领 instance_flush_ledger，并驱动现有 map snapshot 刷盘',
+          answers: 'instance ground worker 可独立认领 instance_flush_ledger，并写入 instance_ground_item',
           excludes: '不证明多节点 worker 竞争、完整 dead-letter 或 Redis 唤醒',
           completionMapping: 'replace-ready:proof:with-db.instance-ground-item-flush-worker',
         },
@@ -126,14 +126,14 @@ async function main(): Promise<void> {
   } finally {
     await cleanupRows(pool, [instanceId]).catch(() => undefined);
     await ledger.onModuleDestroy().catch(() => undefined);
-    await mapPersistenceService.onModuleDestroy().catch(() => undefined);
+    await instanceDomainPersistenceService.onModuleDestroy().catch(() => undefined);
     await pool.end().catch(() => undefined);
   }
 }
 
 async function cleanupRows(pool: Pool, instanceIds: string[]): Promise<void> {
   await pool.query('DELETE FROM instance_flush_ledger WHERE instance_id = ANY($1::varchar[])', [instanceIds]);
-  await pool.query('DELETE FROM persistent_documents WHERE key = ANY($1::varchar[])', [instanceIds]);
+  await pool.query('DELETE FROM instance_ground_item WHERE instance_id = ANY($1::varchar[])', [instanceIds]);
 }
 
 main().catch((error) => {

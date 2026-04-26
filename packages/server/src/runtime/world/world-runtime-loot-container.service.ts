@@ -649,6 +649,10 @@ let WorldRuntimeLootContainerService = class WorldRuntimeLootContainerService {
         };
     }
 
+    damageAttackableContainerAtTile(instanceId, container, currentTick) {
+        return this.damageHerbContainerAtTile(instanceId, container, currentTick);
+    }
+
     getHerbContainerWorldProjection(instanceId, container, currentTick) {
         if (!container || container.variant !== 'herb') {
             return null;
@@ -662,6 +666,21 @@ let WorldRuntimeLootContainerService = class WorldRuntimeLootContainerService {
         return {
             remainingCount: 0,
             respawnRemainingTicks: getContainerRespawnRemainingTicks(state, normalizedTick),
+        };
+    }
+
+    getAttackableContainerCombatStateAtTile(instanceId, container, currentTick) {
+        const projection = this.getHerbContainerWorldProjection(instanceId, container, currentTick);
+        if (!projection || Math.max(0, Math.trunc(Number(projection.remainingCount) || 0)) <= 0) {
+            return null;
+        }
+        return {
+            kind: 'container',
+            id: container.id,
+            name: container.name,
+            hp: Math.max(1, Math.trunc(Number(projection.remainingCount) || 0)),
+            remainingCount: projection.remainingCount,
+            supportsSkill: false,
         };
     }
     /**

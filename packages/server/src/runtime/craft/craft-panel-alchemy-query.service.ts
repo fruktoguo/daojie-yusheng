@@ -60,6 +60,7 @@ let CraftPanelAlchemyQueryService = class CraftPanelAlchemyQueryService {
             furnaceItemId,
             presets: (player.alchemyPresets ?? []).map((entry) => (0, craft_panel_alchemy_query_helpers_1.cloneAlchemyPreset)(entry)),
             job: player.alchemyJob ? (0, craft_panel_alchemy_query_helpers_1.cloneAlchemyJob)(player.alchemyJob) : null,
+            queue: cloneCraftQueue(player.alchemyJob?.queuedJobs ?? player.enhancementJob?.queuedJobs ?? []),
         };
     }
 };
@@ -68,3 +69,9 @@ exports.CraftPanelAlchemyQueryService = CraftPanelAlchemyQueryService = __decora
     (0, common_1.Injectable)()
 ], CraftPanelAlchemyQueryService);
 export { CraftPanelAlchemyQueryService };
+
+function cloneCraftQueue(queue) {
+    return Array.isArray(queue)
+        ? queue.map((entry) => ({ ...entry }))
+        : [];
+}

@@ -2,7 +2,7 @@ import type { NumericScalarStatKey, PartialNumericStats } from './numeric';
 import type { QiProjectionModifier } from './qi';
 
 /** 六维属性键。 */
-export type AttrKey = 'constitution' | 'spirit' | 'perception' | 'talent' | 'comprehension' | 'luck';
+export type AttrKey = 'constitution' | 'spirit' | 'perception' | 'talent' | 'strength' | 'meridians';
 
 /** 属性值对象。 */
 export type Attributes = Record<AttrKey, number>;

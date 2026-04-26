@@ -171,6 +171,9 @@ let WorldRuntimeStateFacadeService = class WorldRuntimeStateFacadeService {
     listDirtyPersistentInstances(deps) {
         return deps.worldRuntimePersistenceStateService.listDirtyPersistentInstances(deps);
     }    
+    listDirtyPersistentInstanceDomains(deps) {
+        return deps.worldRuntimePersistenceStateService.listDirtyPersistentInstanceDomains(deps);
+    }
     /**
  * buildMapPersistenceSnapshot：构建并返回目标对象。
  * @param instanceId instance ID。
@@ -191,6 +194,12 @@ let WorldRuntimeStateFacadeService = class WorldRuntimeStateFacadeService {
     markMapPersisted(instanceId, deps) {
         deps.worldRuntimePersistenceStateService.markMapPersisted(instanceId, deps);
     }    
+    markMapDomainsPersisted(instanceId, domains, deps) {
+        deps.worldRuntimePersistenceStateService.markMapDomainsPersisted(instanceId, domains, deps);
+    }
+    async flushInstanceDomains(instanceId, domains, deps) {
+        return deps.worldRuntimePersistenceStateService.flushInstanceDomains(instanceId, domains, deps);
+    }
     /**
  * tickAll：执行tickAll相关逻辑。
  * @param deps 运行时依赖。

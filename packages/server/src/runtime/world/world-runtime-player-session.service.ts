@@ -65,6 +65,9 @@ interface WorldRuntimePlayerSessionDeps {
   worldRuntimeNavigationService: {
     clearNavigationIntent(playerId: string): void;
   };
+  worldRuntimeSectService?: {
+    ensureSectRuntimeInstanceByTemplateId?(templateId: string, deps: WorldRuntimePlayerSessionDeps): InstanceRuntimeLike | null;
+  };
   worldSessionService: {
     purgePlayerSession(playerId: string, reason: string): void;
   };
@@ -231,6 +234,14 @@ export class WorldRuntimePlayerSessionService {
     input: ResolveTargetInstanceInput,
     deps: WorldRuntimePlayerSessionDeps,
   ): InstanceRuntimeLike {
+    const requestedSectTemplateId = resolveSectTemplateIdFromSessionRequest(input, deps);
+    if (requestedSectTemplateId && typeof deps.worldRuntimeSectService?.ensureSectRuntimeInstanceByTemplateId === 'function') {
+      const sectInstance = deps.worldRuntimeSectService.ensureSectRuntimeInstanceByTemplateId(requestedSectTemplateId, deps);
+      if (sectInstance) {
+        return sectInstance;
+      }
+    }
+
     const requestedInstance = input.requestedInstanceId
       ? deps.getInstanceRuntime(input.requestedInstanceId)
       : null;
@@ -289,6 +300,21 @@ function resolvePublicMapIdFromInstanceId(
     return '';
   }
   return templateId;
+}
+
+function resolveSectTemplateIdFromSessionRequest(
+  input: ResolveTargetInstanceInput,
+  deps: Pick<WorldRuntimePlayerSessionDeps, 'templateRepository'>,
+): string {
+  if (input.requestedMapId?.startsWith('sect_domain:')) {
+    return input.requestedMapId;
+  }
+  const descriptor = parseRuntimeInstanceDescriptor(input.requestedInstanceId);
+  const templateId = descriptor?.templateId;
+  if (templateId?.startsWith('sect_domain:') && deps.templateRepository.has(templateId)) {
+    return templateId;
+  }
+  return '';
 }
 
 function resolvePlayerWorldPreferenceLinePreset(

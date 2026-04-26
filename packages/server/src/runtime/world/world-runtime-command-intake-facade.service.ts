@@ -136,6 +136,15 @@ let WorldRuntimeCommandIntakeFacadeService = class WorldRuntimeCommandIntakeFaca
     enqueueUseItem(playerId, slotIndexInput, deps) {
         return deps.worldRuntimePlayerCommandEnqueueService.enqueueUseItem(playerId, slotIndexInput, deps);
     }    
+    enqueueCreateFormation(playerId, payload, deps) {
+        return deps.worldRuntimePlayerCommandEnqueueService.enqueueCreateFormation(playerId, payload, deps);
+    }
+    enqueueSetFormationActive(playerId, payload, deps) {
+        return deps.worldRuntimePlayerCommandEnqueueService.enqueueSetFormationActive(playerId, payload, deps);
+    }
+    enqueueRefillFormation(playerId, payload, deps) {
+        return deps.worldRuntimePlayerCommandEnqueueService.enqueueRefillFormation(playerId, payload, deps);
+    }
     /**
  * enqueueDropItem：处理Drop道具并更新相关状态。
  * @param playerId 玩家 ID。

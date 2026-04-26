@@ -896,23 +896,13 @@ export class QuestPanel {
         tone: 'reward',
       }))
       .join('');
-    const fallbackRewardText = quest.rewards
-      .map((reward) => `${reward.name} x${reward.count}`)
-      .join('、');
-    const shouldShowRewardText = quest.rewardText.trim().length > 0
-      && quest.rewardText.trim() !== '无'
-      && quest.rewardText.trim() !== fallbackRewardText;
-    const sections: string[] = [];
     if (rewardChips) {
-      sections.push(`<div class="ui-requirement-entry ui-surface-card ui-surface-card--compact"><div class="inline-item-flow">${rewardChips}</div></div>`);
+      return `<div class="inline-item-flow">${rewardChips}</div>`;
     }
-    if (shouldShowRewardText) {
-      sections.push(`<div class="inline-rich-text">${this.renderRichText(quest.rewardText)}</div>`);
+    if (quest.rewardText.trim().length > 0 && quest.rewardText.trim() !== '无') {
+      return `<div class="inline-rich-text">${this.renderRichText(quest.rewardText)}</div>`;
     }
-    if (sections.length === 0) {
-      sections.push('<div class="inline-rich-text">暂无额外奖励说明</div>');
-    }
-    return sections.join('');
+    return '<div class="inline-rich-text">暂无额外奖励说明</div>';
   }
 
   /** renderRequiredItemContent：渲染Required物品Content。 */

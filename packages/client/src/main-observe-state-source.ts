@@ -526,7 +526,7 @@ export function createMainObserveStateSource(options: MainObserveStateSourceOpti
         sourceValue: resource.sourceValue,
       }));
     }
-    if (typeof activeObservedTileDetail.aura === 'number') {
+    if (typeof activeObservedTileDetail.aura === 'number' && activeObservedTileDetail.aura > 0) {
       return [{
         key: 'aura',
         label: '灵气',
@@ -987,10 +987,16 @@ export function createMainObserveStateSource(options: MainObserveStateSourceOpti
       { label: '行走消耗', value: formatTraversalCost(tile) },
       { label: '是否阻挡视线', value: tile.blocksSight ? '会阻挡' : '不会阻挡' },
     ];
-    if (typeof tile.hp === 'number' && typeof tile.maxHp === 'number') {
+    const observedTileHp = typeof observedTileDetail?.hp === 'number'
+      && typeof observedTileDetail?.maxHp === 'number'
+      ? { hp: observedTileDetail.hp, maxHp: observedTileDetail.maxHp }
+      : typeof tile.hp === 'number' && typeof tile.maxHp === 'number'
+        ? { hp: tile.hp, maxHp: tile.maxHp }
+        : null;
+    if (observedTileHp) {
       terrainRows.push({
         label: tile.type === TileType.Wall ? '壁垒稳固' : '地物稳固',
-        value: formatCurrentMax(tile.hp, tile.maxHp),
+        value: formatCurrentMax(observedTileHp.hp, observedTileHp.maxHp),
       });
     }
     if (sortedEntities.length > 0) {
@@ -1012,7 +1018,7 @@ export function createMainObserveStateSource(options: MainObserveStateSourceOpti
           : `已处于安全区内 · 中心 (${safeZone.x}, ${safeZone.y}) · 半径 ${safeZone.radius}`,
       });
     }
-    if (typeof observedTileDetail?.aura === 'number') {
+    if (typeof observedTileDetail?.aura === 'number' && observedTileDetail.aura > 0) {
       terrainRows.push({
         label: '灵气',
         value: formatDisplayInteger(Math.max(0, Math.round(observedTileDetail.aura))),

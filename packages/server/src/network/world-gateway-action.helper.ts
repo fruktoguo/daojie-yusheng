@@ -1,6 +1,5 @@
 import {
   C2S,
-  S2C,
   parseTileTargetRef,
   type GridPoint,
   type ClientToServerEventPayload,
@@ -214,9 +213,6 @@ export class WorldGatewayActionHelper {
       return;
     }
 
-    if (this.gateway.worldClientEventService.getExplicitProtocol(client) === 'mainline' && result.npcQuests) {
-      client.emit(S2C.NpcQuests, result.npcQuests);
-    }
     this.gateway.gatewayClientEmitHelper.emitQuests(
       client,
       this.gateway.worldRuntimeService.buildQuestListView(playerId),

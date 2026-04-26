@@ -1,5 +1,6 @@
 import type { Direction, EntityKind, GameTimeState, MonsterTier, VisibleBuffState, VisibleTile } from './world-core-types';
 import type { CombatEffect } from './action-combat-types';
+import type { FormationRangeShape } from './formation-types';
 import type { GroundItemEntryView } from './loot-view-types';
 import type { ObservationInsight } from './observation-types';
 import type { PlayerWalletState } from './player-runtime-types';
@@ -101,6 +102,70 @@ export interface TickRenderEntityView {
  */
 
   buffs?: VisibleBuffState[] | null;
+  /**
+ * formationRadius：阵法影响半径。
+ */
+
+  formationRadius?: number | null;
+  /**
+ * formationRangeShape：阵法范围形状。
+ */
+
+  formationRangeShape?: FormationRangeShape | null;
+  /**
+ * formationRangeHighlightColor：感气范围高亮颜色。
+ */
+
+  formationRangeHighlightColor?: string | null;
+  /**
+ * formationBoundaryChar：阵法边界专用字符。
+ */
+
+  formationBoundaryChar?: string | null;
+  /**
+ * formationBoundaryColor：阵法边界专用颜色。
+ */
+
+  formationBoundaryColor?: string | null;
+  /**
+ * formationBoundaryRangeHighlightColor：阵法边界专用范围高亮色。
+ */
+
+  formationBoundaryRangeHighlightColor?: string | null;
+  /**
+ * formationEyeVisibleWithoutSenseQi：阵眼是否无需感气即可直接看见。
+ */
+
+  formationEyeVisibleWithoutSenseQi?: boolean | null;
+  /**
+ * formationRangeVisibleWithoutSenseQi：阵法范围是否无需感气即可直接看见。
+ */
+
+  formationRangeVisibleWithoutSenseQi?: boolean | null;
+  /**
+ * formationBoundaryVisibleWithoutSenseQi：阵法边界是否无需感气即可直接看见。
+ */
+
+  formationBoundaryVisibleWithoutSenseQi?: boolean | null;
+  /**
+ * formationShowText：阵法实体是否显示名称文本。
+ */
+
+  formationShowText?: boolean | null;
+  /**
+ * formationBlocksBoundary：阵法边界是否阻挡通行。
+ */
+
+  formationBlocksBoundary?: boolean | null;
+  /** formationOwnerSectId：阵法所属宗门 ID。 */
+  formationOwnerSectId?: string | null;
+  /** formationOwnerPlayerId：阵法所属玩家 ID。 */
+  formationOwnerPlayerId?: string | null;
+  /**
+ * formationActive：阵法是否开启。
+ */
+
+  formationActive?: boolean | null;
 }
 
 /** 地面物品堆增量补丁。 */
@@ -405,6 +470,109 @@ export interface WorldContainerPatchView {
   rm?: 1;
 }
 
+/** 世界增量中的阵法实体补丁。 */
+export interface WorldFormationPatchView {
+/**
+ * id：ID标识。
+ */
+
+  id: string;
+  /**
+ * x：x相关字段。
+ */
+
+  x?: number;
+  /**
+ * y：y相关字段。
+ */
+
+  y?: number;
+  /**
+ * n：n相关字段。
+ */
+
+  n?: string;
+  /**
+ * ch：ch相关字段。
+ */
+
+  ch?: string;
+  /**
+ * c：c相关字段。
+ */
+
+  c?: string;
+  /**
+ * ac：阵法是否开启。
+ */
+
+  ac?: 0 | 1;
+  /**
+ * rs：阵法影响半径。
+ */
+
+  rs?: number;
+  /**
+ * sh：阵法范围形状。
+ */
+
+  sh?: FormationRangeShape;
+  /**
+ * hl：感气范围高亮颜色。
+ */
+
+  hl?: string;
+  /**
+ * bch：边界字符。
+ */
+
+  bch?: string;
+  /**
+ * bc：边界颜色。
+ */
+
+  bc?: string;
+  /**
+ * bhl：边界范围高亮色。
+ */
+
+  bhl?: string;
+  /**
+ * ev：阵眼无需感气可见。
+ */
+
+  ev?: 0 | 1;
+  /**
+ * rv：阵法范围无需感气可见。
+ */
+
+  rv?: 0 | 1;
+  /**
+ * bv：阵法边界无需感气可见。
+ */
+
+  bv?: 0 | 1;
+  /**
+ * tx：是否显示阵法名称文本。
+ */
+
+  tx?: 0 | 1;
+  /**
+ * bd：边界是否阻挡通行。
+ */
+
+  bd?: 0 | 1;
+  /** os：阵法所属宗门 ID。 */
+  os?: string | null;
+  /** op：阵法所属玩家 ID。 */
+  op?: string | null;
+  /**
+ * rm：rm相关字段。
+ */
+
+  rm?: 1;
+}
+
 /** 世界增量主体视图。 */
 export interface WorldDeltaView {
 /**
@@ -452,6 +620,11 @@ export interface WorldDeltaView {
  */
 
   c?: WorldContainerPatchView[];  
+  /**
+ * fmn：阵法实体补丁。
+ */
+
+  fmn?: WorldFormationPatchView[];
   /**
  * threatArrows：集合字段。
  */

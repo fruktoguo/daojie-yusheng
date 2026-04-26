@@ -43,6 +43,28 @@ function createFragmentFromHtml(html: string): DocumentFragment {
   return template.content;
 }
 
+function isSectTemplateId(templateId: string | null | undefined): boolean {
+  return typeof templateId === 'string' && templateId.trim().startsWith('sect_domain:');
+}
+
+function isSectRuntimeInstance(instance: Pick<GmWorldInstanceSummary, 'instanceId' | 'templateId'>): boolean {
+  return isSectTemplateId(instance.templateId) && instance.instanceId.startsWith('sect:');
+}
+
+function buildInstanceLineBadge(instance: GmWorldInstanceSummary): string {
+  if (isSectRuntimeInstance(instance)) {
+    return '宗门';
+  }
+  return instance.defaultEntry ? '默认线' : '手动线';
+}
+
+function buildInstanceCapabilityText(instance: GmWorldInstanceSummary): string {
+  if (isSectRuntimeInstance(instance)) {
+    return `宗门 · ${instance.supportsPvp ? 'PVP' : '禁PVP'} · ${instance.canDamageTile ? '可打地块' : '禁地块攻击'}`;
+  }
+  return `${instance.templateName} · ${instance.linePreset === 'peaceful' ? '和平' : '真实'} · ${instance.supportsPvp ? 'PVP' : '禁PVP'} · ${instance.canDamageTile ? '可打地块' : '禁地块攻击'}`;
+}
+
 /** formatClockFromTicks：格式化时钟From Ticks。 */
 function formatClockFromTicks(localTicks: number, dayLength: number): string {
   const safeDayLength = Math.max(1, dayLength);
@@ -347,6 +369,9 @@ export class GmWorldViewer {
     const seen = new Set<string>();
     const templates: Array<{ templateId: string; templateName: string }> = [];
     for (const instance of this.instances) {
+      if (isSectTemplateId(instance.templateId)) {
+        continue;
+      }
       if (seen.has(instance.templateId)) {
         continue;
       }
@@ -789,19 +814,24 @@ export class GmWorldViewer {
       return;
     }
 
-    const grouped = new Map<string, GmWorldInstanceSummary[]>();
+    const grouped = new Map<string, { title: string; instances: GmWorldInstanceSummary[] }>();
     for (const instance of this.instances) {
-      const groupKey = `${instance.templateId}|||${instance.templateName}`;
-      const list = grouped.get(groupKey);
-      if (list) {
-        list.push(instance);
+      const sectInstance = isSectRuntimeInstance(instance);
+      const groupKey = sectInstance
+        ? `sect|||${instance.templateName || instance.displayName || '宗门'}`
+        : `${instance.templateId}|||${instance.templateName}`;
+      const groupTitle = sectInstance
+        ? (instance.templateName || instance.displayName || '宗门')
+        : `${instance.templateName || instance.templateId} (${instance.templateId})`;
+      const group = grouped.get(groupKey);
+      if (group) {
+        group.instances.push(instance);
       } else {
-        grouped.set(groupKey, [instance]);
+        grouped.set(groupKey, { title: groupTitle, instances: [instance] });
       }
     }
 
-    for (const [groupKey, instances] of grouped) {
-      const [templateId, templateName] = groupKey.split('|||');
+    for (const group of grouped.values()) {
       const groupEl = document.createElement('div');
       groupEl.className = 'world-instance-group';
       groupEl.style.marginBottom = '8px';
@@ -811,10 +841,12 @@ export class GmWorldViewer {
       headerEl.style.fontWeight = '600';
       headerEl.style.color = '#666';
       headerEl.style.margin = '8px 0 4px';
-      headerEl.textContent = `${templateName || templateId} (${templateId})`;
+      headerEl.textContent = group.title;
       groupEl.append(headerEl);
 
-      for (const instance of instances) {
+      for (const instance of group.instances) {
+        const badgeLabel = buildInstanceLineBadge(instance);
+        const badgeIsDefault = instance.defaultEntry && !isSectRuntimeInstance(instance);
         const button = existingButtons.get(instance.instanceId) ?? document.createElement('button');
         if (!existingButtons.has(instance.instanceId)) {
           button.addEventListener('click', () => {
@@ -834,13 +866,13 @@ export class GmWorldViewer {
           <div style="display:flex;justify-content:space-between;gap:8px;align-items:center;">
             <span style="display:flex;align-items:center;gap:6px;min-width:0;">
               <span>${escapeHtml(instance.displayName)}</span>
-              <span style="font-size:10px;line-height:1;padding:2px 6px;border-radius:999px;background:${instance.defaultEntry ? 'rgba(76, 175, 80, 0.14)' : 'rgba(33, 150, 243, 0.14)'};color:${instance.defaultEntry ? '#2e7d32' : '#1565c0'};white-space:nowrap;">${instance.defaultEntry ? '默认线' : '手动线'}</span>
+              <span style="font-size:10px;line-height:1;padding:2px 6px;border-radius:999px;background:${badgeIsDefault ? 'rgba(76, 175, 80, 0.14)' : 'rgba(33, 150, 243, 0.14)'};color:${badgeIsDefault ? '#2e7d32' : '#1565c0'};white-space:nowrap;">${escapeHtml(badgeLabel)}</span>
             </span>
             <span style="font-size:11px;color:#888;">${instance.playerCount}人</span>
           </div>
           <div style="font-size:11px;color:#888;line-height:1.4;">
             <div>${escapeHtml(instance.instanceId)}</div>
-            <div>${escapeHtml(instance.templateName)} · ${instance.linePreset === 'peaceful' ? '和平' : '真实'} · ${instance.supportsPvp ? 'PVP' : '禁PVP'} · ${instance.canDamageTile ? '可打地块' : '禁地块攻击'}</div>
+            <div>${escapeHtml(buildInstanceCapabilityText(instance))}</div>
           </div>
         `;
         groupEl.append(button);
@@ -1330,6 +1362,16 @@ export class GmWorldViewer {
     const playerCount = d.entities.filter((e) => e.kind === 'player').length;
     const monsterCount = d.entities.filter((e) => e.kind === 'monster').length;
     const npcCount = d.entities.filter((e) => e.kind === 'npc').length;
+    const sectInstance = isSectTemplateId(d.templateId) && d.instanceId.startsWith('sect:');
+    const lineText = sectInstance
+      ? '宗门实例'
+      : `${d.linePreset === 'peaceful' ? '和平' : '真实'} · 第 ${d.lineIndex} 线${d.defaultEntry ? ' · 默认入口' : ''}`;
+    const capabilityText = sectInstance
+      ? `宗门 / ${d.supportsPvp ? 'PVP' : '禁PVP'} / ${d.canDamageTile ? '可打地块' : '禁地块攻击'}`
+      : `${d.linePreset === 'peaceful' ? '和平' : '真实'} / ${d.supportsPvp ? 'PVP' : '禁PVP'} / ${d.canDamageTile ? '可打地块' : '禁地块攻击'}`;
+    const originText = sectInstance
+      ? '宗门运行时'
+      : d.instanceOrigin === 'bootstrap' ? '系统引导' : 'GM 手动';
     this.ensureInfoShell();
     this.syncInfoSection(
       'instance',
@@ -1338,9 +1380,9 @@ export class GmWorldViewer {
         <div class="panel-row"><span class="panel-label">实例名</span><span class="panel-value">${escapeHtml(d.instanceName)}</span></div>
         <div class="panel-row"><span class="panel-label">实例 ID</span><span class="panel-value">${escapeHtml(d.instanceId)}</span></div>
         <div class="panel-row"><span class="panel-label">模板地图</span><span class="panel-value">${escapeHtml(d.templateName)} (${escapeHtml(d.templateId)})</span></div>
-        <div class="panel-row"><span class="panel-label">线路</span><span class="panel-value">${d.linePreset === 'peaceful' ? '和平' : '真实'} · 第 ${d.lineIndex} 线${d.defaultEntry ? ' · 默认入口' : ''}</span></div>
-        <div class="panel-row"><span class="panel-label">能力</span><span class="panel-value">${d.linePreset === 'peaceful' ? '和平' : '真实'} / ${d.supportsPvp ? 'PVP' : '禁PVP'} / ${d.canDamageTile ? '可打地块' : '禁地块攻击'}</span></div>
-        <div class="panel-row"><span class="panel-label">来源</span><span class="panel-value">${d.instanceOrigin === 'bootstrap' ? '系统引导' : 'GM 手动'}</span></div>
+        <div class="panel-row"><span class="panel-label">线路</span><span class="panel-value">${escapeHtml(lineText)}</span></div>
+        <div class="panel-row"><span class="panel-label">能力</span><span class="panel-value">${escapeHtml(capabilityText)}</span></div>
+        <div class="panel-row"><span class="panel-label">来源</span><span class="panel-value">${escapeHtml(originText)}</span></div>
         <div class="panel-row"><span class="panel-label">玩家数</span><span class="panel-value">${d.playerCount}</span></div>
         <div class="panel-row"><span class="panel-label">世界版本</span><span class="panel-value">${d.worldRevision}</span></div>
         <div class="panel-row"><span class="panel-label">地图尺寸</span><span class="panel-value">${d.width} × ${d.height}</span></div>

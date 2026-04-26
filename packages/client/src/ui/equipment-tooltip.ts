@@ -4,17 +4,14 @@
  */
 
 import {
-  calcTechniqueAttrValues,
   EquipmentEffectDef,
   GAME_TIME_PHASES,
   applyEnhancementToItemStack,
   formatBuffMaxStacks,
   ItemStack,
   parseQiResourceKey,
-  TECHNIQUE_ATTR_KEYS,
 } from '@mud/shared';
 import {
-  ATTR_KEY_LABELS,
   getEntityKindLabel,
   getEquipSlotLabel,
   getItemTypeLabel,
@@ -30,6 +27,7 @@ import {
 } from '../content/local-templates';
 import { SkillTooltipAsideCard, SkillTooltipContent } from './skill-tooltip';
 import { describePreviewBonuses } from './stat-preview';
+import { formatTechniqueCumulativeBonusSummary } from './technique-bonus-summary';
 import { formatDisplayInteger, formatDisplayNumber, formatDisplayPercent } from '../utils/number';
 
 /** escapeHtml：转义 HTML 文本中的危险字符。 */
@@ -514,6 +512,9 @@ function buildConsumableEffectDetails(item: ItemStack, itemCooldown?: ItemToolti
   if (previewItem.mapUnlockId || (previewItem.mapUnlockIds?.length ?? 0) > 0) {
     lines.push('使用效果：永久解锁对应地图');
   }
+  if (previewItem.respawnBindMapId) {
+    lines.push('使用效果：绑定复活点与遁返落点');
+  }
 
   return lines;
 }
@@ -576,20 +577,6 @@ function buildEquipmentComparisonAsideCard(item: ItemStack): SkillTooltipAsideCa
   };
 }
 
-/** formatTechniqueAttrSummary：格式化功法属性摘要。 */
-function formatTechniqueAttrSummary(attrs: ReturnType<typeof calcTechniqueAttrValues>): string {
-  const parts = TECHNIQUE_ATTR_KEYS
-    .map((key) => {
-      const value = attrs[key] ?? 0;
-      if (value <= 0) {
-        return null;
-      }
-      return `${ATTR_KEY_LABELS[key]}+${formatDisplayNumber(value)}`;
-    })
-    .filter((entry): entry is string => entry !== null);
-  return parts.length > 0 ? parts.join(' / ') : '无属性提升';
-}
-
 /** buildTechniqueBookTooltipLines：构建功法书 tooltip 行。 */
 function buildTechniqueBookTooltipLines(item: ItemStack): string[] {
   const techniqueId = resolveTechniqueIdFromBookItemId(item.itemId);
@@ -607,7 +594,6 @@ function buildTechniqueBookTooltipLines(item: ItemStack): string[] {
     1,
     ...((technique.layers ?? []).map((layer) => Math.max(1, Math.floor(layer.level)))),
   );
-  const totalAttrs = calcTechniqueAttrValues(maxLevel, technique.layers);
   const skillNames = (technique.skills ?? [])
     .map((skill) => skill.name.trim())
     .filter((name) => name.length > 0);
@@ -616,7 +602,7 @@ function buildTechniqueBookTooltipLines(item: ItemStack): string[] {
     renderPlainLine('描述', item.desc?.trim() || '暂无描述'),
     renderPlainLine('境界', realmLabel),
     renderPlainLine('品阶', getTechniqueGradeLabel(technique.grade)),
-    renderPlainLine('满层属性', formatTechniqueAttrSummary(totalAttrs)),
+    renderPlainLine('满层属性', formatTechniqueCumulativeBonusSummary(maxLevel, technique.layers)),
     renderPlainLine(
       `附带技能${skillNames.length > 0 ? `（${formatDisplayInteger(skillNames.length)}）` : ''}`,
       skillNames.length > 0 ? skillNames.join('、') : '无',

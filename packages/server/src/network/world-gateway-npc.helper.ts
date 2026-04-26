@@ -58,7 +58,7 @@ class WorldGatewayNpcHelper {
             return;
         }
         try {
-            client.emit(shared_1.S2C.NpcQuests, this.gateway.worldRuntimeService.buildNpcQuestsView(playerId, payload?.npcId));
+            client.emit(shared_1.S2C.NpcQuests, toNpcQuestsSyncPayload(this.gateway.worldRuntimeService.buildNpcQuestsView(playerId, payload?.npcId)));
         }
         catch (error) {
             this.gateway.worldClientEventService.emitGatewayError(client, 'NPC_QUEST_REQUEST_FAILED', error);
@@ -139,5 +139,22 @@ class WorldGatewayNpcHelper {
     }
 }
 exports.WorldGatewayNpcHelper = WorldGatewayNpcHelper;
+
+function toNpcQuestsSyncPayload(payload) {
+    return {
+        ...payload,
+        quests: Array.isArray(payload?.quests)
+            ? payload.quests.map((entry) => toQuestRuntimeState(entry))
+            : [],
+    };
+}
+
+function toQuestRuntimeState(source) {
+    return {
+        id: source.id,
+        status: source.status,
+        progress: Math.max(0, Math.trunc(Number(source.progress ?? 0))),
+    };
+}
 
 export { WorldGatewayNpcHelper };

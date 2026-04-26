@@ -2,9 +2,10 @@ import type { NumericRatioDivisors, NumericStats, PartialNumericRatioDivisors, P
 import type { PlayerSpecialStats } from './cultivation-types';
 import type { Attributes } from './attribute-types';
 import type { QuestLine } from './quest-types';
-import type { GameTimeState, VisibleTile } from './world-core-types';
+import { TileType, type GameTimeState, type VisibleTile } from './world-core-types';
 import type { NpcQuestMarker } from './world-view-types';
 import { clonePlainValue } from './structured';
+import { doesTileTypeBlockSight, isTileTypeWalkable } from './terrain';
 
 /** 支持的二进制载荷输入类型。 */
 export type BinaryPayload = ArrayBuffer | Uint8Array | {
@@ -103,8 +104,8 @@ export function toWireAttributes(attrs: Attributes | undefined): Record<string, 
     spirit: attrs.spirit,
     perception: attrs.perception,
     talent: attrs.talent,
-    comprehension: attrs.comprehension,
-    luck: attrs.luck,
+    strength: attrs.strength,
+    meridians: attrs.meridians,
   };
 }
 
@@ -120,8 +121,8 @@ export function fromWireAttributes(wire: Record<string, unknown> | undefined): A
     spirit: Number(wire.spirit ?? 0),
     perception: Number(wire.perception ?? 0),
     talent: Number(wire.talent ?? 0),
-    comprehension: Number(wire.comprehension ?? 0),
-    luck: Number(wire.luck ?? 0),
+    strength: Number(wire.strength ?? wire.comprehension ?? 0),
+    meridians: Number(wire.meridians ?? wire.luck ?? 0),
   };
 }
 
@@ -135,8 +136,8 @@ export function toWirePartialAttributes(attrs: Partial<Attributes> | undefined):
   if (hasOwn(attrs, 'spirit')) wire.spirit = Number(attrs.spirit ?? 0);
   if (hasOwn(attrs, 'perception')) wire.perception = Number(attrs.perception ?? 0);
   if (hasOwn(attrs, 'talent')) wire.talent = Number(attrs.talent ?? 0);
-  if (hasOwn(attrs, 'comprehension')) wire.comprehension = Number(attrs.comprehension ?? 0);
-  if (hasOwn(attrs, 'luck')) wire.luck = Number(attrs.luck ?? 0);
+  if (hasOwn(attrs, 'strength')) wire.strength = Number(attrs.strength ?? 0);
+  if (hasOwn(attrs, 'meridians')) wire.meridians = Number(attrs.meridians ?? 0);
   return Object.keys(wire).length > 0 ? wire : undefined;
 }
 
@@ -150,8 +151,10 @@ export function fromWirePartialAttributes(wire: Record<string, unknown> | undefi
   if (hasOwn(wire, 'spirit')) attrs.spirit = Number(wire.spirit ?? 0);
   if (hasOwn(wire, 'perception')) attrs.perception = Number(wire.perception ?? 0);
   if (hasOwn(wire, 'talent')) attrs.talent = Number(wire.talent ?? 0);
-  if (hasOwn(wire, 'comprehension')) attrs.comprehension = Number(wire.comprehension ?? 0);
-  if (hasOwn(wire, 'luck')) attrs.luck = Number(wire.luck ?? 0);
+  if (hasOwn(wire, 'strength')) attrs.strength = Number(wire.strength ?? 0);
+  if (hasOwn(wire, 'meridians')) attrs.meridians = Number(wire.meridians ?? 0);
+  if (!hasOwn(attrs, 'strength') && hasOwn(wire, 'comprehension')) attrs.strength = Number(wire.comprehension ?? 0);
+  if (!hasOwn(attrs, 'meridians') && hasOwn(wire, 'luck')) attrs.meridians = Number(wire.luck ?? 0);
   return Object.keys(attrs).length > 0 ? attrs : undefined;
 }
 
@@ -260,13 +263,11 @@ export function toWireVisibleTile(tile: VisibleTile): Record<string, unknown> {
   if (!tile) {
     return { hidden: true };
   }
-  const wire: Record<string, unknown> = {
-    type: tile.type,
-    walkable: tile.walkable,
-    blocksSight: tile.blocksSight,
-    aura: tile.aura,
-    hpVisible: tile.hpVisible,
-  };
+  const wire: Record<string, unknown> = { type: tile.type };
+  if (tile.walkable !== isTileTypeWalkable(tile.type)) wire.walkable = tile.walkable;
+  if (tile.blocksSight !== doesTileTypeBlockSight(tile.type)) wire.blocksSight = tile.blocksSight;
+  if (tile.aura) wire.aura = tile.aura;
+  if (tile.hpVisible === true) wire.hpVisible = true;
   if (tile.occupiedBy) wire.occupiedBy = tile.occupiedBy;
   if (tile.modifiedAt !== null && tile.modifiedAt !== undefined) wire.modifiedAt = tile.modifiedAt;
   if (tile.hp !== undefined) wire.hp = tile.hp;
@@ -293,10 +294,11 @@ export function fromWireVisibleTile(wire: Record<string, unknown>): VisibleTile 
   if (wire.hidden === true) {
     return null;
   }
+  const type = String(wire.type ?? TileType.Floor) as NonNullable<VisibleTile>['type'];
   return {
-    type: String(wire.type ?? 'floor') as NonNullable<VisibleTile>['type'],
-    walkable: Boolean(wire.walkable),
-    blocksSight: Boolean(wire.blocksSight),
+    type,
+    walkable: hasOwn(wire, 'walkable') ? Boolean(wire.walkable) : isTileTypeWalkable(type),
+    blocksSight: hasOwn(wire, 'blocksSight') ? Boolean(wire.blocksSight) : doesTileTypeBlockSight(type),
     aura: Number(wire.aura ?? 0),
     occupiedBy: typeof wire.occupiedBy === 'string' && wire.occupiedBy.length > 0 ? wire.occupiedBy : null,
     modifiedAt: hasOwn(wire, 'modifiedAt') ? Number(wire.modifiedAt ?? 0) : null,
@@ -355,6 +357,8 @@ export function toWirePlayerSpecialStats(payload: PlayerSpecialStats): Record<st
   return {
     foundation: payload.foundation,
     combatExp: payload.combatExp,
+    comprehension: Number(payload.comprehension ?? 0),
+    luck: Number(payload.luck ?? 0),
   };
 }
 
@@ -363,6 +367,8 @@ export function fromWirePlayerSpecialStats(wire: Record<string, unknown>): Playe
   return {
     foundation: Number(wire.foundation ?? 0),
     combatExp: Number(wire.combatExp ?? 0),
+    comprehension: Number(wire.comprehension ?? 0),
+    luck: Number(wire.luck ?? 0),
   };
 }
 
@@ -378,6 +384,12 @@ export function toWirePartialPlayerSpecialStats(payload: Partial<PlayerSpecialSt
   if (hasOwn(payload, 'combatExp')) {
     wire.combatExp = Number(payload.combatExp ?? 0);
   }
+  if (hasOwn(payload, 'comprehension')) {
+    wire.comprehension = Number(payload.comprehension ?? 0);
+  }
+  if (hasOwn(payload, 'luck')) {
+    wire.luck = Number(payload.luck ?? 0);
+  }
   return Object.keys(wire).length > 0 ? wire : undefined;
 }
 
@@ -392,6 +404,12 @@ export function fromWirePartialPlayerSpecialStats(wire: Record<string, unknown> 
   }
   if (hasOwn(wire, 'combatExp')) {
     payload.combatExp = Number(wire.combatExp ?? 0);
+  }
+  if (hasOwn(wire, 'comprehension')) {
+    payload.comprehension = Number(wire.comprehension ?? 0);
+  }
+  if (hasOwn(wire, 'luck')) {
+    payload.luck = Number(wire.luck ?? 0);
   }
   return Object.keys(payload).length > 0 ? payload : undefined;
 }

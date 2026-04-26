@@ -3666,6 +3666,211 @@
     .inventory-detail-grid {
       margin-bottom: 4px;
     }
+    .formation-dialog-layout {
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
+    .formation-config-grid {
+      display: grid;
+      grid-template-columns: minmax(190px, 1.2fr) minmax(120px, 0.75fr) minmax(150px, 0.8fr);
+      gap: 12px;
+      align-items: stretch;
+    }
+    .formation-config-grid--ratios {
+      grid-template-columns: 1fr;
+    }
+    .formation-allocation-control {
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+      padding: 12px 14px;
+      border: 1px solid color-mix(in srgb, var(--panel-border) 70%, transparent);
+      border-radius: 8px;
+      background: color-mix(in srgb, var(--surface-base) 88%, transparent);
+    }
+    .formation-section-heading {
+      display: flex;
+      align-items: baseline;
+      justify-content: space-between;
+      gap: 12px;
+    }
+    .formation-section-heading strong {
+      color: var(--ink-black);
+      font-size: var(--font-size-role-body-13);
+    }
+    .formation-section-heading span {
+      font-size: var(--font-size-12);
+      color: var(--ink-grey);
+    }
+    .formation-allocation-row {
+      display: grid;
+      grid-template-columns: 92px minmax(0, 1fr);
+      align-items: center;
+      gap: 12px;
+      min-width: 0;
+    }
+    .formation-allocation-row > span {
+      display: flex;
+      align-items: baseline;
+      justify-content: space-between;
+      gap: 8px;
+      min-width: 0;
+      color: var(--ink-black);
+      font-size: var(--font-size-role-body-13);
+    }
+    .formation-allocation-row output {
+      color: var(--ink-black);
+      font-variant-numeric: tabular-nums;
+      white-space: nowrap;
+      font-weight: 600;
+    }
+    .formation-config-field {
+      min-width: 0;
+      margin-bottom: 0;
+    }
+    .formation-config-field--select {
+      min-width: 180px;
+    }
+    .formation-config-field > strong,
+    .formation-cost-card > strong,
+    .formation-preview > strong {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px;
+      font-size: var(--font-size-role-body-12);
+      color: var(--ink-black);
+    }
+    .formation-config-field > strong span {
+      color: var(--ink-grey);
+      font-size: var(--font-size-12);
+      font-weight: 400;
+      white-space: nowrap;
+    }
+    .formation-config-field output {
+      color: var(--ink-grey);
+      font-variant-numeric: tabular-nums;
+      white-space: nowrap;
+    }
+    .formation-cost-card {
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      gap: 4px;
+      min-width: 0;
+      margin-bottom: 0;
+      padding: 10px 12px;
+      border-color: color-mix(in srgb, var(--accent) 24%, var(--panel-border));
+      background: color-mix(in srgb, var(--accent) 7%, var(--paper));
+    }
+    .formation-cost-card > output {
+      color: var(--ink-black);
+      font-size: var(--font-size-role-body-16);
+      font-weight: 650;
+      line-height: 1.2;
+      font-variant-numeric: tabular-nums;
+    }
+    .formation-cost-card > span {
+      color: var(--ink-grey);
+      font-size: var(--font-size-12);
+    }
+    .formation-cost-card > span output {
+      color: inherit;
+      font: inherit;
+      font-variant-numeric: tabular-nums;
+    }
+    .formation-cost-card[data-formation-cost-state="insufficient"] {
+      border-color: color-mix(in srgb, var(--stamp-red) 54%, var(--panel-border));
+      background: color-mix(in srgb, var(--stamp-red) 9%, var(--paper));
+    }
+    .formation-cost-card[data-formation-cost-state="insufficient"] > output {
+      color: var(--stamp-red);
+    }
+    .formation-config-input {
+      min-width: 0;
+      height: 38px;
+      padding: 7px 10px;
+      border-radius: 6px;
+      font-size: var(--font-size-role-body-13);
+    }
+    .formation-config-slider {
+      width: 100%;
+      min-width: 0;
+      height: 20px;
+      accent-color: var(--accent);
+    }
+    .formation-config-slider::-webkit-slider-runnable-track {
+      height: 5px;
+      border-radius: 999px;
+      background: color-mix(in srgb, var(--accent) 20%, var(--panel-border));
+    }
+    .formation-config-slider::-webkit-slider-thumb {
+      margin-top: -6px;
+    }
+    .formation-preview {
+      padding: 12px 14px;
+      border: 1px solid color-mix(in srgb, var(--panel-border) 70%, transparent);
+      border-radius: 8px;
+      background: color-mix(in srgb, var(--paper) 88%, transparent);
+      color: var(--ink-dark);
+    }
+    .formation-preview-metrics {
+      display: grid;
+      grid-template-columns: repeat(5, minmax(0, 1fr));
+      gap: 8px;
+      margin-top: 10px;
+    }
+    .formation-preview-metrics span {
+      min-width: 0;
+      padding: 8px 9px;
+      border: 1px solid color-mix(in srgb, var(--panel-border) 64%, transparent);
+      border-radius: 7px;
+      background: color-mix(in srgb, var(--surface-base) 70%, transparent);
+    }
+    .formation-preview-metrics em,
+    .formation-preview-metrics output {
+      display: block;
+      min-width: 0;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+      font-style: normal;
+    }
+    .formation-preview-metrics em {
+      color: var(--ink-grey);
+      font-size: var(--font-size-11);
+      margin-bottom: 4px;
+    }
+    .formation-preview-metrics output {
+      color: var(--ink-black);
+      font-size: var(--font-size-role-body-14);
+      font-weight: 650;
+      font-variant-numeric: tabular-nums;
+    }
+    :root[data-color-mode="dark"] .formation-preview {
+      background: color-mix(in srgb, var(--surface-base) 82%, transparent);
+      border-color: color-mix(in srgb, var(--panel-border) 78%, transparent);
+    }
+    :root[data-color-mode="dark"] .formation-cost-card {
+      background: color-mix(in srgb, var(--accent) 12%, var(--surface-base));
+    }
+    :root[data-color-mode="dark"] .formation-cost-card[data-formation-cost-state="insufficient"] {
+      background: color-mix(in srgb, var(--stamp-red) 13%, var(--surface-base));
+    }
+    .formation-range-preview-btn {
+      width: 100%;
+      justify-content: center;
+      min-height: 34px;
+    }
+    #detail-modal.formation-range-preview-active {
+      background: transparent;
+      backdrop-filter: none;
+    }
+    #detail-modal-card.formation-range-preview-active {
+      opacity: 0.2;
+      transition: opacity 120ms ease;
+    }
     .inventory-source-list {
       display: flex;
       flex-direction: column;
@@ -3829,6 +4034,19 @@
       min-width: 84px;
       min-height: 32px;
       padding: 4px 10px;
+    }
+    @media (max-width: 720px) {
+      .formation-config-grid,
+      .formation-config-grid--ratios {
+        grid-template-columns: 1fr;
+      }
+      .formation-allocation-row {
+        grid-template-columns: 1fr;
+        gap: 6px;
+      }
+      .formation-preview-metrics {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+      }
     }
     .market-pane {
       display: flex;
@@ -6384,6 +6602,19 @@
     }
 
 /* codex-sync: main alchemy enhancement styles */
+    .detail-modal-card.detail-modal--craft {
+      width: min(1760px, calc(100vw - 24px));
+      height: min(90dvh, calc(100dvh - var(--detail-modal-padding-top) - var(--detail-modal-padding-bottom) - (var(--detail-modal-safe-gap) * 2)));
+      max-height: none;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+      background:
+        radial-gradient(circle at top right, rgba(196, 108, 63, 0.12), transparent 28%),
+        radial-gradient(circle at left bottom, rgba(157, 171, 84, 0.12), transparent 32%),
+        var(--surface-gradient-paper);
+      box-shadow: 14px 14px 0 rgba(0, 0, 0, 0.16);
+    }
     .detail-modal-card.detail-modal--alchemy {
       width: min(1120px, calc(100vw - 24px));
       height: min(76dvh, calc(100dvh - var(--detail-modal-padding-top) - var(--detail-modal-padding-bottom) - (var(--detail-modal-safe-gap) * 2)));
@@ -6397,10 +6628,214 @@
         var(--surface-gradient-paper);
       box-shadow: 14px 14px 0 rgba(0, 0, 0, 0.16);
     }
+    .detail-modal-card.detail-modal--craft #detail-modal-body,
     .detail-modal-card.detail-modal--alchemy #detail-modal-body {
       flex: 1;
       min-height: 0;
       overflow: hidden;
+    }
+    .craft-workbench-shell {
+      display: grid;
+      grid-template-columns: minmax(220px, 280px) minmax(0, 1fr);
+      gap: 16px;
+      height: 100%;
+      min-height: 0;
+      font-family: var(--font-role-body);
+    }
+    .craft-workbench-sidebar,
+    .craft-workbench-main {
+      min-height: 0;
+    }
+    .craft-workbench-sidebar {
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+      padding-right: 12px;
+      border-right: 1px solid var(--wash-ink);
+    }
+    .craft-workbench-main {
+      display: grid;
+      grid-template-rows: auto minmax(0, 1fr);
+      gap: 12px;
+      overflow: hidden;
+    }
+    .craft-workbench-header {
+      display: grid;
+      grid-template-columns: minmax(220px, 0.65fr) minmax(320px, 1.35fr);
+      gap: 14px;
+      align-items: stretch;
+    }
+    .craft-profession-summary {
+      display: grid;
+      align-content: center;
+      gap: 4px;
+      min-width: 0;
+      padding: 10px 12px;
+      border: 1px solid rgba(84, 57, 35, 0.14);
+      background: rgba(248, 240, 227, 0.78);
+    }
+    .craft-workbench-title {
+      font-size: var(--font-size-24);
+      font-weight: 800;
+      color: var(--ink-strong);
+      text-align: center;
+    }
+    .craft-workbench-desc {
+      margin-top: 6px;
+      color: var(--ink-grey);
+      font-size: var(--font-size-13);
+      line-height: 1.6;
+      text-align: center;
+    }
+    .craft-workbench-tabs {
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+      min-height: 0;
+      overflow: auto;
+      padding: 4px 0;
+    }
+    .craft-mode-tab {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+      width: 100%;
+      min-height: 56px;
+      padding: 11px 13px;
+      border: 1px solid rgba(84, 57, 35, 0.16);
+      background: rgba(255, 251, 242, 0.84);
+      color: var(--ink-strong);
+      font: inherit;
+      text-align: left;
+      cursor: pointer;
+    }
+    .craft-mode-tab.active {
+      border-color: var(--ink-black);
+      background: rgba(238, 222, 190, 0.92);
+      box-shadow: inset 4px 0 0 rgba(155, 90, 44, 0.82);
+    }
+    .craft-mode-tab em {
+      color: var(--ink-grey);
+      font-size: var(--font-size-11);
+      font-style: normal;
+    }
+    .craft-queue-panel {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      min-height: 0;
+      padding: 10px 12px;
+      border: 1px solid rgba(84, 57, 35, 0.14);
+      background: rgba(248, 240, 227, 0.78);
+    }
+    .craft-queue-head {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      color: var(--ink-grey);
+      font-size: var(--font-size-12);
+    }
+    .craft-queue-list {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+      max-height: 118px;
+      overflow: auto;
+      padding-right: 2px;
+    }
+    .craft-queue-item,
+    .craft-queue-empty {
+      display: grid;
+      gap: 2px;
+      padding: 8px;
+      border: 1px solid rgba(84, 57, 35, 0.12);
+      background: rgba(255, 251, 242, 0.76);
+      color: var(--ink-grey);
+      font-size: var(--font-size-12);
+    }
+    .craft-queue-item.active {
+      color: var(--ink-strong);
+      background: rgba(243, 231, 207, 0.92);
+    }
+    .craft-queue-item strong {
+      color: var(--ink-strong);
+      font-size: var(--font-size-13);
+    }
+    .craft-queue-item em {
+      font-style: normal;
+    }
+    .craft-placeholder-panel {
+      display: grid;
+      align-content: start;
+      gap: 8px;
+      height: 100%;
+      padding: 16px;
+      border: 1px solid rgba(84, 57, 35, 0.14);
+      background: rgba(255, 251, 242, 0.78);
+    }
+    .craft-placeholder-title {
+      color: var(--ink-strong);
+      font-size: var(--font-size-18);
+      font-weight: 800;
+    }
+    .craft-placeholder-text {
+      color: var(--ink-grey);
+      line-height: 1.7;
+    }
+    .craft-workbench-content {
+      min-height: 0;
+      overflow: hidden;
+      border-top: 1px solid var(--wash-ink);
+    }
+    .craft-workbench-content .alchemy-modal-shell,
+    .craft-workbench-content .enhancement-modal-shell {
+      padding: 12px 0 0;
+    }
+    .craft-workbench-content .alchemy-layout {
+      grid-template-columns: minmax(280px, 340px) minmax(0, 1fr);
+      gap: 16px;
+    }
+    .craft-workbench-content .enhancement-layout,
+    .craft-workbench-content .enhancement-layout--single-slot {
+      grid-template-columns: minmax(0, 1.8fr) minmax(320px, 380px);
+    }
+    .craft-start-mode-row {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      justify-content: flex-end;
+    }
+    @media (max-width: 760px) {
+      .craft-workbench-shell {
+        grid-template-columns: 1fr;
+        grid-template-rows: auto minmax(0, 1fr);
+      }
+      .craft-workbench-sidebar {
+        overflow: visible;
+        padding-right: 0;
+        border-right: 0;
+      }
+      .craft-workbench-header {
+        grid-template-columns: 1fr;
+      }
+      .craft-workbench-tabs {
+        display: grid;
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+      }
+      .craft-mode-tab {
+        min-width: 0;
+        flex-direction: column;
+        align-items: flex-start;
+      }
+      .craft-queue-list {
+        max-height: 112px;
+      }
+      .craft-workbench-content .alchemy-layout,
+      .craft-workbench-content .enhancement-layout,
+      .craft-workbench-content .enhancement-layout--single-slot {
+        grid-template-columns: 1fr;
+      }
     }
     .detail-modal-card.detail-modal--enhancement {
       width: min(1260px, calc(100vw - 24px));
@@ -6598,6 +7033,7 @@
     @supports not (zoom: 1) {
       .detail-modal-card.detail-modal--technique,
       .detail-modal-card.detail-modal--combat-settings,
+      .detail-modal-card.detail-modal--craft,
       .detail-modal-card.detail-modal--alchemy,
       .detail-modal-card.detail-modal--auto-pill-picker,
       .detail-modal-card.detail-modal--auto-pill-condition,
@@ -6735,6 +7171,7 @@
     }
     .alchemy-job-metrics,
     .alchemy-modal-tabs,
+    .alchemy-realm-tabs,
     .alchemy-preset-strip {
       display: flex;
       flex-wrap: wrap;
@@ -6757,6 +7194,9 @@
       grid-template-columns: auto auto;
       justify-content: end;
     }
+    .alchemy-control-group--realms {
+      justify-content: start;
+    }
     .alchemy-control-label {
       flex: 0 0 auto;
       color: var(--ink-grey);
@@ -6771,6 +7211,14 @@
       padding: 4px;
       border: 1px solid rgba(54, 42, 35, 0.12);
       background: rgba(247, 239, 225, 0.72);
+    }
+    .alchemy-realm-tabs {
+      display: inline-flex;
+      flex-wrap: nowrap;
+      gap: 6px;
+      padding: 4px;
+      border: 1px solid rgba(54, 42, 35, 0.12);
+      background: rgba(247, 239, 225, 0.64);
     }
     .alchemy-tab-btn {
       display: inline-flex;
@@ -6845,13 +7293,15 @@
       min-height: 0;
     }
     .alchemy-category-tabs {
-      display: inline-flex;
+      display: flex;
       justify-self: start;
+      flex-direction: column;
       flex-wrap: nowrap;
       gap: 6px;
       padding: 4px;
       border: 1px solid rgba(54, 42, 35, 0.12);
       background: rgba(247, 239, 225, 0.64);
+      margin-bottom: 10px;
     }
     .alchemy-category-btn {
       display: inline-flex;
@@ -6868,6 +7318,10 @@
       font-size: var(--font-size-12);
       cursor: pointer;
       transition: background 0.18s ease, color 0.18s ease, border-color 0.18s ease, box-shadow 0.18s ease;
+    }
+    .alchemy-recipe-sidebar .alchemy-category-btn {
+      justify-content: space-between;
+      width: 100%;
     }
     .alchemy-category-btn:hover {
       background: rgba(255, 252, 246, 0.9);

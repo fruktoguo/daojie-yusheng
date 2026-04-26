@@ -126,6 +126,8 @@ type SkillManagementSortField = 'custom' | 'actualDamage' | 'qiCost' | 'range' |
 type SkillManagementSortDirection = 'asc' | 'desc';
 /** 技能管理筛选面板中的开关项。 */
 type SkillManagementFilterToggle = 'melee' | 'ranged' | 'physical' | 'spell' | 'single' | 'aoe';
+/** 宗门管理弹层标签。 */
+type SectManagementTab = 'guardian' | 'members' | 'roles' | 'domain';
 /** 技能预设状态提示的语气。 */
 type SkillPresetStatusTone = 'success' | 'error' | 'info';
 type CombatSettingsTab = 'auto_pills' | 'targeting';
@@ -357,6 +359,8 @@ export class ActionPanel {
   private static readonly SKILL_PRESET_MODAL_OWNER = 'action-panel-skill-preset';
   /** 索敌方案弹层。 */
   private static readonly TARGETING_PLAN_MODAL_OWNER = 'action-panel-targeting-plan';
+  /** 宗门管理弹层。 */
+  private static readonly SECT_MANAGEMENT_MODAL_OWNER = 'action-panel-sect-management';
   /** 自动吃药槽位上限。 */
   private static readonly AUTO_USE_PILL_SLOT_LIMIT = 12;
   /** 面板根节点，后续只做局部 patch。 */
@@ -405,6 +409,8 @@ export class ActionPanel {
   private skillManagementListScrollTop = 0;
   /** 战斗设置当前标签。 */
   private combatSettingsActiveTab: CombatSettingsTab = 'auto_pills';
+  /** 宗门管理当前标签。 */
+  private sectManagementTab: SectManagementTab = 'guardian';
   /** 自动吃药草稿。 */
   private autoUsePillDraft: AutoUsePillConfig[] | null = null;
   /** 目标选择草稿。 */
@@ -502,12 +508,14 @@ export class ActionPanel {
     this.combatSettingsExternalRevision = null;
     this.skillManagementListScrollTop = 0;
     this.combatSettingsActiveTab = 'auto_pills';
+    this.sectManagementTab = 'guardian';
     this.autoUsePillSelectedIndex = 0;
     this.autoUsePillSubview = 'main';
     detailModalHost.close(ActionPanel.SKILL_MANAGEMENT_MODAL_OWNER);
     detailModalHost.close(ActionPanel.COMBAT_SETTINGS_MODAL_OWNER);
     detailModalHost.close(ActionPanel.SKILL_PRESET_MODAL_OWNER);
     detailModalHost.close(ActionPanel.TARGETING_PLAN_MODAL_OWNER);
+    detailModalHost.close(ActionPanel.SECT_MANAGEMENT_MODAL_OWNER);
     this.pane.replaceChildren(createFragmentFromHtml('<div class="empty-hint">暂无可用行动</div>'));
   }  
   /**
@@ -552,6 +560,7 @@ export class ActionPanel {
     this.renderSkillManagementModalIfOpen();
     this.renderSkillPresetModalIfOpen();
     this.renderCombatSettingsModalIfOpen();
+    this.renderSectManagementModalIfOpen();
   }
 
   /** 只同步会变的动作状态，优先走局部 patch，避免整块重绘。 */
@@ -578,6 +587,7 @@ export class ActionPanel {
     this.renderSkillPresetModalIfOpen();
     this.renderTargetingPlanModalIfOpen();
     this.renderCombatSettingsModalIfOpen();
+    this.renderSectManagementModalIfOpen();
   }
 
   /** 从玩家快照初始化面板状态。 */
@@ -597,6 +607,7 @@ export class ActionPanel {
     this.renderSkillPresetModalIfOpen();
     this.renderTargetingPlanModalIfOpen();
     this.renderCombatSettingsModalIfOpen();
+    this.renderSectManagementModalIfOpen();
   }
 
   /** 同步玩家上下文到面板缓存。 */
@@ -699,7 +710,7 @@ export class ActionPanel {
         html += '<div class="empty-hint">当前分组暂无内容</div>';
       } else {
         for (const type of relevantTypes) {
-          const entries = (groups.get(type) ?? []).filter((action) => !this.isUtilityAction(action));
+          const entries = (groups.get(type) ?? []).filter((action) => !this.isUtilityAction(action) && !this.isSwitchAction(action));
           if (entries.length === 0) {
             continue;
           }
@@ -887,6 +898,7 @@ export class ActionPanel {
     if (!actionId) return;
     const action = this.currentActions.find((entry) => entry.id === actionId);
     if (!action || action.cooldownLeft > 0) return;
+    if (action.type === 'skill' && action.skillEnabled === false) return;
     event.preventDefault();
     this.onAction?.(action.id, action.requiresTarget, action.targetMode, action.range, action.name);
   }
@@ -905,7 +917,7 @@ export class ActionPanel {
 
   /** 判断是否属于需要显示开关卡片的动作。 */
   private isSwitchAction(action: ActionDef): boolean {
-    return action.type === 'toggle' && this.isSwitchActionId(action.id);
+    return this.isSwitchActionId(action.id);
   }
 
   /** 判断是否属于客户端补进来的通用动作。 */
@@ -1491,6 +1503,7 @@ export class ActionPanel {
          ${options?.showDragHandle ? `<button class="small-btn ghost action-drag-handle" data-auto-battle-drag="${action.id}" draggable="true" type="button">拖拽</button>` : ''}`
       : '';
     const affinityChip = skillContext ? this.renderActionSkillAffinityChip(skillContext.skill) : '';
+    const executeLabel = action.id === 'sect:manage' ? '打开' : '执行';
 
     return `<div class="action-item ${onCd ? 'cooldown' : ''} ${isAutoBattleSkill ? 'action-item-draggable' : ''}" data-action-row="${action.id}"${rowAttrs}>
       <div class="action-copy ${skillContext ? 'action-copy-tooltip' : ''} ${affinityChip ? 'action-copy--with-affinity' : ''}"${tooltipAttrs}>
@@ -1511,7 +1524,7 @@ export class ActionPanel {
         ${autoBattleControls}
         <button class="small-btn ghost" data-bind-action="${action.id}" type="button">${this.getBindButtonLabel(action.id)}</button>
         <span class="action-cd" data-action-cd="${action.id}"${onCd ? '' : ' hidden'}>${onCd ? `冷却 ${action.cooldownLeft} 息` : ''}</span>
-        <button class="small-btn" data-action="${action.id}" data-action-exec="${action.id}" data-action-name="${escapeHtml(action.name)}" data-action-range="${action.range ?? ''}" data-action-target="${action.requiresTarget ? '1' : '0'}" data-action-target-mode="${action.targetMode ?? ''}"${onCd ? ' hidden' : ''}>执行</button>
+        <button class="small-btn" data-action="${action.id}" data-action-exec="${action.id}" data-action-name="${escapeHtml(action.name)}" data-action-range="${action.range ?? ''}" data-action-target="${action.requiresTarget ? '1' : '0'}" data-action-target-mode="${action.targetMode ?? ''}"${onCd ? ' hidden' : ''}>${executeLabel}</button>
       </div>
     </div>`;
   }
@@ -1838,6 +1851,10 @@ export class ActionPanel {
         if (button.dataset.bindAction) return;
         const actionId = button.dataset.actionCard;
         if (!actionId) return;
+        if (actionId === 'sect:manage') {
+          this.openSectManagementModal();
+          return;
+        }
         const action = this.currentActions.find((entry) => entry.id === actionId);
         this.onAction?.(actionId, action?.requiresTarget, action?.targetMode, action?.range, action?.name ?? actionId);
       });
@@ -1849,6 +1866,10 @@ export class ActionPanel {
     root.querySelectorAll<HTMLElement>('[data-action]').forEach((button) => {
       button.addEventListener('click', () => {
         const actionId = button.dataset.action!;
+        if (actionId === 'sect:manage') {
+          this.openSectManagementModal();
+          return;
+        }
         const actionName = button.dataset.actionName || actionId;
         const requiresTarget = button.dataset.actionTarget === '1';
         const targetMode = button.dataset.actionTargetMode || undefined;
@@ -2763,6 +2784,134 @@ export class ActionPanel {
       return;
     }
     this.renderCombatSettingsModal();
+  }
+
+  private renderSectManagementModalIfOpen(): void {
+    if (!detailModalHost.isOpenFor(ActionPanel.SECT_MANAGEMENT_MODAL_OWNER)) {
+      return;
+    }
+    if (!this.currentActions.some((entry) => entry.id === 'sect:manage')) {
+      detailModalHost.close(ActionPanel.SECT_MANAGEMENT_MODAL_OWNER);
+      return;
+    }
+    this.renderSectManagementModal();
+  }
+
+  private openSectManagementModal(): void {
+    this.sectManagementTab = 'guardian';
+    this.renderSectManagementModal();
+  }
+
+  private renderSectManagementModal(): void {
+    const action = this.currentActions.find((entry) => entry.id === 'sect:manage');
+    const summary = this.resolveSectManagementSummary(action);
+    detailModalHost.open({
+      ownerId: ActionPanel.SECT_MANAGEMENT_MODAL_OWNER,
+      variantClass: 'detail-modal--sect-management',
+      title: '宗门管理',
+      subtitle: `${summary.name} · 印记 ${summary.mark}`,
+      renderBody: (body) => {
+        body.replaceChildren(createFragmentFromHtml(`
+          <div class="skill-manage-shell ui-card-list">
+            <div class="skill-manage-topbar">
+              <div class="action-skill-subtabs skill-manage-subtabs">
+                ${this.renderSectManagementTabButton('guardian', '宗门大阵')}
+                ${this.renderSectManagementTabButton('members', '宗门成员')}
+                ${this.renderSectManagementTabButton('roles', '宗门职位')}
+                ${this.renderSectManagementTabButton('domain', '宗门地脉')}
+              </div>
+            </div>
+            <div class="skill-manage-summary">
+              <span>${escapeHtml(summary.name)}</span>
+              <span>印记 ${escapeHtml(summary.mark)}</span>
+              <span>地域 ${escapeHtml(summary.domainLabel)}</span>
+              <span>${escapeHtml(summary.sectIdLabel)}</span>
+            </div>
+            ${this.renderSectManagementTabPanel(summary)}
+          </div>
+        `));
+      },
+      onAfterRender: (body) => {
+        body.querySelectorAll<HTMLElement>('[data-sect-manage-tab]').forEach((button) => {
+          button.addEventListener('click', () => {
+            const tab = button.dataset.sectManageTab as SectManagementTab | undefined;
+            if (!tab || tab === this.sectManagementTab) return;
+            this.sectManagementTab = tab;
+            this.renderSectManagementModal();
+          });
+        });
+        body.querySelectorAll<HTMLElement>('[data-sect-action]').forEach((button) => {
+          button.addEventListener('click', () => {
+            const actionId = button.dataset.sectAction;
+            if (!actionId) return;
+            this.onAction?.(actionId, false, undefined, undefined, button.textContent?.trim() || actionId);
+          });
+        });
+      },
+    });
+  }
+
+  private renderSectManagementTabButton(tab: SectManagementTab, label: string): string {
+    return `<button class="action-skill-subtab-btn ${this.sectManagementTab === tab ? 'active' : ''}" data-sect-manage-tab="${tab}" type="button">${label}</button>`;
+  }
+
+  private renderSectManagementTabPanel(summary: { name: string; mark: string; domainLabel: string; sectIdLabel: string }): string {
+    switch (this.sectManagementTab) {
+      case 'guardian':
+        return `
+          <div class="panel-section">
+            <div class="panel-section-head">
+              <div class="panel-section-title">护宗大阵</div>
+              <div class="action-section-actions">
+                <button class="small-btn" data-sect-action="sect:guardian:toggle" type="button">启闭大阵</button>
+                <button class="small-btn ghost" data-sect-action="sect:guardian:refill" type="button">注入阵元</button>
+              </div>
+            </div>
+            <div class="action-section-hint">护宗大阵守在主世界山门边界，本宗门成员可通行，外人按大阵边界处理。</div>
+          </div>`;
+      case 'members':
+        return `
+          <div class="panel-section">
+            <div class="panel-section-title">宗门成员</div>
+            <div class="intel-grid compact">
+              <div class="gm-player-row"><div><div class="gm-player-name">宗主</div><div class="gm-player-meta">当前创建者拥有全部管理权限，可维护大阵与地脉。</div></div><div class="gm-player-stat">1 人</div></div>
+              <div class="gm-player-row"><div><div class="gm-player-name">成员名册</div><div class="gm-player-meta">记录宗门身份、职位、加入状态和后续审计入口。</div></div><div class="gm-player-stat">名册</div></div>
+            </div>
+          </div>`;
+      case 'roles':
+        return `
+          <div class="panel-section">
+            <div class="panel-section-title">宗门职位</div>
+            <div class="intel-grid compact">
+              <div class="gm-player-row"><div><div class="gm-player-name">宗主</div><div class="gm-player-meta">可管理护宗大阵与宗门地脉。</div></div><div class="gm-player-stat">最高权限</div></div>
+              <div class="gm-player-row"><div><div class="gm-player-name">长老</div><div class="gm-player-meta">用于承接大阵维护、成员审核等宗门管理权限。</div></div><div class="gm-player-stat">管理位</div></div>
+              <div class="gm-player-row"><div><div class="gm-player-name">门人</div><div class="gm-player-meta">默认宗门成员职位，拥有通行与查看宗门信息权限。</div></div><div class="gm-player-stat">基础位</div></div>
+            </div>
+          </div>`;
+      case 'domain':
+      default:
+        return `
+          <div class="panel-section">
+            <div class="panel-section-head">
+              <div class="panel-section-title">宗门地脉</div>
+            </div>
+            <div class="skill-manage-summary">
+              <span>${escapeHtml(summary.name)}</span>
+              <span>印记 ${escapeHtml(summary.mark)}</span>
+              <span>显化地域 ${escapeHtml(summary.domainLabel)}</span>
+            </div>
+            <div class="action-section-hint">宗门地图初始为 3x3 空地，边界石头被挖穿后只沿对应方向继续显化；石头耐久按距核心圈层翻倍，核心周围自带固脉。</div>
+          </div>`;
+    }
+  }
+
+  private resolveSectManagementSummary(action?: ActionDef): { name: string; mark: string; domainLabel: string; sectIdLabel: string } {
+    const desc = action?.desc ?? '';
+    const name = desc.split('·')[0]?.trim() || action?.name || '本宗';
+    const mark = /印记\s*([^·\s]+)/.exec(desc)?.[1] ?? '宗';
+    const domainLabel = /地域\s*([^·\s。]+)/.exec(desc)?.[1] ?? '未知';
+    const sectIdLabel = this.previewPlayer?.sectId ? `宗门 ${this.previewPlayer.sectId}` : '宗门已绑定';
+    return { name, mark, domainLabel, sectIdLabel };
   }
 
   /** 仅在索敌方案弹层已打开且内容变化时重绘。 */

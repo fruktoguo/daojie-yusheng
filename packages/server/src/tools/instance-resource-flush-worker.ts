@@ -27,7 +27,7 @@ async function main(): Promise<void> {
             once: true,
             processedCount,
             workerId,
-            answers: 'instance resource worker 可独立认领 instance_flush_ledger，并驱动现有 map snapshot 刷盘',
+            answers: 'instance resource worker 可独立认领 instance_flush_ledger，并驱动 instance_tile_resource_state 分域刷盘',
             excludes: '不证明多节点 worker 竞争、完整 dead-letter 或 Redis 唤醒',
             completionMapping: 'replace-ready:proof:with-db.instance-resource-flush-worker',
           },

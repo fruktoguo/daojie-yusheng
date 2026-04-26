@@ -159,8 +159,8 @@ const BASELINE_ATTR_STATE = Object.freeze({
         spirit: 9,
         perception: 8,
         talent: 7,
-        comprehension: 6,
-        luck: 5,
+        strength: 6,
+        meridians: 5,
     },
     bonusEntries: [
         {
@@ -201,8 +201,8 @@ const POST_BACKUP_ATTR_STATE = Object.freeze({
         spirit: 15,
         perception: 11,
         talent: 10,
-        comprehension: 9,
-        luck: 8,
+        strength: 9,
+        meridians: 8,
     },
     bonusEntries: [
         {

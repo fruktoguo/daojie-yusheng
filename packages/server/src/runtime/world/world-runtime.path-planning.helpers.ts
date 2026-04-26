@@ -43,10 +43,9 @@ function selectNearestPortal(portals, targetMapId, fromX, fromY) {
     return best;
 }
 /** 按目标点构建可达目标列表，必要时返回最近可替代坐标。 */
-function buildGoalPoints(instance, targetX, targetY, allowNearestReachable) {
-    const template = instance.template;
+function buildGoalPoints(instance, targetX, targetY, allowNearestReachable, playerId = null) {
     const goals = [];
-    if (isInBounds(targetX, targetY, template.width, template.height) && instance.isWalkable(targetX, targetY)) {
+    if (instance.isInBounds?.(targetX, targetY) === true && instance.isWalkable(targetX, targetY, playerId)) {
         goals.push({ x: targetX, y: targetY });
     }
     if (goals.length > 0 || !allowNearestReachable) {
@@ -55,7 +54,7 @@ function buildGoalPoints(instance, targetX, targetY, allowNearestReachable) {
     for (let radius = 1; radius <= 8; radius += 1) {
         for (let y = targetY - radius; y <= targetY + radius; y += 1) {
             for (let x = targetX - radius; x <= targetX + radius; x += 1) {
-                if (!isInBounds(x, y, template.width, template.height) || !instance.isWalkable(x, y)) {
+                if (instance.isInBounds?.(x, y) !== true || !instance.isWalkable(x, y, playerId)) {
                     continue;
                 }
                 goals.push({ x, y });
@@ -234,31 +233,31 @@ function resolveInitialRunLength(path, startX, startY, direction) {
 function buildPathingBlockMask(instance, playerId, goals, allowOccupiedGoals = true) {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
-
-    const template = instance.template;
-
-    const blocked = new Uint8Array(template.width * template.height);
+    const blocked = new Set();
     instance.forEachPathingBlocker(playerId, (x, y) => {
-        blocked[(0, map_template_repository_1.getTileIndex)(x, y, template.width)] = 1;
+        const tileIndex = typeof instance.toTileIndex === 'function' ? instance.toTileIndex(x, y) : -1;
+        if (tileIndex >= 0) {
+            blocked.add(tileIndex);
+        }
     });
     if (allowOccupiedGoals) {
         for (const goal of goals) {
-            if (!isInBounds(goal.x, goal.y, template.width, template.height)) {
-                continue;
+            const tileIndex = typeof instance.toTileIndex === 'function' ? instance.toTileIndex(goal.x, goal.y) : -1;
+            if (tileIndex >= 0) {
+                blocked.delete(tileIndex);
             }
-            blocked[(0, map_template_repository_1.getTileIndex)(goal.x, goal.y, template.width)] = 0;
         }
     }
     return blocked;
 }
 /** 计算路径总可行走代价，无穷大表示路径不可达。 */
-function computePathCost(instance, path) {
+function computePathCost(instance, path, playerId = null) {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
 
     let cost = 0;
     for (const point of path) {
-        const stepCost = instance.getTileTraversalCost(point.x, point.y);
+        const stepCost = instance.getTileTraversalCost(point.x, point.y, playerId);
         if (!Number.isFinite(stepCost) || stepCost <= 0) {
             return Number.POSITIVE_INFINITY;
         }
@@ -294,8 +293,6 @@ function resolvePreferredClientPathHint(instance, playerId, currentX, currentY, 
         return null;
     }
 
-    const template = instance.template;
-
     const goalKeys = new Set(goals.map((goal) => buildCoordKey(goal.x, goal.y)));
 
     const lastPoint = points[points.length - 1];
@@ -309,7 +306,7 @@ function resolvePreferredClientPathHint(instance, playerId, currentX, currentY, 
 
     let previousY = currentY;
     for (const point of points) {
-        if (!isInBounds(point.x, point.y, template.width, template.height)) {
+        if (instance.isInBounds?.(point.x, point.y) !== true) {
             return null;
         }
 
@@ -320,12 +317,12 @@ function resolvePreferredClientPathHint(instance, playerId, currentX, currentY, 
             return null;
         }
 
-        const tileIndex = (0, map_template_repository_1.getTileIndex)(point.x, point.y, template.width);
-        if (!instance.isWalkable(point.x, point.y) || blocked[tileIndex] === 1) {
+        const tileIndex = typeof instance.toTileIndex === 'function' ? instance.toTileIndex(point.x, point.y) : -1;
+        if (tileIndex < 0 || !instance.isWalkable(point.x, point.y, playerId) || blocked.has(tileIndex)) {
             return null;
         }
 
-        const stepCost = instance.getTileTraversalCost(point.x, point.y);
+        const stepCost = instance.getTileTraversalCost(point.x, point.y, playerId);
         if (!Number.isFinite(stepCost) || stepCost <= 0) {
             return null;
         }
@@ -334,7 +331,7 @@ function resolvePreferredClientPathHint(instance, playerId, currentX, currentY, 
     }
     return {
         points,
-        cost: computePathCost(instance, points),
+        cost: computePathCost(instance, points, playerId),
     };
 }
 /** 在地图内执行寻路，返回最小代价路径。 */
@@ -345,14 +342,15 @@ function findOptimalPathOnMap(instance, playerId, startX, startY, goals, allowOc
         return null;
     }
 
-    const template = instance.template;
-
     const goalIndices = new Set();
     for (const goal of goals) {
-        if (!isInBounds(goal.x, goal.y, template.width, template.height)) {
+        if (instance.isInBounds?.(goal.x, goal.y) !== true) {
             continue;
         }
-        goalIndices.add((0, map_template_repository_1.getTileIndex)(goal.x, goal.y, template.width));
+        const tileIndex = typeof instance.toTileIndex === 'function' ? instance.toTileIndex(goal.x, goal.y) : -1;
+        if (tileIndex >= 0) {
+            goalIndices.add(tileIndex);
+        }
     }
     if (goalIndices.size === 0) {
         return null;
@@ -360,7 +358,7 @@ function findOptimalPathOnMap(instance, playerId, startX, startY, goals, allowOc
 
     const blocked = buildPathingBlockMask(instance, playerId, goals, allowOccupiedGoals);
 
-    const size = template.width * template.height;
+    const size = Math.max(instance.occupancy?.length ?? 0, instance.tilePlane?.getCellCapacity?.() ?? 0, instance.template.width * instance.template.height);
 
     const bestCost = new Float64Array(size);
     bestCost.fill(Number.POSITIVE_INFINITY);
@@ -370,7 +368,10 @@ function findOptimalPathOnMap(instance, playerId, startX, startY, goals, allowOc
 
     const heap = [];
 
-    const startIndex = (0, map_template_repository_1.getTileIndex)(startX, startY, template.width);
+    const startIndex = typeof instance.toTileIndex === 'function' ? instance.toTileIndex(startX, startY) : -1;
+    if (startIndex < 0 || startIndex >= size) {
+        return null;
+    }
     bestCost[startIndex] = 0;
     pushPathNode(heap, { index: startIndex, cost: 0 });
     while (heap.length > 0) {
@@ -386,14 +387,14 @@ function findOptimalPathOnMap(instance, playerId, startX, startY, goals, allowOc
         }
         if (goalIndices.has(current)) {
             return {
-                points: reconstructPathPoints(previous, current, startIndex, template.width),
+                points: reconstructPathPoints(previous, current, startIndex, instance),
                 cost: currentNode.cost,
             };
         }
 
-        const x = current % template.width;
+        const x = resolveInstanceTileX(instance, current);
 
-        const y = Math.trunc(current / template.width);
+        const y = resolveInstanceTileY(instance, current);
         for (const direction of [shared_1.Direction.North, shared_1.Direction.South, shared_1.Direction.East, shared_1.Direction.West]) {
             const offset = DIRECTION_OFFSET[direction];
             if (!offset) {
@@ -403,16 +404,16 @@ function findOptimalPathOnMap(instance, playerId, startX, startY, goals, allowOc
             const nextX = x + offset.x;
 
             const nextY = y + offset.y;
-            if (!isInBounds(nextX, nextY, template.width, template.height)) {
+            if (instance.isInBounds?.(nextX, nextY) !== true) {
                 continue;
             }
 
-            const nextIndex = (0, map_template_repository_1.getTileIndex)(nextX, nextY, template.width);
-            if (!instance.isWalkable(nextX, nextY) || blocked[nextIndex] === 1) {
+            const nextIndex = typeof instance.toTileIndex === 'function' ? instance.toTileIndex(nextX, nextY) : -1;
+            if (nextIndex < 0 || nextIndex >= size || !instance.isWalkable(nextX, nextY, playerId) || blocked.has(nextIndex)) {
                 continue;
             }
 
-            const stepCost = instance.getTileTraversalCost(nextX, nextY);
+            const stepCost = instance.getTileTraversalCost(nextX, nextY, playerId);
             if (!Number.isFinite(stepCost) || stepCost <= 0) {
                 continue;
             }
@@ -446,7 +447,7 @@ function findPathPointsOnMap(instance, playerId, startX, startY, goals, allowOcc
     return result?.points ?? null;
 }
 /** 根据前驱表反向回放并恢复路径点顺序。 */
-function reconstructPathPoints(previous, goalIndex, startIndex, width) {
+function reconstructPathPoints(previous, goalIndex, startIndex, instance) {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
 
@@ -455,8 +456,8 @@ function reconstructPathPoints(previous, goalIndex, startIndex, width) {
     let cursor = goalIndex;
     while (cursor !== -1 && cursor !== startIndex) {
         path.push({
-            x: cursor % width,
-            y: Math.trunc(cursor / width),
+            x: resolveInstanceTileX(instance, cursor),
+            y: resolveInstanceTileY(instance, cursor),
         });
         cursor = previous[cursor];
     }
@@ -534,6 +535,18 @@ function directionFromStep(startX, startY, nextX, nextY) {
     }
     return null;
 }
+function resolveInstanceTileX(instance, tileIndex) {
+    if (typeof instance?.tilePlane?.getX === 'function') {
+        return instance.tilePlane.getX(tileIndex);
+    }
+    return tileIndex % instance.template.width;
+}
+function resolveInstanceTileY(instance, tileIndex) {
+    if (typeof instance?.tilePlane?.getY === 'function') {
+        return instance.tilePlane.getY(tileIndex);
+    }
+    return Math.trunc(tileIndex / instance.template.width);
+}
 /** 按期望距离生成自动战斗移动目标点。 */
 function buildAutoBattleGoalPoints(instance, targetX, targetY, range) {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
@@ -544,7 +557,7 @@ function buildAutoBattleGoalPoints(instance, targetX, targetY, range) {
     const goals = [];
     for (let y = targetY - normalizedRange; y <= targetY + normalizedRange; y += 1) {
         for (let x = targetX - normalizedRange; x <= targetX + normalizedRange; x += 1) {
-            if (!isInBounds(x, y, instance.template.width, instance.template.height)) {
+            if (instance.isInBounds?.(x, y) !== true) {
                 continue;
             }
             if (x === targetX && y === targetY) {
@@ -568,6 +581,9 @@ function isTileVisibleInView(view, x, y, radius) {
 
     if (view.self.x === x && view.self.y === y) {
         return true;
+    }
+    if (Array.isArray(view.visibleTileKeys) && view.visibleTileKeys.length > 0) {
+        return view.visibleTileKeys.includes(`${x},${y}`);
     }
     if (Array.isArray(view.visibleTileIndices) && view.visibleTileIndices.length > 0) {
 

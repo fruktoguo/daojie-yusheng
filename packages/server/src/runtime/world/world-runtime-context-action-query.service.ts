@@ -123,7 +123,7 @@ let WorldRuntimeContextActionQueryService = class WorldRuntimeContextActionQuery
  * @returns 无返回值，直接更新上下文Action相关状态。
  */
 
-    buildContextActions(view) {
+    buildContextActions(view, deps = null) {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
         const actions = [];
@@ -138,11 +138,18 @@ let WorldRuntimeContextActionQueryService = class WorldRuntimeContextActionQuery
             requiresTarget: true,
             targetMode: 'any',
         });
+        const respawnTargetMapId = typeof player?.respawnTemplateId === 'string' && player.respawnTemplateId.trim()
+            ? player.respawnTemplateId.trim()
+            : (typeof deps?.resolveDefaultRespawnMapId === 'function' ? deps.resolveDefaultRespawnMapId() : 'yunlai_town');
+        let respawnTargetName = respawnTargetMapId || '默认复活点';
+        if (respawnTargetMapId && this.templateRepository.has(respawnTargetMapId)) {
+            respawnTargetName = this.templateRepository.getOrThrow(respawnTargetMapId).name || respawnTargetMapId;
+        }
         actions.push({
             id: 'travel:return_spawn',
-            name: '遁返云来',
+            name: '遁返',
             type: 'travel',
-            desc: '催动归引灵符，立即返回当前角色的默认落脚点。',
+            desc: `催动归引灵符，遁返回 ${respawnTargetName}。`,
             cooldownLeft: 0,
         });
         for (const action of STATIC_TOGGLE_CONTEXT_ACTIONS) {
@@ -153,6 +160,28 @@ let WorldRuntimeContextActionQueryService = class WorldRuntimeContextActionQuery
                 desc: action.desc,
                 cooldownLeft: 0,
             });
+        }
+        const localFormations = typeof deps?.worldRuntimeFormationService?.listOwnedFormationsAt === 'function'
+            ? deps.worldRuntimeFormationService.listOwnedFormationsAt(view.instance.instanceId, view.playerId, view.self.x, view.self.y)
+            : [];
+        for (const formation of localFormations) {
+            actions.push({
+                id: `formation:toggle:${formation.id}`,
+                name: formation.active ? `关闭：${formation.name}` : `开启：${formation.name}`,
+                type: 'interact',
+                desc: `阵眼灵力 ${formation.remainingAuraBudget}，半径 ${formation.radius}。`,
+                cooldownLeft: 0,
+            });
+            actions.push({
+                id: `formation:refill:${formation.id}`,
+                name: `补充：${formation.name}`,
+                type: 'interact',
+                desc: `消耗 ${formation.refillSpiritStoneCount} 灵石和 ${formation.refillQiCost} 灵力，为当前阵法补充 ${formation.refillAuraBudget} 阵眼灵力。`,
+                cooldownLeft: 0,
+            });
+        }
+        if (typeof deps?.worldRuntimeSectService?.buildSectCoreActions === 'function') {
+            actions.push(...deps.worldRuntimeSectService.buildSectCoreActions(view, deps));
         }
         for (const portal of view.localPortals) {
             if (portal.trigger !== 'manual'

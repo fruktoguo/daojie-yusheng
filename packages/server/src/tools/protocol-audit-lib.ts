@@ -605,7 +605,7 @@ function createAuditedSocket(options) {
  * 记录payloads。
  */
       const payloads = byEvent.get(event) ?? [];
-      for (let index = payloads.length - 1; index >= 0; index -= 1) {
+      for (let index = 0; index < payloads.length; index += 1) {
 /**
  * 记录payload。
  */
@@ -632,7 +632,7 @@ function createAuditedSocket(options) {
  * 记录payloads。
  */
       const payloads = byEvent.get(event) ?? [];
-      for (let index = payloads.length - 1; index >= afterCount; index -= 1) {
+      for (let index = afterCount; index < payloads.length; index += 1) {
 /**
  * 记录payload。
  */

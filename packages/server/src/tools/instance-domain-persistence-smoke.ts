@@ -51,6 +51,52 @@ async function main(): Promise<void> {
       { resourceKey: 'qi', tileIndex: 12, value: 34 },
       { resourceKey: 'qi', tileIndex: 15, value: 56 },
     ]);
+    await service.replaceRuntimeTileCells(instanceId, [
+      { x: 3, y: 4, tileType: 'floor' },
+      { x: -2, y: 7, tileType: 'stone' },
+    ]);
+    const runtimeTileCells = await service.loadRuntimeTileCells(instanceId);
+    assert.deepEqual(runtimeTileCells, [
+      { x: 3, y: 4, tileType: 'floor' },
+      { x: -2, y: 7, tileType: 'stone' },
+    ]);
+    await service.saveTileDamageStates(instanceId, [
+      {
+        tileIndex: 7,
+        hp: 0,
+        maxHp: 100,
+        destroyed: true,
+        respawnLeft: 42,
+        modifiedAt: 123456,
+      },
+    ]);
+    const tileDamageRows = await service.loadTileDamageStates(instanceId);
+    assert.deepEqual(tileDamageRows, [
+      {
+        tileIndex: 7,
+        hp: 0,
+        maxHp: 100,
+        destroyed: true,
+        respawnLeft: 42,
+        modifiedAt: 123456,
+      },
+    ]);
+    await service.deleteTileDamageStates(instanceId, [7]);
+    const tileDamageRowsAfterDelete = await service.loadTileDamageStates(instanceId);
+    assert.equal(tileDamageRowsAfterDelete.length, 0);
+    await service.saveTileDamageStates(instanceId, [
+      {
+        tileIndex: 7,
+        hp: 0,
+        maxHp: 100,
+        destroyed: true,
+        respawnLeft: 42,
+        modifiedAt: 123456,
+      },
+    ]);
+    await service.saveTileDamageStates(instanceId, []);
+    const tileDamageRowsAfterClear = await service.loadTileDamageStates(instanceId);
+    assert.equal(tileDamageRowsAfterClear.length, 0);
     await service.saveInstanceCheckpoint(instanceId, {
       kind: 'cold_start',
       tileResourceCount: rows.length,
@@ -92,7 +138,24 @@ async function main(): Promise<void> {
       instanceId,
       containerId: 'container:1',
       sourceId: 'source:1',
-      statePayload: { locked: true, slots: 4 },
+      statePayload: {
+        locked: true,
+        slots: 4,
+        generatedAtTick: 11,
+        refreshAtTick: 29,
+        entries: [
+          {
+            item: { itemId: 'spirit_grass', count: 2 },
+            createdTick: 12,
+            visible: true,
+          },
+        ],
+        activeSearch: {
+          itemKey: 'spirit_grass',
+          totalTicks: 5,
+          remainingTicks: 3,
+        },
+      },
     });
     const containerStates = await service.loadContainerStates(instanceId);
     assert.deepEqual(containerStates, [
@@ -100,7 +163,26 @@ async function main(): Promise<void> {
         instanceId,
         containerId: 'container:1',
         sourceId: 'source:1',
-        statePayload: { locked: true, slots: 4 },
+        statePayload: {
+          locked: true,
+          slots: 4,
+          sourceId: 'source:1',
+          containerId: 'container:1',
+          generatedAtTick: 11,
+          refreshAtTick: 29,
+          entries: [
+            {
+              item: { itemId: 'spirit_grass', count: 2 },
+              createdTick: 12,
+              visible: true,
+            },
+          ],
+          activeSearch: {
+            itemKey: 'spirit_grass',
+            totalTicks: 5,
+            remainingTicks: 3,
+          },
+        },
       },
     ]);
     const removedContainerState = await service.removeContainerState(instanceId, 'container:1');
@@ -171,6 +253,9 @@ async function main(): Promise<void> {
     assert.equal(rejectedMonster, false);
     const rejectedMonsterRows = await service.loadMonsterRuntimeStates(instanceId);
     assert.equal(rejectedMonsterRows.length, 0);
+    await service.replaceMonsterRuntimeStates(monsterInstanceId, []);
+    const monsterRowsAfterReplaceClear = await service.loadMonsterRuntimeStates(monsterInstanceId);
+    assert.equal(monsterRowsAfterReplaceClear.length, 0);
     const savedEvent = await service.saveEventState({
       eventId: `event:${instanceId}:1`,
       instanceId,
@@ -235,6 +320,20 @@ async function main(): Promise<void> {
     assert.equal(removedOverlay, true);
     const overlayChunksAfterRemove = await service.loadOverlayChunks(instanceId);
     assert.equal(overlayChunksAfterRemove.length, 0);
+    await service.replaceOverlayChunks(instanceId, [
+      {
+        patchKind: 'portal',
+        chunkKey: 'runtime_portals',
+        patchVersion: 4,
+        patchPayload: { version: 1, portals: [{ x: 1, y: 1, targetMapId: 'sect_domain' }] },
+      },
+    ]);
+    const overlayChunksAfterReplace = await service.loadOverlayChunks(instanceId);
+    assert.equal(overlayChunksAfterReplace.length, 1);
+    assert.equal(overlayChunksAfterReplace[0]?.patchKind, 'portal');
+    await service.replaceOverlayChunks(instanceId, []);
+    const overlayChunksAfterReplaceClear = await service.loadOverlayChunks(instanceId);
+    assert.equal(overlayChunksAfterReplaceClear.length, 0);
 
     const legacySnapshot = {
       version: 1,
@@ -254,7 +353,23 @@ async function main(): Promise<void> {
         },
       ],
       containerStates: [
-        { instanceId, containerId: 'container:legacy:1', sourceId: 'source:legacy:1', statePayload: { locked: true } },
+        {
+          instanceId,
+          containerId: 'container:legacy:1',
+          sourceId: 'source:legacy:1',
+          statePayload: {
+            locked: true,
+            generatedAtTick: 31,
+            refreshAtTick: 62,
+            entries: [
+              {
+                item: { itemId: 'spirit_grass_seed', count: 1 },
+                createdTick: 33,
+                visible: false,
+              },
+            ],
+          },
+        },
       ],
     };
     const projected = projectLegacyInstanceSnapshot(legacySnapshot, `${instanceId}:legacy`);
@@ -284,7 +399,7 @@ async function main(): Promise<void> {
           ok: true,
           instanceId,
           rowCount: rows.length,
-          answers: 'with-db 下已验证 instance_tile_resource_state 可按 instance_id/resource_key/tile_index 落地和回读 tile resource diff，instance_checkpoint 可按 instance_id 存储/读取冷启动 checkpoint，instance_recovery_watermark 也可按 instance_id 存储/读取恢复水位，instance_ground_item 也能按 ground_item_id 落地/删除并按 instance_id 回读，instance_container_state 也能按 instance_id/container_id 落地/删除并回读，instance_monster_runtime_state 也能只给高价值怪物写入并按 instance_id 回读，低价值怪物会被拒绝落库，instance_event_state 也能按 event_id/instance_id 落地、回读并删除，instance_overlay_chunk 也能按 instance_id/patch_kind/chunk_key 落地、回读并删除',
+          answers: 'with-db 下已验证 instance_tile_cell 可按 instance_id/x/y 落地和回读动态地块，instance_tile_resource_state 可按 instance_id/resource_key/tile_index 落地和回读 tile resource diff，instance_tile_damage_state 可按 instance_id/tile_index 落地、清空并回读地块损坏状态，instance_checkpoint 可按 instance_id 存储/读取冷启动 checkpoint，instance_recovery_watermark 也可按 instance_id 存储/读取恢复水位，instance_ground_item 也能按 ground_item_id 落地/删除并按 instance_id 回读，instance_container_state/entry/timer 能按 instance_id/container_id 拆表落地、重建回读并删除，instance_monster_runtime_state 也能只给高价值怪物写入并按 instance_id 回读，低价值怪物会被拒绝落库，instance_event_state 也能按 event_id/instance_id 落地、回读并删除，instance_overlay_chunk 也能按 instance_id/patch_kind/chunk_key 落地、回读并删除',
           excludes: '不证明完整实例分域恢复/迁移链，也不证明其它 instance_* 专表',
           completionMapping: 'replace-ready:proof:with-db.instance-domain-persistence',
         },
@@ -299,16 +414,22 @@ async function main(): Promise<void> {
 }
 
 async function cleanupRows(pool: Pool, instanceId: string): Promise<void> {
-  await pool.query('DELETE FROM instance_tile_resource_state WHERE instance_id = $1', [instanceId]);
+    await pool.query('DELETE FROM instance_tile_cell WHERE instance_id = $1', [instanceId]).catch(() => undefined);
+    await pool.query('DELETE FROM instance_tile_resource_state WHERE instance_id = $1', [instanceId]);
+    await pool.query('DELETE FROM instance_tile_damage_state WHERE instance_id = $1', [instanceId]).catch(() => undefined);
   await pool.query('DELETE FROM instance_monster_runtime_state WHERE instance_id = $1 OR instance_id = $2', [instanceId, `${instanceId}:monster`]);
   await pool.query('DELETE FROM instance_event_state WHERE instance_id = $1', [instanceId]);
   await pool.query('DELETE FROM instance_overlay_chunk WHERE instance_id = $1', [instanceId]);
+  await pool.query('DELETE FROM instance_container_entry WHERE instance_id = $1', [instanceId]).catch(() => undefined);
+  await pool.query('DELETE FROM instance_container_timer WHERE instance_id = $1', [instanceId]).catch(() => undefined);
   await pool.query('DELETE FROM instance_container_state WHERE instance_id = $1', [instanceId]);
   await pool.query('DELETE FROM instance_ground_item WHERE instance_id = $1', [instanceId]);
   await pool.query('DELETE FROM instance_checkpoint WHERE instance_id = $1', [instanceId]);
   await pool.query('DELETE FROM instance_recovery_watermark WHERE instance_id = $1', [instanceId]);
   await pool.query('DELETE FROM instance_tile_resource_state WHERE instance_id = $1', [`${instanceId}:legacy`]);
   await pool.query('DELETE FROM instance_ground_item WHERE instance_id = $1', [`${instanceId}:legacy`]);
+  await pool.query('DELETE FROM instance_container_entry WHERE instance_id = $1', [`${instanceId}:legacy`]).catch(() => undefined);
+  await pool.query('DELETE FROM instance_container_timer WHERE instance_id = $1', [`${instanceId}:legacy`]).catch(() => undefined);
   await pool.query('DELETE FROM instance_container_state WHERE instance_id = $1', [`${instanceId}:legacy`]);
   await pool.query('DELETE FROM instance_checkpoint WHERE instance_id = $1', [`${instanceId}:legacy`]);
   await pool.query('DELETE FROM instance_recovery_watermark WHERE instance_id = $1', [`${instanceId}:legacy`]);
@@ -363,12 +484,25 @@ function projectLegacyInstanceSnapshot(snapshot, instanceId) {
   const containerStates = Array.isArray(snapshot?.containerStates)
     ? snapshot.containerStates
         .filter((entry) => entry && typeof entry.containerId === 'string')
-        .map((entry) => ({
-          instanceId,
-          containerId: entry.containerId,
-          sourceId: entry.sourceId ?? entry.containerId,
-          statePayload: entry.statePayload ?? {},
-        }))
+        .map((entry) => {
+          const containerId = entry.containerId;
+          const sourceId = entry.sourceId ?? entry.containerId;
+          const statePayload = entry.statePayload && typeof entry.statePayload === 'object' ? entry.statePayload : {};
+          return {
+            instanceId,
+            containerId,
+            sourceId,
+            statePayload: {
+              ...statePayload,
+              sourceId,
+              containerId,
+              generatedAtTick: Number.isFinite(Number(statePayload.generatedAtTick)) ? Math.trunc(Number(statePayload.generatedAtTick)) : null,
+              refreshAtTick: Number.isFinite(Number(statePayload.refreshAtTick)) ? Math.trunc(Number(statePayload.refreshAtTick)) : null,
+              entries: Array.isArray(statePayload.entries) ? statePayload.entries : [],
+              activeSearch: statePayload.activeSearch,
+            },
+          };
+        })
     : [];
   const expectedGroundItems = Array.isArray(snapshot?.groundPileEntries)
     ? snapshot.groundPileEntries.flatMap((pile) => {

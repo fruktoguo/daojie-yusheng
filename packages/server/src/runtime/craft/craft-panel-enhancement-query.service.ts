@@ -80,6 +80,7 @@ let CraftPanelEnhancementQueryService = class CraftPanelEnhancementQueryService 
             candidates: this.collectEnhancementCandidates(player, enhancementConfigs),
             records: (player.enhancementRecords ?? []).map((entry) => cloneEnhancementRecord(entry)),
             job: player.enhancementJob ? cloneEnhancementJob(player.enhancementJob) : null,
+            queue: cloneCraftQueue(player.enhancementJob?.queuedJobs ?? player.alchemyJob?.queuedJobs ?? []),
         };
     }    
     /**
@@ -174,6 +175,12 @@ exports.CraftPanelEnhancementQueryService = CraftPanelEnhancementQueryService = 
     __metadata("design:paramtypes", [content_template_repository_1.ContentTemplateRepository])
 ], CraftPanelEnhancementQueryService);
 export { CraftPanelEnhancementQueryService };
+
+function cloneCraftQueue(queue) {
+    return Array.isArray(queue)
+        ? queue.map((entry) => ({ ...entry }))
+        : [];
+}
 /**
  * getEnhancementRequirements：读取强化Requirement。
  * @param config 参数说明。

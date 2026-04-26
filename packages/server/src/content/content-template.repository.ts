@@ -72,6 +72,8 @@ let ContentTemplateRepository = ContentTemplateRepository_1 = class ContentTempl
     techniqueTemplates = new Map();
     /** 共享功法 buff 表，供多个技能复用。 */
     sharedTechniqueBuffs = new Map();
+    /** 阵法模板表，按 formationId 查找。 */
+    formationTemplates = new Map();
     /** 妖兽掉落表，按 monsterId 聚合。 */
     monsterDropsByMonsterId = new Map();
     /** 妖兽运行时模板表，用于生成世界刷怪数据。 */
@@ -149,10 +151,23 @@ let ContentTemplateRepository = ContentTemplateRepository_1 = class ContentTempl
             })) : undefined,
             mapUnlockId: template.mapUnlockId,
             mapUnlockIds: Array.isArray(template.mapUnlockIds) ? template.mapUnlockIds.slice() : undefined,
+            respawnBindMapId: template.respawnBindMapId,
             tileAuraGainAmount: template.tileAuraGainAmount,
             tileResourceGains: Array.isArray(template.tileResourceGains) ? template.tileResourceGains.map((entry) => ({ ...entry })) : undefined,
+            useBehavior: template.useBehavior,
+            formationDiskTier: template.formationDiskTier,
+            formationDiskMultiplier: template.formationDiskMultiplier,
             allowBatchUse: template.allowBatchUse,
         })).sort((left, right) => left.itemId.localeCompare(right.itemId, 'zh-Hans-CN'));
+    }
+    /** 读取阵法模板。 */
+    getFormationTemplate(formationId) {
+        const normalized = typeof formationId === 'string' ? formationId.trim() : '';
+        return normalized ? this.formationTemplates.get(normalized) ?? null : null;
+    }
+    /** 列出阵法模板。 */
+    listFormationTemplates() {
+        return Array.from(this.formationTemplates.values(), (template) => ({ ...template }));
     }
     /**
  * rollLootPoolItems：执行roll掉落Pool道具相关逻辑。
@@ -297,6 +312,7 @@ let ContentTemplateRepository = ContentTemplateRepository_1 = class ContentTempl
                 level: entry.level,
                 expToNext: entry.expToNext,
                 attrs: entry.attrs ? { ...entry.attrs } : undefined,
+                specialStats: entry.specialStats ? { ...entry.specialStats } : undefined,
                 qiProjection: cloneQiProjectionModifiers(entry.qiProjection),
             })),
             attrCurves: template.attrCurves ? { ...template.attrCurves } : undefined,
@@ -352,17 +368,22 @@ let ContentTemplateRepository = ContentTemplateRepository_1 = class ContentTempl
 
         const templateLayerByLevel = new Map((template?.layers ?? []).map((entry) => [entry.level, entry]));
         const layers = Array.isArray(input.layers) && input.layers.length > 0
-            ? input.layers.map((entry) => ({
-                level: Number.isFinite(entry?.level) ? Math.max(1, Math.trunc(Number(entry.level))) : 1,
-                expToNext: Number.isFinite(entry?.expToNext) ? Math.max(0, Math.trunc(Number(entry.expToNext))) : 0,
-
-                attrs: entry?.attrs && typeof entry.attrs === 'object' ? { ...entry.attrs } : undefined,
-                qiProjection: cloneQiProjectionModifiers(entry?.qiProjection ?? templateLayerByLevel.get(Number.isFinite(entry?.level) ? Math.max(1, Math.trunc(Number(entry.level))) : 1)?.qiProjection),
-            }))
+            ? input.layers.map((entry) => {
+                const layerLevel = Number.isFinite(entry?.level) ? Math.max(1, Math.trunc(Number(entry.level))) : 1;
+                const templateLayer = templateLayerByLevel.get(layerLevel);
+                return {
+                    level: layerLevel,
+                    expToNext: Number.isFinite(entry?.expToNext) ? Math.max(0, Math.trunc(Number(entry.expToNext))) : 0,
+                    attrs: cloneTechniqueLayerAttrsWithoutSpecialStats(entry?.attrs),
+                    specialStats: resolveTechniqueLayerSpecialStats(entry, templateLayer),
+                    qiProjection: cloneQiProjectionModifiers(entry?.qiProjection ?? templateLayer?.qiProjection),
+                };
+            })
             : (template?.layers.map((entry) => ({
                 level: entry.level,
                 expToNext: entry.expToNext,
                 attrs: entry.attrs ? { ...entry.attrs } : undefined,
+                specialStats: entry.specialStats ? { ...entry.specialStats } : undefined,
                 qiProjection: cloneQiProjectionModifiers(entry.qiProjection),
             })) ?? []);
 
@@ -414,6 +435,7 @@ let ContentTemplateRepository = ContentTemplateRepository_1 = class ContentTempl
                 level: entry.level,
                 expToNext: entry.expToNext,
                 attrs: entry.attrs ? { ...entry.attrs } : undefined,
+                specialStats: entry.specialStats ? { ...entry.specialStats } : undefined,
                 qiProjection: cloneQiProjectionModifiers(entry.qiProjection),
             })),
         })).sort((left, right) => left.id.localeCompare(right.id, 'zh-Hans-CN'));
@@ -676,6 +698,7 @@ let ContentTemplateRepository = ContentTemplateRepository_1 = class ContentTempl
         this.itemTemplates.clear();
         this.techniqueTemplates.clear();
         this.sharedTechniqueBuffs.clear();
+        this.formationTemplates.clear();
         this.monsterDropsByMonsterId.clear();
         this.monsterRuntimeTemplates.clear();
         this.monsterRuntimeStatesByMapId.clear();
@@ -696,6 +719,19 @@ let ContentTemplateRepository = ContentTemplateRepository_1 = class ContentTempl
             }
         }
         this.loadSharedTechniqueBuffs();
+
+        const formationsPath = (0, project_path_1.resolveProjectPath)('packages', 'server', 'data', 'content', 'formations.json');
+        if (fs.existsSync(formationsPath)) {
+            const parsedFormations = JSON.parse(fs.readFileSync(formationsPath, 'utf-8'));
+            if (Array.isArray(parsedFormations)) {
+                for (const entry of parsedFormations) {
+                    if (!entry || typeof entry !== 'object' || typeof entry.id !== 'string' || !entry.id.trim()) {
+                        continue;
+                    }
+                    this.formationTemplates.set(entry.id.trim(), { ...entry, id: entry.id.trim() });
+                }
+            }
+        }
 
         const techniqueFiles = collectJsonFiles((0, project_path_1.resolveProjectPath)('packages', 'server', 'data', 'content', 'techniques'));
         for (const file of techniqueFiles) {
@@ -1567,8 +1603,8 @@ function cloneMonsterAttributes(source) {
         spirit: source.spirit,
         perception: source.perception,
         talent: source.talent,
-        comprehension: source.comprehension,
-        luck: source.luck,
+        strength: source.strength ?? source.comprehension ?? 0,
+        meridians: source.meridians ?? source.luck ?? 0,
     };
 }
 /**
@@ -1740,10 +1776,16 @@ function normalizeItemTemplate(raw) {
         mapUnlockIds: Array.isArray(candidate.mapUnlockIds)
             ? candidate.mapUnlockIds.filter((entry) => typeof entry === 'string' && entry.length > 0)
             : undefined,
+        respawnBindMapId: typeof candidate.respawnBindMapId === 'string' && candidate.respawnBindMapId.trim()
+            ? candidate.respawnBindMapId.trim()
+            : undefined,
         tileAuraGainAmount: synthesizedTileAuraGainAmount,
         tileResourceGains: normalizedTileResourceGains && normalizedTileResourceGains.length > 0
             ? normalizedTileResourceGains
             : defaultTileResourceGains,
+        useBehavior: typeof candidate.useBehavior === 'string' && candidate.useBehavior.trim() ? candidate.useBehavior.trim() : undefined,
+        formationDiskTier: typeof candidate.formationDiskTier === 'string' ? candidate.formationDiskTier : undefined,
+        formationDiskMultiplier: Number.isFinite(candidate.formationDiskMultiplier) ? Math.max(1, Number(candidate.formationDiskMultiplier)) : undefined,
 
         allowBatchUse: candidate.allowBatchUse === true,
 
@@ -2065,6 +2107,7 @@ function normalizeTechniqueLayer(raw, realmLv) {
             ? scaleTechniqueExpCompat(Number(candidate.expFactor), realmLv)
             : Math.max(0, Math.trunc(Number(candidate.expToNext ?? 0))),
         attrs: normalizeTechniqueLayerAttrs(candidate.attrs),
+        specialStats: normalizeTechniqueLayerSpecialStats(candidate.specialStats),
         qiProjection: cloneQiProjectionModifiers(candidate.qiProjection),
     };
 }
@@ -2121,6 +2164,49 @@ function normalizeTechniqueLayerAttrs(raw) {
         }
     }
     return Object.keys(result).length > 0 ? result : undefined;
+}
+
+function normalizeTechniqueLayerSpecialStats(raw) {
+    if (!raw || typeof raw !== 'object') {
+        return undefined;
+    }
+    const source = raw;
+    const result = {};
+    for (const key of ['comprehension', 'luck']) {
+        const value = Number(source[key]);
+        if (Number.isFinite(value) && value !== 0) {
+            result[key] = value;
+        }
+    }
+    return Object.keys(result).length > 0 ? result : undefined;
+}
+
+function cloneTechniqueLayerAttrsWithoutSpecialStats(raw) {
+    if (!raw || typeof raw !== 'object') {
+        return undefined;
+    }
+    const result = {};
+    for (const [key, value] of Object.entries(raw)) {
+        if (key === 'comprehension' || key === 'luck') {
+            continue;
+        }
+        if (typeof value === 'number' && Number.isFinite(value) && value !== 0) {
+            result[key] = value;
+        }
+    }
+    return Object.keys(result).length > 0 ? result : undefined;
+}
+
+function resolveTechniqueLayerSpecialStats(entry, templateLayer) {
+    const explicit = normalizeTechniqueLayerSpecialStats(entry?.specialStats);
+    if (explicit) {
+        return explicit;
+    }
+    const legacy = normalizeTechniqueLayerSpecialStats(entry?.attrs);
+    if (legacy) {
+        return legacy;
+    }
+    return templateLayer?.specialStats ? { ...templateLayer.specialStats } : undefined;
 }
 /**
  * normalizeTechniqueAttrCurves：规范化或转换功法AttrCurve。

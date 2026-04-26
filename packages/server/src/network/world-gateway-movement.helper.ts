@@ -84,8 +84,8 @@ class WorldGatewayMovementHelper {
             return;
         }
         try {
-            this.gateway.worldRuntimeService.worldRuntimeCommandIntakeFacadeService.navigateQuest(playerId, questId, this.gateway.worldRuntimeService);
-            this.gateway.worldClientEventService.emitQuestNavigateResult(client, questId, true);
+            const result = this.gateway.worldRuntimeService.worldRuntimeCommandIntakeFacadeService.navigateQuest(playerId, questId, this.gateway.worldRuntimeService);
+            this.gateway.worldClientEventService.emitQuestNavigateResult(client, questId, true, undefined, result?.path);
         }
         catch (error) {
             this.gateway.worldClientEventService.emitQuestNavigateResult(client, questId, false, error instanceof Error ? error.message : String(error));

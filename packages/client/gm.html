@@ -496,9 +496,26 @@
     }
 
     .network-row {
+      display: flex;
+      align-items: flex-start;
+      justify-content: space-between;
+      gap: 10px;
       padding: 8px 10px;
       border: 1px solid rgba(17, 17, 17, 0.08);
       background: rgba(255,255,255,0.68);
+    }
+
+    .network-row-main {
+      min-width: 0;
+      flex: 1;
+    }
+
+    .network-row-actions {
+      flex: 0 0 auto;
+    }
+
+    .network-payload-btn {
+      white-space: nowrap;
     }
 
     .network-row-label {
@@ -512,6 +529,93 @@
       margin-top: 4px;
       font-size: 12px;
       color: var(--ink-grey);
+    }
+
+    .network-payload-modal {
+      position: fixed;
+      inset: 0;
+      z-index: 60;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 18px;
+      background: rgba(0, 0, 0, 0.58);
+    }
+
+    .network-payload-dialog {
+      width: min(960px, 100%);
+      max-height: min(82vh, 760px);
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+      padding: 16px;
+      border: 1.5px solid var(--ink-black);
+      background: var(--paper-light);
+      box-shadow: 10px 10px 0 rgba(0, 0, 0, 0.22);
+    }
+
+    .network-payload-dialog-head,
+    .network-payload-sample-head {
+      display: flex;
+      align-items: baseline;
+      justify-content: space-between;
+      gap: 12px;
+    }
+
+    .network-payload-sample-list {
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+      min-height: 0;
+      overflow: auto;
+    }
+
+    .network-payload-sample {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+    }
+
+    .network-payload-sample-head {
+      font-size: 12px;
+      color: var(--ink-grey);
+    }
+
+    .network-payload-body {
+      width: 100%;
+      min-height: 220px;
+      resize: vertical;
+      padding: 10px;
+      border: 1px solid var(--wash-ink);
+      background: #fff;
+      color: var(--ink-dark);
+      font-family: ui-monospace, SFMono-Regular, Consolas, "Liberation Mono", monospace;
+      font-size: 12px;
+      line-height: 1.5;
+      white-space: pre;
+    }
+
+    @media (max-width: 720px) {
+      .network-row,
+      .network-payload-dialog-head,
+      .network-payload-sample-head {
+        align-items: flex-start;
+        flex-direction: column;
+      }
+
+      .network-row-actions,
+      .network-payload-btn {
+        width: 100%;
+      }
+
+      .network-payload-dialog {
+        max-height: calc(100vh - 24px);
+        padding: 12px;
+      }
+
+      .network-payload-body {
+        min-height: 180px;
+      }
     }
 
     .workspace-tabs {
@@ -1150,6 +1254,33 @@
       gap: 8px;
     }
 
+    .editor-attr-summary-grid {
+      display: grid;
+      grid-template-columns: repeat(6, minmax(0, 1fr));
+      gap: 8px;
+    }
+
+    .editor-attr-summary-card {
+      border: 1px solid var(--wash-ink);
+      background: rgba(255,255,255,0.68);
+      padding: 9px 10px;
+      min-width: 0;
+    }
+
+    .editor-attr-summary-label,
+    .editor-attr-summary-meta {
+      font-size: 11px;
+      color: var(--ink-grey);
+    }
+
+    .editor-attr-summary-value {
+      margin-top: 4px;
+      font-family: var(--font-heading-sub);
+      font-size: 18px;
+      color: var(--ink-black);
+      line-height: 1.2;
+    }
+
     .editor-code {
       margin-top: 8px;
       padding: 10px;
@@ -1352,6 +1483,7 @@
       .editor-grid,
       .editor-grid.compact,
       .editor-stat-grid,
+      .editor-attr-summary-grid,
       .map-form-grid,
       .map-form-grid.compact {
         grid-template-columns: 1fr;

@@ -32,6 +32,9 @@ let WorldRuntimeLifecycleService = class WorldRuntimeLifecycleService {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
         for (const template of deps.templateRepository.list()) {
+            if (template?.source?.sectMap === true || String(template?.id ?? '').startsWith('sect_domain:')) {
+                continue;
+            }
             deps.createInstance({
                 instanceId: buildPublicInstanceId(template.id),
                 templateId: template.id,
@@ -68,13 +71,19 @@ let WorldRuntimeLifecycleService = class WorldRuntimeLifecycleService {
         const domainPersistenceEnabled = typeof domainPersistenceService?.isEnabled === 'function'
             && domainPersistenceService.isEnabled();
         if (!deps.mapPersistenceService.isEnabled() && !domainPersistenceEnabled) {
+            if (typeof deps.worldRuntimeSectService?.restoreSects === 'function') {
+                await deps.worldRuntimeSectService.restoreSects(deps);
+            }
             return;
+        }
+        if (typeof deps.worldRuntimeSectService?.restoreSects === 'function') {
+            await deps.worldRuntimeSectService.restoreSects(deps);
         }
         for (const [instanceId, instance] of deps.listInstanceEntries()) {
             if (!instance.meta.persistent) {
                 continue;
             }
-            const legacySnapshot = deps.mapPersistenceService.isEnabled()
+            const legacySnapshot = deps.mapPersistenceService.isEnabled() && isLegacyMapSnapshotRestoreEnabled()
                 ? await deps.mapPersistenceService.loadMapSnapshot(instanceId)
                 : null;
             if (legacySnapshot) {
@@ -82,6 +91,12 @@ let WorldRuntimeLifecycleService = class WorldRuntimeLifecycleService {
             }
             if (domainPersistenceEnabled) {
                 const watermark = await domainPersistenceService.loadInstanceRecoveryWatermark(instanceId);
+                const runtimeTileCells = typeof domainPersistenceService.loadRuntimeTileCells === 'function'
+                    ? await domainPersistenceService.loadRuntimeTileCells(instanceId)
+                    : [];
+                if (Array.isArray(runtimeTileCells) && runtimeTileCells.length > 0 && typeof instance.hydrateRuntimeTiles === 'function') {
+                    instance.hydrateRuntimeTiles(runtimeTileCells);
+                }
                 const tileDiffs = await domainPersistenceService.loadTileResourceDiffs(instanceId);
                 if (Array.isArray(tileDiffs) && tileDiffs.length > 0) {
                     instance.patchTileResources(tileDiffs.map((entry) => ({
@@ -90,24 +105,45 @@ let WorldRuntimeLifecycleService = class WorldRuntimeLifecycleService {
                         value: entry.value,
                     })));
                 }
+                const tileDamageStates = typeof domainPersistenceService.loadTileDamageStates === 'function'
+                    ? await domainPersistenceService.loadTileDamageStates(instanceId)
+                    : [];
+                if (Array.isArray(tileDamageStates) && tileDamageStates.length > 0) {
+                    instance.hydrateTileDamage(tileDamageStates);
+                }
                 const groundItems = await domainPersistenceService.loadGroundItems(instanceId);
                 if (Array.isArray(groundItems) && groundItems.length > 0) {
                     instance.hydrateGroundPiles(groupGroundItemsByTile(groundItems));
                 }
                 const containerStates = await domainPersistenceService.loadContainerStates(instanceId);
-                deps.worldRuntimeLootContainerService.hydrateContainerStates(instanceId, containerStates ?? []);
+                deps.worldRuntimeLootContainerService.hydrateContainerStates(instanceId, normalizeLoadedContainerStates(containerStates ?? []));
                 const monsterStates = await domainPersistenceService.loadMonsterRuntimeStates(instanceId);
                 instance.hydrateMonsterRuntimeStates(monsterStates ?? []);
                 const eventStates = await domainPersistenceService.loadEventStates(instanceId);
                 const overlayChunks = await domainPersistenceService.loadOverlayChunks(instanceId);
+                if (Array.isArray(overlayChunks) && overlayChunks.length > 0 && typeof instance.hydrateOverlayChunks === 'function') {
+                    instance.hydrateOverlayChunks(overlayChunks);
+                }
                 const checkpoint = await domainPersistenceService.loadInstanceCheckpoint(instanceId);
                 if (checkpoint) {
                     hydrateInstanceFromCheckpoint(instance, checkpoint, deps, instanceId);
+                }
+                if (typeof deps.worldRuntimeFormationService?.restoreInstanceFormations === 'function') {
+                    const restoredFormations = await deps.worldRuntimeFormationService.restoreInstanceFormations(instanceId);
+                    if (restoredFormations > 0) {
+                        deps.logger.log(`实例阵法已恢复：${instanceId} x${restoredFormations}`);
+                    }
                 }
                 if (legacySnapshot || watermark || (Array.isArray(eventStates) && eventStates.length > 0) || (Array.isArray(overlayChunks) && overlayChunks.length > 0) || checkpoint) {
                     deps.logger.log(`实例分域恢复已回填：${instanceId}`);
                 }
                 continue;
+            }
+            if (typeof deps.worldRuntimeFormationService?.restoreInstanceFormations === 'function') {
+                const restoredFormations = await deps.worldRuntimeFormationService.restoreInstanceFormations(instanceId);
+                if (restoredFormations > 0) {
+                    deps.logger.log(`实例阵法已恢复：${instanceId} x${restoredFormations}`);
+                }
             }
             if (legacySnapshot) {
                 deps.logger.log(`实例地图快照已恢复：${instanceId}`);
@@ -122,6 +158,9 @@ let WorldRuntimeLifecycleService = class WorldRuntimeLifecycleService {
 
     async rebuildPersistentRuntimeAfterRestore(deps) {
         if (deps.instanceCatalogService?.isEnabled?.()) {
+            if (typeof deps.worldRuntimeSectService?.restoreSectTemplates === 'function') {
+                await deps.worldRuntimeSectService.restoreSectTemplates(deps);
+            }
             const catalogEntries = await deps.instanceCatalogService.listInstanceCatalogEntries?.();
             for (const entry of Array.isArray(catalogEntries) ? catalogEntries : []) {
                 if (!shouldRestoreCatalogEntry(entry)) {
@@ -133,6 +172,15 @@ let WorldRuntimeLifecycleService = class WorldRuntimeLifecycleService {
                     continue;
                 }
                 if (deps.getInstanceRuntime(instanceId)) {
+                    continue;
+                }
+                if (typeof deps.templateRepository?.has === 'function'
+                    && !deps.templateRepository.has(templateId)
+                    && typeof deps.worldRuntimeSectService?.restoreCatalogSectTemplate === 'function') {
+                    deps.worldRuntimeSectService.restoreCatalogSectTemplate(entry, deps);
+                }
+                if (typeof deps.templateRepository?.has === 'function' && !deps.templateRepository.has(templateId)) {
+                    deps.logger.warn(`实例目录引用的地图模板不存在，跳过恢复：${instanceId} -> ${templateId}`);
                     continue;
                 }
                 deps.createInstance({
@@ -202,6 +250,9 @@ let WorldRuntimeLifecycleService = class WorldRuntimeLifecycleService {
         deps.worldRuntimeLootContainerService.reset();
         deps.worldRuntimeCombatEffectsService.resetAll();
         this.bootstrapPublicInstances(deps);
+        if (typeof deps.worldRuntimeSectService?.restoreSects === 'function') {
+            await deps.worldRuntimeSectService.restoreSects(deps);
+        }
         await this.restorePublicInstancePersistence(deps);
     }
 };
@@ -212,6 +263,9 @@ exports.WorldRuntimeLifecycleService = WorldRuntimeLifecycleService = __decorate
 
 export { WorldRuntimeLifecycleService };
 function shouldRestoreCatalogEntry(entry) {
+    if (entry?.status === 'destroyed' || entry?.runtime_status === 'stopped') {
+        return false;
+    }
     const destroyAt = entry?.destroy_at ? new Date(entry.destroy_at).getTime() : 0;
     if (Number.isFinite(destroyAt) && destroyAt > 0 && destroyAt <= Date.now()) {
         return false;
@@ -228,6 +282,23 @@ function shouldRestoreCatalogEntry(entry) {
         return false;
     }
     return Date.now() - lastActiveAt <= LONG_LIVED_INSTANCE_TTL_MS;
+}
+
+function isLegacyMapSnapshotRestoreEnabled() {
+    const value = process.env.SERVER_MAP_LEGACY_SNAPSHOT_RESTORE;
+    return typeof value === 'string' && /^(1|true|yes|on)$/iu.test(value.trim());
+}
+
+function normalizeLoadedContainerStates(rows) {
+    return (Array.isArray(rows) ? rows : [])
+        .map((row) => {
+        const payload = row?.statePayload && typeof row.statePayload === 'object' ? row.statePayload : {};
+        return {
+            ...payload,
+            sourceId: typeof row?.sourceId === 'string' && row.sourceId.trim() ? row.sourceId : payload.sourceId,
+            containerId: typeof row?.containerId === 'string' && row.containerId.trim() ? row.containerId : payload.containerId,
+        };
+    });
 }
 function normalizePersistentPolicy(value) {
     return value === 'persistent' || value === 'long_lived' || value === 'session' || value === 'ephemeral'
@@ -269,6 +340,12 @@ function hydrateInstanceFromCheckpoint(instance, checkpoint, deps, instanceId) {
         return;
     }
     const snapshot = checkpoint;
+    if (typeof instance.hydrateTime === 'function') {
+        instance.hydrateTime(snapshot.tick);
+    }
+    if (Array.isArray(snapshot.runtimeTileEntries) && typeof instance.hydrateRuntimeTiles === 'function') {
+        instance.hydrateRuntimeTiles(snapshot.runtimeTileEntries);
+    }
     if (Array.isArray(snapshot.tileResourceEntries) && snapshot.tileResourceEntries.length > 0) {
         instance.hydrateTileResources(snapshot.tileResourceEntries.map((entry) => ({
             resourceKey: typeof entry?.resourceKey === 'string' ? entry.resourceKey : '',
@@ -281,6 +358,9 @@ function hydrateInstanceFromCheckpoint(instance, checkpoint, deps, instanceId) {
             tileIndex: Number.isFinite(Number(entry?.tileIndex)) ? Math.trunc(Number(entry.tileIndex)) : 0,
             value: Number.isFinite(Number(entry?.value)) ? Math.max(0, Math.trunc(Number(entry.value))) : 0,
         })).filter((entry) => entry.value > 0));
+    }
+    if (Array.isArray(snapshot.tileDamageEntries) && typeof instance.hydrateTileDamage === 'function') {
+        instance.hydrateTileDamage(snapshot.tileDamageEntries);
     }
     if (Array.isArray(snapshot.groundPileEntries) && snapshot.groundPileEntries.length > 0) {
         instance.hydrateGroundPiles(snapshot.groundPileEntries);

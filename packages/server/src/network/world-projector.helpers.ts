@@ -12,6 +12,7 @@ import {
   type EquipmentConditionDef,
   type EquipmentConditionGroup,
   type EquipmentSlotUpdateEntry,
+  type FormationRangeShape,
   type InventorySlotUpdateEntry,
   S2C,
   type GroundItemEntryView,
@@ -38,20 +39,23 @@ import {
   type TechniqueAttrCurveSegment,
   type TechniqueAttrCurves,
   type TechniqueLayerDef,
+  type TechniqueState,
   type TechniqueUpdateEntryView,
   type VisibleBuffState,
   type WorldContainerPatchView,
   type WorldDeltaView,
+  type WorldFormationPatchView,
   type WorldGroundPatchView,
   type WorldMonsterPatchView,
   type WorldNpcPatchView,
   type WorldPlayerPatchView,
   type WorldPortalPatchView,
+  calcTechniqueFinalSpecialStatBonus,
 } from '@mud/shared';
 import { cloneAutoUsePillList, cloneCombatTargetingRules, isSameAutoUsePillList, isSameCombatTargetingRules } from '../runtime/player/player-combat-config.helpers';
 import { cloneVisibleBuffProjection, projectVisiblePlayerBuffs } from './player-buff-projection.helpers';
 const ATTR_DELTA_PATCH_THRESHOLD = 10;
-const ATTRIBUTE_KEYS = ['constitution', 'spirit', 'perception', 'talent', 'comprehension', 'luck'] as const;
+const ATTRIBUTE_KEYS = ['constitution', 'spirit', 'perception', 'talent', 'strength', 'meridians'] as const;
 const NUMERIC_STAT_KEYS = [
     'maxHp',
     'maxQi',
@@ -83,6 +87,7 @@ const NUMERIC_STAT_KEYS = [
     'extraAggroRate',
     'extraRange',
     'extraArea',
+    'actionsPerTurn',
 ] as const;
 const RATIO_DIVISOR_KEYS = [
     'dodge',
@@ -169,6 +174,28 @@ interface ProjectorContainerLike {
   color: string;
   respawnRemainingTicks?: number;
 }
+interface ProjectorFormationLike {
+  id: string;
+  x: number;
+  y: number;
+  name: string;
+  active?: boolean;
+  radius?: number;
+  rangeShape?: FormationRangeShape;
+  char?: string;
+  color?: string;
+  showText?: boolean;
+  rangeHighlightColor?: string;
+  boundaryChar?: string;
+  boundaryColor?: string;
+  boundaryRangeHighlightColor?: string;
+  eyeVisibleWithoutSenseQi?: boolean;
+  rangeVisibleWithoutSenseQi?: boolean;
+  boundaryVisibleWithoutSenseQi?: boolean;
+  blocksBoundary?: boolean;
+  ownerSectId?: string | null;
+  ownerPlayerId?: string | null;
+}
 interface ProjectorViewLike {
   playerId: string;
   tick: number;
@@ -187,6 +214,7 @@ interface ProjectorViewLike {
   localPortals: ProjectorPortalLike[];
   localGroundPiles: ProjectorGroundPileLike[];
   localContainers: ProjectorContainerLike[];
+  localFormations?: ProjectorFormationLike[];
 }
 interface ProjectedPlayerEntry {
   n: string;
@@ -234,6 +262,27 @@ interface ProjectedContainerEntry {
   c: string;
   rr?: number;
 }
+interface ProjectedFormationEntry {
+  x: number;
+  y: number;
+  n: string;
+  ch: string;
+  c: string;
+  ac: 0 | 1;
+  rs?: number;
+  sh?: FormationRangeShape;
+  hl?: string;
+  bch?: string;
+  bc?: string;
+  bhl?: string;
+  ev: 0 | 1;
+  rv: 0 | 1;
+  bv: 0 | 1;
+  tx: 0 | 1;
+  bd: 0 | 1;
+  os?: string | null;
+  op?: string | null;
+}
 interface ProjectedSelfState {
   instanceId: string;
   templateId: string;
@@ -266,6 +315,8 @@ interface ProjectorPlayerLike {
   maxQi: number;
   foundation: number;
   combatExp: number;
+  comprehension?: number;
+  luck?: number;
   boneAgeBaseYears: number;
   lifeElapsedTicks: number;
   lifespanYears?: number | null;
@@ -323,6 +374,36 @@ interface ProjectorPlayerLike {
     buffs: VisibleBuffState[];
   };
   bonuses?: AttrBonus[];
+}
+
+function resolvePlayerSpecialStats(player: ProjectorPlayerLike): PlayerSpecialStats {
+  const techniqueSpecialStats = calcTechniqueFinalSpecialStatBonus(player.techniques.techniques.map(toTechniqueState));
+  return {
+    foundation: player.foundation,
+    combatExp: player.combatExp,
+    comprehension: Math.max(0, Math.trunc(Number(player.comprehension ?? 0) || 0))
+      + Math.max(0, Math.trunc(Number(techniqueSpecialStats.comprehension ?? 0) || 0)),
+    luck: Math.max(0, Math.trunc(Number(player.luck ?? 0) || 0))
+      + Math.max(0, Math.trunc(Number(techniqueSpecialStats.luck ?? 0) || 0)),
+  };
+}
+
+function toTechniqueState(entry: TechniqueUpdateEntryView): TechniqueState {
+  return {
+    techId: entry.techId,
+    name: entry.name ?? '',
+    level: entry.level ?? 1,
+    exp: entry.exp ?? 0,
+    expToNext: entry.expToNext ?? 0,
+    realmLv: entry.realmLv ?? 1,
+    realm: entry.realm ?? 0,
+    skillsEnabled: entry.skillsEnabled !== false,
+    skills: entry.skills ?? [],
+    grade: entry.grade,
+    category: entry.category,
+    layers: entry.layers,
+    attrCurves: entry.attrCurves,
+  };
 }
 interface ProjectedAttrPanelState {
   revision: number;
@@ -391,6 +472,7 @@ interface WorldStateSlice {
   portals: Map<string, ProjectedPortalEntry>;
   groundPiles: Map<string, ProjectedGroundPileEntry>;
   containers: Map<string, ProjectedContainerEntry>;
+  formations: Map<string, ProjectedFormationEntry>;
 }
 interface PlayerStateSlice {
   selfRevision: number;
@@ -424,6 +506,10 @@ function buildMapEnter(view: ProjectorViewLike): MapEnterView {
     };
 }
 function resolvePortalRenderChar(portal: ProjectorPortalLike): string {
+    const portalRecord = portal as unknown as Record<string, unknown>;
+    if (typeof portalRecord.char === 'string' && portalRecord.char.trim()) {
+        return portalRecord.char.trim()[0] ?? '阵';
+    }
     return portal.kind === 'stairs' ? '' : '阵';
 }
 function buildFullWorldDelta(
@@ -488,6 +574,28 @@ function buildFullWorldDelta(
         c: entry.color,
         rr: normalizeOptionalNonNegativeInteger(entry.respawnRemainingTicks),
     }));
+    const formations: WorldFormationPatchView[] = Array.from(view.localFormations ?? [], (entry) => ({
+        id: entry.id,
+        x: entry.x,
+        y: entry.y,
+        n: entry.name,
+        ch: entry.char ?? '◎',
+        c: entry.active === false ? '#9aa0a6' : entry.color ?? '#4da3ff',
+        ac: entry.active === false ? 0 : 1,
+        rs: normalizeOptionalNonNegativeInteger(entry.radius),
+        sh: entry.rangeShape,
+        hl: entry.rangeHighlightColor,
+        bch: entry.boundaryChar,
+        bc: entry.boundaryColor,
+        bhl: entry.boundaryRangeHighlightColor,
+        ev: entry.eyeVisibleWithoutSenseQi === true ? 1 : 0,
+        rv: entry.rangeVisibleWithoutSenseQi === true ? 1 : 0,
+        bv: entry.boundaryVisibleWithoutSenseQi === true ? 1 : 0,
+        tx: entry.showText === false ? 0 : 1,
+        bd: entry.blocksBoundary === true ? 1 : 0,
+        os: entry.ownerSectId ?? null,
+        op: entry.ownerPlayerId ?? null,
+    }));
     return {
         t: view.tick,
         wr: view.worldRevision,
@@ -498,6 +606,7 @@ function buildFullWorldDelta(
         o: portals.length > 0 ? portals : undefined,
         g: ground.length > 0 ? ground : undefined,
         c: containers.length > 0 ? containers : undefined,
+        fmn: formations.length > 0 ? formations : undefined,
     };
 }
 function buildFullSelfDelta(player: ProjectorPlayerLike): SelfDeltaView {
@@ -617,6 +726,27 @@ function captureWorldState(
         c: entry.color,
         rr: normalizeOptionalNonNegativeInteger(entry.respawnRemainingTicks),
     }]);
+    const formations: Array<[string, ProjectedFormationEntry]> = (view.localFormations ?? []).map((entry): [string, ProjectedFormationEntry] => [entry.id, {
+        x: entry.x,
+        y: entry.y,
+        n: entry.name,
+        ch: entry.char ?? '◎',
+        c: entry.active === false ? '#9aa0a6' : entry.color ?? '#4da3ff',
+        ac: entry.active === false ? 0 : 1,
+        rs: normalizeOptionalNonNegativeInteger(entry.radius),
+        sh: entry.rangeShape,
+        hl: entry.rangeHighlightColor,
+        bch: entry.boundaryChar,
+        bc: entry.boundaryColor,
+        bhl: entry.boundaryRangeHighlightColor,
+        ev: entry.eyeVisibleWithoutSenseQi === true ? 1 : 0,
+        rv: entry.rangeVisibleWithoutSenseQi === true ? 1 : 0,
+        bv: entry.boundaryVisibleWithoutSenseQi === true ? 1 : 0,
+        tx: entry.showText === false ? 0 : 1,
+        bd: entry.blocksBoundary === true ? 1 : 0,
+        os: entry.ownerSectId ?? null,
+        op: entry.ownerPlayerId ?? null,
+    }]);
     players.set(view.playerId, {
         n: view.self.displayName ?? view.self.name,
         ch: resolvePlayerRenderChar(view.self.displayName, view.self.name),
@@ -640,6 +770,7 @@ function captureWorldState(
         portals: new Map(portals),
         groundPiles: new Map(groundPiles),
         containers: new Map(containers),
+        formations: new Map(formations),
     };
 }
 function capturePlayerState(player: ProjectorPlayerLike): PlayerStateSlice {
@@ -700,10 +831,7 @@ function captureAttrPanelSlice(player: ProjectorPlayerLike): ProjectedAttrPanelS
         finalAttrs: cloneAttributes(player.attrs.finalAttrs),
         numericStats: cloneNumericStats(player.attrs.numericStats),
         ratioDivisors: cloneNumericRatioDivisors(player.attrs.ratioDivisors),
-        specialStats: cloneSpecialStats({
-            foundation: player.foundation,
-            combatExp: player.combatExp,
-        }),
+        specialStats: cloneSpecialStats(resolvePlayerSpecialStats(player)),
         boneAgeBaseYears: player.boneAgeBaseYears,
         lifeElapsedTicks: player.lifeElapsedTicks,
         lifespanYears: player.lifespanYears,
@@ -748,6 +876,7 @@ function combineProjectorState(worldState: WorldStateSlice, playerState: PlayerS
         portals: worldState.portals,
         groundPiles: worldState.groundPiles,
         containers: worldState.containers,
+        formations: worldState.formations,
         selfRevision: playerState.selfRevision,
         self: playerState.self,
         panel: playerState.panel,
@@ -770,10 +899,7 @@ function buildFullAttrDelta(player: ProjectorPlayerLike): ProjectedAttrDeltaView
         finalAttrs: cloneAttributes(player.attrs.finalAttrs),
         numericStats: cloneNumericStats(player.attrs.numericStats),
         ratioDivisors: cloneNumericRatioDivisors(player.attrs.ratioDivisors),
-        specialStats: cloneSpecialStats({
-            foundation: player.foundation,
-            combatExp: player.combatExp,
-        }),
+        specialStats: cloneSpecialStats(resolvePlayerSpecialStats(player)),
         boneAgeBaseYears: player.boneAgeBaseYears,
         lifeElapsedTicks: player.lifeElapsedTicks,
         lifespanYears: player.lifespanYears,
@@ -820,10 +946,7 @@ function buildAttrDelta(previousAttr: ProjectedAttrPanelState, player: Projector
     const finalAttrsPatch = diffAttributes(previousAttr.finalAttrs, player.attrs.finalAttrs);
     const numericStatsPatch = diffNumericStats(previousAttr.numericStats, player.attrs.numericStats);
     const ratioDivisorsPatch = diffRatioDivisors(previousAttr.ratioDivisors, player.attrs.ratioDivisors);
-    const nextSpecialStats = {
-        foundation: player.foundation,
-        combatExp: player.combatExp,
-    };
+    const nextSpecialStats = resolvePlayerSpecialStats(player);
     const specialStatsChanged = !isSameSpecialStats(previousAttr.specialStats, nextSpecialStats);
     const boneAgeBaseYearsChanged = previousAttr.boneAgeBaseYears !== player.boneAgeBaseYears;
     const lifeElapsedTicksChanged = previousAttr.lifeElapsedTicks !== player.lifeElapsedTicks;
@@ -942,10 +1065,7 @@ function buildPanelDelta(previous: PlayerStateSlice, player: ProjectorPlayerLike
         || previousAttr.realmProgress !== player.realm?.progress
         || previousAttr.realmProgressToNext !== player.realm?.progressToNext
         || previousAttr.realmBreakthroughReady !== player.realm?.breakthroughReady
-        || !isSameSpecialStats(previousAttr.specialStats, {
-            foundation: player.foundation,
-            combatExp: player.combatExp,
-        })
+        || !isSameSpecialStats(previousAttr.specialStats, resolvePlayerSpecialStats(player))
         || !isSameAttrBonuses(previousAttr.bonuses, buildAttrBonuses(player));
     if (previousAttr.revision !== player.attrs.revision || attrMetaChanged) {
         delta.attr = buildAttrDelta(previousAttr, player);
@@ -1303,6 +1423,125 @@ function diffContainerEntries(previous: Map<string, ProjectedContainerEntry>, cu
     }
     return result;
 }
+function diffFormationEntries(previous: Map<string, ProjectedFormationEntry>, current: Map<string, ProjectedFormationEntry>): WorldFormationPatchView[] {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+    const result: WorldFormationPatchView[] = [];
+    for (const [formationId, entry] of current) {
+        const prev = previous.get(formationId);
+        if (!prev) {
+            result.push({
+                id: formationId,
+                x: entry.x,
+                y: entry.y,
+                n: entry.n,
+                ch: entry.ch,
+                c: entry.c,
+                ac: entry.ac,
+                rs: entry.rs,
+                sh: entry.sh,
+                hl: entry.hl,
+                bch: entry.bch,
+                bc: entry.bc,
+                bhl: entry.bhl,
+                ev: entry.ev,
+                rv: entry.rv,
+                bv: entry.bv,
+                tx: entry.tx,
+                bd: entry.bd,
+                os: entry.os,
+                op: entry.op,
+            });
+            continue;
+        }
+        const delta: WorldFormationPatchView = { id: formationId };
+        let changed = false;
+        if (prev.x !== entry.x) {
+            delta.x = entry.x;
+            changed = true;
+        }
+        if (prev.y !== entry.y) {
+            delta.y = entry.y;
+            changed = true;
+        }
+        if (prev.n !== entry.n) {
+            delta.n = entry.n;
+            changed = true;
+        }
+        if (prev.ch !== entry.ch) {
+            delta.ch = entry.ch;
+            changed = true;
+        }
+        if (prev.c !== entry.c) {
+            delta.c = entry.c;
+            changed = true;
+        }
+        if (prev.ac !== entry.ac) {
+            delta.ac = entry.ac;
+            changed = true;
+        }
+        if (prev.rs !== entry.rs) {
+            delta.rs = entry.rs;
+            changed = true;
+        }
+        if (prev.sh !== entry.sh) {
+            delta.sh = entry.sh;
+            changed = true;
+        }
+        if (prev.hl !== entry.hl) {
+            delta.hl = entry.hl;
+            changed = true;
+        }
+        if (prev.bch !== entry.bch) {
+            delta.bch = entry.bch;
+            changed = true;
+        }
+        if (prev.bc !== entry.bc) {
+            delta.bc = entry.bc;
+            changed = true;
+        }
+        if (prev.bhl !== entry.bhl) {
+            delta.bhl = entry.bhl;
+            changed = true;
+        }
+        if (prev.ev !== entry.ev) {
+            delta.ev = entry.ev;
+            changed = true;
+        }
+        if (prev.rv !== entry.rv) {
+            delta.rv = entry.rv;
+            changed = true;
+        }
+        if (prev.bv !== entry.bv) {
+            delta.bv = entry.bv;
+            changed = true;
+        }
+        if (prev.tx !== entry.tx) {
+            delta.tx = entry.tx;
+            changed = true;
+        }
+        if (prev.bd !== entry.bd) {
+            delta.bd = entry.bd;
+            changed = true;
+        }
+        if (prev.os !== entry.os) {
+            delta.os = entry.os;
+            changed = true;
+        }
+        if (prev.op !== entry.op) {
+            delta.op = entry.op;
+            changed = true;
+        }
+        if (changed) {
+            result.push(delta);
+        }
+    }
+    for (const formationId of previous.keys()) {
+        if (!current.has(formationId)) {
+            result.push({ id: formationId, rm: 1 });
+        }
+    }
+    return result;
+}
 function diffInventorySlots(previous: SyncedItemStack[], current: SyncedItemStack[]): InventorySlotUpdateEntry[] {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
     const patch: InventorySlotUpdateEntry[] = [];
@@ -1481,6 +1720,7 @@ function isSameItem(left: SyncedItemStack | null | undefined, right: SyncedItemS
         && isSameStringList(left.tags, right.tags)
         && left.mapUnlockId === right.mapUnlockId
         && isSameStringList(left.mapUnlockIds, right.mapUnlockIds)
+        && left.respawnBindMapId === right.respawnBindMapId
         && left.tileAuraGainAmount === right.tileAuraGainAmount
         && isSameTileResourceGainList(left.tileResourceGains, right.tileResourceGains)
         && left.alchemySuccessRate === right.alchemySuccessRate
@@ -1680,6 +1920,7 @@ function cloneTechniqueLayerDef(source: TechniqueLayerDef): TechniqueLayerDef {
         level: source.level,
         expToNext: source.expToNext,
         attrs: source.attrs ? clonePartialAttributes(source.attrs) : undefined,
+        specialStats: source.specialStats ? { ...source.specialStats } : undefined,
         qiProjection: source.qiProjection?.map((entry) => cloneQiProjectionModifier(entry)),
     };
 }
@@ -2009,8 +2250,8 @@ function cloneAttributes(source: Attributes) {
         spirit: source.spirit,
         perception: source.perception,
         talent: source.talent,
-        comprehension: source.comprehension,
-        luck: source.luck,
+        strength: source.strength ?? (source as Record<string, number>).comprehension ?? 0,
+        meridians: source.meridians ?? (source as Record<string, number>).luck ?? 0,
     };
 }
 function clonePartialAttributes(source: Partial<Attributes>): Partial<Attributes> {
@@ -2031,6 +2272,8 @@ function cloneSpecialStats(source: PlayerSpecialStats): PlayerSpecialStats {
     return {
         foundation: source.foundation,
         combatExp: source.combatExp,
+        comprehension: source.comprehension,
+        luck: source.luck,
     };
 }
 function cloneWalletState(source: PlayerWalletState | null | undefined): PlayerWalletState | null {
@@ -2077,6 +2320,12 @@ function buildSpecialStatsPatch(previous: PlayerSpecialStats, current: PlayerSpe
     if (previous.combatExp !== current.combatExp) {
         patch.combatExp = current.combatExp;
     }
+    if (previous.comprehension !== current.comprehension) {
+        patch.comprehension = current.comprehension;
+    }
+    if (previous.luck !== current.luck) {
+        patch.luck = current.luck;
+    }
     return Object.keys(patch).length > 0 ? patch : undefined;
 }
 function isSameAttrBonuses(left: AttrBonus[], right: AttrBonus[]) {
@@ -2109,8 +2358,8 @@ function isSameAttributes(left: Partial<Attributes> | null | undefined, right: P
         && left.spirit === right.spirit
         && left.perception === right.perception
         && left.talent === right.talent
-        && left.comprehension === right.comprehension
-        && left.luck === right.luck;
+        && left.strength === right.strength
+        && left.meridians === right.meridians;
 }
 function cloneAttrBonus(source: AttrBonus): AttrBonus {
     return {
@@ -2124,7 +2373,9 @@ function cloneAttrBonus(source: AttrBonus): AttrBonus {
 }
 function isSameSpecialStats(left: PlayerSpecialStats, right: PlayerSpecialStats) {
     return left.foundation === right.foundation
-        && left.combatExp === right.combatExp;
+        && left.combatExp === right.combatExp
+        && left.comprehension === right.comprehension
+        && left.luck === right.luck;
 }
 function isSamePartialNumericStats(left: PartialNumericStats | null | undefined, right: PartialNumericStats | null | undefined) {
     if (left === right) {
@@ -2294,6 +2545,7 @@ export {
     captureWorldState,
     combineProjectorState,
     diffContainerEntries,
+    diffFormationEntries,
     diffGroundPiles,
     diffMonsterEntries,
     diffNpcEntries,
@@ -2556,6 +2808,7 @@ function cloneNumericStats(source: NumericStats): NumericStats {
         extraAggroRate: source.extraAggroRate,
         extraRange: source.extraRange,
         extraArea: source.extraArea,
+        actionsPerTurn: source.actionsPerTurn ?? 1,
         elementDamageBonus: {
             metal: source.elementDamageBonus.metal,
             wood: source.elementDamageBonus.wood,
@@ -2640,6 +2893,10 @@ function resolvePortalDisplayName(
     portal: ProjectorPortalLike,
     resolveMapName?: ((mapId: string | null | undefined) => string | null) | null,
 ) {
+    const explicitName = (portal as unknown as Record<string, unknown>).name;
+    if (typeof explicitName === 'string' && explicitName.trim()) {
+        return explicitName.trim();
+    }
     const targetMapName = resolveMapName?.(portal.targetMapId) ?? null;
     if (typeof targetMapName === 'string' && targetMapName.trim()) {
         return targetMapName.trim();

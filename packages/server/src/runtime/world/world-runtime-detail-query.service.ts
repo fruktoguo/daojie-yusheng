@@ -277,6 +277,7 @@ let WorldRuntimeDetailQueryService = class WorldRuntimeDetailQueryService {
         const groundPile = instance.getTileGroundPile(x, y);
         const portal = instance.getPortalAtTile(x, y);
         const safeZone = instance.getSafeZoneAtTile(x, y);
+        const tileCombat = instance.getTileCombatState?.(x, y) ?? null;
         const container = instance.getContainerAtTile(x, y);
         const npcs = view.localNpcs.filter((entry) => entry.x === x && entry.y === y);
         const monsters = view.localMonsters.filter((entry) => entry.x === x && entry.y === y);
@@ -351,7 +352,12 @@ let WorldRuntimeDetailQueryService = class WorldRuntimeDetailQueryService {
         return {
             x,
             y,
-            aura: buildTileRuntimeAuraLevel(resources, aura, viewer),
+            aura: (() => {
+                const auraLevel = buildTileRuntimeAuraLevel(resources, aura, viewer);
+                return auraLevel > 0 ? auraLevel : undefined;
+            })(),
+            hp: tileCombat && tileCombat.destroyed !== true ? tileCombat.hp : undefined,
+            maxHp: tileCombat && tileCombat.destroyed !== true ? tileCombat.maxHp : undefined,
             resources: resources.length > 0 ? resources : undefined,
             safeZone: safeZone
                 ? {

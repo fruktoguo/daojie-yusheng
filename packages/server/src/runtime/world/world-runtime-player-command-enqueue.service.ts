@@ -103,11 +103,34 @@ let WorldRuntimePlayerCommandEnqueueService = class WorldRuntimePlayerCommandEnq
  */
 
     enqueueUseItem(playerId, slotIndexInput, deps) {
+        const payload = typeof slotIndexInput === 'object' && slotIndexInput !== null ? slotIndexInput : { slotIndex: slotIndexInput };
         return this.enqueueNormalizedPlayerCommand(playerId, {
             kind: 'useItem',
-            slotIndex: normalizeSlotIndex(slotIndexInput),
+            slotIndex: normalizeSlotIndex(payload?.slotIndex),
+            payload: { ...(payload ?? {}) },
         }, deps);
     }    
+    enqueueCreateFormation(playerId, payload, deps) {
+        deps.getPlayerLocationOrThrow(playerId);
+        return this.enqueueNormalizedPlayerCommand(playerId, {
+            kind: 'createFormation',
+            payload: { ...(payload ?? {}) },
+        }, deps);
+    }
+    enqueueSetFormationActive(playerId, payload, deps) {
+        deps.getPlayerLocationOrThrow(playerId);
+        return this.enqueueNormalizedPlayerCommand(playerId, {
+            kind: 'setFormationActive',
+            payload: { ...(payload ?? {}) },
+        }, deps);
+    }
+    enqueueRefillFormation(playerId, payload, deps) {
+        deps.getPlayerLocationOrThrow(playerId);
+        return this.enqueueNormalizedPlayerCommand(playerId, {
+            kind: 'refillFormation',
+            payload: { ...(payload ?? {}) },
+        }, deps);
+    }
     /**
  * enqueueDropItem：处理Drop道具并更新相关状态。
  * @param playerId 玩家 ID。
@@ -390,6 +413,9 @@ let WorldRuntimePlayerCommandEnqueueService = class WorldRuntimePlayerCommandEnq
         const action = player.actions.actions.find((entry) => entry.id === skillId && entry.type === 'skill');
         if (!action) {
             throw new common_1.NotFoundException(`Skill action ${skillId} not found`);
+        }
+        if (action.skillEnabled === false) {
+            throw new common_1.BadRequestException('技能未启用，无法释放');
         }
         if (!targetPlayerId && !targetMonsterId && !targetRef && action.requiresTarget !== false) {
             throw new common_1.BadRequestException('target is required');

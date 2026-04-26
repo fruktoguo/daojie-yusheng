@@ -15,6 +15,7 @@ import {
     captureWorldState,
     combineProjectorState,
     diffContainerEntries,
+    diffFormationEntries,
     diffGroundPiles,
     diffMonsterEntries,
     diffNpcEntries,
@@ -77,7 +78,7 @@ export class WorldProjectorService {
                 panelDelta: buildFullPanelDelta(player),
             };
         }
-        if (previous.instanceId !== view.instance.instanceId) {
+        if (previous.instanceId !== view.instance.instanceId || previous.self?.templateId !== player.templateId) {
             this.cacheByPlayerId.set(view.playerId, captureProjectorState(view, player, (mapId) => this.resolveMapName(mapId)));
             return {
                 mapEnter: buildMapEnter(view),
@@ -98,6 +99,7 @@ export class WorldProjectorService {
         const portalPatch = worldChanged ? diffPortalEntries(previous.portals, current.portals) : [];
         const groundPatch = worldChanged ? diffGroundPiles(previous.groundPiles, current.groundPiles) : [];
         const containerPatch = worldChanged ? diffContainerEntries(previous.containers, current.containers) : [];
+        const formationPatch = worldChanged ? diffFormationEntries(previous.formations, current.formations) : [];
         const selfDelta = buildSelfDelta(previous, player);
         const panelDelta = buildPanelDelta(previous, player);
         if (
@@ -107,6 +109,7 @@ export class WorldProjectorService {
             && portalPatch.length === 0
             && groundPatch.length === 0
             && containerPatch.length === 0
+            && formationPatch.length === 0
             && !selfDelta
             && !panelDelta
         ) {
@@ -120,6 +123,7 @@ export class WorldProjectorService {
                 || portalPatch.length > 0
                 || groundPatch.length > 0
                 || containerPatch.length > 0
+                || formationPatch.length > 0
                     ? {
                         t: view.tick,
                         wr: view.worldRevision,
@@ -130,6 +134,7 @@ export class WorldProjectorService {
                         o: portalPatch.length > 0 ? portalPatch : undefined,
                         g: groundPatch.length > 0 ? groundPatch : undefined,
                         c: containerPatch.length > 0 ? containerPatch : undefined,
+                        fmn: formationPatch.length > 0 ? formationPatch : undefined,
                     }
                     : undefined,
             selfDelta: selfDelta ?? undefined,

@@ -2,7 +2,7 @@
 
 const assert = require("node:assert/strict");
 
-const { DEFAULT_BASE_ATTRS, applyEnhancementToItemStack, calcTechniqueFinalAttrBonus, calcTechniqueFinalQiProjection, getRealmAttributeMultiplier, getRealmLinearGrowthMultiplier } = require("@mud/shared");
+const { DEFAULT_BASE_ATTRS, applyEnhancementToItemStack, calcTechniqueFinalAttrBonus, calcTechniqueFinalQiProjection, getRealmAttributeMultiplier } = require("@mud/shared");
 const { PlayerAttributesService } = require("../runtime/player/player-attributes.service");
 const { buildAttrDetailBonuses, buildAttrDetailNumericStatBreakdowns } = require("../network/world-gateway-attr-detail.helper");
 const { projectPlayerQiResourceValue, resolvePlayerQiResourceProjection } = require("../runtime/world/world-runtime-qi-projection.helpers");
@@ -25,16 +25,16 @@ function testAttrDetailBuilders() {
                 spirit: 10,
                 perception: 10,
                 talent: 10,
-                comprehension: 0,
-                luck: 0,
+                strength: 0,
+                meridians: 0,
             },
             finalAttrs: {
                 constitution: 12,
                 spirit: 10,
                 perception: 10,
                 talent: 10,
-                comprehension: 0,
-                luck: 0,
+                strength: 0,
+                meridians: 0,
             },
             numericStats: {
                 maxHp: 120,
@@ -100,8 +100,8 @@ function testTechniqueAttrCalculationIgnoresStaleRuntimeAggregate() {
                     spirit: 1,
                     perception: 0,
                     talent: 0,
-                    comprehension: 0,
-                    luck: 0,
+                    strength: 0,
+                    meridians: 0,
                 },
             }],
         techniques: {
@@ -263,10 +263,10 @@ function testRealmLevelScalesNumericStats() {
     assert.equal(realmLv3Player.attrs.numericStats.maxHp, Math.round(realmLv1Player.attrs.numericStats.maxHp * getRealmAttributeMultiplier(3)));
     assert.equal(realmLv3Player.attrs.numericStats.physAtk, Math.round(realmLv1Player.attrs.numericStats.physAtk * getRealmAttributeMultiplier(3)));
     assert.equal(realmLv3Player.attrs.numericStats.physDef, Math.round(realmLv1Player.attrs.numericStats.physDef * getRealmAttributeMultiplier(3)));
-    assert.equal(realmLv3Player.attrs.numericStats.maxQiOutputPerTick, Math.round(realmLv1Player.attrs.numericStats.maxQiOutputPerTick * getRealmLinearGrowthMultiplier(3, 0.1)));
+    assert.equal(realmLv3Player.attrs.numericStats.maxQiOutputPerTick, Math.round(realmLv1Player.attrs.numericStats.maxQiOutputPerTick * getRealmAttributeMultiplier(3)));
     const breakdowns = buildAttrDetailNumericStatBreakdowns(realmLv3Player);
     assert.equal(breakdowns.maxHp?.realmMultiplier, getRealmAttributeMultiplier(3));
-    assert.equal(breakdowns.maxQiOutputPerTick?.realmMultiplier, getRealmLinearGrowthMultiplier(3, 0.1));
+    assert.equal(breakdowns.maxQiOutputPerTick?.realmMultiplier, getRealmAttributeMultiplier(3));
     assert.equal(breakdowns.maxHp?.finalValue, realmLv3Player.attrs.numericStats.maxHp);
 }
 
@@ -323,8 +323,122 @@ function testEnhancedEquipmentScalesLiveAndDetailStats() {
     assert.equal(equipmentBonus?.attrs?.constitution, enhancedItem.equipAttrs.constitution);
     assert.equal(equipmentBonus?.stats?.physAtk, enhancedItem.equipStats.physAtk);
     const breakdowns = buildAttrDetailNumericStatBreakdowns(plus2Player);
+    const plus0Breakdowns = buildAttrDetailNumericStatBreakdowns(plus0Player);
     assert.equal(breakdowns.physAtk?.finalValue, plus2Player.attrs.numericStats.physAtk);
-    assert.ok(breakdowns.physAtk?.bonusBaseValue > buildAttrDetailNumericStatBreakdowns(plus0Player).physAtk.bonusBaseValue);
+    assert.ok(breakdowns.physAtk?.attrMultiplierPct > plus0Breakdowns.physAtk.attrMultiplierPct);
+    assert.ok(breakdowns.spellAtk?.attrMultiplierPct > plus0Breakdowns.spellAtk.attrMultiplierPct);
+    assert.equal(breakdowns.hpRegenRate?.attrMultiplierPct, 0);
+    assert.equal(breakdowns.qiRegenRate?.attrMultiplierPct, 0);
+    assert.equal(breakdowns.critDamage?.attrMultiplierPct, 0);
+}
+
+function testSpecialStatsAffectOnlyConfiguredRates() {
+    const service = new PlayerAttributesService();
+    const createPlayer = (comprehension, luck) => ({
+        realm: {
+            stage: 0,
+            realmLv: 1,
+        },
+        attrs: service.createInitialState(),
+        maxHp: 10,
+        maxQi: 10,
+        hp: 10,
+        qi: 10,
+        selfRevision: 1,
+        comprehension,
+        luck,
+        runtimeBonuses: [],
+        techniques: { techniques: [] },
+        bodyTraining: { level: 0 },
+        equipment: { slots: [] },
+        buffs: { buffs: [] },
+        spiritualRoots: null,
+    });
+    const basePlayer = createPlayer(0, 0);
+    const specialPlayer = createPlayer(3, 4);
+    service.recalculate(basePlayer);
+    service.recalculate(specialPlayer);
+    assert.equal(specialPlayer.attrs.numericStats.playerExpRate - basePlayer.attrs.numericStats.playerExpRate, 300);
+    assert.equal(specialPlayer.attrs.numericStats.techniqueExpRate - basePlayer.attrs.numericStats.techniqueExpRate, 300);
+    assert.equal(specialPlayer.attrs.numericStats.lootRate - basePlayer.attrs.numericStats.lootRate, 400);
+    assert.equal(specialPlayer.attrs.numericStats.rareLootRate - basePlayer.attrs.numericStats.rareLootRate, 400);
+    assert.equal(specialPlayer.attrs.numericStats.hit - basePlayer.attrs.numericStats.hit, 0);
+    assert.equal(specialPlayer.attrs.numericStats.dodge - basePlayer.attrs.numericStats.dodge, 0);
+    assert.equal(specialPlayer.attrs.numericStats.crit - basePlayer.attrs.numericStats.crit, 0);
+    const breakdowns = buildAttrDetailNumericStatBreakdowns(specialPlayer);
+    assert.equal(breakdowns.playerExpRate?.bonusBaseValue, 300);
+    assert.equal(breakdowns.techniqueExpRate?.bonusBaseValue, 300);
+    assert.equal(breakdowns.lootRate?.bonusBaseValue, 400);
+    assert.equal(breakdowns.rareLootRate?.bonusBaseValue, 400);
+}
+
+function testTechniqueSpecialStatsAffectOnlyConfiguredRates() {
+    const service = new PlayerAttributesService();
+    const createPlayer = (techniques) => ({
+        realm: {
+            stage: 0,
+            realmLv: 1,
+        },
+        attrs: service.createInitialState(),
+        maxHp: 10,
+        maxQi: 10,
+        hp: 10,
+        qi: 10,
+        selfRevision: 1,
+        comprehension: 0,
+        luck: 0,
+        runtimeBonuses: [],
+        techniques: { techniques },
+        bodyTraining: { level: 0 },
+        equipment: { slots: [] },
+        buffs: { buffs: [] },
+        spiritualRoots: null,
+    });
+    const specialTechnique = {
+        techId: 'technique:special',
+        name: '测试悟性气运',
+        level: 2,
+        exp: 0,
+        expToNext: 0,
+        realmLv: 1,
+        realm: 0,
+        grade: 'mortal',
+        category: 'divine',
+        skills: [],
+        layers: [{
+                level: 1,
+                expToNext: 0,
+                specialStats: {
+                    comprehension: 2,
+                    luck: 1,
+                },
+            }, {
+                level: 2,
+                expToNext: 0,
+                specialStats: {
+                    comprehension: 3,
+                    luck: 4,
+                },
+            }],
+    };
+    const basePlayer = createPlayer([]);
+    const techniquePlayer = createPlayer([specialTechnique]);
+    service.recalculate(basePlayer);
+    service.recalculate(techniquePlayer);
+    assert.equal(techniquePlayer.attrs.baseAttrs.strength - basePlayer.attrs.baseAttrs.strength, 0);
+    assert.equal(techniquePlayer.attrs.baseAttrs.meridians - basePlayer.attrs.baseAttrs.meridians, 0);
+    assert.equal(techniquePlayer.attrs.numericStats.playerExpRate - basePlayer.attrs.numericStats.playerExpRate, 500);
+    assert.equal(techniquePlayer.attrs.numericStats.techniqueExpRate - basePlayer.attrs.numericStats.techniqueExpRate, 500);
+    assert.equal(techniquePlayer.attrs.numericStats.lootRate - basePlayer.attrs.numericStats.lootRate, 500);
+    assert.equal(techniquePlayer.attrs.numericStats.rareLootRate - basePlayer.attrs.numericStats.rareLootRate, 500);
+    assert.equal(techniquePlayer.attrs.numericStats.hit - basePlayer.attrs.numericStats.hit, 0);
+    assert.equal(techniquePlayer.attrs.numericStats.dodge - basePlayer.attrs.numericStats.dodge, 0);
+    assert.equal(techniquePlayer.attrs.numericStats.crit - basePlayer.attrs.numericStats.crit, 0);
+    const breakdowns = buildAttrDetailNumericStatBreakdowns(techniquePlayer);
+    assert.equal(breakdowns.playerExpRate?.bonusBaseValue, 500);
+    assert.equal(breakdowns.techniqueExpRate?.bonusBaseValue, 500);
+    assert.equal(breakdowns.lootRate?.bonusBaseValue, 500);
+    assert.equal(breakdowns.rareLootRate?.bonusBaseValue, 500);
 }
 
 testAttrDetailBuilders();
@@ -333,5 +447,7 @@ testTechniqueQiProjectionAppearsInAttrDetail();
 testXueshaLevelNineQiProjectionUsesHiddenResourceZeroBaseline();
 testRealmLevelScalesNumericStats();
 testEnhancedEquipmentScalesLiveAndDetailStats();
+testSpecialStatsAffectOnlyConfiguredRates();
+testTechniqueSpecialStatsAffectOnlyConfiguredRates();
 
 console.log(JSON.stringify({ ok: true, case: 'world-gateway-attr-detail-helper' }, null, 2));

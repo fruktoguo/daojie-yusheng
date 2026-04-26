@@ -7,6 +7,9 @@ import type { BuffCategory, BuffModifierMode, BuffVisibility, TimePhaseId } from
 /** 物品类型。 */
 export type ItemType = 'consumable' | 'equipment' | 'material' | 'quest_item' | 'skill_book';
 
+/** 通用阵盘品阶。 */
+export type ItemFormationDiskTier = 'mortal' | 'yellow' | 'mystic' | 'earth';
+
 /** 装备槽位。 */
 export type EquipSlot = 'weapon' | 'head' | 'body' | 'legs' | 'accessory';
 
@@ -633,6 +636,11 @@ export interface ItemStack {
 
   mapUnlockIds?: string[];  
   /**
+ * respawnBindMapId：使用后绑定的复活地图 ID。
+ */
+
+  respawnBindMapId?: string;  
+  /**
  * tileAuraGainAmount：数量或计量字段。
  */
 
@@ -642,6 +650,21 @@ export interface ItemStack {
  */
 
   tileResourceGains?: TileResourceGainDef[];
+  /**
+ * useBehavior：消耗品服务端专用使用行为。
+ */
+
+  useBehavior?: 'create_sect' | string;
+  /**
+ * formationDiskTier：通用阵盘品阶。
+ */
+
+  formationDiskTier?: ItemFormationDiskTier;
+  /**
+ * formationDiskMultiplier：阵盘灵力增幅倍率。
+ */
+
+  formationDiskMultiplier?: number;
   /**
  * allowBatchUse：allowBatchUse相关字段。
  */

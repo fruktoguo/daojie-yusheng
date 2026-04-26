@@ -97,6 +97,9 @@ export const C2S = {
   ClaimMarketStorage: 'n:c:claimMarketStorage',
   UsePortal: 'n:c:usePortal',
   UseItem: 'n:c:useItem',
+  CreateFormation: 'n:c:createFormation',
+  SetFormationActive: 'n:c:setFormationActive',
+  RefillFormation: 'n:c:refillFormation',
   DropItem: 'n:c:dropItem',
   DestroyItem: 'n:c:destroyItem',
   StopLootHarvest: 'n:c:stopLootHarvest',
@@ -557,6 +560,9 @@ export interface C2S_PayloadMap extends Record<C2S_EventName, unknown> {
  */
 
   [C2S.UseItem]: RequestPayloads.C2S_UseItem;  
+  [C2S.CreateFormation]: RequestPayloads.C2S_CreateFormation;
+  [C2S.SetFormationActive]: RequestPayloads.C2S_SetFormationActive;
+  [C2S.RefillFormation]: RequestPayloads.C2S_RefillFormation;
   /**
  * [C2S.DropItem]：C2S_PayloadMap 协议映射条目，用于描述事件到 payload 类型的映射。
  */

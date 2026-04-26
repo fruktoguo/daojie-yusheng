@@ -52,8 +52,8 @@ function createPlayerRuntimeService() {
       createInitialState() {
         return {
           stage: '炼气',
-          baseAttrs: { constitution: 1, spirit: 1, perception: 1, talent: 1, comprehension: 1, luck: 1 },
-          finalAttrs: { constitution: 1, spirit: 1, perception: 1, talent: 1, comprehension: 1, luck: 1 },
+          baseAttrs: { constitution: 1, spirit: 1, perception: 1, talent: 1, strength: 1, meridians: 1 },
+          finalAttrs: { constitution: 1, spirit: 1, perception: 1, talent: 1, strength: 1, meridians: 1 },
           numericStats: createNumericStats(),
           ratioDivisors: createNumericRatioDivisors(),
         };

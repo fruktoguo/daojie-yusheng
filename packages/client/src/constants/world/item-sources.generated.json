@@ -2747,6 +2747,10 @@
       "count": 1
     }
   ],
+  "formation_disk.earth": [],
+  "formation_disk.mortal": [],
+  "formation_disk.mystic": [],
+  "formation_disk.yellow": [],
   "frost_essence": [
     {
       "kind": "monster_drop",
@@ -4434,6 +4438,7 @@
       "count": 1
     }
   ],
+  "sect_founding_token": [],
   "serpent_gall": [
     {
       "kind": "monster_drop",

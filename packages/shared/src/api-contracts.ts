@@ -14,7 +14,7 @@ import type {
   MailPageView,
   MailDetailView,
 } from './mail-types';
-import type { QuestLine, QuestObjectiveType } from './quest-types';
+import type { QuestLine, QuestObjectiveType, QuestState } from './quest-types';
 import type { Suggestion } from './world-view-types';
 import type { TechniqueCategory, TechniqueGrade, TechniqueLayerDef } from './cultivation-types';
 import type { ConsumableBuffDef, EquipmentEffectDef, EquipSlot, ItemStack, ItemType, TileResourceGainDef } from './item-runtime-types';
@@ -1265,6 +1265,11 @@ export interface GmEditorItemOption {
 
   mapUnlockIds?: string[];
   /**
+ * respawnBindMapId：使用后绑定的复活地图 ID。
+ */
+
+  respawnBindMapId?: string;
+  /**
  * tileAuraGainAmount：数量或计量字段。
  */
 
@@ -1274,6 +1279,11 @@ export interface GmEditorItemOption {
  */
 
   tileResourceGains?: TileResourceGainDef[];
+  /**
+ * useBehavior：特殊使用行为。
+ */
+
+  useBehavior?: ItemStack['useBehavior'];
   /**
  * allowBatchUse：allowBatchUse相关字段。
  */
@@ -1313,6 +1323,9 @@ export interface GmEditorRealmOption {
 /** GM 编辑器里的 Buff 候选项。 */
 export interface GmEditorBuffOption extends TemporaryBuffState {}
 
+/** 客户端本地任务模板候选项。 */
+export interface GmEditorQuestOption extends QuestState {}
+
 /** GM 编辑器目录响应。 */
 export interface GmEditorCatalogRes {
 /**
@@ -1335,6 +1348,11 @@ export interface GmEditorCatalogRes {
  */
 
   buffs: GmEditorBuffOption[];
+  /**
+ * quests：任务静态模板。
+ */
+
+  quests?: GmEditorQuestOption[];
 }
 
 /** GM 更新玩家时允许单独提交的字段分组。 */

@@ -211,6 +211,11 @@ export interface NumericStats {
 
   extraArea: number;  
   /**
+ * actionsPerTurn：每回合行动次数。
+ */
+
+  actionsPerTurn: number;  
+  /**
  * elementDamageBonus：elementDamageBonu相关字段。
  */
 
@@ -464,6 +469,7 @@ export const NUMERIC_STATS_KEYS: (keyof NumericStats)[] = [
   'extraAggroRate',
   'extraRange',
   'extraArea',
+  'actionsPerTurn',
   'elementDamageBonus',
   'elementDamageReduce',
 ];
@@ -546,6 +552,7 @@ export function createNumericStats(): NumericStats {
     extraAggroRate: 0,
     extraRange: 0,
     extraArea: 0,
+    actionsPerTurn: 1,
     elementDamageBonus: createElementStatGroup(),
     elementDamageReduce: createElementStatGroup(),
   };
@@ -584,6 +591,7 @@ export function cloneNumericStats(source: NumericStats): NumericStats {
     extraAggroRate: source.extraAggroRate,
     extraRange: source.extraRange,
     extraArea: source.extraArea,
+    actionsPerTurn: source.actionsPerTurn ?? 1,
     elementDamageBonus: cloneElementStatGroup(source.elementDamageBonus),
     elementDamageReduce: cloneElementStatGroup(source.elementDamageReduce),
   };
@@ -621,6 +629,7 @@ export function resetNumericStats(target: NumericStats): NumericStats {
   target.extraAggroRate = 0;
   target.extraRange = 0;
   target.extraArea = 0;
+  target.actionsPerTurn = 1;
   resetElementStatGroup(target.elementDamageBonus);
   resetElementStatGroup(target.elementDamageReduce);
   return target;
@@ -661,6 +670,7 @@ export function addPartialNumericStats(target: NumericStats, patch?: PartialNume
   if (patch.extraAggroRate !== undefined) target.extraAggroRate += patch.extraAggroRate;
   if (patch.extraRange !== undefined) target.extraRange += patch.extraRange;
   if (patch.extraArea !== undefined) target.extraArea += patch.extraArea;
+  if (patch.actionsPerTurn !== undefined) target.actionsPerTurn += patch.actionsPerTurn;
   addPartialElementStatGroup(target.elementDamageBonus, patch.elementDamageBonus);
   addPartialElementStatGroup(target.elementDamageReduce, patch.elementDamageReduce);
   return target;

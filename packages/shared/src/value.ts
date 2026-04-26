@@ -17,8 +17,8 @@ export const ATTRIBUTE_VALUE_PER_POINT: Record<AttrKey, number> = {
   spirit: 3,
   perception: 3,
   talent: 3,
-  comprehension: 3,
-  luck: 3,
+  strength: 3,
+  meridians: 3,
 };
 
 /** 各数值属性折算成 1 价值所需的基础点数。 */
@@ -53,6 +53,7 @@ export const NUMERIC_STAT_POINTS_PER_VALUE = {
   extraAggroRate: 1,
   extraRange: 1,
   extraArea: 1,
+  actionsPerTurn: 10,
 } satisfies Record<typeof NUMERIC_SCALAR_STAT_KEYS[number], number>;
 
 /** 配置层 1 价值对应的实际数值点数。 */
@@ -87,6 +88,7 @@ export const NUMERIC_STAT_ACTUAL_POINTS_PER_CONFIG_VALUE = {
   extraAggroRate: 1,
   extraRange: 1,
   extraArea: 1,
+  actionsPerTurn: 1,
 } satisfies Record<typeof NUMERIC_SCALAR_STAT_KEYS[number], number>;
 
 /** 可计价的公式变量，能直接折算成数值收益。 */
@@ -130,6 +132,7 @@ const FORMULA_VAR_VALUE_UNITS: Partial<Record<QuantifiableFormulaVar, number>> =
   'caster.stat.extraAggroRate': NUMERIC_STAT_POINTS_PER_VALUE.extraAggroRate,
   'caster.stat.extraRange': NUMERIC_STAT_POINTS_PER_VALUE.extraRange,
   'caster.stat.extraArea': NUMERIC_STAT_POINTS_PER_VALUE.extraArea,
+  'caster.stat.actionsPerTurn': NUMERIC_STAT_POINTS_PER_VALUE.actionsPerTurn,
 };
 
 /** 乘区抽取时使用的基准倍率，便于识别纯乘法项。 */
@@ -414,8 +417,8 @@ function getAttrLabel(key: string): string {
     spirit: '神识',
     perception: '身法',
     talent: '根骨',
-    comprehension: '悟性',
-    luck: '气运',
+    strength: '力道',
+    meridians: '经脉',
   };
   return labels[key] ?? key;
 }
@@ -452,6 +455,7 @@ function getNumericStatLabel(key: string): string {
     viewRange: '视野范围',
     extraRange: '额外射程',
     extraArea: '额外范围',
+    actionsPerTurn: '每回合行动次数',
   };
   return labels[key] ?? key;
 }

@@ -5,11 +5,9 @@ import {
   GAME_TIME_PHASES,
   DEFAULT_AURA_LEVEL_BASE_VALUE,
   TileType,
-  doesTileTypeBlockSight,
   getQiResourceDefaultLevel,
   getQiResourceDisplayLabel,
   getTileTypeFromMapChar,
-  isTileTypeWalkable,
   parseQiResourceKey,
 } from '@mud/shared';
 
@@ -80,6 +78,7 @@ export class WorldSyncMapSnapshotService {
     const originX = view.self.x - radius;
     const originY = view.self.y - radius;
     const visibleTileIndices = new Set(Array.isArray(view.visibleTileIndices) ? view.visibleTileIndices : []);
+    const visibleTileKeys = new Set(Array.isArray(view.visibleTileKeys) ? view.visibleTileKeys : []);
     const matrix = [];
     const byKey = new Map();
     for (let row = 0; row < radius * 2 + 1; row += 1) {
@@ -91,12 +90,16 @@ export class WorldSyncMapSnapshotService {
           ? getTileIndex(x, y, template.width)
           : -1;
 
-        const tile = visibleTileIndices.size > 0 && !visibleTileIndices.has(tileIndex)
+        const coordKey = buildCoordKey(x, y);
+        const tileVisible = visibleTileKeys.size > 0
+          ? visibleTileKeys.has(coordKey)
+          : (visibleTileIndices.size > 0 ? visibleTileIndices.has(tileIndex) : true);
+        const tile = !tileVisible
           ? null
-          : this.buildTileSyncState(template, view.instance.instanceId, x, y, player);
+          : this.buildCompositeTileSyncState(view, template, x, y, player);
         line.push(tile);
         if (tile) {
-          byKey.set(buildCoordKey(x, y), tile);
+          byKey.set(coordKey, tile);
         }
       }
       matrix.push(line);
@@ -112,23 +115,31 @@ export class WorldSyncMapSnapshotService {
     const originX = view.self.x - radius;
     const originY = view.self.y - radius;
     const visibleTileIndices = new Set(Array.isArray(view.visibleTileIndices) ? view.visibleTileIndices : []);
+    const visibleTileKeys = new Set(Array.isArray(view.visibleTileKeys) ? view.visibleTileKeys : []);
     const keys = new Set();
     for (let row = 0; row < radius * 2 + 1; row += 1) {
       const y = originY + row;
       for (let column = 0; column < radius * 2 + 1; column += 1) {
         const x = originX + column;
-        if (x < 0 || y < 0 || x >= template.width || y >= template.height) {
+        const coordKey = buildCoordKey(x, y);
+        const tileIndex = x >= 0 && y >= 0 && x < template.width && y < template.height
+          ? getTileIndex(x, y, template.width)
+          : -1;
+        const tileVisible = visibleTileKeys.size > 0
+          ? visibleTileKeys.has(coordKey)
+          : (visibleTileIndices.size > 0 ? visibleTileIndices.has(tileIndex) : true);
+        if (!tileVisible) {
           continue;
         }
-
-        const tileIndex = getTileIndex(x, y, template.width);
-        if (visibleTileIndices.size > 0 && !visibleTileIndices.has(tileIndex)) {
+        const tileLookup = this.resolveCompositeTileLookup(view, template, x, y);
+        if (!tileLookup) {
           continue;
         }
-        if (!this.worldRuntimeService.getInstanceTileState(view.instance.instanceId, x, y)) {
+        if (!this.worldRuntimeService.getInstanceTileState(tileLookup.instanceId, tileLookup.x, tileLookup.y)
+          && !isInTemplateBounds(tileLookup.template, tileLookup.x, tileLookup.y)) {
           continue;
         }
-        keys.add(buildCoordKey(x, y));
+        keys.add(coordKey);
       }
     }
     return keys;
@@ -139,10 +150,17 @@ export class WorldSyncMapSnapshotService {
     entities.set(player.playerId, buildPlayerRenderEntity(player, '#ff0'));
     for (const visible of view.visiblePlayers) {
       const target = this.playerRuntimeService.getPlayer(visible.playerId);
-      if (!target || target.instanceId !== player.instanceId) {
+      if (!target) {
         continue;
       }
-      entities.set(target.playerId, buildPlayerRenderEntity(target, '#0f0'));
+      if (target.instanceId !== player.instanceId && visible.projectedFromParentMap !== true) {
+        continue;
+      }
+      entities.set(target.playerId, {
+        ...buildPlayerRenderEntity(target, '#0f0'),
+        x: visible.projectedFromParentMap === true ? visible.x : target.x,
+        y: visible.projectedFromParentMap === true ? visible.y : target.y,
+      });
     }
     for (const npc of view.localNpcs) {
       entities.set(npc.npcId, {
@@ -173,18 +191,20 @@ export class WorldSyncMapSnapshotService {
       });
     }
     for (const container of view.localContainers) {
-      const runtimeInstance = this.worldRuntimeService.getInstanceRuntime?.(view.instance?.instanceId) ?? null;
+      const containerInstanceId = container.instanceId ?? view.instance?.instanceId;
+      const containerTemplateId = container.templateId ?? view.instance?.templateId;
+      const runtimeInstance = this.worldRuntimeService.getInstanceRuntime?.(containerInstanceId) ?? null;
       const runtimeContainer = runtimeInstance?.getContainerById?.(container.id) ?? null;
       const projection = this.worldRuntimeService.worldRuntimeLootContainerService?.getHerbContainerWorldProjection?.(
-        view.instance.instanceId,
+        containerInstanceId,
         runtimeContainer,
         runtimeInstance?.tick ?? view.tick,
       ) ?? null;
       const respawnRemainingTicks = projection?.remainingCount === 0 && projection.respawnRemainingTicks !== undefined
         ? Math.max(0, Math.trunc(Number(projection.respawnRemainingTicks) || 0))
         : undefined;
-      entities.set(`container:${view.instance.templateId}:${container.id}`, {
-        id: `container:${view.instance.templateId}:${container.id}`,
+      entities.set(`container:${containerTemplateId}:${container.id}`, {
+        id: `container:${containerTemplateId}:${container.id}`,
         x: container.x,
         y: container.y,
         char: container.char,
@@ -192,6 +212,31 @@ export class WorldSyncMapSnapshotService {
         name: container.name,
         kind: 'container',
         respawnRemainingTicks,
+      });
+    }
+    for (const formation of view.localFormations ?? []) {
+      entities.set(formation.id, {
+        id: formation.id,
+        x: formation.x,
+        y: formation.y,
+        char: formation.char ?? '◎',
+        color: formation.active === false ? '#9aa0a6' : formation.color ?? '#4da3ff',
+        name: formation.name,
+        kind: 'formation',
+        formationRadius: formation.radius,
+        formationRangeShape: formation.rangeShape,
+        formationRangeHighlightColor: formation.rangeHighlightColor,
+        formationBoundaryChar: formation.boundaryChar,
+        formationBoundaryColor: formation.boundaryColor,
+        formationBoundaryRangeHighlightColor: formation.boundaryRangeHighlightColor,
+        formationEyeVisibleWithoutSenseQi: formation.eyeVisibleWithoutSenseQi === true,
+        formationRangeVisibleWithoutSenseQi: formation.rangeVisibleWithoutSenseQi === true,
+        formationBoundaryVisibleWithoutSenseQi: formation.boundaryVisibleWithoutSenseQi === true,
+        formationShowText: formation.showText !== false,
+        formationBlocksBoundary: formation.blocksBoundary === true,
+        formationOwnerSectId: formation.ownerSectId ?? null,
+        formationOwnerPlayerId: formation.ownerPlayerId ?? null,
+        formationActive: formation.active !== false,
       });
     }
     return entities;
@@ -228,11 +273,11 @@ export class WorldSyncMapSnapshotService {
     );
   }
 
-  buildTileSyncState(template, instanceId, x, y, player = null) {
-    if (x < 0 || y < 0 || x >= template.width || y >= template.height) {
-      return null;
-    }
+  buildMapTickIntervalMs(mapId: string): number {
+    return resolveMapTickIntervalMs(this.mapRuntimeConfigService.getMapTickSpeed(mapId));
+  }
 
+  buildTileSyncState(template, instanceId, x, y, player = null) {
     const state = this.worldRuntimeService.getInstanceTileState(instanceId, x, y);
     if (!state) {
       return null;
@@ -241,7 +286,7 @@ export class WorldSyncMapSnapshotService {
     const destroyed = state.combat?.destroyed === true;
     const tileType = destroyed
       ? TileType.Floor
-      : getTileTypeFromMapChar(template.terrainRows[y]?.[x] ?? '#');
+      : (state.tileType ?? (isInTemplateBounds(template, x, y) ? getTileTypeFromMapChar(template.terrainRows[y]?.[x] ?? '#') : TileType.Floor));
     const resources = Array.isArray(state.resources)
       ? state.resources
         .filter((entry) => entry && typeof entry.resourceKey === 'string' && Number.isFinite(entry.value) && entry.value > 0)
@@ -249,24 +294,95 @@ export class WorldSyncMapSnapshotService {
         .filter((entry) => entry !== null)
       : undefined;
     const aura = buildProjectedTileAura(state.aura, resources, player);
-    return {
+    const tile: any = {
       type: tileType,
-      walkable: isTileTypeWalkable(tileType),
-      blocksSight: doesTileTypeBlockSight(tileType),
-      aura,
-      resources,
-      occupiedBy: null,
-      modifiedAt: state.combat?.modifiedAt ?? null,
-      hp: destroyed ? undefined : state.combat?.hp,
-      maxHp: destroyed ? undefined : state.combat?.maxHp,
-      hpVisible: destroyed
-        ? undefined
-        : state.combat?.maxHp > 0
-          && typeof state.combat?.hp === 'number'
-          && state.combat.hp > 0
-          && state.combat.hp < state.combat.maxHp,
+    };
+    if (aura > 0) {
+      tile.aura = aura;
+    }
+    if (resources && resources.length > 0) {
+      tile.resources = resources;
+    }
+    const modifiedAt = state.combat?.modifiedAt ?? null;
+    if (modifiedAt !== null && modifiedAt !== undefined) {
+      tile.modifiedAt = modifiedAt;
+    }
+    const hpVisible = !destroyed
+      && state.combat?.maxHp > 0
+      && typeof state.combat?.hp === 'number'
+      && state.combat.hp > 0
+      && state.combat.hp < state.combat.maxHp;
+    if (hpVisible) {
+      tile.hp = state.combat.hp;
+      tile.maxHp = state.combat.maxHp;
+      tile.hpVisible = true;
+    }
+    return tile;
+  }
+
+  buildCompositeTileSyncState(view, template, x, y, player = null) {
+    const lookup = this.resolveCompositeTileLookup(view, template, x, y);
+    if (!lookup) {
+      return null;
+    }
+    return this.buildTileSyncState(lookup.template, lookup.instanceId, lookup.x, lookup.y, player)
+      ?? buildStaticTileSyncState(lookup.template, lookup.x, lookup.y);
+  }
+
+  resolveCompositeTileLookup(view, template, x, y) {
+    if (this.worldRuntimeService.getInstanceTileState(view.instance.instanceId, x, y)) {
+      return {
+        template,
+        instanceId: view.instance.instanceId,
+        x,
+        y,
+      };
+    }
+    if (isInTemplateBounds(template, x, y)) {
+      return {
+        template,
+        instanceId: view.instance.instanceId,
+        x,
+        y,
+      };
+    }
+    const source = template.source ?? {};
+    if (source.spaceVisionMode !== 'parent_overlay') {
+      return null;
+    }
+    const parentMapId = typeof source.parentMapId === 'string' ? source.parentMapId.trim() : '';
+    if (!parentMapId || !Number.isInteger(source.parentOriginX) || !Number.isInteger(source.parentOriginY)) {
+      return null;
+    }
+    if (!this.templateRepository.has(parentMapId)) {
+      return null;
+    }
+    const parentTemplate = this.templateRepository.getOrThrow(parentMapId);
+    const parentX = Math.trunc(x) + Number(source.parentOriginX);
+    const parentY = Math.trunc(y) + Number(source.parentOriginY);
+    if (!isInTemplateBounds(parentTemplate, parentX, parentY)) {
+      return null;
+    }
+    return {
+      template: parentTemplate,
+      instanceId: buildOverlayParentInstanceId(view.instance, parentMapId),
+      x: parentX,
+      y: parentY,
     };
   }
+}
+
+function buildStaticTileSyncState(template, x, y) {
+  if (!isInTemplateBounds(template, x, y)) {
+    return null;
+  }
+  return {
+    type: getTileTypeFromMapChar(template.terrainRows?.[y]?.[x] ?? '#'),
+  };
+}
+
+function isInTemplateBounds(template, x, y) {
+  return x >= 0 && y >= 0 && x < template.width && y < template.height;
 }
 
 function buildProjectedTileResource(entry, player) {
@@ -320,6 +436,17 @@ function buildCoordKey(x, y) {
   return `${x},${y}`;
 }
 
+function buildOverlayParentInstanceId(instance, parentTemplateId) {
+  const linePreset = instance?.linePreset === 'real' ? 'real' : 'peaceful';
+  const lineIndex = Number.isFinite(Number(instance?.lineIndex))
+    ? Math.max(1, Math.trunc(Number(instance.lineIndex)))
+    : 1;
+  if (lineIndex > 1) {
+    return `line:${parentTemplateId}:${linePreset}:${lineIndex}`;
+  }
+  return linePreset === 'real' ? `real:${parentTemplateId}` : `public:${parentTemplateId}`;
+}
+
 function normalizeMapTimeConfig(input) {
   const candidate = input ?? {};
   return {
@@ -337,6 +464,13 @@ function resolveDarknessStacks(lightPercent) {
   if (lightPercent >= 65) return 3;
   if (lightPercent >= 55) return 4;
   return 5;
+}
+
+function resolveMapTickIntervalMs(tickSpeed) {
+  const speed = typeof tickSpeed === 'number' && Number.isFinite(tickSpeed)
+    ? Math.max(0, tickSpeed)
+    : 1;
+  return speed > 0 ? 1000 / speed : 0;
 }
 
 function buildGameTimeState(template, totalTicks, baseViewRange, overrideConfig, tickSpeed = 1) {

@@ -1,4 +1,4 @@
-import type { MonsterTier, PlayerState, RenderEntity } from '@mud/shared';
+import type { FormationRangeShape, MonsterTier, PlayerState, RenderEntity } from '@mud/shared';
 /**
  * MainRuntimeObservedEntity：统一结构类型，保证协议与运行时一致性。
  */
@@ -105,6 +105,34 @@ export type MainRuntimeObservedEntity = {
  */
 
   buffs?: PlayerState['temporaryBuffs'];
+  /** 阵法影响半径。 */
+  formationRadius?: number;
+  /** 阵法范围形状。 */
+  formationRangeShape?: FormationRangeShape;
+  /** 感气时使用的阵法范围高亮颜色。 */
+  formationRangeHighlightColor?: string;
+  /** 阵法边界专用字符。 */
+  formationBoundaryChar?: string;
+  /** 阵法边界专用颜色。 */
+  formationBoundaryColor?: string;
+  /** 阵法边界专用范围高亮色。 */
+  formationBoundaryRangeHighlightColor?: string;
+  /** 阵眼是否无需感气即可直接看见。 */
+  formationEyeVisibleWithoutSenseQi?: boolean;
+  /** 阵法范围是否无需感气即可直接看见。 */
+  formationRangeVisibleWithoutSenseQi?: boolean;
+  /** 阵法边界是否无需感气即可直接看见。 */
+  formationBoundaryVisibleWithoutSenseQi?: boolean;
+  /** 阵法实体是否显示名称文本。 */
+  formationShowText?: boolean;
+  /** 阵法边界是否阻挡通行。 */
+  formationBlocksBoundary?: boolean;
+  /** 阵法所属宗门 ID。 */
+  formationOwnerSectId?: string | null;
+  /** 阵法所属玩家 ID。 */
+  formationOwnerPlayerId?: string | null;
+  /** 阵法是否处于开启状态。 */
+  formationActive?: boolean;
 };
 /**
  * isCrowdEntityKind：判断CrowdEntityKind是否满足条件。

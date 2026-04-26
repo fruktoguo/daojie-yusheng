@@ -76,9 +76,18 @@ export function createSocketPanelSender(deps: PanelSenderDeps) {
  * @returns 无返回值，直接更新sendUse道具相关状态。
  */
 
-    sendUseItem(slotIndex: number, count?: number): void {
-      deps.emitEvent(C2S.UseItem, { slotIndex, count });
+    sendUseItem(slotIndex: number, count?: number, options?: { sectName?: string; sectMark?: string }): void {
+      deps.emitEvent(C2S.UseItem, { slotIndex, count, ...(options ?? {}) });
     },    
+    sendCreateFormation(payload: ClientToServerEventPayload<typeof C2S.CreateFormation>): void {
+      deps.emitEvent(C2S.CreateFormation, payload);
+    },
+    sendSetFormationActive(payload: ClientToServerEventPayload<typeof C2S.SetFormationActive>): void {
+      deps.emitEvent(C2S.SetFormationActive, payload);
+    },
+    sendRefillFormation(payload: ClientToServerEventPayload<typeof C2S.RefillFormation>): void {
+      deps.emitEvent(C2S.RefillFormation, payload);
+    },
     /**
  * sendDropItem：执行sendDrop道具相关逻辑。
  * @param slotIndex number 参数说明。

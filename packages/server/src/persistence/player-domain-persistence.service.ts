@@ -36,6 +36,7 @@ const PLAYER_ACTIVE_JOB_TABLE = 'player_active_job';
 const PLAYER_ENHANCEMENT_RECORD_TABLE = 'player_enhancement_record';
 const PLAYER_LOGBOOK_MESSAGE_TABLE = 'player_logbook_message';
 const PLAYER_RECOVERY_WATERMARK_TABLE = 'player_recovery_watermark';
+const PLAYER_VITALS_BIGINT_COLUMNS = ['hp', 'max_hp', 'qi', 'max_qi'] as const;
 
 export const PLAYER_DOMAIN_PROJECTED_TABLES = [
   PLAYER_PRESENCE_TABLE,
@@ -1621,10 +1622,10 @@ export async function savePlayerSnapshotProjectionWithClient(
     `,
     [
       normalizedPlayerId,
-      placement.templateId,
-      normalizeOptionalString(placement.instanceId),
-      placementX,
-      placementY,
+      normalizeRequiredString(respawn.templateId) || placement.templateId,
+      normalizeOptionalString(respawn.instanceId),
+      normalizeIntegerWithFallback(respawn.x, 0),
+      normalizeIntegerWithFallback(respawn.y, 0),
       placement.templateId,
       normalizeOptionalString(placement.instanceId),
       placementX,
@@ -2221,13 +2222,14 @@ export async function ensurePlayerDomainTablesWithClient(client: PoolClient): Pr
   await client.query(`
     CREATE TABLE IF NOT EXISTS ${PLAYER_VITALS_TABLE} (
       player_id varchar(100) PRIMARY KEY,
-      hp integer NOT NULL,
-      max_hp integer NOT NULL,
-      qi integer NOT NULL,
-      max_qi integer NOT NULL,
+      hp bigint NOT NULL,
+      max_hp bigint NOT NULL,
+      qi bigint NOT NULL,
+      max_qi bigint NOT NULL,
       updated_at timestamptz NOT NULL DEFAULT now()
     )
   `);
+  await ensurePlayerVitalsBigintColumnsWithClient(client);
   await client.query(`
     CREATE TABLE IF NOT EXISTS ${PLAYER_PROGRESSION_CORE_TABLE} (
       player_id varchar(100) PRIMARY KEY,
@@ -2573,6 +2575,15 @@ async function ensureRecoveryWatermarkColumnsWithClient(client: PoolClient): Pro
     await client.query(`
       ALTER TABLE ${PLAYER_RECOVERY_WATERMARK_TABLE}
       ADD COLUMN IF NOT EXISTS ${column} bigint NOT NULL DEFAULT 0
+    `);
+  }
+}
+
+async function ensurePlayerVitalsBigintColumnsWithClient(client: PoolClient): Promise<void> {
+  for (const column of PLAYER_VITALS_BIGINT_COLUMNS) {
+    await client.query(`
+      ALTER TABLE ${PLAYER_VITALS_TABLE}
+      ALTER COLUMN ${column} TYPE bigint USING ${column}::bigint
     `);
   }
 }

@@ -344,6 +344,9 @@ function validateItemRefs(errors, items, refs) {
         errors.push(`${itemId}: mapUnlockIds 包含不存在的地图 -> ${mapUnlockId}`);
       }
     }
+    if (typeof item?.respawnBindMapId === "string" && !refs.mapIds.has(item.respawnBindMapId)) {
+      errors.push(`${itemId}: respawnBindMapId 不存在 -> ${item.respawnBindMapId}`);
+    }
     if (typeof item?.learnTechniqueId === "string" && !refs.techniqueIds.has(item.learnTechniqueId)) {
       errors.push(`${itemId}: learnTechniqueId 不存在 -> ${item.learnTechniqueId}`);
     }

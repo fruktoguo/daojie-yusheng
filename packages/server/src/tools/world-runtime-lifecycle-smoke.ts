@@ -108,6 +108,9 @@ async function testRestoreAndRebuild() {
     const persistentInstance = {
         meta: { persistent: true },
         template: { id: 'yunlai_town' },
+        hydrateTime(tick) {
+            log.push(['hydrateTime', tick]);
+        },
         hydrateTileResources(entries) {
             log.push(['hydrateTileResources', entries]);
         },
@@ -119,6 +122,9 @@ async function testRestoreAndRebuild() {
         },
         hydrateMonsterRuntimeStates(entries) {
             log.push(['hydrateMonsterRuntimeStates', entries]);
+        },
+        hydrateOverlayChunks(entries) {
+            log.push(['hydrateOverlayChunks', entries]);
         },
     };
     const volatileInstance = {
@@ -168,6 +174,7 @@ async function testRestoreAndRebuild() {
             async loadInstanceCheckpoint(instanceId) {
                 log.push(['loadInstanceCheckpoint', instanceId]);
                 return {
+                    tick: 1234,
                     tileResourceEntries: [{ resourceKey: 'aura.refined.neutral', tileIndex: 5, value: 3 }],
                     groundPileEntries: [{ tileIndex: 11, items: [{ itemKey: 'checkpoint:ground:1', item: { itemId: 'checkpoint_stone', count: 2 } }] }],
                     containerStates: [{ instanceId, containerId: 'checkpoint:container:1', sourceId: 'checkpoint:source:1', statePayload: { sealed: true } }],
@@ -204,7 +211,8 @@ async function testRestoreAndRebuild() {
                 return [];
             },
             async loadOverlayChunks() {
-                return [];
+                log.push(['loadOverlayChunks']);
+                return [{ patchKind: 'portal', chunkKey: 'runtime_portals', patchPayload: { portals: [] } }];
             },
         },
     });
@@ -214,7 +222,10 @@ async function testRestoreAndRebuild() {
     assert.ok(log.some((entry) => Array.isArray(entry) && entry[0] === 'loadGroundItems'));
     assert.ok(log.some((entry) => Array.isArray(entry) && entry[0] === 'loadContainerStates'));
     assert.ok(log.some((entry) => Array.isArray(entry) && entry[0] === 'loadMonsterRuntimeStates'));
+    assert.ok(log.some((entry) => Array.isArray(entry) && entry[0] === 'loadOverlayChunks'));
+    assert.ok(log.some((entry) => Array.isArray(entry) && entry[0] === 'hydrateOverlayChunks'));
     assert.ok(log.some((entry) => Array.isArray(entry) && entry[0] === 'loadInstanceCheckpoint'));
+    assert.ok(log.some((entry) => Array.isArray(entry) && entry[0] === 'hydrateTime' && entry[1] === 1234));
     assert.ok(log.some((entry) => Array.isArray(entry) && entry[0] === 'hydrateTileResources'));
     assert.ok(log.some((entry) => Array.isArray(entry) && entry[0] === 'hydrateGroundPiles'));
     assert.ok(log.some((entry) => Array.isArray(entry) && entry[0] === 'hydrateContainerStates'));
@@ -223,6 +234,9 @@ async function testRestoreAndRebuild() {
     const domainInstance = {
         meta: { persistent: true, instanceId: 'public:yunlai_town' },
         template: { id: 'yunlai_town' },
+        hydrateTime(tick) {
+            domainRestoreLog.push(['hydrateTime', tick]);
+        },
         hydrateTileResources(entries) {
             domainRestoreLog.push(['hydrateTileResources', entries]);
         },
@@ -234,6 +248,9 @@ async function testRestoreAndRebuild() {
         },
         hydrateMonsterRuntimeStates(entries) {
             domainRestoreLog.push(['hydrateMonsterRuntimeStates', entries]);
+        },
+        hydrateOverlayChunks(entries) {
+            domainRestoreLog.push(['hydrateOverlayChunks', entries]);
         },
     };
     await service.restorePublicInstancePersistence({
@@ -264,6 +281,7 @@ async function testRestoreAndRebuild() {
             async loadInstanceCheckpoint(instanceId) {
                 domainRestoreLog.push(['loadInstanceCheckpoint', instanceId]);
                 return {
+                    tick: 5678,
                     tileResourceEntries: [
                         { resourceKey: 'aura.refined.neutral', tileIndex: 5, value: 3 },
                     ],
@@ -317,7 +335,8 @@ async function testRestoreAndRebuild() {
                 return [];
             },
             async loadOverlayChunks() {
-                return [];
+                domainRestoreLog.push(['loadOverlayChunks']);
+                return [{ patchKind: 'portal', chunkKey: 'runtime_portals', patchPayload: { portals: [] } }];
             },
         },
         listInstanceEntries() {
@@ -340,7 +359,10 @@ async function testRestoreAndRebuild() {
     assert.ok(domainRestoreLog.some((entry) => Array.isArray(entry) && entry[0] === 'hydrateContainerStates' && entry[1] === 'public:yunlai_town'));
     assert.ok(domainRestoreLog.some((entry) => Array.isArray(entry) && entry[0] === 'loadMonsterRuntimeStates'));
     assert.ok(domainRestoreLog.some((entry) => Array.isArray(entry) && entry[0] === 'hydrateMonsterRuntimeStates'));
+    assert.ok(domainRestoreLog.some((entry) => Array.isArray(entry) && entry[0] === 'loadOverlayChunks'));
+    assert.ok(domainRestoreLog.some((entry) => Array.isArray(entry) && entry[0] === 'hydrateOverlayChunks'));
     assert.ok(domainRestoreLog.some((entry) => Array.isArray(entry) && entry[0] === 'loadInstanceCheckpoint'));
+    assert.ok(domainRestoreLog.some((entry) => Array.isArray(entry) && entry[0] === 'hydrateTime' && entry[1] === 5678));
     assert.ok(domainRestoreLog.some((entry) => Array.isArray(entry) && entry[0] === 'hydrateTileResources' && Array.isArray(entry[1]) && entry[1][0]?.tileIndex === 5));
     assert.ok(domainRestoreLog.some((entry) => Array.isArray(entry) && entry[0] === 'hydrateGroundPiles' && Array.isArray(entry[1]) && entry[1][0]?.tileIndex === 11));
     assert.ok(domainRestoreLog.some((entry) => Array.isArray(entry) && entry[0] === 'log' && entry[1] === '实例分域恢复已回填：public:yunlai_town'));

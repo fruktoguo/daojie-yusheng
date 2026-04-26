@@ -1,4 +1,4 @@
-import { Inventory, PlayerState } from '@mud/shared';
+import { FormationCreatePayload, Inventory, PlayerState, type FormationRangeShape } from '@mud/shared';
 import type { MainMarketStateSource } from './main-market-state-source';
 import type { MainQuestStateSource } from './main-quest-state-source';
 import { CraftWorkbenchModal } from './ui/craft-workbench-modal';
@@ -49,7 +49,17 @@ type MainInventoryStateSourceOptions = {
  * sendUseItem：sendUse道具相关字段。
  */
 
-  sendUseItem: (slotIndex: number, count?: number) => void;
+  sendUseItem: (slotIndex: number, count?: number, options?: { sectName?: string; sectMark?: string }) => void;
+  /**
+ * sendCreateFormation：send布阵相关字段。
+ */
+
+  sendCreateFormation: (payload: FormationCreatePayload) => void;
+  /**
+ * previewFormationRange：预览布阵范围。
+ */
+
+  previewFormationRange?: (payload: { shape: FormationRangeShape; radius: number; rangeHighlightColor?: string } | null) => void;
   /**
  * sendDropItem：sendDrop道具相关字段。
  */
@@ -92,11 +102,13 @@ export type MainInventoryStateSource = ReturnType<typeof createMainInventoryStat
 
 export function createMainInventoryStateSource(options: MainInventoryStateSourceOptions) {
   options.inventoryPanel.setCallbacks(
-    (slotIndex, count) => options.sendUseItem(slotIndex, count),
+    (slotIndex, count, useOptions) => options.sendUseItem(slotIndex, count, useOptions),
     (slotIndex, count) => options.sendDropItem(slotIndex, count),
     (slotIndex, count) => options.sendDestroyItem(slotIndex, count),
     (slotIndex) => options.sendEquip(slotIndex),
     () => options.sendSortInventory(),
+    (payload) => options.sendCreateFormation(payload),
+    (payload) => options.previewFormationRange?.(payload),
   );
 
   return {

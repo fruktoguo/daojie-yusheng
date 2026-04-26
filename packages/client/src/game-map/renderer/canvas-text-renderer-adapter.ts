@@ -71,6 +71,7 @@ export class CanvasTextRendererAdapter {
     this.renderer.setPathHighlight(scene.overlays.pathCells, pathFadeDurationMs);
     this.renderer.setThreatArrows(scene.overlays.threatArrows);
     this.renderer.setTargetingOverlay(scene.overlays.targeting);
+    this.renderer.setFormationRangeOverlay(scene.overlays.formationRange);
     this.renderer.setSenseQiOverlay(scene.overlays.senseQi);
     this.renderer.setGroundPiles(scene.groundPiles);
     const settleEntityId = transition?.settleMotion === true ? scene.player?.id : undefined;
@@ -120,6 +121,7 @@ export class CanvasTextRendererAdapter {
     this.renderer.resetScene();
     this.renderer.setPathHighlight([]);
     this.renderer.setTargetingOverlay(null);
+    this.renderer.setFormationRangeOverlay(null);
     this.renderer.setSenseQiOverlay(null);
   }  
   /**
@@ -197,5 +199,4 @@ export class CanvasTextRendererAdapter {
     return isLocalDivineSkillName(effect.text) ? 'divine' : 'default';
   }
 }
-
 

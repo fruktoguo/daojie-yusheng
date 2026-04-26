@@ -232,6 +232,12 @@ export class MapRuntime implements MapRuntimeApi {
     this.syncSceneFromStore();
   }
 
+  /** 设置阵法范围叠加层并刷新场景。 */
+  setFormationRangeOverlay(state: Parameters<MapRuntimeApi['setFormationRangeOverlay']>[0]): void {
+    this.store.setFormationRangeOverlay(state);
+    this.syncSceneFromStore();
+  }
+
   /** 设置感气叠加层并刷新场景。 */
   setSenseQiOverlay(state: Parameters<MapRuntimeApi['setSenseQiOverlay']>[0]): void {
     this.store.setSenseQiOverlay(state);

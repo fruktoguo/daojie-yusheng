@@ -2,6 +2,7 @@ import type {
   Direction,
   GameTimeState,
   CombatEffect,
+  FormationRangeShape,
   GroundItemPilePatch,
   GroundItemPileView,
   GridPoint,
@@ -147,6 +148,34 @@ export interface ObservedMapEntity {
  */
 
   buffs?: VisibleBuffState[];
+  /** 阵法影响半径。 */
+  formationRadius?: number;
+  /** 阵法范围形状。 */
+  formationRangeShape?: FormationRangeShape;
+  /** 感气时使用的阵法范围高亮颜色。 */
+  formationRangeHighlightColor?: string;
+  /** 阵法边界专用字符。 */
+  formationBoundaryChar?: string;
+  /** 阵法边界专用颜色。 */
+  formationBoundaryColor?: string;
+  /** 阵法边界专用范围高亮色。 */
+  formationBoundaryRangeHighlightColor?: string;
+  /** 阵眼是否无需感气即可直接看见。 */
+  formationEyeVisibleWithoutSenseQi?: boolean;
+  /** 阵法范围是否无需感气即可直接看见。 */
+  formationRangeVisibleWithoutSenseQi?: boolean;
+  /** 阵法边界是否无需感气即可直接看见。 */
+  formationBoundaryVisibleWithoutSenseQi?: boolean;
+  /** 阵法实体是否显示名称文本。 */
+  formationShowText?: boolean;
+  /** 阵法边界是否阻挡通行。 */
+  formationBlocksBoundary?: boolean;
+  /** 阵法所属宗门 ID。 */
+  formationOwnerSectId?: string | null;
+  /** 阵法所属玩家 ID。 */
+  formationOwnerPlayerId?: string | null;
+  /** 阵法是否处于开启状态。 */
+  formationActive?: boolean;
 }
 
 /** 技能瞄准叠加层状态。 */
@@ -198,6 +227,17 @@ export interface MapTargetingOverlayState {
   hoverY?: number;
 }
 
+/** 阵法布置范围叠加层状态。 */
+export interface MapFormationRangeOverlayState {
+/**
+ * affectedCells：affectedCell相关字段。
+ */
+
+  affectedCells: GridPoint[];
+  /** rangeHighlightColor：范围高亮颜色。 */
+  rangeHighlightColor?: string;
+}
+
 /** 感气视野叠加层状态。 */
 export interface MapSenseQiOverlayState {
 /**
@@ -229,6 +269,11 @@ export interface MapOverlayState {
  */
 
   targeting: MapTargetingOverlayState | null;  
+  /**
+ * formationRange：阵法范围相关字段。
+ */
+
+  formationRange: MapFormationRangeOverlayState | null;
   /**
  * senseQi：senseQi相关字段。
  */
@@ -773,6 +818,7 @@ export interface MapRuntimeApi {
   setMoveHandler(handler: ((x: number, y: number) => void) | null): void;
   setPathCells(cells: GridPoint[]): void;
   setTargetingOverlay(state: MapTargetingOverlayState | null): void;
+  setFormationRangeOverlay(state: MapFormationRangeOverlayState | null): void;
   setSenseQiOverlay(state: MapSenseQiOverlayState | null): void;
   replaceVisibleEntities(
     entities: ObservedMapEntity[],

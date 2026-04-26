@@ -688,6 +688,127 @@ async function testShopAndEquipmentRoutesAwaitAsyncHandlers() {
     ]);
 }
 
+async function testCombatCommandUsesActionsPerTurn() {
+    const log = [];
+    const player = {
+        hp: 100,
+        attrs: {
+            numericStats: {
+                actionsPerTurn: 1,
+            },
+        },
+        combat: {
+            combatActionTick: 12,
+            combatActionsUsedThisTick: 1,
+        },
+    };
+    const service = createService(log, player);
+    const deps = {
+        resolveCurrentTickForPlayerId(playerId) {
+            assert.equal(playerId, 'player:1');
+            return 12;
+        },
+    };
+    await assert.rejects(
+        () => service.dispatchPlayerCommand('player:1', {
+            kind: 'basicAttack',
+            targetPlayerId: null,
+            targetMonsterId: 'monster:1',
+            targetX: null,
+            targetY: null,
+        }, deps),
+        /本回合行动次数已用尽/,
+    );
+    assert.deepEqual(log, [
+        ['getPlayer', 'player:1'],
+    ]);
+
+    player.attrs.numericStats.actionsPerTurn = 2;
+    await service.dispatchPlayerCommand('player:1', {
+        kind: 'basicAttack',
+        targetPlayerId: null,
+        targetMonsterId: 'monster:1',
+        targetX: null,
+        targetY: null,
+    }, deps);
+    assert.equal(player.combat.combatActionsUsedThisTick, 2);
+    assert.deepEqual(log, [
+        ['getPlayer', 'player:1'],
+        ['getPlayer', 'player:1'],
+        ['dispatchBasicAttack', 'player:1', null, 'monster:1', null, null],
+    ]);
+
+    await assert.rejects(
+        () => service.dispatchPlayerCommand('player:1', {
+            kind: 'basicAttack',
+            targetPlayerId: null,
+            targetMonsterId: 'monster:1',
+            targetX: null,
+            targetY: null,
+        }, deps),
+        /本回合行动次数已用尽/,
+    );
+    assert.deepEqual(log, [
+        ['getPlayer', 'player:1'],
+        ['getPlayer', 'player:1'],
+        ['dispatchBasicAttack', 'player:1', null, 'monster:1', null, null],
+        ['getPlayer', 'player:1'],
+    ]);
+
+    await service.dispatchPlayerCommand('player:1', {
+        kind: 'basicAttack',
+        targetPlayerId: null,
+        targetMonsterId: 'monster:1',
+        targetX: null,
+        targetY: null,
+        skipActionReadyCheck: true,
+    }, deps);
+    assert.deepEqual(log, [
+        ['getPlayer', 'player:1'],
+        ['getPlayer', 'player:1'],
+        ['dispatchBasicAttack', 'player:1', null, 'monster:1', null, null],
+        ['getPlayer', 'player:1'],
+        ['getPlayer', 'player:1'],
+        ['dispatchBasicAttack', 'player:1', null, 'monster:1', null, null],
+    ]);
+}
+
+async function testEngageBattleDoesNotConsumeActionByItself() {
+    const log = [];
+    const player = {
+        hp: 100,
+        attrs: {
+            numericStats: {
+                actionsPerTurn: 1,
+            },
+        },
+        combat: {
+            combatActionTick: 12,
+            combatActionsUsedThisTick: 1,
+        },
+    };
+    const service = createService(log, player);
+    const deps = {
+        resolveCurrentTickForPlayerId(playerId) {
+            assert.equal(playerId, 'player:1');
+            return 12;
+        },
+    };
+    await service.dispatchPlayerCommand('player:1', {
+        kind: 'engageBattle',
+        targetPlayerId: null,
+        targetMonsterId: 'monster:2',
+        targetX: null,
+        targetY: null,
+        locked: true,
+    }, deps);
+    assert.equal(player.combat.combatActionsUsedThisTick, 1);
+    assert.deepEqual(log, [
+        ['getPlayer', 'player:1'],
+        ['dispatchEngageBattle', 'player:1', null, 'monster:2', null, null, true],
+    ]);
+}
+
 Promise.resolve()
     .then(() => testUseItemDelegates())
     .then(() => testCastSkillDelegates())
@@ -696,6 +817,8 @@ Promise.resolve()
     .then(() => testNpcQuestRoutes())
     .then(() => testNpcInteractionRouteAwaitsSubmitPath())
     .then(() => testShopAndEquipmentRoutesAwaitAsyncHandlers())
+    .then(() => testCombatCommandUsesActionsPerTurn())
+    .then(() => testEngageBattleDoesNotConsumeActionByItself())
     .then(() => {
     console.log(JSON.stringify({ ok: true, case: 'world-runtime-player-command' }, null, 2));
 });

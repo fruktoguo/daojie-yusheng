@@ -87,8 +87,8 @@ function createPlayerRuntimeService() {
       createInitialState() {
         return {
           stage: '炼气',
-          baseAttrs: { constitution: 1, spirit: 1, perception: 1, talent: 1, comprehension: 1, luck: 1 },
-          finalAttrs: { constitution: 1, spirit: 1, perception: 1, talent: 1, comprehension: 1, luck: 1 },
+          baseAttrs: { constitution: 1, spirit: 1, perception: 1, talent: 1, strength: 1, meridians: 1 },
+          finalAttrs: { constitution: 1, spirit: 1, perception: 1, talent: 1, strength: 1, meridians: 1 },
           numericStats: createNumericStats(),
           ratioDivisors: createNumericRatioDivisors(),
         };
@@ -581,6 +581,28 @@ function testEquipItemDirtyDomain(): void {
   assertDirtyDomains(service, playerId, ['inventory', 'equipment', 'attr'], ['snapshot']);
 }
 
+function testEquipItemSplitsStackedEquipment(): void {
+  const playerId = 'player:equip-stacked-item';
+  const service = createHydratedService(playerId);
+  const player = service.getPlayerOrThrow(playerId);
+  player.equipment.slots = [{ slot: 'weapon', item: null }] as never;
+  player.inventory.items.push({
+    itemId: 'iron_sword',
+    count: 3,
+    equipSlot: 'weapon',
+  });
+  player.inventory.revision += 1;
+  service.markPersisted(playerId);
+
+  service.equipItem(playerId, 0);
+
+  assert.equal(player.equipment.slots[0]?.item?.itemId, 'iron_sword');
+  assert.equal(player.equipment.slots[0]?.item?.count, 1);
+  assert.equal(player.inventory.items[0]?.itemId, 'iron_sword');
+  assert.equal(player.inventory.items[0]?.count, 2);
+  assertDirtyDomains(service, playerId, ['inventory', 'equipment', 'attr'], ['snapshot']);
+}
+
 function testBodyTrainingRecalculateDirtyDomain(): void {
   const playerId = 'player:body-training';
   const service = createHydratedService(playerId);
@@ -740,11 +762,13 @@ function testAdvanceSinglePlayerTickDirtyDomain(): void {
   });
   player.buffs.revision += 1;
   service.markPersisted(playerId);
+  const previousLifeElapsedTicks = player.lifeElapsedTicks;
 
   service.advanceSinglePlayerTick(player, 1, {});
 
-  assertDirtyDomains(service, playerId, ['buff', 'attr'], ['snapshot']);
-  assert.ok(player.persistentRevision > player.persistedRevision, 'expected buff tick to bump persistentRevision');
+  assert.equal(player.lifeElapsedTicks, previousLifeElapsedTicks + 1);
+  assertDirtyDomains(service, playerId, ['progression', 'buff', 'attr'], ['snapshot']);
+  assert.ok(player.persistentRevision > player.persistedRevision, 'expected chronology and buff tick to bump persistentRevision');
 }
 
 function testRespawnDirtyDomains(): void {
@@ -804,6 +828,7 @@ testLogbookDirtyDomain();
   testCultivationActiveWithoutMainTechnique();
   testUseConsumableItemDirtyDomain();
   testEquipItemDirtyDomain();
+  testEquipItemSplitsStackedEquipment();
   testBodyTrainingRecalculateDirtyDomain();
   testInfuseBodyTrainingDirtyDomain();
   testApplyTemporaryBuffDirtyDomain();

@@ -159,7 +159,10 @@ function testAccessorsAndSummary() {
  * @param playerId 玩家 ID。
  * @returns 无返回值，完成玩家的读取/组装。
  */
- getPlayer(playerId) { return deps.getPlayer(playerId); } },        
+ getPlayer(playerId) { return deps.getPlayer(playerId); },
+            clearManualEngagePending(playerId) { deps.log.push(['clearManualEngagePending', playerId]); },
+        },
+        clearPendingCommand(playerId) { deps.log.push(['clearPendingCommand', playerId]); },
  /**
  * getPlayerView：读取玩家视图。
  * @param playerId 玩家 ID。
@@ -177,8 +180,15 @@ function testAccessorsAndSummary() {
     assert.equal(service.getInstanceRuntimeOrThrow('public:yunlai_town', deps), instance);
     instance.cancelPendingCommand = (playerId) => playerId === 'player:1';
     assert.equal(service.cancelPendingInstanceCommand('player:1', deps), true);
+    deps.log.length = 0;
     service.interruptManualNavigation('player:1', deps);
     service.interruptManualCombat('player:1', deps);
+    assert.deepEqual(deps.log, [
+        ['interruptManualNavigation', 'player:1'],
+        ['clearNavigationIntent', 'player:1'],
+        ['clearPendingCommand', 'player:1'],
+        ['clearManualEngagePending', 'player:1'],
+    ]);
     assert.deepEqual(service.getPlayerViewOrThrow('player:1', deps), { playerId: 'player:1' });
     assert.deepEqual(service.getRuntimeSummary(deps), {
         tick: 3,

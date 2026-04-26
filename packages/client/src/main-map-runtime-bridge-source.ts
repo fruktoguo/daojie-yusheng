@@ -3,6 +3,7 @@ import type {
   Direction,
   GridPoint,
   GroundItemPileView,
+  MapMeta,
   TargetingShape,
   Tile,
 } from '@mud/shared';
@@ -100,15 +101,7 @@ type MainMapRuntimeBridgeSourceOptions = {
  * getMapMeta：地图Meta相关字段。
  */
 
-    getMapMeta: () => {    
-    /**
- * width：width相关字段。
- */
- width: number;    
- /**
- * height：height相关字段。
- */
- height: number } | null;    
+    getMapMeta: () => MapMeta | null;    
  /**
  * setViewportSize：数量或计量字段。
  */
@@ -157,6 +150,11 @@ type MainMapRuntimeBridgeSourceOptions = {
  */
 
     clearCurrentPath: () => void;    
+    /**
+ * setCurrentPathCells：set当前路径Cell相关字段。
+ */
+
+    setCurrentPathCells: (cells: Array<{ x: number; y: number }>) => void;    
     /**
  * trimCurrentPathProgress：trimCurrent路径进度状态或数据块。
  */
@@ -394,6 +392,16 @@ export function createMainMapRuntimeBridgeSource(options: MainMapRuntimeBridgeSo
 
     clearCurrentPath(): void {
       options.navigation.clearCurrentPath();
+    },    
+    /**
+ * setCurrentPathCells：写入当前路径高亮。
+ * @param cells 路径格子列表。
+ * @returns 无返回值，直接更新当前路径高亮。
+ */
+
+
+    setCurrentPathCells(cells: Array<{ x: number; y: number }>): void {
+      options.navigation.setCurrentPathCells(cells);
     },    
     /**
  * trimCurrentPathProgress：执行trim当前路径进度相关逻辑。
@@ -636,7 +644,11 @@ export function createMainMapRuntimeBridgeSource(options: MainMapRuntimeBridgeSo
 
       const mapMeta = options.mapRuntime.getMapMeta();
       if (!mapMeta) return true;
-      return x >= 0 && y >= 0 && x < mapMeta.width && y < mapMeta.height;
+      if (x >= 0 && y >= 0 && x < mapMeta.width && y < mapMeta.height) {
+        return true;
+      }
+      return options.mapRuntime.getVisibleTileAt(x, y) !== null
+        || options.mapRuntime.getKnownTileAt(x, y) !== null;
     },    
     /**
  * getVisibleGroundPileAt：读取可见地面PileAt。

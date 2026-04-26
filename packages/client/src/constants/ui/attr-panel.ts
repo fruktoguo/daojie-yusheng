@@ -66,6 +66,7 @@ export const NUMERIC_TOOLTIP_LABELS: Partial<Record<NumericCardKey, string>> = {
   rareLootRate: '稀有掉落',
   moveSpeed: '移动速度',
   viewRange: '视野范围',
+  actionsPerTurn: '每回合行动次数',
 };
 
 export const NUMERIC_TOOLTIP_DESCRIPTIONS: Partial<Record<NumericCardKey, string>> = {
@@ -96,14 +97,19 @@ export const NUMERIC_TOOLTIP_DESCRIPTIONS: Partial<Record<NumericCardKey, string
   rareLootRate: '提高稀有掉落收益。',
   moveSpeed: '决定每息获得的移动预算。大路、小路、草地、泥地与沼泽会按不同消耗结算，因此地形会直接影响赶路效率。',
   viewRange: '决定地图上的可见范围。',
+  actionsPerTurn: '决定每回合最多可以执行的战斗行动次数。',
 };
 
 export const PLAYER_SPECIAL_TOOLTIP_LABELS: Record<PlayerSpecialCardKey, string> = {
   foundation: '底蕴',
   combatExp: '战斗经验',
+  comprehension: '悟性',
+  luck: '幸运',
 };
 
 export const PLAYER_SPECIAL_TOOLTIP_DESCRIPTIONS: Record<PlayerSpecialCardKey, string> = {
   foundation: '在能够获得境界修为时，优先把本次境界修为抬高到三倍上限；实际额外补上的部分会等量消耗底蕴。',
   combatExp: '通过战斗获得的境界修为会一比一累计到战斗经验，并按双方差距影响攻击时的命中、受击时的闪避（两者最高翻倍），以及普通攻击 50% 到 200% 的独立伤害乘区。',
+  comprehension: '提高境界修为与功法经验获取；不作为六维参与基础属性换算。',
+  luck: '提高常规掉落与稀有掉落收益；不再提供命中、闪避、暴击等战斗属性。',
 };

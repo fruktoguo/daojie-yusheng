@@ -92,12 +92,17 @@ const realmLevels = loadRealmLevels(realmLevelsConfig.levels);
  * 记录buffs。
  */
 const buffs = buildBuffCatalog(techniques, items);
+/**
+ * 记录quests。
+ */
+const quests = loadQuests(path.join(contentDir, 'quests'), path.join(repoRoot, 'packages/server/data/maps'), items, techniques);
 
 writeJson(outputPath, {
   techniques,
   items,
   realmLevels,
   buffs,
+  quests,
 });
 
 console.log(`已生成 ${path.relative(repoRoot, outputPath)}`);
@@ -251,6 +256,216 @@ function collectAlchemyRoleMaterialItemIds(recipesPath, items, role) {
   return itemIds;
 }
 
+function loadQuests(questsDir, mapsDir, items, techniques) {
+  const itemById = new Map(items.map((item) => [item.itemId, item]));
+  const techniqueById = new Map(techniques.map((technique) => [technique.id, technique]));
+  const { mapById, npcLocationById, inlineQuests } = collectMapQuestContext(mapsDir);
+  const entries = [...inlineQuests];
+  if (fs.existsSync(questsDir)) {
+    for (const filePath of walkJsonFiles(questsDir)) {
+      const raw = readJson(filePath);
+      for (const quest of Array.isArray(raw?.quests) ? raw.quests : []) {
+        entries.push(quest);
+      }
+    }
+  }
+  const result = [];
+  const seen = new Set();
+  for (const entry of entries) {
+    const quest = normalizeQuestTemplate(entry, { itemById, techniqueById, mapById, npcLocationById });
+    if (!quest || seen.has(quest.id)) {
+      continue;
+    }
+    seen.add(quest.id);
+    result.push(quest);
+  }
+  return result.sort((left, right) => sortByNameThenId(left.title, right.title, left.id, right.id));
+}
+
+function collectMapQuestContext(mapsDir) {
+  const mapById = new Map();
+  const npcLocationById = new Map();
+  const inlineQuests = [];
+  if (!fs.existsSync(mapsDir)) {
+    return { mapById, npcLocationById, inlineQuests };
+  }
+  const documents = walkJsonFiles(mapsDir).map((filePath) => readJson(filePath));
+  for (const document of documents) {
+    const mapId = typeof document?.id === 'string' ? document.id.trim() : '';
+    if (!mapId) {
+      continue;
+    }
+    const mapName = typeof document?.name === 'string' && document.name.trim() ? document.name.trim() : mapId;
+    mapById.set(mapId, { mapId, mapName });
+    for (const npc of Array.isArray(document?.npcs) ? document.npcs : []) {
+      const npcId = typeof npc?.id === 'string' ? npc.id.trim() : '';
+      if (!npcId) {
+        continue;
+      }
+      const npcName = typeof npc?.name === 'string' && npc.name.trim() ? npc.name.trim() : npcId;
+      npcLocationById.set(npcId, {
+        npcId,
+        npcName,
+        mapId,
+        mapName,
+        x: Number.isInteger(npc?.x) ? Number(npc.x) : undefined,
+        y: Number.isInteger(npc?.y) ? Number(npc.y) : undefined,
+      });
+      for (const quest of Array.isArray(npc?.quests) ? npc.quests : []) {
+        inlineQuests.push({
+          ...quest,
+          giverNpcId: quest?.giverNpcId ?? npcId,
+          giverMapId: quest?.giverMapId ?? mapId,
+        });
+      }
+    }
+  }
+  return { mapById, npcLocationById, inlineQuests };
+}
+
+function normalizeQuestTemplate(entry, context) {
+  if (!entry || typeof entry !== 'object') {
+    return null;
+  }
+  const id = normalizeText(entry.id);
+  const title = normalizeText(entry.title);
+  const desc = typeof entry.desc === 'string' ? entry.desc : '';
+  if (!id || !title) {
+    return null;
+  }
+  const objectiveType = normalizeQuestObjectiveType(entry.objectiveType);
+  const required = Math.max(1, Math.trunc(Number(entry.required ?? entry.targetCount ?? 1)));
+  const rewards = normalizeQuestRewards(entry, context.itemById);
+  const rewardItemIds = rewards.map((reward) => reward.itemId);
+  const targetNpcLocation = normalizeText(entry.targetNpcId) ? context.npcLocationById.get(normalizeText(entry.targetNpcId)) : null;
+  const submitNpcLocation = normalizeText(entry.submitNpcId) ? context.npcLocationById.get(normalizeText(entry.submitNpcId)) : null;
+  const giverNpcId = normalizeText(entry.giverNpcId);
+  const giverLocation = giverNpcId ? context.npcLocationById.get(giverNpcId) : null;
+  const giverMapId = normalizeText(entry.giverMapId) || giverLocation?.mapId || '';
+  const targetMapId = normalizeText(entry.targetMapId) || targetNpcLocation?.mapId;
+  const submitMapId = normalizeText(entry.submitMapId) || submitNpcLocation?.mapId;
+  return {
+    id,
+    title,
+    desc,
+    line: normalizeQuestLine(entry.line),
+    chapter: optionalText(entry.chapter),
+    story: optionalText(entry.story),
+    status: 'available',
+    objectiveType,
+    objectiveText: optionalText(entry.objectiveText),
+    progress: 0,
+    required,
+    targetName: resolveQuestTargetName(entry, objectiveType, context, targetNpcLocation),
+    targetTechniqueId: optionalText(entry.targetTechniqueId),
+    targetRealmStage: Number.isFinite(Number(entry.targetRealmStage)) ? Number(entry.targetRealmStage) : undefined,
+    rewardText: typeof entry.rewardText === 'string' ? entry.rewardText : buildQuestTemplateRewardText(rewards),
+    targetMonsterId: normalizeText(entry.targetMonsterId),
+    rewardItemId: normalizeText(entry.rewardItemId) || rewardItemIds[0] || '',
+    rewardItemIds,
+    rewards,
+    nextQuestId: optionalText(entry.nextQuestId),
+    requiredItemId: optionalText(entry.requiredItemId),
+    requiredItemCount: Number.isInteger(entry.requiredItemCount) ? Number(entry.requiredItemCount) : undefined,
+    giverId: giverNpcId,
+    giverName: optionalText(entry.giverName) ?? giverLocation?.npcName ?? giverNpcId,
+    giverMapId: giverMapId || undefined,
+    giverMapName: optionalText(entry.giverMapName) ?? context.mapById.get(giverMapId)?.mapName ?? giverLocation?.mapName,
+    giverX: Number.isInteger(entry.giverX) ? Number(entry.giverX) : giverLocation?.x,
+    giverY: Number.isInteger(entry.giverY) ? Number(entry.giverY) : giverLocation?.y,
+    targetMapId,
+    targetMapName: optionalText(entry.targetMapName) ?? context.mapById.get(targetMapId)?.mapName ?? targetNpcLocation?.mapName,
+    targetX: Number.isInteger(entry.targetX) ? Number(entry.targetX) : targetNpcLocation?.x,
+    targetY: Number.isInteger(entry.targetY) ? Number(entry.targetY) : targetNpcLocation?.y,
+    targetNpcId: optionalText(entry.targetNpcId),
+    targetNpcName: optionalText(entry.targetNpcName) ?? targetNpcLocation?.npcName,
+    submitNpcId: optionalText(entry.submitNpcId),
+    submitNpcName: optionalText(entry.submitNpcName) ?? submitNpcLocation?.npcName,
+    submitMapId,
+    submitMapName: optionalText(entry.submitMapName) ?? context.mapById.get(submitMapId)?.mapName ?? submitNpcLocation?.mapName,
+    submitX: Number.isInteger(entry.submitX) ? Number(entry.submitX) : submitNpcLocation?.x,
+    submitY: Number.isInteger(entry.submitY) ? Number(entry.submitY) : submitNpcLocation?.y,
+    relayMessage: optionalText(entry.relayMessage),
+  };
+}
+
+function normalizeQuestRewards(entry, itemById) {
+  const rawRewards = Array.isArray(entry.reward) ? entry.reward : [];
+  const rewards = rawRewards
+    .map((reward) => normalizeQuestReward(reward, itemById))
+    .filter(Boolean);
+  if (rewards.length > 0 || typeof entry.rewardItemId !== 'string') {
+    return rewards;
+  }
+  return [normalizeQuestReward({ itemId: entry.rewardItemId, count: 1 }, itemById)].filter(Boolean);
+}
+
+function normalizeQuestReward(entry, itemById) {
+  const itemId = normalizeText(entry?.itemId);
+  if (!itemId) {
+    return null;
+  }
+  const template = itemById.get(itemId);
+  return {
+    ...(template ?? {}),
+    ...entry,
+    itemId,
+    count: Math.max(1, Math.trunc(Number(entry?.count ?? 1))),
+    name: entry?.name ?? template?.name ?? itemId,
+    type: entry?.type ?? template?.type ?? 'material',
+    desc: entry?.desc ?? template?.desc ?? '',
+  };
+}
+
+function resolveQuestTargetName(entry, objectiveType, context, targetNpcLocation) {
+  const explicit = optionalText(entry.targetName);
+  if (explicit) {
+    return explicit;
+  }
+  if (objectiveType === 'talk') {
+    return optionalText(entry.targetNpcName) ?? targetNpcLocation?.npcName ?? normalizeText(entry.targetNpcId);
+  }
+  if (objectiveType === 'submit_item') {
+    const itemId = normalizeText(entry.requiredItemId);
+    return context.itemById.get(itemId)?.name ?? itemId;
+  }
+  if (objectiveType === 'learn_technique') {
+    const techId = normalizeText(entry.targetTechniqueId);
+    return context.techniqueById.get(techId)?.name ?? techId;
+  }
+  if (objectiveType === 'realm_stage' || objectiveType === 'realm_progress') {
+    return normalizeText(entry.targetRealmStage);
+  }
+  return optionalText(entry.targetNpcName) ?? normalizeText(entry.targetMonsterId);
+}
+
+function normalizeQuestLine(value) {
+  return value === 'main' || value === 'daily' || value === 'encounter' ? value : 'side';
+}
+
+function normalizeQuestObjectiveType(value) {
+  return value === 'talk'
+    || value === 'submit_item'
+    || value === 'learn_technique'
+    || value === 'realm_progress'
+    || value === 'realm_stage'
+    ? value
+    : 'kill';
+}
+
+function buildQuestTemplateRewardText(rewards) {
+  return rewards.map((reward) => `${reward.name ?? reward.itemId} x${reward.count}`).join('、');
+}
+
+function normalizeText(value) {
+  return typeof value === 'string' ? value.trim() : '';
+}
+
+function optionalText(value) {
+  const text = normalizeText(value);
+  return text || undefined;
+}
+
 /**
  * 读取共享功法 Buff 模板并建立按 ID 检索的索引。
  */
@@ -331,6 +546,7 @@ function normalizeTechnique(raw, sharedTechniqueBuffs, gradeBandLevelFrom, helpe
           ? Math.max(0, Math.floor(Number(layer.expToNext ?? 0)))
           : helpers.scaleTechniqueExp(Number(layer.expFactor), realmLv),
         attrs: isPlainObject(layer.attrs) ? { ...layer.attrs } : undefined,
+        specialStats: isPlainObject(layer.specialStats) ? { ...layer.specialStats } : undefined,
       }))
       .sort((left, right) => left.level - right.level)
     : undefined;

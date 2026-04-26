@@ -1,12 +1,7 @@
 import { Injectable } from '@nestjs/common';
 import {
-  DEFAULT_PLAYER_REALM_STAGE,
   EQUIP_SLOTS,
-  PLAYER_REALM_CONFIG,
-  TechniqueRealm,
-  applyEnhancementToItemStack,
-  calcTechniqueFinalAttrBonus,
-  calcTechniqueQiProjectionModifiers,
+  calcTechniqueFinalSpecialStatBonus,
   cloneNumericRatioDivisors,
   cloneNumericStats,
 } from '@mud/shared';
@@ -21,6 +16,7 @@ export class WorldSyncPlayerStateService {
 }
 
 function buildPlayerSyncState(player, view, unlockedMinimapIds) {
+  const specialStats = resolvePlayerSpecialStats(player);
   return {
     id: player.playerId,
     name: player.name,
@@ -46,11 +42,12 @@ function buildPlayerSyncState(player, view, unlockedMinimapIds) {
     dead: player.hp <= 0,
     foundation: player.foundation,
     combatExp: player.combatExp,
+    comprehension: specialStats.comprehension,
+    luck: specialStats.luck,
     boneAgeBaseYears: player.boneAgeBaseYears,
     lifeElapsedTicks: player.lifeElapsedTicks,
     lifespanYears: player.lifespanYears,
     baseAttrs: cloneAttributes(player.attrs.baseAttrs),
-    bonuses: buildAttrBonuses(player),
     temporaryBuffs: projectVisiblePlayerBuffs(player),
     finalAttrs: cloneAttributes(player.attrs.finalAttrs),
     numericStats: cloneNumericStats(player.attrs.numericStats),
@@ -73,14 +70,14 @@ function buildPlayerSyncState(player, view, unlockedMinimapIds) {
       items: [],
     },
     equipment: buildEquipmentRecord(player.equipment.slots),
-    techniques: player.techniques.techniques.map((entry) => toTechniqueState(entry)),
+    techniques: player.techniques.techniques.map((entry) => toBootstrapTechniqueState(entry)),
     bodyTraining: player.bodyTraining ? { ...player.bodyTraining } : undefined,
     alchemySkill: player.alchemySkill ? { ...player.alchemySkill } : undefined,
     gatherSkill: player.gatherSkill ? { ...player.gatherSkill } : undefined,
     enhancementSkill: player.enhancementSkill ? { ...player.enhancementSkill } : undefined,
     enhancementSkillLevel: player.enhancementSkillLevel,
     actions: player.actions.actions.map((entry) => toActionDefinition(entry)),
-    quests: player.quests.quests.map((entry) => cloneQuestState(entry)),
+    quests: player.quests.quests.map((entry) => toQuestRuntimeState(entry)),
     realm: cloneRealmState(player.realm) ?? undefined,
     realmLv: player.realm?.realmLv,
     realmName: player.realm?.name,
@@ -101,6 +98,16 @@ function buildPlayerSyncState(player, view, unlockedMinimapIds) {
     combatTargetLocked: player.combat.combatTargetLocked,
     cultivatingTechId: player.techniques.cultivatingTechId ?? undefined,
     unlockedMinimapIds,
+  };
+}
+
+function resolvePlayerSpecialStats(player) {
+  const techniqueSpecialStats = calcTechniqueFinalSpecialStatBonus(player.techniques?.techniques ?? []);
+  return {
+    comprehension: Math.max(0, Math.trunc(Number(player.comprehension ?? 0) || 0))
+      + Math.max(0, Math.trunc(Number(techniqueSpecialStats.comprehension ?? 0) || 0)),
+    luck: Math.max(0, Math.trunc(Number(player.luck ?? 0) || 0))
+      + Math.max(0, Math.trunc(Number(techniqueSpecialStats.luck ?? 0) || 0)),
   };
 }
 
@@ -132,203 +139,40 @@ function buildEquipmentRecord(entries) {
   return record;
 }
 
-function toTechniqueState(entry) {
-  const skills = entry.skills?.map((skill) => cloneTechniqueSkill(skill)) ?? [];
+function toBootstrapTechniqueState(entry) {
   return {
     techId: entry.techId,
-    name: '',
     level: entry.level ?? 1,
     exp: entry.exp ?? 0,
     expToNext: entry.expToNext ?? 0,
-    realmLv: entry.realmLv ?? 1,
-    realm: entry.realm ?? TechniqueRealm.Entry,
     skillsEnabled: entry.skillsEnabled !== false,
-    skills,
-    grade: entry.grade ?? undefined,
-    category: entry.category ?? undefined,
-    layers: entry.layers?.map((layer) => ({
-      level: layer.level,
-      expToNext: layer.expToNext,
-      attrs: layer.attrs ? { ...layer.attrs } : undefined,
-      qiProjection: cloneQiProjectionModifiers(layer.qiProjection),
-    })),
-    attrCurves: entry.attrCurves ? { ...entry.attrCurves } : undefined,
   };
-}
-
-function cloneQiProjectionModifiers(source) {
-  return source?.map((entry) => ({
-    ...entry,
-    selector: entry.selector
-      ? {
-        ...entry.selector,
-        resourceKeys: entry.selector.resourceKeys ? entry.selector.resourceKeys.slice() : undefined,
-        families: entry.selector.families ? entry.selector.families.slice() : undefined,
-        forms: entry.selector.forms ? entry.selector.forms.slice() : undefined,
-        elements: entry.selector.elements ? entry.selector.elements.slice() : undefined,
-      }
-      : undefined,
-  }));
 }
 
 function toActionDefinition(entry) {
   const normalizedEntry = normalizeActionEntry(entry);
   return {
     id: normalizedEntry.id,
-    name: normalizedEntry.name ?? normalizedEntry.id,
-    type: normalizedEntry.type ?? 'interact',
-    desc: normalizedEntry.desc ?? '',
     cooldownLeft: normalizedEntry.cooldownLeft ?? 0,
-    range: normalizedEntry.range ?? undefined,
-    requiresTarget: normalizedEntry.requiresTarget ?? undefined,
-    targetMode: normalizedEntry.targetMode ?? undefined,
-    autoBattleEnabled: normalizedEntry.autoBattleEnabled ?? undefined,
+    autoBattleEnabled: normalizedEntry.autoBattleEnabled !== false,
     autoBattleOrder: normalizedEntry.autoBattleOrder ?? undefined,
-    skillEnabled: normalizedEntry.skillEnabled ?? undefined,
+    skillEnabled: normalizedEntry.skillEnabled !== false,
   };
 }
 
 function toItemStackState(entry) {
-  return {
+  const normalizedEnhanceLevel = Number.isFinite(Number(entry.enhanceLevel))
+    ? Math.max(0, Math.trunc(Number(entry.enhanceLevel)))
+    : 0;
+  const stack = {
     itemId: entry.itemId,
-    name: entry.name ?? entry.itemId,
-    type: entry.type ?? 'material',
     count: entry.count,
-    desc: entry.desc ?? '',
-    groundLabel: entry.groundLabel,
-    grade: entry.grade,
-    level: entry.level,
-    equipSlot: entry.equipSlot,
-    equipAttrs: entry.equipAttrs ? { ...entry.equipAttrs } : undefined,
-    equipStats: entry.equipStats ? { ...entry.equipStats } : undefined,
-    equipValueStats: entry.equipValueStats ? { ...entry.equipValueStats } : undefined,
-    effects: entry.effects?.map((effect) => ({ ...effect })),
-    healAmount: entry.healAmount,
-    healPercent: entry.healPercent,
-    qiPercent: entry.qiPercent,
-    cooldown: entry.cooldown,
-    enhanceLevel: entry.enhanceLevel,
-    alchemySuccessRate: entry.alchemySuccessRate,
-    alchemySpeedRate: entry.alchemySpeedRate,
-    enhancementSuccessRate: entry.enhancementSuccessRate,
-    enhancementSpeedRate: entry.enhancementSpeedRate,
-    consumeBuffs: entry.consumeBuffs?.map((buff) => ({ ...buff })),
-    tags: entry.tags?.slice(),
-    mapUnlockId: entry.mapUnlockId,
-    mapUnlockIds: entry.mapUnlockIds?.slice(),
-    tileAuraGainAmount: entry.tileAuraGainAmount,
-    tileResourceGains: entry.tileResourceGains?.map((resource) => ({ ...resource })),
-    allowBatchUse: entry.allowBatchUse,
   };
+  return normalizedEnhanceLevel > 0 ? { ...stack, enhanceLevel: normalizedEnhanceLevel } : stack;
 }
 
 function cloneActionEntry(source) {
   return { ...source };
-}
-
-function cloneTechniqueSkill(source) {
-  return {
-    ...source,
-    name: '',
-    desc: '',
-  };
-}
-
-function buildAttrBonuses(player) {
-  const bonuses = [];
-  const realmStage = player.realm?.stage ?? player.attrs.stage ?? DEFAULT_PLAYER_REALM_STAGE;
-  const realmConfig = PLAYER_REALM_CONFIG[realmStage];
-  if (realmConfig && hasNonZeroAttributes(realmConfig.attrBonus)) {
-    bonuses.push({
-      source: `realm:${realmStage}`,
-      label: player.realm?.displayName ?? player.realm?.name ?? '境界',
-      attrs: clonePartialAttributes(realmConfig.attrBonus),
-    });
-  }
-  for (const technique of player.techniques.techniques) {
-    const techniqueState = toTechniqueState(technique);
-    const techniqueAttrs = calcTechniqueFinalAttrBonus([techniqueState]);
-    const qiProjection = calcTechniqueQiProjectionModifiers(techniqueState.level, techniqueState.layers);
-    if (!hasNonZeroAttributes(techniqueAttrs) && qiProjection.length === 0) {
-      continue;
-    }
-    bonuses.push({
-      source: `technique:${technique.techId}`,
-      label: technique.name ?? technique.techId,
-      attrs: clonePartialAttributes(techniqueAttrs) ?? {},
-      qiProjection: cloneQiProjectionModifiers(qiProjection),
-    });
-  }
-  for (const slot of player.equipment.slots) {
-    const item = slot.item ? applyEnhancementToItemStack(slot.item) : null;
-    if (!item || (!hasNonZeroAttributes(item.equipAttrs) && !hasNonZeroPartialNumericStats(item.equipStats))) {
-      continue;
-    }
-    bonuses.push({
-      source: `equipment:${slot.slot}`,
-      label: item.name ?? item.itemId ?? slot.slot,
-      attrs: clonePartialAttributes(item.equipAttrs),
-      stats: item.equipStats ? { ...item.equipStats } : undefined,
-    });
-  }
-  for (const buff of player.buffs.buffs) {
-    if (!hasNonZeroAttributes(buff.attrs) && !hasNonZeroPartialNumericStats(buff.stats) && !Array.isArray(buff.qiProjection)) {
-      continue;
-    }
-    bonuses.push({
-      source: `buff:${buff.buffId}`,
-      label: buff.name ?? buff.buffId,
-      attrs: clonePartialAttributes(buff.attrs),
-      stats: buff.stats ? { ...buff.stats } : undefined,
-      qiProjection: buff.qiProjection?.map((entry) => ({ ...entry })),
-    });
-  }
-  for (const bonus of player.attrBonuses ?? []) {
-    if (
-      !hasNonZeroAttributes(bonus.attrs)
-      && !hasNonZeroPartialNumericStats(bonus.stats)
-      && !hasNonZeroPartialNumericStats(bonus.meta)
-      && !Array.isArray(bonus.qiProjection)
-    ) {
-      continue;
-    }
-    bonuses.push({
-      source: bonus.source,
-      label: bonus.label,
-      attrs: clonePartialAttributes(bonus.attrs),
-      stats: bonus.stats ? { ...bonus.stats } : undefined,
-      meta: bonus.meta ? { ...bonus.meta } : undefined,
-      qiProjection: bonus.qiProjection?.map((entry) => ({ ...entry })),
-    });
-  }
-  return bonuses;
-}
-
-function hasNonZeroAttributes(attrs) {
-  if (!attrs) {
-    return false;
-  }
-  return Object.values(attrs).some((value) => Number(value ?? 0) !== 0);
-}
-
-function hasNonZeroPartialNumericStats(stats) {
-  if (!stats) {
-    return false;
-  }
-  return Object.values(stats).some((value) => Number(value ?? 0) !== 0);
-}
-
-function clonePartialAttributes(attrs) {
-  if (!attrs) {
-    return undefined;
-  }
-  const clone = {};
-  for (const [key, value] of Object.entries(attrs)) {
-    if (typeof value === 'number') {
-      clone[key] = value;
-    }
-  }
-  return Object.keys(clone).length > 0 ? clone : undefined;
 }
 
 function cloneTemporaryBuff(source) {
@@ -340,11 +184,11 @@ function cloneTemporaryBuff(source) {
   };
 }
 
-function cloneQuestState(source) {
+function toQuestRuntimeState(source) {
   return {
-    ...source,
-    rewardItemIds: source.rewardItemIds.slice(),
-    rewards: source.rewards.map((entry) => ({ ...entry })),
+    id: source.id,
+    status: source.status,
+    progress: Math.max(0, Math.trunc(Number(source.progress ?? 0))),
   };
 }
 
@@ -397,7 +241,7 @@ function cloneAttributes(source) {
     spirit: source.spirit,
     perception: source.perception,
     talent: source.talent,
-    comprehension: source.comprehension,
-    luck: source.luck,
+    strength: source.strength ?? source.comprehension ?? 0,
+    meridians: source.meridians ?? source.luck ?? 0,
   };
 }

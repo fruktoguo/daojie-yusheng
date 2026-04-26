@@ -100,6 +100,7 @@ export function createMainAppRuntimeContext(options: InitializeMainAppOptions) {
       getInfoRadius: () => runtimeOwnerContext.getInfoRadius(),
       getCurrentActionDef: (actionId) => runtimeOwnerContext.mapRuntimeBridgeSource.getCurrentActionDef(actionId),
       clearCurrentPath: () => runtimeOwnerContext.mapRuntimeBridgeSource.clearCurrentPath(),
+      setCurrentPathCells: (cells) => runtimeOwnerContext.mapRuntimeBridgeSource.setCurrentPathCells(cells),
       handleTileDetailResult: (data) => runtimeOwnerContext.observeStateSource.handleTileDetail(data),
       resetGameState: () => runtimeOwnerContext.resetStateSource.reset(),
       closeSettingsPanel: () => detailModalHost.close('settings-panel'),

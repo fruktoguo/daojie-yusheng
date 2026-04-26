@@ -6,8 +6,11 @@ function createService(
   log: unknown[] = [],
   options: {
     deltaMapChanged?: boolean;
+    deltaMapPatch?: boolean;
+    tickIntervalMs?: number;
   } = {},
 ) {
+  let tickIntervalMs = options.tickIntervalMs ?? 1000;
   let lootWindow = {
     tileX: 4,
     tileY: 5,
@@ -44,6 +47,9 @@ function createService(
           tint: null,
           overlayAlpha: 0,
         };
+      },
+      buildMapTickIntervalMs() {
+        return tickIntervalMs;
       },
       buildMapMetaSync(template: { id: string }) {
         return {
@@ -83,13 +89,14 @@ function createService(
       buildDeltaMapStaticPlan() {
         const visibleTiles = new Map([['3,4', { type: 'floor' }]]);
         const visibleMinimapMarkers = [{ id: 'marker.a', kind: 'npc', x: 3, y: 4, label: '甲', detail: '乙' }];
+        const hasMapPatch = options.deltaMapPatch !== false;
         return {
           mapChanged: options.deltaMapChanged === true,
           visibleTiles: { matrix: [[{ type: 'floor' }]], byKey: visibleTiles },
           visibleMinimapMarkers,
-          tilePatches: [{ x: 3, y: 4, tile: { type: 'wall' } }],
-          visibleMinimapMarkerAdds: [{ id: 'marker.b', kind: 'npc', x: 4, y: 4, label: '丙', detail: '丁' }],
-          visibleMinimapMarkerRemoves: ['marker.a'],
+          tilePatches: hasMapPatch ? [{ x: 3, y: 4, tile: { type: 'wall' } }] : [],
+          visibleMinimapMarkerAdds: hasMapPatch ? [{ id: 'marker.b', kind: 'npc', x: 4, y: 4, label: '丙', detail: '丁' }] : [],
+          visibleMinimapMarkerRemoves: hasMapPatch ? ['marker.a'] : [],
           cacheState: {
             mapId: 'map.a',
             instanceId: 'inst.a',
@@ -133,8 +140,8 @@ function createService(
           Array.isArray(payload.minimapLibrary) ? payload.minimapLibrary.map((entry) => entry.mapId) : [],
         ]);
       },
-      sendWorldDelta(socket: { id: string }, payload: { tp?: unknown; vma?: unknown; vmr?: unknown }) {
-        log.push(['sendWorldDelta', socket.id, Boolean(payload.tp), Boolean(payload.vma), Boolean(payload.vmr)]);
+      sendWorldDelta(socket: { id: string }, payload: { tp?: unknown; vma?: unknown; vmr?: unknown; dt?: number; time?: unknown }) {
+        log.push(['sendWorldDelta', socket.id, Boolean(payload.tp), Boolean(payload.vma), Boolean(payload.vmr), payload.dt ?? null, Boolean(payload.time)]);
       },
       sendRealm(socket: { id: string }, payload: { realm?: { stage?: string | null } | null }) {
         log.push(['sendRealm', socket.id, payload.realm?.stage ?? null]);
@@ -201,8 +208,8 @@ function createService(
             spirit: 1,
             perception: 1,
             talent: 1,
-            comprehension: 1,
-            luck: 1,
+            strength: 1,
+            meridians: 1,
           },
           bonuses: [],
           temporaryBuffs: [],
@@ -211,8 +218,8 @@ function createService(
             spirit: 1,
             perception: 1,
             talent: 1,
-            comprehension: 1,
-            luck: 1,
+            strength: 1,
+            meridians: 1,
           },
           numericStats: {
             maxHp: 10,
@@ -291,6 +298,9 @@ function createService(
 
   return {
     service,
+    setTickIntervalMs(nextTickIntervalMs: number) {
+      tickIntervalMs = nextTickIntervalMs;
+    },
     setLootWindow(nextLootWindow: typeof lootWindow) {
       lootWindow = nextLootWindow;
     },
@@ -357,7 +367,7 @@ function testAuxStateSync() {
     ['emitInitialThreatSync', 'socket:1', 10, 1],
     ['commitPlayerCache', 'player:1', 'initial'],
     ['getTemplate', 'map.a'],
-    ['sendWorldDelta', 'socket:1', true, true, true],
+    ['sendWorldDelta', 'socket:1', true, true, true, null, false],
     ['sendRealm', 'socket:1', '筑基'],
     ['sendLootWindow', 'socket:1', '增量拾取'],
     ['emitDeltaThreatSync', 'socket:1', 11, 1, false],
@@ -389,8 +399,23 @@ function testMapChangeDoesNotAutoUnlockCurrentMap() {
   ]);
 }
 
+function testTimeOnlyDeltaSyncsTickInterval() {
+  const log: unknown[] = [];
+  const { service, setTickIntervalMs } = createService(log, { deltaMapPatch: false });
+  const socket = { id: 'socket:3', emit() {} };
+
+  service.emitAuxInitialSync('player:3', socket, createView(30), createPlayer('炼气', 10));
+  setTickIntervalMs(500);
+  service.emitAuxDeltaSync('player:3', socket, createView(31), createPlayer('炼气', 10));
+
+  assert.deepEqual(log.filter((entry) => Array.isArray(entry) && entry[0] === 'sendWorldDelta'), [
+    ['sendWorldDelta', 'socket:3', false, false, false, 500, true],
+  ]);
+}
+
 testAuxStateSync();
 testMapChangeDoesNotAutoUnlockCurrentMap();
+testTimeOnlyDeltaSyncsTickInterval();
 console.log(
   JSON.stringify({
     ok: true,

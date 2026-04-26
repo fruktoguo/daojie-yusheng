@@ -22,7 +22,10 @@
         grid-template-columns: max(30px, calc(var(--split-rail-size) - 4px)) minmax(0, 1fr);
       }
       .map-shell {
-        grid-template-columns: minmax(0, 1fr) max(56px, calc(var(--map-rail-size) - 4px));
+        grid-template-columns:
+          max(42px, calc(var(--map-rail-size) - 4px))
+          minmax(0, 1fr)
+          max(42px, calc(var(--map-rail-size) - 4px));
       }
       .chat-tabs .tab-btn {
         padding: 9px 8px;
@@ -642,10 +645,9 @@
       .map-tool-controls {
         flex-direction: column;
         gap: clamp(6px, 2vw, 10px);
-        padding: clamp(8px, 2.2vw, 10px) clamp(4px, 1.2vw, 6px);
-        border-radius: 14px;
-        transform: scale(clamp(0.68, 0.82 + 0.2vw, 0.92));
-        transform-origin: center top;
+        padding: 0;
+        border-radius: 0;
+        transform: none;
       }
       .map-zoom-slider {
         writing-mode: vertical-lr;
@@ -665,6 +667,12 @@
       .map-side-tool-center {
         flex: 1 1 auto;
         width: 100%;
+      }
+      .map-zoom-stack {
+        width: min(100%, 34px);
+        gap: 8px;
+        padding: 8px 3px;
+        border-radius: 14px;
       }
       .map-side-info-stack {
         flex-direction: column;
@@ -1127,16 +1135,24 @@
       align-items: center;
       justify-content: flex-start;
       gap: 14px;
-      padding: 12px 8px;
+      padding: 12px 4px;
       overflow: visible;
+    }
+
+    html[data-effective-layout-breakpoint="wide"] .map-zoom-stack,
+    html[data-effective-layout-breakpoint="compact"] .map-zoom-stack {
+      width: clamp(34px, calc(var(--map-rail-size) - 8px), 64px);
+      gap: 10px;
+      padding: 10px 4px;
+      border-radius: 18px;
     }
 
     html[data-effective-layout-breakpoint="wide"] .map-tool-controls,
     html[data-effective-layout-breakpoint="compact"] .map-tool-controls {
       flex-direction: column;
-      gap: 12px;
-      padding: 12px 10px;
-      border-radius: 18px;
+      gap: 10px;
+      padding: 0;
+      border-radius: 0;
       transform: none;
     }
 

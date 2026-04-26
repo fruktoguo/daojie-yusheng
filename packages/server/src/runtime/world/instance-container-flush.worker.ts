@@ -2,7 +2,6 @@ import { Inject, Injectable, Logger } from '@nestjs/common';
 
 import { FlushLedgerService } from '../../persistence/flush-ledger.service';
 import { FlushWakeupService } from '../../persistence/flush-wakeup.service';
-import { MapPersistenceService } from '../../persistence/map-persistence.service';
 import { WorldRuntimeService } from './world-runtime.service';
 
 const INSTANCE_CONTAINER_WORKER_DOMAIN = 'container_state';
@@ -11,8 +10,8 @@ const INSTANCE_CONTAINER_WORKER_CLAIM_LIMIT = 32;
 
 interface InstanceContainerFlushRuntimePort {
   listDirtyPersistentInstances(): string[];
-  buildMapPersistenceSnapshot(instanceId: string): Record<string, unknown> | null;
-  markMapPersisted(instanceId: string): void;
+  listDirtyPersistentInstanceDomains?(): Array<{ instanceId: string; domains: string[] }>;
+  flushInstanceDomains?(instanceId: string, domains?: string[] | null): Promise<{ skipped?: boolean } | null>;
   getInstanceRuntime(instanceId: string): {
     meta?: {
       ownershipEpoch?: number | null;
@@ -22,10 +21,6 @@ interface InstanceContainerFlushRuntimePort {
   } | null;
 }
 
-interface InstanceMapPersistencePort {
-  saveMapSnapshot(instanceId: string, snapshot: Record<string, unknown>): Promise<void>;
-}
-
 @Injectable()
 export class InstanceContainerFlushWorker {
   private readonly logger = new Logger(InstanceContainerFlushWorker.name);
@@ -33,8 +28,6 @@ export class InstanceContainerFlushWorker {
   constructor(
     @Inject(WorldRuntimeService)
     private readonly worldRuntimeService: InstanceContainerFlushRuntimePort,
-    @Inject(MapPersistenceService)
-    private readonly mapPersistenceService: InstanceMapPersistencePort,
     private readonly flushLedgerService: FlushLedgerService,
     private readonly flushWakeupService: FlushWakeupService,
   ) {}
@@ -86,8 +79,8 @@ export class InstanceContainerFlushWorker {
         continue;
       }
       try {
-        const snapshot = this.worldRuntimeService.buildMapPersistenceSnapshot(instanceId);
-        if (!snapshot) {
+        const result = await this.worldRuntimeService.flushInstanceDomains?.(instanceId, [INSTANCE_CONTAINER_WORKER_DOMAIN]);
+        if (result?.skipped === true) {
           await this.flushLedgerService.markInstanceFlushLedgerFlushed({
             instanceId,
             domain: INSTANCE_CONTAINER_WORKER_DOMAIN,
@@ -96,8 +89,6 @@ export class InstanceContainerFlushWorker {
           });
           continue;
         }
-        await this.mapPersistenceService.saveMapSnapshot(instanceId, snapshot);
-        this.worldRuntimeService.markMapPersisted(instanceId);
         await this.flushLedgerService.markInstanceFlushLedgerFlushed({
           instanceId,
           domain: INSTANCE_CONTAINER_WORKER_DOMAIN,
@@ -126,6 +117,12 @@ export class InstanceContainerFlushWorker {
   }
 
   private resolveDirtyInstances(): string[] {
+    const domainEntries = this.worldRuntimeService.listDirtyPersistentInstanceDomains?.();
+    if (Array.isArray(domainEntries)) {
+      return domainEntries
+        .filter((entry) => Array.isArray(entry?.domains) && entry.domains.includes(INSTANCE_CONTAINER_WORKER_DOMAIN))
+        .map((entry) => entry.instanceId);
+    }
     return this.worldRuntimeService.listDirtyPersistentInstances?.() ?? [];
   }
 
