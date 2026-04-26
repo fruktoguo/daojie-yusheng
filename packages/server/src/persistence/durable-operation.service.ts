@@ -23,6 +23,21 @@ const DURABLE_OPERATION_LOG_TABLE = 'durable_operation_log';
 const OUTBOX_EVENT_TABLE = 'outbox_event';
 const ASSET_AUDIT_LOG_TABLE = 'asset_audit_log';
 const ASSET_AUDIT_LOG_ARCHIVE_TABLE = 'asset_audit_log_archive';
+const DURABLE_OPERATION_BIGINT_COLUMNS_BY_TABLE = {
+  [OUTBOX_EVENT_TABLE]: ['attempt_count'],
+  [PLAYER_MAIL_ATTACHMENT_TABLE]: ['count'],
+  [PLAYER_MAIL_COUNTER_TABLE]: ['unread_count', 'unclaimed_count'],
+  [PLAYER_INVENTORY_ITEM_TABLE]: ['slot_index', 'count'],
+  [PLAYER_MARKET_STORAGE_ITEM_TABLE]: ['slot_index', 'count', 'enhance_level'],
+  [PLAYER_ACTIVE_JOB_TABLE]: ['paused_ticks', 'total_ticks', 'remaining_ticks'],
+  [PLAYER_ENHANCEMENT_RECORD_TABLE]: [
+    'highest_level',
+    'start_level',
+    'initial_target_level',
+    'desired_target_level',
+    'protection_start_level',
+  ],
+} as const;
 
 export interface DurableInventoryItemSnapshot {
   itemId: string;
@@ -567,7 +582,7 @@ export class DurableOperationService implements OnModuleInit, OnModuleDestroy {
         throw new Error('mail_claim_targets_missing');
       }
       for (const row of mailsResult.rows) {
-        if (Number.isFinite(row.deleted_at) || Number.isFinite(row.claimed_at)) {
+        if (normalizeOptionalInteger(row.deleted_at) != null || normalizeOptionalInteger(row.claimed_at) != null) {
           throw new Error('mail_already_claimed_or_deleted');
         }
         const expireAt = Number(row.expire_at ?? 0);
@@ -2923,7 +2938,7 @@ async function ensureDurableOperationTables(pool: Pool): Promise<void> {
         partition_key varchar(180) NOT NULL,
         payload_jsonb jsonb NOT NULL,
         status varchar(32) NOT NULL,
-        attempt_count integer NOT NULL DEFAULT 0,
+        attempt_count bigint NOT NULL DEFAULT 0,
         next_retry_at timestamptz,
         claimed_by varchar(120),
         claim_until timestamptz,
@@ -3018,7 +3033,7 @@ async function ensureDurableOperationTables(pool: Pool): Promise<void> {
         player_id varchar(100) NOT NULL,
         attachment_kind varchar(32) NOT NULL DEFAULT 'item',
         item_id varchar(120),
-        count integer,
+        count bigint,
         currency_type varchar(64),
         amount bigint,
         item_payload_jsonb jsonb NOT NULL DEFAULT '{}'::jsonb,
@@ -3034,8 +3049,8 @@ async function ensureDurableOperationTables(pool: Pool): Promise<void> {
     await client.query(`
       CREATE TABLE IF NOT EXISTS ${PLAYER_MAIL_COUNTER_TABLE} (
         player_id varchar(100) PRIMARY KEY,
-        unread_count integer NOT NULL DEFAULT 0,
-        unclaimed_count integer NOT NULL DEFAULT 0,
+        unread_count bigint NOT NULL DEFAULT 0,
+        unclaimed_count bigint NOT NULL DEFAULT 0,
         latest_mail_at bigint,
         counter_version bigint NOT NULL DEFAULT 0,
         welcome_mail_delivered_at bigint,
@@ -3050,9 +3065,9 @@ async function ensureDurableOperationTables(pool: Pool): Promise<void> {
       CREATE TABLE IF NOT EXISTS ${PLAYER_INVENTORY_ITEM_TABLE} (
         item_instance_id varchar(180) PRIMARY KEY,
         player_id varchar(100) NOT NULL,
-        slot_index integer NOT NULL,
+        slot_index bigint NOT NULL,
         item_id varchar(120) NOT NULL,
-        count integer NOT NULL,
+        count bigint NOT NULL,
         raw_payload jsonb NOT NULL,
         updated_at timestamptz NOT NULL DEFAULT now(),
         UNIQUE(player_id, slot_index)
@@ -3062,10 +3077,10 @@ async function ensureDurableOperationTables(pool: Pool): Promise<void> {
       CREATE TABLE IF NOT EXISTS ${PLAYER_MARKET_STORAGE_ITEM_TABLE} (
         storage_item_id varchar(180) PRIMARY KEY,
         player_id varchar(100) NOT NULL,
-        slot_index integer NOT NULL,
+        slot_index bigint NOT NULL,
         item_id varchar(120) NOT NULL,
-        count integer NOT NULL DEFAULT 1,
-        enhance_level integer,
+        count bigint NOT NULL DEFAULT 1,
+        enhance_level bigint,
         raw_payload jsonb NOT NULL DEFAULT '{}'::jsonb,
         updated_at timestamptz NOT NULL DEFAULT now()
       )
@@ -3103,9 +3118,9 @@ async function ensureDurableOperationTables(pool: Pool): Promise<void> {
         phase varchar(64) NOT NULL,
         started_at bigint NOT NULL,
         finished_at bigint,
-        paused_ticks integer NOT NULL DEFAULT 0,
-        total_ticks integer NOT NULL DEFAULT 0,
-        remaining_ticks integer NOT NULL DEFAULT 0,
+        paused_ticks bigint NOT NULL DEFAULT 0,
+        total_ticks bigint NOT NULL DEFAULT 0,
+        remaining_ticks bigint NOT NULL DEFAULT 0,
         success_rate double precision NOT NULL DEFAULT 0,
         speed_rate double precision NOT NULL DEFAULT 1,
         job_version bigint NOT NULL DEFAULT 1,
@@ -3122,14 +3137,14 @@ async function ensureDurableOperationTables(pool: Pool): Promise<void> {
         record_id varchar(180) PRIMARY KEY,
         player_id varchar(100) NOT NULL,
         item_id varchar(120) NOT NULL,
-        highest_level integer NOT NULL DEFAULT 0,
+        highest_level bigint NOT NULL DEFAULT 0,
         levels_payload jsonb NOT NULL DEFAULT '[]'::jsonb,
         action_started_at bigint,
         action_ended_at bigint,
-        start_level integer,
-        initial_target_level integer,
-        desired_target_level integer,
-        protection_start_level integer,
+        start_level bigint,
+        initial_target_level bigint,
+        desired_target_level bigint,
+        protection_start_level bigint,
         status varchar(32),
         updated_at timestamptz NOT NULL DEFAULT now()
       )
@@ -3198,12 +3213,24 @@ async function ensureDurableOperationTables(pool: Pool): Promise<void> {
         payload jsonb NOT NULL
       )
     `);
+    await ensureDurableOperationBigintColumnsWithClient(client);
     await client.query('COMMIT');
   } catch (error: unknown) {
     await client.query('ROLLBACK').catch(() => undefined);
     throw error;
   } finally {
     client.release();
+  }
+}
+
+async function ensureDurableOperationBigintColumnsWithClient(client: import('pg').PoolClient): Promise<void> {
+  for (const [tableName, columns] of Object.entries(DURABLE_OPERATION_BIGINT_COLUMNS_BY_TABLE)) {
+    for (const column of columns) {
+      await client.query(`
+        ALTER TABLE ${tableName}
+        ALTER COLUMN ${column} TYPE bigint USING ${column}::bigint
+      `);
+    }
   }
 }
 

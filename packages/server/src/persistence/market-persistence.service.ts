@@ -535,13 +535,25 @@ async function ensurePlayerMarketStorageItemTable(pool) {
           CREATE TABLE IF NOT EXISTS ${PLAYER_MARKET_STORAGE_ITEM_TABLE} (
             storage_item_id varchar(160) PRIMARY KEY,
             player_id varchar(100) NOT NULL,
-            slot_index integer NOT NULL,
+            slot_index bigint NOT NULL,
             item_id varchar(160) NOT NULL,
-            count integer NOT NULL DEFAULT 1,
-            enhance_level integer,
+            count bigint NOT NULL DEFAULT 1,
+            enhance_level bigint,
             raw_payload jsonb NOT NULL DEFAULT '{}'::jsonb,
             updated_at timestamptz NOT NULL DEFAULT now()
           )
+        `);
+        await client.query(`
+          ALTER TABLE ${PLAYER_MARKET_STORAGE_ITEM_TABLE}
+          ALTER COLUMN slot_index TYPE bigint USING slot_index::bigint
+        `);
+        await client.query(`
+          ALTER TABLE ${PLAYER_MARKET_STORAGE_ITEM_TABLE}
+          ALTER COLUMN count TYPE bigint USING count::bigint
+        `);
+        await client.query(`
+          ALTER TABLE ${PLAYER_MARKET_STORAGE_ITEM_TABLE}
+          ALTER COLUMN enhance_level TYPE bigint USING enhance_level::bigint
         `);
         await client.query(`
           CREATE INDEX IF NOT EXISTS player_market_storage_item_player_idx

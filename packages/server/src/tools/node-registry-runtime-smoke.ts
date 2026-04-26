@@ -5,6 +5,7 @@ installSmokeTimeout(__filename);
 import { Pool } from 'pg';
 
 import { resolveServerDatabaseUrl } from '../config/env-alias';
+import { DatabasePoolProvider } from '../persistence/database-pool.provider';
 import { NodeRegistryRuntimeService } from '../persistence/node-registry-runtime.service';
 import { NodeRegistryService } from '../persistence/node-registry.service';
 
@@ -47,7 +48,8 @@ async function main(): Promise<void> {
   process.env.SERVER_NODE_DEAD_AFTER_MS = '5000';
 
   const pool = new Pool({ connectionString: databaseUrl });
-  const nodeRegistryService = new NodeRegistryService();
+  const databasePoolProvider = new DatabasePoolProvider();
+  const nodeRegistryService = new NodeRegistryService(databasePoolProvider);
   const runtimeService = new NodeRegistryRuntimeService(nodeRegistryService);
 
   await nodeRegistryService.onModuleInit();
@@ -89,6 +91,7 @@ async function main(): Promise<void> {
   } finally {
     await cleanupNodeRow(pool, nodeId).catch(() => undefined);
     await nodeRegistryService.onModuleDestroy().catch(() => undefined);
+    await databasePoolProvider.onModuleDestroy().catch(() => undefined);
     await pool.end().catch(() => undefined);
     restoreEnv('SERVER_HOST', previousHost);
     restoreEnv('SERVER_PORT', previousPort);

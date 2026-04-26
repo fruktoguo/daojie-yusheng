@@ -36,7 +36,33 @@ const PLAYER_ACTIVE_JOB_TABLE = 'player_active_job';
 const PLAYER_ENHANCEMENT_RECORD_TABLE = 'player_enhancement_record';
 const PLAYER_LOGBOOK_MESSAGE_TABLE = 'player_logbook_message';
 const PLAYER_RECOVERY_WATERMARK_TABLE = 'player_recovery_watermark';
-const PLAYER_VITALS_BIGINT_COLUMNS = ['hp', 'max_hp', 'qi', 'max_qi'] as const;
+const PLAYER_DOMAIN_BIGINT_COLUMNS_BY_TABLE = {
+  [PLAYER_WORLD_ANCHOR_TABLE]: ['respawn_x', 'respawn_y', 'last_safe_x', 'last_safe_y'],
+  [PLAYER_POSITION_CHECKPOINT_TABLE]: ['x', 'y', 'facing'],
+  [PLAYER_VITALS_TABLE]: ['hp', 'max_hp', 'qi', 'max_qi'],
+  [PLAYER_PROGRESSION_CORE_TABLE]: ['foundation', 'combat_exp', 'bone_age_base_years', 'lifespan_years'],
+  [PLAYER_BODY_TRAINING_STATE_TABLE]: ['level', 'exp', 'exp_to_next'],
+  [PLAYER_MARKET_STORAGE_ITEM_TABLE]: ['slot_index', 'count', 'enhance_level'],
+  [PLAYER_TECHNIQUE_STATE_TABLE]: ['level', 'exp', 'exp_to_next', 'realm_lv'],
+  [PLAYER_PERSISTENT_BUFF_STATE_TABLE]: [
+    'realm_lv',
+    'remaining_ticks',
+    'duration',
+    'stacks',
+    'max_stacks',
+    'sustain_ticks_elapsed',
+  ],
+  [PLAYER_AUTO_BATTLE_SKILL_TABLE]: ['auto_battle_order'],
+  [PLAYER_PROFESSION_STATE_TABLE]: ['level', 'exp', 'exp_to_next'],
+  [PLAYER_ACTIVE_JOB_TABLE]: ['paused_ticks', 'total_ticks', 'remaining_ticks'],
+  [PLAYER_ENHANCEMENT_RECORD_TABLE]: [
+    'highest_level',
+    'start_level',
+    'initial_target_level',
+    'desired_target_level',
+    'protection_start_level',
+  ],
+} as const;
 
 export const PLAYER_DOMAIN_PROJECTED_TABLES = [
   PLAYER_PRESENCE_TABLE,
@@ -2193,12 +2219,12 @@ export async function ensurePlayerDomainTablesWithClient(client: PoolClient): Pr
       player_id varchar(100) PRIMARY KEY,
       respawn_template_id varchar(120) NOT NULL,
       respawn_instance_id varchar(160),
-      respawn_x integer NOT NULL,
-      respawn_y integer NOT NULL,
+      respawn_x bigint NOT NULL,
+      respawn_y bigint NOT NULL,
       last_safe_template_id varchar(120) NOT NULL,
       last_safe_instance_id varchar(160),
-      last_safe_x integer NOT NULL,
-      last_safe_y integer NOT NULL,
+      last_safe_x bigint NOT NULL,
+      last_safe_y bigint NOT NULL,
       preferred_line_preset varchar(16) NOT NULL DEFAULT 'peaceful',
       last_transfer_at bigint,
       updated_at timestamptz NOT NULL DEFAULT now()
@@ -2212,9 +2238,9 @@ export async function ensurePlayerDomainTablesWithClient(client: PoolClient): Pr
     CREATE TABLE IF NOT EXISTS ${PLAYER_POSITION_CHECKPOINT_TABLE} (
       player_id varchar(100) PRIMARY KEY,
       instance_id varchar(160) NOT NULL,
-      x integer NOT NULL,
-      y integer NOT NULL,
-      facing integer NOT NULL,
+      x bigint NOT NULL,
+      y bigint NOT NULL,
+      facing bigint NOT NULL,
       checkpoint_kind varchar(32) NOT NULL,
       updated_at timestamptz NOT NULL DEFAULT now()
     )
@@ -2229,15 +2255,14 @@ export async function ensurePlayerDomainTablesWithClient(client: PoolClient): Pr
       updated_at timestamptz NOT NULL DEFAULT now()
     )
   `);
-  await ensurePlayerVitalsBigintColumnsWithClient(client);
   await client.query(`
     CREATE TABLE IF NOT EXISTS ${PLAYER_PROGRESSION_CORE_TABLE} (
       player_id varchar(100) PRIMARY KEY,
-      foundation integer NOT NULL DEFAULT 0,
-      combat_exp integer NOT NULL DEFAULT 0,
-      bone_age_base_years integer NOT NULL DEFAULT 18,
+      foundation bigint NOT NULL DEFAULT 0,
+      combat_exp bigint NOT NULL DEFAULT 0,
+      bone_age_base_years bigint NOT NULL DEFAULT 18,
       life_elapsed_ticks bigint NOT NULL DEFAULT 0,
-      lifespan_years integer,
+      lifespan_years bigint,
       updated_at timestamptz NOT NULL DEFAULT now()
     )
   `);
@@ -2256,9 +2281,9 @@ export async function ensurePlayerDomainTablesWithClient(client: PoolClient): Pr
   await client.query(`
     CREATE TABLE IF NOT EXISTS ${PLAYER_BODY_TRAINING_STATE_TABLE} (
       player_id varchar(100) PRIMARY KEY,
-      level integer NOT NULL DEFAULT 0,
-      exp integer NOT NULL DEFAULT 0,
-      exp_to_next integer NOT NULL DEFAULT 1,
+      level bigint NOT NULL DEFAULT 0,
+      exp bigint NOT NULL DEFAULT 0,
+      exp_to_next bigint NOT NULL DEFAULT 1,
       updated_at timestamptz NOT NULL DEFAULT now()
     )
   `);
@@ -2281,10 +2306,10 @@ export async function ensurePlayerDomainTablesWithClient(client: PoolClient): Pr
     CREATE TABLE IF NOT EXISTS ${PLAYER_MARKET_STORAGE_ITEM_TABLE} (
       storage_item_id varchar(160) PRIMARY KEY,
       player_id varchar(100) NOT NULL,
-      slot_index integer NOT NULL,
+      slot_index bigint NOT NULL,
       item_id varchar(160) NOT NULL,
-      count integer NOT NULL DEFAULT 1,
-      enhance_level integer,
+      count bigint NOT NULL DEFAULT 1,
+      enhance_level bigint,
       raw_payload jsonb NOT NULL DEFAULT '{}'::jsonb,
       updated_at timestamptz NOT NULL DEFAULT now(),
       UNIQUE(player_id, slot_index)
@@ -2331,10 +2356,10 @@ export async function ensurePlayerDomainTablesWithClient(client: PoolClient): Pr
     CREATE TABLE IF NOT EXISTS ${PLAYER_TECHNIQUE_STATE_TABLE} (
       player_id varchar(100) NOT NULL,
       tech_id varchar(120) NOT NULL,
-      level integer NOT NULL DEFAULT 1,
-      exp integer,
-      exp_to_next integer,
-      realm_lv integer,
+      level bigint NOT NULL DEFAULT 1,
+      exp bigint,
+      exp_to_next bigint,
+      realm_lv bigint,
       skills_enabled boolean NOT NULL DEFAULT true,
       raw_payload jsonb NOT NULL,
       updated_at timestamptz NOT NULL DEFAULT now(),
@@ -2351,12 +2376,12 @@ export async function ensurePlayerDomainTablesWithClient(client: PoolClient): Pr
       buff_id varchar(160) NOT NULL,
       source_skill_id varchar(160) NOT NULL,
       source_caster_id varchar(120),
-      realm_lv integer,
-      remaining_ticks integer NOT NULL DEFAULT 0,
-      duration integer NOT NULL DEFAULT 0,
-      stacks integer NOT NULL DEFAULT 1,
-      max_stacks integer NOT NULL DEFAULT 1,
-      sustain_ticks_elapsed integer,
+      realm_lv bigint,
+      remaining_ticks bigint NOT NULL DEFAULT 0,
+      duration bigint NOT NULL DEFAULT 0,
+      stacks bigint NOT NULL DEFAULT 1,
+      max_stacks bigint NOT NULL DEFAULT 1,
+      sustain_ticks_elapsed bigint,
       raw_payload jsonb NOT NULL,
       updated_at timestamptz NOT NULL DEFAULT now(),
       PRIMARY KEY(player_id, buff_id, source_skill_id)
@@ -2406,7 +2431,7 @@ export async function ensurePlayerDomainTablesWithClient(client: PoolClient): Pr
       skill_id varchar(160) NOT NULL,
       enabled boolean NOT NULL DEFAULT true,
       skill_enabled boolean NOT NULL DEFAULT true,
-      auto_battle_order integer NOT NULL DEFAULT 0,
+      auto_battle_order bigint NOT NULL DEFAULT 0,
       updated_at timestamptz NOT NULL DEFAULT now(),
       PRIMARY KEY(player_id, skill_id)
     )
@@ -2432,9 +2457,9 @@ export async function ensurePlayerDomainTablesWithClient(client: PoolClient): Pr
     CREATE TABLE IF NOT EXISTS ${PLAYER_PROFESSION_STATE_TABLE} (
       player_id varchar(100) NOT NULL,
       profession_type varchar(32) NOT NULL,
-      level integer NOT NULL,
-      exp integer,
-      exp_to_next integer,
+      level bigint NOT NULL,
+      exp bigint,
+      exp_to_next bigint,
       updated_at timestamptz NOT NULL DEFAULT now(),
       PRIMARY KEY(player_id, profession_type)
     )
@@ -2475,9 +2500,9 @@ export async function ensurePlayerDomainTablesWithClient(client: PoolClient): Pr
       phase varchar(64) NOT NULL,
       started_at bigint NOT NULL,
       finished_at bigint,
-      paused_ticks integer NOT NULL DEFAULT 0,
-      total_ticks integer NOT NULL DEFAULT 0,
-      remaining_ticks integer NOT NULL DEFAULT 0,
+      paused_ticks bigint NOT NULL DEFAULT 0,
+      total_ticks bigint NOT NULL DEFAULT 0,
+      remaining_ticks bigint NOT NULL DEFAULT 0,
       success_rate double precision NOT NULL DEFAULT 0,
       speed_rate double precision NOT NULL DEFAULT 1,
       job_version bigint NOT NULL DEFAULT 1,
@@ -2494,14 +2519,14 @@ export async function ensurePlayerDomainTablesWithClient(client: PoolClient): Pr
       record_id varchar(180) PRIMARY KEY,
       player_id varchar(100) NOT NULL,
       item_id varchar(160) NOT NULL,
-      highest_level integer NOT NULL DEFAULT 0,
+      highest_level bigint NOT NULL DEFAULT 0,
       levels_payload jsonb NOT NULL DEFAULT '[]'::jsonb,
       action_started_at bigint,
       action_ended_at bigint,
-      start_level integer,
-      initial_target_level integer,
-      desired_target_level integer,
-      protection_start_level integer,
+      start_level bigint,
+      initial_target_level bigint,
+      desired_target_level bigint,
+      protection_start_level bigint,
       status varchar(32),
       updated_at timestamptz NOT NULL DEFAULT now()
     )
@@ -2535,6 +2560,7 @@ export async function ensurePlayerDomainTablesWithClient(client: PoolClient): Pr
     CREATE INDEX IF NOT EXISTS player_logbook_message_player_idx
     ON ${PLAYER_LOGBOOK_MESSAGE_TABLE}(player_id, occurred_at DESC)
   `);
+  await ensurePlayerDomainBigintColumnsWithClient(client);
   await client.query(`
     CREATE TABLE IF NOT EXISTS ${PLAYER_RECOVERY_WATERMARK_TABLE} (
       player_id varchar(100) PRIMARY KEY,
@@ -2579,12 +2605,14 @@ async function ensureRecoveryWatermarkColumnsWithClient(client: PoolClient): Pro
   }
 }
 
-async function ensurePlayerVitalsBigintColumnsWithClient(client: PoolClient): Promise<void> {
-  for (const column of PLAYER_VITALS_BIGINT_COLUMNS) {
-    await client.query(`
-      ALTER TABLE ${PLAYER_VITALS_TABLE}
-      ALTER COLUMN ${column} TYPE bigint USING ${column}::bigint
-    `);
+async function ensurePlayerDomainBigintColumnsWithClient(client: PoolClient): Promise<void> {
+  for (const [tableName, columns] of Object.entries(PLAYER_DOMAIN_BIGINT_COLUMNS_BY_TABLE)) {
+    for (const column of columns) {
+      await client.query(`
+        ALTER TABLE ${tableName}
+        ALTER COLUMN ${column} TYPE bigint USING ${column}::bigint
+      `);
+    }
   }
 }
 

@@ -10,11 +10,11 @@ const CREATE_NODE_REGISTRY_TABLE_SQL = `
   CREATE TABLE IF NOT EXISTS ${NODE_REGISTRY_TABLE} (
     node_id varchar(120) PRIMARY KEY,
     address varchar(180) NOT NULL,
-    port integer NOT NULL,
+    port bigint NOT NULL,
     status varchar(32) NOT NULL,
     heartbeat_at timestamptz,
     started_at timestamptz NOT NULL DEFAULT now(),
-    capacity_weight integer NOT NULL DEFAULT 1
+    capacity_weight bigint NOT NULL DEFAULT 1
   )
 `;
 
@@ -207,6 +207,14 @@ async function ensureNodeRegistryTable(pool: Pool): Promise<void> {
   try {
     await client.query('BEGIN');
     await client.query(CREATE_NODE_REGISTRY_TABLE_SQL);
+    await client.query(`
+      ALTER TABLE ${NODE_REGISTRY_TABLE}
+      ALTER COLUMN port TYPE bigint USING port::bigint
+    `);
+    await client.query(`
+      ALTER TABLE ${NODE_REGISTRY_TABLE}
+      ALTER COLUMN capacity_weight TYPE bigint USING capacity_weight::bigint
+    `);
     await client.query(CREATE_NODE_REGISTRY_STATUS_INDEX_SQL);
     await client.query('COMMIT');
   } catch (error) {

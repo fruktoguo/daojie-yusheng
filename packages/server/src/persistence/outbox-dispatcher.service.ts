@@ -388,7 +388,7 @@ async function ensureDeadLetterEventTable(pool: Pool): Promise<void> {
       partition_key varchar(200) NOT NULL,
       payload_jsonb jsonb NOT NULL,
       status varchar(32) NOT NULL,
-      attempt_count integer NOT NULL DEFAULT 0,
+      attempt_count bigint NOT NULL DEFAULT 0,
       failed_at timestamptz NOT NULL DEFAULT now(),
       created_at timestamptz NOT NULL DEFAULT now()
     )
@@ -396,6 +396,10 @@ async function ensureDeadLetterEventTable(pool: Pool): Promise<void> {
   await pool.query(`
     CREATE INDEX IF NOT EXISTS dead_letter_event_topic_idx
     ON ${DEAD_LETTER_EVENT_TABLE}(topic, failed_at DESC)
+  `);
+  await pool.query(`
+    ALTER TABLE ${DEAD_LETTER_EVENT_TABLE}
+    ALTER COLUMN attempt_count TYPE bigint USING attempt_count::bigint
   `);
 }
 

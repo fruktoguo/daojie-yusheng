@@ -12,6 +12,11 @@ const PLAYER_MAIL_COUNTER_TABLE = 'player_mail_counter';
 const PLAYER_RECOVERY_WATERMARK_TABLE = 'player_recovery_watermark';
 const SAVE_MAILBOX_RETRY_LIMIT = 3;
 const SAVE_MAILBOX_RETRY_BASE_DELAY_MS = 25;
+const MAIL_BIGINT_COLUMNS_BY_TABLE = {
+  [PLAYER_MAIL_ATTACHMENT_TABLE]: ['count'],
+  [PLAYER_MAIL_ATTACHMENT_ARCHIVE_TABLE]: ['count'],
+  [PLAYER_MAIL_COUNTER_TABLE]: ['unread_count', 'unclaimed_count'],
+} as const;
 
 interface MailAttachmentPayload {
   itemId: string;
@@ -564,7 +569,7 @@ async function ensureStructuredMailTables(pool: Pool): Promise<void> {
         player_id varchar(100) NOT NULL,
         attachment_kind varchar(32) NOT NULL DEFAULT 'item',
         item_id varchar(120),
-        count integer,
+        count bigint,
         currency_type varchar(64),
         amount bigint,
         item_payload_jsonb jsonb NOT NULL DEFAULT '{}'::jsonb,
@@ -615,7 +620,7 @@ async function ensureStructuredMailTables(pool: Pool): Promise<void> {
         player_id varchar(100) NOT NULL,
         attachment_kind varchar(32) NOT NULL DEFAULT 'item',
         item_id varchar(120),
-        count integer,
+        count bigint,
         currency_type varchar(64),
         amount bigint,
         item_payload_jsonb jsonb NOT NULL DEFAULT '{}'::jsonb,
@@ -631,8 +636,8 @@ async function ensureStructuredMailTables(pool: Pool): Promise<void> {
     await client.query(`
       CREATE TABLE IF NOT EXISTS ${PLAYER_MAIL_COUNTER_TABLE} (
         player_id varchar(100) PRIMARY KEY,
-        unread_count integer NOT NULL DEFAULT 0,
-        unclaimed_count integer NOT NULL DEFAULT 0,
+        unread_count bigint NOT NULL DEFAULT 0,
+        unclaimed_count bigint NOT NULL DEFAULT 0,
         latest_mail_at bigint,
         counter_version bigint NOT NULL DEFAULT 0,
         welcome_mail_delivered_at bigint,
@@ -643,6 +648,7 @@ async function ensureStructuredMailTables(pool: Pool): Promise<void> {
       ALTER TABLE ${PLAYER_MAIL_COUNTER_TABLE}
       ADD COLUMN IF NOT EXISTS welcome_mail_delivered_at bigint
     `);
+    await ensureMailBigintColumnsWithClient(client);
     await client.query(`
       CREATE TABLE IF NOT EXISTS ${PLAYER_RECOVERY_WATERMARK_TABLE} (
         player_id varchar(100) PRIMARY KEY,
@@ -665,6 +671,17 @@ async function ensureStructuredMailTables(pool: Pool): Promise<void> {
     throw error;
   } finally {
     client.release();
+  }
+}
+
+async function ensureMailBigintColumnsWithClient(client: import('pg').PoolClient): Promise<void> {
+  for (const [tableName, columns] of Object.entries(MAIL_BIGINT_COLUMNS_BY_TABLE)) {
+    for (const column of columns) {
+      await client.query(`
+        ALTER TABLE ${tableName}
+        ALTER COLUMN ${column} TYPE bigint USING ${column}::bigint
+      `);
+    }
   }
 }
 

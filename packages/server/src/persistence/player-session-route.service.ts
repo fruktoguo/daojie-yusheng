@@ -398,7 +398,7 @@ export class PlayerSessionRouteService implements OnModuleInit, OnModuleDestroy 
     }
     return {
       address: typeof row.address === 'string' ? row.address.trim() : '',
-      port: Number.isFinite(row.port) ? Math.max(1, Math.trunc(Number(row.port))) : 0,
+      port: normalizePort(row.port),
     };
   }
 }
@@ -437,9 +437,17 @@ function normalizeRouteStatus(routeStatus: unknown): string {
 
 function buildServerUrl(address: string | null, port: number | null): string | null {
   const normalizedAddress = typeof address === 'string' ? address.trim() : '';
-  const normalizedPort = Number.isFinite(port) ? Math.max(1, Math.trunc(Number(port))) : 0;
+  const normalizedPort = normalizePort(port);
   if (!normalizedAddress || normalizedPort <= 0) {
     return null;
   }
   return `http://${normalizedAddress}:${normalizedPort}`;
+}
+
+function normalizePort(value: unknown): number {
+  const normalized = Number(value);
+  if (!Number.isFinite(normalized)) {
+    return 0;
+  }
+  return Math.max(1, Math.trunc(normalized));
 }

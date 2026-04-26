@@ -29,6 +29,23 @@ const INSTANCE_CONTAINER_TIMER_LOCK_KEY = 3011;
 const INSTANCE_MONSTER_RUNTIME_STATE_LOCK_KEY = 3006;
 const INSTANCE_EVENT_STATE_LOCK_KEY = 3007;
 const INSTANCE_OVERLAY_CHUNK_LOCK_KEY = 3008;
+const INSTANCE_DOMAIN_BIGINT_COLUMNS_BY_TABLE = {
+  [INSTANCE_TILE_RESOURCE_STATE_TABLE]: ['tile_index', 'value'],
+  [INSTANCE_TILE_CELL_TABLE]: ['x', 'y'],
+  [INSTANCE_TILE_DAMAGE_STATE_TABLE]: ['tile_index', 'hp', 'max_hp', 'respawn_left_ticks'],
+  [INSTANCE_GROUND_ITEM_TABLE]: ['tile_index'],
+  [INSTANCE_CONTAINER_ENTRY_TABLE]: ['entry_index'],
+  [INSTANCE_MONSTER_RUNTIME_STATE_TABLE]: [
+    'monster_level',
+    'tile_index',
+    'x',
+    'y',
+    'hp',
+    'max_hp',
+    'respawn_left',
+    'respawn_ticks',
+  ],
+} as const;
 
 @Injectable()
 export class InstanceDomainPersistenceService implements OnModuleInit, OnModuleDestroy {
@@ -153,8 +170,8 @@ export class InstanceDomainPersistenceService implements OnModuleInit, OnModuleD
     return Array.isArray(result.rows)
       ? result.rows.map((row) => ({
           resourceKey: typeof row.resource_key === 'string' ? row.resource_key : '',
-          tileIndex: Number.isFinite(row.tile_index) ? Math.trunc(Number(row.tile_index)) : 0,
-          value: Number.isFinite(row.value) ? Math.trunc(Number(row.value)) : 0,
+          tileIndex: normalizeNullableInteger(row.tile_index) ?? 0,
+          value: normalizeNullableInteger(row.value) ?? 0,
         }))
       : [];
   }
@@ -233,8 +250,8 @@ export class InstanceDomainPersistenceService implements OnModuleInit, OnModuleD
     );
     return Array.isArray(result.rows)
       ? result.rows.map((row) => ({
-          x: Number.isFinite(row.x) ? Math.trunc(Number(row.x)) : 0,
-          y: Number.isFinite(row.y) ? Math.trunc(Number(row.y)) : 0,
+          x: normalizeNullableInteger(row.x) ?? 0,
+          y: normalizeNullableInteger(row.y) ?? 0,
           tileType: typeof row.tile_type === 'string' ? row.tile_type : '',
         })).filter((entry) => entry.tileType.length > 0)
       : [];
@@ -336,7 +353,7 @@ export class InstanceDomainPersistenceService implements OnModuleInit, OnModuleD
     }
     if (Array.isArray(normalizedTileIndices)) {
       await this.pool.query(
-        `DELETE FROM ${INSTANCE_TILE_DAMAGE_STATE_TABLE} WHERE instance_id = $1 AND tile_index = ANY($2::integer[])`,
+        `DELETE FROM ${INSTANCE_TILE_DAMAGE_STATE_TABLE} WHERE instance_id = $1 AND tile_index = ANY($2::bigint[])`,
         [normalizedInstanceId, normalizedTileIndices],
       );
       return;
@@ -370,11 +387,11 @@ export class InstanceDomainPersistenceService implements OnModuleInit, OnModuleD
     );
     return Array.isArray(result.rows)
       ? result.rows.map((row) => ({
-          tileIndex: Number.isFinite(row.tile_index) ? Math.trunc(Number(row.tile_index)) : 0,
-          hp: Number.isFinite(row.hp) ? Math.max(0, Math.trunc(Number(row.hp))) : 0,
-          maxHp: Number.isFinite(row.max_hp) ? Math.max(1, Math.trunc(Number(row.max_hp))) : 1,
+          tileIndex: normalizeNullableInteger(row.tile_index) ?? 0,
+          hp: Math.max(0, normalizeNullableInteger(row.hp) ?? 0),
+          maxHp: Math.max(1, normalizeNullableInteger(row.max_hp) ?? 1),
           destroyed: row.destroyed === true,
-          respawnLeft: Number.isFinite(row.respawn_left_ticks) ? Math.max(0, Math.trunc(Number(row.respawn_left_ticks))) : 0,
+          respawnLeft: Math.max(0, normalizeNullableInteger(row.respawn_left_ticks) ?? 0),
           modifiedAt: Number.isFinite(Number(row.modified_at_ms)) ? Math.max(0, Math.trunc(Number(row.modified_at_ms))) : 0,
         }))
       : [];
@@ -642,7 +659,7 @@ export class InstanceDomainPersistenceService implements OnModuleInit, OnModuleD
       ? result.rows.map((row) => ({
           groundItemId: typeof row.ground_item_id === 'string' ? row.ground_item_id : '',
           instanceId: typeof row.instance_id === 'string' ? row.instance_id : '',
-          tileIndex: Number.isFinite(row.tile_index) ? Math.trunc(Number(row.tile_index)) : 0,
+          tileIndex: normalizeNullableInteger(row.tile_index) ?? 0,
           itemPayload: row.item_instance_payload ?? null,
           expireAt: typeof row.expire_at === 'string' ? row.expire_at : null,
         }))
@@ -1304,15 +1321,15 @@ export class InstanceDomainPersistenceService implements OnModuleInit, OnModuleD
           monsterId: typeof row.monster_id === 'string' ? row.monster_id : '',
           monsterName: typeof row.monster_name === 'string' ? row.monster_name : '',
           monsterTier: typeof row.monster_tier === 'string' ? row.monster_tier : 'mortal_blood',
-          monsterLevel: Number.isFinite(row.monster_level) ? Math.trunc(Number(row.monster_level)) : null,
-          tileIndex: Number.isFinite(row.tile_index) ? Math.trunc(Number(row.tile_index)) : 0,
-          x: Number.isFinite(row.x) ? Math.trunc(Number(row.x)) : 0,
-          y: Number.isFinite(row.y) ? Math.trunc(Number(row.y)) : 0,
-          hp: Number.isFinite(row.hp) ? Math.trunc(Number(row.hp)) : 0,
-          maxHp: Number.isFinite(row.max_hp) ? Math.trunc(Number(row.max_hp)) : 0,
+          monsterLevel: normalizeNullableInteger(row.monster_level),
+          tileIndex: normalizeNullableInteger(row.tile_index) ?? 0,
+          x: normalizeNullableInteger(row.x) ?? 0,
+          y: normalizeNullableInteger(row.y) ?? 0,
+          hp: normalizeNullableInteger(row.hp) ?? 0,
+          maxHp: normalizeNullableInteger(row.max_hp) ?? 0,
           alive: row.alive === true,
-          respawnLeft: Number.isFinite(row.respawn_left) ? Math.trunc(Number(row.respawn_left)) : null,
-          respawnTicks: Number.isFinite(row.respawn_ticks) ? Math.trunc(Number(row.respawn_ticks)) : null,
+          respawnLeft: normalizeNullableInteger(row.respawn_left),
+          respawnTicks: normalizeNullableInteger(row.respawn_ticks),
           aggroTargetPlayerId: typeof row.aggro_target_player_id === 'string' ? row.aggro_target_player_id : null,
           statePayload: row.state_payload ?? null,
         }))
@@ -1656,12 +1673,13 @@ async function ensureInstanceTileResourceStateTable(pool: Pool): Promise<void> {
       CREATE TABLE IF NOT EXISTS ${INSTANCE_TILE_RESOURCE_STATE_TABLE} (
         instance_id varchar(100) NOT NULL,
         resource_key varchar(100) NOT NULL,
-        tile_index integer NOT NULL,
-        value integer NOT NULL DEFAULT 0,
+        tile_index bigint NOT NULL,
+        value bigint NOT NULL DEFAULT 0,
         updated_at timestamptz NOT NULL DEFAULT now(),
         PRIMARY KEY (instance_id, resource_key, tile_index)
       )
     `);
+    await ensureBigintColumns(client, INSTANCE_TILE_RESOURCE_STATE_TABLE);
     await client.query(`
       CREATE INDEX IF NOT EXISTS instance_tile_resource_state_instance_idx
       ON ${INSTANCE_TILE_RESOURCE_STATE_TABLE}(instance_id, resource_key, tile_index)
@@ -1684,13 +1702,14 @@ async function ensureInstanceTileCellTable(pool: Pool): Promise<void> {
     await client.query(`
       CREATE TABLE IF NOT EXISTS ${INSTANCE_TILE_CELL_TABLE} (
         instance_id varchar(100) NOT NULL,
-        x integer NOT NULL,
-        y integer NOT NULL,
+        x bigint NOT NULL,
+        y bigint NOT NULL,
         tile_type varchar(64) NOT NULL,
         updated_at timestamptz NOT NULL DEFAULT now(),
         PRIMARY KEY (instance_id, x, y)
       )
     `);
+    await ensureBigintColumns(client, INSTANCE_TILE_CELL_TABLE);
     await client.query(`
       CREATE INDEX IF NOT EXISTS instance_tile_cell_instance_idx
       ON ${INSTANCE_TILE_CELL_TABLE}(instance_id, y, x)
@@ -1713,16 +1732,17 @@ async function ensureInstanceTileDamageStateTable(pool: Pool): Promise<void> {
     await client.query(`
       CREATE TABLE IF NOT EXISTS ${INSTANCE_TILE_DAMAGE_STATE_TABLE} (
         instance_id varchar(100) NOT NULL,
-        tile_index integer NOT NULL,
-        hp integer NOT NULL DEFAULT 0,
-        max_hp integer NOT NULL DEFAULT 1,
+        tile_index bigint NOT NULL,
+        hp bigint NOT NULL DEFAULT 0,
+        max_hp bigint NOT NULL DEFAULT 1,
         destroyed boolean NOT NULL DEFAULT false,
-        respawn_left_ticks integer NOT NULL DEFAULT 0,
+        respawn_left_ticks bigint NOT NULL DEFAULT 0,
         modified_at_ms bigint NOT NULL DEFAULT 0,
         updated_at timestamptz NOT NULL DEFAULT now(),
         PRIMARY KEY (instance_id, tile_index)
       )
     `);
+    await ensureBigintColumns(client, INSTANCE_TILE_DAMAGE_STATE_TABLE);
     await client.query(`
       CREATE INDEX IF NOT EXISTS instance_tile_damage_state_instance_idx
       ON ${INSTANCE_TILE_DAMAGE_STATE_TABLE}(instance_id, tile_index)
@@ -1798,12 +1818,13 @@ async function ensureInstanceGroundItemTable(pool: Pool): Promise<void> {
       CREATE TABLE IF NOT EXISTS ${INSTANCE_GROUND_ITEM_TABLE} (
         ground_item_id varchar(100) NOT NULL PRIMARY KEY,
         instance_id varchar(100) NOT NULL,
-        tile_index integer NOT NULL,
+        tile_index bigint NOT NULL,
         item_instance_payload jsonb NOT NULL,
         expire_at timestamptz NULL,
         updated_at timestamptz NOT NULL DEFAULT now()
       )
     `);
+    await ensureBigintColumns(client, INSTANCE_GROUND_ITEM_TABLE);
     await client.query(`
       CREATE INDEX IF NOT EXISTS instance_ground_item_instance_idx
       ON ${INSTANCE_GROUND_ITEM_TABLE}(instance_id, tile_index, ground_item_id)
@@ -1860,7 +1881,7 @@ async function ensureInstanceContainerEntryTable(pool: Pool): Promise<void> {
       CREATE TABLE IF NOT EXISTS ${INSTANCE_CONTAINER_ENTRY_TABLE} (
         instance_id varchar(100) NOT NULL,
         container_id varchar(100) NOT NULL,
-        entry_index integer NOT NULL,
+        entry_index bigint NOT NULL,
         item_payload jsonb NOT NULL DEFAULT '{}'::jsonb,
         created_tick bigint NULL,
         visible boolean NOT NULL DEFAULT false,
@@ -1868,6 +1889,7 @@ async function ensureInstanceContainerEntryTable(pool: Pool): Promise<void> {
         PRIMARY KEY (instance_id, container_id, entry_index)
       )
     `);
+    await ensureBigintColumns(client, INSTANCE_CONTAINER_ENTRY_TABLE);
     await client.query(`
       CREATE INDEX IF NOT EXISTS instance_container_entry_instance_idx
       ON ${INSTANCE_CONTAINER_ENTRY_TABLE}(instance_id, container_id, entry_index)
@@ -1924,20 +1946,21 @@ async function ensureInstanceMonsterRuntimeStateTable(pool: Pool): Promise<void>
         monster_id varchar(100) NOT NULL,
         monster_name varchar(200) NOT NULL,
         monster_tier varchar(32) NOT NULL,
-        monster_level integer NULL,
-        tile_index integer NOT NULL,
-        x integer NOT NULL,
-        y integer NOT NULL,
-        hp integer NOT NULL DEFAULT 0,
-        max_hp integer NOT NULL DEFAULT 0,
+        monster_level bigint NULL,
+        tile_index bigint NOT NULL,
+        x bigint NOT NULL,
+        y bigint NOT NULL,
+        hp bigint NOT NULL DEFAULT 0,
+        max_hp bigint NOT NULL DEFAULT 0,
         alive boolean NOT NULL DEFAULT true,
-        respawn_left integer NULL,
-        respawn_ticks integer NULL,
+        respawn_left bigint NULL,
+        respawn_ticks bigint NULL,
         aggro_target_player_id varchar(100) NULL,
         state_payload jsonb NOT NULL DEFAULT '{}'::jsonb,
         updated_at timestamptz NOT NULL DEFAULT now()
       )
     `);
+    await ensureBigintColumns(client, INSTANCE_MONSTER_RUNTIME_STATE_TABLE);
     await client.query(`
       CREATE INDEX IF NOT EXISTS instance_monster_runtime_state_instance_idx
       ON ${INSTANCE_MONSTER_RUNTIME_STATE_TABLE}(instance_id, monster_tier, monster_runtime_id)
@@ -2026,6 +2049,15 @@ async function ensureInstanceOverlayChunkTable(pool: Pool): Promise<void> {
 
 async function acquireInstanceDomainLock(client: any, instanceId: string): Promise<void> {
   await client.query('SELECT pg_advisory_xact_lock(hashtext($1))', [instanceId]);
+}
+
+async function ensureBigintColumns(client: any, tableName: keyof typeof INSTANCE_DOMAIN_BIGINT_COLUMNS_BY_TABLE): Promise<void> {
+  for (const column of INSTANCE_DOMAIN_BIGINT_COLUMNS_BY_TABLE[tableName]) {
+    await client.query(`
+      ALTER TABLE ${tableName}
+      ALTER COLUMN ${column} TYPE bigint USING ${column}::bigint
+    `);
+  }
 }
 
 async function rollbackQuietly(client: any): Promise<void> {
