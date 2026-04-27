@@ -5,6 +5,7 @@ exports.MapInstanceRuntime = void 0;
 
 const shared_1 = require("@mud/shared");
 
+const env_alias_1 = require("../../config/env-alias");
 const map_template_repository_1 = require("../map/map-template.repository");
 const runtime_tile_plane_1 = require("../map/runtime-tile-plane");
 
@@ -18,6 +19,10 @@ const DEFAULT_VIEW_RADIUS = 10;
 
 /** MONSTER_LOST_SIGHT_CHASE_TICKS：妖兽丢失视野后只追击最后目击点的短暂记忆窗口。 */
 const MONSTER_LOST_SIGHT_CHASE_TICKS = 3;
+
+/** MAP_TIME_PERSISTENCE_DOMAIN：实例当前时间的持久化脏域。 */
+const MAP_TIME_PERSISTENCE_DOMAIN = 'time';
+const MAP_TIME_PERSISTENCE_CHECKPOINT_INTERVAL_TICKS = normalizePositiveInteger((0, env_alias_1.readTrimmedEnv)('SERVER_MAP_TIME_CHECKPOINT_INTERVAL_TICKS', 'MAP_TIME_CHECKPOINT_INTERVAL_TICKS'), 300, 30, 86_400);
 
 /** DEFAULT_TERRAIN_DURABILITY_BY_TILE：默认地形耐久配置。 */
 const DEFAULT_TERRAIN_DURABILITY_BY_TILE = {
@@ -765,6 +770,10 @@ class MapInstanceRuntime {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
         this.tick += 1;
+        if (this.meta?.persistent === true && shouldMarkTimePersistenceDirty(this.tick)) {
+            this.markPersistenceDirtyDomains([MAP_TIME_PERSISTENCE_DOMAIN]);
+            this.persistentRevision += 1;
+        }
 
         const transfers = [];
 
@@ -3232,6 +3241,24 @@ function buildGroundSourceId(tileIndex) {
 /** createMapInstanceDirtyDomainSet：构建实例脏域集合。 */
 function createMapInstanceDirtyDomainSet() {
     return new Set();
+}
+function normalizePositiveInteger(value, defaultValue, min, max) {
+    const parsed = Number(value);
+    if (!Number.isFinite(parsed)) {
+        return defaultValue;
+    }
+    const normalized = Math.trunc(parsed);
+    if (normalized < min) {
+        return min;
+    }
+    if (normalized > max) {
+        return max;
+    }
+    return normalized;
+}
+function shouldMarkTimePersistenceDirty(tick) {
+    const normalizedTick = Number.isFinite(Number(tick)) ? Math.max(0, Math.trunc(Number(tick))) : 0;
+    return normalizedTick > 0 && normalizedTick % MAP_TIME_PERSISTENCE_CHECKPOINT_INTERVAL_TICKS === 0;
 }
 /** markMapInstanceDirtyDomains：记录实例脏域。 */
 function markMapInstanceDirtyDomains(instance, domains) {

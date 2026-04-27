@@ -2,6 +2,7 @@
 
 const assert = require("node:assert/strict");
 
+const { MapInstanceRuntime } = require("../runtime/instance/map-instance.runtime");
 const { WorldRuntimePersistenceStateService } = require("../runtime/world/world-runtime-persistence-state.service");
 /**
  * testListDirtyPersistentInstances：读取test列表DirtyPersistentInstance并返回结果。
@@ -194,9 +195,102 @@ async function testFlushOverlayAndMonsterDomains() {
     ]);
 }
 
+async function testFlushTimeDomainCheckpoint() {
+    const log = [];
+    const service = new WorldRuntimePersistenceStateService();
+    const instance = {
+        meta: { persistent: true },
+        template: { id: 'yunlai_town' },
+        tick: 9876,
+        getPersistenceRevision() { return 12; },
+        buildAuraPersistenceEntries() { throw new Error('time checkpoint should not build full aura snapshot'); },
+        buildTileResourcePersistenceEntries() { throw new Error('time checkpoint should not build full tile resource snapshot'); },
+        buildTileDamagePersistenceEntries() { throw new Error('time checkpoint should not build full tile damage snapshot'); },
+        buildGroundPersistenceEntries() { throw new Error('time checkpoint should not build full ground snapshot'); },
+        markPersistenceDomainsPersisted(domains) {
+            log.push(['markPersistenceDomainsPersisted', domains]);
+        },
+    };
+    await service.flushInstanceDomains('public:yunlai_town', ['time'], {
+        getInstanceRuntime(instanceId) {
+            return instanceId === 'public:yunlai_town' ? instance : null;
+        },
+        instanceDomainPersistenceService: {
+            isEnabled() { return true; },
+            async saveInstanceCheckpoint(instanceId, payload) {
+                assert.equal(payload.snapshot.templateId, 'yunlai_town');
+                assert.equal(payload.snapshot.persistenceRevision, 12);
+                assert.equal(payload.snapshot.tileResourceEntries, undefined);
+                log.push(['saveInstanceCheckpoint', instanceId, payload.kind, payload.snapshot.tick]);
+            },
+        },
+        worldRuntimeLootContainerService: {
+            buildContainerPersistenceStates() { throw new Error('time checkpoint should not build container snapshot'); },
+            clearPersisted() {},
+        },
+    });
+    assert.deepEqual(log, [
+        ['saveInstanceCheckpoint', 'public:yunlai_town', 'time_checkpoint', 9876],
+        ['markPersistenceDomainsPersisted', ['time']],
+    ]);
+}
+
+function testMapTimeDirtyIsLowFrequency() {
+    const instance = new MapInstanceRuntime({
+        instanceId: 'public:time-frequency',
+        template: createTimeFrequencyTemplate(),
+        monsterSpawns: [],
+        kind: 'public',
+        persistent: true,
+        createdAt: Date.now(),
+        displayName: 'Time Frequency',
+        linePreset: 'peaceful',
+        lineIndex: 1,
+        instanceOrigin: 'smoke',
+        defaultEntry: true,
+        supportsPvp: false,
+        canDamageTile: false,
+    });
+    const initialRevision = instance.getPersistenceRevision();
+    instance.tickOnce();
+    assert.equal(instance.getDirtyDomains().has('time'), false);
+    assert.equal(instance.getPersistenceRevision(), initialRevision);
+    for (let index = 1; index < 300; index += 1) {
+        instance.tickOnce();
+    }
+    assert.equal(instance.getDirtyDomains().has('time'), true);
+    assert.ok(instance.getPersistenceRevision() > initialRevision);
+}
+
+function createTimeFrequencyTemplate() {
+    return {
+        id: 'time_frequency_smoke',
+        name: '时间低频持久化 Smoke',
+        width: 3,
+        height: 3,
+        terrainRows: ['...', '...', '...'],
+        walkableMask: Uint8Array.from({ length: 9 }, () => 1),
+        blocksSightMask: Uint8Array.from({ length: 9 }, () => 0),
+        baseAuraByTile: Int32Array.from({ length: 9 }, () => 0),
+        baseTileResourceEntries: [],
+        npcs: [],
+        landmarks: [],
+        containers: [],
+        safeZones: [],
+        portals: [],
+        spawnX: 1,
+        spawnY: 1,
+        source: {},
+    };
+}
+
 testListDirtyPersistentInstances();
 testBuildAndMarkSnapshot();
-testFlushOverlayAndMonsterDomains().then(() => {
+testMapTimeDirtyIsLowFrequency();
+Promise.all([
+    testFlushOverlayAndMonsterDomains(),
+    testFlushTimeDomainCheckpoint(),
+]).then(() => {
     console.log(JSON.stringify({ ok: true, case: 'world-runtime-persistence-state' }, null, 2));
 }).catch((error) => {
     console.error(error instanceof Error ? error.stack : String(error));

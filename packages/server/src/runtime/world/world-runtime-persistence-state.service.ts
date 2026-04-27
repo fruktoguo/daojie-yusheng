@@ -191,6 +191,14 @@ let WorldRuntimePersistenceStateService = class WorldRuntimePersistenceStateServ
                 : []);
             persistedDomains.push('monster_runtime');
         }
+        if (currentDomains.has('time') && typeof persistence.saveInstanceCheckpoint === 'function') {
+            await persistence.saveInstanceCheckpoint(instanceId, {
+                kind: 'time_checkpoint',
+                domains: ['time'],
+                snapshot: buildTimeCheckpointSnapshot(instance),
+            });
+            persistedDomains.push('time');
+        }
         const unsupportedDomains = Array.from(currentDomains).filter((domain) => !persistedDomains.includes(domain));
         if (unsupportedDomains.length > 0 && typeof persistence.saveInstanceCheckpoint === 'function') {
             const snapshot = this.buildMapPersistenceSnapshot(instanceId, deps);
@@ -227,6 +235,18 @@ function compareStableStrings(left, right) {
         return 1;
     }
     return 0;
+}
+
+function buildTimeCheckpointSnapshot(instance) {
+    return {
+        version: 1,
+        savedAt: Date.now(),
+        templateId: typeof instance?.template?.id === 'string' ? instance.template.id : '',
+        tick: Number.isFinite(Number(instance?.tick)) ? Math.max(0, Math.trunc(Number(instance.tick))) : 0,
+        persistenceRevision: typeof instance?.getPersistenceRevision === 'function'
+            ? instance.getPersistenceRevision()
+            : undefined,
+    };
 }
 
 export { WorldRuntimePersistenceStateService };

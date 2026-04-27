@@ -30,8 +30,10 @@ const MAP_PERSISTENCE_FLUSH_BATCH_SIZE = 16;
 const MAP_PERSISTENCE_FLUSH_PARALLELISM = 3;
 const MAP_PERSISTENCE_FLUSH_RETRY_COUNT = 1;
 const PERSISTENCE_SLOW_FLUSH_THRESHOLD_MIN_MS = 100;
+const MAP_PERSISTENCE_TIME_DOMAIN = 'time';
 const MAP_PERSISTENCE_SLOW_FLUSH_THRESHOLD_MS = normalizePositiveInteger((0, env_alias_1.readTrimmedEnv)('SERVER_PERSISTENCE_FLUSH_SLOW_THRESHOLD_MS', 'PERSISTENCE_FLUSH_SLOW_THRESHOLD_MS'), 100, PERSISTENCE_SLOW_FLUSH_THRESHOLD_MIN_MS, 10_000);
 const MAP_PERSISTENCE_SLOW_FLUSH_BACKOFF_MS = normalizePositiveInteger((0, env_alias_1.readTrimmedEnv)('SERVER_PERSISTENCE_FLUSH_SLOW_BACKOFF_MS', 'PERSISTENCE_FLUSH_SLOW_BACKOFF_MS'), 5_000, 1_000, 60_000);
+const MAP_PERSISTENCE_TIME_CHECKPOINT_INTERVAL_MS = normalizePositiveInteger((0, env_alias_1.readTrimmedEnv)('SERVER_MAP_TIME_CHECKPOINT_INTERVAL_MS', 'MAP_TIME_CHECKPOINT_INTERVAL_MS'), 300_000, 60_000, 3_600_000);
 
 /**
  * normalizePositiveInteger：执行normalize正整数相关逻辑。
@@ -90,6 +92,11 @@ let MapPersistenceFlushService = MapPersistenceFlushService_1 = class MapPersist
 
     flushThrottleUntilAt = 0;    
     /**
+ * nextTimeCheckpointFlushAt：下一次 interval 允许写入 time checkpoint 的时间。
+ */
+
+    nextTimeCheckpointFlushAt = 0;    
+    /**
  * 构造器：初始化 当前 实例并建立基础状态。
  * @param worldRuntimeService 参数说明。
  * @param mapPersistenceService 参数说明。
@@ -133,7 +140,7 @@ let MapPersistenceFlushService = MapPersistenceFlushService_1 = class MapPersist
     async flushAllNow() {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
-        if (!this.mapPersistenceService.isEnabled()) {
+        if (!this.isDomainPersistenceEnabled() && !this.mapPersistenceService.isEnabled()) {
             return;
         }
         if (this.flushPromise) {
@@ -196,10 +203,13 @@ let MapPersistenceFlushService = MapPersistenceFlushService_1 = class MapPersist
 
         const promise = (async () => {
 
-            const dirtyDomainEntries = typeof this.worldRuntimeService.listDirtyPersistentInstanceDomains === 'function'
+            const rawDirtyDomainEntries = typeof this.worldRuntimeService.listDirtyPersistentInstanceDomains === 'function'
                 ? this.worldRuntimeService.listDirtyPersistentInstanceDomains()
                 : [];
-            const dirtyInstanceIds = dirtyDomainEntries.length > 0
+            const timeCheckpointDue = reason !== 'interval' || Date.now() >= this.nextTimeCheckpointFlushAt;
+            const dirtyDomainSelection = selectFlushDomainEntries(rawDirtyDomainEntries, reason, timeCheckpointDue);
+            const dirtyDomainEntries = dirtyDomainSelection.entries;
+            const dirtyInstanceIds = rawDirtyDomainEntries.length > 0
                 ? dirtyDomainEntries.map((entry) => entry.instanceId)
                 : this.worldRuntimeService.listDirtyPersistentInstances();
             dirtyInstanceCount = dirtyInstanceIds.length;
@@ -207,10 +217,11 @@ let MapPersistenceFlushService = MapPersistenceFlushService_1 = class MapPersist
                 return;
             }
             const prioritizedInstanceIds = prioritizeMapFlushTargets(dirtyInstanceIds);
+            const dirtyDomainEntryByInstanceId = new Map(dirtyDomainEntries.map((entry) => [entry.instanceId, entry]));
             const batches = chunkValues(prioritizedInstanceIds, MAP_PERSISTENCE_FLUSH_BATCH_SIZE);
             for (const batch of batches) {
                 await runConcurrent(batch, MAP_PERSISTENCE_FLUSH_PARALLELISM, async (instanceId) => {
-                    const domainEntry = dirtyDomainEntries.find((entry) => entry.instanceId === instanceId);
+                    const domainEntry = dirtyDomainEntryByInstanceId.get(instanceId);
                     if (typeof this.worldRuntimeService.flushInstanceDomains === 'function') {
                         const result = await this.worldRuntimeService.flushInstanceDomains(instanceId, domainEntry?.domains ?? null);
                         if (result?.skipped === true) {
@@ -231,6 +242,9 @@ let MapPersistenceFlushService = MapPersistenceFlushService_1 = class MapPersist
                 }, (instanceId, error) => {
                     this.logger.error(`地图持久化刷新失败（${reason}） instanceId=${instanceId}`, error instanceof Error ? error.stack : String(error));
                 });
+            }
+            if (reason === 'interval' && dirtyDomainSelection.includesTimeCheckpoint === true) {
+                this.nextTimeCheckpointFlushAt = Date.now() + MAP_PERSISTENCE_TIME_CHECKPOINT_INTERVAL_MS;
             }
         })();
         this.flushPromise = promise;
@@ -277,6 +291,27 @@ function prioritizeMapFlushTargets(instanceIds) {
         const rightPriority = right.includes('container:') ? 0 : 1;
         return leftPriority - rightPriority || left.localeCompare(right);
     });
+}
+function selectFlushDomainEntries(entries, reason, timeCheckpointDue) {
+    if (!Array.isArray(entries) || entries.length === 0 || reason !== 'interval' || timeCheckpointDue === true) {
+        return { entries: Array.isArray(entries) ? entries : [], includesTimeCheckpoint: hasTimeCheckpointDomain(entries) };
+    }
+    const selected = [];
+    for (const entry of entries) {
+        const instanceId = typeof entry?.instanceId === 'string' ? entry.instanceId.trim() : '';
+        const domains = Array.isArray(entry?.domains)
+            ? entry.domains.filter((domain) => typeof domain === 'string' && domain.trim() && domain.trim() !== MAP_PERSISTENCE_TIME_DOMAIN)
+            : [];
+        if (instanceId && domains.length > 0) {
+            selected.push({ instanceId, domains });
+        }
+    }
+    return { entries: selected, includesTimeCheckpoint: false };
+}
+function hasTimeCheckpointDomain(entries) {
+    return Array.isArray(entries)
+        && entries.some((entry) => Array.isArray(entry?.domains)
+            && entry.domains.some((domain) => typeof domain === 'string' && domain.trim() === MAP_PERSISTENCE_TIME_DOMAIN));
 }
 /**
  * isFlushThrottleActive：判断FlushThrottle激活是否满足条件。
