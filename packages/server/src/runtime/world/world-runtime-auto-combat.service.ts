@@ -21,7 +21,7 @@ const player_runtime_service_1 = require("../player/player-runtime.service");
 const world_runtime_normalization_helpers_1 = require("./world-runtime.normalization.helpers");
 const { findPlayerSkill, resolveAutoBattleSkillQiCost } = world_runtime_normalization_helpers_1;
 const world_runtime_path_planning_helpers_1 = require("./world-runtime.path-planning.helpers");
-const { chebyshevDistance, findOptimalPathOnMap, directionFromStep, resolveInitialRunLength, buildAutoBattleGoalPoints } = world_runtime_path_planning_helpers_1;
+const { chebyshevDistance, findPathToTargetWithinRangeOnMap, directionFromStep, resolveInitialRunLength } = world_runtime_path_planning_helpers_1;
 const world_runtime_attack_target_helpers_1 = require("./world-runtime.attack-target.helpers");
 
 function isHostileRelation(resolution) {
@@ -203,12 +203,14 @@ let WorldRuntimeAutoCombatService = class WorldRuntimeAutoCombatService {
             return null;
         }
         const distance = chebyshevDistance(player.x, player.y, target.x, target.y);
-        const skillId = target.supportsSkill === false ? null : this.pickAutoBattleSkill(player, distance, options);
-        if (skillId) {
+        const skillChoice = target.supportsSkill === false
+            ? null
+            : this.resolveAutoBattleSkillChoice(player, distance, options);
+        if (skillChoice?.skillId) {
             if (target.targetMonsterId) {
                 return {
                     kind: 'castSkill',
-                    skillId,
+                    skillId: skillChoice.skillId,
                     targetPlayerId: null,
                     targetMonsterId: target.targetMonsterId,
                     targetRef: null,
@@ -217,7 +219,7 @@ let WorldRuntimeAutoCombatService = class WorldRuntimeAutoCombatService {
             }
             return {
                 kind: 'castSkill',
-                skillId,
+                skillId: skillChoice.skillId,
                 targetPlayerId: null,
                 targetMonsterId: null,
                 targetRef: target.targetRef,
@@ -230,9 +232,8 @@ let WorldRuntimeAutoCombatService = class WorldRuntimeAutoCombatService {
         if (player.combat.autoBattleStationary) {
             return null;
         }
-        const desiredRange = 1;
-        const goals = buildAutoBattleGoalPoints(instance, target.x, target.y, desiredRange);
-        const pathResult = findOptimalPathOnMap(instance, player.playerId, player.x, player.y, goals, false);
+        const desiredRange = Math.max(1, Math.round(skillChoice?.range ?? 1));
+        const pathResult = findPathToTargetWithinRangeOnMap(instance, player.playerId, player.x, player.y, target.x, target.y, desiredRange, false);
         if (!pathResult || pathResult.points.length === 0) {
             return null;
         }
@@ -463,10 +464,11 @@ let WorldRuntimeAutoCombatService = class WorldRuntimeAutoCombatService {
  * @returns 无返回值，直接更新pickAutoBattle技能相关状态。
  */
 
-    pickAutoBattleSkill(player, distance, options = undefined) {
+    resolveAutoBattleSkillChoice(player, distance, options = undefined) {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
         const excludedSkillIds = options?.excludedSkillIds;
+        let chaseRange = 1;
         for (const action of player.actions.actions) {
             if (action.type !== 'skill') {
                 continue;
@@ -478,9 +480,6 @@ let WorldRuntimeAutoCombatService = class WorldRuntimeAutoCombatService {
                 continue;
             }
             const range = Math.max(1, Math.round(action.range ?? 1));
-            if (distance > range) {
-                continue;
-            }
             const skill = findPlayerSkill(player, action.id);
             if (!skill) {
                 continue;
@@ -491,9 +490,32 @@ let WorldRuntimeAutoCombatService = class WorldRuntimeAutoCombatService {
             if (player.qi < resolveAutoBattleSkillQiCost(skill.cost, player.attrs.numericStats.maxQiOutputPerTick)) {
                 continue;
             }
-            return skill.id;
+            if (distance <= range) {
+                return {
+                    skillId: skill.id,
+                    range,
+                };
+            }
+            chaseRange = Math.max(chaseRange, range);
         }
-        return null;
+        return chaseRange > 1
+            ? {
+                skillId: null,
+                range: chaseRange,
+            }
+            : null;
+    }
+    /**
+ * pickAutoBattleSkill：执行pickAutoBattle技能相关逻辑。
+ * @param player 玩家对象。
+ * @param distance 参数说明。
+ * @returns 无返回值，直接更新pickAutoBattle技能相关状态。
+ */
+
+    pickAutoBattleSkill(player, distance, options = undefined) {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
+        return this.resolveAutoBattleSkillChoice(player, distance, options)?.skillId ?? null;
     }
     /**
  * resolveAutoBattleDesiredRange：规范化或转换AutoBattleDesired范围。

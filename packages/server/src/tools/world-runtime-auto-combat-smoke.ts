@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict';
 
 import { WorldRuntimeAutoCombatService } from '../runtime/world/world-runtime-auto-combat.service';
+import { findPathToTargetWithinRangeOnMap } from '../runtime/world/world-runtime.path-planning.helpers';
 
 function createPlayerRuntimeService(player: Record<string, unknown>) {
   const log: unknown[][] = [];
@@ -78,6 +79,95 @@ function createPathingInstance() {
     forEachPathingBlocker(_playerId: string, _callback: (x: number, y: number) => void) {},
     getTileTraversalCost() {
       return 1;
+    },
+  };
+}
+
+function createLongRangePathingInstance() {
+  return {
+    template: {
+      width: 8,
+      height: 4,
+    },
+    meta: {
+      instanceId: 'public:test_map',
+    },
+    isPointInSafeZone() {
+      return false;
+    },
+    isSafeZoneTile() {
+      return false;
+    },
+    buildPlayerView() {
+      return {
+        playerId: 'player:1',
+        self: { x: 1, y: 1 },
+        instance: { width: 8, height: 4 },
+        visiblePlayers: [],
+        localMonsters: [{
+          runtimeId: 'monster:1',
+          x: 5,
+          y: 1,
+          hp: 20,
+        }],
+        localNpcs: [],
+        localPortals: [],
+        localGroundPiles: [],
+      };
+    },
+    getMonster(runtimeId: string) {
+      assert.equal(runtimeId, 'monster:1');
+      return {
+        runtimeId: 'monster:1',
+        x: 5,
+        y: 1,
+        hp: 20,
+        maxHp: 20,
+        alive: true,
+      };
+    },
+    isInBounds(x: number, y: number) {
+      return x >= 0 && y >= 0 && x < 8 && y < 4;
+    },
+    toTileIndex(x: number, y: number) {
+      return y * 8 + x;
+    },
+    isWalkable(x: number, y: number) {
+      return x >= 0 && y >= 0 && x < 8 && y < 4;
+    },
+    forEachPathingBlocker(_playerId: string, _callback: (x: number, y: number) => void) {},
+    getTileTraversalCost() {
+      return 1;
+    },
+  };
+}
+
+function createWidePathingInstance() {
+  let boundsChecks = 0;
+  const instance = {
+    template: {
+      width: 64,
+      height: 8,
+    },
+    isInBounds(x: number, y: number) {
+      boundsChecks += 1;
+      return x >= 0 && y >= 0 && x < 64 && y < 8;
+    },
+    toTileIndex(x: number, y: number) {
+      return y * 64 + x;
+    },
+    isWalkable(x: number, y: number) {
+      return x >= 0 && y >= 0 && x < 64 && y < 8;
+    },
+    forEachPathingBlocker(_playerId: string, _callback: (x: number, y: number) => void) {},
+    getTileTraversalCost() {
+      return 1;
+    },
+  };
+  return {
+    instance,
+    getBoundsChecks() {
+      return boundsChecks;
     },
   };
 }
@@ -258,6 +348,136 @@ function testManualEngageFallsBackToMoveWhenOnlyRangedSkillIsOnCooldown(): void 
     path: [{ x: 2, y: 1 }, { x: 3, y: 1 }],
     autoCombat: true,
   });
+}
+
+function testOutOfRangeSkillMovesToSkillMaxRangeImmediately(): void {
+  const player = {
+    playerId: 'player:1',
+    hp: 100,
+    x: 1,
+    y: 1,
+    instanceId: 'public:test_map',
+    qi: 100,
+    attrs: {
+      numericStats: {
+        viewRange: 8,
+        maxQiOutputPerTick: 100,
+      },
+    },
+    actions: {
+      actions: [{
+        id: 'skill:ranged',
+        type: 'skill',
+        range: 3,
+        cooldownLeft: 0,
+        autoBattleEnabled: true,
+        skillEnabled: true,
+      }],
+    },
+    techniques: {
+      techniques: [{
+        skills: [{
+          id: 'skill:ranged',
+          cost: 0,
+        }],
+      }],
+    },
+    combat: {
+      autoBattle: false,
+      autoRetaliate: false,
+      autoBattleStationary: false,
+      combatTargetId: 'monster:1',
+      combatTargetLocked: false,
+      manualEngagePending: true,
+    },
+  };
+  const service = new WorldRuntimeAutoCombatService(createPlayerRuntimeService(player) as never);
+  const command = service.buildAutoCombatCommand(createLongRangePathingInstance() as never, player as never, {
+    resolveCurrentTickForPlayerId() {
+      return 13;
+    },
+    queuePlayerNotice() {},
+  } as never);
+  assert.deepEqual(command, {
+    kind: 'move',
+    direction: 2,
+    continuous: true,
+    maxSteps: 1,
+    path: [{ x: 2, y: 1 }],
+    autoCombat: true,
+  });
+}
+
+function testStationaryOutOfRangeSkillSkipsWithoutMove(): void {
+  const player = {
+    playerId: 'player:1',
+    hp: 100,
+    x: 1,
+    y: 1,
+    instanceId: 'public:test_map',
+    qi: 100,
+    attrs: {
+      numericStats: {
+        viewRange: 8,
+        maxQiOutputPerTick: 100,
+      },
+    },
+    actions: {
+      actions: [{
+        id: 'skill:ranged',
+        type: 'skill',
+        range: 3,
+        cooldownLeft: 0,
+        autoBattleEnabled: true,
+        skillEnabled: true,
+      }],
+    },
+    techniques: {
+      techniques: [{
+        skills: [{
+          id: 'skill:ranged',
+          cost: 0,
+        }],
+      }],
+    },
+    combat: {
+      autoBattle: false,
+      autoRetaliate: false,
+      autoBattleStationary: true,
+      combatTargetId: 'monster:1',
+      combatTargetLocked: false,
+      manualEngagePending: true,
+    },
+  };
+  const service = new WorldRuntimeAutoCombatService(createPlayerRuntimeService(player) as never);
+  const command = service.buildAutoCombatCommand(createLongRangePathingInstance() as never, player as never, {
+    resolveCurrentTickForPlayerId() {
+      return 14;
+    },
+    queuePlayerNotice() {},
+  } as never);
+  assert.equal(command, null);
+}
+
+function testStopDistancePathDoesNotGenerateRangeCandidateGrid(): void {
+  const { instance, getBoundsChecks } = createWidePathingInstance();
+  const path = findPathToTargetWithinRangeOnMap(
+    instance as never,
+    'player:1',
+    1,
+    1,
+    25,
+    1,
+    20,
+    false,
+  );
+  assert.deepEqual(path?.points, [
+    { x: 2, y: 1 },
+    { x: 3, y: 1 },
+    { x: 4, y: 1 },
+    { x: 5, y: 1 },
+  ]);
+  assert.ok(getBoundsChecks() < 400, `unexpected range-grid-like bounds checks: ${getBoundsChecks()}`);
 }
 
 function testLockedDestroyedTileStopsAutoBattle(): void {
@@ -580,6 +800,9 @@ function testLockedFormationContinuesBasicAttack(): void {
 
 testAutoCombatDoesNotEnqueueSpentActionCommand();
 testManualEngageFallsBackToMoveWhenOnlyRangedSkillIsOnCooldown();
+testOutOfRangeSkillMovesToSkillMaxRangeImmediately();
+testStationaryOutOfRangeSkillSkipsWithoutMove();
+testStopDistancePathDoesNotGenerateRangeCandidateGrid();
 testLockedDestroyedTileStopsAutoBattle();
 testLockedHerbTileContinuesBasicAttack();
 testLockedDepletedHerbTileStopsAutoBattle();
@@ -588,5 +811,5 @@ testLockedFormationContinuesBasicAttack();
 console.log(JSON.stringify({
   ok: true,
   case: 'world-runtime-auto-combat',
-  answers: '自动战斗不会在本 tick 行动次数已满时继续物化必然失败的攻击指令；一次性接战和自动战斗在无可用远程技能时，会继续贴近到普攻距离；锁定的可攻击地块摧毁后会停止自动战斗；锁定草药和阵法会在未清空或未摧毁前继续生成下一次攻击。',
+  answers: '自动战斗不会在本 tick 行动次数已满时继续物化必然失败的攻击指令；一次性接战和自动战斗会在技能超距时同息追近到技能最远射程，原地战斗会跳过超距技能；锁定的可攻击地块摧毁后会停止自动战斗；锁定草药和阵法会在未清空或未摧毁前继续生成下一次攻击。',
 }, null, 2));

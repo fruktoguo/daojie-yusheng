@@ -13,6 +13,13 @@ const DIRECTION_OFFSET = {
     [shared_1.Direction.East]: { x: 1, y: 0 },
     [shared_1.Direction.West]: { x: -1, y: 0 },
 };
+const PATH_DIRECTION_STEPS = [
+    { direction: shared_1.Direction.North, x: 0, y: -1 },
+    { direction: shared_1.Direction.South, x: 0, y: 1 },
+    { direction: shared_1.Direction.East, x: 1, y: 0 },
+    { direction: shared_1.Direction.West, x: -1, y: 0 },
+];
+const PATH_PLANNING_HEURISTIC_MIN_STEP_COST = 1;
 /** 计算切比雪夫距离，统一用作格子距离与范围判断。 */
 function chebyshevDistance(leftX, leftY, rightX, rightY) {
     return Math.max(Math.abs(leftX - rightX), Math.abs(leftY - rightY));
@@ -110,15 +117,9 @@ function buildAdjacentGoalPoints(template, centerX, centerY) {
 
 
     const goals = [];
-    for (const direction of [shared_1.Direction.North, shared_1.Direction.South, shared_1.Direction.East, shared_1.Direction.West]) {
-        const offset = DIRECTION_OFFSET[direction];
-        if (!offset) {
-            continue;
-        }
-
-        const x = centerX + offset.x;
-
-        const y = centerY + offset.y;
+    for (const step of PATH_DIRECTION_STEPS) {
+        const x = centerX + step.x;
+        const y = centerY + step.y;
         if (!isInBounds(x, y, template.width, template.height)) {
             continue;
         }
@@ -265,6 +266,33 @@ function computePathCost(instance, path, playerId = null) {
     }
     return cost;
 }
+function resolvePathNodePriority(node) {
+    return Number.isFinite(node?.priority) ? node.priority : node.cost;
+}
+function comparePathNodePriority(left, right) {
+    const leftPriority = resolvePathNodePriority(left);
+    const rightPriority = resolvePathNodePriority(right);
+    if (leftPriority !== rightPriority) {
+        return leftPriority - rightPriority;
+    }
+    return left.cost - right.cost;
+}
+function estimateChebyshevCostToGoals(x, y, goals) {
+    let bestDistance = Number.POSITIVE_INFINITY;
+    for (const goal of goals) {
+        const distance = chebyshevDistance(x, y, goal.x, goal.y);
+        if (distance < bestDistance) {
+            bestDistance = distance;
+        }
+    }
+    return Number.isFinite(bestDistance)
+        ? bestDistance * PATH_PLANNING_HEURISTIC_MIN_STEP_COST
+        : 0;
+}
+function estimateChebyshevCostToTargetRange(x, y, targetX, targetY, stopDistance) {
+    const remainingDistance = Math.max(0, chebyshevDistance(x, y, targetX, targetY) - Math.max(0, Math.round(stopDistance)));
+    return remainingDistance * PATH_PLANNING_HEURISTIC_MIN_STEP_COST;
+}
 /** 将坐标打包为稳定的字符串 key。 */
 function buildCoordKey(x, y) {
     return `${x},${y}`;
@@ -343,6 +371,7 @@ function findOptimalPathOnMap(instance, playerId, startX, startY, goals, allowOc
     }
 
     const goalIndices = new Set();
+    const validGoals = [];
     for (const goal of goals) {
         if (instance.isInBounds?.(goal.x, goal.y) !== true) {
             continue;
@@ -350,6 +379,7 @@ function findOptimalPathOnMap(instance, playerId, startX, startY, goals, allowOc
         const tileIndex = typeof instance.toTileIndex === 'function' ? instance.toTileIndex(goal.x, goal.y) : -1;
         if (tileIndex >= 0) {
             goalIndices.add(tileIndex);
+            validGoals.push({ x: goal.x, y: goal.y });
         }
     }
     if (goalIndices.size === 0) {
@@ -373,7 +403,11 @@ function findOptimalPathOnMap(instance, playerId, startX, startY, goals, allowOc
         return null;
     }
     bestCost[startIndex] = 0;
-    pushPathNode(heap, { index: startIndex, cost: 0 });
+    pushPathNode(heap, {
+        index: startIndex,
+        cost: 0,
+        priority: estimateChebyshevCostToGoals(startX, startY, validGoals),
+    });
     while (heap.length > 0) {
 
         const currentNode = popPathNode(heap);
@@ -395,15 +429,9 @@ function findOptimalPathOnMap(instance, playerId, startX, startY, goals, allowOc
         const x = resolveInstanceTileX(instance, current);
 
         const y = resolveInstanceTileY(instance, current);
-        for (const direction of [shared_1.Direction.North, shared_1.Direction.South, shared_1.Direction.East, shared_1.Direction.West]) {
-            const offset = DIRECTION_OFFSET[direction];
-            if (!offset) {
-                continue;
-            }
-
-            const nextX = x + offset.x;
-
-            const nextY = y + offset.y;
+        for (const step of PATH_DIRECTION_STEPS) {
+            const nextX = x + step.x;
+            const nextY = y + step.y;
             if (instance.isInBounds?.(nextX, nextY) !== true) {
                 continue;
             }
@@ -424,7 +452,106 @@ function findOptimalPathOnMap(instance, playerId, startX, startY, goals, allowOc
             }
             bestCost[nextIndex] = nextCost;
             previous[nextIndex] = current;
-            pushPathNode(heap, { index: nextIndex, cost: nextCost });
+            pushPathNode(heap, {
+                index: nextIndex,
+                cost: nextCost,
+                priority: nextCost + estimateChebyshevCostToGoals(nextX, nextY, validGoals),
+            });
+        }
+    }
+    return null;
+}
+/** 寻路到目标停止距离内，不预生成候选目标格。 */
+function findPathToTargetWithinRangeOnMap(instance, playerId, startX, startY, targetX, targetY, stopDistance, allowOccupiedTarget = false) {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
+    if (instance.isInBounds?.(targetX, targetY) !== true) {
+        return null;
+    }
+    const normalizedStopDistance = Math.max(0, Math.round(stopDistance));
+    const isStopNode = (x, y) => {
+        if (normalizedStopDistance > 0 && x === targetX && y === targetY) {
+            return false;
+        }
+        return chebyshevDistance(x, y, targetX, targetY) <= normalizedStopDistance;
+    };
+    if (isStopNode(startX, startY)) {
+        return {
+            points: [],
+            cost: 0,
+        };
+    }
+
+    const targetGoal = allowOccupiedTarget ? [{ x: targetX, y: targetY }] : [];
+    const blocked = buildPathingBlockMask(instance, playerId, targetGoal, allowOccupiedTarget);
+    const size = Math.max(instance.occupancy?.length ?? 0, instance.tilePlane?.getCellCapacity?.() ?? 0, instance.template.width * instance.template.height);
+
+    const bestCost = new Float64Array(size);
+    bestCost.fill(Number.POSITIVE_INFINITY);
+
+    const previous = new Int32Array(size);
+    previous.fill(-1);
+
+    const heap = [];
+
+    const startIndex = typeof instance.toTileIndex === 'function' ? instance.toTileIndex(startX, startY) : -1;
+    if (startIndex < 0 || startIndex >= size) {
+        return null;
+    }
+    bestCost[startIndex] = 0;
+    pushPathNode(heap, {
+        index: startIndex,
+        cost: 0,
+        priority: estimateChebyshevCostToTargetRange(startX, startY, targetX, targetY, normalizedStopDistance),
+    });
+    while (heap.length > 0) {
+        const currentNode = popPathNode(heap);
+        if (!currentNode) {
+            break;
+        }
+
+        const current = currentNode.index;
+        if (currentNode.cost !== bestCost[current]) {
+            continue;
+        }
+
+        const x = resolveInstanceTileX(instance, current);
+        const y = resolveInstanceTileY(instance, current);
+        if (isStopNode(x, y)) {
+            return {
+                points: reconstructPathPoints(previous, current, startIndex, instance),
+                cost: currentNode.cost,
+            };
+        }
+
+        for (const step of PATH_DIRECTION_STEPS) {
+            const nextX = x + step.x;
+            const nextY = y + step.y;
+            if (instance.isInBounds?.(nextX, nextY) !== true) {
+                continue;
+            }
+
+            const nextIndex = typeof instance.toTileIndex === 'function' ? instance.toTileIndex(nextX, nextY) : -1;
+            if (nextIndex < 0 || nextIndex >= size || !instance.isWalkable(nextX, nextY, playerId) || blocked.has(nextIndex)) {
+                continue;
+            }
+
+            const stepCost = instance.getTileTraversalCost(nextX, nextY, playerId);
+            if (!Number.isFinite(stepCost) || stepCost <= 0) {
+                continue;
+            }
+
+            const nextCost = currentNode.cost + stepCost;
+            if (nextCost >= bestCost[nextIndex]) {
+                continue;
+            }
+            bestCost[nextIndex] = nextCost;
+            previous[nextIndex] = current;
+            pushPathNode(heap, {
+                index: nextIndex,
+                cost: nextCost,
+                priority: nextCost + estimateChebyshevCostToTargetRange(nextX, nextY, targetX, targetY, normalizedStopDistance),
+            });
         }
     }
     return null;
@@ -474,7 +601,7 @@ function pushPathNode(heap, node) {
     while (index > 0) {
 
         const parentIndex = Math.trunc((index - 1) / 2);
-        if (heap[parentIndex].cost <= node.cost) {
+        if (comparePathNodePriority(heap[parentIndex], node) <= 0) {
             break;
         }
         heap[index] = heap[parentIndex];
@@ -508,10 +635,10 @@ function popPathNode(heap) {
         }
 
         let smallest = left;
-        if (right < heap.length && heap[right].cost < heap[left].cost) {
+        if (right < heap.length && comparePathNodePriority(heap[right], heap[left]) < 0) {
             smallest = right;
         }
-        if (heap[smallest].cost >= last.cost) {
+        if (comparePathNodePriority(heap[smallest], last) >= 0) {
             break;
         }
         heap[index] = heap[smallest];
@@ -524,13 +651,9 @@ function popPathNode(heap) {
 function directionFromStep(startX, startY, nextX, nextY) {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
-    for (const direction of [shared_1.Direction.North, shared_1.Direction.South, shared_1.Direction.East, shared_1.Direction.West]) {
-        const offset = DIRECTION_OFFSET[direction];
-        if (!offset) {
-            continue;
-        }
-        if (startX + offset.x === nextX && startY + offset.y === nextY) {
-            return direction;
+    for (const step of PATH_DIRECTION_STEPS) {
+        if (startX + step.x === nextX && startY + step.y === nextY) {
+            return step.direction;
         }
     }
     return null;
@@ -613,6 +736,7 @@ exports.computePathCost = computePathCost;
 exports.buildCoordKey = buildCoordKey;
 exports.resolvePreferredClientPathHint = resolvePreferredClientPathHint;
 exports.findOptimalPathOnMap = findOptimalPathOnMap;
+exports.findPathToTargetWithinRangeOnMap = findPathToTargetWithinRangeOnMap;
 exports.findNextDirectionOnMap = findNextDirectionOnMap;
 exports.findPathPointsOnMap = findPathPointsOnMap;
 exports.reconstructPathPoints = reconstructPathPoints;
@@ -637,6 +761,7 @@ export {
     buildCoordKey,
     resolvePreferredClientPathHint,
     findOptimalPathOnMap,
+    findPathToTargetWithinRangeOnMap,
     findNextDirectionOnMap,
     findPathPointsOnMap,
     reconstructPathPoints,

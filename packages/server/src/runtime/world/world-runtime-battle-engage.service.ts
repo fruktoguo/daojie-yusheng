@@ -39,14 +39,16 @@ function assertInstanceSupportsTileDamage(instance, player, targetX, targetY, de
     throw new common_1.BadRequestException('当前实例不允许攻击地块');
 }
 
-function dispatchResolvedBasicAttack(playerId, target, deps) {
-    return deps.dispatchBasicAttack(
-        playerId,
-        target.targetPlayerId ?? null,
-        target.targetMonsterId ?? null,
-        target.targetX ?? null,
-        target.targetY ?? null,
-    );
+function dispatchAutoCombatCommand(playerId, command, locked, deps) {
+    const resolvedCommand = locked ? command : {
+        ...command,
+        manualEngage: true,
+    };
+    if (resolvedCommand.kind === 'move' || resolvedCommand.kind === 'portal') {
+        deps.dispatchInstanceCommand(playerId, resolvedCommand);
+        return;
+    }
+    return deps.dispatchPlayerCommand(playerId, resolvedCommand);
 }
 
 /** 玩家战斗接敌编排服务：承接锁定目标、autoBattle 切换与首个命令 handoff。 */
@@ -117,7 +119,24 @@ let WorldRuntimeBattleEngageService = class WorldRuntimeBattleEngageService {
                     return;
                 }
             }
-            return dispatchResolvedBasicAttack(playerId, resolvedTarget, deps);
+            else {
+                this.playerRuntimeService.setCombatTarget(playerId, resolvedTarget.targetRef, false, currentTick);
+                this.playerRuntimeService.setManualEngagePending(playerId, true);
+            }
+            const player = this.playerRuntimeService.getPlayerOrThrow(playerId);
+            const nextCommand = deps.buildAutoCombatCommand(instance, player);
+            if (!nextCommand) {
+                return;
+            }
+            try {
+                return await dispatchAutoCombatCommand(playerId, nextCommand, locked, deps);
+            }
+            finally {
+                if (!locked && nextCommand.kind !== 'move' && nextCommand.kind !== 'portal') {
+                    this.playerRuntimeService.clearManualEngagePending(playerId);
+                    this.playerRuntimeService.clearCombatTarget(playerId, currentTick);
+                }
+            }
         }
         const player = this.playerRuntimeService.getPlayerOrThrow(playerId);
         if (!player.instanceId) {
@@ -152,19 +171,11 @@ let WorldRuntimeBattleEngageService = class WorldRuntimeBattleEngageService {
         if (!nextCommand) {
             return;
         }
-        const command = locked ? nextCommand : {
-            ...nextCommand,
-            manualEngage: true,
-        };
-        if (command.kind === 'move' || command.kind === 'portal') {
-            deps.dispatchInstanceCommand(playerId, command);
-            return;
-        }
         try {
-            return await deps.dispatchPlayerCommand(playerId, command);
+            return await dispatchAutoCombatCommand(playerId, nextCommand, locked, deps);
         }
         finally {
-            if (!locked) {
+            if (!locked && nextCommand.kind !== 'move' && nextCommand.kind !== 'portal') {
                 this.playerRuntimeService.clearManualEngagePending(playerId);
                 this.playerRuntimeService.clearCombatTarget(playerId, currentTick);
             }

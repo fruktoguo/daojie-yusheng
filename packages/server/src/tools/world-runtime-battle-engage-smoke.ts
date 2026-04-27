@@ -31,7 +31,7 @@ function createPlayerRuntimeService(player: Record<string, unknown>, target: Rec
   };
 }
 
-async function testTileEngageAwaitsBasicAttack(): Promise<void> {
+async function testTileEngageAwaitsImmediateAutoCombatCommand(): Promise<void> {
   const attacker = {
     playerId: 'player:attacker',
     instanceId: 'real:yunlai_town',
@@ -48,6 +48,7 @@ async function testTileEngageAwaitsBasicAttack(): Promise<void> {
   const service = new WorldRuntimeBattleEngageService(createPlayerRuntimeService(attacker, target) as never);
   const log: Array<unknown[]> = [];
   const deferred = createDeferred();
+  const autoCommand = { kind: 'basicAttack', targetPlayerId: null, targetMonsterId: null, targetX: 11, targetY: 10 };
   const deps = {
     resolveCurrentTickForPlayerId() {
       return 12;
@@ -73,19 +74,19 @@ async function testTileEngageAwaitsBasicAttack(): Promise<void> {
     interruptManualCombat(playerId: string) {
       log.push(['interruptManualCombat', playerId]);
     },
-    async dispatchBasicAttack(playerId: string, targetPlayerId: string | null, targetMonsterId: string | null, targetX: number | null, targetY: number | null) {
-      log.push(['dispatchBasicAttack', playerId, targetPlayerId, targetMonsterId, targetX, targetY]);
-      await deferred.promise;
-      log.push(['dispatchBasicAttack:resolved', playerId, targetPlayerId, targetMonsterId, targetX, targetY]);
+    dispatchBasicAttack() {
+      throw new Error('dispatchBasicAttack should not run directly for tile engage proof');
     },
     buildAutoCombatCommand() {
-      return null;
+      return autoCommand;
     },
     dispatchInstanceCommand() {
       throw new Error('dispatchInstanceCommand should not run for tile engage proof');
     },
-    dispatchPlayerCommand() {
-      throw new Error('dispatchPlayerCommand should not run for tile engage proof');
+    async dispatchPlayerCommand(playerId: string, command: unknown) {
+      log.push(['dispatchPlayerCommand', playerId, command]);
+      await deferred.promise;
+      log.push(['dispatchPlayerCommand:resolved', playerId, command]);
     },
   };
 
@@ -93,14 +94,14 @@ async function testTileEngageAwaitsBasicAttack(): Promise<void> {
   await new Promise((resolve) => setImmediate(resolve));
   assert.deepEqual(log, [
     ['interruptManualCombat', 'player:attacker'],
-    ['dispatchBasicAttack', 'player:attacker', null, null, 11, 10],
+    ['dispatchPlayerCommand', 'player:attacker', autoCommand],
   ]);
   deferred.resolve();
   await pending;
   assert.deepEqual(log, [
     ['interruptManualCombat', 'player:attacker'],
-    ['dispatchBasicAttack', 'player:attacker', null, null, 11, 10],
-    ['dispatchBasicAttack:resolved', 'player:attacker', null, null, 11, 10],
+    ['dispatchPlayerCommand', 'player:attacker', autoCommand],
+    ['dispatchPlayerCommand:resolved', 'player:attacker', autoCommand],
   ]);
 }
 
@@ -289,13 +290,13 @@ async function testUnlockedMonsterEngageUsesManualEngageInsteadOfPersistentAutoB
 }
 
 async function main(): Promise<void> {
-  await testTileEngageAwaitsBasicAttack();
+  await testTileEngageAwaitsImmediateAutoCombatCommand();
   await testMonsterEngageAwaitsImmediateAutoCombatCommand();
   await testUnlockedMonsterEngageUsesManualEngageInsteadOfPersistentAutoBattle();
   console.log(JSON.stringify({
     ok: true,
     case: 'world-runtime-battle-engage',
-    answers: 'engageBattle 现在会等待首个直接 basicAttack 或立即 auto-combat 玩家命令完成后再返回，普通点怪改成一次性接战追击，不再误开持久 autoBattle',
+    answers: 'engageBattle 现在统一通过 auto-combat 物化首个移动或攻击命令，远处目标不会先触发超距普攻警告；普通点怪仍是一次性接战追击，不误开持久 autoBattle',
   }, null, 2));
 }
 
