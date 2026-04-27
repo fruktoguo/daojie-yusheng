@@ -4,6 +4,7 @@ import type { QiProjectionModifier } from './qi';
 import type { TileRuntimeResourceView } from './service-sync-types';
 import type { Attributes } from './attribute-types';
 import type { FormationRangeShape } from './formation-types';
+import type { FormationLifecycle } from './formation-types';
 import type { GridPoint } from './targeting';
 import type { NpcQuestMarker } from './world-view-types';
 
@@ -654,6 +655,8 @@ export interface RenderEntity {
   formationOwnerPlayerId?: string | null;
   /** 阵法是否处于开启状态。 */
   formationActive?: boolean;
+  /** 阵法生命周期。 */
+  formationLifecycle?: FormationLifecycle;
 }
 
 /** 时间段 ID。 */

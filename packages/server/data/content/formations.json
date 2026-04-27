@@ -93,6 +93,7 @@
     "id": "sect_guardian_barrier",
     "name": "护宗大阵",
     "desc": "护持宗门山门的特殊大阵，阵眼位于宗门内部，主世界入口处形成默认一格封界；本宗门修士可自由通行。",
+    "lifecycle": "persistent",
     "placeableByDisk": false,
     "access": {
       "kind": "sect_members"

@@ -262,6 +262,7 @@ let WorldRuntimeAutoCombatService = class WorldRuntimeAutoCombatService {
             kind: 'monster',
             runtimeId: monster.runtimeId,
             targetRef: monster.runtimeId,
+            targetMonsterId: monster.runtimeId,
             x: monster.x,
             y: monster.y,
             hp: monster.hp,

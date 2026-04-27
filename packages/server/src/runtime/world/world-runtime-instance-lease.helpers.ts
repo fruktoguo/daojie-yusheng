@@ -168,9 +168,17 @@ export async function syncInstanceLease(runtime, instanceId) {
   const leaseExpireAt = new Date(Date.now() + INSTANCE_LEASE_TTL_MS);
   let assignedNodeId = typeof instance.meta.assignedNodeId === 'string' ? instance.meta.assignedNodeId.trim() : '';
   let currentLeaseToken = typeof instance.meta.leaseToken === 'string' ? instance.meta.leaseToken.trim() : '';
+  let currentLeaseExpireAt = instance.meta.leaseExpireAt ? new Date(instance.meta.leaseExpireAt).getTime() : 0;
   let expectedOwnershipEpoch = Number.isFinite(Number(instance.meta.ownershipEpoch))
     ? Math.trunc(Number(instance.meta.ownershipEpoch))
     : 0;
+  if (assignedNodeId
+    && currentLeaseToken
+    && assignedNodeId !== nodeId
+    && (!Number.isFinite(currentLeaseExpireAt) || currentLeaseExpireAt <= Date.now() - INSTANCE_LEASE_RENEW_SKEW_MS)) {
+    assignedNodeId = '';
+    currentLeaseToken = '';
+  }
   if ((!assignedNodeId || !currentLeaseToken) && runtime.instanceCatalogService?.isEnabled?.()) {
     const catalog = await runtime.instanceCatalogService.loadInstanceCatalog(instanceId);
     const catalogAssignedNodeId = typeof catalog?.assigned_node_id === 'string' ? catalog.assigned_node_id.trim() : '';
@@ -185,6 +193,7 @@ export async function syncInstanceLease(runtime, instanceId) {
       && catalogLeaseExpireAt > Date.now() - INSTANCE_LEASE_RENEW_SKEW_MS) {
       assignedNodeId = catalogAssignedNodeId;
       currentLeaseToken = catalogLeaseToken;
+      currentLeaseExpireAt = catalogLeaseExpireAt;
       expectedOwnershipEpoch = catalogOwnershipEpoch;
       instance.meta.assignedNodeId = catalogAssignedNodeId;
       instance.meta.leaseToken = catalogLeaseToken;
@@ -577,15 +586,14 @@ function groupGroundItemsByTile(items) {
       continue;
     }
     const current = piles.get(tileIndex) ?? { tileIndex, items: [] };
+    const payload = item.itemPayload && typeof item.itemPayload === 'object' ? item.itemPayload : {};
     current.items.push({
-      itemKey: typeof item.groundItemId === 'string' ? item.groundItemId : `g:${tileIndex}`,
-      item: {
-        itemId: typeof item.itemPayload?.itemId === 'string' ? item.itemPayload.itemId : 'unknown',
-        name: typeof item.itemPayload?.name === 'string' ? item.itemPayload.name : undefined,
-        count: Number.isFinite(Number(item.itemPayload?.count)) ? Math.max(1, Math.trunc(Number(item.itemPayload.count))) : 1,
-        grade: typeof item.itemPayload?.grade === 'string' ? item.itemPayload.grade : undefined,
-        type: typeof item.itemPayload?.type === 'string' ? item.itemPayload.type : undefined,
-      },
+      ...payload,
+      itemId: typeof payload.itemId === 'string' ? payload.itemId : 'unknown',
+      name: typeof payload.name === 'string' ? payload.name : undefined,
+      count: Number.isFinite(Number(payload.count)) ? Math.max(1, Math.trunc(Number(payload.count))) : 1,
+      grade: typeof payload.grade === 'string' ? payload.grade : undefined,
+      type: typeof payload.type === 'string' ? payload.type : undefined,
     });
     piles.set(tileIndex, current);
   }
@@ -599,7 +607,10 @@ function hydrateInstanceFromCheckpoint(instance, checkpoint, runtime, instanceId
   if (!checkpoint || typeof checkpoint !== 'object') {
     return;
   }
-  const snapshot = checkpoint;
+  const snapshot = resolveCheckpointSnapshot(checkpoint);
+  if (!snapshot) {
+    return;
+  }
   if (typeof instance.hydrateTime === 'function') {
     instance.hydrateTime(snapshot.tick);
   }
@@ -628,4 +639,14 @@ function hydrateInstanceFromCheckpoint(instance, checkpoint, runtime, instanceId
   if (Array.isArray(snapshot.containerStates)) {
     runtime.worldRuntimeLootContainerService.hydrateContainerStates(instanceId, snapshot.containerStates);
   }
+}
+
+function resolveCheckpointSnapshot(checkpoint) {
+  if (!checkpoint || typeof checkpoint !== 'object') {
+    return null;
+  }
+  if (checkpoint.snapshot && typeof checkpoint.snapshot === 'object') {
+    return checkpoint.snapshot;
+  }
+  return checkpoint;
 }

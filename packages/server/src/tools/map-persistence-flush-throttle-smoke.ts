@@ -7,6 +7,7 @@ import assert from 'node:assert/strict';
 import { MapPersistenceFlushService } from '../persistence/map-persistence-flush.service';
 
 async function main(): Promise<void> {
+  await testLegacySnapshotWriteDisabledByDefault();
   await testIntervalThrottle();
   await testIntervalSkipsDeferredTimeCheckpoint();
   await testDomainOnlyShutdownFlush();
@@ -16,7 +17,7 @@ async function main(): Promise<void> {
       {
         ok: true,
         case: 'map-persistence-flush-throttle',
-        answers: 'interval 慢刷盘会退避；未到期的纯 time checkpoint 不进入普通 interval 刷盘；shutdown 强刷在只启用 instance domain persistence 时仍会落地分域脏状态',
+        answers: '旧全量 map snapshot 写入默认退役；显式兼容开关下 interval 慢刷盘会退避；未到期的纯 time checkpoint 不进入普通 interval 刷盘；shutdown 强刷在只启用 instance domain persistence 时仍会落地分域脏状态',
         excludes: '不证明 500/1000 真实压测、跨节点竞争或故障注入',
         completionMapping: 'replace-ready:proof:stage7.flush-throttle',
       },
@@ -26,10 +27,57 @@ async function main(): Promise<void> {
   );
 }
 
+async function testLegacySnapshotWriteDisabledByDefault(): Promise<void> {
+  const buildCalls: string[] = [];
+  const saveCalls: string[] = [];
+  const previousServerEnv = process.env.SERVER_MAP_LEGACY_SNAPSHOT_WRITE;
+  const previousEnv = process.env.MAP_LEGACY_SNAPSHOT_WRITE;
+  delete process.env.SERVER_MAP_LEGACY_SNAPSHOT_WRITE;
+  delete process.env.MAP_LEGACY_SNAPSHOT_WRITE;
+  try {
+    const service = new MapPersistenceFlushService(
+      {
+        listDirtyPersistentInstances() {
+          return ['instance:legacy-default-off'];
+        },
+        buildMapPersistenceSnapshot(instanceId: string) {
+          buildCalls.push(instanceId);
+          return {
+            version: 1,
+            savedAt: Date.now(),
+            templateId: 'yunlai_town',
+            tileResourceEntries: [],
+            groundPileEntries: [],
+            containerStates: [],
+          };
+        },
+      } as never,
+      {
+        isEnabled() {
+          return true;
+        },
+        async saveMapSnapshot(instanceId: string) {
+          saveCalls.push(instanceId);
+        },
+      } as never,
+    );
+
+    await service.flushDirtyInstances();
+
+    assert.deepEqual(buildCalls, []);
+    assert.deepEqual(saveCalls, []);
+  } finally {
+    restoreEnv('SERVER_MAP_LEGACY_SNAPSHOT_WRITE', previousServerEnv);
+    restoreEnv('MAP_LEGACY_SNAPSHOT_WRITE', previousEnv);
+  }
+}
+
 async function testIntervalThrottle(): Promise<void> {
   const buildCalls: string[] = [];
   const saveCalls: string[] = [];
   const persistedCalls: string[] = [];
+  const previousServerEnv = process.env.SERVER_MAP_LEGACY_SNAPSHOT_WRITE;
+  process.env.SERVER_MAP_LEGACY_SNAPSHOT_WRITE = '1';
   const service = new MapPersistenceFlushService(
     {
       listDirtyPersistentInstances() {
@@ -61,8 +109,12 @@ async function testIntervalThrottle(): Promise<void> {
     } as never,
   );
 
-  await service.flushDirtyInstances();
-  await service.flushDirtyInstances();
+  try {
+    await service.flushDirtyInstances();
+    await service.flushDirtyInstances();
+  } finally {
+    restoreEnv('SERVER_MAP_LEGACY_SNAPSHOT_WRITE', previousServerEnv);
+  }
 
   assert.deepEqual(buildCalls, ['instance:slow']);
   assert.deepEqual(saveCalls, ['instance:slow']);
@@ -146,6 +198,14 @@ async function testDomainOnlyShutdownFlush(): Promise<void> {
 
 function sleep(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+function restoreEnv(name: string, previousValue: string | undefined): void {
+  if (typeof previousValue === 'undefined') {
+    delete process.env[name];
+    return;
+  }
+  process.env[name] = previousValue;
 }
 
 main().catch((error: unknown) => {

@@ -141,6 +141,20 @@ async function main() {
                 && state.player?.maxHp === boostedHp
                 && (state.player?.hp ?? 0) > 0;
         }, 5000);
+        const initialState = await fetchPlayerState(playerId);
+        if (initialState.player?.combat?.autoRetaliate) {
+            socket.emit(shared_1.C2S.UseAction, { actionId: 'toggle:auto_retaliate' });
+            await waitFor(async () => (await fetchPlayerState(playerId)).player?.combat?.autoRetaliate === false, 5000);
+        }
+        if ((await fetchPlayerState(playerId)).player?.combat?.autoBattle) {
+            socket.emit(shared_1.C2S.UseAction, { actionId: 'toggle:auto_battle' });
+            await waitFor(async () => (await fetchPlayerState(playerId)).player?.combat?.autoBattle === false, 5000);
+        }
+        await postJson(`/runtime/players/${playerId}/vitals`, {
+            hp: boostedHp,
+            maxHp: boostedHp,
+        });
+        const readyPlayer = await fetchPlayerState(playerId);
 /**
  * 记录resolved目标。
  */
@@ -191,7 +205,7 @@ async function main() {
 /**
  * 记录玩家damaged。
  */
-            const playerDamaged = player.hp < initialPlayer.player.hp;
+            const playerDamaged = player.hp < readyPlayer.player.hp;
 /**
  * 记录Buffapplied。
  */
@@ -219,7 +233,7 @@ async function main() {
             runtimeId: resolvedTarget.runtimeId,
             monsterId: resolvedTarget.monsterId,
             skillId: skill.id,
-            playerHpLost: initialPlayer.player.hp - finalPlayer.player.hp,
+            playerHpLost: readyPlayer.player.hp - finalPlayer.player.hp,
             targetBuffId,
             targetBuffApplied: targetBuffId
                 ? finalPlayer.player.buffs?.buffs?.some((entry) => entry.buffId === targetBuffId)

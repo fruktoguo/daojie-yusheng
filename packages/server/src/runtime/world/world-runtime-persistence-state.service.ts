@@ -209,6 +209,9 @@ let WorldRuntimePersistenceStateService = class WorldRuntimePersistenceStateServ
             });
             persistedDomains.push(...unsupportedDomains);
         }
+        if (persistedDomains.length > 0 && typeof persistence.saveInstanceRecoveryWatermark === 'function') {
+            await persistence.saveInstanceRecoveryWatermark(instanceId, buildInstanceDomainRecoveryWatermark(instance, persistedDomains));
+        }
         this.markMapDomainsPersisted(instanceId, persistedDomains, deps);
         return { persistedDomains, skipped: false };
     }
@@ -246,6 +249,21 @@ function buildTimeCheckpointSnapshot(instance) {
         persistenceRevision: typeof instance?.getPersistenceRevision === 'function'
             ? instance.getPersistenceRevision()
             : undefined,
+    };
+}
+
+function buildInstanceDomainRecoveryWatermark(instance, persistedDomains) {
+    const persistenceRevision = typeof instance?.getPersistenceRevision === 'function'
+        ? instance.getPersistenceRevision()
+        : undefined;
+    return {
+        kind: 'domain_flush',
+        domains: Array.from(new Set((Array.isArray(persistedDomains) ? persistedDomains : [])
+            .filter((domain) => typeof domain === 'string' && domain.trim())
+            .map((domain) => domain.trim()))).sort(compareStableStrings),
+        flushedAt: Date.now(),
+        tick: Number.isFinite(Number(instance?.tick)) ? Math.max(0, Math.trunc(Number(instance.tick))) : 0,
+        persistenceRevision,
     };
 }
 

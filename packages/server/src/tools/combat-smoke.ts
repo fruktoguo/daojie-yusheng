@@ -386,6 +386,7 @@ async function ensureCombatInstance() {
         body: {
             templateId: 'wildlands',
             linePreset: 'real',
+            persistentPolicy: 'ephemeral',
             displayName: `战烟_${Date.now().toString(36)}`,
         },
     });

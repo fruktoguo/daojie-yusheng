@@ -1,6 +1,6 @@
 import type { Direction, EntityKind, GameTimeState, MonsterTier, VisibleBuffState, VisibleTile } from './world-core-types';
 import type { CombatEffect } from './action-combat-types';
-import type { FormationRangeShape } from './formation-types';
+import type { FormationLifecycle, FormationRangeShape } from './formation-types';
 import type { GroundItemEntryView } from './loot-view-types';
 import type { ObservationInsight } from './observation-types';
 import type { PlayerWalletState } from './player-runtime-types';
@@ -166,6 +166,8 @@ export interface TickRenderEntityView {
  */
 
   formationActive?: boolean | null;
+  /** formationLifecycle：阵法生命周期。 */
+  formationLifecycle?: FormationLifecycle | null;
 }
 
 /** 地面物品堆增量补丁。 */
@@ -566,6 +568,8 @@ export interface WorldFormationPatchView {
   os?: string | null;
   /** op：阵法所属玩家 ID。 */
   op?: string | null;
+  /** lt：阵法生命周期，1 表示持续性阵法。 */
+  lt?: 0 | 1;
   /**
  * rm：rm相关字段。
  */

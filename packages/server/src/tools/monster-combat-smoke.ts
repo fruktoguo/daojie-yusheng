@@ -264,11 +264,6 @@ async function main() {
             actionId: 'battle:engage',
             target: resolvedTarget.runtimeId,
         });
-        await waitFor(async () => {
-            const state = await fetchPlayerState(playerId);
-            return state.player?.combat?.autoBattle === true
-                && state.player?.combat?.combatTargetId === resolvedTarget.runtimeId;
-        }, 5000);
         const engageProof = await waitForState(async () => {
             const [playerState, monsterState] = await Promise.all([
                 fetchPlayerState(playerId),

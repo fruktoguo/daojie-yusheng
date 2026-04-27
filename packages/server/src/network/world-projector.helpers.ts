@@ -12,6 +12,7 @@ import {
   type EquipmentConditionDef,
   type EquipmentConditionGroup,
   type EquipmentSlotUpdateEntry,
+  type FormationLifecycle,
   type FormationRangeShape,
   type InventorySlotUpdateEntry,
   S2C,
@@ -195,6 +196,7 @@ interface ProjectorFormationLike {
   blocksBoundary?: boolean;
   ownerSectId?: string | null;
   ownerPlayerId?: string | null;
+  lifecycle?: FormationLifecycle;
 }
 interface ProjectorViewLike {
   playerId: string;
@@ -282,6 +284,7 @@ interface ProjectedFormationEntry {
   bd: 0 | 1;
   os?: string | null;
   op?: string | null;
+  lt: 0 | 1;
 }
 interface ProjectedSelfState {
   instanceId: string;
@@ -595,6 +598,7 @@ function buildFullWorldDelta(
         bd: entry.blocksBoundary === true ? 1 : 0,
         os: entry.ownerSectId ?? null,
         op: entry.ownerPlayerId ?? null,
+        lt: entry.lifecycle === 'persistent' ? 1 : 0,
     }));
     return {
         t: view.tick,
@@ -746,6 +750,7 @@ function captureWorldState(
         bd: entry.blocksBoundary === true ? 1 : 0,
         os: entry.ownerSectId ?? null,
         op: entry.ownerPlayerId ?? null,
+        lt: entry.lifecycle === 'persistent' ? 1 : 0,
     }]);
     players.set(view.playerId, {
         n: view.self.displayName ?? view.self.name,
@@ -1450,6 +1455,7 @@ function diffFormationEntries(previous: Map<string, ProjectedFormationEntry>, cu
                 bd: entry.bd,
                 os: entry.os,
                 op: entry.op,
+                lt: entry.lt,
             });
             continue;
         }
@@ -1529,6 +1535,10 @@ function diffFormationEntries(previous: Map<string, ProjectedFormationEntry>, cu
         }
         if (prev.op !== entry.op) {
             delta.op = entry.op;
+            changed = true;
+        }
+        if (prev.lt !== entry.lt) {
+            delta.lt = entry.lt;
             changed = true;
         }
         if (changed) {

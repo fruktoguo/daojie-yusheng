@@ -41,7 +41,7 @@ async function main(): Promise<void> {
       return pool;
     },
   } as never);
-  const instanceId = `instance:${Date.now().toString(36)}`;
+  const instanceId = `instance:container:${process.pid}:${Date.now().toString(36)}`;
   const instanceRevision = 73;
   const runtimeSnapshot = {
     version: 1,

@@ -14,6 +14,8 @@ const TILE_AURA_SOURCE_EFFECT_KIND = 'tile_aura_source';
 const BOUNDARY_BARRIER_EFFECT_KIND = 'boundary_barrier';
 const INSTANCE_FORMATION_STATE_TABLE = 'instance_formation_state';
 const TERRAIN_DAMAGE_REDUCTION_DENOMINATOR = 100000;
+const FORMATION_LIFECYCLE_DEPLOYED = 'deployed';
+const FORMATION_LIFECYCLE_PERSISTENT = 'persistent';
 
 /** world-runtime formation：阵法权威运行时，承接布阵、开关、补充与 tick 效果。 */
 class WorldRuntimeFormationService {
@@ -40,6 +42,9 @@ class WorldRuntimeFormationService {
             throw new common_1.BadRequestException('需要使用阵盘布阵');
         }
         const template = this.resolveFormationTemplate(payload?.formationId);
+        if (resolveFormationLifecycle(template) === FORMATION_LIFECYCLE_PERSISTENT) {
+            throw new common_1.BadRequestException(`${template.name}是持续性阵法，不能通过阵盘布置`);
+        }
         if (template.placeableByDisk === false) {
             throw new common_1.BadRequestException(`${template.name}不能通过阵盘布置`);
         }
@@ -57,6 +62,7 @@ class WorldRuntimeFormationService {
         if (!instance) {
             throw new common_1.NotFoundException('当前地图实例不存在');
         }
+        assertCanPlaceFormationInInstance(instance);
         const placement = resolveFormationPlacement(playerId, player, location, instance);
         this.assertCanPay(playerId, qiCost, spiritStoneCount);
         this.playerRuntimeService.spendQi(playerId, qiCost);
@@ -69,6 +75,7 @@ class WorldRuntimeFormationService {
             ownerPlayerId: playerId,
             ownerSectId: resolvePlayerSectId(player),
             formationId: template.id,
+            lifecycle: FORMATION_LIFECYCLE_DEPLOYED,
             name: template.name,
             template,
             diskItemId: diskItem.itemId,
@@ -140,6 +147,7 @@ class WorldRuntimeFormationService {
             ownerPlayerId: normalizeOptionalString(input?.ownerPlayerId) || '',
             ownerSectId,
             formationId: template.id,
+            lifecycle: FORMATION_LIFECYCLE_PERSISTENT,
             name: template.name,
             template,
             diskItemId: '',
@@ -172,6 +180,9 @@ class WorldRuntimeFormationService {
 
     dispatchSetFormationActive(playerId, payload, deps = null) {
         const formation = this.findOwnedFormation(playerId, payload?.formationInstanceId);
+        if (isPersistentFormation(formation)) {
+            throw new common_1.BadRequestException('持续性阵法需要在阵法管理面板操作');
+        }
         formation.active = payload?.active !== false;
         formation.updatedAt = Date.now();
         touchRuntimeInstanceRevision(deps, formation.instanceId);
@@ -185,6 +196,9 @@ class WorldRuntimeFormationService {
 
     dispatchRefillFormation(playerId, payload, deps = null) {
         const formation = this.findOwnedFormation(playerId, payload?.formationInstanceId);
+        if (isPersistentFormation(formation)) {
+            throw new common_1.BadRequestException('持续性阵法需要在阵法管理面板注入灵石或灵力');
+        }
         const spiritStoneCount = Math.max(1, Math.trunc(Number(formation.spiritStoneCount) || 1));
         const qiCost = shared_1.resolveFormationQiCost(spiritStoneCount);
         this.assertCanPay(playerId, qiCost, spiritStoneCount);
@@ -202,6 +216,60 @@ class WorldRuntimeFormationService {
         return formation;
     }
 
+    dispatchSetPersistentFormationActive(playerId, payload, deps = null) {
+        const formation = this.findFormationByInstanceOrId(payload?.instanceId, payload?.formationInstanceId);
+        if (!formation) {
+            throw new common_1.NotFoundException('阵法不存在');
+        }
+        if (!isPersistentFormation(formation)) {
+            throw new common_1.BadRequestException('该阵法不是持续性阵法');
+        }
+        formation.active = payload?.active !== false && formation.remainingAuraBudget > 0;
+        formation.updatedAt = Date.now();
+        touchRuntimeInstanceRevision(deps, formation.instanceId);
+        this.persistInstanceFormationsSoon(formation.instanceId);
+        this.playerRuntimeService.enqueueNotice(playerId, {
+            text: `${formation.name}已${formation.active ? '开启' : '关闭'}。`,
+            kind: 'info',
+        });
+        return formation;
+    }
+
+    dispatchInjectPersistentFormationEnergy(playerId, payload, deps = null) {
+        const formation = this.findFormationByInstanceOrId(payload?.instanceId, payload?.formationInstanceId);
+        if (!formation) {
+            throw new common_1.NotFoundException('阵法不存在');
+        }
+        if (!isPersistentFormation(formation)) {
+            throw new common_1.BadRequestException('该阵法不是持续性阵法');
+        }
+        const spiritStoneCount = normalizeNonNegativeInteger(payload?.spiritStoneCount ?? 0);
+        const qiAmount = normalizeNonNegativeInteger(payload?.qiAmount ?? payload?.qiCost ?? 0);
+        if (spiritStoneCount <= 0 && qiAmount <= 0) {
+            throw new common_1.BadRequestException('至少需要注入灵石或灵力');
+        }
+        this.assertCanInject(playerId, qiAmount, spiritStoneCount);
+        if (qiAmount > 0) {
+            this.playerRuntimeService.spendQi(playerId, qiAmount);
+        }
+        if (spiritStoneCount > 0) {
+            this.playerRuntimeService.debitWallet(playerId, shared_1.FORMATION_SPIRIT_STONE_ITEM_ID, spiritStoneCount);
+        }
+        const added = Math.round((spiritStoneCount * shared_1.FORMATION_AURA_PER_SPIRIT_STONE) + qiAmount);
+        formation.remainingAuraBudget = Math.max(0, Number(formation.remainingAuraBudget) || 0) + added;
+        if (formation.remainingAuraBudget > 0) {
+            formation.active = true;
+        }
+        formation.updatedAt = Date.now();
+        touchRuntimeInstanceRevision(deps, formation.instanceId);
+        this.persistInstanceFormationsSoon(formation.instanceId);
+        this.playerRuntimeService.enqueueNotice(playerId, {
+            text: `${formation.name}注入阵元 ${formatInteger(added)}。`,
+            kind: 'success',
+        });
+        return formation;
+    }
+
     advanceInstanceFormations(instance, _worldTick, deps) {
         const formations = this.formationsByInstanceId.get(instance.meta.instanceId);
         if (!formations || formations.length <= 0) {
@@ -210,9 +278,30 @@ class WorldRuntimeFormationService {
         let persistenceDirty = false;
         for (let index = formations.length - 1; index >= 0; index -= 1) {
             const formation = formations[index];
+            if (isPersistentFormation(formation) && formation.remainingAuraBudget <= 0) {
+                if (formation.active !== false) {
+                    formation.active = false;
+                    formation.updatedAt = Date.now();
+                    touchInstanceRevision(instance);
+                    persistenceDirty = true;
+                }
+                continue;
+            }
             const tickCost = formation.active ? formation.stats.tickActiveCost : formation.stats.tickInactiveCost;
             formation.remainingAuraBudget -= tickCost;
             if (formation.remainingAuraBudget <= 0) {
+                if (isPersistentFormation(formation)) {
+                    formation.remainingAuraBudget = 0;
+                    formation.active = false;
+                    formation.updatedAt = Date.now();
+                    touchInstanceRevision(instance);
+                    persistenceDirty = true;
+                    this.playerRuntimeService.enqueueNotice(formation.ownerPlayerId, {
+                        text: `${formation.name}灵力耗尽，阵势停摆。`,
+                        kind: 'warning',
+                    });
+                    continue;
+                }
                 formations.splice(index, 1);
                 touchInstanceRevision(instance);
                 persistenceDirty = true;
@@ -361,11 +450,15 @@ class WorldRuntimeFormationService {
         if (!formation || formation.remainingAuraBudget <= 0) {
             return null;
         }
+        const normalizedInstanceId = normalizeInstanceId(instanceId);
+        if (isPersistentFormation(formation) && normalizeInstanceId(formation.eyeInstanceId) !== normalizedInstanceId) {
+            return null;
+        }
         return {
             id: formation.id,
             name: formation.name,
-            x: formation.x,
-            y: formation.y,
+            x: Number.isFinite(Number(formation.eyeX)) ? Math.trunc(Number(formation.eyeX)) : formation.x,
+            y: Number.isFinite(Number(formation.eyeY)) ? Math.trunc(Number(formation.eyeY)) : formation.y,
             remainingAuraBudget: Math.max(0, Number(formation.remainingAuraBudget) || 0),
             damagePerAura: shared_1.resolveFormationDamagePerAura(formation.template),
         };
@@ -421,18 +514,28 @@ class WorldRuntimeFormationService {
         formation.updatedAt = Date.now();
         const destroyed = formation.remainingAuraBudget <= 0;
         if (destroyed) {
-            const formations = this.formationsByInstanceId.get(instanceId);
-            const index = formations?.findIndex((entry) => entry.id === formation.id) ?? -1;
-            if (formations && index >= 0) {
-                formations.splice(index, 1);
-                if (formations.length <= 0) {
-                    this.formationsByInstanceId.delete(instanceId);
-                }
+            if (isPersistentFormation(formation)) {
+                formation.remainingAuraBudget = 0;
+                formation.active = false;
+                this.playerRuntimeService.enqueueNotice(formation.ownerPlayerId, {
+                    text: `${formation.name}阵眼受损，阵势停摆。`,
+                    kind: 'warning',
+                });
             }
-            this.playerRuntimeService.enqueueNotice(formation.ownerPlayerId, {
-                text: `${formation.name}被摧毁，阵势散去。`,
-                kind: 'warning',
-            });
+            else {
+                const formations = this.formationsByInstanceId.get(instanceId);
+                const index = formations?.findIndex((entry) => entry.id === formation.id) ?? -1;
+                if (formations && index >= 0) {
+                    formations.splice(index, 1);
+                    if (formations.length <= 0) {
+                        this.formationsByInstanceId.delete(instanceId);
+                    }
+                }
+                this.playerRuntimeService.enqueueNotice(formation.ownerPlayerId, {
+                    text: `${formation.name}被摧毁，阵势散去。`,
+                    kind: 'warning',
+                });
+            }
             if (typeof deps?.refreshPlayerContextActions === 'function') {
                 deps.refreshPlayerContextActions(formation.ownerPlayerId);
                 if (attackerPlayerId && attackerPlayerId !== formation.ownerPlayerId) {
@@ -440,8 +543,11 @@ class WorldRuntimeFormationService {
                 }
             }
         }
-        touchRuntimeInstanceRevision(deps, instanceId);
-        this.persistInstanceFormationsSoon(instanceId);
+        touchRuntimeInstanceRevision(deps, formation.instanceId);
+        if (normalizeInstanceId(formation.eyeInstanceId) && normalizeInstanceId(formation.eyeInstanceId) !== formation.instanceId) {
+            touchRuntimeInstanceRevision(deps, formation.eyeInstanceId);
+        }
+        this.persistInstanceFormationsSoon(formation.instanceId);
         return {
             formation,
             appliedDamage,
@@ -455,30 +561,27 @@ class WorldRuntimeFormationService {
     }
 
     listRuntimeFormations(instanceId) {
-        return (this.formationsByInstanceId.get(instanceId) ?? []).map((formation) => ({
-            id: formation.id,
-            ownerPlayerId: formation.ownerPlayerId,
-            ownerSectId: formation.ownerSectId ?? null,
-            formationId: formation.formationId,
-            name: formation.name,
-            x: formation.x,
-            y: formation.y,
-            eyeInstanceId: formation.eyeInstanceId ?? formation.instanceId,
-            eyeX: Number.isFinite(Number(formation.eyeX)) ? Math.trunc(Number(formation.eyeX)) : formation.x,
-            eyeY: Number.isFinite(Number(formation.eyeY)) ? Math.trunc(Number(formation.eyeY)) : formation.y,
-            radius: formation.stats.radius,
-            rangeShape: formation.template.range.shape,
-            ...resolveFormationRuntimeVisual(formation.template),
-            active: formation.active,
-            blocksBoundary: formation.template.effect.kind === BOUNDARY_BARRIER_EFFECT_KIND,
-            damagePerAura: shared_1.resolveFormationDamagePerAura(formation.template),
-            remainingAuraBudget: Math.max(0, Math.floor(formation.remainingAuraBudget)),
-        }));
+        const normalizedInstanceId = normalizeInstanceId(instanceId);
+        const result = (this.formationsByInstanceId.get(normalizedInstanceId) ?? [])
+            .map((formation) => buildRuntimeFormationProjection(formation, 'effect'));
+        for (const [sourceInstanceId, formations] of this.formationsByInstanceId.entries()) {
+            if (sourceInstanceId === normalizedInstanceId) {
+                continue;
+            }
+            for (const formation of formations) {
+                if (!isPersistentFormation(formation) || normalizeInstanceId(formation.eyeInstanceId) !== normalizedInstanceId) {
+                    continue;
+                }
+                result.push(buildRuntimeFormationProjection(formation, 'eye'));
+            }
+        }
+        return result;
     }
 
     listOwnedFormationsAt(instanceId, ownerPlayerId, x, y) {
         return (this.formationsByInstanceId.get(instanceId) ?? [])
             .filter((formation) => formation.ownerPlayerId === ownerPlayerId
+            && !isPersistentFormation(formation)
             && formation.x === Math.trunc(x)
             && formation.y === Math.trunc(y))
             .map((formation) => ({
@@ -649,8 +752,11 @@ class WorldRuntimeFormationService {
         const spiritStoneCount = Math.max(1, Math.trunc(Number(entry.spiritStoneCount) || 1));
         const allocation = shared_1.normalizeFormationAllocation(entry.allocation);
         const stats = shared_1.resolveFormationStats(template, spiritStoneCount, diskMultiplier, allocation);
-        const remainingAuraBudget = Math.max(0, Number(entry.remainingAuraBudget) || stats.totalAuraBudget);
-        if (remainingAuraBudget <= 0) {
+        const lifecycle = normalizeFormationLifecycle(entry.lifecycle ?? template.lifecycle);
+        const remainingAuraBudget = Number.isFinite(Number(entry.remainingAuraBudget))
+            ? Math.max(0, Number(entry.remainingAuraBudget))
+            : stats.totalAuraBudget;
+        if (remainingAuraBudget <= 0 && lifecycle !== FORMATION_LIFECYCLE_PERSISTENT) {
             return null;
         }
         const restoredId = typeof entry.id === 'string' && entry.id.trim()
@@ -667,6 +773,7 @@ class WorldRuntimeFormationService {
             ownerPlayerId: typeof entry.ownerPlayerId === 'string' ? entry.ownerPlayerId : '',
             ownerSectId: normalizeOptionalString(entry.ownerSectId),
             formationId: template.id,
+            lifecycle,
             name: template.name,
             template,
             diskItemId: typeof entry.diskItemId === 'string' ? entry.diskItemId : '',
@@ -681,7 +788,7 @@ class WorldRuntimeFormationService {
             eyeY: firstFiniteInteger(entry.eyeY, y),
             allocation,
             stats,
-            active: entry.active !== false,
+            active: lifecycle === FORMATION_LIFECYCLE_PERSISTENT && remainingAuraBudget <= 0 ? false : entry.active !== false,
             remainingAuraBudget,
             createdAt: Number.isFinite(Number(entry.createdAt)) ? Number(entry.createdAt) : Date.now(),
             updatedAt: Number.isFinite(Number(entry.updatedAt)) ? Number(entry.updatedAt) : Date.now(),
@@ -699,6 +806,7 @@ class WorldRuntimeFormationService {
         if (!pool) {
             return;
         }
+        await ensureInstanceFormationStateTable(pool);
         const normalizedInstanceId = normalizeInstanceId(instanceId);
         if (!normalizedInstanceId) {
             return;
@@ -716,6 +824,7 @@ class WorldRuntimeFormationService {
                         owner_player_id,
                         owner_sect_id,
                         formation_id,
+                        lifecycle,
                         disk_item_id,
                         disk_tier,
                         disk_multiplier,
@@ -737,7 +846,7 @@ class WorldRuntimeFormationService {
                         $1, $2, $3, $4, $5,
                         $6, $7, $8, $9, $10,
                         $11, $12, $13, $14, $15,
-                        $16::jsonb, $17, $18, $19, $20, now()
+                        $16, $17::jsonb, $18, $19, $20, $21, now()
                     )
                 `, [
                     normalizedInstanceId,
@@ -745,6 +854,7 @@ class WorldRuntimeFormationService {
                     formation.ownerPlayerId,
                     formation.ownerSectId,
                     formation.formationId,
+                    formation.lifecycle,
                     formation.diskItemId,
                     formation.diskTier,
                     formation.diskMultiplier,
@@ -779,12 +889,14 @@ class WorldRuntimeFormationService {
         if (!pool) {
             return null;
         }
+        await ensureInstanceFormationStateTable(pool);
         const result = await pool.query(`
             SELECT
                 formation_instance_id,
                 owner_player_id,
                 owner_sect_id,
                 formation_id,
+                lifecycle,
                 disk_item_id,
                 disk_tier,
                 disk_multiplier,
@@ -810,6 +922,7 @@ class WorldRuntimeFormationService {
                 ownerPlayerId: row.owner_player_id,
                 ownerSectId: row.owner_sect_id,
                 formationId: row.formation_id,
+                lifecycle: row.lifecycle,
                 diskItemId: row.disk_item_id,
                 diskTier: row.disk_tier,
                 diskMultiplier: Number(row.disk_multiplier),
@@ -892,7 +1005,37 @@ class WorldRuntimeFormationService {
         if (!normalizedInstanceId || !normalizedId) {
             return null;
         }
-        return (this.formationsByInstanceId.get(normalizedInstanceId) ?? []).find((entry) => entry.id === normalizedId) ?? null;
+        const direct = (this.formationsByInstanceId.get(normalizedInstanceId) ?? []).find((entry) => entry.id === normalizedId);
+        if (direct) {
+            return direct;
+        }
+        for (const formations of this.formationsByInstanceId.values()) {
+            const byEye = formations.find((entry) => entry.id === normalizedId
+                && isPersistentFormation(entry)
+                && normalizeInstanceId(entry.eyeInstanceId) === normalizedInstanceId);
+            if (byEye) {
+                return byEye;
+            }
+        }
+        return null;
+    }
+
+    findFormationByInstanceOrId(instanceId, formationInstanceId) {
+        const normalizedId = typeof formationInstanceId === 'string' ? formationInstanceId.trim() : '';
+        if (!normalizedId) {
+            return null;
+        }
+        const normalizedInstanceId = normalizeInstanceId(instanceId);
+        if (normalizedInstanceId) {
+            return this.findFormationInInstance(normalizedInstanceId, normalizedId);
+        }
+        for (const formations of this.formationsByInstanceId.values()) {
+            const formation = formations.find((entry) => entry.id === normalizedId);
+            if (formation) {
+                return formation;
+            }
+        }
+        return null;
     }
 
     resolveFormationTemplate(formationId) {
@@ -919,6 +1062,16 @@ class WorldRuntimeFormationService {
             throw new common_1.NotFoundException('灵石不足');
         }
     }
+
+    assertCanInject(playerId, qiAmount, spiritStoneCount) {
+        const player = this.playerRuntimeService.getPlayerOrThrow(playerId);
+        if (qiAmount > 0 && player.qi < qiAmount) {
+            throw new common_1.NotFoundException('灵力不足');
+        }
+        if (spiritStoneCount > 0 && !this.playerRuntimeService.canAffordWallet(playerId, shared_1.FORMATION_SPIRIT_STONE_ITEM_ID, spiritStoneCount)) {
+            throw new common_1.NotFoundException('灵石不足');
+        }
+    }
 }
 exports.WorldRuntimeFormationService = WorldRuntimeFormationService;
 export { WorldRuntimeFormationService };
@@ -931,6 +1084,7 @@ async function ensureInstanceFormationStateTable(pool) {
             owner_player_id varchar(100) NOT NULL,
             owner_sect_id varchar(100) NULL,
             formation_id varchar(100) NOT NULL,
+            lifecycle varchar(32) NOT NULL DEFAULT 'deployed',
             disk_item_id varchar(100) NOT NULL,
             disk_tier varchar(32) NOT NULL,
             disk_multiplier double precision NOT NULL DEFAULT 1,
@@ -949,6 +1103,10 @@ async function ensureInstanceFormationStateTable(pool) {
             updated_at timestamptz NOT NULL DEFAULT now(),
             PRIMARY KEY (instance_id, formation_instance_id)
         )
+    `);
+    await pool.query(`
+        ALTER TABLE ${INSTANCE_FORMATION_STATE_TABLE}
+        ADD COLUMN IF NOT EXISTS lifecycle varchar(32) NOT NULL DEFAULT 'deployed'
     `);
     await pool.query(`
         CREATE INDEX IF NOT EXISTS instance_formation_state_instance_idx
@@ -1026,11 +1184,69 @@ function resolvePlayerSectId(player) {
         || normalizeOptionalString(player?.clanId);
 }
 
+function assertCanPlaceFormationInInstance(instance) {
+    if (isVirtualPublicWorldInstance(instance)) {
+        throw new common_1.BadRequestException('虚境不能布置阵法，请前往现世。');
+    }
+}
+
+function isVirtualPublicWorldInstance(instance) {
+    const meta = instance?.meta ?? instance;
+    const instanceId = normalizeInstanceId(meta?.instanceId ?? instance?.instanceId);
+    const kind = normalizeOptionalString(meta?.kind ?? instance?.kind);
+    const linePreset = normalizeOptionalString(meta?.linePreset ?? instance?.linePreset);
+    const isPublicWorld = kind === 'public' || instanceId.startsWith('public:') || instanceId.startsWith('line:');
+    if (!isPublicWorld) {
+        return false;
+    }
+    return linePreset !== 'real' && !instanceId.startsWith('real:') && !instanceId.includes(':real:');
+}
+
 function normalizeFormationDiskTier(input) {
     if (input === 'mortal' || input === 'yellow' || input === 'mystic' || input === 'earth') {
         return input;
     }
     return 'mortal';
+}
+
+function normalizeFormationLifecycle(input) {
+    return input === FORMATION_LIFECYCLE_PERSISTENT ? FORMATION_LIFECYCLE_PERSISTENT : FORMATION_LIFECYCLE_DEPLOYED;
+}
+
+function resolveFormationLifecycle(template) {
+    return typeof shared_1.resolveFormationLifecycle === 'function'
+        ? shared_1.resolveFormationLifecycle(template)
+        : normalizeFormationLifecycle(template?.lifecycle);
+}
+
+function isPersistentFormation(formation) {
+    return normalizeFormationLifecycle(formation?.lifecycle ?? formation?.template?.lifecycle) === FORMATION_LIFECYCLE_PERSISTENT;
+}
+
+function buildRuntimeFormationProjection(formation, role = 'effect') {
+    const lifecycle = normalizeFormationLifecycle(formation.lifecycle ?? formation.template?.lifecycle);
+    const isEyeProjection = role === 'eye';
+    const visual = resolveFormationRuntimeVisual(formation.template);
+    return {
+        id: formation.id,
+        ownerPlayerId: formation.ownerPlayerId,
+        ownerSectId: formation.ownerSectId ?? null,
+        formationId: formation.formationId,
+        lifecycle,
+        name: isEyeProjection ? `${formation.name}阵眼` : formation.name,
+        x: isEyeProjection && Number.isFinite(Number(formation.eyeX)) ? Math.trunc(Number(formation.eyeX)) : formation.x,
+        y: isEyeProjection && Number.isFinite(Number(formation.eyeY)) ? Math.trunc(Number(formation.eyeY)) : formation.y,
+        eyeInstanceId: formation.eyeInstanceId ?? formation.instanceId,
+        eyeX: Number.isFinite(Number(formation.eyeX)) ? Math.trunc(Number(formation.eyeX)) : formation.x,
+        eyeY: Number.isFinite(Number(formation.eyeY)) ? Math.trunc(Number(formation.eyeY)) : formation.y,
+        radius: isEyeProjection ? 1 : formation.stats.radius,
+        rangeShape: formation.template.range.shape,
+        ...visual,
+        active: formation.active,
+        blocksBoundary: !isEyeProjection && formation.template.effect.kind === BOUNDARY_BARRIER_EFFECT_KIND,
+        damagePerAura: shared_1.resolveFormationDamagePerAura(formation.template),
+        remainingAuraBudget: Math.max(0, Math.floor(formation.remainingAuraBudget)),
+    };
 }
 
 function resolveFormationRuntimeVisual(template) {
@@ -1057,6 +1273,7 @@ function serializeFormation(formation) {
         ownerPlayerId: formation.ownerPlayerId,
         ownerSectId: formation.ownerSectId ?? null,
         formationId: formation.formationId,
+        lifecycle: normalizeFormationLifecycle(formation.lifecycle ?? formation.template?.lifecycle),
         diskItemId: formation.diskItemId,
         diskTier: formation.diskTier,
         diskMultiplier: formation.diskMultiplier,

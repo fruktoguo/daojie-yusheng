@@ -298,6 +298,7 @@ function testAutoCombatDoesNotEnqueueSpentActionCommand(): void {
 
   assert.equal(enqueueLog.length, 1);
   assert.equal((enqueueLog[0]?.[1] as { kind?: string })?.kind, 'basicAttack');
+  assert.equal((enqueueLog[0]?.[1] as { targetMonsterId?: string })?.targetMonsterId, 'monster:1');
 }
 
 function testManualEngageFallsBackToMoveWhenOnlyRangedSkillIsOnCooldown(): void {

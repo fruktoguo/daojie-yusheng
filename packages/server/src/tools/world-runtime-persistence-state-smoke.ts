@@ -157,6 +157,8 @@ async function testFlushOverlayAndMonsterDomains() {
     const instance = {
         meta: { persistent: true },
         template: { id: 'yunlai_town' },
+        tick: 2468,
+        getPersistenceRevision() { return 7; },
         buildOverlayPersistenceChunks() {
             log.push('buildOverlayPersistenceChunks');
             return [{ patchKind: 'portal', chunkKey: 'runtime_portals', patchVersion: 1, patchPayload: { portals: [] } }];
@@ -181,6 +183,9 @@ async function testFlushOverlayAndMonsterDomains() {
             async replaceMonsterRuntimeStates(instanceId, entries) {
                 log.push(['replaceMonsterRuntimeStates', instanceId, entries.length]);
             },
+            async saveInstanceRecoveryWatermark(instanceId, payload) {
+                log.push(['saveInstanceRecoveryWatermark', instanceId, payload.kind, payload.tick, payload.persistenceRevision, payload.domains]);
+            },
         },
         worldRuntimeLootContainerService: {
             clearPersisted() {},
@@ -191,6 +196,7 @@ async function testFlushOverlayAndMonsterDomains() {
         ['replaceOverlayChunks', 'public:yunlai_town', 1],
         'buildMonsterRuntimePersistenceEntries',
         ['replaceMonsterRuntimeStates', 'public:yunlai_town', 1],
+        ['saveInstanceRecoveryWatermark', 'public:yunlai_town', 'domain_flush', 2468, 7, ['monster_runtime', 'overlay']],
         ['markPersistenceDomainsPersisted', ['overlay', 'monster_runtime']],
     ]);
 }
@@ -223,6 +229,9 @@ async function testFlushTimeDomainCheckpoint() {
                 assert.equal(payload.snapshot.tileResourceEntries, undefined);
                 log.push(['saveInstanceCheckpoint', instanceId, payload.kind, payload.snapshot.tick]);
             },
+            async saveInstanceRecoveryWatermark(instanceId, payload) {
+                log.push(['saveInstanceRecoveryWatermark', instanceId, payload.kind, payload.tick, payload.persistenceRevision, payload.domains]);
+            },
         },
         worldRuntimeLootContainerService: {
             buildContainerPersistenceStates() { throw new Error('time checkpoint should not build container snapshot'); },
@@ -231,6 +240,7 @@ async function testFlushTimeDomainCheckpoint() {
     });
     assert.deepEqual(log, [
         ['saveInstanceCheckpoint', 'public:yunlai_town', 'time_checkpoint', 9876],
+        ['saveInstanceRecoveryWatermark', 'public:yunlai_town', 'domain_flush', 9876, 12, ['time']],
         ['markPersistenceDomainsPersisted', ['time']],
     ]);
 }

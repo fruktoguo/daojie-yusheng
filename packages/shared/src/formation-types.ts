@@ -4,6 +4,8 @@ export type FormationId = 'spirit_gathering' | 'earth_stabilizing' | 'warding_ba
 
 export type FormationDiskTier = 'mortal' | 'yellow' | 'mystic' | 'earth';
 
+export type FormationLifecycle = 'deployed' | 'persistent';
+
 export type FormationEffectKind = 'tile_aura_source' | 'terrain_stabilizer' | 'boundary_barrier';
 
 export type FormationRangeShape = 'circle' | 'square' | 'checkerboard';
@@ -52,6 +54,7 @@ export interface FormationTemplate {
   id: FormationId;
   name: string;
   desc?: string;
+  lifecycle?: FormationLifecycle;
   placeableByDisk?: boolean;
   access?: FormationAccessConfig;
   minSpiritStoneCount?: number;
@@ -228,6 +231,7 @@ export const BUILTIN_FORMATION_TEMPLATES: FormationTemplate[] = [
     id: 'sect_guardian_barrier',
     name: '护宗大阵',
     desc: '护持宗门山门的特殊大阵，阵眼位于宗门内部，主世界入口处形成默认一格封界；本宗门修士可自由通行。',
+    lifecycle: 'persistent',
     placeableByDisk: false,
     access: {
       kind: 'sect_members',
@@ -305,6 +309,10 @@ export function normalizeFormationAllocation(input: Partial<FormationAllocation>
     rangePercent: rangePercent / total * FORMATION_ALLOCATION_TOTAL_PERCENT,
     durationPercent: durationPercent / total * FORMATION_ALLOCATION_TOTAL_PERCENT,
   };
+}
+
+export function resolveFormationLifecycle(template: FormationTemplate | null | undefined): FormationLifecycle {
+  return template?.lifecycle === 'persistent' ? 'persistent' : 'deployed';
 }
 
 export function resolveFormationStats(

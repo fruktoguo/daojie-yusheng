@@ -623,7 +623,7 @@ class MapInstanceRuntime {
             return false;
         }
         const previousTemplate = this.template;
-        const previousWidth = previousTemplate.width;
+        const previousTilePlane = this.tilePlane;
         const previousCenterX = Number.isFinite(Number(previousTemplate.source?.sectCoreX)) ? Math.trunc(Number(previousTemplate.source.sectCoreX)) : Math.trunc(previousTemplate.width / 2);
         const previousCenterY = Number.isFinite(Number(previousTemplate.source?.sectCoreY)) ? Math.trunc(Number(previousTemplate.source.sectCoreY)) : Math.trunc(previousTemplate.height / 2);
         const nextCenterX = Number.isFinite(Number(nextTemplate.source?.sectCoreX)) ? Math.trunc(Number(nextTemplate.source.sectCoreX)) : Math.trunc(nextTemplate.width / 2);
@@ -664,8 +664,8 @@ class MapInstanceRuntime {
         this.tileDamageByTile.clear();
         for (const [tileIndex, state] of tileDamageEntries) {
             const oldIndex = Math.trunc(Number(tileIndex));
-            const oldX = oldIndex % previousWidth;
-            const oldY = Math.trunc(oldIndex / previousWidth);
+            const oldX = previousTilePlane.getX(oldIndex);
+            const oldY = previousTilePlane.getY(oldIndex);
             const nextX = oldX + offsetX;
             const nextY = oldY + offsetY;
             if (!this.isInBounds(nextX, nextY)) {
@@ -819,21 +819,21 @@ class MapInstanceRuntime {
         const visibleTileVisibility = this.collectVisibleTileVisibility(player.x, player.y, radius);
         const visibleTileIndices = visibleTileVisibility.indices;
 
-        const visiblePlayers = this.collectVisiblePlayers(player, radius, visibleTileIndices);
+        const visiblePlayers = this.collectVisiblePlayers(player, radius, visibleTileVisibility);
 
-        const localMonsters = this.collectLocalMonsters(player.x, player.y, radius, visibleTileIndices);
+        const localMonsters = this.collectLocalMonsters(player.x, player.y, radius, visibleTileVisibility);
 
-        const localNpcs = this.collectLocalNpcs(player.x, player.y, radius, visibleTileIndices);
+        const localNpcs = this.collectLocalNpcs(player.x, player.y, radius, visibleTileVisibility);
 
-        const localPortals = this.collectLocalPortals(player.x, player.y, radius, visibleTileIndices);
+        const localPortals = this.collectLocalPortals(player.x, player.y, radius, visibleTileVisibility);
 
-        const localLandmarks = this.collectLocalLandmarks(player.x, player.y, radius, visibleTileIndices);
+        const localLandmarks = this.collectLocalLandmarks(player.x, player.y, radius, visibleTileVisibility);
 
-        const localSafeZones = this.collectLocalSafeZones(player.x, player.y, radius, visibleTileIndices);
+        const localSafeZones = this.collectLocalSafeZones(player.x, player.y, radius, visibleTileVisibility);
 
-        const localContainers = this.collectLocalContainers(player.x, player.y, radius, visibleTileIndices);
+        const localContainers = this.collectLocalContainers(player.x, player.y, radius, visibleTileVisibility);
 
-        const localGroundPiles = this.collectLocalGroundPiles(player.x, player.y, radius, visibleTileIndices);
+        const localGroundPiles = this.collectLocalGroundPiles(player.x, player.y, radius, visibleTileVisibility);
         return {
             playerId: player.playerId,
             sessionId: player.sessionId,
@@ -1508,11 +1508,15 @@ class MapInstanceRuntime {
                 continue;
             }
             const tileIndex = Math.trunc(Number(entry.tileIndex));
-            if (tileIndex < 0 || tileIndex >= this.auraByTile.length) {
+            const hasCoordinate = Number.isFinite(Number(entry.x)) && Number.isFinite(Number(entry.y));
+            const resolvedTileIndex = hasCoordinate
+                ? this.toTileIndex(Math.trunc(Number(entry.x)), Math.trunc(Number(entry.y)))
+                : tileIndex;
+            if (resolvedTileIndex < 0 || resolvedTileIndex >= this.auraByTile.length) {
                 continue;
             }
-            const x = this.tilePlane.getX(tileIndex);
-            const y = this.tilePlane.getY(tileIndex);
+            const x = this.tilePlane.getX(resolvedTileIndex);
+            const y = this.tilePlane.getY(resolvedTileIndex);
             const tileType = this.getBaseTileType(x, y);
             const resolvedMaxHp = resolveTileDurability(this.template, tileType, x, y);
             if (resolvedMaxHp <= 0) {
@@ -1529,7 +1533,7 @@ class MapInstanceRuntime {
             if (!destroyed && hp >= maxHp) {
                 continue;
             }
-            this.tileDamageByTile.set(tileIndex, {
+            this.tileDamageByTile.set(resolvedTileIndex, {
                 hp,
                 maxHp,
                 destroyed,
@@ -1790,13 +1794,14 @@ class MapInstanceRuntime {
     buildTileResourcePersistenceEntries() {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
-        if (this.changedTileResourceEntryCount === 0) {
+        const tileResourceDomainDirty = this.getDirtyDomains().has('tile_resource');
+        if (this.changedTileResourceEntryCount === 0 && !tileResourceDomainDirty) {
             return [];
         }
         const entries = [];
         for (const [resourceKey, bucket] of this.tileResourceBuckets.entries()) {
             const dirtyCount = this.changedTileResourceEntryCountByKey.get(resourceKey) ?? 0;
-            if (dirtyCount <= 0) {
+            if (dirtyCount <= 0 && !tileResourceDomainDirty) {
                 continue;
             }
             for (let tileIndex = 0; tileIndex < bucket.length; tileIndex += 1) {
@@ -1849,6 +1854,8 @@ class MapInstanceRuntime {
             }
             entries.push({
                 tileIndex: Math.trunc(Number(tileIndex)),
+                x: this.tilePlane.getX(Math.trunc(Number(tileIndex))),
+                y: this.tilePlane.getY(Math.trunc(Number(tileIndex))),
                 hp: Math.max(0, Math.trunc(Number(state.hp) || 0)),
                 maxHp: Math.max(1, Math.trunc(Number(state.maxHp) || 1)),
                 destroyed: state.destroyed === true,
@@ -2219,68 +2226,68 @@ class MapInstanceRuntime {
         /** return：return。 */
         return (0, shared_1.getTileTraversalCost)(tileType);
     }
+    /** normalizeVisibilityFilter：统一视野过滤输入，坐标 key 优先、索引兼容。 */
+    normalizeVisibilityFilter(visibleTileVisibility = null) {
+        if (!visibleTileVisibility) {
+            return { indices: null, keys: null };
+        }
+        if (visibleTileVisibility instanceof Set) {
+            return { indices: visibleTileVisibility, keys: null };
+        }
+        return {
+            indices: visibleTileVisibility.indices instanceof Set ? visibleTileVisibility.indices : null,
+            keys: visibleTileVisibility.keys instanceof Set ? visibleTileVisibility.keys : null,
+        };
+    }
+    /** isTileVisibleByFilter：按 main 语义以 visibleKeys 为视野真源，索引用于旧调用兼容。 */
+    isTileVisibleByFilter(x, y, visibility) {
+        if (!visibility?.keys && !visibility?.indices) {
+            return true;
+        }
+        if (visibility.keys?.has(`${x},${y}`)) {
+            return true;
+        }
+        const tileIndex = this.toTileIndex(x, y);
+        return tileIndex >= 0 && visibility.indices?.has(tileIndex) === true;
+    }
+    /** isTileInsideViewRadius：视野窗口粗过滤，不再按模板 width/height 裁剪稀疏坐标。 */
+    isTileInsideViewRadius(centerX, centerY, radius, x, y) {
+        return chebyshevDistance(centerX, centerY, x, y) <= Math.max(0, Math.trunc(Number(radius) || 0));
+    }
     /** collectVisiblePlayers：收集当前视野内可见玩家。 */
-    collectVisiblePlayers(observer, radius, visibleTileIndices = null) {
+    collectVisiblePlayers(observer, radius, visibleTileVisibility = null) {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
 
-        const minX = Math.max(0, observer.x - radius);
-
-        const maxX = Math.min(this.template.width - 1, observer.x + radius);
-
-        const minY = Math.max(0, observer.y - radius);
-
-        const maxY = Math.min(this.template.height - 1, observer.y + radius);
-
+        const visibility = this.normalizeVisibilityFilter(visibleTileVisibility);
         const visiblePlayers = [];
-
-        const seenHandles = new Set();
-        for (let y = minY; y <= maxY; y += 1) {
-            for (let x = minX; x <= maxX; x += 1) {
-                const handle = this.occupancy[this.toTileIndex(x, y)];
-                if (handle === INVALID_OCCUPANCY || seenHandles.has(handle)) {
-                    continue;
-                }
-                seenHandles.add(handle);
-
-                const player = this.playersByHandle.get(handle);
-                if (!player) {
-                    continue;
-                }
-                if (player.playerId === observer.playerId) {
-                    continue;
-                }
-                if (visibleTileIndices && !visibleTileIndices.has(this.toTileIndex(player.x, player.y))) {
-                    continue;
-                }
-                visiblePlayers.push({
-                    playerId: player.playerId,
-                    name: player.name,
-                    displayName: player.displayName,
-                    x: player.x,
-                    y: player.y,
-                });
+        for (const player of this.playersById.values()) {
+            if (player.playerId === observer.playerId) {
+                continue;
             }
+            if (!this.isTileInsideViewRadius(observer.x, observer.y, radius, player.x, player.y)) {
+                continue;
+            }
+            if (!this.isTileVisibleByFilter(player.x, player.y, visibility)) {
+                continue;
+            }
+            visiblePlayers.push({
+                playerId: player.playerId,
+                name: player.name,
+                displayName: player.displayName,
+                x: player.x,
+                y: player.y,
+            });
         }
         return visiblePlayers;
     }
     /** collectLocalPortals：收集当前视野内可见传送点。 */
-    collectLocalPortals(centerX, centerY, radius, visibleTileIndices = null) {
-
-        const minX = Math.max(0, centerX - radius);
-
-        const maxX = Math.min(this.template.width - 1, centerX + radius);
-
-        const minY = Math.max(0, centerY - radius);
-
-        const maxY = Math.min(this.template.height - 1, centerY + radius);
+    collectLocalPortals(centerX, centerY, radius, visibleTileVisibility = null) {
+        const visibility = this.normalizeVisibilityFilter(visibleTileVisibility);
         return this.listAllPortals()
             .filter((portal) => !portal.hidden
-            && portal.x >= minX
-            && portal.x <= maxX
-            && portal.y >= minY
-            && portal.y <= maxY
-            && (!visibleTileIndices || visibleTileIndices.has(this.toTileIndex(portal.x, portal.y))))
+            && this.isTileInsideViewRadius(centerX, centerY, radius, portal.x, portal.y)
+            && this.isTileVisibleByFilter(portal.x, portal.y, visibility))
             .map((portal) => ({
             x: portal.x,
             y: portal.y,
@@ -2294,24 +2301,17 @@ class MapInstanceRuntime {
         }));
     }
     /** collectLocalGroundPiles：收集当前视野内可见地面物品堆。 */
-    collectLocalGroundPiles(centerX, centerY, radius, visibleTileIndices = null) {
+    collectLocalGroundPiles(centerX, centerY, radius, visibleTileVisibility = null) {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
 
-        const minX = Math.max(0, centerX - radius);
-
-        const maxX = Math.min(this.template.width - 1, centerX + radius);
-
-        const minY = Math.max(0, centerY - radius);
-
-        const maxY = Math.min(this.template.height - 1, centerY + radius);
-
+        const visibility = this.normalizeVisibilityFilter(visibleTileVisibility);
         const piles = [];
         for (const pile of this.groundPilesByTile.values()) {
-            if (pile.x < minX || pile.x > maxX || pile.y < minY || pile.y > maxY) {
+            if (!this.isTileInsideViewRadius(centerX, centerY, radius, pile.x, pile.y)) {
                 continue;
             }
-            if (visibleTileIndices && !visibleTileIndices.has(pile.tileIndex)) {
+            if (!this.isTileVisibleByFilter(pile.x, pile.y, visibility)) {
                 continue;
             }
 
@@ -2324,24 +2324,17 @@ class MapInstanceRuntime {
         return piles;
     }
     /** collectLocalContainers：收集当前视野内可见容器。 */
-    collectLocalContainers(centerX, centerY, radius, visibleTileIndices = null) {
+    collectLocalContainers(centerX, centerY, radius, visibleTileVisibility = null) {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
 
-        const minX = Math.max(0, centerX - radius);
-
-        const maxX = Math.min(this.template.width - 1, centerX + radius);
-
-        const minY = Math.max(0, centerY - radius);
-
-        const maxY = Math.min(this.template.height - 1, centerY + radius);
-
+        const visibility = this.normalizeVisibilityFilter(visibleTileVisibility);
         const containers = [];
         for (const container of this.containersById.values()) {
-            if (container.x < minX || container.x > maxX || container.y < minY || container.y > maxY) {
+            if (!this.isTileInsideViewRadius(centerX, centerY, radius, container.x, container.y)) {
                 continue;
             }
-            if (visibleTileIndices && !visibleTileIndices.has(this.toTileIndex(container.x, container.y))) {
+            if (!this.isTileVisibleByFilter(container.x, container.y, visibility)) {
                 continue;
             }
             containers.push({
@@ -2358,24 +2351,17 @@ class MapInstanceRuntime {
         return containers;
     }
     /** collectLocalLandmarks：收集当前视野内可见地标。 */
-    collectLocalLandmarks(centerX, centerY, radius, visibleTileIndices = null) {
+    collectLocalLandmarks(centerX, centerY, radius, visibleTileVisibility = null) {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
 
-        const minX = Math.max(0, centerX - radius);
-
-        const maxX = Math.min(this.template.width - 1, centerX + radius);
-
-        const minY = Math.max(0, centerY - radius);
-
-        const maxY = Math.min(this.template.height - 1, centerY + radius);
-
+        const visibility = this.normalizeVisibilityFilter(visibleTileVisibility);
         const landmarks = [];
         for (const landmark of this.landmarksById.values()) {
-            if (landmark.x < minX || landmark.x > maxX || landmark.y < minY || landmark.y > maxY) {
+            if (!this.isTileInsideViewRadius(centerX, centerY, radius, landmark.x, landmark.y)) {
                 continue;
             }
-            if (visibleTileIndices && !visibleTileIndices.has(this.toTileIndex(landmark.x, landmark.y))) {
+            if (!this.isTileVisibleByFilter(landmark.x, landmark.y, visibility)) {
                 continue;
             }
             landmarks.push({
@@ -2391,24 +2377,17 @@ class MapInstanceRuntime {
         return landmarks;
     }
     /** collectLocalSafeZones：收集当前视野内可见安全区。 */
-    collectLocalSafeZones(centerX, centerY, radius, visibleTileIndices = null) {
+    collectLocalSafeZones(centerX, centerY, radius, visibleTileVisibility = null) {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
 
-        const minX = Math.max(0, centerX - radius);
-
-        const maxX = Math.min(this.template.width - 1, centerX + radius);
-
-        const minY = Math.max(0, centerY - radius);
-
-        const maxY = Math.min(this.template.height - 1, centerY + radius);
-
+        const visibility = this.normalizeVisibilityFilter(visibleTileVisibility);
         const safeZones = [];
         for (const zone of this.template.safeZones) {
-            if (zone.x + zone.radius < minX || zone.x - zone.radius > maxX || zone.y + zone.radius < minY || zone.y - zone.radius > maxY) {
+            if (!this.isCircleInsideViewRadius(centerX, centerY, radius, zone.x, zone.y, zone.radius)) {
                 continue;
             }
-            if (visibleTileIndices && !this.isAnyTileVisibleInCircle(zone.x, zone.y, zone.radius, visibleTileIndices)) {
+            if (!this.isAnyTileVisibleInCircle(zone.x, zone.y, zone.radius, visibility)) {
                 continue;
             }
             safeZones.push(snapshotSafeZone(zone));
@@ -2417,24 +2396,17 @@ class MapInstanceRuntime {
         return safeZones;
     }
     /** collectLocalNpcs：收集当前视野内可见 NPC。 */
-    collectLocalNpcs(centerX, centerY, radius, visibleTileIndices = null) {
+    collectLocalNpcs(centerX, centerY, radius, visibleTileVisibility = null) {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
 
-        const minX = Math.max(0, centerX - radius);
-
-        const maxX = Math.min(this.template.width - 1, centerX + radius);
-
-        const minY = Math.max(0, centerY - radius);
-
-        const maxY = Math.min(this.template.height - 1, centerY + radius);
-
+        const visibility = this.normalizeVisibilityFilter(visibleTileVisibility);
         const npcs = [];
         for (const npc of this.npcsById.values()) {
-            if (npc.x < minX || npc.x > maxX || npc.y < minY || npc.y > maxY) {
+            if (!this.isTileInsideViewRadius(centerX, centerY, radius, npc.x, npc.y)) {
                 continue;
             }
-            if (visibleTileIndices && !visibleTileIndices.has(this.toTileIndex(npc.x, npc.y))) {
+            if (!this.isTileVisibleByFilter(npc.x, npc.y, visibility)) {
                 continue;
             }
             npcs.push({
@@ -2451,27 +2423,20 @@ class MapInstanceRuntime {
         return npcs;
     }
     /** collectLocalMonsters：收集当前视野内可见妖兽。 */
-    collectLocalMonsters(centerX, centerY, radius, visibleTileIndices = null) {
+    collectLocalMonsters(centerX, centerY, radius, visibleTileVisibility = null) {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
 
-        const minX = Math.max(0, centerX - radius);
-
-        const maxX = Math.min(this.template.width - 1, centerX + radius);
-
-        const minY = Math.max(0, centerY - radius);
-
-        const maxY = Math.min(this.template.height - 1, centerY + radius);
-
+        const visibility = this.normalizeVisibilityFilter(visibleTileVisibility);
         const monsters = [];
         for (const monster of this.monstersByRuntimeId.values()) {
             if (!monster.alive) {
                 continue;
             }
-            if (monster.x < minX || monster.x > maxX || monster.y < minY || monster.y > maxY) {
+            if (!this.isTileInsideViewRadius(centerX, centerY, radius, monster.x, monster.y)) {
                 continue;
             }
-            if (visibleTileIndices && !visibleTileIndices.has(this.toTileIndex(monster.x, monster.y))) {
+            if (!this.isTileVisibleByFilter(monster.x, monster.y, visibility)) {
                 continue;
             }
             monsters.push({
@@ -2790,15 +2755,25 @@ class MapInstanceRuntime {
         }
     }
     /** isAnyTileVisibleInCircle：判断圆形范围内是否存在可见地块。 */
-    isAnyTileVisibleInCircle(centerX, centerY, radius, visibleTileIndices) {
+    isCircleInsideViewRadius(viewCenterX, viewCenterY, viewRadius, centerX, centerY, radius) {
+        return chebyshevDistance(viewCenterX, viewCenterY, centerX, centerY)
+            <= Math.max(0, Math.trunc(Number(viewRadius) || 0)) + Math.max(0, Math.trunc(Number(radius) || 0));
+    }
+    /** isAnyTileVisibleInCircle：判断圆形范围内是否存在可见地块。 */
+    isAnyTileVisibleInCircle(centerX, centerY, radius, visibleTileVisibility) {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
-        for (let y = Math.max(0, centerY - radius); y <= Math.min(this.template.height - 1, centerY + radius); y += 1) {
-            for (let x = Math.max(0, centerX - radius); x <= Math.min(this.template.width - 1, centerX + radius); x += 1) {
+        const visibility = this.normalizeVisibilityFilter(visibleTileVisibility);
+        const minX = centerX - radius;
+        const maxX = centerX + radius;
+        const minY = centerY - radius;
+        const maxY = centerY + radius;
+        for (let y = minY; y <= maxY; y += 1) {
+            for (let x = minX; x <= maxX; x += 1) {
                 if (!(0, shared_1.isOffsetInRange)(x - centerX, y - centerY, radius)) {
                     continue;
                 }
-                if (visibleTileIndices.has(this.toTileIndex(x, y))) {
+                if (this.isTileVisibleByFilter(x, y, visibility)) {
                     return true;
                 }
             }

@@ -155,7 +155,18 @@ async function main(): Promise<void> {
         if (targetPlayerId !== runtimePlayerId) {
           return null;
         }
-        return buildNextSnapshot(now + 100, runtimeLeaseInstanceId);
+        const snapshot = buildNextSnapshot(now + 100, runtimeLeaseInstanceId);
+        return {
+          ...snapshot,
+          inventory: {
+            ...snapshot.inventory,
+            items: runtimePlayerState.inventoryItems.map((entry) => ({ ...entry })),
+          },
+          wallet: {
+            ...snapshot.wallet,
+            balances: runtimePlayerState.walletBalances.map((entry) => ({ ...entry })),
+          },
+        };
       },
       replaceInventoryItems(targetPlayerId: string, items: unknown[]) {
         if (targetPlayerId !== runtimePlayerId) {
@@ -488,7 +499,12 @@ async function main(): Promise<void> {
     if (runtimeSummary.unreadCount !== 0 || runtimeSummary.claimableCount !== 0) {
       throw new Error(`unexpected runtime mail summary after claim: ${JSON.stringify(runtimeSummary)}`);
     }
-    if (runtimePlayerState.inventoryItems.length !== 0) {
+    const runtimeInventoryItem = runtimePlayerState.inventoryItems[0];
+    if (
+      runtimePlayerState.inventoryItems.length !== 1
+      || runtimeInventoryItem?.itemId !== 'spirit_stone'
+      || Number(runtimeInventoryItem?.count ?? 0) !== 1
+    ) {
       throw new Error(`unexpected runtime inventory after durable claim: ${JSON.stringify(runtimePlayerState.inventoryItems)}`);
     }
     const runtimeWalletBalances = runtimePlayerState.walletBalances as Array<{
@@ -497,8 +513,7 @@ async function main(): Promise<void> {
       frozenBalance: number;
       version: number;
     }>;
-    const runtimeWallet = runtimeWalletBalances[0];
-    if (!runtimeWallet || runtimeWallet.walletType !== 'spirit_stone' || Number(runtimeWallet.balance ?? 0) !== 1) {
+    if (runtimeWalletBalances.length !== 0) {
       throw new Error(`unexpected runtime wallet after durable claim: ${JSON.stringify(runtimePlayerState.walletBalances)}`);
     }
 

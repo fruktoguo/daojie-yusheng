@@ -34,6 +34,7 @@ const MAP_PERSISTENCE_TIME_DOMAIN = 'time';
 const MAP_PERSISTENCE_SLOW_FLUSH_THRESHOLD_MS = normalizePositiveInteger((0, env_alias_1.readTrimmedEnv)('SERVER_PERSISTENCE_FLUSH_SLOW_THRESHOLD_MS', 'PERSISTENCE_FLUSH_SLOW_THRESHOLD_MS'), 100, PERSISTENCE_SLOW_FLUSH_THRESHOLD_MIN_MS, 10_000);
 const MAP_PERSISTENCE_SLOW_FLUSH_BACKOFF_MS = normalizePositiveInteger((0, env_alias_1.readTrimmedEnv)('SERVER_PERSISTENCE_FLUSH_SLOW_BACKOFF_MS', 'PERSISTENCE_FLUSH_SLOW_BACKOFF_MS'), 5_000, 1_000, 60_000);
 const MAP_PERSISTENCE_TIME_CHECKPOINT_INTERVAL_MS = normalizePositiveInteger((0, env_alias_1.readTrimmedEnv)('SERVER_MAP_TIME_CHECKPOINT_INTERVAL_MS', 'MAP_TIME_CHECKPOINT_INTERVAL_MS'), 300_000, 60_000, 3_600_000);
+const MAP_PERSISTENCE_LEGACY_SNAPSHOT_WRITE_ENV_NAMES = ['SERVER_MAP_LEGACY_SNAPSHOT_WRITE', 'MAP_LEGACY_SNAPSHOT_WRITE'];
 
 /**
  * normalizePositiveInteger：执行normalize正整数相关逻辑。
@@ -140,7 +141,7 @@ let MapPersistenceFlushService = MapPersistenceFlushService_1 = class MapPersist
     async flushAllNow() {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
-        if (!this.isDomainPersistenceEnabled() && !this.mapPersistenceService.isEnabled()) {
+        if (!this.isDomainPersistenceEnabled() && !this.isLegacySnapshotWriteEnabled()) {
             return;
         }
         if (this.flushPromise) {
@@ -157,11 +158,14 @@ let MapPersistenceFlushService = MapPersistenceFlushService_1 = class MapPersist
     async flushInstance(instanceId) {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
-        if (!this.isDomainPersistenceEnabled() && !this.mapPersistenceService.isEnabled()) {
+        if (!this.isDomainPersistenceEnabled() && !this.isLegacySnapshotWriteEnabled()) {
             return;
         }
         if (typeof this.worldRuntimeService.flushInstanceDomains === 'function') {
             await this.worldRuntimeService.flushInstanceDomains(instanceId);
+            return;
+        }
+        if (!this.isLegacySnapshotWriteEnabled()) {
             return;
         }
         const snapshot = this.worldRuntimeService.buildMapPersistenceSnapshot(instanceId);
@@ -181,7 +185,7 @@ let MapPersistenceFlushService = MapPersistenceFlushService_1 = class MapPersist
     async flushDirtyInstances() {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
-        if ((!this.isDomainPersistenceEnabled() && !this.mapPersistenceService.isEnabled())
+        if ((!this.isDomainPersistenceEnabled() && !this.isLegacySnapshotWriteEnabled())
             || this.flushPromise
             || isRestoreFreezeActive()
             || this.isFlushThrottleActive()) {
@@ -194,16 +198,20 @@ let MapPersistenceFlushService = MapPersistenceFlushService_1 = class MapPersist
     async runFlushCycle(reason) {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
-        if (!this.isDomainPersistenceEnabled() && !this.mapPersistenceService.isEnabled()) {
+        const domainPersistenceEnabled = this.isDomainPersistenceEnabled();
+        const legacySnapshotWriteEnabled = this.isLegacySnapshotWriteEnabled();
+        if (!domainPersistenceEnabled && !legacySnapshotWriteEnabled) {
             return;
         }
         const startedAt = perf_hooks_1.performance.now();
         let dirtyInstanceCount = 0;
         let persistedInstanceCount = 0;
+        let skippedInstanceCount = 0;
+        const persistedDomainCounts = new Map();
 
         const promise = (async () => {
 
-            const rawDirtyDomainEntries = typeof this.worldRuntimeService.listDirtyPersistentInstanceDomains === 'function'
+            const rawDirtyDomainEntries = domainPersistenceEnabled && typeof this.worldRuntimeService.listDirtyPersistentInstanceDomains === 'function'
                 ? this.worldRuntimeService.listDirtyPersistentInstanceDomains()
                 : [];
             const timeCheckpointDue = reason !== 'interval' || Date.now() >= this.nextTimeCheckpointFlushAt;
@@ -211,7 +219,9 @@ let MapPersistenceFlushService = MapPersistenceFlushService_1 = class MapPersist
             const dirtyDomainEntries = dirtyDomainSelection.entries;
             const dirtyInstanceIds = rawDirtyDomainEntries.length > 0
                 ? dirtyDomainEntries.map((entry) => entry.instanceId)
-                : this.worldRuntimeService.listDirtyPersistentInstances();
+                : legacySnapshotWriteEnabled
+                    ? this.worldRuntimeService.listDirtyPersistentInstances()
+                    : [];
             dirtyInstanceCount = dirtyInstanceIds.length;
             if (dirtyInstanceIds.length === 0) {
                 return;
@@ -222,21 +232,32 @@ let MapPersistenceFlushService = MapPersistenceFlushService_1 = class MapPersist
             for (const batch of batches) {
                 await runConcurrent(batch, MAP_PERSISTENCE_FLUSH_PARALLELISM, async (instanceId) => {
                     const domainEntry = dirtyDomainEntryByInstanceId.get(instanceId);
-                    if (typeof this.worldRuntimeService.flushInstanceDomains === 'function') {
+                    if (domainPersistenceEnabled && typeof this.worldRuntimeService.flushInstanceDomains === 'function') {
                         const result = await this.worldRuntimeService.flushInstanceDomains(instanceId, domainEntry?.domains ?? null);
                         if (result?.skipped === true) {
+                            skippedInstanceCount += 1;
                             return;
                         }
+                        const persistedDomains = Array.isArray(result?.persistedDomains)
+                            ? result.persistedDomains
+                            : (Array.isArray(domainEntry?.domains) ? domainEntry.domains : ['domain']);
+                        recordPersistedDomains(persistedDomainCounts, persistedDomains);
                     }
-                    else {
+                    else if (legacySnapshotWriteEnabled) {
                         const snapshot = this.worldRuntimeService.buildMapPersistenceSnapshot(instanceId);
                         if (!snapshot) {
+                            skippedInstanceCount += 1;
                             return;
                         }
                         await retryFlush(MAP_PERSISTENCE_FLUSH_RETRY_COUNT, async () => {
                             await this.mapPersistenceService.saveMapSnapshot(instanceId, snapshot);
                         });
                         this.worldRuntimeService.markMapPersisted(instanceId);
+                        recordPersistedDomains(persistedDomainCounts, ['legacy_snapshot']);
+                    }
+                    else {
+                        skippedInstanceCount += 1;
+                        return;
                     }
                     persistedInstanceCount += 1;
                 }, (instanceId, error) => {
@@ -257,7 +278,7 @@ let MapPersistenceFlushService = MapPersistenceFlushService_1 = class MapPersist
             }
             if (reason === 'interval') {
                 const durationMs = perf_hooks_1.performance.now() - startedAt;
-                this.updateFlushThrottle(durationMs, dirtyInstanceCount, persistedInstanceCount);
+                this.updateFlushThrottle(durationMs, dirtyInstanceCount, persistedInstanceCount, skippedInstanceCount, persistedDomainCounts);
             }
         }
     }
@@ -313,6 +334,21 @@ function hasTimeCheckpointDomain(entries) {
         && entries.some((entry) => Array.isArray(entry?.domains)
             && entry.domains.some((domain) => typeof domain === 'string' && domain.trim() === MAP_PERSISTENCE_TIME_DOMAIN));
 }
+function recordPersistedDomains(counts, domains) {
+    for (const domain of Array.isArray(domains) ? domains : []) {
+        const normalizedDomain = typeof domain === 'string' && domain.trim() ? domain.trim() : 'unknown';
+        counts.set(normalizedDomain, (counts.get(normalizedDomain) ?? 0) + 1);
+    }
+}
+function formatDomainCounts(counts) {
+    if (!(counts instanceof Map) || counts.size === 0) {
+        return '';
+    }
+    return Array.from(counts.entries())
+        .sort((left, right) => left[0].localeCompare(right[0]))
+        .map(([domain, count]) => `${domain}:${count}`)
+        .join(',');
+}
 /**
  * isFlushThrottleActive：判断FlushThrottle激活是否满足条件。
  * @returns 无返回值，完成FlushThrottle激活的条件判断。
@@ -325,18 +361,31 @@ MapPersistenceFlushService.prototype.isDomainPersistenceEnabled = function isDom
     const service = this.worldRuntimeService?.instanceDomainPersistenceService;
     return Boolean(service && typeof service.isEnabled === 'function' && service.isEnabled());
 };
+MapPersistenceFlushService.prototype.isLegacySnapshotWriteEnabled = function isLegacySnapshotWriteEnabled() {
+    if (!this.mapPersistenceService.isEnabled()) {
+        return false;
+    }
+    for (const envName of MAP_PERSISTENCE_LEGACY_SNAPSHOT_WRITE_ENV_NAMES) {
+        const value = process.env[envName];
+        if (typeof value === 'string' && /^(1|true|yes|on)$/iu.test(value.trim())) {
+            return true;
+        }
+    }
+    return false;
+};
 /**
  * updateFlushThrottle：执行updateFlushThrottle相关逻辑。
  * @param durationMs 参数说明。
  * @returns 无返回值，直接更新updateFlushThrottle相关状态。
  */
 
-MapPersistenceFlushService.prototype.updateFlushThrottle = function updateFlushThrottle(durationMs, dirtyInstanceCount = 0, persistedInstanceCount = 0) {
+MapPersistenceFlushService.prototype.updateFlushThrottle = function updateFlushThrottle(durationMs, dirtyInstanceCount = 0, persistedInstanceCount = 0, skippedInstanceCount = 0, persistedDomainCounts = new Map()) {
     if (durationMs < MAP_PERSISTENCE_SLOW_FLUSH_THRESHOLD_MS) {
         return;
     }
     this.flushThrottleUntilAt = Date.now() + MAP_PERSISTENCE_SLOW_FLUSH_BACKOFF_MS;
-    this.logger.warn(`地图最终一致刷盘触发降级退避：durationMs=${Math.trunc(durationMs)} thresholdMs=${MAP_PERSISTENCE_SLOW_FLUSH_THRESHOLD_MS} backoffMs=${MAP_PERSISTENCE_SLOW_FLUSH_BACKOFF_MS} dirtyInstanceCount=${dirtyInstanceCount} persistedInstanceCount=${persistedInstanceCount}`);
+    const domainCounts = formatDomainCounts(persistedDomainCounts);
+    this.logger.warn(`地图最终一致刷盘触发降级退避：durationMs=${Math.trunc(durationMs)} thresholdMs=${MAP_PERSISTENCE_SLOW_FLUSH_THRESHOLD_MS} backoffMs=${MAP_PERSISTENCE_SLOW_FLUSH_BACKOFF_MS} dirtyInstanceCount=${dirtyInstanceCount} persistedInstanceCount=${persistedInstanceCount} skippedInstanceCount=${skippedInstanceCount}${domainCounts ? ` domainCounts=${domainCounts}` : ''}`);
 };
 /**
  * chunkValues：执行chunk值相关逻辑。

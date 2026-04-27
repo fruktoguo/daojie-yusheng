@@ -427,13 +427,15 @@ async function testRealLineAllowsTileLockOnAndDispatch() {
       canDamageTile: true,
     },
   }), log);
+  const autoCommand = { kind: 'basicAttack', targetPlayerId: null, targetMonsterId: null, targetX: 11, targetY: 10 };
+  deps.buildAutoCombatCommand = () => autoCommand;
   await service.dispatchEngageBattle(attacker.playerId, null, null, 11, 10, true, deps);
   assert.deepEqual(log, [
     ['getInstanceRuntimeOrThrow', 'real:yunlai_town'],
     ['interruptManualCombat', 'player:attacker'],
     ['updateCombatSettings', 'player:attacker', { autoBattle: true }, 12],
     ['setCombatTarget', 'player:attacker', 'tile:11:10', true, 12],
-    ['dispatchBasicAttack', 'player:attacker', null, null, 11, 10],
+    ['dispatchPlayerCommand', 'player:attacker', autoCommand],
   ]);
 }
 

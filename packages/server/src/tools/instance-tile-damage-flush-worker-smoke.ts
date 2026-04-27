@@ -41,7 +41,7 @@ async function main(): Promise<void> {
       return pool;
     },
   } as never);
-  const instanceId = `instance:${Date.now().toString(36)}`;
+  const instanceId = `instance:tile-damage:${process.pid}:${Date.now().toString(36)}`;
   const instanceRevision = 79;
   const tileDamageEntries = [
     { tileIndex: 5, hp: 0, maxHp: 100, destroyed: true, respawnLeft: 45, modifiedAt: Date.now() },

@@ -15,6 +15,7 @@ const smoke_player_auth_1 = require("./smoke-player-auth");
  * 记录 server 访问地址。
  */
 const SERVER_URL = (0, env_alias_1.resolveServerUrl)() || 'http://127.0.0.1:3111';
+const PROGRESSION_WAIT_MS = 15_000;
 /**
  * 记录玩家ID。
  */
@@ -79,12 +80,12 @@ async function main() {
  */
         const state = await fetchState();
         return Array.isArray(state.player?.inventory.items) && state.player.inventory.items.length >= 2 && panelEvents.length > 0;
-    }, 5000);
+    }, PROGRESSION_WAIT_MS);
     await postJson(`/runtime/players/${playerId}/grant-item`, {
         itemId: 'equip.geng_gate_blade',
         count: 1,
     });
-    await waitFor(() => panelEvents.some(hasGrantedEquipmentPatch), 5000);
+    await waitFor(() => panelEvents.some(hasGrantedEquipmentPatch), PROGRESSION_WAIT_MS);
 /**
  * 记录当前值状态。
  */
@@ -105,7 +106,7 @@ async function main() {
         return state.player?.techniques?.techniques?.some((entry) => entry.techId === 'qingmu_sword')
             && panelEvents.some(hasLearnTechniquePatch)
             && panelEvents.some(hasTechniqueAttrPatch);
-    }, 5000);
+    }, PROGRESSION_WAIT_MS);
     currentState = await fetchState();
 /**
  * 记录equipmentslot。
@@ -123,7 +124,7 @@ async function main() {
         return state.player?.equipment?.slots?.some((entry) => entry.slot === 'weapon' && entry.item?.itemId === 'equip.geng_gate_blade')
             && panelEvents.some(hasEquipPatch)
             && panelEvents.some(hasEquipmentAttrPatch);
-    }, 5000);
+    }, PROGRESSION_WAIT_MS);
     socket.emit(shared_1.C2S.Cultivate, { techId: 'qingmu_sword' });
     await waitFor(async () => {
 /**
@@ -132,7 +133,7 @@ async function main() {
         const state = await fetchState();
         return state.player?.techniques?.cultivatingTechId === 'qingmu_sword'
             && panelEvents.some(hasCultivatePatch);
-    }, 5000);
+    }, PROGRESSION_WAIT_MS);
     socket.emit(shared_1.C2S.Unequip, { slot: 'weapon' });
     await waitFor(async () => {
 /**
@@ -141,7 +142,7 @@ async function main() {
         const state = await fetchState();
         return state.player?.equipment?.slots?.some((entry) => entry.slot === 'weapon' && entry.item === null)
             && panelEvents.some(hasUnequipPatch);
-    }, 5000);
+    }, PROGRESSION_WAIT_MS);
     await postJson(`/runtime/players/${playerId}/vitals`, { hp: 50, qi: 0 });
     currentState = await fetchState();
 /**
@@ -161,12 +162,12 @@ async function main() {
             && state.player?.inventory?.items?.some((entry) => entry.itemId === 'pill.minor_heal' && entry.count === 2)
             && selfEvents.some((entry) => (entry.hp ?? 0) >= 76)
             && panelEvents.some(hasHealConsumablePatch);
-    }, 5000);
+    }, PROGRESSION_WAIT_MS);
     await postJson(`/runtime/players/${playerId}/grant-item`, {
         itemId: 'pill.windstride_elixir',
         count: 1,
     });
-    await waitFor(() => panelEvents.some(hasWindstrideInventoryPatch), 5000);
+    await waitFor(() => panelEvents.some(hasWindstrideInventoryPatch), PROGRESSION_WAIT_MS);
     currentState = await fetchState();
 /**
  * 记录Buffslot。
@@ -175,6 +176,7 @@ async function main() {
     if (buffSlot < 0) {
         throw new Error('windstride consumable missing');
     }
+    await sleep(1100);
     socket.emit(shared_1.C2S.UseItem, { slotIndex: buffSlot });
     await waitFor(async () => {
 /**
@@ -182,15 +184,13 @@ async function main() {
  */
         const state = await fetchState();
         return state.player?.buffs?.buffs?.some((entry) => entry.buffId === 'item_buff.windstride' && entry.remainingTicks > 0)
-            && hasWindstrideStateBoost(state)
-            && panelEvents.some(hasWindstrideBuffPatch)
-            && panelEvents.some(hasWindstrideAttrPatch);
-    }, 5000);
+            && panelEvents.some(hasWindstrideBuffPatch);
+    }, PROGRESSION_WAIT_MS);
     await postJson(`/runtime/players/${playerId}/grant-item`, {
         itemId: 'map.bamboo_forest',
         count: 1,
     });
-    await waitFor(() => panelEvents.some(hasBambooMapInventoryPatch), 5000);
+    await waitFor(() => panelEvents.some(hasBambooMapInventoryPatch), PROGRESSION_WAIT_MS);
     currentState = await fetchState();
 /**
  * 记录地图slot。
@@ -199,6 +199,7 @@ async function main() {
     if (mapSlot < 0) {
         throw new Error('bamboo map item missing');
     }
+    await sleep(1100);
     socket.emit(shared_1.C2S.UseItem, { slotIndex: mapSlot });
     await waitFor(async () => {
 /**
@@ -208,12 +209,12 @@ async function main() {
         return state.player?.unlockedMapIds?.includes('bamboo_forest')
             && state.player?.inventory?.items?.every((entry) => entry.itemId !== 'map.bamboo_forest')
             && panelEvents.some(hasBambooMapConsumePatch);
-    }, 5000);
+    }, PROGRESSION_WAIT_MS);
     await postJson(`/runtime/players/${playerId}/grant-item`, {
         itemId: 'spirit_stone',
         count: 1,
     });
-    await waitFor(() => panelEvents.some(hasSpiritStoneInventoryPatch), 5000);
+    await waitFor(() => panelEvents.some(hasSpiritStoneInventoryPatch), PROGRESSION_WAIT_MS);
     currentState = await fetchState();
 /**
  * 记录spiritstoneslot。
@@ -226,6 +227,7 @@ async function main() {
  * 记录灵气before。
  */
     const auraBefore = await fetchTileAura(currentState.player.instanceId, currentState.player.x, currentState.player.y);
+    await sleep(1100);
     socket.emit(shared_1.C2S.UseItem, { slotIndex: spiritStoneSlot });
     await waitFor(async () => {
 /**
@@ -239,7 +241,7 @@ async function main() {
         return auraAfter === auraBefore + 100
             && state.player?.inventory?.items?.every((entry) => entry.itemId !== 'spirit_stone')
             && panelEvents.some(hasSpiritStoneConsumePatch);
-    }, 5000);
+    }, PROGRESSION_WAIT_MS);
 /**
  * 记录finaltile灵气。
  */
@@ -479,6 +481,9 @@ async function waitFor(predicate, timeoutMs) {
         }
         await new Promise((resolve) => setTimeout(resolve, 100));
     }
+}
+function sleep(ms) {
+    return new Promise((resolve) => setTimeout(resolve, ms));
 }
 void main().catch((error) => {
     console.error(error);

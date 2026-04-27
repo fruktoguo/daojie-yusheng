@@ -3313,12 +3313,10 @@ async function replacePlayerMarketStorageItems(
     if (!itemId) {
       continue;
     }
-    const slotIndex = Number.isFinite(entry?.slotIndex) ? Math.max(0, Math.trunc(Number(entry.slotIndex))) : index;
+    const slotIndex = normalizeOptionalInteger(entry?.slotIndex) ?? index;
     const storageItemId = normalizeRequiredString(entry?.storageItemId) || `market_storage:${playerId}:${slotIndex}`;
     const count = Math.max(1, Math.trunc(Number(entry?.count ?? 1)));
-    const enhanceLevel = Number.isFinite(entry?.enhanceLevel)
-      ? Math.max(0, Math.trunc(Number(entry.enhanceLevel)))
-      : null;
+    const enhanceLevel = normalizeOptionalInteger(entry?.enhanceLevel);
     const rawPayload =
       entry?.rawPayload && typeof entry.rawPayload === 'object'
         ? entry.rawPayload

@@ -1562,7 +1562,7 @@ function normalizeComparablePersistentBuffStates(states) {
         duration: Number(entry?.duration ?? 0),
         stacks: Number(entry?.stacks ?? 1),
         maxStacks: Number(entry?.maxStacks ?? entry?.max_stacks ?? 1),
-        sustainTicksElapsed: entry?.sustainTicksElapsed ?? entry?.sustain_ticks_elapsed ?? null,
+        sustainTicksElapsed: normalizeOptionalInteger(entry?.sustainTicksElapsed ?? entry?.sustain_ticks_elapsed),
         rawPayload: entry?.rawPayload ?? entry?.raw_payload ?? null,
     })).sort((left, right) => left.buffId.localeCompare(right.buffId, 'zh-Hans-CN')
         || left.sourceSkillId.localeCompare(right.sourceSkillId, 'zh-Hans-CN'));
@@ -1601,10 +1601,11 @@ function normalizeComparableMarketStorageItems(items) {
 }
 
 function normalizeOptionalInteger(value) {
-    if (!Number.isFinite(value)) {
+    if (value == null || value === '') {
         return null;
     }
-    return Math.trunc(Number(value));
+    const numeric = Number(value);
+    return Number.isFinite(numeric) ? Math.trunc(numeric) : null;
 }
 
 function normalizeComparableJson(value) {

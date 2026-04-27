@@ -628,8 +628,12 @@ function normalizeEnhanceLevel(item) {
  */
     const candidates = [item?.enhanceLevel, item?.enhancementLevel, item?.level];
     for (const value of candidates) {
-        if (Number.isFinite(value)) {
-            return Math.max(0, Math.trunc(Number(value)));
+        if (value == null || value === '') {
+            continue;
+        }
+        const numeric = Number(value);
+        if (Number.isFinite(numeric)) {
+            return Math.max(0, Math.trunc(numeric));
         }
     }
     return null;

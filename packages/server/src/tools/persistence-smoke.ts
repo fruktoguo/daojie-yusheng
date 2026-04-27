@@ -233,6 +233,7 @@ async function connectAndMutate(token) {
     if (spiritStoneSlot < 0) {
         throw new Error('spirit_stone missing before persistence aura mutation');
     }
+    let persistedAuraTile = null;
     socket.emit(shared_1.C2S.UseItem, { slotIndex: spiritStoneSlot });
     await waitForCondition(async () => {
 /**
@@ -244,8 +245,19 @@ async function connectAndMutate(token) {
  */
         const tileState = await fetchJson(`${baseUrl}/runtime/instances/${playerState.player.instanceId}/tiles/${playerState.player.x}/${playerState.player.y}`);
         const stillHasSpiritStone = playerState.player?.inventory?.items?.some((entry) => entry.itemId === 'spirit_stone') ?? false;
-        return (tileState.tile?.aura ?? 0) >= 100 && !stillHasSpiritStone;
+        if ((tileState.tile?.aura ?? 0) >= 100 && !stillHasSpiritStone) {
+            persistedAuraTile = {
+                instanceId: playerState.player.instanceId,
+                x: playerState.player.x,
+                y: playerState.player.y,
+            };
+            return true;
+        }
+        return false;
     }, 5000);
+    if (!persistedAuraTile) {
+        throw new Error('expected spirit_stone aura target before persistence mutation');
+    }
     state = await fetchJson(`${baseUrl}/runtime/players/${playerId}/state`);
 /**
  * 记录spiritstoneslot。
@@ -309,12 +321,12 @@ async function connectAndMutate(token) {
         throw new Error(`expected player to remain damaged before flush, got ${JSON.stringify(damagedState.player)}`);
     }
 /**
- * 记录persistedtile。
+ * 记录persistedgroundtile。
  */
-    const persistedTile = {
-        instanceId: damagedState.player.instanceId,
-        x: damagedState.player.x,
-        y: damagedState.player.y,
+    const persistedGroundTile = {
+        instanceId: dropState.player.instanceId,
+        x: dropState.player.x,
+        y: dropState.player.y,
     };
     await postJson('/runtime/persistence/flush', {});
     await waitForPersistedPlayerSnapshot(playerId);
@@ -328,7 +340,8 @@ async function connectAndMutate(token) {
     socket.close();
     await delay(300);
     return {
-        persistedTile,
+        persistedAuraTile,
+        persistedGroundTile,
         expectedMarketStorageItems: BASELINE_MARKET_STORAGE_ITEMS,
     };
 }
@@ -443,13 +456,17 @@ async function reconnectAndRead(reconnectTarget) {
         throw new Error(`expected persisted map wildlands, got ${captured.mapEnter.mid}`);
     }
 /**
+ * 记录玩家状态。
+ */
+    const playerState = await fetchJson(`${baseUrl}/runtime/players/${playerId}/state`);
+/**
  * 记录restoredhp。
  */
     const restoredHp = Number(captured.selfDelta.hp ?? 0);
 /**
  * 记录restoredmaxhp。
  */
-    const restoredMaxHp = Number(captured.selfDelta.maxHp ?? 0);
+    const restoredMaxHp = Number(captured.selfDelta.maxHp ?? playerState.player?.maxHp ?? 0);
 /**
  * 记录restoredqi。
  */
@@ -457,24 +474,20 @@ async function reconnectAndRead(reconnectTarget) {
 /**
  * 记录restoredmaxqi。
  */
-    const restoredMaxQi = Number(captured.selfDelta.maxQi ?? 0);
+    const restoredMaxQi = Number(captured.selfDelta.maxQi ?? playerState.player?.maxQi ?? 0);
     if (restoredHp < 61 || restoredQi < 23 || restoredHp >= restoredMaxHp || restoredQi >= restoredMaxQi) {
         throw new Error(`expected restored vitals to preserve damaged state, got ${JSON.stringify(captured.selfDelta)}`);
     }
     if (captured.panelDelta.inv?.slots?.some((entry) => entry.item?.itemId === 'rat_tail')) {
         throw new Error(`expected dropped rat_tail to stay on ground, got ${JSON.stringify(captured.panelDelta)}`);
     }
-/**
- * 记录玩家状态。
- */
-    const playerState = await fetchJson(`${baseUrl}/runtime/players/${playerId}/state`);
     if (!playerState.player?.unlockedMapIds?.includes('bamboo_forest')) {
         throw new Error(`expected persisted bamboo_forest unlock, got ${JSON.stringify(playerState)}`);
     }
 /**
  * 记录目标tile。
  */
-    const targetTile = reconnectTarget?.persistedTile ?? {
+    const auraTargetTile = reconnectTarget?.persistedAuraTile ?? reconnectTarget?.persistedTile ?? {
         instanceId: playerState.player.instanceId,
         x: playerState.player.x,
         y: playerState.player.y,
@@ -482,18 +495,24 @@ async function reconnectAndRead(reconnectTarget) {
 /**
  * 记录tile状态。
  */
-    const tileState = await fetchJson(`${baseUrl}/runtime/instances/${targetTile.instanceId}/tiles/${targetTile.x}/${targetTile.y}`);
-    if ((tileState.tile?.aura ?? 0) < 100) {
-        throw new Error(`expected persisted tile aura >= 100, got ${JSON.stringify(tileState)}`);
+    const auraTileState = await fetchJson(`${baseUrl}/runtime/instances/${auraTargetTile.instanceId}/tiles/${auraTargetTile.x}/${auraTargetTile.y}`);
+    if ((auraTileState.tile?.aura ?? 0) < 100) {
+        throw new Error(`expected persisted tile aura >= 100, got ${JSON.stringify(auraTileState)}`);
     }
+    const groundTargetTile = reconnectTarget?.persistedGroundTile ?? reconnectTarget?.persistedTile ?? auraTargetTile;
+    const groundTileState = groundTargetTile.instanceId === auraTargetTile.instanceId
+        && groundTargetTile.x === auraTargetTile.x
+        && groundTargetTile.y === auraTargetTile.y
+        ? auraTileState
+        : await fetchJson(`${baseUrl}/runtime/instances/${groundTargetTile.instanceId}/tiles/${groundTargetTile.x}/${groundTargetTile.y}`);
 /**
  * 记录restoredground数量。
  */
-    const restoredGroundCount = tileState.tile?.groundPile?.items
+    const restoredGroundCount = groundTileState.tile?.groundPile?.items
         ?.find((entry) => entry.itemId === 'rat_tail')
         ?.count ?? 0;
     if (restoredGroundCount < 3) {
-        throw new Error(`expected persisted ground rat_tail >= 3, got ${JSON.stringify(tileState)}`);
+        throw new Error(`expected persisted ground rat_tail >= 3, got ${JSON.stringify(groundTileState)}`);
     }
     const expectedMarketStorageItems = normalizeComparableMarketStorageItems(reconnectTarget?.expectedMarketStorageItems);
     const persistedStructuredMarketStorageItems = await readStructuredPlayerMarketStorageItems(playerId);
@@ -531,8 +550,9 @@ async function reconnectAndRead(reconnectTarget) {
             beforeClaim: actualMarketStorageItems,
             claimed: expectedMarketStorageItems,
         },
-        persistedTile: targetTile,
-        tileAura: tileState.tile?.aura ?? 0,
+        persistedAuraTile: auraTargetTile,
+        persistedGroundTile: groundTargetTile,
+        tileAura: auraTileState.tile?.aura ?? 0,
         tileGroundPileItemCount: restoredGroundCount,
     };
 }
@@ -628,6 +648,7 @@ async function startServer() {
             SERVER_DATABASE_URL: databaseUrl,
             SERVER_RUNTIME_HTTP: '1',
             SERVER_ALLOW_LEGACY_HTTP_COMPAT: '1',
+            SERVER_MAP_LEGACY_SNAPSHOT_WRITE: '1',
         },
         stdio: ['ignore', 'pipe', 'pipe'],
     });
@@ -1144,10 +1165,11 @@ function normalizeSnapshotMarketStorageItems(items) {
 }
 
 function normalizeOptionalInteger(value) {
-  if (!Number.isFinite(value)) {
+  if (value == null || value === '') {
     return null;
   }
-  return Math.trunc(Number(value));
+  const numeric = Number(value);
+  return Number.isFinite(numeric) ? Math.trunc(numeric) : null;
 }
 /**
  * 等待 persisted player snapshot 写入主线专表。

@@ -54,6 +54,7 @@ const world_gateway_read_model_helper_1 = require("./world-gateway-read-model.he
 const world_gateway_client_emit_helper_1 = require("./world-gateway-client-emit.helper");
 const world_gateway_guard_helper_1 = require("./world-gateway-guard.helper");
 const world_gateway_session_state_helper_1 = require("./world-gateway-session-state.helper");
+const world_gateway_presence_helper_1 = require("./world-gateway-presence.helper");
 const AUTHENTICATED_REQUESTED_SESSION_ID_AUTH_SOURCES = new Set([
     'mainline',
     'token',
@@ -70,7 +71,6 @@ const GM_CONNECT_CONTRACT = Object.freeze({
     playerAuthRequiredCode: 'GM_PLAYER_AUTH_REQUIRED',
     sessionIdForbiddenCode: 'GM_SESSION_ID_FORBIDDEN',
 });
-const PLAYER_PRESENCE_HEARTBEAT_FLUSH_INTERVAL_MS = 5_000;
 let WorldGateway = WorldGateway_1 = class WorldGateway {
         worldGmSocketService; worldProtocolProjectionService; sessionBootstrapService; healthReadinessService;
         playerDomainPersistenceService; playerPersistenceFlushService; playerRuntimeService; mailRuntimeService;
@@ -80,8 +80,8 @@ let WorldGateway = WorldGateway_1 = class WorldGateway {
         gatewayBootstrapHelper; gatewayGmCommandHelper; gatewayGmSuggestionHelper; gatewaySuggestionHelper;
         gatewayMovementHelper; gatewayInventoryHelper; gatewayMailHelper; gatewayPlayerControlsHelper;
         gatewayNpcHelper; gatewayCraftHelper; gatewayMarketHelper; gatewayReadModelHelper; gatewayActionHelper;
-        gatewayClientEmitHelper; gatewayGuardHelper; gatewaySessionStateHelper;
-        presenceHeartbeatPersistedAtByPlayerId = new Map(); server; logger = new common_1.Logger(WorldGateway_1.name);    
+        gatewayClientEmitHelper; gatewayGuardHelper; gatewaySessionStateHelper; gatewayPresenceHelper;
+        server; logger = new common_1.Logger(WorldGateway_1.name);
     constructor(worldGmSocketService, worldProtocolProjectionService, sessionBootstrapService, healthReadinessService, playerDomainPersistenceService, playerPersistenceFlushService, playerRuntimeService, mailRuntimeService, marketRuntimeService, craftPanelRuntimeService, suggestionRuntimeService, leaderboardRuntimeService, runtimeGmStateService, worldRuntimeService, worldClientEventService, worldSessionService, playerSessionRouteService, worldSyncService) {
         this.worldGmSocketService = worldGmSocketService;
         this.worldProtocolProjectionService = worldProtocolProjectionService;
@@ -117,6 +117,7 @@ let WorldGateway = WorldGateway_1 = class WorldGateway {
         this.gatewayClientEmitHelper = new world_gateway_client_emit_helper_1.WorldGatewayClientEmitHelper(this);
         this.gatewayGuardHelper = new world_gateway_guard_helper_1.WorldGatewayGuardHelper(this);
         this.gatewaySessionStateHelper = new world_gateway_session_state_helper_1.WorldGatewaySessionStateHelper(this);
+        this.gatewayPresenceHelper = new world_gateway_presence_helper_1.WorldGatewayPresenceHelper(this);
     }
         async handleConnection(client) {
         this.attachPerfObservers(client);
@@ -150,21 +151,7 @@ let WorldGateway = WorldGateway_1 = class WorldGateway {
         if (binding.connected) {
             return;
         }
-        this.presenceHeartbeatPersistedAtByPlayerId.delete(binding.playerId);
-        const disconnectPresence = this.playerDomainPersistenceService?.isEnabled?.()
-            ? this.playerRuntimeService.describePersistencePresence(binding.playerId)
-            : null;
-        if (disconnectPresence) {
-            void this.playerDomainPersistenceService.savePlayerPresence(binding.playerId, {
-                ...disconnectPresence,
-                online: false,
-                inWorld: false,
-                offlineSinceAt: Date.now(),
-                versionSeed: Date.now(),
-            }).catch((error) => {
-                this.logger.error(`刷新脱机 presence 失败：${binding.playerId}`, error instanceof Error ? error.stack : String(error));
-            });
-        }
+        void this.gatewayPresenceHelper.persistOfflinePresence(binding);
         await this.playerPersistenceFlushService.flushPlayer(binding.playerId).catch((error) => {
             this.logger.error(`刷新脱机玩家失败：${binding.playerId}`, error instanceof Error ? error.stack : String(error));
         });
@@ -177,45 +164,13 @@ let WorldGateway = WorldGateway_1 = class WorldGateway {
         if (!this.gatewayGuardHelper.requirePlayerId(client)) {
             return;
         }
-        const playerId = typeof client?.data?.playerId === 'string' ? client.data.playerId.trim() : '';
-        if (playerId) {
-            this.playerRuntimeService.markHeartbeat(playerId);
-            const heartbeatPresence = this.playerDomainPersistenceService?.isEnabled?.()
-                ? this.playerRuntimeService.describePersistencePresence(playerId)
-                : null;
-            const now = Date.now();
-            if (heartbeatPresence && this.shouldPersistHeartbeatPresence(playerId, now)) {
-                void this.playerDomainPersistenceService.savePlayerPresence(playerId, {
-                    ...heartbeatPresence,
-                    online: true,
-                    inWorld: Boolean(heartbeatPresence.inWorld),
-                    offlineSinceAt: null,
-                    versionSeed: now,
-                }).catch((error) => {
-                    this.logger.error(`刷新心跳 presence 失败：${playerId}`, error instanceof Error ? error.stack : String(error));
-                });
-                this.presenceHeartbeatPersistedAtByPlayerId.set(playerId, now);
-                this.playerRuntimeService.markPersisted?.(playerId);
-            }
-        }
+        return this.gatewayPresenceHelper.handleHeartbeat(client);
     }    
     shouldPersistHeartbeatPresence(playerId, now = Date.now()) {
-        const normalizedPlayerId = typeof playerId === 'string' ? playerId.trim() : '';
-        if (!normalizedPlayerId) {
-            return false;
-        }
-        const lastPersistedAt = Number(this.presenceHeartbeatPersistedAtByPlayerId.get(normalizedPlayerId) ?? 0);
-        if (!Number.isFinite(lastPersistedAt) || lastPersistedAt <= 0) {
-            return true;
-        }
-        return now - lastPersistedAt >= PLAYER_PRESENCE_HEARTBEAT_FLUSH_INTERVAL_MS;
+        return this.gatewayPresenceHelper.shouldPersistHeartbeatPresence(playerId, now);
     }
     clearHeartbeatPresencePersistThrottle(playerId) {
-        const normalizedPlayerId = typeof playerId === 'string' ? playerId.trim() : '';
-        if (!normalizedPlayerId) {
-            return;
-        }
-        this.presenceHeartbeatPersistedAtByPlayerId.delete(normalizedPlayerId);
+        this.gatewayPresenceHelper.clearHeartbeatPresencePersistThrottle(playerId);
     }
     handleSocketGmGetState(client, _payload) {
         return this.gatewayGmCommandHelper.handleGmGetState(client, _payload);

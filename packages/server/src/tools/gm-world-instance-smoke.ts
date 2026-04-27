@@ -179,6 +179,7 @@ function createService(log = [], overrides = {}) {
     },
     { getSuggestions() { return {}; } },
     { listNodes() { return []; }, isEnabled() { return true; }, getNodeId() { return 'node:test'; } },
+    { ensureInitialized() {}, isEnabled() { return true; }, mergeMapConfig() {}, pruneMapConfigs() {} },
     { listRetryQueue() { return []; } },
     { getOperationReplay() { return {}; } },
     { flushPlayer() {} },
