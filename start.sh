@@ -68,6 +68,13 @@ kill_process_tree_if_running() {
     return 0
   fi
 
+# 记录根进程组，长驻子任务会以独立进程组启动，便于外部终止时兜底清理。
+  local root_pgid=""
+# 记录当前进程组，避免误杀正在执行 cleanup 的 shell。
+  local current_pgid=""
+  root_pgid="$(ps -o pgid= -p "$root_pid" 2>/dev/null | tr -d '[:space:]' || true)"
+  current_pgid="$(ps -o pgid= -p "$$" 2>/dev/null | tr -d '[:space:]' || true)"
+
 # 记录后代pid列表。
   local descendants=()
   mapfile -t descendants < <(collect_descendant_pids "$root_pid")
@@ -77,6 +84,9 @@ kill_process_tree_if_running() {
   for (( index=${#descendants[@]}-1; index>=0; index-=1 )); do
     kill_pid_if_running "${descendants[$index]}"
   done
+  if [[ -n "$root_pgid" && "$root_pgid" != "$current_pgid" ]]; then
+    kill -- "-$root_pgid" 2>/dev/null || true
+  fi
   kill_pid_if_running "$root_pid"
 
   sleep 1
@@ -86,6 +96,9 @@ kill_process_tree_if_running() {
       kill -9 "${descendants[$index]}" 2>/dev/null || true
     fi
   done
+  if [[ -n "$root_pgid" && "$root_pgid" != "$current_pgid" ]]; then
+    kill -9 -- "-$root_pgid" 2>/dev/null || true
+  fi
   if kill -0 "$root_pid" 2>/dev/null; then
     kill -9 "$root_pid" 2>/dev/null || true
   fi
@@ -457,6 +470,38 @@ is_tcp_port_open() {
   ' "$host" "$port" >/dev/null 2>&1
 }
 
+# 等待本地 server 端口可连接，再启动依赖它代理的客户端。
+wait_for_server_port_ready() {
+# 记录主机。
+  local host="${1:-127.0.0.1}"
+# 记录端口。
+  local port="${2:-${SERVER_PORT:-3000}}"
+# 记录超时时间seconds。
+  local timeout_seconds="${3:-${SERVER_STARTUP_TIMEOUT_SECONDS:-120}}"
+# 记录elapsed。
+  local elapsed=0
+
+  echo "==> 等待主线服务端端口 ${host}:${port} 就绪..."
+  while (( elapsed < timeout_seconds )); do
+    if is_tcp_port_open "$host" "$port"; then
+      echo "==> 主线服务端端口已就绪"
+      return 0
+    fi
+
+    if [[ -n "${SERVER_PID:-}" ]] && ! kill -0 "$SERVER_PID" 2>/dev/null; then
+      echo "!! 主线服务端进程在端口就绪前已退出"
+      wait "$SERVER_PID" 2>/dev/null || true
+      return 1
+    fi
+
+    sleep 1
+    elapsed=$((elapsed + 1))
+  done
+
+  echo "!! 等待主线服务端端口 ${host}:${port} 超时"
+  return 1
+}
+
 # 处理trystartexistingcontainer。
 try_start_existing_service_container() {
 # 记录服务名称。
@@ -686,23 +731,24 @@ case "$MODE" in
     ensure_local_infra
     ensure_local_postgres_env_matches
     cleanup_existing_local_dev_processes
+    trap cleanup INT TERM EXIT
 
     echo "==> 启动主线共享包监听构建..."
-    (pnpm --filter @mud/shared build --watch) &
+    setsid bash -c 'exec pnpm --filter @mud/shared build --watch' &
 # 记录共享包watchpid。
     SHARED_WATCH_PID=$!
 
     echo "==> 启动主线服务端热更新模式 (port ${SERVER_PORT})..."
-    (pnpm --filter @mud/server start:dev) &
+    setsid bash -c 'exec pnpm --filter @mud/server start:dev' &
 # 记录服务端pid。
     SERVER_PID=$!
 
+    wait_for_server_port_ready "127.0.0.1" "${SERVER_PORT}" "${SERVER_STARTUP_TIMEOUT_SECONDS:-120}"
+
     echo "==> 启动主线客户端 (port ${CLIENT_PORT}, proxy -> ${VITE_DEV_PROXY_TARGET})..."
-    (cd packages/client && npx vite --host --strictPort --port "${CLIENT_PORT}") &
+    setsid bash -c 'cd packages/client && exec npx vite --host --strictPort --port "$CLIENT_PORT"' &
 # 记录客户端pid。
     CLIENT_PID=$!
-
-    trap cleanup INT TERM EXIT
 
     echo ""
     echo "========================================="

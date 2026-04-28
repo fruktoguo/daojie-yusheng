@@ -12,6 +12,8 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.WorldRuntimeInstanceTickOrchestrationService = void 0;
 
 const common_1 = require("@nestjs/common");
+const shared_1 = require("@mud/shared");
+const world_runtime_qi_projection_helpers_1 = require("./world-runtime-qi-projection.helpers");
 
 /** world-runtime instance tick orchestration：承接实例级 tick 编排外壳。 */
 let WorldRuntimeInstanceTickOrchestrationService = class WorldRuntimeInstanceTickOrchestrationService {
@@ -84,6 +86,11 @@ let WorldRuntimeInstanceTickOrchestrationService = class WorldRuntimeInstanceTic
                 if (typeof deps.worldRuntimeFormationService?.advanceInstanceFormations === 'function') {
                     deps.worldRuntimeFormationService.advanceInstanceFormations(instance, deps.tick, deps);
                 }
+                if (typeof instance.advanceTemporaryTiles === 'function') {
+                    instance.advanceTemporaryTiles(instance.tick, (x, y) => (
+                        deps.worldRuntimeFormationService?.isTerrainStabilized?.(instance.meta.instanceId, x, y) === true
+                    ));
+                }
                 if (typeof instance.advanceTileRecovery === 'function') {
                     instance.advanceTileRecovery((x, y) => (
                         deps.worldRuntimeFormationService?.isTerrainStabilized?.(instance.meta.instanceId, x, y) === true
@@ -98,8 +105,10 @@ let WorldRuntimeInstanceTickOrchestrationService = class WorldRuntimeInstanceTic
                 }
                 const currentPlayerIds = instance.listPlayerIds();
                 if (currentPlayerIds.length > 0) {
+                    const cultivationAuraMultiplierByPlayerId = buildCultivationAuraMultiplierByPlayerId(instance, currentPlayerIds, deps.playerRuntimeService);
                     deps.playerRuntimeService.advanceTickForPlayerIds(currentPlayerIds, instance.tick, {
                         idleCultivationBlockedPlayerIds: blockedPlayerIds,
+                        cultivationAuraMultiplierByPlayerId,
                     });
                     await deps.worldRuntimeCraftTickService.advanceCraftJobs(currentPlayerIds, deps);
                     for (const playerId of currentPlayerIds) {
@@ -139,3 +148,56 @@ exports.WorldRuntimeInstanceTickOrchestrationService = WorldRuntimeInstanceTickO
 ], WorldRuntimeInstanceTickOrchestrationService);
 
 export { WorldRuntimeInstanceTickOrchestrationService };
+
+function buildCultivationAuraMultiplierByPlayerId(instance, playerIds, playerRuntimeService) {
+    const multipliers = new Map();
+    for (const playerId of playerIds) {
+        const player = typeof playerRuntimeService?.getPlayer === 'function'
+            ? playerRuntimeService.getPlayer(playerId)
+            : null;
+        const position = typeof instance.getPlayerPosition === 'function'
+            ? instance.getPlayerPosition(playerId)
+            : null;
+        multipliers.set(playerId, resolveCultivationAuraMultiplier(instance, player, position));
+    }
+    return multipliers;
+}
+
+function resolveCultivationAuraMultiplier(instance, player, position) {
+    if (!position) {
+        return 1;
+    }
+    return 1 + Math.max(0, resolveTileAuraLevel(instance, player, position.x, position.y));
+}
+
+function resolveTileAuraLevel(instance, player, x, y) {
+    const resources = typeof instance.listTileResources === 'function'
+        ? instance.listTileResources(x, y)
+        : null;
+    if (Array.isArray(resources) && resources.length > 0) {
+        let projectedAuraValue = 0;
+        let hasAuraResource = false;
+        for (const resource of resources) {
+            const parsed = (0, shared_1.parseQiResourceKey)(resource.resourceKey);
+            if (parsed?.family !== 'aura') {
+                continue;
+            }
+            hasAuraResource = true;
+            const value = Math.max(0, Math.trunc(Number(resource.value) || 0));
+            projectedAuraValue += player
+                ? (0, world_runtime_qi_projection_helpers_1.projectPlayerQiResourceValue)(player, resource.resourceKey, value)
+                : value;
+        }
+        if (hasAuraResource) {
+            return (0, shared_1.getQiResourceDefaultLevel)('aura.refined.neutral', projectedAuraValue, shared_1.DEFAULT_AURA_LEVEL_BASE_VALUE) ?? 0;
+        }
+    }
+    const rawAura = typeof instance.getTileAura === 'function'
+        ? instance.getTileAura(x, y)
+        : 0;
+    const normalizedAura = Math.max(0, Math.trunc(Number(rawAura) || 0));
+    const effectiveAura = player
+        ? (0, world_runtime_qi_projection_helpers_1.projectPlayerQiResourceValue)(player, 'aura.refined.neutral', normalizedAura)
+        : normalizedAura;
+    return (0, shared_1.getQiResourceDefaultLevel)('aura.refined.neutral', effectiveAura, shared_1.DEFAULT_AURA_LEVEL_BASE_VALUE) ?? 0;
+}

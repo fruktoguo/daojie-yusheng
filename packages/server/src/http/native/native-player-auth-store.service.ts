@@ -280,7 +280,7 @@ const CREATE_PLAYER_AUTH_TABLE_SQL = `
     pending_role_name varchar(120) NOT NULL,
     display_name varchar(32),
     password_hash text NOT NULL,
-    total_online_seconds integer NOT NULL DEFAULT 0,
+    total_online_seconds bigint NOT NULL DEFAULT 0,
     current_online_started_at timestamptz,
     created_at timestamptz NOT NULL,
     updated_at timestamptz NOT NULL DEFAULT now(),
@@ -732,9 +732,7 @@ function normalizePersistedAuthRow(row: PersistedAuthRow | null): NativePlayerAu
     playerId,
     playerName: pendingRoleName,
     passwordHash,
-    totalOnlineSeconds: typeof row.total_online_seconds === 'number' && Number.isFinite(row.total_online_seconds)
-      ? Math.max(0, Math.trunc(row.total_online_seconds))
-      : 0,
+    totalOnlineSeconds: normalizeNonNegativeIntegerLike(row.total_online_seconds, 0),
     currentOnlineStartedAt,
     createdAt,
     updatedAt,
@@ -775,9 +773,7 @@ function normalizeAuthRecord(raw: AuthRecordCandidate | null | undefined, fallba
     playerId,
     playerName: pendingRoleName,
     passwordHash,
-    totalOnlineSeconds: typeof raw.totalOnlineSeconds === 'number' && Number.isFinite(raw.totalOnlineSeconds)
-      ? Math.max(0, Math.trunc(raw.totalOnlineSeconds))
-      : 0,
+    totalOnlineSeconds: normalizeNonNegativeIntegerLike(raw.totalOnlineSeconds, 0),
     currentOnlineStartedAt: normalizeDateTime(raw.currentOnlineStartedAt),
     createdAt,
     updatedAt: typeof raw.updatedAt === 'number' && Number.isFinite(raw.updatedAt)
@@ -855,6 +851,17 @@ function normalizeOptionalDisplayName(value: unknown): string | null {
 
 function normalizeDateTime(value: unknown): string | null {
   return typeof value === 'string' && value.trim() ? value : null;
+}
+
+function normalizeNonNegativeIntegerLike(value: unknown, fallback: number): number {
+  const numeric = typeof value === 'bigint'
+    ? Number(value)
+    : typeof value === 'number'
+      ? value
+      : typeof value === 'string' && value.trim()
+        ? Number(value)
+        : Number.NaN;
+  return Number.isFinite(numeric) ? Math.max(0, Math.trunc(numeric)) : fallback;
 }
 /**
  * buildFallbackPlayerId：构建并返回目标对象。
@@ -971,6 +978,10 @@ async function ensurePlayerAuthTable(pool: Pool): Promise<void> {
   try {
     await client.query('BEGIN');
     await client.query(CREATE_PLAYER_AUTH_TABLE_SQL);
+    await client.query(`
+      ALTER TABLE ${PLAYER_AUTH_TABLE}
+      ALTER COLUMN total_online_seconds TYPE bigint USING total_online_seconds::bigint
+    `);
     await client.query(CREATE_PLAYER_AUTH_ROLE_INDEX_SQL);
     await client.query(CREATE_PLAYER_AUTH_DISPLAY_INDEX_SQL);
     await client.query('COMMIT');

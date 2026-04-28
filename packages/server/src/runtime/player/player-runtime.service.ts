@@ -636,11 +636,13 @@ let PlayerRuntimeService = class PlayerRuntimeService {
  * @returns 无返回值，直接更新advanceCultivation相关状态。
  */
 
-    advanceCultivation(playerId, elapsedTicks = 1, currentTick = 0) {
+    advanceCultivation(playerId, elapsedTicks = 1, currentTick = 0, options = {}) {
 
         const player = this.getPlayerOrThrow(playerId);
 
-        const result = this.playerProgressionService.advanceCultivation(player, elapsedTicks);
+        const result = this.playerProgressionService.advanceCultivation(player, elapsedTicks, {
+            auraMultiplier: normalizeCultivationAuraMultiplier(options?.auraMultiplier),
+        });
         return this.applyProgressionResult(player, result, currentTick);
     }
     /**
@@ -1937,8 +1939,11 @@ let PlayerRuntimeService = class PlayerRuntimeService {
         if (player.combat.lastActiveTick < normalizedTick) {
             player.combat.lastActiveTick = normalizedTick;
         }
-        if (input.interruptCultivation === true) {
+        if (input.interruptCultivation === true && player.combat.cultivationActive) {
             player.combat.cultivationActive = false;
+            this.playerAttributesService.recalculate(player);
+            markPlayerDirtyDomains(player, ['combat_pref', 'attr']);
+            this.bumpPersistentRevision(player);
         }
         return player;
     }
@@ -2206,15 +2211,20 @@ let PlayerRuntimeService = class PlayerRuntimeService {
             player.combat.senseQiActive = input.senseQiActive;
             changed = true;
         }
+        let cultivationActiveChanged = false;
         if (input.cultivationActive !== undefined && player.combat.cultivationActive !== input.cultivationActive) {
             player.combat.cultivationActive = input.cultivationActive;
+            cultivationActiveChanged = true;
             changed = true;
         }
         if (!changed) {
             return player;
         }
+        if (cultivationActiveChanged) {
+            this.playerAttributesService.recalculate(player);
+        }
         this.rebuildActionState(player, currentTick);
-        markPlayerDirtyDomains(player, ['combat_pref']);
+        markPlayerDirtyDomains(player, cultivationActiveChanged ? ['combat_pref', 'attr'] : ['combat_pref']);
         this.bumpPersistentRevision(player);
         return player;
     }
@@ -2576,10 +2586,15 @@ let PlayerRuntimeService = class PlayerRuntimeService {
             }
             if (player.hp > 0 && shouldResumeIdleCultivation(player, currentTick, options.idleCultivationBlockedPlayerIds)) {
                 player.combat.cultivationActive = true;
+                this.playerAttributesService.recalculate(player);
+                markPlayerDirtyDomains(player, ['combat_pref', 'attr']);
+                this.bumpPersistentRevision(player);
             }
             if (player.hp > 0 && player.combat.cultivationActive) {
 
-                const result = this.playerProgressionService.advanceCultivation(player, 1);
+                const result = this.playerProgressionService.advanceCultivation(player, 1, {
+                    auraMultiplier: resolveCultivationAuraMultiplier(player, options),
+                });
                 this.applyProgressionResult(player, result, currentTick);
             }
             if (hasActiveSkillCooldown(player, currentTick)) {
@@ -2647,7 +2662,12 @@ let PlayerRuntimeService = class PlayerRuntimeService {
         player.combat.combatTargetId = null;
         player.combat.combatTargetLocked = false;
         player.combat.manualEngagePending = false;
+        const wasCultivationActive = player.combat.cultivationActive === true;
         player.combat.cultivationActive = false;
+        if (wasCultivationActive) {
+            changed = true;
+            this.playerAttributesService.recalculate(player);
+        }
         player.combat.lastActiveTick = Math.max(player.combat.lastActiveTick, Math.trunc(input.currentTick));
         if (changed) {
             player.selfRevision += 1;
@@ -4635,6 +4655,27 @@ function hasActiveSkillCooldown(player, currentTick) {
         }
     }
     return false;
+}
+
+function resolveCultivationAuraMultiplier(player, options) {
+    const mapped = options?.cultivationAuraMultiplierByPlayerId instanceof Map
+        ? options.cultivationAuraMultiplierByPlayerId.get(player.playerId)
+        : undefined;
+    if (mapped !== undefined) {
+        return normalizeCultivationAuraMultiplier(mapped);
+    }
+    if (typeof options?.resolveCultivationAuraMultiplier === 'function') {
+        return normalizeCultivationAuraMultiplier(options.resolveCultivationAuraMultiplier(player));
+    }
+    return 1;
+}
+
+function normalizeCultivationAuraMultiplier(value) {
+    const normalized = Number(value);
+    if (!Number.isFinite(normalized) || normalized <= 0) {
+        return 1;
+    }
+    return normalized;
 }
 /**
  * shouldResumeIdleCultivation：判断ResumeIdleCultivation是否满足条件。

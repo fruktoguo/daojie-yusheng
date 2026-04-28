@@ -39,7 +39,7 @@ function main() {
   const cutoverPlan = read('docs/next-plan/10-legacy-archive-and-cutover.md');
   const serverReadme = read('packages/server/README.md');
   const serverTesting = read('packages/server/TESTING.md');
-  const serverOps = read('docs/server-operations.md');
+  const replaceRunbook = read('packages/server/REPLACE-RUNBOOK.md');
   const startRoot = read('start.sh');
 
   const rootFiles = listFiles('.');
@@ -183,9 +183,9 @@ function main() {
     'packages/server TESTING 必须继续明确 replace-ready 是主 gate 入口',
   );
   assertIncludes(
-    serverOps,
-    /根级主入口现在是 `verify:replace-ready\*`。/,
-    'server-operations 必须继续明确 replace-ready 是主 gate 入口',
+    replaceRunbook,
+    /根级主入口现在是 `verify:replace-ready\*`/,
+    'REPLACE-RUNBOOK 必须继续明确 replace-ready 是主 gate 入口',
   );
 
   assertIncludes(

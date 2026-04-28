@@ -127,11 +127,180 @@ type SkillManagementSortDirection = 'asc' | 'desc';
 /** 技能管理筛选面板中的开关项。 */
 type SkillManagementFilterToggle = 'melee' | 'ranged' | 'physical' | 'spell' | 'single' | 'aoe';
 /** 宗门管理弹层标签。 */
-type SectManagementTab = 'guardian' | 'members' | 'roles' | 'domain';
+type SectManagementTab = 'overview' | 'members' | 'roles' | 'manage' | 'guardian' | 'domain';
+interface SectManagementMember {
+  playerId: string;
+  name: string;
+  roleId: string;
+  roleLabel: string;
+  self?: boolean;
+  leader?: boolean;
+}
+interface SectManagementRole {
+  id: string;
+  label: string;
+  assignable: boolean;
+}
+interface SectManagementPermission {
+  id: string;
+  label: string;
+}
+interface SectManagementData {
+  selfPlayerId: string;
+  canEditPermissions: boolean;
+  canTransfer: boolean;
+  canDissolve: boolean;
+  canManageGuardian: boolean;
+  canRemoveMembers: boolean;
+  canChangeRoles: boolean;
+  roles: SectManagementRole[];
+  permissions: SectManagementPermission[];
+  rolePermissions: Record<string, Record<string, boolean>>;
+  members: SectManagementMember[];
+}
+interface SectManagementSummary {
+  name: string;
+  mark: string;
+  domainLabel: string;
+  guardianStatusLabel: string;
+  guardianAuraLabel: string;
+  sectIdLabel: string;
+  leaderName: string;
+  realmLabel: string;
+  memberCountLabel: string;
+  notice: string;
+  data: SectManagementData;
+}
 /** 技能预设状态提示的语气。 */
 type SkillPresetStatusTone = 'success' | 'error' | 'info';
 type CombatSettingsTab = 'auto_pills' | 'targeting';
 type AutoUsePillSubview = 'main' | 'picker' | 'conditions';
+
+const SECT_MANAGEMENT_DATA_PATTERN = /\n?@@sect:([^@\n]+)@@/;
+const DEFAULT_SECT_MANAGEMENT_ROLES: SectManagementRole[] = [
+  { id: 'leader', label: '宗主', assignable: false },
+  { id: 'deputy', label: '副宗主', assignable: true },
+  { id: 'elder', label: '长老', assignable: true },
+  { id: 'inner', label: '内门弟子', assignable: true },
+  { id: 'outer', label: '外门弟子', assignable: true },
+  { id: 'labor', label: '杂役', assignable: true },
+  { id: 'supreme_elder', label: '太上长老', assignable: false },
+];
+const DEFAULT_SECT_MANAGEMENT_PERMISSIONS: SectManagementPermission[] = [
+  { id: 'guardian', label: '护宗大阵' },
+  { id: 'member_remove', label: '移除成员' },
+  { id: 'member_role', label: '修改职位' },
+];
+
+function stripSectManagementData(desc: string | undefined): string {
+  return (desc ?? '').replace(SECT_MANAGEMENT_DATA_PATTERN, '').trim();
+}
+
+function parseSectManagementData(desc: string | undefined, player: PlayerState | null): SectManagementData {
+  const fallback = buildFallbackSectManagementData(player);
+  const match = SECT_MANAGEMENT_DATA_PATTERN.exec(desc ?? '');
+  if (!match?.[1]) {
+    return fallback;
+  }
+  try {
+    const parsed = JSON.parse(decodeURIComponent(match[1])) as Partial<SectManagementData>;
+    const roles = Array.isArray(parsed.roles) && parsed.roles.length > 0
+      ? parsed.roles.map(normalizeSectManagementRole)
+      : fallback.roles;
+    const permissions = Array.isArray(parsed.permissions) && parsed.permissions.length > 0
+      ? parsed.permissions.map(normalizeSectManagementPermission)
+      : fallback.permissions;
+    const members = Array.isArray(parsed.members) && parsed.members.length > 0
+      ? parsed.members.map(normalizeSectManagementMember)
+      : fallback.members;
+    return {
+      selfPlayerId: typeof parsed.selfPlayerId === 'string' ? parsed.selfPlayerId : fallback.selfPlayerId,
+      canEditPermissions: parsed.canEditPermissions === true,
+      canTransfer: parsed.canTransfer === true,
+      canDissolve: parsed.canDissolve === true,
+      canManageGuardian: parsed.canManageGuardian === true,
+      canRemoveMembers: parsed.canRemoveMembers === true,
+      canChangeRoles: parsed.canChangeRoles === true,
+      roles,
+      permissions,
+      rolePermissions: normalizeSectManagementRolePermissions(parsed.rolePermissions, roles, permissions),
+      members,
+    };
+  } catch (_error) {
+    return fallback;
+  }
+}
+
+function buildFallbackSectManagementData(player: PlayerState | null): SectManagementData {
+  const playerId = player?.id ?? '';
+  const name = player?.displayName || player?.name || playerId || '当前宗主';
+  const rolePermissions = normalizeSectManagementRolePermissions({}, DEFAULT_SECT_MANAGEMENT_ROLES, DEFAULT_SECT_MANAGEMENT_PERMISSIONS);
+  return {
+    selfPlayerId: playerId,
+    canEditPermissions: true,
+    canTransfer: true,
+    canDissolve: true,
+    canManageGuardian: true,
+    canRemoveMembers: true,
+    canChangeRoles: true,
+    roles: DEFAULT_SECT_MANAGEMENT_ROLES,
+    permissions: DEFAULT_SECT_MANAGEMENT_PERMISSIONS,
+    rolePermissions,
+    members: [{ playerId, name, roleId: 'leader', roleLabel: '宗主', self: true, leader: true }],
+  };
+}
+
+function normalizeSectManagementRole(input: unknown): SectManagementRole {
+  const source = input && typeof input === 'object' ? input as Partial<SectManagementRole> : {};
+  const id = typeof source.id === 'string' && source.id.trim() ? source.id.trim() : 'outer';
+  const fallback = DEFAULT_SECT_MANAGEMENT_ROLES.find((role) => role.id === id);
+  return {
+    id,
+    label: typeof source.label === 'string' && source.label.trim() ? source.label.trim() : fallback?.label ?? id,
+    assignable: source.assignable === true,
+  };
+}
+
+function normalizeSectManagementPermission(input: unknown): SectManagementPermission {
+  const source = input && typeof input === 'object' ? input as Partial<SectManagementPermission> : {};
+  const id = typeof source.id === 'string' && source.id.trim() ? source.id.trim() : 'guardian';
+  const fallback = DEFAULT_SECT_MANAGEMENT_PERMISSIONS.find((permission) => permission.id === id);
+  return {
+    id,
+    label: typeof source.label === 'string' && source.label.trim() ? source.label.trim() : fallback?.label ?? id,
+  };
+}
+
+function normalizeSectManagementMember(input: unknown): SectManagementMember {
+  const source = input && typeof input === 'object' ? input as Partial<SectManagementMember> : {};
+  const playerId = typeof source.playerId === 'string' && source.playerId.trim() ? source.playerId.trim() : '';
+  const roleId = typeof source.roleId === 'string' && source.roleId.trim() ? source.roleId.trim() : 'outer';
+  const role = DEFAULT_SECT_MANAGEMENT_ROLES.find((entry) => entry.id === roleId);
+  return {
+    playerId,
+    name: typeof source.name === 'string' && source.name.trim() ? source.name.trim() : playerId || '未知成员',
+    roleId,
+    roleLabel: typeof source.roleLabel === 'string' && source.roleLabel.trim() ? source.roleLabel.trim() : role?.label ?? roleId,
+    self: source.self === true,
+    leader: source.leader === true,
+  };
+}
+
+function normalizeSectManagementRolePermissions(
+  input: unknown,
+  roles: SectManagementRole[],
+  permissions: SectManagementPermission[],
+): Record<string, Record<string, boolean>> {
+  const source = input && typeof input === 'object' ? input as Record<string, Record<string, boolean>> : {};
+  const next: Record<string, Record<string, boolean>> = {};
+  for (const role of roles) {
+    next[role.id] = {};
+    for (const permission of permissions) {
+      next[role.id][permission.id] = source?.[role.id]?.[permission.id] === true || role.id === 'leader';
+    }
+  }
+  return next;
+}
 
 interface AutoUsePillViewEntry {
   itemId: string;
@@ -411,6 +580,8 @@ export class ActionPanel {
   private combatSettingsActiveTab: CombatSettingsTab = 'auto_pills';
   /** 宗门管理当前标签。 */
   private sectManagementTab: SectManagementTab = 'guardian';
+  /** 宗门管理弹层最近一次外部内容签名。 */
+  private sectManagementExternalRevision = '';
   /** 自动吃药草稿。 */
   private autoUsePillDraft: AutoUsePillConfig[] | null = null;
   /** 目标选择草稿。 */
@@ -1006,7 +1177,7 @@ export class ActionPanel {
     return `<div class="gm-player-row ${state.active ? 'is-active' : ''}" data-action-card="${action.id}" role="button" tabindex="0">
       <div>
         <div class="gm-player-name">${escapeHtml(this.getSwitchCardTitle(action))}</div>
-        <div class="gm-player-meta">${escapeHtml(action.desc)}${this.renderShortcutMeta(action.id)}</div>
+        <div class="gm-player-meta">${escapeHtml(stripSectManagementData(action.desc))}${this.renderShortcutMeta(action.id)}</div>
       </div>
       <div class="action-card-side">
         <div class="gm-player-stat">${state.label}</div>
@@ -1517,7 +1688,7 @@ export class ActionPanel {
             : autoBattleMeta}
           ${this.renderShortcutBadge(action.id)}
         </div>
-        <div class="action-desc">${escapeHtml(action.desc)}</div>
+        <div class="action-desc">${escapeHtml(stripSectManagementData(action.desc))}</div>
         ${affinityChip}
       </div>
       <div class="action-cta ui-action-row ui-action-row--end">
@@ -2790,21 +2961,29 @@ export class ActionPanel {
     if (!detailModalHost.isOpenFor(ActionPanel.SECT_MANAGEMENT_MODAL_OWNER)) {
       return;
     }
-    if (!this.currentActions.some((entry) => entry.id === 'sect:manage')) {
+    const action = this.currentActions.find((entry) => entry.id === 'sect:manage');
+    if (!action) {
       detailModalHost.close(ActionPanel.SECT_MANAGEMENT_MODAL_OWNER);
+      return;
+    }
+    const summary = this.resolveSectManagementSummary(action);
+    const nextRevision = this.buildSectManagementRevision(summary);
+    if (this.sectManagementExternalRevision === nextRevision) {
       return;
     }
     this.renderSectManagementModal();
   }
 
   private openSectManagementModal(): void {
-    this.sectManagementTab = 'guardian';
+    this.sectManagementTab = 'overview';
+    this.sectManagementExternalRevision = '';
     this.renderSectManagementModal();
   }
 
   private renderSectManagementModal(): void {
     const action = this.currentActions.find((entry) => entry.id === 'sect:manage');
     const summary = this.resolveSectManagementSummary(action);
+    this.sectManagementExternalRevision = this.buildSectManagementRevision(summary);
     detailModalHost.open({
       ownerId: ActionPanel.SECT_MANAGEMENT_MODAL_OWNER,
       variantClass: 'detail-modal--sect-management',
@@ -2812,22 +2991,29 @@ export class ActionPanel {
       subtitle: `${summary.name} · 印记 ${summary.mark}`,
       renderBody: (body) => {
         body.replaceChildren(createFragmentFromHtml(`
-          <div class="skill-manage-shell ui-card-list">
-            <div class="skill-manage-topbar">
-              <div class="action-skill-subtabs skill-manage-subtabs">
-                ${this.renderSectManagementTabButton('guardian', '宗门大阵')}
+          <div class="sect-manage-shell">
+            <aside class="sect-manage-sidebar" aria-label="宗门管理页签">
+              <div class="sect-manage-sidebar-title">管理</div>
+              <div class="action-skill-subtabs sect-manage-subtabs" role="tablist" aria-label="宗门管理">
+                ${this.renderSectManagementTabButton('overview', '基础信息')}
                 ${this.renderSectManagementTabButton('members', '宗门成员')}
                 ${this.renderSectManagementTabButton('roles', '宗门职位')}
+                ${this.renderSectManagementTabButton('manage', '管理事务')}
+                ${this.renderSectManagementTabButton('guardian', '宗门大阵')}
                 ${this.renderSectManagementTabButton('domain', '宗门地脉')}
               </div>
-            </div>
-            <div class="skill-manage-summary">
-              <span>${escapeHtml(summary.name)}</span>
-              <span>印记 ${escapeHtml(summary.mark)}</span>
-              <span>地域 ${escapeHtml(summary.domainLabel)}</span>
-              <span>${escapeHtml(summary.sectIdLabel)}</span>
-            </div>
-            ${this.renderSectManagementTabPanel(summary)}
+            </aside>
+            <main class="sect-manage-main">
+              <div class="skill-manage-summary sect-manage-summary">
+                <span>${escapeHtml(summary.name)}</span>
+                <span>印记 ${escapeHtml(summary.mark)}</span>
+                <span>地域 ${escapeHtml(summary.domainLabel)}</span>
+                <span>${escapeHtml(summary.sectIdLabel)}</span>
+              </div>
+              <div class="sect-manage-content">
+                ${this.renderSectManagementTabPanel(summary)}
+              </div>
+            </main>
           </div>
         `));
       },
@@ -2844,49 +3030,71 @@ export class ActionPanel {
           button.addEventListener('click', () => {
             const actionId = button.dataset.sectAction;
             if (!actionId) return;
+            if (actionId === 'sect:dissolve' && !window.confirm('确认解散宗门？该操作会移除所有成员关系。')) return;
             this.onAction?.(actionId, false, undefined, undefined, button.textContent?.trim() || actionId);
           });
         });
+        body.querySelectorAll<HTMLSelectElement>('[data-sect-member-role-select]').forEach((select) => {
+          select.addEventListener('change', () => {
+            const playerId = select.dataset.sectMemberRoleSelect;
+            const roleId = select.value;
+            if (!playerId || !roleId) return;
+            this.onAction?.(`sect:member:role:${encodeURIComponent(playerId)}:${roleId}`, false, undefined, undefined, '修改职位');
+          });
+        });
+        body.querySelector<HTMLElement>('[data-sect-guardian-inject]')?.addEventListener('click', () => {
+          const stones = this.readSectGuardianInjectValue(body);
+          this.onAction?.(`sect:guardian:inject:${stones}`, false, undefined, undefined, '注入灵力');
+        });
+        const syncGuardianInjectPreview = () => this.syncSectGuardianInjectPreview(body);
+        body.querySelector<HTMLInputElement>('[data-sect-guardian-inject-input="stones"]')?.addEventListener('input', syncGuardianInjectPreview);
+        syncGuardianInjectPreview();
       },
     });
   }
 
   private renderSectManagementTabButton(tab: SectManagementTab, label: string): string {
-    return `<button class="action-skill-subtab-btn ${this.sectManagementTab === tab ? 'active' : ''}" data-sect-manage-tab="${tab}" type="button">${label}</button>`;
+    const active = this.sectManagementTab === tab;
+    return `<button class="action-skill-subtab-btn sect-manage-tab-btn ${active ? 'active' : ''}" data-sect-manage-tab="${tab}" type="button" role="tab" aria-selected="${active ? 'true' : 'false'}">${label}</button>`;
   }
 
-  private renderSectManagementTabPanel(summary: { name: string; mark: string; domainLabel: string; sectIdLabel: string }): string {
+  private renderSectManagementTabPanel(summary: SectManagementSummary): string {
     switch (this.sectManagementTab) {
+      case 'overview':
+        return this.renderSectManagementOverviewPanel(summary);
+      case 'members':
+        return this.renderSectManagementMembersPanel(summary);
+      case 'roles':
+        return this.renderSectManagementRolesPanel(summary);
+      case 'manage':
+        return this.renderSectManagementManagePanel(summary);
       case 'guardian':
         return `
           <div class="panel-section">
             <div class="panel-section-head">
               <div class="panel-section-title">护宗大阵</div>
               <div class="action-section-actions">
-                <button class="small-btn" data-sect-action="sect:guardian:toggle" type="button">启闭大阵</button>
-                <button class="small-btn ghost" data-sect-action="sect:guardian:refill" type="button">注入阵元</button>
+                <button class="small-btn" data-sect-action="sect:guardian:toggle" type="button"${summary.data.canManageGuardian ? '' : ' disabled'}>启闭大阵</button>
               </div>
             </div>
-            <div class="action-section-hint">护宗大阵守在主世界山门边界，本宗门成员可通行，外人按大阵边界处理。</div>
-          </div>`;
-      case 'members':
-        return `
-          <div class="panel-section">
-            <div class="panel-section-title">宗门成员</div>
-            <div class="intel-grid compact">
-              <div class="gm-player-row"><div><div class="gm-player-name">宗主</div><div class="gm-player-meta">当前创建者拥有全部管理权限，可维护大阵与地脉。</div></div><div class="gm-player-stat">1 人</div></div>
-              <div class="gm-player-row"><div><div class="gm-player-name">成员名册</div><div class="gm-player-meta">记录宗门身份、职位、加入状态和后续审计入口。</div></div><div class="gm-player-stat">名册</div></div>
+            <div class="skill-manage-summary">
+              <span>状态 ${escapeHtml(summary.guardianStatusLabel)}</span>
+              <span>当前灵力 ${escapeHtml(summary.guardianAuraLabel)}</span>
+              <span>阵眼位于宗门核心</span>
+              <span>投影守护主世界山门</span>
             </div>
-          </div>`;
-      case 'roles':
-        return `
-          <div class="panel-section">
-            <div class="panel-section-title">宗门职位</div>
-            <div class="intel-grid compact">
-              <div class="gm-player-row"><div><div class="gm-player-name">宗主</div><div class="gm-player-meta">可管理护宗大阵与宗门地脉。</div></div><div class="gm-player-stat">最高权限</div></div>
-              <div class="gm-player-row"><div><div class="gm-player-name">长老</div><div class="gm-player-meta">用于承接大阵维护、成员审核等宗门管理权限。</div></div><div class="gm-player-stat">管理位</div></div>
-              <div class="gm-player-row"><div><div class="gm-player-name">门人</div><div class="gm-player-meta">默认宗门成员职位，拥有通行与查看宗门信息权限。</div></div><div class="gm-player-stat">基础位</div></div>
+            <div class="formation-config-grid">
+              <label class="formation-config-field ui-detail-field">
+                <strong>灵石注入</strong>
+                <input class="ui-input formation-config-input" data-sect-guardian-inject-input="stones" type="number" min="0" step="1" value="1000">
+              </label>
+              <div class="formation-cost-card ui-detail-field" data-sect-guardian-inject-cost>
+                <strong>灵力消耗</strong>
+                <output data-sect-guardian-inject-qi-cost>100,000</output>
+              </div>
+              <button class="small-btn" data-sect-guardian-inject data-sect-guardian-allowed="${summary.data.canManageGuardian ? '1' : '0'}" type="button"${summary.data.canManageGuardian ? '' : ' disabled'}>注入灵力</button>
             </div>
+            <div class="action-section-hint">持续性阵法不通过地图阵眼上的两个快捷按钮维护；注入时按灵石数量自动计算灵力消耗和阵法灵力补充，阵眼受损后大阵会停摆但不会从宗门真源中消失。</div>
           </div>`;
       case 'domain':
       default:
@@ -2905,13 +3113,237 @@ export class ActionPanel {
     }
   }
 
-  private resolveSectManagementSummary(action?: ActionDef): { name: string; mark: string; domainLabel: string; sectIdLabel: string } {
-    const desc = action?.desc ?? '';
+  private readSectGuardianInjectValue(root: HTMLElement): number {
+    const input = root.querySelector<HTMLInputElement>('[data-sect-guardian-inject-input="stones"]');
+    const value = Math.trunc(Number(input?.value ?? 0));
+    return Number.isFinite(value) ? Math.max(0, value) : 0;
+  }
+
+  private syncSectGuardianInjectPreview(root: HTMLElement): void {
+    const stones = this.readSectGuardianInjectValue(root);
+    const qiCost = stones * 100;
+    const output = root.querySelector<HTMLOutputElement>('[data-sect-guardian-inject-qi-cost]');
+    if (output) {
+      output.value = formatDisplayNumber(qiCost);
+      output.textContent = formatDisplayNumber(qiCost);
+    }
+    const button = root.querySelector<HTMLButtonElement>('[data-sect-guardian-inject]');
+    if (button) {
+      const allowed = button.dataset.sectGuardianAllowed !== '0';
+      button.disabled = stones <= 0 || !allowed;
+      button.textContent = allowed ? (stones > 0 ? '注入灵力' : '输入灵石') : '无权限';
+    }
+  }
+
+  private renderSectManagementOverviewPanel(summary: SectManagementSummary): string {
+    return `
+      <div class="sect-detail-pane">
+        <div class="sect-detail-card sect-detail-card--hero">
+          <div class="sect-detail-card-main">
+            <div class="sect-detail-name">${escapeHtml(summary.name)}</div>
+            <div class="sect-detail-tag-row">
+              <span class="sect-detail-tag">Lv.1</span>
+              <span class="sect-detail-tag">宗主 ${escapeHtml(summary.leaderName)}</span>
+              <span class="sect-detail-tag">成员 ${escapeHtml(summary.memberCountLabel)}</span>
+              <span class="sect-detail-tag">印记 ${escapeHtml(summary.mark)}</span>
+            </div>
+            <div class="sect-detail-notice">${escapeHtml(summary.notice)}</div>
+          </div>
+          <div class="sect-detail-card-actions">
+            <button class="small-btn ghost" data-sect-manage-tab="manage" type="button">管理事务</button>
+          </div>
+        </div>
+        <div class="sect-detail-stat-grid">
+          ${this.renderSectStatCard('宗门印记', summary.mark)}
+          ${this.renderSectStatCard('显化地域', summary.domainLabel)}
+          ${this.renderSectStatCard('宗门成员', summary.memberCountLabel)}
+          ${this.renderSectStatCard('宗主', summary.leaderName)}
+        </div>
+        <div class="sect-detail-action-grid">
+          <button class="sect-detail-action-card" data-sect-manage-tab="members" type="button">
+            <span class="sect-detail-action-title">成员名册</span>
+          </button>
+          <button class="sect-detail-action-card" data-sect-manage-tab="roles" type="button">
+            <span class="sect-detail-action-title">职位权限</span>
+          </button>
+          <button class="sect-detail-action-card" data-sect-manage-tab="guardian" type="button">
+            <span class="sect-detail-action-title">护宗大阵</span>
+          </button>
+          <button class="sect-detail-action-card" data-sect-manage-tab="domain" type="button">
+            <span class="sect-detail-action-title">宗门地脉</span>
+          </button>
+        </div>
+      </div>
+    `;
+  }
+
+  private renderSectManagementMembersPanel(summary: SectManagementSummary): string {
+    const assignableRoles = summary.data.roles.filter((role) => role.assignable);
+    const rows = summary.data.members.map((member) => this.renderSectMemberRow(summary, member, assignableRoles)).join('');
+    return `
+      <div class="sect-detail-pane">
+        <div class="sect-pane-head">
+          <div>
+            <div class="panel-section-title">宗门成员</div>
+          </div>
+          <div class="sect-detail-count">${escapeHtml(summary.memberCountLabel)}</div>
+        </div>
+        <div class="sect-member-table">
+          <div class="sect-member-table-head">
+            <span>成员</span>
+            <span>职位</span>
+            <span>境界</span>
+            <span>贡献</span>
+            <span>周贡献</span>
+            <span>状态</span>
+          </div>
+          ${rows}
+        </div>
+        ${summary.data.members.length <= 1 ? '<div class="sect-empty-note">暂无更多成员。</div>' : ''}
+      </div>
+    `;
+  }
+
+  private renderSectManagementRolesPanel(summary: SectManagementSummary): string {
+    const cards = summary.data.roles.map((role) => this.renderSectRolePermissionCard(summary, role)).join('');
+    return `
+      <div class="sect-detail-pane">
+        <div class="sect-pane-head">
+          <div>
+            <div class="panel-section-title">宗门职位</div>
+          </div>
+        </div>
+        <div class="sect-role-grid">
+          ${cards}
+        </div>
+        <div class="sect-current-role">只有宗主可以编辑职位权限；太上长老暂时无法任命。</div>
+      </div>
+    `;
+  }
+
+  private renderSectManagementManagePanel(summary: SectManagementSummary): string {
+    const transferTargets = summary.data.members.filter((member) => !member.self && !member.leader);
+    const transferButtons = transferTargets.length > 0
+      ? transferTargets.map((member) => `<button class="small-btn ghost" data-sect-action="sect:transfer:${escapeHtml(encodeURIComponent(member.playerId))}" type="button"${summary.data.canTransfer ? '' : ' disabled'}>转让给 ${escapeHtml(member.name)}</button>`).join('')
+      : '<div class="sect-empty-note">暂无可转让成员。</div>';
+    return `
+      <div class="sect-detail-pane">
+        <div class="sect-pane-head">
+          <div>
+            <div class="panel-section-title">管理事务</div>
+          </div>
+        </div>
+        <div class="sect-manage-card-grid">
+          <div class="sect-manage-card">
+            <div class="sect-manage-card-title">护宗大阵</div>
+            <button class="small-btn" data-sect-manage-tab="guardian" type="button">前往大阵</button>
+          </div>
+          <div class="sect-manage-card">
+            <div class="sect-manage-card-title">宗门地脉</div>
+            <button class="small-btn ghost" data-sect-manage-tab="domain" type="button">查看地脉</button>
+          </div>
+          <div class="sect-manage-card">
+            <div class="sect-manage-card-title">宗门转让</div>
+            <div class="action-section-actions">${transferButtons}</div>
+          </div>
+          <div class="sect-manage-card">
+            <div class="sect-manage-card-title">宗门解散</div>
+            <button class="small-btn ghost" data-sect-action="sect:dissolve" type="button"${summary.data.canDissolve ? '' : ' disabled'}>解散宗门</button>
+          </div>
+        </div>
+      </div>
+    `;
+  }
+
+  private renderSectMemberRow(summary: SectManagementSummary, member: SectManagementMember, assignableRoles: SectManagementRole[]): string {
+    const canEditRole = summary.data.canChangeRoles && !member.leader;
+    const roleControl = canEditRole
+      ? `<select class="ui-input formation-config-input" data-sect-member-role-select="${escapeHtml(member.playerId)}">
+          ${assignableRoles.map((role) => `<option value="${escapeHtml(role.id)}"${role.id === member.roleId ? ' selected' : ''}>${escapeHtml(role.label)}</option>`).join('')}
+        </select>`
+      : `<span class="sect-detail-tag ${member.leader ? 'strong' : ''}">${escapeHtml(member.roleLabel)}</span>`;
+    const canRemove = summary.data.canRemoveMembers && !member.leader && !member.self;
+    return `
+      <div class="sect-member-table-row">
+        <span class="sect-member-name-cell">
+          <span class="sect-member-name-main">${escapeHtml(member.name)}</span>
+          <span class="sect-member-name-sub">${member.self ? '当前角色' : escapeHtml(member.playerId)}</span>
+        </span>
+        <span>${roleControl}</span>
+        <span>${member.self ? escapeHtml(summary.realmLabel) : '未知'}</span>
+        <span>0</span>
+        <span>0</span>
+        <span>
+          ${member.self ? '<span class="sect-online-text">在线</span>' : '<span class="sect-detail-tag">名册</span>'}
+          <button class="small-btn ghost" data-sect-action="sect:member:remove:${escapeHtml(encodeURIComponent(member.playerId))}" type="button"${canRemove ? '' : ' disabled'}>移除</button>
+        </span>
+      </div>
+    `;
+  }
+
+  private renderSectRolePermissionCard(summary: SectManagementSummary, role: SectManagementRole): string {
+    const permissions = summary.data.permissions.map((permission) => {
+      const checked = summary.data.rolePermissions[role.id]?.[permission.id] === true;
+      const disabled = !summary.data.canEditPermissions || role.id === 'leader';
+      return `
+        <button class="skill-manage-toggle-chip ${checked ? 'active' : ''}" data-sect-action="sect:permission:toggle:${escapeHtml(role.id)}:${escapeHtml(permission.id)}" type="button"${disabled ? ' disabled' : ''}>
+          ${escapeHtml(permission.label)}
+        </button>
+      `;
+    }).join('');
+    return `
+      <div class="sect-role-card ${role.assignable ? '' : 'is-muted'}">
+        <div class="sect-role-card-head">
+          <div class="sect-role-card-title">${escapeHtml(role.label)}</div>
+          <span class="sect-detail-tag ${role.assignable ? 'strong' : ''}">${role.assignable ? '可任命' : '不可任命'}</span>
+        </div>
+        <div class="sect-role-permissions">${permissions}</div>
+      </div>
+    `;
+  }
+
+  private renderSectStatCard(label: string, value: string): string {
+    return `
+      <div class="sect-stat-card">
+        <div class="sect-stat-card-label">${escapeHtml(label)}</div>
+        <div class="sect-stat-card-value">${escapeHtml(value)}</div>
+      </div>
+    `;
+  }
+
+  private renderSectRoleCard(title: string, badge: string, permissions: string[], disabled: boolean): string {
+    return `
+      <div class="sect-role-card ${disabled ? 'is-muted' : ''}">
+        <div class="sect-role-card-head">
+          <div class="sect-role-card-title">${escapeHtml(title)}</div>
+          <span class="sect-detail-tag ${disabled ? '' : 'strong'}">${escapeHtml(badge)}</span>
+        </div>
+        <div class="sect-role-permissions">
+          ${permissions.map((item) => `<span>${escapeHtml(item)}</span>`).join('')}
+        </div>
+      </div>
+    `;
+  }
+
+  private resolveSectManagementSummary(action?: ActionDef): SectManagementSummary {
+    const rawDesc = action?.desc ?? '';
+    const data = parseSectManagementData(rawDesc, this.previewPlayer ?? null);
+    const desc = stripSectManagementData(rawDesc);
     const name = desc.split('·')[0]?.trim() || action?.name || '本宗';
     const mark = /印记\s*([^·\s]+)/.exec(desc)?.[1] ?? '宗';
     const domainLabel = /地域\s*([^·\s。]+)/.exec(desc)?.[1] ?? '未知';
+    const guardianStatusLabel = /大阵\s*([^·\s。]+)/.exec(desc)?.[1] ?? '未知';
+    const guardianAuraLabel = /灵力\s*([^·\s。]+)/.exec(desc)?.[1] ?? '0';
     const sectIdLabel = this.previewPlayer?.sectId ? `宗门 ${this.previewPlayer.sectId}` : '宗门已绑定';
-    return { name, mark, domainLabel, sectIdLabel };
+    const leaderName = data.members.find((member) => member.leader)?.name || this.previewPlayer?.displayName || this.previewPlayer?.name || this.previewPlayer?.id || '当前宗主';
+    const realmLabel = this.previewPlayer?.realm?.displayName || this.previewPlayer?.realmName || this.previewPlayer?.realm?.name || '未知境界';
+    const memberCountLabel = String(data.members.length || 1);
+    const notice = `${name} 已开宗立派。`;
+    return { name, mark, domainLabel, guardianStatusLabel, guardianAuraLabel, sectIdLabel, leaderName, realmLabel, memberCountLabel, notice, data };
+  }
+
+  private buildSectManagementRevision(summary: SectManagementSummary): string {
+    return `${this.sectManagementTab}|${summary.name}|${summary.mark}|${summary.domainLabel}|${summary.guardianStatusLabel}|${summary.guardianAuraLabel}|${summary.sectIdLabel}|${summary.leaderName}|${summary.realmLabel}|${summary.memberCountLabel}|${JSON.stringify(summary.data)}`;
   }
 
   /** 仅在索敌方案弹层已打开且内容变化时重绘。 */
@@ -4233,7 +4665,7 @@ export class ActionPanel {
     for (const action of this.getSkillActions(this.currentActions)) {
       parts.push(action.id);
       parts.push(action.name);
-      parts.push(action.desc);
+      parts.push(stripSectManagementData(action.desc));
       parts.push(typeof action.range === 'number' ? String(action.range) : '');
       parts.push(action.autoBattleEnabled !== false ? '1' : '0');
       parts.push(action.skillEnabled !== false ? '1' : '0');
@@ -4971,7 +5403,7 @@ export class ActionPanel {
           <span class="action-type ${skillEnabled ? 'auto-battle-enabled' : 'auto-battle-disabled'}">${skillEnabled ? '技能已启用' : '技能已禁用'}</span>
           ${autoBattleOrder ? `<span class="action-type">顺位 ${autoBattleOrder}</span>` : ''}
         </div>
-        <div class="action-desc">${escapeHtml(action.desc)}</div>
+        <div class="action-desc">${escapeHtml(stripSectManagementData(action.desc))}</div>
         ${affinityChip}
       </div>
       <div class="action-cta">

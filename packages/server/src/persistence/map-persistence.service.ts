@@ -184,6 +184,11 @@ function normalizeMapSnapshot(raw) {
                 .map((entry) => normalizeTileDamageEntry(entry))
                 .filter((entry) => Boolean(entry))
             : [],
+        temporaryTileEntries: Array.isArray(snapshot.temporaryTileEntries)
+            ? snapshot.temporaryTileEntries
+                .map((entry) => normalizeTemporaryTileEntry(entry))
+                .filter((entry) => Boolean(entry))
+            : [],
         groundPileEntries: Array.isArray(snapshot.groundPileEntries)
             ? snapshot.groundPileEntries
                 .filter((entry) => Boolean(entry)
@@ -281,6 +286,32 @@ function normalizeTileDamageEntry(raw) {
         maxHp,
         destroyed,
         respawnLeft: destroyed ? Math.max(0, Math.trunc(Number(raw.respawnLeft) || 0)) : 0,
+        modifiedAt: Number.isFinite(Number(raw.modifiedAt)) ? Math.max(0, Math.trunc(Number(raw.modifiedAt))) : 0,
+    };
+}
+/** normalizeTemporaryTileEntry：规范化技能生成临时地块持久化条目。 */
+function normalizeTemporaryTileEntry(raw) {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
+    if (!raw || typeof raw !== 'object' || !Number.isFinite(Number(raw.tileIndex))) {
+        return null;
+    }
+    const tileIndex = Math.trunc(Number(raw.tileIndex));
+    if (tileIndex < 0) {
+        return null;
+    }
+    const tileType = typeof raw.tileType === 'string' && raw.tileType.trim().length > 0 ? raw.tileType.trim() : 'stone';
+    return {
+        tileIndex,
+        x: Number.isFinite(Number(raw.x)) ? Math.trunc(Number(raw.x)) : null,
+        y: Number.isFinite(Number(raw.y)) ? Math.trunc(Number(raw.y)) : null,
+        tileType,
+        hp: Math.max(1, Math.trunc(Number(raw.hp) || 1)),
+        maxHp: Math.max(1, Math.trunc(Number(raw.maxHp) || 1)),
+        expiresAtTick: Math.max(1, Math.trunc(Number(raw.expiresAtTick) || 1)),
+        ownerPlayerId: typeof raw.ownerPlayerId === 'string' && raw.ownerPlayerId.trim() ? raw.ownerPlayerId.trim() : null,
+        sourceSkillId: typeof raw.sourceSkillId === 'string' && raw.sourceSkillId.trim() ? raw.sourceSkillId.trim() : null,
+        createdAt: Number.isFinite(Number(raw.createdAt)) ? Math.max(0, Math.trunc(Number(raw.createdAt))) : 0,
         modifiedAt: Number.isFinite(Number(raw.modifiedAt)) ? Math.max(0, Math.trunc(Number(raw.modifiedAt))) : 0,
     };
 }

@@ -24,7 +24,6 @@ function main() {
   const rootPackage = JSON.parse(read('package.json'));
   const plan10 = read('docs/next-plan/10-legacy-archive-and-cutover.md');
   const mainPlan = read('docs/next-plan/main.md');
-  const ops = read('docs/server-operations.md');
   const runbook = read('packages/server/REPLACE-RUNBOOK.md');
   const checklist = read('docs/next-plan/10-cutover-execution-checklist.md');
   const logTemplate = read('docs/next-plan/10-cutover-execution-log-template.md');
@@ -134,24 +133,24 @@ function main() {
   );
 
   assertIncludes(
-    ops,
-    /\[10-cutover-execution-checklist\.md\]\(\.\/next-plan\/10-cutover-execution-checklist\.md\)/,
-    'server-operations 必须继续引用切换执行清单',
+    runbook,
+    /\[docs\/next-plan\/10-cutover-execution-checklist\.md\]\(\.\.\/\.\.\/docs\/next-plan\/10-cutover-execution-checklist\.md\)/,
+    'REPLACE-RUNBOOK 必须继续引用切换执行清单',
   );
   assertIncludes(
-    ops,
+    runbook,
     /cutover-auto-preflight\.sh[\s\S]*cutover-auto-postcheck\.sh[\s\S]*cutover-auto-all\.sh/,
-    'server-operations 必须继续引用 cutover-auto 脚本',
+    'REPLACE-RUNBOOK 必须继续引用 cutover-auto 脚本',
   );
   assertIncludes(
-    ops,
-    /\[10-cutover-execution-log-template\.md\]\(\.\/next-plan\/10-cutover-execution-log-template\.md\)/,
-    'server-operations 必须继续引用切换执行记录模板',
+    runbook,
+    /\[docs\/next-plan\/10-cutover-execution-log-template\.md\]\(\.\.\/\.\.\/docs\/next-plan\/10-cutover-execution-log-template\.md\)/,
+    'REPLACE-RUNBOOK 必须继续引用切换执行记录模板',
   );
   assertIncludes(
-    ops,
-    /\[10-cutover-step-by-step-runbook\.md\]\(\.\/next-plan\/10-cutover-step-by-step-runbook\.md\)/,
-    'server-operations 必须继续引用逐步执行手册',
+    runbook,
+    /\[docs\/next-plan\/10-cutover-step-by-step-runbook\.md\]\(\.\.\/\.\.\/docs\/next-plan\/10-cutover-step-by-step-runbook\.md\)/,
+    'REPLACE-RUNBOOK 必须继续引用逐步执行手册',
   );
   assertIncludes(
     runbook,

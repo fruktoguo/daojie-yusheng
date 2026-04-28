@@ -336,6 +336,8 @@ let CraftPanelRuntimeService = class CraftPanelRuntimeService {
             successRate,
             jobVersion: 1,
             exactRecipe,
+            outputLevel: recipe.outputLevel,
+            baseBrewTicks: recipe.baseBrewTicks,
             startedAt: Date.now(),
             queuedJobs,
         };
@@ -618,7 +620,8 @@ let CraftPanelRuntimeService = class CraftPanelRuntimeService {
                 groundDrops.push(outputItem);
             }
         }
-        const skillChanged = applyCraftSkillExp(player.alchemySkill, Math.max(1, successCount + Math.ceil((failureCount + 1) / 2)));
+        const skillGain = resolveAlchemySkillExpGain(this.alchemyCatalog, job, player.alchemySkill, successCount, failureCount);
+        const skillChanged = applyCraftSkillExp(player.alchemySkill, skillGain);
         this.finalizeMutation(player, {
             inventoryChanged,
             attrChanged: skillChanged,
@@ -637,7 +640,7 @@ let CraftPanelRuntimeService = class CraftPanelRuntimeService {
             return buildCraftTickResult(true, [{
                     kind: 'quest',
                     text: `${this.contentTemplateRepository.getItemName(job.outputItemId) ?? job.outputItemId} 炼制完成，成丹 ${job.successCount} 枚。`,
-                }, ...nextMessages], inventoryChanged || Boolean(nextStartResult.inventoryChanged), Boolean(nextStartResult.equipmentChanged), skillChanged || Boolean(nextStartResult.attrChanged), [...groundDrops, ...(nextStartResult.groundDrops ?? [])]);
+                }, ...nextMessages], inventoryChanged || Boolean(nextStartResult.inventoryChanged), Boolean(nextStartResult.equipmentChanged), skillChanged || Boolean(nextStartResult.attrChanged), [...groundDrops, ...(nextStartResult.groundDrops ?? [])], skillGain / 2);
         }
         job.currentBatchRemainingTicks = job.batchBrewTicks;
         return buildCraftTickResult(true, [{
@@ -645,7 +648,7 @@ let CraftPanelRuntimeService = class CraftPanelRuntimeService {
                 text: successCount > 0
                     ? `第 ${job.completedCount} 炉成丹 ${successCount} 枚。`
                     : `第 ${job.completedCount} 炉未能成丹。`,
-            }], inventoryChanged, false, skillChanged, groundDrops);
+            }], inventoryChanged, false, skillChanged, groundDrops, skillGain / 2);
     }    
     /**
  * startEnhancement：执行开始强化相关逻辑。
@@ -902,7 +905,8 @@ let CraftPanelRuntimeService = class CraftPanelRuntimeService {
                 ? Math.max(0, job.currentLevel - 1)
                 : 0;
         this.touchEnhancementLevelRecord(player, job.targetItemId, job.targetLevel, success, resultingLevel);
-        const skillChanged = applyCraftSkillExp(player.enhancementSkill, success ? Math.max(2, job.targetLevel) : 1);
+        const skillGain = resolveEnhancementSkillExpGain(player.enhancementSkill, job.targetItemLevel, success);
+        const skillChanged = applyCraftSkillExp(player.enhancementSkill, skillGain);
         player.enhancementSkillLevel = player.enhancementSkill.level;
         if (skillChanged) {
             this.finalizeMutation(player, {
@@ -915,9 +919,9 @@ let CraftPanelRuntimeService = class CraftPanelRuntimeService {
             const continueResult = this.advanceEnhancementJob(player, resultingLevel);
             if (continueResult) {
                 if (continueResult.continued) {
-                    return buildCraftTickResult(true, continueResult.messages, continueResult.inventoryChanged, continueResult.equipmentChanged, skillChanged || continueResult.attrChanged, continueResult.groundDrops);
+                    return buildCraftTickResult(true, continueResult.messages, continueResult.inventoryChanged, continueResult.equipmentChanged, skillChanged || continueResult.attrChanged, continueResult.groundDrops, skillGain / 2);
                 }
-                return buildCraftTickResult(true, continueResult.messages, continueResult.inventoryChanged, continueResult.equipmentChanged, skillChanged || continueResult.attrChanged, continueResult.groundDrops);
+                return buildCraftTickResult(true, continueResult.messages, continueResult.inventoryChanged, continueResult.equipmentChanged, skillChanged || continueResult.attrChanged, continueResult.groundDrops, skillGain / 2);
             }
         }
         const queuedJobs = cloneCraftQueue(job.queuedJobs);
@@ -930,7 +934,7 @@ let CraftPanelRuntimeService = class CraftPanelRuntimeService {
                     : protectionActiveForStep
                         ? `${job.targetItemName} 强化失败，保护生效，降为 +${resultingLevel}。`
                         : `${job.targetItemName} 强化失败，已归零为 +0。`,
-            }, ...(nextStartResult.messages ?? [])], finishResult.inventoryChanged || Boolean(nextStartResult.inventoryChanged), finishResult.equipmentChanged || Boolean(nextStartResult.equipmentChanged), finishResult.attrChanged || skillChanged || Boolean(nextStartResult.attrChanged), [...(finishResult.groundDrops ?? []), ...(nextStartResult.groundDrops ?? [])]);
+            }, ...(nextStartResult.messages ?? [])], finishResult.inventoryChanged || Boolean(nextStartResult.inventoryChanged), finishResult.equipmentChanged || Boolean(nextStartResult.equipmentChanged), finishResult.attrChanged || skillChanged || Boolean(nextStartResult.attrChanged), [...(finishResult.groundDrops ?? []), ...(nextStartResult.groundDrops ?? [])], skillGain / 2);
     }    
     /** 从等待队列取下一项制造任务并启动。 */
     startNextQueuedCraftJob(player, queuedJobs) {
@@ -2543,6 +2547,46 @@ function applyCraftSkillExp(skill, amount) {
     }
     return changed || amount > 0;
 }
+
+function getCraftSkillExpToNextByLevel(level) {
+    const normalizedLevel = Math.max(1, Math.floor(Number(level) || 1));
+    return Math.max(DEFAULT_CRAFT_EXP_TO_NEXT, DEFAULT_CRAFT_EXP_TO_NEXT + ((normalizedLevel - 1) * 12));
+}
+
+function resolveAlchemySkillExpGain(alchemyCatalog, job, skill, successCount, failureCount) {
+    if (!skill || (skill.expToNext ?? 0) <= 0) {
+        return 0;
+    }
+    const recipe = Array.isArray(alchemyCatalog)
+        ? alchemyCatalog.find((entry) => entry.recipeId === job.recipeId)
+        : null;
+    const gainResult = (0, shared_1.computeCraftSkillExpGain)({
+        skillLevel: skill.level,
+        targetLevel: recipe?.outputLevel ?? job.outputLevel ?? 1,
+        baseActionTicks: recipe?.baseBrewTicks ?? job.baseBrewTicks ?? job.batchBrewTicks ?? 1,
+        successCount,
+        failureCount,
+        successMultiplier: 1,
+        getExpToNextByLevel: getCraftSkillExpToNextByLevel,
+    });
+    return gainResult.finalGain;
+}
+
+function resolveEnhancementSkillExpGain(skill, targetItemLevel, success) {
+    if (!skill || (skill.expToNext ?? 0) <= 0) {
+        return 0;
+    }
+    const gainResult = (0, shared_1.computeCraftSkillExpGain)({
+        skillLevel: skill.level,
+        targetLevel: targetItemLevel,
+        baseActionTicks: computeEnhancementJobBaseTicks(targetItemLevel),
+        successCount: success ? 1 : 0,
+        failureCount: success ? 0 : 1,
+        successMultiplier: 1,
+        getExpToNextByLevel: getCraftSkillExpToNextByLevel,
+    });
+    return gainResult.finalGain;
+}
 /**
  * resolveAlchemyBatchSuccess：规范化或转换炼丹BatchSuccess。
  * @param outputCount 参数说明。
@@ -2608,7 +2652,7 @@ function buildCraftMutationResult(error) {
  * @returns 无返回值，直接更新炼制tick结果相关状态。
  */
 
-function buildCraftTickResult(panelChanged = false, messages = [], inventoryChanged = false, equipmentChanged = false, attrChanged = false, groundDrops = []) {
+function buildCraftTickResult(panelChanged = false, messages = [], inventoryChanged = false, equipmentChanged = false, attrChanged = false, groundDrops = [], craftRealmExpGain = 0) {
     return {
         ok: true,
         panelChanged,
@@ -2617,6 +2661,7 @@ function buildCraftTickResult(panelChanged = false, messages = [], inventoryChan
         attrChanged,
         messages,
         groundDrops,
+        craftRealmExpGain,
     };
 }
 /**

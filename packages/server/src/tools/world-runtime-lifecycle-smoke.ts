@@ -174,10 +174,14 @@ async function testRestoreAndRebuild() {
             async loadInstanceCheckpoint(instanceId) {
                 log.push(['loadInstanceCheckpoint', instanceId]);
                 return {
-                    tick: 1234,
-                    tileResourceEntries: [{ resourceKey: 'aura.refined.neutral', tileIndex: 5, value: 3 }],
-                    groundPileEntries: [{ tileIndex: 11, items: [{ itemKey: 'checkpoint:ground:1', item: { itemId: 'checkpoint_stone', count: 2 } }] }],
-                    containerStates: [{ instanceId, containerId: 'checkpoint:container:1', sourceId: 'checkpoint:source:1', statePayload: { sealed: true } }],
+                    kind: 'time_checkpoint',
+                    domains: ['time'],
+                    snapshot: {
+                        tick: 1234,
+                        tileResourceEntries: [{ resourceKey: 'aura.refined.neutral', tileIndex: 5, value: 3 }],
+                        groundPileEntries: [{ tileIndex: 11, items: [{ itemKey: 'checkpoint:ground:1', item: { itemId: 'checkpoint_stone', count: 2 } }] }],
+                        containerStates: [{ instanceId, containerId: 'checkpoint:container:1', sourceId: 'checkpoint:source:1', statePayload: { sealed: true } }],
+                    },
                 };
             },
             async loadGroundItems(instanceId) {
@@ -281,19 +285,23 @@ async function testRestoreAndRebuild() {
             async loadInstanceCheckpoint(instanceId) {
                 domainRestoreLog.push(['loadInstanceCheckpoint', instanceId]);
                 return {
-                    tick: 5678,
-                    tileResourceEntries: [
-                        { resourceKey: 'aura.refined.neutral', tileIndex: 5, value: 3 },
-                    ],
-                    groundPileEntries: [
-                        {
-                            tileIndex: 11,
-                            items: [{ itemKey: 'checkpoint:ground:1', item: { itemId: 'checkpoint_stone', count: 2 } }],
-                        },
-                    ],
-                    containerStates: [
-                        { instanceId, containerId: 'checkpoint:container:1', sourceId: 'checkpoint:source:1', statePayload: { sealed: true } },
-                    ],
+                    kind: 'domain_fallback_checkpoint',
+                    domains: ['time', 'tile_resource', 'ground_item', 'container_state'],
+                    snapshot: {
+                        tick: 5678,
+                        tileResourceEntries: [
+                            { resourceKey: 'aura.refined.neutral', tileIndex: 5, value: 3 },
+                        ],
+                        groundPileEntries: [
+                            {
+                                tileIndex: 11,
+                                items: [{ itemKey: 'checkpoint:ground:1', item: { itemId: 'checkpoint_stone', count: 2 } }],
+                            },
+                        ],
+                        containerStates: [
+                            { instanceId, containerId: 'checkpoint:container:1', sourceId: 'checkpoint:source:1', statePayload: { sealed: true } },
+                        ],
+                    },
                 };
             },
             async loadGroundItems(instanceId) {

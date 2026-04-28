@@ -71,11 +71,21 @@ function resolveRecommendedRealmLabel(raw: string | undefined, fallback: string)
 
 /** resolveMapTypeLabel：按当前实例解析地图类型。 */
 function resolveMapTypeLabel(player: PlayerState): string {
+  if (isSectMap(player)) {
+    return '宗门';
+  }
   const instanceId = typeof player.instanceId === 'string' ? player.instanceId.trim() : '';
   if (instanceId.startsWith('real:') || instanceId.includes(':real:')) {
     return '现世';
   }
   return '虚境';
+}
+
+/** isSectMap：判断当前玩家是否处于宗门动态地图。 */
+function isSectMap(player: PlayerState): boolean {
+  const mapId = typeof player.mapId === 'string' ? player.mapId.trim() : '';
+  const instanceId = typeof player.instanceId === 'string' ? player.instanceId.trim() : '';
+  return mapId.startsWith('sect_domain:') || instanceId.startsWith('sect:');
 }
 
 /** WorldPanel：世界面板实现。 */
@@ -123,7 +133,16 @@ export class WorldPanel {
     player: PlayerState;
     mapMeta: MapMeta | null;
   }): WorldPanelSnapshot {
-    const guide = WORLD_GUIDE[input.player.mapId] ?? {
+    const sectMap = isSectMap(input.player);
+    const guide = WORLD_GUIDE[input.player.mapId] ?? (sectMap ? {
+      title: input.mapMeta?.name ?? '宗门',
+      recommendedRealm: input.mapMeta?.recommendedRealm ?? '未知',
+      route: '宗门驻地',
+      mood: '宗门',
+      desc: '宗门驻地。',
+      resources: [],
+      threats: [],
+    } : {
       title: input.mapMeta?.name ?? input.player.mapId,
       recommendedRealm: input.mapMeta?.recommendedRealm ?? '未知',
       route: '继续探索当前区域',
@@ -131,7 +150,7 @@ export class WorldPanel {
       desc: '该区域暂无卷宗记载，建议稳步试探。',
       resources: [],
       threats: [],
-    };
+    });
 
     const danger = assessMapDanger(input.player, input.mapMeta?.recommendedRealm, guide.recommendedRealm);
     const recommend = danger.recommendedRealmLabel === '未知'
@@ -304,6 +323,9 @@ export class WorldPanel {
 
   /** buildMapTypeTooltipLines：构建地图类型 hover 说明。 */
   private buildMapTypeTooltipLines(mapTypeLabel: string): string[] {
+    if (mapTypeLabel === '宗门') {
+      return ['宗门驻地'];
+    }
     if (mapTypeLabel === '现世') {
       return ['可以对其他修士发起攻击', '可以攻击地块'];
     }

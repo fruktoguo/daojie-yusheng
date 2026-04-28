@@ -592,5 +592,314 @@
         "unlockLevel": 1
       }
     ]
+  },
+  {
+    "id": "yi_kunlun",
+    "name": "移昆仑",
+    "grade": "mystic",
+    "category": "arts",
+    "realmLv": 23,
+    "layers": [
+      {
+        "level": 1,
+        "expFactor": 136,
+        "attrs": {
+          "constitution": 5,
+          "spirit": 7,
+          "perception": 5,
+          "talent": 4
+        }
+      },
+      {
+        "level": 2,
+        "expFactor": 152,
+        "attrs": {
+          "constitution": 5,
+          "spirit": 7,
+          "perception": 5,
+          "talent": 4
+        }
+      },
+      {
+        "level": 3,
+        "expFactor": 168,
+        "attrs": {
+          "constitution": 5,
+          "spirit": 7,
+          "perception": 5,
+          "talent": 4
+        }
+      },
+      {
+        "level": 4,
+        "expFactor": 188,
+        "attrs": {
+          "constitution": 5,
+          "spirit": 7,
+          "perception": 5,
+          "talent": 4
+        }
+      },
+      {
+        "level": 5,
+        "expFactor": 208,
+        "attrs": {
+          "constitution": 5,
+          "spirit": 7,
+          "perception": 5,
+          "talent": 4
+        }
+      },
+      {
+        "level": 6,
+        "expFactor": 232,
+        "attrs": {
+          "constitution": 5,
+          "spirit": 7,
+          "perception": 4,
+          "talent": 4
+        }
+      },
+      {
+        "level": 7,
+        "expFactor": 260,
+        "attrs": {
+          "constitution": 5,
+          "spirit": 7,
+          "perception": 4,
+          "talent": 4
+        }
+      },
+      {
+        "level": 8,
+        "expFactor": 292,
+        "attrs": {
+          "constitution": 5,
+          "spirit": 7,
+          "perception": 4,
+          "talent": 4
+        }
+      },
+      {
+        "level": 9,
+        "expFactor": 328,
+        "attrs": {
+          "constitution": 5,
+          "spirit": 7,
+          "perception": 4,
+          "talent": 3
+        }
+      },
+      {
+        "level": 10,
+        "expFactor": 368,
+        "attrs": {
+          "constitution": 5,
+          "spirit": 7,
+          "perception": 4,
+          "talent": 3
+        }
+      },
+      {
+        "level": 11,
+        "expFactor": 412,
+        "attrs": {
+          "constitution": 5,
+          "spirit": 7,
+          "perception": 4,
+          "talent": 3
+        }
+      },
+      {
+        "level": 12,
+        "expFactor": 460,
+        "attrs": {
+          "constitution": 5,
+          "spirit": 6,
+          "perception": 4,
+          "talent": 3
+        }
+      },
+      {
+        "level": 13,
+        "expFactor": 516,
+        "attrs": {
+          "constitution": 5,
+          "spirit": 6,
+          "perception": 4,
+          "talent": 3
+        }
+      },
+      {
+        "level": 14,
+        "expFactor": 0,
+        "attrs": {
+          "constitution": 5,
+          "spirit": 6,
+          "perception": 4,
+          "talent": 3
+        }
+      }
+    ],
+    "skills": [
+      {
+        "id": "skill.yi_kunlun_point_stone",
+        "name": "叩地成岳",
+        "desc": "叩定一处地脉，搬山成岳，生成一块可被攻击拆除的临时石头。",
+        "cooldown": 8,
+        "costMultiplier": 2,
+        "range": 6,
+        "targetMode": "tile",
+        "requiresTarget": true,
+        "targeting": {
+          "shape": "single",
+          "targetMode": "tile",
+          "maxTargets": 1
+        },
+        "effects": [
+          {
+            "type": "temporary_tile",
+            "tileType": "stone",
+            "durationTicks": 60,
+            "hpFormula": {
+              "op": "add",
+              "args": [
+                {
+                  "op": "mul",
+                  "args": [
+                    {
+                      "op": "add",
+                      "args": [
+                        {
+                          "var": "caster.stat.physAtk"
+                        },
+                        {
+                          "var": "caster.stat.spellAtk"
+                        }
+                      ]
+                    },
+                    10
+                  ]
+                },
+                {
+                  "var": "caster.hp"
+                },
+                {
+                  "var": "caster.qi"
+                }
+              ]
+            }
+          }
+        ],
+        "unlockLevel": 1
+      },
+      {
+        "id": "skill.yi_kunlun_hollow_square",
+        "name": "八荒锁岳",
+        "desc": "牵动八方地脉，在目标周围叠起三乘三外环石阵，中宫留空。",
+        "cooldown": 16,
+        "costMultiplier": 5,
+        "range": 6,
+        "targetMode": "tile",
+        "requiresTarget": true,
+        "targeting": {
+          "shape": "box",
+          "width": 3,
+          "height": 3,
+          "targetMode": "tile",
+          "maxTargets": 8
+        },
+        "effects": [
+          {
+            "type": "temporary_tile",
+            "tileType": "stone",
+            "durationTicks": 60,
+            "excludeAnchor": true,
+            "hpFormula": {
+              "op": "add",
+              "args": [
+                {
+                  "op": "mul",
+                  "args": [
+                    {
+                      "op": "add",
+                      "args": [
+                        {
+                          "var": "caster.stat.physAtk"
+                        },
+                        {
+                          "var": "caster.stat.spellAtk"
+                        }
+                      ]
+                    },
+                    10
+                  ]
+                },
+                {
+                  "var": "caster.hp"
+                },
+                {
+                  "var": "caster.qi"
+                }
+              ]
+            }
+          }
+        ],
+        "unlockLevel": 4
+      },
+      {
+        "id": "skill.yi_kunlun_horizontal_wall",
+        "name": "横断天关",
+        "desc": "横移昆仑一线，生成三块相连的临时石头，截断通路。",
+        "cooldown": 12,
+        "costMultiplier": 4,
+        "range": 6,
+        "targetMode": "tile",
+        "requiresTarget": true,
+        "targeting": {
+          "shape": "box",
+          "width": 3,
+          "height": 1,
+          "targetMode": "tile",
+          "maxTargets": 3
+        },
+        "effects": [
+          {
+            "type": "temporary_tile",
+            "tileType": "stone",
+            "durationTicks": 60,
+            "hpFormula": {
+              "op": "add",
+              "args": [
+                {
+                  "op": "mul",
+                  "args": [
+                    {
+                      "op": "add",
+                      "args": [
+                        {
+                          "var": "caster.stat.physAtk"
+                        },
+                        {
+                          "var": "caster.stat.spellAtk"
+                        }
+                      ]
+                    },
+                    10
+                  ]
+                },
+                {
+                  "var": "caster.hp"
+                },
+                {
+                  "var": "caster.qi"
+                }
+              ]
+            }
+          }
+        ],
+        "unlockLevel": 7
+      }
+    ]
   }
 ]

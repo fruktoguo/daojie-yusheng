@@ -178,6 +178,11 @@ type MainRuntimeDeltaStateSourceOptions = {
  */
 
     mapId?: string;
+    /**
+ * instanceId：实例ID标识。
+ */
+
+    instanceId?: string;
   }) => void;  
   /**
  * applySelfDeltaToRuntime：SelfDeltaTo运行态引用。
@@ -188,7 +193,12 @@ type MainRuntimeDeltaStateSourceOptions = {
  * mapId：地图ID标识。
  */
 
-    mapId?: string;    
+    mapId?: string;
+    /**
+ * instanceId：实例ID标识。
+ */
+
+    instanceId?: string;
     /**
  * x：x相关字段。
  */
@@ -407,8 +417,8 @@ export function createMainRuntimeDeltaStateSource(options: MainRuntimeDeltaState
  * @param patch NonNullable<S2C_WorldDelta['p']>[number] 参数说明。
  * @returns 返回玩家 tick 实体。
  */
-  function buildPlayerTickEntity(patch: NonNullable<S2C_WorldDelta['p']>[number]): TickRenderEntity {
-    const previous = options.getLatestEntityById(patch.id);
+  function buildPlayerTickEntity(patch: NonNullable<S2C_WorldDelta['p']>[number], ignorePrevious = false): TickRenderEntity {
+    const previous = ignorePrevious ? undefined : options.getLatestEntityById(patch.id);
     const player = options.getPlayer();
     const isSelf = patch.id === player?.id;
     const fallbackName = isSelf ? (player?.name ?? previous?.name) : previous?.name;
@@ -434,8 +444,8 @@ export function createMainRuntimeDeltaStateSource(options: MainRuntimeDeltaState
  * @param patch NonNullable<S2C_WorldDelta['m']>[number] 参数说明。
  * @returns 返回怪物 tick 实体。
  */
-  function buildMonsterTickEntity(patch: NonNullable<S2C_WorldDelta['m']>[number]): TickRenderEntity {
-    const previous = options.getLatestEntityById(patch.id);
+  function buildMonsterTickEntity(patch: NonNullable<S2C_WorldDelta['m']>[number], ignorePrevious = false): TickRenderEntity {
+    const previous = ignorePrevious ? undefined : options.getLatestEntityById(patch.id);
     const name = patch.n ?? previous?.name;
     return {
       id: patch.id,
@@ -460,8 +470,8 @@ export function createMainRuntimeDeltaStateSource(options: MainRuntimeDeltaState
  * @param patch NonNullable<S2C_WorldDelta['n']>[number] 参数说明。
  * @returns 返回 NPC tick 实体。
  */
-  function buildNpcTickEntity(patch: NonNullable<S2C_WorldDelta['n']>[number]): TickRenderEntity {
-    const previous = options.getLatestEntityById(patch.id);
+  function buildNpcTickEntity(patch: NonNullable<S2C_WorldDelta['n']>[number], ignorePrevious = false): TickRenderEntity {
+    const previous = ignorePrevious ? undefined : options.getLatestEntityById(patch.id);
     return {
       id: patch.id,
       x: patch.x ?? previous?.wx ?? 0,
@@ -484,8 +494,8 @@ export function createMainRuntimeDeltaStateSource(options: MainRuntimeDeltaState
  * @param patch NonNullable<S2C_WorldDelta['o']>[number] 参数说明。
  * @returns 返回传送点 tick 实体。
  */
-  function buildPortalTickEntity(patch: NonNullable<S2C_WorldDelta['o']>[number]): TickRenderEntity {
-    const previous = options.getLatestEntityById(patch.id);
+  function buildPortalTickEntity(patch: NonNullable<S2C_WorldDelta['o']>[number], ignorePrevious = false): TickRenderEntity {
+    const previous = ignorePrevious ? undefined : options.getLatestEntityById(patch.id);
     return {
       id: patch.id,
       x: patch.x ?? previous?.wx ?? 0,
@@ -508,8 +518,8 @@ export function createMainRuntimeDeltaStateSource(options: MainRuntimeDeltaState
  * @param patch NonNullable<S2C_WorldDelta['c']>[number] 参数说明。
  * @returns 返回容器 tick 实体。
  */
-  function buildContainerTickEntity(patch: NonNullable<S2C_WorldDelta['c']>[number]): TickRenderEntity {
-    const previous = options.getLatestEntityById(patch.id);
+  function buildContainerTickEntity(patch: NonNullable<S2C_WorldDelta['c']>[number], ignorePrevious = false): TickRenderEntity {
+    const previous = ignorePrevious ? undefined : options.getLatestEntityById(patch.id);
     return {
       id: patch.id,
       x: patch.x ?? previous?.wx ?? 0,
@@ -534,8 +544,8 @@ export function createMainRuntimeDeltaStateSource(options: MainRuntimeDeltaState
  * @param patch NonNullable<S2C_WorldDelta['fmn']>[number] 参数说明。
  * @returns 返回阵法 tick 实体。
  */
-  function buildFormationTickEntity(patch: NonNullable<S2C_WorldDelta['fmn']>[number]): TickRenderEntity {
-    const previous = options.getLatestEntityById(patch.id);
+  function buildFormationTickEntity(patch: NonNullable<S2C_WorldDelta['fmn']>[number], ignorePrevious = false): TickRenderEntity {
+    const previous = ignorePrevious ? undefined : options.getLatestEntityById(patch.id);
     return {
       id: patch.id,
       x: patch.x ?? previous?.wx ?? 0,
@@ -565,6 +575,7 @@ export function createMainRuntimeDeltaStateSource(options: MainRuntimeDeltaState
       formationOwnerSectId: patch.os !== undefined ? patch.os : previous?.formationOwnerSectId,
       formationOwnerPlayerId: patch.op !== undefined ? patch.op : previous?.formationOwnerPlayerId,
       formationActive: patch.ac === 0 ? false : patch.ac === 1 ? true : previous?.formationActive,
+      formationLifecycle: patch.lt === 1 ? 'persistent' : patch.lt === 0 ? 'deployed' : previous?.formationLifecycle,
     };
   }
   /**
@@ -572,9 +583,10 @@ export function createMainRuntimeDeltaStateSource(options: MainRuntimeDeltaState
  * @param data S2C_WorldDelta 原始数据。
  * @returns 返回世界 Delta 运行态输入。
  */
-  function buildWorldDeltaRuntimeInput(data: S2C_WorldDelta, mapIdHint?: string) {
+  function buildWorldDeltaRuntimeInput(data: S2C_WorldDelta, mapIdHint?: string, instanceIdHint?: string) {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
+    const ignorePreviousEntities = Boolean(mapIdHint || instanceIdHint);
     const playerPatches: TickRenderEntity[] = [];
     const entityPatches: TickRenderEntity[] = [];
     const removedEntityIds: string[] = [];
@@ -585,7 +597,7 @@ export function createMainRuntimeDeltaStateSource(options: MainRuntimeDeltaState
         removedEntityIds.push(patch.id);
         continue;
       }
-      playerPatches.push(buildPlayerTickEntity(patch));
+      playerPatches.push(buildPlayerTickEntity(patch, ignorePreviousEntities));
     }
 
     for (const patch of data.m ?? []) {
@@ -593,7 +605,7 @@ export function createMainRuntimeDeltaStateSource(options: MainRuntimeDeltaState
         removedEntityIds.push(patch.id);
         continue;
       }
-      entityPatches.push(buildMonsterTickEntity(patch));
+      entityPatches.push(buildMonsterTickEntity(patch, ignorePreviousEntities));
     }
 
     for (const patch of data.n ?? []) {
@@ -601,7 +613,7 @@ export function createMainRuntimeDeltaStateSource(options: MainRuntimeDeltaState
         removedEntityIds.push(patch.id);
         continue;
       }
-      entityPatches.push(buildNpcTickEntity(patch));
+      entityPatches.push(buildNpcTickEntity(patch, ignorePreviousEntities));
     }
 
     for (const patch of data.o ?? []) {
@@ -609,7 +621,7 @@ export function createMainRuntimeDeltaStateSource(options: MainRuntimeDeltaState
         removedEntityIds.push(patch.id);
         continue;
       }
-      entityPatches.push(buildPortalTickEntity(patch));
+      entityPatches.push(buildPortalTickEntity(patch, ignorePreviousEntities));
     }
 
     for (const patch of data.g ?? []) {
@@ -626,7 +638,7 @@ export function createMainRuntimeDeltaStateSource(options: MainRuntimeDeltaState
         removedEntityIds.push(patch.id);
         continue;
       }
-      entityPatches.push(buildContainerTickEntity(patch));
+      entityPatches.push(buildContainerTickEntity(patch, ignorePreviousEntities));
     }
 
     for (const patch of data.fmn ?? []) {
@@ -634,7 +646,7 @@ export function createMainRuntimeDeltaStateSource(options: MainRuntimeDeltaState
         removedEntityIds.push(patch.id);
         continue;
       }
-      entityPatches.push(buildFormationTickEntity(patch));
+      entityPatches.push(buildFormationTickEntity(patch, ignorePreviousEntities));
     }
 
     return {
@@ -642,6 +654,7 @@ export function createMainRuntimeDeltaStateSource(options: MainRuntimeDeltaState
       entityPatches,
       removedEntityIds,
       groundPatches,
+      instanceId: instanceIdHint,
       mapId: mapIdHint ?? data.mid,
       effects: data.fx ? cloneJson(data.fx) : undefined,
       threatArrows: Array.isArray(data.threatArrows)
@@ -807,7 +820,7 @@ export function createMainRuntimeDeltaStateSource(options: MainRuntimeDeltaState
  * @returns 无返回值，直接更新世界Delta相关状态。
  */
 
-    handleWorldDelta(data: S2C_WorldDelta, mapIdHint?: string): void {
+    handleWorldDelta(data: S2C_WorldDelta, mapIdHint?: string, instanceIdHint?: string): void {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
       const player = options.getPlayer();
@@ -820,7 +833,7 @@ export function createMainRuntimeDeltaStateSource(options: MainRuntimeDeltaState
         y: player.y,
         facing: player.facing,
       };
-      const runtimeInput = buildWorldDeltaRuntimeInput(data, mapIdHint);
+      const runtimeInput = buildWorldDeltaRuntimeInput(data, mapIdHint, instanceIdHint);
       const selfPatch = runtimeInput.playerPatches.find((patch) => patch.id === player.id);
       options.syncAuraLevelBaseValue(data.auraLevelBaseValue);
       if (typeof data.dt === 'number') {
@@ -884,6 +897,7 @@ export function createMainRuntimeDeltaStateSource(options: MainRuntimeDeltaState
       const previousMapId = player.mapId;
       const playerPatch = buildSelfRuntimePlayerPatch(data);
       options.applySelfDeltaToRuntime({
+        instanceId: data.iid,
         mapId: data.mid,
         x: data.x,
         y: data.y,

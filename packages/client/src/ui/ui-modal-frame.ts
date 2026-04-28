@@ -40,6 +40,7 @@ const DETAIL_VARIANT_SIZE_MAP: Record<string, UiModalSize> = {
   'detail-modal--suggestion': 'full',
   'detail-modal--technique': 'wide',
   'detail-modal--skill-management': 'wide',
+  'detail-modal--sect-management': 'wide',
   'detail-modal--skill-preset': 'wide',
 };
 
@@ -90,5 +91,4 @@ export function applyModalFrameClasses(
   }
   return next;
 }
-
 

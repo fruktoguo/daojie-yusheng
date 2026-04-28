@@ -14,7 +14,6 @@
   - `docs/next-plan/*`
   - `docs/next-in-place-hard-cut-plan.md`
 - 运维与验证文档
-  - `docs/server-operations.md`
   - `packages/server/README.md`
   - `packages/server/TESTING.md`
   - `packages/server/REPLACE-RUNBOOK.md`
@@ -76,7 +75,6 @@
 
 ### 第 3 批：清理验证 / 运维口径
 
-- [x] 更新 `docs/server-operations.md`
 - [x] 更新 `packages/server/README.md`
 - [x] 更新 `packages/server/TESTING.md`
 - [x] 更新 `packages/server/REPLACE-RUNBOOK.md`
@@ -178,7 +176,7 @@
   - 固定检查总表只再把真实切换前/后观察与可选 destructive proof 保留为剩余 blocker
 - [x] `proof:cutover-operations`
   - 固定检查切换执行清单与执行记录模板存在
-  - 固定检查 `10/main/server-operations/REPLACE-RUNBOOK` 都继续引用这两份人工执行文档
+  - 固定检查 `10/main/REPLACE-RUNBOOK` 都继续引用这两份人工执行文档
   - 固定检查 `10` 仍把“真实切换前/后检查”保留为人工未完成项，不会被仓库内 proof 冒充完成
 
 ## 本阶段不做的事

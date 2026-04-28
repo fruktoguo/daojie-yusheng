@@ -47,13 +47,13 @@
 ### 当前状态与缺口
 
 - 仓库主计划：[../../docs/next-plan/main.md](../../docs/next-plan/main.md)
-- 仓库策略基线：[../../docs/next-in-place-hard-cut-plan.md](../../docs/next-in-place-hard-cut-plan.md)
-- 当前 blocker 看板：[../../docs/next-replacement-blocker-board.md](../../docs/next-replacement-blocker-board.md)
+- 仓库切换基线：[../../docs/next-plan/10-legacy-archive-and-cutover.md](../../docs/next-plan/10-legacy-archive-and-cutover.md)
+- 当前验证口径：[../../docs/next-plan/09-verification-and-acceptance.md](../../docs/next-plan/09-verification-and-acceptance.md)
 - 包内兼容入口：[./NEXT-GAP-ANALYSIS.md](./NEXT-GAP-ANALYSIS.md)
 
 ### 运维、验证、shadow 演练
 
-- 权威运维文档：[../../docs/server-operations.md](../../docs/server-operations.md)
+- 权威运维文档：[./REPLACE-RUNBOOK.md](./REPLACE-RUNBOOK.md)
 - 包内兼容入口：[./TESTING.md](./TESTING.md)
 - 包内兼容入口：[./REPLACE-RUNBOOK.md](./REPLACE-RUNBOOK.md)
 
@@ -64,7 +64,7 @@
 
 ### 自动生成或低重复报告
 
-- legacy 边界审计：[../../docs/next-legacy-boundary-audit.md](../../docs/next-legacy-boundary-audit.md)
+- legacy 边界审计入口：[./package.json](./package.json) 中的 `audit:boundaries`
 - 协议审计：[../../docs/protocol-audit.md](../../docs/protocol-audit.md)
 
 ## 五层门禁

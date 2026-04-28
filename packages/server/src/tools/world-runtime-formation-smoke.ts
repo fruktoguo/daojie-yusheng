@@ -12,12 +12,13 @@ const { Pool } = require("pg");
 const { resolveServerDatabaseUrl } = require("../config/env-alias");
 const { WorldRuntimeFormationService } = require("../runtime/world/world-runtime-formation.service");
 const { buildFullWorldDelta } = require("../network/world-projector.helpers");
+const { FORMATION_TICKS_PER_DAY, QI_HALF_LIFE_RATE_SCALE, buildQiHalfLifeRateScaled } = require("@mud/shared");
 
 const playerId = "player:formation-smoke";
 const sectPlayerId = "player:formation-sect-member";
 const outsiderPlayerId = "player:formation-outsider";
 const detachedOwnerPlayerId = "player:formation-owner-detached";
-const instanceId = "public:formation_smoke";
+const instanceId = "real:formation_smoke";
 
 async function main() {
   const notices = [];
@@ -42,7 +43,7 @@ async function main() {
   };
   const tileResources = new Map();
   const instance = {
-    meta: { instanceId },
+    meta: { instanceId, kind: "public", linePreset: "real" },
     template: { width: 16, height: 16 },
     worldRevision: 10,
     getPlayerPosition(targetPlayerId) {
@@ -84,8 +85,7 @@ async function main() {
       player.inventory.items[slotIndex].count -= count;
     },
     enqueueNotice(targetPlayerId, notice) {
-      assert.equal(targetPlayerId, playerId);
-      notices.push(notice);
+      notices.push({ targetPlayerId, ...notice });
     },
   };
   const service = new WorldRuntimeFormationService(
@@ -102,11 +102,34 @@ async function main() {
       return targetInstanceId === instanceId ? instance : null;
     },
     refreshPlayerContextActions(targetPlayerId) {
-      assert.equal(targetPlayerId, playerId);
+      assert.ok([playerId, detachedOwnerPlayerId, outsiderPlayerId].includes(targetPlayerId));
       deps.contextActionsRefreshed = true;
     },
     contextActionsRefreshed: false,
   };
+
+  const virtualInstance = {
+    ...instance,
+    meta: { instanceId: "public:formation_smoke", kind: "public", linePreset: "peaceful" },
+  };
+  assert.throws(() => service.dispatchCreateFormation(playerId, {
+    slotIndex: 0,
+    formationId: "spirit_gathering",
+    spiritStoneCount: 100,
+    allocation: { effectPercent: 80, rangePercent: 10, durationPercent: 10 },
+  }, {
+    ...deps,
+    getPlayerLocationOrThrow(targetPlayerId) {
+      assert.equal(targetPlayerId, playerId);
+      return { instanceId: "public:formation_smoke", sessionId: "session:formation-smoke" };
+    },
+    getInstanceRuntime(targetInstanceId) {
+      return targetInstanceId === "public:formation_smoke" ? virtualInstance : null;
+    },
+  }), /虚境不能布置阵法/);
+  assert.equal(player.qi, 20000);
+  assert.equal(player.wallet.spirit_stone, 1000);
+  assert.equal(player.inventory.items[0].count, 2);
 
   assert.throws(() => service.dispatchCreateFormation(playerId, {
     slotIndex: 0,
@@ -188,6 +211,7 @@ async function main() {
   assert.equal(worldDelta.fmn[0].op, playerId);
   assert.equal(worldDelta.fmn[0].tx, 1);
   assert.equal(worldDelta.fmn[0].bd, 0);
+  assert.equal(worldDelta.fmn[0].lt, 0);
 
   service.advanceInstanceFormations(instance, 2, deps);
   assert.equal(service.listRuntimeFormations(instanceId).length, 1);
@@ -325,10 +349,11 @@ async function main() {
     eyeX: 3,
     eyeY: 4,
     radius: 1,
-    spiritStoneCount: 100,
+    remainingAuraBudget: 100000,
     active: true,
   }, deps);
   assert.equal(guardian.formationId, "sect_guardian_barrier");
+  assert.equal(guardian.spiritStoneCount, 1000);
   assert.equal(guardian.ownerSectId, "sect:smoke");
   assert.equal(guardian.eyeInstanceId, "sect:smoke:inner");
   assert.equal(guardian.eyeX, 3);
@@ -346,6 +371,15 @@ async function main() {
   assert.equal(guardianProjection.boundaryChar, "护");
   assert.equal(guardianProjection.boundaryColor, "#e0f7ff");
   assert.equal(guardianProjection.boundaryRangeHighlightColor, "#67e8f9");
+  const guardianEyeProjection = service.listRuntimeFormations("sect:smoke:inner").find((entry) => entry.id === guardian.id);
+  assert.equal(guardianEyeProjection.name, "护宗大阵阵眼");
+  assert.equal(guardianEyeProjection.x, 3);
+  assert.equal(guardianEyeProjection.y, 4);
+  assert.equal(guardianEyeProjection.blocksBoundary, false);
+  const guardianEyeCombatState = service.getFormationCombatState("sect:smoke:inner", guardian.id);
+  assert.equal(guardianEyeCombatState.x, 3);
+  assert.equal(guardianEyeCombatState.y, 4);
+  assert.equal(service.getFormationCombatState(instanceId, guardian.id), null);
   const guardianDelta = buildFullWorldDelta({
     tick: 4,
     worldRevision: instance.worldRevision,
@@ -364,6 +398,45 @@ async function main() {
   const projectedGuardian = guardianDelta.fmn.find((entry) => entry.id === guardian.id);
   assert.equal(projectedGuardian.os, "sect:smoke");
   assert.equal(projectedGuardian.op, detachedOwnerPlayerId);
+  assert.equal(projectedGuardian.lt, 1);
+  const guardianAuraBeforeTick = service.findFormationInInstance(instanceId, guardian.id).remainingAuraBudget;
+  service.advanceInstanceFormations(instance, 5, deps);
+  const guardianAuraAfterTick = service.findFormationInInstance(instanceId, guardian.id).remainingAuraBudget;
+  const guardianActiveDecayRate = buildQiHalfLifeRateScaled(FORMATION_TICKS_PER_DAY * 3) / QI_HALF_LIFE_RATE_SCALE;
+  assert.ok(guardianAuraAfterTick < guardianAuraBeforeTick);
+  assert.ok(Math.abs((guardianAuraBeforeTick - guardianAuraAfterTick) - (guardianAuraBeforeTick * guardianActiveDecayRate)) < 0.000001);
+  service.dispatchSetPersistentFormationActive(detachedOwnerPlayerId, {
+    instanceId,
+    formationInstanceId: guardian.id,
+    active: false,
+  }, deps);
+  const guardianInactiveAuraBeforeTick = service.findFormationInInstance(instanceId, guardian.id).remainingAuraBudget;
+  service.advanceInstanceFormations(instance, 6, deps);
+  const guardianInactiveAuraAfterTick = service.findFormationInInstance(instanceId, guardian.id).remainingAuraBudget;
+  assert.ok(Math.abs((guardianInactiveAuraBeforeTick - guardianInactiveAuraAfterTick) - (guardianInactiveAuraBeforeTick * guardianActiveDecayRate / 10)) < 0.000001);
+  service.dispatchSetPersistentFormationActive(detachedOwnerPlayerId, {
+    instanceId,
+    formationInstanceId: guardian.id,
+    active: true,
+  }, deps);
+  service.applyDamageToFormation("sect:smoke:inner", guardian.id, 999999999999, outsiderPlayerId, deps);
+  const damagedGuardian = service.findFormationInInstance(instanceId, guardian.id);
+  assert.equal(damagedGuardian.id, guardian.id);
+  assert.equal(damagedGuardian.active, false);
+  assert.equal(damagedGuardian.remainingAuraBudget, 0);
+  assert.equal(service.isBoundaryBarrierBlocked(instanceId, 9, 8, outsiderPlayerId), false);
+  player.qi = 1000;
+  player.wallet.spirit_stone = 1000;
+  service.dispatchInjectPersistentFormationEnergy(playerId, {
+    instanceId,
+    formationInstanceId: guardian.id,
+    spiritStoneCount: 7,
+  }, deps);
+  assert.equal(player.qi, 300);
+  assert.equal(player.wallet.spirit_stone, 993);
+  assert.equal(Math.round(service.findFormationInInstance(instanceId, guardian.id).remainingAuraBudget), 700);
+  assert.equal(service.findFormationInInstance(instanceId, guardian.id).active, true);
+  assert.equal(service.isBoundaryBarrierBlocked(instanceId, 9, 8, outsiderPlayerId), true);
 
   const persistedFormationCount = await runFormationPersistenceSmoke(playerRuntimeService);
 
@@ -384,12 +457,18 @@ async function runFormationPersistenceSmoke(playerRuntimeService) {
   }
   const persistenceInstanceId = `public:formation_persist_${Date.now().toString(36)}`;
   const formationId = `formation:${persistenceInstanceId}:1`;
+  const largeSpiritStoneCount = 100_000_009;
+  const largeQiCost = 10_000_000_900;
   const pool = new Pool({ connectionString: databaseUrl });
   const saveService = new WorldRuntimeFormationService(
     { getFormationTemplate: () => null },
     playerRuntimeService,
   );
   const restoreService = new WorldRuntimeFormationService(
+    { getFormationTemplate: () => null },
+    playerRuntimeService,
+  );
+  const guardianStartupService = new WorldRuntimeFormationService(
     { getFormationTemplate: () => null },
     playerRuntimeService,
   );
@@ -404,13 +483,14 @@ async function runFormationPersistenceSmoke(playerRuntimeService) {
       ownerPlayerId: playerId,
       ownerSectId: "sect:smoke",
       formationId: "spirit_gathering",
+      lifecycle: "deployed",
       name: template.name,
       template,
       diskItemId: "formation_disk.mystic",
       diskTier: "mystic",
       diskMultiplier: 4,
-      spiritStoneCount: 100,
-      qiCost: 10000,
+      spiritStoneCount: largeSpiritStoneCount,
+      qiCost: largeQiCost,
       x: 2,
       y: 3,
       eyeInstanceId: persistenceInstanceId,
@@ -424,21 +504,50 @@ async function runFormationPersistenceSmoke(playerRuntimeService) {
       updatedAt: 222,
     }]);
     await saveService.saveInstanceFormations(persistenceInstanceId);
-    const rows = await pool.query("SELECT formation_instance_id, formation_id, remaining_aura_budget FROM instance_formation_state WHERE instance_id = $1", [persistenceInstanceId]);
+    const rows = await pool.query("SELECT formation_instance_id, formation_id, lifecycle, spirit_stone_count, qi_cost, remaining_aura_budget FROM instance_formation_state WHERE instance_id = $1", [persistenceInstanceId]);
     assert.equal(rows.rowCount, 1);
     assert.equal(rows.rows[0].formation_instance_id, formationId);
     assert.equal(rows.rows[0].formation_id, "spirit_gathering");
+    assert.equal(rows.rows[0].lifecycle, "deployed");
+    assert.equal(Number(rows.rows[0].spirit_stone_count), largeSpiritStoneCount);
+    assert.equal(Number(rows.rows[0].qi_cost), largeQiCost);
     assert.equal(Number(rows.rows[0].remaining_aura_budget), 12345);
+    const guardian = guardianStartupService.upsertSectGuardianFormation({
+      instanceId: persistenceInstanceId,
+      id: `formation:sect_guardian:formation-smoke`,
+      ownerSectId: "sect:smoke",
+      ownerPlayerId: detachedOwnerPlayerId,
+      x: 7,
+      y: 8,
+      eyeInstanceId: "sect:smoke:inner",
+      eyeX: 1,
+      eyeY: 2,
+      radius: 1,
+      remainingAuraBudget: 100000,
+      active: true,
+    });
+    await guardianStartupService.saveInstanceFormations(persistenceInstanceId);
+    const rowsAfterGuardianStartup = await pool.query("SELECT formation_instance_id, formation_id, lifecycle, x, y FROM instance_formation_state WHERE instance_id = $1 ORDER BY formation_instance_id ASC", [persistenceInstanceId]);
+    assert.equal(rowsAfterGuardianStartup.rowCount, 2);
+    assert.ok(rowsAfterGuardianStartup.rows.some((row) => row.formation_instance_id === formationId && row.formation_id === "spirit_gathering" && row.lifecycle === "deployed"));
+    assert.ok(rowsAfterGuardianStartup.rows.some((row) => row.formation_instance_id === guardian.id && row.formation_id === "sect_guardian_barrier" && row.lifecycle === "persistent"));
     const restoredCount = await restoreService.restoreInstanceFormations(persistenceInstanceId);
-    assert.equal(restoredCount, 1);
+    assert.equal(restoredCount, 2);
     const restored = restoreService.findFormationInInstance(persistenceInstanceId, formationId);
     assert.equal(restored.remainingAuraBudget, 12345);
     assert.equal(restored.ownerSectId, "sect:smoke");
+    assert.equal(restored.lifecycle, "deployed");
+    assert.equal(restored.spiritStoneCount, largeSpiritStoneCount);
+    assert.equal(restored.qiCost, largeQiCost);
+    const restoredGuardian = restoreService.findFormationInInstance(persistenceInstanceId, guardian.id);
+    assert.equal(restoredGuardian.lifecycle, "persistent");
+    assert.equal(restoredGuardian.eyeInstanceId, "sect:smoke:inner");
     return restoredCount;
   } finally {
-    await pool.query("DELETE FROM instance_formation_state WHERE instance_id = $1", [persistenceInstanceId]).catch(() => undefined);
     await saveService.closePersistencePool().catch(() => undefined);
     await restoreService.closePersistencePool().catch(() => undefined);
+    await guardianStartupService.closePersistencePool().catch(() => undefined);
+    await pool.query("DELETE FROM instance_formation_state WHERE instance_id = $1", [persistenceInstanceId]).catch(() => undefined);
     await pool.end().catch(() => undefined);
   }
 }

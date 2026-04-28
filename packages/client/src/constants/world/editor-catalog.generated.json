@@ -8132,6 +8132,318 @@
       ]
     },
     {
+      "id": "yi_kunlun",
+      "name": "移昆仑",
+      "grade": "mystic",
+      "category": "arts",
+      "realmLv": 23,
+      "skills": [
+        {
+          "id": "skill.yi_kunlun_point_stone",
+          "name": "叩地成岳",
+          "desc": "叩定一处地脉，搬山成岳，生成一块可被攻击拆除的临时石头。",
+          "cooldown": 8,
+          "costMultiplier": 2,
+          "range": 6,
+          "targetMode": "tile",
+          "requiresTarget": true,
+          "targeting": {
+            "shape": "single",
+            "targetMode": "tile",
+            "maxTargets": 1
+          },
+          "effects": [
+            {
+              "type": "temporary_tile",
+              "tileType": "stone",
+              "durationTicks": 60,
+              "hpFormula": {
+                "op": "add",
+                "args": [
+                  {
+                    "op": "mul",
+                    "args": [
+                      {
+                        "op": "add",
+                        "args": [
+                          {
+                            "var": "caster.stat.physAtk"
+                          },
+                          {
+                            "var": "caster.stat.spellAtk"
+                          }
+                        ]
+                      },
+                      10
+                    ]
+                  },
+                  {
+                    "var": "caster.hp"
+                  },
+                  {
+                    "var": "caster.qi"
+                  }
+                ]
+              }
+            }
+          ],
+          "unlockLevel": 1,
+          "cost": 138
+        },
+        {
+          "id": "skill.yi_kunlun_hollow_square",
+          "name": "八荒锁岳",
+          "desc": "牵动八方地脉，在目标周围叠起三乘三外环石阵，中宫留空。",
+          "cooldown": 16,
+          "costMultiplier": 5,
+          "range": 6,
+          "targetMode": "tile",
+          "requiresTarget": true,
+          "targeting": {
+            "shape": "box",
+            "width": 3,
+            "height": 3,
+            "targetMode": "tile",
+            "maxTargets": 8
+          },
+          "effects": [
+            {
+              "type": "temporary_tile",
+              "tileType": "stone",
+              "durationTicks": 60,
+              "excludeAnchor": true,
+              "hpFormula": {
+                "op": "add",
+                "args": [
+                  {
+                    "op": "mul",
+                    "args": [
+                      {
+                        "op": "add",
+                        "args": [
+                          {
+                            "var": "caster.stat.physAtk"
+                          },
+                          {
+                            "var": "caster.stat.spellAtk"
+                          }
+                        ]
+                      },
+                      10
+                    ]
+                  },
+                  {
+                    "var": "caster.hp"
+                  },
+                  {
+                    "var": "caster.qi"
+                  }
+                ]
+              }
+            }
+          ],
+          "unlockLevel": 4,
+          "cost": 345
+        },
+        {
+          "id": "skill.yi_kunlun_horizontal_wall",
+          "name": "横断天关",
+          "desc": "横移昆仑一线，生成三块相连的临时石头，截断通路。",
+          "cooldown": 12,
+          "costMultiplier": 4,
+          "range": 6,
+          "targetMode": "tile",
+          "requiresTarget": true,
+          "targeting": {
+            "shape": "box",
+            "width": 3,
+            "height": 1,
+            "targetMode": "tile",
+            "maxTargets": 3
+          },
+          "effects": [
+            {
+              "type": "temporary_tile",
+              "tileType": "stone",
+              "durationTicks": 60,
+              "hpFormula": {
+                "op": "add",
+                "args": [
+                  {
+                    "op": "mul",
+                    "args": [
+                      {
+                        "op": "add",
+                        "args": [
+                          {
+                            "var": "caster.stat.physAtk"
+                          },
+                          {
+                            "var": "caster.stat.spellAtk"
+                          }
+                        ]
+                      },
+                      10
+                    ]
+                  },
+                  {
+                    "var": "caster.hp"
+                  },
+                  {
+                    "var": "caster.qi"
+                  }
+                ]
+              }
+            }
+          ],
+          "unlockLevel": 7,
+          "cost": 276
+        }
+      ],
+      "layers": [
+        {
+          "level": 1,
+          "expToNext": 312800,
+          "attrs": {
+            "constitution": 5,
+            "spirit": 7,
+            "perception": 5,
+            "talent": 4
+          }
+        },
+        {
+          "level": 2,
+          "expToNext": 349600,
+          "attrs": {
+            "constitution": 5,
+            "spirit": 7,
+            "perception": 5,
+            "talent": 4
+          }
+        },
+        {
+          "level": 3,
+          "expToNext": 386400,
+          "attrs": {
+            "constitution": 5,
+            "spirit": 7,
+            "perception": 5,
+            "talent": 4
+          }
+        },
+        {
+          "level": 4,
+          "expToNext": 432400,
+          "attrs": {
+            "constitution": 5,
+            "spirit": 7,
+            "perception": 5,
+            "talent": 4
+          }
+        },
+        {
+          "level": 5,
+          "expToNext": 478400,
+          "attrs": {
+            "constitution": 5,
+            "spirit": 7,
+            "perception": 5,
+            "talent": 4
+          }
+        },
+        {
+          "level": 6,
+          "expToNext": 533600,
+          "attrs": {
+            "constitution": 5,
+            "spirit": 7,
+            "perception": 4,
+            "talent": 4
+          }
+        },
+        {
+          "level": 7,
+          "expToNext": 598000,
+          "attrs": {
+            "constitution": 5,
+            "spirit": 7,
+            "perception": 4,
+            "talent": 4
+          }
+        },
+        {
+          "level": 8,
+          "expToNext": 671600,
+          "attrs": {
+            "constitution": 5,
+            "spirit": 7,
+            "perception": 4,
+            "talent": 4
+          }
+        },
+        {
+          "level": 9,
+          "expToNext": 754400,
+          "attrs": {
+            "constitution": 5,
+            "spirit": 7,
+            "perception": 4,
+            "talent": 3
+          }
+        },
+        {
+          "level": 10,
+          "expToNext": 846400,
+          "attrs": {
+            "constitution": 5,
+            "spirit": 7,
+            "perception": 4,
+            "talent": 3
+          }
+        },
+        {
+          "level": 11,
+          "expToNext": 947600,
+          "attrs": {
+            "constitution": 5,
+            "spirit": 7,
+            "perception": 4,
+            "talent": 3
+          }
+        },
+        {
+          "level": 12,
+          "expToNext": 1058000,
+          "attrs": {
+            "constitution": 5,
+            "spirit": 6,
+            "perception": 4,
+            "talent": 3
+          }
+        },
+        {
+          "level": 13,
+          "expToNext": 1186800,
+          "attrs": {
+            "constitution": 5,
+            "spirit": 6,
+            "perception": 4,
+            "talent": 3
+          }
+        },
+        {
+          "level": 14,
+          "expToNext": 0,
+          "attrs": {
+            "constitution": 5,
+            "spirit": 6,
+            "perception": 4,
+            "talent": 3
+          }
+        }
+      ]
+    },
+    {
       "id": "monster_wing_arts",
       "name": "异羽啸空",
       "grade": "yellow",
@@ -10335,6 +10647,13 @@
       "type": "skill_book",
       "desc": "记载曜火裂波术的修行法门，使用后学会曜火裂波术。",
       "learnTechniqueId": "yaohuo_liebo"
+    },
+    {
+      "itemId": "book.yi_kunlun",
+      "name": "《移昆仑》",
+      "type": "skill_book",
+      "desc": "记载移昆仑的修行法门，使用后学会移昆仑。",
+      "learnTechniqueId": "yi_kunlun"
     },
     {
       "itemId": "book.starfall_spear",

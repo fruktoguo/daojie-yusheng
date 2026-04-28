@@ -468,6 +468,53 @@
         height: min(84dvh, calc(100dvh - var(--detail-modal-padding-top) - var(--detail-modal-padding-bottom) - (var(--detail-modal-safe-gap, 12px) * 2) - 16px));
         max-height: none;
       }
+      .detail-modal-card.detail-modal--sect-management {
+        width: min(100%, calc(100vw - 16px));
+        height: min(80dvh, calc(100dvh - var(--detail-modal-padding-top) - var(--detail-modal-padding-bottom) - (var(--detail-modal-safe-gap, 12px) * 2) - 16px));
+        min-height: min(460px, calc(100dvh - var(--detail-modal-padding-top) - var(--detail-modal-padding-bottom) - (var(--detail-modal-safe-gap, 12px) * 2) - 16px));
+        max-height: none;
+        padding: 14px 12px 12px;
+      }
+      .sect-manage-shell {
+        grid-template-columns: 108px minmax(0, 1fr);
+        gap: 8px;
+      }
+      .sect-manage-sidebar {
+        padding: 8px 6px;
+      }
+      .sect-manage-tab-btn {
+        min-height: 36px;
+        padding: 7px 6px;
+        font-size: var(--font-size-12);
+      }
+      .sect-detail-card {
+        flex-direction: column;
+        align-items: stretch;
+      }
+      .sect-detail-card-actions {
+        justify-content: flex-start;
+      }
+      .sect-detail-stat-grid,
+      .sect-detail-action-grid,
+      .sect-role-grid,
+      .sect-manage-card-grid {
+        grid-template-columns: minmax(0, 1fr);
+      }
+      .sect-member-table {
+        overflow-x: visible;
+      }
+      .sect-member-table-head {
+        display: none;
+      }
+      .sect-member-table-row {
+        grid-template-columns: minmax(0, 1fr);
+        min-width: 0;
+        align-items: start;
+        gap: 6px;
+      }
+      .sect-member-table-row > span {
+        min-width: 0;
+      }
       .detail-modal-card.detail-modal--leaderboard {
         width: min(100%, calc(100vw - 16px));
         height: min(82dvh, calc(100dvh - var(--detail-modal-padding-top) - var(--detail-modal-padding-bottom) - (var(--detail-modal-safe-gap, 12px) * 2) - 12px));

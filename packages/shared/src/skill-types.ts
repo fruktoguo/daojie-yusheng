@@ -424,8 +424,37 @@ export interface SkillCleanseEffectDef {
   removeCount?: number;
 }
 
+/** 技能临时地块生成效果定义。 */
+export interface SkillTemporaryTileEffectDef {
+/**
+ * type：type相关字段。
+ */
+
+  type: 'temporary_tile';
+  /**
+ * tileType：tileType相关字段。
+ */
+
+  tileType: string;
+  /**
+ * durationTicks：持续 tick 数。
+ */
+
+  durationTicks: number;
+  /**
+ * hpFormula：临时地块生命公式。
+ */
+
+  hpFormula: SkillFormula;
+  /**
+ * excludeAnchor：是否排除锚点格。
+ */
+
+  excludeAnchor?: boolean;
+}
+
 /** 技能效果联合类型。 */
-export type SkillEffectDef = SkillDamageEffectDef | SkillHealEffectDef | SkillBuffEffectDef | SkillCleanseEffectDef;
+export type SkillEffectDef = SkillDamageEffectDef | SkillHealEffectDef | SkillBuffEffectDef | SkillCleanseEffectDef | SkillTemporaryTileEffectDef;
 
 /** 怪物技能前摇定义。 */
 export interface SkillMonsterCastDef {

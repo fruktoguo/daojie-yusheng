@@ -37,6 +37,11 @@ type PendingTargetedAction = {
 
   radius?: number;
   /**
+ * innerRadius：环带内半径。
+ */
+
+  innerRadius?: number;
+  /**
  * width：width相关字段。
  */
 
@@ -46,6 +51,11 @@ type PendingTargetedAction = {
  */
 
   height?: number;
+  /**
+ * checkerParity：棋盘范围奇偶格。
+ */
+
+  checkerParity?: 'even' | 'odd';
   /**
  * maxTargets：max目标相关字段。
  */
@@ -447,7 +457,7 @@ export function bindMainMapInteractions(options: MainMapInteractionBindingsOptio
         return;
       }
       if (clickedFormation) {
-        if (player && player.x === target.x && player.y === target.y) {
+        if (player && player.x === target.x && player.y === target.y && clickedFormation.formationLifecycle !== 'persistent') {
           options.sendAction(`formation:toggle:${clickedFormation.id}`);
           return;
         }

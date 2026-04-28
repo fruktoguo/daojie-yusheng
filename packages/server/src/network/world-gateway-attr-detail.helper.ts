@@ -132,6 +132,10 @@ function buildAttrDetailNumericStatBreakdowns(player) {
             (0, shared_1.addPartialNumericStats)(flatBuffStats, buff.stats);
         }
     }
+    if (player.combat?.cultivationActive === true) {
+        flatBuffStats.realmExpPerTick += shared_1.CULTIVATION_REALM_EXP_PER_TICK;
+        flatBuffStats.techniqueExpPerTick += shared_1.CULTIVATE_EXP_PER_TICK;
+    }
     const preMultiplierStats = (0, shared_1.cloneNumericStats)(baseStats);
     (0, shared_1.addPartialNumericStats)(preMultiplierStats, flatBuffStats);
     const finalStats = player.attrs?.numericStats ?? preMultiplierStats;

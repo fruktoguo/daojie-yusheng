@@ -46,6 +46,11 @@ type PendingTargetedAction = {
 
   radius?: number;  
   /**
+ * innerRadius：环带内半径。
+ */
+
+  innerRadius?: number;
+  /**
  * width：width相关字段。
  */
 
@@ -55,6 +60,11 @@ type PendingTargetedAction = {
  */
 
   height?: number;  
+  /**
+ * checkerParity：棋盘范围奇偶格。
+ */
+
+  checkerParity?: 'even' | 'odd';
   /**
  * maxTargets：max目标相关字段。
  */
@@ -252,7 +262,7 @@ type MainMapRuntimeBridgeSourceOptions = {
  */
 
     computeAffectedCellsForAction: (
-      action: Pick<NonNullable<PendingTargetedAction>, 'actionId' | 'range' | 'shape' | 'radius' | 'width' | 'height'>,
+      action: Pick<NonNullable<PendingTargetedAction>, 'actionId' | 'range' | 'shape' | 'radius' | 'innerRadius' | 'width' | 'height' | 'checkerParity'>,
       anchor: GridPoint,
     ) => GridPoint[];    
     /**
@@ -260,7 +270,7 @@ type MainMapRuntimeBridgeSourceOptions = {
  */
 
     resolveTargetRefForAction: (
-      action: Pick<NonNullable<PendingTargetedAction>, 'actionId' | 'range' | 'shape' | 'radius' | 'width' | 'height' | 'targetMode'>,
+      action: Pick<NonNullable<PendingTargetedAction>, 'actionId' | 'range' | 'shape' | 'radius' | 'innerRadius' | 'width' | 'height' | 'checkerParity' | 'targetMode'>,
       target: {      
       /**
  * x：x相关字段。
@@ -284,7 +294,7 @@ type MainMapRuntimeBridgeSourceOptions = {
  */
 
     hasAffectableTargetInArea: (
-      action: Pick<NonNullable<PendingTargetedAction>, 'actionId' | 'shape' | 'range' | 'radius' | 'width' | 'height'>,
+      action: Pick<NonNullable<PendingTargetedAction>, 'actionId' | 'shape' | 'range' | 'radius' | 'innerRadius' | 'width' | 'height' | 'checkerParity'>,
       anchorX: number,
       anchorY: number,
     ) => boolean;    
@@ -558,7 +568,7 @@ export function createMainMapRuntimeBridgeSource(options: MainMapRuntimeBridgeSo
 
 
     computeAffectedCellsForAction(
-      action: Pick<NonNullable<PendingTargetedAction>, 'actionId' | 'range' | 'shape' | 'radius' | 'width' | 'height'>,
+      action: Pick<NonNullable<PendingTargetedAction>, 'actionId' | 'range' | 'shape' | 'radius' | 'innerRadius' | 'width' | 'height' | 'checkerParity'>,
       anchor: GridPoint,
     ): GridPoint[] {
       return options.targeting.computeAffectedCellsForAction(action, anchor);
@@ -572,7 +582,7 @@ export function createMainMapRuntimeBridgeSource(options: MainMapRuntimeBridgeSo
 
 
     resolveTargetRefForAction(
-      action: Pick<NonNullable<PendingTargetedAction>, 'actionId' | 'range' | 'shape' | 'radius' | 'width' | 'height' | 'targetMode'>,
+      action: Pick<NonNullable<PendingTargetedAction>, 'actionId' | 'range' | 'shape' | 'radius' | 'innerRadius' | 'width' | 'height' | 'checkerParity' | 'targetMode'>,
       target: {      
       /**
  * x：x相关字段。
@@ -603,7 +613,7 @@ export function createMainMapRuntimeBridgeSource(options: MainMapRuntimeBridgeSo
 
 
     hasAffectableTargetInArea(
-      action: Pick<NonNullable<PendingTargetedAction>, 'actionId' | 'shape' | 'range' | 'radius' | 'width' | 'height'>,
+      action: Pick<NonNullable<PendingTargetedAction>, 'actionId' | 'shape' | 'range' | 'radius' | 'innerRadius' | 'width' | 'height' | 'checkerParity'>,
       anchorX: number,
       anchorY: number,
     ): boolean {

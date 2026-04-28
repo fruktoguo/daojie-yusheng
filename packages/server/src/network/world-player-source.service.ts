@@ -622,9 +622,14 @@ function normalizeTechniqueRealm(value) {
  */
 
 function toFiniteInt(value, fallback) {
-    return typeof value === 'number' && Number.isFinite(value)
-        ? Math.trunc(value)
-        : fallback;
+    const numeric = typeof value === 'bigint'
+        ? Number(value)
+        : typeof value === 'number'
+            ? value
+            : typeof value === 'string' && value.trim()
+                ? Number(value)
+                : Number.NaN;
+    return Number.isFinite(numeric) ? Math.trunc(numeric) : fallback;
 }
 /**
  * toFiniteNumber：执行toFiniteNumber相关逻辑。
@@ -634,9 +639,14 @@ function toFiniteInt(value, fallback) {
  */
 
 function toFiniteNumber(value, fallback) {
-    return typeof value === 'number' && Number.isFinite(value)
+    const numeric = typeof value === 'bigint'
         ? Number(value)
-        : fallback;
+        : typeof value === 'number'
+            ? value
+            : typeof value === 'string' && value.trim()
+                ? Number(value)
+                : Number.NaN;
+    return Number.isFinite(numeric) ? Number(numeric) : fallback;
 }
 /**
  * toNullablePositiveInt：执行toNullablePositiveInt相关逻辑。
@@ -645,9 +655,8 @@ function toFiniteNumber(value, fallback) {
  */
 
 function toNullablePositiveInt(value) {
-    return typeof value === 'number' && Number.isFinite(value) && value > 0
-        ? Math.trunc(value)
-        : null;
+    const normalized = toFiniteInt(value, Number.NaN);
+    return Number.isFinite(normalized) && normalized > 0 ? Math.trunc(normalized) : null;
 }
 /**
  * normalizeLegacyRealmState：规范化或转换LegacyRealm状态。

@@ -93,6 +93,15 @@ export const MONSTER_TIER_EXP_MULTIPLIERS: Record<MonsterTier, number> = {
   demon_king: 100,
 };
 
+/** 怪物 1-18 级阶段每提升 1 级时，击杀经验额外乘算的衰减倍率。 */
+export const MONSTER_LEVEL_EXP_DECAY_MULTIPLIER_EARLY = 0.98;
+
+/** 怪物 19-30 级阶段每提升 1 级时，击杀经验额外乘算的衰减倍率。 */
+export const MONSTER_LEVEL_EXP_DECAY_MULTIPLIER_MID = 0.95;
+
+/** 怪物 31 级后每提升 1 级时，击杀经验额外乘算的衰减倍率。 */
+export const MONSTER_LEVEL_EXP_DECAY_MULTIPLIER_LATE = 0.92;
+
 /** 玩家等级高于怪物时，所有怪物通用的每级经验保留倍率。 */
 export const MONSTER_OVERLEVEL_EXP_MULTIPLIER = 0.5;
 
@@ -105,7 +114,6 @@ export const MONSTER_TIER_UNDERLEVEL_EXP_BONUS_RATES: Record<MonsterTier, number
 
 /** 击杀经验的等级差修正最多只按 10 级计算，避免极端越级导致收益爆炸。 */
 export const MONSTER_KILL_EXP_LEVEL_DELTA_CAP = 10;
-
 
 
 

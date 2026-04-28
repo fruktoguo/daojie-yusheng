@@ -110,6 +110,9 @@ let WorldRuntimePersistenceStateService = class WorldRuntimePersistenceStateServ
             tileDamageEntries: typeof instance.buildTileDamagePersistenceEntries === 'function'
                 ? instance.buildTileDamagePersistenceEntries()
                 : [],
+            temporaryTileEntries: typeof instance.buildTemporaryTilePersistenceEntries === 'function'
+                ? instance.buildTemporaryTilePersistenceEntries()
+                : [],
             groundPileEntries: instance.buildGroundPersistenceEntries(),
             containerStates: deps.worldRuntimeLootContainerService.buildContainerPersistenceStates(instanceId),
         };
@@ -162,17 +165,47 @@ let WorldRuntimePersistenceStateService = class WorldRuntimePersistenceStateServ
             persistedDomains.push('tile_cell');
         }
         if (currentDomains.has('tile_resource')) {
-            await persistence.saveTileResourceDiffs(instanceId, instance.buildTileResourcePersistenceEntries());
+            const delta = typeof instance.buildTileResourcePersistenceDelta === 'function'
+                ? instance.buildTileResourcePersistenceDelta()
+                : null;
+            if (delta && delta.fullReplace !== true && typeof persistence.saveTileResourceDelta === 'function') {
+                await persistence.saveTileResourceDelta(instanceId, delta.upserts ?? [], delta.deletes ?? []);
+            }
+            else {
+                await persistence.saveTileResourceDiffs(instanceId, instance.buildTileResourcePersistenceEntries());
+            }
             persistedDomains.push('tile_resource');
         }
         if (currentDomains.has('tile_damage')) {
-            await persistence.saveTileDamageStates(instanceId, typeof instance.buildTileDamagePersistenceEntries === 'function'
-                ? instance.buildTileDamagePersistenceEntries()
-                : []);
+            const delta = typeof instance.buildTileDamagePersistenceDelta === 'function'
+                ? instance.buildTileDamagePersistenceDelta()
+                : null;
+            if (delta && delta.fullReplace !== true && typeof persistence.saveTileDamageDelta === 'function') {
+                await persistence.saveTileDamageDelta(instanceId, delta.upserts ?? [], delta.deletes ?? []);
+            }
+            else {
+                await persistence.saveTileDamageStates(instanceId, typeof instance.buildTileDamagePersistenceEntries === 'function'
+                    ? instance.buildTileDamagePersistenceEntries()
+                    : []);
+            }
             persistedDomains.push('tile_damage');
         }
+        if (currentDomains.has('temporary_tile')) {
+            await persistence.replaceTemporaryTileStates(instanceId, typeof instance.buildTemporaryTilePersistenceEntries === 'function'
+                ? instance.buildTemporaryTilePersistenceEntries()
+                : []);
+            persistedDomains.push('temporary_tile');
+        }
         if (currentDomains.has('ground_item')) {
-            await persistence.replaceGroundItems(instanceId, instance.buildGroundPersistenceEntries());
+            const delta = typeof instance.buildGroundPersistenceDelta === 'function'
+                ? instance.buildGroundPersistenceDelta()
+                : null;
+            if (delta && delta.fullReplace !== true && typeof persistence.replaceGroundItemTiles === 'function') {
+                await persistence.replaceGroundItemTiles(instanceId, delta.tileIndices ?? [], delta.entries ?? []);
+            }
+            else {
+                await persistence.replaceGroundItems(instanceId, instance.buildGroundPersistenceEntries());
+            }
             persistedDomains.push('ground_item');
         }
         if (currentDomains.has('container_state')) {
@@ -186,9 +219,17 @@ let WorldRuntimePersistenceStateService = class WorldRuntimePersistenceStateServ
             persistedDomains.push('overlay');
         }
         if (currentDomains.has('monster_runtime')) {
-            await persistence.replaceMonsterRuntimeStates(instanceId, typeof instance.buildMonsterRuntimePersistenceEntries === 'function'
-                ? instance.buildMonsterRuntimePersistenceEntries()
-                : []);
+            const delta = typeof instance.buildMonsterRuntimePersistenceDelta === 'function'
+                ? instance.buildMonsterRuntimePersistenceDelta()
+                : null;
+            if (delta && delta.fullReplace !== true && typeof persistence.saveMonsterRuntimeDelta === 'function') {
+                await persistence.saveMonsterRuntimeDelta(instanceId, delta.upserts ?? [], delta.deletes ?? []);
+            }
+            else {
+                await persistence.replaceMonsterRuntimeStates(instanceId, typeof instance.buildMonsterRuntimePersistenceEntries === 'function'
+                    ? instance.buildMonsterRuntimePersistenceEntries()
+                    : []);
+            }
             persistedDomains.push('monster_runtime');
         }
         if (currentDomains.has('time') && typeof persistence.saveInstanceCheckpoint === 'function') {

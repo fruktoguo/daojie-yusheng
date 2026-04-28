@@ -2,6 +2,7 @@ import type {
   Direction,
   GameTimeState,
   CombatEffect,
+  FormationLifecycle,
   FormationRangeShape,
   GroundItemPilePatch,
   GroundItemPileView,
@@ -176,6 +177,8 @@ export interface ObservedMapEntity {
   formationOwnerPlayerId?: string | null;
   /** 阵法是否处于开启状态。 */
   formationActive?: boolean;
+  /** 阵法生命周期。 */
+  formationLifecycle?: FormationLifecycle;
 }
 
 /** 技能瞄准叠加层状态。 */
@@ -625,6 +628,11 @@ export interface MapSceneSnapshot {
 /** 世界级增量入参。 */
 export interface MapWorldDeltaInput {
 /**
+ * instanceId：实例ID标识。
+ */
+
+  instanceId?: string;
+/**
  * playerPatches：玩家Patche相关字段。
  */
 
@@ -716,6 +724,11 @@ export interface MapWorldDeltaInput {
 
 /** 本体增量入参。 */
 export interface MapSelfDeltaInput {
+/**
+ * instanceId：实例ID标识。
+ */
+
+  instanceId?: string;
 /**
  * mapId：地图ID标识。
  */

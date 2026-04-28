@@ -86,6 +86,13 @@ const ELEMENT_KEY_LABELS = {
 /** 开启天门玩法的境界门槛。 */
 const HEAVEN_GATE_REALM_LEVEL = 18;
 
+/** main 口径：境界修为不足时，底蕴最多按本次经验的额外两倍补足。 */
+const FOUNDATION_EXP_MULTIPLIER = 3;
+const FOUNDATION_EXP_BONUS_MULTIPLIER = FOUNDATION_EXP_MULTIPLIER - 1;
+
+/** main 口径：单次击杀最多给当前境界需求 5 倍的境界/战斗经验。 */
+const SINGLE_COMBAT_REALM_EXP_CAP_MULTIPLIER = 5;
+
 /** 每次天门斩根允许切掉的最大条目数。 */
 const HEAVEN_GATE_MAX_SEVERED = 4;
 
@@ -374,8 +381,29 @@ let PlayerProgressionService = PlayerProgressionService_1 = class PlayerProgress
             notices,
         });
     }
+    /** 增加工艺活动附带的境界修为，按 main 的 craft 经验口径溢出到底蕴。 */
+    grantCraftRealmExp(player, baseGain) {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
+
+        const normalizedBaseGain = Math.max(0, Math.round(Number(baseGain) || 0));
+        if (normalizedBaseGain <= 0) {
+            return {
+                changed: false,
+                notices: [],
+                actionsDirty: false,
+                dirtyDomains: [],
+            };
+        }
+        const result = this.gainRealmProgressInternal(player, normalizedBaseGain, {
+            useFoundation: false,
+            overflowToFoundation: true,
+        });
+        this.finalizeProgressionMutation(player, result);
+        return toProgressionMutationResult(result);
+    }
     /** 推进闭关修炼 tick。 */
-    advanceCultivation(player, elapsedTicks = 1) {
+    advanceCultivation(player, elapsedTicks = 1, options = {}) {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
 
@@ -392,21 +420,26 @@ let PlayerProgressionService = PlayerProgressionService_1 = class PlayerProgress
         const resolved = this.resolveActiveCultivatingTechnique(player);
         let mutation = resolved;
 
-        const realmBasePerTick = Math.max(0, shared_1.CULTIVATION_REALM_EXP_PER_TICK + Math.round(player.attrs.numericStats.realmExpPerTick));
+        const auraMultiplier = normalizeCultivationAuraMultiplier(options.auraMultiplier);
 
-        const techniqueBasePerTick = Math.max(0, shared_1.CULTIVATE_EXP_PER_TICK + Math.round(player.attrs.numericStats.techniqueExpPerTick));
+        const realmBasePerTick = Math.max(0, Math.round(player.attrs.numericStats.realmExpPerTick * auraMultiplier));
+
+        const techniqueBasePerTick = Math.max(0, Math.round(player.attrs.numericStats.techniqueExpPerTick * auraMultiplier));
 
         const realmGain = applyRateBonus(realmBasePerTick * ticks, player.attrs.numericStats.playerExpRate, 1);
 
-        const techniqueGain = applyRateBonus(techniqueBasePerTick * ticks, player.attrs.numericStats.techniqueExpRate, 1);
         if (realmGain > 0) {
             mutation = mergeProgressionMutation(mutation, this.gainRealmProgressInternal(player, realmGain, {
                 useFoundation: true,
                 overflowToFoundation: true,
             }));
         }
-        if (resolved.technique && techniqueGain > 0) {
-            mutation = mergeProgressionMutation(mutation, this.advanceTechniqueProgressInternal(player, techniqueGain));
+        const techniqueBaseGain = techniqueBasePerTick * ticks;
+        if (techniqueBaseGain > 0) {
+            mutation = mergeProgressionMutation(mutation, this.advanceTechniqueProgressInternal(player, techniqueBaseGain, {
+                expBonus: player.attrs.numericStats.techniqueExpRate,
+                minimumGain: 1,
+            }));
         }
         if (!mutation.changed) {
             return {
@@ -446,7 +479,7 @@ let PlayerProgressionService = PlayerProgressionService_1 = class PlayerProgress
 
         const realmGain = applyRateBonus(this.getRealmCombatExp(monsterLevel, expAdjustmentRealmLv, monsterTier, expMultiplier, contributionRatio), player.attrs.numericStats.playerExpRate, 0);
 
-        const techniqueGain = applyRateBonus(this.getTechniqueCombatExp(monsterLevel, expAdjustmentRealmLv, monsterTier, expMultiplier, contributionRatio), player.attrs.numericStats.techniqueExpRate, 0);
+        const techniqueBaseGain = this.getTechniqueCombatExp(monsterLevel, expAdjustmentRealmLv, monsterTier, expMultiplier, contributionRatio);
 
         let mutation = createEmptyMutation();
         if (realmGain > 0) {
@@ -456,8 +489,11 @@ let PlayerProgressionService = PlayerProgressionService_1 = class PlayerProgress
                 trackCombatExp: true,
             }));
         }
-        if (techniqueGain > 0) {
-            mutation = mergeProgressionMutation(mutation, this.advanceTechniqueProgressInternal(player, techniqueGain));
+        if (techniqueBaseGain > 0) {
+            mutation = mergeProgressionMutation(mutation, this.advanceTechniqueProgressInternal(player, techniqueBaseGain, {
+                expBonus: player.attrs.numericStats.techniqueExpRate,
+                minimumGain: 0,
+            }));
         }
 
         const actualRealmGain = calculateRealmProgressGain(beforeRealmLv, beforeRealmProgress, player.realm);
@@ -1299,6 +1335,10 @@ let PlayerProgressionService = PlayerProgressionService_1 = class PlayerProgress
 
         const realm = this.normalizeRealmState(player.realm);
 
+        const gain = options.trackCombatExp === true
+            ? capSingleCombatRealmExpGain(realm, normalized)
+            : normalized;
+
         const canAdvanceRealm = realm.progressToNext > 0 && realm.realmLv < this.maxRealmLevel;
 
         let nextProgress = realm.progress;
@@ -1309,12 +1349,13 @@ let PlayerProgressionService = PlayerProgressionService_1 = class PlayerProgress
         if (canAdvanceRealm) {
 
             const room = Math.max(0, realm.progressToNext - nextProgress);
-            if (room > 0) {
-                nextProgress += Math.min(room, normalized);
+            const acceptedBaseGain = Math.min(room, gain);
+            if (acceptedBaseGain > 0) {
+                nextProgress += acceptedBaseGain;
             }
             if (options.useFoundation === true && nextProgress < realm.progressToNext && player.foundation > 0) {
 
-                const foundationSpent = Math.min(player.foundation, realm.progressToNext - nextProgress);
+                const foundationSpent = Math.min(player.foundation, gain * FOUNDATION_EXP_BONUS_MULTIPLIER, realm.progressToNext - nextProgress);
                 if (foundationSpent > 0) {
                     player.foundation -= foundationSpent;
                     nextProgress += foundationSpent;
@@ -1325,16 +1366,19 @@ let PlayerProgressionService = PlayerProgressionService_1 = class PlayerProgress
         if (options.overflowToFoundation === true) {
 
             const overflow = canAdvanceRealm
-                ? Math.max(0, normalized - Math.max(0, nextProgress - realm.progress))
-                : normalized;
+                ? Math.max(0, gain - Math.max(0, nextProgress - realm.progress))
+                : gain;
             if (overflow > 0) {
-                player.foundation += overflow;
-                foundationChanged = true;
+                const foundationGain = calculateOverflowFoundationGain(player, realm, overflow);
+                if (foundationGain > 0) {
+                    player.foundation += foundationGain;
+                    foundationChanged = true;
+                }
             }
         }
         if (options.trackCombatExp === true) {
 
-            const combatExpGain = normalizeProgressionAmount(normalized * normalizeCombatExpMultiplier(options.combatExpMultiplier));
+            const combatExpGain = normalizeProgressionAmount(gain * normalizeCombatExpMultiplier(options.combatExpMultiplier));
             if (combatExpGain > 0) {
                 player.combatExp += combatExpGain;
                 combatExpChanged = true;
@@ -1491,6 +1535,11 @@ let PlayerProgressionService = PlayerProgressionService_1 = class PlayerProgress
         const maxLevel = (0, shared_1.getTechniqueMaxLevel)(technique.layers ?? undefined, level);
         return level >= maxLevel || (technique.expToNext ?? 0) <= 0;
     }    
+    /** 判断已学功法是否全部圆满。 */
+    areAllTechniquesMaxed(player) {
+        return player.techniques.techniques.length > 0
+            && player.techniques.techniques.every((entry) => this.isTechniqueMaxed(entry));
+    }
     /**
  * advanceTechniqueProgressInternal：执行advance功法进度Internal相关逻辑。
  * @param player 玩家对象。
@@ -1498,30 +1547,35 @@ let PlayerProgressionService = PlayerProgressionService_1 = class PlayerProgress
  * @returns 无返回值，直接更新advance功法进度Internal相关状态。
  */
 
-    advanceTechniqueProgressInternal(player, amount) {
+    advanceTechniqueProgressInternal(player, amount, options = {}) {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
 
         const resolved = this.resolveActiveCultivatingTechnique(player);
         if (!resolved.technique) {
+            if (!player.techniques.cultivatingTechId && player.techniques.techniques.length > 0) {
+                return this.advanceBodyTrainingProgressInternal(player, applyTechniqueRateBonus(amount, 1, options), resolved);
+            }
             return resolved;
         }
 
         const technique = resolved.technique;
-
-        const techniqueExpAdjustment = (0, shared_1.getTechniqueExpLevelAdjustment)(player.realm?.realmLv, technique.realmLv);
-
-        const normalized = normalizeProgressionAmount(amount * techniqueExpAdjustment);
-        if (normalized <= 0) {
-            return resolved;
-        }
-
         const previousLevel = Math.max(1, Math.floor(technique.level ?? 1));
 
         const previousExp = Math.max(0, Math.floor(technique.exp ?? 0));
 
         const maxLevel = (0, shared_1.getTechniqueMaxLevel)(technique.layers ?? undefined, previousLevel);
         if (previousLevel >= maxLevel || (technique.expToNext ?? 0) <= 0) {
+            if (this.areAllTechniquesMaxed(player)) {
+                return this.advanceBodyTrainingProgressInternal(player, applyTechniqueRateBonus(amount, 1, options), resolved);
+            }
+            return resolved;
+        }
+
+        const techniqueExpAdjustment = (0, shared_1.getTechniqueExpLevelAdjustment)(player.realm?.realmLv, technique.realmLv);
+
+        const normalized = applyTechniqueRateBonus(amount, techniqueExpAdjustment, options);
+        if (normalized <= 0) {
             return resolved;
         }
         technique.level = previousLevel;
@@ -1574,6 +1628,49 @@ let PlayerProgressionService = PlayerProgressionService_1 = class PlayerProgress
         }
         return mutation;
     }    
+    /** 将无主修或全圆满后的功法经验转入炼体。 */
+    advanceBodyTrainingProgressInternal(player, amount, resolved) {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
+
+        const normalized = normalizeProgressionAmount(amount);
+        if (normalized <= 0) {
+            return resolved;
+        }
+        const bodyTraining = (0, shared_1.normalizeBodyTrainingState)(player.bodyTraining);
+        const previousLevel = bodyTraining.level;
+        const previousExp = bodyTraining.exp;
+        const notices = [...resolved.notices];
+        bodyTraining.exp += normalized;
+        while (bodyTraining.expToNext > 0 && bodyTraining.exp >= bodyTraining.expToNext) {
+            bodyTraining.exp -= bodyTraining.expToNext;
+            bodyTraining.level += 1;
+            bodyTraining.expToNext = (0, shared_1.getBodyTrainingExpToNext)(bodyTraining.level);
+            notices.push({
+                text: `炼体突破至第 ${bodyTraining.level} 层，体魄、神识、身法、根骨各提升 1 点。`,
+                kind: 'success',
+            });
+        }
+        player.bodyTraining = bodyTraining;
+        if (bodyTraining.level === previousLevel && bodyTraining.exp === previousExp) {
+            return resolved;
+        }
+        this.applyRealmPresentation(player, this.normalizeRealmState(player.realm));
+        let attrRecalculated = resolved.attrRecalculated;
+        if (bodyTraining.level !== previousLevel) {
+            attrRecalculated = this.playerAttributesService.recalculate(player) || attrRecalculated;
+        }
+        return {
+            changed: true,
+            panelDirty: !attrRecalculated,
+            attrRecalculated,
+            techniquesDirty: true,
+            bodyTrainingDirty: true,
+            actionsDirty: resolved.actionsDirty || bodyTraining.level !== previousLevel,
+            notices,
+        };
+    }
+
     /**
  * getRealmCombatExp：读取Realm战斗Exp。
  * @param monsterLevel 参数说明。
@@ -1596,9 +1693,11 @@ let PlayerProgressionService = PlayerProgressionService_1 = class PlayerProgress
         }
 
         const levelAdjustment = getMonsterKillRealmExpAdjustment(playerRealmLv, level, monsterTier);
+        const monsterLevelDecay = (0, shared_1.getMonsterLevelExpDecayMultiplier)(level);
         return expToNext
             * Math.max(0, expMultiplier)
             * levelAdjustment
+            * monsterLevelDecay
             * clamp(contributionRatio, 0, 1)
             / 1000;
     }    
@@ -1624,9 +1723,11 @@ let PlayerProgressionService = PlayerProgressionService_1 = class PlayerProgress
         }
 
         const levelAdjustment = getMonsterKillRealmExpAdjustment(playerRealmLv, level, monsterTier);
+        const monsterLevelDecay = (0, shared_1.getMonsterLevelExpDecayMultiplier)(level);
         return expToNext
             * Math.max(0, expMultiplier)
             * levelAdjustment
+            * monsterLevelDecay
             * clamp(contributionRatio, 0, 1)
             / 200;
     }    
@@ -1745,6 +1846,7 @@ function createEmptyMutation() {
         panelDirty: false,
         attrRecalculated: false,
         techniquesDirty: false,
+        bodyTrainingDirty: false,
         actionsDirty: false,
         notices: [],
     };
@@ -1760,6 +1862,9 @@ function describeProgressionDirtyDomains(mutation) {
     }
     if (mutation.techniquesDirty) {
         domains.push('technique');
+    }
+    if (mutation.bodyTrainingDirty) {
+        domains.push('body_training');
     }
     return domains;
 }
@@ -1793,6 +1898,7 @@ function mergeProgressionMutation(left, right) {
         panelDirty: left.panelDirty || right.panelDirty,
         attrRecalculated: left.attrRecalculated || right.attrRecalculated,
         techniquesDirty: left.techniquesDirty || right.techniquesDirty,
+        bodyTrainingDirty: left.bodyTrainingDirty || right.bodyTrainingDirty,
         actionsDirty: left.actionsDirty || right.actionsDirty,
 
         notices: left.notices.length === 0
@@ -1828,6 +1934,68 @@ function applyRateBonus(baseGain, bonusRateBp, minimumGain = 1) {
     const guaranteed = Math.floor(exactGain);
 
     const remainder = exactGain - guaranteed;
+    if (remainder <= 0) {
+        return guaranteed;
+    }
+    return guaranteed + (Math.random() < remainder ? 1 : 0);
+}
+
+function applyTechniqueRateBonus(baseGain, levelAdjustment = 1, options = {}) {
+    const normalizedBaseGain = Number(baseGain);
+    if (!Number.isFinite(normalizedBaseGain) || normalizedBaseGain <= 0) {
+        return 0;
+    }
+    const normalizedLevelAdjustment = Number.isFinite(levelAdjustment)
+        ? Math.max(0, Number(levelAdjustment))
+        : 1;
+    const adjustedGain = normalizedBaseGain * normalizedLevelAdjustment;
+    if (adjustedGain <= 0) {
+        return 0;
+    }
+    if (options && Object.prototype.hasOwnProperty.call(options, 'expBonus')) {
+        return applyRateBonus(adjustedGain, options.expBonus, options.minimumGain ?? 1);
+    }
+    return normalizeProgressionAmount(adjustedGain);
+}
+
+function normalizeCultivationAuraMultiplier(value) {
+    const normalized = Number(value);
+    if (!Number.isFinite(normalized) || normalized <= 0) {
+        return 1;
+    }
+    return normalized;
+}
+
+function capSingleCombatRealmExpGain(realm, gain) {
+    const normalizedGain = normalizeProgressionAmount(gain);
+    const progressToNext = Math.max(0, Math.floor(realm?.progressToNext ?? 0));
+    if (normalizedGain <= 0 || progressToNext <= 0) {
+        return normalizedGain;
+    }
+    return Math.min(normalizedGain, progressToNext * SINGLE_COMBAT_REALM_EXP_CAP_MULTIPLIER);
+}
+
+function calculateOverflowFoundationGain(player, realm, amount) {
+    const normalized = normalizeProgressionAmount(amount);
+    if (normalized <= 0) {
+        return 0;
+    }
+    const referenceProgress = normalizeProgressionAmount(realm?.progressToNext);
+    if (referenceProgress <= 0) {
+        return normalized;
+    }
+    const currentFoundation = normalizeProgressionAmount(player?.foundation);
+    const decayRate = Math.log(2) / (referenceProgress * 10);
+    const decaySeed = Math.exp(-decayRate * currentFoundation);
+    return rollFractionalGain(Math.log1p(decayRate * normalized * decaySeed) / decayRate);
+}
+
+function rollFractionalGain(value) {
+    if (!Number.isFinite(value) || value <= 0) {
+        return 0;
+    }
+    const guaranteed = Math.floor(value);
+    const remainder = value - guaranteed;
     if (remainder <= 0) {
         return guaranteed;
     }

@@ -302,10 +302,76 @@ async function verifyAwaitsPendingCommandsBeforeSystemAndTicks() {
     ]);
 }
 
+async function verifyCultivationAuraMultiplierUsesPlayerTileAura() {
+    const log = [];
+    const deps = createDeps(log);
+    const instance = deps.getInstanceRuntime('instance:1');
+    instance.getPlayerPosition = (playerId) => playerId === 'player:1'
+        ? { x: 12, y: 8 }
+        : null;
+    instance.listTileResources = (x, y) => {
+        assert.equal(x, 12);
+        assert.equal(y, 8);
+        return [{
+            resourceKey: 'aura.refined.neutral',
+            value: 2250,
+            sourceValue: 2250,
+        }];
+    };
+    deps.playerRuntimeService.getPlayer = (playerId) => playerId === 'player:1'
+        ? {
+            playerId,
+            techniques: { techniques: [] },
+            buffs: { buffs: [] },
+            runtimeBonuses: [],
+        }
+        : null;
+    let capturedOptions = null;
+    deps.playerRuntimeService.advanceTickForPlayerIds = (_playerIds, _tick, options) => {
+        capturedOptions = options;
+        log.push('advanceTickForPlayerIds');
+    };
+    const service = new WorldRuntimeInstanceTickOrchestrationService();
+
+    await service.advanceFrame(deps, 1000, null);
+
+    assert.equal(capturedOptions?.cultivationAuraMultiplierByPlayerId?.get('player:1'), 4);
+    assert.equal(capturedOptions?.idleCultivationBlockedPlayerIds?.has('player:block'), true);
+}
+
+async function verifyTemporaryTileExpiryUsesInstanceTick() {
+    const log = [];
+    const deps = createDeps(log);
+    deps.tick = 500;
+    const instance = deps.getInstanceRuntime('instance:1');
+    instance.tick = 3;
+    instance.tickOnce = () => {
+        instance.tick += 1;
+        log.push('instance.tickOnce');
+        return { transfers: [], monsterActions: [] };
+    };
+    let receivedTick = null;
+    instance.advanceTemporaryTiles = (currentTick) => {
+        receivedTick = currentTick;
+        log.push(`advanceTemporaryTiles:${currentTick}`);
+        return false;
+    };
+    const service = new WorldRuntimeInstanceTickOrchestrationService();
+
+    await service.advanceFrame(deps, 1000, null);
+
+    assert.equal(deps.tick, 501);
+    assert.equal(instance.tick, 4);
+    assert.equal(receivedTick, 4);
+    assert.ok(!log.includes('advanceTemporaryTiles:501'));
+}
+
 Promise.resolve()
     .then(() => verifyNormalPath())
     .then(() => verifyZeroTickPath())
     .then(() => verifyAwaitsPendingCommandsBeforeSystemAndTicks())
+    .then(() => verifyCultivationAuraMultiplierUsesPlayerTileAura())
+    .then(() => verifyTemporaryTileExpiryUsesInstanceTick())
     .then(() => {
     console.log(JSON.stringify({ ok: true, case: 'world-runtime-instance-tick-orchestration' }, null, 2));
 });

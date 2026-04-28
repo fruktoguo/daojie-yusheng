@@ -117,6 +117,7 @@ const smokeCases = [
   { name: 'player-domain-recovery', scriptFile: 'player-domain-recovery-smoke.js', standalone: true },
   { name: 'durable-operation', scriptFile: 'durable-operation-smoke.js', standalone: true },
   { name: 'gm-database', scriptFile: 'gm-database-smoke.js', standalone: true },
+  { name: 'gm-map-config-persistence', scriptFile: 'gm-map-config-persistence-smoke.js', standalone: true },
   { name: 'world-runtime-lifecycle', scriptFile: 'world-runtime-lifecycle-smoke.js', standalone: true },
   { name: 'snapshot-retirement', scriptFile: 'snapshot-retirement-report-smoke.js', standalone: true },
   { name: 'map-snapshot-retirement', scriptFile: 'map-snapshot-retirement-report-smoke.js', standalone: true },
@@ -198,7 +199,8 @@ async function main() {
             || entry.name === 'player-domain-persistence'
             || entry.name === 'player-domain-recovery'
             || entry.name === 'durable-operation'
-            || entry.name === 'gm-database') && !hasDatabaseUrl()) {
+            || entry.name === 'gm-database'
+            || entry.name === 'gm-map-config-persistence') && !hasDatabaseUrl()) {
             results.push({
                 name: entry.name,
                 durationMs: 0,
@@ -439,7 +441,8 @@ function resolveSelectedCases() {
             || entry.name === 'player-domain-persistence'
             || entry.name === 'player-domain-recovery'
             || entry.name === 'durable-operation'
-            || entry.name === 'gm-database') {
+            || entry.name === 'gm-database'
+            || entry.name === 'gm-map-config-persistence') {
             return includePersistence;
         }
         return true;

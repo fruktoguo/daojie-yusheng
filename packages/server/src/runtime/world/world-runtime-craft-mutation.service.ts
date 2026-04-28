@@ -114,6 +114,7 @@ let WorldRuntimeCraftMutationService = class WorldRuntimeCraftMutationService {
         if (Array.isArray(result.groundDrops) && result.groundDrops.length > 0) {
             this.dropCraftGroundItems(playerId, result.groundDrops, deps);
         }
+        this.grantCraftRealmExp(playerId, result.craftRealmExpGain);
         for (const message of result.messages ?? []) {
             if (message?.text) {
                 deps.queuePlayerNotice(playerId, message.text, message.kind ?? 'info');
@@ -123,6 +124,25 @@ let WorldRuntimeCraftMutationService = class WorldRuntimeCraftMutationService {
             this.emitCraftPanelUpdate(playerId, panel, deps);
         }
     }    
+    /** 在 durable 任务成功后补发制造附带的境界修为。 */
+    grantCraftRealmExp(playerId, amount) {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
+
+        const normalized = Number(amount);
+        if (!Number.isFinite(normalized) || normalized <= 0) {
+            return;
+        }
+        const player = this.playerRuntimeService.getPlayer(playerId);
+        if (!player) {
+            return;
+        }
+        const result = this.playerRuntimeService.playerProgressionService?.grantCraftRealmExp?.(player, normalized);
+        if (result) {
+            this.playerRuntimeService.applyProgressionResult(player, result);
+        }
+    }
+
     /**
  * persistActiveJobIfNeeded：处理活跃Job持久化相关逻辑。
  * @param playerId 玩家 ID。

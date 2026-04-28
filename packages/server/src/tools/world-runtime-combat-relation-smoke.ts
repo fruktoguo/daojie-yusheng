@@ -437,6 +437,186 @@ function testAutoCombatMoveIsSingleStepLikeMainline() {
   ]);
 }
 
+async function testSkillDispatchLogsFormationDamage() {
+  const attacker = createPlayer({
+    techniques: {
+      techniques: [{
+        skills: [{
+          id: 'skill.formation',
+          name: '破阵诀',
+          effects: [{ type: 'damage', damageKind: 'spell' }],
+          targeting: { range: 3 },
+          range: 3,
+        }],
+      }],
+    },
+  });
+  const log = [];
+  const service = new WorldRuntimePlayerSkillDispatchService({
+    getPlayerOrThrow(playerId) {
+      assert.equal(playerId, attacker.playerId);
+      return attacker;
+    },
+  }, {
+    castSkillToMonster() {
+      return { totalDamage: 120, hitCount: 1, qiCost: 0 };
+    },
+  });
+  await service.dispatchSkillTargets(attacker, 'skill.formation', attacker.techniques.techniques[0].skills[0], [{
+    kind: 'formation',
+    formationId: 'formation:test',
+    x: 11,
+    y: 10,
+  }], {
+    getInstanceRuntimeOrThrow(instanceId) {
+      assert.equal(instanceId, attacker.instanceId);
+      return {};
+    },
+    resolveCurrentTickForPlayerId(playerId) {
+      assert.equal(playerId, attacker.playerId);
+      return 10;
+    },
+    pushActionLabelEffect(instanceId, x, y, label) {
+      log.push(['label', instanceId, x, y, label]);
+    },
+    pushAttackEffect(instanceId, fromX, fromY, toX, toY) {
+      log.push(['attackEffect', instanceId, fromX, fromY, toX, toY]);
+    },
+    pushDamageFloatEffect(instanceId, x, y, damage) {
+      log.push(['damageFloat', instanceId, x, y, damage]);
+    },
+    queuePlayerNotice(playerId, text, kind) {
+      log.push(['notice', playerId, text, kind]);
+    },
+    worldRuntimeFormationService: {
+      getFormationCombatState(instanceId, formationId) {
+        assert.equal(instanceId, attacker.instanceId);
+        assert.equal(formationId, 'formation:test');
+        return {
+          id: 'formation:test',
+          name: '测试阵法',
+          x: 11,
+          y: 10,
+          remainingAuraBudget: 100,
+          damagePerAura: 10,
+        };
+      },
+      applyDamageToFormation(instanceId, formationId, damage, attackerPlayerId) {
+        assert.equal(instanceId, attacker.instanceId);
+        assert.equal(formationId, 'formation:test');
+        assert.equal(damage, 120);
+        assert.equal(attackerPlayerId, attacker.playerId);
+        return {
+          appliedDamage: 120,
+          auraDamage: 12,
+          destroyed: false,
+        };
+      },
+    },
+  });
+  assert.ok(log.some((entry) => entry[0] === 'notice'
+    && entry[1] === attacker.playerId
+    && entry[2].includes('造成')
+    && entry[2].includes('削减阵法灵力 12')
+    && entry[3] === 'combat'));
+}
+
+async function testSkillDispatchKeepsTileAnchorForAreaTerrainDamage() {
+  const attacker = createPlayer({
+    actions: {
+      actions: [{ id: 'skill.terrain_box', type: 'skill', requiresTarget: true, skillEnabled: true }],
+    },
+    techniques: {
+      techniques: [{
+        skills: [{
+          id: 'skill.terrain_box',
+          name: '裂地术',
+          effects: [{ type: 'damage', damageKind: 'spell' }],
+          range: 3,
+          targeting: {
+            shape: 'box',
+            width: 3,
+            height: 1,
+            range: 3,
+            maxTargets: 99,
+          },
+        }],
+      }],
+    },
+  });
+  const damagedTiles = [];
+  const castTargets = [];
+  const tileStates = new Map([
+    ['11,10', { tileType: 'wall', hp: 100, maxHp: 100, destroyed: false }],
+    ['13,10', { tileType: 'wall', hp: 100, maxHp: 100, destroyed: false }],
+  ]);
+  const instance = {
+    meta: { canDamageTile: true },
+    listMonsters() {
+      return [];
+    },
+    getMonster() {
+      return null;
+    },
+    getTileCombatState(x, y) {
+      return tileStates.get(`${x},${y}`) ?? null;
+    },
+    damageTile(x, y, damage) {
+      damagedTiles.push(`${x},${y}`);
+      return { appliedDamage: damage, destroyed: false };
+    },
+  };
+  const service = new WorldRuntimePlayerSkillDispatchService({
+    getPlayerOrThrow(playerId) {
+      assert.equal(playerId, attacker.playerId);
+      return attacker;
+    },
+    getPlayer() {
+      return null;
+    },
+    listPlayerSnapshots() {
+      return [];
+    },
+    recordActivity() {
+      return undefined;
+    },
+  }, {
+    castSkillToMonster(_attacker, target) {
+      castTargets.push(target.runtimeId);
+      return { totalDamage: 10, hitCount: 1, qiCost: 0, damageKind: 'spell' };
+    },
+  });
+  await service.dispatchCastSkill(attacker.playerId, 'skill.terrain_box', null, null, 'tile:12:10', {
+    resolveCurrentTickForPlayerId(playerId) {
+      assert.equal(playerId, attacker.playerId);
+      return 20;
+    },
+    worldRuntimeCraftInterruptService: {
+      interruptCraftForReason() {
+        return undefined;
+      },
+    },
+    ensureAttackAllowed() {
+      return undefined;
+    },
+    getInstanceRuntimeOrThrow(instanceId) {
+      assert.equal(instanceId, attacker.instanceId);
+      return instance;
+    },
+    pushActionLabelEffect() {
+      return undefined;
+    },
+    pushAttackEffect() {
+      return undefined;
+    },
+    pushDamageFloatEffect() {
+      return undefined;
+    },
+  });
+  assert.deepEqual(castTargets.sort(), ['tile:11:10', 'tile:13:10']);
+  assert.deepEqual(damagedTiles.sort(), ['11,10', '13,10']);
+}
+
 async function testEngageBattleRejectsNeutralPlayerBeforeLocking() {
   const log = [];
   const attacker = createPlayer();
@@ -491,6 +671,8 @@ Promise.resolve()
   .then(() => testSkillDispatchRejectsDisabledSkillAction())
   .then(() => testAutoCombatPrefersRetaliator())
   .then(() => testAutoCombatMoveIsSingleStepLikeMainline())
+  .then(() => testSkillDispatchLogsFormationDamage())
+  .then(() => testSkillDispatchKeepsTileAnchorForAreaTerrainDamage())
   .then(() => testEngageBattleRejectsNeutralPlayerBeforeLocking())
   .then(() => {
     console.log(JSON.stringify({ ok: true, case: 'world-runtime-combat-relation' }, null, 2));

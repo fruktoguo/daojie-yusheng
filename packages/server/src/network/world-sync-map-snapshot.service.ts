@@ -237,6 +237,7 @@ export class WorldSyncMapSnapshotService {
         formationOwnerSectId: formation.ownerSectId ?? null,
         formationOwnerPlayerId: formation.ownerPlayerId ?? null,
         formationActive: formation.active !== false,
+        formationLifecycle: formation.lifecycle === 'persistent' ? 'persistent' : 'deployed',
       });
     }
     return entities;
@@ -307,11 +308,12 @@ export class WorldSyncMapSnapshotService {
     if (modifiedAt !== null && modifiedAt !== undefined) {
       tile.modifiedAt = modifiedAt;
     }
+    const isTemporaryTile = state.combat?.temporary === true;
     const hpVisible = !destroyed
       && state.combat?.maxHp > 0
       && typeof state.combat?.hp === 'number'
       && state.combat.hp > 0
-      && state.combat.hp < state.combat.maxHp;
+      && (isTemporaryTile || state.combat.hp < state.combat.maxHp);
     if (hpVisible) {
       tile.hp = state.combat.hp;
       tile.maxHp = state.combat.maxHp;

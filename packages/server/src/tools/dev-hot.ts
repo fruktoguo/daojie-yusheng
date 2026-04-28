@@ -16,6 +16,7 @@ let serverProcess: import("node:child_process").ChildProcess | null = null;
 let serverGeneration = 0;
 let watchReady = false;
 let expectedServerExitPid: number | null = null;
+let expectedServerExitReason: string | null = null;
 let restartTimer: NodeJS.Timeout | null = null;
 const recentUnexpectedExitAt: number[] = [];
 const shouldClearConsoleOnRestart =
@@ -138,18 +139,20 @@ function forwardWithCapture(stream: NodeJS.ReadableStream, onText: (text: string
  */
 
 
-function stopServer(onStopped?: () => void) {
+function stopServer(onStopped?: () => void, reason = "计划停止") {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
   const child = serverProcess;
   if (!child || child.exitCode !== null) {
     serverProcess = null;
     expectedServerExitPid = null;
+    expectedServerExitReason = null;
     onStopped?.();
     return;
   }
   clearRestartTimer();
   expectedServerExitPid = child.pid ?? null;
+  expectedServerExitReason = reason;
 
   let finished = false;
   const done = () => {
@@ -202,16 +205,20 @@ function startServer() {
       serverProcess = null;
     }
     const isExpectedExit = expectedServerExitPid !== null && expectedServerExitPid === (child.pid ?? null);
+    const expectedExitReason = expectedServerExitReason;
     if (isExpectedExit) {
       expectedServerExitPid = null;
+      expectedServerExitReason = null;
     }
     if (shuttingDown) {
       return;
     }
-    log(`server 进程 #${generation} 已退出 (code=${code ?? "null"}, signal=${signal ?? "none"})`);
-    if (!isExpectedExit) {
-      scheduleAutoRestart(`server 进程 #${generation} 异常退出`);
+    if (isExpectedExit) {
+      log(`server 进程 #${generation} 已按计划停止（${expectedExitReason ?? "计划停止"}）`);
+      return;
     }
+    log(`server 进程 #${generation} 已退出 (code=${code ?? "null"}, signal=${signal ?? "none"})`);
+    scheduleAutoRestart(`server 进程 #${generation} 异常退出`);
   });
 }
 /**
@@ -229,7 +236,7 @@ function restartServer(reason: string) {
   }
   clearRestartTimer();
   log(`${reason}，重启 server...`);
-  stopServer(() => startServer());
+  stopServer(() => startServer(), reason);
 }
 /**
  * shutdown：执行shutdown相关逻辑。
@@ -253,7 +260,7 @@ function shutdown(tscWatcher: import("node:child_process").ChildProcess) {
   }
   stopServer(() => {
     process.exit(0);
-  });
+  }, "开发脚本退出");
 }
 
 const tscWatcher = spawn(process.execPath, [tscBin, "-w", "-p", "tsconfig.json", "--preserveWatchOutput"], {
@@ -288,7 +295,7 @@ tscWatcher.on("exit", (code, signal) => {
   log(`TypeScript 监听已退出 (code=${code ?? "null"}, signal=${signal ?? "none"})`);
   stopServer(() => {
     process.exit(code ?? 1);
-  });
+  }, "TypeScript 监听退出");
 });
 
 process.on("SIGINT", () => shutdown(tscWatcher));

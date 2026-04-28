@@ -16,9 +16,9 @@
 ## 文档分工
 
 - 仓库级主计划与当前完成定义看 [../../docs/next-plan/main.md](../../docs/next-plan/main.md)
-- 原地硬切策略基线看 [../../docs/next-in-place-hard-cut-plan.md](../../docs/next-in-place-hard-cut-plan.md)
-- 当前 blocker 看板看 [../../docs/next-replacement-blocker-board.md](../../docs/next-replacement-blocker-board.md)
-- packages blocker 分布看 [../../docs/next-package-migration-board.md](../../docs/next-package-migration-board.md)
+- 原地硬切策略基线看 [../../docs/next-plan/10-legacy-archive-and-cutover.md](../../docs/next-plan/10-legacy-archive-and-cutover.md)
+- 当前 blocker 看板看 [../../docs/next-plan/main.md](../../docs/next-plan/main.md)
+- packages blocker 分布看 [../../docs/next-plan/09-verification-and-acceptance.md](../../docs/next-plan/09-verification-and-acceptance.md)
 - legacy 收尾与 cutover 看 [../../docs/next-plan/10-legacy-archive-and-cutover.md](../../docs/next-plan/10-legacy-archive-and-cutover.md)
 
 ## 这份包内文件的职责

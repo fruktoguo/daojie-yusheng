@@ -10,10 +10,15 @@
 
 当前 `server` 的 shadow 演练、环境变量矩阵、replace-ready 五层门禁、`gm/database/*` 演练步骤，统一看：
 
-- [docs/server-operations.md](../../docs/server-operations.md)
 - [docs/next-plan/10-cutover-execution-checklist.md](../../docs/next-plan/10-cutover-execution-checklist.md)
 - [docs/next-plan/10-cutover-execution-log-template.md](../../docs/next-plan/10-cutover-execution-log-template.md)
 - [docs/next-plan/10-cutover-step-by-step-runbook.md](../../docs/next-plan/10-cutover-step-by-step-runbook.md)
+
+自动化辅助脚本：
+
+- `scripts/cutover-auto-preflight.sh`
+- `scripts/cutover-auto-postcheck.sh`
+- `scripts/cutover-auto-all.sh`
 
 快速入口：
 

@@ -855,8 +855,8 @@ export class NativeGmController {
 
 
   @Put('maps/:mapId/tick')
-  updateMapTick(@Param('mapId') mapId: string, @Body() body: MapConfigBody) {
-    this.nextGmWorldService.updateMapTick(mapId, body ?? {});
+  async updateMapTick(@Param('mapId') mapId: string, @Body() body: MapConfigBody) {
+    await this.nextGmWorldService.updateMapTick(mapId, body ?? {});
     return { ok: true };
   }  
   /**
@@ -868,8 +868,8 @@ export class NativeGmController {
 
 
   @Put('maps/:mapId/time')
-  updateMapTime(@Param('mapId') mapId: string, @Body() body: MapConfigBody) {
-    this.nextGmWorldService.updateMapTime(mapId, body ?? {});
+  async updateMapTime(@Param('mapId') mapId: string, @Body() body: MapConfigBody) {
+    await this.nextGmWorldService.updateMapTime(mapId, body ?? {});
     return { ok: true };
   }  
   /**
@@ -879,7 +879,7 @@ export class NativeGmController {
 
 
   @Post('tick-config/reload')
-  reloadTickConfig() {
+  async reloadTickConfig() {
     return this.nextGmWorldService.reloadTickConfig();
   }  
   /**

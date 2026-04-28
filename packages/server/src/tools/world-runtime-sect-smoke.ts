@@ -10,7 +10,9 @@ const { WorldRuntimeUseItemService } = require("../runtime/world/world-runtime-u
 const { Direction } = require("@mud/shared");
 
 const playerId = "player:sect-smoke";
-const publicInstanceId = "public:sect_smoke_world";
+const deputyPlayerId = "player:sect-deputy";
+const elderPlayerId = "player:sect-elder";
+const publicInstanceId = "real:sect_smoke_world";
 
 function main() {
   const templateRepository = new MapTemplateRepository();
@@ -48,7 +50,7 @@ function main() {
     persistent: true,
     createdAt: Date.now(),
     displayName: "宗门测试主世界",
-    linePreset: "peaceful",
+    linePreset: "real",
     lineIndex: 1,
     instanceOrigin: "smoke",
     defaultEntry: true,
@@ -71,17 +73,38 @@ function main() {
       }],
     },
   };
+  const deputyPlayer = {
+    playerId: deputyPlayerId,
+    name: "副宗",
+    displayName: "副宗",
+    sectId: null,
+    x: 2,
+    y: 2,
+  };
+  const elderPlayer = {
+    playerId: elderPlayerId,
+    name: "长老",
+    displayName: "长老",
+    sectId: null,
+    x: 2,
+    y: 2,
+  };
+  const players = new Map([
+    [playerId, player],
+    [deputyPlayerId, deputyPlayer],
+    [elderPlayerId, elderPlayer],
+  ]);
   const instances = new Map([[publicInstanceId, publicInstance]]);
   const notices = [];
   const guardians = [];
   const playerRuntimeService = {
     getPlayerOrThrow(targetPlayerId) {
-      assert.equal(targetPlayerId, playerId);
-      return player;
+      const target = players.get(targetPlayerId);
+      if (!target) throw new Error(`missing player ${targetPlayerId}`);
+      return target;
     },
     getPlayer(targetPlayerId) {
-      assert.equal(targetPlayerId, playerId);
-      return player;
+      return players.get(targetPlayerId) ?? null;
     },
     peekInventoryItem(targetPlayerId, slotIndex) {
       assert.equal(targetPlayerId, playerId);
@@ -92,8 +115,8 @@ function main() {
       player.inventory.items[slotIndex].count -= count;
     },
     setPlayerSectId(targetPlayerId, sectId) {
-      assert.equal(targetPlayerId, playerId);
-      player.sectId = sectId;
+      const target = players.get(targetPlayerId);
+      if (target) target.sectId = sectId;
     },
   };
   const sectService = new WorldRuntimeSectService(contentTemplateRepository, templateRepository, playerRuntimeService);
@@ -105,6 +128,19 @@ function main() {
       upsertSectGuardianFormation(input) {
         guardians.push(input);
         return input;
+      },
+      findFormationInInstance(_instanceId, formationId) {
+        return guardians.find((entry) => entry.id === formationId) ?? null;
+      },
+      dispatchSetPersistentFormationActive(_playerId, payload) {
+        const guardian = guardians.find((entry) => entry.id === payload.formationInstanceId);
+        if (guardian) guardian.active = payload.active !== false;
+        return guardian;
+      },
+      dispatchInjectPersistentFormationEnergy(_playerId, payload) {
+        const guardian = guardians.find((entry) => entry.id === payload.formationInstanceId);
+        if (guardian) guardian.remainingAuraBudget = (guardian.remainingAuraBudget ?? 0) + (payload.spiritStoneCount * 100);
+        return guardian;
       },
     },
     getPlayerLocationOrThrow(targetPlayerId) {
@@ -118,6 +154,9 @@ function main() {
       const instance = instances.get(instanceId);
       if (!instance) throw new Error(`missing instance ${instanceId}`);
       return instance;
+    },
+    getPlayerViewOrThrow(targetPlayerId) {
+      return { playerId: targetPlayerId };
     },
     createInstance(input) {
       const template = templateRepository.getOrThrow(input.templateId);
@@ -141,11 +180,45 @@ function main() {
       return instance;
     },
     queuePlayerNotice(targetPlayerId, text, kind) {
-      assert.equal(targetPlayerId, playerId);
+      assert.ok(players.has(targetPlayerId));
       notices.push({ text, kind });
     },
     refreshQuestStates() {},
   };
+
+  const virtualInstanceId = "public:sect_smoke_world";
+  const virtualInstance = new MapInstanceRuntime({
+    instanceId: virtualInstanceId,
+    template: templateRepository.getOrThrow("sect_smoke_world"),
+    monsterSpawns: [],
+    kind: "public",
+    persistent: true,
+    createdAt: Date.now(),
+    displayName: "宗门测试虚境",
+    linePreset: "peaceful",
+    lineIndex: 1,
+    instanceOrigin: "smoke",
+    defaultEntry: true,
+    canDamageTile: true,
+  });
+  assert.throws(() => sectService.dispatchCreateSect(playerId, 0, player.inventory.items[0], {
+    ...deps,
+    getPlayerLocationOrThrow(targetPlayerId) {
+      assert.equal(targetPlayerId, playerId);
+      return { instanceId: virtualInstanceId, sessionId: "session:sect-smoke" };
+    },
+    getInstanceRuntime(instanceId) {
+      return instanceId === virtualInstanceId ? virtualInstance : instances.get(instanceId) ?? null;
+    },
+    getInstanceRuntimeOrThrow(instanceId) {
+      if (instanceId === virtualInstanceId) return virtualInstance;
+      const instance = instances.get(instanceId);
+      if (!instance) throw new Error(`missing instance ${instanceId}`);
+      return instance;
+    },
+  }, { sectName: "虚境宗", sectMark: "虚" }), /只能在大地图现世线建立宗门/);
+  assert.equal(player.inventory.items[0].count, 1);
+  assert.equal(player.sectId, null);
 
   useItemService.dispatchUseItem(playerId, 0, deps, { sectName: "青玄宗", sectMark: "玄" });
   assert.ok(player.sectId?.startsWith("sect:"));
@@ -193,6 +266,7 @@ function main() {
     instance: { instanceId: sectInstance.meta.instanceId },
   }, deps);
   assert.ok(coreActions.some((action) => action.id === "sect:manage"));
+  assert.ok(!coreActions.some((action) => action.id === "sect:exit"));
   const manageAction = coreActions.find((action) => action.id === "sect:manage");
   assert.match(manageAction.desc, /地域\s+25格/);
   assert.doesNotMatch(manageAction.desc, /地域\s+\d+x\d+/);
@@ -266,8 +340,63 @@ function main() {
   assert.match(expandedCoreActions.find((action) => action.id === "sect:manage").desc, /地域\s+35格/);
   const innerDynamicStone = sectInstance.damageTile(edgeX + 1, 2, Number.MAX_SAFE_INTEGER);
   assert.equal(innerDynamicStone.destroyed, true);
+  const dynamicRuntimeTileEntries = sectInstance.buildRuntimeTilePersistenceEntries();
+  const dynamicTileDamageEntries = sectInstance.buildTileDamagePersistenceEntries();
+  const rehydratedSectInstance = new MapInstanceRuntime({
+    instanceId: `${sectInstance.meta.instanceId}:rehydrated`,
+    template: sectInstance.template,
+    monsterSpawns: [],
+    kind: "sect",
+    persistent: true,
+    createdAt: Date.now(),
+    displayName: "宗门重启恢复测试",
+    linePreset: "peaceful",
+    lineIndex: 1,
+    instanceOrigin: "sect",
+    defaultEntry: false,
+    canDamageTile: true,
+  });
+  rehydratedSectInstance.hydrateRuntimeTiles([...dynamicRuntimeTileEntries].reverse());
+  rehydratedSectInstance.hydrateTileDamage(dynamicTileDamageEntries);
+  assert.equal(rehydratedSectInstance.getTileCombatState(edgeX + 1, 2).destroyed, true);
   assert.equal(sectService.expandSectForDestroyedTile(sectInstance.meta.instanceId, edgeX + 1, 2, deps), false);
   assert.equal(sectInstance.tilePlane.getCellCount(), 35);
+  const expandedSect = sectService.findSectById(player.sectId);
+  assert.equal(sectService.expandSect(expandedSect, deps), true);
+  assert.equal(sectInstance.getTileCombatState(edgeX + 1 + 8, 2 + 8).destroyed, true);
+
+  expandedSect.members.push(
+    { playerId: deputyPlayerId, name: "副宗", roleId: "outer", joinedAt: Date.now() },
+    { playerId: elderPlayerId, name: "长老", roleId: "elder", joinedAt: Date.now() },
+  );
+  deputyPlayer.sectId = expandedSect.sectId;
+  elderPlayer.sectId = expandedSect.sectId;
+  const memberCoreActions = sectService.buildSectCoreActions({
+    playerId: deputyPlayerId,
+    self: { x: expandedSect.coreX, y: expandedSect.coreY },
+    instance: { instanceId: sectInstance.meta.instanceId },
+  }, deps);
+  assert.ok(memberCoreActions.some((action) => action.id === "sect:manage"));
+  assert.match(memberCoreActions.find((action) => action.id === "sect:manage").desc, /@@sect:/);
+  assert.throws(() => sectService.executeSectAction(deputyPlayerId, "sect:guardian:toggle", deps), /当前职位没有该宗门权限/);
+  sectService.executeSectAction(playerId, `sect:member:role:${encodeURIComponent(deputyPlayerId)}:deputy`, deps);
+  assert.equal(expandedSect.members.find((entry) => entry.playerId === deputyPlayerId).roleId, "deputy");
+  sectService.executeSectAction(deputyPlayerId, "sect:guardian:toggle", deps);
+  assert.equal(guardians.find((entry) => entry.id === `formation:sect_guardian:${expandedSect.sectId}`).active, false);
+  assert.throws(() => sectService.executeSectAction(playerId, `sect:member:role:${encodeURIComponent(elderPlayerId)}:supreme_elder`, deps), /太上长老暂时无法任命/);
+  sectService.executeSectAction(playerId, `sect:member:remove:${encodeURIComponent(elderPlayerId)}`, deps);
+  assert.equal(expandedSect.members.some((entry) => entry.playerId === elderPlayerId), false);
+  assert.equal(elderPlayer.sectId, null);
+  sectService.executeSectAction(playerId, `sect:permission:toggle:elder:member_remove`, deps);
+  assert.equal(expandedSect.rolePermissions.elder.member_remove, true);
+  sectService.executeSectAction(playerId, `sect:transfer:${encodeURIComponent(deputyPlayerId)}`, deps);
+  assert.equal(expandedSect.leaderPlayerId, deputyPlayerId);
+  assert.equal(expandedSect.members.find((entry) => entry.playerId === deputyPlayerId).roleId, "leader");
+  assert.equal(expandedSect.members.find((entry) => entry.playerId === playerId).roleId, "deputy");
+  sectService.executeSectAction(deputyPlayerId, "sect:dissolve", deps);
+  assert.equal(sectService.findSectById(expandedSect.sectId), null);
+  assert.equal(player.sectId, null);
+  assert.equal(deputyPlayer.sectId, null);
 
   console.log("world-runtime-sect-smoke passed");
 }

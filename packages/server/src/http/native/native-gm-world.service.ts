@@ -1,4 +1,4 @@
-import { BadRequestException, Inject, Injectable } from '@nestjs/common';
+import { BadRequestException, Inject, Injectable, Logger, ServiceUnavailableException } from '@nestjs/common';
 import { type GmCreateWorldInstanceReq, type GmListPlayersQuery, type GmTransferPlayerToInstanceReq, type GmWorldInstanceLinePreset } from '@mud/shared';
 import { ContentTemplateRepository } from '../../content/content-template.repository';
 import { MapTemplateRepository } from '../../runtime/map/map-template.repository';
@@ -22,6 +22,8 @@ import { NativeGmMapRuntimeQueryService } from './native-gm-map-runtime-query.se
 import { NativeGmStateQueryService } from './native-gm-state-query.service';
 import { NativeGmSuggestionQueryService } from './native-gm-suggestion-query.service';
 import { NodeRegistryService } from '../../persistence/node-registry.service';
+import { GmMapConfigPersistenceService } from '../../persistence/gm-map-config-persistence.service';
+import type { GmMapConfigPayload } from '../../persistence/gm-map-config-persistence.service';
 /**
  * ContentTemplateRepositoryLike：定义接口结构约束，明确可交付字段含义。
  */
@@ -86,6 +88,7 @@ interface SuggestionRuntimeServiceLike {
 
 
 interface RuntimeMapConfigServiceLike {
+  restorePersistedMapConfigs?(): Promise<number>;
   updateMapTick(mapId: string, body?: unknown): void;
   updateMapTime(mapId: string, sourceTime: Record<string, unknown>, body?: unknown): void;
   pruneMapConfigs(validMapIds: Set<string>): void;
@@ -237,6 +240,8 @@ interface MapPersistenceFlushServiceLike {
 
 @Injectable()
 export class NativeGmWorldService {
+  private readonly logger = new Logger(NativeGmWorldService.name);
+
 /**
  * networkPerfStartedAt：networkPerfStartedAt相关字段。
  */
@@ -321,6 +326,8 @@ export class NativeGmWorldService {
     private readonly nextGmSuggestionQueryService: NativeGmSuggestionQueryServiceLike,
     @Inject(NodeRegistryService)
     private readonly nodeRegistryService: NodeRegistryServiceLike,
+    @Inject(GmMapConfigPersistenceService)
+    private readonly gmMapConfigPersistenceService: GmMapConfigPersistenceService,
     @Inject(OutboxDispatcherService)
     outboxDispatcherService: OutboxDispatcherServiceLike,
     @Inject(DurableOperationService)
@@ -337,6 +344,11 @@ export class NativeGmWorldService {
     this.playerPersistenceFlushService = playerPersistenceFlushService;
     this.mapPersistenceFlushService = mapPersistenceFlushService;
   }
+
+  async onModuleInit(): Promise<void> {
+    await this.runtimeMapConfigService.restorePersistedMapConfigs?.();
+  }
+
   /**
  * getState：读取状态。
  * @returns 无返回值，完成状态的读取/组装。
@@ -703,10 +715,14 @@ export class NativeGmWorldService {
  */
 
 
-  updateMapTick(mapId: string, body) {
+  async updateMapTick(mapId: string, body) {
     this.mapTemplateRepository.getOrThrow(mapId);
+    await this.persistMapConfig(mapId, {
+      speed: normalizePersistedMapTickSpeed(body?.speed),
+      paused: body?.paused !== undefined ? Boolean(body.paused) : undefined,
+    });
     this.runtimeMapConfigService.updateMapTick(mapId, body);
-  }  
+  }
   /**
  * updateMapTime：处理地图时间并更新相关状态。
  * @param mapId string 地图 ID。
@@ -715,8 +731,12 @@ export class NativeGmWorldService {
  */
 
 
-  updateMapTime(mapId: string, body) {
+  async updateMapTime(mapId: string, body) {
     const template = this.mapTemplateRepository.getOrThrow(mapId);
+    await this.persistMapConfig(mapId, {
+      scale: normalizePersistedMapTimeScale(body?.scale),
+      offsetTicks: normalizePersistedMapTimeOffsetTicks(body?.offsetTicks),
+    });
     this.runtimeMapConfigService.updateMapTime(mapId, template.source.time ?? {}, body);
   }  
   /**
@@ -725,12 +745,13 @@ export class NativeGmWorldService {
  */
 
 
-  reloadTickConfig() {
+  async reloadTickConfig() {
     this.contentTemplateRepository.loadAll();
     this.mapTemplateRepository.loadAll();
 
     const validMapIds = new Set(this.mapTemplateRepository.listSummaries().map((entry) => entry.id));
     this.runtimeMapConfigService.pruneMapConfigs(validMapIds);
+    await this.prunePersistedMapConfigs(validMapIds);
 
     return { ok: true };
   }  
@@ -780,6 +801,34 @@ export class NativeGmWorldService {
   resetPathfindingPerf() {
     this.pathfindingPerfStartedAt = Date.now();
   }
+
+  private async persistMapConfig(mapId: string, partial: GmMapConfigPayload): Promise<void> {
+    try {
+      await this.gmMapConfigPersistenceService.ensureInitialized();
+      if (!this.gmMapConfigPersistenceService.isEnabled()) {
+        throw new ServiceUnavailableException('GM 地图配置持久化未启用，无法保证重启后仍生效');
+      }
+      await this.gmMapConfigPersistenceService.mergeMapConfig(mapId, partial);
+    } catch (error: unknown) {
+      this.logger.warn(
+        `持久化 GM 地图配置失败 mapId=${mapId}`,
+        error instanceof Error ? error.message : String(error),
+      );
+      if (error instanceof ServiceUnavailableException) {
+        throw error;
+      }
+      throw new ServiceUnavailableException('GM 地图配置持久化失败，已拒绝本次运行时修改');
+    }
+  }
+
+  private async prunePersistedMapConfigs(validMapIds: Set<string>): Promise<void> {
+    await this.gmMapConfigPersistenceService.pruneMapConfigs(validMapIds).catch((error: unknown) => {
+      this.logger.warn(
+        '清理 GM 地图配置持久化脏数据失败',
+        error instanceof Error ? error.message : String(error),
+      );
+    });
+  }
 }
 
 function parseRequiredLinePreset(input: unknown): GmWorldInstanceLinePreset {
@@ -787,6 +836,21 @@ function parseRequiredLinePreset(input: unknown): GmWorldInstanceLinePreset {
     throw new BadRequestException('linePreset must be peaceful or real');
   }
   return input as GmWorldInstanceLinePreset;
+}
+
+function normalizePersistedMapTickSpeed(value: unknown): number | undefined {
+  if (!Number.isFinite(Number(value))) return undefined;
+  return Math.max(0, Math.min(100, Number(value)));
+}
+
+function normalizePersistedMapTimeScale(value: unknown): number | undefined {
+  if (!Number.isFinite(Number(value))) return undefined;
+  return Math.max(0, Number(value));
+}
+
+function normalizePersistedMapTimeOffsetTicks(value: unknown): number | undefined {
+  if (!Number.isFinite(Number(value))) return undefined;
+  return Math.trunc(Number(value));
 }
 
 function isSectTemplateId(templateId: unknown): boolean {

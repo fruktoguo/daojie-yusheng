@@ -66,6 +66,11 @@ export type MainTargetingPendingAction = {
 
   height?: number;
   /**
+ * checkerParity：棋盘范围奇偶格。
+ */
+
+  checkerParity?: 'even' | 'odd';
+  /**
  * maxTargets：max目标相关字段。
  */
 
@@ -431,7 +436,7 @@ export function createMainTargetingStateSource(options: MainTargetingStateSource
 
 
     resolveCurrentTargetingRange(
-      action: Pick<NonNullable<MainTargetingPendingAction>, 'actionId' | 'range' | 'shape' | 'radius' | 'innerRadius' | 'width' | 'height'>,
+      action: Pick<NonNullable<MainTargetingPendingAction>, 'actionId' | 'range' | 'shape' | 'radius' | 'innerRadius' | 'width' | 'height' | 'checkerParity'>,
     ): number {
       return resolveCurrentTargetingRangeHelper(action, options.getPlayer(), options.getInfoRadius());
     },
@@ -463,6 +468,7 @@ export function createMainTargetingStateSource(options: MainTargetingStateSource
         innerRadius: skill?.targeting?.innerRadius,
         width: skill?.targeting?.width,
         height: skill?.targeting?.height,
+        checkerParity: skill?.targeting?.checkerParity,
         maxTargets: skill?.targeting?.maxTargets,
       };
       pendingTargetedAction.range = this.resolveCurrentTargetingRange(pendingTargetedAction);
@@ -599,7 +605,7 @@ export function createMainTargetingStateSource(options: MainTargetingStateSource
 
 
     computeAffectedCellsForAction(
-      action: Pick<NonNullable<MainTargetingPendingAction>, 'actionId' | 'range' | 'shape' | 'radius' | 'innerRadius' | 'width' | 'height'>,
+      action: Pick<NonNullable<MainTargetingPendingAction>, 'actionId' | 'range' | 'shape' | 'radius' | 'innerRadius' | 'width' | 'height' | 'checkerParity'>,
       anchor: GridPoint,
     ): GridPoint[] {
       return computeAffectedCellsForActionHelper(action, anchor, options.getPlayer());
@@ -613,7 +619,7 @@ export function createMainTargetingStateSource(options: MainTargetingStateSource
 
 
     resolveTargetRefForAction(
-      action: Pick<NonNullable<MainTargetingPendingAction>, 'actionId' | 'range' | 'shape' | 'radius' | 'innerRadius' | 'width' | 'height' | 'targetMode'>,
+      action: Pick<NonNullable<MainTargetingPendingAction>, 'actionId' | 'range' | 'shape' | 'radius' | 'innerRadius' | 'width' | 'height' | 'checkerParity' | 'targetMode'>,
       target: {
       /**
  * x：x相关字段。
@@ -644,7 +650,7 @@ export function createMainTargetingStateSource(options: MainTargetingStateSource
 
 
     hasAffectableTargetInArea(
-      action: Pick<NonNullable<MainTargetingPendingAction>, 'actionId' | 'shape' | 'range' | 'radius' | 'innerRadius' | 'width' | 'height'>,
+      action: Pick<NonNullable<MainTargetingPendingAction>, 'actionId' | 'shape' | 'range' | 'radius' | 'innerRadius' | 'width' | 'height' | 'checkerParity'>,
       anchorX: number,
       anchorY: number,
     ): boolean {

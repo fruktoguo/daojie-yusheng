@@ -1,4 +1,4 @@
-import type { FormationRangeShape, MonsterTier, PlayerState, RenderEntity } from '@mud/shared';
+import type { FormationLifecycle, FormationRangeShape, MonsterTier, PlayerState, RenderEntity } from '@mud/shared';
 /**
  * MainRuntimeObservedEntity：统一结构类型，保证协议与运行时一致性。
  */
@@ -133,6 +133,8 @@ export type MainRuntimeObservedEntity = {
   formationOwnerPlayerId?: string | null;
   /** 阵法是否处于开启状态。 */
   formationActive?: boolean;
+  /** 阵法生命周期。 */
+  formationLifecycle?: FormationLifecycle;
 };
 /**
  * isCrowdEntityKind：判断CrowdEntityKind是否满足条件。

@@ -142,7 +142,11 @@ function createPlayerRuntimeService() {
 
 function createPlayerProgressionService() {
   return new PlayerProgressionService(
-    {} as never,
+    {
+      getItemName(itemId: string) {
+        return itemId;
+      },
+    } as never,
     {
       recalculate() {
         return undefined;
@@ -351,7 +355,7 @@ function testCultivationActiveWithoutMainTechnique(): void {
 
   assert.equal(player.techniques.cultivatingTechId, null);
   assert.equal(player.combat.cultivationActive, true);
-  assertDirtyDomains(service, playerId, ['combat_pref'], ['technique', 'snapshot']);
+  assertDirtyDomains(service, playerId, ['combat_pref', 'attr'], ['technique', 'snapshot']);
 }
 
 function testLogbookDirtyDomain(): void {
@@ -679,12 +683,135 @@ function testProgressionServiceDirtyDomains(): void {
   } as never;
   noMainCultivator.techniques.cultivatingTechId = null;
   noMainCultivator.combat.cultivationActive = true;
+  noMainCultivator.attrs.numericStats.realmExpPerTick = 1;
+  noMainCultivator.attrs.numericStats.techniqueExpPerTick = 5;
+  noMainCultivator.techniques.techniques.push({
+    techId: 'manual.no_main',
+    name: '无主修测试功法',
+    level: 1,
+    exp: 0,
+    expToNext: 100,
+    realmLv: 1,
+    skills: [],
+    layers: [
+      { level: 1, expToNext: 100 },
+      { level: 2, expToNext: 0 },
+    ],
+  } as never);
 
-  const cultivation = service.advanceCultivation(noMainCultivator, 1);
+  const cultivation = service.advanceCultivation(noMainCultivator, 1, { auraMultiplier: 3 });
 
-  assert.ok(noMainCultivator.realm.progress > 0, 'expected no-main cultivation to advance realm progress');
+  assert.equal(noMainCultivator.realm.progress, 3);
   assert.equal(noMainCultivator.techniques.cultivatingTechId, null);
+  assert.equal(noMainCultivator.bodyTraining.exp, 15);
   assert.ok(cultivation.dirtyDomains.includes('progression'), `expected progression dirty domain, got ${cultivation.dirtyDomains.join(',')}`);
+  assert.ok(cultivation.dirtyDomains.includes('body_training'), `expected body_training dirty domain, got ${cultivation.dirtyDomains.join(',')}`);
+
+  const techniqueCultivator = runtime.createFreshPlayer(`${playerId}:technique`, null);
+  techniqueCultivator.realm = {
+    stage: '炼气',
+    realmLv: 1,
+    progress: 0,
+    progressToNext: 100,
+    breakthroughReady: false,
+    nextStage: undefined,
+    breakthroughItems: [],
+    minTechniqueLevel: 1,
+    minTechniqueRealm: 1,
+  } as never;
+  techniqueCultivator.attrs.numericStats.realmExpPerTick = 1;
+  techniqueCultivator.attrs.numericStats.techniqueExpPerTick = 5;
+  techniqueCultivator.techniques.cultivatingTechId = 'manual.technique';
+  techniqueCultivator.combat.cultivationActive = true;
+  techniqueCultivator.techniques.techniques.push({
+    techId: 'manual.technique',
+    name: '测试功法',
+    level: 1,
+    exp: 0,
+    expToNext: 100,
+    realmLv: 1,
+    skills: [],
+    layers: [
+      { level: 1, expToNext: 100 },
+      { level: 2, expToNext: 0 },
+    ],
+  } as never);
+
+  service.advanceCultivation(techniqueCultivator, 1, { auraMultiplier: 3 });
+
+  assert.equal(techniqueCultivator.realm.progress, 3);
+  assert.equal(techniqueCultivator.techniques.techniques[0]?.exp, 15);
+
+  const maxedCultivator = runtime.createFreshPlayer(`${playerId}:all-maxed`, null);
+  maxedCultivator.realm = {
+    stage: '炼气',
+    realmLv: 1,
+    progress: 0,
+    progressToNext: 100,
+    breakthroughReady: false,
+    nextStage: undefined,
+    breakthroughItems: [],
+    minTechniqueLevel: 1,
+    minTechniqueRealm: 1,
+  } as never;
+  maxedCultivator.attrs.numericStats.realmExpPerTick = 1;
+  maxedCultivator.attrs.numericStats.techniqueExpPerTick = 5;
+  maxedCultivator.combat.cultivationActive = true;
+  maxedCultivator.techniques.cultivatingTechId = 'manual.maxed';
+  maxedCultivator.techniques.techniques.push({
+    techId: 'manual.maxed',
+    name: '圆满测试功法',
+    level: 2,
+    exp: 0,
+    expToNext: 0,
+    realmLv: 1,
+    skills: [],
+    layers: [
+      { level: 1, expToNext: 100 },
+      { level: 2, expToNext: 0 },
+    ],
+  } as never);
+
+  const maxedCultivation = service.advanceCultivation(maxedCultivator, 1, { auraMultiplier: 3 });
+
+  assert.equal(maxedCultivator.bodyTraining.exp, 15);
+  assert.ok(maxedCultivation.dirtyDomains.includes('body_training'), `expected all-maxed technique exp to enter body_training, got ${maxedCultivation.dirtyDomains.join(',')}`);
+
+  const craftCultivator = runtime.createFreshPlayer(`${playerId}:craft`, null);
+  craftCultivator.realm = {
+    stage: '炼气',
+    realmLv: 1,
+    progress: 0,
+    progressToNext: 100,
+    breakthroughReady: false,
+    nextStage: undefined,
+    breakthroughItems: [],
+    minTechniqueLevel: 1,
+    minTechniqueRealm: 1,
+  } as never;
+  const craftGain = service.grantCraftRealmExp(craftCultivator, 0.5);
+
+  assert.equal(craftCultivator.realm.progress, 1);
+  assert.ok(craftGain.dirtyDomains.includes('progression'), `expected craft realm exp to mark progression, got ${craftGain.dirtyDomains.join(',')}`);
+
+  const cappedCombatCultivator = runtime.createFreshPlayer(`${playerId}:combat-cap`, null);
+  cappedCombatCultivator.realm = {
+    stage: '炼气',
+    realmLv: 1,
+    progress: 0,
+    progressToNext: 10,
+    breakthroughReady: false,
+    nextStage: undefined,
+    breakthroughItems: [],
+    minTechniqueLevel: 1,
+    minTechniqueRealm: 1,
+  } as never;
+  service.gainRealmProgress(cappedCombatCultivator, 1_000_000, {
+    trackCombatExp: true,
+    overflowToFoundation: true,
+  });
+
+  assert.equal(cappedCombatCultivator.combatExp, (cappedCombatCultivator.realm?.progressToNext ?? 0) * 5);
 }
 
 function testHeavenGateEnterRecalculatesAttributes(): void {

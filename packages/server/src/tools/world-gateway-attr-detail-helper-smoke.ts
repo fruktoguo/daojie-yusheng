@@ -2,7 +2,7 @@
 
 const assert = require("node:assert/strict");
 
-const { DEFAULT_BASE_ATTRS, applyEnhancementToItemStack, calcTechniqueFinalAttrBonus, calcTechniqueFinalQiProjection, getRealmAttributeMultiplier } = require("@mud/shared");
+const { DEFAULT_BASE_ATTRS, CULTIVATE_EXP_PER_TICK, CULTIVATION_REALM_EXP_PER_TICK, applyEnhancementToItemStack, calcTechniqueFinalAttrBonus, calcTechniqueFinalQiProjection, getRealmAttributeMultiplier } = require("@mud/shared");
 const { PlayerAttributesService } = require("../runtime/player/player-attributes.service");
 const { buildAttrDetailBonuses, buildAttrDetailNumericStatBreakdowns } = require("../network/world-gateway-attr-detail.helper");
 const { projectPlayerQiResourceValue, resolvePlayerQiResourceProjection } = require("../runtime/world/world-runtime-qi-projection.helpers");
@@ -372,6 +372,41 @@ function testSpecialStatsAffectOnlyConfiguredRates() {
     assert.equal(breakdowns.rareLootRate?.bonusBaseValue, 400);
 }
 
+function testActiveCultivationProjectsPerTickStats() {
+    const service = new PlayerAttributesService();
+    const player = {
+        realm: {
+            stage: 0,
+            realmLv: 1,
+        },
+        attrs: service.createInitialState(),
+        maxHp: 10,
+        maxQi: 10,
+        hp: 10,
+        qi: 10,
+        selfRevision: 1,
+        runtimeBonuses: [],
+        techniques: { techniques: [] },
+        bodyTraining: { level: 0 },
+        equipment: { slots: [] },
+        buffs: { buffs: [] },
+        combat: { cultivationActive: false },
+        spiritualRoots: null,
+    };
+    service.recalculate(player);
+    assert.equal(player.attrs.numericStats.realmExpPerTick, 0);
+    assert.equal(player.attrs.numericStats.techniqueExpPerTick, 0);
+    player.combat.cultivationActive = true;
+    service.recalculate(player);
+    assert.equal(player.attrs.numericStats.realmExpPerTick, CULTIVATION_REALM_EXP_PER_TICK);
+    assert.equal(player.attrs.numericStats.techniqueExpPerTick, CULTIVATE_EXP_PER_TICK);
+    const breakdowns = buildAttrDetailNumericStatBreakdowns(player);
+    assert.equal(breakdowns.realmExpPerTick?.flatBuffValue, CULTIVATION_REALM_EXP_PER_TICK);
+    assert.equal(breakdowns.techniqueExpPerTick?.flatBuffValue, CULTIVATE_EXP_PER_TICK);
+    assert.equal(breakdowns.realmExpPerTick?.finalValue, CULTIVATION_REALM_EXP_PER_TICK);
+    assert.equal(breakdowns.techniqueExpPerTick?.finalValue, CULTIVATE_EXP_PER_TICK);
+}
+
 function testTechniqueSpecialStatsAffectOnlyConfiguredRates() {
     const service = new PlayerAttributesService();
     const createPlayer = (techniques) => ({
@@ -448,6 +483,7 @@ testXueshaLevelNineQiProjectionUsesHiddenResourceZeroBaseline();
 testRealmLevelScalesNumericStats();
 testEnhancedEquipmentScalesLiveAndDetailStats();
 testSpecialStatsAffectOnlyConfiguredRates();
+testActiveCultivationProjectsPerTickStats();
 testTechniqueSpecialStatsAffectOnlyConfiguredRates();
 
 console.log(JSON.stringify({ ok: true, case: 'world-gateway-attr-detail-helper' }, null, 2));

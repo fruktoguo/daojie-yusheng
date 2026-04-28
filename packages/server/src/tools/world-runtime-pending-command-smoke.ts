@@ -326,6 +326,103 @@ async function testManualEngageAttackClearsServerOnlyEngageState() {
     assert.equal(service.getPendingCommandCount(), 0);
 }
 
+async function testInvalidAttackNoticeUsesTargetReason() {
+    const service = new WorldRuntimePendingCommandService();
+    const log = [];
+    service.enqueuePendingCommand('player:1', {
+        kind: 'basicAttack',
+        targetPlayerId: null,
+        targetMonsterId: null,
+        targetX: 10,
+        targetY: 11,
+    });
+    await service.dispatchPendingCommands({
+        dispatchInstanceCommand() {
+            throw new Error('unexpected dispatchInstanceCommand');
+        },
+        dispatchPlayerCommand() {
+            throw new Error('该目标无法被攻击');
+        },
+        logger: {
+            warn(message) {
+                log.push(['warn', message]);
+            },
+        },
+        queuePlayerNotice(playerId, message, tone) {
+            log.push(['queuePlayerNotice', playerId, message, tone]);
+        },
+    });
+    assert.deepEqual(log, [
+        ['warn', '处理玩家 player:1 的待执行指令失败：basicAttack（该目标无法被攻击）'],
+        ['queuePlayerNotice', 'player:1', '没有可命中的目标', 'warn'],
+    ]);
+    assert.equal(service.getPendingCommandCount(), 0);
+}
+
+async function testSkillOutOfRangeStaysServerInternal() {
+    const service = new WorldRuntimePendingCommandService();
+    const log = [];
+    service.enqueuePendingCommand('player:1', {
+        kind: 'castSkill',
+        skillId: 'skill.liyan_duanxi',
+        targetPlayerId: null,
+        targetMonsterId: 'monster:1',
+        targetRef: null,
+    });
+    await service.dispatchPendingCommands({
+        dispatchInstanceCommand() {
+            throw new Error('unexpected dispatchInstanceCommand');
+        },
+        dispatchPlayerCommand() {
+            throw new Error('Skill skill.liyan_duanxi out of range');
+        },
+        logger: {
+            warn(message) {
+                log.push(['warn', message]);
+            },
+        },
+        queuePlayerNotice(playerId, message, tone) {
+            log.push(['queuePlayerNotice', playerId, message, tone]);
+        },
+    });
+    assert.deepEqual(log, [
+        ['warn', '处理玩家 player:1 的待执行指令失败：castSkill（Skill skill.liyan_duanxi out of range）'],
+    ]);
+    assert.equal(service.getPendingCommandCount(), 0);
+}
+
+async function testInternalSliceErrorStaysServerInternal() {
+    const service = new WorldRuntimePendingCommandService();
+    const log = [];
+    service.enqueuePendingCommand('player:1', {
+        kind: 'castSkill',
+        skillId: 'skill.baihong_duanyue',
+        targetPlayerId: null,
+        targetMonsterId: 'monster:1',
+        targetRef: null,
+    });
+    await service.dispatchPendingCommands({
+        dispatchInstanceCommand() {
+            throw new Error('unexpected dispatchInstanceCommand');
+        },
+        dispatchPlayerCommand() {
+            throw new Error("Cannot read properties of undefined (reading 'slice')");
+        },
+        logger: {
+            warn(message) {
+                log.push(['warn', message]);
+            },
+        },
+        queuePlayerNotice(playerId, message, tone) {
+            log.push(['queuePlayerNotice', playerId, message, tone]);
+        },
+    });
+    assert.deepEqual(log, [
+        ["warn", "处理玩家 player:1 的待执行指令失败：castSkill（Cannot read properties of undefined (reading 'slice')）"],
+    ]);
+    assert.equal(service.getPendingCommandCount(), 0);
+}
+
 testQueueOwnershipMethods();
 Promise.resolve()
     .then(() => testDispatchRoutesAndClearsQueue())
@@ -333,6 +430,9 @@ Promise.resolve()
     .then(() => testAutoCombatStaleTargetRetriesImmediately())
     .then(() => testAutoCombatFailedSkillFallsBackToAlternativeCommand())
     .then(() => testManualEngageAttackClearsServerOnlyEngageState())
+    .then(() => testInvalidAttackNoticeUsesTargetReason())
+    .then(() => testSkillOutOfRangeStaysServerInternal())
+    .then(() => testInternalSliceErrorStaysServerInternal())
     .then(() => {
     console.log(JSON.stringify({ ok: true, case: 'world-runtime-pending-command' }, null, 2));
 });

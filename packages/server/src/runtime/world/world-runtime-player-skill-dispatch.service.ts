@@ -26,6 +26,7 @@ const world_runtime_path_planning_helpers_1 = require("./world-runtime.path-plan
 const { chebyshevDistance } = world_runtime_path_planning_helpers_1;
 const world_runtime_observation_helpers_1 = require("./world-runtime.observation.helpers");
 const { createTileCombatAttributes, createTileCombatNumericStats, createTileCombatRatioDivisors } = world_runtime_observation_helpers_1;
+const { formatCombatActionClause, formatCombatDamageBreakdown } = world_runtime_observation_helpers_1;
 
 function ensureHostileRelation(resolution) {
     if ((0, player_combat_config_helpers_1.isHostileCombatRelationResolution)(resolution)) {
@@ -47,6 +48,16 @@ function ensureInstanceSupportsTileDamage(instance) {
         return;
     }
     throw new common_1.BadRequestException('当前实例不允许攻击地块');
+}
+function formatAuraDamage(value) {
+    const amount = Math.max(0, Number(value) || 0);
+    if (amount <= 0) {
+        return '0';
+    }
+    if (amount < 1) {
+        return amount.toFixed(4).replace(/0+$/, '').replace(/\.$/, '');
+    }
+    return amount.toLocaleString('zh-CN', { maximumFractionDigits: 2 });
 }
 
 function buildEffectivePlayerSkillGeometry(attacker, skill) {
@@ -70,6 +81,110 @@ function resolveSkillTargetLimit(skill) {
         return 99;
     }
     return Math.max(1, Math.round(configuredMaxTargets));
+}
+
+function getTemporaryTileEffects(skill) {
+    return (skill.effects ?? []).filter((effect) => effect?.type === 'temporary_tile');
+}
+
+function isTemporaryTileSkill(skill) {
+    return getTemporaryTileEffects(skill).length > 0;
+}
+
+function resolveTechniqueLevelForSkill(player, skillId) {
+    for (const technique of player.techniques?.techniques ?? []) {
+        if ((technique.skills ?? []).some((entry) => entry.id === skillId)) {
+            return Math.max(1, Math.trunc(Number(technique.level) || 1));
+        }
+    }
+    return 1;
+}
+
+function spendSkillCostAndStartCooldown(playerRuntimeService, attacker, skill, currentTick) {
+    const readyTick = attacker.combat?.cooldownReadyTickBySkillId?.[skill.id] ?? 0;
+    if (currentTick < readyTick) {
+        throw new common_1.BadRequestException(`Skill ${skill.id} cooling down`);
+    }
+    const plannedCost = Math.max(0, Math.round(Number(skill.cost) || 0));
+    const qiCost = Math.round((0, shared_1.calcQiCostWithOutputLimit)(plannedCost, Math.max(0, attacker.attrs?.numericStats?.maxQiOutputPerTick ?? 0)));
+    if (qiCost > 0) {
+        if (!Number.isFinite(qiCost) || attacker.qi < qiCost) {
+            throw new common_1.BadRequestException(`Skill ${skill.id} qi insufficient`);
+        }
+        playerRuntimeService.spendQi(attacker.playerId, qiCost);
+    }
+    playerRuntimeService.setSkillCooldownReadyTick(attacker.playerId, skill.id, currentTick + Math.max(1, Math.round(skill.cooldown ?? 1)), currentTick);
+    return qiCost;
+}
+
+function evaluateCasterSkillFormula(formula, attacker, techLevel, targetCount) {
+    if (typeof formula === 'number') {
+        return formula;
+    }
+    if (!formula || typeof formula !== 'object') {
+        return 0;
+    }
+    if ('var' in formula) {
+        return resolveCasterSkillFormulaVar(formula.var, attacker, techLevel, targetCount) * (formula.scale ?? 1);
+    }
+    if (formula.op === 'clamp') {
+        const value = evaluateCasterSkillFormula(formula.value, attacker, techLevel, targetCount);
+        const min = formula.min === undefined ? Number.NEGATIVE_INFINITY : evaluateCasterSkillFormula(formula.min, attacker, techLevel, targetCount);
+        const max = formula.max === undefined ? Number.POSITIVE_INFINITY : evaluateCasterSkillFormula(formula.max, attacker, techLevel, targetCount);
+        return Math.min(max, Math.max(min, value));
+    }
+    const values = Array.isArray(formula.args)
+        ? formula.args.map((entry) => evaluateCasterSkillFormula(entry, attacker, techLevel, targetCount))
+        : [];
+    switch (formula.op) {
+        case 'add':
+            return values.reduce((sum, value) => sum + value, 0);
+        case 'sub':
+            return values.slice(1).reduce((sum, value) => sum - value, values[0] ?? 0);
+        case 'mul':
+            return values.reduce((product, value) => product * value, 1);
+        case 'div':
+            return values.slice(1).reduce((sum, value) => (value === 0 ? sum : sum / value), values[0] ?? 0);
+        case 'min':
+            return values.length > 0 ? Math.min(...values) : 0;
+        case 'max':
+            return values.length > 0 ? Math.max(...values) : 0;
+        default:
+            return 0;
+    }
+}
+
+function resolveCasterSkillFormulaVar(variable, attacker, techLevel, targetCount) {
+    if (variable === 'techLevel') {
+        return techLevel;
+    }
+    if (variable === 'targetCount') {
+        return targetCount;
+    }
+    if (variable === 'caster.hp') {
+        return attacker.hp ?? 0;
+    }
+    if (variable === 'caster.maxHp') {
+        return attacker.maxHp ?? 0;
+    }
+    if (variable === 'caster.qi') {
+        return attacker.qi ?? 0;
+    }
+    if (variable === 'caster.maxQi') {
+        return attacker.maxQi ?? 0;
+    }
+    if (typeof variable === 'string' && variable.startsWith('caster.attr.')) {
+        return attacker.attrs?.finalAttrs?.[variable.slice('caster.attr.'.length)] ?? 0;
+    }
+    if (typeof variable === 'string' && variable.startsWith('caster.stat.')) {
+        return attacker.attrs?.numericStats?.[variable.slice('caster.stat.'.length)] ?? 0;
+    }
+    if (typeof variable === 'string' && variable.startsWith('caster.buff.') && variable.endsWith('.stacks')) {
+        const buffId = variable.slice('caster.buff.'.length, -'.stacks'.length);
+        const buff = attacker.buffs?.buffs?.find((entry) => entry.buffId === buffId);
+        return buff ? Math.max(0, Number(buff.stacks) || 0) : 0;
+    }
+    return 0;
 }
 
 function getResolvedSkillTargetKey(target) {
@@ -148,10 +263,24 @@ let WorldRuntimePlayerSkillDispatchService = class WorldRuntimePlayerSkillDispat
             throw new common_1.NotFoundException(`Skill ${skillId} not found`);
         }
         deps.ensureAttackAllowed(attacker, skill);
+        if (isTemporaryTileSkill(skill)) {
+            if (!targetRef) {
+                throw new common_1.BadRequestException('必须选择地块目标');
+            }
+            const tile = (0, shared_1.parseTileTargetRef)(targetRef);
+            if (!tile) {
+                throw new common_1.BadRequestException('必须选择地块目标');
+            }
+            return this.dispatchTemporaryTileSkill(attacker, skill, tile.x, tile.y, currentTick, deps);
+        }
         if (targetRef && !targetMonsterId && !targetPlayerId) {
+            const tileAnchor = (0, shared_1.parseTileTargetRef)(targetRef);
             const resolvedTarget = this.resolveLegacySkillTargetRef(attacker, skill, targetRef, deps);
             if (!resolvedTarget) {
                 throw new common_1.BadRequestException('没有可命中的目标');
+            }
+            if (tileAnchor) {
+                return this.dispatchCastSkillAtAnchor(attacker, skillId, skill, tileAnchor, resolvedTarget, deps);
             }
             if (resolvedTarget.kind === 'monster') {
                 return this.dispatchCastSkillToMonster(attacker, skillId, resolvedTarget.monsterId, deps);
@@ -200,6 +329,57 @@ let WorldRuntimePlayerSkillDispatchService = class WorldRuntimePlayerSkillDispat
         }
         await this.dispatchSkillTargets(attacker, skillId, skill, targets, deps);
     }    
+    async dispatchCastSkillAtAnchor(attacker, skillId, skill, anchor, primaryTarget, deps) {
+        const targets = this.collectSkillTargetsFromAnchor(attacker, skill, anchor, deps, primaryTarget);
+        if (targets.length === 0) {
+            throw new common_1.BadRequestException('没有可命中的目标');
+        }
+        await this.dispatchSkillTargets(attacker, skillId, skill, targets, deps);
+    }
+    dispatchTemporaryTileSkill(attacker, skill, targetX, targetY, currentTick, deps) {
+        const instance = deps.getInstanceRuntimeOrThrow(attacker.instanceId);
+        const geometry = buildEffectivePlayerSkillGeometry(attacker, skill);
+        const anchor = { x: Math.trunc(Number(targetX)), y: Math.trunc(Number(targetY)) };
+        const cells = (0, shared_1.computeAffectedCellsFromAnchor)({ x: attacker.x, y: attacker.y }, anchor, geometry);
+        if (cells.length === 0) {
+            throw new common_1.BadRequestException(`Skill ${skill.id} out of range`);
+        }
+        const effects = getTemporaryTileEffects(skill);
+        const techLevel = resolveTechniqueLevelForSkill(attacker, skill.id);
+        const plans = [];
+        for (const effect of effects) {
+            const targetCells = effect.excludeAnchor === true
+                ? cells.filter((cell) => cell.x !== anchor.x || cell.y !== anchor.y)
+                : cells;
+            const availableCells = targetCells.filter((cell) => instance.canCreateTemporaryTile?.(cell.x, cell.y) === true);
+            if (availableCells.length <= 0) {
+                continue;
+            }
+            const hp = Math.max(1, Math.round(evaluateCasterSkillFormula(effect.hpFormula, attacker, techLevel, Math.max(1, targetCells.length))));
+            const durationTicks = Math.max(1, Math.round(Number(effect.durationTicks) || 1));
+            const tileType = typeof effect.tileType === 'string' && effect.tileType.length > 0 ? effect.tileType : shared_1.TileType.Stone;
+            plans.push({ effect, cells: availableCells, hp, durationTicks, tileType });
+        }
+        if (plans.length <= 0) {
+            throw new common_1.BadRequestException('没有可生成石头的地块');
+        }
+        spendSkillCostAndStartCooldown(this.playerRuntimeService, attacker, skill, currentTick);
+        deps.pushActionLabelEffect(attacker.instanceId, attacker.x, attacker.y, skill.name);
+        let created = 0;
+        for (const plan of plans) {
+            for (const cell of plan.cells) {
+                const result = instance.createTemporaryTile?.(cell.x, cell.y, plan.tileType, plan.hp, plan.durationTicks, currentTick, {
+                    ownerPlayerId: attacker.playerId,
+                    sourceSkillId: skill.id,
+                });
+                if (result?.created === true) {
+                    created += 1;
+                    deps.pushAttackEffect(attacker.instanceId, attacker.x, attacker.y, cell.x, cell.y, getSkillEffectColor(skill));
+                }
+            }
+        }
+        deps.queuePlayerNotice?.(attacker.playerId, `${skill.name}生成了 ${created} 处临时石头。`, 'combat');
+    }
     /**
  * resolveLegacySkillTargetRef：读取Legacy技能目标Ref并返回结果。
  * @param attacker 参数说明。
@@ -434,6 +614,7 @@ let WorldRuntimePlayerSkillDispatchService = class WorldRuntimePlayerSkillDispat
         const instance = deps.getInstanceRuntimeOrThrow(attacker.instanceId);
         const currentTick = deps.resolveCurrentTickForPlayerId(attacker.playerId);
         const effectColor = getSkillEffectColor(skill);
+        const effectiveRange = buildEffectivePlayerSkillGeometry(attacker, skill).range;
         deps.pushActionLabelEffect(attacker.instanceId, attacker.x, attacker.y, skill.name);
         let castIndex = 0;
         const destroyedTiles = [];
@@ -441,6 +622,7 @@ let WorldRuntimePlayerSkillDispatchService = class WorldRuntimePlayerSkillDispat
             const options = {
                 targetCount: targets.length,
                 skipResourceAndCooldown: castIndex > 0,
+                range: effectiveRange,
             };
             if (target.kind === 'monster') {
                 const monster = instance.getMonster(target.monsterId);
@@ -534,6 +716,11 @@ let WorldRuntimePlayerSkillDispatchService = class WorldRuntimePlayerSkillDispat
                 if (appliedDamage > 0) {
                     deps.pushDamageFloatEffect(attacker.instanceId, formation.x, formation.y, appliedDamage, effectColor);
                 }
+                deps.queuePlayerNotice?.(
+                    attacker.playerId,
+                    `${formatCombatActionClause('你', formation.name, '攻击')}，造成 ${formatCombatDamageBreakdown(result.totalDamage, appliedDamage, result.damageKind ?? 'spell')} 伤害，削减阵法灵力 ${formatAuraDamage(outcome?.auraDamage)}。`,
+                    'combat',
+                );
                 continue;
             }
             if (target.kind === 'formation_boundary') {
@@ -576,6 +763,11 @@ let WorldRuntimePlayerSkillDispatchService = class WorldRuntimePlayerSkillDispat
                 if (appliedDamage > 0) {
                     deps.pushDamageFloatEffect(attacker.instanceId, target.x, target.y, appliedDamage, effectColor);
                 }
+                deps.queuePlayerNotice?.(
+                    attacker.playerId,
+                    `${formatCombatActionClause('你', boundary.name, '攻击')}边界，造成 ${formatCombatDamageBreakdown(result.totalDamage, appliedDamage, result.damageKind ?? 'spell')} 伤害，削减阵法灵力 ${formatAuraDamage(outcome?.auraDamage)}。`,
+                    'combat',
+                );
                 continue;
             }
             const tileState = instance.getTileCombatState(target.x, target.y);

@@ -7,7 +7,7 @@
 - 这份文档只管 next 主线 gate，不负责替代运维手册。
 - gate 口径以：
   - `packages/server/TESTING.md`
-  - `docs/server-operations.md`
+  - `packages/server/REPLACE-RUNBOOK.md`
   - 根级 `verify:replace-ready*` wrapper
   为准。
 - `verify:replace-ready*` 是当前唯一文档口径。

@@ -195,8 +195,52 @@ function isFormationVisibleInView(view, formation) {
         return false;
     }
     const width = Math.max(1, Math.trunc(Number(view?.instance?.width ?? 1)));
+    const visibleTileIndices = Array.isArray(view?.visibleTileIndices) ? view.visibleTileIndices : [];
+    const visibleTileKeys = Array.isArray(view?.visibleTileKeys) ? view.visibleTileKeys : [];
+    if (visibleTileKeys.includes(`${x},${y}`)) {
+        return true;
+    }
     const index = y * width + x;
-    return Array.isArray(view?.visibleTileIndices) && view.visibleTileIndices.includes(index);
+    if (visibleTileIndices.includes(index)) {
+        return true;
+    }
+    const radius = Math.max(0, Math.trunc(Number(formation?.radius) || 0));
+    if (radius <= 0) {
+        return false;
+    }
+    for (const key of visibleTileKeys) {
+        const point = parseCoordKey(key);
+        if (point && isTileInsideFormationRange(formation, x, y, point.x, point.y, radius)) {
+            return true;
+        }
+    }
+    for (const rawIndex of visibleTileIndices) {
+        const tileIndex = Math.trunc(Number(rawIndex));
+        if (!Number.isFinite(tileIndex) || tileIndex < 0) {
+            continue;
+        }
+        const visibleX = tileIndex % width;
+        const visibleY = Math.floor(tileIndex / width);
+        if (isTileInsideFormationRange(formation, x, y, visibleX, visibleY, radius)) {
+            return true;
+        }
+    }
+    return false;
+}
+
+function isTileInsideFormationRange(formation, centerX, centerY, x, y, radius) {
+    const dx = Math.trunc(x) - centerX;
+    const dy = Math.trunc(y) - centerY;
+    if (Math.abs(dx) > radius || Math.abs(dy) > radius) {
+        return false;
+    }
+    if (formation?.rangeShape === 'circle') {
+        return (dx * dx) + (dy * dy) <= radius * radius;
+    }
+    if (formation?.rangeShape === 'checkerboard') {
+        return ((Math.trunc(x) + Math.trunc(y)) % 2) === 0;
+    }
+    return true;
 }
 
 function decorateOverlayParentView(runtime, view) {

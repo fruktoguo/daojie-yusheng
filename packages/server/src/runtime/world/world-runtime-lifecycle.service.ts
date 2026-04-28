@@ -111,6 +111,12 @@ let WorldRuntimeLifecycleService = class WorldRuntimeLifecycleService {
                 if (Array.isArray(tileDamageStates) && tileDamageStates.length > 0) {
                     instance.hydrateTileDamage(tileDamageStates);
                 }
+                const temporaryTileStates = typeof domainPersistenceService.loadTemporaryTileStates === 'function'
+                    ? await domainPersistenceService.loadTemporaryTileStates(instanceId)
+                    : [];
+                if (Array.isArray(temporaryTileStates) && temporaryTileStates.length > 0 && typeof instance.hydrateTemporaryTiles === 'function') {
+                    instance.hydrateTemporaryTiles(temporaryTileStates);
+                }
                 const groundItems = await domainPersistenceService.loadGroundItems(instanceId);
                 if (Array.isArray(groundItems) && groundItems.length > 0) {
                     instance.hydrateGroundPiles(groupGroundItemsByTile(groundItems));
@@ -361,10 +367,13 @@ function hydrateInstanceFromCheckpoint(instance, checkpoint, deps, instanceId) {
             value: Number.isFinite(Number(entry?.value)) ? Math.max(0, Math.trunc(Number(entry.value))) : 0,
         })).filter((entry) => entry.value > 0));
     }
-    if (Array.isArray(snapshot.tileDamageEntries) && typeof instance.hydrateTileDamage === 'function') {
-        instance.hydrateTileDamage(snapshot.tileDamageEntries);
-    }
-    if (Array.isArray(snapshot.groundPileEntries) && snapshot.groundPileEntries.length > 0) {
+  if (Array.isArray(snapshot.tileDamageEntries) && typeof instance.hydrateTileDamage === 'function') {
+    instance.hydrateTileDamage(snapshot.tileDamageEntries);
+  }
+  if (Array.isArray(snapshot.temporaryTileEntries) && typeof instance.hydrateTemporaryTiles === 'function') {
+    instance.hydrateTemporaryTiles(snapshot.temporaryTileEntries);
+  }
+  if (Array.isArray(snapshot.groundPileEntries) && snapshot.groundPileEntries.length > 0) {
         instance.hydrateGroundPiles(snapshot.groundPileEntries);
     }
     if (Array.isArray(snapshot.containerStates)) {

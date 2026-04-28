@@ -84,16 +84,16 @@ pnpm verify:replace-ready:full
 ### 当前状态、计划与阻塞
 
 - [docs/next-plan/main.md](./docs/next-plan/main.md)
-- [docs/next-in-place-hard-cut-plan.md](./docs/next-in-place-hard-cut-plan.md)
-- [docs/next-replacement-blocker-board.md](./docs/next-replacement-blocker-board.md)
-- [docs/next-package-migration-board.md](./docs/next-package-migration-board.md)
+- [docs/next-plan/10-legacy-archive-and-cutover.md](./docs/next-plan/10-legacy-archive-and-cutover.md)
+- [docs/next-plan/09-verification-and-acceptance.md](./docs/next-plan/09-verification-and-acceptance.md)
+- [docs/next-plan/11-server-ts-migration-plan.md](./docs/next-plan/11-server-ts-migration-plan.md)
 - [packages/server/NEXT-GAP-ANALYSIS.md](./packages/server/NEXT-GAP-ANALYSIS.md)
 
 ### 运维、门禁与审计
 
-- [docs/server-operations.md](./docs/server-operations.md)
+- [packages/server/REPLACE-RUNBOOK.md](./packages/server/REPLACE-RUNBOOK.md)
 - [docs/protocol-audit.md](./docs/protocol-audit.md)
-- [docs/next-legacy-boundary-audit.md](./docs/next-legacy-boundary-audit.md)
+- [docs/next-plan/10-cutover-execution-checklist.md](./docs/next-plan/10-cutover-execution-checklist.md)
 - [docs/next-plan/10-legacy-archive-and-cutover.md](./docs/next-plan/10-legacy-archive-and-cutover.md)
 
 ### 包内入口

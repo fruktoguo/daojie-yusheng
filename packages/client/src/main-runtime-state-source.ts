@@ -259,7 +259,7 @@ type MainRuntimeStateSourceOptions = {
  * applyWorldDelta：世界Delta相关字段。
  */
 
-  applyWorldDelta: (data: S2C_WorldDelta, mapIdHint?: string) => void;
+  applyWorldDelta: (data: S2C_WorldDelta, mapIdHint?: string, instanceIdHint?: string) => void;
   /**
  * applySelfDelta：SelfDelta相关字段。
  */
@@ -358,6 +358,17 @@ export function createMainRuntimeStateSource(options: MainRuntimeStateSourceOpti
   let pendingSelfDelta: S2C_SelfDelta | null = null;
   let pendingPanelDelta: S2C_PanelDelta | null = null;
 
+  const resolveMapEnterHints = (player: PlayerState | null | undefined): { mapIdHint?: string; instanceIdHint?: string } => {
+    return {
+      mapIdHint: latestMapEnter?.mid && latestMapEnter.mid !== player?.mapId
+        ? latestMapEnter.mid
+        : undefined,
+      instanceIdHint: latestMapEnter?.iid && latestMapEnter.iid !== player?.instanceId
+        ? latestMapEnter.iid
+        : undefined,
+    };
+  };
+
   const flushPendingBootstrapEnvelope = (): void => {
     if (!options.getPlayer()) {
       return;
@@ -365,7 +376,8 @@ export function createMainRuntimeStateSource(options: MainRuntimeStateSourceOpti
     if (pendingWorldDelta) {
       const pending = pendingWorldDelta;
       pendingWorldDelta = null;
-      options.applyWorldDelta(pending);
+      const hints = resolveMapEnterHints(options.getPlayer());
+      options.applyWorldDelta(pending, hints.mapIdHint, hints.instanceIdHint);
     }
     if (pendingSelfDelta) {
       const pending = pendingSelfDelta;
@@ -427,10 +439,8 @@ export function createMainRuntimeStateSource(options: MainRuntimeStateSourceOpti
         return;
       }
       const player = options.getPlayer();
-      const mapIdHint = latestMapEnter?.mid && latestMapEnter.mid !== player?.mapId
-        ? latestMapEnter.mid
-        : undefined;
-      options.applyWorldDelta(data, mapIdHint);
+      const hints = resolveMapEnterHints(player);
+      options.applyWorldDelta(data, hints.mapIdHint, hints.instanceIdHint);
     },    
     /**
  * handleSelfDelta：处理Self增量并更新相关状态。

@@ -13,6 +13,19 @@ exports.WorldRuntimePendingCommandService = void 0;
 
 const common_1 = require("@nestjs/common");
 
+function normalizePendingCommandNoticeMessage(command, message) {
+    if (message === '该目标无法被攻击') {
+        return '没有可命中的目标';
+    }
+    if (typeof message === 'string' && /^Skill .+ out of range$/.test(message)) {
+        return null;
+    }
+    if (typeof message === 'string' && message.startsWith("Cannot read properties of undefined")) {
+        return null;
+    }
+    return message;
+}
+
 /** world-runtime pending command state：承接玩家待执行命令队列所有权与消费。 */
 let WorldRuntimePendingCommandService = class WorldRuntimePendingCommandService {
 /**
@@ -179,8 +192,11 @@ let WorldRuntimePendingCommandService = class WorldRuntimePendingCommandService 
                     }
                 }
                 const message = error instanceof Error ? error.message : String(error);
+                const noticeMessage = normalizePendingCommandNoticeMessage(command, message);
                 deps.logger.warn(`处理玩家 ${playerId} 的待执行指令失败：${command.kind}（${message}）`);
-                deps.queuePlayerNotice(playerId, message, 'warn');
+                if (noticeMessage) {
+                    deps.queuePlayerNotice(playerId, noticeMessage, 'warn');
+                }
             }
         }
         this.pendingCommands.clear();

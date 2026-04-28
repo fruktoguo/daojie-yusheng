@@ -1894,6 +1894,11 @@ function cloneSkillEffectDef(source: SkillEffectDef): SkillEffectDef {
             };
         case 'cleanse':
             return { ...source };
+        case 'temporary_tile':
+            return {
+                ...source,
+                hpFormula: cloneSkillFormula(source.hpFormula),
+            };
     }
 }
 function cloneSkillFormula(source: SkillFormula): SkillFormula {
@@ -2702,6 +2707,12 @@ function isSameSkillEffectDef(left: SkillEffectDef | null | undefined, right: Sk
                 && left.target === right.target
                 && left.category === right.category
                 && left.removeCount === right.removeCount;
+        case 'temporary_tile':
+            return right.type === 'temporary_tile'
+                && left.tileType === right.tileType
+                && left.durationTicks === right.durationTicks
+                && left.excludeAnchor === right.excludeAnchor
+                && isSameSkillFormula(left.hpFormula, right.hpFormula);
     }
 }
 function isSameSkillFormula(left: SkillFormula | null | undefined, right: SkillFormula | null | undefined) {

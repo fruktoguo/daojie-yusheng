@@ -5175,13 +5175,13 @@ async function ensureLegacyCompatSchema() {
         name varchar(50) NOT NULL,
         "mapId" varchar(50) NOT NULL DEFAULT 'yunlai_town',
         "respawnMapId" varchar(50) NOT NULL DEFAULT 'yunlai_town',
-        x int NOT NULL DEFAULT 32,
-        y int NOT NULL DEFAULT 5,
+        x bigint NOT NULL DEFAULT 32,
+        y bigint NOT NULL DEFAULT 5,
         facing int NOT NULL DEFAULT 1,
-        "viewRange" int NOT NULL DEFAULT 8,
-        hp int NOT NULL DEFAULT 100,
-        "maxHp" int NOT NULL DEFAULT 100,
-        qi int NOT NULL DEFAULT 0,
+        "viewRange" bigint NOT NULL DEFAULT 8,
+        hp bigint NOT NULL DEFAULT 100,
+        "maxHp" bigint NOT NULL DEFAULT 100,
+        qi bigint NOT NULL DEFAULT 0,
         dead boolean NOT NULL DEFAULT false,
         foundation bigint NOT NULL DEFAULT 0,
         "combatExp" bigint NOT NULL DEFAULT 0,
@@ -5190,9 +5190,9 @@ async function ensureLegacyCompatSchema() {
         "eliteMonsterKillCount" bigint NOT NULL DEFAULT 0,
         "bossMonsterKillCount" bigint NOT NULL DEFAULT 0,
         "deathCount" bigint NOT NULL DEFAULT 0,
-        "boneAgeBaseYears" int NOT NULL DEFAULT 16,
+        "boneAgeBaseYears" bigint NOT NULL DEFAULT 16,
         "lifeElapsedTicks" double precision NOT NULL DEFAULT 0,
-        "lifespanYears" int,
+        "lifespanYears" bigint,
         "baseAttrs" jsonb NOT NULL DEFAULT '{}'::jsonb,
         bonuses jsonb NOT NULL DEFAULT '[]'::jsonb,
         "temporaryBuffs" jsonb NOT NULL DEFAULT '[]'::jsonb,
@@ -5226,6 +5226,12 @@ async function ensureLegacyCompatSchema() {
         "updatedAt" timestamptz NOT NULL DEFAULT now()
       )
     `);
+        for (const column of ['x', 'y', '"viewRange"', 'hp', '"maxHp"', 'qi', '"boneAgeBaseYears"', '"lifespanYears"']) {
+            await pool.query(`
+        ALTER TABLE players
+        ALTER COLUMN ${column} TYPE bigint USING ${column}::bigint
+      `);
+        }
     }
     finally {
         await pool.end().catch(() => undefined);

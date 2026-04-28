@@ -177,6 +177,11 @@ class MapInstanceRuntime {
 
     tileDamageByTile = new Map();    
     /**
+ * temporaryTileByTile：技能生成的非持久临时地块。
+ */
+
+    temporaryTileByTile = new Map();
+    /**
  * playersById：玩家ByID标识。
  */
 
@@ -286,6 +291,31 @@ class MapInstanceRuntime {
  */
 
     dirtyDomains = createMapInstanceDirtyDomainSet();    
+    /**
+ * persistenceFullReplaceDomains：需要保留全量替换兜底的持久化域。
+ */
+
+    persistenceFullReplaceDomains = createMapInstanceDirtyDomainSet();
+    /**
+ * dirtyTileResourceByKey：按资源键记录需要行级落盘的地块资源。
+ */
+
+    dirtyTileResourceByKey = new Map();
+    /**
+ * dirtyTileDamageIndices：需要行级落盘的地块损坏索引。
+ */
+
+    dirtyTileDamageIndices = new Set();
+    /**
+ * dirtyGroundItemTileIndices：需要按 tile 替换的地面物品堆索引。
+ */
+
+    dirtyGroundItemTileIndices = new Set();
+    /**
+ * dirtyMonsterRuntimeIds：需要行级落盘的妖兽运行态 ID。
+ */
+
+    dirtyMonsterRuntimeIds = new Set();
     /**
      * dynamicTileBlocker：运行时动态阻挡判断，例如阵法边界。
      */
@@ -662,6 +692,7 @@ class MapInstanceRuntime {
             this.setOccupied(nextX, nextY, player.handle);
         }
         this.tileDamageByTile.clear();
+        this.temporaryTileByTile.clear();
         for (const [tileIndex, state] of tileDamageEntries) {
             const oldIndex = Math.trunc(Number(tileIndex));
             const oldX = previousTilePlane.getX(oldIndex);
@@ -998,6 +1029,19 @@ class MapInstanceRuntime {
         }
 
         const tileIndex = this.toTileIndex(x, y);
+        const temporary = this.temporaryTileByTile.get(tileIndex);
+        if (temporary) {
+            return {
+                tileType: temporary.tileType,
+                hp: Math.max(0, Math.trunc(Number(temporary.hp) || 0)),
+                maxHp: Math.max(1, Math.trunc(Number(temporary.maxHp) || 1)),
+                modifiedAt: temporary.modifiedAt ?? null,
+                respawnLeft: 0,
+                destroyed: false,
+                temporary: true,
+                expiresAtTick: Math.max(0, Math.trunc(Number(temporary.expiresAtTick) || 0)),
+            };
+        }
         const tileType = this.getBaseTileType(x, y);
 
         const maxHp = resolveTileDurability(this.template, tileType, x, y);
@@ -1044,6 +1088,33 @@ class MapInstanceRuntime {
         }
 
         const tileIndex = this.toTileIndex(x, y);
+        const temporary = this.temporaryTileByTile.get(tileIndex);
+        if (temporary) {
+            const appliedDamage = Math.min(Math.max(0, Math.trunc(Number(temporary.hp) || 0)), normalizedDamage);
+            const nextHp = Math.max(0, Math.trunc(Number(temporary.hp) || 0) - appliedDamage);
+            const destroyed = nextHp <= 0;
+            if (destroyed) {
+                this.temporaryTileByTile.delete(tileIndex);
+            }
+            else {
+                this.temporaryTileByTile.set(tileIndex, {
+                    ...temporary,
+                    hp: nextHp,
+                    modifiedAt: Date.now(),
+                });
+            }
+            this.worldRevision += 1;
+            this.markPersistenceDirtyDomains(['temporary_tile']);
+            this.persistentRevision += 1;
+            return {
+                destroyed,
+                hp: nextHp,
+                maxHp: Math.max(1, Math.trunc(Number(temporary.maxHp) || 1)),
+                appliedDamage,
+                targetType: temporary.tileType,
+                temporary: true,
+            };
+        }
 
         const appliedDamage = Math.min(current.hp, normalizedDamage);
 
@@ -1058,7 +1129,7 @@ class MapInstanceRuntime {
             modifiedAt: Date.now(),
         });
         this.worldRevision += 1;
-        this.markPersistenceDirtyDomains(['tile_damage']);
+        this.markTileDamagePersistenceDirty(tileIndex);
         this.persistentRevision += 1;
         return {
 
@@ -1068,6 +1139,95 @@ class MapInstanceRuntime {
             appliedDamage,
             targetType: current.tileType,
         };
+    }
+    /** createTemporaryTile：创建或刷新技能生成的临时地块。 */
+    createTemporaryTile(x, y, tileType, maxHp, durationTicks, currentTick, options = {}) {
+        if (!Number.isFinite(Number(x)) || !Number.isFinite(Number(y))) {
+            return { created: false, reason: 'invalid_coordinate' };
+        }
+        const normalizedX = Math.trunc(Number(x));
+        const normalizedY = Math.trunc(Number(y));
+        const availability = this.resolveTemporaryTileAvailability(normalizedX, normalizedY);
+        if (availability.allowed !== true) {
+            return { created: false, reason: availability.reason };
+        }
+        const tileIndex = availability.tileIndex;
+        const existingTemporary = this.temporaryTileByTile.get(tileIndex);
+        const hp = Math.max(1, Math.min(Number.MAX_SAFE_INTEGER, Math.round(Number(maxHp) || 1)));
+        const nowTick = Math.max(0, Math.trunc(Number(currentTick) || this.tick || 0));
+        const ttl = Math.max(1, Math.trunc(Number(durationTicks) || 1));
+        const now = Date.now();
+        this.temporaryTileByTile.set(tileIndex, {
+            tileType: typeof tileType === 'string' && tileType.length > 0 ? tileType : shared_1.TileType.Stone,
+            hp,
+            maxHp: hp,
+            expiresAtTick: nowTick + ttl,
+            ownerPlayerId: typeof options?.ownerPlayerId === 'string' ? options.ownerPlayerId : null,
+            sourceSkillId: typeof options?.sourceSkillId === 'string' ? options.sourceSkillId : null,
+            createdAt: existingTemporary?.createdAt ?? now,
+            modifiedAt: now,
+        });
+        this.worldRevision += 1;
+        this.markPersistenceDirtyDomains(['temporary_tile']);
+        this.persistentRevision += 1;
+        return { created: true, refreshed: Boolean(existingTemporary), tileIndex };
+    }
+    /** canCreateTemporaryTile：判断指定坐标是否允许生成临时地块。 */
+    canCreateTemporaryTile(x, y) {
+        return this.resolveTemporaryTileAvailability(Math.trunc(Number(x)), Math.trunc(Number(y))).allowed === true;
+    }
+    /** resolveTemporaryTileAvailability：返回临时地块生成可用性。 */
+    resolveTemporaryTileAvailability(x, y) {
+        if (!Number.isFinite(Number(x)) || !Number.isFinite(Number(y))) {
+            return { allowed: false, reason: 'invalid_coordinate', tileIndex: -1 };
+        }
+        const normalizedX = Math.trunc(Number(x));
+        const normalizedY = Math.trunc(Number(y));
+        if (!this.isInBounds(normalizedX, normalizedY)) {
+            return { allowed: false, reason: 'out_of_bounds', tileIndex: -1 };
+        }
+        const tileIndex = this.toTileIndex(normalizedX, normalizedY);
+        if (this.temporaryTileByTile.has(tileIndex)) {
+            return { allowed: true, reason: 'refresh', tileIndex };
+        }
+        if (this.hasBlockingEntityAt(normalizedX, normalizedY)) {
+            return { allowed: false, reason: 'blocked', tileIndex };
+        }
+        if (!(0, shared_1.isTileTypeWalkable)(this.getEffectiveTileType(normalizedX, normalizedY))) {
+            return { allowed: false, reason: 'not_walkable', tileIndex };
+        }
+        return { allowed: true, reason: 'available', tileIndex };
+    }
+    /** advanceTemporaryTiles：推进临时地块过期；固脉阵稳定范围内暂停自动消失。 */
+    advanceTemporaryTiles(currentTick = this.tick, isTerrainStabilized = null) {
+        if (this.temporaryTileByTile.size === 0) {
+            return false;
+        }
+        const normalizedTick = Math.max(0, Math.trunc(Number(currentTick) || 0));
+        let changed = false;
+        for (const [tileIndex, state] of Array.from(this.temporaryTileByTile.entries())) {
+            if (!state || !Number.isFinite(Number(tileIndex))) {
+                this.temporaryTileByTile.delete(tileIndex);
+                changed = true;
+                continue;
+            }
+            const x = this.tilePlane.getX(Math.trunc(Number(tileIndex)));
+            const y = this.tilePlane.getY(Math.trunc(Number(tileIndex)));
+            if (typeof isTerrainStabilized === 'function' && isTerrainStabilized(x, y) === true) {
+                continue;
+            }
+            const expiresAtTick = Math.max(0, Math.trunc(Number(state.expiresAtTick) || 0));
+            if (expiresAtTick > 0 && normalizedTick >= expiresAtTick) {
+                this.temporaryTileByTile.delete(tileIndex);
+                changed = true;
+            }
+        }
+        if (changed) {
+            this.worldRevision += 1;
+            this.markPersistenceDirtyDomains(['temporary_tile']);
+            this.persistentRevision += 1;
+        }
+        return changed;
     }
     /** advanceTileRecovery：推进可破坏地块的自然修复与复生。 */
     advanceTileRecovery(isTerrainStabilized) {
@@ -1119,6 +1279,7 @@ class MapInstanceRuntime {
                         modifiedAt: now,
                     });
                 }
+                this.markTileDamagePersistenceDirty(tileIndex);
                 changed = true;
                 continue;
             }
@@ -1126,6 +1287,7 @@ class MapInstanceRuntime {
             const hp = Math.max(0, Math.min(maxHp, Math.trunc(Number(current?.hp) || maxHp)));
             if (hp >= maxHp) {
                 this.tileDamageByTile.delete(tileIndex);
+                this.markTileDamagePersistenceDirty(tileIndex);
                 changed = true;
                 continue;
             }
@@ -1143,12 +1305,12 @@ class MapInstanceRuntime {
                     modifiedAt: now,
                 });
             }
+            this.markTileDamagePersistenceDirty(tileIndex);
             changed = true;
         }
 
         if (changed) {
             this.worldRevision += 1;
-            this.markPersistenceDirtyDomains(['tile_damage']);
             this.persistentRevision += 1;
         }
         return changed;
@@ -1163,7 +1325,8 @@ class MapInstanceRuntime {
         const tileIndex = this.toTileIndex(x, y);
         return this.occupancy[tileIndex] !== INVALID_OCCUPANCY
             || this.monsterRuntimeIdByTile.has(tileIndex)
-            || this.npcIdByTile.has(tileIndex);
+            || this.npcIdByTile.has(tileIndex)
+            || this.temporaryTileByTile.has(tileIndex);
     }
     /** getBaseTileType：读取模板原始地块类型。 */
     getBaseTileType(x, y) {
@@ -1182,7 +1345,12 @@ class MapInstanceRuntime {
         if (!this.isInBounds(x, y)) {
             return shared_1.TileType.Floor;
         }
-        const current = this.tileDamageByTile.get(this.toTileIndex(x, y));
+        const tileIndex = this.toTileIndex(x, y);
+        const temporary = this.temporaryTileByTile.get(tileIndex);
+        if (temporary) {
+            return temporary.tileType;
+        }
+        const current = this.tileDamageByTile.get(tileIndex);
         if (current?.destroyed === true) {
             return shared_1.TileType.Floor;
         }
@@ -1545,6 +1713,41 @@ class MapInstanceRuntime {
         this.persistedRevision = 1;
         this.clearDirtyDomains();
     }
+    /** hydrateTemporaryTiles：用持久化数据回填技能生成的临时地块。 */
+    hydrateTemporaryTiles(entries) {
+        this.temporaryTileByTile.clear();
+        if (!Array.isArray(entries)) {
+            this.clearDirtyDomains();
+            return;
+        }
+        for (const entry of entries) {
+            if (!entry || !Number.isFinite(Number(entry.tileIndex))) {
+                continue;
+            }
+            const tileIndex = Math.trunc(Number(entry.tileIndex));
+            const hasCoordinate = Number.isFinite(Number(entry.x)) && Number.isFinite(Number(entry.y));
+            const resolvedTileIndex = hasCoordinate
+                ? this.toTileIndex(Math.trunc(Number(entry.x)), Math.trunc(Number(entry.y)))
+                : tileIndex;
+            if (resolvedTileIndex < 0 || resolvedTileIndex >= this.auraByTile.length) {
+                continue;
+            }
+            const hp = Math.max(1, Math.trunc(Number(entry.hp) || 1));
+            const maxHp = Math.max(hp, Math.trunc(Number(entry.maxHp) || hp));
+            const expiresAtTick = Math.max(1, Math.trunc(Number(entry.expiresAtTick) || 1));
+            this.temporaryTileByTile.set(resolvedTileIndex, {
+                tileType: typeof entry.tileType === 'string' && entry.tileType.length > 0 ? entry.tileType : shared_1.TileType.Stone,
+                hp,
+                maxHp,
+                expiresAtTick,
+                ownerPlayerId: typeof entry.ownerPlayerId === 'string' && entry.ownerPlayerId.trim() ? entry.ownerPlayerId.trim() : null,
+                sourceSkillId: typeof entry.sourceSkillId === 'string' && entry.sourceSkillId.trim() ? entry.sourceSkillId.trim() : null,
+                createdAt: Number.isFinite(Number(entry.createdAt)) ? Math.max(0, Math.trunc(Number(entry.createdAt))) : Date.now(),
+                modifiedAt: Number.isFinite(Number(entry.modifiedAt)) ? Math.max(0, Math.trunc(Number(entry.modifiedAt))) : Date.now(),
+            });
+        }
+        this.clearDirtyDomains();
+    }
     /** hydrateRuntimeTiles：用持久化动态地块回填稀疏地块平面。 */
     hydrateRuntimeTiles(entries) {
         if (!Array.isArray(entries) || entries.length === 0) {
@@ -1818,6 +2021,42 @@ class MapInstanceRuntime {
         entries.sort((left, right) => left.resourceKey.localeCompare(right.resourceKey, 'zh-Hans-CN') || left.tileIndex - right.tileIndex);
         return entries;
     }
+    /** buildTileResourcePersistenceDelta：导出地块资源行级增量。 */
+    buildTileResourcePersistenceDelta() {
+        const dirtyPairs = [];
+        if (this.dirtyTileResourceByKey instanceof Map) {
+            for (const [resourceKey, tileIndices] of this.dirtyTileResourceByKey.entries()) {
+                if (typeof resourceKey !== 'string' || !resourceKey.trim() || !(tileIndices instanceof Set)) {
+                    continue;
+                }
+                for (const tileIndex of tileIndices.values()) {
+                    if (Number.isFinite(Number(tileIndex))) {
+                        dirtyPairs.push({ resourceKey: resourceKey.trim(), tileIndex: Math.max(0, Math.trunc(Number(tileIndex))) });
+                    }
+                }
+            }
+        }
+        const fullReplace = this.persistenceFullReplaceDomains?.has?.('tile_resource') === true
+            || (dirtyPairs.length === 0 && this.getDirtyDomains().has('tile_resource'));
+        if (fullReplace) {
+            return { fullReplace: true, upserts: [], deletes: [] };
+        }
+        const upserts = [];
+        const deletes = [];
+        for (const pair of dirtyPairs) {
+            const value = this.getTileResourceValueByIndex(pair.resourceKey, pair.tileIndex);
+            const base = this.getTileResourceBaseValueByIndex(pair.resourceKey, pair.tileIndex);
+            if (value !== base) {
+                upserts.push({ resourceKey: pair.resourceKey, tileIndex: pair.tileIndex, value: Math.max(0, Math.trunc(Number(value) || 0)) });
+            }
+            else {
+                deletes.push({ resourceKey: pair.resourceKey, tileIndex: pair.tileIndex });
+            }
+        }
+        upserts.sort((left, right) => left.resourceKey.localeCompare(right.resourceKey, 'zh-Hans-CN') || left.tileIndex - right.tileIndex);
+        deletes.sort((left, right) => left.resourceKey.localeCompare(right.resourceKey, 'zh-Hans-CN') || left.tileIndex - right.tileIndex);
+        return { fullReplace: false, upserts, deletes };
+    }
     /** buildGroundPersistenceEntries：导出地面物品堆持久化条目。 */
     buildGroundPersistenceEntries() {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
@@ -1838,6 +2077,33 @@ class MapInstanceRuntime {
         }
         entries.sort((left, right) => left.tileIndex - right.tileIndex);
         return entries;
+    }
+    /** buildGroundPersistenceDelta：导出地面物品按 tile 替换增量。 */
+    buildGroundPersistenceDelta() {
+        const dirtyTileIndices = this.dirtyGroundItemTileIndices instanceof Set
+            ? Array.from(this.dirtyGroundItemTileIndices.values())
+                .filter((tileIndex) => Number.isFinite(Number(tileIndex)))
+                .map((tileIndex) => Math.max(0, Math.trunc(Number(tileIndex))))
+            : [];
+        const fullReplace = this.persistenceFullReplaceDomains?.has?.('ground_item') === true
+            || (dirtyTileIndices.length === 0 && this.getDirtyDomains().has('ground_item'));
+        if (fullReplace) {
+            return { fullReplace: true, tileIndices: [], entries: [] };
+        }
+        const tileIndexSet = new Set(dirtyTileIndices);
+        const entries = [];
+        for (const tileIndex of tileIndexSet.values()) {
+            const pile = this.groundPilesByTile.get(tileIndex);
+            if (!pile || !Array.isArray(pile.items) || pile.items.length === 0) {
+                continue;
+            }
+            entries.push({
+                tileIndex,
+                items: pile.items.map((entry) => ({ ...entry.item })),
+            });
+        }
+        entries.sort((left, right) => left.tileIndex - right.tileIndex);
+        return { fullReplace: false, tileIndices: Array.from(tileIndexSet.values()).sort((left, right) => left - right), entries };
     }
     /** buildTileDamagePersistenceEntries：导出可破坏地块持久化条目。 */
     buildTileDamagePersistenceEntries() {
@@ -1860,6 +2126,69 @@ class MapInstanceRuntime {
                 maxHp: Math.max(1, Math.trunc(Number(state.maxHp) || 1)),
                 destroyed: state.destroyed === true,
                 respawnLeft: Math.max(0, Math.trunc(Number(state.respawnLeft) || 0)),
+                modifiedAt: Number.isFinite(Number(state.modifiedAt)) ? Math.max(0, Math.trunc(Number(state.modifiedAt))) : Date.now(),
+            });
+        }
+        entries.sort((left, right) => left.tileIndex - right.tileIndex);
+        return entries;
+    }
+    /** buildTileDamagePersistenceDelta：导出可破坏地块行级增量。 */
+    buildTileDamagePersistenceDelta() {
+        const dirtyTileIndices = this.dirtyTileDamageIndices instanceof Set
+            ? Array.from(this.dirtyTileDamageIndices.values())
+                .filter((tileIndex) => Number.isFinite(Number(tileIndex)))
+                .map((tileIndex) => Math.max(0, Math.trunc(Number(tileIndex))))
+            : [];
+        const fullReplace = this.persistenceFullReplaceDomains?.has?.('tile_damage') === true
+            || (dirtyTileIndices.length === 0 && this.getDirtyDomains().has('tile_damage'));
+        if (fullReplace) {
+            return { fullReplace: true, upserts: [], deletes: [] };
+        }
+        const upserts = [];
+        const deletes = [];
+        for (const tileIndex of new Set(dirtyTileIndices).values()) {
+            const state = this.tileDamageByTile.get(tileIndex);
+            if (!state) {
+                deletes.push(tileIndex);
+                continue;
+            }
+            upserts.push({
+                tileIndex,
+                x: this.tilePlane.getX(tileIndex),
+                y: this.tilePlane.getY(tileIndex),
+                hp: Math.max(0, Math.trunc(Number(state.hp) || 0)),
+                maxHp: Math.max(1, Math.trunc(Number(state.maxHp) || 1)),
+                destroyed: state.destroyed === true,
+                respawnLeft: Math.max(0, Math.trunc(Number(state.respawnLeft) || 0)),
+                modifiedAt: Number.isFinite(Number(state.modifiedAt)) ? Math.max(0, Math.trunc(Number(state.modifiedAt))) : Date.now(),
+            });
+        }
+        upserts.sort((left, right) => left.tileIndex - right.tileIndex);
+        deletes.sort((left, right) => left - right);
+        return { fullReplace: false, upserts, deletes };
+    }
+    /** buildTemporaryTilePersistenceEntries：导出技能生成临时地块持久化条目。 */
+    buildTemporaryTilePersistenceEntries() {
+        if (this.temporaryTileByTile.size === 0) {
+            return [];
+        }
+        const entries = [];
+        for (const [tileIndex, state] of this.temporaryTileByTile.entries()) {
+            if (!Number.isFinite(Number(tileIndex)) || !state) {
+                continue;
+            }
+            const normalizedTileIndex = Math.trunc(Number(tileIndex));
+            entries.push({
+                tileIndex: normalizedTileIndex,
+                x: this.tilePlane.getX(normalizedTileIndex),
+                y: this.tilePlane.getY(normalizedTileIndex),
+                tileType: typeof state.tileType === 'string' && state.tileType.length > 0 ? state.tileType : shared_1.TileType.Stone,
+                hp: Math.max(1, Math.trunc(Number(state.hp) || 1)),
+                maxHp: Math.max(1, Math.trunc(Number(state.maxHp) || 1)),
+                expiresAtTick: Math.max(1, Math.trunc(Number(state.expiresAtTick) || 1)),
+                ownerPlayerId: typeof state.ownerPlayerId === 'string' && state.ownerPlayerId.trim() ? state.ownerPlayerId.trim() : null,
+                sourceSkillId: typeof state.sourceSkillId === 'string' && state.sourceSkillId.trim() ? state.sourceSkillId.trim() : null,
+                createdAt: Number.isFinite(Number(state.createdAt)) ? Math.max(0, Math.trunc(Number(state.createdAt))) : Date.now(),
                 modifiedAt: Number.isFinite(Number(state.modifiedAt)) ? Math.max(0, Math.trunc(Number(state.modifiedAt))) : Date.now(),
             });
         }
@@ -1944,6 +2273,53 @@ class MapInstanceRuntime {
         entries.sort((left, right) => left.monsterRuntimeId.localeCompare(right.monsterRuntimeId, 'zh-Hans-CN'));
         return entries;
     }
+    /** buildMonsterRuntimePersistenceDelta：导出妖兽运行态行级增量。 */
+    buildMonsterRuntimePersistenceDelta() {
+        const dirtyIds = this.dirtyMonsterRuntimeIds instanceof Set
+            ? Array.from(this.dirtyMonsterRuntimeIds.values())
+                .filter((runtimeId) => typeof runtimeId === 'string' && runtimeId.trim())
+                .map((runtimeId) => runtimeId.trim())
+            : [];
+        const fullReplace = this.persistenceFullReplaceDomains?.has?.('monster_runtime') === true
+            || (dirtyIds.length === 0 && this.getDirtyDomains().has('monster_runtime'));
+        if (fullReplace) {
+            return { fullReplace: true, upserts: [], deletes: [] };
+        }
+        const upserts = [];
+        const deletes = [];
+        for (const runtimeId of new Set(dirtyIds).values()) {
+            const monster = this.monstersByRuntimeId.get(runtimeId);
+            if (!monster || monster.tier === 'mortal_blood') {
+                deletes.push(runtimeId);
+                continue;
+            }
+            upserts.push({
+                monsterRuntimeId: monster.runtimeId,
+                monsterId: monster.monsterId,
+                monsterName: monster.name,
+                monsterTier: monster.tier,
+                monsterLevel: monster.level,
+                tileIndex: this.toTileIndex(monster.x, monster.y),
+                x: monster.x,
+                y: monster.y,
+                hp: monster.hp,
+                maxHp: monster.maxHp,
+                alive: monster.alive === true,
+                respawnLeft: monster.respawnLeft,
+                respawnTicks: monster.respawnTicks,
+                aggroTargetPlayerId: monster.aggroTargetPlayerId ?? null,
+                statePayload: {
+                    attackReadyTick: monster.attackReadyTick,
+                    cooldownReadyTickBySkillId: { ...(monster.cooldownReadyTickBySkillId ?? {}) },
+                    damageContributors: { ...(monster.damageContributors ?? {}) },
+                    buffs: Array.isArray(monster.buffs) ? monster.buffs.map((buff) => ({ ...buff })) : [],
+                },
+            });
+        }
+        upserts.sort((left, right) => left.monsterRuntimeId.localeCompare(right.monsterRuntimeId, 'zh-Hans-CN'));
+        deletes.sort((left, right) => left.localeCompare(right, 'zh-Hans-CN'));
+        return { fullReplace: false, upserts, deletes };
+    }
     /** isPersistentDirty：判断实例是否还有未落盘的持久化变更。 */
     isPersistentDirty() {
         return this.getDirtyDomains().size > 0;
@@ -1959,13 +2335,47 @@ class MapInstanceRuntime {
     /** markPersistenceDirtyDomains：记录实例脏域。 */
     markPersistenceDirtyDomains(domains) {
         markMapInstanceDirtyDomains(this, domains);
+        markMapInstancePersistenceFullReplaceDomains(this, domains);
+    }
+    /** markTileResourcePersistenceDirty：记录地块资源行级脏键。 */
+    markTileResourcePersistenceDirty(resourceKey, tileIndex) {
+        markMapInstanceDirtyDomains(this, ['tile_resource']);
+        addTileResourceDirtyKey(this, resourceKey, tileIndex);
+    }
+    /** markTileDamagePersistenceDirty：记录地块损坏行级脏键。 */
+    markTileDamagePersistenceDirty(tileIndex) {
+        markMapInstanceDirtyDomains(this, ['tile_damage']);
+        if (!(this.dirtyTileDamageIndices instanceof Set)) {
+            this.dirtyTileDamageIndices = new Set();
+        }
+        addNumericDirtyKey(this.dirtyTileDamageIndices, tileIndex);
+    }
+    /** markGroundItemPersistenceDirty：记录地面物品按 tile 替换脏键。 */
+    markGroundItemPersistenceDirty(tileIndex) {
+        markMapInstanceDirtyDomains(this, ['ground_item']);
+        if (!(this.dirtyGroundItemTileIndices instanceof Set)) {
+            this.dirtyGroundItemTileIndices = new Set();
+        }
+        addNumericDirtyKey(this.dirtyGroundItemTileIndices, tileIndex);
+    }
+    /** markMonsterRuntimePersistenceDirty：记录妖兽运行态行级脏键。 */
+    markMonsterRuntimePersistenceDirty(runtimeId) {
+        markMapInstanceDirtyDomains(this, ['monster_runtime']);
+        if (!(this.dirtyMonsterRuntimeIds instanceof Set)) {
+            this.dirtyMonsterRuntimeIds = new Set();
+        }
+        if (typeof runtimeId === 'string' && runtimeId.trim()) {
+            this.dirtyMonsterRuntimeIds.add(runtimeId.trim());
+        }
     }
     /** markPersistenceDomainsPersisted：标记指定实例域已完成持久化。 */
     markPersistenceDomainsPersisted(domains) {
         const dirtyDomains = this.getDirtyDomains();
         for (const domain of Array.isArray(domains) ? domains : []) {
             if (typeof domain === 'string' && domain.trim()) {
-                dirtyDomains.delete(domain.trim());
+                const normalizedDomain = domain.trim();
+                dirtyDomains.delete(normalizedDomain);
+                clearMapInstancePersistenceDeltaDomain(this, normalizedDomain);
             }
         }
         if (dirtyDomains.size === 0) {
@@ -2016,7 +2426,7 @@ class MapInstanceRuntime {
             }
             changed = true;
             if (changed) {
-                this.markPersistenceDirtyDomains(['ground_item']);
+                this.markGroundItemPersistenceDirty(tileIndex);
                 this.persistentRevision += 1;
                 this.worldRevision += 1;
             }
@@ -2037,7 +2447,7 @@ class MapInstanceRuntime {
                 }],
         };
         this.groundPilesByTile.set(tileIndex, pile);
-        this.markPersistenceDirtyDomains(['ground_item']);
+        this.markGroundItemPersistenceDirty(tileIndex);
         this.persistentRevision += 1;
         this.worldRevision += 1;
         return toGroundPileView(pile);
@@ -2074,7 +2484,7 @@ class MapInstanceRuntime {
         if (pile.items.length === 0) {
             this.groundPilesByTile.delete(tileIndex);
         }
-        this.markPersistenceDirtyDomains(['ground_item']);
+        this.markGroundItemPersistenceDirty(tileIndex);
         this.persistentRevision += 1;
         this.worldRevision += 1;
         return {
@@ -2816,7 +3226,7 @@ class MapInstanceRuntime {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
         this.applyTileResourceDirtyCounter(DEFAULT_TILE_AURA_RESOURCE_KEY, tileIndex, previous, next);
-        this.markPersistenceDirtyDomains(['tile_resource']);
+        this.markTileResourcePersistenceDirty(DEFAULT_TILE_AURA_RESOURCE_KEY, tileIndex);
         this.persistentRevision += 1;
     }
     /** getOrCreateTileResourceBucket：读取或初始化地块资源桶。 */
@@ -2859,7 +3269,7 @@ class MapInstanceRuntime {
         if (resourceKey !== DEFAULT_TILE_AURA_RESOURCE_KEY && (this.changedTileResourceEntryCountByKey.get(resourceKey) ?? 0) <= 0) {
             this.tileResourceBuckets.delete(resourceKey);
         }
-        this.markPersistenceDirtyDomains(['tile_resource']);
+        this.markTileResourcePersistenceDirty(resourceKey, tileIndex);
         this.persistentRevision += 1;
     }
     /** ensureCellStorageCapacity：保证按 cell index 寻址的运行时列容量足够。 */
@@ -2960,7 +3370,7 @@ class MapInstanceRuntime {
         monster.buffs.length = 0;
         /** recalculateMonsterDerivedState：重算妖兽派生状态。 */
         recalculateMonsterDerivedState(monster);
-        this.markPersistenceDirtyDomains(['monster_runtime']);
+        this.markMonsterRuntimePersistenceDirty(monster.runtimeId);
         this.worldRevision += 1;
     }
     /** respawnMonster：在重生点复生妖兽。 */
@@ -2983,7 +3393,7 @@ class MapInstanceRuntime {
         recalculateMonsterDerivedState(monster);
         monster.hp = monster.maxHp;
         this.monsterRuntimeIdByTile.set(this.toTileIndex(monster.x, monster.y), monster.runtimeId);
-        this.markPersistenceDirtyDomains(['monster_runtime']);
+        this.markMonsterRuntimePersistenceDirty(monster.runtimeId);
     }
     /** resolveMonsterTarget：解析妖兽的当前目标。 */
     resolveMonsterTarget(monster) {
@@ -3113,7 +3523,7 @@ class MapInstanceRuntime {
             monster.y = nextY;
             monster.facing = direction.facing;
             this.monsterRuntimeIdByTile.set(this.toTileIndex(monster.x, monster.y), monster.runtimeId);
-            this.markPersistenceDirtyDomains(['monster_runtime']);
+            this.markMonsterRuntimePersistenceDirty(monster.runtimeId);
             return true;
         }
         return false;
@@ -3133,7 +3543,7 @@ class MapInstanceRuntime {
             monster.y = candidate.y;
             monster.facing = candidate.facing;
             this.monsterRuntimeIdByTile.set(this.toTileIndex(monster.x, monster.y), monster.runtimeId);
-            this.markPersistenceDirtyDomains(['monster_runtime']);
+            this.markMonsterRuntimePersistenceDirty(monster.runtimeId);
             return true;
         }
         return false;
@@ -3217,6 +3627,7 @@ function buildGroundSourceId(tileIndex) {
 function createMapInstanceDirtyDomainSet() {
     return new Set();
 }
+const INCREMENTAL_PERSISTENCE_DOMAINS = new Set(['tile_resource', 'tile_damage', 'ground_item', 'monster_runtime']);
 function normalizePositiveInteger(value, defaultValue, min, max) {
     const parsed = Number(value);
     if (!Number.isFinite(parsed)) {
@@ -3249,11 +3660,95 @@ function markMapInstanceDirtyDomains(instance, domains) {
         }
     }
 }
+/** markMapInstancePersistenceFullReplaceDomains：为未细分脏键的高频域保留全量兜底。 */
+function markMapInstancePersistenceFullReplaceDomains(instance, domains) {
+    if (!instance) {
+        return;
+    }
+    if (!(instance.persistenceFullReplaceDomains instanceof Set)) {
+        instance.persistenceFullReplaceDomains = createMapInstanceDirtyDomainSet();
+    }
+    for (const domain of Array.isArray(domains) ? domains : []) {
+        const normalizedDomain = typeof domain === 'string' ? domain.trim() : '';
+        if (INCREMENTAL_PERSISTENCE_DOMAINS.has(normalizedDomain)) {
+            instance.persistenceFullReplaceDomains.add(normalizedDomain);
+        }
+    }
+}
+/** addTileResourceDirtyKey：记录地块资源的资源键与 tile 索引。 */
+function addTileResourceDirtyKey(instance, resourceKey, tileIndex) {
+    if (!instance || typeof resourceKey !== 'string' || !resourceKey.trim() || !Number.isFinite(Number(tileIndex))) {
+        return;
+    }
+    if (!(instance.dirtyTileResourceByKey instanceof Map)) {
+        instance.dirtyTileResourceByKey = new Map();
+    }
+    const normalizedResourceKey = resourceKey.trim();
+    let tileIndices = instance.dirtyTileResourceByKey.get(normalizedResourceKey);
+    if (!(tileIndices instanceof Set)) {
+        tileIndices = new Set();
+        instance.dirtyTileResourceByKey.set(normalizedResourceKey, tileIndices);
+    }
+    tileIndices.add(Math.max(0, Math.trunc(Number(tileIndex))));
+}
+/** addNumericDirtyKey：记录数字型脏键。 */
+function addNumericDirtyKey(target, value) {
+    if (!(target instanceof Set) || !Number.isFinite(Number(value))) {
+        return;
+    }
+    target.add(Math.max(0, Math.trunc(Number(value))));
+}
+/** clearMapInstancePersistenceDeltaDomain：清理指定域的增量脏键。 */
+function clearMapInstancePersistenceDeltaDomain(instance, domain) {
+    if (!instance || typeof domain !== 'string') {
+        return;
+    }
+    if (instance.persistenceFullReplaceDomains instanceof Set) {
+        instance.persistenceFullReplaceDomains.delete(domain);
+    }
+    if (domain === 'tile_resource' && instance.dirtyTileResourceByKey instanceof Map) {
+        instance.dirtyTileResourceByKey.clear();
+        return;
+    }
+    if (domain === 'tile_damage' && instance.dirtyTileDamageIndices instanceof Set) {
+        instance.dirtyTileDamageIndices.clear();
+        return;
+    }
+    if (domain === 'ground_item' && instance.dirtyGroundItemTileIndices instanceof Set) {
+        instance.dirtyGroundItemTileIndices.clear();
+        return;
+    }
+    if (domain === 'monster_runtime' && instance.dirtyMonsterRuntimeIds instanceof Set) {
+        instance.dirtyMonsterRuntimeIds.clear();
+    }
+}
+/** clearMapInstancePersistenceDeltas：清空所有增量脏键。 */
+function clearMapInstancePersistenceDeltas(instance) {
+    if (!instance) {
+        return;
+    }
+    if (instance.persistenceFullReplaceDomains instanceof Set) {
+        instance.persistenceFullReplaceDomains.clear();
+    }
+    if (instance.dirtyTileResourceByKey instanceof Map) {
+        instance.dirtyTileResourceByKey.clear();
+    }
+    if (instance.dirtyTileDamageIndices instanceof Set) {
+        instance.dirtyTileDamageIndices.clear();
+    }
+    if (instance.dirtyGroundItemTileIndices instanceof Set) {
+        instance.dirtyGroundItemTileIndices.clear();
+    }
+    if (instance.dirtyMonsterRuntimeIds instanceof Set) {
+        instance.dirtyMonsterRuntimeIds.clear();
+    }
+}
 /** clearMapInstanceDirtyDomains：清空实例脏域。 */
 function clearMapInstanceDirtyDomains(instance) {
     if (instance?.dirtyDomains instanceof Set) {
         instance.dirtyDomains.clear();
     }
+    clearMapInstancePersistenceDeltas(instance);
 }
 /** parseGroundSourceId：解析地面物品堆来源 ID。 */
 function parseGroundSourceId(sourceId) {

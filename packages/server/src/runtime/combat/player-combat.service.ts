@@ -137,7 +137,7 @@ let PlayerCombatService = class PlayerCombatService {
             throw new common_1.BadRequestException('Target is already dead');
         }
 
-        const range = resolveSkillRange(resolved.skill);
+        const range = resolveEffectiveSkillCastRange(resolved.skill, options);
         if (distance > range) {
             throw new common_1.BadRequestException(`Skill ${resolved.skill.id} out of range`);
         }
@@ -289,6 +289,13 @@ function resolveSkillRange(skill) {
     }
     return Math.max(1, Math.round(skill.range));
 }
+function resolveEffectiveSkillCastRange(skill, options) {
+    const optionRange = Number(options?.range);
+    if (Number.isFinite(optionRange)) {
+        return Math.max(1, Math.round(optionRange));
+    }
+    return resolveSkillRange(skill);
+}
 /**
  * normalizeSkillQiCost：规范化或转换技能Qi消耗。
  * @param rawCost 参数说明。
@@ -372,11 +379,14 @@ function inferDamageKind(stats) {
  */
 
 function toTemporaryBuff(effect, skill) {
+    const fallbackName = typeof effect.name === 'string' && effect.name.trim()
+        ? effect.name.trim()
+        : (typeof skill.name === 'string' && skill.name.trim() ? skill.name.trim() : String(effect.buffId ?? skill.id ?? '效果'));
     return {
         buffId: effect.buffId,
-        name: effect.name,
+        name: fallbackName,
         desc: effect.desc,
-        shortMark: effect.shortMark ?? (effect.name.slice(0, 1) || '*'),
+        shortMark: effect.shortMark ?? (fallbackName.slice(0, 1) || '*'),
         category: effect.category ?? 'debuff',
         visibility: effect.visibility ?? 'public',
         remainingTicks: Math.max(1, Math.round(effect.duration)),

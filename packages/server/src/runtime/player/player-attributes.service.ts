@@ -143,6 +143,7 @@ let PlayerAttributesService = class PlayerAttributesService {
         for (const bonus of projectedRuntimeBonuses) {
             (0, shared_1.addPartialNumericStats)(numericStats, bonus.stats);
         }
+        applyActiveCultivationStats(numericStats, player);
         applyPercentBonuses(numericStats, percentBonuses);
         applyRealmNumericScaling(numericStats, realmLv);
         applySpiritualRoots(numericStats, player.spiritualRoots);
@@ -187,6 +188,14 @@ function applySpiritualRoots(target, roots) {
     target.elementDamageReduce.water += roots.water;
     target.elementDamageReduce.fire += roots.fire;
     target.elementDamageReduce.earth += roots.earth;
+}
+
+function applyActiveCultivationStats(target, player) {
+    if (player?.combat?.cultivationActive !== true) {
+        return;
+    }
+    target.realmExpPerTick += shared_1.CULTIVATION_REALM_EXP_PER_TICK;
+    target.techniqueExpPerTick += shared_1.CULTIVATE_EXP_PER_TICK;
 }
 /**
  * createBaseAttributes：构建并返回目标对象。

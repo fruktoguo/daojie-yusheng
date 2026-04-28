@@ -6,7 +6,7 @@
 
 更完整的运维、shadow、`gm/database/*`、破坏性维护窗口说明，统一看：
 
-- [docs/server-operations.md](../../docs/server-operations.md)
+- [REPLACE-RUNBOOK.md](./REPLACE-RUNBOOK.md)
 
 更完整的当前任务总表与 cutover 收尾，统一看：
 
@@ -234,7 +234,7 @@
 
 - [docs/next-plan/main.md](../../docs/next-plan/main.md)
 - [docs/next-plan/10-legacy-archive-and-cutover.md](../../docs/next-plan/10-legacy-archive-and-cutover.md)
-- [docs/server-operations.md](../../docs/server-operations.md)
+- [REPLACE-RUNBOOK.md](./REPLACE-RUNBOOK.md)
 
 ## 环境变量矩阵
 
@@ -259,6 +259,6 @@ shadow-destructive 额外需要：
 
 ## 目录关系
 
-- [docs/server-operations.md](../../docs/server-operations.md) 负责运维与维护窗口细则
+- [REPLACE-RUNBOOK.md](./REPLACE-RUNBOOK.md) 负责运维与维护窗口细则
 - [docs/next-plan/main.md](../../docs/next-plan/main.md) 负责当前任务总表与完成定义
 - [docs/next-plan/10-legacy-archive-and-cutover.md](../../docs/next-plan/10-legacy-archive-and-cutover.md) 负责 cutover 与 legacy 归档收尾

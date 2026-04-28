@@ -14,6 +14,9 @@ import {
   MONSTER_GLOBAL_STAT_PERCENTS,
   MONSTER_GRADE_STAT_PERCENTS,
   MONSTER_KILL_EXP_LEVEL_DELTA_CAP,
+  MONSTER_LEVEL_EXP_DECAY_MULTIPLIER_EARLY,
+  MONSTER_LEVEL_EXP_DECAY_MULTIPLIER_LATE,
+  MONSTER_LEVEL_EXP_DECAY_MULTIPLIER_MID,
   MONSTER_OVERLEVEL_EXP_MULTIPLIER,
   MONSTER_TIER_EXP_MULTIPLIERS,
   MONSTER_TIER_UNDERLEVEL_EXP_BONUS_RATES,
@@ -666,6 +669,17 @@ export function getMonsterKillExpLevelAdjustment(
     return Math.max(0, MONSTER_OVERLEVEL_EXP_MULTIPLIER) ** levelDelta;
   }
   return 1;
+}
+
+/** 计算怪物等级带来的击杀经验分段衰减倍率。 */
+export function getMonsterLevelExpDecayMultiplier(monsterLevel: number): number {
+  const normalizedMonsterLevel = Math.max(1, Math.floor(monsterLevel));
+  const earlyLevelSteps = Math.max(0, Math.min(normalizedMonsterLevel, 18) - 1);
+  const midLevelSteps = Math.max(0, Math.min(normalizedMonsterLevel, 30) - 18);
+  const lateLevelSteps = Math.max(0, normalizedMonsterLevel - 30);
+  return (MONSTER_LEVEL_EXP_DECAY_MULTIPLIER_EARLY ** earlyLevelSteps)
+    * (MONSTER_LEVEL_EXP_DECAY_MULTIPLIER_MID ** midLevelSteps)
+    * (MONSTER_LEVEL_EXP_DECAY_MULTIPLIER_LATE ** lateLevelSteps);
 }
 
 /** 将怪物属性收敛为非负整数，并补回默认值。 */

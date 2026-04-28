@@ -10,6 +10,7 @@ async function main(): Promise<void> {
   await testLegacySnapshotWriteDisabledByDefault();
   await testIntervalThrottle();
   await testIntervalSkipsDeferredTimeCheckpoint();
+  await testIntervalSkipsDeferredMonsterRuntime();
   await testDomainOnlyShutdownFlush();
 
   console.log(
@@ -17,7 +18,7 @@ async function main(): Promise<void> {
       {
         ok: true,
         case: 'map-persistence-flush-throttle',
-        answers: '旧全量 map snapshot 写入默认退役；显式兼容开关下 interval 慢刷盘会退避；未到期的纯 time checkpoint 不进入普通 interval 刷盘；shutdown 强刷在只启用 instance domain persistence 时仍会落地分域脏状态',
+        answers: '旧全量 map snapshot 写入默认退役；显式兼容开关下 interval 慢刷盘会退避；未到期的纯 time checkpoint 不进入普通 interval 刷盘；未到期的高频 monster_runtime 不进入普通 interval 刷盘；shutdown 强刷在只启用 instance domain persistence 时仍会落地分域脏状态',
         excludes: '不证明 500/1000 真实压测、跨节点竞争或故障注入',
         completionMapping: 'replace-ready:proof:stage7.flush-throttle',
       },
@@ -162,6 +163,50 @@ async function testIntervalSkipsDeferredTimeCheckpoint(): Promise<void> {
     { instanceId: 'public:mixed', domains: ['tile_damage'] },
     { instanceId: 'public:mixed', domains: ['time', 'tile_damage'] },
     { instanceId: 'public:time_only', domains: ['time'] },
+  ]);
+}
+
+async function testIntervalSkipsDeferredMonsterRuntime(): Promise<void> {
+  const flushCalls: Array<{ instanceId: string; domains: string[] | null }> = [];
+  const service = new MapPersistenceFlushService(
+    {
+      instanceDomainPersistenceService: {
+        isEnabled() {
+          return true;
+        },
+      },
+      listDirtyPersistentInstanceDomains() {
+        return [
+          { instanceId: 'real:monster_only', domains: ['monster_runtime'] },
+          { instanceId: 'real:mixed', domains: ['monster_runtime', 'tile_resource'] },
+        ];
+      },
+      listDirtyPersistentInstances() {
+        throw new Error('domain entries should not fall back to legacy full-instance scan');
+      },
+      async flushInstanceDomains(instanceId: string, domains: string[] | null) {
+        flushCalls.push({ instanceId, domains });
+        return { skipped: false };
+      },
+    } as never,
+    {
+      isEnabled() {
+        return false;
+      },
+    } as never,
+  );
+  (service as unknown as { nextMonsterRuntimeFlushAt: number }).nextMonsterRuntimeFlushAt = Date.now() + 60_000;
+
+  await service.flushDirtyInstances();
+  assert.deepEqual(flushCalls, [
+    { instanceId: 'real:mixed', domains: ['tile_resource'] },
+  ]);
+
+  await service.flushAllNow();
+  assert.deepEqual(flushCalls, [
+    { instanceId: 'real:mixed', domains: ['tile_resource'] },
+    { instanceId: 'real:mixed', domains: ['monster_runtime', 'tile_resource'] },
+    { instanceId: 'real:monster_only', domains: ['monster_runtime'] },
   ]);
 }
 

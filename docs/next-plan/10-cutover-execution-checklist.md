@@ -96,7 +96,7 @@
   - 观察结果
   - 是否回滚
 - [ ] 如果本轮暴露出新的常见故障，把症状与处理写回：
-  - `docs/server-operations.md`
+  - `packages/server/REPLACE-RUNBOOK.md`
   - `packages/server/TESTING.md`
   - `docs/next-plan/09-verification-and-acceptance.md`
 

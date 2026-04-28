@@ -24,6 +24,34 @@ const SECT_SPARSE_EXPAND_RADIUS = 2;
 const SECT_CORE_CHAR = '宗';
 const SECT_ENTRANCE_CHAR = '门';
 const SECT_GUARDIAN_INITIAL_AURA = 100000;
+const SECT_MANAGEMENT_DATA_MARKER = '@@sect:';
+const SECT_MANAGEMENT_DATA_MARKER_END = '@@';
+const SECT_ROLES = [
+    { id: 'leader', label: '宗主', assignable: false },
+    { id: 'deputy', label: '副宗主', assignable: true },
+    { id: 'elder', label: '长老', assignable: true },
+    { id: 'inner', label: '内门弟子', assignable: true },
+    { id: 'outer', label: '外门弟子', assignable: true },
+    { id: 'labor', label: '杂役', assignable: true },
+    { id: 'supreme_elder', label: '太上长老', assignable: false },
+];
+const SECT_ROLE_IDS = new Set(SECT_ROLES.map((entry) => entry.id));
+const SECT_ASSIGNABLE_ROLE_IDS = new Set(SECT_ROLES.filter((entry) => entry.assignable).map((entry) => entry.id));
+const SECT_PERMISSIONS = [
+    { id: 'guardian', label: '护宗大阵' },
+    { id: 'member_remove', label: '移除成员' },
+    { id: 'member_role', label: '修改职位' },
+];
+const SECT_PERMISSION_IDS = new Set(SECT_PERMISSIONS.map((entry) => entry.id));
+const DEFAULT_SECT_ROLE_PERMISSIONS = {
+    leader: { guardian: true, member_remove: true, member_role: true },
+    deputy: { guardian: true, member_remove: true, member_role: true },
+    elder: { guardian: true, member_remove: false, member_role: false },
+    inner: { guardian: false, member_remove: false, member_role: false },
+    outer: { guardian: false, member_remove: false, member_role: false },
+    labor: { guardian: false, member_remove: false, member_role: false },
+    supreme_elder: { guardian: true, member_remove: false, member_role: false },
+};
 
 const { buildPublicInstanceId, parseRuntimeInstanceDescriptor } = world_runtime_normalization_helpers_1;
 
@@ -54,6 +82,7 @@ class WorldRuntimeSectService {
         const location = deps.getPlayerLocationOrThrow(playerId);
         const entranceInstance = deps.getInstanceRuntimeOrThrow(location.instanceId);
         const descriptor = parseRuntimeInstanceDescriptor(location.instanceId);
+        assertCanCreateSectAtInstance(entranceInstance, descriptor);
         if (entranceInstance.meta.kind !== 'public' && descriptor?.instanceOrigin !== 'public') {
             throw new common_1.BadRequestException('当前地点无法开辟宗门入口');
         }
@@ -94,6 +123,8 @@ class WorldRuntimeSectService {
             mapMaxX: bounds.maxX,
             mapMinY: bounds.minY,
             mapMaxY: bounds.maxY,
+            members: [buildSectMemberEntry(player, 'leader', now)],
+            rolePermissions: buildDefaultSectRolePermissions(),
             createdAt: now,
             updatedAt: now,
         };
@@ -196,6 +227,7 @@ class WorldRuntimeSectService {
         if (typeof deps.worldRuntimeFormationService?.upsertSectGuardianFormation !== 'function') {
             return null;
         }
+        ensureSectState(sect, this.playerRuntimeService);
         return deps.worldRuntimeFormationService.upsertSectGuardianFormation({
             formationId: 'sect_guardian_barrier',
             id: `formation:sect_guardian:${sect.sectId}`,
@@ -208,6 +240,7 @@ class WorldRuntimeSectService {
             eyeX: sect.coreX,
             eyeY: sect.coreY,
             radius: 1,
+            spiritStoneCount: Math.ceil(SECT_GUARDIAN_INITIAL_AURA / shared_1.FORMATION_AURA_PER_SPIRIT_STONE),
             remainingAuraBudget: SECT_GUARDIAN_INITIAL_AURA,
             active: true,
         }, deps);
@@ -215,73 +248,225 @@ class WorldRuntimeSectService {
 
     buildSectCoreActions(view, deps = null) {
         const sect = this.findSectByInstanceId(view?.instance?.instanceId);
-        if (!sect || chebyshevDistance(view.self.x, view.self.y, sect.coreX, sect.coreY) > 1) {
+        if (!sect || sect.status === 'dissolved' || chebyshevDistance(view.self.x, view.self.y, sect.coreX, sect.coreY) > 1) {
             return [];
         }
+        ensureSectState(sect, this.playerRuntimeService);
         const player = this.playerRuntimeService.getPlayer(view.playerId);
-        const sameSect = normalizeOptionalString(player?.sectId) === sect.sectId;
+        const sameSect = normalizeOptionalString(player?.sectId) === sect.sectId && isSectMember(sect, view.playerId);
         if (!sameSect) {
             return [];
         }
-        const canManage = sect.leaderPlayerId === view.playerId;
-        const actions = [{
-            id: 'sect:exit',
-            name: '离开宗门',
-            type: 'travel',
-            desc: `返回${sect.name}山门入口。`,
+        const guardian = resolveSectGuardianFormation(sect, deps);
+        return [{
+            id: 'sect:manage',
+            name: '管理宗门',
+            type: 'interact',
+            desc: buildSectManagementActionDesc(sect, view, deps, guardian),
             cooldownLeft: 0,
         }];
-        if (canManage) {
-            actions.unshift({
-                id: 'sect:manage',
-                name: '管理宗门',
-                type: 'interact',
-                desc: `${sect.name} · 印记 ${normalizeOptionalString(sect.mark) || '无'} · 地域 ${formatSectTileCountLabel(sect, view, deps)}。`,
-                cooldownLeft: 0,
-            });
-        }
-        return actions;
     }
 
     executeSectAction(playerId, actionId, deps) {
         const player = this.playerRuntimeService.getPlayerOrThrow(playerId);
         const sect = this.findSectById(player.sectId);
-        if (!sect) {
+        if (!sect || sect.status === 'dissolved') {
             throw new common_1.BadRequestException('你尚未加入宗门');
         }
-        if (actionId === 'sect:exit') {
-            deps.enqueuePendingCommand(playerId, { kind: 'portal' });
-            return { kind: 'queued', view: deps.getPlayerViewOrThrow(playerId) };
+        ensureSectState(sect, this.playerRuntimeService);
+        if (!isSectMember(sect, playerId)) {
+            throw new common_1.ForbiddenException('你不在该宗门成员名册中');
         }
         if (actionId === 'sect:manage') {
             return { kind: 'queued', view: deps.getPlayerViewOrThrow(playerId) };
         }
-        if (sect.leaderPlayerId !== playerId) {
-            throw new common_1.ForbiddenException('只有宗主可以操作宗门核心');
-        }
         const guardianId = `formation:sect_guardian:${sect.sectId}`;
         if (actionId === 'sect:guardian:toggle') {
+            assertSectPermission(sect, playerId, 'guardian');
             const formation = deps.worldRuntimeFormationService.findFormationInInstance(sect.entranceInstanceId, guardianId);
-            deps.worldRuntimeFormationService.dispatchSetFormationActive(formation?.ownerPlayerId || playerId, {
+            deps.worldRuntimeFormationService.dispatchSetPersistentFormationActive(playerId, {
+                instanceId: sect.entranceInstanceId,
                 formationInstanceId: guardianId,
                 active: !(formation?.active !== false),
             }, deps);
             deps.queuePlayerNotice(playerId, '护宗大阵状态已切换。', 'success');
             return { kind: 'queued', view: deps.getPlayerViewOrThrow(playerId) };
         }
+        if (actionId.startsWith('sect:guardian:inject:')) {
+            assertSectPermission(sect, playerId, 'guardian');
+            const [, , , stoneText = '0'] = actionId.split(':');
+            const formation = deps.worldRuntimeFormationService.findFormationInInstance(sect.entranceInstanceId, guardianId)
+                ?? this.ensureGuardianFormation(sect, deps);
+            deps.worldRuntimeFormationService.dispatchInjectPersistentFormationEnergy(playerId, {
+                instanceId: sect.entranceInstanceId,
+                formationInstanceId: formation?.id ?? guardianId,
+                spiritStoneCount: normalizeNonNegativeInteger(stoneText),
+            }, deps);
+            deps.queuePlayerNotice(playerId, '护宗大阵灵力已注入。', 'success');
+            return { kind: 'queued', view: deps.getPlayerViewOrThrow(playerId) };
+        }
         if (actionId === 'sect:guardian:refill') {
+            assertSectPermission(sect, playerId, 'guardian');
             const formation = deps.worldRuntimeFormationService.findFormationInInstance(sect.entranceInstanceId, guardianId);
             if (!formation) {
                 this.ensureGuardianFormation(sect, deps);
             } else {
-                formation.remainingAuraBudget += SECT_GUARDIAN_INITIAL_AURA;
-                formation.updatedAt = Date.now();
-                deps.worldRuntimeFormationService.persistInstanceFormationsSoon?.(sect.entranceInstanceId);
+                deps.worldRuntimeFormationService.dispatchInjectPersistentFormationEnergy(playerId, {
+                    instanceId: sect.entranceInstanceId,
+                    formationInstanceId: guardianId,
+                    spiritStoneCount: Math.ceil(SECT_GUARDIAN_INITIAL_AURA / shared_1.FORMATION_AURA_PER_SPIRIT_STONE),
+                }, deps);
             }
             deps.queuePlayerNotice(playerId, '护宗大阵已补充灵力。', 'success');
             return { kind: 'queued', view: deps.getPlayerViewOrThrow(playerId) };
         }
+        if (actionId.startsWith('sect:member:remove:')) {
+            assertSectPermission(sect, playerId, 'member_remove');
+            const targetPlayerId = decodeActionPart(actionId.slice('sect:member:remove:'.length));
+            this.removeSectMember(sect, targetPlayerId, playerId, deps);
+            return { kind: 'queued', view: deps.getPlayerViewOrThrow(playerId) };
+        }
+        if (actionId.startsWith('sect:member:role:')) {
+            assertSectPermission(sect, playerId, 'member_role');
+            const parts = actionId.split(':');
+            const targetPlayerId = decodeActionPart(parts[3] ?? '');
+            const roleId = normalizeSectRoleId(parts[4], { requireAssignable: true });
+            this.changeSectMemberRole(sect, targetPlayerId, roleId, playerId, deps);
+            return { kind: 'queued', view: deps.getPlayerViewOrThrow(playerId) };
+        }
+        if (actionId.startsWith('sect:transfer:')) {
+            assertSectLeader(sect, playerId);
+            const targetPlayerId = decodeActionPart(actionId.slice('sect:transfer:'.length));
+            this.transferSectLeadership(sect, targetPlayerId, playerId, deps);
+            return { kind: 'queued', view: deps.getPlayerViewOrThrow(playerId) };
+        }
+        if (actionId === 'sect:dissolve') {
+            assertSectLeader(sect, playerId);
+            this.dissolveSect(sect, playerId, deps);
+            return { kind: 'queued', view: deps.getPlayerViewOrThrow(playerId) };
+        }
+        if (actionId.startsWith('sect:permission:toggle:')) {
+            assertSectLeader(sect, playerId);
+            const parts = actionId.split(':');
+            const roleId = normalizeSectRoleId(parts[3], { allowSupreme: true });
+            const permissionId = normalizeSectPermissionId(parts[4]);
+            this.toggleSectRolePermission(sect, roleId, permissionId, playerId, deps);
+            return { kind: 'queued', view: deps.getPlayerViewOrThrow(playerId) };
+        }
         throw new common_1.BadRequestException(`Unsupported sect action: ${actionId}`);
+    }
+
+    removeSectMember(sect, targetPlayerId, operatorPlayerId, deps) {
+        const targetId = normalizeOptionalString(targetPlayerId);
+        if (!targetId || targetId === sect.leaderPlayerId) {
+            throw new common_1.BadRequestException('不能移除宗主');
+        }
+        if (targetId === operatorPlayerId) {
+            throw new common_1.BadRequestException('不能移除自己');
+        }
+        const before = sect.members.length;
+        sect.members = sect.members.filter((entry) => entry.playerId !== targetId);
+        if (sect.members.length === before) {
+            throw new common_1.NotFoundException('该成员不在宗门名册中');
+        }
+        this.playerSectId.delete(targetId);
+        this.clearPlayerSectIdIfLoaded(targetId, sect.sectId);
+        sect.updatedAt = Date.now();
+        this.persistSectsSoon();
+        deps.queuePlayerNotice?.(operatorPlayerId, '已移除宗门成员。', 'success');
+        deps.refreshQuestStates?.(targetId);
+    }
+
+    changeSectMemberRole(sect, targetPlayerId, roleId, operatorPlayerId, deps) {
+        const targetId = normalizeOptionalString(targetPlayerId);
+        const member = targetId ? sect.members.find((entry) => entry.playerId === targetId) : null;
+        if (!member) {
+            throw new common_1.NotFoundException('该成员不在宗门名册中');
+        }
+        if (targetId === sect.leaderPlayerId || member.roleId === 'leader') {
+            throw new common_1.BadRequestException('宗主职位只能通过转让改变');
+        }
+        member.roleId = roleId;
+        member.name = resolvePlayerDisplayName(this.playerRuntimeService.getPlayer?.(targetId), member.name || targetId);
+        sect.updatedAt = Date.now();
+        this.persistSectsSoon();
+        deps.queuePlayerNotice?.(operatorPlayerId, `已将 ${member.name} 调整为 ${getSectRoleLabel(roleId)}。`, 'success');
+    }
+
+    transferSectLeadership(sect, targetPlayerId, operatorPlayerId, deps) {
+        const targetId = normalizeOptionalString(targetPlayerId);
+        if (!targetId || targetId === operatorPlayerId) {
+            throw new common_1.BadRequestException('请选择其他成员接任宗主');
+        }
+        const target = sect.members.find((entry) => entry.playerId === targetId);
+        if (!target) {
+            throw new common_1.NotFoundException('接任者不在宗门名册中');
+        }
+        const previousLeader = sect.members.find((entry) => entry.playerId === operatorPlayerId);
+        if (previousLeader) {
+            previousLeader.roleId = 'deputy';
+        }
+        target.roleId = 'leader';
+        target.name = resolvePlayerDisplayName(this.playerRuntimeService.getPlayer?.(targetId), target.name || targetId);
+        sect.leaderPlayerId = targetId;
+        sect.updatedAt = Date.now();
+        this.ensureGuardianFormation(sect, deps);
+        this.persistSectsSoon();
+        deps.queuePlayerNotice?.(operatorPlayerId, `已将宗主之位转让给 ${target.name}。`, 'success');
+        deps.queuePlayerNotice?.(targetId, `你已接任 ${sect.name} 宗主。`, 'success');
+    }
+
+    dissolveSect(sect, operatorPlayerId, deps) {
+        const memberIds = sect.members.map((entry) => entry.playerId);
+        for (const memberId of memberIds) {
+            this.playerSectId.delete(memberId);
+            this.clearPlayerSectIdIfLoaded(memberId, sect.sectId);
+            deps.refreshQuestStates?.(memberId);
+        }
+        const entranceInstance = deps.getInstanceRuntime?.(sect.entranceInstanceId);
+        const sectInstance = deps.getInstanceRuntime?.(sect.sectInstanceId);
+        removeSectRuntimePortals(entranceInstance, sect.sectId);
+        removeSectRuntimePortals(sectInstance, sect.sectId);
+        const guardianId = `formation:sect_guardian:${sect.sectId}`;
+        try {
+            deps.worldRuntimeFormationService?.dispatchSetPersistentFormationActive?.(operatorPlayerId, {
+                instanceId: sect.entranceInstanceId,
+                formationInstanceId: guardianId,
+                active: false,
+            }, deps);
+        }
+        catch (_error) {
+            // 解散宗门时大阵已缺失不阻断宗门真源删除。
+        }
+        this.sectsById.delete(sect.sectId);
+        this.persistSectsSoon();
+        deps.queuePlayerNotice?.(operatorPlayerId, `${sect.name}已解散。`, 'warning');
+    }
+
+    toggleSectRolePermission(sect, roleId, permissionId, playerId, deps) {
+        if (roleId === 'leader') {
+            throw new common_1.BadRequestException('宗主权限固定拥有全部管理权');
+        }
+        const rolePermissions = normalizeSectRolePermissions(sect.rolePermissions);
+        const nextRolePermissions = rolePermissions[roleId] ?? {};
+        nextRolePermissions[permissionId] = !nextRolePermissions[permissionId];
+        rolePermissions[roleId] = nextRolePermissions;
+        sect.rolePermissions = rolePermissions;
+        sect.updatedAt = Date.now();
+        this.persistSectsSoon();
+        deps.queuePlayerNotice?.(playerId, `${getSectRoleLabel(roleId)}权限已更新。`, 'success');
+    }
+
+    clearPlayerSectIdIfLoaded(playerId, sectId) {
+        const loaded = this.playerRuntimeService.getPlayer?.(playerId);
+        if (!loaded || normalizeOptionalString(loaded.sectId) !== sectId) {
+            return;
+        }
+        if (typeof this.playerRuntimeService.setPlayerSectId === 'function') {
+            this.playerRuntimeService.setPlayerSectId(playerId, null);
+        } else {
+            loaded.sectId = null;
+        }
     }
 
     expandSectBounds(sect, dirs, deps) {
@@ -430,8 +615,11 @@ class WorldRuntimeSectService {
             if (!sect) {
                 continue;
             }
+            ensureSectState(sect, this.playerRuntimeService);
             this.sectsById.set(sect.sectId, sect);
-            this.playerSectId.set(sect.leaderPlayerId, sect.sectId);
+            for (const member of sect.members) {
+                this.playerSectId.set(member.playerId, sect.sectId);
+            }
             this.registerSectTemplate(sect);
         }
         this.restored = true;
@@ -626,6 +814,269 @@ function normalizeSectMark(input, fallbackText) {
     return first;
 }
 
+function normalizeNonNegativeInteger(input) {
+    const value = Math.trunc(Number(input));
+    if (!Number.isFinite(value) || value < 0) {
+        throw new common_1.BadRequestException('注入数量不能为负');
+    }
+    return value;
+}
+
+function resolveSectGuardianFormation(sect, deps) {
+    const guardianId = `formation:sect_guardian:${sect.sectId}`;
+    return typeof deps?.worldRuntimeFormationService?.findFormationInInstance === 'function'
+        ? deps.worldRuntimeFormationService.findFormationInInstance(sect.entranceInstanceId, guardianId)
+        : null;
+}
+
+function formatSectGuardianStatusLabel(formation) {
+    if (!formation) {
+        return '未建立';
+    }
+    if (formation.active === false || Number(formation.remainingAuraBudget) <= 0) {
+        return '停摆';
+    }
+    return '开启';
+}
+
+function formatSectGuardianAuraLabel(formation) {
+    const value = Math.max(0, Math.floor(Number(formation?.remainingAuraBudget) || 0));
+    return formatInteger(value);
+}
+
+function formatInteger(value) {
+    const normalized = Math.max(0, Math.floor(Number(value) || 0));
+    return normalized.toLocaleString('zh-CN');
+}
+
+function buildSectManagementActionDesc(sect, view, deps, guardian) {
+    const base = `${sect.name} · 印记 ${normalizeOptionalString(sect.mark) || '无'} · 地域 ${formatSectTileCountLabel(sect, view, deps)} · 大阵 ${formatSectGuardianStatusLabel(guardian)} · 灵力 ${formatSectGuardianAuraLabel(guardian)}。`;
+    const data = buildSectManagementData(sect, view?.playerId);
+    return `${base}\n${SECT_MANAGEMENT_DATA_MARKER}${encodeURIComponent(JSON.stringify(data))}${SECT_MANAGEMENT_DATA_MARKER_END}`;
+}
+
+function buildSectManagementData(sect, playerId) {
+    ensureSectState(sect);
+    const selfPlayerId = normalizeOptionalString(playerId) || '';
+    const canEditPermissions = sect.leaderPlayerId === selfPlayerId;
+    return {
+        v: 1,
+        selfPlayerId,
+        canEditPermissions,
+        canTransfer: canEditPermissions,
+        canDissolve: canEditPermissions,
+        canManageGuardian: hasSectPermission(sect, selfPlayerId, 'guardian'),
+        canRemoveMembers: hasSectPermission(sect, selfPlayerId, 'member_remove'),
+        canChangeRoles: hasSectPermission(sect, selfPlayerId, 'member_role'),
+        roles: SECT_ROLES,
+        permissions: SECT_PERMISSIONS,
+        rolePermissions: normalizeSectRolePermissions(sect.rolePermissions),
+        members: sect.members.map((member) => ({
+            playerId: member.playerId,
+            name: member.name,
+            roleId: member.roleId,
+            roleLabel: getSectRoleLabel(member.roleId),
+            self: member.playerId === selfPlayerId,
+            leader: member.playerId === sect.leaderPlayerId,
+        })),
+    };
+}
+
+function ensureSectState(sect, playerRuntimeService = null) {
+    if (!sect) {
+        return sect;
+    }
+    sect.rolePermissions = normalizeSectRolePermissions(sect.rolePermissions);
+    sect.members = normalizeSectMembers(sect.members, {
+        sectId: sect.sectId,
+        leaderPlayerId: sect.leaderPlayerId,
+        leaderName: sect.leaderPlayerId,
+        createdAt: sect.createdAt,
+    });
+    const leader = sect.members.find((entry) => entry.playerId === sect.leaderPlayerId);
+    if (leader) {
+        leader.roleId = 'leader';
+        const runtimeLeader = playerRuntimeService?.getPlayer?.(leader.playerId);
+        leader.name = resolvePlayerDisplayName(runtimeLeader, leader.name || leader.playerId);
+    }
+    for (const member of sect.members) {
+        if (member.playerId !== sect.leaderPlayerId && member.roleId === 'leader') {
+            member.roleId = 'deputy';
+        }
+        const runtimePlayer = playerRuntimeService?.getPlayer?.(member.playerId);
+        if (runtimePlayer) {
+            member.name = resolvePlayerDisplayName(runtimePlayer, member.name);
+        }
+    }
+    return sect;
+}
+
+function normalizeSectMembers(input, fallback) {
+    const now = Number.isFinite(Number(fallback?.createdAt)) ? Number(fallback.createdAt) : Date.now();
+    const members = [];
+    const seen = new Set();
+    const entries = Array.isArray(input) ? input : [];
+    for (const entry of entries) {
+        const playerId = normalizeOptionalString(entry?.playerId);
+        if (!playerId || seen.has(playerId)) {
+            continue;
+        }
+        seen.add(playerId);
+        members.push({
+            playerId,
+            name: normalizeOptionalString(entry?.name) || playerId,
+            roleId: normalizeSectRoleId(entry?.roleId ?? entry?.role, { allowSupreme: true, fallback: 'outer' }),
+            joinedAt: Number.isFinite(Number(entry?.joinedAt)) ? Number(entry.joinedAt) : now,
+        });
+    }
+    const leaderPlayerId = normalizeOptionalString(fallback?.leaderPlayerId);
+    if (leaderPlayerId && !seen.has(leaderPlayerId)) {
+        members.unshift({
+            playerId: leaderPlayerId,
+            name: normalizeOptionalString(fallback?.leaderName) || leaderPlayerId,
+            roleId: 'leader',
+            joinedAt: now,
+        });
+    }
+    for (const member of members) {
+        if (member.playerId === leaderPlayerId) {
+            member.roleId = 'leader';
+        }
+    }
+    return members.sort((left, right) => roleSortWeight(left.roleId) - roleSortWeight(right.roleId) || left.joinedAt - right.joinedAt || left.playerId.localeCompare(right.playerId));
+}
+
+function buildSectMemberEntry(player, roleId, joinedAt = Date.now()) {
+    return {
+        playerId: normalizeOptionalString(player?.playerId) || '',
+        name: resolvePlayerDisplayName(player, normalizeOptionalString(player?.playerId) || '未知成员'),
+        roleId: normalizeSectRoleId(roleId, { allowSupreme: true, fallback: 'outer' }),
+        joinedAt,
+    };
+}
+
+function resolvePlayerDisplayName(player, fallback = '') {
+    return normalizeOptionalString(player?.displayName)
+        || normalizeOptionalString(player?.name)
+        || normalizeOptionalString(player?.playerId)
+        || normalizeOptionalString(fallback)
+        || '未知成员';
+}
+
+function normalizeSectRolePermissions(input) {
+    const next = buildDefaultSectRolePermissions();
+    if (!input || typeof input !== 'object') {
+        return next;
+    }
+    for (const role of SECT_ROLES) {
+        const source = input[role.id];
+        if (!source || typeof source !== 'object') {
+            continue;
+        }
+        for (const permission of SECT_PERMISSIONS) {
+            next[role.id][permission.id] = source[permission.id] === true;
+        }
+    }
+    next.leader = { ...DEFAULT_SECT_ROLE_PERMISSIONS.leader };
+    return next;
+}
+
+function buildDefaultSectRolePermissions() {
+    return Object.fromEntries(SECT_ROLES.map((role) => [role.id, { ...(DEFAULT_SECT_ROLE_PERMISSIONS[role.id] ?? {}) }]));
+}
+
+function normalizeSectRoleId(input, options = {}) {
+    const fallback = options.fallback || 'outer';
+    const normalized = normalizeOptionalString(input) || fallback;
+    if (!SECT_ROLE_IDS.has(normalized)) {
+        if (options.fallback) {
+            return fallback;
+        }
+        throw new common_1.BadRequestException('未知宗门职位');
+    }
+    if (options.requireAssignable === true && !SECT_ASSIGNABLE_ROLE_IDS.has(normalized)) {
+        throw new common_1.BadRequestException(normalized === 'supreme_elder' ? '太上长老暂时无法任命' : '该职位不能直接任命');
+    }
+    if (normalized === 'supreme_elder' && options.allowSupreme !== true && options.requireAssignable !== true) {
+        return options.fallback || 'outer';
+    }
+    return normalized;
+}
+
+function normalizeSectPermissionId(input) {
+    const normalized = normalizeOptionalString(input);
+    if (!normalized || !SECT_PERMISSION_IDS.has(normalized)) {
+        throw new common_1.BadRequestException('未知宗门权限');
+    }
+    return normalized;
+}
+
+function getSectRoleLabel(roleId) {
+    return SECT_ROLES.find((entry) => entry.id === roleId)?.label ?? '外门弟子';
+}
+
+function roleSortWeight(roleId) {
+    const index = SECT_ROLES.findIndex((entry) => entry.id === roleId);
+    return index >= 0 ? index : 999;
+}
+
+function isSectMember(sect, playerId) {
+    const normalized = normalizeOptionalString(playerId);
+    return Boolean(normalized && Array.isArray(sect?.members) && sect.members.some((entry) => entry.playerId === normalized));
+}
+
+function hasSectPermission(sect, playerId, permissionId) {
+    const normalized = normalizeOptionalString(playerId);
+    if (!normalized || !sect) {
+        return false;
+    }
+    if (sect.leaderPlayerId === normalized) {
+        return true;
+    }
+    const member = Array.isArray(sect.members) ? sect.members.find((entry) => entry.playerId === normalized) : null;
+    if (!member) {
+        return false;
+    }
+    const rolePermissions = normalizeSectRolePermissions(sect.rolePermissions);
+    return rolePermissions[member.roleId]?.[permissionId] === true;
+}
+
+function assertSectLeader(sect, playerId) {
+    if (sect.leaderPlayerId !== playerId) {
+        throw new common_1.ForbiddenException('只有宗主可以执行该操作');
+    }
+}
+
+function assertSectPermission(sect, playerId, permissionId) {
+    if (!hasSectPermission(sect, playerId, permissionId)) {
+        throw new common_1.ForbiddenException('当前职位没有该宗门权限');
+    }
+}
+
+function decodeActionPart(value) {
+    try {
+        return decodeURIComponent(String(value ?? ''));
+    }
+    catch (_error) {
+        return String(value ?? '');
+    }
+}
+
+function removeSectRuntimePortals(instance, sectId) {
+    if (!instance || !Array.isArray(instance.runtimePortals)) {
+        return false;
+    }
+    const before = instance.runtimePortals.length;
+    instance.runtimePortals = instance.runtimePortals.filter((portal) => portal?.sectId !== sectId);
+    if (instance.runtimePortals.length === before) {
+        return false;
+    }
+    instance.worldRevision += 1;
+    instance.persistentRevision += 1;
+    instance.markPersistenceDirtyDomains?.(['overlay']);
+    return true;
+}
+
 function buildSectMapDocument(sect) {
     const bounds = normalizeSectBounds(sect);
     const width = bounds.maxX - bounds.minX + 1;
@@ -723,6 +1174,13 @@ function normalizeSectEntry(entry) {
         mapMaxX: bounds.maxX,
         mapMinY: bounds.minY,
         mapMaxY: bounds.maxY,
+        members: normalizeSectMembers(entry.members, {
+            sectId,
+            leaderPlayerId,
+            leaderName: normalizeOptionalString(entry.leaderName) || leaderPlayerId,
+            createdAt: Number.isFinite(Number(entry.createdAt)) ? Number(entry.createdAt) : Date.now(),
+        }),
+        rolePermissions: normalizeSectRolePermissions(entry.rolePermissions),
         createdAt: Number.isFinite(Number(entry.createdAt)) ? Number(entry.createdAt) : Date.now(),
         updatedAt: Number.isFinite(Number(entry.updatedAt)) ? Number(entry.updatedAt) : Date.now(),
     };
@@ -815,6 +1273,16 @@ function getRuntimeTileCount(instance) {
         return count;
     }
     return 0;
+}
+
+function assertCanCreateSectAtInstance(instance, descriptor) {
+    const meta = instance?.meta ?? {};
+    const kind = normalizeOptionalString(meta.kind ?? instance?.kind);
+    const linePreset = normalizeOptionalString(meta.linePreset ?? instance?.linePreset ?? descriptor?.linePreset);
+    if (kind === 'public' && linePreset === 'real') {
+        return;
+    }
+    throw new common_1.BadRequestException('只能在大地图现世线建立宗门。');
 }
 
 function normalizeOptionalString(value) {

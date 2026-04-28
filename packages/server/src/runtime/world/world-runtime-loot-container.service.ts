@@ -824,7 +824,9 @@ let WorldRuntimeLootContainerService = class WorldRuntimeLootContainerService {
             });
         }
         this.playerRuntimeService.receiveInventoryItem(playerId, harvestedItem);
-        const skillChanged = applyGatherSkillExp(player.gatherSkill, harvestedItem.level, job.totalTicks);
+        const skillExpResult = applyGatherSkillExp(player.gatherSkill, harvestedItem.level, job.totalTicks);
+        const skillChanged = skillExpResult.changed;
+        const craftRealmChanged = grantCraftRealmProgress(this.playerRuntimeService, player, skillExpResult.gain / 2);
         deps.refreshQuestStates(playerId);
         const nextRow = groupContainerLootRows(state.entries)[0] ?? null;
         if (nextRow) {
@@ -855,7 +857,7 @@ let WorldRuntimeLootContainerService = class WorldRuntimeLootContainerService {
         return buildContainerTickResult(false, [{
                 kind: 'loot',
                 text: `获得 ${formatItemStackLabel(harvestedItem)}`,
-            }], true, false, Boolean(skillChanged));
+            }], true, false, Boolean(skillChanged || craftRealmChanged));
     }    
     /**
  * dispatchTakeGround：判断Take地面是否满足条件。
@@ -1185,7 +1187,8 @@ let WorldRuntimeLootContainerService = class WorldRuntimeLootContainerService {
         let skillChanged = false;
         try {
             this.playerRuntimeService.receiveInventoryItem(input.playerId, input.harvestedRow.item);
-            skillChanged = applyGatherSkillExp(input.player.gatherSkill, input.harvestedRow.item.level, input.job.totalTicks);
+            const skillExpResult = applyGatherSkillExp(input.player.gatherSkill, input.harvestedRow.item.level, input.job.totalTicks);
+            skillChanged = skillExpResult.changed;
             const nextRow = groupContainerLootRows(input.state.entries)[0] ?? null;
             if (nextRow) {
                 const totalTicks = computeEffectiveHerbGatherTicks(input.player, input.container, nextRow);
@@ -1226,6 +1229,7 @@ let WorldRuntimeLootContainerService = class WorldRuntimeLootContainerService {
                 grantedItems: buildGrantedInventorySnapshots([input.harvestedRow.item]),
                 nextInventoryItems: buildNextInventorySnapshots(input.player.inventory?.items ?? []),
             });
+            grantCraftRealmProgress(this.playerRuntimeService, input.player, skillExpResult.gain / 2);
         }
         catch (_error) {
             restoreInventoryGrantRollbackState(input.player, inventoryRollbackState, this.playerRuntimeService);
@@ -1554,7 +1558,7 @@ function applyCraftSkillExp(skill, amount) {
 
 function applyGatherSkillExp(skill, targetLevel, baseActionTicks) {
     if (!skill) {
-        return false;
+        return { changed: false, gain: 0 };
     }
     const gain = shared_1.computeCraftSkillExpGain({
         skillLevel: skill.level,
@@ -1565,7 +1569,23 @@ function applyGatherSkillExp(skill, targetLevel, baseActionTicks) {
         failureCount: 0,
         successMultiplier: 1,
     }).finalGain;
-    return applyCraftSkillExp(skill, gain);
+    return {
+        changed: applyCraftSkillExp(skill, gain),
+        gain,
+    };
+}
+
+function grantCraftRealmProgress(playerRuntimeService, player, amount) {
+    const normalized = Number(amount);
+    if (!Number.isFinite(normalized) || normalized <= 0) {
+        return false;
+    }
+    const result = playerRuntimeService.playerProgressionService?.grantCraftRealmExp?.(player, normalized);
+    if (!result) {
+        return false;
+    }
+    playerRuntimeService.applyProgressionResult?.(player, result);
+    return result.changed === true;
 }
 
 export { WorldRuntimeLootContainerService };

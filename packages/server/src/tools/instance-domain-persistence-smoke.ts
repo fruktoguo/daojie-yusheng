@@ -19,7 +19,7 @@ async function main(): Promise<void> {
           ok: true,
           skipped: true,
           reason: 'SERVER_DATABASE_URL/DATABASE_URL missing',
-          answers: 'with-db 下可验证实例分域专表可落地 tile resource diff，并可按 instance_id 读回',
+          answers: 'with-db 下可验证实例分域专表可落地 tile resource diff、行级 tile_resource/tile_damage/ground_item/monster_runtime delta、带坐标的 tile damage state 与技能生成 temporary tile state，并可按 instance_id 读回',
           excludes: '不证明完整实例分域恢复/迁移链，也不证明其它 instance_* 专表',
           completionMapping: 'replace-ready:proof:with-db.instance-domain-persistence',
         },
@@ -51,6 +51,19 @@ async function main(): Promise<void> {
       { resourceKey: 'qi', tileIndex: 12, value: 34 },
       { resourceKey: 'qi', tileIndex: 15, value: 56 },
     ]);
+    await service.saveTileResourceDelta(
+      instanceId,
+      [
+        { resourceKey: 'qi', tileIndex: 15, value: 99 },
+        { resourceKey: 'tile.resource.herb', tileIndex: 21, value: 3 },
+      ],
+      [{ resourceKey: 'qi', tileIndex: 12 }],
+    );
+    const rowsAfterDelta = await service.loadTileResourceDiffs(instanceId);
+    assert.deepEqual(rowsAfterDelta, [
+      { resourceKey: 'qi', tileIndex: 15, value: 99 },
+      { resourceKey: 'tile.resource.herb', tileIndex: 21, value: 3 },
+    ]);
     await service.replaceRuntimeTileCells(instanceId, [
       { x: 3, y: 4, tileType: 'floor' },
       { x: -2, y: 7, tileType: 'stone' },
@@ -63,6 +76,8 @@ async function main(): Promise<void> {
     await service.saveTileDamageStates(instanceId, [
       {
         tileIndex: 7,
+        x: 11,
+        y: -3,
         hp: 0,
         maxHp: 100,
         destroyed: true,
@@ -74,6 +89,51 @@ async function main(): Promise<void> {
     assert.deepEqual(tileDamageRows, [
       {
         tileIndex: 7,
+        x: 11,
+        y: -3,
+        hp: 0,
+        maxHp: 100,
+        destroyed: true,
+        respawnLeft: 42,
+        modifiedAt: 123456,
+      },
+    ]);
+    await service.saveTileDamageDelta(
+      instanceId,
+      [
+        {
+          tileIndex: 8,
+          x: 12,
+          y: -2,
+          hp: 5,
+          maxHp: 100,
+          destroyed: false,
+          respawnLeft: 0,
+          modifiedAt: 123999,
+        },
+      ],
+      [7],
+    );
+    const tileDamageRowsAfterDelta = await service.loadTileDamageStates(instanceId);
+    assert.deepEqual(tileDamageRowsAfterDelta, [
+      {
+        tileIndex: 8,
+        x: 12,
+        y: -2,
+        hp: 5,
+        maxHp: 100,
+        destroyed: false,
+        respawnLeft: 0,
+        modifiedAt: 123999,
+      },
+    ]);
+    await service.deleteTileDamageStates(instanceId, [8]);
+    assert.equal((await service.loadTileDamageStates(instanceId)).length, 0);
+    await service.saveTileDamageStates(instanceId, [
+      {
+        tileIndex: 7,
+        x: 11,
+        y: -3,
         hp: 0,
         maxHp: 100,
         destroyed: true,
@@ -87,6 +147,8 @@ async function main(): Promise<void> {
     await service.saveTileDamageStates(instanceId, [
       {
         tileIndex: 7,
+        x: 11,
+        y: -3,
         hp: 0,
         maxHp: 100,
         destroyed: true,
@@ -97,6 +159,40 @@ async function main(): Promise<void> {
     await service.saveTileDamageStates(instanceId, []);
     const tileDamageRowsAfterClear = await service.loadTileDamageStates(instanceId);
     assert.equal(tileDamageRowsAfterClear.length, 0);
+    await service.replaceTemporaryTileStates(instanceId, [
+      {
+        tileIndex: 9,
+        x: 12,
+        y: -4,
+        tileType: 'stone',
+        hp: 77,
+        maxHp: 90,
+        expiresAtTick: 1234,
+        ownerPlayerId: 'player:owner',
+        sourceSkillId: 'skill.yi_kunlun_point_stone',
+        createdAt: 222,
+        modifiedAt: 333,
+      },
+    ]);
+    const temporaryTileRows = await service.loadTemporaryTileStates(instanceId);
+    assert.deepEqual(temporaryTileRows, [
+      {
+        tileIndex: 9,
+        x: 12,
+        y: -4,
+        tileType: 'stone',
+        hp: 77,
+        maxHp: 90,
+        expiresAtTick: 1234,
+        ownerPlayerId: 'player:owner',
+        sourceSkillId: 'skill.yi_kunlun_point_stone',
+        createdAt: 222,
+        modifiedAt: 333,
+      },
+    ]);
+    await service.replaceTemporaryTileStates(instanceId, []);
+    const temporaryTileRowsAfterClear = await service.loadTemporaryTileStates(instanceId);
+    assert.equal(temporaryTileRowsAfterClear.length, 0);
     await service.saveInstanceCheckpoint(instanceId, {
       kind: 'cold_start',
       tileResourceCount: rows.length,
@@ -134,6 +230,38 @@ async function main(): Promise<void> {
     assert.equal(removedGroundItem, true);
     const groundItemsAfterRemove = await service.loadGroundItems(instanceId);
     assert.equal(groundItemsAfterRemove.length, 0);
+    await service.replaceGroundItemTiles(instanceId, [18], [
+      {
+        tileIndex: 18,
+        items: [
+          { itemId: 'rat_tail', count: 4 },
+          { itemId: 'spirit_stone', count: 1 },
+        ],
+      },
+    ]);
+    const groundItemsAfterTileDelta = await service.loadGroundItems(instanceId);
+    assert.deepEqual(groundItemsAfterTileDelta.map((entry) => ({
+      instanceId: entry.instanceId,
+      tileIndex: entry.tileIndex,
+      itemPayload: entry.itemPayload,
+      expireAt: entry.expireAt,
+    })), [
+      {
+        instanceId,
+        tileIndex: 18,
+        itemPayload: { itemId: 'rat_tail', count: 4 },
+        expireAt: null,
+      },
+      {
+        instanceId,
+        tileIndex: 18,
+        itemPayload: { itemId: 'spirit_stone', count: 1 },
+        expireAt: null,
+      },
+    ]);
+    await service.replaceGroundItemTiles(instanceId, [18], []);
+    const groundItemsAfterTileClear = await service.loadGroundItems(instanceId);
+    assert.equal(groundItemsAfterTileClear.length, 0);
     await service.saveContainerState({
       instanceId,
       containerId: 'container:1',
@@ -235,6 +363,59 @@ async function main(): Promise<void> {
         },
       },
     ]);
+    await service.saveMonsterRuntimeDelta(monsterInstanceId, [
+      {
+        monsterRuntimeId: `monster:${monsterInstanceId}:1`,
+        monsterId: 'm_demon_king_guard',
+        monsterName: '镇渊妖将',
+        monsterTier: 'demon_king',
+        monsterLevel: 88,
+        tileIndex: 28,
+        x: 4,
+        y: 4,
+        hp: 8000,
+        maxHp: 12000,
+        alive: true,
+        respawnLeft: 0,
+        respawnTicks: 0,
+        aggroTargetPlayerId: 'player:target',
+        statePayload: {
+          buffs: [{ buffId: 'doom', remainingTicks: 9 }],
+          attackReadyTick: 88,
+        },
+      },
+    ], []);
+    const monsterRowsAfterDelta = await service.loadMonsterRuntimeStates(monsterInstanceId);
+    assert.equal(monsterRowsAfterDelta[0]?.tileIndex, 28);
+    assert.equal(monsterRowsAfterDelta[0]?.hp, 8000);
+    assert.deepEqual(monsterRowsAfterDelta[0]?.statePayload, {
+      buffs: [{ buffId: 'doom', remainingTicks: 9 }],
+      attackReadyTick: 88,
+    });
+    await service.saveMonsterRuntimeDelta(monsterInstanceId, [], [`monster:${monsterInstanceId}:1`]);
+    const monsterRowsAfterDeltaDelete = await service.loadMonsterRuntimeStates(monsterInstanceId);
+    assert.equal(monsterRowsAfterDeltaDelete.length, 0);
+    await service.saveMonsterRuntimeState({
+      monsterRuntimeId: `monster:${monsterInstanceId}:1`,
+      instanceId: monsterInstanceId,
+      monsterId: 'm_demon_king_guard',
+      monsterName: '镇渊妖将',
+      monsterTier: 'demon_king',
+      monsterLevel: 88,
+      tileIndex: 27,
+      x: 3,
+      y: 4,
+      hp: 9000,
+      maxHp: 12000,
+      alive: true,
+      respawnLeft: 0,
+      respawnTicks: 0,
+      aggroTargetPlayerId: 'player:target',
+      statePayload: {
+        buffs: [{ buffId: 'doom', remainingTicks: 12 }],
+        attackReadyTick: 77,
+      },
+    });
     const rejectedMonster = await service.saveMonsterRuntimeState({
       monsterRuntimeId: `monster:${instanceId}:2`,
       instanceId,
@@ -399,7 +580,7 @@ async function main(): Promise<void> {
           ok: true,
           instanceId,
           rowCount: rows.length,
-          answers: 'with-db 下已验证 instance_tile_cell 可按 instance_id/x/y 落地和回读动态地块，instance_tile_resource_state 可按 instance_id/resource_key/tile_index 落地和回读 tile resource diff，instance_tile_damage_state 可按 instance_id/tile_index 落地、清空并回读地块损坏状态，instance_checkpoint 可按 instance_id 存储/读取冷启动 checkpoint，instance_recovery_watermark 也可按 instance_id 存储/读取恢复水位，instance_ground_item 也能按 ground_item_id 落地/删除并按 instance_id 回读，instance_container_state/entry/timer 能按 instance_id/container_id 拆表落地、重建回读并删除，instance_monster_runtime_state 也能只给高价值怪物写入并按 instance_id 回读，低价值怪物会被拒绝落库，instance_event_state 也能按 event_id/instance_id 落地、回读并删除，instance_overlay_chunk 也能按 instance_id/patch_kind/chunk_key 落地、回读并删除',
+          answers: 'with-db 下已验证 instance_tile_cell 可按 instance_id/x/y 落地和回读动态地块，instance_tile_resource_state 可按 instance_id/resource_key/tile_index 落地、delta upsert/delete 并回读 tile resource diff，instance_tile_damage_state 可按 instance_id/tile_index 落地、delta upsert/delete、按 x/y 回读动态地块坐标、清空并回读地块损坏状态，instance_temporary_tile_state 可按 instance_id/tile_index 落地、回读并清空技能生成临时地块，instance_checkpoint 可按 instance_id 存储/读取冷启动 checkpoint，instance_recovery_watermark 也可按 instance_id 存储/读取恢复水位，instance_ground_item 也能按 ground_item_id 落地/删除、按 tile delta 替换并按 instance_id 回读，instance_container_state/entry/timer 能按 instance_id/container_id 拆表落地、重建回读并删除，instance_monster_runtime_state 也能只给高价值怪物写入、delta upsert/delete 并按 instance_id 回读，低价值怪物会被拒绝落库，instance_event_state 也能按 event_id/instance_id 落地、回读并删除，instance_overlay_chunk 也能按 instance_id/patch_kind/chunk_key 落地、回读并删除',
           excludes: '不证明完整实例分域恢复/迁移链，也不证明其它 instance_* 专表',
           completionMapping: 'replace-ready:proof:with-db.instance-domain-persistence',
         },
@@ -417,6 +598,7 @@ async function cleanupRows(pool: Pool, instanceId: string): Promise<void> {
     await pool.query('DELETE FROM instance_tile_cell WHERE instance_id = $1', [instanceId]).catch(() => undefined);
     await pool.query('DELETE FROM instance_tile_resource_state WHERE instance_id = $1', [instanceId]);
     await pool.query('DELETE FROM instance_tile_damage_state WHERE instance_id = $1', [instanceId]).catch(() => undefined);
+  await pool.query('DELETE FROM instance_temporary_tile_state WHERE instance_id = $1', [instanceId]).catch(() => undefined);
   await pool.query('DELETE FROM instance_monster_runtime_state WHERE instance_id = $1 OR instance_id = $2', [instanceId, `${instanceId}:monster`]);
   await pool.query('DELETE FROM instance_event_state WHERE instance_id = $1', [instanceId]);
   await pool.query('DELETE FROM instance_overlay_chunk WHERE instance_id = $1', [instanceId]);

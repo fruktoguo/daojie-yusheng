@@ -987,6 +987,11 @@ export function buildSkillTooltipContent(skill: SkillDef, context: SkillTooltipP
       lines.push(renderLabelLine(targetLabel, formatDamageFormula(effect.formula, context, 'spell')));
       continue;
     }
+    if (effect.type === 'temporary_tile') {
+      lines.push(renderLabelLine('临时地块', `生成石头，持续 ${formatDisplayInteger(effect.durationTicks)} 息`));
+      lines.push(renderLabelLine('地块生命', formatDamageFormula(effect.hpFormula, context, 'spell')));
+      continue;
+    }
     const targetLabel = effect.target === 'target' ? '目标' : '自身';
     const categoryLabel = effect.category === 'buff' ? '增益' : '减益';
     lines.push(renderPlainLine('净化', `${targetLabel}，移除 ${formatDisplayInteger(effect.removeCount ?? 1)} 个${categoryLabel}`));
@@ -1001,6 +1006,4 @@ export function buildSkillTooltipContent(skill: SkillDef, context: SkillTooltipP
 export function buildSkillTooltipLines(skill: SkillDef, context: SkillTooltipPreviewContext = {}): string[] {
   return buildSkillTooltipContent(skill, context).lines;
 }
-
-
 

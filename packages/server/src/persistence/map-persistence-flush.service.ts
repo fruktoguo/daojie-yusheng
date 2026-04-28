@@ -31,9 +31,12 @@ const MAP_PERSISTENCE_FLUSH_PARALLELISM = 3;
 const MAP_PERSISTENCE_FLUSH_RETRY_COUNT = 1;
 const PERSISTENCE_SLOW_FLUSH_THRESHOLD_MIN_MS = 100;
 const MAP_PERSISTENCE_TIME_DOMAIN = 'time';
+const MAP_PERSISTENCE_MONSTER_RUNTIME_DOMAIN = 'monster_runtime';
 const MAP_PERSISTENCE_SLOW_FLUSH_THRESHOLD_MS = normalizePositiveInteger((0, env_alias_1.readTrimmedEnv)('SERVER_PERSISTENCE_FLUSH_SLOW_THRESHOLD_MS', 'PERSISTENCE_FLUSH_SLOW_THRESHOLD_MS'), 100, PERSISTENCE_SLOW_FLUSH_THRESHOLD_MIN_MS, 10_000);
 const MAP_PERSISTENCE_SLOW_FLUSH_BACKOFF_MS = normalizePositiveInteger((0, env_alias_1.readTrimmedEnv)('SERVER_PERSISTENCE_FLUSH_SLOW_BACKOFF_MS', 'PERSISTENCE_FLUSH_SLOW_BACKOFF_MS'), 5_000, 1_000, 60_000);
 const MAP_PERSISTENCE_TIME_CHECKPOINT_INTERVAL_MS = normalizePositiveInteger((0, env_alias_1.readTrimmedEnv)('SERVER_MAP_TIME_CHECKPOINT_INTERVAL_MS', 'MAP_TIME_CHECKPOINT_INTERVAL_MS'), 300_000, 60_000, 3_600_000);
+const MAP_PERSISTENCE_MONSTER_RUNTIME_INTERVAL_MS = normalizePositiveInteger((0, env_alias_1.readTrimmedEnv)('SERVER_MAP_MONSTER_RUNTIME_FLUSH_INTERVAL_MS', 'MAP_MONSTER_RUNTIME_FLUSH_INTERVAL_MS'), 60_000, 10_000, 600_000);
+const MAP_PERSISTENCE_MONSTER_RUNTIME_SLOW_THRESHOLD_MS = normalizePositiveInteger((0, env_alias_1.readTrimmedEnv)('SERVER_MAP_MONSTER_RUNTIME_SLOW_THRESHOLD_MS', 'MAP_MONSTER_RUNTIME_SLOW_THRESHOLD_MS'), 1_000, MAP_PERSISTENCE_SLOW_FLUSH_THRESHOLD_MS, 60_000);
 const MAP_PERSISTENCE_LEGACY_SNAPSHOT_WRITE_ENV_NAMES = ['SERVER_MAP_LEGACY_SNAPSHOT_WRITE', 'MAP_LEGACY_SNAPSHOT_WRITE'];
 
 /**
@@ -98,6 +101,11 @@ let MapPersistenceFlushService = MapPersistenceFlushService_1 = class MapPersist
 
     nextTimeCheckpointFlushAt = 0;    
     /**
+     * nextMonsterRuntimeFlushAt：下一次 interval 允许写入高频妖兽运行态的时间。
+     */
+
+    nextMonsterRuntimeFlushAt = Date.now() + MAP_PERSISTENCE_MONSTER_RUNTIME_INTERVAL_MS;
+    /**
  * 构造器：初始化 当前 实例并建立基础状态。
  * @param worldRuntimeService 参数说明。
  * @param mapPersistenceService 参数说明。
@@ -118,7 +126,7 @@ let MapPersistenceFlushService = MapPersistenceFlushService_1 = class MapPersist
             void this.flushDirtyInstances();
         }, MAP_PERSISTENCE_FLUSH_INTERVAL_MS);
         this.timer.unref();
-        this.logger.log(`地图持久化刷新已启动，间隔 ${MAP_PERSISTENCE_FLUSH_INTERVAL_MS}ms`);
+        this.logger.log(`地图持久化刷新已启动，间隔 ${MAP_PERSISTENCE_FLUSH_INTERVAL_MS}ms，妖兽运行态降频 ${MAP_PERSISTENCE_MONSTER_RUNTIME_INTERVAL_MS}ms`);
     }    
     /**
  * onModuleDestroy：执行on模块Destroy相关逻辑。
@@ -214,8 +222,10 @@ let MapPersistenceFlushService = MapPersistenceFlushService_1 = class MapPersist
             const rawDirtyDomainEntries = domainPersistenceEnabled && typeof this.worldRuntimeService.listDirtyPersistentInstanceDomains === 'function'
                 ? this.worldRuntimeService.listDirtyPersistentInstanceDomains()
                 : [];
-            const timeCheckpointDue = reason !== 'interval' || Date.now() >= this.nextTimeCheckpointFlushAt;
-            const dirtyDomainSelection = selectFlushDomainEntries(rawDirtyDomainEntries, reason, timeCheckpointDue);
+            const now = Date.now();
+            const timeCheckpointDue = reason !== 'interval' || now >= this.nextTimeCheckpointFlushAt;
+            const monsterRuntimeDue = reason !== 'interval' || now >= this.nextMonsterRuntimeFlushAt;
+            const dirtyDomainSelection = selectFlushDomainEntries(rawDirtyDomainEntries, reason, timeCheckpointDue, monsterRuntimeDue);
             const dirtyDomainEntries = dirtyDomainSelection.entries;
             const dirtyInstanceIds = rawDirtyDomainEntries.length > 0
                 ? dirtyDomainEntries.map((entry) => entry.instanceId)
@@ -267,6 +277,9 @@ let MapPersistenceFlushService = MapPersistenceFlushService_1 = class MapPersist
             if (reason === 'interval' && dirtyDomainSelection.includesTimeCheckpoint === true) {
                 this.nextTimeCheckpointFlushAt = Date.now() + MAP_PERSISTENCE_TIME_CHECKPOINT_INTERVAL_MS;
             }
+            if (reason === 'interval' && dirtyDomainSelection.includesMonsterRuntime === true) {
+                this.nextMonsterRuntimeFlushAt = Date.now() + MAP_PERSISTENCE_MONSTER_RUNTIME_INTERVAL_MS;
+            }
         })();
         this.flushPromise = promise;
         try {
@@ -313,26 +326,57 @@ function prioritizeMapFlushTargets(instanceIds) {
         return leftPriority - rightPriority || left.localeCompare(right);
     });
 }
-function selectFlushDomainEntries(entries, reason, timeCheckpointDue) {
-    if (!Array.isArray(entries) || entries.length === 0 || reason !== 'interval' || timeCheckpointDue === true) {
-        return { entries: Array.isArray(entries) ? entries : [], includesTimeCheckpoint: hasTimeCheckpointDomain(entries) };
+function selectFlushDomainEntries(entries, reason, timeCheckpointDue, monsterRuntimeDue) {
+    if (!Array.isArray(entries) || entries.length === 0 || reason !== 'interval') {
+        return {
+            entries: Array.isArray(entries) ? entries : [],
+            includesTimeCheckpoint: hasTimeCheckpointDomain(entries),
+            includesMonsterRuntime: hasMonsterRuntimeDomain(entries),
+        };
     }
     const selected = [];
+    let includesTimeCheckpoint = false;
+    let includesMonsterRuntime = false;
     for (const entry of entries) {
         const instanceId = typeof entry?.instanceId === 'string' ? entry.instanceId.trim() : '';
         const domains = Array.isArray(entry?.domains)
-            ? entry.domains.filter((domain) => typeof domain === 'string' && domain.trim() && domain.trim() !== MAP_PERSISTENCE_TIME_DOMAIN)
+            ? entry.domains.filter((domain) => {
+                if (typeof domain !== 'string' || !domain.trim()) {
+                    return false;
+                }
+                const normalizedDomain = domain.trim();
+                if (normalizedDomain === MAP_PERSISTENCE_TIME_DOMAIN) {
+                    if (timeCheckpointDue === true) {
+                        includesTimeCheckpoint = true;
+                        return true;
+                    }
+                    return false;
+                }
+                if (normalizedDomain === MAP_PERSISTENCE_MONSTER_RUNTIME_DOMAIN) {
+                    if (monsterRuntimeDue === true) {
+                        includesMonsterRuntime = true;
+                        return true;
+                    }
+                    return false;
+                }
+                return true;
+            })
             : [];
         if (instanceId && domains.length > 0) {
             selected.push({ instanceId, domains });
         }
     }
-    return { entries: selected, includesTimeCheckpoint: false };
+    return { entries: selected, includesTimeCheckpoint, includesMonsterRuntime };
 }
 function hasTimeCheckpointDomain(entries) {
     return Array.isArray(entries)
         && entries.some((entry) => Array.isArray(entry?.domains)
             && entry.domains.some((domain) => typeof domain === 'string' && domain.trim() === MAP_PERSISTENCE_TIME_DOMAIN));
+}
+function hasMonsterRuntimeDomain(entries) {
+    return Array.isArray(entries)
+        && entries.some((entry) => Array.isArray(entry?.domains)
+            && entry.domains.some((domain) => typeof domain === 'string' && domain.trim() === MAP_PERSISTENCE_MONSTER_RUNTIME_DOMAIN));
 }
 function recordPersistedDomains(counts, domains) {
     for (const domain of Array.isArray(domains) ? domains : []) {
@@ -380,13 +424,20 @@ MapPersistenceFlushService.prototype.isLegacySnapshotWriteEnabled = function isL
  */
 
 MapPersistenceFlushService.prototype.updateFlushThrottle = function updateFlushThrottle(durationMs, dirtyInstanceCount = 0, persistedInstanceCount = 0, skippedInstanceCount = 0, persistedDomainCounts = new Map()) {
-    if (durationMs < MAP_PERSISTENCE_SLOW_FLUSH_THRESHOLD_MS) {
+    const slowThresholdMs = resolveSlowFlushThresholdMs(persistedDomainCounts);
+    if (durationMs < slowThresholdMs) {
         return;
     }
     this.flushThrottleUntilAt = Date.now() + MAP_PERSISTENCE_SLOW_FLUSH_BACKOFF_MS;
     const domainCounts = formatDomainCounts(persistedDomainCounts);
-    this.logger.warn(`地图最终一致刷盘触发降级退避：durationMs=${Math.trunc(durationMs)} thresholdMs=${MAP_PERSISTENCE_SLOW_FLUSH_THRESHOLD_MS} backoffMs=${MAP_PERSISTENCE_SLOW_FLUSH_BACKOFF_MS} dirtyInstanceCount=${dirtyInstanceCount} persistedInstanceCount=${persistedInstanceCount} skippedInstanceCount=${skippedInstanceCount}${domainCounts ? ` domainCounts=${domainCounts}` : ''}`);
+    this.logger.warn(`地图最终一致刷盘触发降级退避：durationMs=${Math.trunc(durationMs)} thresholdMs=${slowThresholdMs} backoffMs=${MAP_PERSISTENCE_SLOW_FLUSH_BACKOFF_MS} dirtyInstanceCount=${dirtyInstanceCount} persistedInstanceCount=${persistedInstanceCount} skippedInstanceCount=${skippedInstanceCount}${domainCounts ? ` domainCounts=${domainCounts}` : ''}`);
 };
+function resolveSlowFlushThresholdMs(persistedDomainCounts) {
+    if (persistedDomainCounts instanceof Map && persistedDomainCounts.has(MAP_PERSISTENCE_MONSTER_RUNTIME_DOMAIN)) {
+        return Math.max(MAP_PERSISTENCE_SLOW_FLUSH_THRESHOLD_MS, MAP_PERSISTENCE_MONSTER_RUNTIME_SLOW_THRESHOLD_MS);
+    }
+    return MAP_PERSISTENCE_SLOW_FLUSH_THRESHOLD_MS;
+}
 /**
  * chunkValues：执行chunk值相关逻辑。
  * @param values 参数说明。

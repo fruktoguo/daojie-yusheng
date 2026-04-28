@@ -354,7 +354,7 @@ export function createMainRuntimeOwnerContext(options: CreateMainRuntimeOwnerCon
     initMailState: (playerId) => panelContext.mailStateSource.initFromPlayer(playerId),
     initSuggestionState: (playerId) => panelContext.suggestionStateSource.initFromPlayer(playerId),
     hideObserveModal: () => mapRuntimeBridgeSource.hideObserveModal(),
-    applyWorldDelta: (data, mapIdHint) => runtimeDeltaStateSource.handleWorldDelta(data, mapIdHint),
+    applyWorldDelta: (data, mapIdHint, instanceIdHint) => runtimeDeltaStateSource.handleWorldDelta(data, mapIdHint, instanceIdHint),
     applySelfDelta: (data) => runtimeDeltaStateSource.handleSelfDelta(data),
     applyPanelDelta: (data) => runtimeDeltaStateSource.handlePanelDelta(data),
     inventorySyncPlayerContext: (player) => panelContext.inventoryStateSource.syncPlayerContext(player),

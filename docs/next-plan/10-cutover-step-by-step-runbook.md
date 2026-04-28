@@ -161,7 +161,7 @@
 
 如果本轮暴露新故障，再回写到：
 
-- `docs/server-operations.md`
+- `packages/server/REPLACE-RUNBOOK.md`
 - `packages/server/TESTING.md`
 - `docs/next-plan/09-verification-and-acceptance.md`
 

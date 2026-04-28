@@ -48,6 +48,11 @@ export type TargetingActionState = {
 
   height?: number;
   /**
+ * checkerParity：棋盘范围奇偶格。
+ */
+
+  checkerParity?: 'even' | 'odd';
+  /**
  * targetMode：目标Mode相关字段。
  */
 
@@ -124,6 +129,11 @@ export type TargetTileLike = {
  */
 
   maxHp?: number;
+  /**
+ * walkable：是否可通行。
+ */
+
+  walkable?: boolean;
 };
 
 /** 按动作 ID 反查对应技能定义，便于后续按技能模板计算范围。 */
@@ -138,6 +148,10 @@ export function getSkillDefByActionId(myPlayer: PlayerState | null, actionId: st
     }
   }
   return null;
+}
+
+function isTemporaryTileSkill(skill: SkillDef | null): boolean {
+  return Boolean(skill?.effects?.some((effect) => effect?.type === 'temporary_tile'));
 }
 
 /** 读取玩家技能几何修饰，负数不参与扩大目标几何。 */
@@ -155,17 +169,18 @@ export function getPlayerTargetingModifiers(
 
 /** 汇总当前动作最终目标规则，叠加玩家额外射程和额外范围。 */
 export function getEffectiveTargetingGeometry(
-  action: Pick<TargetingActionState, 'actionId' | 'range' | 'shape' | 'radius' | 'innerRadius' | 'width' | 'height'>,
+  action: Pick<TargetingActionState, 'actionId' | 'range' | 'shape' | 'radius' | 'innerRadius' | 'width' | 'height' | 'checkerParity'>,
   myPlayer: PlayerState | null,
 ): TargetingGeometrySpec {
   const skill = getSkillDefByActionId(myPlayer, action.actionId);
   const baseSpec: TargetingGeometrySpec = {
-    range: Math.max(1, skill?.range ?? action.range),
+    range: Math.max(1, skill?.targeting?.range ?? skill?.range ?? action.range),
     shape: skill?.targeting?.shape ?? action.shape ?? 'single',
     radius: skill?.targeting?.radius ?? action.radius,
     innerRadius: skill?.targeting?.innerRadius ?? action.innerRadius,
     width: skill?.targeting?.width ?? action.width,
     height: skill?.targeting?.height ?? action.height,
+    checkerParity: skill?.targeting?.checkerParity ?? action.checkerParity,
   };
   if (!skill) {
     return baseSpec;
@@ -179,7 +194,7 @@ export function getEffectiveTargetingGeometry(
 
 /** 计算当前动作的可用距离，侦测与观察类动作使用视野范围。 */
 export function resolveCurrentTargetingRange(
-  action: Pick<TargetingActionState, 'actionId' | 'range' | 'shape' | 'radius' | 'innerRadius' | 'width' | 'height'>,
+  action: Pick<TargetingActionState, 'actionId' | 'range' | 'shape' | 'radius' | 'innerRadius' | 'width' | 'height' | 'checkerParity'>,
   myPlayer: PlayerState | null,
   infoRadius: number,
 ): number {
@@ -193,7 +208,7 @@ export function resolveCurrentTargetingRange(
 
 /** 以玩家当前位置和锚点为基准，计算该动作会影响到的格子。 */
 export function computeAffectedCellsForAction(
-  action: Pick<TargetingActionState, 'actionId' | 'range' | 'shape' | 'radius' | 'innerRadius' | 'width' | 'height'>,
+  action: Pick<TargetingActionState, 'actionId' | 'range' | 'shape' | 'radius' | 'innerRadius' | 'width' | 'height' | 'checkerParity'>,
   anchor: GridPoint,
   myPlayer: PlayerState | null,
 ): GridPoint[] {
@@ -208,7 +223,7 @@ export function computeAffectedCellsForAction(
 
 /** 将目标坐标或实体转换为服务端可识别的 targeting ref。 */
 export function resolveTargetRefForAction(
-  action: Pick<TargetingActionState, 'actionId' | 'range' | 'shape' | 'radius' | 'innerRadius' | 'width' | 'height' | 'targetMode'>,
+  action: Pick<TargetingActionState, 'actionId' | 'range' | 'shape' | 'radius' | 'innerRadius' | 'width' | 'height' | 'checkerParity' | 'targetMode'>,
   target: TargetingTarget,
   myPlayer: PlayerState | null,
 ): string | null {
@@ -237,7 +252,7 @@ export function resolveTargetRefForAction(
 
 /** 判断候选落点周围是否存在可作用目标，用于高亮与防误点。 */
 export function hasAffectableTargetInArea(
-  action: Pick<TargetingActionState, 'actionId' | 'shape' | 'range' | 'radius' | 'innerRadius' | 'width' | 'height'>,
+  action: Pick<TargetingActionState, 'actionId' | 'shape' | 'range' | 'radius' | 'innerRadius' | 'width' | 'height' | 'checkerParity'>,
   anchorX: number,
   anchorY: number,
   myPlayer: PlayerState | null,
@@ -270,6 +285,12 @@ export function hasAffectableTargetInArea(
   if (affectedCells.length === 0) {
     return false;
   }
+  if (isTemporaryTileSkill(getSkillDefByActionId(myPlayer, action.actionId))) {
+    return affectedCells.some((cell) => {
+      const tile = args.getTile(cell.x, cell.y);
+      return Boolean(tile && tile.walkable !== false);
+    });
+  }
   return affectedCells.some((cell) => {
     const hasMonster = args.entities.some((entity) => entity.kind === 'monster' && entity.wx === cell.x && entity.wy === cell.y);
     const hasFormation = args.entities.some((entity) => entity.kind === 'formation' && entity.wx === cell.x && entity.wy === cell.y);
@@ -297,7 +318,10 @@ export function hasAffectableTargetInArea(
       return true;
     }
     const tile = args.getTile(cell.x, cell.y);
-    return Boolean(tile?.hp && tile.hp > 0 && tile.maxHp && tile.maxHp > 0);
+    return Boolean(
+      (tile?.hp && tile.hp > 0 && tile.maxHp && tile.maxHp > 0)
+      || (tile && tile.walkable === false)
+    );
   });
 }
 

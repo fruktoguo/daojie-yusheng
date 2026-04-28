@@ -31,6 +31,7 @@ export type MainNavigationObservedEntity = Pick<
   | 'formationBlocksBoundary'
   | 'formationOwnerSectId'
   | 'formationOwnerPlayerId'
+  | 'formationLifecycle'
 > & {
 /**
  * npcQuestMarker：NPC任务Marker相关字段。

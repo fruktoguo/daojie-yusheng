@@ -7,6 +7,7 @@ import { normalizeMonsterTier } from '@mud/shared';
 const INSTANCE_TILE_RESOURCE_STATE_TABLE = 'instance_tile_resource_state';
 const INSTANCE_TILE_CELL_TABLE = 'instance_tile_cell';
 const INSTANCE_TILE_DAMAGE_STATE_TABLE = 'instance_tile_damage_state';
+const INSTANCE_TEMPORARY_TILE_STATE_TABLE = 'instance_temporary_tile_state';
 const INSTANCE_CHECKPOINT_TABLE = 'instance_checkpoint';
 const INSTANCE_RECOVERY_WATERMARK_TABLE = 'instance_recovery_watermark';
 const INSTANCE_GROUND_ITEM_TABLE = 'instance_ground_item';
@@ -20,6 +21,7 @@ const INSTANCE_TILE_RESOURCE_STATE_LOCK_NAMESPACE = 42871;
 const INSTANCE_TILE_RESOURCE_STATE_LOCK_KEY = 3001;
 const INSTANCE_TILE_CELL_LOCK_KEY = 3012;
 const INSTANCE_TILE_DAMAGE_STATE_LOCK_KEY = 3009;
+const INSTANCE_TEMPORARY_TILE_STATE_LOCK_KEY = 3013;
 const INSTANCE_CHECKPOINT_LOCK_KEY = 3002;
 const INSTANCE_RECOVERY_WATERMARK_LOCK_KEY = 3003;
 const INSTANCE_GROUND_ITEM_LOCK_KEY = 3004;
@@ -32,7 +34,8 @@ const INSTANCE_OVERLAY_CHUNK_LOCK_KEY = 3008;
 const INSTANCE_DOMAIN_BIGINT_COLUMNS_BY_TABLE = {
   [INSTANCE_TILE_RESOURCE_STATE_TABLE]: ['tile_index', 'value'],
   [INSTANCE_TILE_CELL_TABLE]: ['x', 'y'],
-  [INSTANCE_TILE_DAMAGE_STATE_TABLE]: ['tile_index', 'hp', 'max_hp', 'respawn_left_ticks'],
+  [INSTANCE_TILE_DAMAGE_STATE_TABLE]: ['tile_index', 'x', 'y', 'hp', 'max_hp', 'respawn_left_ticks'],
+  [INSTANCE_TEMPORARY_TILE_STATE_TABLE]: ['tile_index', 'x', 'y', 'hp', 'max_hp', 'expires_at_tick', 'created_at_ms', 'modified_at_ms'],
   [INSTANCE_GROUND_ITEM_TABLE]: ['tile_index'],
   [INSTANCE_CONTAINER_ENTRY_TABLE]: ['entry_index'],
   [INSTANCE_MONSTER_RUNTIME_STATE_TABLE]: [
@@ -66,6 +69,7 @@ export class InstanceDomainPersistenceService implements OnModuleInit, OnModuleD
       await ensureInstanceTileResourceStateTable(this.pool);
       await ensureInstanceTileCellTable(this.pool);
       await ensureInstanceTileDamageStateTable(this.pool);
+      await ensureInstanceTemporaryTileStateTable(this.pool);
       await ensureInstanceCheckpointTable(this.pool);
       await ensureInstanceRecoveryWatermarkTable(this.pool);
       await ensureInstanceGroundItemTable(this.pool);
@@ -139,6 +143,107 @@ export class InstanceDomainPersistenceService implements OnModuleInit, OnModuleD
               updated_at = now()
           `,
           [normalizedInstanceId, entry.resourceKey, entry.tileIndex, entry.value],
+        );
+      }
+      await client.query('COMMIT');
+    } catch (error: unknown) {
+      await rollbackQuietly(client);
+      throw error;
+    } finally {
+      client.release();
+    }
+  }
+
+  async saveTileResourceDelta(
+    instanceId: string,
+    upserts: Array<{ resourceKey: string; tileIndex: number; value: number }>,
+    deletes: Array<{ resourceKey: string; tileIndex: number }>,
+  ): Promise<void> {
+    if (!this.pool || !this.enabled) {
+      return;
+    }
+    const normalizedInstanceId = normalizeRequiredString(instanceId);
+    if (!normalizedInstanceId) {
+      return;
+    }
+    const normalizedUpserts = (Array.isArray(upserts) ? upserts : [])
+      .filter((entry) => Boolean(entry)
+        && typeof entry.resourceKey === 'string'
+        && entry.resourceKey.trim().length > 0
+        && Number.isFinite(Number(entry.tileIndex))
+        && Number.isFinite(Number(entry.value)))
+      .map((entry) => ({
+        resourceKey: entry.resourceKey.trim(),
+        tileIndex: Math.max(0, Math.trunc(Number(entry.tileIndex))),
+        value: Math.max(0, Math.trunc(Number(entry.value))),
+      }));
+    const normalizedDeletes = (Array.isArray(deletes) ? deletes : [])
+      .filter((entry) => Boolean(entry)
+        && typeof entry.resourceKey === 'string'
+        && entry.resourceKey.trim().length > 0
+        && Number.isFinite(Number(entry.tileIndex)))
+      .map((entry) => ({
+        resourceKey: entry.resourceKey.trim(),
+        tileIndex: Math.max(0, Math.trunc(Number(entry.tileIndex))),
+      }));
+    if (normalizedUpserts.length === 0 && normalizedDeletes.length === 0) {
+      return;
+    }
+    const client = await this.pool.connect();
+    try {
+      await client.query('BEGIN');
+      await acquireInstanceDomainLock(client, normalizedInstanceId);
+      if (normalizedDeletes.length > 0) {
+        await client.query(
+          `
+            WITH incoming AS (
+              SELECT resource_key, tile_index
+              FROM jsonb_to_recordset($2::jsonb) AS entry(resource_key varchar(100), tile_index bigint)
+            )
+            DELETE FROM ${INSTANCE_TILE_RESOURCE_STATE_TABLE} target
+            USING incoming
+            WHERE target.instance_id = $1
+              AND target.resource_key = incoming.resource_key
+              AND target.tile_index = incoming.tile_index
+          `,
+          [
+            normalizedInstanceId,
+            JSON.stringify(normalizedDeletes.map((entry) => ({
+              resource_key: entry.resourceKey,
+              tile_index: entry.tileIndex,
+            }))),
+          ],
+        );
+      }
+      if (normalizedUpserts.length > 0) {
+        await client.query(
+          `
+            WITH incoming AS (
+              SELECT resource_key, tile_index, value
+              FROM jsonb_to_recordset($2::jsonb) AS entry(resource_key varchar(100), tile_index bigint, value bigint)
+            )
+            INSERT INTO ${INSTANCE_TILE_RESOURCE_STATE_TABLE}(
+              instance_id,
+              resource_key,
+              tile_index,
+              value,
+              updated_at
+            )
+            SELECT $1, resource_key, tile_index, value, now()
+            FROM incoming
+            ON CONFLICT (instance_id, resource_key, tile_index)
+            DO UPDATE SET
+              value = EXCLUDED.value,
+              updated_at = now()
+          `,
+          [
+            normalizedInstanceId,
+            JSON.stringify(normalizedUpserts.map((entry) => ({
+              resource_key: entry.resourceKey,
+              tile_index: entry.tileIndex,
+              value: entry.value,
+            }))),
+          ],
         );
       }
       await client.query('COMMIT');
@@ -261,6 +366,8 @@ export class InstanceDomainPersistenceService implements OnModuleInit, OnModuleD
     instanceId: string,
     entries: Array<{
       tileIndex: number;
+      x?: number | null;
+      y?: number | null;
       hp: number;
       maxHp: number;
       destroyed: boolean;
@@ -280,6 +387,8 @@ export class InstanceDomainPersistenceService implements OnModuleInit, OnModuleD
           .filter((entry) => Boolean(entry) && Number.isFinite(entry.tileIndex))
           .map((entry) => ({
             tileIndex: Math.max(0, Math.trunc(Number(entry.tileIndex))),
+            x: Number.isFinite(Number(entry.x)) ? Math.trunc(Number(entry.x)) : null,
+            y: Number.isFinite(Number(entry.y)) ? Math.trunc(Number(entry.y)) : null,
             hp: Math.max(0, Math.trunc(Number(entry.hp) || 0)),
             maxHp: Math.max(1, Math.trunc(Number(entry.maxHp) || 1)),
             destroyed: entry.destroyed === true,
@@ -298,6 +407,8 @@ export class InstanceDomainPersistenceService implements OnModuleInit, OnModuleD
             INSERT INTO ${INSTANCE_TILE_DAMAGE_STATE_TABLE}(
               instance_id,
               tile_index,
+              x,
+              y,
               hp,
               max_hp,
               destroyed,
@@ -305,9 +416,11 @@ export class InstanceDomainPersistenceService implements OnModuleInit, OnModuleD
               modified_at_ms,
               updated_at
             )
-            VALUES ($1, $2, $3, $4, $5, $6, $7, now())
+            VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, now())
             ON CONFLICT (instance_id, tile_index)
             DO UPDATE SET
+              x = EXCLUDED.x,
+              y = EXCLUDED.y,
               hp = EXCLUDED.hp,
               max_hp = EXCLUDED.max_hp,
               destroyed = EXCLUDED.destroyed,
@@ -318,6 +431,8 @@ export class InstanceDomainPersistenceService implements OnModuleInit, OnModuleD
           [
             normalizedInstanceId,
             entry.tileIndex,
+            entry.x,
+            entry.y,
             entry.hp,
             entry.maxHp,
             entry.destroyed,
@@ -361,12 +476,296 @@ export class InstanceDomainPersistenceService implements OnModuleInit, OnModuleD
     await this.pool.query(`DELETE FROM ${INSTANCE_TILE_DAMAGE_STATE_TABLE} WHERE instance_id = $1`, [normalizedInstanceId]);
   }
 
+  async saveTileDamageDelta(
+    instanceId: string,
+    upserts: Array<{
+      tileIndex: number;
+      x?: number | null;
+      y?: number | null;
+      hp: number;
+      maxHp: number;
+      destroyed: boolean;
+      respawnLeft?: number | null;
+      modifiedAt?: number | null;
+    }>,
+    deletes: number[],
+  ): Promise<void> {
+    if (!this.pool || !this.enabled) {
+      return;
+    }
+    const normalizedInstanceId = normalizeRequiredString(instanceId);
+    if (!normalizedInstanceId) {
+      return;
+    }
+    const normalizedUpserts = Array.isArray(upserts)
+      ? upserts
+          .filter((entry) => Boolean(entry) && Number.isFinite(Number(entry.tileIndex)))
+          .map((entry) => ({
+            tileIndex: Math.max(0, Math.trunc(Number(entry.tileIndex))),
+            x: Number.isFinite(Number(entry.x)) ? Math.trunc(Number(entry.x)) : null,
+            y: Number.isFinite(Number(entry.y)) ? Math.trunc(Number(entry.y)) : null,
+            hp: Math.max(0, Math.trunc(Number(entry.hp) || 0)),
+            maxHp: Math.max(1, Math.trunc(Number(entry.maxHp) || 1)),
+            destroyed: entry.destroyed === true,
+            respawnLeft: Math.max(0, Math.trunc(Number(entry.respawnLeft) || 0)),
+            modifiedAt: Number.isFinite(Number(entry.modifiedAt)) ? Math.max(0, Math.trunc(Number(entry.modifiedAt))) : Date.now(),
+          }))
+      : [];
+    const normalizedDeletes = Array.isArray(deletes)
+      ? deletes
+          .filter((tileIndex) => Number.isFinite(Number(tileIndex)))
+          .map((tileIndex) => Math.max(0, Math.trunc(Number(tileIndex))))
+      : [];
+    if (normalizedUpserts.length === 0 && normalizedDeletes.length === 0) {
+      return;
+    }
+    const client = await this.pool.connect();
+    try {
+      await client.query('BEGIN');
+      await acquireInstanceDomainLock(client, normalizedInstanceId);
+      if (normalizedDeletes.length > 0) {
+        await client.query(
+          `DELETE FROM ${INSTANCE_TILE_DAMAGE_STATE_TABLE} WHERE instance_id = $1 AND tile_index = ANY($2::bigint[])`,
+          [normalizedInstanceId, normalizedDeletes],
+        );
+      }
+      if (normalizedUpserts.length > 0) {
+        await client.query(
+          `
+            WITH incoming AS (
+              SELECT
+                tile_index,
+                x,
+                y,
+                hp,
+                max_hp,
+                destroyed,
+                respawn_left_ticks,
+                modified_at_ms
+              FROM jsonb_to_recordset($2::jsonb) AS entry(
+                tile_index bigint,
+                x bigint,
+                y bigint,
+                hp bigint,
+                max_hp bigint,
+                destroyed boolean,
+                respawn_left_ticks bigint,
+                modified_at_ms bigint
+              )
+            )
+            INSERT INTO ${INSTANCE_TILE_DAMAGE_STATE_TABLE}(
+              instance_id,
+              tile_index,
+              x,
+              y,
+              hp,
+              max_hp,
+              destroyed,
+              respawn_left_ticks,
+              modified_at_ms,
+              updated_at
+            )
+            SELECT
+              $1,
+              tile_index,
+              x,
+              y,
+              hp,
+              max_hp,
+              destroyed,
+              respawn_left_ticks,
+              modified_at_ms,
+              now()
+            FROM incoming
+            ON CONFLICT (instance_id, tile_index)
+            DO UPDATE SET
+              x = EXCLUDED.x,
+              y = EXCLUDED.y,
+              hp = EXCLUDED.hp,
+              max_hp = EXCLUDED.max_hp,
+              destroyed = EXCLUDED.destroyed,
+              respawn_left_ticks = EXCLUDED.respawn_left_ticks,
+              modified_at_ms = EXCLUDED.modified_at_ms,
+              updated_at = now()
+          `,
+          [
+            normalizedInstanceId,
+            JSON.stringify(normalizedUpserts.map((entry) => ({
+              tile_index: entry.tileIndex,
+              x: entry.x,
+              y: entry.y,
+              hp: entry.hp,
+              max_hp: entry.maxHp,
+              destroyed: entry.destroyed,
+              respawn_left_ticks: entry.respawnLeft,
+              modified_at_ms: entry.modifiedAt,
+            }))),
+          ],
+        );
+      }
+      await client.query('COMMIT');
+    } catch (error: unknown) {
+      await rollbackQuietly(client);
+      throw error;
+    } finally {
+      client.release();
+    }
+  }
+
   async loadTileDamageStates(instanceId: string): Promise<Array<{
     tileIndex: number;
     hp: number;
     maxHp: number;
     destroyed: boolean;
     respawnLeft: number;
+    modifiedAt: number;
+    x?: number | null;
+    y?: number | null;
+  }>> {
+    if (!this.pool || !this.enabled) {
+      return [];
+    }
+    const normalizedInstanceId = normalizeRequiredString(instanceId);
+    if (!normalizedInstanceId) {
+      return [];
+    }
+    const result = await this.pool.query(
+      `
+        SELECT tile_index, x, y, hp, max_hp, destroyed, respawn_left_ticks, modified_at_ms
+        FROM ${INSTANCE_TILE_DAMAGE_STATE_TABLE}
+        WHERE instance_id = $1
+        ORDER BY tile_index ASC
+      `,
+      [normalizedInstanceId],
+    );
+    return Array.isArray(result.rows)
+      ? result.rows.map((row) => ({
+          tileIndex: normalizeNullableInteger(row.tile_index) ?? 0,
+          x: normalizeNullableInteger(row.x),
+          y: normalizeNullableInteger(row.y),
+          hp: Math.max(0, normalizeNullableInteger(row.hp) ?? 0),
+          maxHp: Math.max(1, normalizeNullableInteger(row.max_hp) ?? 1),
+          destroyed: row.destroyed === true,
+          respawnLeft: Math.max(0, normalizeNullableInteger(row.respawn_left_ticks) ?? 0),
+          modifiedAt: Number.isFinite(Number(row.modified_at_ms)) ? Math.max(0, Math.trunc(Number(row.modified_at_ms))) : 0,
+        }))
+      : [];
+  }
+
+  async replaceTemporaryTileStates(
+    instanceId: string,
+    entries: Array<{
+      tileIndex: number;
+      x?: number | null;
+      y?: number | null;
+      tileType: string;
+      hp: number;
+      maxHp: number;
+      expiresAtTick: number;
+      ownerPlayerId?: string | null;
+      sourceSkillId?: string | null;
+      createdAt?: number | null;
+      modifiedAt?: number | null;
+    }>,
+  ): Promise<void> {
+    if (!this.pool || !this.enabled) {
+      return;
+    }
+    const normalizedInstanceId = normalizeRequiredString(instanceId);
+    if (!normalizedInstanceId) {
+      return;
+    }
+    const normalizedEntries = Array.isArray(entries)
+      ? entries
+          .filter((entry) => Boolean(entry) && Number.isFinite(Number(entry.tileIndex)))
+          .map((entry) => ({
+            tileIndex: Math.max(0, Math.trunc(Number(entry.tileIndex))),
+            x: Number.isFinite(Number(entry.x)) ? Math.trunc(Number(entry.x)) : null,
+            y: Number.isFinite(Number(entry.y)) ? Math.trunc(Number(entry.y)) : null,
+            tileType: typeof entry.tileType === 'string' && entry.tileType.trim() ? entry.tileType.trim() : 'stone',
+            hp: Math.max(1, Math.trunc(Number(entry.hp) || 1)),
+            maxHp: Math.max(1, Math.trunc(Number(entry.maxHp) || 1)),
+            expiresAtTick: Math.max(1, Math.trunc(Number(entry.expiresAtTick) || 1)),
+            ownerPlayerId: normalizeRequiredString(entry.ownerPlayerId),
+            sourceSkillId: normalizeRequiredString(entry.sourceSkillId),
+            createdAt: Number.isFinite(Number(entry.createdAt)) ? Math.max(0, Math.trunc(Number(entry.createdAt))) : Date.now(),
+            modifiedAt: Number.isFinite(Number(entry.modifiedAt)) ? Math.max(0, Math.trunc(Number(entry.modifiedAt))) : Date.now(),
+          }))
+      : [];
+    const client = await this.pool.connect();
+    try {
+      await client.query('BEGIN');
+      await acquireInstanceDomainLock(client, normalizedInstanceId);
+      await client.query(`DELETE FROM ${INSTANCE_TEMPORARY_TILE_STATE_TABLE} WHERE instance_id = $1`, [normalizedInstanceId]);
+      for (const entry of normalizedEntries) {
+        await client.query(
+          `
+            INSERT INTO ${INSTANCE_TEMPORARY_TILE_STATE_TABLE}(
+              instance_id,
+              tile_index,
+              x,
+              y,
+              tile_type,
+              hp,
+              max_hp,
+              expires_at_tick,
+              owner_player_id,
+              source_skill_id,
+              created_at_ms,
+              modified_at_ms,
+              updated_at
+            )
+            VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, now())
+            ON CONFLICT (instance_id, tile_index)
+            DO UPDATE SET
+              x = EXCLUDED.x,
+              y = EXCLUDED.y,
+              tile_type = EXCLUDED.tile_type,
+              hp = EXCLUDED.hp,
+              max_hp = EXCLUDED.max_hp,
+              expires_at_tick = EXCLUDED.expires_at_tick,
+              owner_player_id = EXCLUDED.owner_player_id,
+              source_skill_id = EXCLUDED.source_skill_id,
+              created_at_ms = EXCLUDED.created_at_ms,
+              modified_at_ms = EXCLUDED.modified_at_ms,
+              updated_at = now()
+          `,
+          [
+            normalizedInstanceId,
+            entry.tileIndex,
+            entry.x,
+            entry.y,
+            entry.tileType,
+            entry.hp,
+            entry.maxHp,
+            entry.expiresAtTick,
+            entry.ownerPlayerId || null,
+            entry.sourceSkillId || null,
+            entry.createdAt,
+            entry.modifiedAt,
+          ],
+        );
+      }
+      await client.query('COMMIT');
+    } catch (error: unknown) {
+      await rollbackQuietly(client);
+      throw error;
+    } finally {
+      client.release();
+    }
+  }
+
+  async loadTemporaryTileStates(instanceId: string): Promise<Array<{
+    tileIndex: number;
+    x: number | null;
+    y: number | null;
+    tileType: string;
+    hp: number;
+    maxHp: number;
+    expiresAtTick: number;
+    ownerPlayerId: string | null;
+    sourceSkillId: string | null;
+    createdAt: number;
     modifiedAt: number;
   }>> {
     if (!this.pool || !this.enabled) {
@@ -378,8 +777,8 @@ export class InstanceDomainPersistenceService implements OnModuleInit, OnModuleD
     }
     const result = await this.pool.query(
       `
-        SELECT tile_index, hp, max_hp, destroyed, respawn_left_ticks, modified_at_ms
-        FROM ${INSTANCE_TILE_DAMAGE_STATE_TABLE}
+        SELECT tile_index, x, y, tile_type, hp, max_hp, expires_at_tick, owner_player_id, source_skill_id, created_at_ms, modified_at_ms
+        FROM ${INSTANCE_TEMPORARY_TILE_STATE_TABLE}
         WHERE instance_id = $1
         ORDER BY tile_index ASC
       `,
@@ -388,10 +787,15 @@ export class InstanceDomainPersistenceService implements OnModuleInit, OnModuleD
     return Array.isArray(result.rows)
       ? result.rows.map((row) => ({
           tileIndex: normalizeNullableInteger(row.tile_index) ?? 0,
-          hp: Math.max(0, normalizeNullableInteger(row.hp) ?? 0),
+          x: normalizeNullableInteger(row.x),
+          y: normalizeNullableInteger(row.y),
+          tileType: typeof row.tile_type === 'string' && row.tile_type.length > 0 ? row.tile_type : 'stone',
+          hp: Math.max(1, normalizeNullableInteger(row.hp) ?? 1),
           maxHp: Math.max(1, normalizeNullableInteger(row.max_hp) ?? 1),
-          destroyed: row.destroyed === true,
-          respawnLeft: Math.max(0, normalizeNullableInteger(row.respawn_left_ticks) ?? 0),
+          expiresAtTick: Math.max(1, normalizeNullableInteger(row.expires_at_tick) ?? 1),
+          ownerPlayerId: typeof row.owner_player_id === 'string' ? row.owner_player_id : null,
+          sourceSkillId: typeof row.source_skill_id === 'string' ? row.source_skill_id : null,
+          createdAt: Number.isFinite(Number(row.created_at_ms)) ? Math.max(0, Math.trunc(Number(row.created_at_ms))) : 0,
           modifiedAt: Number.isFinite(Number(row.modified_at_ms)) ? Math.max(0, Math.trunc(Number(row.modified_at_ms))) : 0,
         }))
       : [];
@@ -606,6 +1010,101 @@ export class InstanceDomainPersistenceService implements OnModuleInit, OnModuleD
             VALUES ($1, $2, $3, $4::jsonb, NULL, now())
           `,
           [entry.groundItemId, normalizedInstanceId, entry.tileIndex, JSON.stringify(entry.itemPayload ?? {})],
+        );
+      }
+      await client.query('COMMIT');
+    } catch (error: unknown) {
+      await rollbackQuietly(client);
+      throw error;
+    } finally {
+      client.release();
+    }
+  }
+
+  async replaceGroundItemTiles(
+    instanceId: string,
+    tileIndices: number[],
+    entries: Array<{ tileIndex: number; items: unknown[] }>,
+  ): Promise<void> {
+    if (!this.pool || !this.enabled) {
+      return;
+    }
+    const normalizedInstanceId = normalizeRequiredString(instanceId);
+    if (!normalizedInstanceId) {
+      return;
+    }
+    const normalizedTileIndices = Array.from(new Set((Array.isArray(tileIndices) ? tileIndices : [])
+      .filter((tileIndex) => Number.isFinite(Number(tileIndex)))
+      .map((tileIndex) => Math.max(0, Math.trunc(Number(tileIndex))))));
+    if (normalizedTileIndices.length === 0) {
+      return;
+    }
+    const dirtyTileIndexSet = new Set(normalizedTileIndices);
+    const normalizedEntries: Array<{ groundItemId: string; tileIndex: number; itemPayload: unknown }> = [];
+    for (const entry of Array.isArray(entries) ? entries : []) {
+      if (!entry || !Number.isFinite(Number(entry.tileIndex)) || !Array.isArray(entry.items)) {
+        continue;
+      }
+      const tileIndex = Math.max(0, Math.trunc(Number(entry.tileIndex)));
+      if (!dirtyTileIndexSet.has(tileIndex)) {
+        continue;
+      }
+      entry.items.forEach((itemPayload, index) => {
+        normalizedEntries.push({
+          groundItemId: buildStableDomainRowId('ground', normalizedInstanceId, `${tileIndex}:${index}`),
+          tileIndex,
+          itemPayload: itemPayload ?? {},
+        });
+      });
+    }
+    const client = await this.pool.connect();
+    try {
+      await client.query('BEGIN');
+      await acquireInstanceDomainLock(client, normalizedInstanceId);
+      await client.query(
+        `DELETE FROM ${INSTANCE_GROUND_ITEM_TABLE} WHERE instance_id = $1 AND tile_index = ANY($2::bigint[])`,
+        [normalizedInstanceId, normalizedTileIndices],
+      );
+      if (normalizedEntries.length > 0) {
+        await client.query(
+          `
+            WITH incoming AS (
+              SELECT
+                ground_item_id,
+                tile_index,
+                COALESCE(item_instance_payload, '{}'::jsonb) AS item_instance_payload
+              FROM jsonb_to_recordset($2::jsonb) AS entry(
+                ground_item_id varchar(100),
+                tile_index bigint,
+                item_instance_payload jsonb
+              )
+            )
+            INSERT INTO ${INSTANCE_GROUND_ITEM_TABLE}(
+              ground_item_id,
+              instance_id,
+              tile_index,
+              item_instance_payload,
+              expire_at,
+              updated_at
+            )
+            SELECT ground_item_id, $1, tile_index, item_instance_payload, NULL, now()
+            FROM incoming
+            ON CONFLICT (ground_item_id)
+            DO UPDATE SET
+              instance_id = EXCLUDED.instance_id,
+              tile_index = EXCLUDED.tile_index,
+              item_instance_payload = EXCLUDED.item_instance_payload,
+              expire_at = EXCLUDED.expire_at,
+              updated_at = now()
+          `,
+          [
+            normalizedInstanceId,
+            JSON.stringify(normalizedEntries.map((entry) => ({
+              ground_item_id: entry.groundItemId,
+              tile_index: entry.tileIndex,
+              item_instance_payload: entry.itemPayload ?? {},
+            }))),
+          ],
         );
       }
       await client.query('COMMIT');
@@ -1192,13 +1691,11 @@ export class InstanceDomainPersistenceService implements OnModuleInit, OnModuleD
     try {
       await client.query('BEGIN');
       await acquireInstanceDomainLock(client, normalizedInstanceId);
-      await client.query(`DELETE FROM ${INSTANCE_MONSTER_RUNTIME_STATE_TABLE} WHERE instance_id = $1`, [normalizedInstanceId]);
-      for (const entry of normalizedEntries) {
-        await client.query(
-          `
-            INSERT INTO ${INSTANCE_MONSTER_RUNTIME_STATE_TABLE}(
+      await client.query(
+        `
+          WITH incoming AS (
+            SELECT
               monster_runtime_id,
-              instance_id,
               monster_id,
               monster_name,
               monster_tier,
@@ -1212,49 +1709,113 @@ export class InstanceDomainPersistenceService implements OnModuleInit, OnModuleD
               respawn_left,
               respawn_ticks,
               aggro_target_player_id,
-              state_payload,
-              updated_at
+              COALESCE(state_payload, '{}'::jsonb) AS state_payload
+            FROM jsonb_to_recordset($2::jsonb) AS entry(
+              monster_runtime_id varchar(100),
+              monster_id varchar(100),
+              monster_name varchar(200),
+              monster_tier varchar(32),
+              monster_level bigint,
+              tile_index bigint,
+              x bigint,
+              y bigint,
+              hp bigint,
+              max_hp bigint,
+              alive boolean,
+              respawn_left bigint,
+              respawn_ticks bigint,
+              aggro_target_player_id varchar(100),
+              state_payload jsonb
             )
-            VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16::jsonb, now())
-            ON CONFLICT (monster_runtime_id)
-            DO UPDATE SET
-              instance_id = EXCLUDED.instance_id,
-              monster_id = EXCLUDED.monster_id,
-              monster_name = EXCLUDED.monster_name,
-              monster_tier = EXCLUDED.monster_tier,
-              monster_level = EXCLUDED.monster_level,
-              tile_index = EXCLUDED.tile_index,
-              x = EXCLUDED.x,
-              y = EXCLUDED.y,
-              hp = EXCLUDED.hp,
-              max_hp = EXCLUDED.max_hp,
-              alive = EXCLUDED.alive,
-              respawn_left = EXCLUDED.respawn_left,
-              respawn_ticks = EXCLUDED.respawn_ticks,
-              aggro_target_player_id = EXCLUDED.aggro_target_player_id,
-              state_payload = EXCLUDED.state_payload,
-              updated_at = now()
-          `,
-          [
-            entry.monsterRuntimeId,
-            normalizedInstanceId,
-            entry.monsterId,
-            entry.monsterName,
-            entry.monsterTier,
-            entry.monsterLevel,
-            entry.tileIndex,
-            entry.x,
-            entry.y,
-            entry.hp,
-            entry.maxHp,
-            entry.alive,
-            entry.respawnLeft,
-            entry.respawnTicks,
-            entry.aggroTargetPlayerId,
-            JSON.stringify(entry.statePayload ?? {}),
-          ],
-        );
-      }
+          ),
+          deleted AS (
+            DELETE FROM ${INSTANCE_MONSTER_RUNTIME_STATE_TABLE} target
+            WHERE target.instance_id = $1
+              AND NOT EXISTS (
+                SELECT 1
+                FROM incoming
+                WHERE incoming.monster_runtime_id = target.monster_runtime_id
+              )
+            RETURNING 1
+          )
+          INSERT INTO ${INSTANCE_MONSTER_RUNTIME_STATE_TABLE}(
+            monster_runtime_id,
+            instance_id,
+            monster_id,
+            monster_name,
+            monster_tier,
+            monster_level,
+            tile_index,
+            x,
+            y,
+            hp,
+            max_hp,
+            alive,
+            respawn_left,
+            respawn_ticks,
+            aggro_target_player_id,
+            state_payload,
+            updated_at
+          )
+          SELECT
+            monster_runtime_id,
+            $1,
+            monster_id,
+            monster_name,
+            monster_tier,
+            monster_level,
+            tile_index,
+            x,
+            y,
+            hp,
+            max_hp,
+            alive,
+            respawn_left,
+            respawn_ticks,
+            NULLIF(aggro_target_player_id, ''),
+            state_payload,
+            now()
+          FROM incoming
+          ON CONFLICT (monster_runtime_id)
+          DO UPDATE SET
+            instance_id = EXCLUDED.instance_id,
+            monster_id = EXCLUDED.monster_id,
+            monster_name = EXCLUDED.monster_name,
+            monster_tier = EXCLUDED.monster_tier,
+            monster_level = EXCLUDED.monster_level,
+            tile_index = EXCLUDED.tile_index,
+            x = EXCLUDED.x,
+            y = EXCLUDED.y,
+            hp = EXCLUDED.hp,
+            max_hp = EXCLUDED.max_hp,
+            alive = EXCLUDED.alive,
+            respawn_left = EXCLUDED.respawn_left,
+            respawn_ticks = EXCLUDED.respawn_ticks,
+            aggro_target_player_id = EXCLUDED.aggro_target_player_id,
+            state_payload = EXCLUDED.state_payload,
+            updated_at = now()
+        `,
+        [
+          normalizedInstanceId,
+          JSON.stringify(normalizedEntries.map((entry) => ({
+            monster_runtime_id: entry.monsterRuntimeId,
+            monster_id: entry.monsterId,
+            monster_name: entry.monsterName,
+            monster_tier: entry.monsterTier,
+            monster_level: entry.monsterLevel,
+            tile_index: entry.tileIndex,
+            x: entry.x,
+            y: entry.y,
+            hp: entry.hp,
+            max_hp: entry.maxHp,
+            alive: entry.alive,
+            respawn_left: entry.respawnLeft,
+            respawn_ticks: entry.respawnTicks,
+            aggro_target_player_id: entry.aggroTargetPlayerId || null,
+            state_payload: entry.statePayload ?? {},
+          }))),
+        ],
+      );
       await client.query('COMMIT');
     } catch (error: unknown) {
       await rollbackQuietly(client);
@@ -1580,6 +2141,197 @@ export class InstanceDomainPersistenceService implements OnModuleInit, OnModuleD
     }
   }
 
+  async saveMonsterRuntimeDelta(
+    instanceId: string,
+    upserts: Array<{
+      monsterRuntimeId: string;
+      monsterId: string;
+      monsterName: string;
+      monsterTier: unknown;
+      monsterLevel?: number | null;
+      tileIndex: number;
+      x: number;
+      y: number;
+      hp: number;
+      maxHp: number;
+      alive: boolean;
+      respawnLeft?: number | null;
+      respawnTicks?: number | null;
+      aggroTargetPlayerId?: string | null;
+      statePayload: unknown;
+    }>,
+    deletes: string[],
+  ): Promise<void> {
+    if (!this.pool || !this.enabled) {
+      return;
+    }
+    const normalizedInstanceId = normalizeRequiredString(instanceId);
+    if (!normalizedInstanceId) {
+      return;
+    }
+    const normalizedDeletes = Array.isArray(deletes)
+      ? deletes.map((entry) => normalizeRequiredString(entry)).filter(Boolean)
+      : [];
+    const normalizedUpserts = Array.isArray(upserts)
+      ? upserts
+          .map((entry) => ({
+            monsterRuntimeId: normalizeRequiredString(entry?.monsterRuntimeId),
+            monsterId: normalizeRequiredString(entry?.monsterId),
+            monsterName: normalizeRequiredString(entry?.monsterName),
+            monsterTier: normalizeMonsterTier(entry?.monsterTier),
+            monsterLevel: Number.isFinite(Number(entry?.monsterLevel)) ? Math.trunc(Number(entry.monsterLevel)) : null,
+            tileIndex: Math.max(0, Math.trunc(Number(entry?.tileIndex) || 0)),
+            x: Math.trunc(Number(entry?.x) || 0),
+            y: Math.trunc(Number(entry?.y) || 0),
+            hp: Math.max(0, Math.trunc(Number(entry?.hp) || 0)),
+            maxHp: Math.max(1, Math.trunc(Number(entry?.maxHp) || 1)),
+            alive: entry?.alive === true,
+            respawnLeft: Number.isFinite(Number(entry?.respawnLeft)) ? Math.max(0, Math.trunc(Number(entry.respawnLeft))) : null,
+            respawnTicks: Number.isFinite(Number(entry?.respawnTicks)) ? Math.max(0, Math.trunc(Number(entry.respawnTicks))) : null,
+            aggroTargetPlayerId: normalizeRequiredString(entry?.aggroTargetPlayerId),
+            statePayload: entry?.statePayload ?? {},
+          }))
+          .filter((entry) => entry.monsterRuntimeId && entry.monsterId && entry.monsterName && entry.monsterTier !== 'mortal_blood')
+      : [];
+    if (normalizedUpserts.length === 0 && normalizedDeletes.length === 0) {
+      return;
+    }
+    const client = await this.pool.connect();
+    try {
+      await client.query('BEGIN');
+      await acquireInstanceDomainLock(client, normalizedInstanceId);
+      if (normalizedDeletes.length > 0) {
+        await client.query(
+          `DELETE FROM ${INSTANCE_MONSTER_RUNTIME_STATE_TABLE} WHERE instance_id = $1 AND monster_runtime_id = ANY($2::varchar[])`,
+          [normalizedInstanceId, normalizedDeletes],
+        );
+      }
+      if (normalizedUpserts.length > 0) {
+        await client.query(
+          `
+            WITH incoming AS (
+              SELECT
+                monster_runtime_id,
+                monster_id,
+                monster_name,
+                monster_tier,
+                monster_level,
+                tile_index,
+                x,
+                y,
+                hp,
+                max_hp,
+                alive,
+                respawn_left,
+                respawn_ticks,
+                aggro_target_player_id,
+                COALESCE(state_payload, '{}'::jsonb) AS state_payload
+              FROM jsonb_to_recordset($2::jsonb) AS entry(
+                monster_runtime_id varchar(100),
+                monster_id varchar(100),
+                monster_name varchar(200),
+                monster_tier varchar(32),
+                monster_level bigint,
+                tile_index bigint,
+                x bigint,
+                y bigint,
+                hp bigint,
+                max_hp bigint,
+                alive boolean,
+                respawn_left bigint,
+                respawn_ticks bigint,
+                aggro_target_player_id varchar(100),
+                state_payload jsonb
+              )
+            )
+            INSERT INTO ${INSTANCE_MONSTER_RUNTIME_STATE_TABLE}(
+              monster_runtime_id,
+              instance_id,
+              monster_id,
+              monster_name,
+              monster_tier,
+              monster_level,
+              tile_index,
+              x,
+              y,
+              hp,
+              max_hp,
+              alive,
+              respawn_left,
+              respawn_ticks,
+              aggro_target_player_id,
+              state_payload,
+              updated_at
+            )
+            SELECT
+              monster_runtime_id,
+              $1,
+              monster_id,
+              monster_name,
+              monster_tier,
+              monster_level,
+              tile_index,
+              x,
+              y,
+              hp,
+              max_hp,
+              alive,
+              respawn_left,
+              respawn_ticks,
+              NULLIF(aggro_target_player_id, ''),
+              state_payload,
+              now()
+            FROM incoming
+            ON CONFLICT (monster_runtime_id)
+            DO UPDATE SET
+              instance_id = EXCLUDED.instance_id,
+              monster_id = EXCLUDED.monster_id,
+              monster_name = EXCLUDED.monster_name,
+              monster_tier = EXCLUDED.monster_tier,
+              monster_level = EXCLUDED.monster_level,
+              tile_index = EXCLUDED.tile_index,
+              x = EXCLUDED.x,
+              y = EXCLUDED.y,
+              hp = EXCLUDED.hp,
+              max_hp = EXCLUDED.max_hp,
+              alive = EXCLUDED.alive,
+              respawn_left = EXCLUDED.respawn_left,
+              respawn_ticks = EXCLUDED.respawn_ticks,
+              aggro_target_player_id = EXCLUDED.aggro_target_player_id,
+              state_payload = EXCLUDED.state_payload,
+              updated_at = now()
+          `,
+          [
+            normalizedInstanceId,
+            JSON.stringify(normalizedUpserts.map((entry) => ({
+              monster_runtime_id: entry.monsterRuntimeId,
+              monster_id: entry.monsterId,
+              monster_name: entry.monsterName,
+              monster_tier: entry.monsterTier,
+              monster_level: entry.monsterLevel,
+              tile_index: entry.tileIndex,
+              x: entry.x,
+              y: entry.y,
+              hp: entry.hp,
+              max_hp: entry.maxHp,
+              alive: entry.alive,
+              respawn_left: entry.respawnLeft,
+              respawn_ticks: entry.respawnTicks,
+              aggro_target_player_id: entry.aggroTargetPlayerId || null,
+              state_payload: entry.statePayload ?? {},
+            }))),
+          ],
+        );
+      }
+      await client.query('COMMIT');
+    } catch (error: unknown) {
+      await rollbackQuietly(client);
+      throw error;
+    } finally {
+      client.release();
+    }
+  }
+
   async purgeInstanceState(instanceId: string): Promise<number> {
     if (!this.pool || !this.enabled) {
       return 0;
@@ -1595,6 +2347,7 @@ export class InstanceDomainPersistenceService implements OnModuleInit, OnModuleD
       const statements = [
         `DELETE FROM ${INSTANCE_TILE_RESOURCE_STATE_TABLE} WHERE instance_id = $1`,
         `DELETE FROM ${INSTANCE_TILE_DAMAGE_STATE_TABLE} WHERE instance_id = $1`,
+        `DELETE FROM ${INSTANCE_TEMPORARY_TILE_STATE_TABLE} WHERE instance_id = $1`,
         `DELETE FROM ${INSTANCE_CHECKPOINT_TABLE} WHERE instance_id = $1`,
         `DELETE FROM ${INSTANCE_RECOVERY_WATERMARK_TABLE} WHERE instance_id = $1`,
         `DELETE FROM ${INSTANCE_GROUND_ITEM_TABLE} WHERE instance_id = $1`,
@@ -1733,6 +2486,8 @@ async function ensureInstanceTileDamageStateTable(pool: Pool): Promise<void> {
       CREATE TABLE IF NOT EXISTS ${INSTANCE_TILE_DAMAGE_STATE_TABLE} (
         instance_id varchar(100) NOT NULL,
         tile_index bigint NOT NULL,
+        x bigint,
+        y bigint,
         hp bigint NOT NULL DEFAULT 0,
         max_hp bigint NOT NULL DEFAULT 1,
         destroyed boolean NOT NULL DEFAULT false,
@@ -1742,6 +2497,8 @@ async function ensureInstanceTileDamageStateTable(pool: Pool): Promise<void> {
         PRIMARY KEY (instance_id, tile_index)
       )
     `);
+    await client.query(`ALTER TABLE ${INSTANCE_TILE_DAMAGE_STATE_TABLE} ADD COLUMN IF NOT EXISTS x bigint`);
+    await client.query(`ALTER TABLE ${INSTANCE_TILE_DAMAGE_STATE_TABLE} ADD COLUMN IF NOT EXISTS y bigint`);
     await ensureBigintColumns(client, INSTANCE_TILE_DAMAGE_STATE_TABLE);
     await client.query(`
       CREATE INDEX IF NOT EXISTS instance_tile_damage_state_instance_idx
@@ -1753,6 +2510,44 @@ async function ensureInstanceTileDamageStateTable(pool: Pool): Promise<void> {
     throw error;
   } finally {
     await client.query(`SELECT pg_advisory_unlock($1, $2)`, [INSTANCE_TILE_RESOURCE_STATE_LOCK_NAMESPACE, INSTANCE_TILE_DAMAGE_STATE_LOCK_KEY]).catch(() => undefined);
+    client.release();
+  }
+}
+
+async function ensureInstanceTemporaryTileStateTable(pool: Pool): Promise<void> {
+  const client = await pool.connect();
+  try {
+    await client.query('BEGIN');
+    await client.query(`SELECT pg_advisory_lock($1, $2)`, [INSTANCE_TILE_RESOURCE_STATE_LOCK_NAMESPACE, INSTANCE_TEMPORARY_TILE_STATE_LOCK_KEY]);
+    await client.query(`
+      CREATE TABLE IF NOT EXISTS ${INSTANCE_TEMPORARY_TILE_STATE_TABLE} (
+        instance_id varchar(100) NOT NULL,
+        tile_index bigint NOT NULL,
+        x bigint,
+        y bigint,
+        tile_type varchar(64) NOT NULL DEFAULT 'stone',
+        hp bigint NOT NULL DEFAULT 1,
+        max_hp bigint NOT NULL DEFAULT 1,
+        expires_at_tick bigint NOT NULL DEFAULT 1,
+        owner_player_id varchar(100),
+        source_skill_id varchar(160),
+        created_at_ms bigint NOT NULL DEFAULT 0,
+        modified_at_ms bigint NOT NULL DEFAULT 0,
+        updated_at timestamptz NOT NULL DEFAULT now(),
+        PRIMARY KEY (instance_id, tile_index)
+      )
+    `);
+    await ensureBigintColumns(client, INSTANCE_TEMPORARY_TILE_STATE_TABLE);
+    await client.query(`
+      CREATE INDEX IF NOT EXISTS instance_temporary_tile_state_instance_idx
+      ON ${INSTANCE_TEMPORARY_TILE_STATE_TABLE}(instance_id, tile_index)
+    `);
+    await client.query('COMMIT');
+  } catch (error: unknown) {
+    await rollbackQuietly(client);
+    throw error;
+  } finally {
+    await client.query(`SELECT pg_advisory_unlock($1, $2)`, [INSTANCE_TILE_RESOURCE_STATE_LOCK_NAMESPACE, INSTANCE_TEMPORARY_TILE_STATE_LOCK_KEY]).catch(() => undefined);
     client.release();
   }
 }

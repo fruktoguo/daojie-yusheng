@@ -153,6 +153,7 @@ function toObservedEntity(entity: RenderEntity): ObservedMapEntity {
     formationOwnerSectId: entity.formationOwnerSectId,
     formationOwnerPlayerId: entity.formationOwnerPlayerId,
     formationActive: entity.formationActive,
+    formationLifecycle: entity.formationLifecycle,
   };
 }
 
@@ -193,6 +194,7 @@ function mergeObservedEntityPatch(patch: TickRenderEntity, previous?: ObservedMa
     formationOwnerSectId: applyNullablePatch(patch.formationOwnerSectId, previous?.formationOwnerSectId),
     formationOwnerPlayerId: applyNullablePatch(patch.formationOwnerPlayerId, previous?.formationOwnerPlayerId),
     formationActive: applyNullablePatch(patch.formationActive, previous?.formationActive),
+    formationLifecycle: applyNullablePatch(patch.formationLifecycle, previous?.formationLifecycle),
   };
 }
 
@@ -486,12 +488,25 @@ export class MapStore {
       ? data.mapId
       : this.player.mapId;
     const preloadingDifferentMap = hintedMapId !== this.player.mapId;
-    if (preloadingDifferentMap) {
+    const nextInstanceId = typeof data.instanceId === 'string' && data.instanceId.trim()
+      ? data.instanceId.trim()
+      : undefined;
+    const instanceChanged = Boolean(nextInstanceId && nextInstanceId !== this.player.instanceId);
+    if (preloadingDifferentMap || instanceChanged) {
       this.groundPiles.clear();
       this.entities = [];
       this.entityMap.clear();
       this.threatArrows = [];
-      this.preloadedEntityMapId = hintedMapId;
+      this.pathCells = [];
+      this.preloadedEntityMapId = preloadingDifferentMap ? hintedMapId : null;
+    }
+    if (instanceChanged && nextInstanceId) {
+      this.player.instanceId = nextInstanceId;
+      this.tileCache.clear();
+      this.visibleTiles.clear();
+      this.visibleTileRevision += 1;
+      this.visibleMinimapMarkers = [];
+      this.awaitingFullVisibilityMapId = this.player.mapId;
     }
 
     const oldX = this.player.x;
@@ -599,6 +614,9 @@ export class MapStore {
       hydrateTileCacheFromMemory(this.player.mapId, this.tileCache);
       this.awaitingFullVisibilityMapId = this.player.mapId;
       this.preloadedEntityMapId = null;
+    }
+    if (typeof data.instanceId === 'string' && data.instanceId.trim()) {
+      this.player.instanceId = data.instanceId.trim();
     }
 
     if (typeof data.hp === 'number') {

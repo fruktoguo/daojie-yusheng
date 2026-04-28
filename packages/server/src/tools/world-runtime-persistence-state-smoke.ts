@@ -89,6 +89,7 @@ function testBuildAndMarkSnapshot() {
  */
 
         buildTileDamagePersistenceEntries() { return ['tile-damage:1']; },        
+        buildTemporaryTilePersistenceEntries() { return ['temporary-tile:1']; },
         /**
  * buildGroundPersistenceEntries：构建并返回目标对象。
  * @returns 无返回值，直接更新GroundPersistence条目相关状态。
@@ -141,6 +142,7 @@ function testBuildAndMarkSnapshot() {
     assert.deepEqual(snapshot.auraEntries, ['aura:1']);
     assert.deepEqual(snapshot.tileResourceEntries, ['tile-resource:1']);
     assert.deepEqual(snapshot.tileDamageEntries, ['tile-damage:1']);
+    assert.deepEqual(snapshot.temporaryTileEntries, ['temporary-tile:1']);
     assert.deepEqual(snapshot.groundPileEntries, ['ground:1']);
     assert.deepEqual(snapshot.containerStates, [{ id: 'container:1' }]);
     service.markMapPersisted('public:yunlai_town', deps);
@@ -148,6 +150,47 @@ function testBuildAndMarkSnapshot() {
         ['buildContainerPersistenceStates', 'public:yunlai_town'],
         'markAuraPersisted',
         ['clearPersisted', 'public:yunlai_town'],
+    ]);
+}
+
+async function testFlushTemporaryTileDomain() {
+    const log = [];
+    const service = new WorldRuntimePersistenceStateService();
+    const instance = {
+        meta: { persistent: true },
+        template: { id: 'yunlai_town' },
+        tick: 333,
+        getPersistenceRevision() { return 44; },
+        buildTemporaryTilePersistenceEntries() {
+            log.push('buildTemporaryTilePersistenceEntries');
+            return [{ tileIndex: 8, x: 2, y: 2, tileType: 'stone', hp: 88, maxHp: 88, expiresAtTick: 393 }];
+        },
+        markPersistenceDomainsPersisted(domains) {
+            log.push(['markPersistenceDomainsPersisted', domains]);
+        },
+    };
+    await service.flushInstanceDomains('public:yunlai_town', ['temporary_tile'], {
+        getInstanceRuntime(instanceId) {
+            return instanceId === 'public:yunlai_town' ? instance : null;
+        },
+        instanceDomainPersistenceService: {
+            isEnabled() { return true; },
+            async replaceTemporaryTileStates(instanceId, entries) {
+                log.push(['replaceTemporaryTileStates', instanceId, entries.length, entries[0]?.expiresAtTick]);
+            },
+            async saveInstanceRecoveryWatermark(instanceId, payload) {
+                log.push(['saveInstanceRecoveryWatermark', instanceId, payload.kind, payload.tick, payload.persistenceRevision, payload.domains]);
+            },
+        },
+        worldRuntimeLootContainerService: {
+            clearPersisted() {},
+        },
+    });
+    assert.deepEqual(log, [
+        'buildTemporaryTilePersistenceEntries',
+        ['replaceTemporaryTileStates', 'public:yunlai_town', 1, 393],
+        ['saveInstanceRecoveryWatermark', 'public:yunlai_town', 'domain_flush', 333, 44, ['temporary_tile']],
+        ['markPersistenceDomainsPersisted', ['temporary_tile']],
     ]);
 }
 
@@ -198,6 +241,102 @@ async function testFlushOverlayAndMonsterDomains() {
         ['replaceMonsterRuntimeStates', 'public:yunlai_town', 1],
         ['saveInstanceRecoveryWatermark', 'public:yunlai_town', 'domain_flush', 2468, 7, ['monster_runtime', 'overlay']],
         ['markPersistenceDomainsPersisted', ['overlay', 'monster_runtime']],
+    ]);
+}
+
+async function testFlushIncrementalInstanceDomains() {
+    const log = [];
+    const service = new WorldRuntimePersistenceStateService();
+    const instance = {
+        meta: { persistent: true },
+        template: { id: 'yunlai_town' },
+        tick: 555,
+        getPersistenceRevision() { return 10; },
+        buildTileResourcePersistenceDelta() {
+            log.push('buildTileResourcePersistenceDelta');
+            return {
+                fullReplace: false,
+                upserts: [{ resourceKey: 'aura.refined.neutral', tileIndex: 3, value: 9 }],
+                deletes: [{ resourceKey: 'tile.resource.herb', tileIndex: 4 }],
+            };
+        },
+        buildTileResourcePersistenceEntries() {
+            throw new Error('incremental tile resource flush should not use full replace');
+        },
+        buildTileDamagePersistenceDelta() {
+            log.push('buildTileDamagePersistenceDelta');
+            return {
+                fullReplace: false,
+                upserts: [{ tileIndex: 8, hp: 1, maxHp: 10, destroyed: false }],
+                deletes: [9],
+            };
+        },
+        buildTileDamagePersistenceEntries() {
+            throw new Error('incremental tile damage flush should not use full replace');
+        },
+        buildGroundPersistenceDelta() {
+            log.push('buildGroundPersistenceDelta');
+            return {
+                fullReplace: false,
+                tileIndices: [13],
+                entries: [{ tileIndex: 13, items: [{ itemId: 'spirit_stone', count: 2 }] }],
+            };
+        },
+        buildGroundPersistenceEntries() {
+            throw new Error('incremental ground flush should not use full replace');
+        },
+        buildMonsterRuntimePersistenceDelta() {
+            log.push('buildMonsterRuntimePersistenceDelta');
+            return {
+                fullReplace: false,
+                upserts: [{ monsterRuntimeId: 'monster:1', monsterTier: 'demon_king' }],
+                deletes: ['monster:old'],
+            };
+        },
+        buildMonsterRuntimePersistenceEntries() {
+            throw new Error('incremental monster runtime flush should not use full replace');
+        },
+        markPersistenceDomainsPersisted(domains) {
+            log.push(['markPersistenceDomainsPersisted', domains]);
+        },
+    };
+    await service.flushInstanceDomains('public:yunlai_town', ['tile_resource', 'tile_damage', 'ground_item', 'monster_runtime'], {
+        getInstanceRuntime(instanceId) {
+            return instanceId === 'public:yunlai_town' ? instance : null;
+        },
+        instanceDomainPersistenceService: {
+            isEnabled() { return true; },
+            async saveTileResourceDelta(instanceId, upserts, deletes) {
+                log.push(['saveTileResourceDelta', instanceId, upserts.length, deletes.length]);
+            },
+            async saveTileDamageDelta(instanceId, upserts, deletes) {
+                log.push(['saveTileDamageDelta', instanceId, upserts.length, deletes.length]);
+            },
+            async replaceGroundItemTiles(instanceId, tileIndices, entries) {
+                log.push(['replaceGroundItemTiles', instanceId, tileIndices.length, entries.length]);
+            },
+            async saveMonsterRuntimeDelta(instanceId, upserts, deletes) {
+                log.push(['saveMonsterRuntimeDelta', instanceId, upserts.length, deletes.length]);
+            },
+            async saveInstanceRecoveryWatermark(instanceId, payload) {
+                log.push(['saveInstanceRecoveryWatermark', instanceId, payload.kind, payload.tick, payload.persistenceRevision, payload.domains]);
+            },
+        },
+        worldRuntimeLootContainerService: {
+            clearPersisted() {},
+        },
+    });
+    assert.deepEqual(log, [
+        'buildTileResourcePersistenceDelta',
+        ['saveTileResourceDelta', 'public:yunlai_town', 1, 1],
+        'buildTileDamagePersistenceDelta',
+        ['saveTileDamageDelta', 'public:yunlai_town', 1, 1],
+        'buildGroundPersistenceDelta',
+        ['replaceGroundItemTiles', 'public:yunlai_town', 1, 1],
+        'buildMonsterRuntimePersistenceDelta',
+        ['saveMonsterRuntimeDelta', 'public:yunlai_town', 1, 1],
+        ['saveInstanceRecoveryWatermark', 'public:yunlai_town', 'domain_flush', 555, 10, ['ground_item', 'monster_runtime', 'tile_damage', 'tile_resource']],
+        ['markPersistenceDomainsPersisted', ['tile_resource', 'tile_damage', 'ground_item', 'monster_runtime']],
     ]);
 }
 
@@ -299,6 +438,8 @@ testBuildAndMarkSnapshot();
 testMapTimeDirtyIsLowFrequency();
 Promise.all([
     testFlushOverlayAndMonsterDomains(),
+    testFlushIncrementalInstanceDomains(),
+    testFlushTemporaryTileDomain(),
     testFlushTimeDomainCheckpoint(),
 ]).then(() => {
     console.log(JSON.stringify({ ok: true, case: 'world-runtime-persistence-state' }, null, 2));
