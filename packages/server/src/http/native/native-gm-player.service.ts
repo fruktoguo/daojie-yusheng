@@ -11,7 +11,7 @@ import {
 import { ContentTemplateRepository } from '../../content/content-template.repository';
 import { MapTemplateRepository } from '../../runtime/map/map-template.repository';
 import { DatabasePoolProvider } from '../../persistence/database-pool.provider';
-import { PlayerPersistenceService } from '../../persistence/player-persistence.service';
+import { PlayerDomainPersistenceService } from '../../persistence/player-domain-persistence.service';
 import { MarketRuntimeService } from '../../runtime/market/market-runtime.service';
 import { PlayerProgressionService } from '../../runtime/player/player-progression.service';
 import { PlayerRuntimeService } from '../../runtime/player/player-runtime.service';
@@ -88,14 +88,14 @@ interface PersistedPlayerEntryLike {
   snapshot: any;
 }
 /**
- * PlayerPersistenceServiceLike：定义接口结构约束，明确可交付字段含义。
+ * PlayerDomainPersistenceServiceLike：定义接口结构约束，明确可交付字段含义。
  */
 
 
-interface PlayerPersistenceServiceLike {
-  loadPlayerSnapshot(playerId: string): Promise<any | null>;
-  savePlayerSnapshot(playerId: string, snapshot: any): Promise<void>;
-  listPlayerSnapshots(): Promise<PersistedPlayerEntryLike[]>;
+interface PlayerDomainPersistenceServiceLike {
+  loadProjectedSnapshot(playerId: string, buildStarterSnapshot: (playerId: string) => any | null): Promise<any | null>;
+  savePlayerSnapshotProjection(playerId: string, snapshot: any): Promise<void>;
+  listProjectedSnapshots(buildStarterSnapshot: (playerId: string) => any | null): Promise<PersistedPlayerEntryLike[]>;
 }
 /**
  * PlayerProgressionServiceLike：定义接口结构约束，明确可交付字段含义。
@@ -113,6 +113,7 @@ interface PlayerProgressionServiceLike {
 
 interface PlayerRuntimeServiceLike {
   snapshot(playerId: string): any;
+  buildStarterPersistenceSnapshot(playerId: string): any;
   buildPersistenceSnapshot(playerId: string): any;
   restoreSnapshot(snapshot: any): void;
   listPlayerSnapshots(): any[];
@@ -159,7 +160,6 @@ interface GmPlayerDatabaseTableViewLike {
 }
 
 const GM_PLAYER_DATABASE_TABLES = [
-  'server_player_snapshot',
   'player_presence',
   'player_world_anchor',
   'player_position_checkpoint',
@@ -218,7 +218,7 @@ export class NativeGmPlayerService {
  * 构造器：初始化 当前 实例并建立基础状态。
  * @param contentTemplateRepository ContentTemplateRepositoryLike 参数说明。
  * @param mapTemplateRepository MapTemplateRepositoryLike 参数说明。
- * @param playerPersistenceService PlayerPersistenceServiceLike 参数说明。
+ * @param playerDomainPersistenceService PlayerDomainPersistenceServiceLike 参数说明。
  * @param playerProgressionService PlayerProgressionServiceLike 参数说明。
  * @param playerRuntimeService PlayerRuntimeServiceLike 参数说明。
  * @param worldRuntimeService WorldRuntimeServiceLike 参数说明。
@@ -231,8 +231,8 @@ export class NativeGmPlayerService {
     private readonly contentTemplateRepository: ContentTemplateRepositoryLike,
     @Inject(MapTemplateRepository)
     private readonly mapTemplateRepository: MapTemplateRepositoryLike,
-    @Inject(PlayerPersistenceService)
-    private readonly playerPersistenceService: PlayerPersistenceServiceLike,
+    @Inject(PlayerDomainPersistenceService)
+    private readonly playerDomainPersistenceService: PlayerDomainPersistenceServiceLike,
     @Inject(PlayerProgressionService)
     private readonly playerProgressionService: PlayerProgressionServiceLike,
     @Inject(PlayerRuntimeService)
@@ -280,7 +280,7 @@ export class NativeGmPlayerService {
       };
     }
 
-    const persisted = await this.playerPersistenceService.loadPlayerSnapshot(playerId);
+    const persisted = await this.loadPlayerPersistenceSnapshot(playerId);
     if (!persisted) {
       return null;
     }
@@ -320,7 +320,7 @@ export class NativeGmPlayerService {
 
     const persisted = runtime
       ? this.playerRuntimeService.buildPersistenceSnapshot(playerId)
-      : await this.playerPersistenceService.loadPlayerSnapshot(playerId);
+      : await this.loadPlayerPersistenceSnapshot(playerId);
     if (!persisted) {
       throw new NotFoundException('目标玩家不存在');
     }
@@ -331,7 +331,7 @@ export class NativeGmPlayerService {
       this.applyPlayerSnapshotMutationToPersistence(persisted, snapshot, section);
     }
 
-    await this.playerPersistenceService.savePlayerSnapshot(playerId, persisted);
+    await this.savePlayerPersistenceSnapshot(playerId, persisted);
     if (!runtime || section === NATIVE_GM_PLAYER_MUTATION_CONTRACT.runtimeQueueSection) {
       return;
     }
@@ -367,7 +367,7 @@ export class NativeGmPlayerService {
   async resetPersistedPlayer(playerId: string) {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
-    const persisted = await this.playerPersistenceService.loadPlayerSnapshot(playerId);
+    const persisted = await this.loadPlayerPersistenceSnapshot(playerId);
     if (!persisted) {
       throw new NotFoundException('目标玩家不存在');
     }
@@ -384,7 +384,7 @@ export class NativeGmPlayerService {
     persisted.combat.autoBattle = false;
     persisted.combat.combatTargetId = null;
     persisted.combat.combatTargetLocked = false;
-    await this.playerPersistenceService.savePlayerSnapshot(playerId, persisted);
+    await this.savePlayerPersistenceSnapshot(playerId, persisted);
   }  
   /**
  * resetHeavenGate：执行resetHeavenGate相关逻辑。
@@ -399,14 +399,14 @@ export class NativeGmPlayerService {
     const runtime = this.playerRuntimeService.snapshot(playerId);
     const persisted = runtime
       ? this.playerRuntimeService.buildPersistenceSnapshot(playerId)
-      : await this.playerPersistenceService.loadPlayerSnapshot(playerId);
+      : await this.loadPlayerPersistenceSnapshot(playerId);
     if (!persisted) {
       throw new NotFoundException('目标玩家不存在');
     }
 
     persisted.progression.heavenGate = null;
     persisted.progression.spiritualRoots = null;
-    await this.playerPersistenceService.savePlayerSnapshot(playerId, persisted);
+    await this.savePlayerPersistenceSnapshot(playerId, persisted);
     if (!runtime) {
       return;
     }
@@ -442,12 +442,12 @@ export class NativeGmPlayerService {
 
     const runtime = this.playerRuntimeService.snapshot(playerId);
     if (!runtime) {
-      const persisted = await this.playerPersistenceService.loadPlayerSnapshot(playerId);
+      const persisted = await this.loadPlayerPersistenceSnapshot(playerId);
       if (!persisted) {
         throw new NotFoundException('目标玩家不存在');
       }
       persisted.progression.bodyTraining = this.buildBodyTrainingState(persisted.progression.bodyTraining, level);
-      await this.playerPersistenceService.savePlayerSnapshot(playerId, persisted);
+      await this.savePlayerPersistenceSnapshot(playerId, persisted);
       return;
     }
 
@@ -456,7 +456,7 @@ export class NativeGmPlayerService {
     if (!persisted) {
       throw new NotFoundException('目标玩家不存在');
     }
-    await this.playerPersistenceService.savePlayerSnapshot(playerId, persisted);
+    await this.savePlayerPersistenceSnapshot(playerId, persisted);
     this.playerRuntimeService.markPersisted(playerId);
   }  
   /**
@@ -538,7 +538,7 @@ export class NativeGmPlayerService {
 
     const runtimePlayerIds = new Set(runtimePlayers.map((entry) => entry.playerId));
 
-    const persistedEntries = await this.playerPersistenceService.listPlayerSnapshots();
+    const persistedEntries = await this.listPlayerPersistenceSnapshots();
     for (const runtime of runtimePlayers) {
       this.worldRuntimeService.worldRuntimeCommandIntakeFacadeService.enqueueGmResetPlayer(runtime.playerId);
     }
@@ -560,7 +560,7 @@ export class NativeGmPlayerService {
       entry.snapshot.combat.autoBattle = false;
       entry.snapshot.combat.combatTargetId = null;
       entry.snapshot.combat.combatTargetLocked = false;
-      await this.playerPersistenceService.savePlayerSnapshot(entry.playerId, entry.snapshot);
+      await this.savePlayerPersistenceSnapshot(entry.playerId, entry.snapshot);
       updatedOfflinePlayers += 1;
     }
 
@@ -611,7 +611,7 @@ export class NativeGmPlayerService {
       totalInvalidEquipmentRemoved += summary.equipmentRemoved;
     }
 
-    const persistedEntries = await this.playerPersistenceService.listPlayerSnapshots();
+    const persistedEntries = await this.listPlayerPersistenceSnapshots();
     for (const entry of persistedEntries) {
       if (runtimePlayerIds.has(entry.playerId) || isNativeGmBotPlayerId(entry.playerId)) {
         continue;
@@ -679,7 +679,7 @@ export class NativeGmPlayerService {
       totalCombatExpGranted += amount;
     }
 
-    const persistedEntries = await this.playerPersistenceService.listPlayerSnapshots();
+    const persistedEntries = await this.listPlayerPersistenceSnapshots();
     for (const entry of persistedEntries) {
       if (runtimePlayerIds.has(entry.playerId) || isNativeGmBotPlayerId(entry.playerId)) {
         continue;
@@ -744,7 +744,7 @@ export class NativeGmPlayerService {
       totalFoundationGranted += amount;
     }
 
-    const persistedEntries = await this.playerPersistenceService.listPlayerSnapshots();
+    const persistedEntries = await this.listPlayerPersistenceSnapshots();
     for (const entry of persistedEntries) {
       if (runtimePlayerIds.has(entry.playerId) || isNativeGmBotPlayerId(entry.playerId)) {
         continue;
@@ -1207,6 +1207,30 @@ export class NativeGmPlayerService {
     }
     return normalized;
   }
+
+  private buildStarterPersistenceSnapshot(playerId: string): any | null {
+    if (typeof this.playerRuntimeService.buildStarterPersistenceSnapshot !== 'function') {
+      return null;
+    }
+    return this.playerRuntimeService.buildStarterPersistenceSnapshot(playerId);
+  }
+
+  private async loadPlayerPersistenceSnapshot(playerId: string): Promise<any | null> {
+    return this.playerDomainPersistenceService.loadProjectedSnapshot(
+      playerId,
+      (targetPlayerId) => this.buildStarterPersistenceSnapshot(targetPlayerId),
+    );
+  }
+
+  private async savePlayerPersistenceSnapshot(playerId: string, snapshot: any): Promise<void> {
+    await this.playerDomainPersistenceService.savePlayerSnapshotProjection(playerId, snapshot);
+  }
+
+  private async listPlayerPersistenceSnapshots(): Promise<PersistedPlayerEntryLike[]> {
+    return this.playerDomainPersistenceService.listProjectedSnapshots(
+      (targetPlayerId) => this.buildStarterPersistenceSnapshot(targetPlayerId),
+    );
+  }
   /**
  * mutateManagedPlayer：统一处理玩家快照的持久化与运行态回写。
  * @param playerId string 玩家 ID。
@@ -1225,13 +1249,13 @@ export class NativeGmPlayerService {
     const runtime = this.playerRuntimeService.snapshot(playerId);
     const persisted = runtime
       ? this.playerRuntimeService.buildPersistenceSnapshot(playerId)
-      : await this.playerPersistenceService.loadPlayerSnapshot(playerId);
+      : await this.loadPlayerPersistenceSnapshot(playerId);
     if (!persisted) {
       throw new NotFoundException('目标玩家不存在');
     }
 
     input.mutatePersisted(persisted);
-    await this.playerPersistenceService.savePlayerSnapshot(playerId, persisted);
+    await this.savePlayerPersistenceSnapshot(playerId, persisted);
     if (!runtime) {
       return;
     }
@@ -1266,14 +1290,14 @@ export class NativeGmPlayerService {
     const runtime = this.playerRuntimeService.snapshot(playerId);
     const persisted = runtime
       ? this.playerRuntimeService.buildPersistenceSnapshot(playerId)
-      : await this.playerPersistenceService.loadPlayerSnapshot(playerId);
+      : await this.loadPlayerPersistenceSnapshot(playerId);
     if (!persisted) {
       throw new NotFoundException('目标玩家不存在');
     }
 
     summary = this.cleanupInvalidItemsFromSnapshot(persisted);
     if (summary.inventoryStacksRemoved > 0 || summary.equipmentRemoved > 0) {
-      await this.playerPersistenceService.savePlayerSnapshot(playerId, persisted);
+      await this.savePlayerPersistenceSnapshot(playerId, persisted);
       if (runtime) {
         const refreshedRuntime = this.playerRuntimeService.snapshot(playerId);
         if (refreshedRuntime) {

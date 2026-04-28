@@ -1514,6 +1514,37 @@ export class PlayerDomainPersistenceService implements OnModuleInit, OnModuleDes
     return buildProjectedSnapshotFromDomains(starterSnapshot, domains, this.contentTemplateRepository);
   }
 
+  async listProjectedSnapshots(
+    buildStarterSnapshot: (playerId: string) => PersistedPlayerSnapshot | null,
+  ): Promise<Array<{ playerId: string; snapshot: PersistedPlayerSnapshot; updatedAt: number }>> {
+    if (!this.pool || !this.enabled) {
+      return [];
+    }
+    const result = await this.pool.query<{ player_id?: unknown; updated_at_ms?: unknown }>(
+      `
+        SELECT player_id, (EXTRACT(EPOCH FROM updated_at) * 1000)::bigint AS updated_at_ms
+        FROM ${PLAYER_RECOVERY_WATERMARK_TABLE}
+        ORDER BY player_id ASC
+      `,
+    );
+    const entries: Array<{ playerId: string; snapshot: PersistedPlayerSnapshot; updatedAt: number }> = [];
+    for (const row of result.rows ?? []) {
+      const playerId = normalizeRequiredString(row.player_id);
+      if (!playerId) {
+        continue;
+      }
+      const snapshot = await this.loadProjectedSnapshot(playerId, buildStarterSnapshot);
+      if (snapshot) {
+        entries.push({
+          playerId,
+          snapshot,
+          updatedAt: Math.max(0, Math.trunc(Number(row.updated_at_ms ?? snapshot.savedAt ?? 0))),
+        });
+      }
+    }
+    return entries;
+  }
+
   async withTransaction<T>(work: (client: PoolClient) => Promise<T>): Promise<T> {
     if (!this.pool || !this.enabled) {
       throw new Error('player_domain_persistence_disabled');
@@ -1826,8 +1857,8 @@ export async function savePlayerSnapshotProjectionDomainsWithClient(
     || rawDomains.has(PLAYER_SNAPSHOT_PROJECTION_FALLBACK_DOMAIN)
     || Array.from(rawDomains).some((domain) => !PLAYER_SNAPSHOT_PROJECTABLE_DIRTY_DOMAIN_SET.has(domain))
   ) {
-    await savePlayerSnapshotProjectionWithClient(client, normalizedPlayerId, snapshot);
-    return;
+    const normalizedDomains = Array.from(rawDomains).sort().join(',') || 'none';
+    throw new Error(`player_domain_projection_delta_required:${normalizedPlayerId}:${normalizedDomains}`);
   }
 
   const versionSeed = normalizeVersionSeed(snapshot.savedAt);

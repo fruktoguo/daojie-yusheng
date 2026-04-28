@@ -136,8 +136,14 @@ let WorldRuntimeNpcQuestWriteService = class WorldRuntimeNpcQuestWriteService {
         }
         const nextWalletBalances = buildNextQuestWalletBalances(player.wallet?.balances ?? [], walletRewards);
         const nextQuestEntries = this.buildNextQuestEntries(playerId, player.quests.quests, quest.id, quest.nextQuestId);
+        const hasDurableMutation = (requiredItemId && requiredItemCount > 0)
+            || inventoryRewards.length > 0
+            || walletRewards.length > 0;
         if (this.canUseDurableQuestSubmit(player, deps, requiredItemId, requiredItemCount, inventoryRewards, walletRewards)) {
             const leaseContext = await resolveQuestLeaseContext(player.instanceId, deps);
+            if (typeof player?.instanceId === 'string' && player.instanceId.trim() && !leaseContext) {
+                throw new common_1.ServiceUnavailableException('npc_quest_reward_lease_context_required');
+            }
             await deps.durableOperationService.submitNpcQuestRewards({
                 operationId: buildQuestInventoryGrantOperationId(playerId, quest.id),
                 playerId,
@@ -154,6 +160,9 @@ let WorldRuntimeNpcQuestWriteService = class WorldRuntimeNpcQuestWriteService {
             applyCommittedQuestSubmitState(player, nextInventoryItems, nextWalletBalances, nextQuestEntries, this.playerRuntimeService);
             deps.refreshQuestStates(playerId, true);
         } else {
+            if (hasDurableMutation) {
+                throw new common_1.ServiceUnavailableException('npc_quest_reward_durable_context_required');
+            }
             if (requiredItemId && requiredItemCount > 0) {
                 this.playerRuntimeService.consumeInventoryItemByItemId(playerId, requiredItemId, requiredItemCount);
             }

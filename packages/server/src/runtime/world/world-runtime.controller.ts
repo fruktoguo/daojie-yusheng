@@ -570,21 +570,25 @@ let WorldRuntimeController = class WorldRuntimeController {
         const expectedInstanceId = location?.instanceId ?? null;
         const instanceLease = await this.resolveInstanceLeaseContext(expectedInstanceId);
         const operationId = `op:${normalizedPlayerId}:wallet:${action}:${walletType}:${Date.now().toString(36)}`;
-        if (typeof this.durableOperationService?.mutatePlayerWallet === 'function') {
-            await this.durableOperationService.mutatePlayerWallet({
-                operationId,
-                playerId: normalizedPlayerId,
-                expectedRuntimeOwnerId: runtimeOwnerId,
-                expectedSessionEpoch: sessionEpoch,
-                expectedInstanceId,
-                expectedAssignedNodeId: instanceLease?.assignedNodeId ?? null,
-                expectedOwnershipEpoch: instanceLease?.ownershipEpoch ?? null,
-                walletType,
-                action,
-                delta: amount,
-                nextWalletBalances,
-            });
+        if (expectedInstanceId && !instanceLease) {
+            throw new common_1.ServiceUnavailableException('instance lease is required for durable wallet mutation');
         }
+        if (typeof this.durableOperationService?.mutatePlayerWallet !== 'function') {
+            throw new common_1.ServiceUnavailableException('durable wallet mutation service is unavailable');
+        }
+        await this.durableOperationService.mutatePlayerWallet({
+            operationId,
+            playerId: normalizedPlayerId,
+            expectedRuntimeOwnerId: runtimeOwnerId,
+            expectedSessionEpoch: sessionEpoch,
+            expectedInstanceId,
+            expectedAssignedNodeId: instanceLease?.assignedNodeId ?? null,
+            expectedOwnershipEpoch: instanceLease?.ownershipEpoch ?? null,
+            walletType,
+            action,
+            delta: amount,
+            nextWalletBalances,
+        });
         if (action === 'credit') {
             return this.playerRuntimeService.creditWallet(normalizedPlayerId, walletType, amount);
         }
@@ -607,27 +611,31 @@ let WorldRuntimeController = class WorldRuntimeController {
         const rollbackState = captureInventoryGrantRollbackState(player);
         player.suppressImmediateDomainPersistence = true;
         try {
-            this.playerRuntimeService.grantItem(normalizedPlayerId, itemId, count);
-            const grantedItem = buildGrantedInventorySnapshot(itemId, count, player, rollbackState.inventoryItems.length);
             const location = this.worldRuntimeService.worldRuntimePlayerLocationService.getPlayerLocation(normalizedPlayerId);
             const expectedInstanceId = location?.instanceId ?? null;
             const instanceLease = await this.resolveInstanceLeaseContext(expectedInstanceId);
-            const operationId = `op:${normalizedPlayerId}:inventory-grant:${itemId}:x${count}:${Date.now().toString(36)}`;
-            if (typeof this.durableOperationService?.grantInventoryItems === 'function') {
-                await this.durableOperationService.grantInventoryItems({
-                    operationId,
-                    playerId: normalizedPlayerId,
-                    expectedRuntimeOwnerId: runtimeOwnerId,
-                    expectedSessionEpoch: sessionEpoch,
-                    expectedInstanceId,
-                    expectedAssignedNodeId: instanceLease?.assignedNodeId ?? null,
-                    expectedOwnershipEpoch: instanceLease?.ownershipEpoch ?? null,
-                    sourceType: 'gm_grant',
-                    sourceRefId: `gm:${itemId}`,
-                    grantedItems: [grantedItem],
-                    nextInventoryItems: buildNextInventorySnapshots(player.inventory?.items ?? []),
-                });
+            if (expectedInstanceId && !instanceLease) {
+                throw new common_1.ServiceUnavailableException('instance lease is required for durable inventory grant');
             }
+            if (typeof this.durableOperationService?.grantInventoryItems !== 'function') {
+                throw new common_1.ServiceUnavailableException('durable inventory grant service is unavailable');
+            }
+            this.playerRuntimeService.grantItem(normalizedPlayerId, itemId, count);
+            const grantedItem = buildGrantedInventorySnapshot(itemId, count, player, rollbackState.inventoryItems.length);
+            const operationId = `op:${normalizedPlayerId}:inventory-grant:${itemId}:x${count}:${Date.now().toString(36)}`;
+            await this.durableOperationService.grantInventoryItems({
+                operationId,
+                playerId: normalizedPlayerId,
+                expectedRuntimeOwnerId: runtimeOwnerId,
+                expectedSessionEpoch: sessionEpoch,
+                expectedInstanceId,
+                expectedAssignedNodeId: instanceLease?.assignedNodeId ?? null,
+                expectedOwnershipEpoch: instanceLease?.ownershipEpoch ?? null,
+                sourceType: 'gm_grant',
+                sourceRefId: `gm:${itemId}`,
+                grantedItems: [grantedItem],
+                nextInventoryItems: buildNextInventorySnapshots(player.inventory?.items ?? []),
+            });
             return player;
         }
         catch (error) {

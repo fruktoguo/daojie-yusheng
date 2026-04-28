@@ -27,6 +27,9 @@ function createGateway(log = [], playerId = 'player:1') {
             enqueueResetPlayerSpawn(inputPlayerId) {
                 log.push(['enqueueResetPlayerSpawn', inputPlayerId]);
             },
+            enqueueReturnToSpawn(inputPlayerId) {
+                log.push(['enqueueReturnToSpawn', inputPlayerId]);
+            },
             enqueueBattleTarget(inputPlayerId, locked, targetPlayerId, targetMonsterId, targetX, targetY) {
                 log.push(['enqueueBattleTarget', inputPlayerId, locked, targetPlayerId, targetMonsterId, targetX, targetY]);
             },
@@ -132,9 +135,22 @@ function testBodyTrainingStillUsesExecuteAction() {
         ['executeAction', 'player:1', 'body_training:infuse', '12', true],
     ]);
 }
+function testReturnToSpawnUsesDedicatedCommand() {
+    const log = [];
+    const helper = new WorldGatewayActionHelper(createGateway(log));
+    const client = createClient(log);
+
+    helper.handleUseAction(client, { actionId: 'travel:return_spawn' });
+
+    assert.deepEqual(log, [
+        ['markProtocol', 'socket:1', 'mainline'],
+        ['enqueueReturnToSpawn', 'player:1'],
+    ]);
+}
 
 testWorldMigrateDelegatesToExecuteAction();
 testTargetedSkillStillUsesCastSkillPath();
 testBodyTrainingStillUsesExecuteAction();
+testReturnToSpawnUsesDedicatedCommand();
 
 console.log(JSON.stringify({ ok: true, case: 'world-gateway-action-helper' }, null, 2));

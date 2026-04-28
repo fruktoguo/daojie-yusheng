@@ -4,7 +4,6 @@ import { PlayerDomainPersistenceService } from '../persistence/player-domain-per
 import {
   type PersistedPlayerSnapshot,
   type PersistedPlayerSnapshotRecord,
-  PlayerPersistenceService,
 } from '../persistence/player-persistence.service';
 import { PlayerRuntimeService } from '../runtime/player/player-runtime.service';
 import { recordAuthTrace } from './world-player-token.service';
@@ -67,7 +66,6 @@ export class WorldPlayerSnapshotService {
   private readonly playerRuntimeService: PlayerRuntimeSnapshotPort;
 
   constructor(
-    private readonly playerPersistenceService: PlayerPersistenceService,
     @Optional()
     @Inject(PlayerDomainPersistenceService)
     private readonly playerDomainPersistenceService: PlayerDomainSnapshotPort | null = null,
@@ -78,71 +76,22 @@ export class WorldPlayerSnapshotService {
   }
 
   isPersistenceEnabled(): boolean {
-    return this.playerPersistenceService.isEnabled()
-      || (typeof this.playerDomainPersistenceService?.isEnabled === 'function' && this.playerDomainPersistenceService.isEnabled());
+    return typeof this.playerDomainPersistenceService?.isEnabled === 'function'
+      && this.playerDomainPersistenceService.isEnabled();
   }
 
   async loadPersistedPlayerSnapshotRecord(playerId: string): Promise<PersistedPlayerSnapshotRecord | null> {
-    return this.playerPersistenceService.loadPlayerSnapshotRecord(playerId);
+    void playerId;
+    return null;
   }
 
   async ensureNativeStarterSnapshot(playerId: string): Promise<NativeStarterSnapshotResult> {
     const normalizedPlayerId = typeof playerId === 'string' ? playerId.trim() : '';
-    if (!normalizedPlayerId || !this.playerPersistenceService.isEnabled()) {
-      return {
-        ok: false,
-        failureStage: 'native_snapshot_recovery_persistence_disabled',
-      };
-    }
-
-    try {
-      const existingSnapshotRecord = await this.loadPersistedPlayerSnapshotRecord(normalizedPlayerId);
-      if (existingSnapshotRecord?.snapshot) {
-        return {
-          ok: true,
-          seeded: false,
-          snapshot: existingSnapshotRecord.snapshot,
-          persistedSource: normalizeSnapshotPersistedSource(existingSnapshotRecord.persistedSource),
-        };
-      }
-    } catch (error: unknown) {
-      this.logger.warn(
-        `玩家原生初始快照恢复加载失败：playerId=${normalizedPlayerId} error=${error instanceof Error ? error.message : String(error)}`,
-      );
-      return {
-        ok: false,
-        failureStage: 'native_snapshot_recovery_load_failed',
-      };
-    }
-
-    const starterSnapshot = this.playerRuntimeService.buildStarterPersistenceSnapshot(normalizedPlayerId);
-    if (!starterSnapshot) {
-      this.logger.warn(`玩家原生初始快照恢复构建失败：playerId=${normalizedPlayerId}`);
-      return {
-        ok: false,
-        failureStage: 'native_snapshot_recovery_build_failed',
-      };
-    }
-    try {
-      await this.playerPersistenceService.savePlayerSnapshot(normalizedPlayerId, starterSnapshot, {
-        persistedSource: 'native',
-        seededAt: Date.now(),
-      });
-      return {
-        ok: true,
-        seeded: true,
-        snapshot: starterSnapshot,
-        persistedSource: 'native',
-      };
-    } catch (error: unknown) {
-      this.logger.warn(
-        `玩家原生初始快照恢复保存失败：playerId=${normalizedPlayerId} error=${error instanceof Error ? error.message : String(error)}`,
-      );
-      return {
-        ok: false,
-        failureStage: 'native_snapshot_recovery_seed_failed',
-      };
-    }
+    this.logger.warn(`硬切模式拒绝原生快照补种：playerId=${normalizedPlayerId || '未知'}`);
+    return {
+      ok: false,
+      failureStage: 'native_snapshot_recovery_persistence_disabled',
+    };
   }
 
   async loadPlayerSnapshotResult(
@@ -156,15 +105,6 @@ export class WorldPlayerSnapshotService {
         (targetPlayerId) => this.playerRuntimeService.buildStarterPersistenceSnapshot(targetPlayerId),
       );
       if (projectedSnapshot) {
-        const nativeSnapshotRecord = typeof this.playerPersistenceService.loadPlayerSnapshotRecord === 'function'
-          ? await this.playerPersistenceService.loadPlayerSnapshotRecord(playerId).catch((error: unknown) => {
-            this.logger.warn(
-              `玩家分域投影补充原生快照字段失败：playerId=${playerId} error=${error instanceof Error ? error.message : String(error)}`,
-            );
-            return null;
-          })
-          : null;
-        const mergedSnapshot = mergeProjectedSnapshotWithNativeSnapshot(projectedSnapshot, nativeSnapshotRecord?.snapshot ?? null);
         const projectedFallbackReason = appendProjectionFallbackReason(fallbackReason);
         this.logger.debug(`玩家快照来源=主线 persistedSource=native projection=player-domain playerId=${playerId}`);
         recordAuthTrace({
@@ -176,7 +116,7 @@ export class WorldPlayerSnapshotService {
           fallbackHit: true,
         });
         return {
-          snapshot: mergedSnapshot,
+          snapshot: projectedSnapshot,
           source: 'mainline',
           persistedSource: 'native',
           fallbackReason: projectedFallbackReason,

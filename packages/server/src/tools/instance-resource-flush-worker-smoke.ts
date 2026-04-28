@@ -43,6 +43,7 @@ async function main(): Promise<void> {
   } as never);
   const instanceId = `instance:resource:${process.pid}:${Date.now().toString(36)}`;
   const instanceRevision = 63;
+  const ownershipEpoch = 7;
   const runtimeSnapshot = {
     version: 1,
     savedAt: Date.now(),
@@ -70,7 +71,7 @@ async function main(): Promise<void> {
         return {
           meta: {
             persistent: true,
-            ownershipEpoch: 0,
+            ownershipEpoch,
           },
           getPersistenceRevision() {
             return instanceRevision;
@@ -89,9 +90,16 @@ async function main(): Promise<void> {
     await ledger.upsertInstanceFlushLedger({
       instanceId,
       domain: 'tile_resource',
-      ownershipEpoch: 0,
+      ownershipEpoch,
       latestVersion: instanceRevision,
     });
+    const wrongEpochRows = await ledger.claimInstanceFlushLedger({
+      workerId: 'instance-resource-worker-smoke:wrong-epoch-probe',
+      domain: 'tile_resource',
+      ownershipEpoch: 0,
+      limit: 10,
+    });
+    assert.equal(wrongEpochRows.length, 0);
 
     const processedCount = await worker.runOnce('instance-resource-worker-smoke');
     assert.ok(wakeup.listWakeupKeys().some((key) => key.startsWith('flush:wakeup:instance:')));
@@ -99,7 +107,6 @@ async function main(): Promise<void> {
     const ledgerRows = await ledger.claimInstanceFlushLedger({
       workerId: 'instance-resource-worker-smoke:probe',
       domain: 'tile_resource',
-      ownershipEpoch: 0,
       limit: 10,
     });
     assert.equal(ledgerRows.length, 0);
@@ -109,7 +116,6 @@ async function main(): Promise<void> {
     const latestLedgerRow = await ledger.claimInstanceFlushLedger({
       workerId: 'instance-resource-worker-smoke:probe-version',
       domain: 'tile_resource',
-      ownershipEpoch: 0,
       limit: 10,
     });
     assert.equal(latestLedgerRow.length, 0);
@@ -120,8 +126,9 @@ async function main(): Promise<void> {
           ok: true,
           processedCount,
           instanceId,
+          ownershipEpoch,
           tileResourceCount: tileEntries.length,
-          answers: 'instance resource worker 已认领 instance_flush_ledger，并写入 instance_tile_resource_state',
+          answers: 'instance resource worker 已跨非零 ownershipEpoch 认领 instance_flush_ledger，并写入 instance_tile_resource_state',
           excludes: '不证明多节点 worker 竞争、完整 dead-letter 或 Redis 唤醒',
           completionMapping: 'replace-ready:proof:with-db.instance-resource-flush-worker',
         },

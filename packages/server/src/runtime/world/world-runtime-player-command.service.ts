@@ -238,6 +238,15 @@ let WorldRuntimePlayerCommandService = class WorldRuntimePlayerCommandService {
         if (player.hp <= 0 && command.kind !== 'redeemCodes') {
             return;
         }
+        if (player.combat?.pendingSkillCast && (command.kind === 'startAlchemy' || command.kind === 'startEnhancement' || command.kind === 'startGather')) {
+            const pendingActivityText = command.kind === 'startEnhancement'
+                ? '吟唱中无法分心强化。'
+                : command.kind === 'startGather'
+                    ? '吟唱中无法分心采集。'
+                    : '吟唱中无法分心炼丹。';
+            deps.queuePlayerNotice?.(playerId, pendingActivityText, 'system');
+            return;
+        }
         switch (command.kind) {
             case 'useItem':
                 this.worldRuntimeUseItemService.dispatchUseItem(playerId, command.slotIndex, deps, command.payload);
@@ -326,6 +335,11 @@ let WorldRuntimePlayerCommandService = class WorldRuntimePlayerCommandService {
         const currentTick = shouldCheckActionReady && typeof deps.resolveCurrentTickForPlayerId === 'function'
             ? Math.max(0, Math.trunc(deps.resolveCurrentTickForPlayerId(playerId)))
             : 0;
+        if (player.combat?.pendingSkillCast) {
+            throw new common_1.BadRequestException(command.kind === 'castSkill'
+                ? '正在吟唱中，无法继续施法。'
+                : '正在吟唱中，无法执行战斗动作。');
+        }
         if (shouldCheckActionReady) {
             assertCombatActionReady(player, currentTick);
         }

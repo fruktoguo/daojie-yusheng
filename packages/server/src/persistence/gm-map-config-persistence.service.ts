@@ -2,9 +2,9 @@ import { Injectable, Logger, type OnModuleDestroy, type OnModuleInit } from '@ne
 import { Pool, type PoolClient } from 'pg';
 
 import { DatabasePoolProvider } from './database-pool.provider';
-import { ensurePersistentDocumentsTable } from './persistent-document-table';
 
 export const GM_MAP_CONFIG_SCOPE = 'server_gm_map_config_v1';
+export const GM_MAP_CONFIG_TABLE = 'server_gm_map_config';
 const GM_MAP_CONFIG_LOCK_NAMESPACE = 42872;
 
 export interface GmMapConfigPayload {
@@ -59,10 +59,10 @@ export class GmMapConfigPersistenceService implements OnModuleInit, OnModuleDest
       return;
     }
     try {
-      await ensurePersistentDocumentsTable(this.pool);
+      await ensureGmMapConfigTable(this.pool);
       this.enabled = true;
       this.initialized = true;
-      this.logger.log('GM 地图配置持久化已启用（persistent_documents）');
+      this.logger.log('GM 地图配置持久化已启用（server_gm_map_config）');
     } catch (error: unknown) {
       this.logger.error(
         'GM 地图配置持久化初始化失败，已回退为禁用模式',
@@ -106,21 +106,37 @@ export class GmMapConfigPersistenceService implements OnModuleInit, OnModuleDest
   /** 读取单张地图的原始 payload（仅持久化层内部与合并逻辑使用）。 */
   private async loadMapConfigPayload(client: Pool | PoolClient, mapId: string): Promise<GmMapConfigPayload> {
     const result = await client.query(
-      `SELECT payload FROM persistent_documents WHERE scope = $1 AND key = $2`,
-      [GM_MAP_CONFIG_SCOPE, mapId],
+      `SELECT speed, paused, scale, offset_ticks FROM ${GM_MAP_CONFIG_TABLE} WHERE map_id = $1`,
+      [mapId],
     );
-    const payload = result.rows?.[0]?.payload as Record<string, unknown> | undefined;
-    return normalizePayload(payload);
+    const row = result.rows?.[0] as Record<string, unknown> | undefined;
+    return normalizePayload({
+      speed: row?.speed,
+      paused: row?.paused,
+      scale: row?.scale,
+      offsetTicks: row?.offset_ticks,
+    });
   }
 
   /** 写入单张地图配置（upsert），不检查是否默认值。 */
   private async upsertMapConfig(client: Pool | PoolClient, mapId: string, payload: GmMapConfigPayload): Promise<void> {
     await client.query(
-      `INSERT INTO persistent_documents (scope, key, payload, "updatedAt")
-       VALUES ($1, $2, $3::jsonb, now())
-       ON CONFLICT (scope, key)
-       DO UPDATE SET payload = EXCLUDED.payload, "updatedAt" = now()`,
-      [GM_MAP_CONFIG_SCOPE, mapId, JSON.stringify(payload)],
+      `INSERT INTO ${GM_MAP_CONFIG_TABLE} (map_id, speed, paused, scale, offset_ticks, updated_at)
+       VALUES ($1, $2, $3, $4, $5, now())
+       ON CONFLICT (map_id)
+       DO UPDATE SET
+         speed = EXCLUDED.speed,
+         paused = EXCLUDED.paused,
+         scale = EXCLUDED.scale,
+         offset_ticks = EXCLUDED.offset_ticks,
+         updated_at = now()`,
+      [
+        mapId,
+        normalizeOptionalNumber(payload.speed) ?? null,
+        typeof payload.paused === 'boolean' ? payload.paused : null,
+        normalizeOptionalNumber(payload.scale) ?? null,
+        normalizeOptionalNumber(payload.offsetTicks) ?? null,
+      ],
     );
   }
 
@@ -129,15 +145,19 @@ export class GmMapConfigPersistenceService implements OnModuleInit, OnModuleDest
     await this.ensureInitialized();
     if (!this.pool || !this.enabled) return [];
     const result = await this.pool.query(
-      `SELECT key, payload FROM persistent_documents WHERE scope = $1`,
-      [GM_MAP_CONFIG_SCOPE],
+      `SELECT map_id, speed, paused, scale, offset_ticks FROM ${GM_MAP_CONFIG_TABLE} ORDER BY map_id ASC`,
     );
     return (result.rows ?? [])
       .map((row: Record<string, unknown>) => {
-        const mapId = normalizeMapId(row?.key);
+        const mapId = normalizeMapId(row?.map_id);
         return {
           mapId,
-          ...normalizePayload((row?.payload ?? {}) as Record<string, unknown>),
+          ...normalizePayload({
+            speed: row?.speed,
+            paused: row?.paused,
+            scale: row?.scale,
+            offsetTicks: row?.offset_ticks,
+          }),
         } satisfies GmMapConfigRecord;
       })
       .filter((r) => Boolean(r.mapId));
@@ -155,8 +175,8 @@ export class GmMapConfigPersistenceService implements OnModuleInit, OnModuleDest
   private async removeMapConfigWithClient(client: Pool | PoolClient, mapId: string): Promise<void> {
     if (!mapId) return;
     await client.query(
-      `DELETE FROM persistent_documents WHERE scope = $1 AND key = $2`,
-      [GM_MAP_CONFIG_SCOPE, mapId],
+      `DELETE FROM ${GM_MAP_CONFIG_TABLE} WHERE map_id = $1`,
+      [mapId],
     );
   }
 
@@ -175,6 +195,30 @@ export class GmMapConfigPersistenceService implements OnModuleInit, OnModuleDest
         await this.removeMapConfig(record.mapId);
       }
     }
+  }
+}
+
+async function ensureGmMapConfigTable(pool: Pool): Promise<void> {
+  const client = await pool.connect();
+  try {
+    await client.query('BEGIN');
+    await client.query('SELECT pg_advisory_xact_lock($1::integer, $2::integer)', [GM_MAP_CONFIG_LOCK_NAMESPACE, 0]);
+    await client.query(`
+      CREATE TABLE IF NOT EXISTS ${GM_MAP_CONFIG_TABLE} (
+        map_id varchar(120) PRIMARY KEY,
+        speed double precision,
+        paused boolean,
+        scale double precision,
+        offset_ticks bigint,
+        updated_at timestamptz NOT NULL DEFAULT now()
+      )
+    `);
+    await client.query('COMMIT');
+  } catch (error: unknown) {
+    await client.query('ROLLBACK').catch(() => undefined);
+    throw error;
+  } finally {
+    client.release();
   }
 }
 

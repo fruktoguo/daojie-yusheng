@@ -89,7 +89,6 @@ function buildSnapshot(savedAt: number): PersistedPlayerSnapshot {
 }
 
 function createHarness() {
-  const snapshotCalls: string[] = [];
   const fullProjectionCalls: string[] = [];
   const selectiveProjectionCalls: Array<{ playerId: string; domains: string[] }> = [];
   const presenceCalls: string[] = [];
@@ -128,15 +127,6 @@ function createHarness() {
     },
   };
 
-  const playerPersistenceService = {
-    isEnabled() {
-      return true;
-    },
-    async savePlayerSnapshot(playerId: string) {
-      snapshotCalls.push(playerId);
-    },
-  };
-
   const playerDomainPersistenceService = {
     isEnabled() {
       return true;
@@ -161,7 +151,6 @@ function createHarness() {
 
   const service = new PlayerPersistenceFlushService(
     playerRuntimeService as never,
-    playerPersistenceService as never,
     playerDomainPersistenceService as never,
   );
   service.setLeaseGuard({
@@ -173,7 +162,6 @@ function createHarness() {
   return {
     service,
     playerRuntimeService,
-    snapshotCalls,
     fullProjectionCalls,
     selectiveProjectionCalls,
     presenceCalls,
@@ -190,7 +178,6 @@ async function testPresenceOnlyFlush(): Promise<void> {
 
   await harness.service.flushDirtyPlayers();
 
-  assert.deepEqual(harness.snapshotCalls, []);
   assert.deepEqual(harness.fullProjectionCalls, []);
   assert.deepEqual(harness.selectiveProjectionCalls, []);
   assert.deepEqual(harness.presenceCalls, ['player:presence']);
@@ -202,13 +189,9 @@ async function testSelectiveProjectionFlush(): Promise<void> {
   const playerId = 'player:selective';
   harness.playerRuntimeService.dirtyDomains.set(playerId, new Set(['inventory', 'presence']));
   harness.playerRuntimeService.snapshots.set(playerId, buildSnapshot(120_000));
-  (harness.service as unknown as { lastSnapshotCheckpointAtByPlayerId: Map<string, number> })
-    .lastSnapshotCheckpointAtByPlayerId
-    .set(playerId, 100_500);
 
   await harness.service.flushDirtyPlayers();
 
-  assert.deepEqual(harness.snapshotCalls, []);
   assert.deepEqual(harness.fullProjectionCalls, []);
   assert.deepEqual(harness.selectiveProjectionCalls, [
     { playerId, domains: ['inventory'] },
@@ -225,7 +208,6 @@ async function testWalletSelectiveProjectionFlush(): Promise<void> {
 
   await harness.service.flushDirtyPlayers();
 
-  assert.deepEqual(harness.snapshotCalls, []);
   assert.deepEqual(harness.fullProjectionCalls, []);
   assert.deepEqual(harness.selectiveProjectionCalls, [
     { playerId, domains: ['wallet'] },
@@ -242,7 +224,22 @@ async function testLeaseGuardBlocksFlush(): Promise<void> {
 
   await harness.service.flushDirtyPlayers();
 
-  assert.deepEqual(harness.snapshotCalls, []);
+  assert.deepEqual(harness.fullProjectionCalls, []);
+  assert.deepEqual(harness.selectiveProjectionCalls, []);
+  assert.deepEqual(harness.presenceCalls, []);
+  assert.deepEqual(harness.markedPersisted, []);
+}
+
+async function testSnapshotFallbackDomainRejected(): Promise<void> {
+  const harness = createHarness();
+  const playerId = 'player:snapshot-domain';
+  harness.playerRuntimeService.dirtyDomains.set(playerId, new Set(['snapshot']));
+  harness.playerRuntimeService.snapshots.set(playerId, buildSnapshot(240_000));
+
+  await assert.rejects(
+    () => harness.service.flushPlayer(playerId),
+    /player_domain_delta_required:player:snapshot-domain:snapshot/,
+  );
   assert.deepEqual(harness.fullProjectionCalls, []);
   assert.deepEqual(harness.selectiveProjectionCalls, []);
   assert.deepEqual(harness.presenceCalls, []);
@@ -254,12 +251,13 @@ async function main(): Promise<void> {
   await testSelectiveProjectionFlush();
   await testWalletSelectiveProjectionFlush();
   await testLeaseGuardBlocksFlush();
+  await testSnapshotFallbackDomainRejected();
 
   console.log(
     JSON.stringify(
       {
         ok: true,
-        answers: 'PlayerPersistenceFlushService 现已支持 presence-only 直写、受支持脏域 selective projection、wallet 分域投影，并在 flush 提交前通过 lease guard 二次校验，lease 失效时不会继续提交 snapshot/presence',
+        answers: 'PlayerPersistenceFlushService 现已只写玩家分域表：presence-only 直写、受支持脏域 selective projection、wallet 分域投影；snapshot fallback 脏域会硬失败，lease 失效时不会继续提交。',
         completionMapping: 'replace-ready:proof:with-db.player-persistence-flush-strategy',
       },
       null,

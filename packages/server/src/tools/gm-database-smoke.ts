@@ -69,9 +69,9 @@ const GM_DATABASE_JOB_SETTLE_TIMEOUT_MS = 120_000;
 
 const GM_DATABASE_RESTORE_SETTLE_TIMEOUT_MS = 720_000;
 
-const GM_DATABASE_JOB_STATE_SCOPE = 'server_db_jobs_v1';
-
 const GM_DATABASE_JOB_STATE_KEY = 'gm_database';
+const GM_AUTH_TABLE = 'server_gm_auth';
+const GM_DATABASE_JOB_STATE_TABLE = 'server_db_job_state';
 
 const POSTGRES_DUMP_MAGIC = Buffer.from('PGDMP');
 
@@ -1147,8 +1147,7 @@ async function resetGmAuthPasswordRecord() {
     const client = new pg_1.Client({ connectionString: databaseUrl });
     await client.connect();
     try {
-        await client.query('DELETE FROM persistent_documents WHERE scope = $1 AND key = $2', [
-            next_gm_contract_1.GM_AUTH_CONTRACT.passwordRecordScope,
+        await client.query(`DELETE FROM ${GM_AUTH_TABLE} WHERE record_key = $1`, [
             next_gm_contract_1.GM_AUTH_CONTRACT.passwordRecordKey,
         ]);
     }
@@ -1167,14 +1166,13 @@ async function readGmAuthPasswordRecordPayload() {
   const client = new pg_1.Client({ connectionString: databaseUrl });
   await client.connect();
   try {
-    const result = await client.query('SELECT payload FROM persistent_documents WHERE scope = $1 AND key = $2 LIMIT 1', [
-      next_gm_contract_1.GM_AUTH_CONTRACT.passwordRecordScope,
+    const result = await client.query(`SELECT raw_payload FROM ${GM_AUTH_TABLE} WHERE record_key = $1 LIMIT 1`, [
       next_gm_contract_1.GM_AUTH_CONTRACT.passwordRecordKey,
     ]);
     if ((result.rowCount ?? 0) === 0) {
       return null;
     }
-    return result.rows[0]?.payload ?? null;
+    return result.rows[0]?.raw_payload ?? null;
   }
   catch (error) {
     if (error && typeof error === 'object' && error.code === '42P01') {
@@ -1624,14 +1622,13 @@ async function assertGmAuthPasswordRecordMatchesBackup(expectedPayload) {
   const client = new pg_1.Client({ connectionString: databaseUrl });
   await client.connect();
   try {
-    const result = await client.query('SELECT payload FROM persistent_documents WHERE scope = $1 AND key = $2 LIMIT 1', [
-      next_gm_contract_1.GM_AUTH_CONTRACT.passwordRecordScope,
+    const result = await client.query(`SELECT raw_payload FROM ${GM_AUTH_TABLE} WHERE record_key = $1 LIMIT 1`, [
       next_gm_contract_1.GM_AUTH_CONTRACT.passwordRecordKey,
     ]);
     if ((result.rowCount ?? 0) === 0) {
       throw new Error('expected restored GM auth password record to exist before relogin');
     }
-    const currentPayload = result.rows[0]?.payload ?? null;
+    const currentPayload = result.rows[0]?.raw_payload ?? null;
     if (JSON.stringify(currentPayload) !== JSON.stringify(expectedPayload)) {
       throw new Error(`expected restored GM auth password record to match backup payload, got ${JSON.stringify({
         expectedPayload,
@@ -2623,11 +2620,10 @@ async function readPersistedDatabaseJobState() {
     const client = new pg_1.Client({ connectionString: databaseUrl });
     await client.connect();
     try {
-        const result = await client.query('SELECT payload FROM persistent_documents WHERE scope = $1 AND key = $2 LIMIT 1', [
-            GM_DATABASE_JOB_STATE_SCOPE,
+        const result = await client.query(`SELECT raw_payload FROM ${GM_DATABASE_JOB_STATE_TABLE} WHERE state_key = $1 LIMIT 1`, [
             GM_DATABASE_JOB_STATE_KEY,
         ]);
-        return result.rows[0]?.payload ?? {};
+        return result.rows[0]?.raw_payload ?? {};
     }
     catch (error) {
         if (error && typeof error === 'object' && error.code === '42P01') {

@@ -2873,6 +2873,7 @@ class MapInstanceRuntime {
         let changed = false;
         for (const monster of this.monstersByRuntimeId.values()) {
             if (!monster.alive) {
+                monster.pendingCast = undefined;
                 if (monster.respawnLeft <= 0) {
                     continue;
                 }
@@ -2889,6 +2890,26 @@ class MapInstanceRuntime {
                 changed = true;
             }
             changed = recoverMonsterHp(monster) || changed;
+
+            if (monster.pendingCast) {
+                monster.pendingCast.remainingTicks = Math.max(0, Math.trunc(Number(monster.pendingCast.remainingTicks) || 0) - 1);
+                if (monster.pendingCast.remainingTicks > 0) {
+                    continue;
+                }
+                const pendingCast = monster.pendingCast;
+                monster.pendingCast = undefined;
+                const pendingTarget = this.playersById.get(pendingCast.targetPlayerId);
+                if (pendingTarget) {
+                    monsterActions.push({
+                        instanceId: this.meta.instanceId,
+                        runtimeId: monster.runtimeId,
+                        targetPlayerId: pendingTarget.playerId,
+                        kind: 'skill',
+                        skillId: pendingCast.skillId,
+                    });
+                }
+                continue;
+            }
 
             const target = this.resolveMonsterTarget(monster);
             if (!target) {
@@ -2912,6 +2933,38 @@ class MapInstanceRuntime {
             const skill = chooseMonsterSkill(monster, distance, this.tick);
             if (skill) {
                 monster.cooldownReadyTickBySkillId[skill.id] = this.tick + Math.max(1, Math.round(skill.cooldown));
+                const windupTicks = getMonsterSkillWindupTicks(skill);
+                if (windupTicks > 0) {
+                    const warningCells = buildMonsterSkillAffectedCells(monster, skill, { x: target.x, y: target.y });
+                    if (warningCells.length > 0) {
+                        const geometry = buildEffectiveMonsterSkillGeometry(monster, skill);
+                        const warningOrigin = (geometry.shape ?? 'single') === 'line'
+                            ? { x: monster.x, y: monster.y }
+                            : { x: target.x, y: target.y };
+                        monster.facing = resolveFacingToward(monster.x, monster.y, target.x, target.y);
+                        monster.pendingCast = {
+                            skillId: skill.id,
+                            targetPlayerId: target.playerId,
+                            targetX: target.x,
+                            targetY: target.y,
+                            remainingTicks: windupTicks,
+                            warningColor: getMonsterSkillWarningColor(skill),
+                        };
+                        monsterActions.push({
+                            instanceId: this.meta.instanceId,
+                            runtimeId: monster.runtimeId,
+                            targetPlayerId: target.playerId,
+                            kind: 'skill_chant',
+                            skillId: skill.id,
+                            warningCells,
+                            warningColor: monster.pendingCast.warningColor,
+                            warningOriginX: warningOrigin.x,
+                            warningOriginY: warningOrigin.y,
+                            durationMs: windupTicks * 1000,
+                        });
+                        continue;
+                    }
+                }
                 monsterActions.push({
                     instanceId: this.meta.instanceId,
                     runtimeId: monster.runtimeId,
@@ -4184,7 +4237,10 @@ function chooseMonsterSkill(monster, distance, currentTick) {
 
     let selectedRange = 0;
     for (const skill of monster.skills) {
-        const skillRange = resolveSkillRange(skill);
+        if (!matchesMonsterSkillConditions(monster, skill)) {
+            continue;
+        }
+        const skillRange = buildEffectiveMonsterSkillGeometry(monster, skill).range;
         if (distance > skillRange) {
             continue;
         }
@@ -4204,6 +4260,87 @@ function chooseMonsterSkill(monster, distance, currentTick) {
         }
     }
     return selected;
+}
+function matchesMonsterSkillConditions(monster, skill) {
+    const group = skill?.monsterCast?.conditions;
+    if (!group || !Array.isArray(group.items) || group.items.length === 0) {
+        return true;
+    }
+    const matches = (condition) => matchesMonsterSkillCondition(monster, condition);
+    return group.mode === 'any' ? group.items.some(matches) : group.items.every(matches);
+}
+function matchesMonsterSkillCondition(monster, condition) {
+    switch (condition?.type) {
+        case 'hp_ratio': {
+            const maxHp = Math.max(1, Math.round(monster.maxHp));
+            const ratio = maxHp > 0 ? monster.hp / maxHp : 0;
+            return condition.op === '<=' ? ratio <= condition.value : ratio >= condition.value;
+        }
+        case 'qi_ratio': {
+            const maxQi = Math.max(0, Math.round(monster.numericStats?.maxQi ?? 0));
+            const qi = Math.max(0, Math.round(monster.qi ?? 0));
+            const ratio = maxQi > 0 ? qi / maxQi : 0;
+            return condition.op === '<=' ? ratio <= condition.value : ratio >= condition.value;
+        }
+        case 'has_buff':
+            return (monster.buffs ?? []).some((buff) => (
+                buff.buffId === condition.buffId
+                && Number(buff.remainingTicks) > 0
+                && Number(buff.stacks ?? 0) >= (condition.minStacks ?? 1)
+            ));
+        case 'is_cultivating':
+        case 'target_kind':
+            return condition.value === false;
+        default:
+            return true;
+    }
+}
+function getMonsterSkillWindupTicks(skill) {
+    const windupTicks = skill?.monsterCast?.windupTicks;
+    return Number.isFinite(windupTicks)
+        ? Math.max(0, Math.floor(Number(windupTicks)))
+        : 0;
+}
+function getMonsterSkillWarningColor(skill) {
+    return typeof skill?.monsterCast?.warningColor === 'string' && skill.monsterCast.warningColor.trim().length > 0
+        ? skill.monsterCast.warningColor.trim()
+        : undefined;
+}
+function buildEffectiveMonsterSkillGeometry(monster, skill) {
+    return (0, shared_1.buildEffectiveTargetingGeometry)({
+        range: resolveSkillRange(skill),
+        shape: skill.targeting?.shape ?? 'single',
+        radius: skill.targeting?.radius,
+        innerRadius: skill.targeting?.innerRadius,
+        width: skill.targeting?.width,
+        height: skill.targeting?.height,
+        checkerParity: skill.targeting?.checkerParity,
+    }, {
+        extraRange: Math.max(0, Math.floor(monster.numericStats?.extraRange ?? 0)),
+        extraArea: Math.max(0, Math.floor(monster.numericStats?.extraArea ?? 0)),
+    });
+}
+function buildMonsterSkillAffectedCells(monster, skill, anchor) {
+    const geometry = buildEffectiveMonsterSkillGeometry(monster, skill);
+    const shape = geometry.shape ?? 'single';
+    if (shape === 'single') {
+        return chebyshevDistance(monster.x, monster.y, anchor.x, anchor.y) <= geometry.range
+            ? [{ x: anchor.x, y: anchor.y }]
+            : [];
+    }
+    return (0, shared_1.computeAffectedCellsFromAnchor)({ x: monster.x, y: monster.y }, anchor, geometry);
+}
+function resolveFacingToward(fromX, fromY, toX, toY) {
+    if (toX > fromX) {
+        return shared_1.Direction.East;
+    }
+    if (toX < fromX) {
+        return shared_1.Direction.West;
+    }
+    if (toY > fromY) {
+        return shared_1.Direction.South;
+    }
+    return shared_1.Direction.North;
 }
 /** resolveSkillRange：解析技能射程。 */
 function resolveSkillRange(skill) {

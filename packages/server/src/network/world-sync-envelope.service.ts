@@ -259,9 +259,15 @@ function filterCombatEffects(effects, visibleTiles) {
         return [];
     }
     return effects
-        .filter((effect) => effect.type === 'attack'
-        ? visibleTiles.has(buildCoordKey(effect.fromX, effect.fromY)) || visibleTiles.has(buildCoordKey(effect.toX, effect.toY))
-        : visibleTiles.has(buildCoordKey(effect.x, effect.y)))
+        .filter((effect) => {
+            if (effect.type === 'attack') {
+                return visibleTiles.has(buildCoordKey(effect.fromX, effect.fromY)) || visibleTiles.has(buildCoordKey(effect.toX, effect.toY));
+            }
+            if (effect.type === 'warning_zone') {
+                return effect.cells.some((cell) => visibleTiles.has(buildCoordKey(cell.x, cell.y)));
+            }
+            return visibleTiles.has(buildCoordKey(effect.x, effect.y));
+        })
         .map((entry) => cloneCombatEffect(entry));
 }
 

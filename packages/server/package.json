@@ -91,6 +91,7 @@
     "smoke:instance-tile-damage-flush-worker": "pnpm compile && node dist/tools/instance-tile-damage-flush-worker-smoke.js",
     "smoke:instance-overlay-flush-worker": "pnpm compile && node dist/tools/instance-overlay-flush-worker-smoke.js",
     "smoke:instance-monster-runtime-flush-worker": "pnpm compile && node dist/tools/instance-monster-runtime-flush-worker-smoke.js",
+    "audit:persistence-hard-cut": "pnpm compile && node dist/tools/persistence-hard-cut-audit.js",
     "smoke:migrate-next-mainline": "pnpm compile && node dist/tools/migrate-next-mainline-once.js --apply",
     "convert:legacy-map-dump": "pnpm compile && node dist/tools/convert-legacy-map-dump.js",
     "smoke:durable-operation": "pnpm compile && node dist/tools/durable-operation-smoke.js",

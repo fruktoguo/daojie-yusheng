@@ -72,7 +72,7 @@ let WorldRuntimeCombatEffectsService = class WorldRuntimeCombatEffectsService {
  * @returns 无返回值，直接更新ActionLabelEffect相关状态。
  */
 
-    pushActionLabelEffect(instanceId, x, y, text) {
+    pushActionLabelEffect(instanceId, x, y, text, options = undefined) {
         this.pushCombatEffect(instanceId, {
             type: 'float',
             x,
@@ -80,6 +80,8 @@ let WorldRuntimeCombatEffectsService = class WorldRuntimeCombatEffectsService {
             text,
             color: '#efe3c2',
             variant: 'action',
+            actionStyle: options?.actionStyle,
+            durationMs: options?.durationMs,
         });
     }    
     /**

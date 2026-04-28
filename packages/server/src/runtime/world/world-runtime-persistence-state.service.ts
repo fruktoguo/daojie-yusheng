@@ -172,7 +172,7 @@ let WorldRuntimePersistenceStateService = class WorldRuntimePersistenceStateServ
                 await persistence.saveTileResourceDelta(instanceId, delta.upserts ?? [], delta.deletes ?? []);
             }
             else {
-                await persistence.saveTileResourceDiffs(instanceId, instance.buildTileResourcePersistenceEntries());
+                throw new Error(`instance_domain_delta_required:${instanceId}:tile_resource`);
             }
             persistedDomains.push('tile_resource');
         }
@@ -184,9 +184,7 @@ let WorldRuntimePersistenceStateService = class WorldRuntimePersistenceStateServ
                 await persistence.saveTileDamageDelta(instanceId, delta.upserts ?? [], delta.deletes ?? []);
             }
             else {
-                await persistence.saveTileDamageStates(instanceId, typeof instance.buildTileDamagePersistenceEntries === 'function'
-                    ? instance.buildTileDamagePersistenceEntries()
-                    : []);
+                throw new Error(`instance_domain_delta_required:${instanceId}:tile_damage`);
             }
             persistedDomains.push('tile_damage');
         }
@@ -204,7 +202,7 @@ let WorldRuntimePersistenceStateService = class WorldRuntimePersistenceStateServ
                 await persistence.replaceGroundItemTiles(instanceId, delta.tileIndices ?? [], delta.entries ?? []);
             }
             else {
-                await persistence.replaceGroundItems(instanceId, instance.buildGroundPersistenceEntries());
+                throw new Error(`instance_domain_delta_required:${instanceId}:ground_item`);
             }
             persistedDomains.push('ground_item');
         }
@@ -226,9 +224,7 @@ let WorldRuntimePersistenceStateService = class WorldRuntimePersistenceStateServ
                 await persistence.saveMonsterRuntimeDelta(instanceId, delta.upserts ?? [], delta.deletes ?? []);
             }
             else {
-                await persistence.replaceMonsterRuntimeStates(instanceId, typeof instance.buildMonsterRuntimePersistenceEntries === 'function'
-                    ? instance.buildMonsterRuntimePersistenceEntries()
-                    : []);
+                throw new Error(`instance_domain_delta_required:${instanceId}:monster_runtime`);
             }
             persistedDomains.push('monster_runtime');
         }
@@ -241,14 +237,8 @@ let WorldRuntimePersistenceStateService = class WorldRuntimePersistenceStateServ
             persistedDomains.push('time');
         }
         const unsupportedDomains = Array.from(currentDomains).filter((domain) => !persistedDomains.includes(domain));
-        if (unsupportedDomains.length > 0 && typeof persistence.saveInstanceCheckpoint === 'function') {
-            const snapshot = this.buildMapPersistenceSnapshot(instanceId, deps);
-            await persistence.saveInstanceCheckpoint(instanceId, {
-                kind: 'domain_fallback_checkpoint',
-                domains: unsupportedDomains,
-                snapshot,
-            });
-            persistedDomains.push(...unsupportedDomains);
+        if (unsupportedDomains.length > 0) {
+            throw new Error(`unsupported_instance_persistence_domains:${instanceId}:${unsupportedDomains.join(',')}`);
         }
         if (persistedDomains.length > 0 && typeof persistence.saveInstanceRecoveryWatermark === 'function') {
             await persistence.saveInstanceRecoveryWatermark(instanceId, buildInstanceDomainRecoveryWatermark(instance, persistedDomains));

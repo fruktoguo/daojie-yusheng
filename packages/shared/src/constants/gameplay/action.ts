@@ -13,6 +13,12 @@ export const PLAYER_ENABLED_SKILL_SLOT_BONUS_EVERY_SIX_LEVELS = 1;
 export const PLAYER_ENABLED_SKILL_SLOT_BONUS_EVERY_TWELVE_LEVELS = 1;
 export const PLAYER_ENABLED_SKILL_SLOT_LEVEL_STEP = PLAYER_ENABLED_SKILL_SLOT_LEVEL_STEP_MID;
 
+/** 遁返命石绑定复活点的行动 id。 */
+export const RETURN_TO_SPAWN_ACTION_ID = 'travel:return_spawn';
+
+/** 遁返命石绑定复活点的调息时长（息）。 */
+export const RETURN_TO_SPAWN_COOLDOWN_TICKS = 1800;
+
 export function getPlayerEnabledSkillSlotLimitByLevel(level: number | undefined): number {
   const normalizedLevel = Number.isFinite(level) ? Math.max(1, Math.floor(Number(level))) : 1;
   let extraSlots = 0;

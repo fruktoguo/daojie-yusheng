@@ -26,6 +26,7 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.WorldRuntimeContextActionQueryService = void 0;
 
 const common_1 = require("@nestjs/common");
+const shared_1 = require("@mud/shared");
 
 const map_template_repository_1 = require("../map/map-template.repository");
 
@@ -128,6 +129,11 @@ let WorldRuntimeContextActionQueryService = class WorldRuntimeContextActionQuery
 
         const actions = [];
         const player = this.playerRuntimeService.getPlayer(view.playerId);
+        const currentTick = Number.isFinite(Number(view?.tick))
+            ? Math.max(0, Math.trunc(Number(view.tick)))
+            : (typeof deps?.resolveCurrentTickForPlayerId === 'function'
+                ? deps.resolveCurrentTickForPlayerId(view.playerId)
+                : 0);
         actions.push({
             id: 'battle:force_attack',
             name: '强制攻击',
@@ -145,12 +151,14 @@ let WorldRuntimeContextActionQueryService = class WorldRuntimeContextActionQuery
         if (respawnTargetMapId && this.templateRepository.has(respawnTargetMapId)) {
             respawnTargetName = this.templateRepository.getOrThrow(respawnTargetMapId).name || respawnTargetMapId;
         }
+        const returnReadyTick = Math.max(0, Math.trunc(Number(player?.combat?.cooldownReadyTickBySkillId?.[shared_1.RETURN_TO_SPAWN_ACTION_ID] ?? 0)));
+        const returnCooldownLeft = Math.max(0, returnReadyTick - currentTick);
         actions.push({
-            id: 'travel:return_spawn',
+            id: shared_1.RETURN_TO_SPAWN_ACTION_ID,
             name: '遁返',
             type: 'travel',
-            desc: `催动归引灵符，遁返回 ${respawnTargetName}。`,
-            cooldownLeft: 0,
+            desc: `催动归引灵符，遁返回 ${respawnTargetName}，之后需调息 ${shared_1.RETURN_TO_SPAWN_COOLDOWN_TICKS} 息。`,
+            cooldownLeft: returnCooldownLeft,
         });
         for (const action of STATIC_TOGGLE_CONTEXT_ACTIONS) {
             actions.push({

@@ -7,11 +7,9 @@ const { AppModule } = require("../app.module");
 const { NativeGmAdminService } = require("../http/native/native-gm-admin.service");
 const { resolveServerDatabaseUrl } = require("../config/env-alias");
 
-const NATIVE_CONFIG_SCOPE = "server_afdian_config_v1";
-const LEGACY_CONFIG_SCOPE = "server_legacy_afdian_config_v1";
+const AFDIAN_CONFIG_TABLE = "server_afdian_config";
 const CONFIG_KEY = "afdian";
-const NATIVE_ORDER_SCOPE = "server_afdian_orders_v1";
-const LEGACY_ORDER_SCOPE = "server_legacy_afdian_orders_v1";
+const AFDIAN_ORDER_TABLE = "server_afdian_order";
 /**
  * main：执行main相关逻辑。
  * @returns 无返回值，直接更新main相关状态。
@@ -29,34 +27,35 @@ async function main() {
   const pool = new pg.Pool({ connectionString: databaseUrl });
   const app = await core.NestFactory.createApplicationContext(AppModule, { logger: false });
   try {
+    const service = app.get(NativeGmAdminService);
     const client = await pool.connect();
     try {
-      await client.query(
-        "DELETE FROM persistent_documents WHERE scope = ANY($1::varchar[])",
-        [[NATIVE_CONFIG_SCOPE, LEGACY_CONFIG_SCOPE, NATIVE_ORDER_SCOPE, LEGACY_ORDER_SCOPE]],
-      );
-      await client.query(
-        'INSERT INTO persistent_documents(scope, key, payload, "updatedAt") VALUES ($1, $2, $3::jsonb, now())',
-        [NATIVE_CONFIG_SCOPE, CONFIG_KEY, JSON.stringify({ userId: "native-user", apiBaseUrl: "https://native.example/api", publicBaseUrl: "https://native.example" })],
-      );
-      await client.query(
-        'INSERT INTO persistent_documents(scope, key, payload, "updatedAt") VALUES ($1, $2, $3::jsonb, now())',
-        [LEGACY_CONFIG_SCOPE, CONFIG_KEY, JSON.stringify({ userId: "legacy-user", apiBaseUrl: "https://legacy.example/api", publicBaseUrl: "https://legacy.example" })],
-      );
-      await client.query(
-        'INSERT INTO persistent_documents(scope, key, payload, "updatedAt") VALUES ($1, $2, $3::jsonb, now())',
-        [NATIVE_ORDER_SCOPE, "native-order", JSON.stringify({ outTradeNo: "native-order", userId: "native-user", status: 2, totalAmount: "10.00", showAmount: "10.00", discount: "0.00", skuDetail: [], createdAt: "2026-04-17T00:00:00.000Z", updatedAt: "2026-04-17T00:00:00.000Z", lastSource: "native" })],
-      );
-      await client.query(
-        'INSERT INTO persistent_documents(scope, key, payload, "updatedAt") VALUES ($1, $2, $3::jsonb, now())',
-        [LEGACY_ORDER_SCOPE, "legacy-order", JSON.stringify({ outTradeNo: "legacy-order", userId: "legacy-user", status: 1, totalAmount: "20.00", showAmount: "20.00", discount: "0.00", skuDetail: [], createdAt: "2026-04-17T00:00:00.000Z", updatedAt: "2026-04-17T00:00:00.000Z", lastSource: "legacy" })],
-      );
+      await client.query(`DELETE FROM ${AFDIAN_CONFIG_TABLE} WHERE config_key = $1`, [CONFIG_KEY]).catch(() => undefined);
+      await client.query(`DELETE FROM ${AFDIAN_ORDER_TABLE} WHERE out_trade_no = ANY($1::varchar[])`, [["native-order"]]).catch(() => undefined);
     }
     finally {
       client.release();
     }
 
-    const service = app.get(NativeGmAdminService);
+    await service.saveAfdianConfig({
+      userId: "native-user",
+      apiBaseUrl: "https://native.example/api",
+      publicBaseUrl: "https://native.example",
+      token: "runtime-token",
+    });
+    await service.upsertAfdianOrders([
+      {
+        out_trade_no: "native-order",
+        user_id: "native-user",
+        status: 2,
+        total_amount: "10.00",
+        show_amount: "10.00",
+        discount: "0.00",
+        sku_detail: [],
+        createdAt: "2026-04-17T00:00:00.000Z",
+        updatedAt: "2026-04-17T00:00:00.000Z",
+      },
+    ], "api");
     await service.reloadPersistentCompatibilityState();
 
     const config = service.getAfdianConfig();
@@ -71,8 +70,8 @@ async function main() {
       throw new Error(`expected native afdian apiBaseUrl, got ${JSON.stringify(config?.status)}`);
     }
     const orderIds = Array.isArray(orders?.items) ? orders.items.map((entry) => entry.outTradeNo) : [];
-    if (!orderIds.includes("native-order") || orderIds.includes("legacy-order")) {
-      throw new Error(`expected native-only afdian orders, got ${JSON.stringify(orderIds)}`);
+    if (!orderIds.includes("native-order")) {
+      throw new Error(`expected structured afdian orders, got ${JSON.stringify(orderIds)}`);
     }
 
     console.log(JSON.stringify({
@@ -84,6 +83,8 @@ async function main() {
     }, null, 2));
   }
   finally {
+    await pool.query(`DELETE FROM ${AFDIAN_ORDER_TABLE} WHERE out_trade_no = ANY($1::varchar[])`, [["native-order"]]).catch(() => undefined);
+    await pool.query(`DELETE FROM ${AFDIAN_CONFIG_TABLE} WHERE config_key = $1`, [CONFIG_KEY]).catch(() => undefined);
     await app.close();
     await pool.end();
   }

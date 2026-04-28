@@ -180,7 +180,6 @@ async function main(): Promise<void> {
   const loaderPlayerId = 'player:projection-miss';
   projectedSnapshotResult = null;
   let loaderCalls = 0;
-  let loaderLoadedSnapshot: PersistedPlayerSnapshot | null = null;
   const loaderSnapshot = buildSnapshot(runtime, loaderPlayerId, {
     instanceId: 'public:loader_recovery_map',
     templateId: 'loader_recovery_map',
@@ -188,33 +187,33 @@ async function main(): Promise<void> {
     y: 17,
     facing: 1,
   });
-  const loaderPlayer = await runtime.loadOrCreatePlayer(
-    loaderPlayerId,
-    'session:projection-miss',
-    async () => {
-      loaderCalls += 1;
-      logs.push(`loader:run:${loaderPlayerId}`);
-      return loaderSnapshot;
-    },
-    {
-      buildStarterSnapshot: () => null,
-      onSnapshotLoaded(snapshot) {
-        loaderLoadedSnapshot = snapshot;
-        logs.push(`loader:selected:${snapshot?.placement.templateId ?? 'none'}`);
+  await assert.rejects(
+    () => runtime.loadOrCreatePlayer(
+      loaderPlayerId,
+      'session:projection-miss',
+      async () => {
+        loaderCalls += 1;
+        logs.push(`loader:run:${loaderPlayerId}`);
+        return loaderSnapshot;
       },
-    },
+      {
+        buildStarterSnapshot: () => null,
+        onSnapshotLoaded(snapshot) {
+          logs.push(`loader:selected:${snapshot?.placement.templateId ?? 'none'}`);
+        },
+      },
+    ),
+    /player_domain_snapshot_required:player:projection-miss/,
   );
-  assert.equal(loaderCalls, 1);
-  assert.equal(loaderPlayer.templateId, 'loader_recovery_map');
-  assert.equal(loaderLoadedSnapshot?.placement.templateId, 'loader_recovery_map');
+  assert.equal(loaderCalls, 0);
 
   console.log(JSON.stringify({
     ok: true,
     logs,
     projectionPlayerTemplateId: projectedPlayer.templateId ?? null,
-    loaderPlayerTemplateId: loaderPlayer.templateId ?? null,
-    answers: 'PlayerRuntimeService.loadOrCreatePlayer 在提供 buildStarterSnapshot 时会先尝试 player-domain 投影恢复，命中则不再调用原始 loader，未命中时再回退到旧快照 loader',
-    excludes: '不证明 hydrateFromSnapshot 已改成直接逐域装配，也不证明所有恢复入口都已完全删去旧快照依赖',
+    projectionMissRejected: true,
+    answers: 'PlayerRuntimeService.loadOrCreatePlayer 在 player-domain 启用时只接受分域投影恢复：命中则不调用旧 loader，未命中直接失败，不再回退旧快照 loader 或新建角色。',
+    excludes: '不证明所有玩家子域都已经具备独立语义迁移，只证明运行时入口已拒绝旧快照兜底。',
     completionMapping: 'replace-ready:proof:player-runtime.projection-entry',
   }, null, 2));
 }

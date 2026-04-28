@@ -17,13 +17,12 @@ const common_1 = require("@nestjs/common");
 
 const pg_1 = require("pg");
 
-const persistent_document_table_1 = require("./persistent-document-table");
-
 const env_alias_1 = require("../config/env-alias");
 
-const REDEEM_CODE_SCOPE = 'server_redeem_codes_v1';
-
-const REDEEM_CODE_KEY = 'global';
+const REDEEM_CODE_STATE_TABLE = 'server_redeem_code_state';
+const REDEEM_CODE_GROUP_TABLE = 'server_redeem_code_group';
+const REDEEM_CODE_TABLE = 'server_redeem_code';
+const REDEEM_CODE_STATE_KEY = 'global';
 
 /** 兑换码持久化服务：保存/读取兑换码组与兑换码实例状态。 */
 let RedeemCodePersistenceService = RedeemCodePersistenceService_1 = class RedeemCodePersistenceService {
@@ -60,9 +59,9 @@ let RedeemCodePersistenceService = RedeemCodePersistenceService_1 = class Redeem
             connectionString: databaseUrl,
         });
         try {
-            await (0, persistent_document_table_1.ensurePersistentDocumentsTable)(this.pool);
+            await ensureRedeemCodeTables(this.pool);
             this.enabled = true;
-            this.logger.log('兑换码持久化已启用（persistent_documents）');
+            this.logger.log('兑换码持久化已启用（server_redeem_code_group + server_redeem_code）');
         }
         catch (error) {
             this.logger.error('兑换码持久化初始化失败，已回退为禁用模式', error instanceof Error ? error.stack : String(error));
@@ -89,11 +88,53 @@ let RedeemCodePersistenceService = RedeemCodePersistenceService_1 = class Redeem
             return null;
         }
 
-        const result = await this.pool.query('SELECT payload FROM persistent_documents WHERE scope = $1 AND key = $2', [REDEEM_CODE_SCOPE, REDEEM_CODE_KEY]);
-        if (result.rowCount === 0) {
+        const stateResult = await this.pool.query(
+            `SELECT revision FROM ${REDEEM_CODE_STATE_TABLE} WHERE state_key = $1 LIMIT 1`,
+            [REDEEM_CODE_STATE_KEY],
+        );
+        const groupResult = await this.pool.query(
+            `
+              SELECT group_id, name, rewards_payload, created_at, updated_at, raw_payload
+              FROM ${REDEEM_CODE_GROUP_TABLE}
+              ORDER BY created_at ASC, group_id ASC
+            `,
+        );
+        const codeResult = await this.pool.query(
+            `
+              SELECT code_id, group_id, code, status, used_by_player_id, used_by_role_name,
+                     used_at, destroyed_at, created_at, updated_at, raw_payload
+              FROM ${REDEEM_CODE_TABLE}
+              ORDER BY created_at ASC, code_id ASC
+            `,
+        );
+        if ((groupResult.rowCount ?? 0) === 0 && (codeResult.rowCount ?? 0) === 0 && (stateResult.rowCount ?? 0) === 0) {
             return null;
         }
-        return normalizeRedeemCodeDocument(result.rows[0]?.payload);
+        return normalizeRedeemCodeDocument({
+            version: 1,
+            revision: Number(stateResult.rows?.[0]?.revision ?? 1),
+            groups: groupResult.rows.map((row) => ({
+                ...(row.raw_payload && typeof row.raw_payload === 'object' ? row.raw_payload : {}),
+                id: typeof row.group_id === 'string' ? row.group_id : '',
+                name: typeof row.name === 'string' ? row.name : '',
+                rewards: Array.isArray(row.rewards_payload) ? row.rewards_payload : [],
+                createdAt: normalizeDbTimestamp(row.created_at),
+                updatedAt: normalizeDbTimestamp(row.updated_at),
+            })),
+            codes: codeResult.rows.map((row) => ({
+                ...(row.raw_payload && typeof row.raw_payload === 'object' ? row.raw_payload : {}),
+                id: typeof row.code_id === 'string' ? row.code_id : '',
+                groupId: typeof row.group_id === 'string' ? row.group_id : '',
+                code: typeof row.code === 'string' ? row.code : '',
+                status: row.status === 'used' || row.status === 'destroyed' ? row.status : 'active',
+                usedByPlayerId: typeof row.used_by_player_id === 'string' ? row.used_by_player_id : null,
+                usedByRoleName: typeof row.used_by_role_name === 'string' ? row.used_by_role_name : null,
+                usedAt: normalizeNullableDbTimestamp(row.used_at),
+                destroyedAt: normalizeNullableDbTimestamp(row.destroyed_at),
+                createdAt: normalizeDbTimestamp(row.created_at),
+                updatedAt: normalizeDbTimestamp(row.updated_at),
+            })),
+        });
     }    
     /**
  * saveDocument：执行saveDocument相关逻辑。
@@ -107,12 +148,89 @@ let RedeemCodePersistenceService = RedeemCodePersistenceService_1 = class Redeem
         if (!this.pool || !this.enabled) {
             return;
         }
-        await this.pool.query(`
-        INSERT INTO persistent_documents(scope, key, payload, "updatedAt")
-        VALUES ($1, $2, $3::jsonb, now())
-        ON CONFLICT (scope, key)
-        DO UPDATE SET payload = EXCLUDED.payload, "updatedAt" = now()
-      `, [REDEEM_CODE_SCOPE, REDEEM_CODE_KEY, JSON.stringify(document)]);
+        const normalized = normalizeRedeemCodeDocument(document);
+        if (!normalized) {
+            return;
+        }
+        const client = await this.pool.connect();
+        try {
+            await client.query('BEGIN');
+            await client.query(
+                `
+                  INSERT INTO ${REDEEM_CODE_STATE_TABLE}(state_key, revision, updated_at)
+                  VALUES ($1, $2, now())
+                  ON CONFLICT (state_key)
+                  DO UPDATE SET revision = EXCLUDED.revision, updated_at = now()
+                `,
+                [REDEEM_CODE_STATE_KEY, normalized.revision],
+            );
+            await client.query(`DELETE FROM ${REDEEM_CODE_TABLE}`);
+            await client.query(`DELETE FROM ${REDEEM_CODE_GROUP_TABLE}`);
+            for (const group of normalized.groups) {
+                await client.query(
+                    `
+                      INSERT INTO ${REDEEM_CODE_GROUP_TABLE}(
+                        group_id,
+                        name,
+                        rewards_payload,
+                        created_at,
+                        updated_at,
+                        raw_payload
+                      )
+                      VALUES ($1, $2, $3::jsonb, $4::timestamptz, $5::timestamptz, $6::jsonb)
+                    `,
+                    [
+                        group.id,
+                        group.name,
+                        JSON.stringify(group.rewards),
+                        group.createdAt,
+                        group.updatedAt,
+                        JSON.stringify(group),
+                    ],
+                );
+            }
+            for (const code of normalized.codes) {
+                await client.query(
+                    `
+                      INSERT INTO ${REDEEM_CODE_TABLE}(
+                        code_id,
+                        group_id,
+                        code,
+                        status,
+                        used_by_player_id,
+                        used_by_role_name,
+                        used_at,
+                        destroyed_at,
+                        created_at,
+                        updated_at,
+                        raw_payload
+                      )
+                      VALUES ($1, $2, $3, $4, $5, $6, $7::timestamptz, $8::timestamptz, $9::timestamptz, $10::timestamptz, $11::jsonb)
+                    `,
+                    [
+                        code.id,
+                        code.groupId,
+                        code.code,
+                        code.status,
+                        code.usedByPlayerId,
+                        code.usedByRoleName,
+                        code.usedAt,
+                        code.destroyedAt,
+                        code.createdAt,
+                        code.updatedAt,
+                        JSON.stringify(code),
+                    ],
+                );
+            }
+            await client.query('COMMIT');
+        }
+        catch (error) {
+            await client.query('ROLLBACK').catch(() => undefined);
+            throw error;
+        }
+        finally {
+            client.release();
+        }
     }    
     /**
  * safeClosePool：执行safeClosePool相关逻辑。
@@ -135,6 +253,61 @@ exports.RedeemCodePersistenceService = RedeemCodePersistenceService;
 exports.RedeemCodePersistenceService = RedeemCodePersistenceService = RedeemCodePersistenceService_1 = __decorate([
     (0, common_1.Injectable)()
 ], RedeemCodePersistenceService);
+
+async function ensureRedeemCodeTables(pool) {
+    const client = await pool.connect();
+    try {
+        await client.query('BEGIN');
+        await client.query(`
+          CREATE TABLE IF NOT EXISTS ${REDEEM_CODE_STATE_TABLE} (
+            state_key varchar(64) PRIMARY KEY,
+            revision bigint NOT NULL DEFAULT 1,
+            updated_at timestamptz NOT NULL DEFAULT now()
+          )
+        `);
+        await client.query(`
+          CREATE TABLE IF NOT EXISTS ${REDEEM_CODE_GROUP_TABLE} (
+            group_id varchar(120) PRIMARY KEY,
+            name varchar(160) NOT NULL,
+            rewards_payload jsonb NOT NULL DEFAULT '[]'::jsonb,
+            created_at timestamptz NOT NULL DEFAULT now(),
+            updated_at timestamptz NOT NULL DEFAULT now(),
+            raw_payload jsonb NOT NULL DEFAULT '{}'::jsonb
+          )
+        `);
+        await client.query(`
+          CREATE TABLE IF NOT EXISTS ${REDEEM_CODE_TABLE} (
+            code_id varchar(160) PRIMARY KEY,
+            group_id varchar(120) NOT NULL,
+            code varchar(160) NOT NULL UNIQUE,
+            status varchar(32) NOT NULL,
+            used_by_player_id varchar(100),
+            used_by_role_name varchar(120),
+            used_at timestamptz,
+            destroyed_at timestamptz,
+            created_at timestamptz NOT NULL DEFAULT now(),
+            updated_at timestamptz NOT NULL DEFAULT now(),
+            raw_payload jsonb NOT NULL DEFAULT '{}'::jsonb
+          )
+        `);
+        await client.query(`
+          CREATE INDEX IF NOT EXISTS server_redeem_code_group_idx
+          ON ${REDEEM_CODE_TABLE}(group_id, status)
+        `);
+        await client.query(`
+          CREATE INDEX IF NOT EXISTS server_redeem_code_used_by_idx
+          ON ${REDEEM_CODE_TABLE}(used_by_player_id)
+        `);
+        await client.query('COMMIT');
+    }
+    catch (error) {
+        await client.query('ROLLBACK').catch(() => undefined);
+        throw error;
+    }
+    finally {
+        client.release();
+    }
+}
 
 /** 清洗兑换码文档结构，确保组与码条目字段完整可用。 */
 function normalizeRedeemCodeDocument(raw) {
@@ -199,6 +372,23 @@ function normalizeRedeemCodeDocument(raw) {
             : [],
     };
 }
+
+function normalizeDbTimestamp(value) {
+    if (value instanceof Date) {
+        return value.toISOString();
+    }
+    if (typeof value === 'string' && value.trim()) {
+        const parsed = new Date(value);
+        return Number.isFinite(parsed.getTime()) ? parsed.toISOString() : new Date(0).toISOString();
+    }
+    return new Date(0).toISOString();
+}
+
+function normalizeNullableDbTimestamp(value) {
+    if (value == null) {
+        return null;
+    }
+    return normalizeDbTimestamp(value);
+}
 export { RedeemCodePersistenceService };
 //# sourceMappingURL=redeem-code-persistence.service.js.map
-

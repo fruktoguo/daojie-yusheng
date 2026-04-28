@@ -10,6 +10,7 @@ const pg = require("pg");
 const lib = require("./protocol-audit-lib.js");
 const nextGmContract = require("../http/native/native-gm-contract");
 const serverEntry = path.join(lib.distRoot, "main.js");
+const GM_AUTH_TABLE = "server_gm_auth";
 
 function resolveAuditGmPassword() {
   return process.env.SERVER_GM_PASSWORD || process.env.GM_PASSWORD || "admin123";
@@ -26,16 +27,20 @@ async function snapshotLocalGmPasswordRecordIfNeeded() {
   });
 
   try {
-    const result = await pool.query('SELECT payload, "updatedAt" FROM persistent_documents WHERE scope = $1 AND key = $2', [
-      nextGmContract.GM_AUTH_CONTRACT.passwordRecordScope,
+    const result = await pool.query(`SELECT raw_payload, updated_at FROM ${GM_AUTH_TABLE} WHERE record_key = $1`, [
       nextGmContract.GM_AUTH_CONTRACT.passwordRecordKey,
-    ]);
+    ]).catch((error) => {
+      if (error && typeof error === "object" && error.code === "42P01") {
+        return { rows: [] };
+      }
+      throw error;
+    });
     const row = result.rows[0] ?? null;
     return {
       databaseUrl,
       existed: Boolean(row),
-      payload: row?.payload ?? null,
-      updatedAt: row?.updatedAt ?? null,
+      payload: row?.raw_payload ?? null,
+      updatedAt: row?.updated_at ?? null,
     };
   } finally {
     await pool.end().catch(() => undefined);
@@ -53,10 +58,13 @@ async function resetLocalGmPasswordRecordIfNeeded() {
   });
 
   try {
-    await pool.query('DELETE FROM persistent_documents WHERE scope = $1 AND key = $2', [
-      nextGmContract.GM_AUTH_CONTRACT.passwordRecordScope,
+    await pool.query(`DELETE FROM ${GM_AUTH_TABLE} WHERE record_key = $1`, [
       nextGmContract.GM_AUTH_CONTRACT.passwordRecordKey,
-    ]);
+    ]).catch((error) => {
+      if (!error || typeof error !== "object" || error.code !== "42P01") {
+        throw error;
+      }
+    });
   } finally {
     await pool.end().catch(() => undefined);
   }
@@ -73,27 +81,51 @@ async function restoreLocalGmPasswordRecordIfNeeded(snapshot) {
 
   try {
     if (!snapshot.existed) {
-      await pool.query('DELETE FROM persistent_documents WHERE scope = $1 AND key = $2', [
-        nextGmContract.GM_AUTH_CONTRACT.passwordRecordScope,
+      await pool.query(`DELETE FROM ${GM_AUTH_TABLE} WHERE record_key = $1`, [
         nextGmContract.GM_AUTH_CONTRACT.passwordRecordKey,
-      ]);
+      ]).catch((error) => {
+        if (!error || typeof error !== "object" || error.code !== "42P01") {
+          throw error;
+        }
+      });
       return;
     }
 
+    await ensureGmAuthTable(pool);
     await pool.query(`
-      INSERT INTO persistent_documents(scope, key, payload, "updatedAt")
-      VALUES ($1, $2, $3::jsonb, $4)
-      ON CONFLICT (scope, key)
-      DO UPDATE SET payload = EXCLUDED.payload, "updatedAt" = EXCLUDED."updatedAt"
+      INSERT INTO ${GM_AUTH_TABLE}(record_key, salt, password_hash, updated_at_text, raw_payload, updated_at)
+      VALUES ($1, $2, $3, $4, $5::jsonb, $6)
+      ON CONFLICT (record_key)
+      DO UPDATE SET
+        salt = EXCLUDED.salt,
+        password_hash = EXCLUDED.password_hash,
+        updated_at_text = EXCLUDED.updated_at_text,
+        raw_payload = EXCLUDED.raw_payload,
+        updated_at = EXCLUDED.updated_at
     `, [
-      nextGmContract.GM_AUTH_CONTRACT.passwordRecordScope,
       nextGmContract.GM_AUTH_CONTRACT.passwordRecordKey,
+      snapshot.payload?.salt ?? "__missing__",
+      snapshot.payload?.hash ?? snapshot.payload?.passwordHash ?? "__missing__",
+      snapshot.payload?.updatedAt ?? new Date().toISOString(),
       JSON.stringify(snapshot.payload),
       snapshot.updatedAt,
     ]);
   } finally {
     await pool.end().catch(() => undefined);
   }
+}
+
+async function ensureGmAuthTable(pool) {
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS ${GM_AUTH_TABLE} (
+      record_key varchar(80) PRIMARY KEY,
+      salt varchar(160) NOT NULL,
+      password_hash varchar(256) NOT NULL,
+      updated_at_text varchar(80) NOT NULL,
+      raw_payload jsonb NOT NULL DEFAULT '{}'::jsonb,
+      updated_at timestamptz NOT NULL DEFAULT now()
+    )
+  `);
 }
 /**
  * 启动审计服务端。

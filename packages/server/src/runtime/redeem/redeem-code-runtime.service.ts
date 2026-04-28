@@ -335,7 +335,7 @@ let RedeemCodeRuntimeService = class RedeemCodeRuntimeService {
                     await this.grantInventoryRewards(player, inventoryItems, submittedCode);
                 }
                 for (const item of walletItems) {
-                    this.playerRuntimeService.creditWallet(playerId, item.itemId, item.count);
+                    await this.grantWalletReward(player, item, submittedCode);
                 }
                 codeEntry.status = 'used';
                 codeEntry.usedByPlayerId = player.playerId;
@@ -532,10 +532,7 @@ let RedeemCodeRuntimeService = class RedeemCodeRuntimeService {
         }
         const durableContext = await this.resolveDurableInventoryGrantContext(player);
         if (!durableContext) {
-            for (const item of normalizedItems) {
-                this.playerRuntimeService.receiveInventoryItem(player.playerId, item);
-            }
-            return;
+            throw new common_1.ServiceUnavailableException('redeem_code_inventory_durable_context_required');
         }
         const nextInventoryItems = buildNextInventorySnapshots(player.inventory?.items ?? [], normalizedItems);
         const rollbackState = captureInventoryGrantRollbackState(player);
@@ -564,6 +561,30 @@ let RedeemCodeRuntimeService = class RedeemCodeRuntimeService {
         }
         this.playerRuntimeService.replaceInventoryItems(player.playerId, nextInventoryItems.map((entry) => ({ ...(entry.rawPayload ?? entry), itemId: entry.itemId, count: entry.count })));
     }
+    /** 兑换码钱包奖励必须走 durable 钱包事务，禁止 direct runtime fallback。 */
+    async grantWalletReward(player, item, submittedCode) {
+        const durableContext = await this.resolveDurableInventoryGrantContext(player);
+        if (!durableContext || !this.durableOperationService?.isEnabled?.() || typeof this.durableOperationService?.mutatePlayerWallet !== 'function') {
+            throw new common_1.ServiceUnavailableException('redeem_code_wallet_durable_context_required');
+        }
+        const walletType = typeof item?.itemId === 'string' ? item.itemId.trim() : '';
+        const amount = Math.max(1, Math.trunc(Number(item?.count ?? 1)));
+        const nextWalletBalances = buildNextWalletBalances(player.wallet?.balances ?? [], walletType, amount);
+        await this.durableOperationService.mutatePlayerWallet({
+            operationId: `op:${player.playerId}:redeem-code-wallet:${submittedCode}:${walletType}`,
+            playerId: player.playerId,
+            expectedRuntimeOwnerId: durableContext.runtimeOwnerId,
+            expectedSessionEpoch: durableContext.sessionEpoch,
+            expectedInstanceId: durableContext.expectedInstanceId,
+            expectedAssignedNodeId: durableContext.expectedAssignedNodeId,
+            expectedOwnershipEpoch: durableContext.expectedOwnershipEpoch,
+            walletType,
+            action: 'credit',
+            delta: amount,
+            nextWalletBalances,
+        });
+        this.playerRuntimeService.creditWallet(player.playerId, walletType, amount);
+    }
     /** 解析兑换码 durable 发物所需的 session/lease 上下文。 */
     async resolveDurableInventoryGrantContext(player) {
         const runtimeOwnerId = typeof player?.runtimeOwnerId === 'string' ? player.runtimeOwnerId.trim() : '';
@@ -578,6 +599,9 @@ let RedeemCodeRuntimeService = class RedeemCodeRuntimeService {
             ? player.instanceId.trim()
             : null;
         const leaseContext = await resolveInstanceLeaseContext(expectedInstanceId, this.instanceCatalogService);
+        if (expectedInstanceId && !leaseContext) {
+            return null;
+        }
         return {
             runtimeOwnerId,
             sessionEpoch,
@@ -696,6 +720,32 @@ function normalizeSubmittedCodes(codes) {
         }
     }
     return normalized;
+}
+function buildNextWalletBalances(existingBalances, walletType, amount) {
+    const normalizedWalletType = typeof walletType === 'string' ? walletType.trim() : '';
+    const normalizedAmount = Math.max(1, Math.trunc(Number(amount ?? 1)));
+    const balances = Array.isArray(existingBalances)
+        ? existingBalances.map((entry) => ({
+            walletType: typeof entry?.walletType === 'string' ? entry.walletType.trim() : '',
+            balance: Math.max(0, Math.trunc(Number(entry?.balance ?? 0))),
+            frozenBalance: Math.max(0, Math.trunc(Number(entry?.frozenBalance ?? 0))),
+            version: Math.max(0, Math.trunc(Number(entry?.version ?? 0))),
+        })).filter((entry) => entry.walletType)
+        : [];
+    const existing = balances.find((entry) => entry.walletType === normalizedWalletType);
+    if (existing) {
+        existing.balance += normalizedAmount;
+        existing.version += 1;
+    }
+    else if (normalizedWalletType) {
+        balances.push({
+            walletType: normalizedWalletType,
+            balance: normalizedAmount,
+            frozenBalance: 0,
+            version: 1,
+        });
+    }
+    return balances;
 }
 /**
  * cloneGroup：构建Group。

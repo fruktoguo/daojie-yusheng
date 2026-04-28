@@ -25,15 +25,11 @@ const pg_1 = require("pg");
 
 const next_gm_contract_1 = require("../../http/native/native-gm-contract");
 
-const persistent_document_table_1 = require("../../persistence/persistent-document-table");
-
 const env_alias_1 = require("../../config/env-alias");
 
-/** GM 鉴权作用域名，存放当前 next 体系的密码记录。 */
-const GM_AUTH_SCOPE = next_gm_contract_1.GM_AUTH_CONTRACT.passwordRecordScope;
-
-/** persistent_documents 里保存 GM 密码的 key。 */
+/** GM 密码记录 key。 */
 const GM_AUTH_KEY = next_gm_contract_1.GM_AUTH_CONTRACT.passwordRecordKey;
+const GM_AUTH_TABLE = 'server_gm_auth';
 
 /** 仅用于显式本地降级方案的默认 GM 密码。 */
 const DEFAULT_GM_PASSWORD = next_gm_contract_1.GM_AUTH_CONTRACT.defaultInsecurePassword;
@@ -69,7 +65,7 @@ let RuntimeGmAuthService = class RuntimeGmAuthService {
             connectionString: databaseUrl,
         });
         try {
-            await (0, persistent_document_table_1.ensurePersistentDocumentsTable)(this.pool);
+            await ensureGmAuthTable(this.pool);
             this.persistenceEnabled = true;
         }
         catch (error) {
@@ -133,12 +129,7 @@ let RuntimeGmAuthService = class RuntimeGmAuthService {
         }
 
         const nextRecord = buildPasswordRecord(normalizedPassword);
-        await this.pool.query(`
-        INSERT INTO persistent_documents(scope, key, payload, "updatedAt")
-        VALUES ($1, $2, $3::jsonb, now())
-        ON CONFLICT (scope, key)
-        DO UPDATE SET payload = EXCLUDED.payload, "updatedAt" = now()
-        `, [GM_AUTH_SCOPE, GM_AUTH_KEY, JSON.stringify(nextRecord)]);
+        await this.savePasswordRecordToDb(nextRecord);
     }
     /** 校验签名 token 是否仍然有效。 */
     validateAccessToken(token) {
@@ -241,12 +232,7 @@ let RuntimeGmAuthService = class RuntimeGmAuthService {
             }
 
             const created = buildPasswordRecord(this.getInitialPassword());
-            await this.pool.query(`
-          INSERT INTO persistent_documents(scope, key, payload, "updatedAt")
-          VALUES ($1, $2, $3::jsonb, now())
-          ON CONFLICT (scope, key)
-          DO UPDATE SET payload = EXCLUDED.payload, "updatedAt" = now()
-        `, [GM_AUTH_SCOPE, GM_AUTH_KEY, JSON.stringify(created)]);
+            await this.savePasswordRecordToDb(created);
             this.memoryRecord = created;
             return created;
         }
@@ -263,12 +249,59 @@ let RuntimeGmAuthService = class RuntimeGmAuthService {
             return null;
         }
 
-        const result = await this.pool.query('SELECT payload FROM persistent_documents WHERE scope = $1 AND key = $2', [GM_AUTH_SCOPE, GM_AUTH_KEY]);
+        const result = await this.pool.query(
+            `
+              SELECT salt, password_hash, updated_at_text, raw_payload
+              FROM ${GM_AUTH_TABLE}
+              WHERE record_key = $1
+              LIMIT 1
+            `,
+            [GM_AUTH_KEY],
+        );
         if (result.rowCount > 0) {
-            return normalizePasswordRecord(result.rows[0]?.payload);
+            const row = result.rows[0] ?? {};
+            return normalizePasswordRecord({
+                ...(row.raw_payload && typeof row.raw_payload === 'object' ? row.raw_payload : {}),
+                salt: row.salt,
+                hash: row.password_hash,
+                updatedAt: row.updated_at_text,
+            });
         }
         return null;
-    }    
+    }
+    /**
+ * savePasswordRecordToDb：写入 GM 密码专表。
+ * @param record 参数说明。
+ * @returns 无返回值，直接更新 GM 鉴权记录。
+ */
+
+    async savePasswordRecordToDb(record) {
+        if (!this.pool) {
+            return;
+        }
+        const normalized = normalizePasswordRecord(record);
+        if (!normalized) {
+            return;
+        }
+        await this.pool.query(`
+          INSERT INTO ${GM_AUTH_TABLE}(
+            record_key,
+            salt,
+            password_hash,
+            updated_at_text,
+            raw_payload,
+            updated_at
+          )
+          VALUES ($1, $2, $3, $4, $5::jsonb, now())
+          ON CONFLICT (record_key)
+          DO UPDATE SET
+            salt = EXCLUDED.salt,
+            password_hash = EXCLUDED.password_hash,
+            updated_at_text = EXCLUDED.updated_at_text,
+            raw_payload = EXCLUDED.raw_payload,
+            updated_at = now()
+        `, [GM_AUTH_KEY, normalized.salt, normalized.hash, normalized.updatedAt, JSON.stringify(normalized)]);
+    }
     /**
  * getInitialPassword：读取InitialPassword。
  * @returns 无返回值，完成InitialPassword的读取/组装。
@@ -281,7 +314,7 @@ let RuntimeGmAuthService = class RuntimeGmAuthService {
             return configuredPassword;
         }
         return DEFAULT_GM_PASSWORD;
-    }    
+    }
     /**
  * warnIfUsingInsecureLocalPassword：记录显式本地降级警告。
  * @returns 无返回值，直接更新warnIfUsingInsecureLocalPassword相关状态。
@@ -315,6 +348,25 @@ exports.RuntimeGmAuthService = RuntimeGmAuthService = __decorate([
     (0, common_1.Injectable)()
 ], RuntimeGmAuthService);
 export { RuntimeGmAuthService };
+
+async function ensureGmAuthTable(pool) {
+    const client = await pool.connect();
+    try {
+        await client.query(`
+          CREATE TABLE IF NOT EXISTS ${GM_AUTH_TABLE} (
+            record_key varchar(80) PRIMARY KEY,
+            salt varchar(160) NOT NULL,
+            password_hash varchar(256) NOT NULL,
+            updated_at_text varchar(80) NOT NULL,
+            raw_payload jsonb NOT NULL DEFAULT '{}'::jsonb,
+            updated_at timestamptz NOT NULL DEFAULT now()
+          )
+        `);
+    }
+    finally {
+        client.release();
+    }
+}
 /**
  * normalizePasswordRecord：规范化或转换PasswordRecord。
  * @param raw 参数说明。

@@ -483,12 +483,6 @@ export async function hydratePersistentInstanceSnapshot(runtime, instanceId, ins
   const domainPersistenceService = runtime.instanceDomainPersistenceService;
   const domainPersistenceEnabled = typeof domainPersistenceService?.isEnabled === 'function'
     && domainPersistenceService.isEnabled();
-  const legacySnapshot = runtime.mapPersistenceService?.isEnabled?.() && isLegacyMapSnapshotRestoreEnabled()
-    ? await runtime.mapPersistenceService.loadMapSnapshot(instanceId)
-    : null;
-  if (legacySnapshot) {
-    hydrateInstanceFromCheckpoint(instance, legacySnapshot, runtime, instanceId);
-  }
   if (!domainPersistenceEnabled) {
     await restorePersistentInstanceFormations(runtime, instanceId);
     return;
@@ -567,11 +561,6 @@ function shouldRestoreCatalogEntry(entry) {
   return Date.now() - lastActiveAt <= LONG_LIVED_INSTANCE_TTL_MS;
 }
 
-function isLegacyMapSnapshotRestoreEnabled() {
-  const value = process.env.SERVER_MAP_LEGACY_SNAPSHOT_RESTORE;
-  return typeof value === 'string' && /^(1|true|yes|on)$/iu.test(value.trim());
-}
-
 function normalizeLoadedContainerStates(rows) {
   return (Array.isArray(rows) ? rows : [])
     .map((row) => {
@@ -620,34 +609,8 @@ function hydrateInstanceFromCheckpoint(instance, checkpoint, runtime, instanceId
   if (typeof instance.hydrateTime === 'function') {
     instance.hydrateTime(snapshot.tick);
   }
-  if (Array.isArray(snapshot.runtimeTileEntries) && typeof instance.hydrateRuntimeTiles === 'function') {
-    instance.hydrateRuntimeTiles(snapshot.runtimeTileEntries);
-  }
-  if (Array.isArray(snapshot.tileResourceEntries) && snapshot.tileResourceEntries.length > 0) {
-    instance.hydrateTileResources(snapshot.tileResourceEntries.map((entry) => ({
-      resourceKey: typeof entry?.resourceKey === 'string' ? entry.resourceKey : '',
-      tileIndex: Number.isFinite(Number(entry?.tileIndex)) ? Math.trunc(Number(entry.tileIndex)) : 0,
-      value: Number.isFinite(Number(entry?.value)) ? Math.max(0, Math.trunc(Number(entry.value))) : 0,
-    })).filter((entry) => entry.resourceKey));
-  } else if (Array.isArray(snapshot.auraEntries) && snapshot.auraEntries.length > 0) {
-    instance.hydrateTileResources(snapshot.auraEntries.map((entry) => ({
-      resourceKey: 'aura.refined.neutral',
-      tileIndex: Number.isFinite(Number(entry?.tileIndex)) ? Math.trunc(Number(entry.tileIndex)) : 0,
-      value: Number.isFinite(Number(entry?.value)) ? Math.max(0, Math.trunc(Number(entry.value))) : 0,
-    })).filter((entry) => entry.value > 0));
-  }
-  if (Array.isArray(snapshot.tileDamageEntries) && typeof instance.hydrateTileDamage === 'function') {
-    instance.hydrateTileDamage(snapshot.tileDamageEntries);
-  }
-  if (Array.isArray(snapshot.temporaryTileEntries) && typeof instance.hydrateTemporaryTiles === 'function') {
-    instance.hydrateTemporaryTiles(snapshot.temporaryTileEntries);
-  }
-  if (Array.isArray(snapshot.groundPileEntries) && snapshot.groundPileEntries.length > 0) {
-    instance.hydrateGroundPiles(snapshot.groundPileEntries);
-  }
-  if (Array.isArray(snapshot.containerStates)) {
-    runtime.worldRuntimeLootContainerService.hydrateContainerStates(instanceId, snapshot.containerStates);
-  }
+  void runtime;
+  void instanceId;
 }
 
 function resolveCheckpointSnapshot(checkpoint) {

@@ -99,21 +99,6 @@ async function main(): Promise<void> {
   const projectionWorldPlayerSnapshotService = new WorldPlayerSnapshotService(
     {
       isEnabled() {
-        return false;
-      },
-      async loadPlayerSnapshotRecord(playerId: string) {
-        return {
-          snapshot: {
-            ...buildStarterSnapshot(playerId),
-            sectId: 'sect:projection-native',
-          },
-          persistedSource: 'native',
-          seededAt: null,
-        };
-      },
-    } as never,
-    {
-      isEnabled() {
         return true;
       },
       async loadProjectedSnapshot(
@@ -155,14 +140,9 @@ async function main(): Promise<void> {
   assert.equal(projectionResult.persistedSource, 'native');
   assert.equal(projectionResult.fallbackReason, 'proof:bootstrap-snapshot-trace|player_domain_projection');
   assert.equal(projectionResult.snapshot?.placement.templateId, 'projected_recovery_map');
-  assert.equal(projectionResult.snapshot?.sectId, 'sect:projection-native');
+  assert.equal(projectionResult.snapshot?.sectId, undefined);
 
   const missWorldPlayerSnapshotService = new WorldPlayerSnapshotService(
-    {
-      isEnabled() {
-        return false;
-      },
-    } as never,
     {
       isEnabled() {
         return true;
@@ -195,7 +175,7 @@ async function main(): Promise<void> {
   console.log(JSON.stringify({
     ok: true,
     answers: 'WorldSessionBootstrapSnapshotService.loadPlayerSnapshotWithTrace 现在已由 focused smoke 直接证明：projection hit 时会保留 WorldPlayerSnapshotService 追加后的 player_domain_projection fallbackReason，projection miss 时则保留原始 fallbackReason 并返回 miss。',
-    excludes: '不证明 hydrateFromSnapshot 已改成直接逐域装配，也不证明旧快照存储已物理删除。',
+    excludes: '不证明 hydrateFromSnapshot 已改成直接逐域装配。',
     projectionResult: {
       source: projectionResult.source,
       persistedSource: projectionResult.persistedSource,

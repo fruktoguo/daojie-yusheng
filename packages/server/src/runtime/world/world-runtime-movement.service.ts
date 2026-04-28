@@ -56,6 +56,7 @@ let WorldRuntimeMovementService = class WorldRuntimeMovementService {
 
     dispatchMoveCommand(playerId, command, player, instance, deps) {
         instance.setPlayerMoveSpeed(playerId, player.attrs.numericStats.moveSpeed);
+        deps.worldRuntimePlayerSkillDispatchService?.interruptPendingPlayerSkillCast?.(playerId, '你移动了身形。', deps);
         deps.playerRuntimeService.recordActivity(playerId, deps.resolveCurrentTickForPlayerId(playerId), {
             interruptCultivation: true,
         });
@@ -86,6 +87,7 @@ let WorldRuntimeMovementService = class WorldRuntimeMovementService {
         deps.playerRuntimeService.recordActivity(playerId, deps.resolveCurrentTickForPlayerId(playerId), {
             interruptCultivation: true,
         });
+        deps.worldRuntimePlayerSkillDispatchService?.interruptPendingPlayerSkillCast?.(playerId, '你移动了身形。', deps);
         deps.worldRuntimeCraftInterruptService.interruptCraftForReason(playerId, player, 'move', deps);
         const manualTransfer = instance.tryPortalTransfer(playerId, 'manual_portal');
         if (manualTransfer) {

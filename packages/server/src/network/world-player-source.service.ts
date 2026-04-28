@@ -4,16 +4,10 @@ import * as shared_1 from '@mud/shared';
 
 import { NativePlayerAuthStoreService } from '../http/native/native-player-auth-store.service';
 import { PlayerIdentityPersistenceService } from '../persistence/player-identity-persistence.service';
-import { PlayerPersistenceService } from '../persistence/player-persistence.service';
 
 interface PlayerIdentityPersistencePort {
     isEnabled(): boolean;
     loadPlayerIdentity(userId: string): Promise<unknown>;
-}
-
-interface PlayerSnapshotPersistencePort {
-    isEnabled(): boolean;
-    loadPlayerSnapshotRecord(playerId: string): Promise<{ snapshot?: unknown } | null>;
 }
 
 const DISABLE_MIGRATION_SOURCE_ENV_KEYS = [
@@ -53,14 +47,11 @@ export class WorldPlayerSourceService {
     private readonly logger = new Logger(WorldPlayerSourceService.name);
     /** 主线身份持久化入口。 */
     private readonly playerIdentityPersistenceService: PlayerIdentityPersistencePort;
-    /** 主线快照持久化入口。 */
-    private readonly playerPersistenceService: PlayerSnapshotPersistencePort;
 
     /**
  * 构造器：初始化 当前 实例并建立基础状态。
  * @param authStore 参数说明。
  * @param playerIdentityPersistenceService 参数说明。
- * @param playerPersistenceService 参数说明。
  * @returns 无返回值，完成实例初始化。
  */
 
@@ -68,11 +59,8 @@ export class WorldPlayerSourceService {
         @Optional() _authStore: NativePlayerAuthStoreService | null,
         @Inject(PlayerIdentityPersistenceService)
         playerIdentityPersistenceService: unknown,
-        @Inject(PlayerPersistenceService)
-        playerPersistenceService: unknown,
     ) {
         this.playerIdentityPersistenceService = playerIdentityPersistenceService as PlayerIdentityPersistencePort;
-        this.playerPersistenceService = playerPersistenceService as PlayerSnapshotPersistencePort;
     }
 
     /**
@@ -99,8 +87,7 @@ export class WorldPlayerSourceService {
     }
     /** 主线快照持久化源是否可用。 */
     isPrimarySnapshotSourceEnabled() {
-        return typeof this.playerPersistenceService?.isEnabled === 'function'
-            && this.playerPersistenceService.isEnabled();
+        return false;
     }
     /** 直接从主线身份持久化层读取玩家身份。 */
     async loadPersistedPlayerIdentity(userId) {
@@ -115,10 +102,8 @@ export class WorldPlayerSourceService {
     async loadPersistedPlayerSnapshotRecord(playerId) {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
-        if (!this.isPrimarySnapshotSourceEnabled()) {
-            return null;
-        }
-        return this.playerPersistenceService.loadPlayerSnapshotRecord(playerId);
+        void playerId;
+        return null;
     }
     /** 直接从主线快照持久化层读取玩家快照。 */
     async loadPersistedPlayerSnapshot(playerId) {

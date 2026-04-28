@@ -57,7 +57,6 @@ export class InstanceResourceFlushWorker {
     const claimed = await this.flushLedgerService.claimInstanceFlushLedger({
       workerId,
       domain: INSTANCE_FLUSH_WORKER_DOMAIN,
-      ownershipEpoch: 0,
       limit: INSTANCE_FLUSH_WORKER_CLAIM_LIMIT,
     });
     let processed = 0;

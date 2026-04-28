@@ -49,7 +49,17 @@ function createPlayer() {
         gatherSkill: { level: 2, exp: 3, expToNext: 4 },
         enhancementSkill: { level: 3, exp: 4, expToNext: 5 },
         enhancementSkillLevel: 3,
-        actions: { actions: [{ id: 'npc_quests:npc.a', name: '任务', type: 'interact', desc: 'desc' }] },
+        actions: {
+            actions: [
+                { id: 'npc_quests:npc.a', name: '任务', type: 'interact', desc: 'desc' },
+                {
+                    id: 'travel:return_spawn',
+                    name: '遁返',
+                    type: 'travel',
+                    desc: '催动归引灵符，遁返回 云来镇，之后需调息 1800 息。',
+                },
+            ],
+        },
         quests: { quests: [{ questId: 'quest.a', rewardItemIds: ['potion'], rewards: [{ kind: 'item', itemId: 'potion', count: 1 }] }] },
         realm: {
             stage: '炼气',
@@ -105,6 +115,10 @@ function testPlayerState() {
     assert.equal(state.inventory.items[0].itemId, 'potion');
     assert.equal(state.equipment.weapon.itemId, 'sword');
     assert.equal(state.actions[0].id, 'npc:npc.a');
+    assert.equal(state.actions[0].name, '任务');
+    assert.equal(state.actions[0].type, 'interact');
+    assert.equal(state.actions[0].desc, 'desc');
+    assert.equal(state.actions.find((action) => action.id === 'travel:return_spawn')?.desc, '催动归引灵符，遁返回 云来镇，之后需调息 1800 息。');
     assert.deepEqual(state.unlockedMinimapIds, ['map.a', 'map.b']);
 }
 

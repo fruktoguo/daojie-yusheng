@@ -18,7 +18,6 @@ const PLAYER_MAIL_TABLE = 'player_mail';
 const PLAYER_MAIL_ATTACHMENT_TABLE = 'player_mail_attachment';
 const PLAYER_MAIL_COUNTER_TABLE = 'player_mail_counter';
 const PLAYER_RECOVERY_WATERMARK_TABLE = 'player_recovery_watermark';
-const PLAYER_SNAPSHOT_TABLE = 'server_player_snapshot';
 const DURABLE_OPERATION_LOG_TABLE = 'durable_operation_log';
 const OUTBOX_EVENT_TABLE = 'outbox_event';
 const ASSET_AUDIT_LOG_TABLE = 'asset_audit_log';
@@ -678,8 +677,6 @@ export class DurableOperationService implements OnModuleInit, OnModuleDestroy {
         `,
         [normalizedPlayerId, unreadCount, unclaimedCount, latestMailAt, now, welcomeMailDeliveredAt],
       );
-
-      await upsertPlayerSnapshot(client, normalizedPlayerId, input.nextPlayerSnapshot);
 
       await client.query(
         `
@@ -3201,18 +3198,6 @@ async function ensureDurableOperationTables(pool: Pool): Promise<void> {
       ALTER TABLE ${PLAYER_RECOVERY_WATERMARK_TABLE}
       ADD COLUMN IF NOT EXISTS enhancement_record_version bigint NOT NULL DEFAULT 0
     `);
-    await client.query(`
-      CREATE TABLE IF NOT EXISTS ${PLAYER_SNAPSHOT_TABLE} (
-        player_id varchar(100) PRIMARY KEY,
-        template_id varchar(120) NOT NULL,
-        instance_id varchar(160),
-        persisted_source varchar(32) NOT NULL,
-        seeded_at bigint,
-        saved_at bigint NOT NULL,
-        updated_at timestamptz NOT NULL DEFAULT now(),
-        payload jsonb NOT NULL
-      )
-    `);
     await ensureDurableOperationBigintColumnsWithClient(client);
     await client.query('COMMIT');
   } catch (error: unknown) {
@@ -3795,50 +3780,6 @@ async function readMailCounters(
       ? Math.trunc(Number(counterRow.latest_mail_at))
       : null,
   };
-}
-
-async function upsertPlayerSnapshot(
-  client: import('pg').PoolClient,
-  playerId: string,
-  snapshot: PersistedPlayerSnapshot,
-): Promise<void> {
-  const templateId =
-    typeof snapshot?.placement?.templateId === 'string' ? snapshot.placement.templateId.trim() : '';
-  if (!templateId) {
-    throw new Error('invalid_next_player_snapshot');
-  }
-  const instanceId =
-    typeof snapshot?.placement?.instanceId === 'string' && snapshot.placement.instanceId.trim()
-      ? snapshot.placement.instanceId.trim()
-      : `public:${templateId}`;
-  const savedAt = Number.isFinite(snapshot?.savedAt)
-    ? Math.max(0, Math.trunc(Number(snapshot.savedAt)))
-    : Date.now();
-  await client.query(
-    `
-      INSERT INTO ${PLAYER_SNAPSHOT_TABLE}(
-        player_id,
-        template_id,
-        instance_id,
-        persisted_source,
-        seeded_at,
-        saved_at,
-        updated_at,
-        payload
-      )
-      VALUES ($1, $2, $3, $4, NULL, $5, now(), $6::jsonb)
-      ON CONFLICT (player_id)
-      DO UPDATE SET
-        template_id = EXCLUDED.template_id,
-        instance_id = EXCLUDED.instance_id,
-        persisted_source = EXCLUDED.persisted_source,
-        seeded_at = EXCLUDED.seeded_at,
-        saved_at = EXCLUDED.saved_at,
-        updated_at = now(),
-        payload = EXCLUDED.payload
-    `,
-    [playerId, templateId, instanceId, 'native', savedAt, JSON.stringify(snapshot)],
-  );
 }
 
 function normalizeRequiredString(value: unknown): string {

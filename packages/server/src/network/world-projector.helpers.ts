@@ -35,6 +35,7 @@ import {
   type SkillEffectDef,
   type SkillFormula,
   type SkillMonsterCastDef,
+  type SkillPlayerCastDef,
   type SkillTargetingDef,
   type SyncedItemStack,
   type TechniqueAttrCurveSegment,
@@ -1865,6 +1866,7 @@ function cloneSkillDef(source: SkillDef): SkillDef {
         ...source,
         targeting: source.targeting ? cloneSkillTargetingDef(source.targeting) : undefined,
         effects: source.effects.map((entry) => cloneSkillEffectDef(entry)),
+        playerCast: source.playerCast ? cloneSkillPlayerCastDef(source.playerCast) : undefined,
         monsterCast: source.monsterCast ? cloneSkillMonsterCastDef(source.monsterCast) : undefined,
     };
 }
@@ -1929,6 +1931,9 @@ function cloneSkillMonsterCastDef(source: SkillMonsterCastDef): SkillMonsterCast
         ...source,
         conditions: source.conditions ? cloneEquipmentConditionGroup(source.conditions) : undefined,
     };
+}
+function cloneSkillPlayerCastDef(source: SkillPlayerCastDef): SkillPlayerCastDef {
+    return { ...source };
 }
 function cloneTechniqueLayerDef(source: TechniqueLayerDef): TechniqueLayerDef {
     return {
@@ -2630,6 +2635,7 @@ function isSameSkillDef(left: SkillDef | null | undefined, right: SkillDef | nul
         && left.unlockPlayerRealm === right.unlockPlayerRealm
         && left.requiresTarget === right.requiresTarget
         && left.targetMode === right.targetMode
+        && isSameSkillPlayerCastDef(left.playerCast, right.playerCast)
         && isSameSkillMonsterCastDef(left.monsterCast, right.monsterCast);
 }
 function isSameSkillTargetingDef(left: SkillTargetingDef | null | undefined, right: SkillTargetingDef | null | undefined) {
@@ -2758,6 +2764,16 @@ function isSameSkillMonsterCastDef(left: SkillMonsterCastDef | null | undefined,
     return left.windupTicks === right.windupTicks
         && left.warningColor === right.warningColor
         && isSameEquipmentConditionGroup(left.conditions, right.conditions);
+}
+function isSameSkillPlayerCastDef(left: SkillPlayerCastDef | null | undefined, right: SkillPlayerCastDef | null | undefined) {
+    if (left === right) {
+        return true;
+    }
+    if (!left || !right) {
+        return false;
+    }
+    return left.windupTicks === right.windupTicks
+        && left.warningColor === right.warningColor;
 }
 function isSameTechniqueLayerDef(left: TechniqueLayerDef | null | undefined, right: TechniqueLayerDef | null | undefined) {
     if (left === right) {

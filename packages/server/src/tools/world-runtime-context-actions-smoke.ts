@@ -139,7 +139,7 @@ function testBuildContextActions() {
     });
     assert.equal(actions.find((entry) => entry.id === 'portal:travel')?.name, '传送至：荒原');
     assert.equal(actions.find((entry) => entry.id === 'travel:return_spawn')?.name, '遁返');
-    assert.equal(actions.find((entry) => entry.id === 'travel:return_spawn')?.desc, '催动归引灵符，遁返回 云来镇。');
+    assert.equal(actions.find((entry) => entry.id === 'travel:return_spawn')?.desc, '催动归引灵符，遁返回 云来镇，之后需调息 1800 息。');
     assert.equal(actions.find((entry) => entry.id === 'npc:npc_a')?.desc, '问道于心。');
     assert.deepEqual(log, [
         ['getPlayer', 'player:1'],
@@ -190,12 +190,44 @@ function testReturnActionShowsBoundRespawnTarget() {
         localNpcs: [],
     });
     assert.equal(actions.find((entry) => entry.id === 'travel:return_spawn')?.name, '遁返');
-    assert.equal(actions.find((entry) => entry.id === 'travel:return_spawn')?.desc, '催动归引灵符，遁返回 青玄宗。');
+    assert.equal(actions.find((entry) => entry.id === 'travel:return_spawn')?.desc, '催动归引灵符，遁返回 青玄宗，之后需调息 1800 息。');
     assert.ok(!actions.some((entry) => entry.id === 'travel:return_sect'));
+}
+/**
+ * testReturnActionShowsCooldownLeft：执行遁返冷却显示测试。
+ * @returns 无返回值，直接更新测试状态。
+ */
+
+
+function testReturnActionShowsCooldownLeft() {
+    const log = [];
+    const service = createService({
+        respawnTemplateId: 'yunlai_town',
+        attrs: { numericStats: { viewRange: 3 } },
+        realm: { breakthroughReady: false },
+        equipment: { slots: [] },
+        alchemyJob: null,
+        enhancementJob: null,
+        combat: {
+            cooldownReadyTickBySkillId: {
+                'travel:return_spawn': 2810,
+            },
+        },
+    }, log);
+    const actions = service.buildContextActions({
+        playerId: 'player:4',
+        tick: 1010,
+        self: { x: 1, y: 1 },
+        instance: { instanceId: 'public:yunlai_town' },
+        localPortals: [],
+        localNpcs: [],
+    });
+    assert.equal(actions.find((entry) => entry.id === 'travel:return_spawn')?.cooldownLeft, 1800);
 }
 
 testBuildContextActions();
 testJobFallbackWithoutWeapon();
 testReturnActionShowsBoundRespawnTarget();
+testReturnActionShowsCooldownLeft();
 
 console.log(JSON.stringify({ ok: true, case: 'world-runtime-context-actions' }, null, 2));

@@ -8,12 +8,10 @@ const common_1 = require("@nestjs/common");
 const shared_1 = require("@mud/shared");
 const pg_1 = require("pg");
 const env_alias_1 = require("../../config/env-alias");
-const persistent_document_table_1 = require("../../persistence/persistent-document-table");
 const runtime_tile_expansion_1 = require("../map/runtime-tile-expansion");
 const world_runtime_normalization_helpers_1 = require("./world-runtime.normalization.helpers");
 
-const SECT_PERSISTENCE_SCOPE = 'server_sects_v1';
-const SECT_PERSISTENCE_KEY = 'sects';
+const SECT_TABLE = 'server_sect';
 const SECT_TEMPLATE_PREFIX = 'sect_domain:';
 const SECT_INSTANCE_PREFIX = 'sect:';
 const SECT_BASE_CLEAR_RADIUS = 1;
@@ -704,12 +702,53 @@ class WorldRuntimeSectService {
         }
         const sects = Array.from(this.sectsById.values(), (sect) => ({ ...sect }))
             .sort((left, right) => left.sectId.localeCompare(right.sectId, 'zh-Hans-CN'));
-        await pool.query(`
-            INSERT INTO persistent_documents(scope, key, payload, "updatedAt")
-            VALUES ($1, $2, $3::jsonb, now())
-            ON CONFLICT (scope, key)
-            DO UPDATE SET payload = EXCLUDED.payload, "updatedAt" = now()
-        `, [SECT_PERSISTENCE_SCOPE, SECT_PERSISTENCE_KEY, JSON.stringify({ sects })]);
+        await pool.query('BEGIN');
+        try {
+            await pool.query(`DELETE FROM ${SECT_TABLE}`);
+            for (const sect of sects) {
+                await pool.query(`
+                    INSERT INTO ${SECT_TABLE}(
+                        sect_id,
+                        name,
+                        mark,
+                        founder_player_id,
+                        leader_player_id,
+                        status,
+                        entrance_instance_id,
+                        entrance_template_id,
+                        entrance_x,
+                        entrance_y,
+                        sect_instance_id,
+                        sect_template_id,
+                        created_at_ms,
+                        updated_at_ms,
+                        raw_payload,
+                        updated_at
+                    )
+                    VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15::jsonb, now())
+                `, [
+                    sect.sectId,
+                    normalizeOptionalString(sect.name) || '',
+                    normalizeOptionalString(sect.mark) || SECT_CORE_CHAR,
+                    normalizeOptionalString(sect.founderPlayerId) || '',
+                    normalizeOptionalString(sect.leaderPlayerId) || '',
+                    normalizeOptionalString(sect.status) || 'active',
+                    normalizeOptionalString(sect.entranceInstanceId) || '',
+                    normalizeOptionalString(sect.entranceTemplateId) || '',
+                    normalizeIntegerWithDefault(sect.entranceX, 0),
+                    normalizeIntegerWithDefault(sect.entranceY, 0),
+                    normalizeOptionalString(sect.sectInstanceId) || '',
+                    normalizeOptionalString(sect.sectTemplateId) || '',
+                    normalizeIntegerWithDefault(sect.createdAt, Date.now()),
+                    normalizeIntegerWithDefault(sect.updatedAt, Date.now()),
+                    JSON.stringify(sect),
+                ]);
+            }
+            await pool.query('COMMIT');
+        } catch (error) {
+            await pool.query('ROLLBACK').catch(() => undefined);
+            throw error;
+        }
     }
 
     async loadSectDocument() {
@@ -717,8 +756,15 @@ class WorldRuntimeSectService {
         if (!pool) {
             return null;
         }
-        const result = await pool.query('SELECT payload FROM persistent_documents WHERE scope = $1 AND key = $2 LIMIT 1', [SECT_PERSISTENCE_SCOPE, SECT_PERSISTENCE_KEY]);
-        return result.rows?.[0]?.payload ?? null;
+        const result = await pool.query(`
+            SELECT raw_payload
+            FROM ${SECT_TABLE}
+            ORDER BY created_at_ms ASC, sect_id ASC
+        `);
+        const sects = (result.rows ?? [])
+            .map((row) => row?.raw_payload)
+            .filter((entry) => entry && typeof entry === 'object');
+        return sects.length > 0 ? { sects } : null;
     }
 
     async ensurePersistencePool() {
@@ -742,7 +788,7 @@ class WorldRuntimeSectService {
         }
         const pool = new pg_1.Pool({ connectionString: databaseUrl });
         try {
-            await (0, persistent_document_table_1.ensurePersistentDocumentsTable)(pool);
+            await ensureSectTable(pool);
             this.persistencePool = pool;
             this.persistenceReady = true;
         } catch (error) {
@@ -762,6 +808,42 @@ class WorldRuntimeSectService {
 }
 exports.WorldRuntimeSectService = WorldRuntimeSectService;
 export { WorldRuntimeSectService };
+
+async function ensureSectTable(pool) {
+    const client = await pool.connect();
+    try {
+        await client.query(`
+            CREATE TABLE IF NOT EXISTS ${SECT_TABLE} (
+                sect_id varchar(180) PRIMARY KEY,
+                name varchar(120) NOT NULL,
+                mark varchar(16) NOT NULL,
+                founder_player_id varchar(100) NOT NULL,
+                leader_player_id varchar(100) NOT NULL,
+                status varchar(32) NOT NULL,
+                entrance_instance_id varchar(180) NOT NULL,
+                entrance_template_id varchar(120) NOT NULL,
+                entrance_x bigint NOT NULL DEFAULT 0,
+                entrance_y bigint NOT NULL DEFAULT 0,
+                sect_instance_id varchar(180) NOT NULL,
+                sect_template_id varchar(180) NOT NULL,
+                created_at_ms bigint NOT NULL,
+                updated_at_ms bigint NOT NULL,
+                raw_payload jsonb NOT NULL DEFAULT '{}'::jsonb,
+                updated_at timestamptz NOT NULL DEFAULT now()
+            )
+        `);
+        await client.query(`
+            CREATE INDEX IF NOT EXISTS server_sect_leader_idx
+            ON ${SECT_TABLE}(leader_player_id, status)
+        `);
+        await client.query(`
+            CREATE INDEX IF NOT EXISTS server_sect_template_idx
+            ON ${SECT_TABLE}(sect_template_id)
+        `);
+    } finally {
+        client.release();
+    }
+}
 
 function buildSectId(playerId) {
     const normalized = normalizeOptionalString(playerId)?.replace(/[^a-zA-Z0-9:_-]+/g, '_') || 'player';
@@ -820,6 +902,14 @@ function normalizeNonNegativeInteger(input) {
         throw new common_1.BadRequestException('注入数量不能为负');
     }
     return value;
+}
+
+function normalizeIntegerWithDefault(input, fallback) {
+    const value = Math.trunc(Number(input));
+    if (Number.isFinite(value)) {
+        return value;
+    }
+    return Math.trunc(Number(fallback ?? 0));
 }
 
 function resolveSectGuardianFormation(sect, deps) {

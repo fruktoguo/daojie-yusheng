@@ -19,6 +19,10 @@
 
 当前实现进度、已落地分域清单、当前 with-db / gm-database proof 状态，以 [计划/商业级数据落盘改造计划.md](./计划/商业级数据落盘改造计划.md) 为准；本文默认描述终局口径，不把这里的表清单直接等同于“当前已经全部落地”。
 
+2026-04-28 起，执行计划已经改为“数据层一次性商业级硬切”。因此本文里的阶段拆分只代表职责拆分，不再代表可以保留旧快照、旧 `persistent_documents`、旧 direct fallback 分阶段上线。正式完成口径以“无兼容 runtime 读写路径、无资产 fallback、无高频整包/整域刷盘”为准。
+
+2026-04-28 本轮实现已经完成旧业务真源硬切的核心落地：玩家和地图旧快照退出正式 runtime，低频业务状态迁到专表，资产奖励入口缺 durable 条件时硬失败，并新增 `persistence-hard-cut-audit` 静态门禁。本文仍按终局方案描述，容量压测、迁移演练和 `shadow / acceptance / full` 属于计划文档里的商用级证明项。
+
 ## 2. 问题定义
 
 你当前最核心的问题不是“数据库不够强”，而是“真源拆分不够彻底”。
@@ -442,7 +446,7 @@
 - `player_world_anchor`
   - 跨实例迁移、死亡回点、强制传送、登出时写
 - `player_position_checkpoint`
-  - 只在登出、跨图、GM 传送、fallback 恢复点等关键节点写
+  - 只在登出、跨图、GM 传送、显式 GM 修复等关键节点写
   - 不允许按每步移动高频刷库
 - `player_vitals / player_progression_core / player_attr_state`
   - `2-5s` 合批刷
@@ -1064,7 +1068,7 @@ worker 不应承担：
 7. 读取 `player_map_unlock / player_combat_preferences / player_auto_battle_skill / player_auto_use_item_rule`
 8. 读取 `player_profession_state / player_alchemy_preset / player_active_job / player_enhancement_record / player_logbook_message`
 9. 组装运行时并重算派生态
-10. 若锚点或 checkpoint 指向失效实例，则转入 fallback 恢复流程
+10. 若锚点或 checkpoint 指向失效实例，则阻断登录并进入显式 GM 修复流程；正式硬切路径不做静默 fallback 恢复
 
 ### 13.2 实例恢复
 
@@ -1297,25 +1301,27 @@ worker 不应承担：
 - 归档与 vacuum 要有单独运维窗口
 - 不允许无限增长的事件表长期放在热分区
 
-## 16. 分阶段实施路线
+## 16. 一次性硬切实施路线
 
-### 阶段 1：先止血
+以下条目保留原阶段名，便于对照历史计划；实际执行时必须合并为同一个数据硬切版本验收，不能靠旧链路兜底分批上线。
+
+### 任务包 1：玩家真源硬切
 
 目标：
 
-- 不再让几百玩家整档刷盘堵几分钟
+- 不再让几百玩家整档刷盘堵几分钟。
+- 玩家恢复直接从 `player_*` 分域装配，不再读取旧玩家快照。
 
 实施：
 
-- 保留现有玩家快照表作为兜底
 - 先把 `player_presence`、`player_world_anchor`、`player_position_checkpoint` 拆出来
 - 先把 `player_inventory_item`、`player_market_storage_item`、`player_equipment_slot` 拆出来
 - 加入 `player_wallet`
 - 加入 `player_logbook_message`
 - 让恢复锚点、背包、市场托管仓、装备、货币、待确认消息不再写整档快照
-- 现有大快照退化为低频兜底 checkpoint
+- 删除旧玩家快照的恢复、checkpoint、GM 普通读取和 flush 写入角色
 
-### 阶段 1.5：强资产命令链
+### 任务包 2：强资产命令链硬切
 
 目标：
 
@@ -1327,8 +1333,9 @@ worker 不应承担：
 - 新增 `outbox_event`
 - 新增 `player_recovery_watermark`
 - 把货币、背包、市场托管仓、装备、邮件领取、市场成交改成即时事务提交
+- 兑换码、战斗掉落、PvP 奖励、NPC 任务奖励、GM 发放等入口全部接入 durable transaction；缺少 durable 条件时返回错误，不允许运行态直写 fallback
 
-### 阶段 1.8：玩家完整域补齐
+### 任务包 3：玩家完整域补齐
 
 目标：
 
@@ -1350,7 +1357,7 @@ worker 不应承担：
 - 新增 `player_active_job`
 - 新增 `player_enhancement_record`
 
-### 阶段 2：实例目录化
+### 任务包 4：实例目录化
 
 目标：
 
@@ -1362,7 +1369,7 @@ worker 不应承担：
 - 玩家位置正式绑定 `instance_id`
 - 启动阶段改为恢复实例目录而不是恢复全量实例对象
 
-### 阶段 2.5：实例 lease 与路由
+### 任务包 5：实例 lease 与路由
 
 目标：
 
@@ -1374,11 +1381,12 @@ worker 不应承担：
 - 实例写入带 fencing 字段
 - 会话路由与实例路由分离
 
-### 阶段 3：实例状态拆域
+### 任务包 6：实例状态拆域与旧地图快照删除
 
 目标：
 
-- 去掉 `server_next_map_aura_v1` 单实例整包快照依赖
+- 去掉 `server_next_map_aura_v1 / server_map_aura_v1` 单实例整包快照依赖。
+- 旧地图 JSON 只允许离线转换脚本读取，正式 runtime 不再可读写。
 
 实施：
 
@@ -1388,8 +1396,9 @@ worker 不应承担：
 - 高价值对象专表
 - `instance_overlay_chunk`
 - `instance_recovery_watermark`
+- 高频域全部 row-level/key-level delta，不保留整实例 replace 主路径
 
-### 阶段 4：Worker 化
+### 任务包 7：Worker 化
 
 目标：
 
@@ -1400,8 +1409,9 @@ worker 不应承担：
 - flush ledger + Redis 唤醒
 - 独立 flush worker
 - 重试与监控
+- 高频实例域只由 worker claim 后写入；周期服务只保留 checkpoint、shutdown 和诊断
 
-### 阶段 4.5：物理层收口
+### 任务包 8：物理层收口
 
 目标：
 
@@ -1414,16 +1424,18 @@ worker 不应承担：
 - 审计归档
 - vacuum 与热点索引调优
 
-### 阶段 5：清理旧快照主链
+### 任务包 9：所有旧业务文档专表化
 
 目标：
 
-- 大快照不再是正式真源
+- 大快照和 `persistent_documents` 业务 scope 都不再是正式真源
 
 实施：
 
-- 玩家快照改为 checkpoint / backup 用途
-- 地图整包快照改为兼容恢复或下线
+- 删除玩家快照和地图整包快照的 runtime 角色
+- 宗门、GM、兑换码、建议、市场、爱发电、数据库任务元数据迁移到专表
+- GM 备份/恢复覆盖新专表，不重建旧文档 scope
+- 增加静态门禁，证明正式 runtime 不再读写旧业务文档
 
 ## 17. 最终结论
 

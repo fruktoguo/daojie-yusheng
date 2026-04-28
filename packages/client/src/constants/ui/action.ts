@@ -27,7 +27,7 @@ const STATIC_CLIENT_ACTION_DEFS: Record<string, ActionDef> = {
     id: RETURN_TO_SPAWN_ACTION_ID,
     name: '遁返',
     type: 'travel',
-    desc: '催动归引灵符，遁返回当前复活点。',
+    desc: '催动归引灵符，遁返回 云来镇，之后需调息 1800 息。',
     cooldownLeft: 0,
   },
   'toggle:auto_battle': {

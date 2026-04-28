@@ -302,8 +302,8 @@ let WorldRuntimeTickDispatchService = class WorldRuntimeTickDispatchService {
  * @returns 无返回值，直接更新ActionLabelEffect相关状态。
  */
 
-    pushActionLabelEffect(instanceId, x, y, text, deps) {
-        deps.worldRuntimeCombatEffectsService.pushActionLabelEffect(instanceId, x, y, text);
+    pushActionLabelEffect(instanceId, x, y, text, deps, options = undefined) {
+        deps.worldRuntimeCombatEffectsService.pushActionLabelEffect(instanceId, x, y, text, options);
     }    
     /**
  * pushDamageFloatEffect：处理DamageFloatEffect并更新相关状态。

@@ -438,7 +438,11 @@ async function resetLocalGmPasswordRecordIfNeeded() {
         connectionString: SERVER_DATABASE_URL,
     });
     try {
-        await pool.query('DELETE FROM persistent_documents WHERE scope = $1 AND key = $2', [next_gm_contract_1.GM_AUTH_CONTRACT.passwordRecordScope, next_gm_contract_1.GM_AUTH_CONTRACT.passwordRecordKey]);
+        await pool.query('DELETE FROM server_gm_auth WHERE record_key = $1', [next_gm_contract_1.GM_AUTH_CONTRACT.passwordRecordKey]).catch((error) => {
+            if (!error || typeof error !== 'object' || error.code !== '42P01') {
+                throw error;
+            }
+        });
     }
     finally {
         await pool.end().catch(() => undefined);

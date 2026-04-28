@@ -122,7 +122,6 @@ import { FlushLedgerService } from './persistence/flush-ledger.service';
 import { PlayerFlushLedgerService } from './persistence/player-flush-ledger.service';
 import { PlayerIdentityPersistenceService } from './persistence/player-identity-persistence.service';
 import { PlayerPersistenceFlushService } from './persistence/player-persistence-flush.service';
-import { PlayerPersistenceService } from './persistence/player-persistence.service';
 import { NodeRegistryService } from './persistence/node-registry.service';
 import { GmMapConfigPersistenceService } from './persistence/gm-map-config-persistence.service';
 import { NodeRegistryRuntimeService } from './persistence/node-registry-runtime.service';
@@ -259,7 +258,6 @@ import { WorldRuntimeService } from './runtime/world/world-runtime.service';
     FlushLedgerService,
     PlayerFlushLedgerService,
     PlayerIdentityPersistenceService,
-    PlayerPersistenceService,
     PlayerPersistenceFlushService,
     SuggestionPersistenceService,
     RedeemCodePersistenceService,

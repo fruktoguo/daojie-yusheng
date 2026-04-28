@@ -85,6 +85,9 @@ async function applyDurableInventoryGrant(input) {
     try {
         await input.mutateRuntime();
         const leaseContext = await resolveInventoryGrantLeaseContext(input.player.instanceId, input.instanceCatalogService);
+        if (typeof input.player?.instanceId === 'string' && input.player.instanceId.trim() && !leaseContext) {
+            throw new Error(`inventory_grant_lease_context_required:${input.player.instanceId}`);
+        }
         await input.durableOperationService.grantInventoryItems({
             operationId: input.operationId,
             playerId: input.playerId,

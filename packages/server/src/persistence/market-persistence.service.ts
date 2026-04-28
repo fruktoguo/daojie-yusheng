@@ -19,19 +19,10 @@ const pg_1 = require("pg");
 
 const shared_1 = require("@mud/shared");
 
-const persistent_document_table_1 = require("./persistent-document-table");
-
 const env_alias_1 = require("../config/env-alias");
 
-const MARKET_ORDER_SCOPE = 'server_market_orders_v1';
-const LEGACY_MARKET_ORDER_SCOPE = 'server_next_market_orders_v1';
-
-const MARKET_TRADE_SCOPE = 'server_market_trade_history_v1';
-const LEGACY_MARKET_TRADE_SCOPE = 'server_next_market_trade_history_v1';
-
-const MARKET_STORAGE_SCOPE = 'server_market_storage_v1';
-const LEGACY_MARKET_STORAGE_SCOPE = 'server_next_market_storage_v1';
-
+const MARKET_ORDER_TABLE = 'server_market_order';
+const MARKET_TRADE_TABLE = 'server_market_trade_history';
 const PLAYER_MARKET_STORAGE_ITEM_TABLE = 'player_market_storage_item';
 const PLAYER_RECOVERY_WATERMARK_TABLE = 'player_recovery_watermark';
 
@@ -70,10 +61,9 @@ let MarketPersistenceService = MarketPersistenceService_1 = class MarketPersiste
             connectionString: databaseUrl,
         });
         try {
-            await (0, persistent_document_table_1.ensurePersistentDocumentsTable)(this.pool);
-            await ensurePlayerMarketStorageItemTable(this.pool);
+            await ensureMarketTables(this.pool);
             this.enabled = true;
-            this.logger.log('坊市持久化已启用（player_market_storage_item + persistent_documents compat）');
+            this.logger.log('坊市持久化已启用（server_market_order + server_market_trade_history + player_market_storage_item）');
         }
         catch (error) {
             this.logger.error('坊市持久化初始化失败，已回退为禁用模式', error instanceof Error ? error.stack : String(error));
@@ -97,9 +87,18 @@ let MarketPersistenceService = MarketPersistenceService_1 = class MarketPersiste
     /** 加载活跃订单列表，按创建时间+ID排序。 */
     async loadOpenOrders() {
 
-        const rows = await this.loadCompatScopeRows([MARKET_ORDER_SCOPE, LEGACY_MARKET_ORDER_SCOPE]);
+        if (!this.pool || !this.enabled) {
+            return [];
+        }
+        const result = await this.pool.query(`
+          SELECT raw_payload
+          FROM ${MARKET_ORDER_TABLE}
+          WHERE status = 'open'
+          ORDER BY created_at_ms ASC, order_id ASC
+        `);
+        const rows = result.rows ?? [];
         return rows
-            .map((row) => normalizeMarketOrder(row.payload))
+            .map((row) => normalizeMarketOrder(row.raw_payload))
             .filter((entry) => Boolean(entry))
             .sort((left, right) => left.createdAt - right.createdAt || left.id.localeCompare(right.id));
     }
@@ -110,9 +109,17 @@ let MarketPersistenceService = MarketPersistenceService_1 = class MarketPersiste
 
     async loadTradeHistory() {
 
-        const rows = await this.loadCompatScopeRows([MARKET_TRADE_SCOPE, LEGACY_MARKET_TRADE_SCOPE]);
+        if (!this.pool || !this.enabled) {
+            return [];
+        }
+        const result = await this.pool.query(`
+          SELECT raw_payload
+          FROM ${MARKET_TRADE_TABLE}
+          ORDER BY created_at_ms DESC, trade_id ASC
+        `);
+        const rows = result.rows ?? [];
         return rows
-            .map((row) => normalizeTradeRecord(row.payload))
+            .map((row) => normalizeTradeRecord(row.raw_payload))
             .filter((entry) => Boolean(entry))
             .sort((left, right) => right.createdAt - left.createdAt || left.id.localeCompare(right.id));
     }
@@ -122,19 +129,7 @@ let MarketPersistenceService = MarketPersistenceService_1 = class MarketPersiste
  */
 
     async loadStorages() {
-        const structuredStorages = await this.loadStructuredStorages();
-        if (structuredStorages.length > 0) {
-            return structuredStorages;
-        }
-
-        const rows = await this.loadCompatScopeRows([MARKET_STORAGE_SCOPE, LEGACY_MARKET_STORAGE_SCOPE]);
-        return rows
-            .map((row) => ({
-            playerId: row.key,
-            storage: normalizeStorage(row.payload),
-        }))
-            .filter((entry) => entry.playerId.trim().length > 0 && entry.storage.items.length > 0)
-            .sort((left, right) => left.playerId.localeCompare(right.playerId, 'zh-Hans-CN'));
+        return this.loadStructuredStorages();
     }
     /**
  * persistMutation：判断persistMutation是否满足条件。
@@ -167,41 +162,12 @@ let MarketPersistenceService = MarketPersistenceService_1 = class MarketPersiste
     }
 
     /** 读取某 scope 下所有持久化行，供订单/历史/仓库读取入口复用。 */
-    async loadScopeRows(scope) {
-  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
-
-        if (!this.pool || !this.enabled) {
-            return [];
-        }
-
-        const result = await this.pool.query('SELECT key, payload FROM persistent_documents WHERE scope = $1', [scope]);
-        return result.rows;
+    async loadScopeRows(_scope) {
+        return [];
     }
-    /**
- * loadCompatScopeRows：按 scope 优先级回读兼容持久化文档，并按 key 去重。
- * @param scopes 参数说明。
- * @returns 无返回值，完成兼容Scope文档的读取/组装。
- */
 
-    async loadCompatScopeRows(scopes) {
-  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
-
-        const merged = new Map();
-        for (const scope of Array.isArray(scopes) ? scopes : []) {
-            const normalizedScope = typeof scope === 'string' ? scope.trim() : '';
-            if (!normalizedScope) {
-                continue;
-            }
-            const rows = await this.loadScopeRows(normalizedScope);
-            for (const row of rows) {
-                const key = typeof row?.key === 'string' ? row.key : '';
-                if (!key || merged.has(key)) {
-                    continue;
-                }
-                merged.set(key, row);
-            }
-        }
-        return Array.from(merged.values());
+    async loadCompatScopeRows(_scopes) {
+        return [];
     }
     /**
  * loadStructuredStorages：读取结构化Storage并返回结果。
@@ -263,14 +229,50 @@ let MarketPersistenceService = MarketPersistenceService_1 = class MarketPersiste
 
         for (const order of upserts) {
             await client.query(`
-          INSERT INTO persistent_documents(scope, key, payload, "updatedAt")
-          VALUES ($1, $2, $3::jsonb, now())
-          ON CONFLICT (scope, key)
-          DO UPDATE SET payload = EXCLUDED.payload, "updatedAt" = now()
-        `, [MARKET_ORDER_SCOPE, order.id, JSON.stringify(order)]);
+          INSERT INTO ${MARKET_ORDER_TABLE}(
+            order_id,
+            owner_id,
+            side,
+            status,
+            item_key,
+            item_id,
+            remaining_quantity,
+            unit_price,
+            created_at_ms,
+            updated_at_ms,
+            raw_payload,
+            updated_at
+          )
+          VALUES ($1, $2, $3, $4, $5, $6, $7, $8::numeric, $9, $10, $11::jsonb, now())
+          ON CONFLICT (order_id)
+          DO UPDATE SET
+            owner_id = EXCLUDED.owner_id,
+            side = EXCLUDED.side,
+            status = EXCLUDED.status,
+            item_key = EXCLUDED.item_key,
+            item_id = EXCLUDED.item_id,
+            remaining_quantity = EXCLUDED.remaining_quantity,
+            unit_price = EXCLUDED.unit_price,
+            created_at_ms = EXCLUDED.created_at_ms,
+            updated_at_ms = EXCLUDED.updated_at_ms,
+            raw_payload = EXCLUDED.raw_payload,
+            updated_at = now()
+        `, [
+                order.id,
+                order.ownerId,
+                order.side,
+                order.status,
+                order.itemKey,
+                order.item?.itemId ?? '',
+                Math.max(0, Math.trunc(Number(order.remainingQuantity ?? 0))),
+                normalizeUnitPrice(order.unitPrice),
+                Math.trunc(Number(order.createdAt ?? Date.now())),
+                Math.trunc(Number(order.updatedAt ?? Date.now())),
+                JSON.stringify(order),
+            ]);
         }
         if (deletions.length > 0) {
-            await client.query('DELETE FROM persistent_documents WHERE scope = $1 AND key = ANY($2::varchar[])', [MARKET_ORDER_SCOPE, deletions]);
+            await client.query(`DELETE FROM ${MARKET_ORDER_TABLE} WHERE order_id = ANY($1::varchar[])`, [deletions]);
         }
     }
     /**
@@ -285,18 +287,6 @@ let MarketPersistenceService = MarketPersistenceService_1 = class MarketPersiste
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
         await this.persistStructuredStorages(client, upserts, deletions);
-
-        for (const entry of upserts) {
-            await client.query(`
-          INSERT INTO persistent_documents(scope, key, payload, "updatedAt")
-          VALUES ($1, $2, $3::jsonb, now())
-          ON CONFLICT (scope, key)
-          DO UPDATE SET payload = EXCLUDED.payload, "updatedAt" = now()
-        `, [MARKET_STORAGE_SCOPE, entry.playerId, JSON.stringify(entry.storage)]);
-        }
-        if (deletions.length > 0) {
-            await client.query('DELETE FROM persistent_documents WHERE scope = $1 AND key = ANY($2::varchar[])', [MARKET_STORAGE_SCOPE, deletions]);
-        }
     }
     /**
  * persistStructuredStorages：判断persistStructuredStorage是否满足条件。
@@ -379,11 +369,38 @@ let MarketPersistenceService = MarketPersistenceService_1 = class MarketPersiste
     async persistTrades(client, trades) {
         for (const trade of trades) {
             await client.query(`
-          INSERT INTO persistent_documents(scope, key, payload, "updatedAt")
-          VALUES ($1, $2, $3::jsonb, now())
-          ON CONFLICT (scope, key)
-          DO UPDATE SET payload = EXCLUDED.payload, "updatedAt" = now()
-        `, [MARKET_TRADE_SCOPE, trade.id, JSON.stringify(trade)]);
+          INSERT INTO ${MARKET_TRADE_TABLE}(
+            trade_id,
+            buyer_id,
+            seller_id,
+            item_id,
+            quantity,
+            unit_price,
+            created_at_ms,
+            raw_payload,
+            updated_at
+          )
+          VALUES ($1, $2, $3, $4, $5, $6::numeric, $7, $8::jsonb, now())
+          ON CONFLICT (trade_id)
+          DO UPDATE SET
+            buyer_id = EXCLUDED.buyer_id,
+            seller_id = EXCLUDED.seller_id,
+            item_id = EXCLUDED.item_id,
+            quantity = EXCLUDED.quantity,
+            unit_price = EXCLUDED.unit_price,
+            created_at_ms = EXCLUDED.created_at_ms,
+            raw_payload = EXCLUDED.raw_payload,
+            updated_at = now()
+        `, [
+                trade.id,
+                trade.buyerId,
+                trade.sellerId,
+                trade.itemId,
+                Math.max(1, Math.trunc(Number(trade.quantity ?? 1))),
+                normalizeUnitPrice(trade.unitPrice),
+                Math.trunc(Number(trade.createdAt ?? Date.now())),
+                JSON.stringify(trade),
+            ]);
         }
     }
     /**
@@ -521,16 +538,61 @@ function normalizeStorage(raw) {
 }
 
 /**
- * ensurePlayerMarketStorageItemTable：创建玩家市场托管仓结构化表。
+ * ensureMarketTables：创建坊市订单、成交历史和玩家托管仓结构化表。
  * @param pool 参数说明。
  * @returns 无返回值，直接更新玩家市场托管仓结构化表相关状态。
  */
-async function ensurePlayerMarketStorageItemTable(pool) {
+async function ensureMarketTables(pool) {
 /**
  * 记录client。
  */
     const client = await pool.connect();
     try {
+        await client.query(`
+          CREATE TABLE IF NOT EXISTS ${MARKET_ORDER_TABLE} (
+            order_id varchar(160) PRIMARY KEY,
+            owner_id varchar(100) NOT NULL,
+            side varchar(16) NOT NULL,
+            status varchar(24) NOT NULL,
+            item_key varchar(240) NOT NULL,
+            item_id varchar(160) NOT NULL,
+            remaining_quantity bigint NOT NULL DEFAULT 0,
+            unit_price numeric(20, 2) NOT NULL DEFAULT 1,
+            created_at_ms bigint NOT NULL,
+            updated_at_ms bigint NOT NULL,
+            raw_payload jsonb NOT NULL DEFAULT '{}'::jsonb,
+            updated_at timestamptz NOT NULL DEFAULT now()
+          )
+        `);
+        await client.query(`
+          CREATE INDEX IF NOT EXISTS server_market_order_open_idx
+          ON ${MARKET_ORDER_TABLE}(status, item_key, side, unit_price, created_at_ms)
+        `);
+        await client.query(`
+          CREATE INDEX IF NOT EXISTS server_market_order_owner_idx
+          ON ${MARKET_ORDER_TABLE}(owner_id, status, updated_at_ms DESC)
+        `);
+        await client.query(`
+          CREATE TABLE IF NOT EXISTS ${MARKET_TRADE_TABLE} (
+            trade_id varchar(160) PRIMARY KEY,
+            buyer_id varchar(100) NOT NULL,
+            seller_id varchar(100) NOT NULL,
+            item_id varchar(160) NOT NULL,
+            quantity bigint NOT NULL DEFAULT 1,
+            unit_price numeric(20, 2) NOT NULL DEFAULT 1,
+            created_at_ms bigint NOT NULL,
+            raw_payload jsonb NOT NULL DEFAULT '{}'::jsonb,
+            updated_at timestamptz NOT NULL DEFAULT now()
+          )
+        `);
+        await client.query(`
+          CREATE INDEX IF NOT EXISTS server_market_trade_created_idx
+          ON ${MARKET_TRADE_TABLE}(created_at_ms DESC, trade_id ASC)
+        `);
+        await client.query(`
+          CREATE INDEX IF NOT EXISTS server_market_trade_party_idx
+          ON ${MARKET_TRADE_TABLE}(buyer_id, seller_id, created_at_ms DESC)
+        `);
         await client.query(`
           CREATE TABLE IF NOT EXISTS ${PLAYER_MARKET_STORAGE_ITEM_TABLE} (
             storage_item_id varchar(160) PRIMARY KEY,

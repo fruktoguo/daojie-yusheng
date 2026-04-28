@@ -206,9 +206,16 @@ async function testFlushOverlayAndMonsterDomains() {
             log.push('buildOverlayPersistenceChunks');
             return [{ patchKind: 'portal', chunkKey: 'runtime_portals', patchVersion: 1, patchPayload: { portals: [] } }];
         },
+        buildMonsterRuntimePersistenceDelta() {
+            log.push('buildMonsterRuntimePersistenceDelta');
+            return {
+                fullReplace: false,
+                upserts: [{ monsterRuntimeId: 'monster:1', monsterTier: 'demon_king' }],
+                deletes: [],
+            };
+        },
         buildMonsterRuntimePersistenceEntries() {
-            log.push('buildMonsterRuntimePersistenceEntries');
-            return [{ monsterRuntimeId: 'monster:1', monsterTier: 'demon_king' }];
+            throw new Error('monster runtime domain must use delta');
         },
         markPersistenceDomainsPersisted(domains) {
             log.push(['markPersistenceDomainsPersisted', domains]);
@@ -223,8 +230,8 @@ async function testFlushOverlayAndMonsterDomains() {
             async replaceOverlayChunks(instanceId, entries) {
                 log.push(['replaceOverlayChunks', instanceId, entries.length]);
             },
-            async replaceMonsterRuntimeStates(instanceId, entries) {
-                log.push(['replaceMonsterRuntimeStates', instanceId, entries.length]);
+            async saveMonsterRuntimeDelta(instanceId, upserts, deletes) {
+                log.push(['saveMonsterRuntimeDelta', instanceId, upserts.length, deletes.length]);
             },
             async saveInstanceRecoveryWatermark(instanceId, payload) {
                 log.push(['saveInstanceRecoveryWatermark', instanceId, payload.kind, payload.tick, payload.persistenceRevision, payload.domains]);
@@ -237,8 +244,8 @@ async function testFlushOverlayAndMonsterDomains() {
     assert.deepEqual(log, [
         'buildOverlayPersistenceChunks',
         ['replaceOverlayChunks', 'public:yunlai_town', 1],
-        'buildMonsterRuntimePersistenceEntries',
-        ['replaceMonsterRuntimeStates', 'public:yunlai_town', 1],
+        'buildMonsterRuntimePersistenceDelta',
+        ['saveMonsterRuntimeDelta', 'public:yunlai_town', 1, 0],
         ['saveInstanceRecoveryWatermark', 'public:yunlai_town', 'domain_flush', 2468, 7, ['monster_runtime', 'overlay']],
         ['markPersistenceDomainsPersisted', ['overlay', 'monster_runtime']],
     ]);

@@ -1,5 +1,5 @@
 import { Inject, Injectable } from '@nestjs/common';
-import { PlayerPersistenceService } from '../../persistence/player-persistence.service';
+import { PlayerDomainPersistenceService } from '../../persistence/player-domain-persistence.service';
 import { MailRuntimeService } from '../../runtime/mail/mail-runtime.service';
 import { PlayerRuntimeService } from '../../runtime/player/player-runtime.service';
 import { NATIVE_GM_MAIL_RECIPIENT_CONTRACT } from './native-gm-contract';
@@ -25,12 +25,12 @@ interface MailRuntimeServiceLike {
   createDirectMail(playerId: string, input: unknown): Promise<string>;
 }
 /**
- * PlayerPersistenceServiceLike：定义接口结构约束，明确可交付字段含义。
+ * PlayerDomainPersistenceServiceLike：定义接口结构约束，明确可交付字段含义。
  */
 
 
-interface PlayerPersistenceServiceLike {
-  listPlayerSnapshots(): Promise<PlayerSnapshotLike[]>;
+interface PlayerDomainPersistenceServiceLike {
+  listProjectedSnapshots(buildStarterSnapshot: (playerId: string) => any | null): Promise<PlayerSnapshotLike[]>;
 }
 /**
  * PlayerRuntimeServiceLike：定义接口结构约束，明确可交付字段含义。
@@ -39,6 +39,7 @@ interface PlayerPersistenceServiceLike {
 
 interface PlayerRuntimeServiceLike {
   listPlayerSnapshots(): PlayerSnapshotLike[];
+  buildStarterPersistenceSnapshot(playerId: string): any | null;
 }
 /**
  * NativeGmMailService：封装该能力的入口与生命周期，承载运行时核心协作。
@@ -50,14 +51,14 @@ export class NativeGmMailService {
 /**
  * 构造器：初始化 当前 实例并建立基础状态。
  * @param mailRuntimeService MailRuntimeServiceLike 参数说明。
- * @param playerPersistenceService PlayerPersistenceServiceLike 参数说明。
+ * @param playerDomainPersistenceService PlayerDomainPersistenceServiceLike 参数说明。
  * @param playerRuntimeService PlayerRuntimeServiceLike 参数说明。
  * @returns 无返回值，完成实例初始化。
  */
 
   constructor(
     @Inject(MailRuntimeService) private readonly mailRuntimeService: MailRuntimeServiceLike,
-    @Inject(PlayerPersistenceService) private readonly playerPersistenceService: PlayerPersistenceServiceLike,
+    @Inject(PlayerDomainPersistenceService) private readonly playerDomainPersistenceService: PlayerDomainPersistenceServiceLike,
     @Inject(PlayerRuntimeService) private readonly playerRuntimeService: PlayerRuntimeServiceLike,
   ) {}  
   /**
@@ -90,7 +91,9 @@ export class NativeGmMailService {
       return runtimePlayerIds;
     }
 
-    const persistedEntries = await this.playerPersistenceService.listPlayerSnapshots();
+    const persistedEntries = await this.playerDomainPersistenceService.listProjectedSnapshots(
+      (playerId) => this.playerRuntimeService.buildStarterPersistenceSnapshot(playerId),
+    );
     for (const entry of persistedEntries) {
       if (isNativeGmBotPlayerId(entry.playerId) || deliveredPlayerIds.has(entry.playerId)) {
         continue;

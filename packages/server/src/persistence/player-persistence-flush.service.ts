@@ -7,10 +7,7 @@ import {
   PLAYER_SNAPSHOT_PROJECTABLE_DIRTY_DOMAINS,
   PlayerDomainPersistenceService,
 } from './player-domain-persistence.service';
-import {
-  PlayerPersistenceService,
-  type PersistedPlayerSnapshot,
-} from './player-persistence.service';
+import { type PersistedPlayerSnapshot } from './player-persistence.service';
 
 const PLAYER_PERSISTENCE_FLUSH_INTERVAL_MS = 5000;
 const PLAYER_PERSISTENCE_FLUSH_BATCH_SIZE = 24;
@@ -31,7 +28,6 @@ const PLAYER_PERSISTENCE_SLOW_FLUSH_BACKOFF_MS = normalizePositiveInteger(
 );
 const PLAYER_PERSISTENCE_DIRTY_FALLBACK_DOMAIN = 'snapshot';
 const PLAYER_PERSISTENCE_DIRTY_PRESENCE_DOMAIN = 'presence';
-const PLAYER_PERSISTENCE_SNAPSHOT_CHECKPOINT_INTERVAL_MS = 30_000;
 const PLAYER_PERSISTENCE_SNAPSHOT_PROJECTABLE_DOMAIN_SET = new Set<string>(
   PLAYER_SNAPSHOT_PROJECTABLE_DIRTY_DOMAINS,
 );
@@ -58,20 +54,18 @@ interface LeaseGuardPort {
   isPlayerPersistenceWritable(playerId: string): boolean;
 }
 
-/** 玩家快照刷盘服务：保留 snapshot 兼容真源，同时双写玩家分域表。 */
+/** 玩家状态刷盘服务：硬切后只写玩家分域表，旧整档快照不再作为运行时落点。 */
 @Injectable()
 export class PlayerPersistenceFlushService implements OnModuleInit, OnModuleDestroy {
   private readonly logger = new Logger(PlayerPersistenceFlushService.name);
   private timer: NodeJS.Timeout | null = null;
   private flushPromise: Promise<void> | null = null;
-  private readonly lastSnapshotCheckpointAtByPlayerId = new Map<string, number>();
   private leaseGuard: LeaseGuardPort | null = null;
   private flushThrottleUntilAt = 0;
 
   constructor(
     @Inject(PlayerRuntimeService)
     private readonly playerRuntimeService: PlayerRuntimeFlushPort,
-    private readonly playerPersistenceService: PlayerPersistenceService,
     private readonly playerDomainPersistenceService: PlayerDomainPersistenceService,
   ) {}
 
@@ -92,7 +86,6 @@ export class PlayerPersistenceFlushService implements OnModuleInit, OnModuleDest
       clearInterval(this.timer);
       this.timer = null;
     }
-    this.lastSnapshotCheckpointAtByPlayerId.clear();
   }
 
   /** 应用关闭前 flush 全量脏玩家，保证关键状态落库。 */
@@ -102,9 +95,8 @@ export class PlayerPersistenceFlushService implements OnModuleInit, OnModuleDest
 
   /** 立即刷单个玩家快照与分域投影。 */
   async flushPlayer(playerId: string): Promise<void> {
-    const snapshotEnabled = this.playerPersistenceService.isEnabled();
     const domainEnabled = this.playerDomainPersistenceService.isEnabled();
-    if (!snapshotEnabled && !domainEnabled) {
+    if (!domainEnabled) {
       return;
     }
 
@@ -141,16 +133,14 @@ export class PlayerPersistenceFlushService implements OnModuleInit, OnModuleDest
       snapshot,
       dirtyDomains,
       'manual',
-      snapshotEnabled,
       domainEnabled,
     );
     this.playerRuntimeService.markPersisted(playerId);
   }
 
   async flushAllNow(): Promise<void> {
-    const snapshotEnabled = this.playerPersistenceService.isEnabled();
     const domainEnabled = this.playerDomainPersistenceService.isEnabled();
-    if (!snapshotEnabled && !domainEnabled) {
+    if (!domainEnabled) {
       return;
     }
     if (this.flushPromise) {
@@ -160,18 +150,16 @@ export class PlayerPersistenceFlushService implements OnModuleInit, OnModuleDest
   }
 
   async flushDirtyPlayers(): Promise<void> {
-    const snapshotEnabled = this.playerPersistenceService.isEnabled();
     const domainEnabled = this.playerDomainPersistenceService.isEnabled();
-    if ((!snapshotEnabled && !domainEnabled) || this.flushPromise || isRestoreFreezeActive() || this.isFlushThrottleActive()) {
+    if (!domainEnabled || this.flushPromise || isRestoreFreezeActive() || this.isFlushThrottleActive()) {
       return;
     }
     await this.runFlushCycle('interval');
   }
 
   private async runFlushCycle(reason: string): Promise<void> {
-    const snapshotEnabled = this.playerPersistenceService.isEnabled();
     const domainEnabled = this.playerDomainPersistenceService.isEnabled();
-    if (!snapshotEnabled && !domainEnabled) {
+    if (!domainEnabled) {
       return;
     }
     const startedAt = performance.now();
@@ -219,7 +207,6 @@ export class PlayerPersistenceFlushService implements OnModuleInit, OnModuleDest
                 snapshot,
                 dirtyDomains,
                 reason,
-                snapshotEnabled,
                 domainEnabled,
               );
             });
@@ -249,80 +236,35 @@ export class PlayerPersistenceFlushService implements OnModuleInit, OnModuleDest
     }
   }
 
-  private async flushPlayerSnapshotProjection(
-    playerId: string,
-    snapshot: PersistedPlayerSnapshot,
-    snapshotEnabled: boolean,
-    domainEnabled: boolean,
-  ): Promise<void> {
-    if (snapshotEnabled) {
-      await this.playerPersistenceService.savePlayerSnapshot(playerId, snapshot);
-    }
-    if (!domainEnabled) {
-      return;
-    }
-    await this.playerDomainPersistenceService.savePlayerSnapshotProjection(playerId, snapshot);
-    const presence = this.playerRuntimeService.describePersistencePresence(playerId);
-    if (presence) {
-      await this.playerDomainPersistenceService.savePlayerPresence(playerId, presence);
-    }
-  }
-
   private async flushPlayerDirtyDomains(
     playerId: string,
     snapshot: PersistedPlayerSnapshot,
     dirtyDomains: ReadonlySet<string>,
     reason: string,
-    snapshotEnabled: boolean,
     domainEnabled: boolean,
   ): Promise<void> {
+    void reason;
     const normalizedDirtyDomains = normalizeDirtyDomains(dirtyDomains);
     const nonPresenceDirtyDomains = new Set(
       Array.from(normalizedDirtyDomains).filter(
         (domain) => domain !== PLAYER_PERSISTENCE_DIRTY_PRESENCE_DOMAIN,
       ),
     );
-    const walletOnlyDirty =
-      nonPresenceDirtyDomains.size === 1 && nonPresenceDirtyDomains.has('wallet');
     if (!domainEnabled) {
-      if (snapshotEnabled) {
-        await this.playerPersistenceService.savePlayerSnapshot(playerId, snapshot);
-        this.markSnapshotCheckpoint(playerId, snapshot.savedAt);
-      }
       return;
     }
 
-    const shouldSaveSnapshot =
-      snapshotEnabled
-      && (
-        reason === 'shutdown'
-        || nonPresenceDirtyDomains.size === 0
-        || nonPresenceDirtyDomains.has(PLAYER_PERSISTENCE_DIRTY_FALLBACK_DOMAIN)
-        || Array.from(nonPresenceDirtyDomains).some((domain) => !isProjectableDirtyDomain(domain))
-        || (!walletOnlyDirty && this.isSnapshotCheckpointDue(playerId, snapshot.savedAt))
-      );
-
-    if (shouldSaveSnapshot) {
-      if (!this.isPlayerPersistenceWritable(playerId)) {
-        this.logger.warn(`跳过玩家快照提交：lease 已失效 playerId=${playerId}`);
-        return;
-      }
-      await this.playerPersistenceService.savePlayerSnapshot(playerId, snapshot);
-      this.markSnapshotCheckpoint(playerId, snapshot.savedAt);
+    const projectedDomains = nonPresenceDirtyDomains;
+    const unsupportedDomains = Array.from(projectedDomains).filter((domain) => !isProjectableDirtyDomain(domain));
+    if (
+      projectedDomains.has(PLAYER_PERSISTENCE_DIRTY_FALLBACK_DOMAIN)
+      || unsupportedDomains.length > 0
+    ) {
+      const domains = Array.from(projectedDomains).sort().join(',') || 'none';
+      throw new Error(`player_domain_delta_required:${playerId}:${domains}`);
     }
 
-    const projectedDomains = nonPresenceDirtyDomains;
-    if (
-      projectedDomains.size === 0
-      || projectedDomains.has(PLAYER_PERSISTENCE_DIRTY_FALLBACK_DOMAIN)
-      || Array.from(projectedDomains).some((domain) => !isProjectableDirtyDomain(domain))
-    ) {
-      if (!this.isPlayerPersistenceWritable(playerId)) {
-        this.logger.warn(`跳过玩家分域提交：lease 已失效 playerId=${playerId}`);
-        return;
-      }
-      await this.playerDomainPersistenceService.savePlayerSnapshotProjection(playerId, snapshot);
-    } else {
+    if (projectedDomains.size > 0) {
       if (!this.isPlayerPersistenceWritable(playerId)) {
         this.logger.warn(`跳过玩家分域增量提交：lease 已失效 playerId=${playerId}`);
         return;
@@ -348,15 +290,6 @@ export class PlayerPersistenceFlushService implements OnModuleInit, OnModuleDest
 
   private isPlayerPersistenceWritable(playerId: string): boolean {
     return this.leaseGuard?.isPlayerPersistenceWritable(playerId) ?? true;
-  }
-
-  private isSnapshotCheckpointDue(playerId: string, versionSeed: number): boolean {
-    const lastCheckpointAt = this.lastSnapshotCheckpointAtByPlayerId.get(playerId) ?? 0;
-    return versionSeed - lastCheckpointAt >= PLAYER_PERSISTENCE_SNAPSHOT_CHECKPOINT_INTERVAL_MS;
-  }
-
-  private markSnapshotCheckpoint(playerId: string, versionSeed: number): void {
-    this.lastSnapshotCheckpointAtByPlayerId.set(playerId, Math.max(0, Math.trunc(versionSeed)));
   }
 
   private isFlushThrottleActive(): boolean {

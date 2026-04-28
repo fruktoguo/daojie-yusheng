@@ -78,7 +78,6 @@ async function main(): Promise<void> {
     await pool.query('DELETE FROM server_player_snapshot WHERE player_id = $1', [playerId]);
 
     const snapshotService = new WorldPlayerSnapshotService(
-      snapshotPersistence,
       domainPersistence,
       {
         buildStarterPersistenceSnapshot(targetPlayerId: string) {

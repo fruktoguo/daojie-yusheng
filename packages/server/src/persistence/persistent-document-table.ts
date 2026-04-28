@@ -17,9 +17,8 @@ const CREATE_PERSISTENT_DOCUMENTS_SQL = `
   )
 `;
 
-// persistent_documents 现在只承担低频、文档型或批量 scope 的真源：
-// map aura、mailbox、suggestion、redeem-code、market，以及 GM/admin 的备份元数据等。
-// 账号、player auth、player identity、player snapshot 这类高频主链状态已迁到专表，不再继续堆进通用文档表。
+// persistent_documents 只保留给历史 JSON 备份导入、离线迁移和审计工具。
+// packages/* 运行时真源不得再新增 scope，也不得把它作为“下次还在”的正式落点。
 
 /** 初始化 persistent_documents 表并加数据库 advisory lock，避免并发重复建表。 */
 async function ensurePersistentDocumentsTable(pool) {

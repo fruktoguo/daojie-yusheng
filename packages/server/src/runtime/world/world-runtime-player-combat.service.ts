@@ -201,9 +201,7 @@ let WorldRuntimePlayerCombatService = class WorldRuntimePlayerCombatService {
                 });
                 return;
             }
-            this.playerRuntimeService.receiveInventoryItem(playerId, item);
-            deps.queuePlayerNotice(playerId, `获得 ${formatItemStackLabel(item)}`, 'loot');
-            return;
+            throw new common_1.ServiceUnavailableException('monster_loot_durable_context_required');
         }
         deps.spawnGroundItem(instance, x, y, item);
         deps.queuePlayerNotice(playerId, `${formatItemStackLabel(item)} 掉落在 (${x}, ${y}) 的地面上，但你的背包已满。`, 'loot');
@@ -290,8 +288,7 @@ let WorldRuntimePlayerCombatService = class WorldRuntimePlayerCombatService {
                     });
                 }
                 else {
-                    this.playerRuntimeService.receiveInventoryItem(killer.playerId, reward);
-                    deps.queuePlayerNotice(killer.playerId, `你从 ${victim.name} 体内掠得 ${reward.name} x${bloodEssenceCount}。`, 'loot');
+                    throw new common_1.ServiceUnavailableException('pvp_loot_durable_context_required');
                 }
             }
             else {
@@ -319,17 +316,7 @@ let WorldRuntimePlayerCombatService = class WorldRuntimePlayerCombatService {
             mutateRuntime: async () => {
                 this.playerRuntimeService.receiveInventoryItem(input.playerId, input.item);
             },
-            onFailure: async (error) => {
-                try {
-                    input.deps.spawnGroundItem(input.instance, input.fallbackPosition.x, input.fallbackPosition.y, input.item);
-                    input.deps.queuePlayerNotice(input.playerId, input.fallbackNotice, 'loot');
-                }
-                catch (spawnError) {
-                    this.logger.warn(`库存 durable 奖励回退失败：${spawnError instanceof Error ? spawnError.message : String(spawnError)}`);
-                    input.deps.queuePlayerNotice(input.playerId, error instanceof Error ? error.message : String(error), 'warn');
-                }
-            },
-            swallowFailure: true,
+            swallowFailure: false,
         });
         if (committed) {
             input.deps.queuePlayerNotice(input.playerId, input.successNotice, 'loot');

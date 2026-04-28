@@ -395,8 +395,18 @@ let ContentTemplateRepository = ContentTemplateRepository_1 = class ContentTempl
 
         const category = typeof input.category === 'string' ? input.category : template?.category;
 
+        const templateSkillById = new Map((template?.skills ?? []).map((entry) => [entry.id, entry]));
         const skills = Array.isArray(input.skills) && input.skills.length > 0
-            ? input.skills.map((entry) => ({ ...entry }))
+            ? input.skills.map((entry) => {
+                const templateSkill = typeof entry?.id === 'string' ? templateSkillById.get(entry.id) : null;
+                return templateSkill
+                    ? {
+                        ...entry,
+                        playerCast: templateSkill.playerCast ? { ...templateSkill.playerCast } : undefined,
+                        monsterCast: templateSkill.monsterCast ? { ...templateSkill.monsterCast } : undefined,
+                    }
+                    : { ...entry };
+            })
             : (template?.skills.map((entry) => ({ ...entry })) ?? []);
 
         const attrCurves = input.attrCurves && typeof input.attrCurves === 'object'
@@ -2295,7 +2305,27 @@ function normalizeSkill(raw, grade, realmLv, sharedTechniqueBuffs = new Map()) {
         unlockPlayerRealm: candidate.unlockPlayerRealm,
         requiresTarget: candidate.requiresTarget,
         targetMode: candidate.targetMode,
+        playerCast: normalizeSkillCastDef(candidate.playerCast, false),
+        monsterCast: normalizeSkillCastDef(candidate.monsterCast, true),
     };
+}
+function normalizeSkillCastDef(raw, includeConditions = false) {
+    if (!raw || typeof raw !== 'object' || Array.isArray(raw)) {
+        return undefined;
+    }
+    const candidate = raw;
+    const windupTicks = Number(candidate.windupTicks);
+    const normalized = {};
+    if (Number.isFinite(windupTicks)) {
+        normalized.windupTicks = Math.max(0, Math.floor(windupTicks));
+    }
+    if (typeof candidate.warningColor === 'string' && candidate.warningColor.trim().length > 0) {
+        normalized.warningColor = candidate.warningColor.trim();
+    }
+    if (includeConditions && candidate.conditions && typeof candidate.conditions === 'object' && !Array.isArray(candidate.conditions)) {
+        normalized.conditions = { ...candidate.conditions };
+    }
+    return Object.keys(normalized).length > 0 ? normalized : undefined;
 }
 /**
  * cloneSkillEffects：构建技能Effect。

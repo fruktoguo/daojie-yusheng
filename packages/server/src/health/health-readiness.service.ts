@@ -2,7 +2,7 @@ import { Inject, Injectable, Optional } from '@nestjs/common';
 
 import { MailPersistenceService } from '../persistence/mail-persistence.service';
 import { MarketPersistenceService } from '../persistence/market-persistence.service';
-import { PlayerPersistenceService } from '../persistence/player-persistence.service';
+import { PlayerDomainPersistenceService } from '../persistence/player-domain-persistence.service';
 import { SuggestionPersistenceService } from '../persistence/suggestion-persistence.service';
 import { WorldRuntimeService } from '../runtime/world/world-runtime.service';
 import { buildHealthResponse } from './health-readiness';
@@ -43,7 +43,7 @@ export class HealthReadinessService {
   /** 注入各持久化服务与 runtime，用于组合 readiness 检查。 */
   constructor(
     @Optional()
-    @Inject(PlayerPersistenceService)
+    @Inject(PlayerDomainPersistenceService)
     private readonly playerPersistenceService: PersistenceServiceLike,
     @Optional()
     @Inject(MailPersistenceService)

@@ -1,5 +1,6 @@
 import {
   C2S,
+  RETURN_TO_SPAWN_ACTION_ID,
   parseTileTargetRef,
   type GridPoint,
   type ClientToServerEventPayload,
@@ -40,6 +41,7 @@ interface WorldGatewayActionDeps {
     buildQuestListView(playerId: string): unknown;
     worldRuntimeCommandIntakeFacadeService: {
       enqueueResetPlayerSpawn(playerId: string, deps: unknown): void;
+      enqueueReturnToSpawn(playerId: string, deps: unknown): void;
       enqueueBattleTarget(
         playerId: string,
         locked: boolean,
@@ -105,8 +107,12 @@ export class WorldGatewayActionHelper {
     payload: ClientToServerEventPayload<typeof C2S.UseAction>,
   ): void {
     const actionId = this.resolveActionId(payload);
-    if (actionId === 'debug:reset_spawn' || actionId === 'travel:return_spawn') {
+    if (actionId === 'debug:reset_spawn') {
       this.gateway.worldRuntimeService.worldRuntimeCommandIntakeFacadeService.enqueueResetPlayerSpawn(playerId, this.gateway.worldRuntimeService);
+      return;
+    }
+    if (actionId === RETURN_TO_SPAWN_ACTION_ID) {
+      this.gateway.worldRuntimeService.worldRuntimeCommandIntakeFacadeService.enqueueReturnToSpawn(playerId, this.gateway.worldRuntimeService);
       return;
     }
 

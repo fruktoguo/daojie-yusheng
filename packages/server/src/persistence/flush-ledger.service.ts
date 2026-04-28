@@ -179,7 +179,7 @@ export class FlushLedgerService implements OnModuleInit, OnModuleDestroy {
   async claimInstanceFlushLedger(input: {
     workerId: string;
     domain: string;
-    ownershipEpoch: number;
+    ownershipEpoch?: number | null;
     limit?: number;
   }): Promise<Array<Record<string, unknown>>> {
     if (!this.pool || !this.enabled) {
@@ -191,7 +191,14 @@ export class FlushLedgerService implements OnModuleInit, OnModuleDestroy {
       return [];
     }
     const limit = normalizePositiveInteger(input.limit, 32, 1, 200);
-    const ownershipEpoch = Math.max(0, Math.trunc(Number(input.ownershipEpoch ?? 0)));
+    const parsedOwnershipEpoch = Number(input.ownershipEpoch);
+    const hasOwnershipEpochFilter = Number.isFinite(parsedOwnershipEpoch) && parsedOwnershipEpoch >= 0;
+    const ownershipEpoch = hasOwnershipEpochFilter ? Math.trunc(parsedOwnershipEpoch) : null;
+    const ownershipEpochFilter = hasOwnershipEpochFilter ? 'AND ownership_epoch = $3' : '';
+    const queryParams = hasOwnershipEpochFilter
+      ? [workerId, domain, ownershipEpoch, limit]
+      : [workerId, domain, limit];
+    const limitParam = hasOwnershipEpochFilter ? '$4' : '$3';
     const result = await this.pool.query(
       `
         WITH claimed AS (
@@ -202,18 +209,18 @@ export class FlushLedgerService implements OnModuleInit, OnModuleDestroy {
             SELECT instance_id, domain, ownership_epoch
             FROM ${INSTANCE_FLUSH_LEDGER_TABLE}
             WHERE domain = $2
-              AND ownership_epoch = $3
+              ${ownershipEpochFilter}
               AND latest_version > flushed_version
               AND (claim_until IS NULL OR claim_until < now())
             ORDER BY dirty_since_at ASC NULLS LAST, updated_at ASC, instance_id ASC
-            LIMIT $4
+            LIMIT ${limitParam}
             FOR UPDATE SKIP LOCKED
           )
           RETURNING instance_id, domain, ownership_epoch, latest_version, flushed_version, dirty_since_at, next_attempt_at, claimed_by, claim_until, updated_at
         )
         SELECT * FROM claimed
       `,
-      [workerId, domain, ownershipEpoch, limit],
+      queryParams,
     );
     return Array.isArray(result.rows) ? (result.rows as Record<string, unknown>[]) : [];
   }

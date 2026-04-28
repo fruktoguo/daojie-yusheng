@@ -52,6 +52,8 @@ function testEnvelopeService() {
             return [
                 { type: 'attack', fromX: 3, fromY: 4, toX: 7, toY: 8, label: 'keep' },
                 { type: 'attack', fromX: 20, fromY: 20, toX: 21, toY: 21, label: 'drop' },
+                { type: 'warning_zone', cells: [{ x: 3, y: 4 }, { x: 4, y: 4 }], label: 'warning-keep' },
+                { type: 'warning_zone', cells: [{ x: 30, y: 30 }], label: 'warning-drop' },
             ];
         },
     }, {    
@@ -84,10 +86,11 @@ function testEnvelopeService() {
     const binding = { sessionId: 'sid.a' };
     const envelope = service.createInitialEnvelope('player:1', binding, view, {});
     assert.equal(envelope.initSession.sid, 'sid.a');
-    assert.equal(envelope.worldDelta.fx.length, 1);
+    assert.equal(envelope.worldDelta.fx.length, 2);
     assert.equal(envelope.worldDelta.fx[0].label, 'keep');
+    assert.equal(envelope.worldDelta.fx[1].label, 'warning-keep');
     const delta = service.createDeltaEnvelope('player:1', { ...view, tick: 11, worldRevision: 21, selfRevision: 31 }, {});
-    assert.equal(delta.worldDelta.fx.length, 1);
+    assert.equal(delta.worldDelta.fx.length, 2);
     service.clearPlayerCache('player:1');
 }
 

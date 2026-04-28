@@ -70,12 +70,54 @@ let WorldRuntimeMonsterActionApplyService = class WorldRuntimeMonsterActionApply
     applyMonsterAction(action, deps) {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
+        if (action.kind === 'skill_chant') {
+            this.applyMonsterSkillChant(action, deps);
+            return;
+        }
         if (action.kind === 'skill') {
             this.applyMonsterSkill(action, deps);
             return;
         }
         this.applyMonsterBasicAttack(action, deps);
     }    
+    applyMonsterSkillChant(action, deps) {
+        if (!action.skillId) {
+            return;
+        }
+        const instance = deps.getInstanceRuntime(action.instanceId);
+        if (!instance) {
+            return;
+        }
+        const monster = instance.getMonster(action.runtimeId);
+        if (!monster || !monster.alive) {
+            return;
+        }
+        const skill = monster.skills.find((entry) => entry.id === action.skillId);
+        if (!skill) {
+            return;
+        }
+        const durationMs = Math.max(1, Math.round(Number(action.durationMs) || 1000));
+        this.worldRuntimeCombatEffectsService.pushActionLabelEffect(action.instanceId, monster.x, monster.y, skill.name, {
+            actionStyle: 'chant',
+            durationMs: durationMs + 240,
+        });
+        const warningCells = Array.isArray(action.warningCells)
+            ? action.warningCells.map((cell) => ({ x: cell.x, y: cell.y }))
+            : [];
+        if (warningCells.length > 0) {
+            this.worldRuntimeCombatEffectsService.pushCombatEffect(action.instanceId, {
+                type: 'warning_zone',
+                cells: warningCells,
+                color: typeof action.warningColor === 'string' && action.warningColor.trim().length > 0
+                    ? action.warningColor.trim()
+                    : '#ff3030',
+                baseColor: '#ff8a8a',
+                originX: Number.isFinite(action.warningOriginX) ? action.warningOriginX : undefined,
+                originY: Number.isFinite(action.warningOriginY) ? action.warningOriginY : undefined,
+                durationMs,
+            });
+        }
+    }
     /**
  * applyMonsterBasicAttack：处理怪物BasicAttack并更新相关状态。
  * @param action 参数说明。

@@ -17,13 +17,11 @@ const common_1 = require("@nestjs/common");
 
 const pg_1 = require("pg");
 
-const persistent_document_table_1 = require("./persistent-document-table");
-
 const env_alias_1 = require("../config/env-alias");
 
-const SUGGESTION_SCOPE = 'server_suggestions_v1';
-
-const SUGGESTION_KEY = 'global';
+const SUGGESTION_STATE_TABLE = 'server_suggestion_state';
+const SUGGESTION_TABLE = 'server_suggestion';
+const SUGGESTION_STATE_KEY = 'global';
 
 /** 建议持久化服务：保存/恢复全服建议与回复投票状态。 */
 let SuggestionPersistenceService = SuggestionPersistenceService_1 = class SuggestionPersistenceService {
@@ -60,9 +58,9 @@ let SuggestionPersistenceService = SuggestionPersistenceService_1 = class Sugges
             connectionString: databaseUrl,
         });
         try {
-            await (0, persistent_document_table_1.ensurePersistentDocumentsTable)(this.pool);
+            await ensureSuggestionTables(this.pool);
             this.enabled = true;
-            this.logger.log('建议持久化已启用（persistent_documents）');
+            this.logger.log('建议持久化已启用（server_suggestion）');
         }
         catch (error) {
             this.logger.error('建议持久化初始化失败，已回退为禁用模式', error instanceof Error ? error.stack : String(error));
@@ -89,11 +87,39 @@ let SuggestionPersistenceService = SuggestionPersistenceService_1 = class Sugges
             return null;
         }
 
-        const result = await this.pool.query('SELECT payload FROM persistent_documents WHERE scope = $1 AND key = $2', [SUGGESTION_SCOPE, SUGGESTION_KEY]);
-        if (result.rowCount === 0) {
+        const stateResult = await this.pool.query(
+            `SELECT revision FROM ${SUGGESTION_STATE_TABLE} WHERE state_key = $1 LIMIT 1`,
+            [SUGGESTION_STATE_KEY],
+        );
+        const suggestionResult = await this.pool.query(
+            `
+              SELECT suggestion_id, status, category, author_player_id, created_at_ms,
+                     updated_at_ms, author_last_read_gm_reply_at, upvotes_payload,
+                     downvotes_payload, replies_payload, raw_payload
+              FROM ${SUGGESTION_TABLE}
+              ORDER BY created_at_ms DESC, suggestion_id ASC
+            `,
+        );
+        if ((suggestionResult.rowCount ?? 0) === 0 && (stateResult.rowCount ?? 0) === 0) {
             return null;
         }
-        return normalizeSuggestionDocument(result.rows[0]?.payload);
+        return normalizeSuggestionDocument({
+            version: 1,
+            revision: Number(stateResult.rows?.[0]?.revision ?? 1),
+            suggestions: suggestionResult.rows.map((row) => ({
+                ...(row.raw_payload && typeof row.raw_payload === 'object' ? row.raw_payload : {}),
+                id: typeof row.suggestion_id === 'string' ? row.suggestion_id : '',
+                status: typeof row.status === 'string' ? row.status : undefined,
+                category: typeof row.category === 'string' ? row.category : undefined,
+                authorPlayerId: typeof row.author_player_id === 'string' ? row.author_player_id : undefined,
+                upvotes: Array.isArray(row.upvotes_payload) ? row.upvotes_payload : [],
+                downvotes: Array.isArray(row.downvotes_payload) ? row.downvotes_payload : [],
+                replies: Array.isArray(row.replies_payload) ? row.replies_payload : [],
+                authorLastReadGmReplyAt: Number(row.author_last_read_gm_reply_at ?? 0),
+                createdAt: Number(row.created_at_ms ?? Date.now()),
+                updatedAt: Number(row.updated_at_ms ?? row.created_at_ms ?? Date.now()),
+            })),
+        });
     }    
     /**
  * saveSuggestions：执行saveSuggestion相关逻辑。
@@ -107,12 +133,66 @@ let SuggestionPersistenceService = SuggestionPersistenceService_1 = class Sugges
         if (!this.pool || !this.enabled) {
             return;
         }
-        await this.pool.query(`
-        INSERT INTO persistent_documents(scope, key, payload, "updatedAt")
-        VALUES ($1, $2, $3::jsonb, now())
-        ON CONFLICT (scope, key)
-        DO UPDATE SET payload = EXCLUDED.payload, "updatedAt" = now()
-      `, [SUGGESTION_SCOPE, SUGGESTION_KEY, JSON.stringify(document)]);
+        const normalized = normalizeSuggestionDocument(document);
+        if (!normalized) {
+            return;
+        }
+        const client = await this.pool.connect();
+        try {
+            await client.query('BEGIN');
+            await client.query(
+                `
+                  INSERT INTO ${SUGGESTION_STATE_TABLE}(state_key, revision, updated_at)
+                  VALUES ($1, $2, now())
+                  ON CONFLICT (state_key)
+                  DO UPDATE SET revision = EXCLUDED.revision, updated_at = now()
+                `,
+                [SUGGESTION_STATE_KEY, normalized.revision],
+            );
+            await client.query(`DELETE FROM ${SUGGESTION_TABLE}`);
+            for (const suggestion of normalized.suggestions) {
+                await client.query(
+                    `
+                      INSERT INTO ${SUGGESTION_TABLE}(
+                        suggestion_id,
+                        status,
+                        category,
+                        author_player_id,
+                        created_at_ms,
+                        updated_at_ms,
+                        author_last_read_gm_reply_at,
+                        upvotes_payload,
+                        downvotes_payload,
+                        replies_payload,
+                        raw_payload,
+                        updated_at
+                      )
+                      VALUES ($1, $2, $3, $4, $5, $6, $7, $8::jsonb, $9::jsonb, $10::jsonb, $11::jsonb, now())
+                    `,
+                    [
+                        suggestion.id,
+                        normalizeOptionalString(suggestion.status),
+                        normalizeOptionalString(suggestion.category),
+                        normalizeOptionalString(suggestion.authorPlayerId ?? suggestion.playerId ?? suggestion.authorId),
+                        normalizeInteger(suggestion.createdAt, Date.now()),
+                        normalizeInteger(suggestion.updatedAt, suggestion.createdAt ?? Date.now()),
+                        normalizeInteger(suggestion.authorLastReadGmReplyAt, 0),
+                        JSON.stringify(suggestion.upvotes),
+                        JSON.stringify(suggestion.downvotes),
+                        JSON.stringify(suggestion.replies),
+                        JSON.stringify(suggestion),
+                    ],
+                );
+            }
+            await client.query('COMMIT');
+        }
+        catch (error) {
+            await client.query('ROLLBACK').catch(() => undefined);
+            throw error;
+        }
+        finally {
+            client.release();
+        }
     }    
     /**
  * safeClosePool：执行safeClosePool相关逻辑。
@@ -135,6 +215,52 @@ exports.SuggestionPersistenceService = SuggestionPersistenceService;
 exports.SuggestionPersistenceService = SuggestionPersistenceService = SuggestionPersistenceService_1 = __decorate([
     (0, common_1.Injectable)()
 ], SuggestionPersistenceService);
+
+async function ensureSuggestionTables(pool) {
+    const client = await pool.connect();
+    try {
+        await client.query('BEGIN');
+        await client.query(`
+          CREATE TABLE IF NOT EXISTS ${SUGGESTION_STATE_TABLE} (
+            state_key varchar(64) PRIMARY KEY,
+            revision bigint NOT NULL DEFAULT 1,
+            updated_at timestamptz NOT NULL DEFAULT now()
+          )
+        `);
+        await client.query(`
+          CREATE TABLE IF NOT EXISTS ${SUGGESTION_TABLE} (
+            suggestion_id varchar(160) PRIMARY KEY,
+            status varchar(32),
+            category varchar(80),
+            author_player_id varchar(100),
+            created_at_ms bigint NOT NULL,
+            updated_at_ms bigint NOT NULL,
+            author_last_read_gm_reply_at bigint NOT NULL DEFAULT 0,
+            upvotes_payload jsonb NOT NULL DEFAULT '[]'::jsonb,
+            downvotes_payload jsonb NOT NULL DEFAULT '[]'::jsonb,
+            replies_payload jsonb NOT NULL DEFAULT '[]'::jsonb,
+            raw_payload jsonb NOT NULL DEFAULT '{}'::jsonb,
+            updated_at timestamptz NOT NULL DEFAULT now()
+          )
+        `);
+        await client.query(`
+          CREATE INDEX IF NOT EXISTS server_suggestion_author_idx
+          ON ${SUGGESTION_TABLE}(author_player_id, created_at_ms DESC)
+        `);
+        await client.query(`
+          CREATE INDEX IF NOT EXISTS server_suggestion_status_idx
+          ON ${SUGGESTION_TABLE}(status, updated_at_ms DESC)
+        `);
+        await client.query('COMMIT');
+    }
+    catch (error) {
+        await client.query('ROLLBACK').catch(() => undefined);
+        throw error;
+    }
+    finally {
+        client.release();
+    }
+}
 
 /** 统一清洗建议文档，过滤无效字段并规整投票/回复列表。 */
 function normalizeSuggestionDocument(raw) {
@@ -171,6 +297,14 @@ function normalizeSuggestionDocument(raw) {
             : [],
     };
 }
+
+function normalizeOptionalString(value) {
+    return typeof value === 'string' && value.trim() ? value.trim() : null;
+}
+
+function normalizeInteger(value, fallback) {
+    const numeric = Number(value);
+    return Number.isFinite(numeric) ? Math.trunc(numeric) : Math.trunc(Number(fallback ?? 0));
+}
 export { SuggestionPersistenceService };
 //# sourceMappingURL=suggestion-persistence.service.js.map
-

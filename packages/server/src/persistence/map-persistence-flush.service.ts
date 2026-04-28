@@ -37,7 +37,6 @@ const MAP_PERSISTENCE_SLOW_FLUSH_BACKOFF_MS = normalizePositiveInteger((0, env_a
 const MAP_PERSISTENCE_TIME_CHECKPOINT_INTERVAL_MS = normalizePositiveInteger((0, env_alias_1.readTrimmedEnv)('SERVER_MAP_TIME_CHECKPOINT_INTERVAL_MS', 'MAP_TIME_CHECKPOINT_INTERVAL_MS'), 300_000, 60_000, 3_600_000);
 const MAP_PERSISTENCE_MONSTER_RUNTIME_INTERVAL_MS = normalizePositiveInteger((0, env_alias_1.readTrimmedEnv)('SERVER_MAP_MONSTER_RUNTIME_FLUSH_INTERVAL_MS', 'MAP_MONSTER_RUNTIME_FLUSH_INTERVAL_MS'), 60_000, 10_000, 600_000);
 const MAP_PERSISTENCE_MONSTER_RUNTIME_SLOW_THRESHOLD_MS = normalizePositiveInteger((0, env_alias_1.readTrimmedEnv)('SERVER_MAP_MONSTER_RUNTIME_SLOW_THRESHOLD_MS', 'MAP_MONSTER_RUNTIME_SLOW_THRESHOLD_MS'), 1_000, MAP_PERSISTENCE_SLOW_FLUSH_THRESHOLD_MS, 60_000);
-const MAP_PERSISTENCE_LEGACY_SNAPSHOT_WRITE_ENV_NAMES = ['SERVER_MAP_LEGACY_SNAPSHOT_WRITE', 'MAP_LEGACY_SNAPSHOT_WRITE'];
 
 /**
  * normalizePositiveInteger：执行normalize正整数相关逻辑。
@@ -149,7 +148,7 @@ let MapPersistenceFlushService = MapPersistenceFlushService_1 = class MapPersist
     async flushAllNow() {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
-        if (!this.isDomainPersistenceEnabled() && !this.isLegacySnapshotWriteEnabled()) {
+        if (!this.isDomainPersistenceEnabled()) {
             return;
         }
         if (this.flushPromise) {
@@ -166,24 +165,14 @@ let MapPersistenceFlushService = MapPersistenceFlushService_1 = class MapPersist
     async flushInstance(instanceId) {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
-        if (!this.isDomainPersistenceEnabled() && !this.isLegacySnapshotWriteEnabled()) {
+        if (!this.isDomainPersistenceEnabled()) {
             return;
         }
         if (typeof this.worldRuntimeService.flushInstanceDomains === 'function') {
             await this.worldRuntimeService.flushInstanceDomains(instanceId);
             return;
         }
-        if (!this.isLegacySnapshotWriteEnabled()) {
-            return;
-        }
-        const snapshot = this.worldRuntimeService.buildMapPersistenceSnapshot(instanceId);
-        if (!snapshot) {
-            return;
-        }
-        await retryFlush(MAP_PERSISTENCE_FLUSH_RETRY_COUNT, async () => {
-            await this.mapPersistenceService.saveMapSnapshot(instanceId, snapshot);
-        });
-        this.worldRuntimeService.markMapPersisted(instanceId);
+        throw new Error(`instance_domain_flush_unavailable:${instanceId}`);
     }    
     /**
  * flushDirtyInstances：执行刷新DirtyInstance相关逻辑。
@@ -193,7 +182,7 @@ let MapPersistenceFlushService = MapPersistenceFlushService_1 = class MapPersist
     async flushDirtyInstances() {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
-        if ((!this.isDomainPersistenceEnabled() && !this.isLegacySnapshotWriteEnabled())
+        if (!this.isDomainPersistenceEnabled()
             || this.flushPromise
             || isRestoreFreezeActive()
             || this.isFlushThrottleActive()) {
@@ -207,8 +196,7 @@ let MapPersistenceFlushService = MapPersistenceFlushService_1 = class MapPersist
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
         const domainPersistenceEnabled = this.isDomainPersistenceEnabled();
-        const legacySnapshotWriteEnabled = this.isLegacySnapshotWriteEnabled();
-        if (!domainPersistenceEnabled && !legacySnapshotWriteEnabled) {
+        if (!domainPersistenceEnabled) {
             return;
         }
         const startedAt = perf_hooks_1.performance.now();
@@ -227,11 +215,7 @@ let MapPersistenceFlushService = MapPersistenceFlushService_1 = class MapPersist
             const monsterRuntimeDue = reason !== 'interval' || now >= this.nextMonsterRuntimeFlushAt;
             const dirtyDomainSelection = selectFlushDomainEntries(rawDirtyDomainEntries, reason, timeCheckpointDue, monsterRuntimeDue);
             const dirtyDomainEntries = dirtyDomainSelection.entries;
-            const dirtyInstanceIds = rawDirtyDomainEntries.length > 0
-                ? dirtyDomainEntries.map((entry) => entry.instanceId)
-                : legacySnapshotWriteEnabled
-                    ? this.worldRuntimeService.listDirtyPersistentInstances()
-                    : [];
+            const dirtyInstanceIds = dirtyDomainEntries.map((entry) => entry.instanceId);
             dirtyInstanceCount = dirtyInstanceIds.length;
             if (dirtyInstanceIds.length === 0) {
                 return;
@@ -252,22 +236,6 @@ let MapPersistenceFlushService = MapPersistenceFlushService_1 = class MapPersist
                             ? result.persistedDomains
                             : (Array.isArray(domainEntry?.domains) ? domainEntry.domains : ['domain']);
                         recordPersistedDomains(persistedDomainCounts, persistedDomains);
-                    }
-                    else if (legacySnapshotWriteEnabled) {
-                        const snapshot = this.worldRuntimeService.buildMapPersistenceSnapshot(instanceId);
-                        if (!snapshot) {
-                            skippedInstanceCount += 1;
-                            return;
-                        }
-                        await retryFlush(MAP_PERSISTENCE_FLUSH_RETRY_COUNT, async () => {
-                            await this.mapPersistenceService.saveMapSnapshot(instanceId, snapshot);
-                        });
-                        this.worldRuntimeService.markMapPersisted(instanceId);
-                        recordPersistedDomains(persistedDomainCounts, ['legacy_snapshot']);
-                    }
-                    else {
-                        skippedInstanceCount += 1;
-                        return;
                     }
                     persistedInstanceCount += 1;
                 }, (instanceId, error) => {
@@ -406,15 +374,7 @@ MapPersistenceFlushService.prototype.isDomainPersistenceEnabled = function isDom
     return Boolean(service && typeof service.isEnabled === 'function' && service.isEnabled());
 };
 MapPersistenceFlushService.prototype.isLegacySnapshotWriteEnabled = function isLegacySnapshotWriteEnabled() {
-    if (!this.mapPersistenceService.isEnabled()) {
-        return false;
-    }
-    for (const envName of MAP_PERSISTENCE_LEGACY_SNAPSHOT_WRITE_ENV_NAMES) {
-        const value = process.env[envName];
-        if (typeof value === 'string' && /^(1|true|yes|on)$/iu.test(value.trim())) {
-            return true;
-        }
-    }
+    void this;
     return false;
 };
 /**

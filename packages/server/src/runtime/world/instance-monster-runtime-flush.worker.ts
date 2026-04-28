@@ -55,7 +55,6 @@ export class InstanceMonsterRuntimeFlushWorker {
     const claimed = await this.flushLedgerService.claimInstanceFlushLedger({
       workerId,
       domain: INSTANCE_MONSTER_RUNTIME_WORKER_DOMAIN,
-      ownershipEpoch: 0,
       limit: INSTANCE_MONSTER_RUNTIME_WORKER_CLAIM_LIMIT,
     });
     let processed = 0;

@@ -51,6 +51,11 @@ const DATABASE_JOB_STATE_SCOPE = 'server_db_jobs_v1';
 
 const DATABASE_JOB_STATE_KEY = 'gm_database';
 
+const AFDIAN_CONFIG_TABLE = 'server_afdian_config';
+const AFDIAN_ORDER_TABLE = 'server_afdian_order';
+const DATABASE_BACKUP_METADATA_TABLE = 'server_db_backup_metadata';
+const DATABASE_JOB_STATE_TABLE = 'server_db_job_state';
+
 const AFDIAN_CONFIG_SCOPES = [AFDIAN_CONFIG_SCOPE];
 
 const AFDIAN_ORDER_SCOPES = [AFDIAN_ORDER_SCOPE];
@@ -79,7 +84,18 @@ const MAINLINE_BACKUP_TABLES = [
     'server_player_auth',
     'server_player_identity',
     'player_identity',
-    'server_player_snapshot',
+    'server_gm_auth',
+    'server_gm_map_config',
+    'server_redeem_code_state',
+    'server_redeem_code_group',
+    'server_redeem_code',
+    'server_suggestion_state',
+    'server_suggestion',
+    'server_market_order',
+    'server_market_trade_history',
+    'server_sect',
+    'server_afdian_config',
+    'server_afdian_order',
     'player_presence',
     'player_world_anchor',
     'player_position_checkpoint',
@@ -156,62 +172,62 @@ export class NativeGmAdminService {
  * logger：日志器引用。
  */
 
-    logger = new Logger(NativeGmAdminService.name);    
+    logger = new Logger(NativeGmAdminService.name);
     /**
  * pool：缓存或索引容器。
  */
 
-    pool = null;    
+    pool = null;
     /**
  * persistenceEnabled：启用开关或状态标识。
  */
 
-    persistenceEnabled = false;    
+    persistenceEnabled = false;
     /**
  * backupDirectory：backupDirectory相关字段。
  */
 
-    backupDirectory = resolveBackupDirectory();    
+    backupDirectory = resolveBackupDirectory();
     /**
  * currentDatabaseJob：currentDatabaseJob相关字段。
  */
 
-    currentDatabaseJob = null;    
+    currentDatabaseJob = null;
     /**
  * lastDatabaseJob：lastDatabaseJob相关字段。
  */
 
-    lastDatabaseJob = null;    
+    lastDatabaseJob = null;
     /**
  * initialAfdianPersistentConfigFromEnv：initialAfdianPersistent配置FromEnv相关字段。
  */
 
-    initialAfdianPersistentConfigFromEnv = hasEnvBackedAfdianPersistentConfig();    
+    initialAfdianPersistentConfigFromEnv = hasEnvBackedAfdianPersistentConfig();
     /**
  * initialAfdianPersistentConfig：initialAfdianPersistent配置状态或数据块。
  */
 
-    initialAfdianPersistentConfig = readPersistentConfigFromEnv();    
+    initialAfdianPersistentConfig = readPersistentConfigFromEnv();
     /**
  * initialAfdianRuntimeToken：initialAfdian运行态Token标识。
  */
 
-    initialAfdianRuntimeToken = readRuntimeTokenFromEnv();    
+    initialAfdianRuntimeToken = readRuntimeTokenFromEnv();
     /**
  * afdianPersistentConfig：afdianPersistent配置状态或数据块。
  */
 
-    afdianPersistentConfig = cloneAfdianPersistentConfig(this.initialAfdianPersistentConfig);    
+    afdianPersistentConfig = cloneAfdianPersistentConfig(this.initialAfdianPersistentConfig);
     /**
  * afdianRuntimeToken：afdian运行态Token标识。
  */
 
-    afdianRuntimeToken = this.initialAfdianRuntimeToken;    
+    afdianRuntimeToken = this.initialAfdianRuntimeToken;
     /**
  * memoryOrdersByTradeNo：memory订单ByTradeNo相关字段。
  */
 
-    memoryOrdersByTradeNo = new Map();    
+    memoryOrdersByTradeNo = new Map();
     /**
  * databaseJobPersistQueue：串行化数据库任务状态持久化，避免旧 phase 快照晚到覆盖最终状态。
  */
@@ -246,7 +262,7 @@ export class NativeGmAdminService {
             connectionString: databaseUrl,
         });
         try {
-            await ensurePersistentDocumentsTable(this.pool);
+            await ensureNativeGmAdminTables(this.pool);
             this.persistenceEnabled = true;
             await this.reloadPersistentCompatibilityState();
             await this.loadPersistedDatabaseJobState();
@@ -434,6 +450,7 @@ export class NativeGmAdminService {
                 else {
                     const payload = await this.readBackupPayload(record.filePath);
                     const validatedPayload = assertCompatibleBackupPayload(payload);
+                    await ensurePersistentDocumentsTable(this.pool);
                     const restoreClient = await this.pool.connect();
                     try {
                         await restoreClient.query('BEGIN');
@@ -477,7 +494,7 @@ export class NativeGmAdminService {
             config: this.getAfdianConfigForm(),
             status: this.getAfdianConfigStatus(),
         };
-    }    
+    }
     /**
  * saveAfdianConfig：执行saveAfdian配置相关逻辑。
  * @param input 输入参数。
@@ -493,7 +510,7 @@ export class NativeGmAdminService {
         this.applyAfdianRuntimeToken(runtimeToken);
         await this.persistAfdianPersistentConfig(normalized);
         return this.getAfdianConfig();
-    }    
+    }
     /**
  * listAfdianOrders：读取Afdian订单并返回结果。
  * @param query 参数说明。
@@ -537,7 +554,7 @@ export class NativeGmAdminService {
             offset,
             items: filtered.slice(offset, offset + limit),
         };
-    }    
+    }
     /**
  * pingAfdianApi：执行pingAfdianApi相关逻辑。
  * @param input 输入参数。
@@ -552,7 +569,7 @@ export class NativeGmAdminService {
             ...this.getAfdianConfigStatus(),
             reachable: true,
         };
-    }    
+    }
     /**
  * syncAfdianOrders：处理Afdian订单并更新相关状态。
  * @param input 输入参数。
@@ -624,7 +641,7 @@ export class NativeGmAdminService {
             totalCount,
             totalPage,
         };
-    }    
+    }
     /**
  * handleAfdianWebhook：处理AfdianWebhook并更新相关状态。
  * @param body 参数说明。
@@ -659,7 +676,7 @@ export class NativeGmAdminService {
             throw new BadRequestException('爱发电订单 user_id 与当前配置不匹配');
         }
         await this.upsertAfdianOrders([order], 'webhook');
-    }    
+    }
     /**
  * reloadPersistentCompatibilityState：读取reloadPersistentCompatibility状态并返回结果。
  * @returns 无返回值，直接更新reloadPersistentCompatibility状态相关状态。
@@ -668,7 +685,7 @@ export class NativeGmAdminService {
     async reloadPersistentCompatibilityState() {
         this.memoryOrdersByTradeNo.clear();
         await this.loadAfdianPersistentConfig();
-    }    
+    }
     /**
  * loadPersistedDatabaseJobState：读取PersistedDatabaseJob状态并返回结果。
  * @returns 无返回值，完成PersistedDatabaseJob状态的读取/组装。
@@ -683,7 +700,7 @@ export class NativeGmAdminService {
             return;
         }
 
-        const payload = await this.loadPersistentPayloadByScopes(DATABASE_JOB_STATE_SCOPES, DATABASE_JOB_STATE_KEY);
+        const payload = await this.loadDatabaseJobStatePayload();
         if (!payload) {
             this.currentDatabaseJob = null;
             this.lastDatabaseJob = null;
@@ -714,7 +731,7 @@ export class NativeGmAdminService {
             this.currentDatabaseJob = null;
             await this.persistDatabaseJobState();
         }
-    }    
+    }
     /**
  * persistDatabaseJobState：判断persistDatabaseJob状态是否满足条件。
  * @returns 无返回值，直接更新persistDatabaseJob状态相关状态。
@@ -751,12 +768,21 @@ export class NativeGmAdminService {
             lastJob: cloneDatabaseJob(this.lastDatabaseJob),
         };
         await this.pool.query(`
-        INSERT INTO persistent_documents(scope, key, payload, "updatedAt")
-        VALUES ($1, $2, $3::jsonb, now())
-        ON CONFLICT (scope, key)
-        DO UPDATE SET payload = EXCLUDED.payload, "updatedAt" = now()
-      `, [DATABASE_JOB_STATE_SCOPE, DATABASE_JOB_STATE_KEY, JSON.stringify(payload)]);
-    }    
+        INSERT INTO ${DATABASE_JOB_STATE_TABLE}(state_key, current_job_payload, last_job_payload, raw_payload, updated_at)
+        VALUES ($1, $2::jsonb, $3::jsonb, $4::jsonb, now())
+        ON CONFLICT (state_key)
+        DO UPDATE SET
+          current_job_payload = EXCLUDED.current_job_payload,
+          last_job_payload = EXCLUDED.last_job_payload,
+          raw_payload = EXCLUDED.raw_payload,
+          updated_at = now()
+      `, [
+            DATABASE_JOB_STATE_KEY,
+            JSON.stringify(payload.currentJob ?? null),
+            JSON.stringify(payload.lastJob ?? null),
+            JSON.stringify(payload),
+        ]);
+    }
     /**
  * persistBackupMetadata：判断persistBackupMetadata是否满足条件。
  * @param record 参数说明。
@@ -775,12 +801,51 @@ export class NativeGmAdminService {
             return;
         }
         await this.pool.query(`
-        INSERT INTO persistent_documents(scope, key, payload, "updatedAt")
-        VALUES ($1, $2, $3::jsonb, now())
-        ON CONFLICT (scope, key)
-        DO UPDATE SET payload = EXCLUDED.payload, "updatedAt" = now()
-      `, [DATABASE_BACKUP_METADATA_SCOPE, normalized.id, JSON.stringify(normalized)]);
-    }    
+        INSERT INTO ${DATABASE_BACKUP_METADATA_TABLE}(
+          backup_id,
+          kind,
+          file_name,
+          created_at_text,
+          size_bytes,
+          scope_label,
+          documents_count,
+          checksum_sha256,
+          tables_count,
+          tables_checksum_sha256,
+          format,
+          raw_payload,
+          updated_at
+        )
+        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12::jsonb, now())
+        ON CONFLICT (backup_id)
+        DO UPDATE SET
+          kind = EXCLUDED.kind,
+          file_name = EXCLUDED.file_name,
+          created_at_text = EXCLUDED.created_at_text,
+          size_bytes = EXCLUDED.size_bytes,
+          scope_label = EXCLUDED.scope_label,
+          documents_count = EXCLUDED.documents_count,
+          checksum_sha256 = EXCLUDED.checksum_sha256,
+          tables_count = EXCLUDED.tables_count,
+          tables_checksum_sha256 = EXCLUDED.tables_checksum_sha256,
+          format = EXCLUDED.format,
+          raw_payload = EXCLUDED.raw_payload,
+          updated_at = now()
+      `, [
+            normalized.id,
+            normalized.kind,
+            normalized.fileName,
+            normalized.createdAt,
+            normalizeNullableInteger(normalized.sizeBytes),
+            normalized.scope,
+            normalizeNullableInteger(normalized.documentsCount),
+            normalized.checksumSha256 ?? null,
+            normalizeNullableInteger(normalized.tablesCount),
+            normalized.tablesChecksumSha256 ?? null,
+            normalized.format ?? null,
+            JSON.stringify(normalized),
+        ]);
+    }
     /**
  * createDatabaseBackupSnapshot：构建并返回目标对象。
  * @param input 输入参数。
@@ -818,7 +883,7 @@ export class NativeGmAdminService {
             checksumSha256: artifact.checksumSha256,
             format: 'postgres_custom_dump',
         };
-    }    
+    }
     /**
  * insertBackupDocumentsInBatches：按批次写入恢复文档，避免逐条 INSERT 拉长 restore 窗口。
  * @param client 数据库客户端。
@@ -853,7 +918,7 @@ export class NativeGmAdminService {
                 this.logger.log(`数据库恢复已写入 ${written}/${total} 条 persistent_documents`);
             }
         }
-    }    
+    }
     /**
  * loadPersistedBackupMetadataRecords：读取PersistedBackupMetadataRecord并返回结果。
  * @returns 无返回值，完成PersistedBackupMetadataRecord的读取/组装。
@@ -866,22 +931,24 @@ export class NativeGmAdminService {
             return [];
         }
 
+        const result = await this.pool.query(`
+          SELECT backup_id, raw_payload
+          FROM ${DATABASE_BACKUP_METADATA_TABLE}
+          ORDER BY created_at_text DESC, backup_id DESC
+        `);
         const records = new Map();
-        for (const scope of DATABASE_BACKUP_METADATA_SCOPES) {
-            const result = await this.pool.query('SELECT key, payload FROM persistent_documents WHERE scope = $1 ORDER BY key DESC', [scope]);
-            for (const row of result.rows) {
-                const normalized = normalizeStoredBackupMetadata({
-                    id: typeof row?.key === 'string' ? row.key : '',
-                    ...(row?.payload && typeof row.payload === 'object' ? row.payload : {}),
-                });
-                if (!normalized || records.has(normalized.id)) {
-                    continue;
-                }
-                records.set(normalized.id, normalized);
+        for (const row of result.rows) {
+            const normalized = normalizeStoredBackupMetadata({
+                id: typeof row?.backup_id === 'string' ? row.backup_id : '',
+                ...(row?.raw_payload && typeof row.raw_payload === 'object' ? row.raw_payload : {}),
+            });
+            if (!normalized || records.has(normalized.id)) {
+                continue;
             }
+            records.set(normalized.id, normalized);
         }
         return Array.from(records.values());
-    }    
+    }
     /**
  * backfillBackupMetadataFromFilesystem：执行backfillBackupMetadataFromFilesystem相关逻辑。
  * @returns 无返回值，直接更新backfillBackupMetadataFromFilesystem相关状态。
@@ -913,7 +980,7 @@ export class NativeGmAdminService {
                 format,
             });
         }));
-    }    
+    }
     /**
  * loadAfdianPersistentConfig：读取AfdianPersistent配置并返回结果。
  * @returns 无返回值，完成AfdianPersistent配置的读取/组装。
@@ -927,7 +994,7 @@ export class NativeGmAdminService {
         }
 
         const initialConfig = cloneAfdianPersistentConfig(this.initialAfdianPersistentConfig);
-        const payload = await this.loadPersistentPayloadByScopes(AFDIAN_CONFIG_SCOPES, AFDIAN_CONFIG_KEY);
+        const payload = await this.loadAfdianConfigPayload();
         if (!payload) {
             this.applyAfdianPersistentConfig(initialConfig);
             if (this.initialAfdianPersistentConfigFromEnv) {
@@ -936,7 +1003,7 @@ export class NativeGmAdminService {
             return;
         }
         this.applyAfdianPersistentConfig(normalizeStoredPersistentConfig(payload));
-    }    
+    }
     /**
  * persistAfdianPersistentConfig：判断persistAfdianPersistent配置是否满足条件。
  * @param config 参数说明。
@@ -950,13 +1017,24 @@ export class NativeGmAdminService {
             return;
         }
         await this.pool.query(`
-        INSERT INTO persistent_documents(scope, key, payload, "updatedAt")
-        VALUES ($1, $2, $3::jsonb, now())
-        ON CONFLICT (scope, key)
-        DO UPDATE SET payload = EXCLUDED.payload, "updatedAt" = now()
-        WHERE persistent_documents.payload IS DISTINCT FROM EXCLUDED.payload
-      `, [AFDIAN_CONFIG_SCOPE, AFDIAN_CONFIG_KEY, JSON.stringify(config)]);
-    }    
+        INSERT INTO ${AFDIAN_CONFIG_TABLE}(config_key, user_id, api_base_url, public_base_url, raw_payload, updated_at)
+        VALUES ($1, $2, $3, $4, $5::jsonb, now())
+        ON CONFLICT (config_key)
+        DO UPDATE SET
+          user_id = EXCLUDED.user_id,
+          api_base_url = EXCLUDED.api_base_url,
+          public_base_url = EXCLUDED.public_base_url,
+          raw_payload = EXCLUDED.raw_payload,
+          updated_at = now()
+        WHERE ${AFDIAN_CONFIG_TABLE}.raw_payload IS DISTINCT FROM EXCLUDED.raw_payload
+      `, [
+            AFDIAN_CONFIG_KEY,
+            normalizeEnvValue(config?.userId) ?? null,
+            normalizeEnvValue(config?.apiBaseUrl) ?? null,
+            normalizeEnvValue(config?.publicBaseUrl) ?? null,
+            JSON.stringify(config),
+        ]);
+    }
     /**
  * getAfdianConfigForm：读取Afdian配置Form。
  * @returns 无返回值，完成Afdian配置Form的读取/组装。
@@ -969,7 +1047,7 @@ export class NativeGmAdminService {
             apiBaseUrl: this.afdianPersistentConfig.apiBaseUrl,
             publicBaseUrl: this.afdianPersistentConfig.publicBaseUrl,
         };
-    }    
+    }
     /**
  * getAfdianConfigStatus：读取Afdian配置Statu。
  * @returns 无返回值，完成Afdian配置Statu的读取/组装。
@@ -1000,7 +1078,7 @@ export class NativeGmAdminService {
 
             webhookAuthMode: webhookSecret !== null ? 'shared_token' : 'none',
         };
-    }    
+    }
     /**
  * getRequiredAfdianApiConfig：读取RequiredAfdianApi配置。
  * @param requestToken 参数说明。
@@ -1018,7 +1096,7 @@ export class NativeGmAdminService {
             throw new ServiceUnavailableException('AFDIAN_USER_ID 或 AFDIAN_TOKEN 未配置');
         }
         return { userId, token };
-    }    
+    }
     /**
  * queryAfdianOrders：读取Afdian订单并返回结果。
  * @param userId user ID。
@@ -1029,7 +1107,7 @@ export class NativeGmAdminService {
 
     async queryAfdianOrders(userId, token, params) {
         return this.requestAfdianApi(userId, token, AFDIAN_QUERY_ORDER_PATH, params);
-    }    
+    }
     /**
  * requestAfdianApi：执行requestAfdianApi相关逻辑。
  * @param userId user ID。
@@ -1089,7 +1167,7 @@ export class NativeGmAdminService {
             throw new InternalServerErrorException('爱发电 API 返回结构不合法');
         }
         return record;
-    }    
+    }
     /**
  * upsertAfdianOrders：执行upsertAfdian订单相关逻辑。
  * @param orders 参数说明。
@@ -1111,11 +1189,77 @@ export class NativeGmAdminService {
             const stored = change.stored;
             if (this.pool && this.persistenceEnabled) {
                 await this.pool.query(`
-            INSERT INTO persistent_documents(scope, key, payload, "updatedAt")
-            VALUES ($1, $2, $3::jsonb, now())
-            ON CONFLICT (scope, key)
-            DO UPDATE SET payload = EXCLUDED.payload, "updatedAt" = now()
-          `, [AFDIAN_ORDER_SCOPE, stored.outTradeNo, JSON.stringify(stored)]);
+            INSERT INTO ${AFDIAN_ORDER_TABLE}(
+              out_trade_no,
+              user_id,
+              user_private_id,
+              plan_id,
+              title,
+              month_count,
+              total_amount,
+              show_amount,
+              status,
+              remark,
+              redeem_id,
+              product_type,
+              discount,
+              sku_detail_payload,
+              address_person,
+              address_phone,
+              address_address,
+              last_source,
+              created_at_text,
+              updated_at_text,
+              raw_payload,
+              updated_at
+            )
+            VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14::jsonb, $15, $16, $17, $18, $19, $20, $21::jsonb, now())
+            ON CONFLICT (out_trade_no)
+            DO UPDATE SET
+              user_id = EXCLUDED.user_id,
+              user_private_id = EXCLUDED.user_private_id,
+              plan_id = EXCLUDED.plan_id,
+              title = EXCLUDED.title,
+              month_count = EXCLUDED.month_count,
+              total_amount = EXCLUDED.total_amount,
+              show_amount = EXCLUDED.show_amount,
+              status = EXCLUDED.status,
+              remark = EXCLUDED.remark,
+              redeem_id = EXCLUDED.redeem_id,
+              product_type = EXCLUDED.product_type,
+              discount = EXCLUDED.discount,
+              sku_detail_payload = EXCLUDED.sku_detail_payload,
+              address_person = EXCLUDED.address_person,
+              address_phone = EXCLUDED.address_phone,
+              address_address = EXCLUDED.address_address,
+              last_source = EXCLUDED.last_source,
+              created_at_text = EXCLUDED.created_at_text,
+              updated_at_text = EXCLUDED.updated_at_text,
+              raw_payload = EXCLUDED.raw_payload,
+              updated_at = now()
+          `, [
+                    stored.outTradeNo,
+                    stored.userId,
+                    stored.userPrivateId ?? null,
+                    stored.planId ?? null,
+                    stored.title ?? null,
+                    normalizeNullableInteger(stored.month),
+                    stored.totalAmount,
+                    stored.showAmount,
+                    normalizeNullableInteger(stored.status),
+                    stored.remark ?? null,
+                    stored.redeemId ?? null,
+                    normalizeNullableInteger(stored.productType),
+                    stored.discount,
+                    JSON.stringify(stored.skuDetail ?? []),
+                    stored.addressPerson ?? null,
+                    stored.addressPhone ?? null,
+                    stored.addressAddress ?? null,
+                    stored.lastSource ?? null,
+                    stored.createdAt,
+                    stored.updatedAt,
+                    JSON.stringify(stored),
+                ]);
             }
             else {
                 this.memoryOrdersByTradeNo.set(stored.outTradeNo, stored);
@@ -1123,7 +1267,7 @@ export class NativeGmAdminService {
             upserted += 1;
         }
         return upserted;
-    }    
+    }
     /**
  * buildStoredAfdianOrderChange：构建并返回目标对象。
  * @param order 参数说明。
@@ -1171,7 +1315,7 @@ export class NativeGmAdminService {
             changed: true,
             stored,
         };
-    }    
+    }
     /**
  * loadAfdianOrder：读取Afdian订单并返回结果。
  * @param outTradeNo 参数说明。
@@ -1187,15 +1331,14 @@ export class NativeGmAdminService {
             return null;
         }
         if (this.pool && this.persistenceEnabled) {
-
-            const payload = await this.loadPersistentPayloadByScopes(AFDIAN_ORDER_SCOPES, normalized);
+            const payload = await this.loadAfdianOrderPayload(normalized);
             if (!payload) {
                 return null;
             }
             return normalizeStoredAfdianOrder(payload);
         }
         return this.memoryOrdersByTradeNo.get(normalized) ?? null;
-    }    
+    }
     /**
  * loadAllAfdianOrders：读取AllAfdian订单并返回结果。
  * @returns 无返回值，完成AllAfdian订单的读取/组装。
@@ -1205,21 +1348,23 @@ export class NativeGmAdminService {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
         if (this.pool && this.persistenceEnabled) {
+            const result = await this.pool.query(`
+              SELECT raw_payload
+              FROM ${AFDIAN_ORDER_TABLE}
+              ORDER BY updated_at_text DESC, out_trade_no ASC
+            `);
             const records = new Map();
-            for (const scope of AFDIAN_ORDER_SCOPES) {
-                const result = await this.pool.query('SELECT payload FROM persistent_documents WHERE scope = $1', [scope]);
-                for (const row of result.rows) {
-                    const normalized = normalizeStoredAfdianOrder(row?.payload);
-                    if (!normalized || records.has(normalized.outTradeNo)) {
-                        continue;
-                    }
-                    records.set(normalized.outTradeNo, normalized);
+            for (const row of result.rows) {
+                const normalized = normalizeStoredAfdianOrder(row?.raw_payload);
+                if (!normalized || records.has(normalized.outTradeNo)) {
+                    continue;
                 }
+                records.set(normalized.outTradeNo, normalized);
             }
             return Array.from(records.values());
         }
         return Array.from(this.memoryOrdersByTradeNo.values());
-    }    
+    }
     /**
  * readAllPersistentDocuments：读取AllPersistentDocument并返回结果。
  * @returns 无返回值，完成AllPersistentDocument的读取/组装。
@@ -1232,7 +1377,12 @@ export class NativeGmAdminService {
             return [];
         }
 
-        const result = await this.pool.query('SELECT scope, key, payload, "updatedAt" FROM persistent_documents ORDER BY scope ASC, key ASC');
+        const result = await this.pool.query('SELECT scope, key, payload, "updatedAt" FROM persistent_documents ORDER BY scope ASC, key ASC').catch((error) => {
+            if (error && typeof error === 'object' && error.code === '42P01') {
+                return { rows: [] };
+            }
+            throw error;
+        });
         return result.rows.map((row) => ({
 
             scope: typeof row?.scope === 'string' ? row.scope : '',
@@ -1243,7 +1393,7 @@ export class NativeGmAdminService {
                 ? row.updatedAt.toISOString()
                 : normalizeTimestamp(row?.updatedAt) ?? new Date(0).toISOString(),
         })).filter((entry) => entry.scope && entry.key && !BACKUP_EXCLUDED_SCOPES.has(entry.scope));
-    }    
+    }
     /**
  * readStructuredBackupTables：读取主线结构化表快照并返回结果。
  * @returns 无返回值，完成主线结构化表快照的读取/组装。
@@ -1372,7 +1522,7 @@ export class NativeGmAdminService {
             });
         }
         return records;
-    }    
+    }
     /**
  * listDatabaseBackups：读取DatabaseBackup并返回结果。
  * @returns 无返回值，完成DatabaseBackup的读取/组装。
@@ -1411,7 +1561,7 @@ export class NativeGmAdminService {
         const merged = Array.from(records.values());
         merged.sort((left, right) => right.createdAt.localeCompare(left.createdAt));
         return merged;
-    }    
+    }
     /**
  * findBackupRecord：读取BackupRecord并返回结果。
  * @param backupId backup ID。
@@ -1429,7 +1579,7 @@ export class NativeGmAdminService {
 
         const records = await this.listDatabaseBackups();
         return records.find((entry) => entry.id === normalized) ?? null;
-    }    
+    }
     /**
  * readBackupPayload：读取Backup载荷并返回结果。
  * @param filePath 参数说明。
@@ -1447,7 +1597,7 @@ export class NativeGmAdminService {
         catch {
             throw new BadRequestException('备份文件损坏，无法解析');
         }
-    }    
+    }
     /**
  * closePool：执行closePool相关逻辑。
  * @returns 无返回值，直接更新closePool相关状态。
@@ -1464,7 +1614,63 @@ export class NativeGmAdminService {
         if (pool) {
             await pool.end().catch(() => undefined);
         }
-    }    
+    }
+    /**
+ * loadDatabaseJobStatePayload：读取数据库任务状态专表载荷。
+ * @returns 返回数据库任务状态。
+ */
+
+    async loadDatabaseJobStatePayload() {
+        if (!this.pool || !this.persistenceEnabled) {
+            return null;
+        }
+        const result = await this.pool.query(`
+          SELECT raw_payload
+          FROM ${DATABASE_JOB_STATE_TABLE}
+          WHERE state_key = $1
+          LIMIT 1
+        `, [DATABASE_JOB_STATE_KEY]);
+        return result.rows?.[0]?.raw_payload ?? null;
+    }
+    /**
+ * loadAfdianConfigPayload：读取 AFDIAN 配置专表载荷。
+ * @returns 返回 AFDIAN 配置。
+ */
+
+    async loadAfdianConfigPayload() {
+        if (!this.pool || !this.persistenceEnabled) {
+            return null;
+        }
+        const result = await this.pool.query(`
+          SELECT raw_payload
+          FROM ${AFDIAN_CONFIG_TABLE}
+          WHERE config_key = $1
+          LIMIT 1
+        `, [AFDIAN_CONFIG_KEY]);
+        return result.rows?.[0]?.raw_payload ?? null;
+    }
+    /**
+ * loadAfdianOrderPayload：按订单号读取 AFDIAN 订单专表载荷。
+ * @param outTradeNo 外部交易号。
+ * @returns 返回 AFDIAN 订单。
+ */
+
+    async loadAfdianOrderPayload(outTradeNo) {
+        if (!this.pool || !this.persistenceEnabled) {
+            return null;
+        }
+        const normalized = typeof outTradeNo === 'string' ? outTradeNo.trim() : '';
+        if (!normalized) {
+            return null;
+        }
+        const result = await this.pool.query(`
+          SELECT raw_payload
+          FROM ${AFDIAN_ORDER_TABLE}
+          WHERE out_trade_no = $1
+          LIMIT 1
+        `, [normalized]);
+        return result.rows?.[0]?.raw_payload ?? null;
+    }
     /**
  * loadPersistentPayloadByScopes：读取Persistent载荷ByScope并返回结果。
  * @param scopes 参数说明。
@@ -1475,17 +1681,10 @@ export class NativeGmAdminService {
     async loadPersistentPayloadByScopes(scopes, key) {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
-        if (!this.pool || !this.persistenceEnabled) {
-            return null;
-        }
-        for (const scope of scopes) {
-            const result = await this.pool.query('SELECT payload FROM persistent_documents WHERE scope = $1 AND key = $2 LIMIT 1', [scope, key]);
-            if (result.rowCount > 0) {
-                return result.rows[0]?.payload ?? null;
-            }
-        }
+        void scopes;
+        void key;
         return null;
-    }    
+    }
     /**
  * startDatabaseJob：执行开始DatabaseJob相关逻辑。
  * @param input 输入参数。
@@ -1499,7 +1698,7 @@ export class NativeGmAdminService {
             this.logger.error('兼容数据库任务状态持久化失败', error instanceof Error ? error.stack : String(error));
         });
         return input;
-    }    
+    }
     /**
  * updateDatabaseJobPhase：判断DatabaseJob阶段是否满足条件。
  * @param job 参数说明。
@@ -1523,7 +1722,7 @@ export class NativeGmAdminService {
         void this.persistDatabaseJobState().catch((error) => {
             this.logger.error('兼容数据库任务阶段持久化失败', error instanceof Error ? error.stack : String(error));
         });
-    }    
+    }
     /**
  * runDatabaseJob：执行runDatabaseJob相关逻辑。
  * @param job 参数说明。
@@ -1557,7 +1756,7 @@ export class NativeGmAdminService {
                 this.logger.error('兼容数据库任务状态持久化失败', error instanceof Error ? error.stack : String(error));
             });
         }
-    }    
+    }
     /**
  * assertNoRunningDatabaseJob：执行assertNoRunningDatabaseJob相关逻辑。
  * @returns 无返回值，直接更新assertNoRunningDatabaseJob相关状态。
@@ -1567,7 +1766,7 @@ export class NativeGmAdminService {
         if (this.currentDatabaseJob?.status === 'running') {
             throw new BadRequestException('当前已有数据库任务执行中');
         }
-    }    
+    }
     /**
  * assertRestoreMaintenanceEnabled：执行assertRestoreMaintenance启用相关逻辑。
  * @returns 无返回值，直接更新assertRestoreMaintenance启用相关状态。
@@ -1580,7 +1779,7 @@ export class NativeGmAdminService {
             return;
         }
         throw new BadRequestException('执行兼容 restore 前必须先开启维护态（SERVER_RUNTIME_MAINTENANCE=1 或 RUNTIME_MAINTENANCE=1）');
-    }    
+    }
     /**
  * applyAfdianPersistentConfig：判断AfdianPersistent配置是否满足条件。
  * @param config 参数说明。
@@ -1609,7 +1808,7 @@ export class NativeGmAdminService {
         else {
             delete process.env.AFDIAN_PUBLIC_BASE_URL;
         }
-    }    
+    }
     /**
  * applyAfdianRuntimeToken：处理Afdian运行态Token并更新相关状态。
  * @param token 参数说明。
@@ -1626,6 +1825,93 @@ export class NativeGmAdminService {
         else {
             delete process.env.AFDIAN_TOKEN;
         }
+    }
+}
+
+async function ensureNativeGmAdminTables(pool) {
+    const client = await pool.connect();
+    try {
+        await client.query('BEGIN');
+        await client.query(`
+          CREATE TABLE IF NOT EXISTS ${AFDIAN_CONFIG_TABLE} (
+            config_key varchar(80) PRIMARY KEY,
+            user_id varchar(120),
+            api_base_url text,
+            public_base_url text,
+            raw_payload jsonb NOT NULL DEFAULT '{}'::jsonb,
+            updated_at timestamptz NOT NULL DEFAULT now()
+          )
+        `);
+        await client.query(`
+          CREATE TABLE IF NOT EXISTS ${AFDIAN_ORDER_TABLE} (
+            out_trade_no varchar(160) PRIMARY KEY,
+            user_id varchar(120) NOT NULL,
+            user_private_id varchar(160),
+            plan_id varchar(120),
+            title text,
+            month_count bigint,
+            total_amount varchar(64) NOT NULL,
+            show_amount varchar(64) NOT NULL,
+            status bigint,
+            remark text,
+            redeem_id varchar(160),
+            product_type bigint,
+            discount varchar(64) NOT NULL,
+            sku_detail_payload jsonb NOT NULL DEFAULT '[]'::jsonb,
+            address_person text,
+            address_phone text,
+            address_address text,
+            last_source varchar(32),
+            created_at_text varchar(80) NOT NULL,
+            updated_at_text varchar(80) NOT NULL,
+            raw_payload jsonb NOT NULL DEFAULT '{}'::jsonb,
+            updated_at timestamptz NOT NULL DEFAULT now()
+          )
+        `);
+        await client.query(`
+          CREATE INDEX IF NOT EXISTS server_afdian_order_user_idx
+          ON ${AFDIAN_ORDER_TABLE}(user_id, updated_at_text DESC)
+        `);
+        await client.query(`
+          CREATE INDEX IF NOT EXISTS server_afdian_order_status_idx
+          ON ${AFDIAN_ORDER_TABLE}(status, updated_at_text DESC)
+        `);
+        await client.query(`
+          CREATE TABLE IF NOT EXISTS ${DATABASE_BACKUP_METADATA_TABLE} (
+            backup_id varchar(160) PRIMARY KEY,
+            kind varchar(64) NOT NULL,
+            file_name text NOT NULL,
+            created_at_text varchar(80) NOT NULL,
+            size_bytes bigint,
+            scope_label varchar(80) NOT NULL,
+            documents_count bigint,
+            checksum_sha256 varchar(128),
+            tables_count bigint,
+            tables_checksum_sha256 varchar(128),
+            format varchar(80),
+            raw_payload jsonb NOT NULL DEFAULT '{}'::jsonb,
+            updated_at timestamptz NOT NULL DEFAULT now()
+          )
+        `);
+        await client.query(`
+          CREATE INDEX IF NOT EXISTS server_db_backup_metadata_created_idx
+          ON ${DATABASE_BACKUP_METADATA_TABLE}(created_at_text DESC, backup_id DESC)
+        `);
+        await client.query(`
+          CREATE TABLE IF NOT EXISTS ${DATABASE_JOB_STATE_TABLE} (
+            state_key varchar(80) PRIMARY KEY,
+            current_job_payload jsonb,
+            last_job_payload jsonb,
+            raw_payload jsonb NOT NULL DEFAULT '{}'::jsonb,
+            updated_at timestamptz NOT NULL DEFAULT now()
+          )
+        `);
+        await client.query('COMMIT');
+    } catch (error) {
+        await client.query('ROLLBACK').catch(() => undefined);
+        throw error;
+    } finally {
+        client.release();
     }
 }
 /**
@@ -2429,6 +2715,14 @@ function readInteger(value, fallback = 0) {
 
     const parsed = Number(value);
     return Number.isFinite(parsed) ? Math.trunc(parsed) : fallback;
+}
+
+function normalizeNullableInteger(value) {
+    if (value == null || value === '') {
+        return null;
+    }
+    const parsed = Number(value);
+    return Number.isFinite(parsed) ? Math.trunc(parsed) : null;
 }
 /**
  * clampInteger：执行clampInteger相关逻辑。

@@ -110,6 +110,11 @@ let WorldRuntimeInstanceTickOrchestrationService = class WorldRuntimeInstanceTic
                         idleCultivationBlockedPlayerIds: blockedPlayerIds,
                         cultivationAuraMultiplierByPlayerId,
                     });
+                    if (typeof deps.worldRuntimePlayerSkillDispatchService?.resolvePendingPlayerSkillCast === 'function') {
+                        for (const playerId of currentPlayerIds) {
+                            await deps.worldRuntimePlayerSkillDispatchService.resolvePendingPlayerSkillCast(playerId, deps);
+                        }
+                    }
                     await deps.worldRuntimeCraftTickService.advanceCraftJobs(currentPlayerIds, deps);
                     for (const playerId of currentPlayerIds) {
                         steppedPlayerIds.add(playerId);

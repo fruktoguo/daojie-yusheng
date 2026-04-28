@@ -7,7 +7,7 @@ import {
   type GmPlayerSortMode,
 } from '@mud/shared';
 import { MapTemplateRepository } from '../../runtime/map/map-template.repository';
-import { PlayerPersistenceService } from '../../persistence/player-persistence.service';
+import { PlayerDomainPersistenceService } from '../../persistence/player-domain-persistence.service';
 import { PlayerProgressionService } from '../../runtime/player/player-progression.service';
 import { PlayerRuntimeService } from '../../runtime/player/player-runtime.service';
 import { RuntimeGmStateService } from '../../runtime/gm/runtime-gm-state.service';
@@ -96,12 +96,12 @@ interface PersistedPlayerEntryLike {
   updatedAt: number;
 }
 /**
- * PlayerPersistenceServiceLike：定义接口结构约束，明确可交付字段含义。
+ * PlayerDomainPersistenceServiceLike：定义接口结构约束，明确可交付字段含义。
  */
 
 
-interface PlayerPersistenceServiceLike {
-  listPlayerSnapshots(): Promise<PersistedPlayerEntryLike[]>;
+interface PlayerDomainPersistenceServiceLike {
+  listProjectedSnapshots(buildStarterSnapshot: (playerId: string) => any | null): Promise<PersistedPlayerEntryLike[]>;
 }
 /**
  * PlayerProgressionServiceLike：定义接口结构约束，明确可交付字段含义。
@@ -118,6 +118,7 @@ interface PlayerProgressionServiceLike {
 
 interface PlayerRuntimeServiceLike {
   listPlayerSnapshots(): any[];
+  buildStarterPersistenceSnapshot(playerId: string): any | null;
 }
 /**
  * PerformanceTimerState：定义接口结构约束，明确可交付字段含义。
@@ -164,7 +165,7 @@ export class NativeGmStateQueryService {
  * @param nextManagedAccountService NativeManagedAccountServiceLike 参数说明。
  * @param runtimeGmStateService RuntimeGmStateServiceLike 参数说明。
  * @param mapTemplateRepository MapTemplateRepositoryLike 参数说明。
- * @param playerPersistenceService PlayerPersistenceServiceLike 参数说明。
+ * @param playerDomainPersistenceService PlayerDomainPersistenceServiceLike 参数说明。
  * @param playerProgressionService PlayerProgressionServiceLike 参数说明。
  * @param playerRuntimeService PlayerRuntimeServiceLike 参数说明。
  * @returns 无返回值，完成实例初始化。
@@ -177,8 +178,8 @@ export class NativeGmStateQueryService {
     private readonly runtimeGmStateService: RuntimeGmStateServiceLike,
     @Inject(MapTemplateRepository)
     private readonly mapTemplateRepository: MapTemplateRepositoryLike,
-    @Inject(PlayerPersistenceService)
-    private readonly playerPersistenceService: PlayerPersistenceServiceLike,
+    @Inject(PlayerDomainPersistenceService)
+    private readonly playerDomainPersistenceService: PlayerDomainPersistenceServiceLike,
     @Inject(PlayerProgressionService)
     private readonly playerProgressionService: PlayerProgressionServiceLike,
     @Inject(PlayerRuntimeService)
@@ -194,7 +195,14 @@ export class NativeGmStateQueryService {
   async getState(query: GmListPlayersQuery | undefined, timers: PerformanceTimerState) {
     const perf = this.buildPerformanceSnapshot(timers);
     const runtimePlayers = this.playerRuntimeService.listPlayerSnapshots();
-    const persistedEntries = await this.playerPersistenceService.listPlayerSnapshots();
+    const persistedEntries = (await this.playerDomainPersistenceService.listProjectedSnapshots(
+      (playerId) => this.playerRuntimeService.buildStarterPersistenceSnapshot(playerId),
+    )).map((entry) => ({
+      ...entry,
+      updatedAt: Number.isFinite(Number(entry.updatedAt))
+        ? Number(entry.updatedAt)
+        : Math.max(0, Math.trunc(Number(entry.snapshot?.savedAt ?? 0))),
+    }));
     const accountIndex = await this.nextManagedAccountService.getManagedAccountIndex(
       this.collectManagedPlayerIds(runtimePlayers, persistedEntries),
     );

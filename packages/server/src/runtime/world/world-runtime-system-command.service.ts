@@ -16,6 +16,7 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.WorldRuntimeSystemCommandService = void 0;
 
 const common_1 = require("@nestjs/common");
+const shared_1 = require("@mud/shared");
 
 const world_runtime_gm_queue_service_1 = require("./world-runtime-gm-queue.service");
 
@@ -116,12 +117,49 @@ let WorldRuntimeSystemCommandService = class WorldRuntimeSystemCommandService {
             case 'resetPlayerSpawn':
                 this.worldRuntimePlayerCombatOutcomeService.respawnPlayer(command.playerId, deps);
                 return;
+            case 'returnToSpawn':
+                this.dispatchReturnToSpawn(command.playerId, deps);
+                return;
             default:
                 if (this.worldRuntimeGmSystemCommandService.dispatchGmSystemCommand(command, deps)) {
                     return;
                 }
                 return;
         }
+    }
+    /**
+ * dispatchReturnToSpawn：执行遁返并写入固定调息。
+ * @param playerId 玩家 ID。
+ * @param deps 运行时依赖。
+ * @returns 无返回值，直接更新遁返相关状态。
+ */
+
+    dispatchReturnToSpawn(playerId, deps) {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
+        const player = deps.playerRuntimeService.getPlayerOrThrow(playerId);
+        const currentTick = typeof deps.resolveCurrentTickForPlayerId === 'function'
+            ? deps.resolveCurrentTickForPlayerId(playerId)
+            : 0;
+        const readyTick = Math.max(0, Math.trunc(Number(player.combat?.cooldownReadyTickBySkillId?.[shared_1.RETURN_TO_SPAWN_ACTION_ID] ?? 0)));
+        const cooldownLeft = Math.max(0, readyTick - currentTick);
+        if (cooldownLeft > 0) {
+            if (typeof deps.queuePlayerNotice === 'function') {
+                deps.queuePlayerNotice(playerId, `行动尚在调息中，还需 ${cooldownLeft} 息`, 'system');
+            }
+            deps.playerRuntimeService.rebuildActionState?.(player, currentTick);
+            return;
+        }
+        this.worldRuntimePlayerCombatOutcomeService.respawnPlayer(playerId, deps);
+        const nextTick = typeof deps.resolveCurrentTickForPlayerId === 'function'
+            ? deps.resolveCurrentTickForPlayerId(playerId)
+            : currentTick;
+        deps.playerRuntimeService.setSkillCooldownReadyTick(
+            playerId,
+            shared_1.RETURN_TO_SPAWN_ACTION_ID,
+            nextTick + shared_1.RETURN_TO_SPAWN_COOLDOWN_TICKS,
+            nextTick,
+        );
     }
 };
 exports.WorldRuntimeSystemCommandService = WorldRuntimeSystemCommandService;

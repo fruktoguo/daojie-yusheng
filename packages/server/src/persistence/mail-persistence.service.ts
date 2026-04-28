@@ -2,7 +2,6 @@ import { Injectable, Logger, type OnModuleDestroy, type OnModuleInit } from '@ne
 import { Pool } from 'pg';
 
 import { resolveServerDatabaseUrl } from '../config/env-alias';
-import { ensurePersistentDocumentsTable } from './persistent-document-table';
 
 const PLAYER_MAIL_TABLE = 'player_mail';
 const PLAYER_MAIL_ATTACHMENT_TABLE = 'player_mail_attachment';
@@ -104,7 +103,6 @@ export class MailPersistenceService implements OnModuleInit, OnModuleDestroy {
     });
 
     try {
-      await ensurePersistentDocumentsTable(pool);
       await ensureStructuredMailTables(pool);
       this.pool = pool;
       this.enabled = true;

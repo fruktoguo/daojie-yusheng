@@ -1044,8 +1044,8 @@ let WorldRuntimeService = WorldRuntimeService_1 = class WorldRuntimeService {
         pushCombatEffect(instanceId, effect) {
         this.worldRuntimeTickDispatchService.pushCombatEffect(instanceId, effect, this);
     }
-        pushActionLabelEffect(instanceId, x, y, text) {
-        this.worldRuntimeTickDispatchService.pushActionLabelEffect(instanceId, x, y, text, this);
+        pushActionLabelEffect(instanceId, x, y, text, options = undefined) {
+        this.worldRuntimeTickDispatchService.pushActionLabelEffect(instanceId, x, y, text, this, options);
     }
         pushDamageFloatEffect(instanceId, x, y, damage, color) {
         this.worldRuntimeTickDispatchService.pushDamageFloatEffect(instanceId, x, y, damage, color, this);

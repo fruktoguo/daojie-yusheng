@@ -34,7 +34,7 @@ let WorldRuntimeCommandIntakeFacadeService = class WorldRuntimeCommandIntakeFaca
 
     enqueueMove(playerId, directionInput, deps) {
         return deps.worldRuntimeNavigationService.enqueueMove(playerId, directionInput, deps);
-    }    
+    }
     /**
  * enqueueMoveTo：处理MoveTo并更新相关状态。
  * @param playerId 玩家 ID。
@@ -51,7 +51,7 @@ let WorldRuntimeCommandIntakeFacadeService = class WorldRuntimeCommandIntakeFaca
 
     enqueueMoveTo(playerId, xInput, yInput, allowNearestReachableInput, packedPathInput, packedPathStepsInput, pathStartXInput, pathStartYInput, deps) {
         return deps.worldRuntimeNavigationService.enqueueMoveTo(playerId, xInput, yInput, allowNearestReachableInput, packedPathInput, packedPathStepsInput, pathStartXInput, pathStartYInput, deps);
-    }    
+    }
     /**
  * usePortal：执行use传送门相关逻辑。
  * @param playerId 玩家 ID。
@@ -61,7 +61,7 @@ let WorldRuntimeCommandIntakeFacadeService = class WorldRuntimeCommandIntakeFaca
 
     usePortal(playerId, deps) {
         return deps.worldRuntimeNavigationService.usePortal(playerId, deps);
-    }    
+    }
     /**
  * navigateQuest：执行navigate任务相关逻辑。
  * @param playerId 玩家 ID。
@@ -72,7 +72,7 @@ let WorldRuntimeCommandIntakeFacadeService = class WorldRuntimeCommandIntakeFaca
 
     navigateQuest(playerId, questIdInput, deps) {
         return deps.worldRuntimeNavigationService.navigateQuest(playerId, questIdInput, deps);
-    }    
+    }
     /**
  * enqueueBasicAttack：处理BasicAttack并更新相关状态。
  * @param playerId 玩家 ID。
@@ -86,7 +86,7 @@ let WorldRuntimeCommandIntakeFacadeService = class WorldRuntimeCommandIntakeFaca
 
     enqueueBasicAttack(playerId, targetPlayerIdInput, targetMonsterIdInput, targetXInput, targetYInput, deps) {
         return deps.worldRuntimePlayerCommandEnqueueService.enqueueBasicAttack(playerId, targetPlayerIdInput, targetMonsterIdInput, targetXInput, targetYInput, deps);
-    }    
+    }
     /**
  * enqueueBattleTarget：读取Battle目标并返回结果。
  * @param playerId 玩家 ID。
@@ -101,7 +101,7 @@ let WorldRuntimeCommandIntakeFacadeService = class WorldRuntimeCommandIntakeFaca
 
     enqueueBattleTarget(playerId, locked, targetPlayerIdInput, targetMonsterIdInput, targetXInput, targetYInput, deps) {
         return deps.worldRuntimePlayerCommandEnqueueService.enqueueBattleTarget(playerId, locked, targetPlayerIdInput, targetMonsterIdInput, targetXInput, targetYInput, deps);
-    }    
+    }
     /**
  * executeAction：执行executeAction相关逻辑。
  * @param playerId 玩家 ID。
@@ -113,7 +113,7 @@ let WorldRuntimeCommandIntakeFacadeService = class WorldRuntimeCommandIntakeFaca
 
     executeAction(playerId, actionIdInput, targetInput, deps) {
         return deps.worldRuntimeActionExecutionService.executeAction(playerId, actionIdInput, targetInput, deps);
-    }    
+    }
     /**
  * executeLegacyNpcAction：执行executeLegacyNPCAction相关逻辑。
  * @param playerId 玩家 ID。
@@ -124,7 +124,7 @@ let WorldRuntimeCommandIntakeFacadeService = class WorldRuntimeCommandIntakeFaca
 
     executeLegacyNpcAction(playerId, npcId, deps) {
         return deps.worldRuntimeActionExecutionService.executeLegacyNpcAction(playerId, npcId, deps);
-    }    
+    }
     /**
  * enqueueUseItem：处理Use道具并更新相关状态。
  * @param playerId 玩家 ID。
@@ -135,7 +135,7 @@ let WorldRuntimeCommandIntakeFacadeService = class WorldRuntimeCommandIntakeFaca
 
     enqueueUseItem(playerId, slotIndexInput, deps) {
         return deps.worldRuntimePlayerCommandEnqueueService.enqueueUseItem(playerId, slotIndexInput, deps);
-    }    
+    }
     enqueueCreateFormation(playerId, payload, deps) {
         return deps.worldRuntimePlayerCommandEnqueueService.enqueueCreateFormation(playerId, payload, deps);
     }
@@ -156,7 +156,7 @@ let WorldRuntimeCommandIntakeFacadeService = class WorldRuntimeCommandIntakeFaca
 
     enqueueDropItem(playerId, slotIndexInput, countInput, deps) {
         return deps.worldRuntimePlayerCommandEnqueueService.enqueueDropItem(playerId, slotIndexInput, countInput, deps);
-    }    
+    }
     /**
  * enqueueTakeGround：处理Take地面并更新相关状态。
  * @param playerId 玩家 ID。
@@ -168,7 +168,7 @@ let WorldRuntimeCommandIntakeFacadeService = class WorldRuntimeCommandIntakeFaca
 
     enqueueTakeGround(playerId, sourceIdInput, itemKeyInput, deps) {
         return deps.worldRuntimePlayerCommandEnqueueService.enqueueTakeGround(playerId, sourceIdInput, itemKeyInput, deps);
-    }    
+    }
     /**
  * enqueueTakeGroundAll：处理Take地面All并更新相关状态。
  * @param playerId 玩家 ID。
@@ -179,7 +179,7 @@ let WorldRuntimeCommandIntakeFacadeService = class WorldRuntimeCommandIntakeFaca
 
     enqueueTakeGroundAll(playerId, sourceIdInput, deps) {
         return deps.worldRuntimePlayerCommandEnqueueService.enqueueTakeGroundAll(playerId, sourceIdInput, deps);
-    }    
+    }
     /**
  * enqueueEquip：处理Equip并更新相关状态。
  * @param playerId 玩家 ID。
@@ -190,7 +190,7 @@ let WorldRuntimeCommandIntakeFacadeService = class WorldRuntimeCommandIntakeFaca
 
     enqueueEquip(playerId, slotIndexInput, deps) {
         return deps.worldRuntimePlayerCommandEnqueueService.enqueueEquip(playerId, slotIndexInput, deps);
-    }    
+    }
     /**
  * enqueueUnequip：处理Unequip并更新相关状态。
  * @param playerId 玩家 ID。
@@ -201,7 +201,7 @@ let WorldRuntimeCommandIntakeFacadeService = class WorldRuntimeCommandIntakeFaca
 
     enqueueUnequip(playerId, slotInput, deps) {
         return deps.worldRuntimePlayerCommandEnqueueService.enqueueUnequip(playerId, slotInput, deps);
-    }    
+    }
     /**
  * enqueueCultivate：处理Cultivate并更新相关状态。
  * @param playerId 玩家 ID。
@@ -212,7 +212,7 @@ let WorldRuntimeCommandIntakeFacadeService = class WorldRuntimeCommandIntakeFaca
 
     enqueueCultivate(playerId, techniqueIdInput, deps) {
         return deps.worldRuntimePlayerCommandEnqueueService.enqueueCultivate(playerId, techniqueIdInput, deps);
-    }    
+    }
     /**
  * enqueueStartAlchemy：处理开始炼丹并更新相关状态。
  * @param playerId 玩家 ID。
@@ -223,7 +223,7 @@ let WorldRuntimeCommandIntakeFacadeService = class WorldRuntimeCommandIntakeFaca
 
     enqueueStartAlchemy(playerId, payload, deps) {
         return this.enqueueStartTechniqueActivity(playerId, 'alchemy', payload, deps);
-    }    
+    }
     /**
  * enqueueCancelAlchemy：判断Cancel炼丹是否满足条件。
  * @param playerId 玩家 ID。
@@ -233,7 +233,7 @@ let WorldRuntimeCommandIntakeFacadeService = class WorldRuntimeCommandIntakeFaca
 
     enqueueCancelAlchemy(playerId, deps) {
         return this.enqueueCancelTechniqueActivity(playerId, 'alchemy', deps);
-    }    
+    }
     /**
  * enqueueSaveAlchemyPreset：处理Save炼丹Preset并更新相关状态。
  * @param playerId 玩家 ID。
@@ -244,7 +244,7 @@ let WorldRuntimeCommandIntakeFacadeService = class WorldRuntimeCommandIntakeFaca
 
     enqueueSaveAlchemyPreset(playerId, payload, deps) {
         return deps.worldRuntimePlayerCommandEnqueueService.enqueueSaveAlchemyPreset(playerId, payload, deps);
-    }    
+    }
     /**
  * enqueueDeleteAlchemyPreset：处理Delete炼丹Preset并更新相关状态。
  * @param playerId 玩家 ID。
@@ -255,7 +255,7 @@ let WorldRuntimeCommandIntakeFacadeService = class WorldRuntimeCommandIntakeFaca
 
     enqueueDeleteAlchemyPreset(playerId, presetId, deps) {
         return deps.worldRuntimePlayerCommandEnqueueService.enqueueDeleteAlchemyPreset(playerId, presetId, deps);
-    }    
+    }
     /**
  * enqueueStartEnhancement：处理开始强化并更新相关状态。
  * @param playerId 玩家 ID。
@@ -266,7 +266,7 @@ let WorldRuntimeCommandIntakeFacadeService = class WorldRuntimeCommandIntakeFaca
 
     enqueueStartEnhancement(playerId, payload, deps) {
         return this.enqueueStartTechniqueActivity(playerId, 'enhancement', payload, deps);
-    }    
+    }
     /**
  * enqueueCancelEnhancement：判断Cancel强化是否满足条件。
  * @param playerId 玩家 ID。
@@ -276,7 +276,7 @@ let WorldRuntimeCommandIntakeFacadeService = class WorldRuntimeCommandIntakeFaca
 
     enqueueCancelEnhancement(playerId, deps) {
         return this.enqueueCancelTechniqueActivity(playerId, 'enhancement', deps);
-    }    
+    }
     /**
  * enqueueStartTechniqueActivity：统一技艺活动开始入队入口。
  * @param playerId 玩家 ID。
@@ -288,7 +288,7 @@ let WorldRuntimeCommandIntakeFacadeService = class WorldRuntimeCommandIntakeFaca
 
     enqueueStartTechniqueActivity(playerId, kind, payload, deps) {
         return deps.worldRuntimePlayerCommandEnqueueService.enqueueStartTechniqueActivity(playerId, kind, payload, deps);
-    }    
+    }
     /**
  * enqueueCancelTechniqueActivity：统一技艺活动取消入队入口。
  * @param playerId 玩家 ID。
@@ -299,7 +299,7 @@ let WorldRuntimeCommandIntakeFacadeService = class WorldRuntimeCommandIntakeFaca
 
     enqueueCancelTechniqueActivity(playerId, kind, deps) {
         return deps.worldRuntimePlayerCommandEnqueueService.enqueueCancelTechniqueActivity(playerId, kind, deps);
-    }    
+    }
     /**
  * enqueueRedeemCodes：处理RedeemCode并更新相关状态。
  * @param playerId 玩家 ID。
@@ -310,7 +310,7 @@ let WorldRuntimeCommandIntakeFacadeService = class WorldRuntimeCommandIntakeFaca
 
     enqueueRedeemCodes(playerId, codesInput, deps) {
         return deps.worldRuntimePlayerCommandEnqueueService.enqueueRedeemCodes(playerId, codesInput, deps);
-    }    
+    }
     /**
  * enqueueHeavenGateAction：处理HeavenGateAction并更新相关状态。
  * @param playerId 玩家 ID。
@@ -322,7 +322,7 @@ let WorldRuntimeCommandIntakeFacadeService = class WorldRuntimeCommandIntakeFaca
 
     enqueueHeavenGateAction(playerId, actionInput, elementInput, deps) {
         return deps.worldRuntimePlayerCommandEnqueueService.enqueueHeavenGateAction(playerId, actionInput, elementInput, deps);
-    }    
+    }
     /**
  * enqueueCastSkill：处理Cast技能并更新相关状态。
  * @param playerId 玩家 ID。
@@ -336,7 +336,7 @@ let WorldRuntimeCommandIntakeFacadeService = class WorldRuntimeCommandIntakeFaca
 
     enqueueCastSkill(playerId, skillIdInput, targetPlayerIdInput, targetMonsterIdInput, targetRefInput, deps) {
         return deps.worldRuntimePlayerCommandEnqueueService.enqueueCastSkill(playerId, skillIdInput, targetPlayerIdInput, targetMonsterIdInput, targetRefInput, deps);
-    }    
+    }
     /**
  * enqueueCastSkillTargetRef：读取Cast技能目标Ref并返回结果。
  * @param playerId 玩家 ID。
@@ -348,7 +348,7 @@ let WorldRuntimeCommandIntakeFacadeService = class WorldRuntimeCommandIntakeFaca
 
     enqueueCastSkillTargetRef(playerId, skillIdInput, targetRefInput, deps) {
         return deps.worldRuntimePlayerCommandEnqueueService.enqueueCastSkillTargetRef(playerId, skillIdInput, targetRefInput, deps);
-    }    
+    }
     /**
  * enqueueBuyNpcShopItem：处理BuyNPCShop道具并更新相关状态。
  * @param playerId 玩家 ID。
@@ -361,7 +361,7 @@ let WorldRuntimeCommandIntakeFacadeService = class WorldRuntimeCommandIntakeFaca
 
     enqueueBuyNpcShopItem(playerId, npcIdInput, itemIdInput, quantityInput, deps) {
         return deps.worldRuntimeNpcShopService.enqueueBuyNpcShopItem(playerId, npcIdInput, itemIdInput, quantityInput, deps);
-    }    
+    }
     /**
  * enqueueNpcInteraction：处理NPCInteraction并更新相关状态。
  * @param playerId 玩家 ID。
@@ -372,7 +372,7 @@ let WorldRuntimeCommandIntakeFacadeService = class WorldRuntimeCommandIntakeFaca
 
     enqueueNpcInteraction(playerId, actionIdInput, deps) {
         return deps.worldRuntimeNpcQuestWriteService.enqueueNpcInteraction(playerId, actionIdInput, deps);
-    }    
+    }
     /**
  * enqueueLegacyNpcInteraction：处理LegacyNPCInteraction并更新相关状态。
  * @param playerId 玩家 ID。
@@ -383,7 +383,7 @@ let WorldRuntimeCommandIntakeFacadeService = class WorldRuntimeCommandIntakeFaca
 
     enqueueLegacyNpcInteraction(playerId, actionIdInput, deps) {
         return deps.worldRuntimeNpcQuestWriteService.enqueueLegacyNpcInteraction(playerId, actionIdInput, deps);
-    }    
+    }
     /**
  * enqueueAcceptNpcQuest：处理AcceptNPC任务并更新相关状态。
  * @param playerId 玩家 ID。
@@ -395,7 +395,7 @@ let WorldRuntimeCommandIntakeFacadeService = class WorldRuntimeCommandIntakeFaca
 
     enqueueAcceptNpcQuest(playerId, npcIdInput, questIdInput, deps) {
         return deps.worldRuntimeNpcQuestWriteService.enqueueAcceptNpcQuest(playerId, npcIdInput, questIdInput, deps);
-    }    
+    }
     /**
  * enqueueSubmitNpcQuest：处理SubmitNPC任务并更新相关状态。
  * @param playerId 玩家 ID。
@@ -407,7 +407,7 @@ let WorldRuntimeCommandIntakeFacadeService = class WorldRuntimeCommandIntakeFaca
 
     enqueueSubmitNpcQuest(playerId, npcIdInput, questIdInput, deps) {
         return deps.worldRuntimeNpcQuestWriteService.enqueueSubmitNpcQuest(playerId, npcIdInput, questIdInput, deps);
-    }    
+    }
     /**
  * enqueueSpawnMonsterLoot：处理Spawn怪物掉落并更新相关状态。
  * @param instanceIdInput 参数说明。
@@ -421,7 +421,7 @@ let WorldRuntimeCommandIntakeFacadeService = class WorldRuntimeCommandIntakeFaca
 
     enqueueSpawnMonsterLoot(instanceIdInput, monsterIdInput, xInput, yInput, rollsInput, deps) {
         return deps.worldRuntimeSystemCommandEnqueueService.enqueueSpawnMonsterLoot(instanceIdInput, monsterIdInput, xInput, yInput, rollsInput, deps);
-    }    
+    }
     /**
  * enqueueDefeatMonster：处理Defeat怪物并更新相关状态。
  * @param instanceIdInput 参数说明。
@@ -432,7 +432,7 @@ let WorldRuntimeCommandIntakeFacadeService = class WorldRuntimeCommandIntakeFaca
 
     enqueueDefeatMonster(instanceIdInput, runtimeIdInput, deps) {
         return deps.worldRuntimeSystemCommandEnqueueService.enqueueDefeatMonster(instanceIdInput, runtimeIdInput, deps);
-    }    
+    }
     /**
  * enqueueDamageMonster：处理Damage怪物并更新相关状态。
  * @param instanceIdInput 参数说明。
@@ -444,7 +444,7 @@ let WorldRuntimeCommandIntakeFacadeService = class WorldRuntimeCommandIntakeFaca
 
     enqueueDamageMonster(instanceIdInput, runtimeIdInput, amountInput, deps) {
         return deps.worldRuntimeSystemCommandEnqueueService.enqueueDamageMonster(instanceIdInput, runtimeIdInput, amountInput, deps);
-    }    
+    }
     /**
  * enqueueDamagePlayer：处理Damage玩家并更新相关状态。
  * @param playerIdInput 参数说明。
@@ -455,7 +455,7 @@ let WorldRuntimeCommandIntakeFacadeService = class WorldRuntimeCommandIntakeFaca
 
     enqueueDamagePlayer(playerIdInput, amountInput, deps) {
         return deps.worldRuntimeSystemCommandEnqueueService.enqueueDamagePlayer(playerIdInput, amountInput, deps);
-    }    
+    }
     /**
  * enqueueRespawnPlayer：处理重生玩家并更新相关状态。
  * @param playerIdInput 参数说明。
@@ -465,7 +465,7 @@ let WorldRuntimeCommandIntakeFacadeService = class WorldRuntimeCommandIntakeFaca
 
     enqueueRespawnPlayer(playerIdInput, deps) {
         return deps.worldRuntimeSystemCommandEnqueueService.enqueueRespawnPlayer(playerIdInput, deps);
-    }    
+    }
     /**
  * enqueueResetPlayerSpawn：处理Reset玩家Spawn并更新相关状态。
  * @param playerIdInput 参数说明。
@@ -475,7 +475,17 @@ let WorldRuntimeCommandIntakeFacadeService = class WorldRuntimeCommandIntakeFaca
 
     enqueueResetPlayerSpawn(playerIdInput, deps) {
         return deps.worldRuntimeSystemCommandEnqueueService.enqueueResetPlayerSpawn(playerIdInput, deps);
-    }    
+    }
+    /**
+ * enqueueReturnToSpawn：处理遁返到复活点并更新相关状态。
+ * @param playerIdInput 参数说明。
+ * @param deps 运行时依赖。
+ * @returns 无返回值，直接更新遁返相关状态。
+ */
+
+    enqueueReturnToSpawn(playerIdInput, deps) {
+        return deps.worldRuntimeSystemCommandEnqueueService.enqueueReturnToSpawn(playerIdInput, deps);
+    }
     /**
  * enqueueGmUpdatePlayer：处理GMUpdate玩家并更新相关状态。
  * @param input 输入参数。
@@ -485,7 +495,7 @@ let WorldRuntimeCommandIntakeFacadeService = class WorldRuntimeCommandIntakeFaca
 
     enqueueGmUpdatePlayer(input) {
         return this.worldRuntimeSystemCommandEnqueueService.enqueueGmUpdatePlayer(input);
-    }    
+    }
     /**
  * enqueueGmResetPlayer：处理GMReset玩家并更新相关状态。
  * @param playerIdInput 参数说明。
@@ -495,7 +505,7 @@ let WorldRuntimeCommandIntakeFacadeService = class WorldRuntimeCommandIntakeFaca
 
     enqueueGmResetPlayer(playerIdInput) {
         return this.worldRuntimeSystemCommandEnqueueService.enqueueGmResetPlayer(playerIdInput);
-    }    
+    }
     /**
  * enqueueGmSpawnBots：处理GMSpawnBot并更新相关状态。
  * @param anchorPlayerIdInput 参数说明。
@@ -506,7 +516,7 @@ let WorldRuntimeCommandIntakeFacadeService = class WorldRuntimeCommandIntakeFaca
 
     enqueueGmSpawnBots(anchorPlayerIdInput, countInput) {
         return this.worldRuntimeSystemCommandEnqueueService.enqueueGmSpawnBots(anchorPlayerIdInput, countInput);
-    }    
+    }
     /**
  * enqueueGmRemoveBots：处理GMRemoveBot并更新相关状态。
  * @param playerIdsInput 参数说明。

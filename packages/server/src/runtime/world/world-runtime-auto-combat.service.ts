@@ -139,6 +139,9 @@ let WorldRuntimeAutoCombatService = class WorldRuntimeAutoCombatService {
             if (!player || player.hp <= 0) {
                 continue;
             }
+            if (player.combat?.pendingSkillCast) {
+                continue;
+            }
             const manualEngagePending = player.combat.manualEngagePending === true;
             if (!player.combat.autoBattle && !player.combat.autoRetaliate && !manualEngagePending) {
                 continue;

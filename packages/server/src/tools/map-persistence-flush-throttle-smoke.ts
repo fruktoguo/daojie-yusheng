@@ -18,7 +18,7 @@ async function main(): Promise<void> {
       {
         ok: true,
         case: 'map-persistence-flush-throttle',
-        answers: '旧全量 map snapshot 写入默认退役；显式兼容开关下 interval 慢刷盘会退避；未到期的纯 time checkpoint 不进入普通 interval 刷盘；未到期的高频 monster_runtime 不进入普通 interval 刷盘；shutdown 强刷在只启用 instance domain persistence 时仍会落地分域脏状态',
+        answers: '旧全量 map snapshot 写入已退役；instance domain interval 慢刷盘会退避；未到期的纯 time checkpoint 不进入普通 interval 刷盘；未到期的高频 monster_runtime 不进入普通 interval 刷盘；shutdown 强刷在只启用 instance domain persistence 时仍会落地分域脏状态',
         excludes: '不证明 500/1000 真实压测、跨节点竞争或故障注入',
         completionMapping: 'replace-ready:proof:stage7.flush-throttle',
       },
@@ -74,52 +74,39 @@ async function testLegacySnapshotWriteDisabledByDefault(): Promise<void> {
 }
 
 async function testIntervalThrottle(): Promise<void> {
-  const buildCalls: string[] = [];
-  const saveCalls: string[] = [];
-  const persistedCalls: string[] = [];
-  const previousServerEnv = process.env.SERVER_MAP_LEGACY_SNAPSHOT_WRITE;
-  process.env.SERVER_MAP_LEGACY_SNAPSHOT_WRITE = '1';
+  const flushCalls: Array<{ instanceId: string; domains: string[] | null }> = [];
   const service = new MapPersistenceFlushService(
     {
+      instanceDomainPersistenceService: {
+        isEnabled() {
+          return true;
+        },
+      },
+      listDirtyPersistentInstanceDomains() {
+        return [{ instanceId: 'instance:slow', domains: ['tile_resource'] }];
+      },
       listDirtyPersistentInstances() {
-        return ['instance:slow'];
+        throw new Error('domain entries should not fall back to legacy full-instance scan');
       },
-      buildMapPersistenceSnapshot(instanceId: string) {
-        buildCalls.push(instanceId);
-        return {
-          version: 1,
-          savedAt: Date.now(),
-          templateId: 'yunlai_town',
-          tileResourceEntries: [{ resourceKey: 'qi', tileIndex: 1, value: 2 }],
-          groundPileEntries: [],
-          containerStates: [],
-        };
-      },
-      markMapPersisted(instanceId: string) {
-        persistedCalls.push(instanceId);
+      async flushInstanceDomains(instanceId: string, domains: string[] | null) {
+        flushCalls.push({ instanceId, domains });
+        await sleep(120);
+        return { skipped: false };
       },
     } as never,
     {
       isEnabled() {
         return true;
       },
-      async saveMapSnapshot(instanceId: string) {
-        saveCalls.push(instanceId);
-        await sleep(120);
-      },
     } as never,
   );
 
-  try {
-    await service.flushDirtyInstances();
-    await service.flushDirtyInstances();
-  } finally {
-    restoreEnv('SERVER_MAP_LEGACY_SNAPSHOT_WRITE', previousServerEnv);
-  }
+  await service.flushDirtyInstances();
+  await service.flushDirtyInstances();
 
-  assert.deepEqual(buildCalls, ['instance:slow']);
-  assert.deepEqual(saveCalls, ['instance:slow']);
-  assert.deepEqual(persistedCalls, ['instance:slow']);
+  assert.deepEqual(flushCalls, [
+    { instanceId: 'instance:slow', domains: ['tile_resource'] },
+  ]);
 }
 
 async function testIntervalSkipsDeferredTimeCheckpoint(): Promise<void> {

@@ -55,7 +55,6 @@ export class InstanceOverlayFlushWorker {
     const claimed = await this.flushLedgerService.claimInstanceFlushLedger({
       workerId,
       domain: INSTANCE_OVERLAY_WORKER_DOMAIN,
-      ownershipEpoch: 0,
       limit: INSTANCE_OVERLAY_WORKER_CLAIM_LIMIT,
     });
     let processed = 0;

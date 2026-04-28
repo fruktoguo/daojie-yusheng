@@ -16,16 +16,9 @@ exports.MapPersistenceService = void 0;
 const common_1 = require("@nestjs/common");
 const shared_1 = require("@mud/shared");
 
-const pg_1 = require("pg");
-
-const persistent_document_table_1 = require("./persistent-document-table");
-
-const env_alias_1 = require("../config/env-alias");
-
-const MAP_SNAPSHOT_SCOPE = 'server_map_aura_v1';
 const DEFAULT_TILE_AURA_RESOURCE_KEY = (0, shared_1.buildQiResourceKey)(shared_1.DEFAULT_QI_RESOURCE_DESCRIPTOR);
 
-/** 地图快照持久化服务：保存/读取地图环境快照并进行脏数据规整。 */
+/** 旧地图整档快照服务：硬切后仅保留类型边界，运行时不得再读写。 */
 let MapPersistenceService = MapPersistenceService_1 = class MapPersistenceService {
 /**
  * logger：日志器引用。
@@ -48,25 +41,9 @@ let MapPersistenceService = MapPersistenceService_1 = class MapPersistenceServic
  */
 
     async onModuleInit() {
-  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
-
-
-        const databaseUrl = (0, env_alias_1.resolveServerDatabaseUrl)();
-        if (!databaseUrl.trim()) {
-            return;
-        }
-        this.pool = new pg_1.Pool({
-            connectionString: databaseUrl,
-        });
-        try {
-            await (0, persistent_document_table_1.ensurePersistentDocumentsTable)(this.pool);
-            this.enabled = true;
-            this.logger.log('地图持久化已启用（persistent_documents）');
-        }
-        catch (error) {
-            this.logger.error('地图持久化初始化失败，已回退为禁用模式', error instanceof Error ? error.stack : String(error));
-            await this.safeClosePool();
-        }
+        this.pool = null;
+        this.enabled = false;
+        this.logger.log('旧地图整档快照服务已禁用：地图真源必须使用 instance_* 分域表');
     }    
     /**
  * onModuleDestroy：执行on模块Destroy相关逻辑。
@@ -88,12 +65,8 @@ let MapPersistenceService = MapPersistenceService_1 = class MapPersistenceServic
         if (!this.pool || !this.enabled) {
             return null;
         }
-
-        const result = await this.pool.query('SELECT payload FROM persistent_documents WHERE scope = $1 AND key = $2', [MAP_SNAPSHOT_SCOPE, instanceId]);
-        if (result.rowCount === 0) {
-            return null;
-        }
-        return normalizeMapSnapshot(result.rows[0]?.payload);
+        void instanceId;
+        return null;
     }    
     /**
  * saveMapSnapshot：执行save地图快照相关逻辑。
@@ -105,15 +78,9 @@ let MapPersistenceService = MapPersistenceService_1 = class MapPersistenceServic
     async saveMapSnapshot(instanceId, snapshot) {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
-        if (!this.pool || !this.enabled) {
-            return;
-        }
-        await this.pool.query(`
-        INSERT INTO persistent_documents(scope, key, payload, "updatedAt")
-        VALUES ($1, $2, $3::jsonb, now())
-        ON CONFLICT (scope, key)
-        DO UPDATE SET payload = EXCLUDED.payload, "updatedAt" = now()
-      `, [MAP_SNAPSHOT_SCOPE, instanceId, JSON.stringify(snapshot)]);
+        void instanceId;
+        void snapshot;
+        throw new Error('legacy_map_snapshot_disabled:use_instance_domain_persistence');
     }
 
     /** 关闭池并释放连接，持久化失败会进入不可用态。 */

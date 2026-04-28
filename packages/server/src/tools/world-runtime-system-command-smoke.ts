@@ -136,8 +136,75 @@ function testDispatchSystemCommandRoutes() {
         ['gmSystem', 'gmUpdatePlayer', 'line:yunlai_town:real:2', 'routeDeps'],
     ]);
 }
+/**
+ * testReturnToSpawnStartsCooldown：验证遁返成功后写入固定冷却。
+ * @returns 无返回值，直接更新测试状态。
+ */
+
+
+function testReturnToSpawnStartsCooldown() {
+    const log = [];
+    const service = createService(log);
+    const player = { combat: { cooldownReadyTickBySkillId: {} } };
+    service.dispatchSystemCommand({ kind: 'returnToSpawn', playerId: 'player:10' }, {
+        marker: 'returnDeps',
+        playerRuntimeService: {
+            getPlayerOrThrow(playerId) {
+                log.push(['getPlayerOrThrow', playerId]);
+                return player;
+            },
+            setSkillCooldownReadyTick(playerId, actionId, readyTick, currentTick) {
+                log.push(['setSkillCooldownReadyTick', playerId, actionId, readyTick, currentTick]);
+            },
+        },
+        resolveCurrentTickForPlayerId() {
+            return 20;
+        },
+    });
+    assert.deepEqual(log, [
+        ['getPlayerOrThrow', 'player:10'],
+        ['respawnPlayer', 'player:10', 'returnDeps'],
+        ['setSkillCooldownReadyTick', 'player:10', 'travel:return_spawn', 1820, 20],
+    ]);
+}
+/**
+ * testReturnToSpawnHonorsCooldown：验证遁返冷却未好时不再次执行。
+ * @returns 无返回值，直接更新测试状态。
+ */
+
+
+function testReturnToSpawnHonorsCooldown() {
+    const log = [];
+    const service = createService(log);
+    const player = { combat: { cooldownReadyTickBySkillId: { 'travel:return_spawn': 50 } } };
+    service.dispatchSystemCommand({ kind: 'returnToSpawn', playerId: 'player:11' }, {
+        marker: 'returnDeps',
+        playerRuntimeService: {
+            getPlayerOrThrow(playerId) {
+                log.push(['getPlayerOrThrow', playerId]);
+                return player;
+            },
+            rebuildActionState(inputPlayer, currentTick) {
+                log.push(['rebuildActionState', inputPlayer === player, currentTick]);
+            },
+        },
+        resolveCurrentTickForPlayerId() {
+            return 20;
+        },
+        queuePlayerNotice(playerId, text, kind) {
+            log.push(['queuePlayerNotice', playerId, text, kind]);
+        },
+    });
+    assert.deepEqual(log, [
+        ['getPlayerOrThrow', 'player:11'],
+        ['queuePlayerNotice', 'player:11', '行动尚在调息中，还需 30 息', 'system'],
+        ['rebuildActionState', true, 20],
+    ]);
+}
 
 testDispatchPendingSystemCommands();
 testDispatchSystemCommandRoutes();
+testReturnToSpawnStartsCooldown();
+testReturnToSpawnHonorsCooldown();
 
 console.log(JSON.stringify({ ok: true, case: 'world-runtime-system-command' }, null, 2));

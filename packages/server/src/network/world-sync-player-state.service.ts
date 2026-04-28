@@ -151,13 +151,32 @@ function toBootstrapTechniqueState(entry) {
 
 function toActionDefinition(entry) {
   const normalizedEntry = normalizeActionEntry(entry);
-  return {
+  const action: Record<string, unknown> = {
     id: normalizedEntry.id,
     cooldownLeft: normalizedEntry.cooldownLeft ?? 0,
     autoBattleEnabled: normalizedEntry.autoBattleEnabled !== false,
     autoBattleOrder: normalizedEntry.autoBattleOrder ?? undefined,
     skillEnabled: normalizedEntry.skillEnabled !== false,
   };
+  if (typeof normalizedEntry.name === 'string' && normalizedEntry.name.trim()) {
+    action.name = normalizedEntry.name;
+  }
+  if (typeof normalizedEntry.type === 'string' && normalizedEntry.type.trim()) {
+    action.type = normalizedEntry.type;
+  }
+  if (typeof normalizedEntry.desc === 'string') {
+    action.desc = normalizedEntry.desc;
+  }
+  if (Number.isFinite(Number(normalizedEntry.range))) {
+    action.range = Math.max(0, Math.trunc(Number(normalizedEntry.range)));
+  }
+  if (normalizedEntry.requiresTarget !== undefined) {
+    action.requiresTarget = normalizedEntry.requiresTarget === true;
+  }
+  if (typeof normalizedEntry.targetMode === 'string' && normalizedEntry.targetMode.trim()) {
+    action.targetMode = normalizedEntry.targetMode;
+  }
+  return action;
 }
 
 function toItemStackState(entry) {

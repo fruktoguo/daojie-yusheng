@@ -1,161 +1,144 @@
-# main 主线落盘剩余旧链路与 fallback 清单
+# main 主线落盘硬切后旧链路边界清单
 
 ## 1. 文档定位
 
-本文档记录 `mud-mmo-next` 当前 **还没有完全切净** 的旧落盘链路、兼容层与条件式 fallback。
+本文记录 `mud-mmo-next` 在 2026-04-28 数据层硬切后的旧落盘链路边界。它不再列“后续慢慢删”的兼容任务，而是说明：
 
-它回答的是：
+- 正式 runtime 已经不能再触发哪些旧链路
+- 仓库里仍保留哪些离线迁移、历史导入或审计工具
+- 哪些直接运行态写法只是 durable 成功后的内存回填，不再算 fallback
 
-- 当前项目是否已经 100% 只使用新的商业级落盘体系
-- 还剩哪些真实旧链路没有退役
-- 哪些路径只是“durable 成功后的运行态回填”，哪些是真正需要继续清理的 fallback
-
-它不回答的是：
-
-- 最终终局架构应该怎么设计
-- 全量数据分表方案
-- 计划执行进度本身是否完成
-
-进度与计划口径仍以 [计划/商业级数据落盘改造计划.md](./计划/商业级数据落盘改造计划.md) 为准。
+进度与终局验收口径仍以 [计划/商业级数据落盘改造计划.md](./计划/商业级数据落盘改造计划.md) 为准。
 
 ## 2. 当前结论
 
-当前仓库已经是：
+当前代码口径已经从“新体系为主、旧链路兜底”切到：
 
-- **新商业级落盘体系成为主路径**
-- **旧快照与少量 fallback 仍未完全删除**
+- 玩家恢复、GM 玩家查询、GM 广播收件人枚举、durable asset 写入不再依赖 `server_player_snapshot`。
+- 地图 runtime 不再读写旧 map snapshot；`MapPersistenceService.loadMapSnapshot()` 返回空，`saveMapSnapshot()` 直接拒绝。
+- 兑换码、建议、GM auth、GM 地图配置、宗门、市场订单、市场成交历史、市场托管仓、爱发电配置/订单、数据库备份元数据和数据库任务状态已经从 `persistent_documents` 迁到专表或结构化玩家表。
+- 兑换码奖励、战斗掉落、PvP 奖励、NPC 任务奖励、GM 钱包/发物入口缺少 durable 条件时返回硬错误，不再直写运行态资产作为 fallback。
+- 新增 `persistence-hard-cut-audit` 静态门禁，用于阻断主线 runtime 重新读写旧快照或通用文档桶真源。
 
-所以准确口径不是“已经完全只用新的商业级落盘”，而是：
+所以当前文档结论是：
 
-> 主恢复链、主资产事务链已经大面积切到新体系，但仓库里仍保留旧 `server_player_snapshot` 兼容层，以及少量条件式 fallback 资产入口。
+> 旧快照、旧业务文档和 direct asset fallback 已从正式 runtime 主线移除；仓库残留只允许服务于离线转换、历史 JSON 备份导入、审计和少量迁移 smoke。
 
-## 3. 剩余旧链路与 fallback
+## 3. 已删除的正式 runtime 角色
 
-### 3.1 `server_player_snapshot` 仍然存在
+### 3.1 `server_player_snapshot`
 
-`server_player_snapshot` 当前已经不是恢复主链，但仍然保留为：
+已从以下正式路径移除：
 
-- checkpoint
-- backup
-- 兼容层
-- GM / flush / 审计 / 恢复证明链的辅助材料
+- `AppModule` 不再注册 `PlayerPersistenceService`。
+- `WorldPlayerSnapshotService`、`WorldPlayerSourceService` 不再回读旧整档快照。
+- GM 玩家管理、GM 状态查询、GM 邮件广播收件人枚举改为从 `PlayerDomainPersistenceService.listProjectedSnapshots()` 装配。
+- `DurableOperationService` 不再顺手写 `server_player_snapshot`。
+- `PlayerPersistenceFlushService` 不再写整档 checkpoint。
 
-主要代码位置：
+仍保留的边界：
 
-- [packages/server/src/persistence/player-persistence.service.ts](/home/yuohira/mud-mmo-next/packages/server/src/persistence/player-persistence.service.ts:7)
-- [packages/server/src/persistence/player-persistence-flush.service.ts](/home/yuohira/mud-mmo-next/packages/server/src/persistence/player-persistence-flush.service.ts:232)
-- [packages/server/src/network/world-player-snapshot.service.ts](/home/yuohira/mud-mmo-next/packages/server/src/network/world-player-snapshot.service.ts:154)
-- [packages/server/src/http/native/native-gm-player.service.ts](/home/yuohira/mud-mmo-next/packages/server/src/http/native/native-gm-player.service.ts:332)
+- [packages/server/src/persistence/player-persistence.service.ts](/home/yuohira/mud-mmo-next/packages/server/src/persistence/player-persistence.service.ts:7) 仍存在，作为离线迁移、旧 dump 转换、历史 smoke 的输入读取工具。
+- 任何正式 runtime provider 重新注入它，都会被 `persistence-hard-cut-audit` 视为失败。
 
-说明：
+### 3.2 旧地图快照
 
-- 当前恢复主链已优先走 `player domain projection`
-- 但旧快照表并未删除，也仍有真实写入
-- 因此“完全摆脱旧整档 JSON 快照”这件事尚未完成
+已从以下正式路径移除：
 
-### 3.2 兑换码奖励仍有 direct fallback
+- 地图恢复主链只从 `instance_catalog`、`instance_*` 分域表和 checkpoint 恢复。
+- `MapPersistenceFlushService` 不再调用 `saveMapSnapshot()`。
+- `MapPersistenceService` 不再初始化 `persistent_documents`，`loadMapSnapshot()` 返回 `null`，`saveMapSnapshot()` 抛出 `legacy_map_snapshot_disabled:use_instance_domain_persistence`。
 
-兑换码非钱包奖励主线已经能走 `grantInventoryItems`，但当 durable 条件不满足时，仍会直接写运行态背包。
+仍保留的边界：
 
-主要位置：
+- 旧地图 JSON 只允许被离线 converter 或迁移审计读取。
+- 正式启动、恢复、GM 普通操作、刷盘不得回退旧 map JSON。
 
-- [packages/server/src/runtime/redeem/redeem-code-runtime.service.ts](/home/yuohira/mud-mmo-next/packages/server/src/runtime/redeem/redeem-code-runtime.service.ts:533)
-- [packages/server/src/runtime/redeem/redeem-code-runtime.service.ts](/home/yuohira/mud-mmo-next/packages/server/src/runtime/redeem/redeem-code-runtime.service.ts:536)
+### 3.3 `persistent_documents`
 
-同时，钱包奖励当前仍直接走：
+以下业务 scope 已退出 runtime 真源：
 
-- [packages/server/src/runtime/redeem/redeem-code-runtime.service.ts](/home/yuohira/mud-mmo-next/packages/server/src/runtime/redeem/redeem-code-runtime.service.ts:338)
+| 旧 scope / 旧用途 | 新真源 |
+| --- | --- |
+| `server_redeem_codes_v1` | `server_redeem_code_state / server_redeem_code_group / server_redeem_code` |
+| `server_suggestions_v1` | `server_suggestion_state / server_suggestion` |
+| `server_gm_auth_v1` | `server_gm_auth` |
+| `server_gm_map_config_v1` | `server_gm_map_config` |
+| `server_market_orders_v1` | `server_market_order` |
+| `server_market_trade_history_v1` | `server_market_trade_history` |
+| `server_market_storage_v1` | `player_market_storage_item` |
+| `server_sects_v1` | `server_sect` |
+| `server_afdian_config_v1` | `server_afdian_config` |
+| `server_afdian_orders_v1` | `server_afdian_order` |
+| `server_db_backups_v1` | `server_db_backup_metadata` |
+| `server_db_jobs_v1` | `server_db_job_state` |
+| 旧 mailbox JSON | `player_mail / player_mail_attachment / player_mail_counter` |
 
-说明：
+仍保留的边界：
 
-- 这属于真实 fallback，不是单纯 durable 成功后的运行态回填
+- `persistent_documents` 表工具只给历史 JSON 备份导入、离线迁移和审计工具使用。
+- `NativeGmAdminService` 对 legacy JSON 备份恢复会懒初始化该表，但普通 runtime 初始化和业务服务不再把它当真源。
 
-### 3.3 战斗掉落与 PvP 奖励仍有 direct fallback
+## 4. 已删除的 direct fallback
 
-怪物掉落直入背包、PvP 血精奖励已经接入 `grantInventoryItems` 主链，但当前仍保留 durable 条件不满足时的运行态直写。
+### 4.1 兑换码奖励
 
-主要位置：
+- 钱包奖励必须走 `DurableOperationService.mutatePlayerWallet()`。
+- 非钱包奖励必须走 `DurableOperationService.grantInventoryItems()`。
+- session、lease、owner 或 durable service 不满足时抛错，不再直接写背包或钱包。
 
-- 怪物掉落：
-  [packages/server/src/runtime/world/world-runtime-player-combat.service.ts](/home/yuohira/mud-mmo-next/packages/server/src/runtime/world/world-runtime-player-combat.service.ts:204)
-- PvP 奖励：
-  [packages/server/src/runtime/world/world-runtime-player-combat.service.ts](/home/yuohira/mud-mmo-next/packages/server/src/runtime/world/world-runtime-player-combat.service.ts:293)
+### 4.2 战斗掉落与 PvP 奖励
 
-说明：
+- 可进入背包的奖励走 durable grant。
+- 背包满导致地面掉落是玩法结果，不是绕过持久化的 fallback。
+- durable 条件不满足时抛错，不再直接 `receiveInventoryItem()`。
 
-- 当前主路径已是 durable
-- 但 fallback 还在，因此不能说该类路径已经 100% 纯新体系
+### 4.3 NPC 任务奖励
 
-### 3.4 NPC 任务提交奖励仍有 direct fallback
+- 任务扣物、发物、发钱统一走 `submitNpcQuestRewards()` durable 事务。
+- durable 条件不满足时抛错，不再直接扣背包、发背包或发钱包。
 
-`submitNpcQuestRewards` 已有 durable 组合事务，但 `canUseDurableQuestSubmit(...)` 不成立时，仍会走旧的运行态直写奖励链。
+### 4.4 GM 钱包和发物
 
-主要位置：
+- GM 钱包变更和发物路由都要求 session fencing、instance lease 与 durable service。
+- durable 提交成功后允许回写运行态内存；提交前不允许 direct runtime write。
 
-- durable 分支入口：
-  [packages/server/src/runtime/world/world-runtime-npc-quest-write.service.ts](/home/yuohira/mud-mmo-next/packages/server/src/runtime/world/world-runtime-npc-quest-write.service.ts:139)
-- 直接发背包奖励：
-  [packages/server/src/runtime/world/world-runtime-npc-quest-write.service.ts](/home/yuohira/mud-mmo-next/packages/server/src/runtime/world/world-runtime-npc-quest-write.service.ts:161)
-- 直接发钱包奖励：
-  [packages/server/src/runtime/world/world-runtime-npc-quest-write.service.ts](/home/yuohira/mud-mmo-next/packages/server/src/runtime/world/world-runtime-npc-quest-write.service.ts:164)
+## 5. 仍允许存在的“直接运行态写法”
 
-说明：
-
-- 这是当前仍需继续清理的真实旧分支
-
-### 3.5 GM 钱包路由仍保留 direct runtime 路径
-
-GM 钱包路由并不是无条件强制走新的 durable 事务链，当前仍保留直接 runtime 写法。
-
-主要位置：
-
-- [packages/server/src/runtime/world/world-runtime.controller.ts](/home/yuohira/mud-mmo-next/packages/server/src/runtime/world/world-runtime.controller.ts:589)
-
-说明：
-
-- 这类管理口径通常优先保证可用性，但从“完全切净旧链路”的角度看，它仍是一个残留点
-
-## 4. 需要区分的两类“直接运行态写法”
-
-仓库里仍能搜到不少：
+仓库里仍会看到：
 
 - `receiveInventoryItem(...)`
 - `creditWallet(...)`
+- 运行态容器或地面物品变化
 
-但它们不能一概当成“旧落盘没切完”。
+这些只有在以下场景才允许：
 
-需要区分：
+- durable 事务已经提交，随后把已提交结果同步回运行态内存。
+- 背包满导致地面掉落，且该地面物品属于实例分域持久化真源。
+- 新号初始化、GM 显式修复或离线迁移工具在受控流程里写入正式结构化表。
 
-### 4.1 可以接受的情况
+如果出现“durable 不可用 -> 直接写运行态并继续成功返回”，即视为硬切回退，门禁必须失败。
 
-- durable 事务已经成功提交
-- 随后只是把运行态内存对象回填到已提交结果
+## 6. 当前验证入口
 
-这类属于正常的“提交后回写运行态”。
+硬切静态门禁：
 
-### 4.2 需要继续清理的情况
+```bash
+pnpm --filter @mud/server audit:persistence-hard-cut
+```
 
-- durable 条件不满足时
-- 直接把资产结果写进运行态
-- 然后绕开新的事务主链
+重点证明：
 
-这类才是本文档重点列出的 fallback。
+- 玩家、地图、GM、坊市、兑换码、建议、宗门主线不再使用旧整档快照或 `persistent_documents` 真源。
+- durable operation 不再维护旧玩家整档表。
+- 会话恢复不再回读或补种旧 `server_player_snapshot`。
 
-## 5. 建议后续清理顺序
+仍需单独证明的内容：
 
-如果继续往“完全切净旧链路”推进，建议优先顺序如下：
+- `verify:replace-ready:with-db / shadow / acceptance / full` 全套门禁。
+- 迁移 dry-run、真实迁移、回滚演练和备份恢复演练。
+- 1000 玩家、1000 实例规模下的 p95/p99、worker backlog、数据库连接池和故障注入报告。
 
-1. 兑换码奖励 fallback
-2. NPC 任务提交奖励 fallback
-3. 战斗掉落 / PvP 奖励 fallback
-4. GM 钱包 direct runtime 路径
-5. 最后再评估 `server_player_snapshot` 的进一步弱化或退役
+## 7. 一句话结论
 
-原因：
-
-- 前四项都属于真实业务资产入口
-- `server_player_snapshot` 则已经降级成兼容层，删除风险更高，通常应该放在更后面
-
-## 6. 一句话结论
-
-当前项目已经不是“旧 JSON 存档主导”的状态，但也还没有到“旧快照删除、所有资产入口零 fallback、100% 纯新商业级落盘”的终局。
+正式 runtime 的旧快照、旧业务文档和资产 direct fallback 已完成硬切；剩下的不是兼容运行路径，而是离线迁移、历史导入、审计和容量验证边界。

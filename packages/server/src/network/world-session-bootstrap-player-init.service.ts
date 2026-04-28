@@ -1,8 +1,8 @@
-import { Inject, Injectable, Logger, Optional } from '@nestjs/common';
+import { Inject, Injectable, Logger, Optional, ServiceUnavailableException } from '@nestjs/common';
 
 import { PlayerDomainPersistenceService } from '../persistence/player-domain-persistence.service';
 import { PlayerSessionRouteService } from '../persistence/player-session-route.service';
-import { PlayerPersistenceService, type PersistedPlayerSnapshot } from '../persistence/player-persistence.service';
+import { type PersistedPlayerSnapshot } from '../persistence/player-persistence.service';
 import { MailRuntimeService } from '../runtime/mail/mail-runtime.service';
 import { PlayerRuntimeService } from '../runtime/player/player-runtime.service';
 import { WorldSessionRecoveryQueueService } from './world-session-recovery-queue.service';
@@ -50,10 +50,6 @@ interface MailRuntimePort {
     ensureWelcomeMail(playerId: string): Promise<void>;
 }
 
-interface PlayerPersistenceSnapshotPort {
-    loadPlayerSnapshot(playerId: string): Promise<PersistedPlayerSnapshot | null>;
-}
-
 /** 负责 bootstrap 阶段玩家初始化、身份回写与邮箱预热。 */
 @Injectable()
 export class WorldSessionBootstrapPlayerInitService {
@@ -75,9 +71,6 @@ export class WorldSessionBootstrapPlayerInitService {
         @Optional()
         @Inject(WorldSessionRecoveryQueueService)
         private readonly recoveryQueueService: WorldSessionRecoveryQueueService | null = null,
-        @Optional()
-        @Inject(PlayerPersistenceService)
-        private readonly playerPersistenceService: PlayerPersistenceSnapshotPort | null = null,
     ) {}
 
     async initializeBootstrapPlayer(input: {
@@ -126,73 +119,8 @@ export class WorldSessionBootstrapPlayerInitService {
             if (!isRecoveryTimeoutError(error)) {
                 throw error;
             }
-            const persistedSnapshot = await this.loadPersistedSnapshotAfterRecoveryTimeout(input.playerId);
-            if (persistedSnapshot) {
-                console.warn(`bootstrap 恢复超时，改用已持久化快照兜底：playerId=${input.playerId}`);
-                loadedSnapshot = persistedSnapshot;
-                player = await this.playerRuntimeService.loadOrCreatePlayer(
-                    input.playerId,
-                    input.sessionId,
-                    async () => persistedSnapshot,
-                    {
-                        forceRebind: input.forceRuntimeSessionRebind === true,
-                        onSnapshotLoaded: (snapshot) => {
-                            loadedSnapshot = snapshot;
-                        },
-                        sessionEpochFloor: sessionEpochFloor > 0 ? sessionEpochFloor : undefined,
-                    },
-                );
-            }
-            else {
-                console.warn(`bootstrap 恢复超时，切换到 fallback 出生点：playerId=${input.playerId}`);
-                const fallbackSnapshot = this.playerRuntimeService.buildStarterPersistenceSnapshot(input.playerId);
-                if (!fallbackSnapshot) {
-                    throw error;
-                }
-                loadedSnapshot = fallbackSnapshot;
-                player = await this.playerRuntimeService.loadOrCreatePlayer(
-                    input.playerId,
-                    input.sessionId,
-                    async () => fallbackSnapshot,
-                    {
-                        forceRebind: input.forceRuntimeSessionRebind === true,
-                        onSnapshotLoaded: (snapshot) => {
-                            loadedSnapshot = snapshot;
-                        },
-                        sessionEpochFloor: sessionEpochFloor > 0 ? sessionEpochFloor : undefined,
-                    },
-                );
-                if (typeof this.playerDomainPersistenceService?.isEnabled === 'function'
-                    && this.playerDomainPersistenceService.isEnabled()) {
-                    await this.playerDomainPersistenceService.savePlayerSnapshotProjectionDomains(
-                        input.playerId,
-                        fallbackSnapshot,
-                        [
-                            'world_anchor',
-                            'position_checkpoint',
-                            'vitals',
-                            'progression',
-                            'attr',
-                            'wallet',
-                            'inventory',
-                            'map_unlock',
-                            'equipment',
-                            'technique',
-                            'body_training',
-                            'buff',
-                            'quest',
-                            'combat_pref',
-                            'auto_battle_skill',
-                            'auto_use_item_rule',
-                            'profession',
-                            'alchemy_preset',
-                            'active_job',
-                            'enhancement_record',
-                            'logbook',
-                        ],
-                    );
-                }
-            }
+            this.logger.warn(`bootstrap 恢复超时，硬切模式拒绝旧快照或出生点兜底：playerId=${input.playerId}`);
+            throw new ServiceUnavailableException(`bootstrap_recovery_timeout:${input.playerId}`);
         }
         this.playerRuntimeService.setIdentity(input.playerId, {
             name: input.name,
@@ -235,6 +163,7 @@ export class WorldSessionBootstrapPlayerInitService {
                     'progression',
                     'attr',
                     'wallet',
+                    'market_storage',
                     'inventory',
                     'map_unlock',
                     'equipment',
@@ -256,21 +185,6 @@ export class WorldSessionBootstrapPlayerInitService {
         await this.mailRuntimeService?.ensurePlayerMailbox(input.playerId);
         await this.mailRuntimeService?.ensureWelcomeMail(input.playerId);
         return player;
-    }
-
-    private async loadPersistedSnapshotAfterRecoveryTimeout(playerId: string): Promise<PersistedPlayerSnapshot | null> {
-        if (!this.playerPersistenceService) {
-            return null;
-        }
-        try {
-            const snapshot = await this.playerPersistenceService.loadPlayerSnapshot(playerId);
-            return snapshot?.placement?.templateId ? snapshot : null;
-        } catch (error: unknown) {
-            this.logger.warn(
-                `bootstrap 超时后读取持久化快照失败：playerId=${playerId} error=${error instanceof Error ? error.message : String(error)}`,
-            );
-            return null;
-        }
     }
 
     private async runThroughRecoveryQueue<T>(

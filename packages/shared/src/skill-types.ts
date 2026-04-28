@@ -33,46 +33,46 @@ export type SkillFormulaVar =
 /** 技能公式（递归结构：常数/变量引用/运算表达式）。 */
 export type SkillFormula =
   | number
-  | {  
+  | {
   /**
  * var：var相关字段。
  */
 
-      var: SkillFormulaVar;      
+      var: SkillFormulaVar;
       /**
  * scale：scale相关字段。
  */
 
       scale?: number;
     }
-  | {  
+  | {
   /**
  * op：op相关字段。
  */
 
-      op: 'add' | 'sub' | 'mul' | 'div' | 'min' | 'max';      
+      op: 'add' | 'sub' | 'mul' | 'div' | 'min' | 'max';
       /**
  * args：arg相关字段。
  */
 
       args: SkillFormula[];
     }
-  | {  
+  | {
   /**
  * op：op相关字段。
  */
 
-      op: 'clamp';      
+      op: 'clamp';
       /**
  * value：值数值。
  */
 
-      value: SkillFormula;      
+      value: SkillFormula;
       /**
  * min：min相关字段。
  */
 
-      min?: SkillFormula;      
+      min?: SkillFormula;
       /**
  * max：max相关字段。
  */
@@ -86,47 +86,47 @@ export interface SkillTargetingDef {
  * shape：shape相关字段。
  */
 
-  shape?: TargetingShape;  
+  shape?: TargetingShape;
   /**
  * range：范围相关字段。
  */
 
-  range?: number;  
+  range?: number;
   /**
  * radius：radiu相关字段。
  */
 
-  radius?: number;  
+  radius?: number;
   /**
  * innerRadius：innerRadiu相关字段。
  */
 
-  innerRadius?: number;  
+  innerRadius?: number;
   /**
  * width：width相关字段。
  */
 
-  width?: number;  
+  width?: number;
   /**
  * height：height相关字段。
  */
 
-  height?: number;  
+  height?: number;
   /**
  * checkerParity：checkerParity相关字段。
  */
 
-  checkerParity?: 'even' | 'odd';  
+  checkerParity?: 'even' | 'odd';
   /**
  * maxTargets：max目标相关字段。
  */
 
-  maxTargets?: number;  
+  maxTargets?: number;
   /**
  * requiresTarget：require目标相关字段。
  */
 
-  requiresTarget?: boolean;  
+  requiresTarget?: boolean;
   /**
  * targetMode：目标Mode相关字段。
  */
@@ -140,17 +140,17 @@ export interface SkillDamageEffectDef {
  * type：type相关字段。
  */
 
-  type: 'damage';  
+  type: 'damage';
   /**
  * damageKind：damageKind相关字段。
  */
 
-  damageKind?: SkillDamageKind;  
+  damageKind?: SkillDamageKind;
   /**
  * element：element相关字段。
  */
 
-  element?: ElementKey;  
+  element?: ElementKey;
   /**
  * formula：formula相关字段。
  */
@@ -164,12 +164,12 @@ export interface SkillHealEffectDef {
  * type：type相关字段。
  */
 
-  type: 'heal';  
+  type: 'heal';
   /**
  * target：目标相关字段。
  */
 
-  target: 'self' | 'target' | 'allies';  
+  target: 'self' | 'target' | 'allies';
   /**
  * formula：formula相关字段。
  */
@@ -183,97 +183,97 @@ export interface SkillBuffEffectDef {
  * type：type相关字段。
  */
 
-  type: 'buff';  
+  type: 'buff';
   /**
  * target：目标相关字段。
  */
 
-  target: 'self' | 'target' | 'allies';  
+  target: 'self' | 'target' | 'allies';
   /**
  * buffId：buffID标识。
  */
 
-  buffId: string;  
+  buffId: string;
   /**
  * name：名称名称或显示文本。
  */
 
-  name: string;  
+  name: string;
   /**
  * desc：desc相关字段。
  */
 
-  desc?: string;  
+  desc?: string;
   /**
  * shortMark：shortMark相关字段。
  */
 
-  shortMark?: string;  
+  shortMark?: string;
   /**
  * category：category相关字段。
  */
 
-  category?: BuffCategory;  
+  category?: BuffCategory;
   /**
  * visibility：可见性相关字段。
  */
 
-  visibility?: BuffVisibility;  
+  visibility?: BuffVisibility;
   /**
  * color：color相关字段。
  */
 
-  color?: string;  
+  color?: string;
   /**
  * duration：duration相关字段。
  */
 
-  duration: number;  
+  duration: number;
   /**
  * stacks：stack相关字段。
  */
 
-  stacks?: number;  
+  stacks?: number;
   /**
  * maxStacks：maxStack相关字段。
  */
 
-  maxStacks?: number;  
+  maxStacks?: number;
   /**
  * attrs：attr相关字段。
  */
 
-  attrs?: Partial<Attributes>;  
+  attrs?: Partial<Attributes>;
   /**
  * stats：stat相关字段。
  */
 
-  stats?: PartialNumericStats;  
+  stats?: PartialNumericStats;
   /**
  * qiProjection：qiProjection相关字段。
  */
 
-  qiProjection?: QiProjectionModifier[];  
+  qiProjection?: QiProjectionModifier[];
   /**
  * valueStats：值Stat相关字段。
  */
 
-  valueStats?: PartialNumericStats;  
+  valueStats?: PartialNumericStats;
   /**
  * presentationScale：presentationScale相关字段。
  */
 
-  presentationScale?: number;  
+  presentationScale?: number;
   /**
  * infiniteDuration：infiniteDuration相关字段。
  */
 
-  infiniteDuration?: boolean;  
+  infiniteDuration?: boolean;
   /**
  * sustainCost：sustain消耗数值。
  */
 
-  sustainCost?: BuffSustainCostDef;  
+  sustainCost?: BuffSustainCostDef;
   /**
  * expireWithBuffId：expireWithBuffID标识。
  */
@@ -287,112 +287,112 @@ export interface MonsterInitialBuffDef {
  * type：type相关字段。
  */
 
-  type?: 'buff';  
+  type?: 'buff';
   /**
  * target：目标相关字段。
  */
 
-  target?: 'self';  
+  target?: 'self';
   /**
  * buffRef：buffRef相关字段。
  */
 
-  buffRef?: string;  
+  buffRef?: string;
   /**
  * buffId：buffID标识。
  */
 
-  buffId: string;  
+  buffId: string;
   /**
  * name：名称名称或显示文本。
  */
 
-  name: string;  
+  name: string;
   /**
  * desc：desc相关字段。
  */
 
-  desc?: string;  
+  desc?: string;
   /**
  * shortMark：shortMark相关字段。
  */
 
-  shortMark?: string;  
+  shortMark?: string;
   /**
  * category：category相关字段。
  */
 
-  category?: BuffCategory;  
+  category?: BuffCategory;
   /**
  * visibility：可见性相关字段。
  */
 
-  visibility?: BuffVisibility;  
+  visibility?: BuffVisibility;
   /**
  * color：color相关字段。
  */
 
-  color?: string;  
+  color?: string;
   /**
  * duration：duration相关字段。
  */
 
-  duration: number;  
+  duration: number;
   /**
  * maxStacks：maxStack相关字段。
  */
 
-  maxStacks?: number;  
+  maxStacks?: number;
   /**
  * stacks：stack相关字段。
  */
 
-  stacks?: number;  
+  stacks?: number;
   /**
  * attrs：attr相关字段。
  */
 
-  attrs?: Partial<Attributes>;  
+  attrs?: Partial<Attributes>;
   /**
  * attrMode：attrMode相关字段。
  */
 
-  attrMode?: BuffModifierMode;  
+  attrMode?: BuffModifierMode;
   /**
  * stats：stat相关字段。
  */
 
-  stats?: PartialNumericStats;  
+  stats?: PartialNumericStats;
   /**
  * statMode：statMode相关字段。
  */
 
-  statMode?: BuffModifierMode;  
+  statMode?: BuffModifierMode;
   /**
  * qiProjection：qiProjection相关字段。
  */
 
-  qiProjection?: QiProjectionModifier[];  
+  qiProjection?: QiProjectionModifier[];
   /**
  * valueStats：值Stat相关字段。
  */
 
-  valueStats?: PartialNumericStats;  
+  valueStats?: PartialNumericStats;
   /**
  * presentationScale：presentationScale相关字段。
  */
 
-  presentationScale?: number;  
+  presentationScale?: number;
   /**
  * infiniteDuration：infiniteDuration相关字段。
  */
 
-  infiniteDuration?: boolean;  
+  infiniteDuration?: boolean;
   /**
  * sustainCost：sustain消耗数值。
  */
 
-  sustainCost?: BuffSustainCostDef;  
+  sustainCost?: BuffSustainCostDef;
   /**
  * expireWithBuffId：expireWithBuffID标识。
  */
@@ -406,17 +406,17 @@ export interface SkillCleanseEffectDef {
  * type：type相关字段。
  */
 
-  type: 'cleanse';  
+  type: 'cleanse';
   /**
  * target：目标相关字段。
  */
 
-  target: 'self' | 'target';  
+  target: 'self' | 'target';
   /**
  * category：category相关字段。
  */
 
-  category?: BuffCategory;  
+  category?: BuffCategory;
   /**
  * removeCount：数量或计量字段。
  */
@@ -462,17 +462,31 @@ export interface SkillMonsterCastDef {
  * windupTicks：winduptick相关字段。
  */
 
-  windupTicks?: number;  
+  windupTicks?: number;
   /**
  * warningColor：warningColor相关字段。
  */
 
-  warningColor?: string;  
+  warningColor?: string;
   /**
  * conditions：condition相关字段。
  */
 
   conditions?: EquipmentConditionGroup;
+}
+
+/** 玩家技能吟唱定义。 */
+export interface SkillPlayerCastDef {
+/**
+ * windupTicks：吟唱 tick 数。
+ */
+
+  windupTicks?: number;
+  /**
+ * warningColor：吟唱警示颜色。
+ */
+
+  warningColor?: string;
 }
 
 /** 技能完整定义。 */
@@ -481,72 +495,77 @@ export interface SkillDef {
  * id：ID标识。
  */
 
-  id: string;  
+  id: string;
   /**
  * name：名称名称或显示文本。
  */
 
-  name: string;  
+  name: string;
   /**
  * desc：desc相关字段。
  */
 
-  desc: string;  
+  desc: string;
   /**
  * cooldown：冷却相关字段。
  */
 
-  cooldown: number;  
+  cooldown: number;
   /**
  * cost：消耗数值。
  */
 
-  cost: number;  
+  cost: number;
   /**
  * costMultiplier：消耗Multiplier相关字段。
  */
 
-  costMultiplier?: number;  
+  costMultiplier?: number;
   /**
  * range：范围相关字段。
  */
 
-  range: number;  
+  range: number;
   /**
  * targeting：targeting相关字段。
  */
 
-  targeting?: SkillTargetingDef;  
+  targeting?: SkillTargetingDef;
   /**
  * effects：effect相关字段。
  */
 
-  effects: SkillEffectDef[];  
+  effects: SkillEffectDef[];
   /**
  * unlockLevel：unlock等级数值。
  */
 
-  unlockLevel?: number;  
+  unlockLevel?: number;
   /**
  * unlockRealm：unlockRealm相关字段。
  */
 
-  unlockRealm?: TechniqueRealm;  
+  unlockRealm?: TechniqueRealm;
   /**
  * unlockPlayerRealm：unlock玩家Realm相关字段。
  */
 
-  unlockPlayerRealm?: PlayerRealmStage;  
+  unlockPlayerRealm?: PlayerRealmStage;
   /**
  * requiresTarget：require目标相关字段。
  */
 
-  requiresTarget?: boolean;  
+  requiresTarget?: boolean;
   /**
  * targetMode：目标Mode相关字段。
  */
 
-  targetMode?: 'any' | 'entity' | 'tile';  
+  targetMode?: 'any' | 'entity' | 'tile';
+  /**
+ * playerCast：玩家吟唱表现相关字段。
+ */
+
+  playerCast?: SkillPlayerCastDef;
   /**
  * monsterCast：怪物Cast相关字段。
  */
@@ -560,32 +579,32 @@ export interface TemporaryBuffState extends VisibleBuffState {
  * baseDesc：baseDesc相关字段。
  */
 
-  baseDesc?: string;  
+  baseDesc?: string;
   /**
  * attrs：attr相关字段。
  */
 
-  attrs?: Partial<Attributes>;  
+  attrs?: Partial<Attributes>;
   /**
  * stats：stat相关字段。
  */
 
-  stats?: PartialNumericStats;  
+  stats?: PartialNumericStats;
   /**
  * presentationScale：presentationScale相关字段。
  */
 
-  presentationScale?: number;  
+  presentationScale?: number;
   /**
  * sustainCost：sustain消耗数值。
  */
 
-  sustainCost?: BuffSustainCostDef;  
+  sustainCost?: BuffSustainCostDef;
   /**
  * sustainTicksElapsed：sustaintickElapsed相关字段。
  */
 
-  sustainTicksElapsed?: number;  
+  sustainTicksElapsed?: number;
   /**
  * expireWithBuffId：expireWithBuffID标识。
  */

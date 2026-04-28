@@ -55,7 +55,6 @@ export class InstanceTileDamageFlushWorker {
     const claimed = await this.flushLedgerService.claimInstanceFlushLedger({
       workerId,
       domain: INSTANCE_TILE_DAMAGE_WORKER_DOMAIN,
-      ownershipEpoch: 0,
       limit: INSTANCE_TILE_DAMAGE_WORKER_CLAIM_LIMIT,
     });
     let processed = 0;

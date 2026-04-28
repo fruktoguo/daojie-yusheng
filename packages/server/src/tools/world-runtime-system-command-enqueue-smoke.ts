@@ -144,6 +144,26 @@ function testDamagePlayerQueue() {
     ]);
 }
 /**
+ * testReturnToSpawnQueue：执行test遁返Queue相关逻辑。
+ * @returns 无返回值，直接更新test遁返Queue相关状态。
+ */
+
+
+function testReturnToSpawnQueue() {
+    const log = [];
+    const queue = createQueue(log);
+    const deps = createDeps(log);
+    const service = new WorldRuntimeSystemCommandEnqueueService(queue);
+    service.enqueueReturnToSpawn(' player:1 ', deps);
+    assert.deepEqual(log, [
+        ['getPlayerLocationOrThrow', 'player:1'],
+        ['enqueueSystemCommand', {
+            kind: 'returnToSpawn',
+            playerId: 'player:1',
+        }],
+    ]);
+}
+/**
  * testGmDelegations：执行testGMDelegation相关逻辑。
  * @returns 无返回值，直接更新testGMDelegation相关状态。
  */
@@ -167,6 +187,7 @@ function testGmDelegations() {
 
 testSpawnMonsterLootQueue();
 testDamagePlayerQueue();
+testReturnToSpawnQueue();
 testGmDelegations();
 
 console.log(JSON.stringify({ ok: true, case: 'world-runtime-system-command-enqueue' }, null, 2));

@@ -9,7 +9,7 @@ import { resolveServerDatabaseUrl } from '../config/env-alias';
 import { NativeGmWorldService } from '../http/native/native-gm-world.service';
 import { DatabasePoolProvider } from '../persistence/database-pool.provider';
 import {
-  GM_MAP_CONFIG_SCOPE,
+  GM_MAP_CONFIG_TABLE,
   GmMapConfigPersistenceService,
   type GmMapConfigRecord,
 } from '../persistence/gm-map-config-persistence.service';
@@ -82,16 +82,16 @@ async function verifyPersistenceLifecycle(
     offsetTicks: 0,
   });
   const defaultRow = await pool.query(
-    'SELECT payload FROM persistent_documents WHERE scope = $1 AND key = $2',
-    [GM_MAP_CONFIG_SCOPE, MAP_ID],
+    `SELECT map_id FROM ${GM_MAP_CONFIG_TABLE} WHERE map_id = $1`,
+    [MAP_ID],
   );
   assert.equal(defaultRow.rowCount, 0);
 
   await persistence.mergeMapConfig(STALE_MAP_ID, { speed: 9 });
   await persistence.pruneMapConfigs(new Set([MAP_ID]));
   const staleRow = await pool.query(
-    'SELECT payload FROM persistent_documents WHERE scope = $1 AND key = $2',
-    [GM_MAP_CONFIG_SCOPE, STALE_MAP_ID],
+    `SELECT map_id FROM ${GM_MAP_CONFIG_TABLE} WHERE map_id = $1`,
+    [STALE_MAP_ID],
   );
   assert.equal(staleRow.rowCount, 0);
 }
@@ -224,8 +224,8 @@ async function loadRecord(
 
 async function cleanupRows(pool: Pool): Promise<void> {
   await pool.query(
-    'DELETE FROM persistent_documents WHERE scope = $1 AND key = ANY($2::varchar[])',
-    [GM_MAP_CONFIG_SCOPE, [MAP_ID, STALE_MAP_ID]],
+    `DELETE FROM ${GM_MAP_CONFIG_TABLE} WHERE map_id = ANY($1::varchar[])`,
+    [[MAP_ID, STALE_MAP_ID]],
   ).catch(() => undefined);
 }
 

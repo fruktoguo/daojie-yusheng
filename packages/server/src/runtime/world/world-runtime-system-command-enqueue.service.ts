@@ -37,7 +37,7 @@ let WorldRuntimeSystemCommandEnqueueService = class WorldRuntimeSystemCommandEnq
  * worldRuntimeGmQueueService：世界运行态GMQueue服务引用。
  */
 
-    worldRuntimeGmQueueService;    
+    worldRuntimeGmQueueService;
     /**
  * 构造器：初始化 当前 实例并建立基础状态。
  * @param worldRuntimeGmQueueService 参数说明。
@@ -46,7 +46,7 @@ let WorldRuntimeSystemCommandEnqueueService = class WorldRuntimeSystemCommandEnq
 
     constructor(worldRuntimeGmQueueService) {
         this.worldRuntimeGmQueueService = worldRuntimeGmQueueService;
-    }    
+    }
     /**
  * enqueueSpawnMonsterLoot：处理Spawn怪物掉落并更新相关状态。
  * @param instanceIdInput 参数说明。
@@ -78,7 +78,7 @@ let WorldRuntimeSystemCommandEnqueueService = class WorldRuntimeSystemCommandEnq
             y: normalizeCoordinate(yInput, 'y'),
             rolls: normalizeRollCount(rollsInput),
         });
-    }    
+    }
     /**
  * enqueueDefeatMonster：处理Defeat怪物并更新相关状态。
  * @param instanceIdInput 参数说明。
@@ -104,7 +104,7 @@ let WorldRuntimeSystemCommandEnqueueService = class WorldRuntimeSystemCommandEnq
             instanceId,
             runtimeId,
         });
-    }    
+    }
     /**
  * enqueueDamageMonster：处理Damage怪物并更新相关状态。
  * @param instanceIdInput 参数说明。
@@ -137,7 +137,7 @@ let WorldRuntimeSystemCommandEnqueueService = class WorldRuntimeSystemCommandEnq
             runtimeId,
             amount,
         });
-    }    
+    }
     /**
  * enqueueDamagePlayer：处理Damage玩家并更新相关状态。
  * @param playerIdInput 参数说明。
@@ -164,7 +164,7 @@ let WorldRuntimeSystemCommandEnqueueService = class WorldRuntimeSystemCommandEnq
             playerId,
             amount,
         });
-    }    
+    }
     /**
  * enqueueRespawnPlayer：处理重生玩家并更新相关状态。
  * @param playerIdInput 参数说明。
@@ -184,7 +184,7 @@ let WorldRuntimeSystemCommandEnqueueService = class WorldRuntimeSystemCommandEnq
             kind: 'respawnPlayer',
             playerId,
         });
-    }    
+    }
     /**
  * enqueueResetPlayerSpawn：处理Reset玩家Spawn并更新相关状态。
  * @param playerIdInput 参数说明。
@@ -204,7 +204,27 @@ let WorldRuntimeSystemCommandEnqueueService = class WorldRuntimeSystemCommandEnq
             kind: 'resetPlayerSpawn',
             playerId,
         });
-    }    
+    }
+    /**
+ * enqueueReturnToSpawn：处理遁返到复活点并更新相关状态。
+ * @param playerIdInput 参数说明。
+ * @param deps 运行时依赖。
+ * @returns 无返回值，直接更新遁返相关状态。
+ */
+
+    enqueueReturnToSpawn(playerIdInput, deps) {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
+        const playerId = typeof playerIdInput === 'string' ? playerIdInput.trim() : '';
+        if (!playerId) {
+            throw new common_1.BadRequestException('playerId is required');
+        }
+        deps.getPlayerLocationOrThrow(playerId);
+        return this.worldRuntimeGmQueueService.enqueueSystemCommand({
+            kind: 'returnToSpawn',
+            playerId,
+        });
+    }
     /**
  * enqueueGmUpdatePlayer：处理GMUpdate玩家并更新相关状态。
  * @param input 输入参数。
@@ -213,7 +233,7 @@ let WorldRuntimeSystemCommandEnqueueService = class WorldRuntimeSystemCommandEnq
 
     enqueueGmUpdatePlayer(input) {
         return this.worldRuntimeGmQueueService.enqueueGmUpdatePlayer(input);
-    }    
+    }
     /**
  * enqueueGmResetPlayer：处理GMReset玩家并更新相关状态。
  * @param playerIdInput 参数说明。
@@ -222,7 +242,7 @@ let WorldRuntimeSystemCommandEnqueueService = class WorldRuntimeSystemCommandEnq
 
     enqueueGmResetPlayer(playerIdInput) {
         return this.worldRuntimeGmQueueService.enqueueGmResetPlayer(playerIdInput);
-    }    
+    }
     /**
  * enqueueGmSpawnBots：处理GMSpawnBot并更新相关状态。
  * @param anchorPlayerIdInput 参数说明。
@@ -232,7 +252,7 @@ let WorldRuntimeSystemCommandEnqueueService = class WorldRuntimeSystemCommandEnq
 
     enqueueGmSpawnBots(anchorPlayerIdInput, countInput) {
         return this.worldRuntimeGmQueueService.enqueueGmSpawnBots(anchorPlayerIdInput, countInput);
-    }    
+    }
     /**
  * enqueueGmRemoveBots：处理GMRemoveBot并更新相关状态。
  * @param playerIdsInput 参数说明。

@@ -253,8 +253,7 @@ async function resetGmAuthPasswordRecord() {
     const client = new pg_1.Client({ connectionString: databaseUrl });
     await client.connect();
     try {
-        await client.query('DELETE FROM persistent_documents WHERE scope = $1 AND key = $2', [
-            next_gm_contract_1.GM_AUTH_CONTRACT.passwordRecordScope,
+        await client.query('DELETE FROM server_gm_auth WHERE record_key = $1', [
             next_gm_contract_1.GM_AUTH_CONTRACT.passwordRecordKey,
         ]);
     }

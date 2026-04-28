@@ -45,11 +45,6 @@ const PLAYER_TRANSFER_TIMEOUT_MS = 120_000;
 const VITAL_BASELINE_BONUS_SOURCE = 'runtime:vitals_baseline';
 const RAW_BASE_ATTRS_PERSISTENCE_MARKER = '__rawBaseAttrs';
 
-/** 当前钱包查询/扣费需要兼容库存回退的货币物品 ID。 */
-const WALLET_ITEM_IDS = new Set([
-    'spirit_stone',
-]);
-
 /** 可以进入待写 logbook 队列的消息种类。 */
 const PENDING_LOGBOOK_KINDS = new Set([
     'system',
@@ -108,14 +103,23 @@ let PlayerRuntimeService = class PlayerRuntimeService {
             : null;
         const projectionEnabled = typeof this.playerDomainPersistenceService?.isEnabled === 'function'
             && this.playerDomainPersistenceService.isEnabled();
-        if (projectionEnabled && buildStarterSnapshot) {
+        if (projectionEnabled) {
+            if (!buildStarterSnapshot) {
+                throw new common_1.ServiceUnavailableException(`player_domain_snapshot_builder_required:${playerId}`);
+            }
             snapshot = await this.playerDomainPersistenceService.loadProjectedSnapshot(playerId, buildStarterSnapshot);
+            if (typeof options?.onSnapshotLoaded === 'function') {
+                options.onSnapshotLoaded(snapshot);
+            }
+            if (!snapshot) {
+                throw new common_1.ServiceUnavailableException(`player_domain_snapshot_required:${playerId}`);
+            }
         }
-        if (!snapshot) {
+        else {
             snapshot = await loader();
-        }
-        if (typeof options?.onSnapshotLoaded === 'function') {
-            options.onSnapshotLoaded(snapshot);
+            if (typeof options?.onSnapshotLoaded === 'function') {
+                options.onSnapshotLoaded(snapshot);
+            }
         }
         const lateExisting = this.players.get(playerId);
         if (lateExisting) {
@@ -312,8 +316,6 @@ let PlayerRuntimeService = class PlayerRuntimeService {
         player.name = nextName;
         player.displayName = nextDisplayName;
         player.selfRevision += 1;
-        markPlayerDirtyDomains(player, [PLAYER_PERSISTENCE_DIRTY_FALLBACK_DOMAIN]);
-        this.bumpPersistentRevision(player);
         return player;
     }
     /** 断开当前会话引用，但保留玩家运行时对象供重连复用。 */
@@ -867,7 +869,7 @@ let PlayerRuntimeService = class PlayerRuntimeService {
         if (!normalizedWalletType) {
             return 0;
         }
-        return readWalletBalance(player, normalizedWalletType) + this.getInventoryFallbackWalletBalance(player, normalizedWalletType);
+        return readWalletBalance(player, normalizedWalletType);
     }
     /**
  * canAffordWallet：判断钱包余额是否足够。
@@ -943,40 +945,13 @@ let PlayerRuntimeService = class PlayerRuntimeService {
         const balances = ensureWalletBalances(player);
         const entry = balances.find((row) => row.walletType === normalizedWalletType);
         const walletBalance = entry ? Math.max(0, Math.trunc(Number(entry.balance ?? 0))) : 0;
-        const inventoryBalance = this.getInventoryFallbackWalletBalance(player, normalizedWalletType);
-        if (walletBalance + inventoryBalance < normalizedAmount) {
+        if (walletBalance < normalizedAmount) {
             throw new common_1.NotFoundException(`Wallet ${normalizedWalletType} insufficient`);
         }
-        let remaining = normalizedAmount;
-        let touchedWallet = false;
-        let touchedInventory = false;
-        if (entry && walletBalance > 0) {
-            const debitFromWallet = Math.min(walletBalance, remaining);
-            if (debitFromWallet > 0) {
-                entry.balance -= debitFromWallet;
-                entry.version += 1;
-                remaining -= debitFromWallet;
-                touchedWallet = true;
-            }
-        }
-        if (remaining > 0 && WALLET_ITEM_IDS.has(normalizedWalletType)) {
-            this.consumeInventoryWalletFallback(player, normalizedWalletType, remaining);
-            touchedInventory = true;
-            remaining = 0;
-        }
+        entry.balance -= normalizedAmount;
+        entry.version += 1;
         player.selfRevision += 1;
-        if (touchedInventory) {
-            player.inventory.revision += 1;
-            this.playerProgressionService.refreshPreview(player);
-        }
-        const dirtyDomains = [];
-        if (touchedWallet) {
-            dirtyDomains.push('wallet');
-        }
-        if (touchedInventory) {
-            dirtyDomains.push('inventory');
-        }
-        markPlayerDirtyDomains(player, dirtyDomains.length > 0 ? dirtyDomains : ['wallet']);
+        markPlayerDirtyDomains(player, ['wallet']);
         this.bumpPersistentRevision(player);
         if (!isImmediateDomainPersistenceSuppressed(player)) {
             void this.persistWallet(player).catch((error) => {
@@ -1403,30 +1378,6 @@ let PlayerRuntimeService = class PlayerRuntimeService {
         markPlayerDirtyDomains(player, ['inventory']);
         this.bumpPersistentRevision(player);
         return player;
-    }
-    getInventoryFallbackWalletBalance(player, walletType) {
-        if (!WALLET_ITEM_IDS.has(walletType)) {
-            return 0;
-        }
-        return player.inventory.items.reduce((total, entry) => entry.itemId === walletType ? total + Math.max(0, Math.trunc(Number(entry.count ?? 0))) : total, 0);
-    }
-    consumeInventoryWalletFallback(player, walletType, amount) {
-        let remaining = Math.max(0, Math.trunc(amount));
-        for (let slotIndex = player.inventory.items.length - 1; slotIndex >= 0 && remaining > 0; slotIndex -= 1) {
-            const item = player.inventory.items[slotIndex];
-            if (!item || item.itemId !== walletType) {
-                continue;
-            }
-            const consumed = Math.min(Math.max(0, Math.trunc(Number(item.count ?? 0))), remaining);
-            if (consumed <= 0) {
-                continue;
-            }
-            consumeInventoryItemAt(player.inventory.items, slotIndex, consumed);
-            remaining -= consumed;
-        }
-        if (remaining > 0) {
-            throw new common_1.NotFoundException(`Inventory wallet item ${walletType} insufficient`);
-        }
     }
     /**
  * useItem：执行use道具相关逻辑。
@@ -2257,8 +2208,6 @@ let PlayerRuntimeService = class PlayerRuntimeService {
         }
         player.sectId = normalized;
         player.selfRevision += 1;
-        markPlayerDirtyDomains(player, ['snapshot']);
-        this.bumpPersistentRevision(player);
         return player;
     }
     /**
@@ -4310,7 +4259,11 @@ function buildActionEntries(player, currentTick) {
     }
     player.combat.autoBattleSkills = autoBattleSkills;
     for (const entry of player.actions.contextActions) {
-        actions.push({ ...entry });
+        const readyTick = Math.max(0, Math.trunc(Number(player.combat.cooldownReadyTickBySkillId[entry.id] ?? 0)));
+        actions.push({
+            ...entry,
+            cooldownLeft: readyTick > 0 ? Math.max(0, readyTick - currentTick) : Math.max(0, Number(entry.cooldownLeft ?? 0)),
+        });
     }
     actions.sort((left, right) => ((skillOrder.get(left.id) ?? Number.MAX_SAFE_INTEGER) - (skillOrder.get(right.id) ?? Number.MAX_SAFE_INTEGER)) || left.id.localeCompare(right.id, 'zh-Hans-CN'));
     return actions;
@@ -4650,7 +4603,7 @@ function hasActiveSkillCooldown(player, currentTick) {
         return false;
     }
     for (const readyTick of Object.values(player.combat.cooldownReadyTickBySkillId)) {
-        if (readyTick > currentTick) {
+        if (readyTick > 0 && readyTick >= currentTick) {
             return true;
         }
     }

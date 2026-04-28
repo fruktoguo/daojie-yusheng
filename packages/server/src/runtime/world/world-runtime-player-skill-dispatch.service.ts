@@ -116,6 +116,73 @@ function spendSkillCostAndStartCooldown(playerRuntimeService, attacker, skill, c
     playerRuntimeService.setSkillCooldownReadyTick(attacker.playerId, skill.id, currentTick + Math.max(1, Math.round(skill.cooldown ?? 1)), currentTick);
     return qiCost;
 }
+function getPlayerSkillWindupTicks(skill) {
+    const windupTicks = skill?.playerCast?.windupTicks;
+    return Number.isFinite(windupTicks)
+        ? Math.max(0, Math.floor(Number(windupTicks)))
+        : 0;
+}
+function getPlayerSkillWarningColor(skill) {
+    return typeof skill?.playerCast?.warningColor === 'string' && skill.playerCast.warningColor.trim().length > 0
+        ? skill.playerCast.warningColor.trim()
+        : undefined;
+}
+function resolveFacingToward(fromX, fromY, toX, toY) {
+    if (toX > fromX) {
+        return shared_1.Direction.East;
+    }
+    if (toX < fromX) {
+        return shared_1.Direction.West;
+    }
+    if (toY > fromY) {
+        return shared_1.Direction.South;
+    }
+    return shared_1.Direction.North;
+}
+function buildPlayerSkillAffectedCells(attacker, skill, anchor) {
+    const geometry = buildEffectivePlayerSkillGeometry(attacker, skill);
+    const shape = geometry.shape ?? 'single';
+    if (shape === 'single') {
+        return chebyshevDistance(attacker.x, attacker.y, anchor.x, anchor.y) <= geometry.range
+            ? [{ x: anchor.x, y: anchor.y }]
+            : [];
+    }
+    return (0, shared_1.computeAffectedCellsFromAnchor)({ x: attacker.x, y: attacker.y }, anchor, geometry);
+}
+function resolveResolvedTargetAnchor(attacker, resolvedTarget, deps) {
+    if (!resolvedTarget) {
+        return null;
+    }
+    if (resolvedTarget.kind === 'tile' || resolvedTarget.kind === 'formation_boundary') {
+        return { x: resolvedTarget.x, y: resolvedTarget.y };
+    }
+    if (resolvedTarget.kind === 'monster') {
+        const instance = deps.getInstanceRuntimeOrThrow(attacker.instanceId);
+        const monster = instance.getMonster(resolvedTarget.monsterId);
+        return monster ? { x: monster.x, y: monster.y } : null;
+    }
+    if (resolvedTarget.kind === 'player') {
+        const player = deps.playerRuntimeService?.getPlayer?.(resolvedTarget.playerId)
+            ?? null;
+        return player ? { x: player.x, y: player.y } : null;
+    }
+    if (resolvedTarget.kind === 'formation') {
+        const formation = typeof deps.worldRuntimeFormationService?.getFormationCombatState === 'function'
+            ? deps.worldRuntimeFormationService.getFormationCombatState(attacker.instanceId, resolvedTarget.formationId)
+            : null;
+        return formation ? { x: formation.x, y: formation.y } : null;
+    }
+    return null;
+}
+function findPlayerSkillName(player, skillId) {
+    for (const technique of player.techniques?.techniques ?? []) {
+        const skill = technique.skills?.find((entry) => entry.id === skillId);
+        if (skill?.name) {
+            return skill.name;
+        }
+    }
+    return null;
+}
 
 function evaluateCasterSkillFormula(formula, attacker, techLevel, targetCount) {
     if (typeof formula === 'number') {
@@ -251,6 +318,9 @@ let WorldRuntimePlayerSkillDispatchService = class WorldRuntimePlayerSkillDispat
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
         const attacker = this.playerRuntimeService.getPlayerOrThrow(playerId);
+        if (attacker.combat?.pendingSkillCast) {
+            throw new common_1.BadRequestException('正在吟唱中，无法继续施法。');
+        }
         ensurePlayerSkillActionEnabled(attacker, skillId);
         const currentTick = deps.resolveCurrentTickForPlayerId(playerId);
         this.playerRuntimeService.recordActivity(playerId, currentTick, { interruptCultivation: true });
@@ -280,7 +350,17 @@ let WorldRuntimePlayerSkillDispatchService = class WorldRuntimePlayerSkillDispat
                 throw new common_1.BadRequestException('没有可命中的目标');
             }
             if (tileAnchor) {
+                if (getPlayerSkillWindupTicks(skill) > 0) {
+                    return this.beginPlayerSkillCast(attacker, skill, tileAnchor, targetRef, deps);
+                }
                 return this.dispatchCastSkillAtAnchor(attacker, skillId, skill, tileAnchor, resolvedTarget, deps);
+            }
+            if (getPlayerSkillWindupTicks(skill) > 0) {
+                const anchor = resolveResolvedTargetAnchor(attacker, resolvedTarget, deps);
+                if (!anchor) {
+                    throw new common_1.BadRequestException('目标不存在或不可选中');
+                }
+                return this.beginPlayerSkillCast(attacker, skill, anchor, targetRef, deps);
             }
             if (resolvedTarget.kind === 'monster') {
                 return this.dispatchCastSkillToMonster(attacker, skillId, resolvedTarget.monsterId, deps);
@@ -301,11 +381,29 @@ let WorldRuntimePlayerSkillDispatchService = class WorldRuntimePlayerSkillDispat
                 ? deps.worldRuntimeFormationService.getFormationCombatState(attacker.instanceId, targetMonsterId)
                 : null;
             if (formation) {
+                if (getPlayerSkillWindupTicks(skill) > 0) {
+                    return this.beginPlayerSkillCast(attacker, skill, { x: formation.x, y: formation.y }, targetMonsterId, deps);
+                }
                 return this.dispatchCastSkillToFormation(attacker, skillId, targetMonsterId, deps);
+            }
+            if (getPlayerSkillWindupTicks(skill) > 0) {
+                const instanceForAnchor = deps.getInstanceRuntimeOrThrow(attacker.instanceId);
+                const monster = instanceForAnchor.getMonster(targetMonsterId);
+                if (!monster) {
+                    throw new common_1.NotFoundException(`Monster ${targetMonsterId} not found`);
+                }
+                return this.beginPlayerSkillCast(attacker, skill, { x: monster.x, y: monster.y }, targetMonsterId, deps);
             }
             return this.dispatchCastSkillToMonster(attacker, skillId, targetMonsterId, deps);
         }
         if (!targetPlayerId) {
+            if (skill.requiresTarget === false) {
+                const anchor = { x: attacker.x, y: attacker.y };
+                if (getPlayerSkillWindupTicks(skill) > 0) {
+                    return this.beginPlayerSkillCast(attacker, skill, anchor, null, deps);
+                }
+                return this.dispatchCastSkillAtAnchor(attacker, skillId, skill, anchor, null, deps);
+            }
             throw new common_1.BadRequestException('targetPlayerId or targetMonsterId is required');
         }
         const instance = deps.getInstanceRuntimeOrThrow(attacker.instanceId);
@@ -326,6 +424,9 @@ let WorldRuntimePlayerSkillDispatchService = class WorldRuntimePlayerSkillDispat
         });
         if (targets.length === 0) {
             throw new common_1.BadRequestException('没有可命中的目标');
+        }
+        if (getPlayerSkillWindupTicks(skill) > 0) {
+            return this.beginPlayerSkillCast(attacker, skill, { x: target.x, y: target.y }, `player:${target.playerId}`, deps);
         }
         await this.dispatchSkillTargets(attacker, skillId, skill, targets, deps);
     }    
@@ -379,6 +480,103 @@ let WorldRuntimePlayerSkillDispatchService = class WorldRuntimePlayerSkillDispat
             }
         }
         deps.queuePlayerNotice?.(attacker.playerId, `${skill.name}生成了 ${created} 处临时石头。`, 'combat');
+    }
+    beginPlayerSkillCast(attacker, skill, anchor, targetRef, deps) {
+        const windupTicks = getPlayerSkillWindupTicks(skill);
+        if (windupTicks <= 0) {
+            const primaryTarget = targetRef ? this.resolveLegacySkillTargetRef(attacker, skill, targetRef, deps) : null;
+            return this.dispatchCastSkillAtAnchor(attacker, skill.id, skill, anchor, primaryTarget, deps);
+        }
+        const warningCells = buildPlayerSkillAffectedCells(attacker, skill, anchor);
+        if (warningCells.length === 0) {
+            throw new common_1.BadRequestException('目标超出技能范围');
+        }
+        const currentTick = deps.resolveCurrentTickForPlayerId(attacker.playerId);
+        const qiCost = spendSkillCostAndStartCooldown(this.playerRuntimeService, attacker, skill, currentTick);
+        deps.worldRuntimeNavigationService?.clearNavigationIntent?.(attacker.playerId);
+        attacker.facing = resolveFacingToward(attacker.x, attacker.y, anchor.x, anchor.y);
+        const geometry = buildEffectivePlayerSkillGeometry(attacker, skill);
+        const warningOrigin = (geometry.shape ?? 'single') === 'line'
+            ? { x: attacker.x, y: attacker.y }
+            : anchor;
+        attacker.combat.pendingSkillCast = {
+            skillId: skill.id,
+            targetX: anchor.x,
+            targetY: anchor.y,
+            targetRef: typeof targetRef === 'string' && targetRef.trim().length > 0 ? targetRef.trim() : undefined,
+            remainingTicks: windupTicks,
+            qiCost,
+            warningColor: getPlayerSkillWarningColor(skill),
+            skipProgressThisTick: attacker.combat?.autoBattle !== true,
+        };
+        const durationMs = windupTicks * 1000;
+        deps.pushActionLabelEffect(attacker.instanceId, attacker.x, attacker.y, skill.name, {
+            actionStyle: 'chant',
+            durationMs: durationMs + 240,
+        });
+        deps.pushCombatEffect(attacker.instanceId, {
+            type: 'warning_zone',
+            cells: warningCells.map((cell) => ({ x: cell.x, y: cell.y })),
+            color: attacker.combat.pendingSkillCast.warningColor ?? '#ff9a30',
+            baseColor: '#ffe0a6',
+            originX: warningOrigin.x,
+            originY: warningOrigin.y,
+            durationMs,
+        });
+    }
+    async resolvePendingPlayerSkillCast(playerId, deps) {
+        const attacker = this.playerRuntimeService.getPlayer(playerId);
+        const pendingCast = attacker?.combat?.pendingSkillCast;
+        if (!attacker || !pendingCast) {
+            return false;
+        }
+        if (attacker.hp <= 0) {
+            attacker.combat.pendingSkillCast = undefined;
+            return true;
+        }
+        if (pendingCast.skipProgressThisTick) {
+            pendingCast.skipProgressThisTick = false;
+            return true;
+        }
+        pendingCast.remainingTicks = Math.max(0, Math.trunc(Number(pendingCast.remainingTicks) || 0) - 1);
+        if (pendingCast.remainingTicks > 0) {
+            return true;
+        }
+        attacker.combat.pendingSkillCast = undefined;
+        const skill = findPlayerSkill(attacker, pendingCast.skillId);
+        if (!skill) {
+            return true;
+        }
+        const anchor = {
+            x: Math.trunc(Number(pendingCast.targetX)),
+            y: Math.trunc(Number(pendingCast.targetY)),
+        };
+        const primaryTarget = pendingCast.targetRef
+            ? this.resolveLegacySkillTargetRef(attacker, skill, pendingCast.targetRef, deps)
+            : null;
+        const targets = this.collectSkillTargetsFromAnchor(attacker, skill, anchor, deps, primaryTarget);
+        deps.pushActionLabelEffect(attacker.instanceId, attacker.x, attacker.y, skill.name);
+        if (targets.length === 0) {
+            return true;
+        }
+        await this.dispatchSkillTargets(attacker, skill.id, skill, targets, deps, {
+            skipResourceAndCooldown: true,
+            showActionLabel: false,
+        });
+        return true;
+    }
+    interruptPendingPlayerSkillCast(playerId, reason, deps) {
+        const player = this.playerRuntimeService.getPlayer(playerId);
+        const pendingCast = player?.combat?.pendingSkillCast;
+        if (!player || !pendingCast) {
+            return false;
+        }
+        player.combat.pendingSkillCast = undefined;
+        if (reason) {
+            const skillName = findPlayerSkillName(player, pendingCast.skillId) ?? '当前神通';
+            deps.queuePlayerNotice?.(playerId, `${skillName}的吟唱被打断：${reason}`, 'combat');
+        }
+        return true;
     }
     /**
  * resolveLegacySkillTargetRef：读取Legacy技能目标Ref并返回结果。
@@ -607,7 +805,7 @@ let WorldRuntimePlayerSkillDispatchService = class WorldRuntimePlayerSkillDispat
         return targets;
     }
 
-    async dispatchSkillTargets(attacker, skillId, skill, targets, deps) {
+    async dispatchSkillTargets(attacker, skillId, skill, targets, deps, castOptions = undefined) {
         if (targets.length === 0) {
             throw new common_1.BadRequestException('没有可命中的目标');
         }
@@ -615,13 +813,15 @@ let WorldRuntimePlayerSkillDispatchService = class WorldRuntimePlayerSkillDispat
         const currentTick = deps.resolveCurrentTickForPlayerId(attacker.playerId);
         const effectColor = getSkillEffectColor(skill);
         const effectiveRange = buildEffectivePlayerSkillGeometry(attacker, skill).range;
-        deps.pushActionLabelEffect(attacker.instanceId, attacker.x, attacker.y, skill.name);
+        if (castOptions?.showActionLabel !== false) {
+            deps.pushActionLabelEffect(attacker.instanceId, attacker.x, attacker.y, skill.name);
+        }
         let castIndex = 0;
         const destroyedTiles = [];
         for (const target of targets) {
             const options = {
                 targetCount: targets.length,
-                skipResourceAndCooldown: castIndex > 0,
+                skipResourceAndCooldown: castOptions?.skipResourceAndCooldown === true || castIndex > 0,
                 range: effectiveRange,
             };
             if (target.kind === 'monster') {
