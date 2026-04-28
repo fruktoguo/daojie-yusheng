@@ -1,4 +1,5 @@
 import { randomBytes, scryptSync, timingSafeEqual } from 'node:crypto';
+import { compareSync as compareBcryptSync } from 'bcryptjs';
 /**
  * ParsedScryptHash：定义接口结构约束，明确可交付字段含义。
  */
@@ -48,6 +49,14 @@ export async function verifyPassword(password: unknown, storedHash: unknown): Pr
     return false;
   }
 
+  if (isLegacyBcryptHash(normalizedHash)) {
+    try {
+      return compareBcryptSync(normalizedPassword, normalizedHash);
+    } catch {
+      return false;
+    }
+  }
+
   const parsed = parseScryptHash(normalizedHash);
   if (!parsed) {
     return false;
@@ -61,6 +70,10 @@ export async function verifyPassword(password: unknown, storedHash: unknown): Pr
   const expected = Buffer.from(parsed.hash, 'hex');
 
   return derived.length === expected.length && timingSafeEqual(derived, expected);
+}
+
+export function isPasswordHashUpgradeRequired(storedHash: unknown): boolean {
+  return typeof storedHash === 'string' && isLegacyBcryptHash(storedHash);
 }
 
 /** 生成密码存储串：统一写入 next 自定义前缀的 scrypt 格式。 */
@@ -78,6 +91,10 @@ export async function hashPassword(password: unknown): Promise<string> {
   });
 
   return `sn1$${cost}$${blockSize}$${parallelization}$${keyLength}$${salt.toString('hex')}$${hash.toString('hex')}`;
+}
+
+function isLegacyBcryptHash(value: string): boolean {
+  return /^\$2[aby]\$\d{2}\$/.test(value);
 }
 
 /** 解析自定义 scrypt 存储串（sn1$cost$...），失败返回 null。 */

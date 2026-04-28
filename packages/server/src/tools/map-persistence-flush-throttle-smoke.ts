@@ -10,6 +10,7 @@ async function main(): Promise<void> {
   await testLegacySnapshotWriteDisabledByDefault();
   await testIntervalThrottle();
   await testIntervalSkipsDeferredTimeCheckpoint();
+  await testIntervalBatchesDueTimeCheckpoints();
   await testIntervalSkipsDeferredMonsterRuntime();
   await testDomainOnlyShutdownFlush();
 
@@ -18,7 +19,7 @@ async function main(): Promise<void> {
       {
         ok: true,
         case: 'map-persistence-flush-throttle',
-        answers: '旧全量 map snapshot 写入已退役；instance domain interval 慢刷盘会退避；未到期的纯 time checkpoint 不进入普通 interval 刷盘；未到期的高频 monster_runtime 不进入普通 interval 刷盘；shutdown 强刷在只启用 instance domain persistence 时仍会落地分域脏状态',
+        answers: '旧全量 map snapshot 写入已退役；instance domain interval 慢刷盘会退避；未到期的纯 time checkpoint 不进入普通 interval 刷盘；到期 time checkpoint 会分批摊开；未到期的高频 monster_runtime 不进入普通 interval 刷盘；shutdown 强刷在只启用 instance domain persistence 时仍会落地分域脏状态',
         excludes: '不证明 500/1000 真实压测、跨节点竞争或故障注入',
         completionMapping: 'replace-ready:proof:stage7.flush-throttle',
       },
@@ -151,6 +152,49 @@ async function testIntervalSkipsDeferredTimeCheckpoint(): Promise<void> {
     { instanceId: 'public:mixed', domains: ['time', 'tile_damage'] },
     { instanceId: 'public:time_only', domains: ['time'] },
   ]);
+}
+
+async function testIntervalBatchesDueTimeCheckpoints(): Promise<void> {
+  const flushCalls: Array<{ instanceId: string; domains: string[] | null }> = [];
+  const service = new MapPersistenceFlushService(
+    {
+      instanceDomainPersistenceService: {
+        isEnabled() {
+          return true;
+        },
+      },
+      listDirtyPersistentInstanceDomains() {
+        return Array.from({ length: 20 }, (_, index) => ({
+          instanceId: `public:time_${String(index).padStart(2, '0')}`,
+          domains: ['time'],
+        }));
+      },
+      listDirtyPersistentInstances() {
+        throw new Error('domain entries should not fall back to legacy full-instance scan');
+      },
+      async flushInstanceDomains(instanceId: string, domains: string[] | null) {
+        flushCalls.push({ instanceId, domains });
+        return { skipped: false };
+      },
+    } as never,
+    {
+      isEnabled() {
+        return false;
+      },
+    } as never,
+  );
+  (service as unknown as { nextTimeCheckpointFlushAt: number }).nextTimeCheckpointFlushAt = 0;
+
+  await service.flushDirtyInstances();
+
+  assert.equal(flushCalls.length, 16);
+  assert.deepEqual(
+    flushCalls.map((entry) => entry.domains),
+    Array.from({ length: 16 }, () => ['time']),
+  );
+  const nextTimeCheckpointFlushAt = (service as unknown as { nextTimeCheckpointFlushAt: number }).nextTimeCheckpointFlushAt;
+  assert.ok(nextTimeCheckpointFlushAt > Date.now());
+  assert.ok(nextTimeCheckpointFlushAt <= Date.now() + 6_000);
 }
 
 async function testIntervalSkipsDeferredMonsterRuntime(): Promise<void> {

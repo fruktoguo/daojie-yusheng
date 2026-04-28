@@ -22,7 +22,6 @@ function assertIncludes(content, pattern, message) {
 
 function main() {
   const rootPackage = JSON.parse(read('package.json'));
-  const plan10 = read('docs/next-plan/10-legacy-archive-and-cutover.md');
   const mainPlan = read('docs/next-plan/main.md');
   const runbook = read('packages/server/REPLACE-RUNBOOK.md');
   const checklist = read('docs/next-plan/10-cutover-execution-checklist.md');
@@ -69,7 +68,7 @@ function main() {
   );
   assertIncludes(
     checklist,
-    /## 切换后 30-60 分钟观察[\s\S]*legacy[\s\S]*next socket[\s\S]*gm\/database\/state/,
+    /## 切换后 30-60 分钟观察[\s\S]*next socket[\s\S]*gm\/database\/state/,
     '切换执行清单必须继续覆盖切换后观察项',
   );
   assertIncludes(
@@ -99,39 +98,11 @@ function main() {
     /pnpm verify:replace-ready:shadow:destructive:preflight[\s\S]*maintenance=active/,
     '逐步执行手册必须继续明确 destructive 先 preflight 后 destructive',
   );
-
-  assertIncludes(
-    plan10,
-    /\[10-cutover-execution-checklist\.md\]\(\.\/10-cutover-execution-checklist\.md\)/,
-    '10 文档必须继续引用切换执行清单',
-  );
-  assertIncludes(
-    plan10,
-    /\[10-cutover-execution-log-template\.md\]\(\.\/10-cutover-execution-log-template\.md\)/,
-    '10 文档必须继续引用切换执行记录模板',
-  );
-  assertIncludes(
-    plan10,
-    /\[10-cutover-step-by-step-runbook\.md\]\(\.\/10-cutover-step-by-step-runbook\.md\)/,
-    '10 文档必须继续引用逐步执行手册',
-  );
-  assertIncludes(
-    plan10,
-    /- \[ \] 完成一次 next 主线切换前检查/,
-    '10 文档必须继续保留真实切换前检查未完成状态',
-  );
-  assertIncludes(
-    plan10,
-    /- \[ \] 完成一次 next 主线切换后检查/,
-    '10 文档必须继续保留真实切换后检查未完成状态',
-  );
-
   assertIncludes(
     mainPlan,
-    /- \[ \] 最后完成 `10` 的真实切换前\/切换后人工检查/,
+    /- \[ \] 最后完成真实切换前\/切换后人工检查/,
     '总表必须继续明确真实切换前/后人工检查仍未完成',
   );
-
   assertIncludes(
     runbook,
     /\[docs\/next-plan\/10-cutover-execution-checklist\.md\]\(\.\.\/\.\.\/docs\/next-plan\/10-cutover-execution-checklist\.md\)/,
@@ -152,22 +123,12 @@ function main() {
     /\[docs\/next-plan\/10-cutover-step-by-step-runbook\.md\]\(\.\.\/\.\.\/docs\/next-plan\/10-cutover-step-by-step-runbook\.md\)/,
     'REPLACE-RUNBOOK 必须继续引用逐步执行手册',
   );
-  assertIncludes(
-    runbook,
-    /10-cutover-execution-checklist\.md/,
-    'REPLACE-RUNBOOK 必须继续引用切换执行清单',
-  );
-  assertIncludes(
-    runbook,
-    /10-cutover-step-by-step-runbook\.md/,
-    'REPLACE-RUNBOOK 必须继续引用逐步执行手册',
-  );
 
   process.stdout.write(
     [
       'cutover operations contract check passed',
       'manual cutover checklist + execution log template are wired',
-      '10 still blocked only by real pre/post cutover execution',
+      'remaining blockers are real pre/post cutover execution',
     ].join('\n') + '\n',
   );
 }

@@ -206,6 +206,13 @@ message ActionsUpdatePayload {
   repeated string removeActionIds = 9;
   repeated string actionOrder = 10;
   optional bool cultivationActive = 11;
+  optional string autoBattleTargetingMode = 12;
+  optional string autoUsePillsJson = 13;
+  optional bool clearAutoUsePills = 14;
+  optional string combatTargetingRulesJson = 15;
+  optional bool clearCombatTargetingRules = 16;
+  optional string retaliatePlayerTargetId = 17;
+  optional bool clearRetaliatePlayerTargetId = 18;
 }
 
 message ActionUpdateEntryPayload {

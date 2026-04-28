@@ -67,14 +67,13 @@
 补充区分：
 
 - 默认 shell 下，`shadow-destructive` 仍不是常开 ready 状态；它必须显式进入 maintenance-active 窗口并设置 destructive 开关（当前兼容键：`SERVER_SHADOW_ALLOW_DESTRUCTIVE=1`）
-- 但本轮已经补过一次本机 maintenance-active shadow destructive proof，见：
-  - [10-cutover-execution-log-2026-04-20-local-shadow-destructive.md](./10-cutover-execution-log-2026-04-20-local-shadow-destructive.md)
+- 本地 destructive 样例记录已清理；真实切换只认本轮执行记录模板里的新记录
 
 这表示：
 
 - 当前 `shadow / acceptance` 已可在本机 shadow 实例上实跑。
 - 当前 `local / with-db / shadow / acceptance / full` 都已在本轮实跑通过。
-- `shadow-destructive` 不应沿用历史结果冒充完成，但本轮本机 maintenance-active destructive 证据已经补齐。
+- `shadow-destructive` 不应沿用历史结果冒充完成，每次 destructive 都必须在本轮执行记录里重新落证据。
 
 ## 执行顺序
 
@@ -254,8 +253,8 @@
   - 当前 shell 实跑结果：`local / with-db / proof with-db / shadow / acceptance / full` 为 `ready`
   - `shadow target probe` 当前为 `ready (reachable_with_nonready_health_503)`
   - 当前只剩 `shadow-destructive` 仍未就绪
-- [x] `pnpm --filter @mud/server audit:legacy-boundaries`
-  - 本轮实跑结果：`docs/next-legacy-boundary-audit.md` 已刷新为 `matched 0/18 checks, 0 code hits`
+- [x] `pnpm --filter @mud/server audit:boundaries`
+  - 本轮实跑结果：mainline 边界审计通过，未发现主链代码命中旧路径
 - [x] `pnpm --filter @mud/server smoke:auth-bootstrap`
   - 本轮实跑结果：local 无库 profile 下通过，输出 `reason=no_db_legacy_http_memory_fallback_disabled`
 - [x] `pnpm --filter @mud/server smoke:gm`
@@ -292,8 +291,7 @@
   - 关键证据：
     - `backupId=mo610e6a-23df76bc`
     - `checkpointBackupId=mo610elj-9a6db43f`
-  - 执行记录已写入：
-    - [10-cutover-execution-log-2026-04-20-local-shadow-destructive.md](./10-cutover-execution-log-2026-04-20-local-shadow-destructive.md)
+  - 旧本地样例记录已删除；后续真实切换必须写入新的执行记录
 - [x] 已明确不再保留迁移 proof 链
   - 当前仓库记录只保留 `verify:replace-ready:proof:with-db -> smoke:persistence -> smoke:gm-database -> audit:protocol` 这类现行主链 gate，不再包含一次性迁移步骤
 

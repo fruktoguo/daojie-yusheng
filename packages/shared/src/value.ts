@@ -10,6 +10,7 @@ import type { AttrBonus, AttrKey, Attributes } from './attribute-types';
 import type { TechniqueLayerDef, TechniqueGrade, TechniqueState } from './cultivation-types';
 import type { EquipmentEffectDef, ItemStack } from './item-runtime-types';
 import type { SkillBuffEffectDef, SkillDef, SkillFormula, SkillFormulaVar } from './skill-types';
+import type { BuffModifierMode } from './world-core-types';
 
 /** 六维属性每 1 点折算的价值基准。 */
 export const ATTRIBUTE_VALUE_PER_POINT: Record<AttrKey, number> = {
@@ -595,7 +596,7 @@ function formatEquipmentStatValue(key: string, value: number): string {
 }
 
 /** 把六维属性加成转成文本片段。 */
-function describeAttrBonus(attrs?: Partial<Attributes>): string[] {
+function describeAttrBonus(attrs?: Partial<Attributes>, mode: BuffModifierMode = 'flat'): string[] {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
   if (!attrs) {
@@ -607,13 +608,13 @@ function describeAttrBonus(attrs?: Partial<Attributes>): string[] {
     if (!amount) {
       continue;
     }
-    parts.push(`${getAttrLabel(key)}+${formatNumber(amount)}`);
+    parts.push(`${getAttrLabel(key)}+${mode === 'percent' ? `${formatNumber(amount)}%` : formatNumber(amount)}`);
   }
   return parts;
 }
 
 /** 把数值属性和元素修饰转成文本片段。 */
-function describeStatBonus(stats?: PartialNumericStats): string[] {
+function describeStatBonus(stats?: PartialNumericStats, mode: BuffModifierMode = 'flat'): string[] {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
   if (!stats) {
@@ -625,7 +626,7 @@ function describeStatBonus(stats?: PartialNumericStats): string[] {
     if (!amount) {
       continue;
     }
-    parts.push(`${getNumericStatLabel(key)}+${formatEquipmentStatValue(key, amount)}`);
+    parts.push(`${getNumericStatLabel(key)}+${mode === 'percent' ? `${formatNumber(amount)}%` : formatEquipmentStatValue(key, amount)}`);
   }
   for (const element of ELEMENT_KEYS) {
     const bonus = stats.elementDamageBonus?.[element];
@@ -696,9 +697,9 @@ function describeEquipmentEffect(effect: EquipmentEffectDef): string {
   const conditionText = describeEquipmentConditions(effect);
   switch (effect.type) {
     case 'stat_aura':
-      return `常驻特效:${[...describeAttrBonus(effect.attrs), ...describeStatBonus(effect.stats)].join(' / ') || '无数值变化'}${conditionText}`;
+      return `常驻特效:${[...describeAttrBonus(effect.attrs, effect.attrMode), ...describeStatBonus(effect.stats, effect.statMode)].join(' / ') || '无数值变化'}${conditionText}`;
     case 'progress_boost':
-      return `推进特效:${[...describeAttrBonus(effect.attrs), ...describeStatBonus(effect.stats)].join(' / ') || '无数值变化'}${conditionText}`;
+      return `推进特效:${[...describeAttrBonus(effect.attrs, effect.attrMode), ...describeStatBonus(effect.stats, effect.statMode)].join(' / ') || '无数值变化'}${conditionText}`;
     case 'periodic_cost': {
       const amount = effect.mode === 'flat'
         ? formatNumber(effect.value)
@@ -722,7 +723,7 @@ function describeEquipmentEffect(effect: EquipmentEffectDef): string {
       if (effect.chance !== undefined) {
         metaParts.push(`概率${formatNumber(effect.chance * 100)}%`);
       }
-      const effectParts = [...describeAttrBonus(effect.buff.attrs), ...describeStatBonus(effect.buff.stats)];
+      const effectParts = [...describeAttrBonus(effect.buff.attrs, effect.buff.attrMode), ...describeStatBonus(effect.buff.stats, effect.buff.statMode)];
       const descPart = effect.buff.desc ? `；${effect.buff.desc}` : '';
       return `触发特效:${metaParts.join(' · ')}，获得${effect.buff.name}${conditionText}${effectParts.length > 0 ? `，效果:${effectParts.join(' / ')}` : ''}${descPart}`;
     }
@@ -1215,8 +1216,8 @@ export function calculateTechniqueLayerValue(layer: TechniqueLayerDef): ValueSum
 }
 
 /** 计算功法在当前层数下的总价值。 */
-export function calculateTechniqueValue(technique: Pick<TechniqueState, 'level' | 'layers'>): ValueSummary {
-  const attrs = calcTechniqueAttrValues(technique.level, technique.layers);
+export function calculateTechniqueValue(technique: Pick<TechniqueState, 'level' | 'layers' | 'attrCurves'>): ValueSummary {
+  const attrs = calcTechniqueAttrValues(technique.level, technique.layers, technique.attrCurves);
   const summary = calculateAttributesValue(attrs);
   return finalizeSummary(
     summary.breakdown.map((entry) => ({

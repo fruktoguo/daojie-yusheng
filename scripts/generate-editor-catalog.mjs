@@ -32,7 +32,7 @@ function resolveWorkspacePackageDir(name) {
   if (name === 'config-editor' || name === 'client' || name === 'server' || name === 'shared') {
     return path.join(repoRoot, 'packages', name);
   }
-  return path.join(repoRoot, 'legacy', name);
+  throw new Error(`不支持的 workspace 包名: ${name}`);
 }
 /**
  * 记录客户端包目录。

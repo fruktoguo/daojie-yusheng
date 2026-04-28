@@ -16,6 +16,7 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.PlayerRuntimeService = void 0;
 
 const common_1 = require("@nestjs/common");
+const crypto_1 = require("node:crypto");
 
 const shared_1 = require("@mud/shared");
 
@@ -2318,11 +2319,15 @@ let PlayerRuntimeService = class PlayerRuntimeService {
             existing.duration = Math.max(existing.duration, buff.duration);
             existing.stacks = Math.min(existing.maxStacks, Math.max(existing.stacks, buff.stacks));
             existing.attrs = buff.attrs ? { ...buff.attrs } : undefined;
+            existing.attrMode = buff.attrMode;
             existing.stats = buff.stats ? { ...buff.stats } : undefined;
+            existing.statMode = buff.statMode;
             existing.qiProjection = buff.qiProjection ? buff.qiProjection.map((entry) => ({ ...entry })) : undefined;
             existing.sourceSkillId = buff.sourceSkillId;
             existing.sourceSkillName = buff.sourceSkillName;
             existing.color = buff.color;
+            existing.persistOnDeath = buff.persistOnDeath === true;
+            existing.persistOnReturnToSpawn = buff.persistOnReturnToSpawn === true;
         }
         else {
             player.buffs.buffs.push(cloneTemporaryBuff(buff));
@@ -2432,6 +2437,8 @@ let PlayerRuntimeService = class PlayerRuntimeService {
             existing.stats = buff.stats ? { ...buff.stats } : undefined;
             existing.statMode = buff.statMode;
             existing.qiProjection = buff.qiProjection ? buff.qiProjection.map((entry) => ({ ...entry })) : undefined;
+            existing.persistOnDeath = buff.persistOnDeath === true;
+            existing.persistOnReturnToSpawn = buff.persistOnReturnToSpawn === true;
         }
         else {
             const created = cloneTemporaryBuff(buff);
@@ -2592,7 +2599,10 @@ let PlayerRuntimeService = class PlayerRuntimeService {
             player.qi = player.maxQi;
             changed = true;
         }
-        const keptBuffs = player.buffs.buffs.filter((buff) => shouldKeepBuffOnRespawn(buff));
+        const keepBuff = input.buffClearMode === 'return_to_spawn'
+            ? shouldKeepBuffOnReturnToSpawn
+            : shouldKeepBuffOnRespawn;
+        const keptBuffs = player.buffs.buffs.filter((buff) => keepBuff(buff));
         if (!isSameBuffIdSequence(player.buffs.buffs, keptBuffs)) {
             player.buffs.buffs = keptBuffs;
             player.buffs.revision += 1;
@@ -3542,7 +3552,11 @@ function buildRuntimeOwnerId(playerId, sessionId, sessionEpoch) {
     const normalizedPlayerId = typeof playerId === 'string' ? playerId.trim() : 'player';
     const normalizedSessionId = typeof sessionId === 'string' ? sessionId.trim() : 'session';
     const normalizedEpoch = Number.isFinite(sessionEpoch) ? Math.max(1, Math.trunc(Number(sessionEpoch))) : 1;
-    return `rt:${normalizedPlayerId}:${normalizedEpoch.toString(36)}:${Date.now().toString(36)}:${Math.random().toString(36).slice(2, 10)}:${normalizedSessionId}`;
+    const ownerDigest = (0, crypto_1.createHash)('sha256')
+        .update(`${normalizedPlayerId}:${normalizedSessionId}:${normalizedEpoch}`)
+        .digest('base64url')
+        .slice(0, 32);
+    return `rt:${normalizedEpoch.toString(36)}:${Date.now().toString(36)}:${Math.random().toString(36).slice(2, 10)}:${ownerDigest}`;
 }
 /**
  * buildRuntimePlayerPersistenceSnapshot：构建并返回目标对象。
@@ -4683,6 +4697,8 @@ function buildPvPSoulInjuryBuffState(sourceRealmLv) {
         sourceSkillName: '杀孽',
         realmLv: Math.max(1, Math.floor(sourceRealmLv)),
         color: '#8a5a64',
+        persistOnDeath: true,
+        persistOnReturnToSpawn: true,
     };
 }
 
@@ -4714,6 +4730,8 @@ function buildPvPShaInfusionBuffState(sourceRealmLv) {
             spellDef: -2,
         },
         statMode: 'percent',
+        persistOnDeath: true,
+        persistOnReturnToSpawn: true,
     };
 }
 
@@ -4741,6 +4759,8 @@ function buildPvPShaBacklashBuffState(sourceRealmLv, stacks) {
             spellDef: -pvp_1.PVP_SHA_BACKLASH_PERCENT_PER_STACK,
         },
         statMode: 'percent',
+        persistOnDeath: true,
+        persistOnReturnToSpawn: true,
     };
 }
 
@@ -4760,7 +4780,15 @@ function isDecayStackBuff(buff) {
 }
 
 function shouldKeepBuffOnRespawn(buff) {
-    return buff.buffId === pvp_1.PVP_SOUL_INJURY_BUFF_ID
+    return buff.persistOnDeath === true
+        || buff.category !== 'debuff'
+        || buff.buffId === pvp_1.PVP_SOUL_INJURY_BUFF_ID
+        || buff.buffId === pvp_1.PVP_SHA_INFUSION_BUFF_ID
+        || buff.buffId === pvp_1.PVP_SHA_BACKLASH_BUFF_ID;
+}
+
+function shouldKeepBuffOnReturnToSpawn(buff) {
+    return buff.persistOnReturnToSpawn === true
         || buff.buffId === pvp_1.PVP_SHA_INFUSION_BUFF_ID
         || buff.buffId === pvp_1.PVP_SHA_BACKLASH_BUFF_ID;
 }
@@ -4799,10 +4827,14 @@ function toConsumableTemporaryBuff(item, buff) {
         sourceSkillName: item.name ?? item.itemId,
         color: buff.color,
         attrs: buff.attrs ? { ...buff.attrs } : undefined,
+        attrMode: buff.attrMode,
         stats: buff.stats
             ? { ...buff.stats }
             : (buff.valueStats ? (0, shared_1.compileValueStatsToActualStats)(buff.valueStats) : undefined),
+        statMode: buff.statMode,
         qiProjection: buff.qiProjection ? buff.qiProjection.map((entry) => ({ ...entry })) : undefined,
+        persistOnDeath: buff.persistOnDeath === true,
+        persistOnReturnToSpawn: buff.persistOnReturnToSpawn === true,
     };
 }
 /**

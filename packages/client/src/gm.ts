@@ -20,6 +20,7 @@ import {
   type GmDatabaseBackupRecord,
   type GmPlayerDatabaseTableView,
   type GmDatabaseStateRes,
+  type GmUploadDatabaseBackupRes,
   type GmCreateMailReq,
   type GmRedeemCodeGroupDetailRes,
   type GmRedeemCodeGroupListRes,
@@ -500,6 +501,12 @@ let token = sessionStorage.getItem(GM_ACCESS_TOKEN_STORAGE_KEY) ?? '';
 let state: GmStateRes | null = null;
 /** databaseState：数据库状态。 */
 let databaseState: GmDatabaseStateRes | null = null;
+/** databaseImportBusy：数据库导入上传中。 */
+let databaseImportBusy = false;
+/** databaseImportStatus：数据库导入局部状态。 */
+let databaseImportStatus = '';
+/** selectedDatabaseImportFile：当前已选择但尚未上传的数据库备份文件。 */
+let selectedDatabaseImportFile: File | null = null;
 let suggestions: Suggestion[] = [];
 /** EditorCatalogSource：编辑器目录数据的当前来源标记。 */
 type EditorCatalogSource = 'server' | 'local-fallback' | 'unavailable';
@@ -2310,6 +2317,8 @@ function formatDatabaseBackupKind(kind: GmDatabaseBackupRecord['kind']): string 
       return '手动导出';
     case 'pre_import':
       return '导入前备份';
+    case 'uploaded':
+      return '本地上传';
     default:
       return kind;
   }
@@ -2321,7 +2330,7 @@ function formatDatabaseBackupFormat(format: GmDatabaseBackupRecord['format']): s
     case 'postgres_custom_dump':
       return 'PostgreSQL custom dump';
     case 'mainline_json_snapshot':
-      return '历史 JSON 快照';
+      return '历史 JSON 快照（硬切后不可恢复）';
     default:
       return '未知格式';
   }
@@ -2350,7 +2359,7 @@ function formatDatabaseJobLabel(data: GmDatabaseStateRes | null): string {
 
 /** renderDatabasePanel：渲染数据库面板。 */
 function renderDatabasePanel(): void {
-  const busy = databaseState?.runningJob?.status === 'running';
+  const busy = databaseState?.runningJob?.status === 'running' || databaseImportBusy;
   const backups = databaseState?.backups ?? [];
   const summary = databaseStateLoading && !databaseState
     ? '正在读取持久化备份状态…'
@@ -2361,7 +2370,7 @@ function renderDatabasePanel(): void {
   const retentionLine = databaseState?.automation?.retentionEnforced === false
     ? '当前未启用自动保留清理，历史备份需要手工管理。'
     : `保留策略：整点备份最多 ${databaseState?.retention.hourly ?? 72} 份，每日备份最多 ${databaseState?.retention.daily ?? 14} 份。手动导出和导入前备份当前不自动删。`;
-  const restoreLine = `${databaseState?.automation?.restoreRequiresMaintenance === true ? '导入历史备份前必须先开启维护态；' : ''}${databaseState?.automation?.preImportBackupEnabled === false ? '' : '服务端会先生成一份“导入前备份”，随后暂停 tick、断开玩家连接、覆盖主线持久化真源并重建运行时。'}${databaseState?.automation?.preImportBackupEnabled === false ? '导入会直接覆盖当前主线持久化真源。' : ''}`;
+  const restoreLine = `${databaseState?.automation?.restoreRequiresMaintenance === true ? '恢复数据库前必须先开启维护态；' : ''}${databaseState?.automation?.preImportBackupEnabled === false ? '' : '服务端会先生成一份“导入前备份”，随后暂停 tick、断开玩家连接、覆盖主线持久化真源并重建运行时。'}${databaseState?.automation?.preImportBackupEnabled === false ? '恢复会直接覆盖当前主线持久化真源。' : ''}`;
   const scopeLine = databaseState?.scope === 'persistent_documents_only'
     ? '作用范围：仅持久化文档。'
     : databaseState?.scope === 'mainline_persistence'
@@ -2375,6 +2384,9 @@ function renderDatabasePanel(): void {
   const persistenceLine = databaseState?.persistenceEnabled === false
     ? '当前未启用数据库持久化，此面板仅供查看主线持久化说明。'
     : '当前数据库持久化已启用，可手工导出或恢复真实数据库备份。';
+  const importStatus = databaseImportStatus
+    ? databaseImportStatus
+    : '只接受新版 PostgreSQL custom dump（.dump）。上传后会进入下方备份列表；选择“上传并导入”会继续走同一套维护态恢复流程。';
   const rows = backups.length > 0
     ? backups.map((backup) => `
         <div class="network-row">
@@ -2384,7 +2396,7 @@ function renderDatabasePanel(): void {
           </div>
           <div class="button-row" style="margin-top:8px;">
             <button class="small-btn" data-db-download="${escapeHtml(backup.id)}" type="button">下载备份</button>
-            <button class="small-btn danger" data-db-restore="${escapeHtml(backup.id)}" type="button" ${busy ? 'disabled' : ''}>恢复数据库备份</button>
+            <button class="small-btn danger" data-db-restore="${escapeHtml(backup.id)}" type="button" ${busy || backup.format !== 'postgres_custom_dump' ? 'disabled' : ''}>恢复数据库备份</button>
           </div>
         </div>
       `).join('')
@@ -2404,6 +2416,18 @@ function renderDatabasePanel(): void {
       ${retentionLine}<br />
       ${escapeHtml(restoreLine)}<br />
       ${escapeHtml(databaseState?.note ?? '当前为持久化备份面板，具体覆盖范围与限制以服务端返回说明为准。')}
+    </div>
+    <div class="network-breakdown">
+      <div class="network-breakdown-head">
+        <div class="panel-title">导入本地数据库备份</div>
+        <div class="network-breakdown-subtitle">上传新版 PostgreSQL custom dump，登记到当前 GM 备份目录；恢复仍需要服务端维护态</div>
+      </div>
+      <div class="filter-row" style="margin-top: 10px;">
+        <input id="database-import-file" class="search-input" type="file" accept=".dump,application/octet-stream" ${busy ? 'disabled' : ''} />
+        <button id="database-upload-backup" class="small-btn" type="button" ${busy ? 'disabled' : ''}>上传到备份列表</button>
+        <button id="database-upload-and-restore" class="small-btn danger" type="button" ${busy ? 'disabled' : ''}>上传并导入</button>
+      </div>
+      <div id="database-import-status" class="editor-note" style="margin-top:8px;">${escapeHtml(importStatus)}</div>
     </div>
     <div class="network-breakdown">
       <div class="network-breakdown-head">
@@ -2807,6 +2831,99 @@ async function exportCurrentDatabase(): Promise<void> {
   await loadDatabaseState(true);
 }
 
+/** getSelectedDatabaseImportFile：读取数据库导入文件。 */
+function getSelectedDatabaseImportFile(): File | null {
+  const input = serverPanelDatabaseEl.querySelector<HTMLInputElement>('#database-import-file');
+  const liveFile = input?.files?.[0] ?? null;
+  if (liveFile) {
+    selectedDatabaseImportFile = liveFile;
+  }
+  return liveFile ?? selectedDatabaseImportFile;
+}
+
+/** patchDatabaseImportStatus：局部更新数据库导入状态提示。 */
+function patchDatabaseImportStatus(message: string): void {
+  databaseImportStatus = message;
+  const statusEl = serverPanelDatabaseEl.querySelector<HTMLDivElement>('#database-import-status');
+  if (statusEl) {
+    statusEl.textContent = message;
+  }
+}
+
+/** isSupportedDatabaseImportFile：判断数据库导入文件扩展名是否受支持。 */
+function isSupportedDatabaseImportFile(file: File): boolean {
+  const lowerName = file.name.toLowerCase();
+  return lowerName.endsWith('.dump');
+}
+
+/** updateDatabaseImportFileSelection：处理数据库导入文件选择变化。 */
+function updateDatabaseImportFileSelection(file: File | null): void {
+  selectedDatabaseImportFile = file;
+  if (!file) {
+    patchDatabaseImportStatus('未选择文件。');
+    return;
+  }
+
+  const fileLabel = `${file.name}（${formatBytes(file.size)}）`;
+  if (!isSupportedDatabaseImportFile(file)) {
+    patchDatabaseImportStatus(`已选择 ${fileLabel}，但硬切后仅支持新版 PostgreSQL custom dump（.dump）。`);
+    setStatus('仅支持新版 PostgreSQL custom dump（.dump）', true);
+    return;
+  }
+
+  patchDatabaseImportStatus(`已选择 ${fileLabel}，可以上传到备份列表，或上传并导入。`);
+  setStatus(`已选择数据库备份：${file.name}`);
+}
+
+/** uploadDatabaseBackupFile：上传数据库备份文件。 */
+async function uploadDatabaseBackupFile(restoreAfterUpload: boolean): Promise<void> {
+  const file = getSelectedDatabaseImportFile();
+  if (!file) {
+    setStatus('请先选择要导入的数据库备份文件', true);
+    patchDatabaseImportStatus('未选择文件。');
+    return;
+  }
+  if (!isSupportedDatabaseImportFile(file)) {
+    setStatus('仅支持新版 PostgreSQL custom dump（.dump）', true);
+    patchDatabaseImportStatus(`文件类型不受支持：${file.name}。`);
+    return;
+  }
+  if (restoreAfterUpload) {
+    const confirmed = window.confirm(`将上传 ${file.name}，随后用它覆盖当前主线数据库。\n服务端仍会先生成一份导入前备份，并断开在线玩家连接。是否继续？`);
+    if (!confirmed) {
+      return;
+    }
+  }
+
+  databaseImportBusy = true;
+  databaseImportStatus = `正在上传 ${file.name}（${formatBytes(file.size)}）…`;
+  renderDatabasePanel();
+  try {
+    const result = await request<GmUploadDatabaseBackupRes>(`${GM_API_BASE_PATH}/database/upload`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/octet-stream',
+        'X-Backup-Filename': encodeURIComponent(file.name),
+        'X-Backup-Size': String(file.size),
+      },
+      body: file,
+    });
+    selectedDatabaseImportFile = null;
+    databaseImportStatus = `已上传 ${result.backup.fileName}，大小 ${formatBytes(result.backup.sizeBytes)}。`;
+    setStatus(`已上传数据库备份：${result.backup.fileName}`);
+    await loadDatabaseState(true);
+    if (restoreAfterUpload) {
+      await restoreDatabaseBackup(result.backup.id, {
+        skipConfirm: true,
+        fallbackFileName: result.backup.fileName,
+      });
+    }
+  } finally {
+    databaseImportBusy = false;
+    renderDatabasePanel();
+  }
+}
+
 /** getDownloadFileName：读取Download File名称。 */
 function getDownloadFileName(response: Response, fallback: string): string {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
@@ -2837,15 +2954,25 @@ async function downloadDatabaseBackup(backupId: string): Promise<void> {
 }
 
 /** restoreDatabaseBackup：处理restore数据库备份。 */
-async function restoreDatabaseBackup(backupId: string): Promise<void> {
+async function restoreDatabaseBackup(
+  backupId: string,
+  options: { skipConfirm?: boolean; fallbackFileName?: string } = {},
+): Promise<void> {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
   const backup = databaseState?.backups.find((entry) => entry.id === backupId);
-  if (!backup) {
+  if (!backup && !options.fallbackFileName) {
     setStatus('目标备份不存在', true);
     return;
   }
-  const confirmed = window.confirm(`将使用备份 ${backup.fileName} 覆盖当前主线数据库。\n服务端会先自动生成一份导入前备份，并断开在线玩家连接。是否继续？`);
+  if (backup && backup.format !== 'postgres_custom_dump') {
+    setStatus('硬切后只支持恢复新版 PostgreSQL custom dump，不再支持历史 JSON 快照', true);
+    return;
+  }
+  const fileName = backup?.fileName ?? options.fallbackFileName ?? backupId;
+  const confirmed = options.skipConfirm === true
+    ? true
+    : window.confirm(`将使用备份 ${fileName} 覆盖当前主线数据库。\n服务端会先自动生成一份导入前备份，并断开在线玩家连接。是否继续？`);
   if (!confirmed) {
     return;
   }
@@ -2854,7 +2981,7 @@ async function restoreDatabaseBackup(backupId: string): Promise<void> {
     method: 'POST',
     body: JSON.stringify(body),
   });
-  setStatus(`已开始恢复数据库备份：${result.job.sourceBackupId ?? backup.fileName}`);
+  setStatus(`已开始恢复数据库备份：${result.job.sourceBackupId ?? fileName}`);
   await loadDatabaseState(true);
 }
 
@@ -7151,6 +7278,28 @@ serverPanelDatabaseEl.addEventListener('click', (event) => {
     return;
   }
 
+  const uploadButton = target?.closest<HTMLButtonElement>('#database-upload-backup');
+  if (uploadButton) {
+    uploadDatabaseBackupFile(false).catch((error: unknown) => {
+      databaseImportBusy = false;
+      databaseImportStatus = error instanceof Error ? error.message : '上传数据库备份失败';
+      renderDatabasePanel();
+      setStatus(error instanceof Error ? error.message : '上传数据库备份失败', true);
+    });
+    return;
+  }
+
+  const uploadAndRestoreButton = target?.closest<HTMLButtonElement>('#database-upload-and-restore');
+  if (uploadAndRestoreButton) {
+    uploadDatabaseBackupFile(true).catch((error: unknown) => {
+      databaseImportBusy = false;
+      databaseImportStatus = error instanceof Error ? error.message : '上传并导入数据库失败';
+      renderDatabasePanel();
+      setStatus(error instanceof Error ? error.message : '上传并导入数据库失败', true);
+    });
+    return;
+  }
+
   const downloadButton = target?.closest<HTMLButtonElement>('[data-db-download]');
   if (downloadButton?.dataset.dbDownload) {
     downloadDatabaseBackup(downloadButton.dataset.dbDownload).catch((error: unknown) => {
@@ -7165,6 +7314,13 @@ serverPanelDatabaseEl.addEventListener('click', (event) => {
       setStatus(error instanceof Error ? error.message : '导入数据库失败', true);
     });
   }
+});
+serverPanelDatabaseEl.addEventListener('change', (event) => {
+  const target = event.target;
+  if (!(target instanceof HTMLInputElement) || target.id !== 'database-import-file') {
+    return;
+  }
+  updateDatabaseImportFileSelection(target.files?.[0] ?? null);
 });
 gmPasswordForm.addEventListener('submit', (event) => {
   event.preventDefault();

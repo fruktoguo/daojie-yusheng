@@ -198,6 +198,18 @@ export function toWireActionsUpdate(payload: S2C_ActionsUpdate): Record<string, 
   if (payload.removeActionIds) wire.removeActionIds = [...payload.removeActionIds];
   if (payload.actionOrder) wire.actionOrder = [...payload.actionOrder];
   if (payload.autoBattle !== undefined) wire.autoBattle = payload.autoBattle;
+  if (payload.autoUsePills !== undefined) {
+    wire.autoUsePillsJson = JSON.stringify(payload.autoUsePills);
+  }
+  if (payload.combatTargetingRules !== undefined) {
+    wire.combatTargetingRulesJson = JSON.stringify(payload.combatTargetingRules);
+  }
+  if (payload.autoBattleTargetingMode !== undefined) wire.autoBattleTargetingMode = payload.autoBattleTargetingMode;
+  if (payload.retaliatePlayerTargetId === null) {
+    wire.clearRetaliatePlayerTargetId = true;
+  } else if (payload.retaliatePlayerTargetId !== undefined) {
+    wire.retaliatePlayerTargetId = payload.retaliatePlayerTargetId;
+  }
   if (payload.autoRetaliate !== undefined) wire.autoRetaliate = payload.autoRetaliate;
   if (payload.autoBattleStationary !== undefined) wire.autoBattleStationary = payload.autoBattleStationary;
   if (payload.allowAoePlayerHit !== undefined) wire.allowAoePlayerHit = payload.allowAoePlayerHit;
@@ -228,6 +240,22 @@ export function fromWireActionsUpdate(wire: Record<string, unknown>): S2C_Action
       .filter((entry) => entry.length > 0);
   }
   if (hasOwn(wire, 'autoBattle')) payload.autoBattle = Boolean(wire.autoBattle);
+  if (wire.clearAutoUsePills === true) {
+    payload.autoUsePills = [];
+  } else if (typeof wire.autoUsePillsJson === 'string') {
+    payload.autoUsePills = parseJson<S2C_ActionsUpdate['autoUsePills']>(wire.autoUsePillsJson) ?? [];
+  }
+  if (wire.clearCombatTargetingRules === true) {
+    payload.combatTargetingRules = undefined;
+  } else if (typeof wire.combatTargetingRulesJson === 'string') {
+    payload.combatTargetingRules = parseJson<S2C_ActionsUpdate['combatTargetingRules']>(wire.combatTargetingRulesJson);
+  }
+  if (typeof wire.autoBattleTargetingMode === 'string') payload.autoBattleTargetingMode = wire.autoBattleTargetingMode as S2C_ActionsUpdate['autoBattleTargetingMode'];
+  if (wire.clearRetaliatePlayerTargetId === true) {
+    payload.retaliatePlayerTargetId = null;
+  } else if (typeof wire.retaliatePlayerTargetId === 'string') {
+    payload.retaliatePlayerTargetId = wire.retaliatePlayerTargetId;
+  }
   if (hasOwn(wire, 'autoRetaliate')) payload.autoRetaliate = Boolean(wire.autoRetaliate);
   if (hasOwn(wire, 'autoBattleStationary')) payload.autoBattleStationary = Boolean(wire.autoBattleStationary);
   if (hasOwn(wire, 'allowAoePlayerHit')) payload.allowAoePlayerHit = Boolean(wire.allowAoePlayerHit);

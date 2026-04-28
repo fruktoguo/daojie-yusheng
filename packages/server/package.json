@@ -93,7 +93,7 @@
     "smoke:instance-monster-runtime-flush-worker": "pnpm compile && node dist/tools/instance-monster-runtime-flush-worker-smoke.js",
     "audit:persistence-hard-cut": "pnpm compile && node dist/tools/persistence-hard-cut-audit.js",
     "smoke:migrate-next-mainline": "pnpm compile && node dist/tools/migrate-next-mainline-once.js --apply",
-    "convert:legacy-map-dump": "pnpm compile && node dist/tools/convert-legacy-map-dump.js",
+    "convert:main-dump": "pnpm compile && node dist/tools/convert-main-dump-to-current-db.js",
     "smoke:durable-operation": "pnpm compile && node dist/tools/durable-operation-smoke.js",
     "smoke:gm-database": "pnpm compile && node dist/tools/gm-database-smoke.js",
     "smoke:gm-database:backup-persistence": "pnpm compile && node dist/tools/gm-database-backup-persistence-smoke.js",
@@ -207,10 +207,9 @@
     "audit:content-map-consistency": "pnpm compile && node dist/tools/check-content-map-consistency.js",
     "audit:content-reference-consistency": "pnpm compile && node dist/tools/check-content-reference-consistency.js",
     "proof:content-map-sources": "pnpm compile && node dist/tools/prove-content-map-sources.js",
-    "proof:runtime-network-no-legacy-source": "pnpm compile && node dist/tools/prove-runtime-network-no-legacy-source.js",
+    "proof:runtime-network-mainline-source": "pnpm compile && node dist/tools/prove-runtime-network-mainline-source.js",
     "proof:mainline-boundaries": "node dist/tools/check-mainline-boundaries.js",
-    "audit:boundaries": "pnpm compile && node dist/tools/audit/legacy-boundary-audit.js",
-    "audit:legacy-boundaries": "pnpm audit:boundaries"
+    "audit:boundaries": "pnpm compile && node dist/tools/audit/mainline-boundary-audit.js"
   },
   "dependencies": {
     "@mud/shared": "workspace:*",

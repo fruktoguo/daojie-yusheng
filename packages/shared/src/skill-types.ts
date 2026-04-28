@@ -245,10 +245,20 @@ export interface SkillBuffEffectDef {
 
   attrs?: Partial<Attributes>;
   /**
+ * attrMode：attrMode相关字段。
+ */
+
+  attrMode?: BuffModifierMode;
+  /**
  * stats：stat相关字段。
  */
 
   stats?: PartialNumericStats;
+  /**
+ * statMode：statMode相关字段。
+ */
+
+  statMode?: BuffModifierMode;
   /**
  * qiProjection：qiProjection相关字段。
  */
@@ -279,6 +289,16 @@ export interface SkillBuffEffectDef {
  */
 
   expireWithBuffId?: string;
+  /**
+ * persistOnDeath：死亡后是否保留。
+ */
+
+  persistOnDeath?: boolean;
+  /**
+ * persistOnReturnToSpawn：遁返后是否保留。
+ */
+
+  persistOnReturnToSpawn?: boolean;
 }
 
 /** 怪物出生自带 Buff 配置。 */
@@ -398,6 +418,16 @@ export interface MonsterInitialBuffDef {
  */
 
   expireWithBuffId?: string;
+  /**
+ * persistOnDeath：死亡后是否保留。
+ */
+
+  persistOnDeath?: boolean;
+  /**
+ * persistOnReturnToSpawn：遁返后是否保留。
+ */
+
+  persistOnReturnToSpawn?: boolean;
 }
 
 /** 技能净化效果定义。 */
@@ -610,4 +640,14 @@ export interface TemporaryBuffState extends VisibleBuffState {
  */
 
   expireWithBuffId?: string;
+  /**
+ * persistOnDeath：死亡后是否保留。
+ */
+
+  persistOnDeath?: boolean;
+  /**
+ * persistOnReturnToSpawn：遁返后是否保留。
+ */
+
+  persistOnReturnToSpawn?: boolean;
 }

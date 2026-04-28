@@ -7,6 +7,12 @@
     "level": 42,
     "groundLabel": "血",
     "allowBatchUse": true,
+    "tileResourceGains": [
+      {
+        "resourceKey": "sha.refined.neutral",
+        "amount": 10
+      }
+    ],
     "desc": "裹着血煞与残魄的晶石。捏碎后会为当前地块增加 10 点凝练煞气，可批量使用。"
   }
 ]

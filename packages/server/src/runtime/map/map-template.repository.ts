@@ -299,7 +299,7 @@ let MapTemplateRepository = MapTemplateRepository_1 = class MapTemplateRepositor
                 continue;
             }
             const tileIndex = getTileIndex(aura.x, aura.y, width);
-            const value = Math.max(0, Math.trunc(aura.value));
+            const value = (0, shared_1.normalizeConfiguredAuraValue)(aura.value);
             baseAuraByTile[tileIndex] = value;
             if (value > 0) {
                 baseTileResourceEntryByKey.set(`${DEFAULT_TILE_AURA_RESOURCE_KEY}:${tileIndex}`, {
@@ -320,7 +320,7 @@ let MapTemplateRepository = MapTemplateRepository_1 = class MapTemplateRepositor
                 continue;
             }
             const tileIndex = getTileIndex(resource.x, resource.y, width);
-            const value = Math.max(0, Math.trunc(resource.value));
+            const value = (0, shared_1.normalizeConfiguredAuraValue)(resource.value);
             if (resourceKey === DEFAULT_TILE_AURA_RESOURCE_KEY) {
                 baseAuraByTile[tileIndex] = value;
             }

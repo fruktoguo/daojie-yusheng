@@ -6,7 +6,6 @@
 
 - 执行清单：[10-cutover-execution-checklist.md](./10-cutover-execution-checklist.md)
 - 执行记录模板：[10-cutover-execution-log-template.md](./10-cutover-execution-log-template.md)
-- 本地 destructive 样例记录：[10-cutover-execution-log-2026-04-20-local-shadow-destructive.md](./10-cutover-execution-log-2026-04-20-local-shadow-destructive.md)
 
 ## 0. 使用范围
 
@@ -135,8 +134,8 @@
 
 检查：
 
-1. 没有回退到 legacy 入口
-2. 没有出现明显 `legacy` compat 重新命中
+1. 没有回退到旧入口
+2. 没有出现明显旧 compat 重新命中
 3. next socket 没混入旧事件命名
 
 ### 3.2 GM / 数据库 / 备份

@@ -1,12 +1,14 @@
 import { Inject, Injectable } from '@nestjs/common';
 import {
   DEFAULT_BASE_ATTRS,
+  PLAYER_HEARTBEAT_TIMEOUT_MS,
   VIEW_RADIUS,
   type GmListPlayersQuery,
   type GmManagedPlayerSummary,
   type GmPlayerSortMode,
 } from '@mud/shared';
 import { MapTemplateRepository } from '../../runtime/map/map-template.repository';
+import { DatabasePoolProvider } from '../../persistence/database-pool.provider';
 import { PlayerDomainPersistenceService } from '../../persistence/player-domain-persistence.service';
 import { PlayerProgressionService } from '../../runtime/player/player-progression.service';
 import { PlayerRuntimeService } from '../../runtime/player/player-runtime.service';
@@ -30,6 +32,8 @@ interface ManagedAccountEntryLike {
  */
 
   username?: string;
+  playerName?: string;
+  displayName?: string | null;
 }
 /**
  * NativeManagedAccountServiceLike：定义接口结构约束，明确可交付字段含义。
@@ -102,6 +106,12 @@ interface PersistedPlayerEntryLike {
 
 interface PlayerDomainPersistenceServiceLike {
   listProjectedSnapshots(buildStarterSnapshot: (playerId: string) => any | null): Promise<PersistedPlayerEntryLike[]>;
+  listPlayerPresence?(playerIds: Iterable<string> | null | undefined): Promise<Map<string, {
+    online: boolean;
+    inWorld: boolean;
+    lastHeartbeatAt?: number | null;
+    offlineSinceAt?: number | null;
+  }>>;
 }
 /**
  * PlayerProgressionServiceLike：定义接口结构约束，明确可交付字段含义。
@@ -119,6 +129,27 @@ interface PlayerProgressionServiceLike {
 interface PlayerRuntimeServiceLike {
   listPlayerSnapshots(): any[];
   buildStarterPersistenceSnapshot(playerId: string): any | null;
+}
+interface GmPersistedPlayerSummaryRow {
+  player_id?: unknown;
+  username?: unknown;
+  role_name?: unknown;
+  display_name?: unknown;
+  user_id?: unknown;
+  map_id?: unknown;
+  x?: unknown;
+  y?: unknown;
+  hp?: unknown;
+  max_hp?: unknown;
+  qi?: unknown;
+  realm_lv?: unknown;
+  realm_label?: unknown;
+  auto_battle?: unknown;
+  auto_battle_stationary?: unknown;
+  auto_retaliate?: unknown;
+  online?: unknown;
+  in_world?: unknown;
+  updated_at_ms?: unknown;
 }
 /**
  * PerformanceTimerState：定义接口结构约束，明确可交付字段含义。
@@ -184,6 +215,8 @@ export class NativeGmStateQueryService {
     private readonly playerProgressionService: PlayerProgressionServiceLike,
     @Inject(PlayerRuntimeService)
     private readonly playerRuntimeService: PlayerRuntimeServiceLike,
+    @Inject(DatabasePoolProvider)
+    private readonly databasePoolProvider: DatabasePoolProvider,
   ) {}  
   /**
  * getState：读取状态。
@@ -195,18 +228,11 @@ export class NativeGmStateQueryService {
   async getState(query: GmListPlayersQuery | undefined, timers: PerformanceTimerState) {
     const perf = this.buildPerformanceSnapshot(timers);
     const runtimePlayers = this.playerRuntimeService.listPlayerSnapshots();
-    const persistedEntries = (await this.playerDomainPersistenceService.listProjectedSnapshots(
-      (playerId) => this.playerRuntimeService.buildStarterPersistenceSnapshot(playerId),
-    )).map((entry) => ({
-      ...entry,
-      updatedAt: Number.isFinite(Number(entry.updatedAt))
-        ? Number(entry.updatedAt)
-        : Math.max(0, Math.trunc(Number(entry.snapshot?.savedAt ?? 0))),
-    }));
     const accountIndex = await this.nextManagedAccountService.getManagedAccountIndex(
-      this.collectManagedPlayerIds(runtimePlayers, persistedEntries),
+      runtimePlayers.map((entry) => entry.playerId),
     );
-    const allPlayers = this.buildManagedPlayers(runtimePlayers, persistedEntries, accountIndex);
+    const persistedSummaries = await this.listPersistedPlayerSummaries();
+    const allPlayers = this.buildManagedPlayers(runtimePlayers, persistedSummaries, accountIndex);
     const normalizedQuery = normalizeGmListPlayersQuery(query);
     const filteredPlayers = filterManagedPlayers(allPlayers, normalizedQuery.keywordNeedle);
     const sortedPlayers = sortManagedPlayers(filteredPlayers, normalizedQuery.sort);
@@ -233,19 +259,7 @@ export class NativeGmStateQueryService {
  */
 
 
-  private collectManagedPlayerIds(runtimePlayers, persistedEntries) {
-    return [...runtimePlayers.map((entry) => entry.playerId), ...persistedEntries.map((entry) => entry.playerId)];
-  }  
-  /**
- * buildManagedPlayers：构建并返回目标对象。
- * @param runtimePlayers 参数说明。
- * @param persistedEntries 参数说明。
- * @param accountIndex 参数说明。
- * @returns 无返回值，直接更新Managed玩家相关状态。
- */
-
-
-  private buildManagedPlayers(runtimePlayers, persistedEntries, accountIndex) {
+  private buildManagedPlayers(runtimePlayers, persistedSummaries: GmManagedPlayerSummary[], accountIndex) {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
     const players = runtimePlayers
@@ -253,24 +267,94 @@ export class NativeGmStateQueryService {
       .sort(compareManagedPlayerSummary);
     const runtimePlayerIds = new Set(runtimePlayers.map((entry) => entry.playerId));
 
-    for (const entry of persistedEntries) {
-      if (runtimePlayerIds.has(entry.playerId)) {
+    for (const summary of persistedSummaries) {
+      if (runtimePlayerIds.has(summary.id)) {
         continue;
       }
-
-      players.push(
-        this.toManagedPlayerSummaryFromPersistence(
-          entry.playerId,
-          entry.snapshot,
-          entry.updatedAt,
-          accountIndex.get(entry.playerId),
-        ),
-      );
+      players.push(summary);
     }
 
     players.sort(compareManagedPlayerSummary);
     return players;
   }  
+  private async listPersistedPlayerSummaries(): Promise<GmManagedPlayerSummary[]> {
+    const pool = this.databasePoolProvider.getPool('gm-state-summary');
+    if (!pool) {
+      return [];
+    }
+    const staleOnlineCutoffMs = Date.now() - PLAYER_HEARTBEAT_TIMEOUT_MS;
+
+    const result = await pool.query<GmPersistedPlayerSummaryRow>(`
+      SELECT
+        rw.player_id,
+        COALESCE(auth.username, ident.username) AS username,
+        COALESCE(auth.pending_role_name, ident.player_name, snap.payload #>> '{name}', rw.player_id) AS role_name,
+        COALESCE(auth.display_name, ident.display_name, snap.payload #>> '{displayName}', auth.pending_role_name, ident.player_name, rw.player_id) AS display_name,
+        COALESCE(auth.user_id, ident.user_id) AS user_id,
+        COALESCE(snap.payload #>> '{placement,templateId}', 'yunlai_town') AS map_id,
+        COALESCE(NULLIF(snap.payload #>> '{placement,x}', '')::bigint, 0) AS x,
+        COALESCE(NULLIF(snap.payload #>> '{placement,y}', '')::bigint, 0) AS y,
+        COALESCE(vitals.hp, NULLIF(snap.payload #>> '{vitals,hp}', '')::bigint, 1) AS hp,
+        COALESCE(vitals.max_hp, NULLIF(snap.payload #>> '{vitals,maxHp}', '')::bigint, 1) AS max_hp,
+        COALESCE(vitals.qi, NULLIF(snap.payload #>> '{vitals,qi}', '')::bigint, 0) AS qi,
+        COALESCE(NULLIF(snap.payload #>> '{progression,realm,realmLv}', '')::bigint, 1) AS realm_lv,
+        COALESCE(snap.payload #>> '{progression,realm,displayName}', snap.payload #>> '{progression,realm,name}', '凡胎') AS realm_label,
+        COALESCE(combat.auto_battle, NULLIF(snap.payload #>> '{combat,autoBattle}', '')::boolean, false) AS auto_battle,
+        COALESCE(combat.auto_battle_stationary, NULLIF(snap.payload #>> '{combat,autoBattleStationary}', '')::boolean, false) AS auto_battle_stationary,
+        COALESCE(combat.auto_retaliate, NULLIF(snap.payload #>> '{combat,autoRetaliate}', '')::boolean, true) AS auto_retaliate,
+        (COALESCE(presence.online, false) AND COALESCE(presence.last_heartbeat_at, 0) >= $1::bigint) AS online,
+        COALESCE(presence.in_world, false) AS in_world,
+        (EXTRACT(EPOCH FROM rw.updated_at) * 1000)::bigint AS updated_at_ms
+      FROM player_recovery_watermark rw
+      LEFT JOIN server_player_auth auth ON auth.player_id = rw.player_id
+      LEFT JOIN server_player_identity ident ON ident.player_id = rw.player_id
+      LEFT JOIN server_player_snapshot snap ON snap.player_id = rw.player_id
+      LEFT JOIN player_vitals vitals ON vitals.player_id = rw.player_id
+      LEFT JOIN player_combat_preferences combat ON combat.player_id = rw.player_id
+      LEFT JOIN player_presence presence ON presence.player_id = rw.player_id
+      ORDER BY rw.player_id ASC
+    `, [staleOnlineCutoffMs]);
+
+    return result.rows.map((row) => this.toManagedPlayerSummaryFromSummaryRow(row));
+  }
+
+  private toManagedPlayerSummaryFromSummaryRow(row: GmPersistedPlayerSummaryRow): GmManagedPlayerSummary {
+    const playerId = normalizeDisplayString(row.player_id) || 'unknown-player';
+    const roleName = normalizeDisplayString(row.role_name) || playerId;
+    const displayName = normalizeDisplayString(row.display_name) || roleName;
+    const mapId = normalizeDisplayString(row.map_id) || 'yunlai_town';
+
+    return {
+      id: playerId,
+      name: roleName,
+      roleName,
+      displayName,
+      accountName: normalizeDisplayString(row.username) || undefined,
+      mapId,
+      mapName: this.resolveMapName(mapId),
+      realmLv: normalizeInteger(row.realm_lv, 1),
+      realmLabel: normalizeDisplayString(row.realm_label) || '凡胎',
+      x: normalizeInteger(row.x, 0),
+      y: normalizeInteger(row.y, 0),
+      hp: normalizeInteger(row.hp, 1),
+      maxHp: normalizeInteger(row.max_hp, 1),
+      qi: normalizeInteger(row.qi, 0),
+      dead: normalizeInteger(row.hp, 1) <= 0,
+      autoBattle: row.auto_battle === true,
+      autoBattleStationary: row.auto_battle_stationary === true,
+      autoRetaliate: row.auto_retaliate !== false,
+      meta: {
+        userId: normalizeDisplayString(row.user_id) || undefined,
+        isBot: isNativeGmBotPlayerId(playerId),
+        online: row.online === true,
+        inWorld: row.in_world === true,
+        updatedAt: normalizeInteger(row.updated_at_ms, 0) > 0
+          ? new Date(normalizeInteger(row.updated_at_ms, 0)).toISOString()
+          : undefined,
+        dirtyFlags: [],
+      },
+    };
+  }
   /**
  * buildPerformanceSnapshot：构建并返回目标对象。
  * @param timers PerformanceTimerState 参数说明。
@@ -349,14 +433,16 @@ export class NativeGmStateQueryService {
  */
 
 
-  private toManagedPlayerSummaryFromPersistence(playerId, snapshot, updatedAt, account = null) {
+  private toManagedPlayerSummaryFromPersistence(playerId, snapshot, updatedAt, account = null, presence = null) {
     const player = this.toLegacyPlayerStateFromPersistence(playerId, snapshot);
+    const roleName = resolveManagedPlayerName(player, account, playerId);
+    const displayName = resolveManagedPlayerDisplayName(player, account, roleName);
 
     return {
       id: player.id,
-      name: player.name,
-      roleName: player.name,
-      displayName: player.displayName ?? player.name,
+      name: roleName,
+      roleName,
+      displayName,
       accountName: account?.username,
       mapId: player.mapId,
       mapName: this.resolveMapName(player.mapId),
@@ -374,8 +460,8 @@ export class NativeGmStateQueryService {
       meta: {
         userId: account?.userId,
         isBot: player.isBot === true,
-        online: false,
-        inWorld: false,
+        online: presence?.online === true,
+        inWorld: presence?.inWorld === true,
         updatedAt: updatedAt > 0 ? new Date(updatedAt).toISOString() : undefined,
         dirtyFlags: [],
       },
@@ -484,8 +570,8 @@ export class NativeGmStateQueryService {
 
     return {
       id: playerId,
-      name: playerId,
-      displayName: playerId,
+      name: snapshot.name,
+      displayName: snapshot.displayName,
       isBot: isNativeGmBotPlayerId(playerId),
       mapId: snapshot.placement.templateId,
       x: snapshot.placement.x,
@@ -721,6 +807,14 @@ function sanitizePositiveInteger(value: unknown, fallback: number): number {
   return fallback;
 }
 
+function normalizeInteger(value: unknown, fallback: number): number {
+  const parsed = typeof value === 'bigint' ? Number(value) : Number(value);
+  if (!Number.isFinite(parsed)) {
+    return fallback;
+  }
+  return Math.trunc(parsed);
+}
+
 function isGmPlayerSortMode(value: unknown): value is GmPlayerSortMode {
   return value === 'realm-desc'
     || value === 'realm-asc'
@@ -774,6 +868,25 @@ function compareName(left, right) {
     return roleCompare;
   }
   return left.id.localeCompare(right.id, 'zh-Hans-CN');
+}
+
+function resolveManagedPlayerName(player, account, fallback: string): string {
+  return normalizeDisplayString(player?.name)
+    || normalizeDisplayString(account?.playerName)
+    || normalizeDisplayString(account?.displayName)
+    || normalizeDisplayString(account?.username)
+    || fallback;
+}
+
+function resolveManagedPlayerDisplayName(player, account, fallback: string): string {
+  return normalizeDisplayString(player?.displayName)
+    || normalizeDisplayString(account?.displayName)
+    || normalizeDisplayString(account?.playerName)
+    || fallback;
+}
+
+function normalizeDisplayString(value: unknown): string {
+  return typeof value === 'string' ? value.trim() : '';
 }
 /**
  * roundMetric：执行roundMetric相关逻辑。

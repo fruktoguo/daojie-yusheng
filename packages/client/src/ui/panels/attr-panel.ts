@@ -839,6 +839,10 @@ export class AttrPanel {
     } else {
       this.lastSnapshot = snapshot;
     }
+    this.refreshActiveTooltipContent();
+    if (this.tooltipTarget) {
+      this.requestDetailIfNeeded();
+    }
   }
 
   /** 使用玩家状态初始化属性面板。 */
@@ -2049,5 +2053,20 @@ export class AttrPanel {
     }
     this.detailRequested = true;
     this.callbacks?.onRequestDetail?.();
+  }
+
+  /** refreshActiveTooltipContent：详情异步回包后刷新当前已打开的 hover 内容。 */
+  private refreshActiveTooltipContent(): void {
+    if (!this.tooltipTarget) {
+      return;
+    }
+    if (!this.tooltipTarget.isConnected) {
+      this.tooltipTarget = null;
+      this.tooltip.hide(true);
+      return;
+    }
+    const title = this.tooltipTarget.getAttribute('data-tooltip-title') ?? '';
+    const detail = this.tooltipTarget.getAttribute('data-tooltip-detail') ?? '';
+    this.tooltip.updateContent(title, splitTooltipLines(detail), { allowHtml: true });
   }
 }

@@ -35,6 +35,7 @@ const MAP_PERSISTENCE_MONSTER_RUNTIME_DOMAIN = 'monster_runtime';
 const MAP_PERSISTENCE_SLOW_FLUSH_THRESHOLD_MS = normalizePositiveInteger((0, env_alias_1.readTrimmedEnv)('SERVER_PERSISTENCE_FLUSH_SLOW_THRESHOLD_MS', 'PERSISTENCE_FLUSH_SLOW_THRESHOLD_MS'), 100, PERSISTENCE_SLOW_FLUSH_THRESHOLD_MIN_MS, 10_000);
 const MAP_PERSISTENCE_SLOW_FLUSH_BACKOFF_MS = normalizePositiveInteger((0, env_alias_1.readTrimmedEnv)('SERVER_PERSISTENCE_FLUSH_SLOW_BACKOFF_MS', 'PERSISTENCE_FLUSH_SLOW_BACKOFF_MS'), 5_000, 1_000, 60_000);
 const MAP_PERSISTENCE_TIME_CHECKPOINT_INTERVAL_MS = normalizePositiveInteger((0, env_alias_1.readTrimmedEnv)('SERVER_MAP_TIME_CHECKPOINT_INTERVAL_MS', 'MAP_TIME_CHECKPOINT_INTERVAL_MS'), 300_000, 60_000, 3_600_000);
+const MAP_PERSISTENCE_TIME_CHECKPOINT_BATCH_SIZE = normalizePositiveInteger((0, env_alias_1.readTrimmedEnv)('SERVER_MAP_TIME_CHECKPOINT_FLUSH_BATCH_SIZE', 'MAP_TIME_CHECKPOINT_FLUSH_BATCH_SIZE'), 16, 1, 256);
 const MAP_PERSISTENCE_MONSTER_RUNTIME_INTERVAL_MS = normalizePositiveInteger((0, env_alias_1.readTrimmedEnv)('SERVER_MAP_MONSTER_RUNTIME_FLUSH_INTERVAL_MS', 'MAP_MONSTER_RUNTIME_FLUSH_INTERVAL_MS'), 60_000, 10_000, 600_000);
 const MAP_PERSISTENCE_MONSTER_RUNTIME_SLOW_THRESHOLD_MS = normalizePositiveInteger((0, env_alias_1.readTrimmedEnv)('SERVER_MAP_MONSTER_RUNTIME_SLOW_THRESHOLD_MS', 'MAP_MONSTER_RUNTIME_SLOW_THRESHOLD_MS'), 1_000, MAP_PERSISTENCE_SLOW_FLUSH_THRESHOLD_MS, 60_000);
 
@@ -48,6 +49,9 @@ const MAP_PERSISTENCE_MONSTER_RUNTIME_SLOW_THRESHOLD_MS = normalizePositiveInteg
  */
 
 function normalizePositiveInteger(value, defaultValue, min, max) {
+    if (typeof value === 'string' && value.trim() === '') {
+        return defaultValue;
+    }
     const parsed = Number(value);
     if (!Number.isFinite(parsed)) {
         return defaultValue;
@@ -213,7 +217,7 @@ let MapPersistenceFlushService = MapPersistenceFlushService_1 = class MapPersist
             const now = Date.now();
             const timeCheckpointDue = reason !== 'interval' || now >= this.nextTimeCheckpointFlushAt;
             const monsterRuntimeDue = reason !== 'interval' || now >= this.nextMonsterRuntimeFlushAt;
-            const dirtyDomainSelection = selectFlushDomainEntries(rawDirtyDomainEntries, reason, timeCheckpointDue, monsterRuntimeDue);
+            const dirtyDomainSelection = selectFlushDomainEntries(rawDirtyDomainEntries, reason, timeCheckpointDue, monsterRuntimeDue, MAP_PERSISTENCE_TIME_CHECKPOINT_BATCH_SIZE);
             const dirtyDomainEntries = dirtyDomainSelection.entries;
             const dirtyInstanceIds = dirtyDomainEntries.map((entry) => entry.instanceId);
             dirtyInstanceCount = dirtyInstanceIds.length;
@@ -243,7 +247,9 @@ let MapPersistenceFlushService = MapPersistenceFlushService_1 = class MapPersist
                 });
             }
             if (reason === 'interval' && dirtyDomainSelection.includesTimeCheckpoint === true) {
-                this.nextTimeCheckpointFlushAt = Date.now() + MAP_PERSISTENCE_TIME_CHECKPOINT_INTERVAL_MS;
+                this.nextTimeCheckpointFlushAt = Date.now() + (dirtyDomainSelection.hasDeferredTimeCheckpoint === true
+                    ? MAP_PERSISTENCE_FLUSH_INTERVAL_MS
+                    : MAP_PERSISTENCE_TIME_CHECKPOINT_INTERVAL_MS);
             }
             if (reason === 'interval' && dirtyDomainSelection.includesMonsterRuntime === true) {
                 this.nextMonsterRuntimeFlushAt = Date.now() + MAP_PERSISTENCE_MONSTER_RUNTIME_INTERVAL_MS;
@@ -294,17 +300,21 @@ function prioritizeMapFlushTargets(instanceIds) {
         return leftPriority - rightPriority || left.localeCompare(right);
     });
 }
-function selectFlushDomainEntries(entries, reason, timeCheckpointDue, monsterRuntimeDue) {
+function selectFlushDomainEntries(entries, reason, timeCheckpointDue, monsterRuntimeDue, timeCheckpointBatchSize = MAP_PERSISTENCE_TIME_CHECKPOINT_BATCH_SIZE) {
     if (!Array.isArray(entries) || entries.length === 0 || reason !== 'interval') {
         return {
             entries: Array.isArray(entries) ? entries : [],
             includesTimeCheckpoint: hasTimeCheckpointDomain(entries),
             includesMonsterRuntime: hasMonsterRuntimeDomain(entries),
+            hasDeferredTimeCheckpoint: false,
         };
     }
     const selected = [];
     let includesTimeCheckpoint = false;
     let includesMonsterRuntime = false;
+    let selectedTimeCheckpointCount = 0;
+    let hasDeferredTimeCheckpoint = false;
+    const normalizedTimeCheckpointBatchSize = Math.max(1, Math.trunc(Number(timeCheckpointBatchSize) || MAP_PERSISTENCE_TIME_CHECKPOINT_BATCH_SIZE));
     for (const entry of entries) {
         const instanceId = typeof entry?.instanceId === 'string' ? entry.instanceId.trim() : '';
         const domains = Array.isArray(entry?.domains)
@@ -314,9 +324,13 @@ function selectFlushDomainEntries(entries, reason, timeCheckpointDue, monsterRun
                 }
                 const normalizedDomain = domain.trim();
                 if (normalizedDomain === MAP_PERSISTENCE_TIME_DOMAIN) {
-                    if (timeCheckpointDue === true) {
+                    if (timeCheckpointDue === true && selectedTimeCheckpointCount < normalizedTimeCheckpointBatchSize) {
+                        selectedTimeCheckpointCount += 1;
                         includesTimeCheckpoint = true;
                         return true;
+                    }
+                    if (timeCheckpointDue === true) {
+                        hasDeferredTimeCheckpoint = true;
                     }
                     return false;
                 }
@@ -334,7 +348,7 @@ function selectFlushDomainEntries(entries, reason, timeCheckpointDue, monsterRun
             selected.push({ instanceId, domains });
         }
     }
-    return { entries: selected, includesTimeCheckpoint, includesMonsterRuntime };
+    return { entries: selected, includesTimeCheckpoint, includesMonsterRuntime, hasDeferredTimeCheckpoint };
 }
 function hasTimeCheckpointDomain(entries) {
     return Array.isArray(entries)

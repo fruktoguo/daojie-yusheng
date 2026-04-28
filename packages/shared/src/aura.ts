@@ -66,7 +66,26 @@ export function getAuraLevel(auraValue: number, baseValue = DEFAULT_AURA_LEVEL_B
   return level;
 }
 
+/** 把旧地图中的灵气等级值转换成实际灵气值。 */
+export function convertLegacyAuraLevelToValue(level: number, baseValue = DEFAULT_AURA_LEVEL_BASE_VALUE): number {
+  return getAuraLevelThreshold(level, baseValue);
+}
+
+/** 判断一个配置值是否是旧地图灵气等级值。 */
+export function isLegacyAuraLevelValue(value: number, baseValue = DEFAULT_AURA_LEVEL_BASE_VALUE): boolean {
+  const normalizedValue = normalizeAuraValue(value);
+  const base = normalizeAuraLevelBaseValue(baseValue);
+  return Number.isInteger(normalizedValue) && normalizedValue > 0 && normalizedValue < base;
+}
+
 /** 规范化地图/编辑器里的灵气配置值，next 侧统一按 auraValue 存储。 */
-export function normalizeConfiguredAuraValue(value: unknown, _baseValue = DEFAULT_AURA_LEVEL_BASE_VALUE): number {
-  return normalizeAuraValue(value);
+export function normalizeConfiguredAuraValue(value: unknown, baseValue = DEFAULT_AURA_LEVEL_BASE_VALUE): number {
+  const normalizedValue = normalizeAuraValue(value);
+  if (normalizedValue <= 0) {
+    return 0;
+  }
+  if (isLegacyAuraLevelValue(normalizedValue, baseValue)) {
+    return convertLegacyAuraLevelToValue(normalizedValue, baseValue);
+  }
+  return normalizedValue;
 }

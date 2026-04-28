@@ -3682,6 +3682,9 @@ function createMapInstanceDirtyDomainSet() {
 }
 const INCREMENTAL_PERSISTENCE_DOMAINS = new Set(['tile_resource', 'tile_damage', 'ground_item', 'monster_runtime']);
 function normalizePositiveInteger(value, defaultValue, min, max) {
+    if (typeof value === 'string' && value.trim() === '') {
+        return defaultValue;
+    }
     const parsed = Number(value);
     if (!Number.isFinite(parsed)) {
         return defaultValue;

@@ -1,9 +1,0 @@
-[
-  {
-    "itemId": "book.ningqi_chengji",
-    "name": "《凝气成基法》",
-    "type": "skill_book",
-    "desc": "记载凝气成基法的修行法门，使用后学会凝气成基法。",
-    "learnTechniqueId": "ningqi_chengji"
-  }
-]

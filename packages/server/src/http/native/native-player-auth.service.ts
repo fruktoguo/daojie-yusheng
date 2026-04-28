@@ -2,7 +2,7 @@ import { BadRequestException, Inject, Injectable, Logger, UnauthorizedException 
 import { randomUUID } from 'node:crypto';
 
 import { buildDefaultRoleName, normalizeDisplayName, normalizeRoleName, normalizeUsername, resolveDisplayName, validateDisplayName, validatePassword, validateRoleName, validateUsername } from '../../auth/account-validation';
-import { hashPassword, verifyPassword } from '../../auth/password-hash';
+import { hashPassword, isPasswordHashUpgradeRequired, verifyPassword } from '../../auth/password-hash';
 import { WorldPlayerSnapshotService } from '../../network/world-player-snapshot.service';
 import { WorldPlayerTokenCodecService } from '../../network/world-player-token-codec.service';
 import { PlayerIdentityPersistenceService } from '../../persistence/player-identity-persistence.service';
@@ -283,7 +283,7 @@ export class NativePlayerAuthService {
       throw new UnauthorizedException('密码错误');
     }
 
-    const user = directUser && matchedUsers.some((entry) => entry.id === directUser.id)
+    let user = directUser && matchedUsers.some((entry) => entry.id === directUser.id)
       ? directUser
       : matchedUsers.length === 1
         ? matchedUsers[0]
@@ -292,6 +292,7 @@ export class NativePlayerAuthService {
       throw new BadRequestException('该角色名对应多个账号，请改用账号登录');
     }
 
+    user = await this.upgradePasswordHashIfNeeded(user, password);
     await this.persistIdentity(user);
     await this.ensureStarterSnapshot(user.playerId);
     return this.issueTokens(user);
@@ -534,7 +535,19 @@ export class NativePlayerAuthService {
     if (result?.ok === false && result.failureStage !== 'native_snapshot_recovery_persistence_disabled') {
       this.logger.warn(`补建原生初始快照已跳过：playerId=${playerId} reason=${result.failureStage ?? '未知'}`);
     }
-  }  
+  }
+
+  private async upgradePasswordHashIfNeeded(user: NativePlayerAuthUser, password: string): Promise<NativePlayerAuthUser> {
+    if (!isPasswordHashUpgradeRequired(user.passwordHash)) {
+      return user;
+    }
+
+    return this.authStore.saveUser({
+      ...user,
+      passwordHash: await hashPassword(password),
+      updatedAt: Date.now(),
+    });
+  }
   /**
  * syncRuntimeDisplayName：判断运行态显示名称是否满足条件。
  * @param user NativePlayerAuthUser 参数说明。

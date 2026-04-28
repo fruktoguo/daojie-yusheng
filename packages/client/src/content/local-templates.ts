@@ -223,8 +223,8 @@ export function resolvePreviewItem(item: ItemStack): ItemStack {
     enhanceLevel: item.enhanceLevel ?? template.enhanceLevel,
     alchemySuccessRate: item.alchemySuccessRate ?? template.alchemySuccessRate,
     alchemySpeedRate: item.alchemySpeedRate ?? template.alchemySpeedRate,
-    enhancementSuccessRate: item.enhancementSuccessRate,
-    enhancementSpeedRate: item.enhancementSpeedRate,
+    enhancementSuccessRate: item.enhancementSuccessRate ?? template.enhancementSuccessRate,
+    enhancementSpeedRate: item.enhancementSpeedRate ?? template.enhancementSpeedRate,
     consumeBuffs: item.consumeBuffs ?? template.consumeBuffs,
     tags: item.tags ?? template.tags,
     mapUnlockId: item.mapUnlockId ?? template.mapUnlockId,
@@ -329,7 +329,7 @@ export function resolvePreviewTechnique(technique: TechniqueState): TechniqueSta
     return {
       ...technique,
       realmLv: resolveTechniqueRealmLevel(technique.realmLv, technique.grade),
-      realm: deriveTechniqueRealm(technique.level, technique.layers),
+      realm: deriveTechniqueRealm(technique.level, technique.layers, technique.attrCurves),
       skills: resolvePreviewSkills(technique.skills),
       category: technique.category ?? (technique.skills.length > 0 ? 'arts' : 'internal'),
     };
@@ -343,8 +343,9 @@ export function resolvePreviewTechnique(technique: TechniqueState): TechniqueSta
     name: technique.name || template.name,
     grade: technique.grade ?? template.grade,
     category: technique.category ?? template.category ?? (sourceSkills.length > 0 ? 'arts' : 'internal'),
+    attrCurves: technique.attrCurves ?? template.attrCurves,
     realmLv,
-    realm: deriveTechniqueRealm(technique.level, resolvedLayers),
+    realm: deriveTechniqueRealm(technique.level, resolvedLayers, technique.attrCurves ?? template.attrCurves),
     skills: sourceSkills.map((skill) => (
       resolvePreviewTechniqueSkill(
         skill,

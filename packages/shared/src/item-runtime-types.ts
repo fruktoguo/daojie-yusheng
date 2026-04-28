@@ -191,10 +191,20 @@ export interface EquipmentBuffDef {
 
   attrs?: Partial<Attributes>;  
   /**
+ * attrMode：attrMode相关字段。
+ */
+
+  attrMode?: BuffModifierMode;  
+  /**
  * stats：stat相关字段。
  */
 
   stats?: PartialNumericStats;  
+  /**
+ * statMode：statMode相关字段。
+ */
+
+  statMode?: BuffModifierMode;  
   /**
  * qiProjection：qiProjection相关字段。
  */
@@ -209,7 +219,17 @@ export interface EquipmentBuffDef {
  * presentationScale：presentationScale相关字段。
  */
 
-  presentationScale?: number;
+  presentationScale?: number;  
+  /**
+ * persistOnDeath：死亡后是否保留。
+ */
+
+  persistOnDeath?: boolean;  
+  /**
+ * persistOnReturnToSpawn：遁返后是否保留。
+ */
+
+  persistOnReturnToSpawn?: boolean;
 }
 
 /** Buff 维持代价定义。 */
@@ -284,10 +304,20 @@ export interface ConsumableBuffDef {
 
   attrs?: Partial<Attributes>;  
   /**
+ * attrMode：attrMode相关字段。
+ */
+
+  attrMode?: BuffModifierMode;  
+  /**
  * stats：stat相关字段。
  */
 
   stats?: PartialNumericStats;  
+  /**
+ * statMode：statMode相关字段。
+ */
+
+  statMode?: BuffModifierMode;  
   /**
  * qiProjection：qiProjection相关字段。
  */
@@ -322,7 +352,17 @@ export interface ConsumableBuffDef {
  * sourceSkillId：来源技能ID标识。
  */
 
-  sourceSkillId?: string;
+  sourceSkillId?: string;  
+  /**
+ * persistOnDeath：死亡后是否保留。
+ */
+
+  persistOnDeath?: boolean;  
+  /**
+ * persistOnReturnToSpawn：遁返后是否保留。
+ */
+
+  persistOnReturnToSpawn?: boolean;
 }
 
 /** 装备常驻数值效果。 */
@@ -348,10 +388,20 @@ export interface EquipmentStatAuraEffectDef {
 
   attrs?: Partial<Attributes>;  
   /**
+ * attrMode：attrMode相关字段。
+ */
+
+  attrMode?: BuffModifierMode;  
+  /**
  * stats：stat相关字段。
  */
 
   stats?: PartialNumericStats;  
+  /**
+ * statMode：statMode相关字段。
+ */
+
+  statMode?: BuffModifierMode;  
   /**
  * qiProjection：qiProjection相关字段。
  */
@@ -392,10 +442,20 @@ export interface EquipmentProgressEffectDef {
 
   attrs?: Partial<Attributes>;  
   /**
+ * attrMode：attrMode相关字段。
+ */
+
+  attrMode?: BuffModifierMode;  
+  /**
  * stats：stat相关字段。
  */
 
   stats?: PartialNumericStats;  
+  /**
+ * statMode：statMode相关字段。
+ */
+
+  statMode?: BuffModifierMode;  
   /**
  * qiProjection：qiProjection相关字段。
  */

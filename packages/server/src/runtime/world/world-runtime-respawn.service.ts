@@ -64,7 +64,7 @@ let WorldRuntimeRespawnService = class WorldRuntimeRespawnService {
  * @returns 无返回值，直接更新重生玩家相关状态。
  */
 
-    respawnPlayer(playerId, deps) {
+    respawnPlayer(playerId, deps, options = undefined) {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
         const player = this.playerRuntimeService.getPlayer(playerId);
@@ -103,6 +103,7 @@ let WorldRuntimeRespawnService = class WorldRuntimeRespawnService {
             y: runtimePlayer.y,
             facing: runtimePlayer.facing,
             currentTick: targetInstance.tick,
+            buffClearMode: options?.buffClearMode ?? 'death',
         });
         deps.queuePlayerNotice(playerId, `已在 ${targetInstance.template.name} 复生`, 'travel');
     }

@@ -157,7 +157,7 @@ let PlayerCombatService = class PlayerCombatService {
                 handlers.spendQi?.(qiCost);
             }
         }
-        handlers.setCooldownReadyTick(currentTick + Math.max(1, Math.round(resolved.skill.cooldown)));
+        handlers.setCooldownReadyTick(currentTick + resolveSkillCooldownTicks(attacker, resolved.skill.cooldown));
 
         let totalDamage = 0;
 
@@ -397,11 +397,24 @@ function toTemporaryBuff(effect, skill) {
         sourceSkillName: skill.name,
         color: effect.color,
         attrs: effect.attrs ? { ...effect.attrs } : undefined,
+        attrMode: effect.attrMode,
         stats: effect.stats
             ? { ...effect.stats }
             : (effect.valueStats ? (0, shared_1.compileValueStatsToActualStats)(effect.valueStats) : undefined),
+        statMode: effect.statMode,
         qiProjection: effect.qiProjection ? effect.qiProjection.map((entry) => ({ ...entry })) : undefined,
+        persistOnDeath: effect.persistOnDeath === true,
+        persistOnReturnToSpawn: effect.persistOnReturnToSpawn === true,
     };
+}
+
+function resolveSkillCooldownTicks(attacker, cooldown) {
+    const baseCooldown = Math.max(1, Math.round(Number(cooldown) || 1));
+    const cooldownSpeed = Math.trunc(Number(attacker.attrs?.numericStats?.cooldownSpeed ?? 0));
+    const cooldownDivisor = Math.max(1, Math.trunc(Number(attacker.attrs?.ratioDivisors?.cooldownSpeed ?? 100)));
+    const cooldownRate = (0, shared_1.signedRatioValue)(cooldownSpeed, cooldownDivisor);
+    const cooldownMultiplier = (0, shared_1.percentModifierToMultiplier)(-cooldownRate * 100);
+    return Math.max(1, Math.ceil(baseCooldown * cooldownMultiplier));
 }
 /**
  * evaluateSkillFormula：执行evaluate技能Formula相关逻辑。

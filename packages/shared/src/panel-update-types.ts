@@ -299,6 +299,21 @@ export interface ActionsUpdateView {
 
   autoBattle?: boolean;  
   /**
+ * autoUsePills：autoUsePill相关字段。
+ */
+
+  autoUsePills?: AutoUsePillConfig[];  
+  /**
+ * combatTargetingRules：战斗TargetingRule相关字段。
+ */
+
+  combatTargetingRules?: CombatTargetingRules;  
+  /**
+ * autoBattleTargetingMode：autoBattleTargetingMode相关字段。
+ */
+
+  autoBattleTargetingMode?: AutoBattleTargetingMode;  
+  /**
  * combatTargetId：战斗目标ID标识。
  */
 

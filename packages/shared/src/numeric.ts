@@ -394,6 +394,28 @@ export interface RealmNumericTemplate {
   ratioDivisors: NumericRatioDivisors;
 }
 
+/**
+ * 将“加减百分比”转换为最终乘区。
+ * 正向保持线性增长，负向使用反比衰减，避免乘区被直接压到 0。
+ */
+export function percentModifierToMultiplier(percent: number): number {
+  if (!Number.isFinite(percent) || percent === 0) {
+    return 1;
+  }
+  if (percent > 0) {
+    return 1 + percent / 100;
+  }
+  return 1 / (1 + Math.abs(percent) / 100);
+}
+
+/** 将万分比加减值转换为最终乘区。100 = 1%，-500 = -5%。 */
+export function basisPointModifierToMultiplier(rateBp: number): number {
+  if (!Number.isFinite(rateBp) || rateBp === 0) {
+    return 1;
+  }
+  return percentModifierToMultiplier(rateBp / 100);
+}
+
 /** 所有 `NumericRatioDivisors` 标量字段列表，便于模板和守护工具重用 */
 export const NUMERIC_RATIO_DIVISOR_KEYS: (keyof NumericRatioDivisors)[] = [
   'dodge',
@@ -720,6 +742,15 @@ export function ratioValue(value: number, divisor: number): number {
   if (value === 0) return 0;
   if (divisor <= 0) return value > 0 ? 1 : -1;
   return value > 0 ? value / (value + divisor) : -value / divisor;
+}
+
+/** 带符号的 RatioValue，负值保留方向，用于冷却等允许正负变化的比例属性。 */
+export function signedRatioValue(value: number, divisor: number): number {
+  if (value === 0) {
+    return 0;
+  }
+  const magnitude = ratioValue(Math.abs(value), divisor);
+  return value > 0 ? magnitude : -magnitude;
 }
 
 /** 获取指定标量属性的 RatioValue 百分比 */

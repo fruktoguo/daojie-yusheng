@@ -17,9 +17,12 @@ import {
   type PlayerState,
   type SyncedItemStack,
   type TechniqueState,
+  buildDefaultCombatTargetingRules,
   clonePlainValue,
   EQUIP_SLOTS,
   isPlainEqual,
+  normalizeAutoBattleTargetingMode,
+  normalizeCombatTargetingRules,
   TechniqueRealm,
 } from '@mud/shared';
 import {
@@ -545,7 +548,10 @@ export function createMainPanelDeltaStateSource(options: MainPanelDeltaStateSour
 
 
   function hydrateSyncedItemStack(item: SyncedItemStack, previous?: Inventory['items'][number]): Inventory['items'][number] {
-    const previousSameItem = previous?.itemId === item.itemId ? previous : undefined;
+    const nextEnhanceLevel = item.enhanceLevel ?? 0;
+    const previousSameItem = previous?.itemId === item.itemId && (previous.enhanceLevel ?? 0) === nextEnhanceLevel
+      ? previous
+      : undefined;
     const template = getLocalItemTemplate(item.itemId);
     return {
       itemId: item.itemId,
@@ -596,8 +602,8 @@ export function createMainPanelDeltaStateSource(options: MainPanelDeltaStateSour
       enhanceLevel: item.enhanceLevel ?? previousSameItem?.enhanceLevel ?? template?.enhanceLevel,
       alchemySuccessRate: item.alchemySuccessRate ?? previousSameItem?.alchemySuccessRate ?? template?.alchemySuccessRate,
       alchemySpeedRate: item.alchemySpeedRate ?? previousSameItem?.alchemySpeedRate ?? template?.alchemySpeedRate,
-      enhancementSuccessRate: item.enhancementSuccessRate ?? previousSameItem?.enhancementSuccessRate,
-      enhancementSpeedRate: item.enhancementSpeedRate ?? previousSameItem?.enhancementSpeedRate,
+      enhancementSuccessRate: item.enhancementSuccessRate ?? previousSameItem?.enhancementSuccessRate ?? template?.enhancementSuccessRate,
+      enhancementSpeedRate: item.enhancementSpeedRate ?? previousSameItem?.enhancementSpeedRate ?? template?.enhancementSpeedRate,
       mapUnlockId: item.mapUnlockId ?? previousSameItem?.mapUnlockId,
       mapUnlockIds: item.mapUnlockIds ?? previousSameItem?.mapUnlockIds ?? template?.mapUnlockIds,
       respawnBindMapId: item.respawnBindMapId ?? previousSameItem?.respawnBindMapId ?? template?.respawnBindMapId,
@@ -1096,6 +1102,9 @@ export function createMainPanelDeltaStateSource(options: MainPanelDeltaStateSour
       const mergedActions = mergeActionStates(data.actions ?? [], data.removeActionIds ?? [], data.actionOrder);
       const previousActions = player?.actions ?? [];
       const previousAutoBattle = player?.autoBattle ?? false;
+      const previousAutoUsePills = player?.autoUsePills ?? [];
+      const previousCombatTargetingRules = player?.combatTargetingRules;
+      const previousAutoBattleTargetingMode = player?.autoBattleTargetingMode ?? 'auto';
       const previousAutoRetaliate = player?.autoRetaliate ?? true;
       const previousAutoBattleStationary = player?.autoBattleStationary ?? false;
       const previousAllowAoePlayerHit = player?.allowAoePlayerHit ?? false;
@@ -1104,9 +1113,17 @@ export function createMainPanelDeltaStateSource(options: MainPanelDeltaStateSour
       const previousAutoSwitchCultivation = player?.autoSwitchCultivation ?? false;
       const previousCultivationActive = player?.cultivationActive ?? false;
       const nextAutoBattle = data.autoBattle ?? player?.autoBattle ?? false;
+      const nextAutoUsePills = data.autoUsePills ?? player?.autoUsePills ?? [];
       const nextAutoRetaliate = data.autoRetaliate ?? player?.autoRetaliate ?? true;
       const nextAutoBattleStationary = data.autoBattleStationary ?? player?.autoBattleStationary ?? false;
       const nextAllowAoePlayerHit = data.allowAoePlayerHit ?? player?.allowAoePlayerHit ?? false;
+      const nextCombatTargetingRules = normalizeCombatTargetingRules(
+        data.combatTargetingRules ?? player?.combatTargetingRules,
+        buildDefaultCombatTargetingRules({
+          includeAllPlayersHostile: nextAllowAoePlayerHit === true,
+        }),
+      );
+      const nextAutoBattleTargetingMode = normalizeAutoBattleTargetingMode(data.autoBattleTargetingMode ?? player?.autoBattleTargetingMode);
       const nextRetaliatePlayerTargetId = data.retaliatePlayerTargetId ?? player?.retaliatePlayerTargetId ?? null;
       const nextAutoIdleCultivation = data.autoIdleCultivation ?? player?.autoIdleCultivation ?? true;
       const nextAutoSwitchCultivation = data.autoSwitchCultivation ?? player?.autoSwitchCultivation ?? false;
@@ -1114,6 +1131,9 @@ export function createMainPanelDeltaStateSource(options: MainPanelDeltaStateSour
       const nextSenseQiActive = data.senseQiActive ?? player?.senseQiActive ?? false;
       const shouldRefreshActionPanel = !player
         || previousAutoBattle !== nextAutoBattle
+        || !isPlainEqual(previousAutoUsePills, nextAutoUsePills)
+        || !isPlainEqual(previousCombatTargetingRules ?? null, nextCombatTargetingRules)
+        || previousAutoBattleTargetingMode !== nextAutoBattleTargetingMode
         || previousAutoRetaliate !== nextAutoRetaliate
         || previousAutoBattleStationary !== nextAutoBattleStationary
         || previousAllowAoePlayerHit !== nextAllowAoePlayerHit
@@ -1132,6 +1152,9 @@ export function createMainPanelDeltaStateSource(options: MainPanelDeltaStateSour
             skillEnabled: action.skillEnabled !== false,
           }));
         player.autoBattle = data.autoBattle ?? player.autoBattle;
+        player.autoUsePills = cloneJson(nextAutoUsePills);
+        player.combatTargetingRules = cloneJson(nextCombatTargetingRules);
+        player.autoBattleTargetingMode = nextAutoBattleTargetingMode;
         player.autoRetaliate = data.autoRetaliate ?? (player.autoRetaliate !== false);
         player.autoBattleStationary = nextAutoBattleStationary;
         player.allowAoePlayerHit = nextAllowAoePlayerHit;

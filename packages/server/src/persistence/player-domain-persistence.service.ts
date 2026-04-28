@@ -1,5 +1,5 @@
 import { Inject, Injectable, Logger, Optional, type OnModuleDestroy, type OnModuleInit } from '@nestjs/common';
-import { EQUIP_SLOTS } from '@mud/shared';
+import { EQUIP_SLOTS, PLAYER_HEARTBEAT_TIMEOUT_MS } from '@mud/shared';
 import type { PoolClient } from 'pg';
 import { Pool } from 'pg';
 
@@ -639,6 +639,7 @@ export class PlayerDomainPersistenceService implements OnModuleInit, OnModuleDes
     try {
       await ensurePlayerDomainTables(this.pool);
       this.enabled = true;
+      await this.expireStaleOnlinePresenceOnStartup();
       this.logger.log('玩家分域持久化已启用');
     } catch (error: unknown) {
       this.logger.error(
@@ -655,6 +656,32 @@ export class PlayerDomainPersistenceService implements OnModuleInit, OnModuleDes
 
   isEnabled(): boolean {
     return this.enabled && this.pool !== null;
+  }
+
+  private async expireStaleOnlinePresenceOnStartup(): Promise<void> {
+    if (!this.pool || !this.enabled) {
+      return;
+    }
+
+    const now = Date.now();
+    const staleOnlineCutoffMs = now - PLAYER_HEARTBEAT_TIMEOUT_MS;
+    const result = await this.pool.query(
+      `
+        UPDATE ${PLAYER_PRESENCE_TABLE}
+        SET
+          online = false,
+          offline_since_at = COALESCE(offline_since_at, $2::bigint),
+          runtime_owner_id = NULL,
+          updated_at = now()
+        WHERE online IS TRUE
+          AND COALESCE(last_heartbeat_at, 0) < $1::bigint
+      `,
+      [staleOnlineCutoffMs, now],
+    );
+    const expiredCount = Number(result.rowCount ?? 0);
+    if (expiredCount > 0) {
+      this.logger.warn(`已清理陈旧玩家在线态：count=${expiredCount} timeoutMs=${PLAYER_HEARTBEAT_TIMEOUT_MS}`);
+    }
   }
 
   async savePlayerPresence(playerId: string, input: PlayerPresenceUpsertInput): Promise<void> {
@@ -788,6 +815,66 @@ export class PlayerDomainPersistenceService implements OnModuleInit, OnModuleDes
       transferState: normalizeOptionalString(row.transfer_state),
       transferTargetNodeId: normalizeOptionalString(row.transfer_target_node_id),
     };
+  }
+
+  async listPlayerPresence(playerIds: Iterable<string> | null | undefined): Promise<Map<string, PersistedPlayerPresence>> {
+    if (!this.pool || !this.enabled) {
+      return new Map();
+    }
+    const normalizedPlayerIds = Array.from(new Set(Array.from(playerIds ?? [])
+      .map((playerId) => normalizeRequiredString(playerId))
+      .filter((playerId) => playerId.length > 0)));
+    if (normalizedPlayerIds.length === 0) {
+      return new Map();
+    }
+
+    const result = await this.pool.query<{
+      player_id?: string;
+      online?: boolean;
+      in_world?: boolean;
+      last_heartbeat_at?: string | number | null;
+      offline_since_at?: string | number | null;
+      runtime_owner_id?: string | null;
+      session_epoch?: string | number | null;
+      transfer_state?: string | null;
+      transfer_target_node_id?: string | null;
+    }>(
+      `
+        SELECT
+          player_id,
+          online,
+          in_world,
+          last_heartbeat_at,
+          offline_since_at,
+          runtime_owner_id,
+          session_epoch,
+          transfer_state,
+          transfer_target_node_id
+        FROM ${PLAYER_PRESENCE_TABLE}
+        WHERE player_id = ANY($1::text[])
+      `,
+      [normalizedPlayerIds],
+    );
+
+    const presences = new Map<string, PersistedPlayerPresence>();
+    for (const row of result.rows ?? []) {
+      const playerId = normalizeRequiredString(row.player_id);
+      if (!playerId) {
+        continue;
+      }
+      presences.set(playerId, {
+        playerId,
+        online: row.online === true,
+        inWorld: row.in_world === true,
+        lastHeartbeatAt: normalizeOptionalInteger(row.last_heartbeat_at),
+        offlineSinceAt: normalizeOptionalInteger(row.offline_since_at),
+        runtimeOwnerId: normalizeOptionalString(row.runtime_owner_id),
+        sessionEpoch: normalizeOptionalInteger(row.session_epoch),
+        transferState: normalizeOptionalString(row.transfer_state),
+        transferTargetNodeId: normalizeOptionalString(row.transfer_target_node_id),
+      });
+    }
+    return presences;
   }
 
   async savePlayerWorldAnchor(
@@ -2238,12 +2325,16 @@ export async function ensurePlayerDomainTablesWithClient(client: PoolClient): Pr
       in_world boolean NOT NULL DEFAULT false,
       last_heartbeat_at bigint,
       offline_since_at bigint,
-      runtime_owner_id varchar(120),
+      runtime_owner_id varchar(180),
       session_epoch bigint NOT NULL DEFAULT 1,
       transfer_state varchar(32),
       transfer_target_node_id varchar(120),
       updated_at timestamptz NOT NULL DEFAULT now()
     )
+  `);
+  await client.query(`
+    ALTER TABLE ${PLAYER_PRESENCE_TABLE}
+    ALTER COLUMN runtime_owner_id TYPE varchar(180)
   `);
   await client.query(`
     CREATE TABLE IF NOT EXISTS ${PLAYER_WORLD_ANCHOR_TABLE} (

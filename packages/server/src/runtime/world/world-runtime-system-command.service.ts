@@ -150,7 +150,7 @@ let WorldRuntimeSystemCommandService = class WorldRuntimeSystemCommandService {
             deps.playerRuntimeService.rebuildActionState?.(player, currentTick);
             return;
         }
-        this.worldRuntimePlayerCombatOutcomeService.respawnPlayer(playerId, deps);
+        this.worldRuntimePlayerCombatOutcomeService.respawnPlayer(playerId, deps, { buffClearMode: 'return_to_spawn' });
         const nextTick = typeof deps.resolveCurrentTickForPlayerId === 'function'
             ? deps.resolveCurrentTickForPlayerId(playerId)
             : currentTick;

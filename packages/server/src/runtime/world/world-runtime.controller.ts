@@ -347,9 +347,13 @@ let WorldRuntimeController = class WorldRuntimeController {
     }
     /** useItem：提交使用物品请求，由世界运行时处理消耗和效果。 */
     useItem(playerId, body) {
+        const payload = body && typeof body === 'object' ? body : {};
         return {
             queued: true,
-            view: this.worldRuntimeService.worldRuntimeCommandIntakeFacadeService.enqueueUseItem(playerId, Number.isFinite(body.slotIndex) ? Number(body.slotIndex) : -1, this.worldRuntimeService),
+            view: this.worldRuntimeService.worldRuntimeCommandIntakeFacadeService.enqueueUseItem(playerId, {
+                ...payload,
+                slotIndex: Number.isFinite(payload.slotIndex) ? Number(payload.slotIndex) : -1,
+            }, this.worldRuntimeService),
         };
     }
     /** dropItem：提交丢弃物品请求，落地逻辑由实例侧执行。 */

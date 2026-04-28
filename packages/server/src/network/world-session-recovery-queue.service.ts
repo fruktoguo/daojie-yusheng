@@ -45,7 +45,7 @@ export class WorldSessionRecoveryQueueService {
       this.queue.push({
         key,
         priority: input.priority ?? 'normal',
-        timeoutMs: normalizePositiveInteger(String(input.timeoutMs ?? ''), this.defaultTimeoutMs, 1, 120_000),
+        timeoutMs: normalizePositiveInteger(input.timeoutMs, this.defaultTimeoutMs, 1, 120_000),
         run: input.run,
         resolve,
         reject,
@@ -79,16 +79,19 @@ export class WorldSessionRecoveryQueueService {
   }
 
   private async executeTask(task: RecoveryTask<unknown>): Promise<void> {
-    const timeoutHandle = setTimeout(() => undefined, task.timeoutMs);
+    let slowWarned = false;
+    const timeoutHandle = setTimeout(() => {
+      slowWarned = true;
+      this.logger.warn(
+        `恢复队列任务超过阈值，继续等待数据库真源 key=${task.key} priority=${task.priority} thresholdMs=${task.timeoutMs}`,
+      );
+    }, task.timeoutMs);
     timeoutHandle.unref?.();
     try {
-      const result = await Promise.race([
-        task.run(),
-        new Promise<never>((_, reject) => {
-          const timer = setTimeout(() => reject(new Error(`recovery_timeout:${task.key}`)), task.timeoutMs);
-          timer.unref?.();
-        }),
-      ]);
+      const result = await task.run();
+      if (slowWarned) {
+        this.logger.warn(`恢复队列慢任务最终完成 key=${task.key} priority=${task.priority}`);
+      }
       task.resolve(result);
     } catch (error: unknown) {
       this.logger.warn(
@@ -126,6 +129,9 @@ function normalizeKey(value: string): string {
 }
 
 function normalizePositiveInteger(value: string | number | null | undefined, defaultValue: number, min: number, max: number): number {
+  if (typeof value === 'string' && value.trim() === '') {
+    return defaultValue;
+  }
   const parsed = Number(value);
   if (!Number.isFinite(parsed)) {
     return defaultValue;

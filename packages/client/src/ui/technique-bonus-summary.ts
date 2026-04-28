@@ -3,6 +3,7 @@ import {
   calcTechniqueAttrValues,
   calcTechniqueSpecialStatValues,
   type PlayerSpecialStats,
+  type TechniqueAttrCurves,
   TECHNIQUE_ATTR_KEYS,
   type TechniqueLayerDef,
 } from '@mud/shared';
@@ -36,10 +37,11 @@ export function formatTechniqueLayerBonusSummary(layer: TechniqueLayerDef, fallb
 export function formatTechniqueCumulativeBonusSummary(
   level: number,
   layers?: TechniqueLayerDef[],
+  attrCurves?: TechniqueAttrCurves,
   fallback = '无属性提升',
 ): string {
   return formatTechniqueBonusSummary(
-    calcTechniqueAttrValues(level, layers),
+    calcTechniqueAttrValues(level, layers, attrCurves),
     calcTechniqueSpecialStatValues(level, layers),
     fallback,
   );

@@ -91,8 +91,8 @@ let WorldRuntimePlayerCombatOutcomeService = class WorldRuntimePlayerCombatOutco
  * @returns 无返回值，直接更新重生玩家相关状态。
  */
 
-    respawnPlayer(playerId, deps) {
-        this.worldRuntimeRespawnService.respawnPlayer(playerId, deps);
+    respawnPlayer(playerId, deps, options = undefined) {
+        this.worldRuntimeRespawnService.respawnPlayer(playerId, deps, options);
     }
 };
 exports.WorldRuntimePlayerCombatOutcomeService = WorldRuntimePlayerCombatOutcomeService;

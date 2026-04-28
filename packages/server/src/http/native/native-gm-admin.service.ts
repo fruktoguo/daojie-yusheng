@@ -8,8 +8,8 @@ import {
     UnauthorizedException,
 } from '@nestjs/common';
 import { createHash, randomUUID, timingSafeEqual } from 'node:crypto';
-import { promises as fsPromises } from 'node:fs';
-import { join, resolve } from 'node:path';
+import { createWriteStream, promises as fsPromises } from 'node:fs';
+import { basename, extname, join, resolve } from 'node:path';
 import { URL } from 'node:url';
 import { Pool } from 'pg';
 import { resolveServerDatabaseUrl } from '../../config/env-alias';
@@ -66,6 +66,7 @@ const DATABASE_JOB_STATE_SCOPES = [DATABASE_JOB_STATE_SCOPE];
 
 const BACKUP_FILE_PREFIX = 'server-database-backup';
 const LEGACY_BACKUP_FILE_PREFIX = 'server-persistent-documents';
+const UPLOADED_BACKUP_FILE_PREFIX = 'server-database-upload';
 
 const LEGACY_BACKUP_FILE_KIND = 'server_persistent_documents_backup_v1';
 
@@ -161,6 +162,7 @@ const RESTORE_JOB_PHASE = {
 };
 
 const RESTORE_DOCUMENT_BATCH_SIZE = 200;
+const DEFAULT_DATABASE_UPLOAD_MAX_BYTES = 1024 * 1024 * 1024;
 /**
  * NativeGmAdminService：封装该能力的入口与生命周期，承载运行时核心协作。
  */
@@ -307,7 +309,7 @@ export class NativeGmAdminService {
             runtimeSummary: typeof this.worldRuntimeService?.getRuntimeSummary === 'function'
                 ? this.worldRuntimeService.getRuntimeSummary()
                 : null,
-            note: '当前手工导出会生成 PostgreSQL custom dump，覆盖整个主线数据库真源；恢复时优先按原生数据库备份走 pg_restore，历史 JSON 持久化快照仍保持兼容导入。旧后端 users/players 仍不在当前主线 restore 合同内。',
+            note: '当前手工导出会生成 PostgreSQL custom dump，覆盖整个主线数据库真源；硬切后恢复只接受新版 PostgreSQL custom dump，不再导入历史 JSON 快照。',
         };
     }
     /**
@@ -379,6 +381,75 @@ export class NativeGmAdminService {
         };
     }
     /**
+ * uploadDatabaseBackup：上传本地备份文件并登记为可恢复备份。
+ * @param input 上传输入。
+ * @returns 返回已登记的备份记录。
+ */
+
+    async uploadDatabaseBackup(input) {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
+        this.assertNoRunningDatabaseJob();
+        if (!input?.stream || typeof input.stream.pipe !== 'function') {
+            throw new BadRequestException('缺少数据库备份上传内容');
+        }
+        if (!this.pool || !this.persistenceEnabled) {
+            throw new BadRequestException('当前未启用数据库持久化，暂不支持上传数据库备份');
+        }
+        const declaredLength = Number(input.contentLength);
+        const maxBytes = resolveDatabaseUploadMaxBytes();
+        if (Number.isFinite(declaredLength) && declaredLength > maxBytes) {
+            throw new BadRequestException(`数据库备份文件过大，当前上限 ${formatByteLimit(maxBytes)}`);
+        }
+
+        const originalFileName = normalizeUploadFileName(input.fileName);
+        const extension = resolveUploadedBackupExtension(originalFileName);
+        const backupId = buildUploadedBackupId();
+        const createdAt = new Date().toISOString();
+        const fileName = `${UPLOADED_BACKUP_FILE_PREFIX}-${backupId}${extension}`;
+        const filePath = join(this.backupDirectory, fileName);
+        await fsPromises.mkdir(this.backupDirectory, { recursive: true });
+
+        let sizeBytes = 0;
+        try {
+            sizeBytes = Number(await writeUploadStreamToFile(input.stream, filePath, maxBytes));
+            const uploaded = await validateUploadedDatabaseBackup(filePath, originalFileName);
+            const record = {
+                id: backupId,
+                kind: 'uploaded',
+                fileName,
+                createdAt,
+                sizeBytes,
+                scope: uploaded.scope,
+                documentsCount: uploaded.documentsCount,
+                checksumSha256: uploaded.checksumSha256,
+                tablesCount: uploaded.tablesCount,
+                tablesChecksumSha256: uploaded.tablesChecksumSha256,
+                format: uploaded.format,
+            };
+            await this.persistBackupMetadata(record);
+            return {
+                backup: {
+                    id: record.id,
+                    kind: record.kind,
+                    fileName: record.fileName,
+                    createdAt: record.createdAt,
+                    sizeBytes: record.sizeBytes,
+                    documentsCount: record.documentsCount,
+                    checksumSha256: record.checksumSha256,
+                    tablesCount: record.tablesCount,
+                    tablesChecksumSha256: record.tablesChecksumSha256,
+                    format: record.format,
+                },
+                scope: record.scope,
+            };
+        }
+        catch (error) {
+            await fsPromises.rm(filePath, { force: true }).catch(() => undefined);
+            throw error;
+        }
+    }
+    /**
  * triggerDatabaseRestore：执行triggerDatabaseRestore相关逻辑。
  * @param backupId backup ID。
  * @returns 无返回值，直接更新triggerDatabaseRestore相关状态。
@@ -397,18 +468,19 @@ export class NativeGmAdminService {
             throw new BadRequestException('目标备份文件不存在，请检查备份卷或目录配置');
         }
         if (!this.pool || !this.persistenceEnabled) {
-            throw new BadRequestException('当前未启用数据库持久化，暂不支持导入兼容备份');
+            throw new BadRequestException('当前未启用数据库持久化，暂不支持导入数据库备份');
         }
         const backupFormat = await resolveBackupRecordFormat(record);
-        if (backupFormat === 'postgres_custom_dump') {
-            const recordedChecksum = typeof record.checksumSha256 === 'string' ? record.checksumSha256.trim() : '';
-            if (!recordedChecksum) {
-                throw new BadRequestException('目标备份缺少 checksumSha256，无法校验 PostgreSQL 数据库归档完整性');
-            }
-            const actualChecksum = await computeDatabaseBackupFileSha256(record.filePath);
-            if (actualChecksum !== recordedChecksum) {
-                throw new BadRequestException('目标备份 checksumSha256 校验失败，PostgreSQL 数据库归档可能已损坏或被篡改');
-            }
+        if (backupFormat !== 'postgres_custom_dump') {
+            throw new BadRequestException('硬切后只支持恢复新版 PostgreSQL custom dump，不再支持历史 JSON 快照');
+        }
+        const recordedChecksum = typeof record.checksumSha256 === 'string' ? record.checksumSha256.trim() : '';
+        if (!recordedChecksum) {
+            throw new BadRequestException('目标备份缺少 checksumSha256，无法校验 PostgreSQL 数据库归档完整性');
+        }
+        const actualChecksum = await computeDatabaseBackupFileSha256(record.filePath);
+        if (actualChecksum !== recordedChecksum) {
+            throw new BadRequestException('目标备份 checksumSha256 校验失败，PostgreSQL 数据库归档可能已损坏或被篡改');
         }
 
         const client = await this.pool.connect();
@@ -440,34 +512,11 @@ export class NativeGmAdminService {
                 this.updateDatabaseJobPhase(job, RESTORE_JOB_PHASE.PREPARING_RUNTIME);
                 await this.databaseRestoreCoordinator.prepareForRestore();
                 this.updateDatabaseJobPhase(job, RESTORE_JOB_PHASE.APPLYING_DOCUMENTS);
-                if (backupFormat === 'postgres_custom_dump') {
-                    const databaseUrl = resolveServerDatabaseUrl();
-                    if (!databaseUrl.trim()) {
-                        throw new BadRequestException('当前未提供 SERVER_DATABASE_URL/DATABASE_URL，无法执行 PostgreSQL 数据库恢复');
-                    }
-                    await restorePostgresCustomDump(record.filePath, databaseUrl);
+                const databaseUrl = resolveServerDatabaseUrl();
+                if (!databaseUrl.trim()) {
+                    throw new BadRequestException('当前未提供 SERVER_DATABASE_URL/DATABASE_URL，无法执行 PostgreSQL 数据库恢复');
                 }
-                else {
-                    const payload = await this.readBackupPayload(record.filePath);
-                    const validatedPayload = assertCompatibleBackupPayload(payload);
-                    await ensurePersistentDocumentsTable(this.pool);
-                    const restoreClient = await this.pool.connect();
-                    try {
-                        await restoreClient.query('BEGIN');
-                        await this.clearStructuredBackupTables(restoreClient);
-                        await restoreClient.query('DELETE FROM persistent_documents WHERE NOT (scope = ANY($1::varchar[]))', [Array.from(BACKUP_EXCLUDED_SCOPES)]);
-                        await this.insertBackupDocumentsInBatches(restoreClient, validatedPayload.docs);
-                        await this.insertBackupTablesInBatches(restoreClient, validatedPayload.tables);
-                        await restoreClient.query('COMMIT');
-                    }
-                    catch (error) {
-                        await restoreClient.query('ROLLBACK').catch(() => undefined);
-                        throw error;
-                    }
-                    finally {
-                        restoreClient.release();
-                    }
-                }
+                await restorePostgresCustomDump(record.filePath, databaseUrl);
                 job.appliedAt = new Date().toISOString();
                 this.updateDatabaseJobPhase(job, RESTORE_JOB_PHASE.COMMITTED);
             }
@@ -1496,8 +1545,10 @@ export class NativeGmAdminService {
                 continue;
             }
             const isPostgresDump = entry.name.startsWith(`${BACKUP_FILE_PREFIX}-`) && entry.name.endsWith('.dump');
+            const isUploadedPostgresDump = entry.name.startsWith(`${UPLOADED_BACKUP_FILE_PREFIX}-`) && entry.name.endsWith('.dump');
+            const isUploadedJsonBackup = entry.name.startsWith(`${UPLOADED_BACKUP_FILE_PREFIX}-`) && entry.name.endsWith('.json');
             const isLegacyJsonBackup = entry.name.startsWith(`${LEGACY_BACKUP_FILE_PREFIX}-`) && entry.name.endsWith('.json');
-            if (!isPostgresDump && !isLegacyJsonBackup) {
+            if (!isPostgresDump && !isUploadedPostgresDump && !isUploadedJsonBackup && !isLegacyJsonBackup) {
                 continue;
             }
 
@@ -1510,15 +1561,19 @@ export class NativeGmAdminService {
 
             const backupId = isPostgresDump
                 ? entry.name.slice(`${BACKUP_FILE_PREFIX}-`.length, -'.dump'.length)
+                : isUploadedPostgresDump
+                    ? entry.name.slice(`${UPLOADED_BACKUP_FILE_PREFIX}-`.length, -'.dump'.length)
+                    : isUploadedJsonBackup
+                        ? entry.name.slice(`${UPLOADED_BACKUP_FILE_PREFIX}-`.length, -'.json'.length)
                 : entry.name.slice(`${LEGACY_BACKUP_FILE_PREFIX}-`.length, -'.json'.length);
             records.push({
                 id: backupId,
-                kind: 'manual',
+                kind: isUploadedPostgresDump || isUploadedJsonBackup ? 'uploaded' : 'manual',
                 fileName: entry.name,
                 createdAt: stats.mtime.toISOString(),
                 sizeBytes: stats.size,
                 filePath,
-                format: isPostgresDump ? 'postgres_custom_dump' : 'mainline_json_snapshot',
+                format: isPostgresDump || isUploadedPostgresDump ? 'postgres_custom_dump' : 'mainline_json_snapshot',
             });
         }
         return records;
@@ -1775,10 +1830,13 @@ export class NativeGmAdminService {
     assertRestoreMaintenanceEnabled() {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
+        if (!NATIVE_GM_RESTORE_CONTRACT.requiresMaintenance) {
+            return;
+        }
         if (readBooleanEnv('SERVER_RUNTIME_MAINTENANCE') || readBooleanEnv('RUNTIME_MAINTENANCE')) {
             return;
         }
-        throw new BadRequestException('执行兼容 restore 前必须先开启维护态（SERVER_RUNTIME_MAINTENANCE=1 或 RUNTIME_MAINTENANCE=1）');
+        throw new BadRequestException('执行数据库恢复前必须先开启维护态（SERVER_RUNTIME_MAINTENANCE=1 或 RUNTIME_MAINTENANCE=1）');
     }
     /**
  * applyAfdianPersistentConfig：判断AfdianPersistent配置是否满足条件。
@@ -2076,7 +2134,7 @@ function normalizeDatabaseJobSnapshot(value) {
 
     const finishedAt = normalizeTimestamp(record?.finishedAt);
 
-    const kind = record?.kind === 'hourly' || record?.kind === 'daily' || record?.kind === 'manual' || record?.kind === 'pre_import'
+    const kind = record?.kind === 'hourly' || record?.kind === 'daily' || record?.kind === 'manual' || record?.kind === 'pre_import' || record?.kind === 'uploaded'
         ? record.kind
         : undefined;
 
@@ -2128,7 +2186,7 @@ function normalizeStoredBackupMetadata(value) {
 
     const sizeBytes = Number(record?.sizeBytes);
 
-    const kind = record?.kind === 'hourly' || record?.kind === 'daily' || record?.kind === 'manual' || record?.kind === 'pre_import'
+    const kind = record?.kind === 'hourly' || record?.kind === 'daily' || record?.kind === 'manual' || record?.kind === 'pre_import' || record?.kind === 'uploaded'
         ? record.kind
         : null;
 
@@ -2723,6 +2781,114 @@ function normalizeNullableInteger(value) {
     }
     const parsed = Number(value);
     return Number.isFinite(parsed) ? Math.trunc(parsed) : null;
+}
+
+function resolveDatabaseUploadMaxBytes() {
+    const raw = process.env.SERVER_GM_DATABASE_UPLOAD_MAX_BYTES
+        ?? process.env.GM_DATABASE_UPLOAD_MAX_BYTES
+        ?? '';
+    const parsed = Number(raw);
+    if (!Number.isFinite(parsed) || parsed <= 0) {
+        return DEFAULT_DATABASE_UPLOAD_MAX_BYTES;
+    }
+    return Math.trunc(parsed);
+}
+
+function formatByteLimit(value) {
+    if (value >= 1024 * 1024 * 1024) {
+        return `${Math.floor(value / (1024 * 1024 * 1024))}GB`;
+    }
+    if (value >= 1024 * 1024) {
+        return `${Math.floor(value / (1024 * 1024))}MB`;
+    }
+    return `${value}B`;
+}
+
+function normalizeUploadFileName(value) {
+    const raw = typeof value === 'string' ? value.trim() : '';
+    const decoded = decodeHeaderFileName(raw);
+    const normalized = basename(decoded || 'uploaded.dump').replace(/[^\w.\-\u4e00-\u9fa5]/gu, '_');
+    return normalized || 'uploaded.dump';
+}
+
+function decodeHeaderFileName(value) {
+    if (!value) {
+        return '';
+    }
+    try {
+        return decodeURIComponent(value);
+    }
+    catch {
+        return value;
+    }
+}
+
+function resolveUploadedBackupExtension(fileName) {
+    const extension = extname(fileName).toLowerCase();
+    if (extension === '.dump') {
+        return extension;
+    }
+    throw new BadRequestException('上传文件类型不受支持，硬切后仅支持 PostgreSQL custom dump（.dump）');
+}
+
+function buildUploadedBackupId() {
+    const timestamp = new Date().toISOString().replace(/[-:.TZ]/gu, '').slice(0, 14);
+    return `uploaded-${timestamp}-${randomUUID().slice(0, 8)}`;
+}
+
+async function writeUploadStreamToFile(stream, filePath, maxBytes) {
+    return new Promise((resolvePromise, rejectPromise) => {
+        const output = createWriteStream(filePath, { flags: 'wx' });
+        let sizeBytes = 0;
+        let settled = false;
+        const fail = (error) => {
+            if (settled) {
+                return;
+            }
+            settled = true;
+            output.destroy();
+            if (typeof stream.destroy === 'function') {
+                stream.destroy(error instanceof Error ? error : new Error(String(error)));
+            }
+            rejectPromise(error instanceof Error ? error : new Error(String(error)));
+        };
+        stream.on('data', (chunk) => {
+            sizeBytes += Buffer.isBuffer(chunk) ? chunk.length : Buffer.byteLength(String(chunk));
+            if (sizeBytes > maxBytes) {
+                fail(new BadRequestException(`数据库备份文件过大，当前上限 ${formatByteLimit(maxBytes)}`));
+            }
+        });
+        stream.on('error', fail);
+        output.on('error', fail);
+        output.on('finish', () => {
+            if (settled) {
+                return;
+            }
+            settled = true;
+            resolvePromise(sizeBytes);
+        });
+        stream.pipe(output);
+    });
+}
+
+async function validateUploadedDatabaseBackup(filePath, originalFileName) {
+    const magicFormat = await detectDatabaseBackupFormat(filePath, '');
+    if (magicFormat === 'postgres_custom_dump') {
+        return {
+            scope: BACKUP_SCOPE_LABEL,
+            checksumSha256: await computeDatabaseBackupFileSha256(filePath),
+            documentsCount: undefined,
+            tablesCount: undefined,
+            tablesChecksumSha256: undefined,
+            format: 'postgres_custom_dump',
+        };
+    }
+
+    if (extname(originalFileName).toLowerCase() === '.json') {
+        throw new BadRequestException('硬切后不再支持上传历史 JSON 快照，请上传新版 PostgreSQL custom dump（.dump）');
+    }
+
+    throw new BadRequestException('上传的 .dump 文件不是 PostgreSQL custom dump（缺少 PGDMP 文件头）');
 }
 /**
  * clampInteger：执行clampInteger相关逻辑。

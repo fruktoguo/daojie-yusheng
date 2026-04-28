@@ -19,6 +19,7 @@ const common_1 = require("@nestjs/common");
 const shared_1 = require("@mud/shared");
 
 const content_template_repository_1 = require("../../content/content-template.repository");
+const pvp_1 = require("../../constants/gameplay/pvp");
 const map_template_repository_1 = require("../map/map-template.repository");
 const player_runtime_service_1 = require("../player/player-runtime.service");
 
@@ -69,6 +70,7 @@ let WorldRuntimeUseItemService = class WorldRuntimeUseItemService {
         if (!item) {
             throw new common_1.NotFoundException(`Inventory slot ${slotIndex} not found`);
         }
+        const count = normalizeUseItemCount(payload?.count, item);
         if (typeof item.formationDiskTier === 'string' && item.formationDiskTier.length > 0) {
             deps.queuePlayerNotice(playerId, '阵盘需要通过背包中的布阵页面使用。', 'info');
             return;
@@ -92,8 +94,11 @@ let WorldRuntimeUseItemService = class WorldRuntimeUseItemService {
             return;
         }
         if (this.resolveTileResourceGains(item).length > 0) {
-            this.handleTileResourceItem(playerId, slotIndex, item, deps);
+            this.handleTileResourceItem(playerId, slotIndex, item, deps, count);
             return;
+        }
+        if (count > 1) {
+            throw new common_1.BadRequestException('该物品不支持批量使用');
         }
         this.playerRuntimeService.useItem(playerId, slotIndex);
         if (learnedTechniqueId) {
@@ -172,27 +177,28 @@ let WorldRuntimeUseItemService = class WorldRuntimeUseItemService {
  * @returns 无返回值，直接更新Tile资源道具相关状态。
  */
 
-    handleTileResourceItem(playerId, slotIndex, item, deps) {
+    handleTileResourceItem(playerId, slotIndex, item, deps, count = 1) {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
         const resourceGains = this.resolveTileResourceGains(item);
-        const unsupportedResource = resourceGains.find((entry) => entry.resourceKey !== DEFAULT_TILE_AURA_RESOURCE_KEY);
-        if (unsupportedResource) {
-            throw new common_1.BadRequestException(`当前版本暂不支持道具直接改写地块资源：${unsupportedResource.resourceKey}`);
-        }
-        const totalAuraGain = resourceGains.reduce((sum, entry) => sum + entry.amount, 0);
-        if (totalAuraGain <= 0) {
+        const normalizedCount = normalizeUseItemCount(count, item);
+        if (resourceGains.length <= 0) {
             throw new common_1.BadRequestException(`Failed to resolve tile resource gain from item ${item.itemId}`);
         }
         const location = deps.getPlayerLocationOrThrow(playerId);
         const player = this.playerRuntimeService.getPlayerOrThrow(playerId);
         const instance = deps.getInstanceRuntimeOrThrow(location.instanceId);
-        const nextAura = instance.addTileAura(player.x, player.y, totalAuraGain);
-        if (nextAura === null) {
-            throw new common_1.BadRequestException(`Failed to add aura at ${player.x},${player.y}`);
+        const results = [];
+        for (const entry of resourceGains) {
+            const totalGain = entry.amount * normalizedCount;
+            const nextValue = instance.addTileResource(entry.resourceKey, player.x, player.y, totalGain);
+            if (nextValue === null) {
+                throw new common_1.BadRequestException(`Failed to add tile resource ${entry.resourceKey} at ${player.x},${player.y}`);
+            }
+            results.push({ ...entry, amount: totalGain, nextValue });
         }
-        this.playerRuntimeService.consumeInventoryItem(playerId, slotIndex, 1);
+        this.playerRuntimeService.consumeInventoryItem(playerId, slotIndex, normalizedCount);
         deps.refreshQuestStates(playerId);
-        deps.queuePlayerNotice(playerId, `使用 ${item.name}，当前地块灵气提升至 ${nextAura}`, 'success');
+        deps.queuePlayerNotice(playerId, buildTileResourceUseNotice(item, normalizedCount, results), 'success');
     }
     /**
  * resolveTileResourceGains：解析地块资源增益列表。
@@ -233,3 +239,43 @@ exports.WorldRuntimeUseItemService = WorldRuntimeUseItemService = __decorate([
 ], WorldRuntimeUseItemService);
 
 export { WorldRuntimeUseItemService };
+
+function normalizeUseItemCount(input, item) {
+    const count = input === undefined || input === null
+        ? 1
+        : Math.trunc(Number(input));
+    if (!Number.isFinite(count) || count <= 0) {
+        throw new common_1.BadRequestException('使用数量无效');
+    }
+    if (count > 1 && item.allowBatchUse !== true) {
+        throw new common_1.BadRequestException('该物品不支持批量使用');
+    }
+    const available = Math.trunc(Number(item.count ?? 1));
+    if (Number.isFinite(available) && available > 0 && count > available) {
+        throw new common_1.BadRequestException('物品数量不足');
+    }
+    return count;
+}
+
+function buildTileResourceUseNotice(item, count, results) {
+    const countText = count > 1 ? ` x${count}` : '';
+    if (results.length === 1) {
+        const result = results[0];
+        const resourceLabel = resolveTileResourceNoticeLabel(result.resourceKey);
+        return `使用 ${item.name}${countText}，当前地块${resourceLabel}提升至 ${result.nextValue}`;
+    }
+    const summary = results
+        .map((entry) => `${resolveTileResourceNoticeLabel(entry.resourceKey)} ${entry.nextValue}`)
+        .join('，');
+    return `使用 ${item.name}${countText}，当前地块资源提升：${summary}`;
+}
+
+function resolveTileResourceNoticeLabel(resourceKey) {
+    if (resourceKey === pvp_1.REFINED_SHA_RESOURCE_KEY) {
+        return '煞气';
+    }
+    if (resourceKey === DEFAULT_TILE_AURA_RESOURCE_KEY) {
+        return '灵气';
+    }
+    return '资源';
+}

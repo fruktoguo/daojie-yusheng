@@ -107,7 +107,6 @@ function buildFreshSnapshot(
 async function main(): Promise<void> {
   const log: string[] = [];
   const runtime = createPlayerRuntimeService();
-  let backgroundRecovery: Promise<unknown> | null = null;
   const service = new WorldSessionBootstrapPlayerInitService(
     {
       buildStarterPersistenceSnapshot(playerId: string) {
@@ -181,17 +180,8 @@ async function main(): Promise<void> {
     } as never,
     {
       enqueue<T>(input: { key: string; run: () => Promise<T> }) {
+        void input.run;
         log.push(`queue:${input.key}`);
-        backgroundRecovery = input.run().then(
-          (result) => {
-            log.push(`late-finish:${input.key}`);
-            return result;
-          },
-          (error) => {
-            log.push(`late-error:${input.key}:${error instanceof Error ? error.message : String(error)}`);
-            throw error;
-          },
-        );
         return Promise.reject(new Error(`recovery_timeout:${input.key}`));
       },
       getSnapshot() {
@@ -200,12 +190,118 @@ async function main(): Promise<void> {
     } as never,
   );
 
-  const player = await service.initializeBootstrapPlayer({
-    playerId: 'player:bootstrap-timeout',
-    sessionId: 'session:bootstrap-timeout',
+  await assert.rejects(
+    () => service.initializeBootstrapPlayer({
+      playerId: 'player:bootstrap-timeout',
+      sessionId: 'session:bootstrap-timeout',
+      loadSnapshot: async () => {
+        await new Promise((resolve) => setTimeout(resolve, 30));
+        return buildFreshSnapshot(runtime, 'player:bootstrap-timeout', {
+          instanceId: 'public:delayed_recovery_map',
+          templateId: 'delayed_recovery_map',
+          x: 88,
+          y: 66,
+          facing: 2,
+        });
+      },
+    }),
+    /bootstrap_recovery_timeout:player:bootstrap-timeout/,
+  );
+
+  const runtimePlayer = runtime.getPlayer('player:bootstrap-timeout');
+  assert.equal(runtimePlayer, null);
+  assert.deepEqual(log, [
+    'queue:bootstrap:player:bootstrap-timeout',
+  ]);
+
+  const successQueueService = new WorldSessionBootstrapPlayerInitService(
+    {
+      buildStarterPersistenceSnapshot(playerId: string) {
+        log.push(`starter:${playerId}`);
+        return buildFreshSnapshot(runtime, playerId, {
+          instanceId: 'public:yunlai_town',
+          templateId: 'yunlai_town',
+          x: 10,
+          y: 10,
+          facing: 2,
+        });
+      },
+      async loadOrCreatePlayer(
+        playerId: string,
+        sessionId: string,
+        loadSnapshot: () => Promise<unknown>,
+        options?: {
+          forceRebind?: boolean;
+          buildStarterSnapshot?: (playerId: string) => PersistedPlayerSnapshot | null;
+          onSnapshotLoaded?: (snapshot: PersistedPlayerSnapshot | null) => void;
+        },
+      ) {
+        const player = await runtime.loadOrCreatePlayer(
+          playerId,
+          sessionId,
+          async () => {
+            const snapshot = await loadSnapshot();
+            const placement = snapshot && typeof snapshot === 'object'
+              ? ((snapshot as {
+                  placement?: {
+                    templateId?: string | null;
+                    instanceId?: string | null;
+                    x?: number | null;
+                    y?: number | null;
+                  };
+                }).placement ?? null)
+              : null;
+            log.push(`load:${playerId}:${sessionId}:${placement?.templateId ?? 'none'}`);
+            return snapshot as never;
+          },
+          options,
+        );
+        return {
+          instanceId: player.instanceId ?? null,
+          templateId: player.templateId ?? null,
+          x: Number(player.x ?? 0),
+          y: Number(player.y ?? 0),
+        };
+      },
+      setIdentity(playerId: string, input: { name?: string | null; displayName?: string | null }) {
+        runtime.setIdentity(playerId, input);
+        log.push(`identity:${playerId}:${input.name ?? ''}:${input.displayName ?? ''}`);
+      },
+      describePersistencePresence(playerId: string) {
+        return runtime.describePersistencePresence(playerId);
+      },
+    } as never,
+    null,
+    {
+      async registerLocalRoute() {
+        return;
+      },
+    } as never,
+    {
+      async ensurePlayerMailbox() {
+        return;
+      },
+      async ensureWelcomeMail() {
+        return;
+      },
+    } as never,
+    {
+      enqueue<T>(input: { key: string; run: () => Promise<T> }) {
+        log.push(`queue:${input.key}`);
+        return input.run();
+      },
+      getSnapshot() {
+        return { concurrency: 1, inFlight: 0, queued: 0, keys: [] };
+      },
+    } as never,
+  );
+
+  const player = await successQueueService.initializeBootstrapPlayer({
+    playerId: 'player:bootstrap-success',
+    sessionId: 'session:bootstrap-success',
     loadSnapshot: async () => {
-      await new Promise((resolve) => setTimeout(resolve, 30));
-      return buildFreshSnapshot(runtime, 'player:bootstrap-timeout', {
+      await new Promise((resolve) => setTimeout(resolve, 5));
+      return buildFreshSnapshot(runtime, 'player:bootstrap-success', {
         instanceId: 'public:delayed_recovery_map',
         templateId: 'delayed_recovery_map',
         x: 88,
@@ -214,36 +310,27 @@ async function main(): Promise<void> {
       });
     },
   });
-  await backgroundRecovery;
 
   assert.ok(player);
-  assert.equal(player.templateId, 'yunlai_town');
-  assert.equal(player.instanceId, 'public:yunlai_town');
-  const runtimePlayer = runtime.getPlayer('player:bootstrap-timeout');
-  assert.ok(runtimePlayer);
-  assert.equal(runtimePlayer?.templateId, 'yunlai_town');
-  assert.equal(runtimePlayer?.instanceId, 'public:yunlai_town');
-  assert.equal(runtimePlayer?.x, 10);
-  assert.equal(runtimePlayer?.y, 10);
-  assert.deepEqual(log, [
-    'queue:bootstrap:player:bootstrap-timeout',
-    'starter:player:bootstrap-timeout',
-    'load:player:bootstrap-timeout:session:bootstrap-timeout:yunlai_town',
-    'identity:player:bootstrap-timeout::',
-    'load:player:bootstrap-timeout:session:bootstrap-timeout:delayed_recovery_map',
-    'late-finish:bootstrap:player:bootstrap-timeout',
-  ]);
+  assert.equal(player.templateId, 'delayed_recovery_map');
+  assert.equal(player.instanceId, 'public:delayed_recovery_map');
+  const successRuntimePlayer = runtime.getPlayer('player:bootstrap-success');
+  assert.ok(successRuntimePlayer);
+  assert.equal(successRuntimePlayer?.templateId, 'delayed_recovery_map');
+  assert.equal(successRuntimePlayer?.instanceId, 'public:delayed_recovery_map');
+  assert.equal(successRuntimePlayer?.x, 88);
+  assert.equal(successRuntimePlayer?.y, 66);
 
   console.log(
     JSON.stringify(
       {
         ok: true,
         player,
-        runtimeTemplateId: runtimePlayer?.templateId ?? null,
-        runtimeInstanceId: runtimePlayer?.instanceId ?? null,
+        runtimeTemplateId: successRuntimePlayer?.templateId ?? null,
+        runtimeInstanceId: successRuntimePlayer?.instanceId ?? null,
         log,
-        answers: 'bootstrap 恢复超时后会回退到 starter 出生点，后台迟到的恢复任务不会再覆盖已创建的 fallback runtime',
-        excludes: '不证明真实登录风暴压测、多节点恢复队列竞争或后台任务取消',
+        answers: '硬切模式下 bootstrap 恢复超时会拒绝会话，不再创建 starter 出生点 fallback；正常恢复会等待数据库真源并附着到恢复地图',
+        excludes: '不证明真实登录风暴压测或多节点恢复队列竞争',
         completionMapping: 'replace-ready:proof:stage4.login-storm-fallback',
       },
       null,

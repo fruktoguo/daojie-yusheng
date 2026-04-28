@@ -51,15 +51,25 @@ async function main(): Promise<void> {
       return 'timeout';
     },
   });
+  const defaultTimeoutTask = queue.enqueue({
+    key: 'player-default-timeout',
+    priority: 'normal',
+    run: async () => {
+      started.push('default-timeout');
+      await sleep(25);
+      finished.push('default-timeout');
+      return 'default-timeout';
+    },
+  });
 
-  const results = await Promise.allSettled([vipTask, recentTask, normalTask, timeoutTask]);
-  assert.equal(results.slice(0, 3).every((entry) => entry.status === 'fulfilled'), true);
-  assert.equal(results[3].status, 'rejected');
+  const results = await Promise.allSettled([vipTask, recentTask, normalTask, timeoutTask, defaultTimeoutTask]);
+  assert.equal(results.every((entry) => entry.status === 'fulfilled'), true);
+  assert.equal(results[4].status, 'fulfilled');
   assert.deepEqual(started.slice(0, 2), ['vip', 'recent']);
   assert.equal(queue.getSnapshot().concurrency >= 1 && queue.getSnapshot().concurrency <= 64, true);
   assert.equal(queue.getSnapshot().queued, 0);
   assert.equal(queue.getSnapshot().inFlight, 0);
-  assert.deepEqual(finished.sort(), ['normal', 'recent', 'vip']);
+  assert.deepEqual(finished.sort(), ['default-timeout', 'normal', 'recent', 'timeout', 'vip']);
 
   console.log(
     JSON.stringify(
@@ -68,7 +78,7 @@ async function main(): Promise<void> {
         started,
         finished,
         snapshot: queue.getSnapshot(),
-        answers: '恢复队列已按优先级与并发门执行',
+        answers: '恢复队列已按优先级与并发门执行；未显式 timeoutMs 时会使用默认 15s 窗口而不是 1ms；超过阈值只告警，不取消运行中的数据库恢复任务',
         excludes: '不证明真实登录风暴压测或跨节点队列',
         completionMapping: 'replace-ready:proof:stage4.recovery-queue',
       },

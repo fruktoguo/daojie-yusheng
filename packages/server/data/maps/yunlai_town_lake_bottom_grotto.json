@@ -59,22 +59,22 @@
     {
       "x": 8,
       "y": 5,
-      "value": 2250
+      "value": 3
     },
     {
       "x": 11,
       "y": 7,
-      "value": 2250
+      "value": 3
     },
     {
       "x": 13,
       "y": 5,
-      "value": 2250
+      "value": 3
     },
     {
       "x": 10,
       "y": 7,
-      "value": 2250
+      "value": 3
     }
   ],
   "safeZones": [],

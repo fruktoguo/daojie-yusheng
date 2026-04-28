@@ -1863,14 +1863,18 @@ function normalizeConsumableBuffs(raw) {
                 duration: Math.max(1, Math.trunc(Number(candidate.duration))),
                 maxStacks: Number.isFinite(candidate.maxStacks) ? Math.max(1, Math.trunc(Number(candidate.maxStacks))) : undefined,
                 attrs: isRecord(candidate.attrs) ? { ...candidate.attrs } : undefined,
+                attrMode: candidate.attrMode === 'percent' ? 'percent' : candidate.attrMode === 'flat' ? 'flat' : undefined,
                 stats: isRecord(candidate.stats)
                     ? { ...candidate.stats }
                     : compiled,
+                statMode: candidate.statMode === 'percent' ? 'percent' : candidate.statMode === 'flat' ? 'flat' : undefined,
                 qiProjection: Array.isArray(candidate.qiProjection)
                     ? candidate.qiProjection
                         .filter((modifier) => isRecord(modifier))
                         .map((modifier) => ({ ...modifier }))
                     : undefined,
+                persistOnDeath: candidate.persistOnDeath === true,
+                persistOnReturnToSpawn: candidate.persistOnReturnToSpawn === true,
             }];
     });
     return buffs.length > 0 ? buffs : undefined;

@@ -50,15 +50,16 @@ function createDeps(log) {
         getInstanceRuntimeOrThrow() {
             return {            
             /**
- * addTileAura：处理TileAura并更新相关状态。
+ * addTileResource：处理TileResource并更新相关状态。
+ * @param resourceKey 资源键。
  * @param x X 坐标。
  * @param y Y 坐标。
  * @param amount 参数说明。
- * @returns 无返回值，直接更新TileAura相关状态。
+ * @returns 无返回值，直接更新TileResource相关状态。
  */
 
-                addTileAura(x, y, amount) {
-                    log.push(['addTileAura', x, y, amount]);
+                addTileResource(resourceKey, x, y, amount) {
+                    log.push(['addTileResource', resourceKey, x, y, amount]);
                     return 7;
                 },
             };
@@ -188,10 +189,34 @@ function testTileAuraBranch() {
     });
     service.dispatchUseItem('player:1', 1, createDeps(log));
     assert.deepEqual(log, [
-        ['addTileAura', 3, 4, 3],
+        ['addTileResource', 'aura.refined.neutral', 3, 4, 3],
         ['consumeInventoryItem', 'player:1', 1, 1],
         ['refreshQuestStates', 'player:1'],
         ['queuePlayerNotice', 'player:1', '使用 灵尘，当前地块灵气提升至 7', 'success'],
+    ]);
+}
+/**
+ * testBloodEssenceBatchBranch：执行test血精石BatchBranch相关逻辑。
+ * @returns 无返回值，直接更新test血精石BatchBranch相关状态。
+ */
+
+
+function testBloodEssenceBatchBranch() {
+    const log = [];
+    const service = createService({ log });
+    service.playerRuntimeService.peekInventoryItem = () => ({
+        itemId: 'stone.blood_essence',
+        name: '血精石',
+        count: 4,
+        allowBatchUse: true,
+        tileResourceGains: [{ resourceKey: 'sha.refined.neutral', amount: 10 }],
+    });
+    service.dispatchUseItem('player:1', 1, createDeps(log), { count: 3 });
+    assert.deepEqual(log, [
+        ['addTileResource', 'sha.refined.neutral', 3, 4, 30],
+        ['consumeInventoryItem', 'player:1', 1, 3],
+        ['refreshQuestStates', 'player:1'],
+        ['queuePlayerNotice', 'player:1', '使用 血精石 x3，当前地块煞气提升至 7', 'success'],
     ]);
 }
 /**
@@ -225,7 +250,7 @@ function testLegacyTileAuraBranch() {
     service.playerRuntimeService.peekInventoryItem = () => ({ itemId: 'old_spirit_dust', name: '旧灵尘', tileAuraGainAmount: 2 });
     service.dispatchUseItem('player:1', 3, createDeps(log));
     assert.deepEqual(log, [
-        ['addTileAura', 3, 4, 2],
+        ['addTileResource', 'aura.refined.neutral', 3, 4, 2],
         ['consumeInventoryItem', 'player:1', 3, 1],
         ['refreshQuestStates', 'player:1'],
         ['queuePlayerNotice', 'player:1', '使用 旧灵尘，当前地块灵气提升至 7', 'success'],
@@ -251,6 +276,7 @@ function testNormalUseBranch() {
 
 testMapUnlockBranch();
 testTileAuraBranch();
+testBloodEssenceBatchBranch();
 testRespawnBindBranch();
 testLegacyTileAuraBranch();
 testNormalUseBranch();

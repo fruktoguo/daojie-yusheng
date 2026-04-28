@@ -113,8 +113,16 @@ function spendSkillCostAndStartCooldown(playerRuntimeService, attacker, skill, c
         }
         playerRuntimeService.spendQi(attacker.playerId, qiCost);
     }
-    playerRuntimeService.setSkillCooldownReadyTick(attacker.playerId, skill.id, currentTick + Math.max(1, Math.round(skill.cooldown ?? 1)), currentTick);
+    playerRuntimeService.setSkillCooldownReadyTick(attacker.playerId, skill.id, currentTick + resolvePlayerSkillCooldownTicks(attacker, skill.cooldown), currentTick);
     return qiCost;
+}
+function resolvePlayerSkillCooldownTicks(attacker, cooldown) {
+    const baseCooldown = Math.max(1, Math.round(Number(cooldown) || 1));
+    const cooldownSpeed = Math.trunc(Number(attacker.attrs?.numericStats?.cooldownSpeed ?? 0));
+    const cooldownDivisor = Math.max(1, Math.trunc(Number(attacker.attrs?.ratioDivisors?.cooldownSpeed ?? 100)));
+    const cooldownRate = (0, shared_1.signedRatioValue)(cooldownSpeed, cooldownDivisor);
+    const cooldownMultiplier = (0, shared_1.percentModifierToMultiplier)(-cooldownRate * 100);
+    return Math.max(1, Math.ceil(baseCooldown * cooldownMultiplier));
 }
 function getPlayerSkillWindupTicks(skill) {
     const windupTicks = skill?.playerCast?.windupTicks;

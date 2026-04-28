@@ -4,7 +4,16 @@
 import type {
   Attributes,
 } from './attribute-types';
-import type { BodyTrainingState, PlayerSpecialStats, TechniqueGrade, TechniqueLayerDef, TechniqueRealm, TechniqueState } from './cultivation-types';
+import type {
+  BodyTrainingState,
+  PlayerSpecialStats,
+  TechniqueAttrCurveSegment,
+  TechniqueAttrCurves,
+  TechniqueGrade,
+  TechniqueLayerDef,
+  TechniqueRealm,
+  TechniqueState,
+} from './cultivation-types';
 import type { SkillDef } from './skill-types';
 import { TechniqueRealm as TechniqueRealmEnum } from './cultivation-types';
 import type { QiProjectionModifier } from './qi';
@@ -42,6 +51,34 @@ function normalizeLayers(layers?: TechniqueLayerDef[]): TechniqueLayerDef[] {
 
   if (!layers || layers.length === 0) return [];
   return [...layers].sort((left, right) => left.level - right.level);
+}
+
+function normalizeSegments(segments?: TechniqueAttrCurveSegment[]): TechniqueAttrCurveSegment[] {
+  if (!segments || segments.length === 0) return [];
+  return [...segments].sort((left, right) => left.startLevel - right.startLevel);
+}
+
+function calcTechniqueCurveValue(level: number, segments?: TechniqueAttrCurveSegment[]): number {
+  if (level <= 0) return 0;
+  let total = 0;
+  for (const segment of normalizeSegments(segments)) {
+    if (level < segment.startLevel) continue;
+    const effectiveEnd = segment.endLevel === undefined ? level : Math.min(level, segment.endLevel);
+    if (effectiveEnd < segment.startLevel) continue;
+    total += (effectiveEnd - segment.startLevel + 1) * segment.gainPerLevel;
+  }
+  return total;
+}
+
+function calcTechniqueCurveNextGain(level: number, segments?: TechniqueAttrCurveSegment[]): number {
+  const targetLevel = Math.max(1, level + 1);
+  for (const segment of normalizeSegments(segments)) {
+    const segmentEnd = segment.endLevel ?? Number.POSITIVE_INFINITY;
+    if (targetLevel >= segment.startLevel && targetLevel <= segmentEnd) {
+      return segment.gainPerLevel;
+    }
+  }
+  return 0;
 }
 
 function cloneQiProjectionSelector(
@@ -92,12 +129,15 @@ function accumulateQiProjectionModifiers(
 }
 
 /** 获取功法最大层数 */
-export function getTechniqueMaxLevel(layers?: TechniqueLayerDef[], currentLevel = 1): number {
+export function getTechniqueMaxLevel(layers?: TechniqueLayerDef[], currentLevel = 1, legacyCurves?: TechniqueAttrCurves): number {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
   const normalized = normalizeLayers(layers);
   if (normalized.length > 0) {
     return normalized[normalized.length - 1].level;
+  }
+  if (legacyCurves && Object.keys(legacyCurves).length > 0) {
+    return Math.max(4, currentLevel);
   }
   return Math.max(1, currentLevel);
 }
@@ -138,10 +178,10 @@ export function getTechniqueGradeQiCostMultiplier(grade: TechniqueGrade | undefi
 }
 
 /** 根据当前层数推导功法境界（入门/小成/大成/圆满） */
-export function deriveTechniqueRealm(level: number, layers?: TechniqueLayerDef[]): TechniqueRealm {
+export function deriveTechniqueRealm(level: number, layers?: TechniqueLayerDef[], legacyCurves?: TechniqueAttrCurves): TechniqueRealm {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
-  const maxLevel = Math.max(1, getTechniqueMaxLevel(layers, level));
+  const maxLevel = Math.max(1, getTechniqueMaxLevel(layers, level, legacyCurves));
   if (level >= maxLevel) return TechniqueRealmEnum.Perfection;
   const progress = maxLevel <= 1 ? 1 : level / maxLevel;
   if (progress >= 0.66) return TechniqueRealmEnum.Major;
@@ -251,19 +291,28 @@ export function calcBodyTrainingAttrBonus(level: number): Partial<Attributes> {
 }
 
 /** 计算功法在指定层数时累计提供的六维属性加成 */
-export function calcTechniqueAttrValues(level: number, layers?: TechniqueLayerDef[]): Partial<Attributes> {
+export function calcTechniqueAttrValues(level: number, layers?: TechniqueLayerDef[], legacyCurves?: TechniqueAttrCurves): Partial<Attributes> {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
   const result: Partial<Attributes> = {};
   if (level <= 0) return result;
   const normalized = normalizeLayers(layers);
-  for (const layer of normalized) {
-    if (layer.level > level) break;
-    for (const key of TECHNIQUE_ATTR_KEYS) {
-      const value = layer.attrs?.[key] ?? 0;
-      if (value <= 0) continue;
-      result[key] = (result[key] ?? 0) + value;
+  if (normalized.length > 0) {
+    for (const layer of normalized) {
+      if (layer.level > level) break;
+      for (const key of TECHNIQUE_ATTR_KEYS) {
+        const value = layer.attrs?.[key] ?? 0;
+        if (value <= 0) continue;
+        result[key] = (result[key] ?? 0) + value;
+      }
     }
+    return result;
+  }
+  if (!legacyCurves) return result;
+  for (const key of TECHNIQUE_ATTR_KEYS) {
+    const value = calcTechniqueCurveValue(level, legacyCurves[key]);
+    if (value <= 0) continue;
+    result[key] = value;
   }
   return result;
 }
@@ -289,15 +338,25 @@ export function calcTechniqueSpecialStatValues(level: number, layers?: Technique
 }
 
 /** 计算下一层升级时各属性的增量 */
-export function calcTechniqueNextLevelGains(level: number, layers?: TechniqueLayerDef[]): Partial<Attributes> {
+export function calcTechniqueNextLevelGains(level: number, layers?: TechniqueLayerDef[], legacyCurves?: TechniqueAttrCurves): Partial<Attributes> {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
   const normalized = normalizeLayers(layers);
-  const nextLayer = normalized.find((entry) => entry.level === level + 1);
-  if (!nextLayer?.attrs) return {};
+  if (normalized.length > 0) {
+    const nextLayer = normalized.find((entry) => entry.level === level + 1);
+    if (!nextLayer?.attrs) return {};
+    const result: Partial<Attributes> = {};
+    for (const key of TECHNIQUE_ATTR_KEYS) {
+      const gain = nextLayer.attrs[key] ?? 0;
+      if (gain <= 0) continue;
+      result[key] = gain;
+    }
+    return result;
+  }
   const result: Partial<Attributes> = {};
+  if (!legacyCurves) return result;
   for (const key of TECHNIQUE_ATTR_KEYS) {
-    const gain = nextLayer.attrs[key] ?? 0;
+    const gain = calcTechniqueCurveNextGain(level, legacyCurves[key]);
     if (gain <= 0) continue;
     result[key] = gain;
   }
@@ -364,7 +423,7 @@ export function calcTechniqueFinalAttrBonus(techniques: readonly TechniqueState[
     for (const grade of TECHNIQUE_GRADE_ORDER) {
       const rawPool = techniques
         .filter((technique) => technique.grade === grade)
-        .map((technique) => calcTechniqueAttrValues(technique.level, technique.layers)[key] ?? 0)
+        .map((technique) => calcTechniqueAttrValues(technique.level, technique.layers, technique.attrCurves)[key] ?? 0)
         .reduce((sum, value) => sum + value, 0);
       if (rawPool <= 0) continue;
       finalValue += calcTechniqueSoftDecayedPool(

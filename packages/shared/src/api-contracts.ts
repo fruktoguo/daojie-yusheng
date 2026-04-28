@@ -16,7 +16,7 @@ import type {
 } from './mail-types';
 import type { QuestLine, QuestObjectiveType, QuestState } from './quest-types';
 import type { Suggestion } from './world-view-types';
-import type { TechniqueCategory, TechniqueGrade, TechniqueLayerDef } from './cultivation-types';
+import type { TechniqueAttrCurves, TechniqueCategory, TechniqueGrade, TechniqueLayerDef } from './cultivation-types';
 import type { ConsumableBuffDef, EquipmentEffectDef, EquipSlot, ItemStack, ItemType, TileResourceGainDef } from './item-runtime-types';
 import type { PlayerState } from './player-runtime-types';
 import type { SkillDef, TemporaryBuffState } from './skill-types';
@@ -860,7 +860,7 @@ export interface AccountRedeemCodesRes {
 }
 
 /** 数据库备份的来源类型。 */
-export type GmDatabaseBackupKind = 'hourly' | 'daily' | 'manual' | 'pre_import';
+export type GmDatabaseBackupKind = 'hourly' | 'daily' | 'manual' | 'pre_import' | 'uploaded';
 
 /** 数据库作业类型。 */
 export type GmDatabaseJobType = 'backup' | 'restore';
@@ -1090,6 +1090,20 @@ export interface GmTriggerDatabaseBackupRes {
   documentsCount?: number;
 }
 
+/** 上传数据库备份后的响应。 */
+export interface GmUploadDatabaseBackupRes {
+/**
+ * backup：已登记的备份记录。
+ */
+
+  backup: GmDatabaseBackupRecord;
+  /**
+ * scope：scope相关字段。
+ */
+
+  scope?: 'persistent_documents_only' | 'mainline_persistence';
+}
+
 /** 触发数据库恢复的请求。 */
 export interface GmRestoreDatabaseReq {
 /**
@@ -1145,6 +1159,11 @@ export interface GmEditorTechniqueOption {
  */
 
   layers?: TechniqueLayerDef[];
+  /**
+ * attrCurves：attrCurve相关字段。
+ */
+
+  attrCurves?: TechniqueAttrCurves;
 }
 
 /** GM 编辑器里的物品候选项。 */
@@ -1254,6 +1273,16 @@ export interface GmEditorItemOption {
  */
 
   alchemySpeedRate?: number;
+  /**
+ * enhancementSuccessRate：强化SuccessRate数值。
+ */
+
+  enhancementSuccessRate?: number;
+  /**
+ * enhancementSpeedRate：强化SpeedRate数值。
+ */
+
+  enhancementSpeedRate?: number;
   /**
  * mapUnlockId：地图UnlockID标识。
  */
