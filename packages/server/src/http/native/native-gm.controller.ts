@@ -113,6 +113,23 @@ interface RemoveBotsBody {
   all?: boolean;
 }
 /**
+ * GmPlayerScopeBody：可选玩家范围；为空时保持 GM 快捷操作的全员语义。
+ */
+
+
+interface GmPlayerScopeBody {
+/**
+ * playerIds：玩家ID相关字段。
+ */
+
+  playerIds?: string[];
+  /**
+ * targetPlayerIds：目标玩家ID相关字段。
+ */
+
+  targetPlayerIds?: string[];
+}
+/**
  * DirectMailBody：定义接口结构约束，明确可交付字段含义。
  */
 
@@ -670,8 +687,8 @@ export class NativeGmController {
 
 
   @Post('shortcuts/players/return-all-to-default-spawn')
-  async returnAllPlayersToDefaultSpawn() {
-    return this.nextGmPlayerService.returnAllPlayersToDefaultSpawn();
+  async returnAllPlayersToDefaultSpawn(@Body() body: GmPlayerScopeBody) {
+    return this.nextGmPlayerService.returnAllPlayersToDefaultSpawn(body ?? {});
   }  
   /**
  * cleanupAllPlayersInvalidItems：清理全部非机器人的无效物品。
@@ -680,8 +697,8 @@ export class NativeGmController {
 
 
   @Post('shortcuts/players/cleanup-invalid-items')
-  async cleanupAllPlayersInvalidItems() {
-    return this.nextGmPlayerService.cleanupAllPlayersInvalidItems();
+  async cleanupAllPlayersInvalidItems(@Body() body: GmPlayerScopeBody) {
+    return this.nextGmPlayerService.cleanupAllPlayersInvalidItems(body ?? {});
   }  
   /**
  * compensateAllPlayersCombatExp：补偿全部非机器人的战斗经验。
@@ -690,8 +707,8 @@ export class NativeGmController {
 
 
   @Post('shortcuts/compensation/combat-exp-2026-04-09')
-  async compensateAllPlayersCombatExp() {
-    return this.nextGmPlayerService.compensateAllPlayersCombatExp();
+  async compensateAllPlayersCombatExp(@Body() body: GmPlayerScopeBody) {
+    return this.nextGmPlayerService.compensateAllPlayersCombatExp(body ?? {});
   }  
   /**
  * compensateAllPlayersFoundation：补偿全部非机器人的底蕴。
@@ -700,8 +717,8 @@ export class NativeGmController {
 
 
   @Post('shortcuts/compensation/foundation-2026-04-09')
-  async compensateAllPlayersFoundation() {
-    return this.nextGmPlayerService.compensateAllPlayersFoundation();
+  async compensateAllPlayersFoundation(@Body() body: GmPlayerScopeBody) {
+    return this.nextGmPlayerService.compensateAllPlayersFoundation(body ?? {});
   }  
   /**
  * resetNetworkPerf：执行resetNetworkPerf相关逻辑。

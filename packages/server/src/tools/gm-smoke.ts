@@ -574,11 +574,11 @@ async function main() {
 /**
  * 记录httpresetGM状态。
  */
-        const httpResetGmState = await waitForGmState(gmToken, (payload) => hasGmPlayerSummary(payload, auth.playerId, (player) => {
+        const httpResetGmState = await waitForGmPlayerSummary(auth.playerId, gmToken, (player) => {
             return player.mapId === 'yunlai_town'
                 && player.autoBattle === false
                 && player.dead === false;
-        }), 8000, 'http gmResetPlayer');
+        }, 8000, 'http gmResetPlayer');
         await authedRequestJson('/api/gm/bots/spawn', {
             method: 'POST',
             token: gmToken,
@@ -693,6 +693,7 @@ async function main() {
                 fallbackTitle: `GM群邮${suffix.slice(-4)}`,
                 fallbackBody: `gm broadcast ${suffix}`,
                 attachments: [{ itemId: 'pill.minor_heal', count: 1 }],
+                playerIds: [auth.playerId],
             },
         });
 /**
@@ -843,7 +844,9 @@ async function main() {
         const returnAllPlayersResult = assertGmShortcutRunRes(await authedRequestJson('/api/gm/shortcuts/players/return-all-to-default-spawn', {
             method: 'POST',
             token: gmToken,
-            body: {},
+            body: {
+                playerIds: [auth.playerId],
+            },
         }), 'gm shortcut return-all-to-default-spawn');
 /**
  * 记录return-all后运行态。
@@ -859,7 +862,9 @@ async function main() {
         const cleanupInvalidItemsResult = assertGmShortcutRunRes(await authedRequestJson('/api/gm/shortcuts/players/cleanup-invalid-items', {
             method: 'POST',
             token: gmToken,
-            body: {},
+            body: {
+                playerIds: [auth.playerId],
+            },
         }), 'gm shortcut cleanup-invalid-items');
 /**
  * 记录战斗经验补偿前运行态。
@@ -875,7 +880,9 @@ async function main() {
         const combatExpCompensationResult = assertGmShortcutRunRes(await authedRequestJson('/api/gm/shortcuts/compensation/combat-exp-2026-04-09', {
             method: 'POST',
             token: gmToken,
-            body: {},
+            body: {
+                playerIds: [auth.playerId],
+            },
         }), 'gm shortcut compensate combat exp');
 /**
  * 记录combatexp补偿后运行态。
@@ -897,7 +904,9 @@ async function main() {
         const foundationCompensationResult = assertGmShortcutRunRes(await authedRequestJson('/api/gm/shortcuts/compensation/foundation-2026-04-09', {
             method: 'POST',
             token: gmToken,
-            body: {},
+            body: {
+                playerIds: [auth.playerId],
+            },
         }), 'gm shortcut compensate foundation');
 /**
  * 记录foundation补偿后运行态。
@@ -1856,7 +1865,7 @@ async function waitForRuntimeAndGmPlayerState(playerId, token, predicate, timeou
         await waitFor(async () => {
             const [runtimePayload, gmPayload] = await Promise.all([
                 fetchPlayerState(playerId),
-                authedGetJson('/api/gm/state', token),
+                fetchGmStateForPlayer(playerId, token),
             ]);
             assertGmStateShape(gmPayload, label);
 /**
@@ -1887,6 +1896,55 @@ async function waitForRuntimeAndGmPlayerState(playerId, token, predicate, timeou
     }
     catch (error) {
         if (error instanceof Error && `${error.message}`.includes(`${label} timeout`) && lastObserved) {
+            throw new Error(`${label} timeout; lastObserved=${JSON.stringify(lastObserved)}`);
+        }
+        throw error;
+    }
+    return resolved;
+}
+/**
+ * 按玩家过滤 GM 状态，避免旧库玩家过多时目标玩家落到默认分页之外。
+ */
+async function fetchGmStateForPlayer(playerId, token) {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
+    return authedGetJson(`/api/gm/state?page=1&pageSize=5&keyword=${encodeURIComponent(playerId)}`, token);
+}
+/**
+ * 等待玩家级 GM 摘要收敛。
+ */
+async function waitForGmPlayerSummary(playerId, token, predicate, timeoutMs, label) {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
+/**
+ * 记录resolved。
+ */
+    let resolved = null;
+/**
+ * 记录最后观测。
+ */
+    let lastObserved = null;
+    try {
+        await waitFor(async () => {
+/**
+ * 记录payload。
+ */
+            const payload = await fetchGmStateForPlayer(playerId, token);
+            assertGmStateShape(payload, label);
+/**
+ * 记录summary。
+ */
+            const summary = summarizeGmPlayer(payload, playerId);
+            lastObserved = summary ? summarizeObservedGmPlayer(summary) : null;
+            if (!summary || !(await predicate(summary, payload))) {
+                return false;
+            }
+            resolved = payload;
+            return true;
+        }, timeoutMs, label);
+    }
+    catch (error) {
+        if (error instanceof Error && `${error.message}`.includes(`${label} timeout`)) {
             throw new Error(`${label} timeout; lastObserved=${JSON.stringify(lastObserved)}`);
         }
         throw error;

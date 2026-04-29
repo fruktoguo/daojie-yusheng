@@ -115,8 +115,12 @@ export class NativeGmMailService {
 
     const deliveredMailIds: string[] = [];
     const batchId = `broadcast:${Date.now().toString(36)}`;
+    const scopedPlayerIds = this.normalizePlayerIdScope(input);
+    const recipientPlayerIds = scopedPlayerIds.length > 0
+      ? scopedPlayerIds
+      : await this.collectBroadcastRecipientPlayerIds();
 
-    for (const playerId of await this.collectBroadcastRecipientPlayerIds()) {
+    for (const playerId of recipientPlayerIds) {
       deliveredMailIds.push(await this.mailRuntimeService.createDirectMail(playerId, input ?? {}));
     }
 
@@ -125,5 +129,27 @@ export class NativeGmMailService {
       batchId,
       recipientCount: deliveredMailIds.length,
     };
+  }
+
+  private normalizePlayerIdScope(input: unknown): string[] {
+    const source = typeof input === 'object' && input !== null
+      ? ((input as { playerIds?: unknown; targetPlayerIds?: unknown }).playerIds
+        ?? (input as { playerIds?: unknown; targetPlayerIds?: unknown }).targetPlayerIds)
+      : null;
+    if (!Array.isArray(source)) {
+      return [];
+    }
+
+    const seen = new Set<string>();
+    const normalized: string[] = [];
+    for (const raw of source) {
+      const playerId = typeof raw === 'string' ? raw.trim() : '';
+      if (!playerId || seen.has(playerId) || isNativeGmBotPlayerId(playerId)) {
+        continue;
+      }
+      seen.add(playerId);
+      normalized.push(playerId);
+    }
+    return normalized;
   }
 }

@@ -98,6 +98,15 @@ interface PersistedPlayerEntryLike {
   snapshot: any;
 }
 /**
+ * GmPlayerScopeOptions：限定 GM 快捷操作的目标玩家；为空时保持全员语义。
+ */
+
+
+interface GmPlayerScopeOptions {
+  playerIds?: unknown;
+  targetPlayerIds?: unknown;
+}
+/**
  * PlayerDomainPersistenceServiceLike：定义接口结构约束，明确可交付字段含义。
  */
 
@@ -537,18 +546,23 @@ export class NativeGmPlayerService {
  */
 
 
-  async returnAllPlayersToDefaultSpawn() {
+  async returnAllPlayersToDefaultSpawn(options?: GmPlayerScopeOptions) {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
     const template = this.mapTemplateRepository.getOrThrow('yunlai_town');
+    const scopedPlayerIds = this.normalizePlayerIdScope(options);
+    const scopedPlayerIdSet = scopedPlayerIds.length > 0 ? new Set(scopedPlayerIds) : null;
 
     const runtimePlayers = this.playerRuntimeService
       .listPlayerSnapshots()
-      .filter((entry) => !isNativeGmBotPlayerId(entry.playerId));
+      .filter((entry) => !isNativeGmBotPlayerId(entry.playerId)
+        && (!scopedPlayerIdSet || scopedPlayerIdSet.has(entry.playerId)));
 
     const runtimePlayerIds = new Set(runtimePlayers.map((entry) => entry.playerId));
 
-    const persistedEntries = await this.listPlayerPersistenceSnapshots();
+    const persistedEntries = scopedPlayerIds.length > 0
+      ? await this.listScopedOfflinePlayerPersistenceSnapshots(scopedPlayerIds, runtimePlayerIds)
+      : await this.listPlayerPersistenceSnapshots();
     for (const runtime of runtimePlayers) {
       this.worldRuntimeService.worldRuntimeCommandIntakeFacadeService.enqueueGmResetPlayer(runtime.playerId);
     }
@@ -590,10 +604,13 @@ export class NativeGmPlayerService {
  */
 
 
-  async cleanupAllPlayersInvalidItems() {
+  async cleanupAllPlayersInvalidItems(options?: GmPlayerScopeOptions) {
+    const scopedPlayerIds = this.normalizePlayerIdScope(options);
+    const scopedPlayerIdSet = scopedPlayerIds.length > 0 ? new Set(scopedPlayerIds) : null;
     const runtimePlayers = this.playerRuntimeService
       .listPlayerSnapshots()
-      .filter((entry) => !isNativeGmBotPlayerId(entry.playerId));
+      .filter((entry) => !isNativeGmBotPlayerId(entry.playerId)
+        && (!scopedPlayerIdSet || scopedPlayerIdSet.has(entry.playerId)));
     const runtimePlayerIds = new Set(runtimePlayers.map((entry) => entry.playerId));
 
     let queuedRuntimePlayers = 0;
@@ -621,7 +638,9 @@ export class NativeGmPlayerService {
       totalInvalidEquipmentRemoved += summary.equipmentRemoved;
     }
 
-    const persistedEntries = await this.listPlayerPersistenceSnapshots();
+    const persistedEntries = scopedPlayerIds.length > 0
+      ? await this.listScopedOfflinePlayerPersistenceSnapshots(scopedPlayerIds, runtimePlayerIds)
+      : await this.listPlayerPersistenceSnapshots();
     for (const entry of persistedEntries) {
       if (runtimePlayerIds.has(entry.playerId) || isNativeGmBotPlayerId(entry.playerId)) {
         continue;
@@ -661,10 +680,13 @@ export class NativeGmPlayerService {
  */
 
 
-  async compensateAllPlayersCombatExp() {
+  async compensateAllPlayersCombatExp(options?: GmPlayerScopeOptions) {
+    const scopedPlayerIds = this.normalizePlayerIdScope(options);
+    const scopedPlayerIdSet = scopedPlayerIds.length > 0 ? new Set(scopedPlayerIds) : null;
     const runtimePlayers = this.playerRuntimeService
       .listPlayerSnapshots()
-      .filter((entry) => !isNativeGmBotPlayerId(entry.playerId));
+      .filter((entry) => !isNativeGmBotPlayerId(entry.playerId)
+        && (!scopedPlayerIdSet || scopedPlayerIdSet.has(entry.playerId)));
     const runtimePlayerIds = new Set(runtimePlayers.map((entry) => entry.playerId));
 
     let queuedRuntimePlayers = 0;
@@ -689,7 +711,9 @@ export class NativeGmPlayerService {
       totalCombatExpGranted += amount;
     }
 
-    const persistedEntries = await this.listPlayerPersistenceSnapshots();
+    const persistedEntries = scopedPlayerIds.length > 0
+      ? await this.listScopedOfflinePlayerPersistenceSnapshots(scopedPlayerIds, runtimePlayerIds)
+      : await this.listPlayerPersistenceSnapshots();
     for (const entry of persistedEntries) {
       if (runtimePlayerIds.has(entry.playerId) || isNativeGmBotPlayerId(entry.playerId)) {
         continue;
@@ -726,10 +750,13 @@ export class NativeGmPlayerService {
  */
 
 
-  async compensateAllPlayersFoundation() {
+  async compensateAllPlayersFoundation(options?: GmPlayerScopeOptions) {
+    const scopedPlayerIds = this.normalizePlayerIdScope(options);
+    const scopedPlayerIdSet = scopedPlayerIds.length > 0 ? new Set(scopedPlayerIds) : null;
     const runtimePlayers = this.playerRuntimeService
       .listPlayerSnapshots()
-      .filter((entry) => !isNativeGmBotPlayerId(entry.playerId));
+      .filter((entry) => !isNativeGmBotPlayerId(entry.playerId)
+        && (!scopedPlayerIdSet || scopedPlayerIdSet.has(entry.playerId)));
     const runtimePlayerIds = new Set(runtimePlayers.map((entry) => entry.playerId));
 
     let queuedRuntimePlayers = 0;
@@ -754,7 +781,9 @@ export class NativeGmPlayerService {
       totalFoundationGranted += amount;
     }
 
-    const persistedEntries = await this.listPlayerPersistenceSnapshots();
+    const persistedEntries = scopedPlayerIds.length > 0
+      ? await this.listScopedOfflinePlayerPersistenceSnapshots(scopedPlayerIds, runtimePlayerIds)
+      : await this.listPlayerPersistenceSnapshots();
     for (const entry of persistedEntries) {
       if (runtimePlayerIds.has(entry.playerId) || isNativeGmBotPlayerId(entry.playerId)) {
         continue;
@@ -1240,6 +1269,43 @@ export class NativeGmPlayerService {
     return this.playerDomainPersistenceService.listProjectedSnapshots(
       (targetPlayerId) => this.buildStarterPersistenceSnapshot(targetPlayerId),
     );
+  }
+
+  private async listScopedOfflinePlayerPersistenceSnapshots(
+    playerIds: string[],
+    runtimePlayerIds: Set<string>,
+  ): Promise<PersistedPlayerEntryLike[]> {
+    const entries: PersistedPlayerEntryLike[] = [];
+    for (const playerId of playerIds) {
+      if (runtimePlayerIds.has(playerId) || isNativeGmBotPlayerId(playerId)) {
+        continue;
+      }
+      const snapshot = await this.loadPlayerPersistenceSnapshot(playerId);
+      if (!snapshot) {
+        continue;
+      }
+      entries.push({ playerId, snapshot });
+    }
+    return entries;
+  }
+
+  private normalizePlayerIdScope(options?: GmPlayerScopeOptions): string[] {
+    const source = Array.isArray(options?.playerIds)
+      ? options?.playerIds
+      : Array.isArray(options?.targetPlayerIds)
+        ? options?.targetPlayerIds
+        : [];
+    const seen = new Set<string>();
+    const normalized: string[] = [];
+    for (const raw of source) {
+      const playerId = typeof raw === 'string' ? raw.trim() : '';
+      if (!playerId || seen.has(playerId) || isNativeGmBotPlayerId(playerId)) {
+        continue;
+      }
+      seen.add(playerId);
+      normalized.push(playerId);
+    }
+    return normalized;
   }
   /**
  * mutateManagedPlayer：统一处理玩家快照的持久化与运行态回写。

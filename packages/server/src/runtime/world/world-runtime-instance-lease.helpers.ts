@@ -437,6 +437,15 @@ export async function claimRecoverableCatalogInstances(runtime) {
     if (!instanceId || !templateId || runtime.getInstanceRuntime(instanceId)) {
       continue;
     }
+    if (typeof runtime.templateRepository?.has === 'function'
+      && !runtime.templateRepository.has(templateId)
+      && typeof runtime.worldRuntimeSectService?.restoreCatalogSectTemplate === 'function') {
+      runtime.worldRuntimeSectService.restoreCatalogSectTemplate(entry, runtime);
+    }
+    if (typeof runtime.templateRepository?.has === 'function' && !runtime.templateRepository.has(templateId)) {
+      runtime.logger.warn(`实例目录引用的地图模板不存在，跳过 lease 接管：${instanceId} -> ${templateId}`);
+      continue;
+    }
     const leaseToken = `${nodeId}:${instanceId}:${Date.now()}:${Math.random().toString(36).slice(2, 10)}`;
     const leaseExpireAt = new Date(Date.now() + INSTANCE_LEASE_TTL_MS);
     const claim = await runtime.instanceCatalogService.claimInstanceLease({

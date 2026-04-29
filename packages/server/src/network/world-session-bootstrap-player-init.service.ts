@@ -5,6 +5,7 @@ import { PlayerSessionRouteService } from '../persistence/player-session-route.s
 import { type PersistedPlayerSnapshot } from '../persistence/player-persistence.service';
 import { MailRuntimeService } from '../runtime/mail/mail-runtime.service';
 import { PlayerRuntimeService } from '../runtime/player/player-runtime.service';
+import { recordAuthTrace } from './world-player-token.service';
 import { WorldSessionRecoveryQueueService } from './world-session-recovery-queue.service';
 
 interface BootstrapRuntimePlayer {
@@ -80,6 +81,10 @@ export class WorldSessionBootstrapPlayerInitService {
         displayName?: string | null;
         loadSnapshot: () => Promise<PersistedPlayerSnapshot | null>;
         forceRuntimeSessionRebind?: boolean;
+        onSnapshotContextResolved?: (context: {
+            source: string | null;
+            persistedSource: string | null;
+        }) => void;
     }): Promise<BootstrapRuntimePlayer> {
         if (!this.playerRuntimeService) {
             throw new Error('bootstrap_player_runtime_service_unavailable');
@@ -95,9 +100,11 @@ export class WorldSessionBootstrapPlayerInitService {
             ? (playerId: string) => this.playerRuntimeService!.buildStarterPersistenceSnapshot!(playerId)
             : null;
         let loadedSnapshot: PersistedPlayerSnapshot | null = null;
+        let snapshotLoadedThroughBootstrapLoader = false;
         const loadSnapshot = async () => {
             const snapshot = await input.loadSnapshot();
             loadedSnapshot = snapshot;
+            snapshotLoadedThroughBootstrapLoader = true;
             return snapshot;
         };
         let player: BootstrapRuntimePlayer;
@@ -121,6 +128,26 @@ export class WorldSessionBootstrapPlayerInitService {
             }
             this.logger.warn(`bootstrap 恢复超时，硬切模式拒绝旧快照或出生点兜底：playerId=${input.playerId}`);
             throw new ServiceUnavailableException(`bootstrap_recovery_timeout:${input.playerId}`);
+        }
+        const projectionLoadedSnapshot = Boolean(
+            loadedSnapshot
+            && !snapshotLoadedThroughBootstrapLoader
+            && typeof this.playerDomainPersistenceService?.isEnabled === 'function'
+            && this.playerDomainPersistenceService.isEnabled(),
+        );
+        if (projectionLoadedSnapshot) {
+            recordAuthTrace({
+                type: 'snapshot',
+                playerId: input.playerId,
+                source: 'mainline',
+                persistedSource: 'native',
+                fallbackReason: 'player_domain_projection',
+                fallbackHit: true,
+            });
+            input.onSnapshotContextResolved?.({
+                source: 'mainline',
+                persistedSource: 'native',
+            });
         }
         this.playerRuntimeService.setIdentity(input.playerId, {
             name: input.name,

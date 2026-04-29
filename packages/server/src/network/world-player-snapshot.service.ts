@@ -45,11 +45,41 @@ interface PlayerRuntimeSnapshotPort {
 
 interface PlayerDomainSnapshotPort {
   isEnabled(): boolean;
+  savePlayerSnapshotProjectionDomains(
+    playerId: string,
+    snapshot: PersistedPlayerSnapshot | null | undefined,
+    domains: Iterable<string>,
+  ): Promise<void>;
   loadProjectedSnapshot(
     playerId: string,
     buildStarterSnapshot: (playerId: string) => PersistedPlayerSnapshot | null,
   ): Promise<PersistedPlayerSnapshot | null>;
 }
+
+const NATIVE_STARTER_PROJECTION_DOMAINS = Object.freeze([
+  'world_anchor',
+  'position_checkpoint',
+  'vitals',
+  'progression',
+  'attr',
+  'wallet',
+  'market_storage',
+  'inventory',
+  'map_unlock',
+  'equipment',
+  'technique',
+  'body_training',
+  'buff',
+  'quest',
+  'combat_pref',
+  'auto_battle_skill',
+  'auto_use_item_rule',
+  'profession',
+  'alchemy_preset',
+  'active_job',
+  'enhancement_record',
+  'logbook',
+] as const);
 
 function normalizeSnapshotPersistedSource(persistedSource: unknown): SnapshotPersistedSource | null {
   const normalizedPersistedSource = typeof persistedSource === 'string'
@@ -80,6 +110,16 @@ export class WorldPlayerSnapshotService {
       && this.playerDomainPersistenceService.isEnabled();
   }
 
+  private canLoadProjectedSnapshot(): boolean {
+    return this.isPersistenceEnabled()
+      && typeof this.playerDomainPersistenceService?.loadProjectedSnapshot === 'function';
+  }
+
+  private canSaveProjectedSnapshot(): boolean {
+    return this.canLoadProjectedSnapshot()
+      && typeof this.playerDomainPersistenceService?.savePlayerSnapshotProjectionDomains === 'function';
+  }
+
   async loadPersistedPlayerSnapshotRecord(playerId: string): Promise<PersistedPlayerSnapshotRecord | null> {
     void playerId;
     return null;
@@ -87,19 +127,72 @@ export class WorldPlayerSnapshotService {
 
   async ensureNativeStarterSnapshot(playerId: string): Promise<NativeStarterSnapshotResult> {
     const normalizedPlayerId = typeof playerId === 'string' ? playerId.trim() : '';
-    this.logger.warn(`硬切模式拒绝原生快照补种：playerId=${normalizedPlayerId || '未知'}`);
-    return {
-      ok: false,
-      failureStage: 'native_snapshot_recovery_persistence_disabled',
-    };
+    if (!normalizedPlayerId) {
+      return {
+        ok: false,
+        failureStage: 'native_snapshot_recovery_build_failed',
+      };
+    }
+
+    if (!this.canSaveProjectedSnapshot()) {
+      return {
+        ok: false,
+        failureStage: 'native_snapshot_recovery_persistence_disabled',
+      };
+    }
+
+    const existingSnapshot = await this.playerDomainPersistenceService!.loadProjectedSnapshot(
+      normalizedPlayerId,
+      (targetPlayerId) => this.playerRuntimeService.buildStarterPersistenceSnapshot(targetPlayerId),
+    ).catch((error: unknown) => {
+      this.logger.warn(`原生新手分域快照读取失败：playerId=${normalizedPlayerId} error=${error instanceof Error ? error.message : String(error)}`);
+      return null;
+    });
+    if (existingSnapshot) {
+      return {
+        ok: true,
+        seeded: false,
+        snapshot: existingSnapshot,
+        persistedSource: 'native',
+      };
+    }
+
+    const starterSnapshot = this.playerRuntimeService.buildStarterPersistenceSnapshot(normalizedPlayerId);
+    if (!starterSnapshot) {
+      this.logger.warn(`原生新手分域快照构建失败：playerId=${normalizedPlayerId}`);
+      return {
+        ok: false,
+        failureStage: 'native_snapshot_recovery_build_failed',
+      };
+    }
+
+    try {
+      await this.playerDomainPersistenceService!.savePlayerSnapshotProjectionDomains(
+        normalizedPlayerId,
+        starterSnapshot,
+        NATIVE_STARTER_PROJECTION_DOMAINS,
+      );
+      this.logger.debug(`原生新手分域快照已补种：playerId=${normalizedPlayerId}`);
+      return {
+        ok: true,
+        seeded: true,
+        snapshot: starterSnapshot,
+        persistedSource: 'native',
+      };
+    } catch (error: unknown) {
+      this.logger.warn(`原生新手分域快照补种失败：playerId=${normalizedPlayerId} error=${error instanceof Error ? error.message : String(error)}`);
+      return {
+        ok: false,
+        failureStage: 'native_snapshot_recovery_seed_failed',
+      };
+    }
   }
 
   async loadPlayerSnapshotResult(
     playerId: string,
     fallbackReason: string | null = null,
   ): Promise<LoadPlayerSnapshotResult> {
-    if (typeof this.playerDomainPersistenceService?.isEnabled === 'function'
-      && this.playerDomainPersistenceService.isEnabled()) {
+    if (this.canLoadProjectedSnapshot()) {
       const projectedSnapshot = await this.playerDomainPersistenceService.loadProjectedSnapshot(
         playerId,
         (targetPlayerId) => this.playerRuntimeService.buildStarterPersistenceSnapshot(targetPlayerId),

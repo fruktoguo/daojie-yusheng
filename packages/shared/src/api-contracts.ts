@@ -1542,6 +1542,20 @@ export interface GmRemoveBotsReq {
   all?: boolean;
 }
 
+/** GM 快捷操作可选玩家范围；为空时由服务端按全员操作处理。 */
+export interface GmShortcutScopeReq {
+/**
+ * playerIds：玩家ID相关字段。
+ */
+
+  playerIds?: string[];
+  /**
+ * targetPlayerIds：目标玩家ID相关字段。
+ */
+
+  targetPlayerIds?: string[];
+}
+
 /** GM 快捷执行结果。 */
 export interface GmShortcutRunRes {
 /**
@@ -3027,8 +3041,19 @@ export interface GmResetPerfRes {
   ok: true;
 }
 
-/** GM 广播邮件请求，当前与通用邮件内容请求保持一致。 */
-export interface GmBroadcastMailReq extends GmCreateMailReq {}
+/** GM 广播邮件请求；可选玩家范围为空时按全员邮件处理。 */
+export interface GmBroadcastMailReq extends GmCreateMailReq {
+/**
+ * playerIds：玩家ID相关字段。
+ */
+
+  playerIds?: string[];
+  /**
+ * targetPlayerIds：目标玩家ID相关字段。
+ */
+
+  targetPlayerIds?: string[];
+}
 
 /** GM 给单个玩家发邮件请求。 */
 export interface GmSendPlayerMailReq extends GmCreateMailReq {

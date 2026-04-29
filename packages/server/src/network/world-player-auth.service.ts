@@ -167,7 +167,7 @@ interface PlayerIdentityPersistencePort {
 }
 
 interface NativePlayerAuthStorePort {
-  findUserById(userId: string): Promise<{
+  findUserById?(userId: string): Promise<{
     bannedAt?: string | null;
     banReason?: string | null;
   } | null>;
@@ -624,7 +624,11 @@ export class WorldPlayerAuthService {
   }
 
   private async isBannedAccountPayload(payload: ValidatedPlayerTokenPayload): Promise<boolean> {
-    if (!this.nativePlayerAuthStore || typeof payload.sub !== 'string') {
+    if (
+      !this.nativePlayerAuthStore
+      || typeof this.nativePlayerAuthStore.findUserById !== 'function'
+      || typeof payload.sub !== 'string'
+    ) {
       return false;
     }
     const user = await this.nativePlayerAuthStore.findUserById(payload.sub);

@@ -346,6 +346,10 @@ export class WorldSessionBootstrapService {
         displayName?: string | null;
         loadSnapshot: () => Promise<PersistedPlayerSnapshot | null>;
         forceRuntimeSessionRebind?: boolean;
+        onSnapshotContextResolved?: (context: {
+            source: string | null;
+            persistedSource: string | null;
+        }) => void;
     }) {
         return this.playerInitBootstrapService.initializeBootstrapPlayer(input);
     }
@@ -415,6 +419,9 @@ export class WorldSessionBootstrapService {
             name: input.name,
             displayName: input.displayName,
             loadSnapshot: input.loadSnapshot,
+            onSnapshotContextResolved: (context) => {
+                this.rememberBootstrapSnapshotContext(client, context.source, context.persistedSource);
+            },
         });
         const bindingSessionEpoch = Number(this.playerRuntimeService.describePersistencePresence?.(binding.playerId)?.sessionEpoch ?? 0);
         if (Number.isFinite(bindingSessionEpoch) && bindingSessionEpoch > 0) {
