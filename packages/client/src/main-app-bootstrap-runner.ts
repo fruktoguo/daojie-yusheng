@@ -1,0 +1,56 @@
+import { bootstrapMainApp } from './main-bootstrap-assembly';
+/**
+ * runMainAppBootstrap：执行runMainApp引导相关逻辑。
+ * @param context ReturnType<typeof import('./main-app-runtime-context').createMainAppRuntimeContext> 上下文信息。
+ * @returns 无返回值，直接更新runMainAppBootstrap相关状态。
+ */
+
+
+export function runMainAppBootstrap(context: ReturnType<typeof import('./main-app-runtime-context').createMainAppRuntimeContext>): void {
+  bootstrapMainApp({
+    windowRef: context.windowRef,
+    documentRef: context.documentRef,
+    canvasHost: context.canvasHost,
+    joinQqGroupBtns: context.joinQqGroupBtns,
+    observeModalEl: context.observeModalEl,
+    observeModalShellEl: context.observeModalShellEl,
+    qqGroupNumber: context.qqGroupNumber,
+    qqGroupMobileDeepLink: context.qqGroupMobileDeepLink,
+    qqGroupDesktopDeepLink: context.qqGroupDesktopDeepLink,
+    initialMapPerformanceConfig: context.initialMapPerformanceConfig,
+    runtimeMonitorSource: context.runtimeMonitorSource,
+    panelRuntimeSource: context.panelRuntimeSource,
+    mapRuntimeBridgeSource: context.mapRuntimeBridgeSource,
+    breakthroughStateSource: context.breakthroughStateSource,
+    uiStateSource: context.uiStateSource,
+    attrDetailStateSource: context.attrDetailStateSource,
+    targetingStateSource: context.targetingStateSource,
+    getPlayer: () => context.rootRuntimeSource.getPlayer(),
+    runtimeStateSource: context.runtimeStateSource,
+    detailStateSource: context.detailStateSource,
+    suggestionStateSource: context.suggestionStateSource,
+    mailStateSource: context.mailStateSource,
+    settingsStateSource: context.settingsStateSource,
+    marketStateSource: context.marketStateSource,
+    noticeStateSource: context.noticeStateSource,
+    connectionStateSource: context.connectionStateSource,
+    sidePanel: context.sidePanel,
+    chatUI: context.chatUI,
+    bodyTrainingPanel: context.bodyTrainingPanel,
+    hud: context.hud,
+    lootPanel: context.lootPanel,
+    equipmentPanel: context.equipmentPanel,
+    npcShopModal: context.npcShopModal,
+    craftWorkbenchModal: context.craftWorkbenchModal,
+    debugPanel: context.debugPanel,
+    mapRuntime: context.mapRuntime,
+    socket: context.socket,
+    runtimeSender: context.runtimeSender,
+    panelSender: context.panelSender,
+    socialEconomySender: context.socialEconomySender,
+    adminSender: context.adminSender,
+    loginUI: context.loginUI,
+    showToast: context.showToast,
+    syncTargetingOverlay: context.syncTargetingOverlay,
+  });
+}

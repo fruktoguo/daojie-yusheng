@@ -1,10 +1,12 @@
-/** trimTrailingZeros：执行对应的业务逻辑。 */
+/** 去掉小数末尾多余的 0。 */
 function trimTrailingZeros(text: string): string {
   return text.replace(/\.?0+$/, '');
 }
 
-/** formatPlainNumber：执行对应的业务逻辑。 */
+/** 按固定精度输出普通数值。 */
 function formatPlainNumber(value: number, maximumFractionDigits: number): string {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
   if (!Number.isFinite(value)) {
     return '0';
   }
@@ -14,15 +16,29 @@ function formatPlainNumber(value: number, maximumFractionDigits: number): string
   return trimTrailingZeros(value.toFixed(maximumFractionDigits));
 }
 
-/** DisplayNumberOptions：定义该接口的能力与字段约束。 */
+/** 数字显示格式选项。 */
 export interface DisplayNumberOptions {
-  maximumFractionDigits?: number;
-  compactThreshold?: number;
+/**
+ * maximumFractionDigits：maximumFractionDigit相关字段。
+ */
+
+  maximumFractionDigits?: number;  
+  /**
+ * compactThreshold：compact阈值相关字段。
+ */
+
+  compactThreshold?: number;  
+  /**
+ * compactMaximumFractionDigits：compactMaximumFractionDigit相关字段。
+ */
+
   compactMaximumFractionDigits?: number;
 }
 
-/** formatDisplayNumber：执行对应的业务逻辑。 */
+/** 格式化需要展示给玩家的数值。 */
 export function formatDisplayNumber(value: number, options: DisplayNumberOptions = {}): string {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
   if (!Number.isFinite(value)) {
     return '0';
   }
@@ -31,9 +47,7 @@ export function formatDisplayNumber(value: number, options: DisplayNumberOptions
     compactThreshold = 10_000,
     compactMaximumFractionDigits = 1,
   } = options;
-/** absValue：定义该变量以承载业务值。 */
   const absValue = Math.abs(value);
-/** sign：定义该变量以承载业务值。 */
   const sign = value < 0 ? '-' : '';
   if (absValue < compactThreshold) {
     return `${sign}${formatPlainNumber(absValue, maximumFractionDigits)}`;
@@ -44,7 +58,7 @@ export function formatDisplayNumber(value: number, options: DisplayNumberOptions
   return `${sign}${formatPlainNumber(absValue / 10_000, compactMaximumFractionDigits)}万`;
 }
 
-/** formatDisplayInteger：执行对应的业务逻辑。 */
+/** 格式化整数显示。 */
 export function formatDisplayInteger(value: number, options: Omit<DisplayNumberOptions, 'maximumFractionDigits'> = {}): string {
   return formatDisplayNumber(Math.round(value), {
     ...options,
@@ -52,36 +66,23 @@ export function formatDisplayInteger(value: number, options: Omit<DisplayNumberO
   });
 }
 
-/** formatDisplaySignedNumber：执行对应的业务逻辑。 */
+/** 格式化带正负号的数值。 */
 export function formatDisplaySignedNumber(value: number, options: DisplayNumberOptions = {}): string {
-/** sign：定义该变量以承载业务值。 */
   const sign = value >= 0 ? '+' : '-';
   return `${sign}${formatDisplayNumber(Math.abs(value), options)}`;
 }
 
-/** formatDisplayPercent：执行对应的业务逻辑。 */
+/** 格式化百分比。 */
 export function formatDisplayPercent(value: number, options: DisplayNumberOptions = {}): string {
   return `${formatDisplayNumber(value, options)}%`;
 }
 
-/** formatAdaptiveRatePercent：按数值区间动态切换百分比显示精度。 */
-export function formatAdaptiveRatePercent(value: number): string {
-  if (!Number.isFinite(value)) {
-    return '0%';
-  }
-/** absValue：定义该变量以承载业务值。 */
-  const absValue = Math.abs(value);
-/** maximumFractionDigits：定义该变量以承载业务值。 */
-  const maximumFractionDigits = absValue < 10 ? 2 : absValue < 100 ? 1 : 0;
-  return formatDisplayPercent(value, { maximumFractionDigits });
-}
-
-/** formatDisplayCurrentMax：执行对应的业务逻辑。 */
+/** 格式化“当前 / 最大值”。 */
 export function formatDisplayCurrentMax(current: number, max: number): string {
   return `${formatDisplayInteger(current)} / ${formatDisplayInteger(max)}`;
 }
 
-/** formatDisplayCountBadge：执行对应的业务逻辑。 */
+/** 格式化数量角标。 */
 export function formatDisplayCountBadge(count: number): string {
   return `x${formatDisplayInteger(count)}`;
 }

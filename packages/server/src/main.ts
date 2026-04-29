@@ -1,102 +1,264 @@
-/**
- * 服务端入口 —— 创建 NestJS 应用、挂载 HTTP 流量统计中间件并启动监听
- */
 import { NestFactory } from '@nestjs/core';
+import { spawnSync } from 'node:child_process';
+import { readFileSync } from 'node:fs';
+
 import { AppModule } from './app.module';
-import { SERVER_PORT } from '@mud/shared';
-import { PerformanceService } from './game/performance.service';
+import { resolveServerCorsOptions } from './config/server-cors';
 import { DateConsoleLogger } from './logging/date-console-logger';
 
-/** 计算数据块的字节长度，用于网络流量统计 */
-function getByteLength(chunk: unknown, encoding?: BufferEncoding): number {
-  if (chunk === undefined || chunk === null) {
-    return 0;
-  }
-  if (typeof chunk === 'string') {
-    return Buffer.byteLength(chunk, encoding);
-  }
-  if (Buffer.isBuffer(chunk)) {
-    return chunk.length;
-  }
-  if (chunk instanceof Uint8Array) {
-    return chunk.byteLength;
-  }
-  return Buffer.byteLength(String(chunk));
+/** 端口冲突诊断最多采样次数。 */
+const PORT_CONFLICT_SAMPLE_ATTEMPTS = 12;
+
+/** 端口冲突诊断采样间隔。 */
+const PORT_CONFLICT_SAMPLE_INTERVAL_MS = 100;
+/**
+ * PortRange：定义接口结构约束，明确可交付字段含义。
+ */
+
+
+interface PortRange {
+/**
+ * start：start相关字段。
+ */
+
+  start: number;  
+  /**
+ * end：end相关字段。
+ */
+
+  end: number;  
+  /**
+ * managed：managed相关字段。
+ */
+
+  managed: boolean;
+}
+/**
+ * PortConflictSample：定义接口结构约束，明确可交付字段含义。
+ */
+
+
+interface PortConflictSample {
+/**
+ * lsofOutput：lsof输出相关字段。
+ */
+
+  lsofOutput: string;  
+  /**
+ * ssOutput：ss输出相关字段。
+ */
+
+  ssOutput: string;  
+  /**
+ * fuserOutput：fuser输出相关字段。
+ */
+
+  fuserOutput: string;  
+  /**
+ * text：text名称或显示文本。
+ */
+
+  text: string;
 }
 
-/** 从请求头解析 Content-Length */
-function parseContentLengthHeader(value: unknown): number {
-/** raw：定义该变量以承载业务值。 */
-  const raw = Array.isArray(value) ? value[0] : value;
-/** parsed：定义该变量以承载业务值。 */
-  const parsed = Number(raw);
-  return Number.isFinite(parsed) && parsed > 0 ? Math.floor(parsed) : 0;
+/** 执行一条命令并返回标准化文本，供端口冲突诊断复用。 */
+function readCommandOutput(command: string, args: string[]): string {
+  try {
+    const result = spawnSync(command, args, {
+      encoding: 'utf8',
+      stdio: ['ignore', 'pipe', 'pipe'],
+    });
+
+    const stdout = typeof result.stdout === 'string' ? result.stdout.trim() : '';
+    const stderr = typeof result.stderr === 'string' ? result.stderr.trim() : '';
+
+    if (stdout) {
+      return stdout;
+    }
+
+    if (stderr) {
+      return `[stderr] ${stderr}`;
+    }
+
+    if (typeof result.status === 'number') {
+      return `[exit ${result.status}] no output`;
+    }
+
+    return '[no output]';
+  } catch (error) {
+    return `[failed] ${error instanceof Error ? error.message : String(error)}`;
+  }
 }
 
-/** 将动态路径参数归一化，避免指标标签爆炸 */
-function normalizeHttpMetricPath(path: string): string {
-  return path
-    .replace(/\/gm\/players\/[^/]+$/u, '/gm/players/:playerId')
-    .replace(/\/gm\/maps\/[^/]+$/u, '/gm/maps/:mapId');
+/** 非阻塞 sleep，用于端口探测间隔。 */
+function sleep(ms: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
-/** 构建 HTTP 请求的性能指标标签 */
-function buildHttpMetricLabel(req: { method?: string; path?: string; originalUrl?: string; url?: string }): string {
-/** method：定义该变量以承载业务值。 */
-  const method = (req.method ?? 'GET').toUpperCase();
-/** rawPath：定义该变量以承载业务值。 */
-  const rawPath = req.path
-    ?? req.originalUrl?.split('?')[0]
-    ?? req.url?.split('?')[0]
-    ?? '/unknown';
-  return `HTTP ${method} ${normalizeHttpMetricPath(rawPath)}`;
+/** 判定当前进程是否运行在 WSL 环境（用于排除 Windows 端口保留误报）。 */
+function isLikelyWsl(): boolean {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
+  if (process.platform !== 'linux') {
+    return false;
+  }
+
+  if (process.env.WSL_INTEROP || process.env.WSL_DISTRO_NAME) {
+    return true;
+  }
+
+  try {
+    const version = readFileSync('/proc/version', 'utf8');
+    return /microsoft/i.test(version);
+  } catch {
+    return false;
+  }
 }
 
-/** bootstrap：执行对应的业务逻辑。 */
-async function bootstrap() {
-/** logger：定义该变量以承载业务值。 */
+/** 读取 Windows 下被系统排除的 TCP 端口段，支持 WSL 场景提示。 */
+function readWindowsExcludedPortRanges(): PortRange[] {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
+  if (!isLikelyWsl()) {
+    return [];
+  }
+
+  const output = readCommandOutput('cmd.exe', ['/c', 'netsh interface ipv4 show excludedportrange protocol=tcp']);
+  if (!output || output.startsWith('[failed]')) {
+    return [];
+  }
+
+  const ranges: PortRange[] = [];
+  for (const line of output.split(/\r?\n/)) {
+    const match = line.match(/^\s*(\d+)\s+(\d+)\s*(\*)?\s*$/);
+    if (!match) {
+      continue;
+    }
+
+    ranges.push({
+      start: Number(match[1]),
+      end: Number(match[2]),
+      managed: Boolean(match[3]),
+    });
+  }
+
+  return ranges;
+}
+
+/** 根据端口和已知保留段，输出人类可读的端口排除提示。 */
+function resolveExcludedPortHint(port: number): string {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
+  const range = readWindowsExcludedPortRanges().find((entry) => port >= entry.start && port <= entry.end);
+  if (!range) {
+    return '';
+  }
+
+  return `Detected Windows excluded TCP port range ${range.start}-${range.end}${range.managed ? ' (managed)' : ''} covering ${port}. If you are running inside WSL, choose another port such as SERVER_PORT=13020.`;
+}
+
+/** 采集一次端口监听冲突快照，用于 EADDRINUSE 附加诊断。 */
+function capturePortConflictSample(port: number): PortConflictSample {
+  const lsofOutput = readCommandOutput('lsof', ['-nP', `-iTCP:${port}`, '-sTCP:LISTEN']);
+  const ssOutput = readCommandOutput('ss', ['-ltnp', `( sport = :${port} )`]);
+  const fuserOutput = readCommandOutput('fuser', ['-v', '-n', 'tcp', String(port)]);
+
+  return {
+    lsofOutput,
+    ssOutput,
+    fuserOutput,
+    text: [
+      `lsof -nP -iTCP:${port} -sTCP:LISTEN`,
+      lsofOutput,
+      `ss -ltnp '( sport = :${port} )'`,
+      ssOutput,
+      `fuser -v -n tcp ${port}`,
+      fuserOutput,
+    ].join('\n'),
+  };
+}
+
+/** 判断采样是否包含可读性冲突证据（lsof / ss / fuser）。 */
+function hasUsefulPortConflictEvidence(sample: PortConflictSample): boolean {
+  return (
+    (sample.lsofOutput && sample.lsofOutput !== '[exit 1] no output')
+    || (sample.fuserOutput && sample.fuserOutput !== '[exit 1] no output')
+    || (
+      sample.ssOutput
+      && sample.ssOutput !== 'State Recv-Q Send-Q Local Address:Port Peer Address:PortProcess'
+      && sample.ssOutput !== '[exit 1] no output'
+    )
+  );
+}
+
+/** 循环采集多次诊断样本，优先返回第一条有效证据。 */
+async function collectPortConflictDiagnostics(port: number): Promise<string> {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
+  const samples: string[] = [];
+
+  for (let index = 0; index < PORT_CONFLICT_SAMPLE_ATTEMPTS; index += 1) {
+    const sample = capturePortConflictSample(port);
+    samples.push(`[sample ${index + 1}/${PORT_CONFLICT_SAMPLE_ATTEMPTS}]\n${sample.text}`);
+
+    if (hasUsefulPortConflictEvidence(sample)) {
+      return samples.join('\n\n');
+    }
+
+    if (index + 1 < PORT_CONFLICT_SAMPLE_ATTEMPTS) {
+      await sleep(PORT_CONFLICT_SAMPLE_INTERVAL_MS);
+    }
+  }
+
+  return samples.join('\n\n');
+}
+
+/** 启动 Nest 应用：创建服务、启用钩子/跨域，并在端口冲突时补充诊断日志。 */
+async function bootstrap(): Promise<void> {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
   const logger = new DateConsoleLogger('Bootstrap');
-/** app：定义该变量以承载业务值。 */
   const app = await NestFactory.create(AppModule, { logger });
-/** performanceService：定义该变量以承载业务值。 */
-  const performanceService = app.get(PerformanceService);
-
-  app.use((req: { headers: Record<string, unknown>; method?: string; path?: string; originalUrl?: string; url?: string }, res: any, next: () => void) => {
-/** metricLabel：定义该变量以承载业务值。 */
-    const metricLabel = buildHttpMetricLabel(req);
-    performanceService.recordNetworkInBytes(parseContentLengthHeader(req.headers['content-length']), metricLabel, metricLabel);
-
-/** responseBytes：定义该变量以承载业务值。 */
-    let responseBytes = 0;
-/** originalWrite：定义该变量以承载业务值。 */
-    const originalWrite = res.write.bind(res);
-/** originalEnd：定义该变量以承载业务值。 */
-    const originalEnd = res.end.bind(res);
-
-    res.write = ((chunk: unknown, encoding?: BufferEncoding, cb?: (...args: unknown[]) => void) => {
-      responseBytes += getByteLength(chunk, encoding);
-      return originalWrite(chunk, encoding, cb);
-    }) as typeof res.write;
-
-    res.end = ((chunk?: unknown, encoding?: BufferEncoding, cb?: (...args: unknown[]) => void) => {
-      responseBytes += getByteLength(chunk, encoding);
-      performanceService.recordNetworkOutBytes(responseBytes, metricLabel, metricLabel);
-      return originalEnd(chunk, encoding, cb);
-    }) as typeof res.end;
-
-    next();
-  });
 
   app.enableShutdownHooks();
-  app.enableCors();
 
-/** port：定义该变量以承载业务值。 */
-  const port = Number(process.env.PORT) || SERVER_PORT;
-/** host：定义该变量以承载业务值。 */
-  const host = process.env.HOST || '0.0.0.0';
+  const corsOptions = resolveServerCorsOptions();
+  if (corsOptions) {
+    app.enableCors(corsOptions);
+  }
 
-  await app.listen(port, host);
-  logger.log(`Server running on http://${host}:${port}`);
+  const port = Number(process.env.SERVER_PORT ?? 13001);
+  const host = process.env.SERVER_HOST ?? '0.0.0.0';
+
+  try {
+    await app.listen(port, host);
+  } catch (error) {
+    if (hasErrorCode(error, 'EADDRINUSE')) {
+      const diagnostics = await collectPortConflictDiagnostics(port);
+      const excludedPortHint = resolveExcludedPortHint(port);
+      logger.error(`server 绑定 ${host}:${port} 时发生端口冲突${excludedPortHint ? `\n${excludedPortHint}` : ''}\n${diagnostics}`);
+    }
+
+    await app.close().catch(() => undefined);
+    throw error;
+  }
+
+  logger.log(`服务端已运行于 http://${host}:${port}`);
 }
-bootstrap();
+/**
+ * hasErrorCode：判断ErrorCode是否满足条件。
+ * @param error unknown 参数说明。
+ * @param code string 参数说明。
+ * @returns 返回ErrorCode。
+ */
 
+
+function hasErrorCode(error: unknown, code: string): error is {
+/**
+ * code：code相关字段。
+ */
+ code: string } {
+  return typeof error === 'object' && error !== null && 'code' in error && error.code === code;
+}
+
+void bootstrap();

@@ -1,73 +1,108 @@
-import { DEFAULT_BONE_AGE_YEARS, GAME_DAY_TICKS, GAME_YEAR_DAYS } from './constants';
+import { DEFAULT_BONE_AGE_YEARS, GAME_YEAR_DAYS } from './constants/gameplay/core';
+import { GAME_DAY_TICKS } from './constants/gameplay/world';
 
-/** CharacterChronologyState：定义该接口的能力与字段约束。 */
+/** 角色寿命信息：记录角色当前年龄换算所需的基础输入。 */
 export interface CharacterChronologyState {
-  boneAgeBaseYears?: number;
+/**
+ * boneAgeBaseYears：boneAgeBaseYear相关字段。
+ */
+
+  boneAgeBaseYears?: number;  
+  /**
+ * lifeElapsedTicks：lifeElapsedtick相关字段。
+ */
+
   lifeElapsedTicks?: number;
 }
 
-/** CharacterAgeSnapshot：定义该接口的能力与字段约束。 */
+/** 角色年龄快照：把骨龄和生存时长换算成年龄展示。 */
 export interface CharacterAgeSnapshot {
-/** totalDays：定义该变量以承载业务值。 */
-  totalDays: number;
-/** years：定义该变量以承载业务值。 */
-  years: number;
-/** days：定义该变量以承载业务值。 */
-  days: number;
-/** totalYears：定义该变量以承载业务值。 */
+/**
+ * totalDays：totalDay相关字段。
+ */
+
+  totalDays: number;  
+  /**
+ * years：year相关字段。
+ */
+
+  years: number;  
+  /**
+ * days：day相关字段。
+ */
+
+  days: number;  
+  /**
+ * totalYears：totalYear相关字段。
+ */
+
   totalYears: number;
 }
 
-/** CharacterRemainingLifespanSnapshot：定义该接口的能力与字段约束。 */
+/** 角色剩余寿命快照：换算为剩余天数和是否逝世。 */
 export interface CharacterRemainingLifespanSnapshot {
-/** totalDays：定义该变量以承载业务值。 */
-  totalDays: number;
-/** years：定义该变量以承载业务值。 */
-  years: number;
-/** days：定义该变量以承载业务值。 */
-  days: number;
-/** expired：定义该变量以承载业务值。 */
+/**
+ * totalDays：totalDay相关字段。
+ */
+
+  totalDays: number;  
+  /**
+ * years：year相关字段。
+ */
+
+  years: number;  
+  /**
+ * days：day相关字段。
+ */
+
+  days: number;  
+  /**
+ * expired：expired相关字段。
+ */
+
   expired: boolean;
 }
 
-/** normalizeBoneAgeBaseYears：执行对应的业务逻辑。 */
+/** normalizeBoneAgeBaseYears：规范化Bone Age基础Years。 */
 export function normalizeBoneAgeBaseYears(value: unknown): number {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
   if (!Number.isFinite(value)) {
     return DEFAULT_BONE_AGE_YEARS;
   }
   return Math.max(0, Math.floor(Number(value)));
 }
 
-/** normalizeLifeElapsedTicks：执行对应的业务逻辑。 */
+/** normalizeLifeElapsedTicks：规范化Life Elapsed Ticks。 */
 export function normalizeLifeElapsedTicks(value: unknown): number {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
   if (!Number.isFinite(value)) {
     return 0;
   }
   return Math.max(0, Number(value));
 }
 
-/** normalizeLifespanYears：执行对应的业务逻辑。 */
+/** normalizeLifespanYears：规范化Lifespan Years。 */
 export function normalizeLifespanYears(value: unknown): number | null {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
   if (!Number.isFinite(value)) {
     return null;
   }
-/** normalized：定义该变量以承载业务值。 */
   const normalized = Math.floor(Number(value));
   return normalized > 0 ? normalized : null;
 }
 
-/** resolveLifeElapsedDays：执行对应的业务逻辑。 */
+/** resolveLifeElapsedDays：解析Life Elapsed Days。 */
 export function resolveLifeElapsedDays(lifeElapsedTicks: number): number {
   return Math.floor(normalizeLifeElapsedTicks(lifeElapsedTicks) / GAME_DAY_TICKS);
 }
 
-/** resolveCharacterAge：执行对应的业务逻辑。 */
+/** resolveCharacterAge：解析Character Age。 */
 export function resolveCharacterAge(state: CharacterChronologyState): CharacterAgeSnapshot {
-/** baseYears：定义该变量以承载业务值。 */
   const baseYears = normalizeBoneAgeBaseYears(state.boneAgeBaseYears);
-/** livedDays：定义该变量以承载业务值。 */
   const livedDays = resolveLifeElapsedDays(state.lifeElapsedTicks ?? 0);
-/** totalDays：定义该变量以承载业务值。 */
   const totalDays = baseYears * GAME_YEAR_DAYS + livedDays;
   return {
     totalDays,
@@ -77,27 +112,28 @@ export function resolveCharacterAge(state: CharacterChronologyState): CharacterA
   };
 }
 
-/** resolveRemainingLifespan：执行对应的业务逻辑。 */
+/** resolveRemainingLifespan：解析Remaining Lifespan。 */
 export function resolveRemainingLifespan(
   state: CharacterChronologyState,
   lifespanYears: unknown,
 ): CharacterRemainingLifespanSnapshot | null {
-/** normalizedLifespanYears：定义该变量以承载业务值。 */
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
   const normalizedLifespanYears = normalizeLifespanYears(lifespanYears);
   if (normalizedLifespanYears == null) {
     return null;
   }
 
-/** age：定义该变量以承载业务值。 */
   const age = resolveCharacterAge(state);
-/** totalDays：定义该变量以承载业务值。 */
   const totalDays = Math.max(0, normalizedLifespanYears * GAME_YEAR_DAYS - age.totalDays);
   return {
     totalDays,
     years: Math.floor(totalDays / GAME_YEAR_DAYS),
     days: totalDays % GAME_YEAR_DAYS,
-/** expired：定义该变量以承载业务值。 */
     expired: totalDays <= 0,
   };
 }
+
+
+
 

@@ -1,5 +1,5 @@
 /**
- * 用途：提供配置编辑器本地 API，并按需托管主游戏服。
+ * 配置编辑器的本地桥接层：负责读写内容文件、同步地图引用，并按需托管主游戏服。
  */
 
 const fs = require('fs');
@@ -8,7 +8,7 @@ const http = require('http');
 const { URL } = require('url');
 const { spawn } = require('child_process');
 /**
- * 仓库根目录，用于解析编辑器依赖的共享路径。
+ * 仓库根目录，所有配置读取、写回和共享构建路径都以此为基准。
  */
 const ROOT_DIR = path.resolve(__dirname, '../..');
 const {
@@ -21,65 +21,66 @@ const {
   shouldPersistMonsterExpMultiplier,
   shouldPersistMonsterTier,
   validateEditableMapDocument,
+  validateEditableMapPortalReciprocity,
 } = require(path.join(ROOT_DIR, 'packages/shared/dist/index.js'));
 
 /**
- * 服务端数据根目录。
+ * 服务端内容数据根目录。
  */
 const SERVER_DATA_DIR = path.join(ROOT_DIR, 'packages/server/data');
 /**
- * 地图配置目录。
+ * 地图配置所在目录。
  */
 const MAPS_DIR = path.join(SERVER_DATA_DIR, 'maps');
 /**
- * 内容配置目录。
+ * 其他可编辑内容配置所在目录。
  */
 const CONTENT_DIR = path.join(SERVER_DATA_DIR, 'content');
 /**
- * 本地配置编辑器 API 监听端口。
+ * 本地 API 默认监听端口。
  */
 const API_PORT = Number(process.env.CONFIG_EDITOR_API_PORT || 3101);
 /**
- * 标记编辑器是否托管主游戏服的启动与重启。
+ * 是否由编辑器负责启动和重启主游戏服。
  */
 const MANAGE_GAME_SERVER = ['1', 'true', 'yes', 'on'].includes(
   String(process.env.CONFIG_EDITOR_MANAGE_GAME_SERVER || '').toLowerCase(),
 );
 /**
- * 功法与怪物共用的合法品阶列表。
+ * 功法和怪物共用的合法品阶。
  */
 const TECHNIQUE_GRADES = ['mortal', 'yellow', 'mystic', 'earth', 'heaven', 'spirit', 'saint', 'emperor'];
 /**
- * 记录功法categories。
+ * 功法分类枚举，供编辑器列表和校验使用。
  */
 const TECHNIQUE_CATEGORIES = ['arts', 'internal', 'divine', 'secret'];
 /**
- * 怪物配置允许使用的仇恨模式集合。
+ * 怪物编辑器允许的仇恨模式。
  */
 const MONSTER_AGGRO_MODES = ['always', 'retaliate', 'day_only', 'night_only'];
 /**
- * 编辑器允许识别的物品类型集合。
+ * 编辑器允许识别的物品类型。
  */
 const ITEM_TYPES = ['consumable', 'equipment', 'material', 'quest_item', 'skill_book'];
 
 /**
- * 记录服务端子进程。
+ * 当前被编辑器托管的主游戏服子进程。
  */
 let serverChild = null;
 /**
- * 记录服务端restart令牌。
+ * 用于丢弃过期重启请求的递增令牌。
  */
 let serverRestartToken = 0;
 /**
- * 记录restartdebouncetimer。
+ * 内容文件变更后的重启防抖定时器。
  */
 let restartDebounceTimer = null;
 /**
- * 记录内容目录监听器，供热重启和关闭时统一管理。
+ * 按目录保存的文件监听器，便于重建和关闭。
  */
 const contentWatchers = new Map();
 /**
- * 缓存当前被托管游戏服的运行状态与最近重启原因。
+ * 供前端展示的托管状态、进程号和最近重启原因。
  */
 const serverState = {
   managed: MANAGE_GAME_SERVER,
@@ -88,17 +89,14 @@ const serverState = {
   lastRestartAt: undefined,
   lastRestartReason: MANAGE_GAME_SERVER ? '初始化启动' : '未启用编辑器托管',
   mode: MANAGE_GAME_SERVER
-    ? 'pnpm --filter @mud/server start:dev'
+    ? 'pnpm --dir packages/server start:dev'
     : '未托管（设置 CONFIG_EDITOR_MANAGE_GAME_SERVER=1 后启用）',
 };
 
 /**
- * 向客户端返回统一格式的 JSON 响应。
+ * 统一写出 JSON 响应头和响应体。
  */
 function writeJson(res, statusCode, payload) {
-/**
- * 记录请求体。
- */
   const body = JSON.stringify(payload);
   res.writeHead(statusCode, {
     'Content-Type': 'application/json; charset=utf-8',
@@ -108,20 +106,17 @@ function writeJson(res, statusCode, payload) {
 }
 
 /**
- * 向客户端返回统一格式的错误响应。
+ * 统一写出错误响应。
  */
 function writeError(res, statusCode, message) {
   writeJson(res, statusCode, { error: message });
 }
 
 /**
- * 读取并解析请求体 JSON，同时限制请求体大小。
+ * 读取 JSON 请求体，并限制体积避免异常大包。
  */
 function readJsonBody(req) {
   return new Promise((resolve, reject) => {
-/**
- * 记录raw。
- */
     let raw = '';
     req.on('data', (chunk) => {
       raw += chunk;
@@ -145,12 +140,9 @@ function readJsonBody(req) {
 }
 
 /**
- * 校验目标路径仍位于指定根目录内，防止越权访问。
+ * 把相对路径收束到指定根目录内，避免越权读写。
  */
 function ensureWithin(baseDir, targetPath) {
-/**
- * 记录resolved。
- */
   const resolved = path.resolve(baseDir, targetPath);
   if (resolved === baseDir || resolved.startsWith(`${baseDir}${path.sep}`)) {
     return resolved;
@@ -159,25 +151,16 @@ function ensureWithin(baseDir, targetPath) {
 }
 
 /**
- * 递归收集目录下全部 JSON 配置文件。
+ * 递归收集目录下的 JSON 文件，供列表页和保存接口共用。
  */
 function collectJsonFiles(dirPath) {
   if (!fs.existsSync(dirPath)) {
     return [];
   }
-/**
- * 汇总当前条目列表。
- */
   const entries = fs.readdirSync(dirPath, { withFileTypes: true })
     .sort((left, right) => left.name.localeCompare(right.name, 'zh-CN'));
-/**
- * 汇总待处理文件列表。
- */
   const files = [];
   for (const entry of entries) {
-/**
- * 记录entry路径。
- */
     const entryPath = path.join(dirPath, entry.name);
     if (entry.isDirectory()) {
       files.push(...collectJsonFiles(entryPath));
@@ -191,7 +174,7 @@ function collectJsonFiles(dirPath) {
 }
 
 /**
- * 处理topositiveinteger。
+ * 把输入折算成正整数，失败时回退到默认值。
  */
 function toPositiveInteger(value, fallback) {
   if (!Number.isFinite(value)) {
@@ -201,7 +184,7 @@ function toPositiveInteger(value, fallback) {
 }
 
 /**
- * 处理tononnegativeinteger。
+ * 把输入折算成非负整数，失败时回退到默认值。
  */
 function toNonNegativeInteger(value, fallback) {
   if (!Number.isFinite(value)) {
@@ -211,7 +194,7 @@ function toNonNegativeInteger(value, fallback) {
 }
 
 /**
- * 规范化怪物drop。
+ * 将怪物掉落项清洗成可持久化的最小结构。
  */
 function normalizeMonsterDrop(rawDrop) {
   return {
@@ -224,15 +207,12 @@ function normalizeMonsterDrop(rawDrop) {
 }
 
 /**
- * 规范化物品attrs。
+ * 只保留物品装备属性里的六维字段。
  */
 function normalizeItemAttrs(attrs) {
   if (!attrs || typeof attrs !== 'object' || Array.isArray(attrs)) {
     return undefined;
   }
-/**
- * 记录normalized。
- */
   const normalized = {};
   for (const key of ['constitution', 'spirit', 'perception', 'talent', 'comprehension', 'luck']) {
     if (Number.isFinite(attrs[key])) {
@@ -243,21 +223,12 @@ function normalizeItemAttrs(attrs) {
 }
 
 /**
- * 汇总编辑器可展示的物品模板并补齐展示字段。
+ * 汇总编辑器可展示的物品模板，并补齐筛选和展示所需字段。
  */
 function listEditorItems() {
-/**
- * 记录物品目录。
- */
   const itemsDir = path.join(CONTENT_DIR, 'items');
-/**
- * 累计当前结果。
- */
   const result = [];
   for (const filePath of collectJsonFiles(itemsDir)) {
-/**
- * 汇总当前条目列表。
- */
     const entries = JSON.parse(fs.readFileSync(filePath, 'utf-8'));
     if (!Array.isArray(entries)) {
       continue;
@@ -266,13 +237,7 @@ function listEditorItems() {
       if (!entry || typeof entry !== 'object') {
         continue;
       }
-/**
- * 记录物品ID。
- */
       const itemId = typeof entry.itemId === 'string' ? entry.itemId.trim() : '';
-/**
- * 记录名称。
- */
       const name = typeof entry.name === 'string' ? entry.name.trim() : '';
       if (!itemId || !name) {
         continue;
@@ -298,9 +263,6 @@ function listEditorItems() {
     }
   }
   return result.sort((left, right) => {
-/**
- * 记录名称order。
- */
     const nameOrder = left.name.localeCompare(right.name, 'zh-CN');
     if (nameOrder !== 0) {
       return nameOrder;
@@ -310,15 +272,12 @@ function listEditorItems() {
 }
 
 /**
- * 规范化怪物价值属性字段。
+ * 只保留怪物 valueStats 里的数值字段和五行增减分组。
  */
 function normalizeMonsterValueStats(rawValueStats) {
   if (!rawValueStats || typeof rawValueStats !== 'object' || Array.isArray(rawValueStats)) {
     return undefined;
   }
-/**
- * 记录normalized。
- */
   const normalized = {};
   for (const key of [
     'maxHp',
@@ -352,20 +311,11 @@ function normalizeMonsterValueStats(rawValueStats) {
       normalized[key] = Number(rawValueStats[key]);
     }
   }
-/**
- * 记录normalizeelementgroup。
- */
   const normalizeElementGroup = (key) => {
-/**
- * 记录group。
- */
     const group = rawValueStats[key];
     if (!group || typeof group !== 'object' || Array.isArray(group)) {
       return undefined;
     }
-/**
- * 记录normalizedgroup。
- */
     const normalizedGroup = {};
     for (const element of ['metal', 'wood', 'water', 'fire', 'earth']) {
       if (Number.isFinite(group[element])) {
@@ -374,13 +324,7 @@ function normalizeMonsterValueStats(rawValueStats) {
     }
     return Object.keys(normalizedGroup).length > 0 ? normalizedGroup : undefined;
   };
-/**
- * 记录elementdamagebonus。
- */
   const elementDamageBonus = normalizeElementGroup('elementDamageBonus');
-/**
- * 记录elementdamagereduce。
- */
   const elementDamageReduce = normalizeElementGroup('elementDamageReduce');
   if (elementDamageBonus) {
     normalized.elementDamageBonus = elementDamageBonus;
@@ -392,14 +336,14 @@ function normalizeMonsterValueStats(rawValueStats) {
 }
 
 /**
- * 构建编辑器物品lookup。
+ * 构建按物品 ID 索引的目录，便于掉落和装备校验。
  */
 function buildEditorItemLookup() {
   return new Map(listEditorItems().map((item) => [item.itemId, item]));
 }
 
 /**
- * 校验怪物模板的核心字段、掉落和唯一性约束。
+ * 校验怪物模板的必填字段、掉落完整性和 ID 唯一性。
  */
 function validateMonsterTemplate(monster, currentKey) {
   if (!monster.id) {
@@ -419,18 +363,10 @@ function validateMonsterTemplate(monster, currentKey) {
   }
   if (!MONSTER_AGGRO_MODES.includes(monster.aggroMode)) {
     throw new Error(`怪物 ${monster.id} 的仇恨模式非法`);
-  }/**
- * 标记是否已价值属性字段。
- */
+  }
 
-  const hasValueStats = monster.valueStats && typeof monster.valueStats === 'object' && !Array.isArray(monster.valueStats) && Object.keys(monster.valueStats).length > 0;/**
- * 标记是否已attrs。
- */
-
-  const hasAttrs = monster.attrs && typeof monster.attrs === 'object' && !Array.isArray(monster.attrs) && Object.keys(monster.attrs).length > 0;/**
- * 标记是否已legacy。
- */
-
+  const hasValueStats = monster.valueStats && typeof monster.valueStats === 'object' && !Array.isArray(monster.valueStats) && Object.keys(monster.valueStats).length > 0;
+  const hasAttrs = monster.attrs && typeof monster.attrs === 'object' && !Array.isArray(monster.attrs) && Object.keys(monster.attrs).length > 0;
   const hasLegacy = Number.isFinite(monster.hp) || Number.isFinite(monster.maxHp) || Number.isFinite(monster.attack);
   if (!hasValueStats && !hasAttrs && !hasLegacy) {
     throw new Error(`怪物 ${monster.id} 至少需要配置 attrs、valueStats 或旧 hp/attack`);
@@ -447,22 +383,13 @@ function validateMonsterTemplate(monster, currentKey) {
     }
   }
 
-/**
- * 汇总当前条目列表。
- */
   const entries = listMonsterTemplates();
-/**
- * 记录duplicated。
- */
   const duplicated = entries.find((entry) => entry.monster.id === monster.id && entry.key !== currentKey);
   if (duplicated) {
     throw new Error(`怪物 ID 重复：${monster.id}`);
   }
 }
 
-/**
- * 处理assignoptional。
- */
 function assignOptional(target, key, value) {
   if (value === undefined) {
     delete target[key];
@@ -475,9 +402,6 @@ function assignOptional(target, key, value) {
  * 把编辑器态怪物模板整理回可持久化的服务端格式。
  */
 function serializeMonsterTemplate(existing, monster) {
-/**
- * 记录next。
- */
   const next = existing && typeof existing === 'object' && !Array.isArray(existing) ? { ...existing } : {};
   next.id = monster.id;
   next.name = monster.name;
@@ -518,19 +442,16 @@ function serializeMonsterTemplate(existing, monster) {
 }
 
 /**
- * 创建怪物entrykey。
+ * 用文件路径和索引生成怪物模板的稳定定位键。
  */
 function createMonsterEntryKey(filePath, index) {
   return `${filePath}#${index}`;
 }
 
 /**
- * 解析怪物entrykey。
+ * 反解怪物模板定位键，取回文件路径和数组索引。
  */
 function parseMonsterEntryKey(key) {
-/**
- * 记录split索引。
- */
   const splitIndex = key.lastIndexOf('#');
   if (splitIndex <= 0) {
     throw new Error('非法怪物模板键');
@@ -544,29 +465,14 @@ function parseMonsterEntryKey(key) {
 }
 
 /**
- * 读取全部怪物模板并生成带文件定位信息的列表。
+ * 读取全部怪物模板，并附上文件路径和索引信息供编辑器定位。
  */
 function listMonsterTemplates() {
-/**
- * 记录怪物目录。
- */
   const monstersDir = path.join(CONTENT_DIR, 'monsters');
-/**
- * 记录物品lookup。
- */
   const itemLookup = buildEditorItemLookup();
-/**
- * 累计当前结果。
- */
   const result = [];
   for (const filePath of collectJsonFiles(monstersDir)) {
-/**
- * 记录relative路径。
- */
     const relativePath = path.relative(CONTENT_DIR, filePath).replaceAll(path.sep, '/');
-/**
- * 汇总当前条目列表。
- */
     const entries = JSON.parse(fs.readFileSync(filePath, 'utf-8'));
     if (!Array.isArray(entries)) {
       continue;
@@ -584,9 +490,6 @@ function listMonsterTemplates() {
     });
   }
   return result.sort((left, right) => {
-/**
- * 记录名称order。
- */
     const nameOrder = left.monster.name.localeCompare(right.monster.name, 'zh-CN');
     if (nameOrder !== 0) {
       return nameOrder;
@@ -596,35 +499,23 @@ function listMonsterTemplates() {
 }
 
 /**
- * 处理update地图怪物references。
+ * 保存怪物 ID 变更后，回写所有地图中的怪物刷点引用。
  */
 function updateMapMonsterReferences(previousId, nextId) {
   if (!previousId || !nextId || previousId === nextId) {
     return 0;
   }
-/**
- * 记录updated文件数量。
- */
   let updatedFileCount = 0;
   for (const filePath of collectJsonFiles(MAPS_DIR)) {
-/**
- * 记录raw。
- */
     const raw = JSON.parse(fs.readFileSync(filePath, 'utf-8'));
     if (!Array.isArray(raw?.monsterSpawns)) {
       continue;
     }
-/**
- * 记录changed。
- */
     let changed = false;
     raw.monsterSpawns = raw.monsterSpawns.map((spawn) => {
       if (!spawn || typeof spawn !== 'object') {
         return spawn;
       }
-/**
- * 记录next出生点。
- */
       const nextSpawn = { ...spawn };
       if (nextSpawn.templateId === previousId) {
         nextSpawn.templateId = nextId;
@@ -647,39 +538,21 @@ function updateMapMonsterReferences(previousId, nextId) {
 }
 
 /**
- * 保存单个怪物模板，并同步更新地图中的怪物引用。
+ * 保存单个怪物模板，并在 ID 变化时同步更新地图引用。
  */
 function saveMonsterTemplateEntry(key, rawMonster) {
   const { filePath, index } = parseMonsterEntryKey(key);
-/**
- * 记录absolute路径。
- */
   const absolutePath = ensureWithin(CONTENT_DIR, filePath);
-/**
- * 汇总当前条目列表。
- */
   const entries = JSON.parse(fs.readFileSync(absolutePath, 'utf-8'));
   if (!Array.isArray(entries) || !entries[index] || typeof entries[index] !== 'object') {
     throw new Error('目标怪物模板不存在');
   }
-/**
- * 记录物品lookup。
- */
   const itemLookup = buildEditorItemLookup();
-/**
- * 记录previous怪物。
- */
   const previousMonster = resolveMonsterTemplateRecord(entries[index], itemLookup);
-/**
- * 记录怪物。
- */
   const monster = resolveMonsterTemplateRecord(rawMonster, itemLookup);
   validateMonsterTemplate(monster, key);
   entries[index] = serializeMonsterTemplate(entries[index], monster);
   fs.writeFileSync(absolutePath, `${JSON.stringify(entries, null, 2)}\n`, 'utf-8');
-/**
- * 记录updated地图数量。
- */
   const updatedMapCount = updateMapMonsterReferences(previousMonster.id, monster.id);
   return {
     monster,
@@ -688,45 +561,24 @@ function saveMonsterTemplateEntry(key, rawMonster) {
 }
 
 /**
- * 比较功法entries。
+ * 按境界、品阶、分类和名称排序功法模板列表。
  */
 function compareTechniqueEntries(left, right) {
-/**
- * 记录left境界。
- */
   const leftRealm = Number.isFinite(left.technique.realmLv) ? Math.max(1, Math.floor(Number(left.technique.realmLv))) : 1;
-/**
- * 记录right境界。
- */
   const rightRealm = Number.isFinite(right.technique.realmLv) ? Math.max(1, Math.floor(Number(right.technique.realmLv))) : 1;
   if (leftRealm !== rightRealm) {
     return leftRealm - rightRealm;
   }
-/**
- * 记录left品阶。
- */
   const leftGrade = TECHNIQUE_GRADES.indexOf(left.technique.grade);
-/**
- * 记录right品阶。
- */
   const rightGrade = TECHNIQUE_GRADES.indexOf(right.technique.grade);
   if (leftGrade !== rightGrade) {
     return leftGrade - rightGrade;
   }
-/**
- * 记录left类别。
- */
   const leftCategory = TECHNIQUE_CATEGORIES.indexOf(left.technique.category);
-/**
- * 记录right类别。
- */
   const rightCategory = TECHNIQUE_CATEGORIES.indexOf(right.technique.category);
   if (leftCategory !== rightCategory) {
     return leftCategory - rightCategory;
   }
-/**
- * 记录名称order。
- */
   const nameOrder = String(left.technique.name ?? left.technique.id).localeCompare(String(right.technique.name ?? right.technique.id), 'zh-CN');
   if (nameOrder !== 0) {
     return nameOrder;
@@ -735,25 +587,13 @@ function compareTechniqueEntries(left, right) {
 }
 
 /**
- * 读取并排序全部功法模板供编辑器使用。
+ * 读取全部功法模板，供编辑器列表和详情页复用。
  */
 function listTechniqueTemplates() {
-/**
- * 记录techniques目录。
- */
   const techniquesDir = path.join(CONTENT_DIR, 'techniques');
-/**
- * 累计当前结果。
- */
   const result = [];
   for (const filePath of collectJsonFiles(techniquesDir)) {
-/**
- * 记录relative路径。
- */
     const relativePath = path.relative(CONTENT_DIR, filePath).replaceAll(path.sep, '/');
-/**
- * 汇总当前条目列表。
- */
     const entries = JSON.parse(fs.readFileSync(filePath, 'utf-8'));
     if (!Array.isArray(entries)) {
       continue;
@@ -777,21 +617,12 @@ function listTechniqueTemplates() {
 }
 
 /**
- * 处理列表功法Bufftemplates。
+ * 读取所有共享 Buff 模板，供功法编辑器做引用解析。
  */
 function listTechniqueBuffTemplates() {
-/**
- * 记录buffs目录。
- */
   const buffsDir = path.join(CONTENT_DIR, 'technique-buffs');
-/**
- * 累计当前结果。
- */
   const result = [];
   for (const filePath of collectJsonFiles(buffsDir)) {
-/**
- * 汇总当前条目列表。
- */
     const entries = JSON.parse(fs.readFileSync(filePath, 'utf-8'));
     if (!Array.isArray(entries)) {
       continue;
@@ -810,7 +641,7 @@ function listTechniqueBuffTemplates() {
 }
 
 /**
- * 校验功法template。
+ * 校验功法模板的基础字段、技能列表和 ID 唯一性。
  */
 function validateTechniqueTemplate(technique, currentKey) {
   if (!technique || typeof technique !== 'object' || Array.isArray(technique)) {
@@ -845,9 +676,6 @@ function validateTechniqueTemplate(technique, currentKey) {
       throw new Error(`功法 ${technique.id} 的技能 ${skill.id} effects 非数组`);
     }
   }
-/**
- * 记录duplicated。
- */
   const duplicated = listTechniqueTemplates().find((entry) => entry.technique.id === technique.id && entry.key !== currentKey);
   if (duplicated) {
     throw new Error(`功法 ID 重复：${technique.id}`);
@@ -855,20 +683,14 @@ function validateTechniqueTemplate(technique, currentKey) {
 }
 
 /**
- * 处理save功法templateentry。
+ * 保存功法模板到原文件位置。
  */
 function saveTechniqueTemplateEntry(key, technique) {
   const { filePath, index } = parseMonsterEntryKey(key);
   if (!filePath.startsWith('techniques/')) {
     throw new Error('目标功法文件路径非法');
   }
-/**
- * 记录absolute路径。
- */
   const absolutePath = ensureWithin(CONTENT_DIR, filePath);
-/**
- * 汇总当前条目列表。
- */
   const entries = JSON.parse(fs.readFileSync(absolutePath, 'utf-8'));
   if (!Array.isArray(entries) || !entries[index] || typeof entries[index] !== 'object') {
     throw new Error('目标功法不存在');
@@ -882,25 +704,13 @@ function saveTechniqueTemplateEntry(key, technique) {
 }
 
 /**
- * 加载怪物templates。
+ * 读取所有怪物模板，生成按 ID 查询的解析表。
  */
 function loadMonsterTemplates() {
-/**
- * 记录怪物目录。
- */
   const monstersDir = path.join(CONTENT_DIR, 'monsters');
-/**
- * 记录物品lookup。
- */
   const itemLookup = buildEditorItemLookup();
-/**
- * 记录templates。
- */
   const templates = new Map();
   for (const filePath of collectJsonFiles(monstersDir)) {
-/**
- * 汇总当前条目列表。
- */
     const entries = JSON.parse(fs.readFileSync(filePath, 'utf-8'));
     if (!Array.isArray(entries)) continue;
     for (const entry of entries) {
@@ -912,32 +722,20 @@ function loadMonsterTemplates() {
 }
 
 /**
- * 处理hydrate怪物出生点record。
+ * 把地图里的刷点补成编辑器可直接展示的完整怪物记录。
  */
 function hydrateMonsterSpawnRecord(raw, monsterTemplates) {
   if (!raw || typeof raw !== 'object') {
     return raw;
   }
-/**
- * 记录templateID。
- */
   const templateId = typeof raw.templateId === 'string'
     ? raw.templateId
     : (typeof raw.id === 'string' ? raw.id : undefined);
-/**
- * 记录template。
- */
   const template = templateId ? monsterTemplates.get(templateId) : undefined;
   if (!template) {
     return raw;
   }
-/**
- * 记录radius。
- */
   const radius = Number.isInteger(raw.radius) ? Math.max(0, Number(raw.radius)) : template.radius;
-/**
- * 记录maxalive。
- */
   const maxAlive = Number.isInteger(raw.maxAlive) ? Math.max(1, Number(raw.maxAlive)) : template.maxAlive;
   return {
     ...template,
@@ -959,15 +757,12 @@ function hydrateMonsterSpawnRecord(raw, monsterTemplates) {
 }
 
 /**
- * 把地图里的怪物刷点补全为带模板详情的编辑器态结构。
+ * 把地图文件补成编辑器态结构，方便页面直接预览和编辑。
  */
 function hydrateMapDocument(rawDocument) {
   if (!rawDocument || typeof rawDocument !== 'object') {
     return rawDocument;
   }
-/**
- * 记录怪物templates。
- */
   const monsterTemplates = loadMonsterTemplates();
   return {
     ...rawDocument,
@@ -978,28 +773,19 @@ function hydrateMapDocument(rawDocument) {
 }
 
 /**
- * 处理dehydrate怪物出生点record。
+ * 把编辑器态刷点压回精简的持久化结构，避免重复写模板字段。
  */
 function dehydrateMonsterSpawnRecord(spawn, monsterTemplates) {
   if (!spawn || typeof spawn !== 'object') {
     return spawn;
   }
-/**
- * 记录templateID。
- */
   const templateId = typeof spawn.templateId === 'string' && spawn.templateId.trim()
     ? spawn.templateId
     : spawn.id;
-/**
- * 记录template。
- */
   const template = templateId ? monsterTemplates.get(templateId) : undefined;
   if (!template) {
     return spawn;
   }
-/**
- * 记录persisted。
- */
   const persisted = {
     id: spawn.id,
     x: spawn.x,
@@ -1010,22 +796,13 @@ function dehydrateMonsterSpawnRecord(spawn, monsterTemplates) {
   if ((spawn.count ?? spawn.maxAlive ?? 1) !== template.count) persisted.count = spawn.count;
   if ((spawn.radius ?? 3) !== template.radius) persisted.radius = spawn.radius;
   if ((spawn.maxAlive ?? spawn.count ?? 1) !== (template.maxAlive ?? template.count ?? 1)) persisted.maxAlive = spawn.maxAlive;
-/**
- * 记录defaultwanderradius。
- */
   const defaultWanderRadius = spawn.radius ?? template.radius;
   if ((spawn.wanderRadius ?? defaultWanderRadius) !== defaultWanderRadius) persisted.wanderRadius = spawn.wanderRadius;
-/**
- * 记录effectiverespawnticks。
- */
   const effectiveRespawnTicks = Number.isInteger(spawn.respawnTicks)
     ? Math.max(1, Number(spawn.respawnTicks))
     : Number.isInteger(spawn.respawnSec)
       ? Math.max(1, Number(spawn.respawnSec))
       : (template.respawnTicks ?? template.respawnSec ?? 15);
-/**
- * 记录templaterespawn。
- */
   const templateRespawn = template.respawnTicks ?? template.respawnSec ?? 15;
   if (effectiveRespawnTicks !== templateRespawn) {
     if (spawn.respawnTicks !== undefined) persisted.respawnTicks = spawn.respawnTicks;
@@ -1036,12 +813,9 @@ function dehydrateMonsterSpawnRecord(spawn, monsterTemplates) {
 }
 
 /**
- * 把编辑器态地图压回精简持久化结构，避免重复写模板字段。
+ * 把编辑器态地图压回可写回磁盘的精简结构。
  */
 function dehydrateMapDocument(document) {
-/**
- * 记录怪物templates。
- */
   const monsterTemplates = loadMonsterTemplates();
   return {
     ...document,
@@ -1052,35 +826,26 @@ function dehydrateMapDocument(document) {
 }
 
 /**
- * 获取all地图文件paths。
+ * 获取地图目录下的全部 JSON 文件。
  */
 function getAllMapFilePaths() {
   return collectJsonFiles(MAPS_DIR);
 }
 
 /**
- * 查找地图文件路径。
+ * 按地图 ID 查找对应的文件路径。
  */
 function findMapFilePath(mapId) {
   return getAllMapFilePaths().find((filePath) => path.basename(filePath, '.json') === mapId) || null;
 }
 
 /**
- * 获取地图目录meta。
+ * 计算地图在编辑器目录页里展示的分组信息。
  */
 function getMapCatalogMeta(filePath, mainMapNameById) {
-/**
- * 记录relative路径。
- */
   const relativePath = path.relative(MAPS_DIR, filePath).replaceAll(path.sep, '/');
-/**
- * 记录segments。
- */
   const segments = relativePath.split('/').filter(Boolean);
   if (segments[0] === 'compose' && segments.length >= 3) {
-/**
- * 记录groupID。
- */
     const groupId = segments[1];
     return {
       catalogMode: 'piece',
@@ -1096,25 +861,14 @@ function getMapCatalogMeta(filePath, mainMapNameById) {
 }
 
 /**
- * 构建地图总览列表，供编辑器首页展示和分组。
+ * 构建地图总览，给首页和分组视图共用。
  */
 function buildLocalEditableMapList() {
-/**
- * 汇总当前条目列表。
- */
   const entries = getAllMapFilePaths().map((filePath) => {
-/**
- * 记录raw。
- */
     const raw = JSON.parse(fs.readFileSync(filePath, 'utf-8'));
-/**
- * 记录文档。
- */
     const document = normalizeEditableMapDocument(hydrateMapDocument(raw));
     return { filePath, document };
-  });/**
- * 按 ID 组织main名称by映射。
- */
+  });
 
   const mainMapNameById = new Map(
     entries
@@ -1149,28 +903,22 @@ function buildLocalEditableMapList() {
 }
 
 /**
- * 获取all地图documents。
+ * 读取全部地图文档，供列表和详情接口复用。
  */
 function getAllMapDocuments() {
   return getAllMapFilePaths().map((filePath) => {
-/**
- * 记录raw。
- */
     const raw = JSON.parse(fs.readFileSync(filePath, 'utf-8'));
     return normalizeEditableMapDocument(hydrateMapDocument(raw));
   });
 }
 
 /**
- * 获取地图文档。
+ * 按地图 ID 读取单张地图并补全为编辑器态结构。
  */
 function getMapDocument(mapId) {
   if (!/^[a-zA-Z0-9._-]+$/.test(mapId)) {
     throw new Error('非法地图 ID');
   }
-/**
- * 记录文件路径。
- */
   const filePath = findMapFilePath(mapId);
   if (!filePath || !fs.existsSync(filePath)) {
     throw new Error('目标地图不存在');
@@ -1185,47 +933,31 @@ function saveMapDocument(mapId, rawDocument) {
   if (!/^[a-zA-Z0-9._-]+$/.test(mapId)) {
     throw new Error('非法地图 ID');
   }
-/**
- * 记录normalized。
- */
   const normalized = normalizeEditableMapDocument(hydrateMapDocument(rawDocument));
   if (normalized.id !== mapId) {
     throw new Error('地图 ID 不允许在编辑器中直接修改');
   }
-/**
- * 记录validationerror。
- */
   const validationError = validateEditableMapDocument(normalized);
   if (validationError) {
     throw new Error(validationError);
   }
-/**
- * 记录persisted。
- */
+  const allDocuments = getAllMapDocuments().map((document) => document.id === mapId ? normalized : document);
+  const portalValidationError = validateEditableMapPortalReciprocity(allDocuments);
+  if (portalValidationError) {
+    throw new Error(portalValidationError);
+  }
   const persisted = dehydrateMapDocument(normalized);
-/**
- * 记录目标路径。
- */
   const targetPath = findMapFilePath(mapId) || path.join(MAPS_DIR, `${mapId}.json`);
   fs.writeFileSync(targetPath, `${JSON.stringify(persisted, null, 2)}\n`, 'utf-8');
 }
 
 /**
- * 处理列表contentjson文件列表。
+ * 递归读取内容目录下的 JSON 文件，用于配置文件列表页。
  */
 function listContentJsonFiles() {
-/**
- * 汇总待处理文件列表。
- */
   const files = [];
-/**
- * 记录walk。
- */
   const walk = (dir) => {
     for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
-/**
- * 记录完整流程路径。
- */
       const fullPath = path.join(dir, entry.name);
       if (entry.isDirectory()) {
         walk(fullPath);
@@ -1234,9 +966,6 @@ function listContentJsonFiles() {
       if (!entry.isFile() || !entry.name.endsWith('.json')) {
         continue;
       }
-/**
- * 记录relative路径。
- */
       const relativePath = path.relative(CONTENT_DIR, fullPath).replaceAll(path.sep, '/');
       files.push({
         path: relativePath,
@@ -1250,12 +979,9 @@ function listContentJsonFiles() {
 }
 
 /**
- * 读取content文件。
+ * 读取单个内容配置文件。
  */
 function readContentFile(relativePath) {
-/**
- * 记录文件路径。
- */
   const filePath = ensureWithin(CONTENT_DIR, relativePath);
   if (!filePath.endsWith('.json') || !fs.existsSync(filePath)) {
     throw new Error('目标配置文件不存在');
@@ -1267,32 +993,26 @@ function readContentFile(relativePath) {
 }
 
 /**
- * 处理savecontent文件。
+ * 写回单个内容配置文件。
  */
 function saveContentFile(relativePath, content) {
-/**
- * 记录文件路径。
- */
   const filePath = ensureWithin(CONTENT_DIR, relativePath);
   if (!filePath.endsWith('.json')) {
     throw new Error('只允许保存 JSON 配置文件');
   }
-/**
- * 记录parsed。
- */
   const parsed = JSON.parse(content);
   fs.writeFileSync(filePath, `${JSON.stringify(parsed, null, 2)}\n`, 'utf-8');
 }
 
 /**
- * 获取服务端status。
+ * 返回当前托管状态的快照，供前端轮询展示。
  */
 function getServerStatus() {
   return { ...serverState };
 }
 
 /**
- * 优雅停止当前被编辑器托管的主游戏服进程。
+ * 尽量平滑地停止被编辑器托管的主游戏服进程。
  */
 function stopServerProcess() {
   return new Promise((resolve) => {
@@ -1304,13 +1024,7 @@ function stopServerProcess() {
       return;
     }
 
-/**
- * 记录子进程。
- */
     const child = serverChild;
-/**
- * 记录超时时间。
- */
     const timeout = setTimeout(() => {
       try {
         process.kill(-child.pid, 'SIGKILL');
@@ -1340,26 +1054,20 @@ function stopServerProcess() {
 }
 
 /**
- * 重启被托管的主游戏服，并刷新状态信息。
+ * 重新启动托管的主游戏服，并刷新前端可见的状态。
  */
 async function restartServer(reason) {
   if (!MANAGE_GAME_SERVER) {
     throw new Error('当前配置编辑器未托管主游戏服；如需启用，请使用 CONFIG_EDITOR_MANAGE_GAME_SERVER=1 重新启动。');
   }
   serverRestartToken += 1;
-/**
- * 记录令牌。
- */
   const token = serverRestartToken;
   await stopServerProcess();
   if (token !== serverRestartToken) {
     return;
   }
 
-/**
- * 记录子进程。
- */
-  const child = spawn('pnpm', ['--filter', '@mud/server', 'start:dev'], {
+  const child = spawn('pnpm', ['--dir', 'packages/server', 'start:dev'], {
     cwd: ROOT_DIR,
     detached: true,
     stdio: 'inherit',
@@ -1382,7 +1090,7 @@ async function restartServer(reason) {
 }
 
 /**
- * 对频繁文件变更做防抖后触发游戏服自动重启。
+ * 对连续文件变更做防抖，避免写盘时重复重启。
  */
 function scheduleRestart(reason) {
   if (!MANAGE_GAME_SERVER) {
@@ -1400,16 +1108,10 @@ function scheduleRestart(reason) {
 }
 
 /**
- * 刷新内容目录监听器集合，确保新增子目录也能触发重启。
+ * 重新扫描内容目录并维护监听器，保证新增子目录也能触发重启。
  */
 function refreshContentWatchers() {
-/**
- * 记录nextdirs。
- */
   const nextDirs = new Set();
-/**
- * 记录walk。
- */
   const walk = (dir) => {
     nextDirs.add(dir);
     for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
@@ -1431,17 +1133,11 @@ function refreshContentWatchers() {
     if (contentWatchers.has(dir)) {
       continue;
     }
-/**
- * 记录监听器。
- */
     const watcher = fs.watch(dir, (eventType, filename) => {
       if (!filename) {
         scheduleRestart('配置目录发生变更');
         return;
       }
-/**
- * 记录完整流程路径。
- */
       const fullPath = path.join(dir, filename.toString());
       if (fs.existsSync(fullPath) && fs.statSync(fullPath).isDirectory()) {
         refreshContentWatchers();
@@ -1456,7 +1152,7 @@ function refreshContentWatchers() {
 }
 
 /**
- * 分发配置编辑器本地 API 的全部路由请求。
+ * 分发本地 API 路由，把读写内容文件和服务托管能力统一暴露给前端。
  */
 async function handleRequest(req, res) {
   if (!req.url) {
@@ -1464,9 +1160,6 @@ async function handleRequest(req, res) {
     return;
   }
 
-/**
- * 记录url地址。
- */
   const url = new URL(req.url, `http://${req.headers.host || '127.0.0.1'}`);
   const pathname = url.pathname;
 
@@ -1476,18 +1169,14 @@ async function handleRequest(req, res) {
       return;
     }
 
-    if (req.method === 'GET' && pathname.startsWith('/api/maps/')) {/**
- * 按 ID 组织mapId映射。
- */
+    if (req.method === 'GET' && pathname.startsWith('/api/maps/')) {
 
       const mapId = decodeURIComponent(pathname.slice('/api/maps/'.length));
       writeJson(res, 200, { map: cloneMapDocument(getMapDocument(mapId)) });
       return;
     }
 
-    if (req.method === 'PUT' && pathname.startsWith('/api/maps/')) {/**
- * 按 ID 组织mapId映射。
- */
+    if (req.method === 'PUT' && pathname.startsWith('/api/maps/')) {
 
       const mapId = decodeURIComponent(pathname.slice('/api/maps/'.length));
       const body = await readJsonBody(req);
@@ -1524,43 +1213,28 @@ async function handleRequest(req, res) {
     }
 
     if (req.method === 'PUT' && pathname === '/api/monsters') {
-/**
- * 记录请求体。
- */
       const body = await readJsonBody(req);
       if (!body || typeof body.key !== 'string' || !body.monster || typeof body.monster !== 'object') {
         writeError(res, 400, '缺少怪物模板键或怪物数据');
         return;
       }
-/**
- * 累计当前结果。
- */
       const result = saveMonsterTemplateEntry(body.key, body.monster);
       writeJson(res, 200, { ok: true, updatedMapCount: result.updatedMapCount, monster: result.monster });
       return;
     }
 
     if (req.method === 'PUT' && pathname === '/api/techniques') {
-/**
- * 记录请求体。
- */
       const body = await readJsonBody(req);
       if (!body || typeof body.key !== 'string' || !body.technique || typeof body.technique !== 'object') {
         writeError(res, 400, '缺少功法键或功法数据');
         return;
       }
-/**
- * 累计当前结果。
- */
       const result = saveTechniqueTemplateEntry(body.key, body.technique);
       writeJson(res, 200, { ok: true, technique: result.technique });
       return;
     }
 
     if (req.method === 'GET' && pathname === '/api/config-file') {
-/**
- * 记录文件路径。
- */
       const filePath = url.searchParams.get('path');
       if (!filePath) {
         writeError(res, 400, '缺少配置文件路径');
@@ -1571,9 +1245,6 @@ async function handleRequest(req, res) {
     }
 
     if (req.method === 'PUT' && pathname === '/api/config-file') {
-/**
- * 记录请求体。
- */
       const body = await readJsonBody(req);
       if (!body || typeof body.path !== 'string' || typeof body.content !== 'string') {
         writeError(res, 400, '缺少配置文件路径或内容');
@@ -1602,19 +1273,16 @@ async function handleRequest(req, res) {
 }
 
 /**
- * 启动本地 API 服务、文件监听和可选的主游戏服托管流程。
+ * 启动本地 API、目录监听和可选的主游戏服托管流程。
  */
 async function bootstrap() {
   refreshContentWatchers();
   if (MANAGE_GAME_SERVER) {
     await restartServer('配置编辑器启动');
   } else {
-    console.log('[config-editor] 已以独立模式启动，不会自动拉起或重启 @mud/server');
+    console.log('[config-editor] 已以独立模式启动，不会自动拉起或重启 packages/server');
   }
 
-/**
- * 记录服务端。
- */
   const server = http.createServer((req, res) => {
     handleRequest(req, res).catch((error) => {
       writeError(res, 500, error instanceof Error ? error.message : '服务内部错误');
@@ -1625,6 +1293,7 @@ async function bootstrap() {
     console.log(`[config-editor] local api running at http://127.0.0.1:${API_PORT}`);
   });
 
+  /** 关闭 HTTP 服务、监听器和托管中的主游戏服。 */
   const shutdown = async () => {
     for (const watcher of contentWatchers.values()) {
       watcher.close();

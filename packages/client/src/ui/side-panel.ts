@@ -2,7 +2,7 @@
 import { DESKTOP_LAYOUT_DRAG_LIMITS } from '../constants/ui/responsive';
 import { getViewportScale, shouldUseMobileUi } from './responsive-viewport';
 
-/** MobilePaneId：定义该类型的结构与数据语义。 */
+/** 移动端挂载位标识。 */
 type MobilePaneId =
   | 'mobile-overview'
   | 'mobile-attrs'
@@ -10,74 +10,143 @@ type MobilePaneId =
   | 'mobile-bag'
   | 'mobile-action';
 
-/** LayoutTarget：定义该类型的结构与数据语义。 */
+/** 桌面布局拖拽目标边。 */
 type LayoutTarget = 'left' | 'right' | 'bottom';
 
-/** SidePanelPersistedState：定义该类型的结构与数据语义。 */
+/** 侧边栏布局持久化状态。 */
 type SidePanelPersistedState = {
-/** version：定义该变量以承载业务值。 */
-  version: 1;
-  layoutState?: Partial<Record<`${LayoutTarget}Collapsed`, boolean>>;
-  layoutSizes?: Partial<Record<LayoutTarget, number>>;
+/**
+ * version：version相关字段。
+ */
+
+  version: 1;  
+  /**
+ * layoutState：layout状态状态或数据块。
+ */
+
+  layoutState?: Partial<Record<`${LayoutTarget}Collapsed`, boolean>>;  
+  /**
+ * layoutSizes：layout规模相关字段。
+ */
+
+  layoutSizes?: Partial<Record<LayoutTarget, number>>;  
+  /**
+ * activeTabs：激活Tab相关字段。
+ */
+
   activeTabs?: Record<string, string>;
 };
 
-/** SIDE_PANEL_STORAGE_KEY：定义该变量以承载业务值。 */
+/** SIDE_PANEL_STORAGE_KEY：SIDE面板存储KEY。 */
 const SIDE_PANEL_STORAGE_KEY = 'mud:side-panel-state:v1';
 
-/** MobileSectionMount：定义该类型的结构与数据语义。 */
+/** 移动端重新挂载的面板节点记录。 */
 type MobileSectionMount = {
-/** element：定义该变量以承载业务值。 */
-  element: HTMLElement;
-/** paneId：定义该变量以承载业务值。 */
-  paneId: MobilePaneId;
-/** originalParent：定义该变量以承载业务值。 */
-  originalParent: HTMLElement;
-/** originalNextSibling：定义该变量以承载业务值。 */
+/**
+ * element：element相关字段。
+ */
+
+  element: HTMLElement;  
+  /**
+ * paneId：paneID标识。
+ */
+
+  paneId: MobilePaneId;  
+  /**
+ * originalParent：originalParent相关字段。
+ */
+
+  originalParent: HTMLElement;  
+  /**
+ * originalNextSibling：originalNextSibling相关字段。
+ */
+
   originalNextSibling: ChildNode | null;
 };
 
-/** SidePanel：封装相关状态与行为。 */
+/** SidePanel：Side面板实现。 */
 export class SidePanel {
+  /** DRAG_START_THRESHOLD_PX：DRAG START THRESHOLD PX。 */
   private static readonly DRAG_START_THRESHOLD_PX = 6;
-/** panel：定义该变量以承载业务值。 */
+  /** panel：面板。 */
   private panel: HTMLElement;
-/** mobileShell：定义该变量以承载业务值。 */
+  /** mobileShell：mobile Shell。 */
   private mobileShell: HTMLElement | null;
-/** mobileSections：定义该变量以承载业务值。 */
+  /** mobileSections：mobile Sections。 */
   private mobileSections: MobileSectionMount[];
-/** persistedState：定义该变量以承载业务值。 */
+  /** persistedState：persisted状态。 */
   private persistedState: SidePanelPersistedState | null;
+  /** mobileLayoutActive：mobile布局活跃。 */
   private mobileLayoutActive = false;
+  /** visible：可见。 */
   private visible = false;
+  /** onVisibilityChange：on Visibility变更。 */
   private onVisibilityChange: ((visible: boolean) => void) | null = null;
+  /** onLayoutChange：on布局变更。 */
   private onLayoutChange: (() => void) | null = null;
-  private onTabChange: ((tabName: string) => void) | null = null;
-  private dragState: {
-/** target：定义该变量以承载业务值。 */
-    target: 'left' | 'right' | 'bottom';
-/** pointerId：定义该变量以承载业务值。 */
-    pointerId: number;
-/** startX：定义该变量以承载业务值。 */
-    startX: number;
-/** startY：定义该变量以承载业务值。 */
-    startY: number;
-/** startSize：定义该变量以承载业务值。 */
-    startSize: number;
-/** shellWidth：定义该变量以承载业务值。 */
-    shellWidth: number;
-/** shellHeight：定义该变量以承载业务值。 */
-    shellHeight: number;
-/** dragged：定义该变量以承载业务值。 */
+  /** onTabChange：on Tab变更。 */
+  private onTabChange: ((tabName: string) => void) | null = null;  
+  /**
+ * dragState：drag状态状态或数据块。
+ */
+
+  private dragState: {  
+  /**
+ * target：目标相关字段。
+ */
+
+    target: 'left' | 'right' | 'bottom';    
+    /**
+ * pointerId：pointerID标识。
+ */
+
+    pointerId: number;    
+    /**
+ * startX：startX相关字段。
+ */
+
+    startX: number;    
+    /**
+ * startY：startY相关字段。
+ */
+
+    startY: number;    
+    /**
+ * startSize：数量或计量字段。
+ */
+
+    startSize: number;    
+    /**
+ * shellWidth：shellWidth相关字段。
+ */
+
+    shellWidth: number;    
+    /**
+ * shellHeight：shellHeight相关字段。
+ */
+
+    shellHeight: number;    
+    /**
+ * dragged：dragged相关字段。
+ */
+
     dragged: boolean;
-  } | null = null;
+  } | null = null;  
+  /**
+ * layoutState：layout状态状态或数据块。
+ */
+
   private layoutState = {
     leftCollapsed: false,
     rightCollapsed: false,
     bottomCollapsed: false,
-  };
+  };  
+  /**
+ * 构造器：初始化 当前 实例并建立基础状态。
+ * @returns 无返回值，完成实例初始化。
+ */
 
-/** constructor：处理当前场景中的对应操作。 */
+
   constructor() {
     this.panel = document.getElementById('game-shell')!;
     this.mobileShell = document.getElementById('mobile-ui-shell');
@@ -94,22 +163,24 @@ export class SidePanel {
     this.syncResponsiveLayout();
   }
 
-/** show：执行对应的业务逻辑。 */
+  /** show：处理显示。 */
   show(): void {
     this.panel.classList.remove('hidden');
     this.visible = true;
     this.onVisibilityChange?.(true);
   }
 
-/** hide：执行对应的业务逻辑。 */
+  /** hide：处理hide。 */
   hide(): void {
     this.panel.classList.add('hidden');
     this.visible = false;
     this.onVisibilityChange?.(false);
   }
 
-/** toggle：执行对应的业务逻辑。 */
+  /** toggle：处理toggle。 */
   toggle(): void {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
     if (this.visible) {
       this.hide();
       return;
@@ -117,29 +188,45 @@ export class SidePanel {
     this.show();
   }
 
-/** isVisible：执行对应的业务逻辑。 */
+  /** isVisible：判断是否可见。 */
   isVisible(): boolean {
     return this.visible;
-  }
+  }  
+  /**
+ * setVisibilityChangeCallback：写入可见性ChangeCallback。
+ * @param callback (visible: boolean) => void 参数说明。
+ * @returns 无返回值，直接更新可见性ChangeCallback相关状态。
+ */
+
 
   setVisibilityChangeCallback(callback: (visible: boolean) => void): void {
     this.onVisibilityChange = callback;
-  }
+  }  
+  /**
+ * setLayoutChangeCallback：写入LayoutChangeCallback。
+ * @param callback () => void 参数说明。
+ * @returns 无返回值，直接更新LayoutChangeCallback相关状态。
+ */
+
 
   setLayoutChangeCallback(callback: () => void): void {
     this.onLayoutChange = callback;
-  }
+  }  
+  /**
+ * setTabChangeCallback：写入TabChangeCallback。
+ * @param callback (tabName: string) => void 参数说明。
+ * @returns 无返回值，直接更新TabChangeCallback相关状态。
+ */
+
 
   setTabChangeCallback(callback: (tabName: string) => void): void {
     this.onTabChange = callback;
   }
 
-/** switchTab：执行对应的业务逻辑。 */
+  /** switchTab：处理switch Tab。 */
   switchTab(tabName: string): void {
-/** groups：定义该变量以承载业务值。 */
     const groups = this.panel.querySelectorAll<HTMLElement>('[data-tab-group]');
     groups.forEach(group => {
-/** hasTarget：定义该变量以承载业务值。 */
       const hasTarget = this.getGroupTabs(group)
         .some(button => button.dataset.tab === tabName);
       if (hasTarget) {
@@ -148,14 +235,12 @@ export class SidePanel {
     });
   }
 
-/** bindTabGroups：执行对应的业务逻辑。 */
+  /** bindTabGroups：绑定Tab分组。 */
   private bindTabGroups(): void {
-/** groups：定义该变量以承载业务值。 */
     const groups = this.panel.querySelectorAll<HTMLElement>('[data-tab-group]');
     groups.forEach(group => {
       this.getGroupTabs(group).forEach(button => {
         button.addEventListener('click', () => {
-/** tabName：定义该变量以承载业务值。 */
           const tabName = button.dataset.tab;
           if (!tabName) return;
           this.switchGroupTab(group, tabName);
@@ -164,14 +249,13 @@ export class SidePanel {
     });
   }
 
-/** bindLayoutToggles：执行对应的业务逻辑。 */
+  /** bindLayoutToggles：绑定布局Toggles。 */
   private bindLayoutToggles(): void {
     this.panel.querySelectorAll<HTMLButtonElement>('[data-layout-toggle]').forEach((button) => {
       button.addEventListener('pointerdown', (event) => {
         if (event.button !== 0) {
           return;
         }
-/** target：定义该变量以承载业务值。 */
         const target = button.dataset.layoutToggle;
         if (target !== 'left' && target !== 'right' && target !== 'bottom') {
           return;
@@ -199,13 +283,9 @@ export class SidePanel {
           return;
         }
 
-/** viewportScale：定义该变量以承载业务值。 */
         const viewportScale = getViewportScale(window);
-/** deltaX：定义该变量以承载业务值。 */
         const deltaX = (event.clientX - this.dragState.startX) / viewportScale;
-/** deltaY：定义该变量以承载业务值。 */
         const deltaY = (event.clientY - this.dragState.startY) / viewportScale;
-/** primaryDelta：定义该变量以承载业务值。 */
         const primaryDelta = this.dragState.target === 'bottom' ? Math.abs(deltaY) : Math.abs(deltaX);
         if (!this.dragState.dragged && primaryDelta < SidePanel.DRAG_START_THRESHOLD_PX) {
           return;
@@ -213,7 +293,6 @@ export class SidePanel {
 
         this.dragState.dragged = true;
         if (this.dragState.target === 'left') {
-/** next：定义该变量以承载业务值。 */
           const next = this.clamp(
             this.dragState.startSize + deltaX,
             DESKTOP_LAYOUT_DRAG_LIMITS.leftMin,
@@ -224,7 +303,6 @@ export class SidePanel {
           );
           this.panel.style.setProperty('--layout-left-size', `${next}px`);
         } else if (this.dragState.target === 'right') {
-/** next：定义该变量以承载业务值。 */
           const next = this.clamp(
             this.dragState.startSize - deltaX,
             DESKTOP_LAYOUT_DRAG_LIMITS.rightMin,
@@ -235,7 +313,6 @@ export class SidePanel {
           );
           this.panel.style.setProperty('--layout-right-size', `${next}px`);
         } else {
-/** next：定义该变量以承载业务值。 */
           const next = this.clamp(
             this.dragState.startSize - deltaY,
             DESKTOP_LAYOUT_DRAG_LIMITS.bottomMin,
@@ -249,7 +326,7 @@ export class SidePanel {
         this.onLayoutChange?.();
       });
 
-/** finishPointer：通过常量导出可复用函数行为。 */
+      /** finishPointer：完成Pointer。 */
       const finishPointer = (event: PointerEvent) => {
         if (!this.dragState || this.dragState.pointerId !== event.pointerId) {
           return;
@@ -283,9 +360,9 @@ export class SidePanel {
     });
   }
 
-/** bindResponsiveLayout：执行对应的业务逻辑。 */
+  /** bindResponsiveLayout：绑定Responsive布局。 */
   private bindResponsiveLayout(): void {
-/** refresh：通过常量导出可复用函数行为。 */
+    /** refresh：处理refresh。 */
     const refresh = () => {
       this.syncResponsiveLayout();
     };
@@ -294,15 +371,13 @@ export class SidePanel {
     window.visualViewport?.addEventListener('resize', refresh);
   }
 
-/** bindLayoutTransitionSync：执行对应的业务逻辑。 */
+  /** bindLayoutTransitionSync：绑定布局Transition同步。 */
   private bindLayoutTransitionSync(): void {
     this.panel.addEventListener('transitionend', (event) => {
       if (!(event.target instanceof HTMLElement)) {
         return;
       }
-/** isShellColumnTransition：定义该变量以承载业务值。 */
       const isShellColumnTransition = event.target === this.panel && event.propertyName === 'grid-template-columns';
-/** isCenterRowTransition：定义该变量以承载业务值。 */
       const isCenterRowTransition = event.target.id === 'layout-center' && event.propertyName === 'grid-template-rows';
       if (!isShellColumnTransition && !isCenterRowTransition) {
         return;
@@ -311,13 +386,11 @@ export class SidePanel {
     });
   }
 
-/** collectMobileSections：执行对应的业务逻辑。 */
+  /** collectMobileSections：收集Mobile Sections。 */
   private collectMobileSections(): MobileSectionMount[] {
     return [...this.panel.querySelectorAll<HTMLElement>('[data-mobile-section]')]
       .map((element) => {
-/** paneId：定义该变量以承载业务值。 */
         const paneId = this.resolveMobilePaneId(element.dataset.mobileSection);
-/** originalParent：定义该变量以承载业务值。 */
         const originalParent = element.parentElement;
         if (!paneId || !originalParent) {
           return null;
@@ -332,7 +405,7 @@ export class SidePanel {
       .filter((entry): entry is MobileSectionMount => entry !== null);
   }
 
-/** resolveMobilePaneId：执行对应的业务逻辑。 */
+  /** resolveMobilePaneId：解析Mobile Pane ID。 */
   private resolveMobilePaneId(section?: string): MobilePaneId | null {
     switch (section) {
       case 'overview':
@@ -350,14 +423,15 @@ export class SidePanel {
     }
   }
 
-/** shouldUseMobileLayout：执行对应的业务逻辑。 */
+  /** shouldUseMobileLayout：判断是否使用Mobile布局。 */
   private shouldUseMobileLayout(): boolean {
     return shouldUseMobileUi(window);
   }
 
-/** syncResponsiveLayout：执行对应的业务逻辑。 */
+  /** syncResponsiveLayout：同步Responsive布局。 */
   private syncResponsiveLayout(): void {
-/** nextMobileLayoutActive：定义该变量以承载业务值。 */
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
     const nextMobileLayoutActive = this.shouldUseMobileLayout();
     if (nextMobileLayoutActive === this.mobileLayoutActive) {
       return;
@@ -372,13 +446,14 @@ export class SidePanel {
     this.onLayoutChange?.();
   }
 
-/** mountMobileSections：执行对应的业务逻辑。 */
+  /** mountMobileSections：处理mount Mobile Sections。 */
   private mountMobileSections(): void {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
     if (!this.mobileShell) {
       return;
     }
     this.mobileSections.forEach((entry) => {
-/** pane：定义该变量以承载业务值。 */
       const pane = this.mobileShell?.querySelector<HTMLElement>(`[data-pane="${entry.paneId}"]`);
       if (!pane || entry.element.parentElement === pane) {
         return;
@@ -387,13 +462,12 @@ export class SidePanel {
     });
   }
 
-/** restoreDesktopSections：执行对应的业务逻辑。 */
+  /** restoreDesktopSections：处理restore Desktop Sections。 */
   private restoreDesktopSections(): void {
     this.mobileSections.forEach((entry) => {
       if (entry.element.parentElement === entry.originalParent) {
         return;
       }
-/** referenceNode：定义该变量以承载业务值。 */
       const referenceNode = entry.originalNextSibling?.parentNode === entry.originalParent
         ? entry.originalNextSibling
         : null;
@@ -401,8 +475,10 @@ export class SidePanel {
     });
   }
 
-/** toggleLayout：执行对应的业务逻辑。 */
+  /** toggleLayout：处理toggle布局。 */
   private toggleLayout(target: 'left' | 'right' | 'bottom'): void {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
     if (target === 'left') {
       this.layoutState.leftCollapsed = !this.layoutState.leftCollapsed;
     } else if (target === 'right') {
@@ -414,7 +490,7 @@ export class SidePanel {
     this.onLayoutChange?.();
   }
 
-/** syncLayoutState：执行对应的业务逻辑。 */
+  /** syncLayoutState：同步布局状态。 */
   private syncLayoutState(): void {
     this.panel.dataset.leftCollapsed = this.layoutState.leftCollapsed ? 'true' : 'false';
     this.panel.dataset.rightCollapsed = this.layoutState.rightCollapsed ? 'true' : 'false';
@@ -432,9 +508,18 @@ export class SidePanel {
     this.persistCurrentLayoutState();
   }
 
-/** syncToggleButton：执行对应的业务逻辑。 */
-  private syncToggleButton(target: 'left' | 'right' | 'bottom', state: { text: string; title: string }): void {
-/** button：定义该变量以承载业务值。 */
+  /** syncToggleButton：同步Toggle按钮。 */
+  private syncToggleButton(target: 'left' | 'right' | 'bottom', state: {  
+  /**
+ * text：text名称或显示文本。
+ */
+ text: string;  
+ /**
+ * title：title名称或显示文本。
+ */
+ title: string }): void {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
     const button = this.panel.querySelector<HTMLButtonElement>(`[data-layout-toggle="${target}"]`);
     if (!button) {
       return;
@@ -451,7 +536,7 @@ export class SidePanel {
     ) ? 'true' : 'false');
   }
 
-/** isCollapsed：执行对应的业务逻辑。 */
+  /** isCollapsed：判断是否Collapsed。 */
   private isCollapsed(target: 'left' | 'right' | 'bottom'): boolean {
     return target === 'left'
       ? this.layoutState.leftCollapsed
@@ -460,20 +545,20 @@ export class SidePanel {
         : this.layoutState.bottomCollapsed;
   }
 
-/** clamp：执行对应的业务逻辑。 */
+  /** clamp：处理clamp。 */
   private clamp(value: number, min: number, max: number): number {
     return Math.max(min, Math.min(max, value));
   }
 
-/** getLayoutSize：执行对应的业务逻辑。 */
+  /** getLayoutSize：读取布局Size。 */
   private getLayoutSize(target: 'left' | 'right' | 'bottom'): number {
-/** selector：定义该变量以承载业务值。 */
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
     const selector = target === 'left'
       ? '#layout-left'
       : target === 'right'
         ? '#layout-right'
         : '#layout-center-bottom';
-/** element：定义该变量以承载业务值。 */
     const element = this.panel.querySelector<HTMLElement>(selector);
     if (!element) {
       return 0;
@@ -481,7 +566,7 @@ export class SidePanel {
     return target === 'bottom' ? element.offsetHeight : element.offsetWidth;
   }
 
-/** switchGroupTab：执行对应的业务逻辑。 */
+  /** switchGroupTab：处理switch分组Tab。 */
   private switchGroupTab(group: HTMLElement, tabName: string): void {
     this.getGroupTabs(group).forEach(button => {
       button.classList.toggle('active', button.dataset.tab === tabName);
@@ -493,21 +578,22 @@ export class SidePanel {
     this.onTabChange?.(tabName);
   }
 
-/** getGroupTabs：执行对应的业务逻辑。 */
+  /** getGroupTabs：读取分组标签页。 */
   private getGroupTabs(group: HTMLElement): HTMLElement[] {
     return [...group.querySelectorAll<HTMLElement>('[data-tab]')]
       .filter((button) => button.closest<HTMLElement>('[data-tab-group]') === group);
   }
 
-/** getGroupPanes：执行对应的业务逻辑。 */
+  /** getGroupPanes：读取分组Panes。 */
   private getGroupPanes(group: HTMLElement): HTMLElement[] {
     return [...group.querySelectorAll<HTMLElement>('[data-pane]')]
       .filter((pane) => pane.closest<HTMLElement>('[data-tab-group]') === group);
   }
 
-/** restorePersistedLayoutState：执行对应的业务逻辑。 */
+  /** restorePersistedLayoutState：处理restore Persisted布局状态。 */
   private restorePersistedLayoutState(): void {
-/** persistedLayoutState：定义该变量以承载业务值。 */
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
     const persistedLayoutState = this.persistedState?.layoutState;
     if (!persistedLayoutState) {
       return;
@@ -517,18 +603,16 @@ export class SidePanel {
     this.layoutState.bottomCollapsed = persistedLayoutState.bottomCollapsed === true;
   }
 
-/** restorePersistedLayoutSizes：执行对应的业务逻辑。 */
+  /** restorePersistedLayoutSizes：处理restore Persisted布局Sizes。 */
   private restorePersistedLayoutSizes(): void {
-/** layoutSizes：定义该变量以承载业务值。 */
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
     const layoutSizes = this.persistedState?.layoutSizes;
     if (!layoutSizes) {
       return;
     }
-/** leftSize：定义该变量以承载业务值。 */
     const leftSize = this.normalizeStoredLayoutSize('left', layoutSizes.left);
-/** rightSize：定义该变量以承载业务值。 */
     const rightSize = this.normalizeStoredLayoutSize('right', layoutSizes.right);
-/** bottomSize：定义该变量以承载业务值。 */
     const bottomSize = this.normalizeStoredLayoutSize('bottom', layoutSizes.bottom);
     if (leftSize !== null) {
       this.panel.style.setProperty('--layout-left-size', `${leftSize}px`);
@@ -541,25 +625,23 @@ export class SidePanel {
     }
   }
 
-/** restorePersistedTabs：执行对应的业务逻辑。 */
+  /** restorePersistedTabs：处理restore Persisted标签页。 */
   private restorePersistedTabs(): void {
-/** activeTabs：定义该变量以承载业务值。 */
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
     const activeTabs = this.persistedState?.activeTabs;
     if (!activeTabs) {
       return;
     }
     this.panel.querySelectorAll<HTMLElement>('[data-tab-group]').forEach((group) => {
-/** groupId：定义该变量以承载业务值。 */
       const groupId = group.dataset.tabGroup;
       if (!groupId) {
         return;
       }
-/** tabName：定义该变量以承载业务值。 */
       const tabName = activeTabs[groupId];
       if (!tabName) {
         return;
       }
-/** hasTarget：定义该变量以承载业务值。 */
       const hasTarget = this.getGroupTabs(group).some((button) => button.dataset.tab === tabName)
         && this.getGroupPanes(group).some((pane) => pane.dataset.pane === tabName);
       if (!hasTarget) {
@@ -569,7 +651,7 @@ export class SidePanel {
     });
   }
 
-/** persistCurrentLayoutState：执行对应的业务逻辑。 */
+  /** persistCurrentLayoutState：持久化当前布局状态。 */
   private persistCurrentLayoutState(): void {
     this.persistedState = {
       version: 1,
@@ -583,7 +665,7 @@ export class SidePanel {
     this.writePersistedState();
   }
 
-/** persistCurrentLayoutSizes：执行对应的业务逻辑。 */
+  /** persistCurrentLayoutSizes：持久化当前布局Sizes。 */
   private persistCurrentLayoutSizes(): void {
     this.persistedState = {
       version: 1,
@@ -597,9 +679,10 @@ export class SidePanel {
     this.writePersistedState();
   }
 
-/** persistGroupActiveTab：执行对应的业务逻辑。 */
+  /** persistGroupActiveTab：持久化分组活跃Tab。 */
   private persistGroupActiveTab(group: HTMLElement, tabName: string): void {
-/** groupId：定义该变量以承载业务值。 */
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
     const groupId = group.dataset.tabGroup;
     if (!groupId) {
       return;
@@ -615,8 +698,10 @@ export class SidePanel {
     this.writePersistedState();
   }
 
-/** normalizeStoredLayoutSize：执行对应的业务逻辑。 */
+  /** normalizeStoredLayoutSize：规范化Stored布局Size。 */
   private normalizeStoredLayoutSize(target: LayoutTarget, value: unknown): number | null {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
     if (typeof value !== 'number' || !Number.isFinite(value)) {
       return null;
     }
@@ -629,15 +714,13 @@ export class SidePanel {
     return this.clamp(Math.round(value), DESKTOP_LAYOUT_DRAG_LIMITS.bottomMin, DESKTOP_LAYOUT_DRAG_LIMITS.bottomMax);
   }
 
-/** readPersistedState：执行对应的业务逻辑。 */
+  /** readPersistedState：处理read Persisted状态。 */
   private readPersistedState(): SidePanelPersistedState | null {
     try {
-/** raw：定义该变量以承载业务值。 */
       const raw = window.localStorage.getItem(SIDE_PANEL_STORAGE_KEY);
       if (!raw) {
         return null;
       }
-/** parsed：定义该变量以承载业务值。 */
       const parsed = JSON.parse(raw);
       if (!parsed || typeof parsed !== 'object' || parsed.version !== 1) {
         return null;
@@ -648,8 +731,10 @@ export class SidePanel {
     }
   }
 
-/** writePersistedState：执行对应的业务逻辑。 */
+  /** writePersistedState：处理write Persisted状态。 */
   private writePersistedState(): void {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
     if (!this.persistedState) {
       return;
     }
@@ -660,4 +745,3 @@ export class SidePanel {
     }
   }
 }
-

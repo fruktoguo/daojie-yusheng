@@ -2,26 +2,32 @@
  * 属性面板
  * 以雷达图和数值卡片展示六维、灵根、灵脉、斗法、灵力、特殊六大分类属性
  */
-
 import {
   ATTR_KEYS,
   ATTR_TO_PERCENT_NUMERIC_WEIGHTS,
   ATTR_TO_NUMERIC_WEIGHTS,
+  AttrBonus,
+  AttrDetailView,
   AttrKey,
   Attributes,
   BASE_MOVE_POINTS_PER_TICK,
+  DEFAULT_QI_EFFICIENCY_BP,
   ELEMENT_KEYS,
   HeavenGateRootValues,
-  NumericRatioDivisors,
   NumericStatBreakdownMap,
+  NumericRatioDivisors,
   NumericStats,
+  S2C_AttrDetail,
   PlayerState,
   PlayerSpecialStats,
-  S2C_AttrDetail,
-  percentModifierToMultiplier,
+  type QiElementKey,
+  type QiFamilyKey,
+  type QiFormKey,
+  type QiProjectionModifier,
+  ratioValue,
   S2C_AttrUpdate,
-  signedRatioValue,
   TileType,
+  stackQiEfficiencyBp,
   getTileTraversalCost,
 } from '@mud/shared';
 import { ATTR_KEY_LABELS, ELEMENT_KEY_LABELS } from '../../domain-labels';
@@ -49,62 +55,140 @@ import {
   resolveSpiritualRootsFromBonuses,
 } from '../../utils/spiritual-roots';
 
+type AttrPanelCallbacks = {
+  onRequestDetail?: () => void;
+};
 
-/** formatRateBp：执行对应的业务逻辑。 */
+type DisplayQiDescriptor = {
+  family: QiFamilyKey;
+  form: QiFormKey;
+  element: QiElementKey;
+};
+
+type DisplayQiProjection = {
+  visibility: 'hidden' | 'observable' | 'absorbable';
+  efficiencyBp: number;
+  sources: string[];
+};
+
+const QI_VISIBILITY_RANK: Record<DisplayQiProjection['visibility'], number> = {
+  hidden: 0,
+  observable: 1,
+  absorbable: 2,
+};
+
+/** formatRateBp：格式化速率Bp。 */
 function formatRateBp(value: number): string {
-/** percent：定义该变量以承载业务值。 */
   const percent = value / 100;
   return formatDisplayPercent(percent);
 }
 
-/** formatSimplePercent：执行对应的业务逻辑。 */
+/** formatSimplePercent：格式化Simple Percent。 */
 function formatSimplePercent(value: number): string {
   return formatDisplayPercent(value);
 }
 
-/** getCraftProgressRatio：执行对应的业务逻辑。 */
+/** getCraftProgressRatio：读取制作进度Ratio。 */
 function getCraftProgressRatio(exp: number, expToNext: number): number {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
   if (expToNext <= 0) {
     return 1;
   }
   return Math.max(0, Math.min(1, exp / expToNext));
 }
 
-/** formatAuraAbsorptionRate：执行对应的业务逻辑。 */
+/** formatAuraAbsorptionRate：格式化灵气Absorption速率。 */
 function formatAuraAbsorptionRate(value: number): string {
   return formatDisplayPercent(value, { maximumFractionDigits: 2 });
 }
 
-/** formatCritDamageBonus：执行对应的业务逻辑。 */
+function formatQiEfficiencyBp(value: number): string {
+  return formatAuraAbsorptionRate(value / 100);
+}
+
+function resolveQiProjectionDisplay(
+  descriptor: DisplayQiDescriptor,
+  bonuses: AttrBonus[],
+  defaultVisibility: DisplayQiProjection['visibility'],
+): DisplayQiProjection {
+  let visibility = defaultVisibility;
+  let efficiencyBp = defaultVisibility === 'hidden' ? 0 : DEFAULT_QI_EFFICIENCY_BP;
+  const sources = new Set<string>();
+  for (const bonus of bonuses) {
+    for (const modifier of bonus.qiProjection ?? []) {
+      if (!matchesQiProjectionModifier(descriptor, modifier)) {
+        continue;
+      }
+      if (modifier.visibility && QI_VISIBILITY_RANK[modifier.visibility] > QI_VISIBILITY_RANK[visibility]) {
+        visibility = modifier.visibility;
+      }
+      if (modifier.efficiencyBpMultiplier !== undefined) {
+        efficiencyBp = defaultVisibility === 'hidden'
+          ? Math.max(0, efficiencyBp + modifier.efficiencyBpMultiplier - DEFAULT_QI_EFFICIENCY_BP)
+          : stackQiEfficiencyBp(efficiencyBp, modifier.efficiencyBpMultiplier);
+      }
+      sources.add(bonus.label ?? bonus.source);
+    }
+  }
+  return { visibility, efficiencyBp, sources: [...sources] };
+}
+
+function matchesQiProjectionModifier(descriptor: DisplayQiDescriptor, modifier: QiProjectionModifier): boolean {
+  const selector = modifier.selector;
+  if (!selector) {
+    return true;
+  }
+  if (selector.families && selector.families.length > 0 && !selector.families.includes(descriptor.family)) {
+    return false;
+  }
+  if (selector.forms && selector.forms.length > 0 && !selector.forms.includes(descriptor.form)) {
+    return false;
+  }
+  if (selector.elements && selector.elements.length > 0 && !selector.elements.includes(descriptor.element)) {
+    return false;
+  }
+  if (selector.resourceKeys && selector.resourceKeys.length > 0) {
+    const resourceKey = `${descriptor.family}.${descriptor.form}.${descriptor.element}`;
+    return selector.resourceKeys.includes(resourceKey);
+  }
+  return true;
+}
+
+function buildQiProjectionSourceLines(projection: DisplayQiProjection): string[] {
+  return projection.sources.length > 0
+    ? [`来源：${projection.sources.join('、')}`]
+    : [];
+}
+
+/** formatCritDamageBonus：格式化Crit Damage Bonus。 */
 function formatCritDamageBonus(value: number): string {
-/** percent：定义该变量以承载业务值。 */
   const percent = value / 10;
   return formatDisplayPercent(percent);
 }
 
-/** colorWithAlpha：执行对应的业务逻辑。 */
+/** colorWithAlpha：处理颜色With Alpha。 */
 function colorWithAlpha(color: string, alpha: number): string {
-/** hex：定义该变量以承载业务值。 */
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
   const hex = color.startsWith('#') ? color.slice(1) : color;
-/** normalized：定义该变量以承载业务值。 */
   const normalized = hex.length === 3 ? hex.split('').map((char) => char + char).join('') : hex;
   if (normalized.length !== 6) return color;
-/** r：定义该变量以承载业务值。 */
   const r = parseInt(normalized.slice(0, 2), 16);
-/** g：定义该变量以承载业务值。 */
   const g = parseInt(normalized.slice(2, 4), 16);
-/** b：定义该变量以承载业务值。 */
   const b = parseInt(normalized.slice(4, 6), 16);
   return `rgba(${r}, ${g}, ${b}, ${alpha.toFixed(2)})`;
 }
 
-/** formatRatioPercent：执行对应的业务逻辑。 */
+/** formatRatioPercent：格式化Ratio Percent。 */
 function formatRatioPercent(raw: number, divisor: number): string {
-  return formatDisplayPercent(signedRatioValue(raw, divisor) * 100);
+  return formatDisplayPercent(ratioValue(raw, divisor) * 100);
 }
 
-/** formatNumericTooltipValue：执行对应的业务逻辑。 */
+/** formatNumericTooltipValue：格式化Numeric提示值。 */
 function formatNumericTooltipValue(key: NumericCardKey, value: number): string {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
   if (key === 'critDamage') {
     return formatCritDamageBonus(value);
   }
@@ -114,50 +198,40 @@ function formatNumericTooltipValue(key: NumericCardKey, value: number): string {
   return formatDisplayInteger(value);
 }
 
-/** buildAttrConversionSummary：执行对应的业务逻辑。 */
+/** buildAttrConversionSummary：构建属性Conversion摘要。 */
 function buildAttrConversionSummary(key: AttrKey, totalValue: number): string {
-/** parts：定义该变量以承载业务值。 */
   const parts = buildAttrConversionEntries(key, totalValue);
   return parts.length > 0 ? parts.join('，') : '暂无具体转化';
 }
 
-/** buildAttrConversionLines：执行对应的业务逻辑。 */
+/** buildAttrConversionLines：构建属性Conversion Lines。 */
 function buildAttrConversionLines(key: AttrKey, totalValue: number): string[] {
-/** parts：定义该变量以承载业务值。 */
   const parts = buildAttrConversionEntries(key, totalValue);
   return parts.length > 0 ? parts : ['暂无具体转化'];
 }
 
-/** buildAttrConversionEntries：执行对应的业务逻辑。 */
+/** buildAttrConversionEntries：构建属性Conversion Entries。 */
 function buildAttrConversionEntries(key: AttrKey, totalValue: number): string[] {
-/** percentWeights：定义该变量以承载业务值。 */
   const percentWeights = ATTR_TO_PERCENT_NUMERIC_WEIGHTS[key];
-/** weights：定义该变量以承载业务值。 */
   const weights = ATTR_TO_NUMERIC_WEIGHTS[key];
-/** percentParts：定义该变量以承载业务值。 */
   const percentParts = Object.entries(percentWeights)
     .filter(([, entryValue]) => typeof entryValue === 'number' && entryValue !== 0)
     .map(([entryKey, entryValue]) => {
-/** numericKey：定义该变量以承载业务值。 */
       const numericKey = entryKey as NumericCardKey;
-/** total：定义该变量以承载业务值。 */
       const total = entryValue * totalValue;
       return `${NUMERIC_TOOLTIP_LABELS[numericKey] ?? entryKey} +${formatSimplePercent(total)}`;
     });
-/** flatParts：定义该变量以承载业务值。 */
   const flatParts = Object.entries(weights)
     .filter(([entryKey, entryValue]) => entryKey !== 'elementDamageBonus' && entryKey !== 'elementDamageReduce' && typeof entryValue === 'number' && entryValue !== 0)
     .map(([entryKey, entryValue]) => {
-/** numericKey：定义该变量以承载业务值。 */
       const numericKey = entryKey as NumericCardKey;
-/** total：定义该变量以承载业务值。 */
       const total = entryValue * totalValue;
       return `${NUMERIC_TOOLTIP_LABELS[numericKey] ?? entryKey} +${formatNumericTooltipValue(numericKey, total)}`;
     });
   return [...percentParts, ...flatParts];
 }
 
-/** splitTooltipLines：执行对应的业务逻辑。 */
+/** splitTooltipLines：处理split提示Lines。 */
 function splitTooltipLines(detail: string): string[] {
   return detail
     .split('\n')
@@ -165,99 +239,39 @@ function splitTooltipLines(detail: string): string[] {
     .filter((line) => line.length > 0);
 }
 
-/** formatCritDamageDisplay：执行对应的业务逻辑。 */
+/** formatCritDamageDisplay：格式化Crit Damage显示。 */
 function formatCritDamageDisplay(value: number): string {
-/** total：定义该变量以承载业务值。 */
   const total = 200 + value / 10;
   return formatDisplayPercent(total);
 }
 
-/** formatMoveSpeedEffect：执行对应的业务逻辑。 */
+/** percentModifierToMultiplier：将百分比修饰换算成乘区倍率。 */
+function percentModifierToMultiplier(percent: number): number {
+  return Math.max(0, 1 + percent / 100);
+}
+
+/** formatMoveSpeedEffect：格式化移动速度效果。 */
 function formatMoveSpeedEffect(value: number): string {
-/** movePoints：定义该变量以承载业务值。 */
-  const movePoints = Math.max(1, BASE_MOVE_POINTS_PER_TICK + value);
-/** roadTiles：定义该变量以承载业务值。 */
+  const safeValue = Math.max(0, value);
+  const movePoints = BASE_MOVE_POINTS_PER_TICK + safeValue;
   const roadTiles = movePoints / getTileTraversalCost(TileType.Road);
-/** trailTiles：定义该变量以承载业务值。 */
   const trailTiles = movePoints / getTileTraversalCost(TileType.Trail);
-/** grassTiles：定义该变量以承载业务值。 */
   const grassTiles = movePoints / getTileTraversalCost(TileType.Grass);
-/** swampTiles：定义该变量以承载业务值。 */
   const swampTiles = movePoints / getTileTraversalCost(TileType.Swamp);
   return `每息获得 ${formatDisplayNumber(movePoints)} 点移动预算，约等于 ${formatDisplayNumber(roadTiles)} 格大路 / ${formatDisplayNumber(trailTiles)} 格小路 / ${formatDisplayNumber(grassTiles)} 格草地 / ${formatDisplayNumber(swampTiles)} 格沼泽`;
 }
 
-/** formatMoveSpeedDisplay：执行对应的业务逻辑。 */
+/** formatMoveSpeedDisplay：格式化移动速度显示。 */
 function formatMoveSpeedDisplay(value: number): string {
   return formatDisplayInteger(BASE_MOVE_POINTS_PER_TICK + Math.max(0, value));
 }
 
-/** buildCombatFormulaLines：执行对应的业务逻辑。 */
-function buildCombatFormulaLines(key: NumericCardKey): string[] {
-  switch (key) {
-    case 'physDef':
-      return [
-        '计算公式：物理减伤 = 物理防御 / (物理防御 + 攻击方物理攻击 × 0.1 + 100)',
-        '化解触发时，本次物理防御按双倍参与减伤结算。',
-      ];
-    case 'spellDef':
-      return [
-        '计算公式：法术减伤 = 法术防御 / (法术防御 + 攻击方法术攻击 × 0.1 + 100)',
-        '元素伤害会再与元素减伤按乘算合并；化解触发时本次法术防御按双倍参与结算。',
-      ];
-    case 'hit':
-      return [
-        '你的命中不单独转概率，而是作为对手闪避公式里的对抗基数。',
-        '对手闪避率 = 对手闪避 / (对手闪避 + 你的命中 + 100)',
-        '战斗经验会提高你的有效命中；若本次先触发破招，则命中按双倍参与判定。',
-      ];
-    case 'dodge':
-      return [
-        '闪避率 = 闪避 / (闪避 + 对方命中 + 100)',
-        '战斗经验会提高你的有效闪避；若对方先触发破招，则其命中按双倍参与判定。',
-      ];
-    case 'crit':
-      return [
-        '暴击率 = 暴击 / (暴击 + 对方免爆 + 100)',
-        '若本次先触发破招，则暴击按双倍参与判定。',
-      ];
-    case 'antiCrit':
-      return [
-        '对手对你的暴击率 = 对手暴击 / (对手暴击 + 你的免爆 + 100)',
-        '免爆越高，对手暴击率越低。',
-      ];
-    case 'critDamage':
-      return [
-        '最终暴击伤害倍率 = 200% + 暴击伤害 / 10',
-      ];
-    case 'breakPower':
-      return [
-        '只有当你的破招高于对方化解时，才会计算破招率；若两边相等，则本次既不判破招也不判化解。',
-        '破招率 = 破招 / (破招 + 对方化解 + 100)',
-        '破招触发后，本次命中与暴击都按双倍攻击方数值重新判定。',
-      ];
-    case 'resolvePower':
-      return [
-        '只有当你的化解高于对方破招时，才会计算化解率；若两边相等，则本次既不判化解也不判破招。',
-        '化解率 = 化解 / (化解 + 对方破招 + 100)',
-        '破招与化解只能触发一个；化解触发后，本次防御按双倍参与减伤结算。',
-      ];
-    default:
-      return [];
-  }
-}
-
-/** formatSignedPercent：执行对应的业务逻辑。 */
-function formatSignedPercent(value: number): string {
-  return `${formatDisplaySignedNumber(value)}%`;
-}
-
-/** formatMultiplierDisplay：执行对应的业务逻辑。 */
+/** formatMultiplierDisplay：格式化乘区倍率显示。 */
 function formatMultiplierDisplay(multiplier: number): string {
   return `X${formatDisplayNumber(multiplier * 100)}%`;
 }
 
-/** formatBreakdownValue：执行对应的业务逻辑。 */
+/** formatBreakdownValue：格式化拆解数值显示。 */
 function formatBreakdownValue(key: NumericCardKey, value: number): string {
   if (key === 'critDamage') {
     return formatDisplayPercent(value / 10);
@@ -271,11 +285,9 @@ function formatBreakdownValue(key: NumericCardKey, value: number): string {
   return formatDisplayNumber(value);
 }
 
-/** formatSignedBreakdownValue：执行对应的业务逻辑。 */
+/** formatSignedBreakdownValue：格式化带符号的拆解数值显示。 */
 function formatSignedBreakdownValue(key: NumericCardKey, value: number): string {
-/** sign：定义该变量以承载业务值。 */
   const sign = value >= 0 ? '+' : '-';
-/** absValue：定义该变量以承载业务值。 */
   const absValue = Math.abs(value);
   if (key === 'critDamage') {
     return `${sign}${formatDisplayPercent(absValue / 10)}`;
@@ -283,33 +295,32 @@ function formatSignedBreakdownValue(key: NumericCardKey, value: number): string 
   if (RATE_BP_KEYS.has(key)) {
     return `${sign}${formatDisplayPercent(absValue / 100)}`;
   }
-  return `${sign}${formatDisplayNumber(absValue)}`;
+  return `${sign}${formatDisplaySignedNumber(value).replace(/^[+-]/, '')}`;
 }
 
-/** renderTooltipPrimaryLine：执行对应的业务逻辑。 */
+/** renderTooltipPrimaryLine：渲染 tooltip 主行。 */
 function renderTooltipPrimaryLine(label: string, value: string): string {
   return `<span class="attr-tooltip-primary"><span class="attr-tooltip-primary-label">${escapeHtml(label)}</span><span class="attr-tooltip-primary-value">${escapeHtml(value)}</span></span>`;
 }
 
-/** renderTooltipSectionLine：执行对应的业务逻辑。 */
+/** renderTooltipSectionLine：渲染 tooltip 分组行。 */
 function renderTooltipSectionLine(label: string, tone: 'fixed' | 'percent'): string {
   return `<span class="attr-tooltip-section ${tone}">${escapeHtml(label)}</span>`;
 }
 
-/** renderTooltipChildLine：执行对应的业务逻辑。 */
+/** renderTooltipChildLine：渲染 tooltip 子行。 */
 function renderTooltipChildLine(label: string, value: string, tone: 'fixed' | 'percent'): string {
   return `<span class="attr-tooltip-child ${tone}"><span class="attr-tooltip-child-label">${escapeHtml(label)}</span><span class="attr-tooltip-child-value">${escapeHtml(value)}</span></span>`;
 }
 
-/** SYSTEM_FIXED_BASE_BY_NUMERIC_KEY：定义该变量以承载业务值。 */
+/** SYSTEM_FIXED_BASE_BY_NUMERIC_KEY：数值面板中的系统固定底座。 */
 const SYSTEM_FIXED_BASE_BY_NUMERIC_KEY: Partial<Record<NumericCardKey, number>> = {
   realmExpPerTick: 1,
   techniqueExpPerTick: 5,
 };
 
-/** getAttrFlatContribution：执行对应的业务逻辑。 */
+/** getAttrFlatContribution：计算六维对当前数值的固定贡献。 */
 function getAttrFlatContribution(key: NumericCardKey, attrs: Attributes): number {
-/** total：定义该变量以承载业务值。 */
   let total = 0;
   for (const attrKey of ATTR_KEYS) {
     const weight = ATTR_TO_NUMERIC_WEIGHTS[attrKey][key];
@@ -321,46 +332,33 @@ function getAttrFlatContribution(key: NumericCardKey, attrs: Attributes): number
   return total;
 }
 
-/** buildNumericBreakdownLines：执行对应的业务逻辑。 */
+/** buildNumericBreakdownLines：构建 main 风格的数值拆解 tooltip 行。 */
 function buildNumericBreakdownLines(
   breakdowns: NumericStatBreakdownMap | undefined,
   key: NumericCardKey,
   attrs: Attributes,
 ): string[] {
-/** breakdown：定义该变量以承载业务值。 */
   const breakdown = breakdowns?.[key];
   if (!breakdown) {
     return [];
   }
-/** attrMultiplier：定义该变量以承载业务值。 */
   const attrMultiplier = percentModifierToMultiplier(breakdown.attrMultiplierPct);
-/** buffMultiplier：定义该变量以承载业务值。 */
   const buffMultiplier = percentModifierToMultiplier(breakdown.buffMultiplierPct);
-/** pillMultiplier：定义该变量以承载业务值。 */
   const pillMultiplier = percentModifierToMultiplier(breakdown.pillMultiplierPct);
-/** totalMultiplier：定义该变量以承载业务值。 */
   const totalMultiplier = attrMultiplier * breakdown.realmMultiplier * buffMultiplier * pillMultiplier;
-/** attrFlatContribution：定义该变量以承载业务值。 */
   const attrFlatContribution = getAttrFlatContribution(key, attrs);
-/** systemFixedBase：定义该变量以承载业务值。 */
   const systemFixedBase = Math.max(0, SYSTEM_FIXED_BASE_BY_NUMERIC_KEY[key] ?? 0);
-/** foldedSystemBase：定义该变量以承载业务值。 */
   const foldedSystemBase = Math.min(systemFixedBase, Math.max(0, breakdown.flatBuffValue));
-/** displayFixedBaseValue：定义该变量以承载业务值。 */
   const displayFixedBaseValue = key === 'moveSpeed'
     ? BASE_MOVE_POINTS_PER_TICK + breakdown.realmBaseValue + attrFlatContribution
     : breakdown.realmBaseValue + attrFlatContribution + foldedSystemBase;
-/** displayExtraValue：定义该变量以承载业务值。 */
   const displayExtraValue = breakdown.baseValue - breakdown.realmBaseValue - attrFlatContribution + breakdown.flatBuffValue - foldedSystemBase;
-/** displayFixedTotalValue：定义该变量以承载业务值。 */
   const displayFixedTotalValue = key === 'moveSpeed'
     ? BASE_MOVE_POINTS_PER_TICK + breakdown.baseValue + breakdown.flatBuffValue
     : breakdown.baseValue + breakdown.flatBuffValue;
-/** displayFinalValue：定义该变量以承载业务值。 */
   const displayFinalValue = key === 'moveSpeed'
     ? BASE_MOVE_POINTS_PER_TICK + breakdown.finalValue
     : breakdown.finalValue;
-/** lines：定义该变量以承载业务值。 */
   const lines = [
     renderTooltipPrimaryLine('实际：', formatBreakdownValue(key, displayFinalValue)),
     renderTooltipSectionLine(`总固定值：${formatBreakdownValue(key, displayFixedTotalValue)}`, 'fixed'),
@@ -378,7 +376,33 @@ function buildNumericBreakdownLines(
   return lines;
 }
 
-/** buildNumericTooltip：执行对应的业务逻辑。 */
+/** buildCombatFormulaLines：构建战斗Formula Lines。 */
+function buildCombatFormulaLines(key: NumericCardKey): string[] {
+  switch (key) {
+    case 'physDef':
+      return ['物理对抗中，护体愈厚则伤势越轻，化解发动时防御更重。'];
+    case 'spellDef':
+      return ['法术对抗中，法防愈坚则法伤愈轻，化解发动时法防重算。'];
+    case 'hit':
+      return ['命中代表取势之机，值越高越易洞穿对手的闪避。'];
+    case 'dodge':
+      return ['闪避值反映步法稳健，数高则更易避开来势。'];
+    case 'crit':
+      return ['暴击是重击之机，暴击值越高，重创越易出现。'];
+    case 'antiCrit':
+      return ['免爆是反噬护体，护体越高，敌手重击越难成。'];
+    case 'critDamage':
+      return ['暴击后的伤害倍率会随此值浮动，越高则一击更重。'];
+    case 'breakPower':
+      return ['破招值主导先发之机，优于对方化解则可先破其护。'];
+    case 'resolvePower':
+      return ['化解可转敌破势为自身稳局，先于对方破招时更能护体。'];
+    default:
+      return [];
+  }
+}
+
+/** buildNumericTooltip：构建Numeric提示。 */
 function buildNumericTooltip(
   label: string,
   key: NumericCardKey,
@@ -387,9 +411,9 @@ function buildNumericTooltip(
   breakdowns?: NumericStatBreakdownMap,
   attrs?: Attributes,
 ): string {
-/** breakdownLines：定义该变量以承载业务值。 */
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
   const breakdownLines = attrs ? buildNumericBreakdownLines(breakdowns, key, attrs) : [];
-/** lines：定义该变量以承载业务值。 */
   const lines = [NUMERIC_TOOLTIP_DESCRIPTIONS[key] ?? '该属性影响角色的实际战斗表现。'];
   if (breakdownLines.length > 0) {
     lines.push(...breakdownLines);
@@ -405,7 +429,7 @@ function buildNumericTooltip(
   return lines.join('\n');
 }
 
-/** escapeHtml：执行对应的业务逻辑。 */
+/** escapeHtml：转义 HTML 文本中的危险字符。 */
 function escapeHtml(value: string): string {
   return value
     .replaceAll('&', '&amp;')
@@ -415,172 +439,341 @@ function escapeHtml(value: string): string {
     .replaceAll("'", '&#39;');
 }
 
-/** RadarEntry：定义该接口的能力与字段约束。 */
+/** createFragmentFromHtml：从 HTML 文本创建文档片段。 */
+function createFragmentFromHtml(html: string): DocumentFragment {
+  const template = document.createElement('template');
+  template.innerHTML = html.trim();
+  return template.content.cloneNode(true) as DocumentFragment;
+}
+
+/** 属性雷达图中的单个节点，包含标签、数值、颜色和提示文案。 */
 interface RadarEntry {
-/** label：定义该变量以承载业务值。 */
-  label: string;
-/** value：定义该变量以承载业务值。 */
-  value: number;
-/** color：定义该变量以承载业务值。 */
-  color: string;
-  valueLabel?: string;
-/** tooltipTitle：定义该变量以承载业务值。 */
-  tooltipTitle: string;
-/** tooltipDetail：定义该变量以承载业务值。 */
+/**
+ * label：label名称或显示文本。
+ */
+
+  label: string;  
+  /**
+ * value：值数值。
+ */
+
+  value: number;  
+  /**
+ * color：color相关字段。
+ */
+
+  color: string;  
+  /**
+ * valueLabel：值Label名称或显示文本。
+ */
+
+  valueLabel?: string;  
+  /**
+ * tooltipTitle：提示Title名称或显示文本。
+ */
+
+  tooltipTitle: string;  
+  /**
+ * tooltipDetail：提示详情状态或数据块。
+ */
+
   tooltipDetail: string;
 }
 
-/** AttrRadarNodeSnapshot：定义该接口的能力与字段约束。 */
+/** 单个雷达节点的渲染快照，记录坐标、标签和值提示。 */
 interface AttrRadarNodeSnapshot {
-/** label：定义该变量以承载业务值。 */
-  label: string;
-/** valueLabel：定义该变量以承载业务值。 */
-  valueLabel: string;
-/** color：定义该变量以承载业务值。 */
-  color: string;
-/** dotX：定义该变量以承载业务值。 */
-  dotX: string;
-/** dotY：定义该变量以承载业务值。 */
-  dotY: string;
-/** labelX：定义该变量以承载业务值。 */
-  labelX: string;
-/** labelY：定义该变量以承载业务值。 */
-  labelY: string;
-/** valueX：定义该变量以承载业务值。 */
-  valueX: string;
-/** valueY：定义该变量以承载业务值。 */
-  valueY: string;
-/** tooltipTitle：定义该变量以承载业务值。 */
-  tooltipTitle: string;
-/** tooltipDetail：定义该变量以承载业务值。 */
+/**
+ * label：label名称或显示文本。
+ */
+
+  label: string;  
+  /**
+ * valueLabel：值Label名称或显示文本。
+ */
+
+  valueLabel: string;  
+  /**
+ * color：color相关字段。
+ */
+
+  color: string;  
+  /**
+ * dotX：dotX相关字段。
+ */
+
+  dotX: string;  
+  /**
+ * dotY：dotY相关字段。
+ */
+
+  dotY: string;  
+  /**
+ * labelX：labelX相关字段。
+ */
+
+  labelX: string;  
+  /**
+ * labelY：labelY相关字段。
+ */
+
+  labelY: string;  
+  /**
+ * valueX：值X相关字段。
+ */
+
+  valueX: string;  
+  /**
+ * valueY：值Y相关字段。
+ */
+
+  valueY: string;  
+  /**
+ * tooltipTitle：提示Title名称或显示文本。
+ */
+
+  tooltipTitle: string;  
+  /**
+ * tooltipDetail：提示详情状态或数据块。
+ */
+
   tooltipDetail: string;
 }
 
-/** AttrRadarPaneSnapshot：定义该接口的能力与字段约束。 */
+/** 雷达属性页的渲染快照，包含标题、网格、轴线和节点。 */
 interface AttrRadarPaneSnapshot {
-/** kind：定义该变量以承载业务值。 */
-  kind: 'radar';
-/** title：定义该变量以承载业务值。 */
-  title: string;
-/** scale：定义该变量以承载业务值。 */
-  scale: number;
-/** paneId：定义该变量以承载业务值。 */
-  paneId: string;
-/** areaPoints：定义该变量以承载业务值。 */
-  areaPoints: string;
-/** rings：定义该变量以承载业务值。 */
-  rings: string[];
-/** axes：定义该变量以承载业务值。 */
-  axes: Array<{ x: string; y: string; stroke: string }>;
-/** nodes：定义该变量以承载业务值。 */
+/**
+ * kind：kind相关字段。
+ */
+
+  kind: 'radar';  
+  /**
+ * title：title名称或显示文本。
+ */
+
+  title: string;  
+  /**
+ * scale：scale相关字段。
+ */
+
+  scale: number;  
+  /**
+ * paneId：paneID标识。
+ */
+
+  paneId: string;  
+  /**
+ * areaPoints：areaPoint相关字段。
+ */
+
+  areaPoints: string;  
+  /**
+ * rings：ring相关字段。
+ */
+
+  rings: string[];  
+  /**
+ * axes：axe相关字段。
+ */
+
+  axes: Array<{  
+  /**
+ * x：x相关字段。
+ */
+ x: string;  
+ /**
+ * y：y相关字段。
+ */
+ y: string;  
+ /**
+ * stroke：stroke相关字段。
+ */
+ stroke: string }>;  
+ /**
+ * nodes：node相关字段。
+ */
+
   nodes: AttrRadarNodeSnapshot[];
+  /**
+ * cards：雷达下方附加卡片。
+ */
+
+  cards?: AttrNumericCardSnapshot[];
+  /**
+ * summaryCards：雷达图内侧摘要卡片。
+ */
+
+  summaryCards?: AttrNumericCardSnapshot[];
 }
 
-/** AttrNumericCardSnapshot：定义该接口的能力与字段约束。 */
+/** 数值卡片的渲染快照，包含展示值、附加说明和提示内容。 */
 interface AttrNumericCardSnapshot {
-/** key：定义该变量以承载业务值。 */
-  key: string;
-/** label：定义该变量以承载业务值。 */
-  label: string;
-/** value：定义该变量以承载业务值。 */
-  value: string;
-  sub?: string;
-/** tooltipTitle：定义该变量以承载业务值。 */
-  tooltipTitle: string;
-/** tooltipDetail：定义该变量以承载业务值。 */
+/**
+ * key：key标识。
+ */
+
+  key: string;  
+  /**
+ * label：label名称或显示文本。
+ */
+
+  label: string;  
+  /**
+ * value：值数值。
+ */
+
+  value: string;  
+  /**
+ * sub：sub相关字段。
+ */
+
+  sub?: string;  
+  /**
+ * tooltipTitle：提示Title名称或显示文本。
+ */
+
+  tooltipTitle: string;  
+  /**
+ * tooltipDetail：提示详情状态或数据块。
+ */
+
   tooltipDetail: string;
 }
 
-/** AttrNumericPaneSnapshot：定义该接口的能力与字段约束。 */
+/** 数值属性页的渲染快照，按卡片列表组织。 */
 interface AttrNumericPaneSnapshot {
-/** kind：定义该变量以承载业务值。 */
-  kind: 'numeric';
-/** title：定义该变量以承载业务值。 */
-  title: string;
-/** cards：定义该变量以承载业务值。 */
+/**
+ * kind：kind相关字段。
+ */
+
+  kind: 'numeric';  
+  /**
+ * title：title名称或显示文本。
+ */
+
+  title: string;  
+  /**
+ * cards：card相关字段。
+ */
+
   cards: AttrNumericCardSnapshot[];
 }
 
-/** AttrPlaceholderPaneSnapshot：定义该接口的能力与字段约束。 */
+/** 属性页占位快照，用于尚未同步到数据时的提示。 */
 interface AttrPlaceholderPaneSnapshot {
-/** kind：定义该变量以承载业务值。 */
-  kind: 'placeholder';
-/** message：定义该变量以承载业务值。 */
+/**
+ * kind：kind相关字段。
+ */
+
+  kind: 'placeholder';  
+  /**
+ * message：message相关字段。
+ */
+
   message: string;
 }
 
-/** AttrCraftSkillSnapshot：定义该接口的能力与字段约束。 */
+/** 采集 / 炼器 / 强化技能的渲染快照，包含等级和进度信息。 */
 interface AttrCraftSkillSnapshot {
-/** key：定义该变量以承载业务值。 */
-  key: string;
-/** label：定义该变量以承载业务值。 */
-  label: string;
-/** level：定义该变量以承载业务值。 */
-  level: string;
-/** progress：定义该变量以承载业务值。 */
-  progress: string;
-/** remain：定义该变量以承载业务值。 */
-  remain: string;
-/** progressPercent：定义该变量以承载业务值。 */
+/**
+ * key：key标识。
+ */
+
+  key: string;  
+  /**
+ * label：label名称或显示文本。
+ */
+
+  label: string;  
+  /**
+ * level：等级数值。
+ */
+
+  level: string;  
+  /**
+ * progress：进度状态或数据块。
+ */
+
+  progress: string;  
+  /**
+ * remain：remain相关字段。
+ */
+
+  remain: string;  
+  /**
+ * progressPercent：进度Percent相关字段。
+ */
+
   progressPercent: string;
 }
 
-/** AttrCraftPaneSnapshot：定义该接口的能力与字段约束。 */
+/** 生活技能页的渲染快照，按技能列表展示。 */
 interface AttrCraftPaneSnapshot {
-/** kind：定义该变量以承载业务值。 */
-  kind: 'craft';
-/** skills：定义该变量以承载业务值。 */
+/**
+ * kind：kind相关字段。
+ */
+
+  kind: 'craft';  
+  /**
+ * skills：技能相关字段。
+ */
+
   skills: AttrCraftSkillSnapshot[];
 }
 
-/** AttrPaneSnapshot：定义该类型的结构与数据语义。 */
+/** 单个属性页的统一渲染快照类型。 */
 type AttrPaneSnapshot = AttrRadarPaneSnapshot | AttrNumericPaneSnapshot | AttrPlaceholderPaneSnapshot | AttrCraftPaneSnapshot;
 
-/** AttrPanelSnapshot：定义该接口的能力与字段约束。 */
+/** 整个属性面板的渲染快照，按分页保存各页内容。 */
 interface AttrPanelSnapshot {
-/** panes：定义该变量以承载业务值。 */
+/**
+ * panes：pane相关字段。
+ */
+
   panes: Record<AttrTab, AttrPaneSnapshot>;
 }
 
-/** AttrPanelCallbacks：定义该接口的能力与字段约束。 */
-interface AttrPanelCallbacks {
-  onRequestDetail: () => void;
-}
-
-/** AttrPanel：封装相关状态与行为。 */
+/** AttrPanel：属性面板实现。 */
 export class AttrPanel {
+  /** pane：pane。 */
   private pane = document.getElementById('pane-attr')!;
-/** activeTab：定义该变量以承载业务值。 */
+  /** activeTab：活跃Tab。 */
   private activeTab: AttrTab = 'base';
+  /** tooltip：提示。 */
   private tooltip = new FloatingTooltip('floating-tooltip attr-tooltip');
-/** lastSnapshot：定义该变量以承载业务值。 */
+  /** lastSnapshot：last快照。 */
   private lastSnapshot: AttrPanelSnapshot | null = null;
-/** lastStructureKey：定义该变量以承载业务值。 */
+  /** lastStructureKey：last Structure Key。 */
   private lastStructureKey: string | null = null;
-/** tooltipTarget：定义该变量以承载业务值。 */
-  private tooltipTarget: Element | null = null;
-/** callbacks：定义该变量以承载业务值。 */
+  /** tooltipTarget：提示目标。 */
+  private tooltipTarget: Element | null = null;  
+  /** callbacks：详情请求回调。 */
   private callbacks: AttrPanelCallbacks | null = null;
-/** latestData：定义该变量以承载业务值。 */
+  /** latestData：最近一次属性更新。 */
   private latestData: S2C_AttrUpdate | null = null;
-/** detailData：定义该变量以承载业务值。 */
-  private detailData: S2C_AttrDetail | null = null;
+  /** detailData：最近一次低频详情。 */
+  private detailData: AttrDetailView | null = null;
+  /** detailStale：低频详情是否过期。 */
   private detailStale = false;
+  /** detailRequested：是否已发出详情请求。 */
   private detailRequested = false;
+  /**
+ * 构造器：初始化 当前 实例并建立基础状态。
+ * @returns 无返回值，完成实例初始化。
+ */
 
-/** constructor：处理当前场景中的对应操作。 */
+
   constructor() {
     this.ensureTooltipStyle();
     this.bindPaneEvents();
     this.bindTooltipEvents();
   }
 
-/** setCallbacks：执行对应的业务逻辑。 */
+  /** setCallbacks：注册详情请求回调。 */
   setCallbacks(callbacks: AttrPanelCallbacks): void {
     this.callbacks = callbacks;
   }
 
-/** clear：执行对应的业务逻辑。 */
+  /** clear：清理clear。 */
   clear(): void {
     this.latestData = null;
     this.detailData = null;
@@ -590,99 +783,192 @@ export class AttrPanel {
     this.lastStructureKey = null;
     this.tooltipTarget = null;
     this.tooltip.hide(true);
-    this.pane.innerHTML = '<div class="empty-hint">尚未观测到角色属性</div>';
+    this.pane.replaceChildren(createFragmentFromHtml('<div class="empty-hint">尚未观测到角色属性</div>'));
   }
 
   /** 接收属性更新事件并重新渲染 */
   update(data: S2C_AttrUpdate): void {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
     this.latestData = data;
-/** finalAttrs：定义该变量以承载业务值。 */
-    const finalAttrs = data.finalAttrs ?? this.detailData?.finalAttrs;
-    if (!finalAttrs) {
+    const baseAttrs = this.resolveCompleteAttrs(data.baseAttrs);
+    if (!baseAttrs || !data.bonuses) {
       this.clear();
       return;
     }
-/** snapshot：定义该变量以承载业务值。 */
+    const finalAttrs = this.resolveCompleteAttrs(data.finalAttrs) ?? this.mergeAttrs(baseAttrs, data.bonuses);
     const snapshot = this.buildSnapshot(
+      baseAttrs,
+      data.bonuses,
       finalAttrs,
-      data.numericStats,
-      data.specialStats,
-      this.detailData,
+      data.numericStats as NumericStats | undefined,
+      data.ratioDivisors as NumericRatioDivisors | undefined,
+      data.specialStats as PlayerSpecialStats | undefined,
+      data.alchemySkill,
+      data.gatherSkill,
+      data.enhancementSkill,
+      data.numericStatBreakdowns,
     );
-/** structureKey：定义该变量以承载业务值。 */
     const structureKey = this.buildStructureKey(snapshot);
     if (this.lastStructureKey !== structureKey || !this.patch(snapshot)) {
       this.render(snapshot);
-      return;
+    } else {
+      this.lastSnapshot = snapshot;
     }
-    this.lastSnapshot = snapshot;
+    this.refreshActiveTooltipContent();
+    if (this.tooltipTarget) {
+      this.requestDetailIfNeeded();
+    }
   }
 
-/** initFromPlayer：执行对应的业务逻辑。 */
+  /** 使用玩家状态初始化属性面板。 */
   initFromPlayer(player: PlayerState): void {
     this.latestData = {
       baseAttrs: player.baseAttrs,
       bonuses: player.bonuses,
-      finalAttrs: player.finalAttrs ?? player.baseAttrs,
+      finalAttrs: player.finalAttrs ?? this.mergeAttrs(player.baseAttrs, player.bonuses),
       numericStats: player.numericStats,
-      maxHp: player.maxHp,
-      qi: player.qi,
+      ratioDivisors: player.ratioDivisors,
       specialStats: {
         foundation: Math.max(0, Math.floor(player.foundation ?? 0)),
+        rootFoundation: Math.max(0, Math.floor(player.rootFoundation ?? 0)),
         combatExp: Math.max(0, Math.floor(player.combatExp ?? 0)),
+        comprehension: Math.max(0, Math.floor(player.comprehension ?? 0)),
+        luck: Math.max(0, Math.floor(player.luck ?? 0)),
       },
-      boneAgeBaseYears: player.boneAgeBaseYears,
-      lifeElapsedTicks: player.lifeElapsedTicks,
-      lifespanYears: player.lifespanYears ?? null,
-      realmProgress: player.realm?.progress,
-      realmProgressToNext: player.realm?.progressToNext,
-      realmBreakthroughReady: player.realm?.breakthroughReady ?? player.breakthroughReady,
       alchemySkill: player.alchemySkill,
+      gatherSkill: player.gatherSkill,
+      enhancementSkill: player.enhancementSkill,
     };
     this.detailStale = false;
-/** snapshot：定义该变量以承载业务值。 */
+    const finalAttrs = player.finalAttrs ?? this.mergeAttrs(player.baseAttrs, player.bonuses);
     const snapshot = this.buildSnapshot(
-      this.latestData.finalAttrs ?? player.baseAttrs,
-      this.latestData.numericStats,
-      this.latestData.specialStats,
-      null,
+      player.baseAttrs,
+      player.bonuses,
+      finalAttrs,
+      player.numericStats,
+      player.ratioDivisors,
+      {
+        foundation: Math.max(0, Math.floor(player.foundation ?? 0)),
+        rootFoundation: Math.max(0, Math.floor(player.rootFoundation ?? 0)),
+        combatExp: Math.max(0, Math.floor(player.combatExp ?? 0)),
+        comprehension: Math.max(0, Math.floor(player.comprehension ?? 0)),
+        luck: Math.max(0, Math.floor(player.luck ?? 0)),
+      },
+      player.alchemySkill,
+      player.gatherSkill,
+      player.enhancementSkill,
+      this.latestData.numericStatBreakdowns,
     );
     this.render(snapshot);
   }
 
-/** invalidateDetail：执行对应的业务逻辑。 */
+  /** invalidateDetail：将当前低频详情标记为过期。 */
   invalidateDetail(): void {
     this.detailStale = this.detailData !== null;
     this.detailRequested = false;
   }
 
-/** applyDetail：执行对应的业务逻辑。 */
+  /** applyDetail：写入低频详情并用现有 update 流刷新。 */
   applyDetail(detail: S2C_AttrDetail): void {
     this.detailData = detail;
     this.detailStale = false;
     this.detailRequested = true;
     if (this.latestData) {
       this.update(this.latestData);
+      return;
     }
+    const snapshot = this.buildSnapshot(
+      detail.baseAttrs,
+      detail.bonuses,
+      detail.finalAttrs,
+      detail.numericStats,
+      detail.ratioDivisors,
+      undefined,
+      detail.alchemySkill,
+      detail.gatherSkill,
+      detail.enhancementSkill,
+      detail.numericStatBreakdowns,
+    );
+    this.render(snapshot);
   }
 
+  /** mergeAttrs：合并属性。 */
+  private mergeAttrs(base: Attributes, bonuses: AttrBonus[]): Attributes {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
+    const result = { ...base };
+    for (const bonus of bonuses) {
+      for (const key of ATTR_KEYS) {
+        if (bonus.attrs[key] !== undefined) {
+          result[key] += bonus.attrs[key]!;
+        }
+      }
+    }
+    return result;
+  }  
+
+  /** 把属性 patch 解析成完整六维属性；不完整时返回 null。 */
+  private resolveCompleteAttrs(attrs: Partial<Attributes> | undefined): Attributes | null {
+    if (!attrs) {
+      return null;
+    }
+    for (const key of ATTR_KEYS) {
+      if (typeof attrs[key] !== 'number') {
+        return null;
+      }
+    }
+    return attrs as Attributes;
+  }
+  /**
+ * buildSnapshot：构建并返回目标对象。
+ * @param base Attributes 参数说明。
+ * @param bonuses AttrBonus[] 参数说明。
+ * @param final Attributes 参数说明。
+ * @param stats NumericStats 参数说明。
+ * @param ratioDivisors NumericRatioDivisors 参数说明。
+ * @param specialStats PlayerSpecialStats 参数说明。
+ * @param alchemySkill PlayerState['alchemySkill'] 参数说明。
+ * @param gatherSkill PlayerState['gatherSkill'] 参数说明。
+ * @param enhancementSkill PlayerState['enhancementSkill'] 参数说明。
+ * @returns 返回快照。
+ */
+
+
   private buildSnapshot(
+    base: Attributes,
+    bonuses: AttrBonus[],
     final: Attributes,
     stats?: NumericStats,
+    ratioDivisors?: NumericRatioDivisors,
     specialStats?: PlayerSpecialStats,
-    detail?: S2C_AttrDetail | null,
+    alchemySkill?: PlayerState['alchemySkill'],
+    gatherSkill?: PlayerState['gatherSkill'],
+    enhancementSkill?: PlayerState['enhancementSkill'],
+    numericStatBreakdowns?: NumericStatBreakdownMap,
   ): AttrPanelSnapshot {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
+    const totalBonus: Partial<Attributes> = {};
+    for (const bonus of bonuses) {
+      for (const key of ATTR_KEYS) {
+        if (bonus.attrs[key] !== undefined) {
+          totalBonus[key] = (totalBonus[key] || 0) + bonus.attrs[key]!;
+        }
+      }
+    }
+
     return {
       panes: {
-        base: this.buildBaseRadarSnapshot(final, detail),
-        root: stats
-          ? this.buildRootRadarSnapshot(stats, detail)
-          : { kind: 'placeholder', message: '灵根信息尚未同步' },
+        base: this.buildBaseRadarSnapshot(base, final, totalBonus, specialStats),
+        root: stats && ratioDivisors
+          ? this.buildRootRadarSnapshot(stats, ratioDivisors, bonuses)
+        : { kind: 'placeholder', message: '灵根未明' },
         vein: stats
-          ? this.buildVeinPaneSnapshot(stats, detail)
-          : { kind: 'placeholder', message: '灵脉信息尚未同步' },
-        combat: this.buildNumericPaneSnapshot('斗法数值', stats, detail, {
-          keys: ['maxHp', 'physAtk', 'spellAtk', 'physDef', 'spellDef', 'hit', 'dodge', 'crit', 'antiCrit', 'critDamage', 'breakPower', 'resolvePower'],
+          ? this.buildVeinPaneSnapshot(stats, bonuses)
+          : { kind: 'placeholder', message: '灵脉未察' },
+        combat: this.buildNumericPaneSnapshot('斗法数值', stats, ratioDivisors, {
+          keys: ['maxHp', 'physAtk', 'spellAtk', 'physDef', 'spellDef', 'hit', 'dodge', 'crit', 'antiCrit', 'critDamage', 'breakPower', 'resolvePower', 'actionsPerTurn'],
           ratioKeys: [],
           legends: {
             maxHp: '最大生命值',
@@ -697,9 +983,10 @@ export class AttrPanel {
             critDamage: '暴击伤害',
             breakPower: '破招',
             resolvePower: '化解',
+            actionsPerTurn: '每回合行动次数',
           },
-        }, final),
-        qi: this.buildNumericPaneSnapshot('灵力运转', stats, detail, {
+        }, final, numericStatBreakdowns),
+        qi: this.buildNumericPaneSnapshot('灵力运转', stats, ratioDivisors, {
           keys: ['maxQi', 'maxQiOutputPerTick', 'qiRegenRate', 'hpRegenRate', 'cooldownSpeed', 'auraCostReduce', 'auraPowerRate'],
           ratioKeys: ['cooldownSpeed'],
           legends: {
@@ -711,32 +998,26 @@ export class AttrPanel {
             auraCostReduce: '光环消耗缩减',
             auraPowerRate: '光环效果增强',
           },
-        }, final),
-        special: this.buildSpecialPaneSnapshot(stats, detail, specialStats, final),
-        craft: this.buildCraftPaneSnapshot(detail),
+        }, final, numericStatBreakdowns),
+        special: this.buildSpecialPaneSnapshot(stats, ratioDivisors, specialStats, final, numericStatBreakdowns),
+        craft: this.buildCraftPaneSnapshot(alchemySkill, gatherSkill, enhancementSkill),
       },
     };
   }
 
-/** buildBaseRadarSnapshot：执行对应的业务逻辑。 */
-  private buildBaseRadarSnapshot(final: Attributes, detail?: S2C_AttrDetail | null): AttrRadarPaneSnapshot {
-/** baseAttrs：定义该变量以承载业务值。 */
-    const baseAttrs = detail?.baseAttrs ?? this.latestData?.baseAttrs;
-/** bonuses：定义该变量以承载业务值。 */
-    const bonuses = detail?.bonuses ?? this.latestData?.bonuses;
-/** maxValue：定义该变量以承载业务值。 */
+  /** buildBaseRadarSnapshot：构建基础Radar快照。 */
+  private buildBaseRadarSnapshot(
+    base: Attributes,
+    final: Attributes,
+    totalBonus: Partial<Attributes>,
+    specialStats?: PlayerSpecialStats,
+  ): AttrRadarPaneSnapshot {
     const maxValue = Math.max(20, ...ATTR_KEYS.map((key) => final[key]));
-/** radarMax：定义该变量以承载业务值。 */
     const radarMax = Math.ceil(maxValue / 5) * 5 || 20;
-/** entries：定义该变量以承载业务值。 */
     const entries: RadarEntry[] = ATTR_KEYS.map((key, index) => {
-/** finalValue：定义该变量以承载业务值。 */
       const finalValue = final[key];
-/** baseValue：定义该变量以承载业务值。 */
-      const baseValue = baseAttrs?.[key];
-/** bonusValue：定义该变量以承载业务值。 */
-      const bonusValue = bonuses?.reduce((sum, bonus) => sum + (bonus.attrs[key] ?? 0), 0);
-/** roundedValue：定义该变量以承载业务值。 */
+      const baseValue = base[key];
+      const bonusValue = totalBonus[key] ?? 0;
       const roundedValue = Math.round(finalValue);
       return {
         label: ATTR_KEY_LABELS[key],
@@ -745,8 +1026,8 @@ export class AttrPanel {
         tooltipTitle: ATTR_KEY_LABELS[key],
         tooltipDetail: [
           `当前：${formatDisplayInteger(roundedValue)}`,
-          typeof baseValue === 'number' ? `基础：${formatDisplayInteger(baseValue)}` : '完整构成：悬停后同步',
-          typeof bonusValue === 'number' ? `增益：${bonusValue >= 0 ? '+' : ''}${formatDisplayInteger(bonusValue)}` : '增益来源：悬停后同步',
+          `基础：${formatDisplayInteger(baseValue)}`,
+          `增益：${bonusValue >= 0 ? '+' : ''}${formatDisplayInteger(bonusValue)}`,
           '实际转化：',
           ...buildAttrConversionLines(key, finalValue),
         ].join('\n'),
@@ -754,78 +1035,107 @@ export class AttrPanel {
       };
     });
 
-    return this.buildRadarPaneSnapshot('六维轮图', radarMax, entries, 'base');
-  }
+    const snapshot = this.buildRadarPaneSnapshot('六维轮图', radarMax, entries, 'base');
+    snapshot.summaryCards = this.buildRootFoundationSummaryCards(specialStats);
+    snapshot.cards = this.buildBaseSpecialStatCards(specialStats);
+    return snapshot;
+  }  
+  /**
+ * buildRootRadarSnapshot：构建并返回目标对象。
+ * @param stats NumericStats 参数说明。
+ * @param ratioDivisors NumericRatioDivisors 参数说明。
+ * @param bonuses AttrBonus[] 参数说明。
+ * @returns 返回根容器Radar快照。
+ */
+
 
   private buildRootRadarSnapshot(
     stats: NumericStats,
-    detail?: S2C_AttrDetail | null,
+    ratioDivisors: NumericRatioDivisors,
+    bonuses: AttrBonus[],
   ): AttrRadarPaneSnapshot {
-/** ratios：定义该变量以承载业务值。 */
-    const ratios = detail?.ratioDivisors ?? this.latestData?.ratioDivisors;
-/** bonuses：定义该变量以承载业务值。 */
-    const bonuses = detail?.bonuses ?? this.latestData?.bonuses;
-/** roots：定义该变量以承载业务值。 */
     const roots = this.resolveDisplaySpiritualRoots(stats, bonuses);
-/** entries：定义该变量以承载业务值。 */
     const entries: RadarEntry[] = ELEMENT_KEYS.map((key, index) => {
-/** damageBonus：定义该变量以承载业务值。 */
       const damageBonus = stats.elementDamageBonus[key];
-/** reductionDivisor：定义该变量以承载业务值。 */
-      const reductionDivisor = ratios?.elementDamageReduce[key] || 100;
-/** roundedBonus：定义该变量以承载业务值。 */
+      const reductionDivisor = ratioDivisors.elementDamageReduce[key] || 100;
       const roundedBonus = Math.round(damageBonus);
-/** lines：定义该变量以承载业务值。 */
-      const lines = [`当前：${formatDisplayInteger(roundedBonus)} 点`, `${ELEMENT_KEY_LABELS[key]}属性伤害增幅：${formatDisplayPercent(roundedBonus)}`];
-      if (ratios) {
-        lines.push(`${ELEMENT_KEY_LABELS[key]}属性实际减伤：${formatRatioPercent(stats.elementDamageReduce[key], reductionDivisor)}`);
-        lines.push(`${ELEMENT_KEY_LABELS[key]}属性灵气吸收效率：${formatDisplayPercent(getSpiritualRootAbsorptionRate(roundedBonus), { maximumFractionDigits: 2 })}`);
-      } else {
-        lines.push('完整灵根构成：悬停后同步');
-      }
       return {
         label: `${ELEMENT_KEY_LABELS[key]}灵根`,
         value: damageBonus,
         valueLabel: formatDisplayInteger(roundedBonus),
         tooltipTitle: `${ELEMENT_KEY_LABELS[key]}灵根`,
-        tooltipDetail: lines.join('\n'),
+        tooltipDetail: [
+          `当前：${formatDisplayInteger(roundedBonus)} 点`,
+          `${ELEMENT_KEY_LABELS[key]}属性伤害增幅：${formatDisplayPercent(roundedBonus)}`,
+          `${ELEMENT_KEY_LABELS[key]}属性实际减伤：${formatRatioPercent(stats.elementDamageReduce[key], reductionDivisor)}`,
+          `${ELEMENT_KEY_LABELS[key]}属性灵气吸收效率：${formatDisplayPercent(getSpiritualRootAbsorptionRate(roundedBonus), { maximumFractionDigits: 2 })}`,
+        ].join('\n'),
         color: ELEMENT_COLORS[index % ELEMENT_COLORS.length],
       };
     });
-/** radarMax：定义该变量以承载业务值。 */
     const radarMax = Math.max(100, ...entries.map((entry) => entry.value)) || 100;
-/** rootTitle：定义该变量以承载业务值。 */
     const rootTitle = describeSpiritualRoots(roots).name;
     return this.buildRadarPaneSnapshot(rootTitle, radarMax, entries, 'root');
-  }
+  }  
+  /**
+ * buildVeinPaneSnapshot：构建并返回目标对象。
+ * @param stats NumericStats 参数说明。
+ * @param bonuses AttrBonus[] 参数说明。
+ * @returns 返回VeinPane快照。
+ */
+
 
   private buildVeinPaneSnapshot(
     stats: NumericStats,
-    detail?: S2C_AttrDetail | null,
+    bonuses: AttrBonus[],
   ): AttrNumericPaneSnapshot {
-/** bonuses：定义该变量以承载业务值。 */
-    const bonuses = detail?.bonuses ?? this.latestData?.bonuses ?? [];
-/** roots：定义该变量以承载业务值。 */
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
     const roots = this.resolveDisplaySpiritualRoots(stats, bonuses);
-/** cards：定义该变量以承载业务值。 */
+    const neutralAuraProjection = resolveQiProjectionDisplay(
+      { family: 'aura', form: 'refined', element: 'neutral' },
+      bonuses,
+      'absorbable',
+    );
+    const neutralShaProjection = resolveQiProjectionDisplay(
+      { family: 'sha', form: 'refined', element: 'neutral' },
+      bonuses,
+      'hidden',
+    );
     const cards: AttrNumericCardSnapshot[] = [{
       key: 'neutral-aura',
       label: '无属性灵气',
-      value: formatAuraAbsorptionRate(100),
+      value: formatQiEfficiencyBp(neutralAuraProjection.efficiencyBp),
       tooltipTitle: '无属性灵气',
       tooltipDetail: [
-        '对无属性灵气吸收效率为 100%。',
+        `对无属性灵气吸收效率为 ${formatQiEfficiencyBp(neutralAuraProjection.efficiencyBp)}。`,
+        ...buildQiProjectionSourceLines(neutralAuraProjection),
       ].join('\n'),
     }];
+
+    if (neutralShaProjection.visibility !== 'hidden') {
+      cards.push({
+        key: 'sha',
+        label: '煞气',
+        value: neutralShaProjection.visibility === 'absorbable'
+          ? formatQiEfficiencyBp(neutralShaProjection.efficiencyBp)
+          : '可感知',
+        tooltipTitle: '煞气',
+        tooltipDetail: [
+          neutralShaProjection.visibility === 'absorbable'
+            ? `对煞气吸收效率为 ${formatQiEfficiencyBp(neutralShaProjection.efficiencyBp)}。`
+            : '可感知煞气。',
+          ...buildQiProjectionSourceLines(neutralShaProjection),
+        ].join('\n'),
+      });
+    }
 
     for (const key of ELEMENT_KEYS) {
       const rootValue = roots?.[key] ?? 0;
       if (rootValue <= 0) {
         continue;
       }
-/** rate：定义该变量以承载业务值。 */
       const rate = getSpiritualRootAbsorptionRate(rootValue);
-/** label：定义该变量以承载业务值。 */
       const label = `${ELEMENT_KEY_LABELS[key]}灵气`;
       cards.push({
         key: `${key}-aura`,
@@ -846,7 +1156,7 @@ export class AttrPanel {
     };
   }
 
-/** buildHeavenGateRootsFromStats：执行对应的业务逻辑。 */
+  /** buildHeavenGateRootsFromStats：构建Heaven关卡Roots From属性。 */
   private buildHeavenGateRootsFromStats(stats: NumericStats): HeavenGateRootValues {
     return ELEMENT_KEYS.reduce((roots, key) => {
       roots[key] = Math.max(0, Math.min(100, Math.round(stats.elementDamageBonus[key])));
@@ -854,30 +1164,23 @@ export class AttrPanel {
     }, {} as HeavenGateRootValues);
   }
 
-  private resolveDisplaySpiritualRoots(
-    stats: NumericStats,
-    bonuses?: S2C_AttrUpdate['bonuses'],
-  ): HeavenGateRootValues | null {
-    return resolveSpiritualRootsFromBonuses(bonuses ?? [])
+  /** resolveDisplaySpiritualRoots：解析显示Spiritual Roots。 */
+  private resolveDisplaySpiritualRoots(stats: NumericStats, bonuses: AttrBonus[]): HeavenGateRootValues | null {
+    return resolveSpiritualRootsFromBonuses(bonuses)
       ?? normalizeSpiritualRoots(this.buildHeavenGateRootsFromStats(stats));
   }
 
-/** buildRadarPaneSnapshot：执行对应的业务逻辑。 */
+  /** buildRadarPaneSnapshot：构建Radar Pane快照。 */
   private buildRadarPaneSnapshot(title: string, scale: number, entries: RadarEntry[], paneId: string): AttrRadarPaneSnapshot {
-/** center：定义该变量以承载业务值。 */
     const center = 170;
-/** radius：定义该变量以承载业务值。 */
     const radius = 110;
-/** safeScale：定义该变量以承载业务值。 */
     const safeScale = Math.max(scale, 1);
-/** clampRatio：通过常量导出可复用函数行为。 */
+    /** clampRatio：处理clamp Ratio。 */
     const clampRatio = (value: number) => Math.max(0, Math.min(1, value));
 
-/** pointAt：通过常量导出可复用函数行为。 */
+    /** pointAt：处理坐标At。 */
     const pointAt = (index: number, ratio: number, clamp = true) => {
-/** angle：定义该变量以承载业务值。 */
       const angle = ((-90 + index * (360 / entries.length)) * Math.PI) / 180;
-/** r：定义该变量以承载业务值。 */
       const r = radius * (clamp ? clampRatio(ratio) : ratio);
       return {
         x: center + Math.cos(angle) * r,
@@ -885,29 +1188,22 @@ export class AttrPanel {
       };
     };
 
-/** entriesRatio：定义该变量以承载业务值。 */
     const entriesRatio = entries.map((entry) => clampRatio(entry.value / safeScale));
-/** areaPoints：定义该变量以承载业务值。 */
     const areaPoints = entriesRatio
       .map((ratio, index) => {
-/** point：定义该变量以承载业务值。 */
         const point = pointAt(index, ratio);
         return `${point.x.toFixed(2)},${point.y.toFixed(2)}`;
       })
       .join(' ');
-/** rings：定义该变量以承载业务值。 */
     const rings = [0.2, 0.4, 0.6, 0.8, 1].map((ratio) => {
       return entries
         .map((_, index) => {
-/** point：定义该变量以承载业务值。 */
           const point = pointAt(index, ratio);
           return `${point.x.toFixed(2)},${point.y.toFixed(2)}`;
         })
         .join(' ');
     });
-/** axes：定义该变量以承载业务值。 */
     const axes = entries.map((entry, index) => {
-/** point：定义该变量以承载业务值。 */
       const point = pointAt(index, 1);
       return {
         x: point.x.toFixed(2),
@@ -915,15 +1211,10 @@ export class AttrPanel {
         stroke: colorWithAlpha(entry.color, 0.35),
       };
     });
-/** nodes：定义该变量以承载业务值。 */
     const nodes = entries.map((entry, index) => {
-/** dot：定义该变量以承载业务值。 */
       const dot = pointAt(index, entriesRatio[index]);
-/** labelPoint：定义该变量以承载业务值。 */
       const labelPoint = pointAt(index, 1.14, false);
-/** isUpper：定义该变量以承载业务值。 */
       const isUpper = labelPoint.y <= center;
-/** valuePoint：定义该变量以承载业务值。 */
       const valuePoint = {
         x: labelPoint.x,
         y: labelPoint.y + (isUpper ? -18 : 18),
@@ -953,40 +1244,54 @@ export class AttrPanel {
       axes,
       nodes,
     };
-  }
+  }  
+  /**
+ * buildNumericPaneSnapshot：构建并返回目标对象。
+ * @param title string 参数说明。
+ * @param stats NumericStats 参数说明。
+ * @param ratios NumericRatioDivisors 参数说明。
+ * @param meta { keys: NumericCardKey[]; ratioKeys: (keyof NumericRatioDivisors)[]; legends?: Record<string, string> } 参数说明。
+ * @returns 返回NumericPane快照。
+ */
+
 
   private buildNumericPaneSnapshot(
     title: string,
     stats?: NumericStats,
-    detail?: S2C_AttrDetail | null,
-    meta?: { keys: NumericCardKey[]; ratioKeys: (keyof NumericRatioDivisors)[]; legends?: Record<string, string> },
+    ratios?: NumericRatioDivisors,
+    meta?: {    
+    /**
+ * keys：key相关字段。
+ */
+ keys: NumericCardKey[];    
+ /**
+ * ratioKeys：ratioKey相关字段。
+ */
+ ratioKeys: (keyof NumericRatioDivisors)[];    
+ /**
+ * legends：legend相关字段。
+ */
+ legends?: Record<string, string> },
     attrs?: Attributes,
+    breakdowns?: NumericStatBreakdownMap,
   ): AttrPaneSnapshot {
-    if (!stats || !meta || !attrs) {
-      return { kind: 'placeholder', message: `${title}尚未同步` };
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
+    if (!stats || !ratios || !meta) {
+      return { kind: 'placeholder', message: `${title}未明` };
     }
-/** ratios：定义该变量以承载业务值。 */
-    const ratios = detail?.ratioDivisors ?? this.latestData?.ratioDivisors;
-/** breakdowns：定义该变量以承载业务值。 */
-    const breakdowns = detail?.numericStatBreakdowns ?? this.latestData?.numericStatBreakdowns;
 
     return {
       kind: 'numeric',
       title,
       cards: meta.keys.map((key) => {
-/** rawValue：定义该变量以承载业务值。 */
         const rawValue = stats[key];
-/** numericValue：定义该变量以承载业务值。 */
         const numericValue = typeof rawValue === 'number' ? rawValue : 0;
-/** label：定义该变量以承载业务值。 */
         const label = meta.legends?.[key as string] ?? String(key);
-/** ratioKey：定义该变量以承载业务值。 */
         const ratioKey = meta.ratioKeys.find((ratio) => ratio === key as keyof NumericRatioDivisors);
-/** sub：定义该变量以承载业务值。 */
         let sub: string | undefined;
-/** actualLine：定义该变量以承载业务值。 */
         let actualLine: string | undefined;
-        if (ratioKey && ratioKey !== 'elementDamageReduce' && ratios) {
+        if (ratioKey && ratioKey !== 'elementDamageReduce') {
           actualLine = `实际：${formatRatioPercent(numericValue, ratios[ratioKey])}`;
           sub = actualLine;
         } else if (RATE_BP_KEYS.has(key) && key !== 'critDamage') {
@@ -995,7 +1300,6 @@ export class AttrPanel {
         } else if (key === 'moveSpeed') {
           actualLine = `效果：${formatMoveSpeedEffect(numericValue)}`;
         }
-/** value：定义该变量以承载业务值。 */
         const value = key === 'critDamage'
           ? formatCritDamageDisplay(numericValue)
           : key === 'moveSpeed'
@@ -1013,40 +1317,32 @@ export class AttrPanel {
         };
       }),
     };
-  }
+  }  
+  /**
+ * buildSpecialPaneSnapshot：构建并返回目标对象。
+ * @param stats NumericStats 参数说明。
+ * @param ratios NumericRatioDivisors 参数说明。
+ * @param specialStats PlayerSpecialStats 参数说明。
+ * @returns 返回SpecialPane快照。
+ */
+
 
   private buildSpecialPaneSnapshot(
     stats?: NumericStats,
-    detail?: S2C_AttrDetail | null,
+    ratios?: NumericRatioDivisors,
     specialStats?: PlayerSpecialStats,
     attrs?: Attributes,
+    breakdowns?: NumericStatBreakdownMap,
   ): AttrPaneSnapshot {
-    if (!stats || !attrs) {
-      return { kind: 'placeholder', message: '特殊属性尚未同步' };
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
+    if (!stats || !ratios) {
+      return { kind: 'placeholder', message: '异禀未显' };
     }
 
-/** specialCards：定义该变量以承载业务值。 */
-    const specialCards: AttrNumericCardSnapshot[] = (['foundation', 'combatExp'] as PlayerSpecialCardKey[]).map((key) => {
-/** numericValue：定义该变量以承载业务值。 */
-      const numericValue = Math.max(0, Math.floor(specialStats?.[key] ?? 0));
-/** label：定义该变量以承载业务值。 */
-      const label = PLAYER_SPECIAL_TOOLTIP_LABELS[key];
-/** detail：定义该变量以承载业务值。 */
-      const detail = [
-        PLAYER_SPECIAL_TOOLTIP_DESCRIPTIONS[key],
-        `当前数值：${formatDisplayInteger(numericValue)}`,
-      ].join('\n');
-      return {
-        key,
-        label,
-        value: formatDisplayInteger(numericValue),
-        tooltipTitle: label,
-        tooltipDetail: detail,
-      };
-    });
+    const specialCards = this.buildSpecialStatCards(['foundation', 'combatExp'], specialStats);
 
-/** numericPane：定义该变量以承载业务值。 */
-    const numericPane = this.buildNumericPaneSnapshot('特殊属性', stats, detail, {
+    const numericPane = this.buildNumericPaneSnapshot('特殊属性', stats, ratios, {
       keys: ['viewRange', 'moveSpeed', 'playerExpRate', 'techniqueExpRate', 'realmExpPerTick', 'techniqueExpPerTick', 'lootRate', 'rareLootRate'],
       ratioKeys: [],
       legends: {
@@ -1059,7 +1355,7 @@ export class AttrPanel {
         lootRate: '掉落增幅',
         rareLootRate: '稀有掉落',
       },
-    }, attrs);
+    }, attrs, breakdowns);
     if (numericPane.kind !== 'numeric') {
       return numericPane;
     }
@@ -1069,56 +1365,124 @@ export class AttrPanel {
       title: numericPane.title,
       cards: [...specialCards, ...numericPane.cards],
     };
+  }  
+
+  /** buildSpecialStatCards：构建特殊属性卡片。 */
+  private buildSpecialStatCards(keys: PlayerSpecialCardKey[], specialStats?: PlayerSpecialStats): AttrNumericCardSnapshot[] {
+    return keys.map((key) => {
+      const numericValue = Math.max(0, Math.floor(specialStats?.[key] ?? 0));
+      const label = PLAYER_SPECIAL_TOOLTIP_LABELS[key];
+      const detail = [
+        PLAYER_SPECIAL_TOOLTIP_DESCRIPTIONS[key],
+        `当前数值：${formatDisplayInteger(numericValue)}`,
+      ].join('\n');
+      return {
+        key,
+        label,
+        value: formatDisplayInteger(numericValue),
+        tooltipTitle: label,
+        tooltipDetail: detail,
+      };
+    });
   }
 
-/** buildCraftPaneSnapshot：执行对应的业务逻辑。 */
-  private buildCraftPaneSnapshot(detail?: S2C_AttrDetail | null): AttrPaneSnapshot {
-/** alchemySkill：定义该变量以承载业务值。 */
-    const alchemySkill = detail?.alchemySkill ?? this.latestData?.alchemySkill;
-/** gatherSkill：定义该变量以承载业务值。 */
-    const gatherSkill = detail?.gatherSkill ?? this.latestData?.gatherSkill;
-/** enhancementSkill：定义该变量以承载业务值。 */
-    const enhancementSkill = detail?.enhancementSkill ?? this.latestData?.enhancementSkill;
-    if (!alchemySkill && !gatherSkill && !enhancementSkill) {
-      return { kind: 'placeholder', message: '技艺信息尚未同步' };
+  /** buildBaseSpecialStatCards：构建六维页底部特殊属性卡片。 */
+  private buildBaseSpecialStatCards(specialStats?: PlayerSpecialStats): AttrNumericCardSnapshot[] {
+    return (['comprehension', 'luck'] as PlayerSpecialCardKey[]).map((key) => {
+      const numericValue = Math.max(0, Math.floor(specialStats?.[key] ?? 0));
+      const label = PLAYER_SPECIAL_TOOLTIP_LABELS[key];
+      const conversionLines = key === 'comprehension'
+        ? [
+            `境界修为 +${formatSimplePercent(numericValue)}`,
+            `功法经验 +${formatSimplePercent(numericValue)}`,
+          ]
+        : [
+            `掉落增幅 +${formatSimplePercent(numericValue)}`,
+            `稀有掉落 +${formatSimplePercent(numericValue)}`,
+          ];
+      return {
+        key,
+        label,
+        value: formatDisplayInteger(numericValue),
+        tooltipTitle: label,
+        tooltipDetail: [
+          `当前：${formatDisplayInteger(numericValue)}`,
+          `基础：${formatDisplayInteger(numericValue)}`,
+          '增益：+0',
+          '实际转化：',
+          ...conversionLines,
+        ].join('\n'),
+      };
+    });
+  }
+
+  /** buildRootFoundationSummaryCards：构建六维轮图内的根基摘要。 */
+  private buildRootFoundationSummaryCards(specialStats?: PlayerSpecialStats): AttrNumericCardSnapshot[] {
+    const numericValue = Math.max(0, Math.floor(specialStats?.rootFoundation ?? 0));
+    const label = PLAYER_SPECIAL_TOOLTIP_LABELS.rootFoundation;
+    return [{
+      key: 'rootFoundation',
+      label,
+      value: formatDisplayInteger(numericValue),
+      tooltipTitle: label,
+      tooltipDetail: [
+        `当前：${formatDisplayInteger(numericValue)}`,
+        `六维境界乘区：${formatDisplayNumber(100 + numericValue)}%`,
+      ].join('\n'),
+    }];
+  }
+  /**
+ * buildCraftSkillSnapshot：构建并返回目标对象。
+ * @param key string 参数说明。
+ * @param label string 参数说明。
+ * @param skill PlayerState['alchemySkill'] | PlayerState['gatherSkill'] | PlayerState['enhancementSkill'] 参数说明。
+ * @returns 返回炼制技能快照。
+ */
+
+
+  private buildCraftSkillSnapshot(
+    key: string,
+    label: string,
+    skill?: PlayerState['alchemySkill'] | PlayerState['gatherSkill'] | PlayerState['enhancementSkill'],
+  ): AttrCraftSkillSnapshot | null {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
+    if (!skill) {
+      return null;
     }
-/** skills：定义该变量以承载业务值。 */
-    const skills: AttrCraftSkillSnapshot[] = [];
-    if (alchemySkill) {
-/** remain：定义该变量以承载业务值。 */
-      const remain = Math.max(0, alchemySkill.expToNext - alchemySkill.exp);
-      skills.push({
-        key: 'alchemy',
-        label: '炼丹',
-        level: `LV ${formatDisplayInteger(alchemySkill.level)}`,
-        progress: `${formatDisplayInteger(alchemySkill.exp)}/${formatDisplayInteger(alchemySkill.expToNext)}`,
-        remain: `距下一级还需 ${formatDisplayInteger(remain)} 炼丹经验`,
-        progressPercent: `${(getCraftProgressRatio(alchemySkill.exp, alchemySkill.expToNext) * 100).toFixed(2)}%`,
-      });
-    }
-    if (gatherSkill) {
-/** remain：定义该变量以承载业务值。 */
-      const remain = Math.max(0, gatherSkill.expToNext - gatherSkill.exp);
-      skills.push({
-        key: 'gather',
-        label: '采集',
-        level: `LV ${formatDisplayInteger(gatherSkill.level)}`,
-        progress: `${formatDisplayInteger(gatherSkill.exp)}/${formatDisplayInteger(gatherSkill.expToNext)}`,
-        remain: `距下一级还需 ${formatDisplayInteger(remain)} 采集经验`,
-        progressPercent: `${(getCraftProgressRatio(gatherSkill.exp, gatherSkill.expToNext) * 100).toFixed(2)}%`,
-      });
-    }
-    if (enhancementSkill) {
-/** remain：定义该变量以承载业务值。 */
-      const remain = Math.max(0, enhancementSkill.expToNext - enhancementSkill.exp);
-      skills.push({
-        key: 'enhancement',
-        label: '强化',
-        level: `LV ${formatDisplayInteger(enhancementSkill.level)}`,
-        progress: `${formatDisplayInteger(enhancementSkill.exp)}/${formatDisplayInteger(enhancementSkill.expToNext)}`,
-        remain: `距下一级还需 ${formatDisplayInteger(remain)} 强化经验`,
-        progressPercent: `${(getCraftProgressRatio(enhancementSkill.exp, enhancementSkill.expToNext) * 100).toFixed(2)}%`,
-      });
+    const remain = Math.max(0, skill.expToNext - skill.exp);
+    return {
+      key,
+      label,
+      level: `LV ${formatDisplayInteger(skill.level)}`,
+      progress: `${formatDisplayInteger(skill.exp)}/${formatDisplayInteger(skill.expToNext)}`,
+      remain: `距下一级还需 ${formatDisplayInteger(remain)} ${label}经验`,
+      progressPercent: `${(getCraftProgressRatio(skill.exp, skill.expToNext) * 100).toFixed(2)}%`,
+    };
+  }  
+  /**
+ * buildCraftPaneSnapshot：构建并返回目标对象。
+ * @param alchemySkill PlayerState['alchemySkill'] 参数说明。
+ * @param gatherSkill PlayerState['gatherSkill'] 参数说明。
+ * @param enhancementSkill PlayerState['enhancementSkill'] 参数说明。
+ * @returns 返回炼制Pane快照。
+ */
+
+
+  private buildCraftPaneSnapshot(
+    alchemySkill?: PlayerState['alchemySkill'],
+    gatherSkill?: PlayerState['gatherSkill'],
+    enhancementSkill?: PlayerState['enhancementSkill'],
+  ): AttrPaneSnapshot {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
+    const skills = [
+      this.buildCraftSkillSnapshot('alchemy', '炼丹', alchemySkill),
+      this.buildCraftSkillSnapshot('gather', '采集', gatherSkill),
+      this.buildCraftSkillSnapshot('enhancement', '强化', enhancementSkill),
+    ].filter((entry): entry is AttrCraftSkillSnapshot => Boolean(entry));
+    if (skills.length === 0) {
+      return { kind: 'placeholder', message: '技艺未录' };
     }
     return {
       kind: 'craft',
@@ -1126,12 +1490,12 @@ export class AttrPanel {
     };
   }
 
-/** render：执行对应的业务逻辑。 */
+  /** render：渲染渲染。 */
   private render(snapshot: AttrPanelSnapshot): void {
     this.lastSnapshot = snapshot;
     this.lastStructureKey = this.buildStructureKey(snapshot);
     preserveSelection(this.pane, () => {
-      this.pane.innerHTML = `<div class="attr-layout">
+      this.pane.replaceChildren(createFragmentFromHtml(`<div class="attr-layout">
         <div class="action-tab-bar">${this.renderTabs()}</div>
         <div class="action-tab-pane ${this.activeTab === 'base' ? 'active' : ''}" data-attr-pane="base">${this.renderPane(snapshot.panes.base)}</div>
         <div class="action-tab-pane ${this.activeTab === 'root' ? 'active' : ''}" data-attr-pane="root">${this.renderPane(snapshot.panes.root)}</div>
@@ -1140,19 +1504,21 @@ export class AttrPanel {
         <div class="action-tab-pane ${this.activeTab === 'qi' ? 'active' : ''}" data-attr-pane="qi">${this.renderPane(snapshot.panes.qi)}</div>
         <div class="action-tab-pane ${this.activeTab === 'special' ? 'active' : ''}" data-attr-pane="special">${this.renderPane(snapshot.panes.special)}</div>
         <div class="action-tab-pane ${this.activeTab === 'craft' ? 'active' : ''}" data-attr-pane="craft">${this.renderPane(snapshot.panes.craft)}</div>
-      </div>`;
+      </div>`));
     });
   }
 
-/** renderTabs：执行对应的业务逻辑。 */
+  /** renderTabs：渲染标签页。 */
   private renderTabs(): string {
     return (Object.keys(ATTR_TAB_LABELS) as AttrTab[])
       .map((tab) => `<button class="action-tab-btn ${this.activeTab === tab ? 'active' : ''}" data-attr-tab="${tab}" type="button">${ATTR_TAB_LABELS[tab]}</button>`)
       .join('');
   }
 
-/** renderPane：执行对应的业务逻辑。 */
+  /** renderPane：渲染Pane。 */
   private renderPane(snapshot: AttrPaneSnapshot): string {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
     if (snapshot.kind === 'placeholder') {
       return `<div class="panel-section" data-pane-kind="placeholder"><div class="empty-hint" data-placeholder-text="true">${snapshot.message}</div></div>`;
     }
@@ -1188,12 +1554,9 @@ export class AttrPanel {
       </div>`;
     }
 
-/** gradientId：定义该变量以承载业务值。 */
     const gradientId = `attr-radar-area-${snapshot.paneId}`;
-/** gradientStops：定义该变量以承载业务值。 */
     const gradientStops = snapshot.nodes
       .map((node, index) => {
-/** offset：定义该变量以承载业务值。 */
         const offset = snapshot.nodes.length === 1 ? '50%' : `${(index / (snapshot.nodes.length - 1)) * 100}%`;
         return `<stop offset="${offset}" stop-color="${node.color}" stop-opacity="0.4"></stop>`;
       })
@@ -1205,24 +1568,43 @@ export class AttrPanel {
           <div class="attr-radar-title">${snapshot.title}</div>
           <div class="attr-radar-scale" data-radar-scale="true">刻度 ${snapshot.scale}</div>
         </div>
-        <svg class="attr-radar" viewBox="0 0 340 340" role="img" aria-label="${snapshot.title}">
-          <defs><linearGradient id="${gradientId}" gradientUnits="userSpaceOnUse" x1="0%" y1="0%" x2="100%" y2="100%">${gradientStops}</linearGradient></defs>
-          ${snapshot.rings.map((points) => `<polygon class="attr-radar-ring" points="${points}"></polygon>`).join('')}
-          ${snapshot.axes.map((axis) => `<line class="attr-radar-axis" x1="170" y1="170" x2="${axis.x}" y2="${axis.y}" stroke="${axis.stroke}"></line>`).join('')}
-          <polygon class="attr-radar-area" data-radar-area="true" points="${snapshot.areaPoints}" fill="url(#${gradientId})" stroke="${snapshot.nodes[0]?.color ?? '#ff8a65'}" stroke-width="2"></polygon>
-          ${snapshot.nodes.map((node, index) => `
-            <g class="attr-radar-node" data-radar-node="${index}" data-tooltip-title="${escapeHtml(node.tooltipTitle)}" data-tooltip-detail="${escapeHtml(node.tooltipDetail)}">
-              <circle class="attr-radar-dot" data-radar-dot="true" cx="${node.dotX}" cy="${node.dotY}" r="6" fill="${node.color}" stroke="rgba(255,255,255,0.9)" stroke-width="1.8"></circle>
-              <text class="attr-radar-label attr-radar-trigger" data-radar-label="true" x="${node.labelX}" y="${node.labelY}" text-anchor="middle" dominant-baseline="middle">${node.label}</text>
-              <text class="attr-radar-value attr-radar-trigger" data-radar-value="true" x="${node.valueX}" y="${node.valueY}" text-anchor="middle" dominant-baseline="middle">${node.valueLabel}</text>
-            </g>
-          `).join('')}
-        </svg>
+        <div class="attr-radar-body">
+          <svg class="attr-radar" viewBox="0 0 340 340" role="img" aria-label="${snapshot.title}">
+            <defs><linearGradient id="${gradientId}" gradientUnits="userSpaceOnUse" x1="0%" y1="0%" x2="100%" y2="100%">${gradientStops}</linearGradient></defs>
+            ${snapshot.rings.map((points) => `<polygon class="attr-radar-ring" points="${points}"></polygon>`).join('')}
+            ${snapshot.axes.map((axis) => `<line class="attr-radar-axis" x1="170" y1="170" x2="${axis.x}" y2="${axis.y}" stroke="${axis.stroke}"></line>`).join('')}
+            <polygon class="attr-radar-area" data-radar-area="true" points="${snapshot.areaPoints}" fill="url(#${gradientId})" stroke="${snapshot.nodes[0]?.color ?? '#ff8a65'}" stroke-width="2"></polygon>
+            ${snapshot.nodes.map((node, index) => `
+              <g class="attr-radar-node" data-radar-node="${index}" data-tooltip-title="${escapeHtml(node.tooltipTitle)}" data-tooltip-detail="${escapeHtml(node.tooltipDetail)}">
+                <circle class="attr-radar-dot" data-radar-dot="true" cx="${node.dotX}" cy="${node.dotY}" r="6" fill="${node.color}" stroke="rgba(255,255,255,0.9)" stroke-width="1.8"></circle>
+                <text class="attr-radar-label attr-radar-trigger" data-radar-label="true" x="${node.labelX}" y="${node.labelY}" text-anchor="middle" dominant-baseline="middle">${node.label}</text>
+                <text class="attr-radar-value attr-radar-trigger" data-radar-value="true" x="${node.valueX}" y="${node.valueY}" text-anchor="middle" dominant-baseline="middle">${node.valueLabel}</text>
+              </g>
+            `).join('')}
+          </svg>
+          ${snapshot.summaryCards?.length ? snapshot.summaryCards.map((card) => `
+            <div class="attr-radar-floating-stat" data-radar-summary-card="${card.key}" data-tooltip-title="${escapeHtml(card.tooltipTitle)}" data-tooltip-detail="${escapeHtml(card.tooltipDetail)}">
+              <span class="attr-radar-floating-label" data-radar-summary-label="true">${card.label}</span>
+              <span class="attr-radar-floating-value" data-radar-summary-value="true">${card.value}</span>
+            </div>
+          `).join('') : ''}
+        </div>
       </div>
+      ${snapshot.cards?.length ? `
+        <div class="attr-grid wide attr-radar-extra-grid" data-radar-extra-grid="true">
+          ${snapshot.cards.map((card) => `
+            <div class="attr-mini" data-radar-extra-card="${card.key}" data-tooltip-title="${escapeHtml(card.tooltipTitle)}" data-tooltip-detail="${escapeHtml(card.tooltipDetail)}">
+              <div class="attr-mini-label" data-radar-extra-label="true">${card.label}</div>
+              <div class="attr-mini-value" data-radar-extra-value="true">${card.value}</div>
+              <div class="attr-mini-sub ${card.sub ? '' : 'hidden'}" data-radar-extra-sub="true">${card.sub ?? ''}</div>
+            </div>
+          `).join('')}
+        </div>
+      ` : ''}
     </div>`;
   }
 
-/** patch：执行对应的业务逻辑。 */
+  /** patch：处理patch。 */
   private patch(snapshot: AttrPanelSnapshot): boolean {
     this.patchTabState();
     return this.patchPane('base', snapshot.panes.base)
@@ -1234,15 +1616,15 @@ export class AttrPanel {
       && this.patchPane('craft', snapshot.panes.craft);
   }
 
-/** patchPane：执行对应的业务逻辑。 */
+  /** patchPane：处理patch Pane。 */
   private patchPane(tab: AttrTab, snapshot: AttrPaneSnapshot): boolean {
-/** pane：定义该变量以承载业务值。 */
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
     const pane = this.pane.querySelector<HTMLElement>(`[data-attr-pane="${tab}"]`);
     if (!pane) {
       return false;
     }
     if (snapshot.kind === 'placeholder') {
-/** textNode：定义该变量以承载业务值。 */
       const textNode = pane.querySelector<HTMLElement>('[data-placeholder-text="true"]');
       if (!textNode) {
         return false;
@@ -1251,9 +1633,7 @@ export class AttrPanel {
       return true;
     }
     if (snapshot.kind === 'numeric') {
-/** titleNode：定义该变量以承载业务值。 */
       const titleNode = pane.querySelector<HTMLElement>('[data-numeric-title="true"]');
-/** cardNodes：定义该变量以承载业务值。 */
       const cardNodes = pane.querySelectorAll<HTMLElement>('[data-numeric-card]');
       if (!titleNode || cardNodes.length !== snapshot.cards.length) {
         return false;
@@ -1264,11 +1644,8 @@ export class AttrPanel {
         if (!cardNode) {
           return false;
         }
-/** labelNode：定义该变量以承载业务值。 */
         const labelNode = cardNode.querySelector<HTMLElement>('[data-numeric-label="true"]');
-/** valueNode：定义该变量以承载业务值。 */
         const valueNode = cardNode.querySelector<HTMLElement>('[data-numeric-value="true"]');
-/** subNode：定义该变量以承载业务值。 */
         const subNode = cardNode.querySelector<HTMLElement>('[data-numeric-sub="true"]');
         if (!labelNode || !valueNode || !subNode) {
           return false;
@@ -1283,7 +1660,6 @@ export class AttrPanel {
       return true;
     }
     if (snapshot.kind === 'craft') {
-/** skillNodes：定义该变量以承载业务值。 */
       const skillNodes = pane.querySelectorAll<HTMLElement>('[data-craft-skill]');
       if (skillNodes.length !== snapshot.skills.length) {
         return false;
@@ -1293,15 +1669,10 @@ export class AttrPanel {
         if (!skillNode) {
           return false;
         }
-/** labelNode：定义该变量以承载业务值。 */
         const labelNode = skillNode.querySelector<HTMLElement>('[data-craft-label="true"]');
-/** levelNode：定义该变量以承载业务值。 */
         const levelNode = skillNode.querySelector<HTMLElement>('[data-craft-level="true"]');
-/** progressNode：定义该变量以承载业务值。 */
         const progressNode = skillNode.querySelector<HTMLElement>('[data-craft-progress="true"]');
-/** fillNode：定义该变量以承载业务值。 */
         const fillNode = skillNode.querySelector<HTMLElement>('[data-craft-progress-fill="true"]');
-/** remainNode：定义该变量以承载业务值。 */
         const remainNode = skillNode.querySelector<HTMLElement>('[data-craft-remain="true"]');
         if (!labelNode || !levelNode || !progressNode || !fillNode || !remainNode) {
           return false;
@@ -1315,11 +1686,8 @@ export class AttrPanel {
       return true;
     }
 
-/** scaleNode：定义该变量以承载业务值。 */
     const scaleNode = pane.querySelector<HTMLElement>('[data-radar-scale="true"]');
-/** titleNode：定义该变量以承载业务值。 */
     const titleNode = pane.querySelector<HTMLElement>('.attr-radar-title');
-/** areaNode：定义该变量以承载业务值。 */
     const areaNode = pane.querySelector<SVGPolygonElement>('[data-radar-area="true"]');
     if (!scaleNode || !titleNode || !areaNode) {
       return false;
@@ -1328,7 +1696,6 @@ export class AttrPanel {
     scaleNode.textContent = `刻度 ${snapshot.scale}`;
     areaNode.setAttribute('points', snapshot.areaPoints);
     areaNode.setAttribute('stroke', snapshot.nodes[0]?.color ?? '#ff8a65');
-/** svgNode：定义该变量以承载业务值。 */
     const svgNode = pane.querySelector<SVGSVGElement>('svg.attr-radar');
     svgNode?.setAttribute('aria-label', snapshot.title);
 
@@ -1338,11 +1705,8 @@ export class AttrPanel {
       if (!group) {
         return false;
       }
-/** dot：定义该变量以承载业务值。 */
       const dot = group.querySelector<SVGCircleElement>('[data-radar-dot="true"]');
-/** label：定义该变量以承载业务值。 */
       const label = group.querySelector<SVGTextElement>('[data-radar-label="true"]');
-/** value：定义该变量以承载业务值。 */
       const value = group.querySelector<SVGTextElement>('[data-radar-value="true"]');
       if (!dot || !label || !value) {
         return false;
@@ -1359,18 +1723,74 @@ export class AttrPanel {
       value.setAttribute('x', node.valueX);
       value.setAttribute('y', node.valueY);
     }
+    const summaryCards = snapshot.summaryCards ?? [];
+    if (summaryCards.length > 0) {
+      const summaryCardNodes = pane.querySelectorAll<HTMLElement>('[data-radar-summary-card]');
+      if (summaryCardNodes.length !== summaryCards.length) {
+        return false;
+      }
+      for (const card of summaryCards) {
+        const cardNode = pane.querySelector<HTMLElement>(`[data-radar-summary-card="${card.key}"]`);
+        if (!cardNode) {
+          return false;
+        }
+        const labelNode = cardNode.querySelector<HTMLElement>('[data-radar-summary-label="true"]');
+        const valueNode = cardNode.querySelector<HTMLElement>('[data-radar-summary-value="true"]');
+        if (!labelNode || !valueNode) {
+          return false;
+        }
+        cardNode.setAttribute('data-tooltip-title', card.tooltipTitle);
+        cardNode.setAttribute('data-tooltip-detail', card.tooltipDetail);
+        labelNode.textContent = card.label;
+        valueNode.textContent = card.value;
+      }
+    } else if (pane.querySelector<HTMLElement>('[data-radar-summary-card]')) {
+      return false;
+    }
+    const extraGridNode = pane.querySelector<HTMLElement>('[data-radar-extra-grid="true"]');
+    const extraCards = snapshot.cards ?? [];
+    if (extraCards.length > 0) {
+      const extraCardNodes = pane.querySelectorAll<HTMLElement>('[data-radar-extra-card]');
+      if (!extraGridNode || extraCardNodes.length !== extraCards.length) {
+        return false;
+      }
+      for (const card of extraCards) {
+        const cardNode = pane.querySelector<HTMLElement>(`[data-radar-extra-card="${card.key}"]`);
+        if (!cardNode) {
+          return false;
+        }
+        const labelNode = cardNode.querySelector<HTMLElement>('[data-radar-extra-label="true"]');
+        const valueNode = cardNode.querySelector<HTMLElement>('[data-radar-extra-value="true"]');
+        const subNode = cardNode.querySelector<HTMLElement>('[data-radar-extra-sub="true"]');
+        if (!labelNode || !valueNode || !subNode) {
+          return false;
+        }
+        cardNode.setAttribute('data-tooltip-title', card.tooltipTitle);
+        cardNode.setAttribute('data-tooltip-detail', card.tooltipDetail);
+        labelNode.textContent = card.label;
+        valueNode.textContent = card.value;
+        subNode.textContent = card.sub ?? '';
+        subNode.classList.toggle('hidden', !card.sub);
+      }
+    } else if (extraGridNode) {
+      return false;
+    }
     return true;
   }
 
-/** buildStructureKey：执行对应的业务逻辑。 */
+  /** buildStructureKey：构建Structure Key。 */
   private buildStructureKey(snapshot: AttrPanelSnapshot): string {
-/** entries：定义该变量以承载业务值。 */
     const entries = Object.entries(snapshot.panes).map(([tab, pane]) => {
       if (pane.kind === 'numeric') {
         return [tab, { kind: pane.kind, cards: pane.cards.map((card) => card.key) }];
       }
       if (pane.kind === 'radar') {
-        return [tab, { kind: pane.kind, nodes: pane.nodes.length }];
+        return [tab, {
+          kind: pane.kind,
+          nodes: pane.nodes.length,
+          cards: pane.cards?.map((card) => card.key) ?? [],
+          summaryCards: pane.summaryCards?.map((card) => card.key) ?? [],
+        }];
       }
       if (pane.kind === 'craft') {
         return [tab, { kind: pane.kind, skills: pane.skills.map((skill) => skill.key) }];
@@ -1380,20 +1800,17 @@ export class AttrPanel {
     return JSON.stringify(Object.fromEntries(entries));
   }
 
-/** bindPaneEvents：执行对应的业务逻辑。 */
+  /** bindPaneEvents：绑定Pane事件。 */
   private bindPaneEvents(): void {
     this.pane.addEventListener('click', (event) => {
-/** target：定义该变量以承载业务值。 */
       const target = event.target;
       if (!(target instanceof HTMLElement)) {
         return;
       }
-/** button：定义该变量以承载业务值。 */
       const button = target.closest<HTMLElement>('[data-attr-tab]');
       if (!button) {
         return;
       }
-/** tab：定义该变量以承载业务值。 */
       const tab = button.dataset.attrTab as AttrTab | undefined;
       if (!tab || tab === this.activeTab) {
         return;
@@ -1403,7 +1820,7 @@ export class AttrPanel {
     });
   }
 
-/** patchTabState：执行对应的业务逻辑。 */
+  /** patchTabState：处理patch Tab状态。 */
   private patchTabState(): void {
     this.pane.querySelectorAll<HTMLElement>('[data-attr-tab]').forEach((entry) => {
       entry.classList.toggle('active', entry.dataset.attrTab === this.activeTab);
@@ -1413,232 +1830,211 @@ export class AttrPanel {
     });
   }
 
-/** ensureTooltipStyle：执行对应的业务逻辑。 */
+  /** ensureTooltipStyle：确保提示样式。 */
   private ensureTooltipStyle(): void {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
     if (document.getElementById(TOOLTIP_STYLE_ID)) return;
-/** style：定义该变量以承载业务值。 */
     const style = document.createElement('style');
     style.id = TOOLTIP_STYLE_ID;
     style.textContent = `
       .attr-tooltip {
-/** position：定义该变量以承载业务值。 */
         position: fixed;
         pointer-events: none;
         font-size: var(--font-size-13);
-/** color：定义该变量以承载业务值。 */
         color: var(--ink-black);
         z-index: 2000;
-/** transition：定义该变量以承载业务值。 */
         transition: opacity 120ms ease, transform 120ms ease;
-/** opacity：定义该变量以承载业务值。 */
         opacity: 0;
-/** transform：定义该变量以承载业务值。 */
         transform: translateY(-8px);
         font-family: var(--font-role-body);
         min-width: 0;
       }
       .attr-tooltip.visible {
-/** opacity：定义该变量以承载业务值。 */
         opacity: 1;
       }
       .attr-tooltip .floating-tooltip-shell {
-/** display：定义该变量以承载业务值。 */
         display: block;
         max-width: min(320px, calc(100vw - 24px));
       }
       .attr-tooltip .floating-tooltip-body {
-/** display：定义该变量以承载业务值。 */
         display: flex;
         flex-direction: column;
-/** gap：定义该变量以承载业务值。 */
         gap: 4px;
         line-height: 1.35;
         min-width: 140px;
         max-width: min(320px, calc(100vw - 24px));
-/** padding：定义该变量以承载业务值。 */
         padding: 8px 12px;
         border-radius: 8px;
-/** border：定义该变量以承载业务值。 */
         border: 1px solid rgba(34,26,19,0.15);
-/** background：定义该变量以承载业务值。 */
         background: var(--surface-card-strong);
         box-shadow: 0 8px 24px rgba(0,0,0,0.18);
       }
       .attr-tooltip .floating-tooltip-body strong {
         font-weight: var(--font-weight-semibold);
-/** display：定义该变量以承载业务值。 */
         display: block;
         margin-bottom: 4px;
       }
       .attr-tooltip .floating-tooltip-line {
-/** display：定义该变量以承载业务值。 */
         display: block;
       }
       .attr-tooltip .floating-tooltip-detail {
         font-size: var(--font-size-12);
         line-height: 1.4;
-/** color：定义该变量以承载业务值。 */
         color: var(--ink-grey);
       }
       .attr-tooltip .attr-tooltip-primary {
-/** display：定义该变量以承载业务值。 */
         display: flex;
         align-items: baseline;
         justify-content: space-between;
-/** gap：定义该变量以承载业务值。 */
         gap: 12px;
-/** color：定义该变量以承载业务值。 */
+      }
+      .attr-tooltip .attr-tooltip-primary {
         color: var(--ink-black);
         font-weight: var(--font-weight-semibold);
       }
       .attr-tooltip .attr-tooltip-primary-value {
-/** color：定义该变量以承载业务值。 */
         color: #b85c38;
       }
       .attr-tooltip .attr-tooltip-section {
-/** display：定义该变量以承载业务值。 */
         display: inline-flex;
         align-items: center;
         margin-top: 4px;
-/** padding：定义该变量以承载业务值。 */
         padding: 2px 8px;
         border-radius: 999px;
         font-size: var(--font-size-11);
         font-weight: var(--font-weight-semibold);
       }
       .attr-tooltip .attr-tooltip-section.fixed {
-/** color：定义该变量以承载业务值。 */
         color: #7a4b22;
-/** background：定义该变量以承载业务值。 */
         background: rgba(197, 128, 53, 0.14);
       }
       .attr-tooltip .attr-tooltip-section.percent {
-/** color：定义该变量以承载业务值。 */
         color: #1d5d4f;
-/** background：定义该变量以承载业务值。 */
         background: rgba(45, 140, 115, 0.14);
       }
       .attr-tooltip .attr-tooltip-child {
-/** display：定义该变量以承载业务值。 */
         display: flex;
         align-items: baseline;
         justify-content: space-between;
-/** gap：定义该变量以承载业务值。 */
         gap: 12px;
         padding-left: 12px;
       }
       .attr-tooltip .attr-tooltip-child.fixed .attr-tooltip-child-label {
-/** color：定义该变量以承载业务值。 */
         color: #8c6742;
       }
       .attr-tooltip .attr-tooltip-child.percent .attr-tooltip-child-label {
-/** color：定义该变量以承载业务值。 */
         color: #2f7e6d;
       }
       .attr-tooltip .attr-tooltip-child-value {
-/** color：定义该变量以承载业务值。 */
         color: var(--ink-black);
       }
       .attr-tooltip .attr-tooltip-note {
-/** display：定义该变量以承载业务值。 */
         display: block;
         margin-top: 4px;
-/** color：定义该变量以承载业务值。 */
         color: var(--ink-grey);
       }
       .attr-radar-shell {
-/** display：定义该变量以承载业务值。 */
         display: grid;
-/** gap：定义该变量以承载业务值。 */
         gap: 10px;
-/** padding：定义该变量以承载业务值。 */
         padding: 14px 16px 18px;
         border-radius: 10px;
-/** border：定义该变量以承载业务值。 */
         border: 1px solid rgba(34,26,19,0.18);
-/** background：定义该变量以承载业务值。 */
         background: var(--surface-gradient-tooltip);
         box-shadow: inset 0 0 0 1px rgba(255,255,255,0.35), 0 6px 18px rgba(0,0,0,0.08);
       }
       .attr-radar-head {
-/** display：定义该变量以承载业务值。 */
         display: flex;
         align-items: baseline;
         justify-content: space-between;
-/** gap：定义该变量以承载业务值。 */
         gap: 8px;
       }
       .attr-radar-title {
         font-family: var(--font-role-title);
         font-size: var(--font-size-role-title-16);
-/** color：定义该变量以承载业务值。 */
         color: var(--ink-black);
       }
       .attr-radar-scale {
         font-size: var(--font-size-11);
-/** color：定义该变量以承载业务值。 */
         color: var(--ink-grey);
       }
       .attr-radar {
-/** width：定义该变量以承载业务值。 */
         width: 100%;
         max-width: 320px;
-/** height：定义该变量以承载业务值。 */
         height: 320px;
-/** margin：定义该变量以承载业务值。 */
         margin: 0 auto;
-/** display：定义该变量以承载业务值。 */
         display: block;
-/** overflow：定义该变量以承载业务值。 */
         overflow: visible;
       }
+      .attr-radar-body {
+        position: relative;
+      }
+      .attr-radar-floating-stat {
+        position: absolute;
+        top: 8px;
+        right: 10px;
+        z-index: 1;
+        display: inline-flex;
+        align-items: baseline;
+        gap: 6px;
+        color: var(--ink-grey);
+        font-size: var(--font-size-12);
+        line-height: 1.2;
+        cursor: help;
+        transition: color 0.16s ease, text-shadow 0.16s ease, transform 0.16s ease;
+      }
+      .attr-radar-floating-stat:hover,
+      .attr-radar-floating-stat:focus-visible {
+        color: var(--stamp-red);
+        text-shadow: 0 1px 8px rgba(124, 37, 31, 0.22);
+        transform: translateY(-1px);
+        outline: none;
+      }
+      .attr-radar-floating-value {
+        font-size: var(--font-size-14);
+        font-weight: var(--font-weight-strong);
+        color: var(--ink-black);
+      }
+      .attr-radar-extra-grid {
+        margin-top: 12px;
+      }
       .attr-radar-ring {
-/** fill：定义该变量以承载业务值。 */
         fill: none;
-/** stroke：定义该变量以承载业务值。 */
         stroke: var(--radar-grid-stroke);
         stroke-width: 1;
       }
       .attr-radar-axis {
-/** stroke：定义该变量以承载业务值。 */
         stroke: var(--radar-grid-stroke-strong);
         stroke-width: 1.5;
       }
       .attr-radar-area {
-/** transition：定义该变量以承载业务值。 */
         transition: opacity 160ms ease;
-/** opacity：定义该变量以承载业务值。 */
         opacity: 0.9;
       }
       .attr-radar-label {
         font-family: var(--font-role-body);
         font-size: var(--font-size-role-body-12);
-/** fill：定义该变量以承载业务值。 */
         fill: var(--ink-black);
       }
       .attr-radar-value {
         font-size: var(--font-size-11);
-/** fill：定义该变量以承载业务值。 */
         fill: var(--ink-grey);
       }
     `;
     document.head.appendChild(style);
   }
 
-/** bindTooltipEvents：执行对应的业务逻辑。 */
+  /** bindTooltipEvents：绑定提示事件。 */
   private bindTooltipEvents(): void {
-/** tapMode：定义该变量以承载业务值。 */
     const tapMode = prefersPinnedTooltipInteraction();
     this.pane.addEventListener('click', (event) => {
       if (!tapMode) {
         return;
       }
-/** target：定义该变量以承载业务值。 */
       const target = event.target;
       if (!(target instanceof Element)) {
         return;
       }
-/** tooltipNode：定义该变量以承载业务值。 */
       const tooltipNode = target.closest<HTMLElement>('[data-tooltip-title]');
       if (!tooltipNode) {
         return;
@@ -1650,9 +2046,7 @@ export class AttrPanel {
         return;
       }
       this.tooltipTarget = tooltipNode;
-/** title：定义该变量以承载业务值。 */
       const title = tooltipNode.getAttribute('data-tooltip-title') ?? '';
-/** detail：定义该变量以承载业务值。 */
       const detail = tooltipNode.getAttribute('data-tooltip-detail') ?? '';
       this.tooltip.showPinned(tooltipNode, title, splitTooltipLines(detail), event.clientX, event.clientY, { allowHtml: true });
       event.preventDefault();
@@ -1663,7 +2057,6 @@ export class AttrPanel {
       if (tapMode && this.tooltip.isPinned()) {
         return;
       }
-/** target：定义该变量以承载业务值。 */
       const target = event.target;
       if (!(target instanceof Element)) {
         if (this.tooltipTarget) {
@@ -1673,7 +2066,6 @@ export class AttrPanel {
         return;
       }
 
-/** tooltipNode：定义该变量以承载业务值。 */
       const tooltipNode = target.closest('[data-tooltip-title]');
       if (!tooltipNode) {
         if (this.tooltipTarget) {
@@ -1686,9 +2078,7 @@ export class AttrPanel {
 
       if (this.tooltipTarget !== tooltipNode) {
         this.tooltipTarget = tooltipNode;
-/** title：定义该变量以承载业务值。 */
         const title = tooltipNode.getAttribute('data-tooltip-title') ?? '';
-/** detail：定义该变量以承载业务值。 */
         const detail = tooltipNode.getAttribute('data-tooltip-detail') ?? '';
         this.tooltip.show(title, splitTooltipLines(detail), event.clientX, event.clientY, { allowHtml: true });
         return;
@@ -1711,7 +2101,7 @@ export class AttrPanel {
     });
   }
 
-/** requestDetailIfNeeded：执行对应的业务逻辑。 */
+  /** requestDetailIfNeeded：按需触发低频详情请求。 */
   private requestDetailIfNeeded(): void {
     if (!this.latestData) {
       return;
@@ -1723,6 +2113,21 @@ export class AttrPanel {
       return;
     }
     this.detailRequested = true;
-    this.callbacks?.onRequestDetail();
+    this.callbacks?.onRequestDetail?.();
+  }
+
+  /** refreshActiveTooltipContent：详情异步回包后刷新当前已打开的 hover 内容。 */
+  private refreshActiveTooltipContent(): void {
+    if (!this.tooltipTarget) {
+      return;
+    }
+    if (!this.tooltipTarget.isConnected) {
+      this.tooltipTarget = null;
+      this.tooltip.hide(true);
+      return;
+    }
+    const title = this.tooltipTarget.getAttribute('data-tooltip-title') ?? '';
+    const detail = this.tooltipTarget.getAttribute('data-tooltip-detail') ?? '';
+    this.tooltip.updateContent(title, splitTooltipLines(detail), { allowHtml: true });
   }
 }

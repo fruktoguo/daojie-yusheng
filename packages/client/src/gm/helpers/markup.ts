@@ -1,5 +1,4 @@
 import {
-  type GmManagedPlayerBehavior,
   type GmManagedPlayerRecord,
   type GmManagedPlayerSummary,
   type PlayerState,
@@ -15,15 +14,21 @@ import { TECHNIQUE_REALM_LABELS, QUEST_LINE_LABELS, QUEST_STATUS_LABELS } from '
 import { getInventoryRowMeta } from './catalog';
 import { escapeHtml, formatJson } from './pure';
 
-/** PresenceMeta：定义该接口的能力与字段约束。 */
+/** PresenceMeta：玩家在线状态徽标的渲染元数据。 */
 export interface PresenceMeta {
-/** className：定义该变量以承载业务值。 */
-  className: 'online' | 'offline';
-/** label：定义该变量以承载业务值。 */
+/**
+ * className：class名称名称或显示文本。
+ */
+
+  className: 'online' | 'offline';  
+  /**
+ * label：label名称或显示文本。
+ */
+
   label: '在线' | '离线挂机' | '离线';
 }
 
-/** getPlayerRowMarkup：执行对应的业务逻辑。 */
+/** getPlayerRowMarkup：读取玩家Row Markup。 */
 export function getPlayerRowMarkup(player: GmManagedPlayerSummary): string {
   return `
     <button class="player-row" data-player-id="${escapeHtml(player.id)}" type="button">
@@ -38,70 +43,24 @@ export function getPlayerRowMarkup(player: GmManagedPlayerSummary): string {
   `;
 }
 
-/** getPlayerIdentityLine：执行对应的业务逻辑。 */
+/** getPlayerIdentityLine：读取玩家身份Line。 */
 export function getPlayerIdentityLine(player: GmManagedPlayerSummary): string {
-  return `地图: ${player.mapName}${player.isRiskAdmin ? ' · 管理员名单' : ''}`;
+  return `地图: ${player.mapName}`;
 }
 
-/** getPlayerStatsLine：执行对应的业务逻辑。 */
+/** getPlayerStatsLine：读取玩家属性Line。 */
 export function getPlayerStatsLine(player: GmManagedPlayerSummary): string {
-/** behaviorLabel：定义该变量以承载业务值。 */
-  const behaviorLabel = player.behaviors.length > 0
-    ? player.behaviors.map(getBehaviorLabel).join(' / ')
-    : '空闲';
-  return `${player.meta.isBot ? '机器人' : '玩家'} · 风险 ${player.riskScore} (${getRiskLevelLabel(player.riskLevel)}) · ${player.realmLabel} · ${getAccountStatusLabel(player.accountStatus)}${player.isRiskAdmin ? ' · 管理员名单' : ''} · ${behaviorLabel}`;
+  return `${player.meta.isBot ? '机器人' : '玩家'} · ${player.realmLabel}`;
 }
 
-function getRiskLevelLabel(level: GmManagedPlayerSummary['riskLevel']): string {
-  switch (level) {
-    case 'critical':
-      return '极高';
-    case 'high':
-      return '高';
-    case 'medium':
-      return '中';
-    case 'low':
-    default:
-      return '低';
-  }
-}
-
-function getBehaviorLabel(behavior: GmManagedPlayerBehavior): string {
-  switch (behavior) {
-    case 'combat':
-      return '战斗';
-    case 'cultivation':
-      return '修炼';
-    case 'alchemy':
-      return '炼丹';
-    case 'enhancement':
-      return '强化';
-    case 'gather':
-      return '采集';
-    default:
-      return behavior;
-  }
-}
-
-function getAccountStatusLabel(status: GmManagedPlayerSummary['accountStatus']): string {
-  switch (status) {
-    case 'banned':
-      return '封禁';
-    case 'abnormal':
-      return '异常';
-    case 'normal':
-    default:
-      return '正常';
-  }
-}
-
-/** getEditorMetaMarkup：执行对应的业务逻辑。 */
+/** getEditorMetaMarkup：读取编辑器元数据Markup。 */
 export function getEditorMetaMarkup(
   detail: GmManagedPlayerRecord,
   presence: PresenceMeta,
   editorDirty: boolean,
 ): string {
-/** pills：定义该变量以承载业务值。 */
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
   const pills: string[] = [
     `<span class="pill ${presence.className}">${presence.label}</span>`,
     `<span class="pill ${detail.meta.isBot ? 'bot' : ''}">${detail.meta.isBot ? '机器人' : '玩家'}</span>`,
@@ -118,7 +77,7 @@ export function getEditorMetaMarkup(
   return pills.join('');
 }
 
-/** getEditorBodyChipMarkup：执行对应的业务逻辑。 */
+/** getEditorBodyChipMarkup：读取编辑器身体Chip Markup。 */
 export function getEditorBodyChipMarkup(player: GmManagedPlayerRecord, draft: PlayerState, editorDirty: boolean): string {
   return [
     `<span class="pill ${player.meta.online ? 'online' : 'offline'}">${player.meta.online ? '在线' : '离线'}</span>`,
@@ -128,83 +87,90 @@ export function getEditorBodyChipMarkup(player: GmManagedPlayerRecord, draft: Pl
   ].filter(Boolean).join('');
 }
 
-/** getEquipmentCardTitle：执行对应的业务逻辑。 */
+/** getEquipmentCardTitle：读取Equipment卡片标题。 */
 export function getEquipmentCardTitle(item: ItemStack | null): string {
   return item ? item.name || '未命名装备' : '';
 }
 
-/** getEquipmentCardMeta：执行对应的业务逻辑。 */
+/** getEquipmentCardMeta：读取Equipment卡片元数据。 */
 export function getEquipmentCardMeta(item: ItemStack | null): string {
   return item ? `${item.itemId || '空 ID'} · ${item.grade || '无品阶'} · Lv.${item.level ?? 1}` : '当前为空';
 }
 
-/** getBonusCardTitle：执行对应的业务逻辑。 */
+/** getBonusCardTitle：读取Bonus卡片标题。 */
 export function getBonusCardTitle(bonus: PlayerState['bonuses'][number] | undefined, index: number): string {
   return bonus?.label || bonus?.source || `加成 ${index + 1}`;
 }
 
-/** getBonusCardMeta：执行对应的业务逻辑。 */
+/** getBonusCardMeta：读取Bonus卡片元数据。 */
 export function getBonusCardMeta(bonus: PlayerState['bonuses'][number] | undefined): string {
   return bonus?.source || '未填写来源';
 }
 
-/** getBuffCardTitle：执行对应的业务逻辑。 */
+/** getBuffCardTitle：读取Buff卡片标题。 */
 export function getBuffCardTitle(buff: TemporaryBuffState | undefined, index: number): string {
   return buff?.name || buff?.buffId || `临时效果 ${index + 1}`;
 }
 
-/** getBuffCardMeta：执行对应的业务逻辑。 */
+/** getBuffCardMeta：读取Buff卡片元数据。 */
 export function getBuffCardMeta(buff: TemporaryBuffState | undefined): string {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
   if (!buff) return '';
   return `${buff.buffId || '未填写 buffId'} · ${buff.category} · ${buff.visibility}`;
 }
 
-/** getInventoryCardTitle：执行对应的业务逻辑。 */
+/** getInventoryCardTitle：读取背包卡片标题。 */
 export function getInventoryCardTitle(item: ItemStack | undefined, index: number): string {
   return item?.name || item?.itemId || `物品 ${index + 1}`;
 }
 
-/** getInventoryCardMeta：执行对应的业务逻辑。 */
+/** getInventoryCardMeta：读取背包卡片元数据。 */
 export function getInventoryCardMeta(item: ItemStack | undefined): string {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
   if (!item) return '';
   return getInventoryRowMeta(item);
 }
 
-/** getAutoSkillCardTitle：执行对应的业务逻辑。 */
+/** getAutoSkillCardTitle：读取自动技能卡片标题。 */
 export function getAutoSkillCardTitle(entry: AutoBattleSkillConfig | undefined, index: number): string {
   return entry?.skillId || `技能槽 ${index + 1}`;
 }
 
-/** getAutoSkillCardMeta：执行对应的业务逻辑。 */
+/** getAutoSkillCardMeta：读取自动技能卡片元数据。 */
 export function getAutoSkillCardMeta(entry: AutoBattleSkillConfig | undefined): string {
   return entry?.enabled ? '启用' : '禁用';
 }
 
-/** getTechniqueCardTitle：执行对应的业务逻辑。 */
+/** getTechniqueCardTitle：读取Technique卡片标题。 */
 export function getTechniqueCardTitle(technique: TechniqueState | undefined, index: number): string {
   return technique?.name || technique?.techId || `功法 ${index + 1}`;
 }
 
-/** getTechniqueCardMeta：执行对应的业务逻辑。 */
+/** getTechniqueCardMeta：读取Technique卡片元数据。 */
 export function getTechniqueCardMeta(technique: TechniqueState | undefined, getRealmLevelLabel: (realmLv: number) => string | undefined): string {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
   if (!technique) return '';
-/** realmLevelLabel：定义该变量以承载业务值。 */
   const realmLevelLabel = getRealmLevelLabel(technique.realmLv);
   return `${technique.techId || '未填写功法 ID'} · ${realmLevelLabel ?? `Lv.${technique.realmLv}`} · 等级 ${technique.level} · ${TECHNIQUE_REALM_LABELS[technique.realm] ?? technique.realm}`;
 }
 
-/** getQuestCardTitle：执行对应的业务逻辑。 */
+/** getQuestCardTitle：读取任务卡片标题。 */
 export function getQuestCardTitle(quest: QuestState | undefined, index: number): string {
   return quest?.title || quest?.id || `任务 ${index + 1}`;
 }
 
-/** getQuestCardMeta：执行对应的业务逻辑。 */
+/** getQuestCardMeta：读取任务卡片元数据。 */
 export function getQuestCardMeta(quest: QuestState | undefined): string {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
   if (!quest) return '';
   return `${quest.id || '未填写任务 ID'} · ${QUEST_LINE_LABELS[quest.line] ?? quest.line} · ${QUEST_STATUS_LABELS[quest.status] ?? quest.status}`;
 }
 
-/** getStatRowMarkup：执行对应的业务逻辑。 */
+/** getStatRowMarkup：读取Stat Row Markup。 */
 export function getStatRowMarkup(key: string): string {
   return `
     <div class="network-row" data-key="${escapeHtml(key)}">
@@ -212,13 +178,16 @@ export function getStatRowMarkup(key: string): string {
         <div class="network-row-label" data-role="label"></div>
         <div class="network-row-meta" data-role="meta"></div>
       </div>
+      <div class="network-row-actions" data-role="actions"></div>
     </div>
   `;
 }
 
-/** getReadonlyPreviewValue：执行对应的业务逻辑。 */
+/** getReadonlyPreviewValue：读取Readonly Preview值。 */
 export function getReadonlyPreviewValue(draft: PlayerState, path: string): string {
   switch (path) {
+    case 'baseAttrs':
+      return formatJson(draft.baseAttrs ?? {});
     case 'finalAttrs':
       return formatJson(draft.finalAttrs ?? {});
     case 'numericStats':
@@ -234,7 +203,7 @@ export function getReadonlyPreviewValue(draft: PlayerState, path: string): strin
   }
 }
 
-/** renderSuggestionReply：执行对应的业务逻辑。 */
+/** renderSuggestionReply：渲染建议回复。 */
 export function renderSuggestionReply(reply: Suggestion['replies'][number]): string {
   return `
     <div class="gm-suggestion-reply ${reply.authorType === 'gm' ? 'gm' : ''}">
@@ -247,11 +216,9 @@ export function renderSuggestionReply(reply: Suggestion['replies'][number]): str
   `;
 }
 
-/** getSuggestionCardMarkup：执行对应的业务逻辑。 */
+/** getSuggestionCardMarkup：读取建议卡片Markup。 */
 export function getSuggestionCardMarkup(suggestion: Suggestion): string {
-/** completed：定义该变量以承载业务值。 */
   const completed = suggestion.status === 'completed';
-/** score：定义该变量以承载业务值。 */
   const score = suggestion.upvotes.length - suggestion.downvotes.length;
   return `
     <div class="gm-suggestion-card ${completed ? 'completed' : ''}" data-suggestion-id="${escapeHtml(suggestion.id)}">
@@ -305,7 +272,7 @@ export function getSuggestionCardMarkup(suggestion: Suggestion): string {
   `;
 }
 
-/** getRedeemCodeStatusLabel：执行对应的业务逻辑。 */
+/** getRedeemCodeStatusLabel：读取兑换兑换码状态标签。 */
 export function getRedeemCodeStatusLabel(status: RedeemCodeCodeView['status']): string {
   switch (status) {
     case 'active':
@@ -319,9 +286,8 @@ export function getRedeemCodeStatusLabel(status: RedeemCodeCodeView['status']): 
   }
 }
 
-/** getRedeemCodeMarkup：执行对应的业务逻辑。 */
+/** getRedeemCodeMarkup：读取兑换兑换码Markup。 */
 export function getRedeemCodeMarkup(code: RedeemCodeCodeView, getDate: (value: string) => string): string {
-/** meta：定义该变量以承载业务值。 */
   const meta = [
     `状态 ${getRedeemCodeStatusLabel(code.status)}`,
     code.usedByRoleName ? `使用者 ${code.usedByRoleName}` : null,
@@ -341,7 +307,7 @@ export function getRedeemCodeMarkup(code: RedeemCodeCodeView, getDate: (value: s
   `;
 }
 
-/** getCompactInventoryItemMarkup：执行对应的业务逻辑。 */
+/** getCompactInventoryItemMarkup：读取Compact背包物品Markup。 */
 export function getCompactInventoryItemMarkup(
   item: ItemStack,
   index: number,

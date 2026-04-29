@@ -1,0 +1,43 @@
+import { useExternalStoreSnapshot } from '../hooks/use-external-store-snapshot';
+import { closeDetailModal, overlayStore } from './overlay-store';
+/**
+ * DetailModalLayer：渲染Next详情弹层层组件。
+ * @returns 无返回值，直接更新Next详情弹层层相关状态。
+ */
+
+
+export function DetailModalLayer() {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
+  const { detailModal } = useExternalStoreSnapshot(overlayStore);
+
+  if (!detailModal.open) {
+    return null;
+  }
+
+  return (
+    <div
+      className="react-ui-modal-layer react-ui-detail-modal-layer"
+      aria-hidden="false"
+      onClick={closeDetailModal}
+    >
+      <div
+        className="react-ui-modal-card react-ui-modal-card--md react-ui-detail-modal-card"
+        onClick={(event) => event.stopPropagation()}
+      >
+        <div className="react-ui-modal-head">
+          <div>
+            <div className="react-ui-modal-title">{detailModal.title}</div>
+            {detailModal.subtitle ? (
+              <div className="react-ui-modal-subtitle">{detailModal.subtitle}</div>
+            ) : null}
+          </div>
+          <div className="react-ui-modal-hint">{detailModal.hint ?? '点击空白处关闭'}</div>
+        </div>
+        <div className="react-ui-modal-body react-ui-detail-modal-body">
+          {detailModal.body}
+        </div>
+      </div>
+    </div>
+  );
+}

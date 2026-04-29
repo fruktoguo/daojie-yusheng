@@ -1,30 +1,31 @@
 import { PanelDefinition, PanelId } from './types';
 
-/** PanelRegistry：封装相关状态与行为。 */
+/** PanelRegistry：面板注册表实现。 */
 export class PanelRegistry {
+  /** definitions：definitions。 */
   private readonly definitions = new Map<PanelId, PanelDefinition>();
 
-/** register：执行对应的业务逻辑。 */
+  /** register：处理register。 */
   register(definition: PanelDefinition): void {
     this.definitions.set(definition.id, definition);
   }
 
-/** get：执行对应的业务逻辑。 */
+  /** get：读取get。 */
   get(id: PanelId): PanelDefinition | undefined {
     return this.definitions.get(id);
   }
 
-/** list：执行对应的业务逻辑。 */
+  /** list：列出列表。 */
   list(): PanelDefinition[] {
     return [...this.definitions.values()];
   }
 }
 
-/** buildDefaultPanelRegistry：执行对应的业务逻辑。 */
+/** buildDefaultPanelRegistry：构建默认面板注册表。 */
 export function buildDefaultPanelRegistry(): PanelRegistry {
-/** registry：定义该变量以承载业务值。 */
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
   const registry = new PanelRegistry();
-/** definitions：定义该变量以承载业务值。 */
   const definitions: PanelDefinition[] = [
     {
       id: 'hud',
@@ -124,24 +125,6 @@ export function buildDefaultPanelRegistry(): PanelRegistry {
       preservesInteractionState: true,
     },
     {
-      id: 'world-nearby',
-      title: '附近',
-      templateKind: 'embedded',
-      rootSelector: '#pane-nearby',
-      defaultPlacement: { desktop: 'center-intel', mobile: 'external' },
-      supports: ['desktop', 'mobile'],
-      preservesInteractionState: true,
-    },
-    {
-      id: 'world-suggestions',
-      title: '建议',
-      templateKind: 'embedded',
-      rootSelector: '#pane-suggestions',
-      defaultPlacement: { desktop: 'center-intel', mobile: 'external' },
-      supports: ['desktop', 'mobile'],
-      preservesInteractionState: true,
-    },
-    {
       id: 'world-tianji',
       title: '天机阁',
       templateKind: 'embedded',
@@ -214,4 +197,3 @@ export function buildDefaultPanelRegistry(): PanelRegistry {
 
   return registry;
 }
-

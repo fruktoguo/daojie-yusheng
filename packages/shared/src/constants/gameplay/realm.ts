@@ -1,6 +1,7 @@
 import type { RealmNumericTemplate } from '../../numeric';
 import type { Attributes, BreakthroughItemRequirement } from '../../types';
 import { PlayerRealmStage, TechniqueRealm } from '../../types';
+import { ensureNumericRatioDivisorsTemplate, ensureNumericStatsTemplateStats } from '../../numeric';
 
 import {
   BASE_HIT,
@@ -21,26 +22,53 @@ import { VIEW_RADIUS } from './world';
  */
 
 type RealmConfig = {
-/** name：定义该变量以承载业务值。 */
-  name: string;
-/** shortName：定义该变量以承载业务值。 */
-  shortName: string;
-/** path：定义该变量以承载业务值。 */
-  path: 'martial' | 'immortal';
-/** narrative：定义该变量以承载业务值。 */
-  narrative: string;
-/** progressToNext：定义该变量以承载业务值。 */
-  progressToNext: number;
-/** attrBonus：定义该变量以承载业务值。 */
-  attrBonus: Partial<Attributes>;
-/** breakthroughItems：定义该变量以承载业务值。 */
-  breakthroughItems: BreakthroughItemRequirement[];
-/** minTechniqueLevel：定义该变量以承载业务值。 */
-  minTechniqueLevel: number;
+/**
+ * name：名称名称或显示文本。
+ */
+
+  name: string;  
+  /**
+ * shortName：short名称名称或显示文本。
+ */
+
+  shortName: string;  
+  /**
+ * path：路径相关字段。
+ */
+
+  path: 'martial' | 'immortal';  
+  /**
+ * narrative：narrative相关字段。
+ */
+
+  narrative: string;  
+  /**
+ * progressToNext：进度ToNext相关字段。
+ */
+
+  progressToNext: number;  
+  /**
+ * attrBonus：attrBonu相关字段。
+ */
+
+  attrBonus: Partial<Attributes>;  
+  /**
+ * breakthroughItems：集合字段。
+ */
+
+  breakthroughItems: BreakthroughItemRequirement[];  
+  /**
+ * minTechniqueLevel：min功法等级数值。
+ */
+
+  minTechniqueLevel: number;  
+  /**
+ * minTechniqueRealm：min功法Realm相关字段。
+ */
+
   minTechniqueRealm?: TechniqueRealm;
 };
 
-/** ZERO_ELEMENT_STATS：定义该变量以承载业务值。 */
 const ZERO_ELEMENT_STATS = {
   metal: 0,
   wood: 0,
@@ -49,7 +77,7 @@ const ZERO_ELEMENT_STATS = {
   earth: 0,
 } as const;
 
-/** FIXED_ELEMENT_DAMAGE_REDUCE_DIVISOR：定义该变量以承载业务值。 */
+/** FIXED_ELEMENT_DAMAGE_REDUCE_DIVISOR：FIXED元素DAMAGE REDUCE DIVISOR。 */
 const FIXED_ELEMENT_DAMAGE_REDUCE_DIVISOR = 100;
 
 /** 默认玩家大境界。 */
@@ -67,7 +95,15 @@ export const PLAYER_REALM_ORDER: PlayerRealmStage[] = [
 ];
 
 /** 玩家大境界对应的等级区间。 */
-export const PLAYER_REALM_STAGE_LEVEL_RANGES: Record<PlayerRealmStage, { levelFrom: number; levelTo: number }> = {
+export const PLAYER_REALM_STAGE_LEVEL_RANGES: Record<PlayerRealmStage, {
+/**
+ * levelFrom：等级From相关字段。
+ */
+ levelFrom: number;
+ /**
+ * levelTo：等级To相关字段。
+ */
+ levelTo: number }> = {
   [PlayerRealmStage.Mortal]: { levelFrom: 1, levelTo: 5 },
   [PlayerRealmStage.BodyTempering]: { levelFrom: 6, levelTo: 8 },
   [PlayerRealmStage.BoneForging]: { levelFrom: 9, levelTo: 12 },
@@ -126,7 +162,7 @@ export const PLAYER_REALM_CONFIG: Record<PlayerRealmStage, RealmConfig> = {
     path: 'martial',
     narrative: '经脉渐通，劲力开始带有内息性质，武道正向玄门靠拢。',
     progressToNext: 260,
-    attrBonus: { constitution: 6, spirit: 2, perception: 3, comprehension: 1 },
+    attrBonus: { constitution: 6, spirit: 2, perception: 3, strength: 1 },
     breakthroughItems: [
       { itemId: 'black_iron_chunk', count: 6 },
       { itemId: 'rune_shard', count: 4 },
@@ -141,7 +177,7 @@ export const PLAYER_REALM_CONFIG: Record<PlayerRealmStage, RealmConfig> = {
     path: 'martial',
     narrative: '内外归一，先天一炁渐显，是凡武迈向仙道的最后门槛。',
     progressToNext: 360,
-    attrBonus: { constitution: 8, spirit: 4, perception: 4, talent: 2, comprehension: 2 },
+    attrBonus: { constitution: 8, spirit: 4, perception: 4, talent: 2, strength: 2 },
     breakthroughItems: [
       { itemId: 'rune_shard', count: 6 },
       { itemId: 'spirit_iron_fragment', count: 4 },
@@ -156,7 +192,7 @@ export const PLAYER_REALM_CONFIG: Record<PlayerRealmStage, RealmConfig> = {
     path: 'immortal',
     narrative: '可引天地灵机入体，真正踏入修仙序列，功法威能随之跃迁。',
     progressToNext: 1040,
-    attrBonus: { constitution: 10, spirit: 8, perception: 5, talent: 4, comprehension: 3, luck: 1 },
+    attrBonus: { constitution: 10, spirit: 8, perception: 5, talent: 4, strength: 3, meridians: 1 },
     breakthroughItems: [
       { itemId: 'blood_feather', count: 6 },
       { itemId: 'demon_wolf_bone', count: 6 },
@@ -171,7 +207,7 @@ export const PLAYER_REALM_CONFIG: Record<PlayerRealmStage, RealmConfig> = {
     path: 'immortal',
     narrative: '道基初成，体魄与灵识都进入更高层次，是后续金丹之路的正式起点。',
     progressToNext: 1240,
-    attrBonus: { constitution: 14, spirit: 12, perception: 8, talent: 6, comprehension: 5, luck: 2 },
+    attrBonus: { constitution: 14, spirit: 12, perception: 8, talent: 6, strength: 5, meridians: 2 },
     breakthroughItems: [],
     minTechniqueLevel: 12,
     minTechniqueRealm: TechniqueRealm.Perfection,
@@ -182,7 +218,7 @@ export const PLAYER_REALM_CONFIG: Record<PlayerRealmStage, RealmConfig> = {
 export const PLAYER_REALM_NUMERIC_TEMPLATES: Record<PlayerRealmStage, RealmNumericTemplate> = {
   [PlayerRealmStage.Mortal]: {
     stage: PlayerRealmStage.Mortal,
-    stats: {
+    stats: ensureNumericStatsTemplateStats({
       maxHp: BASE_MAX_HP,
       maxQi: BASE_MAX_QI,
       physAtk: BASE_PHYS_ATK,
@@ -213,10 +249,11 @@ export const PLAYER_REALM_NUMERIC_TEMPLATES: Record<PlayerRealmStage, RealmNumer
       extraAggroRate: 0,
       extraRange: 0,
       extraArea: 0,
+      actionsPerTurn: 1,
       elementDamageBonus: { ...ZERO_ELEMENT_STATS },
       elementDamageReduce: { ...ZERO_ELEMENT_STATS },
-    },
-    ratioDivisors: {
+    }),
+    ratioDivisors: ensureNumericRatioDivisorsTemplate({
       dodge: 100,
       crit: 100,
       breakPower: 100,
@@ -230,11 +267,11 @@ export const PLAYER_REALM_NUMERIC_TEMPLATES: Record<PlayerRealmStage, RealmNumer
         fire: FIXED_ELEMENT_DAMAGE_REDUCE_DIVISOR,
         earth: FIXED_ELEMENT_DAMAGE_REDUCE_DIVISOR,
       },
-    },
+    }),
   },
   [PlayerRealmStage.BodyTempering]: {
     stage: PlayerRealmStage.BodyTempering,
-    stats: {
+    stats: ensureNumericStatsTemplateStats({
       maxHp: BASE_MAX_HP + 20,
       maxQi: BASE_MAX_QI,
       physAtk: BASE_PHYS_ATK + 2,
@@ -265,10 +302,11 @@ export const PLAYER_REALM_NUMERIC_TEMPLATES: Record<PlayerRealmStage, RealmNumer
       extraAggroRate: 0,
       extraRange: 0,
       extraArea: 0,
+      actionsPerTurn: 1,
       elementDamageBonus: { ...ZERO_ELEMENT_STATS },
       elementDamageReduce: { ...ZERO_ELEMENT_STATS },
-    },
-    ratioDivisors: {
+    }),
+    ratioDivisors: ensureNumericRatioDivisorsTemplate({
       dodge: 120,
       crit: 120,
       breakPower: 120,
@@ -282,11 +320,11 @@ export const PLAYER_REALM_NUMERIC_TEMPLATES: Record<PlayerRealmStage, RealmNumer
         fire: FIXED_ELEMENT_DAMAGE_REDUCE_DIVISOR,
         earth: FIXED_ELEMENT_DAMAGE_REDUCE_DIVISOR,
       },
-    },
+    }),
   },
   [PlayerRealmStage.BoneForging]: {
     stage: PlayerRealmStage.BoneForging,
-    stats: {
+    stats: ensureNumericStatsTemplateStats({
       maxHp: BASE_MAX_HP + 45,
       maxQi: BASE_MAX_QI + 10,
       physAtk: BASE_PHYS_ATK + 4,
@@ -317,10 +355,11 @@ export const PLAYER_REALM_NUMERIC_TEMPLATES: Record<PlayerRealmStage, RealmNumer
       extraAggroRate: 0,
       extraRange: 0,
       extraArea: 0,
+      actionsPerTurn: 1,
       elementDamageBonus: { ...ZERO_ELEMENT_STATS },
       elementDamageReduce: { ...ZERO_ELEMENT_STATS },
-    },
-    ratioDivisors: {
+    }),
+    ratioDivisors: ensureNumericRatioDivisorsTemplate({
       dodge: 150,
       crit: 150,
       breakPower: 150,
@@ -334,11 +373,11 @@ export const PLAYER_REALM_NUMERIC_TEMPLATES: Record<PlayerRealmStage, RealmNumer
         fire: FIXED_ELEMENT_DAMAGE_REDUCE_DIVISOR,
         earth: FIXED_ELEMENT_DAMAGE_REDUCE_DIVISOR,
       },
-    },
+    }),
   },
   [PlayerRealmStage.Meridian]: {
     stage: PlayerRealmStage.Meridian,
-    stats: {
+    stats: ensureNumericStatsTemplateStats({
       maxHp: BASE_MAX_HP + 80,
       maxQi: BASE_MAX_QI + 25,
       physAtk: BASE_PHYS_ATK + 6,
@@ -369,10 +408,11 @@ export const PLAYER_REALM_NUMERIC_TEMPLATES: Record<PlayerRealmStage, RealmNumer
       extraAggroRate: 0,
       extraRange: 0,
       extraArea: 0,
+      actionsPerTurn: 1,
       elementDamageBonus: { ...ZERO_ELEMENT_STATS },
       elementDamageReduce: { ...ZERO_ELEMENT_STATS },
-    },
-    ratioDivisors: {
+    }),
+    ratioDivisors: ensureNumericRatioDivisorsTemplate({
       dodge: 190,
       crit: 190,
       breakPower: 190,
@@ -386,11 +426,11 @@ export const PLAYER_REALM_NUMERIC_TEMPLATES: Record<PlayerRealmStage, RealmNumer
         fire: FIXED_ELEMENT_DAMAGE_REDUCE_DIVISOR,
         earth: FIXED_ELEMENT_DAMAGE_REDUCE_DIVISOR,
       },
-    },
+    }),
   },
   [PlayerRealmStage.Innate]: {
     stage: PlayerRealmStage.Innate,
-    stats: {
+    stats: ensureNumericStatsTemplateStats({
       maxHp: BASE_MAX_HP + 130,
       maxQi: BASE_MAX_QI + 45,
       physAtk: BASE_PHYS_ATK + 10,
@@ -421,10 +461,11 @@ export const PLAYER_REALM_NUMERIC_TEMPLATES: Record<PlayerRealmStage, RealmNumer
       extraAggroRate: 0,
       extraRange: 0,
       extraArea: 0,
+      actionsPerTurn: 1,
       elementDamageBonus: { ...ZERO_ELEMENT_STATS },
       elementDamageReduce: { ...ZERO_ELEMENT_STATS },
-    },
-    ratioDivisors: {
+    }),
+    ratioDivisors: ensureNumericRatioDivisorsTemplate({
       dodge: 240,
       crit: 240,
       breakPower: 240,
@@ -438,11 +479,11 @@ export const PLAYER_REALM_NUMERIC_TEMPLATES: Record<PlayerRealmStage, RealmNumer
         fire: FIXED_ELEMENT_DAMAGE_REDUCE_DIVISOR,
         earth: FIXED_ELEMENT_DAMAGE_REDUCE_DIVISOR,
       },
-    },
+    }),
   },
   [PlayerRealmStage.QiRefining]: {
     stage: PlayerRealmStage.QiRefining,
-    stats: {
+    stats: ensureNumericStatsTemplateStats({
       maxHp: BASE_MAX_HP + 190,
       maxQi: BASE_MAX_QI + 90,
       physAtk: BASE_PHYS_ATK + 14,
@@ -461,7 +502,7 @@ export const PLAYER_REALM_NUMERIC_TEMPLATES: Record<PlayerRealmStage, RealmNumer
       hpRegenRate: BASE_HP_REGEN_RATE,
       cooldownSpeed: 12,
       auraCostReduce: 0,
-      auraPowerRate: 0,
+      auraPowerRate: 50,
       playerExpRate: 0,
       techniqueExpRate: 0,
       realmExpPerTick: 0,
@@ -473,10 +514,11 @@ export const PLAYER_REALM_NUMERIC_TEMPLATES: Record<PlayerRealmStage, RealmNumer
       extraAggroRate: 0,
       extraRange: 0,
       extraArea: 0,
+      actionsPerTurn: 1,
       elementDamageBonus: { ...ZERO_ELEMENT_STATS },
       elementDamageReduce: { ...ZERO_ELEMENT_STATS },
-    },
-    ratioDivisors: {
+    }),
+    ratioDivisors: ensureNumericRatioDivisorsTemplate({
       dodge: 300,
       crit: 300,
       breakPower: 300,
@@ -490,11 +532,11 @@ export const PLAYER_REALM_NUMERIC_TEMPLATES: Record<PlayerRealmStage, RealmNumer
         fire: FIXED_ELEMENT_DAMAGE_REDUCE_DIVISOR,
         earth: FIXED_ELEMENT_DAMAGE_REDUCE_DIVISOR,
       },
-    },
+    }),
   },
   [PlayerRealmStage.Foundation]: {
     stage: PlayerRealmStage.Foundation,
-    stats: {
+    stats: ensureNumericStatsTemplateStats({
       maxHp: BASE_MAX_HP + 270,
       maxQi: BASE_MAX_QI + 150,
       physAtk: BASE_PHYS_ATK + 22,
@@ -513,7 +555,7 @@ export const PLAYER_REALM_NUMERIC_TEMPLATES: Record<PlayerRealmStage, RealmNumer
       hpRegenRate: BASE_HP_REGEN_RATE,
       cooldownSpeed: 18,
       auraCostReduce: 0,
-      auraPowerRate: 0,
+      auraPowerRate: 100,
       playerExpRate: 0,
       techniqueExpRate: 0,
       realmExpPerTick: 0,
@@ -525,10 +567,11 @@ export const PLAYER_REALM_NUMERIC_TEMPLATES: Record<PlayerRealmStage, RealmNumer
       extraAggroRate: 0,
       extraRange: 0,
       extraArea: 0,
+      actionsPerTurn: 1,
       elementDamageBonus: { ...ZERO_ELEMENT_STATS },
       elementDamageReduce: { ...ZERO_ELEMENT_STATS },
-    },
-    ratioDivisors: {
+    }),
+    ratioDivisors: ensureNumericRatioDivisorsTemplate({
       dodge: 380,
       crit: 380,
       breakPower: 380,
@@ -542,6 +585,6 @@ export const PLAYER_REALM_NUMERIC_TEMPLATES: Record<PlayerRealmStage, RealmNumer
         fire: FIXED_ELEMENT_DAMAGE_REDUCE_DIVISOR,
         earth: FIXED_ELEMENT_DAMAGE_REDUCE_DIVISOR,
       },
-    },
+    }),
   },
 };

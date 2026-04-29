@@ -1,0 +1,11 @@
+{"timestamp":1775462603255,"type":"token","outcome":"accept","userId":"legacy_user_mnmwlcdg","playerId":"legacy_user_mnmwlcdg","username":"legacy_mnmwlcdh","role":"player","tokenKind":"access","tokenIdentityReady":false}
+{"timestamp":1775462603258,"type":"identity","source":"legacy_runtime","userId":"legacy_user_mnmwlcdg","playerId":"p_legacy_user_mnmwlcdg"}
+{"timestamp":1775462603259,"type":"snapshot","playerId":"p_legacy_user_mnmwlcdg","source":"miss","allowLegacyFallback":true,"fallbackHit":false}
+{"timestamp":1775462603274,"type":"bootstrap","playerId":"p_legacy_user_mnmwlcdg","sessionId":"p_legacy_user_mnmwlcdg:mnmwlce3:1","mapId":"yunlai_town","requestedSessionId":null,"gm":false,"protocol":"unknown"}
+{"timestamp":1775462603830,"type":"token","outcome":"accept","userId":"3cd4dc66-6e1f-4ccb-8dc8-1c45ea443b74","playerId":"p_3cd4dc66-6e1f-4ccb-8dc8-1c45ea443b74","username":"acct_mwlcpx","role":"player","tokenKind":"access","tokenIdentityReady":true}
+{"timestamp":1775462603831,"type":"identity","source":"token","userId":"3cd4dc66-6e1f-4ccb-8dc8-1c45ea443b74","playerId":"p_3cd4dc66-6e1f-4ccb-8dc8-1c45ea443b74"}
+{"timestamp":1775462603831,"type":"snapshot","playerId":"p_3cd4dc66-6e1f-4ccb-8dc8-1c45ea443b74","source":"miss","allowLegacyFallback":true,"fallbackHit":false}
+{"timestamp":1775462603834,"type":"bootstrap","playerId":"p_3cd4dc66-6e1f-4ccb-8dc8-1c45ea443b74","sessionId":"p_3cd4dc66-6e1f-4ccb-8dc8-1c45ea443b74:mnmwlctz:2","mapId":"yunlai_town","requestedSessionId":null,"gm":false,"protocol":"legacy"}
+{"timestamp":1775462604081,"type":"token","outcome":"accept","userId":"3cd4dc66-6e1f-4ccb-8dc8-1c45ea443b74","playerId":"p_3cd4dc66-6e1f-4ccb-8dc8-1c45ea443b74","username":"acct_mwlcpx","role":"player","tokenKind":"access","tokenIdentityReady":true}
+{"timestamp":1775462604082,"type":"identity","source":"token","userId":"3cd4dc66-6e1f-4ccb-8dc8-1c45ea443b74","playerId":"p_3cd4dc66-6e1f-4ccb-8dc8-1c45ea443b74"}
+{"timestamp":1775462604085,"type":"bootstrap","playerId":"p_3cd4dc66-6e1f-4ccb-8dc8-1c45ea443b74","sessionId":"p_3cd4dc66-6e1f-4ccb-8dc8-1c45ea443b74:mnmwlctz:2","mapId":"yunlai_town","requestedSessionId":null,"gm":false,"protocol":"legacy"}

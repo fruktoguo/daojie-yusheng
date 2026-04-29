@@ -224,6 +224,13 @@
     "learnTechniqueId": "zhuming_jintian"
   },
   {
+    "itemId": "book.yi_kunlun",
+    "name": "《移昆仑》",
+    "type": "skill_book",
+    "desc": "记载移昆仑的修行法门，使用后学会移昆仑。",
+    "learnTechniqueId": "yi_kunlun"
+  },
+  {
     "itemId": "book.taichu_baoyuan",
     "name": "《太初抱元章》",
     "type": "skill_book",

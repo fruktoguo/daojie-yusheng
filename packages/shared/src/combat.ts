@@ -11,7 +11,7 @@ import {
   REALM_DAMAGE_DISADVANTAGE_RATE,
 } from './constants/gameplay/combat';
 import type { ElementKey } from './numeric';
-import type { SkillDamageKind } from './types';
+import type { SkillDamageKind } from './skill-types';
 import {
   DAMAGE_TRAIL_PHYSICAL_COLOR,
   DAMAGE_TRAIL_SPELL_COLOR,
@@ -34,6 +34,8 @@ export {
 
 /** 根据伤害类型和元素获取飘字颜色 */
 export function getDamageTrailColor(damageKind: SkillDamageKind, element?: ElementKey): string {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
   if (damageKind === 'physical') {
     return DAMAGE_TRAIL_PHYSICAL_COLOR;
   }
@@ -42,21 +44,20 @@ export function getDamageTrailColor(damageKind: SkillDamageKind, element?: Eleme
 
 /** 按境界等级计算属性指数成长倍率 */
 export function getRealmAttributeMultiplier(realmLv: number): number {
-/** normalizedRealmLv：定义该变量以承载业务值。 */
   const normalizedRealmLv = Math.max(1, Math.floor(realmLv));
   return Math.pow(1 + REALM_ATTRIBUTE_GROWTH_RATE, normalizedRealmLv - 1);
 }
 
 /** 按境界等级计算战斗线性成长倍率 */
 export function getRealmLinearGrowthMultiplier(realmLv: number, growthRate = REALM_COMBAT_LINEAR_GROWTH_RATE): number {
-/** normalizedRealmLv：定义该变量以承载业务值。 */
   const normalizedRealmLv = Math.max(1, Math.floor(realmLv));
   return 1 + Math.max(0, growthRate) * (normalizedRealmLv - 1);
 }
 
 /** 根据攻守双方境界差计算伤害倍率（高打低加成，低打高衰减） */
 export function getRealmGapDamageMultiplier(attackerRealmLv: number, defenderRealmLv: number): number {
-/** realmGap：定义该变量以承载业务值。 */
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
   const realmGap = Math.floor(attackerRealmLv) - Math.floor(defenderRealmLv);
   if (realmGap > 0) {
     return Math.pow(1 + REALM_DAMAGE_ADVANTAGE_RATE, realmGap);
@@ -67,25 +68,10 @@ export function getRealmGapDamageMultiplier(attackerRealmLv: number, defenderRea
   return 1;
 }
 
-/** 低境界 Buff 作用于高境界目标时的逐级衰减倍率。 */
-export function getBuffRealmEffectivenessMultiplier(buffRealmLv: number, targetRealmLv: number): number {
-/** normalizedBuffRealmLv：定义该变量以承载业务值。 */
-  const normalizedBuffRealmLv = Math.max(1, Math.floor(buffRealmLv));
-/** normalizedTargetRealmLv：定义该变量以承载业务值。 */
-  const normalizedTargetRealmLv = Math.max(1, Math.floor(targetRealmLv));
-  if (normalizedBuffRealmLv >= normalizedTargetRealmLv) {
-    return 1;
-  }
-  return Math.pow(0.9, normalizedTargetRealmLv - normalizedBuffRealmLv);
-}
-
 /** 普通攻击按双方战斗经验差距计算独立伤害乘区，最终倍率限制在 50% 到 200%。 */
 export function getBasicAttackCombatExperienceDamageMultiplier(attackerExp: number, defenderExp: number): number {
-/** normalizedAttackerExp：定义该变量以承载业务值。 */
   const normalizedAttackerExp = Math.max(1, Math.floor(attackerExp));
-/** normalizedDefenderExp：定义该变量以承载业务值。 */
   const normalizedDefenderExp = Math.max(1, Math.floor(defenderExp));
-/** ratio：定义该变量以承载业务值。 */
   const ratio = normalizedAttackerExp / normalizedDefenderExp;
   return Math.min(
     BASIC_ATTACK_COMBAT_EXPERIENCE_DAMAGE_MULTIPLIER_MAX,

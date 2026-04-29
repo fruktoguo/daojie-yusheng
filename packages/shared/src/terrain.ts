@@ -1,7 +1,7 @@
 /**
  * 地形系统：移动消耗、地形字符映射、可通行判定、地形耐久度计算。
  */
-import { TileType } from './types';
+import { TileType } from './world-core-types';
 import {
   BASE_MOVE_POINTS_PER_TICK,
   MAX_STORED_MOVE_POINTS,
@@ -106,7 +106,6 @@ export type TerrainDurabilityMaterial =
 
 /** 获取地图境界等级对应的基础血量。 */
 export function getTerrainRealmBaseHp(realmLv: number): number {
-/** normalizedRealmLv：定义该变量以承载业务值。 */
   const normalizedRealmLv = Math.max(1, Math.floor(realmLv));
   return TERRAIN_REALM_BASE_HP * Math.pow(TERRAIN_REALM_HP_GROWTH_RATE, normalizedRealmLv - 1);
 }

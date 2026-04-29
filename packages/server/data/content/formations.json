@@ -1,0 +1,130 @@
+[
+  {
+    "id": "spirit_gathering",
+    "name": "聚灵阵",
+    "desc": "持续抬升范围内地块的炼化中性灵气。",
+    "minSpiritStoneCount": 100,
+    "damagePerAura": 100,
+    "range": {
+      "shape": "circle",
+      "minRadius": 1,
+      "growth": {
+        "type": "geometric_radius",
+        "baseAura": 1000,
+        "baseRadius": 0,
+        "ratioPerStep": 2
+      }
+    },
+    "effect": {
+      "kind": "tile_aura_source",
+      "conversionRatio": 1,
+      "resourceKey": "aura.refined.neutral",
+      "convergenceHalfLifeTicks": 86400
+    },
+    "visual": {
+      "char": "◎",
+      "color": "#4da3ff",
+      "showText": true,
+      "rangeHighlightColor": "#3b82f6"
+    }
+  },
+  {
+    "id": "earth_stabilizing",
+    "name": "固脉阵",
+    "desc": "稳固范围内地脉，阻止可攻击地块复生和临时地块自然消散，并按效果灵力降低可拆除地块受到的伤害。",
+    "minSpiritStoneCount": 1000,
+    "damagePerAura": 100,
+    "range": {
+      "shape": "square",
+      "minRadius": 1,
+      "growth": {
+        "type": "geometric_radius",
+        "baseAura": 100,
+        "baseRadius": 0,
+        "ratioPerStep": 1.5,
+        "stepDivisor": 2
+      }
+    },
+    "effect": {
+      "kind": "terrain_stabilizer",
+      "conversionRatio": 1
+    },
+    "visual": {
+      "char": "◇",
+      "color": "#b7791f",
+      "showText": true,
+      "rangeHighlightColor": "#a16207"
+    }
+  },
+  {
+    "id": "warding_barrier",
+    "name": "太玄封界阵",
+    "desc": "以太玄阵纹封锁四方，阵法边界等同墙体阻挡通行与视线，攻击任意边界都会消耗阵眼灵力。",
+    "minSpiritStoneCount": 100,
+    "damagePerAura": 100,
+    "range": {
+      "shape": "square",
+      "minRadius": 1,
+      "growth": {
+        "type": "geometric_radius",
+        "baseAura": 10000,
+        "baseRadius": 1,
+        "ratioPerStep": 2
+      }
+    },
+    "effect": {
+      "kind": "boundary_barrier",
+      "conversionRatio": 1
+    },
+    "visual": {
+      "char": "玄",
+      "color": "#c4b5fd",
+      "showText": true,
+      "rangeHighlightColor": "#7dd3fc",
+      "boundaryChar": "封",
+      "boundaryColor": "#67e8f9",
+      "boundaryRangeHighlightColor": "#22d3ee",
+      "eyeVisibleWithoutSenseQi": false,
+      "rangeVisibleWithoutSenseQi": false,
+      "boundaryVisibleWithoutSenseQi": true
+    }
+  },
+  {
+    "id": "sect_guardian_barrier",
+    "name": "护宗大阵",
+    "desc": "护持宗门山门的特殊大阵，阵眼位于宗门内部，主世界入口处形成默认一格封界；本宗门修士可自由通行。",
+    "lifecycle": "persistent",
+    "placeableByDisk": false,
+    "access": {
+      "kind": "sect_members"
+    },
+    "minSpiritStoneCount": 1,
+    "damagePerAura": 100,
+    "range": {
+      "shape": "square",
+      "minRadius": 1,
+      "growth": {
+        "type": "geometric_radius",
+        "baseAura": 10000,
+        "baseRadius": 1,
+        "ratioPerStep": 2
+      }
+    },
+    "effect": {
+      "kind": "boundary_barrier",
+      "conversionRatio": 1
+    },
+    "visual": {
+      "char": "宗",
+      "color": "#fde68a",
+      "showText": false,
+      "rangeHighlightColor": "#f59e0b",
+      "boundaryChar": "护",
+      "boundaryColor": "#e0f7ff",
+      "boundaryRangeHighlightColor": "#67e8f9",
+      "eyeVisibleWithoutSenseQi": false,
+      "rangeVisibleWithoutSenseQi": false,
+      "boundaryVisibleWithoutSenseQi": true
+    }
+  }
+]

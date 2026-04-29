@@ -1,4 +1,4 @@
-/** PanelId：定义该类型的结构与数据语义。 */
+/** 面板注册标识。 */
 export type PanelId =
   | 'hud'
   | 'chat'
@@ -11,8 +11,6 @@ export type PanelId =
   | 'market'
   | 'action'
   | 'world-map-intel'
-  | 'world-nearby'
-  | 'world-suggestions'
   | 'world-tianji'
   | 'loot'
   | 'settings'
@@ -22,10 +20,10 @@ export type PanelId =
   | 'minimap'
   | 'debug';
 
-/** PanelViewport：定义该类型的结构与数据语义。 */
+/** 面板适配的视口类型。 */
 export type PanelViewport = 'desktop' | 'mobile';
 
-/** PanelPlacement：定义该类型的结构与数据语义。 */
+/** 面板在布局中的放置位置。 */
 export type PanelPlacement =
   | 'left-lower'
   | 'center-intel'
@@ -36,101 +34,219 @@ export type PanelPlacement =
   | 'overlay'
   | 'external';
 
-/** PanelTemplateKind：定义该类型的结构与数据语义。 */
+/** PanelTemplateKind：分类枚举。 */
 export type PanelTemplateKind = 'embedded' | 'modal' | 'hud' | 'floating';
 
-/** PanelDefinition：定义该接口的能力与字段约束。 */
+/** 单个面板的注册定义。 */
 export interface PanelDefinition {
-/** id：定义该变量以承载业务值。 */
-  id: PanelId;
-/** title：定义该变量以承载业务值。 */
-  title: string;
-/** templateKind：定义该变量以承载业务值。 */
-  templateKind: PanelTemplateKind;
-  rootSelector?: string;
-/** defaultPlacement：定义该变量以承载业务值。 */
-  defaultPlacement: Partial<Record<PanelViewport, PanelPlacement>>;
-/** supports：定义该变量以承载业务值。 */
-  supports: PanelViewport[];
+/**
+ * id：ID标识。
+ */
+
+  id: PanelId;  
+  /**
+ * title：title名称或显示文本。
+ */
+
+  title: string;  
+  /**
+ * templateKind：templateKind相关字段。
+ */
+
+  templateKind: PanelTemplateKind;  
+  /**
+ * rootSelector：根容器Selector相关字段。
+ */
+
+  rootSelector?: string;  
+  /**
+ * defaultPlacement：defaultPlacement相关字段。
+ */
+
+  defaultPlacement: Partial<Record<PanelViewport, PanelPlacement>>;  
+  /**
+ * supports：support相关字段。
+ */
+
+  supports: PanelViewport[];  
+  /**
+ * preservesInteractionState：preserveInteraction状态状态或数据块。
+ */
+
   preservesInteractionState?: boolean;
 }
 
-/** PanelCapabilities：定义该接口的能力与字段约束。 */
+/** 当前环境下的视口与交互能力。 */
 export interface PanelCapabilities {
-/** viewportWidth：定义该变量以承载业务值。 */
-  viewportWidth: number;
-/** viewportHeight：定义该变量以承载业务值。 */
-  viewportHeight: number;
-/** pointerCoarse：定义该变量以承载业务值。 */
-  pointerCoarse: boolean;
-/** hoverAvailable：定义该变量以承载业务值。 */
-  hoverAvailable: boolean;
-/** reducedMotion：定义该变量以承载业务值。 */
-  reducedMotion: boolean;
-/** breakpoint：定义该变量以承载业务值。 */
-  breakpoint: 'mobile' | 'tablet' | 'desktop';
-/** viewport：定义该变量以承载业务值。 */
-  viewport: PanelViewport;
-  safeAreaInsets: {
-/** top：定义该变量以承载业务值。 */
-    top: number;
-/** right：定义该变量以承载业务值。 */
-    right: number;
-/** bottom：定义该变量以承载业务值。 */
-    bottom: number;
-/** left：定义该变量以承载业务值。 */
+/**
+ * viewportWidth：viewportWidth相关字段。
+ */
+
+  viewportWidth: number;  
+  /**
+ * viewportHeight：viewportHeight相关字段。
+ */
+
+  viewportHeight: number;  
+  /**
+ * pointerCoarse：pointerCoarse相关字段。
+ */
+
+  pointerCoarse: boolean;  
+  /**
+ * hoverAvailable：hoverAvailable相关字段。
+ */
+
+  hoverAvailable: boolean;  
+  /**
+ * reducedMotion：reducedMotion相关字段。
+ */
+
+  reducedMotion: boolean;  
+  /**
+ * breakpoint：breakpoint相关字段。
+ */
+
+  breakpoint: 'mobile' | 'tablet' | 'desktop';  
+  /**
+ * viewport：viewport相关字段。
+ */
+
+  viewport: PanelViewport;  
+  /**
+ * safeAreaInsets：safeAreaInset相关字段。
+ */
+
+  safeAreaInsets: {  
+  /**
+ * top：top相关字段。
+ */
+
+    top: number;    
+    /**
+ * right：right相关字段。
+ */
+
+    right: number;    
+    /**
+ * bottom：bottom相关字段。
+ */
+
+    bottom: number;    
+    /**
+ * left：left相关字段。
+ */
+
     left: number;
   };
 }
 
-/** PanelLayoutSlot：定义该接口的能力与字段约束。 */
+/** 某个放置位对应的面板分组。 */
 export interface PanelLayoutSlot {
-/** placement：定义该变量以承载业务值。 */
-  placement: PanelPlacement;
-/** panelIds：定义该变量以承载业务值。 */
+/**
+ * placement：placement相关字段。
+ */
+
+  placement: PanelPlacement;  
+  /**
+ * panelIds：面板ID相关字段。
+ */
+
   panelIds: PanelId[];
 }
 
-/** PanelLayoutProfile：定义该接口的能力与字段约束。 */
+/** 按视口类型分组的面板布局档案。 */
 export interface PanelLayoutProfile {
-/** id：定义该变量以承载业务值。 */
-  id: PanelViewport;
-/** slots：定义该变量以承载业务值。 */
-  slots: PanelLayoutSlot[];
-/** overlayPanelIds：定义该变量以承载业务值。 */
+/**
+ * id：ID标识。
+ */
+
+  id: PanelViewport;  
+  /**
+ * slots：slot相关字段。
+ */
+
+  slots: PanelLayoutSlot[];  
+  /**
+ * overlayPanelIds：overlay面板ID相关字段。
+ */
+
   overlayPanelIds: PanelId[];
 }
 
-/** PanelUiState：定义该接口的能力与字段约束。 */
+/** 单个面板的界面状态。 */
 export interface PanelUiState {
-  activeTab?: string;
-  selectedId?: string | null;
-  openDetailId?: string | null;
-  filterId?: string | null;
+/**
+ * activeTab：激活状态Tab相关字段。
+ */
+
+  activeTab?: string;  
+  /**
+ * selectedId：selectedID标识。
+ */
+
+  selectedId?: string | null;  
+  /**
+ * openDetailId：open详情ID标识。
+ */
+
+  openDetailId?: string | null;  
+  /**
+ * filterId：filterID标识。
+ */
+
+  filterId?: string | null;  
+  /**
+ * modalOpen：弹层Open相关字段。
+ */
+
   modalOpen?: boolean;
 }
 
-/** PanelRuntimeState：定义该接口的能力与字段约束。 */
+/** 面板系统的运行时连接状态。 */
 export interface PanelRuntimeState {
-/** connected：定义该变量以承载业务值。 */
-  connected: boolean;
-/** playerId：定义该变量以承载业务值。 */
-  playerId: string | null;
-/** mapId：定义该变量以承载业务值。 */
-  mapId: string | null;
-/** shellVisible：定义该变量以承载业务值。 */
+/**
+ * connected：connected相关字段。
+ */
+
+  connected: boolean;  
+  /**
+ * playerId：玩家ID标识。
+ */
+
+  playerId: string | null;  
+  /**
+ * mapId：地图ID标识。
+ */
+
+  mapId: string | null;  
+  /**
+ * shellVisible：shell可见相关字段。
+ */
+
   shellVisible: boolean;
 }
 
-/** PanelSystemState：定义该接口的能力与字段约束。 */
+/** 面板系统当前总状态。 */
 export interface PanelSystemState {
-/** capabilities：定义该变量以承载业务值。 */
-  capabilities: PanelCapabilities;
-/** layout：定义该变量以承载业务值。 */
-  layout: PanelLayoutProfile;
-/** runtime：定义该变量以承载业务值。 */
-  runtime: PanelRuntimeState;
-/** panels：定义该变量以承载业务值。 */
+/**
+ * capabilities：capability相关字段。
+ */
+
+  capabilities: PanelCapabilities;  
+  /**
+ * layout：layout相关字段。
+ */
+
+  layout: PanelLayoutProfile;  
+  /**
+ * runtime：运行态引用。
+ */
+
+  runtime: PanelRuntimeState;  
+  /**
+ * panels：面板相关字段。
+ */
+
   panels: Partial<Record<PanelId, PanelUiState>>;
 }
-

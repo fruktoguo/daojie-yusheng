@@ -1,0 +1,496 @@
+/* 业务页面可复用的 recipe：pane/card/form/table/workspace。 */
+
+.ui-surface-pane {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  padding: 10px;
+  border: 1px solid var(--wash-ink);
+  background: var(--surface-gradient-pane);
+}
+
+.ui-surface-pane--stack {
+  gap: 10px;
+}
+
+.ui-surface-pane--muted {
+  background: linear-gradient(180deg, var(--surface-elevated), var(--surface-muted));
+}
+
+.ui-surface-card {
+  display: grid;
+  gap: 8px;
+  padding: 12px;
+  border: 1px solid var(--wash-ink);
+  background: linear-gradient(180deg, var(--surface-elevated), var(--surface-muted));
+  box-shadow: 4px 4px 0 rgba(0, 0, 0, 0.05);
+}
+
+.ui-surface-card--compact {
+  gap: 6px;
+  padding: 10px;
+}
+
+.ui-card-list {
+  display: grid;
+  align-content: start;
+  gap: 8px;
+  min-height: 0;
+}
+
+.ui-card-list--compact {
+  gap: 6px;
+}
+
+.ui-scroll-panel {
+  min-height: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  padding-right: 2px;
+}
+
+.ui-workspace-shell {
+  display: grid;
+  grid-template-columns: 180px minmax(0, 1fr);
+  gap: 14px;
+  min-height: 0;
+}
+
+.ui-workspace-rail {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  min-height: 0;
+  padding: 12px;
+  border: 1px solid var(--wash-ink);
+  background: linear-gradient(180deg, var(--surface-elevated), var(--surface-muted));
+}
+
+.ui-workspace-rail-title {
+  color: var(--ink-grey);
+  font-size: var(--font-size-12);
+  letter-spacing: 0.08em;
+}
+
+.ui-workspace-rail-tabs {
+  display: grid;
+  gap: 8px;
+}
+
+.ui-workspace-rail-tab {
+  min-height: 42px;
+  padding: 9px 12px;
+  border: 1px solid var(--wash-ink);
+  background: var(--surface-base);
+  color: var(--ink-grey);
+  font-family: var(--font-role-body);
+  font-size: var(--font-size-role-body-13);
+  text-align: left;
+  cursor: pointer;
+  transition: border-color 0.18s ease, background 0.18s ease, color 0.18s ease;
+}
+
+.ui-workspace-rail-tab:hover {
+  border-color: rgba(133, 68, 45, 0.34);
+  color: var(--ink-black);
+}
+
+.ui-workspace-rail-tab.active {
+  border-color: rgba(133, 68, 45, 0.42);
+  background:
+    linear-gradient(180deg, rgba(214, 188, 142, 0.24), rgba(197, 60, 60, 0.08)),
+    var(--surface-elevated);
+  color: var(--ink-black);
+  box-shadow: inset 3px 0 0 rgba(197, 60, 60, 0.72);
+}
+
+.ui-form-copy {
+  color: var(--ink-grey);
+  font-size: var(--font-size-13);
+  line-height: 1.6;
+}
+
+.ui-form-grid {
+  display: grid;
+  gap: 12px;
+}
+
+.ui-form-grid--two-column {
+  grid-template-columns: minmax(180px, 220px) minmax(0, 1fr);
+  align-items: start;
+}
+
+.ui-form-grid--three-column {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.ui-form-field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.ui-form-field > label,
+.ui-form-label {
+  color: var(--ink-dark);
+  font-family: var(--font-role-body);
+  font-size: var(--font-size-role-body-14);
+}
+
+.ui-input,
+.ui-textarea,
+.ui-search-input {
+  width: 100%;
+  padding: 10px 12px;
+  border: 1px solid var(--input-border);
+  background: var(--surface-base);
+  color: var(--ink-black);
+  font-family: var(--font-role-body);
+  font-size: var(--font-size-role-body-14);
+  outline: none;
+}
+
+.ui-input:focus,
+.ui-textarea:focus,
+.ui-search-input:focus {
+  border-color: var(--input-border-strong);
+}
+
+.ui-textarea {
+  min-height: 88px;
+  line-height: 1.45;
+  resize: vertical;
+}
+
+.ui-action-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+  justify-content: space-between;
+}
+
+.ui-action-row--end {
+  justify-content: flex-end;
+}
+
+.ui-action-row--start {
+  justify-content: flex-start;
+}
+
+.ui-tab-strip {
+  display: flex;
+  gap: 0;
+  border: 1px solid var(--wash-ink);
+  background: var(--surface-muted);
+}
+
+.ui-tab-strip-button {
+  flex: 1 1 0;
+  min-width: 0;
+  padding: 8px 10px;
+  border: none;
+  border-right: 1px solid var(--wash-ink);
+  background: transparent;
+  color: var(--ink-grey);
+  font-family: var(--font-role-body);
+  font-size: var(--font-size-role-body-14);
+  cursor: pointer;
+  transition: background 0.18s ease, color 0.18s ease, box-shadow 0.18s ease;
+}
+
+.ui-tab-strip-button:last-child {
+  border-right: none;
+}
+
+.ui-tab-strip-button:hover {
+  background: var(--highlight);
+  color: var(--ink-black);
+}
+
+.ui-tab-strip-button.active {
+  background: var(--surface-muted-strong);
+  color: var(--ink-black);
+  box-shadow: inset 0 -2px 0 var(--stamp-red);
+}
+
+.ui-subtab-grid {
+  display: grid;
+  gap: 6px;
+}
+
+.ui-subtab-grid--two-column {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.ui-subtab-grid--three-column {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.ui-subtab-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 7px 8px;
+  border: 1px solid var(--wash-ink);
+  background: var(--surface-muted);
+  color: var(--ink-grey);
+  font-family: var(--font-role-body);
+  font-size: var(--font-size-role-body-12);
+  cursor: pointer;
+  transition: background 0.18s ease, color 0.18s ease, border-color 0.18s ease, box-shadow 0.18s ease;
+}
+
+.ui-subtab-button:hover {
+  background: var(--highlight);
+  color: var(--ink-black);
+}
+
+.ui-subtab-button.active {
+  border-color: var(--stamp-red);
+  background: rgba(125, 27, 27, 0.08);
+  color: var(--stamp-red);
+  box-shadow: inset 0 -2px 0 var(--stamp-red);
+}
+
+.ui-count-chip {
+  min-width: 16px;
+  padding: 1px 5px;
+  border: 1px solid currentColor;
+  font-size: var(--font-size-11);
+  line-height: 1.1;
+}
+
+.ui-meta-tag-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.ui-meta-tag {
+  padding: 3px 7px;
+  border: 1px solid rgba(34, 26, 19, 0.1);
+  background: var(--surface-muted);
+  color: var(--ink-grey);
+  font-size: var(--font-size-12);
+}
+
+.ui-key-value-list {
+  display: grid;
+  gap: 8px;
+}
+
+.ui-key-value-item {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.ui-key-value-label {
+  font-size: var(--font-size-12);
+  color: var(--color-role-label);
+  font-weight: var(--font-weight-role-label);
+}
+
+.ui-key-value-value {
+  color: var(--color-role-body-strong);
+  font-size: var(--font-size-13);
+  font-weight: var(--font-weight-strong);
+}
+
+.ui-title-block {
+  display: grid;
+  gap: 4px;
+}
+
+.ui-title-block-title {
+  color: var(--ink-black);
+  font-family: var(--font-role-title);
+  font-size: var(--font-size-role-title-16);
+}
+
+.ui-title-block-subtitle {
+  color: var(--ink-grey);
+  font-size: var(--font-size-12);
+  line-height: 1.5;
+}
+
+.ui-detail-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px 14px;
+}
+
+.ui-detail-grid--section {
+  margin-bottom: 10px;
+}
+
+.ui-detail-field {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  font-size: var(--font-size-12);
+  color: var(--ink-grey);
+}
+
+.ui-detail-field--section {
+  margin-bottom: 10px;
+}
+
+.ui-detail-field > strong {
+  font-family: var(--font-role-body);
+  font-size: var(--font-size-role-body-12);
+  color: var(--ink-black);
+}
+
+.ui-selectable-card {
+  width: 100%;
+  color: inherit;
+  text-align: left;
+  cursor: pointer;
+  transition: border-color 0.18s ease, background 0.18s ease, transform 0.18s ease, box-shadow 0.18s ease;
+}
+
+.ui-selectable-card:hover {
+  border-color: rgba(125, 27, 27, 0.2);
+  box-shadow: 8px 8px 0 rgba(0, 0, 0, 0.05);
+  transform: translate(-1px, -1px);
+}
+
+.ui-selectable-card.is-active {
+  border-color: var(--stamp-red);
+  background: rgba(125, 27, 27, 0.08);
+}
+
+:root[data-color-mode="dark"] .ui-selectable-card.is-active {
+  border-color: rgba(196, 92, 92, 0.4);
+  background: rgba(125, 27, 27, 0.2);
+}
+
+.ui-requirement-entry {
+  display: grid;
+  gap: 8px;
+}
+
+.ui-requirement-entry-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.ui-requirement-status {
+  font-size: var(--font-size-11);
+  font-weight: var(--font-weight-semibold);
+}
+
+.ui-requirement-status.is-completed {
+  color: var(--success-ink);
+}
+
+.ui-requirement-status.is-unmet {
+  color: var(--stamp-red);
+}
+
+.ui-requirement-bonus {
+  display: inline-flex;
+  align-items: center;
+  padding: 1px 6px;
+  border: 1px solid rgba(125, 27, 27, 0.18);
+  background: rgba(125, 27, 27, 0.08);
+  font-size: var(--font-size-11);
+  font-weight: var(--font-weight-semibold);
+  color: var(--stamp-red);
+}
+
+.ui-data-table {
+  display: grid;
+  gap: 10px;
+}
+
+.ui-data-table-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1.6fr) minmax(180px, 1.2fr) 120px minmax(120px, 0.9fr);
+  gap: 12px;
+  align-items: center;
+  padding: 12px;
+  border: 1px solid var(--wash-ink);
+  background: linear-gradient(180deg, var(--surface-elevated), var(--surface-muted));
+}
+
+.ui-data-table-meta {
+  min-width: 0;
+}
+
+.ui-data-table-name {
+  color: var(--ink-black);
+  font-family: var(--font-role-body);
+  font-size: var(--font-size-role-body-14);
+}
+
+.ui-data-table-desc {
+  margin-top: 4px;
+  color: var(--ink-grey);
+  font-size: var(--font-size-12);
+  line-height: 1.5;
+}
+
+.ui-data-table-control {
+  min-width: 0;
+}
+
+.ui-data-table-input-group {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 8px;
+  align-items: center;
+}
+
+.ui-data-table-input-group span {
+  color: var(--ink-grey);
+  font-size: var(--font-size-12);
+  white-space: nowrap;
+}
+
+.ui-data-table-preview {
+  color: var(--ink-black);
+  font-size: var(--font-size-13);
+  text-align: right;
+  white-space: nowrap;
+}
+
+.ui-data-table-preview--body {
+  font-size: var(--font-size-role-body-14);
+}
+
+.ui-data-table-preview--title {
+  font-family: var(--font-role-title);
+  font-size: var(--font-size-role-title-22);
+}
+
+.ui-data-table-preview--display {
+  font-family: var(--font-role-title);
+  font-size: var(--font-size-role-title-38);
+  line-height: 1;
+}
+
+.ui-data-table-preview--hero {
+  font-family: var(--font-role-player-name);
+  font-size: var(--font-size-role-player-name-52);
+  line-height: 1;
+}
+
+.ui-status-text {
+  min-height: 18px;
+  color: var(--ink-grey);
+  font-size: var(--font-size-12);
+}
+
+.ui-status-text.success {
+  color: var(--success-ink);
+}
+
+.ui-status-text.error {
+  color: var(--stamp-red);
+}

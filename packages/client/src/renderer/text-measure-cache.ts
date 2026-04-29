@@ -1,20 +1,34 @@
-/** CacheEntry：定义该类型的结构与数据语义。 */
+/** 文本宽度缓存条目。 */
 type CacheEntry = {
-/** width：定义该变量以承载业务值。 */
-  width: number;
-/** lastAccess：定义该变量以承载业务值。 */
+/**
+ * width：width相关字段。
+ */
+
+  width: number;  
+  /**
+ * lastAccess：lastAccess相关字段。
+ */
+
   lastAccess: number;
 };
 
-/** TextMeasureCacheOptions：定义该接口的能力与字段约束。 */
+/** 文本宽度缓存配置。 */
 export interface TextMeasureCacheOptions {
-  maxEntries?: number;
+/**
+ * maxEntries：集合字段。
+ */
+
+  maxEntries?: number;  
+  /**
+ * pruneBatchSize：数量或计量字段。
+ */
+
   pruneBatchSize?: number;
 }
 
-/** DEFAULT_MAX_ENTRIES：定义该变量以承载业务值。 */
+/** 默认最大缓存条目数。 */
 const DEFAULT_MAX_ENTRIES = 1024;
-/** DEFAULT_PRUNE_BATCH_SIZE：定义该变量以承载业务值。 */
+/** 默认每次清理条目数。 */
 const DEFAULT_PRUNE_BATCH_SIZE = 128;
 
 /**
@@ -22,36 +36,36 @@ const DEFAULT_PRUNE_BATCH_SIZE = 128;
  * 按 `font + text` 复用 `measureText().width` 结果，降低高频文本测量开销。
  */
 export class TextMeasureCache {
-/** maxEntries：定义该变量以承载业务值。 */
+  /** 缓存容量上限。 */
   private readonly maxEntries: number;
-/** pruneBatchSize：定义该变量以承载业务值。 */
+  /** 每次回收周期清理的最大条目数。 */
   private readonly pruneBatchSize: number;
+  /** 按 font+text 组合键缓存测量结果。 */
   private readonly entries = new Map<string, CacheEntry>();
+  /** 最近访问序号，辅助 LRU 回收。 */
   private accessSerial = 0;
 
-/** constructor：处理当前场景中的对应操作。 */
+  /** 初始化上限，确保配置值有最小边界。 */
   constructor(options?: TextMeasureCacheOptions) {
     this.maxEntries = Math.max(16, Math.floor(options?.maxEntries ?? DEFAULT_MAX_ENTRIES));
     this.pruneBatchSize = Math.max(1, Math.floor(options?.pruneBatchSize ?? DEFAULT_PRUNE_BATCH_SIZE));
   }
 
-/** measureWidth：执行对应的业务逻辑。 */
+  /** 返回文本宽度并写入缓存，避免重复 measureText。 */
   measureWidth(ctx: CanvasRenderingContext2D, font: string, text: string): number {
-/** key：定义该变量以承载业务值。 */
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
     const key = this.buildKey(font, text);
-/** cached：定义该变量以承载业务值。 */
     const cached = this.entries.get(key);
     if (cached) {
       cached.lastAccess = ++this.accessSerial;
       return cached.width;
     }
 
-/** previousFont：定义该变量以承载业务值。 */
     const previousFont = ctx.font;
     if (previousFont !== font) {
       ctx.font = font;
     }
-/** width：定义该变量以承载业务值。 */
     const width = ctx.measureText(text).width;
     if (previousFont !== font) {
       ctx.font = previousFont;
@@ -67,30 +81,29 @@ export class TextMeasureCache {
     return width;
   }
 
-/** clear：执行对应的业务逻辑。 */
+  /** 清空文本测量缓存。 */
   clear(): void {
     this.entries.clear();
   }
 
-/** size：执行对应的业务逻辑。 */
+  /** 当前缓存条目数量。 */
   size(): number {
     return this.entries.size;
   }
 
-/** buildKey：执行对应的业务逻辑。 */
+  /** 以 font 与文本构造复用 key。 */
   private buildKey(font: string, text: string): string {
     return `${font}\n${text}`;
   }
 
-  /**
-   * 按最近最少访问策略进行有限清理，避免缓存无限增长。
-   */
+  /** 按 LRU 近似策略批量清理过期文本宽度记录。 */
   private prune(): void {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
     if (this.entries.size <= this.maxEntries) {
       return;
     }
 
-/** removableCount：定义该变量以承载业务值。 */
     const removableCount = Math.min(
       this.pruneBatchSize,
       this.entries.size - this.maxEntries,
@@ -99,7 +112,6 @@ export class TextMeasureCache {
       return;
     }
 
-/** sorted：定义该变量以承载业务值。 */
     const sorted = [...this.entries.entries()]
       .sort((left, right) => left[1].lastAccess - right[1].lastAccess);
     for (let index = 0; index < removableCount; index += 1) {
@@ -111,4 +123,6 @@ export class TextMeasureCache {
     }
   }
 }
+
+
 

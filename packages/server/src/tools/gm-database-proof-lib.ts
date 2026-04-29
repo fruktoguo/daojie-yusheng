@@ -1,0 +1,522 @@
+// @ts-nocheck
+
+/**
+ * 用途：提供 GM 数据库 proof 脚本的共享函数。
+ */
+
+Object.defineProperty(exports, "__esModule", { value: true });
+exports.buildBackupFilePath = exports.requireBackupRecord = exports.assertBackupDownload = exports.waitForJobSettled = exports.triggerRestore = exports.triggerBackup = exports.triggerRestoreWithConcurrentRejection = exports.triggerBackupWithConcurrentRejection = exports.authedPost = exports.authedPostJson = exports.authedGetJson = exports.fetchHealth = exports.fetchJson = exports.loginGm = exports.waitForHealth = exports.waitForCondition = exports.normalizeBooleanEnv = void 0;
+const node_crypto_1 = require("node:crypto");
+const node_fs_1 = require("node:fs");
+const node_path_1 = require("node:path");
+const POSTGRES_DUMP_MAGIC = Buffer.from('PGDMP');
+/**
+ * 规范化boolean环境变量。
+ */
+function normalizeBooleanEnv(value) {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
+    if (typeof value !== 'string') {
+        return false;
+    }
+/**
+ * 记录normalized。
+ */
+    const normalized = value.trim().toLowerCase();
+    return normalized === '1' || normalized === 'true' || normalized === 'yes' || normalized === 'on';
+}
+exports.normalizeBooleanEnv = normalizeBooleanEnv;
+/**
+ * 等待forcondition。
+ */
+async function waitForCondition(predicate, timeoutMs) {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
+/**
+ * 记录startedat。
+ */
+    const startedAt = Date.now();
+    while (true) {
+/**
+ * 累计当前结果。
+ */
+        const result = await predicate();
+        if (result) {
+            return result;
+        }
+        if (Date.now() - startedAt > timeoutMs) {
+            throw new Error('waitFor timeout');
+        }
+        await delay(100);
+    }
+}
+exports.waitForCondition = waitForCondition;
+/**
+ * 等待for健康状态。
+ */
+async function waitForHealth(baseUrl, options) {
+    await waitForCondition(async () => {
+        try {
+/**
+ * 记录健康状态。
+ */
+            const health = await fetchHealth(baseUrl);
+            if (health.status !== options.expectedStatus) {
+                return false;
+            }
+            return options.expectMaintenance
+                ? health.body?.readiness?.maintenance?.active === true
+                : health.body?.readiness?.maintenance?.active !== true;
+        }
+        catch {
+            return false;
+        }
+    }, options.timeoutMs ?? 10000);
+}
+exports.waitForHealth = waitForHealth;
+/**
+ * 处理loginGM。
+ */
+async function loginGm(baseUrl, password) {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
+/**
+ * 记录response。
+ */
+    const response = await fetch(`${baseUrl}/api/auth/gm/login`, {
+        method: 'POST',
+        headers: {
+            'content-type': 'application/json',
+        },
+        body: JSON.stringify({ password }),
+    });
+    if (!response.ok) {
+        throw new Error(`gm login failed: ${response.status} ${await response.text()}`);
+    }
+/**
+ * 记录请求体。
+ */
+    const body = await response.json();
+/**
+ * 记录令牌。
+ */
+    const token = String(body?.accessToken ?? '').trim();
+    if (!token) {
+        throw new Error(`gm login missing accessToken: ${JSON.stringify(body)}`);
+    }
+    return token;
+}
+exports.loginGm = loginGm;
+/**
+ * 处理fetchjson。
+ */
+async function fetchJson(baseUrl, path, options) {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
+/**
+ * 记录response。
+ */
+    const response = await fetch(`${baseUrl}${path}`, options);
+    if (!response.ok) {
+        throw new Error(`request failed: ${path} -> ${response.status} ${await response.text()}`);
+    }
+    return response.json();
+}
+exports.fetchJson = fetchJson;
+/**
+ * 处理fetch健康状态。
+ */
+async function fetchHealth(baseUrl) {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
+/**
+ * 记录response。
+ */
+    const response = await fetch(`${baseUrl}/health`);
+/**
+ * 记录text。
+ */
+    const text = await response.text();
+/**
+ * 记录请求体。
+ */
+    let body = null;
+    try {
+        body = text ? JSON.parse(text) : null;
+    }
+    catch {
+        body = null;
+    }
+    return {
+        status: response.status,
+        ok: response.ok,
+        body,
+        text,
+    };
+}
+exports.fetchHealth = fetchHealth;
+/**
+ * 处理authedgetjson。
+ */
+async function authedGetJson(baseUrl, path, token) {
+    return fetchJson(baseUrl, path, {
+        headers: {
+            authorization: `Bearer ${token}`,
+        },
+    });
+}
+exports.authedGetJson = authedGetJson;
+/**
+ * 处理authedpostjson。
+ */
+async function authedPostJson(baseUrl, path, token, body) {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
+/**
+ * 记录response。
+ */
+    const response = await authedPost(baseUrl, path, token, body);
+    if (!response.ok) {
+        throw new Error(`request failed: POST ${path} -> ${response.status} ${await response.text()}`);
+    }
+    return response.json();
+}
+exports.authedPostJson = authedPostJson;
+/**
+ * 处理authedpost。
+ */
+async function authedPost(baseUrl, path, token, body) {
+    return fetch(`${baseUrl}${path}`, {
+        method: 'POST',
+        headers: {
+            authorization: `Bearer ${token}`,
+            'content-type': 'application/json',
+        },
+        body: JSON.stringify(body ?? {}),
+    });
+}
+exports.authedPost = authedPost;
+/**
+ * 处理trigger备份withconcurrentrejection。
+ */
+async function triggerBackupWithConcurrentRejection(baseUrl, token) {
+    const [primary, secondary] = await Promise.all([
+        authedPost(baseUrl, '/api/gm/database/backup', token, {}),
+        authedPost(baseUrl, '/api/gm/database/backup', token, {}),
+    ]);
+    return pickAcceptedJobAndAssertConcurrentRejection([primary, secondary], 'backup');
+}
+exports.triggerBackupWithConcurrentRejection = triggerBackupWithConcurrentRejection;
+/**
+ * 处理trigger恢复withconcurrentrejection。
+ */
+async function triggerRestoreWithConcurrentRejection(baseUrl, token, body) {
+    const [primary, secondary] = await Promise.all([
+        authedPost(baseUrl, '/api/gm/database/restore', token, body),
+        authedPost(baseUrl, '/api/gm/database/restore', token, body),
+    ]);
+    return pickAcceptedJobAndAssertConcurrentRejection([primary, secondary], 'restore');
+}
+exports.triggerRestoreWithConcurrentRejection = triggerRestoreWithConcurrentRejection;
+/**
+ * 处理trigger备份。
+ */
+async function triggerBackup(baseUrl, token) {
+    return authedPostJson(baseUrl, '/api/gm/database/backup', token, {});
+}
+exports.triggerBackup = triggerBackup;
+/**
+ * 处理trigger恢复。
+ */
+async function triggerRestore(baseUrl, token, body) {
+    return authedPostJson(baseUrl, '/api/gm/database/restore', token, body);
+}
+exports.triggerRestore = triggerRestore;
+/**
+ * 处理pickacceptedjobandassertconcurrentrejection。
+ */
+async function pickAcceptedJobAndAssertConcurrentRejection(responses, jobType) {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
+/**
+ * 记录accepted。
+ */
+    const accepted = [];
+/**
+ * 记录rejected。
+ */
+    const rejected = [];
+    for (const response of responses) {
+        if (response.ok) {
+            accepted.push(response);
+            continue;
+        }
+        rejected.push(response);
+    }
+    if (accepted.length !== 1 || rejected.length !== 1) {
+/**
+ * 记录details。
+ */
+        const details = await Promise.all(responses.map(async (response) => ({
+            status: response.status,
+            body: await response.text(),
+        })));
+        throw new Error(`expected exactly one accepted and one rejected concurrent ${jobType} request, got ${JSON.stringify(details)}`);
+    }
+    await assertConcurrentDatabaseJobRejected(rejected[0], jobType);
+    return accepted[0].json();
+}
+/**
+ * 断言concurrent数据库jobrejected。
+ */
+async function assertConcurrentDatabaseJobRejected(response, jobType) {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
+/**
+ * 记录text。
+ */
+    const text = await response.text();
+    if (response.status !== 400) {
+        throw new Error(`expected concurrent ${jobType} rejection with 400, got ${response.status} ${text}`);
+    }
+    if (!text.includes('当前已有数据库任务执行中')) {
+        throw new Error(`expected concurrent ${jobType} rejection to mention running database job, got ${text}`);
+    }
+}
+/**
+ * 等待forjobsettled。
+ */
+async function waitForJobSettled(baseUrl, token, jobId, type, timeoutMs = 15000) {
+    return waitForCondition(async () => {
+/**
+ * 记录状态。
+ */
+        const state = await authedGetJson(baseUrl, '/api/gm/database/state', token);
+        if (state.runningJob?.id === jobId) {
+            return false;
+        }
+        if (state.lastJob?.id !== jobId) {
+            return false;
+        }
+        if (state.lastJob?.type !== type) {
+            throw new Error(`expected lastJob.type=${type}, got ${JSON.stringify(state.lastJob)}`);
+        }
+        if (state.lastJob?.status !== 'completed') {
+            throw new Error(`expected lastJob completed, got ${JSON.stringify(state.lastJob)}`);
+        }
+        if (state.lastJob?.phase !== 'completed') {
+            throw new Error(`expected lastJob phase completed, got ${JSON.stringify(state.lastJob)}`);
+        }
+        return state;
+    }, timeoutMs);
+}
+exports.waitForJobSettled = waitForJobSettled;
+/**
+ * 断言备份download。
+ */
+async function assertBackupDownload(baseUrl, token, backupId, expectedRecord = null, options = {}) {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
+/**
+ * 记录expected文件名称。
+ */
+    const expectedFileName = String(expectedRecord?.fileName ?? `server-database-backup-${backupId}.dump`).trim();
+    const expectedFormat = normalizeBackupFormat(expectedRecord?.format, expectedFileName);
+/**
+ * 记录response。
+ */
+    const response = await fetch(`${baseUrl}/api/gm/database/backups/${backupId}/download`, {
+        headers: {
+            authorization: `Bearer ${token}`,
+        },
+    });
+    if (!response.ok) {
+        throw new Error(`request failed: GET /api/gm/database/backups/${backupId}/download -> ${response.status} ${await response.text()}`);
+    }
+/**
+ * 记录contentdisposition。
+ */
+    const contentDisposition = response.headers.get('content-disposition') ?? '';
+    if (!contentDisposition.includes(expectedFileName)) {
+        throw new Error(`expected content-disposition to include ${expectedFileName}, got ${contentDisposition || '<empty>'}`);
+    }
+    const downloadedBytes = Buffer.from(await response.arrayBuffer());
+    if (expectedFormat === 'postgres_custom_dump') {
+        if (!isPostgresCustomDumpBuffer(downloadedBytes)) {
+            throw new Error(`expected downloaded backup to be PostgreSQL custom dump, got ${downloadedBytes.subarray(0, POSTGRES_DUMP_MAGIC.length).toString('utf8') || '<empty>'}`);
+        }
+        const downloadedChecksum = computeBufferSha256(downloadedBytes);
+        if (options.expectedFilePath) {
+            const diskBytes = await node_fs_1.promises.readFile(options.expectedFilePath);
+            if (computeBufferSha256(diskBytes) !== downloadedChecksum) {
+                throw new Error(`expected downloaded PostgreSQL backup checksum to match on-disk backup for ${backupId}`);
+            }
+        }
+        if (expectedRecord) {
+            const expectedChecksum = String(expectedRecord?.checksumSha256 ?? '').trim();
+            if (expectedChecksum && expectedChecksum !== downloadedChecksum) {
+                throw new Error(`expected metadata checksumSha256=${expectedChecksum}, got ${downloadedChecksum}`);
+            }
+        }
+        return {
+            backupId,
+            format: 'postgres_custom_dump',
+            checksumSha256: downloadedChecksum,
+            sizeBytes: downloadedBytes.length,
+        };
+    }
+/**
+ * 记录payload。
+ */
+    const payload = JSON.parse(downloadedBytes.toString('utf8'));
+    if (payload?.backupId !== backupId) {
+        throw new Error(`expected downloaded backupId=${backupId}, got ${JSON.stringify(payload)}`);
+    }
+    if (payload?.kind !== 'server_persistent_documents_backup_v1'
+        && payload?.kind !== 'server_persistence_backup_v2') {
+        throw new Error(`unexpected backup payload kind: ${JSON.stringify(payload)}`);
+    }
+    if (!Array.isArray(payload?.docs) || payload.docs.length === 0) {
+        throw new Error(`expected downloaded backup docs, got ${JSON.stringify(payload)}`);
+    }
+    if (Number(payload?.documentsCount) !== payload.docs.length) {
+        throw new Error(`expected documentsCount to match docs length, got ${JSON.stringify(payload)}`);
+    }
+    if (typeof payload?.checksumSha256 !== 'string' || payload.checksumSha256.trim().length === 0) {
+        throw new Error(`expected downloaded backup checksumSha256, got ${JSON.stringify(payload)}`);
+    }
+/**
+ * 记录downloadedchecksum。
+ */
+    const downloadedChecksum = computeChecksumForDocs(payload.docs);
+    if (payload.checksumSha256 !== downloadedChecksum) {
+        throw new Error(`expected downloaded checksumSha256=${downloadedChecksum}, got ${payload.checksumSha256}`);
+    }
+    if (payload?.kind === 'server_persistence_backup_v2') {
+        if (!Array.isArray(payload?.tables) || payload.tables.length === 0) {
+            throw new Error(`expected downloaded backup structured tables, got ${JSON.stringify(payload)}`);
+        }
+        if (Number(payload?.tablesCount) !== payload.tables.length) {
+            throw new Error(`expected tablesCount to match tables length, got ${JSON.stringify(payload)}`);
+        }
+        if (typeof payload?.tablesChecksumSha256 !== 'string' || payload.tablesChecksumSha256.trim().length === 0) {
+            throw new Error(`expected downloaded backup tablesChecksumSha256, got ${JSON.stringify(payload)}`);
+        }
+        const downloadedTablesChecksum = computeChecksumForTables(payload.tables);
+        if (payload.tablesChecksumSha256 !== downloadedTablesChecksum) {
+            throw new Error(`expected downloaded tablesChecksumSha256=${downloadedTablesChecksum}, got ${payload.tablesChecksumSha256}`);
+        }
+    }
+    if (options.expectedFilePath) {
+/**
+ * 记录diskpayload。
+ */
+        const diskPayload = JSON.parse(await node_fs_1.promises.readFile(options.expectedFilePath, 'utf8'));
+        if (computeChecksumForDocs(diskPayload?.docs ?? []) !== downloadedChecksum) {
+            throw new Error(`expected downloaded backup checksum to match on-disk backup for ${backupId}`);
+        }
+        if (payload?.kind === 'server_persistence_backup_v2'
+            && computeChecksumForTables(diskPayload?.tables ?? []) !== String(payload.tablesChecksumSha256 ?? '')) {
+            throw new Error(`expected downloaded backup structured table checksum to match on-disk backup for ${backupId}`);
+        }
+    }
+    if (expectedRecord) {
+/**
+ * 记录expecteddocuments数量。
+ */
+        const expectedDocumentsCount = Number(expectedRecord?.documentsCount);
+/**
+ * 记录expectedchecksum。
+ */
+        const expectedChecksum = String(expectedRecord?.checksumSha256 ?? '').trim();
+        if (Number.isFinite(expectedDocumentsCount) && expectedDocumentsCount !== payload.documentsCount) {
+            throw new Error(`expected metadata documentsCount=${expectedDocumentsCount}, got ${payload.documentsCount}`);
+        }
+        if (expectedChecksum && expectedChecksum !== payload.checksumSha256) {
+            throw new Error(`expected metadata checksumSha256=${expectedChecksum}, got ${payload.checksumSha256}`);
+        }
+        const expectedTablesCount = Number(expectedRecord?.tablesCount);
+        const expectedTablesChecksum = String(expectedRecord?.tablesChecksumSha256 ?? '').trim();
+        if (Number.isFinite(expectedTablesCount) && expectedTablesCount !== Number(payload?.tablesCount ?? 0)) {
+            throw new Error(`expected metadata tablesCount=${expectedTablesCount}, got ${payload?.tablesCount}`);
+        }
+        if (expectedTablesChecksum && expectedTablesChecksum !== String(payload?.tablesChecksumSha256 ?? '')) {
+            throw new Error(`expected metadata tablesChecksumSha256=${expectedTablesChecksum}, got ${payload?.tablesChecksumSha256}`);
+        }
+    }
+    return payload;
+}
+exports.assertBackupDownload = assertBackupDownload;
+/**
+ * 处理require备份record。
+ */
+function requireBackupRecord(state, backupId, label) {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
+/**
+ * 记录record。
+ */
+    const record = (state?.backups ?? []).find((entry) => String(entry?.id ?? '').trim() === backupId);
+    if (!record) {
+        throw new Error(`missing ${label} metadata for backupId=${backupId}: ${JSON.stringify(state?.backups ?? [])}`);
+    }
+    return record;
+}
+exports.requireBackupRecord = requireBackupRecord;
+/**
+ * 构建备份文件路径。
+ */
+function buildBackupFilePath(backupDirectory, backupId) {
+    return (0, node_path_1.join)(backupDirectory, `server-database-backup-${backupId}.dump`);
+}
+exports.buildBackupFilePath = buildBackupFilePath;
+
+function normalizeBackupFormat(format, fileName) {
+    if (format === 'postgres_custom_dump' || format === 'mainline_json_snapshot') {
+        return format;
+    }
+    const normalizedFileName = typeof fileName === 'string' ? fileName.trim().toLowerCase() : '';
+    if (normalizedFileName.endsWith('.json')) {
+        return 'mainline_json_snapshot';
+    }
+    return 'postgres_custom_dump';
+}
+
+function isPostgresCustomDumpBuffer(buffer) {
+    return Buffer.isBuffer(buffer)
+        && buffer.length >= POSTGRES_DUMP_MAGIC.length
+        && buffer.subarray(0, POSTGRES_DUMP_MAGIC.length).equals(POSTGRES_DUMP_MAGIC);
+}
+
+function computeBufferSha256(buffer) {
+    return (0, node_crypto_1.createHash)('sha256').update(buffer).digest('hex');
+}
+/**
+ * 处理computechecksumfordocs。
+ */
+function computeChecksumForDocs(docs) {
+    return computeBufferSha256(Buffer.from(JSON.stringify(docs)));
+}
+/**
+ * 处理computchecksumfortables。
+ */
+function computeChecksumForTables(tables) {
+    const normalized = Array.isArray(tables)
+        ? tables.map((entry) => ({
+            tableName: typeof entry?.tableName === 'string' ? entry.tableName : '',
+            rowCount: Number(entry?.rowCount ?? 0),
+            checksumSha256: typeof entry?.checksumSha256 === 'string' ? entry.checksumSha256 : '',
+        }))
+        : [];
+    return computeBufferSha256(Buffer.from(JSON.stringify(normalized)));
+}
+/**
+ * 处理delay。
+ */
+function delay(ms) {
+    return new Promise((resolve) => {
+        setTimeout(resolve, ms);
+    });
+}
+
+export { buildBackupFilePath, requireBackupRecord, assertBackupDownload, waitForJobSettled, triggerRestore, triggerBackup, triggerRestoreWithConcurrentRejection, triggerBackupWithConcurrentRejection, authedPost, authedPostJson, authedGetJson, fetchHealth, fetchJson, loginGm, waitForHealth, waitForCondition, normalizeBooleanEnv };

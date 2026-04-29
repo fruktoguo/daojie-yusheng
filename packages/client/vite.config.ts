@@ -3,12 +3,12 @@ import { existsSync } from 'node:fs';
 import { defineConfig, loadEnv, type Plugin } from 'vite';
 import path from 'path';
 
-/** createBuildVersionPlugin：执行对应的业务逻辑。 */
+/** 生成在构建产物里写入 `version.json` 的插件。 */
 function createBuildVersionPlugin(buildId: string, builtAt: string): Plugin {
   return {
     name: 'mud-client-build-version',
     apply: 'build',
-/** generateBundle：处理当前场景中的对应操作。 */
+    /** 在打包阶段输出构建版本文件。 */
     generateBundle() {
       this.emitFile({
         type: 'asset',
@@ -27,24 +27,22 @@ function createBuildVersionPlugin(buildId: string, builtAt: string): Plugin {
 }
 
 export default defineConfig(({ mode }) => {
-/** env：定义该变量以承载业务值。 */
   const env = loadEnv(mode, __dirname, '');
-/** proxyTarget：定义该变量以承载业务值。 */
   const proxyTarget = env.VITE_DEV_PROXY_TARGET?.trim();
-/** builtAt：定义该变量以承载业务值。 */
   const builtAt = new Date().toISOString();
-/** buildId：定义该变量以承载业务值。 */
   const buildId = createHash('sha1').update(`${mode}:${builtAt}`).digest('hex').slice(0, 12);
-/** clientInputs：定义该变量以承载业务值。 */
   const clientInputs: Record<string, string> = {
     main: path.resolve(__dirname, 'index.html'),
     gm: path.resolve(__dirname, 'gm.html'),
   };
-/** gmV2Entry：定义该变量以承载业务值。 */
   const gmV2Entry = path.resolve(__dirname, 'gm-v2.html');
+  const reactUiPrototypeEntry = path.resolve(__dirname, 'react-ui-prototype.html');
 
   if (existsSync(gmV2Entry)) {
     clientInputs['gm-v2'] = gmV2Entry;
+  }
+  if (existsSync(reactUiPrototypeEntry)) {
+    clientInputs['react-ui-prototype'] = reactUiPrototypeEntry;
   }
 
   return {
@@ -60,9 +58,16 @@ export default defineConfig(({ mode }) => {
     build: {
       rollupOptions: {
         input: clientInputs,
-        output: {
-/** manualChunks：处理当前场景中的对应操作。 */
+        output: {        
+        /**
+ * manualChunks：执行核心业务逻辑。
+ * @param id 参数说明。
+ * @returns 函数返回值。
+ */
+
           manualChunks(id) {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
             if (id.includes('/node_modules/')) {
               return 'vendor';
             }
@@ -89,9 +94,9 @@ export default defineConfig(({ mode }) => {
     server: proxyTarget
       ? {
           proxy: {
-            '/auth': proxyTarget,
-            '/account': proxyTarget,
-            '/gm/': proxyTarget,
+            '/api/auth': proxyTarget,
+            '/api/account': proxyTarget,
+            '/api/gm': proxyTarget,
             '/integrations/': proxyTarget,
             '/socket.io': {
               target: proxyTarget,
@@ -102,4 +107,3 @@ export default defineConfig(({ mode }) => {
       : undefined,
   };
 });
-

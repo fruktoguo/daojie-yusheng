@@ -39,6 +39,23 @@
       width: 100%;
       flex: 1;
     }
+    .map-zoom-stack {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      width: clamp(34px, calc(var(--map-rail-size) - 8px), 64px);
+      max-width: 100%;
+      min-width: 0;
+      gap: 10px;
+      padding: 10px 4px;
+      box-sizing: border-box;
+      border: 1px solid rgba(49, 38, 31, 0.14);
+      border-radius: 18px;
+      background:
+        var(--surface-gradient-paper),
+        var(--surface-muted);
+      box-shadow: inset 0 1px 0 rgba(255,255,255,0.8);
+    }
     .map-zoom-value {
       display: flex;
       flex-direction: column;
@@ -57,14 +74,8 @@
       display: flex;
       flex-direction: column;
       align-items: center;
-      gap: 12px;
-      padding: 12px 10px;
-      border: 1px solid rgba(49, 38, 31, 0.14);
-      border-radius: 18px;
-      background:
-        var(--surface-gradient-paper),
-        var(--surface-muted);
-      box-shadow: inset 0 1px 0 rgba(255,255,255,0.8);
+      gap: 10px;
+      padding: 0;
     }
     .map-zoom-slider {
       writing-mode: vertical-lr;
@@ -109,17 +120,33 @@
       outline-offset: 4px;
     }
     .map-zoom-reset {
+      display: grid;
+      justify-items: center;
+      gap: 2px;
+      width: 100%;
       min-width: 0;
-      margin-top: 8px;
-      padding: 4px 8px;
+      min-height: 34px;
+      margin-top: 0;
+      padding: 4px 2px;
+      box-sizing: border-box;
       border: 1px solid var(--wash-ink);
       background: var(--surface-base);
       color: var(--ink-grey);
       font-family: var(--font-role-body);
       font-size: var(--font-size-role-body-11);
       line-height: 1;
+      white-space: nowrap;
       cursor: pointer;
       transition: background 0.2s, color 0.2s, border-color 0.2s;
+    }
+    .map-zoom-reset-label,
+    .map-zoom-reset-value {
+      display: block;
+      line-height: 1;
+    }
+    .map-zoom-reset-value {
+      font-size: var(--font-size-role-body-10);
+      opacity: 0.76;
     }
     .map-zoom-reset:hover {
       background: var(--surface-hover);
@@ -721,6 +748,15 @@
       padding: 12px;
       border: 1px solid var(--wash-ink);
       background: var(--surface-gradient-entry);
+    }
+    .observe-entity-card--interactive {
+      width: 100%;
+      text-align: left;
+      cursor: pointer;
+    }
+    .observe-entity-card--interactive:hover {
+      border-color: rgba(125, 27, 27, 0.38);
+      background: var(--surface-hover);
     }
     .observe-entity-head {
       display: flex;

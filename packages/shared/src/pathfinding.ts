@@ -5,7 +5,7 @@ import { CARDINAL_DIRECTION_STEPS } from './direction';
 import { manhattanDistance } from './geometry';
 import { PATHFINDING_MIN_STEP_COST } from './constants/gameplay/navigation';
 
-/** PathResultFailureReason：定义该类型的结构与数据语义。 */
+/** 寻路失败原因枚举：记录无法返回路径的终止条件。 */
 export type PathResultFailureReason =
   | 'no_path'
   | 'step_limit'
@@ -14,105 +14,181 @@ export type PathResultFailureReason =
   | 'invalid_goal'
   | 'cancelled';
 
-/** PathPoint：定义该接口的能力与字段约束。 */
+/** 网格点：寻路使用的整点坐标。 */
 export interface PathPoint {
-/** x：定义该变量以承载业务值。 */
-  x: number;
-/** y：定义该变量以承载业务值。 */
+/**
+ * x：x相关字段。
+ */
+
+  x: number;  
+  /**
+ * y：y相关字段。
+ */
+
   y: number;
 }
 
-/** PathfindingStaticGrid：定义该接口的能力与字段约束。 */
+/** 寻路静态地图片段：记录可行走性与代价网格。 */
 export interface PathfindingStaticGrid {
-/** mapId：定义该变量以承载业务值。 */
-  mapId: string;
-/** mapRevision：定义该变量以承载业务值。 */
-  mapRevision: number;
-/** width：定义该变量以承载业务值。 */
-  width: number;
-/** height：定义该变量以承载业务值。 */
-  height: number;
-/** walkable：定义该变量以承载业务值。 */
-  walkable: Uint8Array;
-/** traversalCost：定义该变量以承载业务值。 */
+/**
+ * mapId：地图ID标识。
+ */
+
+  mapId: string;  
+  /**
+ * mapRevision：地图Revision相关字段。
+ */
+
+  mapRevision: number;  
+  /**
+ * width：width相关字段。
+ */
+
+  width: number;  
+  /**
+ * height：height相关字段。
+ */
+
+  height: number;  
+  /**
+ * walkable：walkable相关字段。
+ */
+
+  walkable: Uint8Array;  
+  /**
+ * traversalCost：traversal消耗数值。
+ */
+
   traversalCost: Uint16Array;
 }
 
-/** PathfindingSearchLimits：定义该接口的能力与字段约束。 */
+/** 寻路输入约束：限制路径长度、展开节点数和是否允许到达最近点。 */
 export interface PathfindingSearchLimits {
-/** maxExpandedNodes：定义该变量以承载业务值。 */
-  maxExpandedNodes: number;
-/** maxPathLength：定义该变量以承载业务值。 */
-  maxPathLength: number;
-  maxGoalDistance?: number;
+/**
+ * maxExpandedNodes：maxExpandedNode相关字段。
+ */
+
+  maxExpandedNodes: number;  
+  /**
+ * maxPathLength：数量或计量字段。
+ */
+
+  maxPathLength: number;  
+  /**
+ * maxGoalDistance：maxGoalDistance相关字段。
+ */
+
+  maxGoalDistance?: number;  
+  /**
+ * allowPartialPath：allowPartial路径相关字段。
+ */
+
   allowPartialPath?: boolean;
 }
 
-/** PathfindingSearchSuccess：定义该接口的能力与字段约束。 */
+/** 寻路成功结果：携带完整/截断路径与遍历统计。 */
 export interface PathfindingSearchSuccess {
-/** status：定义该变量以承载业务值。 */
-  status: 'success';
-/** path：定义该变量以承载业务值。 */
-  path: PathPoint[];
-/** expandedNodes：定义该变量以承载业务值。 */
-  expandedNodes: number;
-/** reachedGoal：定义该变量以承载业务值。 */
-  reachedGoal: PathPoint;
-/** complete：定义该变量以承载业务值。 */
+/**
+ * status：statu状态或数据块。
+ */
+
+  status: 'success';  
+  /**
+ * path：路径相关字段。
+ */
+
+  path: PathPoint[];  
+  /**
+ * expandedNodes：expandedNode相关字段。
+ */
+
+  expandedNodes: number;  
+  /**
+ * reachedGoal：reachedGoal相关字段。
+ */
+
+  reachedGoal: PathPoint;  
+  /**
+ * complete：complete相关字段。
+ */
+
   complete: boolean;
 }
 
-/** PathfindingSearchFailure：定义该接口的能力与字段约束。 */
+/** 寻路失败结果：用于提示目标不可达或提前终止。 */
 export interface PathfindingSearchFailure {
-/** status：定义该变量以承载业务值。 */
-  status: 'failed';
-/** reason：定义该变量以承载业务值。 */
-  reason: PathResultFailureReason;
-/** expandedNodes：定义该变量以承载业务值。 */
+/**
+ * status：statu状态或数据块。
+ */
+
+  status: 'failed';  
+  /**
+ * reason：reason相关字段。
+ */
+
+  reason: PathResultFailureReason;  
+  /**
+ * expandedNodes：expandedNode相关字段。
+ */
+
   expandedNodes: number;
 }
 
-/** PathfindingSearchResult：定义该类型的结构与数据语义。 */
+/** 寻路结果：统一成功/失败两种返回形态。 */
 export type PathfindingSearchResult = PathfindingSearchSuccess | PathfindingSearchFailure;
 
-/** HeapNode：定义该接口的能力与字段约束。 */
+/** A* open set 的堆节点，保存索引和优先级分值。 */
 interface HeapNode {
-/** index：定义该变量以承载业务值。 */
-  index: number;
-/** score：定义该变量以承载业务值。 */
+/**
+ * index：index相关字段。
+ */
+
+  index: number;  
+  /**
+ * score：score数值。
+ */
+
   score: number;
 }
 
-/** PathfindingRunOptions：定义该接口的能力与字段约束。 */
+/** 寻路运行期附加选项。 */
 interface PathfindingRunOptions {
-  cancelFlag?: Int32Array;
+/**
+ * cancelFlag：cancelFlag相关字段。
+ */
+
+  cancelFlag?: Int32Array;  
+  /**
+ * cancelCheckInterval：cancelCheckInterval相关字段。
+ */
+
   cancelCheckInterval?: number;
 }
 
-/** MinHeap：封装相关状态与行为。 */
+/** A* 搜索中管理 open set 的最小堆。 */
 class MinHeap {
-/** items：定义该变量以承载业务值。 */
+  /** 堆内节点数组。 */
   private readonly items: HeapNode[] = [];
 
-/** size：执行对应的业务逻辑。 */
+  /** 当前堆元素数量。 */
   get size(): number {
     return this.items.length;
   }
 
-/** push：执行对应的业务逻辑。 */
+  /** 向堆插入节点并保持最小堆性质。 */
   push(node: HeapNode): void {
     this.items.push(node);
     this.bubbleUp(this.items.length - 1);
   }
 
-/** pop：执行对应的业务逻辑。 */
+  /** 取出分值最小的节点；堆为空则返回 undefined。 */
   pop(): HeapNode | undefined {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
     if (this.items.length === 0) {
       return undefined;
     }
-/** head：定义该变量以承载业务值。 */
     const head = this.items[0];
-/** tail：定义该变量以承载业务值。 */
     const tail = this.items.pop()!;
     if (this.items.length > 0) {
       this.items[0] = tail;
@@ -121,10 +197,9 @@ class MinHeap {
     return head;
   }
 
-/** bubbleUp：执行对应的业务逻辑。 */
+  /** 新节点上浮，恢复父节点分值不大于子节点分值。 */
   private bubbleUp(index: number): void {
     while (index > 0) {
-/** parent：定义该变量以承载业务值。 */
       const parent = Math.floor((index - 1) / 2);
       if (this.items[parent].score <= this.items[index].score) {
         break;
@@ -134,16 +209,14 @@ class MinHeap {
     }
   }
 
-/** bubbleDown：执行对应的业务逻辑。 */
+  /** 根节点下沉，恢复最小堆顺序。 */
   private bubbleDown(index: number): void {
-/** last：定义该变量以承载业务值。 */
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
     const last = this.items.length - 1;
     while (true) {
-/** left：定义该变量以承载业务值。 */
       const left = index * 2 + 1;
-/** right：定义该变量以承载业务值。 */
       const right = left + 1;
-/** smallest：定义该变量以承载业务值。 */
       let smallest = index;
 
       if (left <= last && this.items[left].score < this.items[smallest].score) {
@@ -161,16 +234,16 @@ class MinHeap {
   }
 }
 
-/** toIndex：执行对应的业务逻辑。 */
+/** 按行优先把二维坐标映射到一维下标。 */
 function toIndex(x: number, y: number, width: number): number {
   return y * width + x;
 }
 
-/** reconstructPath：执行对应的业务逻辑。 */
+/** 根据父节点链回溯，重建起点到目标的路径。 */
 function reconstructPath(parent: Int32Array, goalIndex: number, startIndex: number, width: number): PathPoint[] {
-/** path：定义该变量以承载业务值。 */
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
   const path: PathPoint[] = [];
-/** current：定义该变量以承载业务值。 */
   let current = goalIndex;
   while (current !== startIndex && current !== -1) {
     path.push({
@@ -183,7 +256,7 @@ function reconstructPath(parent: Int32Array, goalIndex: number, startIndex: numb
   return path;
 }
 
-/** failed：执行对应的业务逻辑。 */
+/** 统一生成失败返回体，避免重复拼装。 */
 function failed(reason: PathfindingSearchFailure['reason'], expandedNodes: number): PathfindingSearchFailure {
   return {
     status: 'failed',
@@ -192,9 +265,10 @@ function failed(reason: PathfindingSearchFailure['reason'], expandedNodes: numbe
   };
 }
 
-/** nearestGoalHeuristic：执行对应的业务逻辑。 */
+/** 计算当前点到目标集合的曼哈顿距离下界。 */
 function nearestGoalHeuristic(x: number, y: number, goals: PathPoint[]): number {
-/** best：定义该变量以承载业务值。 */
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
   let best = Number.POSITIVE_INFINITY;
   for (const goal of goals) {
     const distance = manhattanDistance({ x, y }, goal);
@@ -208,23 +282,33 @@ function nearestGoalHeuristic(x: number, y: number, goals: PathPoint[]): number 
   return best * PATHFINDING_MIN_STEP_COST;
 }
 
-/** isCancelled：执行对应的业务逻辑。 */
+/** 检查外部原子标记是否要求取消寻路。 */
 function isCancelled(cancelFlag?: Int32Array): boolean {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
   if (!cancelFlag || cancelFlag.length === 0) {
     return false;
   }
   return Atomics.load(cancelFlag, 0) === 1;
 }
 
-/** validateGoals：执行对应的业务逻辑。 */
+/** 过滤目标点，只保留位于边界内且可走的坐标。 */
 function validateGoals(
   grid: PathfindingStaticGrid,
   blocked: Uint8Array,
   goals: PathPoint[],
-): { indices: Set<number>; goalByIndex: Map<number, PathPoint> } | PathfindingSearchFailure {
-/** goalIndices：定义该变量以承载业务值。 */
+): {
+/**
+ * indices：indice相关字段。
+ */
+ indices: Set<number>;
+ /**
+ * goalByIndex：goalByIndex相关字段。
+ */
+ goalByIndex: Map<number, PathPoint> } | PathfindingSearchFailure {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
   const goalIndices = new Set<number>();
-/** goalByIndex：定义该变量以承载业务值。 */
   const goalByIndex = new Map<number, PathPoint>();
 
   for (const goal of goals) {
@@ -236,7 +320,6 @@ function validateGoals(
     ) {
       continue;
     }
-/** index：定义该变量以承载业务值。 */
     const index = toIndex(goal.x, goal.y, grid.width);
     if (grid.walkable[index] !== 1 || blocked[index] === 1) {
       continue;
@@ -252,7 +335,7 @@ function validateGoals(
   return { indices: goalIndices, goalByIndex };
 }
 
-/** buildSuccess：执行对应的业务逻辑。 */
+/** 根据是否完整命中和长度限制组装成功结果。 */
 function buildSuccess(
   parent: Int32Array,
   goalIndex: number,
@@ -263,11 +346,9 @@ function buildSuccess(
   complete: boolean,
   maxPathLength?: number,
 ): PathfindingSearchResult {
-/** fullPath：定义该变量以承载业务值。 */
   const fullPath = reconstructPath(parent, goalIndex, startIndex, width);
   return {
     status: 'success',
-/** path：定义该变量以承载业务值。 */
     path: !complete && typeof maxPathLength === 'number' ? fullPath.slice(0, maxPathLength) : fullPath,
     expandedNodes,
     reachedGoal: goal,
@@ -275,7 +356,7 @@ function buildSuccess(
   };
 }
 
-/** findBoundedPath：执行对应的业务逻辑。 */
+/** 执行带上限的 A* 寻路，返回完整路径或允许的部分最优路径。 */
 export function findBoundedPath(
   grid: PathfindingStaticGrid,
   blocked: Uint8Array,
@@ -285,6 +366,8 @@ export function findBoundedPath(
   limits: PathfindingSearchLimits,
   options?: PathfindingRunOptions,
 ): PathfindingSearchResult {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
   if (
     startX < 0
     || startX >= grid.width
@@ -294,9 +377,7 @@ export function findBoundedPath(
     return failed('invalid_goal', 0);
   }
 
-/** startIndex：定义该变量以承载业务值。 */
   const startIndex = toIndex(startX, startY, grid.width);
-/** goalValidation：定义该变量以承载业务值。 */
   const goalValidation = validateGoals(grid, blocked, goals);
   if ('status' in goalValidation) {
     return goalValidation;
@@ -313,7 +394,6 @@ export function findBoundedPath(
   }
 
   if (typeof limits.maxGoalDistance === 'number' && Number.isFinite(limits.maxGoalDistance)) {
-/** nearestDistance：定义该变量以承载业务值。 */
     let nearestDistance = Number.POSITIVE_INFINITY;
     for (const goal of goals) {
       nearestDistance = Math.min(nearestDistance, manhattanDistance({ x: startX, y: startY }, goal));
@@ -323,20 +403,14 @@ export function findBoundedPath(
     }
   }
 
-/** total：定义该变量以承载业务值。 */
   const total = grid.width * grid.height;
-/** gScore：定义该变量以承载业务值。 */
   const gScore = new Float64Array(total);
   gScore.fill(Number.POSITIVE_INFINITY);
-/** parent：定义该变量以承载业务值。 */
   const parent = new Int32Array(total);
   parent.fill(-1);
-/** closed：定义该变量以承载业务值。 */
   const closed = new Uint8Array(total);
-/** stepDepth：定义该变量以承载业务值。 */
   const stepDepth = new Int32Array(total);
   stepDepth.fill(-1);
-/** heap：定义该变量以承载业务值。 */
   const heap = new MinHeap();
 
   gScore[startIndex] = 0;
@@ -346,17 +420,11 @@ export function findBoundedPath(
     score: nearestGoalHeuristic(startX, startY, goals),
   });
 
-/** expandedNodes：定义该变量以承载业务值。 */
   let expandedNodes = 0;
-/** bestPartialIndex：定义该变量以承载业务值。 */
   let bestPartialIndex = -1;
-/** bestPartialGoal：定义该变量以承载业务值。 */
   let bestPartialGoal: PathPoint | null = null;
-/** bestPartialHeuristic：定义该变量以承载业务值。 */
   let bestPartialHeuristic = Number.POSITIVE_INFINITY;
-/** bestPartialCost：定义该变量以承载业务值。 */
   let bestPartialCost = Number.POSITIVE_INFINITY;
-/** cancelCheckInterval：定义该变量以承载业务值。 */
   const cancelCheckInterval = Math.max(1, options?.cancelCheckInterval ?? 32);
 
   while (heap.size > 0) {
@@ -364,7 +432,6 @@ export function findBoundedPath(
       return failed('cancelled', expandedNodes);
     }
 
-/** current：定义该变量以承载业务值。 */
     const current = heap.pop();
     if (!current) {
       break;
@@ -376,7 +443,6 @@ export function findBoundedPath(
     expandedNodes += 1;
 
     if (goalValidation.indices.has(current.index)) {
-/** path：定义该变量以承载业务值。 */
       const path = reconstructPath(parent, current.index, startIndex, grid.width);
       if (path.length > limits.maxPathLength) {
         if (limits.allowPartialPath) {
@@ -399,11 +465,8 @@ export function findBoundedPath(
       };
     }
 
-/** x：定义该变量以承载业务值。 */
     const x = current.index % grid.width;
-/** y：定义该变量以承载业务值。 */
     const y = Math.floor(current.index / grid.width);
-/** currentHeuristic：定义该变量以承载业务值。 */
     const currentHeuristic = nearestGoalHeuristic(x, y, goals);
     if (
       limits.allowPartialPath
@@ -432,19 +495,15 @@ export function findBoundedPath(
       if (nx < 0 || nx >= grid.width || ny < 0 || ny >= grid.height) {
         continue;
       }
-/** nextIndex：定义该变量以承载业务值。 */
       const nextIndex = toIndex(nx, ny, grid.width);
       if (closed[nextIndex] === 1 || grid.walkable[nextIndex] !== 1 || blocked[nextIndex] === 1) {
         continue;
       }
-/** stepCost：定义该变量以承载业务值。 */
       const stepCost = grid.traversalCost[nextIndex];
       if (!Number.isFinite(stepCost) || stepCost <= 0) {
         continue;
       }
-/** nextDepth：定义该变量以承载业务值。 */
       const nextDepth = stepDepth[current.index] + 1;
-/** nextScore：定义该变量以承载业务值。 */
       const nextScore = gScore[current.index] + stepCost;
       if (nextScore >= gScore[nextIndex]) {
         continue;
@@ -469,4 +528,3 @@ export function findBoundedPath(
 
   return failed('no_path', expandedNodes);
 }
-

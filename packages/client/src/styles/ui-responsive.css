@@ -1,0 +1,61 @@
+/* 公共 UI 骨架的响应式规则。 */
+
+@media (max-width: 1180px) {
+  .ui-form-grid--two-column {
+    grid-template-columns: 1fr;
+  }
+
+  .ui-workspace-shell {
+    grid-template-columns: 1fr;
+  }
+
+  .ui-workspace-rail-tabs {
+    grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+  }
+
+  .quest-subtabs,
+  .ui-subtabs {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 920px), ((max-width: 1180px) and (pointer: coarse)), ((max-width: 1180px) and (hover: none)) {
+  .ui-modal-card {
+    width: min(100%, calc(100vw - 24px));
+    max-height: min(82dvh, min(760px, calc(100dvh - var(--ui-modal-padding-top, 24px) - var(--ui-modal-padding-bottom, 24px) - (var(--ui-modal-safe-gap, 12px) * 2))));
+    padding: 16px;
+  }
+
+  .ui-modal-card.ui-modal-card--sm {
+    width: min(360px, calc(100vw - 12px));
+    max-height: min(82dvh, calc(100dvh - 16px));
+    padding: 10px;
+  }
+
+  .ui-modal-actions {
+    justify-content: space-between;
+  }
+
+  .ui-modal-actions .small-btn {
+    min-width: 0;
+    flex: 1 1 0;
+  }
+
+.ui-data-table-row {
+  grid-template-columns: 1fr;
+}
+
+.ui-data-table-preview {
+  text-align: left;
+}
+
+.ui-subtab-grid--two-column,
+.ui-subtab-grid--three-column {
+  grid-template-columns: 1fr;
+}
+}
+
+html[data-effective-layout-breakpoint="wide"] .quest-subtabs,
+html[data-effective-layout-breakpoint="wide"] .ui-subtabs {
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+}

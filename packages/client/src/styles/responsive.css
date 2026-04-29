@@ -12,10 +12,7 @@
       .leaderboard-supreme-grid {
         grid-template-columns: 1fr;
       }
-      .quest-subtabs {
-        grid-template-columns: repeat(2, minmax(0, 1fr));
-      }
-      .quest-detail-grid {
+      .ui-detail-grid {
         grid-template-columns: 1fr;
       }
       .section-shell {
@@ -25,7 +22,10 @@
         grid-template-columns: max(30px, calc(var(--split-rail-size) - 4px)) minmax(0, 1fr);
       }
       .map-shell {
-        grid-template-columns: minmax(0, 1fr) max(56px, calc(var(--map-rail-size) - 4px));
+        grid-template-columns:
+          max(42px, calc(var(--map-rail-size) - 4px))
+          minmax(0, 1fr)
+          max(42px, calc(var(--map-rail-size) - 4px));
       }
       .chat-tabs .tab-btn {
         padding: 9px 8px;
@@ -456,24 +456,11 @@
       }
       .tech-card-actions {
         justify-content: flex-end;
-        width: 100%;
       }
       .detail-modal-card {
         width: min(100%, calc(100vw - 24px));
         max-height: min(82dvh, min(760px, calc(100dvh - var(--detail-modal-padding-top) - var(--detail-modal-padding-bottom) - (var(--detail-modal-safe-gap, 12px) * 2))));
         padding: 16px;
-      }
-      .confirm-modal-card {
-        width: min(360px, calc(100vw - 12px));
-        max-height: min(82dvh, calc(100dvh - 16px));
-        padding: 10px;
-      }
-      .confirm-modal-actions {
-        justify-content: space-between;
-      }
-      .confirm-modal-actions .small-btn {
-        flex: 1 1 0;
-        min-width: 0;
       }
       .detail-modal-card.detail-modal--skill-management {
         --detail-modal-compact-scale: 0.7;
@@ -481,41 +468,110 @@
         height: min(84dvh, calc(100dvh - var(--detail-modal-padding-top) - var(--detail-modal-padding-bottom) - (var(--detail-modal-safe-gap, 12px) * 2) - 16px));
         max-height: none;
       }
-      .detail-modal-card.detail-modal--targeting-plan {
-        --detail-modal-compact-scale: 0.78;
-        width: min(100%, calc(100vw - 16px));
-        height: min(76dvh, calc(100dvh - var(--detail-modal-padding-top) - var(--detail-modal-padding-bottom) - (var(--detail-modal-safe-gap, 12px) * 2) - 16px));
-        max-height: none;
-      }
-      .detail-modal-card.detail-modal--combat-settings {
-        --detail-modal-compact-scale: 0.76;
+      .detail-modal-card.detail-modal--sect-management {
         width: min(100%, calc(100vw - 16px));
         height: min(80dvh, calc(100dvh - var(--detail-modal-padding-top) - var(--detail-modal-padding-bottom) - (var(--detail-modal-safe-gap, 12px) * 2) - 16px));
+        min-height: min(460px, calc(100dvh - var(--detail-modal-padding-top) - var(--detail-modal-padding-bottom) - (var(--detail-modal-safe-gap, 12px) * 2) - 16px));
         max-height: none;
+        padding: 14px 12px 12px;
       }
-      .detail-modal-card.detail-modal--auto-pill-picker {
-        --detail-modal-compact-scale: 0.82;
-        width: min(100%, calc(100vw - 16px));
-        height: min(72dvh, calc(100dvh - var(--detail-modal-padding-top) - var(--detail-modal-padding-bottom) - (var(--detail-modal-safe-gap, 12px) * 2) - 16px));
-        max-height: none;
+      .sect-manage-shell {
+        grid-template-columns: 108px minmax(0, 1fr);
+        gap: 8px;
       }
-      .detail-modal-card.detail-modal--auto-pill-condition {
-        --detail-modal-compact-scale: 0.84;
-        width: min(100%, calc(100vw - 16px));
-        height: min(68dvh, calc(100dvh - var(--detail-modal-padding-top) - var(--detail-modal-padding-bottom) - (var(--detail-modal-safe-gap, 12px) * 2) - 16px));
-        max-height: none;
+      .sect-manage-sidebar {
+        padding: 8px 6px;
+      }
+      .sect-manage-tab-btn {
+        min-height: 36px;
+        padding: 7px 6px;
+        font-size: var(--font-size-12);
+      }
+      .sect-detail-card {
+        flex-direction: column;
+        align-items: stretch;
+      }
+      .sect-detail-card-actions {
+        justify-content: flex-start;
+      }
+      .sect-detail-stat-grid,
+      .sect-detail-action-grid,
+      .sect-role-grid,
+      .sect-manage-card-grid {
+        grid-template-columns: minmax(0, 1fr);
+      }
+      .sect-member-table {
+        overflow-x: visible;
+      }
+      .sect-member-table-head {
+        display: none;
+      }
+      .sect-member-table-row {
+        grid-template-columns: minmax(0, 1fr);
+        min-width: 0;
+        align-items: start;
+        gap: 6px;
+      }
+      .sect-member-table-row > span {
+        min-width: 0;
       }
       .detail-modal-card.detail-modal--leaderboard {
         width: min(100%, calc(100vw - 16px));
         height: min(82dvh, calc(100dvh - var(--detail-modal-padding-top) - var(--detail-modal-padding-bottom) - (var(--detail-modal-safe-gap, 12px) * 2) - 12px));
         max-height: none;
       }
+      .detail-modal-card.detail-modal--world-migration {
+        width: min(100%, calc(100vw - 16px));
+      }
+      .world-migration-choice-grid {
+        grid-template-columns: 1fr;
+      }
+      .world-migration-choice {
+        min-height: 148px;
+      }
       .panel-section-head,
-      .auto-pill-topbar,
       .skill-manage-topbar,
       .skill-manage-filter-head {
         flex-direction: column;
         align-items: stretch;
+      }
+      .leaderboard-toolbar,
+      .leaderboard-toolbar-actions {
+        align-items: stretch;
+      }
+      .leaderboard-toolbar {
+        flex-direction: column;
+      }
+      .leaderboard-toolbar-actions {
+        justify-content: stretch;
+      }
+      .leaderboard-toolbar-actions > button {
+        flex: 1 1 auto;
+      }
+      .leaderboard-tabs {
+        display: flex;
+        width: 100%;
+      }
+      .leaderboard-tab-btn {
+        flex: 0 0 auto;
+      }
+      .leaderboard-row {
+        grid-template-columns: 1fr;
+        gap: 8px;
+      }
+      .leaderboard-world-grid {
+        grid-template-columns: 1fr;
+      }
+      .leaderboard-world-row {
+        flex-direction: column;
+        gap: 6px;
+      }
+      .leaderboard-world-value {
+        text-align: left;
+        white-space: normal;
+      }
+      .leaderboard-rank {
+        font-size: var(--font-size-role-title-16);
       }
       .skill-manage-filter-grid,
       .skill-manage-field-group {
@@ -528,38 +584,6 @@
       .skill-manage-toolbar > button,
       .skill-manage-batch > button {
         flex: 1 1 auto;
-      }
-      .auto-pill-toolbar,
-      .auto-pill-main-actions,
-      .auto-pill-condition-actions {
-        justify-content: stretch;
-      }
-      .auto-pill-toolbar > button,
-      .auto-pill-main-actions > button,
-      .auto-pill-condition-actions > button {
-        flex: 1 1 auto;
-      }
-      .auto-pill-subdialog-backdrop {
-        padding: 10px;
-      }
-      .auto-pill-subdialog-head {
-        flex-direction: column;
-        align-items: stretch;
-      }
-      .auto-pill-slot-grid {
-        grid-template-columns: repeat(3, minmax(84px, 1fr));
-      }
-      .auto-pill-slot {
-        min-height: 84px;
-      }
-      .auto-pill-picker-grid {
-        grid-template-columns: repeat(2, minmax(0, 1fr));
-      }
-      .auto-pill-condition-row {
-        grid-template-columns: 1fr;
-      }
-      .auto-pill-condition-row--wide {
-        grid-template-columns: 1fr;
       }
       .split-tabs-rail {
         flex-direction: row;
@@ -668,10 +692,9 @@
       .map-tool-controls {
         flex-direction: column;
         gap: clamp(6px, 2vw, 10px);
-        padding: clamp(8px, 2.2vw, 10px) clamp(4px, 1.2vw, 6px);
-        border-radius: 14px;
-        transform: scale(clamp(0.68, 0.82 + 0.2vw, 0.92));
-        transform-origin: center top;
+        padding: 0;
+        border-radius: 0;
+        transform: none;
       }
       .map-zoom-slider {
         writing-mode: vertical-lr;
@@ -691,6 +714,12 @@
       .map-side-tool-center {
         flex: 1 1 auto;
         width: 100%;
+      }
+      .map-zoom-stack {
+        width: min(100%, 34px);
+        gap: 8px;
+        padding: 8px 3px;
+        border-radius: 14px;
       }
       .map-side-info-stack {
         flex-direction: column;
@@ -760,529 +789,6 @@
     height: min(84dvh, calc(100dvh - 8px));
     padding: 12px 10px 10px;
   }
-  .detail-modal.detail-modal--alchemy {
-    --detail-modal-padding: 4px;
-    --detail-modal-safe-gap: 4px;
-    padding: var(--detail-modal-padding-top) var(--detail-modal-padding) var(--detail-modal-padding-bottom);
-  }
-  .detail-modal-card.detail-modal--alchemy {
-    width: calc(100vw - 8px);
-    height: min(92dvh, calc(100dvh - var(--detail-modal-padding-top) - var(--detail-modal-padding-bottom) - 28px));
-    max-height: none;
-    padding: 10px 8px 8px;
-  }
-  .detail-modal-card.detail-modal--alchemy .detail-modal-head {
-    align-items: center;
-    flex-wrap: wrap;
-    gap: 6px 8px;
-    padding-bottom: 6px;
-    margin-bottom: 8px;
-  }
-  .detail-modal-card.detail-modal--alchemy .detail-modal-title {
-    font-size: var(--font-size-18);
-    display: inline-flex;
-    align-items: baseline;
-    gap: 6px;
-    line-height: 1.15;
-  }
-  .detail-modal-card.detail-modal--alchemy .detail-modal-title::after {
-    content: attr(data-alchemy-level);
-    display: inline-block;
-    color: var(--ink-grey);
-    font-family: var(--font-role-body);
-    font-size: var(--font-size-11);
-    font-weight: var(--font-weight-medium);
-    letter-spacing: 0.04em;
-  }
-  .detail-modal-card.detail-modal--alchemy .detail-modal-subtitle {
-    display: inline-flex;
-    align-items: center;
-    min-height: 24px;
-    max-width: 100%;
-    padding: 0 8px;
-    border: 1px solid rgba(111, 70, 37, 0.16);
-    background: rgba(255, 251, 244, 0.82);
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-    font-size: var(--font-size-11);
-  }
-  .detail-modal-card.detail-modal--alchemy .detail-modal-hint {
-    display: none;
-  }
-  .detail-modal.detail-modal--enhancement {
-    --detail-modal-padding: 4px;
-    --detail-modal-safe-gap: 4px;
-    padding: var(--detail-modal-padding-top) var(--detail-modal-padding) var(--detail-modal-padding-bottom);
-  }
-  .detail-modal-card.detail-modal--enhancement {
-    width: calc(100vw - 8px);
-    height: min(92dvh, calc(100dvh - var(--detail-modal-padding-top) - var(--detail-modal-padding-bottom) - 28px));
-    max-height: none;
-    padding: 10px 8px 8px;
-  }
-  .detail-modal-card.detail-modal--enhancement #detail-modal-body {
-    overflow-y: auto;
-    overscroll-behavior: contain;
-    padding-right: 2px;
-  }
-  .detail-modal-card.detail-modal--enhancement .detail-modal-head {
-    align-items: center;
-    flex-wrap: wrap;
-    gap: 6px 8px;
-    padding-bottom: 6px;
-    margin-bottom: 8px;
-  }
-  .detail-modal-card.detail-modal--enhancement .detail-modal-title {
-    font-size: var(--font-size-18);
-    line-height: 1.15;
-  }
-  .detail-modal-card.detail-modal--enhancement .detail-modal-subtitle {
-    display: inline-flex;
-    align-items: center;
-    min-height: 24px;
-    max-width: 100%;
-    padding: 0 8px;
-    border: 1px solid rgba(111, 70, 37, 0.16);
-    background: rgba(255, 251, 244, 0.82);
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-    font-size: var(--font-size-11);
-  }
-  .detail-modal-card.detail-modal--enhancement .detail-modal-hint {
-    display: none;
-  }
-  .detail-modal-card.detail-modal--enhancement .enhancement-modal-shell {
-    gap: 8px;
-    height: auto;
-    min-height: 100%;
-  }
-  .detail-modal-card.detail-modal--enhancement .enhancement-layout,
-  .detail-modal-card.detail-modal--enhancement .enhancement-layout--single-slot {
-    grid-template-columns: minmax(0, 1fr);
-    height: auto;
-    min-height: auto;
-    align-content: start;
-  }
-  .detail-modal-card.detail-modal--enhancement .enhancement-workbench {
-    order: 1;
-  }
-  .detail-modal-card.detail-modal--enhancement .enhancement-history-panel {
-    order: 2;
-  }
-  .detail-modal-card.detail-modal--enhancement .enhancement-summary-metrics,
-  .detail-modal-card.detail-modal--enhancement .enhancement-preview-grid {
-    grid-template-columns: minmax(0, 1fr);
-  }
-  .detail-modal-card.detail-modal--enhancement .enhancement-toolbar,
-  .detail-modal-card.detail-modal--enhancement .enhancement-target-slot-head,
-  .detail-modal-card.detail-modal--enhancement .enhancement-summary-head,
-  .detail-modal-card.detail-modal--enhancement .enhancement-action-row,
-  .detail-modal-card.detail-modal--enhancement .enhancement-material-row,
-  .detail-modal-card.detail-modal--enhancement .enhancement-history-row {
-    align-items: stretch;
-    flex-direction: column;
-  }
-  .detail-modal-card.detail-modal--enhancement .enhancement-protection-option {
-    align-items: flex-start;
-    flex-direction: column;
-  }
-  .detail-modal-card.detail-modal--enhancement .enhancement-protection-option em {
-    margin-left: 0;
-  }
-  .detail-modal-card.detail-modal--enhancement .enhancement-toolbar,
-  .detail-modal-card.detail-modal--enhancement .enhancement-target-slot-head,
-  .detail-modal-card.detail-modal--enhancement .enhancement-history-head {
-    align-items: flex-start;
-    flex-direction: row;
-    flex-wrap: wrap;
-    gap: 6px;
-  }
-  .detail-modal-card.detail-modal--enhancement .enhancement-target-slot-head .small-btn {
-    display: none;
-  }
-  .detail-modal-card.detail-modal--enhancement .enhancement-workbench-grid,
-  .detail-modal-card.detail-modal--enhancement .enhancement-workbench-side,
-  .detail-modal-card.detail-modal--enhancement .enhancement-workbench-main,
-  .detail-modal-card.detail-modal--enhancement .enhancement-history-panel {
-    gap: 8px;
-    min-height: auto;
-  }
-  .detail-modal-card.detail-modal--enhancement .enhancement-target-slot-card,
-  .detail-modal-card.detail-modal--enhancement .enhancement-target-level-card,
-  .detail-modal-card.detail-modal--enhancement .enhancement-summary-card,
-  .detail-modal-card.detail-modal--enhancement .enhancement-preview-card,
-  .detail-modal-card.detail-modal--enhancement .enhancement-requirement-card {
-    padding: 8px;
-  }
-  .detail-modal-card.detail-modal--enhancement .enhancement-target-slot-card {
-    gap: 8px;
-  }
-  .detail-modal-card.detail-modal--enhancement .enhancement-target-slot-layout,
-  .detail-modal-card.detail-modal--enhancement .enhancement-target-slot-main {
-    gap: 8px;
-  }
-  .detail-modal-card.detail-modal--enhancement .enhancement-target-slot-layout--merged {
-    grid-template-columns: minmax(0, 1.08fr) minmax(138px, 0.92fr);
-    align-items: start;
-    gap: 8px;
-  }
-  .detail-modal-card.detail-modal--enhancement .enhancement-target-slot {
-    gap: 2px;
-    padding: 8px;
-  }
-  .detail-modal-card.detail-modal--enhancement .enhancement-target-slot-extra,
-  .detail-modal-card.detail-modal--enhancement .enhancement-merged-section {
-    gap: 6px;
-  }
-  .detail-modal-card.detail-modal--enhancement .enhancement-merged-section {
-    justify-content: flex-start;
-  }
-  .detail-modal-card.detail-modal--enhancement .enhancement-target-slot-extra {
-    padding-top: 0;
-    padding-left: 8px;
-    border-top: 0;
-    border-left: 1px dashed color-mix(in srgb, var(--wash-ink) 76%, transparent);
-  }
-  .detail-modal-card.detail-modal--enhancement .enhancement-merged-section-head {
-    gap: 6px;
-  }
-  .detail-modal-card.detail-modal--enhancement .enhancement-candidate-name,
-  .detail-modal-card.detail-modal--enhancement .enhancement-summary-title,
-  .detail-modal-card.detail-modal--enhancement .enhancement-preview-title,
-  .detail-modal-card.detail-modal--enhancement .enhancement-section-title,
-  .detail-modal-card.detail-modal--enhancement .enhancement-target-slot-action,
-  .detail-modal-card.detail-modal--enhancement .enhancement-target-slot-name {
-    font-size: var(--font-size-12);
-    line-height: 1.25;
-  }
-  .detail-modal-card.detail-modal--enhancement .enhancement-card-head {
-    gap: 1px;
-  }
-  .detail-modal-card.detail-modal--enhancement .enhancement-card-head-main {
-    gap: 4px 6px;
-  }
-  .detail-modal-card.detail-modal--enhancement .enhancement-card-head-value {
-    min-height: 18px;
-    padding: 0 6px;
-    font-size: var(--font-size-10);
-  }
-  .detail-modal-card.detail-modal--enhancement .enhancement-toolbar-note,
-  .detail-modal-card.detail-modal--enhancement .enhancement-target-level-note,
-  .detail-modal-card.detail-modal--enhancement .enhancement-action-note,
-  .detail-modal-card.detail-modal--enhancement .enhancement-material-owned,
-  .detail-modal-card.detail-modal--enhancement .enhancement-candidate-meta,
-  .detail-modal-card.detail-modal--enhancement .enhancement-target-slot-meta,
-  .detail-modal-card.detail-modal--enhancement .enhancement-summary-subtitle,
-  .detail-modal-card.detail-modal--enhancement .enhancement-preview-lines,
-  .detail-modal-card.detail-modal--enhancement .enhancement-preview-empty,
-  .detail-modal-card.detail-modal--enhancement .enhancement-empty-state,
-  .detail-modal-card.detail-modal--enhancement .enhancement-material-empty,
-  .detail-modal-card.detail-modal--enhancement .enhancement-history-entry-meta,
-  .detail-modal-card.detail-modal--enhancement .enhancement-history-detail-note,
-  .detail-modal-card.detail-modal--enhancement .enhancement-history-row {
-    font-size: var(--font-size-11);
-    line-height: 1.45;
-  }
-  .detail-modal-card.detail-modal--enhancement .enhancement-target-slot-meta,
-  .detail-modal-card.detail-modal--enhancement .enhancement-target-level-note,
-  .detail-modal-card.detail-modal--enhancement .enhancement-action-note,
-  .detail-modal-card.detail-modal--enhancement .enhancement-requirement-card .enhancement-protection-note,
-  .detail-modal-card.detail-modal--enhancement .enhancement-history-head .enhancement-protection-note {
-    display: none;
-  }
-  .detail-modal-card.detail-modal--enhancement .enhancement-formula-pill {
-    display: inline-flex;
-    min-height: 26px;
-    padding: 0 10px;
-    font-size: var(--font-size-11);
-  }
-  .detail-modal-card.detail-modal--enhancement .enhancement-target-level-row {
-    grid-template-columns: 42px minmax(0, 1fr) 42px;
-    gap: 6px;
-  }
-  .detail-modal-card.detail-modal--enhancement .enhancement-target-level-row .small-btn {
-    min-width: 42px;
-    min-height: 28px;
-    padding: 0;
-  }
-  .detail-modal-card.detail-modal--enhancement .enhancement-target-level-input {
-    height: 28px;
-    padding: 3px 6px;
-    font-size: var(--font-size-12);
-  }
-  .detail-modal-card.detail-modal--enhancement .enhancement-summary-card {
-    display: grid;
-    grid-template-columns: minmax(90px, 0.96fr) minmax(0, 2.04fr);
-    align-items: stretch;
-    gap: 6px;
-  }
-  .detail-modal-card.detail-modal--enhancement .enhancement-summary-head {
-    align-items: flex-start;
-    flex-direction: column;
-    justify-content: center;
-    gap: 4px;
-    min-width: 0;
-    margin-bottom: 0;
-  }
-  .detail-modal-card.detail-modal--enhancement .enhancement-summary-rate {
-    min-width: 0;
-    padding: 2px 6px;
-    font-size: var(--font-size-11);
-  }
-  .detail-modal-card.detail-modal--enhancement .enhancement-summary-metrics {
-    grid-template-columns: repeat(3, minmax(0, 1fr));
-    gap: 6px;
-  }
-  .detail-modal-card.detail-modal--enhancement .enhancement-summary-metric {
-    gap: 3px;
-    padding: 8px 6px;
-    font-size: var(--font-size-10);
-  }
-  .detail-modal-card.detail-modal--enhancement .enhancement-summary-metric strong {
-    font-size: var(--font-size-14);
-    line-height: 1.1;
-  }
-  .detail-modal-card.detail-modal--enhancement .enhancement-requirement-card,
-  .detail-modal-card.detail-modal--enhancement .enhancement-preview-card {
-    gap: 6px;
-  }
-  .detail-modal-card.detail-modal--enhancement .enhancement-material-row {
-    display: grid;
-    grid-template-columns: minmax(0, 1fr) auto;
-    align-items: center;
-    gap: 2px 8px;
-  }
-  .detail-modal-card.detail-modal--enhancement .enhancement-material-row > strong {
-    justify-self: end;
-    font-size: var(--font-size-13);
-  }
-  .detail-modal-card.detail-modal--enhancement .enhancement-material-owned {
-    grid-column: 1 / -1;
-    line-height: 1.3;
-  }
-  .detail-modal-card.detail-modal--enhancement .enhancement-protection-option {
-    display: grid;
-    grid-template-columns: auto minmax(0, 1fr);
-    align-items: start;
-    gap: 4px 8px;
-    padding: 8px;
-  }
-  .detail-modal-card.detail-modal--enhancement .enhancement-protection-option > input {
-    margin-top: 2px;
-  }
-  .detail-modal-card.detail-modal--enhancement .enhancement-protection-option > em {
-    grid-column: 2;
-    font-size: var(--font-size-10);
-    line-height: 1.25;
-  }
-  .detail-modal-card.detail-modal--enhancement .enhancement-preview-grid {
-    display: none;
-  }
-  .detail-modal-card.detail-modal--enhancement .enhancement-history-table {
-    gap: 4px;
-    padding-right: 0;
-  }
-  .detail-modal-card.detail-modal--enhancement .enhancement-history-row {
-    display: grid;
-    grid-template-columns: repeat(4, minmax(0, 1fr));
-    gap: 6px;
-    padding: 6px;
-    text-align: center;
-  }
-  .detail-modal-card.detail-modal--enhancement .enhancement-history-row > * {
-    min-width: 0;
-  }
-  .detail-modal-card.detail-modal--enhancement .enhancement-empty-state {
-    min-height: 128px;
-    padding: 12px;
-  }
-  .detail-modal-card.detail-modal--enhancement .enhancement-empty-state--history {
-    min-height: 96px;
-  }
-  .detail-modal-card.detail-modal--enhancement .enhancement-history-head {
-    flex-wrap: nowrap;
-    justify-content: space-between;
-  }
-  .detail-modal-card.detail-modal--enhancement .enhancement-inline-toggle,
-  .detail-modal-card.detail-modal--enhancement .enhancement-history-head .small-btn {
-    flex: 0 0 auto;
-    white-space: nowrap;
-  }
-  .detail-modal-card.detail-modal--alchemy .alchemy-modal-shell {
-    gap: 8px;
-  }
-  .detail-modal-card.detail-modal--alchemy [data-alchemy-job-card-host="true"] {
-    display: none;
-  }
-  .detail-modal-card.detail-modal--alchemy .alchemy-topbar {
-    display: none;
-  }
-  .detail-modal-card.detail-modal--alchemy .alchemy-control-row {
-    display: grid;
-    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
-    align-items: start;
-    gap: 8px;
-  }
-  .detail-modal-card.detail-modal--alchemy .alchemy-control-group,
-  .detail-modal-card.detail-modal--alchemy .alchemy-control-group--tabs {
-    display: flex;
-    flex-direction: column;
-    align-items: stretch;
-    gap: 4px;
-    min-width: 0;
-    justify-content: flex-start;
-  }
-  .detail-modal-card.detail-modal--alchemy .alchemy-control-label {
-    font-size: var(--font-size-11);
-  }
-  .detail-modal-card.detail-modal--alchemy .alchemy-modal-tabs,
-  .detail-modal-card.detail-modal--alchemy .alchemy-category-tabs {
-    width: 100%;
-    min-width: 0;
-    justify-self: stretch;
-  }
-  .detail-modal-card.detail-modal--alchemy .alchemy-tab-btn,
-  .detail-modal-card.detail-modal--alchemy .alchemy-category-btn {
-    flex: 1 1 0;
-    min-width: 0;
-    padding-left: 8px;
-    padding-right: 8px;
-    font-size: var(--font-size-11);
-  }
-  .detail-modal-card.detail-modal--alchemy .alchemy-category-count {
-    min-width: 16px;
-    min-height: 16px;
-    padding: 0 4px;
-  }
-  .detail-modal-card.detail-modal--alchemy .alchemy-layout {
-    gap: 8px;
-  }
-  .detail-modal-card.detail-modal--alchemy .alchemy-recipe-list {
-    max-height: 168px;
-  }
-  .detail-modal-card.detail-modal--alchemy .alchemy-summary-metrics {
-    grid-template-columns: repeat(3, minmax(0, 1fr));
-    gap: 6px;
-  }
-  .detail-modal-card.detail-modal--alchemy .alchemy-summary-card {
-    display: grid;
-    grid-template-columns: minmax(88px, 0.95fr) minmax(0, 2.05fr);
-    align-items: stretch;
-    gap: 6px;
-    padding: 8px;
-  }
-  .detail-modal-card.detail-modal--alchemy .alchemy-summary-head {
-    flex-direction: column;
-    align-items: flex-start;
-    justify-content: center;
-    gap: 4px;
-    min-width: 0;
-  }
-  .detail-modal-card.detail-modal--alchemy .alchemy-summary-title {
-    width: 100%;
-    min-width: 0;
-    font-size: var(--font-size-12);
-    line-height: 1.2;
-  }
-  .detail-modal-card.detail-modal--alchemy .alchemy-summary-title > * {
-    min-width: 0;
-  }
-  .detail-modal-card.detail-modal--alchemy .alchemy-summary-title .item-inline-trigger,
-  .detail-modal-card.detail-modal--alchemy .alchemy-summary-title .item-ref-link,
-  .detail-modal-card.detail-modal--alchemy .alchemy-summary-title .item-name-inline {
-    max-width: 100%;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-  }
-  .detail-modal-card.detail-modal--alchemy .alchemy-summary-mode {
-    min-height: 20px;
-    padding: 0 6px;
-    font-size: var(--font-size-10);
-  }
-  .detail-modal-card.detail-modal--alchemy .alchemy-summary-metric {
-    gap: 3px;
-    padding: 8px 6px;
-  }
-  .detail-modal-card.detail-modal--alchemy .alchemy-summary-metric-label {
-    font-size: var(--font-size-10);
-    line-height: 1.2;
-  }
-  .detail-modal-card.detail-modal--alchemy .alchemy-summary-metric-value {
-    font-size: var(--font-size-14);
-    line-height: 1.1;
-  }
-  .detail-modal-card.detail-modal--alchemy .alchemy-ingredient-section {
-    display: grid;
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-    gap: 6px;
-    padding-right: 0;
-    align-content: start;
-  }
-  .detail-modal-card.detail-modal--alchemy .alchemy-ingredient-row {
-    flex-direction: column;
-    align-items: stretch;
-    gap: 6px;
-    padding: 8px;
-  }
-  .detail-modal-card.detail-modal--alchemy .alchemy-ingredient-main,
-  .detail-modal-card.detail-modal--alchemy .alchemy-ingredient-editor,
-  .detail-modal-card.detail-modal--alchemy .alchemy-ingredient-meta {
-    justify-content: flex-start;
-    gap: 6px;
-  }
-  .detail-modal-card.detail-modal--alchemy .alchemy-ingredient-name,
-  .detail-modal-card.detail-modal--alchemy .alchemy-ingredient-owned,
-  .detail-modal-card.detail-modal--alchemy .alchemy-ingredient-lock,
-  .detail-modal-card.detail-modal--alchemy .alchemy-ingredient-count,
-  .detail-modal-card.detail-modal--alchemy .alchemy-ingredient-meta {
-    font-size: var(--font-size-11);
-    line-height: 1.25;
-  }
-  .detail-modal-card.detail-modal--herb-gather {
-    width: calc(100vw - 8px);
-    height: min(84dvh, calc(100dvh - 8px));
-    padding: 12px 10px 10px;
-  }
-  .detail-modal-card.detail-modal--leaderboard {
-    width: calc(100vw - 8px);
-    height: min(84dvh, calc(100dvh - 8px));
-    padding: 12px 10px 10px;
-  }
-  .leaderboard-toolbar {
-    align-items: stretch;
-  }
-  .leaderboard-tabs {
-    display: flex;
-    width: 100%;
-  }
-  .leaderboard-tab-btn {
-    flex: 0 0 auto;
-  }
-  .leaderboard-row {
-    grid-template-columns: 1fr;
-    gap: 8px;
-  }
-  .leaderboard-world-grid {
-    grid-template-columns: 1fr;
-  }
-  .leaderboard-world-row {
-    flex-direction: column;
-    gap: 6px;
-  }
-  .leaderboard-world-value {
-    text-align: left;
-    white-space: normal;
-  }
-  .leaderboard-rank {
-    font-size: var(--font-size-role-title-16);
-  }
-  .tianji-action-card {
-    align-items: flex-start;
-    flex-direction: column;
-  }
   .market-modal-shell--wide {
     grid-template-columns: 42px minmax(0, 1fr);
     gap: 6px;
@@ -1350,58 +856,6 @@
     height: 100%;
     overflow: hidden;
   }
-  .alchemy-layout {
-    grid-template-columns: minmax(0, 1fr);
-    grid-template-rows: auto minmax(0, 1fr);
-    gap: 10px;
-  }
-  .alchemy-recipe-list {
-    max-height: min(188px, 28dvh);
-    padding-right: 2px;
-  }
-  .alchemy-modal-tabs {
-    gap: 4px;
-    padding: 4px;
-  }
-  .alchemy-tab-btn {
-    flex: 1 1 0;
-    min-width: 0;
-    justify-content: center;
-    padding: 7px 10px;
-  }
-  .alchemy-detail-panel {
-    min-height: 0;
-  }
-  .alchemy-ingredient-row,
-  .alchemy-job-head {
-    flex-direction: column;
-    align-items: flex-start;
-  }
-  .alchemy-ingredient-editor {
-    width: 100%;
-    justify-content: flex-start;
-  }
-  .alchemy-actions {
-    justify-content: flex-start;
-  }
-  .alchemy-preset-strip {
-    flex-wrap: nowrap;
-    overflow-x: auto;
-    padding-bottom: 2px;
-    scrollbar-width: thin;
-  }
-  .alchemy-actions .small-btn,
-  .alchemy-preset-strip .alchemy-preset-chip {
-    flex: 0 0 auto;
-    white-space: nowrap;
-  }
-  .herb-gather-summary-meta,
-  .herb-gather-meta {
-    gap: 6px;
-  }
-  .herb-gather-summary-actions {
-    gap: 6px;
-  }
   .market-board-list-wrap,
   .market-book-panel,
   .market-book-column,
@@ -1439,22 +893,15 @@
         align-items: baseline;
         gap: 4px;
         width: 100%;
-        white-space: nowrap;
-        overflow: hidden;
-        text-overflow: ellipsis;
         line-height: 1.2;
         min-height: 0;
       }
       .market-item-cell-name-text {
         min-width: 0;
-        overflow: hidden;
-        text-overflow: ellipsis;
-        white-space: nowrap;
         line-height: 1.2;
       }
       .market-item-cell-owned {
         font-size: var(--font-size-10);
-        white-space: nowrap;
       }
       .market-item-cell-ribbon {
         top: 8px;
@@ -1590,14 +1037,6 @@
 
     html[data-effective-layout-breakpoint="wide"] .world-hero {
       grid-template-columns: 1.35fr 0.9fr;
-    }
-
-    html[data-effective-layout-breakpoint="wide"] .quest-subtabs {
-      grid-template-columns: repeat(4, minmax(0, 1fr));
-    }
-
-    html[data-effective-layout-breakpoint="wide"] .quest-detail-grid {
-      grid-template-columns: repeat(2, minmax(0, 1fr));
     }
 
     html[data-effective-layout-breakpoint="wide"] body,
@@ -1745,16 +1184,24 @@
       align-items: center;
       justify-content: flex-start;
       gap: 14px;
-      padding: 12px 8px;
+      padding: 12px 4px;
       overflow: visible;
+    }
+
+    html[data-effective-layout-breakpoint="wide"] .map-zoom-stack,
+    html[data-effective-layout-breakpoint="compact"] .map-zoom-stack {
+      width: clamp(34px, calc(var(--map-rail-size) - 8px), 64px);
+      gap: 10px;
+      padding: 10px 4px;
+      border-radius: 18px;
     }
 
     html[data-effective-layout-breakpoint="wide"] .map-tool-controls,
     html[data-effective-layout-breakpoint="compact"] .map-tool-controls {
       flex-direction: column;
-      gap: 12px;
-      padding: 12px 10px;
-      border-radius: 18px;
+      gap: 10px;
+      padding: 0;
+      border-radius: 0;
       transform: none;
     }
 

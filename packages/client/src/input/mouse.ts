@@ -6,28 +6,82 @@ import { MapMeta, Tile } from '@mud/shared';
 import { Camera } from '../renderer/camera';
 import { getCellSize } from '../display';
 
-/** ClickTarget：定义该接口的能力与字段约束。 */
+/** 鼠标命中结果，包含坐标、实体和可交互状态。 */
 interface ClickTarget {
-/** x：定义该变量以承载业务值。 */
-  x: number;
-/** y：定义该变量以承载业务值。 */
-  y: number;
-  clientX?: number;
-  clientY?: number;
-  entityId?: string;
-  entityKind?: string;
+/**
+ * x：x相关字段。
+ */
+
+  x: number;  
+  /**
+ * y：y相关字段。
+ */
+
+  y: number;  
+  /**
+ * clientX：clientX相关字段。
+ */
+
+  clientX?: number;  
+  /**
+ * clientY：clientY相关字段。
+ */
+
+  clientY?: number;  
+  /**
+ * entityId：entityID标识。
+ */
+
+  entityId?: string;  
+  /**
+ * entityKind：entityKind相关字段。
+ */
+
+  entityKind?: string;  
+  /**
+ * walkable：walkable相关字段。
+ */
+
   walkable?: boolean;
 }
 
-/** 鼠标输入，将画布上的点击和悬停事件解析为游戏世界中的目标 */
+/**
+ * 鼠标输入模块。
+ * 负责把画布上的坐标事件映射到世界坐标并落到格子/实体上。
+ */
 export class MouseInput {
+  /** 懒加载获取当前相机。 */
   private getCamera: (() => Camera) | null = null;
-  private getTileAt: ((x: number, y: number) => Tile | null) | null = null;
-  private getEntities: (() => { id: string; wx: number; wy: number; kind?: string }[]) | null = null;
+  /** 懒加载获取指定世界坐标的地块。 */
+  private getTileAt: ((x: number, y: number) => Tile | null) | null = null;  
+  /**
+ * getEntities：getEntity相关字段。
+ */
+
+  private getEntities: (() => {  
+  /**
+ * id：ID标识。
+ */
+ id: string;  
+ /**
+ * wx：wx相关字段。
+ */
+ wx: number;  
+ /**
+ * wy：wy相关字段。
+ */
+ wy: number;  
+ /**
+ * kind：kind相关字段。
+ */
+ kind?: string }[]) | null = null;
+  /** 懒加载获取当前地图元信息。 */
   private getMapMeta: (() => MapMeta | null) | null = null;
+  /** 点击目标回调。 */
   private onTarget: ((target: ClickTarget) => void) | null = null;
+  /** 悬停目标回调。 */
   private onHover: ((target: ClickTarget | null) => void) | null = null;
-/** canvas：定义该变量以承载业务值。 */
+  /** 当前监听事件的画布。 */
   private canvas: HTMLCanvasElement | null = null;
 
   /** 初始化鼠标监听，绑定画布事件和坐标转换所需的依赖 */
@@ -35,7 +89,23 @@ export class MouseInput {
     canvas: HTMLCanvasElement,
     getCamera: () => Camera,
     getTileAt: (x: number, y: number) => Tile | null,
-    getEntities: () => { id: string; wx: number; wy: number; kind?: string }[],
+    getEntities: () => {    
+    /**
+ * id：ID标识。
+ */
+ id: string;    
+ /**
+ * wx：wx相关字段。
+ */
+ wx: number;    
+ /**
+ * wy：wy相关字段。
+ */
+ wy: number;    
+ /**
+ * kind：kind相关字段。
+ */
+ kind?: string }[],
     getMapMeta: () => MapMeta | null,
     onTarget: (target: ClickTarget) => void,
     onHover?: (target: ClickTarget | null) => void,
@@ -52,55 +122,45 @@ export class MouseInput {
     canvas.addEventListener('mouseleave', () => this.onHover?.(null));
   }
 
-/** onClick：处理当前场景中的对应操作。 */
+  /** 把点击位置解析为目标并触发回调。 */
   private onClick(e: MouseEvent) {
-/** target：定义该变量以承载业务值。 */
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
     const target = this.resolveTargetFromMouse(e);
     if (!target) return;
     this.onTarget?.(target);
   }
 
-/** onMove：处理当前场景中的对应操作。 */
+  /** 持续更新悬停目标。 */
   private onMove(e: MouseEvent) {
     this.onHover?.(this.resolveTargetFromMouse(e));
   }
 
   /** 将鼠标事件的屏幕坐标转换为世界格子坐标，并查找该格上的实体 */
   private resolveTargetFromMouse(e: MouseEvent): ClickTarget | null {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
     if (!this.canvas || !this.getCamera || !this.getTileAt || !this.getEntities || !this.getMapMeta || !this.onTarget) return null;
 
-/** cam：定义该变量以承载业务值。 */
     const cam = this.getCamera();
-/** rect：定义该变量以承载业务值。 */
     const rect = this.canvas.getBoundingClientRect();
-/** sw：定义该变量以承载业务值。 */
     const sw = this.canvas.width;
-/** sh：定义该变量以承载业务值。 */
     const sh = this.canvas.height;
 
     // 屏幕像素坐标
     const screenX = (e.clientX - rect.left) * (sw / rect.width);
-/** screenY：定义该变量以承载业务值。 */
     const screenY = (e.clientY - rect.top) * (sh / rect.height);
 
     // 屏幕像素 → 世界像素 → 世界格子
     const worldPX = screenX - sw / 2 + cam.x;
-/** worldPY：定义该变量以承载业务值。 */
     const worldPY = screenY - sh / 2 + cam.y;
-/** cellSize：定义该变量以承载业务值。 */
     const cellSize = getCellSize();
-/** worldGX：定义该变量以承载业务值。 */
     const worldGX = Math.floor(worldPX / cellSize);
-/** worldGY：定义该变量以承载业务值。 */
     const worldGY = Math.floor(worldPY / cellSize);
 
-/** tile：定义该变量以承载业务值。 */
     const tile = this.getTileAt(worldGX, worldGY);
-/** entity：定义该变量以承载业务值。 */
     const entity = this.getEntities().find((entry) => entry.wx === worldGX && entry.wy === worldGY);
-/** mapMeta：定义该变量以承载业务值。 */
     const mapMeta = this.getMapMeta();
-/** inCurrentMapBounds：定义该变量以承载业务值。 */
     const inCurrentMapBounds = mapMeta
       ? worldGX >= 0 && worldGX < mapMeta.width && worldGY >= 0 && worldGY < mapMeta.height
       : false;
@@ -109,7 +169,18 @@ export class MouseInput {
       return null;
     }
     return this.buildTarget(worldGX, worldGY, tile?.walkable ?? false, e.clientX, e.clientY, entity);
-  }
+  }  
+  /**
+ * buildTarget：构建并返回目标对象。
+ * @param x number X 坐标。
+ * @param y number Y 坐标。
+ * @param walkable boolean 参数说明。
+ * @param clientX number 参数说明。
+ * @param clientY number 参数说明。
+ * @param entity { id: string; wx: number; wy: number; kind?: string } 参数说明。
+ * @returns 返回目标。
+ */
+
 
   private buildTarget(
     x: number,
@@ -117,8 +188,26 @@ export class MouseInput {
     walkable: boolean,
     clientX?: number,
     clientY?: number,
-    entity?: { id: string; wx: number; wy: number; kind?: string },
+    entity?: {    
+    /**
+ * id：ID标识。
+ */
+ id: string;    
+ /**
+ * wx：wx相关字段。
+ */
+ wx: number;    
+ /**
+ * wy：wy相关字段。
+ */
+ wy: number;    
+ /**
+ * kind：kind相关字段。
+ */
+ kind?: string },
   ): ClickTarget {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
     if (!this.getEntities) {
       return { x, y, clientX, clientY, walkable };
     }
@@ -133,4 +222,3 @@ export class MouseInput {
     };
   }
 }
-

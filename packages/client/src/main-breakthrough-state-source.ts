@@ -1,0 +1,243 @@
+import { C2S, type BreakthroughRequirementView, type ClientToServerEventPayload, type PlayerState } from '@mud/shared';
+import type { SocketRuntimeSender } from './network/socket-send-runtime';
+import { bindInlineItemTooltips, renderInlineItemChip, renderTextWithInlineItemHighlights } from './ui/item-inline-tooltip';
+import { detailModalHost } from './ui/detail-modal-host';
+import { openHeavenGateModal } from './ui/heaven-gate-modal';
+import { formatDisplayInteger } from './utils/number';
+/**
+ * MainBreakthroughStateSourceOptions：统一结构类型，保证协议与运行时一致性。
+ */
+
+
+type MainBreakthroughStateSourceOptions = {
+/**
+ * getPlayer：玩家引用。
+ */
+
+  getPlayer: () => PlayerState | null;  
+  /**
+ * showToast：showToast相关字段。
+ */
+
+  showToast: (message: string) => void;  
+  /**
+ * sendHeavenGateAction：sendHeavenGateAction相关字段。
+ */
+
+  sendHeavenGateAction: SocketRuntimeSender['sendHeavenGateAction'];  
+  /**
+ * sendAction：sendAction相关字段。
+ */
+
+  sendAction: SocketRuntimeSender['sendAction'];  
+  /**
+ * defaultAuraLevelBaseValue：defaultAura等级Base值数值。
+ */
+
+  defaultAuraLevelBaseValue: number;
+};
+/**
+ * getBreakthroughRequirementStatusLabel：读取BreakthroughRequirementStatuLabel。
+ * @param requirement BreakthroughRequirementView 参数说明。
+ * @returns 返回BreakthroughRequirementStatuLabel。
+ */
+
+
+function getBreakthroughRequirementStatusLabel(requirement: BreakthroughRequirementView): string {
+  return requirement.blocksBreakthrough === false
+    ? (requirement.completed ? '已生效' : '未生效')
+    : (requirement.completed ? '已达成' : '未达成');
+}
+/**
+ * getBreakthroughRequirementStatusDetail：读取BreakthroughRequirementStatu详情。
+ * @param requirement BreakthroughRequirementView 参数说明。
+ * @returns 返回BreakthroughRequirementStatu详情。
+ */
+
+
+function getBreakthroughRequirementStatusDetail(requirement: BreakthroughRequirementView): string {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
+  if (requirement.hidden) {
+    return '此关未开，循主线或支线探之。';
+  }
+  if ((requirement.increasePct ?? 0) > 0) {
+    if (requirement.type === 'item') {
+      return requirement.completed ? '突破成功后会消耗该材料。' : '未达则全属性门槛上提。';
+    }
+    return requirement.completed ? '该条件当前已生效。' : '未达则全属性门槛上提。';
+  }
+  return requirement.detail ?? (requirement.completed ? '当前已满足。' : '尚未达成。');
+}
+/**
+ * MainBreakthroughStateSource：统一结构类型，保证协议与运行时一致性。
+ */
+
+
+export type MainBreakthroughStateSource = ReturnType<typeof createMainBreakthroughStateSource>;
+/**
+ * createMainBreakthroughStateSource：构建并返回目标对象。
+ * @param options MainBreakthroughStateSourceOptions 选项参数。
+ * @returns 无返回值，直接更新MainBreakthrough状态来源相关状态。
+ */
+
+
+export function createMainBreakthroughStateSource(options: MainBreakthroughStateSourceOptions) {
+  let auraLevelBaseValue = options.defaultAuraLevelBaseValue;
+
+  return {  
+  /**
+ * openBreakthroughModal：执行openBreakthrough弹层相关逻辑。
+ * @returns 无返回值，直接更新openBreakthrough弹层相关状态。
+ */
+
+    openBreakthroughModal(): void {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
+      const player = options.getPlayer();
+      if (openHeavenGateModal(player, {
+        showToast: options.showToast,
+        sendAction: options.sendHeavenGateAction,
+      })) {
+        return;
+      }
+
+      const preview = player?.realm?.breakthrough;
+      const currentRealm = player?.realm;
+      if (!preview || !currentRealm) {
+        options.showToast('当前境界尚未圆满，暂时不能突破');
+        return;
+      }
+
+      const hasConsumableRequirements = preview.requirements.some((requirement) => requirement.type === 'item');
+      const hasIncreaseRequirements = preview.requirements.some((requirement) => (requirement.increasePct ?? 0) > 0);
+      const rootFoundation = preview.rootFoundation;
+      const rootFoundationReachedCap = rootFoundation ? rootFoundation.current >= rootFoundation.cap : false;
+      const rootFoundationStatusLabel = rootFoundation?.canRefine
+        ? '可凝练'
+        : (rootFoundationReachedCap ? '已达上限' : '未满足');
+      const rootFoundationStatusClass = rootFoundation?.canRefine
+        ? 'is-completed'
+        : (rootFoundationReachedCap ? 'is-capped' : 'is-unmet');
+      const rootMaterialRows = rootFoundation?.items.length
+        ? rootFoundation.items.map((item) => renderInlineItemChip(item.itemId, { count: item.count, tone: 'material' })).join('')
+        : '<span class="empty-hint ui-empty-hint">本级无需额外材料</span>';
+      const requirementRows = preview.requirements.length > 0
+        ? preview.requirements.map((requirement) => `
+          <div class="action-item breakthrough-requirement-item ui-requirement-entry ui-surface-card ui-surface-card--compact">
+            <div class="action-copy">
+              <div class="breakthrough-requirement-head ui-requirement-entry-head">
+                <span class="action-name">${renderTextWithInlineItemHighlights(requirement.label)}</span>
+                <span class="action-type breakthrough-requirement-status ui-requirement-status ${requirement.completed ? 'is-completed' : 'is-unmet'}">
+                  [${getBreakthroughRequirementStatusLabel(requirement)}]
+                </span>
+                ${!requirement.completed && (requirement.increasePct ?? 0) > 0
+                  ? `<span class="breakthrough-requirement-bonus ui-requirement-bonus">+${requirement.increasePct}%</span>`
+                  : ''}
+              </div>
+              <div class="action-desc">${renderTextWithInlineItemHighlights(getBreakthroughRequirementStatusDetail(requirement))}</div>
+            </div>
+          </div>
+        `).join('')
+        : '<div class="empty-hint ui-empty-hint">当前无额外突破要求。</div>';
+
+      detailModalHost.open({
+        ownerId: 'realm:breakthrough',
+        size: 'md',
+        variantClass: 'detail-modal--breakthrough',
+        title: `突破至 ${preview.targetDisplayName}`,
+        subtitle: `${currentRealm.displayName} · 核心要求 ${preview.completedBlockingRequirements}/${preview.blockingRequirements}`,
+        hint: preview.blockedReason
+          ? preview.blockedReason
+          : preview.canBreakthrough
+            ? (hasConsumableRequirements ? '绿色表示已满足；已生效的材料会在突破后消耗。' : '点击空白处关闭')
+              : (hasIncreaseRequirements ? '赤者为未达，+%者将抬全属门槛。' : '赤者为未达，隐关需循任务渐开。'),
+        bodyHtml: `
+          <div class="breakthrough-modal-grid">
+            <div class="panel-section breakthrough-requirements-panel">
+              <div class="panel-section-title">突破要求</div>
+              ${requirementRows}
+            </div>
+            <div class="panel-section breakthrough-root-foundation-panel">
+              <div class="panel-section-title">凝练根基</div>
+              ${rootFoundation ? `
+                <div class="action-item breakthrough-requirement-item ui-requirement-entry ui-surface-card ui-surface-card--compact">
+                  <div class="action-copy">
+                    <div class="breakthrough-requirement-head ui-requirement-entry-head">
+                      <span class="action-name">根基 ${formatDisplayInteger(rootFoundation.current)} / ${formatDisplayInteger(rootFoundation.cap)}</span>
+                      <span class="action-type breakthrough-requirement-status ui-requirement-status ${rootFoundationStatusClass}">
+                        [${rootFoundationStatusLabel}]
+                      </span>
+                    </div>
+                    <div class="action-desc">消耗当前境界 100% 修为与一倍突破材料，提升 1 点根基；每点根基提供 1% 六维境界乘区。</div>
+                    <div class="action-desc">修为：${formatDisplayInteger(rootFoundation.progress)} / ${formatDisplayInteger(rootFoundation.costProgress)}</div>
+                    <div class="action-desc breakthrough-root-materials">${rootMaterialRows}</div>
+                    ${rootFoundation.blockedReason ? `<div class="action-desc">${renderTextWithInlineItemHighlights(rootFoundation.blockedReason)}</div>` : ''}
+                  </div>
+                </div>
+              ` : '<div class="empty-hint ui-empty-hint">当前暂不可凝练根基。</div>'}
+            </div>
+          </div>
+          ${hasIncreaseRequirements ? `
+            <div class="panel-section">
+              <div class="empty-hint ui-empty-hint">赤者为未达，+%者将抬全属门槛。绿者已达。</div>
+            </div>
+          ` : ''}
+          <div class="breakthrough-action-grid">
+            <div class="breakthrough-action-cell">
+              <button class="small-btn breakthrough-action-btn breakthrough-confirm-btn" type="button" data-breakthrough-confirm ${preview.canBreakthrough ? '' : 'disabled'}>确认突破</button>
+            </div>
+            <div class="breakthrough-action-cell">
+              ${rootFoundation ? `<button class="small-btn breakthrough-action-btn" type="button" data-root-foundation-refine ${rootFoundation.canRefine ? '' : 'disabled'}>凝练根基</button>` : ''}
+            </div>
+          </div>
+        `,
+        onAfterRender: (body) => {
+          bindInlineItemTooltips(body);
+          body.querySelector<HTMLElement>('[data-breakthrough-confirm]')?.addEventListener('click', () => {
+            detailModalHost.close('realm:breakthrough');
+            options.sendAction('realm:breakthrough');
+          });
+          body.querySelector<HTMLElement>('[data-root-foundation-refine]')?.addEventListener('click', () => {
+            detailModalHost.close('realm:breakthrough');
+            options.sendAction('realm:refine_root_foundation');
+          });
+        },
+      });
+    },    
+    /**
+ * syncAuraLevelBaseValue：处理Aura等级Base值并更新相关状态。
+ * @param nextValue number 参数说明。
+ * @returns 无返回值，直接更新Aura等级Base值相关状态。
+ */
+
+
+    syncAuraLevelBaseValue(nextValue?: number): void {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
+      if (typeof nextValue !== 'number' || !Number.isFinite(nextValue) || nextValue <= 0) {
+        return;
+      }
+      auraLevelBaseValue = Math.max(1, Math.round(nextValue));
+    },    
+    /**
+ * formatAuraLevelText：规范化或转换Aura等级Text。
+ * @param auraValue number 参数说明。
+ * @returns 返回Aura等级Text。
+ */
+
+
+    formatAuraLevelText(auraValue: number): string {
+      return `灵气 ${formatDisplayInteger(Math.max(0, Math.round(auraValue / auraLevelBaseValue * auraLevelBaseValue)))}`;
+    },    
+    /**
+ * getAuraLevelBaseValue：读取Aura等级Base值。
+ * @returns 返回Aura等级Base值数值。
+ */
+
+
+    getAuraLevelBaseValue(): number {
+      return auraLevelBaseValue;
+    },
+  };
+}

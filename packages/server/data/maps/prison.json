@@ -6,9 +6,9 @@
   "routeDomain": "system",
   "terrainProfileId": "mortal_settlement",
   "spaceVisionMode": "isolated",
-  "description": "一处被单独隔开的空置监牢，四下没有陈设，也没有任何出口。",
+  "description": "四面空空，只余一片无遮无拦的囚场。",
   "dangerLevel": 1,
-  "recommendedRealm": "不限",
+  "recommendedRealm": "Entry",
   "tiles": [
     "....................",
     "....................",
@@ -40,8 +40,8 @@
     "offsetTicks": 0,
     "scale": 1,
     "light": {
-      "base": 24,
-      "timeInfluence": 0
+      "base": 22,
+      "timeInfluence": 6
     },
     "palette": {}
   },

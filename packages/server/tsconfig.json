@@ -1,10 +1,23 @@
 {
   "extends": "../../tsconfig.base.json",
   "compilerOptions": {
-    "outDir": "dist",
+    "target": "ES2022",
+    "module": "Node16",
+    "moduleResolution": "Node16",
     "rootDir": "src",
+    "outDir": "dist",
+    "allowJs": true,
+    "checkJs": false,
+    "declaration": false,
+    "declarationMap": false,
+    "sourceMap": true,
+    "removeComments": false,
+    "noEmitOnError": true,
+    "experimentalDecorators": true,
     "emitDecoratorMetadata": true,
-    "experimentalDecorators": true
+    "strict": false
   },
-  "include": ["src"]
+  "include": [
+    "src/**/*"
+  ]
 }

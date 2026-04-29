@@ -1,70 +1,97 @@
 import { detailModalHost } from './detail-modal-host';
 import { CHANGELOG_ENTRIES, getLatestChangelogEntry } from './changelog-data';
 
-/** ChangelogPanel：封装相关状态与行为。 */
+/** ChangelogPanel：Changelog面板实现。 */
 export class ChangelogPanel {
-  private static readonly MODAL_OWNER = 'changelog-panel';
+  /** MODAL_OWNER：弹窗OWNER。 */
+  private static readonly MODAL_OWNER = 'changelog-panel';  
+  /**
+ * 构造器：初始化 当前 实例并建立基础状态。
+ * @returns 无返回值，完成实例初始化。
+ */
 
-/** constructor：处理当前场景中的对应操作。 */
+
   constructor() {
     document.getElementById('hud-open-chronicle')?.addEventListener('click', () => this.open());
   }
 
-/** open：执行对应的业务逻辑。 */
+  /** open：打开open。 */
   open(): void {
     detailModalHost.open({
       ownerId: ChangelogPanel.MODAL_OWNER,
       title: '岁月史书',
       subtitle: this.buildSubtitle(),
       hint: '点击空白处关闭',
-      bodyHtml: this.buildBodyHtml(),
+      renderBody: (body) => {
+        this.renderBody(body);
+      },
     });
   }
 
-/** buildSubtitle：执行对应的业务逻辑。 */
+  /** buildSubtitle：构建Subtitle。 */
   private buildSubtitle(): string {
-/** latest：定义该变量以承载业务值。 */
     const latest = getLatestChangelogEntry();
     return latest ? `最近记载：${latest.updatedAt}` : '暂无记载';
   }
 
-/** buildBodyHtml：执行对应的业务逻辑。 */
-  private buildBodyHtml(): string {
-    return `
-      <div class="chronicle-shell">
-        <section class="panel-section chronicle-history">
-          <div class="panel-section-title">更新日志</div>
-          <div class="chronicle-entry-list">
-            ${CHANGELOG_ENTRIES.map((entry) => this.renderEntry(entry)).join('')}
-          </div>
-        </section>
-      </div>
-    `;
+  /** renderBody：渲染身体。 */
+  private renderBody(body: HTMLElement): void {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
+    const shell = createElement('div', 'chronicle-shell');
+    const historySection = createElement('section', 'panel-section chronicle-history');
+    const sectionTitle = createElement('div', 'panel-section-title', '更新日志');
+    const entryList = createElement('div', 'chronicle-entry-list');
+    for (const entry of CHANGELOG_ENTRIES) {
+      entryList.append(this.renderEntry(entry));
+    }
+    historySection.append(sectionTitle, entryList);
+    shell.append(historySection);
+    body.replaceChildren(shell);
   }
 
-/** renderEntry：执行对应的业务逻辑。 */
-  private renderEntry(entry: { updatedAt: string; summary: string; items: string[] }): string {
-    return `
-      <article class="chronicle-entry">
-        <div class="chronicle-entry-head">
-          <div class="chronicle-entry-time">${escapeHtml(entry.updatedAt)}</div>
-          <div class="chronicle-entry-summary">${escapeHtml(entry.summary)}</div>
-        </div>
-        <ul class="chronicle-entry-items">
-          ${entry.items.map((item) => `<li>${escapeHtml(item)}</li>`).join('')}
-        </ul>
-      </article>
-    `;
+  /** renderEntry：渲染条目。 */
+  private renderEntry(entry: {  
+  /**
+ * updatedAt：updatedAt相关字段。
+ */
+ updatedAt: string;  
+ /**
+ * summary：摘要状态或数据块。
+ */
+ summary: string;  
+ /**
+ * items：集合字段。
+ */
+ items: string[] }): HTMLElement {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
+    const article = createElement('article', 'chronicle-entry');
+    const head = createElement('div', 'chronicle-entry-head');
+    head.append(
+      createElement('div', 'chronicle-entry-time', entry.updatedAt),
+      createElement('div', 'chronicle-entry-summary', entry.summary),
+    );
+    const list = createElement('ul', 'chronicle-entry-items');
+    for (const item of entry.items) {
+      list.append(createElement('li', '', item));
+    }
+    article.append(head, list);
+    return article;
   }
 }
 
-/** escapeHtml：执行对应的业务逻辑。 */
-function escapeHtml(input: string): string {
-  return input
-    .replaceAll('&', '&amp;')
-    .replaceAll('<', '&lt;')
-    .replaceAll('>', '&gt;')
-    .replaceAll('"', '&quot;')
-    .replaceAll("'", '&#39;');
+/** createElement：创建文本元素。 */
+function createElement<K extends keyof HTMLElementTagNameMap>(tagName: K, className: string, text?: string): HTMLElementTagNameMap[K] {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
+  const element = document.createElement(tagName);
+  if (className) {
+    element.className = className;
+  }
+  if (typeof text === 'string') {
+    element.textContent = text;
+  }
+  return element;
 }
 

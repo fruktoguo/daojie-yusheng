@@ -95,6 +95,18 @@
       "routeDomain": "inherit",
       "allowPlayerOverlap": false,
       "hidden": false
+    },
+    {
+      "x": 24,
+      "y": 44,
+      "targetMapId": "qizhen_crossing",
+      "targetX": 29,
+      "targetY": 6,
+      "kind": "portal",
+      "trigger": "manual",
+      "routeDomain": "inherit",
+      "allowPlayerOverlap": false,
+      "hidden": false
     }
   ],
   "spawnPoint": {

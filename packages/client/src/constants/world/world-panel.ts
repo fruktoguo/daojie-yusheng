@@ -3,21 +3,42 @@
  */
 import { TechniqueRealm } from '@mud/shared';
 
-/** WorldGuide：定义该接口的能力与字段约束。 */
+/** WorldGuide：世界指南条目。 */
 export interface WorldGuide {
-/** title：定义该变量以承载业务值。 */
-  title: string;
-/** recommendedRealm：定义该变量以承载业务值。 */
-  recommendedRealm: string;
-/** route：定义该变量以承载业务值。 */
-  route: string;
-/** mood：定义该变量以承载业务值。 */
-  mood: string;
-/** desc：定义该变量以承载业务值。 */
-  desc: string;
-/** resources：定义该变量以承载业务值。 */
-  resources: string[];
-/** threats：定义该变量以承载业务值。 */
+/**
+ * title：title名称或显示文本。
+ */
+
+  title: string;  
+  /**
+ * recommendedRealm：recommendedRealm相关字段。
+ */
+
+  recommendedRealm: string;  
+  /**
+ * route：路线相关字段。
+ */
+
+  route: string;  
+  /**
+ * mood：mood相关字段。
+ */
+
+  mood: string;  
+  /**
+ * desc：desc相关字段。
+ */
+
+  desc: string;  
+  /**
+ * resources：resource相关字段。
+ */
+
+  resources: string[];  
+  /**
+ * threats：threat相关字段。
+ */
+
   threats: string[];
 }
 
@@ -123,7 +144,11 @@ export const WORLD_GUIDE: Record<string, WorldGuide> = {
 };
 
 /** 主界面兜底使用的地图推荐境界。 */
-export const MAP_FALLBACK: Record<string, { recommendedRealm: string }> = {
+export const MAP_FALLBACK: Record<string, {
+/**
+ * recommendedRealm：recommendedRealm相关字段。
+ */
+ recommendedRealm: string }> = {
   yunlai_town: { recommendedRealm: '凡胎-锻骨' },
   qizhen_crossing: { recommendedRealm: '练气一层-半步筑基' },
   bamboo_forest: { recommendedRealm: '易筋-养气' },
@@ -134,4 +159,3 @@ export const MAP_FALLBACK: Record<string, { recommendedRealm: string }> = {
   spirit_ridge: { recommendedRealm: '天玑-大宗师' },
   sky_ruins: { recommendedRealm: '宗师-叩仙门' },
 };
-

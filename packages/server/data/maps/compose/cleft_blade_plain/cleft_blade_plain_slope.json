@@ -34,7 +34,7 @@
       "x": 1,
       "y": 8,
       "targetMapId": "cleft_blade_plain_straightway",
-      "targetX": 27,
+      "targetX": 28,
       "targetY": 8,
       "kind": "portal",
       "trigger": "manual",
@@ -46,7 +46,7 @@
       "x": 1,
       "y": 9,
       "targetMapId": "cleft_blade_plain_straightway",
-      "targetX": 27,
+      "targetX": 28,
       "targetY": 9,
       "kind": "portal",
       "trigger": "manual",
@@ -58,7 +58,7 @@
       "x": 26,
       "y": 8,
       "targetMapId": "cleft_blade_plain_entry",
-      "targetX": 2,
+      "targetX": 1,
       "targetY": 7,
       "kind": "portal",
       "trigger": "manual",
@@ -70,7 +70,7 @@
       "x": 26,
       "y": 9,
       "targetMapId": "cleft_blade_plain_entry",
-      "targetX": 2,
+      "targetX": 1,
       "targetY": 8,
       "kind": "portal",
       "trigger": "manual",
@@ -109,12 +109,12 @@
     {
       "x": 22,
       "y": 8,
-      "value": 1
+      "value": 1000
     },
     {
       "x": 8,
       "y": 8,
-      "value": 2
+      "value": 1500
     }
   ],
   "resources": [
@@ -122,37 +122,37 @@
       "x": 22,
       "y": 8,
       "resourceKey": "aura.refined.metal",
-      "value": 4
+      "value": 3375
     },
     {
       "x": 16,
       "y": 8,
       "resourceKey": "aura.refined.metal",
-      "value": 4
+      "value": 3375
     },
     {
       "x": 12,
       "y": 6,
       "resourceKey": "aura.refined.metal",
-      "value": 4
+      "value": 3375
     },
     {
       "x": 8,
       "y": 8,
       "resourceKey": "aura.refined.metal",
-      "value": 5
+      "value": 5063
     },
     {
       "x": 8,
       "y": 8,
       "resourceKey": "aura.refined.earth",
-      "value": 1
+      "value": 1000
     },
     {
       "x": 6,
       "y": 10,
       "resourceKey": "aura.refined.earth",
-      "value": 1
+      "value": 1000
     }
   ],
   "safeZones": [],

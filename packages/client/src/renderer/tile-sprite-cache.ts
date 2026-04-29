@@ -6,81 +6,99 @@ import {
 } from '@mud/shared';
 import { buildCanvasFont } from '../constants/ui/text';
 
-/** TileSprite：定义该接口的能力与字段约束。 */
+/** 地块精灵对象，用于命中率高的像素绘制缓存。 */
 export interface TileSprite {
-/** key：定义该变量以承载业务值。 */
-  key: string;
-/** tileType：定义该变量以承载业务值。 */
-  tileType: TileType;
-/** cellSize：定义该变量以承载业务值。 */
-  cellSize: number;
-/** canvas：定义该变量以承载业务值。 */
+/**
+ * key：key标识。
+ */
+
+  key: string;  
+  /**
+ * tileType：tileType相关字段。
+ */
+
+  tileType: TileType;  
+  /**
+ * cellSize：数量或计量字段。
+ */
+
+  cellSize: number;  
+  /**
+ * canvas：canva相关字段。
+ */
+
   canvas: HTMLCanvasElement;
 }
 
-/** TileSpriteCacheEntry：定义该接口的能力与字段约束。 */
+/** 精灵缓存条目，记录最近使用序号用于 LRU 淘汰。 */
 interface TileSpriteCacheEntry extends TileSprite {
-/** lastAccess：定义该变量以承载业务值。 */
+/**
+ * lastAccess：lastAccess相关字段。
+ */
+
   lastAccess: number;
 }
 
-/** TileSpriteCacheOptions：定义该接口的能力与字段约束。 */
+/** 可配置的地块精灵缓存参数。 */
 interface TileSpriteCacheOptions {
+/**
+ * maxEntries：集合字段。
+ */
+
   maxEntries?: number;
 }
 
-/** DEFAULT_MAX_ENTRIES：定义该变量以承载业务值。 */
+/** 默认最大缓存条目数。 */
 const DEFAULT_MAX_ENTRIES = 512;
 
-/** normalizeCellSize：执行对应的业务逻辑。 */
+/** 统一格子像素尺寸，保证同一尺寸下复用缓存。 */
 function normalizeCellSize(cellSize: number): number {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
   if (!Number.isFinite(cellSize)) {
     return 1;
   }
   return Math.max(1, Math.round(cellSize));
 }
 
-/** buildSpriteKey：执行对应的业务逻辑。 */
+/** 以地块类型与像素大小生成精灵键。 */
 function buildSpriteKey(tileType: TileType, cellSize: number): string {
   return `${tileType}:${cellSize}`;
 }
 
-/** createSpriteCanvas：执行对应的业务逻辑。 */
+/** 创建用于缓存绘制结果的离屏画布。 */
 function createSpriteCanvas(size: number): HTMLCanvasElement {
-/** canvas：定义该变量以承载业务值。 */
   const canvas = document.createElement('canvas');
   canvas.width = size;
   canvas.height = size;
   return canvas;
 }
 
-/** renderTileSprite：执行对应的业务逻辑。 */
+/** 按格子类型和尺寸绘制单张地块贴图。 */
 function renderTileSprite(canvas: HTMLCanvasElement, tileType: TileType, cellSize: number): void {
-/** ctx：定义该变量以承载业务值。 */
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
   const ctx = canvas.getContext('2d');
   if (!ctx) {
     return;
   }
 
-/** bgColor：定义该变量以承载业务值。 */
   const bgColor = TILE_VISUAL_BG_COLORS[tileType] ?? '#333';
-/** glyph：定义该变量以承载业务值。 */
   const glyph = TILE_VISUAL_GLYPHS[tileType];
-/** glyphColor：定义该变量以承载业务值。 */
   const glyphColor = TILE_VISUAL_GLYPH_COLORS[tileType] ?? 'rgba(0,0,0,0.2)';
 
   ctx.clearRect(0, 0, cellSize, cellSize);
 
-  // Layer 1: tile background.
+  // 背景：填充地块底色。
   ctx.fillStyle = bgColor;
   ctx.fillRect(0, 0, cellSize, cellSize);
 
-  // Layer 2: tile border.
+  // 边框：描边分隔格子视觉边界。
   ctx.strokeStyle = 'rgba(0,0,0,0.1)';
   ctx.lineWidth = 0.5;
   ctx.strokeRect(0, 0, cellSize, cellSize);
 
-  // Layer 3: tile glyph.
+  // 图标：渲染地块符号。
   if (glyph) {
     ctx.fillStyle = glyphColor;
     ctx.font = buildCanvasFont('tileGlyph', cellSize * 0.6);
@@ -90,37 +108,35 @@ function renderTileSprite(canvas: HTMLCanvasElement, tileType: TileType, cellSiz
   }
 }
 
-/** TileSpriteCache：封装相关状态与行为。 */
+/** 地块 Sprite LRU 缓存，避免每帧重复重绘。 */
 export class TileSpriteCache {
+  /** 精灵缓存 Map，键为 tileType:size。 */
   private readonly cache = new Map<string, TileSpriteCacheEntry>();
-/** maxEntries：定义该变量以承载业务值。 */
+  /** 上限容量，超过时触发淘汰。 */
   private readonly maxEntries: number;
+  /** 全局访问序号，用于估算最近最少使用。 */
   private accessSerial = 1;
 
-/** constructor：处理当前场景中的对应操作。 */
+  /** 初始化最大容量，防止配置异常导致内存暴涨。 */
   constructor(options?: TileSpriteCacheOptions) {
-/** requestedLimit：定义该变量以承载业务值。 */
     const requestedLimit = options?.maxEntries ?? DEFAULT_MAX_ENTRIES;
     this.maxEntries = Math.max(64, Math.floor(requestedLimit));
   }
 
-/** getSprite：执行对应的业务逻辑。 */
+  /** 按类型与尺寸取回缓存；未命中时创建并写缓存。 */
   getSprite(tileType: TileType, cellSize: number): TileSprite {
-/** normalizedSize：定义该变量以承载业务值。 */
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
     const normalizedSize = normalizeCellSize(cellSize);
-/** key：定义该变量以承载业务值。 */
     const key = buildSpriteKey(tileType, normalizedSize);
-/** hit：定义该变量以承载业务值。 */
     const hit = this.cache.get(key);
     if (hit) {
       hit.lastAccess = this.accessSerial++;
       return hit;
     }
 
-/** canvas：定义该变量以承载业务值。 */
     const canvas = createSpriteCanvas(normalizedSize);
     renderTileSprite(canvas, tileType, normalizedSize);
-/** created：定义该变量以承载业务值。 */
     const created: TileSpriteCacheEntry = {
       key,
       tileType,
@@ -131,7 +147,17 @@ export class TileSpriteCache {
     this.cache.set(key, created);
     this.evictIfNeeded();
     return created;
-  }
+  }  
+  /**
+ * drawSprite：执行drawSprite相关逻辑。
+ * @param ctx CanvasRenderingContext2D 上下文信息。
+ * @param tileType TileType 参数说明。
+ * @param cellSize number 参数说明。
+ * @param sx number 参数说明。
+ * @param sy number 参数说明。
+ * @returns 返回drawSprite。
+ */
+
 
   drawSprite(
     ctx: CanvasRenderingContext2D,
@@ -140,22 +166,21 @@ export class TileSpriteCache {
     sx: number,
     sy: number,
   ): TileSprite {
-/** sprite：定义该变量以承载业务值。 */
     const sprite = this.getSprite(tileType, cellSize);
     ctx.drawImage(sprite.canvas, sx, sy);
     return sprite;
   }
 
-/** clear：执行对应的业务逻辑。 */
+  /** 清空全部精灵缓存。 */
   clear(): void {
     this.cache.clear();
   }
 
-/** deleteByCellSize：执行对应的业务逻辑。 */
+  /** 按当前格子尺寸清理对应版本的精灵缓存。 */
   deleteByCellSize(cellSize: number): void {
-/** normalizedSize：定义该变量以承载业务值。 */
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
     const normalizedSize = normalizeCellSize(cellSize);
-/** suffix：定义该变量以承载业务值。 */
     const suffix = `:${normalizedSize}`;
     for (const key of this.cache.keys()) {
       if (key.endsWith(suffix)) {
@@ -164,27 +189,27 @@ export class TileSpriteCache {
     }
   }
 
-/** prewarm：执行对应的业务逻辑。 */
+  /** 预热常用地块类型，避免首帧抖动。 */
   prewarm(tileTypes: Iterable<TileType>, cellSize: number): void {
     for (const tileType of tileTypes) {
       this.getSprite(tileType, cellSize);
     }
   }
 
-/** size：执行对应的业务逻辑。 */
+  /** 当前缓存条目数量。 */
   size(): number {
     return this.cache.size;
   }
 
-/** evictIfNeeded：执行对应的业务逻辑。 */
+  /** 超量后清理最旧访问条目。 */
   private evictIfNeeded(): void {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
     if (this.cache.size <= this.maxEntries) {
       return;
     }
 
-/** oldestKey：定义该变量以承载业务值。 */
     let oldestKey: string | null = null;
-/** oldestAccess：定义该变量以承载业务值。 */
     let oldestAccess = Number.POSITIVE_INFINITY;
     for (const [key, entry] of this.cache) {
       if (entry.lastAccess < oldestAccess) {
@@ -197,4 +222,6 @@ export class TileSpriteCache {
     }
   }
 }
+
+
 

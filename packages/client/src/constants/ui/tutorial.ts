@@ -1,40 +1,77 @@
 import { TUTORIAL_MECHANIC_TOPICS as SHARED_TUTORIAL_MECHANIC_TOPICS } from '@mud/shared';
 
-/** TutorialTopicSection：定义该接口的能力与字段约束。 */
+/** TutorialTopicSection：教程章节分段。 */
 export interface TutorialTopicSection {
-/** title：定义该变量以承载业务值。 */
-  title: string;
-/** items：定义该变量以承载业务值。 */
+/**
+ * title：title名称或显示文本。
+ */
+
+  title: string;  
+  /**
+ * items：集合字段。
+ */
+
   items: string[];
 }
 
-/** TutorialTopic：定义该接口的能力与字段约束。 */
+/** TutorialTopic：基础教程章节条目。 */
 export interface TutorialTopic {
-/** id：定义该变量以承载业务值。 */
-  id: string;
-/** label：定义该变量以承载业务值。 */
-  label: string;
-/** summary：定义该变量以承载业务值。 */
-  summary: string;
-/** sections：定义该变量以承载业务值。 */
-  sections: TutorialTopicSection[];
+/**
+ * id：ID标识。
+ */
+
+  id: string;  
+  /**
+ * label：label名称或显示文本。
+ */
+
+  label: string;  
+  /**
+ * summary：摘要状态或数据块。
+ */
+
+  summary: string;  
+  /**
+ * sections：section相关字段。
+ */
+
+  sections: TutorialTopicSection[];  
+  /**
+ * tips：tip相关字段。
+ */
+
   tips?: string[];
 }
 
-/** TutorialFlowTopic：定义该接口的能力与字段约束。 */
+/** TutorialFlowTopic：流程型教程章节条目。 */
 export interface TutorialFlowTopic {
-/** id：定义该变量以承载业务值。 */
-  id: string;
-/** label：定义该变量以承载业务值。 */
-  label: string;
-/** summary：定义该变量以承载业务值。 */
-  summary: string;
-/** sections：定义该变量以承载业务值。 */
-  sections: TutorialTopicSection[];
+/**
+ * id：ID标识。
+ */
+
+  id: string;  
+  /**
+ * label：label名称或显示文本。
+ */
+
+  label: string;  
+  /**
+ * summary：摘要状态或数据块。
+ */
+
+  summary: string;  
+  /**
+ * sections：section相关字段。
+ */
+
+  sections: TutorialTopicSection[];  
+  /**
+ * tips：tip相关字段。
+ */
+
   tips?: string[];
 }
 
-/** TUTORIAL_TOPICS：定义该变量以承载业务值。 */
 export const TUTORIAL_TOPICS: TutorialTopic[] = [
   {
     id: 'basics',
@@ -52,28 +89,28 @@ export const TUTORIAL_TOPICS: TutorialTopic[] = [
       {
         title: '界面怎么看',
         items: [
-          '左上会显示地图、坐标、骨龄、寿元、境界、气血、真气和境界修为。',
+          '左上会显示地图、坐标、岁、寿、境界、气血、真气和境界修为。',
           '右侧和下方面板分别负责背包、装备、功法、任务、坊市、行动、见闻等内容。',
-          '不知道接下来做什么时，优先看任务面板和中间的地图情报、附近动态、行动建议。',
+          '不知道接下来做什么时，优先看任务面板、中间的地图信息和天机阁。',
         ],
       },
     ],
     tips: [
-      '新角色最重要的是先接任务、学会主修功法、再开始稳定修炼。',
+      '新角色最重要的是先接任务、打开当前修炼，再逐步补齐主修功法。',
       '遇到不会用的按钮，可以先看它所在面板的标题，基本都按功能分好了。',
     ],
   },
   {
     id: 'cultivation',
     label: '修炼',
-    summary: '修炼分两步：先选主修功法，再决定什么时候让角色真正进入修炼状态。功法等级和境界推进都会影响后续玩法。',
+    summary: '修炼分两部分：当前修炼决定境界推进，主修功法决定哪门功法一起获得经验。功法等级和境界推进都会影响后续玩法。',
     sections: [
       {
         title: '先选主修',
         items: [
           '打开“功法”页，找到想练的功法，点“设为主修”。',
           '如果背包里有功法书，先在背包里使用，学会后它才会出现在功法列表里。',
-          '主修只是在告诉系统“优先练哪本”，真正开始打坐还要开修炼开关。',
+          '主修只是在告诉系统“优先练哪本”；没有主修也可以先打开修炼推进境界。',
         ],
       },
       {
@@ -94,7 +131,7 @@ export const TUTORIAL_TOPICS: TutorialTopic[] = [
       },
     ],
     tips: [
-      '练功慢时，先检查是不是没设主修，或者“当前修炼”其实没开。',
+      '练功慢时，先检查“当前修炼”是不是没开，再看有没有合适的主修功法。',
       '功法越多越不代表越强，先把常用主修练起来更重要。',
     ],
   },
@@ -220,7 +257,7 @@ export const TUTORIAL_TOPICS: TutorialTopic[] = [
       {
         title: '怎么接和交',
         items: [
-          '靠近 NPC 后，在“行动”的对话类选项里和他交互，就能接任务或交任务。',
+          '靠近 NPC 后，在“行动”的交互类选项里和他交互，就能接任务或交任务。',
           '任务就绪后，任务面板里会明确写出下一步是去哪里、找谁、杀什么、交什么。',
           '任务完成到可交付时，记得回到交任务的 NPC 那里，不会自动结清。',
         ],
@@ -351,10 +388,8 @@ export const TUTORIAL_TOPICS: TutorialTopic[] = [
   },
 ];
 
-/** TUTORIAL_MECHANIC_TOPICS：定义该变量以承载业务值。 */
 export const TUTORIAL_MECHANIC_TOPICS: TutorialTopic[] = SHARED_TUTORIAL_MECHANIC_TOPICS;
 
-/** TUTORIAL_FLOW_TOPICS：定义该变量以承载业务值。 */
 export const TUTORIAL_FLOW_TOPICS: TutorialFlowTopic[] = [
   {
     id: 'how-to-play',
@@ -442,7 +477,7 @@ export const TUTORIAL_FLOW_TOPICS: TutorialFlowTopic[] = [
       {
         title: '修炼前先做这些',
         items: [
-          '先设主修功法，再打开当前修炼，这样角色才真正进入修炼状态。',
+          '先打开当前修炼保证境界推进；有想练的功法时，再设为主修。',
           '善用感气和观察。感气能帮你找灵气浓郁的地方，在感气状态下再观察，还能看到目标地块更细的灵气数值。',
           '你也可以自己使用灵石把当前区域变得更适合修炼，但最好找隐蔽安全的地方，避免别人趁你闭关把你送回家。',
         ],
@@ -565,4 +600,3 @@ export const TUTORIAL_FLOW_TOPICS: TutorialFlowTopic[] = [
     ],
   },
 ];
-

@@ -9,61 +9,107 @@ import {
 import { detailModalHost } from './detail-modal-host';
 import { getElementKeyLabel } from '../domain-labels';
 import { formatDisplayInteger } from '../utils/number';
-import { clientToViewportPoint } from './responsive-viewport';
 import { describeSpiritualRoots, normalizeSpiritualRoots } from '../utils/spiritual-roots';
 
-/** HEAVEN_GATE_OWNER：定义该变量以承载业务值。 */
+/** HEAVEN_GATE_OWNER：HEAVEN关卡OWNER。 */
 const HEAVEN_GATE_OWNER = 'realm:heaven_gate';
-/** HEAVEN_GATE_MIN_REALM_LEVEL：定义该变量以承载业务值。 */
+/** HEAVEN_GATE_MIN_REALM_LEVEL：HEAVEN关卡最小境界等级。 */
 const HEAVEN_GATE_MIN_REALM_LEVEL = 18;
-/** ELEMENTS：定义该变量以承载业务值。 */
 const ELEMENTS: readonly ElementKey[] = ['metal', 'wood', 'water', 'fire', 'earth'];
-/** HEAVEN_GATE_SEVER_COST_PERCENT：定义该变量以承载业务值。 */
+/** HEAVEN_GATE_SEVER_COST_PERCENT：HEAVEN关卡SEVER COST PERCENT。 */
 const HEAVEN_GATE_SEVER_COST_PERCENT = Math.round(HEAVEN_GATE_SEVER_COST_RATIO * 100);
 
-/** PendingAction：定义该类型的结构与数据语义。 */
+/** PendingAction：天门弹层待确认操作。 */
 type PendingAction =
-  | { kind: 'sever' | 'restore'; element: ElementKey }
-  | { kind: 'open' | 'reroll' | 'enter' };
+  | {  
+  /**
+ * kind：kind相关字段。
+ */
+ kind: 'sever' | 'restore';  
+ /**
+ * element：element相关字段。
+ */
+ element: ElementKey }
+  | {  
+  /**
+ * kind：kind相关字段。
+ */
+ kind: 'open' | 'reroll' | 'enter' };
 
-/** HeavenGateSession：定义该接口的能力与字段约束。 */
+/** HeavenGateSession：天门弹层会话状态。 */
 interface HeavenGateSession {
-/** realmName：定义该变量以承载业务值。 */
-  realmName: string;
-/** currentExp：定义该变量以承载业务值。 */
-  currentExp: number;
-/** maxExp：定义该变量以承载业务值。 */
-  maxExp: number;
-/** severed：定义该变量以承载业务值。 */
-  severed: Set<ElementKey>;
-/** roots：定义该变量以承载业务值。 */
-  roots: HeavenGateRootValues | null;
-/** unlocked：定义该变量以承载业务值。 */
-  unlocked: boolean;
-/** entered：定义该变量以承载业务值。 */
+/**
+ * realmName：realm名称名称或显示文本。
+ */
+
+  realmName: string;  
+  /**
+ * currentExp：currentExp相关字段。
+ */
+
+  currentExp: number;  
+  /**
+ * maxExp：maxExp相关字段。
+ */
+
+  maxExp: number;  
+  /**
+ * severed：severed相关字段。
+ */
+
+  severed: Set<ElementKey>;  
+  /**
+ * roots：根容器相关字段。
+ */
+
+  roots: HeavenGateRootValues | null;  
+  /**
+ * unlocked：unlocked相关字段。
+ */
+
+  unlocked: boolean;  
+  /**
+ * entered：entered相关字段。
+ */
+
   entered: boolean;
 }
 
-/** HeavenGateModalOptions：定义该接口的能力与字段约束。 */
+/** 打开天门弹窗时注入的交互回调。 */
 interface HeavenGateModalOptions {
-  showToast: (message: string, kind?: 'system' | 'chat' | 'quest' | 'combat' | 'loot' | 'grudge') => void;
+/**
+ * showToast：showToast相关字段。
+ */
+
+  showToast: (message: string, kind?: 'system' | 'chat' | 'quest' | 'combat' | 'loot' | 'grudge') => void;  
+  /**
+ * sendAction：sendAction相关字段。
+ */
+
   sendAction: (action: 'sever' | 'restore' | 'open' | 'reroll' | 'enter', element?: ElementKey) => void;
 }
 
-/** pendingAction：定义该变量以承载业务值。 */
-let pendingAction: PendingAction | null = null;
-/** cursorCleanup：定义该变量以承载业务值。 */
-let cursorCleanup: (() => void) | null = null;
-/** animationFrame：定义该变量以承载业务值。 */
-let animationFrame = 0;
-/** animationToken：定义该变量以承载业务值。 */
-let animationToken = 0;
-/** lastAnimatedRootsKey：定义该变量以承载业务值。 */
-let lastAnimatedRootsKey: string | null = null;
-/** lastRenderedSessionKey：定义该变量以承载业务值。 */
-let lastRenderedSessionKey: string | null = null;
+interface HeavenGateEventContext {
+  player: PlayerState;
+  session: HeavenGateSession;
+  options: HeavenGateModalOptions;
+}
 
-/** escapeHtml：执行对应的业务逻辑。 */
+/** pendingAction：待处理动作。 */
+let pendingAction: PendingAction | null = null;
+/** cursorCleanup：用于恢复天门拖拽态光标的清理函数。 */
+let cursorCleanup: (() => void) | null = null;
+/** animationFrame：animation帧。 */
+let animationFrame = 0;
+/** animationToken：animation令牌。 */
+let animationToken = 0;
+/** lastAnimatedRootsKey：last Animated Roots Key。 */
+let lastAnimatedRootsKey: string | null = null;
+/** lastRenderedSessionKey：last Rendered会话Key。 */
+let lastRenderedSessionKey: string | null = null;
+let activeEventContext: HeavenGateEventContext | null = null;
+
+/** escapeHtml：转义 HTML 文本中的危险字符。 */
 function escapeHtml(input: string): string {
   return input
     .replaceAll('&', '&amp;')
@@ -73,14 +119,15 @@ function escapeHtml(input: string): string {
     .replaceAll("'", '&#39;');
 }
 
-/** cloneRoots：执行对应的业务逻辑。 */
+/** cloneRoots：克隆Roots。 */
 function cloneRoots(roots: HeavenGateRootValues | null | undefined): HeavenGateRootValues | null {
   return normalizeSpiritualRoots(roots);
 }
 
-/** getHeavenGateState：执行对应的业务逻辑。 */
+/** getHeavenGateState：读取Heaven关卡状态。 */
 function getHeavenGateState(player: PlayerState | null | undefined): HeavenGateState | null {
-/** realm：定义该变量以承载业务值。 */
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
   const realm = player?.realm;
   if (!realm || realm.realmLv < HEAVEN_GATE_MIN_REALM_LEVEL) {
     return null;
@@ -88,11 +135,11 @@ function getHeavenGateState(player: PlayerState | null | undefined): HeavenGateS
   return realm.heavenGate ?? player?.heavenGate ?? null;
 }
 
-/** buildSession：执行对应的业务逻辑。 */
+/** buildSession：构建会话。 */
 function buildSession(player: PlayerState): HeavenGateSession | null {
-/** realm：定义该变量以承载业务值。 */
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
   const realm = player.realm;
-/** heavenGate：定义该变量以承载业务值。 */
   const heavenGate = getHeavenGateState(player);
   if (!realm || realm.realmLv < HEAVEN_GATE_MIN_REALM_LEVEL || !heavenGate?.unlocked) {
     return null;
@@ -106,23 +153,22 @@ function buildSession(player: PlayerState): HeavenGateSession | null {
     maxExp: Math.max(1, Math.floor(realm.progressToNext ?? 1)),
     severed: new Set<ElementKey>(heavenGate.severed ?? []),
     roots: cloneRoots(heavenGate.roots),
-/** unlocked：定义该变量以承载业务值。 */
     unlocked: heavenGate.unlocked === true,
     entered: false,
   };
 }
 
-/** getSeverCost：执行对应的业务逻辑。 */
+/** getSeverCost：读取Sever Cost。 */
 function getSeverCost(session: HeavenGateSession): number {
   return Math.max(1, Math.round(session.maxExp * HEAVEN_GATE_SEVER_COST_RATIO));
 }
 
-/** getRerollCost：执行对应的业务逻辑。 */
+/** getRerollCost：读取Reroll Cost。 */
 function getRerollCost(session: HeavenGateSession): number {
   return Math.max(1, Math.round(session.maxExp * HEAVEN_GATE_REROLL_COST_RATIO));
 }
 
-/** createPlaceholderRoots：执行对应的业务逻辑。 */
+/** createPlaceholderRoots：创建Placeholder Roots。 */
 function createPlaceholderRoots(session: HeavenGateSession): HeavenGateRootValues {
   return ELEMENTS.reduce((result, element) => {
     result[element] = session.severed.has(element) ? 0 : 1;
@@ -130,12 +176,12 @@ function createPlaceholderRoots(session: HeavenGateSession): HeavenGateRootValue
   }, {} as HeavenGateRootValues);
 }
 
-/** getRootsKey：执行对应的业务逻辑。 */
+/** getRootsKey：读取Roots Key。 */
 function getRootsKey(roots: HeavenGateRootValues | null): string | null {
   return roots ? JSON.stringify(roots) : null;
 }
 
-/** getSessionRenderKey：执行对应的业务逻辑。 */
+/** getSessionRenderKey：读取会话渲染Key。 */
 function getSessionRenderKey(session: HeavenGateSession): string {
   return JSON.stringify({
     realmName: session.realmName,
@@ -147,12 +193,24 @@ function getSessionRenderKey(session: HeavenGateSession): string {
   });
 }
 
-/** describeRoots：执行对应的业务逻辑。 */
-function describeRoots(roots: HeavenGateRootValues): { name: string; meta: string; desc: string } {
+/** describeRoots：处理describe Roots。 */
+function describeRoots(roots: HeavenGateRootValues): {
+/**
+ * name：名称名称或显示文本。
+ */
+ name: string;
+ /**
+ * meta：meta相关字段。
+ */
+ meta: string;
+ /**
+ * desc：desc相关字段。
+ */
+ desc: string } {
   return describeSpiritualRoots(roots);
 }
 
-/** getLineValueStyle：执行对应的业务逻辑。 */
+/** getLineValueStyle：读取Line值样式。 */
 function getLineValueStyle(element: ElementKey): string {
   switch (element) {
     case 'metal':
@@ -168,9 +226,8 @@ function getLineValueStyle(element: ElementKey): string {
   }
 }
 
-/** renderBoard：执行对应的业务逻辑。 */
+/** renderBoard：渲染Board。 */
 function renderBoard(session: HeavenGateSession): string {
-/** displayRoots：定义该变量以承载业务值。 */
   const displayRoots = session.roots ?? createPlaceholderRoots(session);
   return `
     <section class="heaven-gate-board" data-heaven-gate-board>
@@ -237,7 +294,7 @@ function renderBoard(session: HeavenGateSession): string {
   `;
 }
 
-/** renderBoardActions：执行对应的业务逻辑。 */
+/** renderBoardActions：渲染Board动作。 */
 function renderBoardActions(session: HeavenGateSession): string {
   return `
     <div class="heaven-gate-board-actions ${session.roots ? '' : 'hidden'}">
@@ -246,20 +303,19 @@ function renderBoardActions(session: HeavenGateSession): string {
   `;
 }
 
-/** renderPendingPopup：执行对应的业务逻辑。 */
+/** renderPendingPopup：渲染待处理Popup。 */
 function renderPendingPopup(session: HeavenGateSession): string {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
   if (!pendingAction) {
     return '';
   }
   if (pendingAction.kind === 'sever' || pendingAction.kind === 'restore') {
-/** actionLabel：定义该变量以承载业务值。 */
     const actionLabel = pendingAction.kind === 'sever' ? '斩断' : '补回';
-/** cost：定义该变量以承载业务值。 */
     const cost = formatDisplayInteger(getSeverCost(session));
-/** desc：定义该变量以承载业务值。 */
     const desc = pendingAction.kind === 'sever'
-      ? `斩断后，这一系灵根本次将完全不参与随机分配；保留的灵根越少，单条数值通常越容易更高，但你也等于主动放弃了这一系出现在最终结果里的可能。若不斩，则这一系仍会和其他灵根一起分摊总值，更容易形成多灵根结果。此次会消耗 ${cost} 点境界修为（当前境界修为上限的 ${HEAVEN_GATE_SEVER_COST_PERCENT}%）；若想补回，补灵根同样需要 ${cost} 点境界修为。若当前已有开天门结果，结果会立刻失效并退回重新开门。`
-      : `补回后，这一系灵根会重新进入本次开天门随机池。补回意味着最终更可能出现多灵根、总值分配更分散；不补则会继续提高剩余灵根吃到高数值的机会。补灵根会消耗 ${cost} 点境界修为（当前境界修为上限的 ${HEAVEN_GATE_SEVER_COST_PERCENT}%）；若当前已有开天门结果，结果同样会立刻失效并退回重新开门。`;
+      ? `斩断后，此系将不参与本次随机；留数越少，单条越易高值，但该系本局将不再出现。消耗 ${cost} 点境界修为（上限 ${HEAVEN_GATE_SEVER_COST_PERCENT}%）；当前已有结果会失效并退回可重开。`
+      : `补回会使该灵根重入随机池，并提高复合可能；补回同样消耗 ${cost} 点境界修为（上限 ${HEAVEN_GATE_SEVER_COST_PERCENT}%）；当前结果会失效并退回可重开。`;
     return `
       <div class="heaven-gate-popup-overlay" data-heaven-gate-popup-overlay>
         <section class="heaven-gate-popup" data-heaven-gate-popup>
@@ -278,7 +334,7 @@ function renderPendingPopup(session: HeavenGateSession): string {
       <div class="heaven-gate-popup-overlay" data-heaven-gate-popup-overlay>
         <section class="heaven-gate-popup" data-heaven-gate-popup>
           <div class="heaven-gate-popup-title">确认开天门</div>
-          <div class="heaven-gate-popup-desc">开天门本身不消耗境界修为。若你不斩灵根，五行都会参与本次随机，更容易形成多灵根，整体总值上限更高，但平均到单条上的数值通常更低；若先斩去部分灵根，剩余越少，单条越容易抽到高值，但被斩掉的属性本次就不可能再出现。若对结果不满，入天门前仍可消耗境界修为逆天改命，再重新开天门。</div>
+          <div class="heaven-gate-popup-desc">开天门不耗境界修为。多灵根则更易出现，斩后更偏单一高值；被斩属性本局不再出现。对结果不满可入天门前逆天改命重开。</div>
           <div class="heaven-gate-popup-actions">
             <button class="small-btn ghost" type="button" data-heaven-gate-cancel>取消</button>
             <button class="small-btn" type="button" data-heaven-gate-confirm>确认开天门</button>
@@ -305,7 +361,7 @@ function renderPendingPopup(session: HeavenGateSession): string {
     <div class="heaven-gate-popup-overlay" data-heaven-gate-popup-overlay>
       <section class="heaven-gate-popup" data-heaven-gate-popup>
         <div class="heaven-gate-popup-title">确认入天门</div>
-        <div class="heaven-gate-popup-desc">入天门不会让你立刻突破到练气，它只会正式写入当前灵根，并完成“开天门”这一步。完成后，后续仍需按原本的练气突破条件正常突破。请特别注意：一旦入天门，绝大多数情况下都不能再重新开天门、重抽灵根或逆天改命，这次结果基本就定下来了。</div>
+        <div class="heaven-gate-popup-desc">入天门会正式写入本次灵根并完成开天门，但不会代替突破动作。入天门后，多数情况下结果即定，难以再重抽或逆天改命。</div>
         <div class="heaven-gate-popup-actions">
           <button class="small-btn ghost" type="button" data-heaven-gate-cancel>取消</button>
           <button class="small-btn" type="button" data-heaven-gate-confirm>确认入天门</button>
@@ -315,58 +371,53 @@ function renderPendingPopup(session: HeavenGateSession): string {
   `;
 }
 
-/** stopValueAnimation：执行对应的业务逻辑。 */
+/** stopValueAnimation：停止值Animation。 */
 function stopValueAnimation(): void {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
   if (animationFrame) {
     cancelAnimationFrame(animationFrame);
+    /** animationFrame：animation帧。 */
     animationFrame = 0;
   }
   animationToken += 1;
 }
 
-/** animateValues：执行对应的业务逻辑。 */
+/** animateValues：处理animate值。 */
 function animateValues(body: HTMLElement, session: HeavenGateSession, rootsKey: string): void {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
   if (!session.roots) {
     return;
   }
   stopValueAnimation();
-/** token：定义该变量以承载业务值。 */
   const token = animationToken;
-/** targets：定义该变量以承载业务值。 */
   const targets = ELEMENTS.reduce((result, element) => {
     result[element] = session.roots?.[element] ?? 0;
     return result;
   }, {} as HeavenGateRootValues);
-/** starts：定义该变量以承载业务值。 */
   const starts = createPlaceholderRoots(session);
-/** nodes：定义该变量以承载业务值。 */
   const nodes = new Map<ElementKey, HTMLElement>();
   body.querySelectorAll<HTMLElement>('[data-heaven-gate-display-value]').forEach((node) => {
-/** element：定义该变量以承载业务值。 */
     const element = node.dataset.heavenGateDisplayValue as ElementKey | undefined;
     if (element) {
       nodes.set(element, node);
     }
   });
-/** startedAt：定义该变量以承载业务值。 */
   const startedAt = performance.now();
-/** duration：定义该变量以承载业务值。 */
   const duration = 1080;
-/** tick：通过常量导出可复用函数行为。 */
+  /** tick：推进Tick。 */
   const tick = (now: number) => {
     if (token !== animationToken) {
       return;
     }
-/** progress：定义该变量以承载业务值。 */
     const progress = Math.min(1, (now - startedAt) / duration);
-/** eased：定义该变量以承载业务值。 */
     const eased = 1 - (1 - progress) * (1 - progress) * (1 - progress);
     for (const element of ELEMENTS) {
       const node = nodes.get(element);
       if (!node) {
         continue;
       }
-/** next：定义该变量以承载业务值。 */
       const next = progress >= 1
         ? targets[element]
         : Math.max(0, Math.floor(starts[element] + (targets[element] - starts[element]) * eased));
@@ -376,84 +427,104 @@ function animateValues(body: HTMLElement, session: HeavenGateSession, rootsKey: 
       animationFrame = requestAnimationFrame(tick);
       return;
     }
+    /** animationFrame：animation帧。 */
     animationFrame = 0;
+    /** lastAnimatedRootsKey：last Animated Roots Key。 */
     lastAnimatedRootsKey = rootsKey;
   };
+  /** animationFrame：animation帧。 */
   animationFrame = requestAnimationFrame(tick);
 }
 
-/** bindCursor：执行对应的业务逻辑。 */
+/** bindCursor：绑定Cursor。 */
 function bindCursor(body: HTMLElement): void {
-/** board：定义该变量以承载业务值。 */
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
   const board = body.querySelector<HTMLElement>('[data-heaven-gate-board]');
-/** cursor：定义该变量以承载业务值。 */
   const cursor = body.querySelector<HTMLElement>('[data-heaven-gate-cursor]');
   if (!board || !cursor) {
     return;
   }
-/** syncCursor：通过常量导出可复用函数行为。 */
+  /** syncCursor：同步Cursor。 */
   const syncCursor = (event: MouseEvent, label: string) => {
-/** point：定义该变量以承载业务值。 */
-    const point = clientToViewportPoint(window, event.clientX, event.clientY);
+    const rect = board.getBoundingClientRect();
+    const width = Math.max(1, rect.width);
+    const height = Math.max(1, rect.height);
+    const x = ((event.clientX - rect.left) / width) * board.offsetWidth;
+    const y = ((event.clientY - rect.top) / height) * board.offsetHeight;
     cursor.classList.remove('hidden');
     cursor.textContent = label;
-    cursor.style.left = `${point.x}px`;
-    cursor.style.top = `${point.y}px`;
+    cursor.style.left = `${x}px`;
+    cursor.style.top = `${y}px`;
     document.body.classList.add('heaven-gate-brush-cursor');
   };
-/** hideCursor：通过常量导出可复用函数行为。 */
+  /** hideCursor：处理hide Cursor。 */
   const hideCursor = () => {
     cursor.classList.add('hidden');
     document.body.classList.remove('heaven-gate-brush-cursor');
   };
   body.querySelectorAll<HTMLButtonElement>('[data-heaven-gate-path]').forEach((button) => {
-/** label：定义该变量以承载业务值。 */
     const label = button.dataset.heavenGateCursorLabel ?? '斩';
     button.addEventListener('mouseenter', (event) => syncCursor(event as MouseEvent, label));
     button.addEventListener('mousemove', (event) => syncCursor(event, label));
     button.addEventListener('mouseleave', hideCursor);
   });
+  /** cursorCleanup：cursor Cleanup。 */
   cursorCleanup = hideCursor;
 }
 
-/** clearPendingAction：执行对应的业务逻辑。 */
+/** clearPendingAction：清理待处理动作。 */
 function clearPendingAction(): void {
+  /** pendingAction：待处理动作。 */
   pendingAction = null;
 }
 
-/** renderHeavenGateModal：执行对应的业务逻辑。 */
+/** renderHeavenGateModal：渲染Heaven关卡弹窗。 */
 function renderHeavenGateModal(player: PlayerState, session: HeavenGateSession, options: HeavenGateModalOptions): void {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
   cursorCleanup?.();
+  /** cursorCleanup：cursor Cleanup。 */
   cursorCleanup = null;
   stopValueAnimation();
-/** rootsKey：定义该变量以承载业务值。 */
   const rootsKey = getRootsKey(session.roots);
-/** shouldAnimate：定义该变量以承载业务值。 */
   const shouldAnimate = Boolean(rootsKey && rootsKey !== lastAnimatedRootsKey);
-/** judgement：定义该变量以承载业务值。 */
   const judgement = session.roots ? describeRoots(session.roots) : null;
+  /** lastRenderedSessionKey：last Rendered会话Key。 */
   lastRenderedSessionKey = getSessionRenderKey(session);
+  const existingBody = detailModalHost.isOpenFor(HEAVEN_GATE_OWNER)
+    ? document.getElementById('detail-modal-body')
+    : null;
+  if (existingBody && patchHeavenGateModalBody(existingBody, session, judgement)) {
+    const title = document.getElementById('detail-modal-title');
+    const subtitle = document.getElementById('detail-modal-subtitle');
+    const hint = document.getElementById('detail-modal-hint');
+    if (title) {
+      title.textContent = '开天门';
+    }
+    if (subtitle) {
+      subtitle.textContent = `${player.realm?.displayName ?? '开天门'}`;
+    }
+    if (hint) {
+      hint.textContent = '点击空白处关闭';
+    }
+    bindHeavenGateEvents(existingBody, player, session, options, shouldAnimate, rootsKey);
+    return;
+  }
 
   detailModalHost.open({
     ownerId: HEAVEN_GATE_OWNER,
+    size: 'md',
     variantClass: 'detail-modal--heaven-gate',
     title: '开天门',
     subtitle: `${player.realm?.displayName ?? '开天门'}`,
     hint: '点击空白处关闭',
-    bodyHtml: `
-      <div class="heaven-gate-shell">
-        <section class="heaven-gate-judgement ${session.roots ? '' : 'hidden'}">
-          <div class="heaven-gate-judgement-name">${escapeHtml(judgement?.name ?? '')}</div>
-          <div class="heaven-gate-judgement-meta">${escapeHtml(judgement?.meta ?? '')}</div>
-          <div class="heaven-gate-judgement-desc">${escapeHtml(judgement?.desc ?? '')}</div>
-        </section>
-        ${renderBoard(session)}
-        ${renderBoardActions(session)}
-        ${renderPendingPopup(session)}
-      </div>
-    `,
+    renderBody: (body) => {
+      body.innerHTML = renderHeavenGateShell(session, judgement);
+    },
     onClose: () => {
       clearPendingAction();
+      activeEventContext = null;
       cursorCleanup?.();
       cursorCleanup = null;
       stopValueAnimation();
@@ -462,72 +533,203 @@ function renderHeavenGateModal(player: PlayerState, session: HeavenGateSession, 
       document.body.classList.remove('heaven-gate-brush-cursor');
     },
     onAfterRender: (body) => {
-      bindCursor(body);
-      body.querySelectorAll<HTMLButtonElement>('[data-heaven-gate-path]').forEach((button) => {
-/** element：定义该变量以承载业务值。 */
-        const element = button.dataset.heavenGatePath as ElementKey | undefined;
-        if (!element) {
-          return;
-        }
-        button.addEventListener('click', (event) => {
-          event.stopPropagation();
-          if (!session.severed.has(element) && session.severed.size >= 4) {
-            options.showToast('最多只能斩断四条灵根。');
-            return;
-          }
-          pendingAction = session.severed.has(element)
-            ? { kind: 'restore', element }
-            : { kind: 'sever', element };
-          renderHeavenGateModal(player, session, options);
-        });
-      });
-      body.querySelector<HTMLButtonElement>('[data-heaven-gate-core]')?.addEventListener('click', (event) => {
-        event.stopPropagation();
-        pendingAction = session.roots ? { kind: 'enter' } : { kind: 'open' };
-        renderHeavenGateModal(player, session, options);
-      });
-      body.querySelector<HTMLButtonElement>('[data-heaven-gate-reroll]')?.addEventListener('click', (event) => {
-        event.stopPropagation();
-        pendingAction = { kind: 'reroll' };
-        renderHeavenGateModal(player, session, options);
-      });
-      body.querySelector<HTMLElement>('[data-heaven-gate-popup]')?.addEventListener('click', (event) => {
-        event.stopPropagation();
-      });
-      body.querySelector<HTMLElement>('[data-heaven-gate-popup-overlay]')?.addEventListener('click', (event) => {
-        event.stopPropagation();
-        if (event.target !== event.currentTarget) {
-          return;
-        }
-        clearPendingAction();
-        renderHeavenGateModal(player, session, options);
-      });
-      body.querySelector<HTMLButtonElement>('[data-heaven-gate-cancel]')?.addEventListener('click', (event) => {
-        event.stopPropagation();
-        clearPendingAction();
-        renderHeavenGateModal(player, session, options);
-      });
-      body.querySelector<HTMLButtonElement>('[data-heaven-gate-confirm]')?.addEventListener('click', (event) => {
-        event.stopPropagation();
-        if (!pendingAction) {
-          return;
-        }
-/** action：定义该变量以承载业务值。 */
-        const action = pendingAction;
-        clearPendingAction();
-        options.sendAction(action.kind === 'restore' ? 'restore' : action.kind, 'element' in action ? action.element : undefined);
-      });
-      if (shouldAnimate && rootsKey) {
-        animateValues(body, session, rootsKey);
-      } else if (!rootsKey) {
-        lastAnimatedRootsKey = null;
-      }
+      bindHeavenGateEvents(body, player, session, options, shouldAnimate, rootsKey);
     },
   });
 }
+/**
+ * renderHeavenGateShell：执行HeavenGateShell相关逻辑。
+ * @param session HeavenGateSession 参数说明。
+ * @param judgement { name: string; meta: string; desc: string } | null 参数说明。
+ * @returns 返回HeavenGateShell。
+ */
 
-/** refreshHeavenGateModal：执行对应的业务逻辑。 */
+
+function renderHeavenGateShell(
+  session: HeavenGateSession,
+  judgement: {  
+  /**
+ * name：名称名称或显示文本。
+ */
+ name: string;  
+ /**
+ * meta：meta相关字段。
+ */
+ meta: string;  
+ /**
+ * desc：desc相关字段。
+ */
+ desc: string } | null,
+): string {
+  return `
+    <div class="heaven-gate-shell">
+      <section class="heaven-gate-judgement ${session.roots ? '' : 'hidden'}" data-heaven-gate-judgement="true">
+        <div class="heaven-gate-judgement-name">${escapeHtml(judgement?.name ?? '')}</div>
+        <div class="heaven-gate-judgement-meta">${escapeHtml(judgement?.meta ?? '')}</div>
+        <div class="heaven-gate-judgement-desc">${escapeHtml(judgement?.desc ?? '')}</div>
+      </section>
+      <div data-heaven-gate-board-shell="true">${renderBoard(session)}</div>
+      <div data-heaven-gate-actions-shell="true">${renderBoardActions(session)}</div>
+      <div data-heaven-gate-popup-shell="true">${renderPendingPopup(session)}</div>
+    </div>
+  `;
+}
+/**
+ * patchHeavenGateModalBody：执行patchHeavenGate弹层Body相关逻辑。
+ * @param body HTMLElement 参数说明。
+ * @param session HeavenGateSession 参数说明。
+ * @param judgement { name: string; meta: string; desc: string } | null 参数说明。
+ * @returns 返回是否满足patchHeavenGate弹层Body条件。
+ */
+
+
+function patchHeavenGateModalBody(
+  body: HTMLElement,
+  session: HeavenGateSession,
+  judgement: {  
+  /**
+ * name：名称名称或显示文本。
+ */
+ name: string;  
+ /**
+ * meta：meta相关字段。
+ */
+ meta: string;  
+ /**
+ * desc：desc相关字段。
+ */
+ desc: string } | null,
+): boolean {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
+  const shell = body.querySelector<HTMLElement>('.heaven-gate-shell');
+  const judgementSection = body.querySelector<HTMLElement>('[data-heaven-gate-judgement="true"]');
+  const boardShell = body.querySelector<HTMLElement>('[data-heaven-gate-board-shell="true"]');
+  const actionsShell = body.querySelector<HTMLElement>('[data-heaven-gate-actions-shell="true"]');
+  const popupShell = body.querySelector<HTMLElement>('[data-heaven-gate-popup-shell="true"]');
+  if (!shell || !judgementSection || !boardShell || !actionsShell || !popupShell) {
+    return false;
+  }
+  judgementSection.classList.toggle('hidden', !session.roots);
+  setInnerHtml(judgementSection.querySelector('.heaven-gate-judgement-name'), escapeHtml(judgement?.name ?? ''));
+  setInnerHtml(judgementSection.querySelector('.heaven-gate-judgement-meta'), escapeHtml(judgement?.meta ?? ''));
+  setInnerHtml(judgementSection.querySelector('.heaven-gate-judgement-desc'), escapeHtml(judgement?.desc ?? ''));
+  boardShell.innerHTML = renderBoard(session);
+  actionsShell.innerHTML = renderBoardActions(session);
+  popupShell.innerHTML = renderPendingPopup(session);
+  return true;
+}
+/**
+ * bindHeavenGateEvents：执行bindHeavenGate事件相关逻辑。
+ * @param body HTMLElement 参数说明。
+ * @param player PlayerState 玩家对象。
+ * @param session HeavenGateSession 参数说明。
+ * @param options HeavenGateModalOptions 选项参数。
+ * @param shouldAnimate boolean 参数说明。
+ * @param rootsKey string | null 参数说明。
+ * @returns 无返回值，直接更新bindHeavenGate事件相关状态。
+ */
+
+
+function bindHeavenGateEvents(
+  body: HTMLElement,
+  player: PlayerState,
+  session: HeavenGateSession,
+  options: HeavenGateModalOptions,
+  shouldAnimate: boolean,
+  rootsKey: string | null,
+): void {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
+  bindCursor(body);
+  activeEventContext = { player, session, options };
+  if (body.dataset.heavenGateBound !== 'true') {
+    body.dataset.heavenGateBound = 'true';
+    body.addEventListener('click', (event) => {
+      const context = activeEventContext;
+      if (!context || !detailModalHost.isOpenFor(HEAVEN_GATE_OWNER)) {
+        return;
+      }
+      const target = event.target instanceof HTMLElement
+        ? event.target.closest<HTMLElement>('[data-heaven-gate-path],[data-heaven-gate-core],[data-heaven-gate-reroll],[data-heaven-gate-cancel],[data-heaven-gate-confirm],[data-heaven-gate-popup-overlay],[data-heaven-gate-popup]')
+        : null;
+      if (!target) {
+        return;
+      }
+      event.stopPropagation();
+      if (target.hasAttribute('data-heaven-gate-popup')) {
+        return;
+      }
+      if (target.hasAttribute('data-heaven-gate-popup-overlay')) {
+        if (event.target !== target) {
+          return;
+        }
+        clearPendingAction();
+        renderHeavenGateModal(context.player, context.session, context.options);
+        return;
+      }
+      if (target.hasAttribute('data-heaven-gate-cancel')) {
+        clearPendingAction();
+        renderHeavenGateModal(context.player, context.session, context.options);
+        return;
+      }
+      if (target.hasAttribute('data-heaven-gate-confirm')) {
+        if (!pendingAction) {
+          return;
+        }
+        const action = pendingAction;
+        clearPendingAction();
+        context.options.sendAction(action.kind === 'restore' ? 'restore' : action.kind, 'element' in action ? action.element : undefined);
+        return;
+      }
+      if (target.hasAttribute('data-heaven-gate-reroll')) {
+        pendingAction = { kind: 'reroll' };
+        renderHeavenGateModal(context.player, context.session, context.options);
+        return;
+      }
+      if (target.hasAttribute('data-heaven-gate-core')) {
+        pendingAction = context.session.roots ? { kind: 'enter' } : { kind: 'open' };
+        renderHeavenGateModal(context.player, context.session, context.options);
+        return;
+      }
+      const element = target.dataset.heavenGatePath as ElementKey | undefined;
+      if (!element) {
+        return;
+      }
+      if (!context.session.severed.has(element) && context.session.severed.size >= 4) {
+        context.options.showToast('最多只能斩断四条灵根。');
+        return;
+      }
+      pendingAction = context.session.severed.has(element)
+        ? { kind: 'restore', element }
+        : { kind: 'sever', element };
+      renderHeavenGateModal(context.player, context.session, context.options);
+    });
+  }
+  if (shouldAnimate && rootsKey) {
+    animateValues(body, session, rootsKey);
+  } else if (!rootsKey) {
+    lastAnimatedRootsKey = null;
+  }
+}
+/**
+ * setInnerHtml：写入InnerHtml。
+ * @param node Element | null 参数说明。
+ * @param value string 参数说明。
+ * @returns 无返回值，直接更新InnerHtml相关状态。
+ */
+
+
+function setInnerHtml(node: Element | null, value: string): void {
+  if (node) {
+    node.innerHTML = value;
+  }
+}
+
+/** refreshHeavenGateModal：处理refresh Heaven关卡弹窗。 */
 export function refreshHeavenGateModal(player: PlayerState | null | undefined, options: HeavenGateModalOptions): void {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
   if (!detailModalHost.isOpenFor(HEAVEN_GATE_OWNER)) {
     return;
   }
@@ -535,13 +737,11 @@ export function refreshHeavenGateModal(player: PlayerState | null | undefined, o
     detailModalHost.close(HEAVEN_GATE_OWNER);
     return;
   }
-/** session：定义该变量以承载业务值。 */
   const session = buildSession(player);
   if (!session) {
     detailModalHost.close(HEAVEN_GATE_OWNER);
     return;
   }
-/** nextSessionKey：定义该变量以承载业务值。 */
   const nextSessionKey = getSessionRenderKey(session);
   if (nextSessionKey === lastRenderedSessionKey) {
     return;
@@ -549,9 +749,18 @@ export function refreshHeavenGateModal(player: PlayerState | null | undefined, o
   renderHeavenGateModal(player, session, options);
 }
 
-/** getHeavenGateHudAction：执行对应的业务逻辑。 */
-export function getHeavenGateHudAction(player: PlayerState | null | undefined): { visible: boolean; label: string } | null {
-/** session：定义该变量以承载业务值。 */
+/** getHeavenGateHudAction：读取Heaven关卡HUD动作。 */
+export function getHeavenGateHudAction(player: PlayerState | null | undefined): {
+/**
+ * visible：可见相关字段。
+ */
+ visible: boolean;
+ /**
+ * label：label名称或显示文本。
+ */
+ label: string } | null {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
   const session = player ? buildSession(player) : null;
   if (!session?.unlocked) {
     return null;
@@ -562,13 +771,14 @@ export function getHeavenGateHudAction(player: PlayerState | null | undefined): 
   };
 }
 
-/** openHeavenGateModal：执行对应的业务逻辑。 */
+/** openHeavenGateModal：打开Heaven关卡弹窗。 */
 export function openHeavenGateModal(player: PlayerState | null | undefined, options: HeavenGateModalOptions): boolean {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
   if (!player) {
     options.showToast('当前未获取到角色状态。');
     return false;
   }
-/** session：定义该变量以承载业务值。 */
   const session = buildSession(player);
   if (!session) {
     options.showToast('当前已完成入天门，或暂时不处于可开天门状态。');
@@ -577,4 +787,3 @@ export function openHeavenGateModal(player: PlayerState | null | undefined, opti
   renderHeavenGateModal(player, session, options);
   return true;
 }
-

@@ -15,35 +15,47 @@ import {
   CLIENT_BUILD_VERSION_PATH,
 } from './constants/ui/update';
 
-/** ClientBuildVersionResponse：定义该类型的结构与数据语义。 */
+/** ClientBuildVersionResponse：版本检查响应。 */
 type ClientBuildVersionResponse = {
-  buildId?: string;
+/**
+ * buildId：ID标识。
+ */
+
+  buildId?: string;  
+  /**
+ * builtAt：builtAt相关字段。
+ */
+
   builtAt?: string;
 };
 
-/** StartClientVersionReloadOptions：定义该类型的结构与数据语义。 */
+/** StartClientVersionReloadOptions：版本检查启动时的回调选项。 */
 type StartClientVersionReloadOptions = {
+/**
+ * onBeforeReload：onBeforeReload相关字段。
+ */
+
   onBeforeReload?: (nextBuildId: string) => void;
 };
 
-/** pollTimer：定义该变量以承载业务值。 */
+/** pollTimer：poll Timer。 */
 let pollTimer: number | null = null;
-/** pollStarted：定义该变量以承载业务值。 */
+/** pollStarted：poll Started。 */
 let pollStarted = false;
-/** checkInFlight：定义该变量以承载业务值。 */
+/** checkInFlight：检查In Flight。 */
 let checkInFlight = false;
-/** pollOptions：定义该变量以承载业务值。 */
 let pollOptions: StartClientVersionReloadOptions = {};
 
-/** clearPollTimer：执行对应的业务逻辑。 */
+/** clearPollTimer：清理Poll Timer。 */
 function clearPollTimer(): void {
   if (pollTimer !== null) {
     window.clearTimeout(pollTimer);
+    /** pollTimer：poll Timer。 */
     pollTimer = null;
   }
 }
 
-/** scheduleNextPoll：执行对应的业务逻辑。 */
+/** scheduleNextPoll：调度新版Poll。 */
 function scheduleNextPoll(delayMs = CLIENT_BUILD_POLL_INTERVAL_MS): void {
   clearPollTimer();
   pollTimer = window.setTimeout(() => {
@@ -51,7 +63,7 @@ function scheduleNextPoll(delayMs = CLIENT_BUILD_POLL_INTERVAL_MS): void {
   }, delayMs);
 }
 
-/** readSessionStorage：执行对应的业务逻辑。 */
+/** readSessionStorage：处理read会话存储。 */
 function readSessionStorage(key: string): string | null {
   try {
     return window.sessionStorage.getItem(key);
@@ -60,7 +72,7 @@ function readSessionStorage(key: string): string | null {
   }
 }
 
-/** writeSessionStorage：执行对应的业务逻辑。 */
+/** writeSessionStorage：处理write会话存储。 */
 function writeSessionStorage(key: string, value: string): void {
   try {
     window.sessionStorage.setItem(key, value);
@@ -69,16 +81,15 @@ function writeSessionStorage(key: string, value: string): void {
   }
 }
 
-/** hasRecentForcedReload：执行对应的业务逻辑。 */
+/** hasRecentForcedReload：判断是否Recent Forced重载。 */
 function hasRecentForcedReload(nextBuildId: string): boolean {
-/** lastBuildId：定义该变量以承载业务值。 */
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
   const lastBuildId = readSessionStorage(CLIENT_BUILD_LAST_FORCED_RELOAD_ID_STORAGE_KEY);
   if (lastBuildId !== nextBuildId) {
     return false;
   }
-/** lastReloadAtRaw：定义该变量以承载业务值。 */
   const lastReloadAtRaw = readSessionStorage(CLIENT_BUILD_LAST_FORCED_RELOAD_AT_STORAGE_KEY);
-/** lastReloadAt：定义该变量以承载业务值。 */
   const lastReloadAt = Number(lastReloadAtRaw);
   if (!Number.isFinite(lastReloadAt) || lastReloadAt <= 0) {
     return false;
@@ -86,35 +97,32 @@ function hasRecentForcedReload(nextBuildId: string): boolean {
   return Date.now() - lastReloadAt < CLIENT_BUILD_FORCED_RELOAD_COOLDOWN_MS;
 }
 
-/** markForcedReload：执行对应的业务逻辑。 */
+/** markForcedReload：标记Forced重载。 */
 function markForcedReload(nextBuildId: string): void {
   writeSessionStorage(CLIENT_BUILD_LAST_FORCED_RELOAD_ID_STORAGE_KEY, nextBuildId);
   writeSessionStorage(CLIENT_BUILD_LAST_FORCED_RELOAD_AT_STORAGE_KEY, String(Date.now()));
 }
 
-/** buildForcedReloadUrl：执行对应的业务逻辑。 */
+/** buildForcedReloadUrl：构建Forced重载URL。 */
 function buildForcedReloadUrl(nextBuildId: string): string {
-/** url：定义该变量以承载业务值。 */
   const url = new URL(window.location.href);
   url.searchParams.set(CLIENT_BUILD_RELOAD_VERSION_QUERY_KEY, nextBuildId);
   url.searchParams.set(CLIENT_BUILD_RELOAD_TIME_QUERY_KEY, String(Date.now()));
   return url.toString();
 }
 
-/** fetchLatestBuildId：执行对应的业务逻辑。 */
+/** fetchLatestBuildId：处理fetch Latest Build ID。 */
 async function fetchLatestBuildId(): Promise<string | null> {
-/** controller：定义该变量以承载业务值。 */
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
   const controller = new AbortController();
-/** timeoutId：定义该变量以承载业务值。 */
   const timeoutId = window.setTimeout(() => {
     controller.abort();
   }, CLIENT_BUILD_REQUEST_TIMEOUT_MS);
 
   try {
-/** url：定义该变量以承载业务值。 */
     const url = new URL(CLIENT_BUILD_VERSION_PATH, window.location.origin);
     url.searchParams.set('_ts', String(Date.now()));
-/** response：定义该变量以承载业务值。 */
     const response = await fetch(url.toString(), {
       method: 'GET',
       cache: 'no-store',
@@ -126,7 +134,6 @@ async function fetchLatestBuildId(): Promise<string | null> {
     if (!response.ok) {
       return null;
     }
-/** payload：定义该变量以承载业务值。 */
     const payload = await response.json() as ClientBuildVersionResponse;
     return typeof payload.buildId === 'string' && payload.buildId.length > 0 ? payload.buildId : null;
   } catch {
@@ -136,13 +143,16 @@ async function fetchLatestBuildId(): Promise<string | null> {
   }
 }
 
-/** runClientBuildCheck：执行对应的业务逻辑。 */
+/** runClientBuildCheck：处理run客户端Build检查。 */
 async function runClientBuildCheck(options?: StartClientVersionReloadOptions): Promise<void> {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
   if (import.meta.env.DEV || checkInFlight) {
     return;
   }
 
   clearPollTimer();
+  /** checkInFlight：检查In Flight。 */
   checkInFlight = true;
 
   try {
@@ -150,7 +160,6 @@ async function runClientBuildCheck(options?: StartClientVersionReloadOptions): P
       return;
     }
 
-/** latestBuildId：定义该变量以承载业务值。 */
     const latestBuildId = await fetchLatestBuildId();
     if (!latestBuildId || latestBuildId === __APP_BUILD_ID__ || hasRecentForcedReload(latestBuildId)) {
       return;
@@ -162,18 +171,23 @@ async function runClientBuildCheck(options?: StartClientVersionReloadOptions): P
       window.location.replace(buildForcedReloadUrl(latestBuildId));
     }, CLIENT_BUILD_RELOAD_DELAY_MS);
   } finally {
+    /** checkInFlight：检查In Flight。 */
     checkInFlight = false;
     scheduleNextPoll();
   }
 }
 
-/** startClientVersionReload：执行对应的业务逻辑。 */
+/** startClientVersionReload：启动客户端版本重载。 */
 export function startClientVersionReload(options: StartClientVersionReloadOptions = {}): void {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
   if (pollStarted || import.meta.env.DEV) {
     return;
   }
 
+  /** pollStarted：poll Started。 */
   pollStarted = true;
+  /** pollOptions：poll选项。 */
   pollOptions = options;
   document.addEventListener('visibilitychange', () => {
     if (document.visibilityState === 'visible') {
@@ -183,4 +197,3 @@ export function startClientVersionReload(options: StartClientVersionReloadOption
 
   void runClientBuildCheck(pollOptions);
 }
-

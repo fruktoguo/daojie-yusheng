@@ -2,6 +2,7 @@
   {
     "id": "genghua_ningfeng",
     "name": "庚华凝锋诀",
+    "desc": "锋炁成线，直破前方三步。",
     "grade": "yellow",
     "category": "arts",
     "realmLv": 19,
@@ -115,6 +116,7 @@
   {
     "id": "guicang_hemai",
     "name": "归藏合脉经",
+    "desc": "归藏摄杂，敌身所负枷锁愈重，收束之力愈狠。",
     "grade": "yellow",
     "category": "arts",
     "realmLv": 19,
@@ -218,6 +220,7 @@
   {
     "id": "hanxi_ximai",
     "name": "寒汐洗脉法",
+    "desc": "寒汐入体，凝潮压敌。",
     "grade": "yellow",
     "category": "arts",
     "realmLv": 19,
@@ -326,6 +329,7 @@
   {
     "id": "houtu_chengyuan",
     "name": "厚土承元功",
+    "desc": "土劲厚重沉实，一击之后再叠山岳之护。",
     "grade": "yellow",
     "category": "arts",
     "realmLv": 19,
@@ -430,6 +434,7 @@
   {
     "id": "liyan_duanxi",
     "name": "离炎锻息诀",
+    "desc": "离炎成网，烈息罩身。",
     "grade": "yellow",
     "category": "arts",
     "realmLv": 19,
@@ -546,6 +551,7 @@
   {
     "id": "qingmu_yangmai",
     "name": "青木养脉篇",
+    "desc": "木脉铺展，同道回生，来犯者受创。",
     "grade": "yellow",
     "category": "arts",
     "realmLv": 19,
@@ -686,6 +692,7 @@
   {
     "id": "tingmai_dingxi",
     "name": "听脉定息诀",
+    "desc": "调息定脉，净去缠身邪扰。",
     "grade": "yellow",
     "category": "arts",
     "realmLv": 19,

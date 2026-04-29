@@ -1,90 +1,203 @@
-/** ItemSourceKind：定义该类型的结构与数据语义。 */
+/** 物品来源的分类类型。 */
 export type ItemSourceKind = 'monster_drop' | 'mining' | 'search' | 'shop' | 'quest';
-/** SPIRIT_STONE_ITEM_ID：定义该变量以承载业务值。 */
+/** 灵石对应的物品 ID。 */
 const SPIRIT_STONE_ITEM_ID = 'spirit_stone';
 
-/** ItemSourceBaseEntry：定义该接口的能力与字段约束。 */
+/** 物品来源条目的通用字段。 */
 interface ItemSourceBaseEntry {
-/** kind：定义该变量以承载业务值。 */
-  kind: ItemSourceKind;
-/** mapId：定义该变量以承载业务值。 */
-  mapId: string;
-/** mapName：定义该变量以承载业务值。 */
+/**
+ * kind：kind相关字段。
+ */
+
+  kind: ItemSourceKind;  
+  /**
+ * mapId：地图ID标识。
+ */
+
+  mapId: string;  
+  /**
+ * mapName：地图名称名称或显示文本。
+ */
+
   mapName: string;
 }
 
-/** MonsterItemSourceEntry：定义该接口的能力与字段约束。 */
+/** 击杀掉落类来源条目。 */
 export interface MonsterItemSourceEntry extends ItemSourceBaseEntry {
-/** kind：定义该变量以承载业务值。 */
-  kind: 'monster_drop';
-/** monsterId：定义该变量以承载业务值。 */
-  monsterId: string;
-/** monsterName：定义该变量以承载业务值。 */
-  monsterName: string;
-  chance?: number;
-/** count：定义该变量以承载业务值。 */
+/**
+ * kind：kind相关字段。
+ */
+
+  kind: 'monster_drop';  
+  /**
+ * monsterId：怪物ID标识。
+ */
+
+  monsterId: string;  
+  /**
+ * monsterName：怪物名称名称或显示文本。
+ */
+
+  monsterName: string;  
+  /**
+ * chance：chance相关字段。
+ */
+
+  chance?: number;  
+  /**
+ * count：数量或计量字段。
+ */
+
   count: number;
 }
 
-/** DirectItemNodeSourceEntry：定义该接口的能力与字段约束。 */
+/** 采矿或搜索的直接掉落条目。 */
 export interface DirectItemNodeSourceEntry extends ItemSourceBaseEntry {
-/** kind：定义该变量以承载业务值。 */
-  kind: 'mining' | 'search';
-/** landmarkId：定义该变量以承载业务值。 */
-  landmarkId: string;
-/** landmarkName：定义该变量以承载业务值。 */
-  landmarkName: string;
-/** mode：定义该变量以承载业务值。 */
-  mode: 'direct';
-  chance?: number;
-/** count：定义该变量以承载业务值。 */
+/**
+ * kind：kind相关字段。
+ */
+
+  kind: 'mining' | 'search';  
+  /**
+ * landmarkId：landmarkID标识。
+ */
+
+  landmarkId: string;  
+  /**
+ * landmarkName：landmark名称名称或显示文本。
+ */
+
+  landmarkName: string;  
+  /**
+ * mode：mode相关字段。
+ */
+
+  mode: 'direct';  
+  /**
+ * chance：chance相关字段。
+ */
+
+  chance?: number;  
+  /**
+ * count：数量或计量字段。
+ */
+
   count: number;
 }
 
-/** PoolItemNodeSourceEntry：定义该接口的能力与字段约束。 */
+/** 采矿或搜索的池子掉落条目。 */
 export interface PoolItemNodeSourceEntry extends ItemSourceBaseEntry {
-/** kind：定义该变量以承载业务值。 */
-  kind: 'mining' | 'search';
-/** landmarkId：定义该变量以承载业务值。 */
-  landmarkId: string;
-/** landmarkName：定义该变量以承载业务值。 */
-  landmarkName: string;
-/** mode：定义该变量以承载业务值。 */
-  mode: 'pool';
-/** poolIndex：定义该变量以承载业务值。 */
-  poolIndex: number;
-  poolChance?: number;
-  countMin?: number;
-  countMax?: number;
-  minLevel?: number;
-  maxLevel?: number;
-  maxGrade?: string;
+/**
+ * kind：kind相关字段。
+ */
+
+  kind: 'mining' | 'search';  
+  /**
+ * landmarkId：landmarkID标识。
+ */
+
+  landmarkId: string;  
+  /**
+ * landmarkName：landmark名称名称或显示文本。
+ */
+
+  landmarkName: string;  
+  /**
+ * mode：mode相关字段。
+ */
+
+  mode: 'pool';  
+  /**
+ * poolIndex：poolIndex相关字段。
+ */
+
+  poolIndex: number;  
+  /**
+ * poolChance：poolChance相关字段。
+ */
+
+  poolChance?: number;  
+  /**
+ * countMin：数量Min相关字段。
+ */
+
+  countMin?: number;  
+  /**
+ * countMax：数量Max相关字段。
+ */
+
+  countMax?: number;  
+  /**
+ * minLevel：min等级数值。
+ */
+
+  minLevel?: number;  
+  /**
+ * maxLevel：max等级数值。
+ */
+
+  maxLevel?: number;  
+  /**
+ * maxGrade：maxGrade相关字段。
+ */
+
+  maxGrade?: string;  
+  /**
+ * tagGroups：tagGroup相关字段。
+ */
+
   tagGroups?: string[][];
 }
 
-/** QuestItemSourceEntry：定义该接口的能力与字段约束。 */
+/** 任务奖励来源条目。 */
 export interface QuestItemSourceEntry extends ItemSourceBaseEntry {
-/** kind：定义该变量以承载业务值。 */
-  kind: 'quest';
-/** questId：定义该变量以承载业务值。 */
-  questId: string;
-/** questTitle：定义该变量以承载业务值。 */
-  questTitle: string;
-  line?: string;
+/**
+ * kind：kind相关字段。
+ */
+
+  kind: 'quest';  
+  /**
+ * questId：任务ID标识。
+ */
+
+  questId: string;  
+  /**
+ * questTitle：任务Title名称或显示文本。
+ */
+
+  questTitle: string;  
+  /**
+ * line：line相关字段。
+ */
+
+  line?: string;  
+  /**
+ * chapter：chapter相关字段。
+ */
+
   chapter?: string;
 }
 
-/** ShopItemSourceEntry：定义该接口的能力与字段约束。 */
+/** 商店购买来源条目。 */
 export interface ShopItemSourceEntry extends ItemSourceBaseEntry {
-/** kind：定义该变量以承载业务值。 */
-  kind: 'shop';
-/** npcId：定义该变量以承载业务值。 */
-  npcId: string;
-/** npcName：定义该变量以承载业务值。 */
+/**
+ * kind：kind相关字段。
+ */
+
+  kind: 'shop';  
+  /**
+ * npcId：NPCID标识。
+ */
+
+  npcId: string;  
+  /**
+ * npcName：NPC名称名称或显示文本。
+ */
+
   npcName: string;
 }
 
-/** ItemSourceEntry：定义该类型的结构与数据语义。 */
+/** 任意一种静态物品来源条目。 */
 export type ItemSourceEntry =
   | MonsterItemSourceEntry
   | DirectItemNodeSourceEntry
@@ -92,15 +205,17 @@ export type ItemSourceEntry =
   | ShopItemSourceEntry
   | QuestItemSourceEntry;
 
-/** ItemSourceCatalog：定义该类型的结构与数据语义。 */
+/** 物品来源目录的内存结构。 */
 type ItemSourceCatalog = Record<string, ItemSourceEntry[]>;
-/** itemSourceCatalog：定义该变量以承载业务值。 */
+/** 已加载到内存的物品来源目录。 */
 let itemSourceCatalog: ItemSourceCatalog | null = null;
-/** itemSourceCatalogPromise：定义该变量以承载业务值。 */
+/** 正在进行中的物品来源目录加载任务。 */
 let itemSourceCatalogPromise: Promise<ItemSourceCatalog> | null = null;
 
-/** loadItemSourceCatalog：执行对应的业务逻辑。 */
+/** 按需加载物品来源目录。该 generated JSON 仍是运行时 tooltip/背包来源说明链路的一部分。 */
 function loadItemSourceCatalog(): Promise<ItemSourceCatalog> {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
   if (itemSourceCatalog) {
     return Promise.resolve(itemSourceCatalog);
   }
@@ -114,22 +229,22 @@ function loadItemSourceCatalog(): Promise<ItemSourceCatalog> {
   return itemSourceCatalogPromise;
 }
 
-/** getLoadedItemSourceCatalog：执行对应的业务逻辑。 */
+/** 读取已经加载完成的物品来源目录。 */
 function getLoadedItemSourceCatalog(): ItemSourceCatalog | null {
   return itemSourceCatalog;
 }
 
-/** hasLoadedItemSourceCatalog：执行对应的业务逻辑。 */
+/** 判断物品来源目录是否已经加载。 */
 export function hasLoadedItemSourceCatalog(): boolean {
   return getLoadedItemSourceCatalog() !== null;
 }
 
-/** preloadItemSourceCatalog：执行对应的业务逻辑。 */
+/** 提前预热物品来源目录加载。 */
 export async function preloadItemSourceCatalog(): Promise<void> {
   await loadItemSourceCatalog();
 }
 
-/** escapeHtml：执行对应的业务逻辑。 */
+/** 转义用于拼接 HTML 的危险字符。 */
 function escapeHtml(value: string): string {
   return value
     .replaceAll('&', '&amp;')
@@ -139,7 +254,7 @@ function escapeHtml(value: string): string {
     .replaceAll("'", '&#39;');
 }
 
-/** getSourceLinkLabel：执行对应的业务逻辑。 */
+/** 读取来源标签文案。 */
 function getSourceLinkLabel(kind: ItemSourceKind): string {
   switch (kind) {
     case 'monster_drop':
@@ -155,8 +270,18 @@ function getSourceLinkLabel(kind: ItemSourceKind): string {
   }
 }
 
-/** formatSourceDetails：执行对应的业务逻辑。 */
-function formatSourceDetails(entry: ItemSourceEntry): Array<{ tone: string; text: string }> {
+/** 把来源条目拆成若干个展示标签。 */
+function formatSourceDetails(entry: ItemSourceEntry): Array<{
+/**
+ * tone：tone相关字段。
+ */
+ tone: string;
+ /**
+ * text：text名称或显示文本。
+ */
+ text: string }> {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
   if (entry.kind === 'monster_drop') {
     return [
       { tone: 'map', text: entry.mapName },
@@ -184,9 +309,10 @@ function formatSourceDetails(entry: ItemSourceEntry): Array<{ tone: string; text
   ];
 }
 
-/** getItemSourceEntries：执行对应的业务逻辑。 */
+/** 读取某个物品的静态来源条目。 */
 export function getItemSourceEntries(itemId: string): ItemSourceEntry[] {
-/** catalog：定义该变量以承载业务值。 */
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
   const catalog = getLoadedItemSourceCatalog();
   if (!catalog) {
     void loadItemSourceCatalog();
@@ -195,33 +321,44 @@ export function getItemSourceEntries(itemId: string): ItemSourceEntry[] {
   return catalog[itemId] ?? [];
 }
 
-/** getItemSourceEntryCount：执行对应的业务逻辑。 */
+/** 统计某个物品可展示的来源条目数。 */
 export function getItemSourceEntryCount(itemId: string): number {
   return getItemSourceEntries(itemId).length;
 }
 
-/** isSpecialSourceSummaryItem：执行对应的业务逻辑。 */
+/** 判断是否需要使用特殊摘要文案。 */
 export function isSpecialSourceSummaryItem(itemId: string): boolean {
   return itemId === SPIRIT_STONE_ITEM_ID;
 }
 
-/** renderSpecialSourceSummaryHtml：执行对应的业务逻辑。 */
+/** 为特殊物品生成简短来源摘要。 */
 function renderSpecialSourceSummaryHtml(itemId: string): string | null {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
   if (itemId !== SPIRIT_STONE_ITEM_ID) {
     return null;
   }
   return '<span class="inventory-source-note">挖矿或者全部怪物击杀都有概率获得</span>';
 }
 
-/** renderItemSourceListHtml：执行对应的业务逻辑。 */
+/** 把物品来源目录渲染成可直接插入的 HTML。 */
 export function renderItemSourceListHtml(
   itemId: string,
-  options: {
-    maxEntries?: number;
+  options: {  
+  /**
+ * maxEntries：集合字段。
+ */
+
+    maxEntries?: number;    
+    /**
+ * compact：compact相关字段。
+ */
+
     compact?: boolean;
   } = {},
 ): string {
-/** specialSummaryHtml：定义该变量以承载业务值。 */
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
   const specialSummaryHtml = renderSpecialSourceSummaryHtml(itemId);
   if (specialSummaryHtml) {
     return specialSummaryHtml;
@@ -230,18 +367,13 @@ export function renderItemSourceListHtml(
     void loadItemSourceCatalog();
     return '<span class="inventory-source-note">静态来源加载中</span>';
   }
-/** entries：定义该变量以承载业务值。 */
   const entries = getItemSourceEntries(itemId);
   if (entries.length === 0) {
     return '<span class="inventory-source-empty">暂无静态来源</span>';
   }
-/** maxEntries：定义该变量以承载业务值。 */
   const maxEntries = options.maxEntries ? Math.max(1, options.maxEntries) : undefined;
-/** visibleEntries：定义该变量以承载业务值。 */
   const visibleEntries = maxEntries ? entries.slice(0, maxEntries) : entries;
-/** remaining：定义该变量以承载业务值。 */
   const remaining = entries.length - visibleEntries.length;
-/** compactClass：定义该变量以承载业务值。 */
   const compactClass = options.compact ? ' inventory-source-list--compact' : '';
   return `<div class="inventory-source-list${compactClass}">${
     visibleEntries.map((entry) => `
@@ -259,4 +391,3 @@ export function renderItemSourceListHtml(
       : ''
   }</div>`;
 }
-

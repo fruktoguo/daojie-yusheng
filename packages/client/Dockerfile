@@ -6,12 +6,12 @@ COPY tsconfig.base.json ./
 COPY packages/shared/package.json packages/shared/
 COPY packages/client/package.json packages/client/
 RUN pnpm install --frozen-lockfile || pnpm install
+COPY scripts scripts
 COPY docs/tutorial-mechanics.md docs/tutorial-mechanics.md
 COPY packages/shared packages/shared
 COPY packages/client packages/client
 COPY packages/server/data packages/server/data
-COPY scripts scripts
-RUN pnpm --filter @mud/client build
+RUN pnpm build:client
 
 FROM nginx:alpine
 ENV NGINX_WORKER_PROCESSES=auto

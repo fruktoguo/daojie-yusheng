@@ -41,7 +41,7 @@
       "y": 9,
       "targetMapId": "qizhen_crossing",
       "targetX": 29,
-      "targetY": 14,
+      "targetY": 15,
       "kind": "portal",
       "trigger": "manual",
       "routeDomain": "inherit",

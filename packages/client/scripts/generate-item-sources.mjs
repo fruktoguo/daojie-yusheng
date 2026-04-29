@@ -1,5 +1,5 @@
 /**
- * 用途：为 client 生成物品来源与怪物地点索引。
+ * 用途：为 client-next 生成物品来源与怪物地点索引。
  */
 
 import fs from 'node:fs';

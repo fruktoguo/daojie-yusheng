@@ -2,73 +2,42 @@
   {
     "id": "monster_huanling_arts",
     "name": "残丹唤灵诀",
+    "desc": "气血跌入七成后，强行把碎裂金丹撑成法相虚影，重构洞府脉路。",
     "grade": "earth",
     "category": "arts",
     "realmLv": 1,
     "layers": [
       {
         "level": 1,
-        "expFactor": 18,
-        "attrs": {
-          "spirit": 6,
-          "perception": 5
-        }
+        "expFactor": 18
       },
       {
         "level": 2,
-        "expFactor": 22,
-        "attrs": {
-          "spirit": 7,
-          "talent": 5
-        }
+        "expFactor": 22
       },
       {
         "level": 3,
-        "expFactor": 28,
-        "attrs": {
-          "spirit": 6,
-          "perception": 6
-        }
+        "expFactor": 28
       },
       {
         "level": 4,
-        "expFactor": 34,
-        "attrs": {
-          "talent": 7,
-          "constitution": 4
-        }
+        "expFactor": 34
       },
       {
         "level": 5,
-        "expFactor": 42,
-        "attrs": {
-          "spirit": 7,
-          "talent": 6
-        }
+        "expFactor": 42
       },
       {
         "level": 6,
-        "expFactor": 50,
-        "attrs": {
-          "perception": 7,
-          "constitution": 5
-        }
+        "expFactor": 50
       },
       {
         "level": 7,
-        "expFactor": 60,
-        "attrs": {
-          "spirit": 8,
-          "talent": 6
-        }
+        "expFactor": 60
       },
       {
         "level": 8,
-        "expFactor": 0,
-        "attrs": {
-          "spirit": 8,
-          "perception": 7
-        }
+        "expFactor": 0
       }
     ],
     "skills": [

@@ -7,11 +7,11 @@ import {
   renderMailBodyPlain,
   renderMailTitlePlain,
 } from '@mud/shared';
-import type { SocketManager } from '../network/socket';
+import type { SocketSocialEconomySender } from '../network/socket-send-social-economy';
 import { getLocalItemTemplate } from '../content/local-templates';
 import { detailModalHost } from './detail-modal-host';
 
-/** escapeHtml：执行对应的业务逻辑。 */
+/** 转义 HTML 文本中的危险字符。 */
 function escapeHtml(value: string): string {
   return value
     .replaceAll('&', '&amp;')
@@ -21,26 +21,39 @@ function escapeHtml(value: string): string {
     .replaceAll("'", '&#39;');
 }
 
-/** escapeHtmlAttr：执行对应的业务逻辑。 */
+/** 复用文本转义逻辑处理 HTML 属性值。 */
 function escapeHtmlAttr(value: string): string {
   return escapeHtml(value);
 }
 
-/** MAIL_FILTER_OPTIONS：定义该变量以承载业务值。 */
-const MAIL_FILTER_OPTIONS: Array<{ id: MailFilter; label: string }> = [
+/** 创建与 main 当前样式一致的邮件空态节点。 */
+function createMailEmptyHint(text: string): HTMLDivElement {
+  const node = document.createElement('div');
+  node.className = 'empty-hint';
+  node.textContent = text;
+  return node;
+}
+
+const MAIL_FILTER_OPTIONS: Array<{
+/**
+ * id：ID标识。
+ */
+ id: MailFilter;
+ /**
+ * label：label名称或显示文本。
+ */
+ label: string }> = [
   { id: 'all', label: '全部' },
-  { id: 'unread', label: '未读' },
-  { id: 'claimable', label: '可领取' },
+  { id: 'unread', label: '未阅' },
+  { id: 'claimable', label: '可取信物' },
 ];
 
-/** EMPTY_SUMMARY：定义该变量以承载业务值。 */
 const EMPTY_SUMMARY: MailSummaryView = {
   unreadCount: 0,
   claimableCount: 0,
   revision: 0,
 };
 
-/** EMPTY_PAGE：定义该变量以承载业务值。 */
 const EMPTY_PAGE: MailPageView = {
   items: [],
   total: 0,
@@ -50,58 +63,205 @@ const EMPTY_PAGE: MailPageView = {
   filter: 'all',
 };
 
-/** MAIL_ATTACHMENT_PAGE_SIZE：定义该变量以承载业务值。 */
+/** 邮件附件列表每页显示数量。 */
 const MAIL_ATTACHMENT_PAGE_SIZE = 10;
+/** 邮件弹窗默认提示。 */
+const MAIL_MODAL_HINT_DEFAULT = '点击空白处关闭';
+/** 邮件列表空态文案。 */
+const MAIL_LIST_EMPTY_TEXT = '当前筛选下暂无邮件';
+/** 邮件详情空态文案。 */
+const MAIL_DETAIL_EMPTY_TEXT = '请选择一封邮件查看详情';
+/** 邮件正文空态文案。 */
+const MAIL_BODY_EMPTY_TEXT = '这封邮件无正文内容。';
+/** 邮件附件空态文案。 */
+const MAIL_ATTACHMENT_EMPTY_TEXT = '这封邮件无信物';
 
-/** MailRenderState：定义该类型的结构与数据语义。 */
+/** 邮件面板渲染时需要保留的本地状态。 */
 type MailRenderState = {
-/** listScrollTop：定义该变量以承载业务值。 */
-  listScrollTop: number;
-/** detailScrollTop：定义该变量以承载业务值。 */
-  detailScrollTop: number;
-/** focusSelector：定义该变量以承载业务值。 */
+/**
+ * listScrollTop：ScrollTop相关字段。
+ */
+
+  listScrollTop: number;  
+  /**
+ * detailScrollTop：详情ScrollTop相关字段。
+ */
+
+  detailScrollTop: number;  
+  /**
+ * focusSelector：focuSelector相关字段。
+ */
+
   focusSelector: string | null;
 };
 
-/** MailModalMeta：定义该类型的结构与数据语义。 */
+/** 邮件弹窗标题区所需的附加信息。 */
 type MailModalMeta = {
-/** subtitle：定义该变量以承载业务值。 */
-  subtitle: string;
-/** hint：定义该变量以承载业务值。 */
+  /**
+ * subtitle：subtitle名称或显示文本。
+ */
+
+  subtitle: string;  
+  /**
+ * hint：hint相关字段。
+ */
+
   hint: string;
 };
 
-/** MailPanel：封装相关状态与行为。 */
-export class MailPanel {
-  private static readonly MODAL_OWNER = 'mail-panel';
-  private playerId = '';
-/** summary：定义该变量以承载业务值。 */
-  private summary: MailSummaryView = { ...EMPTY_SUMMARY };
-/** pageData：定义该变量以承载业务值。 */
-  private pageData: MailPageView = { ...EMPTY_PAGE };
-/** activeFilter：定义该变量以承载业务值。 */
-  private activeFilter: MailFilter = 'all';
-/** selectedMailId：定义该变量以承载业务值。 */
-  private selectedMailId: string | null = null;
-  private selectedMailIds = new Set<string>();
-/** detail：定义该变量以承载业务值。 */
-  private detail: MailDetailView | null = null;
-  private attachmentPage = 1;
-  private statusMessage = '';
-  private delegatedEventsBound = false;
+/** 邮件详情区已缓存的 DOM 节点。 */
+type MailDetailRefs = {
+/**
+ * titleNode：titleNode相关字段。
+ */
 
-/** constructor：处理当前场景中的对应操作。 */
-  constructor(private readonly socket: SocketManager) {
+  titleNode: HTMLElement;  
+  /**
+ * senderNode：senderNode相关字段。
+ */
+
+  senderNode: HTMLElement;  
+  /**
+ * createdAtNode：createdAtNode相关字段。
+ */
+
+  createdAtNode: HTMLElement;  
+  /**
+ * expireNode：expireNode相关字段。
+ */
+
+  expireNode: HTMLElement;  
+  /**
+ * markReadButton：ReadButton相关字段。
+ */
+
+  markReadButton: HTMLButtonElement;  
+  /**
+ * claimButton：claimButton相关字段。
+ */
+
+  claimButton: HTMLButtonElement;  
+  /**
+ * deleteButton：Button相关字段。
+ */
+
+  deleteButton: HTMLButtonElement;  
+  /**
+ * bodyNode：bodyNode相关字段。
+ */
+
+  bodyNode: HTMLElement;  
+  /**
+ * attachmentPagination：attachmentPagination相关字段。
+ */
+
+  attachmentPagination: HTMLElement;  
+  /**
+ * attachmentPageMeta：attachmentPageMeta相关字段。
+ */
+
+  attachmentPageMeta: HTMLElement;  
+  /**
+ * attachmentPrevButton：attachmentPrevButton相关字段。
+ */
+
+  attachmentPrevButton: HTMLButtonElement;  
+  /**
+ * attachmentNextButton：attachmentNextButton相关字段。
+ */
+
+  attachmentNextButton: HTMLButtonElement;  
+  /**
+ * attachmentList：集合字段。
+ */
+
+  attachmentList: HTMLElement;  
+  /**
+ * attachmentEmpty：attachmentEmpty相关字段。
+ */
+
+  attachmentEmpty: HTMLElement;
+};
+
+type MailOperationKind = 'markRead' | 'claim' | 'delete';
+
+type PendingMailOperation = {
+  operation: MailOperationKind;
+  mailIds: string[];
+  retriedAfterSessionRecovery: boolean;
+  awaitingReplayAfterSessionRestore: boolean;
+};
+
+/** 邮件面板实现，负责列表、详情与附件分页。 */
+export class MailPanel {
+  /** 详情弹窗的归属标识。 */
+  private static readonly MODAL_OWNER = 'mail-panel';
+  /** 当前账号对应的玩家 ID。 */
+  private playerId = '';
+  /** 邮件摘要统计。 */
+  private summary: MailSummaryView = { ...EMPTY_SUMMARY };
+  /** 当前邮件分页数据。 */
+  private pageData: MailPageView = { ...EMPTY_PAGE };
+  /** 当前激活的筛选条件。 */
+  private activeFilter: MailFilter = 'all';
+  /** 当前选中的邮件 ID。 */
+  private selectedMailId: string | null = null;
+  /** 列表中已勾选的邮件 ID 集合。 */
+  private selectedMailIds = new Set<string>();
+  /** 当前邮件详情。 */
+  private detail: MailDetailView | null = null;
+  /** 附件分页页码。 */
+  private attachmentPage = 1;
+  /** 面板底部状态提示。 */
+  private statusMessage = '';
+  /** 待恢复后重放的邮件操作。 */
+  private pendingOperation: PendingMailOperation | null = null;
+  /** 是否已绑定事件代理。 */
+  private delegatedEventsBound = false;
+  /** 邮件详情区缓存的节点引用。 */
+  private detailRefs: MailDetailRefs | null = null;  
+  /**
+ * 构造器：初始化 当前 实例并建立基础状态。
+ * @param socket Pick<
+    SocketSocialEconomySender,
+    | 'sendRequestMailSummary'
+    | 'sendRequestMailPage'
+    | 'sendRequestMailDetail'
+    | 'sendMarkMailRead'
+    | 'sendClaimMailAttachments'
+    | 'sendDeleteMail'
+  > 参数说明。
+ * @returns 无返回值，完成实例初始化。
+ */
+
+
+  constructor(
+    private readonly socket: Pick<
+    SocketSocialEconomySender,
+    | 'sendRequestMailSummary'
+    | 'sendRequestMailPage'
+    | 'sendRequestMailDetail'
+    | 'sendMarkMailRead'
+    | 'sendClaimMailAttachments'
+    | 'sendDeleteMail'
+  >,
+    private readonly options: {
+      recoverSession?: () => Promise<boolean>;
+    } = {},
+  ) {
     document.getElementById('hud-open-mail')?.addEventListener('click', () => this.open());
   }
 
-/** setPlayerId：执行对应的业务逻辑。 */
+  /** 记录当前玩家 ID，并同步角标状态。 */
   setPlayerId(playerId: string): void {
     this.playerId = playerId;
     this.updateHudUnreadState();
+    if (this.replayPendingOperationAfterSessionRestore()) {
+      return;
+    }
   }
 
-/** clear：执行对应的业务逻辑。 */
+  /** 清空面板状态并关闭弹窗。 */
   clear(): void {
     this.summary = { ...EMPTY_SUMMARY };
     this.pageData = { ...EMPTY_PAGE };
@@ -111,22 +271,53 @@ export class MailPanel {
     this.detail = null;
     this.attachmentPage = 1;
     this.statusMessage = '';
+    this.pendingOperation = null;
     this.updateHudUnreadState();
     detailModalHost.close(MailPanel.MODAL_OWNER);
   }
 
-/** updateSummary：执行对应的业务逻辑。 */
+  /** 读取当前本地已知的邮件状态，避免晚到旧包把状态回退。 */
+  private resolveLocalMailFlags(mailId: string): { read: boolean; claimed: boolean } | null {
+    const pageEntry = this.pageData.items.find((item) => item.mailId === mailId) ?? null;
+    const detailEntry = this.detail?.mailId === mailId ? this.detail : null;
+    if (!pageEntry && !detailEntry) {
+      return null;
+    }
+    return {
+      read: Boolean(pageEntry?.read || detailEntry?.read),
+      claimed: Boolean(pageEntry?.claimed || detailEntry?.claimed),
+    };
+  }
+
+  /** 合并服务端列表条目，禁止把本地已读/已领取状态回退。 */
+  private mergeIncomingListEntry(item: MailPageView['items'][number]): MailPageView['items'][number] {
+    const localFlags = this.resolveLocalMailFlags(item.mailId);
+    if (!localFlags) {
+      return item;
+    }
+    return {
+      ...item,
+      read: item.read || localFlags.read,
+      claimed: item.claimed || localFlags.claimed,
+    };
+  }
+
+  /** 更新邮件摘要并同步角标。 */
   updateSummary(summary: MailSummaryView): void {
     this.summary = summary;
     this.updateHudUnreadState();
     this.render();
   }
 
-/** updatePage：执行对应的业务逻辑。 */
+  /** 更新邮件列表分页。 */
   updatePage(page: MailPageView): void {
-    this.pageData = page;
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
+    this.pageData = {
+      ...page,
+      items: page.items.map((item) => this.mergeIncomingListEntry(item)),
+    };
     this.activeFilter = page.filter;
-/** visibleIds：定义该变量以承载业务值。 */
     const visibleIds = new Set(page.items.map((item) => item.mailId));
     this.selectedMailIds = new Set([...this.selectedMailIds].filter((mailId) => visibleIds.has(mailId)));
     if (this.selectedMailId && !visibleIds.has(this.selectedMailId)) {
@@ -145,8 +336,10 @@ export class MailPanel {
     this.render();
   }
 
-/** updateDetail：执行对应的业务逻辑。 */
+  /** 更新当前邮件详情。 */
   updateDetail(detail: MailDetailView | null, error?: string): void {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
     if (!detail) {
       this.detail = null;
       if (error) {
@@ -161,14 +354,104 @@ export class MailPanel {
     if (!this.detail || this.detail.mailId !== detail.mailId) {
       this.attachmentPage = 1;
     }
-    this.detail = detail;
+    const localFlags = this.resolveLocalMailFlags(detail.mailId);
+    this.detail = {
+      ...detail,
+      read: detail.read || localFlags?.read === true,
+      claimed: detail.claimed || localFlags?.claimed === true,
+    };
+    this.pageData = {
+      ...this.pageData,
+      items: this.pageData.items.map((item) => item.mailId === detail.mailId
+        ? {
+          ...item,
+          read: detail.read || localFlags?.read === true,
+          claimed: detail.claimed || localFlags?.claimed === true,
+        }
+        : item),
+    };
     this.render();
   }
 
-/** handleOpResult：执行对应的业务逻辑。 */
-  handleOpResult(result: { operation: 'markRead' | 'claim' | 'delete'; ok: boolean; mailIds: string[]; message?: string }): void {
-    this.statusMessage = result.message ?? (result.ok ? '操作已提交。' : '操作失败。');
+  /** 处理标记已读、领取和删除的回包。 */
+  handleOpResult(result: {
+  /**
+ * operation：operation相关字段。
+ */
+ operation: 'markRead' | 'claim' | 'delete';  
+ /**
+ * ok：ok相关字段。
+ */
+ ok: boolean;  
+ /**
+ * mailIds：邮件ID相关字段。
+ */
+ mailIds: string[];  
+ /**
+ * message：message相关字段。
+ */
+  message?: string }): void {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
+    this.statusMessage = result.message ?? (result.ok ? '已呈报。' : '未果。');
+    if (!result.ok) {
+      if (this.shouldRecoverExpiredSession(result)) {
+        void this.recoverSessionAndReplayPendingOperation();
+      } else if (this.pendingOperation?.operation === result.operation) {
+        this.pendingOperation = null;
+      }
+      this.render();
+      return;
+    }
     if (result.ok) {
+      if (this.pendingOperation?.operation === result.operation) {
+        this.pendingOperation = null;
+      }
+      const affectedIds = new Set(result.mailIds);
+      const affectedEntries = this.pageData.items.filter((item) => affectedIds.has(item.mailId));
+      const detailOnlyAffected = this.detail
+        && affectedIds.has(this.detail.mailId)
+        && affectedEntries.every((item) => item.mailId !== this.detail!.mailId)
+        ? this.detail
+        : null;
+      const unreadResolved = result.operation === 'markRead' || result.operation === 'claim' || result.operation === 'delete'
+        ? affectedEntries.reduce((count, item) => count + (item.read ? 0 : 1), 0) + (detailOnlyAffected && !detailOnlyAffected.read ? 1 : 0)
+        : 0;
+      const claimableResolved = result.operation === 'claim' || result.operation === 'delete'
+        ? affectedEntries.reduce((count, item) => count + (item.hasAttachments && !item.claimed ? 1 : 0), 0)
+          + (detailOnlyAffected && detailOnlyAffected.attachments.length > 0 && !detailOnlyAffected.claimed ? 1 : 0)
+        : 0;
+      this.summary = {
+        ...this.summary,
+        unreadCount: Math.max(0, this.summary.unreadCount - unreadResolved),
+        claimableCount: Math.max(0, this.summary.claimableCount - claimableResolved),
+      };
+      this.updateHudUnreadState();
+      if (affectedIds.size > 0) {
+        this.pageData = {
+          ...this.pageData,
+          items: this.pageData.items.filter((item) => !(result.operation === 'delete' && affectedIds.has(item.mailId))).map((item) => {
+            if (!affectedIds.has(item.mailId)) {
+              return item;
+            }
+            return {
+              ...item,
+              read: result.operation === 'markRead' || result.operation === 'claim' ? true : item.read,
+              claimed: result.operation === 'claim' ? true : item.claimed,
+            };
+          }),
+          total: result.operation === 'delete'
+            ? Math.max(0, this.pageData.total - result.mailIds.length)
+            : this.pageData.total,
+        };
+        if (this.detail && affectedIds.has(this.detail.mailId)) {
+          this.detail = {
+            ...this.detail,
+            read: result.operation === 'markRead' || result.operation === 'claim' ? true : this.detail.read,
+            claimed: result.operation === 'claim' ? true : this.detail.claimed,
+          };
+        }
+      }
       if (result.operation === 'delete' && this.selectedMailId && result.mailIds.includes(this.selectedMailId)) {
         this.selectedMailId = null;
         this.detail = null;
@@ -182,51 +465,145 @@ export class MailPanel {
     this.render();
   }
 
-/** open：执行对应的业务逻辑。 */
+  /** 打开邮件详情弹窗。 */
   open(): void {
     this.socket.sendRequestMailSummary();
     this.requestCurrentPage();
+    const meta = this.buildModalMeta();
     detailModalHost.open({
       ownerId: MailPanel.MODAL_OWNER,
       variantClass: 'detail-modal--mail',
       title: '飞书台',
-      subtitle: `未读 ${this.summary.unreadCount} · 可领取 ${this.summary.claimableCount}`,
-      hint: this.statusMessage || '点击空白处关闭',
+      subtitle: meta.subtitle,
+      hint: meta.hint,
       bodyHtml: this.buildBodyHtml(),
       onAfterRender: (body) => this.bindEvents(body),
     });
   }
 
-/** requestCurrentPage：执行对应的业务逻辑。 */
+  /** 请求当前分页数据。 */
   private requestCurrentPage(): void {
     this.socket.sendRequestMailPage(this.pageData.page || 1, this.pageData.pageSize || MAIL_PAGE_SIZE_DEFAULT, this.activeFilter);
   }
 
-/** requestDetail：执行对应的业务逻辑。 */
+  /** 请求指定邮件的详情。 */
   private requestDetail(mailId: string): void {
     this.socket.sendRequestMailDetail(mailId);
   }
 
-/** markReadIfNeeded：执行对应的业务逻辑。 */
+  /** 统一发起邮件变更操作，并为会话恢复保留一次重放机会。 */
+  private dispatchMailOperation(operation: MailOperationKind, mailIds: string[]): void {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
+    const normalizedIds = Array.from(new Set(mailIds.map((mailId) => String(mailId ?? '').trim()).filter(Boolean)));
+    if (normalizedIds.length === 0) {
+      return;
+    }
+    this.pendingOperation = {
+      operation,
+      mailIds: normalizedIds,
+      retriedAfterSessionRecovery: false,
+      awaitingReplayAfterSessionRestore: false,
+    };
+    this.emitMailOperation(operation, normalizedIds);
+  }
+
+  /** 底层发包，不修改待重放状态。 */
+  private emitMailOperation(operation: MailOperationKind, mailIds: string[]): void {
+    switch (operation) {
+      case 'markRead':
+        this.socket.sendMarkMailRead(mailIds);
+        return;
+      case 'claim':
+        this.socket.sendClaimMailAttachments(mailIds);
+        return;
+      case 'delete':
+        this.socket.sendDeleteMail(mailIds);
+        return;
+    }
+  }
+
+  /** 判断这次失败是否命中了可恢复的会话失效场景。 */
+  private shouldRecoverExpiredSession(result: {
+    operation: MailOperationKind;
+    ok: boolean;
+    message?: string;
+  }): boolean {
+    const message = typeof result.message === 'string' ? result.message : '';
+    if (!message.includes('当前会话已失效')) {
+      return false;
+    }
+    return Boolean(
+      this.pendingOperation
+      && this.pendingOperation.operation === result.operation
+      && this.pendingOperation.retriedAfterSessionRecovery === false
+      && typeof this.options.recoverSession === 'function',
+    );
+  }
+
+  /** 会话失效时尝试恢复并自动重放一次当前邮件操作。 */
+  private async recoverSessionAndReplayPendingOperation(): Promise<void> {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
+    const pendingOperation = this.pendingOperation;
+    const recoverSession = this.options.recoverSession;
+    if (!pendingOperation || pendingOperation.retriedAfterSessionRecovery || typeof recoverSession !== 'function') {
+      return;
+    }
+    pendingOperation.retriedAfterSessionRecovery = true;
+    pendingOperation.awaitingReplayAfterSessionRestore = true;
+    this.playerId = '';
+    this.statusMessage = '气机已断，正在重续...';
+    this.render();
+    const restored = await recoverSession();
+    if (!restored) {
+      this.pendingOperation = null;
+      this.statusMessage = '续气未果，请重入天地再试。';
+      this.render();
+      return;
+    }
+    if (this.replayPendingOperationAfterSessionRestore()) {
+      return;
+    }
+    this.statusMessage = '气机已续，静待身显...';
+    this.render();
+  }
+
+  /** 在 bootstrap 回到邮件面板后重放一次待恢复操作。 */
+  private replayPendingOperationAfterSessionRestore(): boolean {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
+    const pendingOperation = this.pendingOperation;
+    if (!pendingOperation?.awaitingReplayAfterSessionRestore || !this.playerId) {
+      return false;
+    }
+    pendingOperation.awaitingReplayAfterSessionRestore = false;
+    this.statusMessage = '气机已续，重试呈报...';
+    this.render();
+    this.emitMailOperation(pendingOperation.operation, pendingOperation.mailIds);
+    return true;
+  }
+
+  /** 在邮件未读时主动补一次已读标记。 */
   private markReadIfNeeded(mailId: string): void {
-/** item：定义该变量以承载业务值。 */
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
     const item = this.pageData.items.find((entry) => entry.mailId === mailId);
     if (!item || item.read) {
       return;
     }
-    this.socket.sendMarkMailRead([mailId]);
+    this.dispatchMailOperation('markRead', [mailId]);
   }
 
-/** render：执行对应的业务逻辑。 */
+  /** 刷新邮件详情弹窗。 */
   private render(): void {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
     if (!detailModalHost.isOpenFor(MailPanel.MODAL_OWNER)) {
       return;
     }
-/** body：定义该变量以承载业务值。 */
     const body = document.getElementById('detail-modal-body');
-/** renderState：定义该变量以承载业务值。 */
     const renderState = body ? this.captureRenderState(body) : null;
-/** meta：定义该变量以承载业务值。 */
     const meta = this.buildModalMeta();
     if (body && this.patchBody(body, meta)) {
       if (renderState) {
@@ -250,27 +627,24 @@ export class MailPanel {
     });
   }
 
-/** buildBodyHtml：执行对应的业务逻辑。 */
+  /** 构建邮件详情弹窗的主体 HTML。 */
   private buildBodyHtml(): string {
-/** total：定义该变量以承载业务值。 */
     const total = this.pageData.total;
-/** selectedCount：定义该变量以承载业务值。 */
     const selectedCount = this.selectedMailIds.size;
-/** detail：定义该变量以承载业务值。 */
     const detail = this.detail && this.selectedMailId === this.detail.mailId ? this.detail : null;
     return `
       <div class="mail-shell">
-        <div class="mail-summary-grid">
-          <div class="mail-summary-card">
-            <div class="mail-summary-label">未读</div>
-            <div class="mail-summary-value" data-mail-summary-unread="true">${this.summary.unreadCount}</div>
-            <div class="mail-summary-note">打开邮件详情后会进入已读队列。</div>
-          </div>
-          <div class="mail-summary-card">
-            <div class="mail-summary-label">可领取</div>
-            <div class="mail-summary-value" data-mail-summary-claimable="true">${this.summary.claimableCount}</div>
-            <div class="mail-summary-note">附件领取会走服务端受控流程，不进地图广播。</div>
-          </div>
+            <div class="mail-summary-grid">
+              <div class="mail-summary-card">
+            <div class="mail-summary-label">未阅</div>
+                <div class="mail-summary-value" data-mail-summary-unread="true">${this.summary.unreadCount}</div>
+                  <div class="mail-summary-note">点入信笺，归入已阅。</div>
+                </div>
+            <div class="mail-summary-card">
+              <div class="mail-summary-label">可取信物</div>
+              <div class="mail-summary-value" data-mail-summary-claimable="true">${this.summary.claimableCount}</div>
+              <div class="mail-summary-note">信物取出由天道控卷，不入地图广播。</div>
+            </div>
           <div class="mail-summary-card">
             <div class="mail-summary-label">当前筛选</div>
             <div class="mail-summary-value" data-mail-summary-total="true">${total}</div>
@@ -300,7 +674,7 @@ export class MailPanel {
             <div class="mail-list" data-mail-list="true">
               ${this.pageData.items.length > 0
                 ? this.pageData.items.map((item) => this.renderListEntry(item)).join('')
-                : '<div class="empty-hint">当前筛选下暂无邮件</div>'}
+                : `<div class="empty-hint">${escapeHtml(MAIL_LIST_EMPTY_TEXT)}</div>`}
             </div>
             <div class="suggestion-pagination">
               <button class="small-btn ghost" data-mail-page-action="prev" type="button" ${this.pageData.page <= 1 ? 'disabled' : ''}>上一页</button>
@@ -314,7 +688,7 @@ export class MailPanel {
               <div class="mail-pane-note">单实例详情弹层</div>
             </div>
             <div class="mail-detail" data-mail-detail="true">
-              ${detail ? this.renderDetail(detail) : '<div class="empty-hint">请选择一封邮件查看详情</div>'}
+              ${detail ? this.renderDetail(detail) : `<div class="empty-hint">${escapeHtml(MAIL_DETAIL_EMPTY_TEXT)}</div>`}
             </div>
           </section>
         </div>
@@ -322,16 +696,281 @@ export class MailPanel {
     `;
   }
 
-/** renderListEntry：执行对应的业务逻辑。 */
-  private renderListEntry(item: MailPageView['items'][number]): string {
-/** selected：定义该变量以承载业务值。 */
+  /** 创建邮件条目的基础节点。 */
+  private createMailEntryNode(item: MailPageView['items'][number]): HTMLElement {
+    const article = document.createElement('article');
+    article.className = 'mail-entry';
+    article.tabIndex = 0;
+    article.setAttribute('role', 'button');
+    article.dataset.mailSelect = item.mailId;
+
+    const label = document.createElement('label');
+    label.className = 'mail-entry-check';
+    const checkbox = document.createElement('input');
+    checkbox.type = 'checkbox';
+    checkbox.dataset.mailCheck = item.mailId;
+    label.append(checkbox);
+
+    const main = document.createElement('div');
+    main.className = 'mail-entry-main';
+
+    const head = document.createElement('div');
+    head.className = 'mail-entry-head';
+    const titleRow = document.createElement('div');
+    titleRow.className = 'mail-entry-title-row';
+    const title = document.createElement('div');
+    title.className = 'mail-entry-title';
+    title.dataset.mailEntryTitle = 'true';
+    const unreadDot = document.createElement('span');
+    unreadDot.className = 'suggestion-inline-dot';
+    unreadDot.setAttribute('aria-hidden', 'true');
+    unreadDot.dataset.mailEntryUnreadDot = 'true';
+    const time = document.createElement('div');
+    time.className = 'mail-entry-time';
+    time.dataset.mailEntryTime = 'true';
+    titleRow.append(title, unreadDot);
+    head.append(titleRow, time);
+
+    const meta = document.createElement('div');
+    meta.className = 'mail-entry-meta';
+    meta.dataset.mailEntryMeta = 'true';
+
+    const summary = document.createElement('div');
+    summary.className = 'mail-entry-summary';
+    summary.dataset.mailEntrySummary = 'true';
+
+    main.append(head, meta, summary);
+    article.append(label, main);
+    this.patchMailEntryNode(article, item);
+    return article;
+  }
+
+  /** 将邮件分页数据写回条目节点。 */
+  private patchMailEntryNode(node: HTMLElement, item: MailPageView['items'][number]): boolean {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
+    const checkbox = node.querySelector<HTMLInputElement>('[data-mail-check]');
+    const title = node.querySelector<HTMLElement>('[data-mail-entry-title="true"]');
+    const unreadDot = node.querySelector<HTMLElement>('[data-mail-entry-unread-dot="true"]');
+    const time = node.querySelector<HTMLElement>('[data-mail-entry-time="true"]');
+    const meta = node.querySelector<HTMLElement>('[data-mail-entry-meta="true"]');
+    const summary = node.querySelector<HTMLElement>('[data-mail-entry-summary="true"]');
+    if (!checkbox || !title || !unreadDot || !time || !meta || !summary) {
+      return false;
+    }
     const selected = item.mailId === this.selectedMailId;
-/** checked：定义该变量以承载业务值。 */
     const checked = this.selectedMailIds.has(item.mailId);
-/** stateChips：定义该变量以承载业务值。 */
     const stateChips = [
-      item.read ? '已读' : '未读',
-      item.hasAttachments ? (item.claimed ? '附件已领' : '可领附件') : '无附件',
+      item.read ? '已阅' : '未阅',
+      item.hasAttachments ? (item.claimed ? '信物已取' : '可取信物') : '无信物',
+    ];
+    node.dataset.mailSelect = item.mailId;
+    node.classList.toggle('selected', selected);
+    checkbox.dataset.mailCheck = item.mailId;
+    checkbox.checked = checked;
+    title.textContent = item.title;
+    unreadDot.hidden = item.read;
+    time.textContent = new Date(item.createdAt).toLocaleString();
+    meta.replaceChildren(
+      ...[
+        item.senderLabel,
+        ...stateChips,
+        ...(item.expireAt ? [`至 ${new Date(item.expireAt).toLocaleString()}`] : []),
+      ].map((text) => {
+        const span = document.createElement('span');
+        span.textContent = text;
+        return span;
+      }),
+    );
+    summary.textContent = item.summary || '信笺无言';
+    return true;
+  }
+
+  /** 确保详情区结构已就位并缓存节点引用。 */
+  private ensureDetailStructure(detailRoot: HTMLElement): MailDetailRefs {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
+    if (this.detailRefs && detailRoot.contains(this.detailRefs.titleNode)) {
+      return this.detailRefs;
+    }
+
+    const head = document.createElement('div');
+    head.className = 'mail-detail-head';
+    const headMain = document.createElement('div');
+    const titleNode = document.createElement('div');
+    titleNode.className = 'mail-detail-title';
+    const meta = document.createElement('div');
+    meta.className = 'mail-detail-meta';
+    const senderNode = document.createElement('span');
+    const createdAtNode = document.createElement('span');
+    const expireNode = document.createElement('span');
+    meta.append(senderNode, createdAtNode, expireNode);
+    headMain.append(titleNode, meta);
+
+    const actions = document.createElement('div');
+    actions.className = 'mail-detail-actions';
+    const markReadButton = document.createElement('button');
+    markReadButton.className = 'small-btn ghost';
+    markReadButton.type = 'button';
+    const claimButton = document.createElement('button');
+    claimButton.className = 'small-btn';
+    claimButton.type = 'button';
+    const deleteButton = document.createElement('button');
+    deleteButton.className = 'small-btn danger';
+    deleteButton.type = 'button';
+    actions.append(markReadButton, claimButton, deleteButton);
+    head.append(headMain, actions);
+
+    const bodyNode = document.createElement('div');
+    bodyNode.className = 'mail-detail-body';
+
+    const attachmentBlock = document.createElement('div');
+    attachmentBlock.className = 'mail-attachment-block';
+    const attachmentHead = document.createElement('div');
+    attachmentHead.className = 'mail-attachment-head';
+    const attachmentTitle = document.createElement('div');
+    attachmentTitle.className = 'mail-attachment-title';
+    attachmentTitle.textContent = '信物';
+    const attachmentPagination = document.createElement('div');
+    attachmentPagination.className = 'mail-attachment-pagination';
+    const attachmentPrevButton = document.createElement('button');
+    attachmentPrevButton.className = 'small-btn ghost';
+    attachmentPrevButton.type = 'button';
+    attachmentPrevButton.dataset.mailAttachmentPage = 'prev';
+    attachmentPrevButton.textContent = '上一页';
+    const attachmentPageMeta = document.createElement('span');
+    attachmentPageMeta.className = 'mail-attachment-page-meta';
+    const attachmentNextButton = document.createElement('button');
+    attachmentNextButton.className = 'small-btn ghost';
+    attachmentNextButton.type = 'button';
+    attachmentNextButton.dataset.mailAttachmentPage = 'next';
+    attachmentNextButton.textContent = '下一页';
+    attachmentPagination.append(attachmentPrevButton, attachmentPageMeta, attachmentNextButton);
+    attachmentHead.append(attachmentTitle, attachmentPagination);
+
+    const attachmentList = document.createElement('div');
+    attachmentList.className = 'mail-attachment-list';
+    const attachmentEmpty = createMailEmptyHint(MAIL_ATTACHMENT_EMPTY_TEXT);
+
+    attachmentBlock.append(attachmentHead, attachmentList, attachmentEmpty);
+    detailRoot.replaceChildren(head, bodyNode, attachmentBlock);
+
+    this.detailRefs = {
+      titleNode,
+      senderNode,
+      createdAtNode,
+      expireNode,
+      markReadButton,
+      claimButton,
+      deleteButton,
+      bodyNode,
+      attachmentPagination,
+      attachmentPageMeta,
+      attachmentPrevButton,
+      attachmentNextButton,
+      attachmentList,
+      attachmentEmpty,
+    };
+    return this.detailRefs;
+  }
+
+  /** 复用现有详情结构刷新详情内容。 */
+  private patchDetailRoot(detailRoot: HTMLElement, detail: MailDetailView | null): boolean {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
+    if (!detail) {
+      this.detailRefs = null;
+      detailRoot.replaceChildren(createMailEmptyHint(MAIL_DETAIL_EMPTY_TEXT));
+      return true;
+    }
+
+    const refs = this.ensureDetailStructure(detailRoot);
+    const title = renderMailTitlePlain(detail.templateId, detail.args, detail.fallbackTitle);
+    const body = renderMailBodyPlain(detail.templateId, detail.args, detail.fallbackBody);
+    const totalAttachmentPages = Math.max(1, Math.ceil(detail.attachments.length / MAIL_ATTACHMENT_PAGE_SIZE));
+    const attachmentPage = Math.min(totalAttachmentPages, Math.max(1, this.attachmentPage));
+    this.attachmentPage = attachmentPage;
+    const attachmentStart = (attachmentPage - 1) * MAIL_ATTACHMENT_PAGE_SIZE;
+    const visibleAttachments = detail.attachments.slice(attachmentStart, attachmentStart + MAIL_ATTACHMENT_PAGE_SIZE);
+
+    refs.titleNode.textContent = title;
+    refs.senderNode.textContent = detail.senderLabel;
+    refs.createdAtNode.textContent = new Date(detail.createdAt).toLocaleString();
+    refs.expireNode.textContent = detail.expireAt ? `到期 ${new Date(detail.expireAt).toLocaleString()}` : '长期保留';
+    refs.markReadButton.dataset.mailMarkRead = detail.mailId;
+    refs.claimButton.dataset.mailClaim = detail.mailId;
+    refs.deleteButton.dataset.mailDelete = detail.mailId;
+    refs.markReadButton.textContent = '标已阅';
+    refs.claimButton.textContent = '收取信物';
+    refs.deleteButton.textContent = '删除';
+    refs.markReadButton.disabled = detail.read;
+    refs.claimButton.disabled = !detail.attachments.length || detail.claimed;
+    refs.deleteButton.disabled = !detail.deletable;
+    refs.bodyNode.replaceChildren(...(body || MAIL_BODY_EMPTY_TEXT).split('\n').flatMap((line, index, arr) => {
+      const nodes: Node[] = [document.createTextNode(line)];
+      if (index < arr.length - 1) {
+        nodes.push(document.createElement('br'));
+      }
+      return nodes;
+    }));
+
+    refs.attachmentPagination.hidden = detail.attachments.length <= MAIL_ATTACHMENT_PAGE_SIZE;
+    refs.attachmentPageMeta.textContent = `第 ${attachmentPage} / ${totalAttachmentPages} 页`;
+    refs.attachmentPrevButton.disabled = attachmentPage <= 1;
+    refs.attachmentNextButton.disabled = attachmentPage >= totalAttachmentPages;
+    refs.attachmentEmpty.hidden = detail.attachments.length > 0;
+    refs.attachmentList.hidden = detail.attachments.length === 0;
+    refs.attachmentList.replaceChildren(...visibleAttachments.map((attachment) => {
+      const item = document.createElement('div');
+      item.className = 'mail-attachment-item';
+      const name = document.createElement('span');
+      name.className = 'mail-attachment-item-name';
+      name.textContent = getLocalItemTemplate(attachment.itemId)?.name ?? attachment.itemId;
+      const count = document.createElement('strong');
+      count.textContent = `x${attachment.count}`;
+      item.append(name, count);
+      return item;
+    }));
+    return true;
+  }
+
+  /** 复用现有列表结构刷新列表内容。 */
+  private patchListRoot(listRoot: HTMLElement): boolean {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
+    const existing = new Map<string, HTMLElement>();
+    listRoot.querySelectorAll<HTMLElement>('[data-mail-select]').forEach((node) => {
+      const mailId = node.dataset.mailSelect;
+      if (mailId) {
+        existing.set(mailId, node);
+      }
+    });
+    if (this.pageData.items.length === 0) {
+      const emptyNode = listRoot.querySelector<HTMLElement>('.empty-hint') ?? createMailEmptyHint(MAIL_LIST_EMPTY_TEXT);
+      emptyNode.textContent = MAIL_LIST_EMPTY_TEXT;
+      listRoot.replaceChildren(emptyNode);
+      return true;
+    }
+    const orderedNodes = this.pageData.items.map((item) => {
+      const reused = existing.get(item.mailId) ?? null;
+      const node = reused && this.patchMailEntryNode(reused, item)
+        ? reused
+        : this.createMailEntryNode(item);
+      existing.delete(item.mailId);
+      return node;
+    });
+    existing.forEach((node) => node.remove());
+    listRoot.replaceChildren(...orderedNodes);
+    return true;
+  }
+
+  /** 渲染邮件列表条目的静态 HTML。 */
+  private renderListEntry(item: MailPageView['items'][number]): string {
+    const selected = item.mailId === this.selectedMailId;
+    const checked = this.selectedMailIds.has(item.mailId);
+    const stateChips = [
+      item.read ? '已阅' : '未阅',
+      item.hasAttachments ? (item.claimed ? '信物已取' : '可取信物') : '无信物',
     ];
     return `
       <article class="mail-entry ${selected ? 'selected' : ''}" data-mail-select="${escapeHtmlAttr(item.mailId)}" tabindex="0" role="button">
@@ -341,36 +980,30 @@ export class MailPanel {
         <div class="mail-entry-main">
           <div class="mail-entry-head">
             <div class="mail-entry-title-row">
-              <div class="mail-entry-title">${escapeHtml(item.title)}</div>
-              ${!item.read ? '<span class="suggestion-inline-dot" aria-hidden="true"></span>' : ''}
+              <div class="mail-entry-title" data-mail-entry-title="true">${escapeHtml(item.title)}</div>
+              <span class="suggestion-inline-dot" aria-hidden="true" data-mail-entry-unread-dot="true" ${item.read ? 'hidden' : ''}></span>
             </div>
-            <div class="mail-entry-time">${new Date(item.createdAt).toLocaleString()}</div>
+            <div class="mail-entry-time" data-mail-entry-time="true">${new Date(item.createdAt).toLocaleString()}</div>
           </div>
-          <div class="mail-entry-meta">
+          <div class="mail-entry-meta" data-mail-entry-meta="true">
             <span>${escapeHtml(item.senderLabel)}</span>
             ${stateChips.map((chip) => `<span>${escapeHtml(chip)}</span>`).join('')}
             ${item.expireAt ? `<span>至 ${escapeHtml(new Date(item.expireAt).toLocaleString())}</span>` : ''}
           </div>
-          <div class="mail-entry-summary">${escapeHtml(item.summary || '这封邮件没有额外说明。')}</div>
+      <div class="mail-entry-summary" data-mail-entry-summary="true">${escapeHtml(item.summary || '信笺无言')}</div>
         </div>
       </article>
     `;
   }
 
-/** renderDetail：执行对应的业务逻辑。 */
+  /** 渲染邮件详情的静态 HTML。 */
   private renderDetail(detail: MailDetailView): string {
-/** title：定义该变量以承载业务值。 */
     const title = renderMailTitlePlain(detail.templateId, detail.args, detail.fallbackTitle);
-/** body：定义该变量以承载业务值。 */
     const body = renderMailBodyPlain(detail.templateId, detail.args, detail.fallbackBody);
-/** totalAttachmentPages：定义该变量以承载业务值。 */
     const totalAttachmentPages = Math.max(1, Math.ceil(detail.attachments.length / MAIL_ATTACHMENT_PAGE_SIZE));
-/** attachmentPage：定义该变量以承载业务值。 */
     const attachmentPage = Math.min(totalAttachmentPages, Math.max(1, this.attachmentPage));
     this.attachmentPage = attachmentPage;
-/** attachmentStart：定义该变量以承载业务值。 */
     const attachmentStart = (attachmentPage - 1) * MAIL_ATTACHMENT_PAGE_SIZE;
-/** visibleAttachments：定义该变量以承载业务值。 */
     const visibleAttachments = detail.attachments.slice(attachmentStart, attachmentStart + MAIL_ATTACHMENT_PAGE_SIZE);
     return `
       <div class="mail-detail-head">
@@ -383,15 +1016,15 @@ export class MailPanel {
           </div>
         </div>
         <div class="mail-detail-actions">
-          <button class="small-btn ghost" data-mail-mark-read="${escapeHtmlAttr(detail.mailId)}" type="button" ${detail.read ? 'disabled' : ''}>标已读</button>
-          <button class="small-btn" data-mail-claim="${escapeHtmlAttr(detail.mailId)}" type="button" ${!detail.attachments.length || detail.claimed ? 'disabled' : ''}>领取附件</button>
+          <button class="small-btn ghost" data-mail-mark-read="${escapeHtmlAttr(detail.mailId)}" type="button" ${detail.read ? 'disabled' : ''}>标已阅</button>
+          <button class="small-btn" data-mail-claim="${escapeHtmlAttr(detail.mailId)}" type="button" ${!detail.attachments.length || detail.claimed ? 'disabled' : ''}>收取信物</button>
           <button class="small-btn danger" data-mail-delete="${escapeHtmlAttr(detail.mailId)}" type="button" ${!detail.deletable ? 'disabled' : ''}>删除</button>
         </div>
       </div>
-      <div class="mail-detail-body">${escapeHtml(body || '这封邮件没有正文内容。').replaceAll('\n', '<br />')}</div>
+      <div class="mail-detail-body">${escapeHtml(body || MAIL_BODY_EMPTY_TEXT).replaceAll('\n', '<br />')}</div>
       <div class="mail-attachment-block">
         <div class="mail-attachment-head">
-          <div class="mail-attachment-title">附件</div>
+    <div class="mail-attachment-title">信物</div>
           ${detail.attachments.length > MAIL_ATTACHMENT_PAGE_SIZE ? `
             <div class="mail-attachment-pagination">
               <button class="small-btn ghost" data-mail-attachment-page="prev" type="button" ${attachmentPage <= 1 ? 'disabled' : ''}>上一页</button>
@@ -407,13 +1040,15 @@ export class MailPanel {
                 <strong>x${attachment.count}</strong>
               </div>
             `).join('')}</div>`
-          : '<div class="empty-hint">这封邮件没有附件</div>'}
+          : `<div class="empty-hint">${escapeHtml(MAIL_ATTACHMENT_EMPTY_TEXT)}</div>`}
       </div>
     `;
   }
 
-/** bindEvents：执行对应的业务逻辑。 */
+  /** 为弹窗内容绑定一次性事件代理。 */
   private bindEvents(root: HTMLElement): void {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
     if (this.delegatedEventsBound) {
       return;
     }
@@ -422,18 +1057,17 @@ export class MailPanel {
     root.addEventListener('change', (event) => this.handleRootChange(event));
   }
 
-/** handleRootClick：执行对应的业务逻辑。 */
+  /** 处理弹窗根节点的点击事件。 */
   private handleRootClick(event: Event): void {
-/** target：定义该变量以承载业务值。 */
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
     const target = event.target;
     if (!(target instanceof HTMLElement)) {
       return;
     }
 
-/** filterButton：定义该变量以承载业务值。 */
     const filterButton = target.closest<HTMLButtonElement>('[data-mail-filter]');
     if (filterButton) {
-/** filter：定义该变量以承载业务值。 */
       const filter = filterButton.dataset.mailFilter as MailFilter | undefined;
       if (!filter || filter === this.activeFilter) {
         return;
@@ -446,10 +1080,8 @@ export class MailPanel {
       return;
     }
 
-/** pageButton：定义该变量以承载业务值。 */
     const pageButton = target.closest<HTMLButtonElement>('[data-mail-page-action]');
     if (pageButton) {
-/** action：定义该变量以承载业务值。 */
       const action = pageButton.dataset.mailPageAction;
       if (action === 'prev' && this.pageData.page > 1) {
         this.pageData.page -= 1;
@@ -461,15 +1093,12 @@ export class MailPanel {
       return;
     }
 
-/** attachmentPageButton：定义该变量以承载业务值。 */
     const attachmentPageButton = target.closest<HTMLButtonElement>('[data-mail-attachment-page]');
     if (attachmentPageButton) {
       if (!this.detail) {
         return;
       }
-/** totalAttachmentPages：定义该变量以承载业务值。 */
       const totalAttachmentPages = Math.max(1, Math.ceil(this.detail.attachments.length / MAIL_ATTACHMENT_PAGE_SIZE));
-/** action：定义该变量以承载业务值。 */
       const action = attachmentPageButton.dataset.mailAttachmentPage;
       if (action === 'prev' && this.attachmentPage > 1) {
         this.attachmentPage -= 1;
@@ -492,49 +1121,41 @@ export class MailPanel {
       return;
     }
     if (target.closest('[data-mail-batch-claim]')) {
-/** ids：定义该变量以承载业务值。 */
       const ids = [...this.selectedMailIds];
       if (ids.length > 0) {
-        this.socket.sendClaimMailAttachments(ids);
+        this.dispatchMailOperation('claim', ids);
       }
       return;
     }
     if (target.closest('[data-mail-batch-delete]')) {
-/** ids：定义该变量以承载业务值。 */
       const ids = [...this.selectedMailIds];
       if (ids.length > 0) {
-        this.socket.sendDeleteMail(ids);
+        this.dispatchMailOperation('delete', ids);
       }
       return;
     }
 
-/** markReadButton：定义该变量以承载业务值。 */
     const markReadButton = target.closest<HTMLButtonElement>('[data-mail-mark-read]');
     if (markReadButton) {
-/** mailId：定义该变量以承载业务值。 */
       const mailId = markReadButton.dataset.mailMarkRead;
       if (mailId) {
-        this.socket.sendMarkMailRead([mailId]);
+        this.dispatchMailOperation('markRead', [mailId]);
       }
       return;
     }
-/** claimButton：定义该变量以承载业务值。 */
     const claimButton = target.closest<HTMLButtonElement>('[data-mail-claim]');
     if (claimButton) {
-/** mailId：定义该变量以承载业务值。 */
       const mailId = claimButton.dataset.mailClaim;
       if (mailId) {
-        this.socket.sendClaimMailAttachments([mailId]);
+        this.dispatchMailOperation('claim', [mailId]);
       }
       return;
     }
-/** deleteButton：定义该变量以承载业务值。 */
     const deleteButton = target.closest<HTMLButtonElement>('[data-mail-delete]');
     if (deleteButton) {
-/** mailId：定义该变量以承载业务值。 */
       const mailId = deleteButton.dataset.mailDelete;
       if (mailId) {
-        this.socket.sendDeleteMail([mailId]);
+        this.dispatchMailOperation('delete', [mailId]);
       }
       return;
     }
@@ -542,12 +1163,10 @@ export class MailPanel {
     if (target.closest('[data-mail-check]') || target.closest('.mail-entry-check')) {
       return;
     }
-/** mailEntry：定义该变量以承载业务值。 */
     const mailEntry = target.closest<HTMLElement>('[data-mail-select]');
     if (!mailEntry) {
       return;
     }
-/** mailId：定义该变量以承载业务值。 */
     const mailId = mailEntry.dataset.mailSelect;
     if (!mailId) {
       return;
@@ -559,14 +1178,14 @@ export class MailPanel {
     this.markReadIfNeeded(mailId);
   }
 
-/** handleRootChange：执行对应的业务逻辑。 */
+  /** 处理弹窗根节点的勾选变更。 */
   private handleRootChange(event: Event): void {
-/** target：定义该变量以承载业务值。 */
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
     const target = event.target;
     if (!(target instanceof HTMLInputElement)) {
       return;
     }
-/** mailId：定义该变量以承载业务值。 */
     const mailId = target.dataset.mailCheck;
     if (!mailId) {
       return;
@@ -579,30 +1198,25 @@ export class MailPanel {
     this.render();
   }
 
-/** patchBody：执行对应的业务逻辑。 */
+  /** 复用邮件壳结构时同步主体内容。 */
   private patchBody(body: HTMLElement, meta: MailModalMeta): boolean {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
     if (!body.querySelector('.mail-shell')) {
       return false;
     }
     this.patchModalMeta(meta);
 
-/** unreadNode：定义该变量以承载业务值。 */
     const unreadNode = body.querySelector<HTMLElement>('[data-mail-summary-unread="true"]');
-/** claimableNode：定义该变量以承载业务值。 */
     const claimableNode = body.querySelector<HTMLElement>('[data-mail-summary-claimable="true"]');
-/** totalNode：定义该变量以承载业务值。 */
     const totalNode = body.querySelector<HTMLElement>('[data-mail-summary-total="true"]');
-/** pageMetaNode：定义该变量以承载业务值。 */
     const pageMetaNode = body.querySelector<HTMLElement>('[data-mail-summary-page-meta="true"]');
-/** listRoot：定义该变量以承载业务值。 */
     const listRoot = body.querySelector<HTMLElement>('[data-mail-list="true"]');
-/** detailRoot：定义该变量以承载业务值。 */
     const detailRoot = body.querySelector<HTMLElement>('[data-mail-detail="true"]');
     if (!unreadNode || !claimableNode || !totalNode || !pageMetaNode || !listRoot || !detailRoot) {
       return false;
     }
 
-/** selectedCount：定义该变量以承载业务值。 */
     const selectedCount = this.selectedMailIds.size;
     unreadNode.textContent = String(this.summary.unreadCount);
     claimableNode.textContent = String(this.summary.claimableCount);
@@ -617,17 +1231,11 @@ export class MailPanel {
       button.classList.toggle('active', option.id === this.activeFilter);
     }
 
-/** selectPageButton：定义该变量以承载业务值。 */
     const selectPageButton = body.querySelector<HTMLButtonElement>('[data-mail-select-page]');
-/** clearSelectionButton：定义该变量以承载业务值。 */
     const clearSelectionButton = body.querySelector<HTMLButtonElement>('[data-mail-clear-selection]');
-/** batchClaimButton：定义该变量以承载业务值。 */
     const batchClaimButton = body.querySelector<HTMLButtonElement>('[data-mail-batch-claim]');
-/** batchDeleteButton：定义该变量以承载业务值。 */
     const batchDeleteButton = body.querySelector<HTMLButtonElement>('[data-mail-batch-delete]');
-/** prevPageButton：定义该变量以承载业务值。 */
     const prevPageButton = body.querySelector<HTMLButtonElement>('[data-mail-page-action="prev"]');
-/** nextPageButton：定义该变量以承载业务值。 */
     const nextPageButton = body.querySelector<HTMLButtonElement>('[data-mail-page-action="next"]');
     if (!selectPageButton || !clearSelectionButton || !batchClaimButton || !batchDeleteButton || !prevPageButton || !nextPageButton) {
       return false;
@@ -639,29 +1247,27 @@ export class MailPanel {
     prevPageButton.disabled = this.pageData.page <= 1;
     nextPageButton.disabled = this.pageData.page >= this.pageData.totalPages;
 
-    listRoot.innerHTML = this.pageData.items.length > 0
-      ? this.pageData.items.map((item) => this.renderListEntry(item)).join('')
-      : '<div class="empty-hint">当前筛选下暂无邮件</div>';
+    if (!this.patchListRoot(listRoot)) {
+      return false;
+    }
 
-/** detail：定义该变量以承载业务值。 */
     const detail = this.detail && this.selectedMailId === this.detail.mailId ? this.detail : null;
-    detailRoot.innerHTML = detail ? this.renderDetail(detail) : '<div class="empty-hint">请选择一封邮件查看详情</div>';
-    return true;
+    return this.patchDetailRoot(detailRoot, detail);
   }
 
-/** buildModalMeta：执行对应的业务逻辑。 */
+  /** 生成弹窗标题栏文案。 */
   private buildModalMeta(): MailModalMeta {
     return {
-      subtitle: `未读 ${this.summary.unreadCount} · 可领取 ${this.summary.claimableCount}`,
-      hint: this.statusMessage || '点击空白处关闭',
+      subtitle: `未阅 ${this.summary.unreadCount} · 可取信物 ${this.summary.claimableCount}`,
+      hint: this.statusMessage || MAIL_MODAL_HINT_DEFAULT,
     };
   }
 
-/** patchModalMeta：执行对应的业务逻辑。 */
+  /** 直接更新弹窗标题栏的摘要和提示。 */
   private patchModalMeta(meta: MailModalMeta): void {
-/** subtitleNode：定义该变量以承载业务值。 */
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
     const subtitleNode = document.getElementById('detail-modal-subtitle');
-/** hintNode：定义该变量以承载业务值。 */
     const hintNode = document.getElementById('detail-modal-hint');
     if (subtitleNode) {
       subtitleNode.textContent = meta.subtitle;
@@ -672,9 +1278,8 @@ export class MailPanel {
     }
   }
 
-/** captureRenderState：执行对应的业务逻辑。 */
+  /** 记录列表滚动、详情滚动和当前焦点。 */
   private captureRenderState(body: HTMLElement): MailRenderState {
-/** activeElement：定义该变量以承载业务值。 */
     const activeElement = document.activeElement;
     return {
       listScrollTop: body.querySelector<HTMLElement>('.mail-list')?.scrollTop ?? 0,
@@ -685,11 +1290,11 @@ export class MailPanel {
     };
   }
 
-/** restoreRenderState：执行对应的业务逻辑。 */
+  /** 恢复列表滚动、详情滚动和焦点。 */
   private restoreRenderState(body: HTMLElement, state: MailRenderState): void {
-/** list：定义该变量以承载业务值。 */
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
     const list = body.querySelector<HTMLElement>('.mail-list');
-/** detail：定义该变量以承载业务值。 */
     const detail = body.querySelector<HTMLElement>('.mail-detail');
     if (list) {
       list.scrollTop = state.listScrollTop;
@@ -700,14 +1305,14 @@ export class MailPanel {
     if (!state.focusSelector) {
       return;
     }
-/** focusTarget：定义该变量以承载业务值。 */
     const focusTarget = body.querySelector<HTMLElement>(state.focusSelector);
     focusTarget?.focus({ preventScroll: true });
   }
 
-/** resolveFocusSelector：执行对应的业务逻辑。 */
+  /** 为当前焦点节点生成可复原的选择器。 */
   private resolveFocusSelector(element: HTMLElement): string | null {
-/** datasetEntries：定义该变量以承载业务值。 */
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
     const datasetEntries: Array<[string, string | undefined, (value: string) => string]> = [
       ['mailFilter', element.dataset.mailFilter, (value) => `[data-mail-filter="${escapeHtmlAttr(value)}"]`],
       ['mailPageAction', element.dataset.mailPageAction, (value) => `[data-mail-page-action="${escapeHtmlAttr(value)}"]`],
@@ -738,16 +1343,15 @@ export class MailPanel {
     return null;
   }
 
-/** updateHudUnreadState：执行对应的业务逻辑。 */
+  /** 同步 HUD 上的邮件未读角标。 */
   private updateHudUnreadState(): void {
-/** button：定义该变量以承载业务值。 */
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
     const button = document.getElementById('hud-open-mail');
     if (!(button instanceof HTMLButtonElement)) {
       return;
     }
-/** hasUnread：定义该变量以承载业务值。 */
-    const hasUnread = this.summary.unreadCount > 0 || this.summary.claimableCount > 0;
+    const hasUnread = this.summary.unreadCount > 0;
     button.dataset.hasUnread = hasUnread ? 'true' : 'false';
   }
 }
-

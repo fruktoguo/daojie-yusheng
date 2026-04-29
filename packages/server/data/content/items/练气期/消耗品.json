@@ -154,8 +154,8 @@
           "spirit": 20,
           "perception": 20,
           "talent": 20,
-          "comprehension": 20,
-          "luck": 20
+          "strength": 20,
+          "meridians": 20
         },
         "attrMode": "percent",
         "stats": {

@@ -15,78 +15,152 @@ import {
   DisplayNameAvailabilityRes,
   REFRESH_TOKEN_STORAGE_KEY,
 } from '@mud/shared';
+import {
+  ACCOUNT_API_BASE_PATH,
+  AUTH_API_BASE_PATH,
+} from '../constants/api';
 
 export {
   ACCESS_TOKEN_STORAGE_KEY as ACCESS_TOKEN_KEY,
   REFRESH_TOKEN_STORAGE_KEY as REFRESH_TOKEN_KEY,
 };
 
+export const DEVICE_ID_STORAGE_KEY = 'mud:device-id:v1';
+
 /** HTTP 请求失败时抛出，携带状态码 */
 export class RequestError extends Error {
-/** constructor：处理当前场景中的对应操作。 */
+/**
+ * 构造器：初始化 当前 实例并建立基础状态。
+ * @param message string 参数说明。
+ * @param status number 参数说明。
+ * @returns 无返回值，完成实例初始化。
+ */
+
   constructor(message: string, readonly status: number) {
     super(message);
   }
 }
 
-/** RequestOptions：定义该类型的结构与数据语义。 */
+/** 请求 JSON 接口时使用的配置项，支持方法、请求体、访问令牌和中断信号。 */
 type RequestOptions = {
-  method?: 'GET' | 'POST';
-  body?: unknown;
-  accessToken?: string | null;
+/**
+ * method：method相关字段。
+ */
+
+  method?: 'GET' | 'POST';  
+  /**
+ * body：body相关字段。
+ */
+
+  body?: unknown;  
+  /**
+ * accessToken：accessToken标识。
+ */
+
+  accessToken?: string | null;  
+  /**
+ * signal：signal相关字段。
+ */
+
   signal?: AbortSignal;
 };
 
-const DEVICE_ID_STORAGE_KEY = 'mud:device-id:v1';
+let memoryAccessToken: string | null = null;
+let memoryRefreshToken: string | null = null;
+let memoryDeviceId: string | null = null;
 
-/** 从 localStorage 读取 accessToken */
-export function getAccessToken(): string | null {
-  return localStorage.getItem(ACCESS_TOKEN_STORAGE_KEY);
-}
+/** 读取当前可用的 sessionStorage；受限环境下回退到内存态。 */
+function getSessionStorage(): Storage | null {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
-/** 从当前 accessToken 读取账号名 */
-export function getCurrentAccountName(): string | null {
-/** accessToken：定义该变量以承载业务值。 */
-  const accessToken = getAccessToken();
-  if (!accessToken) {
+  if (typeof window === 'undefined') {
     return null;
   }
-  return parseJwtPayload(accessToken)?.username ?? null;
+  try {
+    return window.sessionStorage;
+  } catch {
+    return null;
+  }
 }
 
-/** 从 localStorage 读取 refreshToken */
-export function getRefreshToken(): string | null {
-  return localStorage.getItem(REFRESH_TOKEN_STORAGE_KEY);
+/** 读取可长期保存设备标识的 localStorage；受限环境下回退到内存态。 */
+function getLocalStorage(): Storage | null {
+  if (typeof window === 'undefined') {
+    return null;
+  }
+  try {
+    return window.localStorage;
+  } catch {
+    return null;
+  }
 }
 
-/** 将 token 对写入 localStorage */
-export function storeTokens(data: AuthTokenRes): void {
-  localStorage.setItem(ACCESS_TOKEN_STORAGE_KEY, data.accessToken);
-  localStorage.setItem(REFRESH_TOKEN_STORAGE_KEY, data.refreshToken);
-}
-
-/** 清除 localStorage 中的 token */
-export function clearStoredTokens(): void {
-  localStorage.removeItem(ACCESS_TOKEN_STORAGE_KEY);
-  localStorage.removeItem(REFRESH_TOKEN_STORAGE_KEY);
-}
-
-/** 获取客户端长期 deviceId，不存在则生成 */
+/** 获取客户端设备标识，用于鉴权请求归因；token 仍只放 sessionStorage。 */
 export function getClientDeviceId(): string {
-  const existing = localStorage.getItem(DEVICE_ID_STORAGE_KEY)?.trim();
+  const storage = getLocalStorage();
+  const existing = storage?.getItem(DEVICE_ID_STORAGE_KEY)?.trim() || memoryDeviceId;
   if (existing) {
+    memoryDeviceId = existing;
     return existing;
   }
   const next = typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function'
     ? crypto.randomUUID()
     : `dev_${Date.now()}_${Math.random().toString(36).slice(2, 10)}`;
-  localStorage.setItem(DEVICE_ID_STORAGE_KEY, next);
+  memoryDeviceId = next;
+  storage?.setItem(DEVICE_ID_STORAGE_KEY, next);
   return next;
+}
+
+/** 从 sessionStorage 读取 accessToken */
+export function getAccessToken(): string | null {
+  const storage = getSessionStorage();
+  return storage?.getItem(ACCESS_TOKEN_STORAGE_KEY) ?? memoryAccessToken;
+}
+
+/** 从当前 accessToken 读取账号名 */
+export function getCurrentAccountName(): string | null {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
+  const accessToken = getAccessToken();
+  if (!accessToken) {
+    return null;
+  }
+  return extractAccountName(parseJwtPayload(accessToken));
+}
+
+/** 从 sessionStorage 读取 refreshToken */
+export function getRefreshToken(): string | null {
+  const storage = getSessionStorage();
+  return storage?.getItem(REFRESH_TOKEN_STORAGE_KEY) ?? memoryRefreshToken;
+}
+
+/** 将 token 对写入 sessionStorage，不再跨浏览器重启长期驻留。 */
+export function storeTokens(data: AuthTokenRes): void {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
+  memoryAccessToken = data.accessToken;
+  memoryRefreshToken = data.refreshToken;
+  const storage = getSessionStorage();
+  if (!storage) {
+    return;
+  }
+  storage.setItem(ACCESS_TOKEN_STORAGE_KEY, data.accessToken);
+  storage.setItem(REFRESH_TOKEN_STORAGE_KEY, data.refreshToken);
+}
+
+/** 清除当前会话中的 token */
+export function clearStoredTokens(): void {
+  memoryAccessToken = null;
+  memoryRefreshToken = null;
+  const storage = getSessionStorage();
+  storage?.removeItem(ACCESS_TOKEN_STORAGE_KEY);
+  storage?.removeItem(REFRESH_TOKEN_STORAGE_KEY);
 }
 
 /** 通用 JSON 请求，自动处理 body 序列化与 Bearer 鉴权 */
 export async function requestJson<TResponse>(url: string, options: RequestOptions = {}): Promise<TResponse> {
-/** headers：定义该变量以承载业务值。 */
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
   const headers: Record<string, string> = {};
   if (options.body !== undefined) {
     headers['Content-Type'] = 'application/json';
@@ -96,11 +170,9 @@ export async function requestJson<TResponse>(url: string, options: RequestOption
   }
   headers['X-Device-Id'] = getClientDeviceId();
 
-/** res：定义该变量以承载业务值。 */
   const res = await fetch(url, {
     method: options.method ?? 'GET',
     headers,
-/** body：定义该变量以承载业务值。 */
     body: options.body === undefined ? undefined : JSON.stringify(options.body),
     signal: options.signal,
   });
@@ -117,7 +189,7 @@ export async function requestJson<TResponse>(url: string, options: RequestOption
 
 /** 用 refreshToken 换取新 token 对 */
 export function restoreTokens(refreshToken: string): Promise<AuthTokenRes> {
-  return requestJson<AuthTokenRes>('/auth/refresh', {
+  return requestJson<AuthTokenRes>(`${AUTH_API_BASE_PATH}/refresh`, {
     method: 'POST',
     body: { refreshToken, deviceId: getClientDeviceId() } satisfies AuthRefreshReq,
   });
@@ -128,17 +200,24 @@ export function checkDisplayNameAvailability(
   displayName: string,
   signal?: AbortSignal,
 ): Promise<DisplayNameAvailabilityRes> {
-/** params：定义该变量以承载业务值。 */
   const params = new URLSearchParams({ displayName });
-  return requestJson<DisplayNameAvailabilityRes>(`/auth/display-name/check?${params.toString()}`, { signal });
+  return requestJson<DisplayNameAvailabilityRes>(`${AUTH_API_BASE_PATH}/display-name/check?${params.toString()}`, { signal });
 }
 
 /** 修改密码 */
 export function updatePassword(
   accessToken: string,
   body: AccountUpdatePasswordReq,
-): Promise<{ ok: true }> {
-  return requestJson<{ ok: true }>('/account/password', {
+): Promise<{
+/**
+ * ok：ok相关字段。
+ */
+ ok: true }> {
+  return requestJson<{  
+  /**
+ * ok：ok相关字段。
+ */
+ ok: true }>(`${ACCOUNT_API_BASE_PATH}/password`, {
     method: 'POST',
     body,
     accessToken,
@@ -150,7 +229,7 @@ export function updateDisplayName(
   accessToken: string,
   body: AccountUpdateDisplayNameReq,
 ): Promise<AccountUpdateDisplayNameRes> {
-  return requestJson<AccountUpdateDisplayNameRes>('/account/display-name', {
+  return requestJson<AccountUpdateDisplayNameRes>(`${ACCOUNT_API_BASE_PATH}/display-name`, {
     method: 'POST',
     body,
     accessToken,
@@ -162,18 +241,23 @@ export function updateRoleName(
   accessToken: string,
   body: AccountUpdateRoleNameReq,
 ): Promise<AccountUpdateRoleNameRes> {
-  return requestJson<AccountUpdateRoleNameRes>('/account/role-name', {
+  return requestJson<AccountUpdateRoleNameRes>(`${ACCOUNT_API_BASE_PATH}/role-name`, {
     method: 'POST',
     body,
     accessToken,
   });
 }
 
-/** readError：执行对应的业务逻辑。 */
+/** readError：处理read错误。 */
 async function readError(res: Response): Promise<string> {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
   try {
-/** data：定义该变量以承载业务值。 */
-    const data = await res.json() as { message?: string | string[] };
+    const data = await res.json() as {    
+    /**
+ * message：message相关字段。
+ */
+ message?: string | string[] };
     if (Array.isArray(data.message)) {
       return data.message.join('，');
     }
@@ -186,25 +270,69 @@ async function readError(res: Response): Promise<string> {
   return '请求失败';
 }
 
-/** parseJwtPayload：执行对应的业务逻辑。 */
-function parseJwtPayload(token: string): { username?: string } | null {
-/** parts：定义该变量以承载业务值。 */
+/** JWT 里用于提取账号名的负载字段。 */
+type AuthTokenPayload = {
+/**
+ * username：username名称或显示文本。
+ */
+
+  username?: string;  
+  /**
+ * preferred_username：preferredusername名称或显示文本。
+ */
+
+  preferred_username?: string;  
+  /**
+ * upn：upn相关字段。
+ */
+
+  upn?: string;  
+  /**
+ * name：名称名称或显示文本。
+ */
+
+  name?: string;  
+  /**
+ * sub：sub相关字段。
+ */
+
+  sub?: string;
+};
+
+/** extractAccountName：处理extract账号名称。 */
+function extractAccountName(payload: AuthTokenPayload | null): string | null {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
+  if (!payload) {
+    return null;
+  }
+  return payload.username
+    ?? payload.preferred_username
+    ?? payload.upn
+    ?? payload.name
+    ?? payload.sub
+    ?? null;
+}
+
+/** parseJwtPayload：解析Jwt载荷。 */
+function parseJwtPayload(token: string): AuthTokenPayload | null {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
   const parts = token.split('.');
   if (parts.length < 2) {
     return null;
   }
   try {
-/** normalized：定义该变量以承载业务值。 */
     const normalized = parts[1].replace(/-/g, '+').replace(/_/g, '/');
-/** padded：定义该变量以承载业务值。 */
     const padded = normalized.padEnd(Math.ceil(normalized.length / 4) * 4, '=');
-/** binary：定义该变量以承载业务值。 */
     const binary = window.atob(padded);
-/** bytes：定义该变量以承载业务值。 */
     const bytes = Uint8Array.from(binary, (char) => char.charCodeAt(0));
-/** json：定义该变量以承载业务值。 */
     const json = new TextDecoder().decode(bytes);
-    return JSON.parse(json) as { username?: string };
+    return JSON.parse(json) as {    
+    /**
+ * username：username名称或显示文本。
+ */
+ username?: string };
   } catch {
     return null;
   }

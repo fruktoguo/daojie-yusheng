@@ -4,29 +4,43 @@
 
 import { MAP_STATIC_CACHE_STORAGE_KEY, MapMeta, MapMinimapArchiveEntry, MapMinimapSnapshot } from '@mud/shared';
 
-/** CachedMapMeta：定义该类型的结构与数据语义。 */
+/** 地图元信息的持久化字段集合。 */
 type CachedMapMeta = Pick<
   MapMeta,
   'id' | 'name' | 'width' | 'height' | 'dangerLevel' | 'recommendedRealm' | 'floorLevel' | 'floorName' | 'description' | 'playerOverlapPoints'
 >;
 
-/** CachedMapEntry：定义该接口的能力与字段约束。 */
+/** 地图静态缓存按 ID 维护的一条记录。 */
 interface CachedMapEntry {
-  meta?: CachedMapMeta;
-  snapshot?: MapMinimapSnapshot;
+/**
+ * meta：meta相关字段。
+ */
+
+  meta?: CachedMapMeta;  
+  /**
+ * snapshot：快照状态或数据块。
+ */
+
+  snapshot?: MapMinimapSnapshot;  
+  /**
+ * unlocked：unlocked相关字段。
+ */
+
   unlocked?: boolean;
 }
 
-/** SerializedStaticCache：定义该类型的结构与数据语义。 */
+/** 序列化写入 localStorage 的对象形状。 */
 type SerializedStaticCache = Record<string, CachedMapEntry | MapMinimapSnapshot>;
 
-/** loaded：定义该变量以承载业务值。 */
+/** 是否已经完成本地缓存读取。 */
 let loaded = false;
-/** cachedEntries：定义该变量以承载业务值。 */
+/** 已加载的地图静态缓存映射。 */
 const cachedEntries = new Map<string, CachedMapEntry>();
 
-/** getStorage：执行对应的业务逻辑。 */
+/** 读取 localStorage 存储对象，不支持环境时返回 null。 */
 function getStorage(): Storage | null {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
   if (typeof window === 'undefined') {
     return null;
   }
@@ -37,19 +51,18 @@ function getStorage(): Storage | null {
   }
 }
 
-/** isSnapshot：执行对应的业务逻辑。 */
+/** 判断本地缓存值是否能还原成完整的小地图快照。 */
 function isSnapshot(value: unknown): value is MapMinimapSnapshot {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
   if (!value || typeof value !== 'object') {
     return false;
   }
-/** candidate：定义该变量以承载业务值。 */
   const candidate = value as Partial<MapMinimapSnapshot>;
   if (!Array.isArray(candidate.markers)) {
     return false;
   }
-/** width：定义该变量以承载业务值。 */
   const width = Number(candidate.width);
-/** height：定义该变量以承载业务值。 */
   const height = Number(candidate.height);
   return Number.isInteger(candidate.width)
     && Number.isInteger(candidate.height)
@@ -63,13 +76,36 @@ function isSnapshot(value: unknown): value is MapMinimapSnapshot {
       if (!marker || typeof marker !== 'object') {
         return false;
       }
-/** typedMarker：定义该变量以承载业务值。 */
-      const typedMarker = marker as {
-        id?: unknown;
-        kind?: unknown;
-        x?: unknown;
-        y?: unknown;
-        label?: unknown;
+      const typedMarker = marker as {      
+      /**
+ * id：ID标识。
+ */
+
+        id?: unknown;        
+        /**
+ * kind：kind相关字段。
+ */
+
+        kind?: unknown;        
+        /**
+ * x：x相关字段。
+ */
+
+        x?: unknown;        
+        /**
+ * y：y相关字段。
+ */
+
+        y?: unknown;        
+        /**
+ * label：label名称或显示文本。
+ */
+
+        label?: unknown;        
+        /**
+ * detail：详情状态或数据块。
+ */
+
         detail?: unknown;
       };
       return typeof typedMarker.id === 'string'
@@ -81,12 +117,13 @@ function isSnapshot(value: unknown): value is MapMinimapSnapshot {
     });
 }
 
-/** isCachedMapMeta：执行对应的业务逻辑。 */
+/** 判断对象是否为可持久化的地图元信息。 */
 function isCachedMapMeta(value: unknown): value is CachedMapMeta {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
   if (!value || typeof value !== 'object') {
     return false;
   }
-/** candidate：定义该变量以承载业务值。 */
   const candidate = value as Partial<CachedMapMeta>;
   return typeof candidate.id === 'string'
     && typeof candidate.name === 'string'
@@ -99,24 +136,32 @@ function isCachedMapMeta(value: unknown): value is CachedMapMeta {
         && candidate.playerOverlapPoints.every((point) => (
           point
           && typeof point === 'object'
-          && Number.isInteger((point as { x?: unknown }).x)
-          && Number.isInteger((point as { y?: unknown }).y)
+          && Number.isInteger((point as {          
+          /**
+ * x：x相关字段。
+ */
+ x?: unknown }).x)
+          && Number.isInteger((point as {          
+          /**
+ * y：y相关字段。
+ */
+ y?: unknown }).y)
         ))
       )
     );
 }
 
-/** cloneSnapshot：执行对应的业务逻辑。 */
+/** 复制快照以避免外部修改污染缓存。 */
 function cloneSnapshot(snapshot: MapMinimapSnapshot): MapMinimapSnapshot {
   return JSON.parse(JSON.stringify(snapshot)) as MapMinimapSnapshot;
 }
 
-/** cloneMeta：执行对应的业务逻辑。 */
+/** 复制元数据以避免返回值被外部篡改。 */
 function cloneMeta(meta: CachedMapMeta): MapMeta {
   return JSON.parse(JSON.stringify(meta)) as MapMeta;
 }
 
-/** toCachedMeta：执行对应的业务逻辑。 */
+/** 从完整地图元信息提取持久化字段。 */
 function toCachedMeta(meta: MapMeta): CachedMapMeta {
   return {
     id: meta.id,
@@ -132,8 +177,10 @@ function toCachedMeta(meta: MapMeta): CachedMapMeta {
   };
 }
 
-/** normalizeEntry：执行对应的业务逻辑。 */
+/** 规范化并过滤无效反序列化条目。 */
 function normalizeEntry(value: unknown): CachedMapEntry | null {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
   if (isSnapshot(value)) {
     return {
       snapshot: cloneSnapshot(value),
@@ -143,9 +190,7 @@ function normalizeEntry(value: unknown): CachedMapEntry | null {
   if (!value || typeof value !== 'object') {
     return null;
   }
-/** candidate：定义该变量以承载业务值。 */
   const candidate = value as CachedMapEntry;
-/** normalized：定义该变量以承载业务值。 */
   const normalized: CachedMapEntry = {};
   if (candidate.meta && isCachedMapMeta(candidate.meta)) {
     normalized.meta = JSON.parse(JSON.stringify(candidate.meta)) as CachedMapMeta;
@@ -162,27 +207,27 @@ function normalizeEntry(value: unknown): CachedMapEntry | null {
   return normalized;
 }
 
-/** ensureLoaded：执行对应的业务逻辑。 */
+/** 首次按需加载 localStorage 缓存到内存。 */
 function ensureLoaded(): void {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
   if (loaded) {
     return;
   }
+  /** 避免重复解析，首次进入时打标记。 */
   loaded = true;
 
-/** storage：定义该变量以承载业务值。 */
   const storage = getStorage();
   if (!storage) {
     return;
   }
 
-/** raw：定义该变量以承载业务值。 */
   const raw = storage.getItem(MAP_STATIC_CACHE_STORAGE_KEY);
   if (!raw) {
     return;
   }
 
   try {
-/** parsed：定义该变量以承载业务值。 */
     const parsed = JSON.parse(raw) as unknown;
     if (!parsed || typeof parsed !== 'object') {
       return;
@@ -199,21 +244,20 @@ function ensureLoaded(): void {
   }
 }
 
-/** persist：执行对应的业务逻辑。 */
+/** 将内存缓存持久化回 localStorage。 */
 function persist(): void {
-/** storage：定义该变量以承载业务值。 */
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
   const storage = getStorage();
   if (!storage) {
     return;
   }
 
-/** payload：定义该变量以承载业务值。 */
   const payload: Record<string, CachedMapEntry> = {};
   for (const [mapId, entry] of cachedEntries.entries()) {
     payload[mapId] = {
       meta: entry.meta ? JSON.parse(JSON.stringify(entry.meta)) as CachedMapMeta : undefined,
       snapshot: entry.snapshot ? cloneSnapshot(entry.snapshot) : undefined,
-/** unlocked：定义该变量以承载业务值。 */
       unlocked: entry.unlocked === true,
     };
   }
@@ -225,51 +269,67 @@ function persist(): void {
   }
 }
 
-/** getOrCreateEntry：执行对应的业务逻辑。 */
+/** 获取或创建某地图的缓存记录。 */
 function getOrCreateEntry(mapId: string): CachedMapEntry {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
   ensureLoaded();
-/** existing：定义该变量以承载业务值。 */
   const existing = cachedEntries.get(mapId);
   if (existing) {
     return existing;
   }
-/** created：定义该变量以承载业务值。 */
   const created: CachedMapEntry = {};
   cachedEntries.set(mapId, created);
   return created;
 }
 
-/** 缓存地图元信息到本地 */
+/** 缓存某张地图的元信息（用于断线重入/跳图时快速展示）。 */
 export function cacheMapMeta(meta: MapMeta): void {
-/** entry：定义该变量以承载业务值。 */
   const entry = getOrCreateEntry(meta.id);
   entry.meta = toCachedMeta(meta);
   persist();
 }
 
-/** 获取已缓存的地图元信息 */
+/** 读取某张地图已缓存的元信息。 */
 export function getCachedMapMeta(mapId: string): MapMeta | null {
   ensureLoaded();
-/** meta：定义该变量以承载业务值。 */
   const meta = cachedEntries.get(mapId)?.meta;
   return meta ? cloneMeta(meta) : null;
 }
 
-/** 获取已缓存的小地图快照 */
+/** 读取某张地图已缓存的小地图快照。 */
 export function getCachedMapSnapshot(mapId: string): MapMinimapSnapshot | null {
   ensureLoaded();
-/** snapshot：定义该变量以承载业务值。 */
   const snapshot = cachedEntries.get(mapId)?.snapshot;
   return snapshot ? cloneSnapshot(snapshot) : null;
 }
 
-/** 缓存小地图快照，可同时更新元信息和解锁状态 */
+/** 仅在该地图仍被权威标记为已解锁时，读取完整地图快照。 */
+export function getCachedUnlockedMapSnapshot(mapId: string): MapMinimapSnapshot | null {
+  ensureLoaded();
+  const entry = cachedEntries.get(mapId);
+  if (entry?.unlocked !== true || !entry.snapshot) {
+    return null;
+  }
+  return cloneSnapshot(entry.snapshot);
+}
+
+/** 缓存小地图快照，并可同步元信息和解锁状态。 */
 export function cacheMapSnapshot(
   mapId: string,
   snapshot: MapMinimapSnapshot,
-  options?: { meta?: MapMeta | null; unlocked?: boolean },
+  options?: {  
+  /**
+ * meta：meta相关字段。
+ */
+ meta?: MapMeta | null;  
+ /**
+ * unlocked：unlocked相关字段。
+ */
+ unlocked?: boolean },
 ): void {
-/** entry：定义该变量以承载业务值。 */
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
   const entry = getOrCreateEntry(mapId);
   entry.snapshot = cloneSnapshot(snapshot);
   if (options?.meta) {
@@ -281,8 +341,10 @@ export function cacheMapSnapshot(
   persist();
 }
 
-/** 批量缓存已解锁的小地图库条目 */
+/** 批量写入已解锁地图快照（用于首次登录的地图目录恢复）。 */
 export function cacheUnlockedMinimapLibrary(entries: MapMinimapArchiveEntry[]): void {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
   ensureLoaded();
   for (const entry of entries) {
     const cached = getOrCreateEntry(entry.mapId);
@@ -293,11 +355,57 @@ export function cacheUnlockedMinimapLibrary(entries: MapMinimapArchiveEntry[]): 
   persist();
 }
 
-/** 列出所有已解锁且有快照的地图（含元信息和快照） */
-export function listCachedUnlockedMaps(): Array<{ mapId: string; mapMeta: MapMeta | null; snapshot: MapMinimapSnapshot }> {
+/** 用服务端真源回写已解锁地图集合，清除旧缓存残留的假解锁标记。 */
+export function syncCachedUnlockedMapIds(mapIds: string[]): void {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
   ensureLoaded();
-/** result：定义该变量以承载业务值。 */
-  const result: Array<{ mapId: string; mapMeta: MapMeta | null; snapshot: MapMinimapSnapshot }> = [];
+  const unlockedMapIds = new Set(
+    mapIds.filter((mapId): mapId is string => typeof mapId === 'string' && mapId.length > 0),
+  );
+  let changed = false;
+  for (const [mapId, entry] of cachedEntries.entries()) {
+    const nextUnlocked = unlockedMapIds.has(mapId);
+    if ((entry.unlocked === true) !== nextUnlocked) {
+      entry.unlocked = nextUnlocked;
+      changed = true;
+    }
+  }
+  if (changed) {
+    persist();
+  }
+}
+
+/** 列出可直接展示摘要和小地图的已解锁地图。 */
+export function listCachedUnlockedMaps(): Array<{
+/**
+ * mapId：地图ID标识。
+ */
+ mapId: string;
+ /**
+ * mapMeta：地图Meta相关字段。
+ */
+ mapMeta: MapMeta | null;
+ /**
+ * snapshot：快照状态或数据块。
+ */
+ snapshot: MapMinimapSnapshot }> {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
+  ensureLoaded();
+  const result: Array<{  
+  /**
+ * mapId：地图ID标识。
+ */
+ mapId: string;  
+ /**
+ * mapMeta：地图Meta相关字段。
+ */
+ mapMeta: MapMeta | null;  
+ /**
+ * snapshot：快照状态或数据块。
+ */
+ snapshot: MapMinimapSnapshot }> = [];
   for (const [mapId, entry] of cachedEntries.entries()) {
     if (entry.unlocked !== true || !entry.snapshot) {
       continue;
@@ -309,20 +417,35 @@ export function listCachedUnlockedMaps(): Array<{ mapId: string; mapMeta: MapMet
     });
   }
   result.sort((left, right) => {
-/** leftName：定义该变量以承载业务值。 */
     const leftName = left.mapMeta?.name ?? left.mapId;
-/** rightName：定义该变量以承载业务值。 */
     const rightName = right.mapMeta?.name ?? right.mapId;
     return leftName.localeCompare(rightName, 'zh-Hans-CN');
   });
   return result;
 }
 
-/** 列出所有已解锁地图的摘要信息（不含快照数据） */
-export function listCachedUnlockedMapSummaries(): Array<{ mapId: string; mapMeta: MapMeta | null }> {
+/** 列出已解锁地图的元信息摘要，不包含大体积快照。 */
+export function listCachedUnlockedMapSummaries(): Array<{
+/**
+ * mapId：地图ID标识。
+ */
+ mapId: string;
+ /**
+ * mapMeta：地图Meta相关字段。
+ */
+ mapMeta: MapMeta | null }> {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
   ensureLoaded();
-/** result：定义该变量以承载业务值。 */
-  const result: Array<{ mapId: string; mapMeta: MapMeta | null }> = [];
+  const result: Array<{  
+  /**
+ * mapId：地图ID标识。
+ */
+ mapId: string;  
+ /**
+ * mapMeta：地图Meta相关字段。
+ */
+ mapMeta: MapMeta | null }> = [];
   for (const [mapId, entry] of cachedEntries.entries()) {
     if (entry.unlocked !== true) {
       continue;
@@ -333,9 +456,7 @@ export function listCachedUnlockedMapSummaries(): Array<{ mapId: string; mapMeta
     });
   }
   result.sort((left, right) => {
-/** leftName：定义该变量以承载业务值。 */
     const leftName = left.mapMeta?.name ?? left.mapId;
-/** rightName：定义该变量以承载业务值。 */
     const rightName = right.mapMeta?.name ?? right.mapId;
     return leftName.localeCompare(rightName, 'zh-Hans-CN');
   });

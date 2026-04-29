@@ -1,12 +1,11 @@
 /**
  * 数值属性系统：战斗数值结构定义、五行元素属性组、RatioValue 计算、灵力消耗公式。
  */
-import type { Attributes } from './types';
-import { PlayerRealmStage } from './types';
+import type { Attributes } from './attribute-types';
+import { PlayerRealmStage } from './cultivation-types';
 import {
   DEFAULT_RATIO_DIVISOR,
   ELEMENT_KEYS,
-  NUMERIC_STAT_MULTIPLIER_FLOORS,
   NUMERIC_SCALAR_STAT_KEYS,
   NUMERIC_SCALAR_STAT_VALUE_TYPES,
 } from './constants/gameplay/attributes';
@@ -14,7 +13,6 @@ import {
 export {
   DEFAULT_RATIO_DIVISOR,
   ELEMENT_KEYS,
-  NUMERIC_STAT_MULTIPLIER_FLOORS,
   NUMERIC_SCALAR_STAT_KEYS,
   NUMERIC_SCALAR_STAT_VALUE_TYPES,
 } from './constants/gameplay/attributes';
@@ -27,15 +25,30 @@ export type NumericValueType = 'flat' | 'ratio_value' | 'rate_bp' | 'throughput'
 
 /** 五行元素属性组 */
 export interface ElementStatGroup {
-/** metal：定义该变量以承载业务值。 */
-  metal: number;
-/** wood：定义该变量以承载业务值。 */
-  wood: number;
-/** water：定义该变量以承载业务值。 */
-  water: number;
-/** fire：定义该变量以承载业务值。 */
-  fire: number;
-/** earth：定义该变量以承载业务值。 */
+/**
+ * metal：metal相关字段。
+ */
+
+  metal: number;  
+  /**
+ * wood：wood相关字段。
+ */
+
+  wood: number;  
+  /**
+ * water：water相关字段。
+ */
+
+  water: number;  
+  /**
+ * fire：fire相关字段。
+ */
+
+  fire: number;  
+  /**
+ * earth：earth相关字段。
+ */
+
   earth: number;
 }
 
@@ -47,99 +60,238 @@ export type NumericScalarStatKey = typeof NUMERIC_SCALAR_STAT_KEYS[number];
 
 /** 完整数值属性集（含五行元素加成/减免） */
 export interface NumericStats {
-/** maxHp：定义该变量以承载业务值。 */
-  maxHp: number;
-/** maxQi：定义该变量以承载业务值。 */
-  maxQi: number;
-/** physAtk：定义该变量以承载业务值。 */
-  physAtk: number;
-/** spellAtk：定义该变量以承载业务值。 */
-  spellAtk: number;
-/** physDef：定义该变量以承载业务值。 */
-  physDef: number;
-/** spellDef：定义该变量以承载业务值。 */
-  spellDef: number;
-/** hit：定义该变量以承载业务值。 */
-  hit: number;
-/** dodge：定义该变量以承载业务值。 */
-  dodge: number;
-/** crit：定义该变量以承载业务值。 */
-  crit: number;
-/** antiCrit：定义该变量以承载业务值。 */
-  antiCrit: number;
-/** critDamage：定义该变量以承载业务值。 */
-  critDamage: number;
-/** breakPower：定义该变量以承载业务值。 */
-  breakPower: number;
-/** resolvePower：定义该变量以承载业务值。 */
-  resolvePower: number;
-/** maxQiOutputPerTick：定义该变量以承载业务值。 */
-  maxQiOutputPerTick: number;
-/** qiRegenRate：定义该变量以承载业务值。 */
-  qiRegenRate: number;
-/** hpRegenRate：定义该变量以承载业务值。 */
-  hpRegenRate: number;
-/** cooldownSpeed：定义该变量以承载业务值。 */
-  cooldownSpeed: number;
-/** auraCostReduce：定义该变量以承载业务值。 */
-  auraCostReduce: number;
-/** auraPowerRate：定义该变量以承载业务值。 */
-  auraPowerRate: number;
-/** playerExpRate：定义该变量以承载业务值。 */
-  playerExpRate: number;
-/** techniqueExpRate：定义该变量以承载业务值。 */
-  techniqueExpRate: number;
-/** realmExpPerTick：定义该变量以承载业务值。 */
-  realmExpPerTick: number;
-/** techniqueExpPerTick：定义该变量以承载业务值。 */
-  techniqueExpPerTick: number;
-/** lootRate：定义该变量以承载业务值。 */
-  lootRate: number;
-/** rareLootRate：定义该变量以承载业务值。 */
-  rareLootRate: number;
-/** viewRange：定义该变量以承载业务值。 */
-  viewRange: number;
-/** moveSpeed：定义该变量以承载业务值。 */
-  moveSpeed: number;
-/** extraAggroRate：定义该变量以承载业务值。 */
-  extraAggroRate: number;
-/** extraRange：定义该变量以承载业务值。 */
-  extraRange: number;
-/** extraArea：定义该变量以承载业务值。 */
-  extraArea: number;
-/** elementDamageBonus：定义该变量以承载业务值。 */
-  elementDamageBonus: ElementStatGroup;
-/** elementDamageReduce：定义该变量以承载业务值。 */
+/**
+ * maxHp：maxHp相关字段。
+ */
+
+  maxHp: number;  
+  /**
+ * maxQi：maxQi相关字段。
+ */
+
+  maxQi: number;  
+  /**
+ * physAtk：phyAtk相关字段。
+ */
+
+  physAtk: number;  
+  /**
+ * spellAtk：spellAtk相关字段。
+ */
+
+  spellAtk: number;  
+  /**
+ * physDef：phyDef相关字段。
+ */
+
+  physDef: number;  
+  /**
+ * spellDef：spellDef相关字段。
+ */
+
+  spellDef: number;  
+  /**
+ * hit：hit相关字段。
+ */
+
+  hit: number;  
+  /**
+ * dodge：dodge相关字段。
+ */
+
+  dodge: number;  
+  /**
+ * crit：crit相关字段。
+ */
+
+  crit: number;  
+  /**
+ * antiCrit：antiCrit相关字段。
+ */
+
+  antiCrit: number;  
+  /**
+ * critDamage：critDamage相关字段。
+ */
+
+  critDamage: number;  
+  /**
+ * breakPower：breakPower相关字段。
+ */
+
+  breakPower: number;  
+  /**
+ * resolvePower：resolvePower相关字段。
+ */
+
+  resolvePower: number;  
+  /**
+ * maxQiOutputPerTick：maxQi输出Pertick相关字段。
+ */
+
+  maxQiOutputPerTick: number;  
+  /**
+ * qiRegenRate：qiRegenRate数值。
+ */
+
+  qiRegenRate: number;  
+  /**
+ * hpRegenRate：hpRegenRate数值。
+ */
+
+  hpRegenRate: number;  
+  /**
+ * cooldownSpeed：冷却Speed数值。
+ */
+
+  cooldownSpeed: number;  
+  /**
+ * auraCostReduce：aura消耗Reduce相关字段。
+ */
+
+  auraCostReduce: number;  
+  /**
+ * auraPowerRate：auraPowerRate数值。
+ */
+
+  auraPowerRate: number;  
+  /**
+ * playerExpRate：玩家ExpRate数值。
+ */
+
+  playerExpRate: number;  
+  /**
+ * techniqueExpRate：功法ExpRate数值。
+ */
+
+  techniqueExpRate: number;  
+  /**
+ * realmExpPerTick：realmExpPertick相关字段。
+ */
+
+  realmExpPerTick: number;  
+  /**
+ * techniqueExpPerTick：功法ExpPertick相关字段。
+ */
+
+  techniqueExpPerTick: number;  
+  /**
+ * lootRate：掉落Rate数值。
+ */
+
+  lootRate: number;  
+  /**
+ * rareLootRate：rare掉落Rate数值。
+ */
+
+  rareLootRate: number;  
+  /**
+ * viewRange：视图范围相关字段。
+ */
+
+  viewRange: number;  
+  /**
+ * moveSpeed：moveSpeed数值。
+ */
+
+  moveSpeed: number;  
+  /**
+ * extraAggroRate：extraAggroRate数值。
+ */
+
+  extraAggroRate: number;  
+  /**
+ * extraRange：extra范围相关字段。
+ */
+
+  extraRange: number;  
+  /**
+ * extraArea：extraArea相关字段。
+ */
+
+  extraArea: number;  
+  /**
+ * actionsPerTurn：每回合行动次数。
+ */
+
+  actionsPerTurn: number;  
+  /**
+ * elementDamageBonus：elementDamageBonu相关字段。
+ */
+
+  elementDamageBonus: ElementStatGroup;  
+  /**
+ * elementDamageReduce：elementDamageReduce相关字段。
+ */
+
   elementDamageReduce: ElementStatGroup;
 }
 
 /** 部分数值属性（用于增量叠加） */
 export interface PartialNumericStats extends Partial<Omit<NumericStats, 'elementDamageBonus' | 'elementDamageReduce'>> {
-  elementDamageBonus?: PartialElementStatGroup;
+/**
+ * elementDamageBonus：elementDamageBonu相关字段。
+ */
+
+  elementDamageBonus?: PartialElementStatGroup;  
+  /**
+ * elementDamageReduce：elementDamageReduce相关字段。
+ */
+
   elementDamageReduce?: PartialElementStatGroup;
 }
 
 /** 具体属性乘区拆解 */
 export interface NumericStatBreakdownEntry {
-/** realmBaseValue：定义该变量以承载业务值。 */
-  realmBaseValue: number;
-/** bonusBaseValue：定义该变量以承载业务值。 */
-  bonusBaseValue: number;
-/** baseValue：定义该变量以承载业务值。 */
-  baseValue: number;
-/** flatBuffValue：定义该变量以承载业务值。 */
-  flatBuffValue: number;
-/** preMultiplierValue：定义该变量以承载业务值。 */
-  preMultiplierValue: number;
-/** attrMultiplierPct：定义该变量以承载业务值。 */
-  attrMultiplierPct: number;
-/** realmMultiplier：定义该变量以承载业务值。 */
-  realmMultiplier: number;
-/** buffMultiplierPct：定义该变量以承载业务值。 */
-  buffMultiplierPct: number;
-/** pillMultiplierPct：定义该变量以承载业务值。 */
-  pillMultiplierPct: number;
-/** finalValue：定义该变量以承载业务值。 */
+/**
+ * realmBaseValue：realmBase值数值。
+ */
+
+  realmBaseValue: number;  
+  /**
+ * bonusBaseValue：bonuBase值数值。
+ */
+
+  bonusBaseValue: number;  
+  /**
+ * baseValue：base值数值。
+ */
+
+  baseValue: number;  
+  /**
+ * flatBuffValue：flatBuff值数值。
+ */
+
+  flatBuffValue: number;  
+  /**
+ * preMultiplierValue：preMultiplier值数值。
+ */
+
+  preMultiplierValue: number;  
+  /**
+ * attrMultiplierPct：attrMultiplierPct相关字段。
+ */
+
+  attrMultiplierPct: number;  
+  /**
+ * realmMultiplier：realmMultiplier相关字段。
+ */
+
+  realmMultiplier: number;  
+  /**
+ * buffMultiplierPct：buffMultiplierPct相关字段。
+ */
+
+  buffMultiplierPct: number;  
+  /**
+ * pillMultiplierPct：pillMultiplierPct相关字段。
+ */
+
+  pillMultiplierPct: number;  
+  /**
+ * finalValue：final值数值。
+ */
+
   finalValue: number;
 }
 
@@ -148,49 +300,103 @@ export type NumericStatBreakdownMap = Partial<Record<NumericScalarStatKey, Numer
 
 /** 数值修改器（来源标识 + 属性/数值增量） */
 export interface NumericModifier {
-/** source：定义该变量以承载业务值。 */
-  source: string;
-  baseAttrs?: Partial<Attributes>;
-  stats?: PartialNumericStats;
-  label?: string;
+/**
+ * source：来源相关字段。
+ */
+
+  source: string;  
+  /**
+ * baseAttrs：baseAttr相关字段。
+ */
+
+  baseAttrs?: Partial<Attributes>;  
+  /**
+ * stats：stat相关字段。
+ */
+
+  stats?: PartialNumericStats;  
+  /**
+ * label：label名称或显示文本。
+ */
+
+  label?: string;  
+  /**
+ * meta：meta相关字段。
+ */
+
   meta?: Record<string, unknown>;
 }
 
 /** RatioValue 除数配置（控制闪避/暴击等属性的收益递减曲线） */
 export interface NumericRatioDivisors {
-/** dodge：定义该变量以承载业务值。 */
-  dodge: number;
-/** crit：定义该变量以承载业务值。 */
-  crit: number;
-/** breakPower：定义该变量以承载业务值。 */
-  breakPower: number;
-/** resolvePower：定义该变量以承载业务值。 */
-  resolvePower: number;
-/** cooldownSpeed：定义该变量以承载业务值。 */
-  cooldownSpeed: number;
-/** moveSpeed：定义该变量以承载业务值。 */
-  moveSpeed: number;
-/** elementDamageReduce：定义该变量以承载业务值。 */
+/**
+ * dodge：dodge相关字段。
+ */
+
+  dodge: number;  
+  /**
+ * crit：crit相关字段。
+ */
+
+  crit: number;  
+  /**
+ * breakPower：breakPower相关字段。
+ */
+
+  breakPower: number;  
+  /**
+ * resolvePower：resolvePower相关字段。
+ */
+
+  resolvePower: number;  
+  /**
+ * cooldownSpeed：冷却Speed数值。
+ */
+
+  cooldownSpeed: number;  
+  /**
+ * moveSpeed：moveSpeed数值。
+ */
+
+  moveSpeed: number;  
+  /**
+ * elementDamageReduce：elementDamageReduce相关字段。
+ */
+
   elementDamageReduce: ElementStatGroup;
+}
+
+/** 部分 RatioValue 除数（用于增量 patch）。 */
+export interface PartialNumericRatioDivisors extends Partial<Omit<NumericRatioDivisors, 'elementDamageReduce'>> {
+/**
+ * elementDamageReduce：elementDamageReduce相关字段。
+ */
+
+  elementDamageReduce?: PartialElementStatGroup;
 }
 
 /** 境界数值模板（基础属性 + RatioValue 除数） */
 export interface RealmNumericTemplate {
-/** stage：定义该变量以承载业务值。 */
-  stage: PlayerRealmStage;
-/** stats：定义该变量以承载业务值。 */
-  stats: NumericStats;
-/** ratioDivisors：定义该变量以承载业务值。 */
+/**
+ * stage：stage相关字段。
+ */
+
+  stage: PlayerRealmStage;  
+  /**
+ * stats：stat相关字段。
+ */
+
+  stats: NumericStats;  
+  /**
+ * ratioDivisors：ratioDivisor相关字段。
+ */
+
   ratioDivisors: NumericRatioDivisors;
 }
 
 /**
  * 将“加减百分比”转换为最终乘区。
- * 正向保持线性增长，负向改为反比衰减，避免任意乘区被直接压到 0。
- * 例如:
- * - +50 => 1.5
- * - -50 => 1 / 1.5 = 0.666...
- * - -100 => 0.5
+ * 正向保持线性增长，负向使用反比衰减，避免乘区被直接压到 0。
  */
 export function percentModifierToMultiplier(percent: number): number {
   if (!Number.isFinite(percent) || percent === 0) {
@@ -209,6 +415,17 @@ export function basisPointModifierToMultiplier(rateBp: number): number {
   }
   return percentModifierToMultiplier(rateBp / 100);
 }
+
+/** 所有 `NumericRatioDivisors` 标量字段列表，便于模板和守护工具重用 */
+export const NUMERIC_RATIO_DIVISOR_KEYS: (keyof NumericRatioDivisors)[] = [
+  'dodge',
+  'crit',
+  'breakPower',
+  'resolvePower',
+  'cooldownSpeed',
+  'moveSpeed',
+  'elementDamageReduce',
+];
 
 /** 创建全零五行元素属性组 */
 export function createElementStatGroup(initialValue = 0): ElementStatGroup {
@@ -242,8 +459,79 @@ export function resetElementStatGroup(target: ElementStatGroup, value = 0): Elem
   return target;
 }
 
+/** 所有 `NumericStats` 字段列表，便于模板/守护工具重用 */
+export const NUMERIC_STATS_KEYS: (keyof NumericStats)[] = [
+  'maxHp',
+  'maxQi',
+  'physAtk',
+  'spellAtk',
+  'physDef',
+  'spellDef',
+  'hit',
+  'dodge',
+  'crit',
+  'antiCrit',
+  'critDamage',
+  'breakPower',
+  'resolvePower',
+  'maxQiOutputPerTick',
+  'qiRegenRate',
+  'hpRegenRate',
+  'cooldownSpeed',
+  'auraCostReduce',
+  'auraPowerRate',
+  'playerExpRate',
+  'techniqueExpRate',
+  'realmExpPerTick',
+  'techniqueExpPerTick',
+  'lootRate',
+  'rareLootRate',
+  'viewRange',
+  'moveSpeed',
+  'extraAggroRate',
+  'extraRange',
+  'extraArea',
+  'actionsPerTurn',
+  'elementDamageBonus',
+  'elementDamageReduce',
+];
+
+/** 守护 Realm 模板 stats 结构的工具，确保字段完整 */
+export function ensureNumericStatsTemplateStats(stats: Partial<NumericStats>): NumericStats {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
+  const missing: Array<keyof NumericStats> = [];
+  for (const key of NUMERIC_STATS_KEYS) {
+    if (!(key in stats)) {
+      missing.push(key);
+    }
+  }
+  if (missing.length) {
+    throw new Error(`incomplete numeric stats template: missing ${missing.join(', ')}`);
+  }
+  return stats as NumericStats;
+}
+
+/** 守护 Realm 模板 ratioDivisors 结构的工具，确保字段完整 */
+export function ensureNumericRatioDivisorsTemplate(divisors: Partial<NumericRatioDivisors>): NumericRatioDivisors {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
+  const missing: Array<keyof NumericRatioDivisors> = [];
+  for (const key of NUMERIC_RATIO_DIVISOR_KEYS) {
+    if (!(key in divisors)) {
+      missing.push(key);
+    }
+  }
+  if (missing.length) {
+    throw new Error(`incomplete numeric ratio divisors template: missing ${missing.join(', ')}`);
+  }
+  return divisors as NumericRatioDivisors;
+}
+
 /** 将部分五行属性叠加到目标上 */
 export function addPartialElementStatGroup(target: ElementStatGroup, patch?: PartialElementStatGroup): ElementStatGroup {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
   if (!patch) return target;
   if (patch.metal !== undefined) target.metal += patch.metal;
   if (patch.wood !== undefined) target.wood += patch.wood;
@@ -286,6 +574,7 @@ export function createNumericStats(): NumericStats {
     extraAggroRate: 0,
     extraRange: 0,
     extraArea: 0,
+    actionsPerTurn: 1,
     elementDamageBonus: createElementStatGroup(),
     elementDamageReduce: createElementStatGroup(),
   };
@@ -324,6 +613,7 @@ export function cloneNumericStats(source: NumericStats): NumericStats {
     extraAggroRate: source.extraAggroRate,
     extraRange: source.extraRange,
     extraArea: source.extraArea,
+    actionsPerTurn: source.actionsPerTurn ?? 1,
     elementDamageBonus: cloneElementStatGroup(source.elementDamageBonus),
     elementDamageReduce: cloneElementStatGroup(source.elementDamageReduce),
   };
@@ -361,6 +651,7 @@ export function resetNumericStats(target: NumericStats): NumericStats {
   target.extraAggroRate = 0;
   target.extraRange = 0;
   target.extraArea = 0;
+  target.actionsPerTurn = 1;
   resetElementStatGroup(target.elementDamageBonus);
   resetElementStatGroup(target.elementDamageReduce);
   return target;
@@ -368,6 +659,8 @@ export function resetNumericStats(target: NumericStats): NumericStats {
 
 /** 将部分数值属性叠加到目标上 */
 export function addPartialNumericStats(target: NumericStats, patch?: PartialNumericStats): NumericStats {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
   if (!patch) return target;
   if (patch.maxHp !== undefined) target.maxHp += patch.maxHp;
   if (patch.maxQi !== undefined) target.maxQi += patch.maxQi;
@@ -399,6 +692,7 @@ export function addPartialNumericStats(target: NumericStats, patch?: PartialNume
   if (patch.extraAggroRate !== undefined) target.extraAggroRate += patch.extraAggroRate;
   if (patch.extraRange !== undefined) target.extraRange += patch.extraRange;
   if (patch.extraArea !== undefined) target.extraArea += patch.extraArea;
+  if (patch.actionsPerTurn !== undefined) target.actionsPerTurn += patch.actionsPerTurn;
   addPartialElementStatGroup(target.elementDamageBonus, patch.elementDamageBonus);
   addPartialElementStatGroup(target.elementDamageReduce, patch.elementDamageReduce);
   return target;
@@ -406,87 +700,13 @@ export function addPartialNumericStats(target: NumericStats, patch?: PartialNume
 
 /** 合并基础数值与多个增量补丁 */
 export function mergeNumericStats(base: NumericStats, patches: readonly PartialNumericStats[]): NumericStats {
-/** result：定义该变量以承载业务值。 */
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
   const result = cloneNumericStats(base);
   for (const patch of patches) {
     addPartialNumericStats(result, patch);
   }
   return result;
-}
-
-/** 获取单个标量属性用于百分比乘区的参考底座 */
-export function getNumericStatMultiplierFloor(key: NumericScalarStatKey): number {
-  return NUMERIC_STAT_MULTIPLIER_FLOORS[key];
-}
-
-/** 获取元素属性用于百分比乘区的参考底座 */
-export function getElementStatMultiplierFloor(group: 'elementDamageBonus' | 'elementDamageReduce', key: ElementKey): number {
-  return NUMERIC_STAT_MULTIPLIER_FLOORS[group][key];
-}
-
-/** 对一组数值属性应用百分比乘区，允许以参考底座撬动零基值属性 */
-export function applyNumericStatsPercentMultiplier(target: NumericStats, patch?: PartialNumericStats): NumericStats {
-  if (!patch) {
-    return target;
-  }
-  for (const key of NUMERIC_SCALAR_STAT_KEYS) {
-    const percent = patch[key];
-    if (!percent) {
-      continue;
-    }
-/** floor：定义该变量以承载业务值。 */
-    const floor = getNumericStatMultiplierFloor(key);
-/** current：定义该变量以承载业务值。 */
-    const current = key === 'moveSpeed'
-      ? target[key] + floor
-      : target[key];
-/** multiplier：定义该变量以承载业务值。 */
-    const multiplier = percentModifierToMultiplier(percent);
-/** nextValue：定义该变量以承载业务值。 */
-    const nextValue = current > 0
-      ? Math.max(0, current * multiplier)
-      : floor * multiplier - floor;
-    if (key === 'moveSpeed') {
-      target[key] = nextValue - floor;
-      continue;
-    }
-    target[key] = nextValue;
-  }
-  if (patch.elementDamageBonus) {
-    for (const key of ELEMENT_KEYS) {
-      const percent = patch.elementDamageBonus[key];
-      if (!percent) {
-        continue;
-      }
-/** floor：定义该变量以承载业务值。 */
-      const floor = getElementStatMultiplierFloor('elementDamageBonus', key);
-/** current：定义该变量以承载业务值。 */
-      const current = target.elementDamageBonus[key];
-/** multiplier：定义该变量以承载业务值。 */
-      const multiplier = percentModifierToMultiplier(percent);
-      target.elementDamageBonus[key] = current > 0
-        ? Math.max(0, current * multiplier)
-        : floor * multiplier - floor;
-    }
-  }
-  if (patch.elementDamageReduce) {
-    for (const key of ELEMENT_KEYS) {
-      const percent = patch.elementDamageReduce[key];
-      if (!percent) {
-        continue;
-      }
-/** floor：定义该变量以承载业务值。 */
-      const floor = getElementStatMultiplierFloor('elementDamageReduce', key);
-/** current：定义该变量以承载业务值。 */
-      const current = target.elementDamageReduce[key];
-/** multiplier：定义该变量以承载业务值。 */
-      const multiplier = percentModifierToMultiplier(percent);
-      target.elementDamageReduce[key] = current > 0
-        ? Math.max(0, current * multiplier)
-        : Math.max(0, floor * multiplier - floor);
-    }
-  }
-  return target;
 }
 
 /** 创建 RatioValue 除数配置 */
@@ -517,6 +737,8 @@ export function cloneNumericRatioDivisors(source: NumericRatioDivisors): Numeric
 
 /** RatioValue 计算：value / (value + divisor)，实现收益递减 */
 export function ratioValue(value: number, divisor: number): number {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
   if (value === 0) return 0;
   if (divisor <= 0) return value > 0 ? 1 : -1;
   return value > 0 ? value / (value + divisor) : -value / divisor;
@@ -527,7 +749,6 @@ export function signedRatioValue(value: number, divisor: number): number {
   if (value === 0) {
     return 0;
   }
-/** magnitude：定义该变量以承载业务值。 */
   const magnitude = ratioValue(Math.abs(value), divisor);
   return value > 0 ? magnitude : -magnitude;
 }
@@ -544,24 +765,19 @@ export function getElementDamageReduceRatio(stats: NumericStats, divisors: Numer
 
 /** 计算灵力消耗（超出每 tick 输出上限时递增惩罚） */
 export function calcQiCostWithOutputLimit(plannedCost: number, maxQiOutputPerTick: number): number {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
   if (plannedCost <= 0) return 0;
   if (maxQiOutputPerTick <= 0) return Number.POSITIVE_INFINITY;
   if (plannedCost <= maxQiOutputPerTick) return plannedCost;
 
-/** segment：定义该变量以承载业务值。 */
   const segment = maxQiOutputPerTick * 0.2;
   if (segment <= 0) return Number.POSITIVE_INFINITY;
 
-/** overflow：定义该变量以承载业务值。 */
   const overflow = plannedCost - maxQiOutputPerTick;
-/** fullSegments：定义该变量以承载业务值。 */
   const fullSegments = Math.floor(overflow / segment);
-/** remainder：定义该变量以承载业务值。 */
   const remainder = overflow - fullSegments * segment;
-/** fullSegmentCost：定义该变量以承载业务值。 */
   const fullSegmentCost = segment * fullSegments * (fullSegments + 3) / 2;
-/** remainderCost：定义该变量以承载业务值。 */
   const remainderCost = remainder * (fullSegments + 2);
   return maxQiOutputPerTick + fullSegmentCost + remainderCost;
 }
-

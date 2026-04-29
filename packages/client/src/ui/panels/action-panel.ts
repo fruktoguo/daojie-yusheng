@@ -1,39 +1,31 @@
 /**
  * 行动面板
- * 管理技能、对话、行动三大分类的操作列表，支持快捷键绑定、自动战斗技能排序与拖拽
+ * 负责动作列表、技能管理和技能方案的局部交互，不接管真正的战斗结算。
  */
-
 import {
   ActionDef,
   AutoBattleSkillConfig,
   AutoBattleTargetingMode,
-  buildDefaultCombatTargetingRules,
-  type CombatTargetingRuleKey,
-  type CombatTargetingRuleScope,
-  type CombatTargetingRules,
   AutoUsePillCondition,
   AutoUsePillConfig,
+  CombatTargetingRuleKey,
+  CombatTargetingRules,
   DEFAULT_PLAYER_REALM_STAGE,
-  type ElementKey,
   ItemStack,
   PlayerState,
   SkillDef,
-  type SkillDamageKind,
-  countEnabledSkillEntries,
-  enforceSkillEnabledLimit,
-  normalizeCombatTargetingRules,
-  normalizeAutoUsePillConfigs,
-  resolvePlayerSkillSlotLimit,
   resolveSkillUnlockLevel,
+  type ElementKey,
+  type SkillDamageKind,
 } from '@mud/shared';
 import { detailModalHost } from '../detail-modal-host';
 import { FloatingTooltip, prefersPinnedTooltipInteraction } from '../floating-tooltip';
-import { buildItemTooltipPayload } from '../equipment-tooltip';
 import { buildSkillTooltipContent, type SkillPreviewMetrics, summarizeSkillPreviewMetrics } from '../skill-tooltip';
+import { buildItemTooltipPayload } from '../equipment-tooltip';
 import { preserveSelection } from '../selection-preserver';
+import { getLocalItemTemplate, resolvePreviewItem } from '../../content/local-templates';
 import { getActionTypeLabel, getElementKeyLabel } from '../../domain-labels';
 import { ACTION_SHORTCUTS_KEY, ACTION_SKILL_PRESETS_KEY, RETURN_TO_SPAWN_ACTION_ID } from '../../constants/ui/action';
-import { getLocalItemTemplate, resolvePreviewItem } from '../../content/local-templates';
 import { formatDisplayNumber } from '../../utils/number';
 import {
   appendUnique,
@@ -47,157 +39,292 @@ import {
   readBoolean,
 } from './action-panel-helpers';
 
-/** ActionMainTab：定义该类型的结构与数据语义。 */
+/** createFragmentFromHtml：从 HTML 文本创建文档片段。 */
+function createFragmentFromHtml(html: string): DocumentFragment {
+  const template = document.createElement('template');
+  template.innerHTML = html.trim();
+  return template.content.cloneNode(true) as DocumentFragment;
+}
+
+type SkillEnabledEntry = {
+  skillEnabled?: boolean;
+};
+
+function getPlayerEnabledSkillSlotLimitByLevel(level: number | undefined): number {
+  const normalizedLevel = Number.isFinite(level) ? Math.max(1, Math.floor(Number(level))) : 1;
+  let extraSlots = 0;
+
+  const earlyLevels = Math.min(normalizedLevel, 6);
+  extraSlots += Math.max(0, earlyLevels - 1);
+
+  if (normalizedLevel >= 7) {
+    extraSlots += Math.floor((Math.min(normalizedLevel, 18) - 6) / 3);
+  }
+
+  if (normalizedLevel >= 19) {
+    extraSlots += Math.floor((Math.min(normalizedLevel, 30) - 18) / 5);
+  }
+
+  if (normalizedLevel >= 31) {
+    extraSlots += Math.floor((normalizedLevel - 30) / 6);
+  }
+
+  extraSlots += Math.floor(normalizedLevel / 6);
+  extraSlots += Math.floor(normalizedLevel / 12);
+
+  return 4 + extraSlots;
+}
+
+function resolvePlayerSkillSlotLimitLocal(
+  player: Pick<PlayerState, 'realmLv' | 'realm'> | null | undefined,
+): number {
+  return getPlayerEnabledSkillSlotLimitByLevel(player?.realm?.realmLv ?? player?.realmLv);
+}
+
+function countEnabledSkillEntriesLocal<T extends SkillEnabledEntry>(entries: readonly T[]): number {
+  let count = 0;
+  for (const entry of entries) {
+    if (entry.skillEnabled !== false) {
+      count += 1;
+    }
+  }
+  return count;
+}
+
+function enforceSkillEnabledLimitLocal<T extends SkillEnabledEntry>(
+  entries: readonly T[],
+  limit: number,
+): T[] {
+  const normalizedLimit = Number.isFinite(limit) ? Math.max(0, Math.floor(limit)) : 0;
+  let enabledCount = 0;
+  return entries.map((entry) => {
+    if (entry.skillEnabled === false) {
+      return entry;
+    }
+    if (enabledCount < normalizedLimit) {
+      enabledCount += 1;
+      return entry;
+    }
+    return {
+      ...entry,
+      skillEnabled: false,
+    };
+  });
+}
+
+/** 行动面板的主标签页：交互、技能、开关和通用动作。 */
 type ActionMainTab = 'dialogue' | 'skill' | 'toggle' | 'utility';
-/** SkillSubTab：定义该类型的结构与数据语义。 */
+/** 技能区的子标签页：自动技能和手动技能。 */
 type SkillSubTab = 'auto' | 'manual';
-/** SkillManagementTab：定义该类型的结构与数据语义。 */
+/** 技能管理弹层里正在查看的分组。 */
 type SkillManagementTab = SkillSubTab | 'disabled';
-/** SkillManagementBulkMode：定义该类型的结构与数据语义。 */
+/** 技能管理里的批量切换模式。 */
 type SkillManagementBulkMode = SkillSubTab | 'enabled' | 'disabled';
-/** SkillManagementSortField：定义该类型的结构与数据语义。 */
+/** 技能管理的排序字段。 */
 type SkillManagementSortField = 'custom' | 'actualDamage' | 'qiCost' | 'range' | 'targetCount' | 'cooldown';
-/** SkillManagementSortDirection：定义该类型的结构与数据语义。 */
+/** 技能管理的排序方向。 */
 type SkillManagementSortDirection = 'asc' | 'desc';
-/** SkillManagementFilterToggle：定义该类型的结构与数据语义。 */
+/** 技能管理筛选面板中的开关项。 */
 type SkillManagementFilterToggle = 'melee' | 'ranged' | 'physical' | 'spell' | 'single' | 'aoe';
-/** SkillPresetStatusTone：定义该类型的结构与数据语义。 */
-type SkillPresetStatusTone = 'success' | 'error' | 'info';
-/** CombatSettingsTab：定义该类型的结构与数据语义。 */
-type CombatSettingsTab = 'auto_pills' | 'targeting';
-
-/** ActionRowRefs：定义该接口的能力与字段约束。 */
-interface ActionRowRefs {
-/** row：定义该变量以承载业务值。 */
-  row: HTMLElement;
-/** cdNode：定义该变量以承载业务值。 */
-  cdNode: HTMLElement;
-/** execNode：定义该变量以承载业务值。 */
-  execNode: HTMLButtonElement;
-  stateNode?: HTMLElement;
-  orderNode?: HTMLElement;
-  toggleNode?: HTMLButtonElement;
+/** 宗门管理弹层标签。 */
+type SectManagementTab = 'overview' | 'members' | 'roles' | 'manage' | 'guardian' | 'domain';
+interface SectManagementMember {
+  playerId: string;
+  name: string;
+  roleId: string;
+  roleLabel: string;
+  self?: boolean;
+  leader?: boolean;
 }
-
-/** SkillManagementEntry：定义该接口的能力与字段约束。 */
-interface SkillManagementEntry {
-/** action：定义该变量以承载业务值。 */
-  action: ActionDef;
-/** metrics：定义该变量以承载业务值。 */
-  metrics: SkillPreviewMetrics;
-}
-
-/** ActionSkillAffinityBadge：定义该接口的能力与字段约束。 */
-interface ActionSkillAffinityBadge {
-/** label：定义该变量以承载业务值。 */
-  label: string;
-/** title：定义该变量以承载业务值。 */
-  title: string;
-/** tone：定义该变量以承载业务值。 */
-  tone: 'physical' | 'spell' | 'mixed' | 'utility';
-/** element：定义该变量以承载业务值。 */
-  element: ElementKey | 'multi' | 'neutral';
-}
-
-/** SkillPresetSkillState：定义该接口的能力与字段约束。 */
-interface SkillPresetSkillState {
-/** skillId：定义该变量以承载业务值。 */
-  skillId: string;
-/** enabled：定义该变量以承载业务值。 */
-  enabled: boolean;
-/** skillEnabled：定义该变量以承载业务值。 */
-  skillEnabled: boolean;
-}
-
-/** SkillPresetRecord：定义该接口的能力与字段约束。 */
-interface SkillPresetRecord {
-/** id：定义该变量以承载业务值。 */
+interface SectManagementRole {
   id: string;
-/** name：定义该变量以承载业务值。 */
+  label: string;
+  assignable: boolean;
+}
+interface SectManagementPermission {
+  id: string;
+  label: string;
+}
+interface SectManagementData {
+  selfPlayerId: string;
+  canEditPermissions: boolean;
+  canTransfer: boolean;
+  canDissolve: boolean;
+  canManageGuardian: boolean;
+  canRemoveMembers: boolean;
+  canChangeRoles: boolean;
+  roles: SectManagementRole[];
+  permissions: SectManagementPermission[];
+  rolePermissions: Record<string, Record<string, boolean>>;
+  members: SectManagementMember[];
+}
+interface SectManagementSummary {
   name: string;
-/** skills：定义该变量以承载业务值。 */
-  skills: SkillPresetSkillState[];
+  mark: string;
+  domainLabel: string;
+  guardianStatusLabel: string;
+  guardianAuraLabel: string;
+  sectIdLabel: string;
+  leaderName: string;
+  realmLabel: string;
+  memberCountLabel: string;
+  notice: string;
+  data: SectManagementData;
+}
+/** 技能预设状态提示的语气。 */
+type SkillPresetStatusTone = 'success' | 'error' | 'info';
+type CombatSettingsTab = 'auto_pills' | 'targeting';
+type AutoUsePillSubview = 'main' | 'picker' | 'conditions';
+
+const SECT_MANAGEMENT_DATA_PATTERN = /\n?@@sect:([^@\n]+)@@/;
+const DEFAULT_SECT_MANAGEMENT_ROLES: SectManagementRole[] = [
+  { id: 'leader', label: '宗主', assignable: false },
+  { id: 'deputy', label: '副宗主', assignable: true },
+  { id: 'elder', label: '长老', assignable: true },
+  { id: 'inner', label: '内门弟子', assignable: true },
+  { id: 'outer', label: '外门弟子', assignable: true },
+  { id: 'labor', label: '杂役', assignable: true },
+  { id: 'supreme_elder', label: '太上长老', assignable: false },
+];
+const DEFAULT_SECT_MANAGEMENT_PERMISSIONS: SectManagementPermission[] = [
+  { id: 'guardian', label: '护宗大阵' },
+  { id: 'member_remove', label: '移除成员' },
+  { id: 'member_role', label: '修改职位' },
+];
+
+function stripSectManagementData(desc: string | undefined): string {
+  return (desc ?? '').replace(SECT_MANAGEMENT_DATA_PATTERN, '').trim();
 }
 
-/** SkillPresetLibrary：定义该接口的能力与字段约束。 */
-interface SkillPresetLibrary {
-/** v：定义该变量以承载业务值。 */
-  v: number;
-  p: Array<{
-/** n：定义该变量以承载业务值。 */
-    n: string;
-/** s：定义该变量以承载业务值。 */
-    s: Array<[string, 0 | 1]>;
-  }>;
+function parseSectManagementData(desc: string | undefined, player: PlayerState | null): SectManagementData {
+  const fallback = buildFallbackSectManagementData(player);
+  const match = SECT_MANAGEMENT_DATA_PATTERN.exec(desc ?? '');
+  if (!match?.[1]) {
+    return fallback;
+  }
+  try {
+    const parsed = JSON.parse(decodeURIComponent(match[1])) as Partial<SectManagementData>;
+    const roles = Array.isArray(parsed.roles) && parsed.roles.length > 0
+      ? parsed.roles.map(normalizeSectManagementRole)
+      : fallback.roles;
+    const permissions = Array.isArray(parsed.permissions) && parsed.permissions.length > 0
+      ? parsed.permissions.map(normalizeSectManagementPermission)
+      : fallback.permissions;
+    const members = Array.isArray(parsed.members) && parsed.members.length > 0
+      ? parsed.members.map(normalizeSectManagementMember)
+      : fallback.members;
+    return {
+      selfPlayerId: typeof parsed.selfPlayerId === 'string' ? parsed.selfPlayerId : fallback.selfPlayerId,
+      canEditPermissions: parsed.canEditPermissions === true,
+      canTransfer: parsed.canTransfer === true,
+      canDissolve: parsed.canDissolve === true,
+      canManageGuardian: parsed.canManageGuardian === true,
+      canRemoveMembers: parsed.canRemoveMembers === true,
+      canChangeRoles: parsed.canChangeRoles === true,
+      roles,
+      permissions,
+      rolePermissions: normalizeSectManagementRolePermissions(parsed.rolePermissions, roles, permissions),
+      members,
+    };
+  } catch (_error) {
+    return fallback;
+  }
 }
 
-/** SkillPresetStatus：定义该接口的能力与字段约束。 */
-interface SkillPresetStatus {
-/** tone：定义该变量以承载业务值。 */
-  tone: SkillPresetStatusTone;
-/** text：定义该变量以承载业务值。 */
-  text: string;
+function buildFallbackSectManagementData(player: PlayerState | null): SectManagementData {
+  const playerId = player?.id ?? '';
+  const name = player?.displayName || player?.name || playerId || '当前宗主';
+  const rolePermissions = normalizeSectManagementRolePermissions({}, DEFAULT_SECT_MANAGEMENT_ROLES, DEFAULT_SECT_MANAGEMENT_PERMISSIONS);
+  return {
+    selfPlayerId: playerId,
+    canEditPermissions: true,
+    canTransfer: true,
+    canDissolve: true,
+    canManageGuardian: true,
+    canRemoveMembers: true,
+    canChangeRoles: true,
+    roles: DEFAULT_SECT_MANAGEMENT_ROLES,
+    permissions: DEFAULT_SECT_MANAGEMENT_PERMISSIONS,
+    rolePermissions,
+    members: [{ playerId, name, roleId: 'leader', roleLabel: '宗主', self: true, leader: true }],
+  };
 }
 
-/** AutoUsePillViewEntry：定义该接口的能力与字段约束。 */
+function normalizeSectManagementRole(input: unknown): SectManagementRole {
+  const source = input && typeof input === 'object' ? input as Partial<SectManagementRole> : {};
+  const id = typeof source.id === 'string' && source.id.trim() ? source.id.trim() : 'outer';
+  const fallback = DEFAULT_SECT_MANAGEMENT_ROLES.find((role) => role.id === id);
+  return {
+    id,
+    label: typeof source.label === 'string' && source.label.trim() ? source.label.trim() : fallback?.label ?? id,
+    assignable: source.assignable === true,
+  };
+}
+
+function normalizeSectManagementPermission(input: unknown): SectManagementPermission {
+  const source = input && typeof input === 'object' ? input as Partial<SectManagementPermission> : {};
+  const id = typeof source.id === 'string' && source.id.trim() ? source.id.trim() : 'guardian';
+  const fallback = DEFAULT_SECT_MANAGEMENT_PERMISSIONS.find((permission) => permission.id === id);
+  return {
+    id,
+    label: typeof source.label === 'string' && source.label.trim() ? source.label.trim() : fallback?.label ?? id,
+  };
+}
+
+function normalizeSectManagementMember(input: unknown): SectManagementMember {
+  const source = input && typeof input === 'object' ? input as Partial<SectManagementMember> : {};
+  const playerId = typeof source.playerId === 'string' && source.playerId.trim() ? source.playerId.trim() : '';
+  const roleId = typeof source.roleId === 'string' && source.roleId.trim() ? source.roleId.trim() : 'outer';
+  const role = DEFAULT_SECT_MANAGEMENT_ROLES.find((entry) => entry.id === roleId);
+  return {
+    playerId,
+    name: typeof source.name === 'string' && source.name.trim() ? source.name.trim() : playerId || '未知成员',
+    roleId,
+    roleLabel: typeof source.roleLabel === 'string' && source.roleLabel.trim() ? source.roleLabel.trim() : role?.label ?? roleId,
+    self: source.self === true,
+    leader: source.leader === true,
+  };
+}
+
+function normalizeSectManagementRolePermissions(
+  input: unknown,
+  roles: SectManagementRole[],
+  permissions: SectManagementPermission[],
+): Record<string, Record<string, boolean>> {
+  const source = input && typeof input === 'object' ? input as Record<string, Record<string, boolean>> : {};
+  const next: Record<string, Record<string, boolean>> = {};
+  for (const role of roles) {
+    next[role.id] = {};
+    for (const permission of permissions) {
+      next[role.id][permission.id] = source?.[role.id]?.[permission.id] === true || role.id === 'leader';
+    }
+  }
+  return next;
+}
+
 interface AutoUsePillViewEntry {
-/** itemId：定义该变量以承载业务值。 */
   itemId: string;
-/** name：定义该变量以承载业务值。 */
   name: string;
-/** desc：定义该变量以承载业务值。 */
   desc: string;
-/** count：定义该变量以承载业务值。 */
   count: number;
   healAmount?: number;
   healPercent?: number;
   qiPercent?: number;
   consumeBuffs?: Array<{ buffId?: string; name?: string }>;
-/** selected：定义该变量以承载业务值。 */
   selected: boolean;
-/** conditions：定义该变量以承载业务值。 */
   conditions: AutoUsePillCondition[];
 }
 
-/** AutoUsePillSubview：定义该类型的结构与数据语义。 */
-type AutoUsePillSubview = 'main' | 'picker' | 'conditions';
-
-/** CombatTargetingOption：定义该接口的能力与字段约束。 */
-interface CombatTargetingOption {
-/** key：定义该变量以承载业务值。 */
-  key: CombatTargetingRuleKey;
-/** label：定义该变量以承载业务值。 */
+interface CombatTargetingCardOption {
+  key?: CombatTargetingRuleKey;
+  scope?: 'hostile' | 'friendly';
   label: string;
-/** summary：定义该变量以承载业务值。 */
   summary: string;
+  active?: boolean;
   disabled?: boolean;
 }
 
-/** CombatTargetingGroup：定义该接口的能力与字段约束。 */
-interface CombatTargetingGroup {
-/** scope：定义该变量以承载业务值。 */
-  scope: CombatTargetingRuleScope;
-/** title：定义该变量以承载业务值。 */
-  title: string;
-/** summary：定义该变量以承载业务值。 */
-  summary: string;
-/** options：定义该变量以承载业务值。 */
-  options: CombatTargetingOption[];
-}
-
-/** SKILL_PRESET_NAME_MAX_LENGTH：定义该变量以承载业务值。 */
-const SKILL_PRESET_NAME_MAX_LENGTH = 24;
-/** SKILL_PRESET_EXPORT_VERSION：定义该变量以承载业务值。 */
-const SKILL_PRESET_EXPORT_VERSION = 2;
-/** AUTO_BATTLE_TARGETING_MODE_OPTIONS：定义该变量以承载业务值。 */
-const AUTO_BATTLE_TARGETING_MODE_OPTIONS: Array<{
-/** mode：定义该变量以承载业务值。 */
-  mode: AutoBattleTargetingMode;
-/** label：定义该变量以承载业务值。 */
-  label: string;
-/** summary：定义该变量以承载业务值。 */
-  summary: string;
-}> = [
+const AUTO_BATTLE_TARGETING_MODE_OPTIONS: Array<{ mode: AutoBattleTargetingMode; label: string; summary: string }> = [
   { mode: 'auto', label: '自动', summary: '按仇恨自动切换。' },
   { mode: 'nearest', label: '优先更近', summary: '更偏向最近目标。' },
   { mode: 'low_hp', label: '优先残血', summary: '更偏向血量低的目标。' },
@@ -205,119 +332,330 @@ const AUTO_BATTLE_TARGETING_MODE_OPTIONS: Array<{
   { mode: 'boss', label: '优先Boss', summary: '更偏向妖王目标。' },
   { mode: 'player', label: '优先玩家', summary: '更偏向玩家目标。' },
 ];
-/** COMBAT_TARGETING_GROUPS：定义该变量以承载业务值。 */
-const COMBAT_TARGETING_GROUPS: CombatTargetingGroup[] = [
-  {
-    scope: 'hostile',
-    title: '敌对判定',
-    summary: '勾选后，这些单位会被你视为敌方目标，可多选组合。',
-    options: [
-      { key: 'monster', label: '妖兽单位', summary: '把野外与副本中的妖兽视为敌方目标。' },
-      { key: 'demonized_players', label: '入魔玩家', summary: '把煞气入体超过 20 层的玩家纳入敌方目标。' },
-      { key: 'retaliators', label: '反击对象', summary: '把主动攻击过你的玩家纳入敌方目标。' },
-      { key: 'party', label: '协同行列', summary: '预留给队伍、同行等协作关系的敌友识别。', disabled: true },
-      { key: 'sect', label: '同道关系', summary: '预留给宗门、阵营等长期关系的敌友识别。', disabled: true },
-      { key: 'terrain', label: '场景地块', summary: '把墙体、山崖、容器等场景地块纳入敌方目标。' },
-    ],
-  },
-  {
-    scope: 'friendly',
-    title: '友方判定',
-    summary: '勾选后，这些单位会被你视为友方目标，可多选组合。',
-    options: [
-      { key: 'non_hostile_players', label: '非敌对玩家', summary: '把当前不属于敌对范围的玩家视为友方目标。' },
-      { key: 'all_players', label: '全部玩家', summary: '把所有玩家都纳入友方目标。' },
-      { key: 'retaliators', label: '反击对象', summary: '把主动攻击过你的玩家也纳入友方目标。' },
-      { key: 'party', label: '协同行列', summary: '预留给队伍、同行等协作关系的敌友识别。', disabled: true },
-      { key: 'sect', label: '同道关系', summary: '预留给宗门、阵营等长期关系的敌友识别。', disabled: true },
-    ],
-  },
+
+const HOSTILE_TARGETING_KEYS = new Set<CombatTargetingRuleKey>([
+  'monster',
+  'all_players',
+  'demonized_players',
+  'retaliators',
+  'party',
+  'sect',
+  'terrain',
+]);
+
+const FRIENDLY_TARGETING_KEYS = new Set<CombatTargetingRuleKey>([
+  'monster',
+  'terrain',
+  'non_hostile_players',
+  'all_players',
+  'retaliators',
+  'party',
+  'sect',
+]);
+
+const DEFAULT_HOSTILE_COMBAT_TARGETING_RULES: CombatTargetingRuleKey[] = [
+  'monster',
+  'demonized_players',
+  'retaliators',
+  'terrain',
 ];
 
-/** ActionPanel：封装相关状态与行为。 */
-export class ActionPanel {
-  private static readonly SKILL_MANAGEMENT_MODAL_OWNER = 'action-panel-skill-management';
-  private static readonly AUTO_USE_PILL_OVERVIEW_MODAL_OWNER = 'action-panel-auto-use-pill-overview';
-  private static readonly AUTO_USE_PILL_PICKER_MODAL_OWNER = 'action-panel-auto-use-pill-picker';
-  private static readonly AUTO_USE_PILL_CONDITION_MODAL_OWNER = 'action-panel-auto-use-pill-condition';
-  private static readonly AUTO_USE_PILL_SLOT_LIMIT = 12;
-  private static readonly SKILL_PRESET_MODAL_OWNER = 'action-panel-skill-preset';
-  private static readonly TARGETING_PLAN_MODAL_OWNER = 'action-panel-targeting-plan';
-  private pane = document.getElementById('pane-action')!;
-  private onAction: ((actionId: string, requiresTarget?: boolean, targetMode?: string, range?: number, actionName?: string) => void) | null = null;
-  private onUpdateAutoBattleSkills: ((skills: AutoBattleSkillConfig[]) => void) | null = null;
-  private onUpdateAutoUsePills: ((pills: AutoUsePillConfig[]) => void) | null = null;
-  private onUpdateCombatTargetingRules: ((combatTargetingRules: CombatTargetingRules) => void) | null = null;
-  private onUpdateAutoBattleTargetingMode: ((mode: AutoBattleTargetingMode) => void) | null = null;
-/** activeTab：定义该变量以承载业务值。 */
-  private activeTab: ActionMainTab = 'dialogue';
-/** activeSkillTab：定义该变量以承载业务值。 */
-  private activeSkillTab: SkillSubTab = 'auto';
-/** skillManagementTab：定义该变量以承载业务值。 */
-  private skillManagementTab: SkillManagementTab = 'auto';
-/** skillManagementDraft：定义该变量以承载业务值。 */
-  private skillManagementDraft: AutoBattleSkillConfig[] | null = null;
-  private skillManagementSortOpen = false;
-/** skillManagementSortField：定义该变量以承载业务值。 */
-  private skillManagementSortField: SkillManagementSortField = 'custom';
-/** skillManagementSortDirection：定义该变量以承载业务值。 */
-  private skillManagementSortDirection: SkillManagementSortDirection = 'desc';
-  private skillManagementFilterOpen = false;
-  private skillManagementFilterToggles = new Set<SkillManagementFilterToggle>();
-/** autoUsePillDraft：定义该变量以承载业务值。 */
-  private autoUsePillDraft: AutoUsePillConfig[] | null = null;
-/** combatTargetingDraft：定义该变量以承载业务值。 */
-  private combatTargetingDraft: CombatTargetingRules | null = null;
-/** combatSettingsActiveTab：定义该变量以承载业务值。 */
-  private combatSettingsActiveTab: CombatSettingsTab = 'auto_pills';
-  private autoUsePillSelectedIndex = 0;
-/** autoUsePillSubview：定义该变量以承载业务值。 */
-  private autoUsePillSubview: AutoUsePillSubview = 'main';
-  private autoUsePillModalSwitching = false;
-/** autoUsePillExternalRevision：定义该变量以承载业务值。 */
-  private autoUsePillExternalRevision: string | null = null;
-/** skillManagementExternalRevision：定义该变量以承载业务值。 */
-  private skillManagementExternalRevision: string | null = null;
-/** skillPresetExternalRevision：定义该变量以承载业务值。 */
-  private skillPresetExternalRevision: string | null = null;
-/** targetingPlanExternalRevision：定义该变量以承载业务值。 */
-  private targetingPlanExternalRevision: string | null = null;
-  private skillManagementListScrollTop = 0;
-  private autoBattle = false;
-  private autoRetaliate = true;
-  private autoBattleStationary = false;
-  private allowAoePlayerHit = false;
-  private autoIdleCultivation = true;
-  private autoSwitchCultivation = false;
-  private cultivationActive = false;
-/** currentActions：定义该变量以承载业务值。 */
-  private currentActions: ActionDef[] = [];
-  private shortcutBindings = new Map<string, string>();
-/** skillPresets：定义该变量以承载业务值。 */
-  private skillPresets: SkillPresetRecord[] = [];
-/** selectedSkillPresetId：定义该变量以承载业务值。 */
-  private selectedSkillPresetId: string | null = null;
-  private skillPresetNameDraft = '';
-  private skillPresetImportText = '';
-/** skillPresetStatus：定义该变量以承载业务值。 */
-  private skillPresetStatus: SkillPresetStatus | null = null;
-/** bindingActionId：定义该变量以承载业务值。 */
-  private bindingActionId: string | null = null;
-/** draggingSkillId：定义该变量以承载业务值。 */
-  private draggingSkillId: string | null = null;
-/** dragOverSkillId：定义该变量以承载业务值。 */
-  private dragOverSkillId: string | null = null;
-/** dragOverPosition：定义该变量以承载业务值。 */
-  private dragOverPosition: 'before' | 'after' | null = null;
-  private previewPlayer?: PlayerState;
-  private skillLookup = new Map<string, { skill: SkillDef; techLevel: number; knownSkills: SkillDef[] }>();
-  private tooltip = new FloatingTooltip();
-  private autoUsePillTooltip = new FloatingTooltip('floating-tooltip inventory-tooltip');
-/** autoUsePillTooltipNode：定义该变量以承载业务值。 */
-  private autoUsePillTooltipNode: HTMLElement | null = null;
-  private actionRowRefs = new Map<string, ActionRowRefs>();
+const DEFAULT_FRIENDLY_COMBAT_TARGETING_RULES: CombatTargetingRuleKey[] = [
+  'non_hostile_players',
+];
 
-/** constructor：处理当前场景中的对应操作。 */
+/** 动作列表行里需要缓存的节点引用，供局部 patch 直接改 DOM。 */
+interface ActionRowRefs {
+/**
+ * row：row相关字段。
+ */
+
+  row: HTMLElement;  
+  /**
+ * cdNode：cdNode相关字段。
+ */
+
+  cdNode: HTMLElement;  
+  /**
+ * execNode：execNode相关字段。
+ */
+
+  execNode: HTMLButtonElement;  
+  /**
+ * stateNode：状态Node相关字段。
+ */
+
+  stateNode?: HTMLElement;  
+  /**
+ * orderNode：订单Node相关字段。
+ */
+
+  orderNode?: HTMLElement;  
+  /**
+ * toggleNode：toggleNode相关字段。
+ */
+
+  toggleNode?: HTMLButtonElement;
+}
+
+/** 技能管理列表里的单条条目，包含动作本体和预览指标。 */
+interface SkillManagementEntry {
+/**
+ * action：action相关字段。
+ */
+
+  action: ActionDef;  
+  /**
+ * metrics：metric相关字段。
+ */
+
+  metrics: SkillPreviewMetrics;
+}
+
+/** 动作对应技能的倾向标签，用来在卡片上补充元素倾向说明。 */
+interface ActionSkillAffinityBadge {
+/**
+ * label：label名称或显示文本。
+ */
+
+  label: string;  
+  /**
+ * title：title名称或显示文本。
+ */
+
+  title: string;  
+  /**
+ * tone：tone相关字段。
+ */
+
+  tone: 'physical' | 'spell' | 'mixed' | 'utility';  
+  /**
+ * element：element相关字段。
+ */
+
+  element: ElementKey | 'multi' | 'neutral';
+}
+
+/** 技能预设里单个技能的启用状态，同时保留自动/手动标记。 */
+interface SkillPresetSkillState {
+/**
+ * skillId：技能ID标识。
+ */
+
+  skillId: string;  
+  /**
+ * enabled：启用开关或状态标识。
+ */
+
+  enabled: boolean;  
+  /**
+ * skillEnabled：启用开关或状态标识。
+ */
+
+  skillEnabled: boolean;
+}
+
+/** 单个技能预设的持久化记录。 */
+interface SkillPresetRecord {
+/**
+ * id：ID标识。
+ */
+
+  id: string;  
+  /**
+ * name：名称名称或显示文本。
+ */
+
+  name: string;  
+  /**
+ * skills：技能相关字段。
+ */
+
+  skills: SkillPresetSkillState[];
+}
+
+/** 技能预设导入导出的库结构。 */
+interface SkillPresetLibrary {
+/**
+ * v：v相关字段。
+ */
+
+  v: number;  
+  /**
+ * p：p相关字段。
+ */
+
+  p: Array<{  
+  /**
+ * n：n相关字段。
+ */
+
+    n: string;    
+    /**
+ * s：s相关字段。
+ */
+
+    s: Array<[string, 0 | 1]>;
+  }>;
+}
+
+/** 技能预设当前的状态提示。 */
+interface SkillPresetStatus {
+/**
+ * tone：tone相关字段。
+ */
+
+  tone: SkillPresetStatusTone;  
+  /**
+ * text：text名称或显示文本。
+ */
+
+  text: string;
+}
+
+/** 技能预设名称的最大长度。 */
+const SKILL_PRESET_NAME_MAX_LENGTH = 24;
+/** 技能预设导出格式版本。 */
+const SKILL_PRESET_EXPORT_VERSION = 2;
+
+/** 动作面板实现，负责动作、技能和预设的局部交互。 */
+export class ActionPanel {
+  /** 技能管理弹窗的归属标识，和其他详情弹层互斥。 */
+  private static readonly SKILL_MANAGEMENT_MODAL_OWNER = 'action-panel-skill-management';
+  /** 战斗设置弹层。 */
+  private static readonly COMBAT_SETTINGS_MODAL_OWNER = 'action-panel-combat-settings';
+  /** 技能预设弹窗的归属标识，和技能管理弹层分开管理。 */
+  private static readonly SKILL_PRESET_MODAL_OWNER = 'action-panel-skill-preset';
+  /** 索敌方案弹层。 */
+  private static readonly TARGETING_PLAN_MODAL_OWNER = 'action-panel-targeting-plan';
+  /** 宗门管理弹层。 */
+  private static readonly SECT_MANAGEMENT_MODAL_OWNER = 'action-panel-sect-management';
+  /** 自动吃药槽位上限。 */
+  private static readonly AUTO_USE_PILL_SLOT_LIMIT = 12;
+  /** 面板根节点，后续只做局部 patch。 */
+  private pane = document.getElementById('pane-action')!;
+  /** 执行动作的外部回调，由战斗/交互层接手真正执行。 */
+  private onAction: ((actionId: string, requiresTarget?: boolean, targetMode?: string, range?: number, actionName?: string) => void) | null = null;
+  /** 同步自动战斗技能配置的外部回调，保存顺位和开关状态。 */
+  private onUpdateAutoBattleSkills: ((skills: AutoBattleSkillConfig[]) => void) | null = null;
+  /** 同步自动吃药配置。 */
+  private onUpdateAutoUsePills: ((pills: AutoUsePillConfig[]) => void) | null = null;
+  /** 同步目标选择规则。 */
+  private onUpdateCombatTargetingRules: ((rules: CombatTargetingRules) => void) | null = null;
+  /** 同步优先索敌方案。 */
+  private onUpdateAutoBattleTargetingMode: ((mode: AutoBattleTargetingMode) => void) | null = null;
+  /** 当前主标签页，决定展示对话、技能、开关还是通用动作。 */
+  private activeTab: ActionMainTab = 'dialogue';
+  /** 当前技能子标签页。 */
+  private activeSkillTab: SkillSubTab = 'auto';
+  /** 技能管理弹层当前分组。 */
+  private skillManagementTab: SkillManagementTab = 'auto';
+  /** 技能管理弹层里的草稿缓存，未应用前只留在本地。 */
+  private skillManagementDraft: AutoBattleSkillConfig[] | null = null;
+  /** 技能管理排序面板是否展开。 */
+  private skillManagementSortOpen = false;
+  /** 技能管理当前排序字段。 */
+  private skillManagementSortField: SkillManagementSortField = 'custom';
+  /** 技能管理当前排序方向。 */
+  private skillManagementSortDirection: SkillManagementSortDirection = 'desc';
+  /** 技能管理筛选面板是否展开。 */
+  private skillManagementFilterOpen = false;
+  /** 技能管理当前启用的筛选条件。 */
+  private skillManagementFilterToggles = new Set<SkillManagementFilterToggle>();
+  /** 外部技能管理状态摘要，用来判断弹层是否需要重绘。 */
+  private skillManagementExternalRevision: string | null = null;
+  /** 技能管理弹层内的状态提示。 */
+  private skillManagementStatus: SkillPresetStatus | null = null;
+  /** 外部技能预设状态摘要，用来判断弹层是否需要重绘。 */
+  private skillPresetExternalRevision: string | null = null;
+  /** 外部索敌方案状态摘要。 */
+  private targetingPlanExternalRevision: string | null = null;
+  /** 战斗设置弹层外部摘要。 */
+  private combatSettingsExternalRevision: string | null = null;
+  /** 战斗设置弹层内的状态提示。 */
+  private combatSettingsStatus: SkillPresetStatus | null = null;
+  /** 技能管理列表的滚动位置，重绘后尽量恢复。 */
+  private skillManagementListScrollTop = 0;
+  /** 战斗设置当前标签。 */
+  private combatSettingsActiveTab: CombatSettingsTab = 'auto_pills';
+  /** 宗门管理当前标签。 */
+  private sectManagementTab: SectManagementTab = 'guardian';
+  /** 宗门管理弹层最近一次外部内容签名。 */
+  private sectManagementExternalRevision = '';
+  /** 自动吃药草稿。 */
+  private autoUsePillDraft: AutoUsePillConfig[] | null = null;
+  /** 目标选择草稿。 */
+  private combatTargetingDraft: CombatTargetingRules | null = null;
+  /** 自动丹药当前选中的槽位。 */
+  private autoUsePillSelectedIndex = 0;
+  /** 自动丹药弹层当前子视图。 */
+  private autoUsePillSubview: AutoUsePillSubview = 'main';
+  /** 角色是否开启自动战斗。 */
+  private autoBattle = false;
+  /** 角色是否开启自动反击。 */
+  private autoRetaliate = true;
+  /** 自动战斗时是否保持原地。 */
+  private autoBattleStationary = false;
+  /** 是否允许范围技能误伤玩家。 */
+  private allowAoePlayerHit = false;
+  /** 是否开启离线自动修炼。 */
+  private autoIdleCultivation = true;
+  /** 是否自动切换修炼模式。 */
+  private autoSwitchCultivation = false;
+  /** 当前是否处于修炼态。 */
+  private cultivationActive = false;
+  /** 当前动作列表快照，包含系统补进来的工具动作。 */
+  private currentActions: ActionDef[] = [];
+  /** 快捷键绑定表，key 是 actionId，value 是按键。 */
+  private shortcutBindings = new Map<string, string>();
+  /** 技能预设列表，按本地保存顺序排列。 */
+  private skillPresets: SkillPresetRecord[] = [];
+  /** 当前选中的技能预设 ID。 */
+  private selectedSkillPresetId: string | null = null;
+  /** 新建或重命名时的预设名称草稿。 */
+  private skillPresetNameDraft = '';
+  /** 导入技能预设时的原始文本。 */
+  private skillPresetImportText = '';
+  /** 技能预设的状态提示。 */
+  private skillPresetStatus: SkillPresetStatus | null = null;
+  /** 正在等待绑定快捷键的动作 ID。 */
+  private bindingActionId: string | null = null;
+  /** 正在拖拽的技能 ID。 */
+  private draggingSkillId: string | null = null;
+  /** 拖拽悬停到的技能 ID。 */
+  private dragOverSkillId: string | null = null;
+  /** 拖拽悬停位置，决定插在目标前还是后。 */
+  private dragOverPosition: 'before' | 'after' | null = null;
+  /** 预览角色快照，用来算技能说明和管理指标。 */
+  private previewPlayer?: PlayerState;
+  /** 技能查询缓存，保存技能定义、等级和已知技能列表。 */
+  private skillLookup = new Map<string, {  
+  /**
+ * skill：技能相关字段。
+ */
+ skill: SkillDef;  
+ /**
+ * techLevel：tech等级数值。
+ */
+ techLevel: number;  
+ /**
+ * knownSkills：known技能相关字段。
+ */
+ knownSkills: SkillDef[] }>();
+  /** 面板内统一复用的悬浮提示。 */
+  private tooltip = new FloatingTooltip();
+  /** 战斗设置中的丹药提示。 */
+  private autoUsePillTooltip = new FloatingTooltip('floating-tooltip inventory-tooltip');
+  /** 当前显示丹药提示的节点。 */
+  private autoUsePillTooltipNode: HTMLElement | null = null;
+  /** 动作行节点缓存，供冷却、顺位和开关状态局部更新。 */
+  private actionRowRefs = new Map<string, ActionRowRefs>();  
+  /**
+ * 构造器：初始化 当前 实例并建立基础状态。
+ * @returns 无返回值，完成实例初始化。
+ */
+
+
   constructor() {
     this.shortcutBindings = this.loadShortcutBindings();
     this.skillPresets = this.loadSkillPresets();
@@ -325,7 +663,7 @@ export class ActionPanel {
     window.addEventListener('keydown', (event) => this.handleGlobalKeydown(event));
   }
 
-/** clear：执行对应的业务逻辑。 */
+  /** 清空面板、重置缓存并关掉关联弹层。 */
   clear(): void {
     this.tooltip.hide(true);
     this.autoUsePillTooltip.hide(true);
@@ -334,27 +672,36 @@ export class ActionPanel {
     this.skillManagementDraft = null;
     this.autoUsePillDraft = null;
     this.combatTargetingDraft = null;
-    this.autoUsePillExternalRevision = null;
+    this.skillManagementExternalRevision = null;
+    this.skillManagementStatus = null;
+    this.skillPresetExternalRevision = null;
+    this.targetingPlanExternalRevision = null;
+    this.combatSettingsExternalRevision = null;
+    this.skillManagementListScrollTop = 0;
     this.combatSettingsActiveTab = 'auto_pills';
+    this.sectManagementTab = 'guardian';
     this.autoUsePillSelectedIndex = 0;
     this.autoUsePillSubview = 'main';
-    this.skillManagementExternalRevision = null;
-    this.skillPresetExternalRevision = null;
-    this.skillManagementListScrollTop = 0;
     detailModalHost.close(ActionPanel.SKILL_MANAGEMENT_MODAL_OWNER);
-    detailModalHost.close(ActionPanel.AUTO_USE_PILL_OVERVIEW_MODAL_OWNER);
-    detailModalHost.close(ActionPanel.AUTO_USE_PILL_PICKER_MODAL_OWNER);
-    detailModalHost.close(ActionPanel.AUTO_USE_PILL_CONDITION_MODAL_OWNER);
+    detailModalHost.close(ActionPanel.COMBAT_SETTINGS_MODAL_OWNER);
     detailModalHost.close(ActionPanel.SKILL_PRESET_MODAL_OWNER);
     detailModalHost.close(ActionPanel.TARGETING_PLAN_MODAL_OWNER);
-    this.pane.innerHTML = '<div class="empty-hint">暂无可用行动</div>';
-  }
+    detailModalHost.close(ActionPanel.SECT_MANAGEMENT_MODAL_OWNER);
+    this.pane.replaceChildren(createFragmentFromHtml('<div class="empty-hint">暂无可用行动</div>'));
+  }  
+  /**
+ * setCallbacks：写入Callback。
+ * @param onAction (actionId: string, requiresTarget?: boolean, targetMode?: string, range?: number, actionName?: string) => void 参数说明。
+ * @param onUpdateAutoBattleSkills (skills: AutoBattleSkillConfig[]) => void 参数说明。
+ * @returns 无返回值，直接更新Callback相关状态。
+ */
+
 
   setCallbacks(
     onAction: (actionId: string, requiresTarget?: boolean, targetMode?: string, range?: number, actionName?: string) => void,
     onUpdateAutoBattleSkills?: (skills: AutoBattleSkillConfig[]) => void,
     onUpdateAutoUsePills?: (pills: AutoUsePillConfig[]) => void,
-    onUpdateCombatTargetingRules?: (combatTargetingRules: CombatTargetingRules) => void,
+    onUpdateCombatTargetingRules?: (rules: CombatTargetingRules) => void,
     onUpdateAutoBattleTargetingMode?: (mode: AutoBattleTargetingMode) => void,
   ): void {
     this.onAction = onAction;
@@ -364,8 +711,10 @@ export class ActionPanel {
     this.onUpdateAutoBattleTargetingMode = onUpdateAutoBattleTargetingMode ?? null;
   }
 
-  /** 全量更新行动列表并重新渲染 */
+  /** 用新的动作快照覆盖当前状态，并重绘面板和已开的弹层。 */
   update(actions: ActionDef[], _autoBattle?: boolean, _autoRetaliate?: boolean, player?: PlayerState): void {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
     if (player) {
       this.previewPlayer = player;
       this.syncPlayerContext(player);
@@ -379,16 +728,16 @@ export class ActionPanel {
     if (_autoBattle !== undefined) this.autoBattle = _autoBattle;
     if (_autoRetaliate !== undefined) this.autoRetaliate = _autoRetaliate;
     this.render(this.currentActions);
-    this.renderAutoUsePillModalIfOpen();
     this.renderSkillManagementModalIfOpen();
     this.renderSkillPresetModalIfOpen();
-    this.renderTargetingPlanModalIfOpen();
+    this.renderCombatSettingsModalIfOpen();
+    this.renderSectManagementModalIfOpen();
   }
 
-  /** 增量同步行动状态，优先 DOM patch 避免全量重绘 */
+  /** 只同步会变的动作状态，优先走局部 patch，避免整块重绘。 */
   syncDynamic(actions: ActionDef[], _autoBattle?: boolean, _autoRetaliate?: boolean, player?: PlayerState): void {
-/** previousSkillSlotLimit：定义该变量以承载业务值。 */
-    const previousSkillSlotLimit = this.getSkillSlotLimit();
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
     if (player) {
       this.previewPlayer = player;
       this.syncPlayerContext(player);
@@ -401,19 +750,18 @@ export class ActionPanel {
     this.currentActions = this.withUtilityActions(actions);
     if (_autoBattle !== undefined) this.autoBattle = _autoBattle;
     if (_autoRetaliate !== undefined) this.autoRetaliate = _autoRetaliate;
-/** skillSlotLimitChanged：定义该变量以承载业务值。 */
-    const skillSlotLimitChanged = previousSkillSlotLimit !== this.getSkillSlotLimit();
 
-    if (skillSlotLimitChanged || !this.patchToggleCards() || !this.patchActionRows()) {
+    if (!this.patchToggleCards() || !this.patchActionRows()) {
       this.render(this.currentActions);
     }
-    this.renderAutoUsePillModalIfOpen();
     this.renderSkillManagementModalIfOpen();
     this.renderSkillPresetModalIfOpen();
     this.renderTargetingPlanModalIfOpen();
+    this.renderCombatSettingsModalIfOpen();
+    this.renderSectManagementModalIfOpen();
   }
 
-/** initFromPlayer：执行对应的业务逻辑。 */
+  /** 从玩家快照初始化面板状态。 */
   initFromPlayer(player: PlayerState): void {
     this.previewPlayer = player;
     this.syncPlayerContext(player);
@@ -426,62 +774,65 @@ export class ActionPanel {
     this.autoSwitchCultivation = player.autoSwitchCultivation === true;
     this.cultivationActive = player.cultivationActive === true;
     this.render(this.currentActions);
-    this.renderAutoUsePillModalIfOpen();
     this.renderSkillManagementModalIfOpen();
     this.renderSkillPresetModalIfOpen();
     this.renderTargetingPlanModalIfOpen();
+    this.renderCombatSettingsModalIfOpen();
+    this.renderSectManagementModalIfOpen();
   }
 
-/** syncPlayerContext：执行对应的业务逻辑。 */
+  /** 同步玩家上下文到面板缓存。 */
   private syncPlayerContext(player: PlayerState): void {
-/** enabledTechniques：定义该变量以承载业务值。 */
-    const enabledTechniques = getSkillEnabledTechniques(player);
-/** knownSkills：定义该变量以承载业务值。 */
-    const knownSkills = enabledTechniques.flatMap((technique) => technique.skills);
+    const knownSkills = player.techniques.flatMap((technique) => technique.skills);
     this.skillLookup = new Map(
-      enabledTechniques.flatMap((technique) => technique.skills.map((skill) => [
+      player.techniques.flatMap((technique) => technique.skills.map((skill) => [
         skill.id,
         { skill, techLevel: technique.level, knownSkills },
       ] as const)),
     );
   }
 
-/** render：执行对应的业务逻辑。 */
+  /** 渲染动作面板主体。 */
   private render(actions: ActionDef[]): void {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
     if (actions.length === 0) {
       this.clear();
       return;
     }
 
-/** enabledSkillCount：定义该变量以承载业务值。 */
-    const enabledSkillCount = this.getEnabledSkillCount(actions);
-/** skillSlotLimit：定义该变量以承载业务值。 */
-    const skillSlotLimit = this.getSkillSlotLimit();
-/** tabGroups：定义该变量以承载业务值。 */
-    const tabGroups: Array<{
-/** id：定义该变量以承载业务值。 */
-      id: ActionMainTab;
-/** label：定义该变量以承载业务值。 */
-      label: string;
-/** types：定义该变量以承载业务值。 */
+    const tabGroups: Array<{    
+    /**
+ * id：ID标识。
+ */
+
+      id: ActionMainTab;      
+      /**
+ * label：label名称或显示文本。
+ */
+
+      label: string;      
+      /**
+ * types：type相关字段。
+ */
+
       types: string[];
     }> = [
-      { id: 'dialogue', label: '对话', types: ['quest', 'interact', 'travel'] },
+      { id: 'dialogue', label: '交互', types: ['quest', 'interact', 'travel'] },
       { id: 'skill', label: '技能', types: ['skill', 'battle', 'gather'] },
       { id: 'toggle', label: '开关', types: ['toggle'] },
       { id: 'utility', label: '行动', types: ['toggle'] },
     ];
-/** groups：定义该变量以承载业务值。 */
     const groups = new Map<string, ActionDef[]>();
     for (const action of actions) {
       const list = groups.get(action.type) ?? [];
       list.push(action);
       groups.set(action.type, list);
     }
-/** autoBattleDisplayOrders：定义该变量以承载业务值。 */
     const autoBattleDisplayOrders = this.buildAutoBattleDisplayOrderMap(actions);
+    const enabledSkillCount = this.getEnabledSkillCount(actions);
+    const skillSlotLimit = this.getSkillSlotLimit();
 
-/** html：定义该变量以承载业务值。 */
     let html = `<div class="action-tab-bar">
       ${tabGroups.map((tab) => `
         <button class="action-tab-btn ${this.activeTab === tab.id ? 'active' : ''}" data-action-tab="${tab.id}" type="button">${tab.id === 'skill'
@@ -493,7 +844,6 @@ export class ActionPanel {
     for (const tab of tabGroups) {
       html += `<div class="action-tab-pane ${this.activeTab === tab.id ? 'active' : ''}" data-action-pane="${tab.id}">`;
       if (tab.id === 'toggle') {
-/** switchEntries：定义该变量以承载业务值。 */
         const switchEntries = actions.filter((action) => this.isSwitchAction(action));
         if (switchEntries.length === 0) {
           html += '<div class="empty-hint">当前分组暂无内容</div></div>';
@@ -509,7 +859,6 @@ export class ActionPanel {
         continue;
       }
       if (tab.id === 'utility') {
-/** utilityEntries：定义该变量以承载业务值。 */
         const utilityEntries = actions.filter((action) => (
           (action.type === 'toggle' && !this.isSwitchAction(action))
           || this.isUtilityAction(action)
@@ -519,20 +868,20 @@ export class ActionPanel {
           continue;
         }
         html += `<div class="panel-section">
-          <div class="panel-section-title">行动</div>`;
+          <div class="panel-section-title">行动</div>
+          <div class="action-card-list">`;
         for (const action of utilityEntries) {
           html += this.renderActionItem(action);
         }
         html += '</div></div>';
         continue;
       }
-/** relevantTypes：定义该变量以承载业务值。 */
       const relevantTypes = tab.types.filter((type) => (groups.get(type)?.length ?? 0) > 0);
       if (relevantTypes.length === 0) {
         html += '<div class="empty-hint">当前分组暂无内容</div>';
       } else {
         for (const type of relevantTypes) {
-          const entries = (groups.get(type) ?? []).filter((action) => !this.isUtilityAction(action));
+          const entries = (groups.get(type) ?? []).filter((action) => !this.isUtilityAction(action) && !this.isSwitchAction(action));
           if (entries.length === 0) {
             continue;
           }
@@ -541,42 +890,37 @@ export class ActionPanel {
             continue;
           }
           html += `<div class="panel-section">
-      <div class="panel-section-title">${getActionTypeLabel(type)}</div>`;
+      <div class="panel-section-title">${getActionTypeLabel(type)}</div>
+      <div class="action-card-list">`;
           for (const action of entries) {
             html += this.renderActionItem(action);
           }
-          html += '</div>';
+          html += '</div></div>';
         }
       }
       html += '</div>';
     }
 
     preserveSelection(this.pane, () => {
-      this.pane.innerHTML = html;
+      this.pane.replaceChildren(createFragmentFromHtml(html));
       this.captureActionRowRefs();
       this.bindEvents(actions);
       this.bindTooltips(this.pane);
     });
   }
 
-/** captureActionRowRefs：执行对应的业务逻辑。 */
+  /** 缓存动作行里后续 patch 会直接改到的节点引用。 */
   private captureActionRowRefs(): void {
     this.actionRowRefs.clear();
     this.pane.querySelectorAll<HTMLElement>('[data-action-row]').forEach((row) => {
-/** actionId：定义该变量以承载业务值。 */
       const actionId = row.dataset.actionRow;
-/** cdNode：定义该变量以承载业务值。 */
       const cdNode = row.querySelector<HTMLElement>('[data-action-cd]');
-/** execNode：定义该变量以承载业务值。 */
       const execNode = row.querySelector<HTMLButtonElement>('[data-action-exec]');
       if (!actionId || !cdNode || !execNode) {
         return;
       }
-/** stateNode：定义该变量以承载业务值。 */
       const stateNode = row.querySelector<HTMLElement>('[data-action-auto-state]');
-/** orderNode：定义该变量以承载业务值。 */
       const orderNode = row.querySelector<HTMLElement>('[data-action-auto-order]');
-/** toggleNode：定义该变量以承载业务值。 */
       const toggleNode = row.querySelector<HTMLButtonElement>('[data-auto-battle-toggle]');
       this.actionRowRefs.set(actionId, {
         row,
@@ -589,11 +933,10 @@ export class ActionPanel {
     });
   }
 
-/** bindEvents：执行对应的业务逻辑。 */
+  /** 给当前渲染出来的动作区装配标签切换、入口按钮和快捷操作事件。 */
   private bindEvents(actions: ActionDef[]): void {
     this.pane.querySelectorAll<HTMLElement>('[data-action-tab]').forEach((button) => {
       button.addEventListener('click', () => {
-/** tab：定义该变量以承载业务值。 */
         const tab = button.dataset.actionTab as ActionMainTab | undefined;
         if (!tab) return;
         this.activeTab = tab;
@@ -602,7 +945,6 @@ export class ActionPanel {
     });
     this.pane.querySelectorAll<HTMLElement>('[data-action-skill-tab]').forEach((button) => {
       button.addEventListener('click', () => {
-/** tab：定义该变量以承载业务值。 */
         const tab = button.dataset.actionSkillTab as SkillSubTab | undefined;
         if (!tab) return;
         this.activeSkillTab = tab;
@@ -614,14 +956,14 @@ export class ActionPanel {
         this.openSkillManagement();
       });
     });
-    this.pane.querySelectorAll<HTMLElement>('[data-action-combat-settings-open]').forEach((button) => {
-      button.addEventListener('click', () => {
-        this.openAutoUsePillModal();
-      });
-    });
     this.pane.querySelectorAll<HTMLElement>('[data-action-skill-preset-open]').forEach((button) => {
       button.addEventListener('click', () => {
         this.openSkillPresetModal();
+      });
+    });
+    this.pane.querySelectorAll<HTMLElement>('[data-action-combat-settings-open]').forEach((button) => {
+      button.addEventListener('click', () => {
+        this.openCombatSettingsModal();
       });
     });
     this.pane.querySelectorAll<HTMLElement>('[data-action-targeting-plan-open]').forEach((button) => {
@@ -636,18 +978,13 @@ export class ActionPanel {
     this.bindAutoBattleDragEvents(this.pane);
   }
 
-/** bindTooltips：执行对应的业务逻辑。 */
+  /** 只给带提示信息的节点绑定悬浮提示，避免重复装配整棵树。 */
   private bindTooltips(root: HTMLElement): void {
-/** tapMode：定义该变量以承载业务值。 */
     const tapMode = prefersPinnedTooltipInteraction();
     root.querySelectorAll<HTMLElement>('[data-action-tooltip-title]').forEach((node) => {
-/** title：定义该变量以承载业务值。 */
       const title = node.dataset.actionTooltipTitle ?? '';
-/** rich：定义该变量以承载业务值。 */
       const rich = node.dataset.actionTooltipRich === '1';
-/** skillId：定义该变量以承载业务值。 */
       const skillId = node.dataset.actionTooltipSkillId ?? '';
-/** skillContext：定义该变量以承载业务值。 */
       const skillContext = skillId ? this.skillLookup.get(skillId) : undefined;
       node.addEventListener('click', (event) => {
         if (!tapMode) {
@@ -657,7 +994,6 @@ export class ActionPanel {
           this.tooltip.hide(true);
           return;
         }
-/** tooltip：定义该变量以承载业务值。 */
         const tooltip = skillContext ? buildSkillTooltipContent(skillContext.skill, {
           techLevel: skillContext.techLevel,
           player: this.previewPlayer,
@@ -674,7 +1010,6 @@ export class ActionPanel {
         if (tapMode && this.tooltip.isPinned()) {
           return;
         }
-/** tooltip：定义该变量以承载业务值。 */
         const tooltip = skillContext ? buildSkillTooltipContent(skillContext.skill, {
           techLevel: skillContext.techLevel,
           player: this.previewPlayer,
@@ -697,8 +1032,10 @@ export class ActionPanel {
     });
   }
 
-/** handleGlobalKeydown：执行对应的业务逻辑。 */
+  /** 处理全局按键：一边支持绑键，一边支持直接触发动作。 */
   private handleGlobalKeydown(event: KeyboardEvent): void {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
     if (event.target instanceof HTMLInputElement || event.target instanceof HTMLTextAreaElement) return;
     if (event.target instanceof HTMLElement && event.target.isContentEditable) return;
     if (event.ctrlKey || event.altKey || event.metaKey) return;
@@ -710,7 +1047,6 @@ export class ActionPanel {
         this.renderSkillManagementModalIfOpen();
         return;
       }
-/** normalized：定义该变量以承载业务值。 */
       const normalized = normalizeShortcutKey(event.key);
       if (!normalized) return;
       event.preventDefault();
@@ -727,92 +1063,67 @@ export class ActionPanel {
       return;
     }
 
-/** normalized：定义该变量以承载业务值。 */
     const normalized = normalizeShortcutKey(event.key);
     if (!normalized) return;
-/** actionId：定义该变量以承载业务值。 */
     const actionId = [...this.shortcutBindings.entries()].find(([, binding]) => binding === normalized)?.[0];
     if (!actionId) return;
-/** action：定义该变量以承载业务值。 */
     const action = this.currentActions.find((entry) => entry.id === actionId);
-    if (!action || !this.canExecuteAction(action)) return;
+    if (!action || action.cooldownLeft > 0) return;
+    if (action.type === 'skill' && action.skillEnabled === false) return;
     event.preventDefault();
     this.onAction?.(action.id, action.requiresTarget, action.targetMode, action.range, action.name);
   }
 
-/** canExecuteAction：执行对应的业务逻辑。 */
-  private canExecuteAction(action: ActionDef): boolean {
-    if (action.cooldownLeft > 0) {
-      return false;
-    }
-    if (action.type === 'skill' && action.skillEnabled === false) {
-      return false;
-    }
-    return true;
-  }
-
-/** renderShortcutBadge：执行对应的业务逻辑。 */
+  /** 在动作标题旁补一枚快捷键标记。 */
   private renderShortcutBadge(actionId: string): string {
-/** binding：定义该变量以承载业务值。 */
     const binding = this.shortcutBindings.get(actionId);
     return binding ? `<span class="action-shortcut-tag">键 ${binding.toUpperCase()}</span>` : '';
   }
 
-/** renderShortcutMeta：执行对应的业务逻辑。 */
+  /** 在动作摘要里补一段快捷键说明。 */
   private renderShortcutMeta(actionId: string): string {
-/** binding：定义该变量以承载业务值。 */
     const binding = this.shortcutBindings.get(actionId);
     return binding ? ` · 快捷键 ${binding.toUpperCase()}` : '';
   }
 
-/** isSwitchAction：执行对应的业务逻辑。 */
+  /** 判断是否属于需要显示开关卡片的动作。 */
   private isSwitchAction(action: ActionDef): boolean {
-    return action.type === 'toggle' && this.isSwitchActionId(action.id);
+    return this.isSwitchActionId(action.id);
   }
 
-/** isUtilityAction：执行对应的业务逻辑。 */
+  /** 判断是否属于客户端补进来的通用动作。 */
   private isUtilityAction(action: ActionDef): boolean {
     return this.isUtilityActionId(action.id);
   }
 
-/** isHiddenAction：执行对应的业务逻辑。 */
-  private isHiddenAction(action: ActionDef): boolean {
-    return this.isHiddenActionId(action.id);
-  }
-
-/** isHiddenActionId：执行对应的业务逻辑。 */
-  private isHiddenActionId(actionId: string): boolean {
-    return false;
-  }
-
-/** isUtilityActionId：执行对应的业务逻辑。 */
+  /** 判断动作 id 是否落在通用动作范围内。 */
   private isUtilityActionId(actionId: string): boolean {
     return actionId === RETURN_TO_SPAWN_ACTION_ID || actionId === 'battle:force_attack';
   }
 
-/** isSwitchActionId：执行对应的业务逻辑。 */
+  /** 判断动作 id 是否是状态开关类动作。 */
   private isSwitchActionId(actionId: string): boolean {
     return actionId === 'toggle:auto_battle'
       || actionId === 'toggle:auto_retaliate'
-      || actionId === 'toggle:allow_aoe_player_hit'
       || actionId === 'toggle:auto_battle_stationary'
+      || actionId === 'toggle:allow_aoe_player_hit'
       || actionId === 'toggle:auto_idle_cultivation'
       || actionId === 'toggle:auto_switch_cultivation'
       || actionId === 'cultivation:toggle'
       || actionId === 'sense_qi:toggle';
   }
 
-/** getSwitchCardTitle：执行对应的业务逻辑。 */
+  /** 返回开关卡片在面板里显示的标题。 */
   private getSwitchCardTitle(action: ActionDef): string {
     switch (action.id) {
       case 'toggle:auto_battle':
         return '自动战斗';
       case 'toggle:auto_retaliate':
         return '自动反击';
-      case 'toggle:allow_aoe_player_hit':
-        return '全体攻击';
       case 'toggle:auto_battle_stationary':
         return '原地战斗';
+      case 'toggle:allow_aoe_player_hit':
+        return '全体攻击';
       case 'toggle:auto_idle_cultivation':
         return '闲置自动修炼';
       case 'toggle:auto_switch_cultivation':
@@ -826,16 +1137,25 @@ export class ActionPanel {
     }
   }
 
-  private getSwitchCardState(action: ActionDef): { active: boolean; label: string } {
+  /** 读取开关卡片当前状态，顺便决定按钮上的开/关文案。 */
+  private getSwitchCardState(action: ActionDef): {  
+  /**
+ * active：启用开关或状态标识。
+ */
+ active: boolean;  
+ /**
+ * label：label名称或显示文本。
+ */
+ label: string } {
     switch (action.id) {
       case 'toggle:auto_battle':
         return { active: this.autoBattle, label: this.autoBattle ? '开' : '关' };
       case 'toggle:auto_retaliate':
         return { active: this.autoRetaliate, label: this.autoRetaliate ? '开' : '关' };
-      case 'toggle:allow_aoe_player_hit':
-        return { active: this.allowAoePlayerHit, label: this.allowAoePlayerHit ? '开' : '关' };
       case 'toggle:auto_battle_stationary':
         return { active: this.autoBattleStationary, label: this.autoBattleStationary ? '开' : '关' };
+      case 'toggle:allow_aoe_player_hit':
+        return { active: this.allowAoePlayerHit, label: this.allowAoePlayerHit ? '开' : '关' };
       case 'toggle:auto_idle_cultivation':
         return { active: this.autoIdleCultivation, label: this.autoIdleCultivation ? '开' : '关' };
       case 'toggle:auto_switch_cultivation':
@@ -843,7 +1163,6 @@ export class ActionPanel {
       case 'cultivation:toggle':
         return { active: this.cultivationActive, label: this.cultivationActive ? '开' : '关' };
       case 'sense_qi:toggle': {
-/** active：定义该变量以承载业务值。 */
         const active = this.previewPlayer?.senseQiActive === true;
         return { active, label: active ? '开' : '关' };
       }
@@ -852,14 +1171,13 @@ export class ActionPanel {
     }
   }
 
-/** renderSwitchItem：执行对应的业务逻辑。 */
+  /** 渲染一条状态开关卡片。 */
   private renderSwitchItem(action: ActionDef): string {
-/** state：定义该变量以承载业务值。 */
     const state = this.getSwitchCardState(action);
-    return `<div class="gm-player-row ${state.active ? 'active' : ''}" data-action-card="${action.id}" role="button" tabindex="0">
+    return `<div class="gm-player-row ${state.active ? 'is-active' : ''}" data-action-card="${action.id}" role="button" tabindex="0">
       <div>
         <div class="gm-player-name">${escapeHtml(this.getSwitchCardTitle(action))}</div>
-        <div class="gm-player-meta">${escapeHtml(action.desc)}${this.renderShortcutMeta(action.id)}</div>
+        <div class="gm-player-meta">${escapeHtml(stripSectManagementData(action.desc))}${this.renderShortcutMeta(action.id)}</div>
       </div>
       <div class="action-card-side">
         <div class="gm-player-stat">${state.label}</div>
@@ -868,25 +1186,23 @@ export class ActionPanel {
     </div>`;
   }
 
-/** getBindButtonLabel：执行对应的业务逻辑。 */
+  /** 根据当前绑键状态返回按钮文案。 */
   private getBindButtonLabel(actionId: string): string {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
     if (this.bindingActionId === actionId) {
       return '按键中';
     }
-/** binding：定义该变量以承载业务值。 */
     const binding = this.shortcutBindings.get(actionId);
     return binding ? `改键 ${binding.toUpperCase()}` : '绑定键';
   }
 
-/** loadShortcutBindings：执行对应的业务逻辑。 */
+  /** 从本地存储读回快捷键绑定。 */
   private loadShortcutBindings(): Map<string, string> {
     try {
-/** raw：定义该变量以承载业务值。 */
       const raw = localStorage.getItem(ACTION_SHORTCUTS_KEY);
       if (!raw) return new Map();
-/** parsed：定义该变量以承载业务值。 */
       const parsed = JSON.parse(raw) as Record<string, string>;
-/** result：定义该变量以承载业务值。 */
       const result = new Map<string, string>();
       for (const [actionId, key] of Object.entries(parsed)) {
         const normalized = normalizeShortcutKey(key);
@@ -900,22 +1216,19 @@ export class ActionPanel {
     }
   }
 
-/** saveShortcutBindings：执行对应的业务逻辑。 */
+  /** 把快捷键绑定写回本地存储。 */
   private saveShortcutBindings(): void {
-/** payload：定义该变量以承载业务值。 */
     const payload = Object.fromEntries(this.shortcutBindings.entries());
     localStorage.setItem(ACTION_SHORTCUTS_KEY, JSON.stringify(payload));
   }
 
-/** loadSkillPresets：执行对应的业务逻辑。 */
+  /** 从本地存储恢复技能方案列表。 */
   private loadSkillPresets(): SkillPresetRecord[] {
     try {
-/** raw：定义该变量以承载业务值。 */
       const raw = localStorage.getItem(ACTION_SKILL_PRESETS_KEY);
       if (!raw) {
         return [];
       }
-/** parsed：定义该变量以承载业务值。 */
       const parsed = JSON.parse(raw) as unknown;
       return this.parseSkillPresetCollection(parsed, { preserveIds: true });
     } catch {
@@ -923,20 +1236,28 @@ export class ActionPanel {
     }
   }
 
-/** saveSkillPresets：执行对应的业务逻辑。 */
+  /** 把当前技能方案列表序列化回本地存储。 */
   private saveSkillPresets(): void {
     localStorage.setItem(ACTION_SKILL_PRESETS_KEY, JSON.stringify(this.buildSkillPresetExportPayload(this.skillPresets)));
   }
 
+  /** 把不同来源的导入数据统一整理成技能方案列表。 */
   private parseSkillPresetCollection(
     payload: unknown,
-    options?: { preserveIds?: boolean; existingNames?: Set<string> },
+    options?: {    
+    /**
+ * preserveIds：preserveID相关字段。
+ */
+ preserveIds?: boolean;    
+ /**
+ * existingNames：existing名称相关字段。
+ */
+ existingNames?: Set<string> },
   ): SkillPresetRecord[] {
-/** preserveIds：定义该变量以承载业务值。 */
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
     const preserveIds = options?.preserveIds === true;
-/** existingNames：定义该变量以承载业务值。 */
     const existingNames = options?.existingNames ?? new Set<string>();
-/** source：定义该变量以承载业务值。 */
     const source = Array.isArray(payload)
       ? payload
       : isRecord(payload) && Array.isArray(payload.p)
@@ -946,9 +1267,7 @@ export class ActionPanel {
         : isRecord(payload) && (Array.isArray(payload.skills) || Array.isArray(payload.s))
           ? [payload]
           : [];
-/** result：定义该变量以承载业务值。 */
     const result: SkillPresetRecord[] = [];
-/** usedNames：定义该变量以承载业务值。 */
     const usedNames = new Set(existingNames);
 
     for (const [index, value] of source.entries()) {
@@ -956,7 +1275,6 @@ export class ActionPanel {
       if (!preset) {
         continue;
       }
-/** uniqueName：定义该变量以承载业务值。 */
       const uniqueName = this.resolveUniqueSkillPresetName(preset.name, usedNames);
       result.push({
         ...preset,
@@ -967,15 +1285,21 @@ export class ActionPanel {
     return result;
   }
 
+  /** 解析单份技能方案记录，过滤掉空内容和重复技能。 */
   private parseSkillPresetRecord(
     value: unknown,
     index: number,
-    options?: { preserveIds?: boolean },
+    options?: {    
+    /**
+ * preserveIds：preserveID相关字段。
+ */
+ preserveIds?: boolean },
   ): SkillPresetRecord | null {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
     if (!isRecord(value)) {
       return null;
     }
-/** rawSkills：定义该变量以承载业务值。 */
     const rawSkills = Array.isArray(value.s)
       ? value.s
       : Array.isArray(value.skills)
@@ -986,14 +1310,11 @@ export class ActionPanel {
     if (!rawSkills || rawSkills.length === 0) {
       return null;
     }
-/** skills：定义该变量以承载业务值。 */
     const skills: SkillPresetSkillState[] = [];
-/** seen：定义该变量以承载业务值。 */
     const seen = new Set<string>();
     for (const entry of rawSkills) {
       if (Array.isArray(entry)) {
         const skillId = typeof entry[0] === 'string' ? entry[0].trim() : '';
-/** auto：定义该变量以承载业务值。 */
         const auto = entry[1] === 1;
         if (!skillId || seen.has(skillId)) {
           continue;
@@ -1009,13 +1330,11 @@ export class ActionPanel {
       if (!isRecord(entry)) {
         continue;
       }
-/** skillId：定义该变量以承载业务值。 */
       const skillId = typeof entry.skillId === 'string'
         ? entry.skillId.trim()
         : typeof entry.id === 'string'
           ? entry.id.trim()
           : '';
-/** skillEnabled：定义该变量以承载业务值。 */
       const skillEnabled = readBoolean(entry.skillEnabled);
       if (!skillId || seen.has(skillId) || skillEnabled === false) {
         continue;
@@ -1030,9 +1349,7 @@ export class ActionPanel {
     if (skills.length === 0) {
       return null;
     }
-/** fallbackName：定义该变量以承载业务值。 */
     const fallbackName = `技能方案 ${index + 1}`;
-/** name：定义该变量以承载业务值。 */
     const name = this.sanitizeSkillPresetName(
       typeof value.n === 'string'
         ? value.n
@@ -1043,7 +1360,6 @@ export class ActionPanel {
             : fallbackName,
     ) || fallbackName;
     return {
-/** id：定义该变量以承载业务值。 */
       id: options?.preserveIds === true && typeof value.id === 'string' && value.id
         ? value.id
         : this.generateSkillPresetId(),
@@ -1052,19 +1368,19 @@ export class ActionPanel {
     };
   }
 
-/** sanitizeSkillPresetName：执行对应的业务逻辑。 */
+  /** 清理技能方案名称里的空白，并裁掉过长内容。 */
   private sanitizeSkillPresetName(value: string): string {
     return value.replace(/\s+/g, ' ').trim().slice(0, SKILL_PRESET_NAME_MAX_LENGTH);
   }
 
-/** resolveUniqueSkillPresetName：执行对应的业务逻辑。 */
+  /** 在本地方案列表里找到一个不重复的名称。 */
   private resolveUniqueSkillPresetName(name: string, usedNames: Set<string>): string {
-/** base：定义该变量以承载业务值。 */
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
     const base = this.sanitizeSkillPresetName(name) || '技能方案';
     if (!usedNames.has(base)) {
       return base;
     }
-/** suffix：定义该变量以承载业务值。 */
     let suffix = 2;
     while (usedNames.has(`${base} (${suffix})`)) {
       suffix += 1;
@@ -1072,24 +1388,23 @@ export class ActionPanel {
     return `${base} (${suffix})`;
   }
 
-/** generateSkillPresetId：执行对应的业务逻辑。 */
+  /** 生成一个本地唯一的技能方案 ID。 */
   private generateSkillPresetId(): string {
     return `skill-preset-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`;
   }
 
-/** getCurrentSkillPresetSnapshot：执行对应的业务逻辑。 */
+  /** 读取当前动作对应的可保存技能快照。 */
   private getCurrentSkillPresetSnapshot(): SkillPresetSkillState[] {
     return this.getAutoBattleSkillConfigs(this.currentActions)
       .filter((entry) => entry.skillEnabled !== false)
       .map((entry) => ({
         skillId: entry.skillId,
-/** enabled：定义该变量以承载业务值。 */
         enabled: entry.enabled !== false,
         skillEnabled: true,
       }));
   }
 
-/** buildSkillPresetExportPayload：执行对应的业务逻辑。 */
+  /** 把技能方案整理成结构化导出数据。 */
   private buildSkillPresetExportPayload(presets: SkillPresetRecord[]): SkillPresetLibrary {
     return {
       v: SKILL_PRESET_EXPORT_VERSION,
@@ -1102,9 +1417,10 @@ export class ActionPanel {
     };
   }
 
-/** buildSkillPresetExportText：执行对应的业务逻辑。 */
+  /** 把技能方案拼成可复制、可文件导出的键值文本。 */
   private buildSkillPresetExportText(presets: SkillPresetRecord[]): string {
-/** lines：定义该变量以承载业务值。 */
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
     const lines = [`v=${SKILL_PRESET_EXPORT_VERSION + 1}`];
     for (const preset of presets) {
       lines.push(`p=${encodeURIComponent(preset.name)}`);
@@ -1118,27 +1434,49 @@ export class ActionPanel {
     return `${lines.join('\n')}\n`;
   }
 
+  /** 解析技能方案文本，兼容当前键值格式和旧 JSON 格式。 */
   private parseSkillPresetText(
     text: string,
-    options?: { preserveIds?: boolean; existingNames?: Set<string> },
+    options?: {    
+    /**
+ * preserveIds：preserveID相关字段。
+ */
+ preserveIds?: boolean;    
+ /**
+ * existingNames：existing名称相关字段。
+ */
+ existingNames?: Set<string> },
   ): SkillPresetRecord[] {
-/** parsedPresets：定义该变量以承载业务值。 */
-    const parsedPresets: Array<{ n: string; s: Array<[string, 0 | 1]> }> = [];
-/** current：定义该变量以承载业务值。 */
-    let current: { n: string; s: Array<[string, 0 | 1]> } | null = null;
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
+    const parsedPresets: Array<{    
+    /**
+ * n：n相关字段。
+ */
+ n: string;    
+ /**
+ * s：s相关字段。
+ */
+ s: Array<[string, 0 | 1]> }> = [];
+    let current: {    
+    /**
+ * n：n相关字段。
+ */
+ n: string;    
+ /**
+ * s：s相关字段。
+ */
+ s: Array<[string, 0 | 1]> } | null = null;
     for (const rawLine of text.split(/\r?\n/)) {
       const line = rawLine.trim();
       if (!line || line.startsWith('#')) {
         continue;
       }
-/** separatorIndex：定义该变量以承载业务值。 */
       const separatorIndex = line.indexOf('=');
       if (separatorIndex <= 0) {
         continue;
       }
-/** key：定义该变量以承载业务值。 */
       const key = line.slice(0, separatorIndex).trim();
-/** value：定义该变量以承载业务值。 */
       const value = line.slice(separatorIndex + 1).trim();
       if (key === 'v') {
         continue;
@@ -1154,14 +1492,11 @@ export class ActionPanel {
         continue;
       }
       if (key === 's' && current) {
-/** commaIndex：定义该变量以承载业务值。 */
         const commaIndex = value.lastIndexOf(',');
         if (commaIndex <= 0) {
           continue;
         }
-/** skillId：定义该变量以承载业务值。 */
         const skillId = decodePresetTextValue(value.slice(0, commaIndex).trim());
-/** autoFlag：定义该变量以承载业务值。 */
         const autoFlag = value.slice(commaIndex + 1).trim() === '1' ? 1 : 0;
         if (!skillId) {
           continue;
@@ -1178,16 +1513,12 @@ export class ActionPanel {
     return this.parseSkillPresetCollection({ p: parsedPresets }, options);
   }
 
-/** downloadSkillPresetPayload：执行对应的业务逻辑。 */
+  /** 触发技能方案文本下载。 */
   private downloadSkillPresetPayload(fileName: string, text: string): void {
-/** blob：定义该变量以承载业务值。 */
     const blob = new Blob([text], {
-/** type：定义该变量以承载业务值。 */
       type: 'text/plain;charset=utf-8',
     });
-/** url：定义该变量以承载业务值。 */
     const url = URL.createObjectURL(blob);
-/** anchor：定义该变量以承载业务值。 */
     const anchor = document.createElement('a');
     anchor.href = url;
     anchor.download = fileName;
@@ -1195,25 +1526,21 @@ export class ActionPanel {
     window.setTimeout(() => URL.revokeObjectURL(url), 0);
   }
 
-/** buildDefaultSkillPresetName：执行对应的业务逻辑。 */
+  /** 用当前日期时间生成一个默认方案名。 */
   private buildDefaultSkillPresetName(): string {
-/** now：定义该变量以承载业务值。 */
     const now = new Date();
-/** month：定义该变量以承载业务值。 */
     const month = String(now.getMonth() + 1).padStart(2, '0');
-/** day：定义该变量以承载业务值。 */
     const day = String(now.getDate()).padStart(2, '0');
-/** hour：定义该变量以承载业务值。 */
     const hour = String(now.getHours()).padStart(2, '0');
-/** minute：定义该变量以承载业务值。 */
     const minute = String(now.getMinutes()).padStart(2, '0');
     return `技能方案 ${month}-${day} ${hour}:${minute}`;
   }
 
-/** buildSkillPresetExternalRevision：执行对应的业务逻辑。 */
+  /** 生成技能方案弹层的外部变更摘要。 */
   private buildSkillPresetExternalRevision(): string {
-/** parts：定义该变量以承载业务值。 */
-    const parts = [String(this.getSkillSlotLimit())];
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
+    const parts: string[] = [String(this.getSkillSlotLimit())];
     for (const action of this.getSkillActions(this.currentActions)) {
       parts.push(action.id);
       parts.push(action.autoBattleEnabled !== false ? '1' : '0');
@@ -1222,20 +1549,20 @@ export class ActionPanel {
     return parts.join('\u0001');
   }
 
-/** withUtilityActions：执行对应的业务逻辑。 */
+  /** 给动作列表补上客户端工具动作和兜底技能。 */
   private withUtilityActions(actions: ActionDef[]): ActionDef[] {
-/** result：定义该变量以承载业务值。 */
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
     const result = [...actions];
-/** knownSkillActions：定义该变量以承载业务值。 */
     const knownSkillActions = this.previewPlayer ? this.buildTechniqueFallbackActions(this.previewPlayer, result) : [];
     for (const action of knownSkillActions) {
       if (!result.some((entry) => entry.id === action.id)) {
         result.push(action);
       }
     }
-    if (!result.some((action) => action.id === 'client:take')) {
+    if (!result.some((action) => action.id === 'loot:open')) {
       result.push({
-        id: 'client:take',
+        id: 'loot:open',
         name: '拿取',
         type: 'toggle',
         desc: '选定 1 格内的目标，查看地面物品或搜索容器后拿取。',
@@ -1256,20 +1583,17 @@ export class ActionPanel {
         targetMode: 'tile',
       });
     }
-    return result.filter((action) => !this.isHiddenAction(action));
+    return result;
   }
 
-/** buildTechniqueFallbackActions：执行对应的业务逻辑。 */
+  /** 从角色已学功法里补出当前列表缺失的技能动作。 */
   private buildTechniqueFallbackActions(player: PlayerState, currentActions: ActionDef[]): ActionDef[] {
-/** currentSkillActions：定义该变量以承载业务值。 */
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
     const currentSkillActions = currentActions.filter((action) => action.type === 'skill');
-/** existingSkillIds：定义该变量以承载业务值。 */
     const existingSkillIds = new Set(currentSkillActions.map((action) => action.id));
-/** autoBattleSkillMap：定义该变量以承载业务值。 */
     const autoBattleSkillMap = new Map((player.autoBattleSkills ?? []).map((entry, index) => [entry.skillId, { entry, index }] as const));
-/** playerRealmStage：定义该变量以承载业务值。 */
     const playerRealmStage = player.realm?.stage ?? DEFAULT_PLAYER_REALM_STAGE;
-/** fallback：定义该变量以承载业务值。 */
     const fallback: ActionDef[] = [];
     for (const technique of getSkillEnabledTechniques(player)) {
       for (const skill of technique.skills ?? []) {
@@ -1280,7 +1604,6 @@ export class ActionPanel {
         if (existingSkillIds.has(skill.id)) {
           continue;
         }
-/** config：定义该变量以承载业务值。 */
         const config = autoBattleSkillMap.get(skill.id);
         fallback.push({
           id: skill.id,
@@ -1298,108 +1621,94 @@ export class ActionPanel {
       }
     }
     fallback.sort((left, right) => {
-/** leftOrder：定义该变量以承载业务值。 */
       const leftOrder = left.autoBattleOrder ?? Number.MAX_SAFE_INTEGER;
-/** rightOrder：定义该变量以承载业务值。 */
       const rightOrder = right.autoBattleOrder ?? Number.MAX_SAFE_INTEGER;
       return (leftOrder - rightOrder) || left.id.localeCompare(right.id, 'zh-Hans-CN');
     });
-/** combined：定义该变量以承载业务值。 */
     const combined = [...currentSkillActions, ...fallback]
       .sort((left, right) => {
-/** leftOrder：定义该变量以承载业务值。 */
         const leftOrder = left.autoBattleOrder ?? Number.MAX_SAFE_INTEGER;
-/** rightOrder：定义该变量以承载业务值。 */
         const rightOrder = right.autoBattleOrder ?? Number.MAX_SAFE_INTEGER;
         return (leftOrder - rightOrder) || left.id.localeCompare(right.id, 'zh-Hans-CN');
       });
-/** normalized：定义该变量以承载业务值。 */
     const normalized = this.normalizeSkillActions(combined);
-/** fallbackMap：定义该变量以承载业务值。 */
     const fallbackMap = new Map(normalized.map((action) => [action.id, action] as const));
     return fallback.map((action) => fallbackMap.get(action.id) ?? action);
   }
 
+  /** 渲染单条动作或技能卡片。 */
   private renderActionItem(
     action: ActionDef,
-    options?: {
-      showDragHandle?: boolean;
+    options?: {    
+    /**
+ * showDragHandle：showDragHandle相关字段。
+ */
+
+      showDragHandle?: boolean;      
+      /**
+ * autoBattleDisplayOrder：autoBattle显示订单相关字段。
+ */
+
       autoBattleDisplayOrder?: number | null;
     },
   ): string {
-/** onCd：定义该变量以承载业务值。 */
     const onCd = action.cooldownLeft > 0;
-/** isAutoBattleSkill：定义该变量以承载业务值。 */
     const isAutoBattleSkill = action.type === 'skill';
-/** skillContext：定义该变量以承载业务值。 */
     const skillContext = this.skillLookup.get(action.id);
-/** tooltipAttrs：定义该变量以承载业务值。 */
     const tooltipAttrs = skillContext
       ? ` data-action-tooltip-title="${escapeHtml(skillContext.skill.name)}" data-action-tooltip-skill-id="${escapeHtml(skillContext.skill.id)}" data-action-tooltip-rich="1"`
       : '';
-/** autoBattleEnabled：定义该变量以承载业务值。 */
     const autoBattleEnabled = action.autoBattleEnabled !== false;
-/** autoBattleOrder：定义该变量以承载业务值。 */
     const autoBattleOrder = typeof options?.autoBattleDisplayOrder === 'number'
       ? options.autoBattleDisplayOrder + 1
       : undefined;
-/** rowAttrs：定义该变量以承载业务值。 */
     const rowAttrs = isAutoBattleSkill && options?.showDragHandle
       ? ` data-auto-battle-skill-row="${action.id}"`
       : '';
-/** clickableCardAttrs：定义该变量以承载业务值。 */
-    const clickableCardAttrs = action.id === 'alchemy:open' || action.id === 'enhancement:open'
-      ? ` data-action-card="${action.id}" role="button" tabindex="0"`
-      : '';
-/** autoBattleMeta：定义该变量以承载业务值。 */
     const autoBattleMeta = isAutoBattleSkill
-      ? `<span class="action-type ${autoBattleEnabled ? 'auto-battle-enabled' : 'auto-battle-disabled'}">${autoBattleEnabled ? '自动已启用' : '自动已停用'}</span>
+      ? `<span class="action-type ${autoBattleEnabled ? 'auto-battle-enabled' : 'auto-battle-disabled'}">${autoBattleEnabled ? '自行运转中' : '自行已止'}</span>
          ${autoBattleOrder ? `<span class="action-type">顺位 ${autoBattleOrder}</span>` : ''}`
       : '';
-/** autoBattleControls：定义该变量以承载业务值。 */
     const autoBattleControls = isAutoBattleSkill
       ? `<button class="small-btn ghost ${autoBattleEnabled ? 'active' : ''}" data-auto-battle-toggle="${action.id}" type="button">${autoBattleEnabled ? '自动 开' : '自动 关'}</button>
          ${options?.showDragHandle ? `<button class="small-btn ghost action-drag-handle" data-auto-battle-drag="${action.id}" draggable="true" type="button">拖拽</button>` : ''}`
       : '';
-/** affinityChip：定义该变量以承载业务值。 */
     const affinityChip = skillContext ? this.renderActionSkillAffinityChip(skillContext.skill) : '';
+    const executeLabel = action.id === 'sect:manage' ? '打开' : '执行';
 
-    return `<div class="action-item ${onCd ? 'cooldown' : ''} ${isAutoBattleSkill ? 'action-item-draggable' : ''}" data-action-row="${action.id}"${rowAttrs}${clickableCardAttrs}>
+    return `<div class="action-item ${onCd ? 'cooldown' : ''} ${isAutoBattleSkill ? 'action-item-draggable' : ''}" data-action-row="${action.id}"${rowAttrs}>
       <div class="action-copy ${skillContext ? 'action-copy-tooltip' : ''} ${affinityChip ? 'action-copy--with-affinity' : ''}"${tooltipAttrs}>
         <div>
           <span class="action-name">${escapeHtml(action.name)}</span>
           <span class="action-type">[${getActionTypeLabel(action.type)}]</span>
           ${typeof action.range === 'number' ? `<span class="action-type">射程 ${action.range}</span>` : ''}
           ${isAutoBattleSkill
-            ? `<span class="action-type ${autoBattleEnabled ? 'auto-battle-enabled' : 'auto-battle-disabled'}" data-action-auto-state="${action.id}">${autoBattleEnabled ? '自动已启用' : '自动已停用'}</span>
+            ? `<span class="action-type ${autoBattleEnabled ? 'auto-battle-enabled' : 'auto-battle-disabled'}" data-action-auto-state="${action.id}">${autoBattleEnabled ? '自行运转中' : '自行已止'}</span>
                <span class="action-type" data-action-auto-order="${action.id}"${autoBattleOrder ? '' : ' hidden'}>${autoBattleOrder ? `顺位 ${autoBattleOrder}` : ''}</span>`
             : autoBattleMeta}
           ${this.renderShortcutBadge(action.id)}
         </div>
-        <div class="action-desc">${escapeHtml(action.desc)}</div>
+        <div class="action-desc">${escapeHtml(stripSectManagementData(action.desc))}</div>
         ${affinityChip}
       </div>
-      <div class="action-cta">
+      <div class="action-cta ui-action-row ui-action-row--end">
         ${autoBattleControls}
         <button class="small-btn ghost" data-bind-action="${action.id}" type="button">${this.getBindButtonLabel(action.id)}</button>
         <span class="action-cd" data-action-cd="${action.id}"${onCd ? '' : ' hidden'}>${onCd ? `冷却 ${action.cooldownLeft} 息` : ''}</span>
-        <button class="small-btn" data-action="${action.id}" data-action-exec="${action.id}" data-action-name="${escapeHtml(action.name)}" data-action-range="${action.range ?? ''}" data-action-target="${action.requiresTarget ? '1' : '0'}" data-action-target-mode="${action.targetMode ?? ''}"${onCd ? ' hidden' : ''}>执行</button>
+        <button class="small-btn" data-action="${action.id}" data-action-exec="${action.id}" data-action-name="${escapeHtml(action.name)}" data-action-range="${action.range ?? ''}" data-action-target="${action.requiresTarget ? '1' : '0'}" data-action-target-mode="${action.targetMode ?? ''}"${onCd ? ' hidden' : ''}>${executeLabel}</button>
       </div>
     </div>`;
   }
 
-/** renderActionSkillAffinityChip：执行对应的业务逻辑。 */
+  /** 把技能的元素倾向渲染成一枚徽章。 */
   private renderActionSkillAffinityChip(skill: SkillDef): string {
-/** badge：定义该变量以承载业务值。 */
     const badge = getSkillAffinityBadge(skill);
-/** elementClass：定义该变量以承载业务值。 */
     const elementClass = badge.element === 'neutral' ? '' : ` item-card-chip--element-${badge.element}`;
-/** title：定义该变量以承载业务值。 */
     const title = escapeHtml(badge.title);
     return `<span class="item-card-chip item-card-chip--affinity item-card-chip--${badge.tone}${elementClass} action-skill-affinity-chip" title="${title}" aria-label="${title}">${escapeHtml(badge.label)}</span>`;
   }
 
-/** toggleAutoBattleSkill：执行对应的业务逻辑。 */
+  /** 切换某个自动战斗技能的启用状态。 */
   private toggleAutoBattleSkill(actionId: string): void {
     this.applyAutoBattleSkillMutation((skills) => skills.map((action) => (
       action.id === actionId
@@ -1408,7 +1717,7 @@ export class ActionPanel {
     )));
   }
 
-/** toggleSkillEnabled：执行对应的业务逻辑。 */
+  /** 切换某个技能在列表里的可用状态。 */
   private toggleSkillEnabled(actionId: string): void {
     this.applyAutoBattleSkillMutation((skills) => skills.map((action) => (
       action.id === actionId
@@ -1417,7 +1726,7 @@ export class ActionPanel {
     )));
   }
 
-/** toggleSkillManagementAutoBattleSkill：执行对应的业务逻辑。 */
+  /** 切换技能管理弹层里的自动战斗开关。 */
   private toggleSkillManagementAutoBattleSkill(actionId: string): void {
     this.applySkillManagementDraftMutation((skills) => skills.map((action) => (
       action.id === actionId
@@ -1426,7 +1735,7 @@ export class ActionPanel {
     )));
   }
 
-/** toggleSkillManagementSkillEnabled：执行对应的业务逻辑。 */
+  /** 切换技能管理弹层里的技能启用开关。 */
   private toggleSkillManagementSkillEnabled(actionId: string): void {
     this.applySkillManagementDraftMutation((skills) => skills.map((action) => (
       action.id === actionId
@@ -1435,81 +1744,56 @@ export class ActionPanel {
     )));
   }
 
-/** moveAutoBattleSkill：执行对应的业务逻辑。 */
+  /** 在自动战斗列表里调整技能顺位。 */
   private moveAutoBattleSkill(actionId: string, targetId: string, position: 'before' | 'after'): void {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
     if (actionId === targetId) return;
     this.applyAutoBattleSkillMutation((skills) => {
-/** sourceIndex：定义该变量以承载业务值。 */
       const sourceIndex = skills.findIndex((action) => action.id === actionId);
-/** targetIndex：定义该变量以承载业务值。 */
       const targetIndex = skills.findIndex((action) => action.id === targetId);
       if (sourceIndex < 0 || targetIndex < 0) {
         return skills;
       }
-/** next：定义该变量以承载业务值。 */
       const next = [...skills];
       const [moved] = next.splice(sourceIndex, 1);
-/** baseIndex：定义该变量以承载业务值。 */
       const baseIndex = next.findIndex((action) => action.id === targetId);
-/** insertIndex：定义该变量以承载业务值。 */
       const insertIndex = position === 'before' ? baseIndex : baseIndex + 1;
       next.splice(insertIndex, 0, moved);
       return next;
     });
   }
 
-/** moveSkillManagementSkill：执行对应的业务逻辑。 */
+  /** 在技能管理草稿里调整技能顺位。 */
   private moveSkillManagementSkill(actionId: string, targetId: string, position: 'before' | 'after'): void {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
     if (actionId === targetId) return;
     this.applySkillManagementDraftMutation((skills) => {
-/** sourceIndex：定义该变量以承载业务值。 */
       const sourceIndex = skills.findIndex((action) => action.id === actionId);
-/** targetIndex：定义该变量以承载业务值。 */
       const targetIndex = skills.findIndex((action) => action.id === targetId);
       if (sourceIndex < 0 || targetIndex < 0) {
         return skills;
       }
-/** next：定义该变量以承载业务值。 */
       const next = [...skills];
       const [moved] = next.splice(sourceIndex, 1);
-/** baseIndex：定义该变量以承载业务值。 */
       const baseIndex = next.findIndex((action) => action.id === targetId);
-/** insertIndex：定义该变量以承载业务值。 */
       const insertIndex = position === 'before' ? baseIndex : baseIndex + 1;
       next.splice(insertIndex, 0, moved);
       return next;
     });
   }
 
-/** moveSkillManagementSkillByStep：执行对应的业务逻辑。 */
-  private moveSkillManagementSkillByStep(actionId: string, direction: -1 | 1): void {
-/** visibleActionIds：定义该变量以承载业务值。 */
-    const visibleActionIds = this.getVisibleSkillManagementActionIds();
-/** currentIndex：定义该变量以承载业务值。 */
-    const currentIndex = visibleActionIds.indexOf(actionId);
-/** targetIndex：定义该变量以承载业务值。 */
-    const targetIndex = currentIndex + direction;
-    if (currentIndex < 0 || targetIndex < 0 || targetIndex >= visibleActionIds.length) {
-      return;
-    }
-/** targetId：定义该变量以承载业务值。 */
-    const targetId = visibleActionIds[targetIndex];
-    if (!targetId) {
-      return;
-    }
-    this.moveSkillManagementSkill(actionId, targetId, direction < 0 ? 'before' : 'after');
-  }
-
+  /** 把自动战斗技能改动写回 currentActions 和预览角色。 */
   private applyAutoBattleSkillMutation(mutator: (skills: ActionDef[]) => ActionDef[]): void {
-/** skillActions：定义该变量以承载业务值。 */
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
     const skillActions = this.currentActions
       .filter((action) => action.type === 'skill')
       .map((action) => ({
         ...action,
-/** autoBattleEnabled：定义该变量以承载业务值。 */
         autoBattleEnabled: action.autoBattleEnabled !== false,
       }));
-/** mutated：定义该变量以承载业务值。 */
     const mutated = this.normalizeSkillActions(mutator(skillActions));
     this.currentActions = this.replaceSkillActions(mutated);
     if (this.previewPlayer) {
@@ -1521,50 +1805,43 @@ export class ActionPanel {
     this.onUpdateAutoBattleSkills?.(this.getAutoBattleSkillConfigs(this.currentActions));
   }
 
+  /** 把技能管理草稿的改动写回预览态并刷新弹层。 */
   private applySkillManagementDraftMutation(
     mutator: (skills: ActionDef[]) => ActionDef[],
     rerender = true,
   ): void {
-/** orderedIds：定义该变量以承载业务值。 */
+    this.resetSkillManagementCloseConfirm();
     const orderedIds = this.skillManagementSortField === 'custom'
       ? []
       : this.getSortedSkillManagementActionIds();
-/** skillActions：定义该变量以承载业务值。 */
     const skillActions = this.getSkillActions(this.getSkillManagementPreviewActions())
       .map((action) => ({
         ...action,
-/** autoBattleEnabled：定义该变量以承载业务值。 */
         autoBattleEnabled: action.autoBattleEnabled !== false,
-/** skillEnabled：定义该变量以承载业务值。 */
         skillEnabled: action.skillEnabled !== false,
       }));
-/** orderedSkillActions：定义该变量以承载业务值。 */
     const orderedSkillActions = orderedIds.length > 1
       ? this.reorderSkillManagementSubset(skillActions, orderedIds)
       : skillActions;
-/** mutated：定义该变量以承载业务值。 */
     const mutated = this.normalizeSkillActions(mutator(orderedSkillActions));
-    this.skillManagementDraft = this.getAutoBattleSkillConfigs(mutated);
+    this.skillManagementDraft = this.normalizeSkillConfigs(this.getAutoBattleSkillConfigs(mutated));
     if (rerender) {
       this.renderSkillManagementModal();
     }
   }
 
-/** withSequentialAutoBattleOrder：执行对应的业务逻辑。 */
+  /** 按当前顺序重新编号自动战斗顺位。 */
   private withSequentialAutoBattleOrder(actions: ActionDef[]): ActionDef[] {
     return actions.map((action, index) => ({
       ...action,
-/** autoBattleEnabled：定义该变量以承载业务值。 */
       autoBattleEnabled: action.autoBattleEnabled !== false,
-/** skillEnabled：定义该变量以承载业务值。 */
       skillEnabled: action.skillEnabled !== false,
       autoBattleOrder: index,
     }));
   }
 
-/** replaceSkillActions：执行对应的业务逻辑。 */
+  /** 用新的技能数组替换 currentActions 里对应的位置。 */
   private replaceSkillActions(skillActions: ActionDef[]): ActionDef[] {
-/** skillIndex：定义该变量以承载业务值。 */
     let skillIndex = 0;
     return this.currentActions.map((action) => {
       if (action.type !== 'skill') {
@@ -1574,29 +1851,23 @@ export class ActionPanel {
     });
   }
 
-/** getAutoBattleSkillConfigs：执行对应的业务逻辑。 */
+  /** 把动作快照压成自动战斗技能配置。 */
   private getAutoBattleSkillConfigs(actions: ActionDef[]): AutoBattleSkillConfig[] {
-    return this.normalizeSkillConfigs(actions
+    return actions
       .filter((action) => action.type === 'skill')
       .map((action) => ({
         skillId: action.id,
-/** enabled：定义该变量以承载业务值。 */
         enabled: action.autoBattleEnabled !== false,
-/** skillEnabled：定义该变量以承载业务值。 */
         skillEnabled: action.skillEnabled !== false,
-      })));
+      }));
   }
 
-/** updateDragIndicators：执行对应的业务逻辑。 */
+  /** 同步拖拽高亮状态，让当前悬停行显出插入位置。 */
   private updateDragIndicators(): void {
     document.querySelectorAll<HTMLElement>('[data-auto-battle-skill-row], [data-skill-manage-skill-row]').forEach((row) => {
-/** actionId：定义该变量以承载业务值。 */
       const actionId = row.dataset.autoBattleSkillRow ?? row.dataset.skillManageSkillRow;
-/** isDragging：定义该变量以承载业务值。 */
       const isDragging = actionId === this.draggingSkillId;
-/** isBefore：定义该变量以承载业务值。 */
       const isBefore = actionId === this.dragOverSkillId && this.dragOverPosition === 'before';
-/** isAfter：定义该变量以承载业务值。 */
       const isAfter = actionId === this.dragOverSkillId && this.dragOverPosition === 'after';
       row.classList.toggle('dragging', isDragging);
       row.classList.toggle('drag-over-before', isBefore);
@@ -1604,7 +1875,7 @@ export class ActionPanel {
     });
   }
 
-/** clearDragState：执行对应的业务逻辑。 */
+  /** 清掉拖拽过程中的临时状态。 */
   private clearDragState(): void {
     this.draggingSkillId = null;
     this.dragOverSkillId = null;
@@ -1612,14 +1883,15 @@ export class ActionPanel {
     this.updateDragIndicators();
   }
 
-/** patchToggleCards：执行对应的业务逻辑。 */
+  /** 开关卡片目前仍跟随整块重渲染，不单独 patch。 */
   private patchToggleCards(): boolean {
     return true;
   }
 
-/** patchActionRows：执行对应的业务逻辑。 */
+  /** 只更新动作行里会变的部分，保住冷却、顺位和按钮状态。 */
   private patchActionRows(): boolean {
-/** autoBattleDisplayOrders：定义该变量以承载业务值。 */
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
     const autoBattleDisplayOrders = this.buildAutoBattleDisplayOrderMap(this.currentActions);
     for (const action of this.currentActions) {
       if (
@@ -1629,9 +1901,7 @@ export class ActionPanel {
       ) {
         continue;
       }
-/** refs：定义该变量以承载业务值。 */
       const refs = this.actionRowRefs.get(action.id);
-/** row：定义该变量以承载业务值。 */
       const row = refs?.row;
       if (!row) {
         if (action.type === 'skill') {
@@ -1639,13 +1909,10 @@ export class ActionPanel {
         }
         return false;
       }
-/** onCd：定义该变量以承载业务值。 */
       const onCd = action.cooldownLeft > 0;
       row.classList.toggle('cooldown', onCd);
 
-/** cdNode：定义该变量以承载业务值。 */
       const cdNode = refs.cdNode;
-/** execNode：定义该变量以承载业务值。 */
       const execNode = refs.execNode;
       if (!cdNode || !execNode) {
         return false;
@@ -1656,22 +1923,16 @@ export class ActionPanel {
       execNode.disabled = onCd;
 
       if (action.type === 'skill') {
-/** stateNode：定义该变量以承载业务值。 */
         const stateNode = refs.stateNode;
-/** orderNode：定义该变量以承载业务值。 */
         const orderNode = refs.orderNode;
-/** toggleNode：定义该变量以承载业务值。 */
         const toggleNode = refs.toggleNode;
         if (!stateNode || !orderNode || !toggleNode) {
           return false;
         }
-/** enabled：定义该变量以承载业务值。 */
         const enabled = action.autoBattleEnabled !== false;
-/** showOrder：定义该变量以承载业务值。 */
         const showOrder = this.activeSkillTab === 'auto' && enabled;
-/** order：定义该变量以承载业务值。 */
         const order = showOrder ? (autoBattleDisplayOrders.get(action.id) ?? null) : null;
-        stateNode.textContent = enabled ? '自动已启用' : '自动已停用';
+        stateNode.textContent = enabled ? '自行运转中' : '自行已止';
         stateNode.classList.toggle('auto-battle-enabled', enabled);
         stateNode.classList.toggle('auto-battle-disabled', !enabled);
         orderNode.hidden = order === null;
@@ -1684,25 +1945,20 @@ export class ActionPanel {
     return true;
   }
 
-/** renderSkillSection：执行对应的业务逻辑。 */
+  /** 渲染技能区主体，并按自动/手动给出不同说明。 */
   private renderSkillSection(actions: ActionDef[], autoBattleDisplayOrders: Map<string, number>): string {
-/** enabledSkills：定义该变量以承载业务值。 */
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
     const enabledSkills = actions.filter((action) => action.skillEnabled !== false);
-/** autoSkills：定义该变量以承载业务值。 */
     const autoSkills = enabledSkills.filter((action) => action.autoBattleEnabled !== false);
-/** manualSkills：定义该变量以承载业务值。 */
     const manualSkills = enabledSkills.filter((action) => action.autoBattleEnabled === false);
-/** visibleSkills：定义该变量以承载业务值。 */
     const visibleSkills = this.activeSkillTab === 'auto' ? autoSkills : manualSkills;
-/** slotSummary：定义该变量以承载业务值。 */
     const slotSummary = this.getSkillSlotSummary(actions);
-/** hint：定义该变量以承载业务值。 */
     const hint = this.activeSkillTab === 'auto'
       ? `自动战斗会按列表从上到下尝试已启用技能，可直接拖拽调整优先级。当前已启用 ${slotSummary}。`
       : `这里的技能不会参与自动战斗，但仍可手动点击或使用绑定键触发。当前已启用 ${slotSummary}。`;
 
-/** html：定义该变量以承载业务值。 */
-    let html = `<div class="panel-section">
+    let html = `<div class="panel-section action-skill-section">
       <div class="panel-section-head">
         <div class="panel-section-title">技能 · ${slotSummary}</div>
         <div class="action-section-actions">
@@ -1730,9 +1986,7 @@ export class ActionPanel {
       html += '<div class="action-skill-list">';
       for (const action of visibleSkills) {
         html += this.renderActionItem(action, {
-/** showDragHandle：定义该变量以承载业务值。 */
           showDragHandle: this.activeSkillTab === 'auto',
-/** autoBattleDisplayOrder：定义该变量以承载业务值。 */
           autoBattleDisplayOrder: this.activeSkillTab === 'auto'
             ? (autoBattleDisplayOrders.get(action.id) ?? null)
             : null,
@@ -1745,11 +1999,11 @@ export class ActionPanel {
     return html;
   }
 
-/** buildAutoBattleDisplayOrderMap：执行对应的业务逻辑。 */
+  /** 为可自动施放的技能生成展示顺位。 */
   private buildAutoBattleDisplayOrderMap(actions: ActionDef[]): Map<string, number> {
-/** displayOrder：定义该变量以承载业务值。 */
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
     const displayOrder = new Map<string, number>();
-/** nextOrder：定义该变量以承载业务值。 */
     let nextOrder = 0;
     for (const action of actions) {
       if (action.type !== 'skill' || action.skillEnabled === false || action.autoBattleEnabled === false) {
@@ -1761,55 +2015,48 @@ export class ActionPanel {
     return displayOrder;
   }
 
-/** bindActionCardEvents：执行对应的业务逻辑。 */
+  /** 点击卡片本体时直接触发动作。 */
   private bindActionCardEvents(root: HTMLElement): void {
     root.querySelectorAll<HTMLElement>('[data-action-card]').forEach((button) => {
       button.addEventListener('click', () => {
         if (button.dataset.bindAction) return;
-/** actionId：定义该变量以承载业务值。 */
         const actionId = button.dataset.actionCard;
         if (!actionId) return;
-/** action：定义该变量以承载业务值。 */
+        if (actionId === 'sect:manage') {
+          this.openSectManagementModal();
+          return;
+        }
         const action = this.currentActions.find((entry) => entry.id === actionId);
         this.onAction?.(actionId, action?.requiresTarget, action?.targetMode, action?.range, action?.name ?? actionId);
       });
     });
   }
 
-/** bindActionExecEvents：执行对应的业务逻辑。 */
+  /** 绑定执行按钮，读取 data-* 参数后交给外部回调。 */
   private bindActionExecEvents(root: HTMLElement): void {
     root.querySelectorAll<HTMLElement>('[data-action]').forEach((button) => {
-      button.addEventListener('click', (event) => {
-        event.stopPropagation();
-/** actionId：定义该变量以承载业务值。 */
+      button.addEventListener('click', () => {
         const actionId = button.dataset.action!;
-/** action：定义该变量以承载业务值。 */
-        const action = this.currentActions.find((entry) => entry.id === actionId);
-        if (!action || !this.canExecuteAction(action)) {
+        if (actionId === 'sect:manage') {
+          this.openSectManagementModal();
           return;
         }
-/** actionName：定义该变量以承载业务值。 */
         const actionName = button.dataset.actionName || actionId;
-/** requiresTarget：定义该变量以承载业务值。 */
         const requiresTarget = button.dataset.actionTarget === '1';
-/** targetMode：定义该变量以承载业务值。 */
         const targetMode = button.dataset.actionTargetMode || undefined;
-/** rangeText：定义该变量以承载业务值。 */
         const rangeText = button.dataset.actionRange;
-/** range：定义该变量以承载业务值。 */
         const range = rangeText ? Number(rangeText) : undefined;
         this.onAction?.(actionId, requiresTarget, targetMode, Number.isFinite(range) ? range : undefined, actionName);
       });
     });
   }
 
-/** bindBindActionEvents：执行对应的业务逻辑。 */
+  /** 进入或退出动作绑键模式。 */
   private bindBindActionEvents(root: HTMLElement): void {
     root.querySelectorAll<HTMLElement>('[data-bind-action]').forEach((button) => {
       button.addEventListener('click', (event) => {
         event.preventDefault();
         event.stopPropagation();
-/** actionId：定义该变量以承载业务值。 */
         const actionId = button.dataset.bindAction;
         if (!actionId) return;
         this.bindingActionId = this.bindingActionId === actionId ? null : actionId;
@@ -1819,13 +2066,12 @@ export class ActionPanel {
     });
   }
 
-/** bindAutoBattleToggleEvents：执行对应的业务逻辑。 */
+  /** 绑定自动战斗开关按钮。 */
   private bindAutoBattleToggleEvents(root: HTMLElement): void {
     root.querySelectorAll<HTMLElement>('[data-auto-battle-toggle]').forEach((button) => {
       button.addEventListener('click', (event) => {
         event.preventDefault();
         event.stopPropagation();
-/** actionId：定义该变量以承载业务值。 */
         const actionId = button.dataset.autoBattleToggle;
         if (!actionId) return;
         this.toggleAutoBattleSkill(actionId);
@@ -1833,13 +2079,12 @@ export class ActionPanel {
     });
   }
 
-/** bindSkillEnabledToggleEvents：执行对应的业务逻辑。 */
+  /** 绑定技能启用开关按钮。 */
   private bindSkillEnabledToggleEvents(root: HTMLElement): void {
     root.querySelectorAll<HTMLElement>('[data-skill-enabled-toggle]').forEach((button) => {
       button.addEventListener('click', (event) => {
         event.preventDefault();
         event.stopPropagation();
-/** actionId：定义该变量以承载业务值。 */
         const actionId = button.dataset.skillEnabledToggle;
         if (!actionId) return;
         this.toggleSkillEnabled(actionId);
@@ -1847,11 +2092,10 @@ export class ActionPanel {
     });
   }
 
-/** bindAutoBattleDragEvents：执行对应的业务逻辑。 */
+  /** 绑定自动战斗列表的拖拽排序交互。 */
   private bindAutoBattleDragEvents(root: HTMLElement): void {
     root.querySelectorAll<HTMLElement>('[data-auto-battle-drag]').forEach((handle) => {
       handle.addEventListener('dragstart', (event) => {
-/** actionId：定义该变量以承载业务值。 */
         const actionId = handle.dataset.autoBattleDrag;
         if (!actionId || !(event.dataTransfer instanceof DataTransfer)) return;
         this.draggingSkillId = actionId;
@@ -1868,19 +2112,15 @@ export class ActionPanel {
     root.querySelectorAll<HTMLElement>('[data-auto-battle-skill-row]').forEach((row) => {
       row.addEventListener('dragover', (event) => {
         event.preventDefault();
-/** actionId：定义该变量以承载业务值。 */
         const actionId = row.dataset.autoBattleSkillRow;
         if (!actionId || !this.draggingSkillId || actionId === this.draggingSkillId) return;
-/** rect：定义该变量以承载业务值。 */
         const rect = row.getBoundingClientRect();
-/** midpoint：定义该变量以承载业务值。 */
         const midpoint = rect.top + rect.height / 2;
         this.dragOverSkillId = actionId;
         this.dragOverPosition = event.clientY < midpoint ? 'before' : 'after';
         this.updateDragIndicators();
       });
       row.addEventListener('dragleave', (event) => {
-/** related：定义该变量以承载业务值。 */
         const related = event.relatedTarget;
         if (related instanceof Node && row.contains(related)) {
           return;
@@ -1893,7 +2133,6 @@ export class ActionPanel {
       });
       row.addEventListener('drop', (event) => {
         event.preventDefault();
-/** targetId：定义该变量以承载业务值。 */
         const targetId = row.dataset.autoBattleSkillRow;
         if (!this.draggingSkillId || !targetId || !this.dragOverPosition) {
           this.clearDragState();
@@ -1905,13 +2144,12 @@ export class ActionPanel {
     });
   }
 
-/** bindSkillManagementAutoToggleEvents：执行对应的业务逻辑。 */
+  /** 绑定技能管理弹层里的自动开关。 */
   private bindSkillManagementAutoToggleEvents(root: HTMLElement): void {
     root.querySelectorAll<HTMLElement>('[data-skill-manage-auto-toggle]').forEach((button) => {
       button.addEventListener('click', (event) => {
         event.preventDefault();
         event.stopPropagation();
-/** actionId：定义该变量以承载业务值。 */
         const actionId = button.dataset.skillManageAutoToggle;
         if (!actionId) return;
         this.toggleSkillManagementAutoBattleSkill(actionId);
@@ -1919,13 +2157,12 @@ export class ActionPanel {
     });
   }
 
-/** bindSkillManagementEnabledToggleEvents：执行对应的业务逻辑。 */
+  /** 绑定技能管理弹层里的启用开关。 */
   private bindSkillManagementEnabledToggleEvents(root: HTMLElement): void {
     root.querySelectorAll<HTMLElement>('[data-skill-manage-enabled-toggle]').forEach((button) => {
       button.addEventListener('click', (event) => {
         event.preventDefault();
         event.stopPropagation();
-/** actionId：定义该变量以承载业务值。 */
         const actionId = button.dataset.skillManageEnabledToggle;
         if (!actionId) return;
         this.toggleSkillManagementSkillEnabled(actionId);
@@ -1933,39 +2170,10 @@ export class ActionPanel {
     });
   }
 
-/** bindSkillManagementMoveEvents：执行对应的业务逻辑。 */
-  private bindSkillManagementMoveEvents(root: HTMLElement): void {
-    root.querySelectorAll<HTMLElement>('[data-skill-manage-move-up]').forEach((button) => {
-      button.addEventListener('click', (event) => {
-        event.preventDefault();
-        event.stopPropagation();
-/** actionId：定义该变量以承载业务值。 */
-        const actionId = button.dataset.skillManageMoveUp;
-        if (!actionId || button.hasAttribute('disabled')) {
-          return;
-        }
-        this.moveSkillManagementSkillByStep(actionId, -1);
-      });
-    });
-    root.querySelectorAll<HTMLElement>('[data-skill-manage-move-down]').forEach((button) => {
-      button.addEventListener('click', (event) => {
-        event.preventDefault();
-        event.stopPropagation();
-/** actionId：定义该变量以承载业务值。 */
-        const actionId = button.dataset.skillManageMoveDown;
-        if (!actionId || button.hasAttribute('disabled')) {
-          return;
-        }
-        this.moveSkillManagementSkillByStep(actionId, 1);
-      });
-    });
-  }
-
-/** bindSkillManagementDragEvents：执行对应的业务逻辑。 */
+  /** 绑定技能管理弹层的拖拽排序交互。 */
   private bindSkillManagementDragEvents(root: HTMLElement): void {
     root.querySelectorAll<HTMLElement>('[data-skill-manage-drag]').forEach((handle) => {
       handle.addEventListener('dragstart', (event) => {
-/** actionId：定义该变量以承载业务值。 */
         const actionId = handle.dataset.skillManageDrag;
         if (!actionId || !(event.dataTransfer instanceof DataTransfer)) return;
         this.draggingSkillId = actionId;
@@ -1982,19 +2190,15 @@ export class ActionPanel {
     root.querySelectorAll<HTMLElement>('[data-skill-manage-skill-row]').forEach((row) => {
       row.addEventListener('dragover', (event) => {
         event.preventDefault();
-/** actionId：定义该变量以承载业务值。 */
         const actionId = row.dataset.skillManageSkillRow;
         if (!actionId || !this.draggingSkillId || actionId === this.draggingSkillId) return;
-/** rect：定义该变量以承载业务值。 */
         const rect = row.getBoundingClientRect();
-/** midpoint：定义该变量以承载业务值。 */
         const midpoint = rect.top + rect.height / 2;
         this.dragOverSkillId = actionId;
         this.dragOverPosition = event.clientY < midpoint ? 'before' : 'after';
         this.updateDragIndicators();
       });
       row.addEventListener('dragleave', (event) => {
-/** related：定义该变量以承载业务值。 */
         const related = event.relatedTarget;
         if (related instanceof Node && row.contains(related)) {
           return;
@@ -2007,7 +2211,6 @@ export class ActionPanel {
       });
       row.addEventListener('drop', (event) => {
         event.preventDefault();
-/** targetId：定义该变量以承载业务值。 */
         const targetId = row.dataset.skillManageSkillRow;
         if (!this.draggingSkillId || !targetId || !this.dragOverPosition) {
           this.clearDragState();
@@ -2019,159 +2222,89 @@ export class ActionPanel {
     });
   }
 
-/** getSkillActions：执行对应的业务逻辑。 */
+  /** 从动作列表里筛出技能动作。 */
   private getSkillActions(actions: ActionDef[] = this.currentActions): ActionDef[] {
     return actions.filter((action) => action.type === 'skill');
   }
 
-/** getSkillSlotLimit：执行对应的业务逻辑。 */
+  /** 读取当前角色可启用的技能槽位上限。 */
   private getSkillSlotLimit(): number {
-    return resolvePlayerSkillSlotLimit(this.previewPlayer);
+    return resolvePlayerSkillSlotLimitLocal(this.previewPlayer);
   }
 
-/** getEnabledSkillCount：执行对应的业务逻辑。 */
+  /** 统计当前已启用的技能数量。 */
   private getEnabledSkillCount(actions: ActionDef[] = this.currentActions): number {
-    return countEnabledSkillEntries(this.getSkillActions(actions));
+    return countEnabledSkillEntriesLocal(this.getSkillActions(actions));
   }
 
-/** getSkillSlotSummary：执行对应的业务逻辑。 */
+  /** 汇总当前技能槽启用情况，供方案弹层摘要复用。 */
   private getSkillSlotSummary(actions: ActionDef[] = this.currentActions): string {
-    return `${this.getEnabledSkillCount(actions)}/${this.getSkillSlotLimit()}`;
+    return `${this.getEnabledSkillCount(actions)}/${this.getSkillSlotLimit()} 项`;
   }
 
-/** normalizeSkillConfigs：执行对应的业务逻辑。 */
+  /** 按槽位上限规整自动战斗技能配置。 */
   private normalizeSkillConfigs(configs: AutoBattleSkillConfig[]): AutoBattleSkillConfig[] {
-    return enforceSkillEnabledLimit(configs.map((entry) => ({
+    return enforceSkillEnabledLimitLocal(configs.map((entry) => ({
       skillId: entry.skillId,
-/** enabled：定义该变量以承载业务值。 */
       enabled: entry.enabled !== false,
-/** skillEnabled：定义该变量以承载业务值。 */
       skillEnabled: entry.skillEnabled !== false,
     })), this.getSkillSlotLimit());
   }
 
-/** normalizeSkillActions：执行对应的业务逻辑。 */
+  /** 按槽位上限规整技能动作。 */
   private normalizeSkillActions(actions: ActionDef[]): ActionDef[] {
-    return enforceSkillEnabledLimit(this.withSequentialAutoBattleOrder(actions), this.getSkillSlotLimit());
+    return enforceSkillEnabledLimitLocal(this.withSequentialAutoBattleOrder(actions), this.getSkillSlotLimit());
   }
 
-/** buildSkillManagementExternalRevision：执行对应的业务逻辑。 */
-  private buildSkillManagementExternalRevision(): string {
-/** parts：定义该变量以承载业务值。 */
-    const parts = [
-      String(this.getSkillSlotLimit()),
-      this.skillManagementSortField,
-      this.skillManagementSortDirection,
-      [...this.skillManagementFilterToggles].sort().join(','),
-    ];
-/** includeMeleeRanged：定义该变量以承载业务值。 */
-    const includeMeleeRanged = this.skillManagementFilterToggles.has('melee') || this.skillManagementFilterToggles.has('ranged');
-/** includeDamageKind：定义该变量以承载业务值。 */
-    const includeDamageKind = this.skillManagementFilterToggles.has('physical') || this.skillManagementFilterToggles.has('spell');
-/** includeTargetKind：定义该变量以承载业务值。 */
-    const includeTargetKind = this.skillManagementFilterToggles.has('single') || this.skillManagementFilterToggles.has('aoe');
-/** needsMetrics：定义该变量以承载业务值。 */
-    const needsMetrics = includeMeleeRanged || includeDamageKind || includeTargetKind || this.skillManagementSortField !== 'custom';
-    for (const action of this.getSkillActions(this.currentActions)) {
-      parts.push(action.id);
-      parts.push(action.name);
-      parts.push(action.desc);
-      parts.push(typeof action.range === 'number' ? String(action.range) : '');
-      parts.push(action.autoBattleEnabled !== false ? '1' : '0');
-      parts.push(action.skillEnabled !== false ? '1' : '0');
-      if (!needsMetrics) {
+  /** 把自动战斗技能配置规整成稳定顺序，便于比较草稿差异。 */
+  private normalizeAutoBattleSkillConfigsLocal(
+    configs: AutoBattleSkillConfig[] | null | undefined,
+  ): AutoBattleSkillConfig[] {
+    const source = Array.isArray(configs) ? configs : [];
+    const normalized: AutoBattleSkillConfig[] = [];
+    const seen = new Set<string>();
+    for (const entry of source) {
+      const skillId = typeof entry?.skillId === 'string' ? entry.skillId.trim() : '';
+      if (!skillId || seen.has(skillId)) {
         continue;
       }
-/** metrics：定义该变量以承载业务值。 */
-      const metrics = this.buildSkillManagementMetrics(action);
-      if (includeMeleeRanged) {
-        parts.push(metrics.isMelee ? '1' : '0');
-        parts.push(metrics.isRanged ? '1' : '0');
-      }
-      if (includeDamageKind) {
-        parts.push(metrics.hasPhysicalDamage ? '1' : '0');
-        parts.push(metrics.hasSpellDamage ? '1' : '0');
-      }
-      if (includeTargetKind) {
-        parts.push(metrics.isSingleTarget ? '1' : '0');
-        parts.push(metrics.isAreaTarget ? '1' : '0');
-      }
-      switch (this.skillManagementSortField) {
-        case 'actualDamage':
-          parts.push(String(metrics.actualDamage ?? ''));
-          break;
-        case 'qiCost':
-          parts.push(String(metrics.actualQiCost));
-          break;
-        case 'range':
-          parts.push(String(metrics.range));
-          break;
-        case 'targetCount':
-          parts.push(String(metrics.targetCount));
-          break;
-        case 'cooldown':
-          parts.push(String(metrics.cooldown));
-          break;
-        default:
-          break;
-      }
+      normalized.push({
+        skillId,
+        enabled: entry.enabled !== false,
+        skillEnabled: entry.skillEnabled !== false,
+      });
+      seen.add(skillId);
     }
-    return parts.join('\u0001');
+    return normalized;
   }
 
-/** captureSkillManagementListScroll：执行对应的业务逻辑。 */
-  private captureSkillManagementListScroll(): void {
-/** list：定义该变量以承载业务值。 */
-    const list = document.querySelector<HTMLElement>('.skill-manage-list');
-    if (!list) {
-      return;
-    }
-    this.skillManagementListScrollTop = list.scrollTop;
-  }
-
-/** restoreSkillManagementListScroll：执行对应的业务逻辑。 */
-  private restoreSkillManagementListScroll(root: HTMLElement): void {
-/** list：定义该变量以承载业务值。 */
-    const list = root.querySelector<HTMLElement>('.skill-manage-list');
-    if (!list) {
-      return;
-    }
-    list.scrollTop = this.skillManagementListScrollTop;
-  }
-
+  /** 比较两份自动战斗技能配置是否完全一致。 */
   private areAutoBattleSkillConfigsEqual(
     left: AutoBattleSkillConfig[] | null | undefined,
     right: AutoBattleSkillConfig[] | null | undefined,
   ): boolean {
-    if ((left?.length ?? 0) !== (right?.length ?? 0)) {
+    const normalizedLeft = this.normalizeAutoBattleSkillConfigsLocal(left);
+    const normalizedRight = this.normalizeAutoBattleSkillConfigsLocal(right);
+    if (normalizedLeft.length !== normalizedRight.length) {
       return false;
     }
-    for (let index = 0; index < (right?.length ?? 0); index += 1) {
-      const previous = left?.[index];
-      const next = right?.[index];
-      if (
-        previous?.skillId !== next?.skillId
-        || previous?.enabled !== next?.enabled
-        || (previous?.skillEnabled !== false) !== (next?.skillEnabled !== false)
-      ) {
-        return false;
-      }
-    }
-    return true;
+    return normalizedLeft.every((entry, index) => {
+      const target = normalizedRight[index];
+      return target?.skillId === entry.skillId
+        && target.enabled === entry.enabled
+        && target.skillEnabled === entry.skillEnabled;
+    });
   }
 
-/** hasPendingSkillManagementChanges：执行对应的业务逻辑。 */
+  /** 判断技能管理当前是否存在未应用的改动。 */
   private hasPendingSkillManagementChanges(): boolean {
-    if (!this.skillManagementDraft) {
-      return false;
-    }
     return !this.areAutoBattleSkillConfigsEqual(
       this.skillManagementDraft,
       this.getAutoBattleSkillConfigs(this.currentActions),
     );
   }
 
-/** confirmDiscardSkillManagementChanges：执行对应的业务逻辑。 */
+  /** 关闭技能管理前确认是否放弃本地草稿。 */
   private confirmDiscardSkillManagementChanges(): boolean {
     if (!this.hasPendingSkillManagementChanges()) {
       return true;
@@ -2179,7 +2312,7 @@ export class ActionPanel {
     return window.confirm('技能管理有未应用的改动，关闭后会丢失这些改动。确定关闭吗？');
   }
 
-/** requestSkillManagementClose：执行对应的业务逻辑。 */
+  /** 请求关闭技能管理弹层。 */
   private requestSkillManagementClose(): void {
     if (!this.confirmDiscardSkillManagementChanges()) {
       return;
@@ -2188,82 +2321,83 @@ export class ActionPanel {
     detailModalHost.close(ActionPanel.SKILL_MANAGEMENT_MODAL_OWNER);
   }
 
-/** getVisibleSkillManagementActionIds：执行对应的业务逻辑。 */
-  private getVisibleSkillManagementActionIds(): string[] {
-    if (this.skillManagementSortField !== 'custom') {
-      return [];
+  /** 清理技能管理里的临时关闭确认提示。 */
+  private resetSkillManagementCloseConfirm(): void {
+    if (this.skillManagementStatus?.tone === 'info') {
+      this.skillManagementStatus = null;
     }
-/** previewActions：定义该变量以承载业务值。 */
-    const previewActions = this.getSkillManagementPreviewActions();
-/** skillEntries：定义该变量以承载业务值。 */
-    const skillEntries = this.getFilteredSkillManagementEntries(this.getSkillManagementEntries(previewActions));
-/** visibleEntries：定义该变量以承载业务值。 */
-    const visibleEntries = this.skillManagementTab === 'auto'
-      ? skillEntries.filter((entry) => entry.action.skillEnabled !== false && entry.action.autoBattleEnabled !== false)
+  }
+
+  /** 渲染技能管理当前的状态提示。 */
+  private renderSkillManagementStatus(): string {
+    if (!this.skillManagementStatus) {
+      return '';
+    }
+    return `<div class="skill-preset-status ui-status-text ${this.skillManagementStatus.tone === 'error' ? 'error' : this.skillManagementStatus.tone === 'success' ? 'success' : ''}">${escapeHtml(this.skillManagementStatus.text)}</div>`;
+  }
+
+  /** 汇总技能管理当前的过滤和排序范围。 */
+  private getSkillManagementScopeSummary(
+    filteredEntries: SkillManagementEntry[],
+    visibleEntries: SkillManagementEntry[],
+  ): { filter: string; sort: string } {
+    const totalSkills = this.getSkillActions(this.getSkillManagementPreviewActions()).length;
+    const filter = this.skillManagementFilterToggles.size > 0
+      ? `过滤 ${filteredEntries.length}/${totalSkills} 项`
+      : `过滤 全部 ${filteredEntries.length} 项`;
+    const sortFieldLabel = ({
+      custom: '当前顺位',
+      actualDamage: '伤害',
+      qiCost: '蓝耗',
+      range: '距离',
+      targetCount: '目标',
+      cooldown: '冷却',
+    } satisfies Record<SkillManagementSortField, string>)[this.skillManagementSortField];
+    const sort = this.skillManagementSortField === 'custom'
+      ? `排序 ${sortFieldLabel}`
+      : `排序 ${sortFieldLabel} · ${this.skillManagementSortDirection === 'asc' ? '正序' : '倒序'} · 展示 ${visibleEntries.length} 项`;
+    return { filter, sort };
+  }
+
+  /** 生成技能管理空态文案。 */
+  private getSkillManagementEmptyStateText(): string {
+    const base = this.skillManagementTab === 'auto'
+      ? '当前过滤下没有自动技能。'
       : this.skillManagementTab === 'manual'
-        ? skillEntries.filter((entry) => entry.action.skillEnabled !== false && entry.action.autoBattleEnabled === false)
-        : skillEntries.filter((entry) => entry.action.skillEnabled === false);
-    return visibleEntries.map((entry) => entry.action.id);
-  }
-
-/** getSortedSkillManagementActionIds：执行对应的业务逻辑。 */
-  private getSortedSkillManagementActionIds(): string[] {
-/** previewActions：定义该变量以承载业务值。 */
-    const previewActions = this.getSkillManagementPreviewActions();
-/** skillEntries：定义该变量以承载业务值。 */
-    const skillEntries = this.getFilteredSkillManagementEntries(this.getSkillManagementEntries(previewActions));
-/** visibleEntries：定义该变量以承载业务值。 */
-    const visibleEntries = this.skillManagementTab === 'auto'
-      ? skillEntries.filter((entry) => entry.action.skillEnabled !== false && entry.action.autoBattleEnabled !== false)
-      : this.skillManagementTab === 'manual'
-        ? skillEntries.filter((entry) => entry.action.skillEnabled !== false && entry.action.autoBattleEnabled === false)
-        : skillEntries.filter((entry) => entry.action.skillEnabled === false);
-    return this.sortSkillManagementEntries(visibleEntries).map((entry) => entry.action.id);
-  }
-
-/** reorderSkillManagementSubset：执行对应的业务逻辑。 */
-  private reorderSkillManagementSubset(skills: ActionDef[], orderedIds: string[]): ActionDef[] {
-/** subset：定义该变量以承载业务值。 */
-    const subset = new Set(orderedIds);
-/** orderedActions：定义该变量以承载业务值。 */
-    const orderedActions = orderedIds
-      .map((id) => skills.find((action) => action.id === id))
-      .filter((action): action is ActionDef => Boolean(action));
-/** nextIndex：定义该变量以承载业务值。 */
-    let nextIndex = 0;
-    return skills.map((action) => (
-      subset.has(action.id)
-        ? (orderedActions[nextIndex++] ?? action)
-        : action
-    ));
-  }
-
-/** applySkillManagementSortOrder：执行对应的业务逻辑。 */
-  private applySkillManagementSortOrder(rerender = true): boolean {
-    if (this.skillManagementTab === 'disabled' || this.skillManagementSortField === 'custom') {
-      return false;
+        ? '当前过滤下没有手动技能。'
+        : '当前过滤下没有禁用技能。';
+    if (this.skillManagementFilterToggles.size === 0) {
+      return base;
     }
-/** orderedIds：定义该变量以承载业务值。 */
-    const orderedIds = this.getSortedSkillManagementActionIds();
-    if (orderedIds.length <= 1) {
-      return false;
-    }
-    this.applySkillManagementDraftMutation(
-      (skills) => this.reorderSkillManagementSubset(skills, orderedIds),
-      rerender,
-    );
-    return true;
+    return `${base} 可以先清空过滤标签，再继续批量调整。`;
   }
 
-/** openSkillManagement：执行对应的业务逻辑。 */
+  /** 打开技能管理弹层，并以当前自动/手动页签作为初始视图。 */
   private openSkillManagement(): void {
     this.skillManagementTab = this.activeSkillTab;
     this.skillManagementListScrollTop = 0;
+    this.skillManagementStatus = null;
     this.syncSkillManagementDraft();
     this.renderSkillManagementModal();
   }
 
-/** cloneAutoUsePillConfigs：执行对应的业务逻辑。 */
+  /** 打开战斗设置弹层。 */
+  private openCombatSettingsModal(): void {
+    this.syncAutoUsePillDraft();
+    this.syncCombatTargetingDraft();
+    this.combatSettingsStatus = null;
+    this.combatSettingsActiveTab = 'auto_pills';
+    this.autoUsePillSelectedIndex = 0;
+    this.autoUsePillSubview = 'main';
+    this.renderCombatSettingsModal();
+  }
+
+  /** 打开索敌方案弹层。 */
+  private openTargetingPlanModal(): void {
+    this.renderTargetingPlanModal();
+  }
+
+  /** 复制自动吃药配置。 */
   private cloneAutoUsePillConfigs(configs: AutoUsePillConfig[]): AutoUsePillConfig[] {
     return configs.map((entry) => ({
       itemId: entry.itemId,
@@ -2271,211 +2405,223 @@ export class ActionPanel {
     }));
   }
 
-/** normalizeAutoUsePills：执行对应的业务逻辑。 */
-  private normalizeAutoUsePills(configs: AutoUsePillConfig[]): AutoUsePillConfig[] {
-    return normalizeAutoUsePillConfigs(configs, {
-      maxItems: ActionPanel.AUTO_USE_PILL_SLOT_LIMIT,
-      maxConditionsPerItem: 4,
-    });
-  }
-
-/** getAutoUsePills：执行对应的业务逻辑。 */
-  private getAutoUsePills(): AutoUsePillConfig[] {
-    return this.previewPlayer?.autoUsePills ?? [];
-  }
-
-  private areAutoUsePillConfigsEqual(
-    left: AutoUsePillConfig[] | null | undefined,
-    right: AutoUsePillConfig[] | null | undefined,
-  ): boolean {
-    if ((left?.length ?? 0) !== (right?.length ?? 0)) {
-      return false;
-    }
-    for (let index = 0; index < (right?.length ?? 0); index += 1) {
-      const previous = left?.[index];
-      const next = right?.[index];
-      if (previous?.itemId !== next?.itemId || (previous?.conditions.length ?? 0) !== (next?.conditions.length ?? 0)) {
-        return false;
-      }
-      for (let conditionIndex = 0; conditionIndex < (next?.conditions.length ?? 0); conditionIndex += 1) {
-        const previousCondition = previous?.conditions[conditionIndex];
-        const nextCondition = next?.conditions[conditionIndex];
-        if (previousCondition?.type !== nextCondition?.type) {
-          return false;
-        }
-        if (nextCondition?.type === 'resource_ratio') {
-          if (
-            previousCondition?.type !== 'resource_ratio'
-            || nextCondition.type !== 'resource_ratio'
-            || previousCondition.resource !== nextCondition.resource
-            || previousCondition.op !== nextCondition.op
-            || previousCondition.thresholdPct !== nextCondition.thresholdPct
-          ) {
-            return false;
-          }
-        }
-      }
-    }
-    return true;
-  }
-
-/** buildAutoUsePillExternalRevision：执行对应的业务逻辑。 */
-  private buildAutoUsePillExternalRevision(): string {
-/** parts：定义该变量以承载业务值。 */
-    const parts: string[] = [];
-    for (const config of this.getAutoUsePills()) {
-      parts.push(config.itemId);
-      for (const condition of config.conditions) {
-        if (condition.type === 'resource_ratio') {
-          parts.push(`r:${condition.resource}:${condition.op}:${condition.thresholdPct}`);
-        } else {
-          parts.push('b:missing');
-        }
-      }
-    }
-    for (const item of this.previewPlayer?.inventory.items ?? []) {
-      const previewItem = resolvePreviewItem(item);
-      if (!isAutoUseConsumableCandidate(previewItem)) {
+  /** 本地规整自动吃药配置。 */
+  private normalizeAutoUsePillsLocal(configs: AutoUsePillConfig[] | null | undefined): AutoUsePillConfig[] {
+    const entries = Array.isArray(configs) ? configs : [];
+    const seen = new Set<string>();
+    const normalized: AutoUsePillConfig[] = [];
+    for (const entry of entries) {
+      const itemId = typeof entry?.itemId === 'string' ? entry.itemId.trim() : '';
+      if (!itemId || seen.has(itemId)) {
         continue;
       }
-      parts.push(`i:${item.itemId}:${item.count}:${previewItem.name}`);
+      seen.add(itemId);
+      normalized.push({
+        itemId,
+        conditions: Array.isArray(entry.conditions)
+          ? entry.conditions
+            .filter((condition) => condition?.type === 'resource_ratio' || condition?.type === 'buff_missing')
+            .slice(0, 4)
+            .map((condition) => ({ ...condition }))
+          : [],
+      });
+      if (normalized.length >= ActionPanel.AUTO_USE_PILL_SLOT_LIMIT) {
+        break;
+      }
     }
-/** combatTargetingRules：定义该变量以承载业务值。 */
-    const combatTargetingRules = this.getCombatTargetingRules();
-    parts.push(`h:${combatTargetingRules.hostile.join(',')}`);
-    parts.push(`f:${combatTargetingRules.friendly.join(',')}`);
-    return parts.join('\u0001');
+    return normalized;
   }
 
-/** cloneCombatTargetingRules：执行对应的业务逻辑。 */
-  private cloneCombatTargetingRules(rules: CombatTargetingRules): CombatTargetingRules {
+  /** 读取当前自动吃药设置。 */
+  private getAutoUsePills(): AutoUsePillConfig[] {
+    return this.normalizeAutoUsePillsLocal(this.previewPlayer?.autoUsePills ?? []);
+  }
+
+  /** 读取当前目标选择规则。 */
+  private getCombatTargetingRules(): CombatTargetingRules {
+    const source = this.previewPlayer?.combatTargetingRules ?? {};
+    const defaults = this.buildDefaultCombatTargetingRules(this.allowAoePlayerHit);
+    const hostile = this.normalizeCombatTargetingScope(
+      source.hostile,
+      HOSTILE_TARGETING_KEYS,
+      this.buildLegacyHostileTargetingFallback(source, defaults.hostile ?? []),
+    );
+    const friendly = this.normalizeCombatTargetingScope(
+      source.friendly,
+      FRIENDLY_TARGETING_KEYS,
+      defaults.friendly ?? [],
+    );
     return {
-      hostile: [...rules.hostile],
-      friendly: [...rules.friendly],
+      hostile,
+      friendly,
+      includeNormalMonsters: hostile.includes('monster'),
+      includeEliteMonsters: hostile.includes('monster'),
+      includeBosses: hostile.includes('monster'),
+      includePlayers: hostile.includes('all_players'),
     };
   }
 
-/** normalizeCombatTargetingRulesLocal：执行对应的业务逻辑。 */
-  private normalizeCombatTargetingRulesLocal(rules: CombatTargetingRules | null | undefined): CombatTargetingRules {
-    return normalizeCombatTargetingRules(
-      rules,
-      buildDefaultCombatTargetingRules({ includeAllPlayersHostile: this.allowAoePlayerHit }),
+  /** 复制目标选择规则。 */
+  private cloneCombatTargetingRules(rules: CombatTargetingRules): CombatTargetingRules {
+    const defaults = this.buildDefaultCombatTargetingRules(rules.includePlayers === true);
+    const hostile = this.normalizeCombatTargetingScope(
+      rules.hostile,
+      HOSTILE_TARGETING_KEYS,
+      this.buildLegacyHostileTargetingFallback(rules, defaults.hostile ?? []),
     );
+    const friendly = this.normalizeCombatTargetingScope(
+      rules.friendly,
+      FRIENDLY_TARGETING_KEYS,
+      defaults.friendly ?? [],
+    );
+    return {
+      hostile,
+      friendly,
+      includeNormalMonsters: hostile.includes('monster'),
+      includeEliteMonsters: hostile.includes('monster'),
+      includeBosses: hostile.includes('monster'),
+      includePlayers: hostile.includes('all_players'),
+    };
   }
 
-/** getCombatTargetingRules：执行对应的业务逻辑。 */
-  private getCombatTargetingRules(): CombatTargetingRules {
-    return this.normalizeCombatTargetingRulesLocal(this.previewPlayer?.combatTargetingRules ?? null);
-  }
-
-  private areCombatTargetingRulesEqual(
-    left: CombatTargetingRules | null | undefined,
-    right: CombatTargetingRules | null | undefined,
-  ): boolean {
-/** normalizedLeft：定义该变量以承载业务值。 */
-    const normalizedLeft = this.normalizeCombatTargetingRulesLocal(left ?? null);
-/** normalizedRight：定义该变量以承载业务值。 */
-    const normalizedRight = this.normalizeCombatTargetingRulesLocal(right ?? null);
-    if (normalizedLeft.hostile.length !== normalizedRight.hostile.length || normalizedLeft.friendly.length !== normalizedRight.friendly.length) {
-      return false;
+  /** 构建和 main 对齐的默认目标规则。 */
+  private buildDefaultCombatTargetingRules(includeAllPlayersHostile = false): CombatTargetingRules {
+    const hostile = [...DEFAULT_HOSTILE_COMBAT_TARGETING_RULES];
+    if (includeAllPlayersHostile && !hostile.includes('all_players')) {
+      hostile.push('all_players');
     }
-    return normalizedLeft.hostile.every((entry, index) => entry === normalizedRight.hostile[index])
-      && normalizedLeft.friendly.every((entry, index) => entry === normalizedRight.friendly[index]);
+    return {
+      hostile,
+      friendly: [...DEFAULT_FRIENDLY_COMBAT_TARGETING_RULES],
+    };
   }
 
-/** syncCombatTargetingDraft：执行对应的业务逻辑。 */
+  /** 兼容旧布尔字段，折叠为当前 hostile 规则回退集。 */
+  private buildLegacyHostileTargetingFallback(
+    rules: CombatTargetingRules,
+    defaults: CombatTargetingRuleKey[],
+  ): CombatTargetingRuleKey[] {
+    const fallback = defaults.filter(
+      (entry) => entry !== 'monster' && entry !== 'all_players',
+    ) as CombatTargetingRuleKey[];
+    if (this.resolveLegacyMonsterTargetEnabled(rules, defaults)) {
+      fallback.unshift('monster');
+    }
+    const includePlayers = rules.includePlayers ?? defaults.includes('all_players');
+    if (includePlayers && !fallback.includes('all_players')) {
+      fallback.push('all_players');
+    }
+    return fallback;
+  }
+
+  /** 旧 include* 怪物字段任一为 true 时，折叠为统一 monster 规则。 */
+  private resolveLegacyMonsterTargetEnabled(
+    rules: CombatTargetingRules,
+    defaults: CombatTargetingRuleKey[],
+  ): boolean {
+    const hasLegacyMonsterOverride = rules.includeNormalMonsters !== undefined
+      || rules.includeEliteMonsters !== undefined
+      || rules.includeBosses !== undefined;
+    if (!hasLegacyMonsterOverride) {
+      return defaults.includes('monster');
+    }
+    return rules.includeNormalMonsters === true
+      || rules.includeEliteMonsters === true
+      || rules.includeBosses === true;
+  }
+
+  /** 规整目标规则分组。 */
+  private normalizeCombatTargetingScope(
+    input: CombatTargetingRuleKey[] | null | undefined,
+    allowed: ReadonlySet<CombatTargetingRuleKey>,
+    fallback: CombatTargetingRuleKey[],
+  ): CombatTargetingRuleKey[] {
+    const source = Array.isArray(input) ? input : fallback;
+    const normalized: CombatTargetingRuleKey[] = [];
+    const seen = new Set<CombatTargetingRuleKey>();
+    for (const raw of source) {
+      if (!allowed.has(raw) || seen.has(raw)) {
+        continue;
+      }
+      seen.add(raw);
+      normalized.push(raw);
+    }
+    return normalized;
+  }
+
+  /** 同步自动吃药草稿。 */
+  private syncAutoUsePillDraft(): AutoUsePillConfig[] {
+    const nextDraft = this.normalizeAutoUsePillsLocal(this.autoUsePillDraft ?? this.getAutoUsePills());
+    this.autoUsePillDraft = nextDraft;
+    return nextDraft;
+  }
+
+  /** 同步目标选择草稿。 */
   private syncCombatTargetingDraft(): CombatTargetingRules {
-/** nextDraft：定义该变量以承载业务值。 */
-    const nextDraft = this.cloneCombatTargetingRules(this.normalizeCombatTargetingRulesLocal(this.combatTargetingDraft ?? this.getCombatTargetingRules()));
+    const nextDraft = this.cloneCombatTargetingRules(this.combatTargetingDraft ?? this.getCombatTargetingRules());
     this.combatTargetingDraft = nextDraft;
     return nextDraft;
   }
 
-/** discardCombatTargetingDraft：执行对应的业务逻辑。 */
-  private discardCombatTargetingDraft(): void {
-    this.combatTargetingDraft = null;
-  }
-
-/** hasPendingAutoUsePillChanges：执行对应的业务逻辑。 */
-  private hasPendingAutoUsePillChanges(): boolean {
-    return !this.areAutoUsePillConfigsEqual(this.autoUsePillDraft, this.getAutoUsePills());
-  }
-
-/** hasPendingCombatTargetingChanges：执行对应的业务逻辑。 */
-  private hasPendingCombatTargetingChanges(): boolean {
-    return !this.areCombatTargetingRulesEqual(this.combatTargetingDraft, this.getCombatTargetingRules());
-  }
-
-/** confirmDiscardAutoUsePillChanges：执行对应的业务逻辑。 */
-  private confirmDiscardAutoUsePillChanges(): boolean {
-    if (!this.hasPendingAutoUsePillChanges() && !this.hasPendingCombatTargetingChanges()) {
-      return true;
+  /** 比较自动吃药配置是否一致。 */
+  private areAutoUsePillConfigsEqual(left: AutoUsePillConfig[] | null | undefined, right: AutoUsePillConfig[] | null | undefined): boolean {
+    const normalizedLeft = this.normalizeAutoUsePillsLocal(left);
+    const normalizedRight = this.normalizeAutoUsePillsLocal(right);
+    if (normalizedLeft.length !== normalizedRight.length) {
+      return false;
     }
-    return window.confirm('战斗设置里有未应用的改动，关闭后会丢失这些改动。确定关闭吗？');
+    return normalizedLeft.every((entry, index) => JSON.stringify(entry) === JSON.stringify(normalizedRight[index]));
   }
 
-/** requestAutoUsePillClose：执行对应的业务逻辑。 */
-  private requestAutoUsePillClose(): void {
-    if (!this.confirmDiscardAutoUsePillChanges()) {
-      return;
+  /** 比较目标选择规则是否一致。 */
+  private areCombatTargetingRulesEqual(left: CombatTargetingRules | null | undefined, right: CombatTargetingRules | null | undefined): boolean {
+    const normalizedLeft = this.cloneCombatTargetingRules(left ?? this.getCombatTargetingRules());
+    const normalizedRight = this.cloneCombatTargetingRules(right ?? this.getCombatTargetingRules());
+    if (normalizedLeft.hostile?.length !== normalizedRight.hostile?.length
+      || normalizedLeft.friendly?.length !== normalizedRight.friendly?.length) {
+      return false;
     }
-    this.discardAutoUsePillDraft();
-    detailModalHost.close(ActionPanel.AUTO_USE_PILL_OVERVIEW_MODAL_OWNER);
-    detailModalHost.close(ActionPanel.AUTO_USE_PILL_PICKER_MODAL_OWNER);
-    detailModalHost.close(ActionPanel.AUTO_USE_PILL_CONDITION_MODAL_OWNER);
-  }
-
-/** syncAutoUsePillDraft：执行对应的业务逻辑。 */
-  private syncAutoUsePillDraft(): AutoUsePillConfig[] {
-/** source：定义该变量以承载业务值。 */
-    const source = this.autoUsePillDraft ?? this.getAutoUsePills();
-/** nextDraft：定义该变量以承载业务值。 */
-    const nextDraft = this.normalizeAutoUsePills(this.cloneAutoUsePillConfigs(source));
-    this.autoUsePillDraft = nextDraft;
-    this.autoUsePillSelectedIndex = Math.max(0, Math.min(this.autoUsePillSelectedIndex, nextDraft.length));
-    return nextDraft;
-  }
-
-/** discardAutoUsePillDraft：执行对应的业务逻辑。 */
-  private discardAutoUsePillDraft(): void {
-    this.autoUsePillDraft = null;
-    this.discardCombatTargetingDraft();
-    this.combatSettingsActiveTab = 'auto_pills';
-    this.autoUsePillSelectedIndex = 0;
-    this.autoUsePillSubview = 'main';
-    this.autoUsePillExternalRevision = null;
-  }
-
-/** buildDefaultAutoUsePillConditions：执行对应的业务逻辑。 */
-  private buildDefaultAutoUsePillConditions(entry: AutoUsePillViewEntry): AutoUsePillCondition[] {
-    if ((entry.consumeBuffs?.length ?? 0) > 0) {
-      return [{ type: 'buff_missing' }];
+    if ((normalizedLeft.hostile ?? []).some((entry, index) => entry !== normalizedRight.hostile?.[index])) {
+      return false;
     }
-    if ((entry.healAmount ?? 0) > 0 || (entry.healPercent ?? 0) > 0) {
-      return [{ type: 'resource_ratio', resource: 'hp', op: 'lt', thresholdPct: 60 }];
+    if ((normalizedLeft.friendly ?? []).some((entry, index) => entry !== normalizedRight.friendly?.[index])) {
+      return false;
     }
-    if ((entry.qiPercent ?? 0) > 0) {
-      return [{ type: 'resource_ratio', resource: 'qi', op: 'lt', thresholdPct: 60 }];
-    }
-    return [{ type: 'resource_ratio', resource: 'hp', op: 'lt', thresholdPct: 60 }];
+    return normalizedLeft.includeNormalMonsters === normalizedRight.includeNormalMonsters
+      && normalizedLeft.includeEliteMonsters === normalizedRight.includeEliteMonsters
+      && normalizedLeft.includeBosses === normalizedRight.includeBosses
+      && normalizedLeft.includePlayers === normalizedRight.includePlayers;
   }
 
-/** getAutoUsePillViewEntries：执行对应的业务逻辑。 */
+  /** 构建战斗设置外部摘要。 */
+  private buildCombatSettingsExternalRevision(): string {
+    return JSON.stringify({
+      pills: this.getAutoUsePills(),
+      rules: this.getCombatTargetingRules(),
+      allowAoePlayerHit: this.allowAoePlayerHit,
+    });
+  }
+
+  /** 读取当前索敌方案标签。 */
+  private getAutoBattleTargetingMode(): AutoBattleTargetingMode {
+    return this.previewPlayer?.autoBattleTargetingMode ?? 'auto';
+  }
+
+  /** 读取当前索敌方案标签。 */
+  private getAutoBattleTargetingModeLabel(mode = this.getAutoBattleTargetingMode()): string {
+    return AUTO_BATTLE_TARGETING_MODE_OPTIONS.find((entry) => entry.mode === mode)?.label ?? '自动';
+  }
+
+  /** 获取自动丹药视图条目。 */
   private getAutoUsePillViewEntries(): AutoUsePillViewEntry[] {
-/** draft：定义该变量以承载业务值。 */
-    const draft = this.syncAutoUsePillDraft();
-/** configMap：定义该变量以承载业务值。 */
-    const configMap = new Map(draft.map((entry) => [entry.itemId, entry] as const));
-/** entries：定义该变量以承载业务值。 */
     const entries = new Map<string, AutoUsePillViewEntry>();
-
+    const draft = this.syncAutoUsePillDraft();
     for (const item of this.previewPlayer?.inventory.items ?? []) {
       const previewItem = resolvePreviewItem(item);
       if (!isAutoUseConsumableCandidate(previewItem)) {
         continue;
       }
-/** config：定义该变量以承载业务值。 */
-      const config = configMap.get(item.itemId);
+      const config = draft.find((entry) => entry.itemId === item.itemId);
       entries.set(item.itemId, {
         itemId: item.itemId,
         name: previewItem.name,
@@ -2489,12 +2635,10 @@ export class ActionPanel {
         conditions: config?.conditions ?? [],
       });
     }
-
     for (const config of draft) {
       if (entries.has(config.itemId)) {
         continue;
       }
-/** template：定义该变量以承载业务值。 */
       const template = getLocalItemTemplate(config.itemId);
       entries.set(config.itemId, {
         itemId: config.itemId,
@@ -2509,7 +2653,6 @@ export class ActionPanel {
         conditions: config.conditions,
       });
     }
-
     return [...entries.values()].sort((left, right) => {
       if (left.selected !== right.selected) {
         return left.selected ? -1 : 1;
@@ -2521,62 +2664,70 @@ export class ActionPanel {
     });
   }
 
+  /** 构建自动丹药默认触发条件。 */
+  private buildDefaultAutoUsePillConditions(entry: AutoUsePillViewEntry): AutoUsePillCondition[] {
+    if ((entry.consumeBuffs?.length ?? 0) > 0) {
+      return [{ type: 'buff_missing' }];
+    }
+    if ((entry.qiPercent ?? 0) > 0) {
+      return [{ type: 'resource_ratio', resource: 'qi', op: 'lt', thresholdPct: 60 }];
+    }
+    return [{ type: 'resource_ratio', resource: 'hp', op: 'lt', thresholdPct: 60 }];
+  }
+
+  /** 对自动丹药草稿应用局部修改。 */
   private applyAutoUsePillDraftMutation(
     mutator: (draft: AutoUsePillConfig[]) => AutoUsePillConfig[],
   ): void {
-/** next：定义该变量以承载业务值。 */
-    const next = this.normalizeAutoUsePills(mutator(this.cloneAutoUsePillConfigs(this.syncAutoUsePillDraft())));
+    this.resetCombatSettingsCloseConfirm();
+    const next = this.normalizeAutoUsePillsLocal(mutator(this.cloneAutoUsePillConfigs(this.syncAutoUsePillDraft())));
     this.autoUsePillDraft = next;
-    this.autoUsePillSelectedIndex = Math.max(0, Math.min(this.autoUsePillSelectedIndex, next.length));
-    this.renderAutoUsePillModal();
+    this.autoUsePillSelectedIndex = Math.max(0, Math.min(this.autoUsePillSelectedIndex, ActionPanel.AUTO_USE_PILL_SLOT_LIMIT - 1));
+    this.renderCombatSettingsModal();
   }
 
-/** getSelectedAutoUsePillConfig：执行对应的业务逻辑。 */
+  /** 读取当前选中的自动丹药配置。 */
   private getSelectedAutoUsePillConfig(): AutoUsePillConfig | null {
     return this.syncAutoUsePillDraft()[this.autoUsePillSelectedIndex] ?? null;
   }
 
-/** openAutoUsePillPicker：执行对应的业务逻辑。 */
+  /** 打开自动丹药选择小窗。 */
   private openAutoUsePillPicker(slotIndex: number): void {
     this.syncAutoUsePillDraft();
     this.autoUsePillSelectedIndex = Math.max(0, Math.min(slotIndex, ActionPanel.AUTO_USE_PILL_SLOT_LIMIT - 1));
     this.autoUsePillSubview = 'picker';
-    this.renderAutoUsePillModal();
+    this.renderCombatSettingsModal();
   }
 
-/** openAutoUsePillConditionSettings：执行对应的业务逻辑。 */
+  /** 打开自动丹药条件小窗。 */
   private openAutoUsePillConditionSettings(slotIndex = this.autoUsePillSelectedIndex): void {
     this.autoUsePillSelectedIndex = Math.max(0, Math.min(slotIndex, ActionPanel.AUTO_USE_PILL_SLOT_LIMIT - 1));
     if (!this.getSelectedAutoUsePillConfig()) {
       return;
     }
     this.autoUsePillSubview = 'conditions';
-    this.renderAutoUsePillModal();
+    this.renderCombatSettingsModal();
   }
 
-/** closeAutoUsePillSubview：执行对应的业务逻辑。 */
+  /** 关闭自动丹药子视图。 */
   private closeAutoUsePillSubview(): void {
     this.autoUsePillSubview = 'main';
-    this.renderAutoUsePillModal();
+    this.renderCombatSettingsModal();
   }
 
-/** getAutoUsePillPickerEntries：执行对应的业务逻辑。 */
+  /** 获取自动丹药选择器条目。 */
   private getAutoUsePillPickerEntries(): AutoUsePillViewEntry[] {
-/** draft：定义该变量以承载业务值。 */
     const draft = this.syncAutoUsePillDraft();
-/** currentItemId：定义该变量以承载业务值。 */
     const currentItemId = draft[this.autoUsePillSelectedIndex]?.itemId ?? null;
     return this.getAutoUsePillViewEntries().filter((entry) => !entry.selected || entry.itemId === currentItemId);
   }
 
-/** buildAutoUsePillTooltipItem：执行对应的业务逻辑。 */
+  /** 构建自动丹药 tooltip 用的物品。 */
   private buildAutoUsePillTooltipItem(itemId: string): ItemStack | null {
-/** inventoryItem：定义该变量以承载业务值。 */
     const inventoryItem = this.previewPlayer?.inventory.items.find((item) => item.itemId === itemId);
     if (inventoryItem) {
       return resolvePreviewItem(inventoryItem);
     }
-/** template：定义该变量以承载业务值。 */
     const template = getLocalItemTemplate(itemId);
     if (!template) {
       return null;
@@ -2590,16 +2741,13 @@ export class ActionPanel {
     } as ItemStack;
   }
 
-/** buildAutoUsePillSlotTooltipPayload：执行对应的业务逻辑。 */
+  /** 构建槽位 tooltip 内容。 */
   private buildAutoUsePillSlotTooltipPayload(itemId: string): ReturnType<typeof buildItemTooltipPayload> | null {
-/** item：定义该变量以承载业务值。 */
     const item = this.buildAutoUsePillTooltipItem(itemId);
     if (!item) {
       return null;
     }
-/** payload：定义该变量以承载业务值。 */
     const payload = buildItemTooltipPayload(item);
-/** config：定义该变量以承载业务值。 */
     const config = this.syncAutoUsePillDraft().find((entry) => entry.itemId === itemId);
     if (config) {
       payload.lines = [
@@ -2610,32 +2758,25 @@ export class ActionPanel {
     return payload;
   }
 
-/** assignAutoUsePillToSelectedSlot：执行对应的业务逻辑。 */
+  /** 把药品放入当前槽位。 */
   private assignAutoUsePillToSelectedSlot(itemId: string): void {
-/** entry：定义该变量以承载业务值。 */
     const entry = this.getAutoUsePillViewEntries().find((candidate) => candidate.itemId === itemId);
     if (!entry) {
       return;
     }
-/** selectedIndex：定义该变量以承载业务值。 */
     const selectedIndex = this.autoUsePillSelectedIndex;
     this.autoUsePillSubview = 'main';
     this.applyAutoUsePillDraftMutation((draft) => {
-/** next：定义该变量以承载业务值。 */
       const next = [...draft];
-/** existingIndex：定义该变量以承载业务值。 */
       const existingIndex = next.findIndex((candidate) => candidate.itemId === itemId);
-/** existingConfig：定义该变量以承载业务值。 */
       const existingConfig = existingIndex >= 0 ? next[existingIndex] : null;
       if (existingIndex >= 0) {
         next.splice(existingIndex, 1);
       }
-/** insertIndex：定义该变量以承载业务值。 */
       let insertIndex = Math.max(0, Math.min(selectedIndex, next.length));
       if (existingIndex >= 0 && existingIndex < selectedIndex) {
         insertIndex = Math.max(0, insertIndex - 1);
       }
-/** replacement：定义该变量以承载业务值。 */
       const replacement: AutoUsePillConfig = existingConfig
         ? this.cloneAutoUsePillConfigs([existingConfig])[0]!
         : {
@@ -2651,14 +2792,14 @@ export class ActionPanel {
     });
   }
 
-/** clearSelectedAutoUsePillSlot：执行对应的业务逻辑。 */
+  /** 清空当前槽位。 */
   private clearSelectedAutoUsePillSlot(): void {
-/** selectedIndex：定义该变量以承载业务值。 */
     const selectedIndex = this.autoUsePillSelectedIndex;
     this.autoUsePillSubview = 'main';
     this.applyAutoUsePillDraftMutation((draft) => draft.filter((_, index) => index !== selectedIndex));
   }
 
+  /** 更新单个自动丹药条件。 */
   private updateAutoUsePillCondition(
     itemId: string,
     conditionIndex: number,
@@ -2677,7 +2818,7 @@ export class ActionPanel {
     }));
   }
 
-/** removeAutoUsePillCondition：执行对应的业务逻辑。 */
+  /** 删除单个自动丹药条件。 */
   private removeAutoUsePillCondition(itemId: string, conditionIndex: number): void {
     this.applyAutoUsePillDraftMutation((draft) => draft.map((entry) => {
       if (entry.itemId !== itemId) {
@@ -2690,13 +2831,12 @@ export class ActionPanel {
     }));
   }
 
-/** addAutoUsePillCondition：执行对应的业务逻辑。 */
+  /** 添加自动丹药条件。 */
   private addAutoUsePillCondition(itemId: string, kind: 'hp' | 'qi' | 'buff_missing'): void {
     this.applyAutoUsePillDraftMutation((draft) => draft.map((entry) => {
       if (entry.itemId !== itemId) {
         return entry;
       }
-/** nextCondition：定义该变量以承载业务值。 */
       const nextCondition: AutoUsePillCondition = kind === 'buff_missing'
         ? { type: 'buff_missing' }
         : { type: 'resource_ratio', resource: kind, op: 'lt', thresholdPct: 60 };
@@ -2707,80 +2847,1103 @@ export class ActionPanel {
     }));
   }
 
-/** applyAutoUsePillChanges：执行对应的业务逻辑。 */
-  private applyAutoUsePillChanges(): void {
-/** next：定义该变量以承载业务值。 */
-    const next = this.syncAutoUsePillDraft();
-/** nextCombatTargetingRules：定义该变量以承载业务值。 */
-    const nextCombatTargetingRules = this.syncCombatTargetingDraft();
-/** pillsChanged：定义该变量以承载业务值。 */
-    const pillsChanged = !this.areAutoUsePillConfigsEqual(next, this.getAutoUsePills());
-/** targetingChanged：定义该变量以承载业务值。 */
-    const targetingChanged = !this.areCombatTargetingRulesEqual(nextCombatTargetingRules, this.getCombatTargetingRules());
-    if (this.previewPlayer) {
-      this.previewPlayer.autoUsePills = this.cloneAutoUsePillConfigs(next);
-      this.previewPlayer.combatTargetingRules = this.cloneCombatTargetingRules(nextCombatTargetingRules);
-      this.previewPlayer.allowAoePlayerHit = nextCombatTargetingRules.hostile.includes('all_players');
+  /** 渲染单行条件编辑器。 */
+  private renderAutoUsePillConditionRow(itemId: string, condition: AutoUsePillCondition, conditionIndex: number): string {
+    if (condition.type === 'buff_missing') {
+      return `
+        <div class="auto-pill-condition-row auto-pill-condition-row--wide">
+          <div class="auto-pill-condition-static">效果未生效时服用</div>
+          <button class="small-btn ghost" data-auto-pill-condition-remove="${escapeHtml(itemId)}" data-condition-index="${conditionIndex}" type="button">移除</button>
+        </div>
+      `;
     }
-    this.autoUsePillDraft = null;
-    this.combatTargetingDraft = null;
-    this.combatSettingsActiveTab = 'auto_pills';
-    this.autoUsePillSelectedIndex = 0;
-    this.autoUsePillSubview = 'main';
-    this.autoUsePillExternalRevision = null;
-    detailModalHost.close(ActionPanel.AUTO_USE_PILL_OVERVIEW_MODAL_OWNER);
-    detailModalHost.close(ActionPanel.AUTO_USE_PILL_PICKER_MODAL_OWNER);
-    detailModalHost.close(ActionPanel.AUTO_USE_PILL_CONDITION_MODAL_OWNER);
-    if (pillsChanged) {
-      this.onUpdateAutoUsePills?.(next);
-    }
-    if (targetingChanged) {
-      this.onUpdateCombatTargetingRules?.(nextCombatTargetingRules);
-    }
+    return `
+      <div class="auto-pill-condition-row">
+        <select data-auto-pill-condition-resource="${escapeHtml(itemId)}" data-condition-index="${conditionIndex}">
+          <option value="hp" ${condition.resource === 'hp' ? 'selected' : ''}>血量</option>
+          <option value="qi" ${condition.resource === 'qi' ? 'selected' : ''}>灵力</option>
+        </select>
+        <select data-auto-pill-condition-op="${escapeHtml(itemId)}" data-condition-index="${conditionIndex}">
+          <option value="lt" ${condition.op === 'lt' ? 'selected' : ''}>低于</option>
+          <option value="gt" ${condition.op === 'gt' ? 'selected' : ''}>高于</option>
+        </select>
+        <input type="number" min="0" max="100" step="1" value="${condition.thresholdPct}" data-auto-pill-condition-threshold="${escapeHtml(itemId)}" data-condition-index="${conditionIndex}" />
+        <span class="auto-pill-condition-unit">%</span>
+        <button class="small-btn ghost" data-auto-pill-condition-remove="${escapeHtml(itemId)}" data-condition-index="${conditionIndex}" type="button">移除</button>
+      </div>
+    `;
   }
 
-/** openAutoUsePillModal：执行对应的业务逻辑。 */
-  private openAutoUsePillModal(): void {
-    this.syncAutoUsePillDraft();
-    this.syncCombatTargetingDraft();
-    this.combatSettingsActiveTab = 'auto_pills';
-    this.autoUsePillSelectedIndex = 0;
-    this.autoUsePillSubview = 'main';
-    this.renderAutoUsePillModal();
+  /** 渲染目标选择区。 */
+  private renderCombatTargetingSection(): string {
+    const draft = this.syncCombatTargetingDraft();
+    const hostileOptions: CombatTargetingCardOption[] = [
+      { key: 'monster', scope: 'hostile', label: '妖兽', summary: '把妖兽视为敌方目标。', active: draft.hostile?.includes('monster') === true },
+      { key: 'demonized_players', scope: 'hostile', label: '入魔者', summary: '把煞气入体超过 20 层的入魔者纳入敌方目标。', active: draft.hostile?.includes('demonized_players') === true },
+      { key: 'retaliators', scope: 'hostile', label: '仇敌', summary: '把主动攻击过你的玩家纳入敌方目标。', active: draft.hostile?.includes('retaliators') === true },
+      { key: 'party', scope: 'hostile', label: '同行者', summary: '预留给队伍、同行等协作关系的敌友识别。', disabled: true },
+      { key: 'sect', scope: 'hostile', label: '同门', summary: '预留给宗门、阵营等长期关系的敌友识别。', disabled: true },
+      { key: 'terrain', scope: 'hostile', label: '地形', summary: '把墙体、山崖、容器等场景地形纳入敌方目标。', active: draft.hostile?.includes('terrain') === true },
+    ];
+    const friendlyOptions: CombatTargetingCardOption[] = [
+      { key: 'non_hostile_players', scope: 'friendly', label: '非敌修士', summary: '把当前不属于敌对范围的修士视为友方目标。', active: draft.friendly?.includes('non_hostile_players') === true },
+      { key: 'all_players', scope: 'friendly', label: '所有修士', summary: '把所有修士都纳入友方目标。', active: draft.friendly?.includes('all_players') === true },
+      { key: 'retaliators', scope: 'friendly', label: '仇敌', summary: '把主动攻击过你的玩家也纳入友方目标。', active: draft.friendly?.includes('retaliators') === true },
+      { key: 'party', scope: 'friendly', label: '同行者', summary: '预留给队伍、同行等协作关系的敌友识别。', disabled: true },
+      { key: 'sect', scope: 'friendly', label: '同门', summary: '预留给宗门、阵营等长期关系的敌友识别。', disabled: true },
+    ];
+    return `
+      <div class="combat-settings-targeting-shell">
+        <div class="combat-settings-targeting-head">
+          <div>
+            <div class="skill-preset-card-title">目标判定</div>
+            <div class="skill-preset-list-meta">这里是在定义你会把哪些单位视为敌方目标、哪些单位视为友方目标。伤害默认使用敌对判定，治疗默认使用友方判定；队伍与宗门关系暂未接入，先保留禁用态。</div>
+          </div>
+          <span class="combat-settings-targeting-badge">应用后生效</span>
+        </div>
+        <div class="combat-settings-targeting-grid">
+          <div class="combat-settings-targeting-card combat-settings-targeting-card--hostile">
+            <div class="skill-preset-section-head">
+              <div class="skill-preset-card-title">敌对判定</div>
+              <div class="skill-preset-list-meta">勾选后，这些单位会被你视为敌方目标，可多选组合。</div>
+            </div>
+            <div class="combat-settings-toggle-grid">
+              ${hostileOptions.map((option) => this.renderCombatTargetingOption(option)).join('')}
+            </div>
+          </div>
+          <div class="combat-settings-targeting-card combat-settings-targeting-card--friendly">
+            <div class="skill-preset-section-head">
+              <div class="skill-preset-card-title">友方判定</div>
+              <div class="skill-preset-list-meta">勾选后，这些单位会被你视为友方目标，可多选组合。</div>
+            </div>
+            <div class="combat-settings-toggle-grid">
+              ${friendlyOptions.map((option) => this.renderCombatTargetingOption(option)).join('')}
+            </div>
+          </div>
+        </div>
+      </div>
+    `;
   }
 
-/** setCombatSettingsTab：执行对应的业务逻辑。 */
-  private setCombatSettingsTab(tab: CombatSettingsTab): void {
-    if (this.combatSettingsActiveTab === tab) {
+  /** 渲染单个目标选择项。 */
+  private renderCombatTargetingOption(option: CombatTargetingCardOption): string {
+    return `
+      <button
+        class="combat-settings-toggle-chip ${option.active ? 'active' : ''}"
+        type="button"
+        ${option.disabled ? 'disabled' : `data-combat-targeting-toggle="${escapeHtml(`${option.scope ?? 'hostile'}:${option.key ?? ''}`)}"`}
+      >
+        <span class="combat-settings-toggle-chip-box" aria-hidden="true"></span>
+        <span class="combat-settings-toggle-chip-content">
+          <span class="combat-settings-toggle-chip-title">
+            ${escapeHtml(option.label)}
+            ${option.disabled ? '<span class="combat-settings-toggle-chip-disabled-tag">未开放</span>' : ''}
+          </span>
+          <span class="combat-settings-toggle-chip-copy">${escapeHtml(option.summary)}</span>
+        </span>
+      </button>
+    `;
+  }
+
+  /** 仅在战斗设置弹层已打开且内容变化时重绘。 */
+  private renderCombatSettingsModalIfOpen(): void {
+    if (!detailModalHost.isOpenFor(ActionPanel.COMBAT_SETTINGS_MODAL_OWNER)) {
       return;
     }
-    this.combatSettingsActiveTab = tab;
-    if (tab !== 'auto_pills') {
-      this.autoUsePillSubview = 'main';
+    const nextRevision = this.buildCombatSettingsExternalRevision();
+    if (this.combatSettingsExternalRevision === nextRevision) {
+      return;
     }
-    this.renderAutoUsePillModal();
+    this.renderCombatSettingsModal();
   }
 
-/** toggleCombatTargetingRule：执行对应的业务逻辑。 */
-  private toggleCombatTargetingRule(scope: CombatTargetingRuleScope, key: CombatTargetingRuleKey): void {
-/** draft：定义该变量以承载业务值。 */
-    const draft = this.syncCombatTargetingDraft();
-/** current：定义该变量以承载业务值。 */
-    const current = new Set(draft[scope]);
-    if (current.has(key)) {
-      current.delete(key);
-    } else {
-      current.add(key);
+  private renderSectManagementModalIfOpen(): void {
+    if (!detailModalHost.isOpenFor(ActionPanel.SECT_MANAGEMENT_MODAL_OWNER)) {
+      return;
     }
-    this.combatTargetingDraft = this.normalizeCombatTargetingRulesLocal({
-      ...draft,
-      [scope]: [...current],
+    const action = this.currentActions.find((entry) => entry.id === 'sect:manage');
+    if (!action) {
+      detailModalHost.close(ActionPanel.SECT_MANAGEMENT_MODAL_OWNER);
+      return;
+    }
+    const summary = this.resolveSectManagementSummary(action);
+    const nextRevision = this.buildSectManagementRevision(summary);
+    if (this.sectManagementExternalRevision === nextRevision) {
+      return;
+    }
+    this.renderSectManagementModal();
+  }
+
+  private openSectManagementModal(): void {
+    this.sectManagementTab = 'overview';
+    this.sectManagementExternalRevision = '';
+    this.renderSectManagementModal();
+  }
+
+  private renderSectManagementModal(): void {
+    const action = this.currentActions.find((entry) => entry.id === 'sect:manage');
+    const summary = this.resolveSectManagementSummary(action);
+    this.sectManagementExternalRevision = this.buildSectManagementRevision(summary);
+    detailModalHost.open({
+      ownerId: ActionPanel.SECT_MANAGEMENT_MODAL_OWNER,
+      variantClass: 'detail-modal--sect-management',
+      title: '宗门管理',
+      subtitle: `${summary.name} · 印记 ${summary.mark}`,
+      renderBody: (body) => {
+        body.replaceChildren(createFragmentFromHtml(`
+          <div class="sect-manage-shell">
+            <aside class="sect-manage-sidebar" aria-label="宗门管理页签">
+              <div class="sect-manage-sidebar-title">管理</div>
+              <div class="action-skill-subtabs sect-manage-subtabs" role="tablist" aria-label="宗门管理">
+                ${this.renderSectManagementTabButton('overview', '基础信息')}
+                ${this.renderSectManagementTabButton('members', '宗门成员')}
+                ${this.renderSectManagementTabButton('roles', '宗门职位')}
+                ${this.renderSectManagementTabButton('manage', '管理事务')}
+                ${this.renderSectManagementTabButton('guardian', '宗门大阵')}
+                ${this.renderSectManagementTabButton('domain', '宗门地脉')}
+              </div>
+            </aside>
+            <main class="sect-manage-main">
+              <div class="skill-manage-summary sect-manage-summary">
+                <span>${escapeHtml(summary.name)}</span>
+                <span>印记 ${escapeHtml(summary.mark)}</span>
+                <span>地域 ${escapeHtml(summary.domainLabel)}</span>
+                <span>${escapeHtml(summary.sectIdLabel)}</span>
+              </div>
+              <div class="sect-manage-content">
+                ${this.renderSectManagementTabPanel(summary)}
+              </div>
+            </main>
+          </div>
+        `));
+      },
+      onAfterRender: (body) => {
+        body.querySelectorAll<HTMLElement>('[data-sect-manage-tab]').forEach((button) => {
+          button.addEventListener('click', () => {
+            const tab = button.dataset.sectManageTab as SectManagementTab | undefined;
+            if (!tab || tab === this.sectManagementTab) return;
+            this.sectManagementTab = tab;
+            this.renderSectManagementModal();
+          });
+        });
+        body.querySelectorAll<HTMLElement>('[data-sect-action]').forEach((button) => {
+          button.addEventListener('click', () => {
+            const actionId = button.dataset.sectAction;
+            if (!actionId) return;
+            if (actionId === 'sect:dissolve' && !window.confirm('确认解散宗门？该操作会移除所有成员关系。')) return;
+            this.onAction?.(actionId, false, undefined, undefined, button.textContent?.trim() || actionId);
+          });
+        });
+        body.querySelectorAll<HTMLSelectElement>('[data-sect-member-role-select]').forEach((select) => {
+          select.addEventListener('change', () => {
+            const playerId = select.dataset.sectMemberRoleSelect;
+            const roleId = select.value;
+            if (!playerId || !roleId) return;
+            this.onAction?.(`sect:member:role:${encodeURIComponent(playerId)}:${roleId}`, false, undefined, undefined, '修改职位');
+          });
+        });
+        body.querySelector<HTMLElement>('[data-sect-guardian-inject]')?.addEventListener('click', () => {
+          const stones = this.readSectGuardianInjectValue(body);
+          this.onAction?.(`sect:guardian:inject:${stones}`, false, undefined, undefined, '灌注灵力');
+        });
+        const syncGuardianInjectPreview = () => this.syncSectGuardianInjectPreview(body);
+        body.querySelector<HTMLInputElement>('[data-sect-guardian-inject-input="stones"]')?.addEventListener('input', syncGuardianInjectPreview);
+        syncGuardianInjectPreview();
+      },
     });
-    this.renderAutoUsePillModal();
   }
 
-/** openSkillPresetModal：执行对应的业务逻辑。 */
+  private renderSectManagementTabButton(tab: SectManagementTab, label: string): string {
+    const active = this.sectManagementTab === tab;
+    return `<button class="action-skill-subtab-btn sect-manage-tab-btn ${active ? 'active' : ''}" data-sect-manage-tab="${tab}" type="button" role="tab" aria-selected="${active ? 'true' : 'false'}">${label}</button>`;
+  }
+
+  private renderSectManagementTabPanel(summary: SectManagementSummary): string {
+    switch (this.sectManagementTab) {
+      case 'overview':
+        return this.renderSectManagementOverviewPanel(summary);
+      case 'members':
+        return this.renderSectManagementMembersPanel(summary);
+      case 'roles':
+        return this.renderSectManagementRolesPanel(summary);
+      case 'manage':
+        return this.renderSectManagementManagePanel(summary);
+      case 'guardian':
+        return `
+          <div class="panel-section">
+            <div class="panel-section-head">
+              <div class="panel-section-title">护宗大阵</div>
+              <div class="action-section-actions">
+                <button class="small-btn" data-sect-action="sect:guardian:toggle" type="button"${summary.data.canManageGuardian ? '' : ' disabled'}>启闭大阵</button>
+              </div>
+            </div>
+            <div class="skill-manage-summary">
+              <span>状态 ${escapeHtml(summary.guardianStatusLabel)}</span>
+              <span>当前灵力 ${escapeHtml(summary.guardianAuraLabel)}</span>
+              <span>阵眼位于宗门核心</span>
+              <span>护持山门</span>
+            </div>
+            <div class="formation-config-grid">
+              <label class="formation-config-field ui-detail-field">
+                <strong>灵石注入</strong>
+                <input class="ui-input formation-config-input" data-sect-guardian-inject-input="stones" type="number" min="0" step="1" value="1000">
+              </label>
+              <div class="formation-cost-card ui-detail-field" data-sect-guardian-inject-cost>
+                <strong>灵力消耗</strong>
+                <output data-sect-guardian-inject-qi-cost>100,000</output>
+              </div>
+              <button class="small-btn" data-sect-guardian-inject data-sect-guardian-allowed="${summary.data.canManageGuardian ? '1' : '0'}" type="button"${summary.data.canManageGuardian ? '' : ' disabled'}>灌注灵力</button>
+            </div>
+            <div class="action-section-hint">持续性阵法不通过地图阵眼上的两个快捷按钮维护；注入时按灵石数量自动计算灵力消耗和阵法灵力补充，阵眼受损后大阵会停摆但不会从宗门真源中消失。</div>
+          </div>`;
+      case 'domain':
+      default:
+        return `
+          <div class="panel-section">
+            <div class="panel-section-head">
+              <div class="panel-section-title">宗门地脉</div>
+            </div>
+            <div class="skill-manage-summary">
+              <span>${escapeHtml(summary.name)}</span>
+              <span>印记 ${escapeHtml(summary.mark)}</span>
+              <span>显化地域 ${escapeHtml(summary.domainLabel)}</span>
+            </div>
+            <div class="action-section-hint">宗门地图初始为 3x3 空地，边界石头被挖穿后只沿对应方向继续显化；石头耐久按距核心圈层翻倍，核心周围自带固脉。</div>
+          </div>`;
+    }
+  }
+
+  private readSectGuardianInjectValue(root: HTMLElement): number {
+    const input = root.querySelector<HTMLInputElement>('[data-sect-guardian-inject-input="stones"]');
+    const value = Math.trunc(Number(input?.value ?? 0));
+    return Number.isFinite(value) ? Math.max(0, value) : 0;
+  }
+
+  private syncSectGuardianInjectPreview(root: HTMLElement): void {
+    const stones = this.readSectGuardianInjectValue(root);
+    const qiCost = stones * 100;
+    const output = root.querySelector<HTMLOutputElement>('[data-sect-guardian-inject-qi-cost]');
+    if (output) {
+      output.value = formatDisplayNumber(qiCost);
+      output.textContent = formatDisplayNumber(qiCost);
+    }
+    const button = root.querySelector<HTMLButtonElement>('[data-sect-guardian-inject]');
+    if (button) {
+      const allowed = button.dataset.sectGuardianAllowed !== '0';
+      button.disabled = stones <= 0 || !allowed;
+      button.textContent = allowed ? (stones > 0 ? '灌注灵力' : '投入灵石') : '无权';
+    }
+  }
+
+  private renderSectManagementOverviewPanel(summary: SectManagementSummary): string {
+    return `
+      <div class="sect-detail-pane">
+        <div class="sect-detail-card sect-detail-card--hero">
+          <div class="sect-detail-card-main">
+            <div class="sect-detail-name">${escapeHtml(summary.name)}</div>
+            <div class="sect-detail-tag-row">
+              <span class="sect-detail-tag">Lv.1</span>
+              <span class="sect-detail-tag">宗主 ${escapeHtml(summary.leaderName)}</span>
+              <span class="sect-detail-tag">成员 ${escapeHtml(summary.memberCountLabel)}</span>
+              <span class="sect-detail-tag">印记 ${escapeHtml(summary.mark)}</span>
+            </div>
+            <div class="sect-detail-notice">${escapeHtml(summary.notice)}</div>
+          </div>
+          <div class="sect-detail-card-actions">
+            <button class="small-btn ghost" data-sect-manage-tab="manage" type="button">管理事务</button>
+          </div>
+        </div>
+        <div class="sect-detail-stat-grid">
+          ${this.renderSectStatCard('宗门印记', summary.mark)}
+          ${this.renderSectStatCard('显化地域', summary.domainLabel)}
+          ${this.renderSectStatCard('宗门成员', summary.memberCountLabel)}
+          ${this.renderSectStatCard('宗主', summary.leaderName)}
+        </div>
+        <div class="sect-detail-action-grid">
+          <button class="sect-detail-action-card" data-sect-manage-tab="members" type="button">
+            <span class="sect-detail-action-title">成员名册</span>
+          </button>
+          <button class="sect-detail-action-card" data-sect-manage-tab="roles" type="button">
+            <span class="sect-detail-action-title">职位权限</span>
+          </button>
+          <button class="sect-detail-action-card" data-sect-manage-tab="guardian" type="button">
+            <span class="sect-detail-action-title">护宗大阵</span>
+          </button>
+          <button class="sect-detail-action-card" data-sect-manage-tab="domain" type="button">
+            <span class="sect-detail-action-title">宗门地脉</span>
+          </button>
+        </div>
+      </div>
+    `;
+  }
+
+  private renderSectManagementMembersPanel(summary: SectManagementSummary): string {
+    const assignableRoles = summary.data.roles.filter((role) => role.assignable);
+    const rows = summary.data.members.map((member) => this.renderSectMemberRow(summary, member, assignableRoles)).join('');
+    return `
+      <div class="sect-detail-pane">
+        <div class="sect-pane-head">
+          <div>
+            <div class="panel-section-title">宗门成员</div>
+          </div>
+          <div class="sect-detail-count">${escapeHtml(summary.memberCountLabel)}</div>
+        </div>
+        <div class="sect-member-table">
+          <div class="sect-member-table-head">
+            <span>成员</span>
+            <span>职位</span>
+            <span>境界</span>
+            <span>贡献</span>
+            <span>周贡献</span>
+            <span>状态</span>
+          </div>
+          ${rows}
+        </div>
+        ${summary.data.members.length <= 1 ? '<div class="sect-empty-note">暂无更多成员。</div>' : ''}
+      </div>
+    `;
+  }
+
+  private renderSectManagementRolesPanel(summary: SectManagementSummary): string {
+    const cards = summary.data.roles.map((role) => this.renderSectRolePermissionCard(summary, role)).join('');
+    return `
+      <div class="sect-detail-pane">
+        <div class="sect-pane-head">
+          <div>
+            <div class="panel-section-title">宗门职位</div>
+          </div>
+        </div>
+        <div class="sect-role-grid">
+          ${cards}
+        </div>
+        <div class="sect-current-role">只有宗主可以编辑职位权限；太上长老暂时无法任命。</div>
+      </div>
+    `;
+  }
+
+  private renderSectManagementManagePanel(summary: SectManagementSummary): string {
+    const transferTargets = summary.data.members.filter((member) => !member.self && !member.leader);
+    const transferButtons = transferTargets.length > 0
+      ? transferTargets.map((member) => `<button class="small-btn ghost" data-sect-action="sect:transfer:${escapeHtml(encodeURIComponent(member.playerId))}" type="button"${summary.data.canTransfer ? '' : ' disabled'}>转让给 ${escapeHtml(member.name)}</button>`).join('')
+      : '<div class="sect-empty-note">暂无可转让成员。</div>';
+    return `
+      <div class="sect-detail-pane">
+        <div class="sect-pane-head">
+          <div>
+            <div class="panel-section-title">管理事务</div>
+          </div>
+        </div>
+        <div class="sect-manage-card-grid">
+          <div class="sect-manage-card">
+            <div class="sect-manage-card-title">护宗大阵</div>
+            <button class="small-btn" data-sect-manage-tab="guardian" type="button">前往大阵</button>
+          </div>
+          <div class="sect-manage-card">
+            <div class="sect-manage-card-title">宗门地脉</div>
+            <button class="small-btn ghost" data-sect-manage-tab="domain" type="button">查看地脉</button>
+          </div>
+          <div class="sect-manage-card">
+            <div class="sect-manage-card-title">宗门转让</div>
+            <div class="action-section-actions">${transferButtons}</div>
+          </div>
+          <div class="sect-manage-card">
+            <div class="sect-manage-card-title">宗门解散</div>
+            <button class="small-btn ghost" data-sect-action="sect:dissolve" type="button"${summary.data.canDissolve ? '' : ' disabled'}>解散宗门</button>
+          </div>
+        </div>
+      </div>
+    `;
+  }
+
+  private renderSectMemberRow(summary: SectManagementSummary, member: SectManagementMember, assignableRoles: SectManagementRole[]): string {
+    const canEditRole = summary.data.canChangeRoles && !member.leader;
+    const roleControl = canEditRole
+      ? `<select class="ui-input formation-config-input" data-sect-member-role-select="${escapeHtml(member.playerId)}">
+          ${assignableRoles.map((role) => `<option value="${escapeHtml(role.id)}"${role.id === member.roleId ? ' selected' : ''}>${escapeHtml(role.label)}</option>`).join('')}
+        </select>`
+      : `<span class="sect-detail-tag ${member.leader ? 'strong' : ''}">${escapeHtml(member.roleLabel)}</span>`;
+    const canRemove = summary.data.canRemoveMembers && !member.leader && !member.self;
+    return `
+      <div class="sect-member-table-row">
+        <span class="sect-member-name-cell">
+          <span class="sect-member-name-main">${escapeHtml(member.name)}</span>
+          <span class="sect-member-name-sub">${member.self ? '当前角色' : escapeHtml(member.playerId)}</span>
+        </span>
+        <span>${roleControl}</span>
+        <span>${member.self ? escapeHtml(summary.realmLabel) : '未知'}</span>
+        <span>0</span>
+        <span>0</span>
+        <span>
+          ${member.self ? '<span class="sect-online-text">在线</span>' : '<span class="sect-detail-tag">名册</span>'}
+          <button class="small-btn ghost" data-sect-action="sect:member:remove:${escapeHtml(encodeURIComponent(member.playerId))}" type="button"${canRemove ? '' : ' disabled'}>移除</button>
+        </span>
+      </div>
+    `;
+  }
+
+  private renderSectRolePermissionCard(summary: SectManagementSummary, role: SectManagementRole): string {
+    const permissions = summary.data.permissions.map((permission) => {
+      const checked = summary.data.rolePermissions[role.id]?.[permission.id] === true;
+      const disabled = !summary.data.canEditPermissions || role.id === 'leader';
+      return `
+        <button class="skill-manage-toggle-chip ${checked ? 'active' : ''}" data-sect-action="sect:permission:toggle:${escapeHtml(role.id)}:${escapeHtml(permission.id)}" type="button"${disabled ? ' disabled' : ''}>
+          ${escapeHtml(permission.label)}
+        </button>
+      `;
+    }).join('');
+    return `
+      <div class="sect-role-card ${role.assignable ? '' : 'is-muted'}">
+        <div class="sect-role-card-head">
+          <div class="sect-role-card-title">${escapeHtml(role.label)}</div>
+          <span class="sect-detail-tag ${role.assignable ? 'strong' : ''}">${role.assignable ? '可任命' : '不可任命'}</span>
+        </div>
+        <div class="sect-role-permissions">${permissions}</div>
+      </div>
+    `;
+  }
+
+  private renderSectStatCard(label: string, value: string): string {
+    return `
+      <div class="sect-stat-card">
+        <div class="sect-stat-card-label">${escapeHtml(label)}</div>
+        <div class="sect-stat-card-value">${escapeHtml(value)}</div>
+      </div>
+    `;
+  }
+
+  private renderSectRoleCard(title: string, badge: string, permissions: string[], disabled: boolean): string {
+    return `
+      <div class="sect-role-card ${disabled ? 'is-muted' : ''}">
+        <div class="sect-role-card-head">
+          <div class="sect-role-card-title">${escapeHtml(title)}</div>
+          <span class="sect-detail-tag ${disabled ? '' : 'strong'}">${escapeHtml(badge)}</span>
+        </div>
+        <div class="sect-role-permissions">
+          ${permissions.map((item) => `<span>${escapeHtml(item)}</span>`).join('')}
+        </div>
+      </div>
+    `;
+  }
+
+  private resolveSectManagementSummary(action?: ActionDef): SectManagementSummary {
+    const rawDesc = action?.desc ?? '';
+    const data = parseSectManagementData(rawDesc, this.previewPlayer ?? null);
+    const desc = stripSectManagementData(rawDesc);
+    const name = desc.split('·')[0]?.trim() || action?.name || '本宗';
+    const mark = /印记\s*([^·\s]+)/.exec(desc)?.[1] ?? '宗';
+    const domainLabel = /地域\s*([^·\s。]+)/.exec(desc)?.[1] ?? '未知';
+    const guardianStatusLabel = /大阵\s*([^·\s。]+)/.exec(desc)?.[1] ?? '未知';
+    const guardianAuraLabel = /灵力\s*([^·\s。]+)/.exec(desc)?.[1] ?? '0';
+    const sectIdLabel = this.previewPlayer?.sectId ? `宗门 ${this.previewPlayer.sectId}` : '宗门已绑定';
+    const leaderName = data.members.find((member) => member.leader)?.name || this.previewPlayer?.displayName || this.previewPlayer?.name || this.previewPlayer?.id || '当前宗主';
+    const realmLabel = this.previewPlayer?.realm?.displayName || this.previewPlayer?.realmName || this.previewPlayer?.realm?.name || '未知境界';
+    const memberCountLabel = String(data.members.length || 1);
+    const notice = `${name} 已开宗立派。`;
+    return { name, mark, domainLabel, guardianStatusLabel, guardianAuraLabel, sectIdLabel, leaderName, realmLabel, memberCountLabel, notice, data };
+  }
+
+  private buildSectManagementRevision(summary: SectManagementSummary): string {
+    return `${this.sectManagementTab}|${summary.name}|${summary.mark}|${summary.domainLabel}|${summary.guardianStatusLabel}|${summary.guardianAuraLabel}|${summary.sectIdLabel}|${summary.leaderName}|${summary.realmLabel}|${summary.memberCountLabel}|${JSON.stringify(summary.data)}`;
+  }
+
+  /** 仅在索敌方案弹层已打开且内容变化时重绘。 */
+  private renderTargetingPlanModalIfOpen(): void {
+    if (!detailModalHost.isOpenFor(ActionPanel.TARGETING_PLAN_MODAL_OWNER)) {
+      return;
+    }
+    const nextRevision = this.getAutoBattleTargetingMode();
+    if (this.targetingPlanExternalRevision === nextRevision) {
+      return;
+    }
+    this.renderTargetingPlanModal();
+  }
+
+  /** 渲染战斗设置弹层。 */
+  private renderCombatSettingsModal(): void {
+    this.autoUsePillTooltip.hide(true);
+    this.autoUsePillTooltipNode = null;
+    const pillDraft = this.syncAutoUsePillDraft();
+    const entries = this.getAutoUsePillViewEntries();
+    const currentConfig = pillDraft[this.autoUsePillSelectedIndex] ?? null;
+    const currentEntry = currentConfig
+      ? entries.find((entry) => entry.itemId === currentConfig.itemId) ?? null
+      : null;
+    const slotMarkup = Array.from({ length: ActionPanel.AUTO_USE_PILL_SLOT_LIMIT }, (_, index) => {
+      const slotConfig = pillDraft[index] ?? null;
+      const slotEntry = slotConfig
+        ? entries.find((entry) => entry.itemId === slotConfig.itemId) ?? null
+        : null;
+      const conditionSummary = slotConfig
+        ? this.renderAutoUsePillConditionSummary(slotConfig.conditions)
+        : '未设置药品';
+      return `
+        <div class="auto-pill-slot-unit">
+          <button
+            class="auto-pill-slot ${index === this.autoUsePillSelectedIndex ? 'active' : ''} ${slotEntry ? 'filled' : 'empty'}"
+            data-auto-pill-slot="${index}"
+            ${slotEntry ? `data-auto-pill-slot-item-id="${escapeHtml(slotEntry.itemId)}"` : ''}
+            type="button"
+          >
+            ${slotEntry
+              ? `
+                <span class="auto-pill-slot-name">${escapeHtml(slotEntry.name)}</span>
+                <span class="auto-pill-slot-count">${slotEntry.count > 0 ? slotEntry.count : '-'}</span>
+              `
+              : `
+                <span class="auto-pill-slot-empty">+</span>
+                <span class="auto-pill-slot-label">空槽</span>
+              `}
+          </button>
+          <div class="auto-pill-slot-summary">${escapeHtml(conditionSummary)}</div>
+          <button
+            class="small-btn ghost auto-pill-slot-condition-btn"
+            data-auto-pill-open-slot-conditions="${index}"
+            type="button"
+            ${slotEntry ? '' : 'disabled'}
+          >条件</button>
+        </div>
+      `;
+    }).join('');
+    const pickerEntries = this.getAutoUsePillPickerEntries();
+    const pickerBody = pickerEntries.length === 0
+      ? '<div class="empty-hint">当前没有可选的自动服用丹药。</div>'
+      : `
+        <div class="auto-pill-picker-grid">
+          ${pickerEntries.map((entry) => `
+            <button
+              class="auto-pill-picker-card ${currentEntry?.itemId === entry.itemId ? 'selected' : ''}"
+              data-auto-pill-pick="${escapeHtml(entry.itemId)}"
+              type="button"
+            >
+              <span class="auto-pill-picker-title">${escapeHtml(entry.name)}</span>
+              <span class="auto-pill-picker-count">${entry.count > 0 ? entry.count : '-'}</span>
+              <span class="auto-pill-picker-meta">${escapeHtml(this.renderAutoUsePillEffectSummary(entry))}</span>
+            </button>
+          `).join('')}
+        </div>
+      `;
+    const conditionBody = currentEntry
+      ? `
+        <div class="auto-pill-condition-editor">
+          <div class="auto-pill-condition-summary-card">
+            <div class="auto-pill-card-title-row">
+              <div class="auto-pill-card-title">${escapeHtml(currentEntry.name)}</div>
+              <span class="auto-pill-card-count">${currentEntry.count > 0 ? currentEntry.count : '-'}</span>
+            </div>
+            <div class="auto-pill-card-meta">${escapeHtml(this.renderAutoUsePillEffectSummary(currentEntry))}</div>
+            <div class="auto-pill-config-summary">${escapeHtml(this.renderAutoUsePillConditionSummary(currentConfig?.conditions ?? []))}</div>
+          </div>
+          <div class="auto-pill-condition-panel auto-pill-condition-panel--standalone">
+            <div class="auto-pill-condition-head">
+              <div class="skill-preset-card-title">触发条件</div>
+              <div class="skill-preset-list-meta">满足任一条件时就会尝试服用。</div>
+            </div>
+            ${(currentConfig?.conditions.length ?? 0) > 0
+              ? `<div class="auto-pill-condition-list">
+                  ${currentConfig?.conditions.map((condition, conditionIndex) => this.renderAutoUsePillConditionRow(currentEntry.itemId, condition, conditionIndex)).join('')}
+                </div>`
+              : '<div class="empty-hint">还没有设置任何触发条件。</div>'}
+            <div class="auto-pill-condition-actions">
+              <button class="small-btn ghost" data-auto-pill-add-condition="${escapeHtml(currentEntry.itemId)}" data-condition-kind="hp" type="button">添加生命条件</button>
+              <button class="small-btn ghost" data-auto-pill-add-condition="${escapeHtml(currentEntry.itemId)}" data-condition-kind="qi" type="button">添加灵力条件</button>
+              ${(currentEntry.consumeBuffs?.length ?? 0) > 0
+                ? `<button class="small-btn ghost" data-auto-pill-add-condition="${escapeHtml(currentEntry.itemId)}" data-condition-kind="buff_missing" type="button">添加效果未生效条件</button>`
+                : ''}
+            </div>
+          </div>
+        </div>
+      `
+      : '<div class="empty-hint">当前槽位还没有选择药品，无法设置条件。</div>';
+    const autoPillBody = `
+      <div class="skill-preset-card auto-pill-hero-card">
+        <div class="skill-preset-card-title">自动丹药槽</div>
+        <div class="skill-preset-card-copy">点槽位会在上面弹出独立药品选择小窗，点槽位下方“条件”会弹出独立条件设置小窗。改动会与目标选择一起在“应用”时提交。</div>
+      </div>
+      <div class="auto-pill-slot-grid">${slotMarkup}</div>
+    `;
+    const targetingBody = this.renderCombatTargetingSection();
+    const overviewBody = `
+      <div class="auto-pill-shell">
+        <div class="auto-pill-topbar">
+          <div class="skill-preset-card auto-pill-hero-card combat-settings-hero-card">
+            <div class="skill-preset-card-title">战斗设置</div>
+            <div class="skill-preset-card-copy">把战斗补给和目标判定收在同一个面板里管理。所有改动都只在点击“应用”后才会提交到服务端。</div>
+          </div>
+          <div class="auto-pill-toolbar">
+            <button class="small-btn" data-combat-settings-apply type="button">应用</button>
+            <button class="small-btn ghost" data-combat-settings-cancel type="button">取消</button>
+          </div>
+        </div>
+        <div class="action-skill-subtabs combat-settings-tabs">
+          <button class="action-skill-subtab-btn ${this.combatSettingsActiveTab === 'auto_pills' ? 'active' : ''}" data-combat-settings-tab="auto_pills" type="button">备丹</button>
+          <button class="action-skill-subtab-btn ${this.combatSettingsActiveTab === 'targeting' ? 'active' : ''}" data-combat-settings-tab="targeting" type="button">目标选择</button>
+        </div>
+        <div class="combat-settings-panel-body">
+          ${this.combatSettingsActiveTab === 'auto_pills' ? autoPillBody : targetingBody}
+        </div>
+        ${this.combatSettingsActiveTab === 'auto_pills' && this.autoUsePillSubview === 'picker'
+          ? `
+            <div class="auto-pill-subdialog-backdrop">
+              <div class="auto-pill-subdialog auto-pill-subdialog--picker">
+                <div class="auto-pill-subdialog-head">
+                  <div>
+                    <div class="skill-preset-card-title">选择药品</div>
+                    <div class="skill-preset-list-meta">hover 可查看和背包一致的物品详情，点击后直接放入当前槽位。</div>
+                  </div>
+                  <div class="auto-pill-toolbar">
+                    ${currentConfig ? '<button class="small-btn ghost" data-auto-pill-clear-slot type="button">清空槽位</button>' : ''}
+                    <button class="small-btn ghost" data-auto-pill-back type="button">关闭</button>
+                  </div>
+                </div>
+                ${pickerBody}
+              </div>
+            </div>
+          `
+          : ''}
+        ${this.combatSettingsActiveTab === 'auto_pills' && this.autoUsePillSubview === 'conditions'
+          ? `
+            <div class="auto-pill-subdialog-backdrop">
+              <div class="auto-pill-subdialog auto-pill-subdialog--condition">
+                <div class="auto-pill-subdialog-head">
+                  <div>
+                    <div class="skill-preset-card-title">条件设置</div>
+                    <div class="skill-preset-list-meta">${escapeHtml(currentEntry?.name ?? '当前槽位')} 的自动条件</div>
+                  </div>
+                  <div class="auto-pill-toolbar">
+                    <button class="small-btn ghost" data-auto-pill-back type="button">关闭</button>
+                  </div>
+                </div>
+                ${conditionBody}
+              </div>
+            </div>
+          `
+          : ''}
+      </div>
+    `;
+    detailModalHost.open({
+      ownerId: ActionPanel.COMBAT_SETTINGS_MODAL_OWNER,
+      variantClass: 'detail-modal--combat-settings',
+      title: '战备',
+      subtitle: `备丹 ${pillDraft.length}种 · ${this.combatSettingsActiveTab === 'auto_pills' ? '备丹' : '目标选择'}`,
+      bodyHtml: overviewBody,
+      onRequestClose: () => this.confirmDiscardCombatSettingsChanges(),
+      onClose: () => this.discardCombatSettingsDraft(),
+      onAfterRender: (body) => this.bindCombatSettingsEvents(body),
+    });
+    this.combatSettingsExternalRevision = this.buildCombatSettingsExternalRevision();
+  }
+
+  /** 渲染索敌方案弹层。 */
+  private renderTargetingPlanModal(): void {
+    const activeMode = this.getAutoBattleTargetingMode();
+    const activeOption = AUTO_BATTLE_TARGETING_MODE_OPTIONS.find((entry) => entry.mode === activeMode)
+      ?? AUTO_BATTLE_TARGETING_MODE_OPTIONS[0]!;
+
+    detailModalHost.open({
+      ownerId: ActionPanel.TARGETING_PLAN_MODAL_OWNER,
+      variantClass: 'detail-modal--targeting-plan',
+      title: '索敌方案',
+      subtitle: `当前 ${activeOption.label}`,
+      bodyHtml: `
+        <div class="targeting-plan-shell">
+          <div class="targeting-plan-hero">
+            <div class="targeting-plan-card">
+              <div class="skill-preset-card-title">当前方案</div>
+              <div class="targeting-plan-current">${escapeHtml(activeOption.label)}</div>
+              <div class="skill-preset-card-copy">${escapeHtml(activeOption.summary)}</div>
+            </div>
+          </div>
+          <div class="targeting-plan-card targeting-plan-options">
+            <div class="skill-preset-section-head">
+              <div class="skill-preset-card-title">方案切换</div>
+              <div class="skill-preset-list-meta">点击后立即切换。</div>
+            </div>
+            <div class="targeting-plan-grid">
+              ${AUTO_BATTLE_TARGETING_MODE_OPTIONS.map((entry) => `
+                <button
+                  class="targeting-plan-option ${entry.mode === activeMode ? 'active' : ''}"
+                  data-targeting-plan-mode="${escapeHtml(entry.mode)}"
+                  type="button"
+                >
+                  <span class="targeting-plan-option-title">${escapeHtml(entry.label)}</span>
+                  <span class="targeting-plan-option-copy">${escapeHtml(entry.summary)}</span>
+                </button>
+              `).join('')}
+            </div>
+          </div>
+        </div>
+      `,
+      onAfterRender: (body) => {
+        this.bindTargetingPlanEvents(body);
+      },
+    });
+    this.targetingPlanExternalRevision = activeMode;
+  }
+
+  /** 战斗设置关闭前确认。 */
+  private confirmDiscardCombatSettingsChanges(): boolean {
+    if (this.areAutoUsePillConfigsEqual(this.autoUsePillDraft, this.getAutoUsePills())
+      && this.areCombatTargetingRulesEqual(this.combatTargetingDraft, this.getCombatTargetingRules())) {
+      return true;
+    }
+    return window.confirm('战斗设置里有未应用的改动，关闭后会丢失这些改动。确定关闭吗？');
+  }
+
+  /** 渲染战斗设置状态提示。 */
+  private renderCombatSettingsStatus(): string {
+    if (!this.combatSettingsStatus) {
+      return '';
+    }
+    return `<div class="skill-preset-status ui-status-text ${this.combatSettingsStatus.tone === 'error' ? 'error' : this.combatSettingsStatus.tone === 'success' ? 'success' : ''}">${escapeHtml(this.combatSettingsStatus.text)}</div>`;
+  }
+
+  /** 清理战斗设置里的临时关闭确认提示。 */
+  private resetCombatSettingsCloseConfirm(): void {
+    if (this.combatSettingsStatus?.tone === 'info') {
+      this.combatSettingsStatus = null;
+    }
+  }
+
+  /** 丢弃战斗设置草稿。 */
+  private discardCombatSettingsDraft(): void {
+    this.autoUsePillDraft = null;
+    this.combatTargetingDraft = null;
+    this.combatSettingsStatus = null;
+    this.combatSettingsActiveTab = 'auto_pills';
+    this.autoUsePillSelectedIndex = 0;
+    this.autoUsePillSubview = 'main';
+    this.autoUsePillTooltipNode = null;
+    this.autoUsePillTooltip.hide(true);
+    this.combatSettingsExternalRevision = null;
+  }
+
+  /** 请求关闭战斗设置弹层。 */
+  private requestCombatSettingsClose(): void {
+    if (!this.confirmDiscardCombatSettingsChanges()) {
+      return;
+    }
+    this.discardCombatSettingsDraft();
+    detailModalHost.close(ActionPanel.COMBAT_SETTINGS_MODAL_OWNER);
+  }
+
+  /** 绑定战斗设置交互。 */
+  private bindCombatSettingsEvents(root: HTMLElement): void {
+    root.querySelectorAll<HTMLElement>('[data-combat-settings-tab]').forEach((button) => {
+      button.addEventListener('click', () => {
+        const tab = button.dataset.combatSettingsTab;
+        this.combatSettingsActiveTab = tab === 'targeting' ? 'targeting' : 'auto_pills';
+        this.renderCombatSettingsModal();
+      });
+    });
+    root.querySelectorAll<HTMLElement>('[data-combat-settings-apply]').forEach((button) => {
+      button.addEventListener('click', () => this.applyCombatSettingsChanges());
+    });
+    root.querySelectorAll<HTMLElement>('[data-combat-settings-cancel]').forEach((button) => {
+      button.addEventListener('click', () => {
+        this.requestCombatSettingsClose();
+      });
+    });
+    root.querySelectorAll<HTMLElement>('[data-auto-pill-slot]').forEach((button) => {
+      button.addEventListener('click', () => {
+        const slotIndex = Number(button.dataset.autoPillSlot);
+        if (!Number.isInteger(slotIndex)) {
+          return;
+        }
+        this.openAutoUsePillPicker(slotIndex);
+      });
+    });
+    root.querySelectorAll<HTMLElement>('[data-auto-pill-open-slot-conditions]').forEach((button) => {
+      button.addEventListener('click', () => {
+        const slotIndex = Number(button.dataset.autoPillOpenSlotConditions);
+        if (!Number.isInteger(slotIndex)) {
+          return;
+        }
+        this.openAutoUsePillConditionSettings(slotIndex);
+      });
+    });
+    root.querySelectorAll<HTMLElement>('[data-auto-pill-back]').forEach((button) => {
+      button.addEventListener('click', () => {
+        this.closeAutoUsePillSubview();
+      });
+    });
+    root.querySelectorAll<HTMLElement>('[data-auto-pill-pick]').forEach((button) => {
+      button.addEventListener('click', () => {
+        const itemId = button.dataset.autoPillPick;
+        if (!itemId) {
+          return;
+        }
+        this.assignAutoUsePillToSelectedSlot(itemId);
+      });
+    });
+    root.querySelectorAll<HTMLElement>('[data-auto-pill-clear-slot]').forEach((button) => {
+      button.addEventListener('click', () => {
+        this.clearSelectedAutoUsePillSlot();
+      });
+    });
+    root.querySelectorAll<HTMLElement>('[data-auto-pill-add-condition]').forEach((button) => {
+      button.addEventListener('click', () => {
+        const itemId = button.dataset.autoPillAddCondition;
+        const kind = button.dataset.conditionKind as 'hp' | 'qi' | 'buff_missing' | undefined;
+        if (!itemId || !kind) {
+          return;
+        }
+        this.addAutoUsePillCondition(itemId, kind);
+      });
+    });
+    root.querySelectorAll<HTMLSelectElement>('[data-auto-pill-condition-resource]').forEach((input) => {
+      input.addEventListener('change', () => {
+        const itemId = input.dataset.autoPillConditionResource;
+        const conditionIndex = Number(input.dataset.conditionIndex);
+        const resource = input.value === 'qi' ? 'qi' : 'hp';
+        if (!itemId || !Number.isInteger(conditionIndex)) {
+          return;
+        }
+        this.updateAutoUsePillCondition(itemId, conditionIndex, (condition) => (
+          condition.type === 'resource_ratio'
+            ? { ...condition, resource }
+            : condition
+        ));
+      });
+    });
+    root.querySelectorAll<HTMLSelectElement>('[data-auto-pill-condition-op]').forEach((input) => {
+      input.addEventListener('change', () => {
+        const itemId = input.dataset.autoPillConditionOp;
+        const conditionIndex = Number(input.dataset.conditionIndex);
+        const op = input.value === 'gt' ? 'gt' : 'lt';
+        if (!itemId || !Number.isInteger(conditionIndex)) {
+          return;
+        }
+        this.updateAutoUsePillCondition(itemId, conditionIndex, (condition) => (
+          condition.type === 'resource_ratio'
+            ? { ...condition, op }
+            : condition
+        ));
+      });
+    });
+    root.querySelectorAll<HTMLInputElement>('[data-auto-pill-condition-threshold]').forEach((input) => {
+      input.addEventListener('change', () => {
+        const itemId = input.dataset.autoPillConditionThreshold;
+        const conditionIndex = Number(input.dataset.conditionIndex);
+        const thresholdPct = Math.max(0, Math.min(100, Math.round(Number(input.value) || 0)));
+        if (!itemId || !Number.isInteger(conditionIndex)) {
+          return;
+        }
+        this.updateAutoUsePillCondition(itemId, conditionIndex, (condition) => (
+          condition.type === 'resource_ratio'
+            ? { ...condition, thresholdPct }
+            : condition
+        ));
+      });
+    });
+    root.querySelectorAll<HTMLElement>('[data-auto-pill-condition-remove]').forEach((button) => {
+      button.addEventListener('click', () => {
+        const itemId = button.dataset.autoPillConditionRemove;
+        const conditionIndex = Number(button.dataset.conditionIndex);
+        if (!itemId || !Number.isInteger(conditionIndex)) {
+          return;
+        }
+        this.removeAutoUsePillCondition(itemId, conditionIndex);
+      });
+    });
+    root.querySelectorAll<HTMLElement>('[data-combat-targeting-toggle]').forEach((button) => {
+      button.addEventListener('click', () => {
+        const raw = button.dataset.combatTargetingToggle;
+        const [scopeRaw, keyRaw] = typeof raw === 'string' ? raw.split(':', 2) : [];
+        const scope = scopeRaw === 'friendly' ? 'friendly' : scopeRaw === 'hostile' ? 'hostile' : null;
+        const key = keyRaw as CombatTargetingRuleKey | undefined;
+        if (!scope || !key) {
+          return;
+        }
+        this.resetCombatSettingsCloseConfirm();
+        const draft = this.syncCombatTargetingDraft();
+        const current = new Set(draft[scope] ?? []);
+        if (current.has(key)) {
+          current.delete(key);
+        } else {
+          current.add(key);
+        }
+        this.combatTargetingDraft = this.cloneCombatTargetingRules({
+          ...draft,
+          [scope]: [...current],
+        });
+        this.renderCombatSettingsModal();
+      });
+    });
+    this.bindAutoUsePillSlotTooltipEvents(root);
+    this.bindAutoUsePillPickerTooltipEvents(root);
+  }
+
+  /** 绑定索敌方案弹层交互。 */
+  private bindTargetingPlanEvents(root: HTMLElement): void {
+    root.querySelectorAll<HTMLElement>('[data-targeting-plan-mode]').forEach((button) => {
+      button.addEventListener('click', () => {
+        const mode = button.dataset.targetingPlanMode as AutoBattleTargetingMode | undefined;
+        if (!mode || mode === this.getAutoBattleTargetingMode()) {
+          return;
+        }
+        if (this.previewPlayer) {
+          this.previewPlayer.autoBattleTargetingMode = mode;
+        }
+        this.targetingPlanExternalRevision = null;
+        this.render(this.currentActions);
+        this.renderTargetingPlanModal();
+        this.onUpdateAutoBattleTargetingMode?.(mode);
+      });
+    });
+  }
+
+  /** 绑定槽位 tooltip。 */
+  private bindAutoUsePillSlotTooltipEvents(root: HTMLElement): void {
+    const slotButtons = root.querySelectorAll<HTMLElement>('[data-auto-pill-slot-item-id]');
+    if (slotButtons.length === 0) {
+      return;
+    }
+    root.addEventListener('pointermove', (event) => {
+      const target = event.target;
+      if (!(target instanceof HTMLElement)) {
+        return;
+      }
+      const button = target.closest<HTMLElement>('[data-auto-pill-slot-item-id]');
+      if (!button) {
+        if (this.autoUsePillTooltipNode) {
+          this.autoUsePillTooltipNode = null;
+          this.autoUsePillTooltip.hide();
+        }
+        return;
+      }
+      const itemId = button.dataset.autoPillSlotItemId;
+      if (!itemId) {
+        return;
+      }
+      if (this.autoUsePillTooltipNode !== button) {
+        const tooltip = this.buildAutoUsePillSlotTooltipPayload(itemId);
+        if (!tooltip) {
+          return;
+        }
+        this.autoUsePillTooltipNode = button;
+        this.autoUsePillTooltip.show(tooltip.title, tooltip.lines, event.clientX, event.clientY, {
+          allowHtml: tooltip.allowHtml,
+          asideCards: tooltip.asideCards,
+        });
+        return;
+      }
+      this.autoUsePillTooltip.move(event.clientX, event.clientY);
+    });
+  }
+
+  /** 绑定药品选择器 tooltip。 */
+  private bindAutoUsePillPickerTooltipEvents(root: HTMLElement): void {
+    const pickerCards = root.querySelectorAll<HTMLElement>('[data-auto-pill-pick]');
+    if (pickerCards.length === 0) {
+      this.autoUsePillTooltipNode = null;
+      this.autoUsePillTooltip.hide(true);
+      return;
+    }
+    root.addEventListener('pointermove', (event) => {
+      const target = event.target;
+      if (!(target instanceof HTMLElement)) {
+        return;
+      }
+      const card = target.closest<HTMLElement>('[data-auto-pill-pick]');
+      if (!card) {
+        if (this.autoUsePillTooltipNode) {
+          this.autoUsePillTooltipNode = null;
+          this.autoUsePillTooltip.hide();
+        }
+        return;
+      }
+      const itemId = card.dataset.autoPillPick;
+      if (!itemId) {
+        return;
+      }
+      if (this.autoUsePillTooltipNode !== card) {
+        const item = this.buildAutoUsePillTooltipItem(itemId);
+        if (!item) {
+          return;
+        }
+        const tooltip = buildItemTooltipPayload(item);
+        this.autoUsePillTooltipNode = card;
+        this.autoUsePillTooltip.show(tooltip.title, tooltip.lines, event.clientX, event.clientY, {
+          allowHtml: tooltip.allowHtml,
+          asideCards: tooltip.asideCards,
+        });
+        return;
+      }
+      this.autoUsePillTooltip.move(event.clientX, event.clientY);
+    });
+    root.addEventListener('pointerleave', () => {
+      this.autoUsePillTooltipNode = null;
+      this.autoUsePillTooltip.hide();
+    });
+    root.addEventListener('pointerdown', () => {
+      if (this.autoUsePillTooltipNode) {
+        this.autoUsePillTooltipNode = null;
+        this.autoUsePillTooltip.hide();
+      }
+    });
+  }
+
+  /** 渲染自动吃药条件摘要。 */
+  private renderAutoUsePillConditionSummary(conditions: AutoUsePillCondition[]): string {
+    if (conditions.length === 0) {
+      return '未设置条件，不会自动使用。';
+    }
+    return conditions.map((condition) => {
+      if (condition.type === 'buff_missing') {
+        return '当前药品效果未生效时使用';
+      }
+      return `当前${condition.resource === 'hp' ? '生命' : '灵力'}${condition.op === 'lt' ? '低于' : '高于'} ${condition.thresholdPct}%`;
+    }).join('；');
+  }
+
+  /** 渲染自动丹药效果摘要。 */
+  private renderAutoUsePillEffectSummary(entry: AutoUsePillViewEntry): string {
+    const parts: string[] = [];
+    if ((entry.healAmount ?? 0) > 0) {
+      parts.push(`恢复气血 ${formatDisplayNumber(entry.healAmount ?? 0)}`);
+    }
+    if ((entry.healPercent ?? 0) > 0) {
+      parts.push(`恢复生命 ${Math.round((entry.healPercent ?? 0) * 100)}%`);
+    }
+    if ((entry.qiPercent ?? 0) > 0) {
+      parts.push(`恢复灵力 ${Math.round((entry.qiPercent ?? 0) * 100)}%`);
+    }
+    if ((entry.consumeBuffs?.length ?? 0) > 0) {
+      parts.push(`附带 ${entry.consumeBuffs?.map((buff) => buff.name || buff.buffId || 'Buff').join('、')}`);
+    }
+    return parts.join('；') || '效果以物品真源配置为准。';
+  }
+
+  /** 应用战斗设置。 */
+  private applyCombatSettingsChanges(): void {
+    const nextPills = this.syncAutoUsePillDraft();
+    const nextRules = this.syncCombatTargetingDraft();
+    const pillsChanged = !this.areAutoUsePillConfigsEqual(nextPills, this.getAutoUsePills());
+    const rulesChanged = !this.areCombatTargetingRulesEqual(nextRules, this.getCombatTargetingRules());
+    const allowAoeChanged = (nextRules.includePlayers === true) !== this.allowAoePlayerHit;
+    if (this.previewPlayer) {
+      this.previewPlayer.autoUsePills = this.cloneAutoUsePillConfigs(nextPills);
+      this.previewPlayer.combatTargetingRules = this.cloneCombatTargetingRules(nextRules);
+      this.previewPlayer.allowAoePlayerHit = nextRules.includePlayers === true;
+    }
+    this.render(this.currentActions);
+    this.discardCombatSettingsDraft();
+    detailModalHost.close(ActionPanel.COMBAT_SETTINGS_MODAL_OWNER);
+    if (pillsChanged) {
+      this.onUpdateAutoUsePills?.(nextPills);
+    }
+    if (rulesChanged) {
+      this.onUpdateCombatTargetingRules?.(nextRules);
+    }
+    if (allowAoeChanged) {
+      this.onAction?.('toggle:allow_aoe_player_hit', false, undefined, undefined, '全体攻击');
+    }
+  }
+
+  /** 打开技能方案弹层。 */
   private openSkillPresetModal(): void {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
     if (!this.skillPresetNameDraft) {
       this.skillPresetNameDraft = this.buildDefaultSkillPresetName();
     }
@@ -2791,22 +3954,10 @@ export class ActionPanel {
     this.renderSkillPresetModal();
   }
 
-/** openTargetingPlanModal：执行对应的业务逻辑。 */
-  private openTargetingPlanModal(): void {
-    this.renderTargetingPlanModal();
-  }
-
-/** getAutoBattleTargetingMode：执行对应的业务逻辑。 */
-  private getAutoBattleTargetingMode(): AutoBattleTargetingMode {
-    return this.previewPlayer?.autoBattleTargetingMode ?? 'auto';
-  }
-
-  private getAutoBattleTargetingModeLabel(mode = this.getAutoBattleTargetingMode()): string {
-    return AUTO_BATTLE_TARGETING_MODE_OPTIONS.find((entry) => entry.mode === mode)?.label ?? '自动';
-  }
-
-/** resetSkillPresetModalState：执行对应的业务逻辑。 */
+  /** 关闭方案弹层后，把输入草稿和状态提示清空。 */
   private resetSkillPresetModalState(): void {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
     this.skillPresetNameDraft = '';
     this.skillPresetImportText = '';
     this.skillPresetStatus = null;
@@ -2815,37 +3966,42 @@ export class ActionPanel {
     }
   }
 
-/** getSelectedSkillPreset：执行对应的业务逻辑。 */
+  /** 清理技能方案删除二次确认状态。 */
+  private resetSkillPresetDeleteConfirm(): void {
+    if (this.skillPresetStatus?.tone === 'info') {
+      this.skillPresetStatus = null;
+    }
+  }
+
+  /** 返回当前选中的技能方案。 */
   private getSelectedSkillPreset(): SkillPresetRecord | null {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
     if (!this.selectedSkillPresetId) {
       return null;
     }
     return this.skillPresets.find((preset) => preset.id === this.selectedSkillPresetId) ?? null;
   }
 
-/** getSkillPresetSummaryLine：执行对应的业务逻辑。 */
+  /** 汇总一份方案里自动和手动技能的数量。 */
   private getSkillPresetSummaryLine(skills: SkillPresetSkillState[]): string {
-/** auto：定义该变量以承载业务值。 */
     const auto = skills.filter((skill) => skill.enabled !== false).length;
-/** manual：定义该变量以承载业务值。 */
     const manual = skills.length - auto;
     return `已记录 ${skills.length} 项 · 自动 ${auto} · 手动 ${manual}`;
   }
 
-/** getSkillPresetCompatibilitySummary：执行对应的业务逻辑。 */
+  /** 对比方案与当前技能列表，给出命中和缺失的摘要。 */
   private getSkillPresetCompatibilitySummary(preset: SkillPresetRecord): string {
-/** currentSkillIds：定义该变量以承载业务值。 */
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
     const currentSkillIds = new Set(this.getSkillActions(this.currentActions).map((action) => action.id));
-/** presetSkillIds：定义该变量以承载业务值。 */
     const presetSkillIds = new Set(preset.skills.map((skill) => skill.skillId));
-/** matched：定义该变量以承载业务值。 */
     let matched = 0;
     for (const skill of preset.skills) {
       if (currentSkillIds.has(skill.skillId)) {
         matched += 1;
       }
     }
-/** currentOnly：定义该变量以承载业务值。 */
     let currentOnly = 0;
     for (const action of this.getSkillActions(this.currentActions)) {
       if (!presetSkillIds.has(action.id)) {
@@ -2855,25 +4011,55 @@ export class ActionPanel {
     return `命中 ${matched}/${preset.skills.length} 项 · 当前新增 ${currentOnly} 项`;
   }
 
-/** renderSkillPresetStatus：执行对应的业务逻辑。 */
+  /** 汇总当前方案名输入会如何被规整。 */
+  private getSkillPresetNameDraftSummary(): string {
+    const selected = this.getSelectedSkillPreset();
+    const raw = this.skillPresetNameDraft;
+    const sanitized = this.sanitizeSkillPresetName(raw);
+    if (!raw.trim()) {
+      return `命名规则：最多 ${SKILL_PRESET_NAME_MAX_LENGTH} 字，自动压缩多余空格；留空时会使用默认名。`;
+    }
+    if (!sanitized) {
+      return '当前输入在清理空白后为空，请换一个方案名。';
+    }
+    const usedNames = new Set(
+      this.skillPresets
+        .filter((preset) => preset.id !== selected?.id)
+        .map((preset) => preset.name),
+    );
+    const resolved = this.resolveUniqueSkillPresetName(sanitized, usedNames);
+    return resolved === sanitized
+      ? `将以“${sanitized}”保存。`
+      : `当前名称重复，将自动保存为“${resolved}”。`;
+  }
+
+  /** 汇总当前导入文本的规模和导入规则。 */
+  private getSkillPresetImportSummary(): string {
+    const text = this.skillPresetImportText.trim();
+    if (!text) {
+      return '支持键值文本和旧 JSON；名称重复时会自动追加编号。';
+    }
+    const lineCount = text.split(/\r?\n/).length;
+    const byteSize = new TextEncoder().encode(text).length;
+    return `已粘贴 ${formatDisplayNumber(lineCount)} 行 · ${formatDisplayNumber(byteSize)} B；导入时会自动跳过无效技能并给重名方案补编号。`;
+  }
+
+  /** 把方案弹层里的结果提示渲染成状态条。 */
   private renderSkillPresetStatus(): string {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
     if (!this.skillPresetStatus) {
       return '';
     }
-    return `<div class="skill-preset-status ${this.skillPresetStatus.tone === 'error' ? 'error' : this.skillPresetStatus.tone === 'success' ? 'success' : ''}">${escapeHtml(this.skillPresetStatus.text)}</div>`;
+    return `<div class="skill-preset-status ui-status-text ${this.skillPresetStatus.tone === 'error' ? 'error' : this.skillPresetStatus.tone === 'success' ? 'success' : ''}">${escapeHtml(this.skillPresetStatus.text)}</div>`;
   }
 
-/** renderSkillPresetModal：执行对应的业务逻辑。 */
+  /** 渲染技能方案弹层，包含保存、导入、导出和列表。 */
   private renderSkillPresetModal(): void {
-/** currentSkills：定义该变量以承载业务值。 */
     const currentSkills = this.getCurrentSkillPresetSnapshot();
-/** selected：定义该变量以承载业务值。 */
     const selected = this.getSelectedSkillPreset();
-/** currentSummary：定义该变量以承载业务值。 */
     const currentSummary = this.getSkillPresetSummaryLine(currentSkills);
-/** selectedSummary：定义该变量以承载业务值。 */
     const selectedSummary = selected ? this.getSkillPresetSummaryLine(selected.skills) : '未选择方案';
-/** compatibilitySummary：定义该变量以承载业务值。 */
     const compatibilitySummary = selected ? this.getSkillPresetCompatibilitySummary(selected) : '从列表选择一个方案后可查看兼容情况。';
 
     detailModalHost.open({
@@ -2881,8 +4067,9 @@ export class ActionPanel {
       variantClass: 'detail-modal--skill-preset',
       title: '技能方案',
       subtitle: `本地方案 ${this.skillPresets.length} 份 · 当前技能 ${currentSkills.length} 项`,
-      bodyHtml: `
-        <div class="skill-preset-shell">
+      renderBody: (body) => {
+        body.replaceChildren(createFragmentFromHtml(`
+        <div class="skill-preset-shell ui-card-list">
           <div class="skill-preset-hero">
             <div class="skill-preset-card">
               <div class="skill-preset-card-title">保存当前技能布局</div>
@@ -2893,7 +4080,7 @@ export class ActionPanel {
               </div>
               <div class="skill-preset-save-row">
                 <input
-                  class="skill-preset-name-input"
+                  class="skill-preset-name-input ui-input"
                   data-skill-preset-name-input
                   type="text"
                   maxlength="${SKILL_PRESET_NAME_MAX_LENGTH}"
@@ -2950,7 +4137,7 @@ export class ActionPanel {
               </div>
               <div class="skill-preset-card-copy">支持导入键值文本，也兼容之前的 JSON 分享数据。若名称重复，会自动在本地追加编号。</div>
               <textarea
-                class="skill-preset-import-input"
+                class="skill-preset-import-input ui-textarea"
                 data-skill-preset-import-input
                 placeholder="粘贴技能方案文本，例如：&#10;v=3&#10;p=日常刷图&#10;s=fireball,1&#10;s=guard,0"
               >${escapeHtml(this.skillPresetImportText)}</textarea>
@@ -2962,7 +4149,8 @@ export class ActionPanel {
             </div>
           </div>
         </div>
-      `,
+      `));
+      },
       onClose: () => {
         this.resetSkillPresetModalState();
       },
@@ -2973,32 +4161,34 @@ export class ActionPanel {
     this.skillPresetExternalRevision = this.buildSkillPresetExternalRevision();
   }
 
-/** bindSkillPresetEvents：执行对应的业务逻辑。 */
+  /** 给技能方案弹层装配输入、保存、导入和导出事件。 */
   private bindSkillPresetEvents(root: HTMLElement): void {
     root.querySelectorAll<HTMLInputElement>('[data-skill-preset-name-input]').forEach((input) => {
       input.addEventListener('input', () => {
+        this.resetSkillPresetDeleteConfirm();
         this.skillPresetNameDraft = input.value.slice(0, SKILL_PRESET_NAME_MAX_LENGTH);
       });
     });
     root.querySelectorAll<HTMLElement>('[data-skill-preset-save]').forEach((button) => {
       button.addEventListener('click', () => {
+        this.resetSkillPresetDeleteConfirm();
         this.saveCurrentSkillPreset(false);
       });
     });
     root.querySelectorAll<HTMLElement>('[data-skill-preset-overwrite]').forEach((button) => {
       button.addEventListener('click', () => {
+        this.resetSkillPresetDeleteConfirm();
         this.saveCurrentSkillPreset(true);
       });
     });
     root.querySelectorAll<HTMLElement>('[data-skill-preset-select]').forEach((button) => {
       button.addEventListener('click', () => {
-/** presetId：定义该变量以承载业务值。 */
         const presetId = button.dataset.skillPresetSelect;
         if (!presetId) {
           return;
         }
+        this.resetSkillPresetDeleteConfirm();
         this.selectedSkillPresetId = presetId;
-/** preset：定义该变量以承载业务值。 */
         const preset = this.getSelectedSkillPreset();
         this.skillPresetNameDraft = preset?.name ?? this.skillPresetNameDraft;
         this.skillPresetStatus = null;
@@ -3007,21 +4197,25 @@ export class ActionPanel {
     });
     root.querySelectorAll<HTMLElement>('[data-skill-preset-apply]').forEach((button) => {
       button.addEventListener('click', () => {
+        this.resetSkillPresetDeleteConfirm();
         this.applySelectedSkillPreset();
       });
     });
     root.querySelectorAll<HTMLElement>('[data-skill-preset-copy]').forEach((button) => {
       button.addEventListener('click', () => {
+        this.resetSkillPresetDeleteConfirm();
         this.copySelectedSkillPreset();
       });
     });
     root.querySelectorAll<HTMLElement>('[data-skill-preset-export-selected]').forEach((button) => {
       button.addEventListener('click', () => {
+        this.resetSkillPresetDeleteConfirm();
         this.exportSelectedSkillPreset();
       });
     });
     root.querySelectorAll<HTMLElement>('[data-skill-preset-export-all]').forEach((button) => {
       button.addEventListener('click', () => {
+        this.resetSkillPresetDeleteConfirm();
         this.exportAllSkillPresets();
       });
     });
@@ -3032,11 +4226,13 @@ export class ActionPanel {
     });
     root.querySelectorAll<HTMLTextAreaElement>('[data-skill-preset-import-input]').forEach((input) => {
       input.addEventListener('input', () => {
+        this.resetSkillPresetDeleteConfirm();
         this.skillPresetImportText = input.value;
       });
     });
     root.querySelectorAll<HTMLElement>('[data-skill-preset-import-clear]').forEach((button) => {
       button.addEventListener('click', () => {
+        this.resetSkillPresetDeleteConfirm();
         this.skillPresetImportText = '';
         this.skillPresetStatus = null;
         this.renderSkillPresetModal();
@@ -3044,6 +4240,7 @@ export class ActionPanel {
     });
     root.querySelectorAll<HTMLElement>('[data-skill-preset-import]').forEach((button) => {
       button.addEventListener('click', () => {
+        this.resetSkillPresetDeleteConfirm();
         this.importSkillPresetsFromText(this.skillPresetImportText);
       });
     });
@@ -3054,7 +4251,6 @@ export class ActionPanel {
     });
     root.querySelectorAll<HTMLInputElement>('[data-skill-preset-import-file]').forEach((input) => {
       input.addEventListener('change', async () => {
-/** file：定义该变量以承载业务值。 */
         const file = input.files?.[0];
         if (!file) {
           return;
@@ -3079,9 +4275,10 @@ export class ActionPanel {
     });
   }
 
-/** saveCurrentSkillPreset：执行对应的业务逻辑。 */
+  /** 把当前技能快照保存成新方案，或覆盖选中的方案。 */
   private saveCurrentSkillPreset(overwriteSelected: boolean): void {
-/** snapshot：定义该变量以承载业务值。 */
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
     const snapshot = this.getCurrentSkillPresetSnapshot();
     if (snapshot.length === 0) {
       this.skillPresetStatus = {
@@ -3091,9 +4288,7 @@ export class ActionPanel {
       this.renderSkillPresetModal();
       return;
     }
-/** selected：定义该变量以承载业务值。 */
     const selected = this.getSelectedSkillPreset();
-/** inputName：定义该变量以承载业务值。 */
     const inputName = this.sanitizeSkillPresetName(this.skillPresetNameDraft);
     if (!inputName && !overwriteSelected) {
       this.skillPresetStatus = {
@@ -3105,9 +4300,7 @@ export class ActionPanel {
     }
 
     if (overwriteSelected && selected) {
-/** nextName：定义该变量以承载业务值。 */
       const nextName = inputName || selected.name;
-/** updatedPreset：定义该变量以承载业务值。 */
       const updatedPreset: SkillPresetRecord = {
         ...selected,
         name: nextName,
@@ -3124,11 +4317,8 @@ export class ActionPanel {
         text: `已覆盖方案“${nextName}”。`,
       };
     } else {
-/** usedNames：定义该变量以承载业务值。 */
       const usedNames = new Set(this.skillPresets.map((preset) => preset.name));
-/** nextName：定义该变量以承载业务值。 */
       const nextName = this.resolveUniqueSkillPresetName(inputName || this.buildDefaultSkillPresetName(), usedNames);
-/** preset：定义该变量以承载业务值。 */
       const preset: SkillPresetRecord = {
         id: this.generateSkillPresetId(),
         name: nextName,
@@ -3147,15 +4337,13 @@ export class ActionPanel {
     this.renderSkillPresetModal();
   }
 
-/** resolveAppliedSkillPresetConfigs：执行对应的业务逻辑。 */
+  /** 把方案内容转换成可直接应用的自动战斗配置。 */
   private resolveAppliedSkillPresetConfigs(preset: SkillPresetRecord): AutoBattleSkillConfig[] {
-/** currentSkillActions：定义该变量以承载业务值。 */
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
     const currentSkillActions = this.getSkillActions(this.currentActions);
-/** currentMap：定义该变量以承载业务值。 */
     const currentMap = new Map(currentSkillActions.map((action) => [action.id, action] as const));
-/** next：定义该变量以承载业务值。 */
     const next: AutoBattleSkillConfig[] = [];
-/** seen：定义该变量以承载业务值。 */
     const seen = new Set<string>();
 
     for (const skill of preset.skills) {
@@ -3164,7 +4352,6 @@ export class ActionPanel {
       }
       next.push({
         skillId: skill.skillId,
-/** enabled：定义该变量以承载业务值。 */
         enabled: skill.enabled !== false,
         skillEnabled: true,
       });
@@ -3177,19 +4364,19 @@ export class ActionPanel {
       }
       next.push({
         skillId: action.id,
-/** enabled：定义该变量以承载业务值。 */
         enabled: action.autoBattleEnabled !== false,
         skillEnabled: false,
       });
       seen.add(action.id);
     }
 
-    return this.normalizeSkillConfigs(next);
+    return next;
   }
 
-/** commitSkillPresetActions：执行对应的业务逻辑。 */
+  /** 提交套用后的技能配置，并同步回预览角色和面板。 */
   private commitSkillPresetActions(nextActions: ActionDef[]): void {
-/** nextAutoBattleSkills：定义该变量以承载业务值。 */
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
     const nextAutoBattleSkills = this.getAutoBattleSkillConfigs(nextActions);
     this.currentActions = nextActions;
     if (this.previewPlayer) {
@@ -3206,9 +4393,10 @@ export class ActionPanel {
     this.onUpdateAutoBattleSkills?.(nextAutoBattleSkills);
   }
 
-/** applySelectedSkillPreset：执行对应的业务逻辑。 */
+  /** 套用当前选中的技能方案。 */
   private applySelectedSkillPreset(): void {
-/** preset：定义该变量以承载业务值。 */
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
     const preset = this.getSelectedSkillPreset();
     if (!preset) {
       this.skillPresetStatus = {
@@ -3218,10 +4406,8 @@ export class ActionPanel {
       this.renderSkillPresetModal();
       return;
     }
-/** previousDraft：定义该变量以承载业务值。 */
     const previousDraft = this.skillManagementDraft;
     this.skillManagementDraft = this.resolveAppliedSkillPresetConfigs(preset);
-/** nextActions：定义该变量以承载业务值。 */
     const nextActions = this.getSkillManagementPreviewActions();
     this.skillManagementDraft = previousDraft;
     this.commitSkillPresetActions(nextActions);
@@ -3232,9 +4418,10 @@ export class ActionPanel {
     this.renderSkillPresetModal();
   }
 
-/** copySelectedSkillPreset：执行对应的业务逻辑。 */
+  /** 把选中方案的导出文本复制到剪贴板。 */
   private async copySelectedSkillPreset(): Promise<void> {
-/** preset：定义该变量以承载业务值。 */
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
     const preset = this.getSelectedSkillPreset();
     if (!preset) {
       this.skillPresetStatus = {
@@ -3244,7 +4431,6 @@ export class ActionPanel {
       this.renderSkillPresetModal();
       return;
     }
-/** text：定义该变量以承载业务值。 */
     const text = this.buildSkillPresetExportText([preset]);
     if (!navigator.clipboard?.writeText) {
       this.skillPresetStatus = {
@@ -3269,9 +4455,10 @@ export class ActionPanel {
     this.renderSkillPresetModal();
   }
 
-/** exportSelectedSkillPreset：执行对应的业务逻辑。 */
+  /** 导出当前选中的技能方案。 */
   private exportSelectedSkillPreset(): void {
-/** preset：定义该变量以承载业务值。 */
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
     const preset = this.getSelectedSkillPreset();
     if (!preset) {
       return;
@@ -3284,8 +4471,10 @@ export class ActionPanel {
     this.renderSkillPresetModal();
   }
 
-/** exportAllSkillPresets：执行对应的业务逻辑。 */
+  /** 导出全部本地技能方案。 */
   private exportAllSkillPresets(): void {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
     if (this.skillPresets.length === 0) {
       return;
     }
@@ -3297,9 +4486,10 @@ export class ActionPanel {
     this.renderSkillPresetModal();
   }
 
-/** deleteSelectedSkillPreset：执行对应的业务逻辑。 */
+  /** 删除当前选中的技能方案。 */
   private deleteSelectedSkillPreset(): void {
-/** preset：定义该变量以承载业务值。 */
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
     const preset = this.getSelectedSkillPreset();
     if (!preset) {
       return;
@@ -3318,9 +4508,10 @@ export class ActionPanel {
     this.renderSkillPresetModal();
   }
 
-/** importSkillPresetsFromText：执行对应的业务逻辑。 */
+  /** 从键值文本或旧 JSON 中导入技能方案。 */
   private importSkillPresetsFromText(rawText: string): void {
-/** text：定义该变量以承载业务值。 */
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
     const text = rawText.trim();
     if (!text) {
       this.skillPresetStatus = {
@@ -3331,14 +4522,11 @@ export class ActionPanel {
       return;
     }
     try {
-/** importOptions：定义该变量以承载业务值。 */
       const importOptions = {
         existingNames: new Set(this.skillPresets.map((preset) => preset.name)),
       };
-/** imported：定义该变量以承载业务值。 */
       const imported = this.parseSkillPresetText(text, importOptions);
       if (imported.length === 0) {
-/** parsed：定义该变量以承载业务值。 */
         const parsed = JSON.parse(text) as unknown;
         imported.push(...this.parseSkillPresetCollection(parsed, importOptions));
       }
@@ -3368,17 +4556,40 @@ export class ActionPanel {
     }
   }
 
-/** syncSkillManagementDraft：执行对应的业务逻辑。 */
+  /** 按当前筛选和排序取出可见技能的 id 顺序。 */
+  private getSortedSkillManagementActionIds(): string[] {
+    const previewActions = this.getSkillManagementPreviewActions();
+    const skillEntries = this.getFilteredSkillManagementEntries(this.getSkillManagementEntries(previewActions));
+    const visibleEntries = this.skillManagementTab === 'auto'
+      ? skillEntries.filter((entry) => entry.action.skillEnabled !== false && entry.action.autoBattleEnabled !== false)
+      : this.skillManagementTab === 'manual'
+        ? skillEntries.filter((entry) => entry.action.skillEnabled !== false && entry.action.autoBattleEnabled === false)
+        : skillEntries.filter((entry) => entry.action.skillEnabled === false);
+    return this.sortSkillManagementEntries(visibleEntries).map((entry) => entry.action.id);
+  }
+
+  /** 只重排被选中的那一段技能，其他位置保持原样。 */
+  private reorderSkillManagementSubset(skills: ActionDef[], orderedIds: string[]): ActionDef[] {
+    const subset = new Set(orderedIds);
+    const orderedActions = orderedIds
+      .map((id) => skills.find((action) => action.id === id))
+      .filter((action): action is ActionDef => Boolean(action));
+    let nextIndex = 0;
+    return skills.map((action) => (
+      subset.has(action.id)
+        ? (orderedActions[nextIndex++] ?? action)
+        : action
+    ));
+  }
+
+  /** 把草稿和当前技能列表对齐，补齐缺失项并去重。 */
   private syncSkillManagementDraft(): AutoBattleSkillConfig[] {
-/** currentSkillActions：定义该变量以承载业务值。 */
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
     const currentSkillActions = this.getSkillActions(this.currentActions);
-/** availableIds：定义该变量以承载业务值。 */
     const availableIds = new Set(currentSkillActions.map((action) => action.id));
-/** source：定义该变量以承载业务值。 */
     const source = this.skillManagementDraft ?? this.getAutoBattleSkillConfigs(this.currentActions);
-/** normalized：定义该变量以承载业务值。 */
     const normalized: AutoBattleSkillConfig[] = [];
-/** seen：定义该变量以承载业务值。 */
     const seen = new Set<string>();
 
     for (const entry of source) {
@@ -3387,9 +4598,7 @@ export class ActionPanel {
       }
       normalized.push({
         skillId: entry.skillId,
-/** enabled：定义该变量以承载业务值。 */
         enabled: entry.enabled !== false,
-/** skillEnabled：定义该变量以承载业务值。 */
         skillEnabled: entry.skillEnabled !== false,
       });
       seen.add(entry.skillId);
@@ -3401,61 +4610,133 @@ export class ActionPanel {
       }
       normalized.push({
         skillId: action.id,
-/** enabled：定义该变量以承载业务值。 */
         enabled: action.autoBattleEnabled !== false,
-/** skillEnabled：定义该变量以承载业务值。 */
         skillEnabled: action.skillEnabled !== false,
       });
       seen.add(action.id);
     }
 
-/** nextDraft：定义该变量以承载业务值。 */
     const nextDraft = this.normalizeSkillConfigs(normalized);
     this.skillManagementDraft = nextDraft;
     return nextDraft;
   }
 
-/** getSkillManagementPreviewActions：执行对应的业务逻辑。 */
+  /** 把草稿套进当前动作快照，生成弹层里的预览列表。 */
   private getSkillManagementPreviewActions(): ActionDef[] {
-/** draft：定义该变量以承载业务值。 */
     const draft = this.syncSkillManagementDraft();
-/** draftMap：定义该变量以承载业务值。 */
     const draftMap = new Map(draft.map((entry, index) => [entry.skillId, { entry, index }]));
-/** skillActions：定义该变量以承载业务值。 */
     const skillActions = this.normalizeSkillActions(
       this.getSkillActions(this.currentActions)
-        .map((action) => {
-/** draftEntry：定义该变量以承载业务值。 */
-          const draftEntry = draftMap.get(action.id);
-          if (!draftEntry) {
-            return {
-              ...action,
-/** autoBattleEnabled：定义该变量以承载业务值。 */
-              autoBattleEnabled: action.autoBattleEnabled !== false,
-/** skillEnabled：定义该变量以承载业务值。 */
-              skillEnabled: action.skillEnabled !== false,
-            };
-          }
+      .map((action) => {
+        const draftEntry = draftMap.get(action.id);
+        if (!draftEntry) {
           return {
             ...action,
-/** autoBattleEnabled：定义该变量以承载业务值。 */
-            autoBattleEnabled: draftEntry.entry.enabled !== false,
-/** skillEnabled：定义该变量以承载业务值。 */
-            skillEnabled: draftEntry.entry.skillEnabled !== false,
-            autoBattleOrder: draftEntry.index,
+            autoBattleEnabled: action.autoBattleEnabled !== false,
+            skillEnabled: action.skillEnabled !== false,
           };
-        })
-        .sort((left, right) => (left.autoBattleOrder ?? Number.MAX_SAFE_INTEGER) - (right.autoBattleOrder ?? Number.MAX_SAFE_INTEGER)),
+        }
+        return {
+          ...action,
+          autoBattleEnabled: draftEntry.entry.enabled !== false,
+          skillEnabled: draftEntry.entry.skillEnabled !== false,
+          autoBattleOrder: draftEntry.index,
+        };
+      })
+      .sort((left, right) => (left.autoBattleOrder ?? Number.MAX_SAFE_INTEGER) - (right.autoBattleOrder ?? Number.MAX_SAFE_INTEGER)),
     );
     return this.replaceSkillActions(skillActions);
   }
 
-/** renderSkillManagementModalIfOpen：执行对应的业务逻辑。 */
+  /** 生成技能管理弹层的外部变更摘要。 */
+  private buildSkillManagementExternalRevision(): string {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
+    const parts = [
+      String(this.getSkillSlotLimit()),
+      this.skillManagementSortField,
+      this.skillManagementSortDirection,
+      [...this.skillManagementFilterToggles].sort().join(','),
+    ];
+    const includeMeleeRanged = this.skillManagementFilterToggles.has('melee') || this.skillManagementFilterToggles.has('ranged');
+    const includeDamageKind = this.skillManagementFilterToggles.has('physical') || this.skillManagementFilterToggles.has('spell');
+    const includeTargetKind = this.skillManagementFilterToggles.has('single') || this.skillManagementFilterToggles.has('aoe');
+    const needsMetrics = includeMeleeRanged || includeDamageKind || includeTargetKind || this.skillManagementSortField !== 'custom';
+    for (const action of this.getSkillActions(this.currentActions)) {
+      parts.push(action.id);
+      parts.push(action.name);
+      parts.push(stripSectManagementData(action.desc));
+      parts.push(typeof action.range === 'number' ? String(action.range) : '');
+      parts.push(action.autoBattleEnabled !== false ? '1' : '0');
+      parts.push(action.skillEnabled !== false ? '1' : '0');
+      if (!needsMetrics) {
+        continue;
+      }
+      const metrics = this.buildSkillManagementMetrics(action);
+      if (includeMeleeRanged) {
+        parts.push(metrics.isMelee ? '1' : '0');
+        parts.push(metrics.isRanged ? '1' : '0');
+      }
+      if (includeDamageKind) {
+        parts.push(metrics.hasPhysicalDamage ? '1' : '0');
+        parts.push(metrics.hasSpellDamage ? '1' : '0');
+      }
+      if (includeTargetKind) {
+        parts.push(metrics.isSingleTarget ? '1' : '0');
+        parts.push(metrics.isAreaTarget ? '1' : '0');
+      }
+      switch (this.skillManagementSortField) {
+        case 'actualDamage':
+          parts.push(String(metrics.actualDamage ?? ''));
+          break;
+        case 'qiCost':
+          parts.push(String(metrics.actualQiCost));
+          break;
+        case 'range':
+          parts.push(String(metrics.range));
+          break;
+        case 'targetCount':
+          parts.push(String(metrics.targetCount));
+          break;
+        case 'cooldown':
+          parts.push(String(metrics.cooldown));
+          break;
+        default:
+          break;
+      }
+    }
+    return parts.join('\u0001');
+  }
+
+  /** 记录技能管理列表当前的滚动位置。 */
+  private captureSkillManagementListScroll(): void {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
+    const list = document.querySelector<HTMLElement>('.skill-manage-list');
+    if (!list) {
+      return;
+    }
+    this.skillManagementListScrollTop = list.scrollTop;
+  }
+
+  /** 在弹层重绘后恢复技能管理列表的滚动位置。 */
+  private restoreSkillManagementListScroll(root: HTMLElement): void {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
+    const list = root.querySelector<HTMLElement>('.skill-manage-list');
+    if (!list) {
+      return;
+    }
+    list.scrollTop = this.skillManagementListScrollTop;
+  }
+
+  /** 仅在技能管理弹层已打开且内容变化时重绘。 */
   private renderSkillManagementModalIfOpen(): void {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
     if (!detailModalHost.isOpenFor(ActionPanel.SKILL_MANAGEMENT_MODAL_OWNER)) {
       return;
     }
-/** nextRevision：定义该变量以承载业务值。 */
     const nextRevision = this.buildSkillManagementExternalRevision();
     if (this.skillManagementExternalRevision === nextRevision) {
       return;
@@ -3463,599 +4744,13 @@ export class ActionPanel {
     this.renderSkillManagementModal();
   }
 
-/** renderAutoUsePillModalIfOpen：执行对应的业务逻辑。 */
-  private renderAutoUsePillModalIfOpen(): void {
-    if (
-      !detailModalHost.isOpenFor(ActionPanel.AUTO_USE_PILL_OVERVIEW_MODAL_OWNER)
-      && !detailModalHost.isOpenFor(ActionPanel.AUTO_USE_PILL_PICKER_MODAL_OWNER)
-      && !detailModalHost.isOpenFor(ActionPanel.AUTO_USE_PILL_CONDITION_MODAL_OWNER)
-    ) {
-      return;
-    }
-/** nextRevision：定义该变量以承载业务值。 */
-    const nextRevision = this.buildAutoUsePillExternalRevision();
-    if (this.autoUsePillExternalRevision === nextRevision) {
-      return;
-    }
-    this.renderAutoUsePillModal();
-  }
-
-/** renderAutoUsePillConditionSummary：执行对应的业务逻辑。 */
-  private renderAutoUsePillConditionSummary(conditions: AutoUsePillCondition[]): string {
-    if (conditions.length === 0) {
-      return '未设置条件，不会自动使用。';
-    }
-    return conditions.map((condition) => {
-      if (condition.type === 'resource_ratio') {
-        return `当前${condition.resource === 'hp' ? '生命' : '灵力'}${condition.op === 'lt' ? '低于' : '高于'} ${condition.thresholdPct}%`;
-      }
-      return '当前药品效果未生效时使用';
-    }).join('；');
-  }
-
-/** renderAutoUsePillEffectSummary：执行对应的业务逻辑。 */
-  private renderAutoUsePillEffectSummary(entry: AutoUsePillViewEntry): string {
-/** parts：定义该变量以承载业务值。 */
-    const parts: string[] = [];
-    if ((entry.healAmount ?? 0) > 0) {
-      parts.push(`恢复气血 ${formatDisplayNumber(entry.healAmount ?? 0)}`);
-    }
-    if ((entry.healPercent ?? 0) > 0) {
-      parts.push(`恢复生命 ${Math.round((entry.healPercent ?? 0) * 100)}%`);
-    }
-    if ((entry.qiPercent ?? 0) > 0) {
-      parts.push(`恢复灵力 ${Math.round((entry.qiPercent ?? 0) * 100)}%`);
-    }
-    if ((entry.consumeBuffs?.length ?? 0) > 0) {
-      parts.push(`附带 ${entry.consumeBuffs?.map((buff) => buff.name || buff.buffId || 'Buff').join('、')}`);
-    }
-    return parts.join('；') || '效果以物品真源配置为准。';
-  }
-
-/** renderAutoUsePillConditionRow：执行对应的业务逻辑。 */
-  private renderAutoUsePillConditionRow(itemId: string, condition: AutoUsePillCondition, conditionIndex: number): string {
-    if (condition.type === 'resource_ratio') {
-      return `
-        <div class="auto-pill-condition-row">
-          <select data-auto-pill-condition-resource="${escapeHtml(itemId)}" data-condition-index="${conditionIndex}">
-            <option value="hp"${condition.resource === 'hp' ? ' selected' : ''}>生命值</option>
-            <option value="qi"${condition.resource === 'qi' ? ' selected' : ''}>灵力值</option>
-          </select>
-          <select data-auto-pill-condition-op="${escapeHtml(itemId)}" data-condition-index="${conditionIndex}">
-            <option value="lt"${condition.op === 'lt' ? ' selected' : ''}>小于</option>
-            <option value="gt"${condition.op === 'gt' ? ' selected' : ''}>大于</option>
-          </select>
-          <input
-            data-auto-pill-condition-threshold="${escapeHtml(itemId)}"
-            data-condition-index="${conditionIndex}"
-            type="number"
-            min="0"
-            max="100"
-            step="1"
-            value="${condition.thresholdPct}"
-          />
-          <span class="auto-pill-condition-unit">%</span>
-          <button class="small-btn ghost" data-auto-pill-condition-remove="${escapeHtml(itemId)}" data-condition-index="${conditionIndex}" type="button">删除</button>
-        </div>
-      `;
-    }
-    return `
-      <div class="auto-pill-condition-row auto-pill-condition-row--wide">
-        <div class="auto-pill-condition-static">当前药品附带的持续效果未生效时，自动使用该丹药。</div>
-        <button class="small-btn ghost" data-auto-pill-condition-remove="${escapeHtml(itemId)}" data-condition-index="${conditionIndex}" type="button">删除</button>
-      </div>
-    `;
-  }
-
-/** renderCombatTargetingSection：执行对应的业务逻辑。 */
-  private renderCombatTargetingSection(): string {
-/** draft：定义该变量以承载业务值。 */
-    const draft = this.syncCombatTargetingDraft();
-    return `
-      <div class="combat-settings-targeting-shell">
-        <div class="combat-settings-targeting-head">
-          <div>
-            <div class="skill-preset-card-title">目标判定</div>
-            <div class="skill-preset-list-meta">这里是在定义你会把哪些单位视为敌方目标、哪些单位视为友方目标。伤害默认使用敌对判定，治疗默认使用友方判定；队伍与宗门关系暂未接入，先保留禁用态。</div>
-          </div>
-          <span class="combat-settings-targeting-badge">应用后生效</span>
-        </div>
-        <div class="combat-settings-targeting-grid">
-          ${COMBAT_TARGETING_GROUPS.map((group) => this.renderCombatTargetingGroup(group, draft)).join('')}
-        </div>
-      </div>
-    `;
-  }
-
-/** renderCombatTargetingGroup：执行对应的业务逻辑。 */
-  private renderCombatTargetingGroup(group: CombatTargetingGroup, draft: CombatTargetingRules): string {
-    return `
-      <div class="combat-settings-targeting-card combat-settings-targeting-card--${group.scope}">
-        <div class="skill-preset-section-head">
-          <div class="skill-preset-card-title">${escapeHtml(group.title)}</div>
-          <div class="skill-preset-list-meta">${escapeHtml(group.summary)}</div>
-        </div>
-        <div class="combat-settings-toggle-grid">
-          ${group.options.map((option) => `
-            <button
-              class="combat-settings-toggle-chip ${draft[group.scope].includes(option.key) ? 'active' : ''}"
-              type="button"
-              ${option.disabled ? 'disabled' : `data-combat-targeting-toggle="${group.scope}:${option.key}"`}
-            >
-              <span class="combat-settings-toggle-chip-box" aria-hidden="true"></span>
-              <span class="combat-settings-toggle-chip-content">
-                <span class="combat-settings-toggle-chip-title">
-                  ${escapeHtml(option.label)}
-                  ${option.disabled ? '<span class="combat-settings-toggle-chip-disabled-tag">未开放</span>' : ''}
-                </span>
-                <span class="combat-settings-toggle-chip-copy">${escapeHtml(option.summary)}</span>
-              </span>
-            </button>
-          `).join('')}
-        </div>
-      </div>
-    `;
-  }
-
-/** renderAutoUsePillModal：执行对应的业务逻辑。 */
-  private renderAutoUsePillModal(): void {
-    this.autoUsePillTooltip.hide(true);
-    this.autoUsePillTooltipNode = null;
-/** entries：定义该变量以承载业务值。 */
-    const entries = this.getAutoUsePillViewEntries();
-/** draft：定义该变量以承载业务值。 */
-    const draft = this.syncAutoUsePillDraft();
-/** selectedCount：定义该变量以承载业务值。 */
-    const selectedCount = draft.length;
-/** currentConfig：定义该变量以承载业务值。 */
-    const currentConfig = draft[this.autoUsePillSelectedIndex] ?? null;
-/** currentEntry：定义该变量以承载业务值。 */
-    const currentEntry = currentConfig
-      ? entries.find((entry) => entry.itemId === currentConfig.itemId) ?? null
-      : null;
-/** slotCount：定义该变量以承载业务值。 */
-    const slotCount = ActionPanel.AUTO_USE_PILL_SLOT_LIMIT;
-/** slotMarkup：定义该变量以承载业务值。 */
-    const slotMarkup = Array.from({ length: slotCount }, (_, index) => {
-/** slotConfig：定义该变量以承载业务值。 */
-      const slotConfig = draft[index] ?? null;
-/** slotEntry：定义该变量以承载业务值。 */
-      const slotEntry = slotConfig
-        ? entries.find((entry) => entry.itemId === slotConfig.itemId) ?? null
-        : null;
-/** conditionSummary：定义该变量以承载业务值。 */
-      const conditionSummary = slotConfig
-        ? this.renderAutoUsePillConditionSummary(slotConfig.conditions)
-        : '未设置药品';
-      return `
-        <div class="auto-pill-slot-unit">
-          <button
-            class="auto-pill-slot ${index === this.autoUsePillSelectedIndex ? 'active' : ''} ${slotEntry ? 'filled' : 'empty'}"
-            data-auto-pill-slot="${index}"
-            ${slotEntry ? `data-auto-pill-slot-item-id="${escapeHtml(slotEntry.itemId)}"` : ''}
-            type="button"
-          >
-            ${slotEntry
-              ? `
-                <span class="auto-pill-slot-name">${escapeHtml(slotEntry.name)}</span>
-                <span class="auto-pill-slot-count">${slotEntry.count > 0 ? slotEntry.count : '-'}</span>
-              `
-              : `
-                <span class="auto-pill-slot-empty">+</span>
-                <span class="auto-pill-slot-label">空槽</span>
-              `}
-          </button>
-          <div class="auto-pill-slot-summary">${escapeHtml(conditionSummary)}</div>
-          <button
-            class="small-btn ghost auto-pill-slot-condition-btn"
-            data-auto-pill-open-slot-conditions="${index}"
-            type="button"
-            ${slotEntry ? '' : 'disabled'}
-          >条件</button>
-        </div>
-      `;
-    }).join('');
-/** pickerEntries：定义该变量以承载业务值。 */
-    const pickerEntries = this.getAutoUsePillPickerEntries();
-/** pickerBody：定义该变量以承载业务值。 */
-    const pickerBody = pickerEntries.length === 0
-      ? '<div class="empty-hint">当前没有可选的自动服用丹药。</div>'
-      : `<div class="auto-pill-picker-grid">
-        ${pickerEntries.map((entry) => `
-          <button
-            class="auto-pill-picker-card ${currentEntry?.itemId === entry.itemId ? 'selected' : ''}"
-            data-auto-pill-pick="${escapeHtml(entry.itemId)}"
-            type="button"
-          >
-            <span class="auto-pill-picker-title">${escapeHtml(entry.name)}</span>
-            <span class="auto-pill-picker-count">${entry.count > 0 ? `背包 ${entry.count}` : '背包暂无'}</span>
-            <span class="auto-pill-picker-meta">${escapeHtml(this.renderAutoUsePillEffectSummary(entry))}</span>
-          </button>
-        `).join('')}
-      </div>`;
-/** conditionBody：定义该变量以承载业务值。 */
-    const conditionBody = currentEntry
-      ? `
-        <div class="auto-pill-condition-editor">
-          <div class="auto-pill-condition-summary-card">
-            <div class="auto-pill-card-title-row">
-              <div class="auto-pill-card-title">${escapeHtml(currentEntry.name)}</div>
-              <span class="auto-pill-card-count">${currentEntry.count > 0 ? `背包 ${currentEntry.count}` : '背包暂无'}</span>
-            </div>
-            <div class="auto-pill-card-meta">${escapeHtml(this.renderAutoUsePillEffectSummary(currentEntry))}</div>
-            <div class="auto-pill-config-summary">${escapeHtml(this.renderAutoUsePillConditionSummary(currentConfig?.conditions ?? []))}</div>
-          </div>
-          <div class="auto-pill-condition-panel auto-pill-condition-panel--standalone">
-            <div class="auto-pill-condition-head">
-              <div class="skill-preset-card-title">触发条件</div>
-              <div class="skill-preset-list-meta">满足任一条件时就会尝试服用。</div>
-            </div>
-            ${(currentConfig?.conditions.length ?? 0) > 0
-              ? `<div class="auto-pill-condition-list">
-                ${currentConfig?.conditions.map((condition, conditionIndex) => this.renderAutoUsePillConditionRow(currentEntry.itemId, condition, conditionIndex)).join('')}
-              </div>`
-              : '<div class="empty-hint">还没有设置任何触发条件。</div>'}
-            <div class="auto-pill-condition-actions">
-              <button class="small-btn ghost" data-auto-pill-add-condition="${escapeHtml(currentEntry.itemId)}" data-condition-kind="hp" type="button">添加生命条件</button>
-              <button class="small-btn ghost" data-auto-pill-add-condition="${escapeHtml(currentEntry.itemId)}" data-condition-kind="qi" type="button">添加灵力条件</button>
-              ${(currentEntry.consumeBuffs?.length ?? 0) > 0
-                ? `<button class="small-btn ghost" data-auto-pill-add-condition="${escapeHtml(currentEntry.itemId)}" data-condition-kind="buff_missing" type="button">添加效果未生效条件</button>`
-                : ''}
-            </div>
-          </div>
-        </div>
-      `
-      : '<div class="empty-hint">当前槽位还没有选择药品，无法设置条件。</div>';
-/** autoPillBody：定义该变量以承载业务值。 */
-    const autoPillBody = `
-      <div class="skill-preset-card auto-pill-hero-card">
-        <div class="skill-preset-card-title">自动丹药槽</div>
-        <div class="skill-preset-card-copy">点槽位会在上面弹出独立药品选择小窗，点槽位下方“条件”会弹出独立条件设置小窗。改动会与目标选择一起在“应用”时提交。</div>
-      </div>
-      <div class="auto-pill-slot-grid">${slotMarkup}</div>
-    `;
-/** targetingBody：定义该变量以承载业务值。 */
-    const targetingBody = this.renderCombatTargetingSection();
-/** overviewBody：定义该变量以承载业务值。 */
-    const overviewBody = `
-      <div class="auto-pill-shell">
-        <div class="auto-pill-topbar">
-          <div class="skill-preset-card auto-pill-hero-card combat-settings-hero-card">
-            <div class="skill-preset-card-title">战斗设置</div>
-            <div class="skill-preset-card-copy">把战斗补给和目标判定收在同一个面板里管理。所有改动都只在点击“应用”后才会提交到服务端。</div>
-          </div>
-          <div class="auto-pill-toolbar">
-            <button class="small-btn" data-auto-pill-apply type="button">应用</button>
-            <button class="small-btn ghost" data-auto-pill-cancel type="button">取消</button>
-          </div>
-        </div>
-        <div class="action-skill-subtabs combat-settings-tabs">
-          <button class="action-skill-subtab-btn ${this.combatSettingsActiveTab === 'auto_pills' ? 'active' : ''}" data-combat-settings-tab="auto_pills" type="button">丹药自动服用</button>
-          <button class="action-skill-subtab-btn ${this.combatSettingsActiveTab === 'targeting' ? 'active' : ''}" data-combat-settings-tab="targeting" type="button">目标选择</button>
-        </div>
-        <div class="combat-settings-panel-body">
-          ${this.combatSettingsActiveTab === 'auto_pills' ? autoPillBody : targetingBody}
-        </div>
-        ${this.combatSettingsActiveTab === 'auto_pills' && this.autoUsePillSubview === 'picker'
-          ? `
-            <div class="auto-pill-subdialog-backdrop">
-              <div class="auto-pill-subdialog auto-pill-subdialog--picker">
-                <div class="auto-pill-subdialog-head">
-                  <div>
-                    <div class="skill-preset-card-title">选择药品</div>
-                    <div class="skill-preset-list-meta">hover 可查看和背包一致的物品详情，点击后直接放入当前槽位。</div>
-                  </div>
-                  <div class="auto-pill-toolbar">
-                    ${currentConfig ? '<button class="small-btn ghost" data-auto-pill-clear-slot type="button">清空槽位</button>' : ''}
-                    <button class="small-btn ghost" data-auto-pill-back type="button">关闭</button>
-                  </div>
-                </div>
-                ${pickerBody}
-              </div>
-            </div>
-          `
-          : ''}
-        ${this.combatSettingsActiveTab === 'auto_pills' && this.autoUsePillSubview === 'conditions'
-          ? `
-            <div class="auto-pill-subdialog-backdrop">
-              <div class="auto-pill-subdialog auto-pill-subdialog--condition">
-                <div class="auto-pill-subdialog-head">
-                  <div>
-                    <div class="skill-preset-card-title">条件设置</div>
-                    <div class="skill-preset-list-meta">${escapeHtml(currentEntry?.name ?? '当前槽位')} 的自动条件</div>
-                  </div>
-                  <div class="auto-pill-toolbar">
-                    <button class="small-btn ghost" data-auto-pill-back type="button">关闭</button>
-                  </div>
-                </div>
-                ${conditionBody}
-              </div>
-            </div>
-          `
-          : ''}
-      </div>
-    `;
-    detailModalHost.open({
-      ownerId: ActionPanel.AUTO_USE_PILL_OVERVIEW_MODAL_OWNER,
-      variantClass: 'detail-modal--combat-settings',
-      title: '战斗设置',
-/** subtitle：定义该变量以承载业务值。 */
-      subtitle: `自动丹药 ${selectedCount} 种 · ${this.combatSettingsActiveTab === 'auto_pills' ? '丹药自动服用' : '目标选择'}`,
-      bodyHtml: overviewBody,
-      onRequestClose: () => this.confirmDiscardAutoUsePillChanges(),
-      onClose: () => {
-        this.discardAutoUsePillDraft();
-      },
-      onAfterRender: (body) => {
-        this.bindAutoUsePillEvents(body);
-      },
-    });
-    this.autoUsePillExternalRevision = this.buildAutoUsePillExternalRevision();
-  }
-
-/** bindAutoUsePillEvents：执行对应的业务逻辑。 */
-  private bindAutoUsePillEvents(root: HTMLElement): void {
-    root.querySelectorAll<HTMLElement>('[data-auto-pill-apply]').forEach((button) => {
-      button.addEventListener('click', () => {
-        this.applyAutoUsePillChanges();
-      });
-    });
-    root.querySelectorAll<HTMLElement>('[data-auto-pill-cancel]').forEach((button) => {
-      button.addEventListener('click', () => {
-        this.requestAutoUsePillClose();
-      });
-    });
-    root.querySelectorAll<HTMLElement>('[data-combat-settings-tab]').forEach((button) => {
-      button.addEventListener('click', () => {
-/** tab：定义该变量以承载业务值。 */
-        const tab = button.dataset.combatSettingsTab === 'targeting' ? 'targeting' : 'auto_pills';
-        this.setCombatSettingsTab(tab);
-      });
-    });
-    root.querySelectorAll<HTMLElement>('[data-combat-targeting-toggle]').forEach((button) => {
-      button.addEventListener('click', () => {
-/** raw：定义该变量以承载业务值。 */
-        const raw = button.dataset.combatTargetingToggle;
-        if (!raw) {
-          return;
-        }
-        const [scope, key] = raw.split(':') as [CombatTargetingRuleScope, CombatTargetingRuleKey];
-        if (!scope || !key) {
-          return;
-        }
-        this.toggleCombatTargetingRule(scope, key);
-      });
-    });
-    root.querySelectorAll<HTMLElement>('[data-auto-pill-slot]').forEach((button) => {
-      button.addEventListener('click', () => {
-/** slotIndex：定义该变量以承载业务值。 */
-        const slotIndex = Number(button.dataset.autoPillSlot);
-        if (!Number.isInteger(slotIndex)) {
-          return;
-        }
-        this.openAutoUsePillPicker(slotIndex);
-      });
-    });
-    root.querySelectorAll<HTMLElement>('[data-auto-pill-open-slot-conditions]').forEach((button) => {
-      button.addEventListener('click', () => {
-/** slotIndex：定义该变量以承载业务值。 */
-        const slotIndex = Number(button.dataset.autoPillOpenSlotConditions);
-        if (!Number.isInteger(slotIndex)) {
-          return;
-        }
-        this.openAutoUsePillConditionSettings(slotIndex);
-      });
-    });
-    root.querySelectorAll<HTMLElement>('[data-auto-pill-back]').forEach((button) => {
-      button.addEventListener('click', () => {
-        this.closeAutoUsePillSubview();
-      });
-    });
-    root.querySelectorAll<HTMLElement>('[data-auto-pill-pick]').forEach((button) => {
-      button.addEventListener('click', () => {
-/** itemId：定义该变量以承载业务值。 */
-        const itemId = button.dataset.autoPillPick;
-        if (!itemId) {
-          return;
-        }
-        this.assignAutoUsePillToSelectedSlot(itemId);
-      });
-    });
-    this.bindAutoUsePillSlotTooltipEvents(root);
-    this.bindAutoUsePillPickerTooltipEvents(root);
-    root.querySelectorAll<HTMLElement>('[data-auto-pill-clear-slot]').forEach((button) => {
-      button.addEventListener('click', () => {
-        this.clearSelectedAutoUsePillSlot();
-      });
-    });
-    root.querySelectorAll<HTMLElement>('[data-auto-pill-add-condition]').forEach((button) => {
-      button.addEventListener('click', () => {
-/** itemId：定义该变量以承载业务值。 */
-        const itemId = button.dataset.autoPillAddCondition;
-/** kind：定义该变量以承载业务值。 */
-        const kind = button.dataset.conditionKind as 'hp' | 'qi' | 'buff_missing' | undefined;
-        if (!itemId || !kind) {
-          return;
-        }
-        this.addAutoUsePillCondition(itemId, kind);
-      });
-    });
-    root.querySelectorAll<HTMLSelectElement>('[data-auto-pill-condition-resource]').forEach((input) => {
-      input.addEventListener('change', () => {
-/** itemId：定义该变量以承载业务值。 */
-        const itemId = input.dataset.autoPillConditionResource;
-/** conditionIndex：定义该变量以承载业务值。 */
-        const conditionIndex = Number(input.dataset.conditionIndex);
-/** resource：定义该变量以承载业务值。 */
-        const resource = input.value === 'qi' ? 'qi' : 'hp';
-        if (!itemId || !Number.isInteger(conditionIndex)) {
-          return;
-        }
-        this.updateAutoUsePillCondition(itemId, conditionIndex, (condition) => (
-          condition.type === 'resource_ratio'
-            ? { ...condition, resource }
-            : condition
-        ));
-      });
-    });
-    root.querySelectorAll<HTMLSelectElement>('[data-auto-pill-condition-op]').forEach((input) => {
-      input.addEventListener('change', () => {
-/** itemId：定义该变量以承载业务值。 */
-        const itemId = input.dataset.autoPillConditionOp;
-/** conditionIndex：定义该变量以承载业务值。 */
-        const conditionIndex = Number(input.dataset.conditionIndex);
-/** op：定义该变量以承载业务值。 */
-        const op = input.value === 'gt' ? 'gt' : 'lt';
-        if (!itemId || !Number.isInteger(conditionIndex)) {
-          return;
-        }
-        this.updateAutoUsePillCondition(itemId, conditionIndex, (condition) => (
-          condition.type === 'resource_ratio'
-            ? { ...condition, op }
-            : condition
-        ));
-      });
-    });
-    root.querySelectorAll<HTMLInputElement>('[data-auto-pill-condition-threshold]').forEach((input) => {
-      input.addEventListener('change', () => {
-/** itemId：定义该变量以承载业务值。 */
-        const itemId = input.dataset.autoPillConditionThreshold;
-/** conditionIndex：定义该变量以承载业务值。 */
-        const conditionIndex = Number(input.dataset.conditionIndex);
-/** thresholdPct：定义该变量以承载业务值。 */
-        const thresholdPct = Math.max(0, Math.min(100, Math.round(Number(input.value) || 0)));
-        if (!itemId || !Number.isInteger(conditionIndex)) {
-          return;
-        }
-        this.updateAutoUsePillCondition(itemId, conditionIndex, (condition) => (
-          condition.type === 'resource_ratio'
-            ? { ...condition, thresholdPct }
-            : condition
-        ));
-      });
-    });
-    root.querySelectorAll<HTMLElement>('[data-auto-pill-condition-remove]').forEach((button) => {
-      button.addEventListener('click', () => {
-/** itemId：定义该变量以承载业务值。 */
-        const itemId = button.dataset.autoPillConditionRemove;
-/** conditionIndex：定义该变量以承载业务值。 */
-        const conditionIndex = Number(button.dataset.conditionIndex);
-        if (!itemId || !Number.isInteger(conditionIndex)) {
-          return;
-        }
-        this.removeAutoUsePillCondition(itemId, conditionIndex);
-      });
-    });
-  }
-
-/** bindAutoUsePillSlotTooltipEvents：执行对应的业务逻辑。 */
-  private bindAutoUsePillSlotTooltipEvents(root: HTMLElement): void {
-/** slotButtons：定义该变量以承载业务值。 */
-    const slotButtons = root.querySelectorAll<HTMLElement>('[data-auto-pill-slot-item-id]');
-    if (slotButtons.length === 0) {
-      return;
-    }
-    root.addEventListener('pointermove', (event) => {
-/** target：定义该变量以承载业务值。 */
-      const target = event.target;
-      if (!(target instanceof HTMLElement)) {
-        return;
-      }
-/** button：定义该变量以承载业务值。 */
-      const button = target.closest<HTMLElement>('[data-auto-pill-slot-item-id]');
-      if (!button) {
-        if (this.autoUsePillTooltipNode) {
-          this.autoUsePillTooltipNode = null;
-          this.autoUsePillTooltip.hide();
-        }
-        return;
-      }
-/** itemId：定义该变量以承载业务值。 */
-      const itemId = button.dataset.autoPillSlotItemId;
-      if (!itemId) {
-        return;
-      }
-      if (this.autoUsePillTooltipNode !== button) {
-/** tooltip：定义该变量以承载业务值。 */
-        const tooltip = this.buildAutoUsePillSlotTooltipPayload(itemId);
-        if (!tooltip) {
-          return;
-        }
-        this.autoUsePillTooltipNode = button;
-        this.autoUsePillTooltip.show(tooltip.title, tooltip.lines, event.clientX, event.clientY, {
-          allowHtml: tooltip.allowHtml,
-          asideCards: tooltip.asideCards,
-        });
-        return;
-      }
-      this.autoUsePillTooltip.move(event.clientX, event.clientY);
-    });
-  }
-
-/** bindAutoUsePillPickerTooltipEvents：执行对应的业务逻辑。 */
-  private bindAutoUsePillPickerTooltipEvents(root: HTMLElement): void {
-/** pickerCards：定义该变量以承载业务值。 */
-    const pickerCards = root.querySelectorAll<HTMLElement>('[data-auto-pill-pick]');
-    if (pickerCards.length === 0) {
-      this.autoUsePillTooltipNode = null;
-      this.autoUsePillTooltip.hide(true);
-      return;
-    }
-    root.addEventListener('pointermove', (event) => {
-/** target：定义该变量以承载业务值。 */
-      const target = event.target;
-      if (!(target instanceof HTMLElement)) {
-        return;
-      }
-/** card：定义该变量以承载业务值。 */
-      const card = target.closest<HTMLElement>('[data-auto-pill-pick]');
-      if (!card) {
-        if (this.autoUsePillTooltipNode) {
-          this.autoUsePillTooltipNode = null;
-          this.autoUsePillTooltip.hide();
-        }
-        return;
-      }
-/** itemId：定义该变量以承载业务值。 */
-      const itemId = card.dataset.autoPillPick;
-      if (!itemId) {
-        return;
-      }
-      if (this.autoUsePillTooltipNode !== card) {
-/** item：定义该变量以承载业务值。 */
-        const item = this.buildAutoUsePillTooltipItem(itemId);
-        if (!item) {
-          return;
-        }
-/** tooltip：定义该变量以承载业务值。 */
-        const tooltip = buildItemTooltipPayload(item);
-        this.autoUsePillTooltipNode = card;
-        this.autoUsePillTooltip.show(tooltip.title, tooltip.lines, event.clientX, event.clientY, {
-          allowHtml: tooltip.allowHtml,
-          asideCards: tooltip.asideCards,
-        });
-        return;
-      }
-      this.autoUsePillTooltip.move(event.clientX, event.clientY);
-    });
-    root.addEventListener('pointerleave', () => {
-      this.autoUsePillTooltipNode = null;
-      this.autoUsePillTooltip.hide();
-    });
-    root.addEventListener('pointerdown', () => {
-      if (this.autoUsePillTooltipNode) {
-        this.autoUsePillTooltipNode = null;
-        this.autoUsePillTooltip.hide();
-      }
-    });
-  }
-
-/** renderSkillPresetModalIfOpen：执行对应的业务逻辑。 */
+  /** 仅在技能方案弹层已打开且内容变化时重绘。 */
   private renderSkillPresetModalIfOpen(): void {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
     if (!detailModalHost.isOpenFor(ActionPanel.SKILL_PRESET_MODAL_OWNER)) {
       return;
     }
-/** nextRevision：定义该变量以承载业务值。 */
     const nextRevision = this.buildSkillPresetExternalRevision();
     if (this.skillPresetExternalRevision === nextRevision) {
       return;
@@ -4063,109 +4758,21 @@ export class ActionPanel {
     this.renderSkillPresetModal();
   }
 
-/** renderTargetingPlanModalIfOpen：执行对应的业务逻辑。 */
-  private renderTargetingPlanModalIfOpen(): void {
-    if (!detailModalHost.isOpenFor(ActionPanel.TARGETING_PLAN_MODAL_OWNER)) {
-      return;
-    }
-/** nextRevision：定义该变量以承载业务值。 */
-    const nextRevision = this.getAutoBattleTargetingMode();
-    if (this.targetingPlanExternalRevision === nextRevision) {
-      return;
-    }
-    this.renderTargetingPlanModal();
-  }
-
-/** renderTargetingPlanModal：执行对应的业务逻辑。 */
-  private renderTargetingPlanModal(): void {
-/** activeMode：定义该变量以承载业务值。 */
-    const activeMode = this.getAutoBattleTargetingMode();
-/** activeOption：定义该变量以承载业务值。 */
-    const activeOption = AUTO_BATTLE_TARGETING_MODE_OPTIONS.find((entry) => entry.mode === activeMode)
-      ?? AUTO_BATTLE_TARGETING_MODE_OPTIONS[0]!;
-    detailModalHost.open({
-      ownerId: ActionPanel.TARGETING_PLAN_MODAL_OWNER,
-      variantClass: 'detail-modal--targeting-plan',
-      title: '索敌方案',
-      subtitle: `当前 ${activeOption.label}`,
-      bodyHtml: `
-        <div class="targeting-plan-shell">
-          <div class="targeting-plan-hero">
-            <div class="targeting-plan-card">
-              <div class="skill-preset-card-title">当前方案</div>
-              <div class="targeting-plan-current">${escapeHtml(activeOption.label)}</div>
-              <div class="skill-preset-card-copy">${escapeHtml(activeOption.summary)}</div>
-            </div>
-          </div>
-          <div class="targeting-plan-card targeting-plan-options">
-            <div class="skill-preset-section-head">
-              <div class="skill-preset-card-title">方案切换</div>
-              <div class="skill-preset-list-meta">点击后立即切换。</div>
-            </div>
-            <div class="targeting-plan-grid">
-              ${AUTO_BATTLE_TARGETING_MODE_OPTIONS.map((entry) => `
-                <button
-                  class="targeting-plan-option ${entry.mode === activeMode ? 'active' : ''}"
-                  data-targeting-plan-mode="${escapeHtml(entry.mode)}"
-                  type="button"
-                >
-                  <span class="targeting-plan-option-title">${escapeHtml(entry.label)}</span>
-                  <span class="targeting-plan-option-copy">${escapeHtml(entry.summary)}</span>
-                </button>
-              `).join('')}
-            </div>
-          </div>
-        </div>
-      `,
-      onAfterRender: (body) => {
-        this.bindTargetingPlanEvents(body);
-      },
-    });
-    this.targetingPlanExternalRevision = activeMode;
-  }
-
-/** bindTargetingPlanEvents：执行对应的业务逻辑。 */
-  private bindTargetingPlanEvents(root: HTMLElement): void {
-    root.querySelectorAll<HTMLElement>('[data-targeting-plan-mode]').forEach((button) => {
-      button.addEventListener('click', () => {
-/** mode：定义该变量以承载业务值。 */
-        const mode = button.dataset.targetingPlanMode as AutoBattleTargetingMode | undefined;
-        if (!mode || mode === this.getAutoBattleTargetingMode()) {
-          return;
-        }
-        if (this.previewPlayer) {
-          this.previewPlayer.autoBattleTargetingMode = mode;
-        }
-        this.targetingPlanExternalRevision = null;
-        this.render(this.currentActions);
-        this.renderTargetingPlanModal();
-        this.onUpdateAutoBattleTargetingMode?.(mode);
-      });
-    });
-  }
-
-/** renderSkillManagementModal：执行对应的业务逻辑。 */
+  /** 渲染技能管理弹层，包含分组、筛选、排序和批量操作。 */
   private renderSkillManagementModal(): void {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
     if (detailModalHost.isOpenFor(ActionPanel.SKILL_MANAGEMENT_MODAL_OWNER)) {
       this.captureSkillManagementListScroll();
     }
-/** previewActions：定义该变量以承载业务值。 */
     const previewActions = this.getSkillManagementPreviewActions();
-/** skillEntries：定义该变量以承载业务值。 */
     const skillEntries = this.getSkillManagementEntries(previewActions);
-/** filteredEntries：定义该变量以承载业务值。 */
     const filteredEntries = this.getFilteredSkillManagementEntries(skillEntries);
-/** autoBattleDisplayOrders：定义该变量以承载业务值。 */
     const autoBattleDisplayOrders = this.buildAutoBattleDisplayOrderMap(previewActions);
-/** slotSummary：定义该变量以承载业务值。 */
-    const slotSummary = this.getSkillSlotSummary(previewActions);
-/** autoEntries：定义该变量以承载业务值。 */
     const autoEntries = filteredEntries.filter((entry) => entry.action.skillEnabled !== false && entry.action.autoBattleEnabled !== false);
-/** manualEntries：定义该变量以承载业务值。 */
     const manualEntries = filteredEntries.filter((entry) => entry.action.skillEnabled !== false && entry.action.autoBattleEnabled === false);
-/** disabledEntries：定义该变量以承载业务值。 */
     const disabledEntries = filteredEntries.filter((entry) => entry.action.skillEnabled === false);
-/** visibleEntries：定义该变量以承载业务值。 */
+    const slotSummary = this.getSkillSlotSummary(previewActions);
     const visibleEntries = this.sortSkillManagementEntries(
       this.skillManagementTab === 'auto'
         ? autoEntries
@@ -4173,11 +4780,9 @@ export class ActionPanel {
           ? manualEntries
           : disabledEntries,
     );
-/** dragSortEnabled：定义该变量以承载业务值。 */
     const dragSortEnabled = this.skillManagementTab === 'auto'
       && this.skillManagementSortField === 'custom'
       && visibleEntries.length > 1;
-/** hint：定义该变量以承载业务值。 */
     const hint = this.buildSkillManagementHint(dragSortEnabled, slotSummary);
 
     detailModalHost.open({
@@ -4185,8 +4790,9 @@ export class ActionPanel {
       variantClass: 'detail-modal--skill-management',
       title: '技能管理',
       subtitle: `已学技能 ${skillEntries.length} 项 · 已启用 ${slotSummary} · 当前过滤 ${filteredEntries.length} 项`,
-      bodyHtml: `
-        <div class="skill-manage-shell">
+      renderBody: (body) => {
+        body.replaceChildren(createFragmentFromHtml(`
+        <div class="skill-manage-shell ui-card-list">
           <div class="skill-manage-topbar">
             <div class="action-skill-subtabs skill-manage-subtabs">
               <button class="action-skill-subtab-btn ${this.skillManagementTab === 'auto' ? 'active' : ''}" data-skill-manage-tab="auto" type="button">
@@ -4249,22 +4855,20 @@ export class ActionPanel {
           </div>
           <div class="action-section-hint">${hint}</div>
           ${visibleEntries.length === 0
-            ? `<div class="empty-hint">${this.skillManagementTab === 'auto' ? '当前过滤下没有自动技能' : this.skillManagementTab === 'manual' ? '当前过滤下没有手动技能' : '当前过滤下没有禁用技能'}</div>`
+            ? `<div class="empty-hint">${escapeHtml(this.getSkillManagementEmptyStateText())}</div>`
             : `<div class="action-skill-list skill-manage-list">
-              ${visibleEntries.map((entry, index) => this.renderSkillManagementItem(entry.action, {
+              ${visibleEntries.map((entry) => this.renderSkillManagementItem(entry.action, {
                 showDragHandle: dragSortEnabled,
-/** autoBattleDisplayOrder：定义该变量以承载业务值。 */
                 autoBattleDisplayOrder: this.skillManagementTab === 'auto'
                   ? (autoBattleDisplayOrders.get(entry.action.id) ?? null)
                   : null,
-/** canMoveUp：定义该变量以承载业务值。 */
-                canMoveUp: this.skillManagementSortField === 'custom' && index > 0,
-/** canMoveDown：定义该变量以承载业务值。 */
-                canMoveDown: this.skillManagementSortField === 'custom' && index < visibleEntries.length - 1,
+                canMoveUp: this.skillManagementSortField === 'custom' && visibleEntries.indexOf(entry) > 0,
+                canMoveDown: this.skillManagementSortField === 'custom' && visibleEntries.indexOf(entry) < visibleEntries.length - 1,
               }, entry.metrics)).join('')}
             </div>`}
         </div>
-      `,
+      `));
+      },
       onRequestClose: () => this.confirmDiscardSkillManagementChanges(),
       onClose: () => {
         this.discardSkillManagementDraft();
@@ -4278,7 +4882,7 @@ export class ActionPanel {
     this.skillManagementExternalRevision = this.buildSkillManagementExternalRevision();
   }
 
-/** bindSkillManagementEvents：执行对应的业务逻辑。 */
+  /** 给技能管理弹层装配分组切换、筛选、排序和应用事件。 */
   private bindSkillManagementEvents(root: HTMLElement): void {
     root.querySelectorAll<HTMLElement>('[data-skill-manage-apply]').forEach((button) => {
       button.addEventListener('click', () => {
@@ -4287,12 +4891,11 @@ export class ActionPanel {
     });
     root.querySelectorAll<HTMLElement>('[data-skill-manage-cancel]').forEach((button) => {
       button.addEventListener('click', () => {
-        this.requestSkillManagementClose();
+        this.cancelSkillManagementChanges();
       });
     });
     root.querySelectorAll<HTMLElement>('[data-skill-manage-tab]').forEach((button) => {
       button.addEventListener('click', () => {
-/** tab：定义该变量以承载业务值。 */
         const tab = button.dataset.skillManageTab as SkillManagementTab | undefined;
         if (!tab) return;
         this.skillManagementTab = tab;
@@ -4307,14 +4910,13 @@ export class ActionPanel {
     });
     root.querySelectorAll<HTMLElement>('[data-skill-manage-sort-field-toggle]').forEach((button) => {
       button.addEventListener('click', () => {
-/** value：定义该变量以承载业务值。 */
         const value = button.dataset.skillManageSortFieldToggle as SkillManagementSortField | undefined;
         if (!value) return;
         if (value === this.skillManagementSortField) {
           return;
         }
         if (value === 'custom' && this.skillManagementSortField !== 'custom') {
-          this.applySkillManagementSortOrder(false);
+          this.applySkillManagementSortOrder(false, false);
         }
         this.skillManagementSortField = value;
         this.renderSkillManagementModal();
@@ -4322,7 +4924,6 @@ export class ActionPanel {
     });
     root.querySelectorAll<HTMLElement>('[data-skill-manage-sort-direction-toggle]').forEach((button) => {
       button.addEventListener('click', () => {
-/** value：定义该变量以承载业务值。 */
         const value = button.dataset.skillManageSortDirectionToggle as SkillManagementSortDirection | undefined;
         if (!value) return;
         this.skillManagementSortDirection = value;
@@ -4337,7 +4938,6 @@ export class ActionPanel {
     });
     root.querySelectorAll<HTMLElement>('[data-skill-manage-filter-toggle-chip]').forEach((button) => {
       button.addEventListener('click', () => {
-/** value：定义该变量以承载业务值。 */
         const value = button.dataset.skillManageFilterToggleChip as SkillManagementFilterToggle | undefined;
         if (!value) return;
         if (this.skillManagementFilterToggles.has(value)) {
@@ -4354,9 +4954,37 @@ export class ActionPanel {
         this.renderSkillManagementModal();
       });
     });
+    root.querySelectorAll<HTMLElement>('[data-skill-manage-move-up], [data-skill-manage-move-down]').forEach((button) => {
+      button.addEventListener('click', () => {
+        const actionId = button.dataset.skillManageMoveUp ?? button.dataset.skillManageMoveDown;
+        if (!actionId) {
+          return;
+        }
+        const position = button.dataset.skillManageMoveUp ? 'before' : 'after';
+        const visibleEntries = this.sortSkillManagementEntries(
+          this.getFilteredSkillManagementEntries(this.getSkillManagementEntries(this.getSkillManagementPreviewActions())),
+        ).filter((entry) => (
+          this.skillManagementTab === 'disabled'
+            ? entry.action.skillEnabled === false
+            : this.skillManagementTab === 'auto'
+              ? entry.action.skillEnabled !== false && entry.action.autoBattleEnabled !== false
+              : entry.action.skillEnabled !== false && entry.action.autoBattleEnabled === false
+        ));
+        const currentIndex = visibleEntries.findIndex((entry) => entry.action.id === actionId);
+        if (currentIndex < 0) {
+          return;
+        }
+        const targetId = position === 'before'
+          ? (visibleEntries[currentIndex - 1]?.action.id ?? null)
+          : (visibleEntries[currentIndex + 1]?.action.id ?? null);
+        if (!targetId) {
+          return;
+        }
+        this.moveSkillManagementSkill(actionId, targetId, position);
+      });
+    });
     root.querySelectorAll<HTMLElement>('[data-skill-manage-bulk]').forEach((button) => {
       button.addEventListener('click', () => {
-/** mode：定义该变量以承载业务值。 */
         const mode = button.dataset.skillManageBulk as SkillManagementBulkMode | undefined;
         if (!mode || !['auto', 'manual', 'enabled', 'disabled'].includes(mode)) {
           return;
@@ -4366,20 +4994,35 @@ export class ActionPanel {
     });
     this.bindSkillManagementAutoToggleEvents(root);
     this.bindSkillManagementEnabledToggleEvents(root);
-    this.bindSkillManagementMoveEvents(root);
     this.bindSkillManagementDragEvents(root);
   }
 
-/** applySkillManagementBulkMode：执行对应的业务逻辑。 */
+  /** 把当前过滤结果批量切成自动、手动、启用或禁用。 */
   private applySkillManagementBulkMode(mode: SkillManagementBulkMode): void {
-/** filteredSkillIds：定义该变量以承载业务值。 */
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
     const filteredSkillIds = new Set(
       this.getFilteredSkillManagementEntries(this.getSkillManagementEntries(this.getSkillManagementPreviewActions()))
         .map((entry) => entry.action.id),
     );
     if (filteredSkillIds.size === 0) {
+      this.skillManagementStatus = {
+        tone: 'error',
+        text: '当前过滤结果里没有可批量调整的技能。',
+      };
+      this.renderSkillManagementModal();
       return;
     }
+    const label = ({
+      auto: '切到自动',
+      manual: '切到手动',
+      enabled: '批量启用',
+      disabled: '批量禁用',
+    } satisfies Record<SkillManagementBulkMode, string>)[mode];
+    this.skillManagementStatus = {
+      tone: 'success',
+      text: `已对当前过滤命中的 ${filteredSkillIds.size} 项技能执行“${label}”。`,
+    };
     this.applySkillManagementDraftMutation((skills) => skills.map((action) => (
       filteredSkillIds.has(action.id)
         ? mode === 'enabled'
@@ -4391,7 +5034,7 @@ export class ActionPanel {
     )));
   }
 
-/** getSkillManagementEntries：执行对应的业务逻辑。 */
+  /** 把技能动作和管理指标整理成可排序条目。 */
   private getSkillManagementEntries(actions: ActionDef[]): SkillManagementEntry[] {
     return this.getSkillActions(actions).map((action) => ({
       action,
@@ -4399,12 +5042,12 @@ export class ActionPanel {
     }));
   }
 
-/** buildSkillManagementMetrics：执行对应的业务逻辑。 */
+  /** 计算技能管理里要用的预览指标；没有上下文时走保底值。 */
   private buildSkillManagementMetrics(action: ActionDef): SkillPreviewMetrics {
-/** context：定义该变量以承载业务值。 */
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
     const context = this.skillLookup.get(action.id);
     if (!context) {
-/** range：定义该变量以承载业务值。 */
       const range = Number.isFinite(action.range) ? Number(action.range) : 0;
       return {
         actualDamage: null,
@@ -4416,7 +5059,6 @@ export class ActionPanel {
         hasSpellDamage: false,
         isSingleTarget: true,
         isAreaTarget: false,
-/** isMelee：定义该变量以承载业务值。 */
         isMelee: range <= 1,
         isRanged: range > 1,
       };
@@ -4428,7 +5070,7 @@ export class ActionPanel {
     });
   }
 
-/** getFilteredSkillManagementEntries：执行对应的业务逻辑。 */
+  /** 按当前筛选标签过滤技能管理条目。 */
   private getFilteredSkillManagementEntries(entries: SkillManagementEntry[]): SkillManagementEntry[] {
     return entries.filter((entry) => {
       if (!this.matchesSkillManagementToggleGroup(entry, ['single', 'aoe'])) {
@@ -4444,11 +5086,14 @@ export class ActionPanel {
     });
   }
 
+  /** 判断一组筛选标签是否命中当前条目。 */
+  /** 判断一组筛选标签是否命中当前条目。 */
   private matchesSkillManagementToggleGroup(
     entry: SkillManagementEntry,
     group: SkillManagementFilterToggle[],
   ): boolean {
-/** active：定义该变量以承载业务值。 */
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
     const active = group.filter((value) => this.skillManagementFilterToggles.has(value));
     if (active.length === 0) {
       return true;
@@ -4456,7 +5101,7 @@ export class ActionPanel {
     return active.some((value) => this.matchesSkillManagementToggle(entry.metrics, value));
   }
 
-/** matchesSkillManagementToggle：执行对应的业务逻辑。 */
+  /** 判断某个指标是否命中单个筛选条件。 */
   private matchesSkillManagementToggle(metrics: SkillPreviewMetrics, toggle: SkillManagementFilterToggle): boolean {
     switch (toggle) {
       case 'melee':
@@ -4476,17 +5121,16 @@ export class ActionPanel {
     }
   }
 
-/** sortSkillManagementEntries：执行对应的业务逻辑。 */
+  /** 按当前排序字段和方向排列技能管理条目。 */
   private sortSkillManagementEntries(entries: SkillManagementEntry[]): SkillManagementEntry[] {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
     if (this.skillManagementSortField === 'custom') {
       return entries;
     }
-/** factor：定义该变量以承载业务值。 */
     const factor = this.skillManagementSortDirection === 'asc' ? 1 : -1;
-/** next：定义该变量以承载业务值。 */
     const next = [...entries];
     next.sort((left, right) => {
-/** valueDiff：定义该变量以承载业务值。 */
       const valueDiff = this.compareSkillManagementEntry(left, right);
       if (valueDiff !== 0) {
         return valueDiff * factor;
@@ -4496,15 +5140,13 @@ export class ActionPanel {
     return next;
   }
 
-/** compareSkillManagementEntry：执行对应的业务逻辑。 */
+  /** 比较两个技能管理条目的排序值，空值会排到后面。 */
   private compareSkillManagementEntry(left: SkillManagementEntry, right: SkillManagementEntry): number {
-/** leftValue：定义该变量以承载业务值。 */
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
     const leftValue = this.getSkillManagementSortValue(left.metrics);
-/** rightValue：定义该变量以承载业务值。 */
     const rightValue = this.getSkillManagementSortValue(right.metrics);
-/** leftMissing：定义该变量以承载业务值。 */
     const leftMissing = leftValue === null || !Number.isFinite(leftValue);
-/** rightMissing：定义该变量以承载业务值。 */
     const rightMissing = rightValue === null || !Number.isFinite(rightValue);
     if (leftMissing && rightMissing) {
       return 0;
@@ -4521,7 +5163,7 @@ export class ActionPanel {
     return leftValue < rightValue ? -1 : 1;
   }
 
-/** getSkillManagementSortValue：执行对应的业务逻辑。 */
+  /** 读取当前排序字段对应的数值。 */
   private getSkillManagementSortValue(metrics: SkillPreviewMetrics): number | null {
     switch (this.skillManagementSortField) {
       case 'actualDamage':
@@ -4539,7 +5181,7 @@ export class ActionPanel {
     }
   }
 
-/** renderSkillManagementSortPanel：执行对应的业务逻辑。 */
+  /** 渲染技能管理里的排序面板、方向和应用说明。 */
   private renderSkillManagementSortPanel(): string {
     return `
       <div class="skill-manage-sort-panel">
@@ -4564,17 +5206,19 @@ export class ActionPanel {
             ${this.renderSkillManagementDirectionChip('asc', '正序')}
           </div>
         </div>
-        <div class="skill-manage-filter-copy">${this.skillManagementTab === 'disabled'
+        <div class="skill-manage-filter-copy ui-form-copy">${this.skillManagementTab === 'disabled'
           ? '禁用页签只提供查看与筛选；重新启用后，技能会按原自动状态回到自动或手动列表。'
           : this.skillManagementSortField === 'custom'
-            ? '当前顺位模式下，可直接拖拽或用上移、下移调整技能顺序。'
+            ? '当前顺位模式下，自动页签可直接拖拽，或用上移、下移调整优先级。'
             : '当前列表会按选定规则显示；切回“当前顺位”或点顶部“应用”时，会把当前结果写回真实顺位。'}</div>
       </div>
     `;
   }
 
-/** buildSkillManagementHint：执行对应的业务逻辑。 */
+  /** 生成技能管理列表上方的操作提示。 */
   private buildSkillManagementHint(dragSortEnabled: boolean, slotSummary: string): string {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
     if (this.skillManagementTab === 'disabled') {
       return `这里是未启用的技能，重新打开“启用”后，技能会按当前自动状态回到自动或手动列表。当前已启用 ${slotSummary}。`;
     }
@@ -4589,34 +5233,46 @@ export class ActionPanel {
       : `这里显示仅手动触发的技能，可通过过滤快速圈定一组技能再批量切换。当前已启用 ${slotSummary}。`;
   }
 
-/** renderSkillManagementSortChip：执行对应的业务逻辑。 */
+  /** 渲染当前排序字段对应的指标读数。 */
+  private renderSkillManagementMetricReadout(metrics: SkillPreviewMetrics): string | null {
+    switch (this.skillManagementSortField) {
+      case 'actualDamage':
+        return metrics.actualDamage === null ? '伤害 未知' : `伤害 ${formatDisplayNumber(metrics.actualDamage)}`;
+      case 'qiCost':
+        return `蓝耗 ${formatDisplayNumber(metrics.actualQiCost)}`;
+      default:
+        return null;
+    }
+  }
+
+  /** 渲染排序字段按钮。 */
   private renderSkillManagementSortChip(value: SkillManagementSortField, label: string): string {
     return `<button class="skill-manage-toggle-chip ${this.skillManagementSortField === value ? 'active' : ''}" data-skill-manage-sort-field-toggle="${escapeHtml(value)}" type="button">${escapeHtml(label)}</button>`;
   }
 
-/** renderSkillManagementDirectionChip：执行对应的业务逻辑。 */
+  /** 渲染排序方向按钮。 */
   private renderSkillManagementDirectionChip(value: SkillManagementSortDirection, label: string): string {
     return `<button class="skill-manage-toggle-chip ${this.skillManagementSortDirection === value ? 'active' : ''}" data-skill-manage-sort-direction-toggle="${escapeHtml(value)}" type="button">${escapeHtml(label)}</button>`;
   }
 
-/** renderSkillManagementChipToggle：执行对应的业务逻辑。 */
+  /** 渲染筛选标签按钮。 */
   private renderSkillManagementChipToggle(value: SkillManagementFilterToggle, label: string): string {
     return `<button class="skill-manage-toggle-chip ${this.skillManagementFilterToggles.has(value) ? 'active' : ''}" data-skill-manage-filter-toggle-chip="${escapeHtml(value)}" type="button">${escapeHtml(label)}</button>`;
   }
 
-/** resetSkillManagementFilters：执行对应的业务逻辑。 */
+  /** 清空所有筛选标签。 */
   private resetSkillManagementFilters(): void {
     this.skillManagementFilterToggles.clear();
   }
 
-/** applySkillManagementChanges：执行对应的业务逻辑。 */
+  /** 把管理弹层里的草稿正式写回当前状态并关闭弹层。 */
   private applySkillManagementChanges(): void {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
     if (this.skillManagementSortField !== 'custom') {
-      this.applySkillManagementSortOrder(false);
+      this.applySkillManagementSortOrder(false, false);
     }
-/** nextActions：定义该变量以承载业务值。 */
     const nextActions = this.getSkillManagementPreviewActions();
-/** nextAutoBattleSkills：定义该变量以承载业务值。 */
     const nextAutoBattleSkills = this.getAutoBattleSkillConfigs(nextActions);
     this.currentActions = nextActions;
     if (this.previewPlayer) {
@@ -4633,8 +5289,15 @@ export class ActionPanel {
     this.onUpdateAutoBattleSkills?.(nextAutoBattleSkills);
   }
 
-/** discardSkillManagementDraft：执行对应的业务逻辑。 */
+  /** 放弃技能管理草稿并关闭弹层。 */
+  private cancelSkillManagementChanges(): void {
+    this.discardSkillManagementDraft();
+    detailModalHost.close(ActionPanel.SKILL_MANAGEMENT_MODAL_OWNER);
+  }
+
+  /** 清掉技能管理草稿、拖拽态和滚动位置。 */
   private discardSkillManagementDraft(): void {
+    this.resetSkillManagementCloseConfirm();
     this.skillManagementDraft = null;
     this.skillManagementExternalRevision = null;
     this.skillManagementListScrollTop = 0;
@@ -4642,52 +5305,92 @@ export class ActionPanel {
     this.clearDragState();
   }
 
-/** getSkillManagementMetricReadout：执行对应的业务逻辑。 */
-  private getSkillManagementMetricReadout(metrics: SkillPreviewMetrics): string {
-    if (this.skillManagementSortField === 'actualDamage') {
-      return metrics.actualDamage === null
-        ? '伤害 未知'
-        : `伤害 ${formatDisplayNumber(metrics.actualDamage)}`;
+  /** 把当前排序结果写回技能管理草稿顺位。 */
+  private applySkillManagementSortOrder(rerender = true, notify = true): boolean {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
+    if (this.skillManagementTab === 'disabled' || this.skillManagementSortField === 'custom') {
+      if (notify) {
+        this.skillManagementStatus = {
+          tone: 'error',
+          text: '当前页签或排序模式不支持把排序结果写回技能顺位。',
+        };
+        this.renderSkillManagementModal();
+      }
+      return false;
     }
-    if (this.skillManagementSortField === 'qiCost') {
-      return `蓝耗 ${formatDisplayNumber(metrics.actualQiCost)}`;
+    const orderedIds = this.getSortedSkillManagementActionIds();
+    if (orderedIds.length <= 1) {
+      if (notify) {
+        this.skillManagementStatus = {
+          tone: 'error',
+          text: '当前可见技能不足 2 项，无法应用新的顺位。',
+        };
+        this.renderSkillManagementModal();
+      }
+      return false;
     }
-    return '';
+    if (notify) {
+      const sortLabel = ({
+        actualDamage: '伤害',
+        qiCost: '蓝耗',
+        range: '距离',
+        targetCount: '目标',
+        cooldown: '冷却',
+        custom: '当前顺位',
+      } satisfies Record<SkillManagementSortField, string>)[this.skillManagementSortField];
+      this.skillManagementStatus = {
+        tone: 'success',
+        text: `已按“${sortLabel} · ${this.skillManagementSortDirection === 'asc' ? '正序' : '倒序'}”重写当前顺位。`,
+      };
+    }
+    this.applySkillManagementDraftMutation(
+      (skills) => this.reorderSkillManagementSubset(skills, orderedIds),
+      rerender,
+    );
+    return true;
   }
 
+  /** 渲染技能管理弹层里的单条技能。 */
   private renderSkillManagementItem(
     action: ActionDef,
-    options?: {
-      showDragHandle?: boolean;
+    options?: {    
+    /**
+ * showDragHandle：showDragHandle相关字段。
+ */
+
+      showDragHandle?: boolean;      
+      /**
+ * autoBattleDisplayOrder：autoBattle显示订单相关字段。
+ */
+
       autoBattleDisplayOrder?: number | null;
+      /**
+ * moveUpTargetId：上移目标相关字段。
+ */
+
       canMoveUp?: boolean;
+      /**
+ * canMoveDown：是否可下移。
+ */
+
       canMoveDown?: boolean;
     },
     metrics?: SkillPreviewMetrics,
   ): string {
-/** skillContext：定义该变量以承载业务值。 */
     const skillContext = this.skillLookup.get(action.id);
-/** tooltipAttrs：定义该变量以承载业务值。 */
     const tooltipAttrs = skillContext
       ? ` data-action-tooltip-title="${escapeHtml(skillContext.skill.name)}" data-action-tooltip-skill-id="${escapeHtml(skillContext.skill.id)}" data-action-tooltip-rich="1"`
       : '';
-/** autoBattleEnabled：定义该变量以承载业务值。 */
     const autoBattleEnabled = action.autoBattleEnabled !== false;
-/** skillEnabled：定义该变量以承载业务值。 */
     const skillEnabled = action.skillEnabled !== false;
-/** autoBattleOrder：定义该变量以承载业务值。 */
     const autoBattleOrder = typeof options?.autoBattleDisplayOrder === 'number'
       ? options.autoBattleDisplayOrder + 1
       : undefined;
-/** rowAttrs：定义该变量以承载业务值。 */
     const rowAttrs = options?.showDragHandle ? ` data-skill-manage-skill-row="${action.id}"` : '';
-/** canMoveUp：定义该变量以承载业务值。 */
     const canMoveUp = options?.canMoveUp === true;
-/** canMoveDown：定义该变量以承载业务值。 */
     const canMoveDown = options?.canMoveDown === true;
-/** metricReadout：定义该变量以承载业务值。 */
-    const metricReadout = metrics ? this.getSkillManagementMetricReadout(metrics) : '';
-/** affinityChip：定义该变量以承载业务值。 */
+    const metricReadout = metrics ? this.renderSkillManagementMetricReadout(metrics) : '';
     const affinityChip = skillContext ? this.renderActionSkillAffinityChip(skillContext.skill) : '';
 
     return `<div class="action-item action-item-draggable" data-action-row="${action.id}"${rowAttrs}>
@@ -4696,11 +5399,11 @@ export class ActionPanel {
           <span class="action-name">${escapeHtml(action.name)}</span>
           <span class="action-type">[技能]</span>
           ${typeof action.range === 'number' ? `<span class="action-type">射程 ${action.range}</span>` : ''}
-          <span class="action-type ${autoBattleEnabled ? 'auto-battle-enabled' : 'auto-battle-disabled'}">${autoBattleEnabled ? '自动已启用' : '自动已停用'}</span>
+          <span class="action-type ${autoBattleEnabled ? 'auto-battle-enabled' : 'auto-battle-disabled'}">${autoBattleEnabled ? '自行运转中' : '自行已止'}</span>
           <span class="action-type ${skillEnabled ? 'auto-battle-enabled' : 'auto-battle-disabled'}">${skillEnabled ? '技能已启用' : '技能已禁用'}</span>
           ${autoBattleOrder ? `<span class="action-type">顺位 ${autoBattleOrder}</span>` : ''}
         </div>
-        <div class="action-desc">${escapeHtml(action.desc)}</div>
+        <div class="action-desc">${escapeHtml(stripSectManagementData(action.desc))}</div>
         ${affinityChip}
       </div>
       <div class="action-cta">

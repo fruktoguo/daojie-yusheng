@@ -2,7 +2,6 @@
  * 设置面板
  * 提供显示名称、角色名称修改、密码修改与兑换码功能
  */
-
 import {
   AccountRedeemCodesRes,
   ROLE_NAME_MAX_ASCII_LENGTH,
@@ -36,33 +35,69 @@ import {
 } from '../performance-config';
 import { MAP_TARGET_FPS_RANGE } from '../../constants/ui/performance';
 
-/** SettingsPanelOptions：定义该类型的结构与数据语义。 */
+/** 设置面板初始化依赖，提供账号信息读取、保存回调、兑换提交和登出回调。 */
 type SettingsPanelOptions = {
-  getCurrentAccountName: () => string;
-  getCurrentDisplayName: () => string;
-  getCurrentRoleName: () => string;
-  onDisplayNameUpdated: (displayName: string) => void;
-  onRoleNameUpdated: (roleName: string) => void;
-  redeemCodes: (codes: string[]) => Promise<AccountRedeemCodesRes>;
+/**
+ * getCurrentAccountName：CurrentAccount名称名称或显示文本。
+ */
+
+  getCurrentAccountName: () => string;  
+  /**
+ * getCurrentDisplayName：Current显示名称名称或显示文本。
+ */
+
+  getCurrentDisplayName: () => string;  
+  /**
+ * getCurrentRoleName：CurrentRole名称名称或显示文本。
+ */
+
+  getCurrentRoleName: () => string;  
+  /**
+ * onDisplayNameUpdated：on显示名称Updated相关字段。
+ */
+
+  onDisplayNameUpdated: (displayName: string) => void;  
+  /**
+ * onRoleNameUpdated：onRole名称Updated相关字段。
+ */
+
+  onRoleNameUpdated: (roleName: string) => void;  
+  /**
+ * redeemCodes：redeemCode相关字段。
+ */
+
+  redeemCodes: (codes: string[]) => Promise<AccountRedeemCodesRes>;  
+  /**
+ * onLogout：onLogout相关字段。
+ */
+
   onLogout: () => void;
 };
 
-/** SettingsPanel：封装相关状态与行为。 */
+/** SettingsPanel：设置面板实现。 */
 export class SettingsPanel {
-/** activeTab：定义该变量以承载业务值。 */
+  /** activeTab：活跃Tab。 */
   private activeTab: 'account' | 'redeem' | 'ui' | 'performance' = 'account';
+  /** currentAccountName：当前账号名称。 */
   private currentAccountName = '';
+  /** currentDisplayName：当前显示名称。 */
   private currentDisplayName = '';
+  /** currentRoleName：当前角色名称。 */
   private currentRoleName = '';
-/** displayNameCheckTimer：定义该变量以承载业务值。 */
+  /** displayNameCheckTimer：显示名称检查Timer。 */
   private displayNameCheckTimer: ReturnType<typeof setTimeout> | null = null;
-/** displayNameAbortController：定义该变量以承载业务值。 */
+  /** displayNameAbortController：显示名称Abort Controller。 */
   private displayNameAbortController: AbortController | null = null;
+  /** displayNameAvailable：显示名称Available。 */
   private displayNameAvailable = false;
-/** options：定义该变量以承载业务值。 */
-  private options: SettingsPanelOptions | null = null;
+  /** 当前设置面板实例持有的读取函数、提交回调和登出回调。 */
+  private options: SettingsPanelOptions | null = null;  
+  /**
+ * 构造器：初始化 当前 实例并建立基础状态。
+ * @returns 无返回值，完成实例初始化。
+ */
 
-/** constructor：处理当前场景中的对应操作。 */
+
   constructor() {
     document.getElementById('hud-open-settings')?.addEventListener('click', () => this.open());
     document.getElementById('hud-logout')?.addEventListener('click', () => {
@@ -70,13 +105,15 @@ export class SettingsPanel {
     });
   }
 
-/** setOptions：执行对应的业务逻辑。 */
+  /** 注入设置面板运行时依赖。 */
   setOptions(options: SettingsPanelOptions): void {
     this.options = options;
   }
 
   /** 打开设置弹层 */
   open(): void {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
     if (!this.options) {
       return;
     }
@@ -87,59 +124,69 @@ export class SettingsPanel {
 
     detailModalHost.open({
       ownerId: 'settings-panel',
+      size: 'xl',
       variantClass: 'detail-modal--settings',
       title: '设置',
-      subtitle: `账号：${this.currentAccountName || '未登录'} · 显示：${this.currentDisplayName || '未设置'} · 角色名：${this.currentRoleName || '未设置'}`,
+      subtitle: `账号：${this.currentAccountName || '未登录'} · 道号：${this.currentDisplayName || '未设置'} · 角色：${this.currentRoleName || '未设置'}`,
       hint: '点击空白处关闭',
-      bodyHtml: `
-        <div class="settings-modal-shell">
-          <div class="settings-modal-tabs" role="tablist" aria-label="设置分组">
-            <button
-              class="settings-modal-tab${this.activeTab === 'account' ? ' active' : ''}"
-              type="button"
-              data-settings-tab="account"
-              aria-selected="${this.activeTab === 'account' ? 'true' : 'false'}"
-            >账号管理</button>
-            <button
-              class="settings-modal-tab${this.activeTab === 'redeem' ? ' active' : ''}"
-              type="button"
-              data-settings-tab="redeem"
-              aria-selected="${this.activeTab === 'redeem' ? 'true' : 'false'}"
-            >兑换码</button>
-            <button
-              class="settings-modal-tab${this.activeTab === 'ui' ? ' active' : ''}"
-              type="button"
-              data-settings-tab="ui"
-              aria-selected="${this.activeTab === 'ui' ? 'true' : 'false'}"
-            >UI</button>
-            <button
-              class="settings-modal-tab${this.activeTab === 'performance' ? ' active' : ''}"
-              type="button"
-              data-settings-tab="performance"
-              aria-selected="${this.activeTab === 'performance' ? 'true' : 'false'}"
-            >性能</button>
-          </div>
-          <div class="settings-modal-pane${this.activeTab === 'account' ? ' active' : ''}" data-settings-pane="account">
-            ${this.renderAccountTab()}
-          </div>
-          <div class="settings-modal-pane${this.activeTab === 'redeem' ? ' active' : ''}" data-settings-pane="redeem">
-            ${this.renderRedeemTab()}
-          </div>
-          <div class="settings-modal-pane${this.activeTab === 'ui' ? ' active' : ''}" data-settings-pane="ui">
-            ${this.renderUiTab()}
-          </div>
-          <div class="settings-modal-pane${this.activeTab === 'performance' ? ' active' : ''}" data-settings-pane="performance">
-            ${this.renderPerformanceTab()}
-          </div>
-        </div>
-      `,
+      renderBody: (body) => {
+        this.renderBody(body);
+      },
       onAfterRender: (body) => {
         this.bindModal(body);
       },
     });
   }
 
-/** bindModal：执行对应的业务逻辑。 */
+  /** renderBody：渲染设置弹层主体。 */
+  private renderBody(body: HTMLElement): void {
+    const template = document.createElement('template');
+    template.innerHTML = `
+        <div class="settings-modal-shell ui-tabbed-modal-shell">
+          <div class="settings-modal-tabs ui-tabbed-modal-tabs" role="tablist" aria-label="设置分组">
+            <button
+              class="settings-modal-tab ui-tabbed-modal-tab${this.activeTab === 'account' ? ' active' : ''}"
+              type="button"
+              data-settings-tab="account"
+              aria-selected="${this.activeTab === 'account' ? 'true' : 'false'}"
+            >账号管理</button>
+            <button
+              class="settings-modal-tab ui-tabbed-modal-tab${this.activeTab === 'redeem' ? ' active' : ''}"
+              type="button"
+              data-settings-tab="redeem"
+              aria-selected="${this.activeTab === 'redeem' ? 'true' : 'false'}"
+            >兑换码</button>
+            <button
+              class="settings-modal-tab ui-tabbed-modal-tab${this.activeTab === 'ui' ? ' active' : ''}"
+              type="button"
+              data-settings-tab="ui"
+              aria-selected="${this.activeTab === 'ui' ? 'true' : 'false'}"
+            >UI</button>
+            <button
+              class="settings-modal-tab ui-tabbed-modal-tab${this.activeTab === 'performance' ? ' active' : ''}"
+              type="button"
+              data-settings-tab="performance"
+              aria-selected="${this.activeTab === 'performance' ? 'true' : 'false'}"
+            >性能</button>
+          </div>
+          <div class="settings-modal-pane ui-tabbed-modal-pane${this.activeTab === 'account' ? ' active' : ''}" data-settings-pane="account">
+            ${this.renderAccountTab()}
+          </div>
+          <div class="settings-modal-pane ui-tabbed-modal-pane${this.activeTab === 'redeem' ? ' active' : ''}" data-settings-pane="redeem">
+            ${this.renderRedeemTab()}
+          </div>
+          <div class="settings-modal-pane ui-tabbed-modal-pane${this.activeTab === 'ui' ? ' active' : ''}" data-settings-pane="ui">
+            ${this.renderUiTab()}
+          </div>
+          <div class="settings-modal-pane ui-tabbed-modal-pane${this.activeTab === 'performance' ? ' active' : ''}" data-settings-pane="performance">
+            ${this.renderPerformanceTab()}
+          </div>
+        </div>
+      `;
+    body.replaceChildren(template.content.cloneNode(true));
+  }
+
+  /** bindModal：绑定弹窗。 */
   private bindModal(body: HTMLElement): void {
     this.bindTabs(body);
     this.bindAccountSettings(body);
@@ -148,18 +195,16 @@ export class SettingsPanel {
     this.bindPerformanceSettings(body);
   }
 
-/** bindTabs：执行对应的业务逻辑。 */
+  /** bindTabs：绑定标签页。 */
   private bindTabs(body: HTMLElement): void {
     body.querySelectorAll<HTMLButtonElement>('[data-settings-tab]').forEach((button) => {
       button.addEventListener('click', () => {
-/** nextTab：定义该变量以承载业务值。 */
         const nextTab = button.dataset.settingsTab;
         if (nextTab !== 'account' && nextTab !== 'redeem' && nextTab !== 'ui' && nextTab !== 'performance') {
           return;
         }
         this.activeTab = nextTab;
         body.querySelectorAll<HTMLElement>('[data-settings-tab]').forEach((entry) => {
-/** active：定义该变量以承载业务值。 */
           const active = entry.dataset.settingsTab === nextTab;
           entry.classList.toggle('active', active);
           entry.setAttribute('aria-selected', active ? 'true' : 'false');
@@ -171,27 +216,19 @@ export class SettingsPanel {
     });
   }
 
-/** bindAccountSettings：执行对应的业务逻辑。 */
+  /** bindAccountSettings：绑定账号设置。 */
   private bindAccountSettings(body: HTMLElement): void {
-/** displayNameInput：定义该变量以承载业务值。 */
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
     const displayNameInput = body.querySelector<HTMLInputElement>('#settings-display-name');
-/** displayNameStatus：定义该变量以承载业务值。 */
     const displayNameStatus = body.querySelector<HTMLElement>('#settings-display-name-status');
-/** displayNameSubmit：定义该变量以承载业务值。 */
     const displayNameSubmit = body.querySelector<HTMLButtonElement>('#settings-display-name-submit');
-/** currentPasswordInput：定义该变量以承载业务值。 */
     const currentPasswordInput = body.querySelector<HTMLInputElement>('#settings-current-password');
-/** newPasswordInput：定义该变量以承载业务值。 */
     const newPasswordInput = body.querySelector<HTMLInputElement>('#settings-new-password');
-/** passwordStatus：定义该变量以承载业务值。 */
     const passwordStatus = body.querySelector<HTMLElement>('#settings-password-status');
-/** passwordSubmit：定义该变量以承载业务值。 */
     const passwordSubmit = body.querySelector<HTMLButtonElement>('#settings-password-submit');
-/** roleNameInput：定义该变量以承载业务值。 */
     const roleNameInput = body.querySelector<HTMLInputElement>('#settings-role-name');
-/** roleNameStatus：定义该变量以承载业务值。 */
     const roleNameStatus = body.querySelector<HTMLElement>('#settings-role-name-status');
-/** roleNameSubmit：定义该变量以承载业务值。 */
     const roleNameSubmit = body.querySelector<HTMLButtonElement>('#settings-role-name-submit');
     if (!displayNameInput || !displayNameStatus || !displayNameSubmit || !currentPasswordInput || !newPasswordInput || !passwordStatus || !passwordSubmit || !roleNameInput || !roleNameStatus || !roleNameSubmit) {
       return;
@@ -211,21 +248,16 @@ export class SettingsPanel {
     });
   }
 
-/** bindUiSettings：执行对应的业务逻辑。 */
+  /** bindUiSettings：绑定界面设置。 */
   private bindUiSettings(body: HTMLElement): void {
-/** config：定义该变量以承载业务值。 */
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
     const config = getUiStyleConfig();
-/** styleStatus：定义该变量以承载业务值。 */
     const styleStatus = body.querySelector<HTMLElement>('#settings-ui-style-status');
-/** resetButton：定义该变量以承载业务值。 */
     const resetButton = body.querySelector<HTMLButtonElement>('#settings-ui-reset');
-/** globalRangeInput：定义该变量以承载业务值。 */
     const globalRangeInput = body.querySelector<HTMLInputElement>('[data-ui-global-font-range]');
-/** globalNumberInput：定义该变量以承载业务值。 */
     const globalNumberInput = body.querySelector<HTMLInputElement>('[data-ui-global-font-number]');
-/** scaleRangeInput：定义该变量以承载业务值。 */
     const scaleRangeInput = body.querySelector<HTMLInputElement>('[data-ui-scale-range]');
-/** scaleNumberInput：定义该变量以承载业务值。 */
     const scaleNumberInput = body.querySelector<HTMLInputElement>('[data-ui-scale-number]');
 
     this.syncUiGlobalFontOffsetRow(body, config.globalFontOffset);
@@ -233,34 +265,28 @@ export class SettingsPanel {
 
     body.querySelectorAll<HTMLButtonElement>('[data-ui-color-mode]').forEach((button) => {
       button.addEventListener('click', () => {
-/** colorMode：定义该变量以承载业务值。 */
         const colorMode = button.dataset.uiColorMode;
         if (colorMode !== 'light' && colorMode !== 'dark') {
           return;
         }
-/** nextConfig：定义该变量以承载业务值。 */
         const nextConfig = updateUiColorMode(colorMode as UiColorMode);
         this.syncUiModeButtons(body, colorMode as UiColorMode);
         this.syncUiGlobalFontOffsetRow(body, nextConfig.globalFontOffset);
         this.syncUiScaleRow(body, nextConfig.uiScale);
-/** setStatus：处理当前场景中的对应操作。 */
         setStatus(styleStatus, `已切换为${colorMode === 'dark' ? '深色' : '浅色'}模式`, 'success');
       });
     });
 
     if (globalRangeInput && globalNumberInput) {
-/** applyGlobalOffset：通过常量导出可复用函数行为。 */
+      /** applyGlobalOffset：应用Global偏移。 */
       const applyGlobalOffset = (rawValue: string) => {
-/** parsed：定义该变量以承载业务值。 */
         const parsed = Number.parseInt(rawValue, 10);
-/** nextValue：定义该变量以承载业务值。 */
         const nextValue = Number.isFinite(parsed)
           ? Math.max(UI_GLOBAL_FONT_OFFSET_RANGE.min, Math.min(UI_GLOBAL_FONT_OFFSET_RANGE.max, parsed))
           : UI_GLOBAL_FONT_OFFSET_RANGE.defaultValue;
-/** nextConfig：定义该变量以承载业务值。 */
         const nextConfig = updateUiGlobalFontOffset(nextValue);
         this.syncUiGlobalFontOffsetRow(body, nextConfig.globalFontOffset);
-        setStatus(styleStatus, '已更新全局字号', 'success');
+        setStatus(styleStatus, '字号已调', 'success');
       };
 
       globalRangeInput.addEventListener('input', () => {
@@ -275,18 +301,15 @@ export class SettingsPanel {
     }
 
     if (scaleRangeInput && scaleNumberInput) {
-/** applyScale：通过常量导出可复用函数行为。 */
+      /** applyScale：应用缩放。 */
       const applyScale = (rawValue: string) => {
-/** parsed：定义该变量以承载业务值。 */
         const parsed = Number.parseFloat(rawValue);
-/** nextValue：定义该变量以承载业务值。 */
         const nextValue = Number.isFinite(parsed)
           ? Math.max(UI_SCALE_RANGE.min, Math.min(UI_SCALE_RANGE.max, parsed))
           : UI_SCALE_RANGE.defaultValue;
-/** nextConfig：定义该变量以承载业务值。 */
         const nextConfig = updateUiScale(nextValue);
         this.syncUiScaleRow(body, nextConfig.uiScale);
-        setStatus(styleStatus, '已更新界面缩放', 'success');
+        setStatus(styleStatus, '画幅已调', 'success');
       };
 
       scaleRangeInput.addEventListener('input', () => {
@@ -301,24 +324,21 @@ export class SettingsPanel {
     }
 
     resetButton?.addEventListener('click', () => {
-/** nextConfig：定义该变量以承载业务值。 */
       const nextConfig = resetUiStyleConfig();
       this.syncUiModeButtons(body, nextConfig.colorMode);
       this.syncUiGlobalFontOffsetRow(body, nextConfig.globalFontOffset);
       this.syncUiScaleRow(body, nextConfig.uiScale);
-      setStatus(styleStatus, 'UI 样式已恢复默认', 'success');
+      setStatus(styleStatus, '界面已复归原本', 'success');
     });
   }
 
-/** bindRedeemSettings：执行对应的业务逻辑。 */
+  /** bindRedeemSettings：绑定兑换设置。 */
   private bindRedeemSettings(body: HTMLElement): void {
-/** textarea：定义该变量以承载业务值。 */
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
     const textarea = body.querySelector<HTMLTextAreaElement>('#settings-redeem-codes');
-/** statusEl：定义该变量以承载业务值。 */
     const statusEl = body.querySelector<HTMLElement>('#settings-redeem-status');
-/** button：定义该变量以承载业务值。 */
     const button = body.querySelector<HTMLButtonElement>('#settings-redeem-submit');
-/** resultEl：定义该变量以承载业务值。 */
     const resultEl = body.querySelector<HTMLElement>('#settings-redeem-results');
     if (!textarea || !statusEl || !button || !resultEl) {
       return;
@@ -329,49 +349,38 @@ export class SettingsPanel {
     });
   }
 
-/** bindPerformanceSettings：执行对应的业务逻辑。 */
+  /** bindPerformanceSettings：绑定性能设置。 */
   private bindPerformanceSettings(body: HTMLElement): void {
-/** config：定义该变量以承载业务值。 */
     const config = getMapPerformanceConfig();
-/** statusEl：定义该变量以承载业务值。 */
     const statusEl = body.querySelector<HTMLElement>('#settings-performance-status');
-/** resetButton：定义该变量以承载业务值。 */
     const resetButton = body.querySelector<HTMLButtonElement>('#settings-performance-reset');
-/** fpsNumberInput：定义该变量以承载业务值。 */
     const fpsNumberInput = body.querySelector<HTMLInputElement>('[data-performance-target-fps-number]');
 
     this.syncPerformanceControls(body, config);
 
     body.querySelectorAll<HTMLButtonElement>('[data-performance-fps-toggle]').forEach((button) => {
       button.addEventListener('click', () => {
-/** nextValue：定义该变量以承载业务值。 */
         const nextValue = button.dataset.performanceFpsToggle === 'on';
-/** nextConfig：定义该变量以承载业务值。 */
         const nextConfig = updateMapPerformanceConfig({
           showFpsMonitor: nextValue,
         });
         this.syncPerformanceControls(body, nextConfig);
-/** setStatus：处理当前场景中的对应操作。 */
-        setStatus(statusEl, nextConfig.showFpsMonitor ? '已开启地图帧率浮层，并自动保存到本机' : '已关闭地图帧率浮层，并自动保存到本机', 'success');
+        setStatus(statusEl, nextConfig.showFpsMonitor ? '帧率示数已显' : '帧率示数已隐', 'success');
       });
     });
 
     if (fpsNumberInput) {
       const applyTargetFps = (rawValue: string) => {
-/** parsed：定义该变量以承载业务值。 */
         const parsed = Number.parseInt(rawValue, 10);
-/** nextValue：定义该变量以承载业务值。 */
         const nextValue = Number.isFinite(parsed)
           ? Math.max(MAP_TARGET_FPS_RANGE.min, Math.min(MAP_TARGET_FPS_RANGE.max, parsed))
           : MAP_TARGET_FPS_RANGE.defaultValue;
-/** nextConfig：定义该变量以承载业务值。 */
         const nextConfig = updateMapPerformanceConfig({
           targetFps: nextValue,
         });
         this.syncPerformanceControls(body, nextConfig);
-        setStatus(statusEl, `已将地图渲染帧率上限更新为 ${nextConfig.targetFps} FPS，并自动保存到本机`, 'success');
+        setStatus(statusEl, `渲染帧率上限已调至 ${nextConfig.targetFps}`, 'success');
       };
-
       fpsNumberInput.addEventListener('change', () => {
         applyTargetFps(fpsNumberInput.value);
       });
@@ -381,30 +390,27 @@ export class SettingsPanel {
     }
 
     resetButton?.addEventListener('click', () => {
-/** nextConfig：定义该变量以承载业务值。 */
       const nextConfig = resetMapPerformanceConfig();
       this.syncPerformanceControls(body, nextConfig);
-      setStatus(statusEl, '性能设置已恢复默认，并自动保存到本机', 'success');
+      setStatus(statusEl, '性能已复归原本', 'success');
     });
   }
 
-/** syncUiModeButtons：执行对应的业务逻辑。 */
+  /** syncUiModeButtons：同步界面模式按钮。 */
   private syncUiModeButtons(body: HTMLElement, currentMode: UiColorMode): void {
     body.querySelectorAll<HTMLButtonElement>('[data-ui-color-mode]').forEach((button) => {
-/** active：定义该变量以承载业务值。 */
       const active = button.dataset.uiColorMode === currentMode;
       button.classList.toggle('active', active);
       button.setAttribute('aria-pressed', active ? 'true' : 'false');
     });
   }
 
-/** syncUiGlobalFontOffsetRow：执行对应的业务逻辑。 */
+  /** syncUiGlobalFontOffsetRow：同步界面Global Font偏移Row。 */
   private syncUiGlobalFontOffsetRow(body: HTMLElement, globalFontOffset: number): void {
-/** rangeInput：定义该变量以承载业务值。 */
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
     const rangeInput = body.querySelector<HTMLInputElement>('[data-ui-global-font-range]');
-/** numberInput：定义该变量以承载业务值。 */
     const numberInput = body.querySelector<HTMLInputElement>('[data-ui-global-font-number]');
-/** valueEl：定义该变量以承载业务值。 */
     const valueEl = body.querySelector<HTMLElement>('[data-ui-global-font-value]');
     if (rangeInput) {
       rangeInput.value = String(globalFontOffset);
@@ -417,13 +423,12 @@ export class SettingsPanel {
     }
   }
 
-/** syncUiScaleRow：执行对应的业务逻辑。 */
+  /** syncUiScaleRow：同步界面缩放Row。 */
   private syncUiScaleRow(body: HTMLElement, uiScale: number): void {
-/** rangeInput：定义该变量以承载业务值。 */
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
     const rangeInput = body.querySelector<HTMLInputElement>('[data-ui-scale-range]');
-/** numberInput：定义该变量以承载业务值。 */
     const numberInput = body.querySelector<HTMLInputElement>('[data-ui-scale-number]');
-/** valueEl：定义该变量以承载业务值。 */
     const valueEl = body.querySelector<HTMLElement>('[data-ui-scale-value]');
     if (rangeInput) {
       rangeInput.value = uiScale.toFixed(2);
@@ -436,80 +441,77 @@ export class SettingsPanel {
     }
   }
 
-/** syncPerformanceControls：执行对应的业务逻辑。 */
+  /** syncPerformanceControls：同步性能设置控件。 */
   private syncPerformanceControls(body: HTMLElement, config: MapPerformanceConfig): void {
     body.querySelectorAll<HTMLButtonElement>('[data-performance-fps-toggle]').forEach((button) => {
-/** active：定义该变量以承载业务值。 */
       const active = (button.dataset.performanceFpsToggle === 'on') === config.showFpsMonitor;
       button.classList.toggle('active', active);
       button.setAttribute('aria-pressed', active ? 'true' : 'false');
     });
-/** fpsNumberInput：定义该变量以承载业务值。 */
     const fpsNumberInput = body.querySelector<HTMLInputElement>('[data-performance-target-fps-number]');
     if (fpsNumberInput) {
       fpsNumberInput.value = String(config.targetFps);
     }
   }
 
-/** renderAccountTab：执行对应的业务逻辑。 */
+  /** renderAccountTab：渲染账号Tab。 */
   private renderAccountTab(): string {
     return `
-      <div class="panel-section account-settings-section">
+      <div class="panel-section account-settings-section ui-surface-pane ui-surface-pane--stack">
         <div class="panel-section-title">账号信息</div>
-        <div class="account-settings-copy">账号用于登录，登录页输入当前账号或当前角色名都可以进入。设置页这里展示的是当前登录账号。</div>
-        <div class="account-settings-field">
-          <label for="settings-account-name">当前账号</label>
-          <input id="settings-account-name" type="text" value="${escapeHtml(this.currentAccountName)}" readonly />
+        <div class="account-settings-copy ui-form-copy">账号用于登录，登录页输入当前账号或当前角色名都可以进入。设置页这里展示的是当前登录账号。</div>
+        <div class="account-settings-field ui-form-field">
+          <label class="ui-form-label" for="settings-account-name">当前账号</label>
+          <input id="settings-account-name" class="ui-input" type="text" value="${escapeHtml(this.currentAccountName)}" readonly />
         </div>
       </div>
-      <div class="panel-section account-settings-section">
+      <div class="panel-section account-settings-section ui-surface-pane ui-surface-pane--stack">
         <div class="panel-section-title">名称设置</div>
-        <div class="account-settings-copy">显示名称是头顶的一字标识，必须是可见字符；除“人”外，显示名称仍只和其他显示名称比唯一性。角色名称完整显示在头顶，也必须包含可见字符；纯中文建议不超过 ${ROLE_NAME_MAX_LENGTH} 个字，纯英文最多 ${ROLE_NAME_MAX_ASCII_LENGTH} 个字符。</div>
-        <div class="account-settings-name-grid">
-          <div class="account-settings-field account-settings-field--display">
-            <label for="settings-display-name">显示名称</label>
-            <input id="settings-display-name" class="account-settings-display-input" type="text" value="${escapeHtml(this.currentDisplayName)}" placeholder="字" />
-            <div id="settings-display-name-status" class="account-settings-status">当前名称可继续使用</div>
-            <div class="account-settings-actions">
+        <div class="account-settings-copy ui-form-copy">显示名称是头顶的一字标识，必须是可见字符；除“人”外，显示名称仍只和其他显示名称比唯一性。角色名称完整显示在头顶，也必须包含可见字符；纯中文建议不超过 ${ROLE_NAME_MAX_LENGTH} 个字，纯英文最多 ${ROLE_NAME_MAX_ASCII_LENGTH} 个字符。</div>
+        <div class="account-settings-name-grid ui-form-grid ui-form-grid--two-column">
+          <div class="account-settings-field account-settings-field--display ui-form-field">
+            <label class="ui-form-label" for="settings-display-name">显示名称</label>
+            <input id="settings-display-name" class="account-settings-display-input ui-input" type="text" maxlength="1" value="${escapeHtml(this.currentDisplayName)}" placeholder="字" />
+            <div id="settings-display-name-status" class="account-settings-status ui-status-text">当前名称可继续使用</div>
+            <div class="account-settings-actions ui-inline-actions-end ui-action-row">
               <button id="settings-display-name-submit" class="small-btn" type="button">保存显示名称</button>
             </div>
           </div>
-          <div class="account-settings-field">
-            <label for="settings-role-name">角色名称</label>
-            <input id="settings-role-name" type="text" value="${escapeHtml(this.currentRoleName)}" placeholder="输入角色名称" />
-            <div id="settings-role-name-status" class="account-settings-status"></div>
-            <div class="account-settings-actions">
+          <div class="account-settings-field ui-form-field">
+            <label class="ui-form-label" for="settings-role-name">角色名称</label>
+            <input id="settings-role-name" class="ui-input" type="text" maxlength="${ROLE_NAME_MAX_ASCII_LENGTH}" value="${escapeHtml(this.currentRoleName)}" placeholder="输入角色名称" />
+            <div id="settings-role-name-status" class="account-settings-status ui-status-text"></div>
+            <div class="account-settings-actions ui-inline-actions-end ui-action-row">
               <button id="settings-role-name-submit" class="small-btn" type="button">保存角色名称</button>
             </div>
           </div>
         </div>
       </div>
-      <div class="panel-section account-settings-section">
+      <div class="panel-section account-settings-section ui-surface-pane ui-surface-pane--stack">
         <div class="panel-section-title">修改密码</div>
-        <div class="account-settings-field">
-          <label for="settings-current-password">当前密码</label>
-          <input id="settings-current-password" type="password" placeholder="输入当前密码" />
+        <div class="account-settings-field ui-form-field">
+          <label class="ui-form-label" for="settings-current-password">当前密码</label>
+          <input id="settings-current-password" class="ui-input" type="password" placeholder="输入当前密码" />
         </div>
-        <div class="account-settings-field">
-          <label for="settings-new-password">新密码</label>
-          <input id="settings-new-password" type="password" placeholder="至少 6 位且不含空格" />
+        <div class="account-settings-field ui-form-field">
+          <label class="ui-form-label" for="settings-new-password">新密码</label>
+          <input id="settings-new-password" class="ui-input" type="password" placeholder="至少 6 位且不含空格" />
         </div>
-        <div id="settings-password-status" class="account-settings-status"></div>
-        <div class="account-settings-actions">
+        <div id="settings-password-status" class="account-settings-status ui-status-text"></div>
+        <div class="account-settings-actions ui-inline-actions-end ui-action-row">
           <button id="settings-password-submit" class="small-btn" type="button">保存密码</button>
         </div>
       </div>
     `;
   }
 
-/** renderUiTab：执行对应的业务逻辑。 */
+  /** renderUiTab：渲染界面Tab。 */
   private renderUiTab(): string {
-/** config：定义该变量以承载业务值。 */
     const config = getUiStyleConfig();
     return `
-      <div class="panel-section account-settings-section">
+      <div class="panel-section account-settings-section ui-surface-pane ui-surface-pane--stack">
         <div class="panel-section-title">颜色模式</div>
-        <div class="settings-ui-copy">切换后立即生效，并自动保存在当前设备。深色模式会同步替换主界面、弹层与常用控件的基础配色。</div>
+        <div class="settings-ui-copy ui-form-copy">切换后立即生效，并自动保存在当前设备。深色模式会同步替换主界面、弹层与常用控件的基础配色。</div>
         <div class="settings-ui-mode-row">
           ${UI_COLOR_MODE_OPTIONS.map((option) => `
             <button
@@ -522,19 +524,19 @@ export class SettingsPanel {
           `).join('')}
         </div>
       </div>
-      <div class="panel-section account-settings-section">
+      <div class="panel-section account-settings-section ui-surface-pane ui-surface-pane--stack">
         <div class="settings-ui-table-head">
-          <div class="panel-section-title">界面显示</div>
+    <div class="panel-section-title">界面显示</div>
           <button id="settings-ui-reset" class="small-btn ghost" type="button">恢复默认</button>
         </div>
-        <div class="settings-ui-copy">只保留一个全局字号和一个整体界面缩放。两项都会立即生效，并自动保存在当前设备。</div>
-        <div class="settings-ui-table">
-          <div class="settings-ui-table-row">
-            <div class="settings-ui-level-meta">
-              <div class="settings-ui-level-name">全局字号</div>
-              <div class="settings-ui-level-desc">统一增减全部文字大小，适合“现在字太小”这类情况。</div>
+        <div class="settings-ui-copy ui-form-copy">只保留一个全局字号和一个整体界面缩放。两项都会立即生效，并自动保存在当前设备。</div>
+        <div class="settings-ui-table ui-data-table">
+          <div class="settings-ui-table-row ui-data-table-row">
+            <div class="settings-ui-level-meta ui-data-table-meta">
+              <div class="settings-ui-level-name ui-data-table-name">全局字号</div>
+              <div class="settings-ui-level-desc ui-data-table-desc">统一增减全部文字大小，适合“现在字太小”这类情况。</div>
             </div>
-            <div class="settings-ui-level-slider">
+            <div class="settings-ui-level-slider ui-data-table-control">
               <input
                 type="range"
                 min="${UI_GLOBAL_FONT_OFFSET_RANGE.min}"
@@ -544,8 +546,9 @@ export class SettingsPanel {
                 data-ui-global-font-range
               />
             </div>
-            <div class="settings-ui-level-input">
+            <div class="settings-ui-level-input ui-data-table-input-group">
               <input
+                class="ui-input"
                 type="number"
                 min="${UI_GLOBAL_FONT_OFFSET_RANGE.min}"
                 max="${UI_GLOBAL_FONT_OFFSET_RANGE.max}"
@@ -555,14 +558,14 @@ export class SettingsPanel {
               />
               <span data-ui-global-font-value>${formatGlobalFontOffset(config.globalFontOffset)}</span>
             </div>
-            <div class="settings-ui-level-preview settings-ui-level-preview--body">山门告示</div>
+            <div class="settings-ui-level-preview settings-ui-level-preview--body ui-data-table-preview ui-data-table-preview--body">山门告示</div>
           </div>
-          <div class="settings-ui-table-row">
-            <div class="settings-ui-level-meta">
-              <div class="settings-ui-level-name">界面缩放</div>
-              <div class="settings-ui-level-desc">统一放大常用 UI 尺寸和字号，适合高分屏或 2K / 4K 屏幕。</div>
+          <div class="settings-ui-table-row ui-data-table-row">
+            <div class="settings-ui-level-meta ui-data-table-meta">
+              <div class="settings-ui-level-name ui-data-table-name">界面缩放</div>
+              <div class="settings-ui-level-desc ui-data-table-desc">统一放大常用 UI 尺寸和字号，适合高分屏或 2K / 4K 屏幕。</div>
             </div>
-            <div class="settings-ui-level-slider">
+            <div class="settings-ui-level-slider ui-data-table-control">
               <input
                 type="range"
                 min="${UI_SCALE_RANGE.min}"
@@ -572,8 +575,9 @@ export class SettingsPanel {
                 data-ui-scale-range
               />
             </div>
-            <div class="settings-ui-level-input">
+            <div class="settings-ui-level-input ui-data-table-input-group">
               <input
+                class="ui-input"
                 type="number"
                 min="${UI_SCALE_RANGE.min}"
                 max="${UI_SCALE_RANGE.max}"
@@ -583,56 +587,55 @@ export class SettingsPanel {
               />
               <span data-ui-scale-value>${Math.round(config.uiScale * 100)}%</span>
             </div>
-            <div class="settings-ui-level-preview settings-ui-level-preview--title">缩放预览</div>
+            <div class="settings-ui-level-preview settings-ui-level-preview--title ui-data-table-preview ui-data-table-preview--title">缩放预览</div>
           </div>
         </div>
-        <div id="settings-ui-style-status" class="account-settings-status">当前配置已自动保存到本机</div>
+      <div id="settings-ui-style-status" class="account-settings-status ui-status-text">当前配置已自动保存到本机</div>
       </div>
     `;
   }
 
-/** renderRedeemTab：执行对应的业务逻辑。 */
+  /** renderRedeemTab：渲染兑换Tab。 */
   private renderRedeemTab(): string {
     return `
-      <div class="panel-section account-settings-section">
+      <div class="panel-section account-settings-section ui-surface-pane ui-surface-pane--stack">
         <div class="panel-section-title">批量兑换</div>
-        <div class="settings-ui-copy">支持一次输入多个兑换码。可用换行、空格、中文逗号、英文逗号或分号分隔。兑换在服务端下一息统一执行。</div>
-        <div class="account-settings-field">
-          <label for="settings-redeem-codes">兑换码列表</label>
+        <div class="settings-ui-copy ui-form-copy">支持一次输入多个兑换码。可用换行、空格、中文逗号、英文逗号或分号分隔。兑换在服务端下一息统一执行。</div>
+        <div class="account-settings-field ui-form-field">
+          <label class="ui-form-label" for="settings-redeem-codes">兑换码列表</label>
           <textarea
             id="settings-redeem-codes"
-            class="settings-redeem-textarea"
+            class="settings-redeem-textarea ui-textarea"
             spellcheck="false"
             placeholder="每行一个，或用空格 / 逗号分隔多个兑换码"
           ></textarea>
         </div>
-        <div class="account-settings-actions">
+        <div class="account-settings-actions ui-inline-actions-end ui-action-row">
           <button id="settings-redeem-submit" class="small-btn" type="button">立即兑换</button>
         </div>
-        <div id="settings-redeem-status" class="account-settings-status"></div>
-        <div id="settings-redeem-results" class="settings-redeem-results"></div>
+        <div id="settings-redeem-status" class="account-settings-status ui-status-text"></div>
+        <div id="settings-redeem-results" class="settings-redeem-results ui-card-list"></div>
       </div>
     `;
   }
 
-/** renderPerformanceTab：执行对应的业务逻辑。 */
+  /** renderPerformanceTab：渲染性能Tab。 */
   private renderPerformanceTab(): string {
-/** config：定义该变量以承载业务值。 */
     const config = getMapPerformanceConfig();
     return `
-      <div class="panel-section account-settings-section">
+      <div class="panel-section account-settings-section ui-surface-pane ui-surface-pane--stack">
         <div class="settings-ui-table-head">
-          <div class="panel-section-title">地图性能浮层</div>
+    <div class="panel-section-title">地图性能浮层</div>
           <button id="settings-performance-reset" class="small-btn ghost" type="button">恢复默认</button>
         </div>
-        <div class="settings-ui-copy">这里的配置只保存在当前设备。默认关闭；开启后会在地图顶部显示 FPS、LOW 与 1% LOW，方便排查全屏、缩放和特效变化带来的帧率波动。</div>
-        <div class="settings-performance-card">
-          <div class="settings-performance-row">
-            <div class="settings-performance-meta">
-              <div class="settings-performance-name">显示地图帧率浮层</div>
-              <div class="settings-performance-desc">关闭时不显示浮层，也不会启动额外的帧率采样循环。</div>
+        <div class="settings-ui-copy ui-form-copy">这里的配置只保存在当前设备。默认关闭；开启后会在地图顶部显示 FPS、LOW 与 1% LOW，方便排查全屏、缩放和特效变化带来的帧率波动。</div>
+        <div class="settings-performance-card ui-card-list">
+          <div class="settings-performance-row ui-data-table-row">
+            <div class="settings-performance-meta ui-data-table-meta">
+              <div class="settings-performance-name ui-data-table-name">显示地图帧率浮层</div>
+              <div class="settings-performance-desc ui-data-table-desc">关闭时不显示浮层，也不会启动额外的帧率采样循环。</div>
             </div>
-            <div class="settings-performance-actions">
+            <div class="settings-performance-actions ui-inline-actions-end-wrap">
               <button
                 class="small-btn ghost${config.showFpsMonitor ? '' : ' active'}"
                 type="button"
@@ -647,14 +650,14 @@ export class SettingsPanel {
               >显示</button>
             </div>
           </div>
-          <div class="settings-performance-row">
-            <div class="settings-performance-meta">
-              <div class="settings-performance-name">地图渲染帧率上限</div>
-              <div class="settings-performance-desc">默认 60 FPS，可按设备情况自行调整。仅限制地图渲染循环，最低 ${MAP_TARGET_FPS_RANGE.min}，最高 ${MAP_TARGET_FPS_RANGE.max}。</div>
+          <div class="settings-performance-row ui-data-table-row">
+            <div class="settings-performance-meta ui-data-table-meta">
+              <div class="settings-performance-name ui-data-table-name">地图渲染帧率上限</div>
+              <div class="settings-performance-desc ui-data-table-desc">默认 60 FPS，可按设备情况自行调整。仅限制地图渲染循环，最低 ${MAP_TARGET_FPS_RANGE.min}，最高 ${MAP_TARGET_FPS_RANGE.max}。</div>
             </div>
-            <div class="settings-performance-actions settings-performance-actions--numeric">
+            <div class="settings-performance-actions ui-inline-actions-end-wrap settings-performance-actions--numeric">
               <input
-                class="settings-performance-number-input"
+                class="settings-performance-number-input ui-input"
                 type="number"
                 inputmode="numeric"
                 min="${MAP_TARGET_FPS_RANGE.min}"
@@ -662,15 +665,24 @@ export class SettingsPanel {
                 step="1"
                 value="${config.targetFps}"
                 data-performance-target-fps-number="1"
-              >
+              />
               <span class="settings-performance-number-unit">FPS</span>
             </div>
           </div>
         </div>
-        <div id="settings-performance-status" class="account-settings-status">当前配置已自动保存到本机</div>
+        <div id="settings-performance-status" class="account-settings-status ui-status-text">当前配置已自动保存到本机</div>
       </div>
     `;
-  }
+  }  
+  /**
+ * handleRedeemSubmit：处理RedeemSubmit并更新相关状态。
+ * @param textarea HTMLTextAreaElement 参数说明。
+ * @param statusEl HTMLElement 参数说明。
+ * @param resultEl HTMLElement 参数说明。
+ * @param button HTMLButtonElement 参数说明。
+ * @returns 返回 Promise，完成后得到RedeemSubmit。
+ */
+
 
   private async handleRedeemSubmit(
     textarea: HTMLTextAreaElement,
@@ -678,68 +690,83 @@ export class SettingsPanel {
     resultEl: HTMLElement,
     button: HTMLButtonElement,
   ): Promise<void> {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
     if (!this.options) {
       return;
     }
-/** codes：定义该变量以承载业务值。 */
     const codes = parseRedeemCodes(textarea.value);
     if (codes.length === 0) {
       setStatus(statusEl, '请至少填写一个兑换码', 'error');
-      resultEl.innerHTML = '';
+      resultEl.replaceChildren();
       return;
     }
 
     button.disabled = true;
-    setStatus(statusEl, '兑换请求已发送，等待本息结算...', '');
-    resultEl.innerHTML = '';
+      setStatus(statusEl, '兑换已呈报，静待回音...', '');
+    resultEl.replaceChildren();
     try {
-/** result：定义该变量以承载业务值。 */
       const result = await this.options.redeemCodes(codes);
-/** successCount：定义该变量以承载业务值。 */
       const successCount = result.results.filter((entry) => entry.ok).length;
-/** failedCount：定义该变量以承载业务值。 */
       const failedCount = result.results.length - successCount;
       setStatus(
         statusEl,
-        failedCount > 0 ? `兑换完成：成功 ${successCount}，失败 ${failedCount}` : `兑换完成：成功 ${successCount}`,
+        failedCount > 0 ? `兑换收讫：${successCount} 成 ${failedCount} 败` : `兑换收讫：${successCount} 成`,
         failedCount > 0 ? 'error' : 'success',
       );
-      resultEl.innerHTML = result.results.map((entry) => `
-        <div class="settings-redeem-result${entry.ok ? ' success' : ' error'}">
-          <div class="settings-redeem-result-head">
-            <span>${escapeHtml(entry.code)}</span>
-            <span>${entry.ok ? '成功' : '失败'}</span>
-          </div>
-          <div class="settings-redeem-result-body">
-            ${escapeHtml(entry.groupName ? `${entry.groupName} · ${entry.message}` : entry.message)}
-          </div>
-        </div>
-      `).join('');
+      resultEl.replaceChildren(
+        ...result.results.map((entry) => this.createRedeemResultCard(entry)),
+      );
     } catch (error) {
-/** setStatus：处理当前场景中的对应操作。 */
       setStatus(statusEl, error instanceof Error ? error.message : '兑换失败', 'error');
-      resultEl.innerHTML = '';
+      resultEl.replaceChildren();
     } finally {
       button.disabled = false;
     }
   }
 
+  /** createRedeemResultCard：创建兑换结果卡片。 */
+  private createRedeemResultCard(entry: AccountRedeemCodesRes['results'][number]): HTMLElement {
+    const card = document.createElement('div');
+    card.className = `settings-redeem-result ui-surface-card ui-surface-card--compact${entry.ok ? ' success' : ' error'}`;
+    const head = document.createElement('div');
+    head.className = 'settings-redeem-result-head';
+    const code = document.createElement('span');
+    code.textContent = entry.code;
+    const status = document.createElement('span');
+    status.textContent = entry.ok ? '成功' : '失败';
+    head.append(code, status);
+
+    const body = document.createElement('div');
+    body.className = 'settings-redeem-result-body';
+    body.textContent = entry.groupName ? `${entry.groupName} · ${entry.message}` : entry.message;
+    card.append(head, body);
+    return card;
+  }  
+  /**
+ * scheduleDisplayNameCheck：判断schedule显示名称Check是否满足条件。
+ * @param input HTMLInputElement 输入参数。
+ * @param statusEl HTMLElement 参数说明。
+ * @returns 返回 Promise，完成后得到schedule显示名称Check。
+ */
+
+
   private async scheduleDisplayNameCheck(
     input: HTMLInputElement,
     statusEl: HTMLElement,
   ): Promise<void> {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
     if (this.displayNameCheckTimer) {
       clearTimeout(this.displayNameCheckTimer);
     }
-/** displayName：定义该变量以承载业务值。 */
     const displayName = input.value.normalize('NFC');
     if (displayName === this.currentDisplayName) {
       this.displayNameAvailable = true;
-      setStatus(statusEl, '当前名称可继续使用', '');
+      setStatus(statusEl, '道号可继续使用', '');
       return;
     }
 
-/** localError：定义该变量以承载业务值。 */
     const localError = validateDisplayName(displayName);
     if (localError) {
       this.displayNameAvailable = false;
@@ -753,22 +780,22 @@ export class SettingsPanel {
     }, 250);
   }
 
-/** checkDisplayName：执行对应的业务逻辑。 */
+  /** checkDisplayName：处理检查显示名称。 */
   private async checkDisplayName(displayName: string, statusEl: HTMLElement): Promise<void> {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
     if (displayName === this.currentDisplayName) {
       this.displayNameAvailable = true;
-      setStatus(statusEl, '当前名称可继续使用', '');
+      setStatus(statusEl, '道号可继续使用', '');
       return;
     }
     if (this.displayNameAbortController) {
       this.displayNameAbortController.abort();
     }
-/** controller：定义该变量以承载业务值。 */
     const controller = new AbortController();
     this.displayNameAbortController = controller;
 
     try {
-/** result：定义该变量以承载业务值。 */
       const result = await checkDisplayNameAvailability(displayName, controller.signal);
       if (controller.signal.aborted) {
         return;
@@ -776,7 +803,7 @@ export class SettingsPanel {
       this.displayNameAvailable = result.available;
       setStatus(
         statusEl,
-        result.available ? '显示名称可用' : (result.message ?? '显示名称不可用'),
+        result.available ? '道号可用' : (result.message ?? '道号已被占'),
         result.available ? 'success' : 'error',
       );
     } catch (error) {
@@ -784,26 +811,32 @@ export class SettingsPanel {
         return;
       }
       this.displayNameAvailable = false;
-/** setStatus：处理当前场景中的对应操作。 */
-      setStatus(statusEl, error instanceof Error ? error.message : '检测失败', 'error');
+      setStatus(statusEl, error instanceof Error ? error.message : '验查未果', 'error');
     }
-  }
+  }  
+  /**
+ * handleDisplayNameSubmit：判断显示名称Submit是否满足条件。
+ * @param input HTMLInputElement 输入参数。
+ * @param statusEl HTMLElement 参数说明。
+ * @param button HTMLButtonElement 参数说明。
+ * @returns 返回 Promise，完成后得到显示名称Submit。
+ */
+
 
   private async handleDisplayNameSubmit(
     input: HTMLInputElement,
     statusEl: HTMLElement,
     button: HTMLButtonElement,
   ): Promise<void> {
-/** accessToken：定义该变量以承载业务值。 */
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
     const accessToken = getAccessToken();
     if (!accessToken) {
       setStatus(statusEl, '登录已失效，请重新登录', 'error');
       return;
     }
 
-/** displayName：定义该变量以承载业务值。 */
     const displayName = input.value.normalize('NFC');
-/** localError：定义该变量以承载业务值。 */
     const localError = validateDisplayName(displayName);
     if (localError) {
       setStatus(statusEl, localError, 'error');
@@ -819,20 +852,27 @@ export class SettingsPanel {
     button.disabled = true;
     setStatus(statusEl, '正在保存...', '');
     try {
-/** result：定义该变量以承载业务值。 */
       const result = await updateDisplayName(accessToken, { displayName });
       this.currentDisplayName = result.displayName;
       this.displayNameAvailable = true;
       input.value = result.displayName;
       this.options?.onDisplayNameUpdated(result.displayName);
-      setStatus(statusEl, '显示名称已更新', 'success');
+      setStatus(statusEl, '道号已更', 'success');
     } catch (error) {
-/** setStatus：处理当前场景中的对应操作。 */
       setStatus(statusEl, error instanceof Error ? error.message : '保存失败', 'error');
     } finally {
       button.disabled = false;
     }
-  }
+  }  
+  /**
+ * handlePasswordSubmit：处理PasswordSubmit并更新相关状态。
+ * @param currentPasswordInput HTMLInputElement 参数说明。
+ * @param newPasswordInput HTMLInputElement 参数说明。
+ * @param statusEl HTMLElement 参数说明。
+ * @param button HTMLButtonElement 参数说明。
+ * @returns 返回 Promise，完成后得到PasswordSubmit。
+ */
+
 
   private async handlePasswordSubmit(
     currentPasswordInput: HTMLInputElement,
@@ -840,7 +880,8 @@ export class SettingsPanel {
     statusEl: HTMLElement,
     button: HTMLButtonElement,
   ): Promise<void> {
-/** accessToken：定义该变量以承载业务值。 */
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
     const accessToken = getAccessToken();
     if (!accessToken) {
       setStatus(statusEl, '登录已失效，请重新登录', 'error');
@@ -851,7 +892,6 @@ export class SettingsPanel {
       setStatus(statusEl, '当前密码不能为空', 'error');
       return;
     }
-/** passwordError：定义该变量以承载业务值。 */
     const passwordError = validatePassword(newPasswordInput.value);
     if (passwordError) {
       setStatus(statusEl, passwordError, 'error');
@@ -869,28 +909,34 @@ export class SettingsPanel {
       newPasswordInput.value = '';
       setStatus(statusEl, '密码已更新', 'success');
     } catch (error) {
-/** setStatus：处理当前场景中的对应操作。 */
       setStatus(statusEl, error instanceof Error ? error.message : '保存失败', 'error');
     } finally {
       button.disabled = false;
     }
-  }
+  }  
+  /**
+ * handleRoleNameSubmit：处理Role名称Submit并更新相关状态。
+ * @param input HTMLInputElement 输入参数。
+ * @param statusEl HTMLElement 参数说明。
+ * @param button HTMLButtonElement 参数说明。
+ * @returns 返回 Promise，完成后得到Role名称Submit。
+ */
+
 
   private async handleRoleNameSubmit(
     input: HTMLInputElement,
     statusEl: HTMLElement,
     button: HTMLButtonElement,
   ): Promise<void> {
-/** accessToken：定义该变量以承载业务值。 */
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
     const accessToken = getAccessToken();
     if (!accessToken) {
       setStatus(statusEl, '登录已失效，请重新登录', 'error');
       return;
     }
 
-/** roleName：定义该变量以承载业务值。 */
     const roleName = input.value.normalize('NFC').trim();
-/** roleNameError：定义该变量以承载业务值。 */
     const roleNameError = validateRoleName(roleName);
     if (roleNameError) {
       setStatus(statusEl, roleNameError, 'error');
@@ -904,14 +950,12 @@ export class SettingsPanel {
     button.disabled = true;
     setStatus(statusEl, '正在保存...', '');
     try {
-/** result：定义该变量以承载业务值。 */
       const result = await updateRoleName(accessToken, { roleName });
       this.currentRoleName = result.roleName;
       input.value = result.roleName;
       this.options?.onRoleNameUpdated(result.roleName);
-      setStatus(statusEl, '角色名称已更新', 'success');
+      setStatus(statusEl, '角色名号已更', 'success');
     } catch (error) {
-/** setStatus：处理当前场景中的对应操作。 */
       setStatus(statusEl, error instanceof Error ? error.message : '保存失败', 'error');
     } finally {
       button.disabled = false;
@@ -919,13 +963,15 @@ export class SettingsPanel {
   }
 }
 
-/** formatGlobalFontOffset：执行对应的业务逻辑。 */
+/** formatGlobalFontOffset：格式化Global Font偏移。 */
 function formatGlobalFontOffset(value: number): string {
   return `${value >= 0 ? '+' : ''}${value}px`;
 }
 
-/** setStatus：执行对应的业务逻辑。 */
+/** setStatus：处理set状态。 */
 function setStatus(target: HTMLElement | null, message: string, tone: '' | 'success' | 'error'): void {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
   if (!target) {
     return;
   }
@@ -936,7 +982,7 @@ function setStatus(target: HTMLElement | null, message: string, tone: '' | 'succ
   }
 }
 
-/** escapeHtml：执行对应的业务逻辑。 */
+/** escapeHtml：转义 HTML 文本中的危险字符。 */
 function escapeHtml(input: string): string {
   return input
     .replaceAll('&', '&amp;')
@@ -946,15 +992,11 @@ function escapeHtml(input: string): string {
     .replaceAll("'", '&#39;');
 }
 
-/** parseRedeemCodes：执行对应的业务逻辑。 */
+/** parseRedeemCodes：解析兑换兑换码。 */
 function parseRedeemCodes(raw: string): string[] {
-/** entries：定义该变量以承载业务值。 */
   const entries = raw
     .split(/[\s,，;；]+/u)
     .map((entry) => entry.trim().toUpperCase())
     .filter((entry) => entry.length > 0);
   return [...new Set(entries)].slice(0, 50);
 }
-
-
-

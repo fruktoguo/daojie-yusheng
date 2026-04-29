@@ -4,17 +4,16 @@
  */
 
 import {
-  calcTechniqueAttrValues,
   EquipmentEffectDef,
   GAME_TIME_PHASES,
+  applyEnhancementToItemStack,
   formatBuffMaxStacks,
   ItemStack,
-  TECHNIQUE_ATTR_KEYS,
+  parseQiResourceKey,
 } from '@mud/shared';
 import {
-  ATTR_KEY_LABELS,
-  getEquipSlotLabel,
   getEntityKindLabel,
+  getEquipSlotLabel,
   getItemTypeLabel,
   getTechniqueGradeLabel,
 } from '../domain-labels';
@@ -28,9 +27,10 @@ import {
 } from '../content/local-templates';
 import { SkillTooltipAsideCard, SkillTooltipContent } from './skill-tooltip';
 import { describePreviewBonuses } from './stat-preview';
-import { formatAdaptiveRatePercent, formatDisplayInteger, formatDisplayNumber, formatDisplayPercent } from '../utils/number';
+import { formatTechniqueCumulativeBonusSummary } from './technique-bonus-summary';
+import { formatDisplayInteger, formatDisplayNumber, formatDisplayPercent } from '../utils/number';
 
-/** escapeHtml：执行对应的业务逻辑。 */
+/** escapeHtml：转义 HTML 文本中的危险字符。 */
 function escapeHtml(value: string): string {
   return value
     .replaceAll('&', '&amp;')
@@ -40,21 +40,66 @@ function escapeHtml(value: string): string {
     .replaceAll("'", '&#39;');
 }
 
-/** renderLabelLine：执行对应的业务逻辑。 */
+/** renderLabelLine：渲染标签Line。 */
 function renderLabelLine(label: string, value: string): string {
   return `<span class="skill-tooltip-label">${escapeHtml(label)}：</span>${value}`;
 }
 
-/** renderPlainLine：执行对应的业务逻辑。 */
+/** renderPlainLine：渲染Plain Line。 */
 function renderPlainLine(label: string, value: string): string {
   return renderLabelLine(label, escapeHtml(value));
 }
 
-/** resolveMedicineCategoryLabel：执行对应的业务逻辑。 */
+/** resolveQiElementLabel：解析灵气元素标签。 */
+function resolveQiElementLabel(element: string): string {
+  switch (element) {
+    case 'metal':
+      return '金';
+    case 'wood':
+      return '木';
+    case 'water':
+      return '水';
+    case 'fire':
+      return '火';
+    case 'earth':
+      return '土';
+    default:
+      return '无属性';
+  }
+}
+
+/** resolveQiFamilyLabel：解析灵气族标签。 */
+function resolveQiFamilyLabel(family: string): string {
+  switch (family) {
+    case 'sha':
+      return '煞气';
+    case 'demonic':
+      return '魔气';
+    default:
+      return '灵气';
+  }
+}
+
+/** resolveTileResourceGainLabel：解析地块资源增益标签。 */
+function resolveTileResourceGainLabel(resourceKey: string): string {
+  const parsed = parseQiResourceKey(resourceKey);
+  if (!parsed) {
+    return `当前地块资源 ${resourceKey}`;
+  }
+  if (parsed.family === 'aura' && parsed.form === 'refined' && parsed.element === 'neutral') {
+    return '所处之地灵力';
+  }
+  const familyLabel = resolveQiFamilyLabel(parsed.family);
+  const elementLabel = resolveQiElementLabel(parsed.element);
+  const formLabel = parsed.form === 'dispersed' ? '逸散' : '凝练';
+  return `当前地块${elementLabel}${formLabel}${familyLabel}`;
+}
+
+/** resolveMedicineCategoryLabel：解析Medicine Category标签。 */
 function resolveMedicineCategoryLabel(item: ItemStack): string | null {
-/** tags：定义该变量以承载业务值。 */
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
   const tags = item.tags ?? [];
-/** labels：定义该变量以承载业务值。 */
   const labels: string[] = [];
   if (tags.includes('生命回复')) {
     labels.push('生命回复');
@@ -77,45 +122,42 @@ function resolveMedicineCategoryLabel(item: ItemStack): string | null {
   return labels.length > 0 ? labels.join(' / ') : null;
 }
 
-/** normalizeBuffMark：执行对应的业务逻辑。 */
+/** normalizeBuffMark：规范化Buff Mark。 */
 function normalizeBuffMark(name: string, shortMark?: string): string {
-/** value：定义该变量以承载业务值。 */
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
   const value = shortMark?.trim();
   if (value) return [...value][0] ?? value;
   return [...name.trim()][0] ?? '气';
 }
 
-/** buildBuffInlineBadge：执行对应的业务逻辑。 */
+/** buildBuffInlineBadge：构建Buff Inline Badge。 */
 function buildBuffInlineBadge(name: string, shortMark?: string, category?: 'buff' | 'debuff'): string {
-/** toneClass：定义该变量以承载业务值。 */
   const toneClass = category === 'debuff' ? 'debuff' : 'buff';
-/** mark：定义该变量以承载业务值。 */
   const mark = normalizeBuffMark(name, shortMark);
   return `<span class="skill-tooltip-buff-entry ${toneClass}"><span class="skill-tooltip-buff-mark">${escapeHtml(mark)}</span><span>${escapeHtml(name)}</span></span>`;
 }
 
-/** describeBuffStats：执行对应的业务逻辑。 */
+/** describeBuffStats：处理describe Buff属性。 */
 function describeBuffStats(
   attrs?: NonNullable<ItemStack['equipAttrs']>,
   stats?: ItemStack['equipStats'],
   valueStats?: ItemStack['equipValueStats'],
-  attrMode?: 'flat' | 'percent',
-  statMode?: 'flat' | 'percent',
 ): string[] {
-  return describePreviewBonuses(attrs, stats, valueStats, attrMode, statMode);
+  return describePreviewBonuses(attrs, stats, valueStats);
 }
 
-/** getTimePhaseLabel：执行对应的业务逻辑。 */
+/** getTimePhaseLabel：读取时段标签。 */
 function getTimePhaseLabel(phaseId: string): string {
   return GAME_TIME_PHASES.find((entry) => entry.id === phaseId)?.label ?? phaseId;
 }
 
-/** getMapLabel：执行对应的业务逻辑。 */
+/** getMapLabel：读取地图标签。 */
 function getMapLabel(mapId: string): string {
   return getCachedMapMeta(mapId)?.name ?? mapId;
 }
 
-/** getConditionTargetKindLabel：执行对应的业务逻辑。 */
+/** getConditionTargetKindLabel：读取条件目标类型标签。 */
 function getConditionTargetKindLabel(kind: 'monster' | 'player' | 'tile'): string {
   if (kind === 'tile') {
     return '地块';
@@ -123,9 +165,8 @@ function getConditionTargetKindLabel(kind: 'monster' | 'player' | 'tile'): strin
   return getEntityKindLabel(kind, kind);
 }
 
-/** formatEquipmentConditionText：执行对应的业务逻辑。 */
+/** formatEquipmentConditionText：格式化装备条件文本。 */
 export function formatEquipmentConditionText(effect: EquipmentEffectDef): string[] {
-/** conditions：定义该变量以承载业务值。 */
   const conditions = effect.conditions?.items ?? [];
   return conditions.map((condition) => {
     switch (condition.type) {
@@ -149,9 +190,8 @@ export function formatEquipmentConditionText(effect: EquipmentEffectDef): string
   }).filter((entry) => entry.length > 0);
 }
 
-/** formatTriggerLabel：执行对应的业务逻辑。 */
+/** formatTriggerLabel：格式化Trigger标签。 */
 function formatTriggerLabel(trigger: EquipmentEffectDef extends infer _T ? string : never): string {
-/** labels：定义该变量以承载业务值。 */
   const labels: Record<string, string> = {
     on_equip: '装备时',
     on_unequip: '卸下时',
@@ -168,17 +208,16 @@ function formatTriggerLabel(trigger: EquipmentEffectDef extends infer _T ? strin
   return labels[trigger] ?? trigger;
 }
 
-/** buildTimedBuffAsideCard：执行对应的业务逻辑。 */
-function buildTimedBuffAsideCard(effect: Extract<EquipmentEffectDef, { type: 'timed_buff' }>): SkillTooltipAsideCard {
-/** stackLimit：定义该变量以承载业务值。 */
+/** buildTimedBuffAsideCard：构建Timed Buff Aside卡片。 */
+function buildTimedBuffAsideCard(effect: Extract<EquipmentEffectDef, {
+/**
+ * type：type相关字段。
+ */
+ type: 'timed_buff' }>): SkillTooltipAsideCard {
   const stackLimit = formatBuffMaxStacks(effect.buff.maxStacks);
-/** stackText：定义该变量以承载业务值。 */
   const stackText = stackLimit ? ` · 最多 ${stackLimit} 层` : '';
-/** conditionLines：定义该变量以承载业务值。 */
   const conditionLines = formatEquipmentConditionText(effect);
-/** buffLines：定义该变量以承载业务值。 */
-  const buffLines = describeBuffStats(effect.buff.attrs, effect.buff.stats, effect.buff.valueStats, effect.buff.attrMode ?? 'percent', effect.buff.statMode ?? 'percent');
-/** lines：定义该变量以承载业务值。 */
+  const buffLines = describeBuffStats(effect.buff.attrs, effect.buff.stats, effect.buff.valueStats);
   const lines = [
     `${formatTriggerLabel(effect.trigger)} · ${effect.target === 'target' ? '目标' : '自身'} · ${formatDisplayInteger(effect.buff.duration)} 息${stackText}`,
     ...(effect.cooldown !== undefined ? [`冷却：${formatDisplayInteger(effect.cooldown)} 息`] : []),
@@ -191,19 +230,26 @@ function buildTimedBuffAsideCard(effect: Extract<EquipmentEffectDef, { type: 'ti
     mark: normalizeBuffMark(effect.buff.name, effect.buff.shortMark),
     title: effect.buff.name,
     lines,
-/** tone：定义该变量以承载业务值。 */
     tone: effect.buff.category === 'debuff' ? 'debuff' : 'buff',
   };
 }
 
-/** buildEffectSummary：执行对应的业务逻辑。 */
-function buildEffectSummary(effect: EquipmentEffectDef): { lines: string[]; asideCard?: SkillTooltipAsideCard } {
-/** conditionLines：定义该变量以承载业务值。 */
+/** buildEffectSummary：构建效果摘要。 */
+function buildEffectSummary(effect: EquipmentEffectDef): {
+/**
+ * lines：line相关字段。
+ */
+ lines: string[];
+ /**
+ * asideCard：asideCard相关字段。
+ */
+ asideCard?: SkillTooltipAsideCard } {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
   const conditionLines = formatEquipmentConditionText(effect);
   switch (effect.type) {
     case 'stat_aura': {
-/** effectLines：定义该变量以承载业务值。 */
-      const effectLines = describeBuffStats(effect.attrs, effect.stats, effect.valueStats, effect.attrMode, effect.statMode);
+      const effectLines = describeBuffStats(effect.attrs, effect.stats, effect.valueStats);
       return {
         lines: [
           renderPlainLine('常驻特效', effectLines.length > 0 ? effectLines.join('，') : '无数值变化'),
@@ -212,8 +258,7 @@ function buildEffectSummary(effect: EquipmentEffectDef): { lines: string[]; asid
       };
     }
     case 'progress_boost': {
-/** effectLines：定义该变量以承载业务值。 */
-      const effectLines = describeBuffStats(effect.attrs, effect.stats, effect.valueStats, effect.attrMode, effect.statMode);
+      const effectLines = describeBuffStats(effect.attrs, effect.stats, effect.valueStats);
       return {
         lines: [
           renderPlainLine('推进特效', effectLines.length > 0 ? effectLines.join('，') : '无数值变化'),
@@ -222,12 +267,11 @@ function buildEffectSummary(effect: EquipmentEffectDef): { lines: string[]; asid
       };
     }
     case 'periodic_cost': {
-/** modeLabel：定义该变量以承载业务值。 */
       const modeLabel = effect.mode === 'flat'
         ? `${formatDisplayNumber(effect.value)}`
-        : effect.mode === 'max_ratio_bp'
-          ? `${formatDisplayPercent(effect.value / 100)} 最大${effect.resource === 'hp' ? '生命' : '灵力'}`
-          : `${formatDisplayPercent(effect.value / 100)} 当前${effect.resource === 'hp' ? '生命' : '灵力'}`;
+      : effect.mode === 'max_ratio_bp'
+          ? `${formatDisplayPercent(effect.value / 100)} 最大${effect.resource === 'hp' ? '气血' : '灵力'}`
+          : `${formatDisplayPercent(effect.value / 100)} 当前${effect.resource === 'hp' ? '气血' : '灵力'}`;
       return {
         lines: [
           renderPlainLine('持续代价', `${effect.trigger === 'on_cultivation_tick' ? '修炼时每息' : '每息'}损失 ${modeLabel}`),
@@ -236,11 +280,8 @@ function buildEffectSummary(effect: EquipmentEffectDef): { lines: string[]; asid
       };
     }
     case 'timed_buff': {
-/** stackLimit：定义该变量以承载业务值。 */
       const stackLimit = formatBuffMaxStacks(effect.buff.maxStacks);
-/** stackText：定义该变量以承载业务值。 */
       const stackText = stackLimit ? `，最多 ${stackLimit} 层` : '';
-/** meta：定义该变量以承载业务值。 */
       const meta: string[] = [
         formatTriggerLabel(effect.trigger),
         effect.target === 'target' ? '目标' : '自身',
@@ -262,35 +303,72 @@ function buildEffectSummary(effect: EquipmentEffectDef): { lines: string[]; asid
   }
 }
 
-/** ItemTooltipPayload：定义该接口的能力与字段约束。 */
+/** ItemTooltipPayload：物品提示框载荷。 */
 export interface ItemTooltipPayload {
-/** title：定义该变量以承载业务值。 */
-  title: string;
-/** lines：定义该变量以承载业务值。 */
-  lines: string[];
-/** asideCards：定义该变量以承载业务值。 */
-  asideCards: SkillTooltipAsideCard[];
-/** allowHtml：定义该变量以承载业务值。 */
+/**
+ * title：title名称或显示文本。
+ */
+
+  title: string;  
+  /**
+ * lines：line相关字段。
+ */
+
+  lines: string[];  
+  /**
+ * asideCards：asideCard相关字段。
+ */
+
+  asideCards: SkillTooltipAsideCard[];  
+  /**
+ * allowHtml：allowHtml相关字段。
+ */
+
   allowHtml: boolean;
 }
 
-/** ItemTooltipCooldownState：定义该接口的能力与字段约束。 */
+/** ItemTooltipCooldownState：物品冷却显示状态。 */
 export interface ItemTooltipCooldownState {
-/** cooldown：定义该变量以承载业务值。 */
-  cooldown: number;
-/** cooldownLeft：定义该变量以承载业务值。 */
+/**
+ * cooldown：冷却相关字段。
+ */
+
+  cooldown: number;  
+  /**
+ * cooldownLeft：冷却Left相关字段。
+ */
+
   cooldownLeft: number;
 }
 
-/** ItemTooltipContext：定义该接口的能力与字段约束。 */
+/** ItemTooltipContext：物品提示预览上下文。 */
 export interface ItemTooltipContext {
-  learnedTechniqueIds?: ReadonlySet<string>;
-  unlockedMinimapIds?: ReadonlySet<string>;
-  equippedItem?: ItemStack | null;
+/**
+ * learnedTechniqueIds：learned功法ID相关字段。
+ */
+
+  learnedTechniqueIds?: ReadonlySet<string>;  
+  /**
+ * unlockedMinimapIds：unlockedMinimapID相关字段。
+ */
+
+  unlockedMinimapIds?: ReadonlySet<string>;  
+  /**
+ * equippedItem：equipped道具相关字段。
+ */
+
+  equippedItem?: ItemStack | null;  
+  /**
+ * itemCooldown：道具冷却相关字段。
+ */
+
   itemCooldown?: ItemTooltipCooldownState | null;
 }
 
+/** isMapUnlockItemRead：判断是否地图解锁物品Read。 */
 function isMapUnlockItemRead(item: Pick<ItemStack, 'mapUnlockId' | 'mapUnlockIds'>, unlockedMinimapIds?: ReadonlySet<string>): boolean {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
   if (!unlockedMinimapIds) {
     return false;
   }
@@ -302,11 +380,11 @@ function isMapUnlockItemRead(item: Pick<ItemStack, 'mapUnlockId' | 'mapUnlockIds
   return mapIds.length > 0 && mapIds.every((mapId) => unlockedMinimapIds.has(mapId));
 }
 
-/** resolveItemStatusLabel：执行对应的业务逻辑。 */
+/** resolveItemStatusLabel：解析物品状态标签。 */
 function resolveItemStatusLabel(item: ItemStack, context?: ItemTooltipContext): string | null {
-/** itemCooldown：定义该变量以承载业务值。 */
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
   const itemCooldown = context?.itemCooldown;
-/** activeCooldown：定义该变量以承载业务值。 */
   const activeCooldown: ItemTooltipCooldownState | null = itemCooldown !== null && itemCooldown !== undefined && itemCooldown.cooldownLeft > 0
     ? itemCooldown
     : null;
@@ -314,7 +392,6 @@ function resolveItemStatusLabel(item: ItemStack, context?: ItemTooltipContext): 
     return `冷却 ${formatDisplayInteger(activeCooldown.cooldownLeft)} 息`;
   }
   if (item.type === 'skill_book') {
-/** techniqueId：定义该变量以承载业务值。 */
     const techniqueId = resolveTechniqueIdFromBookItemId(item.itemId);
     if (techniqueId && context?.learnedTechniqueIds?.has(techniqueId)) {
       return '已学';
@@ -326,29 +403,27 @@ function resolveItemStatusLabel(item: ItemStack, context?: ItemTooltipContext): 
   return null;
 }
 
-/** buildPlainEffectSummary：执行对应的业务逻辑。 */
+/** buildPlainEffectSummary：构建Plain效果摘要。 */
 function buildPlainEffectSummary(effect: EquipmentEffectDef): string[] {
-/** conditionLines：定义该变量以承载业务值。 */
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
   const conditionLines = formatEquipmentConditionText(effect);
   switch (effect.type) {
     case 'stat_aura': {
-/** effectLines：定义该变量以承载业务值。 */
-      const effectLines = describeBuffStats(effect.attrs, effect.stats, effect.valueStats, effect.attrMode, effect.statMode);
+      const effectLines = describeBuffStats(effect.attrs, effect.stats, effect.valueStats);
       return [
         `常驻特效：${effectLines.length > 0 ? effectLines.join('，') : '无数值变化'}`,
         ...(conditionLines.length > 0 ? [`生效条件：${conditionLines.join('，')}`] : []),
       ];
     }
     case 'progress_boost': {
-/** effectLines：定义该变量以承载业务值。 */
-      const effectLines = describeBuffStats(effect.attrs, effect.stats, effect.valueStats, effect.attrMode, effect.statMode);
+      const effectLines = describeBuffStats(effect.attrs, effect.stats, effect.valueStats);
       return [
         `推进特效：${effectLines.length > 0 ? effectLines.join('，') : '无数值变化'}`,
         ...(conditionLines.length > 0 ? [`生效条件：${conditionLines.join('，')}`] : []),
       ];
     }
     case 'periodic_cost': {
-/** modeLabel：定义该变量以承载业务值。 */
       const modeLabel = effect.mode === 'flat'
         ? `${formatDisplayNumber(effect.value)}`
         : effect.mode === 'max_ratio_bp'
@@ -360,9 +435,7 @@ function buildPlainEffectSummary(effect: EquipmentEffectDef): string[] {
       ];
     }
     case 'timed_buff': {
-/** stackLimit：定义该变量以承载业务值。 */
       const stackLimit = formatBuffMaxStacks(effect.buff.maxStacks);
-/** meta：定义该变量以承载业务值。 */
       const meta = [
         formatTriggerLabel(effect.trigger),
         effect.target === 'target' ? '目标' : '自身',
@@ -378,17 +451,16 @@ function buildPlainEffectSummary(effect: EquipmentEffectDef): string[] {
   }
 }
 
-/** buildConsumableEffectDetails：执行对应的业务逻辑。 */
+/** buildConsumableEffectDetails：构建Consumable效果详情。 */
 function buildConsumableEffectDetails(item: ItemStack, itemCooldown?: ItemTooltipCooldownState | null): string[] {
-/** previewItem：定义该变量以承载业务值。 */
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
   const previewItem = resolvePreviewItem(item);
   if (previewItem.type !== 'consumable') {
     return [];
   }
 
-/** lines：定义该变量以承载业务值。 */
   const lines: string[] = [];
-/** activeCooldown：定义该变量以承载业务值。 */
   const activeCooldown: ItemTooltipCooldownState | null = itemCooldown !== null && itemCooldown !== undefined && itemCooldown.cooldownLeft > 0
     ? itemCooldown
     : null;
@@ -398,7 +470,6 @@ function buildConsumableEffectDetails(item: ItemStack, itemCooldown?: ItemToolti
   if (typeof previewItem.cooldown === 'number' && previewItem.cooldown > 0) {
     lines.push(`使用冷却：${formatDisplayInteger(previewItem.cooldown)} 息`);
   }
-/** instantParts：定义该变量以承载业务值。 */
   const instantParts: string[] = [];
   if (typeof previewItem.healAmount === 'number' && previewItem.healAmount > 0) {
     instantParts.push(`恢复 ${formatDisplayInteger(previewItem.healAmount)} 点气血`);
@@ -419,8 +490,7 @@ function buildConsumableEffectDetails(item: ItemStack, itemCooldown?: ItemToolti
       metaParts.push(`最多 ${formatDisplayInteger(buff.maxStacks)} 层`);
     }
     lines.push(`药效：${buff.name}${metaParts.length > 0 ? `，${metaParts.join('，')}` : ''}`);
-/** bonusLines：定义该变量以承载业务值。 */
-    const bonusLines = describeBuffStats(buff.attrs, buff.stats, buff.valueStats, buff.attrMode ?? 'percent', buff.statMode ?? 'percent');
+    const bonusLines = describeBuffStats(buff.attrs, buff.stats, buff.valueStats);
     if (bonusLines.length > 0) {
       lines.push(`效果：${bonusLines.join('，')}`);
     }
@@ -429,19 +499,30 @@ function buildConsumableEffectDetails(item: ItemStack, itemCooldown?: ItemToolti
     }
   }
 
-  if (typeof previewItem.tileAuraGainAmount === 'number' && previewItem.tileAuraGainAmount > 0) {
-    lines.push(`立即效果：当前地块灵力 +${formatDisplayInteger(previewItem.tileAuraGainAmount)}`);
+  if (Array.isArray(previewItem.tileResourceGains) && previewItem.tileResourceGains.length > 0) {
+    for (const gain of previewItem.tileResourceGains) {
+      if (typeof gain.amount !== 'number' || gain.amount <= 0) {
+        continue;
+      }
+      lines.push(`立即效果：${resolveTileResourceGainLabel(gain.resourceKey)} +${formatDisplayInteger(gain.amount)}`);
+    }
+  } else if (typeof previewItem.tileAuraGainAmount === 'number' && previewItem.tileAuraGainAmount > 0) {
+    lines.push(`立即效果：所处之地灵力 +${formatDisplayInteger(previewItem.tileAuraGainAmount)}`);
   }
   if (previewItem.mapUnlockId || (previewItem.mapUnlockIds?.length ?? 0) > 0) {
     lines.push('使用效果：永久解锁对应地图');
+  }
+  if (previewItem.respawnBindMapId) {
+    lines.push('使用效果：绑定复活点与遁返落点');
   }
 
   return lines;
 }
 
-/** describeItemEffectDetails：执行对应的业务逻辑。 */
+/** describeItemEffectDetails：处理describe物品效果详情。 */
 export function describeItemEffectDetails(item: ItemStack): string[] {
-/** previewItem：定义该变量以承载业务值。 */
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
   const previewItem = resolvePreviewItem(item);
   if (previewItem.effects?.length) {
     return previewItem.effects.flatMap((effect) => buildPlainEffectSummary(effect));
@@ -449,49 +530,46 @@ export function describeItemEffectDetails(item: ItemStack): string[] {
   return buildConsumableEffectDetails(previewItem);
 }
 
-/** describeEquipmentUtilityBonuses：执行对应的业务逻辑。 */
+/** describeEquipmentUtilityBonuses：整理装备功能性词条。 */
 export function describeEquipmentUtilityBonuses(item: ItemStack): string[] {
-/** lines：定义该变量以承载业务值。 */
   const lines: string[] = [];
+  const formatSignedRate = (value: number): string => `${value > 0 ? '+' : ''}${formatDisplayPercent(value * 100)}`;
   if (typeof item.alchemySpeedRate === 'number' && item.alchemySpeedRate !== 0) {
-    lines.push(`炼丹速度 ${item.alchemySpeedRate > 0 ? '+' : ''}${formatAdaptiveRatePercent(item.alchemySpeedRate * 100)}`);
+    lines.push(`炼丹速度 ${formatSignedRate(item.alchemySpeedRate)}`);
   }
   if (typeof item.alchemySuccessRate === 'number' && item.alchemySuccessRate !== 0) {
-    lines.push(`炼丹成功 ${item.alchemySuccessRate > 0 ? '+' : ''}${formatAdaptiveRatePercent(item.alchemySuccessRate * 100)}`);
+    lines.push(`炼丹成功 ${formatSignedRate(item.alchemySuccessRate)}`);
   }
   if (typeof item.enhancementSpeedRate === 'number' && item.enhancementSpeedRate !== 0) {
-    lines.push(`强化速度 ${item.enhancementSpeedRate > 0 ? '+' : ''}${formatAdaptiveRatePercent(item.enhancementSpeedRate * 100)}`);
+    lines.push(`强化速度 ${formatSignedRate(item.enhancementSpeedRate)}`);
   }
   if (typeof item.enhancementSuccessRate === 'number' && item.enhancementSuccessRate !== 0) {
-    lines.push(`强化成功修正 ${item.enhancementSuccessRate > 0 ? '+' : ''}${formatAdaptiveRatePercent(item.enhancementSuccessRate * 100)}`);
+    lines.push(`强化成功修正 ${formatSignedRate(item.enhancementSuccessRate)}`);
   }
   return lines;
 }
 
-/** describeEquipmentBonuses：执行对应的业务逻辑。 */
+/** describeEquipmentBonuses：整理装备词条。 */
 export function describeEquipmentBonuses(item: ItemStack): string[] {
-/** previewItem：定义该变量以承载业务值。 */
-  const previewItem = resolvePreviewItem(item);
+  const previewItem = applyEnhancementToItemStack(resolvePreviewItem(item));
   return [
     ...describeBuffStats(previewItem.equipAttrs, previewItem.equipStats, previewItem.equipValueStats),
     ...describeEquipmentUtilityBonuses(previewItem),
   ];
 }
 
-/** buildEquipmentComparisonAsideCard：执行对应的业务逻辑。 */
+/** buildEquipmentComparisonAsideCard：构建Equipment Comparison Aside卡片。 */
 function buildEquipmentComparisonAsideCard(item: ItemStack): SkillTooltipAsideCard {
-/** previewItem：定义该变量以承载业务值。 */
   const previewItem = resolvePreviewItem(item);
-/** propertyLines：定义该变量以承载业务值。 */
+  const enhancedPreviewItem = applyEnhancementToItemStack(previewItem);
   const propertyLines = describeEquipmentBonuses(previewItem);
-/** effectLines：定义该变量以承载业务值。 */
-  const effectLines = (previewItem.effects ?? []).flatMap((effect) => buildPlainEffectSummary(effect));
+  const effectLines = (enhancedPreviewItem.effects ?? []).flatMap((effect) => buildPlainEffectSummary(effect));
   return {
     mark: '装',
     title: '已装备',
     lines: [
-      previewItem.name,
-      ...(previewItem.equipSlot ? [`部位：${getEquipSlotLabel(previewItem.equipSlot)}`] : []),
+      enhancedPreviewItem.name,
+      ...(enhancedPreviewItem.equipSlot ? [`部位：${getEquipSlotLabel(enhancedPreviewItem.equipSlot)}`] : []),
       ...(propertyLines.length > 0 ? [`装备属性：${propertyLines.join('，')}`] : []),
       ...effectLines,
     ],
@@ -499,55 +577,32 @@ function buildEquipmentComparisonAsideCard(item: ItemStack): SkillTooltipAsideCa
   };
 }
 
-/** formatTechniqueAttrSummary：执行对应的业务逻辑。 */
-function formatTechniqueAttrSummary(attrs: ReturnType<typeof calcTechniqueAttrValues>): string {
-/** parts：定义该变量以承载业务值。 */
-  const parts = TECHNIQUE_ATTR_KEYS
-    .map((key) => {
-/** value：定义该变量以承载业务值。 */
-      const value = attrs[key] ?? 0;
-      if (value <= 0) {
-        return null;
-      }
-      return `${ATTR_KEY_LABELS[key]}+${formatDisplayNumber(value)}`;
-    })
-    .filter((entry): entry is string => entry !== null);
-  return parts.length > 0 ? parts.join(' / ') : '无属性提升';
-}
-
-/** buildTechniqueBookTooltipLines：执行对应的业务逻辑。 */
+/** buildTechniqueBookTooltipLines：构建功法书 tooltip 行。 */
 function buildTechniqueBookTooltipLines(item: ItemStack): string[] {
-/** techniqueId：定义该变量以承载业务值。 */
   const techniqueId = resolveTechniqueIdFromBookItemId(item.itemId);
   if (!techniqueId) {
     return [];
   }
-/** technique：定义该变量以承载业务值。 */
   const technique = getLocalTechniqueTemplate(techniqueId);
   if (!technique) {
     return [];
   }
-/** realmLabel：定义该变量以承载业务值。 */
   const realmLabel = technique.realmLv
     ? (getLocalRealmLevelEntry(technique.realmLv)?.displayName ?? `Lv.${formatDisplayInteger(technique.realmLv)}`)
     : '未知';
-/** maxLevel：定义该变量以承载业务值。 */
   const maxLevel = Math.max(
     1,
     ...((technique.layers ?? []).map((layer) => Math.max(1, Math.floor(layer.level)))),
   );
-/** totalAttrs：定义该变量以承载业务值。 */
-  const totalAttrs = calcTechniqueAttrValues(maxLevel, technique.layers);
-/** skillNames：定义该变量以承载业务值。 */
   const skillNames = (technique.skills ?? [])
     .map((skill) => skill.name.trim())
     .filter((name) => name.length > 0);
   return [
     renderPlainLine('功法', technique.name),
-    renderPlainLine('描述', item.desc?.trim() || '暂无描述'),
+    renderPlainLine('描述', item.desc?.trim() || '此物无言'),
     renderPlainLine('境界', realmLabel),
     renderPlainLine('品阶', getTechniqueGradeLabel(technique.grade)),
-    renderPlainLine('满层属性', formatTechniqueAttrSummary(totalAttrs)),
+    renderPlainLine('满层属性', formatTechniqueCumulativeBonusSummary(maxLevel, technique.layers)),
     renderPlainLine(
       `附带技能${skillNames.length > 0 ? `（${formatDisplayInteger(skillNames.length)}）` : ''}`,
       skillNames.length > 0 ? skillNames.join('、') : '无',
@@ -555,26 +610,21 @@ function buildTechniqueBookTooltipLines(item: ItemStack): string[] {
   ];
 }
 
-/** buildItemTooltipPayload：执行对应的业务逻辑。 */
+/** buildItemTooltipPayload：构建物品提示载荷。 */
 export function buildItemTooltipPayload(item: ItemStack, context?: ItemTooltipContext): ItemTooltipPayload {
-/** previewItem：定义该变量以承载业务值。 */
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
   const previewItem = resolvePreviewItem(item);
-/** sourceListHtml：定义该变量以承载业务值。 */
   const sourceListHtml = renderItemSourceListHtml(previewItem.itemId, { maxEntries: 3, compact: true });
-/** statusLabel：定义该变量以承载业务值。 */
   const statusLabel = resolveItemStatusLabel(previewItem, context);
-/** medicineCategoryLabel：定义该变量以承载业务值。 */
   const medicineCategoryLabel = resolveMedicineCategoryLabel(previewItem);
   if (previewItem.type !== 'equipment') {
-/** effectLines：定义该变量以承载业务值。 */
     const effectLines = previewItem.effects?.length
       ? previewItem.effects.flatMap((effect) => buildPlainEffectSummary(effect))
       : buildConsumableEffectDetails(previewItem, context?.itemCooldown);
-/** techniqueBookLines：定义该变量以承载业务值。 */
     const techniqueBookLines = previewItem.type === 'skill_book'
       ? buildTechniqueBookTooltipLines(previewItem)
       : [];
-/** lines：定义该变量以承载业务值。 */
     const lines = [
       ...(previewItem.type === 'skill_book'
         ? []
@@ -594,21 +644,18 @@ export function buildItemTooltipPayload(item: ItemStack, context?: ItemTooltipCo
     };
   }
 
-/** propertyLines：定义该变量以承载业务值。 */
+  const enhancedPreviewItem = applyEnhancementToItemStack(previewItem);
   const propertyLines = describeEquipmentBonuses(previewItem);
-/** effectSummaries：定义该变量以承载业务值。 */
-  const effectSummaries = (previewItem.effects ?? []).map((effect) => buildEffectSummary(effect));
-/** lines：定义该变量以承载业务值。 */
+  const effectSummaries = (enhancedPreviewItem.effects ?? []).map((effect) => buildEffectSummary(effect));
   const lines: string[] = [
-    `<span class="skill-tooltip-desc">${escapeHtml(previewItem.desc ?? '')}</span>`,
-    renderPlainLine('类型', getItemTypeLabel(previewItem.type)),
-    ...(previewItem.equipSlot ? [renderPlainLine('部位', getEquipSlotLabel(previewItem.equipSlot))] : []),
+    `<span class="skill-tooltip-desc">${escapeHtml(enhancedPreviewItem.desc ?? '')}</span>`,
+    renderPlainLine('类型', getItemTypeLabel(enhancedPreviewItem.type)),
+    ...(enhancedPreviewItem.equipSlot ? [renderPlainLine('部位', getEquipSlotLabel(enhancedPreviewItem.equipSlot))] : []),
     ...(statusLabel ? [renderPlainLine('状态', statusLabel)] : []),
     ...(propertyLines.length > 0 ? [renderPlainLine('装备属性', propertyLines.join('，'))] : []),
     ...effectSummaries.flatMap((entry) => entry.lines),
     `<div class="inventory-source-block"><span class="skill-tooltip-label">来源：</span>${sourceListHtml}</div>`,
   ];
-/** asideCards：定义该变量以承载业务值。 */
   const asideCards = effectSummaries
     .map((entry) => entry.asideCard)
     .filter((entry): entry is SkillTooltipAsideCard => Boolean(entry));
@@ -617,16 +664,15 @@ export function buildItemTooltipPayload(item: ItemStack, context?: ItemTooltipCo
   }
 
   return {
-    title: previewItem.name,
+    title: enhancedPreviewItem.name,
     lines,
     asideCards,
     allowHtml: true,
   };
 }
 
-/** buildEquipmentTooltipContent：执行对应的业务逻辑。 */
+/** buildEquipmentTooltipContent：构建Equipment提示Content。 */
 export function buildEquipmentTooltipContent(item: ItemStack, context?: ItemTooltipContext): SkillTooltipContent {
-/** payload：定义该变量以承载业务值。 */
   const payload = buildItemTooltipPayload(item, context);
   return {
     lines: payload.lines,

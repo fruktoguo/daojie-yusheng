@@ -2,61 +2,62 @@
   {
     "id": "mountain_insight_chart",
     "name": "玄照图",
+    "desc": "黄阶秘术预留位，名称偏观察、照影和识破。",
     "grade": "yellow",
     "layers": [
       {
         "level": 1,
         "expFactor": 124,
-        "attrs": {
+        "specialStats": {
           "comprehension": 2
         }
       },
       {
         "level": 2,
         "expFactor": 137,
-        "attrs": {
+        "specialStats": {
           "comprehension": 2
         }
       },
       {
         "level": 3,
         "expFactor": 151,
-        "attrs": {
+        "specialStats": {
           "comprehension": 2
         }
       },
       {
         "level": 4,
         "expFactor": 166,
-        "attrs": {
+        "specialStats": {
           "comprehension": 2
         }
       },
       {
         "level": 5,
         "expFactor": 182,
-        "attrs": {
+        "specialStats": {
           "comprehension": 3
         }
       },
       {
         "level": 6,
         "expFactor": 199,
-        "attrs": {
+        "specialStats": {
           "comprehension": 3
         }
       },
       {
         "level": 7,
         "expFactor": 217,
-        "attrs": {
+        "specialStats": {
           "comprehension": 3
         }
       },
       {
         "level": 8,
         "expFactor": 0,
-        "attrs": {
+        "specialStats": {
           "comprehension": 4
         }
       }
@@ -68,76 +69,77 @@
   {
     "id": "hidden_fortune_record",
     "name": "藏运录",
+    "desc": "黄阶秘术预留位，名称偏运势、掉落或资源流转。",
     "grade": "yellow",
     "category": "secret",
     "layers": [
       {
         "level": 1,
         "expFactor": 118,
-        "attrs": {
+        "specialStats": {
           "luck": 2
         }
       },
       {
         "level": 2,
         "expFactor": 127,
-        "attrs": {
+        "specialStats": {
           "luck": 2
         }
       },
       {
         "level": 3,
         "expFactor": 137,
-        "attrs": {
+        "specialStats": {
           "luck": 2
         }
       },
       {
         "level": 4,
         "expFactor": 148,
-        "attrs": {
+        "specialStats": {
           "luck": 2
         }
       },
       {
         "level": 5,
         "expFactor": 160,
-        "attrs": {
+        "specialStats": {
           "luck": 2
         }
       },
       {
         "level": 6,
         "expFactor": 173,
-        "attrs": {
+        "specialStats": {
           "luck": 2
         }
       },
       {
         "level": 7,
         "expFactor": 187,
-        "attrs": {
+        "specialStats": {
           "luck": 2
         }
       },
       {
         "level": 8,
         "expFactor": 202,
-        "attrs": {
+        "specialStats": {
           "luck": 2
         }
       },
       {
         "level": 9,
         "expFactor": 218,
-        "attrs": {
+        "specialStats": {
           "luck": 2
         }
       },
       {
         "level": 10,
         "expFactor": 0,
-        "attrs": {
+        "specialStats": {
           "luck": 2
         }
       }

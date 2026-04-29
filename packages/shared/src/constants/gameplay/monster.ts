@@ -1,4 +1,3 @@
-import type { PartialNumericStats } from '../../numeric';
 import type { NumericStatPercentages, MonsterTier, TechniqueGrade } from '../../types';
 
 /**
@@ -26,9 +25,10 @@ const MONSTER_PERCENT_SCALING_KEYS = [
   'moveSpeed',
 ] as const satisfies readonly (keyof NumericStatPercentages)[];
 
-/** createUniformPercentProfile：执行对应的业务逻辑。 */
+/** createUniformPercentProfile：创建Uniform Percent Profile。 */
 function createUniformPercentProfile(percent: number): NumericStatPercentages {
-/** result：定义该变量以承载业务值。 */
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
   const result: NumericStatPercentages = {};
   for (const key of MONSTER_PERCENT_SCALING_KEYS) {
     result[key] = percent;
@@ -36,22 +36,20 @@ function createUniformPercentProfile(percent: number): NumericStatPercentages {
   return result;
 }
 
-/** createGradePercentProfile：执行对应的业务逻辑。 */
+/** createGradePercentProfile：创建Grade Percent Profile。 */
 function createGradePercentProfile(rank: number): NumericStatPercentages {
   return createUniformPercentProfile(100 + rank * 10);
 }
 
-/** createTierPercentProfile：执行对应的业务逻辑。 */
+/** createTierPercentProfile：创建Tier Percent Profile。 */
 function createTierPercentProfile(allPercent: number, hpPercent: number): NumericStatPercentages {
-/** result：定义该变量以承载业务值。 */
   const result = createUniformPercentProfile(allPercent);
   result.maxHp = hpPercent;
   return result;
 }
 
-/** createGlobalMonsterPercentProfile：执行对应的业务逻辑。 */
+/** createGlobalMonsterPercentProfile：创建Global妖兽Percent Profile。 */
 function createGlobalMonsterPercentProfile(): NumericStatPercentages {
-/** result：定义该变量以承载业务值。 */
   const result = createUniformPercentProfile(100);
   result.hpRegenRate = 10;
   result.dodge = 10;
@@ -80,23 +78,6 @@ export const MONSTER_GRADE_STAT_PERCENTS: Record<TechniqueGrade, NumericStatPerc
 
 /** 所有妖兽共享的全局数值调节层，用于压制优先属性带来的统一超模收益。 */
 export const MONSTER_GLOBAL_STAT_PERCENTS: NumericStatPercentages = createGlobalMonsterPercentProfile();
-
-/** 所有怪物共享的每级基础线性成长（按等级差叠加，1 级不额外加成）。 */
-export const MONSTER_LEVEL_FLAT_GROWTH_STATS: PartialNumericStats = {
-  maxHp: 10,
-  maxQi: 6,
-  physAtk: 1,
-  spellAtk: 1,
-  physDef: 1,
-  spellDef: 1,
-  hit: 1,
-  dodge: 1,
-  crit: 1,
-  antiCrit: 1,
-  breakPower: 1,
-  resolvePower: 1,
-  cooldownSpeed: 3,
-};
 
 /** 妖兽血脉层次倍率。 */
 export const MONSTER_TIER_STAT_PERCENTS: Record<MonsterTier, NumericStatPercentages> = {
@@ -133,4 +114,7 @@ export const MONSTER_TIER_UNDERLEVEL_EXP_BONUS_RATES: Record<MonsterTier, number
 
 /** 击杀经验的等级差修正最多只按 10 级计算，避免极端越级导致收益爆炸。 */
 export const MONSTER_KILL_EXP_LEVEL_DELTA_CAP = 10;
+
+
+
 

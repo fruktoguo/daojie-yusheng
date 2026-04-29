@@ -58,8 +58,8 @@ export const ATTR_KEY_LABELS: Record<AttrKey, string> = {
   spirit: '神识',
   perception: '身法',
   talent: '根骨',
-  comprehension: '悟性',
-  luck: '气运',
+  strength: '力道',
+  meridians: '经脉',
 };
 
 /** 五行属性中文标签 */
@@ -103,6 +103,7 @@ export const NUMERIC_SCALAR_STAT_LABELS: Record<NumericScalarStatKey, string> = 
   extraAggroRate: '额外仇恨值',
   extraRange: '额外射程格数',
   extraArea: '额外范围格数',
+  actionsPerTurn: '每回合行动次数',
 };
 
 /** 实体类型中文标签 */
@@ -112,6 +113,7 @@ export const ENTITY_KIND_LABELS: Record<EntityKind | 'player', string> = {
   npc: '人物',
   container: '容器',
   crowd: '人群',
+  formation: '阵法',
 };
 
 /** 妖兽血脉层次中文标签 */
@@ -235,18 +237,18 @@ export const SKILL_FORMULA_BASE_VAR_LABELS: Partial<Record<SkillFormulaVar, stri
   'target.distance': '目标距离',
   'caster.attr.constitution': '自身体魄',
   'caster.attr.spirit': '自身神识',
-  'caster.attr.perception': '自身感知',
+  'caster.attr.perception': '自身身法',
   'caster.attr.talent': '自身根骨',
-  'caster.attr.comprehension': '自身悟性',
-  'caster.attr.luck': '自身福缘',
+  'caster.attr.strength': '自身力道',
+  'caster.attr.meridians': '自身经脉',
   'target.hp': '目标当前生命',
   'target.maxHp': '目标最大生命',
   'target.qi': '目标当前灵力',
   'target.maxQi': '目标最大灵力',
   'target.attr.constitution': '目标体魄',
   'target.attr.spirit': '目标神识',
-  'target.attr.perception': '目标感知',
+  'target.attr.perception': '目标身法',
   'target.attr.talent': '目标根骨',
-  'target.attr.comprehension': '目标悟性',
-  'target.attr.luck': '目标福缘',
+  'target.attr.strength': '目标力道',
+  'target.attr.meridians': '目标经脉',
 };

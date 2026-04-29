@@ -1,13 +1,14 @@
 import { DEFAULT_AURA_LEVEL_BASE_VALUE } from './constants/gameplay/aura';
 
-/** getNextAuraLevelThreshold：执行对应的业务逻辑。 */
+/** 计算下一档灵气等级门槛，按 1.5 倍递增。 */
 function getNextAuraLevelThreshold(currentThreshold: number): number {
   return Math.max(1, Math.ceil(currentThreshold * 1.5));
 }
 
-/** normalizeAuraLevelBaseValue：执行对应的业务逻辑。 */
+/** 将灵气等级基准值归一化为正整数，兼容空值和非法输入。 */
 export function normalizeAuraLevelBaseValue(value: unknown, fallback = DEFAULT_AURA_LEVEL_BASE_VALUE): number {
-/** normalizedFallback：定义该变量以承载业务值。 */
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
   const normalizedFallback = Number.isFinite(fallback) && Number(fallback) > 0
     ? Math.max(1, Math.round(Number(fallback)))
     : DEFAULT_AURA_LEVEL_BASE_VALUE;
@@ -17,24 +18,25 @@ export function normalizeAuraLevelBaseValue(value: unknown, fallback = DEFAULT_A
   return Math.max(1, Math.round(Number(value)));
 }
 
-/** normalizeAuraValue：执行对应的业务逻辑。 */
+/** 将灵气值归一化为非负整数，供等级换算和持久化使用。 */
 export function normalizeAuraValue(value: unknown): number {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
   if (!Number.isFinite(value)) {
     return 0;
   }
   return Math.max(0, Math.round(Number(value)));
 }
 
-/** getAuraLevelThreshold：执行对应的业务逻辑。 */
+/** 计算指定灵气等级所需的最低灵气值。 */
 export function getAuraLevelThreshold(level: number, baseValue = DEFAULT_AURA_LEVEL_BASE_VALUE): number {
-/** normalizedLevel：定义该变量以承载业务值。 */
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
   const normalizedLevel = Math.max(0, Math.floor(level));
   if (normalizedLevel <= 0) {
     return 0;
   }
-/** base：定义该变量以承载业务值。 */
   const base = normalizeAuraLevelBaseValue(baseValue);
-/** threshold：定义该变量以承载业务值。 */
   let threshold = base;
   for (let currentLevel = 1; currentLevel < normalizedLevel; currentLevel += 1) {
     threshold = getNextAuraLevelThreshold(threshold);
@@ -42,19 +44,17 @@ export function getAuraLevelThreshold(level: number, baseValue = DEFAULT_AURA_LE
   return threshold;
 }
 
-/** getAuraLevel：执行对应的业务逻辑。 */
+/** 根据灵气值反推当前可达到的灵气等级。 */
 export function getAuraLevel(auraValue: number, baseValue = DEFAULT_AURA_LEVEL_BASE_VALUE): number {
-/** normalizedValue：定义该变量以承载业务值。 */
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
   const normalizedValue = normalizeAuraValue(auraValue);
-/** base：定义该变量以承载业务值。 */
   const base = normalizeAuraLevelBaseValue(baseValue);
   if (normalizedValue < base) {
     return 0;
   }
 
-/** level：定义该变量以承载业务值。 */
   let level = 0;
-/** threshold：定义该变量以承载业务值。 */
   let threshold = base;
   while (normalizedValue >= threshold) {
     level += 1;
@@ -66,23 +66,20 @@ export function getAuraLevel(auraValue: number, baseValue = DEFAULT_AURA_LEVEL_B
   return level;
 }
 
-/** convertLegacyAuraLevelToValue：执行对应的业务逻辑。 */
+/** 把旧地图中的灵气等级值转换成实际灵气值。 */
 export function convertLegacyAuraLevelToValue(level: number, baseValue = DEFAULT_AURA_LEVEL_BASE_VALUE): number {
   return getAuraLevelThreshold(level, baseValue);
 }
 
-/** isLegacyAuraLevelValue：执行对应的业务逻辑。 */
+/** 判断一个配置值是否是旧地图灵气等级值。 */
 export function isLegacyAuraLevelValue(value: number, baseValue = DEFAULT_AURA_LEVEL_BASE_VALUE): boolean {
-/** normalizedValue：定义该变量以承载业务值。 */
   const normalizedValue = normalizeAuraValue(value);
-/** base：定义该变量以承载业务值。 */
   const base = normalizeAuraLevelBaseValue(baseValue);
   return Number.isInteger(normalizedValue) && normalizedValue > 0 && normalizedValue < base;
 }
 
-/** normalizeConfiguredAuraValue：执行对应的业务逻辑。 */
+/** 规范化地图/编辑器里的灵气配置值，next 侧统一按 auraValue 存储。 */
 export function normalizeConfiguredAuraValue(value: unknown, baseValue = DEFAULT_AURA_LEVEL_BASE_VALUE): number {
-/** normalizedValue：定义该变量以承载业务值。 */
   const normalizedValue = normalizeAuraValue(value);
   if (normalizedValue <= 0) {
     return 0;
@@ -92,4 +89,3 @@ export function normalizeConfiguredAuraValue(value: unknown, baseValue = DEFAULT
   }
   return normalizedValue;
 }
-

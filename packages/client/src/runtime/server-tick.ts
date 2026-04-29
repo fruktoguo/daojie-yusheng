@@ -1,52 +1,54 @@
-/** currentServerTick：定义该变量以承载业务值。 */
+/** 当前估算服务端 tick（可为空表示还未接收到服务端节拍基准）。 */
 let currentServerTick: number | null = null;
-/** currentServerTickSyncedAt：定义该变量以承载业务值。 */
+/** 当前服务端 tick 时间戳（ms），用于换算本地延迟后 tick。 */
 let currentServerTickSyncedAt = performance.now();
-/** currentServerTickIntervalMs：定义该变量以承载业务值。 */
+/** 服务端玩家动作 tick 间隔，移动/冷却按参考 main 的 1000ms 口径估算。 */
 let currentServerTickIntervalMs = 1000;
 
-/** syncEstimatedServerTick：执行对应的业务逻辑。 */
+/** 同步服务端下发的基准 tick，并重置本地估算时间基点。 */
 export function syncEstimatedServerTick(serverTick: number | null | undefined): void {
   currentServerTick = typeof serverTick === 'number' && Number.isFinite(serverTick)
     ? Math.max(0, Math.floor(serverTick))
     : null;
+  /** 基准 tick 已同步，刷新对齐时间点。 */
   currentServerTickSyncedAt = performance.now();
 }
 
-/** syncEstimatedServerTickInterval：执行对应的业务逻辑。 */
+/** 同步服务端 tick 间隔（服务端可变 tick 周期时用于本地估算）。 */
 export function syncEstimatedServerTickInterval(dtMs: number | null | undefined): void {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
   if (typeof dtMs !== 'number' || !Number.isFinite(dtMs) || dtMs <= 0) {
     return;
   }
+  /** 使用有效的服务端 tick 周期替换本地默认值。 */
   currentServerTickIntervalMs = dtMs;
 }
 
-/** getEstimatedServerTick：执行对应的业务逻辑。 */
+/** 根据本地耗时估算当前服务端 tick。 */
 export function getEstimatedServerTick(now = performance.now()): number | null {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
   if (currentServerTick === null) {
     return null;
   }
-/** elapsedMs：定义该变量以承载业务值。 */
   const elapsedMs = Math.max(0, now - currentServerTickSyncedAt);
-/** elapsedTicks：定义该变量以承载业务值。 */
   const elapsedTicks = Math.floor(elapsedMs / Math.max(1, currentServerTickIntervalMs));
   return currentServerTick + elapsedTicks;
 }
 
-/** resolveInventoryCooldownLeft：执行对应的业务逻辑。 */
+/** 根据冷却开始 tick 与当前估算 tick 计算剩余可用秒/时序 tick。 */
 export function resolveInventoryCooldownLeft(cooldown: number, startedAtTick: number, now = performance.now()): number {
-/** normalizedCooldown：定义该变量以承载业务值。 */
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
   const normalizedCooldown = Math.max(0, Math.floor(cooldown));
   if (normalizedCooldown <= 0) {
     return 0;
   }
-/** currentTick：定义该变量以承载业务值。 */
   const currentTick = getEstimatedServerTick(now);
   if (currentTick === null) {
     return normalizedCooldown;
   }
-/** elapsedTicks：定义该变量以承载业务值。 */
   const elapsedTicks = Math.max(0, currentTick - Math.max(0, Math.floor(startedAtTick)));
   return Math.max(0, normalizedCooldown - elapsedTicks);
 }
-

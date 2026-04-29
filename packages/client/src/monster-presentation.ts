@@ -1,32 +1,43 @@
-import type { EntityBadge, MonsterTier } from '@mud/shared';
+import type { MonsterTier, RenderEntity } from '@mud/shared';
 
-/** MonsterPresentation：定义该接口的能力与字段约束。 */
+/** 怪物在界面中的展示信息。 */
 export interface MonsterPresentation {
-/** label：定义该变量以承载业务值。 */
-  label: string;
-  badge?: EntityBadge;
-/** scale：定义该变量以承载业务值。 */
+/**
+ * label：label名称或显示文本。
+ */
+
+  label: string;  
+  /**
+ * badge：badge相关字段。
+ */
+
+  badge?: RenderEntity['badge'];  
+  /**
+ * scale：scale相关字段。
+ */
+
   scale: number;
 }
 
-/** sanitizeMonsterName：执行对应的业务逻辑。 */
+/** 清理怪物名称里的重复修饰词。 */
 export function sanitizeMonsterName(name: string | undefined, tier: MonsterTier | undefined): string {
-/** fallback：定义该变量以承载业务值。 */
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
   const fallback = name?.trim() || '未知妖兽';
   if (tier !== 'variant') {
     return fallback;
   }
-/** sanitized：定义该变量以承载业务值。 */
   const sanitized = fallback.replaceAll('精英', '').trim();
   return sanitized.length > 0 ? sanitized : fallback;
 }
 
-/** getMonsterPresentation：执行对应的业务逻辑。 */
+/** 根据怪物阶位生成展示文案与徽记。 */
 export function getMonsterPresentation(
   name: string | undefined,
   tier: MonsterTier | undefined,
 ): MonsterPresentation {
-/** label：定义该变量以承载业务值。 */
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
   const label = sanitizeMonsterName(name, tier);
   if (tier === 'variant') {
     return {
@@ -46,4 +57,18 @@ export function getMonsterPresentation(
     label,
     scale: 1,
   };
+}
+
+/** 将实体徽记映射为现有 UI 徽记类名。 */
+export function getEntityBadgeClassName(badge: RenderEntity['badge'] | null | undefined): string | null {
+  if (!badge) {
+    return null;
+  }
+  if (badge.tone === 'boss') {
+    return 'monster-badge monster-badge--boss';
+  }
+  if (badge.tone === 'demonic') {
+    return 'monster-badge monster-badge--demonic';
+  }
+  return 'monster-badge monster-badge--variant';
 }

@@ -25,31 +25,81 @@ const ENHANCEMENT_TARGET_SUCCESS_RATE_BY_LEVEL = [
 
 /** 强化期望策略：描述某个保护起点下的期望消耗。 */
 export interface EnhancementExpectedCostStrategy {
-  targetLevel: number;
-  protectionStartLevel: number | null;
-  spiritStonePerSuccess: number;
-  expectedAttempts: number;
-  expectedSpiritStones: number;
-  expectedProtectionCount: number;
-  expectedTargetCopies: number;
-  expectedProtectionCost?: number;
-  expectedTotalCostWithoutBase?: number;
+/**
+ * targetLevel：目标等级数值。
+ */
+
+  targetLevel: number;  
+  /**
+ * protectionStartLevel：protectionStart等级数值。
+ */
+
+  protectionStartLevel: number | null;  
+  /**
+ * spiritStonePerSuccess：spiritStonePerSuccess相关字段。
+ */
+
+  spiritStonePerSuccess: number;  
+  /**
+ * expectedAttempts：expectedAttempt相关字段。
+ */
+
+  expectedAttempts: number;  
+  /**
+ * expectedSpiritStones：expectedSpiritStone相关字段。
+ */
+
+  expectedSpiritStones: number;  
+  /**
+ * expectedProtectionCount：数量或计量字段。
+ */
+
+  expectedProtectionCount: number;  
+  /**
+ * expectedTargetCopies：expected目标Copy相关字段。
+ */
+
+  expectedTargetCopies: number;  
+  /**
+ * expectedProtectionCost：expectedProtection消耗数值。
+ */
+
+  expectedProtectionCost?: number;  
+  /**
+ * expectedTotalCostWithoutBase：expectedTotal消耗WithoutBase相关字段。
+ */
+
+  expectedTotalCostWithoutBase?: number;  
+  /**
+ * expectedTotalCostWithBase：expectedTotal消耗WithBase相关字段。
+ */
+
   expectedTotalCostWithBase?: number;
 }
 
 /** 强化期望集合：包含所有策略与最优策略。 */
 export interface EnhancementExpectedCostAnalysis {
-  strategies: EnhancementExpectedCostStrategy[];
+/**
+ * strategies：strategy相关字段。
+ */
+
+  strategies: EnhancementExpectedCostStrategy[];  
+  /**
+ * bestStrategy：bestStrategy相关字段。
+ */
+
   bestStrategy: EnhancementExpectedCostStrategy | null;
 }
 
-/** clampUnitRate：归一化成功率到 0~1。 */
+/** clampUnitRate：处理clamp Unit速率。 */
 function clampUnitRate(value: number | undefined): number {
   return Math.max(0, Math.min(1, Number.isFinite(value) ? Number(value) : 0));
 }
 
-/** applyEnhancementSuccessModifier：按 50% 枢轴应用强化成功率修正。 */
+/** applyEnhancementSuccessModifier：应用强化Success Modifier。 */
 function applyEnhancementSuccessModifier(rate: number | undefined, modifier: number | undefined): number {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
   const normalizedRate = clampUnitRate(rate);
   if (normalizedRate <= 0 || normalizedRate >= 1) {
     return normalizedRate;
@@ -72,29 +122,59 @@ function applyEnhancementSuccessModifier(rate: number | undefined, modifier: num
   return 1 - ((1 - normalizedRate) / factor);
 }
 
-/** getEnhancementTargetSuccessRate：读取目标强化等级的基础成功率。 */
+/** getEnhancementTargetSuccessRate：读取强化目标Success速率。 */
 function getEnhancementTargetSuccessRate(targetLevel: number): number {
   const normalizedLevel = Math.max(1, Math.floor(Number(targetLevel) || 1));
   const index = Math.min(normalizedLevel, ENHANCEMENT_TARGET_SUCCESS_RATE_BY_LEVEL.length) - 1;
   return Math.max(0, ENHANCEMENT_TARGET_SUCCESS_RATE_BY_LEVEL[index] ?? 0);
 }
 
-/** getEnhancementSpiritStoneCost：读取每次成功时结算的灵石数量。 */
+/** getEnhancementSpiritStoneCost：读取强化灵石石Cost。 */
 function getEnhancementSpiritStoneCost(itemLevel: number | undefined): number {
   const normalizedLevel = Number.isFinite(itemLevel) ? Number(itemLevel) : 1;
   return Math.max(1, Math.ceil(normalizedLevel / 10));
 }
 
-/** computeEnhancementExpectedCostStrategy：计算单一保护起点策略的期望消耗。 */
+/** computeEnhancementExpectedCostStrategy：计算强化Expected Cost Strategy。 */
 export function computeEnhancementExpectedCostStrategy(input: {
-  targetLevel: number;
-  itemLevel: number;
-  extraSuccessRate?: number;
-  protectionStartLevel: number | null;
-  protectionUnitPrice?: number;
-  targetItemUnitPrice?: number;
+/**
+ * targetLevel：目标等级数值。
+ */
+
+  targetLevel: number;  
+  /**
+ * itemLevel：道具等级数值。
+ */
+
+  itemLevel: number;  
+  /**
+ * extraSuccessRate：extraSuccessRate数值。
+ */
+
+  extraSuccessRate?: number;  
+  /**
+ * protectionStartLevel：protectionStart等级数值。
+ */
+
+  protectionStartLevel: number | null;  
+  /**
+ * protectionUnitPrice：protectionUnit价格数值。
+ */
+
+  protectionUnitPrice?: number;  
+  /**
+ * targetItemUnitPrice：目标道具Unit价格数值。
+ */
+
+  targetItemUnitPrice?: number;  
+  /**
+ * selfProtection：selfProtection相关字段。
+ */
+
   selfProtection?: boolean;
 }): EnhancementExpectedCostStrategy {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
   const targetLevel = Math.max(0, Math.floor(Number(input.targetLevel) || 0));
   const spiritStonePerSuccess = getEnhancementSpiritStoneCost(input.itemLevel);
 
@@ -155,15 +235,41 @@ export function computeEnhancementExpectedCostStrategy(input: {
   };
 }
 
-/** computeBestEnhancementExpectedCost：计算所有保护起点并给出最省钱策略。 */
+/** computeBestEnhancementExpectedCost：计算Best强化Expected Cost。 */
 export function computeBestEnhancementExpectedCost(input: {
-  targetLevel: number;
-  itemLevel: number;
-  extraSuccessRate?: number;
-  protectionUnitPrice?: number;
-  targetItemUnitPrice?: number;
+/**
+ * targetLevel：目标等级数值。
+ */
+
+  targetLevel: number;  
+  /**
+ * itemLevel：道具等级数值。
+ */
+
+  itemLevel: number;  
+  /**
+ * extraSuccessRate：extraSuccessRate数值。
+ */
+
+  extraSuccessRate?: number;  
+  /**
+ * protectionUnitPrice：protectionUnit价格数值。
+ */
+
+  protectionUnitPrice?: number;  
+  /**
+ * targetItemUnitPrice：目标道具Unit价格数值。
+ */
+
+  targetItemUnitPrice?: number;  
+  /**
+ * selfProtection：selfProtection相关字段。
+ */
+
   selfProtection?: boolean;
 }): EnhancementExpectedCostAnalysis {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
   const targetLevel = Math.max(0, Math.floor(Number(input.targetLevel) || 0));
   const strategies: EnhancementExpectedCostStrategy[] = [
     computeEnhancementExpectedCostStrategy({
@@ -198,12 +304,14 @@ export function computeBestEnhancementExpectedCost(input: {
   };
 }
 
-/** buildCoefficientMatrix：构造强化期望方程组。 */
+/** buildCoefficientMatrix：构建Coefficient Matrix。 */
 function buildCoefficientMatrix(
   targetLevel: number,
   protectionStartLevel: number | null,
   successRates: number[],
 ): number[][] {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
   const matrix = Array.from({ length: targetLevel }, () => Array(targetLevel).fill(0));
   for (let currentLevel = 0; currentLevel < targetLevel; currentLevel += 1) {
     const nextLevel = currentLevel + 1;
@@ -223,13 +331,27 @@ function buildCoefficientMatrix(
   return matrix;
 }
 
-/** buildRewardVector：构造方程右侧常数项。 */
+/** buildRewardVector：构建Reward Vector。 */
 function buildRewardVector(
   targetLevel: number,
   protectionStartLevel: number | null,
   successRates: number[],
-  reward: (input: { successRate: number; failureRate: number; protectionActive: boolean }) => number,
+  reward: (input: {  
+  /**
+ * successRate：successRate数值。
+ */
+ successRate: number;  
+ /**
+ * failureRate：failureRate数值。
+ */
+ failureRate: number;  
+ /**
+ * protectionActive：protection激活相关字段。
+ */
+ protectionActive: boolean }) => number,
 ): number[] {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
   const vector = Array(targetLevel).fill(0);
   for (let currentLevel = 0; currentLevel < targetLevel; currentLevel += 1) {
     const nextLevel = currentLevel + 1;
@@ -245,8 +367,10 @@ function buildRewardVector(
   return vector;
 }
 
-/** solveLinearSystem：用高斯消元求解小规模线性方程组。 */
+/** solveLinearSystem：处理solve Linear系统。 */
 function solveLinearSystem(matrix: number[][], vector: number[]): number[] {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
   const size = vector.length;
   const a = matrix.map((row) => [...row]);
   const b = [...vector];
@@ -260,7 +384,7 @@ function solveLinearSystem(matrix: number[][], vector: number[]): number[] {
     }
 
     if (Math.abs(a[pivot][col]) < 1e-12) {
-      throw new Error('强化期望值方程求解失败：矩阵奇异。');
+      throw new Error('强化推演失败');
     }
 
     if (pivot !== col) {
@@ -291,3 +415,5 @@ function solveLinearSystem(matrix: number[][], vector: number[]): number[] {
 
   return b;
 }
+
+

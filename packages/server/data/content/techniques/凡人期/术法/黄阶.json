@@ -2,73 +2,42 @@
   {
     "id": "monster_blade_limb_arts",
     "name": "刃肢裂杀",
+    "desc": "前肢切出刃口，回旋之间借叠刃之势越斩越深。",
     "grade": "yellow",
     "category": "arts",
     "realmLv": 1,
     "layers": [
       {
         "level": 1,
-        "expFactor": 15,
-        "attrs": {
-          "perception": 3,
-          "constitution": 1
-        }
+        "expFactor": 15
       },
       {
         "level": 2,
-        "expFactor": 17,
-        "attrs": {
-          "perception": 3,
-          "constitution": 1
-        }
+        "expFactor": 17
       },
       {
         "level": 3,
-        "expFactor": 20,
-        "attrs": {
-          "perception": 3,
-          "constitution": 1
-        }
+        "expFactor": 20
       },
       {
         "level": 4,
-        "expFactor": 24,
-        "attrs": {
-          "perception": 3,
-          "constitution": 2
-        }
+        "expFactor": 24
       },
       {
         "level": 5,
-        "expFactor": 28,
-        "attrs": {
-          "perception": 4,
-          "constitution": 2
-        }
+        "expFactor": 28
       },
       {
         "level": 6,
-        "expFactor": 33,
-        "attrs": {
-          "perception": 4,
-          "constitution": 2
-        }
+        "expFactor": 33
       },
       {
         "level": 7,
-        "expFactor": 39,
-        "attrs": {
-          "perception": 4,
-          "constitution": 2
-        }
+        "expFactor": 39
       },
       {
         "level": 8,
-        "expFactor": 0,
-        "attrs": {
-          "perception": 5,
-          "constitution": 2
-        }
+        "expFactor": 0
       }
     ],
     "skills": [
@@ -188,73 +157,42 @@
   {
     "id": "monster_venom_arts",
     "name": "妖毒腑纹",
+    "desc": "毒牙入体，瘴雾随呼吸扩散，蚀骨腐脉而不绝。",
     "grade": "yellow",
     "category": "arts",
     "realmLv": 1,
     "layers": [
       {
         "level": 1,
-        "expFactor": 16,
-        "attrs": {
-          "spirit": 2,
-          "perception": 2
-        }
+        "expFactor": 16
       },
       {
         "level": 2,
-        "expFactor": 18,
-        "attrs": {
-          "spirit": 2,
-          "perception": 2
-        }
+        "expFactor": 18
       },
       {
         "level": 3,
-        "expFactor": 21,
-        "attrs": {
-          "spirit": 2,
-          "perception": 2
-        }
+        "expFactor": 21
       },
       {
         "level": 4,
-        "expFactor": 24,
-        "attrs": {
-          "spirit": 3,
-          "perception": 2
-        }
+        "expFactor": 24
       },
       {
         "level": 5,
-        "expFactor": 28,
-        "attrs": {
-          "spirit": 3,
-          "perception": 2
-        }
+        "expFactor": 28
       },
       {
         "level": 6,
-        "expFactor": 33,
-        "attrs": {
-          "spirit": 3,
-          "perception": 3
-        }
+        "expFactor": 33
       },
       {
         "level": 7,
-        "expFactor": 39,
-        "attrs": {
-          "spirit": 4,
-          "perception": 3
-        }
+        "expFactor": 39
       },
       {
         "level": 8,
-        "expFactor": 0,
-        "attrs": {
-          "spirit": 4,
-          "perception": 3
-        }
+        "expFactor": 0
       }
     ],
     "skills": [
@@ -377,73 +315,42 @@
   {
     "id": "monster_beast_arts",
     "name": "妖兽猎杀本能",
+    "desc": "压低身形突进，连续爪击如暴风骤雨，令猎物无从喘息。",
     "grade": "yellow",
     "category": "arts",
     "realmLv": 1,
     "layers": [
       {
         "level": 1,
-        "expFactor": 16,
-        "attrs": {
-          "constitution": 2,
-          "perception": 2
-        }
+        "expFactor": 16
       },
       {
         "level": 2,
-        "expFactor": 18,
-        "attrs": {
-          "constitution": 2,
-          "perception": 2
-        }
+        "expFactor": 18
       },
       {
         "level": 3,
-        "expFactor": 20,
-        "attrs": {
-          "constitution": 2,
-          "perception": 2
-        }
+        "expFactor": 20
       },
       {
         "level": 4,
-        "expFactor": 23,
-        "attrs": {
-          "constitution": 3,
-          "perception": 2
-        }
+        "expFactor": 23
       },
       {
         "level": 5,
-        "expFactor": 26,
-        "attrs": {
-          "constitution": 3,
-          "perception": 2
-        }
+        "expFactor": 26
       },
       {
         "level": 6,
-        "expFactor": 30,
-        "attrs": {
-          "constitution": 3,
-          "perception": 3
-        }
+        "expFactor": 30
       },
       {
         "level": 7,
-        "expFactor": 35,
-        "attrs": {
-          "constitution": 3,
-          "perception": 3
-        }
+        "expFactor": 35
       },
       {
         "level": 8,
-        "expFactor": 0,
-        "attrs": {
-          "constitution": 4,
-          "perception": 3
-        }
+        "expFactor": 0
       }
     ],
     "skills": [
@@ -602,73 +509,42 @@
   {
     "id": "monster_wing_arts",
     "name": "异羽啸空",
+    "desc": "羽翎破空，居高临下；风火冰三色交替，令敌无从近身。",
     "grade": "yellow",
     "category": "arts",
     "realmLv": 1,
     "layers": [
       {
         "level": 1,
-        "expFactor": 16,
-        "attrs": {
-          "perception": 2,
-          "spirit": 2
-        }
+        "expFactor": 16
       },
       {
         "level": 2,
-        "expFactor": 18,
-        "attrs": {
-          "perception": 2,
-          "spirit": 2
-        }
+        "expFactor": 18
       },
       {
         "level": 3,
-        "expFactor": 21,
-        "attrs": {
-          "perception": 2,
-          "spirit": 2
-        }
+        "expFactor": 21
       },
       {
         "level": 4,
-        "expFactor": 24,
-        "attrs": {
-          "perception": 3,
-          "spirit": 2
-        }
+        "expFactor": 24
       },
       {
         "level": 5,
-        "expFactor": 28,
-        "attrs": {
-          "perception": 3,
-          "spirit": 3
-        }
+        "expFactor": 28
       },
       {
         "level": 6,
-        "expFactor": 33,
-        "attrs": {
-          "perception": 3,
-          "spirit": 3
-        }
+        "expFactor": 33
       },
       {
         "level": 7,
-        "expFactor": 39,
-        "attrs": {
-          "perception": 4,
-          "spirit": 3
-        }
+        "expFactor": 39
       },
       {
         "level": 8,
-        "expFactor": 0,
-        "attrs": {
-          "perception": 4,
-          "spirit": 4
-        }
+        "expFactor": 0
       }
     ],
     "skills": [
@@ -846,73 +722,42 @@
   {
     "id": "monster_wood_sprite_arts",
     "name": "竹灵草意",
+    "desc": "竹影扰其步，青叶如乱雨覆面，令敌寸步难行。",
     "grade": "yellow",
     "category": "arts",
     "realmLv": 1,
     "layers": [
       {
         "level": 1,
-        "expFactor": 16,
-        "attrs": {
-          "spirit": 2,
-          "perception": 2
-        }
+        "expFactor": 16
       },
       {
         "level": 2,
-        "expFactor": 18,
-        "attrs": {
-          "spirit": 2,
-          "perception": 2
-        }
+        "expFactor": 18
       },
       {
         "level": 3,
-        "expFactor": 21,
-        "attrs": {
-          "spirit": 3,
-          "perception": 2
-        }
+        "expFactor": 21
       },
       {
         "level": 4,
-        "expFactor": 24,
-        "attrs": {
-          "spirit": 3,
-          "perception": 2
-        }
+        "expFactor": 24
       },
       {
         "level": 5,
-        "expFactor": 28,
-        "attrs": {
-          "spirit": 3,
-          "perception": 3
-        }
+        "expFactor": 28
       },
       {
         "level": 6,
-        "expFactor": 33,
-        "attrs": {
-          "spirit": 4,
-          "perception": 3
-        }
+        "expFactor": 33
       },
       {
         "level": 7,
-        "expFactor": 39,
-        "attrs": {
-          "spirit": 4,
-          "perception": 3
-        }
+        "expFactor": 39
       },
       {
         "level": 8,
-        "expFactor": 0,
-        "attrs": {
-          "spirit": 4,
-          "perception": 4
-        }
+        "expFactor": 0
       }
     ],
     "skills": [
@@ -1033,6 +878,7 @@
   {
     "id": "redflame_art",
     "name": "赤焰诀",
+    "desc": "离火化网罩落，灼脉缠身不绝。",
     "grade": "yellow",
     "layers": [
       {
@@ -1145,6 +991,7 @@
   {
     "id": "wind_step",
     "name": "踏风步",
+    "desc": "借风提身，轻灵游走。",
     "grade": "yellow",
     "layers": [
       {
@@ -1212,6 +1059,7 @@
   {
     "id": "iron_bone_art",
     "name": "铁骨功",
+    "desc": "铁息贯骨，护体续命。",
     "grade": "yellow",
     "layers": [
       {
@@ -1271,6 +1119,7 @@
   {
     "id": "cloud_blade",
     "name": "流云刀谱",
+    "desc": "身随刀走，刀随风掠，一线截开前路。",
     "grade": "yellow",
     "layers": [
       {

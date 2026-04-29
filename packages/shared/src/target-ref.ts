@@ -15,13 +15,13 @@ export function isTileTargetRef(targetRef: string): boolean {
 
 /** 从目标引用字符串解析出格子坐标，格式不合法返回 null */
 export function parseTileTargetRef(targetRef: string): GridPoint | null {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
   if (!isTileTargetRef(targetRef)) {
     return null;
   }
   const [, sx, sy] = targetRef.split(':');
-/** x：定义该变量以承载业务值。 */
   const x = Number(sx);
-/** y：定义该变量以承载业务值。 */
   const y = Number(sy);
   if (!Number.isFinite(x) || !Number.isFinite(y)) {
     return null;

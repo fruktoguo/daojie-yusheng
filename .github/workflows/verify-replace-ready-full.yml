@@ -1,0 +1,54 @@
+name: Verify Replace-Ready Full
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  verify-replace-ready-full:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    environment: server-shadow
+
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: daojie_yusheng_ci
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres -d daojie_yusheng_ci"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 10
+
+    env:
+      DATABASE_URL: postgresql://postgres:postgres@127.0.0.1:5432/daojie_yusheng_ci?schema=public
+      SHADOW_URL: http://${{ secrets.DEPLOY_SSH_HOST }}:11923
+      GM_PASSWORD: ${{ secrets.PROD_GM_PASSWORD }}
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+
+      - name: Setup Node
+        uses: actions/setup-node@v5
+        with:
+          node-version: 20
+
+      - name: Enable Corepack
+        run: corepack enable
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile || pnpm install
+
+      - name: Doctor
+        run: SERVER_SHADOW_URL="$SHADOW_URL" GM_PASSWORD="$GM_PASSWORD" pnpm verify:replace-ready:doctor
+
+      - name: Verify replace-ready full
+        run: SERVER_SHADOW_URL="$SHADOW_URL" GM_PASSWORD="$GM_PASSWORD" pnpm verify:replace-ready:full

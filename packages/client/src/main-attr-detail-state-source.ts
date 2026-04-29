@@ -1,0 +1,139 @@
+import { S2C_AttrDetail, S2C_AttrUpdate, PlayerState } from '@mud/shared';
+import type { SocketPanelSender } from './network/socket-send-panel';
+import { AttrPanel } from './ui/panels/attr-panel';
+
+/**
+ * MainAttrDetailStateSourceOptions：统一结构类型，保证协议与运行时一致性。
+ */
+
+
+type MainAttrDetailStateSourceOptions = {
+/**
+ * attrPanel：attr面板相关字段。
+ */
+
+  attrPanel: Pick<AttrPanel, 'update' | 'setCallbacks' | 'applyDetail'>;  
+  /**
+ * socket：socket相关字段。
+ */
+
+  socket: Pick<SocketPanelSender, 'sendRequestAttrDetail'>;  
+  /**
+ * getPlayer：玩家引用。
+ */
+
+  getPlayer: () => PlayerState | null;  
+  /**
+ * getLatestAttrUpdate：LatestAttrUpdate相关字段。
+ */
+
+  getLatestAttrUpdate: () => S2C_AttrUpdate | null;
+  /**
+ * setLatestAttrUpdate：LatestAttrUpdate相关字段。
+ */
+
+  setLatestAttrUpdate: (value: S2C_AttrUpdate | null) => void;
+  /**
+ * mergeAttrUpdatePatch：AttrUpdatePatch相关字段。
+ */
+
+  mergeAttrUpdatePatch: (current: S2C_AttrUpdate | null, data: S2C_AttrUpdate) => S2C_AttrUpdate;
+  /**
+ * cloneJson：Json相关字段。
+ */
+
+  cloneJson: <T>(value: T) => T;
+};
+/**
+ * MainAttrDetailStateSource：统一结构类型，保证协议与运行时一致性。
+ */
+
+
+export type MainAttrDetailStateSource = ReturnType<typeof createMainAttrDetailStateSource>;
+/**
+ * createMainAttrDetailStateSource：构建并返回目标对象。
+ * @param options MainAttrDetailStateSourceOptions 选项参数。
+ * @returns 无返回值，直接更新MainAttr详情状态来源相关状态。
+ */
+
+
+export function createMainAttrDetailStateSource(options: MainAttrDetailStateSourceOptions) {
+  const source = {  
+  /**
+ * requestDetail：执行request详情相关逻辑。
+ * @returns 无返回值，直接更新request详情相关状态。
+ */
+
+    requestDetail(): void {
+      options.socket.sendRequestAttrDetail();
+    },    
+    /**
+ * init：执行init相关逻辑。
+ * @returns 无返回值，直接更新init相关状态。
+ */
+
+
+    init(): void {
+      // 按 main 口径，属性低频详情只在 tooltip 交互时按需请求。
+    },    
+    /**
+ * handleAttrDetail：处理Attr详情并更新相关状态。
+   * @param data S2C_AttrDetail 原始数据。
+ * @returns 无返回值，直接更新Attr详情相关状态。
+ */
+
+
+    handleAttrDetail(data: S2C_AttrDetail): void {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
+      const player = options.getPlayer();
+      if (!player) {
+        return;
+      }
+      const detail = options.cloneJson(data);
+      const latestAttrUpdate = options.getLatestAttrUpdate();
+      const specialStats = latestAttrUpdate?.specialStats
+        ? options.cloneJson(latestAttrUpdate.specialStats)
+        : {
+            foundation: Math.max(0, Math.floor(player.foundation ?? 0)),
+            rootFoundation: Math.max(0, Math.floor(player.rootFoundation ?? 0)),
+            combatExp: Math.max(0, Math.floor(player.combatExp ?? 0)),
+            comprehension: Math.max(0, Math.floor(player.comprehension ?? 0)),
+            luck: Math.max(0, Math.floor(player.luck ?? 0)),
+          };
+      const attrUpdateBase = options.mergeAttrUpdatePatch(latestAttrUpdate, {
+        baseAttrs: options.cloneJson(detail.baseAttrs),
+        bonuses: options.cloneJson(detail.bonuses),
+        finalAttrs: options.cloneJson(detail.finalAttrs),
+        numericStats: options.cloneJson(detail.numericStats),
+        ratioDivisors: options.cloneJson(detail.ratioDivisors),
+        specialStats: specialStats,
+        alchemySkill: options.cloneJson(detail.alchemySkill ?? player.alchemySkill),
+        gatherSkill: options.cloneJson(detail.gatherSkill ?? player.gatherSkill),
+        enhancementSkill: options.cloneJson(detail.enhancementSkill ?? player.enhancementSkill),
+      });
+      const attrUpdate: S2C_AttrUpdate = {
+        ...attrUpdateBase,
+        numericStatBreakdowns: options.cloneJson(detail.numericStatBreakdowns),
+      };
+      options.setLatestAttrUpdate(attrUpdate);
+
+      player.baseAttrs = options.cloneJson(detail.baseAttrs);
+      player.bonuses = options.cloneJson(detail.bonuses);
+      player.finalAttrs = options.cloneJson(detail.finalAttrs);
+      player.numericStats = options.cloneJson(detail.numericStats);
+      player.ratioDivisors = options.cloneJson(detail.ratioDivisors);
+      player.alchemySkill = options.cloneJson(detail.alchemySkill ?? player.alchemySkill);
+      player.gatherSkill = options.cloneJson(detail.gatherSkill ?? player.gatherSkill);
+      player.enhancementSkill = options.cloneJson(detail.enhancementSkill ?? player.enhancementSkill);
+      options.attrPanel.update(attrUpdate);
+      options.attrPanel.applyDetail(detail);
+    },
+  };
+  options.attrPanel.setCallbacks({
+    onRequestDetail: () => {
+      source.requestDetail();
+    },
+  });
+  return source;
+}

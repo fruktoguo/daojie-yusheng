@@ -3,9 +3,15 @@
  */
 
 export type MapPerformanceConfig = {
-/** showFpsMonitor：定义该变量以承载业务值。 */
+/**
+ * showFpsMonitor：showFpMonitor相关字段。
+ */
+
   showFpsMonitor: boolean;
-/** targetFps：定义该变量以承载业务值。 */
+  /**
+ * targetFps：targetFp相关字段。
+ */
+
   targetFps: number;
 };
 

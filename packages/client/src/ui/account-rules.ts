@@ -20,7 +20,8 @@ function hasWhitespace(value: string): boolean {
 
 /** 校验账号名，返回错误提示或 null */
 export function validateAccountName(accountName: string): string | null {
-/** length：定义该变量以承载业务值。 */
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
   const length = [...accountName].length;
   if (length < ACCOUNT_MIN_LENGTH) {
     return `账号长度不能少于 ${ACCOUNT_MIN_LENGTH} 个字符`;
@@ -36,6 +37,8 @@ export function validateAccountName(accountName: string): string | null {
 
 /** 校验密码强度，返回错误提示或 null */
 export function validatePassword(password: string): string | null {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
   if (password.length < PASSWORD_MIN_LENGTH) {
     return `密码长度不能少于 ${PASSWORD_MIN_LENGTH} 个字符`;
   }
@@ -47,6 +50,8 @@ export function validatePassword(password: string): string | null {
 
 /** 校验显示名称（单字标识），返回错误提示或 null */
 export function validateDisplayName(displayName: string): string | null {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
   if (!displayName) {
     return '显示名称不能为空';
   }
@@ -64,7 +69,8 @@ export function validateDisplayName(displayName: string): string | null {
 
 /** 校验角色名称，返回错误提示或 null */
 export function validateRoleName(roleName: string): string | null {
-/** normalized：定义该变量以承载业务值。 */
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
   const normalized = roleName.normalize('NFC').trim();
   if (!normalized) {
     return '角色名称不能为空';

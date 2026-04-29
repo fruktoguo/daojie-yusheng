@@ -8,7 +8,15 @@ import type { ItemType } from '@mud/shared';
 export type InventoryFilter = 'all' | ItemType;
 
 /** 背包筛选页签定义。 */
-export const INVENTORY_FILTER_TABS: Array<{ id: InventoryFilter; label: string }> = [
+export const INVENTORY_FILTER_TABS: Array<{
+/**
+ * id：ID标识。
+ */
+ id: InventoryFilter;
+ /**
+ * label：label名称或显示文本。
+ */
+ label: string }> = [
   { id: 'all', label: '全部' },
   { id: 'equipment', label: '装备' },
   { id: 'material', label: '材料' },

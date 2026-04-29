@@ -1,31 +1,44 @@
-/** GraphemeSegment：定义该类型的结构与数据语义。 */
+/** Grapheme 分段项：保存单段可见字符。 */
 type GraphemeSegment = {
-/** segment：定义该变量以承载业务值。 */
+/**
+ * segment：segment相关字段。
+ */
+
   segment: string;
 };
 
-/** GraphemeSegmenter：定义该类型的结构与数据语义。 */
+/** GraphemeSegmenter 抽象：兼容 Intl 实现和降级分词。 */
 type GraphemeSegmenter = {
   segment(input: string): Iterable<GraphemeSegment>;
 };
 
-/** IntlWithSegmenter：定义该类型的结构与数据语义。 */
+/** 仅含可选 Segmenter 的 Intl 扩展声明。 */
 type IntlWithSegmenter = typeof Intl & {
+/**
+ * Segmenter：Segmenter相关字段。
+ */
+
   Segmenter?: new (
     locales?: string | string[],
-    options?: { granularity: 'grapheme' },
+    options?: {    
+    /**
+ * granularity：granularity相关字段。
+ */
+ granularity: 'grapheme' },
   ) => GraphemeSegmenter;
 };
 
-/** intlWithSegmenter：定义该变量以承载业务值。 */
+/** intlWithSegmenter：intl With Segmenter。 */
 const intlWithSegmenter = Intl as IntlWithSegmenter;
-/** graphemeSegmenter：定义该变量以承载业务值。 */
+/** graphemeSegmenter：grapheme Segmenter。 */
 const graphemeSegmenter = typeof intlWithSegmenter.Segmenter === 'function'
   ? new intlWithSegmenter.Segmenter(undefined, { granularity: 'grapheme' })
   : null;
 
-/** splitGraphemes：执行对应的业务逻辑。 */
+/** splitGraphemes：处理split Graphemes。 */
 export function splitGraphemes(value: string): string[] {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
   if (!value) {
     return [];
   }
@@ -35,13 +48,18 @@ export function splitGraphemes(value: string): string[] {
   return Array.from(graphemeSegmenter.segment(value), (entry) => entry.segment);
 }
 
-/** getGraphemeCount：执行对应的业务逻辑。 */
+/** getGraphemeCount：读取Grapheme数量。 */
 export function getGraphemeCount(value: string): number {
   return splitGraphemes(value).length;
 }
 
-/** getFirstGrapheme：执行对应的业务逻辑。 */
+/** getFirstGrapheme：读取First Grapheme。 */
 export function getFirstGrapheme(value: string): string {
   return splitGraphemes(value)[0] ?? '';
 }
+
+
+
+
+
 

@@ -26,65 +26,121 @@ import {
   loadRecentChannelMessages,
 } from './chat-storage';
 
-/** ChatChannelState：定义该接口的能力与字段约束。 */
+/** 单个聊天频道的本地状态。 */
 interface ChatChannelState {
-/** messages：定义该变量以承载业务值。 */
-  messages: ChatStoredMessage[];
-/** messageIds：定义该变量以承载业务值。 */
-  messageIds: Set<string>;
-/** loadedCount：定义该变量以承载业务值。 */
-  loadedCount: number;
-/** hasLoadedAll：定义该变量以承载业务值。 */
-  hasLoadedAll: boolean;
-/** loadingOlder：定义该变量以承载业务值。 */
+/**
+ * messages：message相关字段。
+ */
+
+  messages: ChatStoredMessage[];  
+  /**
+ * messageIds：messageID相关字段。
+ */
+
+  messageIds: Set<string>;  
+  /**
+ * loadedCount：数量或计量字段。
+ */
+
+  loadedCount: number;  
+  /**
+ * hasLoadedAll：启用开关或状态标识。
+ */
+
+  hasLoadedAll: boolean;  
+  /**
+ * loadingOlder：loadingOlder相关字段。
+ */
+
   loadingOlder: boolean;
 }
 
-/** ChatAddMessageOptions：定义该接口的能力与字段约束。 */
+/** 追加聊天消息时可覆盖的消息元数据。 */
 interface ChatAddMessageOptions {
-  id?: string;
-  at?: number;
+/**
+ * id：ID标识。
+ */
+
+  id?: string;  
+  /**
+ * at：at相关字段。
+ */
+
+  at?: number;  
+  /**
+ * scope：scope相关字段。
+ */
+
   scope?: ChatMessageScope;
 }
 
-/** ParsedCombatDamageSegment：定义该接口的能力与字段约束。 */
+/** 解析后的战斗伤害或治疗文本片段。 */
 interface ParsedCombatDamageSegment {
-/** before：定义该变量以承载业务值。 */
-  before: string;
-/** connector：定义该变量以承载业务值。 */
-  connector: string;
-/** rawAmount：定义该变量以承载业务值。 */
-  rawAmount: string;
-/** actualAmount：定义该变量以承载业务值。 */
-  actualAmount: string;
-/** after：定义该变量以承载业务值。 */
-  after: string;
-/** details：定义该变量以承载业务值。 */
-  details: string[];
-/** pillText：定义该变量以承载业务值。 */
-  pillText: string;
-/** suffixText：定义该变量以承载业务值。 */
-  suffixText: string;
-/** tooltipTitle：定义该变量以承载业务值。 */
-  tooltipTitle: string;
-/** tooltipLines：定义该变量以承载业务值。 */
-  tooltipLines: string[];
-/** color：定义该变量以承载业务值。 */
+/**
+ * before：before相关字段。
+ */
+
+  before: string;  
+  /**
+ * connector：connector相关字段。
+ */
+
+  connector: string;  
+  /**
+ * rawAmount：数量或计量字段。
+ */
+
+  rawAmount: string;  
+  /**
+ * actualAmount：数量或计量字段。
+ */
+
+  actualAmount: string;  
+  /**
+ * after：after相关字段。
+ */
+
+  after: string;  
+  /**
+ * details：详情相关字段。
+ */
+
+  details: string[];  
+  /**
+ * pillText：pillText名称或显示文本。
+ */
+
+  pillText: string;  
+  /**
+ * suffixText：suffixText名称或显示文本。
+ */
+
+  suffixText: string;  
+  /**
+ * tooltipTitle：提示Title名称或显示文本。
+ */
+
+  tooltipTitle: string;  
+  /**
+ * tooltipLines：提示Line相关字段。
+ */
+
+  tooltipLines: string[];  
+  /**
+ * color：color相关字段。
+ */
+
   color: string;
 }
 
-/** COMBAT_DAMAGE_PATTERN：定义该变量以承载业务值。 */
 const COMBAT_DAMAGE_PATTERN = /^(?<before>.*?)(?:（(?<details>[^）]+)）)?，造成 原始 (?<raw>\d+) - 实际 (?<actual>\d+) - (?:(?<element>金|木|水|火|土)行)?(?<kind>物理|法术) 伤害(?<after>.*)$/;
-/** COMBAT_HEAL_PATTERN：定义该变量以承载业务值。 */
 const COMBAT_HEAL_PATTERN = /^(?<before>.*?)(?:（(?<details>[^）]+)）)?，造成 原始 (?<raw>\d+) - 实际 (?<actual>\d+) 治疗(?<after>.*)$/;
-/** COMBAT_RESULT_PATTERN：定义该变量以承载业务值。 */
 const COMBAT_RESULT_PATTERN = /^(?<before>.*?)(?:（(?<details>[^）]+)）)?，结果 (?<result>闪避)(?<after>.*)$/;
-/** COMBAT_HEAL_PILL_COLOR：定义该变量以承载业务值。 */
+/** 治疗数值胶囊的颜色。 */
 const COMBAT_HEAL_PILL_COLOR = '#1d6e42';
-/** COMBAT_RESULT_PILL_COLOR：定义该变量以承载业务值。 */
+/** 闪避结果胶囊的颜色。 */
 const COMBAT_RESULT_PILL_COLOR = '#6a7282';
 
-/** COMBAT_DAMAGE_ELEMENT_LABEL_TO_KEY：定义该变量以承载业务值。 */
 const COMBAT_DAMAGE_ELEMENT_LABEL_TO_KEY: Record<string, ElementKey> = {
   金: 'metal',
   木: 'wood',
@@ -93,27 +149,28 @@ const COMBAT_DAMAGE_ELEMENT_LABEL_TO_KEY: Record<string, ElementKey> = {
   土: 'earth',
 };
 
-/** isChatChannel：执行对应的业务逻辑。 */
+/** 判断值是否属于已知聊天频道。 */
 function isChatChannel(value: unknown): value is ChatChannel {
   return typeof value === 'string' && CHAT_CHANNELS.includes(value as ChatChannel);
 }
 
-/** isChatMessageKind：执行对应的业务逻辑。 */
+/** 判断值是否属于已知聊天消息类型。 */
 function isChatMessageKind(value: unknown): value is ChatMessageKind {
   return typeof value === 'string' && CHAT_MESSAGE_KINDS.includes(value as ChatMessageKind);
 }
 
-/** isChatMessageScope：执行对应的业务逻辑。 */
+/** 判断值是否属于已知聊天消息范围。 */
 function isChatMessageScope(value: unknown): value is ChatMessageScope {
   return typeof value === 'string' && CHAT_MESSAGE_SCOPES.includes(value as ChatMessageScope);
 }
 
-/** isChatStoredMessage：执行对应的业务逻辑。 */
+/** 判断值是否为合法的已存储聊天消息。 */
 function isChatStoredMessage(value: unknown): value is ChatStoredMessage {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
   if (!value || typeof value !== 'object') {
     return false;
   }
-/** candidate：定义该变量以承载业务值。 */
   const candidate = value as Partial<ChatStoredMessage>;
   return typeof candidate.id === 'string'
     && Number.isFinite(candidate.at)
@@ -123,7 +180,7 @@ function isChatStoredMessage(value: unknown): value is ChatStoredMessage {
     && (candidate.scope === undefined || isChatMessageScope(candidate.scope));
 }
 
-/** createChannelState：执行对应的业务逻辑。 */
+/** 创建频道初始状态。 */
 function createChannelState(): ChatChannelState {
   return {
     messages: [],
@@ -134,7 +191,7 @@ function createChannelState(): ChatChannelState {
   };
 }
 
-/** sortMessagesByTime：执行对应的业务逻辑。 */
+/** 按时间和 ID 对消息排序。 */
 function sortMessagesByTime(messages: ChatStoredMessage[]): ChatStoredMessage[] {
   return messages.slice().sort((left, right) => {
     if (left.at !== right.at) {
@@ -144,12 +201,21 @@ function sortMessagesByTime(messages: ChatStoredMessage[]): ChatStoredMessage[] 
   });
 }
 
-/** mergeMessages：执行对应的业务逻辑。 */
+/** 合并当前消息与新消息，并保留时间顺序。 */
 function mergeMessages(
   current: ChatStoredMessage[],
   incoming: ChatStoredMessage[],
-): { messages: ChatStoredMessage[]; ids: Set<string> } {
-/** merged：定义该变量以承载业务值。 */
+): {
+/**
+ * messages：message相关字段。
+ */
+ messages: ChatStoredMessage[];
+ /**
+ * ids：ID相关字段。
+ */
+ ids: Set<string> } {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
   const merged = new Map<string, ChatStoredMessage>();
   for (const entry of current) {
     merged.set(entry.id, entry);
@@ -160,7 +226,6 @@ function mergeMessages(
     }
     merged.set(entry.id, entry);
   }
-/** messages：定义该变量以承载业务值。 */
   const messages = sortMessagesByTime([...merged.values()]).slice(-CHAT_LOG_MAX_PERSISTED_MESSAGES_PER_CHANNEL);
   return {
     messages,
@@ -168,40 +233,31 @@ function mergeMessages(
   };
 }
 
-/** formatStamp：执行对应的业务逻辑。 */
+/** 格式化消息时间戳。 */
 function formatStamp(at: number): string {
-/** date：定义该变量以承载业务值。 */
   const date = new Date(at);
-/** year：定义该变量以承载业务值。 */
   const year = String(date.getFullYear());
-/** month：定义该变量以承载业务值。 */
   const month = String(date.getMonth() + 1).padStart(2, '0');
-/** day：定义该变量以承载业务值。 */
   const day = String(date.getDate()).padStart(2, '0');
-/** hours：定义该变量以承载业务值。 */
   const hours = String(date.getHours()).padStart(2, '0');
-/** minutes：定义该变量以承载业务值。 */
   const minutes = String(date.getMinutes()).padStart(2, '0');
   return `${year}-${month}-${day} ${hours}:${minutes}`;
 }
 
-/** buildLineText：执行对应的业务逻辑。 */
+/** 生成用于日志或缓存的纯文本消息行。 */
 function buildLineText(entry: ChatStoredMessage): string {
   return `${formatStamp(entry.at)} ${entry.from ? `[${entry.from}] ` : ''}${entry.text}`;
 }
 
-/** parseCombatDamageSegment：执行对应的业务逻辑。 */
+/** 解析战斗伤害、治疗与结果文本中的高亮片段。 */
 function parseCombatDamageSegment(text: string): ParsedCombatDamageSegment | null {
-/** damageMatch：定义该变量以承载业务值。 */
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
   const damageMatch = COMBAT_DAMAGE_PATTERN.exec(text);
   if (damageMatch?.groups) {
-/** damageKind：定义该变量以承载业务值。 */
     const damageKind: SkillDamageKind = damageMatch.groups.kind === '物理' ? 'physical' : 'spell';
-/** elementLabel：定义该变量以承载业务值。 */
     const elementLabel = damageMatch.groups.element;
-/** element：定义该变量以承载业务值。 */
     const element = elementLabel ? COMBAT_DAMAGE_ELEMENT_LABEL_TO_KEY[elementLabel] : undefined;
-/** damageTypeLabel：定义该变量以承载业务值。 */
     const damageTypeLabel = `${elementLabel ? `${elementLabel}行` : ''}${damageMatch.groups.kind ?? ''}`;
     return {
       before: damageMatch.groups.before ?? '',
@@ -223,10 +279,8 @@ function parseCombatDamageSegment(text: string): ParsedCombatDamageSegment | nul
       color: getDamageTrailColor(damageKind, element),
     };
   }
-/** healMatch：定义该变量以承载业务值。 */
   const healMatch = COMBAT_HEAL_PATTERN.exec(text);
   if (healMatch?.groups) {
-/** details：定义该变量以承载业务值。 */
     const details = (healMatch.groups.details ?? '')
       .split(' / ')
       .map((entry) => entry.trim())
@@ -248,17 +302,14 @@ function parseCombatDamageSegment(text: string): ParsedCombatDamageSegment | nul
       color: COMBAT_HEAL_PILL_COLOR,
     };
   }
-/** resultMatch：定义该变量以承载业务值。 */
   const resultMatch = COMBAT_RESULT_PATTERN.exec(text);
   if (!resultMatch?.groups) {
     return null;
   }
-/** details：定义该变量以承载业务值。 */
   const details = (resultMatch.groups.details ?? '')
     .split(' / ')
     .map((entry) => entry.trim())
     .filter((entry) => entry.length > 0);
-/** resultLabel：定义该变量以承载业务值。 */
   const resultLabel = resultMatch.groups.result ?? '结果';
   return {
     before: resultMatch.groups.before ?? '',
@@ -275,20 +326,17 @@ function parseCombatDamageSegment(text: string): ParsedCombatDamageSegment | nul
   };
 }
 
-/** toAlphaColor：执行对应的业务逻辑。 */
+/** 将颜色字符串和透明度合成 rgba 表达式。 */
 function toAlphaColor(hex: string, alpha: number): string {
-/** normalized：定义该变量以承载业务值。 */
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
   const normalized = hex.trim();
-/** value：定义该变量以承载业务值。 */
   const value = normalized.startsWith('#') ? normalized.slice(1) : normalized;
   if (value.length !== 6) {
     return `rgba(255, 255, 255, ${alpha})`;
   }
-/** red：定义该变量以承载业务值。 */
   const red = Number.parseInt(value.slice(0, 2), 16);
-/** green：定义该变量以承载业务值。 */
   const green = Number.parseInt(value.slice(2, 4), 16);
-/** blue：定义该变量以承载业务值。 */
   const blue = Number.parseInt(value.slice(4, 6), 16);
   if ([red, green, blue].some((channel) => Number.isNaN(channel))) {
     return `rgba(255, 255, 255, ${alpha})`;
@@ -296,13 +344,12 @@ function toAlphaColor(hex: string, alpha: number): string {
   return `rgba(${red}, ${green}, ${blue}, ${alpha})`;
 }
 
-/** buildLineFragment：执行对应的业务逻辑。 */
+/** 构建聊天行中的可交互片段。 */
 function buildLineFragment(entry: ChatStoredMessage): DocumentFragment {
-/** fragment：定义该变量以承载业务值。 */
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
   const fragment = document.createDocumentFragment();
-/** linePrefix：定义该变量以承载业务值。 */
   const linePrefix = `${formatStamp(entry.at)} ${entry.from ? `[${entry.from}] ` : ''}`;
-/** parsedDamage：定义该变量以承载业务值。 */
   const parsedDamage = entry.kind === 'combat' ? parseCombatDamageSegment(entry.text) : null;
   if (!parsedDamage) {
     fragment.append(linePrefix + entry.text);
@@ -310,9 +357,7 @@ function buildLineFragment(entry: ChatStoredMessage): DocumentFragment {
   }
 
   fragment.append(linePrefix + parsedDamage.before + parsedDamage.connector);
-/** damagePill：定义该变量以承载业务值。 */
   const damagePill = document.createElement('span');
-/** color：定义该变量以承载业务值。 */
   const color = parsedDamage.color;
   damagePill.className = 'chat-damage-pill';
   damagePill.textContent = parsedDamage.pillText;
@@ -336,31 +381,50 @@ function buildLineFragment(entry: ChatStoredMessage): DocumentFragment {
   return fragment;
 }
 
-/** ChatUI：封装相关状态与行为。 */
+/** 聊天界面实现，负责频道切换、消息缓存与滚动状态。 */
 export class ChatUI {
+  /** 聊天面板根节点。 */
   private panel = document.getElementById('chat-panel')!;
+  /** 消息输入框。 */
   private input = document.getElementById('chat-input') as HTMLInputElement;
+  /** 发送按钮。 */
   private sendBtn = document.getElementById('chat-send')!;
+  /** 频道标签页节点集合。 */
   private tabs = [...this.panel.querySelectorAll<HTMLElement>('[data-chat-channel]')];
+  /** 各频道内容容器。 */
   private panes = [...this.panel.querySelectorAll<HTMLElement>('[data-chat-pane]')];
+  /** 各频道消息列表。 */
   private logs = new Map<ChatChannel, HTMLElement>();
+  /** 各频道的缓存与加载状态。 */
   private channelStates = new Map<ChatChannel, ChatChannelState>();
+  /** 发送消息的外部回调。 */
   private onSend: ((message: string) => void) | null = null;
-/** activeChannel：定义该变量以承载业务值。 */
+  /** 当前激活的聊天频道。 */
   private activeChannel: ChatChannel = DEFAULT_CHAT_CHANNEL;
-/** currentScopeId：定义该变量以承载业务值。 */
+  /** 当前聊天范围 ID。 */
   private currentScopeId: string | null = null;
+  /** 用于避免重复消息 ID 的序列号。 */
   private messageSequence = 0;
+  /** 已写入本地缓存的消息键。 */
   private persistedMessageKeys = new Set<string>();
+  /** 待提交到本地缓存的消息。 */
   private pendingPersistence = new Map<string, Promise<boolean>>();
+  /** 范围加载令牌，用于丢弃过期结果。 */
   private scopeLoadToken = 0;
+  /** 日志簿是否处于可见状态。 */
   private logbookVisible = false;
+  /** 伤害提示浮层。 */
   private readonly damageTooltip = new FloatingTooltip();
+  /** 伤害提示是否处于触控锁定模式。 */
   private readonly damageTooltipTapMode = prefersPinnedTooltipInteraction();
-/** hoveredDamageTooltipTarget：定义该变量以承载业务值。 */
-  private hoveredDamageTooltipTarget: HTMLElement | null = null;
+  /** 当前悬停的伤害提示目标。 */
+  private hoveredDamageTooltipTarget: HTMLElement | null = null;  
+  /**
+ * 构造器：初始化 当前 实例并建立基础状态。
+ * @returns 无返回值，完成实例初始化。
+ */
 
-/** constructor：处理当前场景中的对应操作。 */
+
   constructor() {
     clearLegacyChatStorage();
     this.sendBtn.addEventListener('click', () => this.submit());
@@ -375,7 +439,6 @@ export class ChatUI {
 
     this.tabs.forEach((tab) => {
       tab.addEventListener('click', () => {
-/** channel：定义该变量以承载业务值。 */
         const channel = tab.dataset.chatChannel;
         if (!isChatChannel(channel)) {
           return;
@@ -385,9 +448,7 @@ export class ChatUI {
     });
 
     this.panes.forEach((pane) => {
-/** channel：定义该变量以承载业务值。 */
       const channel = pane.dataset.chatPane;
-/** log：定义该变量以承载业务值。 */
       const log = pane.querySelector<HTMLElement>('.chat-log');
       if (!isChatChannel(channel) || !log) {
         return;
@@ -400,16 +461,23 @@ export class ChatUI {
 
     this.switchChannel(DEFAULT_CHAT_CHANNEL);
     this.renderAllChannels();
-  }
+  }  
+  /**
+ * setCallback：写入Callback。
+ * @param onSend (message: string) => void 参数说明。
+ * @returns 无返回值，直接更新Callback相关状态。
+ */
+
 
   setCallback(onSend: (message: string) => void): void {
     this.onSend = onSend;
   }
 
-/** setPersistenceScope：执行对应的业务逻辑。 */
+  /** 设置当前消息持久化范围。 */
   setPersistenceScope(scopeId: string | null): void {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
     this.scopeLoadToken += 1;
-/** normalizedScope：定义该变量以承载业务值。 */
     const normalizedScope = typeof scopeId === 'string' && scopeId.trim().length > 0
       ? scopeId.trim()
       : null;
@@ -428,23 +496,25 @@ export class ChatUI {
     void this.hydrateRecentMessages(normalizedScope, this.scopeLoadToken);
   }
 
-/** show：执行对应的业务逻辑。 */
+  /** 显示聊天面板。 */
   show(): void {
     this.panel.classList.remove('hidden');
   }
 
-/** hide：执行对应的业务逻辑。 */
+  /** 隐藏聊天面板。 */
   hide(): void {
     this.panel.classList.add('hidden');
   }
 
-/** clear：执行对应的业务逻辑。 */
+  /** 清空所有频道状态。 */
   clear(): void {
     this.setPersistenceScope(null);
   }
 
-/** setLogbookVisible：执行对应的业务逻辑。 */
+  /** 切换日志簿可见性。 */
   setLogbookVisible(visible: boolean): void {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
     if (this.logbookVisible === visible) {
       return;
     }
@@ -462,36 +532,38 @@ export class ChatUI {
     }
     this.clearInactiveChannels();
     this.renderChannel(this.activeChannel, { stickToBottom: true });
-  }
+  }  
+  /**
+ * addMessage：处理Message并更新相关状态。
+ * @param text string 参数说明。
+ * @param from string 参数说明。
+ * @param kind ChatMessageKind 参数说明。
+ * @param options ChatMessageScope | ChatAddMessageOptions 选项参数。
+ * @returns 返回 Promise，完成后得到Message。
+ */
+
 
   async addMessage(
     text: string,
     from?: string,
-/** kind：定义该变量以承载业务值。 */
     kind: ChatMessageKind = 'system',
     options?: ChatMessageScope | ChatAddMessageOptions,
   ): Promise<boolean> {
-/** trimmed：定义该变量以承载业务值。 */
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
     const trimmed = text.trim();
     if (!trimmed || !this.currentScopeId) {
       return false;
     }
 
-/** resolvedOptions：定义该变量以承载业务值。 */
     const resolvedOptions = typeof options === 'string'
       ? { scope: options }
       : options;
-/** scopeId：定义该变量以承载业务值。 */
     const scopeId = this.currentScopeId;
-/** resolvedId：定义该变量以承载业务值。 */
     const resolvedId = resolvedOptions?.id ?? `${Date.now()}:${this.messageSequence++}`;
-/** messageKey：定义该变量以承载业务值。 */
     const messageKey = this.buildMessageKey(scopeId, resolvedId);
-/** now：定义该变量以承载业务值。 */
     const now = Date.now();
-/** resolvedScope：定义该变量以承载业务值。 */
     const resolvedScope = resolvedOptions?.scope ?? (kind === 'chat' ? 'nearby' : undefined);
-/** entry：定义该变量以承载业务值。 */
     const entry: ChatStoredMessage = {
       id: resolvedId,
       at: resolvedOptions?.at ?? now,
@@ -500,15 +572,12 @@ export class ChatUI {
       kind,
       scope: resolvedScope,
     };
-/** channels：定义该变量以承载业务值。 */
     const channels = this.resolveChannels(entry);
-/** duplicateInAllChannels：定义该变量以承载业务值。 */
     const duplicateInAllChannels = channels.every((channel) => this.channelStates.get(channel)?.messageIds.has(resolvedId));
     if (duplicateInAllChannels) {
       if (this.persistedMessageKeys.has(messageKey)) {
         return true;
       }
-/** pendingPersistence：定义该变量以承载业务值。 */
       const pendingPersistence = this.pendingPersistence.get(messageKey);
       if (pendingPersistence) {
         return pendingPersistence;
@@ -523,7 +592,6 @@ export class ChatUI {
       }
       if (!state.messageIds.has(entry.id)) {
         state.messages.push(entry);
-/** merged：定义该变量以承载业务值。 */
         const merged = mergeMessages([], state.messages);
         state.messages = merged.messages;
         state.messageIds = merged.ids;
@@ -532,15 +600,12 @@ export class ChatUI {
         this.trimChannelState(state, CHAT_LOG_MAX_VISIBLE_MESSAGES);
         continue;
       }
-/** total：定义该变量以承载业务值。 */
       const total = state.messages.length;
       if (channel !== this.activeChannel) {
         state.loadedCount = Math.min(total, Math.max(state.loadedCount, CHAT_LOG_MAX_VISIBLE_MESSAGES));
         continue;
       }
-/** log：定义该变量以承载业务值。 */
       const log = this.logs.get(channel);
-/** stickToBottom：定义该变量以承载业务值。 */
       const stickToBottom = this.isLogNearBottom(log);
       if (stickToBottom || state.loadedCount <= CHAT_LOG_MAX_VISIBLE_MESSAGES) {
         state.loadedCount = Math.min(total, state.loadedCount + 1);
@@ -548,7 +613,6 @@ export class ChatUI {
       this.renderChannel(channel, { stickToBottom });
     }
 
-/** persistencePromise：定义该变量以承载业务值。 */
     const persistencePromise = appendChannelMessages(scopeId, entry, channels)
       .then((persisted) => {
         if (persisted) {
@@ -563,8 +627,10 @@ export class ChatUI {
     return persistencePromise;
   }
 
-/** resolveChannels：执行对应的业务逻辑。 */
+  /** 解析当前要显示的频道集合。 */
   private resolveChannels(entry: ChatStoredMessage): ChatChannel[] {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
     if (entry.kind === 'combat') {
       return ['combat'];
     }
@@ -583,8 +649,12 @@ export class ChatUI {
     return ['system'];
   }
 
-/** renderAllChannels：执行对应的业务逻辑。 */
-  private renderAllChannels(options?: { stickToBottom?: boolean }): void {
+  /** 刷新全部频道的标签和内容。 */
+  private renderAllChannels(options?: {  
+  /**
+ * stickToBottom：stickToBottom相关字段。
+ */
+ stickToBottom?: boolean }): void {
     for (const channel of CHAT_CHANNELS) {
       if (channel === this.activeChannel) {
         this.renderChannel(channel, { stickToBottom: options?.stickToBottom === true });
@@ -592,30 +662,55 @@ export class ChatUI {
       }
       this.clearChannel(channel);
     }
-  }
-
-  private renderChannel(
-    channel: ChatChannel,
-    options?: {
+  }  
+  /**
+ * renderChannel：执行Channel相关逻辑。
+ * @param channel ChatChannel 参数说明。
+ * @param options {
       stickToBottom?: boolean;
       preserveScrollFromLoadMore?: boolean;
       previousScrollHeight?: number;
       previousScrollTop?: number;
+    } 选项参数。
+ * @returns 无返回值，直接更新Channel相关状态。
+ */
+
+
+  private renderChannel(
+    channel: ChatChannel,
+    options?: {    
+    /**
+ * stickToBottom：stickToBottom相关字段。
+ */
+
+      stickToBottom?: boolean;      
+      /**
+ * preserveScrollFromLoadMore：preserveScrollFromLoadMore相关字段。
+ */
+
+      preserveScrollFromLoadMore?: boolean;      
+      /**
+ * previousScrollHeight：previouScrollHeight相关字段。
+ */
+
+      previousScrollHeight?: number;      
+      /**
+ * previousScrollTop：previouScrollTop相关字段。
+ */
+
+      previousScrollTop?: number;
     },
   ): void {
-/** log：定义该变量以承载业务值。 */
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
     const log = this.logs.get(channel);
-/** state：定义该变量以承载业务值。 */
     const state = this.channelStates.get(channel);
     if (!log || !state) {
       return;
     }
-/** entries：定义该变量以承载业务值。 */
     const entries = state.messages;
     state.loadedCount = Math.min(entries.length, Math.max(0, state.loadedCount));
-/** visible：定义该变量以承载业务值。 */
     const visible = entries.slice(Math.max(0, entries.length - state.loadedCount));
-/** fragment：定义该变量以承载业务值。 */
     const fragment = document.createDocumentFragment();
     for (const entry of visible) {
       const line = document.createElement('div');
@@ -626,9 +721,7 @@ export class ChatUI {
     log.replaceChildren(fragment);
 
     if (options?.preserveScrollFromLoadMore) {
-/** previousScrollHeight：定义该变量以承载业务值。 */
       const previousScrollHeight = options.previousScrollHeight ?? 0;
-/** previousScrollTop：定义该变量以承载业务值。 */
       const previousScrollTop = options.previousScrollTop ?? 0;
       log.scrollTop = Math.max(0, log.scrollHeight - previousScrollHeight + previousScrollTop);
       return;
@@ -638,19 +731,16 @@ export class ChatUI {
     }
   }
 
-/** bindDamageTooltip：执行对应的业务逻辑。 */
+  /** 绑定伤害提示的悬停与触控交互。 */
   private bindDamageTooltip(log: HTMLElement): void {
-/** resolvePill：定义该变量以承载业务值。 */
     const resolvePill = (target: EventTarget | null): HTMLElement | null => (
       target instanceof Element
         ? target.closest<HTMLElement>('[data-chat-damage-tooltip-title]')
         : null
     );
-/** showDamageTooltip：通过常量导出可复用函数行为。 */
+    /** 展示伤害提示。 */
     const showDamageTooltip = (pill: HTMLElement, clientX: number, clientY: number, pinned = false) => {
-/** title：定义该变量以承载业务值。 */
       const title = pill.dataset.chatDamageTooltipTitle ?? '伤害';
-/** lines：定义该变量以承载业务值。 */
       const lines = (pill.dataset.chatDamageTooltipLines ?? '')
         .split('\n')
         .map((line) => line.trim())
@@ -667,7 +757,6 @@ export class ChatUI {
       if (!this.damageTooltipTapMode) {
         return;
       }
-/** pill：定义该变量以承载业务值。 */
       const pill = resolvePill(event.target);
       if (!pill) {
         return;
@@ -683,7 +772,6 @@ export class ChatUI {
     }, true);
 
     log.addEventListener('pointermove', (event) => {
-/** pill：定义该变量以承载业务值。 */
       const pill = resolvePill(event.target);
       if (!pill) {
         if (!this.damageTooltipTapMode || !this.damageTooltip.isPinned()) {
@@ -708,37 +796,31 @@ export class ChatUI {
     });
   }
 
-/** handleLogScroll：执行对应的业务逻辑。 */
+  /** 处理日志列表滚动，接近顶部时继续加载历史。 */
   private async handleLogScroll(channel: ChatChannel): Promise<void> {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
     if (!this.logbookVisible || channel !== this.activeChannel) {
       return;
     }
-/** log：定义该变量以承载业务值。 */
     const log = this.logs.get(channel);
-/** state：定义该变量以承载业务值。 */
     const state = this.channelStates.get(channel);
     if (!log || !state || log.scrollTop > CHAT_LOG_SCROLL_TOP_LOAD_THRESHOLD_PX || state.loadingOlder || state.hasLoadedAll) {
       return;
     }
-/** oldestEntry：定义该变量以承载业务值。 */
     const oldestEntry = state.messages[0];
     if (!oldestEntry) {
       state.hasLoadedAll = true;
       return;
     }
-/** scopeId：定义该变量以承载业务值。 */
     const scopeId = this.currentScopeId;
     if (!scopeId) {
       return;
     }
     state.loadingOlder = true;
-/** previousScrollHeight：定义该变量以承载业务值。 */
     const previousScrollHeight = log.scrollHeight;
-/** previousScrollTop：定义该变量以承载业务值。 */
     const previousScrollTop = log.scrollTop;
-/** loadToken：定义该变量以承载业务值。 */
     const loadToken = this.scopeLoadToken;
-/** olderEntries：定义该变量以承载业务值。 */
     const olderEntries = await loadOlderChannelMessages(
       scopeId,
       channel,
@@ -753,7 +835,6 @@ export class ChatUI {
       state.hasLoadedAll = true;
       return;
     }
-/** merged：定义该变量以承载业务值。 */
     const merged = mergeMessages(olderEntries, state.messages);
     state.messages = merged.messages;
     state.messageIds = merged.ids;
@@ -771,9 +852,10 @@ export class ChatUI {
     });
   }
 
-/** switchChannel：执行对应的业务逻辑。 */
+  /** 切换当前频道。 */
   private switchChannel(channel: ChatChannel): void {
-/** previousChannel：定义该变量以承载业务值。 */
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
     const previousChannel = this.activeChannel;
     this.activeChannel = channel;
     this.tabs.forEach((tab) => {
@@ -791,17 +873,20 @@ export class ChatUI {
     }
   }
 
-/** isLogNearBottom：执行对应的业务逻辑。 */
+  /** 判断日志列表是否接近底部。 */
   private isLogNearBottom(log: HTMLElement | undefined): boolean {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
     if (!log) {
       return true;
     }
     return log.scrollHeight - log.scrollTop - log.clientHeight <= 24;
   }
 
-/** submit：执行对应的业务逻辑。 */
+  /** 提交当前输入框内容。 */
   private submit(): void {
-/** message：定义该变量以承载业务值。 */
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
     const message = this.input.value.trim();
     if (!message) {
       return;
@@ -810,14 +895,15 @@ export class ChatUI {
     this.input.value = '';
   }
 
-/** buildMessageKey：执行对应的业务逻辑。 */
+  /** 构建消息的持久化键。 */
   private buildMessageKey(scopeId: string, messageId: string): string {
     return `${scopeId}\n${messageId}`;
   }
 
-/** hydrateRecentMessages：执行对应的业务逻辑。 */
+  /** 从本地缓存恢复最近消息。 */
   private async hydrateRecentMessages(scopeId: string, loadToken: number): Promise<void> {
-/** loadedByChannel：定义该变量以承载业务值。 */
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
     const loadedByChannel = await Promise.all(
       CHAT_CHANNELS.map(async (channel) => ({
         channel,
@@ -833,7 +919,6 @@ export class ChatUI {
       if (!state) {
         continue;
       }
-/** merged：定义该变量以承载业务值。 */
       const merged = mergeMessages(state.messages, entries);
       state.messages = merged.messages;
       state.messageIds = merged.ids;
@@ -858,8 +943,10 @@ export class ChatUI {
     this.renderAllChannels({ stickToBottom: true });
   }
 
-/** trimChannelState：执行对应的业务逻辑。 */
+  /** 裁剪频道缓存，保持消息数量上限。 */
   private trimChannelState(state: ChatChannelState, maxMessages: number): void {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
     if (state.messages.length > maxMessages) {
       state.messages = state.messages.slice(-maxMessages);
       state.messageIds = new Set(state.messages.map((entry) => entry.id));
@@ -868,12 +955,12 @@ export class ChatUI {
     state.loadedCount = Math.min(state.messages.length, maxMessages);
   }
 
-/** clearChannel：执行对应的业务逻辑。 */
+  /** 清空单个频道的消息缓存。 */
   private clearChannel(channel: ChatChannel): void {
     this.logs.get(channel)?.replaceChildren();
   }
 
-/** clearInactiveChannels：执行对应的业务逻辑。 */
+  /** 清理当前不活跃频道的缓存状态。 */
   private clearInactiveChannels(): void {
     for (const channel of CHAT_CHANNELS) {
       if (channel !== this.activeChannel) {
@@ -882,4 +969,3 @@ export class ChatUI {
     }
   }
 }
-

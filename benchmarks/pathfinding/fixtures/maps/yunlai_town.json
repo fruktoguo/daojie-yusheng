@@ -1,0 +1,1851 @@
+{
+  "id": "yunlai_town",
+  "name": "云来镇",
+  "width": 64,
+  "height": 64,
+  "routeDomain": "system",
+  "terrainProfileId": "mortal_settlement",
+  "terrainRealmLv": 1,
+  "spaceVisionMode": "isolated",
+  "description": "压缩为 64x64 的云来镇新布局：保留主路、客店、药铺、旧祠与南门，删去多余院落，并把围墙做出多处坍塌缺口，整体偏破败荒凉。",
+  "dangerLevel": 1,
+  "recommendedRealm": "Entry",
+  "tiles": [
+    "################################################################",
+    "#,,,,,,,,,,,,,,,,,,,,,,,,,,,,,:::::,,,,,,,,,,,,,,,,,,,,,,,,,,,,#",
+    "#,,,,,,,,,,,,,,,,,,,,,,,,,,,,,:::::,,,,,,,,,,,,,,,,,,,,,,,,,,,,#",
+    "#,,,,,,,,,,,,,,,,,,,,,,,,,,,,,:::::,,,,,,,,,,,,,,,,,,,,,,,,,,,,#",
+    "#,,,TTTTTT,,,,,,,,,,,,,,,,,,,,:::::,,,,,,,,,,,,,,,,,,,,,,,,,,,,#",
+    "#,,,TTTTTTT,,,,,,,,,,,,,,,,,,,:::::,,,,,,,,,,,,,,,,TTTTTTT,,,,,#",
+    "#,,,TTT,TTT,,,,,,,,,,,,,,,,,,,:::::,,,,,,,,,,,,,,,,TTTTTTTT,,,,#",
+    "#,,,TTTTTTT,,oooooo,,,,,,,,,,,:::::,,,,,,,,ooooooo,TTTT,TTT,,,,#",
+    "#,,,TTTT######o::::o##########:::::#######o::::o########TTT,,,,#",
+    "#,,,,,,,#,,,,,,::::,,,,,,,,,,,=====,,,,,,,,::::,,,,,,,,#TT,,,,,#",
+    "#,,,,,,,#,,oo,,::::,,,,,,,,,,,=====,,,,,,,,::::,,,,,,,,#,,,,,,,#",
+    "#,,,,,,,#,,oo,,::::,,,,,,,,,,,=====,,,,,,,,::::,,,,,,,,#,,,,,,,#",
+    "#,,,,,,,#,,,,###########,,#..#=====,#####oooo,,,,,,,,,,#,,,,,,,#",
+    "#,,,,,,,#,,,,#S........#oo#..#=====,#....oooo,,,,,,,,,,#,,,,,,:#",
+    "#,,,,,,,#,,,,#.oo...oo.#oo#..#=====,#.S..oooo,,,,,,,,,,#,,,,,::#",
+    "#,,,,,,,#,,,,#.oo...oo.#,,#..#=====,#...#oooo,,,,,,,,,,#,,,,,::#",
+    "#,,,,,,,#,,,,#.........#,,####=====,#####,,,,,,,,,,,,,,#,,,,::P#",
+    "#,,,,,,,#,,,,#.........#,,,,,,=====,,,,,,,,,,,,,,,,,,,,#,,,,:::#",
+    "#,,,,,,,#,,,,####+++####===========o,,,,,,,,,,,,,,,,,,,#,,,::::#",
+    "#,,,,,,,#,,,,,,,===================,,,,,,,,,,,,,,,,,,,,ooo:::::#",
+    "#,,,,,,,#,,,,,,,==========================,,,,,,,,,,,,,:::::::,#",
+    "#,,,,,,,#,,,,,,,,,,,,,,,,,,..........=====,,,,,,,,,,,,,:::::::,#",
+    "#,,,,,,,#,,oo,,,,,,,,,,,,,,..#...#...=====,,,,,,,,,,,,,::::::,,#",
+    "#,,,,,,,#,,oo,,,,,,,,,,,,,,..........,,######...##,,,,,:::::,,,#",
+    "#,,,,,ooo,,oo,,,,,,,,,,,,,,..........,,#.........#,,,,,ooo,,,,,#",
+    "#,,,,,:::,,,,,,,,,,,,,,,,,,,,,====,,,,,#..........,,,,,#,,,,,,,#",
+    "#,,,,,:::==============================#..........=====#,,,,,,,#",
+    "#,,,,,:::====P=========================#..........=====#TTTT,,,#",
+    "#,,,,,:::==============================#.........#=====#TTTTT,,#",
+    "#,,,,,ooo==============================###########=====#TTTTT,,#",
+    "#,,,,,,,#,,,,,,,,,,,,,,,,,,,,,====,,,,,,,,,,,,,,,,,,,,,#TT,TT,,#",
+    "#,,,,,,,#,,,###########,######====,,,##########,,,,,oo,#TTTTT,,#",
+    "#,,,,,,,#,,,#....#....#,#....#====,,,#....#...#,,,,,oo,#TTTTT,,#",
+    "#,,,,,,,#,,,#....#....#,#....+====,,,#....#...#,,,,,oo,#TTTTT,,#",
+    "#,,,,,,,#,,,#....#....#=#....+=======+........#,,,,,,,,#,TTTT,,#",
+    "#,,,,,,,#,,,#.........+=#....#=======+........#,,,,,,,,#,,,,,,,#",
+    "#,,,,,,,#,,,#.........+=######=======#....#...#,,,,,,,,#,,,,,,,#",
+    "#,,,,,,,#,,,#....#....#,,,,,,,====,,,#....#ooo#,,,,,,,,#,,,,,,,#",
+    "#,,,,,,,#,,,#....#....#,#####,====,,,#...S#oo;;;;;;;;;;;,,,,,,,#",
+    "#,,,,,,,#,,,#...S#....#,#...#,====,,,########o;;;;;;;;;;,,,,,,,#",
+    "#,,,,,,,#,,,###########,....#,====,,,,,,,,,,,;o~~~;~~~;;,,,,,,,#",
+    "#,,,,,,,#,,,,,,,,,,,,,,,....#,====,,,,,,,,,,o;;~%%%%%~;;,,,,,,,#",
+    "#,,,,,,,#,,,,,,,,,,,,,,,#####,====,,,,,,,,,,,;;;%%%%%;;;,,,,,,,#",
+    "#,,,TTTT#,##..##,,,,,,,,,,,,,,====,,,,,,,,,,,;;~%%%%%~o;,,,,,,,#",
+    "#,,,TTTT#,#....#,,,,,,,,,,,###++++###,,,,,,,,;;~~~;~~~;;,,,,,,,#",
+    "#,,,TTTT#,#....#,,,,,,,,,,,#S.====..#,,,,,,,,;;;;;;;;o;;,,,,,,,#",
+    "#,,,TTTT#,#....#,,,,,,,,,,,#..====..#,,,,,,,,;;;;;;;;;;;,,,,,,,#",
+    "#,,,TTTT#,######,,,,,,,,,,,#..====..#,,,,,,,,,,,oooo,,,#,,,,,,,#",
+    "#,,,,TTT#,,,,,,,,,,,,,,,,,,#..====..#,,,,,,,,,,,oooo,,,#,,,,,,,#",
+    "#,,,,,,,#########o,,,o########++++#########o...o########,,,,,,,#",
+    "#;;;;;;;;;;;;;;;;;;;;;;;;;;;;;====;;;;;;;;;;;;;;;;o##..###,,,;;#",
+    "#;;;;;;;;;;;;;;;;;;;;;;;;;;;;;====;;;;;;;;;;;;;;;;o#.....#,,,;;#",
+    "#;;;;;,,,,,,,,,,;;,,,,,,;;;;;;====;;;;;;;;;;;;;;;;o#......,,,;;#",
+    "#;;;;;,,,,,,,,,,;;,,,,,,;;;;;;====;;;;;;;;;;;;;;;;o.......,,,;;#",
+    "#;;;;;,,,,,,,,,,;;,,,,,,;;;;;;=P==;;;;;;;;;;;;;;;;o......#;;;;;#",
+    "#====================,,,;;;;;;====;;;;;;;;;========#######=====#",
+    "#====================,,,;;;;;;====;;;;;;;;;====================#",
+    "#====================,,,;;;;;;====;;;;;;;;;====================#",
+    "#;;;;;,,,,,,,,,,;;;;;;;;;;;;;;====;;;;;;;;;;;;;;;;;;;;,,,,,,,;;#",
+    "#;;;;;;;;;;;;;;;;;;;;;;;;;;;;;====;;;;;;;;;;;;;;;;;;;;;;;;;;;;;#",
+    "#;;;;;;;;;;;;;;;;;;;;;;;;;;;;;====;;;;;;;;;;;;;;;;;;;;;;;;;;;;;#",
+    "#;;;;;;;;;;;;;;;;;;;;;;;;;;;;;====;;;;;;;;;;;;;;;;;;;;;;;;;;;;;#",
+    "#;;;;;;;;;;;;;;;;;;;;;;;;;;;;;====;;;;;;;;;;;;;;;;;;;;;;;;;;;;;#",
+    "################################################################"
+  ],
+  "portals": [
+    {
+      "x": 16,
+      "y": 39,
+      "targetMapId": "yunlai_town_inn_2f",
+      "targetX": 8,
+      "targetY": 9,
+      "kind": "stairs",
+      "trigger": "auto",
+      "routeDomain": "inherit",
+      "allowPlayerOverlap": false,
+      "hidden": false
+    },
+    {
+      "x": 41,
+      "y": 38,
+      "targetMapId": "yunlai_town_apothecary_cellar",
+      "targetX": 7,
+      "targetY": 9,
+      "kind": "stairs",
+      "trigger": "auto",
+      "routeDomain": "inherit",
+      "allowPlayerOverlap": false,
+      "hidden": false
+    },
+    {
+      "x": 14,
+      "y": 13,
+      "targetMapId": "yunlai_town_old_shrine_crypt",
+      "targetX": 7,
+      "targetY": 7,
+      "kind": "stairs",
+      "trigger": "auto",
+      "routeDomain": "inherit",
+      "allowPlayerOverlap": false,
+      "hidden": false
+    },
+    {
+      "x": 38,
+      "y": 14,
+      "targetMapId": "yunlai_town_ore_basement",
+      "targetX": 6,
+      "targetY": 5,
+      "kind": "stairs",
+      "trigger": "auto",
+      "routeDomain": "inherit",
+      "allowPlayerOverlap": false,
+      "hidden": false
+    },
+    {
+      "x": 28,
+      "y": 45,
+      "targetMapId": "yunlai_town_south_gate_tower_2f",
+      "targetX": 11,
+      "targetY": 7,
+      "kind": "stairs",
+      "trigger": "auto",
+      "routeDomain": "inherit",
+      "allowPlayerOverlap": false,
+      "hidden": false
+    },
+    {
+      "x": 48,
+      "y": 43,
+      "targetMapId": "yunlai_town_lake_bottom_grotto",
+      "targetX": 10,
+      "targetY": 11,
+      "kind": "stairs",
+      "trigger": "auto",
+      "routeDomain": "inherit",
+      "allowPlayerOverlap": false,
+      "hidden": true,
+      "observeTitle": "",
+      "observeDesc": ""
+    },
+    {
+      "x": 31,
+      "y": 54,
+      "targetMapId": "wildlands",
+      "targetX": 24,
+      "targetY": 43,
+      "kind": "portal",
+      "trigger": "manual",
+      "routeDomain": "inherit",
+      "allowPlayerOverlap": false,
+      "hidden": false
+    },
+    {
+      "x": 13,
+      "y": 27,
+      "targetMapId": "bamboo_forest",
+      "targetX": 2,
+      "targetY": 8,
+      "kind": "portal",
+      "trigger": "manual",
+      "routeDomain": "inherit",
+      "allowPlayerOverlap": false,
+      "hidden": false
+    },
+    {
+      "x": 62,
+      "y": 16,
+      "targetMapId": "spirit_ridge",
+      "targetX": 3,
+      "targetY": 36,
+      "kind": "portal",
+      "trigger": "manual",
+      "routeDomain": "inherit",
+      "allowPlayerOverlap": false,
+      "hidden": false
+    }
+  ],
+  "spawnPoint": {
+    "x": 32,
+    "y": 5
+  },
+  "time": {
+    "offsetTicks": 120,
+    "scale": 1,
+    "light": {
+      "base": 58,
+      "timeInfluence": 42
+    },
+    "palette": {
+      "dawn": {
+        "tint": "#f0d5a8",
+        "alpha": 0.12
+      },
+      "dusk": {
+        "tint": "#c77449",
+        "alpha": 0.18
+      },
+      "first_night": {
+        "tint": "#32435f",
+        "alpha": 0.28
+      },
+      "night": {
+        "tint": "#22314a",
+        "alpha": 0.36
+      },
+      "midnight": {
+        "tint": "#172334",
+        "alpha": 0.44
+      }
+    }
+  },
+  "auras": [
+    {
+      "x": 18,
+      "y": 14,
+      "value": 2250
+    },
+    {
+      "x": 18,
+      "y": 16,
+      "value": 1500
+    },
+    {
+      "x": 30,
+      "y": 21,
+      "value": 1000
+    },
+    {
+      "x": 31,
+      "y": 22,
+      "value": 1500
+    },
+    {
+      "x": 32,
+      "y": 21,
+      "value": 1000
+    },
+    {
+      "x": 50,
+      "y": 39,
+      "value": 1500
+    },
+    {
+      "x": 50,
+      "y": 45,
+      "value": 2250
+    }
+  ],
+  "resources": [],
+  "safeZones": [
+    {
+      "x": 32,
+      "y": 5,
+      "radius": 8
+    }
+  ],
+  "landmarks": [
+    {
+      "id": "lm_south_gate",
+      "name": "南门门楼",
+      "x": 31,
+      "y": 49,
+      "desc": "云来镇如今只剩这一条像样的出入口，门楼和外墙都已补得东一块西一块。"
+    },
+    {
+      "id": "lm_foot_inn",
+      "name": "沈记脚店",
+      "x": 15,
+      "y": 35,
+      "desc": "脚店缩到了西南角，楼板吱呀作响，仍是外来短工最常落脚的地方。"
+    },
+    {
+      "id": "lm_apothecary",
+      "name": "兰氏药铺",
+      "x": 40,
+      "y": 35,
+      "desc": "药铺还亮着灯，柜台却比从前少了一半，剩下的都是常用伤药和猎获材料。"
+    },
+    {
+      "id": "lm_store_notice",
+      "name": "残木告示台",
+      "x": 27,
+      "y": 33,
+      "desc": "镇里还在这里贴路况和征人通告，只是木架已经被风雨泡得发黑。"
+    },
+    {
+      "id": "lm_blacksmith_anvil",
+      "name": "镇防铁砧",
+      "x": 47,
+      "y": 26,
+      "desc": "韩铁匠把炉棚压缩成半间破屋，铁砧旁常年堆着未清走的旧料。"
+    },
+    {
+      "id": "lm_old_well",
+      "name": "北井围栏",
+      "x": 31,
+      "y": 22,
+      "desc": "旧井还在，只是井栏缺口越来越大，夜里总有湿冷气从里面往外冒。"
+    },
+    {
+      "id": "lm_old_shrine",
+      "name": "旧祠供桌",
+      "x": 18,
+      "y": 13,
+      "desc": "北边旧祠只剩一间正室没塌，供桌前的香灰却像一直有人来续过。",
+      "container": {
+        "grade": "mortal",
+        "refreshTicks": 2400,
+        "char": "案",
+        "color": "#7f6247",
+        "drops": [],
+        "lootPools": [
+          {
+            "chance": 0.25,
+            "minLevel": 2,
+            "maxLevel": 2,
+            "maxGrade": "yellow",
+            "tagGroups": [
+              [
+                "药品"
+              ],
+              [
+                "丹药"
+              ]
+            ],
+            "allowDuplicates": false
+          },
+          {
+            "chance": 0.25,
+            "maxLevel": 2,
+            "maxGrade": "yellow",
+            "tagGroups": [
+              [
+                "药材"
+              ],
+              [
+                "蛛丝"
+              ]
+            ],
+            "allowDuplicates": false
+          },
+          {
+            "chance": 0.04,
+            "maxLevel": 2,
+            "maxGrade": "mortal",
+            "tagGroups": [
+              [
+                "功法"
+              ],
+              [
+                "步法"
+              ]
+            ],
+            "allowDuplicates": false
+          }
+        ]
+      }
+    },
+    {
+      "id": "lm_ruined_shrine",
+      "name": "城外破庙",
+      "x": 53,
+      "y": 52,
+      "desc": "东南乱地里的破庙已经塌得只剩半面墙，暴徒和夜行客偶尔还会来这里停脚。",
+      "container": {
+        "grade": "mortal",
+        "refreshTicks": 2200,
+        "char": "龛",
+        "color": "#76614f",
+        "drops": [],
+        "lootPools": [
+          {
+            "chance": 0.16,
+            "maxLevel": 2,
+            "maxGrade": "yellow",
+            "tagGroups": [
+              [
+                "材料"
+              ],
+              [
+                "匪物"
+              ]
+            ],
+            "allowDuplicates": false
+          },
+          {
+            "chance": 0.5,
+            "minLevel": 1,
+            "maxLevel": 1,
+            "maxGrade": "mortal",
+            "tagGroups": [
+              [
+                "药品"
+              ],
+              [
+                "基础药品"
+              ]
+            ],
+            "allowDuplicates": false
+          },
+          {
+            "chance": 0.12,
+            "minLevel": 1,
+            "maxLevel": 2,
+            "maxGrade": "yellow",
+            "tagGroups": [
+              [
+                "武器"
+              ],
+              [
+                "旧兵器"
+              ]
+            ],
+            "allowDuplicates": false
+          }
+        ]
+      }
+    },
+    {
+      "id": "lm_south_hidden_lake",
+      "name": "木坊静湖",
+      "x": 49,
+      "y": 42,
+      "desc": "镇墙东南角积成的小湖还在，水面不大，却总像在往更深的地方漏。"
+    },
+    {
+      "id": "lm_old_records_rack",
+      "name": "破木书架",
+      "x": 27,
+      "y": 13,
+      "desc": "书架半塌，里头塞着潮掉的簿册和几页没来得及带走的杂本。",
+      "container": {
+        "grade": "mortal",
+        "refreshTicks": 2100,
+        "char": "架",
+        "color": "#7b664a",
+        "drops": [],
+        "lootPools": [
+          {
+            "chance": 0.25,
+            "minLevel": 2,
+            "maxLevel": 2,
+            "maxGrade": "yellow",
+            "tagGroups": [
+              [
+                "药品"
+              ],
+              [
+                "丹药"
+              ]
+            ],
+            "allowDuplicates": false
+          },
+          {
+            "chance": 0.25,
+            "maxLevel": 2,
+            "maxGrade": "yellow",
+            "tagGroups": [
+              [
+                "药材"
+              ],
+              [
+                "蛛丝"
+              ]
+            ],
+            "allowDuplicates": false
+          },
+          {
+            "chance": 0.04,
+            "maxLevel": 2,
+            "maxGrade": "mortal",
+            "tagGroups": [
+              [
+                "功法"
+              ],
+              [
+                "步法"
+              ]
+            ],
+            "allowDuplicates": false
+          }
+        ]
+      }
+    },
+    {
+      "id": "lm_collapsed_wardrobe",
+      "name": "坍墙衣柜",
+      "x": 39,
+      "y": 13,
+      "desc": "半截柜门被碎墙压住，里头还挂着几件发潮旧衣。",
+      "container": {
+        "grade": "mortal",
+        "refreshTicks": 2000,
+        "char": "柜",
+        "color": "#6d5b4b",
+        "drops": [],
+        "lootPools": [
+          {
+            "chance": 0.55,
+            "minLevel": 1,
+            "maxLevel": 1,
+            "maxGrade": "mortal",
+            "tagGroups": [
+              [
+                "药品"
+              ],
+              [
+                "基础药品"
+              ]
+            ],
+            "allowDuplicates": false
+          },
+          {
+            "chance": 0.1,
+            "minLevel": 1,
+            "maxLevel": 2,
+            "maxGrade": "yellow",
+            "tagGroups": [
+              [
+                "护甲"
+              ],
+              [
+                "帽子"
+              ]
+            ],
+            "allowDuplicates": false
+          },
+          {
+            "chance": 0.06,
+            "minLevel": 1,
+            "maxLevel": 2,
+            "maxGrade": "yellow",
+            "tagGroups": [
+              [
+                "护甲"
+              ],
+              [
+                "腿部护甲"
+              ]
+            ],
+            "allowDuplicates": false
+          }
+        ]
+      }
+    },
+    {
+      "id": "lm_inn_counter",
+      "name": "旧账台",
+      "x": 13,
+      "y": 33,
+      "desc": "掌柜把能锁的抽屉都留在了这里，里面常塞着零散药包和住客落下的小物件。",
+      "container": {
+        "grade": "mortal",
+        "refreshTicks": 1800,
+        "char": "案",
+        "color": "#8c6745",
+        "drops": [],
+        "lootPools": [
+          {
+            "chance": 0.62,
+            "minLevel": 1,
+            "maxLevel": 1,
+            "maxGrade": "mortal",
+            "tagGroups": [
+              [
+                "药品"
+              ],
+              [
+                "基础药品"
+              ]
+            ],
+            "allowDuplicates": false
+          },
+          {
+            "chance": 0.28,
+            "minLevel": 2,
+            "maxLevel": 2,
+            "maxGrade": "yellow",
+            "tagGroups": [
+              [
+                "药品"
+              ],
+              [
+                "丹药"
+              ]
+            ],
+            "allowDuplicates": false
+          },
+          {
+            "chance": 0.05,
+            "minLevel": 1,
+            "maxLevel": 2,
+            "maxGrade": "yellow",
+            "tagGroups": [
+              [
+                "护甲"
+              ],
+              [
+                "腿部护甲"
+              ]
+            ],
+            "allowDuplicates": false
+          }
+        ]
+      }
+    },
+    {
+      "id": "lm_inn_baggage",
+      "name": "通铺包袱堆",
+      "x": 20,
+      "y": 38,
+      "desc": "短工走得匆忙，通铺角落还堆着几只没系紧的旧包袱。",
+      "container": {
+        "grade": "mortal",
+        "refreshTicks": 1700,
+        "char": "包",
+        "color": "#a08455",
+        "drops": [],
+        "lootPools": [
+          {
+            "chance": 0.6,
+            "minLevel": 1,
+            "maxLevel": 1,
+            "maxGrade": "mortal",
+            "tagGroups": [
+              [
+                "药品"
+              ],
+              [
+                "基础药品"
+              ]
+            ],
+            "allowDuplicates": false
+          },
+          {
+            "chance": 0.25,
+            "minLevel": 2,
+            "maxLevel": 2,
+            "maxGrade": "yellow",
+            "tagGroups": [
+              [
+                "药品"
+              ],
+              [
+                "丹药"
+              ]
+            ],
+            "allowDuplicates": false
+          },
+          {
+            "chance": 0.06,
+            "minLevel": 1,
+            "maxLevel": 2,
+            "maxGrade": "yellow",
+            "tagGroups": [
+              [
+                "护甲"
+              ],
+              [
+                "帽子"
+              ]
+            ],
+            "allowDuplicates": false
+          }
+        ]
+      }
+    },
+    {
+      "id": "lm_apothecary_herb_cabinet",
+      "name": "百味药柜",
+      "x": 41,
+      "y": 32,
+      "desc": "柜格里还分着寒热干湿，翻找时一股苦药香扑面而来。",
+      "container": {
+        "grade": "mortal",
+        "refreshTicks": 1600,
+        "char": "柜",
+        "color": "#6d8e61",
+        "drops": [],
+        "lootPools": [
+          {
+            "chance": 0.8,
+            "minLevel": 1,
+            "maxLevel": 1,
+            "maxGrade": "mortal",
+            "tagGroups": [
+              [
+                "药品"
+              ],
+              [
+                "基础药品"
+              ]
+            ],
+            "allowDuplicates": false
+          },
+          {
+            "chance": 0.32,
+            "minLevel": 3,
+            "maxLevel": 4,
+            "maxGrade": "mortal",
+            "tagGroups": [
+              [
+                "药品"
+              ],
+              [
+                "药膏"
+              ]
+            ],
+            "allowDuplicates": false
+          },
+          {
+            "chance": 0.24,
+            "maxLevel": 2,
+            "maxGrade": "mortal",
+            "tagGroups": [
+              [
+                "药材"
+              ],
+              [
+                "蛇胆"
+              ]
+            ],
+            "allowDuplicates": false
+          }
+        ]
+      }
+    },
+    {
+      "id": "lm_apothecary_basket",
+      "name": "晒药竹篓",
+      "x": 38,
+      "y": 37,
+      "desc": "靠墙叠着几只没来得及收走的竹篓，里头还压着干草和药材碎末。",
+      "container": {
+        "grade": "mortal",
+        "refreshTicks": 1500,
+        "char": "篓",
+        "color": "#9a8959",
+        "drops": [],
+        "lootPools": [
+          {
+            "chance": 0.42,
+            "minLevel": 1,
+            "maxLevel": 1,
+            "maxGrade": "mortal",
+            "tagGroups": [
+              [
+                "药品"
+              ],
+              [
+                "基础药品"
+              ]
+            ],
+            "allowDuplicates": false
+          },
+          {
+            "chance": 0.22,
+            "maxLevel": 2,
+            "maxGrade": "mortal",
+            "tagGroups": [
+              [
+                "药材"
+              ],
+              [
+                "蛇胆"
+              ]
+            ],
+            "allowDuplicates": false
+          },
+          {
+            "chance": 0.2,
+            "maxLevel": 2,
+            "maxGrade": "yellow",
+            "tagGroups": [
+              [
+                "药材"
+              ],
+              [
+                "蛛丝"
+              ]
+            ],
+            "allowDuplicates": false
+          }
+        ]
+      }
+    },
+    {
+      "id": "lm_forge_scrap_basket",
+      "name": "废料铁筐",
+      "x": 40,
+      "y": 24,
+      "desc": "铁匠把断刀碎料和没炼净的矿块都丢在这里，挑一挑还能翻出能用的。",
+      "container": {
+        "grade": "mortal",
+        "refreshTicks": 1800,
+        "char": "筐",
+        "color": "#8b6a49",
+        "drops": [],
+        "lootPools": [
+          {
+            "chance": 0.52,
+            "maxLevel": 2,
+            "maxGrade": "yellow",
+            "tagGroups": [
+              [
+                "矿材"
+              ],
+              [
+                "玄铁"
+              ]
+            ],
+            "countMin": 1,
+            "countMax": 2,
+            "allowDuplicates": false
+          },
+          {
+            "chance": 0.12,
+            "minLevel": 1,
+            "maxLevel": 2,
+            "maxGrade": "yellow",
+            "tagGroups": [
+              [
+                "武器"
+              ],
+              [
+                "旧兵器"
+              ]
+            ],
+            "allowDuplicates": false
+          },
+          {
+            "chance": 0.03,
+            "maxLevel": 2,
+            "maxGrade": "mortal",
+            "tagGroups": [
+              [
+                "功法"
+              ],
+              [
+                "锻体"
+              ]
+            ],
+            "allowDuplicates": false
+          }
+        ]
+      }
+    },
+    {
+      "id": "lm_gate_weapon_rack",
+      "name": "值夜兵器架",
+      "x": 34,
+      "y": 45,
+      "desc": "门楼下还立着一副旧兵器架，刀杆和木盾堆得七零八落。",
+      "container": {
+        "grade": "mortal",
+        "refreshTicks": 1650,
+        "char": "架",
+        "color": "#7a614a",
+        "drops": [],
+        "lootPools": [
+          {
+            "chance": 0.5,
+            "minLevel": 1,
+            "maxLevel": 1,
+            "maxGrade": "mortal",
+            "tagGroups": [
+              [
+                "药品"
+              ],
+              [
+                "基础药品"
+              ]
+            ],
+            "allowDuplicates": false
+          },
+          {
+            "chance": 0.08,
+            "minLevel": 1,
+            "maxLevel": 2,
+            "maxGrade": "yellow",
+            "tagGroups": [
+              [
+                "护甲"
+              ],
+              [
+                "帽子"
+              ]
+            ],
+            "allowDuplicates": false
+          },
+          {
+            "chance": 0.1,
+            "minLevel": 1,
+            "maxLevel": 2,
+            "maxGrade": "yellow",
+            "tagGroups": [
+              [
+                "武器"
+              ],
+              [
+                "旧兵器"
+              ]
+            ],
+            "allowDuplicates": false
+          }
+        ]
+      }
+    },
+    {
+      "id": "lm_shrine_incense_cabinet",
+      "name": "残香供柜",
+      "x": 21,
+      "y": 16,
+      "desc": "供柜抽屉里堆着发霉香灰、旧纸钱和少量没烧完的杂物。",
+      "container": {
+        "grade": "mortal",
+        "refreshTicks": 2200,
+        "char": "柜",
+        "color": "#765b45",
+        "drops": [],
+        "lootPools": [
+          {
+            "chance": 0.25,
+            "minLevel": 2,
+            "maxLevel": 2,
+            "maxGrade": "yellow",
+            "tagGroups": [
+              [
+                "药品"
+              ],
+              [
+                "丹药"
+              ]
+            ],
+            "allowDuplicates": false
+          },
+          {
+            "chance": 0.25,
+            "maxLevel": 2,
+            "maxGrade": "yellow",
+            "tagGroups": [
+              [
+                "药材"
+              ],
+              [
+                "蛛丝"
+              ]
+            ],
+            "allowDuplicates": false
+          },
+          {
+            "chance": 0.04,
+            "maxLevel": 2,
+            "maxGrade": "mortal",
+            "tagGroups": [
+              [
+                "功法"
+              ],
+              [
+                "步法"
+              ]
+            ],
+            "allowDuplicates": false
+          }
+        ]
+      }
+    },
+    {
+      "id": "lm_old_records_desk",
+      "name": "烂边书案",
+      "x": 28,
+      "y": 15,
+      "desc": "书案受潮起翘，案角下却还压着几页账册和手抄残本。",
+      "container": {
+        "grade": "mortal",
+        "refreshTicks": 2050,
+        "char": "案",
+        "color": "#7a644c",
+        "drops": [],
+        "lootPools": [
+          {
+            "chance": 0.3,
+            "minLevel": 2,
+            "maxLevel": 2,
+            "maxGrade": "yellow",
+            "tagGroups": [
+              [
+                "药品"
+              ],
+              [
+                "丹药"
+              ]
+            ],
+            "allowDuplicates": false
+          },
+          {
+            "chance": 0.18,
+            "maxLevel": 2,
+            "maxGrade": "yellow",
+            "tagGroups": [
+              [
+                "药材"
+              ],
+              [
+                "蛛丝"
+              ]
+            ],
+            "allowDuplicates": false
+          },
+          {
+            "chance": 0.04,
+            "maxLevel": 2,
+            "maxGrade": "mortal",
+            "tagGroups": [
+              [
+                "功法"
+              ],
+              [
+                "步法"
+              ]
+            ],
+            "allowDuplicates": false
+          }
+        ]
+      }
+    },
+    {
+      "id": "lm_old_resident_bedroll",
+      "name": "旧铺盖卷",
+      "x": 37,
+      "y": 15,
+      "desc": "床褥早烂了，只剩一卷卷潮硬被褥，摸进去偶尔还能翻出遗漏的小物件。",
+      "container": {
+        "grade": "mortal",
+        "refreshTicks": 1900,
+        "char": "铺",
+        "color": "#8a7358",
+        "drops": [],
+        "lootPools": [
+          {
+            "chance": 0.55,
+            "minLevel": 1,
+            "maxLevel": 1,
+            "maxGrade": "mortal",
+            "tagGroups": [
+              [
+                "药品"
+              ],
+              [
+                "基础药品"
+              ]
+            ],
+            "allowDuplicates": false
+          },
+          {
+            "chance": 0.1,
+            "minLevel": 1,
+            "maxLevel": 2,
+            "maxGrade": "yellow",
+            "tagGroups": [
+              [
+                "护甲"
+              ],
+              [
+                "帽子"
+              ]
+            ],
+            "allowDuplicates": false
+          },
+          {
+            "chance": 0.06,
+            "minLevel": 1,
+            "maxLevel": 2,
+            "maxGrade": "yellow",
+            "tagGroups": [
+              [
+                "护甲"
+              ],
+              [
+                "腿部护甲"
+              ]
+            ],
+            "allowDuplicates": false
+          }
+        ]
+      }
+    },
+    {
+      "id": "lm_inn_side_table",
+      "name": "客房矮几",
+      "x": 15,
+      "y": 38,
+      "desc": "矮几上还留着茶盏和几张散落房票，桌洞里多半有点遗落杂物。",
+      "container": {
+        "grade": "mortal",
+        "refreshTicks": 1750,
+        "char": "几",
+        "color": "#8d6947",
+        "drops": [],
+        "lootPools": [
+          {
+            "chance": 0.62,
+            "minLevel": 1,
+            "maxLevel": 1,
+            "maxGrade": "mortal",
+            "tagGroups": [
+              [
+                "药品"
+              ],
+              [
+                "基础药品"
+              ]
+            ],
+            "allowDuplicates": false
+          },
+          {
+            "chance": 0.28,
+            "minLevel": 2,
+            "maxLevel": 2,
+            "maxGrade": "yellow",
+            "tagGroups": [
+              [
+                "药品"
+              ],
+              [
+                "丹药"
+              ]
+            ],
+            "allowDuplicates": false
+          },
+          {
+            "chance": 0.05,
+            "minLevel": 1,
+            "maxLevel": 2,
+            "maxGrade": "yellow",
+            "tagGroups": [
+              [
+                "护甲"
+              ],
+              [
+                "腿部护甲"
+              ]
+            ],
+            "allowDuplicates": false
+          }
+        ]
+      }
+    },
+    {
+      "id": "lm_inn_wall_shelf",
+      "name": "墙边食架",
+      "x": 20,
+      "y": 33,
+      "desc": "墙架上码着缺口碗盏和几包粗面干粮，翻翻还能找到应急散药。",
+      "container": {
+        "grade": "mortal",
+        "refreshTicks": 1700,
+        "char": "架",
+        "color": "#8b7451",
+        "drops": [],
+        "lootPools": [
+          {
+            "chance": 0.6,
+            "minLevel": 1,
+            "maxLevel": 1,
+            "maxGrade": "mortal",
+            "tagGroups": [
+              [
+                "药品"
+              ],
+              [
+                "基础药品"
+              ]
+            ],
+            "allowDuplicates": false
+          },
+          {
+            "chance": 0.25,
+            "minLevel": 2,
+            "maxLevel": 2,
+            "maxGrade": "yellow",
+            "tagGroups": [
+              [
+                "药品"
+              ],
+              [
+                "丹药"
+              ]
+            ],
+            "allowDuplicates": false
+          },
+          {
+            "chance": 0.06,
+            "minLevel": 1,
+            "maxLevel": 2,
+            "maxGrade": "yellow",
+            "tagGroups": [
+              [
+                "护甲"
+              ],
+              [
+                "帽子"
+              ]
+            ],
+            "allowDuplicates": false
+          }
+        ]
+      }
+    },
+    {
+      "id": "lm_apothecary_treatment_table",
+      "name": "敷药诊案",
+      "x": 45,
+      "y": 32,
+      "desc": "诊案边还放着纱布、木夹和研钵，常用外伤药大多就压在下面。",
+      "container": {
+        "grade": "mortal",
+        "refreshTicks": 1550,
+        "char": "案",
+        "color": "#6f8a66",
+        "drops": [],
+        "lootPools": [
+          {
+            "chance": 0.8,
+            "minLevel": 1,
+            "maxLevel": 1,
+            "maxGrade": "mortal",
+            "tagGroups": [
+              [
+                "药品"
+              ],
+              [
+                "基础药品"
+              ]
+            ],
+            "allowDuplicates": false
+          },
+          {
+            "chance": 0.32,
+            "minLevel": 3,
+            "maxLevel": 4,
+            "maxGrade": "mortal",
+            "tagGroups": [
+              [
+                "药品"
+              ],
+              [
+                "药膏"
+              ]
+            ],
+            "allowDuplicates": false
+          },
+          {
+            "chance": 0.24,
+            "maxLevel": 2,
+            "maxGrade": "mortal",
+            "tagGroups": [
+              [
+                "药材"
+              ],
+              [
+                "蛇胆"
+              ]
+            ],
+            "allowDuplicates": false
+          }
+        ]
+      }
+    },
+    {
+      "id": "lm_apothecary_clay_jar",
+      "name": "药渣陶罐",
+      "x": 45,
+      "y": 36,
+      "desc": "罐里盛着捣剩下的药渣和半干草叶，偶尔还掺着能用的材料。",
+      "container": {
+        "grade": "mortal",
+        "refreshTicks": 1450,
+        "char": "罐",
+        "color": "#80715d",
+        "drops": [],
+        "lootPools": [
+          {
+            "chance": 0.42,
+            "minLevel": 1,
+            "maxLevel": 1,
+            "maxGrade": "mortal",
+            "tagGroups": [
+              [
+                "药品"
+              ],
+              [
+                "基础药品"
+              ]
+            ],
+            "allowDuplicates": false
+          },
+          {
+            "chance": 0.22,
+            "maxLevel": 2,
+            "maxGrade": "mortal",
+            "tagGroups": [
+              [
+                "药材"
+              ],
+              [
+                "蛇胆"
+              ]
+            ],
+            "allowDuplicates": false
+          },
+          {
+            "chance": 0.2,
+            "maxLevel": 2,
+            "maxGrade": "yellow",
+            "tagGroups": [
+              [
+                "药材"
+              ],
+              [
+                "蛛丝"
+              ]
+            ],
+            "allowDuplicates": false
+          }
+        ]
+      }
+    },
+    {
+      "id": "lm_forge_coal_box",
+      "name": "炉边炭箱",
+      "x": 48,
+      "y": 24,
+      "desc": "炭箱底下混着未敲开的碎矿、铁渣和几块还能再烧一轮的黑炭。",
+      "container": {
+        "grade": "mortal",
+        "refreshTicks": 1750,
+        "char": "箱",
+        "color": "#7b6249",
+        "drops": [],
+        "lootPools": [
+          {
+            "chance": 0.52,
+            "maxLevel": 2,
+            "maxGrade": "yellow",
+            "tagGroups": [
+              [
+                "矿材"
+              ],
+              [
+                "玄铁"
+              ]
+            ],
+            "countMin": 1,
+            "countMax": 2,
+            "allowDuplicates": false
+          },
+          {
+            "chance": 0.12,
+            "minLevel": 1,
+            "maxLevel": 2,
+            "maxGrade": "yellow",
+            "tagGroups": [
+              [
+                "武器"
+              ],
+              [
+                "旧兵器"
+              ]
+            ],
+            "allowDuplicates": false
+          },
+          {
+            "chance": 0.03,
+            "maxLevel": 2,
+            "maxGrade": "mortal",
+            "tagGroups": [
+              [
+                "功法"
+              ],
+              [
+                "锻体"
+              ]
+            ],
+            "allowDuplicates": false
+          }
+        ]
+      }
+    },
+    {
+      "id": "lm_gate_ration_shelf",
+      "name": "门楼干粮架",
+      "x": 28,
+      "y": 48,
+      "desc": "靠门楼内侧立着一排干粮架，兵丁常把伤药和饼袋一并塞在上头。",
+      "container": {
+        "grade": "mortal",
+        "refreshTicks": 1600,
+        "char": "架",
+        "color": "#81684d",
+        "drops": [],
+        "lootPools": [
+          {
+            "chance": 0.48,
+            "minLevel": 1,
+            "maxLevel": 1,
+            "maxGrade": "mortal",
+            "tagGroups": [
+              [
+                "药品"
+              ],
+              [
+                "基础药品"
+              ]
+            ],
+            "allowDuplicates": false
+          },
+          {
+            "chance": 0.12,
+            "minLevel": 1,
+            "maxLevel": 2,
+            "maxGrade": "yellow",
+            "tagGroups": [
+              [
+                "护甲"
+              ],
+              [
+                "帽子"
+              ]
+            ],
+            "allowDuplicates": false
+          },
+          {
+            "chance": 0.16,
+            "maxLevel": 2,
+            "maxGrade": "yellow",
+            "tagGroups": [
+              [
+                "材料"
+              ],
+              [
+                "匪物"
+              ]
+            ],
+            "allowDuplicates": false
+          }
+        ]
+      }
+    },
+    {
+      "id": "landmark_yunlai_town_kuangdong",
+      "name": "地下矿洞入口",
+      "x": 42,
+      "y": 17,
+      "desc": "隐藏的矿洞入口,似乎需要挖掘碎石才能进入"
+    }
+  ],
+  "resourceNodeGroups": [
+    {
+      "resourceNodeId": "landmark.herb.moondew_grass",
+      "idPrefix": "lm_yunlai_moondew",
+      "name": "月露草",
+      "placements": [
+        {
+          "x": 1,
+          "y": 1
+        },
+        {
+          "x": 39,
+          "y": 1
+        },
+        {
+          "x": 20,
+          "y": 10
+        },
+        {
+          "x": 62,
+          "y": 12
+        },
+        {
+          "x": 38,
+          "y": 22
+        },
+        {
+          "x": 19,
+          "y": 32
+        },
+        {
+          "x": 54,
+          "y": 36
+        },
+        {
+          "x": 1,
+          "y": 62
+        },
+        {
+          "x": 34,
+          "y": 62
+        },
+        {
+          "x": 62,
+          "y": 62
+        }
+      ]
+    },
+    {
+      "resourceNodeId": "landmark.herb.green_spirit_stem",
+      "idPrefix": "lm_yunlai_spirit_stem",
+      "name": "青灵茎",
+      "placements": [
+        {
+          "x": 26,
+          "y": 1
+        },
+        {
+          "x": 52,
+          "y": 2
+        },
+        {
+          "x": 1,
+          "y": 10
+        },
+        {
+          "x": 61,
+          "y": 31
+        },
+        {
+          "x": 31,
+          "y": 35
+        },
+        {
+          "x": 4,
+          "y": 36
+        },
+        {
+          "x": 47,
+          "y": 47
+        },
+        {
+          "x": 62,
+          "y": 61
+        },
+        {
+          "x": 2,
+          "y": 62
+        },
+        {
+          "x": 33,
+          "y": 62
+        }
+      ]
+    }
+  ],
+  "npcs": [
+    {
+      "id": "npc_zhao_laoliu",
+      "name": "赵老六",
+      "x": 25,
+      "y": 47,
+      "char": "赵",
+      "color": "#c9b38a",
+      "dialogue": "人能进镇就算赚着了，至于明天怎么活，等明天再骂老天。",
+      "role": "guide",
+      "shopItems": [],
+      "quests": []
+    },
+    {
+      "id": "npc_ma_huitou",
+      "name": "马会头",
+      "x": 32,
+      "y": 47,
+      "char": "门",
+      "color": "#d6a76a",
+      "dialogue": "能走的门只剩南边这道，墙上那些洞可不算路。",
+      "role": "guard",
+      "shopItems": [],
+      "quests": []
+    },
+    {
+      "id": "npc_gate_guard_a",
+      "name": "值门兵丁",
+      "x": 29,
+      "y": 47,
+      "char": "兵",
+      "color": "#c7b08a",
+      "dialogue": "外头乱得很，想出镇练手就走正道，别钻塌墙。",
+      "role": "guard",
+      "shopItems": [],
+      "quests": []
+    },
+    {
+      "id": "npc_shen_qiniang",
+      "name": "沈七娘",
+      "x": 16,
+      "y": 34,
+      "char": "掌",
+      "color": "#d99f7e",
+      "dialogue": "店是旧了点，炕还是热的。想住就进，别嫌漏风。",
+      "role": "inn",
+      "shopItems": [],
+      "quests": []
+    },
+    {
+      "id": "npc_wounded_stranger",
+      "name": "无名伤者",
+      "x": 20,
+      "y": 35,
+      "char": "伤",
+      "color": "#c98d8d",
+      "dialogue": "别......别往井里看......井底有人在学你说话......",
+      "role": "story",
+      "shopItems": [],
+      "quests": []
+    },
+    {
+      "id": "npc_herbalist_lan",
+      "name": "兰药师",
+      "x": 39,
+      "y": 34,
+      "char": "药",
+      "color": "#8ccf9b",
+      "dialogue": "墙塌了还能补，人伤了得趁早治。药铺没以前那么宽敞，东西还够用。",
+      "role": "support",
+      "shopItems": [
+        {
+          "itemId": "pill.minor_heal",
+          "price": 2
+        },
+        {
+          "itemId": "minor_qi_pill",
+          "price": 6
+        },
+        {
+          "itemId": "frost_heart_paste",
+          "price": 10
+        },
+        {
+          "itemId": "major_qi_pill",
+          "price": 18
+        },
+        {
+          "itemId": "pure_yang_pill",
+          "price": 24
+        },
+        {
+          "itemId": "pill.crimson_bud_elixir",
+          "price": 12
+        },
+        {
+          "itemId": "pill.clear_eye_elixir",
+          "price": 14
+        },
+        {
+          "itemId": "pill.windstride_elixir",
+          "price": 14
+        },
+        {
+          "itemId": "pill.break_array_elixir",
+          "price": 16
+        },
+        {
+          "itemId": "pill.bitter_cultivation_elixir",
+          "price": 50
+        }
+      ],
+      "quests": []
+    },
+    {
+      "id": "npc_healer_su",
+      "name": "素问医女",
+      "x": 44,
+      "y": 34,
+      "char": "医",
+      "color": "#f3c1cc",
+      "dialogue": "夜里别靠北井，也别在东南那片积水边久站。",
+      "role": "support",
+      "shopItems": [],
+      "quests": []
+    },
+    {
+      "id": "npc_qingxuan",
+      "name": "清玄执事",
+      "x": 31,
+      "y": 24,
+      "char": "执",
+      "color": "#f6d365",
+      "dialogue": "镇子缩了，路反倒更清楚了。先认清活路，再谈修行。",
+      "role": "quest_giver",
+      "shopItems": [],
+      "quests": []
+    },
+    {
+      "id": "npc_wenji",
+      "name": "文籍师叔",
+      "x": 13,
+      "y": 45,
+      "char": "籍",
+      "color": "#9eb6e8",
+      "dialogue": "架上这几本都是给穷苦人���底子的，十枚灵石一本，先把骨架和气口练稳再说。",
+      "role": "lore",
+      "shopItems": [
+        {
+          "itemId": "book.standing_stake_art",
+          "price": 10
+        },
+        {
+          "itemId": "book.bear_cauldron_art",
+          "price": 10
+        },
+        {
+          "itemId": "book.dragon_elephant_bone",
+          "price": 10
+        }
+      ],
+      "quests": []
+    },
+    {
+      "id": "npc_map_seller_yan_bo",
+      "name": "行图贩子·严伯",
+      "x": 14,
+      "y": 46,
+      "char": "图",
+      "color": "#d8c287",
+      "dialogue": "旧路新路都画在这几卷纸上。认路花的是灵石，乱闯赔的是命，自己掂量。",
+      "role": "trader",
+      "shopItems": [
+        {
+          "itemId": "fate_stone.yunlai_town",
+          "price": 1
+        },
+        {
+          "itemId": "map.yunlai_town",
+          "price": 1
+        },
+        {
+          "itemId": "map.wildlands",
+          "price": 4
+        },
+        {
+          "itemId": "map.bamboo_forest",
+          "price": 9
+        },
+        {
+          "itemId": "map.black_iron_mine",
+          "price": 16
+        },
+        {
+          "itemId": "map.ancient_ruins",
+          "price": 16
+        },
+        {
+          "itemId": "map.spirit_ridge",
+          "price": 25
+        },
+        {
+          "itemId": "map.beast_valley",
+          "price": 25
+        },
+        {
+          "itemId": "map.sky_ruins",
+          "price": 36
+        }
+      ],
+      "quests": []
+    },
+    {
+      "id": "npc_blacksmith_han",
+      "name": "韩铁匠",
+      "x": 47,
+      "y": 26,
+      "char": "匠",
+      "color": "#e38f66",
+      "dialogue": "棚子塌了就塌了，铁砧还在就能开工。",
+      "role": "craft",
+      "shopItems": [],
+      "quests": []
+    },
+    {
+      "id": "npc_watchman",
+      "name": "守夜人",
+      "x": 18,
+      "y": 20,
+      "char": "夜",
+      "color": "#9aa7c2",
+      "dialogue": "墙上的缺口白天漏风，夜里可不一定只漏风。",
+      "role": "warning",
+      "shopItems": [],
+      "quests": []
+    },
+    {
+      "id": "npc_old_gate_guard",
+      "name": "老关卒",
+      "x": 31,
+      "y": 9,
+      "char": "关",
+      "color": "#a7b0b8",
+      "dialogue": "北关早守不住了，剩下这段残墙，也就是提醒后人别忘了。",
+      "role": "guard",
+      "shopItems": [],
+      "quests": []
+    }
+  ],
+  "monsterSpawns": [
+    {
+      "id": "m_town_rat_south",
+      "x": 10,
+      "y": 58,
+      "count": 20,
+      "radius": 8,
+      "maxAlive": 40,
+      "respawnTicks": 30
+    },
+    {
+      "id": "m_town_rat_refuse",
+      "x": 42,
+      "y": 58,
+      "count": 20,
+      "radius": 8,
+      "maxAlive": 40,
+      "respawnTicks": 30
+    },
+    {
+      "id": "m_gate_thug",
+      "x": 57,
+      "y": 61,
+      "maxAlive": 8,
+      "respawnTicks": 15
+    },
+    {
+      "id": "m_night_blade",
+      "x": 55,
+      "y": 53,
+      "count": 4,
+      "maxAlive": 8,
+      "respawnTicks": 15
+    }
+  ]
+}

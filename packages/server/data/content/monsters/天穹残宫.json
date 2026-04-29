@@ -36,8 +36,8 @@
       "spirit": 112,
       "perception": 214,
       "talent": 108,
-      "comprehension": 24,
-      "luck": 18
+      "strength": 24,
+      "meridians": 18
     },
     "statPercents": {
       "maxHp": 150,
@@ -96,8 +96,8 @@
       "spirit": 157,
       "perception": 101,
       "talent": 143,
-      "comprehension": 20,
-      "luck": 11
+      "strength": 20,
+      "meridians": 11
     },
     "statPercents": {
       "maxHp": 160,
@@ -165,8 +165,8 @@
       "spirit": 141,
       "perception": 269,
       "talent": 136,
-      "comprehension": 30,
-      "luck": 23
+      "strength": 30,
+      "meridians": 23
     },
     "statPercents": {
       "maxHp": 170,
@@ -251,8 +251,8 @@
       "spirit": 301,
       "perception": 222,
       "talent": 242,
-      "comprehension": 40,
-      "luck": 28
+      "strength": 40,
+      "meridians": 28
     },
     "statPercents": {
       "maxHp": 180,

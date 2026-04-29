@@ -5,36 +5,51 @@ import {
   type GmEditorTechniqueOption,
   type GmEditorRealmOption,
   type ItemStack,
+  type QuestState,
   type SkillDef,
   type TechniqueCategory,
   type TechniqueGrade,
+  type TechniqueLayerDef,
   type TechniqueState,
 } from '@mud/shared';
-import { LOCAL_EDITOR_CATALOG } from '../constants/world/editor-catalog';
+import { LOCAL_EDITOR_CATALOG } from './editor-catalog';
 
-/** itemTemplateMap：定义该变量以承载业务值。 */
+// 本地目录只用于预览补齐与离线辅助，不参与正式玩法真源判定。
 const itemTemplateMap = new Map(LOCAL_EDITOR_CATALOG.items.map((item) => [item.itemId, item] as const));
-/** techniqueTemplateMap：定义该变量以承载业务值。 */
 const techniqueTemplateMap = new Map(LOCAL_EDITOR_CATALOG.techniques.map((technique) => [technique.id, technique] as const));
-/** realmLevelMap：定义该变量以承载业务值。 */
 const realmLevelMap = new Map(LOCAL_EDITOR_CATALOG.realmLevels.map((realm) => [realm.realmLv, realm] as const));
-/** skillTemplateMap：定义该变量以承载业务值。 */
+const questTemplateMap = new Map((LOCAL_EDITOR_CATALOG.quests ?? []).map((quest) => [quest.id, quest] as const));
+/** 按技能 ID 建立的本地技能模板索引。 */
 const skillTemplateMap = new Map(
   LOCAL_EDITOR_CATALOG.techniques.flatMap((technique) =>
     (technique.skills ?? []).map((skill) => [skill.id, skill] as const),
   ),
 );
-/** LocalBuffTemplate：定义该类型的结构与数据语义。 */
+/** 本地 Buff 模板的最小字段集合。 */
 type LocalBuffTemplate = {
-/** buffId：定义该变量以承载业务值。 */
-  buffId: string;
-/** name：定义该变量以承载业务值。 */
-  name: string;
-  shortMark?: string;
+/**
+ * buffId：buffID标识。
+ */
+
+  buffId: string;  
+  /**
+ * name：名称名称或显示文本。
+ */
+
+  name: string;  
+  /**
+ * shortMark：shortMark相关字段。
+ */
+
+  shortMark?: string;  
+  /**
+ * category：category相关字段。
+ */
+
   category?: 'buff' | 'debuff';
 };
 
-/** buffTemplateMap：定义该变量以承载业务值。 */
+/** 按 Buff ID 建立的本地 Buff 模板索引。 */
 const buffTemplateMap = new Map<string, LocalBuffTemplate>(
   LOCAL_EDITOR_CATALOG.techniques.flatMap((technique) =>
     (technique.skills ?? []).flatMap((skill) =>
@@ -51,10 +66,9 @@ const buffTemplateMap = new Map<string, LocalBuffTemplate>(
     ),
   ),
 );
-/** divineSkillNameSet：定义该变量以承载业务值。 */
+/** 记录所有神通系技能名称，供预览时识别。 */
 const divineSkillNameSet = new Set(
   LOCAL_EDITOR_CATALOG.techniques.flatMap((technique) => {
-/** category：定义该变量以承载业务值。 */
     const category = resolveTechniqueCategoryFromTemplate(technique);
     if (category !== 'divine') {
       return [];
@@ -62,9 +76,8 @@ const divineSkillNameSet = new Set(
     return (technique.skills ?? []).map((skill) => skill.name.trim()).filter((name) => name.length > 0);
   }),
 );
-/** techniqueCategoryByBookItemId：定义该变量以承载业务值。 */
+/** 从功法书物品 ID 反查功法类别。 */
 const techniqueCategoryByBookItemId = new Map<string, TechniqueCategory>();
-/** DEFAULT_TECHNIQUE_REALM_LEVEL_BY_GRADE：定义该变量以承载业务值。 */
 const DEFAULT_TECHNIQUE_REALM_LEVEL_BY_GRADE: Record<TechniqueGrade, number> = {
   mortal: 1,
   yellow: 13,
@@ -76,21 +89,25 @@ const DEFAULT_TECHNIQUE_REALM_LEVEL_BY_GRADE: Record<TechniqueGrade, number> = {
   emperor: 85,
 };
 
-/** clone：执行对应的业务逻辑。 */
+/** 对目录条目做深拷贝，避免调用方修改原始常量。 */
 function clone<T>(value: T): T {
   return JSON.parse(JSON.stringify(value)) as T;
 }
 
-/** resolveTechniqueCategoryFromTemplate：执行对应的业务逻辑。 */
+/** 从模板推断功法类别。 */
 function resolveTechniqueCategoryFromTemplate(template: GmEditorTechniqueOption | undefined): TechniqueCategory | null {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
   if (!template) {
     return null;
   }
   return template.category ?? ((template.skills?.length ?? 0) > 0 ? 'arts' : 'internal');
 }
 
-/** resolveTechniqueIdFromBookItemId：执行对应的业务逻辑。 */
+/** 从书籍物品 ID 里拆出对应的功法 ID。 */
 export function resolveTechniqueIdFromBookItemId(itemId: string): string | null {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
   if (itemId.startsWith('book.')) {
     return itemId.slice(5);
   }
@@ -104,9 +121,7 @@ for (const item of LOCAL_EDITOR_CATALOG.items) {
   if (item.type !== 'skill_book') {
     continue;
   }
-/** techniqueId：定义该变量以承载业务值。 */
   const techniqueId = resolveTechniqueIdFromBookItemId(item.itemId);
-/** category：定义该变量以承载业务值。 */
   const category = resolveTechniqueCategoryFromTemplate(
     techniqueId ? techniqueTemplateMap.get(techniqueId) : undefined,
   );
@@ -115,58 +130,62 @@ for (const item of LOCAL_EDITOR_CATALOG.items) {
   }
 }
 
-/** getLocalItemTemplate：执行对应的业务逻辑。 */
+/** 读取本地物品模板副本。 */
 export function getLocalItemTemplate(itemId: string): GmEditorItemOption | null {
-/** template：定义该变量以承载业务值。 */
   const template = itemTemplateMap.get(itemId);
   return template ? clone(template) : null;
 }
 
-/** getLocalTechniqueTemplate：执行对应的业务逻辑。 */
+/** 读取本地功法模板副本。 */
 export function getLocalTechniqueTemplate(techId: string): GmEditorTechniqueOption | null {
-/** template：定义该变量以承载业务值。 */
   const template = techniqueTemplateMap.get(techId);
   return template ? clone(template) : null;
 }
 
-/** getLocalTechniqueCategoryForBookItem：执行对应的业务逻辑。 */
+/** 根据书籍物品 ID 读取功法类别。 */
 export function getLocalTechniqueCategoryForBookItem(itemId: string): TechniqueCategory | null {
   return techniqueCategoryByBookItemId.get(itemId) ?? null;
 }
 
-/** getLocalRealmLevelEntry：执行对应的业务逻辑。 */
+/** 读取本地境界等级配置。 */
 export function getLocalRealmLevelEntry(realmLv: number | undefined): GmEditorRealmOption | null {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
   if (!Number.isFinite(realmLv)) {
     return null;
   }
-/** entry：定义该变量以承载业务值。 */
   const entry = realmLevelMap.get(Math.max(1, Math.floor(Number(realmLv))));
   return entry ? clone(entry) : null;
 }
 
-/** getLocalSkillTemplate：执行对应的业务逻辑。 */
+/** 读取本地技能模板副本。 */
 export function getLocalSkillTemplate(skillId: string): SkillDef | null {
-/** template：定义该变量以承载业务值。 */
   const template = skillTemplateMap.get(skillId);
   return template ? clone(template) : null;
 }
 
-/** getLocalBuffTemplate：执行对应的业务逻辑。 */
+/** 读取本地 Buff 模板副本。 */
 export function getLocalBuffTemplate(buffId: string): LocalBuffTemplate | null {
-/** template：定义该变量以承载业务值。 */
   const template = buffTemplateMap.get(buffId);
   return template ? { ...template } : null;
 }
 
-/** isLocalDivineSkillName：执行对应的业务逻辑。 */
+/** 读取本地任务模板副本。 */
+export function getLocalQuestTemplate(questId: string): QuestState | null {
+  const template = questTemplateMap.get(questId);
+  return template ? clone(template as QuestState) : null;
+}
+
+/** 判断某个技能名是否属于本地神通系技能。 */
 export function isLocalDivineSkillName(skillName: string): boolean {
-/** normalizedName：定义该变量以承载业务值。 */
   const normalizedName = skillName.trim();
   return normalizedName.length > 0 && divineSkillNameSet.has(normalizedName);
 }
 
-/** resolveTechniqueRealmLevel：执行对应的业务逻辑。 */
+/** 计算功法预览时应使用的境界等级。 */
 function resolveTechniqueRealmLevel(realmLv: number | undefined, grade: TechniqueGrade | undefined): number {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
   if (Number.isFinite(realmLv)) {
     return Math.max(1, Math.floor(Number(realmLv)));
   }
@@ -176,9 +195,10 @@ function resolveTechniqueRealmLevel(realmLv: number | undefined, grade: Techniqu
   return 1;
 }
 
-/** resolvePreviewItem：执行对应的业务逻辑。 */
+/** 用本地模板补齐物品预览字段。 */
 export function resolvePreviewItem(item: ItemStack): ItemStack {
-/** template：定义该变量以承载业务值。 */
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
   const template = getLocalItemTemplate(item.itemId);
   if (!template) {
     return item;
@@ -200,23 +220,51 @@ export function resolvePreviewItem(item: ItemStack): ItemStack {
     healPercent: item.healPercent ?? template.healPercent,
     qiPercent: item.qiPercent ?? template.qiPercent,
     cooldown: item.cooldown ?? template.cooldown,
-    consumeBuffs: item.consumeBuffs ?? template.consumeBuffs,
-    tags: item.tags ?? template.tags,
     enhanceLevel: item.enhanceLevel ?? template.enhanceLevel,
     alchemySuccessRate: item.alchemySuccessRate ?? template.alchemySuccessRate,
     alchemySpeedRate: item.alchemySpeedRate ?? template.alchemySpeedRate,
     enhancementSuccessRate: item.enhancementSuccessRate ?? template.enhancementSuccessRate,
     enhancementSpeedRate: item.enhancementSpeedRate ?? template.enhancementSpeedRate,
+    consumeBuffs: item.consumeBuffs ?? template.consumeBuffs,
+    tags: item.tags ?? template.tags,
     mapUnlockId: item.mapUnlockId ?? template.mapUnlockId,
     mapUnlockIds: item.mapUnlockIds ?? template.mapUnlockIds,
+    respawnBindMapId: item.respawnBindMapId ?? template.respawnBindMapId,
     tileAuraGainAmount: item.tileAuraGainAmount ?? template.tileAuraGainAmount,
+    tileResourceGains: item.tileResourceGains ?? template.tileResourceGains,
+    useBehavior: item.useBehavior ?? template.useBehavior,
     allowBatchUse: item.allowBatchUse ?? template.allowBatchUse,
   };
 }
 
-/** resolvePreviewSkill：执行对应的业务逻辑。 */
+/** 用本地模板补齐任务展示字段，保留服务端运行态字段。 */
+export function resolvePreviewQuest(quest: QuestState): QuestState {
+  const template = getLocalQuestTemplate(quest.id);
+  const merged = template
+    ? {
+      ...template,
+      ...quest,
+      status: quest.status ?? template.status,
+      progress: quest.progress ?? template.progress,
+      required: quest.required ?? template.required,
+    }
+    : quest;
+  return {
+    ...merged,
+    rewardItemIds: Array.isArray(merged.rewardItemIds) ? merged.rewardItemIds.slice() : [],
+    rewards: (merged.rewards ?? []).map((item) => resolvePreviewItem(item)),
+  };
+}
+
+/** 批量补齐任务展示字段。 */
+export function resolvePreviewQuests(quests: QuestState[] | undefined): QuestState[] {
+  return (quests ?? []).map((quest) => resolvePreviewQuest(quest));
+}
+
+/** 用本地模板补齐技能预览字段。 */
 export function resolvePreviewSkill(skill: SkillDef): SkillDef {
-/** template：定义该变量以承载业务值。 */
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
   const template = getLocalSkillTemplate(skill.id);
   if (!template) {
     return skill;
@@ -239,24 +287,24 @@ export function resolvePreviewSkill(skill: SkillDef): SkillDef {
   };
 }
 
-/** resolvePreviewSkills：执行对应的业务逻辑。 */
+/** 批量补齐技能预览字段。 */
 export function resolvePreviewSkills(skills: SkillDef[] | undefined): SkillDef[] {
   return (skills ?? []).map((skill) => resolvePreviewSkill(skill));
 }
 
-/** resolvePreviewTechniqueSkill：执行对应的业务逻辑。 */
+/** 补齐功法内单个技能的预览字段和真气消耗。 */
 function resolvePreviewTechniqueSkill(
   skill: SkillDef,
   techniqueGrade: TechniqueState['grade'],
   techniqueRealmLv: number,
   templateSkill?: SkillDef,
 ): SkillDef {
-/** merged：定义该变量以承载业务值。 */
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
   const merged = resolvePreviewSkill({
     ...(templateSkill ?? {}),
     ...skill,
   } as SkillDef);
-/** costMultiplier：定义该变量以承载业务值。 */
   const costMultiplier = merged.costMultiplier ?? templateSkill?.costMultiplier;
   if (costMultiplier === undefined) {
     return merged;
@@ -272,9 +320,10 @@ function resolvePreviewTechniqueSkill(
   };
 }
 
-/** resolvePreviewTechnique：执行对应的业务逻辑。 */
+/** 用模板与当前状态合并出功法预览数据。 */
 export function resolvePreviewTechnique(technique: TechniqueState): TechniqueState {
-/** template：定义该变量以承载业务值。 */
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
   const template = getLocalTechniqueTemplate(technique.techId);
   if (!template) {
     return {
@@ -285,29 +334,18 @@ export function resolvePreviewTechnique(technique: TechniqueState): TechniqueSta
       category: technique.category ?? (technique.skills.length > 0 ? 'arts' : 'internal'),
     };
   }
-/** resolvedLayers：定义该变量以承载业务值。 */
-  const resolvedLayers = technique.layers && technique.layers.length > 0
-    ? technique.layers
-    : clone(template.layers ?? []);
-/** templateSkills：定义该变量以承载业务值。 */
+  const resolvedLayers = resolvePreviewTechniqueLayers(technique.layers, template.layers);
   const templateSkills = clone(template.skills ?? []);
-/** knownTemplateSkillIds：定义该变量以承载业务值。 */
-  const knownTemplateSkillIds = new Set(templateSkills.map((skill) => skill.id));
-/** persistedKnownSkills：定义该变量以承载业务值。 */
-  const persistedKnownSkills = technique.skills.length > 0
-    ? technique.skills.filter((skill) => knownTemplateSkillIds.has(skill.id))
-    : [];
-/** sourceSkills：定义该变量以承载业务值。 */
-  const sourceSkills = persistedKnownSkills.length > 0 ? persistedKnownSkills : templateSkills;
-/** realmLv：定义该变量以承载业务值。 */
+  const sourceSkills = technique.skills.length > 0 ? technique.skills : templateSkills;
   const realmLv = resolveTechniqueRealmLevel(technique.realmLv, technique.grade ?? template.grade);
   return {
     ...technique,
     name: technique.name || template.name,
     grade: technique.grade ?? template.grade,
     category: technique.category ?? template.category ?? (sourceSkills.length > 0 ? 'arts' : 'internal'),
+    attrCurves: technique.attrCurves ?? template.attrCurves,
     realmLv,
-    realm: deriveTechniqueRealm(technique.level, resolvedLayers, technique.attrCurves),
+    realm: deriveTechniqueRealm(technique.level, resolvedLayers, technique.attrCurves ?? template.attrCurves),
     skills: sourceSkills.map((skill) => (
       resolvePreviewTechniqueSkill(
         skill,
@@ -320,7 +358,60 @@ export function resolvePreviewTechnique(technique: TechniqueState): TechniqueSta
   };
 }
 
-/** resolvePreviewTechniques：执行对应的业务逻辑。 */
+function resolvePreviewTechniqueLayers(
+  sourceLayers: TechniqueState['layers'] | undefined,
+  templateLayers: TechniqueLayerDef[] | undefined,
+): TechniqueLayerDef[] {
+  const templateByLevel = new Map((templateLayers ?? []).map((entry) => [entry.level, entry] as const));
+  const baseLayers = sourceLayers && sourceLayers.length > 0
+    ? sourceLayers
+    : clone(templateLayers ?? []);
+  return baseLayers.map((layer) => {
+    const templateLayer = templateByLevel.get(layer.level);
+    const legacySpecialStats = resolveLegacyLayerSpecialStats(layer.attrs);
+    return {
+      ...layer,
+      expToNext: templateLayer?.expToNext ?? layer.expToNext,
+      attrs: templateLayer?.attrs
+        ? { ...templateLayer.attrs }
+        : cloneLayerAttrsWithoutSpecialStats(layer.attrs),
+      specialStats: layer.specialStats
+        ? { ...layer.specialStats }
+        : legacySpecialStats ?? (templateLayer?.specialStats ? { ...templateLayer.specialStats } : undefined),
+      qiProjection: templateLayer?.qiProjection
+        ? templateLayer.qiProjection.map((entry) => ({ ...entry }))
+        : layer.qiProjection?.map((entry) => ({ ...entry })),
+    };
+  });
+}
+
+function cloneLayerAttrsWithoutSpecialStats(attrs: TechniqueLayerDef['attrs'] | undefined): TechniqueLayerDef['attrs'] | undefined {
+  if (!attrs) {
+    return undefined;
+  }
+  const { comprehension: _comprehension, luck: _luck, ...rest } = attrs as TechniqueLayerDef['attrs'] & {
+    comprehension?: number;
+    luck?: number;
+  };
+  return Object.keys(rest).length > 0 ? rest : undefined;
+}
+
+function resolveLegacyLayerSpecialStats(attrs: TechniqueLayerDef['attrs'] | undefined): TechniqueLayerDef['specialStats'] | undefined {
+  const source = attrs as (TechniqueLayerDef['attrs'] & { comprehension?: number; luck?: number }) | undefined;
+  if (!source) {
+    return undefined;
+  }
+  const specialStats: TechniqueLayerDef['specialStats'] = {};
+  if (typeof source.comprehension === 'number' && Number.isFinite(source.comprehension) && source.comprehension > 0) {
+    specialStats.comprehension = source.comprehension;
+  }
+  if (typeof source.luck === 'number' && Number.isFinite(source.luck) && source.luck > 0) {
+    specialStats.luck = source.luck;
+  }
+  return Object.keys(specialStats).length > 0 ? specialStats : undefined;
+}
+
+/** 批量补齐功法预览数据。 */
 export function resolvePreviewTechniques(techniques: TechniqueState[] | undefined): TechniqueState[] {
   return (techniques ?? []).map((technique) => resolvePreviewTechnique(technique));
 }

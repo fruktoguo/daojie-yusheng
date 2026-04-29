@@ -3,19 +3,24 @@
   "version": "0.0.1",
   "private": true,
   "scripts": {
+    "proof:mainline-boundaries": "node ./scripts/check-client-mainline-boundaries.js",
     "generate:editor-catalog": "node ../../scripts/generate-editor-catalog.mjs --client=client --shared=shared",
     "generate:item-sources": "node ./scripts/generate-item-sources.mjs",
-    "generate:quest-catalog": "node ./scripts/generate-quest-catalog.mjs",
-    "prebuild": "pnpm --filter @mud/shared build && pnpm run generate:editor-catalog && pnpm run generate:item-sources && pnpm run generate:quest-catalog",
+    "prebuild": "pnpm --dir ../shared build && pnpm run generate:editor-catalog && pnpm run generate:item-sources",
     "dev": "vite",
-    "build": "tsc && vite build",
+    "dev:react-ui-prototype": "vite --open /react-ui-prototype.html",
+    "build": "tsc --noEmit && vite build && pnpm run proof:mainline-boundaries",
     "preview": "vite preview"
   },
   "dependencies": {
+    "react": "^19.2.0",
+    "react-dom": "^19.2.0",
     "socket.io-client": "^4.7.0",
-    "@mud/shared": "workspace:*"
+    "@mud/shared": "link:../shared"
   },
   "devDependencies": {
+    "@types/react": "^19.2.2",
+    "@types/react-dom": "^19.2.2",
     "typescript": "^5.3.0",
     "vite": "^5.0.0"
   }

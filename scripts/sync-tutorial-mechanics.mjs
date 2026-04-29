@@ -15,11 +15,17 @@ const repoRoot = path.resolve(__dirname, '..');
  * 记录来源路径。
  */
 const sourcePath = path.join(repoRoot, 'docs', 'tutorial-mechanics.md');
+function resolveWorkspacePackageDir(name) {
+  if (name === 'config-editor' || name === 'client' || name === 'server' || name === 'shared') {
+    return path.join(repoRoot, 'packages', name);
+  }
+  throw new Error(`不支持的 workspace 包名: ${name}`);
+}
 /**
  * 汇总targets。
  */
 const targets = [
-  path.join(repoRoot, 'packages', 'shared', 'src', 'tutorial-mechanics.generated.ts'),
+  path.join(resolveWorkspacePackageDir('shared'), 'src', 'tutorial-mechanics.generated.ts'),
 ];
 
 /**

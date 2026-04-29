@@ -1,10 +1,11 @@
-import { type ElementKey, ItemStack, PlayerState, SkillDef, type SkillDamageKind } from '@mud/shared';
+import { ActionDef, AutoBattleSkillConfig, ItemStack, PlayerState, SkillDef, type ElementKey, type SkillDamageKind } from '@mud/shared';
 import { getElementKeyLabel } from '../../domain-labels';
 
-/** normalizeShortcutKey：执行对应的业务逻辑。 */
+/** normalizeShortcutKey：规范化Shortcut Key。 */
 export function normalizeShortcutKey(key: string): string | null {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
   if (key.length !== 1) return null;
-/** lower：定义该变量以承载业务值。 */
   const lower = key.toLowerCase();
   if ((lower >= 'a' && lower <= 'z') || (lower >= '0' && lower <= '9')) {
     return lower;
@@ -12,7 +13,7 @@ export function normalizeShortcutKey(key: string): string | null {
   return null;
 }
 
-/** escapeHtml：执行对应的业务逻辑。 */
+/** escapeHtml：转义 HTML 文本中的危险字符。 */
 export function escapeHtml(value: string): string {
   return value
     .replaceAll('&', '&amp;')
@@ -22,20 +23,22 @@ export function escapeHtml(value: string): string {
     .replaceAll("'", '&#39;');
 }
 
-/** appendUnique：执行对应的业务逻辑。 */
+/** appendUnique：处理append Unique。 */
 export function appendUnique<T>(list: T[], value: T): void {
   if (!list.includes(value)) {
     list.push(value);
   }
 }
 
-/** isRecord：执行对应的业务逻辑。 */
+/** isRecord：判断是否记录。 */
 export function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null;
 }
 
-/** readBoolean：执行对应的业务逻辑。 */
+/** readBoolean：处理read Boolean。 */
 export function readBoolean(...values: unknown[]): boolean {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
   for (const value of values) {
     if (typeof value === 'boolean') {
       return value;
@@ -44,7 +47,7 @@ export function readBoolean(...values: unknown[]): boolean {
   return true;
 }
 
-/** isAutoUseConsumableCandidate：执行对应的业务逻辑。 */
+/** 判断道具是否适合作为自动吃药候选。 */
 export function isAutoUseConsumableCandidate(
   item: Pick<ItemStack, 'healAmount' | 'healPercent' | 'qiPercent' | 'consumeBuffs'>,
 ): boolean {
@@ -54,7 +57,7 @@ export function isAutoUseConsumableCandidate(
     || (item.consumeBuffs?.length ?? 0) > 0;
 }
 
-/** decodePresetTextValue：执行对应的业务逻辑。 */
+/** decodePresetTextValue：解码预设文本值。 */
 export function decodePresetTextValue(value: string): string {
   try {
     return decodeURIComponent(value);
@@ -63,17 +66,24 @@ export function decodePresetTextValue(value: string): string {
   }
 }
 
-/** resolveSkillDamageProfile：执行对应的业务逻辑。 */
-function resolveSkillDamageProfile(skill: SkillDef): { kinds: SkillDamageKind[]; elements: ElementKey[] } {
-/** kinds：定义该变量以承载业务值。 */
+/** resolveSkillDamageProfile：解析技能Damage Profile。 */
+function resolveSkillDamageProfile(skill: SkillDef): {
+/**
+ * kinds：kind相关字段。
+ */
+ kinds: SkillDamageKind[];
+ /**
+ * elements：element相关字段。
+ */
+ elements: ElementKey[] } {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
   const kinds: SkillDamageKind[] = [];
-/** elements：定义该变量以承载业务值。 */
   const elements: ElementKey[] = [];
   for (const effect of skill.effects) {
     if (effect.type !== 'damage') {
       continue;
     }
-/** appendUnique：处理当前场景中的对应操作。 */
     appendUnique(kinds, effect.damageKind === 'physical' ? 'physical' : 'spell');
     if (effect.element) {
       appendUnique(elements, effect.element);
@@ -82,12 +92,21 @@ function resolveSkillDamageProfile(skill: SkillDef): { kinds: SkillDamageKind[];
   return { kinds, elements };
 }
 
-/** formatSkillAffinityLabel：执行对应的业务逻辑。 */
+/** formatSkillAffinityLabel：格式化技能Affinity标签。 */
 function formatSkillAffinityLabel(
   kind: 'physical' | 'spell' | 'mixed' | 'utility',
   element: ElementKey | 'multi' | 'neutral',
-): { label: string; title: string } {
-/** shortKindLabel：定义该变量以承载业务值。 */
+): {
+/**
+ * label：label名称或显示文本。
+ */
+ label: string;
+ /**
+ * title：title名称或显示文本。
+ */
+ title: string } {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
   const shortKindLabel = kind === 'physical'
     ? '物'
     : kind === 'spell'
@@ -95,7 +114,6 @@ function formatSkillAffinityLabel(
       : kind === 'mixed'
         ? '混'
         : '辅';
-/** fullKindLabel：定义该变量以承载业务值。 */
   const fullKindLabel = kind === 'physical'
     ? '物理'
     : kind === 'spell'
@@ -103,7 +121,6 @@ function formatSkillAffinityLabel(
       : kind === 'mixed'
         ? '混合'
         : '辅助';
-/** elementLabel：定义该变量以承载业务值。 */
   const elementLabel = element === 'multi'
     ? '五行'
     : element === 'neutral'
@@ -111,30 +128,41 @@ function formatSkillAffinityLabel(
       : `${getElementKeyLabel(element)}行`;
   if (!elementLabel) {
     return {
-/** label：定义该变量以承载业务值。 */
       label: kind === 'utility' ? '辅助' : fullKindLabel,
-/** title：定义该变量以承载业务值。 */
       title: kind === 'utility' ? '辅助型技能' : fullKindLabel,
     };
   }
   return {
-/** label：定义该变量以承载业务值。 */
     label: `${element === 'multi' ? elementLabel : getElementKeyLabel(element)}${shortKindLabel}`,
     title: `${elementLabel}${fullKindLabel}`,
   };
 }
 
-/** getSkillAffinityBadge：执行对应的业务逻辑。 */
+/** getSkillAffinityBadge：读取技能Affinity Badge。 */
 export function getSkillAffinityBadge(skill: SkillDef): {
-/** label：定义该变量以承载业务值。 */
-  label: string;
-/** title：定义该变量以承载业务值。 */
-  title: string;
-/** tone：定义该变量以承载业务值。 */
-  tone: 'physical' | 'spell' | 'mixed' | 'utility';
-/** element：定义该变量以承载业务值。 */
+/**
+ * label：label名称或显示文本。
+ */
+
+  label: string;  
+  /**
+ * title：title名称或显示文本。
+ */
+
+  title: string;  
+  /**
+ * tone：tone相关字段。
+ */
+
+  tone: 'physical' | 'spell' | 'mixed' | 'utility';  
+  /**
+ * element：element相关字段。
+ */
+
   element: ElementKey | 'multi' | 'neutral';
 } {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
   const { kinds, elements } = resolveSkillDamageProfile(skill);
   if (kinds.length === 0) {
     return {
@@ -144,11 +172,8 @@ export function getSkillAffinityBadge(skill: SkillDef): {
       element: 'neutral',
     };
   }
-/** tone：定义该变量以承载业务值。 */
   const tone = kinds.length > 1 ? 'mixed' : (kinds[0] === 'physical' ? 'physical' : 'spell');
-/** element：定义该变量以承载业务值。 */
   const element = elements.length > 1 ? 'multi' : (elements[0] ?? 'neutral');
-/** text：定义该变量以承载业务值。 */
   const text = formatSkillAffinityLabel(tone, element);
   return {
     label: text.label,
@@ -158,10 +183,17 @@ export function getSkillAffinityBadge(skill: SkillDef): {
   };
 }
 
-/** getSkillEnabledTechniques：执行对应的业务逻辑。 */
+/** getSkillEnabledTechniques：读取技能启用Techniques。 */
 export function getSkillEnabledTechniques(player: PlayerState): PlayerState['techniques'] {
   return player.techniques.filter((technique) => technique.skillsEnabled !== false);
 }
+
+/** ActionPanelAction：动作面板的技能快捷项定义。 */
+export type ActionPanelAction = ActionDef;
+/** ActionPanelSkillDraft：动作面板里的自动战斗技能草稿。 */
+export type ActionPanelSkillDraft = AutoBattleSkillConfig;
+
+
 
 
 

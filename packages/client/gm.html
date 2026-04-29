@@ -496,9 +496,26 @@
     }
 
     .network-row {
+      display: flex;
+      align-items: flex-start;
+      justify-content: space-between;
+      gap: 10px;
       padding: 8px 10px;
       border: 1px solid rgba(17, 17, 17, 0.08);
       background: rgba(255,255,255,0.68);
+    }
+
+    .network-row-main {
+      min-width: 0;
+      flex: 1;
+    }
+
+    .network-row-actions {
+      flex: 0 0 auto;
+    }
+
+    .network-payload-btn {
+      white-space: nowrap;
     }
 
     .network-row-label {
@@ -512,6 +529,93 @@
       margin-top: 4px;
       font-size: 12px;
       color: var(--ink-grey);
+    }
+
+    .network-payload-modal {
+      position: fixed;
+      inset: 0;
+      z-index: 60;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 18px;
+      background: rgba(0, 0, 0, 0.58);
+    }
+
+    .network-payload-dialog {
+      width: min(960px, 100%);
+      max-height: min(82vh, 760px);
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+      padding: 16px;
+      border: 1.5px solid var(--ink-black);
+      background: var(--paper-light);
+      box-shadow: 10px 10px 0 rgba(0, 0, 0, 0.22);
+    }
+
+    .network-payload-dialog-head,
+    .network-payload-sample-head {
+      display: flex;
+      align-items: baseline;
+      justify-content: space-between;
+      gap: 12px;
+    }
+
+    .network-payload-sample-list {
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+      min-height: 0;
+      overflow: auto;
+    }
+
+    .network-payload-sample {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+    }
+
+    .network-payload-sample-head {
+      font-size: 12px;
+      color: var(--ink-grey);
+    }
+
+    .network-payload-body {
+      width: 100%;
+      min-height: 220px;
+      resize: vertical;
+      padding: 10px;
+      border: 1px solid var(--wash-ink);
+      background: #fff;
+      color: var(--ink-dark);
+      font-family: ui-monospace, SFMono-Regular, Consolas, "Liberation Mono", monospace;
+      font-size: 12px;
+      line-height: 1.5;
+      white-space: pre;
+    }
+
+    @media (max-width: 720px) {
+      .network-row,
+      .network-payload-dialog-head,
+      .network-payload-sample-head {
+        align-items: flex-start;
+        flex-direction: column;
+      }
+
+      .network-row-actions,
+      .network-payload-btn {
+        width: 100%;
+      }
+
+      .network-payload-dialog {
+        max-height: calc(100vh - 24px);
+        padding: 12px;
+      }
+
+      .network-payload-body {
+        min-height: 180px;
+      }
     }
 
     .workspace-tabs {
@@ -1150,6 +1254,33 @@
       gap: 8px;
     }
 
+    .editor-attr-summary-grid {
+      display: grid;
+      grid-template-columns: repeat(6, minmax(0, 1fr));
+      gap: 8px;
+    }
+
+    .editor-attr-summary-card {
+      border: 1px solid var(--wash-ink);
+      background: rgba(255,255,255,0.68);
+      padding: 9px 10px;
+      min-width: 0;
+    }
+
+    .editor-attr-summary-label,
+    .editor-attr-summary-meta {
+      font-size: 11px;
+      color: var(--ink-grey);
+    }
+
+    .editor-attr-summary-value {
+      margin-top: 4px;
+      font-family: var(--font-heading-sub);
+      font-size: 18px;
+      color: var(--ink-black);
+      line-height: 1.2;
+    }
+
     .editor-code {
       margin-top: 8px;
       padding: 10px;
@@ -1352,6 +1483,7 @@
       .editor-grid,
       .editor-grid.compact,
       .editor-stat-grid,
+      .editor-attr-summary-grid,
       .map-form-grid,
       .map-form-grid.compact {
         grid-template-columns: 1fr;
@@ -1543,6 +1675,7 @@
           <button class="workspace-tab active" id="server-subtab-overview" type="button">总览</button>
           <button class="workspace-tab" id="server-subtab-traffic" type="button">流量统计</button>
           <button class="workspace-tab" id="server-subtab-cpu" type="button">CPU 信息</button>
+          <button class="workspace-tab" id="server-subtab-memory" type="button">内存信息</button>
           <button class="workspace-tab" id="server-subtab-database" type="button">数据库</button>
         </div>
         <div id="server-panel-overview" class="server-tab-panel">
@@ -1648,10 +1781,20 @@
           </div>
           <div class="network-breakdown">
             <div class="network-breakdown-head"><div class="panel-title">网络事件上行榜</div><div class="network-breakdown-subtitle">客户端 -> 服务端累计字节</div></div>
+            <div class="button-row" style="margin-top: 8px;">
+              <button id="network-in-page-prev" class="small-btn" type="button">上一页</button>
+              <div id="network-in-page-meta" class="editor-note" style="margin: 0;">第 1 / 1 页 · 共 0 条</div>
+              <button id="network-in-page-next" class="small-btn" type="button">下一页</button>
+            </div>
             <div id="summary-net-in-breakdown" class="network-breakdown-list"><div class="empty-hint">当前还没有累计上行事件。</div></div>
           </div>
           <div class="network-breakdown">
             <div class="network-breakdown-head"><div class="panel-title">网络事件下行榜</div><div class="network-breakdown-subtitle">服务端 -> 客户端累计字节</div></div>
+            <div class="button-row" style="margin-top: 8px;">
+              <button id="network-out-page-prev" class="small-btn" type="button">上一页</button>
+              <div id="network-out-page-meta" class="editor-note" style="margin: 0;">第 1 / 1 页 · 共 0 条</div>
+              <button id="network-out-page-next" class="small-btn" type="button">下一页</button>
+            </div>
             <div id="summary-net-out-breakdown" class="network-breakdown-list"><div class="empty-hint">当前还没有累计下行事件。</div></div>
           </div>
         </div>
@@ -1675,12 +1818,6 @@
           </div>
           <div class="stats-grid">
             <div class="stats-card"><div class="stats-card-label">系统运行时长</div><div id="cpu-system-uptime" class="stats-card-value">0s</div><div class="stats-card-note">宿主机 uptime</div></div>
-            <div class="stats-card"><div class="stats-card-label">RSS 内存</div><div id="cpu-rss-memory" class="stats-card-value">0 MB</div><div class="stats-card-note">进程常驻内存</div></div>
-            <div class="stats-card"><div class="stats-card-label">Heap 已用</div><div id="cpu-heap-used" class="stats-card-value">0 MB</div><div class="stats-card-note">V8 已使用堆</div></div>
-            <div class="stats-card"><div class="stats-card-label">Heap 总量</div><div id="cpu-heap-total" class="stats-card-value">0 MB</div><div class="stats-card-note">V8 堆总量</div></div>
-          </div>
-          <div class="stats-grid">
-            <div class="stats-card"><div class="stats-card-label">外部内存</div><div id="cpu-external-memory" class="stats-card-value">0 MB</div><div class="stats-card-note">Buffer / C++ 对象等</div></div>
           </div>
           <div class="network-breakdown">
             <div class="network-breakdown-head">
@@ -1693,6 +1830,36 @@
             </div>
             <div class="network-breakdown-subtitle">点击切换排序，快速判断是累计占比高、调用次数多，还是单次耗时高</div>
             <div id="cpu-breakdown-list" class="network-breakdown-list"><div class="empty-hint">当前还没有 CPU 分项数据。</div></div>
+          </div>
+        </div>
+        <div id="server-panel-memory" class="server-tab-panel hidden">
+          <div id="memory-snapshot-meta" class="note-card">内存明细显示当前进程快照，建议配合“立即刷新”观察变化。</div>
+          <div class="stats-grid">
+            <div class="stats-card"><div class="stats-card-label">RSS 内存</div><div id="memory-rss" class="stats-card-value">0 MB</div><div class="stats-card-note">进程常驻内存</div></div>
+            <div class="stats-card"><div class="stats-card-label">Heap 已用</div><div id="memory-heap-used" class="stats-card-value">0 MB</div><div class="stats-card-note">V8 已使用堆</div></div>
+            <div class="stats-card"><div class="stats-card-label">Heap 总量</div><div id="memory-heap-total" class="stats-card-value">0 MB</div><div class="stats-card-note">V8 当前堆容量</div></div>
+            <div class="stats-card"><div class="stats-card-label">外部内存</div><div id="memory-external" class="stats-card-value">0 MB</div><div class="stats-card-note">Buffer / C++ 对象等</div></div>
+          </div>
+          <div class="stats-grid">
+            <div class="stats-card"><div class="stats-card-label">Heap 使用率</div><div id="memory-heap-usage-percent" class="stats-card-value">0%</div><div id="memory-heap-usage-note" class="stats-card-note">已用 0 MB / 总量 0 MB</div></div>
+            <div class="stats-card"><div class="stats-card-label">Heap 预留空闲</div><div id="memory-heap-free" class="stats-card-value">0 MB</div><div class="stats-card-note">V8 已申请但尚未使用</div></div>
+            <div class="stats-card"><div class="stats-card-label">常驻差额</div><div id="memory-resident-gap" class="stats-card-value">0 MB</div><div class="stats-card-note">RSS - Heap 总量 - 外部内存，近似 native/栈/代码段</div></div>
+            <div class="stats-card"><div class="stats-card-label">RSS / Heap 已用</div><div id="memory-rss-heap-ratio" class="stats-card-value">0x</div><div id="memory-rss-heap-ratio-note" class="stats-card-note">倍率越高，非堆占比越大</div></div>
+          </div>
+          <div id="memory-estimate-meta" class="note-card">运行态内存画像尚未生成。</div>
+          <div class="network-breakdown">
+            <div class="network-breakdown-head">
+              <div class="panel-title">对象域画像</div>
+              <div class="network-breakdown-subtitle">按玩家 / 怪物 / 实例快照估算，便于先定位优化方向</div>
+            </div>
+            <div id="memory-domain-list" class="network-breakdown-list"><div class="empty-hint">当前还没有运行态内存画像。</div></div>
+          </div>
+          <div class="network-breakdown">
+            <div class="network-breakdown-head">
+              <div class="panel-title">实例大户榜</div>
+              <div class="network-breakdown-subtitle">按实例元数据 + 怪物快照估算排序，优先看最重的图</div>
+            </div>
+            <div id="memory-instance-list" class="network-breakdown-list"><div class="empty-hint">当前还没有实例内存画像。</div></div>
           </div>
         </div>
         <div id="server-panel-database" class="server-tab-panel hidden">
@@ -1832,7 +1999,7 @@
             <button id="editor-tab-quests" class="workspace-tab" type="button">任务</button>
             <button id="editor-tab-mail" class="workspace-tab" type="button">邮件</button>
             <button id="editor-tab-risk" class="workspace-tab" type="button">风险检测</button>
-            <button id="editor-tab-persisted" class="workspace-tab" type="button">持久化 JSON</button>
+            <button id="editor-tab-persisted" class="workspace-tab" type="button">数据库</button>
           </div>
           <div id="editor-visual-panel" class="editor-tab-panel">
             <div id="editor-content" class="editor-stack"></div>
@@ -1841,20 +2008,14 @@
             <div class="editor-section">
               <div class="editor-section-head">
                 <div>
-                  <div class="editor-section-title">完整持久化 JSON</div>
-                  <div class="editor-section-note">用于核对真实落盘结构，不直接参与可视化编辑。</div>
+                  <div class="editor-section-title">数据库真源</div>
+                  <div class="editor-section-note">按表查看当前数据库中的玩家真源，不直接参与可视化编辑。</div>
                 </div>
               </div>
+              <div id="player-database-tabs" class="workspace-tabs editor-tabs" style="margin: 12px 0 8px;"></div>
+              <div id="player-database-meta" class="editor-note" style="margin-bottom: 8px;">当前还没有数据库表数据。</div>
               <textarea id="player-persisted-json" class="editor-textarea" spellcheck="false" readonly></textarea>
             </div>
-            <details class="editor-section editor-advanced">
-              <summary class="editor-section-title">高级模式 · 运行态 JSON 导入</summary>
-              <div class="editor-note" style="margin-top:8px;">运行态 JSON 用于导入、兜底修改或核对完整快照。应用后会同步到上方可视化标签。</div>
-              <div class="button-row" style="margin: 10px 0;">
-                <button id="apply-raw-json" class="small-btn" type="button">应用运行态 JSON 到可视化</button>
-              </div>
-              <textarea id="player-json" class="editor-textarea" spellcheck="false"></textarea>
-            </details>
           </div>
         </div>
       </div>
@@ -1865,12 +2026,12 @@
     <section id="world-workspace" class="world-workspace hidden">
       <section class="layout-section">
         <div class="section-head">
-          <div class="section-title">地图选择</div>
-          <div class="section-subtitle">选择地图查看运行时状态</div>
+          <div class="section-title">实例列表</div>
+          <div class="section-subtitle">选择实例查看运行时状态</div>
         </div>
         <div class="section-body">
           <div id="world-map-list" class="map-list"></div>
-          <div id="world-time-control" style="margin-top:14px;"></div>
+          <div id="world-time-control"></div>
         </div>
       </section>
       <section class="layout-section">
@@ -1886,11 +2047,11 @@
       </section>
       <section class="layout-section">
         <div class="section-head">
-          <div class="section-title">信息面板</div>
-          <div class="section-subtitle">地图概况与选中目标详情</div>
+          <div class="section-title">信息与操作</div>
+          <div class="section-subtitle">实例信息、世界控制与选中目标详情</div>
         </div>
         <div class="section-body">
-          <div id="world-info"><div class="empty-hint">从左侧选择一张地图</div></div>
+          <div id="world-info"><div class="empty-hint">从左侧选择一个实例</div></div>
         </div>
       </section>
     </section>

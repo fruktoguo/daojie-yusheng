@@ -17,7 +17,8 @@
       <div class="login-link-actions">
         <a
           class="hud-corner-btn hud-link-btn hud-link-btn--labeled hud-link-btn--ifdian"
-          href="https://ifdian.net/a/YuoHira"
+          data-guarded-external-link="true"
+          data-external-link-url="https://ifdian.net/a/YuoHira"
           target="_blank"
           rel="noreferrer"
           aria-label="爱发电"
@@ -47,7 +48,8 @@
         </a>
         <a
           class="hud-corner-btn hud-link-btn hud-link-btn--labeled hud-link-btn--github"
-          href="https://github.com/fruktoguo/daojie-yusheng"
+          data-guarded-external-link="true"
+          data-external-link-url="https://github.com/fruktoguo/daojie-yusheng"
           target="_blank"
           rel="noreferrer"
           aria-label="GitHub"
@@ -98,9 +100,6 @@
       <div class="login-error" id="login-error"></div>
     </div>
   </div>
-
-  <!-- Toast -->
-  <div id="toast" class="hidden"></div>
 
   <div id="game-shell" class="hidden">
     <aside id="layout-left" class="layout-column">
@@ -160,11 +159,11 @@
                   <span class="hud-value" id="hud-pos">(0, 0)</span>
                 </div>
                 <div class="hud-row">
-                  <span class="hud-label">骨龄</span>
+                  <span class="hud-label">岁</span>
                   <span class="hud-value" id="hud-objective">暂无</span>
                 </div>
                 <div class="hud-row">
-                  <span class="hud-label">寿元</span>
+                  <span class="hud-label">寿</span>
                   <span class="hud-value" id="hud-threat">平稳</span>
                 </div>
               </div>
@@ -172,7 +171,8 @@
             <div class="hud-link-actions">
               <a
                 class="hud-corner-btn hud-link-btn hud-link-btn--ifdian"
-                href="https://ifdian.net/a/YuoHira"
+                data-guarded-external-link="true"
+                data-external-link-url="https://ifdian.net/a/YuoHira"
                 target="_blank"
                 rel="noreferrer"
                 aria-label="爱发电"
@@ -202,7 +202,8 @@
               </a>
               <a
                 class="hud-corner-btn hud-link-btn hud-link-btn--github"
-                href="https://github.com/fruktoguo/daojie-yusheng"
+                data-guarded-external-link="true"
+                data-external-link-url="https://github.com/fruktoguo/daojie-yusheng"
                 target="_blank"
                 rel="noreferrer"
                 aria-label="GitHub"
@@ -279,7 +280,7 @@
               </div>
             </div>
             <div class="map-side-tool-center">
-              <div>
+              <div class="map-zoom-stack">
                 <div class="map-tool-controls">
                   <div id="zoom-level" class="map-zoom-value"><span>x</span><span>1</span></div>
                   <input
@@ -293,7 +294,10 @@
                     aria-label="地图缩放"
                   />
                 </div>
-                <button id="zoom-reset" class="map-zoom-reset" type="button">重置 2x</button>
+                <button id="zoom-reset" class="map-zoom-reset" type="button" title="重置缩放到 2x">
+                  <span class="map-zoom-reset-label">重置</span>
+                  <span class="map-zoom-reset-value">2x</span>
+                </button>
               </div>
             </div>
           </div>
@@ -414,14 +418,10 @@
               <div class="merged-pane-shell" data-tab-group="center-intel">
                 <div class="section-tabs">
                   <button class="tab-btn active" data-tab="map-intel" type="button">地图信息</button>
-                  <button class="tab-btn" data-tab="nearby" type="button">附近动态</button>
-                  <button class="tab-btn" data-tab="suggestions" type="button">行动建议</button>
                   <button class="tab-btn" data-tab="tianji" type="button">天机阁</button>
                 </div>
                 <div class="section-body">
                   <div class="tab-pane active" id="pane-map-intel" data-pane="map-intel"></div>
-                  <div class="tab-pane" id="pane-nearby" data-pane="nearby"></div>
-                  <div class="tab-pane" id="pane-suggestions" data-pane="suggestions"></div>
                   <div class="tab-pane" id="pane-tianji" data-pane="tianji"></div>
                 </div>
               </div>
@@ -530,16 +530,21 @@
     </aside>
   </div>
 
-  <div id="detail-modal" class="detail-modal hidden" aria-hidden="true">
-    <div id="detail-modal-card" class="detail-modal-card">
-      <div class="detail-modal-head">
+  </div>
+
+  <!-- Toast -->
+  <div id="toast" class="hidden"></div>
+
+  <div id="detail-modal" class="detail-modal ui-modal-layer hidden" aria-hidden="true">
+    <div id="detail-modal-card" class="detail-modal-card ui-modal-card ui-modal-card--md">
+      <div class="detail-modal-head ui-modal-head">
         <div>
-          <div id="detail-modal-title" class="detail-modal-title">详情</div>
-          <div id="detail-modal-subtitle" class="detail-modal-subtitle"></div>
+          <div id="detail-modal-title" class="detail-modal-title ui-modal-title">详情</div>
+          <div id="detail-modal-subtitle" class="detail-modal-subtitle ui-modal-subtitle"></div>
         </div>
-        <div id="detail-modal-hint" class="detail-modal-hint">点击空白处关闭</div>
+        <div id="detail-modal-hint" class="detail-modal-hint ui-modal-hint">点击空白处关闭</div>
       </div>
-      <div id="detail-modal-body"></div>
+      <div id="detail-modal-body" class="ui-modal-body"></div>
     </div>
   </div>
 
@@ -565,7 +570,6 @@
       <div class="debug-text">角色丢失或跑出视野时，可直接送回云来镇出生点。</div>
       <button id="debug-reset-spawn" class="small-btn">回出生点</button>
     </div>
-  </div>
   </div>
 
   <script type="module" src="/src/main.ts"></script>

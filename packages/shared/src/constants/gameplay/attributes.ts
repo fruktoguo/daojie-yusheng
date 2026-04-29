@@ -11,8 +11,8 @@ export const ATTR_KEYS: AttrKey[] = [
   'spirit',
   'perception',
   'talent',
-  'comprehension',
-  'luck',
+  'strength',
+  'meridians',
 ];
 
 /** 默认六维属性 */
@@ -21,8 +21,8 @@ export const DEFAULT_BASE_ATTRS = {
   spirit: 10,
   perception: 10,
   talent: 10,
-  comprehension: 0,
-  luck: 0,
+  strength: 10,
+  meridians: 10,
 } as const;
 
 /** 基础最大灵力 */
@@ -93,6 +93,7 @@ export const NUMERIC_SCALAR_STAT_KEYS = [
   'extraAggroRate',
   'extraRange',
   'extraArea',
+  'actionsPerTurn',
 ] as const;
 
 /** 六维提供的原始点数加成 */
@@ -101,14 +102,8 @@ export const ATTR_TO_NUMERIC_WEIGHTS: Record<AttrKey, PartialNumericStats> = {
   spirit: {},
   perception: {},
   talent: {},
-  comprehension: {
-    auraPowerRate: 100,
-    playerExpRate: 100,
-    techniqueExpRate: 100,
-  },
-  luck: {
-    lootRate: 100,
-  },
+  strength: {},
+  meridians: {},
 };
 
 /** 六维提供的百分比加成，按最终汇总值乘算 */
@@ -119,73 +114,39 @@ export const ATTR_TO_PERCENT_NUMERIC_WEIGHTS: Record<AttrKey, PartialNumericStat
     physDef: 1,
   },
   spirit: {
-    maxQi: 1,
     spellAtk: 1,
     spellDef: 1,
+    hit: 1,
   },
   perception: {
-    hit: 1,
     dodge: 1,
     moveSpeed: 0.5,
+    antiCrit: 1,
   },
   talent: {
     maxHp: 1,
     maxQi: 1,
     resolvePower: 1,
   },
-  comprehension: {
+  strength: {
+    physAtk: 1,
+    crit: 1,
     breakPower: 1,
   },
-  luck: {
-    crit: 1,
-    hit: 1,
-    dodge: 1,
+  meridians: {
+    maxQi: 1,
+    maxQiOutputPerTick: 1,
+    spellAtk: 1,
   },
 };
 
-/** createScalarMultiplierFloorStats：执行对应的业务逻辑。 */
-function createScalarMultiplierFloorStats(): Omit<NumericStats, 'elementDamageBonus' | 'elementDamageReduce'> {
-  return {
-    maxHp: BASE_MAX_HP,
-    maxQi: BASE_MAX_QI,
-    physAtk: BASE_PHYS_ATK,
-    spellAtk: BASE_SPELL_ATK,
-    physDef: 100,
-    spellDef: 100,
-    hit: 100,
-    dodge: DEFAULT_RATIO_DIVISOR,
-    crit: DEFAULT_RATIO_DIVISOR,
-    antiCrit: DEFAULT_RATIO_DIVISOR,
-    // critDamage 只表示额外暴伤加成；基础 200% 暴伤不应被百分比乘区当成底座放大。
-    critDamage: 0,
-    breakPower: DEFAULT_RATIO_DIVISOR,
-    resolvePower: DEFAULT_RATIO_DIVISOR,
-    maxQiOutputPerTick: BASE_MAX_QI_OUTPUT_PER_TICK,
-    qiRegenRate: 10000,
-    hpRegenRate: 10000,
-    cooldownSpeed: DEFAULT_RATIO_DIVISOR,
-    auraCostReduce: 10000,
-    auraPowerRate: 10000,
-    playerExpRate: 10000,
-    techniqueExpRate: 10000,
-    realmExpPerTick: 1,
-    techniqueExpPerTick: TECHNIQUE_EXP_REFERENCE_PER_TICK,
-    lootRate: 10000,
-    rareLootRate: 10000,
-    viewRange: VIEW_RANGE_REFERENCE,
-    moveSpeed: DEFAULT_RATIO_DIVISOR,
-    extraAggroRate: 10000,
-    extraRange: 0,
-    extraArea: 0,
-  };
-}
-
-/** TECHNIQUE_EXP_REFERENCE_PER_TICK：定义该变量以承载业务值。 */
+/** 功法每息经验参考底座。 */
 const TECHNIQUE_EXP_REFERENCE_PER_TICK = 5;
-/** VIEW_RANGE_REFERENCE：定义该变量以承载业务值。 */
+
+/** 视野百分比乘区参考底座。 */
 const VIEW_RANGE_REFERENCE = 8;
 
-/** ELEMENT_MULTIPLIER_FLOOR：定义该变量以承载业务值。 */
+/** 元素乘区底座。 */
 const ELEMENT_MULTIPLIER_FLOOR: ElementStatGroup = {
   metal: 100,
   wood: 100,
@@ -226,10 +187,47 @@ export const NUMERIC_SCALAR_STAT_VALUE_TYPES = {
   extraAggroRate: 'flat',
   extraRange: 'flat',
   extraArea: 'flat',
+  actionsPerTurn: 'flat',
 } satisfies Record<typeof NUMERIC_SCALAR_STAT_KEYS[number], NumericValueType>;
 
 /** 默认 RatioValue 除数 */
 export const DEFAULT_RATIO_DIVISOR = 100;
+
+function createScalarMultiplierFloorStats(): Omit<NumericStats, 'elementDamageBonus' | 'elementDamageReduce'> {
+  return {
+    maxHp: BASE_MAX_HP,
+    maxQi: BASE_MAX_QI,
+    physAtk: BASE_PHYS_ATK,
+    spellAtk: BASE_SPELL_ATK,
+    physDef: 100,
+    spellDef: 100,
+    hit: 100,
+    dodge: DEFAULT_RATIO_DIVISOR,
+    crit: DEFAULT_RATIO_DIVISOR,
+    antiCrit: DEFAULT_RATIO_DIVISOR,
+    critDamage: 0,
+    breakPower: DEFAULT_RATIO_DIVISOR,
+    resolvePower: DEFAULT_RATIO_DIVISOR,
+    maxQiOutputPerTick: BASE_MAX_QI_OUTPUT_PER_TICK,
+    qiRegenRate: 10000,
+    hpRegenRate: 10000,
+    cooldownSpeed: DEFAULT_RATIO_DIVISOR,
+    auraCostReduce: 10000,
+    auraPowerRate: 10000,
+    playerExpRate: 10000,
+    techniqueExpRate: 10000,
+    realmExpPerTick: 1,
+    techniqueExpPerTick: TECHNIQUE_EXP_REFERENCE_PER_TICK,
+    lootRate: 10000,
+    rareLootRate: 10000,
+    viewRange: VIEW_RANGE_REFERENCE,
+    moveSpeed: DEFAULT_RATIO_DIVISOR,
+    extraAggroRate: 10000,
+    extraRange: 0,
+    extraArea: 0,
+    actionsPerTurn: 1,
+  };
+}
 
 /** 百分比乘区在零基值附近使用的参考底座，避免 0 值属性完全吃不到乘区。 */
 export const NUMERIC_STAT_MULTIPLIER_FLOORS: NumericStats = {
@@ -237,4 +235,3 @@ export const NUMERIC_STAT_MULTIPLIER_FLOORS: NumericStats = {
   elementDamageBonus: { ...ELEMENT_MULTIPLIER_FLOOR },
   elementDamageReduce: { ...ELEMENT_MULTIPLIER_FLOOR },
 };
-

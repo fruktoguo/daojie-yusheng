@@ -30,36 +30,36 @@ server {
         try_files $uri $uri/ /index.html;
     }
 
-    location /auth {
-        set $server_upstream http://server:3000;
+    location /api/auth {
+        set $server_upstream http://server:13001;
         proxy_pass $server_upstream;
         proxy_set_header Host $host;
         proxy_set_header X-Real-IP $remote_addr;
     }
 
-    location /account {
-        set $server_upstream http://server:3000;
+    location /api/account {
+        set $server_upstream http://server:13001;
         proxy_pass $server_upstream;
         proxy_set_header Host $host;
         proxy_set_header X-Real-IP $remote_addr;
     }
 
-    location /gm/ {
-        set $server_upstream http://server:3000;
+    location /api/gm {
+        set $server_upstream http://server:13001;
         proxy_pass $server_upstream;
         proxy_set_header Host $host;
         proxy_set_header X-Real-IP $remote_addr;
     }
 
     location /integrations/ {
-        set $server_upstream http://server:3000;
+        set $server_upstream http://server:13001;
         proxy_pass $server_upstream;
         proxy_set_header Host $host;
         proxy_set_header X-Real-IP $remote_addr;
     }
 
     location /socket.io {
-        set $server_upstream http://server:3000;
+        set $server_upstream http://server:13001;
         proxy_pass $server_upstream;
         proxy_http_version 1.1;
         proxy_set_header Upgrade $http_upgrade;

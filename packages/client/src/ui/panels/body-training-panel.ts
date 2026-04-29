@@ -9,27 +9,40 @@ import {
 import type { PlayerState } from '@mud/shared';
 import { detailModalHost } from '../detail-modal-host';
 import { preserveSelection } from '../selection-preserver';
+import { createSmallBtn } from '../ui-primitives';
 import { formatDisplayInteger } from '../../utils/number';
 
-/** BodyTrainingPlayerSnapshot：定义该类型的结构与数据语义。 */
+/** BodyTrainingPlayerSnapshot：玩家炼体与底蕴的读取快照。 */
 type BodyTrainingPlayerSnapshot = Pick<PlayerState, 'bodyTraining' | 'foundation'>;
 
-/** BodyTrainingInfusionPlan：定义该类型的结构与数据语义。 */
+/** BodyTrainingInfusionPlan：炼体灌注的预览方案。 */
 type BodyTrainingInfusionPlan = {
-/** levelGain：定义该变量以承载业务值。 */
-  levelGain: number;
-/** expNeeded：定义该变量以承载业务值。 */
-  expNeeded: number;
-/** foundationCost：定义该变量以承载业务值。 */
-  foundationCost: number;
-/** previewState：定义该变量以承载业务值。 */
+/**
+ * levelGain：等级Gain相关字段。
+ */
+
+  levelGain: number;  
+  /**
+ * expNeeded：expNeeded相关字段。
+ */
+
+  expNeeded: number;  
+  /**
+ * foundationCost：foundation消耗数值。
+ */
+
+  foundationCost: number;  
+  /**
+ * previewState：preview状态状态或数据块。
+ */
+
   previewState: BodyTrainingState;
 };
 
-/** BodyTrainingInfusionMode：定义该类型的结构与数据语义。 */
+/** BodyTrainingInfusionMode：模式枚举。 */
 type BodyTrainingInfusionMode = 'level' | 'all';
 
-/** escapeHtml：执行对应的业务逻辑。 */
+/** escapeHtml：转义 HTML 文本中的危险字符。 */
 function escapeHtml(value: string): string {
   return value
     .replaceAll('&', '&amp;')
@@ -39,17 +52,20 @@ function escapeHtml(value: string): string {
     .replaceAll("'", '&#39;');
 }
 
-/** getProgressRatio：执行对应的业务逻辑。 */
+/** getProgressRatio：读取进度Ratio。 */
 function getProgressRatio(state: BodyTrainingState): number {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
   if (state.expToNext <= 0) {
     return 1;
   }
   return Math.max(0, Math.min(1, state.exp / state.expToNext));
 }
 
-/** formatBonusSummary：执行对应的业务逻辑。 */
+/** formatBonusSummary：格式化Bonus摘要。 */
 function formatBonusSummary(state: BodyTrainingState): string {
-/** attrs：定义该变量以承载业务值。 */
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
   const attrs = calcBodyTrainingAttrBonus(state.level);
   if (state.level <= 0) {
     return '四维暂未提升';
@@ -59,13 +75,15 @@ function formatBonusSummary(state: BodyTrainingState): string {
     .join(' / ');
 }
 
-/** normalizeFoundation：执行对应的业务逻辑。 */
+/** normalizeFoundation：规范化Foundation。 */
 function normalizeFoundation(value: number | null | undefined): number {
   return typeof value === 'number' && Number.isFinite(value) ? Math.max(0, Math.floor(value)) : 0;
 }
 
-/** applyFoundationInfusion：执行对应的业务逻辑。 */
+/** applyFoundationInfusion：应用Foundation Infusion。 */
 function applyFoundationInfusion(state: BodyTrainingState, foundationSpent: number): BodyTrainingState {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
   if (foundationSpent <= 0) {
     return state;
   }
@@ -76,68 +94,61 @@ function applyFoundationInfusion(state: BodyTrainingState, foundationSpent: numb
   });
 }
 
-/** getExpNeededForLevelGain：执行对应的业务逻辑。 */
+/** getExpNeededForLevelGain：读取Exp Needed For等级Gain。 */
 function getExpNeededForLevelGain(state: BodyTrainingState, levelGain: number): number {
-/** normalizedGain：定义该变量以承载业务值。 */
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
   const normalizedGain = Math.max(0, Math.floor(levelGain));
   if (normalizedGain <= 0) {
     return 0;
   }
-/** currentLevel：定义该变量以承载业务值。 */
   let currentLevel = state.level;
-/** currentExp：定义该变量以承载业务值。 */
   let currentExp = state.exp;
-/** currentExpToNext：定义该变量以承载业务值。 */
   let currentExpToNext = state.expToNext;
-/** expNeeded：定义该变量以承载业务值。 */
   let expNeeded = 0;
   for (let index = 0; index < normalizedGain; index += 1) {
     expNeeded += Math.max(0, currentExpToNext - currentExp);
     currentLevel += 1;
+    /** currentExp：当前Exp。 */
     currentExp = 0;
+    /** currentExpToNext：当前Exp To新版。 */
     currentExpToNext = getBodyTrainingExpToNext(currentLevel);
   }
   return expNeeded;
 }
 
-/** getMaxAffordableLevelGain：执行对应的业务逻辑。 */
+/** getMaxAffordableLevelGain：读取最大Affordable等级Gain。 */
 function getMaxAffordableLevelGain(state: BodyTrainingState, foundation: number): number {
-/** normalizedFoundation：定义该变量以承载业务值。 */
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
   const normalizedFoundation = normalizeFoundation(foundation);
   if (normalizedFoundation <= 0) {
     return 0;
   }
-/** currentLevel：定义该变量以承载业务值。 */
   let currentLevel = state.level;
-/** currentExp：定义该变量以承载业务值。 */
   let currentExp = state.exp;
-/** currentExpToNext：定义该变量以承载业务值。 */
   let currentExpToNext = state.expToNext;
-/** accumulatedExpNeeded：定义该变量以承载业务值。 */
   let accumulatedExpNeeded = 0;
-/** levelGain：定义该变量以承载业务值。 */
   let levelGain = 0;
   while (true) {
     accumulatedExpNeeded += Math.max(0, currentExpToNext - currentExp);
-/** foundationCost：定义该变量以承载业务值。 */
     const foundationCost = Math.ceil(accumulatedExpNeeded / BODY_TRAINING_FOUNDATION_EXP_MULTIPLIER);
     if (foundationCost > normalizedFoundation) {
       return levelGain;
     }
     levelGain += 1;
     currentLevel += 1;
+    /** currentExp：当前Exp。 */
     currentExp = 0;
+    /** currentExpToNext：当前Exp To新版。 */
     currentExpToNext = getBodyTrainingExpToNext(currentLevel);
   }
 }
 
-/** buildInfusionPlan：执行对应的业务逻辑。 */
+/** buildInfusionPlan：构建Infusion规划。 */
 function buildInfusionPlan(state: BodyTrainingState, levelGain: number): BodyTrainingInfusionPlan {
-/** normalizedLevelGain：定义该变量以承载业务值。 */
   const normalizedLevelGain = Math.max(0, Math.floor(levelGain));
-/** expNeeded：定义该变量以承载业务值。 */
   const expNeeded = getExpNeededForLevelGain(state, normalizedLevelGain);
-/** foundationCost：定义该变量以承载业务值。 */
   const foundationCost = Math.ceil(expNeeded / BODY_TRAINING_FOUNDATION_EXP_MULTIPLIER);
   return {
     levelGain: normalizedLevelGain,
@@ -147,9 +158,8 @@ function buildInfusionPlan(state: BodyTrainingState, levelGain: number): BodyTra
   };
 }
 
-/** buildAllInfusionPlan：执行对应的业务逻辑。 */
+/** buildAllInfusionPlan：构建All Infusion规划。 */
 function buildAllInfusionPlan(state: BodyTrainingState, foundation: number): BodyTrainingInfusionPlan {
-/** foundationCost：定义该变量以承载业务值。 */
   const foundationCost = normalizeFoundation(foundation);
   return {
     levelGain: Math.max(0, normalizeBodyTrainingState({
@@ -163,24 +173,61 @@ function buildAllInfusionPlan(state: BodyTrainingState, foundation: number): Bod
   };
 }
 
-/** BodyTrainingPanel：封装相关状态与行为。 */
+/** BodyTrainingPanel：身体修炼面板实现。 */
 export class BodyTrainingPanel {
+  /** eventsBound：事件Bound。 */
+  private eventsBound = false;
+  /** MODAL_OWNER：弹窗OWNER。 */
   private static readonly MODAL_OWNER = 'body-training-infuse-modal';
 
+  /** pane：pane。 */
   private pane = document.getElementById('pane-body-training')!;
-/** baseState：定义该变量以承载业务值。 */
+  /** baseState：基础状态。 */
   private baseState: BodyTrainingState = normalizeBodyTrainingState();
-/** displayState：定义该变量以承载业务值。 */
+  /** displayState：显示状态。 */
   private displayState: BodyTrainingState = normalizeBodyTrainingState();
+  /** baseFoundation：基础Foundation。 */
   private baseFoundation = 0;
+  /** displayFoundation：显示Foundation。 */
   private displayFoundation = 0;
+  /** infusionModalOpen：infusion弹窗Open。 */
   private infusionModalOpen = false;
-/** selectedInfusionMode：定义该变量以承载业务值。 */
+  /** selectedInfusionMode：selected Infusion模式。 */
   private selectedInfusionMode: BodyTrainingInfusionMode = 'level';
+  /** selectedLevelGain：selected等级Gain。 */
   private selectedLevelGain = 1;
+  /** onInfuse：on Infuse。 */
   private onInfuse: ((foundationSpent: number) => void) | null = null;
+  /** levelNode：等级节点。 */
+  private levelNode: HTMLElement | null = null;
+  /** progressNode：进度节点。 */
+  private progressNode: HTMLElement | null = null;
+  /** fillNode：fill节点。 */
+  private fillNode: HTMLElement | null = null;
+  /** remainNode：remain节点。 */
+  private remainNode: HTMLElement | null = null;
+  /** bonusNode：bonus节点。 */
+  private bonusNode: HTMLElement | null = null;
+  /** foundationNode：foundation节点。 */
+  private foundationNode: HTMLElement | null = null;
+  /** foundationNoteNode：foundation Note节点。 */
+  private foundationNoteNode: HTMLElement | null = null;
+  /** previewNode：preview节点。 */
+  private previewNode: HTMLElement | null = null;
+  /** detailNode：详情节点。 */
+  private detailNode: HTMLElement | null = null;
+  /** buttonNode：按钮节点。 */
+  private buttonNode: HTMLButtonElement | null = null;  
+  /**
+ * setInfusionHandler：写入InfusionHandler。
+ * @param handler ((foundationSpent: number) => void) | null 参数说明。
+ * @returns 无返回值，直接更新InfusionHandler相关状态。
+ */
+
 
   setInfusionHandler(handler: ((foundationSpent: number) => void) | null): void {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
     this.onInfuse = handler;
     if (!this.onInfuse) {
       this.closeInfusionModal();
@@ -188,7 +235,7 @@ export class BodyTrainingPanel {
     this.patchOrRender();
   }
 
-/** clear：执行对应的业务逻辑。 */
+  /** clear：清理clear。 */
   clear(): void {
     this.closeInfusionModal();
     this.baseState = normalizeBodyTrainingState();
@@ -198,7 +245,7 @@ export class BodyTrainingPanel {
     this.patchOrRender();
   }
 
-/** initFromPlayer：执行对应的业务逻辑。 */
+  /** initFromPlayer：初始化From玩家。 */
   initFromPlayer(player: BodyTrainingPlayerSnapshot): void {
     this.baseState = normalizeBodyTrainingState(player.bodyTraining);
     this.baseFoundation = normalizeFoundation(player.foundation);
@@ -206,7 +253,7 @@ export class BodyTrainingPanel {
     this.render(this.displayState, this.displayFoundation);
   }
 
-/** syncFoundation：执行对应的业务逻辑。 */
+  /** syncFoundation：同步Foundation。 */
   syncFoundation(foundation?: number | null): void {
     this.baseFoundation = normalizeFoundation(foundation);
     this.syncDisplayState();
@@ -214,7 +261,7 @@ export class BodyTrainingPanel {
     this.refreshInfusionModal();
   }
 
-/** update：执行对应的业务逻辑。 */
+  /** update：更新更新。 */
   update(bodyTraining?: BodyTrainingState | null, foundation?: number | null): void {
     this.baseState = normalizeBodyTrainingState(bodyTraining);
     this.baseFoundation = normalizeFoundation(foundation);
@@ -223,7 +270,7 @@ export class BodyTrainingPanel {
     this.refreshInfusionModal();
   }
 
-/** syncDynamic：执行对应的业务逻辑。 */
+  /** syncDynamic：同步Dynamic。 */
   syncDynamic(bodyTraining?: BodyTrainingState | null, foundation?: number | null): void {
     this.baseState = normalizeBodyTrainingState(bodyTraining);
     this.baseFoundation = normalizeFoundation(foundation);
@@ -232,82 +279,165 @@ export class BodyTrainingPanel {
     this.refreshInfusionModal();
   }
 
-/** syncDisplayState：执行对应的业务逻辑。 */
+  /** syncDisplayState：同步显示状态。 */
   private syncDisplayState(): void {
     this.displayState = this.baseState;
     this.displayFoundation = this.baseFoundation;
   }
 
-/** render：执行对应的业务逻辑。 */
+  /** render：渲染渲染。 */
   private render(state: BodyTrainingState, foundation: number): void {
-/** progressRatio：定义该变量以承载业务值。 */
-    const progressRatio = getProgressRatio(state);
-    preserveSelection(this.pane, () => {
-      this.pane.innerHTML = `
-        <div class="body-training-panel">
-          <section class="body-training-hero">
-            <div class="body-training-hero-main">
-              <span class="body-training-kicker">炼体层数</span>
-              <strong class="body-training-level" data-body-level="true">第 ${formatDisplayInteger(state.level)} 层</strong>
-              <span class="body-training-progress-text" data-body-progress="true">${formatDisplayInteger(state.exp)}/${formatDisplayInteger(state.expToNext)}</span>
-            </div>
-            <div class="body-training-progress-bar">
-              <span class="body-training-progress-fill" data-body-progress-fill="true" style="width:${(progressRatio * 100).toFixed(2)}%"></span>
-            </div>
-            <div class="body-training-hero-note" data-body-remain="true">距下一层还需 ${formatDisplayInteger(Math.max(0, state.expToNext - state.exp))} 炼体经验</div>
-          </section>
-          <section class="body-training-grid">
-            <article class="body-training-card">
-              <span class="body-training-card-label">当前总加成</span>
-              <strong class="body-training-card-value" data-body-bonus-summary="true">${escapeHtml(formatBonusSummary(state))}</strong>
-            </article>
-            <article class="body-training-card">
-              <span class="body-training-card-label">当前底蕴</span>
-              <strong class="body-training-card-value" data-body-foundation="true">${formatDisplayInteger(foundation)}</strong>
-              <span class="body-training-card-note" data-body-foundation-note="true">${escapeHtml(this.getFoundationNote())}</span>
-            </article>
-            <article class="body-training-card body-training-card--wide body-training-card--accent">
-              <span class="body-training-card-label">灌注炼体</span>
-              <strong class="body-training-card-value" data-body-infuse-preview="true">${escapeHtml(this.getInfusionPreviewHeadline())}</strong>
-              <span class="body-training-card-note" data-body-infuse-detail="true">${escapeHtml(this.getInfusionPreviewDetail())}</span>
-              <button class="small-btn body-training-infuse-btn" type="button" data-body-infuse="true"${this.isInfusionButtonDisabled() ? ' disabled' : ''}>${escapeHtml(this.getInfusionButtonLabel())}</button>
-            </article>
-          </section>
-        </div>
-      `;
+    this.ensureStructure();
+    this.patch(state, foundation);
+  }
+
+  /** bindEvents：绑定事件。 */
+  private bindEvents(): void {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
+    if (this.eventsBound) {
+      return;
+    }
+    this.eventsBound = true;
+    this.pane.addEventListener('click', (event) => {
+      const target = event.target;
+      if (!(target instanceof HTMLElement)) {
+        return;
+      }
+      if (target.closest('[data-body-infuse="true"]')) {
+        this.openInfusionModal();
+      }
     });
+  }
+
+  /** ensureStructure：确保Structure。 */
+  private ensureStructure(): void {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
+    if (this.levelNode
+      && this.progressNode
+      && this.fillNode
+      && this.remainNode
+      && this.bonusNode
+      && this.foundationNode
+      && this.foundationNoteNode
+      && this.previewNode
+      && this.detailNode
+      && this.buttonNode) {
+      return;
+    }
+
+    const panel = document.createElement('div');
+    panel.className = 'body-training-panel';
+
+    const heroSection = document.createElement('section');
+    heroSection.className = 'body-training-hero';
+
+    const heroMain = document.createElement('div');
+    heroMain.className = 'body-training-hero-main';
+
+    const kickerNode = document.createElement('span');
+    kickerNode.className = 'body-training-kicker';
+    kickerNode.textContent = '炼体层数';
+
+    const levelNode = document.createElement('strong');
+    levelNode.className = 'body-training-level';
+    levelNode.dataset.bodyLevel = 'true';
+
+    const progressNode = document.createElement('span');
+    progressNode.className = 'body-training-progress-text';
+    progressNode.dataset.bodyProgress = 'true';
+
+    heroMain.append(kickerNode, levelNode, progressNode);
+
+    const progressBar = document.createElement('div');
+    progressBar.className = 'body-training-progress-bar';
+
+    const fillNode = document.createElement('span');
+    fillNode.className = 'body-training-progress-fill';
+    fillNode.dataset.bodyProgressFill = 'true';
+    progressBar.append(fillNode);
+
+    const remainNode = document.createElement('div');
+    remainNode.className = 'body-training-hero-note';
+    remainNode.dataset.bodyRemain = 'true';
+
+    heroSection.append(heroMain, progressBar, remainNode);
+
+    const gridSection = document.createElement('section');
+    gridSection.className = 'body-training-grid';
+
+    const bonusCard = document.createElement('article');
+    bonusCard.className = 'body-training-card';
+    const bonusLabel = document.createElement('span');
+    bonusLabel.className = 'body-training-card-label';
+    bonusLabel.textContent = '当前总加成';
+    const bonusNode = document.createElement('strong');
+    bonusNode.className = 'body-training-card-value';
+    bonusNode.dataset.bodyBonusSummary = 'true';
+    bonusCard.append(bonusLabel, bonusNode);
+
+    const foundationCard = document.createElement('article');
+    foundationCard.className = 'body-training-card';
+    const foundationLabel = document.createElement('span');
+    foundationLabel.className = 'body-training-card-label';
+    foundationLabel.textContent = '当前底蕴';
+    const foundationNode = document.createElement('strong');
+    foundationNode.className = 'body-training-card-value';
+    foundationNode.dataset.bodyFoundation = 'true';
+    const foundationNoteNode = document.createElement('span');
+    foundationNoteNode.className = 'body-training-card-note';
+    foundationNoteNode.dataset.bodyFoundationNote = 'true';
+    foundationCard.append(foundationLabel, foundationNode, foundationNoteNode);
+
+    const infuseCard = document.createElement('article');
+    infuseCard.className = 'body-training-card body-training-card--wide body-training-card--accent';
+    const infuseLabel = document.createElement('span');
+    infuseLabel.className = 'body-training-card-label';
+    infuseLabel.textContent = '灌注炼体';
+    const previewNode = document.createElement('strong');
+    previewNode.className = 'body-training-card-value';
+    previewNode.dataset.bodyInfusePreview = 'true';
+    const detailNode = document.createElement('span');
+    detailNode.className = 'body-training-card-note';
+    detailNode.dataset.bodyInfuseDetail = 'true';
+    const buttonNode = createSmallBtn('灌注炼体', {
+      className: 'body-training-infuse-btn',
+      dataset: { bodyInfuse: 'true' },
+    });
+    infuseCard.append(infuseLabel, previewNode, detailNode, buttonNode);
+
+    gridSection.append(bonusCard, foundationCard, infuseCard);
+    panel.append(heroSection, gridSection);
+
+    this.pane.replaceChildren(panel);
+    this.levelNode = levelNode;
+    this.progressNode = progressNode;
+    this.fillNode = fillNode;
+    this.remainNode = remainNode;
+    this.bonusNode = bonusNode;
+    this.foundationNode = foundationNode;
+    this.foundationNoteNode = foundationNoteNode;
+    this.previewNode = previewNode;
+    this.detailNode = detailNode;
+    this.buttonNode = buttonNode;
     this.bindEvents();
   }
 
-/** bindEvents：执行对应的业务逻辑。 */
-  private bindEvents(): void {
-    this.pane.querySelector<HTMLButtonElement>('[data-body-infuse="true"]')?.addEventListener('click', () => {
-      this.openInfusionModal();
-    });
-  }
-
-/** patch：执行对应的业务逻辑。 */
+  /** patch：处理patch。 */
   private patch(state: BodyTrainingState, foundation: number): boolean {
-/** levelNode：定义该变量以承载业务值。 */
-    const levelNode = this.pane.querySelector<HTMLElement>('[data-body-level="true"]');
-/** progressNode：定义该变量以承载业务值。 */
-    const progressNode = this.pane.querySelector<HTMLElement>('[data-body-progress="true"]');
-/** fillNode：定义该变量以承载业务值。 */
-    const fillNode = this.pane.querySelector<HTMLElement>('[data-body-progress-fill="true"]');
-/** remainNode：定义该变量以承载业务值。 */
-    const remainNode = this.pane.querySelector<HTMLElement>('[data-body-remain="true"]');
-/** bonusNode：定义该变量以承载业务值。 */
-    const bonusNode = this.pane.querySelector<HTMLElement>('[data-body-bonus-summary="true"]');
-/** foundationNode：定义该变量以承载业务值。 */
-    const foundationNode = this.pane.querySelector<HTMLElement>('[data-body-foundation="true"]');
-/** foundationNoteNode：定义该变量以承载业务值。 */
-    const foundationNoteNode = this.pane.querySelector<HTMLElement>('[data-body-foundation-note="true"]');
-/** previewNode：定义该变量以承载业务值。 */
-    const previewNode = this.pane.querySelector<HTMLElement>('[data-body-infuse-preview="true"]');
-/** detailNode：定义该变量以承载业务值。 */
-    const detailNode = this.pane.querySelector<HTMLElement>('[data-body-infuse-detail="true"]');
-/** buttonNode：定义该变量以承载业务值。 */
-    const buttonNode = this.pane.querySelector<HTMLButtonElement>('[data-body-infuse="true"]');
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
+    const levelNode = this.levelNode;
+    const progressNode = this.progressNode;
+    const fillNode = this.fillNode;
+    const remainNode = this.remainNode;
+    const bonusNode = this.bonusNode;
+    const foundationNode = this.foundationNode;
+    const foundationNoteNode = this.foundationNoteNode;
+    const previewNode = this.previewNode;
+    const detailNode = this.detailNode;
+    const buttonNode = this.buttonNode;
     if (!levelNode
       || !progressNode
       || !fillNode
@@ -334,15 +464,17 @@ export class BodyTrainingPanel {
     return true;
   }
 
-/** patchOrRender：执行对应的业务逻辑。 */
+  /** patchOrRender：处理patch Or渲染。 */
   private patchOrRender(): void {
     if (!this.patch(this.displayState, this.displayFoundation)) {
       this.render(this.displayState, this.displayFoundation);
     }
   }
 
-/** openInfusionModal：执行对应的业务逻辑。 */
+  /** openInfusionModal：打开Infusion弹窗。 */
   private openInfusionModal(): void {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
     if (this.isInfusionButtonDisabled()) {
       return;
     }
@@ -352,8 +484,10 @@ export class BodyTrainingPanel {
     this.renderInfusionModal();
   }
 
-/** closeInfusionModal：执行对应的业务逻辑。 */
+  /** closeInfusionModal：关闭Infusion弹窗。 */
   private closeInfusionModal(): void {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
     if (!this.infusionModalOpen && !detailModalHost.isOpenFor(BodyTrainingPanel.MODAL_OWNER)) {
       return;
     }
@@ -361,8 +495,10 @@ export class BodyTrainingPanel {
     detailModalHost.close(BodyTrainingPanel.MODAL_OWNER);
   }
 
-/** refreshInfusionModal：执行对应的业务逻辑。 */
+  /** refreshInfusionModal：处理refresh Infusion弹窗。 */
   private refreshInfusionModal(): void {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
     if (!this.infusionModalOpen) {
       return;
     }
@@ -370,7 +506,6 @@ export class BodyTrainingPanel {
       this.closeInfusionModal();
       return;
     }
-/** maxLevelGain：定义该变量以承载业务值。 */
     const maxLevelGain = this.getMaxLevelGain();
     if (maxLevelGain <= 0) {
       this.selectedInfusionMode = 'all';
@@ -379,50 +514,109 @@ export class BodyTrainingPanel {
     this.renderInfusionModal();
   }
 
-/** renderInfusionModal：执行对应的业务逻辑。 */
+  /** renderInfusionModal：渲染Infusion弹窗。 */
   private renderInfusionModal(): void {
-/** maxLevelGain：定义该变量以承载业务值。 */
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
     const maxLevelGain = this.getMaxLevelGain();
     if (!this.infusionModalOpen || this.baseFoundation <= 0 || !this.onInfuse) {
       this.closeInfusionModal();
       return;
     }
-/** plan：定义该变量以承载业务值。 */
     const plan = this.getSelectedPlan();
+    const existingBody = detailModalHost.isOpenFor(BodyTrainingPanel.MODAL_OWNER)
+      ? document.getElementById('detail-modal-body')
+      : null;
+    if (existingBody && this.patchInfusionModalBody(existingBody, plan, maxLevelGain)) {
+      return;
+    }
     detailModalHost.open({
       ownerId: BodyTrainingPanel.MODAL_OWNER,
+      size: 'sm',
       variantClass: 'detail-modal--body-training-infuse',
       title: '灌注炼体',
       subtitle: `当前第 ${formatDisplayInteger(this.baseState.level)} 层`,
       hint: '点击空白处关闭',
-      bodyHtml: this.renderInfusionModalBody(plan, maxLevelGain),
+      renderBody: (body) => {
+        body.innerHTML = this.renderInfusionModalBody(plan, maxLevelGain);
+      },
       onClose: () => {
         this.infusionModalOpen = false;
       },
       onAfterRender: (body) => {
-        this.bindInfusionModalEvents(body, maxLevelGain);
+        this.bindInfusionModalEvents(body);
       },
     });
   }
 
-/** renderInfusionModalBody：执行对应的业务逻辑。 */
-  private renderInfusionModalBody(plan: BodyTrainingInfusionPlan, maxLevelGain: number): string {
-/** inAllMode：定义该变量以承载业务值。 */
+  /** patchInfusionModalBody：局部刷新 Infusion 弹层。 */
+  private patchInfusionModalBody(body: HTMLElement, plan: BodyTrainingInfusionPlan, maxLevelGain: number): boolean {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
+    const root = body.querySelector<HTMLElement>('.body-training-infuse-modal');
+    if (!root) {
+      return false;
+    }
     const inAllMode = this.selectedInfusionMode === 'all';
-/** canDecrease：定义该变量以承载业务值。 */
     const canDecrease = plan.levelGain > 1;
-/** canIncrease：定义该变量以承载业务值。 */
+    const canIncrease = plan.levelGain < maxLevelGain;
+    setTextContent(body, '[data-body-infuse-available="true"]', formatDisplayInteger(this.baseFoundation));
+    setTextContent(
+      body,
+      '[data-body-infuse-max="true"]',
+      maxLevelGain > 0 ? `+${formatDisplayInteger(maxLevelGain)} 层` : `${formatDisplayInteger(this.baseFoundation)} 底蕴`,
+    );
+    setTextContent(
+      body,
+      '[data-body-infuse-picker-value="true"]',
+      inAllMode ? '全部底蕴' : `+${formatDisplayInteger(plan.levelGain)} 层`,
+    );
+    setTextContent(body, '[data-body-infuse-foundation-cost="true"]', formatDisplayInteger(plan.foundationCost));
+    setTextContent(
+      body,
+      '[data-body-infuse-exp-gain="true"]',
+      formatDisplayInteger(plan.foundationCost * BODY_TRAINING_FOUNDATION_EXP_MULTIPLIER),
+    );
+    setTextContent(body, '[data-body-infuse-preview-level="true"]', `第 ${formatDisplayInteger(plan.previewState.level)} 层`);
+    setTextContent(
+      body,
+      '[data-body-infuse-preview-exp="true"]',
+      `${formatDisplayInteger(plan.previewState.exp)}/${formatDisplayInteger(plan.previewState.expToNext)}`,
+    );
+    setTextContent(
+      body,
+      '[data-body-infuse-note="true"]',
+      inAllMode
+        ? `本次将直接灌入全部 ${formatDisplayInteger(plan.foundationCost)} 点底蕴。`
+        : `本次需要 ${formatDisplayInteger(plan.expNeeded)} 点炼体经验，换算为 ${formatDisplayInteger(plan.foundationCost)} 点底蕴。`,
+    );
+    patchInfusionAdjustButton(body, '-10', !inAllMode, inAllMode || plan.levelGain <= 10);
+    patchInfusionAdjustButton(body, '-1', !inAllMode, inAllMode || !canDecrease);
+    patchInfusionAdjustButton(body, '1', !inAllMode, inAllMode || !canIncrease);
+    patchInfusionAdjustButton(body, '10', !inAllMode, inAllMode || plan.levelGain + 10 > maxLevelGain);
+    const allButton = body.querySelector<HTMLButtonElement>('[data-body-infuse-all="true"]');
+    if (allButton) {
+      allButton.classList.toggle('active', inAllMode);
+      allButton.disabled = this.baseFoundation <= 0;
+    }
+    return true;
+  }
+
+  /** renderInfusionModalBody：渲染Infusion弹窗身体。 */
+  private renderInfusionModalBody(plan: BodyTrainingInfusionPlan, maxLevelGain: number): string {
+    const inAllMode = this.selectedInfusionMode === 'all';
+    const canDecrease = plan.levelGain > 1;
     const canIncrease = plan.levelGain < maxLevelGain;
     return `
       <div class="body-training-infuse-modal">
         <section class="body-training-infuse-summary">
           <article class="body-training-infuse-stat">
             <span class="body-training-infuse-stat-label">可用底蕴</span>
-            <strong class="body-training-infuse-stat-value">${formatDisplayInteger(this.baseFoundation)}</strong>
+            <strong class="body-training-infuse-stat-value" data-body-infuse-available="true">${formatDisplayInteger(this.baseFoundation)}</strong>
           </article>
           <article class="body-training-infuse-stat">
             <span class="body-training-infuse-stat-label">${maxLevelGain > 0 ? '最多可升' : '当前可灌'}</span>
-            <strong class="body-training-infuse-stat-value">${maxLevelGain > 0 ? `+${formatDisplayInteger(maxLevelGain)} 层` : `${formatDisplayInteger(this.baseFoundation)} 底蕴`}</strong>
+            <strong class="body-training-infuse-stat-value" data-body-infuse-max="true">${maxLevelGain > 0 ? `+${formatDisplayInteger(maxLevelGain)} 层` : `${formatDisplayInteger(this.baseFoundation)} 底蕴`}</strong>
           </article>
         </section>
         <section class="body-training-infuse-picker">
@@ -430,7 +624,7 @@ export class BodyTrainingPanel {
           <div class="body-training-infuse-picker-row">
             <button class="small-btn ghost ${!inAllMode ? 'active' : ''}" type="button" data-body-infuse-adjust="-10" ${(inAllMode || plan.levelGain <= 10) ? 'disabled' : ''}>-10</button>
             <button class="small-btn ghost ${!inAllMode ? 'active' : ''}" type="button" data-body-infuse-adjust="-1" ${(inAllMode || !canDecrease) ? 'disabled' : ''}>-1</button>
-            <strong class="body-training-infuse-picker-value">${inAllMode ? '全部底蕴' : `+${formatDisplayInteger(plan.levelGain)} 层`}</strong>
+            <strong class="body-training-infuse-picker-value" data-body-infuse-picker-value="true">${inAllMode ? '全部底蕴' : `+${formatDisplayInteger(plan.levelGain)} 层`}</strong>
             <button class="small-btn ghost ${!inAllMode ? 'active' : ''}" type="button" data-body-infuse-adjust="1" ${(inAllMode || !canIncrease) ? 'disabled' : ''}>+1</button>
             <button class="small-btn ghost ${!inAllMode ? 'active' : ''}" type="button" data-body-infuse-adjust="10" ${(inAllMode || plan.levelGain + 10 > maxLevelGain) ? 'disabled' : ''}>+10</button>
             <button class="small-btn ghost ${inAllMode ? 'active' : ''}" type="button" data-body-infuse-all="true" ${this.baseFoundation > 0 ? '' : 'disabled'}>全部灌注</button>
@@ -439,22 +633,22 @@ export class BodyTrainingPanel {
         <section class="body-training-infuse-preview">
           <div class="body-training-infuse-preview-row">
             <span>消耗底蕴</span>
-            <strong>${formatDisplayInteger(plan.foundationCost)}</strong>
+            <strong data-body-infuse-foundation-cost="true">${formatDisplayInteger(plan.foundationCost)}</strong>
           </div>
           <div class="body-training-infuse-preview-row">
             <span>转化经验</span>
-            <strong>${formatDisplayInteger(plan.foundationCost * BODY_TRAINING_FOUNDATION_EXP_MULTIPLIER)}</strong>
+            <strong data-body-infuse-exp-gain="true">${formatDisplayInteger(plan.foundationCost * BODY_TRAINING_FOUNDATION_EXP_MULTIPLIER)}</strong>
           </div>
           <div class="body-training-infuse-preview-row">
             <span>预计境界</span>
-            <strong>第 ${formatDisplayInteger(plan.previewState.level)} 层</strong>
+            <strong data-body-infuse-preview-level="true">第 ${formatDisplayInteger(plan.previewState.level)} 层</strong>
           </div>
           <div class="body-training-infuse-preview-row">
             <span>预计当前经验</span>
-            <strong>${formatDisplayInteger(plan.previewState.exp)}/${formatDisplayInteger(plan.previewState.expToNext)}</strong>
+            <strong data-body-infuse-preview-exp="true">${formatDisplayInteger(plan.previewState.exp)}/${formatDisplayInteger(plan.previewState.expToNext)}</strong>
           </div>
         </section>
-        <div class="body-training-infuse-note">
+        <div class="body-training-infuse-note" data-body-infuse-note="true">
           ${inAllMode
             ? `本次将直接灌入全部 ${formatDisplayInteger(plan.foundationCost)} 点底蕴。`
             : `本次需要 ${formatDisplayInteger(plan.expNeeded)} 点炼体经验，换算为 ${formatDisplayInteger(plan.foundationCost)} 点底蕴。`}
@@ -467,49 +661,63 @@ export class BodyTrainingPanel {
     `;
   }
 
-/** bindInfusionModalEvents：执行对应的业务逻辑。 */
-  private bindInfusionModalEvents(body: HTMLElement, maxLevelGain: number): void {
-    body.querySelectorAll<HTMLElement>('[data-body-infuse-adjust]').forEach((button) => button.addEventListener('click', () => {
-/** delta：定义该变量以承载业务值。 */
-      const delta = Number.parseInt(button.dataset.bodyInfuseAdjust ?? '0', 10);
-      if (!Number.isFinite(delta) || delta === 0) {
+  /** bindInfusionModalEvents：绑定Infusion弹窗事件。 */
+  private bindInfusionModalEvents(body: HTMLElement): void {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
+    if (body.dataset.bodyInfuseBound === 'true') {
+      return;
+    }
+    body.dataset.bodyInfuseBound = 'true';
+    body.addEventListener('click', (event) => {
+      const target = event.target instanceof HTMLElement ? event.target.closest<HTMLElement>('[data-body-infuse-adjust],[data-body-infuse-all],[data-body-infuse-close],[data-body-infuse-confirm]') : null;
+      if (!target || !(target instanceof HTMLButtonElement) || target.disabled) {
         return;
       }
-      this.selectedInfusionMode = 'level';
-      this.selectedLevelGain = this.clampLevelGain(this.selectedLevelGain + delta);
-      this.renderInfusionModal();
-    }));
-    body.querySelector<HTMLElement>('[data-body-infuse-all="true"]')?.addEventListener('click', () => {
-      this.selectedInfusionMode = 'all';
-      this.selectedLevelGain = Math.max(1, Math.min(maxLevelGain, this.selectedLevelGain || 1));
-      this.renderInfusionModal();
-    });
-    body.querySelector<HTMLElement>('[data-body-infuse-close="true"]')?.addEventListener('click', () => {
-      this.closeInfusionModal();
-    });
-    body.querySelector<HTMLElement>('[data-body-infuse-confirm="true"]')?.addEventListener('click', () => {
-/** plan：定义该变量以承载业务值。 */
-      const plan = this.getSelectedPlan();
-      if (!this.onInfuse || plan.foundationCost <= 0 || plan.foundationCost > this.baseFoundation) {
+      if (target.dataset.bodyInfuseAdjust) {
+        const delta = Number.parseInt(target.dataset.bodyInfuseAdjust, 10);
+        if (!Number.isFinite(delta) || delta === 0) {
+          return;
+        }
+        this.selectedInfusionMode = 'level';
+        this.selectedLevelGain = this.clampLevelGain(this.selectedLevelGain + delta);
+        this.renderInfusionModal();
         return;
       }
-      this.baseState = plan.previewState;
-      this.baseFoundation = Math.max(0, this.baseFoundation - plan.foundationCost);
-      this.syncDisplayState();
-      this.patchOrRender();
-      this.closeInfusionModal();
-      this.onInfuse(plan.foundationCost);
+      if (target.dataset.bodyInfuseAll === 'true') {
+        this.selectedInfusionMode = 'all';
+        this.selectedLevelGain = Math.max(1, Math.min(this.getMaxLevelGain(), this.selectedLevelGain || 1));
+        this.renderInfusionModal();
+        return;
+      }
+      if (target.dataset.bodyInfuseClose === 'true') {
+        this.closeInfusionModal();
+        return;
+      }
+      if (target.dataset.bodyInfuseConfirm === 'true') {
+        const plan = this.getSelectedPlan();
+        if (!this.onInfuse || plan.foundationCost <= 0 || plan.foundationCost > this.baseFoundation) {
+          return;
+        }
+        this.baseState = plan.previewState;
+        this.baseFoundation = Math.max(0, this.baseFoundation - plan.foundationCost);
+        this.syncDisplayState();
+        this.patchOrRender();
+        this.closeInfusionModal();
+        this.onInfuse(plan.foundationCost);
+      }
     });
   }
 
-/** getMaxLevelGain：执行对应的业务逻辑。 */
+  /** getMaxLevelGain：读取最大等级Gain。 */
   private getMaxLevelGain(): number {
     return getMaxAffordableLevelGain(this.baseState, this.baseFoundation);
   }
 
-/** clampLevelGain：执行对应的业务逻辑。 */
+  /** clampLevelGain：处理clamp等级Gain。 */
   private clampLevelGain(levelGain: number): number {
-/** maxLevelGain：定义该变量以承载业务值。 */
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
     const maxLevelGain = this.getMaxLevelGain();
     if (maxLevelGain <= 0) {
       return 1;
@@ -517,13 +725,15 @@ export class BodyTrainingPanel {
     return Math.max(1, Math.min(maxLevelGain, Math.floor(levelGain || 1)));
   }
 
-/** isInfusionButtonDisabled：执行对应的业务逻辑。 */
+  /** isInfusionButtonDisabled：判断是否Infusion按钮Disabled。 */
   private isInfusionButtonDisabled(): boolean {
     return this.baseFoundation <= 0 || !this.onInfuse;
   }
 
-/** getInfusionButtonLabel：执行对应的业务逻辑。 */
+  /** getInfusionButtonLabel：读取Infusion按钮标签。 */
   private getInfusionButtonLabel(): string {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
     if (!this.onInfuse) {
       return '暂不可用';
     }
@@ -533,9 +743,10 @@ export class BodyTrainingPanel {
     return '灌注';
   }
 
-/** getInfusionPreviewHeadline：执行对应的业务逻辑。 */
+  /** getInfusionPreviewHeadline：读取Infusion Preview Headline。 */
   private getInfusionPreviewHeadline(): string {
-/** maxLevelGain：定义该变量以承载业务值。 */
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
     const maxLevelGain = this.getMaxLevelGain();
     if (maxLevelGain <= 0) {
       return '可先灌注底蕴积累经验';
@@ -543,8 +754,10 @@ export class BodyTrainingPanel {
     return `本次最多可提升 ${formatDisplayInteger(maxLevelGain)} 层`;
   }
 
-/** getInfusionPreviewDetail：执行对应的业务逻辑。 */
+  /** getInfusionPreviewDetail：读取Infusion Preview详情。 */
   private getInfusionPreviewDetail(): string {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
     if (this.baseFoundation <= 0) {
       return '当前没有可用于灌注的底蕴。';
     }
@@ -554,9 +767,10 @@ export class BodyTrainingPanel {
     return `1 点底蕴 = ${formatDisplayInteger(BODY_TRAINING_FOUNDATION_EXP_MULTIPLIER)} 点炼体经验。`;
   }
 
-/** getFoundationNote：执行对应的业务逻辑。 */
+  /** getFoundationNote：读取Foundation Note。 */
   private getFoundationNote(): string {
-/** maxLevelGain：定义该变量以承载业务值。 */
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
     const maxLevelGain = this.getMaxLevelGain();
     if (this.baseFoundation <= 0) {
       return '当前没有可用于灌注的底蕴。';
@@ -567,8 +781,10 @@ export class BodyTrainingPanel {
     return `当前最多可直达第 ${formatDisplayInteger(this.baseState.level + maxLevelGain)} 层。`;
   }
 
-/** getSelectedPlan：执行对应的业务逻辑。 */
+  /** getSelectedPlan：读取Selected规划。 */
   private getSelectedPlan(): BodyTrainingInfusionPlan {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
     if (this.selectedInfusionMode === 'all') {
       return buildAllInfusionPlan(this.baseState, this.baseFoundation);
     }
@@ -576,3 +792,24 @@ export class BodyTrainingPanel {
   }
 }
 
+/** setTextContent：设置文本内容。 */
+function setTextContent(root: ParentNode, selector: string, value: string): void {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
+  const element = root.querySelector<HTMLElement>(selector);
+  if (element) {
+    element.textContent = value;
+  }
+}
+
+/** patchInfusionAdjustButton：更新灌注调整按钮。 */
+function patchInfusionAdjustButton(root: ParentNode, delta: string, active: boolean, disabled: boolean): void {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
+  const button = root.querySelector<HTMLButtonElement>(`[data-body-infuse-adjust="${delta}"]`);
+  if (!button) {
+    return;
+  }
+  button.classList.toggle('active', active);
+  button.disabled = disabled;
+}
