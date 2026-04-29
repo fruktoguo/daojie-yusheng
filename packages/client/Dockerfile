@@ -11,6 +11,7 @@ COPY docs/tutorial-mechanics.md docs/tutorial-mechanics.md
 COPY packages/shared packages/shared
 COPY packages/client packages/client
 COPY packages/server/data packages/server/data
+COPY packages/server/src/tools/protocol-audit.ts packages/server/src/tools/protocol-audit.ts
 RUN pnpm build:client
 
 FROM nginx:alpine
