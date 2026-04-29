@@ -48,5 +48,5 @@ export const NATIVE_GM_RESTORE_CONTRACT = Object.freeze({
   reloadSuggestionAfterRestore: true,
   reloadGmAuthAfterRestore: true,
   preImportBackupEnabled: true,
-  requiresMaintenance: false,
+  requiresMaintenance: true,
 });

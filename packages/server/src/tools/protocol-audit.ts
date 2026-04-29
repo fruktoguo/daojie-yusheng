@@ -378,6 +378,54 @@ async function waitForMarket(runtime, playerId, predicate, timeoutMs, label) {
   }, timeoutMs, label);
 }
 /**
+ * 从当前真实坊市里扫描未被历史挂单占用的物品，避免 with-db 审计误撞旧库订单。
+ */
+async function findUnusedMarketItemIds(runtime, playerId, requiredCount) {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
+  var preferred = [
+    "sky_pattern_page",
+    "void_shard",
+    "frost_essence",
+    "ridge_beast_claw",
+    "mat.breakarray_shard",
+    "mat.swiftwind_reed",
+    "mat.bitterheart_vine",
+    "mat.sunmelt_seed",
+    "serpent_scale",
+    "soul_ink",
+    "rune_shard",
+    "crystal_dust",
+  ];
+  var allItemIds = lib.loadUniqueItemIds();
+  var seen = new Set();
+  var candidates = preferred.concat(allItemIds).filter(function (itemId) {
+    if (!itemId || itemId === "spirit_stone" || seen.has(itemId)) {
+      return false;
+    }
+    seen.add(itemId);
+    return true;
+  });
+  var selected = [];
+  for (var i = 0; i < candidates.length; i += 1) {
+    var itemId = candidates[i];
+    var itemKey = JSON.stringify({ itemId: itemId });
+    var bookPayload = await runtime.api.get("/runtime/players/" + encodeURIComponent(playerId) + "/market/item-book?itemKey=" + encodeURIComponent(itemKey)).catch(function () {
+      return null;
+    });
+    var book = bookPayload?.book ?? null;
+    var sells = Array.isArray(book?.sells) ? book.sells : [];
+    var buys = Array.isArray(book?.buys) ? book.buys : [];
+    if (!book || (sells.length === 0 && buys.length === 0)) {
+      selected.push(itemId);
+      if (selected.length >= requiredCount) {
+        return selected;
+      }
+    }
+  }
+  throw new Error("failed to find " + requiredCount + " unused market item ids for protocol audit");
+}
+/**
  * 封装审计用 HTTP JSON 请求并统一处理错误。
  */
 async function requestJson(baseUrl, pathname, init) {
@@ -2339,10 +2387,6 @@ async function marketCase(runtime) {
  */
   var storageBuyer = runtime.createSocket("market:storage-buyer");
 /**
- * 记录storage物品ID。
- */
-  var storageItemId = "serpent_gall";
-/**
  * 记录seller会话。
  */
   var sellerSession = await hello(runtime, seller, marketSpawnPoints.seller);
@@ -2374,13 +2418,23 @@ async function marketCase(runtime) {
  * 记录storagebuyerID。
  */
   var storageBuyerId = storageBuyerSession.playerId;
+/**
+ * 记录审计隔离物品ID。
+ */
+  var unusedMarketItemIds = await findUnusedMarketItemIds(runtime, sellerId, 3);
+  var tradeItemId = unusedMarketItemIds[0];
+  var cancelItemId = unusedMarketItemIds[1];
+/**
+ * 记录storage物品ID。
+ */
+  var storageItemId = unusedMarketItemIds[2];
   await emitAndWait(seller, C2S.RequestMarket, {}, S2C.MarketUpdate, function () { return true; }, 5000);
   await emitAndWait(buyer, C2S.RequestMarket, {}, S2C.MarketUpdate, function () { return true; }, 5000);
   await emitAndWait(storageBuyer, C2S.RequestMarket, {}, S2C.MarketUpdate, function () { return true; }, 5000);
   await emitAndWait(buyer, C2S.RequestMarketListings, { page: 1, pageSize: 20, category: 'all', equipmentSlot: 'all', techniqueCategory: 'all' }, S2C.MarketListings, function (payload) {
     return payload && payload.page === 1 && Array.isArray(payload.items);
   }, 5000);
-  await runtime.api.grantItem(sellerId, "rat_tail", 4);
+  await runtime.api.grantItem(sellerId, tradeItemId, 4);
   await runtime.api.creditWallet(buyerId, "spirit_stone", 40);
 /**
  * 记录seller状态。
@@ -2389,51 +2443,114 @@ async function marketCase(runtime) {
 /**
  * 记录listed。
  */
-  var listed = await emitAndWait(seller, C2S.CreateMarketSellOrder, { slotIndex: slot(sellerState, "rat_tail"), quantity: 1, unitPrice: 1 }, S2C.MarketUpdate, function (payload) {
-    return payload && payload.myOrders && payload.myOrders.some(function (entry) { return entry.side === "sell" && entry.item && entry.item.itemId === "rat_tail"; });
-  }, 5000);
+  var listed;
+  try {
+    listed = await emitAndWait(seller, C2S.CreateMarketSellOrder, { slotIndex: slot(sellerState, tradeItemId), quantity: 1, unitPrice: 1 }, S2C.MarketUpdate, function (payload) {
+      return payload && payload.myOrders && payload.myOrders.some(function (entry) { return entry.side === "sell" && entry.item && entry.item.itemId === tradeItemId; });
+    }, 5000);
+  }
+  catch (error) {
+    var latestMarketEvents = seller.getEvents(S2C.MarketUpdate).slice(-3);
+    var sellerMarketView = await runtime.api.fetchMarket(sellerId).catch(function (fetchError) {
+      return { error: fetchError instanceof Error ? fetchError.message : String(fetchError) };
+    });
+    process.stderr.write("[protocol audit] market seller create sell diagnostic " + JSON.stringify({
+      sellerId: sellerId,
+      tradeItemId: tradeItemId,
+      slotIndex: slot(sellerState, tradeItemId),
+      sellerItems: sellerState.inventory.items.map(function (entry) { return { itemId: entry.itemId, count: entry.count }; }),
+      latestMarketEvents: latestMarketEvents,
+      latestMarketOrders: seller.getEvents(S2C.MarketOrders).slice(-3),
+      latestMarketStorage: seller.getEvents(S2C.MarketStorage).slice(-3),
+      latestNotices: seller.getEvents(S2C.Notice).slice(-5),
+      latestErrors: seller.getEvents(S2C.Error).slice(-5),
+      sellerMarketView: sellerMarketView,
+    }) + "\n");
+    throw error;
+  }
 /**
  * 记录物品key。
  */
-  var itemKey = listed.myOrders.find(function (entry) { return entry.side === "sell" && entry.item && entry.item.itemId === "rat_tail"; }).itemKey;
+  var itemKey = listed.myOrders.find(function (entry) { return entry.side === "sell" && entry.item && entry.item.itemId === tradeItemId; }).itemKey;
   await emitAndWait(buyer, C2S.RequestMarketItemBook, { itemKey: itemKey }, S2C.MarketItemBook, function (payload) {
     return payload && payload.itemKey === itemKey;
   }, 5000);
   buyer.emit(C2S.BuyMarketItem, { itemKey: itemKey, quantity: 1 });
-  await lib.waitForState(runtime.api, buyerId, function (player) { return count(player, "rat_tail") >= 1; }, 5000, "buyNow");
+  await lib.waitForState(runtime.api, buyerId, function (player) { return count(player, tradeItemId) >= 1; }, 5000, "buyNow");
   await requestMarketTradeHistoryUntilVisible(buyer, 5000);
-  await emitAndWait(buyer, C2S.CreateMarketBuyOrder, { itemId: "rat_tail", quantity: 1, unitPrice: 1 }, S2C.MarketUpdate, function (payload) {
-    return payload && payload.myOrders && payload.myOrders.some(function (entry) { return entry.side === "buy" && entry.item && entry.item.itemId === "rat_tail"; });
+  await emitAndWait(buyer, C2S.CreateMarketBuyOrder, { itemId: tradeItemId, quantity: 1, unitPrice: 1 }, S2C.MarketUpdate, function (payload) {
+    return payload && payload.myOrders && payload.myOrders.some(function (entry) { return entry.side === "buy" && entry.item && entry.item.itemId === tradeItemId; });
   }, 5000);
-  await runtime.api.grantItem(sellerId, "rat_tail", 1);
+  await runtime.api.grantItem(sellerId, tradeItemId, 1);
   sellerState = (await runtime.api.fetchState(sellerId)).player;
 /**
  * 记录buyfulfilledat。
  */
-  var buyFulfilledAt = count((await runtime.api.fetchState(buyerId)).player, "rat_tail");
+  var buyFulfilledAt = count((await runtime.api.fetchState(buyerId)).player, tradeItemId);
 /**
  * 记录historyupdateafter。
  */
   var historyUpdateAfter = buyer.getEventCount(S2C.MarketTradeHistory);
-  seller.emit(C2S.SellMarketItem, { slotIndex: slot(sellerState, "rat_tail"), quantity: 1 });
-  await lib.waitForState(runtime.api, buyerId, function (player) { return count(player, "rat_tail") >= buyFulfilledAt + 1; }, 5000, "sellNow");
+  seller.emit(C2S.SellMarketItem, { slotIndex: slot(sellerState, tradeItemId), quantity: 1 });
+  await lib.waitForState(runtime.api, buyerId, function (player) { return count(player, tradeItemId) >= buyFulfilledAt + 1; }, 5000, "sellNow");
   await buyer.waitForEventAfter(S2C.MarketTradeHistory, historyUpdateAfter, function (payload) {
-    return payload && Array.isArray(payload.records) && payload.records.some(function (entry) { return entry.itemId === "rat_tail"; });
+    return payload && Array.isArray(payload.records) && payload.records.some(function (entry) { return entry.itemId === tradeItemId; });
   }, 5000);
+  sellerState = (await runtime.api.fetchState(sellerId)).player;
+  await runtime.api.grantItem(sellerId, cancelItemId, 1);
+  await lib.waitForState(runtime.api, sellerId, function (player) { return count(player, cancelItemId) >= 1; }, 5000, "grantCancelItem");
   sellerState = (await runtime.api.fetchState(sellerId)).player;
 /**
  * 记录own。
  */
-  var own = await emitAndWait(seller, C2S.CreateMarketSellOrder, { slotIndex: slot(sellerState, "rat_tail"), quantity: 1, unitPrice: 1 }, S2C.MarketUpdate, function (payload) {
-    return payload && payload.myOrders && payload.myOrders.some(function (entry) { return entry.side === "sell" && entry.item && entry.item.itemId === "rat_tail"; });
-  }, 5000);
+  var own;
+  try {
+    own = await emitAndWait(seller, C2S.CreateMarketSellOrder, { slotIndex: slot(sellerState, cancelItemId), quantity: 1, unitPrice: 1 }, S2C.MarketUpdate, function (payload) {
+      return payload && payload.myOrders && payload.myOrders.some(function (entry) { return entry.side === "sell" && entry.item && entry.item.itemId === cancelItemId; });
+    }, 5000);
+  }
+  catch (error) {
+    process.stderr.write("[protocol audit] market seller cancel-order diagnostic " + JSON.stringify({
+      sellerId: sellerId,
+      cancelItemId: cancelItemId,
+      slotIndex: sellerState.inventory.items.findIndex(function (entry) { return entry.itemId === cancelItemId; }),
+      sellerItems: sellerState.inventory.items.map(function (entry) { return { itemId: entry.itemId, count: entry.count }; }),
+      latestMarketEvents: seller.getEvents(S2C.MarketUpdate).slice(-5),
+      latestMarketOrders: seller.getEvents(S2C.MarketOrders).slice(-5),
+      latestMarketStorage: seller.getEvents(S2C.MarketStorage).slice(-5),
+      latestNotices: seller.getEvents(S2C.Notice).slice(-8),
+      latestErrors: seller.getEvents(S2C.Error).slice(-8),
+      sellerMarketView: await runtime.api.fetchMarket(sellerId).catch(function (fetchError) {
+        return { error: fetchError instanceof Error ? fetchError.message : String(fetchError) };
+      }),
+    }) + "\n");
+    throw error;
+  }
 /**
  * 记录orderID。
  */
-  var orderId = own.myOrders.find(function (entry) { return entry.side === "sell" && entry.item && entry.item.itemId === "rat_tail"; }).id;
-  await emitAndWait(seller, C2S.CancelMarketOrder, { orderId: orderId }, S2C.MarketUpdate, function (payload) {
-    return payload && payload.myOrders && payload.myOrders.every(function (entry) { return entry.id !== orderId; });
-  }, 5000);
+  var orderId = own.myOrders.find(function (entry) { return entry.side === "sell" && entry.item && entry.item.itemId === cancelItemId; }).id;
+  try {
+    await emitAndWait(seller, C2S.CancelMarketOrder, { orderId: orderId }, S2C.MarketUpdate, function (payload) {
+      return payload && payload.myOrders && payload.myOrders.every(function (entry) { return entry.id !== orderId; });
+    }, 5000);
+  }
+  catch (error) {
+    process.stderr.write("[protocol audit] market seller cancel diagnostic " + JSON.stringify({
+      sellerId: sellerId,
+      cancelItemId: cancelItemId,
+      orderId: orderId,
+      latestMarketEvents: seller.getEvents(S2C.MarketUpdate).slice(-5),
+      latestMarketOrders: seller.getEvents(S2C.MarketOrders).slice(-5),
+      latestMarketStorage: seller.getEvents(S2C.MarketStorage).slice(-5),
+      latestNotices: seller.getEvents(S2C.Notice).slice(-8),
+      latestErrors: seller.getEvents(S2C.Error).slice(-8),
+      sellerMarketView: await runtime.api.fetchMarket(sellerId).catch(function (fetchError) {
+        return { error: fetchError instanceof Error ? fetchError.message : String(fetchError) };
+      }),
+    }) + "\n");
+    throw error;
+  }
   await runtime.api.creditWallet(storageBuyerId, "spirit_stone", 20);
 /**
  * 记录storagebuyer状态。

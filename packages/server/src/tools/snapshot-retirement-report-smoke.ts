@@ -6,6 +6,7 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 
 import { NestFactory } from '@nestjs/core';
+import type { INestApplicationContext, Type } from '@nestjs/common';
 
 import { AppModule } from '../app.module';
 import { WorldSessionBootstrapSnapshotService } from '../network/world-session-bootstrap-snapshot.service';
@@ -16,7 +17,6 @@ import { WorldRuntimeLifecycleService } from '../runtime/world/world-runtime-lif
 
 async function main(): Promise<void> {
   const app = await NestFactory.createApplicationContext(AppModule, { logger: false });
-  const playerPersistenceService = app.get(PlayerPersistenceService);
   const mapPersistenceService = app.get(MapPersistenceService);
   const worldPlayerSnapshotService = app.get(WorldPlayerSnapshotService);
   const worldRuntimeLifecycleService = app.get(WorldRuntimeLifecycleService);
@@ -41,9 +41,10 @@ async function main(): Promise<void> {
       'resolveAuthenticatedSnapshotPolicy(',
     );
     const delegatedSnapshotResult = await buildBootstrapSnapshotTraceDelegationProof();
+    const playerSnapshotProviderRegistered = hasProvider(app, PlayerPersistenceService);
     const boundaries = {
-      playerSnapshotMainlineEnabled: playerPersistenceService.isEnabled(),
-      mapSnapshotMainlineEnabled: mapPersistenceService.isEnabled(),
+      playerSnapshotMainlineProviderRetired: !playerSnapshotProviderRegistered,
+      mapSnapshotRuntimeDisabled: !mapPersistenceService.isEnabled(),
       playerSnapshotRecoveryPreferDomain:
         Boolean(worldPlayerSnapshotService?.isPersistenceEnabled?.())
         && loadPlayerSnapshotResultBody.includes('loadProjectedSnapshot('),
@@ -57,8 +58,8 @@ async function main(): Promise<void> {
         && delegatedSnapshotResult.fallbackReason === 'proof:snapshot-retirement-report-smoke',
       instanceRecoveryPreferDomain: Boolean(worldRuntimeLifecycleService?.restorePublicInstancePersistence),
     };
-    assert.equal(boundaries.playerSnapshotMainlineEnabled, true);
-    assert.equal(boundaries.mapSnapshotMainlineEnabled, true);
+    assert.equal(boundaries.playerSnapshotMainlineProviderRetired, true);
+    assert.equal(boundaries.mapSnapshotRuntimeDisabled, true);
     assert.equal(boundaries.playerSnapshotRecoveryPreferDomain, true);
     assert.equal(boundaries.playerSnapshotRecoveryFallbackRetained, false);
     assert.equal(boundaries.bootstrapSnapshotTracePreservesDomainSource, true);
@@ -70,8 +71,8 @@ async function main(): Promise<void> {
           ok: true,
           case: 'snapshot-retirement-report',
           boundaries,
-          answers: 'WorldPlayerSnapshotService.loadPlayerSnapshotResult 已优先走 player-domain 投影恢复，WorldSessionBootstrapSnapshotService.loadPlayerSnapshotWithTrace 也会继续委托这条带 source/fallbackReason 的分域恢复 trace；旧整包快照不再作为恢复主链。',
-          excludes: '不证明 hydrateFromSnapshot 已改成直接逐域装配，也不证明旧快照存储已物理删除。',
+          answers: '旧 PlayerPersistenceService 已从主线 AppModule DI 退役；WorldPlayerSnapshotService.loadPlayerSnapshotResult 优先走 player-domain 投影恢复，WorldSessionBootstrapSnapshotService.loadPlayerSnapshotWithTrace 继续委托这条带 source/fallbackReason 的分域恢复 trace。',
+          excludes: '不证明旧快照类型文件已物理删除，也不证明 shadow、acceptance、full 或真实线上重启窗口。',
           completionMapping: 'replace-ready:proof:stage5.snapshot-retirement-boundary',
         },
         null,
@@ -116,6 +117,15 @@ function extractMethodBody(source: string, startMarker: string, endMarker: strin
   }
   const endIndex = source.indexOf(endMarker, startIndex + startMarker.length);
   return endIndex < 0 ? source.slice(startIndex) : source.slice(startIndex, endIndex);
+}
+
+function hasProvider(app: INestApplicationContext, provider: Type<unknown>): boolean {
+  try {
+    app.get(provider, { strict: false });
+    return true;
+  } catch {
+    return false;
+  }
 }
 
 main().catch((error) => {

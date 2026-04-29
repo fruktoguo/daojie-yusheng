@@ -5,6 +5,7 @@ installSmokeTimeout(__filename);
 import { readFileSync } from 'node:fs';
 
 import { NestFactory } from '@nestjs/core';
+import type { INestApplicationContext, Type } from '@nestjs/common';
 
 import { AppModule } from '../app.module';
 import { WorldSessionBootstrapSnapshotService } from '../network/world-session-bootstrap-snapshot.service';
@@ -15,7 +16,6 @@ import { WorldRuntimeLifecycleService } from '../runtime/world/world-runtime-lif
 
 async function main(): Promise<void> {
   const app = await NestFactory.createApplicationContext(AppModule, { logger: false });
-  const playerPersistenceService = app.get(PlayerPersistenceService);
   const mapPersistenceService = app.get(MapPersistenceService);
   const worldPlayerSnapshotService = app.get(WorldPlayerSnapshotService);
   const worldRuntimeLifecycleService = app.get(WorldRuntimeLifecycleService);
@@ -40,10 +40,11 @@ async function main(): Promise<void> {
       'resolveAuthenticatedSnapshotPolicy(',
     );
     const delegatedSnapshotResult = await buildBootstrapSnapshotTraceDelegationProof();
+    const playerSnapshotProviderRegistered = hasProvider(app, PlayerPersistenceService);
     const report = {
       ok: true,
-      playerSnapshotMainlineEnabled: playerPersistenceService.isEnabled(),
-      mapSnapshotMainlineEnabled: mapPersistenceService.isEnabled(),
+      playerSnapshotMainlineProviderRetired: !playerSnapshotProviderRegistered,
+      mapSnapshotRuntimeDisabled: !mapPersistenceService.isEnabled(),
       playerSnapshotRecoveryPreferDomain:
         Boolean(worldPlayerSnapshotService?.isPersistenceEnabled?.())
         && loadPlayerSnapshotResultBody.includes('loadProjectedSnapshot('),
@@ -56,8 +57,8 @@ async function main(): Promise<void> {
         && delegatedSnapshotResult.persistedSource === 'native'
         && delegatedSnapshotResult.fallbackReason === 'proof:snapshot-retirement-report',
       instanceRecoveryPreferDomain: Boolean(worldRuntimeLifecycleService?.restorePublicInstancePersistence),
-      answers: 'snapshot recovery retirement boundary is observable: mainline snapshot storage still exists, while WorldPlayerSnapshotService.loadPlayerSnapshotResult 已优先走 player-domain 投影，WorldSessionBootstrapSnapshotService.loadPlayerSnapshotWithTrace 也会继续委托这条带 source/fallbackReason 的分域恢复 trace。',
-      excludes: 'does not claim hydrateFromSnapshot already performs direct domain assembly, and does not claim old snapshot storage is physically deleted',
+      answers: '旧 PlayerPersistenceService 已从主线 AppModule DI 退役；WorldPlayerSnapshotService.loadPlayerSnapshotResult 优先走 player-domain 投影恢复，WorldSessionBootstrapSnapshotService.loadPlayerSnapshotWithTrace 继续委托这条带 source/fallbackReason 的分域恢复 trace。',
+      excludes: '不证明旧快照类型文件已物理删除，也不证明 shadow、acceptance、full 或真实线上重启窗口。',
       completionMapping: 'replace-ready:proof:stage5.snapshot-retirement-boundary',
     };
     console.log(JSON.stringify(report, null, 2));
@@ -96,6 +97,15 @@ function extractMethodBody(source: string, startMarker: string, endMarker: strin
   }
   const endIndex = source.indexOf(endMarker, startIndex + startMarker.length);
   return endIndex < 0 ? source.slice(startIndex) : source.slice(startIndex, endIndex);
+}
+
+function hasProvider(app: INestApplicationContext, provider: Type<unknown>): boolean {
+  try {
+    app.get(provider, { strict: false });
+    return true;
+  } catch {
+    return false;
+  }
 }
 
 main().catch((error) => {

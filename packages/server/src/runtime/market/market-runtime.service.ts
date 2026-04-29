@@ -433,7 +433,7 @@ let MarketRuntimeService = MarketRuntimeService_1 = class MarketRuntimeService {
                 return this.singleMessage(playerId, '买入数量无效。');
             }
 
-            const itemKey = String(payload.itemKey ?? '').trim();
+            const itemKey = this.resolveInternalMarketItemKey(payload.itemKey);
             const sells = this.getSortedOrders(itemKey, 'sell').filter((order) => order.ownerId !== playerId);
             if (sells.length === 0) {
                 return this.singleMessage(playerId, '当前没有可买入的挂售。');
@@ -570,7 +570,6 @@ let MarketRuntimeService = MarketRuntimeService_1 = class MarketRuntimeService {
                     this.deleteOrder(sellOrder.id, context);
                 }
             }
-            this.playerRuntimeService.debitWallet(playerId, market_1.MARKET_CURRENCY_ITEM_ID, totalCost);
             this.pushNotice(result, playerId, `你买入了 ${item.name} x${quantity}，共花费 ${this.getCurrencyItemName()} x${totalCost}。`, 'loot');
             this.compactOpenOrders();
             return result;
@@ -760,6 +759,11 @@ let MarketRuntimeService = MarketRuntimeService_1 = class MarketRuntimeService {
                         if (order.side === 'buy') {
                             this.playerRuntimeService.creditWallet(playerId, market_1.MARKET_CURRENCY_ITEM_ID, (0, shared_1.calculateMarketTradeTotalCost)(order.remainingQuantity, order.unitPrice));
                         }
+                        order.status = 'cancelled';
+                        order.remainingQuantity = 0;
+                        order.updatedAt = Date.now();
+                        this.openOrders = this.openOrders.filter((entry) => entry.id !== order.id);
+                        this.compactOpenOrders();
                         return this.singleMessage(playerId, '订单已取消，剩余托管物已退回。', 'success');
                     }
                 }

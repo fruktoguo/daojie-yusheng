@@ -102,6 +102,7 @@ async function main(): Promise<void> {
   assert.equal(durableCalls[0]?.side, 'sell');
   assert.equal(runtimePlayer.inventory.items[0]?.itemId, 'rat_tail');
   assert.equal(runtimePlayer.inventory.items[0]?.count ?? 0, 2);
+  assert.equal((service as unknown as { openOrders: Array<Record<string, unknown>> }).openOrders.length, 0);
   assert.equal(result.notices.some((entry) => entry.playerId === playerId), true);
   console.log(JSON.stringify({ ok: true, case: 'market-runtime-cancel-order' }, null, 2));
 }

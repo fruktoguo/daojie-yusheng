@@ -10,6 +10,7 @@ const PLAYER_PRESENCE_TABLE = 'player_presence';
 const PLAYER_WALLET_TABLE = 'player_wallet';
 const PLAYER_INVENTORY_ITEM_TABLE = 'player_inventory_item';
 const PLAYER_MARKET_STORAGE_ITEM_TABLE = 'player_market_storage_item';
+const MARKET_ORDER_TABLE = 'server_market_order';
 const PLAYER_EQUIPMENT_SLOT_TABLE = 'player_equipment_slot';
 const PLAYER_QUEST_PROGRESS_TABLE = 'player_quest_progress';
 const PLAYER_ACTIVE_JOB_TABLE = 'player_active_job';
@@ -1936,6 +1937,7 @@ export class DurableOperationService implements OnModuleInit, OnModuleDestroy {
       onMutate: async (client, now) => {
         await replacePlayerInventoryItems(client, normalizedPlayerId, normalizedInventoryItems);
         await replacePlayerWalletRows(client, normalizedPlayerId, normalizedWalletBalances);
+        await client.query(`DELETE FROM ${MARKET_ORDER_TABLE} WHERE order_id = $1`, [normalizedOrderId]);
         await client.query(
           `
             INSERT INTO ${PLAYER_RECOVERY_WATERMARK_TABLE}(
