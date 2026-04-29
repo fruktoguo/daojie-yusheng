@@ -3,7 +3,7 @@ name: Build And Deploy
 on:
   push:
     branches:
-      - next
+      - main
   workflow_dispatch:
 
 permissions:
@@ -130,7 +130,7 @@ jobs:
       - name: Verify replace-ready doctor
         run: pnpm verify:replace-ready:doctor
 
-      - name: Deploy next stack
+      - name: Deploy production stack
         env:
           CLIENT_IMAGE_TAG: sha-${{ github.sha }}
           SERVER_IMAGE_TAG: sha-${{ github.sha }}

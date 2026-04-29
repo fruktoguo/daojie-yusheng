@@ -3,7 +3,7 @@ name: Sync To Gitee
 on:
   push:
     branches:
-      - next
+      - main
   workflow_dispatch:
 
 permissions:
@@ -19,7 +19,7 @@ jobs:
         with:
           fetch-depth: 0
 
-      - name: Push next branch to Gitee
+      - name: Push main branch to Gitee
         env:
           GITEE_OWNER: ${{ vars.GITEE_OWNER }}
           GITEE_TOKEN: ${{ secrets.GITEE_TOKEN }}
@@ -32,4 +32,4 @@ jobs:
           EOF
           chmod 600 ~/.netrc
           git remote add gitee "https://gitee.com/${GITEE_OWNER}/${GITHUB_REPOSITORY#*/}.git"
-          git push --force gitee next:next
+          git push --force gitee main:main
