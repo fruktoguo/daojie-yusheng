@@ -220,18 +220,40 @@ async function main() {
             else {
                 await runIsolatedSmoke(entry);
             }
+            results.push({
+                name: entry.name,
+                durationMs: Date.now() - caseStartedAt,
+            });
+        }
+        catch (error) {
+            results.push({
+                name: entry.name,
+                durationMs: Date.now() - caseStartedAt,
+                failed: true,
+                error: formatSmokeError(error),
+            });
+            process.stderr.write(`[server smoke] failed ${entry.name}: ${formatSmokeError(error)}\n`);
         }
         finally {
             await autoCleanupSmokeArtifacts(`case:${entry.name}`);
         }
-        results.push({
-            name: entry.name,
-            durationMs: Date.now() - caseStartedAt,
-        });
     }
     process.stdout.write(`\n[server smoke] summary\n`);
     for (const result of results) {
-        process.stdout.write(`- ${result.name}: ${result.skipped ? 'skipped' : `${result.durationMs}ms`}\n`);
+        if (result.skipped) {
+            process.stdout.write(`- ${result.name}: skipped\n`);
+        }
+        else if (result.failed) {
+            process.stdout.write(`- ${result.name}: failed ${result.durationMs}ms ${result.error}\n`);
+        }
+        else {
+            process.stdout.write(`- ${result.name}: passed ${result.durationMs}ms\n`);
+        }
+    }
+    const failedResults = results.filter((result) => result.failed);
+    if (failedResults.length > 0) {
+        process.stderr.write(`[server smoke] failed_cases=${failedResults.map((result) => result.name).join(', ')}\n`);
+        process.exitCode = 1;
     }
     process.stdout.write(`[server smoke] boundary=${gateProfile.answers}\n`);
     process.stdout.write(`[server smoke] not_proved=${gateProfile.excludes}\n`);
@@ -542,6 +564,16 @@ function cleanupCaseExtraEnv(extraEnv) {
     catch {
         // ignore trace cleanup failures
     }
+}
+/**
+ * 格式化 smoke 用例错误，保留首行原因用于最终汇总。
+ */
+function formatSmokeError(error) {
+    if (error instanceof Error) {
+        const message = error.message || error.stack || String(error);
+        return message.split('\n')[0];
+    }
+    return String(error);
 }
 /**
  * 等待for健康状态。
