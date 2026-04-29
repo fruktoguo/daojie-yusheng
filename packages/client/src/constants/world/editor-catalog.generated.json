@@ -3,6 +3,7 @@
     {
       "id": "wildsunder_chart",
       "name": "八荒裂岳图",
+      "desc": "以裂岳真意锁住落点，轰然震塌一片地脉；层数越高，塌势越重。",
       "grade": "mystic",
       "category": "divine",
       "realmLv": 24,
@@ -68,8 +69,7 @@
           "level": 2,
           "expToNext": 441600,
           "attrs": {
-            "constitution": 2,
-            "perception": 1
+            "constitution": 2
           },
           "specialStats": {
             "comprehension": 1
@@ -89,8 +89,7 @@
           "level": 4,
           "expToNext": 528000,
           "attrs": {
-            "constitution": 2,
-            "perception": 1
+            "constitution": 2
           },
           "specialStats": {
             "comprehension": 1
@@ -121,7 +120,8 @@
           "level": 7,
           "expToNext": 700800,
           "attrs": {
-            "constitution": 2
+            "constitution": 2,
+            "perception": 1
           },
           "specialStats": {
             "comprehension": 1
@@ -142,7 +142,8 @@
           "level": 9,
           "expToNext": 864000,
           "attrs": {
-            "constitution": 2
+            "constitution": 2,
+            "perception": 1
           },
           "specialStats": {
             "comprehension": 1
@@ -164,6 +165,7 @@
     {
       "id": "baihong_duanyue",
       "name": "白虹断岳典",
+      "desc": "白虹横掠，断势裂甲。",
       "grade": "mystic",
       "category": "arts",
       "realmLv": 23,
@@ -302,6 +304,7 @@
     {
       "id": "monster_huanling_arts",
       "name": "残丹唤灵诀",
+      "desc": "气血跌入七成后，强行把碎裂金丹撑成法相虚影，重构洞府脉路。",
       "grade": "earth",
       "category": "arts",
       "realmLv": 1,
@@ -1049,73 +1052,42 @@
       "layers": [
         {
           "level": 1,
-          "expToNext": 1800,
-          "attrs": {
-            "spirit": 6,
-            "perception": 5
-          }
+          "expToNext": 1800
         },
         {
           "level": 2,
-          "expToNext": 2200,
-          "attrs": {
-            "spirit": 7,
-            "talent": 5
-          }
+          "expToNext": 2200
         },
         {
           "level": 3,
-          "expToNext": 2800,
-          "attrs": {
-            "spirit": 6,
-            "perception": 6
-          }
+          "expToNext": 2800
         },
         {
           "level": 4,
-          "expToNext": 3400,
-          "attrs": {
-            "talent": 7,
-            "constitution": 4
-          }
+          "expToNext": 3400
         },
         {
           "level": 5,
-          "expToNext": 4200,
-          "attrs": {
-            "spirit": 7,
-            "talent": 6
-          }
+          "expToNext": 4200
         },
         {
           "level": 6,
-          "expToNext": 5000,
-          "attrs": {
-            "perception": 7,
-            "constitution": 5
-          }
+          "expToNext": 5000
         },
         {
           "level": 7,
-          "expToNext": 6000,
-          "attrs": {
-            "spirit": 8,
-            "talent": 6
-          }
+          "expToNext": 6000
         },
         {
           "level": 8,
-          "expToNext": 0,
-          "attrs": {
-            "spirit": 8,
-            "perception": 7
-          }
+          "expToNext": 0
         }
       ]
     },
     {
       "id": "monster_soul_arts",
       "name": "残魂灵压",
+      "desc": "哀鸣钉住心神，魂缚继续压进识海。",
       "grade": "mystic",
       "category": "arts",
       "realmLv": 1,
@@ -1240,73 +1212,42 @@
       "layers": [
         {
           "level": 1,
-          "expToNext": 1800,
-          "attrs": {
-            "spirit": 3,
-            "talent": 1
-          }
+          "expToNext": 1800
         },
         {
           "level": 2,
-          "expToNext": 2000,
-          "attrs": {
-            "spirit": 3,
-            "talent": 1
-          }
+          "expToNext": 2000
         },
         {
           "level": 3,
-          "expToNext": 2300,
-          "attrs": {
-            "spirit": 3,
-            "talent": 1
-          }
+          "expToNext": 2300
         },
         {
           "level": 4,
-          "expToNext": 2600,
-          "attrs": {
-            "spirit": 4,
-            "talent": 1
-          }
+          "expToNext": 2600
         },
         {
           "level": 5,
-          "expToNext": 3000,
-          "attrs": {
-            "spirit": 4,
-            "talent": 2
-          }
+          "expToNext": 3000
         },
         {
           "level": 6,
-          "expToNext": 3500,
-          "attrs": {
-            "spirit": 4,
-            "talent": 2
-          }
+          "expToNext": 3500
         },
         {
           "level": 7,
-          "expToNext": 4100,
-          "attrs": {
-            "spirit": 5,
-            "talent": 2
-          }
+          "expToNext": 4100
         },
         {
           "level": 8,
-          "expToNext": 0,
-          "attrs": {
-            "spirit": 5,
-            "talent": 3
-          }
+          "expToNext": 0
         }
       ]
     },
     {
       "id": "hidden_fortune_record",
       "name": "藏运录",
+      "desc": "黄阶秘术预留位，名称偏运势、掉落或资源流转。",
       "grade": "yellow",
       "category": "secret",
       "realmLv": 13,
@@ -1387,6 +1328,7 @@
     {
       "id": "chiqi_ranqiao",
       "name": "赤息燃窍功",
+      "desc": "赤息入窍，如烈火烹油，烧开周身关隘。",
       "grade": "yellow",
       "category": "internal",
       "realmLv": 23,
@@ -1396,120 +1338,108 @@
           "level": 1,
           "expToNext": 165600,
           "attrs": {
-            "constitution": 3,
-            "spirit": 3,
-            "perception": 2,
-            "talent": 2
+            "spirit": 5,
+            "strength": 7,
+            "meridians": 6
           }
         },
         {
           "level": 2,
           "expToNext": 184000,
           "attrs": {
-            "constitution": 2,
-            "spirit": 3,
-            "perception": 2,
-            "talent": 2
+            "spirit": 5,
+            "strength": 8,
+            "meridians": 6
           }
         },
         {
           "level": 3,
           "expToNext": 202400,
           "attrs": {
-            "constitution": 2,
-            "spirit": 3,
-            "perception": 2,
-            "talent": 2
+            "spirit": 5,
+            "strength": 8,
+            "meridians": 6
           }
         },
         {
           "level": 4,
           "expToNext": 220800,
           "attrs": {
-            "constitution": 2,
-            "spirit": 3,
-            "perception": 2,
-            "talent": 2
+            "spirit": 5,
+            "strength": 8,
+            "meridians": 6
           }
         },
         {
           "level": 5,
           "expToNext": 248400,
           "attrs": {
-            "constitution": 2,
-            "spirit": 2,
-            "perception": 2,
-            "talent": 2
+            "spirit": 5,
+            "strength": 8,
+            "meridians": 7
           }
         },
         {
           "level": 6,
           "expToNext": 276000,
           "attrs": {
-            "constitution": 2,
-            "spirit": 2,
-            "perception": 2,
-            "talent": 2
+            "spirit": 5,
+            "strength": 8,
+            "meridians": 7
           }
         },
         {
           "level": 7,
           "expToNext": 303600,
           "attrs": {
-            "constitution": 2,
-            "spirit": 2,
-            "perception": 2,
-            "talent": 2
+            "spirit": 5,
+            "strength": 8,
+            "meridians": 7
           }
         },
         {
           "level": 8,
           "expToNext": 340400,
           "attrs": {
-            "constitution": 2,
-            "spirit": 2,
-            "perception": 2,
-            "talent": 1
+            "spirit": 5,
+            "strength": 8,
+            "meridians": 7
           }
         },
         {
           "level": 9,
           "expToNext": 377200,
           "attrs": {
-            "constitution": 2,
-            "spirit": 2,
-            "perception": 2,
-            "talent": 1
+            "spirit": 5,
+            "strength": 8,
+            "meridians": 7
           }
         },
         {
           "level": 10,
           "expToNext": 423200,
           "attrs": {
-            "constitution": 2,
-            "spirit": 2,
-            "perception": 2,
-            "talent": 1
+            "spirit": 5,
+            "strength": 8,
+            "meridians": 7
           }
         },
         {
           "level": 11,
           "expToNext": 478400,
           "attrs": {
-            "constitution": 2,
-            "spirit": 2,
-            "perception": 2,
-            "talent": 1
+            "spirit": 5,
+            "strength": 8,
+            "meridians": 7
           }
         },
         {
           "level": 12,
           "expToNext": 0,
           "attrs": {
-            "constitution": 2,
-            "spirit": 2,
-            "perception": 1,
-            "talent": 1
+            "spirit": 5,
+            "strength": 8,
+            "meridians": 7
           }
         }
       ]
@@ -1517,6 +1447,7 @@
     {
       "id": "redflame_art",
       "name": "赤焰诀",
+      "desc": "离火化网罩落，灼脉缠身不绝。",
       "grade": "yellow",
       "category": "arts",
       "realmLv": 10,
@@ -1640,6 +1571,7 @@
     {
       "id": "chiyao_fenmai",
       "name": "赤曜焚脉篇",
+      "desc": "赤曜凝火，三息之后焚界而落。",
       "grade": "mystic",
       "category": "arts",
       "realmLv": 23,
@@ -1779,6 +1711,7 @@
     {
       "id": "bear_cauldron_art",
       "name": "担石功",
+      "desc": "负石而行，以重压催生筋骨之力。",
       "grade": "mortal",
       "category": "internal",
       "realmLv": 5,
@@ -1788,80 +1721,64 @@
           "level": 1,
           "expToNext": 30000,
           "attrs": {
-            "constitution": 2,
-            "spirit": 2,
-            "perception": 3,
-            "talent": 3
+            "constitution": 3,
+            "strength": 5
           }
         },
         {
           "level": 2,
           "expToNext": 33000,
           "attrs": {
-            "constitution": 2,
-            "spirit": 2,
-            "perception": 3,
-            "talent": 3
+            "constitution": 3,
+            "strength": 5
           }
         },
         {
           "level": 3,
           "expToNext": 36250,
           "attrs": {
-            "constitution": 1,
-            "spirit": 2,
-            "perception": 3,
-            "talent": 3
+            "constitution": 3,
+            "strength": 5
           }
         },
         {
           "level": 4,
           "expToNext": 39750,
           "attrs": {
-            "constitution": 1,
-            "spirit": 2,
-            "perception": 3,
-            "talent": 3
+            "constitution": 3,
+            "strength": 6
           }
         },
         {
           "level": 5,
           "expToNext": 43500,
           "attrs": {
-            "constitution": 1,
-            "spirit": 1,
-            "perception": 3,
-            "talent": 3
+            "constitution": 3,
+            "strength": 6
           }
         },
         {
           "level": 6,
           "expToNext": 47500,
           "attrs": {
-            "constitution": 1,
-            "spirit": 1,
-            "perception": 3,
-            "talent": 2
+            "constitution": 3,
+            "strength": 6
           }
         },
         {
           "level": 7,
           "expToNext": 51750,
           "attrs": {
-            "constitution": 1,
-            "spirit": 1,
-            "perception": 3,
-            "talent": 2
+            "constitution": 3,
+            "strength": 6
           }
         },
         {
           "level": 8,
           "expToNext": 0,
           "attrs": {
-            "constitution": 1,
-            "spirit": 1,
-            "perception": 2,
-            "talent": 2
+            "constitution": 4,
+            "strength": 6
           }
         }
       ]
@@ -1869,6 +1786,7 @@
     {
       "id": "dimai_fumai",
       "name": "地脉覆脉术",
+      "desc": "引地脉之气覆于己身经络，以大地为根、脉络为枝。",
       "grade": "yellow",
       "category": "internal",
       "realmLv": 26,
@@ -1878,120 +1796,96 @@
           "level": 1,
           "expToNext": 187200,
           "attrs": {
-            "constitution": 3,
-            "spirit": 3,
-            "perception": 2,
-            "talent": 2
+            "talent": 9,
+            "meridians": 11
           }
         },
         {
           "level": 2,
           "expToNext": 208000,
           "attrs": {
-            "constitution": 2,
-            "spirit": 3,
-            "perception": 2,
-            "talent": 2
+            "talent": 9,
+            "meridians": 11
           }
         },
         {
           "level": 3,
           "expToNext": 228800,
           "attrs": {
-            "constitution": 2,
-            "spirit": 3,
-            "perception": 2,
-            "talent": 2
+            "talent": 9,
+            "meridians": 11
           }
         },
         {
           "level": 4,
           "expToNext": 249600,
           "attrs": {
-            "constitution": 2,
-            "spirit": 3,
-            "perception": 2,
-            "talent": 2
+            "talent": 9,
+            "meridians": 11
           }
         },
         {
           "level": 5,
           "expToNext": 280800,
           "attrs": {
-            "constitution": 2,
-            "spirit": 2,
-            "perception": 2,
-            "talent": 2
+            "talent": 9,
+            "meridians": 11
           }
         },
         {
           "level": 6,
           "expToNext": 312000,
           "attrs": {
-            "constitution": 2,
-            "spirit": 2,
-            "perception": 2,
-            "talent": 2
+            "talent": 9,
+            "meridians": 11
           }
         },
         {
           "level": 7,
           "expToNext": 343200,
           "attrs": {
-            "constitution": 2,
-            "spirit": 2,
-            "perception": 2,
-            "talent": 2
+            "talent": 9,
+            "meridians": 11
           }
         },
         {
           "level": 8,
           "expToNext": 384800,
           "attrs": {
-            "constitution": 2,
-            "spirit": 2,
-            "perception": 2,
-            "talent": 1
+            "talent": 9,
+            "meridians": 12
           }
         },
         {
           "level": 9,
           "expToNext": 426400,
           "attrs": {
-            "constitution": 2,
-            "spirit": 2,
-            "perception": 2,
-            "talent": 1
+            "talent": 9,
+            "meridians": 12
           }
         },
         {
           "level": 10,
           "expToNext": 478400,
           "attrs": {
-            "constitution": 2,
-            "spirit": 2,
-            "perception": 2,
-            "talent": 1
+            "talent": 9,
+            "meridians": 12
           }
         },
         {
           "level": 11,
           "expToNext": 540800,
           "attrs": {
-            "constitution": 2,
-            "spirit": 2,
-            "perception": 2,
-            "talent": 1
+            "talent": 10,
+            "meridians": 12
           }
         },
         {
           "level": 12,
           "expToNext": 0,
           "attrs": {
-            "constitution": 2,
-            "spirit": 2,
-            "perception": 1,
-            "talent": 1
+            "talent": 10,
+            "meridians": 12
           }
         }
       ]
@@ -1999,6 +1893,7 @@
     {
       "id": "duanjin_zhuixing",
       "name": "断金追星术",
+      "desc": "金炁破空如流星追月，一击既出、千里锁敌。",
       "grade": "yellow",
       "category": "internal",
       "realmLv": 26,
@@ -2008,120 +1903,96 @@
           "level": 1,
           "expToNext": 187200,
           "attrs": {
-            "constitution": 3,
-            "spirit": 3,
-            "perception": 2,
-            "talent": 2
+            "perception": 8,
+            "strength": 12
           }
         },
         {
           "level": 2,
           "expToNext": 208000,
           "attrs": {
-            "constitution": 2,
-            "spirit": 3,
-            "perception": 2,
-            "talent": 2
+            "perception": 8,
+            "strength": 12
           }
         },
         {
           "level": 3,
           "expToNext": 228800,
           "attrs": {
-            "constitution": 2,
-            "spirit": 3,
-            "perception": 2,
-            "talent": 2
+            "perception": 8,
+            "strength": 12
           }
         },
         {
           "level": 4,
           "expToNext": 249600,
           "attrs": {
-            "constitution": 2,
-            "spirit": 3,
-            "perception": 2,
-            "talent": 2
+            "perception": 8,
+            "strength": 12
           }
         },
         {
           "level": 5,
           "expToNext": 280800,
           "attrs": {
-            "constitution": 2,
-            "spirit": 2,
-            "perception": 2,
-            "talent": 2
+            "perception": 8,
+            "strength": 12
           }
         },
         {
           "level": 6,
           "expToNext": 312000,
           "attrs": {
-            "constitution": 2,
-            "spirit": 2,
-            "perception": 2,
-            "talent": 2
+            "perception": 8,
+            "strength": 12
           }
         },
         {
           "level": 7,
           "expToNext": 343200,
           "attrs": {
-            "constitution": 2,
-            "spirit": 2,
-            "perception": 2,
-            "talent": 2
+            "perception": 8,
+            "strength": 13
           }
         },
         {
           "level": 8,
           "expToNext": 384800,
           "attrs": {
-            "constitution": 2,
-            "spirit": 2,
-            "perception": 2,
-            "talent": 1
+            "perception": 8,
+            "strength": 13
           }
         },
         {
           "level": 9,
           "expToNext": 426400,
           "attrs": {
-            "constitution": 2,
-            "spirit": 2,
-            "perception": 2,
-            "talent": 1
+            "perception": 8,
+            "strength": 13
           }
         },
         {
           "level": 10,
           "expToNext": 478400,
           "attrs": {
-            "constitution": 2,
-            "spirit": 2,
-            "perception": 2,
-            "talent": 1
+            "perception": 8,
+            "strength": 13
           }
         },
         {
           "level": 11,
           "expToNext": 540800,
           "attrs": {
-            "constitution": 2,
-            "spirit": 2,
-            "perception": 2,
-            "talent": 1
+            "perception": 8,
+            "strength": 13
           }
         },
         {
           "level": 12,
           "expToNext": 0,
           "attrs": {
-            "constitution": 2,
-            "spirit": 2,
-            "perception": 1,
-            "talent": 1
+            "perception": 9,
+            "strength": 13
           }
         }
       ]
@@ -2129,6 +2000,7 @@
     {
       "id": "body_tempering_formula",
       "name": "锻体决",
+      "desc": "千锤百炼，以身为铁、以气为锤，终成金刚不坏。",
       "grade": "mystic",
       "category": "internal",
       "realmLv": 18,
@@ -2138,490 +2010,392 @@
           "level": 1,
           "expToNext": 104400,
           "attrs": {
-            "constitution": 2,
-            "spirit": 3,
-            "perception": 2,
-            "talent": 2
+            "constitution": 4,
+            "strength": 4
           }
         },
         {
           "level": 2,
           "expToNext": 108000,
           "attrs": {
-            "constitution": 2,
-            "spirit": 3,
-            "perception": 2,
-            "talent": 2
+            "constitution": 4,
+            "strength": 4
           }
         },
         {
           "level": 3,
           "expToNext": 111600,
           "attrs": {
-            "constitution": 2,
-            "spirit": 3,
-            "perception": 2,
-            "talent": 2
+            "constitution": 4,
+            "strength": 4
           }
         },
         {
           "level": 4,
           "expToNext": 120600,
           "attrs": {
-            "constitution": 2,
-            "spirit": 3,
-            "perception": 2,
-            "talent": 2
+            "constitution": 4,
+            "strength": 4
           }
         },
         {
           "level": 5,
           "expToNext": 131400,
           "attrs": {
-            "constitution": 2,
-            "spirit": 3,
-            "perception": 2,
-            "talent": 2
+            "constitution": 4,
+            "strength": 4
           }
         },
         {
           "level": 6,
           "expToNext": 145800,
           "attrs": {
-            "constitution": 2,
-            "spirit": 3,
-            "perception": 2,
-            "talent": 2
+            "constitution": 4,
+            "strength": 4
           }
         },
         {
           "level": 7,
           "expToNext": 163800,
           "attrs": {
-            "constitution": 2,
-            "spirit": 3,
-            "perception": 2,
-            "talent": 2
+            "constitution": 4,
+            "strength": 4
           }
         },
         {
           "level": 8,
           "expToNext": 185400,
           "attrs": {
-            "constitution": 2,
-            "spirit": 3,
-            "perception": 2,
-            "talent": 2
+            "constitution": 4,
+            "strength": 4
           }
         },
         {
           "level": 9,
           "expToNext": 210600,
           "attrs": {
-            "constitution": 2,
-            "spirit": 3,
-            "perception": 2,
-            "talent": 2
+            "constitution": 4,
+            "strength": 4
           }
         },
         {
           "level": 10,
           "expToNext": 237600,
           "attrs": {
-            "constitution": 2,
-            "spirit": 3,
-            "perception": 2,
-            "talent": 2
+            "constitution": 4,
+            "strength": 4
           }
         },
         {
           "level": 11,
           "expToNext": 268200,
           "attrs": {
-            "constitution": 2,
-            "spirit": 3,
-            "perception": 2,
-            "talent": 2
+            "constitution": 4,
+            "strength": 4
           }
         },
         {
           "level": 12,
           "expToNext": 302400,
           "attrs": {
-            "constitution": 2,
-            "spirit": 3,
-            "perception": 2,
-            "talent": 2
+            "constitution": 4,
+            "strength": 4
           }
         },
         {
           "level": 13,
           "expToNext": 340200,
           "attrs": {
-            "constitution": 2,
-            "spirit": 3,
-            "perception": 1,
-            "talent": 2
+            "constitution": 4,
+            "strength": 4
           }
         },
         {
           "level": 14,
           "expToNext": 381600,
           "attrs": {
-            "constitution": 2,
-            "spirit": 3,
-            "perception": 1,
-            "talent": 2
+            "constitution": 4,
+            "strength": 4
           }
         },
         {
           "level": 15,
           "expToNext": 424800,
           "attrs": {
-            "constitution": 2,
-            "spirit": 3,
-            "perception": 1,
-            "talent": 2
+            "constitution": 4,
+            "strength": 4
           }
         },
         {
           "level": 16,
           "expToNext": 471600,
           "attrs": {
-            "constitution": 2,
-            "spirit": 3,
-            "perception": 1,
-            "talent": 2
+            "constitution": 4,
+            "strength": 4
           }
         },
         {
           "level": 17,
           "expToNext": 522000,
           "attrs": {
-            "constitution": 2,
-            "spirit": 3,
-            "perception": 1,
-            "talent": 2
+            "constitution": 4,
+            "strength": 4
           }
         },
         {
           "level": 18,
           "expToNext": 576000,
           "attrs": {
-            "constitution": 2,
-            "spirit": 3,
-            "perception": 1,
-            "talent": 2
+            "constitution": 4,
+            "strength": 4
           }
         },
         {
           "level": 19,
           "expToNext": 633600,
           "attrs": {
-            "constitution": 2,
-            "spirit": 3,
-            "perception": 1,
-            "talent": 2
+            "constitution": 4,
+            "strength": 4
           }
         },
         {
           "level": 20,
           "expToNext": 671400,
           "attrs": {
-            "constitution": 2,
-            "spirit": 3,
-            "perception": 1,
-            "talent": 2
+            "constitution": 4,
+            "strength": 4
           }
         },
         {
           "level": 21,
           "expToNext": 711000,
           "attrs": {
-            "constitution": 2,
-            "spirit": 3,
-            "perception": 1,
-            "talent": 2
+            "constitution": 5,
+            "strength": 5
           }
         },
         {
           "level": 22,
           "expToNext": 754200,
           "attrs": {
-            "constitution": 2,
-            "spirit": 3,
-            "perception": 1,
-            "talent": 2
+            "constitution": 5,
+            "strength": 5
           }
         },
         {
           "level": 23,
           "expToNext": 799200,
           "attrs": {
-            "constitution": 2,
-            "spirit": 3,
-            "perception": 1,
-            "talent": 2
+            "constitution": 5,
+            "strength": 5
           }
         },
         {
           "level": 24,
           "expToNext": 847800,
           "attrs": {
-            "constitution": 2,
-            "spirit": 3,
-            "perception": 1,
-            "talent": 2
+            "constitution": 5,
+            "strength": 5
           }
         },
         {
           "level": 25,
           "expToNext": 898200,
           "attrs": {
-            "constitution": 2,
-            "spirit": 3,
-            "perception": 1,
-            "talent": 2
+            "constitution": 5,
+            "strength": 5
           }
         },
         {
           "level": 26,
           "expToNext": 952200,
           "attrs": {
-            "constitution": 2,
-            "spirit": 2,
-            "perception": 1,
-            "talent": 2
+            "constitution": 5,
+            "strength": 5
           }
         },
         {
           "level": 27,
           "expToNext": 1009800,
           "attrs": {
-            "constitution": 2,
-            "spirit": 2,
-            "perception": 1,
-            "talent": 2
+            "constitution": 5,
+            "strength": 5
           }
         },
         {
           "level": 28,
           "expToNext": 1071000,
           "attrs": {
-            "constitution": 2,
-            "spirit": 2,
-            "perception": 1,
-            "talent": 2
+            "constitution": 5,
+            "strength": 5
           }
         },
         {
           "level": 29,
           "expToNext": 1135800,
           "attrs": {
-            "constitution": 2,
-            "spirit": 2,
-            "perception": 1,
-            "talent": 2
+            "constitution": 5,
+            "strength": 5
           }
         },
         {
           "level": 30,
           "expToNext": 1204200,
           "attrs": {
-            "constitution": 2,
-            "spirit": 2,
-            "perception": 1,
-            "talent": 2
+            "constitution": 5,
+            "strength": 5
           }
         },
         {
           "level": 31,
           "expToNext": 1276200,
           "attrs": {
-            "constitution": 2,
-            "spirit": 2,
-            "perception": 1,
-            "talent": 2
+            "constitution": 5,
+            "strength": 5
           }
         },
         {
           "level": 32,
           "expToNext": 1353600,
           "attrs": {
-            "constitution": 2,
-            "spirit": 2,
-            "perception": 1,
-            "talent": 2
+            "constitution": 5,
+            "strength": 5
           }
         },
         {
           "level": 33,
           "expToNext": 1434600,
           "attrs": {
-            "constitution": 2,
-            "spirit": 2,
-            "perception": 1,
-            "talent": 2
+            "constitution": 5,
+            "strength": 5
           }
         },
         {
           "level": 34,
           "expToNext": 1521000,
           "attrs": {
-            "constitution": 2,
-            "spirit": 2,
-            "perception": 1,
-            "talent": 2
+            "constitution": 5,
+            "strength": 5
           }
         },
         {
           "level": 35,
           "expToNext": 1612800,
           "attrs": {
-            "constitution": 2,
-            "spirit": 2,
-            "perception": 1,
-            "talent": 2
+            "constitution": 5,
+            "strength": 5
           }
         },
         {
           "level": 36,
           "expToNext": 1710000,
           "attrs": {
-            "constitution": 2,
-            "spirit": 2,
-            "perception": 1,
-            "talent": 2
+            "constitution": 5,
+            "strength": 5
           }
         },
         {
           "level": 37,
           "expToNext": 1812600,
           "attrs": {
-            "constitution": 2,
-            "spirit": 2,
-            "perception": 1,
-            "talent": 2
+            "constitution": 5,
+            "strength": 5
           }
         },
         {
           "level": 38,
           "expToNext": 1920600,
           "attrs": {
-            "constitution": 2,
-            "spirit": 2,
-            "perception": 1,
-            "talent": 2
+            "constitution": 5,
+            "strength": 5
           }
         },
         {
           "level": 39,
           "expToNext": 2035800,
           "attrs": {
-            "constitution": 2,
-            "spirit": 2,
-            "perception": 1,
-            "talent": 2
+            "constitution": 5,
+            "strength": 5
           }
         },
         {
           "level": 40,
           "expToNext": 2158200,
           "attrs": {
-            "constitution": 2,
-            "spirit": 2,
-            "perception": 1,
-            "talent": 2
+            "constitution": 5,
+            "strength": 5
           }
         },
         {
           "level": 41,
           "expToNext": 2287800,
           "attrs": {
-            "constitution": 2,
-            "spirit": 2,
-            "perception": 1,
-            "talent": 2
+            "constitution": 5,
+            "strength": 5
           }
         },
         {
           "level": 42,
           "expToNext": 2424600,
           "attrs": {
-            "constitution": 2,
-            "spirit": 2,
-            "perception": 1,
-            "talent": 2
+            "constitution": 5,
+            "strength": 5
           }
         },
         {
           "level": 43,
           "expToNext": 2570400,
           "attrs": {
-            "constitution": 2,
-            "spirit": 2,
-            "perception": 1,
-            "talent": 2
+            "constitution": 5,
+            "strength": 5
           }
         },
         {
           "level": 44,
           "expToNext": 2725200,
           "attrs": {
-            "constitution": 2,
-            "spirit": 2,
-            "perception": 1,
-            "talent": 1
+            "constitution": 5,
+            "strength": 5
           }
         },
         {
           "level": 45,
           "expToNext": 2889000,
           "attrs": {
-            "constitution": 2,
-            "spirit": 2,
-            "perception": 1,
-            "talent": 1
+            "constitution": 5,
+            "strength": 5
           }
         },
         {
           "level": 46,
           "expToNext": 3061800,
           "attrs": {
-            "constitution": 2,
-            "spirit": 2,
-            "perception": 1,
-            "talent": 1
+            "constitution": 5,
+            "strength": 5
           }
         },
         {
           "level": 47,
           "expToNext": 3245400,
           "attrs": {
-            "constitution": 2,
-            "spirit": 2,
-            "perception": 1,
-            "talent": 1
+            "constitution": 5,
+            "strength": 5
           }
         },
         {
           "level": 48,
           "expToNext": 3439800,
           "attrs": {
-            "constitution": 2,
-            "spirit": 2,
-            "perception": 1,
-            "talent": 1
+            "constitution": 5,
+            "strength": 5
           }
         },
         {
           "level": 49,
           "expToNext": 0,
           "attrs": {
-            "constitution": 2,
-            "spirit": 2,
-            "perception": 1,
-            "talent": 1
+            "constitution": 5,
+            "strength": 5
           }
         }
       ]
@@ -2629,6 +2403,7 @@
     {
       "id": "cloudchase_steps",
       "name": "分光步",
+      "desc": "步踏光影之间，身随念转而人已换位。",
       "grade": "yellow",
       "category": "internal",
       "realmLv": 12,
@@ -2638,100 +2413,80 @@
           "level": 1,
           "expToNext": 33600,
           "attrs": {
-            "constitution": 3,
-            "spirit": 3,
-            "perception": 3,
-            "talent": 2
+            "perception": 17,
+            "meridians": 4
           }
         },
         {
           "level": 2,
           "expToNext": 37200,
           "attrs": {
-            "constitution": 3,
-            "spirit": 3,
-            "perception": 3,
-            "talent": 2
+            "perception": 17,
+            "meridians": 4
           }
         },
         {
           "level": 3,
           "expToNext": 40800,
           "attrs": {
-            "constitution": 3,
-            "spirit": 3,
-            "perception": 3,
-            "talent": 2
+            "perception": 17,
+            "meridians": 4
           }
         },
         {
           "level": 4,
           "expToNext": 45600,
           "attrs": {
-            "constitution": 3,
-            "spirit": 3,
-            "perception": 2,
-            "talent": 2
+            "perception": 17,
+            "meridians": 4
           }
         },
         {
           "level": 5,
           "expToNext": 50400,
           "attrs": {
-            "constitution": 3,
-            "spirit": 3,
-            "perception": 2,
-            "talent": 2
+            "perception": 17,
+            "meridians": 4
           }
         },
         {
           "level": 6,
           "expToNext": 55200,
           "attrs": {
-            "constitution": 2,
-            "spirit": 3,
-            "perception": 2,
-            "talent": 2
+            "perception": 17,
+            "meridians": 5
           }
         },
         {
           "level": 7,
           "expToNext": 61200,
           "attrs": {
-            "constitution": 2,
-            "spirit": 3,
-            "perception": 2,
-            "talent": 2
+            "perception": 17,
+            "meridians": 5
           }
         },
         {
           "level": 8,
           "expToNext": 68400,
           "attrs": {
-            "constitution": 2,
-            "spirit": 3,
-            "perception": 2,
-            "talent": 2
+            "perception": 17,
+            "meridians": 5
           }
         },
         {
           "level": 9,
           "expToNext": 75600,
           "attrs": {
-            "constitution": 2,
-            "spirit": 2,
-            "perception": 2,
-            "talent": 2
+            "perception": 17,
+            "meridians": 5
           }
         },
         {
           "level": 10,
           "expToNext": 0,
           "attrs": {
-            "constitution": 2,
-            "spirit": 2,
-            "perception": 2,
-            "talent": 1
+            "perception": 17,
+            "meridians": 5
           }
         }
       ]
@@ -2739,6 +2494,7 @@
     {
       "id": "genghua_ningfeng",
       "name": "庚华凝锋诀",
+      "desc": "锋炁成线，直破前方三步。",
       "grade": "yellow",
       "category": "arts",
       "realmLv": 19,
@@ -2867,6 +2623,7 @@
     {
       "id": "golden_lock_body",
       "name": "固元功",
+      "desc": "封关锁窍，使元气不泄、根基不摇。",
       "grade": "yellow",
       "category": "internal",
       "realmLv": 9,
@@ -2876,100 +2633,80 @@
           "level": 1,
           "expToNext": 59400,
           "attrs": {
-            "constitution": 3,
-            "spirit": 3,
-            "perception": 3,
-            "talent": 2
+            "talent": 11,
+            "meridians": 8
           }
         },
         {
           "level": 2,
           "expToNext": 65700,
           "attrs": {
-            "constitution": 3,
-            "spirit": 3,
-            "perception": 3,
-            "talent": 2
+            "talent": 11,
+            "meridians": 8
           }
         },
         {
           "level": 3,
           "expToNext": 72450,
           "attrs": {
-            "constitution": 3,
-            "spirit": 3,
-            "perception": 3,
-            "talent": 2
+            "talent": 11,
+            "meridians": 8
           }
         },
         {
           "level": 4,
           "expToNext": 79650,
           "attrs": {
-            "constitution": 3,
-            "spirit": 3,
-            "perception": 2,
-            "talent": 2
+            "talent": 11,
+            "meridians": 8
           }
         },
         {
           "level": 5,
           "expToNext": 87300,
           "attrs": {
-            "constitution": 3,
-            "spirit": 3,
-            "perception": 2,
-            "talent": 2
+            "talent": 11,
+            "meridians": 8
           }
         },
         {
           "level": 6,
           "expToNext": 95400,
           "attrs": {
-            "constitution": 2,
-            "spirit": 3,
-            "perception": 2,
-            "talent": 2
+            "talent": 11,
+            "meridians": 8
           }
         },
         {
           "level": 7,
           "expToNext": 103950,
           "attrs": {
-            "constitution": 2,
-            "spirit": 3,
-            "perception": 2,
-            "talent": 2
+            "talent": 11,
+            "meridians": 8
           }
         },
         {
           "level": 8,
           "expToNext": 112950,
           "attrs": {
-            "constitution": 2,
-            "spirit": 3,
-            "perception": 2,
-            "talent": 2
+            "talent": 11,
+            "meridians": 8
           }
         },
         {
           "level": 9,
           "expToNext": 122400,
           "attrs": {
-            "constitution": 2,
-            "spirit": 2,
-            "perception": 2,
-            "talent": 2
+            "talent": 11,
+            "meridians": 8
           }
         },
         {
           "level": 10,
           "expToNext": 0,
           "attrs": {
-            "constitution": 2,
-            "spirit": 2,
-            "perception": 2,
-            "talent": 1
+            "talent": 11,
+            "meridians": 8
           }
         }
       ]
@@ -2977,6 +2714,7 @@
     {
       "id": "guicang_hemai",
       "name": "归藏合脉经",
+      "desc": "归藏摄杂，敌身所负枷锁愈重，收束之力愈狠。",
       "grade": "yellow",
       "category": "arts",
       "realmLv": 19,
@@ -3081,6 +2819,7 @@
     {
       "id": "frost_sutra",
       "name": "寒魄经",
+      "desc": "寒魄化霜，一念封身。",
       "grade": "mystic",
       "category": "arts",
       "realmLv": 16,
@@ -3219,6 +2958,7 @@
     {
       "id": "hanxi_ximai",
       "name": "寒汐洗脉法",
+      "desc": "寒汐入体，凝潮压敌。",
       "grade": "yellow",
       "category": "arts",
       "realmLv": 19,
@@ -3358,6 +3098,7 @@
     {
       "id": "houtu_chengyuan",
       "name": "厚土承元功",
+      "desc": "土劲厚重沉实，一击之后再叠山岳之护。",
       "grade": "yellow",
       "category": "arts",
       "realmLv": 19,
@@ -3477,6 +3218,7 @@
     {
       "id": "huangting_zaishan",
       "name": "黄庭载山经",
+      "desc": "黄庭借山成势，以厚土重压敌身。",
       "grade": "earth",
       "category": "arts",
       "realmLv": 27,
@@ -3604,6 +3346,7 @@
     {
       "id": "hunyuan_zaimai",
       "name": "混元载脉图",
+      "desc": "混元为图、脉络为载，以天地之力重塑己身经脉山河。",
       "grade": "earth",
       "category": "internal",
       "realmLv": 27,
@@ -3613,140 +3356,126 @@
           "level": 1,
           "expToNext": 604800,
           "attrs": {
-            "constitution": 53,
-            "spirit": 56,
-            "perception": 31,
-            "talent": 51
+            "spirit": 20,
+            "talent": 20,
+            "meridians": 22
           }
         },
         {
           "level": 2,
           "expToNext": 669600,
           "attrs": {
-            "constitution": 53,
-            "spirit": 56,
-            "perception": 31,
-            "talent": 51
+            "spirit": 20,
+            "talent": 20,
+            "meridians": 22
           }
         },
         {
           "level": 3,
           "expToNext": 745200,
           "attrs": {
-            "constitution": 53,
-            "spirit": 56,
-            "perception": 31,
-            "talent": 51
+            "spirit": 20,
+            "talent": 20,
+            "meridians": 23
           }
         },
         {
           "level": 4,
           "expToNext": 831600,
           "attrs": {
-            "constitution": 53,
-            "spirit": 56,
-            "perception": 31,
-            "talent": 51
+            "spirit": 20,
+            "talent": 20,
+            "meridians": 23
           }
         },
         {
           "level": 5,
           "expToNext": 928800,
           "attrs": {
-            "constitution": 53,
-            "spirit": 55,
-            "perception": 31,
-            "talent": 51
+            "spirit": 20,
+            "talent": 20,
+            "meridians": 23
           }
         },
         {
           "level": 6,
           "expToNext": 1036800,
           "attrs": {
-            "constitution": 53,
-            "spirit": 55,
-            "perception": 31,
-            "talent": 51
+            "spirit": 20,
+            "talent": 20,
+            "meridians": 23
           }
         },
         {
           "level": 7,
           "expToNext": 1155600,
           "attrs": {
-            "constitution": 53,
-            "spirit": 55,
-            "perception": 31,
-            "talent": 51
+            "spirit": 20,
+            "talent": 20,
+            "meridians": 23
           }
         },
         {
           "level": 8,
           "expToNext": 1285200,
           "attrs": {
-            "constitution": 53,
-            "spirit": 55,
-            "perception": 31,
-            "talent": 51
+            "spirit": 20,
+            "talent": 20,
+            "meridians": 23
           }
         },
         {
           "level": 9,
           "expToNext": 1436400,
           "attrs": {
-            "constitution": 53,
-            "spirit": 55,
-            "perception": 31,
-            "talent": 51
+            "spirit": 20,
+            "talent": 20,
+            "meridians": 23
           }
         },
         {
           "level": 10,
           "expToNext": 1598400,
           "attrs": {
-            "constitution": 53,
-            "spirit": 55,
-            "perception": 31,
-            "talent": 51
+            "spirit": 20,
+            "talent": 20,
+            "meridians": 23
           }
         },
         {
           "level": 11,
           "expToNext": 1771200,
           "attrs": {
-            "constitution": 52,
-            "spirit": 55,
-            "perception": 30,
-            "talent": 51
+            "spirit": 20,
+            "talent": 21,
+            "meridians": 23
           }
         },
         {
           "level": 12,
           "expToNext": 1965600,
           "attrs": {
-            "constitution": 52,
-            "spirit": 55,
-            "perception": 30,
-            "talent": 50
+            "spirit": 20,
+            "talent": 21,
+            "meridians": 23
           }
         },
         {
           "level": 13,
           "expToNext": 2181600,
           "attrs": {
-            "constitution": 52,
-            "spirit": 55,
-            "perception": 30,
-            "talent": 50
+            "spirit": 20,
+            "talent": 21,
+            "meridians": 23
           }
         },
         {
           "level": 14,
           "expToNext": 0,
           "attrs": {
-            "constitution": 52,
-            "spirit": 55,
-            "perception": 30,
-            "talent": 50
+            "spirit": 20,
+            "talent": 21,
+            "meridians": 23
           }
         }
       ]
@@ -3754,6 +3483,7 @@
     {
       "id": "jinluo_lifeng",
       "name": "金络砺锋功",
+      "desc": "金炁走络如刀锋过石，越磨越利。",
       "grade": "yellow",
       "category": "internal",
       "realmLv": 23,
@@ -3763,120 +3493,96 @@
           "level": 1,
           "expToNext": 165600,
           "attrs": {
-            "constitution": 3,
-            "spirit": 3,
-            "perception": 2,
-            "talent": 2
+            "strength": 13,
+            "meridians": 6
           }
         },
         {
           "level": 2,
           "expToNext": 184000,
           "attrs": {
-            "constitution": 2,
-            "spirit": 3,
-            "perception": 2,
-            "talent": 2
+            "strength": 13,
+            "meridians": 6
           }
         },
         {
           "level": 3,
           "expToNext": 202400,
           "attrs": {
-            "constitution": 2,
-            "spirit": 3,
-            "perception": 2,
-            "talent": 2
+            "strength": 13,
+            "meridians": 6
           }
         },
         {
           "level": 4,
           "expToNext": 220800,
           "attrs": {
-            "constitution": 2,
-            "spirit": 3,
-            "perception": 2,
-            "talent": 2
+            "strength": 13,
+            "meridians": 6
           }
         },
         {
           "level": 5,
           "expToNext": 248400,
           "attrs": {
-            "constitution": 2,
-            "spirit": 2,
-            "perception": 2,
-            "talent": 2
+            "strength": 13,
+            "meridians": 6
           }
         },
         {
           "level": 6,
           "expToNext": 276000,
           "attrs": {
-            "constitution": 2,
-            "spirit": 2,
-            "perception": 2,
-            "talent": 2
+            "strength": 13,
+            "meridians": 6
           }
         },
         {
           "level": 7,
           "expToNext": 303600,
           "attrs": {
-            "constitution": 2,
-            "spirit": 2,
-            "perception": 2,
-            "talent": 2
+            "strength": 13,
+            "meridians": 6
           }
         },
         {
           "level": 8,
           "expToNext": 340400,
           "attrs": {
-            "constitution": 2,
-            "spirit": 2,
-            "perception": 2,
-            "talent": 1
+            "strength": 13,
+            "meridians": 6
           }
         },
         {
           "level": 9,
           "expToNext": 377200,
           "attrs": {
-            "constitution": 2,
-            "spirit": 2,
-            "perception": 2,
-            "talent": 1
+            "strength": 14,
+            "meridians": 6
           }
         },
         {
           "level": 10,
           "expToNext": 423200,
           "attrs": {
-            "constitution": 2,
-            "spirit": 2,
-            "perception": 2,
-            "talent": 1
+            "strength": 14,
+            "meridians": 7
           }
         },
         {
           "level": 11,
           "expToNext": 478400,
           "attrs": {
-            "constitution": 2,
-            "spirit": 2,
-            "perception": 1,
-            "talent": 1
+            "strength": 14,
+            "meridians": 7
           }
         },
         {
           "level": 12,
           "expToNext": 0,
           "attrs": {
-            "constitution": 2,
-            "spirit": 2,
-            "perception": 1,
-            "talent": 1
+            "strength": 14,
+            "meridians": 7
           }
         }
       ]
@@ -3884,6 +3590,7 @@
     {
       "id": "thunder_palm",
       "name": "惊雷掌",
+      "desc": "掌劲如雷，先裂护体，再催雷殛入身。",
       "grade": "mystic",
       "category": "arts",
       "realmLv": 14,
@@ -4015,6 +3722,7 @@
     {
       "id": "monster_construct_arts",
       "name": "矿核镇压",
+      "desc": "矿核重击镇住正面，岩壳层层叠加，愈战愈固。",
       "grade": "mystic",
       "category": "arts",
       "realmLv": 1,
@@ -4138,73 +3846,42 @@
       "layers": [
         {
           "level": 1,
-          "expToNext": 2000,
-          "attrs": {
-            "constitution": 3,
-            "talent": 2
-          }
+          "expToNext": 2000
         },
         {
           "level": 2,
-          "expToNext": 2300,
-          "attrs": {
-            "constitution": 3,
-            "talent": 2
-          }
+          "expToNext": 2300
         },
         {
           "level": 3,
-          "expToNext": 2600,
-          "attrs": {
-            "constitution": 3,
-            "talent": 2
-          }
+          "expToNext": 2600
         },
         {
           "level": 4,
-          "expToNext": 3000,
-          "attrs": {
-            "constitution": 4,
-            "talent": 2
-          }
+          "expToNext": 3000
         },
         {
           "level": 5,
-          "expToNext": 3500,
-          "attrs": {
-            "constitution": 4,
-            "talent": 3
-          }
+          "expToNext": 3500
         },
         {
           "level": 6,
-          "expToNext": 4000,
-          "attrs": {
-            "constitution": 4,
-            "talent": 3
-          }
+          "expToNext": 4000
         },
         {
           "level": 7,
-          "expToNext": 4600,
-          "attrs": {
-            "constitution": 5,
-            "talent": 3
-          }
+          "expToNext": 4600
         },
         {
           "level": 8,
-          "expToNext": 0,
-          "attrs": {
-            "constitution": 5,
-            "talent": 4
-          }
+          "expToNext": 0
         }
       ]
     },
     {
       "id": "kunyue_zhenhai",
       "name": "坤岳镇海篇",
+      "desc": "坤岳重压，护体更进一步。",
       "grade": "mystic",
       "category": "arts",
       "realmLv": 23,
@@ -4332,6 +4009,7 @@
     {
       "id": "liyan_duanxi",
       "name": "离炎锻息诀",
+      "desc": "离炎成网，烈息罩身。",
       "grade": "yellow",
       "category": "arts",
       "realmLv": 19,
@@ -4459,6 +4137,7 @@
     {
       "id": "cloud_blade",
       "name": "流云刀谱",
+      "desc": "身随刀走，刀随风掠，一线截开前路。",
       "grade": "yellow",
       "category": "arts",
       "realmLv": 13,
@@ -4566,6 +4245,7 @@
     {
       "id": "manzhi_jiaoluo",
       "name": "蔓织绞络术",
+      "desc": "气如蔓藤绞络，缠敌于无形、束之于方寸。",
       "grade": "yellow",
       "category": "internal",
       "realmLv": 26,
@@ -4575,120 +4255,96 @@
           "level": 1,
           "expToNext": 187200,
           "attrs": {
-            "constitution": 3,
-            "spirit": 3,
-            "perception": 2,
-            "talent": 2
+            "perception": 9,
+            "meridians": 11
           }
         },
         {
           "level": 2,
           "expToNext": 208000,
           "attrs": {
-            "constitution": 2,
-            "spirit": 3,
-            "perception": 2,
-            "talent": 2
+            "perception": 9,
+            "meridians": 11
           }
         },
         {
           "level": 3,
           "expToNext": 228800,
           "attrs": {
-            "constitution": 2,
-            "spirit": 3,
-            "perception": 2,
-            "talent": 2
+            "perception": 9,
+            "meridians": 11
           }
         },
         {
           "level": 4,
           "expToNext": 249600,
           "attrs": {
-            "constitution": 2,
-            "spirit": 3,
-            "perception": 2,
-            "talent": 2
+            "perception": 9,
+            "meridians": 11
           }
         },
         {
           "level": 5,
           "expToNext": 280800,
           "attrs": {
-            "constitution": 2,
-            "spirit": 2,
-            "perception": 2,
-            "talent": 2
+            "perception": 9,
+            "meridians": 11
           }
         },
         {
           "level": 6,
           "expToNext": 312000,
           "attrs": {
-            "constitution": 2,
-            "spirit": 2,
-            "perception": 2,
-            "talent": 2
+            "perception": 10,
+            "meridians": 11
           }
         },
         {
           "level": 7,
           "expToNext": 343200,
           "attrs": {
-            "constitution": 2,
-            "spirit": 2,
-            "perception": 2,
-            "talent": 2
+            "perception": 10,
+            "meridians": 11
           }
         },
         {
           "level": 8,
           "expToNext": 384800,
           "attrs": {
-            "constitution": 2,
-            "spirit": 2,
-            "perception": 2,
-            "talent": 1
+            "perception": 10,
+            "meridians": 11
           }
         },
         {
           "level": 9,
           "expToNext": 426400,
           "attrs": {
-            "constitution": 2,
-            "spirit": 2,
-            "perception": 2,
-            "talent": 1
+            "perception": 10,
+            "meridians": 11
           }
         },
         {
           "level": 10,
           "expToNext": 478400,
           "attrs": {
-            "constitution": 2,
-            "spirit": 2,
-            "perception": 2,
-            "talent": 1
+            "perception": 10,
+            "meridians": 11
           }
         },
         {
           "level": 11,
           "expToNext": 540800,
           "attrs": {
-            "constitution": 2,
-            "spirit": 2,
-            "perception": 1,
-            "talent": 1
+            "perception": 10,
+            "meridians": 11
           }
         },
         {
           "level": 12,
           "expToNext": 0,
           "attrs": {
-            "constitution": 2,
-            "spirit": 2,
-            "perception": 1,
-            "talent": 1
+            "perception": 10,
+            "meridians": 11
           }
         }
       ]
@@ -4696,6 +4352,7 @@
     {
       "id": "bright_eye_sutra",
       "name": "明目经",
+      "desc": "炼目如镜，照见秋毫，神识随之清明。",
       "grade": "yellow",
       "category": "internal",
       "realmLv": 12,
@@ -4705,100 +4362,80 @@
           "level": 1,
           "expToNext": 134400,
           "attrs": {
-            "constitution": 3,
-            "spirit": 3,
-            "perception": 3,
-            "talent": 2
+            "spirit": 15,
+            "perception": 6
           }
         },
         {
           "level": 2,
           "expToNext": 144000,
           "attrs": {
-            "constitution": 3,
-            "spirit": 3,
-            "perception": 3,
-            "talent": 2
+            "spirit": 15,
+            "perception": 6
           }
         },
         {
           "level": 3,
           "expToNext": 154800,
           "attrs": {
-            "constitution": 3,
-            "spirit": 3,
-            "perception": 2,
-            "talent": 2
+            "spirit": 15,
+            "perception": 6
           }
         },
         {
           "level": 4,
           "expToNext": 166800,
           "attrs": {
-            "constitution": 3,
-            "spirit": 3,
-            "perception": 2,
-            "talent": 2
+            "spirit": 15,
+            "perception": 6
           }
         },
         {
           "level": 5,
           "expToNext": 180000,
           "attrs": {
-            "constitution": 3,
-            "spirit": 3,
-            "perception": 2,
-            "talent": 2
+            "spirit": 15,
+            "perception": 6
           }
         },
         {
           "level": 6,
           "expToNext": 194400,
           "attrs": {
-            "constitution": 2,
-            "spirit": 3,
-            "perception": 2,
-            "talent": 2
+            "spirit": 15,
+            "perception": 7
           }
         },
         {
           "level": 7,
           "expToNext": 210000,
           "attrs": {
-            "constitution": 2,
-            "spirit": 3,
-            "perception": 2,
-            "talent": 2
+            "spirit": 15,
+            "perception": 7
           }
         },
         {
           "level": 8,
           "expToNext": 226800,
           "attrs": {
-            "constitution": 2,
-            "spirit": 3,
-            "perception": 2,
-            "talent": 2
+            "spirit": 15,
+            "perception": 7
           }
         },
         {
           "level": 9,
           "expToNext": 244800,
           "attrs": {
-            "constitution": 2,
-            "spirit": 2,
-            "perception": 2,
-            "talent": 2
+            "spirit": 15,
+            "perception": 7
           }
         },
         {
           "level": 10,
           "expToNext": 0,
           "attrs": {
-            "constitution": 2,
-            "spirit": 2,
-            "perception": 2,
-            "talent": 1
+            "spirit": 15,
+            "perception": 7
           }
         }
       ]
@@ -4806,6 +4443,7 @@
     {
       "id": "ningchao_hushen",
       "name": "凝潮护身经",
+      "desc": "引潮入体，层层叠护，如立潮中而不湿衣。",
       "grade": "yellow",
       "category": "internal",
       "realmLv": 23,
@@ -4815,120 +4453,108 @@
           "level": 1,
           "expToNext": 165600,
           "attrs": {
-            "constitution": 3,
-            "spirit": 3,
-            "perception": 2,
-            "talent": 2
+            "constitution": 10,
+            "talent": 6,
+            "meridians": 2
           }
         },
         {
           "level": 2,
           "expToNext": 184000,
           "attrs": {
-            "constitution": 2,
-            "spirit": 3,
-            "perception": 2,
-            "talent": 2
+            "constitution": 10,
+            "talent": 6,
+            "meridians": 3
           }
         },
         {
           "level": 3,
           "expToNext": 202400,
           "attrs": {
-            "constitution": 2,
-            "spirit": 3,
-            "perception": 2,
-            "talent": 2
+            "constitution": 10,
+            "talent": 6,
+            "meridians": 3
           }
         },
         {
           "level": 4,
           "expToNext": 220800,
           "attrs": {
-            "constitution": 2,
-            "spirit": 3,
-            "perception": 2,
-            "talent": 2
+            "constitution": 10,
+            "talent": 6,
+            "meridians": 3
           }
         },
         {
           "level": 5,
           "expToNext": 248400,
           "attrs": {
-            "constitution": 2,
-            "spirit": 2,
-            "perception": 2,
-            "talent": 2
+            "constitution": 10,
+            "talent": 7,
+            "meridians": 3
           }
         },
         {
           "level": 6,
           "expToNext": 276000,
           "attrs": {
-            "constitution": 2,
-            "spirit": 2,
-            "perception": 2,
-            "talent": 2
+            "constitution": 10,
+            "talent": 7,
+            "meridians": 3
           }
         },
         {
           "level": 7,
           "expToNext": 303600,
           "attrs": {
-            "constitution": 2,
-            "spirit": 2,
-            "perception": 2,
-            "talent": 2
+            "constitution": 10,
+            "talent": 7,
+            "meridians": 3
           }
         },
         {
           "level": 8,
           "expToNext": 340400,
           "attrs": {
-            "constitution": 2,
-            "spirit": 2,
-            "perception": 2,
-            "talent": 1
+            "constitution": 10,
+            "talent": 7,
+            "meridians": 3
           }
         },
         {
           "level": 9,
           "expToNext": 377200,
           "attrs": {
-            "constitution": 2,
-            "spirit": 2,
-            "perception": 2,
-            "talent": 1
+            "constitution": 10,
+            "talent": 7,
+            "meridians": 3
           }
         },
         {
           "level": 10,
           "expToNext": 423200,
           "attrs": {
-            "constitution": 2,
-            "spirit": 2,
-            "perception": 2,
-            "talent": 1
+            "constitution": 10,
+            "talent": 7,
+            "meridians": 3
           }
         },
         {
           "level": 11,
           "expToNext": 478400,
           "attrs": {
-            "constitution": 2,
-            "spirit": 2,
-            "perception": 1,
-            "talent": 1
+            "constitution": 10,
+            "talent": 7,
+            "meridians": 3
           }
         },
         {
           "level": 12,
           "expToNext": 0,
           "attrs": {
-            "constitution": 2,
-            "spirit": 2,
-            "perception": 1,
-            "talent": 1
+            "constitution": 10,
+            "talent": 7,
+            "meridians": 3
           }
         }
       ]
@@ -4936,6 +4562,7 @@
     {
       "id": "ningqi_chengji",
       "name": "凝气成基法",
+      "desc": "以气为砖、以脉为渠，凝虚成实，筑就大道之基。",
       "grade": "heaven",
       "category": "internal",
       "realmLv": 31,
@@ -4945,80 +4572,94 @@
           "level": 1,
           "expToNext": 179800,
           "attrs": {
-            "constitution": 7,
-            "talent": 7
+            "constitution": 6,
+            "meridians": 6
           }
         },
         {
           "level": 2,
           "expToNext": 186000,
           "attrs": {
-            "constitution": 7,
-            "talent": 7
+            "constitution": 6,
+            "meridians": 6
           }
         },
         {
           "level": 3,
           "expToNext": 192200,
           "attrs": {
-            "constitution": 7,
-            "talent": 7
+            "constitution": 6,
+            "meridians": 6
           }
         },
         {
           "level": 4,
           "expToNext": 207700,
           "attrs": {
-            "constitution": 7,
-            "talent": 7
+            "constitution": 6,
+            "meridians": 6
           }
         },
         {
           "level": 5,
           "expToNext": 226300,
           "attrs": {
-            "constitution": 7,
-            "talent": 7
+            "constitution": 6,
+            "meridians": 6
           }
         },
         {
           "level": 6,
           "expToNext": 251100,
           "attrs": {
-            "constitution": 7,
-            "talent": 7
+            "constitution": 6,
+            "meridians": 6
           }
         },
         {
           "level": 7,
           "expToNext": 282100,
           "attrs": {
-            "constitution": 7,
-            "talent": 7
-          }
+            "constitution": 6,
+            "meridians": 6
+          },
+          "qiProjection": [
+            {
+              "selector": {
+                "families": [
+                  "aura"
+                ],
+                "elements": [
+                  "neutral"
+                ]
+              },
+              "visibility": "absorbable",
+              "efficiencyBpMultiplier": 10100
+            }
+          ]
         },
         {
           "level": 8,
           "expToNext": 319300,
           "attrs": {
-            "constitution": 7,
-            "talent": 7
+            "constitution": 6,
+            "meridians": 6
           }
         },
         {
           "level": 9,
           "expToNext": 362700,
           "attrs": {
-            "constitution": 7,
-            "talent": 7
+            "constitution": 6,
+            "meridians": 6
           }
         },
         {
           "level": 10,
           "expToNext": 409200,
           "attrs": {
-            "constitution": 7,
-            "talent": 7
+            "constitution": 6,
+            "meridians": 6
           }
         },
         {
@@ -5026,7 +4667,7 @@
           "expToNext": 461900,
           "attrs": {
             "constitution": 7,
-            "talent": 7
+            "meridians": 7
           }
         },
         {
@@ -5034,7 +4675,7 @@
           "expToNext": 520800,
           "attrs": {
             "constitution": 7,
-            "talent": 7
+            "meridians": 7
           }
         },
         {
@@ -5042,7 +4683,7 @@
           "expToNext": 585900,
           "attrs": {
             "constitution": 7,
-            "talent": 7
+            "meridians": 7
           }
         },
         {
@@ -5050,15 +4691,29 @@
           "expToNext": 657200,
           "attrs": {
             "constitution": 7,
-            "talent": 7
-          }
+            "meridians": 7
+          },
+          "qiProjection": [
+            {
+              "selector": {
+                "families": [
+                  "aura"
+                ],
+                "elements": [
+                  "neutral"
+                ]
+              },
+              "visibility": "absorbable",
+              "efficiencyBpMultiplier": 10100
+            }
+          ]
         },
         {
           "level": 15,
           "expToNext": 731600,
           "attrs": {
             "constitution": 7,
-            "talent": 7
+            "meridians": 7
           }
         },
         {
@@ -5066,7 +4721,7 @@
           "expToNext": 812200,
           "attrs": {
             "constitution": 7,
-            "talent": 7
+            "meridians": 7
           }
         },
         {
@@ -5074,7 +4729,7 @@
           "expToNext": 899000,
           "attrs": {
             "constitution": 7,
-            "talent": 7
+            "meridians": 7
           }
         },
         {
@@ -5082,7 +4737,7 @@
           "expToNext": 992000,
           "attrs": {
             "constitution": 7,
-            "talent": 7
+            "meridians": 7
           }
         },
         {
@@ -5090,7 +4745,7 @@
           "expToNext": 1091200,
           "attrs": {
             "constitution": 7,
-            "talent": 7
+            "meridians": 7
           }
         },
         {
@@ -5098,7 +4753,7 @@
           "expToNext": 1156300,
           "attrs": {
             "constitution": 7,
-            "talent": 7
+            "meridians": 7
           }
         },
         {
@@ -5106,15 +4761,29 @@
           "expToNext": 1224500,
           "attrs": {
             "constitution": 7,
-            "talent": 7
-          }
+            "meridians": 7
+          },
+          "qiProjection": [
+            {
+              "selector": {
+                "families": [
+                  "aura"
+                ],
+                "elements": [
+                  "neutral"
+                ]
+              },
+              "visibility": "absorbable",
+              "efficiencyBpMultiplier": 10100
+            }
+          ]
         },
         {
           "level": 22,
           "expToNext": 1298900,
           "attrs": {
             "constitution": 7,
-            "talent": 7
+            "meridians": 7
           }
         },
         {
@@ -5122,7 +4791,7 @@
           "expToNext": 1376400,
           "attrs": {
             "constitution": 7,
-            "talent": 7
+            "meridians": 7
           }
         },
         {
@@ -5130,7 +4799,7 @@
           "expToNext": 1460100,
           "attrs": {
             "constitution": 7,
-            "talent": 7
+            "meridians": 7
           }
         },
         {
@@ -5138,7 +4807,7 @@
           "expToNext": 1546900,
           "attrs": {
             "constitution": 7,
-            "talent": 7
+            "meridians": 7
           }
         },
         {
@@ -5146,7 +4815,7 @@
           "expToNext": 1639900,
           "attrs": {
             "constitution": 7,
-            "talent": 7
+            "meridians": 7
           }
         },
         {
@@ -5154,7 +4823,7 @@
           "expToNext": 1739100,
           "attrs": {
             "constitution": 7,
-            "talent": 7
+            "meridians": 7
           }
         },
         {
@@ -5162,15 +4831,29 @@
           "expToNext": 1844500,
           "attrs": {
             "constitution": 7,
-            "talent": 7
-          }
+            "meridians": 7
+          },
+          "qiProjection": [
+            {
+              "selector": {
+                "families": [
+                  "aura"
+                ],
+                "elements": [
+                  "neutral"
+                ]
+              },
+              "visibility": "absorbable",
+              "efficiencyBpMultiplier": 10100
+            }
+          ]
         },
         {
           "level": 29,
           "expToNext": 1956100,
           "attrs": {
             "constitution": 7,
-            "talent": 7
+            "meridians": 7
           }
         },
         {
@@ -5178,7 +4861,7 @@
           "expToNext": 2073900,
           "attrs": {
             "constitution": 7,
-            "talent": 7
+            "meridians": 7
           }
         },
         {
@@ -5186,7 +4869,7 @@
           "expToNext": 2197900,
           "attrs": {
             "constitution": 7,
-            "talent": 7
+            "meridians": 7
           }
         },
         {
@@ -5194,7 +4877,7 @@
           "expToNext": 2331200,
           "attrs": {
             "constitution": 7,
-            "talent": 7
+            "meridians": 7
           }
         },
         {
@@ -5202,7 +4885,7 @@
           "expToNext": 2470700,
           "attrs": {
             "constitution": 7,
-            "talent": 7
+            "meridians": 7
           }
         },
         {
@@ -5210,7 +4893,7 @@
           "expToNext": 2619500,
           "attrs": {
             "constitution": 7,
-            "talent": 7
+            "meridians": 7
           }
         },
         {
@@ -5218,15 +4901,29 @@
           "expToNext": 2777600,
           "attrs": {
             "constitution": 7,
-            "talent": 7
-          }
+            "meridians": 7
+          },
+          "qiProjection": [
+            {
+              "selector": {
+                "families": [
+                  "aura"
+                ],
+                "elements": [
+                  "neutral"
+                ]
+              },
+              "visibility": "absorbable",
+              "efficiencyBpMultiplier": 10100
+            }
+          ]
         },
         {
           "level": 36,
           "expToNext": 2945000,
           "attrs": {
             "constitution": 7,
-            "talent": 7
+            "meridians": 7
           }
         },
         {
@@ -5234,110 +4931,153 @@
           "expToNext": 3121700,
           "attrs": {
             "constitution": 7,
-            "talent": 7
+            "meridians": 7
           }
         },
         {
           "level": 38,
           "expToNext": 3307700,
           "attrs": {
-            "constitution": 6,
-            "talent": 6
+            "constitution": 7,
+            "meridians": 7
           }
         },
         {
           "level": 39,
           "expToNext": 3506100,
           "attrs": {
-            "constitution": 6,
-            "talent": 6
+            "constitution": 7,
+            "meridians": 7
           }
         },
         {
           "level": 40,
           "expToNext": 3716900,
           "attrs": {
-            "constitution": 6,
-            "talent": 6
+            "constitution": 7,
+            "meridians": 7
           }
         },
         {
           "level": 41,
           "expToNext": 3940100,
           "attrs": {
-            "constitution": 6,
-            "talent": 6
+            "constitution": 7,
+            "meridians": 7
           }
         },
         {
           "level": 42,
           "expToNext": 4175700,
           "attrs": {
-            "constitution": 6,
-            "talent": 6
-          }
+            "constitution": 7,
+            "meridians": 7
+          },
+          "qiProjection": [
+            {
+              "selector": {
+                "families": [
+                  "aura"
+                ],
+                "elements": [
+                  "neutral"
+                ]
+              },
+              "visibility": "absorbable",
+              "efficiencyBpMultiplier": 10100
+            }
+          ]
         },
         {
           "level": 43,
           "expToNext": 4426800,
           "attrs": {
-            "constitution": 6,
-            "talent": 6
+            "constitution": 7,
+            "meridians": 7
           }
         },
         {
           "level": 44,
           "expToNext": 4693400,
           "attrs": {
-            "constitution": 6,
-            "talent": 6
+            "constitution": 7,
+            "meridians": 7
           }
         },
         {
           "level": 45,
           "expToNext": 4975500,
           "attrs": {
-            "constitution": 6,
-            "talent": 6
+            "constitution": 7,
+            "meridians": 7
           }
         },
         {
           "level": 46,
           "expToNext": 5273100,
           "attrs": {
-            "constitution": 6,
-            "talent": 6
+            "constitution": 7,
+            "meridians": 7
           }
         },
         {
           "level": 47,
           "expToNext": 5589300,
           "attrs": {
-            "constitution": 6,
-            "talent": 6
+            "constitution": 7,
+            "meridians": 7
           }
         },
         {
           "level": 48,
           "expToNext": 5924100,
           "attrs": {
-            "constitution": 6,
-            "talent": 6
-          }
+            "constitution": 7,
+            "meridians": 7
+          },
+          "qiProjection": [
+            {
+              "selector": {
+                "families": [
+                  "aura"
+                ],
+                "elements": [
+                  "neutral"
+                ]
+              },
+              "visibility": "absorbable",
+              "efficiencyBpMultiplier": 10100
+            }
+          ]
         },
         {
           "level": 49,
           "expToNext": 0,
           "attrs": {
-            "constitution": 6,
-            "talent": 6
-          }
+            "constitution": 7,
+            "meridians": 7
+          },
+          "qiProjection": [
+            {
+              "selector": {
+                "families": [
+                  "aura"
+                ],
+                "elements": [
+                  "neutral"
+                ]
+              },
+              "visibility": "absorbable",
+              "efficiencyBpMultiplier": 10300
+            }
+          ]
         }
       ]
     },
     {
       "id": "qingmu_sword",
       "name": "青木剑诀",
+      "desc": "青木剑气凝作一线，专取单体破敌。",
       "grade": "mortal",
       "category": "arts",
       "realmLv": 1,
@@ -5427,6 +5167,7 @@
     {
       "id": "qingmu_yangmai",
       "name": "青木养脉篇",
+      "desc": "木脉铺展，同道回生，来犯者受创。",
       "grade": "yellow",
       "category": "arts",
       "realmLv": 19,
@@ -5581,6 +5322,7 @@
     {
       "id": "qingteng_huixi",
       "name": "青藤回息诀",
+      "desc": "气如青藤绕脉，生生不息，断而再生。",
       "grade": "yellow",
       "category": "internal",
       "realmLv": 23,
@@ -5590,120 +5332,96 @@
           "level": 1,
           "expToNext": 165600,
           "attrs": {
-            "constitution": 2,
-            "spirit": 3,
-            "perception": 2,
-            "talent": 2
+            "talent": 8,
+            "meridians": 10
           }
         },
         {
           "level": 2,
           "expToNext": 184000,
           "attrs": {
-            "constitution": 2,
-            "spirit": 3,
-            "perception": 2,
-            "talent": 2
+            "talent": 8,
+            "meridians": 10
           }
         },
         {
           "level": 3,
           "expToNext": 202400,
           "attrs": {
-            "constitution": 2,
-            "spirit": 3,
-            "perception": 2,
-            "talent": 2
+            "talent": 8,
+            "meridians": 11
           }
         },
         {
           "level": 4,
           "expToNext": 220800,
           "attrs": {
-            "constitution": 2,
-            "spirit": 3,
-            "perception": 2,
-            "talent": 2
+            "talent": 9,
+            "meridians": 11
           }
         },
         {
           "level": 5,
           "expToNext": 248400,
           "attrs": {
-            "constitution": 2,
-            "spirit": 2,
-            "perception": 2,
-            "talent": 2
+            "talent": 9,
+            "meridians": 11
           }
         },
         {
           "level": 6,
           "expToNext": 276000,
           "attrs": {
-            "constitution": 2,
-            "spirit": 2,
-            "perception": 2,
-            "talent": 2
+            "talent": 9,
+            "meridians": 11
           }
         },
         {
           "level": 7,
           "expToNext": 303600,
           "attrs": {
-            "constitution": 2,
-            "spirit": 2,
-            "perception": 2,
-            "talent": 2
+            "talent": 9,
+            "meridians": 11
           }
         },
         {
           "level": 8,
           "expToNext": 340400,
           "attrs": {
-            "constitution": 2,
-            "spirit": 2,
-            "perception": 2,
-            "talent": 1
+            "talent": 9,
+            "meridians": 11
           }
         },
         {
           "level": 9,
           "expToNext": 377200,
           "attrs": {
-            "constitution": 2,
-            "spirit": 2,
-            "perception": 2,
-            "talent": 1
+            "talent": 9,
+            "meridians": 11
           }
         },
         {
           "level": 10,
           "expToNext": 423200,
           "attrs": {
-            "constitution": 2,
-            "spirit": 2,
-            "perception": 2,
-            "talent": 1
+            "talent": 9,
+            "meridians": 11
           }
         },
         {
           "level": 11,
           "expToNext": 478400,
           "attrs": {
-            "constitution": 2,
-            "spirit": 2,
-            "perception": 1,
-            "talent": 1
+            "talent": 9,
+            "meridians": 11
           }
         },
         {
           "level": 12,
           "expToNext": 0,
           "attrs": {
-            "constitution": 2,
-            "spirit": 2,
-            "perception": 1,
-            "talent": 1
+            "talent": 9,
+            "meridians": 11
           }
         }
       ]
@@ -5711,6 +5429,7 @@
     {
       "id": "monster_blade_limb_arts",
       "name": "刃肢裂杀",
+      "desc": "前肢切出刃口，回旋之间借叠刃之势越斩越深。",
       "grade": "yellow",
       "category": "arts",
       "realmLv": 1,
@@ -5832,73 +5551,42 @@
       "layers": [
         {
           "level": 1,
-          "expToNext": 1500,
-          "attrs": {
-            "perception": 3,
-            "constitution": 1
-          }
+          "expToNext": 1500
         },
         {
           "level": 2,
-          "expToNext": 1700,
-          "attrs": {
-            "perception": 3,
-            "constitution": 1
-          }
+          "expToNext": 1700
         },
         {
           "level": 3,
-          "expToNext": 2000,
-          "attrs": {
-            "perception": 3,
-            "constitution": 1
-          }
+          "expToNext": 2000
         },
         {
           "level": 4,
-          "expToNext": 2400,
-          "attrs": {
-            "perception": 3,
-            "constitution": 2
-          }
+          "expToNext": 2400
         },
         {
           "level": 5,
-          "expToNext": 2800,
-          "attrs": {
-            "perception": 4,
-            "constitution": 2
-          }
+          "expToNext": 2800
         },
         {
           "level": 6,
-          "expToNext": 3300,
-          "attrs": {
-            "perception": 4,
-            "constitution": 2
-          }
+          "expToNext": 3300
         },
         {
           "level": 7,
-          "expToNext": 3900,
-          "attrs": {
-            "perception": 4,
-            "constitution": 2
-          }
+          "expToNext": 3900
         },
         {
           "level": 8,
-          "expToNext": 0,
-          "attrs": {
-            "perception": 5,
-            "constitution": 2
-          }
+          "expToNext": 0
         }
       ]
     },
     {
       "id": "monster_star_beast_arts",
       "name": "噬星残意",
+      "desc": "先咬入残星煞意，再以裂空残啸撕裂残敌。",
       "grade": "mystic",
       "category": "arts",
       "realmLv": 1,
@@ -6005,81 +5693,42 @@
       "layers": [
         {
           "level": 1,
-          "expToNext": 2400,
-          "attrs": {
-            "constitution": 2,
-            "spirit": 2,
-            "perception": 2
-          }
+          "expToNext": 2400
         },
         {
           "level": 2,
-          "expToNext": 2700,
-          "attrs": {
-            "constitution": 2,
-            "spirit": 2,
-            "perception": 2
-          }
+          "expToNext": 2700
         },
         {
           "level": 3,
-          "expToNext": 3100,
-          "attrs": {
-            "constitution": 3,
-            "spirit": 2,
-            "perception": 2
-          }
+          "expToNext": 3100
         },
         {
           "level": 4,
-          "expToNext": 3600,
-          "attrs": {
-            "constitution": 3,
-            "spirit": 3,
-            "perception": 2
-          }
+          "expToNext": 3600
         },
         {
           "level": 5,
-          "expToNext": 4200,
-          "attrs": {
-            "constitution": 3,
-            "spirit": 3,
-            "perception": 3
-          }
+          "expToNext": 4200
         },
         {
           "level": 6,
-          "expToNext": 4900,
-          "attrs": {
-            "constitution": 4,
-            "spirit": 3,
-            "perception": 3
-          }
+          "expToNext": 4900
         },
         {
           "level": 7,
-          "expToNext": 5700,
-          "attrs": {
-            "constitution": 4,
-            "spirit": 4,
-            "perception": 3
-          }
+          "expToNext": 5700
         },
         {
           "level": 8,
-          "expToNext": 0,
-          "attrs": {
-            "constitution": 4,
-            "spirit": 4,
-            "perception": 4
-          }
+          "expToNext": 0
         }
       ]
     },
     {
       "id": "wind_step",
       "name": "踏风步",
+      "desc": "借风提身，轻灵游走。",
       "grade": "yellow",
       "category": "arts",
       "realmLv": 11,
@@ -6162,6 +5811,7 @@
     {
       "id": "taibai_zhuxing",
       "name": "太白诛形录",
+      "desc": "裂甲既成，贴身诛形。",
       "grade": "earth",
       "category": "arts",
       "realmLv": 27,
@@ -6271,6 +5921,7 @@
     {
       "id": "taichu_baoyuan",
       "name": "太初抱元章",
+      "desc": "抱元守一，短时之内刀剑难伤、术法难侵。",
       "grade": "earth",
       "category": "arts",
       "realmLv": 27,
@@ -6369,6 +6020,7 @@
     {
       "id": "voidflame_chapter",
       "name": "太虚劫光篇",
+      "desc": "引太虚劫光覆落成域；层数越高，劫光越盛。",
       "grade": "mystic",
       "category": "divine",
       "realmLv": 24,
@@ -6435,8 +6087,7 @@
           "level": 2,
           "expToNext": 441600,
           "attrs": {
-            "spirit": 2,
-            "talent": 1
+            "spirit": 2
           },
           "specialStats": {
             "comprehension": 1
@@ -6456,8 +6107,7 @@
           "level": 4,
           "expToNext": 528000,
           "attrs": {
-            "spirit": 2,
-            "talent": 1
+            "spirit": 2
           },
           "specialStats": {
             "comprehension": 1
@@ -6488,7 +6138,8 @@
           "level": 7,
           "expToNext": 700800,
           "attrs": {
-            "spirit": 2
+            "spirit": 2,
+            "talent": 1
           },
           "specialStats": {
             "comprehension": 1
@@ -6509,7 +6160,8 @@
           "level": 9,
           "expToNext": 864000,
           "attrs": {
-            "spirit": 2
+            "spirit": 2,
+            "talent": 1
           },
           "specialStats": {
             "comprehension": 1
@@ -6531,6 +6183,7 @@
     {
       "id": "taiyin_guichao",
       "name": "太阴归潮经",
+      "desc": "归潮成线，借己身潮势层层叠加，如暗涌吞舟。",
       "grade": "earth",
       "category": "arts",
       "realmLv": 27,
@@ -6667,6 +6320,7 @@
     {
       "id": "iron_bone_art",
       "name": "铁骨功",
+      "desc": "铁息贯骨，护体续命。",
       "grade": "yellow",
       "category": "arts",
       "realmLv": 12,
@@ -6742,6 +6396,7 @@
     {
       "id": "tingmai_dingxi",
       "name": "听脉定息诀",
+      "desc": "调息定脉，净去缠身邪扰。",
       "grade": "yellow",
       "category": "arts",
       "realmLv": 19,
@@ -6820,6 +6475,7 @@
     {
       "id": "wanzhi_huichun",
       "name": "万枝回春卷",
+      "desc": "木意锁魂，直压单敌。",
       "grade": "mystic",
       "category": "arts",
       "realmLv": 23,
@@ -6929,6 +6585,7 @@
     {
       "id": "wuqi_guiliu",
       "name": "五炁归流篇",
+      "desc": "五炁归元，如百川入海，汇成周天根基。",
       "grade": "mystic",
       "category": "internal",
       "realmLv": 23,
@@ -6938,140 +6595,126 @@
           "level": 1,
           "expToNext": 312800,
           "attrs": {
-            "constitution": 7,
-            "spirit": 9,
-            "perception": 5,
-            "talent": 7
+            "spirit": 12,
+            "talent": 11,
+            "meridians": 12
           }
         },
         {
           "level": 2,
           "expToNext": 349600,
           "attrs": {
-            "constitution": 7,
-            "spirit": 9,
-            "perception": 5,
-            "talent": 7
+            "spirit": 12,
+            "talent": 11,
+            "meridians": 12
           }
         },
         {
           "level": 3,
           "expToNext": 386400,
           "attrs": {
-            "constitution": 7,
-            "spirit": 9,
-            "perception": 5,
-            "talent": 7
+            "spirit": 12,
+            "talent": 11,
+            "meridians": 12
           }
         },
         {
           "level": 4,
           "expToNext": 432400,
           "attrs": {
-            "constitution": 7,
-            "spirit": 9,
-            "perception": 5,
-            "talent": 7
+            "spirit": 12,
+            "talent": 11,
+            "meridians": 12
           }
         },
         {
           "level": 5,
           "expToNext": 478400,
           "attrs": {
-            "constitution": 7,
-            "spirit": 9,
-            "perception": 5,
-            "talent": 7
+            "spirit": 12,
+            "talent": 11,
+            "meridians": 12
           }
         },
         {
           "level": 6,
           "expToNext": 533600,
           "attrs": {
-            "constitution": 7,
-            "spirit": 9,
-            "perception": 4,
-            "talent": 7
+            "spirit": 12,
+            "talent": 11,
+            "meridians": 12
           }
         },
         {
           "level": 7,
           "expToNext": 598000,
           "attrs": {
-            "constitution": 7,
-            "spirit": 9,
-            "perception": 4,
-            "talent": 7
+            "spirit": 12,
+            "talent": 11,
+            "meridians": 12
           }
         },
         {
           "level": 8,
           "expToNext": 671600,
           "attrs": {
-            "constitution": 7,
-            "spirit": 9,
-            "perception": 4,
-            "talent": 7
+            "spirit": 12,
+            "talent": 11,
+            "meridians": 12
           }
         },
         {
           "level": 9,
           "expToNext": 754400,
           "attrs": {
-            "constitution": 7,
-            "spirit": 9,
-            "perception": 4,
-            "talent": 6
+            "spirit": 12,
+            "talent": 11,
+            "meridians": 12
           }
         },
         {
           "level": 10,
           "expToNext": 846400,
           "attrs": {
-            "constitution": 7,
-            "spirit": 9,
-            "perception": 4,
-            "talent": 6
+            "spirit": 12,
+            "talent": 11,
+            "meridians": 12
           }
         },
         {
           "level": 11,
           "expToNext": 947600,
           "attrs": {
-            "constitution": 7,
-            "spirit": 9,
-            "perception": 4,
-            "talent": 6
+            "spirit": 12,
+            "talent": 11,
+            "meridians": 12
           }
         },
         {
           "level": 12,
           "expToNext": 1058000,
           "attrs": {
-            "constitution": 7,
-            "spirit": 8,
-            "perception": 4,
-            "talent": 6
+            "spirit": 12,
+            "talent": 11,
+            "meridians": 12
           }
         },
         {
           "level": 13,
           "expToNext": 1186800,
           "attrs": {
-            "constitution": 7,
-            "spirit": 8,
-            "perception": 4,
-            "talent": 6
+            "spirit": 13,
+            "talent": 11,
+            "meridians": 13
           }
         },
         {
           "level": 14,
           "expToNext": 0,
           "attrs": {
-            "constitution": 7,
-            "spirit": 8,
-            "perception": 4,
-            "talent": 6
+            "spirit": 13,
+            "talent": 12,
+            "meridians": 13
           }
         }
       ]
@@ -7079,6 +6722,7 @@
     {
       "id": "xuanjin_huilan",
       "name": "玄津回澜录",
+      "desc": "回澜自起，近身震散敌势。",
       "grade": "mystic",
       "category": "arts",
       "realmLv": 23,
@@ -7233,6 +6877,7 @@
     {
       "id": "xuanjing_luoyin",
       "name": "玄镜落印诀",
+      "desc": "心如玄镜，映照万物；一念落印，敌踪无所遁形。",
       "grade": "yellow",
       "category": "internal",
       "realmLv": 26,
@@ -7242,120 +6887,96 @@
           "level": 1,
           "expToNext": 187200,
           "attrs": {
-            "constitution": 2,
-            "spirit": 3,
-            "perception": 2,
-            "talent": 2
+            "spirit": 14,
+            "talent": 6
           }
         },
         {
           "level": 2,
           "expToNext": 208000,
           "attrs": {
-            "constitution": 2,
-            "spirit": 3,
-            "perception": 2,
-            "talent": 2
+            "spirit": 14,
+            "talent": 6
           }
         },
         {
           "level": 3,
           "expToNext": 228800,
           "attrs": {
-            "constitution": 2,
-            "spirit": 3,
-            "perception": 2,
-            "talent": 2
+            "spirit": 14,
+            "talent": 6
           }
         },
         {
           "level": 4,
           "expToNext": 249600,
           "attrs": {
-            "constitution": 2,
-            "spirit": 3,
-            "perception": 2,
-            "talent": 2
+            "spirit": 14,
+            "talent": 6
           }
         },
         {
           "level": 5,
           "expToNext": 280800,
           "attrs": {
-            "constitution": 2,
-            "spirit": 2,
-            "perception": 2,
-            "talent": 2
+            "spirit": 14,
+            "talent": 6
           }
         },
         {
           "level": 6,
           "expToNext": 312000,
           "attrs": {
-            "constitution": 2,
-            "spirit": 2,
-            "perception": 2,
-            "talent": 2
+            "spirit": 14,
+            "talent": 6
           }
         },
         {
           "level": 7,
           "expToNext": 343200,
           "attrs": {
-            "constitution": 2,
-            "spirit": 2,
-            "perception": 2,
-            "talent": 2
+            "spirit": 14,
+            "talent": 6
           }
         },
         {
           "level": 8,
           "expToNext": 384800,
           "attrs": {
-            "constitution": 2,
-            "spirit": 2,
-            "perception": 2,
-            "talent": 1
+            "spirit": 14,
+            "talent": 7
           }
         },
         {
           "level": 9,
           "expToNext": 426400,
           "attrs": {
-            "constitution": 2,
-            "spirit": 2,
-            "perception": 2,
-            "talent": 1
+            "spirit": 14,
+            "talent": 7
           }
         },
         {
           "level": 10,
           "expToNext": 478400,
           "attrs": {
-            "constitution": 2,
-            "spirit": 2,
-            "perception": 2,
-            "talent": 1
+            "spirit": 14,
+            "talent": 7
           }
         },
         {
           "level": 11,
           "expToNext": 540800,
           "attrs": {
-            "constitution": 2,
-            "spirit": 2,
-            "perception": 1,
-            "talent": 1
+            "spirit": 15,
+            "talent": 7
           }
         },
         {
           "level": 12,
           "expToNext": 0,
           "attrs": {
-            "constitution": 2,
-            "spirit": 2,
-            "perception": 1,
-            "talent": 1
+            "spirit": 15,
+            "talent": 7
           }
         }
       ]
@@ -7363,6 +6984,7 @@
     {
       "id": "mountain_insight_chart",
       "name": "玄照图",
+      "desc": "黄阶秘术预留位，名称偏观察、照影和识破。",
       "grade": "yellow",
       "category": "secret",
       "realmLv": 8,
@@ -7429,6 +7051,7 @@
     {
       "id": "xuesha_huanling_jue",
       "name": "血煞唤灵决",
+      "desc": "更高境界天阶秘术预留位，名称偏血煞召唤或代价型召灵。",
       "grade": "heaven",
       "category": "secret",
       "realmLv": 42,
@@ -7475,6 +7098,7 @@
     {
       "id": "nourishing_qi_art",
       "name": "养气诀",
+      "desc": "养气如养珠，绵绵若存，渐成气候。",
       "grade": "yellow",
       "category": "internal",
       "realmLv": 11,
@@ -7484,100 +7108,80 @@
           "level": 1,
           "expToNext": 118800,
           "attrs": {
-            "constitution": 3,
-            "spirit": 3,
-            "perception": 3,
-            "talent": 2
+            "spirit": 8,
+            "meridians": 13
           }
         },
         {
           "level": 2,
           "expToNext": 127600,
           "attrs": {
-            "constitution": 3,
-            "spirit": 3,
-            "perception": 3,
-            "talent": 2
+            "spirit": 8,
+            "meridians": 13
           }
         },
         {
           "level": 3,
           "expToNext": 137500,
           "attrs": {
-            "constitution": 3,
-            "spirit": 3,
-            "perception": 2,
-            "talent": 2
+            "spirit": 8,
+            "meridians": 13
           }
         },
         {
           "level": 4,
           "expToNext": 148500,
           "attrs": {
-            "constitution": 3,
-            "spirit": 3,
-            "perception": 2,
-            "talent": 2
+            "spirit": 8,
+            "meridians": 13
           }
         },
         {
           "level": 5,
           "expToNext": 160600,
           "attrs": {
-            "constitution": 2,
-            "spirit": 3,
-            "perception": 2,
-            "talent": 2
+            "spirit": 8,
+            "meridians": 13
           }
         },
         {
           "level": 6,
           "expToNext": 173800,
           "attrs": {
-            "constitution": 2,
-            "spirit": 3,
-            "perception": 2,
-            "talent": 2
+            "spirit": 8,
+            "meridians": 13
           }
         },
         {
           "level": 7,
           "expToNext": 188100,
           "attrs": {
-            "constitution": 2,
-            "spirit": 3,
-            "perception": 2,
-            "talent": 2
+            "spirit": 8,
+            "meridians": 13
           }
         },
         {
           "level": 8,
           "expToNext": 203500,
           "attrs": {
-            "constitution": 2,
-            "spirit": 3,
-            "perception": 2,
-            "talent": 2
+            "spirit": 8,
+            "meridians": 13
           }
         },
         {
           "level": 9,
           "expToNext": 220000,
           "attrs": {
-            "constitution": 2,
-            "spirit": 2,
-            "perception": 2,
-            "talent": 2
+            "spirit": 8,
+            "meridians": 13
           }
         },
         {
           "level": 10,
           "expToNext": 0,
           "attrs": {
-            "constitution": 2,
-            "spirit": 2,
-            "perception": 2,
-            "talent": 1
+            "spirit": 8,
+            "meridians": 13
           }
         }
       ]
@@ -7585,6 +7189,7 @@
     {
       "id": "monster_venom_arts",
       "name": "妖毒腑纹",
+      "desc": "毒牙入体，瘴雾随呼吸扩散，蚀骨腐脉而不绝。",
       "grade": "yellow",
       "category": "arts",
       "realmLv": 1,
@@ -7709,73 +7314,42 @@
       "layers": [
         {
           "level": 1,
-          "expToNext": 1600,
-          "attrs": {
-            "spirit": 2,
-            "perception": 2
-          }
+          "expToNext": 1600
         },
         {
           "level": 2,
-          "expToNext": 1800,
-          "attrs": {
-            "spirit": 2,
-            "perception": 2
-          }
+          "expToNext": 1800
         },
         {
           "level": 3,
-          "expToNext": 2100,
-          "attrs": {
-            "spirit": 2,
-            "perception": 2
-          }
+          "expToNext": 2100
         },
         {
           "level": 4,
-          "expToNext": 2400,
-          "attrs": {
-            "spirit": 3,
-            "perception": 2
-          }
+          "expToNext": 2400
         },
         {
           "level": 5,
-          "expToNext": 2800,
-          "attrs": {
-            "spirit": 3,
-            "perception": 2
-          }
+          "expToNext": 2800
         },
         {
           "level": 6,
-          "expToNext": 3300,
-          "attrs": {
-            "spirit": 3,
-            "perception": 3
-          }
+          "expToNext": 3300
         },
         {
           "level": 7,
-          "expToNext": 3900,
-          "attrs": {
-            "spirit": 4,
-            "perception": 3
-          }
+          "expToNext": 3900
         },
         {
           "level": 8,
-          "expToNext": 0,
-          "attrs": {
-            "spirit": 4,
-            "perception": 3
-          }
+          "expToNext": 0
         }
       ]
     },
     {
       "id": "monster_beast_arts",
       "name": "妖兽猎杀本能",
+      "desc": "压低身形突进，连续爪击如暴风骤雨，令猎物无从喘息。",
       "grade": "yellow",
       "category": "arts",
       "realmLv": 1,
@@ -7937,73 +7511,42 @@
       "layers": [
         {
           "level": 1,
-          "expToNext": 1600,
-          "attrs": {
-            "constitution": 2,
-            "perception": 2
-          }
+          "expToNext": 1600
         },
         {
           "level": 2,
-          "expToNext": 1800,
-          "attrs": {
-            "constitution": 2,
-            "perception": 2
-          }
+          "expToNext": 1800
         },
         {
           "level": 3,
-          "expToNext": 2000,
-          "attrs": {
-            "constitution": 2,
-            "perception": 2
-          }
+          "expToNext": 2000
         },
         {
           "level": 4,
-          "expToNext": 2300,
-          "attrs": {
-            "constitution": 3,
-            "perception": 2
-          }
+          "expToNext": 2300
         },
         {
           "level": 5,
-          "expToNext": 2600,
-          "attrs": {
-            "constitution": 3,
-            "perception": 2
-          }
+          "expToNext": 2600
         },
         {
           "level": 6,
-          "expToNext": 3000,
-          "attrs": {
-            "constitution": 3,
-            "perception": 3
-          }
+          "expToNext": 3000
         },
         {
           "level": 7,
-          "expToNext": 3500,
-          "attrs": {
-            "constitution": 3,
-            "perception": 3
-          }
+          "expToNext": 3500
         },
         {
           "level": 8,
-          "expToNext": 0,
-          "attrs": {
-            "constitution": 4,
-            "perception": 3
-          }
+          "expToNext": 0
         }
       ]
     },
     {
       "id": "yaohuo_liebo",
       "name": "曜火裂波术",
+      "desc": "曜火内敛，蓄至巅峰时裂波而出，焚尽前方一切。",
       "grade": "yellow",
       "category": "internal",
       "realmLv": 26,
@@ -8013,120 +7556,96 @@
           "level": 1,
           "expToNext": 187200,
           "attrs": {
-            "constitution": 2,
-            "spirit": 3,
-            "perception": 2,
-            "talent": 2
+            "strength": 12,
+            "meridians": 8
           }
         },
         {
           "level": 2,
           "expToNext": 208000,
           "attrs": {
-            "constitution": 2,
-            "spirit": 3,
-            "perception": 2,
-            "talent": 2
+            "strength": 12,
+            "meridians": 8
           }
         },
         {
           "level": 3,
           "expToNext": 228800,
           "attrs": {
-            "constitution": 2,
-            "spirit": 3,
-            "perception": 2,
-            "talent": 2
+            "strength": 12,
+            "meridians": 8
           }
         },
         {
           "level": 4,
           "expToNext": 249600,
           "attrs": {
-            "constitution": 2,
-            "spirit": 3,
-            "perception": 2,
-            "talent": 2
+            "strength": 12,
+            "meridians": 8
           }
         },
         {
           "level": 5,
           "expToNext": 280800,
           "attrs": {
-            "constitution": 2,
-            "spirit": 2,
-            "perception": 2,
-            "talent": 2
+            "strength": 12,
+            "meridians": 8
           }
         },
         {
           "level": 6,
           "expToNext": 312000,
           "attrs": {
-            "constitution": 2,
-            "spirit": 2,
-            "perception": 2,
-            "talent": 2
+            "strength": 12,
+            "meridians": 8
           }
         },
         {
           "level": 7,
           "expToNext": 343200,
           "attrs": {
-            "constitution": 2,
-            "spirit": 2,
-            "perception": 2,
-            "talent": 2
+            "strength": 12,
+            "meridians": 8
           }
         },
         {
           "level": 8,
           "expToNext": 384800,
           "attrs": {
-            "constitution": 2,
-            "spirit": 2,
-            "perception": 2,
-            "talent": 1
+            "strength": 12,
+            "meridians": 8
           }
         },
         {
           "level": 9,
           "expToNext": 426400,
           "attrs": {
-            "constitution": 2,
-            "spirit": 2,
-            "perception": 2,
-            "talent": 1
+            "strength": 12,
+            "meridians": 9
           }
         },
         {
           "level": 10,
           "expToNext": 478400,
           "attrs": {
-            "constitution": 2,
-            "spirit": 2,
-            "perception": 2,
-            "talent": 1
+            "strength": 13,
+            "meridians": 9
           }
         },
         {
           "level": 11,
           "expToNext": 540800,
           "attrs": {
-            "constitution": 2,
-            "spirit": 2,
-            "perception": 1,
-            "talent": 1
+            "strength": 13,
+            "meridians": 9
           }
         },
         {
           "level": 12,
           "expToNext": 0,
           "attrs": {
-            "constitution": 2,
-            "spirit": 2,
-            "perception": 1,
-            "talent": 1
+            "strength": 13,
+            "meridians": 9
           }
         }
       ]
@@ -8134,6 +7653,7 @@
     {
       "id": "yi_kunlun",
       "name": "移昆仑",
+      "desc": "叩定地脉，搬山成岳，改变战场地形。",
       "grade": "mystic",
       "category": "arts",
       "realmLv": 23,
@@ -8303,149 +7823,66 @@
       "layers": [
         {
           "level": 1,
-          "expToNext": 312800,
-          "attrs": {
-            "constitution": 5,
-            "spirit": 7,
-            "perception": 5,
-            "talent": 4
-          }
+          "expToNext": 312800
         },
         {
           "level": 2,
-          "expToNext": 349600,
-          "attrs": {
-            "constitution": 5,
-            "spirit": 7,
-            "perception": 5,
-            "talent": 4
-          }
+          "expToNext": 349600
         },
         {
           "level": 3,
-          "expToNext": 386400,
-          "attrs": {
-            "constitution": 5,
-            "spirit": 7,
-            "perception": 5,
-            "talent": 4
-          }
+          "expToNext": 386400
         },
         {
           "level": 4,
-          "expToNext": 432400,
-          "attrs": {
-            "constitution": 5,
-            "spirit": 7,
-            "perception": 5,
-            "talent": 4
-          }
+          "expToNext": 432400
         },
         {
           "level": 5,
-          "expToNext": 478400,
-          "attrs": {
-            "constitution": 5,
-            "spirit": 7,
-            "perception": 5,
-            "talent": 4
-          }
+          "expToNext": 478400
         },
         {
           "level": 6,
-          "expToNext": 533600,
-          "attrs": {
-            "constitution": 5,
-            "spirit": 7,
-            "perception": 4,
-            "talent": 4
-          }
+          "expToNext": 533600
         },
         {
           "level": 7,
-          "expToNext": 598000,
-          "attrs": {
-            "constitution": 5,
-            "spirit": 7,
-            "perception": 4,
-            "talent": 4
-          }
+          "expToNext": 598000
         },
         {
           "level": 8,
-          "expToNext": 671600,
-          "attrs": {
-            "constitution": 5,
-            "spirit": 7,
-            "perception": 4,
-            "talent": 4
-          }
+          "expToNext": 671600
         },
         {
           "level": 9,
-          "expToNext": 754400,
-          "attrs": {
-            "constitution": 5,
-            "spirit": 7,
-            "perception": 4,
-            "talent": 3
-          }
+          "expToNext": 754400
         },
         {
           "level": 10,
-          "expToNext": 846400,
-          "attrs": {
-            "constitution": 5,
-            "spirit": 7,
-            "perception": 4,
-            "talent": 3
-          }
+          "expToNext": 846400
         },
         {
           "level": 11,
-          "expToNext": 947600,
-          "attrs": {
-            "constitution": 5,
-            "spirit": 7,
-            "perception": 4,
-            "talent": 3
-          }
+          "expToNext": 947600
         },
         {
           "level": 12,
-          "expToNext": 1058000,
-          "attrs": {
-            "constitution": 5,
-            "spirit": 6,
-            "perception": 4,
-            "talent": 3
-          }
+          "expToNext": 1058000
         },
         {
           "level": 13,
-          "expToNext": 1186800,
-          "attrs": {
-            "constitution": 5,
-            "spirit": 6,
-            "perception": 4,
-            "talent": 3
-          }
+          "expToNext": 1186800
         },
         {
           "level": 14,
-          "expToNext": 0,
-          "attrs": {
-            "constitution": 5,
-            "spirit": 6,
-            "perception": 4,
-            "talent": 3
-          }
+          "expToNext": 0
         }
       ]
     },
     {
       "id": "monster_wing_arts",
       "name": "异羽啸空",
+      "desc": "羽翎破空，居高临下；风火冰三色交替，令敌无从近身。",
       "grade": "yellow",
       "category": "arts",
       "realmLv": 1,
@@ -8626,73 +8063,42 @@
       "layers": [
         {
           "level": 1,
-          "expToNext": 1600,
-          "attrs": {
-            "perception": 2,
-            "spirit": 2
-          }
+          "expToNext": 1600
         },
         {
           "level": 2,
-          "expToNext": 1800,
-          "attrs": {
-            "perception": 2,
-            "spirit": 2
-          }
+          "expToNext": 1800
         },
         {
           "level": 3,
-          "expToNext": 2100,
-          "attrs": {
-            "perception": 2,
-            "spirit": 2
-          }
+          "expToNext": 2100
         },
         {
           "level": 4,
-          "expToNext": 2400,
-          "attrs": {
-            "perception": 3,
-            "spirit": 2
-          }
+          "expToNext": 2400
         },
         {
           "level": 5,
-          "expToNext": 2800,
-          "attrs": {
-            "perception": 3,
-            "spirit": 3
-          }
+          "expToNext": 2800
         },
         {
           "level": 6,
-          "expToNext": 3300,
-          "attrs": {
-            "perception": 3,
-            "spirit": 3
-          }
+          "expToNext": 3300
         },
         {
           "level": 7,
-          "expToNext": 3900,
-          "attrs": {
-            "perception": 4,
-            "spirit": 3
-          }
+          "expToNext": 3900
         },
         {
           "level": 8,
-          "expToNext": 0,
-          "attrs": {
-            "perception": 4,
-            "spirit": 4
-          }
+          "expToNext": 0
         }
       ]
     },
     {
       "id": "starfall_spear",
       "name": "陨星枪诀",
+      "desc": "枪势贯空，距离越远，星坠越重。",
       "grade": "mystic",
       "category": "arts",
       "realmLv": 18,
@@ -8821,6 +8227,7 @@
     {
       "id": "standing_stake_art",
       "name": "站桩功",
+      "desc": "扎根基、稳下盘，凡人锤炼体魄之始。",
       "grade": "mortal",
       "category": "internal",
       "realmLv": 1,
@@ -8830,9 +8237,7 @@
           "level": 1,
           "expToNext": 1800,
           "attrs": {
-            "constitution": 1,
-            "spirit": 2,
-            "perception": 3,
+            "constitution": 3,
             "talent": 2
           }
         },
@@ -8840,9 +8245,7 @@
           "level": 2,
           "expToNext": 2200,
           "attrs": {
-            "constitution": 1,
-            "spirit": 1,
-            "perception": 3,
+            "constitution": 3,
             "talent": 2
           }
         },
@@ -8850,9 +8253,7 @@
           "level": 3,
           "expToNext": 2700,
           "attrs": {
-            "constitution": 1,
-            "spirit": 1,
-            "perception": 3,
+            "constitution": 3,
             "talent": 2
           }
         },
@@ -8860,9 +8261,7 @@
           "level": 4,
           "expToNext": 3200,
           "attrs": {
-            "constitution": 1,
-            "spirit": 1,
-            "perception": 2,
+            "constitution": 3,
             "talent": 2
           }
         },
@@ -8870,9 +8269,7 @@
           "level": 5,
           "expToNext": 3800,
           "attrs": {
-            "constitution": 1,
-            "spirit": 1,
-            "perception": 2,
+            "constitution": 3,
             "talent": 2
           }
         },
@@ -8880,50 +8277,40 @@
           "level": 6,
           "expToNext": 4500,
           "attrs": {
-            "constitution": 1,
-            "spirit": 1,
-            "perception": 2,
-            "talent": 2
+            "constitution": 4,
+            "talent": 3
           }
         },
         {
           "level": 7,
           "expToNext": 5300,
           "attrs": {
-            "constitution": 1,
-            "spirit": 1,
-            "perception": 2,
-            "talent": 2
+            "constitution": 4,
+            "talent": 3
           }
         },
         {
           "level": 8,
           "expToNext": 6200,
           "attrs": {
-            "constitution": 1,
-            "spirit": 1,
-            "perception": 2,
-            "talent": 2
+            "constitution": 4,
+            "talent": 3
           }
         },
         {
           "level": 9,
           "expToNext": 7200,
           "attrs": {
-            "constitution": 1,
-            "spirit": 1,
-            "perception": 2,
-            "talent": 2
+            "constitution": 4,
+            "talent": 3
           }
         },
         {
           "level": 10,
           "expToNext": 0,
           "attrs": {
-            "constitution": 1,
-            "spirit": 1,
-            "perception": 2,
-            "talent": 2
+            "constitution": 4,
+            "talent": 3
           }
         }
       ]
@@ -8931,6 +8318,7 @@
     {
       "id": "changsheng_chanyuan",
       "name": "长生缠元经",
+      "desc": "枯荣逆转，断其回息。",
       "grade": "earth",
       "category": "arts",
       "realmLv": 27,
@@ -9064,6 +8452,7 @@
     {
       "id": "lightshadow_art",
       "name": "折影提气诀",
+      "desc": "身折光影，步踏虚空；提一口气，身形已在数丈之外。",
       "grade": "mystic",
       "category": "internal",
       "realmLv": 16,
@@ -9073,120 +8462,96 @@
           "level": 1,
           "expToNext": 83200,
           "attrs": {
-            "constitution": 9,
-            "spirit": 11,
-            "perception": 6,
-            "talent": 8
+            "perception": 24,
+            "meridians": 10
           }
         },
         {
           "level": 2,
           "expToNext": 91200,
           "attrs": {
-            "constitution": 9,
-            "spirit": 11,
-            "perception": 5,
-            "talent": 8
+            "perception": 24,
+            "meridians": 10
           }
         },
         {
           "level": 3,
           "expToNext": 100800,
           "attrs": {
-            "constitution": 8,
-            "spirit": 11,
-            "perception": 5,
-            "talent": 8
+            "perception": 24,
+            "meridians": 10
           }
         },
         {
           "level": 4,
           "expToNext": 110400,
           "attrs": {
-            "constitution": 8,
-            "spirit": 10,
-            "perception": 5,
-            "talent": 8
+            "perception": 24,
+            "meridians": 10
           }
         },
         {
           "level": 5,
           "expToNext": 121600,
           "attrs": {
-            "constitution": 8,
-            "spirit": 10,
-            "perception": 5,
-            "talent": 8
+            "perception": 24,
+            "meridians": 10
           }
         },
         {
           "level": 6,
           "expToNext": 134400,
           "attrs": {
-            "constitution": 8,
-            "spirit": 10,
-            "perception": 5,
-            "talent": 8
+            "perception": 24,
+            "meridians": 10
           }
         },
         {
           "level": 7,
           "expToNext": 148800,
           "attrs": {
-            "constitution": 8,
-            "spirit": 10,
-            "perception": 5,
-            "talent": 8
+            "perception": 24,
+            "meridians": 10
           }
         },
         {
           "level": 8,
           "expToNext": 164800,
           "attrs": {
-            "constitution": 8,
-            "spirit": 10,
-            "perception": 5,
-            "talent": 8
+            "perception": 24,
+            "meridians": 10
           }
         },
         {
           "level": 9,
           "expToNext": 182400,
           "attrs": {
-            "constitution": 8,
-            "spirit": 10,
-            "perception": 5,
-            "talent": 7
+            "perception": 24,
+            "meridians": 10
           }
         },
         {
           "level": 10,
           "expToNext": 201600,
           "attrs": {
-            "constitution": 8,
-            "spirit": 10,
-            "perception": 5,
-            "talent": 7
+            "perception": 24,
+            "meridians": 10
           }
         },
         {
           "level": 11,
           "expToNext": 222400,
           "attrs": {
-            "constitution": 8,
-            "spirit": 10,
-            "perception": 5,
-            "talent": 7
+            "perception": 25,
+            "meridians": 10
           }
         },
         {
           "level": 12,
           "expToNext": 0,
           "attrs": {
-            "constitution": 8,
-            "spirit": 10,
-            "perception": 5,
-            "talent": 7
+            "perception": 25,
+            "meridians": 10
           }
         }
       ]
@@ -9194,6 +8559,7 @@
     {
       "id": "dragon_elephant_bone",
       "name": "镇骨功",
+      "desc": "以气镇骨，由外而内固本培元。",
       "grade": "yellow",
       "category": "internal",
       "realmLv": 7,
@@ -9203,90 +8569,72 @@
           "level": 1,
           "expToNext": 44100,
           "attrs": {
-            "constitution": 3,
-            "spirit": 3,
-            "perception": 3,
-            "talent": 3
+            "constitution": 8,
+            "talent": 11
           }
         },
         {
           "level": 2,
           "expToNext": 48650,
           "attrs": {
-            "constitution": 3,
-            "spirit": 3,
-            "perception": 3,
-            "talent": 2
+            "constitution": 9,
+            "talent": 11
           }
         },
         {
           "level": 3,
           "expToNext": 53550,
           "attrs": {
-            "constitution": 3,
-            "spirit": 3,
-            "perception": 3,
-            "talent": 2
+            "constitution": 9,
+            "talent": 11
           }
         },
         {
           "level": 4,
           "expToNext": 58800,
           "attrs": {
-            "constitution": 3,
-            "spirit": 3,
-            "perception": 3,
-            "talent": 2
+            "constitution": 9,
+            "talent": 11
           }
         },
         {
           "level": 5,
           "expToNext": 64400,
           "attrs": {
-            "constitution": 3,
-            "spirit": 3,
-            "perception": 2,
-            "talent": 2
+            "constitution": 9,
+            "talent": 11
           }
         },
         {
           "level": 6,
           "expToNext": 70350,
           "attrs": {
-            "constitution": 3,
-            "spirit": 3,
-            "perception": 2,
-            "talent": 2
+            "constitution": 9,
+            "talent": 11
           }
         },
         {
           "level": 7,
           "expToNext": 76650,
           "attrs": {
-            "constitution": 2,
-            "spirit": 3,
-            "perception": 2,
-            "talent": 2
+            "constitution": 9,
+            "talent": 11
           }
         },
         {
           "level": 8,
           "expToNext": 83300,
           "attrs": {
-            "constitution": 2,
-            "spirit": 3,
-            "perception": 2,
-            "talent": 2
+            "constitution": 9,
+            "talent": 11
           }
         },
         {
           "level": 9,
           "expToNext": 0,
           "attrs": {
-            "constitution": 2,
-            "spirit": 3,
-            "perception": 2,
-            "talent": 2
+            "constitution": 9,
+            "talent": 12
           }
         }
       ]
@@ -9294,6 +8642,7 @@
     {
       "id": "spirit_anchor",
       "name": "镇灵篇",
+      "desc": "镇灵真意铺开，封镇大片气机。",
       "grade": "mystic",
       "category": "arts",
       "realmLv": 17,
@@ -9439,6 +8788,7 @@
     {
       "id": "zhenyue_huyuan",
       "name": "镇岳护元诀",
+      "desc": "借山岳之势镇守丹田，外力加身而我不动。",
       "grade": "yellow",
       "category": "internal",
       "realmLv": 23,
@@ -9448,120 +8798,96 @@
           "level": 1,
           "expToNext": 165600,
           "attrs": {
-            "constitution": 2,
-            "spirit": 3,
-            "perception": 2,
-            "talent": 2
+            "constitution": 10,
+            "talent": 9
           }
         },
         {
           "level": 2,
           "expToNext": 184000,
           "attrs": {
-            "constitution": 2,
-            "spirit": 3,
-            "perception": 2,
-            "talent": 2
+            "constitution": 10,
+            "talent": 9
           }
         },
         {
           "level": 3,
           "expToNext": 202400,
           "attrs": {
-            "constitution": 2,
-            "spirit": 3,
-            "perception": 2,
-            "talent": 2
+            "constitution": 10,
+            "talent": 9
           }
         },
         {
           "level": 4,
           "expToNext": 220800,
           "attrs": {
-            "constitution": 2,
-            "spirit": 2,
-            "perception": 2,
-            "talent": 2
+            "constitution": 10,
+            "talent": 9
           }
         },
         {
           "level": 5,
           "expToNext": 248400,
           "attrs": {
-            "constitution": 2,
-            "spirit": 2,
-            "perception": 2,
-            "talent": 2
+            "constitution": 10,
+            "talent": 9
           }
         },
         {
           "level": 6,
           "expToNext": 276000,
           "attrs": {
-            "constitution": 2,
-            "spirit": 2,
-            "perception": 2,
-            "talent": 2
+            "constitution": 10,
+            "talent": 9
           }
         },
         {
           "level": 7,
           "expToNext": 303600,
           "attrs": {
-            "constitution": 2,
-            "spirit": 2,
-            "perception": 2,
-            "talent": 2
+            "constitution": 10,
+            "talent": 9
           }
         },
         {
           "level": 8,
           "expToNext": 340400,
           "attrs": {
-            "constitution": 2,
-            "spirit": 2,
-            "perception": 2,
-            "talent": 1
+            "constitution": 11,
+            "talent": 9
           }
         },
         {
           "level": 9,
           "expToNext": 377200,
           "attrs": {
-            "constitution": 2,
-            "spirit": 2,
-            "perception": 2,
-            "talent": 1
+            "constitution": 11,
+            "talent": 9
           }
         },
         {
           "level": 10,
           "expToNext": 423200,
           "attrs": {
-            "constitution": 2,
-            "spirit": 2,
-            "perception": 2,
-            "talent": 1
+            "constitution": 11,
+            "talent": 9
           }
         },
         {
           "level": 11,
           "expToNext": 478400,
           "attrs": {
-            "constitution": 2,
-            "spirit": 2,
-            "perception": 1,
-            "talent": 1
+            "constitution": 11,
+            "talent": 10
           }
         },
         {
           "level": 12,
           "expToNext": 0,
           "attrs": {
-            "constitution": 2,
-            "spirit": 2,
-            "perception": 1,
-            "talent": 1
+            "constitution": 11,
+            "talent": 10
           }
         }
       ]
@@ -9569,6 +8895,7 @@
     {
       "id": "stillheart",
       "name": "止念诀",
+      "desc": "万念俱止，心如止水；杂念不起，神识自明。",
       "grade": "mystic",
       "category": "internal",
       "realmLv": 15,
@@ -9578,160 +8905,128 @@
           "level": 1,
           "expToNext": 58500,
           "attrs": {
-            "constitution": 7,
-            "spirit": 8,
-            "perception": 4,
-            "talent": 6
+            "spirit": 18,
+            "talent": 3
           }
         },
         {
           "level": 2,
           "expToNext": 63000,
           "attrs": {
-            "constitution": 6,
-            "spirit": 8,
-            "perception": 4,
-            "talent": 6
+            "spirit": 18,
+            "talent": 3
           }
         },
         {
           "level": 3,
           "expToNext": 67500,
           "attrs": {
-            "constitution": 6,
-            "spirit": 8,
-            "perception": 4,
-            "talent": 6
+            "spirit": 18,
+            "talent": 3
           }
         },
         {
           "level": 4,
           "expToNext": 72000,
           "attrs": {
-            "constitution": 6,
-            "spirit": 8,
-            "perception": 4,
-            "talent": 6
+            "spirit": 18,
+            "talent": 3
           }
         },
         {
           "level": 5,
           "expToNext": 78000,
           "attrs": {
-            "constitution": 6,
-            "spirit": 8,
-            "perception": 4,
-            "talent": 6
+            "spirit": 19,
+            "talent": 4
           }
         },
         {
           "level": 6,
           "expToNext": 84000,
           "attrs": {
-            "constitution": 6,
-            "spirit": 8,
-            "perception": 4,
-            "talent": 6
+            "spirit": 19,
+            "talent": 4
           }
         },
         {
           "level": 7,
           "expToNext": 91500,
           "attrs": {
-            "constitution": 6,
-            "spirit": 8,
-            "perception": 4,
-            "talent": 6
+            "spirit": 19,
+            "talent": 4
           }
         },
         {
           "level": 8,
           "expToNext": 99000,
           "attrs": {
-            "constitution": 6,
-            "spirit": 8,
-            "perception": 4,
-            "talent": 6
+            "spirit": 19,
+            "talent": 4
           }
         },
         {
           "level": 9,
           "expToNext": 111000,
           "attrs": {
-            "constitution": 6,
-            "spirit": 8,
-            "perception": 4,
-            "talent": 6
+            "spirit": 19,
+            "talent": 4
           }
         },
         {
           "level": 10,
           "expToNext": 123000,
           "attrs": {
-            "constitution": 6,
-            "spirit": 8,
-            "perception": 4,
-            "talent": 6
+            "spirit": 19,
+            "talent": 4
           }
         },
         {
           "level": 11,
           "expToNext": 136500,
           "attrs": {
-            "constitution": 6,
-            "spirit": 8,
-            "perception": 4,
-            "talent": 6
+            "spirit": 19,
+            "talent": 4
           }
         },
         {
           "level": 12,
           "expToNext": 151500,
           "attrs": {
-            "constitution": 6,
-            "spirit": 7,
-            "perception": 4,
-            "talent": 6
+            "spirit": 19,
+            "talent": 4
           }
         },
         {
           "level": 13,
           "expToNext": 169500,
           "attrs": {
-            "constitution": 6,
-            "spirit": 7,
-            "perception": 4,
-            "talent": 5
+            "spirit": 19,
+            "talent": 4
           }
         },
         {
           "level": 14,
           "expToNext": 189000,
           "attrs": {
-            "constitution": 6,
-            "spirit": 7,
-            "perception": 3,
-            "talent": 5
+            "spirit": 19,
+            "talent": 4
           }
         },
         {
           "level": 15,
           "expToNext": 210000,
           "attrs": {
-            "constitution": 6,
-            "spirit": 7,
-            "perception": 3,
-            "talent": 5
+            "spirit": 19,
+            "talent": 4
           }
         },
         {
           "level": 16,
           "expToNext": 0,
           "attrs": {
-            "constitution": 6,
-            "spirit": 7,
-            "perception": 3,
-            "talent": 5
+            "spirit": 19,
+            "talent": 4
           }
         }
       ]
@@ -9739,6 +9034,7 @@
     {
       "id": "zhoutian_xihai",
       "name": "周天息海篇",
+      "desc": "一息一周天，气海如潮汐涨落，循环不止则生机不灭。",
       "grade": "mystic",
       "category": "internal",
       "realmLv": 23,
@@ -9748,140 +9044,126 @@
           "level": 1,
           "expToNext": 312800,
           "attrs": {
-            "constitution": 7,
-            "spirit": 9,
-            "perception": 5,
-            "talent": 7
+            "spirit": 10,
+            "talent": 6,
+            "meridians": 17
           }
         },
         {
           "level": 2,
           "expToNext": 349600,
           "attrs": {
-            "constitution": 7,
-            "spirit": 9,
-            "perception": 5,
-            "talent": 7
+            "spirit": 10,
+            "talent": 6,
+            "meridians": 17
           }
         },
         {
           "level": 3,
           "expToNext": 386400,
           "attrs": {
-            "constitution": 7,
-            "spirit": 9,
-            "perception": 5,
-            "talent": 7
+            "spirit": 10,
+            "talent": 6,
+            "meridians": 18
           }
         },
         {
           "level": 4,
           "expToNext": 432400,
           "attrs": {
-            "constitution": 7,
-            "spirit": 9,
-            "perception": 5,
-            "talent": 7
+            "spirit": 10,
+            "talent": 6,
+            "meridians": 18
           }
         },
         {
           "level": 5,
           "expToNext": 478400,
           "attrs": {
-            "constitution": 7,
-            "spirit": 9,
-            "perception": 5,
-            "talent": 7
+            "spirit": 10,
+            "talent": 6,
+            "meridians": 18
           }
         },
         {
           "level": 6,
           "expToNext": 533600,
           "attrs": {
-            "constitution": 7,
-            "spirit": 9,
-            "perception": 4,
-            "talent": 7
+            "spirit": 10,
+            "talent": 6,
+            "meridians": 18
           }
         },
         {
           "level": 7,
           "expToNext": 598000,
           "attrs": {
-            "constitution": 7,
-            "spirit": 9,
-            "perception": 4,
-            "talent": 7
+            "spirit": 10,
+            "talent": 6,
+            "meridians": 18
           }
         },
         {
           "level": 8,
           "expToNext": 671600,
           "attrs": {
-            "constitution": 7,
-            "spirit": 9,
-            "perception": 4,
-            "talent": 6
+            "spirit": 10,
+            "talent": 6,
+            "meridians": 18
           }
         },
         {
           "level": 9,
           "expToNext": 754400,
           "attrs": {
-            "constitution": 7,
-            "spirit": 9,
-            "perception": 4,
-            "talent": 6
+            "spirit": 10,
+            "talent": 7,
+            "meridians": 18
           }
         },
         {
           "level": 10,
           "expToNext": 846400,
           "attrs": {
-            "constitution": 7,
-            "spirit": 9,
-            "perception": 4,
-            "talent": 6
+            "spirit": 11,
+            "talent": 7,
+            "meridians": 18
           }
         },
         {
           "level": 11,
           "expToNext": 947600,
           "attrs": {
-            "constitution": 7,
-            "spirit": 9,
-            "perception": 4,
-            "talent": 6
+            "spirit": 11,
+            "talent": 7,
+            "meridians": 18
           }
         },
         {
           "level": 12,
           "expToNext": 1058000,
           "attrs": {
-            "constitution": 7,
-            "spirit": 8,
-            "perception": 4,
-            "talent": 6
+            "spirit": 11,
+            "talent": 7,
+            "meridians": 18
           }
         },
         {
           "level": 13,
           "expToNext": 1186800,
           "attrs": {
-            "constitution": 7,
-            "spirit": 8,
-            "perception": 4,
-            "talent": 6
+            "spirit": 11,
+            "talent": 7,
+            "meridians": 18
           }
         },
         {
           "level": 14,
           "expToNext": 0,
           "attrs": {
-            "constitution": 6,
-            "spirit": 8,
-            "perception": 4,
-            "talent": 6
+            "spirit": 11,
+            "talent": 7,
+            "meridians": 18
           }
         }
       ]
@@ -9889,6 +9171,7 @@
     {
       "id": "zhuming_jintian",
       "name": "朱明烬天录",
+      "desc": "朱明火势归于己身，三息之后覆压四方。",
       "grade": "earth",
       "category": "arts",
       "realmLv": 27,
@@ -10028,6 +9311,7 @@
     {
       "id": "monster_wood_sprite_arts",
       "name": "竹灵草意",
+      "desc": "竹影扰其步，青叶如乱雨覆面，令敌寸步难行。",
       "grade": "yellow",
       "category": "arts",
       "realmLv": 1,
@@ -10150,73 +9434,42 @@
       "layers": [
         {
           "level": 1,
-          "expToNext": 1600,
-          "attrs": {
-            "spirit": 2,
-            "perception": 2
-          }
+          "expToNext": 1600
         },
         {
           "level": 2,
-          "expToNext": 1800,
-          "attrs": {
-            "spirit": 2,
-            "perception": 2
-          }
+          "expToNext": 1800
         },
         {
           "level": 3,
-          "expToNext": 2100,
-          "attrs": {
-            "spirit": 3,
-            "perception": 2
-          }
+          "expToNext": 2100
         },
         {
           "level": 4,
-          "expToNext": 2400,
-          "attrs": {
-            "spirit": 3,
-            "perception": 2
-          }
+          "expToNext": 2400
         },
         {
           "level": 5,
-          "expToNext": 2800,
-          "attrs": {
-            "spirit": 3,
-            "perception": 3
-          }
+          "expToNext": 2800
         },
         {
           "level": 6,
-          "expToNext": 3300,
-          "attrs": {
-            "spirit": 4,
-            "perception": 3
-          }
+          "expToNext": 3300
         },
         {
           "level": 7,
-          "expToNext": 3900,
-          "attrs": {
-            "spirit": 4,
-            "perception": 3
-          }
+          "expToNext": 3900
         },
         {
           "level": 8,
-          "expToNext": 0,
-          "attrs": {
-            "spirit": 4,
-            "perception": 4
-          }
+          "expToNext": 0
         }
       ]
     },
     {
       "id": "hundred_temper_body",
       "name": "壮身功",
+      "desc": "打熬筋骨，以外功催发内劲。",
       "grade": "yellow",
       "category": "internal",
       "realmLv": 10,
@@ -10226,100 +9479,80 @@
           "level": 1,
           "expToNext": 69000,
           "attrs": {
-            "constitution": 3,
-            "spirit": 3,
-            "perception": 3,
-            "talent": 2
+            "constitution": 9,
+            "strength": 11
           }
         },
         {
           "level": 2,
           "expToNext": 76000,
           "attrs": {
-            "constitution": 3,
-            "spirit": 3,
-            "perception": 3,
-            "talent": 2
+            "constitution": 9,
+            "strength": 11
           }
         },
         {
           "level": 3,
           "expToNext": 83500,
           "attrs": {
-            "constitution": 3,
-            "spirit": 3,
-            "perception": 2,
-            "talent": 2
+            "constitution": 9,
+            "strength": 11
           }
         },
         {
           "level": 4,
           "expToNext": 91500,
           "attrs": {
-            "constitution": 3,
-            "spirit": 3,
-            "perception": 2,
-            "talent": 2
+            "constitution": 9,
+            "strength": 11
           }
         },
         {
           "level": 5,
           "expToNext": 100000,
           "attrs": {
-            "constitution": 2,
-            "spirit": 3,
-            "perception": 2,
-            "talent": 2
+            "constitution": 9,
+            "strength": 11
           }
         },
         {
           "level": 6,
           "expToNext": 109000,
           "attrs": {
-            "constitution": 2,
-            "spirit": 3,
-            "perception": 2,
-            "talent": 2
+            "constitution": 9,
+            "strength": 11
           }
         },
         {
           "level": 7,
           "expToNext": 118500,
           "attrs": {
-            "constitution": 2,
-            "spirit": 3,
-            "perception": 2,
-            "talent": 2
+            "constitution": 9,
+            "strength": 11
           }
         },
         {
           "level": 8,
           "expToNext": 128500,
           "attrs": {
-            "constitution": 2,
-            "spirit": 2,
-            "perception": 2,
-            "talent": 2
+            "constitution": 9,
+            "strength": 11
           }
         },
         {
           "level": 9,
           "expToNext": 139000,
           "attrs": {
-            "constitution": 2,
-            "spirit": 2,
-            "perception": 2,
-            "talent": 1
+            "constitution": 9,
+            "strength": 11
           }
         },
         {
           "level": 10,
           "expToNext": 0,
           "attrs": {
-            "constitution": 2,
-            "spirit": 2,
-            "perception": 2,
-            "talent": 1
+            "constitution": 9,
+            "strength": 11
           }
         }
       ]

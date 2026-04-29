@@ -1,6 +1,7 @@
-import { Inject, Injectable, Logger } from '@nestjs/common';
+import { Inject, Injectable, Logger, Optional } from '@nestjs/common';
 
 import { PlayerIdentityPersistenceService } from '../persistence/player-identity-persistence.service';
+import { NativePlayerAuthStoreService } from '../http/native/native-player-auth-store.service';
 import { type ValidatedPlayerTokenPayload } from './world-player-token-codec.service';
 import { recordAuthTrace, WorldPlayerTokenService } from './world-player-token.service';
 
@@ -164,6 +165,13 @@ interface PlayerIdentityPersistencePort {
     updatedAt: number;
   }): Promise<PlayerIdentityLike | null>;
 }
+
+interface NativePlayerAuthStorePort {
+  findUserById(userId: string): Promise<{
+    bannedAt?: string | null;
+    banReason?: string | null;
+  } | null>;
+}
 /**
  * hasLegacyDatabaseConfigured：判断LegacyDatabaseConfigured是否满足条件。
  * @returns 返回是否满足LegacyDatabaseConfigured条件。
@@ -304,6 +312,10 @@ export class WorldPlayerAuthService {
     /** 玩家身份持久化入口。 */
     @Inject(PlayerIdentityPersistenceService)
     private readonly playerIdentityPersistenceService: PlayerIdentityPersistencePort,
+    /** 玩家账号真源，用于在 socket 鉴权阶段拦截已封禁账号。 */
+    @Optional()
+    @Inject(NativePlayerAuthStoreService)
+    private readonly nativePlayerAuthStore: NativePlayerAuthStorePort | null = null,
   ) {}
 
   /** 加载主线玩家身份，优先走主线持久化来源。 */
@@ -327,6 +339,9 @@ export class WorldPlayerAuthService {
 
     const payload = this.worldPlayerTokenService.validatePlayerToken(token);
     if (!payload) {
+      return null;
+    }
+    if (await this.isBannedAccountPayload(payload)) {
       return null;
     }
 
@@ -606,5 +621,23 @@ export class WorldPlayerAuthService {
       persistFailureStage: null,
     });
     return null;
+  }
+
+  private async isBannedAccountPayload(payload: ValidatedPlayerTokenPayload): Promise<boolean> {
+    if (!this.nativePlayerAuthStore || typeof payload.sub !== 'string') {
+      return false;
+    }
+    const user = await this.nativePlayerAuthStore.findUserById(payload.sub);
+    if (!user?.bannedAt) {
+      return false;
+    }
+    this.logger.debug(`拒绝玩家令牌：账号已封禁 userId=${payload.sub}`);
+    recordAuthTrace({
+      type: 'token',
+      outcome: 'reject',
+      reason: 'account_banned',
+      userId: payload.sub,
+    });
+    return true;
   }
 }

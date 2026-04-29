@@ -373,10 +373,14 @@ let ContentTemplateRepository = ContentTemplateRepository_1 = class ContentTempl
                 const templateLayer = templateLayerByLevel.get(layerLevel);
                 return {
                     level: layerLevel,
-                    expToNext: Number.isFinite(entry?.expToNext) ? Math.max(0, Math.trunc(Number(entry.expToNext))) : 0,
-                    attrs: cloneTechniqueLayerAttrsWithoutSpecialStats(entry?.attrs),
+                    expToNext: Number.isFinite(templateLayer?.expToNext)
+                        ? Math.max(0, Math.trunc(Number(templateLayer.expToNext)))
+                        : (Number.isFinite(entry?.expToNext) ? Math.max(0, Math.trunc(Number(entry.expToNext))) : 0),
+                    attrs: templateLayer?.attrs
+                        ? { ...templateLayer.attrs }
+                        : cloneTechniqueLayerAttrsWithoutSpecialStats(entry?.attrs),
                     specialStats: resolveTechniqueLayerSpecialStats(entry, templateLayer),
-                    qiProjection: cloneQiProjectionModifiers(entry?.qiProjection ?? templateLayer?.qiProjection),
+                    qiProjection: cloneQiProjectionModifiers(templateLayer?.qiProjection ?? entry?.qiProjection),
                 };
             })
             : (template?.layers.map((entry) => ({
@@ -437,6 +441,7 @@ let ContentTemplateRepository = ContentTemplateRepository_1 = class ContentTempl
         return Array.from(this.techniqueTemplates.values(), (template) => ({
             id: template.id,
             name: template.name,
+            desc: template.desc,
             grade: template.grade,
             category: template.category,
             realmLv: template.realmLv,
@@ -2089,6 +2094,7 @@ function normalizeTechniqueTemplate(raw, sharedTechniqueBuffs = new Map()) {
     return {
         id: candidate.id,
         name: candidate.name,
+        desc: typeof candidate.desc === 'string' ? candidate.desc : undefined,
         grade,
         category: isTechniqueCategory(candidate.category) ? candidate.category : inferTechniqueCategory(skills),
         realmLv,

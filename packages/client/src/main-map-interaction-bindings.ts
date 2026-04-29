@@ -395,7 +395,7 @@ export function bindMainMapInteractions(options: MainMapInteractionBindingsOptio
         }
         if (pendingTargetedAction.actionId === 'client:observe') {
           if (!options.getVisibleTileAt(target.x, target.y)) {
-            options.showToast('只能观察当前视野内的格子');
+            options.showToast('神识仅可触及视野之内');
             return;
           }
           options.showObserveModal(target.x, target.y);
@@ -417,12 +417,12 @@ export function bindMainMapInteractions(options: MainMapInteractionBindingsOptio
           return;
         }
         if (!options.hasAffectableTargetInArea(pendingTargetedAction, target.x, target.y)) {
-          options.showToast('该位置范围内没有可命中的目标或可受影响的地块');
+          options.showToast('此处无可用之目标');
           return;
         }
         const targetRef = options.resolveTargetRefForAction(pendingTargetedAction, target);
         if (!targetRef) {
-          options.showToast('该技能需要选中有效目标');
+          options.showToast('此术需有指向之目标');
           return;
         }
         const action = options.getCurrentActionDef(pendingTargetedAction.actionId);
@@ -445,12 +445,12 @@ export function bindMainMapInteractions(options: MainMapInteractionBindingsOptio
         return;
       }
       if (!options.isWithinDisplayedMemoryBounds(target.x, target.y)) {
-        options.showToast('只能点击当前显示区域内的格子');
+        options.showToast('仅可察视当前可见之地');
         return;
       }
       const knownTile = options.getKnownTileAt(target.x, target.y);
       if (!knownTile) {
-        options.showToast('完全未知的黑色区域无法点击移动');
+        options.showToast('未知之地，未可踏足');
         return;
       }
       if (clickedNpc && options.handleNpcClickTarget(clickedNpc)) {
@@ -468,7 +468,7 @@ export function bindMainMapInteractions(options: MainMapInteractionBindingsOptio
         return;
       }
       if (!knownTile.walkable) {
-        options.showToast('无法到达该位置');
+        options.showToast('此地无法抵达');
         return;
       }
       options.planPathTo(target);

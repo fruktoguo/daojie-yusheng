@@ -1,6 +1,6 @@
 import { C2S, type BreakthroughRequirementView, type ClientToServerEventPayload, type PlayerState } from '@mud/shared';
 import type { SocketRuntimeSender } from './network/socket-send-runtime';
-import { bindInlineItemTooltips, renderTextWithInlineItemHighlights } from './ui/item-inline-tooltip';
+import { bindInlineItemTooltips, renderInlineItemChip, renderTextWithInlineItemHighlights } from './ui/item-inline-tooltip';
 import { detailModalHost } from './ui/detail-modal-host';
 import { openHeavenGateModal } from './ui/heaven-gate-modal';
 import { formatDisplayInteger } from './utils/number';
@@ -59,15 +59,15 @@ function getBreakthroughRequirementStatusDetail(requirement: BreakthroughRequire
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
   if (requirement.hidden) {
-    return '该要求尚未解锁，只能通过主线或支线任务逐步获知。';
+    return '此关未开，循主线或支线探之。';
   }
   if ((requirement.increasePct ?? 0) > 0) {
     if (requirement.type === 'item') {
-      return requirement.completed ? '突破成功后会消耗该材料。' : '未生效时会抬高全部属性要求。';
+      return requirement.completed ? '突破成功后会消耗该材料。' : '未达则全属性门槛上提。';
     }
-    return requirement.completed ? '该条件当前已生效。' : '未生效时会抬高全部属性要求。';
+    return requirement.completed ? '该条件当前已生效。' : '未达则全属性门槛上提。';
   }
-  return requirement.detail ?? (requirement.completed ? '当前已满足。' : '当前尚未满足。');
+  return requirement.detail ?? (requirement.completed ? '当前已满足。' : '尚未达成。');
 }
 /**
  * MainBreakthroughStateSource：统一结构类型，保证协议与运行时一致性。
@@ -111,6 +111,17 @@ export function createMainBreakthroughStateSource(options: MainBreakthroughState
 
       const hasConsumableRequirements = preview.requirements.some((requirement) => requirement.type === 'item');
       const hasIncreaseRequirements = preview.requirements.some((requirement) => (requirement.increasePct ?? 0) > 0);
+      const rootFoundation = preview.rootFoundation;
+      const rootFoundationReachedCap = rootFoundation ? rootFoundation.current >= rootFoundation.cap : false;
+      const rootFoundationStatusLabel = rootFoundation?.canRefine
+        ? '可凝练'
+        : (rootFoundationReachedCap ? '已达上限' : '未满足');
+      const rootFoundationStatusClass = rootFoundation?.canRefine
+        ? 'is-completed'
+        : (rootFoundationReachedCap ? 'is-capped' : 'is-unmet');
+      const rootMaterialRows = rootFoundation?.items.length
+        ? rootFoundation.items.map((item) => renderInlineItemChip(item.itemId, { count: item.count, tone: 'material' })).join('')
+        : '<span class="empty-hint ui-empty-hint">本级无需额外材料</span>';
       const requirementRows = preview.requirements.length > 0
         ? preview.requirements.map((requirement) => `
           <div class="action-item breakthrough-requirement-item ui-requirement-entry ui-surface-card ui-surface-card--compact">
@@ -140,19 +151,45 @@ export function createMainBreakthroughStateSource(options: MainBreakthroughState
           ? preview.blockedReason
           : preview.canBreakthrough
             ? (hasConsumableRequirements ? '绿色表示已满足；已生效的材料会在突破后消耗。' : '点击空白处关闭')
-            : (hasIncreaseRequirements ? '红色表示当前未满足；带 +% 的条件会抬高全部属性要求。' : '红色表示当前未满足；隐藏条件需通过任务逐步解锁。'),
+              : (hasIncreaseRequirements ? '赤者为未达，+%者将抬全属门槛。' : '赤者为未达，隐关需循任务渐开。'),
         bodyHtml: `
-          <div class="panel-section">
-            <div class="panel-section-title">突破要求</div>
-            ${requirementRows}
+          <div class="breakthrough-modal-grid">
+            <div class="panel-section breakthrough-requirements-panel">
+              <div class="panel-section-title">突破要求</div>
+              ${requirementRows}
+            </div>
+            <div class="panel-section breakthrough-root-foundation-panel">
+              <div class="panel-section-title">凝练根基</div>
+              ${rootFoundation ? `
+                <div class="action-item breakthrough-requirement-item ui-requirement-entry ui-surface-card ui-surface-card--compact">
+                  <div class="action-copy">
+                    <div class="breakthrough-requirement-head ui-requirement-entry-head">
+                      <span class="action-name">根基 ${formatDisplayInteger(rootFoundation.current)} / ${formatDisplayInteger(rootFoundation.cap)}</span>
+                      <span class="action-type breakthrough-requirement-status ui-requirement-status ${rootFoundationStatusClass}">
+                        [${rootFoundationStatusLabel}]
+                      </span>
+                    </div>
+                    <div class="action-desc">消耗当前境界 100% 修为与一倍突破材料，提升 1 点根基；每点根基提供 1% 六维境界乘区。</div>
+                    <div class="action-desc">修为：${formatDisplayInteger(rootFoundation.progress)} / ${formatDisplayInteger(rootFoundation.costProgress)}</div>
+                    <div class="action-desc breakthrough-root-materials">${rootMaterialRows}</div>
+                    ${rootFoundation.blockedReason ? `<div class="action-desc">${renderTextWithInlineItemHighlights(rootFoundation.blockedReason)}</div>` : ''}
+                  </div>
+                </div>
+              ` : '<div class="empty-hint ui-empty-hint">当前暂不可凝练根基。</div>'}
+            </div>
           </div>
           ${hasIncreaseRequirements ? `
             <div class="panel-section">
-              <div class="empty-hint ui-empty-hint">提示：红色且带 +% 的条件当前未生效，会按配置抬高全部属性要求；绿色表示当前已满足或已生效。</div>
+              <div class="empty-hint ui-empty-hint">赤者为未达，+%者将抬全属门槛。绿者已达。</div>
             </div>
           ` : ''}
-          <div class="tech-modal-actions">
-            <button class="small-btn" type="button" data-breakthrough-confirm ${preview.canBreakthrough ? '' : 'disabled'}>确认突破</button>
+          <div class="breakthrough-action-grid">
+            <div class="breakthrough-action-cell">
+              <button class="small-btn breakthrough-action-btn breakthrough-confirm-btn" type="button" data-breakthrough-confirm ${preview.canBreakthrough ? '' : 'disabled'}>确认突破</button>
+            </div>
+            <div class="breakthrough-action-cell">
+              ${rootFoundation ? `<button class="small-btn breakthrough-action-btn" type="button" data-root-foundation-refine ${rootFoundation.canRefine ? '' : 'disabled'}>凝练根基</button>` : ''}
+            </div>
           </div>
         `,
         onAfterRender: (body) => {
@@ -160,6 +197,10 @@ export function createMainBreakthroughStateSource(options: MainBreakthroughState
           body.querySelector<HTMLElement>('[data-breakthrough-confirm]')?.addEventListener('click', () => {
             detailModalHost.close('realm:breakthrough');
             options.sendAction('realm:breakthrough');
+          });
+          body.querySelector<HTMLElement>('[data-root-foundation-refine]')?.addEventListener('click', () => {
+            detailModalHost.close('realm:breakthrough');
+            options.sendAction('realm:refine_root_foundation');
           });
         },
       });

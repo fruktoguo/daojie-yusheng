@@ -356,6 +356,7 @@ export function fromWireGameTimeState(wire: Record<string, unknown> | undefined)
 export function toWirePlayerSpecialStats(payload: PlayerSpecialStats): Record<string, unknown> {
   return {
     foundation: payload.foundation,
+    rootFoundation: Number(payload.rootFoundation ?? 0),
     combatExp: payload.combatExp,
     comprehension: Number(payload.comprehension ?? 0),
     luck: Number(payload.luck ?? 0),
@@ -366,6 +367,7 @@ export function toWirePlayerSpecialStats(payload: PlayerSpecialStats): Record<st
 export function fromWirePlayerSpecialStats(wire: Record<string, unknown>): PlayerSpecialStats {
   return {
     foundation: Number(wire.foundation ?? 0),
+    rootFoundation: Number(wire.rootFoundation ?? 0),
     combatExp: Number(wire.combatExp ?? 0),
     comprehension: Number(wire.comprehension ?? 0),
     luck: Number(wire.luck ?? 0),
@@ -380,6 +382,9 @@ export function toWirePartialPlayerSpecialStats(payload: Partial<PlayerSpecialSt
   const wire: Record<string, unknown> = {};
   if (hasOwn(payload, 'foundation')) {
     wire.foundation = Number(payload.foundation ?? 0);
+  }
+  if (hasOwn(payload, 'rootFoundation')) {
+    wire.rootFoundation = Number(payload.rootFoundation ?? 0);
   }
   if (hasOwn(payload, 'combatExp')) {
     wire.combatExp = Number(payload.combatExp ?? 0);
@@ -401,6 +406,9 @@ export function fromWirePartialPlayerSpecialStats(wire: Record<string, unknown> 
   const payload: Partial<PlayerSpecialStats> = {};
   if (hasOwn(wire, 'foundation')) {
     payload.foundation = Number(wire.foundation ?? 0);
+  }
+  if (hasOwn(wire, 'rootFoundation')) {
+    payload.rootFoundation = Number(wire.rootFoundation ?? 0);
   }
   if (hasOwn(wire, 'combatExp')) {
     payload.combatExp = Number(wire.combatExp ?? 0);

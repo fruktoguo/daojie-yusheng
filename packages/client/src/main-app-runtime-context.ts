@@ -57,7 +57,7 @@ export function createMainAppRuntimeContext(options: InitializeMainAppOptions) {
       syncEstimatedServerTickInterval,
       showToast: (message) => showToast(message),
       onBeforeVersionReload: () => {
-        showToast('检测到新版本，正在刷新页面');
+        showToast('天道有变，即将重启...');
       },
     },
     {

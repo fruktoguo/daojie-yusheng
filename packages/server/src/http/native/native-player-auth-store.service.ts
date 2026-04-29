@@ -66,6 +66,16 @@ interface PersistedAuthRow {
  */
 
   updated_at?: unknown;
+  payload?: unknown;
+  register_ip?: unknown;
+  last_login_ip?: unknown;
+  last_login_at?: unknown;
+  register_device_id?: unknown;
+  last_login_device_id?: unknown;
+  last_user_agent?: unknown;
+  banned_at?: unknown;
+  ban_reason?: unknown;
+  banned_by?: unknown;
 }
 /**
  * AuthRecordCandidate：定义接口结构约束，明确可交付字段含义。
@@ -133,6 +143,15 @@ interface AuthRecordCandidate {
  */
 
   updatedAt?: unknown;
+  registerIp?: unknown;
+  lastLoginIp?: unknown;
+  lastLoginAt?: unknown;
+  registerDeviceId?: unknown;
+  lastLoginDeviceId?: unknown;
+  lastUserAgent?: unknown;
+  bannedAt?: unknown;
+  banReason?: unknown;
+  bannedBy?: unknown;
 }
 /**
  * AuthExcludeEntryCandidate：定义接口结构约束，明确可交付字段含义。
@@ -268,6 +287,15 @@ export interface NativePlayerAuthUser {
  */
 
   updatedAt: number;
+  registerIp: string | null;
+  lastLoginIp: string | null;
+  lastLoginAt: string | null;
+  registerDeviceId: string | null;
+  lastLoginDeviceId: string | null;
+  lastUserAgent: string | null;
+  bannedAt: string | null;
+  banReason: string | null;
+  bannedBy: string | null;
 }
 
 const PLAYER_AUTH_TABLE = 'server_player_auth';
@@ -282,6 +310,15 @@ const CREATE_PLAYER_AUTH_TABLE_SQL = `
     password_hash text NOT NULL,
     total_online_seconds bigint NOT NULL DEFAULT 0,
     current_online_started_at timestamptz,
+    register_ip varchar(64),
+    last_login_ip varchar(64),
+    last_login_at timestamptz,
+    register_device_id varchar(64),
+    last_login_device_id varchar(64),
+    last_user_agent varchar(255),
+    banned_at timestamptz,
+    ban_reason varchar(255),
+    banned_by varchar(64),
     created_at timestamptz NOT NULL,
     updated_at timestamptz NOT NULL DEFAULT now(),
     payload jsonb NOT NULL
@@ -378,6 +415,15 @@ export class NativePlayerAuthStoreService implements OnModuleInit, OnModuleDestr
         password_hash,
         total_online_seconds,
         current_online_started_at,
+        register_ip,
+        last_login_ip,
+        last_login_at,
+        register_device_id,
+        last_login_device_id,
+        last_user_agent,
+        banned_at,
+        ban_reason,
+        banned_by,
         created_at,
         updated_at,
         payload
@@ -420,11 +466,20 @@ export class NativePlayerAuthStoreService implements OnModuleInit, OnModuleDestr
           password_hash,
           total_online_seconds,
           current_online_started_at,
+          register_ip,
+          last_login_ip,
+          last_login_at,
+          register_device_id,
+          last_login_device_id,
+          last_user_agent,
+          banned_at,
+          ban_reason,
+          banned_by,
           created_at,
           updated_at,
           payload
         )
-        VALUES ($1, $2, $3, $4, $5, $6, $7, $8::timestamptz, $9::timestamptz, now(), $10::jsonb)
+        VALUES ($1, $2, $3, $4, $5, $6, $7, $8::timestamptz, $9, $10, $11::timestamptz, $12, $13, $14, $15::timestamptz, $16, $17, $18::timestamptz, now(), $19::jsonb)
         ON CONFLICT (user_id)
         DO UPDATE SET
           username = EXCLUDED.username,
@@ -434,6 +489,15 @@ export class NativePlayerAuthStoreService implements OnModuleInit, OnModuleDestr
           password_hash = EXCLUDED.password_hash,
           total_online_seconds = EXCLUDED.total_online_seconds,
           current_online_started_at = EXCLUDED.current_online_started_at,
+          register_ip = EXCLUDED.register_ip,
+          last_login_ip = EXCLUDED.last_login_ip,
+          last_login_at = EXCLUDED.last_login_at,
+          register_device_id = EXCLUDED.register_device_id,
+          last_login_device_id = EXCLUDED.last_login_device_id,
+          last_user_agent = EXCLUDED.last_user_agent,
+          banned_at = EXCLUDED.banned_at,
+          ban_reason = EXCLUDED.ban_reason,
+          banned_by = EXCLUDED.banned_by,
           created_at = EXCLUDED.created_at,
           updated_at = now(),
           payload = EXCLUDED.payload
@@ -446,6 +510,15 @@ export class NativePlayerAuthStoreService implements OnModuleInit, OnModuleDestr
         normalized.passwordHash,
         normalized.totalOnlineSeconds,
         normalized.currentOnlineStartedAt,
+        normalized.registerIp,
+        normalized.lastLoginIp,
+        normalized.lastLoginAt,
+        normalized.registerDeviceId,
+        normalized.lastLoginDeviceId,
+        normalized.lastUserAgent,
+        normalized.bannedAt,
+        normalized.banReason,
+        normalized.bannedBy,
         normalized.createdAt,
         JSON.stringify(toPersistedUser(normalized)),
       ]);
@@ -473,6 +546,15 @@ export class NativePlayerAuthStoreService implements OnModuleInit, OnModuleDestr
         password_hash,
         total_online_seconds,
         current_online_started_at,
+        register_ip,
+        last_login_ip,
+        last_login_at,
+        register_device_id,
+        last_login_device_id,
+        last_user_agent,
+        banned_at,
+        ban_reason,
+        banned_by,
         created_at,
         updated_at,
         payload
@@ -718,6 +800,12 @@ function normalizePersistedAuthRow(row: PersistedAuthRow | null): NativePlayerAu
   const currentOnlineStartedAt = row.current_online_started_at instanceof Date
     ? row.current_online_started_at.toISOString()
     : normalizeDateTime(row.current_online_started_at);
+  const lastLoginAt = row.last_login_at instanceof Date
+    ? row.last_login_at.toISOString()
+    : normalizeDateTime(row.last_login_at);
+  const bannedAt = row.banned_at instanceof Date
+    ? row.banned_at.toISOString()
+    : normalizeDateTime(row.banned_at);
   const updatedAt = row.updated_at instanceof Date
     ? row.updated_at.getTime()
     : Number.isFinite(Date.parse(String(row.updated_at ?? ''))) ? Date.parse(String(row.updated_at ?? '')) : Date.now();
@@ -734,6 +822,15 @@ function normalizePersistedAuthRow(row: PersistedAuthRow | null): NativePlayerAu
     passwordHash,
     totalOnlineSeconds: normalizeNonNegativeIntegerLike(row.total_online_seconds, 0),
     currentOnlineStartedAt,
+    registerIp: normalizeOptionalString(row.register_ip),
+    lastLoginIp: normalizeOptionalString(row.last_login_ip),
+    lastLoginAt,
+    registerDeviceId: normalizeOptionalString(row.register_device_id),
+    lastLoginDeviceId: normalizeOptionalString(row.last_login_device_id),
+    lastUserAgent: normalizeOptionalString(row.last_user_agent),
+    bannedAt,
+    banReason: normalizeOptionalString(row.ban_reason),
+    bannedBy: normalizeOptionalString(row.banned_by),
     createdAt,
     updatedAt,
   };
@@ -775,6 +872,15 @@ function normalizeAuthRecord(raw: AuthRecordCandidate | null | undefined, fallba
     passwordHash,
     totalOnlineSeconds: normalizeNonNegativeIntegerLike(raw.totalOnlineSeconds, 0),
     currentOnlineStartedAt: normalizeDateTime(raw.currentOnlineStartedAt),
+    registerIp: normalizeOptionalString(raw.registerIp),
+    lastLoginIp: normalizeOptionalString(raw.lastLoginIp),
+    lastLoginAt: normalizeDateTime(raw.lastLoginAt),
+    registerDeviceId: normalizeOptionalString(raw.registerDeviceId),
+    lastLoginDeviceId: normalizeOptionalString(raw.lastLoginDeviceId),
+    lastUserAgent: normalizeOptionalString(raw.lastUserAgent),
+    bannedAt: normalizeDateTime(raw.bannedAt),
+    banReason: normalizeOptionalString(raw.banReason),
+    bannedBy: normalizeOptionalString(raw.bannedBy),
     createdAt,
     updatedAt: typeof raw.updatedAt === 'number' && Number.isFinite(raw.updatedAt)
       ? Math.max(0, Math.trunc(raw.updatedAt))
@@ -805,6 +911,15 @@ function toPersistedUser(user: NativePlayerAuthUser): Omit<NativePlayerAuthUser,
     passwordHash: user.passwordHash,
     totalOnlineSeconds: user.totalOnlineSeconds,
     currentOnlineStartedAt: user.currentOnlineStartedAt,
+    registerIp: user.registerIp,
+    lastLoginIp: user.lastLoginIp,
+    lastLoginAt: user.lastLoginAt,
+    registerDeviceId: user.registerDeviceId,
+    lastLoginDeviceId: user.lastLoginDeviceId,
+    lastUserAgent: user.lastUserAgent,
+    bannedAt: user.bannedAt,
+    banReason: user.banReason,
+    bannedBy: user.bannedBy,
     createdAt: user.createdAt,
     updatedAt: user.updatedAt,
   };
@@ -851,6 +966,14 @@ function normalizeOptionalDisplayName(value: unknown): string | null {
 
 function normalizeDateTime(value: unknown): string | null {
   return typeof value === 'string' && value.trim() ? value : null;
+}
+
+function normalizeOptionalString(value: unknown, maxLength = 255): string | null {
+  if (typeof value !== 'string') {
+    return null;
+  }
+  const normalized = value.trim();
+  return normalized ? normalized.slice(0, maxLength) : null;
 }
 
 function normalizeNonNegativeIntegerLike(value: unknown, fallback: number): number {
@@ -981,6 +1104,18 @@ async function ensurePlayerAuthTable(pool: Pool): Promise<void> {
     await client.query(`
       ALTER TABLE ${PLAYER_AUTH_TABLE}
       ALTER COLUMN total_online_seconds TYPE bigint USING total_online_seconds::bigint
+    `);
+    await client.query(`
+      ALTER TABLE ${PLAYER_AUTH_TABLE}
+      ADD COLUMN IF NOT EXISTS register_ip varchar(64),
+      ADD COLUMN IF NOT EXISTS last_login_ip varchar(64),
+      ADD COLUMN IF NOT EXISTS last_login_at timestamptz,
+      ADD COLUMN IF NOT EXISTS register_device_id varchar(64),
+      ADD COLUMN IF NOT EXISTS last_login_device_id varchar(64),
+      ADD COLUMN IF NOT EXISTS last_user_agent varchar(255),
+      ADD COLUMN IF NOT EXISTS banned_at timestamptz,
+      ADD COLUMN IF NOT EXISTS ban_reason varchar(255),
+      ADD COLUMN IF NOT EXISTS banned_by varchar(64)
     `);
     await client.query(CREATE_PLAYER_AUTH_ROLE_INDEX_SQL);
     await client.query(CREATE_PLAYER_AUTH_DISPLAY_INDEX_SQL);

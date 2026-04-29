@@ -2,6 +2,7 @@
   {
     "id": "wildsunder_chart",
     "name": "八荒裂岳图",
+    "desc": "以裂岳真意锁住落点，轰然震塌一片地脉；层数越高，塌势越重。",
     "grade": "mystic",
     "category": "divine",
     "realmLv": 24,
@@ -20,8 +21,7 @@
         "level": 2,
         "expFactor": 184,
         "attrs": {
-          "constitution": 2,
-          "perception": 1
+          "constitution": 2
         },
         "specialStats": {
           "comprehension": 1
@@ -41,8 +41,7 @@
         "level": 4,
         "expFactor": 220,
         "attrs": {
-          "constitution": 2,
-          "perception": 1
+          "constitution": 2
         },
         "specialStats": {
           "comprehension": 1
@@ -73,7 +72,8 @@
         "level": 7,
         "expFactor": 292,
         "attrs": {
-          "constitution": 2
+          "constitution": 2,
+          "perception": 1
         },
         "specialStats": {
           "comprehension": 1
@@ -94,7 +94,8 @@
         "level": 9,
         "expFactor": 360,
         "attrs": {
-          "constitution": 2
+          "constitution": 2,
+          "perception": 1
         },
         "specialStats": {
           "comprehension": 1
@@ -162,6 +163,7 @@
   {
     "id": "voidflame_chapter",
     "name": "太虚劫光篇",
+    "desc": "引太虚劫光覆落成域；层数越高，劫光越盛。",
     "grade": "mystic",
     "category": "divine",
     "realmLv": 24,
@@ -180,8 +182,7 @@
         "level": 2,
         "expFactor": 184,
         "attrs": {
-          "spirit": 2,
-          "talent": 1
+          "spirit": 2
         },
         "specialStats": {
           "comprehension": 1
@@ -201,8 +202,7 @@
         "level": 4,
         "expFactor": 220,
         "attrs": {
-          "spirit": 2,
-          "talent": 1
+          "spirit": 2
         },
         "specialStats": {
           "comprehension": 1
@@ -233,7 +233,8 @@
         "level": 7,
         "expFactor": 292,
         "attrs": {
-          "spirit": 2
+          "spirit": 2,
+          "talent": 1
         },
         "specialStats": {
           "comprehension": 1
@@ -254,7 +255,8 @@
         "level": 9,
         "expFactor": 360,
         "attrs": {
-          "spirit": 2
+          "spirit": 2,
+          "talent": 1
         },
         "specialStats": {
           "comprehension": 1

@@ -43,12 +43,14 @@ const MAX_LEADERBOARD_LIMIT = 10;
 /** 排行榜与世界摘要的缓存时间。 */
 const CACHE_TTL_MS = 10 * 1000;
 
-/** 以四维主属性做“顶尖属性”榜单的中文标签。 */
+/** 以六维主属性做“顶尖属性”榜单的中文标签。 */
 const SUPREME_ATTR_LABELS = {
     constitution: '体魄',
     spirit: '神识',
     perception: '身法',
     talent: '根骨',
+    strength: '力道',
+    meridians: '经脉',
 };
 
 let LeaderboardRuntimeService = class LeaderboardRuntimeService {
@@ -78,7 +80,7 @@ let LeaderboardRuntimeService = class LeaderboardRuntimeService {
         this.mapTemplateRepository = mapTemplateRepository;
     }
     /** 构造各榜单快照，按需截断返回。 */
-    buildLeaderboard(limit) {
+    buildLeaderboard(limit, sectService = null) {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
 
@@ -102,6 +104,7 @@ let LeaderboardRuntimeService = class LeaderboardRuntimeService {
                 deaths: this.buildDeathBoard(snapshots, MAX_LEADERBOARD_LIMIT),
                 bodyTraining: this.buildBodyTrainingBoard(snapshots, MAX_LEADERBOARD_LIMIT),
                 supremeAttrs: this.buildSupremeAttrBoard(snapshots),
+                sects: this.buildSectBoard(sectService, MAX_LEADERBOARD_LIMIT),
             },
         };
         this.cachedLeaderboard = payload;
@@ -183,6 +186,7 @@ let LeaderboardRuntimeService = class LeaderboardRuntimeService {
                 deaths: source.boards.deaths.slice(0, limit),
                 bodyTraining: source.boards.bodyTraining.slice(0, limit),
                 supremeAttrs: source.boards.supremeAttrs,
+                sects: source.boards.sects.slice(0, limit),
             },
         };
     }
@@ -230,6 +234,8 @@ let LeaderboardRuntimeService = class LeaderboardRuntimeService {
                 spirit: toNonNegativeInteger(finalAttrs.spirit, 0),
                 perception: toNonNegativeInteger(finalAttrs.perception, 0),
                 talent: toNonNegativeInteger(finalAttrs.talent, 0),
+                strength: toNonNegativeInteger(finalAttrs.strength, 0),
+                meridians: toNonNegativeInteger(finalAttrs.meridians, 0),
             },
             flags: {
                 cultivation: player.combat?.cultivationActive === true,
@@ -330,7 +336,7 @@ let LeaderboardRuntimeService = class LeaderboardRuntimeService {
             expToNext: entry.bodyTrainingExpToNext,
         }));
     }
-    /** 构造四维最高属性榜。 */
+    /** 构造六维最高属性榜。 */
     buildSupremeAttrBoard(snapshots) {
         return Object.keys(SUPREME_ATTR_LABELS).map((attr) => {
 
@@ -345,6 +351,13 @@ let LeaderboardRuntimeService = class LeaderboardRuntimeService {
                 value: top?.finalAttrs[attr] ?? 0,
             };
         });
+    }
+    /** 构造宗门人数榜。 */
+    buildSectBoard(sectService, limit) {
+        if (typeof sectService?.buildSectMemberCountLeaderboard !== 'function') {
+            return [];
+        }
+        return sectService.buildSectMemberCountLeaderboard(limit);
     }
     /** 构造世界在线分布与交易摘要。 */
     buildWorldBoard(snapshots) {

@@ -1287,17 +1287,36 @@ export class InstanceDomainPersistenceService implements OnModuleInit, OnModuleD
     if (!normalizedInstanceId) {
       return;
     }
-    const normalizedStates = (Array.isArray(states) ? states : [])
-      .map((state) => ({
-        containerId: normalizeRequiredString(state?.containerId),
-        sourceId: normalizeRequiredString(state?.sourceId) || normalizeRequiredString(state?.containerId),
+    const normalizedStatesByContainerId = new Map<string, {
+      containerId: string;
+      sourceId: string;
+      statePayload: Record<string, unknown>;
+      generatedAtTick: number | null;
+      refreshAtTick: number | null;
+      activeSearchPayload: unknown;
+      entries: Array<{ item?: unknown; createdTick?: unknown; visible?: unknown }>;
+    }>();
+    for (const state of Array.isArray(states) ? states : []) {
+      const containerId = normalizeRequiredString(state?.containerId);
+      const sourceId = normalizeRequiredString(state?.sourceId) || containerId;
+      if (!containerId || !sourceId) {
+        continue;
+      }
+      const normalizedState = {
+        containerId,
+        sourceId,
         statePayload: buildContainerMetadataPayload(state),
         generatedAtTick: normalizeNullableInteger(state?.generatedAtTick),
         refreshAtTick: normalizeNullableInteger(state?.refreshAtTick),
         activeSearchPayload: state?.activeSearch && typeof state.activeSearch === 'object' ? state.activeSearch : null,
         entries: Array.isArray(state?.entries) ? state.entries : [],
-      }))
-      .filter((state) => state.containerId && state.sourceId);
+      };
+      const currentState = normalizedStatesByContainerId.get(containerId);
+      if (!currentState || shouldReplaceContainerState(normalizedInstanceId, containerId, currentState.sourceId, sourceId)) {
+        normalizedStatesByContainerId.set(containerId, normalizedState);
+      }
+    }
+    const normalizedStates = Array.from(normalizedStatesByContainerId.values());
     const client = await this.pool.connect();
     try {
       await client.query('BEGIN');
@@ -2873,6 +2892,26 @@ function buildContainerMetadataPayload(state: Record<string, unknown> | null | u
     payload[key] = value;
   }
   return payload;
+}
+
+function shouldReplaceContainerState(
+  instanceId: string,
+  containerId: string,
+  currentSourceId: string,
+  nextSourceId: string,
+): boolean {
+  const canonicalSourceId = buildCanonicalContainerSourceId(instanceId, containerId);
+  if (nextSourceId === canonicalSourceId) {
+    return true;
+  }
+  if (currentSourceId === canonicalSourceId) {
+    return false;
+  }
+  return true;
+}
+
+function buildCanonicalContainerSourceId(instanceId: string, containerId: string): string {
+  return `container:${instanceId}:${containerId}`;
 }
 
 function normalizeRequiredString(value: unknown): string {

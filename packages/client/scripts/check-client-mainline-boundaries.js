@@ -169,6 +169,11 @@ function main() {
   assertMissing(runtimeContextTs, /createMainMapRuntimeBridgeSource\(/, 'main-app-runtime-context.ts 不应继续直接装配地图 runtime bridge owner');
   assertIncludes(panelContextTs, /createMainActionStateSource\(/, 'main-app-panel-context.ts 必须继续承接 panel\/cold-path owner 装配');
   assertIncludes(panelContextTs, /createMainSettingsStateSource\(/, 'main-app-panel-context.ts 必须继续承接 settings owner 装配');
+  assertIncludes(
+    panelContextTs,
+    /sendUseItem:\s*\(\s*slotIndex\s*,\s*count\s*,\s*useOptions\s*\)\s*=>\s*panelSender\.sendUseItem\(\s*slotIndex\s*,\s*count\s*,\s*useOptions\s*\)/,
+    'main-app-panel-context.ts 必须把背包使用物品的 options 透传到 socket sender',
+  );
   assertIncludes(runtimeOwnerContextTs, /createMainRuntimeStateSource\(/, 'main-app-runtime-owner-context.ts 必须继续承接 runtime owner 装配');
   assertIncludes(runtimeOwnerContextTs, /createMainRuntimeDeltaStateSource\(/, 'main-app-runtime-owner-context.ts 必须继续承接高频 delta owner 装配');
   assertIncludes(runtimeOwnerContextTs, /createMainPanelDeltaStateSource\(/, 'main-app-runtime-owner-context.ts 必须继续承接 panel delta owner 装配');

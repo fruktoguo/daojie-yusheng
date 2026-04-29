@@ -3,11 +3,11 @@
 import {
   DEFAULT_PLAYER_QI_RESOURCE_KEYS,
   DEFAULT_QI_EFFICIENCY_BP,
-  applyQiEfficiencyBp,
   calcTechniqueQiProjectionModifiers,
   matchesQiProjectionSelector,
   parseQiResourceKey,
   projectQiValue,
+  stackQiEfficiencyBp,
 } from '@mud/shared';
 
 const QI_VISIBILITY_RANK = {
@@ -41,7 +41,7 @@ export function resolvePlayerQiResourceProjection(player, resourceKey) {
     }
     if (modifier.efficiencyBpMultiplier !== undefined) {
       efficiencyBp = defaultVisible
-        ? applyQiEfficiencyBp(efficiencyBp, modifier.efficiencyBpMultiplier)
+        ? stackQiEfficiencyBp(efficiencyBp, modifier.efficiencyBpMultiplier)
         : Math.max(0, efficiencyBp + modifier.efficiencyBpMultiplier - DEFAULT_QI_EFFICIENCY_BP);
     }
   }

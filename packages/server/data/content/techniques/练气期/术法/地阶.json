@@ -2,6 +2,7 @@
   {
     "id": "huangting_zaishan",
     "name": "黄庭载山经",
+    "desc": "黄庭借山成势，以厚土重压敌身。",
     "grade": "earth",
     "category": "arts",
     "realmLv": 27,
@@ -114,6 +115,7 @@
   {
     "id": "taibai_zhuxing",
     "name": "太白诛形录",
+    "desc": "裂甲既成，贴身诛形。",
     "grade": "earth",
     "category": "arts",
     "realmLv": 27,
@@ -222,6 +224,7 @@
   {
     "id": "taichu_baoyuan",
     "name": "太初抱元章",
+    "desc": "抱元守一，短时之内刀剑难伤、术法难侵。",
     "grade": "earth",
     "category": "arts",
     "realmLv": 27,
@@ -305,6 +308,7 @@
   {
     "id": "taiyin_guichao",
     "name": "太阴归潮经",
+    "desc": "归潮成线，借己身潮势层层叠加，如暗涌吞舟。",
     "grade": "earth",
     "category": "arts",
     "realmLv": 27,
@@ -426,6 +430,7 @@
   {
     "id": "changsheng_chanyuan",
     "name": "长生缠元经",
+    "desc": "枯荣逆转，断其回息。",
     "grade": "earth",
     "category": "arts",
     "realmLv": 27,
@@ -545,6 +550,7 @@
   {
     "id": "zhuming_jintian",
     "name": "朱明烬天录",
+    "desc": "朱明火势归于己身，三息之后覆压四方。",
     "grade": "earth",
     "category": "arts",
     "realmLv": 27,

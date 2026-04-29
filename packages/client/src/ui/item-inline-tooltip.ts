@@ -147,7 +147,6 @@ async function resolveTooltipPayload(node: HTMLElement) {
     lines: [
       `出没地图：${location.mapName}`,
       ...(typeof location.dangerLevel === 'number' ? [`地图等级：${location.dangerLevel}`] : []),
-      ...(location.totalMaps > 1 ? ['已优先显示地图等级更低的区域'] : []),
     ],
     asideCards: [],
     allowHtml: false,

@@ -143,17 +143,17 @@ export function createMainConnectionStateSource(options: MainConnectionStateSour
           return;
         }
         options.resetGameState();
-        options.showLogin('登录已失效，请重新登录');
+        options.showLogin('灵气印记已散，请重新入世');
         return;
       }
       if (data.code === 'SESSION_EXPIRED') {
         const restored = await options.restoreSession();
         if (restored) {
-          options.showToast('会话已恢复，正在重连...');
+          options.showToast('灵气牵引已续，重归天地...');
           return;
         }
         options.resetGameState();
-        options.showLogin('会话已失效，请重新登录');
+        options.showLogin('灵气印记已散，请重新入世');
         return;
       }
       options.showToast(data.message);
@@ -166,7 +166,7 @@ export function createMainConnectionStateSource(options: MainConnectionStateSour
 
     handleKick(): void {
       options.resetGameState();
-      options.logout('账号已在其他位置登录');
+      options.logout('此身已在别处显化');
     },    
     /**
  * handleConnectError：处理ConnectError并更新相关状态。
@@ -182,11 +182,11 @@ export function createMainConnectionStateSource(options: MainConnectionStateSour
         return;
       }
       if (options.hasRefreshToken()) {
-        options.renderPingLatency(null, '重连');
+        options.renderPingLatency(null, '重归');
         options.scheduleConnectionRecovery(300, true);
         return;
       }
-      options.showToast(`连接失败: ${message}`);
+      options.showToast(`天地失联：${message}`);
     },    
     /**
  * handleDisconnect：判断Disconnect是否满足条件。
@@ -205,12 +205,12 @@ export function createMainConnectionStateSource(options: MainConnectionStateSour
         redirectInProgress = false;
         return;
       }
-      options.rejectPendingRedeemCodes('连接已断开，兑换结果未返回');
+      options.rejectPendingRedeemCodes('气机已断，兑换未竟');
       options.clearPendingSocketPing();
-      options.renderPingLatency(null, navigator.onLine ? '重连' : '断网');
+      options.renderPingLatency(null, navigator.onLine ? '重归' : '离线');
       options.setPanelRuntimeDisconnected();
       if (options.hasPlayer()) {
-        options.showToast('连接已断开，正在尝试恢复');
+        options.showToast('天地气机暂断，正尝试重连...');
       }
       options.scheduleConnectionRecovery(options.getDocumentVisibilityState() === 'visible' ? 300 : 0);
     },    

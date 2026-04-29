@@ -339,6 +339,66 @@ async function verifyCultivationAuraMultiplierUsesPlayerTileAura() {
     assert.equal(capturedOptions?.idleCultivationBlockedPlayerIds?.has('player:block'), true);
 }
 
+async function verifyCultivationAuraMultiplierUsesQiProjectionEfficiency() {
+    const log = [];
+    const deps = createDeps(log);
+    const instance = deps.getInstanceRuntime('instance:1');
+    instance.getPlayerPosition = (playerId) => playerId === 'player:1'
+        ? { x: 12, y: 8 }
+        : null;
+    instance.listTileResources = (x, y) => {
+        assert.equal(x, 12);
+        assert.equal(y, 8);
+        return [{
+            resourceKey: 'aura.refined.neutral',
+            value: 2250,
+            sourceValue: 2250,
+        }];
+    };
+    deps.playerRuntimeService.getPlayer = (playerId) => playerId === 'player:1'
+        ? {
+            playerId,
+            techniques: {
+                techniques: [{
+                    techId: 'ningqi_chengji',
+                    name: '凝气成基法',
+                    level: 49,
+                    exp: 0,
+                    expToNext: 0,
+                    realmLv: 31,
+                    realm: 0,
+                    grade: 'heaven',
+                    category: 'internal',
+                    skills: [],
+                    layers: [{
+                        level: 49,
+                        expToNext: 0,
+                        qiProjection: [{
+                            selector: { families: ['aura'], elements: ['neutral'] },
+                            visibility: 'absorbable',
+                            efficiencyBpMultiplier: 11000,
+                        }],
+                    }],
+                }],
+            },
+            buffs: { buffs: [] },
+            attrBonuses: [],
+            runtimeBonuses: [],
+        }
+        : null;
+    let capturedOptions = null;
+    deps.playerRuntimeService.advanceTickForPlayerIds = (_playerIds, _tick, options) => {
+        capturedOptions = options;
+        log.push('advanceTickForPlayerIds');
+    };
+    const service = new WorldRuntimeInstanceTickOrchestrationService();
+
+    await service.advanceFrame(deps, 1000, null);
+
+    const multiplier = capturedOptions?.cultivationAuraMultiplierByPlayerId?.get('player:1');
+    assert.ok(Math.abs(multiplier - 4.3) < 0.000001, `expected projected aura multiplier 4.3, got ${multiplier}`);
+}
+
 async function verifyTemporaryTileExpiryUsesInstanceTick() {
     const log = [];
     const deps = createDeps(log);
@@ -371,6 +431,7 @@ Promise.resolve()
     .then(() => verifyZeroTickPath())
     .then(() => verifyAwaitsPendingCommandsBeforeSystemAndTicks())
     .then(() => verifyCultivationAuraMultiplierUsesPlayerTileAura())
+    .then(() => verifyCultivationAuraMultiplierUsesQiProjectionEfficiency())
     .then(() => verifyTemporaryTileExpiryUsesInstanceTick())
     .then(() => {
     console.log(JSON.stringify({ ok: true, case: 'world-runtime-instance-tick-orchestration' }, null, 2));

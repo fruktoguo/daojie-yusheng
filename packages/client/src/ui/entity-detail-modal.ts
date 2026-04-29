@@ -50,7 +50,7 @@ function formatNpcQuestMarker(marker: NpcQuestMarker | null | undefined): string
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
   if (!marker) {
-    return '暂无可追踪任务';
+    return '暂无追索之委托';
   }
   const stateLabel = marker.state === 'ready'
     ? '可交付'
@@ -155,7 +155,7 @@ export class EntityDetailModal {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
     const title = this.detail ? this.resolveTitle(this.detail, this.pending?.title) : (this.pending?.title ?? '详情');
-    const subtitle = this.detail ? `目标类型：${escapeHtml(getEntityKindLabel(this.detail.kind, this.detail.kind))}` : '详情同步中';
+    const subtitle = this.detail ? `目标类型：${escapeHtml(getEntityKindLabel(this.detail.kind, this.detail.kind))}` : '详情观望中...';
     const existingBody = detailModalHost.isOpenFor(EntityDetailModal.MODAL_OWNER)
       ? document.getElementById('detail-modal-body')
       : null;
@@ -206,10 +206,10 @@ export class EntityDetailModal {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
     if (this.loading && !this.detail) {
-      return '<div class="empty-hint">正在读取目标详情……</div>';
+      return '<div class="empty-hint">详情观望中……</div>';
     }
     if (!this.detail) {
-      return '<div class="empty-hint">暂时无法读取目标详情。</div>';
+      return '<div class="empty-hint">暂未探明此物详情。</div>';
     }
     if (this.detail.error) {
       return `<div class="empty-hint">${escapeHtml(this.detail.error)}</div>`;
@@ -228,7 +228,7 @@ export class EntityDetailModal {
       case 'container':
         return this.renderContainer(this.detail.container ?? null);
       default:
-        return '<div class="empty-hint">当前详情类型暂未支持展示。</div>';
+        return '<div class="empty-hint">此般详情尚不可察。</div>';
     }
   }
 
@@ -254,7 +254,7 @@ export class EntityDetailModal {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
     if (!npc) {
-      return '<div class="empty-hint">未读取到 NPC 详情。</div>';
+      return '<div class="empty-hint">暂未探明此人详情。</div>';
     }
     return `
       <div class="ui-title-block">
@@ -278,7 +278,7 @@ export class EntityDetailModal {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
     if (!monster) {
-      return '<div class="empty-hint">未读取到怪物详情。</div>';
+      return '<div class="empty-hint">暂未探明妖兽详情。</div>';
     }
     return `
       <div class="ui-title-block">
@@ -303,7 +303,7 @@ export class EntityDetailModal {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
     if (!player) {
-      return '<div class="empty-hint">未读取到玩家详情。</div>';
+      return '<div class="empty-hint">暂未探明此身详情。</div>';
     }
     const pendingTitle = this.pending?.kind === 'player' && this.pending.id === player.id ? this.pending.title : '';
     const titleRow = pendingTitle && pendingTitle !== player.id
@@ -334,7 +334,7 @@ export class EntityDetailModal {
       return `
         <div class="ui-detail-field ui-detail-field--section">
           <strong>天机追索</strong>
-          <div>此人当前不在已缓存的玩家击杀榜追索册页中。查看天下榜时若命中上榜对象，会在这里同步显示最新坐标。</div>
+          <div>此身未在诛仙榜追索册页中。查看天下榜时若命中上榜对象，会在这里显现最新坐标。</div>
         </div>
       `;
     }
@@ -355,7 +355,7 @@ export class EntityDetailModal {
 
     const portal = this.detail?.portal;
     if (!portal) {
-      return '<div class="empty-hint">未读取到传送点详情。</div>';
+      return '<div class="empty-hint">暂未探明界门详情。</div>';
     }
     const portalKind = portal.kind === 'stairs' ? '楼梯' : portal.kind === 'gate' ? '关隘' : '传送点';
     const destination = typeof portal.targetX === 'number' && typeof portal.targetY === 'number'
@@ -382,11 +382,11 @@ export class EntityDetailModal {
 
     const ground = this.detail?.ground;
     if (!ground) {
-      return '<div class="empty-hint">未读取到地面物详情。</div>';
+      return '<div class="empty-hint">暂未探明地面之物。</div>';
     }
     const items = ground.items.length > 0
       ? `<div class="inline-item-flow">${ground.items.map((item) => renderInlineItemChip(item.itemId, { count: item.count, label: item.name, tone: 'reward' })).join('')}</div>`
-      : '<div class="inline-rich-text">这里已经没有可见物品。</div>';
+      : '<div class="inline-rich-text">已无可见之物。</div>';
     return `
       <div class="ui-title-block">
         <div class="ui-title-block-title">地面物</div>
@@ -405,7 +405,7 @@ export class EntityDetailModal {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
     if (!container) {
-      return '<div class="empty-hint">未读取到容器详情。</div>';
+      return '<div class="empty-hint">暂未探明此物详情。</div>';
     }
     return `
       <div class="ui-title-block">
@@ -463,7 +463,7 @@ export class EntityDetailModal {
       : (observation.lines ?? []);
     const rows = lines.length > 0
       ? `<div class="entity-detail-list">${lines.map((line) => `<div class="observe-modal-row"><span class="observe-modal-label">${escapeHtml(line.label)}</span><span class="observe-modal-value">${escapeHtml(line.value)}</span></div>`).join('')}</div>`
-      : '<div>暂无额外细节。</div>';
+      : '<div>暂且如此。</div>';
     return `
       <div class="ui-detail-grid ui-detail-grid--section">
         <div class="ui-detail-field ui-detail-field--section"><strong>清晰度</strong><span>${escapeHtml(formatObservationClarity(observation.clarity))}</span></div>
@@ -479,7 +479,7 @@ export class EntityDetailModal {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
     if (buffs.length === 0) {
-      return '<div class="ui-detail-field ui-detail-field--section"><strong>状态</strong><div>当前未见明显状态变化。</div></div>';
+      return '<div class="ui-detail-field ui-detail-field--section"><strong>状态</strong><div>未见异状。</div></div>';
     }
     const publicBuffs = buffs.filter((buff) => buff.visibility === 'public' && buff.category === 'buff');
     const publicDebuffs = buffs.filter((buff) => buff.visibility === 'public' && buff.category === 'debuff');
@@ -495,10 +495,10 @@ export class EntityDetailModal {
           <div class="ui-detail-field ui-detail-field--section"><strong>洞察状态</strong><span>${insightCount} 项</span></div>
         </div>
         <div class="observe-buff-columns">
-          ${this.renderBuffSection('可见增益', publicBuffs, '当前未见明显可见增益')}
-          ${this.renderBuffSection('可见减益', publicDebuffs, '当前未见明显可见减益')}
-          ${this.renderBuffSection('洞察增益', observeOnlyBuffs, '神识未探到额外增益')}
-          ${this.renderBuffSection('洞察减益', observeOnlyDebuffs, '神识未探到额外减益')}
+          ${this.renderBuffSection('可见增益', publicBuffs, '未见增益')}
+          ${this.renderBuffSection('可见减益', publicDebuffs, '未见减益')}
+          ${this.renderBuffSection('洞察增益', observeOnlyBuffs, '未见增益')}
+          ${this.renderBuffSection('洞察减益', observeOnlyDebuffs, '未见减益')}
         </div>
       </div>
     `;

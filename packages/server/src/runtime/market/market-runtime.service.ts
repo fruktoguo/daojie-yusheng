@@ -161,7 +161,9 @@ let MarketRuntimeService = MarketRuntimeService_1 = class MarketRuntimeService {
             return true;
         });
 
-        const total = filtered.length;
+        const groups = this.groupMarketListingEntriesForPage(filtered);
+
+        const total = groups.length;
 
         const start = (page - 1) * pageSize;
         return {
@@ -173,7 +175,7 @@ let MarketRuntimeService = MarketRuntimeService_1 = class MarketRuntimeService {
             category,
             equipmentSlot,
             techniqueCategory,
-            items: filtered.slice(start, start + pageSize),
+            items: groups.slice(start, start + pageSize).flatMap((entry) => entry.entries),
         };
     }
     /** 构造玩家自己的挂单列表。 */
@@ -908,8 +910,12 @@ let MarketRuntimeService = MarketRuntimeService_1 = class MarketRuntimeService {
                 continue;
             }
 
-            const current = grouped.get(order.itemKey) ?? {
-                item: { ...order.item },
+            const orderItem = this.toOrderItem(order.item);
+
+            const orderItemKey = this.buildItemKey(orderItem);
+
+            const current = grouped.get(orderItemKey) ?? {
+                item: { ...orderItem },
                 sellOrderCount: 0,
                 sellQuantity: 0,
                 buyOrderCount: 0,
@@ -929,7 +935,7 @@ let MarketRuntimeService = MarketRuntimeService_1 = class MarketRuntimeService {
                     ? order.unitPrice
                     : Math.max(current.highestBuyPrice, order.unitPrice);
             }
-            grouped.set(order.itemKey, current);
+            grouped.set(orderItemKey, current);
         }
         return Array.from(grouped.entries())
             .map(([itemKey, entry]) => ({
@@ -978,6 +984,7 @@ let MarketRuntimeService = MarketRuntimeService_1 = class MarketRuntimeService {
 
         return this.buildListedItems().map((entry) => ({
             itemKey: this.buildClientMarketKey(entry.itemKey),
+            item: { ...entry.item },
             itemId: entry.item.itemId,
             itemType: entry.item.type ?? 'material',
             itemSubType: this.buildMarketListingSubType(entry.item),
@@ -985,8 +992,40 @@ let MarketRuntimeService = MarketRuntimeService_1 = class MarketRuntimeService {
                 ? Math.max(0, Math.trunc(Number(entry.item.enhanceLevel)))
                 : undefined,
             lowestSellPrice: entry.lowestSellPrice,
+            sellOrderCount: entry.sellOrderCount,
+            sellQuantity: entry.sellQuantity,
             highestBuyPrice: entry.highestBuyPrice,
+            buyOrderCount: entry.buyOrderCount,
+            buyQuantity: entry.buyQuantity,
         }));
+    }
+    /**
+ * groupMarketListingEntriesForPage：按正式市场列表口径聚合分页条目。
+ * @param entries 坊市分页条目。
+ * @returns 聚合后的分页组。
+ */
+
+    groupMarketListingEntriesForPage(entries) {
+  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
+
+        const groups = new Map();
+        const orderedKeys = [];
+        for (const entry of entries) {
+            const groupKey = entry.itemType === 'equipment'
+                ? `equipment:${entry.itemId}`
+                : `item:${entry.itemKey}`;
+            const current = groups.get(groupKey);
+            if (current) {
+                current.entries.push(entry);
+                continue;
+            }
+            orderedKeys.push(groupKey);
+            groups.set(groupKey, {
+                key: groupKey,
+                entries: [entry],
+            });
+        }
+        return orderedKeys.map((key) => groups.get(key)).filter((entry) => Boolean(entry));
     }
     /**
  * buildOwnOrders：构建并返回目标对象。
@@ -1002,7 +1041,7 @@ let MarketRuntimeService = MarketRuntimeService_1 = class MarketRuntimeService {
             id: order.id,
             side: order.side,
             status: order.status,
-            itemKey: this.buildClientMarketKey(order.itemKey),
+            itemKey: this.buildClientMarketKey(this.getOrderItemKey(order)),
             item: { ...order.item },
             remainingQuantity: order.remainingQuantity,
             unitPrice: order.unitPrice,
@@ -1024,7 +1063,7 @@ let MarketRuntimeService = MarketRuntimeService_1 = class MarketRuntimeService {
             return null;
         }
 
-        const orders = this.openOrders.filter((order) => order.status === 'open' && order.remainingQuantity > 0 && order.itemKey === normalizedItemKey);
+        const orders = this.openOrders.filter((order) => order.status === 'open' && order.remainingQuantity > 0 && this.getOrderItemKey(order) === normalizedItemKey);
         if (orders.length === 0) {
             return null;
         }
@@ -1047,7 +1086,7 @@ let MarketRuntimeService = MarketRuntimeService_1 = class MarketRuntimeService {
 
         const grouped = new Map();
         for (const order of this.openOrders) {
-            if (order.status !== 'open' || order.remainingQuantity <= 0 || order.side !== side || order.itemKey !== itemKey) {
+            if (order.status !== 'open' || order.remainingQuantity <= 0 || order.side !== side || this.getOrderItemKey(order) !== itemKey) {
                 continue;
             }
 
@@ -1074,7 +1113,7 @@ let MarketRuntimeService = MarketRuntimeService_1 = class MarketRuntimeService {
 
     getSortedOrders(itemKey, side) {
         return this.openOrders
-            .filter((order) => order.status === 'open' && order.remainingQuantity > 0 && order.side === side && order.itemKey === itemKey)
+            .filter((order) => order.status === 'open' && order.remainingQuantity > 0 && order.side === side && this.getOrderItemKey(order) === itemKey)
             .sort((left, right) => {
             if (side === 'sell' && left.unitPrice !== right.unitPrice) {
                 return left.unitPrice - right.unitPrice;
@@ -1097,7 +1136,7 @@ let MarketRuntimeService = MarketRuntimeService_1 = class MarketRuntimeService {
 
         const oppositeSide = nextSide === 'sell' ? 'buy' : 'sell';
         return this.openOrders.some((order) => order.ownerId === ownerId
-            && order.itemKey === itemKey
+            && this.getOrderItemKey(order) === itemKey
             && order.side === oppositeSide
             && order.status === 'open'
             && order.remainingQuantity > 0);
@@ -1217,10 +1256,25 @@ let MarketRuntimeService = MarketRuntimeService_1 = class MarketRuntimeService {
  */
 
     buildItemKey(item) {
-        return (0, shared_1.createItemStackSignature)({
-            ...item,
-            count: 1,
-        });
+        const normalized = this.toOrderItem(item);
+        const identity = {
+            itemId: normalized.itemId,
+        };
+        if (normalized.type === 'equipment') {
+            identity.enhanceLevel = Number.isFinite(Number(normalized.enhanceLevel))
+                ? Math.max(0, Math.trunc(Number(normalized.enhanceLevel)))
+                : 0;
+        }
+        return JSON.stringify(identity);
+    }
+    /**
+ * getOrderItemKey：用当前规则重新计算订单盘口 key，兼容旧导入订单中的历史签名。
+ * @param order 坊市订单。
+ * @returns 订单当前盘口 key。
+ */
+
+    getOrderItemKey(order) {
+        return this.buildItemKey(order.item);
     }
     /**
  * buildClientMarketKey：把内部长签名压成客户端可传输的短 key。
@@ -1250,6 +1304,18 @@ let MarketRuntimeService = MarketRuntimeService_1 = class MarketRuntimeService {
             return '';
         }
         if (normalizedItemKey.startsWith('{')) {
+            try {
+                const parsed = JSON.parse(normalizedItemKey);
+                if (parsed?.itemId) {
+                    return this.buildItemKey(this.toFullItem({
+                        ...parsed,
+                        count: 1,
+                    }));
+                }
+            }
+            catch {
+                return normalizedItemKey;
+            }
             return normalizedItemKey;
         }
         const listed = this.buildListedItems().find((entry) => this.buildClientMarketKey(entry.itemKey) === normalizedItemKey);

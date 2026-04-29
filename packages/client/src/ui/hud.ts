@@ -161,7 +161,7 @@ export class HUD {
       this.cultivateText.textContent = `境界修为 (${formatDisplayInteger(player.realm.progress)}/${formatDisplayInteger(player.realm.progressToNext)})`;
     } else {
       this.cultivateBar.style.width = '0%';
-      this.cultivateText.textContent = '境界修为 (已满)';
+      this.cultivateText.textContent = '境界圆满';
     }
   }
 
@@ -191,4 +191,3 @@ export class HUD {
     return `${formatDisplayInteger(lifespanYears)}载`;
   }
 }
-

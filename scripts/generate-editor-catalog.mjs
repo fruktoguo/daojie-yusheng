@@ -547,6 +547,7 @@ function normalizeTechnique(raw, sharedTechniqueBuffs, gradeBandLevelFrom, helpe
           : helpers.scaleTechniqueExp(Number(layer.expFactor), realmLv),
         attrs: isPlainObject(layer.attrs) ? { ...layer.attrs } : undefined,
         specialStats: isPlainObject(layer.specialStats) ? { ...layer.specialStats } : undefined,
+        qiProjection: Array.isArray(layer.qiProjection) ? layer.qiProjection.map((modifier) => ({ ...modifier })) : undefined,
       }))
       .sort((left, right) => left.level - right.level)
     : undefined;
@@ -574,6 +575,7 @@ function normalizeTechnique(raw, sharedTechniqueBuffs, gradeBandLevelFrom, helpe
   return {
     id: raw.id,
     name: raw.name,
+    desc: typeof raw.desc === 'string' ? raw.desc : '',
     grade,
     category: normalizeTechniqueCategory(raw.category, skills),
     realmLv,

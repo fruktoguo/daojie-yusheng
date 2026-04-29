@@ -191,9 +191,17 @@ let WorldRuntimeContextActionQueryService = class WorldRuntimeContextActionQuery
         if (typeof deps?.worldRuntimeSectService?.buildSectCoreActions === 'function') {
             actions.push(...deps.worldRuntimeSectService.buildSectCoreActions(view, deps));
         }
+        if (typeof deps?.worldRuntimeSectService?.buildSectEntranceActions === 'function') {
+            actions.push(...deps.worldRuntimeSectService.buildSectEntranceActions(view, deps));
+        }
         for (const portal of view.localPortals) {
             if (portal.trigger !== 'manual'
                 || chebyshevDistance(view.self.x, view.self.y, portal.x, portal.y) > 1) {
+                continue;
+            }
+            const portalSectId = typeof portal.sectId === 'string' && portal.sectId.trim() ? portal.sectId.trim() : '';
+            const playerSectId = typeof player?.sectId === 'string' && player.sectId.trim() ? player.sectId.trim() : '';
+            if (portal.kind === 'sect_entrance' && portalSectId && portalSectId !== playerSectId) {
                 continue;
             }
             const targetName = this.templateRepository.has(portal.targetMapId)

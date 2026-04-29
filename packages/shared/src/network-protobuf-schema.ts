@@ -263,6 +263,7 @@ message PlayerSpecialStatsPayload {
   optional uint32 combatExp = 2;
   optional uint32 comprehension = 3;
   optional uint32 luck = 4;
+  optional uint32 rootFoundation = 5;
 }
 
 message AttributesPayload {

@@ -322,6 +322,51 @@ export interface GmManagedPlayerMeta {
   dirtyFlags: string[];
 }
 
+/** GM 可查看的账号风险状态。 */
+export type GmManagedPlayerAccountStatus = 'normal' | 'banned' | 'abnormal';
+
+/** GM 可查看的账号状态。 */
+export type GmManagedAccountStatus = 'active' | 'banned';
+
+/** GM 直接封禁玩家账号请求。 */
+export interface GmBanManagedPlayerReq {
+  reason?: string;
+}
+
+/** GM 玩家风险等级。 */
+export type GmPlayerRiskLevel = 'low' | 'medium' | 'high' | 'critical';
+
+/** GM 玩家风险维度。 */
+export type GmPlayerRiskFactorKey =
+  | 'account-integrity'
+  | 'account-name-pattern'
+  | 'similar-account-cluster'
+  | 'account-age'
+  | 'shared-ip-cluster'
+  | 'shared-device-cluster'
+  | 'market-transfer';
+
+/** GM 玩家风险因子。 */
+export interface GmPlayerRiskFactor {
+  key: GmPlayerRiskFactorKey;
+  label: string;
+  score: number;
+  maxScore: number;
+  summary: string;
+  evidence: string[];
+}
+
+/** GM 玩家风险报告。 */
+export interface GmPlayerRiskReport {
+  score: number;
+  maxScore: number;
+  level: GmPlayerRiskLevel;
+  overview: string;
+  generatedAt: string;
+  factors: GmPlayerRiskFactor[];
+  recommendations: string[];
+}
+
 /** GM 管理的玩家摘要 */
 export interface GmManagedPlayerSummary {
 /**
@@ -414,6 +459,16 @@ export interface GmManagedPlayerSummary {
  */
 
   autoRetaliate: boolean;
+  /** 账号状态，供 GM 低频列表和详情筛选。 */
+  accountStatus: GmManagedPlayerAccountStatus;
+  /** 当前风险总分。 */
+  riskScore: number;
+  /** 当前风险等级。 */
+  riskLevel: GmPlayerRiskLevel;
+  /** 命中的风险标签。 */
+  riskTags: string[];
+  /** 是否在 GM 风险白名单。当前主线默认 false，预留给运维真源接入。 */
+  isRiskAdmin: boolean;
   /**
  * meta：meta相关字段。
  */
@@ -443,6 +498,16 @@ export interface GmManagedAccountRecord {
  */
 
   totalOnlineSeconds: number;
+  /** 是否在 GM 风险白名单。当前主线默认 false。 */
+  isRiskAdmin: boolean;
+  /** 账号状态。 */
+  status: GmManagedAccountStatus;
+  bannedAt?: string;
+  banReason?: string;
+  bannedBy?: string;
+  lastLoginAt?: string;
+  lastLoginIp?: string;
+  lastLoginDeviceId?: string;
 }
 
 /** GM 管理的玩家完整记录（含快照） */
@@ -471,6 +536,8 @@ export interface GmManagedPlayerRecord extends GmManagedPlayerSummary {
  */
 
   account?: GmManagedAccountRecord;
+  /** 详情页按需展示的风险报告。 */
+  riskReport: GmPlayerRiskReport;
   /**
  * snapshot：快照状态或数据块。
  */
@@ -489,7 +556,10 @@ export interface GmManagedPlayerRecord extends GmManagedPlayerSummary {
 }
 
 /** GM 玩家列表的排序方式。 */
-export type GmPlayerSortMode = 'realm-desc' | 'realm-asc' | 'online' | 'map' | 'name';
+export type GmPlayerSortMode = 'realm-desc' | 'realm-asc' | 'online' | 'map' | 'name' | 'risk-desc' | 'risk-asc';
+
+/** GM 玩家账号状态筛选。 */
+export type GmPlayerAccountStatusFilter = 'all' | GmManagedPlayerAccountStatus;
 
 /** GM 玩家列表查询条件。 */
 export interface GmListPlayersQuery {
@@ -513,6 +583,8 @@ export interface GmListPlayersQuery {
  */
 
   sort?: GmPlayerSortMode;
+  /** 账号状态筛选。 */
+  accountStatus?: GmPlayerAccountStatusFilter;
 }
 
 /** GM 玩家列表分页结果。 */
@@ -547,6 +619,8 @@ export interface GmPlayerListPage {
  */
 
   sort: GmPlayerSortMode;
+  /** 当前账号状态筛选。 */
+  accountStatus: GmPlayerAccountStatusFilter;
 }
 
 /** GM 玩家统计摘要。 */
@@ -1134,6 +1208,11 @@ export interface GmEditorTechniqueOption {
  */
 
   name: string;
+  /**
+ * desc：描述文本。
+ */
+
+  desc?: string;
   /**
  * grade：grade相关字段。
  */

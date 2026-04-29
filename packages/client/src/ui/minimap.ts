@@ -1081,7 +1081,7 @@ export class Minimap {
     requestAnimationFrame(() => {
       this.renderQueued = false;
       this.renderOverlay();
-      this.renderModal();
+      this.renderExpandedMap();
     });
   }
 
@@ -1684,8 +1684,8 @@ export class Minimap {
     this.drawScene(ctx, display, metrics, false);
   }
 
-  /** renderModal：渲染弹窗。 */
-  private renderModal(): void {
+  /** renderExpandedMap：绘制已展开的大地图 Canvas，不重建窗口。 */
+  private renderExpandedMap(): void {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
     const ctx = this.modalCanvas?.getContext('2d');

@@ -206,6 +206,7 @@ let PlayerRuntimeService = class PlayerRuntimeService {
             qi: 0,
             maxQi: 100,
             foundation: 0,
+            rootFoundation: 0,
             combatExp: 0,
             comprehension: 0,
             luck: 0,
@@ -703,6 +704,12 @@ let PlayerRuntimeService = class PlayerRuntimeService {
         const player = this.getPlayerOrThrow(playerId);
 
         const result = this.playerProgressionService.attemptBreakthrough(player);
+        return this.applyProgressionResult(player, result, currentTick, true);
+    }
+    /** 凝练根基。 */
+    refineRootFoundation(playerId, currentTick = 0) {
+        const player = this.getPlayerOrThrow(playerId);
+        const result = this.playerProgressionService.refineRootFoundation(player);
         return this.applyProgressionResult(player, result, currentTick, true);
     }
     /**
@@ -2865,6 +2872,7 @@ let PlayerRuntimeService = class PlayerRuntimeService {
             qi: snapshot.vitals.qi,
             maxQi: snapshot.vitals.maxQi,
             foundation: normalizeCounter(snapshot.progression?.foundation),
+            rootFoundation: normalizeCounter(snapshot.progression?.rootFoundation),
             combatExp: normalizeCounter(snapshot.progression?.combatExp),
             comprehension: normalizeCounter(snapshot.progression?.comprehension),
             luck: normalizeCounter(snapshot.progression?.luck),
@@ -3601,6 +3609,7 @@ function buildRuntimePlayerPersistenceSnapshot(player) {
         },
         progression: {
             foundation: player.foundation,
+            rootFoundation: normalizeCounter(player.rootFoundation),
             combatExp: player.combatExp,
             comprehension: normalizeCounter(player.comprehension),
             luck: normalizeCounter(player.luck),

@@ -1191,7 +1191,12 @@ async function statPanelCase(runtime) {
       && typeof payload.numericStatBreakdowns.maxHp === 'object';
   }, 5000);
   await emitAndWait(socket, C2S.RequestLeaderboard, { limit: 5 }, S2C.Leaderboard, function (payload) {
-    return payload && typeof payload.generatedAt === 'number' && payload.boards !== undefined;
+    return payload
+      && typeof payload.generatedAt === 'number'
+      && payload.boards !== undefined
+      && Array.isArray(payload.boards.supremeAttrs)
+      && payload.boards.supremeAttrs.length === 6
+      && Array.isArray(payload.boards.sects);
   }, 5000);
   await emitAndWait(socket, C2S.RequestWorldSummary, {}, S2C.WorldSummary, function (payload) {
     return payload && typeof payload.generatedAt === 'number' && payload.summary !== undefined;

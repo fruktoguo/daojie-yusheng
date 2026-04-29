@@ -2,6 +2,8 @@
  * 低频排行榜与世界汇总投影视图，供协议层和消费端共用。
  */
 
+import type { AttrKey } from './attribute-types';
+
 /** 排行榜通用玩家条目。 */
 export interface LeaderboardPlayerEntry {
 /**
@@ -149,13 +151,13 @@ export interface LeaderboardBodyTrainingEntry extends LeaderboardPlayerEntry {
   expToNext: number;
 }
 
-/** 四项至尊属性榜条目。 */
+/** 六维至尊属性榜条目。 */
 export interface LeaderboardSupremeAttrEntry {
 /**
  * attr：attr相关字段。
  */
 
-  attr: 'constitution' | 'spirit' | 'perception' | 'talent';  
+  attr: AttrKey;
   /**
  * label：label名称或显示文本。
  */
@@ -176,6 +178,45 @@ export interface LeaderboardSupremeAttrEntry {
  */
 
   value: number;
+}
+
+/** 宗门人数排行榜条目。 */
+export interface LeaderboardSectEntry {
+/**
+ * rank：rank相关字段。
+ */
+
+  rank: number;
+  /**
+ * sectId：宗门ID标识。
+ */
+
+  sectId: string;
+  /**
+ * sectName：宗门名称或显示文本。
+ */
+
+  sectName: string;
+  /**
+ * mark：宗门印记。
+ */
+
+  mark: string;
+  /**
+ * memberCount：成员数量。
+ */
+
+  memberCount: number;
+  /**
+ * leaderPlayerId：宗主玩家ID标识。
+ */
+
+  leaderPlayerId: string;
+  /**
+ * leaderName：宗主名称或显示文本。
+ */
+
+  leaderName: string;
 }
 
 /** 世界活跃行为统计。 */

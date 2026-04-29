@@ -44,8 +44,8 @@ const MAIL_FILTER_OPTIONS: Array<{
  */
  label: string }> = [
   { id: 'all', label: '全部' },
-  { id: 'unread', label: '未读' },
-  { id: 'claimable', label: '可领取' },
+  { id: 'unread', label: '未阅' },
+  { id: 'claimable', label: '可取信物' },
 ];
 
 const EMPTY_SUMMARY: MailSummaryView = {
@@ -72,9 +72,9 @@ const MAIL_LIST_EMPTY_TEXT = '当前筛选下暂无邮件';
 /** 邮件详情空态文案。 */
 const MAIL_DETAIL_EMPTY_TEXT = '请选择一封邮件查看详情';
 /** 邮件正文空态文案。 */
-const MAIL_BODY_EMPTY_TEXT = '这封邮件没有正文内容。';
+const MAIL_BODY_EMPTY_TEXT = '这封邮件无正文内容。';
 /** 邮件附件空态文案。 */
-const MAIL_ATTACHMENT_EMPTY_TEXT = '这封邮件没有附件';
+const MAIL_ATTACHMENT_EMPTY_TEXT = '这封邮件无信物';
 
 /** 邮件面板渲染时需要保留的本地状态。 */
 type MailRenderState = {
@@ -374,7 +374,7 @@ export class MailPanel {
   }
 
   /** 处理标记已读、领取和删除的回包。 */
-  handleOpResult(result: {  
+  handleOpResult(result: {
   /**
  * operation：operation相关字段。
  */
@@ -393,7 +393,7 @@ export class MailPanel {
   message?: string }): void {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
-    this.statusMessage = result.message ?? (result.ok ? '操作已提交。' : '操作失败。');
+    this.statusMessage = result.message ?? (result.ok ? '已呈报。' : '未果。');
     if (!result.ok) {
       if (this.shouldRecoverExpiredSession(result)) {
         void this.recoverSessionAndReplayPendingOperation();
@@ -553,19 +553,19 @@ export class MailPanel {
     pendingOperation.retriedAfterSessionRecovery = true;
     pendingOperation.awaitingReplayAfterSessionRestore = true;
     this.playerId = '';
-    this.statusMessage = '当前会话已失效，正在恢复并重试...';
+    this.statusMessage = '气机已断，正在重续...';
     this.render();
     const restored = await recoverSession();
     if (!restored) {
       this.pendingOperation = null;
-      this.statusMessage = '会话恢复失败，请重新登录后重试。';
+      this.statusMessage = '续气未果，请重入天地再试。';
       this.render();
       return;
     }
     if (this.replayPendingOperationAfterSessionRestore()) {
       return;
     }
-    this.statusMessage = '会话已恢复，正在等待角色数据...';
+    this.statusMessage = '气机已续，静待身显...';
     this.render();
   }
 
@@ -578,7 +578,7 @@ export class MailPanel {
       return false;
     }
     pendingOperation.awaitingReplayAfterSessionRestore = false;
-    this.statusMessage = '会话已恢复，正在重试邮件操作...';
+    this.statusMessage = '气机已续，重试呈报...';
     this.render();
     this.emitMailOperation(pendingOperation.operation, pendingOperation.mailIds);
     return true;
@@ -634,17 +634,17 @@ export class MailPanel {
     const detail = this.detail && this.selectedMailId === this.detail.mailId ? this.detail : null;
     return `
       <div class="mail-shell">
-        <div class="mail-summary-grid">
-          <div class="mail-summary-card">
-            <div class="mail-summary-label">未读</div>
-            <div class="mail-summary-value" data-mail-summary-unread="true">${this.summary.unreadCount}</div>
-            <div class="mail-summary-note">打开邮件详情后会进入已读队列。</div>
-          </div>
-          <div class="mail-summary-card">
-            <div class="mail-summary-label">可领取</div>
-            <div class="mail-summary-value" data-mail-summary-claimable="true">${this.summary.claimableCount}</div>
-            <div class="mail-summary-note">附件领取会走服务端受控流程，不进地图广播。</div>
-          </div>
+            <div class="mail-summary-grid">
+              <div class="mail-summary-card">
+            <div class="mail-summary-label">未阅</div>
+                <div class="mail-summary-value" data-mail-summary-unread="true">${this.summary.unreadCount}</div>
+                  <div class="mail-summary-note">点入信笺，归入已阅。</div>
+                </div>
+            <div class="mail-summary-card">
+              <div class="mail-summary-label">可取信物</div>
+              <div class="mail-summary-value" data-mail-summary-claimable="true">${this.summary.claimableCount}</div>
+              <div class="mail-summary-note">信物取出由天道控卷，不入地图广播。</div>
+            </div>
           <div class="mail-summary-card">
             <div class="mail-summary-label">当前筛选</div>
             <div class="mail-summary-value" data-mail-summary-total="true">${total}</div>
@@ -761,8 +761,8 @@ export class MailPanel {
     const selected = item.mailId === this.selectedMailId;
     const checked = this.selectedMailIds.has(item.mailId);
     const stateChips = [
-      item.read ? '已读' : '未读',
-      item.hasAttachments ? (item.claimed ? '附件已领' : '可领附件') : '无附件',
+      item.read ? '已阅' : '未阅',
+      item.hasAttachments ? (item.claimed ? '信物已取' : '可取信物') : '无信物',
     ];
     node.dataset.mailSelect = item.mailId;
     node.classList.toggle('selected', selected);
@@ -782,7 +782,7 @@ export class MailPanel {
         return span;
       }),
     );
-    summary.textContent = item.summary || '这封邮件没有额外说明。';
+    summary.textContent = item.summary || '信笺无言';
     return true;
   }
 
@@ -830,7 +830,7 @@ export class MailPanel {
     attachmentHead.className = 'mail-attachment-head';
     const attachmentTitle = document.createElement('div');
     attachmentTitle.className = 'mail-attachment-title';
-    attachmentTitle.textContent = '附件';
+    attachmentTitle.textContent = '信物';
     const attachmentPagination = document.createElement('div');
     attachmentPagination.className = 'mail-attachment-pagination';
     const attachmentPrevButton = document.createElement('button');
@@ -900,8 +900,8 @@ export class MailPanel {
     refs.markReadButton.dataset.mailMarkRead = detail.mailId;
     refs.claimButton.dataset.mailClaim = detail.mailId;
     refs.deleteButton.dataset.mailDelete = detail.mailId;
-    refs.markReadButton.textContent = '标已读';
-    refs.claimButton.textContent = '领取附件';
+    refs.markReadButton.textContent = '标已阅';
+    refs.claimButton.textContent = '收取信物';
     refs.deleteButton.textContent = '删除';
     refs.markReadButton.disabled = detail.read;
     refs.claimButton.disabled = !detail.attachments.length || detail.claimed;
@@ -969,8 +969,8 @@ export class MailPanel {
     const selected = item.mailId === this.selectedMailId;
     const checked = this.selectedMailIds.has(item.mailId);
     const stateChips = [
-      item.read ? '已读' : '未读',
-      item.hasAttachments ? (item.claimed ? '附件已领' : '可领附件') : '无附件',
+      item.read ? '已阅' : '未阅',
+      item.hasAttachments ? (item.claimed ? '信物已取' : '可取信物') : '无信物',
     ];
     return `
       <article class="mail-entry ${selected ? 'selected' : ''}" data-mail-select="${escapeHtmlAttr(item.mailId)}" tabindex="0" role="button">
@@ -990,7 +990,7 @@ export class MailPanel {
             ${stateChips.map((chip) => `<span>${escapeHtml(chip)}</span>`).join('')}
             ${item.expireAt ? `<span>至 ${escapeHtml(new Date(item.expireAt).toLocaleString())}</span>` : ''}
           </div>
-          <div class="mail-entry-summary" data-mail-entry-summary="true">${escapeHtml(item.summary || '这封邮件没有额外说明。')}</div>
+      <div class="mail-entry-summary" data-mail-entry-summary="true">${escapeHtml(item.summary || '信笺无言')}</div>
         </div>
       </article>
     `;
@@ -1016,15 +1016,15 @@ export class MailPanel {
           </div>
         </div>
         <div class="mail-detail-actions">
-          <button class="small-btn ghost" data-mail-mark-read="${escapeHtmlAttr(detail.mailId)}" type="button" ${detail.read ? 'disabled' : ''}>标已读</button>
-          <button class="small-btn" data-mail-claim="${escapeHtmlAttr(detail.mailId)}" type="button" ${!detail.attachments.length || detail.claimed ? 'disabled' : ''}>领取附件</button>
+          <button class="small-btn ghost" data-mail-mark-read="${escapeHtmlAttr(detail.mailId)}" type="button" ${detail.read ? 'disabled' : ''}>标已阅</button>
+          <button class="small-btn" data-mail-claim="${escapeHtmlAttr(detail.mailId)}" type="button" ${!detail.attachments.length || detail.claimed ? 'disabled' : ''}>收取信物</button>
           <button class="small-btn danger" data-mail-delete="${escapeHtmlAttr(detail.mailId)}" type="button" ${!detail.deletable ? 'disabled' : ''}>删除</button>
         </div>
       </div>
       <div class="mail-detail-body">${escapeHtml(body || MAIL_BODY_EMPTY_TEXT).replaceAll('\n', '<br />')}</div>
       <div class="mail-attachment-block">
         <div class="mail-attachment-head">
-          <div class="mail-attachment-title">附件</div>
+    <div class="mail-attachment-title">信物</div>
           ${detail.attachments.length > MAIL_ATTACHMENT_PAGE_SIZE ? `
             <div class="mail-attachment-pagination">
               <button class="small-btn ghost" data-mail-attachment-page="prev" type="button" ${attachmentPage <= 1 ? 'disabled' : ''}>上一页</button>
@@ -1258,7 +1258,7 @@ export class MailPanel {
   /** 生成弹窗标题栏文案。 */
   private buildModalMeta(): MailModalMeta {
     return {
-      subtitle: `未读 ${this.summary.unreadCount} · 可领取 ${this.summary.claimableCount}`,
+      subtitle: `未阅 ${this.summary.unreadCount} · 可取信物 ${this.summary.claimableCount}`,
       hint: this.statusMessage || MAIL_MODAL_HINT_DEFAULT,
     };
   }

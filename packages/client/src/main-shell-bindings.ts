@@ -167,7 +167,7 @@ export function bindMainShellInteractions(options: MainShellBindingsOptions): vo
   });
   window.addEventListener('offline', () => {
     options.clearPendingSocketPing();
-    options.renderPingLatency(null, '断网');
+    options.renderPingLatency(null, '气机断绝');
   });
   options.documentRef.addEventListener('visibilitychange', () => {
     if (options.documentRef.visibilityState === 'hidden') {

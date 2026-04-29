@@ -190,9 +190,17 @@ let WorldRuntimeLootContainerService = class WorldRuntimeLootContainerService {
         }
         const next = new Map();
         for (const entry of entries) {
-            next.set(entry.sourceId, {
-                sourceId: entry.sourceId,
-                containerId: entry.containerId,
+            const parsedSource = typeof entry?.sourceId === 'string' ? parseContainerSourceId(entry.sourceId) : null;
+            const containerId = typeof entry?.containerId === 'string' && entry.containerId.trim()
+                ? entry.containerId.trim()
+                : parsedSource?.containerId ?? '';
+            if (!containerId) {
+                continue;
+            }
+            const sourceId = buildContainerSourceId(instanceId, containerId);
+            next.set(sourceId, {
+                sourceId,
+                containerId,
                 generatedAtTick: entry.generatedAtTick,
                 refreshAtTick: entry.refreshAtTick,
                 entries: entry.entries.map((item) => ({

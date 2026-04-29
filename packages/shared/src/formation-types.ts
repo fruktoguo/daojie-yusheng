@@ -140,7 +140,7 @@ export const BUILTIN_FORMATION_TEMPLATES: FormationTemplate[] = [
   {
     id: 'spirit_gathering',
     name: '聚灵阵',
-    desc: '持续抬升范围内地块的炼化中性灵气。',
+    desc: '持续抬升范围内灵气的炼化之效。',
     minSpiritStoneCount: 100,
     damagePerAura: FORMATION_DEFAULT_DAMAGE_PER_AURA,
     range: {
@@ -169,7 +169,7 @@ export const BUILTIN_FORMATION_TEMPLATES: FormationTemplate[] = [
   {
     id: 'earth_stabilizing',
     name: '固脉阵',
-    desc: '稳固范围内地脉，阻止可攻击地块复生和临时地块自然消散，并按效果灵力降低可拆除地块受到的伤害。',
+    desc: '稳固地脉，阻其复生消散，依灵力减被拆之伤。',
     minSpiritStoneCount: 1000,
     damagePerAura: FORMATION_DEFAULT_DAMAGE_PER_AURA,
     range: {
@@ -230,7 +230,7 @@ export const BUILTIN_FORMATION_TEMPLATES: FormationTemplate[] = [
   {
     id: 'sect_guardian_barrier',
     name: '护宗大阵',
-    desc: '护持宗门山门的特殊大阵，阵眼位于宗门内部，主世界入口处形成默认一格封界；本宗门修士可自由通行。',
+    desc: '护持山门，阵眼在内，入口自成封界；同门可自由通行。',
     lifecycle: 'persistent',
     placeableByDisk: false,
     access: {

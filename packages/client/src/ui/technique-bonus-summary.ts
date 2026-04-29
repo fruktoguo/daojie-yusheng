@@ -21,7 +21,7 @@ type TechniqueSpecialStats = Partial<Pick<PlayerSpecialStats, TechniqueSpecialSt
 export function formatTechniqueBonusSummary(
   attrs?: Partial<Attributes> | null,
   specialStats?: TechniqueSpecialStats | null,
-  fallback = '无属性提升',
+  fallback = '无增益',
 ): string {
   const parts = [
     ...formatTechniqueAttrEntries(attrs),
@@ -30,7 +30,7 @@ export function formatTechniqueBonusSummary(
   return parts.length > 0 ? parts.join(' / ') : fallback;
 }
 
-export function formatTechniqueLayerBonusSummary(layer: TechniqueLayerDef, fallback = '无属性提升'): string {
+export function formatTechniqueLayerBonusSummary(layer: TechniqueLayerDef, fallback = '无增益'): string {
   return formatTechniqueBonusSummary(layer.attrs, layer.specialStats, fallback);
 }
 
@@ -38,7 +38,7 @@ export function formatTechniqueCumulativeBonusSummary(
   level: number,
   layers?: TechniqueLayerDef[],
   attrCurves?: TechniqueAttrCurves,
-  fallback = '无属性提升',
+  fallback = '无增益',
 ): string {
   return formatTechniqueBonusSummary(
     calcTechniqueAttrValues(level, layers, attrCurves),

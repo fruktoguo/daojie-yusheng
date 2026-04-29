@@ -17,7 +17,7 @@ const WORLD_MIGRATION_VARIANT_CLASS = 'detail-modal--world-migration';
 export function openWorldMigrationModal(options: OpenWorldMigrationModalOptions): void {
   const player = options.getPlayer();
   if (!player) {
-    options.showToast('当前角色尚未完成同步，暂时无法切换世界。', 'warn');
+    options.showToast('身未安定，暂不可跨界。', 'warn');
     return;
   }
   renderWorldMigrationModal(options, player, null);
@@ -35,7 +35,7 @@ function renderWorldMigrationModal(
     title: '世界迁移',
     size: 'sm' as const,
     subtitle: `当前世界：${currentPreset === 'real' ? '现世' : '虚境'}`,
-    hint: '切换后会立即迁移到当前地图对应分线，并作为后续跨图默认世界。',
+    hint: '切入他道后，随其之道。',
     renderBody: (body: HTMLElement) => {
       body.replaceChildren(
         createWorldMigrationShell(options, currentPreset, pendingTargetPreset),
@@ -70,19 +70,19 @@ function createWorldMigrationIntro(currentPreset: WorldMigrationLinePreset): HTM
 
   const current = document.createElement('div');
   current.className = 'world-migration-current';
-  current.textContent = currentPreset === 'real' ? '当前处于现世，后续跨图会默认进入现世线。' : '当前处于虚境，后续跨图会默认进入虚境线。';
+  current.textContent = currentPreset === 'real' ? '身在现世，往后跨界皆入现世。' : '身在虚境，往后跨界皆入虚境。';
   wrapper.append(current);
 
   const intro = document.createElement('p');
   intro.textContent =
     currentPreset === 'real'
-      ? '你当前位于现世。切回虚境会回到虚境线，并把后续跨图默认世界改为虚境。'
-      : '你当前位于虚境。切入现世会回到现世线，并把后续跨图默认世界改为现世。';
+      ? '你当前在现世，欲循虚境则入虚境线。'
+      : '你当前在虚境，欲归现世则循现世线。';
   wrapper.append(intro);
 
   const tip = document.createElement('p');
   tip.className = 'detail-hint';
-  tip.textContent = '虚境为和平世界，现世为 PVP 世界。点击下方选项后还会再做一次确认。';
+  tip.textContent = '虚境禁斗法，现世可争锋。选中后尚需再度确认。';
   wrapper.append(tip);
 
   return wrapper;
@@ -127,19 +127,19 @@ function createWorldMigrationButton(
   desc.className = 'world-migration-choice-desc';
   desc.textContent =
     targetPreset === 'real'
-      ? '现世允许 PVP 与地块攻击，切换后会立刻进入当前地图的现世线。'
-      : '虚境为和平世界，切换后会立刻进入当前地图的虚境线，并作为默认跨图世界。';
+      ? '现世可争锋破地，切换后入当前地图现世道。'
+      : '虚境禁争伐，切换后入当前地图虚境道。';
 
   const meta = document.createElement('span');
   meta.className = 'world-migration-choice-meta';
-  meta.textContent = targetPreset === 'real' ? '现世线 / PVP / 可打地块' : '虚境线 / 禁 PVP / 禁地块攻击';
+  meta.textContent = targetPreset === 'real' ? '现世 · 可争锋 · 可破地' : '虚境 · 禁争伐 · 禁破地';
 
   button.append(head, desc, meta);
   button.addEventListener('click', () => {
     const player = options.getPlayer();
     if (!player) {
       detailModalHost.close(WORLD_MIGRATION_MODAL_OWNER);
-      options.showToast('当前角色尚未完成同步，暂时无法切换世界。', 'warn');
+      options.showToast('身未安定，暂不可跨界。', 'warn');
       return;
     }
     const livePreset = resolveCurrentWorldLinePreset(player.instanceId);
@@ -185,15 +185,15 @@ function createWorldMigrationConfirmOverlay(
   desc.className = 'world-migration-popup-desc';
   desc.textContent =
     targetPreset === 'real'
-      ? '确认后会立刻迁入当前地图的现世线，后续通过传送点跨图时也会继续进入现世。'
-      : '确认后会立刻迁入当前地图的虚境线，后续通过传送点跨图时也会继续进入虚境。';
+      ? '确认后入现世，再通过传送点跨界亦循现世。'
+      : '确认后入虚境，再通过传送点跨界亦循虚境。';
 
   const warning = document.createElement('div');
   warning.className = 'world-migration-popup-note';
   warning.textContent =
     targetPreset === 'peaceful'
-      ? '若角色身上带有煞气入体或煞气反噬，服务端会拒绝迁回虚境。'
-      : '切入现世后，当前地图与后续跨图都会优先进入现世线。';
+      ? '若身染煞气入体或反噬，则无法返归虚境。'
+      : '入现世后，此后跨界皆循此道。';
 
   const actions = document.createElement('div');
   actions.className = 'ui-modal-footer-actions world-migration-popup-actions';

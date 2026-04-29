@@ -246,6 +246,7 @@ function toPlayerSnapshotFromMigrationRow(row) {
         },
         progression: {
             foundation: Math.max(0, toFiniteInt(row.foundation, 0)),
+            rootFoundation: Math.max(0, toFiniteInt(row.rootFoundation, 0)),
             combatExp: Math.max(0, toFiniteInt(row.combatExp, 0)),
             comprehension: Math.max(0, toFiniteInt(row.comprehension, 0)),
             luck: Math.max(0, toFiniteInt(row.luck, 0)),

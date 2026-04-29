@@ -558,12 +558,12 @@ export class MarketPanel {
       size: 'full',
       variantClass: 'detail-modal--market',
       title: '坊市',
-      subtitle: '匿名挂售、求购与自动撮合',
+      subtitle: '天下修士互通有无',
       renderBody: (body) => {
         body.replaceChildren(createFragmentFromHtml(
           marketUpdate
             ? this.renderModalBody(marketUpdate)
-            : '<div class="empty-hint">坊市盘面同步中……</div>',
+            : '<div class="empty-hint">坊市行情查探中...</div>',
         ));
       },
       onClose: () => {
@@ -889,12 +889,12 @@ export class MarketPanel {
           </div>
           ${sellConflict ? '<div class="market-action-hint">你已在求购这件物品，不能再挂售。</div>' : ''}
           ${showOrderBook
-            ? this.renderPriceLevels(book?.sells ?? [], currencyName, '当前还没有卖盘。', {
+            ? this.renderPriceLevels(book?.sells ?? [], currencyName, '暂无售单。', {
               kind: 'buy',
               label: '购买',
               disabled: Boolean(buyConflict),
             })
-            : this.renderBookLoading('卖盘同步中……')}
+            : this.renderBookLoading('卖盘查探中...')}
         </div>
         <div class="market-book-column ui-surface-pane ui-surface-pane--stack ui-surface-pane--muted ui-scroll-panel">
           <div class="market-book-column-head">
@@ -902,11 +902,11 @@ export class MarketPanel {
             <button class="small-btn ghost" data-market-open-dialog="buy" type="button" ${buyConflict ? 'disabled' : ''}>求购</button>
           </div>
           ${buyConflict ? '<div class="market-action-hint">你已在挂售这件物品，不能再求购。</div>' : ''}
-          ${showOrderBook ? this.renderPriceLevels(book?.buys ?? [], currencyName, '当前还没有求购。', {
+          ${showOrderBook ? this.renderPriceLevels(book?.buys ?? [], currencyName, '暂无求购。', {
             kind: 'sell',
             label: '出售',
             disabled: matchedInventoryCount <= 0 || Boolean(sellConflict),
-          }) : this.renderBookLoading('买盘同步中……')}
+          }) : this.renderBookLoading('买盘查探中...')}
         </div>
       </div>
     `;
@@ -1049,7 +1049,7 @@ export class MarketPanel {
 
     const history = this.tradeHistory;
     if (this.tradeHistoryLoading && !history) {
-      return '<div class="empty-hint">交易记录同步中……</div>';
+      return '<div class="empty-hint">交易记录调阅中...</div>';
     }
     const records = history?.records ?? [];
     const page = history?.page ?? this.tradeHistoryPage;
@@ -1077,7 +1077,7 @@ export class MarketPanel {
                 <div class="market-order-meta">数量 ${formatDisplayCountBadge(record.quantity)} · 单价 ${this.formatMarketUnitPrice(record.unitPrice)} ${escapeHtml(currencyName)}</div>
               </div>
             `).join('')
-            : `<div class="empty-hint">${this.tradeHistoryLoading ? '交易记录同步中……' : '最近还没有你的成交记录。'}</div>`}
+            : `<div class="empty-hint">${this.tradeHistoryLoading ? '交易记录调阅中...' : '尚无交易往来。'}</div>`}
         </div>
       </div>
     `;
@@ -2378,7 +2378,7 @@ export class MarketPanel {
     const zeroPriceText = baseUnitPrice !== undefined
       ? this.formatMarketUnitPrice(baseUnitPrice)
       : basePricePending
-        ? '补拉中'
+        ? '查探中'
         : '暂无';
     const baseTicksPerAttempt = this.computeEnhancementJobBaseTicks(itemLevel);
     const expectedBaseDurationTicks = strategy.expectedAttempts * baseTicksPerAttempt;

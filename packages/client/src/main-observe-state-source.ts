@@ -846,7 +846,7 @@ export function createMainObserveStateSource(options: MainObserveStateSourceOpti
       <div class="observe-modal-section-title">角色信息</div>
       ${entities.length > 0
         ? `<div class="observe-entity-list">${entities.map((entity) => buildObservedEntityCardHtml(entity)).join('')}</div>`
-        : '<div class="observe-entity-empty">该地块当前没有角色、怪物或 NPC。</div>'}
+        : '<div class="observe-entity-empty">此地空无一人。</div>'}
     </section>`;
   }  
   /**
@@ -967,7 +967,7 @@ export function createMainObserveStateSource(options: MainObserveStateSourceOpti
 
     const tile = options.getVisibleTileAt(targetX, targetY);
     if (!tile) {
-      options.showToast('只能观察当前视野内的格子');
+      options.showToast('神识仅可触及视野之内');
       return;
     }
     const observedTileDetail = isMatchingObservedTile(targetX, targetY) ? activeObservedTileDetail : null;
@@ -1052,8 +1052,8 @@ export function createMainObserveStateSource(options: MainObserveStateSourceOpti
             </div>
           `).join('')}</div>`
         : observedTileDetail?.ground
-          ? '<div class="observe-entity-empty">这里暂时没有可拾取物品。</div>'
-          : '<div class="observe-entity-empty">该地块当前没有可见地面物品。</div>';
+          ? '<div class="observe-entity-empty">此地无物可取。</div>'
+          : '<div class="observe-entity-empty">地面无物。</div>';
       const safeZoneHtml = safeZone
         ? `
           <section class="observe-modal-section">

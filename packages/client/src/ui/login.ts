@@ -105,7 +105,7 @@ export class LoginUI {
     const refreshToken = getRefreshToken();
     if (!refreshToken) return false;
 
-    this.setError('正在恢复会话...');
+    this.setError('正在重归天地...');
     try {
       const data = await restoreTokens(refreshToken);
       this.onSuccess(data);
@@ -116,7 +116,7 @@ export class LoginUI {
         this.clearSession();
       }
       this.show();
-      this.setError(error instanceof Error ? error.message : '会话恢复失败');
+      this.setError(error instanceof Error ? error.message : '重归失败');
       return false;
     }
   }
@@ -215,7 +215,7 @@ export class LoginUI {
 
     await this.checkDisplayName(displayName, { immediate: true });
     if (!this.displayNameAvailable) {
-      this.setError(this.displayNameStatus.textContent || '显示名称不可用');
+      this.setError(this.displayNameStatus.textContent || '此道号已被占用');
       return;
     }
 
@@ -269,7 +269,7 @@ export class LoginUI {
       return;
     }
 
-    this.setDisplayNameStatus('正在检测...', '');
+    this.setDisplayNameStatus('正在验查...', '');
     this.displayNameCheckTimer = setTimeout(() => {
       void this.checkDisplayName(displayName, { immediate: false });
     }, 250);
@@ -298,7 +298,7 @@ export class LoginUI {
     const controller = new AbortController();
     this.displayNameAbortController = controller;
     if (options.immediate) {
-      this.setDisplayNameStatus('正在检测...', '');
+      this.setDisplayNameStatus('正在验查...', '');
     }
 
     try {
@@ -308,7 +308,7 @@ export class LoginUI {
       }
       this.displayNameAvailable = result.available;
       this.setDisplayNameStatus(
-        result.available ? '显示名称可用' : (result.message ?? '显示名称不可用'),
+        result.available ? '此道号可用' : (result.message ?? '此道号已被占用'),
         result.available ? 'success' : 'error',
       );
     } catch (error) {
@@ -316,7 +316,7 @@ export class LoginUI {
         return;
       }
       this.displayNameAvailable = false;
-      this.setDisplayNameStatus(error instanceof Error ? error.message : '检测失败', 'error');
+      this.setDisplayNameStatus(error instanceof Error ? error.message : '验查未果', 'error');
     }
   }
 

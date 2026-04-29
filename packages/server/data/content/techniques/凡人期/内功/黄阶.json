@@ -2,96 +2,79 @@
   {
     "id": "dragon_elephant_bone",
     "name": "镇骨功",
+    "desc": "以气镇骨，由外而内固本培元。",
     "grade": "yellow",
     "layers": [
       {
         "level": 1,
         "expFactor": 63,
         "attrs": {
-          "constitution": 3,
-          "spirit": 3,
-          "perception": 3,
-          "talent": 3
+          "constitution": 8,
+          "talent": 11
         }
       },
       {
         "level": 2,
         "expFactor": 69.5,
         "attrs": {
-          "constitution": 3,
-          "spirit": 3,
-          "perception": 3,
-          "talent": 2
+          "constitution": 9,
+          "talent": 11
         }
       },
       {
         "level": 3,
         "expFactor": 76.5,
         "attrs": {
-          "constitution": 3,
-          "spirit": 3,
-          "perception": 3,
-          "talent": 2
+          "constitution": 9,
+          "talent": 11
         }
       },
       {
         "level": 4,
         "expFactor": 84,
         "attrs": {
-          "constitution": 3,
-          "spirit": 3,
-          "perception": 3,
-          "talent": 2
+          "constitution": 9,
+          "talent": 11
         }
       },
       {
         "level": 5,
         "expFactor": 92,
         "attrs": {
-          "constitution": 3,
-          "spirit": 3,
-          "perception": 2,
-          "talent": 2
+          "constitution": 9,
+          "talent": 11
         }
       },
       {
         "level": 6,
         "expFactor": 100.5,
         "attrs": {
-          "constitution": 3,
-          "spirit": 3,
-          "perception": 2,
-          "talent": 2
+          "constitution": 9,
+          "talent": 11
         }
       },
       {
         "level": 7,
         "expFactor": 109.5,
         "attrs": {
-          "constitution": 2,
-          "spirit": 3,
-          "perception": 2,
-          "talent": 2
+          "constitution": 9,
+          "talent": 11
         }
       },
       {
         "level": 8,
         "expFactor": 119,
         "attrs": {
-          "constitution": 2,
-          "spirit": 3,
-          "perception": 2,
-          "talent": 2
+          "constitution": 9,
+          "talent": 11
         }
       },
       {
         "level": 9,
         "expFactor": 0,
         "attrs": {
-          "constitution": 2,
-          "spirit": 3,
-          "perception": 2,
-          "talent": 2
+          "constitution": 9,
+          "talent": 12
         }
       }
     ],
@@ -102,106 +85,87 @@
   {
     "id": "golden_lock_body",
     "name": "固元功",
+    "desc": "封关锁窍，使元气不泄、根基不摇。",
     "grade": "yellow",
     "layers": [
       {
         "level": 1,
         "expFactor": 66,
         "attrs": {
-          "constitution": 3,
-          "spirit": 3,
-          "perception": 3,
-          "talent": 2
+          "talent": 11,
+          "meridians": 8
         }
       },
       {
         "level": 2,
         "expFactor": 73,
         "attrs": {
-          "constitution": 3,
-          "spirit": 3,
-          "perception": 3,
-          "talent": 2
+          "talent": 11,
+          "meridians": 8
         }
       },
       {
         "level": 3,
         "expFactor": 80.5,
         "attrs": {
-          "constitution": 3,
-          "spirit": 3,
-          "perception": 3,
-          "talent": 2
+          "talent": 11,
+          "meridians": 8
         }
       },
       {
         "level": 4,
         "expFactor": 88.5,
         "attrs": {
-          "constitution": 3,
-          "spirit": 3,
-          "perception": 2,
-          "talent": 2
+          "talent": 11,
+          "meridians": 8
         }
       },
       {
         "level": 5,
         "expFactor": 97,
         "attrs": {
-          "constitution": 3,
-          "spirit": 3,
-          "perception": 2,
-          "talent": 2
+          "talent": 11,
+          "meridians": 8
         }
       },
       {
         "level": 6,
         "expFactor": 106,
         "attrs": {
-          "constitution": 2,
-          "spirit": 3,
-          "perception": 2,
-          "talent": 2
+          "talent": 11,
+          "meridians": 8
         }
       },
       {
         "level": 7,
         "expFactor": 115.5,
         "attrs": {
-          "constitution": 2,
-          "spirit": 3,
-          "perception": 2,
-          "talent": 2
+          "talent": 11,
+          "meridians": 8
         }
       },
       {
         "level": 8,
         "expFactor": 125.5,
         "attrs": {
-          "constitution": 2,
-          "spirit": 3,
-          "perception": 2,
-          "talent": 2
+          "talent": 11,
+          "meridians": 8
         }
       },
       {
         "level": 9,
         "expFactor": 136,
         "attrs": {
-          "constitution": 2,
-          "spirit": 2,
-          "perception": 2,
-          "talent": 2
+          "talent": 11,
+          "meridians": 8
         }
       },
       {
         "level": 10,
         "expFactor": 0,
         "attrs": {
-          "constitution": 2,
-          "spirit": 2,
-          "perception": 2,
-          "talent": 1
+          "talent": 11,
+          "meridians": 8
         }
       }
     ],
@@ -212,106 +176,87 @@
   {
     "id": "hundred_temper_body",
     "name": "壮身功",
+    "desc": "打熬筋骨，以外功催发内劲。",
     "grade": "yellow",
     "layers": [
       {
         "level": 1,
         "expFactor": 69,
         "attrs": {
-          "constitution": 3,
-          "spirit": 3,
-          "perception": 3,
-          "talent": 2
+          "constitution": 9,
+          "strength": 11
         }
       },
       {
         "level": 2,
         "expFactor": 76,
         "attrs": {
-          "constitution": 3,
-          "spirit": 3,
-          "perception": 3,
-          "talent": 2
+          "constitution": 9,
+          "strength": 11
         }
       },
       {
         "level": 3,
         "expFactor": 83.5,
         "attrs": {
-          "constitution": 3,
-          "spirit": 3,
-          "perception": 2,
-          "talent": 2
+          "constitution": 9,
+          "strength": 11
         }
       },
       {
         "level": 4,
         "expFactor": 91.5,
         "attrs": {
-          "constitution": 3,
-          "spirit": 3,
-          "perception": 2,
-          "talent": 2
+          "constitution": 9,
+          "strength": 11
         }
       },
       {
         "level": 5,
         "expFactor": 100,
         "attrs": {
-          "constitution": 2,
-          "spirit": 3,
-          "perception": 2,
-          "talent": 2
+          "constitution": 9,
+          "strength": 11
         }
       },
       {
         "level": 6,
         "expFactor": 109,
         "attrs": {
-          "constitution": 2,
-          "spirit": 3,
-          "perception": 2,
-          "talent": 2
+          "constitution": 9,
+          "strength": 11
         }
       },
       {
         "level": 7,
         "expFactor": 118.5,
         "attrs": {
-          "constitution": 2,
-          "spirit": 3,
-          "perception": 2,
-          "talent": 2
+          "constitution": 9,
+          "strength": 11
         }
       },
       {
         "level": 8,
         "expFactor": 128.5,
         "attrs": {
-          "constitution": 2,
-          "spirit": 2,
-          "perception": 2,
-          "talent": 2
+          "constitution": 9,
+          "strength": 11
         }
       },
       {
         "level": 9,
         "expFactor": 139,
         "attrs": {
-          "constitution": 2,
-          "spirit": 2,
-          "perception": 2,
-          "talent": 1
+          "constitution": 9,
+          "strength": 11
         }
       },
       {
         "level": 10,
         "expFactor": 0,
         "attrs": {
-          "constitution": 2,
-          "spirit": 2,
-          "perception": 2,
-          "talent": 1
+          "constitution": 9,
+          "strength": 11
         }
       }
     ],
@@ -322,6 +267,7 @@
   {
     "id": "nourishing_qi_art",
     "name": "养气诀",
+    "desc": "养气如养珠，绵绵若存，渐成气候。",
     "grade": "yellow",
     "category": "internal",
     "layers": [
@@ -329,100 +275,80 @@
         "level": 1,
         "expFactor": 108,
         "attrs": {
-          "constitution": 3,
-          "spirit": 3,
-          "perception": 3,
-          "talent": 2
+          "spirit": 8,
+          "meridians": 13
         }
       },
       {
         "level": 2,
         "expFactor": 116,
         "attrs": {
-          "constitution": 3,
-          "spirit": 3,
-          "perception": 3,
-          "talent": 2
+          "spirit": 8,
+          "meridians": 13
         }
       },
       {
         "level": 3,
         "expFactor": 125,
         "attrs": {
-          "constitution": 3,
-          "spirit": 3,
-          "perception": 2,
-          "talent": 2
+          "spirit": 8,
+          "meridians": 13
         }
       },
       {
         "level": 4,
         "expFactor": 135,
         "attrs": {
-          "constitution": 3,
-          "spirit": 3,
-          "perception": 2,
-          "talent": 2
+          "spirit": 8,
+          "meridians": 13
         }
       },
       {
         "level": 5,
         "expFactor": 146,
         "attrs": {
-          "constitution": 2,
-          "spirit": 3,
-          "perception": 2,
-          "talent": 2
+          "spirit": 8,
+          "meridians": 13
         }
       },
       {
         "level": 6,
         "expFactor": 158,
         "attrs": {
-          "constitution": 2,
-          "spirit": 3,
-          "perception": 2,
-          "talent": 2
+          "spirit": 8,
+          "meridians": 13
         }
       },
       {
         "level": 7,
         "expFactor": 171,
         "attrs": {
-          "constitution": 2,
-          "spirit": 3,
-          "perception": 2,
-          "talent": 2
+          "spirit": 8,
+          "meridians": 13
         }
       },
       {
         "level": 8,
         "expFactor": 185,
         "attrs": {
-          "constitution": 2,
-          "spirit": 3,
-          "perception": 2,
-          "talent": 2
+          "spirit": 8,
+          "meridians": 13
         }
       },
       {
         "level": 9,
         "expFactor": 200,
         "attrs": {
-          "constitution": 2,
-          "spirit": 2,
-          "perception": 2,
-          "talent": 2
+          "spirit": 8,
+          "meridians": 13
         }
       },
       {
         "level": 10,
         "expFactor": 0,
         "attrs": {
-          "constitution": 2,
-          "spirit": 2,
-          "perception": 2,
-          "talent": 1
+          "spirit": 8,
+          "meridians": 13
         }
       }
     ],
@@ -432,106 +358,87 @@
   {
     "id": "cloudchase_steps",
     "name": "分光步",
+    "desc": "步踏光影之间，身随念转而人已换位。",
     "grade": "yellow",
     "layers": [
       {
         "level": 1,
         "expFactor": 28,
         "attrs": {
-          "constitution": 3,
-          "spirit": 3,
-          "perception": 3,
-          "talent": 2
+          "perception": 17,
+          "meridians": 4
         }
       },
       {
         "level": 2,
         "expFactor": 31,
         "attrs": {
-          "constitution": 3,
-          "spirit": 3,
-          "perception": 3,
-          "talent": 2
+          "perception": 17,
+          "meridians": 4
         }
       },
       {
         "level": 3,
         "expFactor": 34,
         "attrs": {
-          "constitution": 3,
-          "spirit": 3,
-          "perception": 3,
-          "talent": 2
+          "perception": 17,
+          "meridians": 4
         }
       },
       {
         "level": 4,
         "expFactor": 38,
         "attrs": {
-          "constitution": 3,
-          "spirit": 3,
-          "perception": 2,
-          "talent": 2
+          "perception": 17,
+          "meridians": 4
         }
       },
       {
         "level": 5,
         "expFactor": 42,
         "attrs": {
-          "constitution": 3,
-          "spirit": 3,
-          "perception": 2,
-          "talent": 2
+          "perception": 17,
+          "meridians": 4
         }
       },
       {
         "level": 6,
         "expFactor": 46,
         "attrs": {
-          "constitution": 2,
-          "spirit": 3,
-          "perception": 2,
-          "talent": 2
+          "perception": 17,
+          "meridians": 5
         }
       },
       {
         "level": 7,
         "expFactor": 51,
         "attrs": {
-          "constitution": 2,
-          "spirit": 3,
-          "perception": 2,
-          "talent": 2
+          "perception": 17,
+          "meridians": 5
         }
       },
       {
         "level": 8,
         "expFactor": 57,
         "attrs": {
-          "constitution": 2,
-          "spirit": 3,
-          "perception": 2,
-          "talent": 2
+          "perception": 17,
+          "meridians": 5
         }
       },
       {
         "level": 9,
         "expFactor": 63,
         "attrs": {
-          "constitution": 2,
-          "spirit": 2,
-          "perception": 2,
-          "talent": 2
+          "perception": 17,
+          "meridians": 5
         }
       },
       {
         "level": 10,
         "expFactor": 0,
         "attrs": {
-          "constitution": 2,
-          "spirit": 2,
-          "perception": 2,
-          "talent": 1
+          "perception": 17,
+          "meridians": 5
         }
       }
     ],
@@ -542,6 +449,7 @@
   {
     "id": "bright_eye_sutra",
     "name": "明目经",
+    "desc": "炼目如镜，照见秋毫，神识随之清明。",
     "grade": "yellow",
     "category": "internal",
     "layers": [
@@ -549,100 +457,80 @@
         "level": 1,
         "expFactor": 112,
         "attrs": {
-          "constitution": 3,
-          "spirit": 3,
-          "perception": 3,
-          "talent": 2
+          "spirit": 15,
+          "perception": 6
         }
       },
       {
         "level": 2,
         "expFactor": 120,
         "attrs": {
-          "constitution": 3,
-          "spirit": 3,
-          "perception": 3,
-          "talent": 2
+          "spirit": 15,
+          "perception": 6
         }
       },
       {
         "level": 3,
         "expFactor": 129,
         "attrs": {
-          "constitution": 3,
-          "spirit": 3,
-          "perception": 2,
-          "talent": 2
+          "spirit": 15,
+          "perception": 6
         }
       },
       {
         "level": 4,
         "expFactor": 139,
         "attrs": {
-          "constitution": 3,
-          "spirit": 3,
-          "perception": 2,
-          "talent": 2
+          "spirit": 15,
+          "perception": 6
         }
       },
       {
         "level": 5,
         "expFactor": 150,
         "attrs": {
-          "constitution": 3,
-          "spirit": 3,
-          "perception": 2,
-          "talent": 2
+          "spirit": 15,
+          "perception": 6
         }
       },
       {
         "level": 6,
         "expFactor": 162,
         "attrs": {
-          "constitution": 2,
-          "spirit": 3,
-          "perception": 2,
-          "talent": 2
+          "spirit": 15,
+          "perception": 7
         }
       },
       {
         "level": 7,
         "expFactor": 175,
         "attrs": {
-          "constitution": 2,
-          "spirit": 3,
-          "perception": 2,
-          "talent": 2
+          "spirit": 15,
+          "perception": 7
         }
       },
       {
         "level": 8,
         "expFactor": 189,
         "attrs": {
-          "constitution": 2,
-          "spirit": 3,
-          "perception": 2,
-          "talent": 2
+          "spirit": 15,
+          "perception": 7
         }
       },
       {
         "level": 9,
         "expFactor": 204,
         "attrs": {
-          "constitution": 2,
-          "spirit": 2,
-          "perception": 2,
-          "talent": 2
+          "spirit": 15,
+          "perception": 7
         }
       },
       {
         "level": 10,
         "expFactor": 0,
         "attrs": {
-          "constitution": 2,
-          "spirit": 2,
-          "perception": 2,
-          "talent": 1
+          "spirit": 15,
+          "perception": 7
         }
       }
     ],

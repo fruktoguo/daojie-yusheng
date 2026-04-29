@@ -71,8 +71,14 @@ const player_attributes_service_1 = require("./player-attributes.service");
 /** 境界配置文件路径，启动时从这里加载所有境界参数。 */
 const REALM_LEVELS_PATH = ['packages', 'server', 'data', 'content', 'realm-levels.json'];
 
+/** 突破配置文件路径，启动时加载每级突破材料、功法和属性门槛。 */
+const BREAKTHROUGHS_PATH = ['packages', 'server', 'data', 'content', 'breakthroughs.json'];
+
 /** 元素类型顺序，用于天门、灵根和面板展示。 */
 const ELEMENT_KEYS = ['metal', 'wood', 'water', 'fire', 'earth'];
+
+/** 功法品阶顺序，用于突破要求的最低品阶判断。 */
+const TECHNIQUE_GRADE_ORDER = ['mortal', 'yellow', 'mystic', 'earth', 'heaven', 'spirit', 'saint', 'emperor'];
 
 /** 元素中文名，供面板和日志直接展示。 */
 const ELEMENT_KEY_LABELS = {
@@ -92,6 +98,9 @@ const FOUNDATION_EXP_BONUS_MULTIPLIER = FOUNDATION_EXP_MULTIPLIER - 1;
 
 /** main 口径：单次击杀最多给当前境界需求 5 倍的境界/战斗经验。 */
 const SINGLE_COMBAT_REALM_EXP_CAP_MULTIPLIER = 5;
+
+/** 每点根基提供的六维境界乘区百分比。 */
+const ROOT_FOUNDATION_ATTR_PERCENT_PER_POINT = 1;
 
 /** 每次天门斩根允许切掉的最大条目数。 */
 const HEAVEN_GATE_MAX_SEVERED = 4;
@@ -173,6 +182,8 @@ let PlayerProgressionService = PlayerProgressionService_1 = class PlayerProgress
     realmLevels = new Map();
     /** 当前读取到的最大境界等级。 */
     maxRealmLevel = 1;
+    /** 已加载的突破配置，按来源境界等级索引。 */
+    breakthroughTransitions = new Map();
     /** 注入内容仓库和属性结算器。 */
     constructor(contentTemplateRepository, playerAttributesService) {
         this.contentTemplateRepository = contentTemplateRepository;
@@ -761,13 +772,6 @@ let PlayerProgressionService = PlayerProgressionService_1 = class PlayerProgress
                 dirtyDomains: [],
             };
         }
-        if (realm.breakthroughItems.length > 0) {
-            for (const item of realm.breakthroughItems) {
-                this.consumeInventoryItemById(player, item.itemId, item.count);
-            }
-            player.inventory.revision += 1;
-        }
-
         const targetRealm = this.createRealmStateFromLevel(realm.breakthrough.targetRealmLv, 0);
         this.applyResolvedRealmState(player, targetRealm);
         player.hp = player.maxHp;
@@ -778,6 +782,36 @@ let PlayerProgressionService = PlayerProgressionService_1 = class PlayerProgress
                     text: `你已成功突破至 ${targetRealm.displayName}。`,
                     kind: 'success',
                 }],
+            dirtyDomains: ['progression', 'attr', 'vitals'],
+        };
+    }
+    /** 凝练 1 点根基：消耗当前境界整条修为和当前突破材料。 */
+    refineRootFoundation(player) {
+        const realm = this.normalizeRealmState(player.realm);
+        const preview = this.buildRootFoundationPreview(player, realm);
+        if (!preview.canRefine) {
+            return {
+                changed: false,
+                notices: [{ text: preview.blockedReason ?? '当前还不能凝练根基', kind: 'warn' }],
+                dirtyDomains: [],
+            };
+        }
+        for (const item of preview.items) {
+            this.consumeInventoryItemById(player, item.itemId, item.count);
+        }
+        if (preview.items.length > 0) {
+            player.inventory.revision += 1;
+        }
+        player.rootFoundation = Math.max(0, Math.trunc(Number(player.rootFoundation ?? 0) || 0)) + 1;
+        const nextRealm = this.createRealmStateFromLevel(realm.realmLv, 0);
+        this.applyResolvedRealmState(player, nextRealm, { forceAttrRecalculate: true });
+        return {
+            changed: true,
+            notices: [{
+                    text: `你凝练 1 点根基，六维境界乘区提高 ${ROOT_FOUNDATION_ATTR_PERCENT_PER_POINT}%。`,
+                    kind: 'success',
+                }],
+            actionsDirty: true,
             dirtyDomains: ['inventory', 'progression', 'attr', 'vitals'],
         };
     }
@@ -815,7 +849,24 @@ let PlayerProgressionService = PlayerProgressionService_1 = class PlayerProgress
 
         const configuredMaxRealmLevel = shared_1.PLAYER_REALM_STAGE_LEVEL_RANGES[shared_1.PlayerRealmStage.QiRefining]?.levelTo ?? 30;
         this.maxRealmLevel = Math.min(Math.max(1, ...this.realmLevels.keys()), configuredMaxRealmLevel);
+        this.loadBreakthroughTransitions();
         this.logger.log(`已从 ${filePath} 加载 ${this.realmLevels.size} 个境界等级`);
+    }
+    /** 读取并缓存每级突破配置。 */
+    loadBreakthroughTransitions() {
+        const filePath = (0, project_path_1.resolveProjectPath)(...BREAKTHROUGHS_PATH);
+        this.breakthroughTransitions.clear();
+        if (!fs.existsSync(filePath)) {
+            return;
+        }
+        const raw = JSON.parse(fs.readFileSync(filePath, 'utf8'));
+        for (const entry of raw?.transitions ?? []) {
+            const transition = normalizeBreakthroughTransition(entry);
+            if (!transition) {
+                continue;
+            }
+            this.breakthroughTransitions.set(transition.fromRealmLv, transition);
+        }
     }
     /** 返回已加载的境界等级列表。 */
     listRealmLevels() {
@@ -877,6 +928,7 @@ let PlayerProgressionService = PlayerProgressionService_1 = class PlayerProgress
         const stage = resolveStageForRealmLevel(realmLv);
 
         const config = shared_1.PLAYER_REALM_CONFIG[stage];
+        const breakthroughTransition = this.breakthroughTransitions.get(realmLv);
 
         const progressToNext = Math.max(0, entry.expToNext);
 
@@ -884,7 +936,7 @@ let PlayerProgressionService = PlayerProgressionService_1 = class PlayerProgress
             ? clamp(Math.floor(Math.max(0, Number(progressInput) || 0)), 0, progressToNext)
             : 0;
 
-        const breakthroughReady = progressToNext > 0 && progress >= progressToNext && realmLv < this.maxRealmLevel;
+        const breakthroughReady = progressToNext > 0 && progress >= progressToNext;
         return {
             stage,
             realmLv: entry.realmLv,
@@ -899,9 +951,13 @@ let PlayerProgressionService = PlayerProgressionService_1 = class PlayerProgress
             progressToNext,
             breakthroughReady,
             nextStage: realmLv < this.maxRealmLevel ? resolveStageForRealmLevel(realmLv + 1) : undefined,
-            breakthroughItems: breakthroughReady ? config.breakthroughItems.map((item) => ({ ...item })) : [],
-            minTechniqueLevel: config.minTechniqueLevel,
-            minTechniqueRealm: config.minTechniqueRealm,
+            breakthroughItems: breakthroughReady
+                ? (breakthroughTransition
+                    ? getBreakthroughItemRequirements(breakthroughTransition)
+                    : config.breakthroughItems.map((item) => ({ ...item })))
+                : [],
+            minTechniqueLevel: breakthroughTransition ? 0 : config.minTechniqueLevel,
+            minTechniqueRealm: breakthroughTransition ? undefined : config.minTechniqueRealm,
         };
     }    
     /**
@@ -962,57 +1018,49 @@ let PlayerProgressionService = PlayerProgressionService_1 = class PlayerProgress
     buildBreakthroughPreview(player, realm) {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
-        if (!realm.breakthroughReady || realm.realmLv >= this.maxRealmLevel) {
+        if (!realm.breakthroughReady) {
             return undefined;
         }
 
         const requirements = [];
-        for (const item of realm.breakthroughItems) {
-            const currentCount = getInventoryCount(player, item.itemId);
-            const itemName = this.contentTemplateRepository.getItemName(item.itemId) ?? item.itemId;
-            requirements.push({
-                id: `item:${item.itemId}`,
-                type: 'item',
-                label: `${itemName} x${item.count}`,
-
-                completed: currentCount >= item.count,
-                hidden: false,
-                blocksBreakthrough: true,
-                detail: `当前持有 ${currentCount} / ${item.count}`,
-            });
+        const transition = this.breakthroughTransitions.get(realm.realmLv);
+        if (transition) {
+            for (const requirement of transition.requirements) {
+                if (requirement.type === 'attribute_total') {
+                    const currentTotal = getPlayerTotalAttributes(player);
+                    requirements.push({
+                        id: requirement.id,
+                        type: 'attribute_total',
+                        label: requirement.label ?? `六维总属性达到 ${requirement.minTotalValue}`,
+                        completed: currentTotal >= requirement.minTotalValue,
+                        hidden: false,
+                        blocksBreakthrough: true,
+                        detail: `当前六维总属性 ${currentTotal} / ${requirement.minTotalValue}`,
+                    });
+                    continue;
+                }
+            }
+            if (transition.toRealmLv > this.maxRealmLevel) {
+                requirements.push({
+                    id: `realm_${realm.realmLv}_breakthrough_locked`,
+                    type: 'root',
+                    label: '当前境界暂未开放突破',
+                    completed: false,
+                    hidden: false,
+                    blocksBreakthrough: true,
+                    detail: '可继续凝练根基；正式突破需等待后续境界开放。',
+                });
+            }
         }
-        if (realm.minTechniqueLevel > 0) {
-
-            const techniqueCompleted = player.techniques.techniques.some((technique) => ((technique.level ?? 0) >= realm.minTechniqueLevel
-                && ((technique.realm ?? shared_1.TechniqueRealm.Entry) >= (realm.minTechniqueRealm ?? shared_1.TechniqueRealm.Entry))));
+        else {
             requirements.push({
-                id: `technique:min:${realm.minTechniqueLevel}:${realm.minTechniqueRealm ?? shared_1.TechniqueRealm.Entry}`,
-                type: 'technique',
-
-                label: realm.minTechniqueRealm !== undefined
-                    ? `至少掌握 1 门功法，达到 ${realm.minTechniqueLevel} 级且功法境界达到${formatTechniqueRealmLabel(realm.minTechniqueRealm)}`
-                    : `至少掌握 1 门功法，达到 ${realm.minTechniqueLevel} 级`,
-                completed: techniqueCompleted,
-                hidden: false,
-                blocksBreakthrough: true,
-                detail: techniqueCompleted
-                    ? '当前已满足功法火候要求。'
-                    : '当前尚未满足功法火候要求。',
-            });
-        }
-        if (this.hasReachedHeavenGateRealm(realm.realmLv)) {
-
-            const heavenGateCompleted = this.hasCompletedHeavenGate(player);
-            requirements.push({
-                id: 'root:heaven_gate',
+                id: `realm_${realm.realmLv}_breakthrough_locked`,
                 type: 'root',
-                label: '完成开天门并确认入天门',
-                completed: heavenGateCompleted,
+                label: '当前境界暂未开放突破',
+                completed: false,
                 hidden: false,
                 blocksBreakthrough: true,
-                detail: heavenGateCompleted
-                    ? '当前已完成开天门。'
-                    : '当前仍需先完成开天门并确认入天门。',
+                detail: '可继续凝练根基；正式突破需等待后续境界开放。',
             });
         }
 
@@ -1020,15 +1068,13 @@ let PlayerProgressionService = PlayerProgressionService_1 = class PlayerProgress
 
         const completedBlockingRequirements = requirements.filter((entry) => entry.blocksBreakthrough !== false && entry.completed).length;
 
-        const targetRealmLv = Math.min(this.maxRealmLevel, realm.realmLv + 1);
+        const targetRealmLv = transition?.toRealmLv ?? (this.realmLevels.has(realm.realmLv + 1) ? realm.realmLv + 1 : realm.realmLv);
 
         const targetRealm = this.realmLevels.get(targetRealmLv);
 
-        const blockedReason = requirements.some((entry) => entry.id === 'root:heaven_gate' && !entry.completed)
-            ? '请先完成开天门并确认入天门'
-            : undefined;
+        const blockedReason = requirements.find((entry) => entry.blocksBreakthrough !== false && !entry.completed)?.label;
 
-        const canBreakthrough = blockingRequirements === completedBlockingRequirements && !blockedReason;
+        const canBreakthrough = Boolean(transition) && transition.toRealmLv <= this.maxRealmLevel && blockingRequirements === completedBlockingRequirements && !blockedReason;
         return {
             targetRealmLv,
             targetDisplayName: targetRealm?.displayName ?? `realmLv ${targetRealmLv}`,
@@ -1039,9 +1085,51 @@ let PlayerProgressionService = PlayerProgressionService_1 = class PlayerProgress
             blockingRequirements,
             completedBlockingRequirements,
             requirements,
+            rootFoundation: this.buildRootFoundationPreview(player, realm),
             blockedReason,
         };
     }    
+    /** 构建凝练根基预览。 */
+    buildRootFoundationPreview(player, realm) {
+        const current = Math.max(0, Math.trunc(Number(player.rootFoundation ?? 0) || 0));
+        const cap = getRootFoundationCap(realm.realmLv);
+        const remaining = Math.max(0, cap - current);
+        const transition = this.breakthroughTransitions.get(realm.realmLv);
+        const items = transition
+            ? getBreakthroughItemRequirements(transition)
+            : (realm.breakthroughItems ?? []).map((item) => ({ ...item }));
+        const costProgress = Math.max(0, Math.floor(realm.progressToNext ?? 0));
+        const progress = Math.max(0, Math.floor(realm.progress ?? 0));
+        const missingItem = items.find((item) => getInventoryCount(player, item.itemId) < item.count);
+        const canRefine = realm.breakthroughReady
+            && remaining > 0
+            && costProgress > 0
+            && progress >= costProgress
+            && !missingItem;
+        let blockedReason;
+        if (remaining <= 0) {
+            blockedReason = current > cap
+                ? `已有根基 ${current} 点，已超过当前等级可凝练上限 ${cap} 点；已有根基保留，暂不可继续凝练。`
+                : `已达当前等级可凝练上限 ${cap} 点；已有根基保留，暂不可继续凝练。`;
+        }
+        else if (!realm.breakthroughReady || progress < costProgress) {
+            blockedReason = '需要当前境界修为圆满';
+        }
+        else if (missingItem) {
+            const itemName = this.contentTemplateRepository.getItemName(missingItem.itemId) ?? missingItem.itemId;
+            blockedReason = `${itemName}不足`;
+        }
+        return {
+            current,
+            cap,
+            remaining,
+            costProgress,
+            progress,
+            items,
+            canRefine,
+            blockedReason,
+        };
+    }
     /**
  * syncHeavenGateState：处理HeavenGate状态并更新相关状态。
  * @param player 玩家对象。
@@ -2189,6 +2277,194 @@ function getInventoryCount(player, itemId) {
         }
     }
     return total;
+}
+
+function normalizeBreakthroughTransition(entry) {
+    const fromRealmLv = normalizePositiveInt(entry?.fromRealmLv, 0);
+    const toRealmLv = normalizePositiveInt(entry?.toRealmLv, 0);
+    if (fromRealmLv <= 0 || toRealmLv <= fromRealmLv) {
+        return null;
+    }
+    const requirements = [];
+    for (const rawRequirement of entry?.requirements ?? []) {
+        const requirement = normalizeBreakthroughRequirement(rawRequirement);
+        if (requirement) {
+            requirements.push(requirement);
+        }
+    }
+    return {
+        fromRealmLv,
+        toRealmLv,
+        title: typeof entry?.title === 'string' && entry.title.trim() ? entry.title.trim() : undefined,
+        requirements,
+    };
+}
+
+function normalizeBreakthroughRequirement(raw) {
+    const id = typeof raw?.id === 'string' && raw.id.trim() ? raw.id.trim() : '';
+    const label = typeof raw?.label === 'string' && raw.label.trim() ? raw.label.trim() : undefined;
+    const increasePct = normalizePositiveInt(raw?.increaseAttrRequirementPct, 0);
+    if (!id) {
+        return null;
+    }
+    if (raw?.type === 'item') {
+        const itemId = typeof raw.itemId === 'string' && raw.itemId.trim() ? raw.itemId.trim() : '';
+        const count = normalizePositiveInt(raw.count, 0);
+        if (!itemId || count <= 0) {
+            return null;
+        }
+        return { id, type: 'item', itemId, count, label, increasePct };
+    }
+    if (raw?.type === 'technique') {
+        const minLevel = normalizePositiveInt(raw.minLevel, 0);
+        const count = Math.max(1, normalizePositiveInt(raw.count, 1));
+        const minGrade = normalizeTechniqueGrade(raw.minGrade);
+        const minRealm = normalizeTechniqueRealm(raw.minRealm);
+        return { id, type: 'technique', minGrade, minLevel, minRealm, count, label, increasePct };
+    }
+    if (raw?.type === 'attribute_total') {
+        const minTotalValue = normalizePositiveInt(raw.minTotalValue, 0);
+        return minTotalValue > 0 ? { id, type: 'attribute_total', minTotalValue, label } : null;
+    }
+    if (raw?.type === 'root') {
+        const minValue = normalizePositiveInt(raw.minValue, 0);
+        return minValue > 0 ? { id, type: 'root', minValue, label } : null;
+    }
+    return null;
+}
+
+function getBreakthroughItemRequirements(transition) {
+    return transition.requirements
+        .filter((requirement) => requirement.type === 'item')
+        .map((requirement) => ({ itemId: requirement.itemId, count: requirement.count }));
+}
+
+function isTechniqueRequirementCompleted(player, requirement) {
+    let matchedCount = 0;
+    for (const technique of player.techniques.techniques) {
+        const level = Math.max(0, Math.floor(Number(technique.level ?? 0) || 0));
+        if (requirement.minLevel > 0 && level < requirement.minLevel) {
+            continue;
+        }
+        const realm = technique.realm ?? shared_1.TechniqueRealm.Entry;
+        if (requirement.minRealm !== undefined && realm < requirement.minRealm) {
+            continue;
+        }
+        if (requirement.minGrade && compareTechniqueGrade(technique.grade, requirement.minGrade) < 0) {
+            continue;
+        }
+        matchedCount += 1;
+        if (matchedCount >= requirement.count) {
+            return true;
+        }
+    }
+    return false;
+}
+
+function getPlayerTotalAttributes(player) {
+    const attrs = player.attrs?.finalAttrs ?? player.attrs?.baseAttrs ?? player.attrs?.rawBaseAttrs;
+    if (!attrs) {
+        return 0;
+    }
+    let total = 0;
+    for (const key of shared_1.ATTR_KEYS) {
+        const value = Number(attrs[key]);
+        if (Number.isFinite(value)) {
+            total += Math.floor(value);
+        }
+    }
+    return total;
+}
+
+function getRootFoundationCap(realmLv) {
+    const normalized = Math.max(1, Math.floor(Number(realmLv) || 1));
+    return Math.floor((normalized * (normalized + 1)) / 2);
+}
+
+function getMaxSpiritualRootValue(player) {
+    const roots = normalizeHeavenGateRoots(player.spiritualRoots);
+    if (!roots) {
+        return 0;
+    }
+    let maxValue = 0;
+    for (const element of ELEMENT_KEYS) {
+        maxValue = Math.max(maxValue, roots[element]);
+    }
+    return maxValue;
+}
+
+function formatTechniqueRequirementLabel(requirement) {
+    const parts = [];
+    if (requirement.minGrade) {
+        parts.push(`${formatTechniqueGradeLabel(requirement.minGrade)}功法`);
+    }
+    else {
+        parts.push('功法');
+    }
+    if (requirement.minLevel > 0) {
+        parts.push(`修至 ${requirement.minLevel} 级`);
+    }
+    if (requirement.minRealm !== undefined) {
+        parts.push(`功法境界达到${formatTechniqueRealmLabel(requirement.minRealm)}`);
+    }
+    return `至少有 ${requirement.count} 门${parts.join('，')}`;
+}
+
+function normalizeTechniqueGrade(value) {
+    if (typeof value !== 'string') {
+        return undefined;
+    }
+    const grade = value.trim();
+    return TECHNIQUE_GRADE_ORDER.includes(grade) ? grade : undefined;
+}
+
+function compareTechniqueGrade(value, minimum) {
+    const grade = normalizeTechniqueGrade(value) ?? 'mortal';
+    return TECHNIQUE_GRADE_ORDER.indexOf(grade) - TECHNIQUE_GRADE_ORDER.indexOf(minimum);
+}
+
+function formatTechniqueGradeLabel(value) {
+    switch (value) {
+        case 'yellow':
+            return '黄阶';
+        case 'mystic':
+            return '玄阶';
+        case 'earth':
+            return '地阶';
+        case 'heaven':
+            return '天阶';
+        case 'spirit':
+            return '灵阶';
+        case 'saint':
+            return '圣阶';
+        case 'emperor':
+            return '帝阶';
+        case 'mortal':
+        default:
+            return '凡阶';
+    }
+}
+
+function normalizeTechniqueRealm(value) {
+    if (typeof value === 'number' && Number.isFinite(value)) {
+        return clamp(Math.floor(value), shared_1.TechniqueRealm.Entry, shared_1.TechniqueRealm.Perfection);
+    }
+    switch (value) {
+        case 'Minor':
+        case 'minor':
+            return shared_1.TechniqueRealm.Minor;
+        case 'Major':
+        case 'major':
+            return shared_1.TechniqueRealm.Major;
+        case 'Perfection':
+        case 'perfection':
+            return shared_1.TechniqueRealm.Perfection;
+        case 'Entry':
+        case 'entry':
+            return shared_1.TechniqueRealm.Entry;
+        default:
+            return undefined;
+    }
 }
 /**
  * normalizePositiveInt：规范化或转换PositiveInt。

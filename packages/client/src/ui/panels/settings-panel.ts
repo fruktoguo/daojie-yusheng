@@ -127,7 +127,7 @@ export class SettingsPanel {
       size: 'xl',
       variantClass: 'detail-modal--settings',
       title: '设置',
-      subtitle: `账号：${this.currentAccountName || '未登录'} · 显示：${this.currentDisplayName || '未设置'} · 角色名：${this.currentRoleName || '未设置'}`,
+      subtitle: `账号：${this.currentAccountName || '未登录'} · 道号：${this.currentDisplayName || '未设置'} · 角色：${this.currentRoleName || '未设置'}`,
       hint: '点击空白处关闭',
       renderBody: (body) => {
         this.renderBody(body);
@@ -286,7 +286,7 @@ export class SettingsPanel {
           : UI_GLOBAL_FONT_OFFSET_RANGE.defaultValue;
         const nextConfig = updateUiGlobalFontOffset(nextValue);
         this.syncUiGlobalFontOffsetRow(body, nextConfig.globalFontOffset);
-        setStatus(styleStatus, '已更新全局字号', 'success');
+        setStatus(styleStatus, '字号已调', 'success');
       };
 
       globalRangeInput.addEventListener('input', () => {
@@ -309,7 +309,7 @@ export class SettingsPanel {
           : UI_SCALE_RANGE.defaultValue;
         const nextConfig = updateUiScale(nextValue);
         this.syncUiScaleRow(body, nextConfig.uiScale);
-        setStatus(styleStatus, '已更新界面缩放', 'success');
+        setStatus(styleStatus, '画幅已调', 'success');
       };
 
       scaleRangeInput.addEventListener('input', () => {
@@ -328,7 +328,7 @@ export class SettingsPanel {
       this.syncUiModeButtons(body, nextConfig.colorMode);
       this.syncUiGlobalFontOffsetRow(body, nextConfig.globalFontOffset);
       this.syncUiScaleRow(body, nextConfig.uiScale);
-      setStatus(styleStatus, 'UI 样式已恢复默认', 'success');
+      setStatus(styleStatus, '界面已复归原本', 'success');
     });
   }
 
@@ -365,7 +365,7 @@ export class SettingsPanel {
           showFpsMonitor: nextValue,
         });
         this.syncPerformanceControls(body, nextConfig);
-        setStatus(statusEl, nextConfig.showFpsMonitor ? '已开启地图帧率浮层，并自动保存到本机' : '已关闭地图帧率浮层，并自动保存到本机', 'success');
+        setStatus(statusEl, nextConfig.showFpsMonitor ? '帧率示数已显' : '帧率示数已隐', 'success');
       });
     });
 
@@ -379,7 +379,7 @@ export class SettingsPanel {
           targetFps: nextValue,
         });
         this.syncPerformanceControls(body, nextConfig);
-        setStatus(statusEl, `已将地图渲染帧率上限更新为 ${nextConfig.targetFps} FPS，并自动保存到本机`, 'success');
+        setStatus(statusEl, `渲染帧率上限已调至 ${nextConfig.targetFps}`, 'success');
       };
       fpsNumberInput.addEventListener('change', () => {
         applyTargetFps(fpsNumberInput.value);
@@ -392,7 +392,7 @@ export class SettingsPanel {
     resetButton?.addEventListener('click', () => {
       const nextConfig = resetMapPerformanceConfig();
       this.syncPerformanceControls(body, nextConfig);
-      setStatus(statusEl, '性能设置已恢复默认，并自动保存到本机', 'success');
+      setStatus(statusEl, '性能已复归原本', 'success');
     });
   }
 
@@ -526,7 +526,7 @@ export class SettingsPanel {
       </div>
       <div class="panel-section account-settings-section ui-surface-pane ui-surface-pane--stack">
         <div class="settings-ui-table-head">
-          <div class="panel-section-title">界面显示</div>
+    <div class="panel-section-title">界面显示</div>
           <button id="settings-ui-reset" class="small-btn ghost" type="button">恢复默认</button>
         </div>
         <div class="settings-ui-copy ui-form-copy">只保留一个全局字号和一个整体界面缩放。两项都会立即生效，并自动保存在当前设备。</div>
@@ -590,7 +590,7 @@ export class SettingsPanel {
             <div class="settings-ui-level-preview settings-ui-level-preview--title ui-data-table-preview ui-data-table-preview--title">缩放预览</div>
           </div>
         </div>
-        <div id="settings-ui-style-status" class="account-settings-status ui-status-text">当前配置已自动保存到本机</div>
+      <div id="settings-ui-style-status" class="account-settings-status ui-status-text">当前配置已自动保存到本机</div>
       </div>
     `;
   }
@@ -625,7 +625,7 @@ export class SettingsPanel {
     return `
       <div class="panel-section account-settings-section ui-surface-pane ui-surface-pane--stack">
         <div class="settings-ui-table-head">
-          <div class="panel-section-title">地图性能浮层</div>
+    <div class="panel-section-title">地图性能浮层</div>
           <button id="settings-performance-reset" class="small-btn ghost" type="button">恢复默认</button>
         </div>
         <div class="settings-ui-copy ui-form-copy">这里的配置只保存在当前设备。默认关闭；开启后会在地图顶部显示 FPS、LOW 与 1% LOW，方便排查全屏、缩放和特效变化带来的帧率波动。</div>
@@ -703,7 +703,7 @@ export class SettingsPanel {
     }
 
     button.disabled = true;
-    setStatus(statusEl, '兑换请求已发送，等待本息结算...', '');
+      setStatus(statusEl, '兑换已呈报，静待回音...', '');
     resultEl.replaceChildren();
     try {
       const result = await this.options.redeemCodes(codes);
@@ -711,7 +711,7 @@ export class SettingsPanel {
       const failedCount = result.results.length - successCount;
       setStatus(
         statusEl,
-        failedCount > 0 ? `兑换完成：成功 ${successCount}，失败 ${failedCount}` : `兑换完成：成功 ${successCount}`,
+        failedCount > 0 ? `兑换收讫：${successCount} 成 ${failedCount} 败` : `兑换收讫：${successCount} 成`,
         failedCount > 0 ? 'error' : 'success',
       );
       resultEl.replaceChildren(
@@ -763,7 +763,7 @@ export class SettingsPanel {
     const displayName = input.value.normalize('NFC');
     if (displayName === this.currentDisplayName) {
       this.displayNameAvailable = true;
-      setStatus(statusEl, '当前名称可继续使用', '');
+      setStatus(statusEl, '道号可继续使用', '');
       return;
     }
 
@@ -786,7 +786,7 @@ export class SettingsPanel {
 
     if (displayName === this.currentDisplayName) {
       this.displayNameAvailable = true;
-      setStatus(statusEl, '当前名称可继续使用', '');
+      setStatus(statusEl, '道号可继续使用', '');
       return;
     }
     if (this.displayNameAbortController) {
@@ -803,7 +803,7 @@ export class SettingsPanel {
       this.displayNameAvailable = result.available;
       setStatus(
         statusEl,
-        result.available ? '显示名称可用' : (result.message ?? '显示名称不可用'),
+        result.available ? '道号可用' : (result.message ?? '道号已被占'),
         result.available ? 'success' : 'error',
       );
     } catch (error) {
@@ -811,7 +811,7 @@ export class SettingsPanel {
         return;
       }
       this.displayNameAvailable = false;
-      setStatus(statusEl, error instanceof Error ? error.message : '检测失败', 'error');
+      setStatus(statusEl, error instanceof Error ? error.message : '验查未果', 'error');
     }
   }  
   /**
@@ -857,7 +857,7 @@ export class SettingsPanel {
       this.displayNameAvailable = true;
       input.value = result.displayName;
       this.options?.onDisplayNameUpdated(result.displayName);
-      setStatus(statusEl, '显示名称已更新', 'success');
+      setStatus(statusEl, '道号已更', 'success');
     } catch (error) {
       setStatus(statusEl, error instanceof Error ? error.message : '保存失败', 'error');
     } finally {
@@ -954,7 +954,7 @@ export class SettingsPanel {
       this.currentRoleName = result.roleName;
       input.value = result.roleName;
       this.options?.onRoleNameUpdated(result.roleName);
-      setStatus(statusEl, '角色名称已更新', 'success');
+      setStatus(statusEl, '角色名号已更', 'success');
     } catch (error) {
       setStatus(statusEl, error instanceof Error ? error.message : '保存失败', 'error');
     } finally {

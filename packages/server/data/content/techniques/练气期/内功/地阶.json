@@ -2,6 +2,7 @@
   {
     "id": "hunyuan_zaimai",
     "name": "混元载脉图",
+    "desc": "混元为图、脉络为载，以天地之力重塑己身经脉山河。",
     "grade": "earth",
     "category": "internal",
     "realmLv": 27,
@@ -10,140 +11,126 @@
         "level": 1,
         "expFactor": 224,
         "attrs": {
-          "constitution": 53,
-          "spirit": 56,
-          "perception": 31,
-          "talent": 51
+          "spirit": 20,
+          "talent": 20,
+          "meridians": 22
         }
       },
       {
         "level": 2,
         "expFactor": 248,
         "attrs": {
-          "constitution": 53,
-          "spirit": 56,
-          "perception": 31,
-          "talent": 51
+          "spirit": 20,
+          "talent": 20,
+          "meridians": 22
         }
       },
       {
         "level": 3,
         "expFactor": 276,
         "attrs": {
-          "constitution": 53,
-          "spirit": 56,
-          "perception": 31,
-          "talent": 51
+          "spirit": 20,
+          "talent": 20,
+          "meridians": 23
         }
       },
       {
         "level": 4,
         "expFactor": 308,
         "attrs": {
-          "constitution": 53,
-          "spirit": 56,
-          "perception": 31,
-          "talent": 51
+          "spirit": 20,
+          "talent": 20,
+          "meridians": 23
         }
       },
       {
         "level": 5,
         "expFactor": 344,
         "attrs": {
-          "constitution": 53,
-          "spirit": 55,
-          "perception": 31,
-          "talent": 51
+          "spirit": 20,
+          "talent": 20,
+          "meridians": 23
         }
       },
       {
         "level": 6,
         "expFactor": 384,
         "attrs": {
-          "constitution": 53,
-          "spirit": 55,
-          "perception": 31,
-          "talent": 51
+          "spirit": 20,
+          "talent": 20,
+          "meridians": 23
         }
       },
       {
         "level": 7,
         "expFactor": 428,
         "attrs": {
-          "constitution": 53,
-          "spirit": 55,
-          "perception": 31,
-          "talent": 51
+          "spirit": 20,
+          "talent": 20,
+          "meridians": 23
         }
       },
       {
         "level": 8,
         "expFactor": 476,
         "attrs": {
-          "constitution": 53,
-          "spirit": 55,
-          "perception": 31,
-          "talent": 51
+          "spirit": 20,
+          "talent": 20,
+          "meridians": 23
         }
       },
       {
         "level": 9,
         "expFactor": 532,
         "attrs": {
-          "constitution": 53,
-          "spirit": 55,
-          "perception": 31,
-          "talent": 51
+          "spirit": 20,
+          "talent": 20,
+          "meridians": 23
         }
       },
       {
         "level": 10,
         "expFactor": 592,
         "attrs": {
-          "constitution": 53,
-          "spirit": 55,
-          "perception": 31,
-          "talent": 51
+          "spirit": 20,
+          "talent": 20,
+          "meridians": 23
         }
       },
       {
         "level": 11,
         "expFactor": 656,
         "attrs": {
-          "constitution": 52,
-          "spirit": 55,
-          "perception": 30,
-          "talent": 51
+          "spirit": 20,
+          "talent": 21,
+          "meridians": 23
         }
       },
       {
         "level": 12,
         "expFactor": 728,
         "attrs": {
-          "constitution": 52,
-          "spirit": 55,
-          "perception": 30,
-          "talent": 50
+          "spirit": 20,
+          "talent": 21,
+          "meridians": 23
         }
       },
       {
         "level": 13,
         "expFactor": 808,
         "attrs": {
-          "constitution": 52,
-          "spirit": 55,
-          "perception": 30,
-          "talent": 50
+          "spirit": 20,
+          "talent": 21,
+          "meridians": 23
         }
       },
       {
         "level": 14,
         "expFactor": 0,
         "attrs": {
-          "constitution": 52,
-          "spirit": 55,
-          "perception": 30,
-          "talent": 50
+          "spirit": 20,
+          "talent": 21,
+          "meridians": 23
         }
       }
     ],

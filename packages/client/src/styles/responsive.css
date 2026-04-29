@@ -881,6 +881,9 @@
         padding: 5px 8px;
         gap: 0;
       }
+      .market-item-cell--status .market-item-cell-name {
+        padding-left: 12px;
+      }
       .market-item-cell-name,
       .market-order-name {
         font-size: var(--font-size-13);
@@ -890,22 +893,21 @@
         align-items: baseline;
         gap: 4px;
         width: 100%;
-        white-space: nowrap;
-        overflow: hidden;
-        text-overflow: ellipsis;
         line-height: 1.2;
         min-height: 0;
       }
       .market-item-cell-name-text {
         min-width: 0;
-        overflow: hidden;
-        text-overflow: ellipsis;
-        white-space: nowrap;
         line-height: 1.2;
       }
       .market-item-cell-owned {
         font-size: var(--font-size-10);
-        white-space: nowrap;
+      }
+      .market-item-cell-ribbon {
+        top: 8px;
+        left: -30px;
+        width: 78px;
+        font-size: 8px;
       }
       .market-item-cell-prices,
       .market-book-subtitle,

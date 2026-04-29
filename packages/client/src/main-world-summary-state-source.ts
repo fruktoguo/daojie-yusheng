@@ -27,7 +27,7 @@ const WORLD_SUMMARY_MODAL_OWNER = 'world:summary';
 const LEADERBOARD_PLAYER_LOCATION_REFRESH_INTERVAL_MS = 10_000;
 const LEADERBOARD_PLAYER_LOCATION_EVENT = 'mud:leaderboard-player-locations';
 
-type LeaderboardTab = 'realm' | 'monsterKills' | 'spiritStones' | 'playerKills' | 'deaths' | 'bodyTraining' | 'supremeAttrs';
+type LeaderboardTab = 'realm' | 'monsterKills' | 'spiritStones' | 'playerKills' | 'deaths' | 'bodyTraining' | 'supremeAttrs' | 'sects';
 
 const LEADERBOARD_LIMIT = 10;
 const LEADERBOARD_TAB_LABELS: Record<LeaderboardTab, string> = {
@@ -37,7 +37,8 @@ const LEADERBOARD_TAB_LABELS: Record<LeaderboardTab, string> = {
   playerKills: '杀伐',
   deaths: '身陨',
   bodyTraining: '炼体',
-  supremeAttrs: '四维最强',
+  supremeAttrs: '六维最强',
+  sects: '宗门',
 };
 /**
  * cloneJson：构建Json。
@@ -355,6 +356,15 @@ export function createMainWorldSummaryStateSource(options: MainWorldSummaryState
         );
       case 'supremeAttrs':
         return renderSupremeAttrBoard(data);
+      case 'sects':
+        return renderStandardLeaderboardList(
+          data.boards.sects.map((entry) => ({
+            rank: entry.rank,
+            name: entry.mark ? `${entry.mark} ${entry.sectName}` : entry.sectName,
+            value: `${formatDisplayInteger(entry.memberCount)} 人`,
+            meta: `宗主 ${entry.leaderName}`,
+          })),
+        );
       default:
         return '<div class="empty-hint">暂无榜册内容。</div>';
     }

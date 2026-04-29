@@ -2,6 +2,7 @@
   {
     "id": "baihong_duanyue",
     "name": "白虹断岳典",
+    "desc": "白虹横掠，断势裂甲。",
     "grade": "mystic",
     "category": "arts",
     "realmLv": 23,
@@ -125,6 +126,7 @@
   {
     "id": "chiyao_fenmai",
     "name": "赤曜焚脉篇",
+    "desc": "赤曜凝火，三息之后焚界而落。",
     "grade": "mystic",
     "category": "arts",
     "realmLv": 23,
@@ -253,6 +255,7 @@
   {
     "id": "kunyue_zhenhai",
     "name": "坤岳镇海篇",
+    "desc": "坤岳重压，护体更进一步。",
     "grade": "mystic",
     "category": "arts",
     "realmLv": 23,
@@ -365,6 +368,7 @@
   {
     "id": "wanzhi_huichun",
     "name": "万枝回春卷",
+    "desc": "木意锁魂，直压单敌。",
     "grade": "mystic",
     "category": "arts",
     "realmLv": 23,
@@ -473,6 +477,7 @@
   {
     "id": "xuanjin_huilan",
     "name": "玄津回澜录",
+    "desc": "回澜自起，近身震散敌势。",
     "grade": "mystic",
     "category": "arts",
     "realmLv": 23,
@@ -596,149 +601,66 @@
   {
     "id": "yi_kunlun",
     "name": "移昆仑",
+    "desc": "叩定地脉，搬山成岳，改变战场地形。",
     "grade": "mystic",
     "category": "arts",
     "realmLv": 23,
     "layers": [
       {
         "level": 1,
-        "expFactor": 136,
-        "attrs": {
-          "constitution": 5,
-          "spirit": 7,
-          "perception": 5,
-          "talent": 4
-        }
+        "expFactor": 136
       },
       {
         "level": 2,
-        "expFactor": 152,
-        "attrs": {
-          "constitution": 5,
-          "spirit": 7,
-          "perception": 5,
-          "talent": 4
-        }
+        "expFactor": 152
       },
       {
         "level": 3,
-        "expFactor": 168,
-        "attrs": {
-          "constitution": 5,
-          "spirit": 7,
-          "perception": 5,
-          "talent": 4
-        }
+        "expFactor": 168
       },
       {
         "level": 4,
-        "expFactor": 188,
-        "attrs": {
-          "constitution": 5,
-          "spirit": 7,
-          "perception": 5,
-          "talent": 4
-        }
+        "expFactor": 188
       },
       {
         "level": 5,
-        "expFactor": 208,
-        "attrs": {
-          "constitution": 5,
-          "spirit": 7,
-          "perception": 5,
-          "talent": 4
-        }
+        "expFactor": 208
       },
       {
         "level": 6,
-        "expFactor": 232,
-        "attrs": {
-          "constitution": 5,
-          "spirit": 7,
-          "perception": 4,
-          "talent": 4
-        }
+        "expFactor": 232
       },
       {
         "level": 7,
-        "expFactor": 260,
-        "attrs": {
-          "constitution": 5,
-          "spirit": 7,
-          "perception": 4,
-          "talent": 4
-        }
+        "expFactor": 260
       },
       {
         "level": 8,
-        "expFactor": 292,
-        "attrs": {
-          "constitution": 5,
-          "spirit": 7,
-          "perception": 4,
-          "talent": 4
-        }
+        "expFactor": 292
       },
       {
         "level": 9,
-        "expFactor": 328,
-        "attrs": {
-          "constitution": 5,
-          "spirit": 7,
-          "perception": 4,
-          "talent": 3
-        }
+        "expFactor": 328
       },
       {
         "level": 10,
-        "expFactor": 368,
-        "attrs": {
-          "constitution": 5,
-          "spirit": 7,
-          "perception": 4,
-          "talent": 3
-        }
+        "expFactor": 368
       },
       {
         "level": 11,
-        "expFactor": 412,
-        "attrs": {
-          "constitution": 5,
-          "spirit": 7,
-          "perception": 4,
-          "talent": 3
-        }
+        "expFactor": 412
       },
       {
         "level": 12,
-        "expFactor": 460,
-        "attrs": {
-          "constitution": 5,
-          "spirit": 6,
-          "perception": 4,
-          "talent": 3
-        }
+        "expFactor": 460
       },
       {
         "level": 13,
-        "expFactor": 516,
-        "attrs": {
-          "constitution": 5,
-          "spirit": 6,
-          "perception": 4,
-          "talent": 3
-        }
+        "expFactor": 516
       },
       {
         "level": 14,
-        "expFactor": 0,
-        "attrs": {
-          "constitution": 5,
-          "spirit": 6,
-          "perception": 4,
-          "talent": 3
-        }
+        "expFactor": 0
       }
     ],
     "skills": [

@@ -1,5 +1,5 @@
 import { BadRequestException, Body, Controller, Delete, Get, Inject, Param, Post, Put, Query, UseGuards } from '@nestjs/common';
-import { type GmCreateWorldInstanceReq, type GmListPlayersQuery, type GmTransferPlayerToInstanceReq } from '@mud/shared';
+import { type GmBanManagedPlayerReq, type GmCreateWorldInstanceReq, type GmListPlayersQuery, type GmTransferPlayerToInstanceReq } from '@mud/shared';
 
 import { RedeemCodeRuntimeService } from '../../runtime/redeem/redeem-code-runtime.service';
 import { GM_HTTP_CONTRACT } from './native-gm-contract';
@@ -530,6 +530,33 @@ export class NativeGmController {
     await this.nextManagedAccountService.updateManagedPlayerAccount(playerId, body?.username ?? '');
     return { ok: true };
   }  
+  /**
+ * banPlayerAccount：封禁玩家账号。
+ * @param playerId string 玩家 ID。
+ * @param body GmBanManagedPlayerReq 参数说明。
+ * @returns 返回操作结果。
+ */
+
+
+  @Post('players/:playerId/ban')
+  async banPlayerAccount(@Param('playerId') playerId: string, @Body() body: GmBanManagedPlayerReq) {
+    await this.nextManagedAccountService.banManagedPlayerAccount(playerId, body?.reason ?? '');
+    return { ok: true };
+  }
+
+  /**
+ * unbanPlayerAccount：解封玩家账号。
+ * @param playerId string 玩家 ID。
+ * @returns 返回操作结果。
+ */
+
+
+  @Post('players/:playerId/unban')
+  async unbanPlayerAccount(@Param('playerId') playerId: string) {
+    await this.nextManagedAccountService.unbanManagedPlayerAccount(playerId);
+    return { ok: true };
+  }
+
   /**
  * updatePlayer：处理玩家并更新相关状态。
  * @param playerId string 玩家 ID。

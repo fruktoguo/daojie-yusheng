@@ -13,6 +13,7 @@ import {
   GM_PANEL_POLL_INTERVAL_MS,
   type GmAppendRedeemCodesReq,
   type GmAppendRedeemCodesRes,
+  type GmBanManagedPlayerReq,
   type GmAddPlayerCombatExpReq,
   type GmAddPlayerFoundationReq,
   type GmCreateRedeemCodeGroupReq,
@@ -46,9 +47,12 @@ import {
   type GmNetworkBucket,
   type GmManagedPlayerSummary,
   type GmPlayerDetailRes,
+  type GmPlayerRiskFactor,
+  type GmPlayerRiskLevel,
   type GmLoginReq,
   type GmLoginRes,
   type GmManagedPlayerRecord,
+  type GmPlayerAccountStatusFilter,
   type GmPlayerSortMode,
   type GmRemoveBotsReq,
   type GmRestoreDatabaseReq,
@@ -121,6 +125,8 @@ const statusToastEl = document.getElementById('status-toast') as HTMLDivElement;
 const playerSearchInput = document.getElementById('player-search') as HTMLInputElement;
 /** playerSortSelect：玩家排序Select。 */
 const playerSortSelect = document.getElementById('player-sort') as HTMLSelectElement;
+/** playerAccountStatusFilterSelect：玩家账号状态筛选。 */
+const playerAccountStatusFilterSelect = document.getElementById('player-account-status-filter') as HTMLSelectElement;
 /** playerListEl：玩家列表El。 */
 const playerListEl = document.getElementById('player-list') as HTMLDivElement;
 /** playerPrevPageBtn：玩家Prev分页Btn。 */
@@ -165,6 +171,8 @@ const editorTabItemsBtn = document.getElementById('editor-tab-items') as HTMLBut
 const editorTabQuestsBtn = document.getElementById('editor-tab-quests') as HTMLButtonElement;
 /** editorTabMailBtn：编辑器Tab邮件Btn。 */
 const editorTabMailBtn = document.getElementById('editor-tab-mail') as HTMLButtonElement;
+/** editorTabRiskBtn：编辑器Tab风险Btn。 */
+const editorTabRiskBtn = document.getElementById('editor-tab-risk') as HTMLButtonElement;
 /** editorTabPersistedBtn：编辑器Tab Persisted Btn。 */
 const editorTabPersistedBtn = document.getElementById('editor-tab-persisted') as HTMLButtonElement;
 /** playerPersistedJsonEl：玩家Persisted JSON El。 */
@@ -402,7 +410,7 @@ const redeemGroupEditorEl = document.getElementById('redeem-group-editor') as HT
 const redeemCodeListEl = document.getElementById('redeem-code-list') as HTMLDivElement | null;
 
 /** GmEditorTab：GM 玩家编辑器顶部标签页 ID。 */
-type GmEditorTab = GmPlayerUpdateSection | 'shortcuts' | 'mail' | 'persisted';
+type GmEditorTab = GmPlayerUpdateSection | 'shortcuts' | 'mail' | 'risk' | 'persisted';
 
 /** GmMailAttachmentDraft：邮件草稿里的单个附件条目。 */
 interface GmMailAttachmentDraft {
@@ -545,6 +553,8 @@ let currentDatabaseTable = 'server_player_snapshot';
 let currentInventoryAddType: (typeof ITEM_TYPES)[number] = 'material';
 /** currentPlayerSort：当前玩家排序。 */
 let currentPlayerSort: GmPlayerSortMode = (playerSortSelect.value as GmPlayerSortMode) || 'realm-desc';
+/** currentPlayerAccountStatusFilter：当前玩家账号状态筛选。 */
+let currentPlayerAccountStatusFilter: GmPlayerAccountStatusFilter = (playerAccountStatusFilterSelect.value as GmPlayerAccountStatusFilter) || 'all';
 /** currentPlayerPage：当前玩家分页。 */
 let currentPlayerPage = 1;
 /** currentPlayerTotalPages：当前玩家总量Pages。 */
@@ -832,6 +842,142 @@ function getManagedAccountActivityMeta(player: Pick<GmManagedPlayerRecord, 'meta
   };
 }
 
+/** getManagedPlayerAccountStatusLabel：读取账号状态标签。 */
+function getManagedPlayerAccountStatusLabel(status: GmManagedPlayerSummary['accountStatus']): string {
+  switch (status) {
+    case 'banned':
+      return '封禁';
+    case 'abnormal':
+      return '异常';
+    case 'normal':
+    default:
+      return '正常';
+  }
+}
+
+/** getManagedAccountRestrictionLabel：读取账号封禁状态标签。 */
+function getManagedAccountRestrictionLabel(account: NonNullable<GmManagedPlayerRecord['account']>): string {
+  return account.status === 'banned' ? '已封禁' : '可登录';
+}
+
+/** getManagedAccountRestrictionPillClass：读取账号封禁状态样式。 */
+function getManagedAccountRestrictionPillClass(account: NonNullable<GmManagedPlayerRecord['account']>): string {
+  return account.status === 'banned' ? 'offline' : 'online';
+}
+
+/** getPlayerRiskLevelLabel：读取风险等级标签。 */
+function getPlayerRiskLevelLabel(level: GmPlayerRiskLevel): string {
+  switch (level) {
+    case 'critical':
+      return '极高风险';
+    case 'high':
+      return '高风险';
+    case 'medium':
+      return '中风险';
+    case 'low':
+    default:
+      return '低风险';
+  }
+}
+
+/** getPlayerRiskLevelPillClass：读取风险等级样式。 */
+function getPlayerRiskLevelPillClass(level: GmPlayerRiskLevel): string {
+  switch (level) {
+    case 'critical':
+      return 'bot';
+    case 'high':
+      return 'offline';
+    case 'medium':
+      return '';
+    case 'low':
+    default:
+      return 'online';
+  }
+}
+
+/** renderPlayerRiskFactorCard：渲染风险维度卡片。 */
+function renderPlayerRiskFactorCard(factor: GmPlayerRiskFactor): string {
+  const evidenceMarkup = factor.evidence.length > 0
+    ? `<div class="editor-note" style="margin-top: 8px;">${factor.evidence.map((entry) => `- ${escapeHtml(entry)}`).join('<br />')}</div>`
+    : '<div class="editor-note" style="margin-top: 8px;">当前维度暂无额外证据。</div>';
+  return `
+    <div class="editor-card">
+      <div class="editor-card-head">
+        <div>
+          <div class="editor-card-title">${escapeHtml(factor.label)}</div>
+          <div class="editor-card-meta">${escapeHtml(factor.summary)}</div>
+        </div>
+        <span class="pill ${factor.score > 0 ? 'offline' : 'online'}">${factor.score} / ${factor.maxScore}</span>
+      </div>
+      ${evidenceMarkup}
+    </div>
+  `;
+}
+
+/** renderPlayerRiskSection：渲染玩家风险检测标签页。 */
+function renderPlayerRiskSection(player: GmManagedPlayerRecord): string {
+  const report = player.riskReport;
+  const accountEnvMarkup = player.account
+    ? `
+      <div class="editor-note" style="margin-top: 8px;">
+        账号状态：${escapeHtml(getManagedAccountRestrictionLabel(player.account))}<br />
+        管理员名单：${player.account.isRiskAdmin ? '已加入' : '未加入'}<br />
+        注册时间：${escapeHtml(formatDateTime(player.account.createdAt))}<br />
+        最近登录：${escapeHtml(formatDateTime(player.account.lastLoginAt))}
+      </div>
+    `
+    : '<div class="editor-note" style="margin-top: 8px;">当前目标没有可管理账号，风险检测会按异常账号绑定处理。</div>';
+
+  return `
+    <section class="editor-section">
+      <div class="editor-section-head">
+        <div>
+          <div class="editor-section-title">风险总览</div>
+          <div class="editor-section-note">这里展示账号真源、命名模式、相似账号簇、重复 IP/设备与坊市关系的低频检测结果，不会自动封号。</div>
+        </div>
+        <div class="editor-chip-list">
+          <span class="pill ${getPlayerRiskLevelPillClass(report.level)}">${escapeHtml(getPlayerRiskLevelLabel(report.level))}</span>
+          <span class="pill">总分 ${report.score} / ${report.maxScore}</span>
+          <span class="pill">${escapeHtml(formatDateTime(report.generatedAt))}</span>
+        </div>
+      </div>
+      <div class="note-card">${escapeHtml(report.overview)}</div>
+      ${accountEnvMarkup}
+    </section>
+
+    <section class="editor-section">
+      <div class="editor-section-head">
+        <div>
+          <div class="editor-section-title">处置建议</div>
+          <div class="editor-section-note">只提供复核顺序，资产或账号处置仍必须由 GM 人工确认。</div>
+        </div>
+      </div>
+      <div class="editor-card-list">
+        ${report.recommendations.map((entry, index) => `
+          <div class="editor-card">
+            <div class="editor-card-head">
+              <div class="editor-card-title">建议 ${index + 1}</div>
+            </div>
+            <div class="editor-note" style="margin-top: 0;">${escapeHtml(entry)}</div>
+          </div>
+        `).join('')}
+      </div>
+    </section>
+
+    <section class="editor-section">
+      <div class="editor-section-head">
+        <div>
+          <div class="editor-section-title">维度明细</div>
+          <div class="editor-section-note">每个维度都会给出分数、摘要和命中的证据。</div>
+        </div>
+      </div>
+      <div class="editor-card-list">
+        ${report.factors.map((factor) => renderPlayerRiskFactorCard(factor)).join('')}
+      </div>
+    </section>
+  `;
+}
+
 /** hasServerEditorCatalog：判断是否服务端编辑器目录。 */
 function hasServerEditorCatalog(): boolean {
   return editorCatalogSource === 'server' && editorCatalog !== null;
@@ -889,8 +1035,8 @@ function patchPlayerRow(button: HTMLButtonElement, player: GmManagedPlayerSummar
   presenceEl.classList.toggle('online', presence.className === 'online');
   presenceEl.classList.toggle('offline', presence.className === 'offline');
   presenceEl.textContent = presence.label;
-  button.querySelector<HTMLElement>('[data-role="meta"]')!.textContent = `账号: ${player.accountName ?? '无'} · 显示名: ${player.displayName}`;
-  button.querySelector<HTMLElement>('[data-role="identity"]')!.textContent = getPlayerIdentityLine(player);
+  button.querySelector<HTMLElement>('[data-role="meta"]')!.textContent = `账号: ${player.accountName ?? '无'} · 状态: ${getManagedPlayerAccountStatusLabel(player.accountStatus)} · 风险: ${player.riskScore} (${getPlayerRiskLevelLabel(player.riskLevel)})`;
+  button.querySelector<HTMLElement>('[data-role="identity"]')!.textContent = `${getPlayerIdentityLine(player)}${player.riskTags.length > 0 ? ` · 命中: ${player.riskTags.join(' / ')}` : ''}`;
   button.querySelector<HTMLElement>('[data-role="stats"]')!.textContent = getPlayerStatsLine(player);
 }
 
@@ -910,10 +1056,11 @@ function getEditorMetaMarkup(detail: GmManagedPlayerRecord): string {
 
   const presence = getPlayerPresenceMeta(detail);
   const base = gmMarkupHelpers.getEditorMetaMarkup(detail, presence, editorDirty);
+  const riskMeta = `<span class="pill ${getPlayerRiskLevelPillClass(detail.riskLevel)}">风险 ${detail.riskScore} · ${escapeHtml(getPlayerRiskLevelLabel(detail.riskLevel))}</span>`;
   if (hasServerEditorCatalog()) {
-    return base;
+    return `${base}${riskMeta}`;
   }
-  return `${base}<span class="pill">${editorCatalogSource === 'local-fallback' ? '目录: 本地回退' : '目录: 未加载'}</span>`;
+  return `${base}${riskMeta}<span class="pill">${editorCatalogSource === 'local-fallback' ? '目录: 本地回退' : '目录: 未加载'}</span>`;
 }
 
 /** getEditorBodyChipMarkup：读取编辑器身体Chip Markup。 */
@@ -1655,6 +1802,10 @@ function buildEditorStructureKey(detail: GmManagedPlayerRecord, draft: PlayerSta
     detail.id,
     mapIds,
     equipmentPresence,
+    detail.account?.status ?? 'no-account',
+    String(detail.riskReport.score),
+    detail.riskReport.level,
+    detail.riskReport.factors.map((factor) => `${factor.key}:${factor.score}`).join(','),
     ensureArray(draft.bonuses).length,
     ensureArray(draft.temporaryBuffs).length,
     ensureArray(draft.inventory.items).length,
@@ -2166,6 +2317,8 @@ function getEditorTabLabel(tab: GmEditorTab): string {
       return '任务';
     case 'mail':
       return '邮件';
+    case 'risk':
+      return '风险检测';
     case 'persisted':
       return '数据库';
   }
@@ -2186,6 +2339,7 @@ function switchEditorTab(tab: GmEditorTab): void {
   editorTabItemsBtn.classList.toggle('active', tab === 'items');
   editorTabQuestsBtn.classList.toggle('active', tab === 'quests');
   editorTabMailBtn.classList.toggle('active', tab === 'mail');
+  editorTabRiskBtn.classList.toggle('active', tab === 'risk');
   editorTabPersistedBtn.classList.toggle('active', tab === 'persisted');
   editorVisualPanelEl.classList.toggle('hidden', tab === 'persisted');
   editorPersistedPanelEl.classList.toggle('hidden', tab !== 'persisted');
@@ -2196,6 +2350,8 @@ function switchEditorTab(tab: GmEditorTab): void {
     savePlayerBtn.textContent = '数据库标签不直接保存';
   } else if (tab === 'mail') {
     savePlayerBtn.textContent = '邮件标签不直接保存';
+  } else if (tab === 'risk') {
+    savePlayerBtn.textContent = '风险标签不直接保存';
   } else if (tab === 'shortcuts') {
     savePlayerBtn.textContent = '快捷标签按钮会直接提交';
   } else {
@@ -2209,6 +2365,7 @@ function switchEditorTab(tab: GmEditorTab): void {
   }
   savePlayerBtn.disabled = tab === 'persisted'
     || tab === 'mail'
+    || tab === 'risk'
     || tab === 'shortcuts'
     || !selectedPlayerId
     || ((tab === 'buffs' || tab === 'techniques' || tab === 'items' || tab === 'quests') && !hasServerEditorCatalog());
@@ -4410,12 +4567,36 @@ function renderVisualEditor(player: GmManagedPlayerRecord, draft: PlayerState): 
           <div class="editor-code">${escapeHtml(getManagedAccountStatusLabel(player))}</div>
         </div>
         <div class="editor-field">
+          <span>账号状态</span>
+          <div class="editor-code"><span class="pill ${getManagedAccountRestrictionPillClass(account)}">${escapeHtml(getManagedAccountRestrictionLabel(account))}</span></div>
+        </div>
+        <div class="editor-field">
           <span>${escapeHtml(activity.label)}</span>
           <div class="editor-code">${escapeHtml(activity.value)}</div>
         </div>
         <div class="editor-field">
+          <span>最近登录</span>
+          <div class="editor-code">${escapeHtml(formatDateTime(account.lastLoginAt))}</div>
+        </div>
+        <div class="editor-field">
+          <span>最近 IP</span>
+          <div class="editor-code">${escapeHtml(account.lastLoginIp ?? '无')}</div>
+        </div>
+        <div class="editor-field">
+          <span>最近设备</span>
+          <div class="editor-code">${escapeHtml(account.lastLoginDeviceId ?? '无')}</div>
+        </div>
+        <div class="editor-field">
           <span>累计在线时间</span>
           <div class="editor-code">${escapeHtml(formatDurationSeconds(account.totalOnlineSeconds))}</div>
+        </div>
+        <div class="editor-field">
+          <span>封禁时间</span>
+          <div class="editor-code">${escapeHtml(formatDateTime(account.bannedAt))}</div>
+        </div>
+        <div class="editor-field wide">
+          <span>封禁原因</span>
+          <div class="editor-code">${escapeHtml(account.banReason?.trim() || '无')}</div>
         </div>
       </div>
       <div class="editor-grid compact" style="margin-top: 10px;">
@@ -4423,12 +4604,29 @@ function renderVisualEditor(player: GmManagedPlayerRecord, draft: PlayerState): 
           <span>新密码</span>
           <input id="player-password-input" type="text" autocomplete="off" spellcheck="false" placeholder="输入新的账号密码" />
         </label>
+        <label class="editor-field wide">
+          <span>封禁原因</span>
+          <div class="button-row" style="margin-bottom: 8px;">
+            ${[
+              '同设备批量起号',
+              '工作室批量养号',
+              '资源转移/小号输血',
+              '自动化脚本',
+              '规避处罚复开号',
+            ].map((reason) => (
+              `<button class="small-btn" type="button" data-ban-reason-preset="${escapeHtml(reason)}">${escapeHtml(reason)}</button>`
+            )).join('')}
+          </div>
+          <input id="player-account-ban-reason" type="text" autocomplete="off" spellcheck="false" placeholder="可点快速原因，也可以自定义输入" />
+        </label>
       </div>
       <div class="button-row" style="margin-top: 10px;">
         <button class="small-btn" type="button" data-action="save-player-account">修改账号</button>
         <button class="small-btn" type="button" data-action="save-player-password">修改账号密码</button>
+        <button class="small-btn danger" type="button" data-action="ban-player-account" ${account.status === 'banned' ? 'disabled' : ''}>快捷封号</button>
+        <button class="small-btn" type="button" data-action="unban-player-account" ${account.status !== 'banned' ? 'disabled' : ''}>快捷解封</button>
       </div>
-      <div class="editor-note">密码只会提交到服务端，并由服务端写入 scrypt 哈希，不会以明文落库。</div>
+      <div class="editor-note">密码只会提交到服务端，并由服务端写入哈希，不会以明文落库。封号状态会写入账号表并阻止后续登录、刷新和重连。</div>
       ${activity.note ? `<div class="editor-note">${escapeHtml(activity.note)}</div>` : ''}
       ${catalogFallbackNote ? `<div class="editor-note">${escapeHtml(catalogFallbackNote)}</div>` : ''}
       ` : '<div class="editor-note">当前目标没有可编辑的账号信息，通常是机器人或异常存档。</div>'}
@@ -4776,6 +4974,8 @@ function renderVisualEditor(player: GmManagedPlayerRecord, draft: PlayerState): 
       })}
     </section>
     `)}
+
+    ${renderEditorTabSection('risk', renderPlayerRiskSection(player))}
   `;
 }
 
@@ -5203,6 +5403,7 @@ async function loadState(silent = false, refreshDetail = false): Promise<void> {
     page: String(currentPlayerPage),
     pageSize: '50',
     sort: currentPlayerSort,
+    accountStatus: currentPlayerAccountStatusFilter,
   });
   const keyword = playerSearchInput.value.trim();
   if (keyword) {
@@ -5512,7 +5713,7 @@ async function changeGmPassword(): Promise<void> {
 
 /** getCurrentEditorSaveSection：读取当前编辑器保存Section。 */
 function getCurrentEditorSaveSection(): GmPlayerUpdateSection | null {
-  return currentEditorTab === 'persisted' || currentEditorTab === 'mail' || currentEditorTab === 'shortcuts' ? null : currentEditorTab;
+  return currentEditorTab === 'persisted' || currentEditorTab === 'mail' || currentEditorTab === 'risk' || currentEditorTab === 'shortcuts' ? null : currentEditorTab;
 }
 
 /** buildTechniqueSaveSnapshot：构建Technique保存快照。 */
@@ -6096,6 +6297,65 @@ async function saveSelectedPlayerAccount(): Promise<void> {
   }
 }
 
+/** banSelectedPlayerAccount：封禁Selected玩家账号。 */
+async function banSelectedPlayerAccount(): Promise<void> {
+  const detail = getSelectedPlayerDetail();
+  if (!detail?.account) {
+    setStatus('当前目标没有可封禁的账号', true);
+    return;
+  }
+  const reasonInput = editorContentEl.querySelector<HTMLInputElement>('#player-account-ban-reason');
+  const button = editorContentEl.querySelector<HTMLButtonElement>('[data-action="ban-player-account"]');
+  const reason = reasonInput?.value.trim() ?? '';
+  if (button) {
+    button.disabled = true;
+  }
+  try {
+    setPendingStatus(`正在封禁账号 ${detail.account.username}...`);
+    await request<{
+      ok: true;
+    }>(`${GM_API_BASE_PATH}/players/${encodeURIComponent(detail.id)}/ban`, {
+      method: 'POST',
+      body: JSON.stringify({ reason } satisfies GmBanManagedPlayerReq),
+    });
+    await delayRefresh(`已封禁账号 ${detail.account.username}`);
+  } catch (error) {
+    setStatus(error instanceof Error ? error.message : '封禁账号失败', true);
+  } finally {
+    if (button) {
+      button.disabled = false;
+    }
+  }
+}
+
+/** unbanSelectedPlayerAccount：解封Selected玩家账号。 */
+async function unbanSelectedPlayerAccount(): Promise<void> {
+  const detail = getSelectedPlayerDetail();
+  if (!detail?.account) {
+    setStatus('当前目标没有可解封的账号', true);
+    return;
+  }
+  const button = editorContentEl.querySelector<HTMLButtonElement>('[data-action="unban-player-account"]');
+  if (button) {
+    button.disabled = true;
+  }
+  try {
+    setPendingStatus(`正在解封账号 ${detail.account.username}...`);
+    await request<{
+      ok: true;
+    }>(`${GM_API_BASE_PATH}/players/${encodeURIComponent(detail.id)}/unban`, {
+      method: 'POST',
+    });
+    await delayRefresh(`已解封账号 ${detail.account.username}`);
+  } catch (error) {
+    setStatus(error instanceof Error ? error.message : '解封账号失败', true);
+  } finally {
+    if (button) {
+      button.disabled = false;
+    }
+  }
+}
+
 /** resetSelectedPlayer：重置Selected玩家。 */
 async function resetSelectedPlayer(): Promise<void> {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
@@ -6582,6 +6842,15 @@ playerListEl.addEventListener('click', (event) => {
 editorContentEl.addEventListener('click', (event) => {
   const trigger = (event.target as HTMLElement).closest<HTMLElement>('[data-action]');
   const action = trigger?.dataset.action;
+  const reasonPreset = (event.target as HTMLElement).closest<HTMLElement>('[data-ban-reason-preset]');
+  if (reasonPreset) {
+    const input = editorContentEl.querySelector<HTMLInputElement>('#player-account-ban-reason');
+    if (input) {
+      input.value = reasonPreset.dataset.banReasonPreset ?? '';
+      input.focus();
+    }
+    return;
+  }
   if (!action || !trigger) return;
   if (action === 'add-direct-mail-attachment') {
     addMailAttachment('direct');
@@ -6603,6 +6872,14 @@ editorContentEl.addEventListener('click', (event) => {
   }
   if (action === 'save-player-password') {
     saveSelectedPlayerPassword().catch(() => {});
+    return;
+  }
+  if (action === 'ban-player-account') {
+    banSelectedPlayerAccount().catch(() => {});
+    return;
+  }
+  if (action === 'unban-player-account') {
+    unbanSelectedPlayerAccount().catch(() => {});
     return;
   }
   if (action === 'set-body-training-level') {
@@ -6962,6 +7239,14 @@ playerSortSelect.addEventListener('change', () => {
     setStatus(error instanceof Error ? error.message : '加载角色列表失败', true);
   });
 });
+playerAccountStatusFilterSelect.addEventListener('change', () => {
+  currentPlayerAccountStatusFilter = (playerAccountStatusFilterSelect.value as GmPlayerAccountStatusFilter) || 'all';
+  currentPlayerPage = 1;
+  lastPlayerListStructureKey = null;
+  loadState(true).catch((error: unknown) => {
+    setStatus(error instanceof Error ? error.message : '加载角色列表失败', true);
+  });
+});
 playerPrevPageBtn.addEventListener('click', () => {
   if (currentPlayerPage <= 1) {
     return;
@@ -7007,6 +7292,7 @@ editorTabShortcutsBtn.addEventListener('click', () => switchEditorTab('shortcuts
 editorTabItemsBtn.addEventListener('click', () => switchEditorTab('items'));
 editorTabQuestsBtn.addEventListener('click', () => switchEditorTab('quests'));
 editorTabMailBtn.addEventListener('click', () => switchEditorTab('mail'));
+editorTabRiskBtn.addEventListener('click', () => switchEditorTab('risk'));
 editorTabPersistedBtn.addEventListener('click', () => switchEditorTab('persisted'));
 playerDatabaseTabsEl.addEventListener('click', (event) => {
   const target = event.target instanceof HTMLElement

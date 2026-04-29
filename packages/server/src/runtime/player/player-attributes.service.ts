@@ -90,12 +90,14 @@ let PlayerAttributesService = class PlayerAttributesService {
 
         const rawBaseAttrs = normalizeRawBaseAttributes(player.attrs?.rawBaseAttrs);
 
-        const baseAttrs = cloneAttributes(rawBaseAttrs);
+        const realmBaseAttrs = cloneAttributes(rawBaseAttrs);
 
         const techniqueAttrBonus = resolveTechniqueAttrBonus(player.techniques.techniques, runtimeBonuses);
 
         const bodyTrainingAttrBonus = (0, shared_1.calcBodyTrainingAttrBonus)(player.bodyTraining?.level ?? 0);
-        addAttributes(baseAttrs, shared_1.PLAYER_REALM_CONFIG[stage].attrBonus);
+        addAttributes(realmBaseAttrs, shared_1.PLAYER_REALM_CONFIG[stage].attrBonus);
+
+        const baseAttrs = cloneAttributes(realmBaseAttrs);
         addAttributes(baseAttrs, techniqueAttrBonus);
         addAttributes(baseAttrs, bodyTrainingAttrBonus);
         for (const bonus of projectedRuntimeBonuses) {
@@ -112,10 +114,22 @@ let PlayerAttributesService = class PlayerAttributesService {
             const enhancedItem = (0, shared_1.applyEnhancementToItemStack)(item);
             addAttributes(finalAttrs, enhancedItem.equipAttrs);
         }
+        const attrPercentBonuses = createAttributePercentBonusAccumulator();
+        const rootFoundation = Math.max(0, Math.trunc(Number(player.rootFoundation ?? 0) || 0));
+        if (rootFoundation > 0) {
+            accumulateUniformAttributePercentBonus(attrPercentBonuses.realm, rootFoundation);
+        }
         for (const buff of player.buffs.buffs) {
-            addAttributes(finalAttrs, buff.attrs);
+            if (buff.attrMode === 'percent') {
+                const target = isPillAttributeBuff(buff) ? attrPercentBonuses.pill : attrPercentBonuses.buff;
+                accumulateAttributePercentBonus(target, buff.attrs, Math.max(1, Math.trunc(Number(buff.stacks ?? 1) || 1)));
+            }
+            else {
+                addAttributes(finalAttrs, scaleAttributes(buff.attrs, Math.max(1, Math.trunc(Number(buff.stacks ?? 1) || 1))));
+            }
         }
         clampAttributes(finalAttrs);
+        applyAttributePercentBonuses(finalAttrs, attrPercentBonuses);
 
         const numericStats = (0, shared_1.cloneNumericStats)(template.stats);
 
@@ -243,6 +257,25 @@ function createPercentBonusAccumulator() {
     return (0, shared_1.createNumericStats)();
 }
 
+function createAttributePercentBonusAccumulator() {
+    return {
+        realm: createEmptyAttributes(),
+        pill: createEmptyAttributes(),
+        buff: createEmptyAttributes(),
+    };
+}
+
+function createEmptyAttributes() {
+    return {
+        constitution: 0,
+        spirit: 0,
+        perception: 0,
+        talent: 0,
+        strength: 0,
+        meridians: 0,
+    };
+}
+
 const REALM_EXPONENTIAL_NUMERIC_KEYS = [
     'maxHp',
     'maxQi',
@@ -303,6 +336,67 @@ function addAttributes(target, patch) {
             target[key] += value;
         }
     }
+}
+
+function scaleAttributes(source, multiplier = 1) {
+    const scaled = {};
+    if (!source) {
+        return scaled;
+    }
+    const normalizedMultiplier = Number.isFinite(multiplier) ? multiplier : 1;
+    for (const key of shared_1.ATTR_KEYS) {
+        const value = Number(source[key]);
+        if (Number.isFinite(value) && value !== 0) {
+            scaled[key] = value * normalizedMultiplier;
+        }
+    }
+    return scaled;
+}
+
+function accumulateUniformAttributePercentBonus(target, amount) {
+    const normalized = Number(amount);
+    if (!Number.isFinite(normalized) || normalized === 0) {
+        return;
+    }
+    for (const key of shared_1.ATTR_KEYS) {
+        target[key] += normalized;
+    }
+}
+
+function accumulateAttributePercentBonus(target, attrs, stacks = 1) {
+    if (!attrs) {
+        return;
+    }
+    const normalizedStacks = Math.max(1, Math.trunc(Number(stacks) || 1));
+    for (const key of shared_1.ATTR_KEYS) {
+        const value = Number(attrs[key]);
+        if (Number.isFinite(value) && value !== 0) {
+            target[key] += value * normalizedStacks;
+        }
+    }
+}
+
+function applyAttributePercentBonuses(target, bonuses) {
+    for (const key of shared_1.ATTR_KEYS) {
+        const realmMultiplier = attributePercentToMultiplier(bonuses.realm[key]);
+        const pillMultiplier = attributePercentToMultiplier(bonuses.pill[key]);
+        const buffMultiplier = attributePercentToMultiplier(bonuses.buff[key]);
+        target[key] = Math.max(0, target[key] * realmMultiplier * pillMultiplier * buffMultiplier);
+    }
+}
+
+function attributePercentToMultiplier(percent) {
+    const normalized = Number(percent);
+    if (!Number.isFinite(normalized) || normalized === 0) {
+        return 1;
+    }
+    return Math.max(0, 1 + normalized / 100);
+}
+
+function isPillAttributeBuff(buff) {
+    const sourceSkillId = typeof buff?.sourceSkillId === 'string' ? buff.sourceSkillId : '';
+    const buffId = typeof buff?.buffId === 'string' ? buff.buffId : '';
+    return sourceSkillId.startsWith('pill.') || buffId.startsWith('item_buff.');
 }
 /**
  * clampAttributes：执行clampAttribute相关逻辑。

@@ -308,6 +308,9 @@ let WorldRuntimePlayerCommandService = class WorldRuntimePlayerCommandService {
             case 'breakthrough':
                 this.worldRuntimeProgressionService.dispatchBreakthrough(playerId, deps);
                 return;
+            case 'refineRootFoundation':
+                this.worldRuntimeProgressionService.dispatchRootFoundationRefine(playerId, deps);
+                return;
             case 'heavenGateAction':
                 this.worldRuntimeProgressionService.dispatchHeavenGateAction(playerId, command.action, command.element, deps);
                 return;

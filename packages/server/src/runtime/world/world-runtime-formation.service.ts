@@ -785,6 +785,9 @@ class WorldRuntimeFormationService {
             : rawSpiritStoneCount;
         const allocation = shared_1.normalizeFormationAllocation(entry.allocation);
         const stats = shared_1.resolveFormationStats(template, spiritStoneCount, diskMultiplier, allocation);
+        if (template.id === 'sect_guardian_barrier') {
+            stats.radius = Math.max(1, Math.trunc(Number(entry.radius) || 1));
+        }
         const remainingAuraBudget = rawRemainingAuraBudget !== null ? rawRemainingAuraBudget : stats.totalAuraBudget;
         if (remainingAuraBudget <= 0 && lifecycle !== FORMATION_LIFECYCLE_PERSISTENT) {
             return null;
@@ -1330,6 +1333,7 @@ function serializeFormation(formation) {
         allocation: { ...formation.allocation },
         active: formation.active !== false,
         remainingAuraBudget: Math.max(0, Number(formation.remainingAuraBudget) || 0),
+        radius: Math.max(1, Math.trunc(Number(formation.stats?.radius) || 1)),
         createdAt: formation.createdAt,
         updatedAt: formation.updatedAt,
     };

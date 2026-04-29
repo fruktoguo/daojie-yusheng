@@ -2,73 +2,42 @@
   {
     "id": "monster_soul_arts",
     "name": "残魂灵压",
+    "desc": "哀鸣钉住心神，魂缚继续压进识海。",
     "grade": "mystic",
     "category": "arts",
     "realmLv": 1,
     "layers": [
       {
         "level": 1,
-        "expFactor": 18,
-        "attrs": {
-          "spirit": 3,
-          "talent": 1
-        }
+        "expFactor": 18
       },
       {
         "level": 2,
-        "expFactor": 20,
-        "attrs": {
-          "spirit": 3,
-          "talent": 1
-        }
+        "expFactor": 20
       },
       {
         "level": 3,
-        "expFactor": 23,
-        "attrs": {
-          "spirit": 3,
-          "talent": 1
-        }
+        "expFactor": 23
       },
       {
         "level": 4,
-        "expFactor": 26,
-        "attrs": {
-          "spirit": 4,
-          "talent": 1
-        }
+        "expFactor": 26
       },
       {
         "level": 5,
-        "expFactor": 30,
-        "attrs": {
-          "spirit": 4,
-          "talent": 2
-        }
+        "expFactor": 30
       },
       {
         "level": 6,
-        "expFactor": 35,
-        "attrs": {
-          "spirit": 4,
-          "talent": 2
-        }
+        "expFactor": 35
       },
       {
         "level": 7,
-        "expFactor": 41,
-        "attrs": {
-          "spirit": 5,
-          "talent": 2
-        }
+        "expFactor": 41
       },
       {
         "level": 8,
-        "expFactor": 0,
-        "attrs": {
-          "spirit": 5,
-          "talent": 3
-        }
+        "expFactor": 0
       }
     ],
     "skills": [
@@ -191,73 +160,42 @@
   {
     "id": "monster_construct_arts",
     "name": "矿核镇压",
+    "desc": "矿核重击镇住正面，岩壳层层叠加，愈战愈固。",
     "grade": "mystic",
     "category": "arts",
     "realmLv": 1,
     "layers": [
       {
         "level": 1,
-        "expFactor": 20,
-        "attrs": {
-          "constitution": 3,
-          "talent": 2
-        }
+        "expFactor": 20
       },
       {
         "level": 2,
-        "expFactor": 23,
-        "attrs": {
-          "constitution": 3,
-          "talent": 2
-        }
+        "expFactor": 23
       },
       {
         "level": 3,
-        "expFactor": 26,
-        "attrs": {
-          "constitution": 3,
-          "talent": 2
-        }
+        "expFactor": 26
       },
       {
         "level": 4,
-        "expFactor": 30,
-        "attrs": {
-          "constitution": 4,
-          "talent": 2
-        }
+        "expFactor": 30
       },
       {
         "level": 5,
-        "expFactor": 35,
-        "attrs": {
-          "constitution": 4,
-          "talent": 3
-        }
+        "expFactor": 35
       },
       {
         "level": 6,
-        "expFactor": 40,
-        "attrs": {
-          "constitution": 4,
-          "talent": 3
-        }
+        "expFactor": 40
       },
       {
         "level": 7,
-        "expFactor": 46,
-        "attrs": {
-          "constitution": 5,
-          "talent": 3
-        }
+        "expFactor": 46
       },
       {
         "level": 8,
-        "expFactor": 0,
-        "attrs": {
-          "constitution": 5,
-          "talent": 4
-        }
+        "expFactor": 0
       }
     ],
     "skills": [
@@ -379,81 +317,42 @@
   {
     "id": "monster_star_beast_arts",
     "name": "噬星残意",
+    "desc": "先咬入残星煞意，再以裂空残啸撕裂残敌。",
     "grade": "mystic",
     "category": "arts",
     "realmLv": 1,
     "layers": [
       {
         "level": 1,
-        "expFactor": 24,
-        "attrs": {
-          "constitution": 2,
-          "spirit": 2,
-          "perception": 2
-        }
+        "expFactor": 24
       },
       {
         "level": 2,
-        "expFactor": 27,
-        "attrs": {
-          "constitution": 2,
-          "spirit": 2,
-          "perception": 2
-        }
+        "expFactor": 27
       },
       {
         "level": 3,
-        "expFactor": 31,
-        "attrs": {
-          "constitution": 3,
-          "spirit": 2,
-          "perception": 2
-        }
+        "expFactor": 31
       },
       {
         "level": 4,
-        "expFactor": 36,
-        "attrs": {
-          "constitution": 3,
-          "spirit": 3,
-          "perception": 2
-        }
+        "expFactor": 36
       },
       {
         "level": 5,
-        "expFactor": 42,
-        "attrs": {
-          "constitution": 3,
-          "spirit": 3,
-          "perception": 3
-        }
+        "expFactor": 42
       },
       {
         "level": 6,
-        "expFactor": 49,
-        "attrs": {
-          "constitution": 4,
-          "spirit": 3,
-          "perception": 3
-        }
+        "expFactor": 49
       },
       {
         "level": 7,
-        "expFactor": 57,
-        "attrs": {
-          "constitution": 4,
-          "spirit": 4,
-          "perception": 3
-        }
+        "expFactor": 57
       },
       {
         "level": 8,
-        "expFactor": 0,
-        "attrs": {
-          "constitution": 4,
-          "spirit": 4,
-          "perception": 4
-        }
+        "expFactor": 0
       }
     ],
     "skills": [
@@ -558,6 +457,7 @@
   {
     "id": "thunder_palm",
     "name": "惊雷掌",
+    "desc": "掌劲如雷，先裂护体，再催雷殛入身。",
     "grade": "mystic",
     "layers": [
       {
@@ -674,6 +574,7 @@
   {
     "id": "frost_sutra",
     "name": "寒魄经",
+    "desc": "寒魄化霜，一念封身。",
     "grade": "mystic",
     "layers": [
       {
@@ -797,6 +698,7 @@
   {
     "id": "spirit_anchor",
     "name": "镇灵篇",
+    "desc": "镇灵真意铺开，封镇大片气机。",
     "grade": "mystic",
     "layers": [
       {
@@ -927,6 +829,7 @@
   {
     "id": "starfall_spear",
     "name": "陨星枪诀",
+    "desc": "枪势贯空，距离越远，星坠越重。",
     "grade": "mystic",
     "layers": [
       {

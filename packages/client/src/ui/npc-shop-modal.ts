@@ -331,18 +331,18 @@ export class NpcShopModal {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
     if (this.loading && !this.shopState) {
-      body.replaceChildren(this.createEmptyState('商店货架同步中……'));
+      body.replaceChildren(this.createEmptyState('货品查探中...'));
       return;
     }
 
     const response = this.shopState;
     const shop = response?.shop ?? null;
     if (!shop) {
-      body.replaceChildren(this.createEmptyState(response?.error ?? '暂时无法打开商店。'));
+      body.replaceChildren(this.createEmptyState(response?.error ?? '暂无法观阅货品。'));
       return;
     }
     if (shop.items.length === 0) {
-      body.replaceChildren(this.createEmptyState('这家店今天还没有上货。'));
+      body.replaceChildren(this.createEmptyState('此间今日无货。'));
       return;
     }
 
@@ -352,7 +352,7 @@ export class NpcShopModal {
     const listRoot = shell.querySelector<HTMLElement>('[data-npc-shop-list="true"]');
     const detailRoot = shell.querySelector<HTMLElement>('[data-npc-shop-detail="true"]');
     if (!toolbarMeta || !listRoot || !detailRoot) {
-      body.replaceChildren(this.createEmptyState('暂时无法打开商店。'));
+      body.replaceChildren(this.createEmptyState('暂无法观阅货品。'));
       return;
     }
     this.syncToolbarMeta(toolbarMeta, shop);
@@ -815,7 +815,7 @@ export class NpcShopModal {
     const shop = this.shopState?.shop ?? null;
     return {
       title: shop ? `${shop.npcName}的商店` : '商店',
-      subtitle: shop?.dialogue ?? '货架同步中',
+      subtitle: shop?.dialogue ?? '货品查探中...',
     };
   }
 

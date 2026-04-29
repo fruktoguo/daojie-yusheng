@@ -1413,6 +1413,7 @@ export class InventoryPanel {
     const displayName = getItemDisplayMeta(item).displayItem.name;
     detailModalHost.open({
       ownerId: InventoryPanel.MODAL_OWNER,
+      variantClass: 'detail-modal--sect-founding',
       title: '建立宗门',
       subtitle: `${displayName} · 当前位置开辟山门`,
       hint: '点击空白处取消',
@@ -1426,16 +1427,6 @@ export class InventoryPanel {
         const nameInput = body.querySelector<HTMLInputElement>('[data-sect-name-input]');
         const markInput = body.querySelector<HTMLInputElement>('[data-sect-mark-input]');
         const statusNode = body.querySelector<HTMLElement>('[data-sect-founding-status]');
-        const syncMark = () => {
-          if (!markInput || !nameInput) return;
-          const normalizedMark = this.normalizeSectMark(markInput.value);
-          if (markInput.value !== normalizedMark) {
-            markInput.value = normalizedMark;
-          }
-          if (!markInput.value.trim()) {
-            markInput.value = getFirstGrapheme(nameInput.value.trim());
-          }
-        };
         nameInput?.addEventListener('input', () => {
           if (statusNode) statusNode.textContent = '';
           if (markInput && !markInput.dataset.touched) {
@@ -1444,7 +1435,10 @@ export class InventoryPanel {
         });
         markInput?.addEventListener('input', () => {
           markInput.dataset.touched = 'true';
-          syncMark();
+          const normalizedMark = this.normalizeSectMarkInput(markInput.value);
+          if (markInput.value !== normalizedMark) {
+            markInput.value = normalizedMark;
+          }
           if (statusNode) statusNode.textContent = '';
         });
         body.querySelector<HTMLElement>('[data-sect-founding-cancel]')?.addEventListener('click', (event) => {
@@ -1723,19 +1717,23 @@ export class InventoryPanel {
 
   private renderSectFoundingDialogBody(body: HTMLElement): void {
     body.replaceChildren(createFragmentFromHtml(`
-      <div class="ui-detail-field ui-detail-field--section">
-        <strong>宗门名称</strong>
-        <input class="gm-inline-input" data-sect-name-input type="text" maxlength="24" autocomplete="off" placeholder="例如：青玄宗">
-      </div>
-      <div class="ui-detail-field ui-detail-field--section">
-        <strong>宗门印记</strong>
-        <input class="gm-inline-input" data-sect-mark-input type="text" maxlength="4" autocomplete="off" placeholder="单字">
-      </div>
-      <div class="empty-hint" data-sect-founding-status></div>
-      <div class="inventory-detail-actions">
-        <div class="inventory-detail-actions-group inventory-detail-actions-group--right inventory-detail-actions-group--stretch">
-          <button class="small-btn ghost" type="button" data-sect-founding-cancel>返回详情</button>
-          <button class="small-btn" type="button" data-sect-founding-confirm>建立宗门</button>
+      <div class="sect-founding-modal">
+        <div class="sect-founding-form">
+          <label class="sect-founding-field">
+            <span>宗门名称</span>
+            <input class="sect-founding-input" data-sect-name-input type="text" maxlength="24" autocomplete="off" placeholder="例如：青玄宗">
+          </label>
+          <label class="sect-founding-field sect-founding-field--mark">
+            <span>宗门印记</span>
+            <input class="sect-founding-input" data-sect-mark-input type="text" maxlength="4" autocomplete="off" placeholder="单字">
+          </label>
+        </div>
+        <div class="sect-founding-status" data-sect-founding-status role="status" aria-live="polite"></div>
+        <div class="inventory-detail-actions sect-founding-actions">
+          <div class="inventory-detail-actions-group inventory-detail-actions-group--right inventory-detail-actions-group--stretch">
+            <button class="small-btn ghost" type="button" data-sect-founding-cancel>返回详情</button>
+            <button class="small-btn" type="button" data-sect-founding-confirm>建立宗门</button>
+          </div>
         </div>
       </div>
     `));
@@ -1754,6 +1752,15 @@ export class InventoryPanel {
     const normalized = input.replace(/\s+/g, '').trim();
     const first = getFirstGrapheme(normalized);
     if (!first || getGraphemeCount(normalized) !== 1 || /[\s<>`"'\\]/.test(first)) {
+      return '';
+    }
+    return first;
+  }
+
+  private normalizeSectMarkInput(input: string): string {
+    const normalized = input.replace(/\s+/g, '').trim();
+    const first = getFirstGrapheme(normalized);
+    if (!first || /[\s<>`"'\\]/.test(first)) {
       return '';
     }
     return first;

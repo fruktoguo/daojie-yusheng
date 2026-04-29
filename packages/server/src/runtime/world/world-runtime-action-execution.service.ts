@@ -99,6 +99,15 @@ let WorldRuntimeActionExecutionService = class WorldRuntimeActionExecutionServic
                 view: deps.getPlayerViewOrThrow(playerId),
             };
         }
+        if (actionId === 'realm:refine_root_foundation') {
+            deps.enqueuePendingCommand(playerId, {
+                kind: 'refineRootFoundation',
+            });
+            return {
+                kind: 'queued',
+                view: deps.getPlayerViewOrThrow(playerId),
+            };
+        }
         if (actionId === 'body_training:infuse') {
             const target = typeof targetInput === 'string' ? targetInput.trim() : '';
             const foundationAmount = Number.parseInt(target, 10);

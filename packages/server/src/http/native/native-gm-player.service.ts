@@ -19,6 +19,7 @@ import { WorldRuntimeService } from '../../runtime/world/world-runtime.service';
 import { NativeManagedAccountService } from './native-managed-account.service';
 import { NATIVE_GM_PLAYER_MUTATION_CONTRACT } from './native-gm-contract';
 import { isNativeGmBotPlayerId } from './native-gm.constants';
+import { buildNativeGmPlayerRiskView } from './native-gm-player-risk';
 const RAW_BASE_ATTRS_PERSISTENCE_MARKER = '__rawBaseAttrs';
 /**
  * ManagedAccountEntryLike：定义接口结构约束，明确可交付字段含义。
@@ -51,6 +52,15 @@ interface ManagedAccountEntryLike {
  */
 
   currentOnlineStartedAt?: string;
+  registerIp?: string | null;
+  lastLoginIp?: string | null;
+  lastLoginAt?: string | null;
+  registerDeviceId?: string | null;
+  lastLoginDeviceId?: string | null;
+  bannedAt?: string | null;
+  banReason?: string | null;
+  bannedBy?: string | null;
+  isRiskAdmin?: boolean;
 }
 /**
  * ContentTemplateRepositoryLike：定义接口结构约束，明确可交付字段含义。
@@ -271,7 +281,7 @@ export class NativeGmPlayerService {
     const runtime = this.playerRuntimeService.snapshot(playerId);
     if (runtime) {
       return {
-        player: this.toManagedPlayerRecord(
+        player: await this.toManagedPlayerRecord(
           runtime,
           this.playerRuntimeService.buildPersistenceSnapshot(playerId),
           account,
@@ -286,7 +296,7 @@ export class NativeGmPlayerService {
     }
 
     return {
-      player: this.toManagedPlayerRecordFromPersistence(playerId, persisted, account, databaseTables),
+      player: await this.toManagedPlayerRecordFromPersistence(playerId, persisted, account, databaseTables),
     };
   }
   /**
@@ -1537,14 +1547,31 @@ export class NativeGmPlayerService {
  */
 
 
-  private toManagedPlayerSummary(snapshot, account = null) {
+  private async toManagedPlayerSummary(snapshot, account = null) {
     const player = this.toLegacyPlayerState(snapshot);
+    const roleName = resolveManagedPlayerName(player, account, player.id);
+    const displayName = resolveManagedPlayerDisplayName(player, account, roleName);
+    const meta = {
+      userId: account?.userId,
+      isBot: player.isBot === true,
+      online: player.online === true,
+      inWorld: player.inWorld !== false,
+      dirtyFlags: snapshot.persistentRevision > snapshot.persistedRevision ? ['persistence'] : [],
+    };
+    const riskView = await buildNativeGmPlayerRiskView(account, {
+      id: player.id,
+      name: roleName,
+      autoBattle: player.autoBattle,
+      autoBattleStationary: player.autoBattleStationary === true,
+      autoRetaliate: player.autoRetaliate !== false,
+      meta,
+    }, { pool: this.databasePoolProvider?.getPool('gm-risk') ?? null });
 
     return {
       id: player.id,
-      name: player.name,
-      roleName: player.name,
-      displayName: player.displayName ?? player.name,
+      name: roleName,
+      roleName,
+      displayName,
       accountName: account?.username,
       mapId: player.mapId,
       mapName: this.resolveMapName(player.mapId),
@@ -1559,13 +1586,12 @@ export class NativeGmPlayerService {
       autoBattle: player.autoBattle,
       autoBattleStationary: player.autoBattleStationary === true,
       autoRetaliate: player.autoRetaliate !== false,
-      meta: {
-        userId: account?.userId,
-        isBot: player.isBot === true,
-        online: player.online === true,
-        inWorld: player.inWorld !== false,
-        dirtyFlags: snapshot.persistentRevision > snapshot.persistedRevision ? ['persistence'] : [],
-      },
+      accountStatus: riskView.accountStatus,
+      riskScore: riskView.riskScore,
+      riskLevel: riskView.riskLevel,
+      riskTags: riskView.riskTags,
+      isRiskAdmin: riskView.isRiskAdmin,
+      meta,
     };
   }  
   /**
@@ -1577,12 +1603,13 @@ export class NativeGmPlayerService {
  */
 
 
-  private toManagedPlayerRecord(snapshot, persistedSnapshot, account = null, databaseTables: GmPlayerDatabaseTableViewLike[] = []) {
-    const summary = this.toManagedPlayerSummary(snapshot, account);
+  private async toManagedPlayerRecord(snapshot, persistedSnapshot, account = null, databaseTables: GmPlayerDatabaseTableViewLike[] = []) {
+    const summary = await this.toManagedPlayerSummary(snapshot, account);
 
     return {
       ...summary,
       account: buildManagedAccountView(account, summary.meta.online === true),
+      riskReport: (await buildNativeGmPlayerRiskView(account, summary, { pool: this.databasePoolProvider?.getPool('gm-risk') ?? null })).riskReport,
       snapshot: this.toLegacyPlayerState(snapshot),
       persistedSnapshot: persistedSnapshot ?? null,
       databaseTables,
@@ -1597,19 +1624,36 @@ export class NativeGmPlayerService {
  */
 
 
-  private toManagedPlayerRecordFromPersistence(
+  private async toManagedPlayerRecordFromPersistence(
     playerId,
     persistedSnapshot,
     account = null,
     databaseTables: GmPlayerDatabaseTableViewLike[] = [],
   ) {
     const player = this.toLegacyPlayerStateFromPersistence(playerId, persistedSnapshot);
+    const roleName = resolveManagedPlayerName(player, account, playerId);
+    const displayName = resolveManagedPlayerDisplayName(player, account, roleName);
+    const meta = {
+      userId: account?.userId,
+      isBot: player.isBot === true,
+      online: false,
+      inWorld: false,
+      dirtyFlags: [],
+    };
+    const riskView = await buildNativeGmPlayerRiskView(account, {
+      id: player.id,
+      name: roleName,
+      autoBattle: player.autoBattle,
+      autoBattleStationary: player.autoBattleStationary === true,
+      autoRetaliate: player.autoRetaliate !== false,
+      meta,
+    }, { pool: this.databasePoolProvider?.getPool('gm-risk') ?? null });
 
     return {
       id: player.id,
-      name: player.name,
-      roleName: player.name,
-      displayName: player.displayName ?? player.name,
+      name: roleName,
+      roleName,
+      displayName,
       accountName: account?.username,
       mapId: player.mapId,
       mapName: this.resolveMapName(player.mapId),
@@ -1624,14 +1668,14 @@ export class NativeGmPlayerService {
       autoBattle: player.autoBattle,
       autoBattleStationary: player.autoBattleStationary === true,
       autoRetaliate: player.autoRetaliate !== false,
-      meta: {
-        userId: account?.userId,
-        isBot: player.isBot === true,
-        online: false,
-        inWorld: false,
-        dirtyFlags: [],
-      },
+      accountStatus: riskView.accountStatus,
+      riskScore: riskView.riskScore,
+      riskLevel: riskView.riskLevel,
+      riskTags: riskView.riskTags,
+      isRiskAdmin: riskView.isRiskAdmin,
+      meta,
       account: buildManagedAccountView(account, false),
+      riskReport: riskView.riskReport,
       snapshot: player,
       persistedSnapshot,
       databaseTables,
@@ -1889,7 +1933,34 @@ function buildManagedAccountView(account, online) {
     username: account.username,
     createdAt: typeof account.createdAt === 'string' && account.createdAt ? account.createdAt : new Date(0).toISOString(),
     totalOnlineSeconds,
+    isRiskAdmin: account.isRiskAdmin === true,
+    status: account.bannedAt ? 'banned' : 'active',
+    bannedAt: account.bannedAt ?? undefined,
+    banReason: account.banReason ?? undefined,
+    bannedBy: account.bannedBy ?? undefined,
+    lastLoginAt: account.lastLoginAt ?? undefined,
+    lastLoginIp: account.lastLoginIp ?? undefined,
+    lastLoginDeviceId: account.lastLoginDeviceId ?? undefined,
   };
+}
+
+function resolveManagedPlayerName(player, account, fallback: string): string {
+  return normalizeManagedIdentityText(account?.playerName)
+    || normalizeManagedIdentityText(player?.name)
+    || normalizeManagedIdentityText(account?.displayName)
+    || normalizeManagedIdentityText(account?.username)
+    || fallback;
+}
+
+function resolveManagedPlayerDisplayName(player, account, fallback: string): string {
+  return normalizeManagedIdentityText(account?.displayName)
+    || normalizeManagedIdentityText(player?.displayName)
+    || normalizeManagedIdentityText(account?.playerName)
+    || fallback;
+}
+
+function normalizeManagedIdentityText(value: unknown): string {
+  return typeof value === 'string' ? value.trim() : '';
 }
 /**
  * clamp：执行clamp相关逻辑。

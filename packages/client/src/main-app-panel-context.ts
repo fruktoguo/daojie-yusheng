@@ -232,7 +232,7 @@ export function createMainPanelContext(options: CreateMainPanelContextOptions) {
     craftWorkbenchModal,
     syncInventoryBridgeState: (inventory) => reactUiBridge.syncInventory(inventory),
     syncPlayerBridgeState: (player) => reactUiBridge.syncPlayer(player),
-    sendUseItem: (slotIndex, count) => panelSender.sendUseItem(slotIndex, count),
+    sendUseItem: (slotIndex, count, useOptions) => panelSender.sendUseItem(slotIndex, count, useOptions),
     sendCreateFormation: (payload) => panelSender.sendCreateFormation(payload),
     previewFormationRange: (payload) => formationPreviewSource.preview(payload),
     sendDropItem: (slotIndex, count) => panelSender.sendDropItem(slotIndex, count),

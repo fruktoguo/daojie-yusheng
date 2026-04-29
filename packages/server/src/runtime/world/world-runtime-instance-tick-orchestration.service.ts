@@ -172,14 +172,22 @@ function resolveCultivationAuraMultiplier(instance, player, position) {
     if (!position) {
         return 1;
     }
-    return 1 + Math.max(0, resolveTileAuraLevel(instance, player, position.x, position.y));
+    const aura = resolveTileCultivationAura(instance, player, position.x, position.y);
+    if (aura.rawLevel <= 0) {
+        return 1;
+    }
+    const efficiencyMultiplier = aura.rawValue > 0
+        ? Math.max(0, aura.effectiveValue / aura.rawValue)
+        : 1;
+    return 1 + Math.max(0, aura.rawLevel) * efficiencyMultiplier;
 }
 
-function resolveTileAuraLevel(instance, player, x, y) {
+function resolveTileCultivationAura(instance, player, x, y) {
     const resources = typeof instance.listTileResources === 'function'
         ? instance.listTileResources(x, y)
         : null;
     if (Array.isArray(resources) && resources.length > 0) {
+        let rawAuraValue = 0;
         let projectedAuraValue = 0;
         let hasAuraResource = false;
         for (const resource of resources) {
@@ -189,12 +197,17 @@ function resolveTileAuraLevel(instance, player, x, y) {
             }
             hasAuraResource = true;
             const value = Math.max(0, Math.trunc(Number(resource.value) || 0));
+            rawAuraValue += value;
             projectedAuraValue += player
                 ? (0, world_runtime_qi_projection_helpers_1.projectPlayerQiResourceValue)(player, resource.resourceKey, value)
                 : value;
         }
         if (hasAuraResource) {
-            return (0, shared_1.getQiResourceDefaultLevel)('aura.refined.neutral', projectedAuraValue, shared_1.DEFAULT_AURA_LEVEL_BASE_VALUE) ?? 0;
+            return {
+                rawValue: rawAuraValue,
+                effectiveValue: projectedAuraValue,
+                rawLevel: (0, shared_1.getQiResourceDefaultLevel)('aura.refined.neutral', rawAuraValue, shared_1.DEFAULT_AURA_LEVEL_BASE_VALUE) ?? 0,
+            };
         }
     }
     const rawAura = typeof instance.getTileAura === 'function'
@@ -204,5 +217,9 @@ function resolveTileAuraLevel(instance, player, x, y) {
     const effectiveAura = player
         ? (0, world_runtime_qi_projection_helpers_1.projectPlayerQiResourceValue)(player, 'aura.refined.neutral', normalizedAura)
         : normalizedAura;
-    return (0, shared_1.getQiResourceDefaultLevel)('aura.refined.neutral', effectiveAura, shared_1.DEFAULT_AURA_LEVEL_BASE_VALUE) ?? 0;
+    return {
+        rawValue: normalizedAura,
+        effectiveValue: effectiveAura,
+        rawLevel: (0, shared_1.getQiResourceDefaultLevel)('aura.refined.neutral', normalizedAura, shared_1.DEFAULT_AURA_LEVEL_BASE_VALUE) ?? 0,
+    };
 }

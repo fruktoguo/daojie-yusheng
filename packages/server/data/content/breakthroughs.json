@@ -15,11 +15,10 @@
           "increaseAttrRequirementPct": 10
         },
         {
-          "id": "bw_1_2_constitution",
-          "type": "attribute",
-          "attr": "constitution",
-          "minValue": 12,
-          "label": "体魄达到 12"
+          "id": "bw_1_2_total_attrs",
+          "type": "attribute_total",
+          "minTotalValue": 25,
+          "label": "六维总属性达到 25"
         }
       ]
     },
@@ -45,11 +44,10 @@
           "increaseAttrRequirementPct": 60
         },
         {
-          "id": "bw_2_3_constitution",
-          "type": "attribute",
-          "attr": "constitution",
-          "minValue": 15,
-          "label": "体魄达到 15"
+          "id": "bw_2_3_total_attrs",
+          "type": "attribute_total",
+          "minTotalValue": 55,
+          "label": "六维总属性达到 55"
         }
       ]
     },
@@ -75,11 +73,10 @@
           "increaseAttrRequirementPct": 60
         },
         {
-          "id": "bw_3_4_talent",
-          "type": "attribute",
-          "attr": "talent",
-          "minValue": 18,
-          "label": "根骨达到 18"
+          "id": "bw_3_4_total_attrs",
+          "type": "attribute_total",
+          "minTotalValue": 111,
+          "label": "六维总属性达到 111"
         }
       ]
     },
@@ -105,11 +102,10 @@
           "increaseAttrRequirementPct": 70
         },
         {
-          "id": "bw_4_5_constitution",
-          "type": "attribute",
-          "attr": "constitution",
-          "minValue": 22,
-          "label": "体魄达到 22"
+          "id": "bw_4_5_total_attrs",
+          "type": "attribute_total",
+          "minTotalValue": 168,
+          "label": "六维总属性达到 168"
         }
       ]
     },
@@ -135,18 +131,10 @@
           "increaseAttrRequirementPct": 70
         },
         {
-          "id": "bw_5_6_spirit",
-          "type": "attribute",
-          "attr": "spirit",
-          "minValue": 27,
-          "label": "神识达到 27"
-        },
-        {
-          "id": "bw_5_6_talent",
-          "type": "attribute",
-          "attr": "talent",
-          "minValue": 24,
-          "label": "根骨达到 24"
+          "id": "bw_5_6_total_attrs",
+          "type": "attribute_total",
+          "minTotalValue": 200,
+          "label": "六维总属性达到 200"
         }
       ]
     },
@@ -172,18 +160,10 @@
           "increaseAttrRequirementPct": 70
         },
         {
-          "id": "bw_6_7_spirit",
-          "type": "attribute",
-          "attr": "spirit",
-          "minValue": 33,
-          "label": "神识达到 33"
-        },
-        {
-          "id": "bw_6_7_perception",
-          "type": "attribute",
-          "attr": "perception",
-          "minValue": 29,
-          "label": "身法达到 29"
+          "id": "bw_6_7_total_attrs",
+          "type": "attribute_total",
+          "minTotalValue": 222,
+          "label": "六维总属性达到 222"
         }
       ]
     },
@@ -209,11 +189,10 @@
           "increaseAttrRequirementPct": 70
         },
         {
-          "id": "bw_7_8_spirit",
-          "type": "attribute",
-          "attr": "spirit",
-          "minValue": 40,
-          "label": "神识达到 40"
+          "id": "bw_7_8_total_attrs",
+          "type": "attribute_total",
+          "minTotalValue": 288,
+          "label": "六维总属性达到 288"
         }
       ]
     },
@@ -247,18 +226,10 @@
           "increaseAttrRequirementPct": 80
         },
         {
-          "id": "bw_8_9_perception",
-          "type": "attribute",
-          "attr": "perception",
-          "minValue": 48,
-          "label": "身法达到 48"
-        },
-        {
-          "id": "bw_8_9_talent",
-          "type": "attribute",
-          "attr": "talent",
-          "minValue": 42,
-          "label": "根骨达到 42"
+          "id": "bw_8_9_total_attrs",
+          "type": "attribute_total",
+          "minTotalValue": 340,
+          "label": "六维总属性达到 340"
         }
       ]
     },
@@ -284,18 +255,10 @@
           "increaseAttrRequirementPct": 80
         },
         {
-          "id": "bw_9_10_perception",
-          "type": "attribute",
-          "attr": "perception",
-          "minValue": 57,
-          "label": "身法达到 57"
-        },
-        {
-          "id": "bw_9_10_constitution",
-          "type": "attribute",
-          "attr": "constitution",
-          "minValue": 50,
-          "label": "体魄达到 50"
+          "id": "bw_9_10_total_attrs",
+          "type": "attribute_total",
+          "minTotalValue": 428,
+          "label": "六维总属性达到 428"
         }
       ]
     },
@@ -322,11 +285,10 @@
           "increaseAttrRequirementPct": 90
         },
         {
-          "id": "bw_10_11_spirit",
-          "type": "attribute",
-          "attr": "spirit",
-          "minValue": 67,
-          "label": "神识达到 67"
+          "id": "bw_10_11_total_attrs",
+          "type": "attribute_total",
+          "minTotalValue": 500,
+          "label": "六维总属性达到 500"
         }
       ]
     },
@@ -353,11 +315,10 @@
           "increaseAttrRequirementPct": 90
         },
         {
-          "id": "bw_11_12_spirit",
-          "type": "attribute",
-          "attr": "spirit",
-          "minValue": 78,
-          "label": "神识达到 78"
+          "id": "bw_11_12_total_attrs",
+          "type": "attribute_total",
+          "minTotalValue": 588,
+          "label": "六维总属性达到 588"
         }
       ]
     },
@@ -384,18 +345,10 @@
           "increaseAttrRequirementPct": 90
         },
         {
-          "id": "bw_12_13_spirit",
-          "type": "attribute",
-          "attr": "spirit",
-          "minValue": 90,
-          "label": "神识达到 90"
-        },
-        {
-          "id": "bw_12_13_perception",
-          "type": "attribute",
-          "attr": "perception",
-          "minValue": 84,
-          "label": "身法达到 84"
+          "id": "bw_12_13_total_attrs",
+          "type": "attribute_total",
+          "minTotalValue": 666,
+          "label": "六维总属性达到 666"
         }
       ]
     },
@@ -430,18 +383,10 @@
           "increaseAttrRequirementPct": 100
         },
         {
-          "id": "bw_13_14_constitution",
-          "type": "attribute",
-          "attr": "constitution",
-          "minValue": 103,
-          "label": "体魄达到 103"
-        },
-        {
-          "id": "bw_13_14_talent",
-          "type": "attribute",
-          "attr": "talent",
-          "minValue": 96,
-          "label": "根骨达到 96"
+          "id": "bw_13_14_total_attrs",
+          "type": "attribute_total",
+          "minTotalValue": 720,
+          "label": "六维总属性达到 720"
         }
       ]
     },
@@ -468,18 +413,10 @@
           "increaseAttrRequirementPct": 110
         },
         {
-          "id": "bw_14_15_constitution",
-          "type": "attribute",
-          "attr": "constitution",
-          "minValue": 117,
-          "label": "体魄达到 117"
-        },
-        {
-          "id": "bw_14_15_spirit",
-          "type": "attribute",
-          "attr": "spirit",
-          "minValue": 108,
-          "label": "神识达到 108"
+          "id": "bw_14_15_total_attrs",
+          "type": "attribute_total",
+          "minTotalValue": 750,
+          "label": "六维总属性达到 750"
         }
       ]
     },
@@ -514,11 +451,10 @@
           "increaseAttrRequirementPct": 110
         },
         {
-          "id": "bw_15_16_constitution",
-          "type": "attribute",
-          "attr": "constitution",
-          "minValue": 133,
-          "label": "体魄达到 133"
+          "id": "bw_15_16_total_attrs",
+          "type": "attribute_total",
+          "minTotalValue": 1111,
+          "label": "六维总属性达到 1111"
         }
       ]
     },
@@ -552,11 +488,10 @@
           "increaseAttrRequirementPct": 120
         },
         {
-          "id": "bw_16_17_spirit",
-          "type": "attribute",
-          "attr": "spirit",
-          "minValue": 150,
-          "label": "神识达到 150"
+          "id": "bw_16_17_total_attrs",
+          "type": "attribute_total",
+          "minTotalValue": 1250,
+          "label": "六维总属性达到 1250"
         }
       ]
     },
@@ -591,32 +526,10 @@
           "increaseAttrRequirementPct": 120
         },
         {
-          "id": "bw_17_18_constitution",
-          "type": "attribute",
-          "attr": "constitution",
-          "minValue": 150,
-          "label": "体魄达到 150"
-        },
-        {
-          "id": "bw_17_18_spirit",
-          "type": "attribute",
-          "attr": "spirit",
-          "minValue": 150,
-          "label": "神识达到 150"
-        },
-        {
-          "id": "bw_17_18_perception",
-          "type": "attribute",
-          "attr": "perception",
-          "minValue": 150,
-          "label": "身法达到 150"
-        },
-        {
-          "id": "bw_17_18_talent",
-          "type": "attribute",
-          "attr": "talent",
-          "minValue": 150,
-          "label": "根骨达到 150"
+          "id": "bw_17_18_total_attrs",
+          "type": "attribute_total",
+          "minTotalValue": 1444,
+          "label": "六维总属性达到 1444"
         }
       ]
     },
@@ -665,32 +578,10 @@
           "label": "任意灵根达到 1"
         },
         {
-          "id": "bw_18_19_constitution",
-          "type": "attribute",
-          "attr": "constitution",
-          "minValue": 200,
-          "label": "体魄达到 200"
-        },
-        {
-          "id": "bw_18_19_spirit",
-          "type": "attribute",
-          "attr": "spirit",
-          "minValue": 200,
-          "label": "神识达到 200"
-        },
-        {
-          "id": "bw_18_19_perception",
-          "type": "attribute",
-          "attr": "perception",
-          "minValue": 200,
-          "label": "身法达到 200"
-        },
-        {
-          "id": "bw_18_19_talent",
-          "type": "attribute",
-          "attr": "talent",
-          "minValue": 200,
-          "label": "根骨达到 200"
+          "id": "bw_18_19_total_attrs",
+          "type": "attribute_total",
+          "minTotalValue": 1920,
+          "label": "六维总属性达到 1920"
         }
       ]
     },
@@ -724,11 +615,10 @@
           "increaseAttrRequirementPct": 40
         },
         {
-          "id": "bw_19_20_spirit",
-          "type": "attribute",
-          "attr": "spirit",
-          "minValue": 300,
-          "label": "神识达到 300"
+          "id": "bw_19_20_total_attrs",
+          "type": "attribute_total",
+          "minTotalValue": 2000,
+          "label": "六维总属性达到 2000"
         }
       ]
     },
@@ -763,11 +653,10 @@
           "increaseAttrRequirementPct": 50
         },
         {
-          "id": "bw_20_21_spirit",
-          "type": "attribute",
-          "attr": "spirit",
-          "minValue": 350,
-          "label": "神识达到 350"
+          "id": "bw_20_21_total_attrs",
+          "type": "attribute_total",
+          "minTotalValue": 2088,
+          "label": "六维总属性达到 2088"
         }
       ]
     },
@@ -802,11 +691,10 @@
           "increaseAttrRequirementPct": 60
         },
         {
-          "id": "bw_21_22_spirit",
-          "type": "attribute",
-          "attr": "spirit",
-          "minValue": 400,
-          "label": "神识达到 400"
+          "id": "bw_21_22_total_attrs",
+          "type": "attribute_total",
+          "minTotalValue": 2170,
+          "label": "六维总属性达到 2170"
         }
       ]
     },
@@ -841,11 +729,10 @@
           "increaseAttrRequirementPct": 70
         },
         {
-          "id": "bw_22_23_spirit",
-          "type": "attribute",
-          "attr": "spirit",
-          "minValue": 450,
-          "label": "神识达到 450"
+          "id": "bw_22_23_total_attrs",
+          "type": "attribute_total",
+          "minTotalValue": 2250,
+          "label": "六维总属性达到 2250"
         }
       ]
     },
@@ -880,11 +767,10 @@
           "increaseAttrRequirementPct": 75
         },
         {
-          "id": "bw_23_24_spirit",
-          "type": "attribute",
-          "attr": "spirit",
-          "minValue": 500,
-          "label": "神识达到 500"
+          "id": "bw_23_24_total_attrs",
+          "type": "attribute_total",
+          "minTotalValue": 2730,
+          "label": "六维总属性达到 2730"
         }
       ]
     },
@@ -910,11 +796,10 @@
           "increaseAttrRequirementPct": 80
         },
         {
-          "id": "bw_24_25_spirit",
-          "type": "attribute",
-          "attr": "spirit",
-          "minValue": 550,
-          "label": "神识达到 550"
+          "id": "bw_24_25_total_attrs",
+          "type": "attribute_total",
+          "minTotalValue": 2888,
+          "label": "六维总属性达到 2888"
         }
       ]
     },
@@ -940,11 +825,10 @@
           "increaseAttrRequirementPct": 90
         },
         {
-          "id": "bw_25_26_spirit",
-          "type": "attribute",
-          "attr": "spirit",
-          "minValue": 600,
-          "label": "神识达到 600"
+          "id": "bw_25_26_total_attrs",
+          "type": "attribute_total",
+          "minTotalValue": 3000,
+          "label": "六维总属性达到 3000"
         }
       ]
     },
@@ -970,11 +854,10 @@
           "increaseAttrRequirementPct": 100
         },
         {
-          "id": "bw_26_27_spirit",
-          "type": "attribute",
-          "attr": "spirit",
-          "minValue": 650,
-          "label": "神识达到 650"
+          "id": "bw_26_27_total_attrs",
+          "type": "attribute_total",
+          "minTotalValue": 3140,
+          "label": "六维总属性达到 3140"
         }
       ]
     },
@@ -1001,11 +884,10 @@
           "increaseAttrRequirementPct": 100
         },
         {
-          "id": "bw_27_28_spirit",
-          "type": "attribute",
-          "attr": "spirit",
-          "minValue": 700,
-          "label": "神识达到 700"
+          "id": "bw_27_28_total_attrs",
+          "type": "attribute_total",
+          "minTotalValue": 3666,
+          "label": "六维总属性达到 3666"
         }
       ]
     },
@@ -1032,11 +914,10 @@
           "increaseAttrRequirementPct": 110
         },
         {
-          "id": "bw_28_29_spirit",
-          "type": "attribute",
-          "attr": "spirit",
-          "minValue": 750,
-          "label": "神识达到 750"
+          "id": "bw_28_29_total_attrs",
+          "type": "attribute_total",
+          "minTotalValue": 3888,
+          "label": "六维总属性达到 3888"
         }
       ]
     },
@@ -1079,11 +960,10 @@
           "increaseAttrRequirementPct": 120
         },
         {
-          "id": "bw_29_30_spirit",
-          "type": "attribute",
-          "attr": "spirit",
-          "minValue": 800,
-          "label": "神识达到 800"
+          "id": "bw_29_30_total_attrs",
+          "type": "attribute_total",
+          "minTotalValue": 4288,
+          "label": "六维总属性达到 4288"
         }
       ]
     }

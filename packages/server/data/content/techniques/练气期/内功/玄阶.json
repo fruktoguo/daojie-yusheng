@@ -2,6 +2,7 @@
   {
     "id": "wuqi_guiliu",
     "name": "五炁归流篇",
+    "desc": "五炁归元，如百川入海，汇成周天根基。",
     "grade": "mystic",
     "category": "internal",
     "realmLv": 23,
@@ -10,140 +11,126 @@
         "level": 1,
         "expFactor": 136,
         "attrs": {
-          "constitution": 7,
-          "spirit": 9,
-          "perception": 5,
-          "talent": 7
+          "spirit": 12,
+          "talent": 11,
+          "meridians": 12
         }
       },
       {
         "level": 2,
         "expFactor": 152,
         "attrs": {
-          "constitution": 7,
-          "spirit": 9,
-          "perception": 5,
-          "talent": 7
+          "spirit": 12,
+          "talent": 11,
+          "meridians": 12
         }
       },
       {
         "level": 3,
         "expFactor": 168,
         "attrs": {
-          "constitution": 7,
-          "spirit": 9,
-          "perception": 5,
-          "talent": 7
+          "spirit": 12,
+          "talent": 11,
+          "meridians": 12
         }
       },
       {
         "level": 4,
         "expFactor": 188,
         "attrs": {
-          "constitution": 7,
-          "spirit": 9,
-          "perception": 5,
-          "talent": 7
+          "spirit": 12,
+          "talent": 11,
+          "meridians": 12
         }
       },
       {
         "level": 5,
         "expFactor": 208,
         "attrs": {
-          "constitution": 7,
-          "spirit": 9,
-          "perception": 5,
-          "talent": 7
+          "spirit": 12,
+          "talent": 11,
+          "meridians": 12
         }
       },
       {
         "level": 6,
         "expFactor": 232,
         "attrs": {
-          "constitution": 7,
-          "spirit": 9,
-          "perception": 4,
-          "talent": 7
+          "spirit": 12,
+          "talent": 11,
+          "meridians": 12
         }
       },
       {
         "level": 7,
         "expFactor": 260,
         "attrs": {
-          "constitution": 7,
-          "spirit": 9,
-          "perception": 4,
-          "talent": 7
+          "spirit": 12,
+          "talent": 11,
+          "meridians": 12
         }
       },
       {
         "level": 8,
         "expFactor": 292,
         "attrs": {
-          "constitution": 7,
-          "spirit": 9,
-          "perception": 4,
-          "talent": 7
+          "spirit": 12,
+          "talent": 11,
+          "meridians": 12
         }
       },
       {
         "level": 9,
         "expFactor": 328,
         "attrs": {
-          "constitution": 7,
-          "spirit": 9,
-          "perception": 4,
-          "talent": 6
+          "spirit": 12,
+          "talent": 11,
+          "meridians": 12
         }
       },
       {
         "level": 10,
         "expFactor": 368,
         "attrs": {
-          "constitution": 7,
-          "spirit": 9,
-          "perception": 4,
-          "talent": 6
+          "spirit": 12,
+          "talent": 11,
+          "meridians": 12
         }
       },
       {
         "level": 11,
         "expFactor": 412,
         "attrs": {
-          "constitution": 7,
-          "spirit": 9,
-          "perception": 4,
-          "talent": 6
+          "spirit": 12,
+          "talent": 11,
+          "meridians": 12
         }
       },
       {
         "level": 12,
         "expFactor": 460,
         "attrs": {
-          "constitution": 7,
-          "spirit": 8,
-          "perception": 4,
-          "talent": 6
+          "spirit": 12,
+          "talent": 11,
+          "meridians": 12
         }
       },
       {
         "level": 13,
         "expFactor": 516,
         "attrs": {
-          "constitution": 7,
-          "spirit": 8,
-          "perception": 4,
-          "talent": 6
+          "spirit": 13,
+          "talent": 11,
+          "meridians": 13
         }
       },
       {
         "level": 14,
         "expFactor": 0,
         "attrs": {
-          "constitution": 7,
-          "spirit": 8,
-          "perception": 4,
-          "talent": 6
+          "spirit": 13,
+          "talent": 12,
+          "meridians": 13
         }
       }
     ],
@@ -152,6 +139,7 @@
   {
     "id": "zhoutian_xihai",
     "name": "周天息海篇",
+    "desc": "一息一周天，气海如潮汐涨落，循环不止则生机不灭。",
     "grade": "mystic",
     "category": "internal",
     "realmLv": 23,
@@ -160,140 +148,126 @@
         "level": 1,
         "expFactor": 136,
         "attrs": {
-          "constitution": 7,
-          "spirit": 9,
-          "perception": 5,
-          "talent": 7
+          "spirit": 10,
+          "talent": 6,
+          "meridians": 17
         }
       },
       {
         "level": 2,
         "expFactor": 152,
         "attrs": {
-          "constitution": 7,
-          "spirit": 9,
-          "perception": 5,
-          "talent": 7
+          "spirit": 10,
+          "talent": 6,
+          "meridians": 17
         }
       },
       {
         "level": 3,
         "expFactor": 168,
         "attrs": {
-          "constitution": 7,
-          "spirit": 9,
-          "perception": 5,
-          "talent": 7
+          "spirit": 10,
+          "talent": 6,
+          "meridians": 18
         }
       },
       {
         "level": 4,
         "expFactor": 188,
         "attrs": {
-          "constitution": 7,
-          "spirit": 9,
-          "perception": 5,
-          "talent": 7
+          "spirit": 10,
+          "talent": 6,
+          "meridians": 18
         }
       },
       {
         "level": 5,
         "expFactor": 208,
         "attrs": {
-          "constitution": 7,
-          "spirit": 9,
-          "perception": 5,
-          "talent": 7
+          "spirit": 10,
+          "talent": 6,
+          "meridians": 18
         }
       },
       {
         "level": 6,
         "expFactor": 232,
         "attrs": {
-          "constitution": 7,
-          "spirit": 9,
-          "perception": 4,
-          "talent": 7
+          "spirit": 10,
+          "talent": 6,
+          "meridians": 18
         }
       },
       {
         "level": 7,
         "expFactor": 260,
         "attrs": {
-          "constitution": 7,
-          "spirit": 9,
-          "perception": 4,
-          "talent": 7
+          "spirit": 10,
+          "talent": 6,
+          "meridians": 18
         }
       },
       {
         "level": 8,
         "expFactor": 292,
         "attrs": {
-          "constitution": 7,
-          "spirit": 9,
-          "perception": 4,
-          "talent": 6
+          "spirit": 10,
+          "talent": 6,
+          "meridians": 18
         }
       },
       {
         "level": 9,
         "expFactor": 328,
         "attrs": {
-          "constitution": 7,
-          "spirit": 9,
-          "perception": 4,
-          "talent": 6
+          "spirit": 10,
+          "talent": 7,
+          "meridians": 18
         }
       },
       {
         "level": 10,
         "expFactor": 368,
         "attrs": {
-          "constitution": 7,
-          "spirit": 9,
-          "perception": 4,
-          "talent": 6
+          "spirit": 11,
+          "talent": 7,
+          "meridians": 18
         }
       },
       {
         "level": 11,
         "expFactor": 412,
         "attrs": {
-          "constitution": 7,
-          "spirit": 9,
-          "perception": 4,
-          "talent": 6
+          "spirit": 11,
+          "talent": 7,
+          "meridians": 18
         }
       },
       {
         "level": 12,
         "expFactor": 460,
         "attrs": {
-          "constitution": 7,
-          "spirit": 8,
-          "perception": 4,
-          "talent": 6
+          "spirit": 11,
+          "talent": 7,
+          "meridians": 18
         }
       },
       {
         "level": 13,
         "expFactor": 516,
         "attrs": {
-          "constitution": 7,
-          "spirit": 8,
-          "perception": 4,
-          "talent": 6
+          "spirit": 11,
+          "talent": 7,
+          "meridians": 18
         }
       },
       {
         "level": 14,
         "expFactor": 0,
         "attrs": {
-          "constitution": 6,
-          "spirit": 8,
-          "perception": 4,
-          "talent": 6
+          "spirit": 11,
+          "talent": 7,
+          "meridians": 18
         }
       }
     ],

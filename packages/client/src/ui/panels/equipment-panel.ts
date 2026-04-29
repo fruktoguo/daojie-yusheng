@@ -207,7 +207,7 @@ export class EquipmentPanel {
       slotView.name.textContent = getEquipSlotLabel(slot);
       slotView.item.textContent = item ? getItemDisplayMeta(item).displayItem.name : '';
       slotView.item.hidden = !hasItem;
-      slotView.empty.textContent = '空';
+      slotView.empty.textContent = '未着';
       slotView.empty.hidden = hasItem;
       slotView.meta.textContent = hasItem ? formatItemBonuses(item) : '尚未装备';
       slotView.action.hidden = !hasItem;
@@ -275,7 +275,7 @@ export class EquipmentPanel {
 
     const empty = document.createElement('span');
     empty.className = 'equip-slot-empty';
-    empty.textContent = '空';
+    empty.textContent = '未着';
 
     const meta = document.createElement('span');
     meta.className = 'equip-slot-meta';

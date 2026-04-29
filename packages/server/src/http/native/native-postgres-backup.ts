@@ -6,6 +6,7 @@ import { dirname, join } from 'node:path';
 import { createInterface } from 'node:readline';
 import type { ChildProcessWithoutNullStreams } from 'node:child_process';
 import type { Readable } from 'node:stream';
+import { cleanupPostgresRestoreOrphanSectState } from './native-postgres-restore-cleanup';
 
 export type NativeDatabaseBackupFormat = 'postgres_custom_dump' | 'mainline_json_snapshot' | 'unknown';
 
@@ -101,6 +102,7 @@ export async function restorePostgresCustomDump(filePath: string, databaseUrl: s
   try {
     await materializeFilteredRestoreSql(filePath, restoreSpec, supportedSettings, skippedParameters, sqlFilePath);
     await executeSqlFile(sqlFilePath, databaseUrl);
+    await cleanupPostgresRestoreOrphanSectState(databaseUrl);
   } catch (error: unknown) {
     const skipSummary = skippedParameters.size > 0
       ? `\n已自动忽略目标库不支持的会话参数: ${[...skippedParameters].sort((left, right) => left.localeCompare(right, 'zh-CN')).join(', ')}`

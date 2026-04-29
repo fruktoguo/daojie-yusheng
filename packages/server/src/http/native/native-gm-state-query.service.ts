@@ -5,6 +5,7 @@ import {
   VIEW_RADIUS,
   type GmListPlayersQuery,
   type GmManagedPlayerSummary,
+  type GmPlayerAccountStatusFilter,
   type GmPlayerSortMode,
 } from '@mud/shared';
 import { MapTemplateRepository } from '../../runtime/map/map-template.repository';
@@ -15,6 +16,7 @@ import { PlayerRuntimeService } from '../../runtime/player/player-runtime.servic
 import { RuntimeGmStateService } from '../../runtime/gm/runtime-gm-state.service';
 import { isNativeGmBotPlayerId } from './native-gm.constants';
 import { NativeManagedAccountService } from './native-managed-account.service';
+import { buildNativeGmPlayerRiskView } from './native-gm-player-risk';
 const RAW_BASE_ATTRS_PERSISTENCE_MARKER = '__rawBaseAttrs';
 /**
  * ManagedAccountEntryLike：定义接口结构约束，明确可交付字段含义。
@@ -34,6 +36,14 @@ interface ManagedAccountEntryLike {
   username?: string;
   playerName?: string;
   displayName?: string | null;
+  createdAt?: string;
+  registerIp?: string | null;
+  lastLoginIp?: string | null;
+  lastLoginAt?: string | null;
+  registerDeviceId?: string | null;
+  lastLoginDeviceId?: string | null;
+  bannedAt?: string | null;
+  isRiskAdmin?: boolean;
 }
 /**
  * NativeManagedAccountServiceLike：定义接口结构约束，明确可交付字段含义。
@@ -133,6 +143,13 @@ interface PlayerRuntimeServiceLike {
 interface GmPersistedPlayerSummaryRow {
   player_id?: unknown;
   username?: unknown;
+  created_at?: unknown;
+  register_ip?: unknown;
+  last_login_ip?: unknown;
+  last_login_at?: unknown;
+  register_device_id?: unknown;
+  last_login_device_id?: unknown;
+  banned_at?: unknown;
   role_name?: unknown;
   display_name?: unknown;
   user_id?: unknown;
@@ -180,6 +197,7 @@ interface NormalizedGmListPlayersQuery {
   keyword: string;
   keywordNeedle: string;
   sort: GmPlayerSortMode;
+  accountStatus: GmPlayerAccountStatusFilter;
 }
 
 const DEFAULT_GM_PAGE_SIZE = 50;
@@ -232,9 +250,9 @@ export class NativeGmStateQueryService {
       runtimePlayers.map((entry) => entry.playerId),
     );
     const persistedSummaries = await this.listPersistedPlayerSummaries();
-    const allPlayers = this.buildManagedPlayers(runtimePlayers, persistedSummaries, accountIndex);
+    const allPlayers = await this.buildManagedPlayers(runtimePlayers, persistedSummaries, accountIndex);
     const normalizedQuery = normalizeGmListPlayersQuery(query);
-    const filteredPlayers = filterManagedPlayers(allPlayers, normalizedQuery.keywordNeedle);
+    const filteredPlayers = filterManagedPlayers(allPlayers, normalizedQuery.keywordNeedle, normalizedQuery.accountStatus);
     const sortedPlayers = sortManagedPlayers(filteredPlayers, normalizedQuery.sort);
     const playerPage = buildPlayerPage(normalizedQuery, sortedPlayers.length);
     const players = sliceManagedPlayers(sortedPlayers, playerPage.page, playerPage.pageSize);
@@ -259,11 +277,11 @@ export class NativeGmStateQueryService {
  */
 
 
-  private buildManagedPlayers(runtimePlayers, persistedSummaries: GmManagedPlayerSummary[], accountIndex) {
+  private async buildManagedPlayers(runtimePlayers, persistedSummaries: GmManagedPlayerSummary[], accountIndex) {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
-    const players = runtimePlayers
-      .map((snapshot) => this.toManagedPlayerSummary(snapshot, accountIndex.get(snapshot.playerId)))
+    const players = (await Promise.all(runtimePlayers
+      .map((snapshot) => this.toManagedPlayerSummary(snapshot, accountIndex.get(snapshot.playerId)))))
       .sort(compareManagedPlayerSummary);
     const runtimePlayerIds = new Set(runtimePlayers.map((entry) => entry.playerId));
 
@@ -288,6 +306,13 @@ export class NativeGmStateQueryService {
       SELECT
         rw.player_id,
         COALESCE(auth.username, ident.username) AS username,
+        auth.created_at,
+        auth.register_ip,
+        auth.last_login_ip,
+        auth.last_login_at,
+        auth.register_device_id,
+        auth.last_login_device_id,
+        auth.banned_at,
         COALESCE(auth.pending_role_name, ident.player_name, snap.payload #>> '{name}', rw.player_id) AS role_name,
         COALESCE(auth.display_name, ident.display_name, snap.payload #>> '{displayName}', auth.pending_role_name, ident.player_name, rw.player_id) AS display_name,
         COALESCE(auth.user_id, ident.user_id) AS user_id,
@@ -315,14 +340,42 @@ export class NativeGmStateQueryService {
       ORDER BY rw.player_id ASC
     `, [staleOnlineCutoffMs]);
 
-    return result.rows.map((row) => this.toManagedPlayerSummaryFromSummaryRow(row));
+    return Promise.all(result.rows.map((row) => this.toManagedPlayerSummaryFromSummaryRow(row)));
   }
 
-  private toManagedPlayerSummaryFromSummaryRow(row: GmPersistedPlayerSummaryRow): GmManagedPlayerSummary {
+  private async toManagedPlayerSummaryFromSummaryRow(row: GmPersistedPlayerSummaryRow): Promise<GmManagedPlayerSummary> {
     const playerId = normalizeDisplayString(row.player_id) || 'unknown-player';
     const roleName = normalizeDisplayString(row.role_name) || playerId;
     const displayName = normalizeDisplayString(row.display_name) || roleName;
     const mapId = normalizeDisplayString(row.map_id) || 'yunlai_town';
+    const meta = {
+      userId: normalizeDisplayString(row.user_id) || undefined,
+      isBot: isNativeGmBotPlayerId(playerId),
+      online: row.online === true,
+      inWorld: row.in_world === true,
+      updatedAt: normalizeInteger(row.updated_at_ms, 0) > 0
+        ? new Date(normalizeInteger(row.updated_at_ms, 0)).toISOString()
+        : undefined,
+      dirtyFlags: [],
+    };
+    const riskView = await buildNativeGmPlayerRiskView({
+      userId: meta.userId,
+      username: normalizeDisplayString(row.username) || undefined,
+      createdAt: normalizeDateString(row.created_at),
+      registerIp: normalizeDisplayString(row.register_ip) || undefined,
+      lastLoginIp: normalizeDisplayString(row.last_login_ip) || undefined,
+      lastLoginAt: normalizeDateString(row.last_login_at),
+      registerDeviceId: normalizeDisplayString(row.register_device_id) || undefined,
+      lastLoginDeviceId: normalizeDisplayString(row.last_login_device_id) || undefined,
+      bannedAt: normalizeDateString(row.banned_at),
+    }, {
+      id: playerId,
+      name: roleName,
+      autoBattle: row.auto_battle === true,
+      autoBattleStationary: row.auto_battle_stationary === true,
+      autoRetaliate: row.auto_retaliate !== false,
+      meta,
+    }, { pool: this.databasePoolProvider.getPool('gm-risk') });
 
     return {
       id: playerId,
@@ -343,16 +396,12 @@ export class NativeGmStateQueryService {
       autoBattle: row.auto_battle === true,
       autoBattleStationary: row.auto_battle_stationary === true,
       autoRetaliate: row.auto_retaliate !== false,
-      meta: {
-        userId: normalizeDisplayString(row.user_id) || undefined,
-        isBot: isNativeGmBotPlayerId(playerId),
-        online: row.online === true,
-        inWorld: row.in_world === true,
-        updatedAt: normalizeInteger(row.updated_at_ms, 0) > 0
-          ? new Date(normalizeInteger(row.updated_at_ms, 0)).toISOString()
-          : undefined,
-        dirtyFlags: [],
-      },
+      accountStatus: riskView.accountStatus,
+      riskScore: riskView.riskScore,
+      riskLevel: riskView.riskLevel,
+      riskTags: riskView.riskTags,
+      isRiskAdmin: riskView.isRiskAdmin,
+      meta,
     };
   }
   /**
@@ -392,51 +441,25 @@ export class NativeGmStateQueryService {
  */
 
 
-  private toManagedPlayerSummary(snapshot, account = null) {
+  private async toManagedPlayerSummary(snapshot, account = null) {
     const player = this.toLegacyPlayerState(snapshot);
-
-    return {
+    const roleName = resolveManagedPlayerName(player, account, player.id);
+    const displayName = resolveManagedPlayerDisplayName(player, account, roleName);
+    const meta = {
+      userId: account?.userId,
+      isBot: player.isBot === true,
+      online: player.online === true,
+      inWorld: player.inWorld !== false,
+      dirtyFlags: snapshot.persistentRevision > snapshot.persistedRevision ? ['persistence'] : [],
+    };
+    const riskView = await buildNativeGmPlayerRiskView(account, {
       id: player.id,
-      name: player.name,
-      roleName: player.name,
-      displayName: player.displayName ?? player.name,
-      accountName: account?.username,
-      mapId: player.mapId,
-      mapName: this.resolveMapName(player.mapId),
-      realmLv: player.realmLv ?? 1,
-      realmLabel: player.realm?.displayName ?? player.realmName ?? '凡胎',
-      x: player.x,
-      y: player.y,
-      hp: player.hp,
-      maxHp: player.maxHp,
-      qi: player.qi,
-      dead: player.dead,
+      name: roleName,
       autoBattle: player.autoBattle,
       autoBattleStationary: player.autoBattleStationary === true,
       autoRetaliate: player.autoRetaliate !== false,
-      meta: {
-        userId: account?.userId,
-        isBot: player.isBot === true,
-        online: player.online === true,
-        inWorld: player.inWorld !== false,
-        dirtyFlags: snapshot.persistentRevision > snapshot.persistedRevision ? ['persistence'] : [],
-      },
-    };
-  }  
-  /**
- * toManagedPlayerSummaryFromPersistence：判断toManaged玩家摘要FromPersistence是否满足条件。
- * @param playerId 玩家 ID。
- * @param snapshot 参数说明。
- * @param updatedAt 参数说明。
- * @param account 参数说明。
- * @returns 无返回值，直接更新toManaged玩家摘要FromPersistence相关状态。
- */
-
-
-  private toManagedPlayerSummaryFromPersistence(playerId, snapshot, updatedAt, account = null, presence = null) {
-    const player = this.toLegacyPlayerStateFromPersistence(playerId, snapshot);
-    const roleName = resolveManagedPlayerName(player, account, playerId);
-    const displayName = resolveManagedPlayerDisplayName(player, account, roleName);
+      meta,
+    }, { pool: this.databasePoolProvider.getPool('gm-risk') });
 
     return {
       id: player.id,
@@ -457,14 +480,70 @@ export class NativeGmStateQueryService {
       autoBattle: player.autoBattle,
       autoBattleStationary: player.autoBattleStationary === true,
       autoRetaliate: player.autoRetaliate !== false,
-      meta: {
-        userId: account?.userId,
-        isBot: player.isBot === true,
-        online: presence?.online === true,
-        inWorld: presence?.inWorld === true,
-        updatedAt: updatedAt > 0 ? new Date(updatedAt).toISOString() : undefined,
-        dirtyFlags: [],
-      },
+      accountStatus: riskView.accountStatus,
+      riskScore: riskView.riskScore,
+      riskLevel: riskView.riskLevel,
+      riskTags: riskView.riskTags,
+      isRiskAdmin: riskView.isRiskAdmin,
+      meta,
+    };
+  }  
+  /**
+ * toManagedPlayerSummaryFromPersistence：判断toManaged玩家摘要FromPersistence是否满足条件。
+ * @param playerId 玩家 ID。
+ * @param snapshot 参数说明。
+ * @param updatedAt 参数说明。
+ * @param account 参数说明。
+ * @returns 无返回值，直接更新toManaged玩家摘要FromPersistence相关状态。
+ */
+
+
+  private async toManagedPlayerSummaryFromPersistence(playerId, snapshot, updatedAt, account = null, presence = null) {
+    const player = this.toLegacyPlayerStateFromPersistence(playerId, snapshot);
+    const roleName = resolveManagedPlayerName(player, account, playerId);
+    const displayName = resolveManagedPlayerDisplayName(player, account, roleName);
+    const meta = {
+      userId: account?.userId,
+      isBot: player.isBot === true,
+      online: presence?.online === true,
+      inWorld: presence?.inWorld === true,
+      updatedAt: updatedAt > 0 ? new Date(updatedAt).toISOString() : undefined,
+      dirtyFlags: [],
+    };
+    const riskView = await buildNativeGmPlayerRiskView(account, {
+      id: player.id,
+      name: roleName,
+      autoBattle: player.autoBattle,
+      autoBattleStationary: player.autoBattleStationary === true,
+      autoRetaliate: player.autoRetaliate !== false,
+      meta,
+    }, { pool: this.databasePoolProvider.getPool('gm-risk') });
+
+    return {
+      id: player.id,
+      name: roleName,
+      roleName,
+      displayName,
+      accountName: account?.username,
+      mapId: player.mapId,
+      mapName: this.resolveMapName(player.mapId),
+      realmLv: player.realmLv ?? 1,
+      realmLabel: player.realm?.displayName ?? player.realmName ?? '凡胎',
+      x: player.x,
+      y: player.y,
+      hp: player.hp,
+      maxHp: player.maxHp,
+      qi: player.qi,
+      dead: player.dead,
+      autoBattle: player.autoBattle,
+      autoBattleStationary: player.autoBattleStationary === true,
+      autoRetaliate: player.autoRetaliate !== false,
+      accountStatus: riskView.accountStatus,
+      riskScore: riskView.riskScore,
+      riskLevel: riskView.riskLevel,
+      riskTags: riskView.riskTags,
+      isRiskAdmin: riskView.isRiskAdmin,
+      meta,
     };
   }  
   /**
@@ -700,6 +779,28 @@ function compareManagedPlayerSummary(left, right, sort: GmPlayerSortMode = 'onli
       }
       break;
     }
+    case 'risk-desc': {
+      const riskCompare = compareRisk(left, right, 'desc');
+      if (riskCompare !== 0) {
+        return riskCompare;
+      }
+      const onlineCompare = compareOnlinePriority(left, right);
+      if (onlineCompare !== 0) {
+        return onlineCompare;
+      }
+      break;
+    }
+    case 'risk-asc': {
+      const riskCompare = compareRisk(left, right, 'asc');
+      if (riskCompare !== 0) {
+        return riskCompare;
+      }
+      const onlineCompare = compareOnlinePriority(left, right);
+      if (onlineCompare !== 0) {
+        return onlineCompare;
+      }
+      break;
+    }
     case 'online':
     default: {
       const onlineCompare = compareOnlinePriority(left, right);
@@ -730,23 +831,31 @@ function normalizeGmListPlayersQuery(query: GmListPlayersQuery | undefined): Nor
     keyword,
     keywordNeedle: keyword.toLocaleLowerCase('zh-Hans-CN'),
     sort: isGmPlayerSortMode(query?.sort) ? query.sort : 'realm-desc',
+    accountStatus: isGmPlayerAccountStatusFilter(query?.accountStatus) ? query.accountStatus : 'all',
   };
 }
 
-function filterManagedPlayers(players: GmManagedPlayerSummary[], keywordNeedle: string): GmManagedPlayerSummary[] {
-  if (!keywordNeedle) {
-    return players;
-  }
-
-  return players.filter((player) =>
-    matchesKeyword(player.id, keywordNeedle)
-    || matchesKeyword(player.name, keywordNeedle)
-    || matchesKeyword(player.roleName, keywordNeedle)
-    || matchesKeyword(player.displayName, keywordNeedle)
-    || matchesKeyword(player.accountName, keywordNeedle)
-    || matchesKeyword(player.mapId, keywordNeedle)
-    || matchesKeyword(player.mapName, keywordNeedle),
-  );
+function filterManagedPlayers(
+  players: GmManagedPlayerSummary[],
+  keywordNeedle: string,
+  accountStatus: GmPlayerAccountStatusFilter,
+): GmManagedPlayerSummary[] {
+  return players.filter((player) => {
+    if (accountStatus !== 'all' && player.accountStatus !== accountStatus) {
+      return false;
+    }
+    if (!keywordNeedle) {
+      return true;
+    }
+    return matchesKeyword(player.id, keywordNeedle)
+      || matchesKeyword(player.name, keywordNeedle)
+      || matchesKeyword(player.roleName, keywordNeedle)
+      || matchesKeyword(player.displayName, keywordNeedle)
+      || matchesKeyword(player.accountName, keywordNeedle)
+      || matchesKeyword(player.mapId, keywordNeedle)
+      || matchesKeyword(player.mapName, keywordNeedle)
+      || player.riskTags.some((tag) => matchesKeyword(tag, keywordNeedle));
+  });
 }
 
 function sortManagedPlayers(players: GmManagedPlayerSummary[], sort: GmPlayerSortMode): GmManagedPlayerSummary[] {
@@ -764,6 +873,7 @@ function buildPlayerPage(query: NormalizedGmListPlayersQuery, total: number) {
     totalPages,
     keyword: query.keyword,
     sort: query.sort,
+    accountStatus: query.accountStatus,
   };
 }
 
@@ -820,7 +930,16 @@ function isGmPlayerSortMode(value: unknown): value is GmPlayerSortMode {
     || value === 'realm-asc'
     || value === 'online'
     || value === 'map'
-    || value === 'name';
+    || value === 'name'
+    || value === 'risk-desc'
+    || value === 'risk-asc';
+}
+
+function isGmPlayerAccountStatusFilter(value: unknown): value is GmPlayerAccountStatusFilter {
+  return value === 'all'
+    || value === 'normal'
+    || value === 'banned'
+    || value === 'abnormal';
 }
 
 function matchesKeyword(value: string | undefined, keywordNeedle: string): boolean {
@@ -862,6 +981,16 @@ function compareMap(left, right) {
   return 0;
 }
 
+function compareRisk(left, right, direction: 'asc' | 'desc') {
+  const leftRisk = Number.isFinite(left.riskScore) ? left.riskScore : 0;
+  const rightRisk = Number.isFinite(right.riskScore) ? right.riskScore : 0;
+  const diff = direction === 'asc' ? leftRisk - rightRisk : rightRisk - leftRisk;
+  if (diff !== 0) {
+    return diff;
+  }
+  return compareRealm(left, right, 'desc');
+}
+
 function compareName(left, right) {
   const roleCompare = left.roleName.localeCompare(right.roleName, 'zh-Hans-CN');
   if (roleCompare !== 0) {
@@ -871,22 +1000,30 @@ function compareName(left, right) {
 }
 
 function resolveManagedPlayerName(player, account, fallback: string): string {
-  return normalizeDisplayString(player?.name)
-    || normalizeDisplayString(account?.playerName)
+  return normalizeDisplayString(account?.playerName)
+    || normalizeDisplayString(player?.name)
     || normalizeDisplayString(account?.displayName)
     || normalizeDisplayString(account?.username)
     || fallback;
 }
 
 function resolveManagedPlayerDisplayName(player, account, fallback: string): string {
-  return normalizeDisplayString(player?.displayName)
-    || normalizeDisplayString(account?.displayName)
+  return normalizeDisplayString(account?.displayName)
+    || normalizeDisplayString(player?.displayName)
     || normalizeDisplayString(account?.playerName)
     || fallback;
 }
 
 function normalizeDisplayString(value: unknown): string {
   return typeof value === 'string' ? value.trim() : '';
+}
+
+function normalizeDateString(value: unknown): string | undefined {
+  if (value instanceof Date) {
+    return value.toISOString();
+  }
+  const text = normalizeDisplayString(value);
+  return text.length > 0 ? text : undefined;
 }
 /**
  * roundMetric：执行roundMetric相关逻辑。

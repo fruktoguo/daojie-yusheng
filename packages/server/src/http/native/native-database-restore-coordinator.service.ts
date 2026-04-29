@@ -11,6 +11,7 @@ import { PlayerRuntimeService } from '../../runtime/player/player-runtime.servic
 import { SuggestionRuntimeService } from '../../runtime/suggestion/suggestion-runtime.service';
 import { WorldRuntimeService } from '../../runtime/world/world-runtime.service';
 import { NATIVE_GM_RESTORE_CONTRACT } from './native-gm-contract';
+import { NativePlayerAuthStoreService } from './native-player-auth-store.service';
 /**
  * PlayerSnapshotLike：定义接口结构约束，明确可交付字段含义。
  */
@@ -138,6 +139,10 @@ interface SuggestionRuntimeServiceLike {
 interface RuntimeGmAuthServiceLike {
   reloadPasswordRecordFromPersistence(): Promise<void>;
 }
+
+interface NativePlayerAuthStoreServiceLike {
+  reloadFromPersistence(): Promise<void>;
+}
 /**
  * NativeDatabaseRestoreCoordinatorService：封装该能力的入口与生命周期，承载运行时核心协作。
  */
@@ -172,6 +177,7 @@ export class NativeDatabaseRestoreCoordinatorService {
     @Inject(MarketRuntimeService) private readonly marketRuntimeService: MarketRuntimeServiceLike,
     @Inject(SuggestionRuntimeService) private readonly suggestionRuntimeService: SuggestionRuntimeServiceLike,
     @Inject(RuntimeGmAuthService) private readonly runtimeGmAuthService: RuntimeGmAuthServiceLike,
+    @Inject(NativePlayerAuthStoreService) private readonly playerAuthStoreService: NativePlayerAuthStoreServiceLike,
   ) {}  
   /**
  * prepareForRestore：执行prepareForRestore相关逻辑。
@@ -269,5 +275,6 @@ export class NativeDatabaseRestoreCoordinatorService {
     if (NATIVE_GM_RESTORE_CONTRACT.reloadGmAuthAfterRestore) {
       await this.runtimeGmAuthService.reloadPasswordRecordFromPersistence();
     }
+    await this.playerAuthStoreService.reloadFromPersistence();
   }
 }

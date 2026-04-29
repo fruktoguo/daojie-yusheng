@@ -243,6 +243,11 @@ export interface PlayerState {
 
   foundation?: number;
   /**
+ * rootFoundation：根基点数，用于六维境界乘区。
+ */
+
+  rootFoundation?: number;
+  /**
  * combatExp：战斗Exp相关字段。
  */
 

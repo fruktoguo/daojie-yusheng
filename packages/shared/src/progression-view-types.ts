@@ -16,7 +16,7 @@ export interface BreakthroughItemRequirement {
 }
 
 /** 突破需求类型 */
-export type BreakthroughRequirementType = 'item' | 'technique' | 'attribute' | 'root';
+export type BreakthroughRequirementType = 'item' | 'technique' | 'attribute_total' | 'root';
 
 /** 突破需求视图条目 */
 export interface BreakthroughRequirementView {
@@ -115,8 +115,27 @@ export interface BreakthroughPreviewState {
 
   requirements: BreakthroughRequirementView[];  
   /**
+ * rootFoundation：凝练根基视图，低频随突破预览下发。
+ */
+
+  rootFoundation?: RootFoundationPreviewState;
+  /**
  * blockedReason：blockedReason相关字段。
  */
 
+  blockedReason?: string;
+}
+
+/** 凝练根基预览状态 */
+export interface RootFoundationPreviewState {
+  /** 当前已拥有根基；往生等功能可能让它超过当前等级可凝练上限。 */
+  current: number;
+  /** 当前等级可凝练上限，只限制继续凝练，不裁剪已拥有根基。 */
+  cap: number;
+  remaining: number;
+  costProgress: number;
+  progress: number;
+  items: BreakthroughItemRequirement[];
+  canRefine: boolean;
   blockedReason?: string;
 }

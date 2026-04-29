@@ -136,6 +136,8 @@ interface AuthRequestContext {
  * deviceId：客户端设备标识。
  */
   deviceId?: string;
+  ip?: string;
+  userAgent?: string;
 }
 
 /** 主线玩家鉴权编排服务：负责注册、登录、刷新和身份同步。 */
@@ -190,7 +192,6 @@ export class NativePlayerAuthService {
   async register(accountName: string, password: string, displayName: string, roleName: string, context: AuthRequestContext = {}): Promise<AuthTokens> {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
-    void context;
     const normalizedUsername = normalizeUsername(accountName);
     const normalizedDisplayName = normalizeDisplayName(displayName);
     const normalizedRoleName = normalizeRoleName(roleName) || buildDefaultRoleName(normalizedUsername);
@@ -243,6 +244,15 @@ export class NativePlayerAuthService {
       passwordHash: await hashPassword(password),
       totalOnlineSeconds: 0,
       currentOnlineStartedAt: null,
+      registerIp: normalizeContextString(context.ip, 64),
+      lastLoginIp: normalizeContextString(context.ip, 64),
+      lastLoginAt: createdAt,
+      registerDeviceId: normalizeContextString(context.deviceId, 64),
+      lastLoginDeviceId: normalizeContextString(context.deviceId, 64),
+      lastUserAgent: normalizeContextString(context.userAgent, 255),
+      bannedAt: null,
+      banReason: null,
+      bannedBy: null,
       createdAt,
       updatedAt: Date.now(),
     });
@@ -256,7 +266,6 @@ export class NativePlayerAuthService {
   async login(loginName: string, password: string, context: AuthRequestContext = {}): Promise<AuthTokens> {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
-    void context;
     const normalizedLoginName = normalizeUsername(loginName).trim();
     const directUser = await this.authStore.findUserByUsername(normalizedLoginName);
     const roleMatchedUsers = await this.authStore.findUsersByRoleName(normalizedLoginName);
@@ -292,7 +301,9 @@ export class NativePlayerAuthService {
       throw new BadRequestException('该角色名对应多个账号，请改用账号登录');
     }
 
+    this.assertUserNotBanned(user);
     user = await this.upgradePasswordHashIfNeeded(user, password);
+    user = await this.touchLoginMetadata(user, context);
     await this.persistIdentity(user);
     await this.ensureStarterSnapshot(user.playerId);
     return this.issueTokens(user);
@@ -302,7 +313,6 @@ export class NativePlayerAuthService {
   async refresh(refreshToken: string, context: AuthRequestContext = {}): Promise<AuthTokens> {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
-    void context;
     const payload = this.worldPlayerTokenCodecService.validateRefreshToken(typeof refreshToken === 'string' ? refreshToken.trim() : '');
     if (!payload || payload.role === 'gm' || typeof payload.sub !== 'string' || typeof payload.username !== 'string') {
       throw new UnauthorizedException('刷新令牌无效或已过期');
@@ -313,6 +323,8 @@ export class NativePlayerAuthService {
       throw new UnauthorizedException('用户不存在');
     }
 
+    this.assertUserNotBanned(user);
+    await this.touchLoginMetadata(user, context);
     await this.persistIdentity(user);
     await this.ensureStarterSnapshot(user.playerId);
     return this.issueTokens(user);
@@ -459,6 +471,7 @@ export class NativePlayerAuthService {
     if (!user) {
       throw new UnauthorizedException('用户不存在');
     }
+    this.assertUserNotBanned(user);
     return user;
   }  
   /**
@@ -548,6 +561,31 @@ export class NativePlayerAuthService {
       updatedAt: Date.now(),
     });
   }
+
+  private async touchLoginMetadata(user: NativePlayerAuthUser, context: AuthRequestContext): Promise<NativePlayerAuthUser> {
+    const lastLoginIp = normalizeContextString(context.ip, 64) ?? user.lastLoginIp;
+    const lastLoginDeviceId = normalizeContextString(context.deviceId, 64) ?? user.lastLoginDeviceId;
+    const lastUserAgent = normalizeContextString(context.userAgent, 255) ?? user.lastUserAgent;
+    const nextUser = await this.authStore.saveUser({
+      ...user,
+      lastLoginIp,
+      lastLoginAt: new Date().toISOString(),
+      lastLoginDeviceId,
+      lastUserAgent,
+      updatedAt: Date.now(),
+    });
+    return nextUser;
+  }
+
+  private assertUserNotBanned(user: NativePlayerAuthUser): void {
+    if (!user.bannedAt) {
+      return;
+    }
+    const reason = typeof user.banReason === 'string' && user.banReason.trim()
+      ? user.banReason.trim()
+      : '';
+    throw new UnauthorizedException(reason ? `账号已封禁：${reason}` : '账号已封禁，请联系 GM 处理');
+  }
   /**
  * syncRuntimeDisplayName：判断运行态显示名称是否满足条件。
  * @param user NativePlayerAuthUser 参数说明。
@@ -596,4 +634,12 @@ export class NativePlayerAuthService {
 
 function buildPlayerId(userId: string): string {
   return `p_${String(userId ?? '').trim()}`;
+}
+
+function normalizeContextString(value: unknown, maxLength: number): string | null {
+  if (typeof value !== 'string') {
+    return null;
+  }
+  const normalized = value.trim();
+  return normalized ? normalized.slice(0, maxLength) : null;
 }

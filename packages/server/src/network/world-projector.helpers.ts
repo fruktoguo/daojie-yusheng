@@ -318,6 +318,7 @@ interface ProjectorPlayerLike {
   qi: number;
   maxQi: number;
   foundation: number;
+  rootFoundation?: number;
   combatExp: number;
   comprehension?: number;
   luck?: number;
@@ -384,6 +385,7 @@ function resolvePlayerSpecialStats(player: ProjectorPlayerLike): PlayerSpecialSt
   const techniqueSpecialStats = calcTechniqueFinalSpecialStatBonus(player.techniques.techniques.map(toTechniqueState));
   return {
     foundation: player.foundation,
+    rootFoundation: Math.max(0, Math.trunc(Number(player.rootFoundation ?? 0) || 0)),
     combatExp: player.combatExp,
     comprehension: Math.max(0, Math.trunc(Number(player.comprehension ?? 0) || 0))
       + Math.max(0, Math.trunc(Number(techniqueSpecialStats.comprehension ?? 0) || 0)),
@@ -2291,6 +2293,7 @@ function buildAttrBonuses(player: Pick<ProjectorPlayerLike, 'bonuses'>): AttrBon
 function cloneSpecialStats(source: PlayerSpecialStats): PlayerSpecialStats {
     return {
         foundation: source.foundation,
+        rootFoundation: source.rootFoundation,
         combatExp: source.combatExp,
         comprehension: source.comprehension,
         luck: source.luck,
@@ -2336,6 +2339,9 @@ function buildSpecialStatsPatch(previous: PlayerSpecialStats, current: PlayerSpe
     const patch: Partial<PlayerSpecialStats> = {};
     if (previous.foundation !== current.foundation) {
         patch.foundation = current.foundation;
+    }
+    if (previous.rootFoundation !== current.rootFoundation) {
+        patch.rootFoundation = current.rootFoundation;
     }
     if (previous.combatExp !== current.combatExp) {
         patch.combatExp = current.combatExp;
@@ -2393,6 +2399,7 @@ function cloneAttrBonus(source: AttrBonus): AttrBonus {
 }
 function isSameSpecialStats(left: PlayerSpecialStats, right: PlayerSpecialStats) {
     return left.foundation === right.foundation
+        && left.rootFoundation === right.rootFoundation
         && left.combatExp === right.combatExp
         && left.comprehension === right.comprehension
         && left.luck === right.luck;

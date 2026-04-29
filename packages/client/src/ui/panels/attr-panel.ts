@@ -27,7 +27,7 @@ import {
   ratioValue,
   S2C_AttrUpdate,
   TileType,
-  applyQiEfficiencyBp,
+  stackQiEfficiencyBp,
   getTileTraversalCost,
 } from '@mud/shared';
 import { ATTR_KEY_LABELS, ELEMENT_KEY_LABELS } from '../../domain-labels';
@@ -126,7 +126,7 @@ function resolveQiProjectionDisplay(
       if (modifier.efficiencyBpMultiplier !== undefined) {
         efficiencyBp = defaultVisibility === 'hidden'
           ? Math.max(0, efficiencyBp + modifier.efficiencyBpMultiplier - DEFAULT_QI_EFFICIENCY_BP)
-          : applyQiEfficiencyBp(efficiencyBp, modifier.efficiencyBpMultiplier);
+          : stackQiEfficiencyBp(efficiencyBp, modifier.efficiencyBpMultiplier);
       }
       sources.add(bonus.label ?? bonus.source);
     }
@@ -380,52 +380,23 @@ function buildNumericBreakdownLines(
 function buildCombatFormulaLines(key: NumericCardKey): string[] {
   switch (key) {
     case 'physDef':
-      return [
-        '计算公式：物理减伤 = 物理防御 / (物理防御 + 攻击方物理攻击 × 0.1 + 100)',
-        '化解触发时，本次物理防御按双倍参与减伤结算。',
-      ];
+      return ['物理对抗中，护体愈厚则伤势越轻，化解发动时防御更重。'];
     case 'spellDef':
-      return [
-        '计算公式：法术减伤 = 法术防御 / (法术防御 + 攻击方法术攻击 × 0.1 + 100)',
-        '元素伤害会再与元素减伤按乘算合并；化解触发时本次法术防御按双倍参与结算。',
-      ];
+      return ['法术对抗中，法防愈坚则法伤愈轻，化解发动时法防重算。'];
     case 'hit':
-      return [
-        '你的命中不单独转概率，而是作为对手闪避公式里的对抗基数。',
-        '对手闪避率 = 对手闪避 / (对手闪避 + 你的命中 + 100)',
-        '战斗经验会提高你的有效命中；若本次先触发破招，则命中按双倍参与判定。',
-      ];
+      return ['命中代表取势之机，值越高越易洞穿对手的闪避。'];
     case 'dodge':
-      return [
-        '闪避率 = 闪避 / (闪避 + 对方命中 + 100)',
-        '战斗经验会提高你的有效闪避；若对方先触发破招，则其命中按双倍参与判定。',
-      ];
+      return ['闪避值反映步法稳健，数高则更易避开来势。'];
     case 'crit':
-      return [
-        '暴击率 = 暴击 / (暴击 + 对方免爆 + 100)',
-        '若本次先触发破招，则暴击按双倍参与判定。',
-      ];
+      return ['暴击是重击之机，暴击值越高，重创越易出现。'];
     case 'antiCrit':
-      return [
-        '对手对你的暴击率 = 对手暴击 / (对手暴击 + 你的免爆 + 100)',
-        '免爆越高，对手暴击率越低。',
-      ];
+      return ['免爆是反噬护体，护体越高，敌手重击越难成。'];
     case 'critDamage':
-      return [
-        '最终暴击伤害倍率 = 200% + 暴击伤害 / 10',
-      ];
+      return ['暴击后的伤害倍率会随此值浮动，越高则一击更重。'];
     case 'breakPower':
-      return [
-        '只有当你的破招高于对方化解时，才会计算破招率；若两边相等，则本次既不判破招也不判化解。',
-        '破招率 = 破招 / (破招 + 对方化解 + 100)',
-        '破招触发后，本次命中与暴击都按双倍攻击方数值重新判定。',
-      ];
+      return ['破招值主导先发之机，优于对方化解则可先破其护。'];
     case 'resolvePower':
-      return [
-        '只有当你的化解高于对方破招时，才会计算化解率；若两边相等，则本次既不判化解也不判破招。',
-        '化解率 = 化解 / (化解 + 对方破招 + 100)',
-        '破招与化解只能触发一个；化解触发后，本次防御按双倍参与减伤结算。',
-      ];
+      return ['化解可转敌破势为自身稳局，先于对方破招时更能护体。'];
     default:
       return [];
   }
@@ -627,6 +598,11 @@ interface AttrRadarPaneSnapshot {
  */
 
   cards?: AttrNumericCardSnapshot[];
+  /**
+ * summaryCards：雷达图内侧摘要卡片。
+ */
+
+  summaryCards?: AttrNumericCardSnapshot[];
 }
 
 /** 数值卡片的渲染快照，包含展示值、附加说明和提示内容。 */
@@ -855,6 +831,7 @@ export class AttrPanel {
       ratioDivisors: player.ratioDivisors,
       specialStats: {
         foundation: Math.max(0, Math.floor(player.foundation ?? 0)),
+        rootFoundation: Math.max(0, Math.floor(player.rootFoundation ?? 0)),
         combatExp: Math.max(0, Math.floor(player.combatExp ?? 0)),
         comprehension: Math.max(0, Math.floor(player.comprehension ?? 0)),
         luck: Math.max(0, Math.floor(player.luck ?? 0)),
@@ -873,6 +850,7 @@ export class AttrPanel {
       player.ratioDivisors,
       {
         foundation: Math.max(0, Math.floor(player.foundation ?? 0)),
+        rootFoundation: Math.max(0, Math.floor(player.rootFoundation ?? 0)),
         combatExp: Math.max(0, Math.floor(player.combatExp ?? 0)),
         comprehension: Math.max(0, Math.floor(player.comprehension ?? 0)),
         luck: Math.max(0, Math.floor(player.luck ?? 0)),
@@ -985,10 +963,10 @@ export class AttrPanel {
         base: this.buildBaseRadarSnapshot(base, final, totalBonus, specialStats),
         root: stats && ratioDivisors
           ? this.buildRootRadarSnapshot(stats, ratioDivisors, bonuses)
-          : { kind: 'placeholder', message: '灵根信息尚未同步' },
+        : { kind: 'placeholder', message: '灵根未明' },
         vein: stats
           ? this.buildVeinPaneSnapshot(stats, bonuses)
-          : { kind: 'placeholder', message: '灵脉信息尚未同步' },
+          : { kind: 'placeholder', message: '灵脉未察' },
         combat: this.buildNumericPaneSnapshot('斗法数值', stats, ratioDivisors, {
           keys: ['maxHp', 'physAtk', 'spellAtk', 'physDef', 'spellDef', 'hit', 'dodge', 'crit', 'antiCrit', 'critDamage', 'breakPower', 'resolvePower', 'actionsPerTurn'],
           ratioKeys: [],
@@ -1058,6 +1036,7 @@ export class AttrPanel {
     });
 
     const snapshot = this.buildRadarPaneSnapshot('六维轮图', radarMax, entries, 'base');
+    snapshot.summaryCards = this.buildRootFoundationSummaryCards(specialStats);
     snapshot.cards = this.buildBaseSpecialStatCards(specialStats);
     return snapshot;
   }  
@@ -1299,7 +1278,7 @@ export class AttrPanel {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
     if (!stats || !ratios || !meta) {
-      return { kind: 'placeholder', message: `${title}尚未同步` };
+      return { kind: 'placeholder', message: `${title}未明` };
     }
 
     return {
@@ -1358,7 +1337,7 @@ export class AttrPanel {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
     if (!stats || !ratios) {
-      return { kind: 'placeholder', message: '特殊属性尚未同步' };
+      return { kind: 'placeholder', message: '异禀未显' };
     }
 
     const specialCards = this.buildSpecialStatCards(['foundation', 'combatExp'], specialStats);
@@ -1436,6 +1415,22 @@ export class AttrPanel {
       };
     });
   }
+
+  /** buildRootFoundationSummaryCards：构建六维轮图内的根基摘要。 */
+  private buildRootFoundationSummaryCards(specialStats?: PlayerSpecialStats): AttrNumericCardSnapshot[] {
+    const numericValue = Math.max(0, Math.floor(specialStats?.rootFoundation ?? 0));
+    const label = PLAYER_SPECIAL_TOOLTIP_LABELS.rootFoundation;
+    return [{
+      key: 'rootFoundation',
+      label,
+      value: formatDisplayInteger(numericValue),
+      tooltipTitle: label,
+      tooltipDetail: [
+        `当前：${formatDisplayInteger(numericValue)}`,
+        `六维境界乘区：${formatDisplayNumber(100 + numericValue)}%`,
+      ].join('\n'),
+    }];
+  }
   /**
  * buildCraftSkillSnapshot：构建并返回目标对象。
  * @param key string 参数说明。
@@ -1487,7 +1482,7 @@ export class AttrPanel {
       this.buildCraftSkillSnapshot('enhancement', '强化', enhancementSkill),
     ].filter((entry): entry is AttrCraftSkillSnapshot => Boolean(entry));
     if (skills.length === 0) {
-      return { kind: 'placeholder', message: '技艺信息尚未同步' };
+      return { kind: 'placeholder', message: '技艺未录' };
     }
     return {
       kind: 'craft',
@@ -1573,19 +1568,27 @@ export class AttrPanel {
           <div class="attr-radar-title">${snapshot.title}</div>
           <div class="attr-radar-scale" data-radar-scale="true">刻度 ${snapshot.scale}</div>
         </div>
-        <svg class="attr-radar" viewBox="0 0 340 340" role="img" aria-label="${snapshot.title}">
-          <defs><linearGradient id="${gradientId}" gradientUnits="userSpaceOnUse" x1="0%" y1="0%" x2="100%" y2="100%">${gradientStops}</linearGradient></defs>
-          ${snapshot.rings.map((points) => `<polygon class="attr-radar-ring" points="${points}"></polygon>`).join('')}
-          ${snapshot.axes.map((axis) => `<line class="attr-radar-axis" x1="170" y1="170" x2="${axis.x}" y2="${axis.y}" stroke="${axis.stroke}"></line>`).join('')}
-          <polygon class="attr-radar-area" data-radar-area="true" points="${snapshot.areaPoints}" fill="url(#${gradientId})" stroke="${snapshot.nodes[0]?.color ?? '#ff8a65'}" stroke-width="2"></polygon>
-          ${snapshot.nodes.map((node, index) => `
-            <g class="attr-radar-node" data-radar-node="${index}" data-tooltip-title="${escapeHtml(node.tooltipTitle)}" data-tooltip-detail="${escapeHtml(node.tooltipDetail)}">
-              <circle class="attr-radar-dot" data-radar-dot="true" cx="${node.dotX}" cy="${node.dotY}" r="6" fill="${node.color}" stroke="rgba(255,255,255,0.9)" stroke-width="1.8"></circle>
-              <text class="attr-radar-label attr-radar-trigger" data-radar-label="true" x="${node.labelX}" y="${node.labelY}" text-anchor="middle" dominant-baseline="middle">${node.label}</text>
-              <text class="attr-radar-value attr-radar-trigger" data-radar-value="true" x="${node.valueX}" y="${node.valueY}" text-anchor="middle" dominant-baseline="middle">${node.valueLabel}</text>
-            </g>
-          `).join('')}
-        </svg>
+        <div class="attr-radar-body">
+          <svg class="attr-radar" viewBox="0 0 340 340" role="img" aria-label="${snapshot.title}">
+            <defs><linearGradient id="${gradientId}" gradientUnits="userSpaceOnUse" x1="0%" y1="0%" x2="100%" y2="100%">${gradientStops}</linearGradient></defs>
+            ${snapshot.rings.map((points) => `<polygon class="attr-radar-ring" points="${points}"></polygon>`).join('')}
+            ${snapshot.axes.map((axis) => `<line class="attr-radar-axis" x1="170" y1="170" x2="${axis.x}" y2="${axis.y}" stroke="${axis.stroke}"></line>`).join('')}
+            <polygon class="attr-radar-area" data-radar-area="true" points="${snapshot.areaPoints}" fill="url(#${gradientId})" stroke="${snapshot.nodes[0]?.color ?? '#ff8a65'}" stroke-width="2"></polygon>
+            ${snapshot.nodes.map((node, index) => `
+              <g class="attr-radar-node" data-radar-node="${index}" data-tooltip-title="${escapeHtml(node.tooltipTitle)}" data-tooltip-detail="${escapeHtml(node.tooltipDetail)}">
+                <circle class="attr-radar-dot" data-radar-dot="true" cx="${node.dotX}" cy="${node.dotY}" r="6" fill="${node.color}" stroke="rgba(255,255,255,0.9)" stroke-width="1.8"></circle>
+                <text class="attr-radar-label attr-radar-trigger" data-radar-label="true" x="${node.labelX}" y="${node.labelY}" text-anchor="middle" dominant-baseline="middle">${node.label}</text>
+                <text class="attr-radar-value attr-radar-trigger" data-radar-value="true" x="${node.valueX}" y="${node.valueY}" text-anchor="middle" dominant-baseline="middle">${node.valueLabel}</text>
+              </g>
+            `).join('')}
+          </svg>
+          ${snapshot.summaryCards?.length ? snapshot.summaryCards.map((card) => `
+            <div class="attr-radar-floating-stat" data-radar-summary-card="${card.key}" data-tooltip-title="${escapeHtml(card.tooltipTitle)}" data-tooltip-detail="${escapeHtml(card.tooltipDetail)}">
+              <span class="attr-radar-floating-label" data-radar-summary-label="true">${card.label}</span>
+              <span class="attr-radar-floating-value" data-radar-summary-value="true">${card.value}</span>
+            </div>
+          `).join('') : ''}
+        </div>
       </div>
       ${snapshot.cards?.length ? `
         <div class="attr-grid wide attr-radar-extra-grid" data-radar-extra-grid="true">
@@ -1720,6 +1723,30 @@ export class AttrPanel {
       value.setAttribute('x', node.valueX);
       value.setAttribute('y', node.valueY);
     }
+    const summaryCards = snapshot.summaryCards ?? [];
+    if (summaryCards.length > 0) {
+      const summaryCardNodes = pane.querySelectorAll<HTMLElement>('[data-radar-summary-card]');
+      if (summaryCardNodes.length !== summaryCards.length) {
+        return false;
+      }
+      for (const card of summaryCards) {
+        const cardNode = pane.querySelector<HTMLElement>(`[data-radar-summary-card="${card.key}"]`);
+        if (!cardNode) {
+          return false;
+        }
+        const labelNode = cardNode.querySelector<HTMLElement>('[data-radar-summary-label="true"]');
+        const valueNode = cardNode.querySelector<HTMLElement>('[data-radar-summary-value="true"]');
+        if (!labelNode || !valueNode) {
+          return false;
+        }
+        cardNode.setAttribute('data-tooltip-title', card.tooltipTitle);
+        cardNode.setAttribute('data-tooltip-detail', card.tooltipDetail);
+        labelNode.textContent = card.label;
+        valueNode.textContent = card.value;
+      }
+    } else if (pane.querySelector<HTMLElement>('[data-radar-summary-card]')) {
+      return false;
+    }
     const extraGridNode = pane.querySelector<HTMLElement>('[data-radar-extra-grid="true"]');
     const extraCards = snapshot.cards ?? [];
     if (extraCards.length > 0) {
@@ -1758,7 +1785,12 @@ export class AttrPanel {
         return [tab, { kind: pane.kind, cards: pane.cards.map((card) => card.key) }];
       }
       if (pane.kind === 'radar') {
-        return [tab, { kind: pane.kind, nodes: pane.nodes.length, cards: pane.cards?.map((card) => card.key) ?? [] }];
+        return [tab, {
+          kind: pane.kind,
+          nodes: pane.nodes.length,
+          cards: pane.cards?.map((card) => card.key) ?? [],
+          summaryCards: pane.summaryCards?.map((card) => card.key) ?? [],
+        }];
       }
       if (pane.kind === 'craft') {
         return [tab, { kind: pane.kind, skills: pane.skills.map((skill) => skill.key) }];
@@ -1933,6 +1965,35 @@ export class AttrPanel {
         margin: 0 auto;
         display: block;
         overflow: visible;
+      }
+      .attr-radar-body {
+        position: relative;
+      }
+      .attr-radar-floating-stat {
+        position: absolute;
+        top: 8px;
+        right: 10px;
+        z-index: 1;
+        display: inline-flex;
+        align-items: baseline;
+        gap: 6px;
+        color: var(--ink-grey);
+        font-size: var(--font-size-12);
+        line-height: 1.2;
+        cursor: help;
+        transition: color 0.16s ease, text-shadow 0.16s ease, transform 0.16s ease;
+      }
+      .attr-radar-floating-stat:hover,
+      .attr-radar-floating-stat:focus-visible {
+        color: var(--stamp-red);
+        text-shadow: 0 1px 8px rgba(124, 37, 31, 0.22);
+        transform: translateY(-1px);
+        outline: none;
+      }
+      .attr-radar-floating-value {
+        font-size: var(--font-size-14);
+        font-weight: var(--font-weight-strong);
+        color: var(--ink-black);
       }
       .attr-radar-extra-grid {
         margin-top: 12px;

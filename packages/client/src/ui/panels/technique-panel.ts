@@ -271,8 +271,8 @@ function buildTechniqueExpTooltipLines(tech: TechniqueState, player?: PlayerStat
 
   const stepPercent = Math.round(TECHNIQUE_EXP_LEVEL_DELTA_MULTIPLIER_STEP * 100);
   const lines = [
-    '功法经验会按你的境界与功法境界差乘算。',
-    `每低一级乘 ${100 - stepPercent}% ，每高一级乘 ${100 + stepPercent}%。`,
+    '功法修速随境界差而变。',
+    `每低一阶减 ${stepPercent}%，每高一阶增 ${stepPercent}%。`,
     `此功法境界：${getRealmLevelDisplayName(tech.realmLv)}`,
   ];
   const playerRealmLv = getPlayerRealmLv(player);
@@ -583,7 +583,7 @@ export class TechniquePanel {
           data-tech-skills-toggle="${tech.techId}"
           data-tech-skills-enabled="${skillsEnabled ? '1' : '0'}"
           type="button"
-        >技能 ${skillsEnabled ? '开' : '关'}</button>` : ''}
+        >术法 ${skillsEnabled ? '启' : '闭'}</button>` : ''}
         <button
           class="small-btn ${isCultivating ? 'danger' : ''}"
           data-tech-cultivate-button="${tech.techId}"
@@ -1324,7 +1324,7 @@ export class TechniquePanel {
       progressFillNode.style.width = `${(progressRatio * 100).toFixed(2)}%`;
       remainNode.textContent = remainText;
       if (showSkillToggle && skillToggleButton) {
-        skillToggleButton.textContent = `技能 ${skillsEnabled ? '开' : '关'}`;
+        skillToggleButton.textContent = `术法 ${skillsEnabled ? '启' : '闭'}`;
         skillToggleButton.classList.toggle('active', skillsEnabled);
         skillToggleButton.dataset.techSkillsEnabled = skillsEnabled ? '1' : '0';
       }

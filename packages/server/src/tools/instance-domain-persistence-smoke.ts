@@ -317,6 +317,45 @@ async function main(): Promise<void> {
     assert.equal(removedContainerState, true);
     const containerStatesAfterRemove = await service.loadContainerStates(instanceId);
     assert.equal(containerStatesAfterRemove.length, 0);
+    await service.replaceContainerStates(instanceId, [
+      {
+        containerId: 'lm_old_shrine',
+        sourceId: 'legacy:source:old_shrine',
+        generatedAtTick: 41,
+        refreshAtTick: 51,
+        entries: [
+          {
+            item: { itemId: 'old_grass', count: 1 },
+            createdTick: 41,
+            visible: false,
+          },
+        ],
+      },
+      {
+        containerId: 'lm_old_shrine',
+        sourceId: `container:${instanceId}:lm_old_shrine`,
+        generatedAtTick: 42,
+        refreshAtTick: 52,
+        entries: [
+          {
+            item: { itemId: 'new_grass', count: 2 },
+            createdTick: 42,
+            visible: true,
+          },
+        ],
+      },
+    ]);
+    const dedupedContainerStates = await service.loadContainerStates(instanceId);
+    assert.equal(dedupedContainerStates.length, 1);
+    assert.equal(dedupedContainerStates[0]?.containerId, 'lm_old_shrine');
+    assert.equal(dedupedContainerStates[0]?.sourceId, `container:${instanceId}:lm_old_shrine`);
+    assert.deepEqual((dedupedContainerStates[0]?.statePayload as { entries?: unknown[] }).entries, [
+      {
+        item: { itemId: 'new_grass', count: 2 },
+        createdTick: 42,
+        visible: true,
+      },
+    ]);
     const savedMonster = await service.saveMonsterRuntimeState({
       monsterRuntimeId: `monster:${monsterInstanceId}:1`,
       instanceId: monsterInstanceId,

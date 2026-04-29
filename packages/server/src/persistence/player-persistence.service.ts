@@ -67,6 +67,7 @@ interface PlayerSnapshotVitals {
 
 interface PlayerSnapshotProgression {
   foundation: number;
+  rootFoundation?: number;
   combatExp: number;
   comprehension?: number;
   luck?: number;
@@ -555,6 +556,7 @@ function normalizePlayerSnapshotPayload(raw: unknown): PersistedPlayerSnapshot |
     },
     progression: {
       foundation: isFiniteNumber(progression?.foundation) ? Math.trunc(progression.foundation) : 0,
+      rootFoundation: isFiniteNumber(progression?.rootFoundation) ? Math.trunc(progression.rootFoundation) : 0,
       combatExp: isFiniteNumber(progression?.combatExp) ? Math.trunc(progression.combatExp) : 0,
       comprehension: isFiniteNumber(progression?.comprehension) ? Math.max(0, Math.trunc(progression.comprehension)) : 0,
       luck: isFiniteNumber(progression?.luck) ? Math.max(0, Math.trunc(progression.luck)) : 0,

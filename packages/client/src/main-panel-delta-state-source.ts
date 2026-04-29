@@ -423,6 +423,7 @@ export function createMainPanelDeltaStateSource(options: MainPanelDeltaStateSour
       qi: player.qi,
       specialStats: {
         foundation: Math.max(0, Math.floor(player.foundation ?? 0)),
+        rootFoundation: Math.max(0, Math.floor(player.rootFoundation ?? 0)),
         combatExp: Math.max(0, Math.floor(player.combatExp ?? 0)),
         comprehension: Math.max(0, Math.floor(player.comprehension ?? 0)),
         luck: Math.max(0, Math.floor(player.luck ?? 0)),
@@ -437,7 +438,7 @@ export function createMainPanelDeltaStateSource(options: MainPanelDeltaStateSour
       gatherSkill: player.gatherSkill ? cloneJson(player.gatherSkill) : undefined,
       enhancementSkill: player.enhancementSkill ? cloneJson(player.enhancementSkill) : undefined,
     };
-  }  
+  }
   /**
  * mergeAttrUpdatePatch：处理AttrUpdatePatch并更新相关状态。
  * @param previous S2C_AttrUpdate | null 参数说明。
@@ -463,12 +464,20 @@ export function createMainPanelDeltaStateSource(options: MainPanelDeltaStateSour
       finalAttrs: cloneJson(mergeAttrValuePatch(previous?.finalAttrs as Attributes | undefined, patch.finalAttrs, fallbackFinalAttrs)),
       numericStats: mergeNumericStatsPatch((previous?.numericStats as NumericStats | undefined) ?? player?.numericStats, patch.numericStats),
       ratioDivisors: mergeRatioDivisorsPatch((previous?.ratioDivisors as NumericRatioDivisors | undefined) ?? player?.ratioDivisors, patch.ratioDivisors),
+      numericStatBreakdowns: patch.numericStatBreakdowns
+        ? cloneJson(patch.numericStatBreakdowns)
+        : previous?.numericStatBreakdowns
+          ? cloneJson(previous.numericStatBreakdowns)
+          : undefined,
       maxHp: patch.maxHp ?? previous?.maxHp ?? player?.maxHp ?? 0,
       qi: patch.qi,
       specialStats: {
         foundation: patch.specialStats?.foundation
           ?? previous?.specialStats?.foundation
           ?? Math.max(0, Math.floor(player?.foundation ?? 0)),
+        rootFoundation: patch.specialStats?.rootFoundation
+          ?? previous?.specialStats?.rootFoundation
+          ?? Math.max(0, Math.floor(player?.rootFoundation ?? 0)),
         combatExp: patch.specialStats?.combatExp
           ?? previous?.specialStats?.combatExp
           ?? Math.max(0, Math.floor(player?.combatExp ?? 0)),
@@ -502,6 +511,18 @@ export function createMainPanelDeltaStateSource(options: MainPanelDeltaStateSour
         : (previous?.enhancementSkill ? cloneJson(previous.enhancementSkill) : (player?.enhancementSkill ? cloneJson(player.enhancementSkill) : undefined)),
     };
   }  
+
+  /** attrPatchInvalidatesDetail：判断属性详情构成是否需要重新拉取。 */
+  function attrPatchInvalidatesDetail(patch: S2C_AttrUpdate): boolean {
+    return Boolean(
+      patch.baseAttrs
+      || patch.bonuses
+      || patch.finalAttrs
+      || patch.numericStats
+      || patch.ratioDivisors
+      || patch.numericStatBreakdowns,
+    );
+  }
   /**
  * mergeTechniquePatch：读取功法Patch并返回结果。
  * @param patch import('@mud/shared').TechniqueUpdateEntry 参数说明。
@@ -966,7 +987,9 @@ export function createMainPanelDeltaStateSource(options: MainPanelDeltaStateSour
     handleAttrUpdate(data: S2C_AttrUpdate): void {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
-      options.attrPanel.invalidateDetail?.();
+      if (attrPatchInvalidatesDetail(data)) {
+        options.attrPanel.invalidateDetail?.();
+      }
       latestAttrUpdate = mergeAttrUpdatePatch(latestAttrUpdate, data);
       const player = options.getPlayer();
       if (player) {
@@ -980,6 +1003,7 @@ export function createMainPanelDeltaStateSource(options: MainPanelDeltaStateSour
           player.qi = data.qi;
         }
         player.foundation = latestAttrUpdate.specialStats?.foundation ?? player.foundation;
+        player.rootFoundation = latestAttrUpdate.specialStats?.rootFoundation ?? player.rootFoundation;
         player.combatExp = latestAttrUpdate.specialStats?.combatExp ?? player.combatExp;
         player.comprehension = latestAttrUpdate.specialStats?.comprehension ?? player.comprehension;
         player.luck = latestAttrUpdate.specialStats?.luck ?? player.luck;

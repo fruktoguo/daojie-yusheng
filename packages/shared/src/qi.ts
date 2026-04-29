@@ -333,6 +333,13 @@ export function applyQiEfficiencyBp(baseBp: number, multiplierBp: number): numbe
   return Math.max(0, Math.round((normalizedBase * normalizedMultiplier) / QI_PROJECTION_BP_SCALE));
 }
 
+/** 按偏移量叠加灵力效率，用于同类气机投影来源合并。 */
+export function stackQiEfficiencyBp(baseBp: number, modifierBp: number): number {
+  const normalizedBase = normalizeQiEfficiencyBp(baseBp);
+  const normalizedModifier = normalizeQiEfficiencyBp(modifierBp);
+  return Math.max(0, normalizedBase + normalizedModifier - DEFAULT_QI_EFFICIENCY_BP);
+}
+
 /** 按效率折算原始灵力数值。 */
 export function projectQiValue(rawValue: number, efficiencyBp: number): number {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。

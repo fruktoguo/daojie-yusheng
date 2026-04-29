@@ -236,6 +236,69 @@ function testXueshaLevelNineQiProjectionUsesHiddenResourceZeroBaseline() {
     assert.equal(projectPlayerQiResourceValue(player, 'sha.refined.neutral', 1000), 1800);
 }
 
+function testNingqiAddsAuraEfficiencyOnTopOfXuesha() {
+    const xueshaLayerProjection = [{
+            selector: { families: ['aura'], elements: ['neutral'] },
+            visibility: 'absorbable',
+            efficiencyBpMultiplier: 9000,
+        }, {
+            selector: { families: ['sha'], elements: ['neutral'] },
+            visibility: 'absorbable',
+            efficiencyBpMultiplier: 12000,
+        }];
+    const player = {
+        techniques: {
+            techniques: [{
+                    techId: 'xuesha_huanling_jue',
+                    name: '血煞唤灵决',
+                    level: 9,
+                    exp: 0,
+                    expToNext: 0,
+                    realmLv: 42,
+                    realm: 0,
+                    grade: 'heaven',
+                    category: 'secret',
+                    skills: [],
+                    layers: Array.from({ length: 9 }, (_, index) => ({
+                        level: index + 1,
+                        expToNext: 0,
+                        qiProjection: xueshaLayerProjection,
+                    })),
+                }, {
+                    techId: 'ningqi_chengji',
+                    name: '凝气成基法',
+                    level: 49,
+                    exp: 0,
+                    expToNext: 0,
+                    realmLv: 31,
+                    realm: 0,
+                    grade: 'heaven',
+                    category: 'internal',
+                    skills: [],
+                    layers: [{
+                            level: 49,
+                            expToNext: 0,
+                            qiProjection: [{
+                                    selector: { families: ['aura'], elements: ['neutral'] },
+                                    visibility: 'absorbable',
+                                    efficiencyBpMultiplier: 11000,
+                                }],
+                        }],
+                }],
+        },
+        buffs: { buffs: [] },
+        attrBonuses: [],
+        runtimeBonuses: [],
+    };
+    const auraProjection = resolvePlayerQiResourceProjection(player, 'aura.refined.neutral');
+    const shaProjection = resolvePlayerQiResourceProjection(player, 'sha.refined.neutral');
+    assert.equal(auraProjection?.visibility, 'absorbable');
+    assert.equal(auraProjection?.efficiencyBp, 2000);
+    assert.equal(shaProjection?.visibility, 'absorbable');
+    assert.equal(shaProjection?.efficiencyBp, 18000);
+    assert.equal(projectPlayerQiResourceValue(player, 'aura.refined.neutral', 1000), 200);
+}
+
 function testRealmLevelScalesNumericStats() {
     const service = new PlayerAttributesService();
     const createPlayer = (realmLv) => ({
@@ -480,6 +543,7 @@ testAttrDetailBuilders();
 testTechniqueAttrCalculationIgnoresStaleRuntimeAggregate();
 testTechniqueQiProjectionAppearsInAttrDetail();
 testXueshaLevelNineQiProjectionUsesHiddenResourceZeroBaseline();
+testNingqiAddsAuraEfficiencyOnTopOfXuesha();
 testRealmLevelScalesNumericStats();
 testEnhancedEquipmentScalesLiveAndDetailStats();
 testSpecialStatsAffectOnlyConfiguredRates();

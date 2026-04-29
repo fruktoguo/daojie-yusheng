@@ -359,6 +359,18 @@ async function main() {
   assert.equal(guardian.eyeX, 3);
   assert.equal(guardian.eyeY, 4);
   assert.equal(guardian.stats.radius, 1);
+  const restoredGuardian = service.restoreFormationEntry(instanceId, {
+    id: "formation:sect_guardian:restored",
+    formationId: "sect_guardian_barrier",
+    lifecycle: "persistent",
+    ownerSectId: "sect:smoke",
+    spiritStoneCount: 1,
+    remainingAuraBudget: 100000,
+    x: 8,
+    y: 8,
+    active: true,
+  });
+  assert.equal(restoredGuardian.stats.radius, 1);
   assert.equal(service.isBoundaryBarrierBlocked(instanceId, 9, 8, outsiderPlayerId), true);
   assert.equal(service.isBoundaryBarrierBlocked(instanceId, 9, 8, sectPlayerId), false);
   assert.equal(service.isBoundaryBarrierBlocked(instanceId, 9, 8, detachedOwnerPlayerId), false);

@@ -8,6 +8,7 @@ async function main(): Promise<void> {
   await testContainerTakeDurableGrant();
   await testContainerTakeAllDurableGrant();
   await testStartGatherSupportsColonInstanceId();
+  await testHydrateContainerStatesCanonicalizesLegacySource();
   await testHerbRefreshRegeneratesEntries();
   await testHerbRefreshAccumulatesExistingStock();
   await testHerbAttackConsumesSingleStockAndShowsRegrowthCountdown();
@@ -479,6 +480,34 @@ async function testStartGatherSupportsColonInstanceId() {
   assert.deepEqual(result.messages, [{ kind: 'info', text: '你开始采集 月露草。' }]);
   assert.equal(player.gatherJob?.resourceNodeId, container.id);
   assert.equal(player.gatherJob?.remainingTicks, 5);
+}
+
+async function testHydrateContainerStatesCanonicalizesLegacySource() {
+  const instanceId = 'public:yunlai_town';
+  const containerId = 'lm_old_shrine';
+  const service = new WorldRuntimeLootContainerService(
+    {} as never,
+    buildPlayerRuntimeService(buildPlayer('player:hydrate', instanceId, 'runtime:hydrate', 1)) as never,
+  );
+  service.hydrateContainerStates(instanceId, [{
+    sourceId: 'legacy:source:old_shrine',
+    containerId,
+    generatedAtTick: 7,
+    refreshAtTick: 77,
+    entries: [
+      {
+        item: { itemId: 'spirit_grass', count: 1 },
+        createdTick: 7,
+        visible: true,
+      },
+    ],
+  }]);
+
+  const persisted = service.buildContainerPersistenceStates(instanceId);
+  assert.equal(persisted.length, 1);
+  assert.equal(persisted[0]?.sourceId, `container:${instanceId}:${containerId}`);
+  assert.equal(persisted[0]?.containerId, containerId);
+  assert.equal(persisted[0]?.generatedAtTick, 7);
 }
 
 async function testHerbRefreshRegeneratesEntries() {

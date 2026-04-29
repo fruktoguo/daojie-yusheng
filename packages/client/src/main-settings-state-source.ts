@@ -145,10 +145,10 @@ export function createMainSettingsStateSource(options: MainSettingsStateSourceOp
 
   const requestRedeemCodes = (codes: string[]): Promise<AccountRedeemCodesRes> => {
     if (!options.isSocketConnected()) {
-      return Promise.reject(new Error('当前连接不可用，请稍后重试'));
+      return Promise.reject(new Error('气机未通，稍后再试'));
     }
     if (pendingRedeemCodesRequest) {
-      return Promise.reject(new Error('已有兑换请求正在处理中'));
+      return Promise.reject(new Error('尚有兑换未竟，稍候'));
     }
     return new Promise<AccountRedeemCodesRes>((resolve, reject) => {
       const timeoutId = window.setTimeout(() => {
@@ -156,7 +156,7 @@ export function createMainSettingsStateSource(options: MainSettingsStateSourceOp
           return;
         }
         pendingRedeemCodesRequest = null;
-        reject(new Error('兑换结果返回超时，请稍后查看背包或重试'));
+        reject(new Error('兑换未有回音，请稍后查看行囊'));
       }, REDEEM_RESULT_TIMEOUT_MS);
       pendingRedeemCodesRequest = { resolve, reject, timeoutId };
       options.sendRedeemCodes(codes);

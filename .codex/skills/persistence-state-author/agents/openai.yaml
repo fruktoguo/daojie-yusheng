@@ -1,4 +1,0 @@
-interface:
-  display_name: "Persistence State Author"
-  short_description: "设计持久化真源、缓存分层与下次仍在状态的完整闭环。"
-  default_prompt: "Use this skill to design or modify persistent state in this repo, including choosing database vs Redis vs cache roles, defining source of truth, and checking next-session durability."

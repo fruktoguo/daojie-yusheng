@@ -202,7 +202,7 @@ export class SuggestionPanel {
     detailModalHost.open({
       ownerId: SuggestionPanel.MODAL_OWNER,
       size: 'full',
-      title: '意见收集',
+      title: '道心反馈',
       subtitle: meta.subtitle,
       variantClass: 'detail-modal--suggestion',
       hint: '点击空白处关闭',
@@ -256,7 +256,7 @@ export class SuggestionPanel {
             <div class="suggestion-stat-note ui-stat-card-note">只展示你自己发起的意见与后续往来记录。</div>
           </div>
           <div class="suggestion-stat ui-stat-card">
-            <div class="suggestion-stat-label ui-stat-card-label">开发者未读回复</div>
+            <div class="suggestion-stat-label ui-stat-card-label">天道未读回音</div>
             <div class="suggestion-stat-value ui-stat-card-value" data-suggestion-summary-unread="true">${unreadCount}</div>
             <div class="suggestion-stat-note ui-stat-card-note">进入对应意见详情后，红点会随已读状态一并消失。</div>
           </div>
@@ -277,7 +277,7 @@ export class SuggestionPanel {
               </div>
             </div>
             <div class="suggestion-compose-actions ui-form-actions ui-action-row">
-              <div class="panel-subtext">提交后会实时同步给在线玩家与开发者管理侧。</div>
+              <div class="panel-subtext">提交后会并入天道回音。</div>
               <button id="btn-submit-suggest" class="small-btn" type="button">提交意见</button>
             </div>
           </section>
@@ -317,7 +317,7 @@ export class SuggestionPanel {
           <section class="panel-section suggestion-pane ui-surface-pane ui-surface-pane--stack">
             <div class="suggestion-pane-head ui-pane-head">
               <div class="panel-section-title">意见详情</div>
-              <div class="suggestion-pane-note ui-pane-note">单实例会话视图</div>
+              <div class="suggestion-pane-note ui-pane-note">回音卷宗</div>
             </div>
             <div class="suggestion-thread ui-scroll-panel" data-suggestion-thread="true" data-thread-kind="detail">
               ${selectedSuggestion ? this.renderSuggestionDetail(selectedSuggestion) : '<div class="empty-hint">请选择一条意见查看详情与回复记录</div>'}
@@ -363,8 +363,8 @@ export class SuggestionPanel {
         <div class="suggestion-entry-foot">
           <div class="suggestion-entry-mini-meta">
             <span>回复 ${suggestion.replies.length}</span>
-            <span>分值 ${score > 0 ? '+' : ''}${score}</span>
-            ${lastReply ? `<span>最新 ${escapeHtml(lastReply.authorType === 'gm' ? '开发者' : '发起人')}</span>` : '<span>暂无回复</span>'}
+            <span>认同 ${score > 0 ? '+' : ''}${score}</span>
+            ${lastReply ? `<span>最新 ${escapeHtml(lastReply.authorType === 'gm' ? '天道执掌' : '发起人')}</span>` : '<span>暂无回音</span>'}
           </div>
         </div>
       </article>
@@ -380,12 +380,12 @@ export class SuggestionPanel {
     const canReply = this.canCurrentPlayerReply(suggestion);
     const hasGmReply = suggestion.replies.some((reply) => reply.authorType === 'gm');
     const replyHint = canReply
-      ? '开发者已回复，你现在可以继续补充。'
+      ? '天道有回音，可续写。'
       : suggestion.authorId === this.playerId
         ? hasGmReply
-          ? '等待开发者再次回复后，你才能继续追加下一条。'
-          : '这条意见需要先等开发者回复后，才能继续追加补充。'
-        : '只有发起人可在开发者回复后继续补充。';
+          ? '待候天道，再有回音可续。'
+          : '尚未得天道回音，先静候。'
+        : '仅发起者可在天道回音后续写。';
 
     return `
       <div class="suggestion-thread-head">
@@ -398,7 +398,7 @@ export class SuggestionPanel {
           </div>
         </div>
         <div class="suggestion-score ${score > 0 ? 'positive' : score < 0 ? 'negative' : ''}">
-          分值: ${score > 0 ? '+' : ''}${score}
+          认同: ${score > 0 ? '+' : ''}${score}
         </div>
       </div>
       <div class="suggestion-thread-desc ui-surface-card ui-surface-card--compact">${escapeHtml(suggestion.description)}</div>
@@ -411,25 +411,25 @@ export class SuggestionPanel {
         </button>
       </div>
       <div class="suggestion-thread-replies">
-        <div class="suggestion-thread-section-title">回复记录</div>
+        <div class="suggestion-thread-section-title">回音记录</div>
         ${suggestion.replies.length > 0
           ? suggestion.replies.map((reply) => this.renderReply(reply)).join('')
-          : '<div class="empty-hint">开发者还没有回复这条意见</div>'}
+          : '<div class="empty-hint">尚未得天道回音</div>'}
       </div>
       ${isAuthor ? `
         <div class="suggestion-thread-reply-box">
-          <div class="suggestion-thread-section-title">继续补充</div>
+          <div class="suggestion-thread-section-title">续写回音</div>
           <div class="suggestion-pane-note ui-pane-note">${escapeHtml(replyHint)}</div>
           <textarea
             id="suggest-reply-content"
             class="suggestion-reply-textarea"
             maxlength="500"
-            placeholder="${escapeHtmlAttr(canReply ? '补充你的问题场景、截图描述或验收预期' : '当前不可补充')}"
+            placeholder="${escapeHtmlAttr(canReply ? '补充情景、描述或期盼' : '当前不可补充')}"
             ${canReply ? '' : 'disabled'}
           >${escapeHtml(this.replyDraft)}</textarea>
           <div class="suggestion-compose-actions ui-form-actions">
-            <div class="panel-subtext">补充内容会追加到当前意见会话，不会单独生成新意见。</div>
-            <button id="btn-submit-suggest-reply" class="small-btn" type="button" ${canReply ? '' : 'disabled'}>发送补充</button>
+            <div class="panel-subtext">补充内容会追加到当前意见，不会单独生成新意见。</div>
+            <button id="btn-submit-suggest-reply" class="small-btn" type="button" ${canReply ? '' : 'disabled'}>送出回音</button>
           </div>
         </div>
       ` : ''}
@@ -438,7 +438,7 @@ export class SuggestionPanel {
 
   /** renderReply：渲染回复。 */
   private renderReply(reply: SuggestionReply): string {
-    const roleLabel = reply.authorType === 'gm' ? '开发者' : '发起人';
+    const roleLabel = reply.authorType === 'gm' ? '天道执掌' : '发起人';
     return `
       <article class="suggestion-reply-entry ui-surface-card ui-surface-card--compact ${reply.authorType === 'gm' ? 'gm' : 'author'}">
         <div class="suggestion-reply-head">
@@ -484,7 +484,7 @@ export class SuggestionPanel {
       detailModalHost.open({
         ownerId: SuggestionPanel.MODAL_OWNER,
         size: 'full',
-        title: '意见收集',
+        title: '道心反馈',
         subtitle: meta.subtitle,
         variantClass: 'detail-modal--suggestion',
         hint: '点击空白处关闭',
@@ -575,7 +575,7 @@ export class SuggestionPanel {
   /** buildSubtitle：构建Subtitle。 */
   private buildSubtitle(): string {
     const myUnreadCount = this.getMySuggestions().filter((suggestion) => this.hasUnreadGmReply(suggestion)).length;
-    return `待处理 ${this.suggestions.filter((suggestion) => suggestion.status === 'pending').length} · 我的意见 ${this.getMySuggestions().length} · 未读回复 ${myUnreadCount}`;
+    return `待处理 ${this.suggestions.filter((suggestion) => suggestion.status === 'pending').length} · 我的意见 ${this.getMySuggestions().length} · 未读回音 ${myUnreadCount}`;
   }
 
   /** buildModalMeta：构建弹窗元数据。 */
@@ -698,7 +698,7 @@ export class SuggestionPanel {
       const title = this.draftTitle.trim();
       const description = this.draftDescription.trim();
       if (!title) {
-        alert('请输入标题');
+        alert('请输入建议标题');
         return;
       }
       if (!description) {
@@ -728,11 +728,11 @@ export class SuggestionPanel {
         return;
       }
       if (!content) {
-        alert('请输入回复内容');
+        alert('请输入回音内容');
         return;
       }
       if (!this.canCurrentPlayerReply(selectedSuggestion)) {
-        alert('当前还不能回复，请等待开发者回复后再补充。');
+        alert('天道执掌尚未回音，且候。');
         return;
       }
       this.socket.sendReplySuggestion(selectedSuggestion.id, content);

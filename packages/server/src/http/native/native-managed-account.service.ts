@@ -53,6 +53,15 @@ interface ManagedAccountRecord {
  */
 
   currentOnlineStartedAt: string | null;
+  registerIp: string | null;
+  lastLoginIp: string | null;
+  lastLoginAt: string | null;
+  registerDeviceId: string | null;
+  lastLoginDeviceId: string | null;
+  lastUserAgent: string | null;
+  bannedAt: string | null;
+  banReason: string | null;
+  bannedBy: string | null;
 }
 /**
  * ManagedAccountUpdateResult：定义接口结构约束，明确可交付字段含义。
@@ -166,6 +175,15 @@ export class NativeManagedAccountService {
         createdAt: user.createdAt,
         totalOnlineSeconds: user.totalOnlineSeconds,
         currentOnlineStartedAt: user.currentOnlineStartedAt,
+        registerIp: user.registerIp,
+        lastLoginIp: user.lastLoginIp,
+        lastLoginAt: user.lastLoginAt,
+        registerDeviceId: user.registerDeviceId,
+        lastLoginDeviceId: user.lastLoginDeviceId,
+        lastUserAgent: user.lastUserAgent,
+        bannedAt: user.bannedAt,
+        banReason: user.banReason,
+        bannedBy: user.bannedBy,
       });
     }
     return result;
@@ -242,6 +260,30 @@ export class NativeManagedAccountService {
     };
   }
 
+  /** GM 快捷封禁托管账号，封禁状态落在账号真源表。 */
+  async banManagedPlayerAccount(playerId: string, reason: string, bannedBy = 'gm'): Promise<void> {
+    const user = await this.requireManagedUser(playerId);
+    await this.authStore.saveUser({
+      ...user,
+      bannedAt: new Date().toISOString(),
+      banReason: normalizeModerationReason(reason),
+      bannedBy: normalizeModerationActor(bannedBy),
+      updatedAt: Date.now(),
+    });
+  }
+
+  /** GM 快捷解封托管账号。 */
+  async unbanManagedPlayerAccount(playerId: string): Promise<void> {
+    const user = await this.requireManagedUser(playerId);
+    await this.authStore.saveUser({
+      ...user,
+      bannedAt: null,
+      banReason: null,
+      bannedBy: null,
+      updatedAt: Date.now(),
+    });
+  }
+
   /** 确认托管目标存在，否则直接返回可读错误。 */
   private async requireManagedUser(playerId: string): Promise<NativePlayerAuthUser> {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
@@ -289,4 +331,14 @@ export class NativeManagedAccountService {
       displayName: resolveDisplayName(user.displayName, user.username),
     });
   }
+}
+
+function normalizeModerationReason(reason: string): string {
+  const normalized = typeof reason === 'string' ? reason.trim() : '';
+  return (normalized || 'GM 风险复核封禁').slice(0, 255);
+}
+
+function normalizeModerationActor(actor: string): string {
+  const normalized = typeof actor === 'string' ? actor.trim() : '';
+  return (normalized || 'gm').slice(0, 64);
 }

@@ -102,6 +102,7 @@ export const NUMERIC_TOOLTIP_DESCRIPTIONS: Partial<Record<NumericCardKey, string
 
 export const PLAYER_SPECIAL_TOOLTIP_LABELS: Record<PlayerSpecialCardKey, string> = {
   foundation: '底蕴',
+  rootFoundation: '根基',
   combatExp: '战斗经验',
   comprehension: '悟性',
   luck: '幸运',
@@ -109,6 +110,7 @@ export const PLAYER_SPECIAL_TOOLTIP_LABELS: Record<PlayerSpecialCardKey, string>
 
 export const PLAYER_SPECIAL_TOOLTIP_DESCRIPTIONS: Record<PlayerSpecialCardKey, string> = {
   foundation: '在能够获得境界修为时，优先把本次境界修为抬高到三倍上限；实际额外补上的部分会等量消耗底蕴。',
+  rootFoundation: '每点根基提供 1% 六维境界乘区，可在境界圆满时消耗当前境界整条修为和对应材料凝练。',
   combatExp: '通过战斗获得的境界修为会一比一累计到战斗经验，并按双方差距影响攻击时的命中、受击时的闪避（两者最高翻倍），以及普通攻击 50% 到 200% 的独立伤害乘区。',
   comprehension: '提高境界修为与功法经验获取；不作为六维参与基础属性换算。',
   luck: '提高常规掉落与稀有掉落收益；不再提供命中、闪避、暴击等战斗属性。',

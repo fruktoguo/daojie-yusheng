@@ -434,7 +434,7 @@ export function bindMainStartup(options: MainStartupBindingsOptions): void {
   });
 
   options.debugPanel.setCallbacks(() => {
-    options.showToast('已发送回出生点请求');
+    options.showToast('正返回诞生之地...');
     options.adminSender.sendDebugResetSpawn();
   });
 

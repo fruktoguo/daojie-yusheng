@@ -242,7 +242,7 @@ export class WorldPanel {
         <button class="tianji-action-card" data-world-tianji-action="leaderboard" type="button">
           <div>
             <div class="tianji-action-title">排行榜</div>
-            <div class="tianji-action-desc">查看境界、击杀、灵石、死亡、炼体与四维最强榜单。</div>
+            <div class="tianji-action-desc">查看境界、击杀、灵石、死亡、炼体、六维最强与宗门榜单。</div>
           </div>
           <div class="tianji-action-arrow">查看</div>
         </button>

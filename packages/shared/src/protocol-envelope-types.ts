@@ -6,6 +6,7 @@ import type {
   LeaderboardPlayerKillEntry,
   LeaderboardPlayerLocationEntry,
   LeaderboardRealmEntry,
+  LeaderboardSectEntry,
   LeaderboardSpiritStoneEntry,
   LeaderboardSupremeAttrEntry,
   LeaderboardWorldSummary,
@@ -66,12 +67,17 @@ export interface LeaderboardView {
  * bodyTraining：bodyTraining相关字段。
  */
 
-    bodyTraining: LeaderboardBodyTrainingEntry[];    
+    bodyTraining: LeaderboardBodyTrainingEntry[];
     /**
  * supremeAttrs：supremeAttr相关字段。
  */
 
     supremeAttrs: LeaderboardSupremeAttrEntry[];
+    /**
+ * sects：宗门排行榜字段。
+ */
+
+    sects: LeaderboardSectEntry[];
   };
 }
 

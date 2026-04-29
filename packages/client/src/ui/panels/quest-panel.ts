@@ -138,9 +138,7 @@ export class QuestPanel {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
     this.currentMapId = mapId;
-    if (!this.patchModal()) {
-      this.renderModal();
-    }
+    this.patchModal();
   }
 
   /** syncInventory：同步背包。 */
@@ -154,9 +152,7 @@ export class QuestPanel {
     if (!this.patchList()) {
       this.renderList();
     }
-    if (!this.patchModal()) {
-      this.renderModal();
-    }
+    this.patchModal();
   }
 
   /** 更新任务列表并刷新列表与弹层 */
@@ -168,9 +164,7 @@ export class QuestPanel {
     if (!this.patchList()) {
       this.renderList();
     }
-    if (!this.patchModal()) {
-      this.renderModal();
-    }
+    this.patchModal();
   }
 
   /** initFromPlayer：初始化From玩家。 */
@@ -283,7 +277,7 @@ export class QuestPanel {
         this.activeLine = line;
         this.selectedQuestId = undefined;
         this.renderList();
-        this.renderModal();
+        this.patchModal();
         return;
       }
 
@@ -294,7 +288,7 @@ export class QuestPanel {
       const questId = questButton.dataset.questId;
       if (!questId) return;
       this.selectedQuestId = questId;
-      this.renderModal();
+      this.openQuestModal();
     });
   }
 
@@ -482,8 +476,8 @@ export class QuestPanel {
     }
   }
 
-  /** renderModal：渲染弹窗。 */
-  private renderModal(): void {
+  /** openQuestModal：打开任务详情弹窗。 */
+  private openQuestModal(): void {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
     if (!this.selectedQuestId) {
@@ -517,7 +511,7 @@ export class QuestPanel {
       title: quest.title,
       subtitle: `${getQuestLineLabel(quest.line)} · ${getQuestStatusLabel(quest.status)}`,
       renderBody: (body) => {
-        this.renderModalBody(body, quest, canNavigateQuest, giverLocation, targetLocation, submitLocation, navigateLabel);
+        this.renderQuestModalBody(body, quest, canNavigateQuest, giverLocation, targetLocation, submitLocation, navigateLabel);
       },
       onClose: () => {
         this.selectedQuestId = undefined;
@@ -536,8 +530,8 @@ export class QuestPanel {
     });
   }
 
-  /** renderModalBody：渲染任务详情主体。 */
-  private renderModalBody(
+  /** renderQuestModalBody：渲染任务详情主体。 */
+  private renderQuestModalBody(
     body: HTMLElement,
     quest: QuestState,
     canNavigateQuest: boolean,

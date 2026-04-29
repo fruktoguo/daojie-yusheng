@@ -87,7 +87,7 @@ function resolveTileResourceGainLabel(resourceKey: string): string {
     return `当前地块资源 ${resourceKey}`;
   }
   if (parsed.family === 'aura' && parsed.form === 'refined' && parsed.element === 'neutral') {
-    return '当前地块灵力';
+    return '所处之地灵力';
   }
   const familyLabel = resolveQiFamilyLabel(parsed.family);
   const elementLabel = resolveQiElementLabel(parsed.element);
@@ -269,9 +269,9 @@ function buildEffectSummary(effect: EquipmentEffectDef): {
     case 'periodic_cost': {
       const modeLabel = effect.mode === 'flat'
         ? `${formatDisplayNumber(effect.value)}`
-        : effect.mode === 'max_ratio_bp'
-          ? `${formatDisplayPercent(effect.value / 100)} 最大${effect.resource === 'hp' ? '生命' : '灵力'}`
-          : `${formatDisplayPercent(effect.value / 100)} 当前${effect.resource === 'hp' ? '生命' : '灵力'}`;
+      : effect.mode === 'max_ratio_bp'
+          ? `${formatDisplayPercent(effect.value / 100)} 最大${effect.resource === 'hp' ? '气血' : '灵力'}`
+          : `${formatDisplayPercent(effect.value / 100)} 当前${effect.resource === 'hp' ? '气血' : '灵力'}`;
       return {
         lines: [
           renderPlainLine('持续代价', `${effect.trigger === 'on_cultivation_tick' ? '修炼时每息' : '每息'}损失 ${modeLabel}`),
@@ -507,7 +507,7 @@ function buildConsumableEffectDetails(item: ItemStack, itemCooldown?: ItemToolti
       lines.push(`立即效果：${resolveTileResourceGainLabel(gain.resourceKey)} +${formatDisplayInteger(gain.amount)}`);
     }
   } else if (typeof previewItem.tileAuraGainAmount === 'number' && previewItem.tileAuraGainAmount > 0) {
-    lines.push(`立即效果：当前地块灵力 +${formatDisplayInteger(previewItem.tileAuraGainAmount)}`);
+    lines.push(`立即效果：所处之地灵力 +${formatDisplayInteger(previewItem.tileAuraGainAmount)}`);
   }
   if (previewItem.mapUnlockId || (previewItem.mapUnlockIds?.length ?? 0) > 0) {
     lines.push('使用效果：永久解锁对应地图');
@@ -599,7 +599,7 @@ function buildTechniqueBookTooltipLines(item: ItemStack): string[] {
     .filter((name) => name.length > 0);
   return [
     renderPlainLine('功法', technique.name),
-    renderPlainLine('描述', item.desc?.trim() || '暂无描述'),
+    renderPlainLine('描述', item.desc?.trim() || '此物无言'),
     renderPlainLine('境界', realmLabel),
     renderPlainLine('品阶', getTechniqueGradeLabel(technique.grade)),
     renderPlainLine('满层属性', formatTechniqueCumulativeBonusSummary(maxLevel, technique.layers)),

@@ -384,7 +384,7 @@ function solveLinearSystem(matrix: number[][], vector: number[]): number[] {
     }
 
     if (Math.abs(a[pivot][col]) < 1e-12) {
-      throw new Error('强化期望值方程求解失败：矩阵奇异。');
+      throw new Error('强化推演失败');
     }
 
     if (pivot !== col) {
@@ -415,6 +415,5 @@ function solveLinearSystem(matrix: number[][], vector: number[]): number[] {
 
   return b;
 }
-
 
 

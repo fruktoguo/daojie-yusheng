@@ -371,10 +371,16 @@ function resolvePreviewTechniqueLayers(
     const legacySpecialStats = resolveLegacyLayerSpecialStats(layer.attrs);
     return {
       ...layer,
-      attrs: cloneLayerAttrsWithoutSpecialStats(layer.attrs),
+      expToNext: templateLayer?.expToNext ?? layer.expToNext,
+      attrs: templateLayer?.attrs
+        ? { ...templateLayer.attrs }
+        : cloneLayerAttrsWithoutSpecialStats(layer.attrs),
       specialStats: layer.specialStats
         ? { ...layer.specialStats }
         : legacySpecialStats ?? (templateLayer?.specialStats ? { ...templateLayer.specialStats } : undefined),
+      qiProjection: templateLayer?.qiProjection
+        ? templateLayer.qiProjection.map((entry) => ({ ...entry }))
+        : layer.qiProjection?.map((entry) => ({ ...entry })),
     };
   });
 }

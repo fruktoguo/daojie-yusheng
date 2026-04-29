@@ -40,7 +40,7 @@ const PLAYER_DOMAIN_BIGINT_COLUMNS_BY_TABLE = {
   [PLAYER_WORLD_ANCHOR_TABLE]: ['respawn_x', 'respawn_y', 'last_safe_x', 'last_safe_y'],
   [PLAYER_POSITION_CHECKPOINT_TABLE]: ['x', 'y', 'facing'],
   [PLAYER_VITALS_TABLE]: ['hp', 'max_hp', 'qi', 'max_qi'],
-  [PLAYER_PROGRESSION_CORE_TABLE]: ['foundation', 'combat_exp', 'bone_age_base_years', 'lifespan_years'],
+  [PLAYER_PROGRESSION_CORE_TABLE]: ['foundation', 'root_foundation', 'combat_exp', 'bone_age_base_years', 'lifespan_years'],
   [PLAYER_BODY_TRAINING_STATE_TABLE]: ['level', 'exp', 'exp_to_next'],
   [PLAYER_MARKET_STORAGE_ITEM_TABLE]: ['slot_index', 'count', 'enhance_level'],
   [PLAYER_TECHNIQUE_STATE_TABLE]: ['level', 'exp', 'exp_to_next', 'realm_lv'],
@@ -213,6 +213,7 @@ export interface PlayerVitalsUpsertInput {
 
 export interface PlayerProgressionCoreUpsertInput {
   foundation: number;
+  rootFoundation?: number;
   combatExp: number;
   boneAgeBaseYears: number;
   lifeElapsedTicks: number;
@@ -415,6 +416,7 @@ interface PlayerVitalsLoadRow {
 
 interface PlayerProgressionCoreLoadRow {
   foundation?: unknown;
+  root_foundation?: unknown;
   combat_exp?: unknown;
   bone_age_base_years?: unknown;
   life_elapsed_ticks?: unknown;
@@ -1196,6 +1198,7 @@ export class PlayerDomainPersistenceService implements OnModuleInit, OnModuleDes
         `
           SELECT
             foundation,
+            root_foundation,
             combat_exp,
             bone_age_base_years,
             life_elapsed_ticks,
@@ -1729,6 +1732,7 @@ export async function savePlayerSnapshotProjectionWithClient(
   const vitalsQi = normalizeMinimumInteger(vitals?.qi, 0, 0);
   const vitalsMaxQi = normalizeMinimumInteger(vitals?.maxQi, 0, 0);
   const foundation = normalizeMinimumInteger(progression?.foundation, 0, 0);
+  const rootFoundation = normalizeMinimumInteger(progression?.rootFoundation, 0, 0);
   const combatExp = normalizeMinimumInteger(progression?.combatExp, 0, 0);
   const boneAgeBaseYears = normalizeMinimumInteger(progression?.boneAgeBaseYears, 18, 0);
   const lifeElapsedTicks = normalizeMinimumInteger(progression?.lifeElapsedTicks, 0, 0);
@@ -1812,16 +1816,18 @@ export async function savePlayerSnapshotProjectionWithClient(
       INSERT INTO ${PLAYER_PROGRESSION_CORE_TABLE}(
         player_id,
         foundation,
+        root_foundation,
         combat_exp,
         bone_age_base_years,
         life_elapsed_ticks,
         lifespan_years,
         updated_at
       )
-      VALUES ($1, $2, $3, $4, $5, $6, now())
+      VALUES ($1, $2, $3, $4, $5, $6, $7, now())
       ON CONFLICT (player_id)
       DO UPDATE SET
         foundation = EXCLUDED.foundation,
+        root_foundation = EXCLUDED.root_foundation,
         combat_exp = EXCLUDED.combat_exp,
         bone_age_base_years = EXCLUDED.bone_age_base_years,
         life_elapsed_ticks = EXCLUDED.life_elapsed_ticks,
@@ -1831,6 +1837,7 @@ export async function savePlayerSnapshotProjectionWithClient(
     [
       normalizedPlayerId,
       foundation,
+      rootFoundation,
       combatExp,
       boneAgeBaseYears,
       lifeElapsedTicks,
@@ -1994,6 +2001,7 @@ export async function savePlayerSnapshotProjectionDomainsWithClient(
   if (rawDomains.has('progression')) {
     await replacePlayerProgressionCore(client, normalizedPlayerId, {
       foundation: normalizeMinimumInteger(progression?.foundation, 0, 0),
+      rootFoundation: normalizeMinimumInteger(progression?.rootFoundation, 0, 0),
       combatExp: normalizeMinimumInteger(progression?.combatExp, 0, 0),
       boneAgeBaseYears: normalizeMinimumInteger(progression?.boneAgeBaseYears, 18, 0),
       lifeElapsedTicks: normalizeMinimumInteger(progression?.lifeElapsedTicks, 0, 0),
@@ -2275,16 +2283,18 @@ async function replacePlayerProgressionCore(
       INSERT INTO ${PLAYER_PROGRESSION_CORE_TABLE}(
         player_id,
         foundation,
+        root_foundation,
         combat_exp,
         bone_age_base_years,
         life_elapsed_ticks,
         lifespan_years,
         updated_at
       )
-      VALUES ($1, $2, $3, $4, $5, $6, now())
+      VALUES ($1, $2, $3, $4, $5, $6, $7, now())
       ON CONFLICT (player_id)
       DO UPDATE SET
         foundation = EXCLUDED.foundation,
+        root_foundation = EXCLUDED.root_foundation,
         combat_exp = EXCLUDED.combat_exp,
         bone_age_base_years = EXCLUDED.bone_age_base_years,
         life_elapsed_ticks = EXCLUDED.life_elapsed_ticks,
@@ -2294,6 +2304,7 @@ async function replacePlayerProgressionCore(
     [
       playerId,
       normalizeMinimumInteger(row.foundation, 0, 0),
+      normalizeMinimumInteger(row.rootFoundation, 0, 0),
       normalizeMinimumInteger(row.combatExp, 0, 0),
       normalizeMinimumInteger(row.boneAgeBaseYears, 18, 0),
       normalizeMinimumInteger(row.lifeElapsedTicks, 0, 0),
@@ -2381,12 +2392,17 @@ export async function ensurePlayerDomainTablesWithClient(client: PoolClient): Pr
     CREATE TABLE IF NOT EXISTS ${PLAYER_PROGRESSION_CORE_TABLE} (
       player_id varchar(100) PRIMARY KEY,
       foundation bigint NOT NULL DEFAULT 0,
+      root_foundation bigint NOT NULL DEFAULT 0,
       combat_exp bigint NOT NULL DEFAULT 0,
       bone_age_base_years bigint NOT NULL DEFAULT 18,
       life_elapsed_ticks bigint NOT NULL DEFAULT 0,
       lifespan_years bigint,
       updated_at timestamptz NOT NULL DEFAULT now()
     )
+  `);
+  await client.query(`
+    ALTER TABLE ${PLAYER_PROGRESSION_CORE_TABLE}
+    ADD COLUMN IF NOT EXISTS root_foundation bigint NOT NULL DEFAULT 0
   `);
   await client.query(`
     CREATE TABLE IF NOT EXISTS ${PLAYER_ATTR_STATE_TABLE} (
@@ -4629,6 +4645,11 @@ function applyProjectedProgressionCore(
   snapshot.progression.foundation = normalizeMinimumInteger(
     row.foundation,
     snapshot.progression.foundation,
+    0,
+  );
+  snapshot.progression.rootFoundation = normalizeMinimumInteger(
+    row.root_foundation,
+    snapshot.progression.rootFoundation,
     0,
   );
   snapshot.progression.combatExp = normalizeMinimumInteger(

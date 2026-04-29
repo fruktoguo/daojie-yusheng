@@ -82,9 +82,9 @@ const TUTORIAL_MAIN_TABS: Array<{
  * label：label名称或显示文本。
  */
  label: string }> = [
-  { id: 'operations', label: '基础操作' },
-  { id: 'mechanics', label: '机制' },
-  { id: 'flow', label: '流程指导' },
+  { id: 'operations', label: '入门' },
+  { id: 'mechanics', label: '法则' },
+  { id: 'flow', label: '指引' },
 ];
 
 /** escapeHtml：转义 HTML 文本中的危险字符。 */
@@ -185,7 +185,7 @@ export class TutorialPanel {
       size: 'wide',
       variantClass: 'detail-modal--tutorial',
       title: '简易教程',
-      subtitle: '把常用玩法讲明白，迷路时回来翻一眼就够用。',
+      subtitle: '初涉仙途指引，迷途时可回此翻阅。',
       hint: '点击空白处关闭',
       renderBody: (body) => {
         this.renderBody(body);
@@ -216,7 +216,7 @@ export class TutorialPanel {
             aria-hidden="${this.activeMainTabId === 'operations' ? 'false' : 'true'}"
           >
             <div class="tutorial-modal-shell ui-split-panel-shell">
-              <div class="tutorial-modal-tabs ui-split-panel-tabs" role="tablist" aria-orientation="vertical" aria-label="基础操作目录">
+              <div class="tutorial-modal-tabs ui-split-panel-tabs" role="tablist" aria-orientation="vertical" aria-label="入门目录">
                 ${TUTORIAL_TOPICS.map((topic) => this.renderTab(topic)).join('')}
               </div>
               <div class="tutorial-modal-content ui-split-panel-content">
@@ -231,7 +231,7 @@ export class TutorialPanel {
             aria-hidden="${this.activeMainTabId === 'mechanics' ? 'false' : 'true'}"
           >
             <div class="tutorial-modal-shell ui-split-panel-shell">
-              <div class="tutorial-modal-tabs ui-split-panel-tabs" role="tablist" aria-orientation="vertical" aria-label="机制目录">
+              <div class="tutorial-modal-tabs ui-split-panel-tabs" role="tablist" aria-orientation="vertical" aria-label="法则目录">
                 ${TUTORIAL_MECHANIC_TOPICS.map((topic) => this.renderMechanicTab(topic)).join('')}
               </div>
               <div class="tutorial-modal-content ui-split-panel-content">
@@ -377,13 +377,13 @@ export class TutorialPanel {
   private renderFlowGuide(): string {
     return `
       <div class="tutorial-pane-hero tutorial-pane-hero--flow">
-        <div class="tutorial-pane-kicker">流程指导</div>
+        <div class="tutorial-pane-kicker">指引</div>
         <div class="tutorial-pane-summary">
-          把常见问题按场景拆开了。你现在卡在哪一步，就直接切到对应 tab 看结论，不用从头翻完整攻略。
+          常惑按景分列。困于何处，便切何处观之，无需通览。
         </div>
       </div>
       <div class="tutorial-flow-shell ui-split-panel-shell">
-        <div class="tutorial-flow-tabs ui-split-panel-tabs" role="tablist" aria-label="流程指导目录">
+        <div class="tutorial-flow-tabs ui-split-panel-tabs" role="tablist" aria-label="指引目录">
           ${TUTORIAL_FLOW_TOPICS.map((topic) => this.renderFlowTab(topic)).join('')}
         </div>
         <div class="tutorial-flow-content ui-split-panel-content">

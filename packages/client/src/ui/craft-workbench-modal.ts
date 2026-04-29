@@ -1077,7 +1077,7 @@ export class CraftWorkbenchModal {
     const visibleRecipes = this.getVisibleAlchemyRecipes();
     const selectedRecipe = this.getSelectedAlchemyRecipe();
     if (visibleRecipes.length === 0) {
-      return `<div class="alchemy-recipe-list-empty">${escapeHtml(this.loading ? '丹方与炉中状态同步中……' : (this.alchemyPanel?.error ?? '当前分类下还没有可炼制的丹方。'))}</div>`;
+      return `<div class="alchemy-recipe-list-empty">${escapeHtml(this.loading ? '丹方与炉火查探中...' : (this.alchemyPanel?.error ?? '当前分类下还没有可炼制的丹方。'))}</div>`;
     }
     return visibleRecipes
       .map((recipe) => this.renderAlchemyRecipeItem(recipe, recipe.recipeId === selectedRecipe?.recipeId))
@@ -1091,7 +1091,7 @@ export class CraftWorkbenchModal {
       ? state?.presets.filter((preset) => preset.recipeId === selectedRecipe.recipeId) ?? []
       : [];
     if (!selectedRecipe) {
-      return `<div class="alchemy-recipe-list-empty">${escapeHtml(this.loading ? '丹方与炉中状态同步中……' : (this.alchemyPanel?.error ?? '当前没有可用丹方。'))}</div>`;
+      return `<div class="alchemy-recipe-list-empty">${escapeHtml(this.loading ? '丹方与炉火查探中...' : (this.alchemyPanel?.error ?? '当前没有可用丹方。'))}</div>`;
     }
     return this.activeAlchemyTab === 'full'
       ? this.renderAlchemyFullTab(selectedRecipe)
@@ -1512,9 +1512,9 @@ export class CraftWorkbenchModal {
         </div>
         <div class="alchemy-action-note">${escapeHtml(
           state?.job
-            ? '当前已有炼丹任务在进行中；新任务可通过确认弹窗加入当前制造队列。'
+            ? '炉火正旺，新丹方确认后即入队列。'
             : maxQuantity > 0
-              ? `点击炼制后选择数量，当前最多可炼 ${maxQuantity} 炉；每炉固定 ${this.getAlchemyBatchOutputCount(recipe)} 枚，起炉 ${ALCHEMY_PREPARATION_TICKS} 息后自动开炼。`
+              ? `择量开炉，至多 ${maxQuantity} 炉，每炉 ${this.getAlchemyBatchOutputCount(recipe)} 枚，起炉 ${ALCHEMY_PREPARATION_TICKS} 息。`
               : '材料或灵石不足，当前无法开炉。',
         )}</div>
         ${options?.exactRecipe ? '<span class="alchemy-inline-note">当前投料已等同完整丹方。</span>' : ''}
@@ -1560,7 +1560,7 @@ export class CraftWorkbenchModal {
     const sourceLabel = selected
       ? (selected.ref.source === 'equipment'
         ? `已装备 · ${getEquipSlotLabel(selected.ref.slot ?? 'weapon')}`
-        : `背包槽位 ${formatDisplayInteger((selected.ref.slotIndex ?? 0) + 1)}`)
+        : `行囊第 ${formatDisplayInteger((selected.ref.slotIndex ?? 0) + 1)} 格`)
       : '尚未选择';
     return `
       <div class="enhancement-target-slot-card">
@@ -1592,7 +1592,7 @@ export class CraftWorkbenchModal {
                 <span class="enhancement-picker-cell-meta">当前 +${formatDisplayInteger(entry.currentLevel)} · 下一阶 +${formatDisplayInteger(entry.nextLevel)}</span>
                 <span class="enhancement-picker-cell-meta">${escapeHtml(entry.ref.source === 'equipment'
                   ? `装备栏 · ${getEquipSlotLabel(entry.ref.slot ?? 'weapon')}`
-                  : `背包槽位 ${formatDisplayInteger((entry.ref.slotIndex ?? 0) + 1)}`)}</span>
+                  : `行囊第 ${formatDisplayInteger((entry.ref.slotIndex ?? 0) + 1)} 格`)}</span>
               </button>
             `).join('')}
           </div>
@@ -1607,14 +1607,14 @@ export class CraftWorkbenchModal {
       label: entry.item.name ?? entry.item.itemId,
       meta: entry.ref.source === 'equipment'
         ? getEquipSlotLabel(entry.ref.slot ?? 'weapon')
-        : `背包槽位 ${(entry.ref.slotIndex ?? 0) + 1} · 数量 ${entry.item.count}`,
+        : `行囊第 ${(entry.ref.slotIndex ?? 0) + 1} 格 · ${entry.item.count} 件`,
     }));
     const canSelfProtection = selected.allowSelfProtection && selected.ref.source === 'inventory' && Math.max(0, Math.floor(selected.item.count ?? 0)) > 1;
     if (canSelfProtection) {
       protectionOptions.unshift({
         value: 'self',
         label: '同槽同类自保',
-        meta: '消耗当前槽位同名装备',
+        meta: '消耗同栏同名之器',
       });
     }
     return `
@@ -1644,7 +1644,7 @@ export class CraftWorkbenchModal {
             <div class="enhancement-protection-note">${selected.protectionItemName ?? selected.protectionItemId ?? '未配置独立保护物，当前仅展示可选保护候选。'}</div>
             <label class="enhancement-protection-option">
               <input type="radio" name="enhancement-protection" value="" checked>
-              <span>不使用保护</span>
+              <span>无保护</span>
             </label>
             ${protectionOptions.length > 0
               ? protectionOptions.map((option) => `
@@ -1700,8 +1700,8 @@ export class CraftWorkbenchModal {
                 <strong>${formatTicks(selected.durationTicks)}</strong>
               </div>
               <div class="enhancement-summary-metric">
-                <span>保护模式</span>
-                <strong>${protectionOptions.length > 0 ? '可启用' : '未启用'}</strong>
+                <span>护器</span>
+                <strong>${protectionOptions.length > 0 ? '已启' : '未启'}</strong>
               </div>
             </div>
           </div>
@@ -1862,7 +1862,7 @@ export class CraftWorkbenchModal {
                 <div class="enhancement-history-entry-meta">最高 +${formatDisplayInteger(record.highestLevel)} · ${escapeHtml(formatEnhancementRecordStatus(record.status))}</div>
                 <div class="enhancement-history-detail-note">${record.levels.length > 0
                   ? record.levels.map((entry) => `+${formatDisplayInteger(entry.targetLevel)} 成 ${formatDisplayInteger(entry.successCount)} · 败 ${formatDisplayInteger(entry.failureCount)}`).join(' · ')
-                  : '暂无分阶记录'}</div>
+                  : '尚无分阶'}</div>
               </div>
             `).join('')}
           </div>
@@ -2108,7 +2108,7 @@ export class CraftWorkbenchModal {
     const errorText = maxQuantity <= 0
       ? '材料或灵石不足，当前无法开炉。'
       : quantity === null
-        ? '请输入正确的炼制数量。'
+        ? '炼制数量有误'
         : quantity > maxQuantity
           ? `当前最多可炼 ${maxQuantity} 炉。`
           : null;
@@ -2179,7 +2179,7 @@ export class CraftWorkbenchModal {
             <strong data-alchemy-confirm-total-ticks="true">${state.totalTicks === null ? '--' : state.totalTicks} 息</strong>
           </div>
         </div>
-        <div class="market-action-hint" data-alchemy-confirm-hint="true">当前最多可炼 ${escapeHtml(String(state.maxQuantity))} 炉；每炉固定 ${escapeHtml(String(this.getAlchemyBatchOutputCount(recipe)))} 枚并按单枚独立判定，确认后会先准备 ${ALCHEMY_PREPARATION_TICKS} 息；移动或出手都会打断炼丹。</div>
+        <div class="market-action-hint" data-alchemy-confirm-hint="true">${escapeHtml(`至多 ${String(state.maxQuantity)} 炉，炉产 ${String(this.getAlchemyBatchOutputCount(recipe))} 枚，备炉 ${String(ALCHEMY_PREPARATION_TICKS)} 息。动则断炼。`)}</div>
         <div class="craft-start-mode-row">
           <button class="small-btn" data-alchemy-confirm-start-mode="replace" type="button" ${state.startDisabled ? 'disabled' : ''}>开始</button>
           <button class="small-btn ghost" data-alchemy-confirm-start-mode="preserve" type="button" ${state.startDisabled ? 'disabled' : ''}>开始(保留现有队列)</button>
@@ -2264,7 +2264,7 @@ export class CraftWorkbenchModal {
       totalTicksNode.parentElement?.classList.toggle('error', Boolean(state.errorText));
     }
     if (hintNode) {
-      hintNode.textContent = `当前最多可炼 ${state.maxQuantity} 炉；每炉固定 ${this.getAlchemyBatchOutputCount(recipe)} 枚并按单枚独立判定，确认后会先准备 ${ALCHEMY_PREPARATION_TICKS} 息；移动或出手都会打断炼丹。`;
+      hintNode.textContent = `至多 ${state.maxQuantity} 炉，炉产 ${this.getAlchemyBatchOutputCount(recipe)} 枚，备炉 ${ALCHEMY_PREPARATION_TICKS} 息。动则断炼。`;
     }
     if (maxButton) {
       maxButton.dataset.alchemyConfirmQuickQty = String(Math.max(1, state.maxQuantity));

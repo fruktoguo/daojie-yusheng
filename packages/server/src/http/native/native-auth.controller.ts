@@ -54,6 +54,8 @@ interface RequestLike {
 
 interface AuthRequestContext {
   deviceId?: string;
+  ip?: string;
+  userAgent?: string;
 }
 
 /** Next 登录鉴权 HTTP 控制器：负责注册、登录、刷新和显示名可用性检查。 */
@@ -139,6 +141,15 @@ function pickString(value: unknown) {
 function pickAuthRequestContext(request: RequestLike, body: AuthBody): AuthRequestContext {
   const headers = request.headers as Record<string, unknown> | undefined;
   const headerDeviceId = headers?.['x-device-id'] ?? headers?.['X-Device-Id'];
+  const forwardedFor = pickString(headers?.['x-forwarded-for']);
+  const ip = forwardedFor.split(',')[0]?.trim()
+    || pickString(headers?.['x-real-ip'])
+    || pickString((request as { ip?: unknown }).ip);
+  const userAgent = pickString(headers?.['user-agent']).slice(0, 255);
   const deviceId = pickString(body?.deviceId) || pickString(headerDeviceId);
-  return deviceId ? { deviceId } : {};
+  return {
+    ...(deviceId ? { deviceId: deviceId.slice(0, 64) } : {}),
+    ...(ip ? { ip: ip.slice(0, 64) } : {}),
+    ...(userAgent ? { userAgent } : {}),
+  };
 }

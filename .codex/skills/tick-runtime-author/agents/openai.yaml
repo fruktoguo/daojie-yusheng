@@ -1,4 +1,0 @@
-interface:
-  display_name: "Tick Runtime Author"
-  short_description: "实现服务端 tick、AOI、占位与服务端权威玩法链路。"
-  default_prompt: "Use this skill to implement or refactor server gameplay runtime logic in this repo, especially tick-driven state changes, AOI broadcasts, occupancy, and server-authoritative action execution."

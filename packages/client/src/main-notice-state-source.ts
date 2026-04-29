@@ -131,18 +131,20 @@ export function createMainNoticeStateSource(options: MainNoticeStateSourceOption
         return;
       }
       if (data.kind === 'success' || data.kind === 'warn' || data.kind === 'travel') {
-        const label = data.from ?? (data.kind === 'success' ? '提示' : data.kind === 'warn' ? '警告' : '行旅');
-        void options.chatUI.addMessage(data.text, label, data.kind);
-        options.showToast(data.text, data.kind);
+        const label = data.from ?? (data.kind === 'success' ? '天机' : data.kind === 'warn' ? '警示' : '江湖');
+        const text = data.text === '目标过远，无法规划路径' ? '目标过远，神识难及' : data.text === '无法到达该位置' ? '此地无法抵达' : data.text;
+        void options.chatUI.addMessage(text, label, data.kind);
+        options.showToast(text, data.kind);
         return;
       }
       const fallbackKind = data.kind === 'info' ? 'system' : data.kind ?? 'system';
-      void options.chatUI.addMessage(data.text, data.from ?? '系统', fallbackKind);
-      if (data.text === '无法到达该位置' || data.text === '目标过远，无法规划路径') {
+      const text = data.text === '目标过远，无法规划路径' ? '目标过远，神识难及' : data.text === '无法到达该位置' ? '此地无法抵达' : data.text;
+      void options.chatUI.addMessage(text, data.from ?? '系统', fallbackKind);
+      if (text === '此地无法抵达' || text === '目标过远，神识难及') {
         options.clearCurrentPath();
       }
-      options.showToast(data.text, fallbackKind);
-    },    
+      options.showToast(text, fallbackKind);
+    },
     /**
  * handleNotice：处理Notice并更新相关状态。
  * @param payload S2C_Notice 载荷参数。

@@ -44,6 +44,10 @@ let WorldRuntimeProgressionService = class WorldRuntimeProgressionService {
     dispatchBreakthrough(playerId, deps) {
         return this.playerRuntimeService.attemptBreakthrough(playerId, deps.resolveCurrentTickForPlayerId(playerId));
     }    
+    /** dispatchRootFoundationRefine：凝练根基。 */
+    dispatchRootFoundationRefine(playerId, deps) {
+        return this.playerRuntimeService.refineRootFoundation(playerId, deps.resolveCurrentTickForPlayerId(playerId));
+    }
     /**
  * dispatchHeavenGateAction：判断HeavenGateAction是否满足条件。
  * @param playerId 玩家 ID。

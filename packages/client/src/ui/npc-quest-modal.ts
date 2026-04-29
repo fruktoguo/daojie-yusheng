@@ -228,10 +228,10 @@ export class NpcQuestModal {
     return {
       title: this.state?.npcName ?? '任务委托',
       subtitle: this.loading && !this.state
-        ? '正在同步任务列表'
+        ? '委托查探中...'
         : this.state
           ? `当前可见 ${this.state.quests.length} 条任务线索`
-          : '暂无可同步内容',
+          : '暂无新委托',
     };
   }
 
@@ -240,11 +240,11 @@ export class NpcQuestModal {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
     if (this.loading && !this.state) {
-      body.replaceChildren(this.createEmptyState('正在与这位 NPC 对话……'));
+      body.replaceChildren(this.createEmptyState('正在交谈...'));
       return;
     }
     if (!this.state) {
-      body.replaceChildren(this.createEmptyState('暂时无法读取任务列表。'));
+      body.replaceChildren(this.createEmptyState('暂无法查阅委托。'));
       return;
     }
     if (this.state.quests.length === 0) {
@@ -254,7 +254,7 @@ export class NpcQuestModal {
 
     const selected = this.resolveSelectedQuest();
     if (!selected) {
-      body.replaceChildren(this.createEmptyState('暂时无法读取任务详情。'));
+      body.replaceChildren(this.createEmptyState('暂无法查阅详情。'));
       return;
     }
 
@@ -262,7 +262,7 @@ export class NpcQuestModal {
     const listRoot = shell.querySelector<HTMLElement>('[data-npc-quest-list="true"]');
     const detailRoot = shell.querySelector<HTMLElement>('[data-npc-quest-detail="true"]');
     if (!listRoot || !detailRoot) {
-      body.replaceChildren(this.createEmptyState('暂时无法读取任务详情。'));
+      body.replaceChildren(this.createEmptyState('暂无法查阅详情。'));
       return;
     }
     this.syncQuestList(listRoot, selected);

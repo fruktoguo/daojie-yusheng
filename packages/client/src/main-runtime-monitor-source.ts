@@ -536,7 +536,7 @@ export function createMainRuntimeMonitorSource(
     if (elements.currentTimeMinBEl) elements.currentTimeMinBEl.textContent = minutes[1] ?? '-';
     if (elements.currentTimePhaseEl) elements.currentTimePhaseEl.textContent = phaseLabel;
     if (elements.currentTimeEl) {
-      elements.currentTimeEl.setAttribute('title', state ? `${phaseLabel} ${hours}:${minutes}` : '当前时间未同步');
+      elements.currentTimeEl.setAttribute('title', state ? `${phaseLabel} ${hours}:${minutes}` : '时辰未定');
     }
   }  
   /**
@@ -714,7 +714,7 @@ export function createMainRuntimeMonitorSource(
       return;
     }
     pendingSocketPing = null;
-    renderPingLatency(null, options.connection.connected ? '超时' : '离线');
+    renderPingLatency(null, options.connection.connected ? '无回音' : '离线');
   }  
   /**
  * sampleServerPing：执行sampleServerPing相关逻辑。
@@ -730,11 +730,11 @@ export function createMainRuntimeMonitorSource(
     }
     clearPendingSocketPing();
     if (!navigator.onLine) {
-      renderPingLatency(null, '断网');
+      renderPingLatency(null, '离线');
       return;
     }
     if (!options.connection.connected) {
-      renderPingLatency(null, options.login.hasRefreshToken() ? '重连' : '离线');
+      renderPingLatency(null, options.login.hasRefreshToken() ? '重归' : '离线');
       return;
     }
     const serial = ++pingRequestSerial;

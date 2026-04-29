@@ -96,6 +96,11 @@ async function main(): Promise<void> {
         calls.push({ kind: 'reload-gm-auth' });
       },
     } as never,
+    {
+      async reloadFromPersistence() {
+        calls.push({ kind: 'reload-player-auth' });
+      },
+    } as never,
   );
 
   await service.prepareForRestore();
@@ -125,6 +130,17 @@ async function main(): Promise<void> {
     { kind: 'clear-detached-cache', playerId: 'player:other-runtime' },
     { kind: 'acknowledge-purged-player-ids', playerIds: ['player:purged', 'player:runtime', 'player:other-runtime'] },
     { kind: 'clear-mail-cache' },
+  ]);
+
+  calls.length = 0;
+  await service.reloadAfterRestore();
+  assert.deepEqual(calls, [
+    { kind: 'rebuild-runtime' },
+    { kind: 'reload-market' },
+    { kind: 'clear-mail-cache' },
+    { kind: 'reload-suggestion' },
+    { kind: 'reload-gm-auth' },
+    { kind: 'reload-player-auth' },
   ]);
 
   console.log(

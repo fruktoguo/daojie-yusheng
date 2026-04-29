@@ -1666,7 +1666,7 @@ export class ActionPanel {
       ? ` data-auto-battle-skill-row="${action.id}"`
       : '';
     const autoBattleMeta = isAutoBattleSkill
-      ? `<span class="action-type ${autoBattleEnabled ? 'auto-battle-enabled' : 'auto-battle-disabled'}">${autoBattleEnabled ? '自动已启用' : '自动已停用'}</span>
+      ? `<span class="action-type ${autoBattleEnabled ? 'auto-battle-enabled' : 'auto-battle-disabled'}">${autoBattleEnabled ? '自行运转中' : '自行已止'}</span>
          ${autoBattleOrder ? `<span class="action-type">顺位 ${autoBattleOrder}</span>` : ''}`
       : '';
     const autoBattleControls = isAutoBattleSkill
@@ -1683,7 +1683,7 @@ export class ActionPanel {
           <span class="action-type">[${getActionTypeLabel(action.type)}]</span>
           ${typeof action.range === 'number' ? `<span class="action-type">射程 ${action.range}</span>` : ''}
           ${isAutoBattleSkill
-            ? `<span class="action-type ${autoBattleEnabled ? 'auto-battle-enabled' : 'auto-battle-disabled'}" data-action-auto-state="${action.id}">${autoBattleEnabled ? '自动已启用' : '自动已停用'}</span>
+            ? `<span class="action-type ${autoBattleEnabled ? 'auto-battle-enabled' : 'auto-battle-disabled'}" data-action-auto-state="${action.id}">${autoBattleEnabled ? '自行运转中' : '自行已止'}</span>
                <span class="action-type" data-action-auto-order="${action.id}"${autoBattleOrder ? '' : ' hidden'}>${autoBattleOrder ? `顺位 ${autoBattleOrder}` : ''}</span>`
             : autoBattleMeta}
           ${this.renderShortcutBadge(action.id)}
@@ -1932,7 +1932,7 @@ export class ActionPanel {
         const enabled = action.autoBattleEnabled !== false;
         const showOrder = this.activeSkillTab === 'auto' && enabled;
         const order = showOrder ? (autoBattleDisplayOrders.get(action.id) ?? null) : null;
-        stateNode.textContent = enabled ? '自动已启用' : '自动已停用';
+        stateNode.textContent = enabled ? '自行运转中' : '自行已止';
         stateNode.classList.toggle('auto-battle-enabled', enabled);
         stateNode.classList.toggle('auto-battle-disabled', !enabled);
         orderNode.hidden = order === null;
@@ -2878,19 +2878,19 @@ export class ActionPanel {
   private renderCombatTargetingSection(): string {
     const draft = this.syncCombatTargetingDraft();
     const hostileOptions: CombatTargetingCardOption[] = [
-      { key: 'monster', scope: 'hostile', label: '妖兽单位', summary: '把野外与副本中的妖兽视为敌方目标。', active: draft.hostile?.includes('monster') === true },
-      { key: 'demonized_players', scope: 'hostile', label: '入魔玩家', summary: '把煞气入体超过 20 层的玩家纳入敌方目标。', active: draft.hostile?.includes('demonized_players') === true },
-      { key: 'retaliators', scope: 'hostile', label: '反击对象', summary: '把主动攻击过你的玩家纳入敌方目标。', active: draft.hostile?.includes('retaliators') === true },
-      { key: 'party', scope: 'hostile', label: '协同行列', summary: '预留给队伍、同行等协作关系的敌友识别。', disabled: true },
-      { key: 'sect', scope: 'hostile', label: '同道关系', summary: '预留给宗门、阵营等长期关系的敌友识别。', disabled: true },
-      { key: 'terrain', scope: 'hostile', label: '场景地块', summary: '把墙体、山崖、容器等场景地块纳入敌方目标。', active: draft.hostile?.includes('terrain') === true },
+      { key: 'monster', scope: 'hostile', label: '妖兽', summary: '把妖兽视为敌方目标。', active: draft.hostile?.includes('monster') === true },
+      { key: 'demonized_players', scope: 'hostile', label: '入魔者', summary: '把煞气入体超过 20 层的入魔者纳入敌方目标。', active: draft.hostile?.includes('demonized_players') === true },
+      { key: 'retaliators', scope: 'hostile', label: '仇敌', summary: '把主动攻击过你的玩家纳入敌方目标。', active: draft.hostile?.includes('retaliators') === true },
+      { key: 'party', scope: 'hostile', label: '同行者', summary: '预留给队伍、同行等协作关系的敌友识别。', disabled: true },
+      { key: 'sect', scope: 'hostile', label: '同门', summary: '预留给宗门、阵营等长期关系的敌友识别。', disabled: true },
+      { key: 'terrain', scope: 'hostile', label: '地形', summary: '把墙体、山崖、容器等场景地形纳入敌方目标。', active: draft.hostile?.includes('terrain') === true },
     ];
     const friendlyOptions: CombatTargetingCardOption[] = [
-      { key: 'non_hostile_players', scope: 'friendly', label: '非敌对玩家', summary: '把当前不属于敌对范围的玩家视为友方目标。', active: draft.friendly?.includes('non_hostile_players') === true },
-      { key: 'all_players', scope: 'friendly', label: '全部玩家', summary: '把所有玩家都纳入友方目标。', active: draft.friendly?.includes('all_players') === true },
-      { key: 'retaliators', scope: 'friendly', label: '反击对象', summary: '把主动攻击过你的玩家也纳入友方目标。', active: draft.friendly?.includes('retaliators') === true },
-      { key: 'party', scope: 'friendly', label: '协同行列', summary: '预留给队伍、同行等协作关系的敌友识别。', disabled: true },
-      { key: 'sect', scope: 'friendly', label: '同道关系', summary: '预留给宗门、阵营等长期关系的敌友识别。', disabled: true },
+      { key: 'non_hostile_players', scope: 'friendly', label: '非敌修士', summary: '把当前不属于敌对范围的修士视为友方目标。', active: draft.friendly?.includes('non_hostile_players') === true },
+      { key: 'all_players', scope: 'friendly', label: '所有修士', summary: '把所有修士都纳入友方目标。', active: draft.friendly?.includes('all_players') === true },
+      { key: 'retaliators', scope: 'friendly', label: '仇敌', summary: '把主动攻击过你的玩家也纳入友方目标。', active: draft.friendly?.includes('retaliators') === true },
+      { key: 'party', scope: 'friendly', label: '同行者', summary: '预留给队伍、同行等协作关系的敌友识别。', disabled: true },
+      { key: 'sect', scope: 'friendly', label: '同门', summary: '预留给宗门、阵营等长期关系的敌友识别。', disabled: true },
     ];
     return `
       <div class="combat-settings-targeting-shell">
@@ -3044,7 +3044,7 @@ export class ActionPanel {
         });
         body.querySelector<HTMLElement>('[data-sect-guardian-inject]')?.addEventListener('click', () => {
           const stones = this.readSectGuardianInjectValue(body);
-          this.onAction?.(`sect:guardian:inject:${stones}`, false, undefined, undefined, '注入灵力');
+          this.onAction?.(`sect:guardian:inject:${stones}`, false, undefined, undefined, '灌注灵力');
         });
         const syncGuardianInjectPreview = () => this.syncSectGuardianInjectPreview(body);
         body.querySelector<HTMLInputElement>('[data-sect-guardian-inject-input="stones"]')?.addEventListener('input', syncGuardianInjectPreview);
@@ -3081,7 +3081,7 @@ export class ActionPanel {
               <span>状态 ${escapeHtml(summary.guardianStatusLabel)}</span>
               <span>当前灵力 ${escapeHtml(summary.guardianAuraLabel)}</span>
               <span>阵眼位于宗门核心</span>
-              <span>投影守护主世界山门</span>
+              <span>护持山门</span>
             </div>
             <div class="formation-config-grid">
               <label class="formation-config-field ui-detail-field">
@@ -3092,7 +3092,7 @@ export class ActionPanel {
                 <strong>灵力消耗</strong>
                 <output data-sect-guardian-inject-qi-cost>100,000</output>
               </div>
-              <button class="small-btn" data-sect-guardian-inject data-sect-guardian-allowed="${summary.data.canManageGuardian ? '1' : '0'}" type="button"${summary.data.canManageGuardian ? '' : ' disabled'}>注入灵力</button>
+              <button class="small-btn" data-sect-guardian-inject data-sect-guardian-allowed="${summary.data.canManageGuardian ? '1' : '0'}" type="button"${summary.data.canManageGuardian ? '' : ' disabled'}>灌注灵力</button>
             </div>
             <div class="action-section-hint">持续性阵法不通过地图阵眼上的两个快捷按钮维护；注入时按灵石数量自动计算灵力消耗和阵法灵力补充，阵眼受损后大阵会停摆但不会从宗门真源中消失。</div>
           </div>`;
@@ -3131,7 +3131,7 @@ export class ActionPanel {
     if (button) {
       const allowed = button.dataset.sectGuardianAllowed !== '0';
       button.disabled = stones <= 0 || !allowed;
-      button.textContent = allowed ? (stones > 0 ? '注入灵力' : '输入灵石') : '无权限';
+      button.textContent = allowed ? (stones > 0 ? '灌注灵力' : '投入灵石') : '无权';
     }
   }
 
@@ -3475,7 +3475,7 @@ export class ActionPanel {
           </div>
         </div>
         <div class="action-skill-subtabs combat-settings-tabs">
-          <button class="action-skill-subtab-btn ${this.combatSettingsActiveTab === 'auto_pills' ? 'active' : ''}" data-combat-settings-tab="auto_pills" type="button">丹药自动服用</button>
+          <button class="action-skill-subtab-btn ${this.combatSettingsActiveTab === 'auto_pills' ? 'active' : ''}" data-combat-settings-tab="auto_pills" type="button">备丹</button>
           <button class="action-skill-subtab-btn ${this.combatSettingsActiveTab === 'targeting' ? 'active' : ''}" data-combat-settings-tab="targeting" type="button">目标选择</button>
         </div>
         <div class="combat-settings-panel-body">
@@ -3523,8 +3523,8 @@ export class ActionPanel {
     detailModalHost.open({
       ownerId: ActionPanel.COMBAT_SETTINGS_MODAL_OWNER,
       variantClass: 'detail-modal--combat-settings',
-      title: '战斗设置',
-      subtitle: `自动丹药 ${pillDraft.length} 种 · ${this.combatSettingsActiveTab === 'auto_pills' ? '丹药自动服用' : '目标选择'}`,
+      title: '战备',
+      subtitle: `备丹 ${pillDraft.length}种 · ${this.combatSettingsActiveTab === 'auto_pills' ? '备丹' : '目标选择'}`,
       bodyHtml: overviewBody,
       onRequestClose: () => this.confirmDiscardCombatSettingsChanges(),
       onClose: () => this.discardCombatSettingsDraft(),
@@ -5399,7 +5399,7 @@ export class ActionPanel {
           <span class="action-name">${escapeHtml(action.name)}</span>
           <span class="action-type">[技能]</span>
           ${typeof action.range === 'number' ? `<span class="action-type">射程 ${action.range}</span>` : ''}
-          <span class="action-type ${autoBattleEnabled ? 'auto-battle-enabled' : 'auto-battle-disabled'}">${autoBattleEnabled ? '自动已启用' : '自动已停用'}</span>
+          <span class="action-type ${autoBattleEnabled ? 'auto-battle-enabled' : 'auto-battle-disabled'}">${autoBattleEnabled ? '自行运转中' : '自行已止'}</span>
           <span class="action-type ${skillEnabled ? 'auto-battle-enabled' : 'auto-battle-disabled'}">${skillEnabled ? '技能已启用' : '技能已禁用'}</span>
           ${autoBattleOrder ? `<span class="action-type">顺位 ${autoBattleOrder}</span>` : ''}
         </div>

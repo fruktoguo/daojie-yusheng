@@ -256,7 +256,12 @@ export interface PlayerSpecialStats {
  * foundation：foundation相关字段。
  */
 
-  foundation: number;  
+  foundation: number;
+  /**
+ * rootFoundation：根基点数，每点提供 1% 六维境界乘区。
+ */
+
+  rootFoundation?: number;
   /**
  * combatExp：战斗Exp相关字段。
  */

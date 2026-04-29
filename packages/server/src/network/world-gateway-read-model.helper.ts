@@ -77,7 +77,10 @@ class WorldGatewayReadModelHelper {
         }
         try {
             this.gateway.worldClientEventService.markProtocol(client, 'mainline');
-            client.emit(shared_1.S2C.Leaderboard, this.gateway.leaderboardRuntimeService.buildLeaderboard(payload?.limit));
+            client.emit(shared_1.S2C.Leaderboard, this.gateway.leaderboardRuntimeService.buildLeaderboard(
+                payload?.limit,
+                this.gateway.worldRuntimeService?.worldRuntimeSectService,
+            ));
         }
         catch (error) {
             this.gateway.worldClientEventService.emitGatewayError(client, 'REQUEST_LEADERBOARD_FAILED', error);

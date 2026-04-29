@@ -401,6 +401,11 @@ export interface MarketListingPageEntry {
 
   itemKey: string;
   /**
+ * item：服务端补齐后的预览物品，避免客户端目录滞后导致名称或类型丢失。
+ */
+
+  item?: ItemStack;
+  /**
  * itemId：道具ID标识。
  */
 
@@ -426,10 +431,30 @@ export interface MarketListingPageEntry {
 
   lowestSellPrice?: number;
   /**
+ * sellOrderCount：卖单数量。
+ */
+
+  sellOrderCount?: number;
+  /**
+ * sellQuantity：卖盘总量。
+ */
+
+  sellQuantity?: number;
+  /**
  * highestBuyPrice：highestBuy价格数值。
  */
 
   highestBuyPrice?: number;
+  /**
+ * buyOrderCount：买单数量。
+ */
+
+  buyOrderCount?: number;
+  /**
+ * buyQuantity：买盘总量。
+ */
+
+  buyQuantity?: number;
 }
 
 /** 玩家自己的坊市订单条目。 */
