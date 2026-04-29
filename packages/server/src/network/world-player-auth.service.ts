@@ -1,5 +1,6 @@
 import { Inject, Injectable, Logger, Optional } from '@nestjs/common';
 
+import { resolveDisplayName } from '../auth/account-validation';
 import { PlayerIdentityPersistenceService } from '../persistence/player-identity-persistence.service';
 import { NativePlayerAuthStoreService } from '../http/native/native-player-auth-store.service';
 import { type ValidatedPlayerTokenPayload } from './world-player-token-codec.service';
@@ -168,6 +169,13 @@ interface PlayerIdentityPersistencePort {
 
 interface NativePlayerAuthStorePort {
   findUserById?(userId: string): Promise<{
+    id?: string | null;
+    userId?: string | null;
+    username?: string | null;
+    displayName?: string | null;
+    pendingRoleName?: string | null;
+    playerId?: string | null;
+    playerName?: string | null;
     bannedAt?: string | null;
     banReason?: string | null;
   } | null>;
@@ -238,6 +246,41 @@ function normalizeLoadedPlayerIdentity(
     displayName,
     playerId,
     playerName,
+  };
+}
+
+function normalizeNativeAuthStoreIdentity(
+  user: Awaited<ReturnType<NonNullable<NativePlayerAuthStorePort['findUserById']>>> | null | undefined,
+  payload: ValidatedPlayerTokenPayload,
+): PlayerIdentityLike | null {
+  const userId = normalizeIdentityString(user?.id) || normalizeIdentityString(user?.userId);
+  const username = normalizeIdentityString(user?.username);
+  const playerId = normalizeIdentityString(user?.playerId);
+  const playerName = normalizeIdentityString(user?.pendingRoleName)
+    || normalizeIdentityString(user?.playerName)
+    || username;
+  const displayName = resolveDisplayName(user?.displayName, username);
+  if (!userId || !username || !playerId || !playerName || !displayName) {
+    return null;
+  }
+
+  const tokenUsername = normalizeIdentityString(payload.username);
+  const tokenPlayerId = normalizeIdentityString(payload.playerId);
+  if (payload.sub !== userId || tokenUsername !== username || (tokenPlayerId && tokenPlayerId !== playerId)) {
+    return null;
+  }
+
+  return {
+    userId,
+    username,
+    displayName,
+    playerId,
+    playerName,
+    persistedSource: 'native',
+    authSource: 'mainline',
+    mainlineLoadHit: false,
+    updatedAt: Date.now(),
+    version: 1,
   };
 }
 /**
@@ -478,6 +521,31 @@ export class WorldPlayerAuthService {
     }
 
     const legacyDatabaseConfigured = hasLegacyDatabaseConfigured();
+    const nativeAuthStoreIdentity = !identityPersistenceEnabled
+      ? await this.loadNativeAuthStoreIdentity(payload)
+      : null;
+    if (nativeAuthStoreIdentity) {
+      recordAuthTrace({
+        type: 'identity',
+        source: 'mainline',
+        userId: nativeAuthStoreIdentity.userId,
+        playerId: nativeAuthStoreIdentity.playerId,
+        persistedSource: 'native',
+        persistenceEnabled: false,
+        mainlineLoadHit: false,
+        compatTried: false,
+        persistAttempted: false,
+        persistSucceeded: null,
+        persistFailureStage: null,
+      });
+      return {
+        ...nativeAuthStoreIdentity,
+        authSource: 'mainline',
+        mainlineLoadHit: false,
+        persistedSource: 'native',
+      };
+    }
+
     const allowTokenRuntimeIdentity = !identityPersistenceEnabled
       && !mainlineProtocolStrict
       && !explicitMigrationProtocol
@@ -621,6 +689,22 @@ export class WorldPlayerAuthService {
       persistFailureStage: null,
     });
     return null;
+  }
+
+  private async loadNativeAuthStoreIdentity(payload: ValidatedPlayerTokenPayload): Promise<PlayerIdentityLike | null> {
+    if (
+      !this.nativePlayerAuthStore
+      || typeof this.nativePlayerAuthStore.findUserById !== 'function'
+      || typeof payload.sub !== 'string'
+    ) {
+      return null;
+    }
+    const user = await this.nativePlayerAuthStore.findUserById(payload.sub);
+    const identity = normalizeNativeAuthStoreIdentity(user, payload);
+    if (!identity && user) {
+      this.logger.warn(`玩家 native auth store 身份与 token 不一致：userId=${payload.sub}`);
+    }
+    return identity;
   }
 
   private async isBannedAccountPayload(payload: ValidatedPlayerTokenPayload): Promise<boolean> {

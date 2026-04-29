@@ -570,6 +570,12 @@ let WorldRuntimeController = class WorldRuntimeController {
         if (!nextWalletBalances) {
             throw new common_1.NotFoundException(`Wallet ${walletType} insufficient`);
         }
+        if (typeof this.durableOperationService?.isEnabled === 'function' && !this.durableOperationService.isEnabled()) {
+            if (action === 'credit') {
+                return this.playerRuntimeService.creditWallet(normalizedPlayerId, walletType, amount);
+            }
+            return this.playerRuntimeService.debitWallet(normalizedPlayerId, walletType, amount);
+        }
         const location = this.worldRuntimeService.worldRuntimePlayerLocationService.getPlayerLocation(normalizedPlayerId);
         const expectedInstanceId = location?.instanceId ?? null;
         const instanceLease = await this.resolveInstanceLeaseContext(expectedInstanceId);
@@ -611,6 +617,9 @@ let WorldRuntimeController = class WorldRuntimeController {
         const sessionEpoch = Number.isFinite(player.sessionEpoch) ? Math.max(1, Math.trunc(Number(player.sessionEpoch))) : 0;
         if (!runtimeOwnerId || sessionEpoch <= 0) {
             throw new common_1.ServiceUnavailableException('player session is not ready for durable inventory grant');
+        }
+        if (typeof this.durableOperationService?.isEnabled === 'function' && !this.durableOperationService.isEnabled()) {
+            return this.playerRuntimeService.grantItem(normalizedPlayerId, itemId, count);
         }
         const rollbackState = captureInventoryGrantRollbackState(player);
         player.suppressImmediateDomainPersistence = true;
