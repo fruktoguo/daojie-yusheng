@@ -307,6 +307,7 @@ jobs:
               state_body="/tmp/${name}.state.out"
               login_code="$(curl --connect-timeout 3 --max-time 8 -sS -o "$login_body" -w "%{http_code}" \
                 -H 'Content-Type: application/json' \
+                -H 'Origin: https://daojie.yuohira.com' \
                 -X POST "${base_url}/api/auth/gm/login" \
                 --data "{\"password\":\"$(json_escape "$GM_PASSWORD")\"}" || printf 'curl_error')"
               if [ "$login_code" = "200" ]; then
@@ -314,6 +315,7 @@ jobs:
                 if [ -n "$token" ]; then
                   state_code="$(curl --connect-timeout 3 --max-time 10 -sS -o "$state_body" -w "%{http_code}" \
                     -H "Authorization: Bearer $token" \
+                    -H 'Origin: https://daojie.yuohira.com' \
                     "${base_url}/api/gm/state?page=1&pageSize=50&sort=realm-desc" || printf 'curl_error')"
                   if [ "$state_code" = "200" ]; then
                     echo "route probe ok: $name attempt=$attempt"

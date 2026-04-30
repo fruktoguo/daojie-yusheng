@@ -38,6 +38,7 @@ services:
       SERVER_HOST: 0.0.0.0
       SERVER_PORT: 13001
       SERVER_DATABASE_URL: postgres://${DB_USERNAME:-mud}:${DB_PASSWORD:?DB_PASSWORD is required}@postgres:5432/${DB_DATABASE:-daojie_yusheng}
+      SERVER_CORS_ORIGINS: ${SERVER_CORS_ORIGINS:-https://daojie.yuohira.com}
       SERVER_PLAYER_TOKEN_SECRET: ${SERVER_PLAYER_TOKEN_SECRET:?SERVER_PLAYER_TOKEN_SECRET is required}
       SERVER_GM_PASSWORD: ${GM_PASSWORD:?GM_PASSWORD is required}
       GM_PASSWORD: ${GM_PASSWORD:?GM_PASSWORD is required}
