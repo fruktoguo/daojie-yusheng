@@ -187,26 +187,24 @@ function resolveTileCultivationAura(instance, player, x, y) {
         ? instance.listTileResources(x, y)
         : null;
     if (Array.isArray(resources) && resources.length > 0) {
-        let rawAuraValue = 0;
-        let projectedAuraValue = 0;
-        let hasAuraResource = false;
+        let rawQiValue = 0;
+        let projectedQiValue = 0;
+        let hasQiResource = false;
         for (const resource of resources) {
-            const parsed = (0, shared_1.parseQiResourceKey)(resource.resourceKey);
-            if (parsed?.family !== 'aura') {
+            const value = Math.max(0, Math.trunc(Number(resource.value) || 0));
+            const projected = resolveCultivationResourceValue(player, resource.resourceKey, value);
+            if (!projected.contributes) {
                 continue;
             }
-            hasAuraResource = true;
-            const value = Math.max(0, Math.trunc(Number(resource.value) || 0));
-            rawAuraValue += value;
-            projectedAuraValue += player
-                ? (0, world_runtime_qi_projection_helpers_1.projectPlayerQiResourceValue)(player, resource.resourceKey, value)
-                : value;
+            hasQiResource = true;
+            rawQiValue += projected.rawValue;
+            projectedQiValue += projected.effectiveValue;
         }
-        if (hasAuraResource) {
+        if (hasQiResource) {
             return {
-                rawValue: rawAuraValue,
-                effectiveValue: projectedAuraValue,
-                rawLevel: (0, shared_1.getQiResourceDefaultLevel)('aura.refined.neutral', rawAuraValue, shared_1.DEFAULT_AURA_LEVEL_BASE_VALUE) ?? 0,
+                rawValue: rawQiValue,
+                effectiveValue: projectedQiValue,
+                rawLevel: (0, shared_1.getAuraLevel)(rawQiValue, shared_1.DEFAULT_AURA_LEVEL_BASE_VALUE),
             };
         }
     }
@@ -221,5 +219,24 @@ function resolveTileCultivationAura(instance, player, x, y) {
         rawValue: normalizedAura,
         effectiveValue: effectiveAura,
         rawLevel: (0, shared_1.getQiResourceDefaultLevel)('aura.refined.neutral', normalizedAura, shared_1.DEFAULT_AURA_LEVEL_BASE_VALUE) ?? 0,
+    };
+}
+
+function resolveCultivationResourceValue(player, resourceKey, value) {
+    const parsed = (0, shared_1.parseQiResourceKey)(resourceKey);
+    if (!parsed || value <= 0) {
+        return { contributes: false, rawValue: 0, effectiveValue: 0 };
+    }
+    if (!player) {
+        return { contributes: true, rawValue: value, effectiveValue: value };
+    }
+    const projection = (0, world_runtime_qi_projection_helpers_1.resolvePlayerQiResourceProjection)(player, resourceKey);
+    if (projection?.visibility !== 'absorbable') {
+        return { contributes: false, rawValue: 0, effectiveValue: 0 };
+    }
+    return {
+        contributes: true,
+        rawValue: value,
+        effectiveValue: (0, world_runtime_qi_projection_helpers_1.projectPlayerQiResourceValue)(player, resourceKey, value),
     };
 }

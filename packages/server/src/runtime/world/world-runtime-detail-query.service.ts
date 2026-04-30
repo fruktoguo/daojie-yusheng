@@ -430,9 +430,11 @@ function buildTileRuntimeResources(entries, aura, viewer) {
             label: resolveTileResourceLabel(entry.resourceKey, parsed),
             value,
             effectiveValue,
-            level: parsed?.family === 'aura'
+            level: projection?.visibility === 'absorbable'
                 ? (0, shared_1.getAuraLevel)(effectiveValue, shared_1.DEFAULT_AURA_LEVEL_BASE_VALUE)
-                : undefined,
+                : !projection && parsed
+                    ? (0, shared_1.getAuraLevel)(value, shared_1.DEFAULT_AURA_LEVEL_BASE_VALUE)
+                    : undefined,
             sourceValue: Number.isFinite(entry.sourceValue) ? Math.max(0, Math.trunc(entry.sourceValue)) : undefined,
         };
     }).filter((entry) => entry !== null);
@@ -459,18 +461,19 @@ function buildTileRuntimeResources(entries, aura, viewer) {
 function buildTileRuntimeAuraLevel(resources, aura, viewer) {
     const rawAura = Number.isFinite(aura) ? Math.max(0, Math.trunc(aura)) : 0;
     if (Array.isArray(resources) && resources.length > 0) {
-        let projectedAuraValue = 0;
-        let hasAuraResource = false;
+        let projectedQiValue = 0;
+        let hasProjectableQiResource = false;
         for (const resource of resources) {
             const parsed = (0, shared_1.parseQiResourceKey)(resource.key);
-            if (parsed?.family !== 'aura') {
+            const effectiveValue = Math.max(0, Math.trunc(resource.effectiveValue ?? 0));
+            if (!parsed || effectiveValue <= 0) {
                 continue;
             }
-            hasAuraResource = true;
-            projectedAuraValue += Math.max(0, Math.trunc(resource.effectiveValue ?? resource.value ?? 0));
+            hasProjectableQiResource = true;
+            projectedQiValue += effectiveValue;
         }
-        if (hasAuraResource) {
-            return (0, shared_1.getAuraLevel)(projectedAuraValue, shared_1.DEFAULT_AURA_LEVEL_BASE_VALUE);
+        if (hasProjectableQiResource) {
+            return (0, shared_1.getAuraLevel)(projectedQiValue, shared_1.DEFAULT_AURA_LEVEL_BASE_VALUE);
         }
     }
     if (!viewer) {

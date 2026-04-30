@@ -1,4 +1,4 @@
-import { C2S, type BreakthroughRequirementView, type ClientToServerEventPayload, type PlayerState } from '@mud/shared';
+import { C2S, getAuraLevel, type BreakthroughRequirementView, type ClientToServerEventPayload, type PlayerState } from '@mud/shared';
 import type { SocketRuntimeSender } from './network/socket-send-runtime';
 import { bindInlineItemTooltips, renderInlineItemChip, renderTextWithInlineItemHighlights } from './ui/item-inline-tooltip';
 import { detailModalHost } from './ui/detail-modal-host';
@@ -228,7 +228,7 @@ export function createMainBreakthroughStateSource(options: MainBreakthroughState
 
 
     formatAuraLevelText(auraValue: number): string {
-      return `灵气 ${formatDisplayInteger(Math.max(0, Math.round(auraValue / auraLevelBaseValue * auraLevelBaseValue)))}`;
+      return `灵气等级 ${formatDisplayInteger(getAuraLevel(auraValue, auraLevelBaseValue))}`;
     },    
     /**
  * getAuraLevelBaseValue：读取Aura等级Base值。

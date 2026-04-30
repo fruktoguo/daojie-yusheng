@@ -1,4 +1,6 @@
-import { ConsoleLogger } from '@nestjs/common';
+import { ConsoleLogger, type LogLevel } from '@nestjs/common';
+
+import { captureServerLogLine } from './console-log-buffer';
 
 /** 日期片段补零，统一日志时间格式。 */
 function padDatePart(value: number): string {
@@ -26,5 +28,39 @@ export class DateConsoleLogger extends ConsoleLogger {
   /** 使用服务内置时间格式替换默认时间戳。 */
   getTimestamp(): string {
     return formatDateTime(new Date());
+  }
+
+  /** 捕获 Nest 直接写 stdout/stderr 的日志，供 GM 日志页读取。 */
+  protected printMessages(
+    messages: unknown[],
+    context = '',
+    logLevel: LogLevel = 'log',
+    writeStreamType?: 'stdout' | 'stderr',
+  ): void {
+    messages.forEach((message) => {
+      const pidMessage = this.formatPid(process.pid);
+      const contextMessage = this.formatContext(context);
+      const timestampDiff = this.updateAndGetTimestampDiff();
+      const formattedLogLevel = logLevel.toUpperCase().padStart(7, ' ');
+      const formattedMessage = this.formatMessage(
+        logLevel,
+        message,
+        pidMessage,
+        formattedLogLevel,
+        contextMessage,
+        timestampDiff,
+      );
+      captureServerLogLine(logLevel, formattedMessage);
+      process[writeStreamType ?? 'stdout'].write(formattedMessage);
+    });
+  }
+
+  /** 捕获 error 级别附带的堆栈输出。 */
+  protected printStackTrace(stack: string): void {
+    if (!stack) {
+      return;
+    }
+    captureServerLogLine('error', stack);
+    process.stderr.write(`${stack}\n`);
   }
 }

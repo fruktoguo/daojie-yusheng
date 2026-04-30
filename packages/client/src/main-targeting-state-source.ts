@@ -261,7 +261,9 @@ function buildSenseQiTooltipLines(tile: Tile, x: number, y: number, formatAuraLe
     for (const resource of tile.resources) {
       const displayValue = resource.effectiveValue ?? resource.value;
       lines.push(
-        resource.label === '灵气'
+        typeof resource.level === 'number' && Number.isFinite(resource.level)
+          ? `${resource.label}等级 ${Math.max(0, Math.round(resource.level))}`
+          : resource.label === '灵气'
           ? formatAuraLevelText(displayValue)
           : `${resource.label} ${Math.max(0, Math.round(displayValue))}`,
       );

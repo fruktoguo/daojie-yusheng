@@ -15,7 +15,7 @@ import { Pool } from 'pg';
 import { resolveServerDatabaseUrl } from '../../config/env-alias';
 import { ensurePersistentDocumentsTable } from '../../persistence/persistent-document-table';
 import { NativeDatabaseRestoreCoordinatorService } from './native-database-restore-coordinator.service';
-import { NATIVE_GM_RESTORE_CONTRACT } from './native-gm-contract';
+import { GM_AUTH_CONTRACT, NATIVE_GM_RESTORE_CONTRACT } from './native-gm-contract';
 import { WorldRuntimeService } from '../../runtime/world/world-runtime.service';
 import {
     buildPostgresDumpFileName,
@@ -55,6 +55,7 @@ const AFDIAN_CONFIG_TABLE = 'server_afdian_config';
 const AFDIAN_ORDER_TABLE = 'server_afdian_order';
 const DATABASE_BACKUP_METADATA_TABLE = 'server_db_backup_metadata';
 const DATABASE_JOB_STATE_TABLE = 'server_db_job_state';
+const GM_AUTH_TABLE = 'server_gm_auth';
 
 const AFDIAN_CONFIG_SCOPES = [AFDIAN_CONFIG_SCOPE];
 
@@ -80,6 +81,14 @@ const BACKUP_EXCLUDED_SCOPES = new Set([
     DATABASE_BACKUP_METADATA_SCOPE,
     DATABASE_JOB_STATE_SCOPE,
 ]);
+
+interface PreservedGmAuthRecord {
+    recordKey: string;
+    salt: string;
+    passwordHash: string;
+    updatedAtText: string;
+    rawPayload: unknown;
+}
 
 const MAINLINE_BACKUP_TABLES = [
     'server_player_auth',
@@ -484,10 +493,8 @@ export class NativeGmAdminService {
             throw new BadRequestException('目标备份 checksumSha256 校验失败，PostgreSQL 数据库归档可能已损坏或被篡改');
         }
 
-        const client = await this.pool.connect();
-
         const startedAt = new Date().toISOString();
-        client.release();
+        const preservedGmAuthRecord = await readCurrentGmAuthRecord(this.pool);
 
         const checkpointBackupId = buildBackupId();
 
@@ -520,10 +527,13 @@ export class NativeGmAdminService {
                 }
                 await restorePostgresCustomDump(record.filePath, databaseUrl);
                 if (this.pool) {
+                    await restorePreservedGmAuthRecord(this.pool, preservedGmAuthRecord);
                     await ensureNativeGmAdminTables(this.pool);
                     await this.backfillBackupMetadataFromFilesystem();
                 }
-                this.appendDatabaseJobLog(job, '数据库恢复 SQL 已应用，GM 元表已重建并回填备份列表');
+                this.appendDatabaseJobLog(job, preservedGmAuthRecord
+                    ? '数据库恢复 SQL 已应用，当前 GM 密码记录已保留，GM 元表已重建并回填备份列表'
+                    : '数据库恢复 SQL 已应用，GM 元表已重建并回填备份列表');
                 job.appliedAt = new Date().toISOString();
                 this.updateDatabaseJobPhase(job, RESTORE_JOB_PHASE.COMMITTED);
             }
@@ -2010,6 +2020,87 @@ async function ensureNativeGmAdminTables(pool) {
             updated_at timestamptz NOT NULL DEFAULT now()
           )
         `);
+        await client.query('COMMIT');
+    } catch (error) {
+        await client.query('ROLLBACK').catch(() => undefined);
+        throw error;
+    } finally {
+        client.release();
+    }
+}
+
+async function readCurrentGmAuthRecord(pool: Pool): Promise<PreservedGmAuthRecord | null> {
+    const client = await pool.connect();
+    try {
+        const exists = await client.query(`
+          SELECT to_regclass('public.${GM_AUTH_TABLE}') AS table_name
+        `);
+        if (!exists.rows[0]?.table_name) {
+            return null;
+        }
+        const result = await client.query(`
+          SELECT record_key, salt, password_hash, updated_at_text, raw_payload
+          FROM ${GM_AUTH_TABLE}
+          WHERE record_key = $1
+          LIMIT 1
+        `, [GM_AUTH_CONTRACT.passwordRecordKey]);
+        const row = result.rows[0];
+        if (!row || typeof row.salt !== 'string' || typeof row.password_hash !== 'string' || typeof row.updated_at_text !== 'string') {
+            return null;
+        }
+        return {
+            recordKey: typeof row.record_key === 'string' ? row.record_key : GM_AUTH_CONTRACT.passwordRecordKey,
+            salt: row.salt,
+            passwordHash: row.password_hash,
+            updatedAtText: row.updated_at_text,
+            rawPayload: row.raw_payload && typeof row.raw_payload === 'object' ? row.raw_payload : {},
+        };
+    } finally {
+        client.release();
+    }
+}
+
+async function restorePreservedGmAuthRecord(pool: Pool, record: PreservedGmAuthRecord | null): Promise<void> {
+    if (!record) {
+        return;
+    }
+    const client = await pool.connect();
+    try {
+        await client.query('BEGIN');
+        await client.query(`
+          CREATE TABLE IF NOT EXISTS ${GM_AUTH_TABLE} (
+            record_key varchar(80) PRIMARY KEY,
+            salt varchar(160) NOT NULL,
+            password_hash varchar(256) NOT NULL,
+            updated_at_text varchar(80) NOT NULL,
+            raw_payload jsonb NOT NULL DEFAULT '{}'::jsonb,
+            updated_at timestamptz NOT NULL DEFAULT now()
+          )
+        `);
+        await client.query(`
+          INSERT INTO ${GM_AUTH_TABLE}(
+            record_key,
+            salt,
+            password_hash,
+            updated_at_text,
+            raw_payload,
+            updated_at
+          )
+          VALUES ($1, $2, $3, $4, $5::jsonb, now())
+          ON CONFLICT (record_key)
+          DO UPDATE SET
+            salt = EXCLUDED.salt,
+            password_hash = EXCLUDED.password_hash,
+            updated_at_text = EXCLUDED.updated_at_text,
+            raw_payload = EXCLUDED.raw_payload,
+            updated_at = now()
+        `, [
+            record.recordKey || GM_AUTH_CONTRACT.passwordRecordKey,
+            record.salt,
+            record.passwordHash,
+            record.updatedAtText,
+            JSON.stringify(record.rawPayload ?? {}),
+        ]);
         await client.query('COMMIT');
     } catch (error) {
         await client.query('ROLLBACK').catch(() => undefined);

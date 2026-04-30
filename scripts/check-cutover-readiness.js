@@ -107,11 +107,10 @@ function main() {
     );
   }
 
-  assertIncludes(readme, /这个仓库当前只服务于 `next` 主线。/, 'README 必须继续把 next 写成当前唯一活跃主线');
-  assertIncludes(readme, /目录主线已经统一到 `packages\/\*`/, 'README 必须继续明确目录主线统一到 packages/*');
-  assertIncludes(readme, /`legacy\/\*` 已从工作树移除/, 'README 必须明确 legacy 已从工作树移除');
-  assertIncludes(readme, /当前主验证入口是 `verify:replace-ready\*`/, 'README 必须继续明确 replace-ready 是当前主验证入口');
-  assertIncludes(readme, /`\.\/start\.sh` 是默认且唯一的本地启动脚本/, 'README 必须继续明确 start.sh 是默认且唯一的本地启动脚本');
+  assertIncludes(readme, /道劫余生是一个 Web MMO MUD 项目/, 'README 必须保留公开项目介绍');
+  assertIncludes(readme, /packages\/[\s\S]*client\/[\s\S]*shared\/[\s\S]*server\/[\s\S]*config-editor\//, 'README 必须说明 packages 工作区结构');
+  assertIncludes(readme, /(?:^|\n)\.\/start\.sh(?:\n|$)/, 'README 必须说明本地启动入口');
+  assertIncludes(readme, /pnpm verify:replace-ready/, 'README 必须列出主验证入口');
   assertIncludes(startRoot, /启动当前本地开发环境/, 'start.sh 必须继续明确自己服务于当前本地开发环境');
   assertIncludes(startRoot, /docker-compose\.yml/, 'start.sh 必须继续以根 docker-compose.yml 作为默认 compose 入口');
   assertIncludes(startRoot, /\.runtime\/server\.local\.env/, 'start.sh 必须继续只读取当前 server.local.env 本地入口');
@@ -121,8 +120,8 @@ function main() {
     /当前主线只认 `packages\/\*`；`legacy\/\*` 已从工作树移除。/,
     'next-plan README 必须继续明确 packages/* 是唯一主线且 legacy 已移除',
   );
-  assertIncludes(serverReadme, /`packages\/server` 是仓库里的 next 后端目录主线/, 'packages/server README 必须继续明确 packages/server 是 next 主线');
-  assertIncludes(serverReadme, /active 主包里已不存在单独的 compat\/legacy 主目录/, 'packages/server README 必须继续明确 active 主包不再把 legacy 当主目录');
+  assertIncludes(serverReadme, /`packages\/server` 是道劫余生的服务端工作区/, 'packages/server README 必须保留服务端工作区说明');
+  assertIncludes(serverReadme, /PostgreSQL[\s\S]*Redis/, 'packages/server README 必须说明持久化与在线态依赖');
   assertIncludes(serverTesting, /根级主入口现在是 `verify:replace-ready\*`。/, 'packages/server TESTING 必须继续明确 replace-ready 是主 gate 入口');
   assertIncludes(replaceRunbook, /根级主入口现在是 `verify:replace-ready\*`/, 'REPLACE-RUNBOOK 必须继续明确 replace-ready 是主 gate 入口');
 

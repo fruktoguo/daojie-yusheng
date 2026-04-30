@@ -56,6 +56,8 @@ import {
   type GmPlayerSortMode,
   type GmRemoveBotsReq,
   type GmRestoreDatabaseReq,
+  type GmServerLogEntry,
+  type GmServerLogsRes,
   type GmShortcutRunRes,
   type GmSpawnBotsReq,
   type GmStateRes,
@@ -248,6 +250,8 @@ const serverSubtabCpuBtn = document.getElementById('server-subtab-cpu') as HTMLB
 const serverSubtabMemoryBtn = document.getElementById('server-subtab-memory') as HTMLButtonElement;
 /** serverSubtabDatabaseBtn：服务端Subtab数据库Btn。 */
 const serverSubtabDatabaseBtn = document.getElementById('server-subtab-database') as HTMLButtonElement;
+/** serverSubtabLogsBtn：服务端Subtab日志Btn。 */
+const serverSubtabLogsBtn = document.getElementById('server-subtab-logs') as HTMLButtonElement;
 /** serverPanelOverviewEl：服务端面板Overview El。 */
 const serverPanelOverviewEl = document.getElementById('server-panel-overview') as HTMLElement;
 /** serverPanelTrafficEl：服务端面板Traffic El。 */
@@ -258,6 +262,16 @@ const serverPanelCpuEl = document.getElementById('server-panel-cpu') as HTMLElem
 const serverPanelMemoryEl = document.getElementById('server-panel-memory') as HTMLElement;
 /** serverPanelDatabaseEl：服务端面板数据库El。 */
 const serverPanelDatabaseEl = document.getElementById('server-panel-database') as HTMLElement;
+/** serverPanelLogsEl：服务端面板日志El。 */
+const serverPanelLogsEl = document.getElementById('server-panel-logs') as HTMLElement;
+/** serverLogsLoadOlderBtn：服务端日志加载更早Btn。 */
+const serverLogsLoadOlderBtn = document.getElementById('server-logs-load-older') as HTMLButtonElement;
+/** serverLogsRefreshBtn：服务端日志刷新Btn。 */
+const serverLogsRefreshBtn = document.getElementById('server-logs-refresh') as HTMLButtonElement;
+/** serverLogsMetaEl：服务端日志元信息El。 */
+const serverLogsMetaEl = document.getElementById('server-logs-meta') as HTMLDivElement;
+/** serverLogsContentEl：服务端日志内容El。 */
+const serverLogsContentEl = document.getElementById('server-logs-content') as HTMLPreElement;
 /** trafficResetMetaEl：traffic Reset元数据El。 */
 const trafficResetMetaEl = document.getElementById('traffic-reset-meta') as HTMLDivElement;
 /** trafficTotalInEl：traffic总量In El。 */
@@ -412,6 +426,9 @@ const redeemCodeListEl = document.getElementById('redeem-code-list') as HTMLDivE
 /** GmEditorTab：GM 玩家编辑器顶部标签页 ID。 */
 type GmEditorTab = GmPlayerUpdateSection | 'shortcuts' | 'mail' | 'risk' | 'persisted';
 
+/** GmServerTab：服务器监察子标签页 ID。 */
+type GmServerTab = 'overview' | 'traffic' | 'cpu' | 'memory' | 'database' | 'logs';
+
 /** GmMailAttachmentDraft：邮件草稿里的单个附件条目。 */
 interface GmMailAttachmentDraft {
 /**
@@ -496,6 +513,8 @@ type SearchableItemScope = 'all' | 'inventory-add' | 'equipment-slot';
 const MAIL_ATTACHMENT_ITEM_PAGE_SIZE = 10;
 /** SEARCHABLE_ITEM_RESULT_LIMIT：SEARCHABLE物品结果LIMIT。 */
 const SEARCHABLE_ITEM_RESULT_LIMIT = 80;
+/** SERVER_LOG_PAGE_SIZE：服务端日志默认读取行数。 */
+const SERVER_LOG_PAGE_SIZE = 100;
 
 startClientVersionReload({
   onBeforeReload: () => {
@@ -543,7 +562,7 @@ let pollTimer: number | null = null;
 /** currentTab：当前Tab。 */
 let currentTab: 'server' | 'redeem' | 'players' | 'suggestions' | 'world' | 'shortcuts' = 'server';
 /** currentServerTab：当前服务端Tab。 */
-let currentServerTab: 'overview' | 'traffic' | 'cpu' | 'memory' | 'database' = 'overview';
+let currentServerTab: GmServerTab = 'overview';
 /** currentCpuBreakdownSort：当前Cpu Breakdown排序。 */
 let currentCpuBreakdownSort: 'total' | 'count' | 'avg' = 'total';
 /** currentEditorTab：当前编辑器Tab。 */
@@ -595,6 +614,14 @@ function buildGmDatabaseBackupDownloadApiPath(backupId: string): string {
   return `${GM_API_BASE_PATH}/database/backups/${encodeURIComponent(backupId)}/download`;
 }
 
+function buildGmServerLogsApiPath(beforeSeq?: number): string {
+  const params = new URLSearchParams({ limit: String(SERVER_LOG_PAGE_SIZE) });
+  if (beforeSeq !== undefined) {
+    params.set('before', String(beforeSeq));
+  }
+  return `${GM_API_BASE_PATH}/logs?${params.toString()}`;
+}
+
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null;
 }
@@ -641,6 +668,16 @@ let lastPathfindingFailureStructureKey: string | null = null;
 let lastShortcutMailComposerStructureKey: string | null = null;
 /** databaseStateLoading：数据库状态Loading。 */
 let databaseStateLoading = false;
+/** serverLogsEntries：服务端日志已加载行。 */
+let serverLogsEntries: GmServerLogEntry[] = [];
+/** serverLogsNextBeforeSeq：服务端日志向上翻页游标。 */
+let serverLogsNextBeforeSeq: number | undefined;
+/** serverLogsHasMore：服务端日志是否还有更早行。 */
+let serverLogsHasMore = false;
+/** serverLogsBufferSize：服务端日志缓冲行数。 */
+let serverLogsBufferSize = 0;
+/** serverLogsLoading：服务端日志读取中。 */
+let serverLogsLoading = false;
 let redeemGroupsState: RedeemCodeGroupView[] = [];
 /** selectedRedeemGroupId：selected兑换分组ID。 */
 let selectedRedeemGroupId: string | null = null;
@@ -2441,7 +2478,7 @@ function setStatus(message: string, isError = false): void {
 const worldViewer = new GmWorldViewer(request, setStatus);
 
 /** switchServerTab：处理switch服务端Tab。 */
-function switchServerTab(tab: 'overview' | 'traffic' | 'cpu' | 'memory' | 'database'): void {
+function switchServerTab(tab: GmServerTab): void {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
   /** currentServerTab：当前服务端Tab。 */
@@ -2451,15 +2488,86 @@ function switchServerTab(tab: 'overview' | 'traffic' | 'cpu' | 'memory' | 'datab
   serverSubtabCpuBtn.classList.toggle('active', tab === 'cpu');
   serverSubtabMemoryBtn.classList.toggle('active', tab === 'memory');
   serverSubtabDatabaseBtn.classList.toggle('active', tab === 'database');
+  serverSubtabLogsBtn.classList.toggle('active', tab === 'logs');
   serverPanelOverviewEl.classList.toggle('hidden', tab !== 'overview');
   serverPanelTrafficEl.classList.toggle('hidden', tab !== 'traffic');
   serverPanelCpuEl.classList.toggle('hidden', tab !== 'cpu');
   serverPanelMemoryEl.classList.toggle('hidden', tab !== 'memory');
   serverPanelDatabaseEl.classList.toggle('hidden', tab !== 'database');
+  serverPanelLogsEl.classList.toggle('hidden', tab !== 'logs');
   if (tab === 'database' && !databaseStateLoading) {
     loadDatabaseState(true).catch((error: unknown) => {
       setStatus(error instanceof Error ? error.message : '加载数据库状态失败', true);
     });
+  }
+  if (tab === 'logs' && serverLogsEntries.length === 0 && !serverLogsLoading) {
+    loadServerLogs(false).catch((error: unknown) => {
+      setStatus(error instanceof Error ? error.message : '加载服务端日志失败', true);
+    });
+  }
+}
+
+/** formatServerLogLine：格式化服务端控制台日志行。 */
+function formatServerLogLine(entry: GmServerLogEntry): string {
+  const level = entry.level.toUpperCase().padEnd(5, ' ');
+  return `[${formatDateTime(entry.at)}] [${level}] ${entry.line}`;
+}
+
+/** renderServerLogsPanel：渲染服务端日志面板。 */
+function renderServerLogsPanel(): void {
+  serverLogsContentEl.textContent = serverLogsEntries.length > 0
+    ? serverLogsEntries.map(formatServerLogLine).join('\n')
+    : '当前还没有服务端日志。';
+  serverLogsLoadOlderBtn.disabled = serverLogsLoading || !serverLogsHasMore;
+  serverLogsRefreshBtn.disabled = serverLogsLoading;
+  if (serverLogsLoading) {
+    serverLogsMetaEl.textContent = '日志读取中…';
+    return;
+  }
+  const moreText = serverLogsHasMore ? '可继续加载更早日志' : '已到当前缓冲起点';
+  serverLogsMetaEl.textContent = `已加载 ${serverLogsEntries.length} 行 · 缓冲 ${serverLogsBufferSize} 行 · ${serverLogsEntries.length > 0 ? moreText : '暂无日志'}`;
+}
+
+/** loadServerLogs：读取服务端控制台日志。 */
+async function loadServerLogs(loadOlder: boolean): Promise<void> {
+  if (serverLogsLoading) {
+    return;
+  }
+  const beforeSeq = loadOlder ? serverLogsNextBeforeSeq : undefined;
+  if (loadOlder && beforeSeq === undefined) {
+    return;
+  }
+
+  const previousBottomOffset = serverLogsContentEl.scrollHeight - serverLogsContentEl.scrollTop;
+  /** serverLogsLoading：服务端日志读取中。 */
+  serverLogsLoading = true;
+  renderServerLogsPanel();
+  try {
+    const data = await request<GmServerLogsRes>(buildGmServerLogsApiPath(beforeSeq));
+    if (loadOlder) {
+      const existingSeqs = new Set(serverLogsEntries.map((entry) => entry.seq));
+      const olderEntries = data.entries.filter((entry) => !existingSeqs.has(entry.seq));
+      /** serverLogsEntries：服务端日志已加载行。 */
+      serverLogsEntries = [...olderEntries, ...serverLogsEntries];
+    } else {
+      /** serverLogsEntries：服务端日志已加载行。 */
+      serverLogsEntries = data.entries;
+    }
+    /** serverLogsNextBeforeSeq：服务端日志向上翻页游标。 */
+    serverLogsNextBeforeSeq = data.nextBeforeSeq;
+    /** serverLogsHasMore：服务端日志是否还有更早行。 */
+    serverLogsHasMore = data.hasMore;
+    /** serverLogsBufferSize：服务端日志缓冲行数。 */
+    serverLogsBufferSize = data.bufferSize;
+  } finally {
+    /** serverLogsLoading：服务端日志读取中。 */
+    serverLogsLoading = false;
+    renderServerLogsPanel();
+    if (loadOlder) {
+      serverLogsContentEl.scrollTop = Math.max(0, serverLogsContentEl.scrollHeight - previousBottomOffset);
+    } else {
+      serverLogsContentEl.scrollTop = serverLogsContentEl.scrollHeight;
+    }
   }
 }
 
@@ -2493,103 +2601,13 @@ function formatDatabaseBackupFormat(format: GmDatabaseBackupRecord['format']): s
   }
 }
 
-/** formatDatabaseJobLabel：格式化数据库任务标签。 */
-function formatDatabaseJobLabel(data: GmDatabaseStateRes | null): string {
-  // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
-
-  const job = data?.runningJob ?? data?.lastJob;
-  if (!job) {
-    return '当前没有数据库任务记录。';
-  }
-  const action = job.type === 'restore'
-    ? `导入 ${job.sourceBackupId ?? '未知备份'}`
-    : `导出 ${job.backupId ?? job.kind ?? '备份'}`;
-  const status = job.status === 'running'
-    ? '进行中'
-    : job.status === 'completed'
-      ? '已完成'
-      : '失败';
-  const finishedText = job.finishedAt ? ` · 结束于 ${formatDateTime(job.finishedAt)}` : '';
-  const phaseText = job.phase ? ` · 阶段 ${job.phase}` : '';
-  const errorText = job.error ? ` · ${job.error}` : '';
-  return `${action} · ${status} · 开始于 ${formatDateTime(job.startedAt)}${finishedText}${phaseText}${errorText}`;
-}
-
-/** renderDatabaseJobDetails：渲染数据库任务详情。 */
-function renderDatabaseJobDetails(data: GmDatabaseStateRes | null): string {
-  const job = data?.runningJob ?? data?.lastJob;
-  if (!job) {
-    return '<div class="empty-hint">暂无数据库任务详情。</div>';
-  }
-  const rows = [
-    ['任务 ID', job.id],
-    ['类型', job.type === 'restore' ? '导入/恢复' : '导出/备份'],
-    ['状态', job.status === 'running' ? '进行中' : job.status === 'completed' ? '已完成' : '失败'],
-    ['阶段', job.phase ?? '未记录'],
-    ['来源备份', job.sourceBackupId ?? job.backupId ?? '未记录'],
-    ['导入前备份', job.checkpointBackupId ?? '未生成'],
-    ['开始时间', formatDateTime(job.startedAt)],
-    ['应用时间', job.appliedAt ? formatDateTime(job.appliedAt) : '未记录'],
-    ['结束时间', job.finishedAt ? formatDateTime(job.finishedAt) : '未结束'],
-  ];
-  const details = rows.map(([label, value]) => `
-    <div class="network-row">
-      <div class="network-row-label">${escapeHtml(label)}</div>
-      <div class="network-row-meta">${escapeHtml(value)}</div>
-    </div>
-  `).join('');
-  const error = job.error
-    ? `<div class="note-card danger-text">${escapeHtml(job.error)}</div>`
-    : '';
-  return `${details}${error}`;
-}
-
-/** renderDatabaseJobLogs：渲染数据库任务日志。 */
-function renderDatabaseJobLogs(data: GmDatabaseStateRes | null): string {
-  const logs = data?.recentJobLogs ?? data?.runningJob?.logs ?? data?.lastJob?.logs ?? [];
-  if (logs.length === 0) {
-    return '<div class="empty-hint">暂无数据库任务日志。</div>';
-  }
-  return logs.slice(-20).map((entry) => `
-    <div class="network-row">
-      <div class="network-row-label">${escapeHtml(formatDateTime(entry.at))} · ${entry.level === 'error' ? '错误' : '信息'}</div>
-      <div class="network-row-meta">${escapeHtml(entry.phase ? `${entry.phase} · ${entry.message}` : entry.message)}</div>
-    </div>
-  `).join('');
-}
-
 /** renderDatabasePanel：渲染数据库面板。 */
 function renderDatabasePanel(): void {
   const busy = databaseState?.runningJob?.status === 'running' || databaseImportBusy;
   const backups = databaseState?.backups ?? [];
-  const summary = databaseStateLoading && !databaseState
-    ? '正在读取持久化备份状态…'
-    : formatDatabaseJobLabel(databaseState);
-  const schedulesLine = databaseState?.automation?.schedulesActive === false
-    ? '当前未启用自动定时备份，现阶段仅支持手工触发导出。'
-    : `自动策略：${escapeHtml(databaseState?.schedules.hourly ?? '每小时整点低优先级备份')}；${escapeHtml(databaseState?.schedules.daily ?? '每天 04:05 低优先级备份')}。`;
-  const retentionLine = databaseState?.automation?.retentionEnforced === false
-    ? '当前未启用自动保留清理，历史备份需要手工管理。'
-    : `保留策略：整点备份最多 ${databaseState?.retention.hourly ?? 72} 份，每日备份最多 ${databaseState?.retention.daily ?? 14} 份。手动导出和导入前备份当前不自动删。`;
-  const restoreLine = `${databaseState?.automation?.restoreRequiresMaintenance === true ? '恢复数据库前必须先开启维护态；' : ''}${databaseState?.automation?.preImportBackupEnabled === false ? '' : '服务端会先生成一份“导入前备份”，随后暂停 tick、断开玩家连接、覆盖主线持久化真源并重建运行时。'}${databaseState?.automation?.preImportBackupEnabled === false ? '恢复会直接覆盖当前主线持久化真源。' : ''}`;
-  const scopeLine = databaseState?.scope === 'persistent_documents_only'
-    ? '作用范围：仅持久化文档。'
-    : databaseState?.scope === 'mainline_persistence'
-    ? '作用范围：主线持久化真源（persistent_documents + 原生结构化表）。'
-    : '作用范围：以服务端返回说明为准。';
-  const restoreModeLine = databaseState?.restoreMode === 'replace_persistent_documents'
-    ? '恢复方式：覆盖持久化文档。'
-    : databaseState?.restoreMode === 'replace_mainline_persistence'
-    ? '恢复方式：覆盖主线持久化真源。'
-    : '恢复方式：以服务端返回说明为准。';
-  const persistenceLine = databaseState?.persistenceEnabled === false
-    ? '当前未启用数据库持久化，此面板仅供查看主线持久化说明。'
-    : '当前数据库持久化已启用，可手工导出或恢复真实数据库备份。';
   const importStatus = databaseImportStatus
     ? databaseImportStatus
     : '只接受新版 PostgreSQL custom dump（.dump）。上传后会进入下方备份列表；选择“上传并导入”会继续走同一套维护态恢复流程。';
-  const jobDetails = renderDatabaseJobDetails(databaseState);
-  const jobLogs = renderDatabaseJobLogs(databaseState);
   const rows = backups.length > 0
     ? backups.map((backup) => `
         <div class="network-row">
@@ -2609,30 +2627,6 @@ function renderDatabasePanel(): void {
     <div class="button-row">
       <button id="database-refresh" class="small-btn" type="button">刷新持久化状态</button>
       <button id="database-export-current" class="small-btn primary" type="button" ${busy ? 'disabled' : ''}>导出数据库备份</button>
-    </div>
-    <div class="note-card">${escapeHtml(summary)}</div>
-    <div class="network-breakdown">
-      <div class="network-breakdown-head">
-        <div class="panel-title">数据库任务状态</div>
-        <div class="network-breakdown-subtitle">显示最近一次导出/导入的阶段、导入前备份和错误信息</div>
-      </div>
-      <div class="network-breakdown-list">${jobDetails}</div>
-    </div>
-    <div class="network-breakdown">
-      <div class="network-breakdown-head">
-        <div class="panel-title">数据库任务日志</div>
-        <div class="network-breakdown-subtitle">恢复失败时会在这里显示服务端记录的阶段和报错</div>
-      </div>
-      <div class="network-breakdown-list">${jobLogs}</div>
-    </div>
-    <div class="note-card">
-      ${escapeHtml(scopeLine)}<br />
-      ${escapeHtml(restoreModeLine)}<br />
-      ${escapeHtml(persistenceLine)}<br />
-      ${schedulesLine}<br />
-      ${retentionLine}<br />
-      ${escapeHtml(restoreLine)}<br />
-      ${escapeHtml(databaseState?.note ?? '当前为持久化备份面板，具体覆盖范围与限制以服务端返回说明为准。')}
     </div>
     <div class="network-breakdown">
       <div class="network-breakdown-head">
@@ -5590,6 +5584,17 @@ function logout(message?: string): void {
   databaseState = null;
   /** databaseStateLoading：数据库状态Loading。 */
   databaseStateLoading = false;
+  /** serverLogsEntries：服务端日志已加载行。 */
+  serverLogsEntries = [];
+  /** serverLogsNextBeforeSeq：服务端日志向上翻页游标。 */
+  serverLogsNextBeforeSeq = undefined;
+  /** serverLogsHasMore：服务端日志是否还有更早行。 */
+  serverLogsHasMore = false;
+  /** serverLogsBufferSize：服务端日志缓冲行数。 */
+  serverLogsBufferSize = 0;
+  /** serverLogsLoading：服务端日志读取中。 */
+  serverLogsLoading = false;
+  renderServerLogsPanel();
   /** redeemGroupsState：兑换分组状态。 */
   redeemGroupsState = [];
   /** selectedRedeemGroupId：selected兑换分组ID。 */
@@ -7336,6 +7341,7 @@ serverSubtabTrafficBtn.addEventListener('click', () => switchServerTab('traffic'
 serverSubtabCpuBtn.addEventListener('click', () => switchServerTab('cpu'));
 serverSubtabMemoryBtn.addEventListener('click', () => switchServerTab('memory'));
 serverSubtabDatabaseBtn.addEventListener('click', () => switchServerTab('database'));
+serverSubtabLogsBtn.addEventListener('click', () => switchServerTab('logs'));
 cpuBreakdownSortTotalBtn.addEventListener('click', () => setCpuBreakdownSort('total'));
 cpuBreakdownSortCountBtn.addEventListener('click', () => setCpuBreakdownSort('count'));
 cpuBreakdownSortAvgBtn.addEventListener('click', () => setCpuBreakdownSort('avg'));
@@ -7605,6 +7611,16 @@ resetCpuStatsBtn.addEventListener('click', () => {
 });
 resetPathfindingStatsBtn.addEventListener('click', () => {
   resetPathfindingStats().catch(() => {});
+});
+serverLogsLoadOlderBtn.addEventListener('click', () => {
+  loadServerLogs(true).catch((error: unknown) => {
+    setStatus(error instanceof Error ? error.message : '加载更早服务端日志失败', true);
+  });
+});
+serverLogsRefreshBtn.addEventListener('click', () => {
+  loadServerLogs(false).catch((error: unknown) => {
+    setStatus(error instanceof Error ? error.message : '刷新服务端日志失败', true);
+  });
 });
 serverPanelDatabaseEl.addEventListener('click', (event) => {
   const target = event.target as HTMLElement | null;

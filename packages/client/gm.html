@@ -646,6 +646,35 @@
       gap: 12px;
     }
 
+    .server-log-toolbar {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      flex-wrap: wrap;
+    }
+
+    .server-log-meta {
+      margin-left: auto;
+      color: var(--ink-grey);
+      font-size: 12px;
+    }
+
+    .server-log-view {
+      min-height: 320px;
+      max-height: min(62vh, 620px);
+      overflow: auto;
+      margin: 0;
+      padding: 12px;
+      border: 1px solid var(--wash-ink);
+      background: rgba(19, 23, 28, 0.94);
+      color: #f0f5f7;
+      font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, "Liberation Mono", monospace;
+      font-size: 12px;
+      line-height: 1.55;
+      white-space: pre-wrap;
+      word-break: break-word;
+    }
+
     .stats-grid {
       display: grid;
       grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -1677,6 +1706,7 @@
           <button class="workspace-tab" id="server-subtab-cpu" type="button">CPU 信息</button>
           <button class="workspace-tab" id="server-subtab-memory" type="button">内存信息</button>
           <button class="workspace-tab" id="server-subtab-database" type="button">数据库</button>
+          <button class="workspace-tab" id="server-subtab-logs" type="button">日志</button>
         </div>
         <div id="server-panel-overview" class="server-tab-panel">
           <div class="summary-grid">
@@ -1864,6 +1894,14 @@
         </div>
         <div id="server-panel-database" class="server-tab-panel hidden">
           <div class="note-card">正在准备数据库管理面板…</div>
+        </div>
+        <div id="server-panel-logs" class="server-tab-panel hidden">
+          <div class="server-log-toolbar">
+            <button id="server-logs-load-older" class="small-btn" type="button">加载更早 100 行</button>
+            <button id="server-logs-refresh" class="small-btn" type="button">刷新最近 100 行</button>
+            <div id="server-logs-meta" class="server-log-meta">日志尚未加载。</div>
+          </div>
+          <pre id="server-logs-content" class="server-log-view">日志尚未加载。</pre>
         </div>
       </div>
     </section>

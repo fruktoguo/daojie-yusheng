@@ -933,6 +933,62 @@ export interface AccountRedeemCodesRes {
   results: AccountRedeemCodeResult[];
 }
 
+/** GM 服务端控制台日志级别。 */
+export type GmServerLogLevel = 'log' | 'info' | 'warn' | 'error' | 'debug' | 'verbose' | 'fatal';
+
+/** GM 服务端控制台日志单行记录。 */
+export interface GmServerLogEntry {
+/**
+ * seq：日志递增序号。
+ */
+
+  seq: number;
+  /**
+ * at：日志采集时间。
+ */
+
+  at: string;
+  /**
+ * level：日志级别。
+ */
+
+  level: GmServerLogLevel;
+  /**
+ * line：日志文本。
+ */
+
+  line: string;
+}
+
+/** GM 服务端控制台日志读取响应。 */
+export interface GmServerLogsRes {
+/**
+ * entries：日志行集合。
+ */
+
+  entries: GmServerLogEntry[];
+  /**
+ * nextBeforeSeq：继续向上翻时使用的游标。
+ */
+
+  nextBeforeSeq?: number;
+  /**
+ * hasMore：是否还有更早日志。
+ */
+
+  hasMore: boolean;
+  /**
+ * limit：本次读取行数上限。
+ */
+
+  limit: number;
+  /**
+ * bufferSize：当前内存缓冲行数。
+ */
+
+  bufferSize: number;
+}
+
 /** 数据库备份的来源类型。 */
 export type GmDatabaseBackupKind = 'hourly' | 'daily' | 'manual' | 'pre_import' | 'uploaded';
 

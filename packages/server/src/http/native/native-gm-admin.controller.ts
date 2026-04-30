@@ -1,8 +1,9 @@
-import { Body, Controller, Get, Headers, Param, Post, Req, Res, UseGuards } from '@nestjs/common';
+import { Body, Controller, Get, Headers, Param, Post, Query, Req, Res, UseGuards } from '@nestjs/common';
 
 import { GM_HTTP_CONTRACT } from './native-gm-contract';
 import { NativeGmAdminService } from './native-gm-admin.service';
 import { NativeGmAuthGuard } from './native-gm-auth.guard';
+import { readConsoleLogEntries } from '../../logging/console-log-buffer';
 /**
  * DatabaseRestoreBody：定义接口结构约束，明确可交付字段含义。
  */
@@ -53,6 +54,18 @@ export class NativeGmAdminController {
   @Get('database/state')
   getDatabaseState() {
     return this.nextGmAdminService.getDatabaseState();
+  }
+  /**
+ * getServerLogs：读取服务端控制台日志缓冲。
+ * @param limit 返回行数。
+ * @param beforeSeq 只返回该序号之前的更早日志。
+ * @returns 服务端日志片段。
+ */
+
+
+  @Get('logs')
+  getServerLogs(@Query('limit') limit = '100', @Query('before') beforeSeq = '') {
+    return readConsoleLogEntries({ beforeSeq, limit });
   }
   /**
  * triggerDatabaseBackup：执行triggerDatabaseBackup相关逻辑。

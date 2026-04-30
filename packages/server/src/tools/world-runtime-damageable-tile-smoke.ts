@@ -376,6 +376,28 @@ function createXueshaLevelNinePlayer() {
   };
 }
 
+function createAllQiAbsorptionPlayer() {
+  return {
+    combat: { senseQiActive: true },
+    techniques: { techniques: [] },
+    buffs: { buffs: [] },
+    attrBonuses: [{
+      source: 'test:five-element-qi',
+      label: '五行气机测试',
+      qiProjection: [{
+        selector: { resourceKeys: ['aura.refined.wood'] },
+        visibility: 'absorbable',
+        efficiencyBpMultiplier: 20000,
+      }, {
+        selector: { resourceKeys: ['sha.refined.neutral'] },
+        visibility: 'absorbable',
+        efficiencyBpMultiplier: 28000,
+      }],
+    }],
+    runtimeBonuses: [],
+  };
+}
+
 function testProjectedAuraLevelUsesEffectiveResourceValue() {
   const template = createTemplate();
   const instance = createInstance(template);
@@ -393,6 +415,32 @@ function testProjectedAuraLevelUsesEffectiveResourceValue() {
   assert.equal(tile?.resources?.[0]?.effectiveValue, 225);
   assert.equal(tile?.resources?.[0]?.level, 0);
   assert.equal(tile?.aura, undefined);
+}
+
+function testProjectedTotalQiLevelUsesNeutralElementalAndShaResources() {
+  const template = createTemplate();
+  const instance = createInstance(template);
+  const snapshotService = createSnapshotService(instance, () => ({
+    aura: 0,
+    resources: [
+      { resourceKey: 'aura.refined.neutral', value: 1000 },
+      { resourceKey: 'aura.refined.wood', value: 1000 },
+      { resourceKey: 'sha.refined.neutral', value: 1000 },
+    ],
+    combat: undefined,
+  }));
+  const tile = snapshotService.buildTileSyncState(template, 'instance:tile-smoke', 1, 1, createAllQiAbsorptionPlayer());
+
+  assert.equal(tile?.resources?.[0]?.label, '灵气');
+  assert.equal(tile?.resources?.[0]?.effectiveValue, 1000);
+  assert.equal(tile?.resources?.[0]?.level, 1);
+  assert.equal(tile?.resources?.[1]?.label, '木灵气');
+  assert.equal(tile?.resources?.[1]?.effectiveValue, 1000);
+  assert.equal(tile?.resources?.[1]?.level, 1);
+  assert.equal(tile?.resources?.[2]?.label, '煞气');
+  assert.equal(tile?.resources?.[2]?.effectiveValue, 1800);
+  assert.equal(tile?.resources?.[2]?.level, 2);
+  assert.equal(tile?.aura, 4);
 }
 
 function testPlainTickDoesNotDirtyPersistence() {
@@ -414,6 +462,7 @@ testDestroyedTileDoesNotRespawnUnderUnit();
 testSpecialTerrainRestoreSpeedMatchesMain();
 testStoneDurabilityScalesWithTerrainRealmLv();
 testProjectedAuraLevelUsesEffectiveResourceValue();
+testProjectedTotalQiLevelUsesNeutralElementalAndShaResources();
 testPlainTickDoesNotDirtyPersistence();
 
 console.log(JSON.stringify({ ok: true, case: 'world-runtime-damageable-tile' }, null, 2));

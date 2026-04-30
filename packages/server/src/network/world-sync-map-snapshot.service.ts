@@ -5,6 +5,7 @@ import {
   GAME_TIME_PHASES,
   DEFAULT_AURA_LEVEL_BASE_VALUE,
   TileType,
+  getAuraLevel,
   getQiResourceDefaultLevel,
   getQiResourceDisplayLabel,
   getTileTypeFromMapChar,
@@ -403,32 +404,35 @@ function buildProjectedTileResource(entry, player) {
     label: getQiResourceDisplayLabel(entry.resourceKey),
     value,
     effectiveValue,
-    level: projection?.descriptor?.family === 'aura'
-      ? getQiResourceDefaultLevel(entry.resourceKey, effectiveValue, DEFAULT_AURA_LEVEL_BASE_VALUE)
-      : getQiResourceDefaultLevel(entry.resourceKey, value, DEFAULT_AURA_LEVEL_BASE_VALUE),
+    level: projection?.visibility === 'absorbable'
+      ? getAuraLevel(effectiveValue, DEFAULT_AURA_LEVEL_BASE_VALUE)
+      : !projection && parseQiResourceKey(entry.resourceKey)
+        ? getAuraLevel(value, DEFAULT_AURA_LEVEL_BASE_VALUE)
+        : getQiResourceDefaultLevel(entry.resourceKey, value, DEFAULT_AURA_LEVEL_BASE_VALUE),
     sourceValue: Number.isFinite(entry.sourceValue) ? Math.max(0, Math.trunc(entry.sourceValue)) : undefined,
   };
 }
 
 function buildProjectedTileAura(rawAura, resources, player) {
   const value = Math.max(0, Math.trunc(Number.isFinite(rawAura) ? rawAura : 0));
-  if (!player) {
-    return value;
-  }
   if (Array.isArray(resources) && resources.length > 0) {
-    let projectedAuraValue = 0;
-    let hasAuraResource = false;
+    let projectedQiValue = 0;
+    let hasProjectableQiResource = false;
     for (const resource of resources) {
       const parsed = parseQiResourceKey(resource.key);
-      if (parsed?.family !== 'aura') {
+      const effectiveValue = Math.max(0, Math.trunc(resource.effectiveValue ?? 0));
+      if (!parsed || effectiveValue <= 0) {
         continue;
       }
-      hasAuraResource = true;
-      projectedAuraValue += Math.max(0, Math.trunc(resource.effectiveValue ?? resource.value ?? 0));
+      hasProjectableQiResource = true;
+      projectedQiValue += effectiveValue;
     }
-    if (hasAuraResource) {
-      return getQiResourceDefaultLevel('aura.refined.neutral', projectedAuraValue, DEFAULT_AURA_LEVEL_BASE_VALUE) ?? 0;
+    if (hasProjectableQiResource) {
+      return getAuraLevel(projectedQiValue, DEFAULT_AURA_LEVEL_BASE_VALUE);
     }
+  }
+  if (!player) {
+    return value;
   }
   const effectiveValue = projectPlayerQiResourceValue(player, 'aura.refined.neutral', value);
   return getQiResourceDefaultLevel('aura.refined.neutral', effectiveValue, DEFAULT_AURA_LEVEL_BASE_VALUE) ?? 0;

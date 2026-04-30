@@ -4,6 +4,7 @@ import { readFileSync } from 'node:fs';
 
 import { AppModule } from './app.module';
 import { resolveServerCorsOptions } from './config/server-cors';
+import { installConsoleLogCapture } from './logging/console-log-buffer';
 import { DateConsoleLogger } from './logging/date-console-logger';
 
 /** 端口冲突诊断最多采样次数。 */
@@ -217,6 +218,7 @@ async function collectPortConflictDiagnostics(port: number): Promise<string> {
 async function bootstrap(): Promise<void> {
   // 关键分支按状态与边界条件处理，非法路径会被提前拦截。
 
+  installConsoleLogCapture();
   const logger = new DateConsoleLogger('Bootstrap');
   const app = await NestFactory.create(AppModule, { logger });
 
